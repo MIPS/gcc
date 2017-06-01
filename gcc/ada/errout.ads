@@ -793,7 +793,7 @@ package Errout is
 
    procedure Remove_Warning_Messages (N : Node_Id);
    --  Remove any warning messages corresponding to the Sloc of N or any
-   --  of its descendent nodes. No effect if no such warnings. Note that
+   --  of its descendant nodes. No effect if no such warnings. Note that
    --  style messages (identified by the fact that they start with "(style)")
    --  are not removed by this call. Basically the idea behind this procedure
    --  is to remove warnings about execution conditions from known dead code.
@@ -904,11 +904,17 @@ package Errout is
    -- Utility Interface for Casing Control --
    ------------------------------------------
 
+   procedure Adjust_Name_Case
+     (Buf : in out Bounded_String;
+      Loc : Source_Ptr);
+   --  Given a name stored in Buf, set proper casing. Loc is an associated
+   --  source position, and if we can find a match between the name in Buf and
+   --  the name at that source location, we copy the casing from the source,
+   --  otherwise we set appropriate default casing.
+
    procedure Adjust_Name_Case (Loc : Source_Ptr);
-   --  Given a name stored in Name_Buffer (1 .. Name_Len), set proper casing.
-   --  Loc is an associated source position, if we can find a match between
-   --  the name in Name_Buffer and the name at that source location, we copy
-   --  the casing from the source, otherwise we set appropriate default casing.
+   --  Uses Buf => Global_Name_Buffer. There are no calls to this in the
+   --  compiler, but it is called in SPARK 2014.
 
    procedure Set_Identifier_Casing
      (Identifier_Name : System.Address;

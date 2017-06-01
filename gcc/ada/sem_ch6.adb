@@ -362,7 +362,7 @@ package body Sem_Ch6 is
          Set_Is_Inlined (Prev);
 
       --  If the expression function is a completion, the previous declaration
-      --  must come from source. We know already that appears in the current
+      --  must come from source. We know already that it appears in the current
       --  scope. The entity itself may be internally created if within a body
       --  to be inlined.
 
@@ -371,6 +371,7 @@ package body Sem_Ch6 is
         and then not Is_Formal_Subprogram (Prev)
       then
          Set_Has_Completion (Prev, False);
+         Set_Is_Inlined (Prev);
 
          --  An expression function that is a completion freezes the
          --  expression. This means freezing the return type, and if it is
@@ -411,7 +412,6 @@ package body Sem_Ch6 is
          --  Not clear that the backend can inline it in this case ???
 
          if Has_Completion (Prev) then
-            Set_Is_Inlined (Prev);
 
             --  The formals of the expression function are body formals,
             --  and do not appear in the ali file, which will only contain
@@ -2178,6 +2178,11 @@ package body Sem_Ch6 is
       --  Check whether unanalyzed body has an aspect or pragma that may
       --  generate a SPARK contract.
 
+      function Body_Has_SPARK_Mode_On return Boolean;
+      --  Check whether SPARK_Mode On applies to the subprogram body, either
+      --  because it is specified directly on the body, or because it is
+      --  inherited from the enclosing subprogram or package.
+
       procedure Build_Subprogram_Declaration;
       --  Create a matching subprogram declaration for subprogram body N
 
@@ -2271,6 +2276,59 @@ package body Sem_Ch6 is
 
          return False;
       end Body_Has_Contract;
+
+      ----------------------------
+      -- Body_Has_SPARK_Mode_On --
+      ----------------------------
+
+      function Body_Has_SPARK_Mode_On return Boolean is
+         Decls : constant List_Id := Declarations (N);
+         Item  : Node_Id;
+
+      begin
+         --  Check for SPARK_Mode aspect
+
+         if Present (Aspect_Specifications (N)) then
+            Item := First (Aspect_Specifications (N));
+            while Present (Item) loop
+               if Get_Aspect_Id (Item) = Aspect_SPARK_Mode then
+                  return Get_SPARK_Mode_From_Annotation (Item) = On;
+               end if;
+
+               Next (Item);
+            end loop;
+         end if;
+
+         --  Check for SPARK_Mode pragma
+
+         if Present (Decls) then
+            Item := First (Decls);
+            while Present (Item) loop
+
+               --  Pragmas that apply to a subprogram body are usually grouped
+               --  together. Look for a potential pragma SPARK_Mode among them.
+
+               if Nkind (Item) = N_Pragma then
+                  if Get_Pragma_Id (Item) = Pragma_SPARK_Mode then
+                     return Get_SPARK_Mode_From_Annotation (Item) = On;
+                  end if;
+
+               --  Otherwise the first non-pragma declarative item terminates
+               --  the region where pragma SPARK_Mode may appear.
+
+               else
+                  exit;
+               end if;
+
+               Next (Item);
+            end loop;
+         end if;
+
+         --  Otherwise, the applicable SPARK_Mode is inherited from the
+         --  enclosing subprogram or package.
+
+         return SPARK_Mode = On;
+      end Body_Has_SPARK_Mode_On;
 
       ----------------------------------
       -- Build_Subprogram_Declaration --
@@ -2492,16 +2550,28 @@ package body Sem_Ch6 is
 
          function Is_Inline_Pragma (N : Node_Id) return Boolean is
          begin
-            return
-              Nkind (N) = N_Pragma
+            if Nkind (N) = N_Pragma
                 and then
                   (Pragma_Name (N) = Name_Inline_Always
-                    or else (Front_End_Inlining
-                              and then Pragma_Name (N) = Name_Inline))
-                and then
-                  Chars
-                    (Expression (First (Pragma_Argument_Associations (N)))) =
-                                                              Chars (Body_Id);
+                    or else (Pragma_Name (N) = Name_Inline
+                      and then
+                        (Front_End_Inlining or else Optimization_Level > 0)))
+               and then Present (Pragma_Argument_Associations (N))
+            then
+               declare
+                  Pragma_Arg : Node_Id :=
+                    Expression (First (Pragma_Argument_Associations (N)));
+               begin
+                  if Nkind (Pragma_Arg) = N_Selected_Component then
+                     Pragma_Arg := Selector_Name (Pragma_Arg);
+                  end if;
+
+                  return Chars (Pragma_Arg) = Chars (Body_Id);
+               end;
+
+            else
+               return False;
+            end if;
          end Is_Inline_Pragma;
 
       --  Start of processing for Check_Inline_Pragma
@@ -2529,16 +2599,22 @@ package body Sem_Ch6 is
 
          if Present (Prag) then
             if Present (Spec_Id) then
-               if In_Same_List (N, Unit_Declaration_Node (Spec_Id)) then
+               if Is_List_Member (N)
+                 and then Is_List_Member (Unit_Declaration_Node (Spec_Id))
+                 and then In_Same_List (N, Unit_Declaration_Node (Spec_Id))
+               then
                   Analyze (Prag);
                end if;
 
             else
-               --  Create a subprogram declaration, to make treatment uniform
+               --  Create a subprogram declaration, to make treatment uniform.
+               --  Make the sloc of the subprogram name that of the entity in
+               --  the body, so that style checks find identical strings.
 
                declare
                   Subp : constant Entity_Id :=
-                           Make_Defining_Identifier (Loc, Chars (Body_Id));
+                           Make_Defining_Identifier
+                             (Sloc (Body_Id), Chars (Body_Id));
                   Decl : constant Node_Id :=
                            Make_Subprogram_Declaration (Loc,
                              Specification =>
@@ -2546,6 +2622,11 @@ package body Sem_Ch6 is
 
                begin
                   Set_Defining_Unit_Name (Specification (Decl), Subp);
+
+                  --  To ensure proper coverage when body is inlined, indicate
+                  --  whether the subprogram comes from source.
+
+                  Set_Comes_From_Source (Subp, Comes_From_Source (N));
 
                   if Present (First_Formal (Body_Id)) then
                      Plist := Copy_Parameter_List (Body_Id);
@@ -3301,10 +3382,13 @@ package body Sem_Ch6 is
                Conformant := True;
 
             --  Conversely, the spec may have been generated for specless body
-            --  with an inline pragma.
+            --  with an inline pragma. The entity comes from source, which is
+            --  both semantically correct and necessary for proper inlining.
+            --  The subprogram declaration itself is not in the source.
 
             elsif Comes_From_Source (N)
-              and then not Comes_From_Source (Spec_Id)
+              and then Present (Spec_Decl)
+              and then not Comes_From_Source (Spec_Decl)
               and then Has_Pragma_Inline (Spec_Id)
             then
                Conformant := True;
@@ -3695,11 +3779,15 @@ package body Sem_Ch6 is
         and then Present (Spec_Id)
         and then
           Nkind (Unit_Declaration_Node (Spec_Id)) = N_Subprogram_Declaration
+        and then Body_Has_SPARK_Mode_On
         and then Can_Be_Inlined_In_GNATprove_Mode (Spec_Id, Body_Id)
         and then not Body_Has_Contract
       then
          Build_Body_To_Inline (N, Spec_Id);
       end if;
+
+      --  When generating code, inherited pre/postconditions are handled when
+      --  expanding the corresponding contract.
 
       --  Ada 2005 (AI-262): In library subprogram bodies, after the analysis
       --  of the specification we have to install the private withed units.
@@ -3785,9 +3873,9 @@ package body Sem_Ch6 is
 
       if Present (Spec_Id) and then Present (SPARK_Pragma (Body_Id)) then
          if Present (SPARK_Pragma (Spec_Id)) then
-            if Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Spec_Id)) = Off
+            if Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Spec_Id)) = Off
                  and then
-               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+               Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Body_Id)) = On
             then
                Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
                Error_Msg_N ("incorrect application of SPARK_Mode#", N);
@@ -3813,18 +3901,6 @@ package body Sem_Ch6 is
       --  are now chained on the contract of the subprogram body.
 
       Analyze_Entry_Or_Subprogram_Body_Contract (Body_Id);
-
-      --  If SPARK_Mode for body is not On, disable frontend inlining for this
-      --  subprogram in GNATprove mode, as its body should not be analyzed.
-
-      if SPARK_Mode /= On
-        and then GNATprove_Mode
-        and then Present (Spec_Id)
-        and then Nkind (Parent (Parent (Spec_Id))) = N_Subprogram_Declaration
-      then
-         Set_Body_To_Inline (Parent (Parent (Spec_Id)), Empty);
-         Set_Is_Inlined_Always (Spec_Id, False);
-      end if;
 
       --  Check completion, and analyze the statements
 
@@ -4648,18 +4724,6 @@ package body Sem_Ch6 is
            or else Is_Formal_Subprogram (New_Id)
          then
             Conformance_Error ("\formal subprograms not allowed!");
-            return;
-
-         --  Pragma Ghost behaves as a convention in the context of subtype
-         --  conformance (SPARK RM 6.9(5)). Do not check internally generated
-         --  subprograms as their spec may reside in a Ghost region and their
-         --  body not, or vice versa.
-
-         elsif Comes_From_Source (Old_Id)
-           and then Comes_From_Source (New_Id)
-           and then Is_Ghost_Entity (Old_Id) /= Is_Ghost_Entity (New_Id)
-         then
-            Conformance_Error ("\ghost modes do not match!");
             return;
          end if;
       end if;
@@ -8962,6 +9026,12 @@ package body Sem_Ch6 is
                   Set_Has_Primitive_Operations (B_Typ);
                   Set_Is_Primitive (S);
                   Check_Private_Overriding (B_Typ);
+
+                  --  The Ghost policy in effect at the point of declaration of
+                  --  a tagged type and a primitive operation must match
+                  --  (SPARK RM 6.9(16)).
+
+                  Check_Ghost_Primitive (S, B_Typ);
                end if;
             end if;
 
@@ -8989,6 +9059,12 @@ package body Sem_Ch6 is
                   Set_Is_Primitive (S);
                   Set_Has_Primitive_Operations (B_Typ);
                   Check_Private_Overriding (B_Typ);
+
+                  --  The Ghost policy in effect at the point of declaration of
+                  --  a tagged type and a primitive operation must match
+                  --  (SPARK RM 6.9(16)).
+
+                  Check_Ghost_Primitive (S, B_Typ);
                end if;
 
                Next_Formal (Formal);
@@ -9016,6 +9092,12 @@ package body Sem_Ch6 is
                Set_Is_Primitive (S);
                Set_Has_Primitive_Operations (B_Typ);
                Check_Private_Overriding (B_Typ);
+
+               --  The Ghost policy in effect at the point of declaration of a
+               --  tagged type and a primitive operation must match
+               --  (SPARK RM 6.9(16)).
+
+               Check_Ghost_Primitive (S, B_Typ);
             end if;
          end if;
       end Check_For_Primitive_Subprogram;
@@ -9882,6 +9964,13 @@ package body Sem_Ch6 is
                         Set_Convention (S, Convention (E));
                         Check_Dispatching_Operation (S, E);
 
+                        --  In GNATprove_Mode, create the pragmas corresponding
+                        --  to inherited class-wide conditions.
+
+                        if GNATprove_Mode then
+                           Collect_Inherited_Class_Wide_Conditions (S);
+                        end if;
+
                      else
                         Check_Dispatching_Operation (S, Empty);
                      end if;
@@ -10415,10 +10504,12 @@ package body Sem_Ch6 is
          Analyze_Return_Type (Related_Nod);
 
          --  If return type is class-wide, subprogram freezing may be
-         --  delayed as well.
+         --  delayed as well, unless the declaration is a compilation unit
+         --  in which case the freeze node would appear too late.
 
          if Is_Class_Wide_Type (Etype (Current_Scope))
            and then not Is_Thunk (Current_Scope)
+           and then not Is_Compilation_Unit (Current_Scope)
            and then Nkind (Unit_Declaration_Node (Current_Scope)) =
              N_Subprogram_Declaration
          then

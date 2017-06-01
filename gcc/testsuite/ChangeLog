@@ -1,3 +1,32 @@
+2016-04-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70701
+	* gcc.dg/tree-ssa/ssa-fre-53.c: New testcase.
+
+2016-04-18  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/70699
+	* gcc.dg/pr70161.c: Add dot-file scans.
+	* lib/scandump.exp (dump-suffix): Return suffix after first dot char,
+	instead of after last dot char.
+
+2016-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-c++-common/dump-ada-spec-3.c: New test.
+	* c-c++-common/dump-ada-spec-4.c: Likewise.
+
+2016-04-17  Tom de Vries  <tom@codesourcery.com>
+
+	PR other/70183
+	* gcc.target/i386/vzeroupper-dump-flags.c: New test.
+
+2016-04-15  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/70018
+	* g++.dg/ipa/pure-const-1.C: New testcase.
+	* g++.dg/ipa/pure-const-2.C: New testcase.
+	* g++.dg/ipa/pure-const-3.C: New testcase.
+
 2016-04-15  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70671

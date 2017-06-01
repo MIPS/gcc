@@ -1751,17 +1751,16 @@ package body Sem_Type is
             begin
                Get_First_Interp (N, I, It);
                while Present (It.Typ) loop
-                  if (Covers (Typ, It.Typ) or else Typ = Any_Type)
-                    and then
-                     (It.Typ = Universal_Integer
+                  if (It.Typ = Universal_Integer
                        or else It.Typ = Universal_Real)
+                    and then (Typ = Any_Type or else Covers (Typ, It.Typ))
                   then
                      return It;
 
-                  elsif Covers (Typ, It.Typ)
+                  elsif Is_Numeric_Type (It.Typ)
                     and then Scope (It.Typ) = Standard_Standard
                     and then Scope (It.Nam) = Standard_Standard
-                    and then Is_Numeric_Type (It.Typ)
+                    and then Covers (Typ, It.Typ)
                   then
                      Candidate := It;
                   end if;
@@ -2976,7 +2975,7 @@ package body Sem_Type is
    -- New_Interps --
    -----------------
 
-   procedure New_Interps (N : Node_Id)  is
+   procedure New_Interps (N : Node_Id) is
       Map_Ptr : Int;
 
    begin
@@ -3026,20 +3025,21 @@ package body Sem_Type is
    ---------------------------
 
    function Operator_Matches_Spec (Op, New_S : Entity_Id) return Boolean is
-      Op_Name : constant Name_Id   := Chars (Op);
-      T       : constant Entity_Id := Etype (New_S);
-      New_F   : Entity_Id;
-      Old_F   : Entity_Id;
-      Num     : Int;
-      T1      : Entity_Id;
-      T2      : Entity_Id;
+      New_First_F : constant Entity_Id := First_Formal (New_S);
+      Op_Name     : constant Name_Id   := Chars (Op);
+      T           : constant Entity_Id := Etype (New_S);
+      New_F       : Entity_Id;
+      Num         : Int;
+      Old_F       : Entity_Id;
+      T1          : Entity_Id;
+      T2          : Entity_Id;
 
    begin
-      --  To verify that a predefined operator matches a given signature,
-      --  do a case analysis of the operator classes. Function can have one
-      --  or two formals and must have the proper result type.
+      --  To verify that a predefined operator matches a given signature, do a
+      --  case analysis of the operator classes. Function can have one or two
+      --  formals and must have the proper result type.
 
-      New_F := First_Formal (New_S);
+      New_F := New_First_F;
       Old_F := First_Formal (Op);
       Num := 0;
       while Present (New_F) and then Present (Old_F) loop
@@ -3056,7 +3056,7 @@ package body Sem_Type is
       --  Unary operators
 
       elsif Num = 1 then
-         T1 := Etype (First_Formal (New_S));
+         T1 := Etype (New_First_F);
 
          if Nam_In (Op_Name, Name_Op_Subtract, Name_Op_Add, Name_Op_Abs) then
             return Base_Type (T1) = Base_Type (T)
@@ -3073,8 +3073,8 @@ package body Sem_Type is
       --  Binary operators
 
       else
-         T1 := Etype (First_Formal (New_S));
-         T2 := Etype (Next_Formal (First_Formal (New_S)));
+         T1 := Etype (New_First_F);
+         T2 := Etype (Next_Formal (New_First_F));
 
          if Nam_In (Op_Name, Name_Op_And, Name_Op_Or, Name_Op_Xor) then
             return Base_Type (T1) = Base_Type (T2)

@@ -528,7 +528,7 @@ package body Einfo is
 
    --    Has_Pragma_Preelab_Init         Flag221
    --    Used_As_Generic_Actual          Flag222
-   --    Is_Descendent_Of_Address        Flag223
+   --    Is_Descendant_Of_Address        Flag223
    --    Is_Raised                       Flag224
    --    Is_Thunk                        Flag225
    --    Is_Only_Out_Parameter           Flag226
@@ -2101,10 +2101,10 @@ package body Einfo is
       return Flag132 (Id);
    end Is_Default_Init_Cond_Procedure;
 
-   function Is_Descendent_Of_Address (Id : E) return B is
+   function Is_Descendant_Of_Address (Id : E) return B is
    begin
       return Flag223 (Id);
-   end Is_Descendent_Of_Address;
+   end Is_Descendant_Of_Address;
 
    function Is_Discrim_SO_Function (Id : E) return B is
    begin
@@ -2365,13 +2365,13 @@ package body Einfo is
 
    function Is_Predicate_Function (Id : E) return B is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       return Flag255 (Id);
    end Is_Predicate_Function;
 
    function Is_Predicate_Function_M (Id : E) return B is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       return Flag256 (Id);
    end Is_Predicate_Function_M;
 
@@ -2835,6 +2835,7 @@ package body Einfo is
 
    function Overridden_Operation (Id : E) return E is
    begin
+      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
       return Node26 (Id);
    end Overridden_Operation;
 
@@ -5102,11 +5103,11 @@ package body Einfo is
       Set_Flag132 (Id, V);
    end Set_Is_Default_Init_Cond_Procedure;
 
-   procedure Set_Is_Descendent_Of_Address (Id : E; V : B := True) is
+   procedure Set_Is_Descendant_Of_Address (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Type (Id));
       Set_Flag223 (Id, V);
-   end Set_Is_Descendent_Of_Address;
+   end Set_Is_Descendant_Of_Address;
 
    procedure Set_Is_Discrim_SO_Function (Id : E; V : B := True) is
    begin
@@ -5393,13 +5394,13 @@ package body Einfo is
 
    procedure Set_Is_Predicate_Function (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       Set_Flag255 (Id, V);
    end Set_Is_Predicate_Function;
 
    procedure Set_Is_Predicate_Function_M (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       Set_Flag256 (Id, V);
    end Set_Is_Predicate_Function_M;
 
@@ -7004,17 +7005,19 @@ package body Einfo is
       else
          Formal := First_Entity (Id);
 
+         --  Deal with the common, non-generic case first
+
+         if No (Formal) or else Is_Formal (Formal) then
+            return Formal;
+         end if;
+
          --  The first/next entity chain of a generic subprogram contains all
-         --  generic formal parameters, followed by the formal parameters. Go
-         --  directly to the parameters by skipping the formal part.
+         --  generic formal parameters, followed by the formal parameters.
 
          if Is_Generic_Subprogram (Id) then
             while Present (Formal) and then not Is_Formal (Formal) loop
                Next_Entity (Formal);
             end loop;
-         end if;
-
-         if Present (Formal) and then Is_Formal (Formal) then
             return Formal;
          else
             return Empty;
@@ -8945,7 +8948,7 @@ package body Einfo is
       W ("Is_Controlled",                   Flag42  (Id));
       W ("Is_Controlling_Formal",           Flag97  (Id));
       W ("Is_Default_Init_Cond_Procedure",  Flag132 (Id));
-      W ("Is_Descendent_Of_Address",        Flag223 (Id));
+      W ("Is_Descendant_Of_Address",        Flag223 (Id));
       W ("Is_Discrim_SO_Function",          Flag176 (Id));
       W ("Is_Discriminant_Check_Function",  Flag264 (Id));
       W ("Is_Dispatch_Table_Entity",        Flag234 (Id));

@@ -4528,7 +4528,7 @@ package body Sem_Res is
             end if;
 
             --  The actual parameter of a Ghost subprogram whose formal is of
-            --  mode IN OUT or OUT must be a Ghost variable (SPARK RM 6.9(13)).
+            --  mode IN OUT or OUT must be a Ghost variable (SPARK RM 6.9(12)).
 
             if Comes_From_Source (Nam)
               and then Is_Ghost_Entity (Nam)
@@ -5440,7 +5440,9 @@ package body Sem_Res is
                              and then Expr_Value_R (Rop) = Ureal_0))
             then
                --  Specialize the warning message according to the operation.
-               --  The following warnings are for the case
+               --  When SPARK_Mode is On, force a warning instead of an error
+               --  in that case, as this likely corresponds to deactivated
+               --  code. The following warnings are for the case
 
                case Nkind (N) is
                   when N_Op_Divide =>
@@ -5459,23 +5461,26 @@ package body Sem_Res is
                           ("float division by zero, may generate "
                            & "'+'/'- infinity??", Right_Opnd (N));
 
-                        --  For all other cases, we get a Constraint_Error
+                     --  For all other cases, we get a Constraint_Error
 
                      else
                         Apply_Compile_Time_Constraint_Error
                           (N, "division by zero??", CE_Divide_By_Zero,
-                           Loc => Sloc (Right_Opnd (N)));
+                           Loc  => Sloc (Right_Opnd (N)),
+                           Warn => SPARK_Mode = On);
                      end if;
 
                   when N_Op_Rem =>
                      Apply_Compile_Time_Constraint_Error
                        (N, "rem with zero divisor??", CE_Divide_By_Zero,
-                        Loc => Sloc (Right_Opnd (N)));
+                        Loc  => Sloc (Right_Opnd (N)),
+                        Warn => SPARK_Mode = On);
 
                   when N_Op_Mod =>
                      Apply_Compile_Time_Constraint_Error
                        (N, "mod with zero divisor??", CE_Divide_By_Zero,
-                        Loc => Sloc (Right_Opnd (N)));
+                        Loc  => Sloc (Right_Opnd (N)),
+                        Warn => SPARK_Mode = On);
 
                   --  Division by zero can only happen with division, rem,
                   --  and mod operations.
@@ -5483,6 +5488,13 @@ package body Sem_Res is
                   when others =>
                      raise Program_Error;
                end case;
+
+               --  In GNATprove mode, we enable the division check so that
+               --  GNATprove will issue a message if it cannot be proved.
+
+               if GNATprove_Mode then
+                  Activate_Division_Check (N);
+               end if;
 
             --  Otherwise just set the flag to check at run time
 
@@ -6428,16 +6440,14 @@ package body Sem_Res is
             --  assertions as logic expressions.
 
             elsif In_Assertion_Expr /= 0 then
-               Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
-               Error_Msg_N ("\call appears in assertion expression", N);
-               Set_Is_Inlined_Always (Nam_UA, False);
+               Cannot_Inline
+                 ("cannot inline & (in assertion expression)?", N, Nam_UA);
 
             --  Calls cannot be inlined inside default expressions
 
             elsif In_Default_Expr then
-               Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
-               Error_Msg_N ("\call appears in default expression", N);
-               Set_Is_Inlined_Always (Nam_UA, False);
+               Cannot_Inline
+                 ("cannot inline & (in default expression)?", N, Nam_UA);
 
             --  Inlining should not be performed during pre-analysis
 
@@ -6447,10 +6457,8 @@ package body Sem_Res is
                --  inlined if the corresponding body has not been seen yet.
 
                if No (Body_Id) then
-                  Error_Msg_NE
-                    ("info: no contextual analysis of & (body not seen yet)?",
-                     N, Nam);
-                  Set_Is_Inlined_Always (Nam_UA, False);
+                  Cannot_Inline
+                    ("cannot inline & (body not seen yet)?", N, Nam_UA);
 
                --  Nothing to do if there is no body to inline, indicating that
                --  the subprogram is not suitable for inlining in GNATprove
@@ -6459,15 +6467,26 @@ package body Sem_Res is
                elsif No (Body_To_Inline (Nam_Decl)) then
                   null;
 
+               --  Do not inline calls inside expression functions, as this
+               --  would prevent interpreting them as logical formulas in
+               --  GNATprove.
+
+               elsif Present (Current_Subprogram)
+                       and then
+                     Is_Expression_Function_Or_Completion (Current_Subprogram)
+               then
+                  Cannot_Inline
+                    ("cannot inline & (inside expression function)?",
+                     N, Nam_UA);
+
                --  Calls cannot be inlined inside potentially unevaluated
                --  expressions, as this would create complex actions inside
                --  expressions, that are not handled by GNATprove.
 
                elsif Is_Potentially_Unevaluated (N) then
-                  Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
-                  Error_Msg_N
-                    ("\call appears in potentially unevaluated context", N);
-                  Set_Is_Inlined_Always (Nam_UA, False);
+                  Cannot_Inline
+                    ("cannot inline & (in potentially unevaluated context)?",
+                     N, Nam_UA);
 
                --  Otherwise, inline the call
 
@@ -6888,8 +6907,10 @@ package body Sem_Res is
 
                return
                  Pref = Obj_Ref
+                   and then Present (Etype (Pref))
                    and then Is_Protected_Type (Etype (Pref))
                    and then Is_Entity_Name (Subp)
+                   and then Present (Entity (Subp))
                    and then Ekind_In (Entity (Subp), E_Entry,
                                                      E_Entry_Family,
                                                      E_Function,
@@ -7633,6 +7654,19 @@ package body Sem_Res is
          Normalize_Actuals (N, Nam, False, Norm_OK);
          pragma Assert (Norm_OK);
          Set_Etype (N, Etype (Nam));
+
+         --  Reset the Is_Overloaded flag, since resolution is now completed
+
+         --  Simple entry call
+
+         if Nkind (Entry_Name) = N_Selected_Component then
+            Set_Is_Overloaded (Selector_Name (Entry_Name), False);
+
+         --  Call to a member of an entry family
+
+         else pragma Assert (Nkind (Entry_Name) = N_Indexed_Component);
+            Set_Is_Overloaded (Selector_Name (Prefix (Entry_Name)), False);
+         end if;
       end if;
 
       Resolve_Actuals (N, Nam);
@@ -10023,9 +10057,9 @@ package body Sem_Res is
       --  finalization of transient controlled objects) are fully evaluated
       --  locally within an expression with actions. This is particularly
       --  helpful for coverage analysis. However this should not happen in
-      --  generics.
+      --  generics or if Minimize_Expression_With_Actions is set.
 
-      if Expander_Active then
+      if Expander_Active and not Minimize_Expression_With_Actions then
          declare
             Reloc_L : constant Node_Id := Relocate_Node (L);
          begin
@@ -12080,7 +12114,7 @@ package body Sem_Res is
                   --  operations must be done explicitly here.
 
                   if not Address_Is_Private
-                    and then Is_Descendent_Of_Address (It.Typ)
+                    and then Is_Descendant_Of_Address (It.Typ)
                   then
                      Remove_Interp (I);
                   end if;

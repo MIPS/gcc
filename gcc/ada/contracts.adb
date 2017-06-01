@@ -660,7 +660,6 @@ package body Contracts is
       Obj_Typ      : constant Entity_Id := Etype (Obj_Id);
       AR_Val       : Boolean := False;
       AW_Val       : Boolean := False;
-      Encap_Id     : Entity_Id;
       ER_Val       : Boolean := False;
       EW_Val       : Boolean := False;
       Items        : Node_Id;
@@ -872,28 +871,6 @@ package body Contracts is
                      Obj_Id);
                end if;
             end if;
-
-            --  A variable whose Part_Of pragma specifies a single concurrent
-            --  type as encapsulator must be (SPARK RM 9.4):
-            --    * Of a type that defines full default initialization, or
-            --    * Declared with a default value, or
-            --    * Imported
-
-            Encap_Id := Encapsulating_State (Obj_Id);
-
-            if Present (Encap_Id)
-              and then Is_Single_Concurrent_Object (Encap_Id)
-              and then not Has_Full_Default_Initialization (Etype (Obj_Id))
-              and then not Has_Initial_Value (Obj_Id)
-              and then not Is_Imported (Obj_Id)
-            then
-               Error_Msg_N ("& requires full default initialization", Obj_Id);
-
-               Error_Msg_Name_1 := Chars (Encap_Id);
-               Error_Msg_N
-                 (Fix_Msg (Encap_Id, "\object acts as constituent of single "
-                  & "protected type %"), Obj_Id);
-            end if;
          end if;
       end if;
 
@@ -907,13 +884,13 @@ package body Contracts is
          if Yields_Synchronized_Object (Obj_Typ) then
             Error_Msg_N ("ghost object & cannot be synchronized", Obj_Id);
 
-         --  A Ghost object cannot be effectively volatile (SPARK RM 6.9(8) and
+         --  A Ghost object cannot be effectively volatile (SPARK RM 6.9(7) and
          --  SPARK RM 6.9(19)).
 
          elsif Is_Effectively_Volatile (Obj_Id) then
             Error_Msg_N ("ghost object & cannot be volatile", Obj_Id);
 
-         --  A Ghost object cannot be imported or exported (SPARK RM 6.9(8)).
+         --  A Ghost object cannot be imported or exported (SPARK RM 6.9(7)).
          --  One exception to this is the object that represents the dispatch
          --  table of a Ghost tagged type, as the symbol needs to be exported.
 
@@ -1137,7 +1114,6 @@ package body Contracts is
 
    procedure Analyze_Protected_Contract (Prot_Id : Entity_Id) is
       Items : constant Node_Id := Contract (Prot_Id);
-      Mode  : SPARK_Mode_Type;
 
    begin
       --  Do not analyze a contract multiple times
@@ -1149,30 +1125,6 @@ package body Contracts is
             Set_Analyzed (Items);
          end if;
       end if;
-
-      --  Due to the timing of contract analysis, delayed pragmas may be
-      --  subject to the wrong SPARK_Mode, usually that of the enclosing
-      --  context. To remedy this, restore the original SPARK_Mode of the
-      --  related protected unit.
-
-      Save_SPARK_Mode_And_Set (Prot_Id, Mode);
-
-      --  A protected type must define full default initialization
-      --  (SPARK RM 9.4). This check is relevant only when SPARK_Mode is on as
-      --  it is not a standard Ada legality rule.
-
-      if SPARK_Mode = On
-        and then not Has_Full_Default_Initialization (Prot_Id)
-      then
-         Error_Msg_N
-           ("protected type & must define full default initialization",
-            Prot_Id);
-      end if;
-
-      --  Restore the SPARK_Mode of the enclosing context after all delayed
-      --  pragmas have been analyzed.
-
-      Restore_SPARK_Mode (Mode);
    end Analyze_Protected_Contract;
 
    -------------------------------------------
@@ -1431,15 +1383,6 @@ package body Contracts is
       --  assertion actions on exit from subprogram Subp_Id. Stmts is the list
       --  of statements to be checked on exit. Parameter Result is the entity
       --  of parameter _Result when Subp_Id denotes a function.
-
-      function Build_Pragma_Check_Equivalent
-        (Prag     : Node_Id;
-         Subp_Id  : Entity_Id := Empty;
-         Inher_Id : Entity_Id := Empty) return Node_Id;
-      --  Transform a [refined] pre- or postcondition denoted by Prag into an
-      --  equivalent pragma Check. When the pre- or postcondition is inherited,
-      --  the routine corrects the references of all formals of Inher_Id to
-      --  point to the formals of Subp_Id.
 
       procedure Process_Contract_Cases (Stmts : in out List_Id);
       --  Process pragma Contract_Cases. This routine prepends items to the
@@ -1860,155 +1803,6 @@ package body Contracts is
          Analyze (Proc_Bod);
       end Build_Postconditions_Procedure;
 
-      -----------------------------------
-      -- Build_Pragma_Check_Equivalent --
-      -----------------------------------
-
-      function Build_Pragma_Check_Equivalent
-        (Prag     : Node_Id;
-         Subp_Id  : Entity_Id := Empty;
-         Inher_Id : Entity_Id := Empty) return Node_Id
-      is
-         function Suppress_Reference (N : Node_Id) return Traverse_Result;
-         --  Detect whether node N references a formal parameter subject to
-         --  pragma Unreferenced. If this is the case, set Comes_From_Source
-         --  to False to suppress the generation of a reference when analyzing
-         --  N later on.
-
-         ------------------------
-         -- Suppress_Reference --
-         ------------------------
-
-         function Suppress_Reference (N : Node_Id) return Traverse_Result is
-            Formal : Entity_Id;
-
-         begin
-            if Is_Entity_Name (N) and then Present (Entity (N)) then
-               Formal := Entity (N);
-
-               --  The formal parameter is subject to pragma Unreferenced.
-               --  Prevent the generation of a reference by resetting the
-               --  Comes_From_Source flag.
-
-               if Is_Formal (Formal)
-                 and then Has_Pragma_Unreferenced (Formal)
-               then
-                  Set_Comes_From_Source (N, False);
-               end if;
-            end if;
-
-            return OK;
-         end Suppress_Reference;
-
-         procedure Suppress_References is
-           new Traverse_Proc (Suppress_Reference);
-
-         --  Local variables
-
-         Loc          : constant Source_Ptr := Sloc (Prag);
-         Prag_Nam     : constant Name_Id    := Pragma_Name (Prag);
-         Check_Prag   : Node_Id;
-         Formals_Map  : Elist_Id;
-         Inher_Formal : Entity_Id;
-         Msg_Arg      : Node_Id;
-         Nam          : Name_Id;
-         Subp_Formal  : Entity_Id;
-
-      --  Start of processing for Build_Pragma_Check_Equivalent
-
-      begin
-         Formals_Map := No_Elist;
-
-         --  When the pre- or postcondition is inherited, map the formals of
-         --  the inherited subprogram to those of the current subprogram.
-
-         if Present (Inher_Id) then
-            pragma Assert (Present (Subp_Id));
-
-            Formals_Map := New_Elmt_List;
-
-            --  Create a relation <inherited formal> => <subprogram formal>
-
-            Inher_Formal := First_Formal (Inher_Id);
-            Subp_Formal  := First_Formal (Subp_Id);
-            while Present (Inher_Formal) and then Present (Subp_Formal) loop
-               Append_Elmt (Inher_Formal, Formals_Map);
-               Append_Elmt (Subp_Formal, Formals_Map);
-
-               Next_Formal (Inher_Formal);
-               Next_Formal (Subp_Formal);
-            end loop;
-         end if;
-
-         --  Copy the original pragma while performing substitutions (if
-         --  applicable).
-
-         Check_Prag :=
-           New_Copy_Tree
-             (Source    => Prag,
-              Map       => Formals_Map,
-              New_Scope => Current_Scope);
-
-         --  Mark the pragma as being internally generated and reset the
-         --  Analyzed flag.
-
-         Set_Analyzed          (Check_Prag, False);
-         Set_Comes_From_Source (Check_Prag, False);
-
-         --  The tree of the original pragma may contain references to the
-         --  formal parameters of the related subprogram. At the same time
-         --  the corresponding body may mark the formals as unreferenced:
-
-         --     procedure Proc (Formal : ...)
-         --       with Pre => Formal ...;
-
-         --     procedure Proc (Formal : ...) is
-         --        pragma Unreferenced (Formal);
-         --     ...
-
-         --  This creates problems because all pragma Check equivalents are
-         --  analyzed at the end of the body declarations. Since all source
-         --  references have already been accounted for, reset any references
-         --  to such formals in the generated pragma Check equivalent.
-
-         Suppress_References (Check_Prag);
-
-         if Present (Corresponding_Aspect (Prag)) then
-            Nam := Chars (Identifier (Corresponding_Aspect (Prag)));
-         else
-            Nam := Prag_Nam;
-         end if;
-
-         --  Convert the copy into pragma Check by correcting the name and
-         --  adding a check_kind argument.
-
-         Set_Pragma_Identifier
-           (Check_Prag, Make_Identifier (Loc, Name_Check));
-
-         Prepend_To (Pragma_Argument_Associations (Check_Prag),
-           Make_Pragma_Argument_Association (Loc,
-             Expression => Make_Identifier (Loc, Nam)));
-
-         --  Update the error message when the pragma is inherited
-
-         if Present (Inher_Id) then
-            Msg_Arg := Last (Pragma_Argument_Associations (Check_Prag));
-
-            if Chars (Msg_Arg) = Name_Message then
-               String_To_Name_Buffer (Strval (Expression (Msg_Arg)));
-
-               --  Insert "inherited" to improve the error message
-
-               if Name_Buffer (1 .. 8) = "failed p" then
-                  Insert_Str_In_Name_Buffer ("inherited ", 8);
-                  Set_Strval (Expression (Msg_Arg), String_From_Name_Buffer);
-               end if;
-            end if;
-         end if;
-
-         return Check_Prag;
-      end Build_Pragma_Check_Equivalent;
-
       ----------------------------
       -- Process_Contract_Cases --
       ----------------------------
@@ -2216,6 +2010,10 @@ package body Contracts is
          --  The insertion node after which all pragma Check equivalents are
          --  inserted.
 
+         function Is_Prologue_Renaming (Decl : Node_Id) return Boolean;
+         --  Determine whether arbitrary declaration Decl denotes a renaming of
+         --  a discriminant or protection field _object.
+
          procedure Merge_Preconditions (From : Node_Id; Into : Node_Id);
          --  Merge two class-wide preconditions by "or else"-ing them. The
          --  changes are accumulated in parameter Into. Update the error
@@ -2235,6 +2033,52 @@ package body Contracts is
          procedure Process_Preconditions_For (Subp_Id : Entity_Id);
          --  Collect all preconditions of subprogram Subp_Id and prepend their
          --  pragma Check equivalents to the declarations of the body.
+
+         --------------------------
+         -- Is_Prologue_Renaming --
+         --------------------------
+
+         function Is_Prologue_Renaming (Decl : Node_Id) return Boolean is
+            Nam  : Node_Id;
+            Obj  : Entity_Id;
+            Pref : Node_Id;
+            Sel  : Node_Id;
+
+         begin
+            if Nkind (Decl) = N_Object_Renaming_Declaration then
+               Obj := Defining_Entity (Decl);
+               Nam := Name (Decl);
+
+               if Nkind (Nam) = N_Selected_Component then
+                  Pref := Prefix (Nam);
+                  Sel  := Selector_Name (Nam);
+
+                  --  A discriminant renaming appears as
+                  --    Discr : constant ... := Prefix.Discr;
+
+                  if Ekind (Obj) = E_Constant
+                    and then Is_Entity_Name (Sel)
+                    and then Present (Entity (Sel))
+                    and then Ekind (Entity (Sel)) = E_Discriminant
+                  then
+                     return True;
+
+                  --  A protection field renaming appears as
+                  --    Prot : ... := _object._object;
+
+                  elsif Ekind (Obj) = E_Variable
+                    and then Nkind (Pref) = N_Identifier
+                    and then Chars (Pref) = Name_uObject
+                    and then Nkind (Sel) = N_Identifier
+                    and then Chars (Sel) = Name_uObject
+                  then
+                     return True;
+                  end if;
+               end if;
+            end if;
+
+            return False;
+         end Is_Prologue_Renaming;
 
          -------------------------
          -- Merge_Preconditions --
@@ -2484,15 +2328,34 @@ package body Contracts is
       --  Start of processing for Process_Preconditions
 
       begin
-         --  Find the last internally generated declaration, starting from the
-         --  top of the body declarations. This ensures that discriminals and
-         --  subtypes are properly visible to the pragma Check equivalents.
+         --  Find the proper insertion point for all pragma Check equivalents
 
          if Present (Decls) then
             Decl := First (Decls);
             while Present (Decl) loop
-               exit when Comes_From_Source (Decl);
-               Insert_Node := Decl;
+
+               --  First source declaration terminates the search, because all
+               --  preconditions must be evaluated prior to it, by definition.
+
+               if Comes_From_Source (Decl) then
+                  exit;
+
+               --  Certain internally generated object renamings such as those
+               --  for discriminants and protection fields must be elaborated
+               --  before the preconditions are evaluated, as their expressions
+               --  may mention the discriminants.
+
+               elsif Is_Prologue_Renaming (Decl) then
+                  Insert_Node := Decl;
+
+               --  Otherwise the declaration does not come from source. This
+               --  also terminates the search, because internal code may raise
+               --  exceptions which should not preempt the preconditions.
+
+               else
+                  exit;
+               end if;
+
                Next (Decl);
             end loop;
          end if;

@@ -2039,7 +2039,7 @@ package body Sem is
                --  The flag Withed_Body on a context clause indicates that a
                --  unit contains an instantiation that may be needed later,
                --  and therefore the body that contains the generic body (and
-               --  its context)  must be traversed immediately after the
+               --  its context) must be traversed immediately after the
                --  corresponding spec (see Do_Unit_And_Dependents).
 
                --  The main unit itself is processed separately after all other
@@ -2062,9 +2062,9 @@ package body Sem is
                   end if;
 
                   --  It's a spec, process it, and the units it depends on,
-                  --  unless it is a descendent of the main unit.  This can
+                  --  unless it is a descendant of the main unit.  This can
                   --  happen when the body of a parent depends on some other
-                  --  descendent.
+                  --  descendant.
 
                when others =>
                   Par := Scope (Defining_Entity (Unit (CU)));

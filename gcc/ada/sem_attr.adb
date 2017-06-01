@@ -2624,12 +2624,14 @@ package body Sem_Attr is
    --  Start of processing for Analyze_Attribute
 
    begin
-      --  Immediate return if unrecognized attribute (already diagnosed
-      --  by parser, so there is nothing more that we need to do)
+      --  Immediate return if unrecognized attribute (already diagnosed by
+      --  parser, so there is nothing more that we need to do).
 
       if not Is_Attribute_Name (Aname) then
          raise Bad_Attribute;
       end if;
+
+      Check_Restriction_No_Use_Of_Attribute (N);
 
       --  Deal with Ada 83 issues
 
@@ -5103,7 +5105,8 @@ package body Sem_Attr is
            (Pref_Id : Entity_Id;
             Spec_Id : Entity_Id) return Boolean
          is
-            Subp_Spec : constant Node_Id := Parent (Spec_Id);
+            Over_Id   : constant Entity_Id := Overridden_Operation (Spec_Id);
+            Subp_Spec : constant Node_Id   := Parent (Spec_Id);
 
          begin
             --  The prefix denotes the related subprogram
@@ -5143,6 +5146,14 @@ package body Sem_Attr is
                then
                   return True;
                end if;
+
+            --  Account for a special case where a primitive of a tagged type
+            --  inherits a class-wide postcondition from a parent type. In this
+            --  case the prefix of attribute 'Result denotes the overriding
+            --  primitive.
+
+            elsif Present (Over_Id) and then Pref_Id = Over_Id then
+               return True;
             end if;
 
             --  Otherwise the prefix does not denote the related subprogram
@@ -9278,7 +9289,7 @@ package body Sem_Attr is
          Id  : RE_Id;
 
       begin
-         if Is_Descendent_Of_Address (Typ) then
+         if Is_Descendant_Of_Address (Typ) then
             Id := RE_Type_Class_Address;
 
          elsif Is_Enumeration_Type (Typ) then

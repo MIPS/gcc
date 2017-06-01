@@ -334,7 +334,7 @@ package body Sem_Ch13 is
                               & "(component is little-endian)?V?", CLC);
                         end if;
 
-                        --  Do not allow non-contiguous field
+                     --  Do not allow non-contiguous field
 
                      else
                         Error_Msg_N
@@ -451,7 +451,7 @@ package body Sem_Ch13 is
                            if Warn_On_Reverse_Bit_Order then
                               Error_Msg_N
                                 ("info: multi-byte field specified with "
-                                 & "  non-standard Bit_Order?V?", CC);
+                                 & "non-standard Bit_Order?V?", CC);
 
                               if Bytes_Big_Endian then
                                  Error_Msg_N
@@ -3752,21 +3752,27 @@ package body Sem_Ch13 is
          Pnam : Entity_Id;
 
          Is_Read : constant Boolean := (TSS_Nam = TSS_Stream_Read);
-         --  True for Read attribute, false for other attributes
+         --  True for Read attribute, False for other attributes
 
-         function Has_Good_Profile (Subp : Entity_Id) return Boolean;
+         function Has_Good_Profile
+           (Subp   : Entity_Id;
+            Report : Boolean := False) return Boolean;
          --  Return true if the entity is a subprogram with an appropriate
-         --  profile for the attribute being defined.
+         --  profile for the attribute being defined. If result is False and
+         --  Report is True, function emits appropriate error.
 
          ----------------------
          -- Has_Good_Profile --
          ----------------------
 
-         function Has_Good_Profile (Subp : Entity_Id) return Boolean is
-            F              : Entity_Id;
-            Is_Function    : constant Boolean := (TSS_Nam = TSS_Stream_Input);
+         function Has_Good_Profile
+           (Subp   : Entity_Id;
+            Report : Boolean := False) return Boolean
+         is
             Expected_Ekind : constant array (Boolean) of Entity_Kind :=
                                (False => E_Procedure, True => E_Function);
+            Is_Function    : constant Boolean := (TSS_Nam = TSS_Stream_Input);
+            F              : Entity_Id;
             Typ            : Entity_Id;
 
          begin
@@ -3779,7 +3785,7 @@ package body Sem_Ch13 is
             if No (F)
               or else Ekind (Etype (F)) /= E_Anonymous_Access_Type
               or else Designated_Type (Etype (F)) /=
-                               Class_Wide_Type (RTE (RE_Root_Stream_Type))
+                        Class_Wide_Type (RTE (RE_Root_Stream_Type))
             then
                return False;
             end if;
@@ -3829,14 +3835,19 @@ package body Sem_Ch13 is
                return False;
             end if;
 
-            if Present ((Next_Formal (F)))
-            then
+            if Present (Next_Formal (F)) then
                return False;
 
             elsif not Is_Scalar_Type (Typ)
               and then not Is_First_Subtype (Typ)
               and then not Is_Class_Wide_Type (Typ)
             then
+               if Report and not Is_First_Subtype (Typ) then
+                  Error_Msg_N
+                    ("subtype of formal in stream operation must be a first "
+                     & "subtype", Parameter_Type (Parent (F)));
+               end if;
+
                return False;
 
             else
@@ -3885,7 +3896,7 @@ package body Sem_Ch13 is
 
          if Is_Entity_Name (Expr) then
             if not Is_Overloaded (Expr) then
-               if Has_Good_Profile (Entity (Expr)) then
+               if Has_Good_Profile (Entity (Expr), Report => True) then
                   Subp := Entity (Expr);
                end if;
 
@@ -3921,8 +3932,8 @@ package body Sem_Ch13 is
                              (Unit_Declaration_Node (Ultimate_Alias (Subp)))))
             then
                Error_Msg_N
-                 ("stream subprogram for interface type "
-                  & "must be null procedure", Expr);
+                 ("stream subprogram for interface type must be null "
+                  & "procedure", Expr);
             end if;
 
             Set_Entity (Expr, Subp);
@@ -4384,6 +4395,8 @@ package body Sem_Ch13 is
          Set_Analyzed (N, True);
       end if;
 
+      Check_Restriction_No_Use_Of_Attribute (N);
+
       --  Ignore some selected attributes in CodePeer mode since they are not
       --  relevant in this context.
 
@@ -4569,7 +4582,6 @@ package body Sem_Ch13 is
       end if;
 
       Set_Entity (N, U_Ent);
-      Check_Restriction_No_Use_Of_Attribute (N);
 
       --  Switch on particular attribute
 

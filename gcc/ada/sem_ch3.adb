@@ -2915,9 +2915,9 @@ package body Sem_Ch3 is
         and then Chars (Def_Id) = Name_Address
         and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
       then
-         Set_Is_Descendent_Of_Address (Def_Id);
-         Set_Is_Descendent_Of_Address (Base_Type (Def_Id));
-         Set_Is_Descendent_Of_Address (Prev);
+         Set_Is_Descendant_Of_Address (Def_Id);
+         Set_Is_Descendant_Of_Address (Base_Type (Def_Id));
+         Set_Is_Descendant_Of_Address (Prev);
       end if;
 
       Set_Optimize_Alignment_Flags (Def_Id);
@@ -3168,7 +3168,7 @@ package body Sem_Ch3 is
          end loop;
       end if;
 
-      if Is_Integer_Type (T)  then
+      if Is_Integer_Type (T) then
          Resolve (E, T);
          Set_Etype (Id, Universal_Integer);
          Set_Ekind (Id, E_Named_Integer);
@@ -3776,9 +3776,13 @@ package body Sem_Ch3 is
          --  A formal parameter of a specific tagged type whose related
          --  subprogram is subject to pragma Extensions_Visible with value
          --  "False" cannot be implicitly converted to a class-wide type by
-         --  means of an initialization expression (SPARK RM 6.1.7(3)).
+         --  means of an initialization expression (SPARK RM 6.1.7(3)). Do
+         --  not consider internally generated expressions.
 
-         if Is_Class_Wide_Type (T) and then Is_EVF_Expression (E) then
+         if Is_Class_Wide_Type (T)
+           and then Comes_From_Source (E)
+           and then Is_EVF_Expression (E)
+         then
             Error_Msg_N
               ("formal parameter with Extensions_Visible False cannot be "
                & "implicitly converted to class-wide type", E);
@@ -5063,7 +5067,7 @@ package body Sem_Ch3 is
 
       Set_Is_Immediately_Visible   (Id, True);
       Set_Depends_On_Private       (Id, Has_Private_Component (T));
-      Set_Is_Descendent_Of_Address (Id, Is_Descendent_Of_Address (T));
+      Set_Is_Descendant_Of_Address (Id, Is_Descendant_Of_Address (T));
 
       if Is_Interface (T) then
          Set_Is_Interface (Id);
@@ -6745,10 +6749,10 @@ package body Sem_Ch3 is
          Set_Is_Known_Valid (Derived_Type, Is_Known_Valid (Parent_Type));
       end if;
 
-      Set_Is_Descendent_Of_Address (Derived_Type,
-        Is_Descendent_Of_Address (Parent_Type));
-      Set_Is_Descendent_Of_Address (Implicit_Base,
-        Is_Descendent_Of_Address (Parent_Type));
+      Set_Is_Descendant_Of_Address (Derived_Type,
+        Is_Descendant_Of_Address (Parent_Type));
+      Set_Is_Descendant_Of_Address (Implicit_Base,
+        Is_Descendant_Of_Address (Parent_Type));
 
       --  Set remaining type-specific fields, depending on numeric type
 
@@ -14518,7 +14522,7 @@ package body Sem_Ch3 is
             --  of the derived type are not relevant, and thus we can use
             --  the base type for the formals. However, the return type may be
             --  used in a context that requires that the proper static bounds
-            --  be used (a case statement, for example)  and for those cases
+            --  be used (a case statement, for example) and for those cases
             --  we must use the derived type (first subtype), not its base.
 
             --  If the derived_type_definition has no constraints, we know that
@@ -14649,8 +14653,8 @@ package body Sem_Ch3 is
       then
          Set_Derived_Name;
 
-      --  Otherwise, the type is inheriting a private operation, so enter
-      --  it with a special name so it can't be overridden.
+      --  Otherwise, the type is inheriting a private operation, so enter it
+      --  with a special name so it can't be overridden.
 
       else
          Set_Chars (New_Subp, New_External_Name (Chars (Parent_Subp), 'P'));
@@ -19828,7 +19832,7 @@ package body Sem_Ch3 is
                         end if;
 
                      elsif Is_Dispatching_Operation (Prim)
-                       and then Disp_Typ  /= Full_T
+                       and then Disp_Typ /= Full_T
                      then
 
                         --  Verify that it is not otherwise controlled by a
@@ -19955,14 +19959,6 @@ package body Sem_Ch3 is
          --  point of completion must match (SPARK RM 6.9(14)).
 
          Check_Ghost_Completion (Priv_T, Full_T);
-
-         --  In the case where the private view of a tagged type lacks a parent
-         --  type and is subject to pragma Ghost, ensure that the parent type
-         --  specified by the full view is also Ghost (SPARK RM 6.9(9)).
-
-         if Is_Derived_Type (Full_T) then
-            Check_Ghost_Derivation (Full_T);
-         end if;
 
          --  Propagate the attributes related to pragma Ghost from the private
          --  to the full view.
