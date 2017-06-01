@@ -77,7 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
 #undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "long int"
+#define PTRDIFF_TYPE "int"
 
 /* We are using array initializers and don't want calls in the INIT
    and FINI sections.  */
