@@ -1,5 +1,13 @@
 2017-06-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	Backport from gcc-7-branch
+	2016-05-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (probe_stack): Add modes to set source
+	and destination.
+
+2017-06-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	Backport from mainline
 	2017-05-03  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
