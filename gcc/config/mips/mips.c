@@ -24828,7 +24828,7 @@ mips_option_override (void)
       if (mips_abi == ABI_EABI)
 	error ("cannot generate position-independent code for %qs",
 	       "-mabi=eabi");
-      else if (!TARGET_ABICALLS)
+      else if (!is_nanomips && !TARGET_ABICALLS)
 	error ("position-independent code requires %qs", "-mabicalls");
     }
 
