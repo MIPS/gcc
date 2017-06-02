@@ -1,3 +1,53 @@
+2016-05-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cif-code.def (CIF_THUNK): Add.
+	* ipa-inline-analsysis.c (evaluate_conditions_for_known_args): Revert
+	accidental change.
+
+2016-05-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline-analysis.c (reset_inline_summary): Clear fp_expressions
+	(dump_inline_summary): Dump it.
+	(fp_expression_p): New predicate.
+	(estimate_function_body_sizes): Use it.
+	(inline_merge_summary): Merge fp_expressions.
+	(inline_read_section): Read fp_expressions.
+	(inline_write_summary): Write fp_expressions.
+	* ipa-inline.c (can_inline_edge_p): Permit inlining across fp math
+	codegen boundary if either caller or callee is !fp_expressions.
+	* ipa-inline.h (inline_summary): Add fp_expressions.
+	* ipa-inline-transform.c (inline_call): When inlining !fp_expressions
+	to fp_expressions be sure the fp generation flags are updated.
+
+2016-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* cse.c (cse_insn): Handle no-op MEM moves after folding.
+
+	PR rtl-optimization/70467
+	* ipa-pure-const.c (check_call): Handle internal calls even in
+	ipa mode like in local mode.
+
+2016-05-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* doc/install.texi: Document supported in-tree gmp/mpfr/mpc versions.
+
+2016-05-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (X u< X, X u> X): New transformations.
+
+2016-05-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	* flag-types.h (enum warn_strict_overflow_code): Move ...
+	* coretypes.h: ... here.
+	* fold-const.h (fold_overflow_warning): Declare.
+	* fold-const.c (fold_overflow_warning): Make non-static.
+	(fold_comparison): Move the transformation of X +- C1 CMP C2
+	into X CMP C2 -+ C1 ...
+	* match.pd: ... here.
+	* gimple-fold.c (fold_stmt_1): Protect with
+	fold_defer_overflow_warnings.
+
 2016-05-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (struct oacc_loop): Add 'inner' field.

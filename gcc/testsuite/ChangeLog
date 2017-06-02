@@ -1,3 +1,25 @@
+2016-05-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/inline-8.c: New testcase.
+
+2016-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* gcc.target/i386/pr70467-1.c: New test.
+
+2016-05-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* gcc.dg/spec-options.c: Run the test on all targets.
+	* gcc.dg/foo.specs: Use cpp_unique_options.
+
+2016-05-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/unord.c: New testcase.
+
+2016-05-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/20040305-1.c: Adjust.
+
 2016-05-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/loop-auto-1.c: Adjust expected warnings.
