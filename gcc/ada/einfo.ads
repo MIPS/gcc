@@ -438,11 +438,11 @@ package Einfo is
 --       definition clause with an (obsolescent) mod clause is converted
 --       into an attribute definition clause for this purpose.
 
---    Anonymous_Master (Node36)
---       Defined in the entities of non-generic packages, subprograms and their
---       corresponding bodies. Contains the entity of a special heterogeneous
---       finalization master that services most anonymous access-to-controlled
---       allocations that occur within the unit.
+--    Anonymous_Master (Node35)
+--       Defined in all types. Contains the entity of an anonymous finalization
+--       master which services all anonymous access types associated with the
+--       same designated type within the current semantic unit. The attribute
+--       is set reactively during the expansion of allocators.
 
 --    Anonymous_Object (Node30)
 --       Present in protected and task type entities. Contains the entity of
@@ -1910,6 +1910,9 @@ package Einfo is
 --       Defined in type and subtype entities. Set if a pragma Predicate or
 --       Predicate aspect applies to the type or subtype, or if it inherits a
 --       Predicate aspect from its parent or progenitor types.
+--
+--       Note: this flag is set on both partial and full view of types to which
+--       a Predicate pragma or aspect applies.
 
 --    Has_Primitive_Operations (Flag120) [base type only]
 --       Defined in all type entities. Set if at least one primitive operation
@@ -3644,6 +3647,11 @@ package Einfo is
 --       points to the original array type for which this is the packed
 --       array implementation type.
 
+--    Original_Protected_Subprogram (Node41)
+--       Defined in functions and procedures. Set only on internally built
+--       dispatching subprograms of protected types to reference their original
+--       non-dispatching protected subprogram since their names differ.
+
 --    Original_Record_Component (Node22)
 --       Defined in components, including discriminants. The usage depends
 --       on whether the record is a base type and whether it is tagged.
@@ -3747,6 +3755,14 @@ package Einfo is
 --       which takes a single argument of the given type, and returns True if
 --       the predicate holds and False if it does not.
 --
+--       Note: flag Has_Predicate does not imply that Predicate_Function is set
+--       to a non-empty entity; this happens, for example, for itypes created
+--       when instantiating generic units with private types with predicates.
+--       However, if an explicit pragma Predicate or Predicate aspect is given
+--       either for private or full type declaration then both Has_Predicates
+--       and a non-empty Predicate_Function will be set on both the partial and
+--       full views of the type.
+--
 --       Note: the reason this is marked as a synthesized attribute is that the
 --       way this is stored is as an element of the Subprograms_For_Type field.
 
@@ -3755,6 +3771,11 @@ package Einfo is
 --       and only if the predicate function has Raise_Expression nodes. It
 --       is the special version created for membership tests, where if one of
 --       these raise expressions is executed, the result is to return False.
+
+--    Predicates_Ignored (Flag288)
+--       Defined on all types. Indicates whether the subtype declaration is in
+--       a context where Assertion_Policy is Ignore, in which case no checks
+--       (static or dynamic) must be generated for objects of the type.
 
 --    Primitive_Operations (synthesized)
 --       Defined in concurrent types, tagged record types and subtypes, tagged
@@ -5452,6 +5473,7 @@ package Einfo is
    --    Derived_Type_Link                   (Node31)
    --    No_Tagged_Streams_Pragma            (Node32)
    --    Linker_Section_Pragma               (Node33)
+   --    Anonymous_Master                    (Node35)
 
    --    Depends_On_Private                  (Flag14)
    --    Disable_Controlled                  (Flag253)
@@ -5652,8 +5674,8 @@ package Einfo is
    --    Cloned_Subtype                      (Node16)   (subtype case only)
    --    First_Entity                        (Node17)
    --    Equivalent_Type                     (Node18)   (always Empty for type)
-   --    Last_Entity                         (Node20)
    --    Non_Limited_View                    (Node19)
+   --    Last_Entity                         (Node20)
    --    SSO_Set_High_By_Default             (Flag273)  (base type only)
    --    SSO_Set_Low_By_Default              (Flag272)  (base type only)
    --    First_Component                     (synth)
@@ -5903,10 +5925,10 @@ package Einfo is
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
-   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    Class_Wide_Preconds                 (List38)
    --    Class_Wide_Postconds                (List39)
    --    SPARK_Pragma                        (Node40)
+   --    Original_Protected_Subprogram       (Node41)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    Default_Expressions_Processed       (Flag108)
@@ -6125,7 +6147,6 @@ package Einfo is
    --    Current_Use_Clause                  (Node27)
    --    Finalizer                           (Node28)   (non-generic case only)
    --    Contract                            (Node34)
-   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    SPARK_Pragma                        (Node40)
    --    SPARK_Aux_Pragma                    (Node41)
    --    Delay_Subprogram_Descriptors        (Flag50)
@@ -6163,7 +6184,6 @@ package Einfo is
    --    Scope_Depth_Value                   (Uint22)
    --    Finalizer                           (Node28)   (non-generic case only)
    --    Contract                            (Node34)
-   --    Anonymous_Master                    (Node36)
    --    SPARK_Pragma                        (Node40)
    --    SPARK_Aux_Pragma                    (Node41)
    --    Contains_Ignored_Ghost_Code         (Flag279)
@@ -6217,10 +6237,10 @@ package Einfo is
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
-   --    Anonymous_Master                    (Node36)   (non-generic case only)
    --    Class_Wide_Preconds                 (List38)
    --    Class_Wide_Postconds                (List39)
    --    SPARK_Pragma                        (Node40)
+   --    Original_Protected_Subprogram       (Node41)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    Delay_Cleanups                      (Flag114)
@@ -6403,7 +6423,6 @@ package Einfo is
    --    Scope_Depth_Value                   (Uint22)
    --    Extra_Formals                       (Node28)
    --    Contract                            (Node34)
-   --    Anonymous_Master                    (Node36)
    --    SPARK_Pragma                        (Node40)
    --    Contains_Ignored_Ghost_Code         (Flag279)
    --    SPARK_Pragma_Inherited              (Flag265)
@@ -7115,6 +7134,7 @@ package Einfo is
    function Optimize_Alignment_Time             (Id : E) return B;
    function Original_Access_Type                (Id : E) return E;
    function Original_Array_Type                 (Id : E) return E;
+   function Original_Protected_Subprogram       (Id : E) return N;
    function Original_Record_Component           (Id : E) return E;
    function Overlays_Constant                   (Id : E) return B;
    function Overridden_Operation                (Id : E) return E;
@@ -7126,6 +7146,7 @@ package Einfo is
    function Partial_View_Has_Unknown_Discr      (Id : E) return B;
    function Pending_Access_Types                (Id : E) return L;
    function Postconditions_Proc                 (Id : E) return E;
+   function Predicates_Ignored                  (Id : E) return B;
    function Prival                              (Id : E) return E;
    function Prival_Link                         (Id : E) return E;
    function Private_Dependents                  (Id : E) return L;
@@ -7478,6 +7499,7 @@ package Einfo is
    procedure Set_Depends_On_Private              (Id : E; V : B := True);
    procedure Set_Derived_Type_Link               (Id : E; V : E);
    procedure Set_Digits_Value                    (Id : E; V : U);
+   procedure Set_Predicates_Ignored              (Id : E; V : B);
    procedure Set_Direct_Primitive_Operations     (Id : E; V : L);
    procedure Set_Directly_Designated_Type        (Id : E; V : E);
    procedure Set_Disable_Controlled              (Id : E; V : B := True);
@@ -7787,6 +7809,7 @@ package Einfo is
    procedure Set_Optimize_Alignment_Time         (Id : E; V : B := True);
    procedure Set_Original_Access_Type            (Id : E; V : E);
    procedure Set_Original_Array_Type             (Id : E; V : E);
+   procedure Set_Original_Protected_Subprogram   (Id : E; V : N);
    procedure Set_Original_Record_Component       (Id : E; V : E);
    procedure Set_Overlays_Constant               (Id : E; V : B := True);
    procedure Set_Overridden_Operation            (Id : E; V : E);
@@ -8614,6 +8637,7 @@ package Einfo is
    pragma Inline (Optimize_Alignment_Time);
    pragma Inline (Original_Access_Type);
    pragma Inline (Original_Array_Type);
+   pragma Inline (Original_Protected_Subprogram);
    pragma Inline (Original_Record_Component);
    pragma Inline (Overlays_Constant);
    pragma Inline (Overridden_Operation);
@@ -8626,6 +8650,7 @@ package Einfo is
    pragma Inline (Partial_View_Has_Unknown_Discr);
    pragma Inline (Pending_Access_Types);
    pragma Inline (Postconditions_Proc);
+   pragma Inline (Predicates_Ignored);
    pragma Inline (Prival);
    pragma Inline (Prival_Link);
    pragma Inline (Private_Dependents);
@@ -9078,6 +9103,7 @@ package Einfo is
    pragma Inline (Set_Optimize_Alignment_Time);
    pragma Inline (Set_Original_Access_Type);
    pragma Inline (Set_Original_Array_Type);
+   pragma Inline (Set_Original_Protected_Subprogram);
    pragma Inline (Set_Original_Record_Component);
    pragma Inline (Set_Overlays_Constant);
    pragma Inline (Set_Overridden_Operation);
@@ -9089,6 +9115,7 @@ package Einfo is
    pragma Inline (Set_Partial_View_Has_Unknown_Discr);
    pragma Inline (Set_Pending_Access_Types);
    pragma Inline (Set_Postconditions_Proc);
+   pragma Inline (Set_Predicates_Ignored);
    pragma Inline (Set_Prival);
    pragma Inline (Set_Prival_Link);
    pragma Inline (Set_Private_Dependents);

@@ -3621,6 +3621,7 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD   : 0)
 	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
+	  | ((TARGET_P9_VECTOR)		    ? RS6000_BTM_P9_VECTOR : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
@@ -8649,21 +8650,16 @@ rs6000_conditional_register_usage (void)
   if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
     call_really_used_regs[2] = 0;
 
-  if (DEFAULT_ABI == ABI_V4
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-      && flag_pic == 2)
+  if (DEFAULT_ABI == ABI_V4 && flag_pic == 2)
     fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
-  if (DEFAULT_ABI == ABI_V4
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-      && flag_pic == 1)
+  if (DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
       = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
-  if (DEFAULT_ABI == ABI_DARWIN
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-      fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
+  if (DEFAULT_ABI == ABI_DARWIN && flag_pic)
+    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
       = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]
       = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
 
@@ -13109,45 +13105,41 @@ altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
   /* For LVX, express the RTL accurately by ANDing the address with -16.
      LVXL and LVE*X expand to use UNSPECs to hide their special behavior,
      so the raw address is fine.  */
-  switch (icode)
+  if (icode == CODE_FOR_altivec_lvx_v2df_2op
+      || icode == CODE_FOR_altivec_lvx_v2di_2op
+      || icode == CODE_FOR_altivec_lvx_v4sf_2op
+      || icode == CODE_FOR_altivec_lvx_v4si_2op
+      || icode == CODE_FOR_altivec_lvx_v8hi_2op
+      || icode == CODE_FOR_altivec_lvx_v16qi_2op)
     {
-    case CODE_FOR_altivec_lvx_v2df_2op:
-    case CODE_FOR_altivec_lvx_v2di_2op:
-    case CODE_FOR_altivec_lvx_v4sf_2op:
-    case CODE_FOR_altivec_lvx_v4si_2op:
-    case CODE_FOR_altivec_lvx_v8hi_2op:
-    case CODE_FOR_altivec_lvx_v16qi_2op:
-      {
-	rtx rawaddr;
-	if (op0 == const0_rtx)
-	  rawaddr = op1;
-	else
-	  {
-	    op0 = copy_to_mode_reg (mode0, op0);
-	    rawaddr = gen_rtx_PLUS (Pmode, op1, op0);
-	  }
-	addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
-	addr = gen_rtx_MEM (blk ? BLKmode : tmode, addr);
+      rtx rawaddr;
+      if (op0 == const0_rtx)
+	rawaddr = op1;
+      else
+	{
+	  op0 = copy_to_mode_reg (mode0, op0);
+	  rawaddr = gen_rtx_PLUS (Pmode, op1, op0);
+	}
+      addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
+      addr = gen_rtx_MEM (blk ? BLKmode : tmode, addr);
 
-	/* For -maltivec=be, emit the load and follow it up with a
-	   permute to swap the elements.  */
-	if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
-	  {
-	    rtx temp = gen_reg_rtx (tmode);
-	    emit_insn (gen_rtx_SET (temp, addr));
+      /* For -maltivec=be, emit the load and follow it up with a
+	 permute to swap the elements.  */
+      if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+	{
+	  rtx temp = gen_reg_rtx (tmode);
+	  emit_insn (gen_rtx_SET (temp, addr));
 
-	    rtx sel = swap_selector_for_mode (tmode);
-	    rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, temp, temp, sel),
-					UNSPEC_VPERM);
-	    emit_insn (gen_rtx_SET (target, vperm));
-	  }
-	else
-	  emit_insn (gen_rtx_SET (target, addr));
-
-	break;
-      }
-
-    default:
+	  rtx sel = swap_selector_for_mode (tmode);
+	  rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, temp, temp, sel),
+				      UNSPEC_VPERM);
+	  emit_insn (gen_rtx_SET (target, vperm));
+	}
+      else
+	emit_insn (gen_rtx_SET (target, addr));
+    }
+  else
+    {
       if (op0 == const0_rtx)
 	addr = gen_rtx_MEM (blk ? BLKmode : tmode, op1);
       else
@@ -13161,10 +13153,8 @@ altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
       if (! pat)
 	return 0;
       emit_insn (pat);
-
-      break;
     }
-  
+
   return target;
 }
 
@@ -13268,63 +13258,57 @@ altivec_expand_stv_builtin (enum insn_code icode, tree exp)
   /* For STVX, express the RTL accurately by ANDing the address with -16.
      STVXL and STVE*X expand to use UNSPECs to hide their special behavior,
      so the raw address is fine.  */
-  switch (icode)
+  if (icode == CODE_FOR_altivec_stvx_v2df_2op
+      || icode == CODE_FOR_altivec_stvx_v2di_2op
+      || icode == CODE_FOR_altivec_stvx_v4sf_2op
+      || icode == CODE_FOR_altivec_stvx_v4si_2op
+      || icode == CODE_FOR_altivec_stvx_v8hi_2op
+      || icode == CODE_FOR_altivec_stvx_v16qi_2op)
     {
-    case CODE_FOR_altivec_stvx_v2df_2op:
-    case CODE_FOR_altivec_stvx_v2di_2op:
-    case CODE_FOR_altivec_stvx_v4sf_2op:
-    case CODE_FOR_altivec_stvx_v4si_2op:
-    case CODE_FOR_altivec_stvx_v8hi_2op:
-    case CODE_FOR_altivec_stvx_v16qi_2op:
-      {
-	if (op1 == const0_rtx)
-	  rawaddr = op2;
-	else
-	  {
-	    op1 = copy_to_mode_reg (mode1, op1);
-	    rawaddr = gen_rtx_PLUS (Pmode, op2, op1);
-	  }
+      if (op1 == const0_rtx)
+	rawaddr = op2;
+      else
+	{
+	  op1 = copy_to_mode_reg (mode1, op1);
+	  rawaddr = gen_rtx_PLUS (Pmode, op2, op1);
+	}
 
-	addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
-	addr = gen_rtx_MEM (tmode, addr);
+      addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
+      addr = gen_rtx_MEM (tmode, addr);
 
-	op0 = copy_to_mode_reg (tmode, op0);
+      op0 = copy_to_mode_reg (tmode, op0);
 
-	/* For -maltivec=be, emit a permute to swap the elements, followed
-	   by the store.  */
-	if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
-	  {
-	    rtx temp = gen_reg_rtx (tmode);
-	    rtx sel = swap_selector_for_mode (tmode);
-	    rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, op0, op0, sel),
-					UNSPEC_VPERM);
-	    emit_insn (gen_rtx_SET (temp, vperm));
-	    emit_insn (gen_rtx_SET (addr, temp));
-	  }
-	else
-	  emit_insn (gen_rtx_SET (addr, op0));
+      /* For -maltivec=be, emit a permute to swap the elements, followed
+	by the store.  */
+     if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+	{
+	  rtx temp = gen_reg_rtx (tmode);
+	  rtx sel = swap_selector_for_mode (tmode);
+	  rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, op0, op0, sel),
+				      UNSPEC_VPERM);
+	  emit_insn (gen_rtx_SET (temp, vperm));
+	  emit_insn (gen_rtx_SET (addr, temp));
+	}
+      else
+	emit_insn (gen_rtx_SET (addr, op0));
+    }
+  else
+    {
+      if (! (*insn_data[icode].operand[1].predicate) (op0, smode))
+	op0 = copy_to_mode_reg (smode, op0);
 
-	break;
-      }
+      if (op1 == const0_rtx)
+	addr = gen_rtx_MEM (tmode, op2);
+      else
+	{
+	  op1 = copy_to_mode_reg (mode1, op1);
+	  addr = gen_rtx_MEM (tmode, gen_rtx_PLUS (Pmode, op2, op1));
+	}
 
-    default:
-      {
-	if (! (*insn_data[icode].operand[1].predicate) (op0, smode))
-	  op0 = copy_to_mode_reg (smode, op0);
-
-	if (op1 == const0_rtx)
-	  addr = gen_rtx_MEM (tmode, op2);
-	else
-	  {
-	    op1 = copy_to_mode_reg (mode1, op1);
-	    addr = gen_rtx_MEM (tmode, gen_rtx_PLUS (Pmode, op2, op1));
-	  }
-
-	pat = GEN_FCN (icode) (addr, op0);
-	if (pat)
-	  emit_insn (pat);
-      }
-    }      
+      pat = GEN_FCN (icode) (addr, op0);
+      if (pat)
+	emit_insn (pat);
+    }
 
   return NULL_RTX;
 }
@@ -14217,6 +14201,47 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case VSX_BUILTIN_STXVW4X_V16QI:
       return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v16qi, exp);
 
+    /* For the following on big endian, it's ok to use any appropriate
+       unaligned-supporting store, so use a generic expander.  For
+       little-endian, the exact element-reversing instruction must
+       be used.  */
+    case VSX_BUILTIN_ST_ELEMREV_V2DF:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v2df
+			       : CODE_FOR_vsx_st_elemrev_v2df);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+    case VSX_BUILTIN_ST_ELEMREV_V2DI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v2di
+			       : CODE_FOR_vsx_st_elemrev_v2di);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+    case VSX_BUILTIN_ST_ELEMREV_V4SF:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v4sf
+			       : CODE_FOR_vsx_st_elemrev_v4sf);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+    case VSX_BUILTIN_ST_ELEMREV_V4SI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v4si
+			       : CODE_FOR_vsx_st_elemrev_v4si);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+    case VSX_BUILTIN_ST_ELEMREV_V8HI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v8hi
+			       : CODE_FOR_vsx_st_elemrev_v8hi);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+    case VSX_BUILTIN_ST_ELEMREV_V16QI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v16qi
+			       : CODE_FOR_vsx_st_elemrev_v16qi);
+	return altivec_expand_stv_builtin (code, exp);
+      }
+
     case ALTIVEC_BUILTIN_MFVSCR:
       icode = CODE_FOR_altivec_mfvscr;
       tmode = insn_data[icode].operand[0].mode;
@@ -14411,6 +14436,46 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case VSX_BUILTIN_LXVW4X_V16QI:
       return altivec_expand_lv_builtin (CODE_FOR_vsx_load_v16qi,
 					exp, target, false);
+    /* For the following on big endian, it's ok to use any appropriate
+       unaligned-supporting load, so use a generic expander.  For
+       little-endian, the exact element-reversing instruction must
+       be used.  */
+    case VSX_BUILTIN_LD_ELEMREV_V2DF:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v2df
+			       : CODE_FOR_vsx_ld_elemrev_v2df);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
+    case VSX_BUILTIN_LD_ELEMREV_V2DI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v2di
+			       : CODE_FOR_vsx_ld_elemrev_v2di);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
+    case VSX_BUILTIN_LD_ELEMREV_V4SF:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v4sf
+			       : CODE_FOR_vsx_ld_elemrev_v4sf);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
+    case VSX_BUILTIN_LD_ELEMREV_V4SI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v4si
+			       : CODE_FOR_vsx_ld_elemrev_v4si);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
+    case VSX_BUILTIN_LD_ELEMREV_V8HI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v8hi
+			       : CODE_FOR_vsx_ld_elemrev_v8hi);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
+    case VSX_BUILTIN_LD_ELEMREV_V16QI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v16qi
+			       : CODE_FOR_vsx_ld_elemrev_v16qi);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
       break;
     default:
       break;
@@ -14880,6 +14945,8 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & RS6000_BTM_P9_VECTOR) != 0)
+    error ("Builtin function %s requires the -mpower9-vector option", name);
   else if ((fnmask & (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
 	   == (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
     error ("Builtin function %s requires the -mhard-float and"
@@ -15908,10 +15975,44 @@ altivec_init_builtins (void)
 	       VSX_BUILTIN_STXVW4X_V8HI);
   def_builtin ("__builtin_vsx_stxvw4x_v16qi", void_ftype_v16qi_long_pvoid,
 	       VSX_BUILTIN_STXVW4X_V16QI);
+
+  def_builtin ("__builtin_vsx_ld_elemrev_v2df", v2df_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V2DF);
+  def_builtin ("__builtin_vsx_ld_elemrev_v2di", v2di_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V2DI);
+  def_builtin ("__builtin_vsx_ld_elemrev_v4sf", v4sf_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V4SF);
+  def_builtin ("__builtin_vsx_ld_elemrev_v4si", v4si_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V4SI);
+  def_builtin ("__builtin_vsx_st_elemrev_v2df", void_ftype_v2df_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V2DF);
+  def_builtin ("__builtin_vsx_st_elemrev_v2di", void_ftype_v2di_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V2DI);
+  def_builtin ("__builtin_vsx_st_elemrev_v4sf", void_ftype_v4sf_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V4SF);
+  def_builtin ("__builtin_vsx_st_elemrev_v4si", void_ftype_v4si_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V4SI);
+
+  if (TARGET_P9_VECTOR)
+    {
+      def_builtin ("__builtin_vsx_ld_elemrev_v8hi", v8hi_ftype_long_pcvoid,
+		   VSX_BUILTIN_LD_ELEMREV_V8HI);
+      def_builtin ("__builtin_vsx_ld_elemrev_v16qi", v16qi_ftype_long_pcvoid,
+		   VSX_BUILTIN_LD_ELEMREV_V16QI);
+      def_builtin ("__builtin_vsx_st_elemrev_v8hi",
+		   void_ftype_v8hi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V8HI);
+      def_builtin ("__builtin_vsx_st_elemrev_v16qi",
+		   void_ftype_v16qi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V16QI);
+    }
+
   def_builtin ("__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
 	       VSX_BUILTIN_VEC_LD);
   def_builtin ("__builtin_vec_vsx_st", void_ftype_opaque_long_pvoid,
 	       VSX_BUILTIN_VEC_ST);
+  def_builtin ("__builtin_vec_xl", opaque_ftype_long_pcvoid,
+	       VSX_BUILTIN_VEC_XL);
+  def_builtin ("__builtin_vec_xst", void_ftype_opaque_long_pvoid,
+	       VSX_BUILTIN_VEC_XST);
 
   def_builtin ("__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
   def_builtin ("__builtin_vec_splats", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_SPLATS);
@@ -23117,34 +23218,40 @@ is_altivec_return_reg (rtx reg, void *xyes)
 }
 
 
-/* Look for user-defined global regs in the range FIRST to LAST-1.
-   We should not restore these, and so cannot use lmw or out-of-line
-   restore functions if there are any.  We also can't save them
-   (well, emit frame notes for them), because frame unwinding during
-   exception handling will restore saved registers.  */
+/* Return whether REG is a global user reg or has been specifed by
+   -ffixed-REG.  We should not restore these, and so cannot use
+   lmw or out-of-line restore functions if there are any.  We also
+   can't save them (well, emit frame notes for them), because frame
+   unwinding during exception handling will restore saved registers.  */
 
 static bool
-global_regs_p (unsigned first, unsigned last)
+fixed_reg_p (int reg)
 {
-  while (first < last)
-    if (global_regs[first++])
-      return true;
-  return false;
+  /* Ignore fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] when the
+     backend sets it, overriding anything the user might have given.  */
+  if (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
+      && ((DEFAULT_ABI == ABI_V4 && flag_pic)
+	  || (DEFAULT_ABI == ABI_DARWIN && flag_pic)
+	  || (TARGET_TOC && TARGET_MINIMAL_TOC)))
+    return false;
+
+  return fixed_regs[reg];
 }
 
 /* Determine the strategy for savings/restoring registers.  */
 
 enum {
-  SAVRES_MULTIPLE = 0x1,
-  SAVE_INLINE_FPRS = 0x2,
-  SAVE_INLINE_GPRS = 0x4,
-  REST_INLINE_FPRS = 0x8,
-  REST_INLINE_GPRS = 0x10,
-  SAVE_NOINLINE_GPRS_SAVES_LR = 0x20,
-  SAVE_NOINLINE_FPRS_SAVES_LR = 0x40,
-  REST_NOINLINE_FPRS_DOESNT_RESTORE_LR = 0x80,
-  SAVE_INLINE_VRS = 0x100,
-  REST_INLINE_VRS = 0x200
+  SAVE_MULTIPLE = 0x1,
+  SAVE_INLINE_GPRS = 0x2,
+  SAVE_INLINE_FPRS = 0x4,
+  SAVE_NOINLINE_GPRS_SAVES_LR = 0x8,
+  SAVE_NOINLINE_FPRS_SAVES_LR = 0x10,
+  SAVE_INLINE_VRS = 0x20,
+  REST_MULTIPLE = 0x100,
+  REST_INLINE_GPRS = 0x200,
+  REST_INLINE_FPRS = 0x400,
+  REST_NOINLINE_FPRS_DOESNT_RESTORE_LR = 0x800,
+  REST_INLINE_VRS = 0x1000
 };
 
 static int
@@ -23152,35 +23259,25 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 			bool using_static_chain_p)
 {
   int strategy = 0;
-  bool lr_save_p;
 
-  if (TARGET_MULTIPLE
-      && !TARGET_POWERPC64
-      && !(TARGET_SPE_ABI && info->spe_64bit_regs_used)
-      && info->first_gp_reg_save < 31
-      && !global_regs_p (info->first_gp_reg_save, 32))
-    strategy |= SAVRES_MULTIPLE;
-
+  /* Select between in-line and out-of-line save and restore of regs.
+     First, all the obvious cases where we don't use out-of-line.  */
   if (crtl->calls_eh_return
       || cfun->machine->ra_need_lr)
     strategy |= (SAVE_INLINE_FPRS | REST_INLINE_FPRS
 		 | SAVE_INLINE_GPRS | REST_INLINE_GPRS
 		 | SAVE_INLINE_VRS | REST_INLINE_VRS);
 
+  if (info->first_gp_reg_save == 32)
+    strategy |= SAVE_INLINE_GPRS | REST_INLINE_GPRS;
+
   if (info->first_fp_reg_save == 64
       /* The out-of-line FP routines use double-precision stores;
 	 we can't use those routines if we don't have such stores.  */
-      || (TARGET_HARD_FLOAT && !TARGET_DOUBLE_FLOAT)
-      || global_regs_p (info->first_fp_reg_save, 64))
+      || (TARGET_HARD_FLOAT && !TARGET_DOUBLE_FLOAT))
     strategy |= SAVE_INLINE_FPRS | REST_INLINE_FPRS;
 
-  if (info->first_gp_reg_save == 32
-      || (!(strategy & SAVRES_MULTIPLE)
-	  && global_regs_p (info->first_gp_reg_save, 32)))
-    strategy |= SAVE_INLINE_GPRS | REST_INLINE_GPRS;
-
-  if (info->first_altivec_reg_save == LAST_ALTIVEC_REGNO + 1
-      || global_regs_p (info->first_altivec_reg_save, LAST_ALTIVEC_REGNO + 1))
+  if (info->first_altivec_reg_save == LAST_ALTIVEC_REGNO + 1)
     strategy |= SAVE_INLINE_VRS | REST_INLINE_VRS;
 
   /* Define cutoff for using out-of-line functions to save registers.  */
@@ -23233,51 +23330,7 @@ rs6000_savres_strategy (rs6000_stack_t *info,
       && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN))
     strategy |= ((DEFAULT_ABI == ABI_DARWIN ? 0 : SAVE_INLINE_FPRS)
 		 | SAVE_INLINE_GPRS
-		 | SAVE_INLINE_VRS | REST_INLINE_VRS);
-
-  /* We can only use the out-of-line routines to restore if we've
-     saved all the registers from first_fp_reg_save in the prologue.
-     Otherwise, we risk loading garbage.  */
-  if ((strategy & (SAVE_INLINE_FPRS | REST_INLINE_FPRS)) == SAVE_INLINE_FPRS)
-    {
-      int i;
-
-      for (i = info->first_fp_reg_save; i < 64; i++)
-	if (!save_reg_p (i))
-	  {
-	    strategy |= REST_INLINE_FPRS;
-	    break;
-	  }
-    }
-
-  /* If we are going to use store multiple, then don't even bother
-     with the out-of-line routines, since the store-multiple
-     instruction will always be smaller.  */
-  if ((strategy & SAVRES_MULTIPLE))
-    strategy |= SAVE_INLINE_GPRS;
-
-  /* info->lr_save_p isn't yet set if the only reason lr needs to be
-     saved is an out-of-line save or restore.  Set up the value for
-     the next test (excluding out-of-line gpr restore).  */
-  lr_save_p = (info->lr_save_p
-	       || !(strategy & SAVE_INLINE_GPRS)
-	       || !(strategy & SAVE_INLINE_FPRS)
-	       || !(strategy & SAVE_INLINE_VRS)
-	       || !(strategy & REST_INLINE_FPRS)
-	       || !(strategy & REST_INLINE_VRS));
-
-  /* The situation is more complicated with load multiple.  We'd
-     prefer to use the out-of-line routines for restores, since the
-     "exit" out-of-line routines can handle the restore of LR and the
-     frame teardown.  However if doesn't make sense to use the
-     out-of-line routine if that is the only reason we'd need to save
-     LR, and we can't use the "exit" out-of-line gpr restore if we
-     have saved some fprs; In those cases it is advantageous to use
-     load multiple when available.  */
-  if ((strategy & SAVRES_MULTIPLE)
-      && (!lr_save_p
-	  || info->first_fp_reg_save != 64))
-    strategy |= REST_INLINE_GPRS;
+		 | SAVE_INLINE_VRS);
 
   /* Saving CR interferes with the exit routines used on the SPE, so
      just punt here.  */
@@ -23286,19 +23339,82 @@ rs6000_savres_strategy (rs6000_stack_t *info,
       && info->cr_save_p)
     strategy |= REST_INLINE_GPRS;
 
+  /* We can only use the out-of-line routines to restore fprs if we've
+     saved all the registers from first_fp_reg_save in the prologue.
+     Otherwise, we risk loading garbage.  Of course, if we have saved
+     out-of-line then we know we haven't skipped any fprs.  */
+  if ((strategy & SAVE_INLINE_FPRS)
+      && !(strategy & REST_INLINE_FPRS))
+    {
+      int i;
+
+      for (i = info->first_fp_reg_save; i < 64; i++)
+	if (fixed_regs[i] || !save_reg_p (i))
+	  {
+	    strategy |= REST_INLINE_FPRS;
+	    break;
+	  }
+    }
+
+  /* Similarly, for altivec regs.  */
+  if ((strategy & SAVE_INLINE_VRS)
+      && !(strategy & REST_INLINE_VRS))
+    {
+      int i;
+
+      for (i = info->first_altivec_reg_save; i < LAST_ALTIVEC_REGNO + 1; i++)
+	if (fixed_regs[i] || !save_reg_p (i))
+	  {
+	    strategy |= REST_INLINE_VRS;
+	    break;
+	  }
+    }
+
+  if (TARGET_MULTIPLE
+      && !TARGET_POWERPC64
+      && !(TARGET_SPE_ABI && info->spe_64bit_regs_used)
+      && info->first_gp_reg_save != 32)
+    {
+      /* Prefer store multiple for saves over out-of-line routines,
+	 since the store-multiple instruction will always be smaller.  */
+      strategy |= SAVE_INLINE_GPRS | SAVE_MULTIPLE;
+
+      /* info->lr_save_p isn't yet set if the only reason lr needs to be
+	 saved is an out-of-line save or restore.  Set up the value for
+	 the next test (excluding out-of-line gprs).  */
+      bool lr_save_p = (info->lr_save_p
+			|| !(strategy & SAVE_INLINE_FPRS)
+			|| !(strategy & SAVE_INLINE_VRS)
+			|| !(strategy & REST_INLINE_FPRS)
+			|| !(strategy & REST_INLINE_VRS));
+
+      /* The situation is more complicated with load multiple.  We'd
+	 prefer to use the out-of-line routines for restores, since the
+	 "exit" out-of-line routines can handle the restore of LR and the
+	 frame teardown.  However if doesn't make sense to use the
+	 out-of-line routine if that is the only reason we'd need to save
+	 LR, and we can't use the "exit" out-of-line gpr restore if we
+	 have saved some fprs; In those cases it is advantageous to use
+	 load multiple when available.  */
+      if (info->first_fp_reg_save != 64 || !lr_save_p)
+	strategy |= REST_INLINE_GPRS | REST_MULTIPLE;
+    }
+
   /* We can only use load multiple or the out-of-line routines to
-     restore if we've used store multiple or out-of-line routines
-     in the prologue, i.e. if we've saved all the registers from
-     first_gp_reg_save.  Otherwise, we risk loading garbage.  */
-  if ((strategy & (SAVE_INLINE_GPRS | REST_INLINE_GPRS | SAVRES_MULTIPLE))
-      == SAVE_INLINE_GPRS)
+     restore gprs if we've saved all the registers from
+     first_gp_reg_save.  Otherwise, we risk loading garbage.
+     Of course, if we have saved out-of-line or used stmw then we know
+     we haven't skipped any gprs.  */
+  if ((strategy & (SAVE_INLINE_GPRS | SAVE_MULTIPLE)) == SAVE_INLINE_GPRS
+      && (strategy & (REST_INLINE_GPRS | REST_MULTIPLE)) != REST_INLINE_GPRS)
     {
       int i;
 
       for (i = info->first_gp_reg_save; i < 32; i++)
-	if (!save_reg_p (i))
+	if (fixed_reg_p (i) || !save_reg_p (i))
 	  {
 	    strategy |= REST_INLINE_GPRS;
+	    strategy &= ~REST_MULTIPLE;
 	    break;
 	  }
     }
@@ -24571,7 +24687,14 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
 	    {
 	      rtx set = XVECEXP (real, 0, i);
 
-	      RTX_FRAME_RELATED_P (set) = 1;
+	      /* If this PARALLEL has been emitted for out-of-line
+		 register save functions, or store multiple, then omit
+		 eh_frame info for any user-defined global regs.  If
+		 eh_frame info is supplied, frame unwinding will
+		 restore a user reg.  */
+	      if (!REG_P (SET_SRC (set))
+		  || !fixed_reg_p (REGNO (SET_SRC (set))))
+		RTX_FRAME_RELATED_P (set) = 1;
 	    }
       RTX_FRAME_RELATED_P (insn) = 1;
       return insn;
@@ -24641,7 +24764,10 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
 		if (temp)
 		  XEXP (SET_DEST (set), 0) = temp;
 	      }
-	    RTX_FRAME_RELATED_P (set) = 1;
+	    /* Omit eh_frame info for any user-defined global regs.  */
+	    if (!REG_P (SET_SRC (set))
+		|| !fixed_reg_p (REGNO (SET_SRC (set))))
+	      RTX_FRAME_RELATED_P (set) = 1;
 	  }
     }
 
@@ -25665,7 +25791,7 @@ rs6000_emit_prologue (void)
       if (lr)
 	END_USE (0);
     }
-  else if (!WORLD_SAVE_P (info) && (strategy & SAVRES_MULTIPLE))
+  else if (!WORLD_SAVE_P (info) && (strategy & SAVE_MULTIPLE))
     {
       rtvec p;
       int i;
@@ -26577,7 +26703,7 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   strategy = info->savres_strategy;
-  using_load_multiple = strategy & SAVRES_MULTIPLE;
+  using_load_multiple = strategy & REST_MULTIPLE;
   restoring_FPRs_inline = sibcall || (strategy & REST_INLINE_FPRS);
   restoring_GPRs_inline = sibcall || (strategy & REST_INLINE_GPRS);
   using_mtcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
@@ -34545,6 +34671,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "popcntd",		 RS6000_BTM_POPCNTD,	false, false },
   { "cell",		 RS6000_BTM_CELL,	false, false },
   { "power8-vector",	 RS6000_BTM_P8_VECTOR,	false, false },
+  { "power9-vector",	 RS6000_BTM_P9_VECTOR,	false, false },
   { "crypto",		 RS6000_BTM_CRYPTO,	false, false },
   { "htm",		 RS6000_BTM_HTM,	false, false },
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },

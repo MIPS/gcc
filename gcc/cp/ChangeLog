@@ -1,3 +1,20 @@
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* init.c (build_new_1): Use shift operators instead of wi:: shifts.
+
+2016-05-02  Richard Biener  <rguenther@suse.de>
+
+	* decl.c (grokdeclarator): Properly insert a DECL_EXPR for
+	anonymous VLAs.
+
+2016-04-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66644
+	* class.c (check_field_decl): Remove final int* parameter, change
+	the return type to bool; fix logic in order not to reject multiple
+	initialized fields in anonymous struct.
+	(check_field_decls): Adjust call.
+
 2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR middle-end/70626

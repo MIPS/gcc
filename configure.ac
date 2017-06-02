@@ -782,8 +782,6 @@ case "${target}" in
     ;;
   sh-*-* | sh[[34]]*-*-*)
     ;;
-  sh64-*-* | sh5*-*-*)
-    ;;
   sparc*-*-*)
     ;;
   x86_64-*-*)
@@ -1282,7 +1280,7 @@ case "${target}" in
   or1k*-*-*)
     noconfigdirs="$noconfigdirs gdb"
     ;;
-  sh-*-* | sh64-*-*)
+  sh-*-*)
     case "${target}" in
       sh*-*-elf)
          ;;
@@ -3539,7 +3537,7 @@ AC_ARG_ENABLE(stage1-checking,
   if test "x$enable_checking" = x && \
      test -d ${srcdir}/gcc && \
      test x"`cat ${srcdir}/gcc/DEV-PHASE`" = xexperimental; then
-    stage1_checking=yes,types,extra
+    stage1_checking=--enable-checking=yes,types,extra
   fi
 else
   stage1_checking=--enable-checking=$enable_checking,types

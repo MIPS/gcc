@@ -1,3 +1,376 @@
+2016-05-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/70886
+	* sched-deps.c (estimate_dep_weak): Canonicalize cselib values.
+
+	* cselib.h (rtx_equal_for_cselib_1): Declare.
+	(rtx_equal_for_cselib_p: New inline function.
+	* cselib.c (rtx_equal_for_cselib_p): Delete.
+	(rtx_equal_for_cselib_1): Make public.
+
+2016-05-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (nonimm_ssenomem_operand): New predicate.
+	(register_mixssei387nonimm_operand): Remove predicate.
+	* config/i386/i386.md (*fop_<mode>_comm): Merge from
+	*fop_<mode>_comm_mixed and *fop_<mode>_comm_i387.  Disable unsupported
+	alternatives using "enabled" attribute.  Also check X87_ENABLE_ARITH
+	for TARGET_MIX_SSE_I387 alternatives.
+	(*fop_<mode>_1): Merge from *fop_<mode>_1_mixed and *fop_<mode>_1_i387.
+	Disable unsupported alternatives using "enabled" attribute.  Use
+	nonimm_ssenomem_operand as operand 1 predicate.  Also check
+	X87_ENABLE_ARITH for TARGET_MIX_SSE_I387 alternatives.
+	* config/i386/predicates.md (nonimm_ssenomem_operand): New predicate.
+	(register_mixssei387nonimm_operand): Remove predicate.
+
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree.c (cst_and_fits_in_hwi): Simplify.
+
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree.h (wi::to_wide): New function.
+	* expr.c (expand_expr_real_1): Use wi::to_wide.
+	* fold-const.c (int_const_binop_1): Likewise.
+	(extract_muldiv_1): Likewise.
+
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* wide-int.h: Update offset_int and widest_int documentation.
+	(WI_SIGNED_SHIFT_RESULT): New macro.
+	(wi::binary_shift): Define signed_shift_result_type for
+	shifts on offset_int- and widest_int-like types.
+	(generic_wide_int): Support <<= and >>= if << and >> are supported.
+	* tree.h (int_bit_position): Use shift operators instead of wi::
+	 shifts.
+	* alias.c (adjust_offset_for_component_ref): Likewise.
+	* expr.c (get_inner_reference): Likewise.
+	* fold-const.c (fold_comparison): Likewise.
+	* gimple-fold.c (fold_nonarray_ctor_reference): Likewise.
+	* gimple-ssa-strength-reduction.c (restructure_reference): Likewise.
+	* tree-dfa.c (get_ref_base_and_extent): Likewise.
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Likewise.
+	(stmt_kills_ref_p): Likewise.
+	* tree-ssa-ccp.c (bit_value_binop_1): Likewise.
+	* tree-ssa-math-opts.c (find_bswap_or_nop_load): Likewise.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Likewise.
+	(ao_ref_init_from_vn_reference): Likewise.
+
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* wide-int.h: Update offset_int and widest_int documentation.
+	(WI_SIGNED_BINARY_PREDICATE_RESULT): New macro.
+	(wi::binary_traits): Allow ordered comparisons between offset_int and
+	offset_int, between widest_int and widest_int, and between either
+	of these types and basic C types.
+	(operator <, <=, >, >=): Define for the same combinations.
+	* tree.h (tree_int_cst_lt): Use comparison operators instead
+	of wi:: comparisons.
+	(tree_int_cst_le): Likewise.
+	* gimple-fold.c (fold_array_ctor_reference): Likewise.
+	(fold_nonarray_ctor_reference): Likewise.
+	* gimple-ssa-strength-reduction.c (record_increment): Likewise.
+	* tree-affine.c (aff_comb_cannot_overlap_p): Likewise.
+	* tree-parloops.c (try_transform_to_exit_first_loop_alt): Likewise.
+	* tree-sra.c (completely_scalarize): Likewise.
+	* tree-ssa-alias.c (stmt_kills_ref_p): Likewise.
+	* tree-ssa-reassoc.c (extract_bit_test_mask): Likewise.
+	* tree-vrp.c (extract_range_from_binary_expr_1): Likewise.
+	(check_for_binary_op_overflow): Likewise.
+	(search_for_addr_array): Likewise.
+	* ubsan.c (ubsan_expand_objsize_ifn): Likewise.
+
+2016-05-02  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_preferred_simd_mode): Remove enum keyword.
+	(arc_save_restore): Likewise.
+	(arc_dwarf_register_span): Likewise.
+	(arc_output_pic_addr_const): Initialize suffix variable.
+
+2016-05-02  Martin Liska  <mliska@suse.cz>
+
+	* symbol-summary.h (function_summary::function_summary):
+	Remove checking assert for all cgraph nodes.
+	(function_summary::get): Check summary_uid.
+	(symtab_insertion): Check summary_uid.
+
+2016-05-02  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc-protos.h (compact_memory_operand_p): Declare.
+	* config/arc/arc.c (arc_output_commutative_cond_exec): Consider
+	bmaskn instruction.
+	(arc_dwarf_register_span): Remove enum keyword.
+	(compact_memory_operand_p): New function.
+	* config/arc/arc.h (reg_class): Add code density register classes.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	* config/arc/arc.md (*movqi_insn): Add code density instructions.
+	(*movhi_insn, *movsi_insn, *movsf_insn): Likewise.
+	(*extendhisi2_i, andsi3_i, cmpsi_cc_insn_mixed): Likewise.
+	(*cmpsi_cc_c_insn, *movsi_ne): Likewise.
+	* config/arc/constraints.md (C2p, Uts, Cm1, Cm3, Ucd): New
+	constraints.
+	(h, Rcd, Rsd, Rzd): New register constraints.
+	(T): Use compact_memory_operand_p function.
+	* config/arc/predicates.md (compact_load_memory_operand): Remove.
+
+2016-05-02  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (*negnegt, *movtt): Remove.
+
+2016-05-02  Marek Polacek  <polacek@redhat.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70700
+	* tree-ssa-structalias.c (dump_pred_graph): Fix getting varinfo for ids
+	bigger than FIRST_REF_NODE.
+
+2016-05-02  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52898
+	* config/sh/sh.c (sh_option_override): Remove TARGET_CBRANCHDI4,
+	TARGET_CMPEQDI_T.
+	(prepare_cbranch_operands): Don't use scratch register.  Assume that
+	function is used when pseudos can be created.
+	(expand_cbranchdi4): Likewise.  Remove unused TARGET_CMPEQDI_T paths.
+	* config/sh/sh.md (cbranchsi4): Allow only when pseudos can be created.
+	(cbranchdi4, cbranchdi4_i): Simplify to single cbranchdi4
+	define_expand.  Allow it only when pseudos can be created.
+	* config/sh/sh.opt (mcbranchdi, mcmpeqdi): Delete.
+
+2016-05-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/constraints.md (BC): Only allow -1 operands.
+	* config/i386/sse.md (mov<mode>_internal): Add (v,C) alternative.
+	Add "enabled" attribute.  Update XI mode attribute calculation.
+	* config/i386/i386.md (*movxi_internal_avx512f): Add (v,C) alternative.
+	(*movoi_internal_avx): Update XI mode attribute calculation.
+	(*movti_internal): Ditto.
+
+2016-05-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (push, pop, ic_invalidate_line, cstoresi4, cstoredi4,
+	cstoresf4, cstoredf4, fix_truncsfsi2): Remove constraints.
+
+2016-05-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Do not use switch
+	statement on instruction code.  Remove trailing spaces.
+	(altivec_expand_stv_builtin): Likewise.
+
+2016-05-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.h (TARGET_SH4): Remove and use default implementation.
+	(TARGET_FPU_DOUBLE): Simplify.
+	(BASE_ARG_REG, DOUBLE_TYPE_SIZE, OPTIMIZE_MODE_SWITCHING): Replace
+	'TARGET_SH4 || TARGET_SH2A_DOUBLE' conditions with 'TARGET_FPU_DOUBLE'.
+	* config/sh/sh.c: Replace 'TARGET_SH4 || TARGET_SH2A_DOUBLE' conditions
+	with 'TARGET_FPU_DOUBLE'.
+	* config/sh/sh.md: Likewise.
+
+2016-05-01  Yoshinori Sato  <ysato@users.sourceforge.jp>
+
+	* config/sh/linux.h (SH_DIV_STRATEGY_DEFAULT,
+	SH_DIV_STR_FOR_SIZE): Remove.
+	* config/sh/netbsd-elf.h (SH_DIV_STRATEGY_DEFAULT,
+	SH_DIV_STR_FOR_SIZE): Remove.
+
+2016-05-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/predicates.md (any_register_operand, zero_extend_operand,
+	logical_reg_operand): Delete.
+	(arith_operand, arith_reg_dest, arith_or_int_operand, cmpsi_operand,
+	arith_reg_or_0_operand, arith_reg_or_0_or_1_operand, logical_operand,
+	logical_and_operand, movsrc_no_disp_mem_operand): Rewrite using
+	match_operand and match_test.
+	(sh_const_vec, sh_1el_vec): Remove redundant checks.  Declare local
+	variables on their first use.  Return bool values.
+	* config/sh/sh.h (LOAD_EXTEND_OP): Update comment.
+	* config/sh/sh.md (andsi3, iorsi3): Use arith_reg_dest for result and
+	arith_reg_operand for input operand.  Remove empty constraints.
+	(xorsi3): Delete.
+	(*xorsi3_compact): Rename to xorsi3.
+	(zero_extend<mode>si2): Use arith_reg_operand for input operand.
+	(*zero_extend<mode>si2_disp_mem): Update comment.
+	(mov_nop): Delete.
+
+2016-04-30  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/t-sh: Remove SH5 support.
+	* config.gcc: Likewise.
+	* configure: Likewise.
+
+2016-04-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Handle -fcilkplus.
+
+2016-04-30  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.c (register_sh_passes, sh_option_override,
+	sh_print_operand, prepare_move_operands,
+	sh_can_follow_jump): Remove TARGET_SH1 checks.
+	* config/sh/sh.h (TARGET_VARARGS_PRETEND_ARGS, VALID_REGISTER_P,
+	PROMOTE_MODE): Likewise.
+	* config/sh/sh.md (adddi3, addsi3, subdi3, subsi3, andsi3,
+	movdi): Likewise.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): Force inline
+	restoring when fixed_reg_p, but allow out-of-line or stmw save.
+	Check for user regs later to avoid unnecessary looping over regs.
+	Merge user reg check with non-saved reg check.  Don't force
+	inline VR restore when static chain used.
+	(rs6000_frame_related): Omit eh_frame info for user regs when
+	saving.
+	(fixed_regs_p): Delete.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (SAVRES_MULTIPLE): Replace with..
+	(SAVE_STRATEGY, REST_STRATEGY): ..this.  Renumber and sort enum.
+	Update all uses.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	PR target/69645
+	* config/rs6000/rs6000.c (fixed_reg_p): New function.
+	(fixed_regs_p): Rename from global_regs_p.  Call fixed_reg_p.
+	Update all uses.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_conditional_register_usage):
+	Remove redundant PIC_OFFSET_TABLE_REGNUM test.  Replace with
+	flag_pic test for Darwin.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* regs.h (struct reg_info_t): Delete freq_calls_crossed and
+	throw_calls_crossed.
+	(REG_FREQ_CALLS_CROSSED): Delete.
+	(REG_N_THROWING_CALLS_CROSSED): Delete.
+	* regstat.c (regstat_bb_compute_ri): Don't calculate
+	REG_FREQ_CALLS_CROSSED and REG_N_THROWING_CALLS_CROSSED.
+	(dump_reg_info): Don't print call cross frequency.
+	* ira.c (combine_and_move_insns): Don't set REG_FREQ_CALLS_CROSSED
+	and REG_N_THROWING_CALLS_CROSSED.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* regs.h (struct reg_info_t): Delete live_length.
+	(REG_LIVE_LENGTH): Delete macro.
+	* regstat.c (regstat_bb_compute_ri): Delete artificial_uses,
+	local_live, local_processed and local_live_last_luid params.
+	Replace bb_index param with bb.  Don't set REG_LIVE_LENGTH.
+	Formatting fixes.
+	(regstat_compute_ri): Adjust for above.  Don't set
+	REG_LIVE_LENGTH.
+	(dump_reg_info): Don't print live length.
+	* ira.c (update_equiv_regs): Replace test of REG_LIVE_LENGTH
+	with test of setjmp_crosses.  Don't set REG_LIVE_LENGTH.
+	Localize loop_depth var.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* ira.c (enum valid_equiv): New.
+	(validate_equiv_mem): Return enum.
+	(update_equiv_mem): Create replacement in more cases.
+	(add_store_equivs): Update validate_equiv_mem call.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* ira.c (combine_and_move_insns): Rather than scanning insns,
+	use DF infrastucture to find use and def insns.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	ira.c (combine_and_move_insns): Move invariant conditions..
+	(ira.c): ..to here.  Call combine_and_move_insns before
+	add_store_equivs.  Call grow_reg_equivs later.  Allocate
+	req_equiv later using max_reg_num() rather than global max_regno.
+	(contains_replace_regs): Delete.
+	(add_store_equivs): Remove contains_replace_regs test.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* ira.c (struct equiv_mem_data): New.
+	(equiv_mem, equiv_mem_modified): Delete static vars.
+	(validate_equiv_mem_from_store): Use "data" param to communicate..
+	(validate_equiv_mem): ..from here.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* ira.c (add_store_equivs, combine_and_move_insns): New functions,
+	split out from..
+	(update_reg_equivs): ..here.  Move allocation and freeing of
+	reg_equiv, and calls to grow_reg_equivs, init_alias_analysis,
+	end_alias_analysis to..
+	(ira): ..here.
+
+2016-04-30  Alan Modra  <amodra@gmail.com>
+
+	* ira.c (pdx_subregs): Delete.
+	(struct equivalence): Add pdx_subregs field.
+	(set_paradoxical_subreg): Remove pdx_subregs param.  Update
+	pdx_subregs access.
+	(update_equiv_regs): Don't create or free pdx_subregs.  Update
+	pdx_subregs access.
+
+2016-04-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h: Change definitions of vec_xl and
+	vec_xst.
+	* config/rs6000/rs6000-builtin.def (LD_ELEMREV_V2DF): New.
+	(LD_ELEMREV_V2DI): New.
+	(LD_ELEMREV_V4SF): New.
+	(LD_ELEMREV_V4SI): New.
+	(LD_ELEMREV_V8HI): New.
+	(LD_ELEMREV_V16QI): New.
+	(ST_ELEMREV_V2DF): New.
+	(ST_ELEMREV_V2DI): New.
+	(ST_ELEMREV_V4SF): New.
+	(ST_ELEMREV_V4SI): New.
+	(ST_ELEMREV_V8HI): New.
+	(ST_ELEMREV_V16QI): New.
+	(XL): New.
+	(XST): New.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	descriptions for VSX_BUILTIN_VEC_XL and VSX_BUILTIN_VEC_XST.
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Map from
+	TARGET_P9_VECTOR to RS6000_BTM_P9_VECTOR.
+	(altivec_expand_builtin): Add handling for
+	VSX_BUILTIN_ST_ELEMREV_<MODE> and VSX_BUILTIN_LD_ELEMREV_<MODE>.
+	(rs6000_invalid_builtin): Add error-checking for
+	RS6000_BTM_P9_VECTOR.
+	(altivec_init_builtins): Define builtins used to implement vec_xl
+	and vec_xst.
+	(rs6000_builtin_mask_names): Define power9-vector.
+	* config/rs6000/rs6000.h (MASK_P9_VECTOR): Define.
+	(RS6000_BTM_P9_VECTOR): Define.
+	(RS6000_BTM_COMMON): Include RS6000_BTM_P9_VECTOR.
+	* config/rs6000/vsx.md (vsx_ld_elemrev_v2di): New define_insn.
+	(vsx_ld_elemrev_v2df): Likewise.
+	(vsx_ld_elemrev_v4sf): Likewise.
+	(vsx_ld_elemrev_v4si): Likewise.
+	(vsx_ld_elemrev_v8hi): Likewise.
+	(vsx_ld_elemrev_v16qi): Likewise.
+	(vsx_st_elemrev_v2df): Likewise.
+	(vsx_st_elemrev_v2di): Likewise.
+	(vsx_st_elemrev_v4sf): Likewise.
+	(vsx_st_elemrev_v4si): Likewise.
+	(vsx_st_elemrev_v8hi): Likewise.
+	(vsx_st_elemrev_v16qi): Likewise.
+	* doc/extend.texi: Add prototypes for vec_xl and vec_xst.  Correct
+	grammar.
+
+2016-04-29  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Split
+	out into ...
+	(simplify_control_stmt_condition_1): ... here.  Recurse into
+	BIT_AND_EXPRs and BIT_IOR_EXPRs.
+
 2016-04-29  David Edelsohn  <dje.gcc@gmail.com>
 
 	PR target/69810

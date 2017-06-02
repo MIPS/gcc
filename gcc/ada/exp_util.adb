@@ -584,6 +584,14 @@ package body Exp_Util is
       elsif Is_RTE (Pool_Id, RE_SS_Pool) then
          return;
 
+      --  Optimize the case where we are using the default Global_Pool_Object,
+      --  and we don't need the heavy finalization machinery.
+
+      elsif Pool_Id = RTE (RE_Global_Pool_Object)
+        and then not Needs_Finalization (Desig_Typ)
+      then
+         return;
+
       --  Do not replicate the machinery if the allocator / free has already
       --  been expanded and has a custom Allocate / Deallocate.
 
@@ -3118,17 +3126,21 @@ package body Exp_Util is
       Name_Req      : Boolean   := False;
       Related_Id    : Entity_Id := Empty;
       Is_Low_Bound  : Boolean   := False;
-      Is_High_Bound : Boolean   := False)
+      Is_High_Bound : Boolean   := False;
+      Mode          : Force_Evaluation_Mode := Relaxed)
    is
    begin
       Remove_Side_Effects
-        (Exp           => Exp,
-         Name_Req      => Name_Req,
-         Variable_Ref  => True,
-         Renaming_Req  => False,
-         Related_Id    => Related_Id,
-         Is_Low_Bound  => Is_Low_Bound,
-         Is_High_Bound => Is_High_Bound);
+        (Exp                => Exp,
+         Name_Req           => Name_Req,
+         Variable_Ref       => True,
+         Renaming_Req       => False,
+         Related_Id         => Related_Id,
+         Is_Low_Bound       => Is_Low_Bound,
+         Is_High_Bound      => Is_High_Bound,
+         Check_Side_Effects =>
+           Is_Static_Expression (Exp)
+             or else Mode = Relaxed);
    end Force_Evaluation;
 
    ---------------------------------
@@ -7545,13 +7557,14 @@ package body Exp_Util is
    -------------------------
 
    procedure Remove_Side_Effects
-     (Exp           : Node_Id;
-      Name_Req      : Boolean   := False;
-      Renaming_Req  : Boolean   := False;
-      Variable_Ref  : Boolean   := False;
-      Related_Id    : Entity_Id := Empty;
-      Is_Low_Bound  : Boolean   := False;
-      Is_High_Bound : Boolean   := False)
+     (Exp                : Node_Id;
+      Name_Req           : Boolean   := False;
+      Renaming_Req       : Boolean   := False;
+      Variable_Ref       : Boolean   := False;
+      Related_Id         : Entity_Id := Empty;
+      Is_Low_Bound       : Boolean   := False;
+      Is_High_Bound      : Boolean   := False;
+      Check_Side_Effects : Boolean   := True)
    is
       function Build_Temporary
         (Loc         : Source_Ptr;
@@ -7685,7 +7698,9 @@ package body Exp_Util is
 
       --  No action needed for side-effect free expressions
 
-      elsif Side_Effect_Free (Exp, Name_Req, Variable_Ref) then
+      elsif Check_Side_Effects
+        and then Side_Effect_Free (Exp, Name_Req, Variable_Ref)
+      then
          return;
       end if;
 

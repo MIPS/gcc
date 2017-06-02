@@ -1242,6 +1242,13 @@ package body Freeze is
       --  the attribute definition clause is attached to the first subtype.
 
       Comp_Type := Base_Type (Comp_Type);
+
+      --  If the base type is incomplete or private, go to full view if known
+
+      if Present (Underlying_Type (Comp_Type)) then
+         Comp_Type := Underlying_Type (Comp_Type);
+      end if;
+
       Comp_ADC := Get_Attribute_Definition_Clause
                     (First_Subtype (Comp_Type),
                      Attribute_Scalar_Storage_Order);
@@ -1269,13 +1276,6 @@ package body Freeze is
                   & "parent", Err_Node);
             end if;
 
-         --  If enclosing composite has explicit SSO then nested composite must
-         --  have explicit SSO as well.
-
-         elsif Present (ADC) and then No (Comp_ADC) then
-            Error_Msg_N ("nested composite must have explicit scalar "
-                         & "storage order", Err_Node);
-
          --  If component and composite SSO differs, check that component
          --  falls on byte boundaries and isn't packed.
 
@@ -1288,24 +1288,32 @@ package body Freeze is
 
             if Is_Packed_Array (Comp_Type) then
                Error_Msg_N
-                 ("type of packed component must have same scalar "
-                  & "storage order as enclosing composite", Err_Node);
+                 ("type of packed component must have same scalar storage "
+                  & "order as enclosing composite", Err_Node);
 
             --  Reject if composite is a packed array, as it may be rewritten
             --  into an array of scalars.
 
             elsif Is_Packed_Array (Encl_Type) then
-               Error_Msg_N ("type of packed array must have same scalar "
-                  & "storage order as component", Err_Node);
+               Error_Msg_N
+                 ("type of packed array must have same scalar storage order "
+                  & "as component", Err_Node);
 
             --  Reject if not byte aligned
 
             elsif Is_Record_Type (Encl_Type)
-                    and then not Comp_Byte_Aligned
+              and then not Comp_Byte_Aligned
             then
                Error_Msg_N
                  ("type of non-byte-aligned component must have same scalar "
                   & "storage order as enclosing composite", Err_Node);
+
+            --  Warn if specified only for the outer composite
+
+            elsif Present (ADC) and then No (Comp_ADC) then
+               Error_Msg_NE
+                 ("scalar storage order specified for & does not apply to "
+                  & "component?", Err_Node, Encl_Type);
             end if;
          end if;
 
@@ -1314,8 +1322,8 @@ package body Freeze is
 
       elsif Present (ADC) and then Component_Aliased then
          Error_Msg_N
-           ("aliased component not permitted for type with "
-            & "explicit Scalar_Storage_Order", Err_Node);
+           ("aliased component not permitted for type with explicit "
+            & "Scalar_Storage_Order", Err_Node);
       end if;
    end Check_Component_Storage_Order;
 
@@ -3482,7 +3490,7 @@ package body Freeze is
            and then Convention (E) /= Convention_Intrinsic
 
            --  Assume that ASM interface knows what it is doing. This deals
-           --  with unsigned.ads in the AAMP back end.
+           --  with e.g. unsigned.ads in the AAMP back end.
 
            and then Convention (E) /= Convention_Assembler
          then
