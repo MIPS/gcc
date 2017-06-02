@@ -1,3 +1,110 @@
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70948
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call):
+	Properly clobber all fields of va_list for __builtin_va_start.
+
+2016-05-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR debug/70935
+	* tree-ssa-loop-unswitch.c (find_loop_guard): Reject guard edge with
+	loop latch destination.
+
+2016-05-06  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-uninit.c: Apply manual changes
+	to the GNU coding style.
+	(prune_uninit_phi_opnds): Rename from
+	prune_uninit_phi_opnds_in_unrealizable_paths.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.opt (madjust-unroll, minvalid-symbols, msoft-atomic,
+	mspace): Remove deprecated options.
+	* doc/invoke.texi (SH options): Remove -mspace.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (ic_invalidate_line_sh4a): Fix insn length.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (*cmpeqsi_t): Remove combine insn pattern and similar
+	corresponding combine split pattern.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/58219
+	* config/sh/predicates.md (long_displacement_mem_operand): New.
+	* config/sh/sh.md (movsi_i): Allow for SH2A, disallow for any FPU.
+	Add movi20, movi20s alternatives.  Adjust length attribute for
+	alternatives.
+	(movsi_ie): Allow for any FPU.  Adjust length attribute for
+	alternatives.
+	(movsi_i_lowpart): Add movi20, movi20s alternatives.  Adjust length
+	attribute for alternatives.
+	(*mov<mode>): Use long_displacement_mem_operand for length attribute.
+	(*movdi_i, movdf_k, movdf_i4, movsf_i, movsf_ie, movsf_ie_ra): Adjust
+	length attribute for alternatives.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70960
+	* tree-if-conv.c (ifcvt_walk_pattern_tree): Handle non-SSA ops.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52933
+	* config/sh/sh.md (*cmp_div0s_7, *cmp_div0s_8): Add div0s variants.
+	* config/sh/sh.c (sh_rtx_costs): Add another div0s case.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70875
+	* ubsan.c (get_ubsan_type_info_for_type): Remove assert.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54089
+	* config/sh/sh.md (*rotcr): Add another variant.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70931
+	* dwarf2out.c (native_encode_initializer): Skip zero-sized fields.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70941
+	* fold-const.c (split_tree): Always convert to the original type
+	before negating.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	* fwprop.c (fwprop): Remove duplicate cleanup_cfg call.
+	(fwprop_addr): Likewise.
+
+2016-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70873
+	* config/i386/i386-protos.h (ix86_standard_x87sse_constant_load_p):
+	New prototype.
+	* config/i386/i386.c (ix86_standard_x87sse_constant_load_p): New.
+	* config/i386/i386.md (push mem splitter): Use find_constant_src in
+	the splitter condition.
+	(FP load splitter): Use ix86_standard_x87sse_constant_load_p in
+	the splitter condition.
+	(FP float_extend load splitter): Ditto.
+
+2016-05-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (peehole2 patterns): Change true_regnum
+	to REGNO in all peephole2 patterns.
+	(post-reload splitters): Change true_regnum to REGNO in
+	post-reload splitters.
+	(zero_extend splitters): Use general_reg_operand and
+	nonimmediate_gr_operand predicates.
+
 2016-05-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/sse.md (<avx512>_fmadd_<mode>_mask3<round_name>): Use
