@@ -1,3 +1,60 @@
+2016-04-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70747
+	* fold-const.c (fold_comparison): Return properly typed
+	constant boolean.
+
+2016-04-21  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/70715
+	* tree-ssa-loop-niter.c (loop_exits_before_overflow): Check equality
+	after expanding BASE using expand_simple_operations.
+
+2016-04-21  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (min(-x, -y), max(-x, -y), min(~x, ~y), max(~x, ~y)):
+	New transformations.
+
+2016-04-21  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (min(int_max, x), max(int_min, x)): New transformations.
+
+2016-04-20  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (can_inline_edge_p): Pass caller info to
+	ultiimate_alias_target.
+	(update_callee_keys): Likewise.
+	(lookup_recursive_calls): Likewise.
+	(speculation_useful_p): Likewise.
+
+2016-04-20  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/70018
+	* cgraph.c (cgraph_set_nothrow_flag_1): Rename to ...
+	(set_nothrow_flag_1): ... this; handle interposition correctly;
+	recurse on aliases and thunks.
+	(cgraph_node::set_nothrow_flag): New.
+	* ipa-pure-const.c (ignore_edge_for_nothrow): Ignore calls to
+	functions compiled with non-call exceptions that binds to current
+	def.
+	(propagate_nothrow): Be safe WRT interposition.
+	* cgraph.h (set_nothrow_flag): Update prototype.
+
+2016-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Use also
+	max_loop_iterations_int.
+	(tree_unswitch_outer_loop): Likewise.
+
+2016-04-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/69489
+	* tree-if-conv.c (phi_convertible_by_degenerating_args): New.
+	(if_convertible_phi_p): Call phi_convertible_by_degenerating_args.
+	Revise dump message.
+	(if_convertible_bb_p): Remove check on edge count of basic block's
+	predecessors.
+
 2016-04-20  Bin Cheng  <bin.cheng@arm.com>
 
 	PR tree-optimization/56625

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -5613,12 +5613,10 @@ package body Sem_Ch10 is
 
       procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id) is
       begin
-         Set_Ekind                   (Ent, E_Abstract_State);
-         Set_Etype                   (Ent, Standard_Void_Type);
-         Set_Scope                   (Ent, Scop);
-         Set_Encapsulating_State     (Ent, Empty);
-         Set_Refinement_Constituents (Ent, New_Elmt_List);
-         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
+         Set_Ekind               (Ent, E_Abstract_State);
+         Set_Etype               (Ent, Standard_Void_Type);
+         Set_Scope               (Ent, Scop);
+         Set_Encapsulating_State (Ent, Empty);
       end Decorate_State;
 
       -------------------
@@ -5639,10 +5637,10 @@ package body Sem_Ch10 is
 
          Set_Ekind             (Ent, E_Incomplete_Type);
          Set_Etype             (Ent, Ent);
-         Set_Scope             (Ent, Scop);
-         Set_Is_First_Subtype  (Ent);
-         Set_Stored_Constraint (Ent, No_Elist);
          Set_Full_View         (Ent, Empty);
+         Set_Is_First_Subtype  (Ent);
+         Set_Scope             (Ent, Scop);
+         Set_Stored_Constraint (Ent, No_Elist);
          Init_Size_Align       (Ent);
 
          --  A tagged type and its corresponding shadow entity share one common
@@ -5670,16 +5668,16 @@ package body Sem_Ch10 is
             Set_Parent (CW_Typ, Parent (Ent));
 
             Set_Ekind                     (CW_Typ, E_Class_Wide_Type);
-            Set_Etype                     (CW_Typ, Ent);
-            Set_Scope                     (CW_Typ, Scop);
-            Set_Is_Tagged_Type            (CW_Typ);
-            Set_Is_First_Subtype          (CW_Typ);
-            Init_Size_Align               (CW_Typ);
-            Set_Has_Unknown_Discriminants (CW_Typ);
             Set_Class_Wide_Type           (CW_Typ, CW_Typ);
+            Set_Etype                     (CW_Typ, Ent);
             Set_Equivalent_Type           (CW_Typ, Empty);
             Set_From_Limited_With         (CW_Typ, From_Limited_With (Ent));
+            Set_Has_Unknown_Discriminants (CW_Typ);
+            Set_Is_First_Subtype          (CW_Typ);
+            Set_Is_Tagged_Type            (CW_Typ);
             Set_Materialize_Entity        (CW_Typ, Materialize);
+            Set_Scope                     (CW_Typ, Scop);
+            Init_Size_Align               (CW_Typ);
          end if;
       end Decorate_Type;
 

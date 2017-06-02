@@ -2513,6 +2513,13 @@ package body Sem_Ch3 is
 
             Remove_Visible_Refinements (Corresponding_Spec (Context));
          end if;
+
+         --  Verify that all abstract states found in any package declared in
+         --  the input declarative list have proper refinements. The check is
+         --  performed only when the context denotes a block, entry, package,
+         --  protected, subprogram, or task body (SPARK RM 7.2.2(3)).
+
+         Check_State_Refinements (Context);
       end if;
    end Analyze_Declarations;
 
@@ -3416,7 +3423,7 @@ package body Sem_Ch3 is
 
          if Error_Posted (N) then
 
-            --  Type mismatch or illegal redeclaration, Do not analyze
+            --  Type mismatch or illegal redeclaration; do not analyze
             --  expression to avoid cascaded errors.
 
             T := Find_Type_Of_Object (Object_Definition (N), N);
@@ -3453,7 +3460,7 @@ package body Sem_Ch3 is
       end if;
 
       --  Ada 2005 (AI-231): Propagate the null-excluding attribute and carry
-      --  out some static checks
+      --  out some static checks.
 
       if Ada_Version >= Ada_2005 and then Can_Never_Be_Null (T) then
 
@@ -5062,6 +5069,32 @@ package body Sem_Ch3 is
       if not Comes_From_Source (N) then
          Set_Is_Generic_Actual_Type (Id, Is_Generic_Actual_Type (T));
       end if;
+
+      --  If this is a subtype declaration for an actual in an instance,
+      --  inherit static and dynamic predicates if any.
+
+      --  If declaration has no aspect specifications, inherit predicate
+      --  info as well. Unclear how to handle the case of both specified
+      --  and inherited predicates ??? Other inherited aspects, such as
+      --  invariants, should be OK, but the combination with later pragmas
+      --  may also require special merging.
+
+      if Has_Predicates (T)
+        and then Present (Predicate_Function (T))
+
+         and then
+           ((In_Instance and then not Comes_From_Source (N))
+              or else No (Aspect_Specifications (N)))
+      then
+         Set_Subprograms_For_Type (Id, Subprograms_For_Type (T));
+
+         if Has_Static_Predicate (T) then
+            Set_Has_Static_Predicate (Id);
+            Set_Static_Discrete_Predicate (Id, Static_Discrete_Predicate (T));
+         end if;
+      end if;
+
+      --  Remaining processing depends on characteristics of base type
 
       T := Etype (Id);
 
@@ -11826,8 +11859,9 @@ package body Sem_Ch3 is
 
       if Has_Predicates (Priv) then
          Set_Has_Predicates (Full);
+
          if Present (Predicate_Function (Priv))
-            and then No (Predicate_Function (Full))
+           and then No (Predicate_Function (Full))
          then
             Set_Predicate_Function (Full, Predicate_Function (Priv));
          end if;

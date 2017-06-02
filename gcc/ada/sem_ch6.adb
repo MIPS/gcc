@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2405,6 +2405,16 @@ package body Sem_Ch6 is
 
          Analyze (Subp_Decl);
 
+         --  Propagate the attribute Rewritten_For_C to the body since the
+         --  expander may generate calls using that entity. Required to ensure
+         --  that Expand_Call rewrites calls to this function by calls to the
+         --  built procedure.
+
+         if Nkind (Body_Spec) = N_Function_Specification then
+            Set_Rewritten_For_C (Defining_Entity (Body_Spec),
+              Rewritten_For_C (Defining_Entity (Specification (Subp_Decl))));
+         end if;
+
          --  Analyze any relocated source pragmas or pragmas created for aspect
          --  specifications.
 
@@ -3054,7 +3064,6 @@ package body Sem_Ch6 is
       --  Local variables
 
       Save_Ghost_Mode   : constant Ghost_Mode_Type := Ghost_Mode;
-      Cloned_Body_For_C : Node_Id := Empty;
 
    --  Start of processing for Analyze_Subprogram_Body_Helper
 
@@ -3289,6 +3298,33 @@ package body Sem_Ch6 is
         and then Is_Protected_Type (Current_Scope)
       then
          Spec_Id := Build_Private_Protected_Declaration (N);
+      end if;
+
+      --  If we are generating C and this is a function returning a constrained
+      --  array type for which we must create a procedure with an extra out
+      --  parameter, build and analyze the body now. The procedure declaration
+      --  has already been created. We reuse the source body of the function,
+      --  because in an instance it may contain global references that cannot
+      --  be reanalyzed. The source function itself is not used any further,
+      --  so we mark it as having a completion.
+
+      if Expander_Active
+        and then Modify_Tree_For_C
+        and then Present (Spec_Id)
+        and then Ekind (Spec_Id) = E_Function
+        and then Rewritten_For_C (Spec_Id)
+      then
+         Set_Has_Completion (Spec_Id);
+
+         Rewrite (N, Build_Procedure_Body_Form (Spec_Id, N));
+         Analyze (N);
+
+         --  The entity for the created procedure must remain invisible, so it
+         --  does not participate in resolution of subsequent references to the
+         --  function.
+
+         Set_Is_Immediately_Visible (Corresponding_Spec (N), False);
+         return;
       end if;
 
       --  If a separate spec is present, then deal with freezing issues
@@ -3665,21 +3701,6 @@ package body Sem_Ch6 is
 
          Ghost_Mode := Save_Ghost_Mode;
          return;
-      end if;
-
-      --  If we are generating C and this is a function returning a constrained
-      --  array type for which we must create a procedure with an extra out
-      --  parameter then clone the body before it is analyzed. Needed to ensure
-      --  that the body of the built procedure does not have any reference to
-      --  the body of the function.
-
-      if Expander_Active
-        and then Modify_Tree_For_C
-        and then Present (Spec_Id)
-        and then Ekind (Spec_Id) = E_Function
-        and then Rewritten_For_C (Spec_Id)
-      then
-         Cloned_Body_For_C := Copy_Separate_Tree (N);
       end if;
 
       --  Handle frontend inlining
@@ -4122,16 +4143,6 @@ package body Sem_Ch6 is
             Set_Has_Nested_Subprogram (Ent);
          end if;
       end;
-
-      --  When generating C code, transform a function that returns a
-      --  constrained array type into a procedure with an out parameter
-      --  that carries the return value.
-
-      if Present (Cloned_Body_For_C) then
-         Rewrite (N,
-           Build_Procedure_Body_Form (Spec_Id, Cloned_Body_For_C));
-         Analyze (N);
-      end if;
 
       Ghost_Mode := Save_Ghost_Mode;
    end Analyze_Subprogram_Body_Helper;
@@ -6471,45 +6482,48 @@ package body Sem_Ch6 is
       Ctype    : Conformance_Type;
       Get_Inst : Boolean := False) return Boolean
    is
-      Type_1 : Entity_Id := T1;
-      Type_2 : Entity_Id := T2;
-      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
+      function Base_Types_Match
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean;
+      --  If neither Typ_1 nor Typ_2 are generic actual types, or if they are
+      --  in different scopes (e.g. parent and child instances), then verify
+      --  that the base types are equal. Otherwise Typ_1 and Typ_2 must be on
+      --  the same subtype chain. The whole purpose of this procedure is to
+      --  prevent spurious ambiguities in an instantiation that may arise if
+      --  two distinct generic types are instantiated with the same actual.
 
-      function Base_Types_Match (T1, T2 : Entity_Id) return Boolean;
-      --  If neither T1 nor T2 are generic actual types, or if they are in
-      --  different scopes (e.g. parent and child instances), then verify that
-      --  the base types are equal. Otherwise T1 and T2 must be on the same
-      --  subtype chain. The whole purpose of this procedure is to prevent
-      --  spurious ambiguities in an instantiation that may arise if two
-      --  distinct generic types are instantiated with the same actual.
-
-      function Find_Designated_Type (T : Entity_Id) return Entity_Id;
+      function Find_Designated_Type (Typ : Entity_Id) return Entity_Id;
       --  An access parameter can designate an incomplete type. If the
       --  incomplete type is the limited view of a type from a limited_
-      --  with_clause, check whether the non-limited view is available. If
-      --  it is a (non-limited) incomplete type, get the full view.
+      --  with_clause, check whether the non-limited view is available.
+      --  If it is a (non-limited) incomplete type, get the full view.
 
-      function Matches_Limited_With_View (T1, T2 : Entity_Id) return Boolean;
-      --  Returns True if and only if either T1 denotes a limited view of T2
-      --  or T2 denotes a limited view of T1. This can arise when the limited
-      --  with view of a type is used in a subprogram declaration and the
-      --  subprogram body is in the scope of a regular with clause for the
-      --  same unit. In such a case, the two type entities can be considered
+      function Matches_Limited_With_View
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean;
+      --  Returns True if and only if either Typ_1 denotes a limited view of
+      --  Typ_2 or Typ_2 denotes a limited view of Typ_1. This can arise when
+      --  the limited with view of a type is used in a subprogram declaration
+      --  and the subprogram body is in the scope of a regular with clause for
+      --  the same unit. In such a case, the two type entities are considered
       --  identical for purposes of conformance checking.
 
       ----------------------
       -- Base_Types_Match --
       ----------------------
 
-      function Base_Types_Match (T1, T2 : Entity_Id) return Boolean is
-         BT1 : constant Entity_Id := Base_Type (T1);
-         BT2 : constant Entity_Id := Base_Type (T2);
+      function Base_Types_Match
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean
+      is
+         Base_1 : constant Entity_Id := Base_Type (Typ_1);
+         Base_2 : constant Entity_Id := Base_Type (Typ_2);
 
       begin
-         if T1 = T2 then
+         if Typ_1 = Typ_2 then
             return True;
 
-         elsif BT1 = BT2 then
+         elsif Base_1 = Base_2 then
 
             --  The following is too permissive. A more precise test should
             --  check that the generic actual is an ancestor subtype of the
@@ -6518,18 +6532,23 @@ package body Sem_Ch6 is
             --  See code in Find_Corresponding_Spec that applies an additional
             --  filter to handle accidental amiguities in instances.
 
-            return not Is_Generic_Actual_Type (T1)
-              or else not Is_Generic_Actual_Type (T2)
-              or else Scope (T1) /= Scope (T2);
+            return
+              not Is_Generic_Actual_Type (Typ_1)
+                or else not Is_Generic_Actual_Type (Typ_2)
+                or else Scope (Typ_1) /= Scope (Typ_2);
 
-         --  If T2 is a generic actual type it is declared as the subtype of
+         --  If Typ_2 is a generic actual type it is declared as the subtype of
          --  the actual. If that actual is itself a subtype we need to use its
          --  own base type to check for compatibility.
 
-         elsif Ekind (BT2) = Ekind (T2) and then BT1 = Base_Type (BT2) then
+         elsif Ekind (Base_2) = Ekind (Typ_2)
+           and then Base_1 = Base_Type (Base_2)
+         then
             return True;
 
-         elsif Ekind (BT1) = Ekind (T1) and then BT2 = Base_Type (BT1) then
+         elsif Ekind (Base_1) = Ekind (Typ_1)
+           and then Base_2 = Base_Type (Base_1)
+         then
             return True;
 
          else
@@ -6541,11 +6560,11 @@ package body Sem_Ch6 is
       -- Find_Designated_Type --
       --------------------------
 
-      function Find_Designated_Type (T : Entity_Id) return Entity_Id is
+      function Find_Designated_Type (Typ : Entity_Id) return Entity_Id is
          Desig : Entity_Id;
 
       begin
-         Desig := Directly_Designated_Type (T);
+         Desig := Directly_Designated_Type (Typ);
 
          if Ekind (Desig) = E_Incomplete_Type then
 
@@ -6569,38 +6588,114 @@ package body Sem_Ch6 is
       -- Matches_Limited_With_View --
       -------------------------------
 
-      function Matches_Limited_With_View (T1, T2 : Entity_Id) return Boolean is
+      function Matches_Limited_With_View
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean
+      is
+         function Is_Matching_Limited_View
+           (Typ  : Entity_Id;
+            View : Entity_Id) return Boolean;
+         --  Determine whether non-limited view View denotes type Typ in some
+         --  conformant fashion.
+
+         ------------------------------
+         -- Is_Matching_Limited_View --
+         ------------------------------
+
+         function Is_Matching_Limited_View
+           (Typ  : Entity_Id;
+            View : Entity_Id) return Boolean
+         is
+            Root_Typ  : Entity_Id;
+            Root_View : Entity_Id;
+
+         begin
+            --  The non-limited view directly denotes the type
+
+            if Typ = View then
+               return True;
+
+            --  The type is a subtype of the non-limited view
+
+            elsif Is_Subtype_Of (Typ, View) then
+               return True;
+
+            --  Both the non-limited view and the type denote class-wide types
+
+            elsif Is_Class_Wide_Type (Typ)
+              and then Is_Class_Wide_Type (View)
+            then
+               Root_Typ  := Root_Type (Typ);
+               Root_View := Root_Type (View);
+
+               if Root_Typ = Root_View then
+                  return True;
+
+               --  An incomplete tagged type and its full view may receive two
+               --  distinct class-wide types when the related package has not
+               --  been analyzed yet.
+
+               --    package Pack is
+               --       type T is tagged;              --  CW_1
+               --       type T is tagged null record;  --  CW_2
+               --    end Pack;
+
+               --  This is because the package lacks any semantic information
+               --  that may eventually link both views of T. As a consequence,
+               --  a client of the limited view of Pack will see CW_2 while a
+               --  client of the non-limited view of Pack will see CW_1.
+
+               elsif Is_Incomplete_Type (Root_Typ)
+                 and then Present (Full_View (Root_Typ))
+                 and then Full_View (Root_Typ) = Root_View
+               then
+                  return True;
+
+               elsif Is_Incomplete_Type (Root_View)
+                 and then Present (Full_View (Root_View))
+                 and then Full_View (Root_View) = Root_Typ
+               then
+                  return True;
+               end if;
+            end if;
+
+            return False;
+         end Is_Matching_Limited_View;
+
+      --  Start of processing for Matches_Limited_With_View
+
       begin
          --  In some cases a type imported through a limited_with clause, and
-         --  its nonlimited view are both visible, for example in an anonymous
+         --  its non-limited view are both visible, for example in an anonymous
          --  access-to-class-wide type in a formal, or when building the body
          --  for a subprogram renaming after the subprogram has been frozen.
-         --  In these cases Both entities designate the same type. In addition,
+         --  In these cases both entities designate the same type. In addition,
          --  if one of them is an actual in an instance, it may be a subtype of
          --  the non-limited view of the other.
 
-         if From_Limited_With (T1)
-           and then (T2 = Available_View (T1)
-                      or else Is_Subtype_Of (T2, Available_View (T1)))
+         if From_Limited_With (Typ_1)
+           and then From_Limited_With (Typ_2)
+           and then Available_View (Typ_1) = Available_View (Typ_2)
          then
             return True;
 
-         elsif From_Limited_With (T2)
-           and then (T1 = Available_View (T2)
-                      or else Is_Subtype_Of (T1, Available_View (T2)))
-         then
-            return True;
+         elsif From_Limited_With (Typ_1) then
+            return Is_Matching_Limited_View (Typ_2, Available_View (Typ_1));
 
-         elsif From_Limited_With (T1)
-           and then From_Limited_With (T2)
-           and then Available_View (T1) = Available_View (T2)
-         then
-            return True;
+         elsif From_Limited_With (Typ_2) then
+            return Is_Matching_Limited_View (Typ_1, Available_View (Typ_2));
 
          else
             return False;
          end if;
       end Matches_Limited_With_View;
+
+      --  Local variables
+
+      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
+
+      Type_1 : Entity_Id := T1;
+      Type_2 : Entity_Id := T2;
 
    --  Start of processing for Conforming_Types
 

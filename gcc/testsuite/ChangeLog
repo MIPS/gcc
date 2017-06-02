@@ -1,3 +1,45 @@
+2016-04-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70747
+	* gcc.dg/pr70747.c: New testcase.
+
+2016-04-21  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/70715
+	* gcc.dg/tree-ssa/scev-13.c: New test.
+
+2016-04-21  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/minmax-2.c: New testcase.
+
+2016-04-21  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/minmax-1.c: New testcase.
+
+2016-04-20  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/70018
+	* g++.dg/ipa/nothrow-1.C: New testcase.
+
+2016-04-20  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/55635
+	* g++.dg/eh/delete1.C: New.
+
+2016-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx256-unaligned-store-2.c: Add
+	-mtune-ctrl=sse_typeless_stores.
+
+2016-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx256-unaligned-load-1.c: Update load scan.
+
+2016-04-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/69489
+	* gcc.dg/tree-ssa/ifc-pr69489-2.c: New test.
+
 2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
 
 	PR c++/69363

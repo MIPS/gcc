@@ -7332,27 +7332,40 @@ package body Einfo is
         and then Present (Non_Limited_View (Id));
    end Has_Non_Limited_View;
 
+   ---------------------------------
+   -- Has_Non_Null_Abstract_State --
+   ---------------------------------
+
+   function Has_Non_Null_Abstract_State (Id : E) return B is
+   begin
+      pragma Assert (Ekind_In (Id, E_Generic_Package, E_Package));
+
+      return
+        Present (Abstract_States (Id))
+          and then
+            not Is_Null_State (Node (First_Elmt (Abstract_States (Id))));
+   end Has_Non_Null_Abstract_State;
+
    -------------------------------------
    -- Has_Non_Null_Visible_Refinement --
    -------------------------------------
 
    function Has_Non_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be non-null, the first constituent must be
+      --  anything other than null.
 
-         --  For a refinement to be non-null, the first constituent must be
-         --  anything other than null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) /= N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) /= N_Null;
    end Has_Non_Null_Visible_Refinement;
 
    -----------------------------
@@ -7373,22 +7386,21 @@ package body Einfo is
    ---------------------------------
 
    function Has_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be null, the state's sole constituent must be a
+      --  null.
 
-         --  For a refinement to be null, the state's sole constituent must be
-         --  a null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) = N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) = N_Null;
    end Has_Null_Visible_Refinement;
 
    --------------------
