@@ -1,3 +1,66 @@
+2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* alias.c (reference_alias_ptr_type): Preserve alias-set zero
+	if the langhook insists on it.
+	* fold-const.c (make_bit_field_ref): Add arg for the original
+	reference and preserve its alias-set.
+	(decode_field_reference): Take exp by reference and adjust it
+	to the original memory reference.
+	(optimize_bit_field_compare): Adjust callers.
+	(fold_truth_andor_1): Likewise.
+	* gimplify.c (gimplify_expr): Adjust in-SSA form test.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70807
+	* cfgrtl.h (delete_insn_and_edges): Now return bool.
+	* cfgrtl.c (delete_insn_and_edges): Likewise.
+	* config/i386/i386.c (convert_scalars_to_vector): Remove
+	redundant code.
+	* cse.c (cse_insn): Compute cse_cfg_altered.
+	(delete_trivially_dead_insns): Likewise.
+	(cse_cc_succs): Likewise.
+	(rest_of_handle_cse): Free dominance info if required.
+	(rest_of_handle_cse2): Likewise.
+	(rest_of_handle_cse_after_global_opts): Likewise.
+
+2016-05-11  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (is_complex_IBM_long_double,
+	abi_v4_pass_in_fpr): New functions.
+	(rs6000_function_arg_boundary): Exclude complex IBM long double
+	from 64-bit alignment when ABI_V4.
+	(rs6000_function_arg, rs6000_function_arg_advance_1,
+	rs6000_gimplify_va_arg): Use abi_v4_pass_in_fpr.
+
+2016-05-10  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/71028
+	* cfgcleanup.c (try_optimize_cfg): Do not flip a conditional
+	jump with just a return in the fallthrough block if the branch
+	block contains just a return as well.
+
+2016-05-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (fold_binary_loc) [(X ^ Y) & Y]: Remove and merge with...
+	* match.pd ((X & Y) ^ Y): ... this.
+	((X & Y) & Y, (X | Y) | Y, (X ^ Y) ^ Y, (X & Y) & (X & Z), (X | Y)
+	| (X | Z), (X ^ Y) ^ (X ^ Z)): New transformations.
+
+2016-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* read-md.c (require_char_ws): New function.
+	(read_string): Simplify using require_char_ws.
+	(handle_constants): Likewise.
+	(handle_enum): Likewise.
+	(handle_file): Likewise.
+	* read-md.h (require_char_ws): New declaration.
+	* read-rtl.c (read_conditions): Simplify using require_char_ws.
+	(read_mapping): Likewise.
+	(read_rtx_code): Likewise.
+	(read_nested_rtx): Likewise.
+
 2016-05-10  James Norris  <jnorris@codesourcery.com>
 
 	* config/rs6000/sysv4.h (CRTOFFLOADBEGIN): Define. Add crtoffloadbegin.o

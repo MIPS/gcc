@@ -1,3 +1,24 @@
+2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: New testcase.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70807
+	* gcc.dg/pr70807.c: New test.
+
+2016-05-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/38611
+	* g++.dg/Wattributes.C: New test.
+
+2016-05-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/bit-assoc.c: New testcase.
+	* gcc.dg/tree-ssa/pr69270.c: Adjust.
+	* gcc.dg/tree-ssa/vrp59.c: Disable forwprop.
+
 2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	PR target/70799
