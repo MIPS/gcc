@@ -511,6 +511,7 @@ nvptx_function_value (const_tree type, const_tree ARG_UNUSED (func),
 
   if (outgoing)
     {
+      gcc_assert (cfun);
       cfun->machine->return_mode = mode;
       return gen_rtx_REG (mode, NVPTX_RETURN_REGNUM);
     }
