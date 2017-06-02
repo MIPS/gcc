@@ -9314,7 +9314,7 @@ package body Sem_Util is
            Has_Default_Aspect (Typ)
              or else Has_Full_Default_Initialization (Component_Type (Typ));
 
-      --  A protected type, record type or type extension is fully default
+      --  A protected type, record type, or type extension is fully default
       --  initialized if all its components either carry an initialization
       --  expression or have a type that is fully default initialized. The
       --  parent type of a type extension must be fully default initialized.
@@ -13111,6 +13111,20 @@ package body Sem_Util is
    end Is_Nontrivial_Default_Init_Cond_Procedure;
 
    -------------------------
+   -- Is_Null_Record_Type --
+   -------------------------
+
+   function Is_Null_Record_Type (T : Entity_Id) return Boolean is
+      Decl : constant Node_Id := Parent (T);
+   begin
+      return Nkind (Decl) = N_Full_Type_Declaration
+        and then Nkind (Type_Definition (Decl)) = N_Record_Definition
+        and then
+          (No (Component_List (Type_Definition (Decl)))
+            or else Null_Present (Component_List (Type_Definition (Decl))));
+   end Is_Null_Record_Type;
+
+   -------------------------
    -- Is_Object_Reference --
    -------------------------
 
@@ -13159,7 +13173,7 @@ package body Sem_Util is
             when N_Function_Call =>
                return Etype (N) /= Standard_Void_Type;
 
-            --  Attributes 'Input, 'Loop_Entry, 'Old and 'Result produce
+            --  Attributes 'Input, 'Loop_Entry, 'Old, and 'Result produce
             --  objects.
 
             when N_Attribute_Reference =>
@@ -13346,14 +13360,15 @@ package body Sem_Util is
    is
       function Is_Protected_Operation_Call (Nod : Node_Id) return Boolean;
       --  Determine whether an arbitrary node denotes a call to a protected
-      --  entry, function or procedure in prefixed form where the prefix is
+      --  entry, function, or procedure in prefixed form where the prefix is
       --  Obj_Ref.
 
       function Within_Check (Nod : Node_Id) return Boolean;
       --  Determine whether an arbitrary node appears in a check node
 
       function Within_Subprogram_Call (Nod : Node_Id) return Boolean;
-      --  Determine whether an arbitrary node appears in a procedure call
+      --  Determine whether an arbitrary node appears in an entry, function, or
+      --  procedure call.
 
       function Within_Volatile_Function (Id : Entity_Id) return Boolean;
       --  Determine whether an arbitrary entity appears in a volatile function
@@ -13377,14 +13392,14 @@ package body Sem_Util is
 
             return
               Pref = Obj_Ref
-              and then Present (Etype (Pref))
-              and then Is_Protected_Type (Etype (Pref))
-              and then Is_Entity_Name (Subp)
-              and then Present (Entity (Subp))
-              and then Ekind_In (Entity (Subp), E_Entry,
-                                 E_Entry_Family,
-                                 E_Function,
-                                 E_Procedure);
+                and then Present (Etype (Pref))
+                and then Is_Protected_Type (Etype (Pref))
+                and then Is_Entity_Name (Subp)
+                and then Present (Entity (Subp))
+                and then Ekind_In (Entity (Subp), E_Entry,
+                                                  E_Entry_Family,
+                                                  E_Function,
+                                                  E_Procedure);
          else
             return False;
          end if;
@@ -13405,7 +13420,7 @@ package body Sem_Util is
             if Nkind (Par) in N_Raise_xxx_Error then
                return True;
 
-               --  Prevent the search from going too far
+            --  Prevent the search from going too far
 
             elsif Is_Body_Or_Package_Declaration (Par) then
                exit;
@@ -13435,7 +13450,7 @@ package body Sem_Util is
             then
                return True;
 
-               --  Prevent the search from going too far
+            --  Prevent the search from going too far
 
             elsif Is_Body_Or_Package_Declaration (Par) then
                exit;
@@ -13481,8 +13496,8 @@ package body Sem_Util is
       if Nkind (Context) = N_Assignment_Statement then
          return True;
 
-         --  The volatile object is part of the initialization expression of
-         --  another object.
+      --  The volatile object is part of the initialization expression of
+      --  another object.
 
       elsif Nkind (Context) = N_Object_Declaration
         and then Present (Expression (Context))
@@ -13497,21 +13512,21 @@ package body Sem_Util is
          if Is_Return_Object (Obj_Id) then
             return Within_Volatile_Function (Obj_Id);
 
-            --  Otherwise this is a normal object initialization
+         --  Otherwise this is a normal object initialization
 
          else
             return True;
          end if;
 
-         --  The volatile object acts as the name of a renaming declaration
+      --  The volatile object acts as the name of a renaming declaration
 
       elsif Nkind (Context) = N_Object_Renaming_Declaration
         and then Name (Context) = Obj_Ref
       then
          return True;
 
-         --  The volatile object appears as an actual parameter in a call to an
-         --  instance of Unchecked_Conversion whose result is renamed.
+      --  The volatile object appears as an actual parameter in a call to an
+      --  instance of Unchecked_Conversion whose result is renamed.
 
       elsif Nkind (Context) = N_Function_Call
         and then Is_Entity_Name (Name (Context))
@@ -13520,14 +13535,14 @@ package body Sem_Util is
       then
          return True;
 
-         --  The volatile object is actually the prefix in a protected entry,
-         --  function, or procedure call.
+      --  The volatile object is actually the prefix in a protected entry,
+      --  function, or procedure call.
 
       elsif Is_Protected_Operation_Call (Context) then
          return True;
 
-         --  The volatile object appears as the expression of a simple return
-         --  statement that applies to a volatile function.
+      --  The volatile object appears as the expression of a simple return
+      --  statement that applies to a volatile function.
 
       elsif Nkind (Context) = N_Simple_Return_Statement
         and then Expression (Context) = Obj_Ref
@@ -13535,8 +13550,8 @@ package body Sem_Util is
          return
            Within_Volatile_Function (Return_Statement_Entity (Context));
 
-         --  The volatile object appears as the prefix of a name occurring in a
-         --  non-interfering context.
+      --  The volatile object appears as the prefix of a name occurring in a
+      --  non-interfering context.
 
       elsif Nkind_In (Context, N_Attribute_Reference,
                       N_Explicit_Dereference,
@@ -13550,8 +13565,8 @@ package body Sem_Util is
       then
          return True;
 
-         --  The volatile object appears as the expression of a type conversion
-         --  occurring in a non-interfering context.
+      --  The volatile object appears as the expression of a type conversion
+      --  occurring in a non-interfering context.
 
       elsif Nkind_In (Context, N_Type_Conversion,
                       N_Unchecked_Type_Conversion)
@@ -13562,21 +13577,22 @@ package body Sem_Util is
       then
          return True;
 
-         --  Allow references to volatile objects in various checks. This is
-         --  not a direct SPARK 2014 requirement.
+      --  Allow references to volatile objects in various checks. This is not a
+      --  direct SPARK 2014 requirement.
 
       elsif Within_Check (Context) then
          return True;
 
-         --  Assume that references to effectively volatile objects that appear
-         --  as actual parameters in a subprogram call are always legal. A full
-         --  legality check is done when the actuals are resolved.
+      --  Assume that references to effectively volatile objects that appear
+      --  as actual parameters in a subprogram call are always legal. A full
+      --  legality check is done when the actuals are resolved (see routine
+      --  Resolve_Actuals).
 
       elsif Within_Subprogram_Call (Context) then
          return True;
 
-         --  Otherwise the context is not suitable for an effectively volatile
-         --  object.
+      --  Otherwise the context is not suitable for an effectively volatile
+      --  object.
 
       else
          return False;
@@ -13888,7 +13904,7 @@ package body Sem_Util is
 
    begin
       --  Verify that prefix is analyzed and has the proper form. Note that
-      --  the attributes Elab_Spec, Elab_Body and Elab_Subp_Body which also
+      --  the attributes Elab_Spec, Elab_Body, and Elab_Subp_Body, which also
       --  produce the address of an entity, do not analyze their prefix
       --  because they denote entities that are not necessarily visible.
       --  Neither of them can apply to a protected type.
@@ -14954,17 +14970,11 @@ package body Sem_Util is
 
    function Is_Volatile_Function (Func_Id : Entity_Id) return Boolean is
    begin
-      --  The caller must ensure that Func_Id denotes a function
-
       pragma Assert (Ekind_In (Func_Id, E_Function, E_Generic_Function));
 
-      --  A protected function is automatically volatile
+      --  A function declared within a protected type is volatile
 
-      if Is_Primitive (Func_Id)
-        and then Present (First_Formal (Func_Id))
-        and then Is_Protected_Type (Etype (First_Formal (Func_Id)))
-        and then Etype (First_Formal (Func_Id)) = Scope (Func_Id)
-      then
+      if Is_Protected_Type (Scope (Func_Id)) then
          return True;
 
       --  An instance of Ada.Unchecked_Conversion is a volatile function if
@@ -16040,7 +16050,7 @@ package body Sem_Util is
 
       procedure Copy_Itype_With_Replacement (New_Itype : Entity_Id) is
       begin
-         --  Translate Next_Entity, Scope and Etype fields, in case they
+         --  Translate Next_Entity, Scope, and Etype fields, in case they
          --  reference entities that have been mapped into copies.
 
          Set_Next_Entity (New_Itype, Assoc (Next_Entity (New_Itype)));
@@ -17711,6 +17721,67 @@ package body Sem_Util is
          return S;
       end if;
    end Original_Corresponding_Operation;
+
+   -------------------
+   -- Output_Entity --
+   -------------------
+
+   procedure Output_Entity (Id : Entity_Id) is
+      Scop : Entity_Id;
+
+   begin
+      Scop := Scope (Id);
+
+      --  The entity may lack a scope when it is in the process of being
+      --  analyzed. Use the current scope as an approximation.
+
+      if No (Scop) then
+         Scop := Current_Scope;
+      end if;
+
+      Output_Name (Chars (Id), Scop);
+   end Output_Entity;
+
+   -----------------
+   -- Output_Name --
+   -----------------
+
+   procedure Output_Name (Nam : Name_Id; Scop : Entity_Id := Current_Scope) is
+      procedure Output_Scope (S : Entity_Id);
+      --  Add the fully qualified form of scope S to the name buffer. The
+      --  qualification format is:
+      --    scope1__scopeN__
+
+      ------------------
+      -- Output_Scope --
+      ------------------
+
+      procedure Output_Scope (S : Entity_Id) is
+      begin
+         if S = Empty then
+            null;
+
+         elsif S = Standard_Standard then
+            null;
+
+         else
+            Output_Scope (Scope (S));
+            Add_Str_To_Name_Buffer (Get_Name_String (Chars (S)));
+            Add_Str_To_Name_Buffer ("__");
+         end if;
+      end Output_Scope;
+
+   --  Start of processing for Output_Name
+
+   begin
+      Name_Len := 0;
+      Output_Scope (Scop);
+
+      Add_Str_To_Name_Buffer (Get_Name_String (Nam));
+
+      Write_Str (Name_Buffer (1 .. Name_Len));
+      Write_Eol;
+   end Output_Name;
 
    ----------------------
    -- Policy_In_Effect --
@@ -19992,8 +20063,8 @@ package body Sem_Util is
          return False;
       end if;
 
-      --  Check that the size of the component is 8, 16, 32 or 64 bits and that
-      --  Typ is properly aligned.
+      --  Check that the size of the component is 8, 16, 32, or 64 bits and
+      --  that Typ is properly aligned.
 
       case Size is
          when 8 | 16 | 32 | 64 =>

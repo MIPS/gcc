@@ -1198,14 +1198,14 @@ package body Exp_Ch6 is
       ---------------------------
 
       procedure Add_Call_By_Copy_Code is
+         Crep  : Boolean;
          Expr  : Node_Id;
+         F_Typ : Entity_Id := Etype (Formal);
+         Indic : Node_Id;
          Init  : Node_Id;
          Temp  : Entity_Id;
-         Indic : Node_Id;
-         Var   : Entity_Id;
-         F_Typ : constant Entity_Id := Etype (Formal);
          V_Typ : Entity_Id;
-         Crep  : Boolean;
+         Var   : Entity_Id;
 
       begin
          if not Is_Legal_Copy then
@@ -1214,6 +1214,14 @@ package body Exp_Ch6 is
 
          Temp := Make_Temporary (Loc, 'T', Actual);
 
+         --  Handle formals whose type comes from the limited view
+
+         if From_Limited_With (F_Typ)
+           and then Has_Non_Limited_View (F_Typ)
+         then
+            F_Typ := Non_Limited_View (F_Typ);
+         end if;
+
          --  Use formal type for temp, unless formal type is an unconstrained
          --  array, in which case we don't have to worry about bounds checks,
          --  and we use the actual type, since that has appropriate bounds.
@@ -1221,7 +1229,7 @@ package body Exp_Ch6 is
          if Is_Array_Type (F_Typ) and then not Is_Constrained (F_Typ) then
             Indic := New_Occurrence_Of (Etype (Actual), Loc);
          else
-            Indic := New_Occurrence_Of (Etype (Formal), Loc);
+            Indic := New_Occurrence_Of (F_Typ, Loc);
          end if;
 
          if Nkind (Actual) = N_Type_Conversion then
@@ -1473,18 +1481,26 @@ package body Exp_Ch6 is
       ----------------------------------
 
       procedure Add_Simple_Call_By_Copy_Code is
-         Temp   : Entity_Id;
          Decl   : Node_Id;
+         F_Typ  : Entity_Id := Etype (Formal);
          Incod  : Node_Id;
-         Outcod : Node_Id;
-         Lhs    : Node_Id;
-         Rhs    : Node_Id;
          Indic  : Node_Id;
-         F_Typ  : constant Entity_Id := Etype (Formal);
+         Lhs    : Node_Id;
+         Outcod : Node_Id;
+         Rhs    : Node_Id;
+         Temp   : Entity_Id;
 
       begin
          if not Is_Legal_Copy then
             return;
+         end if;
+
+         --  Handle formals whose type comes from the limited view
+
+         if From_Limited_With (F_Typ)
+           and then Has_Non_Limited_View (F_Typ)
+         then
+            F_Typ := Non_Limited_View (F_Typ);
          end if;
 
          --  Use formal type for temp, unless formal type is an unconstrained
@@ -1494,7 +1510,7 @@ package body Exp_Ch6 is
          if Is_Array_Type (F_Typ) and then not Is_Constrained (F_Typ) then
             Indic := New_Occurrence_Of (Etype (Actual), Loc);
          else
-            Indic := New_Occurrence_Of (Etype (Formal), Loc);
+            Indic := New_Occurrence_Of (F_Typ, Loc);
          end if;
 
          --  Prepare to generate code
@@ -1517,7 +1533,7 @@ package body Exp_Ch6 is
          if Ekind (Formal) = E_Out_Parameter then
             Incod := Empty;
 
-            if Has_Discriminants (Etype (Formal)) then
+            if Has_Discriminants (F_Typ) then
                Indic := New_Occurrence_Of (Etype (Actual), Loc);
             end if;
 
@@ -1718,6 +1734,14 @@ package body Exp_Ch6 is
       while Present (Formal) loop
          E_Formal := Etype (Formal);
          E_Actual := Etype (Actual);
+
+         --  Handle formals whose type comes from the limited view
+
+         if From_Limited_With (E_Formal)
+           and then Has_Non_Limited_View (E_Formal)
+         then
+            E_Formal := Non_Limited_View (E_Formal);
+         end if;
 
          if Is_Scalar_Type (E_Formal)
            or else Nkind (Actual) = N_Slice
@@ -2502,47 +2526,9 @@ package body Exp_Ch6 is
          end if;
       end New_Value;
 
-      function Rewritten_For_C_Func_Id (Proc_Id : Entity_Id) return Entity_Id;
-      --  Given the Id of the procedure with an extra out parameter internally
-      --  built to handle functions that return a constrained array type return
-      --  the Id of the corresponding function.
-
-      -----------------------------
-      -- Rewritten_For_C_Func_Id --
-      -----------------------------
-
-      function Rewritten_For_C_Func_Id (Proc_Id : Entity_Id) return Entity_Id
-      is
-         Decl      : constant Node_Id := Unit_Declaration_Node (Proc_Id);
-         Func_Decl : Node_Id;
-         Func_Id   : Entity_Id;
-
-      begin
-         pragma Assert (Rewritten_For_C (Proc_Id));
-         pragma Assert (Nkind (Decl) = N_Subprogram_Body);
-
-         Func_Decl := Nlists.Prev (Decl);
-
-         while Present (Func_Decl)
-           and then
-             (Nkind (Func_Decl) = N_Freeze_Entity
-                or else
-              Nkind (Func_Decl) /= N_Subprogram_Declaration
-                or else
-              Nkind (Specification (Func_Decl)) /= N_Function_Specification)
-         loop
-            Func_Decl := Nlists.Prev (Func_Decl);
-         end loop;
-
-         pragma Assert (Present (Func_Decl));
-         Func_Id := Defining_Entity (Specification (Func_Decl));
-         pragma Assert (Chars (Proc_Id) = Chars (Func_Id));
-         return Func_Id;
-      end Rewritten_For_C_Func_Id;
-
       --  Local variables
 
-      Remote        : constant Boolean   := Is_Remote_Call (Call_Node);
+      Remote        : constant Boolean := Is_Remote_Call (Call_Node);
       Actual        : Node_Id;
       Formal        : Entity_Id;
       Orig_Subp     : Entity_Id := Empty;
@@ -2706,8 +2692,9 @@ package body Exp_Ch6 is
                               N_Subprogram_Body
          then
             Set_Entity (Name (Call_Node),
-              Rewritten_For_C_Func_Id
-                (Ultimate_Alias (Entity (Name (Call_Node)))));
+              Corresponding_Function
+                (Corresponding_Procedure
+                  (Ultimate_Alias (Entity (Name (Call_Node))))));
          end if;
 
          Rewrite_Function_Call_For_C (Call_Node);
@@ -7783,7 +7770,12 @@ package body Exp_Ch6 is
       Result_Subt     : Entity_Id;
 
       Definite : Boolean;
-      --  True for definite function result subtype
+      --  True if result subtype is definite, or has a size that does not
+      --  require secondary stack usage (i.e. no variant part or components
+      --  whose type depends on discriminants). In particular, untagged types
+      --  with only access discriminants do not require secondary stack use.
+      --  Note that if the return type is tagged we must always use the sec.
+      --  stack because the call may dispatch on result.
 
    begin
       --  Step past qualification or unchecked conversion (the latter can occur
@@ -7818,7 +7810,10 @@ package body Exp_Ch6 is
       end if;
 
       Result_Subt := Etype (Function_Id);
-      Definite    := Is_Definite_Subtype (Underlying_Type (Result_Subt));
+      Definite :=
+        (Is_Definite_Subtype (Underlying_Type (Result_Subt))
+             and then not Is_Tagged_Type (Result_Subt))
+          or else not Requires_Transient_Scope (Underlying_Type (Result_Subt));
 
       --  Create an access type designating the function's result subtype. We
       --  use the type of the original call because it may be a call to an
@@ -8397,45 +8392,10 @@ package body Exp_Ch6 is
    ---------------------------------
 
    procedure Rewrite_Function_Call_For_C (N : Node_Id) is
-      function Rewritten_For_C_Proc_Id (Func_Id : Entity_Id) return Entity_Id;
-      --  Given the Id of the function that returns a constrained array type
-      --  return the Id of its internally built procedure with an extra out
-      --  parameter.
-
-      -----------------------------
-      -- Rewritten_For_C_Proc_Id --
-      -----------------------------
-
-      function Rewritten_For_C_Proc_Id (Func_Id : Entity_Id) return Entity_Id
-      is
-         Func_Decl : constant Node_Id := Unit_Declaration_Node (Func_Id);
-         Proc_Decl : Node_Id;
-         Proc_Id   : Entity_Id;
-
-      begin
-         Proc_Decl := Next (Func_Decl);
-
-         while Present (Proc_Decl)
-           and then
-             (Nkind (Proc_Decl) = N_Freeze_Entity
-                or else
-              Nkind (Proc_Decl) /= N_Subprogram_Declaration)
-         loop
-            Proc_Decl := Next (Proc_Decl);
-         end loop;
-
-         pragma Assert (Present (Proc_Decl));
-         Proc_Id := Defining_Entity (Proc_Decl);
-         pragma Assert (Chars (Proc_Id) = Chars (Func_Id));
-         return Proc_Id;
-      end Rewritten_For_C_Proc_Id;
-
-      --  Local variables
-
       Orig_Func   : constant Entity_Id  := Entity (Name (N));
       Func_Id     : constant Entity_Id  := Ultimate_Alias (Orig_Func);
       Par         : constant Node_Id    := Parent (N);
-      Proc_Id     : constant Entity_Id  := Rewritten_For_C_Proc_Id (Func_Id);
+      Proc_Id     : constant Entity_Id  := Corresponding_Procedure (Func_Id);
       Loc         : constant Source_Ptr := Sloc (Par);
       Actuals     : List_Id;
       Last_Actual : Node_Id;
@@ -8477,7 +8437,10 @@ package body Exp_Ch6 is
          if not Comes_From_Source (Orig_Func)
            and then Etype (Orig_Func) /= Etype (Func_Id)
          then
-            Last_Actual := Unchecked_Convert_To (Etype (Func_Id), Last_Actual);
+            Last_Actual :=
+              Make_Type_Conversion (Loc,
+                New_Occurrence_Of (Etype (Func_Id), Loc),
+                Last_Actual);
          end if;
 
          Append_To (Actuals,

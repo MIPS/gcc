@@ -50,7 +50,7 @@ extern bool ix86_using_red_zone (void);
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
 extern rtx standard_80387_constant_rtx (int);
-extern int standard_sse_constant_p (rtx);
+extern int standard_sse_constant_p (rtx, machine_mode);
 extern const char *standard_sse_constant_opcode (rtx_insn *, rtx);
 extern bool symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);
@@ -296,8 +296,8 @@ extern int ix86_decompose_address (rtx, struct ix86_address *);
 extern int memory_address_length (rtx, bool);
 extern void x86_output_aligned_bss (FILE *, tree, const char *,
 				    unsigned HOST_WIDE_INT, int);
-extern void x86_elf_aligned_common (FILE *, const char *,
-				    unsigned HOST_WIDE_INT, int);
+extern void x86_elf_aligned_decl_common (FILE *, tree, const char *,
+					 unsigned HOST_WIDE_INT, int);
 
 #ifdef RTX_CODE
 extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,

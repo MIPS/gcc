@@ -130,7 +130,7 @@ typedef struct rs6000_stack {
 typedef struct GTY(()) machine_function
 {
   /* Whether the instruction chain has been scanned already.  */
-  int insn_chain_scanned_p;
+  int spe_insn_chain_scanned_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
   /* Flags if __builtin_return_address (0) was used.  */
@@ -13025,9 +13025,9 @@ swap_selector_for_mode (machine_mode mode)
   return force_reg (V16QImode, gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, perm)));
 }
 
-/* Generate code for an "lvx", "lvxl", or "lve*x" built-in for a little endian target
-   with -maltivec=be specified.  Issue the load followed by an element-reversing
-   permute.  */
+/* Generate code for an "lvxl", or "lve*x" built-in for a little endian target
+   with -maltivec=be specified.  Issue the load followed by an element-
+   reversing permute.  */
 void
 altivec_expand_lvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
 {
@@ -13043,8 +13043,8 @@ altivec_expand_lvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
   emit_insn (gen_rtx_SET (op0, vperm));
 }
 
-/* Generate code for a "stvx" or "stvxl" built-in for a little endian target
-   with -maltivec=be specified.  Issue the store preceded by an element-reversing
+/* Generate code for a "stvxl" built-in for a little endian target with
+   -maltivec=be specified.  Issue the store preceded by an element-reversing
    permute.  */
 void
 altivec_expand_stvx_be (rtx op0, rtx op1, machine_mode mode, unsigned unspec)
@@ -13106,22 +13106,65 @@ altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
 
   op1 = copy_to_mode_reg (mode1, op1);
 
-  if (op0 == const0_rtx)
+  /* For LVX, express the RTL accurately by ANDing the address with -16.
+     LVXL and LVE*X expand to use UNSPECs to hide their special behavior,
+     so the raw address is fine.  */
+  switch (icode)
     {
-      addr = gen_rtx_MEM (blk ? BLKmode : tmode, op1);
+    case CODE_FOR_altivec_lvx_v2df_2op:
+    case CODE_FOR_altivec_lvx_v2di_2op:
+    case CODE_FOR_altivec_lvx_v4sf_2op:
+    case CODE_FOR_altivec_lvx_v4si_2op:
+    case CODE_FOR_altivec_lvx_v8hi_2op:
+    case CODE_FOR_altivec_lvx_v16qi_2op:
+      {
+	rtx rawaddr;
+	if (op0 == const0_rtx)
+	  rawaddr = op1;
+	else
+	  {
+	    op0 = copy_to_mode_reg (mode0, op0);
+	    rawaddr = gen_rtx_PLUS (Pmode, op1, op0);
+	  }
+	addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
+	addr = gen_rtx_MEM (blk ? BLKmode : tmode, addr);
+
+	/* For -maltivec=be, emit the load and follow it up with a
+	   permute to swap the elements.  */
+	if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+	  {
+	    rtx temp = gen_reg_rtx (tmode);
+	    emit_insn (gen_rtx_SET (temp, addr));
+
+	    rtx sel = swap_selector_for_mode (tmode);
+	    rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, temp, temp, sel),
+					UNSPEC_VPERM);
+	    emit_insn (gen_rtx_SET (target, vperm));
+	  }
+	else
+	  emit_insn (gen_rtx_SET (target, addr));
+
+	break;
+      }
+
+    default:
+      if (op0 == const0_rtx)
+	addr = gen_rtx_MEM (blk ? BLKmode : tmode, op1);
+      else
+	{
+	  op0 = copy_to_mode_reg (mode0, op0);
+	  addr = gen_rtx_MEM (blk ? BLKmode : tmode,
+			      gen_rtx_PLUS (Pmode, op1, op0));
+	}
+
+      pat = GEN_FCN (icode) (target, addr);
+      if (! pat)
+	return 0;
+      emit_insn (pat);
+
+      break;
     }
-  else
-    {
-      op0 = copy_to_mode_reg (mode0, op0);
-      addr = gen_rtx_MEM (blk ? BLKmode : tmode, gen_rtx_PLUS (Pmode, op0, op1));
-    }
-
-  pat = GEN_FCN (icode) (target, addr);
-
-  if (! pat)
-    return 0;
-  emit_insn (pat);
-
+  
   return target;
 }
 
@@ -13208,7 +13251,7 @@ altivec_expand_stv_builtin (enum insn_code icode, tree exp)
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
-  rtx pat, addr;
+  rtx pat, addr, rawaddr;
   machine_mode tmode = insn_data[icode].operand[0].mode;
   machine_mode smode = insn_data[icode].operand[1].mode;
   machine_mode mode1 = Pmode;
@@ -13220,24 +13263,69 @@ altivec_expand_stv_builtin (enum insn_code icode, tree exp)
       || arg2 == error_mark_node)
     return const0_rtx;
 
-  if (! (*insn_data[icode].operand[1].predicate) (op0, smode))
-    op0 = copy_to_mode_reg (smode, op0);
-
   op2 = copy_to_mode_reg (mode2, op2);
 
-  if (op1 == const0_rtx)
+  /* For STVX, express the RTL accurately by ANDing the address with -16.
+     STVXL and STVE*X expand to use UNSPECs to hide their special behavior,
+     so the raw address is fine.  */
+  switch (icode)
     {
-      addr = gen_rtx_MEM (tmode, op2);
-    }
-  else
-    {
-      op1 = copy_to_mode_reg (mode1, op1);
-      addr = gen_rtx_MEM (tmode, gen_rtx_PLUS (Pmode, op1, op2));
-    }
+    case CODE_FOR_altivec_stvx_v2df_2op:
+    case CODE_FOR_altivec_stvx_v2di_2op:
+    case CODE_FOR_altivec_stvx_v4sf_2op:
+    case CODE_FOR_altivec_stvx_v4si_2op:
+    case CODE_FOR_altivec_stvx_v8hi_2op:
+    case CODE_FOR_altivec_stvx_v16qi_2op:
+      {
+	if (op1 == const0_rtx)
+	  rawaddr = op2;
+	else
+	  {
+	    op1 = copy_to_mode_reg (mode1, op1);
+	    rawaddr = gen_rtx_PLUS (Pmode, op2, op1);
+	  }
 
-  pat = GEN_FCN (icode) (addr, op0);
-  if (pat)
-    emit_insn (pat);
+	addr = gen_rtx_AND (Pmode, rawaddr, gen_rtx_CONST_INT (Pmode, -16));
+	addr = gen_rtx_MEM (tmode, addr);
+
+	op0 = copy_to_mode_reg (tmode, op0);
+
+	/* For -maltivec=be, emit a permute to swap the elements, followed
+	   by the store.  */
+	if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+	  {
+	    rtx temp = gen_reg_rtx (tmode);
+	    rtx sel = swap_selector_for_mode (tmode);
+	    rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, op0, op0, sel),
+					UNSPEC_VPERM);
+	    emit_insn (gen_rtx_SET (temp, vperm));
+	    emit_insn (gen_rtx_SET (addr, temp));
+	  }
+	else
+	  emit_insn (gen_rtx_SET (addr, op0));
+
+	break;
+      }
+
+    default:
+      {
+	if (! (*insn_data[icode].operand[1].predicate) (op0, smode))
+	  op0 = copy_to_mode_reg (smode, op0);
+
+	if (op1 == const0_rtx)
+	  addr = gen_rtx_MEM (tmode, op2);
+	else
+	  {
+	    op1 = copy_to_mode_reg (mode1, op1);
+	    addr = gen_rtx_MEM (tmode, gen_rtx_PLUS (Pmode, op2, op1));
+	  }
+
+	pat = GEN_FCN (icode) (addr, op0);
+	if (pat)
+	  emit_insn (pat);
+      }
+    }      
+
   return NULL_RTX;
 }
 
@@ -14073,18 +14161,18 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_STVX_V2DF:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v2df, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v2df_2op, exp);
     case ALTIVEC_BUILTIN_STVX_V2DI:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v2di, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v2di_2op, exp);
     case ALTIVEC_BUILTIN_STVX_V4SF:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4sf, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4sf_2op, exp);
     case ALTIVEC_BUILTIN_STVX:
     case ALTIVEC_BUILTIN_STVX_V4SI:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4si, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v4si_2op, exp);
     case ALTIVEC_BUILTIN_STVX_V8HI:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v8hi, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v8hi_2op, exp);
     case ALTIVEC_BUILTIN_STVX_V16QI:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v16qi, exp);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx_v16qi_2op, exp);
     case ALTIVEC_BUILTIN_STVEBX:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, exp);
     case ALTIVEC_BUILTIN_STVEHX:
@@ -14272,23 +14360,23 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl_v16qi,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX_V2DF:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v2df,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v2df_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX_V2DI:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v2di,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v2di_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX_V4SF:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4sf,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4sf_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX:
     case ALTIVEC_BUILTIN_LVX_V4SI:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4si,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v4si_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX_V8HI:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v8hi,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v8hi_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVX_V16QI:
-      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v16qi,
+      return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx_v16qi_2op,
 					exp, target, false);
     case ALTIVEC_BUILTIN_LVLX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvlx,
@@ -15602,6 +15690,10 @@ altivec_init_builtins (void)
     = build_function_type_list (opaque_V4SI_type_node,
 				opaque_V4SI_type_node, opaque_V4SI_type_node,
 				integer_type_node, NULL_TREE);
+  tree opaque_ftype_opaque_opaque_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, opaque_V4SI_type_node,
+				opaque_V4SI_type_node, NULL_TREE);
   tree int_ftype_int_opaque_opaque
     = build_function_type_list (integer_type_node,
                                 integer_type_node, opaque_V4SI_type_node,
@@ -15837,6 +15929,9 @@ altivec_init_builtins (void)
   def_builtin ("__builtin_vec_vcfux", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFUX);
   def_builtin ("__builtin_vec_cts", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTS);
   def_builtin ("__builtin_vec_ctu", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTU);
+
+  def_builtin ("__builtin_vec_adde", opaque_ftype_opaque_opaque_opaque,
+		ALTIVEC_BUILTIN_VEC_ADDE);
 
   /* Cell builtins.  */
   def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
@@ -22962,52 +23057,53 @@ compute_vrsave_mask (void)
    routines.  */
 
 static void
-compute_save_world_info (rs6000_stack_t *info_ptr)
+compute_save_world_info (rs6000_stack_t *info)
 {
-  info_ptr->world_save_p = 1;
-  info_ptr->world_save_p
-    = (WORLD_SAVE_P (info_ptr)
+  info->world_save_p = 1;
+  info->world_save_p
+    = (WORLD_SAVE_P (info)
        && DEFAULT_ABI == ABI_DARWIN
        && !cfun->has_nonlocal_label
-       && info_ptr->first_fp_reg_save == FIRST_SAVED_FP_REGNO
-       && info_ptr->first_gp_reg_save == FIRST_SAVED_GP_REGNO
-       && info_ptr->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
-       && info_ptr->cr_save_p);
+       && info->first_fp_reg_save == FIRST_SAVED_FP_REGNO
+       && info->first_gp_reg_save == FIRST_SAVED_GP_REGNO
+       && info->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
+       && info->cr_save_p);
 
   /* This will not work in conjunction with sibcalls.  Make sure there
      are none.  (This check is expensive, but seldom executed.) */
-  if (WORLD_SAVE_P (info_ptr))
+  if (WORLD_SAVE_P (info))
     {
       rtx_insn *insn;
       for (insn = get_last_insn_anywhere (); insn; insn = PREV_INSN (insn))
 	if (CALL_P (insn) && SIBLING_CALL_P (insn))
 	  {
-	    info_ptr->world_save_p = 0;
+	    info->world_save_p = 0;
 	    break;
 	  }
     }
 
-  if (WORLD_SAVE_P (info_ptr))
+  if (WORLD_SAVE_P (info))
     {
       /* Even if we're not touching VRsave, make sure there's room on the
 	 stack for it, if it looks like we're calling SAVE_WORLD, which
 	 will attempt to save it. */
-      info_ptr->vrsave_size  = 4;
+      info->vrsave_size  = 4;
 
       /* If we are going to save the world, we need to save the link register too.  */
-      info_ptr->lr_save_p = 1;
+      info->lr_save_p = 1;
 
       /* "Save" the VRsave register too if we're saving the world.  */
-      if (info_ptr->vrsave_mask == 0)
-	info_ptr->vrsave_mask = compute_vrsave_mask ();
+      if (info->vrsave_mask == 0)
+	info->vrsave_mask = compute_vrsave_mask ();
 
       /* Because the Darwin register save/restore routines only handle
 	 F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
 	 check.  */
-      gcc_assert (info_ptr->first_fp_reg_save >= FIRST_SAVED_FP_REGNO
-		  && (info_ptr->first_altivec_reg_save
+      gcc_assert (info->first_fp_reg_save >= FIRST_SAVED_FP_REGNO
+		  && (info->first_altivec_reg_save
 		      >= FIRST_SAVED_ALTIVEC_REGNO));
     }
+
   return;
 }
 
@@ -23355,7 +23451,7 @@ rs6000_stack_info (void)
   /* We should never be called for thunks, we are not set up for that.  */
   gcc_assert (!cfun->is_thunk);
 
-  rs6000_stack_t *info_ptr = &stack_info;
+  rs6000_stack_t *info = &stack_info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
   int ehcr_size;
@@ -23364,26 +23460,26 @@ rs6000_stack_info (void)
   HOST_WIDE_INT non_fixed_size;
   bool using_static_chain_p;
 
-  if (reload_completed && info_ptr->reload_completed)
-    return info_ptr;
+  if (reload_completed && info->reload_completed)
+    return info;
 
-  memset (info_ptr, 0, sizeof (*info_ptr));
-  info_ptr->reload_completed = reload_completed;
+  memset (info, 0, sizeof (*info));
+  info->reload_completed = reload_completed;
 
   if (TARGET_SPE)
     {
       /* Cache value so we don't rescan instruction chain over and over.  */
-      if (cfun->machine->insn_chain_scanned_p == 0)
-	cfun->machine->insn_chain_scanned_p
+      if (cfun->machine->spe_insn_chain_scanned_p == 0)
+	cfun->machine->spe_insn_chain_scanned_p
 	  = spe_func_has_64bit_regs_p () + 1;
-      info_ptr->spe_64bit_regs_used = cfun->machine->insn_chain_scanned_p - 1;
+      info->spe_64bit_regs_used = cfun->machine->spe_insn_chain_scanned_p - 1;
     }
 
   /* Select which calling sequence.  */
-  info_ptr->abi = DEFAULT_ABI;
+  info->abi = DEFAULT_ABI;
 
   /* Calculate which registers need to be saved & save area size.  */
-  info_ptr->first_gp_reg_save = first_reg_to_save ();
+  info->first_gp_reg_save = first_reg_to_save ();
   /* Assume that we will have to save RS6000_PIC_OFFSET_TABLE_REGNUM,
      even if it currently looks like we won't.  Reload may need it to
      get at a constant; if so, it will have already created a constant
@@ -23392,12 +23488,12 @@ rs6000_stack_info (void)
        || (flag_pic == 1 && DEFAULT_ABI == ABI_V4)
        || (flag_pic && DEFAULT_ABI == ABI_DARWIN))
       && crtl->uses_const_pool
-      && info_ptr->first_gp_reg_save > RS6000_PIC_OFFSET_TABLE_REGNUM)
+      && info->first_gp_reg_save > RS6000_PIC_OFFSET_TABLE_REGNUM)
     first_gp = RS6000_PIC_OFFSET_TABLE_REGNUM;
   else
-    first_gp = info_ptr->first_gp_reg_save;
+    first_gp = info->first_gp_reg_save;
 
-  info_ptr->gp_size = reg_size * (32 - first_gp);
+  info->gp_size = reg_size * (32 - first_gp);
 
   /* For the SPE, we have an additional upper 32-bits on each GPR.
      Ideally we should save the entire 64-bits only when the upper
@@ -23411,28 +23507,27 @@ rs6000_stack_info (void)
 
      So... since when we save all GPRs (except the SP) in 64-bits, the
      traditional GP save area will be empty.  */
-  if (TARGET_SPE_ABI && info_ptr->spe_64bit_regs_used != 0)
-    info_ptr->gp_size = 0;
+  if (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0)
+    info->gp_size = 0;
 
-  info_ptr->first_fp_reg_save = first_fp_reg_to_save ();
-  info_ptr->fp_size = 8 * (64 - info_ptr->first_fp_reg_save);
+  info->first_fp_reg_save = first_fp_reg_to_save ();
+  info->fp_size = 8 * (64 - info->first_fp_reg_save);
 
-  info_ptr->first_altivec_reg_save = first_altivec_reg_to_save ();
-  info_ptr->altivec_size = 16 * (LAST_ALTIVEC_REGNO + 1
-				 - info_ptr->first_altivec_reg_save);
+  info->first_altivec_reg_save = first_altivec_reg_to_save ();
+  info->altivec_size = 16 * (LAST_ALTIVEC_REGNO + 1
+				 - info->first_altivec_reg_save);
 
   /* Does this function call anything?  */
-  info_ptr->calls_p = (! crtl->is_leaf 
-		       || cfun->machine->ra_needs_full_frame);
+  info->calls_p = (!crtl->is_leaf || cfun->machine->ra_needs_full_frame);
 
   /* Determine if we need to save the condition code registers.  */
   if (df_regs_ever_live_p (CR2_REGNO)
       || df_regs_ever_live_p (CR3_REGNO)
       || df_regs_ever_live_p (CR4_REGNO))
     {
-      info_ptr->cr_save_p = 1;
+      info->cr_save_p = 1;
       if (DEFAULT_ABI == ABI_V4)
-	info_ptr->cr_size = reg_size;
+	info->cr_size = reg_size;
     }
 
   /* If the current function calls __builtin_eh_return, then we need
@@ -23445,8 +23540,7 @@ rs6000_stack_info (void)
 	continue;
 
       /* SPE saves EH registers in 64-bits.  */
-      ehrd_size = i * (TARGET_SPE_ABI
-		       && info_ptr->spe_64bit_regs_used != 0
+      ehrd_size = i * (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0
 		       ? UNITS_PER_SPE_WORD : UNITS_PER_WORD);
     }
   else
@@ -23459,41 +23553,33 @@ rs6000_stack_info (void)
       /* This hard-codes that we have three call-saved CR fields.  */
       ehcr_size = 3 * reg_size;
       /* We do *not* use the regular CR save mechanism.  */
-      info_ptr->cr_save_p = 0;
+      info->cr_save_p = 0;
     }
   else
     ehcr_size = 0;
 
   /* Determine various sizes.  */
-  info_ptr->reg_size     = reg_size;
-  info_ptr->fixed_size   = RS6000_SAVE_AREA;
-  info_ptr->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
-  info_ptr->parm_size    = RS6000_ALIGN (crtl->outgoing_args_size,
+  info->reg_size     = reg_size;
+  info->fixed_size   = RS6000_SAVE_AREA;
+  info->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
+  info->parm_size    = RS6000_ALIGN (crtl->outgoing_args_size,
 					 TARGET_ALTIVEC ? 16 : 8);
   if (FRAME_GROWS_DOWNWARD)
-    info_ptr->vars_size
-      += RS6000_ALIGN (info_ptr->fixed_size + info_ptr->vars_size
-		       + info_ptr->parm_size,
+    info->vars_size
+      += RS6000_ALIGN (info->fixed_size + info->vars_size + info->parm_size,
 		       ABI_STACK_BOUNDARY / BITS_PER_UNIT)
-	 - (info_ptr->fixed_size + info_ptr->vars_size
-	    + info_ptr->parm_size);
+	 - (info->fixed_size + info->vars_size + info->parm_size);
 
-  if (TARGET_SPE_ABI && info_ptr->spe_64bit_regs_used != 0)
-    info_ptr->spe_gp_size = 8 * (32 - first_gp);
-  else
-    info_ptr->spe_gp_size = 0;
+  if (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0)
+    info->spe_gp_size = 8 * (32 - first_gp);
 
   if (TARGET_ALTIVEC_ABI)
-    info_ptr->vrsave_mask = compute_vrsave_mask ();
-  else
-    info_ptr->vrsave_mask = 0;
+    info->vrsave_mask = compute_vrsave_mask ();
 
-  if (TARGET_ALTIVEC_VRSAVE && info_ptr->vrsave_mask)
-    info_ptr->vrsave_size  = 4;
-  else
-    info_ptr->vrsave_size  = 0;
+  if (TARGET_ALTIVEC_VRSAVE && info->vrsave_mask)
+    info->vrsave_size = 4;
 
-  compute_save_world_info (info_ptr);
+  compute_save_world_info (info);
 
   /* Calculate the offsets.  */
   switch (DEFAULT_ABI)
@@ -23505,112 +23591,98 @@ rs6000_stack_info (void)
     case ABI_AIX:
     case ABI_ELFv2:
     case ABI_DARWIN:
-      info_ptr->fp_save_offset   = - info_ptr->fp_size;
-      info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
+      info->fp_save_offset = -info->fp_size;
+      info->gp_save_offset = info->fp_save_offset - info->gp_size;
 
       if (TARGET_ALTIVEC_ABI)
 	{
-	  info_ptr->vrsave_save_offset
-	    = info_ptr->gp_save_offset - info_ptr->vrsave_size;
+	  info->vrsave_save_offset = info->gp_save_offset - info->vrsave_size;
 
 	  /* Align stack so vector save area is on a quadword boundary.
 	     The padding goes above the vectors.  */
-	  if (info_ptr->altivec_size != 0)
-	    info_ptr->altivec_padding_size
-	      = info_ptr->vrsave_save_offset & 0xF;
-	  else
-	    info_ptr->altivec_padding_size = 0;
+	  if (info->altivec_size != 0)
+	    info->altivec_padding_size = info->vrsave_save_offset & 0xF;
 
-	  info_ptr->altivec_save_offset
-	    = info_ptr->vrsave_save_offset
-	    - info_ptr->altivec_padding_size
-	    - info_ptr->altivec_size;
-	  gcc_assert (info_ptr->altivec_size == 0
-		      || info_ptr->altivec_save_offset % 16 == 0);
+	  info->altivec_save_offset = info->vrsave_save_offset
+				      - info->altivec_padding_size
+				      - info->altivec_size;
+	  gcc_assert (info->altivec_size == 0
+		      || info->altivec_save_offset % 16 == 0);
 
 	  /* Adjust for AltiVec case.  */
-	  info_ptr->ehrd_offset = info_ptr->altivec_save_offset - ehrd_size;
+	  info->ehrd_offset = info->altivec_save_offset - ehrd_size;
 	}
       else
-	info_ptr->ehrd_offset      = info_ptr->gp_save_offset - ehrd_size;
+	info->ehrd_offset = info->gp_save_offset - ehrd_size;
 
-      info_ptr->ehcr_offset      = info_ptr->ehrd_offset - ehcr_size;
-      info_ptr->cr_save_offset   = reg_size; /* first word when 64-bit.  */
-      info_ptr->lr_save_offset   = 2*reg_size;
+      info->ehcr_offset = info->ehrd_offset - ehcr_size;
+      info->cr_save_offset = reg_size; /* first word when 64-bit.  */
+      info->lr_save_offset = 2*reg_size;
       break;
 
     case ABI_V4:
-      info_ptr->fp_save_offset   = - info_ptr->fp_size;
-      info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
-      info_ptr->cr_save_offset   = info_ptr->gp_save_offset - info_ptr->cr_size;
+      info->fp_save_offset = -info->fp_size;
+      info->gp_save_offset = info->fp_save_offset - info->gp_size;
+      info->cr_save_offset = info->gp_save_offset - info->cr_size;
 
-      if (TARGET_SPE_ABI && info_ptr->spe_64bit_regs_used != 0)
+      if (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0)
 	{
 	  /* Align stack so SPE GPR save area is aligned on a
 	     double-word boundary.  */
-	  if (info_ptr->spe_gp_size != 0 && info_ptr->cr_save_offset != 0)
-	    info_ptr->spe_padding_size
-	      = 8 - (-info_ptr->cr_save_offset % 8);
+	  if (info->spe_gp_size != 0 && info->cr_save_offset != 0)
+	    info->spe_padding_size = 8 - (-info->cr_save_offset % 8);
 	  else
-	    info_ptr->spe_padding_size = 0;
+	    info->spe_padding_size = 0;
 
-	  info_ptr->spe_gp_save_offset
-	    = info_ptr->cr_save_offset
-	    - info_ptr->spe_padding_size
-	    - info_ptr->spe_gp_size;
+	  info->spe_gp_save_offset = info->cr_save_offset
+				     - info->spe_padding_size
+				     - info->spe_gp_size;
 
 	  /* Adjust for SPE case.  */
-	  info_ptr->ehrd_offset = info_ptr->spe_gp_save_offset;
+	  info->ehrd_offset = info->spe_gp_save_offset;
 	}
       else if (TARGET_ALTIVEC_ABI)
 	{
-	  info_ptr->vrsave_save_offset
-	    = info_ptr->cr_save_offset - info_ptr->vrsave_size;
+	  info->vrsave_save_offset = info->cr_save_offset - info->vrsave_size;
 
 	  /* Align stack so vector save area is on a quadword boundary.  */
-	  if (info_ptr->altivec_size != 0)
-	    info_ptr->altivec_padding_size
-	      = 16 - (-info_ptr->vrsave_save_offset % 16);
-	  else
-	    info_ptr->altivec_padding_size = 0;
+	  if (info->altivec_size != 0)
+	    info->altivec_padding_size = 16 - (-info->vrsave_save_offset % 16);
 
-	  info_ptr->altivec_save_offset
-	    = info_ptr->vrsave_save_offset
-	    - info_ptr->altivec_padding_size
-	    - info_ptr->altivec_size;
+	  info->altivec_save_offset = info->vrsave_save_offset
+				      - info->altivec_padding_size
+				      - info->altivec_size;
 
 	  /* Adjust for AltiVec case.  */
-	  info_ptr->ehrd_offset = info_ptr->altivec_save_offset;
+	  info->ehrd_offset = info->altivec_save_offset;
 	}
       else
-	info_ptr->ehrd_offset    = info_ptr->cr_save_offset;
-      info_ptr->ehrd_offset      -= ehrd_size;
-      info_ptr->lr_save_offset   = reg_size;
-      break;
+	info->ehrd_offset = info->cr_save_offset;
+
+      info->ehrd_offset -= ehrd_size;
+      info->lr_save_offset = reg_size;
     }
 
   save_align = (TARGET_ALTIVEC_ABI || DEFAULT_ABI == ABI_DARWIN) ? 16 : 8;
-  info_ptr->save_size    = RS6000_ALIGN (info_ptr->fp_size
-					 + info_ptr->gp_size
-					 + info_ptr->altivec_size
-					 + info_ptr->altivec_padding_size
-					 + info_ptr->spe_gp_size
-					 + info_ptr->spe_padding_size
-					 + ehrd_size
-					 + ehcr_size
-					 + info_ptr->cr_size
-					 + info_ptr->vrsave_size,
-					 save_align);
+  info->save_size = RS6000_ALIGN (info->fp_size
+				  + info->gp_size
+				  + info->altivec_size
+				  + info->altivec_padding_size
+				  + info->spe_gp_size
+				  + info->spe_padding_size
+				  + ehrd_size
+				  + ehcr_size
+				  + info->cr_size
+				  + info->vrsave_size,
+				  save_align);
 
-  non_fixed_size	 = (info_ptr->vars_size
-			    + info_ptr->parm_size
-			    + info_ptr->save_size);
+  non_fixed_size = info->vars_size + info->parm_size + info->save_size;
 
-  info_ptr->total_size = RS6000_ALIGN (non_fixed_size + info_ptr->fixed_size,
-				       ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+  info->total_size = RS6000_ALIGN (non_fixed_size + info->fixed_size,
+				   ABI_STACK_BOUNDARY / BITS_PER_UNIT);
 
   /* Determine if we need to save the link register.  */
-  if (info_ptr->calls_p
+  if (info->calls_p
       || ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
 	  && crtl->profile
 	  && !TARGET_PROFILE_KERNEL)
@@ -23619,23 +23691,22 @@ rs6000_stack_info (void)
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
 #endif
       || rs6000_ra_ever_killed ())
-    info_ptr->lr_save_p = 1;
+    info->lr_save_p = 1;
 
   using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
 			  && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
 			  && call_used_regs[STATIC_CHAIN_REGNUM]);
-  info_ptr->savres_strategy = rs6000_savres_strategy (info_ptr,
-						      using_static_chain_p);
+  info->savres_strategy = rs6000_savres_strategy (info, using_static_chain_p);
 
-  if (!(info_ptr->savres_strategy & SAVE_INLINE_GPRS)
-      || !(info_ptr->savres_strategy & SAVE_INLINE_FPRS)
-      || !(info_ptr->savres_strategy & SAVE_INLINE_VRS)
-      || !(info_ptr->savres_strategy & REST_INLINE_GPRS)
-      || !(info_ptr->savres_strategy & REST_INLINE_FPRS)
-      || !(info_ptr->savres_strategy & REST_INLINE_VRS))
-    info_ptr->lr_save_p = 1;
+  if (!(info->savres_strategy & SAVE_INLINE_GPRS)
+      || !(info->savres_strategy & SAVE_INLINE_FPRS)
+      || !(info->savres_strategy & SAVE_INLINE_VRS)
+      || !(info->savres_strategy & REST_INLINE_GPRS)
+      || !(info->savres_strategy & REST_INLINE_FPRS)
+      || !(info->savres_strategy & REST_INLINE_VRS))
+    info->lr_save_p = 1;
 
-  if (info_ptr->lr_save_p)
+  if (info->lr_save_p)
     df_set_regs_ever_live (LR_REGNO, true);
 
   /* Determine if we need to allocate any stack frame:
@@ -23650,22 +23721,22 @@ rs6000_stack_info (void)
      For V.4 we don't have the stack cushion that AIX uses, but assume
      that the debugger can handle stackless frames.  */
 
-  if (info_ptr->calls_p)
-    info_ptr->push_p = 1;
+  if (info->calls_p)
+    info->push_p = 1;
 
   else if (DEFAULT_ABI == ABI_V4)
-    info_ptr->push_p = non_fixed_size != 0;
+    info->push_p = non_fixed_size != 0;
 
   else if (frame_pointer_needed)
-    info_ptr->push_p = 1;
+    info->push_p = 1;
 
   else if (TARGET_XCOFF && write_symbols != NO_DEBUG)
-    info_ptr->push_p = 1;
+    info->push_p = 1;
 
   else
-    info_ptr->push_p = non_fixed_size > (TARGET_32BIT ? 220 : 288);
+    info->push_p = non_fixed_size > (TARGET_32BIT ? 220 : 288);
 
-  return info_ptr;
+  return info;
 }
 
 /* Return true if the current function uses any GPRs in 64-bit SIMD
@@ -37139,7 +37210,9 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
      fix them up by converting them to permuting ones.  Exceptions:
      UNSPEC_LVE, UNSPEC_LVX, and UNSPEC_STVX, which have a PARALLEL
      body instead of a SET; and UNSPEC_STVE, which has an UNSPEC
-     for the SET source.  */
+     for the SET source.  Also we must now make an exception for lvx
+     and stvx when they are not in the UNSPEC_LVX/STVX form (with the
+     explicit "& -16") since this leads to unrecognizable insns.  */
   rtx body = PATTERN (insn);
   int i = INSN_UID (insn);
 
@@ -37147,6 +37220,11 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
     {
       if (GET_CODE (body) == SET)
 	{
+	  rtx rhs = SET_SRC (body);
+	  gcc_assert (GET_CODE (rhs) == MEM);
+	  if (GET_CODE (XEXP (rhs, 0)) == AND)
+	    return 0;
+
 	  *special = SH_NOSWAP_LD;
 	  return 1;
 	}
@@ -37156,8 +37234,14 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 
   if (insn_entry[i].is_store)
     {
-      if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) != UNSPEC)
+      if (GET_CODE (body) == SET
+	  && GET_CODE (SET_SRC (body)) != UNSPEC)
 	{
+	  rtx lhs = SET_DEST (body);
+	  gcc_assert (GET_CODE (lhs) == MEM);
+	  if (GET_CODE (XEXP (lhs, 0)) == AND)
+	    return 0;
+	  
 	  *special = SH_NOSWAP_ST;
 	  return 1;
 	}
@@ -37827,13 +37911,274 @@ dump_swap_insn_table (swap_web_entry *insn_entry)
   fputs ("\n", dump_file);
 }
 
+/* Return RTX with its address canonicalized to (reg) or (+ reg reg).
+   Here RTX is an (& addr (const_int -16)).  Always return a new copy
+   to avoid problems with combine.  */
+static rtx
+alignment_with_canonical_addr (rtx align)
+{
+  rtx canon;
+  rtx addr = XEXP (align, 0);
+
+  if (REG_P (addr))
+    canon = addr;
+
+  else if (GET_CODE (addr) == PLUS)
+    {
+      rtx addrop0 = XEXP (addr, 0);
+      rtx addrop1 = XEXP (addr, 1);
+
+      if (!REG_P (addrop0))
+	addrop0 = force_reg (GET_MODE (addrop0), addrop0);
+
+      if (!REG_P (addrop1))
+	addrop1 = force_reg (GET_MODE (addrop1), addrop1);
+
+      canon = gen_rtx_PLUS (GET_MODE (addr), addrop0, addrop1);
+    }
+
+  else
+    canon = force_reg (GET_MODE (addr), addr);
+
+  return gen_rtx_AND (GET_MODE (align), canon, GEN_INT (-16));
+}
+
+/* Check whether an rtx is an alignment mask, and if so, return 
+   a fully-expanded rtx for the masking operation.  */
+static rtx
+alignment_mask (rtx_insn *insn)
+{
+  rtx body = PATTERN (insn);
+
+  if (GET_CODE (body) != SET
+      || GET_CODE (SET_SRC (body)) != AND
+      || !REG_P (XEXP (SET_SRC (body), 0)))
+    return 0;
+
+  rtx mask = XEXP (SET_SRC (body), 1);
+
+  if (GET_CODE (mask) == CONST_INT)
+    {
+      if (INTVAL (mask) == -16)
+	return alignment_with_canonical_addr (SET_SRC (body));
+      else
+	return 0;
+    }
+
+  if (!REG_P (mask))
+    return 0;
+
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_ref use;
+  rtx real_mask = 0;
+
+  FOR_EACH_INSN_INFO_USE (use, insn_info)
+    {
+      if (!rtx_equal_p (DF_REF_REG (use), mask))
+	continue;
+
+      struct df_link *def_link = DF_REF_CHAIN (use);
+      if (!def_link || def_link->next)
+	return 0;
+
+      rtx_insn *const_insn = DF_REF_INSN (def_link->ref);
+      rtx const_body = PATTERN (const_insn);
+      if (GET_CODE (const_body) != SET)
+	return 0;
+
+      real_mask = SET_SRC (const_body);
+
+      if (GET_CODE (real_mask) != CONST_INT
+	  || INTVAL (real_mask) != -16)
+	return 0;
+    }
+
+  if (real_mask == 0)
+    return 0;
+
+  return alignment_with_canonical_addr (SET_SRC (body));
+}
+
+/* Given INSN that's a load or store based at BASE_REG, look for a
+   feeding computation that aligns its address on a 16-byte boundary.  */
+static rtx
+find_alignment_op (rtx_insn *insn, rtx base_reg)
+{
+  df_ref base_use;
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  rtx and_operation = 0;
+
+  FOR_EACH_INSN_INFO_USE (base_use, insn_info)
+    {
+      if (!rtx_equal_p (DF_REF_REG (base_use), base_reg))
+	continue;
+
+      struct df_link *base_def_link = DF_REF_CHAIN (base_use);
+      if (!base_def_link || base_def_link->next)
+	break;
+
+      rtx_insn *and_insn = DF_REF_INSN (base_def_link->ref);
+      and_operation = alignment_mask (and_insn);
+      if (and_operation != 0)
+	break;
+    }
+
+  return and_operation;
+}
+
+struct del_info { bool replace; rtx_insn *replace_insn; };
+
+/* If INSN is the load for an lvx pattern, put it in canonical form.  */
+static void
+recombine_lvx_pattern (rtx_insn *insn, del_info *to_delete)
+{
+  rtx body = PATTERN (insn);
+  gcc_assert (GET_CODE (body) == SET
+	      && GET_CODE (SET_SRC (body)) == VEC_SELECT
+	      && GET_CODE (XEXP (SET_SRC (body), 0)) == MEM);
+
+  rtx mem = XEXP (SET_SRC (body), 0);
+  rtx base_reg = XEXP (mem, 0);
+
+  rtx and_operation = find_alignment_op (insn, base_reg);
+
+  if (and_operation != 0)
+    {
+      df_ref def;
+      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+      FOR_EACH_INSN_INFO_DEF (def, insn_info)
+	{
+	  struct df_link *link = DF_REF_CHAIN (def);
+	  if (!link || link->next)
+	    break;
+
+	  rtx_insn *swap_insn = DF_REF_INSN (link->ref);
+	  if (!insn_is_swap_p (swap_insn)
+	      || insn_is_load_p (swap_insn)
+	      || insn_is_store_p (swap_insn))
+	    break;
+
+	  /* Expected lvx pattern found.  Change the swap to
+	     a copy, and propagate the AND operation into the
+	     load.  */
+	  to_delete[INSN_UID (swap_insn)].replace = true;
+	  to_delete[INSN_UID (swap_insn)].replace_insn = swap_insn;
+
+	  XEXP (mem, 0) = and_operation;
+	  SET_SRC (body) = mem;
+	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+	  df_insn_rescan (insn);
+		  
+	  if (dump_file)
+	    fprintf (dump_file, "lvx opportunity found at %d\n",
+		     INSN_UID (insn));
+	}
+    }
+}
+
+/* If INSN is the store for an stvx pattern, put it in canonical form.  */
+static void
+recombine_stvx_pattern (rtx_insn *insn, del_info *to_delete)
+{
+  rtx body = PATTERN (insn);
+  gcc_assert (GET_CODE (body) == SET
+	      && GET_CODE (SET_DEST (body)) == MEM
+	      && GET_CODE (SET_SRC (body)) == VEC_SELECT);
+  rtx mem = SET_DEST (body);
+  rtx base_reg = XEXP (mem, 0);
+
+  rtx and_operation = find_alignment_op (insn, base_reg);
+
+  if (and_operation != 0)
+    {
+      rtx src_reg = XEXP (SET_SRC (body), 0);
+      df_ref src_use;
+      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+      FOR_EACH_INSN_INFO_USE (src_use, insn_info)
+	{
+	  if (!rtx_equal_p (DF_REF_REG (src_use), src_reg))
+	    continue;
+
+	  struct df_link *link = DF_REF_CHAIN (src_use);
+	  if (!link || link->next)
+	    break;
+
+	  rtx_insn *swap_insn = DF_REF_INSN (link->ref);
+	  if (!insn_is_swap_p (swap_insn)
+	      || insn_is_load_p (swap_insn)
+	      || insn_is_store_p (swap_insn))
+	    break;
+
+	  /* Expected stvx pattern found.  Change the swap to
+	     a copy, and propagate the AND operation into the
+	     store.  */
+	  to_delete[INSN_UID (swap_insn)].replace = true;
+	  to_delete[INSN_UID (swap_insn)].replace_insn = swap_insn;
+
+	  XEXP (mem, 0) = and_operation;
+	  SET_SRC (body) = src_reg;
+	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+	  df_insn_rescan (insn);
+		  
+	  if (dump_file)
+	    fprintf (dump_file, "stvx opportunity found at %d\n",
+		     INSN_UID (insn));
+	}
+    }
+}
+
+/* Look for patterns created from builtin lvx and stvx calls, and
+   canonicalize them to be properly recognized as such.  */
+static void
+recombine_lvx_stvx_patterns (function *fun)
+{
+  int i;
+  basic_block bb;
+  rtx_insn *insn;
+
+  int num_insns = get_max_uid ();
+  del_info *to_delete = XCNEWVEC (del_info, num_insns);
+
+  FOR_ALL_BB_FN (bb, fun)
+    FOR_BB_INSNS (bb, insn)
+    {
+      if (!NONDEBUG_INSN_P (insn))
+	continue;
+
+      if (insn_is_load_p (insn) && insn_is_swap_p (insn))
+	recombine_lvx_pattern (insn, to_delete);
+      else if (insn_is_store_p (insn) && insn_is_swap_p (insn))
+	recombine_stvx_pattern (insn, to_delete);
+    }
+
+  /* Turning swaps into copies is delayed until now, to avoid problems
+     with deleting instructions during the insn walk.  */
+  for (i = 0; i < num_insns; i++)
+    if (to_delete[i].replace)
+      {
+	rtx swap_body = PATTERN (to_delete[i].replace_insn);
+	rtx src_reg = XEXP (SET_SRC (swap_body), 0);
+	rtx copy = gen_rtx_SET (SET_DEST (swap_body), src_reg);
+	rtx_insn *new_insn = emit_insn_before (copy,
+					       to_delete[i].replace_insn);
+	set_block_for_insn (new_insn,
+			    BLOCK_FOR_INSN (to_delete[i].replace_insn));
+	df_insn_rescan (new_insn);
+	df_insn_delete (to_delete[i].replace_insn);
+	remove_insn (to_delete[i].replace_insn);
+	to_delete[i].replace_insn->set_deleted ();
+      }
+  
+  free (to_delete);
+}
+
 /* Main entry point for this pass.  */
 unsigned int
 rs6000_analyze_swaps (function *fun)
 {
   swap_web_entry *insn_entry;
   basic_block bb;
-  rtx_insn *insn;
+  rtx_insn *insn, *curr_insn = 0;
 
   /* Dataflow analysis for use-def chains.  */
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
@@ -37841,12 +38186,15 @@ rs6000_analyze_swaps (function *fun)
   df_analyze ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
+  /* Pre-pass to recombine lvx and stvx patterns so we don't lose info.  */
+  recombine_lvx_stvx_patterns (fun);
+
   /* Allocate structure to represent webs of insns.  */
   insn_entry = XCNEWVEC (swap_web_entry, get_max_uid ());
 
   /* Walk the insns to gather basic data.  */
   FOR_ALL_BB_FN (bb, fun)
-    FOR_BB_INSNS (bb, insn)
+    FOR_BB_INSNS_SAFE (bb, insn, curr_insn)
     {
       unsigned int uid = INSN_UID (insn);
       if (NONDEBUG_INSN_P (insn))

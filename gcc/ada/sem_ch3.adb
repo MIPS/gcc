@@ -3835,8 +3835,16 @@ package body Sem_Ch3 is
             Check_Expression_Against_Static_Predicate (E, T);
          end if;
 
-         Insert_After (N,
-           Make_Predicate_Check (T, New_Occurrence_Of (Id, Loc)));
+         --  If the type is a null record and there is no explicit initial
+         --  expression, no predicate check applies.
+
+         if No (E) and then Is_Null_Record_Type (T) then
+            null;
+
+         else
+            Insert_After (N,
+              Make_Predicate_Check (T, New_Occurrence_Of (Id, Loc)));
+         end if;
       end if;
 
       --  Case of unconstrained type
@@ -13033,15 +13041,13 @@ package body Sem_Ch3 is
       Related_Nod : Node_Id;
       For_Access  : Boolean := False)
    is
-      E     : constant Entity_Id := Entity (Subtype_Mark (S));
-      T     : Entity_Id;
-      C     : Node_Id;
-      Elist : Elist_Id := New_Elmt_List;
+      E : Entity_Id := Entity (Subtype_Mark (S));
+      T : Entity_Id;
 
       procedure Fixup_Bad_Constraint;
-      --  This is called after finding a bad constraint, and after having
-      --  posted an appropriate error message. The mission is to leave the
-      --  entity T in as reasonable state as possible.
+      --  Called after finding a bad constraint, and after having posted an
+      --  appropriate error message. The goal is to leave type Def_Id in as
+      --  reasonable state as possible.
 
       --------------------------
       -- Fixup_Bad_Constraint --
@@ -13065,6 +13071,11 @@ package body Sem_Ch3 is
          Set_Error_Posted (Def_Id);
       end Fixup_Bad_Constraint;
 
+      --  Local variables
+
+      C      : Node_Id;
+      Constr : Elist_Id := New_Elmt_List;
+
    --  Start of processing for Constrain_Discriminated_Type
 
    begin
@@ -13083,28 +13094,35 @@ package body Sem_Ch3 is
       end if;
 
       --  In an instance it may be necessary to retrieve the full view of a
-      --  type with unknown discriminants. In other contexts the constraint
-      --  is illegal.
+      --  type with unknown discriminants, or a full view with defaulted
+      --  discriminants. In other contexts the constraint is illegal.
 
       if In_Instance
         and then Is_Private_Type (T)
-        and then Has_Unknown_Discriminants (T)
         and then Present (Full_View (T))
+        and then
+          (Has_Unknown_Discriminants (T)
+            or else
+              (not Has_Discriminants (T)
+                and then Has_Discriminants (Full_View (T))
+                and then Present (Discriminant_Default_Value
+                           (First_Discriminant (Full_View (T))))))
       then
          T := Full_View (T);
+         E := Full_View (E);
       end if;
 
-      --  Ada 2005 (AI-412): Constrained incomplete subtypes are illegal.
-      --  Avoid generating an error for access-to-incomplete subtypes.
+      --  Ada 2005 (AI-412): Constrained incomplete subtypes are illegal. Avoid
+      --  generating an error for access-to-incomplete subtypes.
 
       if Ada_Version >= Ada_2005
         and then Ekind (T) = E_Incomplete_Type
         and then Nkind (Parent (S)) = N_Subtype_Declaration
         and then not Is_Itype (Def_Id)
       then
-         --  A little sanity check, emit an error message if the type
-         --  has discriminants to begin with. Type T may be a regular
-         --  incomplete type or imported via a limited with clause.
+         --  A little sanity check: emit an error message if the type has
+         --  discriminants to begin with. Type T may be a regular incomplete
+         --  type or imported via a limited with clause.
 
          if Has_Discriminants (T)
            or else (From_Limited_With (T)
@@ -13145,23 +13163,23 @@ package body Sem_Ch3 is
          return;
       end if;
 
-      --  T may be an unconstrained subtype (e.g. a generic actual).
-      --  Constraint applies to the base type.
+      --  T may be an unconstrained subtype (e.g. a generic actual). Constraint
+      --  applies to the base type.
 
       T := Base_Type (T);
 
-      Elist := Build_Discriminant_Constraints (T, S);
+      Constr := Build_Discriminant_Constraints (T, S);
 
       --  If the list returned was empty we had an error in building the
       --  discriminant constraint. We have also already signalled an error
       --  in the incomplete type case
 
-      if Is_Empty_Elmt_List (Elist) then
+      if Is_Empty_Elmt_List (Constr) then
          Fixup_Bad_Constraint;
          return;
       end if;
 
-      Build_Discriminated_Subtype (T, Def_Id, Elist, Related_Nod, For_Access);
+      Build_Discriminated_Subtype (T, Def_Id, Constr, Related_Nod, For_Access);
    end Constrain_Discriminated_Type;
 
    ---------------------------
@@ -20057,11 +20075,11 @@ package body Sem_Ch3 is
       --  built. Still it is a cheap check and seems safer to make it.
 
       if Has_Predicates (Priv_T) then
+         Set_Has_Predicates (Full_T);
+
          if Present (Predicate_Function (Priv_T)) then
             Set_Predicate_Function (Full_T, Predicate_Function (Priv_T));
          end if;
-
-         Set_Has_Predicates (Full_T);
       end if;
    end Process_Full_View;
 
@@ -20522,14 +20540,14 @@ package body Sem_Ch3 is
 
       May_Have_Null_Exclusion : Boolean;
 
-      procedure Check_Incomplete (T : Entity_Id);
+      procedure Check_Incomplete (T : Node_Id);
       --  Called to verify that an incomplete type is not used prematurely
 
       ----------------------
       -- Check_Incomplete --
       ----------------------
 
-      procedure Check_Incomplete (T : Entity_Id) is
+      procedure Check_Incomplete (T : Node_Id) is
       begin
          --  Ada 2005 (AI-412): Incomplete subtypes are legal
 
