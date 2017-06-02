@@ -41,4 +41,4 @@ main (void)
 /* { dg-final { scan-tree-dump-times "clique 1 base 2" 1 "alias" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "clique 1 base 3" 1 "alias" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "clique 1 base 4" 1 "alias" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 6 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 6 "alias" } } */
