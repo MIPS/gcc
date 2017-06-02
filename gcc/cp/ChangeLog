@@ -1,3 +1,25 @@
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_selection_statement): For RID_SWITCH,
+	pass if_p instead of NULL to cp_parser_implicitly_scoped_statement.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	* parser.c (cp_parser_selection_statement): Replace OPT_Wparentheses
+	with OPT_Wdangling_else.
+
+2016-05-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/66561
+	* tree.c (builtin_valid_in_constant_expr_p): Treat BUILT_IN_FILE,
+	BUILT_IN_FUNCTION, and BUILT_IN_LINE as constant expressions.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70859
+	* call.c (build_cxx_call): Pass location and vNULL down to
+	check_builtin_function_arguments.
+
 2016-05-03  Richard Biener  <rguenther@suse.de>
 
 	* Make-lang.in (cc1plus-checksum.c): For stage-final re-use

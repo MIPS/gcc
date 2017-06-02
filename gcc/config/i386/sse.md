@@ -1076,10 +1076,10 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "sse2_movq128"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
+  [(set (match_operand:V2DI 0 "register_operand" "=v")
 	(vec_concat:V2DI
 	  (vec_select:DI
-	    (match_operand:V2DI 1 "nonimmediate_operand" "xm")
+	    (match_operand:V2DI 1 "nonimmediate_operand" "vm")
 	    (parallel [(const_int 0)]))
 	  (const_int 0)))]
   "TARGET_SSE2"
@@ -3327,10 +3327,10 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "<avx512>_fmadd_<mode>_mask3<round_name>"
-  [(set (match_operand:VF_AVX512VL 0 "register_operand" "=x")
+  [(set (match_operand:VF_AVX512VL 0 "register_operand" "=v")
 	(vec_merge:VF_AVX512VL
 	  (fma:VF_AVX512VL
-	    (match_operand:VF_AVX512VL 1 "register_operand" "x")
+	    (match_operand:VF_AVX512VL 1 "register_operand" "v")
 	    (match_operand:VF_AVX512VL 2 "nonimmediate_operand" "<round_constraint>")
 	    (match_operand:VF_AVX512VL 3 "register_operand" "0"))
 	  (match_dup 3)
@@ -5851,8 +5851,8 @@
   [(set (match_dup 3)
 	(vec_select:V8SF
 	  (vec_concat:V16SF
-	    (match_operand:V8SF 1 "register_operand" "x")
-	    (match_operand:V8SF 2 "nonimmediate_operand" "xm"))
+	    (match_operand:V8SF 1 "register_operand")
+	    (match_operand:V8SF 2 "nonimmediate_operand"))
 	  (parallel [(const_int 0) (const_int 8)
 		     (const_int 1) (const_int 9)
 		     (const_int 4) (const_int 12)
@@ -5956,8 +5956,8 @@
   [(set (match_dup 3)
 	(vec_select:V8SF
 	  (vec_concat:V16SF
-	    (match_operand:V8SF 1 "register_operand" "x")
-	    (match_operand:V8SF 2 "nonimmediate_operand" "xm"))
+	    (match_operand:V8SF 1 "register_operand")
+	    (match_operand:V8SF 2 "nonimmediate_operand"))
 	  (parallel [(const_int 0) (const_int 8)
 		     (const_int 1) (const_int 9)
 		     (const_int 4) (const_int 12)
@@ -7424,8 +7424,8 @@
   [(set (match_dup 3)
 	(vec_select:V4DF
 	  (vec_concat:V8DF
-	    (match_operand:V4DF 1 "register_operand" "x")
-	    (match_operand:V4DF 2 "nonimmediate_operand" "xm"))
+	    (match_operand:V4DF 1 "register_operand")
+	    (match_operand:V4DF 2 "nonimmediate_operand"))
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 2) (const_int 6)])))
    (set (match_dup 4)
@@ -7584,8 +7584,8 @@
   [(set (match_dup 3)
 	(vec_select:V4DF
 	  (vec_concat:V8DF
-	    (match_operand:V4DF 1 "register_operand" "x")
-	    (match_operand:V4DF 2 "nonimmediate_operand" "xm"))
+	    (match_operand:V4DF 1 "register_operand")
+	    (match_operand:V4DF 2 "nonimmediate_operand"))
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 2) (const_int 6)])))
    (set (match_dup 4)
