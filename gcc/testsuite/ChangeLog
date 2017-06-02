@@ -1,3 +1,44 @@
+2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* gcc.target/i386/pr70467-3.c: New test.
+	* gcc.target/i386/pr70467-4.c: New test.
+
+	PR tree-optimization/70916
+	* gcc.c-torture/compile/pr70916.c: New test.
+
+	PR target/49244
+	* gcc.target/i386/pr49244-1.c: New test.
+	* gcc.target/i386/pr49244-2.c: New test.
+
+2016-05-03  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/44281
+	* gcc.target/i386/pr44281.c: New test.
+
+2016-05-03  bin cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/56541
+	* gcc.dg/tree-ssa/ifc-pr56541.c: new test.
+	* gcc.dg/vect/pr56541.c: new test.
+
+2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-complex-1.c: New tests for complex
+	__float128.
+	* gcc.target/powerpc/float128-complex-2.c: Likewise.
+
+2016-05-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/70520
+	* c-c++-common/asan/clone-test-1.c (main): Align child process
+	stack to 16 bytes.
+
+2016-05-02  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62314
+	* g++.dg/spellcheck-fields-2.C: New test case.
+
 2016-05-02  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c++/62314
