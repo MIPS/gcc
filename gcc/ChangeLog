@@ -1,3 +1,68 @@
+2016-05-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (legitimize_pic_address): Merge 64-bit and 32-bit
+	gotoff_operand code paths.  Use copy_to_suggested_regs and
+	expand_simple_binop where appropriate.  Cleanup.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/70799
+	* config/i386/i386.c (dimode_scalar_to_vector_candidate_p): Allow
+	integer constants.
+	(dimode_scalar_chain::vector_const_cost): New.
+	(dimode_scalar_chain::compute_convert_gain): Handle constants.
+	(dimode_scalar_chain::convert_op): Likewise.
+	(dimode_scalar_chain::convert_insn): Likewise.
+
+2016-05-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (resolve_args_picking_1): Consider DW_OP_neg as an
+	unary operation, not a binary one.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70877
+	* tree-chkp.c (chkp_add_bounds_to_call_stmt): Handle
+	calls with type casted fndecl.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/70786
+	* tree-chkp.c (chkp_find_bounds_1): Support WITH_SIZE_EXPR.
+	* gcc/calls.c (initialize_argument_information): Bind bounds
+	with corresponding args passed by reference.
+
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70927
+	* config/i386/sse.md (<sse>_andnot<mode>3<mask_name>),
+	*<code><mode>3<mask_name>): For !TARGET_AVX512DQ and EVEX encoding,
+	use vp*[dq] instead of v*p[sd] instructions and adjust mode attribute
+	accordingly.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* config/rs6000/vsx.md (vsx_xvcvdpsxds_scale): Generate correct
+	code for a zero scale factor.
+	(vsx_xvcvdpuxds_scale): Likewise.
+
+2016-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (layout::layout): Call show_ruler
+	if show_ruler_p was set on the context.
+	(layout::show_ruler): New method.
+	* diagnostic.h (struct diagnostic_context): Add field
+	"show_ruler_p".
+
+2016-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71039
+	* tree-ssa-phiprop.c: Include tree-ssa-loop.h.
+	(chk_uses): New function.
+	(propagate_with_phi): Verify we can safely replicate the lhs of an
+	aggregate assignment on all incoming edges.
+
 2016-05-10  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	* config/rx/rx-protos.h (is_interrupt_func, is_fast_interrupt_func):

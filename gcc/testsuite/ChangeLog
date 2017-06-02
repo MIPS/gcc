@@ -1,3 +1,49 @@
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/70799
+	* gcc.target/i386/pr70799-1.c: New test.
+
+2016-05-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug6.adb, gnat.dg/debug6_pkg.ads: New testcase.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70877
+	* gcc.target/i386/pr70877.c: New test.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/70786
+	* gcc.target/i386/pr70876.c: New test.
+
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70927
+	* gcc.target/i386/avx512vl-logic-1.c: New test.
+	* gcc.target/i386/avx512vl-logic-2.c: New test.
+	* gcc.target/i386/avx512dq-logic-2.c: New test.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* gcc.target/powerpc/pr70963.c: New.
+
+2016-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-bw.c
+	(test_very_wide_line): Add ruler to expected output.
+	* gcc.dg/plugin/diagnostic-test-show-locus-color.c
+	(test_very_wide_line): Likewise.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Within the handling of "test_very_wide_line",
+	enable show_ruler_p on the diagnostic context.
+
+2016-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71039
+	* gcc.dg/torture/pr71039.c: New testcase.
+
 2016-05-10  Nathan Sidwell  <nathan@acm.org>
 
 	* gcc.dg/nested-func-10.c: Requires alloca.

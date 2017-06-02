@@ -158,7 +158,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   struct __directory_iterator_proxy
   {
-    const directory_entry& operator*() const noexcept { return _M_entry; }
+    const directory_entry& operator*() const& noexcept { return _M_entry; }
+
+    directory_entry operator*() && noexcept { return std::move(_M_entry); }
 
   private:
     friend class directory_iterator;
@@ -233,10 +235,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   };
 
   inline directory_iterator
-  begin(directory_iterator __iter) { return __iter; }
+  begin(directory_iterator __iter) noexcept
+  { return __iter; }
 
   inline directory_iterator
-  end(directory_iterator) { return directory_iterator(); }
+  end(directory_iterator) noexcept
+  { return directory_iterator(); }
 
   inline bool
   operator==(const directory_iterator& __lhs, const directory_iterator& __rhs)
@@ -325,10 +329,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
   };
 
   inline recursive_directory_iterator
-  begin(recursive_directory_iterator __iter) { return __iter; }
+  begin(recursive_directory_iterator __iter) noexcept
+  { return __iter; }
 
   inline recursive_directory_iterator
-  end(recursive_directory_iterator) { return recursive_directory_iterator(); }
+  end(recursive_directory_iterator) noexcept
+  { return recursive_directory_iterator(); }
 
   inline bool
   operator==(const recursive_directory_iterator& __lhs,
