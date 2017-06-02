@@ -24830,6 +24830,8 @@ mips_option_override (void)
 	       "-mabi=eabi");
       else if (!is_nanomips && !TARGET_ABICALLS)
 	error ("position-independent code requires %qs", "-mabicalls");
+      if (is_nanomips)
+	sorry ("PIC not currently supported");
     }
 
   if (TARGET_ABICALLS_PIC2)
