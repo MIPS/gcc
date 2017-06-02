@@ -534,6 +534,41 @@ again:
 }
 
 
+/* Return the vector type associated with the smallest scalar type in STMT.  */
+
+static tree
+get_vectype_for_smallest_scalar_type (gimple *stmt)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  if (vectype && VECTOR_BOOLEAN_TYPE_P (vectype))
+    {
+      /* The result of a vector boolean operation has the smallest scalar
+	 type unless the statement is extending an even narrower boolean.  */
+      if (!gimple_assign_cast_p (stmt))
+	return vectype;
+
+      tree src = gimple_assign_rhs1 (stmt);
+      gimple *def_stmt;
+      enum vect_def_type dt;
+      tree src_vectype = NULL_TREE;
+      if (vect_is_simple_use (src, stmt_info->vinfo, &def_stmt, &dt,
+			      &src_vectype)
+	  && src_vectype
+	  && VECTOR_BOOLEAN_TYPE_P (src_vectype))
+	{
+	  if (TYPE_PRECISION (TREE_TYPE (src_vectype))
+	      < TYPE_PRECISION (TREE_TYPE (vectype)))
+	    return src_vectype;
+	  return vectype;
+	}
+    }
+  HOST_WIDE_INT dummy;
+  tree scalar_type = vect_get_smallest_scalar_type (stmt, &dummy, &dummy);
+  return get_vectype_for_scalar_type (scalar_type);
+}
+
+
 /* Verify if the scalar stmts STMTS are isomorphic, require data
    permutation or are of unsupported types of operation.  Return
    true if they are, otherwise return false and indicate in *MATCHES
@@ -562,12 +597,11 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
   enum tree_code first_cond_code = ERROR_MARK;
   tree lhs;
   bool need_same_oprnds = false;
-  tree vectype = NULL_TREE, scalar_type, first_op1 = NULL_TREE;
+  tree vectype = NULL_TREE, first_op1 = NULL_TREE;
   optab optab;
   int icode;
   machine_mode optab_op2_mode;
   machine_mode vec_mode;
-  HOST_WIDE_INT dummy;
   gimple *first_load = NULL, *prev_first_load = NULL;
 
   /* For every stmt in NODE find its def stmt/s.  */
@@ -611,22 +645,20 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
 	  return false;
 	}
 
-      scalar_type = vect_get_smallest_scalar_type (stmt, &dummy, &dummy);
-      vectype = get_vectype_for_scalar_type (scalar_type);
+      vectype = get_vectype_for_smallest_scalar_type (stmt);
       if (!vectype)
-        {
-          if (dump_enabled_p ())
-            {
-              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
-			       "Build SLP failed: unsupported data-type ");
-              dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
-				 scalar_type);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-            }
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			       "Build SLP failed: unsupported data-type in ");
+	      dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+	      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+	    }
 	  /* Fatal mismatch.  */
 	  matches[0] = false;
-          return false;
-        }
+	  return false;
+	}
 
       /* If populating the vector type requires unrolling then fail
          before adjusting *max_nunits for basic-block vectorization.  */
