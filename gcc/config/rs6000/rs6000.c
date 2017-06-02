@@ -1755,6 +1755,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE rs6000_conditional_register_usage
 
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH rs6000_reassociation_width
+
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT rs6000_trampoline_init
 
@@ -8631,6 +8634,40 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
 		|| GET_MODE_SIZE (reg_mode) == 4);
   return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0),
 					     true, worst_case);
+}
+
+/* Determine the reassociation width to be used in reassociate_bb.
+   This takes into account how many parallel operations we
+   can actually do of a given type, and also the latency.
+   P8:
+     int add/sub 6/cycle     
+         mul 2/cycle
+     vect add/sub/mul 2/cycle
+     fp   add/sub/mul 2/cycle
+     dfp  1/cycle
+*/
+ 
+static int
+rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
+                            enum machine_mode mode)
+{
+  switch (rs6000_cpu)
+    {
+    case PROCESSOR_POWER8:
+    case PROCESSOR_POWER9:
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	return 1;
+      if (VECTOR_MODE_P (mode))
+	return 4;
+      if (INTEGRAL_MODE_P (mode)) 
+	return opc == MULT_EXPR ? 4 : 6;
+      if (FLOAT_MODE_P (mode))
+	return 4;
+      break;
+    default:
+      break;
+    }
+  return 1;
 }
 
 /* Change register usage conditional on target flags.  */
@@ -27956,6 +27993,11 @@ rs6000_expand_split_stack_prologue (void)
 				   const0_rtx, const0_rtx));
   call_fusage = NULL_RTX;
   use_reg (&call_fusage, r12);
+  /* Say the call uses r0, even though it doesn't, to stop regrename
+     from twiddling with the insns saving lr, trashing args for cfun.
+     The insns restoring lr are similarly protected by making
+     split_stack_return use r0.  */
+  use_reg (&call_fusage, r0);
   add_function_usage_to (insn, call_fusage);
   emit_insn (gen_frame_load (r0, r1, info->lr_save_offset));
   insn = emit_move_insn (lr, r0);
