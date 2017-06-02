@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -101,17 +101,24 @@ package body Sem_Ch13 is
    --  list is stored in Static_Discrete_Predicate (Typ), and the Expr is
    --  rewritten as a canonicalized membership operation.
 
+   function Build_Predicate_Function_Declaration
+      (Typ : Entity_Id) return Node_Id;
+   --  Build the declaration for a predicate function. The declaration is built
+   --  at the end of the declarative part containing the type definition, which
+   --  may be before the freeze point of the type. The predicate expression is
+   --  pre-analyzed at this point, to catch visibility errors.
+
    procedure Build_Predicate_Functions (Typ : Entity_Id; N : Node_Id);
    --  If Typ has predicates (indicated by Has_Predicates being set for Typ),
    --  then either there are pragma Predicate entries on the rep chain for the
    --  type (note that Predicate aspects are converted to pragma Predicate), or
    --  there are inherited aspects from a parent type, or ancestor subtypes.
-   --  This procedure builds the spec and body for the Predicate function that
-   --  tests these predicates. N is the freeze node for the type. The spec of
-   --  the function is inserted before the freeze node, and the body of the
-   --  function is inserted after the freeze node. If the predicate expression
-   --  has at least one Raise_Expression, then this procedure also builds the
-   --  M version of the predicate function for use in membership tests.
+   --  This procedure builds body for the Predicate function that tests these
+   --  predicates. N is the freeze node for the type. The spec of the function
+   --  is inserted before the freeze node, and the body of the function is
+   --  inserted after the freeze node. If the predicate expression has a least
+   --  one Raise_Expression, then this procedure also builds the M version of
+   --  the predicate function for use in membership tests.
 
    procedure Check_Pool_Size_Clash (Ent : Entity_Id; SP, SS : Node_Id);
    --  Called if both Storage_Pool and Storage_Size attribute definition
@@ -7841,6 +7848,14 @@ package body Sem_Ch13 is
       Set_Is_Invariant_Procedure (SId);
       Set_Invariant_Procedure (Typ, SId);
 
+      --  Source Coverage Obligations might be attached to the invariant
+      --  expression this procedure evaluates, and we need debug info to be
+      --  able to assess the coverage achieved by evaluations.
+
+      if Opt.Generate_SCO then
+         Set_Needs_Debug_Info (SId);
+      end if;
+
       --  Mark the invariant procedure explicitly as Ghost because it does not
       --  come from source.
 
@@ -8040,9 +8055,11 @@ package body Sem_Ch13 is
             --  If the invariant pragma comes from an aspect, replace the saved
             --  expression because we need the subtype references replaced for
             --  the calls to Preanalyze_Spec_Expression in Check_Aspect_At_xxx
-            --  routines.
+            --  routines. This is not done for interited class-wide invariants
+            --  because the original pragma of the parent type must remain
+            --  unchanged.
 
-            if Present (Asp) then
+            if not Inherit and then Present (Asp) then
                Set_Entity (Identifier (Asp), New_Copy_Tree (Expr));
             end if;
 
@@ -8058,40 +8075,46 @@ package body Sem_Ch13 is
             Set_Parent (Expr, Parent (Arg2));
             Preanalyze_Assert_Expression (Expr, Any_Boolean);
 
-            --  A class-wide invariant may be inherited in a separate unit,
-            --  where the corresponding expression cannot be resolved by
-            --  visibility, because it refers to a local function. Propagate
-            --  semantic information to the original representation item, to
-            --  be used when an invariant procedure for a derived type is
-            --  constructed.
+            --  Both modifications performed below are not done for inherited
+            --  class-wide invariants because the origial aspect/pragma of the
+            --  parent type must remain unchanged.
 
-            --  ??? Unclear how to handle class-wide invariants that are not
-            --  function calls.
+            if not Inherit then
 
-            if not Inherit
-              and then Class_Present (Prag)
-              and then Nkind (Expr) = N_Function_Call
-              and then Nkind (Arg2) = N_Indexed_Component
-            then
-               Rewrite (Arg2,
-                 Make_Function_Call (Ploc,
-                   Name                   =>
-                     New_Occurrence_Of (Entity (Name (Expr)), Ploc),
-                   Parameter_Associations =>
-                     New_Copy_List (Expressions (Arg2))));
-            end if;
+               --  A class-wide invariant may be inherited in a separate unit,
+               --  where the corresponding expression cannot be resolved by
+               --  visibility, because it refers to a local function. Propagate
+               --  semantic information to the original representation item, to
+               --  be used when an invariant procedure for a derived type is
+               --  constructed.
 
-            --  In ASIS mode, even if assertions are not enabled, we must
-            --  analyze the original expression in the aspect specification
-            --  because it is part of the original tree.
+               --  ??? Unclear how to handle class-wide invariants that are not
+               --  function calls.
 
-            if ASIS_Mode and then Present (Asp) then
-               declare
-                  Orig_Expr : constant Node_Id := Expression (Asp);
-               begin
-                  Replace_Type_References (Orig_Expr, T);
-                  Preanalyze_Assert_Expression (Orig_Expr, Any_Boolean);
-               end;
+               if Class_Present (Prag)
+                 and then Nkind (Expr) = N_Function_Call
+                 and then Nkind (Arg2) = N_Indexed_Component
+               then
+                  Rewrite (Arg2,
+                    Make_Function_Call (Ploc,
+                      Name                   =>
+                        New_Occurrence_Of (Entity (Name (Expr)), Ploc),
+                      Parameter_Associations => Expressions (Arg2)));
+               end if;
+
+               --  In ASIS mode, even if assertions are not enabled, we must
+               --  analyze the original expression in the aspect specification
+               --  because it is part of the original tree.
+
+               if ASIS_Mode and then Present (Asp) then
+                  declare
+                     Asp_Expr : constant Node_Id := Expression (Asp);
+
+                  begin
+                     Replace_Type_References (Asp_Expr, T);
+                     Preanalyze_Assert_Expression (Asp_Expr, Any_Boolean);
+                  end;
+               end if;
             end if;
 
             --  An ignored invariant must not generate a runtime check. Add a
@@ -8319,46 +8342,40 @@ package body Sem_Ch13 is
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => Stmts));
 
-         --  Insert procedure declaration and spec at the appropriate points.
-         --  If declaration is already analyzed, it was processed by the
-         --  generated pragma.
+         --  The processing of an invariant pragma immediately generates the
+         --  invariant procedure spec, inserts it into the tree, and analyzes
+         --  it. If the spec has not been analyzed, then the invariant pragma
+         --  is being inherited and requires manual insertion and analysis.
+
+         if not Analyzed (PDecl) then
+            Append_To (Vis_Decls, PDecl);
+            Analyze (PDecl);
+         end if;
+
+         --  The invariant procedure body is inserted at the end of the private
+         --  declarations.
 
          if Present (Priv_Decls) then
-
-            --  The spec goes at the end of visible declarations, but they have
-            --  already been analyzed, so we need to explicitly do the analyze.
-
-            if not Analyzed (PDecl) then
-               Append_To (Vis_Decls, PDecl);
-               Analyze (PDecl);
-            end if;
-
-            --  The body goes at the end of the private declarations, which we
-            --  have not analyzed yet, so we do not need to perform an explicit
-            --  analyze call. We skip this if there are no private declarations
-            --  (this is an error that will be caught elsewhere);
-
             Append_To (Priv_Decls, PBody);
 
-            --  If the invariant appears on the full view of a type, the
-            --  analysis of the private part is complete, and we must
-            --  analyze the new body explicitly.
+            --  If the invariant appears on the full view of a private type,
+            --  then the analysis of the private part is already completed.
+            --  Manually analyze the new body in this case, otherwise wait
+            --  for the analysis of the private declarations to process the
+            --  body.
 
             if In_Private_Part (Current_Scope) then
                Analyze (PBody);
             end if;
 
-         --  If there are no private declarations this may be an error that
-         --  will be diagnosed elsewhere. However, if this is a non-private
-         --  type that inherits invariants, it needs no completion and there
-         --  may be no private part. In this case insert invariant procedure
-         --  at end of current declarative list, and analyze at once, given
-         --  that the type is about to be frozen.
+         --  Otherwise there are no private declarations. This is either an
+         --  error or the related type is a private extension, in which case
+         --  it does not need a completion in a private part. Insert the body
+         --  at the end of the visible declarations and analyze immediately
+         --  because the related type is about to be frozen.
 
-         elsif not Is_Private_Type (Typ) then
-            Append_To (Vis_Decls, PDecl);
+         else
             Append_To (Vis_Decls, PBody);
-            Analyze (PDecl);
             Analyze (PBody);
          end if;
       end if;
@@ -8409,18 +8426,23 @@ package body Sem_Ch13 is
       --  function. It differs in that raise expressions are marked for
       --  special expansion (see Process_REs).
 
-      Object_Name : constant Name_Id := New_Internal_Name ('I');
+      Object_Name : Name_Id;
       --  Name for argument of Predicate procedure. Note that we use the same
       --  name for both predicate functions. That way the reference within the
       --  predicate expression is the same in both functions.
 
-      Object_Entity : constant Entity_Id :=
-                        Make_Defining_Identifier (Loc, Chars => Object_Name);
+      Object_Entity : Entity_Id;
       --  Entity for argument of Predicate procedure
 
-      Object_Entity_M : constant Entity_Id :=
-                         Make_Defining_Identifier (Loc, Chars => Object_Name);
-      --  Entity for argument of Predicate_M procedure
+      Object_Entity_M : Entity_Id;
+      --  Entity for argument of separate Predicate procedure when exceptions
+      --  are present in expression.
+
+      FDecl         : Node_Id;
+      --  The function declaration.
+
+      SId            : Entity_Id;
+      --  Its entity.
 
       Raise_Expression_Present : Boolean := False;
       --  Set True if Expr has at least one Raise_Expression
@@ -8659,8 +8681,9 @@ package body Sem_Ch13 is
    begin
       --  Return if already built or if type does not have predicates
 
+      SId := Predicate_Function (Typ);
       if not Has_Predicates (Typ)
-        or else Present (Predicate_Function (Typ))
+        or else (Present (SId) and then Has_Completion (SId))
       then
          return;
       end if;
@@ -8674,6 +8697,24 @@ package body Sem_Ch13 is
 
       Expr := Empty;
 
+      if Present (SId) then
+         FDecl := Unit_Declaration_Node (SId);
+
+      else
+         FDecl := Build_Predicate_Function_Declaration (Typ);
+         SId   := Defining_Entity (FDecl);
+      end if;
+
+      --  Recover name of formal parameter of function that replaces references
+      --  to the type in predicate expressions.
+
+      Object_Entity :=
+         Defining_Identifier
+           (First (Parameter_Specifications (Specification (FDecl))));
+
+      Object_Name     := Chars (Object_Entity);
+      Object_Entity_M := Make_Defining_Identifier (Loc, Chars => Object_Name);
+
       --  Add predicates for ancestor if present. These must come before the
       --  ones for the current type, as required by AI12-0071-1.
 
@@ -8684,7 +8725,6 @@ package body Sem_Ch13 is
             Add_Call (Atyp);
          end if;
       end;
-
       --  Add Predicates for the current type
 
       Add_Predicates;
@@ -8747,27 +8787,15 @@ package body Sem_Ch13 is
          --  Build the main predicate function
 
          declare
-            SId : constant Entity_Id :=
-                    Make_Defining_Identifier (Loc,
-                      Chars => New_External_Name (Chars (Typ), "Predicate"));
-            --  The entity for the function spec
-
             SIdB : constant Entity_Id :=
               Make_Defining_Identifier (Loc,
                 Chars => New_External_Name (Chars (Typ), "Predicate"));
             --  The entity for the function body
 
             Spec  : Node_Id;
-            FDecl : Node_Id;
             FBody : Node_Id;
 
          begin
-            --  Build function declaration
-
-            Set_Ekind (SId, E_Function);
-            Set_Is_Internal (SId);
-            Set_Is_Predicate_Function (SId);
-            Set_Predicate_Function (Typ, SId);
 
             --  The predicate function is shared between views of a type
 
@@ -8781,20 +8809,6 @@ package body Sem_Ch13 is
             if Ghost_Mode > None then
                Set_Is_Ghost_Entity (SId);
             end if;
-
-            Spec :=
-              Make_Function_Specification (Loc,
-                Defining_Unit_Name       => SId,
-                Parameter_Specifications => New_List (
-                  Make_Parameter_Specification (Loc,
-                    Defining_Identifier => Object_Entity,
-                    Parameter_Type      => New_Occurrence_Of (Typ, Loc))),
-                Result_Definition        =>
-                  New_Occurrence_Of (Standard_Boolean, Loc));
-
-            FDecl :=
-              Make_Subprogram_Declaration (Loc,
-                Specification => Spec);
 
             --  Build function body
 
@@ -8820,9 +8834,14 @@ package body Sem_Ch13 is
                       Make_Simple_Return_Statement (Loc,
                         Expression => Expr))));
 
-            --  Insert declaration before freeze node and body after
+            --  If declaration has not been analyzed yet, Insert declaration
+            --  before freeze node.
+            --  Insert body after freeze node.
 
-            Insert_Before_And_Analyze (N, FDecl);
+            if not Analyzed (FDecl) then
+               Insert_Before_And_Analyze (N, FDecl);
+            end if;
+
             Insert_After_And_Analyze  (N, FBody);
 
             --  Static predicate functions are always side-effect free, and
@@ -8853,8 +8872,8 @@ package body Sem_Ch13 is
                --  The entity for the function body
 
                Spec  : Node_Id;
-               FDecl : Node_Id;
                FBody : Node_Id;
+               FDecl : Node_Id;
                BTemp : Entity_Id;
 
             begin
@@ -9035,6 +9054,59 @@ package body Sem_Ch13 is
 
       Ghost_Mode := Save_Ghost_Mode;
    end Build_Predicate_Functions;
+
+   ------------------------------------------
+   -- Build_Predicate_Function_Declaration --
+   ------------------------------------------
+
+   function Build_Predicate_Function_Declaration
+     (Typ : Entity_Id) return Node_Id
+   is
+      Loc : constant Source_Ptr := Sloc (Typ);
+
+      Object_Entity : constant Entity_Id :=
+              Make_Defining_Identifier (Loc, Chars => New_Internal_Name ('I'));
+
+      --  The formal parameter of the function
+
+      SId : constant Entity_Id :=
+              Make_Defining_Identifier (Loc,
+                Chars => New_External_Name (Chars (Typ), "Predicate"));
+
+      --  The entity for the function spec
+
+      FDecl : Node_Id;
+      Spec  : Node_Id;
+
+   begin
+      Spec :=
+        Make_Function_Specification (Loc,
+          Defining_Unit_Name       => SId,
+          Parameter_Specifications => New_List (
+            Make_Parameter_Specification (Loc,
+              Defining_Identifier => Object_Entity,
+              Parameter_Type      => New_Occurrence_Of (Typ, Loc))),
+          Result_Definition        =>
+            New_Occurrence_Of (Standard_Boolean, Loc));
+
+      FDecl := Make_Subprogram_Declaration (Loc, Specification => Spec);
+
+      Set_Ekind (SId, E_Function);
+      Set_Etype (SId, Standard_Boolean);
+      Set_Is_Internal (SId);
+      Set_Is_Predicate_Function (SId);
+      Set_Predicate_Function (Typ, SId);
+
+      if Comes_From_Source (Typ) then
+         Insert_After (Parent (Typ), FDecl);
+      else
+         Insert_After (Parent (Base_Type (Typ)), FDecl);
+      end if;
+
+      Analyze (FDecl);
+
+      return FDecl;
+   end Build_Predicate_Function_Declaration;
 
    -----------------------------------------
    -- Check_Aspect_At_End_Of_Declarations --
@@ -10837,10 +10909,10 @@ package body Sem_Ch13 is
       --  After all forms of overriding have been resolved, a tagged type may
       --  be left with a set of implicitly declared and possibly erroneous
       --  abstract subprograms, null procedures and subprograms that require
-      --  overriding. If this set contains fully conformat homographs, then one
-      --  is chosen arbitrarily (already done during resolution), otherwise all
-      --  remaining non-fully conformant homographs are hidden from visibility
-      --  (Ada RM 8.3 12.3/2).
+      --  overriding. If this set contains fully conformant homographs, then
+      --  one is chosen arbitrarily (already done during resolution), otherwise
+      --  all remaining non-fully conformant homographs are hidden from
+      --  visibility (Ada RM 8.3 12.3/2).
 
       if Is_Tagged_Type (E) then
          Hide_Non_Overridden_Subprograms (E);
@@ -12276,6 +12348,18 @@ package body Sem_Ch13 is
 
         and then Comes_From_Source (T)
       then
+         --  A self-referential aspect is illegal if it forces freezing the
+         --  entity before the corresponding pragma has been analyzed.
+
+         if Nkind_In (N, N_Attribute_Definition_Clause, N_Pragma)
+           and then From_Aspect_Specification (N)
+         then
+            Error_Msg_NE
+              ("aspect specification causes premature freezing of&", T, N);
+            Set_Has_Delayed_Freeze (T, False);
+            return True;
+         end if;
+
          Too_Late;
          S := First_Subtype (T);
 
@@ -12510,6 +12594,37 @@ package body Sem_Ch13 is
       A_Id : Aspect_Id;
       Expr : Node_Id;
 
+      function Resolve_Name (N : Node_Id) return Traverse_Result;
+      --  Verify that all identifiers in the expression, with the exception
+      --  of references to the current entity, denote visible entities. This
+      --  is done only to detect visibility errors, as the expression will be
+      --  properly analyzed/expanded during analysis of the predicate function
+      --  body.
+
+      ------------------
+      -- Resolve_Name --
+      ------------------
+
+      function Resolve_Name (N : Node_Id) return Traverse_Result is
+      begin
+         if Nkind (N) = N_Selected_Component then
+            if Nkind (Prefix (N)) = N_Identifier
+              and then Chars (Prefix (N)) /= Chars (E)
+            then
+               Find_Selected_Component (Parent (N));
+            end if;
+            return Skip;
+
+         elsif Nkind (N) = N_Identifier and then  Chars (N) /= Chars (E) then
+            Find_Direct_Name (N);
+            Set_Entity (N, Empty);
+         end if;
+
+         return OK;
+      end Resolve_Name;
+
+      procedure Resolve_Aspect_Expression is new Traverse_Proc (Resolve_Name);
+
    begin
       ASN := First_Rep_Item (E);
       while Present (ASN) loop
@@ -12524,10 +12639,24 @@ package body Sem_Ch13 is
 
                when Aspect_Predicate |
                     Aspect_Predicate_Failure |
-                    Aspect_Invariant |
-                    Aspect_Static_Predicate |
-                    Aspect_Dynamic_Predicate =>
+                    Aspect_Invariant =>
                   null;
+
+               when Aspect_Static_Predicate |
+                    Aspect_Dynamic_Predicate =>
+
+                  --  build predicate function specification and preanalyze
+                  --  expression after type replacement.
+
+                  if No (Predicate_Function (E)) then
+                     declare
+                        FDecl : constant Node_Id :=
+                           Build_Predicate_Function_Declaration (E);
+                        pragma Unreferenced (FDecl);
+                     begin
+                        Resolve_Aspect_Expression (Expr);
+                     end;
+                  end if;
 
                when Pre_Post_Aspects =>
                   null;

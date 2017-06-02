@@ -3288,12 +3288,14 @@ package body Freeze is
 
          if Ekind (E) = E_Function then
 
-            --  Check whether function is declared elsewhere.
+            --  Check whether function is declared elsewhere. Previous code
+            --  used Get_Source_Unit on both arguments, but the values are
+            --  equal in the case of a parent and a child unit.
+            --  Confusion with subunits in code  ????
 
             Late_Freezing :=
-              Get_Source_Unit (E) /= Get_Source_Unit (N)
-                and then Returns_Limited_View (E)
-                and then not In_Open_Scopes (Scope (E));
+              not In_Same_Extended_Unit (E, N)
+                and then Returns_Limited_View (E);
 
             --  Freeze return type
 
@@ -7889,6 +7891,16 @@ package body Freeze is
         and then not Error_Posted (Parent (E))
       then
          Check_Overriding_Indicator (E, Empty, Is_Primitive (E));
+      end if;
+
+      if Modify_Tree_For_C
+        and then Nkind (Parent (E)) = N_Function_Specification
+        and then Is_Array_Type (Etype (E))
+        and then Is_Constrained (Etype (E))
+        and then not Is_Unchecked_Conversion_Instance (E)
+        and then not Rewritten_For_C (E)
+      then
+         Build_Procedure_Form (Unit_Declaration_Node (E));
       end if;
    end Freeze_Subprogram;
 

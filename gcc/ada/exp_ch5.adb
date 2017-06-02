@@ -1695,12 +1695,8 @@ package body Exp_Ch5 is
             --  previously expanded into a call to the Get_Ceiling run-time
             --  subprogram. In restricted profiles this is not available.
 
-            if Nkind (Ent) = N_Function_Call
-              and then RTE_Available (RE_Get_Ceiling)
-              and then (Entity (Name (Ent)) = RTE (RE_Get_Ceiling)
-                          or else
-                        Entity (Name (Ent)) = RTE (RO_PE_Get_Ceiling))
-            then
+            if Is_Expanded_Priority_Attribute (Ent) then
+
                --  Look for the enclosing concurrent type
 
                Conctyp := Current_Scope;
@@ -1950,10 +1946,12 @@ package body Exp_Ch5 is
       --  have a full view with discriminants, but those are nameable only
       --  in the underlying type, so convert the Rhs to it before potential
       --  checking. Convert Lhs as well, otherwise the actual subtype might
-      --  not be constructible.
+      --  not be constructible. If the discriminants have defaults the type
+      --  is unconstrained and there is nothing to check.
 
       elsif Has_Unknown_Discriminants (Base_Type (Etype (Lhs)))
         and then Has_Discriminants (Typ)
+        and then not Has_Defaulted_Discriminants (Typ)
       then
          Rewrite (Rhs, OK_Convert_To (Base_Type (Typ), Rhs));
          Rewrite (Lhs, OK_Convert_To (Base_Type (Typ), Lhs));

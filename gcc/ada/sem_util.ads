@@ -449,6 +449,9 @@ package Sem_Util is
    function Current_Scope return Entity_Id;
    --  Get entity representing current scope
 
+   function Current_Scope_No_Loops return Entity_Id;
+   --  Return the current scope ignoring internally generated loops
+
    function Current_Subprogram return Entity_Id;
    --  Returns current enclosing subprogram. If Current_Scope is a subprogram,
    --  then that is what is returned, otherwise the Enclosing_Subprogram of the
@@ -1149,8 +1152,8 @@ package Sem_Util is
    --  Returns true if the Typ_Ent implements interface Iface_Ent
 
    function In_Assertion_Expression_Pragma (N : Node_Id) return Boolean;
-   --  Determine whether an arbitrary node appears in a pragma that acts as an
-   --  assertion expression. See Sem_Prag for the list of qualifying pragmas.
+   --  Returns True if node N appears within a pragma that acts as an assertion
+   --  expression. See Sem_Prag for the list of qualifying pragmas.
 
    function In_Instance return Boolean;
    --  Returns True if the current scope is within a generic instance
@@ -1175,6 +1178,10 @@ package Sem_Util is
 
    function In_Pragma_Expression (N : Node_Id; Nam : Name_Id) return Boolean;
    --  Returns true if the expression N occurs within a pragma with name Nam
+
+   function In_Pre_Post_Condition (N : Node_Id) return Boolean;
+   --  Returns True if node N appears within a pre/postcondition pragma. Note
+   --  the pragma Check equivalents are NOT considered.
 
    function In_Reverse_Storage_Order_Object (N : Node_Id) return Boolean;
    --  Returns True if N denotes a component or subcomponent in a record or
@@ -1369,6 +1376,11 @@ package Sem_Util is
    function Is_Entry_Declaration (Id : Entity_Id) return Boolean;
    --  Determine whether entity Id is the spec entity of an entry [family]
 
+   function Is_Expanded_Priority_Attribute (E : Entity_Id) return Boolean;
+   --  Check whether a function in a call is an expanded priority attribute,
+   --  which is transformed into an Rtsfind call to Get_Ceiling. This expansion
+   --  does not take place in a configurable runtime.
+
    function Is_Expression_Function (Subp : Entity_Id) return Boolean;
    --  Determine whether subprogram [body] Subp denotes an expression function
 
@@ -1470,6 +1482,13 @@ package Sem_Util is
    --  this is a case in which conversions whose expression is a variable (in
    --  the Is_Variable sense) with an untagged type target are considered view
    --  conversions and hence variables.
+
+   function Is_OK_Volatile_Context
+     (Context : Node_Id;
+      Obj_Ref : Node_Id) return Boolean;
+   --  Determine whether node Context denotes a "non-interfering context" (as
+   --  defined in SPARK RM 7.1.3(12)) where volatile reference Obj_Ref can
+   --  safely reside.
 
    function Is_Package_Contract_Annotation (Item : Node_Id) return Boolean;
    --  Determine whether aspect specification or pragma Item is one of the
@@ -2280,5 +2299,8 @@ package Sem_Util is
    --      whose components are of a type that yields a synchronized object.
    --    * A synchronized interface type
    --    * A task type
+
+   function Yields_Universal_Type (N : Node_Id) return Boolean;
+   --  Determine whether unanalyzed node N yields a universal type
 
 end Sem_Util;

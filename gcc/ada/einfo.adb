@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -597,7 +597,7 @@ package body Einfo is
    --    Is_Uplevel_Referenced_Entity    Flag283
    --    Is_Unimplemented                Flag284
    --    Is_Volatile_Full_Access         Flag285
-   --    (unused)                        Flag286
+   --    Is_Exception_Handler            Flag286
    --    Rewritten_For_C                 Flag287
 
    --    (unused)                        Flag288
@@ -1976,12 +1976,6 @@ package body Einfo is
       return Flag146 (Id);
    end Is_Abstract_Type;
 
-   function Is_Local_Anonymous_Access (Id : E) return B is
-   begin
-      pragma Assert (Is_Access_Type (Id));
-      return Flag194 (Id);
-   end Is_Local_Anonymous_Access;
-
    function Is_Access_Constant (Id : E) return B is
    begin
       pragma Assert (Is_Access_Type (Id));
@@ -2136,6 +2130,12 @@ package body Einfo is
    begin
       return Flag52 (Id);
    end Is_Entry_Formal;
+
+   function Is_Exception_Handler (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      return Flag286 (Id);
+   end Is_Exception_Handler;
 
    function Is_Exported (Id : E) return B is
    begin
@@ -2306,6 +2306,12 @@ package body Einfo is
    begin
       return Flag25 (Id);
    end Is_Limited_Record;
+
+   function Is_Local_Anonymous_Access (Id : E) return B is
+   begin
+      pragma Assert (Is_Access_Type (Id));
+      return Flag194 (Id);
+   end Is_Local_Anonymous_Access;
 
    function Is_Machine_Code_Subprogram (Id : E) return B is
    begin
@@ -5146,6 +5152,12 @@ package body Einfo is
       Set_Flag52 (Id, V);
    end Set_Is_Entry_Formal;
 
+   procedure Set_Is_Exception_Handler (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      Set_Flag286 (Id, V);
+   end Set_Is_Exception_Handler;
+
    procedure Set_Is_Exported (Id : E; V : B := True) is
    begin
       Set_Flag99 (Id, V);
@@ -5878,6 +5890,7 @@ package body Einfo is
 
    procedure Set_Overridden_Operation (Id : E; V : E) is
    begin
+      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
       Set_Node26 (Id, V);
    end Set_Overridden_Operation;
 
@@ -8200,8 +8213,13 @@ package body Einfo is
       --  If type is private and has a completion, predicate may be defined
       --  on the full view.
 
-      if Is_Private_Type (Id) and then Present (Full_View (Id)) then
+      if Is_Private_Type (Id)
+         and then
+           (not Has_Predicates (Id) or else No (Subprograms_For_Type (Id)))
+         and then Present (Full_View (Id))
+      then
          T := Full_View (Id);
+
       else
          T := Id;
       end if;
@@ -8955,6 +8973,7 @@ package body Einfo is
       W ("Is_Dispatching_Operation",        Flag6   (Id));
       W ("Is_Eliminated",                   Flag124 (Id));
       W ("Is_Entry_Formal",                 Flag52  (Id));
+      W ("Is_Exception_Handler",            Flag286 (Id));
       W ("Is_Exported",                     Flag99  (Id));
       W ("Is_First_Subtype",                Flag70  (Id));
       W ("Is_For_Access_Subtype",           Flag118 (Id));

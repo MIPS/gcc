@@ -428,7 +428,7 @@ maybe_cleanup_point_expr_void (tree expr)
 void
 add_decl_expr (tree decl)
 {
-  tree r = build_stmt (input_location, DECL_EXPR, decl);
+  tree r = build_stmt (DECL_SOURCE_LOCATION (decl), DECL_EXPR, decl);
   if (DECL_INITIAL (decl)
       || (DECL_SIZE (decl) && TREE_SIDE_EFFECTS (DECL_SIZE (decl))))
     r = maybe_cleanup_point_expr_void (r);
@@ -2732,8 +2732,8 @@ finish_compound_literal (tree type, tree compound_literal,
   compound_literal = digest_init (type, compound_literal, complain);
   if (TREE_CODE (compound_literal) == CONSTRUCTOR)
     TREE_HAS_CONSTRUCTOR (compound_literal) = true;
-  /* Put static/constant array temporaries in static variables, but always
-     represent class temporaries with TARGET_EXPR so we elide copies.  */
+
+  /* Put static/constant array temporaries in static variables.  */
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
@@ -2763,8 +2763,13 @@ finish_compound_literal (tree type, tree compound_literal,
 	return error_mark_node;
       return decl;
     }
-  else
-    return get_target_expr_sfinae (compound_literal, complain);
+
+  /* Represent other compound literals with TARGET_EXPR so we produce
+     an lvalue, but can elide copies.  */
+  if (!VECTOR_TYPE_P (type))
+    compound_literal = get_target_expr_sfinae (compound_literal, complain);
+
+  return compound_literal;
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -3486,6 +3491,12 @@ finish_id_expression (tree id_expression,
 	 was entirely defined.  */
       if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
+
+      /* A use in unevaluated operand might not be instantiated appropriately
+	 if tsubst_copy builds a dummy parm, or if we never instantiate a
+	 generic lambda, so mark it now.  */
+      if (processing_template_decl && cp_unevaluated_operand)
+	mark_type_use (decl);
 
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */

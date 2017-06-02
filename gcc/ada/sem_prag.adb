@@ -2311,7 +2311,7 @@ package body Sem_Prag is
 
                   --  An effectively volatile object with external property
                   --  Effective_Reads set to True must have mode Output or
-                  --  In_Out (SPARK RM 7.1.3(11)).
+                  --  In_Out (SPARK RM 7.1.3(10)).
 
                   elsif Effective_Reads_Enabled (Item_Id)
                     and then Global_Mode = Name_Input
@@ -6698,7 +6698,7 @@ package body Sem_Prag is
                declare
                   Str   : constant String_Id :=
                             Strval (Get_Pragma_Arg (Arg2));
-                  Len   : constant Int := String_Length (Str);
+                  Len   : constant Nat := String_Length (Str);
                   Cont  : Boolean;
                   Ptr   : Nat;
                   CC    : Char_Code;
@@ -12265,11 +12265,11 @@ package body Sem_Prag is
 
             case Cname is
 
-               --  Nothing to do for invariants and predicates as the checks
-               --  occur in the client units. The SCO for the aspect in the
-               --  declaration unit is conservatively always enabled.
+               --  Nothing to do for predicates as the checks occur in the
+               --  client units. The SCO for the aspect in the declaration
+               --  unit is conservatively always enabled.
 
-               when Name_Invariant | Name_Predicate =>
+               when Name_Predicate =>
                   null;
 
                --  Otherwise mark aspect/pragma SCO as enabled
@@ -12504,9 +12504,10 @@ package body Sem_Prag is
 
             else
                declare
-                  Arg  : Node_Id;
-                  Argx : Node_Id;
-                  LocP : Source_Ptr;
+                  Arg   : Node_Id;
+                  Argx  : Node_Id;
+                  LocP  : Source_Ptr;
+                  New_P : Node_Id;
 
                begin
                   Arg := Arg1;
@@ -12526,7 +12527,7 @@ package body Sem_Prag is
                      --  Construct equivalent old form syntax Check_Policy
                      --  pragma and insert it to get remaining checks.
 
-                     Insert_Action (N,
+                     New_P :=
                        Make_Pragma (LocP,
                          Chars                        => Name_Check_Policy,
                          Pragma_Argument_Associations => New_List (
@@ -12534,9 +12535,20 @@ package body Sem_Prag is
                              Expression =>
                                Make_Identifier (LocP, Chars (Arg))),
                            Make_Pragma_Argument_Association (Sloc (Argx),
-                             Expression => Argx))));
+                             Expression => Argx)));
 
                      Arg := Next (Arg);
+
+                     --  For a configuration pragma, insert old form in
+                     --  the corresponding file.
+
+                     if Is_Configuration_Pragma then
+                        Insert_After (N, New_P);
+                        Analyze (New_P);
+
+                     else
+                        Insert_Action (N, New_P);
+                     end if;
                   end loop;
 
                   --  Rewrite original Check_Policy pragma to null, since we
@@ -13580,6 +13592,17 @@ package body Sem_Prag is
 
             if not Is_Configuration_Pragma then
                Check_Is_In_Decl_Part_Or_Package_Spec;
+            end if;
+
+            if From_Aspect_Specification (N) then
+               declare
+                  E : constant Entity_Id := Entity (Corresponding_Aspect (N));
+               begin
+                  if not In_Open_Scopes (E) then
+                     Error_Msg_N
+                       ("aspect must apply to package or subprogram", N);
+                  end if;
+               end;
             end if;
 
             if Present (Arg1) then
@@ -15062,6 +15085,12 @@ package body Sem_Prag is
                elsif Nkind (Context) = N_Subprogram_Body
                  and then No (Corresponding_Spec (Context))
                then
+                  Id := Defining_Entity (Context);
+
+               --  Pragma Ghost applies to a subprogram declaration that acts
+               --  as a compilation unit.
+
+               elsif Nkind (Context) = N_Subprogram_Declaration then
                   Id := Defining_Entity (Context);
                end if;
             end if;
@@ -21231,17 +21260,17 @@ package body Sem_Prag is
                Check_Arg_Count (1);
 
                if Nkind (A) = N_String_Literal then
-                  S   := Strval (A);
+                  S := Strval (A);
 
                   declare
                      Slen    : constant Natural := Natural (String_Length (S));
                      Options : String (1 .. Slen);
-                     J       : Natural;
+                     J       : Positive;
 
                   begin
                      J := 1;
                      loop
-                        C := Get_String_Char (S, Int (J));
+                        C := Get_String_Char (S, Pos (J));
                         exit when not In_Character_Range (C);
                         Options (J) := Get_Character (C);
 
@@ -22586,14 +22615,14 @@ package body Sem_Prag is
                   declare
                      Slen    : constant Natural := Natural (String_Length (S));
                      Options : String (1 .. Slen);
-                     J       : Natural;
+                     J       : Positive;
 
                   begin
                      --  Couldn't we use a for loop here over Options'Range???
 
                      J := 1;
                      loop
-                        C := Get_String_Char (S, Int (J));
+                        C := Get_String_Char (S, Pos (J));
 
                         --  This is a weird test, it skips setting validity
                         --  checks entirely if any element of S is out of
@@ -28796,10 +28825,10 @@ package body Sem_Prag is
 
    procedure Set_Encoded_Interface_Name (E : Entity_Id; S : Node_Id) is
       Str : constant String_Id := Strval (S);
-      Len : constant Int       := String_Length (Str);
+      Len : constant Nat       := String_Length (Str);
       CC  : Char_Code;
       C   : Character;
-      J   : Int;
+      J   : Pos;
 
       Hex : constant array (0 .. 15) of Character := "0123456789abcdef";
 

@@ -2175,12 +2175,12 @@ package body Sem_Ch4 is
          begin
             Set_Etype (N, Any_Type);
 
-            --  Loop through intepretations of Then_Expr
+            --  Loop through interpretations of Then_Expr
 
             Get_First_Interp (Then_Expr, I, It);
             while Present (It.Nam) loop
 
-               --  Add possible intepretation of Then_Expr if no Else_Expr, or
+               --  Add possible interpretation of Then_Expr if no Else_Expr, or
                --  Else_Expr is present and has a compatible type.
 
                if No (Else_Expr)
@@ -4109,7 +4109,7 @@ package body Sem_Ch4 is
       --  indexed component rather than a function call.
 
       function Has_Dereference (Nod : Node_Id) return Boolean;
-      --  Check whether prefix includes a dereference at any level
+      --  Check whether prefix includes a dereference at any level.
 
       --------------------------------
       -- Find_Component_In_Instance --
@@ -4689,17 +4689,27 @@ package body Sem_Ch4 is
          --  reach an internal entity of another synchronized object).
          --  This is legal if prefix is an access to such type and there is
          --  a dereference, or is a component with a dereferenced prefix.
+         --  It is also legal if the prefix is a component of a task type,
+         --  and the selector is one of the task operations.
 
          if In_Scope
            and then not Is_Entity_Name (Name)
            and then not Has_Dereference (Name)
          then
-            Error_Msg_NE
-              ("invalid reference to internal operation of some object of "
-               & "type &", N, Type_To_Use);
-            Set_Entity (Sel, Any_Id);
-            Set_Etype  (Sel, Any_Type);
-            return;
+            if Is_Task_Type (Prefix_Type)
+              and then Present (Entity (Sel))
+              and then Ekind_In (Entity (Sel), E_Entry, E_Entry_Family)
+            then
+               null;
+
+            else
+               Error_Msg_NE
+                 ("invalid reference to internal operation of some object of "
+                  & "type &", N, Type_To_Use);
+               Set_Entity (Sel, Any_Id);
+               Set_Etype  (Sel, Any_Type);
+               return;
+            end if;
          end if;
 
          --  If there is no visible entity with the given name or none of the

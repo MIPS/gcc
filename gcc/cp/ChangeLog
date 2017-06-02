@@ -1,3 +1,66 @@
+2016-04-20  Nathan Sidwell  <nathan@acm.org>
+
+	* semantics.c (finish_compound_lteral): Don't wrap VECTOR_TYPEs in a
+	TARGET_EXPR.
+
+2016-04-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66543
+	* expr.c (mark_exp_read): Handle NON_DEPENDENT_EXPR.
+	* pt.c (make_pack_expansion): Call mark_exp_read.
+	* semantics.c (finish_id_expression): Call mark_type_use in
+	unevaluated context.
+
+	DR 2137
+	* call.c (implicit_conversion): If we choose a copy constructor
+	for list-initialization from the same type, the conversion is an
+	exact match.
+
+	* constexpr.c (breaks): Handle EXIT_EXPR.
+	(cxx_eval_loop_expr): Handle COMPOUND_EXPR body.
+	(cxx_eval_constant_expression): Handle EXIT_EXPR, improve handling
+	of COMPOUND_EXPR.
+
+	PR c++/68206
+	PR c++/68530
+	* constexpr.c (potential_constant_expression_1): Handle LOOP_EXPR
+	and GOTO_EXPR.
+
+	* pt.c (tsubst_expr): Remove shadowing declaration.
+	(tsubst_pack_expansion): Add assert.
+
+	* semantics.c (add_decl_expr): Use DECL_SOURCE_LOCATION.
+
+	PR c++/70522
+	* name-lookup.c (qualified_lookup_using_namespace): Look through
+	hidden names.
+
+2016-04-18  Michael Matz  <matz@suse.de>
+
+	* class.c (build_vtable): Use SET_DECL_ALIGN and SET_TYPE_ALIGN.
+	(layout_class_type): Ditto.
+	(build_base_field): Use SET_DECL_ALIGN.
+	(fixup_attribute_variants): Use SET_TYPE_ALIGN.
+	* decl.c (duplicate_decls): Use SET_DECL_ALIGN.
+	(record_unknown_type): Use SET_TYPE_ALIGN.
+	(cxx_init_decl_processing): Ditto.
+	(copy_type_enum): Ditto.
+	(grokfndecl): Use SET_DECL_ALIGN.
+	(copy_type_enum): Use SET_TYPE_ALIGN.
+	* pt.c (instantiate_class_template_1): Use SET_TYPE_ALIGN.
+	(tsubst): Ditto.
+	* tree.c (cp_build_qualified_type_real): Use SET_TYPE_ALIGN.
+	* lambda.c (maybe_add_lambda_conv_op): Use SET_DECL_ALIGN.
+	* method.c (implicitly_declare_fn): Use SET_DECL_ALIGN.
+	* rtti.c (emit_tinfo_decl): Ditto.
+
+2016-04-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70690
+	PR c++/70528
+	* class.c (type_maybe_constexpr_default_constructor): New.
+	(type_has_constexpr_default_constructor): Revert.
+
 2016-04-16  Sandra Loosemore  <sandra@codesourcery.com>
 
 	PR target/1078

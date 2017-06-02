@@ -1096,7 +1096,7 @@ package body Exp_Ch7 is
       --    Jump_Alts
 
       Counter_Id  : Entity_Id := Empty;
-      Counter_Val : Int       := 0;
+      Counter_Val : Nat       := 0;
       --  Name and value of the state counter
 
       Decls : List_Id := No_List;
@@ -1725,7 +1725,7 @@ package body Exp_Ch7 is
          Spec    : Node_Id;
          Typ     : Entity_Id;
 
-         Old_Counter_Val : Int;
+         Old_Counter_Val : Nat;
          --  This variable is used to determine whether a nested package or
          --  instance contains at least one controlled object.
 
@@ -4640,19 +4640,20 @@ package body Exp_Ch7 is
 
          function Is_Subprogram_Call (N : Node_Id) return Traverse_Result is
          begin
-            --  Complex constructs are factored out by the expander and their
-            --  occurrences are replaced with references to temporaries or
-            --  object renamings. Due to this expansion activity, inspect the
-            --  original tree to detect subprogram calls.
+            --  A regular procedure or function call
 
-            if Nkind_In (N, N_Identifier,
-                            N_Object_Renaming_Declaration)
-              and then Original_Node (N) /= N
-            then
+            if Nkind (N) in N_Subprogram_Call then
+               Must_Hook := True;
+               return Abandon;
+
+            --  Special cases
+
+            --  Heavy expansion may relocate function calls outside the related
+            --  node. Inspect the original node to detect the initial placement
+            --  of the call.
+
+            elsif Original_Node (N) /= N then
                Detect_Subprogram_Call (Original_Node (N));
-
-               --  The original construct contains a subprogram call, there is
-               --  no point in continuing the tree traversal.
 
                if Must_Hook then
                   return Abandon;
@@ -4660,19 +4661,11 @@ package body Exp_Ch7 is
                   return OK;
                end if;
 
-            --  The original construct contains a subprogram call, there is no
-            --  point in continuing the tree traversal.
+            --  Generalized indexing always involves a function call
 
-            elsif Nkind (N) = N_Object_Declaration
-              and then Present (Expression (N))
-              and then Nkind (Original_Node (Expression (N))) = N_Function_Call
+            elsif Nkind (N) = N_Indexed_Component
+              and then Present (Generalized_Indexing (N))
             then
-               Must_Hook := True;
-               return Abandon;
-
-            --  A regular procedure or function call
-
-            elsif Nkind (N) in N_Subprogram_Call then
                Must_Hook := True;
                return Abandon;
 
@@ -6227,7 +6220,7 @@ package body Exp_Ch7 is
 
       procedure Preprocess_Components
         (Comps     : Node_Id;
-         Num_Comps : out Int;
+         Num_Comps : out Nat;
          Has_POC   : out Boolean);
       --  Examine all components in component list Comps, count all controlled
       --  components and determine whether at least one of them is per-object
@@ -6265,7 +6258,7 @@ package body Exp_Ch7 is
             Decl_Id   : Entity_Id;
             Decl_Typ  : Entity_Id;
             Has_POC   : Boolean;
-            Num_Comps : Int;
+            Num_Comps : Nat;
 
             procedure Process_Component_For_Adjust (Decl : Node_Id);
             --  Process the declaration of a single controlled component
@@ -6679,7 +6672,7 @@ package body Exp_Ch7 is
             Jump_Block : Node_Id;
             Label      : Node_Id;
             Label_Id   : Entity_Id;
-            Num_Comps  : Int;
+            Num_Comps  : Nat;
             Stmts      : List_Id;
 
             procedure Process_Component_For_Finalize
@@ -7236,7 +7229,7 @@ package body Exp_Ch7 is
 
       procedure Preprocess_Components
         (Comps     : Node_Id;
-         Num_Comps : out Int;
+         Num_Comps : out Nat;
          Has_POC   : out Boolean)
       is
          Decl : Node_Id;
@@ -8000,14 +7993,22 @@ package body Exp_Ch7 is
                elsif Ekind_In (S, E_Entry, E_Loop) then
                   exit;
 
-               --  In a procedure or a block, we release on exit of the
-               --  procedure or block. ??? memory leak can be created by
-               --  recursive calls.
+               --  In a procedure or a block, release the sec stack on exit
+               --  from the construct. Note that an exception handler with a
+               --  choice parameter requires a declarative region in the form
+               --  of a block. The block does not physically manifest in the
+               --  tree as it only serves as a scope. Do not consider such a
+               --  block because it will never release the sec stack.
 
-               elsif Ekind_In (S, E_Block, E_Procedure) then
+               --  ??? Memory leak can be created by recursive calls
+
+               elsif Ekind (S) = E_Procedure
+                 or else (Ekind (S) = E_Block
+                           and then not Is_Exception_Handler (S))
+               then
+                  Set_Uses_Sec_Stack (Current_Scope, False);
                   Set_Uses_Sec_Stack (S, True);
                   Check_Restriction (No_Secondary_Stack, Action);
-                  Set_Uses_Sec_Stack (Current_Scope, False);
                   exit;
 
                else

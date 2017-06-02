@@ -80,6 +80,10 @@ package body Exp_Unst is
    --  that are to other subprograms nested within the outer subprogram. These
    --  are the calls that may need an additional parameter.
 
+   procedure Append_Unique_Call (Call : Call_Entry);
+   --  Append a call entry to the Calls table. A check is made to see if the
+   --  table already contains this entry and if so it has no effect.
+
    -----------
    -- Urefs --
    -----------
@@ -119,6 +123,52 @@ package body Exp_Unst is
      Table_Increment      => 200,
      Table_Name           => "Unnest_Urefs");
 
+   ------------------------
+   -- Append_Unique_Call --
+   ------------------------
+
+   procedure Append_Unique_Call (Call : Call_Entry) is
+   begin
+      for J in Calls.First .. Calls.Last loop
+         if Calls.Table (J) = Call then
+            return;
+         end if;
+      end loop;
+
+      Calls.Append (Call);
+   end Append_Unique_Call;
+
+   ---------------
+   -- Get_Level --
+   ---------------
+
+   function Get_Level (Subp : Entity_Id; Sub : Entity_Id) return Nat is
+      Lev : Nat;
+      S   : Entity_Id;
+
+   begin
+      Lev := 1;
+      S   := Sub;
+      loop
+         if S = Subp then
+            return Lev;
+         else
+            Lev := Lev + 1;
+            S   := Enclosing_Subprogram (S);
+         end if;
+      end loop;
+   end Get_Level;
+
+   ----------------
+   -- Subp_Index --
+   ----------------
+
+   function Subp_Index (Sub : Entity_Id) return SI_Type is
+   begin
+      pragma Assert (Is_Subprogram (Sub));
+      return SI_Type (UI_To_Int (Subps_Index (Sub)));
+   end Subp_Index;
+
    -----------------------
    -- Unnest_Subprogram --
    -----------------------
@@ -132,16 +182,8 @@ package body Exp_Unst is
       --  This function returns the index of the enclosing subprogram which
       --  will have a Lev value one less than this.
 
-      function Get_Level (Sub : Entity_Id) return Nat;
-      --  Sub is either Subp itself, or a subprogram nested within Subp. This
-      --  function returns the level of nesting (Subp = 1, subprograms that
-      --  are immediately nested within Subp = 2, etc).
-
       function Img_Pos (N : Pos) return String;
       --  Return image of N without leading blank
-
-      function Subp_Index (Sub : Entity_Id) return SI_Type;
-      --  Given the entity for a subprogram, return corresponding Subps index
 
       function Upref_Name
         (Ent   : Entity_Id;
@@ -177,26 +219,6 @@ package body Exp_Unst is
          return Ret;
       end Enclosing_Subp;
 
-      ---------------
-      -- Get_Level --
-      ---------------
-
-      function Get_Level (Sub : Entity_Id) return Nat is
-         Lev : Nat;
-         S   : Entity_Id;
-      begin
-         Lev := 1;
-         S   := Sub;
-         loop
-            if S = Subp then
-               return Lev;
-            else
-               S := Enclosing_Subprogram (S);
-               Lev := Lev + 1;
-            end if;
-         end loop;
-      end Get_Level;
-
       -------------
       -- Img_Pos --
       -------------
@@ -217,16 +239,6 @@ package body Exp_Unst is
 
          return Buf (Ptr + 1 .. Buf'Last);
       end Img_Pos;
-
-      ----------------
-      -- Subp_Index --
-      ----------------
-
-      function Subp_Index (Sub : Entity_Id) return SI_Type is
-      begin
-         pragma Assert (Is_Subprogram (Sub));
-         return SI_Type (UI_To_Int (Subps_Index (Sub)));
-      end Subp_Index;
 
       ----------------
       -- Upref_Name --
@@ -436,6 +448,15 @@ package body Exp_Unst is
                      end loop;
                   end;
 
+               --  For private type, examine whether full view is static
+
+               elsif Is_Private_Type (T) and then Present (Full_View (T)) then
+                  Check_Static_Type (Full_View (T), DT);
+
+                  if Is_Static_Type (Full_View (T)) then
+                     Set_Is_Static_Type (T);
+                  end if;
+
                --  For now, ignore other types
 
                else
@@ -520,7 +541,7 @@ package body Exp_Unst is
                      --  Both caller and callee must be subprograms
 
                      if Is_Subprogram (Ent) then
-                        Calls.Append ((N, Current_Subprogram, Ent));
+                        Append_Unique_Call ((N, Current_Subprogram, Ent));
                      end if;
                   end if;
                end if;
@@ -542,7 +563,7 @@ package body Exp_Unst is
                --  Make new entry in subprogram table if not already made
 
                declare
-                  L : constant Nat := Get_Level (Ent);
+                  L : constant Nat := Get_Level (Subp, Ent);
                begin
                   Subps.Append
                     ((Ent           => Ent,

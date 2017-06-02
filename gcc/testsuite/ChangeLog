@@ -1,3 +1,92 @@
+2016-04-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/56625
+	PR tree-optimization/69489
+	* gcc.dg/vect/pr56625.c: New test.
+	* gcc.dg/tree-ssa/ifc-pr69489-1.c: New test.
+
+2016-04-20  Andrew Pinski  <apinski@cavium.com>
+
+	PR target/64971
+	* gcc.c-torture/compile/pr37433-1.c: New testcase.
+
+2016-04-20  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/self1.adb: Remove now incorrect test.
+
+2016-04-20  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/scev-11.c: New test.
+	* gcc.dg/tree-ssa/scev-12.c: New test.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/70725
+	* gcc.dg/pr70725.c: New test.
+
+2016-04-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70726
+	* g++.dg/vect/pr70726.cc: New testcase.
+
+2016-04-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/70674
+	* gcc.target/s390/pr70674.c: New test.
+
+2016-04-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/70684
+	* gfortran.dg/list_read_14.f90: New test.
+
+2016-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/69201
+	* gcc.target/i386/avx256-unaligned-store-1.c (a): Make it
+	extern to force it misaligned.
+	(b): Likewise.
+	(c): Likewise.
+	(d): Likewise.
+	Check vmovups.*movv8sf_internal/3 instead of avx_storeups256.
+	Don't check `*' before movv4sf_internal.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Check
+	vmovups.*movv32qi_internal/3 instead of avx_storeups256.
+	Don't check `*' before movv16qi_internal.
+	* gcc.target/i386/avx256-unaligned-store-3.c (a): Make it
+	extern to force it misaligned.
+	(b): Likewise.
+	(c): Likewise.
+	(d): Likewise.
+	Check vmovups.*movv4df_internal/3 instead of avx_storeupd256.
+	Don't check `*' before movv2df_internal.
+	* gcc.target/i386/avx256-unaligned-store-4.c (a): Make it
+	extern to force it misaligned.
+	(b): Likewise.
+	(c): Likewise.
+	(d): Likewise.
+	Check movv8sf_internal instead of avx_storeups256.
+	Check movups.*movv4sf_internal/3 instead of avx_storeups256.
+
+2016-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70171
+	* g++.dg/tree-ssa/pr70171.C: New testcase.
+
+2016-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70724
+	* gcc.dg/torture/pr70724.c: New testcase.
+
+2016-04-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/70689
+	* testsuite/gcc.target/i386/pr70689.c: New.
+
+2016-04-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70708
+	* gcc.target/i386/pr70708.c: New test.
+
 2016-04-18  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/43434

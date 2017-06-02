@@ -748,7 +748,25 @@ package body Sem_Attr is
                if Nkind_In (Par, N_Aggregate, N_Extension_Aggregate) then
                   if Etype (Par) = Typ then
                      Set_Has_Self_Reference (Par);
-                     return True;
+
+                     --  Check the context: the aggregate must be part of the
+                     --  initialization of a type or component, or it is the
+                     --  resulting expansion in an initialization procedure.
+
+                     if Is_Init_Proc (Current_Scope) then
+                        return True;
+                     else
+                        Par := Parent (Par);
+                        while Present (Par) loop
+                           if Nkind (Par) = N_Full_Type_Declaration then
+                              return True;
+                           end if;
+
+                           Par := Parent (Par);
+                        end loop;
+                     end if;
+
+                     return False;
                   end if;
                end if;
 
@@ -1352,6 +1370,22 @@ package body Sem_Attr is
 
          Legal   := True;
          Spec_Id := Unique_Defining_Entity (Subp_Decl);
+
+         --  When generating C code, nested _postcondition subprograms are
+         --  inlined by the front end to avoid problems (when unnested) with
+         --  referenced itypes. Handle that here, since as part of inlining the
+         --  expander nests subprogram within a dummy procedure named _parent
+         --  (see Build_Postconditions_Procedure and Build_Body_To_Inline).
+         --  Hence, in this context, the spec_id of _postconditions is the
+         --  enclosing scope.
+
+         if Generate_C_Code
+           and then Chars (Spec_Id) = Name_uParent
+           and then Chars (Scope (Spec_Id)) = Name_uPostconditions
+         then
+            Spec_Id := Scope (Spec_Id);
+            pragma Assert (Is_Inlined (Spec_Id));
+         end if;
       end Analyze_Attribute_Old_Result;
 
       ---------------------------------
@@ -1374,10 +1408,41 @@ package body Sem_Attr is
       --------------------------------
 
       procedure Check_Array_Or_Scalar_Type is
+         function In_Aspect_Specification return Boolean;
+         --  A current instance of a type in an aspect specification is an
+         --  object and not a type, and therefore cannot be of a scalar type
+         --  in the prefix of one of the array attributes if the attribute
+         --  reference is part of an aspect expression.
+
+         -----------------------------
+         -- In_Aspect_Specification --
+         -----------------------------
+
+         function In_Aspect_Specification return Boolean is
+            P : Node_Id;
+
+         begin
+            P := Parent (N);
+            while Present (P) loop
+               if Nkind (P) = N_Aspect_Specification then
+                  return P_Type = Entity (P);
+
+               elsif Nkind (P) in N_Declaration then
+                  return False;
+               end if;
+
+               P := Parent (P);
+            end loop;
+
+            return False;
+         end In_Aspect_Specification;
+
+         --  Local variables
+
+         Dims  : Int;
          Index : Entity_Id;
 
-         D : Int;
-         --  Dimension number for array attributes
+      --  Start of processing for Check_Array_Or_Scalar_Type
 
       begin
          --  Case of string literal or string literal subtype. These cases
@@ -1397,6 +1462,12 @@ package body Sem_Attr is
 
             if Present (E1) then
                Error_Attr ("invalid argument in % attribute", E1);
+
+            elsif In_Aspect_Specification then
+               Error_Attr
+                 ("prefix of % attribute cannot be the current instance of a "
+                  & "scalar type", P);
+
             else
                Set_Etype (N, P_Base_Type);
                return;
@@ -1432,9 +1503,9 @@ package body Sem_Attr is
                Set_Etype (N, Base_Type (Etype (Index)));
 
             else
-               D := UI_To_Int (Intval (E1));
+               Dims := UI_To_Int (Intval (E1));
 
-               for J in 1 .. D - 1 loop
+               for J in 1 .. Dims - 1 loop
                   Next_Index (Index);
                end loop;
 
@@ -3899,10 +3970,30 @@ package body Sem_Attr is
       -- Image --
       -----------
 
-      when Attribute_Image => Image :
-      begin
+      when Attribute_Image => Image : begin
          Check_SPARK_05_Restriction_On_Attribute;
-         Check_Scalar_Type;
+
+         --  AI12-00124-1 : The ARG has adopted the GNAT semantics of 'Img
+         --  for scalar types, so that the prefix can be an object and not
+         --  a type, and there is no need for an argument. Given this vote
+         --  of confidence from the ARG, simplest is to transform this new
+         --  usage of 'Image into a reference to 'Img.
+
+         if Ada_Version > Ada_2005
+           and then Is_Object_Reference (P)
+           and then Is_Scalar_Type (P_Type)
+         then
+            Rewrite (N,
+              Make_Attribute_Reference (Loc,
+                Prefix         => Relocate_Node (P),
+                Attribute_Name => Name_Img));
+            Analyze (N);
+            return;
+
+         else
+            Check_Scalar_Type;
+         end if;
+
          Set_Etype (N, Standard_String);
 
          if Is_Real_Type (P_Type) then
@@ -6023,7 +6114,7 @@ package body Sem_Attr is
 
                Start_String;
                for J in 1 .. String_Length (Full_Name) - 1 loop
-                  Store_String_Char (Get_String_Char (Full_Name, Int (J)));
+                  Store_String_Char (Get_String_Char (Full_Name, Pos (J)));
                end loop;
 
                Store_String_Chars ("'Type_Key");
@@ -10069,15 +10160,17 @@ package body Sem_Attr is
                      Get_Next_Interp (Index, It);
                   end loop;
 
-               --  If Prefix is a subprogram name, this reference freezes:
+                  --  If Prefix is a subprogram name, this reference freezes,
+                  --  but not if within spec expression mode
 
-               --    If it is a type, there is nothing to resolve.
-               --    If it is an object, complete its resolution.
+                  if not In_Spec_Expression then
+                     Freeze_Before (N, Entity (P));
+                  end if;
+
+               --  If it is a type, there is nothing to resolve. If it is an
+               --  object, complete its resolution.
 
                elsif Is_Overloadable (Entity (P)) then
-
-                  --  Avoid insertion of freeze actions in spec expression mode
-
                   if not In_Spec_Expression then
                      Freeze_Before (N, Entity (P));
                   end if;

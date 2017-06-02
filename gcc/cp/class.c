@@ -214,6 +214,7 @@ static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
 static tree end_of_base (tree);
 static tree get_vcall_index (tree, tree);
+static bool type_maybe_constexpr_default_constructor (tree);
 
 /* Variables shared between class.c and call.c.  */
 
@@ -800,7 +801,7 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
-  DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+  SET_DECL_ALIGN (decl, TARGET_VTABLE_ENTRY_ALIGN);
   DECL_USER_ALIGN (decl) = true;
   DECL_VTABLE_OR_VTT_P (decl) = 1;
   set_linkage_according_to_type (class_type, decl);
@@ -2034,7 +2035,7 @@ fixup_attribute_variants (tree t)
 	valign = MAX (valign, TYPE_ALIGN (variants));
       else
 	TYPE_USER_ALIGN (variants) = user_align;
-      TYPE_ALIGN (variants) = valign;
+      SET_TYPE_ALIGN (variants, valign);
       if (may_alias)
 	fixup_may_alias (variants);
     }
@@ -3346,7 +3347,11 @@ add_implicitly_declared_members (tree t, tree* access_decls,
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
       if (cxx_dialect >= cxx11)
 	TYPE_HAS_CONSTEXPR_CTOR (t)
-	  = type_has_constexpr_default_constructor (t);
+	  /* Don't force the declaration to get a hard answer; if the
+	     definition would have made the class non-literal, it will still be
+	     non-literal because of the base or member in question, and that
+	     gives a better diagnostic.  */
+	  = type_maybe_constexpr_default_constructor (t);
     }
 
   /* [class.ctor]
@@ -4479,7 +4484,7 @@ build_base_field (record_layout_info rli, tree binfo,
 	{
 	  DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
 	  DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
-	  DECL_ALIGN (decl) = CLASSTYPE_ALIGN (basetype);
+	  SET_DECL_ALIGN (decl, CLASSTYPE_ALIGN (basetype));
 	  DECL_USER_ALIGN (decl) = CLASSTYPE_USER_ALIGN (basetype);
 	  DECL_MODE (decl) = TYPE_MODE (basetype);
 	  DECL_FIELD_IS_BASE (decl) = 1;
@@ -5348,14 +5353,26 @@ type_has_constexpr_default_constructor (tree t)
     {
       if (!TYPE_HAS_COMPLEX_DFLT (t))
 	return trivial_default_constructor_is_constexpr (t);
-      /* Assume it's constexpr to avoid unnecessary instantiation; if the
-	 definition would have made the class non-literal, it will still be
-	 non-literal because of the base or member in question, and that
-	 gives a better diagnostic.  */
-      return true;
+      /* Non-trivial, we need to check subobject constructors.  */
+      lazily_declare_fn (sfk_constructor, t);
     }
   fns = locate_ctor (t);
   return (fns && DECL_DECLARED_CONSTEXPR_P (fns));
+}
+
+/* Returns true iff class T has a constexpr default constructor or has an
+   implicitly declared default constructor that we can't tell if it's constexpr
+   without forcing a lazy declaration (which might cause undesired
+   instantiations).  */
+
+bool
+type_maybe_constexpr_default_constructor (tree t)
+{
+  if (CLASS_TYPE_P (t) && CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+      && TYPE_HAS_COMPLEX_DFLT (t))
+    /* Assume it's constexpr.  */
+    return true;
+  return type_has_constexpr_default_constructor (t);
 }
 
 /* Returns true iff class TYPE has a virtual destructor.  */
@@ -6387,7 +6404,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	    }
 
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
-	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
+	  SET_DECL_ALIGN (field, TYPE_ALIGN (integer_type));
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
 	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
 					 empty_base_offsets);
@@ -6522,7 +6539,7 @@ layout_class_type (tree t, tree *virtuals_p)
 		      size_binop (MULT_EXPR,
 				  fold_convert (bitsizetype, eoc),
 				  bitsize_int (BITS_PER_UNIT)));
-      TYPE_ALIGN (base_t) = rli->record_align;
+      SET_TYPE_ALIGN (base_t, rli->record_align);
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);
 
       /* Copy the fields from T.  */

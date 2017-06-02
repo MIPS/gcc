@@ -3379,6 +3379,10 @@ package body Sem_Res is
                  New_Scope => Current_Scope,
                  New_Sloc  => Loc);
 
+            --  Propagate dimension information, if any.
+
+            Copy_Dimensions (Default_Value (F), Actval);
+
             if Is_Concurrent_Type (Scope (Nam))
               and then Has_Discriminants (Scope (Nam))
             then
@@ -3520,7 +3524,7 @@ package body Sem_Res is
          Error_Msg_Name_1 := Prop_Nam;
          Error_Msg_NE
            ("external variable & with enabled property % cannot appear as "
-            & "actual in procedure call (SPARK RM 7.1.3(11))", Var, Var_Id);
+            & "actual in procedure call (SPARK RM 7.1.3(10))", Var, Var_Id);
          Error_Msg_N ("\\corresponding formal parameter has mode In", Var);
       end Property_Error;
 
@@ -4467,7 +4471,7 @@ package body Sem_Res is
             then
                --  An effectively volatile object may act as an actual when the
                --  corresponding formal is of a non-scalar effectively volatile
-               --  type (SPARK RM 7.1.3(12)).
+               --  type (SPARK RM 7.1.3(11)).
 
                if not Is_Scalar_Type (Etype (F))
                  and then Is_Effectively_Volatile (Etype (F))
@@ -4476,7 +4480,7 @@ package body Sem_Res is
 
                --  An effectively volatile object may act as an actual in a
                --  call to an instance of Unchecked_Conversion.
-               --  (SPARK RM 7.1.3(12)).
+               --  (SPARK RM 7.1.3(11)).
 
                elsif Is_Unchecked_Conversion_Instance (Nam) then
                   null;
@@ -4484,7 +4488,7 @@ package body Sem_Res is
                else
                   Error_Msg_N
                     ("volatile object cannot act as actual in a call (SPARK "
-                     & "RM 7.1.3(12))", A);
+                     & "RM 7.1.3(11))", A);
                end if;
 
                --  Detect an external variable with an enabled property that
@@ -6505,13 +6509,27 @@ package body Sem_Res is
    -----------------------------
 
    procedure Resolve_Case_Expression (N : Node_Id; Typ : Entity_Id) is
-      Alt    : Node_Id;
-      Is_Dyn : Boolean;
+      Alt      : Node_Id;
+      Alt_Expr : Node_Id;
+      Alt_Typ  : Entity_Id;
+      Is_Dyn   : Boolean;
 
    begin
       Alt := First (Alternatives (N));
       while Present (Alt) loop
-         Resolve (Expression (Alt), Typ);
+         Alt_Expr := Expression (Alt);
+         Resolve (Alt_Expr, Typ);
+         Alt_Typ := Etype (Alt_Expr);
+
+         --  When the expression is of a scalar subtype different from the
+         --  result subtype, then insert a conversion to ensure the generation
+         --  of a constraint check.
+
+         if Is_Scalar_Type (Alt_Typ) and then Alt_Typ /= Typ then
+            Rewrite (Alt_Expr, Convert_To (Typ, Alt_Expr));
+            Analyze_And_Resolve (Alt_Expr, Typ);
+         end if;
+
          Next (Alt);
       end loop;
 
@@ -6519,13 +6537,14 @@ package body Sem_Res is
       --  dynamically tagged must be known statically.
 
       if Is_Tagged_Type (Typ) and then not Is_Class_Wide_Type (Typ) then
-         Alt := First (Alternatives (N));
+         Alt    := First (Alternatives (N));
          Is_Dyn := Is_Dynamically_Tagged (Expression (Alt));
 
          while Present (Alt) loop
             if Is_Dynamically_Tagged (Expression (Alt)) /= Is_Dyn then
-               Error_Msg_N ("all or none of the dependent expressions "
-                            & "can be dynamically tagged", N);
+               Error_Msg_N
+                 ("all or none of the dependent expressions can be "
+                  & "dynamically tagged", N);
             end if;
 
             Next (Alt);
@@ -6816,13 +6835,6 @@ package body Sem_Res is
       --  Determine whether node Context denotes an assignment statement or an
       --  object declaration whose expression is node Expr.
 
-      function Is_OK_Volatile_Context
-        (Context : Node_Id;
-         Obj_Ref : Node_Id) return Boolean;
-      --  Determine whether node Context denotes a "non-interfering context"
-      --  (as defined in SPARK RM 7.1.3(12)) where volatile reference Obj_Ref
-      --  can safely reside.
-
       ----------------------------------------
       -- Is_Assignment_Or_Object_Expression --
       ----------------------------------------
@@ -6864,253 +6876,6 @@ package body Sem_Res is
             return False;
          end if;
       end Is_Assignment_Or_Object_Expression;
-
-      ----------------------------
-      -- Is_OK_Volatile_Context --
-      ----------------------------
-
-      function Is_OK_Volatile_Context
-        (Context : Node_Id;
-         Obj_Ref : Node_Id) return Boolean
-      is
-         function Is_Protected_Operation_Call (Nod : Node_Id) return Boolean;
-         --  Determine whether an arbitrary node denotes a call to a protected
-         --  entry, function or procedure in prefixed form where the prefix is
-         --  Obj_Ref.
-
-         function Within_Check (Nod : Node_Id) return Boolean;
-         --  Determine whether an arbitrary node appears in a check node
-
-         function Within_Subprogram_Call (Nod : Node_Id) return Boolean;
-         --  Determine whether an arbitrary node appears in a procedure call
-
-         function Within_Volatile_Function (Id : Entity_Id) return Boolean;
-         --  Determine whether an arbitrary entity appears in a volatile
-         --  function.
-
-         ---------------------------------
-         -- Is_Protected_Operation_Call --
-         ---------------------------------
-
-         function Is_Protected_Operation_Call (Nod : Node_Id) return Boolean is
-            Pref : Node_Id;
-            Subp : Node_Id;
-
-         begin
-            --  A call to a protected operations retains its selected component
-            --  form as opposed to other prefixed calls that are transformed in
-            --  expanded names.
-
-            if Nkind (Nod) = N_Selected_Component then
-               Pref := Prefix (Nod);
-               Subp := Selector_Name (Nod);
-
-               return
-                 Pref = Obj_Ref
-                   and then Present (Etype (Pref))
-                   and then Is_Protected_Type (Etype (Pref))
-                   and then Is_Entity_Name (Subp)
-                   and then Present (Entity (Subp))
-                   and then Ekind_In (Entity (Subp), E_Entry,
-                                                     E_Entry_Family,
-                                                     E_Function,
-                                                     E_Procedure);
-            else
-               return False;
-            end if;
-         end Is_Protected_Operation_Call;
-
-         ------------------
-         -- Within_Check --
-         ------------------
-
-         function Within_Check (Nod : Node_Id) return Boolean is
-            Par : Node_Id;
-
-         begin
-            --  Climb the parent chain looking for a check node
-
-            Par := Nod;
-            while Present (Par) loop
-               if Nkind (Par) in N_Raise_xxx_Error then
-                  return True;
-
-               --  Prevent the search from going too far
-
-               elsif Is_Body_Or_Package_Declaration (Par) then
-                  exit;
-               end if;
-
-               Par := Parent (Par);
-            end loop;
-
-            return False;
-         end Within_Check;
-
-         ----------------------------
-         -- Within_Subprogram_Call --
-         ----------------------------
-
-         function Within_Subprogram_Call (Nod : Node_Id) return Boolean is
-            Par : Node_Id;
-
-         begin
-            --  Climb the parent chain looking for a function or procedure call
-
-            Par := Nod;
-            while Present (Par) loop
-               if Nkind_In (Par, N_Function_Call,
-                                 N_Procedure_Call_Statement)
-               then
-                  return True;
-
-               --  Prevent the search from going too far
-
-               elsif Is_Body_Or_Package_Declaration (Par) then
-                  exit;
-               end if;
-
-               Par := Parent (Par);
-            end loop;
-
-            return False;
-         end Within_Subprogram_Call;
-
-         ------------------------------
-         -- Within_Volatile_Function --
-         ------------------------------
-
-         function Within_Volatile_Function (Id : Entity_Id) return Boolean is
-            Func_Id : Entity_Id;
-
-         begin
-            --  Traverse the scope stack looking for a [generic] function
-
-            Func_Id := Id;
-            while Present (Func_Id) and then Func_Id /= Standard_Standard loop
-               if Ekind_In (Func_Id, E_Function, E_Generic_Function) then
-                  return Is_Volatile_Function (Func_Id);
-               end if;
-
-               Func_Id := Scope (Func_Id);
-            end loop;
-
-            return False;
-         end Within_Volatile_Function;
-
-         --  Local variables
-
-         Obj_Id : Entity_Id;
-
-      --  Start of processing for Is_OK_Volatile_Context
-
-      begin
-         --  The volatile object appears on either side of an assignment
-
-         if Nkind (Context) = N_Assignment_Statement then
-            return True;
-
-         --  The volatile object is part of the initialization expression of
-         --  another object.
-
-         elsif Nkind (Context) = N_Object_Declaration
-           and then Present (Expression (Context))
-           and then Expression (Context) = Obj_Ref
-         then
-            Obj_Id := Defining_Entity (Context);
-
-            --  The volatile object acts as the initialization expression of an
-            --  extended return statement. This is valid context as long as the
-            --  function is volatile.
-
-            if Is_Return_Object (Obj_Id) then
-               return Within_Volatile_Function (Obj_Id);
-
-            --  Otherwise this is a normal object initialization
-
-            else
-               return True;
-            end if;
-
-         --  The volatile object acts as the name of a renaming declaration
-
-         elsif Nkind (Context) = N_Object_Renaming_Declaration
-           and then Name (Context) = Obj_Ref
-         then
-            return True;
-
-         --  The volatile object appears as an actual parameter in a call to an
-         --  instance of Unchecked_Conversion whose result is renamed.
-
-         elsif Nkind (Context) = N_Function_Call
-           and then Is_Entity_Name (Name (Context))
-           and then Is_Unchecked_Conversion_Instance (Entity (Name (Context)))
-           and then Nkind (Parent (Context)) = N_Object_Renaming_Declaration
-         then
-            return True;
-
-         --  The volatile object is actually the prefix in a protected entry,
-         --  function, or procedure call.
-
-         elsif Is_Protected_Operation_Call (Context) then
-            return True;
-
-         --  The volatile object appears as the expression of a simple return
-         --  statement that applies to a volatile function.
-
-         elsif Nkind (Context) = N_Simple_Return_Statement
-           and then Expression (Context) = Obj_Ref
-         then
-            return
-              Within_Volatile_Function (Return_Statement_Entity (Context));
-
-         --  The volatile object appears as the prefix of a name occurring
-         --  in a non-interfering context.
-
-         elsif Nkind_In (Context, N_Attribute_Reference,
-                                  N_Explicit_Dereference,
-                                  N_Indexed_Component,
-                                  N_Selected_Component,
-                                  N_Slice)
-           and then Prefix (Context) = Obj_Ref
-           and then Is_OK_Volatile_Context
-                      (Context => Parent (Context),
-                       Obj_Ref => Context)
-         then
-            return True;
-
-         --  The volatile object appears as the expression of a type conversion
-         --  occurring in a non-interfering context.
-
-         elsif Nkind_In (Context, N_Type_Conversion,
-                                  N_Unchecked_Type_Conversion)
-           and then Expression (Context) = Obj_Ref
-           and then Is_OK_Volatile_Context
-                      (Context => Parent (Context),
-                       Obj_Ref => Context)
-         then
-            return True;
-
-         --  Allow references to volatile objects in various checks. This is
-         --  not a direct SPARK 2014 requirement.
-
-         elsif Within_Check (Context) then
-            return True;
-
-         --  Assume that references to effectively volatile objects that appear
-         --  as actual parameters in a subprogram call are always legal. A full
-         --  legality check is done when the actuals are resolved.
-
-         elsif Within_Subprogram_Call (Context) then
-            return True;
-
-         --  Otherwise the context is not suitable for an effectively volatile
-         --  object.
-
-         else
-            return False;
-         end if;
-      end Is_OK_Volatile_Context;
 
       --  Local variables
 
@@ -7213,8 +6978,8 @@ package body Sem_Res is
             then
                null;
             else
-               Error_Msg_N (
-                 "deferred constant is frozen before completion", N);
+               Error_Msg_N
+                 ("deferred constant is frozen before completion", N);
             end if;
          end if;
 
@@ -7614,6 +7379,12 @@ package body Sem_Res is
         and then Present (Contract_Wrapper (Nam))
         and then Current_Scope /= Contract_Wrapper (Nam)
       then
+
+         --  Note the entity being called before rewriting the call, so that
+         --  it appears used at this point.
+
+         Generate_Reference (Nam, Entry_Name, 'r');
+
          --  Rewrite as call to the precondition wrapper, adding the task
          --  object to the list of actuals. If the call is to a member of an
          --  entry family, include the index as well.
@@ -8292,9 +8063,19 @@ package body Sem_Res is
       end if;
 
       --  If ELSE expression present, just resolve using the determined type
+      --  If type is universal, resolve to any member of the class.
 
       if Present (Else_Expr) then
-         Resolve (Else_Expr, Typ);
+         if Typ = Universal_Integer then
+            Resolve (Else_Expr, Any_Integer);
+
+         elsif Typ = Universal_Real then
+            Resolve (Else_Expr, Any_Real);
+
+         else
+            Resolve (Else_Expr, Typ);
+         end if;
+
          Else_Typ := Etype (Else_Expr);
 
          if Is_Scalar_Type (Else_Typ) and then Else_Typ /= Typ then
@@ -11066,6 +10847,23 @@ package body Sem_Res is
       then
          Set_Do_Range_Check (Operand);
       end if;
+
+      --  Generating C code a type conversion of an access to constrained
+      --  array type to access to unconstrained array type involves building
+      --  a fat pointer which in general cannot be generated on the fly. We
+      --  remove side effects in order to store the result of the conversion
+      --  into a temporary.
+
+      if Generate_C_Code
+        and then Nkind (N) = N_Type_Conversion
+        and then Nkind (Parent (N)) /= N_Object_Declaration
+        and then Is_Access_Type (Etype (N))
+        and then Is_Array_Type (Designated_Type (Etype (N)))
+        and then not Is_Constrained (Designated_Type (Etype (N)))
+        and then Is_Constrained (Designated_Type (Etype (Expression (N))))
+      then
+         Remove_Side_Effects (N);
+      end if;
    end Resolve_Type_Conversion;
 
    ----------------------
@@ -11356,8 +11154,10 @@ package body Sem_Res is
       --  Do not perform this transformation within a pre/postcondition,
       --  because the expression will be re-analyzed, and the transformation
       --  might affect the visibility of the operator, e.g. in an instance.
+      --  Note that fully analyzed and expanded pre/postconditions appear as
+      --  pragma Check equivalents.
 
-      if In_Assertion_Expr > 0 then
+      if In_Pre_Post_Condition (N) then
          return;
       end if;
 
@@ -11379,7 +11179,7 @@ package body Sem_Res is
          Generate_Reference (Op, N);
 
          if Is_Binary then
-            Set_Left_Opnd  (Op_Node, Left_Opnd  (N));
+            Set_Left_Opnd (Op_Node, Left_Opnd (N));
          end if;
 
          Rewrite (N, Op_Node);
@@ -11388,9 +11188,7 @@ package body Sem_Res is
          --  that the operator is applied to the full view. This is done in the
          --  routines that resolve intrinsic operators.
 
-         if Is_Intrinsic_Subprogram (Op)
-           and then Is_Private_Type (Typ)
-         then
+         if Is_Intrinsic_Subprogram (Op) and then Is_Private_Type (Typ) then
             case Nkind (N) is
                when N_Op_Add   | N_Op_Subtract | N_Op_Multiply | N_Op_Divide |
                     N_Op_Expon | N_Op_Mod      | N_Op_Rem      =>

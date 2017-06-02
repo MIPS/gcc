@@ -919,6 +919,63 @@ package body Exp_Util is
       end;
    end Build_Allocate_Deallocate_Proc;
 
+   --------------------------
+   -- Build_Procedure_Form --
+   --------------------------
+
+   procedure Build_Procedure_Form (N : Node_Id) is
+      Loc  : constant Source_Ptr := Sloc (N);
+      Subp : constant Entity_Id := Defining_Entity (N);
+
+      Func_Formal  : Entity_Id;
+      Proc_Formals : List_Id;
+
+   begin
+      Proc_Formals := New_List;
+
+      --  Create a list of formal parameters with the same types as the
+      --  function.
+
+      Func_Formal := First_Formal (Subp);
+      while Present (Func_Formal) loop
+         Append_To (Proc_Formals,
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier =>
+               Make_Defining_Identifier (Loc, Chars (Func_Formal)),
+             Parameter_Type      =>
+               New_Occurrence_Of (Etype (Func_Formal), Loc)));
+
+         Next_Formal (Func_Formal);
+      end loop;
+
+      --  Add an extra out parameter to carry the function result
+
+      Name_Len := 6;
+      Name_Buffer (1 .. Name_Len) := "RESULT";
+      Append_To (Proc_Formals,
+        Make_Parameter_Specification (Loc,
+          Defining_Identifier =>
+            Make_Defining_Identifier (Loc, Chars => Name_Find),
+          Out_Present         => True,
+          Parameter_Type      => New_Occurrence_Of (Etype (Subp), Loc)));
+
+      --  The new procedure declaration is inserted immediately after the
+      --  function declaration. The processing in Build_Procedure_Body_Form
+      --  relies on this order.
+
+      Insert_After_And_Analyze (Unit_Declaration_Node (Subp),
+        Make_Subprogram_Declaration (Loc,
+          Specification =>
+            Make_Procedure_Specification (Loc,
+              Defining_Unit_Name       =>
+                Make_Defining_Identifier (Loc, Chars (Subp)),
+              Parameter_Specifications => Proc_Formals)));
+
+      --  Mark the function as having a procedure form
+
+      Set_Rewritten_For_C (Subp);
+   end Build_Procedure_Form;
+
    ------------------------
    -- Build_Runtime_Call --
    ------------------------
@@ -4075,22 +4132,6 @@ package body Exp_Util is
                   end if;
 
                   return;
-
-               --  Iteration scheme located in a transient scope
-
-               elsif Nkind (P) = N_Iteration_Scheme
-                 and then Present (Wrapped_Node)
-               then
-                  --  If the enclosing iterator loop is marked as requiring the
-                  --  secondary stack then the actions must be inserted in the
-                  --  transient scope.
-
-                  if Uses_Sec_Stack
-                       (Find_Enclosing_Iterator_Loop (Current_Scope))
-                  then
-                     Store_Before_Actions_In_Scope (Ins_Actions);
-                     return;
-                  end if;
                end if;
 
             --  Statements, declarations, pragmas, representation clauses
@@ -7759,7 +7800,30 @@ package body Exp_Util is
 
       elsif Nkind (Exp) = N_Type_Conversion then
          Remove_Side_Effects (Expression (Exp), Name_Req, Variable_Ref);
-         goto Leave;
+
+         --  Generating C code the type conversion of an access to constrained
+         --  array type into an access to unconstrained array type involves
+         --  initializing a fat pointer and the expression must be free of
+         --  side effects to safely compute its bounds.
+
+         if Generate_C_Code
+           and then Is_Access_Type (Etype (Exp))
+           and then Is_Array_Type (Designated_Type (Etype (Exp)))
+           and then not Is_Constrained (Designated_Type (Etype (Exp)))
+         then
+            Def_Id := Build_Temporary (Loc, 'R', Exp);
+            Set_Etype (Def_Id, Exp_Type);
+            Res := New_Occurrence_Of (Def_Id, Loc);
+
+            Insert_Action (Exp,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Object_Definition   => New_Occurrence_Of (Exp_Type, Loc),
+                Constant_Present    => True,
+                Expression          => Relocate_Node (Exp)));
+         else
+            goto Leave;
+         end if;
 
       --  If this is an unchecked conversion that Gigi can't handle, make
       --  a copy or a use a renaming to capture the value.
@@ -9035,6 +9099,19 @@ package body Exp_Util is
         and then Is_Class_Wide_Type (Typ)
       then
          return True;
+
+      --  Generating C the type conversion of an access to constrained array
+      --  type into an access to unconstrained array type involves initializing
+      --  a fat pointer and the expression cannot be assumed to be free of side
+      --  effects since it must referenced several times to compute its bounds.
+
+      elsif Generate_C_Code
+        and then Nkind (N) = N_Type_Conversion
+        and then Is_Access_Type (Typ)
+        and then Is_Array_Type (Designated_Type (Typ))
+        and then not Is_Constrained (Designated_Type (Typ))
+      then
+         return False;
       end if;
 
       --  For other than entity names and compile time known values,
