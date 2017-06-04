@@ -1,3 +1,183 @@
+2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (VParity): New mode iterator for vector
+	parity built-in functions.
+	(p9v_ctz<mode>2): Add support for ISA 3.0 vector count trailing
+	zeros.
+	(p9v_parity<mode>2): Likewise.
+	* config/rs6000/vector.md (VEC_IP): New mode iterator for vector
+	parity.
+	(ctz<mode>2): ISA 3.0 expander for vector count trailing zeros.
+	(parity<mode>2): ISA 3.0 expander for vector parity.
+	* config/rs6000/rs6000-builtin.def (BU_P9_MISC_1): New macros for
+	power9 built-ins.
+	(BU_P9_64BIT_MISC_0): Likewise.
+	(BU_P9_MISC_0): Likewise.
+	(BU_P9V_AV_1): Likewise.
+	(BU_P9V_AV_2): Likewise.
+	(BU_P9V_AV_3): Likewise.
+	(BU_P9V_AV_P): Likewise.
+	(BU_P9V_VSX_1): Likewise.
+	(BU_P9V_OVERLOAD_1): Likewise.
+	(BU_P9V_OVERLOAD_2): Likewise.
+	(BU_P9V_OVERLOAD_3): Likewise.
+	(VCTZB): Add vector count trailing zeros support.
+	(VCTZH): Likewise.
+	(VCTZW): Likewise.
+	(VCTZD): Likewise.
+	(VPRTYBD): Add vector parity support.
+	(VPRTYBQ): Likewise.
+	(VPRTYBW): Likewise.
+	(VCTZ): Add overloaded vector count trailing zeros support.
+	(VPRTYB): Add overloaded vector parity support.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloaded vector count trailing zeros and parity instructions.
+	* config/rs6000/rs6000.md (wd mode attribute): Add V1TI and TI for
+	vector parity support.
+	* config/rs6000/altivec.h (vec_vctz): Add ISA 3.0 vector count
+	trailing zeros support.
+	(vec_cntlz): Likewise.
+	(vec_vctzb): Likewise.
+	(vec_vctzd): Likewise.
+	(vec_vctzh): Likewise.
+	(vec_vctzw): Likewise.
+	(vec_vprtyb): Add ISA 3.0 vector parity support.
+	(vec_vprtybd): Likewise.
+	(vec_vprtybw): Likewise.
+	(vec_vprtybq): Likewise.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the ISA 3.0 vector count trailing zeros and vector parity built-in
+	functions.
+
+2016-05-24  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-ssa-reassoc.c (sort_by_operand_rank): Skip checking gimple_bb
+	when there is stmt_to_insert.
+
+2016-05-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71147
+	* gcc/tree.h (complete_or_array_type_p): New inline function.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (TARGET_AVOID_4BYTE_PREFIXES): Define.
+	* config/i386/constraints.md (Yr): Test TARGET_AVOID_4BYTE_PREFIXES
+	rather than X86_TUNE_AVOID_4BYTE_PREFIXES.
+
+	* config/i386/sse.md (<sse4_1>_round<ssemodesuffix><avxsizesuffix>):
+	Limit 1st alternative to noavx isa, split 2nd alternative into one
+	noavx and one avx alternative, use *x and Bm in the former and
+	x and m in the latter.
+
+	* config/i386/sse.md (vec_set<mode>_0): Use sse4_noavx isa instead
+	of sse4 for the first alternative, drop %v from the template
+	and d operand modifier.  Split second alternative into one sse4_noavx
+	and one avx alternative, use *x instead of *v in the former and v
+	instead of *v in the latter.
+	(*sse4_1_extractps): Use noavx isa instead of * for the first
+	alternative, drop %v from the template.  Split second alternative into
+	one noavx and one avx alternative, use *x instead of *v in the
+	former and v instead of *v in the latter.
+	(<vi8_sse4_1_avx2_avx512>_movntdqa): Guard the first 2 alternatives
+	with noavx and the last one with avx.
+	(sse4_1_phminposuw): Guard first alternative with noavx isa,
+	split the second one into one noavx and one avx alternative,
+	use *x and Bm in the former and x and m in the latter one.
+	(<sse4_1>_ptest<mode>): Use noavx instead of * for the first two
+	alternatives.
+
+	* config/i386/sse.md (sse4_1_<code>v8qiv8hi2<mask_name>): Limit
+	first two alternatives to noavx, use *x instead of *v in the second
+	one, add avx alternative without *.
+	(sse4_1_<code>v4qiv4si2<mask_name>, sse4_1_<code>v4hiv4si2<mask_name>,
+	sse4_1_<code>v2qiv2di2<mask_name>, sse4_1_<code>v2hiv2di2<mask_name>,
+	sse4_1_<code>v2siv2di2<mask_name>): Likewise.
+
+2016-05-24  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadbackwards.c (convert_and_register_jump_thread_path):
+	New function, extracted from...
+	(fsm_find_control_statement_thread_paths): Here.  Use the new function.
+	Allow simple copies and constant initializations in the SSA chain.
+
+2016-05-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71249
+	* gimplify.c (gimplify_switch_expr): Look into the innermost lexical
+	scope.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP.  Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP and
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP cases explicitly.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71240
+	* tree-ssa-math-opts.c (init_symbolic_number): Verify the source
+	has integral type.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71230
+	* tree-ssa-reassoc.c (zero_one_operation): Handle negate special ops.
+
+2016-05-24  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (vectorizable_comparison): Delete.
+	* tree-vect-loop.c (vectorizable_reduction): Remove redundant
+	PURE_SLP_STMT check.
+	* tree-vect-stmts.c (vectorizable_call): Likewise.
+	(vectorizable_simd_clone_call): Likewise.
+	(vectorizable_conversion): Likewise.
+	(vectorizable_assignment): Likewise.
+	(vectorizable_shift): Likewise.
+	(vectorizable_operation): Likewise.
+	(vectorizable_load): Likewise.
+	(vectorizable_condition): Likewise.
+	(vectorizable_store): Likewise.  Assert that we don't have
+	hybrid SLP.
+	(vectorizable_comparison): Make static.  Remove redundant
+	PURE_SLP_STMT check.
+	(vect_transform_stmt): Assert that we always have an slp_node
+	if PURE_SLP_STMT.
+
+2016-05-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/neon.md (ashldi3_neon):  Replace comparison of INTVAL of
+	operands[2] against 1 with comparison against CONST1_RTX.
+	(<shift>di3_neon): Likewise.
+	* config/arm/predicates.md (const0_operand): Replace with comparison
+	against CONST0_RTX.
+
+2016-05-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (ashldi3): Replace comparison of INTVAL of
+	operands[2] against 1 with comparison against CONST1_RTX.
+	(ashrdi3): Likewise.
+	(lshrdi3): Likewise.
+	(ashlsi3): Replace cast of INTVAL to unsigned HOST_WIDE_INT with
+	UINTVAL.
+	(ashrsi3): Likewise.
+	(lshrsi3): Likewise.
+	(rotrsi3): Likewise.
+	(define_split above *compareqi_eq0): Likewise.
+	(define_split above "prologue"): Likewise.
+	* config/arm/arm.c (thumb1_size_rtx_costs): Likewise.
+	* config/arm/predicates.md (shift_operator): Likewise.
+	(shift_nomul_operator): Likewise.
+	(sat_shift_operator): Likewise.
+	(thumb1_cmp_operand): Likewise.
+	(const_neon_scalar_shift_amount_operand): Replace manual range
+	check with IN_RANGE.
+	* config/arm/thumb1.md (define_peephole2 above *thumb_subdi3):
+	Replace cast of INTVAL to unsigned HOST_WIDE_INT with UINTVAL.
+
 2016-05-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config/arm/arm.md (andsi3): Replace cast of 1 to HOST_WIDE_INT
@@ -62,8 +242,8 @@
 2016-05-24  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	PR middle-end/71252
-	* tree-ssa-reassoc.c (rewrite_expr_tree_parallel): Add stmt_to_insert after
-	build_and_add_sum creates new use stmt.
+	* tree-ssa-reassoc.c (rewrite_expr_tree_parallel): Add stmt_to_insert
+	after build_and_add_sum creates new use stmt.
 
 2016-05-24  Richard Sandiford  <richard.sandiford@arm.com>
 
@@ -95,7 +275,8 @@
 	(add_to_ops_vec): Add stmt_to_insert.
 	(add_repeat_to_ops_vec): Init stmt_to_insert.
 	(insert_stmt_before_use): New.
-	(transform_add_to_multiply): Remove mult_stmt insertion and add it to ops vector.
+	(transform_add_to_multiply): Remove mult_stmt insertion and add it
+	to ops vector.
 	(get_ops): Init stmt_to_insert.
 	(maybe_optimize_range_tests): Likewise.
 	(rewrite_expr_tree): Insert stmt_to_insert before use stmt.
@@ -128,8 +309,8 @@
 	TARGET_MIX_SSE_I387.  Rewrite using X87_FLOAT_MODE_P and
 	SSE_FLOAT_MODE_P macros.
 	* config/i386/i386.c (ix86_preferred_reload_class): Use
-	IS_STACK_MODE, INTEGER_CLASS_P and FLOAT_CLASS_P macros.  Cleanup
-	regclass processing for CONST_DOUBLE_P.
+	IS_STACK_MODE, INTEGER_CLASS_P, FLOAT_CLASS_P and Q_CLASS_P macros.
+	Cleanup regclass processing for CONST_DOUBLE_P.
 	(ix86_preferred_output_reload_class): Use IS_STACK_MODE macro.
 	(ix86_rtx_costs): Remove redundant TARGET_80387 check
 	with IS_STACK_MODE macro.
@@ -216,9 +397,9 @@
 2016-05-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	PR middle-end/40921
-        * tree-ssa-reassoc.c (try_special_add_to_ops): New.
-        (linearize_expr_tree): Call try_special_add_to_ops.
-        (reassociate_bb): Convert MULT_EXPR by (-1) to NEGATE_EXPR.
+	* tree-ssa-reassoc.c (try_special_add_to_ops): New.
+	(linearize_expr_tree): Call try_special_add_to_ops.
+	(reassociate_bb): Convert MULT_EXPR by (-1) to NEGATE_EXPR.
 
 2016-05-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
