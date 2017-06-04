@@ -1,3 +1,17 @@
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70434
+	PR c/69504
+	* c-typeck.c (build_array_ref): Do not complain about indexing
+	non-lvalue vectors.  Adjust for function name change.
+
+2016-05-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71115
+	* c-typeck.c (error_init): Use
+	expansion_point_location_if_in_system_header.
+	(warning_init): Same.
+
 2016-05-19  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c/71171
