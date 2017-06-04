@@ -2246,7 +2246,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  break;
 
 	case OMP_CLAUSE_BIND:
-	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_NOHOST:
 	case OMP_CLAUSE__CACHE_:
 	default:
@@ -2414,7 +2413,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  break;
 
 	case OMP_CLAUSE_BIND:
-	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_NOHOST:
 	case OMP_CLAUSE__CACHE_:
 	default:
