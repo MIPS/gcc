@@ -1,5 +1,3 @@
-/* { dg-compile } */
-
 const int n = 100;
 
 int
