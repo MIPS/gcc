@@ -594,6 +594,8 @@ remove_redundant_iv_tests (struct loop *loop)
 /* Stores loops that will be unlooped after we process whole loop tree. */
 static vec<loop_p> loops_to_unloop;
 static vec<int> loops_to_unloop_nunroll;
+/* Stores loops that has been peeled.  */
+static bitmap peeled_loops;
 
 /* Cancel all fully unrolled loops by putting __builtin_unreachable
    on the latch edge.  
@@ -730,8 +732,14 @@ try_unroll_loop_completely (struct loop *loop,
       if (ul == UL_SINGLE_ITER)
 	return false;
 
+      /* EXIT can be removed only if we are sure it passes first N_UNROLL
+	 iterations.  */
+      bool remove_exit = (exit && niter
+			  && TREE_CODE (niter) == INTEGER_CST
+			  && wi::leu_p (n_unroll, wi::to_widest (niter)));
+
       large = tree_estimate_loop_size
-		 (loop, exit, edge_to_cancel, &size,
+		 (loop, remove_exit ? exit : NULL, edge_to_cancel, &size,
 		  PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS));
       ninsns = size.overall;
       if (large)
@@ -837,8 +845,20 @@ try_unroll_loop_completely (struct loop *loop,
 
       initialize_original_copy_tables ();
       wont_exit = sbitmap_alloc (n_unroll + 1);
-      bitmap_ones (wont_exit);
-      bitmap_clear_bit (wont_exit, 0);
+      if (exit && niter
+	  && TREE_CODE (niter) == INTEGER_CST
+	  && wi::leu_p (n_unroll, wi::to_widest (niter)))
+	{
+	  bitmap_ones (wont_exit);
+	  if (wi::eq_p (wi::to_widest (niter), n_unroll)
+	      || edge_to_cancel)
+	    bitmap_clear_bit (wont_exit, 0);
+	}
+      else
+	{
+	  exit = NULL;
+	  bitmap_clear (wont_exit);
+	}
 
       if (!gimple_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 						 n_unroll, wont_exit,
@@ -869,6 +889,7 @@ try_unroll_loop_completely (struct loop *loop,
   if (edge_to_cancel)
     {
       gcond *cond = as_a <gcond *> (last_stmt (edge_to_cancel->src));
+      force_edge_cold (edge_to_cancel, true);
       if (edge_to_cancel->flags & EDGE_TRUE_VALUE)
 	gimple_cond_make_false (cond);
       else
@@ -943,15 +964,20 @@ try_peel_loop (struct loop *loop,
   vec<edge> to_remove = vNULL;
   edge e;
 
-  /* If the iteration bound is known and large, then we can safely eliminate
-     the check in peeled copies.  */
-  if (TREE_CODE (niter) != INTEGER_CST)
-    exit = NULL;
-
-  if (!flag_peel_loops || PARAM_VALUE (PARAM_MAX_PEEL_TIMES) <= 0)
+  if (!flag_peel_loops || PARAM_VALUE (PARAM_MAX_PEEL_TIMES) <= 0
+      || !peeled_loops)
     return false;
 
-  /* Peel only innermost loops.  */
+  if (bitmap_bit_p (peeled_loops, loop->num))
+    {
+      if (dump_file)
+        fprintf (dump_file, "Not peeling: loop is already peeled\n");
+      return false;
+    }
+
+  /* Peel only innermost loops.
+     While the code is perfectly capable of peeling non-innermost loops,
+     the heuristics would probably need some improvements. */
   if (loop->inner)
     {
       if (dump_file)
@@ -968,6 +994,8 @@ try_peel_loop (struct loop *loop,
 
   /* Check if there is an estimate on the number of iterations.  */
   npeel = estimated_loop_iterations_int (loop);
+  if (npeel < 0)
+    npeel = likely_max_loop_iterations_int (loop);
   if (npeel < 0)
     {
       if (dump_file)
@@ -1010,13 +1038,22 @@ try_peel_loop (struct loop *loop,
   /* Duplicate possibly eliminating the exits.  */
   initialize_original_copy_tables ();
   wont_exit = sbitmap_alloc (npeel + 1);
-  bitmap_ones (wont_exit);
-  bitmap_clear_bit (wont_exit, 0);
+  if (exit && niter
+      && TREE_CODE (niter) == INTEGER_CST
+      && wi::leu_p (npeel, wi::to_widest (niter)))
+    {
+      bitmap_ones (wont_exit);
+      bitmap_clear_bit (wont_exit, 0);
+    }
+  else
+    {
+      exit = NULL;
+      bitmap_clear (wont_exit);
+    }
   if (!gimple_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					     npeel, wont_exit,
 					     exit, &to_remove,
-					     DLTHE_FLAG_UPDATE_FREQ
-					     | DLTHE_FLAG_COMPLETTE_PEEL))
+					     DLTHE_FLAG_UPDATE_FREQ))
     {
       free_original_copy_tables ();
       free (wont_exit);
@@ -1034,12 +1071,49 @@ try_peel_loop (struct loop *loop,
       fprintf (dump_file, "Peeled loop %d, %i times.\n",
 	       loop->num, (int) npeel);
     }
+  if (loop->any_estimate)
+    {
+      if (wi::ltu_p (npeel, loop->nb_iterations_estimate))
+        loop->nb_iterations_estimate -= npeel;
+      else
+	loop->nb_iterations_estimate = 0;
+    }
   if (loop->any_upper_bound)
-    loop->nb_iterations_upper_bound -= npeel;
-  loop->nb_iterations_estimate = 0;
-  /* Make sure to mark loop cold so we do not try to peel it more.  */
-  scale_loop_profile (loop, 1, 0);
-  loop->header->count = 0;
+    {
+      if (wi::ltu_p (npeel, loop->nb_iterations_upper_bound))
+        loop->nb_iterations_upper_bound -= npeel;
+      else
+        loop->nb_iterations_upper_bound = 0;
+    }
+  if (loop->any_likely_upper_bound)
+    {
+      if (wi::ltu_p (npeel, loop->nb_iterations_likely_upper_bound))
+	loop->nb_iterations_likely_upper_bound -= npeel;
+      else
+	{
+	  loop->any_estimate = true;
+	  loop->nb_iterations_estimate = 0;
+	  loop->nb_iterations_likely_upper_bound = 0;
+	}
+    }
+  gcov_type entry_count = 0;
+  int entry_freq = 0;
+
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, loop->header->preds)
+    if (e->src != loop->latch)
+      {
+	entry_count += e->src->count;
+	entry_freq += e->src->frequency;
+	gcc_assert (!flow_bb_inside_loop_p (loop, e->src));
+      }
+  int scale = 1;
+  if (loop->header->count)
+    scale = RDIV (entry_count * REG_BR_PROB_BASE, loop->header->count);
+  else if (loop->header->frequency)
+    scale = RDIV (entry_freq * REG_BR_PROB_BASE, loop->header->frequency);
+  scale_loop_profile (loop, scale, 0);
+  bitmap_set_bit (peeled_loops, loop->num);
   return true;
 }
 /* Adds a canonical induction variable to LOOP if suitable.
@@ -1106,6 +1180,12 @@ canonicalize_loop_induction_variables (struct loop *loop,
     {
       fprintf (dump_file, "Loop %d iterates at most %i times.\n", loop->num,
 	       (int)maxiter);
+    }
+  if (dump_file && (dump_flags & TDF_DETAILS)
+      && likely_max_loop_iterations_int (loop) >= 0)
+    {
+      fprintf (dump_file, "Loop %d likely iterates at most %i times.\n",
+	       loop->num, (int)likely_max_loop_iterations_int (loop));
     }
 
   /* Remove exits that are known to be never taken based on loop bound.
@@ -1446,9 +1526,20 @@ pass_complete_unroll::execute (function *fun)
   if (number_of_loops (fun) <= 1)
     return 0;
 
-  return tree_unroll_loops_completely (flag_unroll_loops
-				       || flag_peel_loops
-				       || optimize >= 3, true);
+  /* If we ever decide to run loop peeling more than once, we will need to
+     track loops already peeled in loop structures themselves to avoid
+     re-peeling the same loop multiple times.  */
+  if (flag_peel_loops)
+    peeled_loops = BITMAP_ALLOC (NULL);
+  int val = tree_unroll_loops_completely (flag_unroll_loops
+					  || flag_peel_loops
+					  || optimize >= 3, true);
+  if (peeled_loops)
+    {
+      BITMAP_FREE (peeled_loops);
+      peeled_loops = NULL;
+    }
+  return val;
 }
 
 } // anon namespace
