@@ -1,3 +1,115 @@
+2016-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/42587
+	* gcc.dg/optimize-bswapsi-4.c: New testcase.
+
+2016-05-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/tree-ssa/ivopts-3.C: Change test-case to follow
+	the new format of dump output.
+
+2016-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/pr71084.c: New test.
+
+2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        PR target/53440
+        * g++.dg/inherit/thunk1.C: Support arm / aarch64.
+
+2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/struct_return.c: New test.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70756
+	* c-c++-common/pr70756-2.c: New test.
+	* c-c++-common/pr70756.c: New test.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71059
+	* gcc.dg/torture/pr71059.c: New testcase.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71062
+	* gcc.dg/torture/pr71062.c: New testcase.
+
+2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71006
+	* gcc.dg/pr71006.c: New test.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR driver/71063
+	* gcc.dg/opts-7.c: New test.
+
+2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70830
+	* gcc.target/arm/interrupt-1.c: Change dg-compile to dg-assemble.
+	Add -save-temps to dg-options.
+	Scan for ldmfd rather than pop instruction.
+	* gcc.target/arm/interrupt-2.c: Likewise.
+	* gcc.target/arm/pr70830.c: New test.
+
+2016-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512bw-vpextr-1.c: New test.
+	* gcc.target/i386/avx512dq-vpextr-1.c: New test.
+
+	* gcc.target/i386/avx512bw-vpinsr-1.c: New test.
+	* gcc.target/i386/avx512dq-vpinsr-1.c: New test.
+	* gcc.target/i386/avx512vl-vpinsr-1.c: New test.
+
+	PR target/71019
+	* gcc.target/i386/avx512vl-pack-1.c: New test.
+	* gcc.target/i386/avx512vl-pack-2.c: New test.
+	* gcc.target/i386/avx512bw-pack-2.c: New test.
+
+	* gcc.target/i386/avx512vl-vinsertps-1.c: New test.
+
+	* gcc.target/i386/avx512dq-abs-copysign-1.c: New test.
+	* gcc.target/i386/avx512vl-abs-copysign-1.c: New test.
+	* gcc.target/i386/avx512vl-abs-copysign-2.c: New test.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70986
+	* gcc.dg/torture/pr70986-1.c: New testcase.
+	* gcc.dg/torture/pr70986-2.c: Likewise.
+	* gcc.dg/torture/pr70986-3.c: Likewise.
+
+2016-05-11  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/43651
+	* gcc.dg/Wduplicate-decl-specifier-c11.c: New test.
+	* gcc.dg/Wduplicate-decl-specifier.c: Likewise.
+
+2016-05-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-13.c: Add dg-add-options bind_pic_locally
+	directive.
+	* gcc.target/i386/pr66746.c: Ditto.
+
+2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/dform-3.c: New test for ISA 3.0 vector d-form
+	support.
+	* gcc.target/powerpc/dform-1.c: Add -mlra option to silence
+	warning when using -mvsx-timode.
+	* gcc.target/powerpc/p8vector-int128-1.c: Likewise.
+	* gcc.target/powerpc/dform-2.c: Likewise.
+	* gcc.target/powerpc/pr68805.c: Likewise.
+
+2016-05-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71024
+	* c-c++-common/attributes-3.c: New test.
+
 2016-05-11  Nathan Sidwell  <nathan@acm.org>
 
 	* gcc.dg/pr68671.c: Xfail on PTX -- assembler crash.

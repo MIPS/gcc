@@ -2227,55 +2227,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
-    {
-      tree a1 = lookup_attribute ("optimize", DECL_ATTRIBUTES (olddecl));
-      tree a2 = lookup_attribute ("optimize", DECL_ATTRIBUTES (newdecl));
-      /* An optimization attribute applied on a declaration after the
-	 definition is likely not what the user wanted.  */
-      if (a2 != NULL_TREE
-	  && DECL_SAVED_TREE (olddecl) != NULL_TREE
-	  && (a1 == NULL_TREE || !attribute_list_equal (a1, a2)))
-	warned |= warning (OPT_Wattributes,
-			   "optimization attribute on %qD follows "
-			   "definition but the attribute doesn%'t match",
-			   newdecl);
-
-      /* Diagnose inline __attribute__ ((noinline)) which is silly.  */
-      if (DECL_DECLARED_INLINE_P (newdecl)
-	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
-	warned |= warning (OPT_Wattributes,
-			   "inline declaration of %qD follows "
-			   "declaration with attribute noinline", newdecl);
-      else if (DECL_DECLARED_INLINE_P (olddecl)
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
-	warned |= warning (OPT_Wattributes,
-			   "declaration of %q+D with attribute "
-			   "noinline follows inline declaration ", newdecl);
-      else if (lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl))
-	       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (olddecl)))
-	warned |= warning (OPT_Wattributes,
-			   "declaration of %q+D with attribute "
-			   "%qs follows declaration with attribute %qs",
-			   newdecl, "noinline", "always_inline");
-      else if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (newdecl))
-	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
-	warned |= warning (OPT_Wattributes,
-			   "declaration of %q+D with attribute "
-			   "%qs follows declaration with attribute %qs",
-			   newdecl, "always_inline", "noinline");
-      else if (lookup_attribute ("cold", DECL_ATTRIBUTES (newdecl))
-	       && lookup_attribute ("hot", DECL_ATTRIBUTES (olddecl)))
-	warned |= warning (OPT_Wattributes,
-			   "declaration of %q+D with attribute %qs follows "
-			   "declaration with attribute %qs", newdecl, "cold",
-			   "hot");
-      else if (lookup_attribute ("hot", DECL_ATTRIBUTES (newdecl))
-	       && lookup_attribute ("cold", DECL_ATTRIBUTES (olddecl)))
-	warned |= warning (OPT_Wattributes,
-			   "declaration of %q+D with attribute %qs follows "
-			   "declaration with attribute %qs", newdecl, "hot",
-			   "cold");
-    }
+    warned |= diagnose_mismatched_attributes (olddecl, newdecl);
   else /* PARM_DECL, VAR_DECL */
     {
       /* Redeclaration of a parameter is a constraint violation (this is
@@ -5124,7 +5076,7 @@ build_compound_literal (location_t loc, tree type, tree init, bool non_const)
 
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     {
-      c_incomplete_type_error (NULL_TREE, type);
+      c_incomplete_type_error (loc, NULL_TREE, type);
       return error_mark_node;
     }
 
@@ -9563,32 +9515,48 @@ declspecs_add_qual (source_location loc,
   gcc_assert (TREE_CODE (qual) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (qual));
   i = C_RID_CODE (qual);
+  location_t prev_loc = 0;
   switch (i)
     {
     case RID_CONST:
       dupe = specs->const_p;
       specs->const_p = true;
+      prev_loc = specs->locations[cdw_const];
       specs->locations[cdw_const] = loc;
       break;
     case RID_VOLATILE:
       dupe = specs->volatile_p;
       specs->volatile_p = true;
+      prev_loc = specs->locations[cdw_volatile];
       specs->locations[cdw_volatile] = loc;
       break;
     case RID_RESTRICT:
       dupe = specs->restrict_p;
       specs->restrict_p = true;
+      prev_loc = specs->locations[cdw_restrict];
       specs->locations[cdw_restrict] = loc;
       break;
     case RID_ATOMIC:
       dupe = specs->atomic_p;
       specs->atomic_p = true;
+      prev_loc = specs->locations[cdw_atomic];
+      specs->locations[cdw_atomic] = loc;
       break;
     default:
       gcc_unreachable ();
     }
   if (dupe)
-    pedwarn_c90 (loc, OPT_Wpedantic, "duplicate %qE", qual);
+    {
+      bool warned = pedwarn_c90 (loc, OPT_Wpedantic,
+				 "duplicate %qE declaration specifier", qual);
+      if (!warned
+	  && warn_duplicate_decl_specifier
+	  && prev_loc >= RESERVED_LOCATION_COUNT
+	  && !from_macro_expansion_at (prev_loc)
+	  && !from_macro_expansion_at (loc))
+	warning_at (loc, OPT_Wduplicate_decl_specifier,
+		    "duplicate %qE declaration specifier", qual);
+    }
   return specs;
 }
 

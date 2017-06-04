@@ -6823,6 +6823,9 @@ ix86_in_large_data_p (tree exp)
   if (ix86_cmodel != CM_MEDIUM && ix86_cmodel != CM_MEDIUM_PIC)
     return false;
 
+  if (exp == NULL_TREE)
+    return false;
+
   /* Functions are never large data.  */
   if (TREE_CODE (exp) == FUNCTION_DECL)
     return false;
@@ -15474,8 +15477,6 @@ legitimize_pic_address (rtx orig, rtx reg)
 	{
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_PCREL);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
-
-	  new_rtx = copy_to_suggested_reg (new_rtx, reg, Pmode);
 	}
       else if (TARGET_64BIT && ix86_cmodel != CM_LARGE_PIC)
 	{
@@ -15484,14 +15485,6 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  new_rtx = gen_const_mem (Pmode, new_rtx);
 	  set_mem_alias_set (new_rtx, ix86_GOT_alias_set ());
-
-	  if (reg == 0)
-	    reg = gen_reg_rtx (Pmode);
-	  /* Use directly gen_movsi, otherwise the address is loaded
-	     into register for CSE.  We don't want to CSE this addresses,
-	     instead we CSE addresses from the GOT table, so skip this.  */
-	  emit_insn (gen_movsi (reg, new_rtx));
-	  new_rtx = reg;
 	}
       else
 	{
@@ -15504,9 +15497,9 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
 	  new_rtx = gen_const_mem (Pmode, new_rtx);
 	  set_mem_alias_set (new_rtx, ix86_GOT_alias_set ());
-
-	  new_rtx = copy_to_suggested_reg (new_rtx, reg, Pmode);
 	}
+
+      new_rtx = copy_to_suggested_reg (new_rtx, reg, Pmode);
     }
   else
     {
@@ -26918,7 +26911,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	{
 	  if (UINTVAL (count_exp) >= (unsigned HOST_WIDE_INT)dynamic_check)
 	    {
-	      emit_block_move_via_libcall (dst, src, count_exp, false);
+	      emit_block_copy_via_libcall (dst, src, count_exp);
 	      count_exp = const0_rtx;
 	      goto epilogue;
 	    }
@@ -26933,9 +26926,9 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 				   1, hot_label);
 	  predict_jump (REG_BR_PROB_BASE * 90 / 100);
 	  if (issetmem)
-	    set_storage_via_libcall (dst, count_exp, val_exp, false);
+	    set_storage_via_libcall (dst, count_exp, val_exp);
 	  else
-	    emit_block_move_via_libcall (dst, src, count_exp, false);
+	    emit_block_copy_via_libcall (dst, src, count_exp);
 	  emit_jump (jump_around_label);
 	  emit_label (hot_label);
 	}
