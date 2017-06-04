@@ -1,3 +1,78 @@
+2016-05-17  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR tree-optimization/54579
+	PR middle-end/55299
+	* gcc.dg/fold-notrotate-1.c: New test.
+	* gcc.dg/fold-notshift-1.c: New test.
+	* gcc.dg/fold-notshift-2.c: New test.
+
+2016-05-17  Marek Polacek  <polacek@redhat.com>
+
+	PR ipa/71146
+	* g++.dg/ipa/pr71146.C: New test.
+
+2016-05-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-array-bounds.c: New test case.
+
+2016-05-17  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/and-1.c: New testcase.
+
+2016-05-17  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/pr69270.c: Adjust.
+	* gcc.dg/tree-ssa/andnot-1.c: New testcase.
+
+2016-05-17  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/pr69270.c: Adjust.
+	* gcc.dg/tree-ssa/vrp99.c: New testcase.
+
+2016-05-17  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/simd/vmul_elem_1.c: Use intrinsics.
+
+2016-05-17  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/simd/vmul_elem_1.c: New.
+
+2016-05-17  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/fmla_intrinsic_1.c: Allow ".d[index]" besides
+	".2d[index]" when scan the assembly.
+	* gcc.target/aarch64/fmls_intrinsic_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h: New entry for
+	float64x1.
+	* gcc.target/aarch64/advsimd-intrinsics/vfms_vfma_n.c: New.
+
+2016-05-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71132
+	* gcc.dg/torture/pr71132.c: New testcase.
+
+2016-05-17  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* g++.dg/inherit/think1.C: Fix dg-do and dg-skip order.
+
+2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70809
+	* gcc.target/aarch64/pr70809_1.c: New test.
+
+2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/cpu-diagnostics-1.c: Skip if -mcpu is overriden.
+	* gcc.target/aarch64/cpu-diagnostics-2.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-3.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-4.c: Likewise.
+
+2016-05-17  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/71114
+	* gcc.target/i386/pr70799-1.c: Fix scan for Darwin.
+
 2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
 
 	* g++.dg/ipa/ivinline-7.C: Do not xfail.
