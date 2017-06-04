@@ -1,4 +1,200 @@
+2016-05-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+        * doc/invoke.texi (AArch64 Options): Various updates.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline-analysis.c (compute_inline_parameters): Disable inlinig
+	into instrumentation thunks.
+	* cif-code.def (CIF_CHKP): New.
+
+2016-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/xopintrin.h: Correct "unsinged" typo in the comments.
+
+2016-05-16  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (fillup_for_decl): Increase alignment to natural one.
+	(get_symbol_for_decl): Sorry if a global symbol in under-aligned.
+
+2016-05-16  Marek Polacek  <polacek@redhat.com>
+
+	* gimple.c (maybe_remove_unused_call_args): Fix typos in the
+	commentary.
+
+2016-05-16  Martin Jambor  <mjambor@suse.cz>
+
+	PR hsa/70857
+	* omp-low.c (grid_expand_target_grid_body): Copy RESULT_DECL of
+	the outlined kernel function.
+
+2016-05-16  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.h (ISA_HAS_LSA): Enable for -mmsa.
+	(ISA_HAS_DLSA): Ditto.
+
+2016-05-16  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/mips/m5100.md (m51_int_load): Update the latency to 2.
+
+2016-05-16  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_mangle_decl_assembler_name): Revert.
+	(nvptx_name_replacement): Restore.  Add comment.
+	(write_fn_proto, write_fn_proto_from_insn,
+	nvptx_output_call_insn): Restore
+	(TARGET_MANGLE_DECL_ASSEMBLER_NAME): Delete.
+
+2016-05-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md
+	(add<mode>3_compareC_cconly_imm): Remove use of %w.
+	(add<mode>3_compareC_imm): Likewise.
+	(<optab>si3_uxtw): Split into register and immediate variants.
+	(andsi3_compare0_uxtw): Likewise.
+	(and<mode>3_compare0): Likewise.
+	(and<mode>3nr_compare0): Likewise.
+	(stack_protect_test_<mode>): Don't use %x for memory operands.
+
+2016-05-16  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/mips/mips-cpus.def (p5600): Add multi-line brackets.
+
+2016-05-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	 * gcc/config/aarch64/aarch64.md (aarch64_ashl_sisd_or_int_<mode>3):
+	Split integer shifts into shift_reg and bfm.
+	(aarch64_lshr_sisd_or_int_<mode>3): Likewise.
+	(aarch64_ashr_sisd_or_int_<mode>3): Likewise.
+	(ror<mode>3_insn): Likewise.
+	(<optab>si3_insn_uxtw): Likewise.
+	(<optab><mode>3_insn): Change to rotate_imm.
+	(extr<mode>5_insn_alt): Likewise.
+	(extrsi5_insn_uxtw): Likewise.
+	(extrsi5_insn_uxtw_alt): Likewise.
+
+2016-05-16  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in (TARGET_INVALID_PARAMETER_TYPE): Remove.
+	(TARGET_INVALID_RETURN_TYPE): Remove.
+	* system.h: Poison TARGET_INVALID_PARAMETER_TYPE and
+	TARGET_INVALID_RETURN_TYPE.
+	* target.def (invalid_parameter_type): Remove.
+	(invalid_return_type): Remove.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline-analysis.c (compute_inline_parameters): Be more reailistic
+	on estimating thunk bodies; do not set inline_failed to CIF_THUNK for
+	calls from thunk.
+	* ipa-inline-transform.c (inline_call): When inlining into thunk produce
+	gimple body.
+	(preserve_function_body_p): No need to preserve function body
+	* cif-codes.def (CIF_THUNK): Remove.
+	* cgraphclones.c (duplicate_thunk_for_node): Thunks calls are inlinable.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-inline.c (expand_call_inline): recurse after inlining thunk.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (free_lang_data_in_decl): Also set target/optimization flags
+	for thunks.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-inline.c (report_inline_failed_reason): Look into thunks, too
+	(inline_small_functions): Do not look for function symbol when
+	resetting caches.
+
+2016-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-cgraph.c (compute_ltrans_boundary, output_symtab): Fix handling
+	of inline thunks
+
+2016-05-16  Matthew Wahab  <matthew.wahab@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/arm/arm-c.c (arm_cpu_builtins): Use def_or_undef_macro
+	for __ARM_FP16_FORMAT_IEEE and __ARM_FP16_FORMAT_ALTERNATIVE.
+	Define __ARM_FP16_ARGS when appropriate.
+	* config/arm/arm.c (arm_invalid_parameter_type): Remove
+	declaration.
+	(arm_invalid_return_type): Likewise.
+	(TARGET_INVALID_PARAMETER_TYPE): Remove.
+	(TARGET_INVALID_RETURN_TYPE): Remove.
+	(aapcs_vfp_sub_candidate): Allow HFmode.
+	(aapcs_vfp_allocate): Add comment.  Support HFmode.
+	(aapcs_vfp_allocate_return_reg): Likewise.
+	(struct aapcs_cp_arg_layout): Slightly reword comments for
+	is_return_candidate and allocate_return_reg.
+	(output_mov_vfp): Update assert.
+	(arm_hard_regno_mode_ok): Remove comment, update HF-mode
+	condition.
+	(arm_invalid_parameter_type): Remove.
+	(amr_invalid_return_type): Remove.
+	* config/arm/arm.h (TARGET_NEON_FP16): Fix definition.
+	* config/arm/arm.md (*arm32_movhf): Disable for TARGET_VFP.
+	* config/arm/vfp.md (*movhf_vfp): Enable for TARGET_VFP.
+
+2016-05-16  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/aarch64/aarch64.h (LEGITIMIZE_RELOAD_ADDRESS): Remove.
+	* config/aarch64/arch64-protos.h
+	(aarch64_legitimize_reload_address): Remove.
+	* config/aarch64/aarch64.c (aarch64_legitimize_reload_address):
+	Remove.
+
+2016-05-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* configure.ac: Add ACX_NONCANONICAL_HOST.
+	* configure: Regenerate.
+	* Makefile.in: Set host_noncanonical.
+
+2016-05-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71097
+	* config/i386/i386.md (*movtf_internal): Before register allocation,
+	do not allow FP constants for CM_MEDIUM memory model, allow only
+	standard FP constants for CM_LARGE and CM_LARGE_PIC models.
+	(*movxf_internal): Ditto.
+	(*movdf_internal): Ditto.
+	(*movsf_internal): Ditto.
+
+2016-05-13  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67483
+	* combine.c (make_compound_operation): Don't call extract_left_shift
+	with negative shift amounts.
+
+2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/71071
+	* fold-const.c (fold_checksum_tree): Allow modification
+	of TYPE_ALIAS_SET during folding.
+
+	* config/i386/i386.c (ix86_compute_frame_layout, ix86_expand_prologue,
+	ix86_expand_split_stack_prologue): Use HOST_WIDE_INT_C macro.
+	(ix86_split_to_parts): Likewise.  Fix up formatting.
+
+2016-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-ssa-loop-ivopts.c (create_new_ivs): Cast to
+	unsigned HOST_WIDE_INT with HOST_WIDE_INT_PRINT_UNSIGNED in
+	printf format.
+
 2016-05-13  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_mangle_decl_assembler_name): New.
+	(nvptx_name_replacement): Delete.
+	(write_fn_proto, write_fn_proto_from_insn,
+	nvptx_output_call_insn): Remove nvptx_name_replacement call.
+	(TARGET_MANGLE_DECL_ASSEMBLER_NAME): Override.
+	* langhooks.c (add_builtin_funcction_common): Call
+	targetm.mangle_decl_assembler_name.
 
 	* config/nvptx/nvptx.c (write_fn_proto): Handle
 	BUILT_IN_ATOMIC_COMPARE_EXCHANGE_n oddity.
