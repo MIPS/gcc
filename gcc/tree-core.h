@@ -1010,6 +1010,9 @@ struct GTY(()) tree_base {
        SSA_NAME_ANTI_RANGE_P in
 	   SSA_NAME
 
+       MUST_TAIL_CALL in
+	   CALL_EXPR
+
    public_flag:
 
        TREE_OVERFLOW in

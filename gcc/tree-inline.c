@@ -2063,7 +2063,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		  && id->dst_node->definition
 		  && (fn = gimple_call_fndecl (stmt)) != NULL)
 		{
-		  struct cgraph_node *dest = cgraph_node::get (fn);
+		  struct cgraph_node *dest = cgraph_node::get_create (fn);
 
 		  /* We have missing edge in the callgraph.  This can happen
 		     when previous inlining turned an indirect call into a
@@ -3940,6 +3940,10 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
       if (TREE_CODE (op2) != INTEGER_CST)
         return weights->div_mod_cost;
       return 1;
+
+    /* Bit-field insertion needs several shift and mask operations.  */
+    case BIT_INSERT_EXPR:
+      return 3;
 
     default:
       /* We expect a copy assignment with no operator.  */
