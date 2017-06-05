@@ -1498,6 +1498,7 @@ struct mips_cpu_info {
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
+%{.S:-mlegacyregs} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
 %{mnanomips} %{mno-nanomips} \

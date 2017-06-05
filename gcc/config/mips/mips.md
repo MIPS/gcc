@@ -1268,7 +1268,7 @@
   ""
 {
   if (ISA_HAS_COND_TRAP)
-    return "teq\t$0,$0";
+    return "teq\t%.,%.";
   else if (TARGET_MIPS16)
     return "break 0";
   else
@@ -1937,7 +1937,7 @@
   else if (TARGET_MIPS5500)
     return "msub\t%2,%3";
   else
-    return "msac\t$0,%2,%3";
+    return "msac\t%.,%2,%3";
 }
   [(set_attr "type"     "imadd")
    (set_attr "accum_in"	"1")
@@ -2137,7 +2137,7 @@
    (clobber (match_scratch:SI 3 "=X,l"))]
   "ISA_HAS_MULS"
   "@
-   muls\t$0,%1,%2
+   muls\t%.,%1,%2
    muls\t%0,%1,%2"
   [(set_attr "type"     "imul,imul3")
    (set_attr "mode"     "SI")])
@@ -2320,7 +2320,7 @@
 	  (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 	  (any_extend:DI (match_operand:SI 2 "register_operand" "d")))))]
   "!TARGET_64BIT && ISA_HAS_MULS"
-  "muls<u>\t$0,%1,%2"
+  "muls<u>\t%.,%1,%2"
   [(set_attr "type" "imul")
    (set_attr "mode" "SI")])
 
@@ -2345,7 +2345,7 @@
   else if (TARGET_MIPS5500 || GENERATE_MADD_MSUB)
     return "msub<u>\t%1,%2";
   else
-    return "msac<u>\t$0,%1,%2";
+    return "msac<u>\t%.,%1,%2";
 }
   [(set_attr "type" "imadd")
    (set_attr "accum_in"	"3")
@@ -3391,7 +3391,7 @@
       mips_bit_clear_info (<MODE>mode, INTVAL (operands[2]), &pos, &len);
       operands[1] = GEN_INT (pos);
       operands[2] = GEN_INT (len);
-      return "<d>ins\t%0,$0,%1,%2";
+      return "<d>ins\t%0,%.,%1,%2";
     default:
       gcc_unreachable ();
     }
@@ -3442,7 +3442,7 @@
       mips_bit_clear_info (<MODE>mode, INTVAL (operands[2]), &pos, &len);
       operands[1] = GEN_INT (pos);
       operands[2] = GEN_INT (len);
-      return "ins\t%0,$0,%1,%2";
+      return "ins\t%0,%.,%1,%2";
     case 9:
       return "andi\t%0,%x2";
     default:
@@ -7987,9 +7987,9 @@
     {
       /* Loongson 2[ef] and Loongson 3a use load to $0 for prefetching.  */
       if (TARGET_64BIT)
-        return "ld\t$0,%a0";
+        return "ld\t%.,%a0";
       else
-        return "lw\t$0,%a0";
+        return "lw\t%.,%a0";
     }
   operands[1] = mips_prefetch_cookie (operands[1], operands[2]);
   return "pref\t%1,%a0";

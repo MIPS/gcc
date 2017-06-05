@@ -6463,10 +6463,10 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && !TARGET_MIPS16)
 	    switch (GET_MODE_SIZE (mode))
 	      {
-	      case 1: return "lbu\t$0,%1";
-	      case 2: return "lhu\t$0,%1";
-	      case 4: return "lw\t$0,%1";
-	      case 8: return "ld\t$0,%1";
+	      case 1: return "lbu\t%.,%1";
+	      case 2: return "lhu\t%.,%1";
+	      case 4: return "lw\t%.,%1";
+	      case 8: return "ld\t%.,%1";
 	      default: gcc_unreachable ();
 	      }
 	  else
@@ -14650,9 +14650,9 @@ mips_output_probe_stack_range (rtx reg1, rtx reg2)
   strcpy (tmp, "%(%<bne\t%0,%1,");
   output_asm_insn (strcat (tmp, &loop_lab[1]), xops); 
   if (TARGET_64BIT)
-    output_asm_insn ("sd\t$0,0(%0)%)", xops);
+    output_asm_insn ("sd\t%.,0(%0)%)", xops);
   else
-    output_asm_insn ("sw\t$0,0(%0)%)", xops);
+    output_asm_insn ("sw\t%.,0(%0)%)", xops);
 
   return "";
 }
