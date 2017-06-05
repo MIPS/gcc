@@ -43,5 +43,3 @@ f5 (double *a, int n)
 
 /* For f1, which we treat as a contiguous store rather than an ST2.  */
 /* { dg-final { scan-tree-dump-times "Can't use a fully-masked loop because an access is grouped" 1 "vect" } } */
-/* For f3, where we need peeling for gaps.  */
-/* { dg-final { scan-tree-dump-times "Can't use a fully-masked loop because peeling for gaps is required" 1 "vect" } } */
