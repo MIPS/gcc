@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "selftest.h"
 
 #ifndef LOAD_EXTEND_OP
 #define LOAD_EXTEND_OP(M) UNKNOWN
@@ -8526,9 +8527,9 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  if ((offset0 == offset1
 	       || (offset0 && offset1
 		   && operand_equal_p (offset0, offset1, 0)))
-	      && (code == EQ_EXPR
-		  || code == NE_EXPR
-		  || (indirect_base0 && DECL_P (base0))
+	      && (equality_code
+		  || (indirect_base0
+		      && (DECL_P (base0) || CONSTANT_CLASS_P (base0)))
 		  || POINTER_TYPE_OVERFLOW_UNDEFINED))
 
 	    {
@@ -8567,7 +8568,8 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
 	  else if (bitpos0 == bitpos1
 		   && (equality_code
-		       || (indirect_base0 && DECL_P (base0))
+		       || (indirect_base0
+			   && (DECL_P (base0) || CONSTANT_CLASS_P (base0)))
 		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
 	    {
 	      /* By converting to signed sizetype we cover middle-end pointer
@@ -14496,3 +14498,82 @@ c_getstr (tree src)
 
   return TREE_STRING_POINTER (src) + tree_to_uhwi (offset_node);
 }
+
+#if CHECKING_P
+
+namespace selftest {
+
+/* Helper functions for writing tests of folding trees.  */
+
+/* Verify that the binary op (LHS CODE RHS) folds to CONSTANT.  */
+
+static void
+assert_binop_folds_to_const (tree lhs, enum tree_code code, tree rhs,
+			     tree constant)
+{
+  ASSERT_EQ (constant, fold_build2 (code, TREE_TYPE (lhs), lhs, rhs));
+}
+
+/* Verify that the binary op (LHS CODE RHS) folds to an NON_LVALUE_EXPR
+   wrapping WRAPPED_EXPR.  */
+
+static void
+assert_binop_folds_to_nonlvalue (tree lhs, enum tree_code code, tree rhs,
+				 tree wrapped_expr)
+{
+  tree result = fold_build2 (code, TREE_TYPE (lhs), lhs, rhs);
+  ASSERT_NE (wrapped_expr, result);
+  ASSERT_EQ (NON_LVALUE_EXPR, TREE_CODE (result));
+  ASSERT_EQ (wrapped_expr, TREE_OPERAND (result, 0));
+}
+
+/* Verify that various arithmetic binary operations are folded
+   correctly.  */
+
+static void
+test_arithmetic_folding ()
+{
+  tree type = integer_type_node;
+  tree x = create_tmp_var_raw (type, "x");
+  tree zero = build_zero_cst (type);
+  tree one = build_int_cst (type, 1);
+
+  /* Addition.  */
+  /* 1 <-- (0 + 1) */
+  assert_binop_folds_to_const (zero, PLUS_EXPR, one,
+			       one);
+  assert_binop_folds_to_const (one, PLUS_EXPR, zero,
+			       one);
+
+  /* (nonlvalue)x <-- (x + 0) */
+  assert_binop_folds_to_nonlvalue (x, PLUS_EXPR, zero,
+				   x);
+
+  /* Subtraction.  */
+  /* 0 <-- (x - x) */
+  assert_binop_folds_to_const (x, MINUS_EXPR, x,
+			       zero);
+  assert_binop_folds_to_nonlvalue (x, MINUS_EXPR, zero,
+				   x);
+
+  /* Multiplication.  */
+  /* 0 <-- (x * 0) */
+  assert_binop_folds_to_const (x, MULT_EXPR, zero,
+			       zero);
+
+  /* (nonlvalue)x <-- (x * 1) */
+  assert_binop_folds_to_nonlvalue (x, MULT_EXPR, one,
+				   x);
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+fold_const_c_tests ()
+{
+  test_arithmetic_folding ();
+}
+
+} // namespace selftest
+
+#endif /* CHECKING_P */

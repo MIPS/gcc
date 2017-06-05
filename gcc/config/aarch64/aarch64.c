@@ -1961,22 +1961,23 @@ aarch64_vfp_is_call_candidate (cumulative_args_t pcum_v, machine_mode mode,
 static unsigned int
 aarch64_function_arg_alignment (machine_mode mode, const_tree type)
 {
-  unsigned int alignment;
+  if (!type)
+    return GET_MODE_ALIGNMENT (mode);
+  if (integer_zerop (TYPE_SIZE (type)))
+    return 0;
 
-  if (type)
-    {
-      if (!integer_zerop (TYPE_SIZE (type)))
-	{
-	  if (TYPE_MODE (type) == mode)
-	    alignment = TYPE_ALIGN (type);
-	  else
-	    alignment = GET_MODE_ALIGNMENT (mode);
-	}
-      else
-	alignment = 0;
-    }
-  else
-    alignment = GET_MODE_ALIGNMENT (mode);
+  gcc_assert (TYPE_MODE (type) == mode);
+
+  if (!AGGREGATE_TYPE_P (type))
+    return TYPE_ALIGN (TYPE_MAIN_VARIANT (type));
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return TYPE_ALIGN (TREE_TYPE (type));
+
+  unsigned int alignment = 0;
+
+  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    alignment = std::max (alignment, DECL_ALIGN (field));
 
   return alignment;
 }
@@ -7349,11 +7350,11 @@ get_rsqrte_type (machine_mode mode)
 {
   switch (mode)
   {
-    case DFmode:   return gen_aarch64_rsqrte_df2;
-    case SFmode:   return gen_aarch64_rsqrte_sf2;
-    case V2DFmode: return gen_aarch64_rsqrte_v2df2;
-    case V2SFmode: return gen_aarch64_rsqrte_v2sf2;
-    case V4SFmode: return gen_aarch64_rsqrte_v4sf2;
+    case DFmode:   return gen_aarch64_rsqrtedf;
+    case SFmode:   return gen_aarch64_rsqrtesf;
+    case V2DFmode: return gen_aarch64_rsqrtev2df;
+    case V2SFmode: return gen_aarch64_rsqrtev2sf;
+    case V4SFmode: return gen_aarch64_rsqrtev4sf;
     default: gcc_unreachable ();
   }
 }
@@ -7368,11 +7369,11 @@ get_rsqrts_type (machine_mode mode)
 {
   switch (mode)
   {
-    case DFmode:   return gen_aarch64_rsqrts_df3;
-    case SFmode:   return gen_aarch64_rsqrts_sf3;
-    case V2DFmode: return gen_aarch64_rsqrts_v2df3;
-    case V2SFmode: return gen_aarch64_rsqrts_v2sf3;
-    case V4SFmode: return gen_aarch64_rsqrts_v4sf3;
+    case DFmode:   return gen_aarch64_rsqrtsdf;
+    case SFmode:   return gen_aarch64_rsqrtssf;
+    case V2DFmode: return gen_aarch64_rsqrtsv2df;
+    case V2SFmode: return gen_aarch64_rsqrtsv2sf;
+    case V4SFmode: return gen_aarch64_rsqrtsv4sf;
     default: gcc_unreachable ();
   }
 }

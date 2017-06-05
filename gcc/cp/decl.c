@@ -1525,7 +1525,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
     {
       if (DECL_INITIAL (olddecl))
 	inform (DECL_SOURCE_LOCATION (olddecl),
-		"previous definition of %q+D was here", olddecl);
+		"previous definition of %qD was here", olddecl);
       else
 	inform (DECL_SOURCE_LOCATION (olddecl),
 		"previous declaration of %qD was here", olddecl);
@@ -2483,8 +2483,17 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
       else
 	{
-	  if (DECL_PENDING_INLINE_INFO (newdecl) == 0)
-	    DECL_PENDING_INLINE_INFO (newdecl) = DECL_PENDING_INLINE_INFO (olddecl);
+	  if (DECL_PENDING_INLINE_P (olddecl))
+	    {
+	      DECL_PENDING_INLINE_P (newdecl) = 1;
+	      DECL_PENDING_INLINE_INFO (newdecl)
+		= DECL_PENDING_INLINE_INFO (olddecl);
+	    }
+	  else if (DECL_PENDING_INLINE_P (newdecl))
+	    ;
+	  else if (DECL_SAVED_FUNCTION_DATA (newdecl) == NULL)
+	    DECL_SAVED_FUNCTION_DATA (newdecl)
+	      = DECL_SAVED_FUNCTION_DATA (olddecl);
 
 	  DECL_DECLARED_INLINE_P (newdecl) |= DECL_DECLARED_INLINE_P (olddecl);
 
@@ -5389,13 +5398,16 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 					    do_default);
 	  if (failure == 1)
 	    {
-	      error ("initializer fails to determine size of %qD", decl);
+	      error_at (EXPR_LOC_OR_LOC (initializer,
+					 DECL_SOURCE_LOCATION (decl)),
+			"initializer fails to determine size of %qD", decl);
 	    }
 	  else if (failure == 2)
 	    {
 	      if (do_default)
 		{
-		  error ("array size missing in %qD", decl);
+		  error_at (DECL_SOURCE_LOCATION (decl),
+			    "array size missing in %qD", decl);
 		}
 	      /* If a `static' var's size isn't known, make it extern as
 		 well as static, so it does not get allocated.  If it's not
@@ -5406,7 +5418,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	    }
 	  else if (failure == 3)
 	    {
-	      error ("zero-size array %qD", decl);
+	      error_at (DECL_SOURCE_LOCATION (decl),
+			"zero-size array %qD", decl);
 	    }
 	}
 
@@ -5445,7 +5458,8 @@ layout_var_decl (tree decl)
       /* An automatic variable with an incomplete type: that is an error.
 	 Don't talk about array types here, since we took care of that
 	 message in grokdeclarator.  */
-      error ("storage size of %qD isn%'t known", decl);
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"storage size of %qD isn%'t known", decl);
       TREE_TYPE (decl) = error_mark_node;
     }
 #if 0
@@ -5468,7 +5482,8 @@ layout_var_decl (tree decl)
 	constant_expression_warning (DECL_SIZE (decl));
       else
 	{
-	  error ("storage size of %qD isn%'t constant", decl);
+	  error_at (DECL_SOURCE_LOCATION (decl),
+		    "storage size of %qD isn%'t constant", decl);
 	  TREE_TYPE (decl) = error_mark_node;
 	}
     }
@@ -6077,7 +6092,8 @@ check_array_initializer (tree decl, tree type, tree init)
   if (!COMPLETE_TYPE_P (complete_type (element_type)))
     {
       if (decl)
-	error ("elements of array %q#D have incomplete type", decl);
+	error_at (DECL_SOURCE_LOCATION (decl),
+		  "elements of array %q#D have incomplete type", decl);
       else
 	error ("elements of array %q#T have incomplete type", type);
       return true;
@@ -6141,7 +6157,8 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
     }
   else if (!COMPLETE_TYPE_P (type))
     {
-      error ("%q#D has incomplete type", decl);
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"%q#D has incomplete type", decl);
       TREE_TYPE (decl) = error_mark_node;
       return NULL_TREE;
     }
@@ -6161,8 +6178,9 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	    }
 	  else if (init_len != 1 && TREE_CODE (type) != COMPLEX_TYPE)
 	    {
-	      error ("scalar object %qD requires one element in initializer",
-		     decl);
+	      error_at (EXPR_LOC_OR_LOC (init, DECL_SOURCE_LOCATION (decl)),
+			"scalar object %qD requires one element in "
+			"initializer", decl);
 	      TREE_TYPE (decl) = error_mark_node;
 	      return NULL_TREE;
 	    }
@@ -6204,9 +6222,10 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	    {
 	      /* Don't reshape if the class has constructors.  */
 	      if (cxx_dialect == cxx98)
-		error ("in C++98 %qD must be initialized by constructor, "
-		       "not by %<{...}%>",
-		       decl);
+		error_at (EXPR_LOC_OR_LOC (init, DECL_SOURCE_LOCATION (decl)),
+			  "in C++98 %qD must be initialized by "
+			  "constructor, not by %<{...}%>",
+			  decl);
 	    }
 	  else if (VECTOR_TYPE_P (type) && TYPE_VECTOR_OPAQUE (type))
 	    {
@@ -6298,8 +6317,11 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	      && DECL_INITIAL (decl)
 	      && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
 	      && PAREN_STRING_LITERAL_P (DECL_INITIAL (decl)))
-	    warning (0, "array %qD initialized by parenthesized string literal %qE",
-		     decl, DECL_INITIAL (decl));
+	    warning_at (EXPR_LOC_OR_LOC (DECL_INITIAL (decl),
+					 DECL_SOURCE_LOCATION (decl)),
+			0, "array %qD initialized by parenthesized "
+			"string literal %qE",
+			decl, DECL_INITIAL (decl));
 	  init = NULL;
 	}
     }
@@ -12651,14 +12673,14 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("%qT referred to as %qs", type, tag_name (tag_code));
-      inform (input_location, "%q+T has a previous declaration here", type);
+      inform (location_of (type), "%qT has a previous declaration here", type);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
 	   && tag_code == enum_type)
     {
       error ("%qT referred to as enum", type);
-      inform (input_location, "%q+T has a previous declaration here", type);
+      inform (location_of (type), "%qT has a previous declaration here", type);
       return error_mark_node;
     }
   else if (!allow_template_p

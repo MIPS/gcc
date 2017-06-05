@@ -9542,10 +9542,10 @@ parse_optimize_options (tree args, bool attr_p)
 		  ret = false;
 		  if (attr_p)
 		    warning (OPT_Wattributes,
-			     "bad option %s to optimize attribute", p);
+			     "bad option %qs to attribute %<optimize%>", p);
 		  else
 		    warning (OPT_Wpragmas,
-			     "bad option %s to pragma attribute", p);
+			     "bad option %qs to pragma %<optimize%>", p);
 		  continue;
 		}
 
@@ -9580,6 +9580,29 @@ parse_optimize_options (tree args, bool attr_p)
   decode_cmdline_options_to_array_default_mask (opt_argc, opt_argv,
 						&decoded_options,
 						&decoded_options_count);
+  /* Drop non-Optimization options.  */
+  unsigned j = 1;
+  for (i = 1; i < decoded_options_count; ++i)
+    {
+      if (! (cl_options[decoded_options[i].opt_index].flags & CL_OPTIMIZATION))
+	{
+	  ret = false;
+	  if (attr_p)
+	    warning (OPT_Wattributes,
+		     "bad option %qs to attribute %<optimize%>",
+		     decoded_options[i].orig_option_with_args_text);
+	  else
+	    warning (OPT_Wpragmas,
+		     "bad option %qs to pragma %<optimize%>",
+		     decoded_options[i].orig_option_with_args_text);
+	  continue;
+	}
+      if (i != j)
+	decoded_options[j] = decoded_options[i];
+      j++;
+    }
+  decoded_options_count = j;
+  /* And apply them.  */
   decode_options (&global_options, &global_options_set,
 		  decoded_options, decoded_options_count,
 		  input_location, global_dc);
@@ -9805,7 +9828,7 @@ builtin_function_validate_nargs (location_t loc, tree fndecl, int nargs,
 {
   if (nargs < required)
     {
-      error_at (loc, "not enough arguments to function %qE", fndecl);
+      error_at (loc, "too few arguments to function %qE", fndecl);
       return false;
     }
   else if (nargs > required)
@@ -9962,6 +9985,23 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 			"does not have pointer to integer type", fndecl);
 	      return false;
 	    }
+	  return true;
+	}
+      return false;
+
+    case BUILT_IN_ADD_OVERFLOW_P:
+    case BUILT_IN_SUB_OVERFLOW_P:
+    case BUILT_IN_MUL_OVERFLOW_P:
+      if (builtin_function_validate_nargs (loc, fndecl, nargs, 3))
+	{
+	  unsigned i;
+	  for (i = 0; i < 3; i++)
+	    if (!INTEGRAL_TYPE_P (TREE_TYPE (args[i])))
+	      {
+		error_at (ARG_LOCATION (i), "argument %u in call to function "
+			  "%qE does not have integral type", i + 1, fndecl);
+		return false;
+	      }
 	  return true;
 	}
       return false;
