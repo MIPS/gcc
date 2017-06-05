@@ -6216,16 +6216,16 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && !TARGET_MIPS16)
 	    switch (GET_MODE_SIZE (mode))
 	      {
-	      case 1: return "lbu\t$0,%1";
+	      case 1: return "lbu\t%.,%1";
 	      case 2: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
-			      ? "lhu\t$0,%1"
-			      : "lhu\t$0,%1 # unaligned");
+			      ? "lhu\t%.,%1"
+			      : "lhu\t%.,%1 # unaligned");
 	      case 4: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
-			      ? "lw\t$0,%1"
-			      : "lw\t$0,%1 # unaligned");
+			      ? "lw\t%.,%1"
+			      : "lw\t%.,%1 # unaligned");
 	      case 8: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 8)
-			      ? "ld\t$0,%1"
-			      : "ld\t$0,%1 # unaligned");
+			      ? "ld\t%.,%1"
+			      : "ld\t%.,%1 # unaligned");
 	      default: gcc_unreachable ();
 	      }
 	  else
@@ -6268,7 +6268,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
       if (src_code == HIGH)
 	{
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
-	    return "move\t%0,$28";
+	    return "move\t%0,%+";
 
 	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
 	}
@@ -10054,6 +10054,7 @@ mips_pop_asm_switch (struct mips_asm_switch *asm_switch)
    '^'	Print the name of the pic call-through register (t9 or $25).
    '+'	Print the name of the gp register (usually gp or $28).
    '$'	Print the name of the stack pointer register (sp or $29).
+   '&'	Print the name of the return register (ra or $31).
    ':'  Print "c" to use the compact version if the delay slot is a nop.
    '!'  Print "s" to use the short version if the delay slot contains a
 	16-bit instruction.
@@ -10138,6 +10139,10 @@ mips_print_operand_punctuation (FILE *file, int ch)
 
     case '$':
       fputs (reg_names[STACK_POINTER_REGNUM], file);
+      break;
+
+    case '&':
+      fputs (reg_names[RETURN_ADDR_REGNUM], file);
       break;
 
     case ':':
@@ -11646,7 +11651,7 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
 
   n = nregs = popcount_hwi (mask & 0xd0ff0000);
 
-  /* 16-bit SAVE/RESTORE.JRC always saves $31, optionally $30.  */
+  /* 16-bit SAVE/RESTORE.JRC always saves $ra, optionally $gp.  */
   if (compressed_p && !BITSET_P (mask, RETURN_ADDR_REGNUM))
     return false;
 
@@ -11676,7 +11681,7 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
     return false;
 
   /* Walk backwards to check if we save the registers consecutively
-     beginning from $16.  */
+     beginning from $s0.  */
   for (unsigned int i = ARRAY_SIZE (nanomips_s0_s7_regs); i > 0; i--)
     if (BITSET_P (mask, nanomips_s0_s7_regs[i-1]))
       n--;
@@ -14297,9 +14302,9 @@ mips_output_probe_stack_range (rtx reg1, rtx reg2)
   strcpy (tmp, "%(%<bne\t%0,%1,");
   output_asm_insn (strcat (tmp, &loop_lab[1]), xops); 
   if (TARGET_64BIT)
-    output_asm_insn ("sd\t$0,0(%0)%)", xops);
+    output_asm_insn ("sd\t%.,0(%0)%)", xops);
   else
-    output_asm_insn ("sw\t$0,0(%0)%)", xops);
+    output_asm_insn ("sw\t%.,0(%0)%)", xops);
 
   return "";
 }
