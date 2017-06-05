@@ -1,3 +1,105 @@
+2016-06-03  Bernd Schmidt  <bschmidt@redhat.com>
+
+        PR tree-optimization/52171
+        * gcc.dg/pr52171.c: New test.
+        * gcc.target/i386/pr52171.c: New test.
+
+2016-06-03  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa/pred-1.C: New testcase
+	* gcc.dg/tree-ssa/pred-1.c: New testcase
+
+2016-06-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70957
+	* gcc.target/powerpc/vsx-elemrev-2.c: Require p9vector hardware
+	support.
+	* gcc.target/powerpc/vsx-elemrev-4.c: Likewise.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/vect/vect-live-slp-5.c: Remove dg check.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/tree-ssa/pr64183.c: Ensure test does not vectorize.
+	* testsuite/gcc.dg/vect/no-scevccp-vect-iv-2.c: Remove xfail.
+	* gcc.dg/vect/vect-live-1.c: New test.
+	* gcc.dg/vect/vect-live-2.c: New test.
+	* gcc.dg/vect/vect-live-3.c: New test.
+	* gcc.dg/vect/vect-live-4.c: New test.
+	* gcc.dg/vect/vect-live-5.c: New test.
+	* gcc.dg/vect/vect-live-slp-1.c: New test.
+	* gcc.dg/vect/vect-live-slp-2.c: New test.
+	* gcc.dg/vect/vect-live-slp-3.c: New test.
+
+2016-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71387
+	* g++.dg/opt/pr71387.C: New test.
+
+2016-06-02  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71328
+	* gcc.c-torture/compile/pr71328.c: New test.
+
+2016-06-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/52393
+	* gfortran.dg/fmt_read_3.f90: Fix typo.
+	* gfortran.dg/fmt_read_4.f90: New test.
+
+2016-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/forw_enum10.C: Adjust for dg-message vs dg-error.
+	* g++.dg/cpp0x/forw_enum6.C: Likewise.
+	* g++.dg/cpp0x/forw_enum8.C: Likewise.
+	* g++.dg/cpp0x/override2.C: Likewise.
+	* g++.dg/parse/crash5.C: Likewise.
+	* g++.dg/parse/error16.C: Likewise.
+	* g++.dg/parse/error27.C: Likewise.
+	* g++.dg/template/qualttp15.C: Likewise.
+	* g++.dg/template/redecl4.C: Likewise.
+	* g++.old-deja/g++.other/crash39.C: Likewise.
+	* g++.old-deja/g++.other/struct1.C: Likewise.
+	* g++.old-deja/g++.pt/m9a.C: Likewise.
+	* g++.old-deja/g++.pt/memclass10.C: Likewise.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71372
+	* c-c++-common/pr71372.c: New test.
+
+	* gcc.dg/cpp/source_date_epoch-1.c (main): Test __DATE__ and
+	__TIME__ strings with __builtin_strcmp instead of printf and
+	dg-output.
+
+2016-06-02  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/predict-9.c: New test.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/gcc-dg.exp (cleanup-after-saved-dg-test): Add missing
+	global set_compiler_env_var and global saved_compiler_env_var.
+
+2016-06-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71295
+	* gcc.c-torture/compile/pr71295.c: New test.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512vl-concatv4si-1.c: New test.
+
+	* gcc.target/i386/avx512dq-concatv2si-1.c: New test.
+	* gcc.target/i386/avx512vl-concatv2si-1.c: New test.
+
+	* gcc.target/i386/avx512dq-concatv2di-1.c: New test.
+	* gcc.target/i386/avx512vl-concatv2di-1.c: New test.
+	* gcc.target/i386/sse2-init-v2di-2.c: Adjust expected vec_concatv2di
+	alternative number.
+
 2016-05-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-splat-4.c: New test.

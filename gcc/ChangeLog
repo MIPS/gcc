@@ -1,3 +1,173 @@
+2016-06-03  Bernd Schmidt  <bschmidt@redhat.com>
+
+        PR tree-optimization/52171
+        * builtins.c (expand_cmpstrn_or_cmpmem): Delete, moved elsewhere.
+        (expand_builtin_memcmp): New arg RESULT_EQ.  All callers changed.
+        Look for constant strings.  Move some code to emit_block_cmp_hints
+        and use it.
+        * builtins.def (BUILT_IN_MEMCMP_EQ): New.
+        * defaults.h (COMPARE_MAX_PIECES): New macro.
+        * expr.c (move_by_pieces_d, store_by_pieces_d): Remove old structs.
+        (move_by_pieces_1, store_by_pieces_1, store_by_pieces_2): Remvoe.
+        (clear_by_pieces_1): Don't declare.  Move definition before use.
+        (can_do_by_pieces): New static function.
+        (can_move_by_pieces): Use it.  Return bool.
+        (by_pieces_ninsns): Renamed from move_by_pieces_ninsns.  New arg
+        OP.  All callers changed.  Handle COMPARE_BY_PIECES.
+        (class pieces_addr); New.
+        (pieces_addr::pieces_addr, pieces_addr::decide_autoinc,
+        pieces_addr::adjust, pieces_addr::increment_address,
+        pieces_addr::maybe_predec, pieces_addr::maybe_postinc): New member
+        functions for it.
+        (class op_by_pieces_d): New.
+        (op_by_pieces_d::op_by_pieces_d, op_by_pieces_d::run): New member
+        functions for it.
+        (class move_by_pieces_d, class compare_by_pieces_d,
+        class store_by_pieces_d): New subclasses of op_by_pieces_d.
+        (move_by_pieces_d::prepare_mode, move_by_pieces_d::generate,
+        move_by_pieces_d::finish_endp, store_by_pieces_d::prepare_mode,
+        store_by_pieces_d::generate, store_by_pieces_d::finish_endp,
+        compare_by_pieces_d::generate, compare_by_pieces_d::prepare_mode,
+        compare_by_pieces_d::finish_mode): New member functions.
+        (compare_by_pieces, emit_block_cmp_via_cmpmem): New static
+        functions.
+        (expand_cmpstrn_or_cmpmem): Moved here from builtins.c.
+        (emit_block_cmp_hints): New function.
+        (move_by_pieces, store_by_pieces, clear_by_pieces): Rewrite to just
+        use the newly defined classes.
+        * expr.h (by_pieces_constfn): New typedef.
+        (can_store_by_pieces, store_by_pieces): Use it in arg declarations.
+        (emit_block_cmp_hints, expand_cmpstrn_or_cmpmem): Declare.
+        (move_by_pieces_ninsns): Don't declare.
+        (can_move_by_pieces): Change return value to bool.
+        * target.def (TARGET_USE_BY_PIECES_INFRASTRUCTURE_P): Update docs.
+        (compare_by_pieces_branch_ratio): New hook.
+        * target.h (enum by_pieces_operation): Add COMPARE_BY_PIECES.
+        (by_pieces_ninsns): Declare.
+        * targethooks.c (default_use_by_pieces_infrastructure_p): Handle
+        COMPARE_BY_PIECES.
+        (default_compare_by_pieces_branch_ratio): New function.
+        * targhooks.h (default_compare_by_pieces_branch_ratio): Declare.
+        * doc/tm.texi.in (STORE_MAX_PIECES, COMPARE_MAX_PIECES): Document.
+        * doc/tm.texi: Regenerate.
+        * tree-ssa-strlen.c: Include "builtins.h".
+        (handle_builtin_memcmp): New static function.
+        (strlen_optimize_stmt): Call it for BUILT_IN_MEMCMP.
+        * tree.c (build_common_builtin_nodes): Create __builtin_memcmp_eq.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* tree-vect-stmts.c (vect_stmt_relevant_p): Do not vectorize non live
+	relevant stmts which are simple and invariant.
+	* tree-vect-loop.c (vectorizable_live_operation): Check relevance
+	instead of simple and invariant
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* tree-vect-loop.c (vect_analyze_loop_operations): Allow live stmts.
+	(vectorizable_reduction): Check for new relevant state.
+	(vectorizable_live_operation): vectorize live stmts using
+	BIT_FIELD_REF.  Remove special case for gimple assigns stmts.
+	* tree-vect-stmts.c (is_simple_and_all_uses_invariant): New function.
+	(vect_stmt_relevant_p): Check for stmts which are only used live.
+	(process_use): Use of a stmt does not inherit it's live value.
+	(vect_mark_stmts_to_be_vectorized): Simplify relevance inheritance.
+	(vect_analyze_stmt): Check for new relevant state.
+	* tree-vectorizer.h (vect_relevant): New entry for a stmt which is used
+	outside the loop, but not inside it.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* tree-vectorizer.h (vect_get_vec_def_for_operand_1): New
+	* tree-vect-stmts.c (vect_get_vec_def_for_operand_1): New
+	(vect_get_vec_def_for_operand): Split out code.
+
+2016-06-03  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (define_peepholes for two mfcr's): Delete.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* tree-vect-stmts.c (vectorizable_call) Remove GOMP_SIMD_LANE code.
+
+2016-06-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/thumb1.md (*thumb1_mulsi3): Fix typos in comment.
+
+2016-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71387
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): If redirecting
+	to noreturn e->callee->decl that has void return type and void
+	arguments, adjust gimple_call_fntype and remove lhs even if it had
+	previously addressable type.
+
+2016-06-02  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71328
+	* tree-ssa-threadupdate.c (duplicate_thread_path): Fix off-by-one
+	error when checking for a jump back onto the copied path.
+
+2016-06-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/microblaze/microblaze.c (get_branch_target): Add return
+	NULL_RTX for the non-CALL_P case.
+	(insert_wic_for_ilb_runout): Remove unused local "wic_addr1".
+	(insert_wic): Remove unused local "j".
+
+2016-06-02  Martin Liska  <mliska@suse.cz>
+
+	* predict.def: Fix typo in PRED_FORTRAN_FAIL_IO display name.
+
+2016-06-02  H.J. Lu  <hongjiu.lu@intel.com>
+	    Julia Koval  <julia.koval@intel.com>
+
+	* function.c (assign_parm_setup_stack): Force source into a
+	register if needed.
+	* target.def (function_incoming_arg): Update documentation to
+	allow arbitrary address computation based on hard register.
+	* doc/tm.texi: Regenerated.
+
+2016-06-02  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (combine_predictions_for_bb): Fix first match in
+	cases where a first predictor contains more than one occurence
+	in list of predictors.  Take the best value in such case.
+
+2016-06-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71295
+	* rtlanal.c (subreg_get_info): If taking a subreg at the requested
+	offset would go over the size of the inner mode reject it.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (*vec_concatv4si): Use v=v,v instead of
+	x=x,x and v=v,m instead of x=x,m.
+
+	* config/i386/sse.md (*vec_concatv2si_sse4_1): Add avx512dq v=Yv,rm
+	alternative.  Change x=x,x alternative to v=Yv,Yv and x=rm,C
+	alternative to v=rm,C.
+
+	* config/i386/sse.md (*vec_concatv2di): Add x86_avx512dq v=Yv,rm
+	alternative.  Change x=xm,C alternative to v=vm,C, x=x,x alternative
+	to v=Yv,Yv and x=x,m to v=v,m.  Use maybe_evex prefix attribute
+	instead of vex for the last two above mentioned alternatives.
+
+2016-06-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70830
+	* config/arm/arm.c (arm_output_multireg_pop): Guard "pop" on update.
+
+2016-06-02  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/dfp.md (trunctddd2): Correct the "length" attribute.
+
+2016-06-01  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/rl78/rl78.c (rl78_expand_prologue): Convert local
+	from int to unsigned.
+
 2016-05-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_splat_<mode>, V2DI/V2DF): Simplify
@@ -901,7 +1071,7 @@
 	* config/rs6000/altivec.md (VNEG iterator): New iterator for
 	VNEGW/VNEGD instructions.
 	(p9_neg<mode>2): New insns for ISA 3.0 VNEGW/VNEGD.
-	(neg<mode>2): Add expander for V2DImode added in ISA 2.06, and
+	(neg<mode>2): Add expander for V2DImode added in ISA 2.07, and
 	support for ISA 3.0 VNEGW/VNEGD instructions.
 
 2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
