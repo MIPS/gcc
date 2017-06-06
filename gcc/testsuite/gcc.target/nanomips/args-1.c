@@ -22,10 +22,6 @@ const char *optimized_for = _MIPS_TUNE;
 
 /* Check for __mips64 consistency.  */
 
-#if defined (__mips64) != defined (_R4000)
-#error __mips64 / _R4000 mismatch
-#endif
-
-#if defined (__mips64) && __mips != 3 && __mips != 4 && __mips != 64
+#if defined (__mips64) && __mips != 64
 #error __mips64 / __mips mismatch
 #endif

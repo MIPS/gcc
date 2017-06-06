@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "isa>=2 -mabi=p32" } */
+/* { dg-options "-mabi=p32" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\taddiu\t" } } */
 /* { dg-final { scan-assembler-not "\tsubu" } } */

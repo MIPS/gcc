@@ -1,4 +1,4 @@
-/* Test MIPS32R6 LSA instruction */
+/* Test nanoMIPS LHXS instruction */
 /* { dg-do compile } */
 /* { dg-options "-mgp32" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */

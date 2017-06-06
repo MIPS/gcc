@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-mgp64" } */
+/* { dg-options "-mgp32" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 #define TEST(ID, TYPE1, TYPE2)					\
@@ -25,20 +25,26 @@
     return (u->m1[0] | u->m1[1]);				\
   }
 
-TEST (1, unsigned int, unsigned long long);
-TEST (2, int, long long);
-TEST (3, unsigned short, unsigned long long);
-TEST (4, short, long long);
-TEST (5, unsigned char, unsigned long long);
-TEST (6, signed char, long long);
+TEST (1, unsigned long, unsigned long long);
+TEST (2, long, long long);
 
-TEST (7, unsigned short, unsigned int);
-TEST (8, short, int);
-TEST (9, unsigned char, unsigned int);
-TEST (10, signed char, int);
+TEST (3, unsigned int, unsigned long long);
+TEST (4, int, long long);
 
-TEST (11, unsigned char, unsigned short);
-TEST (12, signed char, short);
+TEST (5, unsigned short, unsigned long);
+TEST (6, short, long);
+
+TEST (7, unsigned char, unsigned long);
+TEST (8, signed char, long);
+
+TEST (9, unsigned short, unsigned int);
+TEST (10, short, int);
+
+TEST (11, unsigned char, unsigned int);
+TEST (12, signed char, int);
+
+TEST (13, unsigned char, unsigned short);
+TEST (14, signed char, short);
 
 /* { dg-final { scan-assembler-not "\tlh\t" } } */
 /* { dg-final { scan-assembler-not "\tlhu\t" } } */
