@@ -1,6 +1,6 @@
-/* Test MIPS32 DSP instructions */
+/* Test nanoMIPS DSP instructions */
 /* { dg-do compile } */
-/* { dg-options "-mdspr3" } */
+/* { dg-options "-mdsp" } */
 /* { dg-final { scan-assembler "\taddq.ph\t" } } */
 /* { dg-final { scan-assembler "\taddu.qb\t" } } */
 /* { dg-final { scan-assembler "\tsubq.ph\t" } } */

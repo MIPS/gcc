@@ -1,7 +1,7 @@
-/* { dg-options "-mxlp" }
+/* { dg-options "-mxlp -mhard-float" }
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-final { scan-assembler-times "\tuasw " 1 } } */
-/* { dg-final { scan-assembler-times "\tualw " 1 } } */
+/* { dg-final { scan-assembler-times "\tuasw " 3 } } */
+/* { dg-final { scan-assembler-times "\tualw " 3 } } */
 /* { dg-final { scan-assembler-not "\tnop" } } */
 
 /* Test to make sure we produce the unaligned load/store for
@@ -21,13 +21,25 @@ struct S
 
 
 void
-uasw_insn (int i)
+sd (long long l)
+{
+  S.l = l;
+}
+
+long long
+ld ()
+{
+  return S.l;
+}
+
+void
+sw (int i)
 {
   S.i = i;
 }
 
 int
-ualw_insn ()
+lw ()
 {
   return S.i;
 }

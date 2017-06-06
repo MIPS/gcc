@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-ffast-math -mabi=p64 -mhard-float -mgp64" } */
+/* { dg-options "-ffast-math -mhard-float" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\trsqrt.d\t" } } */
 /* { dg-final { scan-assembler "\trsqrt.s\t" } } */

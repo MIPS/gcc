@@ -1,5 +1,5 @@
 /* See PR 52154 for the xfail.  */
-/* { dg-do run { xfail { mips_eabi && { hard_float && ilp32 } } } } */
+/* { dg-do run { xfail { hard_float && ilp32 } } } */
 
 #include <stdarg.h>
 

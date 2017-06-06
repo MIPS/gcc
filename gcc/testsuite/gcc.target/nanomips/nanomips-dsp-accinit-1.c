@@ -1,4 +1,4 @@
-/* { dg-options "-mdspr3 -mgp32 -mtune=4kp" } */
+/* { dg-options "-mdspr3 -mgp32 -mtune=4k" } */
 /* References to RESULT within the loop need to have a higher frequency than
    references to RESULT outside the loop, otherwise there is no reason
    to prefer multiply/accumulator registers over GPRs.  */

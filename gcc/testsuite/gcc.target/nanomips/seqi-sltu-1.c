@@ -1,4 +1,4 @@
-/* Check if we expand seq and sne.  */
+/* Check if we expand seq and sltu.  */
 /* { dg-do compile } */
 /* { dg-final { scan-assembler-times "\tseqi\t" 4 } } */
 /* { dg-final { scan-assembler-times "\tsltu\t" 4 } } */
