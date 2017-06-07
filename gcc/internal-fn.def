@@ -104,9 +104,10 @@ along with GCC; see the file COPYING3.  If not see
 
 DEF_INTERNAL_OPTAB_FN (MASK_LOAD, ECF_PURE, maskload, mask_load)
 DEF_INTERNAL_OPTAB_FN (FIRSTFAULT_LOAD, ECF_PURE, firstfault_load, firstfault_load)
-DEF_INTERNAL_OPTAB_FN (READ_NF, 0, read_nf, read_nf)
-DEF_INTERNAL_OPTAB_FN (WRITE_NF, 0, write_nf, write_nf)
-DEF_INTERNAL_OPTAB_FN (MASK_POPCOUNT, ECF_CONST, mask_popcount, unary)
+DEF_INTERNAL_OPTAB_FN (READ_NF, ECF_NOTHROW, read_nf, read_nf)
+DEF_INTERNAL_OPTAB_FN (WRITE_NF, ECF_NOTHROW, write_nf, write_nf)
+DEF_INTERNAL_OPTAB_FN (MASK_POPCOUNT, ECF_CONST | ECF_NOTHROW,
+		       mask_popcount, unary)
 
 DEF_INTERNAL_OPTAB_FN (LOAD_LANES, ECF_CONST, vec_load_lanes, load_lanes)
 DEF_INTERNAL_OPTAB_FN (MASK_LOAD_LANES, ECF_PURE,
@@ -135,16 +136,22 @@ DEF_INTERNAL_OPTAB_FN (STORE_LANES, ECF_CONST, vec_store_lanes, store_lanes)
 DEF_INTERNAL_OPTAB_FN (MASK_STORE_LANES, 0,
 		       vec_mask_store_lanes, mask_store_lanes)
 
-DEF_INTERNAL_OPTAB_FN (WHILE_ULT, ECF_CONST, while_ult, while)
+DEF_INTERNAL_OPTAB_FN (WHILE_ULT, ECF_CONST | ECF_NOTHROW, while_ult, while)
 
-DEF_INTERNAL_OPTAB_FN (CLASTB, ECF_CONST, clastb, clastb)
+DEF_INTERNAL_OPTAB_FN (CLASTB, ECF_CONST | ECF_NOTHROW, clastb, clastb)
 
-DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_HI, ECF_CONST, vec_interleave_hi, binary)
-DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_LO, ECF_CONST, vec_interleave_lo, binary)
-DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_EVEN, ECF_CONST, vec_extract_even, binary)
-DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_ODD, ECF_CONST, vec_extract_odd, binary)
-DEF_INTERNAL_OPTAB_FN (VEC_REVERSE, ECF_CONST, vec_reverse, unary)
-DEF_INTERNAL_OPTAB_FN (VEC_SHL_INSERT, ECF_CONST, vec_shl_insert, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_HI, ECF_CONST | ECF_NOTHROW,
+		       vec_interleave_hi, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_LO, ECF_CONST | ECF_NOTHROW,
+		       vec_interleave_lo, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_EVEN, ECF_CONST | ECF_NOTHROW,
+		       vec_extract_even, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_ODD, ECF_CONST | ECF_NOTHROW,
+		       vec_extract_odd, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_REVERSE, ECF_CONST | ECF_NOTHROW,
+		       vec_reverse, unary)
+DEF_INTERNAL_OPTAB_FN (VEC_SHL_INSERT, ECF_CONST | ECF_NOTHROW,
+		       vec_shl_insert, binary)
 
 DEF_INTERNAL_OPTAB_FN (FMS, ECF_CONST, fms, ternary)
 DEF_INTERNAL_OPTAB_FN (FNMA, ECF_CONST, fnma, ternary)
@@ -172,10 +179,12 @@ DEF_INTERNAL_OPTAB_FN (RSQRT, ECF_CONST, rsqrt, unary)
      to and including that bit and set the remaining bits to false.
 
    A, B and the return value are all vector masks.  */
-DEF_INTERNAL_OPTAB_FN (BREAK_AFTER, ECF_CONST, break_after, binary)
+DEF_INTERNAL_OPTAB_FN (BREAK_AFTER, ECF_CONST | ECF_NOTHROW,
+		       break_after, binary)
 
 /* Extract the last active element from a vector.  */
-DEF_INTERNAL_OPTAB_FN (EXTRACT_LAST, ECF_CONST, extract_last, binary)
+DEF_INTERNAL_OPTAB_FN (EXTRACT_LAST, ECF_CONST | ECF_NOTHROW,
+		       extract_last, binary)
 
 /* Unary math functions.  */
 DEF_INTERNAL_FLT_FN (ACOS, ECF_CONST, acos, unary)
@@ -221,12 +230,12 @@ DEF_INTERNAL_FLT_FN (LDEXP, ECF_CONST, ldexp, binary)
 DEF_INTERNAL_FLT_FN (FMA, ECF_CONST, fma, ternary)
 
 /* Unary integer ops.  */
-DEF_INTERNAL_INT_FN (CLRSB, ECF_CONST, clrsb, unary)
-DEF_INTERNAL_INT_FN (CLZ, ECF_CONST, clz, unary)
-DEF_INTERNAL_INT_FN (CTZ, ECF_CONST, ctz, unary)
-DEF_INTERNAL_INT_FN (FFS, ECF_CONST, ffs, unary)
-DEF_INTERNAL_INT_FN (PARITY, ECF_CONST, parity, unary)
-DEF_INTERNAL_INT_FN (POPCOUNT, ECF_CONST, popcount, unary)
+DEF_INTERNAL_INT_FN (CLRSB, ECF_CONST | ECF_NOTHROW, clrsb, unary)
+DEF_INTERNAL_INT_FN (CLZ, ECF_CONST | ECF_NOTHROW, clz, unary)
+DEF_INTERNAL_INT_FN (CTZ, ECF_CONST | ECF_NOTHROW, ctz, unary)
+DEF_INTERNAL_INT_FN (FFS, ECF_CONST | ECF_NOTHROW, ffs, unary)
+DEF_INTERNAL_INT_FN (PARITY, ECF_CONST | ECF_NOTHROW, parity, unary)
+DEF_INTERNAL_INT_FN (POPCOUNT, ECF_CONST | ECF_NOTHROW, popcount, unary)
 
 DEF_INTERNAL_FN (GOMP_USE_SIMT, ECF_NOVOPS | ECF_LEAF | ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOMP_SIMT_ENTER, ECF_LEAF | ECF_NOTHROW, NULL)
