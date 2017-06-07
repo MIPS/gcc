@@ -1,3 +1,61 @@
+2016-06-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm_neon.h (vadd_f32): replace __FAST_MATH with
+	__FAST_MATH__.
+	(vaddq_f32): Likewise.
+	(vmul_f32): Likewise.
+	(vmulq_f32): Likewise.
+	(vsub_f32): Likewise.
+	(vsubq_f32): Likewise.
+
+2016-06-17  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71347
+	* tree-ssa-loop-ivopts.c (determine_group_iv_cost_address): Compute
+	cost for all uses in group.
+
+2016-06-17 Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Only
+	insert gimple seq if it's not empty.
+
+2016-06-17  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vectorizer.h (struct dr_with_seg_len): Remove class
+	member OFFSET.
+	* tree-vect-data-refs.c (operator ==): Handle DR_OFFSET directly,
+	rather than OFFSET.
+	(comp_dr_with_seg_len_pair): Ditto.
+	(vect_prune_runtime_alias_test_list): Ditto.  Also Canonicalize
+	struct dr_with_seg_len_pair against DR_OFFSET.
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks): Handle
+	DR_OFFSET directly.
+
+2016-06-17  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/aarch64/geniterators.sh: Handle parenthesised conditions.
+
+2016-06-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_pic_pcrel_sequence): New.
+	(pa_output_lbranch): Use pa_output_pic_pcrel_sequence.
+	(pa_output_millicode_call): Likewise.
+	(pa_output_call): Likewise.
+	(pa_output_indirect_call): Likewise.
+	(pa_asm_output_mi_thunk): Likewise.
+
+2016-06-16  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* doc/invoke.texi (x86 Options): Fix -mno-fp-ret-in-387 typo.
+
+2016-06-16  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (combine_predictions_for_insn): When we find a first
+	match predictor, we should consider just predictors with
+	PRED_FLAG_FIRST_MATCH.  Print either first match (if any) or
+	DS theory predictor.
+	(combine_predictions_for_bb): Likewise.
+
 2016-06-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Handle COMPONENT_REFs
