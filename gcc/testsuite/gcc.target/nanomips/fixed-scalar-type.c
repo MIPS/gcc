@@ -1,6 +1,6 @@
 /* Test scalar fixed-point instructions */
 /* { dg-do compile { target { fixed_point } } } */
-/* { dg-options "-mdspr2" } */
+/* { dg-options "-mdspr3" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\taddu\t" 10 } } */
 /* { dg-final { scan-assembler-times "\tsubu\t" 10 } } */

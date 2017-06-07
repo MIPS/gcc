@@ -1,6 +1,6 @@
-/* Test nanoMIPS DSP REV 2 instructions */
+/* Test nanoMIPS DSP REV 3 instructions */
 /* { dg-do run } */
-/* { dg-options "-mdspr2" } */
+/* { dg-options "-mdspr3" } */
 
 typedef signed char v4q7 __attribute__ ((vector_size(4)));
 typedef signed char v4i8 __attribute__ ((vector_size(4)));

@@ -1,6 +1,6 @@
-/* Test nanoMIPS DSP REV 2 instructions */
+/* Test nanoMIPS DSP REV 3 instructions */
 /* { dg-do compile } */
-/* { dg-options "-mdspr2" } */
+/* { dg-options "-mdspr3" } */
 /* { dg-final { scan-assembler "\tmul.ph\t" } } */
 
 typedef short v2hi __attribute__ ((vector_size(4)));

@@ -239,7 +239,6 @@ set mips_option_groups {
     float "-m(hard|soft)-float"
     fpu "-m(double|single)-float"
     forbid_cpu "forbid_cpu=.*"
-    fp "-mfp64"
     gp "-mgp(32|64)"
     nanomips "-mnanomips|-mno-nanomips"
     pic "-f(no-|)(pic|PIC)"
@@ -267,8 +266,6 @@ for { set option 0 } { $option < 32 } { incr option } {
 
 # Add -mfoo/-mno-foo options to mips_option_groups.
 foreach option {
-    dsp
-    dspr2
     dspr3
     extern-sdata
     gpopt
@@ -290,7 +287,6 @@ foreach option {
     abs
     branch-cost
     code-readable
-    nan
     tune
 } {
     lappend mips_option_groups $option "-m$option=.*"
@@ -326,24 +322,10 @@ set mips_abi_groups {
     arch
     endianness
     float
-    fp
     gp
     gpopt
     pic
     small-data
-}
-
-# mips_option_tests(OPTION) is some assembly code that will run to completion
-# on a target that supports OPTION.
-set mips_option_tests(-mdsp) {
-    .set mips64r2
-    .set dsp
-    addsc $2,$2,$2
-}
-set mips_option_tests(-mdspr2) {
-    .set mips64r2
-    .set dspr2
-    prepend $2,$3,11
 }
 
 # Canonicalize command-line option OPTION.
@@ -661,14 +643,6 @@ proc mips-dg-init {} {
 	    "-msoft-float",
 	    #endif
 
-	    #ifdef __mips_nan2008
-	    "-mnan=2008",
-	    #endif
-
-	    #if __mips_fpr == 64
-	    "-mfp64",
-	    #endif
-
 	    #ifdef __mips64
 	    "-mgp64",
 	    #else
@@ -679,18 +653,6 @@ proc mips-dg-init {} {
 	    "-mdspr3",
 	    #else
 	    "-mno-dspr3",
-	    #endif
-
-	    #if __mips_dsp_rev >= 2
-	    "-mdspr2",
-	    #else
-	    "-mno-dspr2",
-	    #endif
-
-	    #if __mips_dsp_rev >= 1
-	    "-mdsp",
-	    #else
-	    "-mno-dsp",
 	    #endif
 
 	    #ifndef __PIC__
@@ -756,8 +718,6 @@ proc mips-dg-finish {} {
 #
 #          START                        END
 #            |                           |
-#         -mfp64                      <no option>
-#            |                           |
 #         -mdouble-float              -msingle-float
 #            |                           |
 #         -mhard-float                -msoft-float
@@ -779,10 +739,6 @@ proc mips-dg-finish {} {
 #         -mno-gpopt                  -mgpopt
 #            |                           |
 #         -mdspr3                     -mno-dspr3
-#            |                           |
-#         -mdspr2                     -mno-dspr2
-#            |                           |
-#         -mdsp                       -mno-dsp
 #            |                           |
 #         -msynci                     -mno-synci
 #            |                           |
@@ -832,8 +788,6 @@ proc mips-dg-options { args } {
 
     # Handle dependencies between options on the left of the
     # dependency diagram.
-    mips_option_dependency options "-mfp64" "-mhard-float"
-    mips_option_dependency options "-mfp64" "-mdouble-float"
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
     mips_option_dependency options "-fpic" "-mshared"
     mips_option_dependency options "-mshared" "-mno-plt"
@@ -992,26 +946,19 @@ proc mips-dg-options { args } {
     #    if { $abi_test_option_p } {
     #    }
 
-    # TO DO: Will be more complex when later nanoMIPS isas comes.
+    # TO DO: Will be needed when later nanoMIPS isas comes.
     # Handle dependencies between the arch option and the post-arch options.
     # This should mirror the arch and pre-arch code above.  For pre-r6
     # architectures this only needs to be done when we've moved down
     # to a lower architecture and might need to turn features off,
     # but moving up from pre-r6 to r6 can remove features too.
-    if { $arch_test_option_p } {
-	    if { [mips_have_test_option_p options "-mdsp"] } {
-		mips_make_test_option options "-mfp64"
-	    mips_make_test_option options "-mnan=2008"
-	}
-
-	unset arch
-	unset isa
-	unset isa_rev
-    }
+    # if { $arch_test_option_p } {
+	# unset arch
+	# unset isa
+	# unset isa_rev
+    # }
 
     # Handle dependencies between options on the right of the diagram.
-    mips_option_dependency options "-mno-dsp" "-mno-dspr2"
-    mips_option_dependency options "-mno-dsp" "-mno-dspr3"
     mips_option_dependency options "-mplt" "-msym32"
     mips_option_dependency options "-mplt" "-mno-shared"
     mips_option_dependency options "-mno-shared" "-fno-pic"

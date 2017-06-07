@@ -1,4 +1,4 @@
-/* Test MIPS32 DSP instructions */
+/* Test nanoMIPS DSP instructions */
 /* { dg-do compile } */
 /* { dg-options "-mgp32 -mdspr3 (REQUIRES_STDLIB)" } */
 /* { dg-final { scan-assembler "\taddq.ph\t" } } */
