@@ -1,3 +1,28 @@
+2016-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* call.c (magic_varargs_p): Return 3 for __builtin_*_overflow_p.
+	(build_over_call): For magic == 3, do no conversion only on 3rd
+	argument.
+
+2016-06-23  Andi Kleen  <ak@linux.intel.com>
+
+	* Make-lang.in: Add support for autofdo.
+
+2016-06-21  Jason Merrill  <jason@redhat.com>
+
+	* constraint.cc (constraints_satisfied_p): Keep as many levels of
+	args as our template has levels of parms.
+
+	* pt.c (template_parm_outer_level, uses_outer_template_parms): New.
+	(type_dependent_expression_p): Use uses_outer_template_parms.
+
+2016-06-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* parser.c (cp_parser_string_literal): Convert non-standard
+	concatenation error to directly use a rich_location, and
+	use that to add the location of the first literal to the
+	diagnostic.
+
 2016-06-17  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* decl.c (validate_constexpr_redeclaration): Change pair of errors

@@ -1769,7 +1769,11 @@ predict_loops (void)
 	  else
 	    continue;
 
-	  gcc_checking_assert (nitercst);
+	  /* If the prediction for number of iterations is zero, do not
+	     predict the exit edges.  */
+	  if (nitercst == 0)
+	    continue;
+
 	  probability = RDIV (REG_BR_PROB_BASE, nitercst);
 	  predict_edge (ex, predictor, probability);
 	}
@@ -3507,7 +3511,7 @@ force_edge_cold (edge e, bool impossible)
 	fprintf (dump_file, "Making edge %i->%i %s by redistributing "
 		 "probability to other edges.\n",
 		 e->src->index, e->dest->index,
-		 impossible ? "imposisble" : "cold");
+		 impossible ? "impossible" : "cold");
       FOR_EACH_EDGE (e2, ei, e->src->succs)
 	if (e2 != e)
 	  {
@@ -3533,7 +3537,7 @@ force_edge_cold (edge e, bool impossible)
 	  int old_frequency = e->src->frequency;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Making bb %i %s.\n", e->src->index,
-		     impossible ? "imposisble" : "cold");
+		     impossible ? "impossible" : "cold");
 	  e->src->frequency = MIN (e->src->frequency, impossible ? 0 : 1);
 	  e->src->count = e->count = RDIV (e->src->count * e->src->frequency,
 					   old_frequency);
@@ -3542,6 +3546,6 @@ force_edge_cold (edge e, bool impossible)
       else if (dump_file && (dump_flags & TDF_DETAILS)
 	       && maybe_hot_bb_p (cfun, e->src))
 	fprintf (dump_file, "Giving up on making bb %i %s.\n", e->src->index,
-		 impossible ? "imposisble" : "cold");
+		 impossible ? "impossible" : "cold");
     }
 }

@@ -1974,7 +1974,12 @@ package body Sem_Res is
       procedure Resolution_Failed is
       begin
          Patch_Up_Value (N, Typ);
+
+         --  Set the type to the desired one to minimize cascaded errors. Note
+         --  that this is an approximation and does not work in all cases.
+
          Set_Etype (N, Typ);
+
          Debug_A_Exit ("resolving  ", N, " (done, resolution failed)");
          Set_Is_Overloaded (N, False);
 
@@ -4223,14 +4228,19 @@ package body Sem_Res is
                then
                   Error_Msg_NE ("actual for& must be a variable", A, F);
 
-                  if Is_Subprogram (Current_Scope)
-                    and then
-                      (Is_Invariant_Procedure (Current_Scope)
-                        or else Is_Predicate_Function (Current_Scope))
-                  then
-                     Error_Msg_N
-                       ("function used in predicate cannot "
-                        & "modify its argument", F);
+                  if Is_Subprogram (Current_Scope) then
+                     if Is_Invariant_Procedure (Current_Scope)
+                       or else Is_Partial_Invariant_Procedure (Current_Scope)
+                     then
+                        Error_Msg_N
+                          ("function used in invariant cannot modify its "
+                           & "argument", F);
+
+                     elsif Is_Predicate_Function (Current_Scope) then
+                        Error_Msg_N
+                          ("function used in predicate cannot modify its "
+                           & "argument", F);
+                     end if;
                   end if;
                end if;
 
