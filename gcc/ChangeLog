@@ -1,3 +1,64 @@
+2016-07-01  Jan Beulich  <jbeulich@suse.com>
+
+	* varasm.c (get_variable_section): Validate initializer in
+	named .bss-like sections.
+
+2016-07-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.md (*altivec_vpermr_<mode>_internal):
+	Exchange the order of the second and third operands in the vpermr
+	instruction tmeplate.
+
+2016-07-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71698
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move): Disallow
+	TDmode values.
+
+2016-07-01  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/71709
+	* ira-lives.c (find_call_crossed_cheap_reg): Exit loop on arg reg
+	being set, not referenced.
+
+2016-07-01  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/70729
+	* tree-vectorizer.c (adjust_simduid_builtins): Nullify safelen field
+	of loop since it can be not valid after transformation.
+
+2016-07-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (thumb_reload_in_hi): Delete.
+	* config/arm/arm-protos.h (thumb_reload_in_hi): Delete prototype.
+
+2016-07-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_function_ok_for_sibcall): Add another check
+	for NULL decl.
+
+2016-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71677
+	* config/rs6000/constraints.md (wY constraint): New constraint to
+	match the requirements for the LXSD and STXSD instructions.
+	* config/rs6000/predicates.md (offsettable_mem_14bit_operand): New
+	predicate to match the requirements for the LXSD and STXSD
+	instructions.
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat32, FMOVE64 case):
+	Use constaint wY for LXSD/STXSD instructions instead of 'o' or 'Y'
+	to make sure that the bottom 2 bits of offset are 0, the address
+	form is offsettable, and no updating is done in the address mode.
+	(mov<mode>_hardfloat64, FMOVE64 case): Likewise.
+	(movdi_internal32): Likewise
+	(movdi_internal64): Likewise.
+
+2016-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71707
+	* tree-ssa-strlen.c (get_stridx_plus_constant): Handle already present
+	strinfo even for ADDR_EXPR ptr.
+
 2016-06-30  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* config/rs6000/altivec.md (darn_32): Change the condition to

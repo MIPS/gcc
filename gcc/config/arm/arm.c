@@ -6756,7 +6756,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
 
   /* The PIC register is live on entry to VxWorks PLT entries, so we
      must make the call before restoring the PIC register.  */
-  if (TARGET_VXWORKS_RTP && flag_pic && !targetm.binds_local_p (decl))
+  if (TARGET_VXWORKS_RTP && flag_pic && decl && !targetm.binds_local_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
@@ -25866,13 +25866,6 @@ void
 thumb_reload_out_hi (rtx *operands)
 {
   emit_insn (gen_thumb_movhi_clobber (operands[0], operands[1], operands[2]));
-}
-
-/* Handle reading a half-word from memory during reload.  */
-void
-thumb_reload_in_hi (rtx *operands ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
 }
 
 /* Return the length of a function name prefix
