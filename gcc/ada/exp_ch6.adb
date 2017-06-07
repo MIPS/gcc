@@ -1834,7 +1834,7 @@ package body Exp_Ch6 is
             then
                Add_Call_By_Copy_Code;
 
-            --  References to components of bit packed arrays are expanded
+            --  References to components of bit-packed arrays are expanded
             --  at this point, rather than at the point of analysis of the
             --  actuals, to handle the expansion of the assignment to
             --  [in] out parameters.
@@ -1858,7 +1858,7 @@ package body Exp_Ch6 is
             then
                Add_Simple_Call_By_Copy_Code;
 
-            --  References to slices of bit packed arrays are expanded
+            --  References to slices of bit-packed arrays are expanded
 
             elsif Is_Ref_To_Bit_Packed_Slice (Actual) then
                Add_Call_By_Copy_Code;
@@ -2038,7 +2038,7 @@ package body Exp_Ch6 is
          --  Processing for IN parameters
 
          else
-            --  For IN parameters in the bit packed array case, we expand an
+            --  For IN parameters in the bit-packed array case, we expand an
             --  indexed component (the circuit in Exp_Ch4 deliberately left
             --  indexed components appearing as actuals untouched, so that
             --  the special processing above for the OUT and IN OUT cases
@@ -2052,7 +2052,7 @@ package body Exp_Ch6 is
                Reset_Packed_Prefix;
                Expand_Packed_Element_Reference (Actual);
 
-            --  If we have a reference to a bit packed array, we copy it, since
+            --  If we have a reference to a bit-packed array, we copy it, since
             --  the actual must be byte aligned.
 
             --  Is this really necessary in all cases???
@@ -4115,10 +4115,6 @@ package body Exp_Ch6 is
              and then Present (Generalized_Indexing (Ref));
       end Is_Element_Reference;
 
-      --  Local variables
-
-      Is_Elem_Ref : constant Boolean := Is_Element_Reference (N);
-
    --  Start of processing for Expand_Ctrl_Function_Call
 
    begin
@@ -4142,20 +4138,24 @@ package body Exp_Ch6 is
 
       Remove_Side_Effects (N);
 
-      --  When the temporary function result appears inside a case expression
-      --  or an if expression, its lifetime must be extended to match that of
-      --  the context. If not, the function result will be finalized too early
-      --  and the evaluation of the expression could yield incorrect result. An
-      --  exception to this rule are references to Ada 2012 container elements.
+      --  The side effect removal of the function call produced a temporary.
+      --  When the context is a case expression, if expression, or expression
+      --  with actions, the lifetime of the temporary must be extended to match
+      --  that of the context. Otherwise the function result will be finalized
+      --  too early and affect the result of the expression. To prevent this
+      --  unwanted effect, the temporary should not be considered for clean up
+      --  actions by the general finalization machinery.
+
+      --  Exception to this rule are references to Ada 2012 container elements.
       --  Such references must be finalized at the end of each iteration of the
       --  related quantified expression, otherwise the container will remain
       --  busy.
 
-      if not Is_Elem_Ref
+      if Nkind (N) = N_Explicit_Dereference
         and then Within_Case_Or_If_Expression (N)
-        and then Nkind (N) = N_Explicit_Dereference
+        and then not Is_Element_Reference (N)
       then
-         Set_Is_Processed_Transient (Entity (Prefix (N)));
+         Set_Is_Ignored_Transient (Entity (Prefix (N)));
       end if;
    end Expand_Ctrl_Function_Call;
 

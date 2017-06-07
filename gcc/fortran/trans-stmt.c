@@ -2109,7 +2109,8 @@ gfc_trans_do (gfc_code * code, tree exit_cond)
       pos = build2 (COMPOUND_EXPR, void_type_node,
 		    fold_build2 (MODIFY_EXPR, void_type_node,
 				 countm1, tmp2),
-		    build3_loc (loc, COND_EXPR, void_type_node, tmp,
+		    build3_loc (loc, COND_EXPR, void_type_node,
+				gfc_unlikely (tmp, PRED_FORTRAN_LOOP_PREHEADER),
 				build1_loc (loc, GOTO_EXPR, void_type_node,
 					    exit_label), NULL_TREE));
 
@@ -2123,7 +2124,8 @@ gfc_trans_do (gfc_code * code, tree exit_cond)
       neg = build2 (COMPOUND_EXPR, void_type_node,
 		    fold_build2 (MODIFY_EXPR, void_type_node,
 				 countm1, tmp2),
-		    build3_loc (loc, COND_EXPR, void_type_node, tmp,
+		    build3_loc (loc, COND_EXPR, void_type_node,
+				gfc_unlikely (tmp, PRED_FORTRAN_LOOP_PREHEADER),
 				build1_loc (loc, GOTO_EXPR, void_type_node,
 					    exit_label), NULL_TREE));
 
@@ -5696,9 +5698,11 @@ gfc_trans_allocate (gfc_code * code)
 	  tmp = gfc_get_char_type (code->ext.alloc.ts.kind);
 	  tmp = TYPE_SIZE_UNIT (tmp);
 	  tmp = fold_convert (TREE_TYPE (se_sz.expr), tmp);
+	  gfc_add_block_to_block (&block, &se_sz.pre);
 	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR,
 					 TREE_TYPE (se_sz.expr),
 					 tmp, se_sz.expr);
+	  expr3_esize = gfc_evaluate_now (expr3_esize, &block);
 	}
     }
 
@@ -5897,6 +5901,7 @@ gfc_trans_allocate (gfc_code * code)
 		 source= or mold= expression.  */
 	      gfc_init_se (&se_sz, NULL);
 	      gfc_conv_expr (&se_sz, code->ext.alloc.ts.u.cl->length);
+	      gfc_add_block_to_block (&block, &se_sz.pre);
 	      gfc_add_modify (&block, al_len,
 			      fold_convert (TREE_TYPE (al_len),
 					    se_sz.expr));
@@ -5981,11 +5986,19 @@ gfc_trans_allocate (gfc_code * code)
 		 specified by a type spec for deferred length character
 		 arrays or unlimited polymorphic objects without a
 		 source= or mold= expression.  */
-	      gfc_init_se (&se_sz, NULL);
-	      gfc_conv_expr (&se_sz, code->ext.alloc.ts.u.cl->length);
-	      gfc_add_modify (&block, al_len,
-			      fold_convert (TREE_TYPE (al_len),
-					    se_sz.expr));
+	      if (expr3_esize == NULL_TREE || code->ext.alloc.ts.kind != 1)
+		{
+		  gfc_init_se (&se_sz, NULL);
+		  gfc_conv_expr (&se_sz, code->ext.alloc.ts.u.cl->length);
+		  gfc_add_block_to_block (&block, &se_sz.pre);
+		  gfc_add_modify (&block, al_len,
+				  fold_convert (TREE_TYPE (al_len),
+						se_sz.expr));
+		}
+	      else
+		gfc_add_modify (&block, al_len,
+				fold_convert (TREE_TYPE (al_len),
+					      expr3_esize));
 	    }
 	  else
 	    /* No length information needed, because type to allocate

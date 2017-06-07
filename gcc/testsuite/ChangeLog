@@ -1,3 +1,158 @@
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/predict-1.f90: Ammend the test.
+	* gfortran.dg/predict-2.f90: Likewise.
+
+2016-07-07  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR ipa/71624
+	* g++.dg/pr71624.C: New test.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp: Generate add_options_for_arm_arch_FUNC and
+	check_effective_target_arm_arch_FUNC_multilib for ARMv8-M Baseline and
+	ARMv8-M Mainline architectures.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_cortex_m): Use
+	__ARM_ARCH_ISA_ARM to test for Cortex-M devices.
+
+2016-07-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70098
+	PR target/71763
+	* gcc.target/powerpc/pr71763.c: New file.
+
+2016-07-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71518
+        * gcc.dg/pr71518.c: New test.
+
+2016-07-06  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/arm/vst1Q_laneu64-1.c (foo): Use unsigned char*.
+
+2016-07-06  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/50739	
+	* gcc.target/avr/pr50739.c: New test.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/scev-14.c: update template.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/vect/group-no-gaps-1.c: New test.
+
+2016-07-05  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc.target/i386/mpx/mpx-check.h: Check XGETBV output
+	if kernel supports MPX.
+
+2016-07-05  Kito Cheng <kito.cheng@gmail.com>
+
+	* gcc.c-torture/compile/pr69102.c: Require fpic support.
+
+2016-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/signbit-1.c: New test.
+	* gcc.target/powerpc/signbit-2.c: New test.
+	* gcc.target/powerpc/signbit-3.c: New test.
+
+2016-07-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71594
+	* gcc.dg/torture/pr71594.c: New test.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/scev-14.c: new testcase.
+
+2016-07-05  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62314
+	* gcc/testsuite/g++.dg/parse/error5.C: Update column
+	number of missing semicolon error.
+	* g++.dg/pr62314-2.C: New test case.
+
+2016-07-05  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* gfortran.dg/coarray_stat_function.f90: New test.
+	* gfortran.dg/coarray_stat_whitespace.f90: New test.
+	* gfortran.dg/coarray_lib_comm_1: Adapting old test
+	to new interfaces.
+
+2016-07-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71623
+	* gfortran.dg/deferred_character_17.f90: New test.
+
+2016-07-05  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/neon/polytypes.c: Move to ...
+	* gcc.target/arm/polytypes.c: ... here.
+	* gcc.target/arm/neon/pr51534.c: Move to ...
+	* gcc.target/arm/pr51534.c: ... here.
+	* gcc.target/arm/neon/vect-vcvt.c: Move to ...
+	* gcc.target/arm/vect-vcvt.c: ... here.
+	* gcc.target/arm/neon/vect-vcvtq.c: Move to ...
+	* gcc.target/arm/vect-vcvtq.c: ... here.
+	* gcc.target/arm/neon/vfp-shift-a2t2.c: Move to ...
+	* gcc.target/arm/vfp-shift-a2t2.c: ... here.
+	* gcc.target/arm/neon/vst1Q_laneu64-1.c: Move to ...
+	* gcc.target/arm/vst1Q_laneu64-1.c: ... here. Fix foo() prototype.
+	* gcc.target/arm/neon/neon.exp: Delete.
+	* gcc.target/arm/neon/: Delete.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65575
+	* gfortran.dg: pr65575.f90: New test.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35849
+	* gfortran.dg: pr35849.f90: New test.
+
+2016-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71739
+	* g++.dg/cpp0x/pr71739.C: New test.
+
+2016-07-04  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* c-c++-common/asan/clone-test-1.c (main): Handle clone() failure.
+
+2016-07-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-scalar-cmp-1.c: Expect lochi instead of
+	locr.
+	* gcc.target/s390/loc-1.c: New test.
+
+2016-07-04  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc/testsuite/gcc.target/i386/avx512f-vect-perm-1.c: New test.
+	* gcc/testsuite/gcc.target/i386/avx512f-vect-perm-2.c: New test.
+
+2016-07-04  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63874
+	* gcc.target/aarch64/pr63874.c: New test.
+
+2016-07-04  Jan Beulich  <jbeulich@suse.com>
+
+	* g++.dg/header.c: New.
+	* gcc.dg/header.c: New.
+
+2016-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71719
+	* c-c++-common/Wunused-var-15.c: New test.
+
 2016-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/71687

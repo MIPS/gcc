@@ -3466,7 +3466,17 @@ package body Sem_Ch3 is
                                                N_Package_Renaming_Declaration
                    and then not Comes_From_Source (Prev_Entity)
                    and then
-                     Is_Generic_Instance (Renamed_Entity (Prev_Entity))))
+                     Is_Generic_Instance (Renamed_Entity (Prev_Entity)))
+
+               --  The entity may be a homonym of a private component of the
+               --  enclosing protected object, for which we create a local
+               --  renaming declaration. The declaration is legal, even if
+               --  useless when it just captures that component.
+
+               or else
+                 (Ekind (Scope (Current_Scope)) = E_Protected_Type
+                   and then Nkind (Parent (Prev_Entity)) =
+                              N_Object_Renaming_Declaration))
          then
             Prev_Entity := Empty;
          end if;
@@ -4792,6 +4802,24 @@ package body Sem_Ch3 is
       then
          Set_Has_Predicates (Id);
          Set_Has_Delayed_Freeze (Id);
+
+         --  Generated subtypes inherit the predicate function from the parent
+         --  (no aspects to examine on the generated declaration).
+
+         if not Comes_From_Source (N) then
+            Set_Ekind (Id, Ekind (T));
+
+            if Present (Predicate_Function (T)) then
+               Set_Predicate_Function (Id, Predicate_Function (T));
+
+            elsif Present (Ancestor_Subtype (T))
+              and then Has_Predicates (Ancestor_Subtype (T))
+              and then Present (Predicate_Function (Ancestor_Subtype (T)))
+            then
+               Set_Predicate_Function (Id,
+                 Predicate_Function (Ancestor_Subtype (T)));
+            end if;
+         end if;
       end if;
 
       --  Subtype of Boolean cannot have a constraint in SPARK
@@ -14491,7 +14519,7 @@ package body Sem_Ch3 is
    -----------------------
 
    procedure Derive_Subprogram
-     (New_Subp     : in out Entity_Id;
+     (New_Subp     : out Entity_Id;
       Parent_Subp  : Entity_Id;
       Derived_Type : Entity_Id;
       Parent_Type  : Entity_Id;
@@ -15072,7 +15100,7 @@ package body Sem_Ch3 is
       --  the list of primitives of Derived_Type exactly in the same order.
 
       procedure Derive_Interface_Subprogram
-        (New_Subp    : in out Entity_Id;
+        (New_Subp    : out Entity_Id;
          Subp        : Entity_Id;
          Actual_Subp : Entity_Id);
       --  Derive New_Subp from the ultimate alias of the parent subprogram Subp
@@ -15158,7 +15186,7 @@ package body Sem_Ch3 is
       ---------------------------------
 
       procedure Derive_Interface_Subprogram
-        (New_Subp    : in out Entity_Id;
+        (New_Subp    : out Entity_Id;
          Subp        : Entity_Id;
          Actual_Subp : Entity_Id)
       is
