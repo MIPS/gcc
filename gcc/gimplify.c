@@ -3506,6 +3506,14 @@ goto_destination (tree expr)
   if (TREE_CODE (expr) != STATEMENT_LIST)
     return NULL_TREE;
 
+  /* If we are not optimizing, do not recurse into statement lists,
+     lest we may drop explicit gotos.  It might be nice to exclude
+     optimize_debug here, but it's no use: CFG cleanups will optimize
+     out the jumps we preserve here, and it's risky WRT
+     -fcompare-debug.  */
+  if (!optimize)
+    return NULL_TREE;
+
   tree_stmt_iterator i = tsi_start (expr);
 
   while (!tsi_end_p (i) && TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
