@@ -1553,111 +1553,70 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
    (OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_DEVICE_TYPE)
 
 
+static match
+match_acc (gfc_exec_op op, uint64_t mask, uint64_t dmask)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, mask, dmask, false, false, true) != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = op;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
 match
 gfc_match_oacc_parallel_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES,
-			     OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK
-			     | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK, false,
-			     false, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_PARALLEL_LOOP, OACC_PARALLEL_LOOP_CLAUSES,
+		    OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK
+		    | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_parallel (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES,
-			     OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK, false,
-			     false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_PARALLEL, OACC_PARALLEL_CLAUSES,
+		    OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_kernels_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES,
-			     OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK
-			     | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK, false,
-			     false, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_KERNELS_LOOP, OACC_KERNELS_LOOP_CLAUSES,
+		    OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK
+		    | OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_kernels (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES,
-			     OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK, false,
-			     false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES,
+		    OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
 match
 gfc_match_oacc_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES, 0, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_DATA, OACC_DATA_CLAUSES, 0);
 }
 
 
 match
 gfc_match_oacc_host_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES, 0, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_HOST_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_HOST_DATA, OACC_HOST_DATA_CLAUSES, 0);
 }
 
 
 match
 gfc_match_oacc_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES,
-			     OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK, false, false,
-			     true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_LOOP, OACC_LOOP_CLAUSES,
+		    OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK);
 }
 
 
@@ -1778,28 +1737,14 @@ gfc_match_oacc_update (void)
 match
 gfc_match_oacc_enter_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES, 0, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_ENTER_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES, 0);
 }
 
 
 match
 gfc_match_oacc_exit_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES, 0, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_EXIT_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES, 0);
 }
 
 
