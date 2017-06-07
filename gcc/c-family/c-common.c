@@ -2980,13 +2980,15 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
     case COMPOUND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      tmp_before = tmp_nosp = tmp_list3 = 0;
+      tmp_before = tmp_nosp = tmp_list2 = tmp_list3 = 0;
       verify_tree (TREE_OPERAND (x, 0), &tmp_before, &tmp_nosp, NULL_TREE);
       warn_for_collisions (tmp_nosp);
       merge_tlist (pbefore_sp, tmp_before, 0);
       merge_tlist (pbefore_sp, tmp_nosp, 0);
-      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, pno_sp, NULL_TREE);
+      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, &tmp_list2, NULL_TREE);
+      warn_for_collisions (tmp_list2);
       merge_tlist (pbefore_sp, tmp_list3, 0);
+      merge_tlist (pno_sp, tmp_list2, 0);
       return;
 
     case COND_EXPR:
@@ -4734,8 +4736,6 @@ static GTY(()) hash_table<c_type_hasher> *type_hash_table;
 alias_set_type
 c_common_get_alias_set (tree t)
 {
-  tree u;
-
   /* For VLAs, use the alias set of the element type rather than the
      default of alias set 0 for types compared structurally.  */
   if (TYPE_P (t) && TYPE_STRUCTURAL_EQUALITY_P (t))
@@ -4744,19 +4744,6 @@ c_common_get_alias_set (tree t)
 	return get_alias_set (TREE_TYPE (t));
       return -1;
     }
-
-  /* Permit type-punning when accessing a union, provided the access
-     is directly through the union.  For example, this code does not
-     permit taking the address of a union member and then storing
-     through it.  Even the type-punning allowed here is a GCC
-     extension, albeit a common and useful one; the C standard says
-     that such accesses have implementation-defined behavior.  */
-  for (u = t;
-       TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
-       u = TREE_OPERAND (u, 0))
-    if (TREE_CODE (u) == COMPONENT_REF
-	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
-      return 0;
 
   /* That's all the expressions we handle specially.  */
   if (!TYPE_P (t))
