@@ -107,15 +107,7 @@ internal_fn_name (enum internal_fn fn)
   return internal_fn_name_array[(int) fn];
 }
 
-/* Return the ECF_* flags for function FN.  */
-
-extern const int internal_fn_flags_array[];
-
-static inline int
-internal_fn_flags (enum internal_fn fn)
-{
-  return internal_fn_flags_array[(int) fn];
-}
+extern int internal_fn_flags (enum internal_fn fn);
 
 /* Return fnspec for function FN.  */
 
