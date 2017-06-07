@@ -2,6 +2,8 @@
 ! offloaded regions are properly mapped using present_or_copy.
 
 ! { dg-do run }
+! TODO, <https://gcc.gnu.org/PR80995>.
+! { dg-additional-options "-foffload-force" }
 
 program main
   implicit none
