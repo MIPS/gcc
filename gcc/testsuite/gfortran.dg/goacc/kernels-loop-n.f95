@@ -37,5 +37,4 @@ end module test
 ! Check that the loop has been split off into a function.
 ! { dg-final { scan-tree-dump-times "(?n);; Function __test_MOD_foo._omp_fn.0 " 1 "optimized" } }
 
-! TODO, <https://gcc.gnu.org/PR80995>.
-! { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 1 "parloops1" { xfail *-*-* } } }
+! { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 1 "parloops1" } }

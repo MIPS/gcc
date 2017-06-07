@@ -3,6 +3,9 @@
 ! the deviceptr variable is implied.
 
 ! { dg-do run }
+! TODO, <https://gcc.gnu.org/PR80995>.
+! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
+! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 subroutine subr1 (a, b)
   implicit none
