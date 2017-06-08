@@ -1,3 +1,29 @@
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71881
+	* tree-loop-distribution.c (destroy_loop): Remove blocks in
+	reverse DOM order to make debug temp generation happy.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71887
+	* tree-ssa-phiopt.c (absorbing_element_p): Add rhs arg and
+	verify it is not zero for division / modulo handling.
+	(value_replacement): Adjust.
+
+2016-07-15  Virendra Pathak  <virendra.pathak@broadcom.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* config/aarch64/aarch64-cores.def: Update vulcan COSTS.
+	* config/aarch64/aarch64-cost-tables.h
+	(vulcan_extra_costs): New variable.
+	* config/aarch64/aarch64.c
+	(vulcan_addrcost_table): Likewise.
+	(vulcan_regmove_cost): Likewise.
+	(vulcan_vector_cost): Likewise.
+	(vulcan_branch_cost): Likewise.
+	(vulcan_tunings): Likewise.
+
 2016-07-15  Alexander Monakov  <amonakov@ispras.ru>
 
 	* cgraphunit.c (cgraph_order_sort_kind): New entry ORDER_VAR_UNDEF.
