@@ -59,8 +59,9 @@ along with GCC; see the file COPYING3.  If not see
    - cond_binary: a conditional binary optab, such as cond_add<mode>
    - cond_ternary: a conditional ternary optab, such as cond_fma_rev<mode>
 
-   DEF_INTERNAL_COND_OPTAB_FN just defines a pair of functions, one conditional
-   and one not.  The conditional version is prefixed with "COND_".
+   DEF_INTERNAL_COND_OPTAB_FN defines a conditional function COND_<NAME>,
+   with optab cond_<OPTAB> and type cond_<TYPE>.  All these functions
+   are predicated and take the predicate as the first argument.
 
    DEF_INTERNAL_FLT_FN is like DEF_INTERNAL_OPTAB_FN, but in addition,
    the function implements the computational part of a built-in math
@@ -89,7 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #define DEF_INTERNAL_COND_OPTAB_FN(NAME, FLAGS, OPTAB, TYPE) \
-  DEF_INTERNAL_OPTAB_FN (NAME, FLAGS, OPTAB, TYPE) \
   DEF_INTERNAL_OPTAB_FN (COND_##NAME, FLAGS, cond_##OPTAB, cond_##TYPE)
 
 #ifndef DEF_INTERNAL_FLT_FN
