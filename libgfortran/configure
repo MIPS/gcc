@@ -16471,6 +16471,8 @@ fi
 case "${host}--x${with_newlib}" in
   mips*--xyes)
     hardwire_newlib=1;;
+  nvptx*--xyes)
+    hardwire_newlib=1;;
 esac
 
 # Check for library functions.
