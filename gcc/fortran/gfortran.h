@@ -1359,7 +1359,7 @@ typedef struct gfc_omp_clauses
   struct gfc_omp_clauses *dtype_clauses;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;
   unsigned wait:1, par_auto:1, gang_static:1, acc_collapse:1, nohost:1, bind:1;
-  unsigned if_present:1, finalize:1;
+  unsigned if_present:1, finalize:1, update_allocatable:1;
   locus loc;
   char bind_name[GFC_MAX_SYMBOL_LEN+1];
 }

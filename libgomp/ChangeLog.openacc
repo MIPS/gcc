@@ -1,3 +1,7 @@
+2017-06-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/allocatable-array-1.f90: New test.
+
 2017-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/lib-16.c: Update.
