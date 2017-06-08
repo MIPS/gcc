@@ -1,3 +1,48 @@
+2016-07-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70339
+	PR c/71858
+	* g++.dg/spellcheck-identifiers.C: New test case, based on
+	gcc.dg/spellcheck-identifiers.c.
+	* g++.dg/spellcheck-identifiers-2.C: New test case, based on
+	gcc.dg/spellcheck-identifiers-2.c.
+	* g++.dg/spellcheck-typenames.C: New test case, based on
+	gcc.dg/spellcheck-typenames.c
+
+2016-07-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* g++.dg/cpp0x/nullptr35.C: Change expected result for catching as
+	pointer to member function and also test catching by reference.
+
+2016-07-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/pr67443.c: Fix test case.
+
+2016-07-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/insv-1.c: Xfail some tests.
+	* gcc.target/s390/insv-2.c: Likewise.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.target/avr/torture/get-mem.c: New test.
+	* gcc.target/avr/torture/set-mem.c: New test.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71948
+	* gcc.target/avr/torture/tiny-progmem.c: New test.
+
+2016-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71909
+	* g++.dg/parse/pr71909.C: New test.
+	* g++.dg/tm/pr71909.C: New test.
+
+	PR c++/50060
+	* g++.dg/cpp0x/constexpr-50060.C: New test.
+	* g++.dg/cpp1y/constexpr-50060.C: New test.
+
 2016-07-20  Martin Liska  <mliska@suse.cz>
 
 	* gfortran.dg/graphite/pr71898.f90: New test.
