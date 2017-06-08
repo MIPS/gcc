@@ -1,3 +1,269 @@
+2016-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71858
+	* gcc.dg/spellcheck-identifiers-3.c: New test.
+
+2016-07-15  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71807
+	* gfortran.dg/null_9.f90: New test.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/loop-41.c: New test.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71347
+	* gcc.dg/tree-ssa/pr71347.c: XFAIL on ia64, arm, m68k and sparc.
+
+2016-07-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/29819
+	* gfortran.dg/bind_c_usage_9.f03: Move dg-error.
+	* gfortran.dg/contains.f90: Ditto.
+	* gfortran.dg/contains_empty_1.f03: Ditto.
+	* gfortran.dg/submodule_3.f08: Ditto.
+
+2016-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/71865
+	* gcc.dg/diagnostic-token-ranges.c: Add -std=c11 to dg-options.
+	(wide_string_literal_in_asm): Use __asm instead of asm, adjust
+	expected diagnostics.
+
+	PR c/71858
+	* gcc.dg/spellcheck-identifiers.c (snprintf): Declare.
+	* gcc.dg/spellcheck-identifiers-2.c: New test.
+	* gcc.dg/diagnostic-token-ranges.c (nanl): Declare.
+	* c-c++-common/attributes-1.c: Adjust dg-prune-output.
+
+2016-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71872
+	* gcc.c-torture/compile/pr71872.c: New test.
+
+2016-07-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/atomic-comp-swap-release-acquire.c: Rename into ...
+	* gcc.target/arm/atomic-comp-swap-release-acquire-1.c: This.
+	* gcc.target/arm/atomic-op-acq_rel.c: Rename into ...
+	* gcc.target/arm/atomic-op-acq_rel-1.c: This.
+	* gcc.target/arm/atomic-op-acquire.c: Rename into ...
+	* gcc.target/arm/atomic-op-acquire-1.c: This.
+	* gcc.target/arm/atomic-op-char.c: Rename into ...
+	* gcc.target/arm/atomic-op-char-1.c: This.
+	* gcc.target/arm/atomic-op-consume.c: Rename into ...
+	* gcc.target/arm/atomic-op-consume-1.c: This.
+	* gcc.target/arm/atomic-op-int.c: Rename into ...
+	* gcc.target/arm/atomic-op-int-1.c: This.
+	* gcc.target/arm/atomic-op-relaxed.c: Rename into ...
+	* gcc.target/arm/atomic-op-relaxed-1.c: This.
+	* gcc.target/arm/atomic-op-release.c: Rename into ...
+	* gcc.target/arm/atomic-op-release-1.c: This.
+	* gcc.target/arm/atomic-op-seq_cst.c: Rename into ...
+	* gcc.target/arm/atomic-op-seq_cst-1.c: This.
+	* gcc.target/arm/atomic-op-short.c: Rename into ...
+	* gcc.target/arm/atomic-op-short-1.c: This.
+	* gcc.target/arm/atomic-comp-swap-release-acquire-2.c: New test.
+	* gcc.target/arm/atomic-op-acq_rel-2.c: Likewise.
+	* gcc.target/arm/atomic-op-acquire-2.c: Likewise.
+	* gcc.target/arm/atomic-op-char-2.c: Likewise.
+	* gcc.target/arm/atomic-op-consume-2.c: Likewise.
+	* gcc.target/arm/atomic-op-int-2.c: Likewise.
+	* gcc.target/arm/atomic-op-relaxed-2.c: Likewise.
+	* gcc.target/arm/atomic-op-release-2.c: Likewise.
+	* gcc.target/arm/atomic-op-seq_cst-2.c: Likewise.
+	* gcc.target/arm/atomic-op-short-2.c: Likewise.
+
+2016-07-14  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70842
+	* gfortran.dg/select_type_35.f03: New test.
+
+2016-07-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65951
+	PR tree-optimization/70923
+	* gcc.dg/vect/vect-mult-const-pattern-1.c: New test.
+	* gcc.dg/vect/vect-mult-const-pattern-2.c: Likewise.
+	* gcc.dg/vect/pr65951.c: Likewise.
+	* gcc.dg/vect/vect-iv-9.c: Remove ! vect_int_mult-specific scan.
+
+2016-07-14  David Edelsohn  <dje.gcc@gmail.com>
+
+	* c-c++-common/pr60226.c: Expect maximum object file alignment
+	error on AIX.
+
+2016-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71866
+	* gcc.dg/torture/pr71866.c: New testcase.
+
+2016-07-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/pr42574.c: Add missing target keyword for the dg-do
+	selector and enclose boolean expression in curly braces.
+
+2016-07-14  Alan Modra  <amodra@gmail.com>
+
+	PR target/71733
+	* gcc.target/powerpc/p9-novsx.c: New.
+
+2016-07-13  Andi Kleen  <ak@linux.intel.com>
+
+	* g++.dg/tree-prof/indir-call-prof.C: Basic fixes for autofdo.
+	* g++.dg/tree-prof/morefunc.C: Dito.
+	* g++.dg/tree-prof/pr35545.C: Dito.
+	* g++.dg/tree-prof/reorder.C: Dito.
+	* gcc.dg/tree-prof/20050826-2.c: Dito.
+	* gcc.dg/tree-prof/cmpsf-1.c: Dito.
+	* gcc.dg/tree-prof/cold_partition_label.c: Dito.
+	* gcc.dg/tree-prof/ic-misattribution-1.c: Dito.
+	* gcc.dg/tree-prof/indir-call-prof.c: Dito.
+	* gcc.dg/tree-prof/inliner-1.c: Dito.
+	* gcc.dg/tree-prof/merge_block.c: Dito.
+	* gcc.dg/tree-prof/stringop-1.c: Dito.
+	* gcc.dg/tree-prof/stringop-2.c: Dito.
+	* gcc.dg/tree-prof/switch-case-1.c: Dito.
+	* gcc.dg/tree-prof/switch-case-2.c: Dito.
+	* gcc.dg/tree-prof/time-profiler-1.c: Dito.
+	* gcc.dg/tree-prof/time-profiler-2.c: Dito.
+	* gcc.dg/tree-prof/update-loopch.c: Dito.
+	* gcc.dg/tree-prof/val-prof-1.c: Dito.
+	* gcc.dg/tree-prof/val-prof-2.c: Dito.
+	* gcc.dg/tree-prof/val-prof-3.c: Dito.
+	* gcc.dg/tree-prof/val-prof-4.c: Dito.
+	* gcc.dg/tree-prof/val-prof-5.c: Dito.
+	* gcc.dg/tree-prof/val-prof-6.c: Dito.
+	* gcc.dg/tree-prof/val-prof-7.c: Dito.
+
+2016-07-13  Andi Kleen  <ak@linux.intel.com>
+
+	* lib/profopt.exp (profopt-execute): Remove .imports files.
+
+2016-07-13  Andi Kleen  <ak@linux.intel.com>
+
+	* lib/profopt.exp (profopt-execute): Always log profiler
+	command line.
+
+2016-07-13  Andi Kleen  <ak@linux.intel.com>
+
+	* lib/profopt.exp (dg-final-scan-autofdo,
+	dg-final-scan-not-autofdo): New functions.
+
+2016-07-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/vect/vect-35-big-array.c: Refine comment and test.
+	* gcc.dg/vect/vect-35.c: Ditto.
+	* gcc.dg/vect/vect-alias-check-2.c: New test.
+
+2016-07-13  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/ldist-1.f90: Revert change introduces in r238114.
+	* gfortran.dg/vect/pr62283.f: Add -fno-ipa-icf to additional
+	options.
+	* gfortran.dg/pr42108.f90: Update expected dump scan.
+
+2016-07-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/24574
+	* gcc.dg/pr24574.c: New testcase.
+
+2016-07-13  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* c-c++-common/Wduplicated-cond-3.c (fn10): Use smaller 
+	const literal.
+	* c-c++-common/builtin-arith-overflow-2.c: Skip for avr.
+	* c-c++-common/pr68833-1.c: Require int32plus.
+	* gcc.dg/ipa/pr63551.c: Likewise.
+	* gcc.dg/ipa/pr63595.c: Require ptr32plus.
+	* gcc.dg/ipa/pr64041.c: Require int32plus.
+
+2016-07-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR ipa/71633
+	* g++.dg/pr71633.C: New test.
+
+2016-07-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_thumb1_cbz_ok):
+	Add new arm_thumb1_cbz_ok effective target.
+	* gcc.target/arm/cbz.c: New test.
+
+2016-07-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_thumb1_movt_ok):
+	Define effective target.
+	* gcc.target/arm/pr42574.c: Require arm_thumb1_ok and
+	!arm_thumb1_movt_ok to exclude ARMv8-M Baseline.
+	* gcc.target/arm/movhi_movw.c: New test.
+	* gcc.target/arm/movsi_movw.c: Likewise.
+	* gcc.target/arm/movdi_movw.c: Likewise.
+
+2016-07-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71104
+	* gcc.dg/pr71104-1.c: New testcase.
+	* gcc.dg/pr71104-2.c: Likewise.
+
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71805
+	* gcc.target/powerpc/pr71805.c: New test.
+
+2016-07-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/divkc3-1.c: New.
+	* gcc.target/powerpc/mulkc3-1.c: New.
+
+2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/params/blocksort-part.c: New test.
+	* gcc.dg/params/params.exp: New file.
+
+2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* gcc.c-torture/execute/pr71700.c: New test.
+
+2016-07-12  Steven Bosscher  <steven@gcc.gnu.org>
+	Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/23286
+	PR tree-optimization/70159
+	* gcc.dg/tree-ssa/ssa-pre-11.c: Disable code hosting.
+	* gcc.dg/tree-ssa/ssa-pre-27.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-28.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr35286.c: Likewise.
+	* gcc.dg/tree-ssa/pr35287.c: Likewise.
+	* gcc.dg/hoist-register-pressure-1.c: Likewise.
+	* gcc.dg/hoist-register-pressure-2.c: Likewise.
+	* gcc.dg/hoist-register-pressure-3.c: Likewise.
+	* gcc.dg/pr51879-12.c: Likewise.
+	* gcc.dg/strlenopt-9.c: Likewise.
+	* gcc.dg/tree-ssa/pr47392.c: Likewise.
+	* gcc.dg/tree-ssa/pr68619-4.c: Likewise.
+	* gcc.dg/tree-ssa/split-path-5.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-35.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-36.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre3.c: Adjust so hosting doesn't apply.
+	* gcc.dg/tree-ssa/pr43491.c: Scan optimized dump for desired result.
+	* gcc.dg/tree-ssa/ssa-pre-31.c: Adjust expected outcome for hoisting.
+	* gcc.dg/tree-ssa/ssa-hoist-1.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-2.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-3.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-4.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-5.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-6.c: New testcase.
+	* gfortran.dg/pr43984.f90: Adjust expected outcome.
+
+2016-07-12  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/68961
+	* gcc.target/i386/pr68961.c: New testcase.
+
 2016-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/71758
@@ -1083,6 +1349,7 @@
 
 2016-06-20  Renlin Li  <renlin.li@arm.com>
 
+	PR testsuite/71489
 	* gcc.dg/tree-ssa/attr-hotcold-2.c: Fix syntax errors.
 
 2016-06-20  James Greenhalgh  <james.greenhalgh@arm.com>

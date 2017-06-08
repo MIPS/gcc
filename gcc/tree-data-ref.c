@@ -3868,7 +3868,8 @@ get_references_in_stmt (gimple *stmt, vec<data_ref_loc, va_heap> *references)
       if (DECL_P (op1)
 	  || (REFERENCE_CLASS_P (op1)
 	      && (base = get_base_address (op1))
-	      && TREE_CODE (base) != SSA_NAME))
+	      && TREE_CODE (base) != SSA_NAME
+	      && !is_gimple_min_invariant (base)))
 	{
 	  ref.ref = op1;
 	  ref.is_read = true;
@@ -3942,8 +3943,7 @@ bool
 loop_nest_has_data_refs (loop_p loop)
 {
   basic_block *bbs = get_loop_body (loop);
-  vec<data_ref_loc> references;
-  references.create (3);
+  auto_vec<data_ref_loc, 3> references;
 
   for (unsigned i = 0; i < loop->num_nodes; i++)
     {
@@ -3957,13 +3957,11 @@ loop_nest_has_data_refs (loop_p loop)
 	  if (references.length ())
 	    {
 	      free (bbs);
-	      references.release ();
 	      return true;
 	    }
 	}
     }
   free (bbs);
-  references.release ();
 
   if (loop->inner)
     {
@@ -4002,7 +4000,7 @@ find_data_references_in_stmt (struct loop *nest, gimple *stmt,
       gcc_assert (dr != NULL);
       datarefs->safe_push (dr);
     }
-  references.release ();
+
   return ret;
 }
 
@@ -4032,7 +4030,6 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple *stmt,
       datarefs->safe_push (dr);
     }
 
-  references.release ();
   return ret;
 }
 

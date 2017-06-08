@@ -574,15 +574,15 @@ struct c_struct_parse_info
 {
   /* If warn_cxx_compat, a list of types defined within this
      struct.  */
-  vec<tree> struct_types;
+  auto_vec<tree> struct_types;
   /* If warn_cxx_compat, a list of field names which have bindings,
      and which are defined in this struct, but which are not defined
      in any enclosing struct.  This is used to clear the in_struct
      field of the c_bindings structure.  */
-  vec<c_binding_ptr> fields;
+  auto_vec<c_binding_ptr> fields;
   /* If warn_cxx_compat, a list of typedef names used when defining
      fields in this struct.  */
-  vec<tree> typedefs_seen;
+  auto_vec<tree> typedefs_seen;
 };
 
 /* Information for the struct or union currently being parsed, or
@@ -3090,7 +3090,7 @@ implicit_decl_warning (location_t loc, tree id, tree olddecl)
       bool warned;
       tree hint = NULL_TREE;
       if (!olddecl)
-	hint = lookup_name_fuzzy (id, FUZZY_LOOKUP_NAME);
+	hint = lookup_name_fuzzy (id, FUZZY_LOOKUP_FUNCTION_NAME);
 
       if (flag_isoc99)
 	if (hint)
@@ -4021,16 +4021,37 @@ lookup_name_fuzzy (tree name, enum lookup_name_fuzzy_kind kind)
   for (c_scope *scope = current_scope; scope; scope = scope->outer)
     for (c_binding *binding = scope->bindings; binding; binding = binding->prev)
       {
-	if (!binding->id)
+	if (!binding->id || binding->invisible)
 	  continue;
 	/* Don't use bindings from implicitly declared functions,
 	   as they were likely misspellings themselves.  */
 	if (TREE_CODE (binding->decl) == FUNCTION_DECL)
 	  if (C_DECL_IMPLICIT (binding->decl))
 	    continue;
-	if (kind == FUZZY_LOOKUP_TYPENAME)
-	  if (TREE_CODE (binding->decl) != TYPE_DECL)
-	    continue;
+	switch (kind)
+	  {
+	  case FUZZY_LOOKUP_TYPENAME:
+	    if (TREE_CODE (binding->decl) != TYPE_DECL)
+	      continue;
+	    break;
+
+	  case FUZZY_LOOKUP_FUNCTION_NAME:
+	    if (TREE_CODE (binding->decl) != FUNCTION_DECL)
+	      {
+		/* Allow function pointers.  */
+		if ((VAR_P (binding->decl)
+		     || TREE_CODE (binding->decl) == PARM_DECL)
+		    && TREE_CODE (TREE_TYPE (binding->decl)) == POINTER_TYPE
+		    && (TREE_CODE (TREE_TYPE (TREE_TYPE (binding->decl)))
+			== FUNCTION_TYPE))
+		  break;
+		continue;
+	      }
+	    break;
+
+	  default:
+	    break;
+	  }
 	bm.consider (binding->id);
       }
 
@@ -7443,10 +7464,7 @@ start_struct (location_t loc, enum tree_code code, tree name,
     TYPE_PACKED (v) = flag_pack_struct;
 
   *enclosing_struct_parse_info = struct_parse_info;
-  struct_parse_info = XNEW (struct c_struct_parse_info);
-  struct_parse_info->struct_types.create (0);
-  struct_parse_info->fields.create (0);
-  struct_parse_info->typedefs_seen.create (0);
+  struct_parse_info = new c_struct_parse_info ();
 
   /* FIXME: This will issue a warning for a use of a type defined
      within a statement expr used within sizeof, et. al.  This is not
@@ -8088,10 +8106,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
   if (warn_cxx_compat)
     warn_cxx_compat_finish_struct (fieldlist, TREE_CODE (t), loc);
 
-  struct_parse_info->struct_types.release ();
-  struct_parse_info->fields.release ();
-  struct_parse_info->typedefs_seen.release ();
-  XDELETE (struct_parse_info);
+  delete struct_parse_info;
 
   struct_parse_info = enclosing_struct_parse_info;
 
