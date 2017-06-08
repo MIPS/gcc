@@ -1109,9 +1109,7 @@ finish_break_stmt (void)
      understand.  */
   if (!block_may_fallthru (cur_stmt_list))
     return void_node;
-  tree t = build_stmt (input_location, BREAK_STMT);
-  EXPLICIT_GOTO (t) = true;
-  return add_stmt (t);
+  return add_stmt (build_stmt (input_location, BREAK_STMT));
 }
 
 /* Finish a continue-statement.  */
@@ -1119,9 +1117,7 @@ finish_break_stmt (void)
 tree
 finish_continue_stmt (void)
 {
-  tree t = build_stmt (input_location, CONTINUE_STMT);
-  EXPLICIT_GOTO (t) = true;
-  return add_stmt (t);
+  return add_stmt (build_stmt (input_location, CONTINUE_STMT));
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if
