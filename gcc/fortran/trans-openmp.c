@@ -2133,6 +2133,10 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      enum gomp_map_kind gmk = GOMP_MAP_FIRSTPRIVATE_POINTER;
 		      if (n->u.map_op == OMP_MAP_FORCE_DEVICEPTR)
 			gmk = GOMP_MAP_POINTER;
+		      else if (GFC_DECL_GET_SCALAR_ALLOCATABLE (decl)
+			       && (n->sym->attr.oacc_declare_create)
+			       && clauses->update_allocatable)
+			gmk = GOMP_MAP_ALWAYS_POINTER;
 		      node4 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
 		      OMP_CLAUSE_SET_MAP_KIND (node4, gmk);
@@ -3323,12 +3327,14 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, oacc_clauses;
+  gfc_omp_clauses *clauses = code->ext.omp_clauses;
   enum tree_code construct_code;
 
   switch (code->op)
     {
       case EXEC_OACC_UPDATE:
 	construct_code = OACC_UPDATE;
+	clauses->update_allocatable = 1;
 	break;
       case EXEC_OACC_ENTER_DATA:
 	construct_code = OACC_ENTER_DATA;
@@ -3344,20 +3350,7 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
     }
 
   gfc_start_block (&block);
-  oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
-					code->loc);
-
-  /* Promote GOMP_MAP_FIRSTPRIVATE_POINTER to GOMP_MAP_ALWAYS_POINTER for
-     variables inside OpenACC update directives.  */
-  if (code->op == EXEC_OACC_UPDATE)
-    for (tree c = oacc_clauses; c; c = OMP_CLAUSE_CHAIN (c))
-      {
-        if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-	    && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
-	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_ALWAYS_POINTER);
-      }
-
-
+  oacc_clauses = gfc_trans_omp_clauses (&block, clauses, code->loc);
   stmt = build1_loc (input_location, construct_code, void_type_node,
 		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
