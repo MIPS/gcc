@@ -1,3 +1,12 @@
+2017-06-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h gfc_omp_clauses: Add update_allocatable.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Set update_allocatable bit
+	in clauses.  Remove GOMP_MAP_FIRSTPRIVATE_POINTER data map promotions
+	for acc update.
+	(gfc_trans_oacc_executable_directive): Use GOMP_MAP_ALWAYS_POINTER
+	for allocatable scalar data clauses inside acc update directives.
+
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (gfc_match_omp_clauses) <OMP_CLAUSE_DELETE>: Use
