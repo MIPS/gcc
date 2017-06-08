@@ -713,7 +713,10 @@ package body Sem_Ch12 is
    --  body. Early instantiations can also appear if generic, instance and
    --  body are all in the declarative part of a subprogram or entry. Entities
    --  of packages that are early instantiations are delayed, and their freeze
-   --  node appears after the generic body.
+   --  node appears after the generic body. This rather complex machinery is
+   --  needed when nested instantiations are present, because the source does
+   --  not carry any indication of where the corresponding instance bodies must
+   --  be installed and frozen.
 
    procedure Install_Formal_Packages (Par : Entity_Id);
    --  Install the visible part of any formal of the parent that is a formal
@@ -8927,22 +8930,13 @@ package body Sem_Ch12 is
       Gen_Body : Node_Id;
       Gen_Decl : Node_Id)
    is
-      Act_Id    : constant Entity_Id := Corresponding_Spec (Act_Body);
-      Act_Unit  : constant Node_Id   := Unit (Cunit (Get_Source_Unit (N)));
-      Gen_Id    : constant Entity_Id := Corresponding_Spec (Gen_Body);
-      Par       : constant Entity_Id := Scope (Gen_Id);
-      Gen_Unit  : constant Node_Id   :=
-                    Unit (Cunit (Get_Source_Unit (Gen_Decl)));
-      Orig_Body : Node_Id := Gen_Body;
-      F_Node    : Node_Id;
-      Body_Unit : Node_Id;
 
-      Must_Delay : Boolean;
+      function In_Same_Scope (Gen_Id, Act_Id : Node_Id) return Boolean;
+      --  Check if the generic definition and the instantiation come from
+      --  a common scope, in which case the instance must be frozen after
+      --  the generic body.
 
-      function In_Same_Enclosing_Subp return Boolean;
-      --  Check whether instance and generic body are within same subprogram.
-
-      function True_Sloc (N : Node_Id) return Source_Ptr;
+      function True_Sloc (N, Act_Unit : Node_Id) return Source_Ptr;
       --  If the instance is nested inside a generic unit, the Sloc of the
       --  instance indicates the place of the original definition, not the
       --  point of the current enclosing instance. Pending a better usage of
@@ -8950,45 +8944,34 @@ package body Sem_Ch12 is
       --  origin of a node by finding the maximum sloc of any ancestor node.
       --  Why is this not equivalent to Top_Level_Location ???
 
-      ----------------------------
-      -- In_Same_Enclosing_Subp --
-      ----------------------------
+      -------------------
+      -- In_Same_Scope --
+      -------------------
 
-      function In_Same_Enclosing_Subp return Boolean is
-         Scop : Entity_Id;
-         Subp : Entity_Id;
+      function In_Same_Scope (Gen_Id, Act_Id : Node_Id) return Boolean is
+         Act_Scop : Entity_Id := Scope (Act_Id);
+         Gen_Scop : Entity_Id := Scope (Gen_Id);
 
       begin
-         Scop := Scope (Act_Id);
-         while Scop /= Standard_Standard
-           and then not Is_Overloadable (Scop)
+         while Act_Scop /= Standard_Standard
+           and then Gen_Scop /= Standard_Standard
          loop
-            Scop := Scope (Scop);
-         end loop;
-
-         if Scop = Standard_Standard then
-            return False;
-         else
-            Subp := Scop;
-         end if;
-
-         Scop := Scope (Gen_Id);
-         while Scop /= Standard_Standard loop
-            if Scop = Subp then
+            if Act_Scop = Gen_Scop then
                return True;
-            else
-               Scop := Scope (Scop);
             end if;
+
+            Act_Scop := Scope (Act_Scop);
+            Gen_Scop := Scope (Gen_Scop);
          end loop;
 
          return False;
-      end In_Same_Enclosing_Subp;
+      end In_Same_Scope;
 
       ---------------
       -- True_Sloc --
       ---------------
 
-      function True_Sloc (N : Node_Id) return Source_Ptr is
+      function True_Sloc (N, Act_Unit : Node_Id) return Source_Ptr is
          Res : Source_Ptr;
          N1  : Node_Id;
 
@@ -9005,6 +8988,18 @@ package body Sem_Ch12 is
 
          return Res;
       end True_Sloc;
+
+      Act_Id    : constant Entity_Id := Corresponding_Spec (Act_Body);
+      Act_Unit  : constant Node_Id   := Unit (Cunit (Get_Source_Unit (N)));
+      Gen_Id    : constant Entity_Id := Corresponding_Spec (Gen_Body);
+      Par       : constant Entity_Id := Scope (Gen_Id);
+      Gen_Unit  : constant Node_Id   :=
+                    Unit (Cunit (Get_Source_Unit (Gen_Decl)));
+      Orig_Body : Node_Id := Gen_Body;
+      F_Node    : Node_Id;
+      Body_Unit : Node_Id;
+
+      Must_Delay : Boolean;
 
    --  Start of processing for Install_Body
 
@@ -9070,10 +9065,10 @@ package body Sem_Ch12 is
           and then (Nkind_In (Gen_Unit, N_Package_Declaration,
                                         N_Generic_Package_Declaration)
                      or else (Gen_Unit = Body_Unit
-                               and then True_Sloc (N) < Sloc (Orig_Body)))
-          and then Is_In_Main_Unit (Gen_Unit)
-          and then (Scope (Act_Id) = Scope (Gen_Id)
-                     or else In_Same_Enclosing_Subp));
+                               and then True_Sloc (N, Act_Unit)
+                                          < Sloc (Orig_Body)))
+          and then Is_In_Main_Unit (Original_Node (Gen_Unit))
+          and then (In_Same_Scope (Gen_Id, Act_Id)));
 
       --  If this is an early instantiation, the freeze node is placed after
       --  the generic body. Otherwise, if the generic appears in an instance,
@@ -12901,6 +12896,7 @@ package body Sem_Ch12 is
       end if;
 
       Current_Unit := Parent (N);
+
       while Present (Current_Unit)
         and then Nkind (Current_Unit) /= N_Compilation_Unit
       loop
@@ -12915,7 +12911,8 @@ package body Sem_Ch12 is
       return
         Current_Unit = Cunit (Main_Unit)
           or else Current_Unit = Library_Unit (Cunit (Main_Unit))
-          or else (Present (Library_Unit (Current_Unit))
+          or else (Present (Current_Unit)
+                    and then Present (Library_Unit (Current_Unit))
                     and then Is_In_Main_Unit (Library_Unit (Current_Unit)));
    end Is_In_Main_Unit;
 

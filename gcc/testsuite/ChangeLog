@@ -1,3 +1,43 @@
+2016-07-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/71297
+	* gcc.target/powerpc/pr71297.c: New.
+
+2016-07-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/simd/vminmaxnm_1.c: New.
+
+2016-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71806
+	* gcc.target/powerpc/p9-lxvx-stxvx-3.c: Add -mfloat128 option.
+
+2016-07-08  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71667
+	* gcc.dg/vect/pr71667.c: New
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/torture/pr71606.c: New test.
+
+2016-07-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71764
+	* gfortran.dg/pr71764.f90: New test.
+
+2016-07-07  Jakub Jelinek  <jakub@redhat.com>
+	    Kai Tietz  <ktietz70@googlemail.com>
+
+	PR c++/70869
+	PR c++/71054
+	* g++.dg/cpp0x/pr70869.C: New test.
+	* g++.dg/cpp0x/pr71054.C: New test.
+
+2016-07-07  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/pr71432.C: Fail on AIX.
+
 2016-07-07  Martin Liska  <mliska@suse.cz>
 
 	* gfortran.dg/do_1.f90: Remove a corner case that triggers
