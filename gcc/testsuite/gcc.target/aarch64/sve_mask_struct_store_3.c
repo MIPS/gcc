@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -ffast-math -march=armv8-a+sve" } */
+/* { dg-options "-O2 -ftree-vectorize -fno-vect-cost-model -march=armv8-a+sve" } */
 
 #define TEST_LOOP(NAME, OUTTYPE, INTYPE, MASKTYPE)		\
   void __attribute__((weak))					\
