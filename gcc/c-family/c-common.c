@@ -11514,7 +11514,8 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	  return result;
 	if (orig_code != BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N
 	    && orig_code != BUILT_IN_SYNC_LOCK_RELEASE_N
-	    && orig_code != BUILT_IN_ATOMIC_STORE_N)
+	    && orig_code != BUILT_IN_ATOMIC_STORE_N
+	    && orig_code != BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N)
 	  result = sync_resolve_return (first_param, result, orig_format);
 
 	if (fetch_op)
@@ -11999,7 +12000,7 @@ warn_for_sign_compare (location_t location,
           if (bits < TYPE_PRECISION (result_type)
               && bits < HOST_BITS_PER_LONG && unsignedp)
             {
-              mask = (~ (unsigned HOST_WIDE_INT) 0) << bits;
+              mask = HOST_WIDE_INT_M1U << bits;
               if ((mask & constant) != mask)
 		{
 		  if (constant == 0)

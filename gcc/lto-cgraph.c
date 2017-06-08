@@ -1871,7 +1871,9 @@ input_symtab (void)
     }
 
   merge_profile_summaries (file_data_vec);
-  get_working_sets ();
+
+  if (!flag_auto_profile)
+    get_working_sets ();
 
 
   /* Clear out the aux field that was used to store enough state to

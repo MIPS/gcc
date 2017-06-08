@@ -2119,7 +2119,10 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
     {
       for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
 	if (stmt_can_terminate_bb_p (gsi_stmt (bsi)))
-	  return true;
+	  {
+	    free (body);
+	    return true;
+	  }
     }
 
   free (body);
@@ -2132,12 +2135,13 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
    in comments at struct tree_niter_desc declaration), false otherwise.
    When EVERY_ITERATION is true, only tests that are known to be executed
    every iteration are considered (i.e. only test that alone bounds the loop).
- */
+   If AT_STMT is not NULL, this function stores LOOP's condition statement in
+   it when returning true.  */
 
 bool
 number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
 				       struct tree_niter_desc *niter,
-				       bool every_iteration)
+				       gcond **at_stmt, bool every_iteration)
 {
   gimple *last;
   gcond *stmt;
@@ -2254,6 +2258,9 @@ number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
   if (TREE_CODE (niter->niter) == INTEGER_CST)
     niter->max = wi::to_widest (niter->niter);
 
+  if (at_stmt)
+    *at_stmt = stmt;
+
   return (!integer_zerop (niter->assumptions));
 }
 
@@ -2263,13 +2270,26 @@ number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
 bool
 number_of_iterations_exit (struct loop *loop, edge exit,
 			   struct tree_niter_desc *niter,
-			   bool, bool every_iteration)
+			   bool warn, bool every_iteration)
 {
+  gcond *stmt;
   if (!number_of_iterations_exit_assumptions (loop, exit, niter,
-					      every_iteration))
+					      &stmt, every_iteration))
     return false;
 
-  return (integer_nonzerop (niter->assumptions));
+  if (integer_nonzerop (niter->assumptions))
+    return true;
+
+  if (warn)
+    {
+      const char *wording;
+
+      wording = N_("missed loop optimization, the loop counter may overflow");
+      warning_at (gimple_location_safe (stmt),
+		  OPT_Wunsafe_loop_optimizations, "%s", gettext (wording));
+    }
+
+  return false;
 }
 
 /* Try to determine the number of iterations of LOOP.  If we succeed,
@@ -2345,8 +2365,6 @@ finite_loop_p (struct loop *loop)
   widest_int nit;
   int flags;
 
-  if (flag_unsafe_loop_optimizations)
-    return true;
   flags = flags_from_decl_or_type (current_function_decl);
   if ((flags & (ECF_CONST|ECF_PURE)) && !(flags & ECF_LOOPING_CONST_OR_PURE))
     {

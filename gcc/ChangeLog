@@ -1,3 +1,160 @@
+2016-07-25  Richard Biener  <rguenther@suse.de>
+
+	* cgraph.c (cgraph_node::verify_node): Compare against builtin
+	by using DECL_BUILT_IN_CLASS and DECL_FUNCTION_CODE.
+	* tree-chkp.c (chkp_gimple_call_builtin_p): Likewise.
+	* tree-streamer.h (streamer_handle_as_builtin_p): Remove.
+	(streamer_get_builtin_tree): Likewise.
+	(streamer_write_builtin): Likewise.
+	* lto-streamer.h (LTO_builtin_decl): Remove.
+	* lto-streamer-in.c (lto_read_tree_1): Remove assert.
+	(lto_input_scc): Remove LTO_builtin_decl handling.
+	(lto_input_tree_1): Liekwise.
+	* lto-streamer-out.c (lto_output_tree_1): Remove special
+	handling of builtins.
+	(DFS::DFS): Likewise.
+	* tree-streamer-in.c (streamer_get_builtin_tree): Remove.
+	* tree-streamer-out.c (pack_ts_function_decl_value_fields): Remove
+	assert.
+	(streamer_write_builtin): Remove.
+
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	* lto-cgraph.c (input_symtab): Don't call get_working_sets
+	if flag_auto_profile is set to true.
+
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/71868
+	* cfgloopanal.c (expected_loop_iterations_unbounded): When we
+	have a function with multiple latches, count them all.
+
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-loop-niter.c (loop_only_exit_p): Release body array.
+
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/71987
+	* tree-ssa-reassoc.c (maybe_optimize_range_tests): Call get_ops
+	just for SSA_NAMEs. Fix GNU coding style.
+
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/64874
+	* gcov-io.h: Update command about file format.
+	* gcov-iov.c (main): Adapt the numbering scheme.
+
+2016-07-24  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/66726
+	* tree-ssa-reassoc.c (optimize_vec_cond_expr): Handle tcc_compare stmt
+	whose result is used in PHI.
+	(final_range_test_p): Likewise.
+	(maybe_optimize_range_tests): Likewise.
+
+2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Reformat two multi-line strings.
+
+2016-07-22 Martin Sebor  <msebor@redhat.com>
+
+	* doc/extend.texi (Compound Literals): Add '@' missed in last commit.
+
+2016-07-22 Martin Sebor  <msebor@redhat.com>
+
+	PR c/71560
+	* doc/extend.texi (Compound Literals): Correct and clarify.
+	(Cast to Union): Same.
+
+2016-07-22  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Add
+	comments to explain why certain error messages make mention of
+	undocumented options.
+	(rs6000_invalid_builtin): Change error messages to replace mention
+	of undocumented options with mention of the -mcpu=power9 option
+	that enables those undocumented options.
+	* config/rs6000/rs6000.h (MASK_FLOAT128): New macro.
+	(RS6000_BTM_FLOAT128): Use the new MASK_FLOAT128 macro in the
+	definition of this macro to correct an existing error.
+	* config/rs6000/rs6000.opt: Add the Undocumented qualifier to the
+	mpower9-fusion, mpower9-vector, mpower9-dform, and mmodulo entries.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Modify
+	descriptions of built-in functions so that they depend on
+	-mcpu=power9 instead of on the corresponding undocumented flags.
+	* doc/invoke.texi (Option Summary):  Remove all mention of newly
+	undocumented flags.
+	(IBM RS/6000 and PowerPC Options): Likewise.
+	* doc/md.texi (Constraints for Particuliar Machines): Remove all
+	mention of newly undocumented flags.
+
+2016-07-22  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* ipa-cp.c (determine_versionability): Do not create constprop clones,
+	when target_clones attribute is set.
+
+2016-07-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* common.opt (funsafe-loop-optimizations): Mark ignore.
+	* doc/invoke.texi (funsafe-loop-optimizations): Remove.
+	* loop-iv.c (get_simple_loop_desc): Remove unsafe-loop-optimizations
+	related code.
+	* tree-ssa-loop-niter.c (finite_loop_p): Ditto.
+	* config/bfin/bfin.c (bfin_can_use_doloop_p): Ditto.
+
+2016-07-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.h (number_of_iterations_exit_assumptions): New
+	Parameter.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions): New
+	Parameter.
+	(number_of_iterations_exit): Warn missed loop optimization for
+	possible infinite loops.
+
+2016-07-22  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_file_start): Fix condition for
+	when to emit a ".machine" pseudo-op.
+
+2016-07-22  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/69028
+	PR gcov-profile/62047
+	* coverage.c (coverage_compute_lineno_checksum): Do not
+	calculate checksum for fns w/o xloc.file.
+	(coverage_compute_profile_id): Likewise.
+
+2016-07-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (TARGET_SECONDARY_RELOAD): Remove hook define...
+	(avr_secondary_reload): ...and implementation.
+	(avr_adjust_insn_length) [ADJUST_LEN_LPM]: Remove handling.
+	* config/avr/avr.md (reload_in<mode>): Remove insns.
+	(adjust_len) [lpm]: Remove insn attribute value.
+	* config/avr/predicates.md (flash_operand): Remove insn predicate.
+
+2016-07-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* builtin-attrs.def (ATTR_RT_NOTHROW_LEAF_LIST): New return twice
+	attribute.
+	* builtins.def (BUILT_IN_SETJMP): Use ATTR_RT_NOTHROW_LEAF_LIST here.
+	* calls.c (special_function_p): Remove the special handling of the
+	"__builtin_" prefix.
+
+2016-07-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* calls.c (gimple_maybe_alloca_call_p): New function.  Return true
+	if STMT may be an alloca call.
+	(gimple_alloca_call_p, alloca_call_p): Return only true for the
+	builtin alloca call.
+	* calls.h (gimple_maybe_alloca_call_p): New function.
+	* tree-inline.c (inline_forbidden_p_stmt): Use
+	gimple_maybe_alloca_call_p here.
+
 2016-07-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* spellcheck-tree.c (best_macro_match::best_macro_match):
