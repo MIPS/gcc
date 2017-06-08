@@ -686,6 +686,20 @@ return_regno_p (unsigned int regno)
   return false;
 }
 
+/* Return true if REGNO is one of subsequent USE after INSN.  */
+static bool
+regno_in_use_p (rtx_insn *insn, unsigned int regno)
+{
+  while ((insn = next_nondebug_insn (insn)) != NULL_RTX
+	 && INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE)
+    {
+      if (REG_P (XEXP (PATTERN (insn), 0))
+	  && regno == REGNO (XEXP (PATTERN (insn), 0)))
+	return TRUE;
+    }
+  return false;
+}
+
 /* Final change of pseudos got hard registers into the corresponding
    hard registers and removing temporary clobbers.  */
 void
@@ -727,7 +741,8 @@ lra_final_code_change (void)
 	  if (NONJUMP_INSN_P (insn) && GET_CODE (pat) == SET
 	      && REG_P (SET_SRC (pat)) && REG_P (SET_DEST (pat))
 	      && REGNO (SET_SRC (pat)) == REGNO (SET_DEST (pat))
-	      && ! return_regno_p (REGNO (SET_SRC (pat))))
+	      && (! return_regno_p (REGNO (SET_SRC (pat)))
+		  || ! regno_in_use_p (insn, REGNO (SET_SRC (pat)))))
 	    {
 	      lra_invalidate_insn_data (insn);
 	      delete_insn (insn);

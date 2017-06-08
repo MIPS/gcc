@@ -112,12 +112,12 @@
 (define_attr "length" ""
   (cond [(eq_attr "type" "branch")
          (if_then_else (and (ge (minus (pc) (match_dup 0))
-                                (const_int -63))
+                                (const_int -62))
                             (le (minus (pc) (match_dup 0))
                                 (const_int 62)))
                        (const_int 1)
                        (if_then_else (and (ge (minus (pc) (match_dup 0))
-                                              (const_int -2045))
+                                              (const_int -2044))
                                           (le (minus (pc) (match_dup 0))
                                               (const_int 2045)))
                                      (const_int 2)
@@ -1160,7 +1160,7 @@
 	inc %0\;inc %0
 	dec %0\;dec %0"
   [(set_attr "length" "1,1,1,1,2,2")
-   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_zn,set_zn")])
+   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_vzn,set_vzn")])
 
 ;; "addhi3"
 ;; "addhq3" "adduhq3"
@@ -3944,7 +3944,7 @@
 ;; logical shift right
 
 ;; "lshrqi3"
-;; "lshrqq3 "lshruqq3"
+;; "lshrqq3" "lshruqq3"
 (define_expand "lshr<mode>3"
   [(set (match_operand:ALL1 0 "register_operand" "")
         (lshiftrt:ALL1 (match_operand:ALL1 1 "register_operand" "")

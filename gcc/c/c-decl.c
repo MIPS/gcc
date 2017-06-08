@@ -3327,7 +3327,7 @@ implicitly_declare (location_t loc, tree functionid)
 
   if (decl)
     {
-      if (decl == error_mark_node)
+      if (TREE_CODE (decl) != FUNCTION_DECL)
 	return decl;
 
       /* FIXME: Objective-C has weird not-really-builtin functions
@@ -7880,7 +7880,8 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  else if (!saw_named_field)
 	    {
 	      error_at (DECL_SOURCE_LOCATION (x),
-			"flexible array member in otherwise empty struct");
+			"flexible array member in a struct with no named "
+			"members");
 	      TREE_TYPE (x) = error_mark_node;
 	    }
 	}
@@ -9262,7 +9263,9 @@ finish_function (void)
 
   /* For GNU C extern inline functions disregard inline limits.  */
   if (DECL_EXTERNAL (fndecl)
-      && DECL_DECLARED_INLINE_P (fndecl))
+      && DECL_DECLARED_INLINE_P (fndecl)
+      && (flag_gnu89_inline
+	  || lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (fndecl))))
     DECL_DISREGARD_INLINE_LIMITS (fndecl) = 1;
 
   /* Genericize before inlining.  Delay genericizing nested functions

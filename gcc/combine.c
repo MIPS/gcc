@@ -7770,6 +7770,10 @@ make_compound_operation (rtx x, enum rtx_code in_code)
   rtx tem;
   const char *fmt;
 
+  /* PR rtl-optimization/70944.  */
+  if (VECTOR_MODE_P (mode))
+    return x;
+
   /* Select the code to be used in recursive calls.  Once we are inside an
      address, we stay there.  If we have a comparison, set to COMPARE,
      but once inside, go back to our default of SET.  */
@@ -13204,6 +13208,12 @@ get_last_value (const_rtx x)
      we can't use it even if the register was only set once.  */
   if (rsp->last_set_label == label_tick
       && DF_INSN_LUID (rsp->last_set) >= subst_low_luid)
+    return 0;
+
+  /* If fewer bits were set than what we are asked for now, we cannot use
+     the value.  */
+  if (GET_MODE_PRECISION (rsp->last_set_mode)
+      < GET_MODE_PRECISION (GET_MODE (x)))
     return 0;
 
   /* If the value has all its registers valid, return it.  */
