@@ -1,3 +1,41 @@
+2016-07-21  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* tree-ssa-strlen.c (strlen_dom_walker::before_dom_children): Fix typo
+	in comment.
+
+2016-07-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (any_extract, any_shiftrt): New code iterators.
+	(*insv.extract, *insv.shiftrt, *insv.not-bit.0, *insv.not-bit.7)
+	(*insv.xor-extract, *insv.xor1-bit.0): New insns.
+	(adjust_len) [insv_notbit, insv_notbit_0, insv_notbit_7]: New
+	values for insn attribute.
+	* config/avr/avr.c (avr_out_insert_notbit): New function.
+	(avr_adjust_insn_length): Handle ADJUST_LEN_INSV_NOTBIT,
+	ADJUST_LEN_INSV_NOTBIT_0/_7.
+	* config/avr/avr-protos.h (avr_out_insert_notbit): New proto.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-chrec.c (convert_affine_scev): New parameter.  Pass new arg.
+	(chrec_convert_1, chrec_convert): Ditto.
+	* tree-chrec.h (chrec_convert, convert_affine_scev): New parameter.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Pass new arg.
+	* tree-vrp.c (adjust_range_with_scev): Ditto.
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): Ditto.
+	(scev_var_range_cant_overflow): New function.
+	(scev_probably_wraps_p): New parameter.  Call above function.
+	* tree-ssa-loop-niter.h (scev_probably_wraps_p): New parameter.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Clean up
+	by removing computation of may_be_zero.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (unknown): Use HOST_WIDE_INT_M1U instead of -1.
+
 2016-07-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Improving concepts performance and diagnostics.
