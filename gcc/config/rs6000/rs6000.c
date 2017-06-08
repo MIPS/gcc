@@ -7717,8 +7717,34 @@ mem_operand_gpr (rtx op, machine_mode mode)
   if (TARGET_POWERPC64 && (offset & 3) != 0)
     return false;
 
-  if (mode_supports_vsx_dform_quad (mode)
-      && !quad_address_offset_p (offset))
+  extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
+  if (extra < 0)
+    extra = 0;
+
+  if (GET_CODE (addr) == LO_SUM)
+    /* For lo_sum addresses, we must allow any offset except one that
+       causes a wrap, so test only the low 16 bits.  */
+    offset = ((offset & 0xffff) ^ 0x8000) - 0x8000;
+
+  return offset + 0x8000 < 0x10000u - extra;
+}
+
+/* As above, but for DS-FORM VSX insns.  Unlike mem_operand_gpr,
+   enforce an offset divisible by 4 even for 32-bit.  */
+
+bool
+mem_operand_ds_form (rtx op, machine_mode mode)
+{
+  unsigned HOST_WIDE_INT offset;
+  int extra;
+  rtx addr = XEXP (op, 0);
+
+  op = address_offset (addr);
+  if (op == NULL_RTX)
+    return true;
+
+  offset = INTVAL (op);
+  if ((offset & 3) != 0)
     return false;
 
   extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
@@ -7911,8 +7937,8 @@ constant_pool_expr_p (rtx op)
 static const_rtx tocrel_base, tocrel_offset;
 
 /* Return true if OP is a toc pointer relative address (the output
-   of create_TOC_reference).  If STRICT, do not match high part or
-   non-split -mcmodel=large/medium toc pointer relative addresses.  */
+   of create_TOC_reference).  If STRICT, do not match non-split
+   -mcmodel=large/medium toc pointer relative addresses.  */
 
 bool
 toc_relative_expr_p (const_rtx op, bool strict)
@@ -7922,13 +7948,17 @@ toc_relative_expr_p (const_rtx op, bool strict)
 
   if (TARGET_CMODEL != CMODEL_SMALL)
     {
-      /* Only match the low part.  */
-      if (GET_CODE (op) == LO_SUM
-	  && REG_P (XEXP (op, 0))
-	  && INT_REG_OK_FOR_BASE_P (XEXP (op, 0), strict))
-	op = XEXP (op, 1);
-      else if (strict)
+      /* When strict ensure we have everything tidy.  */
+      if (strict
+	  && !(GET_CODE (op) == LO_SUM
+	       && REG_P (XEXP (op, 0))
+	       && INT_REG_OK_FOR_BASE_P (XEXP (op, 0), strict)))
 	return false;
+
+      /* When not strict, allow non-split TOC addresses and also allow
+	 (lo_sum (high ..)) TOC addresses created during reload.  */
+      if (GET_CODE (op) == LO_SUM)
+	op = XEXP (op, 1);
     }
 
   tocrel_base = op;
@@ -20405,25 +20435,6 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
       if (reg_class_subset_p (BASE_REGS, rclass))
 	return BASE_REGS;
       return NO_REGS;
-    }
-
-  /* If we haven't picked a register class, and the type is a vector or
-     floating point type, prefer to use the VSX, FPR, or Altivec register
-     classes.  */
-  if (rclass == NO_REGS)
-    {
-      if (TARGET_VSX && VECTOR_MEM_VSX_OR_P8_VECTOR_P (mode))
-	return VSX_REGS;
-
-      if (TARGET_ALTIVEC && VECTOR_MEM_ALTIVEC_P (mode))
-	return ALTIVEC_REGS;
-
-      if (DECIMAL_FLOAT_MODE_P (mode))
-	return TARGET_DFP ? FLOAT_REGS : NO_REGS;
-
-      if (TARGET_FPRS && TARGET_HARD_FLOAT && FLOAT_MODE_P (mode)
-	  && (reg_addr[mode].addr_mask[RELOAD_REG_FPR] & RELOAD_REG_VALID) == 0)
-	return FLOAT_REGS;
     }
 
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)

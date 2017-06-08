@@ -1,3 +1,49 @@
+2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* call.c (convert_like_real): Harmonize diagnostics for invalid
+	reference binding.
+
+2016-08-05 Martin Sebor  <msebor@redhat.com>
+
+	* constexpr.c (cxx_eval_store_expression): Remove hyphen from
+	the spelling of "constant-expression" in diagnostic messages
+	for consistency.
+	(cxx_eval_constant_expression): Same.
+	(cxx_eval_outermost_constant_expr): Same.
+	(potential_constant_expression_1): Same.
+
+2016-08-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68724
+	* pt.c (unify): TRAIT_EXPR is an expr.
+
+2016-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/72800
+	* lambda.c (add_capture): Check lambda_capture_field_type return
+	value for error_mark_node.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/72759
+	* pt.c (tsubst_qualified_id): Return error_mark_node if
+	template_args is error_mark_node.
+
+2016-08-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/72415
+	* pt.c (tsubst_pack_expansion): Pull a single pack expansion out
+	of the TREE_VEC.
+
+	* cp-tree.h (TYPE_UNNAMED_P): Rename from TYPE_ANONYMOUS_P.
+	(TYPE_WAS_UNNAMED): Rename from TYPE_WAS_ANONYMOUS.
+	* class.c, decl.c, decl2.c, error.c, lambda.c, mangle.c,
+	name-lookup.c, parser.c, pt.c, semantics.c, tree.c: Adjust.
+
+	PR c++/72796
+	* typeck.c (finish_class_member_access_expr): Avoid stripping
+	SCOPE_REF to dependent base.
+
 2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (cp_ensure_no_oacc_routine): Improve diagnostics.

@@ -134,7 +134,7 @@ begin_lambda_type (tree lambda)
 
   {
     /* Unique name.  This is just like an unnamed class, but we cannot use
-       make_anon_name because of certain checks against TYPE_ANONYMOUS_P.  */
+       make_anon_name because of certain checks against TYPE_UNNAMED_P.  */
     tree name;
     name = make_lambda_name ();
 
@@ -492,6 +492,8 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
   else
     {
       type = lambda_capture_field_type (initializer, explicit_init_p);
+      if (type == error_mark_node)
+	return error_mark_node;
       if (by_reference_p)
 	{
 	  type = build_reference_type (type);
