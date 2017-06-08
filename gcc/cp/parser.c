@@ -981,6 +981,7 @@ cp_keyword_starts_decl_specifier_p (enum rid keyword)
       /* C++0x extensions.  */
     case RID_DECLTYPE:
     case RID_UNDERLYING_TYPE:
+    case RID_CONSTEXPR:
       return true;
 
     default:
@@ -1800,7 +1801,9 @@ enum
   CP_PARSER_FLAGS_NO_TYPE_DEFINITIONS = 0x4,
   /* When parsing a decl-specifier-seq, only allow type-specifier or
      constexpr.  */
-  CP_PARSER_FLAGS_ONLY_TYPE_OR_CONSTEXPR = 0x8
+  CP_PARSER_FLAGS_ONLY_TYPE_OR_CONSTEXPR = 0x8,
+  /* When parsing a decl-specifier-seq, only allow mutable or constexpr.  */
+  CP_PARSER_FLAGS_ONLY_MUTABLE_OR_CONSTEXPR = 0x10
 };
 
 /* This type is used for parameters and variables which hold
@@ -10038,7 +10041,7 @@ cp_parser_lambda_introducer (cp_parser* parser, tree lambda_expr)
      < template-parameter-list [opt] >
      ( parameter-declaration-clause [opt] )
        attribute-specifier [opt]
-       mutable [opt]
+       decl-specifier-seq [opt]
        exception-specification [opt]
        lambda-return-type-clause [opt]
 
@@ -10057,6 +10060,8 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
   tree exception_spec = NULL_TREE;
   tree template_param_list = NULL_TREE;
   tree tx_qual = NULL_TREE;
+  cp_decl_specifier_seq lambda_specs;
+  clear_decl_specs (&lambda_specs);
 
   /* The template-parameter-list is optional, but must begin with
      an opening angle if present.  */
@@ -10100,12 +10105,20 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
 
       attributes = cp_parser_attributes_opt (parser);
 
-      /* Parse optional `mutable' keyword.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_MUTABLE))
-        {
-          cp_lexer_consume_token (parser->lexer);
-          LAMBDA_EXPR_MUTABLE_P (lambda_expr) = 1;
-        }
+      /* In the decl-specifier-seq of the lambda-declarator, each
+	 decl-specifier shall either be mutable or constexpr.  */
+      int declares_class_or_enum;
+      if (cp_lexer_next_token_is_decl_specifier_keyword (parser->lexer))
+	cp_parser_decl_specifier_seq (parser,
+				      CP_PARSER_FLAGS_ONLY_MUTABLE_OR_CONSTEXPR,
+				      &lambda_specs, &declares_class_or_enum);
+      if (lambda_specs.storage_class == sc_mutable)
+	{
+	  LAMBDA_EXPR_MUTABLE_P (lambda_expr) = 1;
+	  if (lambda_specs.conflicting_specifiers_p)
+	    error_at (lambda_specs.locations[ds_storage_class],
+		      "duplicate %<mutable%>");
+	}
 
       tx_qual = cp_parser_tx_qualifier_opt (parser);
 
@@ -10145,6 +10158,16 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
     else
       /* Maybe we will deduce the return type later.  */
       return_type_specs.type = make_auto ();
+
+    if (lambda_specs.locations[ds_constexpr])
+      {
+	if (cxx_dialect >= cxx1z)
+	  return_type_specs.locations[ds_constexpr]
+	    = lambda_specs.locations[ds_constexpr];
+	else
+	  error_at (lambda_specs.locations[ds_constexpr], "%<constexpr%> "
+		    "lambda only available with -std=c++1z or -std=gnu++1z");
+      }
 
     p = obstack_alloc (&declarator_obstack, 0);
 
@@ -10879,6 +10902,18 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 	tree statement;
 	tree condition;
 
+	bool cx = false;
+	if (keyword == RID_IF
+	    && cp_lexer_next_token_is_keyword (parser->lexer,
+					       RID_CONSTEXPR))
+	  {
+	    cx = true;
+	    cp_token *tok = cp_lexer_consume_token (parser->lexer);
+	    if (cxx_dialect < cxx1z && !in_system_header_at (tok->location))
+	      pedwarn (tok->location, 0, "%<if constexpr%> only available "
+		       "with -std=c++1z or -std=gnu++1z");
+	  }
+
 	/* Look for the `('.  */
 	if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
 	  {
@@ -10888,7 +10923,10 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 
 	/* Begin the selection-statement.  */
 	if (keyword == RID_IF)
-	  statement = begin_if_stmt ();
+	  {
+	    statement = begin_if_stmt ();
+	    IF_STMT_CONSTEXPR_P (statement) = cx;
+	  }
 	else
 	  statement = begin_switch_stmt ();
 
@@ -10905,7 +10943,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 	    unsigned char in_statement;
 
 	    /* Add the condition.  */
-	    finish_if_stmt_cond (condition, statement);
+	    condition = finish_if_stmt_cond (condition, statement);
 
 	    if (warn_duplicated_cond)
 	      warn_duplicated_cond_add_or_warn (token->location, condition,
@@ -10914,16 +10952,44 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 	    /* Parse the then-clause.  */
 	    in_statement = parser->in_statement;
 	    parser->in_statement |= IN_IF_STMT;
+
+	    /* Outside a template, the non-selected branch of a constexpr
+	       if is a 'discarded statement', i.e. unevaluated.  */
+	    bool was_discarded = parser->in_discarded_stmt;
+	    bool discard_then = (cx && !processing_template_decl
+				 && integer_zerop (condition));
+	    if (discard_then)
+	      {
+		parser->in_discarded_stmt = true;
+		++c_inhibit_evaluation_warnings;
+	      }
+
 	    cp_parser_implicitly_scoped_statement (parser, &nested_if,
 						   guard_tinfo);
+
 	    parser->in_statement = in_statement;
 
 	    finish_then_clause (statement);
+
+	    if (discard_then)
+	      {
+		THEN_CLAUSE (statement) = NULL_TREE;
+		parser->in_discarded_stmt = was_discarded;
+		--c_inhibit_evaluation_warnings;
+	      }
 
 	    /* If the next token is `else', parse the else-clause.  */
 	    if (cp_lexer_next_token_is_keyword (parser->lexer,
 						RID_ELSE))
 	      {
+		bool discard_else = (cx && !processing_template_decl
+				     && integer_nonzerop (condition));
+		if (discard_else)
+		  {
+		    parser->in_discarded_stmt = true;
+		    ++c_inhibit_evaluation_warnings;
+		  }
+
 		guard_tinfo
 		  = get_token_indent_info (cp_lexer_peek_token (parser->lexer));
 		/* Consume the `else' keyword.  */
@@ -10973,6 +11039,13 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 		   when we get back up to the parent if statement.  */
 		if (if_p != NULL)
 		  *if_p = true;
+
+		if (discard_else)
+		  {
+		    ELSE_CLAUSE (statement) = NULL_TREE;
+		    parser->in_discarded_stmt = was_discarded;
+		    --c_inhibit_evaluation_warnings;
+		  }
 	      }
 	    else
 	      {
@@ -11844,7 +11917,10 @@ cp_parser_jump_statement (cp_parser* parser)
 	     expression.  */
 	  expr = NULL_TREE;
 	/* Build the return-statement.  */
-	statement = finish_return_stmt (expr);
+	if (current_function_auto_return_pattern && parser->in_discarded_stmt)
+	  /* Don't deduce from a discarded return statement.  */;
+	else
+	  statement = finish_return_stmt (expr);
 	/* Look for the final `;'.  */
 	cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
       }
@@ -12778,6 +12854,13 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  && (flags & CP_PARSER_FLAGS_ONLY_TYPE_OR_CONSTEXPR)
 	  && token->keyword != RID_CONSTEXPR)
 	error ("decl-specifier invalid in condition");
+
+      if (found_decl_spec
+	  && (flags & CP_PARSER_FLAGS_ONLY_MUTABLE_OR_CONSTEXPR)
+	  && token->keyword != RID_MUTABLE
+	  && token->keyword != RID_CONSTEXPR)
+	error_at (token->location, "%qD invalid in lambda",
+		  ridpointers[token->keyword]);
 
       if (ds != ds_last)
 	set_and_check_decl_spec_loc (decl_specs, ds, token);

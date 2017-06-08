@@ -715,6 +715,7 @@ begin_if_stmt (void)
   scope = do_pushlevel (sk_cond);
   r = build_stmt (input_location, IF_STMT, NULL_TREE,
 		  NULL_TREE, NULL_TREE, scope);
+  current_binding_level->this_entity = r;
   begin_cond (&IF_COND (r));
   return r;
 }
@@ -722,12 +723,18 @@ begin_if_stmt (void)
 /* Process the COND of an if-statement, which may be given by
    IF_STMT.  */
 
-void
+tree
 finish_if_stmt_cond (tree cond, tree if_stmt)
 {
-  finish_cond (&IF_COND (if_stmt), maybe_convert_cond (cond));
+  cond = maybe_convert_cond (cond);
+  if (IF_STMT_CONSTEXPR_P (if_stmt)
+      && require_potential_rvalue_constant_expression (cond)
+      && !value_dependent_expression_p (cond))
+    cond = cxx_constant_value (cond, NULL_TREE);
+  finish_cond (&IF_COND (if_stmt), cond);
   add_stmt (if_stmt);
   THEN_CLAUSE (if_stmt) = push_stmt_list ();
+  return cond;
 }
 
 /* Finish the then-clause of an if-statement, which may be given by
@@ -3548,6 +3555,12 @@ finish_id_expression (tree id_expression,
 	 resolve the name at instantiation time.  */
       if (dependent_p)
 	{
+	  if (DECL_P (decl)
+	      && any_dependent_type_attributes_p (DECL_ATTRIBUTES (decl)))
+	    /* Dependent type attributes on the decl mean that the TREE_TYPE is
+	       wrong, so just return the identifier.  */
+	    return id_expression;
+
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
 	     (or an instantiation thereof).  */

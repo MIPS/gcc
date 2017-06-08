@@ -10334,6 +10334,9 @@ instantiate_class_template_1 (tree type)
       tree decl = lambda_function (type);
       if (decl)
 	{
+	  if (cxx_dialect >= cxx1z)
+	    CLASSTYPE_LITERAL_P (type) = true;
+
 	  if (!DECL_TEMPLATE_INFO (decl)
 	      || DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)) != decl)
 	    {
@@ -15381,12 +15384,18 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case IF_STMT:
       stmt = begin_if_stmt ();
+      IF_STMT_CONSTEXPR_P (stmt) = IF_STMT_CONSTEXPR_P (t);
       tmp = RECUR (IF_COND (t));
-      finish_if_stmt_cond (tmp, stmt);
-      RECUR (THEN_CLAUSE (t));
+      tmp = finish_if_stmt_cond (tmp, stmt);
+      if (IF_STMT_CONSTEXPR_P (t) && integer_zerop (tmp))
+	/* Don't instantiate the THEN_CLAUSE. */;
+      else
+	RECUR (THEN_CLAUSE (t));
       finish_then_clause (stmt);
 
-      if (ELSE_CLAUSE (t))
+      if (IF_STMT_CONSTEXPR_P (t) && integer_nonzerop (tmp))
+	/* Don't instantiate the ELSE_CLAUSE. */;
+      else if (ELSE_CLAUSE (t))
 	{
 	  begin_else_clause (stmt);
 	  RECUR (ELSE_CLAUSE (t));
@@ -16757,12 +16766,19 @@ tsubst_copy_and_build (tree t,
 	    bool op = CALL_EXPR_OPERATOR_SYNTAX (t);
 	    bool ord = CALL_EXPR_ORDERED_ARGS (t);
 	    bool rev = CALL_EXPR_REVERSE_ARGS (t);
-	    if (op || ord || rev)
+	    bool thk = CALL_FROM_THUNK_P (t);
+	    if (op || ord || rev || thk)
 	      {
 		function = extract_call_expr (ret);
 		CALL_EXPR_OPERATOR_SYNTAX (function) = op;
 		CALL_EXPR_ORDERED_ARGS (function) = ord;
 		CALL_EXPR_REVERSE_ARGS (function) = rev;
+		if (thk)
+		  {
+		    CALL_FROM_THUNK_P (function) = true;
+		    /* The thunk location is not interesting.  */
+		    SET_EXPR_LOCATION (function, UNKNOWN_LOCATION);
+		  }
 	      }
 	  }
 
@@ -22660,6 +22676,9 @@ dependent_type_p_r (tree type)
   if (TREE_CODE (type) == TYPE_PACK_EXPANSION)
     return true;
 
+  if (any_dependent_type_attributes_p (TYPE_ATTRIBUTES (type)))
+    return true;
+
   /* The standard does not specifically mention types that are local
      to template functions or local classes, but they should be
      considered dependent too.  For example:
@@ -23211,6 +23230,12 @@ type_dependent_expression_p (tree expression)
     }
 
   gcc_assert (TREE_CODE (expression) != TYPE_DECL);
+
+  /* Dependent type attributes might not have made it from the decl to
+     the type yet.  */
+  if (DECL_P (expression)
+      && any_dependent_type_attributes_p (DECL_ATTRIBUTES (expression)))
+    return true;
 
   return (dependent_type_p (TREE_TYPE (expression)));
 }
