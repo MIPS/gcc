@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++11 -Wno-deprecated" }
-// { dg-do compile }
-
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,22 +15,14 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.9.11.2 Template class shared_ptr [util.smartptr.shared]
+// { dg-options "-std=gnu++17" }
+// { dg-do compile }
 
-#include <memory>
-
-// incomplete type
-struct X;
-
-// get an auto_ptr rvalue
-std::auto_ptr<X>&& ap();
+#include <utility>
 
 void test01()
 {
-  X* px = 0;
-  std::shared_ptr<X> p1(px);   // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 893 }
-
-  std::shared_ptr<X> p9(ap());  // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 307 }
+  int i = 0;
+  std::as_const(std::move(i));	// { dg-error "deleted function" }
+  std::as_const(0);		// { dg-error "deleted function" }
 }

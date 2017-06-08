@@ -1,4 +1,54 @@
+2016-08-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update C++17 status table.
+	* doc/html/manual/status.html: Regenerate.
+
+	* testsuite/20_util/enable_shared_from_this/members/reinit.cc: Use
+	effective target not dg-options. Move check for feature-test macro to:
+	* testsuite/20_util/enable_shared_from_this/members/weak_from_this.cc:
+	New test.
+
+	* include/std/functional (_Unwrap): Rename to __inv_unwrap.
+	(__invfwd): Adjust.
+	(__invoke_impl): Remove unused template parameters.
+	* testsuite/20_util/function_objects/invoke/59768.cc: Remove unused
+	parameter.
+	* testsuite/20_util/function_objects/invoke/ref_ext.cc: Copy 59768.cc
+	and test __invoke extension for C++11.
+
 2016-08-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr_base.h (__cpp_lib_enable_shared_from_this):
+	Define feature-test macro.
+	* testsuite/20_util/enable_shared_from_this/members/reinit.cc: Test
+	for the macro.
+
+	* include/bits/shared_ptr.h (shared_ptr::weak_type): Define.
+	* include/bits/shared_ptr_base.h (__shared_ptr::weak_type): Define.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/requirements/weak_type.cc: New test.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+
+	* include/std/utility (as_const): Define.
+	* testsuite/20_util/as_const/1.cc: New test.
+	* testsuite/20_util/as_const/rvalue_neg.cc: New test.
+
+	* include/bits/shared_ptr.h (owner_less): Add default template
+	argument.
+	* include/bits/shared_ptr_base.h (_Sp_owner_less<void, void>): Define
+	specialization.
+	(owner_less<void>): Define specialization.
+	* include/bits/stl_function.h (__cpp_lib_transparent_operators):
+	Update value.
+	* testsuite/20_util/owner_less/void.cc: New test.
+	* testsuite/experimental/feat-cxx14.cc: Update macro value tested.
+
+	* include/bits/allocator.h (__cpp_lib_incomplete_container_elements):
+	Define feature-test macro.
+	* include/bits/range_access.h (__cpp_lib_array_constexpr): Likewise.
+	* include/std/shared_mutex (__cpp_lib_shared_mutex): Uncomment.
+	* include/std/type_traits (__cpp_lib_logical_traits): Fix value.
+	(__cpp_lib_type_trait_variable_templates): Define.
 
 	* include/bits/stl_function.h: Remove commented-out macro.
 	* include/bits/stl_tree.h (__cpp_lib_generic_associative_lookup):

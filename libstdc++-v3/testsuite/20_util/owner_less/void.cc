@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++11 -Wno-deprecated" }
-// { dg-do compile }
-
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,22 +15,34 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.9.11.2 Template class shared_ptr [util.smartptr.shared]
+// { dg-do compile { target c++11 } }
 
 #include <memory>
 
-// incomplete type
-struct X;
+#if __cplusplus >= 201402L
+// The feature-test macro is only defined for C++14 and later.
+# if __cpp_lib_transparent_operators < 201510
+#  error "__cpp_lib_transparent_operators < 201510"
+# endif
+#endif
 
-// get an auto_ptr rvalue
-std::auto_ptr<X>&& ap();
-
-void test01()
+void
+test01()
 {
-  X* px = 0;
-  std::shared_ptr<X> p1(px);   // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 893 }
+  using namespace std;
 
-  std::shared_ptr<X> p9(ap());  // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 307 }
+  static_assert(is_same<owner_less<>, owner_less<void>>::value,
+                "owner_less<> uses void specialization");
+
+  shared_ptr<int> sp1;
+  shared_ptr<void> sp2;
+  shared_ptr<long> sp3;
+  weak_ptr<int> wp1;
+
+  owner_less<> cmp;
+  cmp(sp1, sp2);
+  cmp(sp1, wp1);
+  cmp(sp1, sp3);
+  cmp(wp1, sp1);
+  cmp(wp1, wp1);
 }

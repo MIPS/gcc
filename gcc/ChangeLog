@@ -1,3 +1,58 @@
+2016-08-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/71779
+	* emit-rtl.c (set_reg_attrs_from_value): Only propagate REG_POINTER,
+	if the value was sign-extended according to POINTERS_EXTEND_UNSIGNED
+	or if it was truncated.
+
+	PR rtl-optimization/70903
+	* cse.c (cse_insn): If DEST is a paradoxical SUBREG, don't record DEST.
+
+2016-08-04  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-inline.c (remap_ssa_name): Check for POINTER_TYPE_P before
+	accessing SSA_NAME_PTR_INFO.
+
+2016-08-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR 70677
+	* common/config/avr/avr-common.c (avr_option_optimization_table)
+	[OPT_LEVELS_ALL]: Turn off -fcaller-saves.
+
+2016-08-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR 55181
+	* config/avr/avr.md: New pattern to work around do_store_flag
+	generating shift instructions for bit extractions.
+
+2016-08-04  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-vrp.c (set_value_range): Use vrp_equiv_obstack with
+	BITMAP_ALLOC.
+	(add_equivalence): Likewise.
+	(get_value_range): Allocate value range with vrp_value_range_pool.
+	(vrp_initialize): Initialize vrp_equiv_obstack for equiv allocation.
+	(vrp_finalize): Relase vrp_equiv_obstack and vrp_value_range_pool.
+
+2016-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Make LRA
+	the default for the rs6000 port.
+
+2016-08-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* calls.c (special_function_p): Remove special handling of
+	"setjmp_syscall", "qsetjmp", "longjmp", "siglongjmp" and the
+	prefix "__x".  Recognize "savectx", "vfork" and "getcontext" only
+	without prefix.  Remove potentially unsafe ECF_LEAF and ECF_NORETURN.
+
+2016-08-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/72778
+	* lra-spills.c (regno_in_use_p): Check bb and regno modification.
+	Don't stop on regular insns.
+
 2016-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_declare_function_name): Round frame
