@@ -1,3 +1,35 @@
+2016-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71823
+	* gcc.dg/vect/pr71823.c: New test.
+
+2016-07-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/location_overflow_plugin.c (plugin_init): Avoid
+	hardcoding the values of LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES
+	and LINE_MAP_MAX_LOCATION_WITH_COLS.
+
+2016-07-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/71801
+	* gcc.target/i386/pr71801.c: New test.
+
+2016-07-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71816
+	* gcc.dg/torture/pr71816.c: New testcase.
+
+2016-07-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71783
+	* gfortran.dg/dependency_46.f90:  New test.
+
+2016-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/71621
+	* gcc.target/i386/pr71621-1.c: New.
+	* gcc.target/i386/pr71621-2.c: New.
+
 2016-07-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/pr71704.f90: New test.
