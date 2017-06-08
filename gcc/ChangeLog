@@ -1,3 +1,249 @@
+2016-07-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-rich-location.c
+	(gcc_rich_location::add_fixit_misspelled_id): New overload, taking
+	a const char *.
+	* gcc-rich-location.h
+	(gcc_rich_location::add_fixit_misspelled_id): Likewise.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* target.def (addr_space): Add new diagnose_usage to hook vector.
+	* targhooks.c (default_addr_space_diagnose_usage): Add default
+	implementation and...
+	* targhooks.h (default_addr_space_diagnose_usage): ... its prototype.
+	* c/c-parser.c (c_lex_one_token) [CPP_NAME]: If the token
+	is some address space, call targetm.addr_space.diagnose_usage.
+	* doc/tm.texi.in (Named Address Spaces): Add anchor for
+	TARGET_ADDR_SPACE_DIAGNOSE_USAGE documentation.
+	* doc/tm.texi: Regenerate.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/71898
+	* graphite-isl-ast-to-gimple.c (later_of_the_two):
+	Properly handly PHI stmts.
+
+2016-07-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71503
+	PR tree-optimization/71683
+	* tree-if-conv.c (gen_phi_arg_condition): Record true predicate
+	and break.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* doc/invoke.texi (-fipa-ra): Document when the option is
+	disabled. Fix a typo.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Include fibonacci_heap.c
+	* fibonacci_heap.c: New file.
+	* fibonacci_heap.h (fibonacci_heap::insert): Use insert_node.
+	(fibonacci_heap::union_with): Fix deletion of the second heap.
+	* selftest-run-tests.c (selftest::run_tests): Incorporate
+	fibonacci heap tests.
+	* selftest.h: Declare fibonacci_heap_c_tests.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* selftest-run-tests.c (selftest::run_tests): New function.
+	* selftest.h (sreal_c_tests): Declare.
+	* sreal.c (sreal_verify_basics): New function.
+	(verify_aritmetics): Likewise.
+	(sreal_verify_arithmetics): Likewise.
+	(verify_shifting): Likewise.
+	(sreal_verify_shifting): Likewise.
+	(void sreal_c_tests): Likewise.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/71916
+	* cfgrtl.c (contains_no_active_insn_p): Return false also for
+	bb which have a single succ fake edge.
+
+2016-07-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/71855
+	* dwarf2out.c (gen_subprogram_die): Only call
+	gen_unspecified_parameters_die while dumping early dwarf.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71874
+	* gimple-fold.c (fold_builtin_memory_op): Use
+	get_addr_base_and_unit_offset instead of get_ref_base_and_extent.
+
+2016-07-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* builtins.c: Use HOST_WIDE_INT_1 instead of (HOST_WIDE_INT) 1,
+	HOST_WIDE_INT_1U instead of (unsigned HOST_WIDE_INT) 1,
+	HOST_WIDE_INT_M1 instead of (HOST_WIDE_INT) -1 and
+	HOST_WIDE_INT_M1U instead of (unsigned HOST_WIDE_INT) -1.
+	* combine.c: Ditto.
+	* cse.c: Ditto.
+	* dojump.c: Ditto.
+	* double-int.c: Ditto.
+	* dse.c: Ditto.
+	* dwarf2out.c: Ditto.
+	* expmed.c: Ditto.
+	* expr.c: Ditto.
+	* fold-const.c: Ditto.
+	* function.c: Ditto.
+	* fwprop.c: Ditto.
+	* genmodes.c: Ditto.
+	* hwint.c: Ditto.
+	* hwint.h: Ditto.
+	* ifcvt.c: Ditto.
+	* loop-doloop.c: Ditto.
+	* loop-invariant.c: Ditto.
+	* loop-iv.c: Ditto.
+	* match.pd: Ditto.
+	* optabs.c: Ditto.
+	* real.c: Ditto.
+	* reload.c: Ditto.
+	* rtlanal.c: Ditto.
+	* simplify-rtx.c: Ditto.
+	* stor-layout.c: Ditto.
+	* toplev.c: Ditto.
+	* tree-ssa-loop-ivopts.c: Ditto.
+	* tree-vect-generic.c: Ditto.
+	* tree-vect-patterns.c: Ditto.
+	* tree.c: Ditto.
+	* tree.h: Ditto.
+	* ubsan.c: Ditto.
+	* varasm.c: Ditto.
+	* wide-int-print.cc: Ditto.
+	* wide-int.cc: Ditto.
+	* wide-int.h: Ditto.
+
+2016-07-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::assert_streq): Handle NULL values of
+	val_actual and val_expected.
+
+2016-07-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR fortran/71688
+	* trans-decl.c (gfc_generate_function_code): Use cgraph_get_create_node
+	rather than cgraph_create_node to get a call graph node.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (get_base_constructor): Add VIEW_CONVERT case,
+	handle all tcc_constant bases and valueize SSA names.
+	* tree-ssa-sccvn.c (fully_constant_vn_reference_p): Handle
+	tcc_constant bases.
+
+2016-07-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* function-tests.c (selftest::verify_three_block_rtl_cfg): Verify
+	the flags of the exit block and bb2, not just the entry block.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71901
+	* tree-ssa-sccvn.h (struct vn_reference_op_struct): Add
+	align member, group stuff with the bitfield.
+	(vn_ref_op_align_unit): New inline.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): For ARRAY_REFs
+	record element alignment and operand 3 unchanged.
+	(ao_ref_init_from_vn_reference): Adjust.
+	(valueize_refs_1): Likewise.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Likewise.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71908
+	* tree-ssa-structalias.c (get_constraint_for_component_ref): Handle
+	symbolic constants in a more reliable way.
+
+2016-07-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-vect-loop-manip.c (vect_update_ivs_after_vectorizer): Update
+	comment.
+	(vect_update_inits_of_drs): Likewise.
+	(vect_create_cond_for_alias_checks): Likewise.
+	* tree-vect-loop.c (vect_get_known_peeling_cost): Likewise.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR lto/71907
+	* lto-streamer-out.c (DFS::DFS_write_tree_body): For blocks
+	with an abstract origin that is not an inlined function outer
+	scope add a self-reference as abstract origin.
+	* tree-streamer-out.c (write_ts_block_tree_pointers): Likewise.
+
+2016-07-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71493
+	* config/rs6000/rs6000.c (rs6000_function_value): Fix
+	unintentional System V.4 structure return breakage for structures
+	with a single floating point element.
+
+2016-07-18  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71734
+	* tree-ssa-loop-im.c (ref_indep_loop_p_1): Add REF_LOOP argument which
+	contains REF, use it to check safelen, assume that safelen value
+	must be greater 1, fix style.
+	(ref_indep_loop_p_2): Add REF_LOOP argument.
+	(ref_indep_loop_p): Pass LOOP as additional argument to
+	ref_indep_loop_p_2.
+
+2016-07-18  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* cfgexpand.c (expand_stack_vars): Implement synamic stack space
+	allocation in the prologue.
+	* explow.c (get_dynamic_stack_base): New function to return an address
+	expression for the dynamic stack base.
+	(get_dynamic_stack_size): New function to do the required dynamic stack
+	space size calculations.
+	(allocate_dynamic_stack_space): Use new functions.
+	(align_dynamic_address): Move some code from
+	allocate_dynamic_stack_space to new function.
+	* explow.h (get_dynamic_stack_base, get_dynamic_stack_size): Export.
+
+2016-07-18  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Always set
+	notaligned marker if mode size is 0 or no MEM_ALIGN info could be
+	found.
+
+2016-07-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71893
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Compensate
+	for sizetype cast added by array_ref_element_size.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Likewise.
+
+2016-07-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (hppa_profile_hook): Allocate stack space for
+	register parameters.  Remove code to initialize argument pointer
+	on TARGET_64BIT.  Optimize call to _mcount when it can be reached
+	using a pc-relative branch.  Cleanup conditional code.
+	* config/pa/pa.md (call_mcount): New expander.
+	(call_mcount_nonpic): New insn.
+	(call_mcount_pic): New insn and split.
+	(call_mcount_pic_post_reload): New insn.
+	(call_mcount_64bit): New insn and split.
+	(call_mcount_64bit_post_reload): New insn.
+
+2016-07-15  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/predicates.md (const_m255_to_m1_operand): New.
+	* config/avr/constraints.md (Cn8, Ca1, Co1, Yx2): New constraints.
+	* config/avr/avr.md (add<mode>3) <ALL1>: Fix set_vzn for +/-2.
+	(*cmphi.zero-extend.0, *cmphi.zero-extend.1)
+	(*usum_widenqihi3, *udiff_widenqihi3)
+	(*addhi3_zero_extend.const): New combiner insns.
+	(andqi3, iorqi3): Provide "l" (NO_LD_REGS) alternative if
+	just 1 bit is affected.
+	* config/avr/avr.c (avr_out_bitop) <QImode>: Don't access xop[3].
+	(avr_out_compare) [EQ,NE]: Tweak comparing d-regs against -1.
+
 2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_omp_target): Mark data clauses with
@@ -241,7 +487,8 @@
 
 2016-07-12  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
-	* cfgexpand.c (expand_used_vars): Make the type of a local variable auto_vec.
+	* cfgexpand.c (expand_used_vars): Make the type of a local
+	variable auto_vec.
 	* genmatch.c (lower_for): Likewise.
 	* haifa-sched.c (haifa_sched_init): Likewise.
 	(add_to_speculative_block): Likewise.
@@ -249,7 +496,8 @@
 	* predict.c (handle_missing_profiles): Likewise.
 	* tree-data-ref.c (loop_nest_has_data_refs): Likewise.
 	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc): Likewise.
-	* tree-ssa-loop-niter.c (discover_iteration_bound_by_body_walk): Likewise.
+	* tree-ssa-loop-niter.c (discover_iteration_bound_by_body_walk):
+	Likewise.
 	(maybe_lower_iteration_bound): Likewise.
 	* tree-ssa-sccvn.c (DFS): Likewise.
 	* tree-stdarg.c (reachable_at_most_once): Likewise.
