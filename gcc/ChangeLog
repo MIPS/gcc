@@ -1,3 +1,54 @@
+2016-07-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* spellcheck-tree.c (best_macro_match::best_macro_match):
+	Explictly specify the template arguments when invoking the base
+	class constructor, to help older C++ compilers.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/71953
+	* asan.c (asan_dynamic_init_call): Call asan_init_shadow_ptr_types
+	before builtin_decl_implicit.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* optabs.c (emit_condiitonal_move): Short circuit for identical
+	sources.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* ifcvt.c (noce_if_info): New fields: speed_p, original_cost,
+	max_seq_cost.  Removed fields: then_cost, else_cost, branch_cost.
+	(noce_conversion_profitable_p): New.
+	(noce_try_store_flag_constants): Use it.
+	(noce_try_addcc): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_cmove): Likewise.
+	(noce_try_cmove_arith): Likewise.
+	(bb_valid_for_noce_process_p): Add to the cost parameter rather than
+	overwriting it.
+	(noce_convert_multiple_sets): Move cost model to here, from...
+	(bb_ok_for_noce_convert_multiple_sets) ...here.
+	(noce_process_if_block): Update calls for above changes.
+	(noce_find_if_block): Record new noce_if_info parameters.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* target.def (max_noce_ifcvt_seq_cost): New.
+	* doc/tm.texi.in (TARGET_MAX_NOCE_IFCVT_SEQ_COST): Document it.
+	* doc/tm.texi: Regenerate.
+	* targhooks.h (default_max_noce_ifcvt_seq_cost): New.
+	* targhooks.c (default_max_noce_ifcvt_seq_cost): New.
+	* params.def (PARAM_MAX_RTL_IF_CONVERSION_PREDICTABLE_COST): New.
+	(PARAM_MAX_RTL_IF_CONVERSION_UNPREDICTABLE_COST): Likewise.
+	* doc/invoke.texi: Document new params.
+
+2016-07-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71947
+	* tree-vrp.c (extract_range_from_assert): Singleton symbolic
+	ranges have useful limit_vr information.
+
 2016-07-21  Richard Biener  <rguenther@suse.de>
 
 	* function-tests.c (build_trivial_generic_function): Set
