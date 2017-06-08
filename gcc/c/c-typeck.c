@@ -9817,6 +9817,7 @@ c_finish_goto_label (location_t loc, tree label)
   TREE_USED (decl) = 1;
   {
     tree t = build1 (GOTO_EXPR, void_type_node, decl);
+    EXPLICIT_GOTO (t) = true;
     SET_EXPR_LOCATION (t, loc);
     return add_stmt (t);
   }
@@ -9833,6 +9834,7 @@ c_finish_goto_ptr (location_t loc, tree expr)
   expr = c_fully_fold (expr, false, NULL);
   expr = convert (ptr_type_node, expr);
   t = build1 (GOTO_EXPR, void_type_node, expr);
+  EXPLICIT_GOTO (t) = true;
   SET_EXPR_LOCATION (t, loc);
   return add_stmt (t);
 }
@@ -10398,7 +10400,10 @@ c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
   if (!is_break)
     add_stmt (build_predict_expr (PRED_CONTINUE, NOT_TAKEN));
 
-  return add_stmt (build1 (GOTO_EXPR, void_type_node, label));
+  tree t = build1 (GOTO_EXPR, void_type_node, label);
+  EXPLICIT_GOTO (t) = true;
+
+  return add_stmt (t);
 }
 
 /* A helper routine for c_process_expr_stmt and c_finish_stmt_expr.  */

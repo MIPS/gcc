@@ -628,7 +628,10 @@ finish_goto_stmt (tree destination)
 
   check_goto (destination);
 
-  return add_stmt (build_stmt (input_location, GOTO_EXPR, destination));
+  tree t = build_stmt (input_location, GOTO_EXPR, destination);
+  EXPLICIT_GOTO (t) = true;
+
+  return add_stmt (t);
 }
 
 /* COND is the condition-expression for an if, while, etc.,
@@ -1106,7 +1109,9 @@ finish_break_stmt (void)
      understand.  */
   if (!block_may_fallthru (cur_stmt_list))
     return void_node;
-  return add_stmt (build_stmt (input_location, BREAK_STMT));
+  tree t = build_stmt (input_location, BREAK_STMT);
+  EXPLICIT_GOTO (t) = true;
+  return add_stmt (t);
 }
 
 /* Finish a continue-statement.  */
@@ -1114,7 +1119,9 @@ finish_break_stmt (void)
 tree
 finish_continue_stmt (void)
 {
-  return add_stmt (build_stmt (input_location, CONTINUE_STMT));
+  tree t = build_stmt (input_location, CONTINUE_STMT);
+  EXPLICIT_GOTO (t) = true;
+  return add_stmt (t);
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if

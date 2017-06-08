@@ -3501,17 +3501,21 @@ goto_destination (tree expr)
     return NULL_TREE;
 
   if (TREE_CODE (expr) == GOTO_EXPR)
-    return GOTO_DESTINATION (expr);
+    {
+      /* If we are not optimizing (or if we're optimizing for debug),
+	 do not allow destinations of explicit gotos to be simplified.
+	 ??? cfgcleanup optimizes out such explicit gotos, even when
+	 optimizing for debug, but if we don't preserve them here, how
+	 could we can arrange for them to preserved by later
+	 passes?  */
+      if (EXPLICIT_GOTO (expr)
+	  && !(optimize && !optimize_debug))
+	return NULL;
+      else
+	return GOTO_DESTINATION (expr);
+    }
 
   if (TREE_CODE (expr) != STATEMENT_LIST)
-    return NULL_TREE;
-
-  /* If we are not optimizing, do not recurse into statement lists,
-     lest we may drop explicit gotos.  It might be nice to exclude
-     optimize_debug here, but it's no use: CFG cleanups will optimize
-     out the jumps we preserve here, and it's risky WRT
-     -fcompare-debug.  */
-  if (!optimize)
     return NULL_TREE;
 
   tree_stmt_iterator i = tsi_start (expr);

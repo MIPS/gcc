@@ -16004,7 +16004,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tmp = RECUR (tmp);
       else
 	tmp = DECL_NAME (tmp);
-      finish_goto_stmt (tmp);
+      tmp = finish_goto_stmt (tmp);
+      EXPLICIT_GOTO (tmp) = EXPLICIT_GOTO (t);
       break;
 
     case ASM_EXPR:
