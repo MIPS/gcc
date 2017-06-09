@@ -343,6 +343,7 @@ genericize_continue_stmt (tree *stmt_p)
   tree label = get_bc_label (bc_continue);
   location_t location = EXPR_LOCATION (*stmt_p);
   tree jump = build1_loc (location, GOTO_EXPR, void_type_node, label);
+  EXPLICIT_GOTO (jump) = true;
   append_to_statement_list_force (pred, &stmt_list);
   append_to_statement_list (jump, &stmt_list);
   *stmt_p = stmt_list;
@@ -356,6 +357,7 @@ genericize_break_stmt (tree *stmt_p)
   tree label = get_bc_label (bc_break);
   location_t location = EXPR_LOCATION (*stmt_p);
   *stmt_p = build1_loc (location, GOTO_EXPR, void_type_node, label);
+  EXPLICIT_GOTO (*stmt_p) = true;
 }
 
 /* Genericize a OMP_FOR node *STMT_P.  */
