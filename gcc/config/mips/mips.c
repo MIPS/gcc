@@ -5701,7 +5701,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
     }
 }
 
-char *rtx_code_name[] =  {
+const char *rtx_code_name[] =  {
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
 #include "rtl.def"		/* rtl expressions are documented here */
@@ -6296,7 +6296,7 @@ const char *
 mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 			bool zero_extend_p, bool load_p)
 {
-  char *sz[] = { "b", "h", "w", "d" };
+  const char *sz[] = { "b", "h", "w", "d" };
   bool fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
   rtx addr = load_p ? XEXP (src, 0) : XEXP (dest, 0);
   bool indexed_scaled_p = mips_index_scaled_address_p (addr, mode);
@@ -6859,6 +6859,7 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 		    case LEU: *code = LTU; break;
 		    case GT: *code = GE; break;
 		    case GTU: *code = GEU; break;
+		    default: break;
 		    }
 		}
 	      else
