@@ -1,3 +1,33 @@
+2017-06-09  Martin Liska  <mliska@suse.cz>
+
+	* libgcov-profiler.c (__gcov_indirect_call_profiler_v2):
+	Reset __gcov_indirect_call_callee to NULL.
+
+2017-06-08  Olivier Hainque  <hainque@adacore.com>
+
+	* config/t-vxworks (LIBGCC2_INCLUDES): Add path to wrn/coreip to
+	the set of -I options, support for direct inclusions of net/uio.h
+	by VxWorks header files via ioLib.h.
+
+2017-06-07  Tony Reix  <tony.reix@atos.net>
+	    Matthieu Sarter  <matthieu.sarter.external@atos.net>
+	    David Edelsohn  <dje.gcc@gmail.com>
+
+        * config/rs6000/aix-unwind.h (MD_FALLBACK_FRAME_STATE_FOR): Define
+        unconditionally.
+        (ucontext_for): Add 64-bit AIX 6.1, 7.1, 7.2 support.  Add 32-bit
+        AIX 7.2 support.
+
+2017-06-02  Olivier Hainque  <hainque@adacore.com>
+
+	* config/vxlib.c (__gthread_once): Add missing value to
+	return statement.
+
+2017-05-30  Olivier Hainque  <hainque@adacore.com>
+
+	* config/t-vxworks (LIBGCC2_INCLUDES): Remove extraneous
+	dollar sign before $(MULTIDIR).
+
 2017-05-26  Richard Henderson  <rth@redhat.com>
 
 	PR libgcc/80037

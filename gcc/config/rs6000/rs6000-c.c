@@ -488,10 +488,10 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
      the following conditions:
      1. The operating system does not support saving of AltiVec
 	registers (OS_MISSING_ALTIVEC).
-     2. If any of the options TARGET_HARD_FLOAT, TARGET_FPRS,
-	TARGET_SINGLE_FLOAT, or TARGET_DOUBLE_FLOAT are turned off.
-	Hereafter, the OPTION_MASK_VSX flag is considered to have been
-	turned off explicitly.
+     2. If any of the options TARGET_HARD_FLOAT, TARGET_SINGLE_FLOAT,
+	or TARGET_DOUBLE_FLOAT are turned off.  Hereafter, the
+	OPTION_MASK_VSX flag is considered to have been turned off
+	explicitly.
      3. If TARGET_PAIRED_FLOAT was enabled.  Hereafter, the
 	OPTION_MASK_VSX flag is considered to have been turned off
 	explicitly.
@@ -611,10 +611,6 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__UPPER_REGS_SF__");
 
   /* options from the builtin masks.  */
-  /* Note that RS6000_BTM_SPE is enabled only if TARGET_SPE
-     (e.g. -mspe).  */
-  if ((bu_mask & RS6000_BTM_SPE) != 0)
-    rs6000_define_or_undefine_macro (define_p, "__SPE__");
   /* Note that RS6000_BTM_PAIRED is enabled only if
      TARGET_PAIRED_FLOAT is enabled (e.g. -mpaired).  */
   if ((bu_mask & RS6000_BTM_PAIRED) != 0)
@@ -674,8 +670,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
 	}
     }
-  if ((!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
-      ||(TARGET_HARD_FLOAT && TARGET_FPRS && !TARGET_DOUBLE_FLOAT))
+  if (!TARGET_HARD_FLOAT
+      || (TARGET_HARD_FLOAT && !TARGET_DOUBLE_FLOAT))
     builtin_define ("_SOFT_DOUBLE");
   /* Used by lwarx/stwcx. errata work-around.  */
   if (rs6000_cpu == PROCESSOR_PPC405)
@@ -775,7 +771,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("__VEC_ELEMENT_REG_ORDER__=__ORDER_LITTLE_ENDIAN__");
 
   /* Let the compiled code know if 'f' class registers will not be available.  */
-  if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
+  if (TARGET_SOFT_FLOAT)
     builtin_define ("__NO_FPRS__");
 
   /* Whether aggregates passed by value are aligned to a 16 byte boundary
@@ -1513,6 +1509,35 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V2DF, RS6000_BTI_V2DI, 0, 0 },
   { VSX_BUILTIN_VEC_DOUBLE, VSX_BUILTIN_XVCVUXDDP,
     RS6000_BTI_V2DF, RS6000_BTI_unsigned_V2DI, 0, 0 },
+
+  { VSX_BUILTIN_VEC_DOUBLEE, VSX_BUILTIN_DOUBLEE_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEE, VSX_BUILTIN_UNS_DOUBLEE_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEE, VSX_BUILTIN_DOUBLEE_V4SF,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SF, 0, 0 },
+
+  { VSX_BUILTIN_VEC_DOUBLEO, VSX_BUILTIN_DOUBLEO_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEO, VSX_BUILTIN_UNS_DOUBLEO_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEO, VSX_BUILTIN_DOUBLEO_V4SF,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SF, 0, 0 },
+
+  { VSX_BUILTIN_VEC_DOUBLEH, VSX_BUILTIN_DOUBLEH_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEH, VSX_BUILTIN_UNS_DOUBLEH_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEH, VSX_BUILTIN_DOUBLEH_V4SF,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SF, 0, 0 },
+
+  { VSX_BUILTIN_VEC_DOUBLEL, VSX_BUILTIN_DOUBLEL_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEL, VSX_BUILTIN_UNS_DOUBLEL_V4SI,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V4SI, 0, 0 },
+  { VSX_BUILTIN_VEC_DOUBLEL, VSX_BUILTIN_DOUBLEL_V4SF,
+    RS6000_BTI_V2DF, RS6000_BTI_V4SF, 0, 0 },
+
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DF,
     RS6000_BTI_V2DF, RS6000_BTI_INTSI, ~RS6000_BTI_V2DF, 0 },
   { ALTIVEC_BUILTIN_VEC_LD, ALTIVEC_BUILTIN_LVX_V2DI,
@@ -2183,9 +2208,9 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULESH,
     RS6000_BTI_V4SI, RS6000_BTI_V8HI, RS6000_BTI_V8HI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULESH,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
-  { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULESH,
-    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULEUH,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_VMULEUB, ALTIVEC_BUILTIN_VMULEUB,
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
@@ -2202,9 +2227,9 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOUH,
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOSH,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
-  { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOSH,
-    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOUH,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOSH,
     RS6000_BTI_V4SI, RS6000_BTI_V8HI, RS6000_BTI_V8HI, 0 },

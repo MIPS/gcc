@@ -962,7 +962,7 @@ Set_and_use_temporary_expression::do_get_backend(Translate_context* context)
   Location loc = this->location();
   Gogo* gogo = context->gogo();
   Bvariable* bvar = this->statement_->get_backend_variable(context);
-  Bexpression* lvar_ref = gogo->backend()->var_expression(bvar, VE_rvalue, loc);
+  Bexpression* lvar_ref = gogo->backend()->var_expression(bvar, VE_lvalue, loc);
 
   Named_object* fn = context->function();
   go_assert(fn != NULL);
@@ -970,7 +970,7 @@ Set_and_use_temporary_expression::do_get_backend(Translate_context* context)
   Bexpression* bexpr = this->expr_->get_backend(context);
   Bstatement* set = gogo->backend()->assignment_statement(bfn, lvar_ref,
                                                           bexpr, loc);
-  Bexpression* var_ref = gogo->backend()->var_expression(bvar, VE_lvalue, loc);
+  Bexpression* var_ref = gogo->backend()->var_expression(bvar, VE_rvalue, loc);
   Bexpression* ret = gogo->backend()->compound_expression(set, var_ref, loc);
   return ret;
 }
@@ -4370,7 +4370,7 @@ Unary_expression::do_get_backend(Translate_context* context)
 	  gogo->backend()->implicit_variable_set_init(implicit, buf, btype,
 						      true, copy_to_heap, false,
 						      bexpr);
-	  bexpr = gogo->backend()->var_expression(implicit, VE_lvalue, loc);
+	  bexpr = gogo->backend()->var_expression(implicit, VE_rvalue, loc);
 
 	  // If we are not copying a slice initializer to the heap,
 	  // then it can be changed by the program, so if it can
@@ -4380,7 +4380,7 @@ Unary_expression::do_get_backend(Translate_context* context)
 	      && this->expr_->type()->has_pointer())
 	    {
 	      Bexpression* root =
-                  gogo->backend()->var_expression(implicit, VE_lvalue, loc);
+                  gogo->backend()->var_expression(implicit, VE_rvalue, loc);
 	      root = gogo->backend()->address_expression(root, loc);
 	      Type* type = Type::make_pointer_type(this->expr_->type());
 	      gogo->add_gc_root(Expression::make_backend(root, type, loc));
@@ -4400,7 +4400,7 @@ Unary_expression::do_get_backend(Translate_context* context)
                                                 true, false, btype, loc);
           gogo->backend()->immutable_struct_set_init(decl, buf, true, false,
                                                      btype, loc, bexpr);
-          bexpr = gogo->backend()->var_expression(decl, VE_lvalue, loc);
+          bexpr = gogo->backend()->var_expression(decl, VE_rvalue, loc);
         }
 
       go_assert(!this->create_temp_ || this->expr_->is_variable());
@@ -10156,9 +10156,13 @@ Call_expression::do_must_eval_in_order() const
 Expression*
 Call_expression::interface_method_function(
     Interface_field_reference_expression* interface_method,
-    Expression** first_arg_ptr)
+    Expression** first_arg_ptr,
+    Location location)
 {
-  *first_arg_ptr = interface_method->get_underlying_object();
+  Expression* object = interface_method->get_underlying_object();
+  Type* unsafe_ptr_type = Type::make_pointer_type(Type::make_void_type());
+  *first_arg_ptr =
+      Expression::make_unsafe_cast(unsafe_ptr_type, object, location);
   return interface_method->get_function();
 }
 
@@ -10267,7 +10271,8 @@ Call_expression::do_get_backend(Translate_context* context)
   else
     {
       Expression* first_arg;
-      fn = this->interface_method_function(interface_method, &first_arg);
+      fn = this->interface_method_function(interface_method, &first_arg,
+                                           location);
       fn_args[0] = first_arg->get_backend(context);
     }
 
@@ -15392,10 +15397,16 @@ Interface_mtable_expression::do_type()
   Typed_identifier tid("__type_descriptor", Type::make_type_descriptor_ptr_type(),
                        this->location());
   sfl->push_back(Struct_field(tid));
+  Type* unsafe_ptr_type = Type::make_pointer_type(Type::make_void_type());
   for (Typed_identifier_list::const_iterator p = interface_methods->begin();
        p != interface_methods->end();
        ++p)
-    sfl->push_back(Struct_field(*p));
+    {
+      // We want C function pointers here, not func descriptors; model
+      // using void* pointers.
+      Typed_identifier method(p->name(), unsafe_ptr_type, p->location());
+      sfl->push_back(Struct_field(method));
+    }
   Struct_type* st = Type::make_struct_type(sfl, this->location());
   st->set_is_struct_incomparable();
   this->method_table_type_ = st;
@@ -15419,27 +15430,32 @@ Interface_mtable_expression::do_get_backend(Translate_context* context)
 			      + "__"
 			      + this->type_->mangled_name(gogo));
 
-  // See whether this interface has any hidden methods.
-  bool has_hidden_methods = false;
-  for (Typed_identifier_list::const_iterator p = interface_methods->begin();
-       p != interface_methods->end();
-       ++p)
+  // Set is_public if we are converting a named type to an interface
+  // type that is defined in the same package as the named type, and
+  // the interface has hidden methods.  In that case the interface
+  // method table will be defined by the package that defines the
+  // types.
+  bool is_public = false;
+  if (this->type_->named_type() != NULL
+      && (this->type_->named_type()->named_object()->package()
+	  == this->itype_->package()))
     {
-      if (Gogo::is_hidden_name(p->name()))
+      for (Typed_identifier_list::const_iterator p = interface_methods->begin();
+	   p != interface_methods->end();
+	   ++p)
 	{
-	  has_hidden_methods = true;
-	  break;
+	  if (Gogo::is_hidden_name(p->name()))
+	    {
+	      is_public = true;
+	      break;
+	    }
 	}
     }
 
-  // We already know that the named type is convertible to the
-  // interface.  If the interface has hidden methods, and the named
-  // type is defined in a different package, then the interface
-  // conversion table will be defined by that other package.
-  if (has_hidden_methods
-      && this->type_->named_type() != NULL
+  if (is_public
       && this->type_->named_type()->named_object()->package() != NULL)
     {
+      // The interface conversion table is defined elsewhere.
       Btype* btype = this->type()->get_backend(gogo);
       std::string asm_name(go_selectively_encode_id(mangled_name));
       this->bvar_ =
@@ -15456,11 +15472,18 @@ Interface_mtable_expression::do_get_backend(Translate_context* context)
   else
     td_type = Type::make_pointer_type(this->type_);
 
+  std::vector<Backend::Btyped_identifier> bstructfields;
+
   // Build an interface method table for a type: a type descriptor followed by a
   // list of function pointers, one for each interface method.  This is used for
   // interfaces.
   Expression_list* svals = new Expression_list();
-  svals->push_back(Expression::make_type_descriptor(td_type, loc));
+  Expression* tdescriptor = Expression::make_type_descriptor(td_type, loc);
+  svals->push_back(tdescriptor);
+
+  Btype* tdesc_btype = tdescriptor->type()->get_backend(gogo);
+  Backend::Btyped_identifier btd("_type", tdesc_btype, loc);
+  bstructfields.push_back(btd);
 
   Named_type* nt = this->type_->named_type();
   Struct_type* st = this->type_->struct_type();
@@ -15480,15 +15503,25 @@ Interface_mtable_expression::do_get_backend(Translate_context* context)
       Named_object* no = m->named_object();
 
       go_assert(no->is_function() || no->is_function_declaration());
+
+      Btype* fcn_btype = m->type()->get_backend_fntype(gogo);
+      Backend::Btyped_identifier bmtype(p->name(), fcn_btype, loc);
+      bstructfields.push_back(bmtype);
+
       svals->push_back(Expression::make_func_code_reference(no, loc));
     }
 
-  Btype* btype = this->type()->get_backend(gogo);
-  Expression* mtable = Expression::make_struct_composite_literal(this->type(),
-                                                                 svals, loc);
-  Bexpression* ctor = mtable->get_backend(context);
+  Btype *btype = gogo->backend()->struct_type(bstructfields);
+  std::vector<Bexpression*> ctor_bexprs;
+  for (Expression_list::const_iterator pe = svals->begin();
+       pe != svals->end();
+       ++pe)
+    {
+      ctor_bexprs.push_back((*pe)->get_backend(context));
+    }
+  Bexpression* ctor =
+      gogo->backend()->constructor_expression(btype, ctor_bexprs, loc);
 
-  bool is_public = has_hidden_methods && this->type_->named_type() != NULL;
   std::string asm_name(go_selectively_encode_id(mangled_name));
   this->bvar_ = gogo->backend()->immutable_struct(mangled_name, asm_name, false,
 						  !is_public, btype, loc);

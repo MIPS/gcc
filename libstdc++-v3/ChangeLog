@@ -1,3 +1,121 @@
+2017-06-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/intro.xml: Document LWG 2802, 2873 and 2942 changes.
+	* include/bits/shared_ptr.h (shared_ptr): Use rvalues for deleters
+	(LWG 2802).
+	* include/bits/shared_ptr_base.h (_Sp_ebo_helper, _Sp_counted_deleter
+	(_Sp_counted_deleter::_Impl, __shared_count, __shared_ptr): Likewise.
+	* testsuite/20_util/shared_ptr/cons/lwg2802.cc: New.
+
+	* include/bits/forward_list.h (forward_list): Add deduction guide.
+	* include/bits/stl_deque.h (deque): Likewise.
+	* include/bits/stl_list.h (list): Likewise.
+	* include/bits/stl_vector.h (vector): Likewise.
+	* testsuite/23_containers/deque/cons/deduction.cc: New.
+	* testsuite/23_containers/forward_list/cons/deduction.cc: New.
+	* testsuite/23_containers/list/cons/deduction.cc: New.
+	* testsuite/23_containers/vector/cons/deduction.cc: New.
+
+2017-06-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/81017
+	* include/bits/std_function.h (function::function(function&&))
+	(function::operator=(funtion&&)): Add noexcept.
+	* testsuite/20_util/function/assign/move.cc: Check for noexcept.
+	* testsuite/20_util/function/cons/move.cc: Likewise.
+
+2017-06-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/regex.h (basic_regex): Add deduction guide from P0433.
+	* testsuite/28_regex/basic_regex/ctors/deduction.cc: New.
+
+	PR libstdc++/81002
+	* include/bits/regex.h (basic_regex): Adjust call to __compile_nfa
+	so iterator type is deduced.
+	* include/bits/regex_compiler.h (__compile_nfa): Reorder template
+	parameters to allow iterator type to be deduced.
+	* testsuite/28_regex/basic_regex/ctors/basic/iter.cc: New.
+
+	* include/bits/alloc_traits.h (__is_allocator, _RequireAllocator):
+	New trait and alias for detecting Allocator-like types.
+	* include/bits/basic_string.h (basic_string): Add deduction guide
+	from P0433.
+	* include/ext/alloc_traits.h (__gnu_cxx::__alloc_traits): Add template
+	parameter with default template argument that causes substitution
+	failures for types that cannot be allocators.
+	* testsuite/21_strings/basic_string/cons/char/deduction.cc: New.
+	* testsuite/21_strings/basic_string/cons/wchar_t/deduction.cc: New.
+
+2017-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/80939
+	* include/std/variant (__erased_ctor, __erased_assign, __erased_swap)
+	(__erased_hash): Remove constexpr specifier and qualify calls to
+	__ref_cast.
+	(__erased_dtor): Remove constexpr specifier and use _Destroy.
+
+2017-06-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_iterator_base_funcs.h
+	(__advance<_RandomAccessIterator, _Distance>): Optimize for next/prev
+	cases where incrementing or decrementing a single step.
+
+	* include/bits/shared_ptr_base.h (__shared_ptr::owner_before)
+	(__weak_ptr::owner_before, _Sp_owner_less::operator()): Add noexcept
+	specifiers as per LWG 2873 and LWG 2942.
+	* testsuite/20_util/owner_less/noexcept.cc: New.
+	* testsuite/20_util/shared_ptr/observers/owner_before.cc: Test
+	noexcept guarantees.
+	* testsuite/20_util/weak_ptr/observers/owner_before.cc: Likewise.
+
+2017-06-03  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Update.
+
+2017-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* src/filesystem/dir.cc (fs::_Dir::advance): Use std::exchange.
+
+2017-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/80624
+	* doc/xml/manual/status_cxx2011.xml: Document to_int_type behaviour.
+	* include/bits/char_traits.h (char_traits<char16_t>::to_int_type):
+	Transform eof value to U+FFFD.
+	* testsuite/21_strings/char_traits/requirements/char16_t/eof.cc: New.
+	* testsuite/27_io/basic_streambuf/sgetc/char16_t/80624.cc: New.
+	* testsuite/27_io/basic_streambuf/sputc/char16_t/80624.cc: New.
+
+	* libsupc++/Makefile.am: Remove custom targets for files that need to
+	be compiled as C++11 or C++14.
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/del_ops.cc: Use pragma to disable -Wsized-deallocation
+	warnings.
+	* libsupc++/del_opvs.cc: Likewise.
+
+2017-06-02  Richard Biener  <rguenther@suse.de>
+	Markus Eisenmann  <meisenmann.lba@fh-salzburg.ac.at>
+
+	PR libstdc++/80721
+	* libsupc++/eh_alloc.cc (pool::free): Keep list properly
+	sorted and add missing freelist item merging cases.
+
+2017-06-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	(GLIBCXX_CROSSCONFIG): Handle *-solaris* like *-linux* etc.
+	Remove *-solaris* section.
+	* configure: Regenerate.
+
+2017-05-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/80893
+	* include/bits/stl_bvector.h (vector<bool>::_M_initialize): Avoid
+	null pointer dereference when size is zero.
+	* testsuite/23_containers/vector/bool/80893.cc: New.
+	* testsuite/util/testsuite_allocator.h (PointerBase::PointerBase):
+	Add non-explicit constructor from nullptr.
+	(PointerBase::derived() const): Add const-qualified overload.
+
 2017-05-20  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/80737

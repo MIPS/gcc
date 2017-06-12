@@ -5580,7 +5580,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       && DECL_IGNORED_P (*from_p)
       && DECL_P (*to_p)
       && !DECL_IGNORED_P (*to_p)
-      && decl_function_context (*to_p) == current_function_decl)
+      && decl_function_context (*to_p) == current_function_decl
+      && decl_function_context (*from_p) == current_function_decl)
     {
       if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
 	DECL_NAME (*from_p)
@@ -12731,7 +12732,7 @@ gimplify_function_tree (tree fndecl)
 
   pop_cfun ();
 
-  dump_function (TDI_generic, fndecl);
+  dump_function (TDI_gimple, fndecl);
 }
 
 /* Return a dummy expression of type TYPE in order to keep going after an

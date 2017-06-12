@@ -1312,11 +1312,24 @@ in order to put read-only data into the flash memory and access that
 data by means of the special instructions @code{LPM} or @code{ELPM}
 needed to read from flash.
 
-Per default, any data including read-only data is located in RAM
-(the generic address space) so that non-generic address spaces are
-needed to locate read-only data in flash memory
-@emph{and} to generate the right instructions to access this data
-without using (inline) assembler code.
+Devices belonging to @code{avrtiny} and @code{avrxmega3} can access
+flash memory by means of @code{LD*} instructions because the flash
+memory is mapped into the RAM address space.  There is @emph{no need}
+for language extensions like @code{__flash} or attribute
+@ref{AVR Variable Attributes,,@code{progmem}}.
+The default linker description files for these devices cater for that
+feature and @code{.rodata} stays in flash: The compiler just generates
+@code{LD*} instructions, and the linker script adds core specific
+offsets to all @code{.rodata} symbols: @code{0x4000} in the case of
+@code{avrtiny} and @code{0x8000} in the case of @code{avrxmega3}.
+See @ref{AVR Options} for a list of respective devices.
+
+For devices not in @code{avrtiny} or @code{avrxmega3},
+any data including read-only data is located in RAM (the generic
+address space) because flash memory is not visible in the RAM address
+space.  In order to locate read-only data in flash memory @emph{and}
+to generate the right instructions to access this data without
+using (inline) assembler code, special address spaces are needed.
 
 @table @code
 @item __flash
@@ -1447,14 +1460,11 @@ extern const __memx char foo;
 const __memx void *pfoo = &foo;
 @end smallexample
 
-@noindent
-Such code requires at least binutils 2.23, see
-@w{@uref{https://sourceware.org/PR13503,PR13503}}.
-
 @item
 On the reduced Tiny devices like ATtiny40, no address spaces are supported.
-Data can be put into and read from flash memory by means of
-attribute @code{progmem}, see @ref{AVR Variable Attributes}.
+Just use vanilla C / C++ code without overhead as outlined above.
+Attribute @code{progmem} is supported but works differently,
+see @ref{AVR Variable Attributes}.
 
 @end itemize
 
@@ -3257,7 +3267,15 @@ For instance, on an x86, you could compile a function with
 @code{target_clones("sse4.1,avx")}.  GCC creates two function clones,
 one compiled with @option{-msse4.1} and another with @option{-mavx}.
 It also creates a resolver function (see the @code{ifunc} attribute
-above) that dynamically selects a clone suitable for current architecture.
+above) that dynamically selects a clone suitable for current
+architecture.
+
+On a PowerPC, you can compile a function with
+@code{target_clones("cpu=power9,default")}.  GCC will create two
+function clones, one compiled with @option{-mcpu=power9} and another
+with the default options.  It also creates a resolver function (see
+the @code{ifunc} attribute above) that dynamically selects a clone
+suitable for current architecture.
 
 @item unused
 @cindex @code{unused} function attribute
@@ -5928,6 +5946,19 @@ normally resides in the data memory (RAM).
 See also the @ref{AVR Named Address Spaces} section for
 an alternate way to locate and access data in flash memory.
 
+@item @bullet{}@tie{} AVR cores with flash memory visible in the RAM address range:
+On such devices, there is no need for attribute @code{progmem} or
+@ref{AVR Named Address Spaces,,@code{__flash}} qualifier at all.
+Just use standard C / C++.  The compiler will generate @code{LD*}
+instructions.  As flash memory is visible in the RAM address range,
+and the default linker script does @emph{not} locate @code{.rodata} in
+RAM, no special features are needed in order not to waste RAM for
+read-only data or to read from flash.  You might even get slightly better
+performance by
+avoiding @code{progmem} and @code{__flash}.  This applies to devices from
+families @code{avrtiny} and @code{avrxmega3}, see @ref{AVR Options} for
+an overview.
+
 @item @bullet{}@tie{}Reduced AVR Tiny cores like ATtiny40:
 The compiler adds @code{0x4000}
 to the addresses of objects and declarations in @code{progmem} and locates
@@ -5949,28 +5980,7 @@ int read_var (int i)
 @end smallexample
 
 Please notice that on these devices, there is no need for @code{progmem}
-at all.  Just use an appropriate linker description file like outlined below.
-
-@smallexample
-  .text :
-  @{ ...
-  @} > text
-  /* Leave .rodata in flash and add an offset of 0x4000 to all
-     addresses so that respective objects can be accessed by
-     LD instructions and open coded C/C++.  This means there
-     is no need for progmem in the source and no overhead by
-     read-only data in RAM.  */
-  .rodata ADDR(.text) + SIZEOF (.text) + 0x4000 :
-  @{
-    *(.rodata)
-    *(.rodata*)
-    *(.gnu.linkonce.r*)
-  @} AT> text
-  /* No more need to put .rodata into .data:
-     Removed all .rodata entries from .data.  */
-  .data :
-  @{ ...
-@end smallexample
+at all.
 
 @end table
 
@@ -15872,6 +15882,22 @@ vector signed long vec_cts (vector double, const int);
 vector unsigned int vec_ctu (vector float, const int);
 vector unsigned long vec_ctu (vector double, const int);
 
+vector double vec_doublee (vector float);
+vector double vec_doublee (vector signed int);
+vector double vec_doublee (vector unsigned int);
+
+vector double vec_doubleo (vector float);
+vector double vec_doubleo (vector signed int);
+vector double vec_doubleo (vector unsigned int);
+
+vector double vec_doubleh (vector float);
+vector double vec_doubleh (vector signed int);
+vector double vec_doubleh (vector unsigned int);
+
+vector double vec_doublel (vector float);
+vector double vec_doublel (vector signed int);
+vector double vec_doublel (vector unsigned int);
+
 void vec_dss (const int);
 
 void vec_dssall (void);
@@ -16321,10 +16347,10 @@ vector signed short vec_mule (vector signed char,
 vector unsigned int vec_mule (vector unsigned short,
                               vector unsigned short);
 vector signed int vec_mule (vector signed short, vector signed short);
-vector unsigned int vec_mule (vector unsigned int,
-                              vector unsigned int);
-vector signed int vec_mule (vector signed int,
-                            vector signed int);
+vector unsigned long long vec_mule (vector unsigned int,
+                                    vector unsigned int);
+vector signed long long vec_mule (vector signed int,
+                                  vector signed int);
 
 vector signed int vec_vmulesh (vector signed short,
                                vector signed short);
@@ -16344,7 +16370,10 @@ vector signed short vec_mulo (vector signed char, vector signed char);
 vector unsigned int vec_mulo (vector unsigned short,
                               vector unsigned short);
 vector signed int vec_mulo (vector signed short, vector signed short);
-vector unsigned int vec_mulo (vector unsigned short, vector unsigned short);
+vector unsigned long long vec_mulo (vector unsigned int,
+                                    vector unsigned int);
+vector signed long long vec_mulo (vector signed int,
+                                  vector signed int);
 
 vector signed int vec_vmulosh (vector signed short,
                                vector signed short);

@@ -544,9 +544,9 @@ typedef struct _stmt_vec_info {
   gimple *vectorized_stmt;
 
 
-  /** The following is relevant only for stmts that contain a non-scalar
+  /* The following is relevant only for stmts that contain a non-scalar
      data-ref (array/pointer/struct access). A GIMPLE stmt is expected to have
-     at most one such data-ref.  **/
+     at most one such data-ref.  */
 
   /* Information about the data-ref (access function, etc),
      relative to the inner-most containing loop.  */
@@ -643,6 +643,13 @@ typedef struct _stmt_vec_info {
   /* For CONST_COND_REDUCTION, record the reduc code.  */
   enum tree_code const_cond_reduc_code;
 
+  /* On a reduction PHI the reduction type as detected by
+     vect_force_simple_reduction.  */
+  enum vect_reduction_type reduc_type;
+
+  /* On a reduction PHI the def returned by vect_force_simple_reduction.  */
+  gimple *reduc_def;
+
   /* The number of scalar stmt references from active SLP instances.  */
   unsigned int num_slp_uses;
 } *stmt_vec_info;
@@ -722,6 +729,8 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
 #define STMT_VINFO_MIN_NEG_DIST(S)	(S)->min_neg_dist
 #define STMT_VINFO_NUM_SLP_USES(S)	(S)->num_slp_uses
+#define STMT_VINFO_REDUC_TYPE(S)	(S)->reduc_type
+#define STMT_VINFO_REDUC_DEF(S)		(S)->reduc_def
 
 #define GROUP_FIRST_ELEMENT(S)          (S)->first_element
 #define GROUP_NEXT_ELEMENT(S)           (S)->next_element
@@ -984,6 +993,7 @@ dr_misalignment (struct data_reference *dr)
    taking into account peeling/versioning if applied.  */
 #define DR_MISALIGNMENT(DR) dr_misalignment (DR)
 #define SET_DR_MISALIGNMENT(DR, VAL) set_dr_misalignment (DR, VAL)
+#define DR_MISALIGNMENT_UNKNOWN (-1)
 
 /* Return TRUE if the data access is aligned, and FALSE otherwise.  */
 
@@ -999,7 +1009,7 @@ aligned_access_p (struct data_reference *data_ref_info)
 static inline bool
 known_alignment_for_access_p (struct data_reference *data_ref_info)
 {
-  return (DR_MISALIGNMENT (data_ref_info) != -1);
+  return (DR_MISALIGNMENT (data_ref_info) != DR_MISALIGNMENT_UNKNOWN);
 }
 
 
@@ -1136,11 +1146,11 @@ extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */
 extern void destroy_loop_vec_info (loop_vec_info, bool);
-extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
+extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *,
 					    bool *, bool);
 /* Drive for loop analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
-extern tree vect_build_loop_niters (loop_vec_info);
+extern tree vect_build_loop_niters (loop_vec_info, bool * = NULL);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
 /* Drive for loop transformation stage.  */
 extern struct loop *vect_transform_loop (loop_vec_info);
@@ -1149,7 +1159,8 @@ extern bool vectorizable_live_operation (gimple *, gimple_stmt_iterator *,
 					 slp_tree, int, gimple **);
 extern bool vectorizable_reduction (gimple *, gimple_stmt_iterator *,
 				    gimple **, slp_tree);
-extern bool vectorizable_induction (gimple *, gimple_stmt_iterator *, gimple **);
+extern bool vectorizable_induction (gimple *, gimple_stmt_iterator *,
+				    gimple **, slp_tree);
 extern tree get_initial_def_for_reduction (gimple *, tree, tree *);
 extern int vect_min_worthwhile_factor (enum tree_code);
 extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,

@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-offload.h"
 #include "hsa-common.h"
 #include "edit-context.h"
+#include "tree-pass.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -1063,6 +1064,15 @@ open_auxiliary_file (const char *ext)
   return file;
 }
 
+/* Auxiliary callback for the diagnostics code.  */
+
+static void
+internal_error_function (diagnostic_context *, const char *, va_list *)
+{
+  warn_if_plugins ();
+  emergency_dump_function ();
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1101,7 +1111,7 @@ general_init (const char *argv0, bool init_signals)
     = global_options_init.x_flag_diagnostics_show_option;
   global_dc->show_column
     = global_options_init.x_flag_show_column;
-  global_dc->internal_error = plugins_internal_error_function;
+  global_dc->internal_error = internal_error_function;
   global_dc->option_enabled = option_enabled;
   global_dc->option_state = &global_options;
   global_dc->option_name = option_name;
@@ -1158,9 +1168,9 @@ general_init (const char *argv0, bool init_signals)
      dump manager.  */
   g = new gcc::context ();
 
-  /* Allow languages to register their dumps before the optimization
-     passes.  */
-  lang_hooks.register_dumps (g->get_dumps ());
+  /* Allow languages and middle-end to register their dumps before the
+     optimization passes.  */
+  g->get_dumps ()->register_dumps ();
 
   /* Create the passes.  */
   g->set_passes (new gcc::pass_manager (g));
