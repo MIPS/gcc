@@ -47,8 +47,7 @@ MIPS_CPU ("mips32r2", PROCESSOR_74KF2_1, 33, PTF_AVOID_BRANCHLIKELY_ALWAYS)
 /* mips32r3 is micromips hense why it uses the M4K processor.  */
 MIPS_CPU ("mips32r3", PROCESSOR_M4K, 34, PTF_AVOID_BRANCHLIKELY_ALWAYS)
 MIPS_CPU ("mips32r5", PROCESSOR_P5600, 36, PTF_AVOID_BRANCHLIKELY_ALWAYS)
-/* FORNOW: Change to PROCESSOR_I7001 after we have a scheduler in place.  */
-MIPS_CPU ("mips32r6", PROCESSOR_24KC, 37, 0)
+MIPS_CPU ("mips32r6", PROCESSOR_I6400, 37, 0)
 MIPS_CPU ("mips64", PROCESSOR_5KC, 64, PTF_AVOID_BRANCHLIKELY_ALWAYS)
 /* ??? For now just tune the generic MIPS64r2 and above for 5KC as well.   */
 MIPS_CPU ("mips64r2", PROCESSOR_5KC, 65, PTF_AVOID_BRANCHLIKELY_ALWAYS)
@@ -156,12 +155,6 @@ MIPS_CPU ("m5101", PROCESSOR_M5100, 36, PTF_AVOID_BRANCHLIKELY_SPEED)
 
 /* MIPS32 Release 6 processors.  */
 MIPS_CPU ("m6201", PROCESSOR_M6200, 37, 0)
-
-/* MIPS32 Release 7 processors.  */
-/* FORNOW: Change to PROCESSOR_I7001 after we have a scheduler in place.  */
-MIPS_CPU ("i7001", PROCESSOR_24KC, 38, 0)
-/* FORNOW: Dummy processor tuned to generic scheduler.  */
-MIPS_CPU ("m7001", PROCESSOR_M7001, 38, 0)
 
 /* MIPS64 processors.  */
 MIPS_CPU ("5kc", PROCESSOR_5KC, 64, 0)

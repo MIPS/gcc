@@ -24,6 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config/vxworks-dummy.h"
 
+/* FIXME: We may well move these to the configure to avoid
+   defining/undefining macros.  */
+#define MIPS_SUPPORT_DSP
+#define MIPS_SUPPORT_PS_3D
+#define MIPS_SUPPORT_MSA
+#define MIPS_SUPPORT_LOONGSON
+#define MIPS_SUPPORT_MICROMIPS
+#define MIPS_SUPPORT_LEGACY
+#define MIPS_SUPPORT_FRAME_HEADER_OPT
+
 #ifdef GENERATOR_FILE
 /* This is used in some insn conditions, so needs to be declared, but
    does not need to be defined.  */
@@ -236,8 +246,7 @@ struct mips_cpu_info {
 				     || ISA_HAS_MSA))
 
 /* The ISA compression flags that are currently in effect.  */
-#define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS \
-					    | MASK_NANOMIPS))
+#define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
 
 /* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
@@ -312,6 +321,15 @@ struct mips_cpu_info {
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
 #define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
+/* TARGET_NANOMIPS specifies the ISA level:
+   0 - non-nanoMIPS target
+   1 - nanoMIPS Subset (NMS)
+   2 - full nanoMIPS (NMF)
+*/
+#define TARGET_NANOMIPS		    0
+#define NANOMIPS_NMS		    1
+#define NANOMIPS_NMF		    2
+
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
 #define TUNE_24K		    (mips_tune == PROCESSOR_24KC	\
@@ -343,6 +361,7 @@ struct mips_cpu_info {
 #define TUNE_P5600                  (mips_tune == PROCESSOR_P5600)
 #define TUNE_I6400                  (mips_tune == PROCESSOR_I6400)
 #define TUNE_P6600                  (mips_tune == PROCESSOR_P6600)
+#define TUNE_NANOMIPS64R6	    0
 
 /* Whether vector modes and intrinsics for ST Microelectronics
    Loongson-2E/2F processors should be enabled.  In o32 pairs of
@@ -442,15 +461,11 @@ struct mips_cpu_info {
     }								\
   while (0)
 
-/* ISA has instructions that can be excluded for low power for nanoMIPS.  */
-#define ISA_HAS_XLP		((mips_isa_rev <= 6 && !TARGET_NANOMIPS)\
-				 || (TARGET_NANOMIPS && TARGET_EXLP))
-
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()					\
   do									\
     {									\
-      if (mips_base_compression_flags && MASK_NANOMIPS)			\
+      if (TARGET_NANOMIPS)						\
 	builtin_define ("__nanomips__");				\
       else								\
 	{								\
@@ -568,8 +583,8 @@ struct mips_cpu_info {
 	  builtin_define ("__mips=64");					\
 	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");		\
 	}								\
-      if (ISA_HAS_XLP && TARGET_EXLP)					\
-	  builtin_define ("__mips_xlp");				\
+      if (TARGET_NANOMIPS == NANOMIPS_NMS)				\
+	  builtin_define ("__nanomips_subset");				\
       if (mips_isa_rev > 0)						\
 	builtin_define_with_int_value ("__mips_isa_rev",		\
 				       mips_isa_rev);			\
@@ -644,7 +659,7 @@ struct mips_cpu_info {
 									\
       if (TARGET_BIG_ENDIAN)						\
 	{								\
-	  if (mips_base_compression_flags && MASK_NANOMIPS)		\
+	  if (TARGET_NANOMIPS)						\
 	    builtin_define ("__MIPSEB__");				\
 	  else								\
 	    builtin_define_std ("MIPSEB");				\
@@ -652,7 +667,7 @@ struct mips_cpu_info {
 	}								\
       else								\
 	{								\
-	  if (mips_base_compression_flags && MASK_NANOMIPS)		\
+	  if (TARGET_NANOMIPS)						\
 	    builtin_define ("__MIPSEL__");				\
 	  else								\
 	    builtin_define_std ("MIPSEL");				\
@@ -662,7 +677,7 @@ struct mips_cpu_info {
       if (TARGET_SYNCI)							\
 	builtin_define ("__mips_synci");				\
 									\
-      if ((mips_base_compression_flags && MASK_NANOMIPS) == 0)		\
+      if (!TARGET_NANOMIPS)						\
 	{								\
 	  /* Whether calls should go through $25.  The separate __PIC__	\
 	     macro indicates whether abicalls code might use a GOT.  */	\
@@ -771,12 +786,16 @@ struct mips_cpu_info {
 #define MULTILIB_ISA_DEFAULT "mips32r2"
 #elif MIPS_ISA_DEFAULT == 37
 #define MULTILIB_ISA_DEFAULT "mips32r6"
+#elif MIPS_ISA_DEFAULT == 38
+#define MULTILIB_ISA_DEFAULT "32r6"
 #elif MIPS_ISA_DEFAULT == 64
 #define MULTILIB_ISA_DEFAULT "mips64"
 #elif MIPS_ISA_DEFAULT == 65
 #define MULTILIB_ISA_DEFAULT "mips64r2"
 #elif MIPS_ISA_DEFAULT == 69
 #define MULTILIB_ISA_DEFAULT "mips64r6"
+#elif MIPS_ISA_DEFAULT == 70
+#define MULTILIB_ISA_DEFAULT "64r6"
 #else
 #define MULTILIB_ISA_DEFAULT "mips1"
 #endif
@@ -950,21 +969,20 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
-  "%{mips32r6: %{!mno-nanomips: -mnanomips} \
-	       %{!mcheck-zero-division: -mno-check-zero-division} \
-	       %{!mno-explicit-relocs: -mexplicit-relocs} \
-	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
-	       %{!mno-xlp: -mxlp} \
-	       %{!mcode-readable*: -mcode-readable=no} \
-	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
-  "%{!mno-xlp: %{mips32r6: %{!march=m7001: -mxlp}}}"  \
+  "%{march=32r6|march=32r6s|march=64r6: \
+     %{!mcheck-zero-division: -mno-check-zero-division} \
+     %{!mno-explicit-relocs: -mexplicit-relocs} \
+     %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
+     %{!mcode-readable*: -mcode-readable=no} \
+     %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
      %{mips32r6|mips64r6: \
-       %{mmicromips|mnanomips:-mno-forbidden-slots}}}" \
+       %{mmicromips:-mno-forbidden-slots}} \
+    %{march=32r6|march=32r6s|march=64r6: -mno-forbidden-slots}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
@@ -1029,9 +1047,9 @@ struct mips_cpu_info {
 				 || TARGET_MIPS5900)
 
 /* ISA has ADDIU48 instruction.  */
-#define ISA_HAS_ADDIU48		(TARGET_NANOMIPS && ISA_HAS_XLP)
+#define ISA_HAS_ADDIU48		(TARGET_NANOMIPS == NANOMIPS_NMF)
 /* ISA has ADDU[4X4] instruction.  */
-#define ISA_HAS_ADDU4X4		(TARGET_NANOMIPS && ISA_HAS_XLP)
+#define ISA_HAS_ADDU4X4		(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
@@ -1046,7 +1064,7 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 /* ISA has a 16-bit two-operand multiplication instruction.  */
-#define ISA_HAS_MUL4X4		(TARGET_NANOMIPS && ISA_HAS_XLP)
+#define ISA_HAS_MUL4X4		(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* ISA has a three-operand multiplication instruction.  */
 #define ISA_HAS_DMUL3		(TARGET_64BIT				\
@@ -1144,9 +1162,10 @@ struct mips_cpu_info {
 				 && !TARGET_OCTEON)
 
 /* ISA has conditional trap instructions.  */
-#define ISA_HAS_COND_TRAP	(!ISA_MIPS1				\
-				 && !TARGET_MIPS16			\
-				 && ISA_HAS_XLP)
+#define ISA_HAS_COND_TRAP	(!ISA_MIPS1				  \
+				 && !TARGET_MIPS16			  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has conditional trap with immediate instructions.  */
 #define ISA_HAS_COND_TRAPI	(!ISA_MIPS1				\
@@ -1196,9 +1215,9 @@ struct mips_cpu_info {
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
 #define ISA_HAS_MOVEP		(TARGET_MICROMIPS			\
-				 || (TARGET_NANOMIPS && ISA_HAS_XLP))
-#define ISA_HAS_MOVEP_REV	(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_UALW_UASW	(TARGET_NANOMIPS && ISA_HAS_XLP)
+				 || (TARGET_NANOMIPS == NANOMIPS_NMF))
+#define ISA_HAS_MOVEP_REV	(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_UALW_UASW	(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 #define ISA_HAS_LWP_SWP		(TARGET_MICROMIPS && mips_isa_rev <= 6 \
 				 || TARGET_LWP_SWP)
@@ -1208,7 +1227,9 @@ struct mips_cpu_info {
 #define ISA_HAS_IEEE_754_2008	(mips_isa_rev >= 2)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
-#define ISA_HAS_CLZ_CLO		(mips_isa_rev >= 1 && !TARGET_MIPS16 && ISA_HAS_XLP)
+#define ISA_HAS_CLZ_CLO		(mips_isa_rev >= 1 && !TARGET_MIPS16	  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has three operand multiply instructions that put
    the high part in an accumulator: mulhi or mulhiu.  */
@@ -1255,7 +1276,9 @@ struct mips_cpu_info {
 
 /* ISA has the WSBH (word swap bytes within halfwords) instruction.
    64-bit targets also provide DSBH and DSHD.  */
-#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16 && ISA_HAS_XLP)
+#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16	  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
@@ -1280,13 +1303,16 @@ struct mips_cpu_info {
 #define ISA_HAS_TRUNC_W		(!ISA_MIPS1)
 
 /* ISA includes the MIPS32r2 seb and seh instructions.  */
-#define ISA_HAS_SEB		(mips_isa_rev >= 2 && !TARGET_MIPS16 && ISA_HAS_XLP)
+#define ISA_HAS_SEB		(mips_isa_rev >= 2 && !TARGET_MIPS16	  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 #define ISA_HAS_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
 #define ISA_HAS_EXT_INS		(((mips_isa_rev >= 2 && !TARGET_MIPS16) \
 				  || ISA_HAS_MIPS16E2) \
-				 && ISA_HAS_XLP)
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
@@ -1300,20 +1326,20 @@ struct mips_cpu_info {
 				 || (TARGET_MICROMIPS && mips_isa_rev <= 5) \
 				 || TARGET_NANOMIPS) \
 				 && !TARGET_MIPS16)
-#define ISA_HAS_LWC1XS		(TARGET_NANOMIPS && TARGET_HARD_FLOAT)
+#define ISA_HAS_LWC1XS		(TARGET_HARD_FLOAT && TARGET_NANOMIPS)
 #define ISA_HAS_LWUXS		(TARGET_64BIT && TARGET_NANOMIPS)
 #define ISA_HAS_LDXS		(TARGET_64BIT && TARGET_NANOMIPS)
-#define ISA_HAS_LDC1XS		(TARGET_NANOMIPS && TARGET_HARD_FLOAT)
+#define ISA_HAS_LDC1XS		(TARGET_HARD_FLOAT && TARGET_NANOMIPS)
 
 /* ISA has shxs, swxs, sdxs instruction (store) w/scaled index address.  */
-#define ISA_HAS_SHXS		(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_SWXS		(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_SWC1XS		(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
-				 && ISA_HAS_XLP)
-#define ISA_HAS_SDXS		(TARGET_64BIT && TARGET_NANOMIPS	  \
-				 && ISA_HAS_XLP)
-#define ISA_HAS_SDC1XS		(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
-				 && ISA_HAS_XLP)
+#define ISA_HAS_SHXS		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWXS		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWC1XS		(TARGET_HARD_FLOAT			  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDXS		(TARGET_64BIT				  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDC1XS		(TARGET_HARD_FLOAT			  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* ISA has lbx, lbux, lhx, lhux, lwx, lwux, or ldx instruction. */
 #define ISA_HAS_LBX		(TARGET_OCTEON2				  \
@@ -1331,20 +1357,20 @@ struct mips_cpu_info {
 #define ISA_HAS_LDX		((ISA_HAS_DSP || TARGET_OCTEON2		  \
 				  || TARGET_NANOMIPS) \
 				 && TARGET_64BIT)
-#define ISA_HAS_LDC1X		(TARGET_NANOMIPS && TARGET_HARD_FLOAT)
+#define ISA_HAS_LDC1X		(TARGET_HARD_FLOAT && TARGET_NANOMIPS)
 
 /* ISA has sbx, shx, swx, sdx instruction. */
-#define ISA_HAS_SBX		(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_SHX		(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_SWX		(TARGET_NANOMIPS && ISA_HAS_XLP)
-#define ISA_HAS_SWC1X		(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
-				 && ISA_HAS_XLP)
-#define ISA_HAS_SDX		(TARGET_64BIT && TARGET_NANOMIPS	  \
-				 && ISA_HAS_XLP)
-#define ISA_HAS_SDC1X		(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
-				 && ISA_HAS_XLP)
+#define ISA_HAS_SBX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SHX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWC1X		(TARGET_HARD_FLOAT			  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDX		(TARGET_64BIT				  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDC1X		(TARGET_HARD_FLOAT			  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
 
-#define ISA_HAS_INDEX_LDST	(TARGET_NANOMIPS && ISA_HAS_XLP)
+#define ISA_HAS_INDEX_LDST	(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* The DSP ASE is available.  */
 #define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
@@ -1500,11 +1526,10 @@ struct mips_cpu_info {
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
-%{mnanomips} %{mno-nanomips} \
+%{march=32r6|march=64r6: -mnanomips -mxlp} \
 %{mips3d} %{mno-mips3d:-no-mips3d} \
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
-%{mxlp} %{mno-xlp} \
 %{mdspr2} %{mno-dspr2} \
 %{mdspr3} %{mno-dspr3} \
 %{mmcu} %{mno-mcu} \
@@ -1756,8 +1781,7 @@ FP_ASM_SPEC "\
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY ((mips_base_compression_flags & MASK_NANOMIPS) \
-			   ? 16 : 32)
+#define FUNCTION_BOUNDARY (TARGET_NANOMIPS ? 16 : 32)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -3484,7 +3508,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
 extern GTY(()) struct target_globals *micromips_globals;
-extern GTY(()) struct target_globals *nanomips_globals;
 
 /* Information about a function's frame layout.  */
 struct GTY(())  mips_frame_info {

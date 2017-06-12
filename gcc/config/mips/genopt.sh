@@ -120,4 +120,4 @@ function write_all_arch_values(name, value)
     gsub("\"", "", name)
     write_all_arch_values(name, value)
     value++
-}' $1/mips-cpus.def
+}' ${1}/${2}-cpus.def

@@ -309,10 +309,6 @@ mmicromips
 Target Report Mask(MICROMIPS)
 Use microMIPS instructions.
 
-mnanomips
-Target Report Mask(NANOMIPS)
-Use nanoMIPS instructions.
-
 mmsa
 Target Report Var(TARGET_MSA)
 Use MIPS MSA Extension instructions.
@@ -435,7 +431,7 @@ Target Report Mask(ODD_SPREG)
 Enable use of odd-numbered single-precision registers.
 
 mframe-header-opt
-Target Report Var(flag_frame_header_optimization) Optimization
+Target Report Var(flag_frame_header_optimization) Optimization Condition(MIPS_SUPPORT_FRAME_HEADER_OPT)
 Optimize frame header.
 
 mgrow-frame-downwards
@@ -571,9 +567,6 @@ Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
 
 mopt-movep
 Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
-
-mxlp
-Target Var(TARGET_EXLP) Init(0)
 
 madd-lwp-swp
 Target Undocumented Var(TARGET_LWP_SWP) Init (0)

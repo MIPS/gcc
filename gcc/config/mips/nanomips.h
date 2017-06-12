@@ -17,7 +17,134 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define NANOMIPS_SUPPORT
+
+#undef MIPS_SUPPORT_DSP
+#undef MIPS_SUPPORT_PS_3D
+#undef MIPS_SUPPORT_MSA
+#undef MIPS_SUPPORT_LOONGSON
+#undef MIPS_SUPPORT_MICROMIPS
+#undef MIPS_SUPPORT_LEGACY
+#undef MIPS_SUPPORT_FRAME_HEADER_OPT
+
+/* Architecture target defines.  */
+#undef TARGET_LOONGSON_2E
+#define TARGET_LOONGSON_2E	    0
+#undef TARGET_LOONGSON_2F
+#define TARGET_LOONGSON_2F	    0
+#undef TARGET_LOONGSON_2EF
+#define TARGET_LOONGSON_2EF	    (TARGET_LOONGSON_2E || TARGET_LOONGSON_2F)
+#undef TARGET_LOONGSON_3A
+#define TARGET_LOONGSON_3A	    0
+#undef TARGET_MIPS3900
+#define TARGET_MIPS3900		    0
+#undef TARGET_MIPS4000
+#define TARGET_MIPS4000		    0
+#undef TARGET_MIPS4120
+#define TARGET_MIPS4120		    0
+#undef TARGET_MIPS4130
+#define TARGET_MIPS4130		    0
+#undef TARGET_MIPS5400
+#define TARGET_MIPS5400		    0
+#undef TARGET_MIPS5500
+#define TARGET_MIPS5500		    0
+#undef TARGET_MIPS5900
+#define TARGET_MIPS5900		    0
+#undef TARGET_MIPS7000
+#define TARGET_MIPS7000		    0
+#undef TARGET_MIPS8000
+#define TARGET_MIPS8000		    0
+#undef TARGET_MIPS9000
+#define TARGET_MIPS9000		    0
+#undef TARGET_OCTEON
+#define TARGET_OCTEON		    0
+#undef TARGET_OCTEON2
+#define TARGET_OCTEON2		    0
+#undef TARGET_SB1
+#define TARGET_SB1		    0
+#undef TARGET_SR71K
+#define TARGET_SR71K		    0
+#undef TARGET_XLP
+#define TARGET_XLP		    0
+#undef TARGET_INTERAPTIV_MR2
+#define TARGET_INTERAPTIV_MR2	    0
+
+#undef TARGET_NANOMIPS
+#define TARGET_NANOMIPS		    ((mips_arch == PROCESSOR_32R6S	\
+				      || mips_arch == PROCESSOR_M6001)	\
+				     ? NANOMIPS_NMS			\
+				     : (mips_arch == PROCESSOR_32R6	\
+					|| mips_arch == PROCESSOR_64R6	\
+					|| mips_arch == PROCESSOR_I6001)\
+					? NANOMIPS_NMF : 0)
+
+/* Scheduling target defines.  */
+#undef TUNE_20KC
+#define TUNE_20KC		    0
+#undef TUNE_24K
+#define TUNE_24K		    0
+#undef TUNE_74K
+#define TUNE_74K		    0
+#undef TUNE_LOONGSON_2EF
+#define TUNE_LOONGSON_2EF	    0
+#undef TUNE_LOONGSON_3A
+#define TUNE_LOONGSON_3A	    0
+#undef TUNE_MIPS3000
+#define TUNE_MIPS3000		    0
+#undef TUNE_MIPS3900
+#define TUNE_MIPS3900		    0
+#undef TUNE_MIPS4000
+#define TUNE_MIPS4000		    0
+#undef TUNE_MIPS4120
+#define TUNE_MIPS4120		    0
+#undef TUNE_MIPS4130
+#define TUNE_MIPS4130		    0
+#undef TUNE_MIPS5000
+#define TUNE_MIPS5000		    0
+#undef TUNE_MIPS5400
+#define TUNE_MIPS5400		    0
+#undef TUNE_MIPS5500
+#define TUNE_MIPS5500		    0
+#undef TUNE_MIPS6000
+#define TUNE_MIPS6000		    0
+#undef TUNE_MIPS7000
+#define TUNE_MIPS7000		    0
+#undef TUNE_MIPS9000
+#define TUNE_MIPS9000		    0
+#undef TUNE_OCTEON
+#define TUNE_OCTEON		    0
+#undef TUNE_SB1
+#define TUNE_SB1		    0
+#undef TUNE_P5600
+#define TUNE_P5600		    0
+#undef TUNE_I6400
+#define TUNE_I6400		    0
+#undef TUNE_P6600
+#define TUNE_P6600		    0
+#undef TUNE_NANOMIPS64R6
+#define TUNE_NANOMIPS64R6	    (mips_tune == PROCESSOR_64R6)
+
+/* Currently, querying of DFA is only needed for Loongson.  */
+#undef CPU_UNITS_QUERY
+
 #undef MULTILIB_DEFAULTS
+
+#undef MIPS_ISA_LEVEL_SPEC
+#define MIPS_ISA_LEVEL_SPEC \
+  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
+     %{march=i6001|march=m6001: -march=32r6}}"
+
+/* A spec that injects the default multilib ISA if no architecture is
+   specified.  */
+
+#undef MIPS_DEFAULT_ISA_LEVEL_SPEC
+#define MIPS_DEFAULT_ISA_LEVEL_SPEC \
+  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
+     %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
+
+#undef MIPS_32BIT_OPTION_SPEC
+#define MIPS_32BIT_OPTION_SPEC \
+  "march=32r6"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
@@ -49,8 +176,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %(endian_spec) \
-%{!mips32r6: %{!mips64r6: %{G*}}} \
-%{mips1} %{mips2} %{mips3} %{mips4} %{mips32*} %{mips64*} \
 %{shared}"
 
 #undef DEFAULT_SIGNED_CHAR
@@ -96,3 +221,6 @@ along with GCC; see the file COPYING3.  If not see
 #define CTOR_LIST_END	/* empty */
 #define DTOR_LIST_BEGIN asm (DTORS_SECTION_ASM_OP)
 #define DTOR_LIST_END	/* empty */
+
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE nanomips_attribute_table
