@@ -4357,6 +4357,29 @@ cp_build_binary_op (location_t location,
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
+      if (TREE_CODE (op0) == SIZEOF_EXPR && TREE_CODE (op1) == SIZEOF_EXPR)
+	{
+	  tree type0 = TREE_OPERAND (op0, 0);
+	  tree type1 = TREE_OPERAND (op1, 0);
+	  tree first_arg = type0;
+	  if (!TYPE_P (type0))
+	    type0 = TREE_TYPE (type0);
+	  if (!TYPE_P (type1))
+	    type1 = TREE_TYPE (type1);
+	  if (POINTER_TYPE_P (type0) && same_type_p (TREE_TYPE (type0), type1)
+	      && !(TREE_CODE (first_arg) == PARM_DECL
+		   && DECL_ARRAY_PARAMETER_P (first_arg)
+		   && warn_sizeof_array_argument)
+	      && (complain & tf_warning))
+	    if (warning_at (location, OPT_Wsizeof_pointer_div,
+			    "division %<sizeof (%T) / sizeof (%T)%> does "
+			    "not compute the number of array elements",
+			    type0, type1))
+	      if (DECL_P (first_arg))
+		inform (DECL_SOURCE_LOCATION (first_arg),
+			"first %<sizeof%> operand was declared here");
+	}
+
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
 	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
@@ -5040,7 +5063,7 @@ cp_build_binary_op (location_t location,
       result_type = cp_common_type (type0, type1);
       if (complain & tf_warning)
 	do_warn_double_promotion (result_type, type0, type1,
-				  "implicit conversion from %qT to %qT "
+				  "implicit conversion from %qH to %qI "
 				  "to match other operand of binary "
 				  "expression",
 				  location);
@@ -6687,12 +6710,13 @@ tree
 convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 		bool c_cast_p, tsubst_flags_t complain)
 {
+  if (same_type_p (type, TREE_TYPE (expr)))
+    return expr;
+
   if (TYPE_PTRDATAMEM_P (type))
     {
       tree delta;
 
-      if (TREE_CODE (expr) == PTRMEM_CST)
-	expr = cplus_expand_constant (expr);
       delta = get_delta_difference (TYPE_PTRMEM_CLASS_TYPE (TREE_TYPE (expr)),
 				    TYPE_PTRMEM_CLASS_TYPE (type),
 				    allow_inverse_p,
@@ -6704,6 +6728,8 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 	{
 	  tree cond, op1, op2;
 
+	  if (TREE_CODE (expr) == PTRMEM_CST)
+	    expr = cplus_expand_constant (expr);
 	  cond = cp_build_binary_op (input_location,
 				     EQ_EXPR,
 				     expr,
@@ -7076,7 +7102,7 @@ convert_member_func_to_ptr (tree type, tree expr, tsubst_flags_t complain)
 
   if (pedantic || warn_pmf2ptr)
     pedwarn (input_location, pedantic ? OPT_Wpedantic : OPT_Wpmf_conversions,
-	     "converting from %qT to %qT", intype, type);
+	     "converting from %qH to %qI", intype, type);
 
   if (TREE_CODE (intype) == METHOD_TYPE)
     expr = build_addr_func (expr, complain);
@@ -7202,7 +7228,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (TYPE_PRECISION (type) < TYPE_PRECISION (intype))
         {
           if (complain & tf_error)
-            permerror (input_location, "cast from %qT to %qT loses precision",
+            permerror (input_location, "cast from %qH to %qI loses precision",
                        intype, type);
           else
             return error_mark_node;
@@ -7242,7 +7268,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && COMPLETE_TYPE_P (TREE_TYPE (type))
 	  && COMPLETE_TYPE_P (TREE_TYPE (intype))
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (intype)))
-	warning (OPT_Wcast_align, "cast from %qT to %qT "
+	warning (OPT_Wcast_align, "cast from %qH to %qI "
                  "increases required alignment of target type", intype, type);
 
       /* We need to strip nops here, because the front end likes to
@@ -8569,33 +8595,33 @@ convert_for_assignment (tree type, tree rhs,
 		    return r;
 		}
 	      else if (fndecl)
-		error ("cannot convert %qT to %qT for argument %qP to %qD",
+		error ("cannot convert %qH to %qI for argument %qP to %qD",
 		       rhstype, type, parmnum, fndecl);
 	      else
 		switch (errtype)
 		  {
 		    case ICR_DEFAULT_ARGUMENT:
-		      error ("cannot convert %qT to %qT in default argument",
+		      error ("cannot convert %qH to %qI in default argument",
 			     rhstype, type);
 		      break;
 		    case ICR_ARGPASS:
-		      error ("cannot convert %qT to %qT in argument passing",
+		      error ("cannot convert %qH to %qI in argument passing",
 			     rhstype, type);
 		      break;
 		    case ICR_CONVERTING:
-		      error ("cannot convert %qT to %qT",
+		      error ("cannot convert %qH to %qI",
 			     rhstype, type);
 		      break;
 		    case ICR_INIT:
-		      error ("cannot convert %qT to %qT in initialization",
+		      error ("cannot convert %qH to %qI in initialization",
 			     rhstype, type);
 		      break;
 		    case ICR_RETURN:
-		      error ("cannot convert %qT to %qT in return",
+		      error ("cannot convert %qH to %qI in return",
 			     rhstype, type);
 		      break;
 		    case ICR_ASSIGN:
-		      error ("cannot convert %qT to %qT in assignment",
+		      error ("cannot convert %qH to %qI in assignment",
 			     rhstype, type);
 		      break;
 		    default:

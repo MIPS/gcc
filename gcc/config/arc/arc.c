@@ -1548,7 +1548,14 @@ arc_conditional_register_usage (void)
       /* For ARCv2 the core register set is changed.  */
       strcpy (rname29, "ilink");
       strcpy (rname30, "r30");
-      fixed_regs[30] = call_used_regs[30] = 1;
+      call_used_regs[30] = 1;
+      fixed_regs[30] = 0;
+
+      arc_regno_reg_class[30] = WRITABLE_CORE_REGS;
+      SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], 30);
+      SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], 30);
+      SET_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], 30);
+      SET_HARD_REG_BIT (reg_class_contents[MPY_WRITABLE_CORE_REGS], 30);
    }
 
   if (TARGET_MUL64_SET)
@@ -2961,7 +2968,15 @@ arc_expand_prologue (void)
   frame_size_to_allocate -= first_offset;
   /* Allocate the stack frame.  */
   if (frame_size_to_allocate > 0)
-    frame_stack_add ((HOST_WIDE_INT) 0 - frame_size_to_allocate);
+    {
+      frame_stack_add ((HOST_WIDE_INT) 0 - frame_size_to_allocate);
+      /* If the frame pointer is needed, emit a special barrier that
+	 will prevent the scheduler from moving stores to the frame
+	 before the stack adjustment.  */
+      if (arc_frame_pointer_needed ())
+	emit_insn (gen_stack_tie (stack_pointer_rtx,
+				  hard_frame_pointer_rtx));
+    }
 
   /* Setup the gp register, if needed.  */
   if (crtl->uses_pic_offset_table)
@@ -3480,6 +3495,14 @@ arc_print_operand (FILE *file, rtx x, int code)
 	fprintf (file, "%d",exact_log2(INTVAL (x)) );
       else
 	output_operand_lossage ("invalid operand to %%z code");
+
+      return;
+
+    case 'c':
+      if (GET_CODE (x) == CONST_INT)
+        fprintf (file, "%d", INTVAL (x) );
+      else
+        output_operand_lossage ("invalid operands to %%c code");
 
       return;
 
@@ -4621,7 +4644,7 @@ arc_final_prescan_insn (rtx_insn *insn, rtx *opvec ATTRIBUTE_UNUSED,
 static bool
 arc_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
 {
-  return to == FRAME_POINTER_REGNUM || !arc_frame_pointer_required ();
+  return ((to == FRAME_POINTER_REGNUM) || !arc_frame_pointer_needed ());
 }
 
 /* Define the offset between two registers, one to be eliminated, and
@@ -4895,8 +4918,10 @@ arc_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	*total = COSTS_N_INSNS (2);
       return false;
     case PLUS:
-      if (GET_CODE (XEXP (x, 0)) == MULT
-	  && _2_4_8_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
+      if ((GET_CODE (XEXP (x, 0)) == ASHIFT
+	   && _1_2_3_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
+          || (GET_CODE (XEXP (x, 0)) == MULT
+              && _2_4_8_operand (XEXP (XEXP (x, 0), 1), VOIDmode)))
 	{
 	  *total += (rtx_cost (XEXP (x, 1), mode, PLUS, 0, speed)
 		     + rtx_cost (XEXP (XEXP (x, 0), 0), mode, PLUS, 1, speed));
@@ -4904,8 +4929,10 @@ arc_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	}
       return false;
     case MINUS:
-      if (GET_CODE (XEXP (x, 1)) == MULT
-	  && _2_4_8_operand (XEXP (XEXP (x, 1), 1), VOIDmode))
+      if ((GET_CODE (XEXP (x, 1)) == ASHIFT
+	   && _1_2_3_operand (XEXP (XEXP (x, 1), 1), VOIDmode))
+          || (GET_CODE (XEXP (x, 1)) == MULT
+              && _2_4_8_operand (XEXP (XEXP (x, 1), 1), VOIDmode)))
 	{
 	  *total += (rtx_cost (XEXP (x, 0), mode, PLUS, 0, speed)
 		     + rtx_cost (XEXP (XEXP (x, 1), 0), mode, PLUS, 1, speed));

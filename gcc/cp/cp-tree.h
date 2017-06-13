@@ -460,6 +460,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    TYPE_LANG_SLOT_1
      For an ENUMERAL_TYPE, this is ENUM_TEMPLATE_INFO.
      For a FUNCTION_TYPE or METHOD_TYPE, this is TYPE_RAISES_EXCEPTIONS
+     For a POINTER_TYPE (to a METHOD_TYPE), this is TYPE_PTRMEMFUNC_TYPE
 
   BINFO_VIRTUALS
      For a binfo, this is a TREE_LIST.  There is an entry for each
@@ -535,11 +536,9 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 struct GTY(()) lang_identifier {
   struct c_common_identifier c_common;
-  cxx_binding *namespace_bindings;
   cxx_binding *bindings;
   tree class_template_info;
   tree label_value;
-  bool oracle_looked_up;
 };
 
 /* Return a typed pointer version of T if it designates a
@@ -693,7 +692,8 @@ struct GTY(()) tree_overload {
   tree function;
 };
 
-/* Iterator for a 1 dimensional overload. */
+/* Iterator for a 1 dimensional overload.  Permits iterating over the
+   outer level of a 2-d overload when explicitly enabled.  */
 
 class ovl_iterator 
 {
@@ -965,13 +965,11 @@ enum GTY(()) abstract_class_use {
 
 /* Macros for access to language-specific slots in an identifier.  */
 
-#define IDENTIFIER_NAMESPACE_BINDINGS(NODE)	\
-  (LANG_IDENTIFIER_CAST (NODE)->namespace_bindings)
 #define IDENTIFIER_TEMPLATE(NODE)	\
   (LANG_IDENTIFIER_CAST (NODE)->class_template_info)
 
 /* The IDENTIFIER_BINDING is the innermost cxx_binding for the
-    identifier.  It's PREVIOUS is the next outermost binding.  Each
+    identifier.  Its PREVIOUS is the next outermost binding.  Each
     VALUE field is a DECL for the associated declaration.  Thus,
     name lookup consists simply of pulling off the node at the front
     of the list (modulo oddities for looking up the names of types,
@@ -1455,6 +1453,7 @@ union GTY((desc ("cp_tree_node_structure (&%h)"),
     userdef_literal;
 };
 
+
 /* Global state.  */
 
 struct GTY(()) saved_scope {
@@ -1851,22 +1850,6 @@ struct GTY (()) tree_pair_s {
 };
 typedef tree_pair_s *tree_pair_p;
 
-/* This is a few header flags for 'struct lang_type'.  Actually,
-   all but the first are used only for lang_type_class; they
-   are put in this structure to save space.  */
-struct GTY(()) lang_type_header {
-  BOOL_BITFIELD is_lang_type_class : 1;
-
-  BOOL_BITFIELD has_type_conversion : 1;
-  BOOL_BITFIELD has_copy_ctor : 1;
-  BOOL_BITFIELD has_default_ctor : 1;
-  BOOL_BITFIELD const_needs_init : 1;
-  BOOL_BITFIELD ref_needs_init : 1;
-  BOOL_BITFIELD has_const_copy_assign : 1;
-
-  BOOL_BITFIELD spare : 1;
-};
-
 /* This structure provides additional information above and beyond
    what is provide in the ordinary tree_type.  In the past, we used it
    for the types of class types, template parameters types, typename
@@ -1880,10 +1863,16 @@ struct GTY(()) lang_type_header {
    many (i.e., thousands) of classes can easily be generated.
    Therefore, we should endeavor to keep the size of this structure to
    a minimum.  */
-struct GTY(()) lang_type_class {
-  struct lang_type_header h;
-
+struct GTY(()) lang_type {
   unsigned char align;
+
+  unsigned has_type_conversion : 1;
+  unsigned has_copy_ctor : 1;
+  unsigned has_default_ctor : 1;
+  unsigned const_needs_init : 1;
+  unsigned ref_needs_init : 1;
+  unsigned has_const_copy_assign : 1;
+  unsigned use_template : 2;
 
   unsigned has_mutable : 1;
   unsigned com_interface : 1;
@@ -1901,6 +1890,7 @@ struct GTY(()) lang_type_class {
   unsigned anon_aggr : 1;
   unsigned non_zero_init : 1;
   unsigned empty_p : 1;
+  /* 32 bits allocated.  */
 
   unsigned vec_new_uses_cookie : 1;
   unsigned declared_class : 1;
@@ -1911,25 +1901,24 @@ struct GTY(()) lang_type_class {
   unsigned fields_readonly : 1;
   unsigned ptrmemfunc_flag : 1;
 
-  unsigned use_template : 2;
   unsigned was_anonymous : 1;
   unsigned lazy_default_ctor : 1;
   unsigned lazy_copy_ctor : 1;
   unsigned lazy_copy_assign : 1;
   unsigned lazy_destructor : 1;
   unsigned has_const_copy_ctor : 1;
-
   unsigned has_complex_copy_ctor : 1;
   unsigned has_complex_copy_assign : 1;
+
   unsigned non_aggregate : 1;
   unsigned has_complex_dflt : 1;
   unsigned has_list_ctor : 1;
   unsigned non_std_layout : 1;
   unsigned is_literal : 1;
   unsigned lazy_move_ctor : 1;
-
   unsigned lazy_move_assign : 1;
   unsigned has_complex_move_ctor : 1;
+
   unsigned has_complex_move_assign : 1;
   unsigned has_constexpr_ctor : 1;
   unsigned unique_obj_representations : 1;
@@ -1942,7 +1931,7 @@ struct GTY(()) lang_type_class {
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 2;
+  unsigned dummy : 4;
 
   tree primary_base;
   vec<tree_pair_s, va_gc> *vcall_indices;
@@ -1970,40 +1959,9 @@ struct GTY(()) lang_type_class {
   tree lambda_expr;
 };
 
-struct GTY(()) lang_type_ptrmem {
-  struct lang_type_header h;
-  tree record;
-};
-
-struct GTY(()) lang_type {
-  union lang_type_u
-  {
-    struct lang_type_header GTY((skip (""))) h;
-    struct lang_type_class  GTY((tag ("1"))) c;
-    struct lang_type_ptrmem GTY((tag ("0"))) ptrmem;
-  } GTY((desc ("%h.h.is_lang_type_class"))) u;
-};
-
-#if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
-
-#define LANG_TYPE_CLASS_CHECK(NODE) __extension__		\
-({  struct lang_type *lt = TYPE_LANG_SPECIFIC (NODE);		\
-    if (! lt->u.h.is_lang_type_class)				\
-      lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
-    &lt->u.c; })
-
-#define LANG_TYPE_PTRMEM_CHECK(NODE) __extension__		\
-({  struct lang_type *lt = TYPE_LANG_SPECIFIC (NODE);		\
-    if (lt->u.h.is_lang_type_class)				\
-      lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
-    &lt->u.ptrmem; })
-
-#else
-
-#define LANG_TYPE_CLASS_CHECK(NODE) (&TYPE_LANG_SPECIFIC (NODE)->u.c)
-#define LANG_TYPE_PTRMEM_CHECK(NODE) (&TYPE_LANG_SPECIFIC (NODE)->u.ptrmem)
-
-#endif /* ENABLE_TREE_CHECKING */
+/* We used to have a variant type for lang_type.  Keep the name of the
+   checking accessor for the sole survivor.  */
+#define LANG_TYPE_CLASS_CHECK(NODE) (TYPE_LANG_SPECIFIC (NODE))
 
 /* Nonzero for _CLASSTYPE means that operator delete is defined.  */
 #define TYPE_GETS_DELETE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->gets_delete)
@@ -2018,7 +1976,7 @@ struct GTY(()) lang_type {
 /* Nonzero means that this _CLASSTYPE node defines ways of converting
    itself to other types.  */
 #define TYPE_HAS_CONVERSION(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.has_type_conversion)
+  (LANG_TYPE_CLASS_CHECK (NODE)->has_type_conversion)
 
 /* Nonzero means that NODE (a class type) has a default constructor --
    but that it has not yet been declared.  */
@@ -2061,10 +2019,10 @@ struct GTY(()) lang_type {
 /* True iff the class type NODE has an "operator =" whose parameter
    has a parameter of type "const X&".  */
 #define TYPE_HAS_CONST_COPY_ASSIGN(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.has_const_copy_assign)
+  (LANG_TYPE_CLASS_CHECK (NODE)->has_const_copy_assign)
 
 /* Nonzero means that this _CLASSTYPE node has an X(X&) constructor.  */
-#define TYPE_HAS_COPY_CTOR(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->h.has_copy_ctor)
+#define TYPE_HAS_COPY_CTOR(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_copy_ctor)
 #define TYPE_HAS_CONST_COPY_CTOR(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->has_const_copy_ctor)
 
@@ -2216,7 +2174,7 @@ struct GTY(()) lang_type {
 
 /* Nonzero means that this type has an X() constructor.  */
 #define TYPE_HAS_DEFAULT_CONSTRUCTOR(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.has_default_ctor)
+  (LANG_TYPE_CLASS_CHECK (NODE)->has_default_ctor)
 
 /* Nonzero means that this type contains a mutable member.  */
 #define CLASSTYPE_HAS_MUTABLE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_mutable)
@@ -2285,17 +2243,17 @@ struct GTY(()) lang_type {
    which have no specified initialization.  */
 #define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE)	\
   (TYPE_LANG_SPECIFIC (NODE)				\
-   ? LANG_TYPE_CLASS_CHECK (NODE)->h.const_needs_init : 0)
+   ? LANG_TYPE_CLASS_CHECK (NODE)->const_needs_init : 0)
 #define SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE, VALUE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.const_needs_init = (VALUE))
+  (LANG_TYPE_CLASS_CHECK (NODE)->const_needs_init = (VALUE))
 
 /* Nonzero if this class has ref members
    which have no specified initialization.  */
 #define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE)		\
   (TYPE_LANG_SPECIFIC (NODE)				\
-   ? LANG_TYPE_CLASS_CHECK (NODE)->h.ref_needs_init : 0)
+   ? LANG_TYPE_CLASS_CHECK (NODE)->ref_needs_init : 0)
 #define SET_CLASSTYPE_REF_FIELDS_NEED_INIT(NODE, VALUE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.ref_needs_init = (VALUE))
+  (LANG_TYPE_CLASS_CHECK (NODE)->ref_needs_init = (VALUE))
 
 /* Nonzero if this class is included from a header file which employs
    `#pragma interface', and it is not included in its implementation file.  */
@@ -2425,13 +2383,25 @@ struct GTY(()) lang_type {
 #define NAMESPACE_LEVEL(NODE) \
   (LANG_DECL_NS_CHECK (NODE)->level)
 
+/* Discriminator values for lang_decl.  */
+
+enum lang_decl_selector
+{
+  lds_min,
+  lds_fn,
+  lds_ns,
+  lds_parm,
+  lds_decomp
+};
+
 /* Flags shared by all forms of DECL_LANG_SPECIFIC.
 
    Some of the flags live here only to make lang_decl_min/fn smaller.  Do
    not make this struct larger than 32 bits; instead, make sel smaller.  */
 
 struct GTY(()) lang_decl_base {
-  unsigned selector : 16;   /* Larger than necessary for faster access.  */
+  /* Larger than necessary for faster access.  */
+  ENUM_BITFIELD(lang_decl_selector) selector : 16;
   ENUM_BITFIELD(languages) language : 1;
   unsigned use_template : 2;
   unsigned not_really_extern : 1;	   /* var or fn */
@@ -2446,8 +2416,7 @@ struct GTY(()) lang_decl_base {
   unsigned u2sel : 1;
   unsigned concept_p : 1;                  /* applies to vars and functions */
   unsigned var_declared_inline_p : 1;	   /* var */
-  unsigned decomposition_p : 1;		   /* var */
-  /* 1 spare bit */
+  /* 2 spare bits */
 };
 
 /* True for DECL codes which have template info and access.  */
@@ -2497,9 +2466,9 @@ struct GTY(()) lang_decl_fn {
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
   unsigned defaulted_p : 1;
-
   unsigned has_in_charge_parm_p : 1;
   unsigned has_vtt_parm_p : 1;
+  
   unsigned pending_inline_p : 1;
   unsigned nonconverting : 1;
   unsigned thunk_p : 1;
@@ -2551,6 +2520,9 @@ struct GTY(()) lang_decl_ns {
      because of PCH.  */
   vec<tree, va_gc> *usings;
   vec<tree, va_gc> *inlinees;
+
+  /* Map from IDENTIFIER nodes to DECLS.  */
+  hash_map<lang_identifier *, tree> *bindings;
 };
 
 /* DECL_LANG_SPECIFIC for parameters.  */
@@ -2576,12 +2548,13 @@ struct GTY(()) lang_decl_decomp {
 
 struct GTY(()) lang_decl {
   union GTY((desc ("%h.base.selector"))) lang_decl_u {
+     /* Nothing of only the base type exists.  */
     struct lang_decl_base GTY ((default)) base;
-    struct lang_decl_min GTY((tag ("0"))) min;
-    struct lang_decl_fn GTY ((tag ("1"))) fn;
-    struct lang_decl_ns GTY((tag ("2"))) ns;
-    struct lang_decl_parm GTY((tag ("3"))) parm;
-    struct lang_decl_decomp GTY((tag ("4"))) decomp;
+    struct lang_decl_min GTY((tag ("lds_min"))) min;
+    struct lang_decl_fn GTY ((tag ("lds_fn"))) fn;
+    struct lang_decl_ns GTY((tag ("lds_ns"))) ns;
+    struct lang_decl_parm GTY((tag ("lds_parm"))) parm;
+    struct lang_decl_decomp GTY((tag ("lds_decomp"))) decomp;
   } u;
 };
 
@@ -2602,26 +2575,29 @@ struct GTY(()) lang_decl {
    lang_decl_fn, look down through a TEMPLATE_DECL into its result.  */
 #define LANG_DECL_FN_CHECK(NODE) __extension__				\
 ({ struct lang_decl *lt = DECL_LANG_SPECIFIC (STRIP_TEMPLATE (NODE));	\
-   if (!DECL_DECLARES_FUNCTION_P (NODE) || lt->u.base.selector != 1)	\
+   if (!DECL_DECLARES_FUNCTION_P (NODE)					\
+       || lt->u.base.selector != lds_fn)				\
      lang_check_failed (__FILE__, __LINE__, __FUNCTION__);		\
    &lt->u.fn; })
 
 #define LANG_DECL_NS_CHECK(NODE) __extension__				\
 ({ struct lang_decl *lt = DECL_LANG_SPECIFIC (NODE);			\
-   if (TREE_CODE (NODE) != NAMESPACE_DECL || lt->u.base.selector != 2)	\
+   if (TREE_CODE (NODE) != NAMESPACE_DECL				\
+       || lt->u.base.selector != lds_ns)				\
      lang_check_failed (__FILE__, __LINE__, __FUNCTION__);		\
    &lt->u.ns; })
 
 #define LANG_DECL_PARM_CHECK(NODE) __extension__		\
 ({ struct lang_decl *lt = DECL_LANG_SPECIFIC (NODE);		\
-  if (TREE_CODE (NODE) != PARM_DECL)				\
+  if (TREE_CODE (NODE) != PARM_DECL				\
+      || lt->u.base.selector != lds_parm)			\
     lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
   &lt->u.parm; })
 
 #define LANG_DECL_DECOMP_CHECK(NODE) __extension__		\
 ({ struct lang_decl *lt = DECL_LANG_SPECIFIC (NODE);		\
   if (!VAR_P (NODE)						\
-      || lt->u.base.selector != 4)				\
+      || lt->u.base.selector != lds_decomp)			\
     lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
   &lt->u.decomp; })
 
@@ -3039,7 +3015,7 @@ struct GTY(()) lang_decl {
    template function.  */
 #define DECL_PRETTY_FUNCTION_P(NODE) \
   (DECL_NAME (NODE) \
-   && !strcmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__PRETTY_FUNCTION__"))
+   && id_equal (DECL_NAME (NODE), "__PRETTY_FUNCTION__"))
 
 /* Nonzero if the variable was declared to be thread-local.
    We need a special C++ version of this test because the middle-end
@@ -3144,6 +3120,10 @@ struct GTY(()) lang_decl {
 /* In a NAMESPACE_DECL, a vector of inline namespaces.  */
 #define DECL_NAMESPACE_INLINEES(NODE) \
    (LANG_DECL_NS_CHECK (NODE)->inlinees)
+
+/* Pointer to hash_map from IDENTIFIERS to DECLS  */
+#define DECL_NAMESPACE_BINDINGS(NODE) \
+   (LANG_DECL_NS_CHECK (NODE)->bindings)
 
 /* In a NAMESPACE_DECL, points to the original namespace if this is
    a namespace alias.  */
@@ -3888,11 +3868,8 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    declaration or one of VAR_DECLs for the user identifiers in it.  */
 #define DECL_DECOMPOSITION_P(NODE) \
   (VAR_P (NODE) && DECL_LANG_SPECIFIC (NODE)			\
-   ? DECL_LANG_SPECIFIC (NODE)->u.base.decomposition_p		\
+   ? DECL_LANG_SPECIFIC (NODE)->u.base.selector == lds_decomp		\
    : false)
-#define SET_DECL_DECOMPOSITION_P(NODE) \
-  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))->u.base.decomposition_p \
-   = true)
 
 /* The underlying artificial VAR_DECL for structured binding.  */
 #define DECL_DECOMP_BASE(NODE) \
@@ -4279,21 +4256,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define TYPE_PTRMEMFUNC_OBJECT_TYPE(NODE) \
   TYPE_METHOD_BASETYPE (TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (NODE)))
 
-/* These are use to manipulate the canonical RECORD_TYPE from the
-   hashed POINTER_TYPE, and can only be used on the POINTER_TYPE.  */
-#define TYPE_GET_PTRMEMFUNC_TYPE(NODE) \
-  (TYPE_LANG_SPECIFIC (NODE) ? LANG_TYPE_PTRMEM_CHECK (NODE)->record : NULL)
-#define TYPE_SET_PTRMEMFUNC_TYPE(NODE, VALUE)				\
-  do {									\
-    if (TYPE_LANG_SPECIFIC (NODE) == NULL)				\
-      {									\
-	TYPE_LANG_SPECIFIC (NODE)                                       \
-	= (struct lang_type *) ggc_internal_cleared_alloc		\
-	 (sizeof (struct lang_type_ptrmem));				\
-	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;	\
-      }									\
-    TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);		\
-  } while (0)
+/* The canonical internal RECORD_TYPE from the POINTER_TYPE to
+   METHOD_TYPE.  */
+#define TYPE_PTRMEMFUNC_TYPE(NODE) \
+  TYPE_LANG_SLOT_1 (NODE)
 
 /* For a pointer-to-member type of the form `T X::*', this is `X'.
    For a type like `void (X::*)() const', this type is `X', not `const
@@ -5941,7 +5907,7 @@ extern bool reference_related_p			(tree, tree);
 extern int remaining_arguments			(tree);
 extern tree perform_implicit_conversion		(tree, tree, tsubst_flags_t);
 extern tree perform_implicit_conversion_flags	(tree, tree, tsubst_flags_t, int);
-extern tree build_integral_nontype_arg_conv	(tree, tree, tsubst_flags_t);
+extern tree build_converted_constant_expr	(tree, tree, tsubst_flags_t);
 extern tree perform_direct_initialization_if_possible (tree, tree, bool,
                                                        tsubst_flags_t);
 extern tree in_charge_arg_for_name		(tree);
@@ -6056,6 +6022,7 @@ extern tree convert_force			(tree, tree, int,
 						 tsubst_flags_t);
 extern tree build_expr_type_conversion		(int, tree, bool);
 extern tree type_promotes_to			(tree);
+extern bool can_convert_qual			(tree, tree);
 extern tree perform_qualification_conversions	(tree, tree);
 extern bool tx_safe_fn_type_p			(tree);
 extern tree tx_unsafe_fn_variant		(tree);
@@ -6333,7 +6300,8 @@ extern tree unqualified_name_lookup_error	(tree,
 extern tree unqualified_fn_lookup_error		(cp_expr);
 extern tree build_lang_decl			(enum tree_code, tree, tree);
 extern tree build_lang_decl_loc			(location_t, enum tree_code, tree, tree);
-extern void retrofit_lang_decl			(tree, int = 0);
+extern void retrofit_lang_decl			(tree);
+extern void fit_decomposition_lang_decl		(tree, tree);
 extern tree copy_decl				(tree CXX_MEM_STAT_INFO);
 extern tree copy_type				(tree CXX_MEM_STAT_INFO);
 extern tree cxx_make_type			(enum tree_code);
@@ -6852,7 +6820,8 @@ extern void cp_free_lang_data 			(tree t);
 extern tree force_target_expr			(tree, tree, tsubst_flags_t);
 extern tree build_target_expr_with_type		(tree, tree, tsubst_flags_t);
 extern void lang_check_failed			(const char *, int,
-						 const char *) ATTRIBUTE_NORETURN;
+						 const char *) ATTRIBUTE_NORETURN
+						 ATTRIBUTE_COLD;
 extern tree stabilize_expr			(tree, tree *);
 extern void stabilize_call			(tree, tree *);
 extern bool stabilize_init			(tree, tree *);
@@ -6916,7 +6885,8 @@ extern tree ovl_insert				(tree fn, tree maybe_ovl,
 extern tree ovl_skip_hidden			(tree) ATTRIBUTE_PURE;
 extern void lookup_mark				(tree lookup, bool val);
 extern tree lookup_add				(tree fns, tree lookup);
-extern tree lookup_maybe_add			(tree fns, tree lookup);
+extern tree lookup_maybe_add			(tree fns, tree lookup,
+						 bool deduping);
 extern void lookup_keep				(tree lookup, bool keep);
 extern int is_overloaded_fn			(tree) ATTRIBUTE_PURE;
 extern bool really_overloaded_fn		(tree) ATTRIBUTE_PURE;

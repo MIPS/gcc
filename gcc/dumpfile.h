@@ -31,7 +31,7 @@ enum tree_dump_index
   TDI_inheritance,		/* dump type inheritance graph.  */
   TDI_clones,			/* dump IPA cloning decisions.  */
   TDI_original,			/* dump each function before optimizing it */
-  TDI_generic,			/* dump each function after genericizing it */
+  TDI_gimple,			/* dump each function after gimplifying it */
   TDI_nested,			/* dump each function after unnesting it */
 
   TDI_lang_all,			/* enable all the language dumps.  */
@@ -120,13 +120,6 @@ typedef uint64_t dump_flags_t;
 /* Define a tree dump switch.  */
 struct dump_file_info
 {
-  /* Constructor.  */
-  CONSTEXPR dump_file_info ();
-
-  /* Constructor.  */
-  dump_file_info (const char *_suffix, const char *_swtch, dump_kind _dkind,
-		  int _num);
-
   /* Suffix to give output file.  */
   const char *suffix;
   /* Command line dump switch.  */
@@ -218,6 +211,11 @@ public:
   unsigned int
   dump_register (const char *suffix, const char *swtch, const char *glob,
 		 dump_kind dkind, int optgroup_flags, bool take_ownership);
+
+  /* Allow languages and middle-end to register their dumps before the
+     optimization passes.  */
+  void
+  register_dumps ();
 
   /* Return the dump_file_info for the given phase.  */
   struct dump_file_info *

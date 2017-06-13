@@ -1,3 +1,34 @@
+2017-06-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/80988
+	* frontend-passes.c (traverse_io_block):  Also
+	check for variables occurring as indices multiple
+	time in a single implied DO loop.
+
+2017-06-05  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/70601
+	* trans-expr.c (gfc_conv_procedure_call): Fix detection of allocatable
+	function results.
+
+2017-06-05  Nicolas Koenig  <koenigni@student.ethz.ch>
+
+	PR fortran/35339
+	* frontend-passes.c (traverse_io_block): New function.
+	(simplify_io_impl_do): New function.
+	(optimize_namespace): Invoke gfc_code_walker with
+	simplify_io_impl_do.
+
+2017-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/80918
+	* openmp.c (resolve_omp_clauses): Fix a typo.
+
+2017-05-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_format_decoder): Update for new bool and
+	const char ** params.
+
 2017-05-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/37131

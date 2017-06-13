@@ -1,3 +1,33 @@
+2017-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/80897
+	* exp_ch3.adb (Make_Predefined_Primitive_Specs): Use Positive index.
+
+2017-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/81070
+	* s-interr-hwint.adb: Reinstate.
+	* gcc-interface/Makefile.in (RTEMS): Use it again.
+
+2017-06-08  Olivier Hainque  <hainque@adacore.com>
+
+	* vx_crtbegin_auto.c: Update year in copyright notice.
+	* vx_crtbegin.c: Likewise.
+	* vx_crtbegin.inc: Likewise. 
+	* vx_crtend.c:  Likewise.
+
+2017-06-07  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* Makefile.in (rtems): Use TLS implementation for s-tpopsp.adb.
+	* s-tpopsp-rtems.adb: Delete.
+
+2017-06-02  Olivier Hainque  <hainque@adacore.com>
+
+	* vx_crtbegin_auto.c: New file.
+	* vx_crtbegin.c: New file.
+	* vx_crtbegin.inc: New file.
+	* vx_crtend.c: New file.
+
 2017-05-25  Jonathan Wakely  <jwakely@redhat.com>
 
 	* gcc-interface/utils2.c (compare_elmt_bitpos): Remove redundant
