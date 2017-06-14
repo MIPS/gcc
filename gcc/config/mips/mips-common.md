@@ -6413,7 +6413,12 @@
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
 					   (match_test "TARGET_NANOMIPS"))
 				      (const_string "none")
-				      (const_string "forbidden_slot")))])
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
@@ -6432,7 +6437,12 @@
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
 					   (match_test "TARGET_NANOMIPS"))
 				      (const_string "none")
-				      (const_string "forbidden_slot")))])
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; Conditional branch on equality comparison.
 
@@ -6452,7 +6462,12 @@
    (set_attr "has_16bit_ver" "rri_beqc")
    (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
 				      (const_string "none")
-				      (const_string "forbidden_slot")))])
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
@@ -6471,7 +6486,12 @@
    (set_attr "has_16bit_ver" "rri_beqc")
    (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
 				      (const_string "none")
-				      (const_string "forbidden_slot")))])
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; MIPS16 branches
 
