@@ -4496,7 +4496,12 @@ On MIPS targets, you can use the @code{nocompression} function attribute
 to locally turn off MIPS16 and microMIPS code generation.  This attribute
 overrides the @option{-mips16} and @option{-mmicromips} options on the
 command line (@pxref{MIPS Options}).
-@end table
+
+@item use_hazard_barrier_return
+@cindex @code{use_hazard_barrier_return} function attribute, MIPS
+This function attribute instructs the compiler to generate a hazard barrier
+return that clears all execution and instruction hazards while returning,
+instead of generating a normal return instruction.
 
 @item code_readable
 @cindex @code{code_readable} function attribute, MIPS
