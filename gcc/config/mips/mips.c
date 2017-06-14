@@ -12440,9 +12440,13 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   struct mips_save_restore_info info;
   unsigned int i;
   char *s;
+  rtx set_src = SET_SRC (XVECEXP (pattern, 0,
+				  XVECLEN (pattern, 0) - 1));
   int nregs = 0;
-  bool restore_p = MEM_P (SET_SRC (XVECEXP (pattern, 0,
-					     XVECLEN (pattern, 0) - 1)))
+  bool restore_p = MEM_P (set_src)
+		   || (XVECLEN (pattern, 0) <= 2
+		       && GET_CODE (set_src) == PLUS
+		       && INTVAL (XEXP (set_src, 1)) > 0)
 		   ? true : false;
   bool fp_p = false;
 
