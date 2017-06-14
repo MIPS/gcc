@@ -2286,6 +2286,7 @@ nanomips*-img-elf*)
 	tmake_file="mips/t-nanomips-multi"
 	md_file=mips/nanomips.md
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
+	extra_options="${extra_options} mips/nanomips.opt"
 	with_arch_32="32r6"
 	with_arch_64="64r6"
 	with_nanomips="yes"

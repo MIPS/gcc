@@ -144,7 +144,12 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef MIPS_32BIT_OPTION_SPEC
 #define MIPS_32BIT_OPTION_SPEC \
-  "march=32r6"
+  "march=32r6|march=32r6s|march=i6001|march=m6001"
+
+#undef BASE_DRIVER_SELF_SPECS
+#define BASE_DRIVER_SELF_SPECS \
+  "%{march=32r6|march=32r6s|march=64r6|march=i6001|march=m6001: \
+     %{!-fuse-ld=*: -fuse-ld=gold}}"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
@@ -159,12 +164,9 @@ along with GCC; see the file COPYING3.  If not see
   /* Infer the default float setting from -march.  */			\
   MIPS_ARCH_FLOAT_SPEC,							\
 									\
-  /* Infer the -msynci setting from -march if not explicitly set.  */	\
-  MIPS_ISA_SYNCI_SPEC,							\
-									\
   /* If no ABI option is specified, infer one from the ISA level	\
      or -mgp setting.  */						\
-  "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=p32;: -mabi=p64}}",	\
+  "%{!m64:%{!m32:%{" MIPS_32BIT_OPTION_SPEC ": -m32;: -m64}}}",		\
 									\
   /* Make sure that an endian option is always present.  This makes	\
      things like LINK_SPEC easier to write.  */				\
@@ -172,6 +174,32 @@ along with GCC; see the file COPYING3.  If not see
 									\
   /* Configuration-independent MIPS rules.  */				\
   BASE_DRIVER_SELF_SPECS
+
+#undef ASM_SPEC
+#define ASM_SPEC "\
+%(endian_spec) \
+%{m32: -mabi=p32} \
+%{m64: -mabi=p64} \
+%{march=32r6|march=64r6|i6001: -mnanomips -mxlp -mips32r7} \
+%{march=32r6s|m6001: -mnanomips -mno-xlp -mips32r7} \
+%{mdsp} %{mno-dsp} \
+%{mdspr2} %{mno-dspr2} \
+%{mdspr3} %{mno-dspr3} \
+%{mmcu} %{mno-mcu} \
+%{meva} %{mno-eva} \
+%{mvirt} %{mno-virt} \
+%{mxpa} %{mno-xpa} \
+%{mmsa} %{mno-msa} \
+%{mmt} %{mno-mt} \
+%{mmxu} %{mno-mxu} \
+%(subtarget_asm_debugging_spec) \
+%{mgp32} %{mgp64} %{mxgot:-xgot} \
+%{mfp64}\
+%{mshared} %{mno-shared} \
+%{msym32} %{mno-sym32} \
+%{mtune=*}" \
+FP_ASM_SPEC "\
+%(subtarget_asm_spec)"
 
 #undef LINK_SPEC
 #define LINK_SPEC "\

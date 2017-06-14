@@ -17730,6 +17730,11 @@ mips_output_division (const char *division, rtx *operands)
 	      output_asm_insn (s, operands);
 	      s = "break\t7%)\n1:";
 	    }
+	  else if (ISA_HAS_COMPACT_BRANCHES)
+	    {
+	      output_asm_insn (s, operands);
+	      s = "bnec\t%2,%.,1f\n\tbreak\t7\n1:";
+	    }
 	  else
 	    {
 	      output_asm_insn (s, operands);
@@ -24630,6 +24635,40 @@ mips_option_override (void)
   if (ISA_HAS_MSA && TARGET_PAIRED_SINGLE_FLOAT)
     error ("unsupported combination: %s", "-mmsa -mpaired-single");
 
+#ifdef NANOMIPS_SUPPORT
+  if (TARGET_NANOMIPS)
+    {
+      /* Imply 64-bit FP registers.  */
+      target_flags |= MASK_FLOAT64;
+
+      /* Imply SYNCI availability.  */
+      target_flags |= MASK_SYNCI;
+
+      /* There are no forbidden slots.  */
+      TARGET_FORBIDDEN_SLOTS = 0;
+
+      /* Explicit relocs by default.  */
+      target_flags |= MASK_EXPLICIT_RELOCS;
+
+      if (TARGET_NANOMIPS == NANOMIPS_NMS
+	  && GENERATE_DIVIDE_TRAPS)
+	error ("-mdivide-traps cannot be used with the nanoMIPS Subset");
+
+      mips_code_readable = CODE_READABLE_NO;
+
+      if (nanomips_abi != ABI_P32 && nanomips_abi != ABI_P64)
+	error ("unsupported ABI: only -m32 or -m64 can be used");
+      else
+	mips_abi = nanomips_abi;
+
+      /* Disable trapping when dividing by zero if the user does not
+	 request this.  */
+      if (optimize_size
+	  && (target_flags_explicit & MASK_CHECK_ZERO_DIV) == 0)
+	target_flags &= ~MASK_CHECK_ZERO_DIV;
+    }
+#endif
+
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
@@ -24848,6 +24887,13 @@ mips_option_override (void)
     error ("unsupported combination: -mmicromips -mips32r6 %s, use "
 	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
 
+#if defined (NANOMIPS_SUPPORT) && defined (MIPS_SUPPORT_DSP)
+  if (TARGET_NANOMIPS
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported: nanoMIPS DSP requires minimum -mdspr3");
+#endif
+
   if (TARGET_DSPR3)
     {
       TARGET_DSP = true;
@@ -25005,8 +25051,6 @@ mips_option_override (void)
   if (mips_nan == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
     mips_nan = MIPS_IEEE_754_2008;
   if (mips_abs == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
-    mips_abs = MIPS_IEEE_754_2008;
-  if (TARGET_NANOMIPS)
     mips_abs = MIPS_IEEE_754_2008;
 
   /* Check for IEEE 754 legacy/2008 support.  */
@@ -27741,7 +27785,7 @@ mips_spill_class (reg_class_t rclass ATTRIBUTE_UNUSED,
 static bool
 mips_lra_p (void)
 {
-  return mips_lra_flag;
+  return mips_lra_flag | TARGET_NANOMIPS;
 }
 
 /* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */

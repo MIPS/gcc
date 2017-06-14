@@ -26,13 +26,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* FIXME: We may well move these to the configure to avoid
    defining/undefining macros.  */
-#define MIPS_SUPPORT_DSP
-#define MIPS_SUPPORT_PS_3D
-#define MIPS_SUPPORT_MSA
-#define MIPS_SUPPORT_LOONGSON
-#define MIPS_SUPPORT_MICROMIPS
-#define MIPS_SUPPORT_LEGACY
-#define MIPS_SUPPORT_FRAME_HEADER_OPT
+#define MIPS_SUPPORT_DSP 1
+#define MIPS_SUPPORT_PS_3D 1
+#define MIPS_SUPPORT_MSA 1
+#define MIPS_SUPPORT_LOONGSON 1
+#define MIPS_SUPPORT_MICROMIPS 1
+#define MIPS_SUPPORT_LEGACY 1
+#define MIPS_SUPPORT_FRAME_HEADER_OPT 1
 
 #ifdef GENERATOR_FILE
 /* This is used in some insn conditions, so needs to be declared, but
@@ -818,9 +818,9 @@ struct mips_cpu_info {
 #elif MIPS_ABI_DEFAULT == ABI_EABI
 #define MULTILIB_ABI_DEFAULT "mabi=eabi"
 #elif MIPS_ABI_DEFAULT == ABI_P32
-#define MULTILIB_ABI_DEFAULT "mabi=p32"
+#define MULTILIB_ABI_DEFAULT "m32"
 #elif MIPS_ABI_DEFAULT == ABI_P64
-#define MULTILIB_ABI_DEFAULT "mabi=p64"
+#define MULTILIB_ABI_DEFAULT "m64"
 #endif
 
 #ifndef MULTILIB_DEFAULTS
@@ -866,7 +866,7 @@ struct mips_cpu_info {
        |march=interaptiv*: -mips32r2} \
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
-     %{march=mips32r6|march=m6201|march=i7001|march=m7001: -mips32r6} \
+     %{march=mips32r6|march=m6201: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
        |march=xlr: -mips64} \
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
@@ -908,8 +908,8 @@ struct mips_cpu_info {
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
 #define MIPS_ISA_SYNCI_SPEC \
-  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6 \
-     |mips64r2|mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
+  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6|mips64r2 \
+			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
@@ -918,10 +918,9 @@ struct mips_cpu_info {
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
-     || MIPS_ABI_DEFAULT == ABI_64 \
-     || MIPS_ABI_DEFAULT == ABI_P64)
-#define OPT_ARCH64 "mabi=32|mabi=p32|mgp32:;"
-#define OPT_ARCH32 "mabi=32|mabi=p32|mgp32"
+     || MIPS_ABI_DEFAULT == ABI_64)
+#define OPT_ARCH64 "mabi=32|mgp32:;"
+#define OPT_ARCH32 "mabi=32|mgp32"
 #else
 #define OPT_ARCH64 "mabi=o64|mabi=n32|mabi=64|mgp64"
 #define OPT_ARCH32 "mabi=o64|mabi=n32|mabi=64|mgp64:;"
@@ -969,20 +968,12 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
-  "%{march=32r6|march=32r6s|march=64r6: \
-     %{!mcheck-zero-division: -mno-check-zero-division} \
-     %{!mno-explicit-relocs: -mexplicit-relocs} \
-     %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
-     %{!mcode-readable*: -mcode-readable=no} \
-     %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
-     %{mips32r6|mips64r6: \
-       %{mmicromips:-mno-forbidden-slots}} \
-    %{march=32r6|march=32r6s|march=64r6: -mno-forbidden-slots}}" \
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
@@ -1524,9 +1515,9 @@ struct mips_cpu_info {
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
+%{mips32*} %{mips64*} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
-%{march=32r6|march=64r6: -mnanomips -mxlp} \
 %{mips3d} %{mno-mips3d:-no-mips3d} \
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
@@ -1546,7 +1537,7 @@ struct mips_cpu_info {
 %{noasmopt:-O0; O0|fno-delayed-branch:-O1; O*:-O2; :-O1} \
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
-%{mgp32} %{mgp64} %{mxgot:-xgot} \
+%{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
 %{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
 %{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
