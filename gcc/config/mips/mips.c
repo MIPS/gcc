@@ -13345,7 +13345,7 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 static void
 mips_frame_barrier (void)
 {
-  emit_clobber (gen_frame_mem (BLKmode, stack_pointer_rtx));
+  emit_insn (gen_blockage ());
 }
 
 
