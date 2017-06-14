@@ -649,6 +649,7 @@ static const struct attribute_spec mips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, NULL },
   { "keep_interrupts_masked",	0, 0, false, true,  true, false, NULL, NULL },
   { "use_debug_exception_return", 0, 0, false, true, true, false, NULL, NULL },
+  { "use_hazard_barrier_return", 0, 0, true, false, false, false, NULL, NULL },
   { NULL,	   0, 0, false, false, false, false, NULL, NULL }
 };
 
@@ -1999,6 +2000,15 @@ mips_get_code_readable_attr (tree decl)
   return mips_base_code_readable;
 }
 
+/* Check if the attribute to use hazard barrier return is set for
+   the function declaration DECL.  */
+
+static bool
+mips_use_hazard_barrier_return_p (const_tree decl)
+{
+  return lookup_attribute ("use_hazard_barrier_return",
+			   DECL_ATTRIBUTES (decl)) != NULL;
+}
 
 /* Return the set of compression modes that are explicitly required
    by the attributes in ATTRIBUTES.  */
@@ -2296,6 +2306,21 @@ mips_can_inline_p (tree caller, tree callee)
       && !TARGET_INLINE_INTERMIX)
     return false;
   return default_target_can_inline_p (caller, callee);
+}
+
+/* Implement TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P.
+
+   A function reqeuesting clearing of all instruction and execution hazards
+   before returning cannot be inlined - thereby not clearing any hazards.
+   All our other function attributes are related to how out-of-line copies
+   should be compiled or called.  They don't in themselves prevent inlining.  */
+
+static bool
+mips_function_attr_inlinable_p (const_tree decl)
+{
+  if (mips_use_hazard_barrier_return_p (decl))
+    return false;
+  return hook_bool_const_tree_true (decl);
 }
 
 /* Handle an "interrupt" attribute with an optional argument.  */
@@ -8811,6 +8836,11 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
       && !targetm.binds_local_p (decl))
     return false;
 
+  /* Can't generate sibling calls if returning from current function using
+     hazard barrier return.  */
+  if (mips_use_hazard_barrier_return_p (current_function_decl))
+    return false;
+
   /* Otherwise OK.  */
   return true;
 }
@@ -12169,6 +12199,17 @@ mips_compute_frame_info (void)
 	}
     }
 
+  /* Determine whether to use hazard barrier return or not.  */
+  if (mips_use_hazard_barrier_return_p (current_function_decl))
+    {
+      if (mips_isa_rev < 2)
+	error ("hazard barrier returns require a MIPS32r2 processor or greater");
+      else if (TARGET_MIPS16)
+	error ("hazard barrier returns are not supported for MIPS16 functions");
+      else
+	cfun->machine->use_hazard_barrier_return_p = true;
+    }
+
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
   size = get_frame_size ();
@@ -13940,7 +13981,8 @@ mips_expand_epilogue (bool sibcall_p)
 	       && !crtl->calls_eh_return
 	       && !sibcall_p
 	       && step2 > 0
-	       && mips_unsigned_immediate_p (step2, 5, 2))
+	       && mips_unsigned_immediate_p (step2, 5, 2)
+	       && !cfun->machine->use_hazard_barrier_return_p)
 	use_jraddiusp_p = true;
       else
 	/* Deallocate the final bit of the frame.  */
@@ -13980,6 +14022,11 @@ mips_expand_epilogue (bool sibcall_p)
 	    emit_jump_insn (gen_mips_deret ());
 	  else
 	    emit_jump_insn (gen_mips_eret ());
+	}
+      else if (cfun->machine->use_hazard_barrier_return_p)
+	{
+	  rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+	  emit_jump_insn (gen_mips_hb_return_internal (reg));
 	}
       else
 	{
@@ -14040,6 +14087,11 @@ mips_can_use_return_insn (void)
 {
   /* Interrupt handlers need to go through the epilogue.  */
   if (cfun->machine->interrupt_handler_p)
+    return false;
+
+  /* Even if the function has a null epilogue, generating hazard barrier return
+     in epilogue handler is a lot cleaner and more manageable.  */
+  if (cfun->machine->use_hazard_barrier_return_p)
     return false;
 
   if (!reload_completed)
@@ -25009,10 +25061,9 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE mips_attribute_table
-/* All our function attributes are related to how out-of-line copies should
-   be compiled or called.  They don't in themselves prevent inlining.  */
+
 #undef TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
-#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_const_tree_true
+#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P mips_function_attr_inlinable_p
 
 #undef TARGET_EXTRA_LIVE_ON_ENTRY
 #define TARGET_EXTRA_LIVE_ON_ENTRY mips_extra_live_on_entry
