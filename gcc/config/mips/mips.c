@@ -1957,11 +1957,10 @@ mips_no_common_epilogue_p (tree decl)
 /* Verify the arguments to a code_readable attribute.  */
 
 static tree
-mips_handle_code_readable_attr (tree *node, tree name, tree args,
-				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+mips_handle_code_readable_attr (tree *node ATTRIBUTE_UNUSED, tree name,
+				tree args, int flags ATTRIBUTE_UNUSED,
+				bool *no_add_attrs)
 {
-  const char * str;
-
   if (!is_attribute_p ("code_readable", name) || args == NULL)
     return NULL_TREE;
 
@@ -5460,6 +5459,7 @@ static struct mips_multi_member *
 mips_multi_add (void)
 {
   mips_multi_member empty;
+  memset (&empty, 0, sizeof (empty));
   return mips_multi_members.safe_push (empty);
 }
 
@@ -9220,11 +9220,9 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 bool
 gen_mips16_copy_peep (rtx *operands, int n)
 {
-  rtx first_base_dest, first_base_src;
-  int alignment = 0;
-  HOST_WIDE_INT offset;
-  int nmove = 0;
-  rtx mov_dest[4], mov_src[4];
+  rtx first_base_dest = NULL_RTX, first_base_src = NULL_RTX;
+  unsigned int alignment = 0;
+  HOST_WIDE_INT offset = 0;
 
   for (int i = 0; i < n; i++)
     {
@@ -15256,9 +15254,9 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
-  const char *insn_name = (TARGET_CB_NEVER
-			   && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
-			       || link_p)
+  const char *insn_name = ((TARGET_CB_NEVER
+			    && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
+				|| link_p))
 			   || reg_p ? "j" : "b");
 
   /* Compact branches can only be described when the ISA has support for them
@@ -16732,7 +16730,7 @@ static void
 mips_sched_fusion_priority (rtx_insn *insn, int max_pri,
 			   int *fusion_pri, int *pri)
 {
-  int tmp, off_val;
+  int tmp;
   bool is_load;
   rtx base;
   HOST_WIDE_INT offset;
@@ -21603,7 +21601,7 @@ typedef struct mem_offset_def *mem_offset_info;
 typedef struct offset_entry : free_ptr_hash <offset_entry>
 {
   /* We hash by  */
-  HOST_WIDE_INT base_regno;
+  int base_regno;
 
   /* Store  */
   int orig_cost;
@@ -21709,7 +21707,7 @@ calculate_offsets_cost (offset_entry **slot,
 
 	  if (dump_file)
 	    fprintf (dump_file,
-		     "Potential savings of %d bytes by adding %d to r%d\n",
+		     "Potential savings of %d bytes by adding %ld to r%d\n",
 		     info->orig_cost - info->best_cost, -info->best_offset,
 		     info->base_regno);
 	}
@@ -21779,7 +21777,7 @@ dump_modified_offsets (hash_table <offset_entry> * offset_table)
 	    {
 	      fprintf (dump_file,"Offsets for r%d [",i);
 	      for (j = 0; info->offsets.iterate (j, &m); j++)
-		fprintf	(dump_file, "%d(%d)%s",
+		fprintf	(dump_file, "%ld(%ld)%s",
 			 m->offset, info->best_offset, i == n ? "" : " ");
 	      fprintf (dump_file, "] total_orig_cost=%d\n", info->orig_cost);
 	    }
@@ -21788,7 +21786,7 @@ dump_modified_offsets (hash_table <offset_entry> * offset_table)
 }
 
 static rtx
-get_best_offset (rtx_insn *insn, basic_block bb, rtx x,
+get_best_offset (rtx_insn *insn, rtx x,
 		 hash_table <offset_entry> * offset_table)
 {
   rtx base;
@@ -21818,7 +21816,7 @@ get_best_offset (rtx_insn *insn, basic_block bb, rtx x,
 
 	  if (dump_file)
 	    fprintf (dump_file,
-		     "Adjusting r%d in insn %d by %d\n",
+		     "Adjusting r%d in insn %d by %ld\n",
 		     REGNO (base), INSN_UID (insn), info->best_offset);
 	  mode = GET_MODE (base);
 	  new_reg = gen_reg_rtx (mode);
@@ -21835,8 +21833,7 @@ get_best_offset (rtx_insn *insn, basic_block bb, rtx x,
 }
 
 static void
-adjust_base_offset (rtx_insn *insn, basic_block bb,
-		    hash_table <offset_entry> * offset_table)
+adjust_base_offset (rtx_insn *insn, hash_table <offset_entry> * offset_table)
 {
   rtx set, new_src, new_dest, new_rtx, *src, *dest;
   set = single_set (insn);
@@ -21853,7 +21850,7 @@ adjust_base_offset (rtx_insn *insn, basic_block bb,
 
   if (set && MEM_P (*dest) && INTEGRAL_MODE_P (GET_MODE (*dest)))
     {
-      new_dest = get_best_offset (insn, bb, *dest, offset_table);
+      new_dest = get_best_offset (insn, *dest, offset_table);
       if (new_dest)
 	{
 	  new_rtx = simplify_replace_rtx (*dest, XEXP (*dest, 0), new_dest);
@@ -21863,7 +21860,7 @@ adjust_base_offset (rtx_insn *insn, basic_block bb,
 
   if (set && MEM_P (*src) && INTEGRAL_MODE_P (GET_MODE (*src)))
     {
-      new_src = get_best_offset (insn, bb, *src, offset_table);
+      new_src = get_best_offset (insn, *src, offset_table);
       if (new_src)
 	{
 	  new_rtx = simplify_replace_rtx (*src, XEXP (*src, 0), new_src);
@@ -21940,7 +21937,7 @@ pass_shrink_mips_offsets::execute (function *f ATTRIBUTE_UNUSED)
 
   FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
-      adjust_base_offset (insn, bb, offset_table);
+      adjust_base_offset (insn, offset_table);
 
   delete offset_table;
 
@@ -24016,6 +24013,7 @@ mips_expand_vec_perm_const (rtx operands[4])
   d.nelt = nelt = GET_MODE_NUNITS (d.vmode);
   d.testing_p = false;
 
+  memset (orig_perm, 0, MAX_VECT_LEN);
   for (i = which = 0; i < nelt; ++i)
     {
       rtx e = XVECEXP (sel, 0, i);
@@ -24950,8 +24948,7 @@ mips_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
 }
 
 void
-mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
-		     int *start_pos, int *size)
+mips_bit_clear_info (unsigned HOST_WIDE_INT m, int *start_pos, int *size)
 {
   unsigned int shift = 0;
   unsigned int change_count = 0;
