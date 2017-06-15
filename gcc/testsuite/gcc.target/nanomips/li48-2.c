@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=p32 -mxlp -fpeephole2 isa_rev>=6 -mnanomips" } */
+/* { dg-options "-m32 -march=32r6 -fpeephole2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void
@@ -8,5 +8,5 @@ foo (int *b, int *c)
   *c = 0xffffffff;
 }
 
-/* { dg-final { scan-assembler "\tli\t\\\$7,\[0-9\]+" } } */
-/* { dg-final { scan-assembler "\tli\t\\\$7,-1" } } */
+/* { dg-final { scan-assembler "\tli\t\\\$a3,\[0-9\]+" } } */
+/* { dg-final { scan-assembler "\tli\t\\\$a3,-1" } } */

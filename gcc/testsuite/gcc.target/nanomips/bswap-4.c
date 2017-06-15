@@ -1,4 +1,4 @@
-/* { dg-options "isa_rev>=6 -mnanomips -mxlp" } */
+/* { dg-options "-march=32r6" } */
 
 unsigned int
 foo (unsigned int x)

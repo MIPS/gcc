@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=p32 -fpeephole2 isa_rev>=6 -mnanomips -mxlp" } */
+/* { dg-options "-m32 -fpeephole2 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void foo (int);

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "isa_rev>=2 -mgp32 -mxlp" } */
+/* { dg-options "-mgp32 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\tins\t" } } */
 

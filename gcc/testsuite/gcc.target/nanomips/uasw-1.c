@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=p32 -mxlp isa_rev>=6 -mnanomips" } */
+/* { dg-options "-m32 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 struct S
@@ -14,4 +14,4 @@ foo (struct S *s)
   s->c = 0;
 }
 
-/* { dg-final { scan-assembler "\tuasw\\s\\\$0,5\\\(\\\$4\\\)\n" } } */
+/* { dg-final { scan-assembler "\tuasw\\s\\\$zero,5\\\(\\\$a0\\\)\n" } } */

@@ -1,4 +1,4 @@
-/* { dg-options "isa_rev>=2 -mxlp" } */
+/* { dg-options "-march=32r6" } */
 
 unsigned short
 foo (unsigned short x)

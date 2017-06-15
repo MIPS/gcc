@@ -230,9 +230,9 @@ load_lib gcc-dg.exp
 # directory are run at various optimisation levels and should use
 # dg-skip-if to skip any incompatible levels.
 set mips_option_groups {
-    abi "-mabi=p(32|64)"
+    abi "-m(32|64)"
     addressing "addressing=.*"
-    arch "-mips(32.*|64.*)|-march=.*|isa(|_rev)(=|<=|>=).*"
+    arch "-march=(32r6|32r6s|64r6)|isa(|_rev)(=|<=|>=).*"
     debug "-g.*"
     dump_pattern "-dp"
     endianness "-E(L|B)|-me(l|b)"
@@ -241,7 +241,6 @@ set mips_option_groups {
     forbid_cpu "forbid_cpu=.*"
     fp "-mfp64"
     gp "-mgp(32|64)"
-    nanomips "-mnanomips|-mno-nanomips"
     pic "-f(no-|)(pic|PIC)"
     cb "-mcompact-branches=.*"
     profiling "-pg"
@@ -280,7 +279,6 @@ foreach option {
     synci
     relax-pic-calls
     msa
-    xlp
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -348,8 +346,6 @@ set mips_option_tests(-mdspr2) {
 
 # Canonicalize command-line option OPTION.
 proc mips_canonicalize_option { option } {
-    regsub {^-mips(32*|64*)$} $option {-march=mips\1} option
-
     regsub {^-mel$} $option {-EL} option
     regsub {^-meb$} $option {-EB} option
 
@@ -435,7 +431,7 @@ proc mips_arch_info { arch prop } {
     set arch [mips_canonicalize_option $arch]
     if { ![info exists mips_arch_info($arch,$prop)] } {
 	mips_push_test_options saved_options {}
-	set output [mips_preprocess [list "additional_flags=$arch -mabi=p32"] {
+	set output [mips_preprocess [list "additional_flags=$arch -m32"] {
 	    int isa = __mips;
 	    #ifdef __mips_isa_rev
 	    int isa_rev = __mips_isa_rev;
@@ -571,7 +567,7 @@ proc mips_64bit_arch_p { option } {
 # Return true if the given abi-group option implicitly requires -mgp32.
 proc mips_32bit_abi_p { option } {
     switch -glob -- $option {
-	-mabi=p32 {
+	-m32 {
 	    return 1
 	}
     }
@@ -581,7 +577,7 @@ proc mips_32bit_abi_p { option } {
 # Return true if the given abi-group option implicitly requires -mgp64.
 proc mips_64bit_abi_p { option } {
     switch -glob -- $option {
-	-mabi=p64 {
+	-m64 {
 	    return 1
 	}
     }
@@ -642,9 +638,9 @@ proc mips-dg-init {} {
     set output [mips_preprocess "" {
 	const char *options[] = {
 	    #if _MIPS_SIM==_ABIP32
-	    "-mabi=p32",
+	    "-m32",
 	    #elif _MIPS_SIM==_ABIP64
-	    "-mabi=p64",
+	    "-m64",
 	    #endif
 
 	    "-march=" _MIPS_ARCH,
@@ -697,22 +693,16 @@ proc mips-dg-init {} {
 	    "addressing=absolute",
 	    #endif
 
-	    #ifdef __mips_synci
-	    "-msynci",
-	    #else
-	    "-mno-synci",
-	    #endif
-
 	    #ifdef __mips_msa
 	    "-mmsa",
 	    #else
 	    "-mno-msa",
 	    #endif
 
-	    #ifdef __mips_xlp
-	    "-mxlp",
+	    #ifdef __nanomips_subset__
+	    "-march=32r6s",
 	    #else
-	    "-mno-xlp",
+	    "-march=32r6",
 	    #endif
 
 	    0
@@ -783,8 +773,6 @@ proc mips-dg-finish {} {
 #         -mdspr2                     -mno-dspr2
 #            |                           |
 #         -mdsp                       -mno-dsp
-#            |                           |
-#         -msynci                     -mno-synci
 #            |                           |
 #            +-- gp, abi & arch ---------+
 #
@@ -900,21 +888,13 @@ proc mips-dg-options { args } {
 		 || ($current > $value && ![string equal $relation ">="])
 		 || ([mips_have_test_option_p options "-mgp64"]
 		     && [mips_32bit_arch_p $arch]) } {
-		# The current setting is out of range; it cannot
-		# possibly be used.  Find a replacement that can.
-		if { [string equal $prop "isa"] } {
-		    set arch "-mips$value"
-		} elseif { $value == 0 } {
-		    set arch "-mips4"
+		if { [mips_have_option_p options "-mgp32"] } {
+		    set arch "-march=32"
 		} else {
-		    if { [mips_have_option_p options "-mgp32"] } {
-			set arch "-mips32"
-		    } else {
-			set arch "-mips64"
-		    }
-		    if { $value > 1 } {
-			append arch "r$value"
-		    }
+		    set arch "-march=64"
+		}
+		if { $value > 1 } {
+		    append arch "r$value"
 		}
 	    }
 	}
@@ -948,12 +928,12 @@ proc mips-dg-options { args } {
     if { !$arch_test_option_p } {
 
     if { $gp_size == 64 && [mips_32bit_arch_p $arch] } {
-		mips_make_test_option options "-mips64r$isa_rev"
+		mips_make_test_option options "-march=64r$isa_rev"
 	# Otherwise, if the current choice of architecture is unacceptable,
 	# choose the equivalent generic architecture.
 	} elseif { $force_generic_isa_p } {
-	    set arch "-mips[mips_arch_info $arch isa]"
-		append arch "r$isa_rev"
+	    set arch "-march=[mips_arch_info $arch isa]"
+		append arch "$isa_rev"
 	    mips_make_test_option options $arch
 	}
 	unset arch
@@ -975,11 +955,11 @@ proc mips-dg-options { args } {
 	
 	if { $gp_size == 32 } {
 	    if { $force_abi || [mips_64bit_abi_p $abi] } {
-		    mips_make_test_option options "-mabi=p32"
+		    mips_make_test_option options "-m32"
 	    }
 	} else {
 	    if { $force_abi || [mips_32bit_abi_p $abi] } {
-		    mips_make_test_option options "-mabi=p64"
+		    mips_make_test_option options "-m64"
 	    }
 	}
 	set abi_test_option_p [mips_test_option_p options abi]

@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=p32 -mxlp isa_rev>=6 -mnanomips (REQUIRES_STDLIB)" } */
+/* { dg-options "-m32 -march=32r6 (REQUIRES_STDLIB)" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Os"} { "" } } */
 
 #include <string.h>

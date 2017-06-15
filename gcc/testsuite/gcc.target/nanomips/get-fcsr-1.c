@@ -7,4 +7,4 @@ foo (void)
   return __builtin_mips_get_fcsr ();
 }
 
-/* { dg-final { scan-assembler "cfc1\t\\\$4,\\\$31" } } */
+/* { dg-final { scan-assembler "cfc1\t\\\$a0,\\\$31" } } */

@@ -1,5 +1,5 @@
 /* Check that we can generate the MOVEP instruction.  */
-/* { dg-options "-mxlp -fpeephole2 isa_rev>=6 -mnanomips" } */
+/* { dg-options "-march=32r6 -fpeephole2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 int bar (int, int);

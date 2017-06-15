@@ -1,4 +1,5 @@
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-options "-march=32r6" } */
 /* { dg-final { scan-assembler-times "\tuasw " 1 } } */
 /* { dg-final { scan-assembler-times "\tualw " 1 } } */
 /* { dg-final { scan-assembler-not "\tnop" } } */

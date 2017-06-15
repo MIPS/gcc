@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-msynci isa_rev>=2" } */
+/* { dg-options "-march=32r6" } */
 /* { dg-final { scan-assembler "\tsynci\t" } } */
 /* { dg-final { scan-assembler "\tjrc?.hb\t" } } */
 /* { dg-final { scan-assembler-not "_flush_cache|mips_sync_icache|_cacheflush" } } */

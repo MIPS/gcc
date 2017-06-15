@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "isa_rev>=2 -mxlp" } */
+/* { dg-options "-march=32r6" } */
 /* { dg-final { scan-assembler "\td?ext\t" } } */
 /* { dg-final { scan-assembler "\td?ins\t" } } */
 

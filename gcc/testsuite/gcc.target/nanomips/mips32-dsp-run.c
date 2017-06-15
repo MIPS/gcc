@@ -1,6 +1,6 @@
 /* Test MIPS32 DSP instructions */
 /* { dg-do run } */
-/* { dg-options "-mdspr3 (REQUIRES_STDLIB)" } */
+/* { dg-options "-march=32r6 -mdspr3 (REQUIRES_STDLIB)" } */
 
 #include <stdlib.h>
 #include <stdio.h>

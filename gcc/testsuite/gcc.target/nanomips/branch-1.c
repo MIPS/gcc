@@ -1,7 +1,7 @@
 /* We should implement
    the "if" statements using an "andi" instruction followed by a branch
    on zero.  */
-/* { dg-options "forbid_cpu=octeon.* -mno-xlp" } */
+/* { dg-options "forbid_cpu=octeon.* -march=32r6" } */
 
 void bar (int);
 void f1 (int x) { if (x & 4) bar (1); }

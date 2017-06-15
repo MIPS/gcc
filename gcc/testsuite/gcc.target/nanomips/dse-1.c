@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-mgp64" } */
+/* { dg-options "-mgp64 -march=64r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 #define TEST(ID, TYPE1, TYPE2)					\

@@ -1,4 +1,4 @@
-/* { dg-options "isa_rev>=6 -mnanomips -mxlp" } */
+/* { dg-options "-march=32r6" } */
 /* { dg-skip-if "bswap recognition needs expensive optimizations" { *-*-* } { "-O0" "-O1" } { "" } } */
 
 unsigned int

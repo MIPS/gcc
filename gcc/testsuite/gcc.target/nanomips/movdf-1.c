@@ -1,6 +1,6 @@
 /* Check that we move DFmode values via memory between FP and GP.  */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-options "-mabi=p32 -mhard-float" } */
+/* { dg-options "-m32 -mhard-float" } */
 
 void bar (void);
 

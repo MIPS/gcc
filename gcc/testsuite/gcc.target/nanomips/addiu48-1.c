@@ -1,4 +1,4 @@
-/* { dg-options "-mxlp -fpeephole2 isa_rev>=6 -mnanomips" } */
+/* { dg-options "-march=32r6 -fpeephole2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 int
@@ -8,5 +8,5 @@ foo (int b)
   return b;
 }
 
-/* { dg-final { scan-assembler "\taddiu\t\\\$\[0-9\]+,\\\$\[0-9\]+,\[0-9\]+\[ #\]+ADDIU48" } } */
+/* { dg-final { scan-assembler "\taddiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\[0-9\]+\[ #\]+ADDIU48" } } */
 

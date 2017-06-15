@@ -1,5 +1,4 @@
 /* { dg-do run } */
-/* { dg-options "-mno-plt" } */
 
 extern void abort (void);
 
