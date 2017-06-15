@@ -42,12 +42,12 @@ LOOP (double)
 /* { dg-final { scan-assembler-times {\tstp\ts[0-9]+} 1 } } */
 /* { dg-final { scan-assembler-times {\tstp\td[0-9]+} 1 } } */
 
-/* { dg-final { scan-assembler-times {\tld2b\t} 4 } } */
-/* { dg-final { scan-assembler-times {\tld2h\t} 4 } } */
-/* { dg-final { scan-assembler-times {\tld2w\t} 4 } } */
-/* { dg-final { scan-assembler-times {\tld2d\t} 4 } } */
+/* { dg-final { scan-assembler-times {\tld1b\t} 4 } } */
+/* { dg-final { scan-assembler-times {\tld1h\t} 4 } } */
+/* { dg-final { scan-assembler-times {\tld1w\t} 4 } } */
+/* { dg-final { scan-assembler-times {\tld1d\t} 4 } } */
 
-/* { dg-final { scan-assembler-times {\tst2b\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tst2h\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tst2w\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tst2d\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tst1b\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tst1h\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tst1w\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tst1d\t} 2 } } */

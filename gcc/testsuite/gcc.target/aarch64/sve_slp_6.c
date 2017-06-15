@@ -44,3 +44,5 @@ TEST_ALL (VEC_PERM)
 /* { dg-final { scan-assembler {\tld3h\t} } } */
 /* { dg-final { scan-assembler {\tld3w\t} } } */
 /* { dg-final { scan-assembler {\tld3d\t} } } */
+
+/* { dg-final { scan-assembler-not {\tuqdec} } } */

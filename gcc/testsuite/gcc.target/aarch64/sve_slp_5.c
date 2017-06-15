@@ -54,3 +54,11 @@ TEST_ALL (VEC_PERM)
 /* { dg-final { scan-assembler-times {\tuaddv\td[0-9]+, p[0-7], z[0-9]+\.d} 4 } } */
 /* { dg-final { scan-assembler-times {\tfaddv\ts[0-9]+, p[0-7], z[0-9]+\.s} 2 } } */
 /* { dg-final { scan-assembler-times {\tfaddv\td[0-9]+, p[0-7], z[0-9]+\.d} 2 } } */
+
+/* Should be 4, if we used reductions for int8_t and int16_t.  */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.b} 2 } } */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.h} 2 } } */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.s} 6 } } */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.d} 6 } } */
+
+/* { dg-final { scan-assembler-not {\tuqdec} } } */

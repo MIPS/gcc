@@ -57,8 +57,9 @@ void gather_loadd_u32(double * restrict dst, double * restrict src,
     dst[i] = src[indices[i]];
 }
 
-/* { dg-final { scan-assembler-times {\tpunpklo\tp[0-9]+\.h, p[0-9]+\.b} 16 } } */
-/* { dg-final { scan-assembler-times {\tpunpkhi\tp[0-9]+\.h, p[0-9]+\.b} 16 } } */
+/* At present we only use unpacks for the 32/64 combinations.  */
+/* { dg-final { scan-assembler-times {\tpunpklo\tp[0-9]+\.h, p[0-9]+\.b} 4 } } */
+/* { dg-final { scan-assembler-times {\tpunpkhi\tp[0-9]+\.h, p[0-9]+\.b} 4 } } */
 
 /* { dg-final { scan-assembler-times {\tsunpklo\tz[0-9]+\.s, z[0-9]+\.h} 2 } } */
 /* { dg-final { scan-assembler-times {\tsunpkhi\tz[0-9]+\.s, z[0-9]+\.h} 2 } } */

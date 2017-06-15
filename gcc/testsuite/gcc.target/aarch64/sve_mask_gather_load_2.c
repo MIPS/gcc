@@ -36,8 +36,10 @@ DEF_MASK_GATHER_LOAD (uint32_t, uint32_t, uint16_t)
 DEF_MASK_GATHER_LOAD (uint64_t, uint64_t, uint16_t)
 DEF_MASK_GATHER_LOAD (uint64_t, uint64_t, uint32_t)
 
-/* { dg-final { scan-assembler-times "\tpunpklo\\tp\[0-9\]+\.h, p\[0-9\]+\.b" 30 } } */
-/* { dg-final { scan-assembler-times "\tpunpkhi\\tp\[0-9\]+\.h, p\[0-9\]+\.b" 30 } } */
+/* At present we only use predicate unpacks when the index type is
+   half the size of the result type.  */
+/* { dg-final { scan-assembler-times "\tpunpklo\\tp\[0-9\]+\.h, p\[0-9\]+\.b" 4 } } */
+/* { dg-final { scan-assembler-times "\tpunpkhi\\tp\[0-9\]+\.h, p\[0-9\]+\.b" 4 } } */
 
 /* { dg-final { scan-assembler-times "\tsunpklo\\tz\[0-9\]+\.h, z\[0-9\]+\.b" 2 } } */
 /* { dg-final { scan-assembler-times "\tsunpkhi\\tz\[0-9\]+\.h, z\[0-9\]+\.b" 2 } } */

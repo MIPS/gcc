@@ -286,6 +286,112 @@ struct gather_scatter_hasher : free_ptr_hash <gather_scatter_indices>
 		     const gather_scatter_indices *);
 };
 
+/* In general, we can divide the vector statements in a vectorized loop
+   into related groups ("rgroups") and say that for each rgroup there is
+   some nS such that the rgroup operates on nS values from one scalar
+   iteration followed by nS values from the next.  That is, if VF is the
+   vectorization factor of the loop, the rgroup operates on a sequence:
+
+     (1,1) (1,2) ... (1,nS) (2,1) ... (2,nS) ... (VF,1) ... (VF,nS)
+
+   where (i,j) represents a scalar value with index j in a scalar
+   iteration with index i.
+
+   [ We use the term "rgroup" to emphasise that this grouping isn't
+     necessarily the same as the grouping of statements used elsewhere.
+     For example, if we implement a group of scalar loads using gather
+     loads, we'll use a separate gather load for each scalar load, and
+     thus each gather load will belong to its own rgroup. ]
+
+   In general this sequence will occupy nV vectors concatenated
+   together.  If these vectors have nL lanes each, the total number
+   of scalar values N is given by:
+
+       N = nS * VF = nV * nL
+
+   None of nS, VF, nV and nL are required to be a power of 2.  nS and nV
+   are compile-time constants but VF and nL can be variable (if the target
+   supports variable-length vectors).
+
+   In classical vectorization, each iteration of the vector loop would
+   handle exactly VF iterations of the original scalar loop.  However,
+   in a fully-masked loop, a particular iteration of the vector loop
+   might handle fewer than VF iterations of the scalar loop.  The vector
+   lanes that correspond to iterations of the scalar loop are said to be
+   "active" and the other lanes are said to be "inactive".
+
+   In a fully-masked loop, many rgroups need to be masked to ensure that
+   they have no effect for the inactive lanes.  Each such rgroup needs a
+   sequence of booleans in the same order as above, but with each (i,j)
+   replaced by a boolean that indicates whether iteration i is active.
+   This sequence occupies nV vector masks that again have nL lanes each.
+   Thus the mask sequence as a whole consists of VF independent booleans
+   that are each repeated nS times.
+
+   We make the simplifying assumption that if a sequence of nV masks is
+   suitable for one (nS,nL) pair, we can reuse it for (nS/2,nL/2) by
+   VIEW_CONVERTing it.  This holds for all current targets that support
+   fully-masked loops.  For example, suppose the scalar loop is:
+
+     float *f;
+     double *d;
+     for (int i = 0; i < n; ++i)
+       {
+         f[i * 2 + 0] += 1.0f;
+         f[i * 2 + 1] += 2.0f;
+         d[i] += 3.0;
+       }
+
+   and suppose that vectors have 256 bits.  The vectorized f accesses
+   will belong to one rgroup and the vectorized d access to another:
+
+     f rgroup: nS = 2, nV = 1, nL = 8
+     d rgroup: nS = 1, nV = 1, nL = 4
+               VF = 4
+
+     [ In this simple example the rgroups do correspond to the normal
+       SLP grouping scheme. ]
+
+   If only the first three lanes are active, the masks we need are:
+
+     f rgroup: 1 1 | 1 1 | 1 1 | 0 0
+     d rgroup:  1  |  1  |  1  |  0
+
+   Here we can use a mask calculated for f's rgroup for d's, but not
+   vice versa.
+
+   Thus for each value of nV, it is enough to provide nV masks, with the
+   mask being calculated based on the highest nL (or, equivalently, based
+   on the highest nS) required by any rgroup with that nV.  We therefore
+   represent the entire collection of masks as a two-level table, with the
+   first level being indexed by nV - 1 (since nV == 0 doesn't exist) and
+   the second being indexed by the mask index 0 <= i < nV.  */
+
+/* The masks needed by rgroups with nV vectors, according to the
+   description above.  */
+struct rgroup_masks {
+  /* The largest nS for all rgroups that use these masks.  */
+  unsigned int max_nscalars_per_iter;
+
+  /* The type of mask to use, based on the highest nS recorded above.  */
+  tree mask_type;
+
+  /* A vector of nV masks, in iteration order.  */
+  vec<tree> masks;
+};
+
+typedef vec<rgroup_masks> vec_loop_masks;
+
+/* Represents a scalar iteration count <= VF as both an integer count and a
+   vector mask.  */
+struct vec_niters_and_mask {
+  /* The number of scalar iterations as a sizetype integer.  */
+  tree niters;
+
+  /* The mask of scalar iterations, with one element per iteration.  */
+  tree mask;
+};
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
 /*-----------------------------------------------------------------*/
@@ -314,6 +420,9 @@ typedef struct _loop_vec_info : public vec_info {
   /* Records whether we still have the option of using a fully-masked loop.  */
   bool can_fully_mask_p;
 
+  /* True if have decided to use a fully-masked loop.  */
+  bool fully_masked_p;
+
   /* Unrolling factor  */
   poly_uint64 vectorization_factor;
 
@@ -321,29 +430,20 @@ typedef struct _loop_vec_info : public vec_info {
      if there is no particular limit.  */
   unsigned HOST_WIDE_INT max_vectorization_factor;
 
-  /* A gimple value representing the actual runtime vectorization
-     factor, which is the minimum of VECTORIZATION_FACTOR and
-     MAX_VECTORIZATION_FACTOR.  The value has type sizetype.  */
-  tree capped_vectorization_factor;
+  /* The actual runtime vectorization factor, which is the minimum of
+     VECTORIZATION_FACTOR and MAX_VECTORIZATION_FACTOR.  */
+  vec_niters_and_mask cap;
 
-  /* The mask type used to control the vectorized loop, or null if we
-     haven't yet decided to use a fully-masked loop.  */
-  tree mask_type;
-
-  /* A mask that needs to be applied to the loop control mask in order
-     to limit the vectorization factor to CAPPED_VECTORIZATION_FACTOR.
-     The mask is null if no cap needs to be applied.  */
-  tree cap_mask;
-
-  /* A balanced tree of masks, in the form described by
-     vect_get_loop_mask.  */
-  vec<tree> mask_array;
+  /* The masks that a fully-masked loop should use to avoid operating
+     on inactive scalars.  In a speculative loop, these masks control
+     the operations that can be executed speculatively.  */
+  vec_loop_masks masks;
 
   /* If we are using a loop mask to align memory addresses, this variable
      contains the number of vector elements that we should skip in the
      first iteration of the vector loop (i.e. the number of leading
      elements that should be false in the first mask).  */
-  tree masked_skip_elems;
+  tree mask_skip_niters;
 
   /* Type of the variables to use in the WHILE_ULT call for fully-masked
      loops.  */
@@ -469,30 +569,24 @@ typedef struct _loop_vec_info : public vec_info {
   /* Is this a speculative loop?  */
   bool speculative_execution;
 
-  /* A balanced tree of masks representing the exit condition of a
-     speculative loop, in the form described by vect_get_loop_mask.
-     The loop exits when at least one element from at least one mask
-     is true.  More than one element may be true, in which case the
-     first true element represents the actual stop point.  */
-  vec<tree> exit_masks;
+  /* In a speculative loop, this is the result of the exit comparison.
+     It is a vector mask with one element for each scalar iteration.  */
+  tree exit_test_mask;
 
-  /* The loop exit value of the speculative mask.  */
-  gphi *speculative_exit_phi;
+  /* A value equal to EXIT_TEST_MASK for use outside the loop.  */
+  tree exit_mask;
 
   /* Is the loop executing using first faulting loads?  */
   bool firstfaulting_execution;
 
-  /* Number of iterations the vectorized loop should increase, in mask and
-     integer forms.  */
-  tree firstfaulting_mask;
-  tree firstfaulting_iter;
+  /* In a vector loop that uses first-faulting loads, this is the
+     number of scalar iterations (bounded by VF) that didn't trigger
+     a fault, in both integer and mask form.  */
+  vec_niters_and_mask nonfaulting;
 
-  /* True if at least one statement needs the nonspeculative masks.  */
-  bool needs_nonspeculative_masks;
-
-  /* A balanced tree of masks for instructions that cannot be executed
-     speculatively, in the form described by vect_get_loop_mask.  */
-  vec<tree> nonspeculative_masks;
+  /* In a speculative loop, these masks are used to control operations
+     that cannot be speculatively executed.  */
+  vec_loop_masks nonspeculative_masks;
 
   /* Statements in a speculative loop that depend on nonspeculative masks.
      These statements can only be executed after the exit condition has
@@ -513,13 +607,12 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_COST_MODEL_THRESHOLD(L) (L)->th
 #define LOOP_VINFO_VECTORIZABLE_P(L)       (L)->vectorizable
 #define LOOP_VINFO_CAN_FULLY_MASK_P(L)     (L)->can_fully_mask_p
+#define LOOP_VINFO_FULLY_MASKED_P(L)       (L)->fully_masked_p
 #define LOOP_VINFO_VECT_FACTOR(L)          (L)->vectorization_factor
 #define LOOP_VINFO_MAX_VECT_FACTOR(L)      (L)->max_vectorization_factor
-#define LOOP_VINFO_CAPPED_VECT_FACTOR(L)   (L)->capped_vectorization_factor
-#define LOOP_VINFO_MASK_TYPE(L)            (L)->mask_type
-#define LOOP_VINFO_CAP_MASK(L)             (L)->cap_mask
-#define LOOP_VINFO_MASK_ARRAY(L)           (L)->mask_array
-#define LOOP_VINFO_MASKED_SKIP_ELEMS(L)    (L)->masked_skip_elems
+#define LOOP_VINFO_CAP(L)                  (L)->cap
+#define LOOP_VINFO_MASKS(L)                (L)->masks
+#define LOOP_VINFO_MASK_SKIP_NITERS(L)     (L)->mask_skip_niters
 #define LOOP_VINFO_MASK_COMPARE_TYPE(L)    (L)->mask_compare_type
 #define LOOP_VINFO_PTR_MASK(L)             (L)->ptr_mask
 #define LOOP_VINFO_LOOP_NEST(L)            (L)->loop_nest
@@ -553,13 +646,13 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 #define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
 #define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
-#define LOOP_VINFO_SPECULATIVE_EXIT_PHI(L)  (L)->speculative_exit_phi
-#define LOOP_VINFO_EXIT_MASKS(L)            (L)->exit_masks
+#define LOOP_VINFO_EXIT_TEST_MASK(L)        (L)->exit_test_mask
+#define LOOP_VINFO_EXIT_MASK(L)             (L)->exit_mask
 #define LOOP_VINFO_FIRSTFAULTING_EXECUTION(L) (L)->firstfaulting_execution
-#define LOOP_VINFO_FIRSTFAULTING_MASK(L)      (L)->firstfaulting_mask
-#define LOOP_VINFO_FIRSTFAULTING_ITER(L)      (L)->firstfaulting_iter
+#define LOOP_VINFO_NONFAULTING(L)             (L)->nonfaulting
+#define LOOP_VINFO_NONSPECULATIVE(L)          (L)->nonspeculative
 #define LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS(L) \
-  (L)->needs_nonspeculative_masks
+  (!(L)->nonspeculative_masks.is_empty ())
 #define LOOP_VINFO_NONSPECULATIVE_MASKS(L)    (L)->nonspeculative_masks
 #define LOOP_VINFO_NONSPECULATIVE_SEQ(L)      (L)->nonspeculative_seq
 
@@ -1311,7 +1404,7 @@ use_capped_vf (loop_vec_info loop_vinfo)
 static inline bool
 vect_use_loop_mask_for_alignment_p (loop_vec_info loop_vinfo)
 {
-  return (LOOP_VINFO_MASK_TYPE (loop_vinfo)
+  return (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo)
 	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
 	  && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
 }
@@ -1395,7 +1488,7 @@ extern poly_uint64 current_vector_size;
 extern tree get_vectype_for_scalar_type (tree);
 extern tree get_mask_type_for_scalar_type (tree);
 extern tree get_same_sized_vectype (tree, tree);
-extern tree vect_get_loop_mask_type (loop_vec_info, tree *);
+extern bool vect_get_loop_mask_type (loop_vec_info);
 extern bool vect_is_simple_use (tree, vec_info *, gimple **,
                                 enum vect_def_type *);
 extern bool vect_is_simple_use (tree, vec_info *, gimple **,
@@ -1450,6 +1543,8 @@ extern tree vect_gen_perm_mask_any (tree, unsigned int, const unsigned char *);
 extern tree vect_gen_perm_mask_checked (tree, unsigned int,
 					const unsigned char *);
 extern void optimize_mask_stores (struct loop*);
+extern gcall *vect_gen_while (tree, tree, tree);
+extern tree vect_gen_while_not (gimple_seq *, tree, tree, tree);
 
 /* In tree-vect-data-refs.c.  */
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
@@ -1510,10 +1605,16 @@ extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *,
 					 tree *, bool);
-extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
-extern tree vect_get_load_mask (loop_vec_info, unsigned int);
-extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
-				      unsigned int, gimple_stmt_iterator *);
+extern tree vect_halve_mask_nunits (tree);
+extern tree vect_double_mask_nunits (tree);
+extern void vect_record_loop_mask (loop_vec_info, vec_loop_masks *,
+				   unsigned int, tree);
+extern tree vect_get_loop_mask (gimple_stmt_iterator *, vec_loop_masks *,
+				unsigned int, tree, unsigned int);
+extern tree vect_get_load_mask (loop_vec_info, gimple_stmt_iterator *,
+				unsigned int, tree, unsigned int);
+extern tree vect_mask_type_for_speculation (loop_vec_info);
+extern tree vect_get_niters_from_mask (gimple_seq *, vec_niters_and_mask *);
 
 /* Drive for loop transformation stage.  */
 extern struct loop *vect_transform_loop (loop_vec_info);

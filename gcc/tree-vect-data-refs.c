@@ -5142,7 +5142,7 @@ vect_mult_by_vf (loop_vec_info loop_vinfo, tree step)
   if (!existed)
     {
       gimple_seq seq = NULL;
-      tree vf = LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo);
+      tree vf = LOOP_VINFO_CAP (loop_vinfo).niters;
       vf = gimple_convert (&seq, TREE_TYPE (step), vf);
       entry = gimple_build (&seq, MULT_EXPR, TREE_TYPE (step), vf, step);
       edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
@@ -5406,7 +5406,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
 	     size.  */
 	  gimple_seq seq = NULL;
 	  iv_step = gimple_build (&seq, MULT_EXPR, sizetype,
-				  LOOP_VINFO_FIRSTFAULTING_ITER (loop_vinfo),
+				  LOOP_VINFO_NONFAULTING (loop_vinfo).niters,
 				  TYPE_SIZE_UNIT (TREE_TYPE (aggr_type)));
 
 	  gsi_insert_seq_before (&incr_gsi, seq, GSI_SAME_STMT);
@@ -5415,7 +5415,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
 	iv_step = size_zero_node;
       else
 	{
-	  if (LOOP_VINFO_CAP_MASK (loop_vinfo))
+	  if (use_capped_vf (loop_vinfo))
 	    {
 	      gcc_assert (group_size != 0);
 	      tree elt_type = TREE_TYPE (DR_REF (dr));
@@ -5547,7 +5547,7 @@ bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
       mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (new_dataref_ptr));
     }
 
-  if (!ptr_incr || LOOP_VINFO_CAP_MASK (STMT_VINFO_LOOP_VINFO (stmt_info)))
+  if (!ptr_incr || use_capped_vf (STMT_VINFO_LOOP_VINFO (stmt_info)))
     return new_dataref_ptr;
 
   /* Update the vector-pointer's cross-iteration increment.  */
