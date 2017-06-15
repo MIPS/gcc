@@ -17729,16 +17729,16 @@ mips_output_division (const char *division, rtx *operands)
 	}
       else
 	{
-	  if (flag_delayed_branch)
+	  if (ISA_HAS_COMPACT_BRANCHES)
+	    {
+	      output_asm_insn (s, operands);
+	      s = "bnec\t%2,%.,1f\n\tbreak\t7\n1:";
+	    }
+	  else if (flag_delayed_branch)
 	    {
 	      output_asm_insn ("%(bne\t%2,%.,1f", operands);
 	      output_asm_insn (s, operands);
 	      s = "break\t7%)\n1:";
-	    }
-	  else if (ISA_HAS_COMPACT_BRANCHES)
-	    {
-	      output_asm_insn (s, operands);
-	      s = "bnec\t%2,%.,1f\n\tbreak\t7\n1:";
 	    }
 	  else
 	    {
