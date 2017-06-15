@@ -10933,8 +10933,11 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	 then we can use gen_lowpart.  */
       else if (mode != BLKmode
 	       && GET_MODE (op0) != BLKmode
-	       && must_eq (GET_MODE_PRECISION (mode),
-			   GET_MODE_PRECISION (GET_MODE (op0)))
+	       && (VECTOR_MODE_P (mode) && VECTOR_MODE_P (GET_MODE (op0))
+		   ? must_eq (GET_MODE_BITSIZE (mode),
+			      GET_MODE_BITSIZE (GET_MODE (op0)))
+		   : must_eq (GET_MODE_PRECISION (mode),
+			      GET_MODE_PRECISION (GET_MODE (op0))))
 	       && !COMPLEX_MODE_P (GET_MODE (op0)))
 	{
 	  if (GET_CODE (op0) == SUBREG)
