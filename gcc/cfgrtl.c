@@ -1758,7 +1758,7 @@ rtl_tidy_fallthru_edge (edge e)
      the head of block C and assert that we really do fall through.  */
 
   for (q = NEXT_INSN (BB_END (b)); q != BB_HEAD (c); q = NEXT_INSN (q))
-    if (INSN_P (q))
+    if (NONDEBUG_INSN_P (q))
       return;
 
   /* Remove what will soon cease being the jump insn from the source block.
