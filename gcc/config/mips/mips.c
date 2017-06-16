@@ -23971,7 +23971,7 @@ mips_set_architecture (const struct mips_cpu_info *info)
       if (mips_isa < 32)
 	mips_isa_rev = 0;
       else
-	mips_isa_rev = (mips_isa & 31) + 1;
+	mips_isa_rev = (mips_isa & 31) + 1 - (TARGET_NANOMIPS ? 1 : 0);
     }
 }
 
