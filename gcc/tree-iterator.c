@@ -282,9 +282,8 @@ tsi_delink (tree_stmt_iterator *i)
 }
 
 /* Return the first expression in a sequence of COMPOUND_EXPRs, or in
-   a STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, and recursing if
-   there are only DEBUG_BEGIN_STMTs and one STATEMENT_LIST in an
-   enclosing STATEMENT_LIST.  */
+   a STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, recursing into a
+   STATEMENT_LIST if that's the first non-DEBUG_BEGIN_STMT.  */
 
 tree
 expr_first (tree expr)
@@ -308,16 +307,6 @@ expr_first (tree expr)
       if (TREE_CODE (n->stmt) != STATEMENT_LIST)
 	return n->stmt;
 
-      struct tree_statement_list_node *s = n->next;
-      while (s && TREE_CODE (s->stmt) == DEBUG_BEGIN_STMT)
-	s = s->next;
-      /* If we couldn't find another non-debug stmt, then we have a
-	 single STATEMENT_LIST among debug stmts, and we should
-	 recurse into it because this list wouldn't be here if it
-	 weren't for the debug stmts.  Otherwise, the non-debug stmt
-	 we found before was what we were looking for.  */
-      if (s)
-	return n->stmt;
       return expr_first (n->stmt);
     }
 
@@ -328,9 +317,8 @@ expr_first (tree expr)
 }
 
 /* Return the last expression in a sequence of COMPOUND_EXPRs, or in a
-   STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, and recursing if
-   there are only DEBUG_BEGIN_STMTs and one STATEMENT_LIST in an
-   enclosing STATEMENT_LIST.  */
+   STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, recursing into a
+   STATEMENT_LIST if that's the last non-DEBUG_BEGIN_STMT.  */
 
 tree
 expr_last (tree expr)
@@ -354,16 +342,6 @@ expr_last (tree expr)
       if (TREE_CODE (n->stmt) != STATEMENT_LIST)
 	return n->stmt;
 
-      struct tree_statement_list_node *p = n->prev;
-      while (p && TREE_CODE (p->stmt) == DEBUG_BEGIN_STMT)
-	p = p->prev;
-      /* If we couldn't find another non-debug stmt, then we have a
-	 single STATEMENT_LIST among debug stmts, and we should
-	 recurse into it because this list wouldn't be here if it
-	 weren't for the debug stmts.  Otherwise, the non-debug stmt
-	 we found before was what we were looking for.  */
-      if (p)
-	return n->stmt;
       return expr_last (n->stmt);
     }
 
