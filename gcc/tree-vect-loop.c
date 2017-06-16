@@ -2354,8 +2354,7 @@ start_over:
 	 remove unsupported SLP instances which makes the above
 	 SLP kind detection invalid.  */
       unsigned old_size = LOOP_VINFO_SLP_INSTANCES (loop_vinfo).length ();
-      vect_slp_analyze_operations (LOOP_VINFO_SLP_INSTANCES (loop_vinfo),
-				   LOOP_VINFO_TARGET_COST_DATA (loop_vinfo));
+      vect_slp_analyze_operations (loop_vinfo);
       if (LOOP_VINFO_SLP_INSTANCES (loop_vinfo).length () != old_size)
 	goto again;
     }
@@ -7588,14 +7587,18 @@ vectorizable_live_operation (gimple *stmt,
   if (slp_node)
     {
       gcc_assert (slp_index >= 0);
+
       int num_scalar = SLP_TREE_SCALAR_STMTS (slp_node).length ();
+      int num_vec = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
 
-      /* Calculate the number of statements that come after this one.  */
-      poly_uint64 skip_nunits = num_scalar - slp_index - 1;
+      /* Get the last occurrence of the scalar index from the concatenation of
+	 all the slp vectors. Calculate which slp vector it is and the index
+	 within.  */
+      poly_uint64 pos = (num_vec * nunits) - num_scalar + slp_index;
 
-      /* Calculate how many vectors and elements we'll need to count
-	 back from the end.  */
-      if (!can_div_trunc_p (skip_nunits, nunits, &vec_entry, &vec_index))
+      /* Calculate which vector contains the result, and which lane of
+	 that vector we need.  */
+      if (!can_div_trunc_p (pos, nunits, &vec_entry, &vec_index))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -7701,14 +7704,6 @@ vectorizable_live_operation (gimple *stmt,
   if (slp_node)
     {
       gcc_assert (!LOOP_VINFO_MASK_TYPE (loop_vinfo));
-
-      /* The code above set vec_entry and vec_index to the number of whole
-	 vectors and elements that we'll need to count back from the end.
-	 Convert them to count from the beginning, now that the number of
-	 vector statements is known.  */
-      int num_vec = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-      vec_entry = num_vec - 1 - vec_entry;
-      vec_index = nunits - 1 - vec_index;
 
       /* Get the correct slp vectorized stmt.  */
       vec_lhs = gimple_get_lhs (SLP_TREE_VEC_STMTS (slp_node)[vec_entry]);
