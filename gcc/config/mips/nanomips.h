@@ -178,10 +178,8 @@ along with GCC; see the file COPYING3.  If not see
 #define ASM_SPEC "\
 %(endian_spec) \
 %{.S:-mlegacyregs} \
-%{m32: -mabi=p32} \
-%{m64: -mabi=p64} \
-%{march=32r6|march=64r6|i6001: -mnanomips -mxlp -mips32r7} \
-%{march=32r6s|m6001: -mnanomips -mno-xlp -mips32r7} \
+%{m32} %{m64} \
+%{march=*} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
 %{mdspr3} %{mno-dspr3} \
