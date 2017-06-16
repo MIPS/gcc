@@ -291,6 +291,7 @@ FP_ASM_SPEC "\
 #define ADDITIONAL_REGISTER_NAMES					\
 {									\
   { "$r0",	 0 + GP_REG_FIRST },					\
+  { "$AT",	 1 + GP_REG_FIRST },					\
   { "$r1",	 1 + GP_REG_FIRST },					\
   { "$r2",	 2 + GP_REG_FIRST },					\
   { "$r3",	 3 + GP_REG_FIRST },					\
