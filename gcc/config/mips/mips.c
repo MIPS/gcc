@@ -18969,7 +18969,7 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT_NO_TARGET,		\
     FUNCTION_TYPE, mips_builtin_avail_msa }
 
-#ifdef MIPS_SUPPORT_PS_3D
+#ifdef MIPS_SUPPORT_DSP
 #define CODE_FOR_mips_sqrt_ps CODE_FOR_sqrtv2sf2
 #define CODE_FOR_mips_addq_ph CODE_FOR_addv2hi3
 #define CODE_FOR_mips_addu_qb CODE_FOR_addv4qi3

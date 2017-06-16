@@ -19,7 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #define NANOMIPS_SUPPORT
 
-#undef MIPS_SUPPORT_DSP
 #undef MIPS_SUPPORT_PS_3D
 #undef MIPS_SUPPORT_MSA
 #undef MIPS_SUPPORT_LOONGSON

@@ -27,6 +27,15 @@
 
 (include "mips-common.md")
 
+; The MIPS DSP Instructions.
+
+(include "mips-dsp.md")
+
+
+; The MIPS DSP REV 2 Instructions.
+
+(include "mips-dspr2.md")
+
 (define_insn "*mips_addsi3_48"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(plus:SI (match_operand:SI 1 "register_operand" "0")
