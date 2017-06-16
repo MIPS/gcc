@@ -323,3 +323,7 @@
 (define_bypass 2 "r24k_int_multi" "r24k_int_load")
 (define_bypass 2 "r24k_int_multi" "r24k_int_store" "!mips_store_data_bypass_p")
 (define_bypass 2 "r24k_int_multi" "r24k_int_prefetch")
+
+(define_c_enum "unspec" [
+  UNSPEC_ADDRESS_FIRST
+])

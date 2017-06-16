@@ -106,10 +106,6 @@
   UNSPEC_INSN_PSEUDO
 ])
 
-(define_c_enum "unspec" [
-  UNSPEC_ADDRESS_FIRST
-])
-
 (define_constants
   [(TLS_GET_TP_REGNUM		3)
    (GET_FCSR_REGNUM		2)
