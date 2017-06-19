@@ -1,3 +1,56 @@
+2016-08-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/72847
+	* include/bits/stl_bvector.h (_Bvector_base::_M_deallocate): Zero
+	pointers to start and end of storage.
+	* testsuite/23_containers/vector/bool/72847.cc: New test.
+	* include/bits/vector.tcc (vector<bool>::_M_reallocate): Only update
+	_M_finish after deallocating.
+	(vector<bool>::_M_fill_insert): Likewise.
+	(vector<bool>::_M_insert_range): Likewise.
+	(vector<bool>::_M_insert_aux): Likewise.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2744 and LWG 2754.
+	* include/std/any (any(ValueType&&)): Constrain with __is_in_place_type.
+	(any(in_place_type_t<_ValueType>, _Args&&...)): Use _Decay.
+	(any(in_place_type_t<_ValueType>, initializer_list<_Up>, _Args&&...)):
+	Likewise.
+	(emplace(_Args&&...)): Likewise.
+	(emplace(initializer_list<_Up>, _Args&&...)): Likewise.
+	* include/std/utility: (__is_in_place_type_impl): New.
+	(__is_in_place_type): Likewise.
+	* testsuite/20_util/any/assign/emplace.cc: Add tests for decaying
+	emplace.
+	* testsuite/20_util/any/cons/in_place.cc: Add tests for decaying
+	in_place constructor.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust.
+	* testsuite/20_util/any/requirements.cc: Add a test for
+	in_place-constructing a non-default-constructible type.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add a feature macro for C++17 make_from_tuple.
+	* include/std/tuple (__cpp_lib_make_from_tuple): New.
+	(__make_from_tuple_impl(_Tuple&&, index_sequence<_Idx...>)):
+	Qualify the call to get<>().
+	* testsuite/20_util/tuple/make_from_tuple/1.cc: Adjust.
+
+2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* src/filesystem/ops.cc: Always include ostream and
+	ext/stdio_filebuf.h.
+	(do_copy_file): Check if _GLIBCXX_USE_FCHMODAT is defined.
+	[_GLIBCXX_USE_SENDFILE]: Fallback to read/write operations in case
+	sendfile fails with ENOSYS or EINVAL.
+
+2016-08-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR libstdc++/72840
+	* testsuite/20_util/ratio/cons/cons_overflow_neg.cc: Fix dg-error
+	syntax.
+
 2016-08-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Implement C++17 make_from_tuple.
