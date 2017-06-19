@@ -1,8 +1,9 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target arm_cortex_m } */
 /* { dg-require-effective-target arm_thumb2_ok } */
+/* { dg-skip-if "avoid conflicts with multilib options" { *-*-* } { "-mcpu=*" } { "-mcpu=cortex-m4" "-mcpu=cortex-m7" } } */
 /* { dg-skip-if "do not override -mfloat-abi" { *-*-* } { "-mfloat-abi=*" } { "-mfloat-abi=hard" } } */
-/* { dg-options "-mthumb -mfloat-abi=hard -mslow-flash-data" } */
+/* { dg-options "-march=armv7e-m -mfloat-abi=hard -mthumb -mslow-flash-data" } */
 
 /* From PR71607 */
 
@@ -22,5 +23,3 @@ fn3 ()
   a[1] = b;
   fn1 (a);
 }
-
-/* { dg-final { scan-assembler-not "\\.(float|l\\?double|\d?byte|short|int|long|quad|word)\\s+\[^.\]" } } */

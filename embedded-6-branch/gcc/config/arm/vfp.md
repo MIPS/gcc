@@ -1404,7 +1404,7 @@
 
 ;; Split an immediate DF move to two immediate SI moves.
 (define_insn_and_split "no_literal_pool_df_immediate"
-  [(set (match_operand 0 "s_register_operand" "")
+  [(set (match_operand:DF 0 "s_register_operand" "")
 	(match_operand:DF 1 "const_double_operand" ""))]
   "TARGET_THUMB2 && arm_disable_literal_pool
   && !(TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE
@@ -1424,7 +1424,7 @@
 
 ;; Split an immediate SF move to one immediate SI move.
 (define_insn_and_split "no_literal_pool_sf_immediate"
-  [(set (match_operand 0 "s_register_operand" "")
+  [(set (match_operand:SF 0 "s_register_operand" "")
 	(match_operand:SF 1 "const_double_operand" ""))]
   "TARGET_THUMB2 && arm_disable_literal_pool
   && !(TARGET_HARD_FLOAT && vfp3_const_double_rtx (operands[1]))"
