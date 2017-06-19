@@ -1,3 +1,140 @@
+2016-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/76342
+	* gcc.target/i386/pr76342.c: New test.
+
+2016-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71512
+	* g++.dg/ubsan/pr71512.C: New test.
+	* c-c++-common/ubsan/pr71512-1.c: New test.
+	* c-c++-common/ubsan/pr71512-2.c: New test.
+
+2016-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-init-1.c: New tests to test various
+	vector initialization options.
+	* gcc.target/powerpc/vec-init-2.c: Likewise.
+	* gcc.target/powerpc/vec-init-3.c: New test to make sure MTVSRDD
+	is generated on ISA 3.0.
+
+2016-08-12  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR middle-end/71654
+	* gcc.dg/c-c++-common/pr71654.c: New test.
+	* gcc.dg/tree-ssa/vrp23: Add -fno-tree-forwprop to
+	dg-options.
+	* gcc.dg/tree-ssa/vrp24: Likewise.
+
+2016-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/67410
+	* gcc.dg/pr67410.c: New test.
+
+2016-08-12  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/69848
+	* gcc.dg/vect/vect-pr69848.c: New test.
+
+2016-08-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/71008
+	* gcc.target/i386/avx512f-vprord-1.c: Scan also for vprold.
+	* gcc.target/i386/avx512f-vprorq-1.c: Scan also for vprolq.
+	* gcc.target/i386/avx512vl-vprord-1.c: Scan also for vprold.
+	* gcc.target/i386/avx512vl-vprorq-1.c: Scan also for vprolq.
+
+2016-08-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57326
+	* gcc.dg/tree-ssa/ssa-pre-32.c: New testcase.
+	* gcc.dg/tree-ssa/loadpre14.c: Adjust.
+	* gcc.dg/tree-ssa/pr35287.c: Likewise.
+	* gcc.target/i386/pr45685.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-1.c: Disable PRE.
+	* gcc.dg/tree-ssa/predcom-2.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-sink-10.c: Likewise.
+	* gfortran.dg/pr34163.f90: Likewise.
+
+2016-08-12  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/gcov/gcov-16.C: New test.
+	* lib/gcov.exp: Support new argument for run-gcov function.
+
+2016-08-12  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/35590
+	* gcc.dg/tree-prof/val-prof-7.c: Improve test coverage.
+
+2016-08-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/72851
+	* gcc.dg/torture/pr72851.c: New testcase.
+
+2016-08-12  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/63240
+	* g++.dg/debug/dwarf2/defaulted-member-function-1.C: New.
+	* g++.dg/debug/dwarf2/defaulted-member-function-2.C: New.
+	* g++.dg/debug/dwarf2/defaulted-member-function-3.C: New.
+	* g++.dg/debug/dwarf2/deleted-member-function.C: Expect
+	DW_AT_deleted.
+
+	PR debug/55641
+	* g++.dg/debug/dwarf2/ref-1.C: New.
+
+	PR debug/49366
+	* g++.dg/debug/dwarf2/template-params-12.H: New.
+	* g++.dg/debug/dwarf2/template-params-12f.C: New.
+	* g++.dg/debug/dwarf2/template-params-12g.C: New.
+	* g++.dg/debug/dwarf2/template-params-12n.C: New.
+	* g++.dg/debug/dwarf2/template-params-12s.C: New.
+	* g++.dg/debug/dwarf2/template-params-12u.C: New.
+	* g++.dg/debug/dwarf2/template-params-12v.C: New.
+	* g++.dg/debug/dwarf2/template-params-12w.C: New.
+
+2016-08-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/72863
+	* gcc.target/powerpc/pr72863.c: New test.
+
+2016-08-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cpp1z/constexpr-lambda6.C: Remove dg-do run.
+
+2015-08-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pieces-strcpy-1.c: New test.
+	* gcc.target/i386/pieces-strcpy-2.c: Likewise.
+
+2016-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/72868
+	* g++.dg/cpp1y/constexpr-switch4.C: New test.
+
+2015-08-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pieces-memcpy-1.c: New test.
+	* gcc.target/i386/pieces-memcpy-2.c: Likewise.
+	* gcc.target/i386/pieces-memcpy-3.c: Likewise.
+	* gcc.target/i386/pieces-memcpy-4.c: Likewise.
+	* gcc.target/i386/pieces-memcpy-5.c: Likewise.
+	* gcc.target/i386/pieces-memcpy-6.c: Likewise.
+
+2016-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/72816
+	* gcc.dg/pr72816.c: Remove dg-error.
+
+2016-08-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/71083
+	* gcc.c-torture/execute/pr71083.c: New test.
+	* gnat.dg/loop_optimization23.adb: New test.
+	* gnat.dg/loop_optimization23_pkg.ads: New test.
+	* gnat.dg/loop_optimization23_pkg.adb: New test.
+
 2016-08-11  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/72772
@@ -118,8 +255,8 @@
 
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
-        PR ipa/71981
-        * gcc.dg/ipa/pr71981.c: New test.
+	PR ipa/71981
+	* gcc.dg/ipa/pr71981.c: New test.
 
 2016-08-09  Bin Cheng  <bin.cheng@arm.com>
 
@@ -1074,7 +1211,6 @@
 
 	* g++.dg/cpp0x/nullptr35.C (caught): Fix typo.
 
->>>>>>> .r238890
 2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 	    Marco Restelli <mrestelli@gmail.com>
 

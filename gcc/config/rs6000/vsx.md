@@ -934,13 +934,27 @@
   [(set (match_operand:VSX_M 0 "vsx_register_operand" "")
 	(match_operand:VSX_M 1 "memory_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  /* Expand to swaps if needed, prior to swap optimization.  */
+  if (!BYTES_BIG_ENDIAN && !TARGET_P9_VECTOR)
+    {
+      rs6000_emit_le_vsx_move (operands[0], operands[1], <MODE>mode);
+      DONE;
+    }
+})
 
 (define_expand "vsx_store_<mode>"
   [(set (match_operand:VSX_M 0 "memory_operand" "")
 	(match_operand:VSX_M 1 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  /* Expand to swaps if needed, prior to swap optimization.  */
+  if (!BYTES_BIG_ENDIAN && !TARGET_P9_VECTOR)
+    {
+      rs6000_emit_le_vsx_move (operands[0], operands[1], <MODE>mode);
+      DONE;
+    }
+})
 
 ;; Explicit load/store expanders for the builtin functions for lxvd2x, etc.,
 ;; when you really want their element-reversing behavior.
@@ -1911,16 +1925,24 @@
 
 ;; Build a V2DF/V2DI vector from two scalars
 (define_insn "vsx_concat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSr>,?<VSa>")
+  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "<VS_64reg>,<VSa>")
-	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VS_64reg>,<VSa>")))]
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  if (BYTES_BIG_ENDIAN)
-    return "xxpermdi %x0,%x1,%x2,0";
+  if (which_alternative == 0)
+    return (BYTES_BIG_ENDIAN
+	    ? "xxpermdi %x0,%x1,%x2,0"
+	    : "xxpermdi %x0,%x2,%x1,0");
+
+  else if (which_alternative == 1)
+    return (BYTES_BIG_ENDIAN
+	    ? "mtvsrdd %x0,%1,%2"
+	    : "mtvsrdd %x0,%2,%1");
+
   else
-    return "xxpermdi %x0,%x2,%x1,0";
+    gcc_unreachable ();
 }
   [(set_attr "type" "vecperm")])
 
@@ -2650,7 +2672,7 @@
    xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
    mtvsrdd %x0,%1,%1"
-  [(set_attr "type" "vecperm,vecload,mftgpr")])
+  [(set_attr "type" "vecperm,vecload,vecperm")])
 
 ;; V4SI splat (ISA 3.0)
 ;; When SI's are allowed in VSX registers, add XXSPLTW support

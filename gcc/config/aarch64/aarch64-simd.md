@@ -2413,7 +2413,7 @@
   enum rtx_code code = GET_CODE (operands[1]);
   rtx tmp = gen_reg_rtx (<V_cmp_result>mode);
 
-  rtx (*comparison) (rtx, rtx, rtx);
+  rtx (*comparison) (rtx, rtx, rtx) = NULL;
 
   switch (code)
     {
@@ -2495,6 +2495,7 @@
 	 a UNLE b -> !(a GT b)
 	 a UNLT b -> !(a GE b)
 	 a   NE b -> !(a EQ b)  */
+      gcc_assert (comparison != NULL);
       emit_insn (comparison (operands[0], operands[2], operands[3]));
       emit_insn (gen_one_cmpl<v_cmp_result>2 (operands[0], operands[0]));
       break;
@@ -2511,6 +2512,7 @@
 	 a LE b -> b GE a
 	 a LT b -> b GT a
 	 a EQ b -> a EQ b  */
+      gcc_assert (comparison != NULL);
       emit_insn (comparison (operands[0], operands[2], operands[3]));
       break;
 
@@ -2571,7 +2573,6 @@
   "TARGET_SIMD"
 {
   rtx mask = gen_reg_rtx (<V_cmp_result>mode);
-  enum rtx_code code = GET_CODE (operands[3]);
 
   emit_insn (gen_vec_cmp<mode><v_cmp_result> (mask, operands[3],
 					      operands[4], operands[5]));
@@ -2592,7 +2593,6 @@
   "TARGET_SIMD"
 {
   rtx mask = gen_reg_rtx (<V_cmp_result>mode);
-  enum rtx_code code = GET_CODE (operands[3]);
 
   emit_insn (gen_vec_cmp<mode><v_cmp_result> (mask, operands[3],
 					      operands[4], operands[5]));
@@ -2614,7 +2614,6 @@
   "TARGET_SIMD"
 {
   rtx mask = gen_reg_rtx (<MODE>mode);
-  enum rtx_code code = GET_CODE (operands[3]);
 
   emit_insn (gen_vec_cmp<mode><mode> (mask, operands[3],
 				      operands[4], operands[5]));
@@ -2634,7 +2633,6 @@
   "TARGET_SIMD"
 {
   rtx mask = gen_reg_rtx (<V_cmp_result>mode);
-  enum rtx_code code = GET_CODE (operands[3]);
 
   emit_insn (gen_vec_cmp<v_cmp_mixed><v_cmp_mixed> (
 						  mask, operands[3],
