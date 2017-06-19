@@ -1,3 +1,69 @@
+2016-08-18  Tamar Christina  <tamar.christina@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* varasm.c (default_use_anchors_for_symbol_p): Reject too large decls.
+
+2016-08-18  Richard Biener  <rguenther@suse.de>
+
+	* ssa-iterators.h (ssa_vuse_operand): New inline.
+	* tree-if-conv.c (ifc_temp_var): Update virtual operand.
+	(predicate_all_scalar_phis): Use remove_phi_node to remove
+	phi nodes predicated.  Delay removing virtual PHIs.
+	(predicate_mem_writes): Update virtual operands.
+	(combine_blocks): Likewise.  Propagate out remaining virtual PHIs.
+	(tree_if_conversion): Do not rewrite virtual SSA form.
+	* tree-phinodes.c (release_phi_node): Make static.
+	* tree-phinodes.h (release_phi_node): Remove.
+
+2016-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (enum ix86_builtins): Remove IX86_BUILTIN_*
+	codes that appear in bdesc_* arrays, instead include i386-builtin.def
+	twice to define those.
+	(bdesc_comi, bdesc_pcmpestr, bdesc_pcmpistr, bdesc_special_args,
+	bdesc_args, bdesc_round_args, bdesc_mpx, bdesc_mpx_const,
+	bdesc_multi_arg): Define by including i386-builtin.def the third time.
+	* config/i386/i386-builtin.def: New file.
+
+2016-08-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (get_source_range_for_char): Rename to...
+	(selftest::get_source_range_for_char): ...this, and move within
+	the #if CHECKING_P guard.
+	(get_num_source_ranges_for_substring): Rename to...
+	(selftest::get_num_source_ranges_for_substring): ...this, move
+	within the #if CHECKING_P guard, and make static.
+	(selftest::assert_num_substring_ranges): Initialize
+	actual_num_ranges.
+
+2016-08-18  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/72771
+	* reload.c (find_reloads): Don't assume that a subreg mem is OK
+	when find_reloads_toplev returns address_reloaded==-1.
+	(alternative_allows_const_pool_ref): Update comment.
+
+2015-08-17  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/71752
+	* tree-vect-loop.c (vectorizable_reduction): Keep SLP operand ordering.
+	* tree-vect-slp.c (vect_get_slp_defs): Handle null operands.
+
+2016-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-fold.c (gimple_fold_call): Use gimple_call_noreturn_p
+	instead of testing ECF_NORETURN bit in gimple_call_flags.
+	* tree-cfg.c (make_edges_bb, execute_fixup_cfg): Likewise.
+	* predict.c (tree_bb_level_predictions): Likewise.
+	* gimple-low.c (gimple_stmt_may_fallthru): Likewise.
+
+	PR middle-end/77259
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children): If
+	turning a call into __builtin_unreachable-like noreturn call, adjust
+	gimple_call_set_fntype.
+	* tree-cfgcleanup.c (fixup_noreturn_call): Remove lhs also if
+	gimple_call_fntype has void return type.
+
 2016-08-17  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* omp-low.c (lower_oacc_reductions): Adjust variable lookup to use
