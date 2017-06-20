@@ -8,4 +8,4 @@ foo (float a[])
   return test;
 }
 /* { dg-final { scan-assembler "\tlwc1\t\\\$f1,0\\\(\\\$a\[0-7\]\\\)\n" } } */
-/* { dg-final { scan-assembler "\tlwc1\t\\\$f0,4\\\(\\\$\\[0-7\]\\\)\n" } } */
+/* { dg-final { scan-assembler "\tlwc1\t\\\$f0,4\\\(\\\$a\[0-7\]\\\)\n" } } */

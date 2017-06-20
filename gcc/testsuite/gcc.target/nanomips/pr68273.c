@@ -75,5 +75,5 @@ op (Node q)
 }
 
 
-/* { dg-final { scan-rtl-dump-times "\\\(set \\\(reg:\[SD\]I 5 \\\$5\\\)" 2 "expand" } }  */
-/* { dg-final { scan-rtl-dump-times "\\\(set \\\(reg:\[SD\]I 6 \\\$6\\\)" 1 "expand" } }  */
+/* { dg-final { scan-rtl-dump-times "\\\(set \\\(reg:\[SD\]I 5 \\\$a1\\\)" 2 "expand" } }  */
+/* { dg-final { scan-rtl-dump-times "\\\(set \\\(reg:\[SD\]I 6 \\\$a2\\\)" 1 "expand" } }  */

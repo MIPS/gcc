@@ -1,4 +1,4 @@
-/* { dg-options "-mdspr2" } */
+/* { dg-options "-mdspr3" } */
 /* { dg-final { scan-assembler "prepend\[^\n\]*,10" } } */
 
 int

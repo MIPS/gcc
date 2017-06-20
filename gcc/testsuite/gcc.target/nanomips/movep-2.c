@@ -10,4 +10,4 @@ foo (int n, int a)
   return bar (0, 0);
 }
 
-/* { dg-final { scan-assembler "\tmovep\t\\\$4,\\\$5,\\\$0,\\\$0" } } */
+/* { dg-final { scan-assembler "\tmovep\t\\\$a0,\\\$a1,\\\$zero,\\\$zero" } } */

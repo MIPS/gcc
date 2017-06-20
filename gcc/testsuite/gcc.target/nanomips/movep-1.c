@@ -13,5 +13,5 @@ foo (long long n, long long a)
   j = bar (n, a);
   return i + j;
 }
-/* { dg-final { scan-assembler "\tmovep\t\\\$\[4-7\],\\\$\[5-8\],\\\$\[0-7\]|(1\[6-9\])|(2\[0-3\]),\\\$\[0-7\]|(1\[6-9\])|(2\[0-3\])" } } */
-/* { dg-final { scan-assembler "\tmovep\t\\\$\[0-7\]|(1\[6-9\])|(2\[0-3\]),\\\$\[0-7\]|(1\[6-9\])|(2\[0-3\]),\\\$\[4-7\],\\\$\[5-8\]" } } */
+/* { dg-final { scan-assembler "\tmovep\t\\\$a\[0-3\],\\\$\[at0-3\]+,\\\$zero|at|\[av0-3\]+|s\[0-7\],\\\$zero|at|\[av0-3\]+|s\[0-7\]" } } */
+/* { dg-final { scan-assembler "\tmovep\t\\\$zero|at|\[av0-3\]+|s\[0-7\],\\\$zero|at|\[av0-3\]+|s\[0-7\],\\\$a\[0-3\],\\\$\[at0-3\]+" } } */
