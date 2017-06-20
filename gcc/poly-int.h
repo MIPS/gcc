@@ -1875,16 +1875,10 @@ template<unsigned int N, typename Ca>
 inline Ca
 known_alignment (const poly_int_pod<N, Ca> &a)
 {
-  /* Calculate the minimum alignment for each coefficient individually.
-     Take the minimum of the nonzero values, all of which will be powers
-     of 2.  */
-  Ca r = a.coeffs[0] & -a.coeffs[0];
+  Ca r = a.coeffs[0];
   for (unsigned int i = 1; i < N; ++i)
-    {
-      Ca part = a.coeffs[i] & -a.coeffs[i];
-      r = (r & (part - 1)) | (part & (r - 1));
-    }
-  return r;
+    r |= a.coeffs[1];
+  return r & -r;
 }
 
 /* Return true if we can compute A | B at compile time, storing the
