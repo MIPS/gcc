@@ -1,3 +1,45 @@
+2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        * gfortran.dg/random_4.f90: Initialize seed before using, handle
+        the last special seed value.
+        * gfortran.dg/random_7.f90: Use size for last array member instead
+        of hardcoded value.
+
+2016-08-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/cpp/warn-undef.c: Append "evaluates to 0" to dg-error.
+	* gcc.dg/cpp/warn-undef-2.c: Likewise.
+
+2016-08-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77286
+	* gcc.dg/torture/pr77286.c: New testcase.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/verbose-asm-2.c: New test case.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(custom_diagnostic_finalizer): Update for change to
+	diagnostic_show_locus.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/cpp/misspelled-directive-1.c: New testcase.
+	* gcc.dg/cpp/misspelled-directive-2.c: New testcase.
+
+2016-08-18  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71514
+	* gcc.dg/pr71514.c: New test.
+
+2015-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/72839
+	* gcc.target/i386/pr72839.c: New test.
+
 2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	PR middle-end/70895
