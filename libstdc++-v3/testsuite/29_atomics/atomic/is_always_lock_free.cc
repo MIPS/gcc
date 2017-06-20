@@ -1,10 +1,4 @@
-// { dg-do run { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* *-*-cygwin *-*-rtems* powerpc-ibm-aix* } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-dragonfly* *-*-netbsd* *-*-linux* *-*-gnu* *-*-solaris* powerpc-ibm-aix* } }
-// { dg-require-effective-target c++11 }
-// { dg-require-cstdint "" }
-// { dg-require-gthreads "" }
-
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,22 +15,18 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <mutex>
-#include <thread>
+// { dg-options "-std=gnu++17" }
+// { dg-do compile }
 
-using mutex_type = std::recursive_timed_mutex;
+#include <atomic>
 
-mutex_type m;
+struct S { int s[64]; };
 
-void f()
-{
-  std::lock_guard<mutex_type> l(m);
-}
+constexpr bool b1 = std::atomic<S>::is_always_lock_free;
+constexpr const bool* cktype1 = &std::atomic<S>::is_always_lock_free;
 
-int main()
-{
-  std::thread t1(f);
-  std::thread t2(f);
-  t1.join();
-  t2.join();
-}
+constexpr bool b2 = std::atomic<int*>::is_always_lock_free;
+constexpr const bool* cktype2 = &std::atomic<int*>::is_always_lock_free;
+
+static_assert( std::atomic<int*>::is_always_lock_free
+                == (ATOMIC_POINTER_LOCK_FREE == 2) );
