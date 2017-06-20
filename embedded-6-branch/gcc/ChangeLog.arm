@@ -1,3 +1,11 @@
+2017-06-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2017-06-20  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
+
+	* config/arm/arm-c.c (arm_cpu_builtins): New block to define
+	__ARM_FEATURE_COPROC according to support.
+
 2017-06-19  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
 
 	Backport from mainline
