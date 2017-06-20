@@ -1,3 +1,33 @@
+2016-08-18  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (copy_dwarf_procedure): Remove obsolete comment.
+	(new_dwarf_proc_die): Emit DW_TAG_dwarf_procedure DIEs even for
+	-gdwarf-3.
+	(function_to_dwarf_procedure): Update comment.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (diagnostics_file_cache_forcibly_evict_file): New
+	function.
+	* input.h (diagnostics_file_cache_forcibly_evict_file): New
+	declaration.
+	* selftest.c (selftest::temp_source_file::~temp_source_file):
+	Evict m_filename from the diagnostic file cache.
+
+2016-08-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-pass.h (make_pass_materialize_all_clones): Declare.
+	* ipa.c (pass_data_materialize_all_clones, pass_materialize_all_clones,
+	make_pass_materialize_all_clones): New simple IPA pass encapsulating
+	clone materialization.
+	* passes.def (all_late_ipa_passes): Start with
+	pass_materialize_all_clones.
+	* cgraphunit.c (symbol_table::compile): Remove call to
+	materialize_all_clones.
+	* tree-into-ssa.c: Include statistics.h.
+	(update_ssa): Count number of times we do incremental/rewrite
+	SSA update.
+
 2016-08-18  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/77282
