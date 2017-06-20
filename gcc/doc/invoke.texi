@@ -851,7 +851,6 @@ Objective-C and Objective-C++ Dialects}.
 -mginv -mno-ginv @gol
 -mmicromips -mno-micromips @gol
 -mmsa -mno-msa @gol
--mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
@@ -1000,6 +999,7 @@ See RS/6000 and PowerPC Options.
 -mmulhw -mno-mulhw @gol
 -mdlmzb -mno-dlmzb @gol
 -mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
+-mfpu=@var{fpu-type} @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
 -msdata=@var{opt}  -mvxworks  -G @var{num}  -pthread @gol
