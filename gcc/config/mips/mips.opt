@@ -377,7 +377,7 @@ Target Report RejectNegative Mask(SOFT_FLOAT_ABI)
 Prevent the use of all hardware floating-point instructions.
 
 msplit-addresses
-Target Report Mask(SPLIT_ADDRESSES)
+Target Report Mask(SPLIT_ADDRESSES) Condition(MIPS_SUPPORT_LEGACY)
 Optimize lui/addiu address loads.
 
 mmips16e2
