@@ -6878,7 +6878,8 @@ This option causes GCC to create markers in the internal representation
 at the beginning of statements, and to keep them roughly in place
 throughout compilation, using them to guide the output of @code{is_stmt}
 markers in the line number table.  This is enabled by default when
-outputting DWARF 2 debug information at the normal level.
+compiling with optimization (@option{-Os}, @option{-O}, @option{-O2},
+@dots{}), and outputting DWARF 2 debug information at the normal level.
 
 @item -gvariable-location-views
 @item -gno-variable-location-views

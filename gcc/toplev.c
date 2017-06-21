@@ -1503,7 +1503,7 @@ process_options (void)
 		"var-tracking-assignments changes selective scheduling");
 
   if (debug_statement_frontiers == AUTODETECT_VALUE)
-    debug_statement_frontiers = debug_info_level >= DINFO_LEVEL_NORMAL
+    debug_statement_frontiers = optimize && debug_info_level >= DINFO_LEVEL_NORMAL
       && (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG);
 
   if (debug_variable_location_views == AUTODETECT_VALUE)
