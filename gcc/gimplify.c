@@ -3531,31 +3531,18 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p,
   return expr;
 }
 
-/* If EXPR is a GOTO_EXPR, return its GOTO_DESTINATION.  If it is a
-   STATEMENT_LIST, skip any of its leading DEBUG_BEGIN_STMTS and
-   recurse on the subsequent statement, if it is the last one.
-   Otherwise, return NULL.  */
+/* If EXPR is a GOTO_EXPR, return it.  If it is a STATEMENT_LIST, skip
+   any of its leading DEBUG_BEGIN_STMTS and recurse on the subsequent
+   statement, if it is the last one.  Otherwise, return NULL.  */
 
 static tree
-goto_destination (tree expr)
+find_goto (tree expr)
 {
   if (!expr)
     return NULL_TREE;
 
   if (TREE_CODE (expr) == GOTO_EXPR)
-    {
-      /* If we are not optimizing (or if we're optimizing for debug),
-	 do not allow destinations of explicit gotos to be simplified.
-	 ??? cfgcleanup optimizes out such explicit gotos, even when
-	 optimizing for debug, but if we don't preserve them here, how
-	 could we can arrange for them to preserved by later
-	 passes?  */
-      if (EXPLICIT_GOTO (expr)
-	  && !(optimize && !optimize_debug))
-	return NULL;
-      else
-	return GOTO_DESTINATION (expr);
-    }
+    return expr;
 
   if (TREE_CODE (expr) != STATEMENT_LIST)
     return NULL_TREE;
@@ -3568,17 +3555,17 @@ goto_destination (tree expr)
   if (!tsi_one_before_end_p (i))
     return NULL_TREE;
 
-  return goto_destination (tsi_stmt (i));
+  return find_goto (tsi_stmt (i));
 }
 
-/* Same as goto_destination, except that it returns NULL if the
-   destination is not a LABEL_DECL.  */
+/* Same as find_goto, except that it returns NULL if the destination
+   is not a LABEL_DECL.  */
 
-static tree
-goto_destination_label (tree expr)
+static inline tree
+find_goto_label (tree expr)
 {
-  tree dest = goto_destination (expr);
-  if (dest && TREE_CODE (dest) == LABEL_DECL)
+  tree dest = find_goto (expr);
+  if (dest && TREE_CODE (GOTO_DESTINATION (dest)) == LABEL_DECL)
     return dest;
   return NULL_TREE;
 }
@@ -3663,16 +3650,16 @@ shortcut_cond_expr (tree expr)
   /* If our arms just jump somewhere, hijack those labels so we don't
      generate jumps to jumps.  */
 
-  if (tree then_dest = goto_destination_label (then_))
+  if (tree then_goto = find_goto_label (then_))
     {
-      true_label = then_dest;
+      true_label = GOTO_DESTINATION (then_goto);
       then_ = NULL;
       then_se = false;
     }
 
-  if (tree else_dest = goto_destination_label (else_))
+  if (tree else_goto = find_goto_label (else_))
     {
-      false_label = else_dest;
+      false_label = GOTO_DESTINATION (else_goto);
       else_ = NULL;
       else_se = false;
     }
@@ -4030,30 +4017,36 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   gimple_push_condition ();
 
   have_then_clause_p = have_else_clause_p = false;
-  label_true = goto_destination_label (TREE_OPERAND (expr, 1));
+  label_true = find_goto_label (TREE_OPERAND (expr, 1));
   if (label_true
-      && DECL_CONTEXT (label_true) == current_function_decl
+      && DECL_CONTEXT (GOTO_DESTINATION (label_true)) == current_function_decl
       /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
 	 have different locations, otherwise we end up with incorrect
 	 location information on the branches.  */
       && (optimize
 	  || !EXPR_HAS_LOCATION (expr)
-	  || !expr_has_location (TREE_OPERAND (expr, 1))
-	  || EXPR_LOCATION (expr) == expr_location (TREE_OPERAND (expr, 1))))
-    have_then_clause_p = true;
+	  || !expr_has_location (label_true)
+	  || EXPR_LOCATION (expr) == expr_location (label_true)))
+    {
+      have_then_clause_p = true;
+      label_true = GOTO_DESTINATION (label_true);
+    }
   else
     label_true = create_artificial_label (UNKNOWN_LOCATION);
-  label_false = goto_destination_label (TREE_OPERAND (expr, 2));
+  label_false = find_goto_label (TREE_OPERAND (expr, 2));
   if (label_false
-      && DECL_CONTEXT (label_false) == current_function_decl
+      && DECL_CONTEXT (GOTO_DESTINATION (label_false)) == current_function_decl
       /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
 	 have different locations, otherwise we end up with incorrect
 	 location information on the branches.  */
       && (optimize
 	  || !EXPR_HAS_LOCATION (expr)
-	  || !expr_has_location (TREE_OPERAND (expr, 2))
-	  || EXPR_LOCATION (expr) == expr_location (TREE_OPERAND (expr, 2))))
-    have_else_clause_p = true;
+	  || !expr_has_location (label_false)
+	  || EXPR_LOCATION (expr) == expr_location (label_false)))
+    {
+      have_else_clause_p = true;
+      label_false = GOTO_DESTINATION (label_false);
+    }
   else
     label_false = create_artificial_label (UNKNOWN_LOCATION);
 

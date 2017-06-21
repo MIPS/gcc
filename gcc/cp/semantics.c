@@ -628,10 +628,7 @@ finish_goto_stmt (tree destination)
 
   check_goto (destination);
 
-  tree t = build_stmt (input_location, GOTO_EXPR, destination);
-  EXPLICIT_GOTO (t) = true;
-
-  return add_stmt (t);
+  return add_stmt (build_stmt (input_location, GOTO_EXPR, destination));
 }
 
 /* COND is the condition-expression for an if, while, etc.,
