@@ -1,3 +1,19 @@
+2017-06-21  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Revert:
+
+	Backport from mainline
+	2017-06-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR lto/69866
+	* gcc.dg/lto/pr69866_0.c: New test.
+	* gcc.dg/lto/pr69866_1.c: Likewise.
+
+	Backport from mainline
+	2017-06-18  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/lto/pr69866_0.c: This test needs alias.
+
 2017-06-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
