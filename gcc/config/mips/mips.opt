@@ -116,11 +116,11 @@ Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations.
 
 mdsp
-Target Report Var(TARGET_DSP) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSP) Condition({defined (MIPS_SUPPORT_DSP) && !defined (NANOMIPS_SUPPORT)})
 Use MIPS-DSP instructions.
 
 mdspr2
-Target Report Var(TARGET_DSPR2) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSPR2) Condition({defined (MIPS_SUPPORT_DSP) && !defined (NANOMIPS_SUPPORT)})
 Use MIPS-DSP REV 2 instructions.
 
 mdspr3
@@ -579,7 +579,7 @@ Target Undocumented Var(TARGET_ADDIUPC32) Init (0)
 
 mjumptable-density=
 Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init (0)
--mjumptable-density=DENSITY      Percentage of non default target labels.
+-mjumptable-density=DENSITY	Percentage of non default target labels.
 
 mjumptable-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)

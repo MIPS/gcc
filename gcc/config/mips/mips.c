@@ -24892,13 +24892,6 @@ mips_option_override (void)
     error ("unsupported combination: -mmicromips -mips32r6 %s, use "
 	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
 
-#if defined (NANOMIPS_SUPPORT) && defined (MIPS_SUPPORT_DSP)
-  if (TARGET_NANOMIPS
-      && (TARGET_DSP || TARGET_DSPR2)
-      && !TARGET_DSPR3)
-    error ("unsupported: nanoMIPS DSP requires minimum -mdspr3");
-#endif
-
   if (TARGET_DSPR3)
     {
       TARGET_DSP = true;
