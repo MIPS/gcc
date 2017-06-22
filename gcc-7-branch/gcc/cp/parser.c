@@ -9447,10 +9447,14 @@ cp_parser_constant_expression (cp_parser* parser,
       /* Require an rvalue constant expression here; that's what our
 	 callers expect.  Reference constant expressions are handled
 	 separately in e.g. cp_parser_template_argument.  */
-      bool is_const = potential_rvalue_constant_expression (expression);
+      tree decay = expression;
+      if (TREE_TYPE (expression)
+	  && TREE_CODE (TREE_TYPE (expression)) == ARRAY_TYPE)
+	decay = build_address (expression);
+      bool is_const = potential_rvalue_constant_expression (decay);
       parser->non_integral_constant_expression_p = !is_const;
       if (!is_const && !allow_non_constant_p)
-	require_potential_rvalue_constant_expression (expression);
+	require_potential_rvalue_constant_expression (decay);
     }
   if (allow_non_constant_p)
     *non_constant_p = parser->non_integral_constant_expression_p;
@@ -23677,7 +23681,7 @@ cp_parser_base_specifier (cp_parser* parser)
 	  if (virtual_p && !duplicate_virtual_error_issued_p)
 	    {
 	      cp_parser_error (parser,
-			       "%<virtual%> specified more than once in base-specified");
+			       "%<virtual%> specified more than once in base-specifier");
 	      duplicate_virtual_error_issued_p = true;
 	    }
 
@@ -23697,7 +23701,7 @@ cp_parser_base_specifier (cp_parser* parser)
 	      && !duplicate_access_error_issued_p)
 	    {
 	      cp_parser_error (parser,
-			       "more than one access specifier in base-specified");
+			       "more than one access specifier in base-specifier");
 	      duplicate_access_error_issued_p = true;
 	    }
 
