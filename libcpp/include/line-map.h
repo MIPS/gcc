@@ -296,6 +296,16 @@ struct GTY(()) source_range
     return result;
   }
 
+  /* Make a source_range from a pair of source_location.  */
+  static source_range from_locations (source_location start,
+				      source_location finish)
+  {
+    source_range result;
+    result.m_start = start;
+    result.m_finish = finish;
+    return result;
+  }
+
   /* Is there any part of this range on the given line?  */
   bool intersects_line_p (const char *file, int line) const;
 };
@@ -1422,7 +1432,7 @@ protected:
 class fixit_hint
 {
 public:
-  enum kind {INSERT, REMOVE, REPLACE};
+  enum kind {INSERT, REPLACE};
 
   virtual ~fixit_hint () {}
 
@@ -1451,27 +1461,6 @@ class fixit_insert : public fixit_hint
   source_location m_where;
   char *m_bytes;
   size_t m_len;
-};
-
-class fixit_remove : public fixit_hint
-{
- public:
-  fixit_remove (source_range src_range);
-  ~fixit_remove () {}
-
-  enum kind get_kind () const { return REMOVE; }
-  bool affects_line_p (const char *file, int line);
-  source_location get_start_loc () const { return m_src_range.m_start; }
-  bool maybe_get_end_loc (source_location *out) const
-  {
-    *out = m_src_range.m_finish;
-    return true;
-  }
-
-  source_range get_range () const { return m_src_range; }
-
- private:
-  source_range m_src_range;
 };
 
 class fixit_replace : public fixit_hint
