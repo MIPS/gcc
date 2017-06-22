@@ -1,3 +1,72 @@
+2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77403
+	* gcc.target/i386/pr77403.c: New test.
+
+2016-08-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77292
+	* c-c++-common/Wlogical-not-parentheses-1.c: New test.
+
+2016-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR c/77398
+	* g++.dg/ext/va-arg1.C: Add error check for illegal first argument.
+
+2016-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ipa/iinline-attr.c: XFAIL on Visium.
+
+2016-08-29  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_structure_13.f90: New testcase.
+
+2016-08-29  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/77261
+	* gfortran.dg/random_3.f90: Run testcase only when real(10) is
+	available.
+
+2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70955
+	* gcc.dg/pr70955.c: New test.
+	* gcc.dg/lto/pr70955_0.c: Same.
+	* gcc.dg/lto/pr70955_1.c: Same.
+
+2016-08-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	* gcc.target/i386/pr71077.c: New test.
+
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77380
+	* gfortran.dg/pr77380.f90: New test.
+
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77372
+	gfortran.dg/pr77372.f90: New test.
+
+2016-08-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/spellcheck-fields-2.c (test): Move
+	dg-begin/end-multiline-output within function body.
+	(test_macro): New function.
+
+2016-08-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-color.c
+	(test_fixit_insert): Update expected output.
+	(test_fixit_remove): Likewise.
+	(test_fixit_replace): Likewise.
+
+2016-08-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/propbits-2.c: Add -fdump-tree-optimized to dg-options.
+	Fix typo.
+
 2016-08-26  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/69047
@@ -5,7 +74,7 @@
 
 2016-08-26  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 	    Martin Jambhor  <mjambor@suse.cz>
-	
+
 	* gcc.dg/ipa/propbits-1.c: New test-case.
 	* gcc.dg/ipa/propbits-2.c: Likewise.
 	* gcc.dg/ipa/propbits-3.c: Likewise.
@@ -278,10 +347,10 @@
 
 2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
 
-        * gfortran.dg/random_4.f90: Initialize seed before using, handle
-        the last special seed value.
-        * gfortran.dg/random_7.f90: Use size for last array member instead
-        of hardcoded value.
+	* gfortran.dg/random_4.f90: Initialize seed before using, handle
+	the last special seed value.
+	* gfortran.dg/random_7.f90: Use size for last array member instead
+	of hardcoded value.
 
 2016-08-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 

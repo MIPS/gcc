@@ -1481,7 +1481,8 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
 
 /* Warn about logical not used on the left hand side operand of a comparison.
    This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
-   Do not warn if RHS is of a boolean type.  */
+   Do not warn if RHS is of a boolean type, a logical operator, or
+   a comparison.  */
 
 void
 warn_logical_not_parentheses (location_t location, enum tree_code code,
@@ -1489,7 +1490,8 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
 {
   if (TREE_CODE_CLASS (code) != tcc_comparison
       || TREE_TYPE (rhs) == NULL_TREE
-      || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE)
+      || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE
+      || truth_value_p (TREE_CODE (rhs)))
     return;
 
   /* Don't warn for !x == 0 or !y != 0, those are equivalent to
@@ -5806,16 +5808,19 @@ build_va_arg (location_t loc, tree expr, tree type)
 {
   tree va_type = TREE_TYPE (expr);
   tree canon_va_type = (va_type == error_mark_node
-			? NULL_TREE
+			? error_mark_node
 			: targetm.canonical_va_list_type (va_type));
 
   if (va_type == error_mark_node
       || canon_va_type == NULL_TREE)
     {
+      if (canon_va_type == NULL_TREE)
+	error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
+
       /* Let's handle things neutrallly, if expr:
 	 - has undeclared type, or
 	 - is not an va_list type.  */
-      return build_va_arg_1 (loc, type, expr);
+      return build_va_arg_1 (loc, type, error_mark_node);
     }
 
   if (TREE_CODE (canon_va_type) != ARRAY_TYPE)
@@ -5829,12 +5834,7 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      if (canon_expr_type == NULL_TREE)
-	{
-	  error_at (loc,
-		    "first argument to %<va_arg%> not of type %<va_list%>");
-	  return error_mark_node;
-	}
+      gcc_assert (canon_expr_type != NULL_TREE);
 
       return build_va_arg_1 (loc, type, expr);
     }
@@ -5902,18 +5902,16 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      if (canon_expr_type == NULL_TREE)
-	{
-	  error_at (loc,
-		    "first argument to %<va_arg%> not of type %<va_list%>");
-	  return error_mark_node;
-	}
+      gcc_assert (canon_expr_type != NULL_TREE);
     }
   else
     {
       /* Case 2b: va_list is pointer to array elem type.  */
       gcc_assert (POINTER_TYPE_P (va_type));
-      gcc_assert (TREE_TYPE (va_type) == TREE_TYPE (canon_va_type));
+
+      /* Comparison as in std_canonical_va_list_type.  */
+      gcc_assert (TYPE_MAIN_VARIANT (TREE_TYPE (va_type))
+		  == TYPE_MAIN_VARIANT (TREE_TYPE (canon_va_type)));
 
       /* Don't take the address.  We've already got '&ap'.  */
       ;
