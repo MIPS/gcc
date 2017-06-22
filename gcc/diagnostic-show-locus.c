@@ -317,8 +317,12 @@ colorizer::begin_state (int state)
       break;
 
     default:
-      /* We don't expect more than 3 ranges per diagnostic.  */
-      gcc_unreachable ();
+      /* For ranges beyond 2, alternate between color 1 and color 2.  */
+      {
+	gcc_assert (state > 2);
+	pp_string (m_context->printer,
+		   state % 2 ? m_range1 : m_range2);
+      }
       break;
     }
 }
@@ -720,8 +724,8 @@ layout::layout (diagnostic_context * context,
   m_exploc (richloc->get_expanded_location (0)),
   m_colorizer (context, diagnostic_kind),
   m_colorize_source_p (context->colorize_source_p),
-  m_layout_ranges (rich_location::MAX_RANGES),
-  m_line_spans (1 + rich_location::MAX_RANGES),
+  m_layout_ranges (richloc->get_num_locations ()),
+  m_line_spans (1 + richloc->get_num_locations ()),
   m_x_offset (0)
 {
   source_location primary_loc = richloc->get_range (0)->m_loc;
@@ -904,7 +908,7 @@ layout::calculate_line_spans ()
 
   /* Populate tmp_spans with individual spans, for each of
      m_exploc, and for m_layout_ranges.  */
-  auto_vec<line_span> tmp_spans (1 + rich_location::MAX_RANGES);
+  auto_vec<line_span> tmp_spans (1 + m_layout_ranges.length ());
   tmp_spans.safe_push (line_span (m_exploc.line, m_exploc.line));
   for (unsigned int i = 0; i < m_layout_ranges.length (); i++)
     {
@@ -1050,8 +1054,15 @@ layout::print_annotation_line (int row, const line_bounds lbounds)
 	  /* Within a range.  Draw either the caret or an underline.  */
 	  m_colorizer.set_range (state.range_idx);
 	  if (state.draw_caret_p)
-	    /* Draw the caret.  */
-	    pp_character (m_pp, m_context->caret_chars[state.range_idx]);
+	    {
+	      /* Draw the caret.  */
+	      char caret_char;
+	      if (state.range_idx < rich_location::STATICALLY_ALLOCATED_RANGES)
+		caret_char = m_context->caret_chars[state.range_idx];
+	      else
+		caret_char = '^';
+	      pp_character (m_pp, caret_char);
+	    }
 	  else
 	    pp_character (m_pp, '~');
 	}
@@ -1487,7 +1498,7 @@ test_one_liner_fixit_insert ()
   test_diagnostic_context dc;
   location_t caret = linemap_position_for_column (line_table, 7);
   rich_location richloc (line_table, caret);
-  richloc.add_fixit_insert (caret, "&");
+  richloc.add_fixit_insert ("&");
   diagnostic_show_locus (&dc, &richloc, DK_ERROR);
   ASSERT_STREQ ("\n"
 		" foo = bar.field;\n"
@@ -1506,10 +1517,7 @@ test_one_liner_fixit_remove ()
   location_t finish = linemap_position_for_column (line_table, 15);
   location_t dot = make_location (start, start, finish);
   rich_location richloc (line_table, dot);
-  source_range range;
-  range.m_start = start;
-  range.m_finish = finish;
-  richloc.add_fixit_remove (range);
+  richloc.add_fixit_remove ();
   diagnostic_show_locus (&dc, &richloc, DK_ERROR);
   ASSERT_STREQ ("\n"
 		" foo = bar.field;\n"
@@ -1528,10 +1536,7 @@ test_one_liner_fixit_replace ()
   location_t finish = linemap_position_for_column (line_table, 15);
   location_t field = make_location (start, start, finish);
   rich_location richloc (line_table, field);
-  source_range range;
-  range.m_start = start;
-  range.m_finish = finish;
-  richloc.add_fixit_replace (range, "m_field");
+  richloc.add_fixit_replace ("m_field");
   diagnostic_show_locus (&dc, &richloc, DK_ERROR);
   ASSERT_STREQ ("\n"
 		" foo = bar.field;\n"
@@ -1580,10 +1585,7 @@ test_one_liner_fixit_replace_equal_secondary_range ()
   rich_location richloc (line_table, equals);
   location_t field = make_location (start, start, finish);
   richloc.add_range (field, false);
-  source_range range;
-  range.m_start = start;
-  range.m_finish = finish;
-  richloc.add_fixit_replace (range, "m_field");
+  richloc.add_fixit_replace (field, "m_field");
   diagnostic_show_locus (&dc, &richloc, DK_ERROR);
   /* The replacement range is indicated in the annotation line,
      so it shouldn't be indicated via an additional underline.  */
@@ -1591,6 +1593,113 @@ test_one_liner_fixit_replace_equal_secondary_range ()
 		" foo = bar.field;\n"
 		"     ^     ~~~~~\n"
 		"           m_field\n",
+		pp_formatted_text (dc.printer));
+}
+
+/* Verify that we can use ad-hoc locations when adding fixits to a
+   rich_location.  */
+
+static void
+test_one_liner_fixit_validation_adhoc_locations ()
+{
+  /* Generate a range that's too long to be packed, so must
+     be stored as an ad-hoc location (given the defaults
+     of 5 bits or 0 bits of packed range); 41 columns > 2**5.  */
+  const location_t c7 = linemap_position_for_column (line_table, 7);
+  const location_t c47 = linemap_position_for_column (line_table, 47);
+  const location_t loc = make_location (c7, c7, c47);
+
+  if (c47 > LINE_MAP_MAX_LOCATION_WITH_COLS)
+    return;
+
+  ASSERT_TRUE (IS_ADHOC_LOC (loc));
+
+  /* Insert.  */
+  {
+    rich_location richloc (line_table, loc);
+    richloc.add_fixit_insert (loc, "test");
+    /* It should not have been discarded by the validator.  */
+    ASSERT_EQ (1, richloc.get_num_fixit_hints ());
+
+    test_diagnostic_context dc;
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  " foo = bar.field;\n"
+		  "       ^~~~~~~~~~                               \n"
+		  "       test\n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Remove.  */
+  {
+    rich_location richloc (line_table, loc);
+    source_range range = source_range::from_locations (loc, c47);
+    richloc.add_fixit_remove (range);
+    /* It should not have been discarded by the validator.  */
+    ASSERT_EQ (1, richloc.get_num_fixit_hints ());
+
+    test_diagnostic_context dc;
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  " foo = bar.field;\n"
+		  "       ^~~~~~~~~~                               \n"
+		  "       -----------------------------------------\n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Replace.  */
+  {
+    rich_location richloc (line_table, loc);
+    source_range range = source_range::from_locations (loc, c47);
+    richloc.add_fixit_replace (range, "test");
+    /* It should not have been discarded by the validator.  */
+    ASSERT_EQ (1, richloc.get_num_fixit_hints ());
+
+    test_diagnostic_context dc;
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  " foo = bar.field;\n"
+		  "       ^~~~~~~~~~                               \n"
+		  "       test\n",
+		  pp_formatted_text (dc.printer));
+  }
+}
+
+/* Ensure that we can add an arbitrary number of fix-it hints to a
+   rich_location.  */
+
+static void
+test_one_liner_many_fixits ()
+{
+  test_diagnostic_context dc;
+  location_t equals = linemap_position_for_column (line_table, 5);
+  rich_location richloc (line_table, equals);
+  for (int i = 0; i < 19; i++)
+    richloc.add_fixit_insert ("a");
+  ASSERT_EQ (19, richloc.get_num_fixit_hints ());
+  diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+  ASSERT_STREQ ("\n"
+		" foo = bar.field;\n"
+		"     ^\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n"
+		"     a\n",
 		pp_formatted_text (dc.printer));
 }
 
@@ -1626,6 +1735,8 @@ test_diagnostic_show_locus_one_liner (const line_table_case &case_)
   test_one_liner_fixit_replace ();
   test_one_liner_fixit_replace_non_equal_range ();
   test_one_liner_fixit_replace_equal_secondary_range ();
+  test_one_liner_fixit_validation_adhoc_locations ();
+  test_one_liner_many_fixits ();
 }
 
 /* Verify that fix-it hints are appropriately consolidated.
