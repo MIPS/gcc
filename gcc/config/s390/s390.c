@@ -3102,6 +3102,9 @@ s390_check_qrst_address (char c, rtx op, bool lit_pool_ok)
   struct s390_address addr;
   bool decomposed = false;
 
+  if (!address_operand (op, GET_MODE (op)))
+    return 0;
+
   /* This check makes sure that no symbolic address (except literal
      pool references) are accepted by the R or T constraints.  */
   if (s390_loadrelative_operand_p (op, NULL, NULL))
@@ -11407,38 +11410,39 @@ s390_emit_epilogue (bool sibcall)
 				gen_rtx_REG (Pmode, i), cfa_restores);
 	}
 
-      if (! sibcall)
+      /* Fetch return address from stack before load multiple,
+	 this will do good for scheduling.
+
+	 Only do this if we already decided that r14 needs to be
+	 saved to a stack slot. (And not just because r14 happens to
+	 be in between two GPRs which need saving.)  Otherwise it
+	 would be difficult to take that decision back in
+	 s390_optimize_prologue.
+
+	 This optimization is only helpful on in-order machines.  */
+      if (! sibcall
+	  && cfun_gpr_save_slot (RETURN_REGNUM) == SAVE_SLOT_STACK
+	  && s390_tune <= PROCESSOR_2097_Z10)
 	{
-	  /* Fetch return address from stack before load multiple,
-	     this will do good for scheduling.
+	  int return_regnum = find_unused_clobbered_reg();
+	  if (!return_regnum)
+	    return_regnum = 4;
+	  return_reg = gen_rtx_REG (Pmode, return_regnum);
 
-	     Only do this if we already decided that r14 needs to be
-	     saved to a stack slot. (And not just because r14 happens to
-	     be in between two GPRs which need saving.)  Otherwise it
-	     would be difficult to take that decision back in
-	     s390_optimize_prologue.  */
-	  if (cfun_gpr_save_slot (RETURN_REGNUM) == SAVE_SLOT_STACK)
-	    {
-	      int return_regnum = find_unused_clobbered_reg();
-	      if (!return_regnum)
-		return_regnum = 4;
-	      return_reg = gen_rtx_REG (Pmode, return_regnum);
+	  addr = plus_constant (Pmode, frame_pointer,
+				offset + cfun_frame_layout.gprs_offset
+				+ (RETURN_REGNUM
+				   - cfun_frame_layout.first_save_gpr_slot)
+				* UNITS_PER_LONG);
+	  addr = gen_rtx_MEM (Pmode, addr);
+	  set_mem_alias_set (addr, get_frame_alias_set ());
+	  emit_move_insn (return_reg, addr);
 
-	      addr = plus_constant (Pmode, frame_pointer,
-				    offset + cfun_frame_layout.gprs_offset
-				    + (RETURN_REGNUM
-				       - cfun_frame_layout.first_save_gpr_slot)
-				    * UNITS_PER_LONG);
-	      addr = gen_rtx_MEM (Pmode, addr);
-	      set_mem_alias_set (addr, get_frame_alias_set ());
-	      emit_move_insn (return_reg, addr);
-
-	      /* Once we did that optimization we have to make sure
-		 s390_optimize_prologue does not try to remove the
-		 store of r14 since we will not be able to find the
-		 load issued here.  */
-	      cfun_frame_layout.save_return_addr_p = true;
-	    }
+	  /* Once we did that optimization we have to make sure
+	     s390_optimize_prologue does not try to remove the store
+	     of r14 since we will not be able to find the load issued
+	     here.  */
+	  cfun_frame_layout.save_return_addr_p = true;
 	}
 
       insn = restore_gprs (frame_pointer,

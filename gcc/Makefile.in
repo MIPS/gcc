@@ -928,7 +928,7 @@ TREE_CORE_H = tree-core.h coretypes.h all-tree.def tree.def \
 TREE_H = tree.h $(TREE_CORE_H)  tree-check.h
 REGSET_H = regset.h $(BITMAP_H) hard-reg-set.h
 BASIC_BLOCK_H = basic-block.h $(PREDICT_H) $(VEC_H) $(FUNCTION_H) \
-	cfg-flags.def cfghooks.h
+	cfg-flags.def cfghooks.h profile-count.h
 GIMPLE_H = gimple.h gimple.def gsstruct.def $(VEC_H) \
 	$(GGC_H) $(BASIC_BLOCK_H) $(TREE_H) tree-ssa-operands.h \
 	tree-ssa-alias.h $(INTERNAL_FN_H) $(HASH_TABLE_H) is-a.h
@@ -1340,6 +1340,7 @@ OBJS = \
 	ipa-chkp.o \
 	ipa-cp.o \
 	ipa-devirt.o \
+	ipa-fnsummary.o \
 	ipa-polymorphic-call.o \
 	ipa-split.o \
 	ipa-inline.o \
@@ -1347,6 +1348,7 @@ OBJS = \
 	ipa-visibility.o \
 	ipa-inline-analysis.o \
 	ipa-inline-transform.o \
+	ipa-predicate.o \
 	ipa-profile.o \
 	ipa-prop.o \
 	ipa-pure-const.o \
@@ -1415,6 +1417,7 @@ OBJS = \
 	print-rtl-function.o \
 	print-tree.o \
 	profile.o \
+	profile-count.o \
 	read-md.o \
 	read-rtl.o \
 	read-rtl-function.o \
@@ -1438,7 +1441,6 @@ OBJS = \
 	rtlanal.o \
 	rtlhooks.o \
 	run-rtl-passes.o \
-	sbitmap.o \
 	sched-deps.o \
 	sched-ebb.o \
 	sched-rgn.o \
@@ -1584,6 +1586,7 @@ OBJS = \
 OBJS-libcommon = diagnostic.o diagnostic-color.o diagnostic-show-locus.o \
 	edit-context.o \
 	pretty-print.o intl.o \
+	sbitmap.o \
 	vec.o input.o version.o hash-table.o ggc-none.o memory-block.o \
 	selftest.o
 
@@ -2457,7 +2460,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/libfuncs.h $(SYMTAB_H) \
   $(srcdir)/real.h $(srcdir)/function.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/fixed-value.h \
-  $(srcdir)/output.h $(srcdir)/cfgloop.h $(srcdir)/cfg.h \
+  $(srcdir)/output.h $(srcdir)/cfgloop.h $(srcdir)/cfg.h $(srcdir)/profile-count.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/ipa-ref.h $(srcdir)/cgraph.h \
   $(srcdir)/reload.h $(srcdir)/caller-save.c $(srcdir)/symtab.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
@@ -2505,7 +2508,8 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/trans-mem.c \
   $(srcdir)/lto-streamer.h \
   $(srcdir)/target-globals.h \
-  $(srcdir)/ipa-inline.h \
+  $(srcdir)/ipa-predicate.h \
+  $(srcdir)/ipa-fnsummary.h \
   $(srcdir)/vtable-verify.c \
   $(srcdir)/asan.c \
   $(srcdir)/ubsan.c \
@@ -3810,7 +3814,9 @@ site.exp: ./config.status Makefile
 	@echo "set CFLAGS \"\"" >> ./site.tmp
 	@echo "set CXXFLAGS \"\"" >> ./site.tmp
 	@echo "set HOSTCC \"$(CC)\"" >> ./site.tmp
+	@echo "set HOSTCXX \"$(CXX)\"" >> ./site.tmp
 	@echo "set HOSTCFLAGS \"$(CFLAGS)\"" >> ./site.tmp
+	@echo "set HOSTCXXFLAGS \"$(CXXFLAGS)\"" >> ./site.tmp
 # TEST_ALWAYS_FLAGS are flags that should be passed to every compilation.
 # They are passed first to allow individual tests to override them.
 	@echo "set TEST_ALWAYS_FLAGS \"$(SYSROOT_CFLAGS_FOR_TARGET)\"" >> ./site.tmp

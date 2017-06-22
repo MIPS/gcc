@@ -123,8 +123,6 @@ enum processor_type
   TARGET_CPU_cortexa72,
   TARGET_CPU_cortexa73,
   TARGET_CPU_exynosm1,
-  TARGET_CPU_falkor,
-  TARGET_CPU_qdf24xx,
   TARGET_CPU_xgene1,
   TARGET_CPU_cortexa57cortexa53,
   TARGET_CPU_cortexa72cortexa53,
@@ -133,6 +131,44 @@ enum processor_type
   TARGET_CPU_cortexm23,
   TARGET_CPU_cortexm33,
   TARGET_CPU_arm_none
+};
+
+enum arch_type
+{
+  TARGET_ARCH_armv2,
+  TARGET_ARCH_armv2a,
+  TARGET_ARCH_armv3,
+  TARGET_ARCH_armv3m,
+  TARGET_ARCH_armv4,
+  TARGET_ARCH_armv4t,
+  TARGET_ARCH_armv5,
+  TARGET_ARCH_armv5t,
+  TARGET_ARCH_armv5e,
+  TARGET_ARCH_armv5te,
+  TARGET_ARCH_armv5tej,
+  TARGET_ARCH_armv6,
+  TARGET_ARCH_armv6j,
+  TARGET_ARCH_armv6k,
+  TARGET_ARCH_armv6z,
+  TARGET_ARCH_armv6kz,
+  TARGET_ARCH_armv6zk,
+  TARGET_ARCH_armv6t2,
+  TARGET_ARCH_armv6_m,
+  TARGET_ARCH_armv6s_m,
+  TARGET_ARCH_armv7,
+  TARGET_ARCH_armv7_a,
+  TARGET_ARCH_armv7ve,
+  TARGET_ARCH_armv7_r,
+  TARGET_ARCH_armv7_m,
+  TARGET_ARCH_armv7e_m,
+  TARGET_ARCH_armv8_a,
+  TARGET_ARCH_armv8_1_a,
+  TARGET_ARCH_armv8_2_a,
+  TARGET_ARCH_armv8_m_base,
+  TARGET_ARCH_armv8_m_main,
+  TARGET_ARCH_iwmmxt,
+  TARGET_ARCH_iwmmxt2,
+  TARGET_ARCH_arm_none
 };
 
 enum fpu_type

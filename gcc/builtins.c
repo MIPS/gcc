@@ -140,7 +140,7 @@ static rtx expand_builtin_memset_with_bounds (tree, rtx, machine_mode);
 static rtx expand_builtin_memset_args (tree, tree, tree, rtx, machine_mode, tree);
 static rtx expand_builtin_bzero (tree);
 static rtx expand_builtin_strlen (tree, rtx, machine_mode);
-static rtx expand_builtin_alloca (tree, bool);
+static rtx expand_builtin_alloca (tree);
 static rtx expand_builtin_unop (machine_mode, tree, rtx, rtx, optab);
 static rtx expand_builtin_frame_address (tree, tree);
 static tree stabilize_va_list_loc (location_t, tree, int);
@@ -3788,31 +3788,18 @@ expand_builtin_stpncpy (tree exp, rtx)
       || !warn_stringop_overflow)
     return NULL_RTX;
 
+  /* The source and destination of the call.  */
   tree dest = CALL_EXPR_ARG (exp, 0);
   tree src = CALL_EXPR_ARG (exp, 1);
 
-  /* The number of bytes to write (not the maximum).  */
+  /* The exact number of bytes to write (not the maximum).  */
   tree len = CALL_EXPR_ARG (exp, 2);
-  /* The length of the source sequence.  */
-  tree slen = c_strlen (src, 1);
 
-  /* Try to determine the range of lengths that the source expression
-     refers to.  */
-  tree lenrange[2];
-  if (slen)
-    lenrange[0] = lenrange[1] = slen;
-  else
-    {
-      get_range_strlen (src, lenrange);
-      slen = lenrange[0];
-    }
-
+  /* The size of the destination object.  */
   tree destsize = compute_objsize (dest, warn_stringop_overflow - 1);
 
-  /* The number of bytes to write is LEN but check_sizes will also
-     check SLEN if LEN's value isn't known.  */
   check_sizes (OPT_Wstringop_overflow_,
-	       exp, len, /*maxlen=*/NULL_TREE, slen, destsize);
+	       exp, len, /*maxlen=*/NULL_TREE, src, destsize);
 
   return NULL_RTX;
 }
@@ -4927,11 +4914,10 @@ expand_builtin_frame_address (tree fndecl, tree exp)
 }
 
 /* Expand EXP, a call to the alloca builtin.  Return NULL_RTX if we
-   failed and the caller should emit a normal call.  CANNOT_ACCUMULATE
-   is the same as for allocate_dynamic_stack_space.  */
+   failed and the caller should emit a normal call.  */
 
 static rtx
-expand_builtin_alloca (tree exp, bool cannot_accumulate)
+expand_builtin_alloca (tree exp)
 {
   rtx op0;
   rtx result;
@@ -4939,7 +4925,7 @@ expand_builtin_alloca (tree exp, bool cannot_accumulate)
   tree fndecl = get_callee_fndecl (exp);
   bool alloca_with_align = (DECL_FUNCTION_CODE (fndecl)
 			    == BUILT_IN_ALLOCA_WITH_ALIGN);
-
+  bool alloca_for_var = CALL_ALLOCA_FOR_VAR_P (exp);
   bool valid_arglist
     = (alloca_with_align
        ? validate_arglist (exp, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE)
@@ -4968,8 +4954,9 @@ expand_builtin_alloca (tree exp, bool cannot_accumulate)
 	   ? TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 1))
 	   : BIGGEST_ALIGNMENT);
 
-  /* Allocate the desired space.  */
-  result = allocate_dynamic_stack_space (op0, 0, align, cannot_accumulate);
+  /* Allocate the desired space.  If the allocation stems from the declaration
+     of a variable-sized object, it cannot accumulate.  */
+  result = allocate_dynamic_stack_space (op0, 0, align, alloca_for_var);
   result = convert_memory_address (ptr_mode, result);
 
   return result;
@@ -6765,9 +6752,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
     case BUILT_IN_ALLOCA:
     case BUILT_IN_ALLOCA_WITH_ALIGN:
-      /* If the allocation stems from the declaration of a variable-sized
-	 object, it cannot accumulate.  */
-      target = expand_builtin_alloca (exp, CALL_ALLOCA_FOR_VAR_P (exp));
+      target = expand_builtin_alloca (exp);
       if (target)
 	return target;
       break;
@@ -9049,7 +9034,6 @@ fold_builtin_3 (location_t loc, tree fndecl,
 	return do_mpfr_remquo (arg0, arg1, arg2);
     break;
 
-    case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
       return fold_builtin_memcmp (loc, arg0, arg1, arg2);;
 

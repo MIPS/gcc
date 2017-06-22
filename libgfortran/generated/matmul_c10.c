@@ -222,9 +222,9 @@ matmul_c10_avx (gfc_array_c10 * const restrict retarray,
       bxstride = GFC_DESCRIPTOR_STRIDE(b,0);
 
       /* bystride should never be used for 1-dimensional b.
-	 in case it is we want it to cause a segfault, rather than
-	 an incorrect result. */
-      bystride = 0xDEADBEEF;
+         The value is only used for calculation of the
+         memory by the buffer.  */
+      bystride = 256;
       ycount = 1;
     }
   else
@@ -290,6 +290,7 @@ matmul_c10_avx (gfc_array_c10 * const restrict retarray,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
+      GFC_COMPLEX_10 *t1;
 
       a = abase;
       b = bbase;
@@ -306,6 +307,11 @@ matmul_c10_avx (gfc_array_c10 * const restrict retarray,
       b_offset = 1 + b_dim1;
       b -= b_offset;
 
+      /* Empty c first.  */
+      for (j=1; j<=n; j++)
+	for (i=1; i<=m; i++)
+	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
@@ -316,15 +322,7 @@ matmul_c10_avx (gfc_array_c10 * const restrict retarray,
       if (t1_dim > 65536)
 	t1_dim = 65536;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-      GFC_COMPLEX_10 t1[t1_dim]; /* was [256][256] */
-#pragma GCC diagnostic pop
-
-      /* Empty c first.  */
-      for (j=1; j<=n; j++)
-	for (i=1; i<=m; i++)
-	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+      t1 = malloc (t1_dim * sizeof(GFC_COMPLEX_10));
 
       /* Start turning the crank. */
       i1 = n;
@@ -535,6 +533,7 @@ matmul_c10_avx (gfc_array_c10 * const restrict retarray,
 		}
 	    }
 	}
+      free(t1);
       return;
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
@@ -775,9 +774,9 @@ matmul_c10_avx2 (gfc_array_c10 * const restrict retarray,
       bxstride = GFC_DESCRIPTOR_STRIDE(b,0);
 
       /* bystride should never be used for 1-dimensional b.
-	 in case it is we want it to cause a segfault, rather than
-	 an incorrect result. */
-      bystride = 0xDEADBEEF;
+         The value is only used for calculation of the
+         memory by the buffer.  */
+      bystride = 256;
       ycount = 1;
     }
   else
@@ -843,6 +842,7 @@ matmul_c10_avx2 (gfc_array_c10 * const restrict retarray,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
+      GFC_COMPLEX_10 *t1;
 
       a = abase;
       b = bbase;
@@ -859,6 +859,11 @@ matmul_c10_avx2 (gfc_array_c10 * const restrict retarray,
       b_offset = 1 + b_dim1;
       b -= b_offset;
 
+      /* Empty c first.  */
+      for (j=1; j<=n; j++)
+	for (i=1; i<=m; i++)
+	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
@@ -869,15 +874,7 @@ matmul_c10_avx2 (gfc_array_c10 * const restrict retarray,
       if (t1_dim > 65536)
 	t1_dim = 65536;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-      GFC_COMPLEX_10 t1[t1_dim]; /* was [256][256] */
-#pragma GCC diagnostic pop
-
-      /* Empty c first.  */
-      for (j=1; j<=n; j++)
-	for (i=1; i<=m; i++)
-	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+      t1 = malloc (t1_dim * sizeof(GFC_COMPLEX_10));
 
       /* Start turning the crank. */
       i1 = n;
@@ -1088,6 +1085,7 @@ matmul_c10_avx2 (gfc_array_c10 * const restrict retarray,
 		}
 	    }
 	}
+      free(t1);
       return;
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
@@ -1328,9 +1326,9 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
       bxstride = GFC_DESCRIPTOR_STRIDE(b,0);
 
       /* bystride should never be used for 1-dimensional b.
-	 in case it is we want it to cause a segfault, rather than
-	 an incorrect result. */
-      bystride = 0xDEADBEEF;
+         The value is only used for calculation of the
+         memory by the buffer.  */
+      bystride = 256;
       ycount = 1;
     }
   else
@@ -1396,6 +1394,7 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
+      GFC_COMPLEX_10 *t1;
 
       a = abase;
       b = bbase;
@@ -1412,6 +1411,11 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
       b_offset = 1 + b_dim1;
       b -= b_offset;
 
+      /* Empty c first.  */
+      for (j=1; j<=n; j++)
+	for (i=1; i<=m; i++)
+	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
@@ -1422,15 +1426,7 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
       if (t1_dim > 65536)
 	t1_dim = 65536;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-      GFC_COMPLEX_10 t1[t1_dim]; /* was [256][256] */
-#pragma GCC diagnostic pop
-
-      /* Empty c first.  */
-      for (j=1; j<=n; j++)
-	for (i=1; i<=m; i++)
-	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+      t1 = malloc (t1_dim * sizeof(GFC_COMPLEX_10));
 
       /* Start turning the crank. */
       i1 = n;
@@ -1641,6 +1637,7 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
 		}
 	    }
 	}
+      free(t1);
       return;
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
@@ -1736,6 +1733,24 @@ matmul_c10_avx512f (gfc_array_c10 * const restrict retarray,
 #undef max
 
 #endif  /* HAVE_AVX512F */
+
+/* AMD-specifix funtions with AVX128 and FMA3/FMA4.  */
+
+#if defined(HAVE_AVX) && defined(HAVE_FMA3) && defined(HAVE_AVX128)
+void
+matmul_c10_avx128_fma3 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict a, gfc_array_c10 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm) __attribute__((__target__("avx,fma")));
+internal_proto(matmul_c10_avx128_fma3);
+#endif
+
+#if defined(HAVE_AVX) && defined(HAVE_FMA4) && defined(HAVE_AVX128)
+void
+matmul_c10_avx128_fma4 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict a, gfc_array_c10 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm) __attribute__((__target__("avx,fma4")));
+internal_proto(matmul_c10_avx128_fma4);
+#endif
 
 /* Function to fall back to if there is no special processor-specific version.  */
 static void
@@ -1877,9 +1892,9 @@ matmul_c10_vanilla (gfc_array_c10 * const restrict retarray,
       bxstride = GFC_DESCRIPTOR_STRIDE(b,0);
 
       /* bystride should never be used for 1-dimensional b.
-	 in case it is we want it to cause a segfault, rather than
-	 an incorrect result. */
-      bystride = 0xDEADBEEF;
+         The value is only used for calculation of the
+         memory by the buffer.  */
+      bystride = 256;
       ycount = 1;
     }
   else
@@ -1945,6 +1960,7 @@ matmul_c10_vanilla (gfc_array_c10 * const restrict retarray,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
+      GFC_COMPLEX_10 *t1;
 
       a = abase;
       b = bbase;
@@ -1961,6 +1977,11 @@ matmul_c10_vanilla (gfc_array_c10 * const restrict retarray,
       b_offset = 1 + b_dim1;
       b -= b_offset;
 
+      /* Empty c first.  */
+      for (j=1; j<=n; j++)
+	for (i=1; i<=m; i++)
+	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
@@ -1971,15 +1992,7 @@ matmul_c10_vanilla (gfc_array_c10 * const restrict retarray,
       if (t1_dim > 65536)
 	t1_dim = 65536;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-      GFC_COMPLEX_10 t1[t1_dim]; /* was [256][256] */
-#pragma GCC diagnostic pop
-
-      /* Empty c first.  */
-      for (j=1; j<=n; j++)
-	for (i=1; i<=m; i++)
-	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+      t1 = malloc (t1_dim * sizeof(GFC_COMPLEX_10));
 
       /* Start turning the crank. */
       i1 = n;
@@ -2190,6 +2203,7 @@ matmul_c10_vanilla (gfc_array_c10 * const restrict retarray,
 		}
 	    }
 	}
+      free(t1);
       return;
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
@@ -2336,6 +2350,26 @@ void matmul_c10 (gfc_array_c10 * const restrict retarray,
 	    }
 #endif  /* HAVE_AVX */
         }
+    else if (__cpu_model.__cpu_vendor == VENDOR_AMD)
+      {
+#if defined(HAVE_AVX) && defined(HAVE_FMA3) && defined(HAVE_AVX128)
+        if ((__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX))
+	    && (__cpu_model.__cpu_features[0] & (1 << FEATURE_FMA)))
+	  {
+            matmul_fn = matmul_c10_avx128_fma3;
+	    goto store;
+	  }
+#endif
+#if defined(HAVE_AVX) && defined(HAVE_FMA4) && defined(HAVE_AVX128)
+        if ((__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX))
+	     && (__cpu_model.__cpu_features[0] & (1 << FEATURE_FMA4)))
+	  {
+            matmul_fn = matmul_c10_avx128_fma4;
+	    goto store;
+	  }
+#endif
+
+      }
    store:
       __atomic_store_n (&matmul_p, matmul_fn, __ATOMIC_RELAXED);
    }
@@ -2484,9 +2518,9 @@ matmul_c10 (gfc_array_c10 * const restrict retarray,
       bxstride = GFC_DESCRIPTOR_STRIDE(b,0);
 
       /* bystride should never be used for 1-dimensional b.
-	 in case it is we want it to cause a segfault, rather than
-	 an incorrect result. */
-      bystride = 0xDEADBEEF;
+         The value is only used for calculation of the
+         memory by the buffer.  */
+      bystride = 256;
       ycount = 1;
     }
   else
@@ -2552,6 +2586,7 @@ matmul_c10 (gfc_array_c10 * const restrict retarray,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
+      GFC_COMPLEX_10 *t1;
 
       a = abase;
       b = bbase;
@@ -2568,6 +2603,11 @@ matmul_c10 (gfc_array_c10 * const restrict retarray,
       b_offset = 1 + b_dim1;
       b -= b_offset;
 
+      /* Empty c first.  */
+      for (j=1; j<=n; j++)
+	for (i=1; i<=m; i++)
+	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
@@ -2578,15 +2618,7 @@ matmul_c10 (gfc_array_c10 * const restrict retarray,
       if (t1_dim > 65536)
 	t1_dim = 65536;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-      GFC_COMPLEX_10 t1[t1_dim]; /* was [256][256] */
-#pragma GCC diagnostic pop
-
-      /* Empty c first.  */
-      for (j=1; j<=n; j++)
-	for (i=1; i<=m; i++)
-	  c[i + j * c_dim1] = (GFC_COMPLEX_10)0;
+      t1 = malloc (t1_dim * sizeof(GFC_COMPLEX_10));
 
       /* Start turning the crank. */
       i1 = n;
@@ -2797,6 +2829,7 @@ matmul_c10 (gfc_array_c10 * const restrict retarray,
 		}
 	    }
 	}
+      free(t1);
       return;
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)

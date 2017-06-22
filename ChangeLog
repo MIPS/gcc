@@ -1,3 +1,74 @@
+2017-06-21  Andrew Jenner  <andrew@codesourcery.com>
+
+	* MAINTAINERS: Add myself as maintainer for PowerPC SPE port.
+
+2017-06-19  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.def: Define 4 stages PGO bootstrap.
+	* Makefile.tpl: Define FLAGS.
+	* Makefile.in: Regenerate.
+
+2017-06-14  Ian Lance Taylor  <iant@golang.org>
+
+	* Makefile.def: Add check-gotools to go check targets.
+	* Makefile.in: Rebuild.
+
+2017-06-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config.gcc: Remove rs6000/e500.h from tm_file for all targets.
+
+2017-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* configure.ac (*-*-linux-android*): Set target_makefile_frag.
+	* configure: Regenerate.
+
+2017-05-31  Martin Liska  <mliska@suse.cz>
+
+	* configure.ac: Add handling of stage2_werror_flags to
+	action-if-given and to action-if-not-given.
+	* configure: Regenerate.
+
+2017-05-31  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
+
+	* MAINTAINERS: Add self to Write After Approval
+
+2017-05-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* MAINTAINERS: Update my email address, and remove myself as
+	maintainer in some areas.
+
+2017-05-25  Eric Gallager  <egall@gwmail.gwu.edu>
+
+	* MAINTAINERS: Add self to Write After Approval
+
+2017-05-25  Nathan Sidwell  <nathan@acm.org>
+
+	* configure.ac: Add --enable-languages=default to mean default and
+	make --enable-languages=all mean all supported languages.
+	* configure: Regenerated.
+
+2017-05-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config.gcc (powerpc*-*-*spe*): New.
+	(powerpc-*-eabispe*): Use ${cpu_type} instead of hardcoded pathnames.
+	(powerpc-*-rtems*spe*): New.
+	(powerpc*-*-linux*spe*): New.
+	(powerpc-wrs-vxworksspe): New.
+	(powerpc*-*-*, rs6000-*-*): Use ${cpu_type}.
+	(misc flags) [powerpc*-*-*, rs6000-*-*): Use ${cpu_type}.
+	* config.host (powerpc*-*-*spe*): New.
+
+2017-05-19  Martin Liska  <mliska@suse.cz>
+
+	* configure.ac: Add --enable-werror-always just for
+	bootstrap-debug (or none build config) and do not add it
+	when we are on a release branch.
+	* configure: Regenerated.
+
+2017-05-18  Sheldon Lobo  <sheldon.lobo@oracle.com>
+
+	* MAINTAINERS: Add self to Write After Approval
+
 2017-05-09  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* MAINTAINERS: Move myself to Write After Approval section.

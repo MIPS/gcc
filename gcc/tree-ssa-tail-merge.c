@@ -205,6 +205,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-sccvn.h"
 #include "cfgloop.h"
 #include "tree-eh.h"
+#include "tree-cfgcleanup.h"
 
 /* Describes a group of bbs with the same successors.  The successor bbs are
    cached in succs, and the successor edge flags are cached in succ_flags.
@@ -1554,29 +1555,51 @@ replace_block_by (basic_block bb1, basic_block bb2)
 		   pred_edge, UNKNOWN_LOCATION);
     }
 
-  bb2->frequency += bb1->frequency;
-  if (bb2->frequency > BB_FREQ_MAX)
-    bb2->frequency = BB_FREQ_MAX;
-
   bb2->count += bb1->count;
 
   /* Merge the outgoing edge counts from bb1 onto bb2.  */
-  gcov_type out_sum = 0;
+  profile_count out_sum = profile_count::zero ();
+  int out_freq_sum = 0;
+
+  /* Recompute the edge probabilities from the new merged edge count.
+     Use the sum of the new merged edge counts computed above instead
+     of bb2's merged count, in case there are profile count insanities
+     making the bb count inconsistent with the edge weights.  */
+  FOR_EACH_EDGE (e1, ei, bb1->succs)
+    {
+      if (e1->count.initialized_p ())
+	out_sum += e1->count;
+      out_freq_sum += EDGE_FREQUENCY (e1);
+    }
+  FOR_EACH_EDGE (e1, ei, bb2->succs)
+    {
+      if (e1->count.initialized_p ())
+	out_sum += e1->count;
+      out_freq_sum += EDGE_FREQUENCY (e1);
+    }
+
   FOR_EACH_EDGE (e1, ei, bb1->succs)
     {
       e2 = find_edge (bb2, e1->dest);
       gcc_assert (e2);
       e2->count += e1->count;
+      if (out_sum > 0 && e2->count.initialized_p ())
+	{
+	  e2->probability = e2->count.probability_in (bb2->count);
+	}
+      else if (bb1->frequency && bb2->frequency)
+	e2->probability = e1->probability;
+      else if (bb2->frequency && !bb1->frequency)
+	;
+      else if (out_freq_sum)
+	e2->probability = GCOV_COMPUTE_SCALE (EDGE_FREQUENCY (e1)
+					      + EDGE_FREQUENCY (e2),
+					      out_freq_sum);
       out_sum += e2->count;
     }
-  /* Recompute the edge probabilities from the new merged edge count.
-     Use the sum of the new merged edge counts computed above instead
-     of bb2's merged count, in case there are profile count insanities
-     making the bb count inconsistent with the edge weights.  */
-  FOR_EACH_EDGE (e2, ei, bb2->succs)
-    {
-      e2->probability = GCOV_COMPUTE_SCALE (e2->count, out_sum);
-    }
+  bb2->frequency += bb1->frequency;
+  if (bb2->frequency > BB_FREQ_MAX)
+    bb2->frequency = BB_FREQ_MAX;
 
   /* Move over any user labels from bb1 after the bb2 labels.  */
   gimple_stmt_iterator gsi1 = gsi_start_bb (bb1);
@@ -1716,6 +1739,16 @@ tail_merge_optimize (unsigned int todo)
     return 0;
 
   timevar_push (TV_TREE_TAIL_MERGE);
+
+  /* We enter from PRE which has critical edges split.  Elimination
+     does not process trivially dead code so cleanup the CFG if we
+     are told so.  And re-split critical edges then.  */
+  if (todo & TODO_cleanup_cfg)
+    {
+      cleanup_tree_cfg ();
+      todo &= ~TODO_cleanup_cfg;
+      split_critical_edges ();
+    }
 
   if (!dom_info_available_p (CDI_DOMINATORS))
     {
