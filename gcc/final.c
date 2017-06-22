@@ -2294,9 +2294,9 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
-	  in_cold_section_p = !in_cold_section_p;
-
 	  maybe_output_next_view (seen);
+
+	  in_cold_section_p = !in_cold_section_p;
 
 	  if (dwarf2out_do_frame ())
 	    dwarf2out_switch_text_section ();
