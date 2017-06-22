@@ -1,3 +1,173 @@
+2016-09-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (OBJS-libcommon): Add edit-context.o.
+	* diagnostic-color.c (color_dict): Add "diff-filename",
+	"diff-hunk", "diff-delete", and "diff-insert".
+	(parse_gcc_colors): Update default value of GCC_COLORS in comment
+	to reflect above changes.
+	* doc/invoke.texi (-fdiagnostics-color): Update description of
+	default GCC_COLORS, and of the supported capabilities.
+	* edit-context.c: New file.
+	* edit-context.h: New file.
+	* input.c (struct fcache): Add field "missing_trailing_newline".
+	(diagnostics_file_cache_forcibly_evict_file): Initialize it to
+	true.
+	(add_file_to_cache_tab): Likewise.
+	(fcache::fcache): Likewise.
+	(get_next_line): Update c->missing_trailing_newline.
+	(location_missing_trailing_newline): New function.
+	* input.h (location_missing_trailing_newline): New decl.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	edit_context_c_tests.
+	* selftest.h (edit_context_c_tests): New decl.
+
+2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenth@suse.de>
+
+	PR tree-optimization/77444
+	* tree-ssa-loop-ivopts.c (cand_value_at): For pointers use sizetype
+	as steptype, remove redundant initialization.
+
+2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77396
+	* sanopt.c: Include gimple-ssa.h, tree-phinodes.h and ssa-iterators.h.
+	(sanopt_optimize_walker): Optimize away
+	__asan_before_dynamic_init (...) followed by
+	__asan_after_dynamic_init () without intervening memory loads/stores.
+	* ipa-pure-const.c (special_builtin_state): Handle
+	BUILT_IN_ASAN_BEFORE_DYNAMIC_INIT and
+	BUILT_IN_ASAN_AFTER_DYNAMIC_INIT.
+
+2016-09-02  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* cfg.c (free_original_copy_tables): Replace second assignment of
+	bb_copy = NULL by bb_original = NULL. 
+
+2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/77421
+	* config/i386/i386.c (ix86_expanded_args_builtin): Remove redundant
+	assignment added in r216794.
+
+2016-09-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (OBJS): Add typed-splay-tree.o.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	typed_splay_tree_c_tests.
+	* selftest.h (typed_splay_tree_c_tests): New decl.
+	* typed-splay-tree.c: New file.
+	* typed-splay-tree.h (typed_splay_tree::foreach_fn): New typedef.
+	(typed_splay_tree::max): New method.
+	(typed_splay_tree::min): New method.
+	(typed_splay_tree::foreach): New method.
+	(typed_splay_tree::closure): New struct.
+	(typed_splay_tree::inner_foreach_fn): New function.
+
+2016-09-02  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* ipa-cp.c (ipcp_store_bits_results): Change option name from
+	-fipa-cp-bit to -fipa-bit-cp.
+
+2016-09-01  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/71831
+	* tree-object-size.h: Return bool instead of the size and add
+	argument for the size.
+	* tree-object-size.c (compute_object_offset): Update signature.
+	(addr_object_size): Same.
+	(compute_builtin_object_size): Return bool instead of the size
+	and add argument for the size.  Handle POINTER_PLUS_EXPR when
+	optimization is disabled.
+	(expr_object_size): Adjust.
+	(plus_stmt_object_size): Adjust.
+	(pass_object_sizes::execute): Adjust.
+	* builtins.c (fold_builtin_object_size): Adjust.
+	* doc/extend.texi (Object Size Checking): Update.
+	* ubsan.c (instrument_object_size): Adjust.
+
+2016-09-01  Martin Sebor  <msebor@redhat.com>
+
+	* genmatch.c (parser::parse_expr): Increase buffer size to guarantee
+	it fits the output of the formatted function regardless of its
+	arguments.
+	* gcc/genmodes.c (parser::parse_expr): Same.
+	* gimplify.c (gimplify_asm_expr): Same.
+	* passes.c (pass_manager::register_one_dump_file): Same.
+	* print-tree.c (print_node): Same.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/altivec.md: Use VSCR_REGNO instead of 110 throughout.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/altivec.md: Use VRSAVE_REGNO instead of 109 throughout.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/altivec.md: Use CR6_REGNO instead of 74 throughout.
+	* config/rs6000/vector.md: Ditto.
+	* config/rs6000/vsx.md: Ditto.
+
+2016-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ipa-inline-analysis.c (param_change_prob): Get to the base object
+	first in all cases.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (*restore_gpregs_<mode>_r11,
+	*restore_gpregs_<mode>_r12, *restore_gpregs_<mode>_r1,
+	*return_and_restore_gpregs_<mode>_r11,
+	*return_and_restore_gpregs_<mode>_r12,
+	*return_and_restore_gpregs_<mode>_r1,
+	*return_and_restore_fpregs_<mode>_r11,
+	*return_and_restore_fpregs_<mode>_r12,
+	*return_and_restore_fpregs_<mode>_r1): Use the hard register LR_REGNO
+	directly instead of via the "l" constraint.  Renumber operands.
+	Fix whitespace.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/altivec.md (*save_world, *save_vregs_<mode>_r11,
+	save_vregs_<mode>_r12, *restore_vregs_<mode>_r11,
+	*restore_vregs_<mode>_r12): Use LR_REGNO instead of 65.
+	* config/rs6000/darwin.md (load_macho_picbase, load_macho_picbase_si,
+	load_macho_picbase_di, *call_indirect_nonlocal_darwin64,
+	*call_nonlocal_darwin64, *call_value_indirect_nonlocal_darwin64,
+	*call_value_nonlocal_darwin64, reload_macho_picbase,
+	reload_macho_picbase_si, reload_macho_picbase_di): Ditto.
+	* config/rs6000/rs6000.h (RETURN_ADDR_IN_PREVIOUS_FRAME): Ditto.
+	* config/rs6000/rs6000.md (*save_gpregs_<mode>_r11,
+	*save_gpregs_<mode>_r12, *save_gpregs_<mode>_r1,
+	*save_fpregs_<mode>_r11, *save_fpregs_<mode>_r12,
+	*save_fpregs_<mode>_r1): Ditto.
+	* config/rs6000/spe.md (*save_gpregs_spe, *restore_gpregs_spe,
+	*return_and_restore_gpregs_spe): Ditto.
+
+2016-09-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md
+	(define_insn "*return_and_restore_fpregs_aix_<mode>_r11"): Delete
+	the use of the link register.
+	(define_insn "*return_and_restore_fpregs_aix_<mode>_r1"): Ditto.
+
+2016-09-01  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Michael Meissner <meissner@linux.vnet.ibm.com>
+
+	PR target/72827
+	* config/rs6000/rs6000.c (rs6000_legitimize_address): Avoid
+	reg+reg addressing for TImode.
+	(rs6000_legitimate_address_p): Only allow register indirect
+	addressing for TImode, even without TARGET_QUAD_MEMORY.
+
+2016-09-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77436
+	* tree-chrec.c (tree_fold_binomial): Use widest_int, properly
+	check whether the result fits the desired result type.
+
 2016-09-01  Nathan Sidwell  <nathan@acm.org>
 
 	* config/nvptx/nvptx.md (cbranch<mode>4): Op 2 can be const.
@@ -3358,11 +3528,11 @@
 	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
 	Reformat two multi-line strings.
 
-2016-07-22 Martin Sebor  <msebor@redhat.com>
+2016-07-22  Martin Sebor  <msebor@redhat.com>
 
 	* doc/extend.texi (Compound Literals): Add '@' missed in last commit.
 
-2016-07-22 Martin Sebor  <msebor@redhat.com>
+2016-07-22  Martin Sebor  <msebor@redhat.com>
 
 	PR c/71560
 	* doc/extend.texi (Compound Literals): Correct and clarify.
