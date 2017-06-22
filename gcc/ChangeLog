@@ -1,3 +1,56 @@
+2016-09-01  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_legitimize_address_displacement):
+	New function.
+	(TARGET_LEGITIMIZE_ADDRESS_DISPLACEMENT): Define.
+
+2016-09-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (*ands<mode>_compare0): New pattern.
+	* config/aarch64/aarch64.c (aarch64_select_cc_mode): Return CC_NZmode
+	for comparisons of integer ZERO_EXTEND against zero.
+
+2016-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/i386/i386.c (ix86_option_override_internal): Also disable the
+	STV pass if -mstackrealign is enabled.
+
+2016-08-31  Ilya Verbin  <iverbin@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix detection of
+	AVX512IFMA.
+
+2016-08-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (class layout): Add field m_fixit_hints.
+	(layout_range::intersects_line_p): New method.
+	(test_range_contains_point_for_single_point): Rename to...
+	(test_layout_range_for_single_point): ...this, and add testing
+	for layout_range::intersects_line_p.
+	(test_range_contains_point_for_single_line): Rename to...
+	(test_layout_range_for_single_line): ...this,  and add testing
+	for layout_range::intersects_line_p.
+	(test_range_contains_point_for_multiple_lines): Rename to...
+	(test_layout_range_for_multiple_lines): ...this,  and add testing
+	for layout_range::intersects_line_p.
+	(layout::layout): Populate m_fixit_hints.
+	(layout::get_expanded_location): Handle the case of a line-span
+	for a fix-it hint.
+	(layout::validate_fixit_hint_p): New method.
+	(get_line_span_for_fixit_hint): New function.
+	(layout::calculate_line_spans): Add spans for fixit-hints.
+	(layout::should_print_annotation_line_p): New method.
+	(layout::print_any_fixits): Drop param "richloc", instead using
+	validated fixits in m_fixit_hints.  Add "const" to hint pointers.
+	(diagnostic_show_locus): Avoid printing blank annotation lines.
+	(selftest::test_diagnostic_context::test_diagnostic_context):
+	Initialize show_column and start_span.
+	(selftest::test_diagnostic_context::start_span_cb): New static
+	function.
+	(selftest::test_diagnostic_show_locus_fixit_lines): New function.
+	(selftest::diagnostic_show_locus_c_tests): Update for function
+	renamings.  Call test_diagnostic_show_locus_fixit_lines.
+
 2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR tree-optimization/73714
