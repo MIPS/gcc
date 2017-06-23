@@ -563,9 +563,6 @@ typedef struct _loop_vec_info : public vec_info {
      CAPPED_VECTORIZATION_FACTOR * X.  */
   hash_map<tree, tree> *vf_mult_map;
 
-  /* All data references for sunk stmts.  */
-  vec<data_reference_p> sunk_datarefs;
-
   /* Is this a speculative loop?  */
   bool speculative_execution;
 
@@ -644,7 +641,6 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
 #define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
-#define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
 #define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
 #define LOOP_VINFO_EXIT_TEST_MASK(L)        (L)->exit_test_mask
 #define LOOP_VINFO_EXIT_MASK(L)             (L)->exit_mask

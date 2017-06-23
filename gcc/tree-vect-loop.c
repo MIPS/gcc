@@ -1234,7 +1234,6 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_ADDR_CACHE (res) = NULL;
   LOOP_VINFO_GATHER_SCATTER_CACHE (res) = NULL;
   LOOP_VINFO_VF_MULT_MAP (res) = NULL;
-  LOOP_VINFO_SUNK_DATAREFS (res) = vNULL;
   LOOP_VINFO_SPECULATIVE_EXECUTION (res) = false;
   LOOP_VINFO_FIRSTFAULTING_EXECUTION (res) = false;
   LOOP_VINFO_NONSPECULATIVE_MASKS (res).create (0);
@@ -1358,7 +1357,6 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
 
   release_vec_loop_masks (&LOOP_VINFO_MASKS (loop_vinfo));
   release_vec_loop_masks (&LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo));
-  LOOP_VINFO_SUNK_DATAREFS (loop_vinfo).release ();
 
   LOOP_VINFO_CHECK_NONZERO (loop_vinfo).release ();
   LOOP_VINFO_LOWER_BOUNDS (loop_vinfo).release ();
