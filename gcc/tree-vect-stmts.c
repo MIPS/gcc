@@ -5785,7 +5785,6 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 	  STMT_VINFO_TYPE (stmt_info) = type_promotion_vec_info_type;
 	  vect_model_promotion_demotion_cost (stmt_info, dt, multi_step_cvt);
 	}
-
       interm_types.release ();
       return true;
     }
