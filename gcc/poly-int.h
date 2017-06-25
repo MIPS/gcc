@@ -2088,7 +2088,7 @@ exact_div (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 /* Return true if there is some constant Q and polynomial r such that:
 
      (1) a = b * Q + r
-     (2) 0 <= |b * Q| <= |a|
+     (2) |b * Q| <= |a|
      (3) |r| < |b|
 
    Store the value Q in *QUOTIENT if so.  */
@@ -2097,7 +2097,7 @@ template<unsigned int N, typename Ca, typename Cb, typename Cq>
 inline typename if_nonpoly2<Cb, Cq>::bool_type
 can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b, Cq *quotient)
 {
-  /* Do the modulus before the constant check, to catch divide by
+  /* Do the division before the constant check, to catch divide by
      zero errors.  */
   Cq q = a.coeffs[0] / b;
   if (!a.is_constant ())
@@ -2109,7 +2109,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b, Cq *quotient)
 /* Return true if there is some constant Q and polynomial r such that:
 
      (1) a = b * Q + r
-     (2) 0 <= |b * Q| <= |a|
+     (2) |b * Q| <= |a|
      (3) |r| < |b|
 
    Store the value Q in *QUOTIENT if so.  */
@@ -2124,65 +2124,40 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a,
   if (b.is_constant ())
     return can_div_trunc_p (a, b.coeffs[0], quotient);
 
-  /* For simplicity we only handle B that are always < 0 or always > 0
-     (i.e. are ordered wrt 0).  This means that both coefficients of B
-     are > 0 or both coefficients are < 0.
-
-     If trunc (ai / bi) is the same for both cofficient indices i,
-     the conditions hold with Q equal to that value.
-
-     Sketch of a proof:
-
-     If Q = trunc (ai / bi) then the three conditions then hold for
-     ai and bi:
-
-       (1a) ai = bi * Q + ri
-       (2a) 0 <= |bi * Q| <= |ai|
-       (3a) |ri| < |bi|
-
-     where ri == ai % bi.  From this we need to derive:
-
-       (1z) (a0 + a1 * x) = (b0 + b1 * x) * Q + (r0 + r1 * x)
-       (2z) 0 <= |(b0 + b1 * x) * Q| <= |a0 + a1 * x|
-       (3z) |r0 + r1 * x| < |b0 + b1 * x|
-
-     (1z) is a simple consequence of (1a).  In general:
-
-       (a) |y + z| <= |y| + |z|
-
-     And if y and z are known not to have opposite signs:
-
-       (b) |y + z| = |y| + |z|
-
-     Since x >= 0:
-
-       (c) A * x <= B * x  if  A < B
-       (d) x = |x| (and so |A| * x = |A * x| from distribution)
-
-     so (3a) gives:
-
-                    |r1| * x <= |b1| * x                 (from c)
-             |r0| + |r1| * x <  |b0| + |b1| * x          (combining 3a)
-             |r0| + |r1 * x| <  |b0| + |b1 * x|          (from d)
-             |r0| + |r1 * x| <  |b0 + b1 * x|            (from b)
-       |r0 + r1 * x| <= "  " <  |b0 + b1 * x|            (from a)
-
-     for (3z).  If Q is zero then (2z) is trivially true.  If it's nonzero
-     then ai must have the same sign as bi, otherwise (1a) and (2a) cannot
-     both be true.  This means that a0 and a1 cannot have opposite signs,
-     since b0 and b1 don't.  Then (2b) gives (2z) from similar steps:
-
-                  0 <= |a1 * Q| * x <= |b1| * x          (from c)
-       0 <= |a0 * Q| + |a1 * Q| * x <= |b0| + |b1| * x   (combining 2a)
-       0 <= |a0 * Q| + |a1 * Q * x| <= |b0| + |b1 * x|   (from d)
-         0 <= |a0 * Q + a1 * Q * x| <= |b0 + b1 * x|     (from b)  */
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-
-  C q = a.coeffs[1] / b.coeffs[1];
-  if (a.coeffs[0] / b.coeffs[0] != q)
+  /* For simplicity we only handle A and B that are ordered wrt 0.  This
+     means that both coefficients are >= 0 or both coefficients are <= 0.  */
+  if (!ordered_p (a, Ca (0)) || !ordered_p (b, Cb (0)))
     return false;
 
-  if (!ordered_p (b, Cb (0)))
+  /* We can calculate Q from the case in which the indeterminate is zero.  */
+  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
+  C q = a.coeffs[0] / b.coeffs[0];
+
+  /* Calculate b1 * Q.  */
+  C bq1 = b.coeffs[1] * q;
+
+  /* Check that:
+
+       (2) |b * Q| <= |a|.
+
+     We already know that this is true when the indeterminate is zero,
+     and we also know that |b * Q| and |a| are linear, so it can only
+     be false if |b * Q| has a higher gradient than |a|.  */
+  C a1 = a.coeffs[1];
+  if ((bq1 < 0 ? -bq1 : bq1) > (a1 < 0 ? -a1 : a1))
+    return false;
+
+  /* Calculate r1 from this Q.  */
+  C r1 = a1 - bq1;
+
+  /* Check that:
+
+       (3) |r| < |b|
+
+     as above.  Note that since that this holds when the indeterminate
+     is zero, it also holds if the gradients are the same.  */
+  C b1 = b.coeffs[1];
+  if ((r1 < 0 ? -r1 : r1) > (b1 < 0 ? -b1 : b1))
     return false;
 
   *quotient = q;
@@ -2206,7 +2181,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a,
 /* Return true if there is some polynomial q and constant R such that:
 
      (1) a = B * q + R
-     (2) 0 <= |B * q| <= |a|
+     (2) |B * q| <= |a|
      (3) |R| < |B|
 
    Store the value q in *QUOTIENT if so.  */
@@ -2241,7 +2216,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b,
 /* Return true if there is some constant Q and polynomial r such that:
 
      (1) a = b * Q + r
-     (2) 0 <= |a| <= |b * Q|
+     (2) |a| <= |b * Q|
      (3) |r| < |b|
 
    Store the value Q in *QUOTIENT if so.  */
