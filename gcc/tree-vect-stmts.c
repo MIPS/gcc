@@ -2340,7 +2340,7 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	  set_ptr_info_alignment (get_ptr_info (dataref_ptr), align,
 				  misalign);
 	  tree ptr = build_int_cst (TREE_TYPE (gimple_call_arg (stmt, 1)),
-				    misalign ? misalign & -misalign : align);
+				    misalign ? least_bit_hwi (misalign) : align);
 	  new_stmt
 	    = gimple_build_call_internal (IFN_MASK_STORE, 4, dataref_ptr,
 					  ptr, vec_mask, vec_rhs);
@@ -2390,7 +2390,7 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	  set_ptr_info_alignment (get_ptr_info (dataref_ptr), align,
 				  misalign);
 	  tree ptr = build_int_cst (TREE_TYPE (gimple_call_arg (stmt, 1)),
-				    misalign ? misalign & -misalign : align);
+				    misalign ? least_bit_hwi (misalign) : align);
 	  new_stmt
 	    = gimple_build_call_internal (IFN_MASK_LOAD, 3, dataref_ptr,
 					  ptr, vec_mask);
@@ -8563,6 +8563,7 @@ new_stmt_vec_info (gimple *stmt, vec_info *vinfo)
   STMT_VINFO_PATTERN_DEF_SEQ (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
   STMT_VINFO_VEC_REDUCTION_TYPE (res) = TREE_CODE_REDUCTION;
+  STMT_VINFO_VEC_CONST_COND_REDUC_CODE (res) = ERROR_MARK;
 
   STMT_VINFO_DR_BASE_ADDRESS (res) = NULL;
   STMT_VINFO_DR_OFFSET (res) = NULL;

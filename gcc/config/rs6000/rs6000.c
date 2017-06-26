@@ -6821,11 +6821,26 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  rtx op2 = force_reg (SFmode, XVECEXP (vals, 0, 2));
 	  rtx op3 = force_reg (SFmode, XVECEXP (vals, 0, 3));
 
-	  emit_insn (gen_vsx_concat_v2sf (dbl_even, op0, op1));
-	  emit_insn (gen_vsx_concat_v2sf (dbl_odd, op2, op3));
-	  emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
-	  emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
-	  rs6000_expand_extract_even (target, flt_even, flt_odd);
+	  /* Use VMRGEW if we can instead of doing a permute.  */
+	  if (TARGET_P8_VECTOR)
+	    {
+	      emit_insn (gen_vsx_concat_v2sf (dbl_even, op0, op2));
+	      emit_insn (gen_vsx_concat_v2sf (dbl_odd, op1, op3));
+	      emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
+	      emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
+	      if (BYTES_BIG_ENDIAN)
+		emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_even, flt_odd));
+	      else
+		emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_odd, flt_even));
+	    }
+	  else
+	    {
+	      emit_insn (gen_vsx_concat_v2sf (dbl_even, op0, op1));
+	      emit_insn (gen_vsx_concat_v2sf (dbl_odd, op2, op3));
+	      emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
+	      emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
+	      rs6000_expand_extract_even (target, flt_even, flt_odd);
+	    }
 	}
       return;
     }
@@ -39101,9 +39116,14 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	 handling.  */
       if (GET_CODE (XEXP (op, 0)) == CONST_INT)
 	return 1;
-      else if (GET_CODE (XEXP (op, 0)) == REG
+      else if (REG_P (XEXP (op, 0))
 	       && GET_MODE_INNER (GET_MODE (op)) == GET_MODE (XEXP (op, 0)))
 	/* This catches V2DF and V2DI splat, at a minimum.  */
+	return 1;
+      else if (GET_CODE (XEXP (op, 0)) == TRUNCATE
+	       && REG_P (XEXP (XEXP (op, 0), 0))
+	       && GET_MODE_INNER (GET_MODE (op)) == GET_MODE (XEXP (op, 0)))
+	/* This catches splat of a truncated value.  */
 	return 1;
       else if (GET_CODE (XEXP (op, 0)) == VEC_SELECT)
 	/* If the duplicated item is from a select, defer to the select

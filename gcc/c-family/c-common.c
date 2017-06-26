@@ -4652,6 +4652,19 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 					       TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
+      if (warn_int_in_bool_context)
+	{
+	  tree val1 = fold_for_warn (TREE_OPERAND (expr, 1));
+	  tree val2 = fold_for_warn (TREE_OPERAND (expr, 2));
+	  if (TREE_CODE (val1) == INTEGER_CST
+	      && TREE_CODE (val2) == INTEGER_CST
+	      && !integer_zerop (val1)
+	      && !integer_zerop (val2)
+	      && (!integer_onep (val1)
+		  || !integer_onep (val2)))
+	    warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
+		        "?: using integer constants in boolean context");
+	}
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       if (c_dialect_cxx ())
 	{
@@ -7870,7 +7883,7 @@ check_cxx_fundamental_alignment_constraints (tree node,
 
   if (VAR_P (node))
     {
-      if (TREE_STATIC (node))
+      if (TREE_STATIC (node) || DECL_EXTERNAL (node))
 	/* For file scope variables and static members, the target supports
 	   alignments that are at most MAX_OFILE_ALIGNMENT.  */
 	max_align = MAX_OFILE_ALIGNMENT;
@@ -12850,8 +12863,11 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
 unsigned
 max_align_t_align ()
 {
-  return MAX (TYPE_ALIGN (long_long_integer_type_node),
-	      TYPE_ALIGN (long_double_type_node));
+  unsigned int max_align = MAX (TYPE_ALIGN (long_long_integer_type_node),
+				TYPE_ALIGN (long_double_type_node));
+  if (float128_type_node != NULL_TREE)
+    max_align = MAX (max_align, TYPE_ALIGN (float128_type_node));
+  return max_align;
 }
 
 /* Return true iff ALIGN is an integral constant that is a fundamental

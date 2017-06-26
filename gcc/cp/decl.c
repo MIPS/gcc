@@ -4265,7 +4265,7 @@ cxx_init_decl_processing (void)
   current_lang_name = lang_name_cplusplus;
 
   if (aligned_new_threshhold > 1
-      && exact_log2 (aligned_new_threshhold) == -1)
+      && !pow2p_hwi (aligned_new_threshhold))
     {
       error ("-faligned-new=%d is not a power of two", aligned_new_threshhold);
       aligned_new_threshhold = 1;

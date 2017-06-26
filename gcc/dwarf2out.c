@@ -2051,9 +2051,9 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	/* Make sure the offset has been computed and that we can encode it as
 	   an operand.  */
 	gcc_assert (die_offset > 0
-		    && die_offset <= (loc->dw_loc_opc == DW_OP_call2)
+		    && die_offset <= (loc->dw_loc_opc == DW_OP_call2
 				     ? 0xffff
-				     : 0xffffffff);
+				     : 0xffffffff));
 	dw2_asm_output_data ((loc->dw_loc_opc == DW_OP_call2) ? 2 : 4,
 			     die_offset, NULL);
       }
@@ -2480,7 +2480,7 @@ build_cfa_aligned_loc (dw_cfa_location *cfa,
 
 static void dwarf2out_init (const char *);
 static void dwarf2out_finish (const char *);
-static void dwarf2out_early_finish (void);
+static void dwarf2out_early_finish (const char *);
 static void dwarf2out_assembly_start (void);
 static void dwarf2out_define (unsigned int, const char *);
 static void dwarf2out_undef (unsigned int, const char *);
@@ -2556,7 +2556,7 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
 {
   dwarf2out_init,
   debug_nothing_charstar,
-  debug_nothing_void,
+  debug_nothing_charstar,
   debug_nothing_void,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
@@ -2711,9 +2711,14 @@ die_node;
 
 /* Set to TRUE while dwarf2out_early_global_decl is running.  */
 static bool early_dwarf;
+static bool early_dwarf_finished;
 struct set_early_dwarf {
   bool saved;
-  set_early_dwarf () : saved(early_dwarf) { early_dwarf = true; }
+  set_early_dwarf () : saved(early_dwarf)
+    {
+      gcc_assert (! early_dwarf_finished);
+      early_dwarf = true;
+    }
   ~set_early_dwarf () { early_dwarf = saved; }
 };
 
@@ -23878,18 +23883,31 @@ dwarf2out_early_global_decl (tree decl)
 static void
 dwarf2out_late_global_decl (tree decl)
 {
-  /* We have to generate early debug late for LTO.  */
-  if (in_lto_p)
-    dwarf2out_early_global_decl (decl);
-
-    /* Fill-in any location information we were unable to determine
-       on the first pass.  */
+  /* Fill-in any location information we were unable to determine
+     on the first pass.  */
   if (TREE_CODE (decl) == VAR_DECL
       && !POINTER_BOUNDS_P (decl))
     {
       dw_die_ref die = lookup_decl_die (decl);
+
+      /* We have to generate early debug late for LTO.  */
+      if (! die && in_lto_p)
+	{
+	  dwarf2out_decl (decl);
+	  die = lookup_decl_die (decl);
+	}
+
       if (die)
-	add_location_or_const_value_attribute (die, decl, false);
+	{
+	  /* We get called during the early debug phase via the symtab
+	     code invoking late_global_decl for symbols that are optimized
+	     out.  When the early phase is not finished, do not add
+	     locations.  */
+	  if (! early_dwarf_finished)
+	    tree_add_const_value_attribute_for_decl (die, decl);
+	  else
+	    add_location_or_const_value_attribute (die, decl, false);
+	}
     }
 }
 
@@ -27786,7 +27804,7 @@ flush_limbo_die_list (void)
    and generate the DWARF-2 debugging info.  */
 
 static void
-dwarf2out_finish (const char *filename)
+dwarf2out_finish (const char *)
 {
   comdat_type_node *ctnode;
   dw_die_ref main_comp_unit_die;
@@ -27798,33 +27816,7 @@ dwarf2out_finish (const char *filename)
      DIEs generated after early finish.  */
   gcc_assert (deferred_asm_name == NULL);
 
-  /* PCH might result in DW_AT_producer string being restored from the
-     header compilation, so always fill it with empty string initially
-     and overwrite only here.  */
-  dw_attr_node *producer = get_AT (comp_unit_die (), DW_AT_producer);
-  producer_string = gen_producer_string ();
-  producer->dw_attr_val.v.val_str->refcount--;
-  producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
-
   gen_remaining_tmpl_value_param_die_attribute ();
-
-  /* Add the name for the main input file now.  We delayed this from
-     dwarf2out_init to avoid complications with PCH.
-     For LTO produced units use a fixed artificial name to avoid
-     leaking tempfile names into the dwarf.  */
-  if (!in_lto_p)
-    add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
-  else
-    add_name_attribute (comp_unit_die (), "<artificial>");
-  if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
-    add_comp_dir_attribute (comp_unit_die ());
-  else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)
-    {
-      bool p = false;
-      file_table->traverse<bool *, file_table_relative_p> (&p);
-      if (p)
-	add_comp_dir_attribute (comp_unit_die ());
-    }
 
 #if ENABLE_ASSERT_CHECKING
   {
@@ -28133,9 +28125,38 @@ dwarf2out_finish (const char *filename)
    has run.  */
 
 static void
-dwarf2out_early_finish (void)
+dwarf2out_early_finish (const char *filename)
 {
   set_early_dwarf s;
+
+  /* PCH might result in DW_AT_producer string being restored from the
+     header compilation, so always fill it with empty string initially
+     and overwrite only here.  */
+  dw_attr_node *producer = get_AT (comp_unit_die (), DW_AT_producer);
+  producer_string = gen_producer_string ();
+  producer->dw_attr_val.v.val_str->refcount--;
+  producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
+
+  /* Add the name for the main input file now.  We delayed this from
+     dwarf2out_init to avoid complications with PCH.  */
+  add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+  if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
+    add_comp_dir_attribute (comp_unit_die ());
+  else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)
+    {
+      bool p = false;
+      file_table->traverse<bool *, file_table_relative_p> (&p);
+      if (p)
+	add_comp_dir_attribute (comp_unit_die ());
+    }
+
+  /* With LTO early dwarf was really finished at compile-time, so make
+     sure to adjust the phase after annotating the LTRANS CU DIE.  */
+  if (in_lto_p)
+    {
+      early_dwarf_finished = true;
+      return;
+    }
 
   /* Walk through the list of incomplete types again, trying once more to
      emit full debugging info for them.  */
@@ -28163,6 +28184,9 @@ dwarf2out_early_finish (void)
 	}
     }
   deferred_asm_name = NULL;
+
+  /* The early debug phase is now finished.  */
+  early_dwarf_finished = true;
 }
 
 /* Reset all state within dwarf2out.c so that we can rerun the compiler

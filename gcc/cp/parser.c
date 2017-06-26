@@ -22028,6 +22028,7 @@ cp_parser_class_head (cp_parser* parser,
      it is not, try to recover gracefully.  */
   if (at_namespace_scope_p ()
       && parser->num_template_parameter_lists == 0
+      && !processing_template_parmlist
       && template_id_p)
     {
       /* Build a location of this form:
@@ -24223,8 +24224,12 @@ cp_parser_std_attribute_list (cp_parser *parser, tree attr_ns)
       if (token->type == CPP_ELLIPSIS)
 	{
 	  cp_lexer_consume_token (parser->lexer);
-	  TREE_VALUE (attribute)
-	    = make_pack_expansion (TREE_VALUE (attribute));
+	  if (attribute == NULL_TREE)
+	    error_at (token->location,
+		      "expected attribute before %<...%>");
+	  else
+	    TREE_VALUE (attribute)
+	      = make_pack_expansion (TREE_VALUE (attribute));
 	  token = cp_lexer_peek_token (parser->lexer);
 	}
       if (token->type != CPP_COMMA)
@@ -25721,7 +25726,8 @@ cp_parser_template_declaration_after_parameters (cp_parser* parser,
 	      tree type = INNERMOST_TEMPLATE_PARMS (parm_type);
 	      tree parm_list = TREE_VEC_ELT (parameter_list, 1);
 	      tree parm = INNERMOST_TEMPLATE_PARMS (parm_list);
-	      if (TREE_TYPE (parm) != TREE_TYPE (type)
+	      if (parm == error_mark_node
+		  || TREE_TYPE (parm) != TREE_TYPE (type)
 		  || !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
 		ok = false;
 	    }
@@ -38062,7 +38068,7 @@ cp_parser_cilk_simd_vectorlength (cp_parser *parser, tree clauses,
 	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr)))
     error_at (loc, "vectorlength must be an integer constant");
   else if (TREE_CONSTANT (expr)
-	   && exact_log2 (TREE_INT_CST_LOW (expr)) == -1)
+	   && !pow2p_hwi (TREE_INT_CST_LOW (expr)))
     error_at (loc, "vectorlength must be a power of 2");
   else 
     {

@@ -1581,11 +1581,14 @@ do {									\
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
    proper relocations for them.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, OFFSET, SECTION) \
   do {								\
     fputs (integer_asm_op (SIZE, FALSE), FILE);			\
     fputs ("@secrel(", FILE);					\
     assemble_name (FILE, LABEL);				\
+    if ((OFFSET) != 0)						\
+      fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+	       (HOST_WIDE_INT) (OFFSET));			\
     fputc (')', FILE);						\
   } while (0)
 
