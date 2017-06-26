@@ -1,3 +1,109 @@
+2016-09-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/dtio_11.f90: Correct for changed error messages.
+	* gfortran.dg/dtio_13.f90: New test.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/66107
+	* gfortran.dg/pr66107.f90: New test.
+
+2016-09-21  Ian Lance Taylor  <iant@golang.org>
+
+	* go.go-torture/execute/map-1.go: Replace old map deletion syntax
+	with call to builtin delete function.
+
+2016-09-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-tg-3.c, gcc.dg/torture/float128x-tg-3.c,
+	gcc.dg/torture/float16-tg-3.c, gcc.dg/torture/float32-tg-3.c,
+	gcc.dg/torture/float32x-tg-3.c, gcc.dg/torture/float64-tg-3.c,
+	gcc.dg/torture/float64x-tg-3.c, gcc.dg/torture/floatn-tg-3.h: New
+	tests.
+
+2016-09-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.c-torture/unsorted/dump-noaddr.x: Remove debug statements.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* g++.dg/cpp1z/aligned-new6.C: New test.
+
+2016-09-21  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/fp16-aapcs-3.c: New.
+	* gcc.target/arm/fp16-aapcs-4.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp22.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp23.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp24.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp25.c: New.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/77550
+	* g++.dg/pr77550.C: New test.
+
+2016-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/77326
+	* gcc.target/avr/torture/pr77326.c: New test.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	* gfortran.dg/pr68078.f90: Run on x86_64_*_linux* only.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77648
+	* gcc.dg/torture/pr77648-1.c: New testcase.
+	* gcc.dg/torture/pr77648-2.c: Likewise.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77621
+	* gcc.dg/pr77621.c: New testcase.
+
+2016-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77657
+	* gfortran.dg/dtio_12.f90: New test.
+
+2016-09-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/pr64130.c: Use __UINT32_TYPE__ instead of int.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/72835
+	* gcc.dg/tree-ssa/pr72835.c: New test.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* gcc.dg/builtin-stringop-chk-1.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: New test.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.dg/guality/pr54519-1.c: Add -fno-ipa-vrp. Else constant
+	arguments/compare will be optimized away.
+	* gcc.dg/torture/ftrapv-1.c: Likewise.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* g++.dg/ipa/pure-const-3.C: Add -fno-ipa-vrp. Else constant arguments
+	will be optimized away.
+	* gcc.dg/ipa/vrp1.c: New test.
+	* gcc.dg/ipa/vrp2.c: New test.
+	* gcc.dg/ipa/vrp3.c: New test.
+
 2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	* g++.dg/tree-ssa/pr31146-2.C: Run with -fno-tree-evrp as evrp also

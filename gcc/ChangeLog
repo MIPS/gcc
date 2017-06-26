@@ -1,3 +1,221 @@
+2016-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/77670
+	* config/rs6000/predicates.md (invert_fpmask_comparison_operator):
+	New predicate that matches the ISA 3.0 XSCMP{EQ,GT,GE}DP
+	instructions when you want to invert the test.
+	* config/rs6000/rs6000.md (fpmask<mode>): Use the arguments in the
+	correct order for XXSEL.
+	(mov<SFDF:mode><SFDF2:mode>cc_invert_p9): Define the inverted test
+	for using XSCMP{EQ,GT,GE}DP.
+
+2016-09-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* genconstants.c (main): Introduce noop_reader and convert call
+	to read_md_files to a method call.
+	* genenums.c (main): Likewise.
+	* genmddeps.c (main): Likewise.
+	* genpreds.c (write_tm_constrs_h): Replace use of "in_fname" with
+	rtx_reader_ptr->get_top_level_filename ().
+	(write_tm_preds_h): Likewise.
+	(write_insn_preds_c): Likewise.
+	* gensupport.c (class gen_reader): New subclass of rtx_reader.
+	(rtx_handle_directive): Convert to...
+	(gen_reader::handle_unknown_directive): ...this.
+	(init_rtx_reader_args_cb): Convert return type from bool to
+	rtx_reader *.  Create a gen_reader instance, using it for the
+	call to read_md_files.  Return it if no errors occur.
+	(init_rtx_reader_args): Convert return type from bool to
+	rtx_reader *.
+	* gensupport.h (init_rtx_reader_args_cb): Likewise.
+	(init_rtx_reader_args_cb): Likewise.
+	* read-md.c (struct file_name_list): Move to class rtx_reader.
+	(read_md_file): Delete in favor of rtx_reader::m_read_md_file.
+	(read_md_filename): Delete in favor of
+	rtx_reader::m_read_md_filename.
+	(read_md_lineno): Delete in favor of rtx_reader::m_read_md_lineno.
+	(in_fname): Delete in favor of rtx_reader::m_toplevel_fname.
+	(base_dir): Delete in favor of rtx_reader::m_base_dir.
+	(first_dir_md_include): Delete in favor of
+	rtx_reader::m_first_dir_md_include.
+	(last_dir_md_include_ptr): Delete in favor of
+	rtx_reader::m_last_dir_md_include_ptr.
+	(max_include_len): Delete.
+	(rtx_reader_ptr): New.
+	(fatal_with_file_and_line): Use get_filename and get_lineno
+	accessors of rtx_reader_ptr.
+	(require_char_ws): Likewise.
+	(rtx_reader::read_char): New method, based on ::read_char.
+	(rtx_reader::unread_char): New method, based on ::unread_char.
+	(read_escape): Use get_filename and get_lineno accessors of
+	rtx_reader_ptr.
+	(read_braced_string): Use get_lineno accessor of rtx_reader_ptr.
+	(read_string): Use get_filename and get_lineno accessors of
+	rtx_reader_ptr.
+	(rtx_reader::rtx_reader): New ctor.
+	(rtx_reader::~rtx_reader): New dtor.
+	(handle_include): Convert from a function to...
+	(rtx_reader::handle_include): ...this method, converting
+	handle_directive from a callback to a virtual function.
+	(handle_file): Likewise, converting to...
+	(rtx_reader::handle_file): ...this method.
+	(handle_toplevel_file): Likewise, converting to...
+	(rtx_reader::handle_toplevel_file): ...this method.
+	(rtx_reader::get_current_location): New method.
+	(parse_include): Convert from a function to...
+	(rtx_reader::add_include_path): ...this method, dropping redundant
+	update to unused max_include_len.
+	(read_md_files): Convert from a function to...
+	(rtx_reader::read_md_files): ...this method, converting
+	handle_directive from a callback to a virtual function.
+	(noop_reader::handle_unknown_directive): New method.
+	* read-md.h (directive_handler_t): Delete this typedef.
+	(in_fname): Delete.
+	(read_md_file): Delete.
+	(read_md_lineno): Delete.
+	(read_md_filename): Delete.
+	(class rtx_reader): New class.
+	(rtx_reader_ptr): New decl.
+	(class noop_reader): New subclass of rtx_reader.
+	(read_char): Reimplement in terms of rtx_reader::read_char.
+	(unread_char): Reimplement in terms of rtx_reader::unread_char.
+	(read_md_files): Delete.
+	* read-rtl.c (read_rtx_code): Update for deletion of globals
+	read_md_filename and read_md_lineno.
+
+2016-09-21  Jason Merrill  <jason@redhat.com>
+
+	* input.h (from_macro_definition_at): New.
+
+2016-09-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* doc/rtl.texi (JUMP_LABEL): Document RETURN and SIMPLE_RETURN values.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/77550
+	* tree-vect-stmts.c (create_array_ref): Change parameters.
+	(get_group_alias_ptr_type): New function.
+	(vectorizable_store, vectorizable_load): Use get_group_alias_ptr_type.
+
+2016-09-21  Marek Polacek  <polacek@redhat.com>
+
+	* gimple-ssa-sprintf.c (pass_sprintf_length::compute_format_length):
+	Add falls through comment.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (remove_child_with_prev): Clear child->die_sib.
+	(replace_child): Likewise.
+	(remove_child_TAG): Adjust.
+	(move_marked_base_types): Likewise.
+	(prune_unused_types_prune): Clear die_sib of removed children.
+
+2016-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/77326
+	* config/avr/avr.c (avr_notice_update_cc) [CC_NONE]: If insn
+	touches some regs mentioned in cc_status, do CC_STATUS_INIT.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77648
+	* tree-ssa-structalias.c (process_constraint): Handle all DEREF
+	with complex RHS.
+	(make_transitive_closure_constraints): Adjust comment.
+	(make_any_offset_constraints): New function.
+	(handle_rhs_call): Make sure to first expand a pointer to all
+	subfields before transitively closing it.
+	(handle_const_call): Likewise.  Properly expand returned
+	pointers as well.
+	(handle_pure_call): Likewise.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77621
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Split
+	group at non-vectorizable stmts.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/72835
+	* tree-ssa-reassoc.c (make_new_ssa_for_def): New.
+	(make_new_ssa_for_all_defs): Likewise.
+	(zero_one_operation): Replace all SSA_NAMEs defined in the chain.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* Makefile.in (OBJS): Add gimple-ssa-sprintf.o.
+	* config/linux.h (TARGET_PRINTF_POINTER_FORMAT): Redefine.
+	* config/linux.c (gnu_libc_printf_pointer_format): New function.
+	* config/sol2.h (TARGET_PRINTF_POINTER_FORMAT): Same.
+	* config/sol2.c (solaris_printf_pointer_format): New function.
+	* doc/invoke.texi (-Wformat-length, -fprintf-return-value): New
+	options.
+	* doc/tm.texi.in (TARGET_PRINTF_POINTER_FORMAT): Document.
+	* doc/tm.texi: Regenerate.
+	* gimple-fold.h (get_range_strlen): New function.
+	(get_maxval_strlen): Declare existing function.
+	* gimple-fold.c (get_range_strlen): Add arguments and compute both
+	maximum and minimum.
+	 (get_range_strlen): Define overload.
+	(get_maxval_strlen): Adjust.
+	* gimple-ssa-sprintf.c: New file and pass.
+	* passes.def (pass_sprintf_length): Add new pass.
+	* targhooks.h (default_printf_pointer_format): Declare new function.
+	(gnu_libc_printf_pointer_format): Same.
+	(solaris_libc_printf_pointer_format): Same.
+	* targhooks.c (default_printf_pointer_format): Define new function.
+	* tree-pass.h (make_pass_sprintf_length): Declare new function.
+	* print-tree.c: Increase buffer size.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	 * tree-vrp.c (get_value_range): Teach PARM_DECL to use ipa-vrp
+	 results.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* common.opt: New option -fipa-vrp.
+	* ipa-cp.c (ipa_get_vr_lat): New.
+	(ipcp_vr_lattice::print): Likewise.
+	(print_all_lattices): Call ipcp_vr_lattice::print.
+	(ipcp_vr_lattice::meet_with): New.
+	(ipcp_vr_lattice::meet_with_1): Likewise.
+	(ipcp_vr_lattice::top_p): Likewise.
+	(ipcp_vr_lattice::bottom_p): Likewsie.
+	(ipcp_vr_lattice::set_to_bottom): Likewise.
+	(set_all_contains_variable): Call VR set_to_bottom.
+	(initialize_node_lattices): Init VR lattices.
+	(propagate_vr_accross_jump_function): New.
+	(propagate_constants_accross_call): Call
+	propagate_vr_accross_jump_function.
+	(ipcp_store_vr_results): New.
+	(ipcp_driver): Handle VR.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Handle VR.
+	(ipa_set_jf_unknown): Likewise.
+	(ipa_compute_jump_functions_for_edge): Likewise.
+	(ipa_node_params_t::duplicate): Likewise.
+	(ipa_write_jump_function): Likewise.
+	(ipa_read_jump_function): Likewise.
+	(write_ipcp_transformation_info): Likewise.
+	(read_ipcp_transformation_info): Likewise.
+	(ipcp_update_vr): New.
+	(ipcp_transform_function): Handle VR.
+	* ipa-prop.h (struct ipa_vr): New.
+	* cgraph.c: Include tree-vrp.h.
+	* cgraphunit.c: Likewise.
+	* ipa-utils.c: Likewise.
+	* ipa.c: Likewise.
+	* opts.c: Likewise.
+	* toplev.c: Likewise.
+	* ipa-devirt.c: Likewise.
+	* ipa-inline-transform.c: Likewise.
+	* ipa-inline.c: Likewise.
+	* ipa-profile.c: Likewise.
+
 2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	* doc/invoke.texi: Document -fdump-tree-evrp.
@@ -47,6 +265,7 @@
 
 2016-09-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	PR target/71395
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): For V4SF
 	inits on power8 and above, use the VMRGEW instruction instead of a
 	permute.
