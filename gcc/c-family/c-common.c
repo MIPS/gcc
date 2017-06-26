@@ -1122,6 +1122,9 @@ static enum cpp_ttype
 get_cpp_ttype_from_string_type (tree string_type)
 {
   gcc_assert (string_type);
+  if (TREE_CODE (string_type) == POINTER_TYPE)
+    string_type = TREE_TYPE (string_type);
+
   if (TREE_CODE (string_type) != ARRAY_TYPE)
     return CPP_OTHER;
 
@@ -1148,23 +1151,23 @@ get_cpp_ttype_from_string_type (tree string_type)
 
 GTY(()) string_concat_db *g_string_concat_db;
 
-/* Attempt to determine the source location of the substring.
-   If successful, return NULL and write the source location to *OUT_LOC.
-   Otherwise return an error message.  Error messages are intended
-   for GCC developers (to help debugging) rather than for end-users.  */
+/* Implementation of LANG_HOOKS_GET_SUBSTRING_LOCATION.  */
 
 const char *
-substring_loc::get_location (location_t *out_loc) const
+c_get_substring_location (const substring_loc &substr_loc,
+			  location_t *out_loc)
 {
-  gcc_assert (out_loc);
-
-  enum cpp_ttype tok_type = get_cpp_ttype_from_string_type (m_string_type);
+  enum cpp_ttype tok_type
+    = get_cpp_ttype_from_string_type (substr_loc.get_string_type ());
   if (tok_type == CPP_OTHER)
     return "unrecognized string type";
 
   return get_source_location_for_substring (parse_in, g_string_concat_db,
-					    m_fmt_string_loc, tok_type,
-					    m_caret_idx, m_start_idx, m_end_idx,
+					    substr_loc.get_fmt_string_loc (),
+					    tok_type,
+					    substr_loc.get_caret_idx (),
+					    substr_loc.get_start_idx (),
+					    substr_loc.get_end_idx (),
 					    out_loc);
 }
 
@@ -1479,6 +1482,36 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
     }
 }
 
+/* Return true iff T is a boolean promoted to int.  */
+
+static bool
+bool_promoted_to_int_p (tree t)
+{
+  return (CONVERT_EXPR_P (t)
+	  && TREE_TYPE (t) == integer_type_node
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == BOOLEAN_TYPE);
+}
+
+/* Return true iff EXPR only contains boolean operands, or comparisons.  */
+
+static bool
+expr_has_boolean_operands_p (tree expr)
+{
+  STRIP_NOPS (expr);
+
+  if (CONVERT_EXPR_P (expr))
+    return bool_promoted_to_int_p (expr);
+  else if (UNARY_CLASS_P (expr))
+    return expr_has_boolean_operands_p (TREE_OPERAND (expr, 0));
+  else if (BINARY_CLASS_P (expr))
+    return (expr_has_boolean_operands_p (TREE_OPERAND (expr, 0))
+	    && expr_has_boolean_operands_p (TREE_OPERAND (expr, 1)));
+  else if (COMPARISON_CLASS_P (expr))
+    return true;
+  else
+    return false;
+}
+
 /* Warn about logical not used on the left hand side operand of a comparison.
    This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
    Do not warn if RHS is of a boolean type, a logical operator, or
@@ -1492,6 +1525,10 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
       || TREE_TYPE (rhs) == NULL_TREE
       || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE
       || truth_value_p (TREE_CODE (rhs)))
+    return;
+
+  /* Don't warn for expression like !x == ~(bool1 | bool2).  */
+  if (expr_has_boolean_operands_p (rhs))
     return;
 
   /* Don't warn for !x == 0 or !y != 0, those are equivalent to
@@ -5834,7 +5871,12 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      gcc_assert (canon_expr_type != NULL_TREE);
+      if (canon_expr_type == NULL_TREE)
+	{
+	  error_at (loc,
+		    "first argument to %<va_arg%> not of type %<va_list%>");
+	  return error_mark_node;
+	}
 
       return build_va_arg_1 (loc, type, expr);
     }
@@ -5902,7 +5944,12 @@ build_va_arg (location_t loc, tree expr, tree type)
       /* Verify that &ap is still recognized as having va_list type.  */
       tree canon_expr_type
 	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      gcc_assert (canon_expr_type != NULL_TREE);
+      if (canon_expr_type == NULL_TREE)
+	{
+	  error_at (loc,
+		    "first argument to %<va_arg%> not of type %<va_list%>");
+	  return error_mark_node;
+	}
     }
   else
     {
@@ -10874,7 +10921,9 @@ c_common_mark_addressable_vec (tree t)
 {   
   while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
-  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+  if (!VAR_P (t)
+      && TREE_CODE (t) != PARM_DECL
+      && TREE_CODE (t) != COMPOUND_LITERAL_EXPR)
     return;
   TREE_ADDRESSABLE (t) = 1;
 }
@@ -12405,9 +12454,7 @@ maybe_warn_bool_compare (location_t loc, enum tree_code code, tree op0,
 	 don't want to warn here.  */
       tree noncst = TREE_CODE (op0) == INTEGER_CST ? op1 : op0;
       /* Handle booleans promoted to integers.  */
-      if (CONVERT_EXPR_P (noncst)
-	  && TREE_TYPE (noncst) == integer_type_node
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (noncst, 0))) == BOOLEAN_TYPE)
+      if (bool_promoted_to_int_p (noncst))
 	/* Warn.  */;
       else if (TREE_CODE (TREE_TYPE (noncst)) != BOOLEAN_TYPE
 	       && !truth_value_p (TREE_CODE (noncst)))

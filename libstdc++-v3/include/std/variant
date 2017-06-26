@@ -38,6 +38,7 @@
 #include <type_traits>
 #include <utility>
 #include <bits/enable_special_members.h>
+#include <bits/move.h>
 #include <bits/uses_allocator.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
@@ -312,7 +313,7 @@ namespace __variant
       _M_storage() const
       {
 	return const_cast<void*>(
-	  static_cast<const void*>(&_M_first._M_storage));
+	  static_cast<const void*>(std::addressof(_M_first._M_storage)));
       }
 
       union
