@@ -3410,11 +3410,13 @@ Type_conversion_expression::do_get_backend(Translate_context* context)
 
   Gogo* gogo = context->gogo();
   Btype* btype = type->get_backend(gogo);
-  Bexpression* bexpr = this->expr_->get_backend(context);
   Location loc = this->location();
 
   if (Type::are_identical(type, expr_type, false, NULL))
-    return gogo->backend()->convert_expression(btype, bexpr, loc);
+    {
+      Bexpression* bexpr = this->expr_->get_backend(context);
+      return gogo->backend()->convert_expression(btype, bexpr, loc);
+    }
   else if (type->interface_type() != NULL
 	   || expr_type->interface_type() != NULL)
     {
@@ -3483,6 +3485,7 @@ Type_conversion_expression::do_get_backend(Translate_context* context)
   else if (type->is_numeric_type())
     {
       go_assert(Type::are_convertible(type, expr_type, NULL));
+      Bexpression* bexpr = this->expr_->get_backend(context);
       return gogo->backend()->convert_expression(btype, bexpr, loc);
     }
   else if ((type->is_unsafe_pointer_type()
@@ -3493,7 +3496,10 @@ Type_conversion_expression::do_get_backend(Translate_context* context)
            || (this->may_convert_function_types_
                && type->function_type() != NULL
                && expr_type->function_type() != NULL))
-    return gogo->backend()->convert_expression(btype, bexpr, loc);
+    {
+      Bexpression* bexpr = this->expr_->get_backend(context);
+      return gogo->backend()->convert_expression(btype, bexpr, loc);
+    }
   else
     {
       Expression* conversion =
@@ -7493,6 +7499,10 @@ Builtin_call_expression::lower_make(Statement_inserter* inserter)
     }
   Type* type = first_arg->type();
 
+  if (!type->in_heap())
+    go_error_at(first_arg->location(),
+		"can't make slice of go:notinheap type");
+
   bool is_slice = false;
   bool is_map = false;
   bool is_chan = false;
@@ -8736,6 +8746,9 @@ Builtin_call_expression::do_check_types(Gogo*)
 	  }
 
 	Type* element_type = slice_type->array_type()->element_type();
+	if (!element_type->in_heap())
+	  go_error_at(args->front()->location(),
+		      "can't append to slice of go:notinheap type");
 	if (this->is_varargs())
 	  {
 	    if (!args->back()->type()->is_slice_type()
@@ -12428,6 +12441,13 @@ Type*
 Allocation_expression::do_type()
 {
   return Type::make_pointer_type(this->type_);
+}
+
+void
+Allocation_expression::do_check_types(Gogo*)
+{
+  if (!this->type_->in_heap())
+    go_error_at(this->location(), "can't heap allocate go:notinheap type");
 }
 
 // Make a copy of an allocation expression.
