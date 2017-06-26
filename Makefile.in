@@ -56151,8 +56151,8 @@ do-clean: clean-stagetrain
 
 
 
-.PHONY: profiledbootstrap profiledbootstrap-lean
-profiledbootstrap:
+.PHONY: profiledbootstrap3 profiledbootstrap3-lean
+profiledbootstrap3:
 	echo stagetrain > stage_final
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -56163,7 +56163,7 @@ profiledbootstrap:
 	TFLAGS="$(STAGEtrain_TFLAGS)"; \
 	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
 
-profiledbootstrap-lean:
+profiledbootstrap3-lean:
 	echo stagetrain > stage_final
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
