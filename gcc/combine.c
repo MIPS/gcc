@@ -9639,7 +9639,7 @@ make_field_assignment (rtx x)
 						     other, pos),
 			       dest);
   src = force_to_mode (src, mode,
-		       GET_MODE_PRECISION (mode) >= HOST_BITS_PER_WIDE_INT
+		       len >= HOST_BITS_PER_WIDE_INT
 		       ? HOST_WIDE_INT_M1U
 		       : (HOST_WIDE_INT_1U << len) - 1,
 		       0);
