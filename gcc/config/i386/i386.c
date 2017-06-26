@@ -48562,14 +48562,6 @@ ix86_fn_abi_va_list (tree fndecl)
 static tree
 ix86_canonical_va_list_type (tree type)
 {
-  /* Resolve references and pointers to va_list type.  */
-  if (TREE_CODE (type) == MEM_REF)
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE(type)))
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
   if (TARGET_64BIT)
     {
       if (lookup_attribute ("ms_abi va_list", TYPE_ATTRIBUTES (type)))
@@ -50627,9 +50619,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority

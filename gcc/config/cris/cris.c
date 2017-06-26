@@ -212,6 +212,9 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS cris_init_libfuncs
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P cris_legitimate_address_p
 
@@ -1282,8 +1285,7 @@ cris_return_address_on_stack_for_return (void)
     : cris_return_address_on_stack ();
 }
 
-/* This used to be the INITIAL_FRAME_POINTER_OFFSET worker; now only
-   handles FP -> SP elimination offset.  */
+/* This handles FP -> SP elimination offset.  */
 
 static int
 cris_initial_frame_pointer_offset (void)

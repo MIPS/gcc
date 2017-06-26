@@ -89,6 +89,10 @@ class edited_file
  private:
   bool print_content (pretty_printer *pp);
   void print_diff (pretty_printer *pp, bool show_filenames);
+  void print_diff_hunk (pretty_printer *pp, int start_of_hunk,
+			int end_of_hunk);
+  void print_diff_line (pretty_printer *pp, char prefix_char,
+			const char *line, int line_size);
   edited_line *get_line (int line);
   edited_line *get_or_insert_line (int line);
   int get_num_lines (bool *missing_trailing_newline);
@@ -112,6 +116,7 @@ class edited_line
 
   int get_line_num () const { return m_line_num; }
   const char *get_content () const { return m_content; }
+  int get_len () const { return m_len; }
 
   int get_effective_column (int orig_column) const;
   bool apply_insert (int column, const char *str, int len);
@@ -529,80 +534,91 @@ edited_file::print_diff (pretty_printer *pp, bool show_filenames)
       if (end_of_hunk > line_count)
 	end_of_hunk = line_count;
 
-      int num_lines = end_of_hunk - start_of_hunk + 1;
-
-      pp_string (pp, colorize_start (pp_show_color (pp), "diff-hunk"));
-      pp_printf (pp, "@@ -%i,%i +%i,%i @@\n", start_of_hunk, num_lines,
-		 start_of_hunk, num_lines);
-      pp_string (pp, colorize_stop (pp_show_color (pp)));
-
-      int line_num = start_of_hunk;
-      while (line_num <= end_of_hunk)
-	{
-	  edited_line *el = get_line (line_num);
-	  if (el)
-	    {
-	      /* We have an edited line.
-		 Consolidate into runs of changed lines.  */
-	      const int first_changed_line_in_run = line_num;
-	      while (get_line (line_num))
-		line_num++;
-	      const int last_changed_line_in_run = line_num - 1;
-
-	      pp_string (pp, colorize_start (pp_show_color (pp),
-					     "diff-delete"));
-
-	      /* Show old version of lines.  */
-	      for (line_num = first_changed_line_in_run;
-		   line_num <= last_changed_line_in_run;
-		   line_num++)
-		{
-		  int line_size;
-		  const char *old_line
-		    = location_get_source_line (m_filename, line_num,
-						&line_size);
-		  pp_character (pp, '-');
-		  for (int i = 0; i < line_size; i++)
-		    pp_character (pp, old_line[i]);
-		  pp_character (pp, '\n');
-		}
-
-	      pp_string (pp, colorize_stop (pp_show_color (pp)));
-
-	      pp_string (pp, colorize_start (pp_show_color (pp),
-					     "diff-insert"));
-
-	      /* Show new version of lines.  */
-	      for (line_num = first_changed_line_in_run;
-		   line_num <= last_changed_line_in_run;
-		   line_num++)
-		{
-		  edited_line *el_in_run = get_line (line_num);
-		  gcc_assert (el_in_run);
-		  pp_character (pp, '+');
-		  pp_string (pp, el_in_run->get_content ());
-		  pp_character (pp, '\n');
-		}
-
-	      pp_string (pp, colorize_stop (pp_show_color (pp)));
-	    }
-	  else
-	    {
-	      /* Unchanged line.  */
-	      int line_size;
-	      const char *old_line
-		= location_get_source_line (m_filename, line_num,
-					    &line_size);
-	      pp_character (pp, ' ');
-	      for (int i = 0; i < line_size; i++)
-		pp_character (pp, old_line[i]);
-	      pp_character (pp, '\n');
-	      line_num++;
-	    }
-	}
+      print_diff_hunk (pp, start_of_hunk, end_of_hunk);
 
       el = m_edited_lines.successor (el->get_line_num ());
     }
+}
+
+/* Print one hunk within a unified diff to PP, covering the
+   given range of lines.  */
+
+void
+edited_file::print_diff_hunk (pretty_printer *pp, int start_of_hunk,
+			      int end_of_hunk)
+{
+  int num_lines = end_of_hunk - start_of_hunk + 1;
+
+  pp_string (pp, colorize_start (pp_show_color (pp), "diff-hunk"));
+  pp_printf (pp, "@@ -%i,%i +%i,%i @@\n", start_of_hunk, num_lines,
+	     start_of_hunk, num_lines);
+  pp_string (pp, colorize_stop (pp_show_color (pp)));
+
+  int line_num = start_of_hunk;
+  while (line_num <= end_of_hunk)
+    {
+      edited_line *el = get_line (line_num);
+      if (el)
+	{
+	  /* We have an edited line.
+	     Consolidate into runs of changed lines.  */
+	  const int first_changed_line_in_run = line_num;
+	  while (get_line (line_num))
+	    line_num++;
+	  const int last_changed_line_in_run = line_num - 1;
+
+	  /* Show old version of lines.  */
+	  pp_string (pp, colorize_start (pp_show_color (pp),
+					 "diff-delete"));
+	  for (line_num = first_changed_line_in_run;
+	       line_num <= last_changed_line_in_run;
+	       line_num++)
+	    {
+	      int line_len;
+	      const char *old_line
+		= location_get_source_line (m_filename, line_num, &line_len);
+	      print_diff_line (pp, '-', old_line, line_len);
+	    }
+	  pp_string (pp, colorize_stop (pp_show_color (pp)));
+
+	  /* Show new version of lines.  */
+	  pp_string (pp, colorize_start (pp_show_color (pp),
+					 "diff-insert"));
+	  for (line_num = first_changed_line_in_run;
+	       line_num <= last_changed_line_in_run;
+	       line_num++)
+	    {
+	      edited_line *el_in_run = get_line (line_num);
+	      gcc_assert (el_in_run);
+	      print_diff_line (pp, '+', el_in_run->get_content (),
+			       el_in_run->get_len ());
+	    }
+	  pp_string (pp, colorize_stop (pp_show_color (pp)));
+	}
+      else
+	{
+	  /* Unchanged line.  */
+	  int line_len;
+	  const char *old_line
+	    = location_get_source_line (m_filename, line_num, &line_len);
+	  print_diff_line (pp, ' ', old_line, line_len);
+	  line_num++;
+	}
+    }
+}
+
+/* Print one line within a diff, starting with PREFIX_CHAR,
+   followed by the LINE of content, of length LEN.  LINE is
+   not necessarily 0-terminated.  Print a trailing newline.  */
+
+void
+edited_file::print_diff_line (pretty_printer *pp, char prefix_char,
+			      const char *line, int len)
+{
+  pp_character (pp, prefix_char);
+  for (int i = 0; i < len; i++)
+    pp_character (pp, line[i]);
+  pp_character (pp, '\n');
 }
 
 /* Get the state of LINE within the file, or NULL if it is untouched.  */
@@ -902,10 +918,10 @@ test_get_content ()
   }
 }
 
-/* Test applying an "insert" fixit.  */
+/* Test applying an "insert" fixit, using insert_before.  */
 
 static void
-test_applying_fixits_insert (const line_table_case &case_)
+test_applying_fixits_insert_before (const line_table_case &case_)
 {
   /* Create a tempfile and write some text to it.
      .........................0000000001111111.
@@ -921,7 +937,7 @@ test_applying_fixits_insert (const line_table_case &case_)
   /* Add a comment in front of "bar.field".  */
   location_t start = linemap_position_for_column (line_table, 7);
   rich_location richloc (line_table, start);
-  richloc.add_fixit_insert ("/* inserted */");
+  richloc.add_fixit_insert_before ("/* inserted */");
 
   if (start > LINE_MAP_MAX_LOCATION_WITH_COLS)
     return;
@@ -953,6 +969,142 @@ test_applying_fixits_insert (const line_table_case &case_)
 		"-foo = bar.field;\n"
 		"+foo = /* inserted */bar.field;\n"
 		" /* after */\n", diff);
+}
+
+/* Test applying an "insert" fixit, using insert_after, with
+   a range of length > 1 (to ensure that the end-point of
+   the input range is used).  */
+
+static void
+test_applying_fixits_insert_after (const line_table_case &case_)
+{
+  /* Create a tempfile and write some text to it.
+     .........................0000000001111111.
+     .........................1234567890123456.  */
+  const char *old_content = ("/* before */\n"
+			     "foo = bar.field;\n"
+			     "/* after */\n");
+  temp_source_file tmp (SELFTEST_LOCATION, ".c", old_content);
+  const char *filename = tmp.get_filename ();
+  line_table_test ltt (case_);
+  linemap_add (line_table, LC_ENTER, false, tmp.get_filename (), 2);
+
+  /* Add a comment after "field".  */
+  location_t start = linemap_position_for_column (line_table, 11);
+  location_t finish = linemap_position_for_column (line_table, 15);
+  location_t field = make_location (start, start, finish);
+  rich_location richloc (line_table, field);
+  richloc.add_fixit_insert_after ("/* inserted */");
+
+  if (finish > LINE_MAP_MAX_LOCATION_WITH_COLS)
+    return;
+
+  /* Verify that the text was inserted after the end of "field". */
+  edit_context edit;
+  edit.add_fixits (&richloc);
+  auto_free <char *> new_content = edit.get_content (filename);
+  ASSERT_STREQ ("/* before */\n"
+		"foo = bar.field/* inserted */;\n"
+		"/* after */\n", new_content);
+
+  /* Verify diff.  */
+  auto_free <char *> diff = edit.generate_diff (false);
+  ASSERT_STREQ ("@@ -1,3 +1,3 @@\n"
+		" /* before */\n"
+		"-foo = bar.field;\n"
+		"+foo = bar.field/* inserted */;\n"
+		" /* after */\n", diff);
+}
+
+/* Test applying an "insert" fixit, using insert_after at the end of
+   a line (contrast with test_applying_fixits_insert_after_failure
+   below).  */
+
+static void
+test_applying_fixits_insert_after_at_line_end (const line_table_case &case_)
+{
+  /* Create a tempfile and write some text to it.
+     .........................0000000001111111.
+     .........................1234567890123456.  */
+  const char *old_content = ("/* before */\n"
+			     "foo = bar.field;\n"
+			     "/* after */\n");
+  temp_source_file tmp (SELFTEST_LOCATION, ".c", old_content);
+  const char *filename = tmp.get_filename ();
+  line_table_test ltt (case_);
+  linemap_add (line_table, LC_ENTER, false, tmp.get_filename (), 2);
+
+  /* Add a comment after the semicolon.  */
+  location_t loc = linemap_position_for_column (line_table, 16);
+  rich_location richloc (line_table, loc);
+  richloc.add_fixit_insert_after ("/* inserted */");
+
+  if (loc > LINE_MAP_MAX_LOCATION_WITH_COLS)
+    return;
+
+  edit_context edit;
+  edit.add_fixits (&richloc);
+  auto_free <char *> new_content = edit.get_content (filename);
+  ASSERT_STREQ ("/* before */\n"
+		"foo = bar.field;/* inserted */\n"
+		"/* after */\n", new_content);
+
+  /* Verify diff.  */
+  auto_free <char *> diff = edit.generate_diff (false);
+  ASSERT_STREQ ("@@ -1,3 +1,3 @@\n"
+		" /* before */\n"
+		"-foo = bar.field;\n"
+		"+foo = bar.field;/* inserted */\n"
+		" /* after */\n", diff);
+}
+
+/* Test of a failed attempt to apply an "insert" fixit, using insert_after,
+   due to the relevant linemap ending.  Contrast with
+   test_applying_fixits_insert_after_at_line_end above.  */
+
+static void
+test_applying_fixits_insert_after_failure (const line_table_case &case_)
+{
+  /* Create a tempfile and write some text to it.
+     .........................0000000001111111.
+     .........................1234567890123456.  */
+  const char *old_content = ("/* before */\n"
+			     "foo = bar.field;\n"
+			     "/* after */\n");
+  temp_source_file tmp (SELFTEST_LOCATION, ".c", old_content);
+  const char *filename = tmp.get_filename ();
+  line_table_test ltt (case_);
+  linemap_add (line_table, LC_ENTER, false, tmp.get_filename (), 2);
+
+  /* Add a comment after the semicolon.  */
+  location_t loc = linemap_position_for_column (line_table, 16);
+  rich_location richloc (line_table, loc);
+
+  /* We want a failure of linemap_position_for_loc_and_offset.
+     We can do this by starting a new linemap at line 3, so that
+     there is no appropriate location value for the insertion point
+     within the linemap for line 2.  */
+  linemap_add (line_table, LC_ENTER, false, tmp.get_filename (), 3);
+
+  /* The failure fails to happen at the transition point from
+     packed ranges to unpacked ranges (where there are some "spare"
+     location_t values).  Skip the test there.  */
+  if (loc >= LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES)
+    return;
+
+  /* Offsetting "loc" should now fail (by returning the input loc. */
+  ASSERT_EQ (loc, linemap_position_for_loc_and_offset (line_table, loc, 1));
+
+  /* Hence attempting to use add_fixit_insert_after at the end of the line
+     should now fail.  */
+  richloc.add_fixit_insert_after ("/* inserted */");
+  ASSERT_TRUE (richloc.seen_impossible_fixit_p ());
+
+  edit_context edit;
+  edit.add_fixits (&richloc);
+  ASSERT_FALSE (edit.valid_p ());
+  ASSERT_EQ (NULL, edit.get_content (filename));
+  ASSERT_EQ (NULL, edit.generate_diff (false));
 }
 
 /* Test applying a "replace" fixit that grows the affected line.  */
@@ -1119,11 +1271,11 @@ test_applying_fixits_multiple (const line_table_case &case_)
 
   /* Add a comment in front of "bar.field".  */
   rich_location insert_a (line_table, c7);
-  insert_a.add_fixit_insert (c7, "/* alpha */");
+  insert_a.add_fixit_insert_before (c7, "/* alpha */");
 
   /* Add a comment after "bar.field;".  */
   rich_location insert_b (line_table, c17);
-  insert_b.add_fixit_insert (c17, "/* beta */");
+  insert_b.add_fixit_insert_before (c17, "/* beta */");
 
   /* Replace "bar" with "pub".   */
   rich_location replace_a (line_table, c7);
@@ -1187,7 +1339,7 @@ change_line (edit_context &edit, int line_num)
     }
 
   rich_location insert (line_table, loc);
-  insert.add_fixit_insert ("CHANGED: ");
+  insert.add_fixit_insert_before ("CHANGED: ");
   edit.add_fixits (&insert);
   return loc;
 }
@@ -1355,8 +1507,8 @@ test_applying_fixits_unreadable_file ()
   location_t loc = linemap_position_for_column (line_table, 1);
 
   rich_location insert (line_table, loc);
-  insert.add_fixit_insert ("change 1");
-  insert.add_fixit_insert ("change 2");
+  insert.add_fixit_insert_before ("change 1");
+  insert.add_fixit_insert_before ("change 2");
 
   edit_context edit;
   /* Attempting to add the fixits affecting the unreadable file
@@ -1387,7 +1539,7 @@ test_applying_fixits_line_out_of_range ()
   location_t loc = linemap_position_for_column (line_table, 1);
 
   rich_location insert (line_table, loc);
-  insert.add_fixit_insert ("change");
+  insert.add_fixit_insert_before ("change");
 
   /* Verify that attempting the insertion puts an edit_context
      into an invalid state.  */
@@ -1424,7 +1576,7 @@ test_applying_fixits_column_validation (const line_table_case &case_)
   /* Verify inserting at the end of the line.  */
   {
     rich_location richloc (line_table, c11);
-    richloc.add_fixit_insert (c15, " change");
+    richloc.add_fixit_insert_before (c15, " change");
 
     /* Col 15 is at the end of the line, so the insertion
        should succeed.  */
@@ -1440,7 +1592,7 @@ test_applying_fixits_column_validation (const line_table_case &case_)
   /* Verify inserting beyond the end of the line.  */
   {
     rich_location richloc (line_table, c11);
-    richloc.add_fixit_insert (c16, " change");
+    richloc.add_fixit_insert_before (c16, " change");
 
     /* Col 16 is beyond the end of the line, so the insertion
        should fail gracefully.  */
@@ -1494,7 +1646,10 @@ void
 edit_context_c_tests ()
 {
   test_get_content ();
-  for_each_line_table_case (test_applying_fixits_insert);
+  for_each_line_table_case (test_applying_fixits_insert_before);
+  for_each_line_table_case (test_applying_fixits_insert_after);
+  for_each_line_table_case (test_applying_fixits_insert_after_at_line_end);
+  for_each_line_table_case (test_applying_fixits_insert_after_failure);
   for_each_line_table_case (test_applying_fixits_growing_replace);
   for_each_line_table_case (test_applying_fixits_shrinking_replace);
   for_each_line_table_case (test_applying_fixits_remove);
