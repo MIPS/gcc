@@ -1709,8 +1709,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
       {
-	this->_M_erase(_M_check(__pos, "basic_string::erase"),
-		       _M_limit(__pos, __n));
+	_M_check(__pos, "basic_string::erase");
+	if (__n == npos)
+	  this->_M_set_length(__pos);
+	else if (__n != 0)
+	  this->_M_erase(__pos, _M_limit(__pos, __n));
 	return *this;
       }
 
@@ -1747,7 +1750,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= begin() && __first <= __last
 				 && __last <= end());
         const size_type __pos = __first - begin();
-	this->_M_erase(__pos, __last - __first);
+	if (__last == end())
+	  this->_M_set_length(__pos);
+	else
+	  this->_M_erase(__pos, __last - __first);
 	return iterator(this->_M_data() + __pos);
       }
 
@@ -3684,10 +3690,24 @@ _GLIBCXX_END_NAMESPACE_CXX11
       /**
        *  Erases the string, making it empty.
        */
+#if _GLIBCXX_FULLY_DYNAMIC_STRING == 0
+      void
+      clear() _GLIBCXX_NOEXCEPT
+      {
+	if (_M_rep()->_M_is_shared())
+	  {
+	    _M_rep()->_M_dispose(this->get_allocator());
+	    _M_data(_S_empty_rep()._M_refdata());
+	  }
+	else
+	  _M_rep()->_M_set_length_and_sharable(0);
+      }
+#else
       // PR 56166: this should not throw.
       void
       clear()
       { _M_mutate(0, this->size(), 0); }
+#endif
 
       /**
        *  Returns true if the %string is empty.  Equivalent to 

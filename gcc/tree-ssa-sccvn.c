@@ -1786,8 +1786,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
   gimple *def_stmt = SSA_NAME_DEF_STMT (vuse);
   tree base = ao_ref_base (ref);
   HOST_WIDE_INT offset, maxsize;
-  static vec<vn_reference_op_s>
-    lhs_ops = vNULL;
+  static vec<vn_reference_op_s> lhs_ops;
   ao_ref lhs_ref;
   bool lhs_ref_ok = false;
 
@@ -3485,8 +3484,24 @@ visit_reference_op_call (tree lhs, gcall *stmt)
     {
       vn_reference_t vr2;
       vn_reference_s **slot;
+      tree vdef_val = vdef;
       if (vdef)
-	changed |= set_ssa_val_to (vdef, vdef);
+	{
+	  /* If we value numbered an indirect functions function to
+	     one not clobbering memory value number its VDEF to its
+	     VUSE.  */
+	  tree fn = gimple_call_fn (stmt);
+	  if (fn && TREE_CODE (fn) == SSA_NAME)
+	    {
+	      fn = SSA_VAL (fn);
+	      if (TREE_CODE (fn) == ADDR_EXPR
+		  && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+		  && (flags_from_decl_or_type (TREE_OPERAND (fn, 0))
+		      & (ECF_CONST | ECF_PURE)))
+		vdef_val = vuse_ssa_val (gimple_vuse (stmt));
+	    }
+	  changed |= set_ssa_val_to (vdef, vdef_val);
+	}
       if (lhs)
 	changed |= set_ssa_val_to (lhs, lhs);
       vr2 = current_info->references_pool->allocate ();
@@ -3499,7 +3514,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
       vr2->set = vr1.set;
       vr2->hashcode = vr1.hashcode;
       vr2->result = lhs;
-      vr2->result_vdef = vdef;
+      vr2->result_vdef = vdef_val;
       slot = current_info->references->find_slot_with_hash (vr2, vr2->hashcode,
 							    INSERT);
       gcc_assert (!*slot);
@@ -3913,11 +3928,22 @@ visit_use (tree use)
 	    }
 	}
 
+      /* Pick up flags from a devirtualization target.  */
+      tree fn = gimple_call_fn (stmt);
+      int extra_fnflags = 0;
+      if (fn && TREE_CODE (fn) == SSA_NAME)
+	{
+	  fn = SSA_VAL (fn);
+	  if (TREE_CODE (fn) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL)
+	    extra_fnflags = flags_from_decl_or_type (TREE_OPERAND (fn, 0));
+	}
       if (!gimple_call_internal_p (call_stmt)
 	  && (/* Calls to the same function with the same vuse
 		 and the same operands do not necessarily return the same
 		 value, unless they're pure or const.  */
-	      gimple_call_flags (call_stmt) & (ECF_PURE | ECF_CONST)
+	      ((gimple_call_flags (call_stmt) | extra_fnflags)
+	       & (ECF_PURE | ECF_CONST))
 	      /* If calls have a vdef, subsequent calls won't have
 		 the same incoming vuse.  So, if 2 calls with vdef have the
 		 same vuse, we know they're not subsequent.

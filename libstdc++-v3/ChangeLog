@@ -1,3 +1,215 @@
+2016-09-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77727
+	* include/std/optional (optional(const optional<_Up>&)):
+	Default-initialize the base and use emplace.
+	(optional(optional<_Up>&&)): Likewise.
+	* testsuite/20_util/optional/cons/77727.cc: New.
+
+2016-09-26  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/safe_base.h
+	(_Safe_iterator_base::_M_detach_single): Make public.
+
+2016-09-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/range_access.h (__cpp_lib_array_constexpr): Do not
+	redefine macro defined in <bits/stl_iterator.h>.
+
+	* include/bits/stl_map.h (map::extract(const_iterator)): Assert that
+	iterator is not past-the-end.
+	* include/bits/stl_multimap.h (multimap::extract(const_iterator)):
+	Likewise.
+	* include/bits/stl_multiset.h (multiset::extract(const_iterator)):
+	Likewise.
+	* include/bits/stl_set.h (set::extract(const_iterator)): Likewise.
+	* include/bits/unordered_map.h (unordered_map::extract(const_iterator))
+	(unordered_multimap::extract(const_iterator)): Likewise.
+	* include/bits/unordered_set.h (unordered_set::extract(const_iterator))
+	(unordered_multiset::extract(const_iterator)): Likewise.
+
+2016-09-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77717
+	* testsuite/21_strings/basic_string_view/operations/compare/char/1.cc:
+	Fix an out-of-bounds access.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* libsupc++/hash_bytes.cc: Add [[gnu::fallthrough]].
+
+2016-09-25  François Dumont  <fdumont@gcc.gnu.org>
+
+	* src/c++11/debug.cc: Include debug/vector. Include cctype. Remove
+	functional.
+	(get_safe_base_mutex): Get mutex based on address lowest non nil bits.
+	* testsuite/23_containers/vector/debug/mutex_association.cc: New.
+
+	* include/debug/bitset (bitset::reference::reference(const _Base_ref&,
+	bitset*)): Remove __unused__ attribute.
+	* include/debug/safe_base.h (_Safe_iterator_base): Make
+	_Safe_sequence_base a friend.
+	(_Safe_iterator_base::_M_attach): Make protected.
+	(_Safe_iterator_base::_M_attach_single): Likewise.
+	(_Safe_iterator_base::_M_detach): Likewise.
+	(_Safe_iterator_base::_M_detach_single): Likewise.
+	(_Safe_sequence_base): Make _Safe_iterator_base a friend.
+	(_Safe_sequence_base::_Safe_sequence_base(_Safe_sequence_base&&)): New.
+	(_Safe_sequence_base::_M_swap): Make protected.
+	(_Safe_sequence_base::_M_attach): Make private.
+	(_Safe_sequence_base::_M_attach_single): Likewise.
+	(_Safe_sequence_base::_M_detach): Likewise.
+	(_Safe_sequence_base::_M_detach_single): Likewise.
+	* include/debug/safe_container.h
+	(_Safe_container::_Safe_container(_Safe_container&&)): Make default.
+	* include/debug/safe_iterator.h
+	(_Safe_iterator::operator++()): Name __scoped_lock instance.
+	* include/debug/safe_iterator.tcc: Remove trailing line.
+	* include/debug/safe_unordered_base.h
+	(_Safe_local_iterator_base::_M_attach): Make protected.
+	(_Safe_local_iterator_base::_M_attach_single): Likewise.
+	(_Safe_local_iterator_base::_M_detach): Likewise.
+	(_Safe_local_iterator_base::_M_detach_single): Likewise.
+	(_Safe_unordered_container_base): Make _Safe_local_iterator_base friend.
+	(_Safe_unordered_container_base::_M_attach_local): Make private.
+	(_Safe_unordered_container_base::_M_attach_local_single): Likewise.
+	(_Safe_unordered_container_base::_M_detach_local): Likewise.
+	(_Safe_unordered_container_base::_M_detach_local_single): Likewise.
+
+	* include/parallel/algo.h: Generalize usage of std::__iterator_category.
+	Adjust whitespaces.
+
+2016-09-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/56166
+	PR libstdc++/77582
+	* include/bits/basic_string.h (basic_string::clear()): Drop reference
+	and use empty rep.
+	* include/ext/rc_string_base.h (__rc_string_base::_M_clear()):
+	Likewise.
+	* testsuite/21_strings/basic_string/56166.cc: New.
+	* testsuite/ext/vstring/modifiers/clear/56166.cc: New.
+
+	* include/bits/basic_string.h [_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::erase(size_type, size_type)): Add fast path for
+	truncating the string, by calling _M_set_length directly.
+	(basic_string::erase(__const_iterator, __const_iterator)): Likewise.
+	* include/bits/basic_string.tcc [_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::resize(size_type, _CharT)): Likewise.
+
+2016-09-22  Jason Merrill  <jason@redhat.com>
+
+	* configure.ac: Define HAVE_MEMALIGN for newlib.
+
+2015-09-23  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/cpu/m68k/atomicity.h: Adjust comment.
+	* acinclude.m4 (GLIBCXX_ENABLE_ATOMIC_BUILTINS): Honor
+	explicit atomicity_dir setup via configure.host.
+	* configure.host (rtems-*): Set atomicity_dir.
+	* configure: Regenerate.
+
+2016-09-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	Implement C++17 node extraction and insertion (P0083R5)
+	* doc/xml/manual/status_cxx2017.xml: Document status.
+	* doc/html/*: Regenerate.
+	* include/Makefile.am: Add bits/node_handle.h and reorder.
+	* include/Makefile.in: Regenerate.
+	* include/bits/hashtable.h (_Hashtable::node_type)
+	(_Hashtable::insert_return_type, _Hashtable::_M_reinsert_node)
+	(_Hashtable::_M_reinsert_node_multi, _Hashtable::extract)
+	(_Hashtable::_M_merge_unique, _Hashtable::_M_merge_multi): Define.
+	(_Hash_merge_helper): Define primary template.
+	* include/bits/node_handle.h: New header.
+	* include/bits/stl_map.h (map): Declare _Rb_tree_merge_helper as
+	friend.
+	(map::node_type, map::insert_return_type, map::extract, map::merge)
+	(map::insert(node_type&&), map::insert(const_iterator, node_type&&)):
+	Define new members.
+	(_Rb_tree_merge_helper): Specialize for map.
+	* include/bits/stl_multimap.h (multimap): Declare _Rb_tree_merge_helper
+	as friend.
+	(multimap::node_type, multimap::extract, multimap::merge)
+	(multimap::insert(node_type&&))
+	(multimap::insert(const_iterator, node_type&&)): Define.
+	(_Rb_tree_merge_helper): Specialize for multimap.
+	* include/bits/stl_multiset.h (multiset): Declare _Rb_tree_merge_helper
+	as friend.
+	(multiset::node_type, multiset::extract, multiset::merge)
+	(multiset::insert(node_type&&))
+	(multiset::insert(const_iterator, node_type&&)): Define.
+	* include/bits/stl_set.h (set): Declare _Rb_tree_merge_helper as
+	friend.
+	(set::node_type, set::insert_return_type, set::extract, set::merge)
+	(set::insert(node_type&&), set::insert(const_iterator, node_type&&)):
+	Define.
+	(_Rb_tree_merge_helper): Specialize for set.
+	* include/bits/stl_tree.h (_Rb_tree): Declare _Rb_tree<> as friend.
+	(_Rb_tree::node_type, _Rb_tree::insert_return_type)
+	(_Rb_tree::_M_reinsert_node_unique, _Rb_tree::_M_reinsert_node_equal)
+	(_Rb_tree::_M_reinsert_node_hint_unique)
+	(_Rb_tree::_M_reinsert_node_hint_equal, _Rb_tree::extract)
+	(_Rb_tree::_M_merge_unique, _Rb_tree::_M_merge_equal): Define.
+	(_Rb_tree_merge_helper): Specialize for multiset.
+	* include/bits/unordered_map.h (unordered_map): Declare
+	unordered_map<> and unordered_multimap<> as friends.
+	(unordered_map::node_type, unordered_map::insert_return_type)
+	(unordered_map::extract, unordered_map::merge)
+	(unordered_map::insert(node_type&&))
+	(unordered_map::insert(const_iterator, node_type&&))
+	(unordered_multimap): Declare _Hash_merge_helper as friend.
+	(unordered_multimap::node_type, unordered_multimap::extract)
+	(unordered_multimap::merge, unordered_multimap::insert(node_type&&))
+	(unordered_multimap::insert(const_iterator, node_type&&)): Define.
+	(_Hash_merge_helper): Specialize for unordered maps and multimaps.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Declare _Hash_merge_helper as friend.
+	(unordered_set::node_type, unordered_set::insert_return_type)
+	(unordered_set::extract, unordered_set::merge)
+	(unordered_set::insert(node_type&&))
+	(unordered_set::insert(const_iterator, node_type&&)): Define.
+	(unordered_multiset::node_type, unordered_multiset::extract)
+	(unordered_multiset::merge, unordered_multiset::insert(node_type&&))
+	(unordered_multiset::insert(const_iterator, node_type&&)): Define.
+	(_Hash_merge_helper): Specialize for unordered sets and multisets.
+	* include/debug/map.h (map): Add using declarations or forwarding
+	functions for new members.
+	* include/debug/map.h (multimap): Likewise.
+	* include/debug/map.h (multiset): Likewise.
+	* include/debug/map.h (set): Likewise.
+	* include/debug/unordered_map (unordered_map, unordered_multimap):
+	Likewise.
+	* include/debug/unordered_set( unordered_set, unordered_multiset):
+	Likewise.
+	* python/libstdcxx/v6/printers.py (get_value_from_aligned_membuf): New
+	helper function.
+	(get_value_from_list_node, get_value_from_Rb_tree_node): Use helper.
+	(StdNodeHandlePrinter): Define printer for node handles.
+	(build_libstdcxx_dictionary): Register StdNodeHandlePrinter.
+	* testsuite/23_containers/map/modifiers/extract.cc: New.
+	* testsuite/23_containers/map/modifiers/merge.cc: New.
+	* testsuite/23_containers/multimap/modifiers/extract.cc: New.
+	* testsuite/23_containers/multimap/modifiers/merge.cc: New.
+	* testsuite/23_containers/multiset/modifiers/extract.cc: New.
+	* testsuite/23_containers/multiset/modifiers/merge.cc: New.
+	* testsuite/23_containers/set/modifiers/extract.cc: New.
+	* testsuite/23_containers/set/modifiers/merge.cc: New.
+	* testsuite/23_containers/unordered_map/modifiers/extract.cc: New.
+	* testsuite/23_containers/unordered_map/modifiers/merge.cc: New.
+	* testsuite/23_containers/unordered_multimap/modifiers/extract.cc:
+	New.
+	* testsuite/23_containers/unordered_multimap/modifiers/merge.cc: New.
+	* testsuite/23_containers/unordered_multiset/modifiers/extract.cc:
+	New.
+	* testsuite/23_containers/unordered_multiset/modifiers/merge.cc: New.
+	* testsuite/23_containers/unordered_set/modifiers/extract.cc: New.
+	* testsuite/23_containers/unordered_set/modifiers/merge.cc: New.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error lineno.
+	* testsuite/libstdc++-prettyprinters/cxx17.cc: Test node handles.
+
 2016-09-22  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Fix tests on old arm platforms for optional.

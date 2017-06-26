@@ -115,7 +115,9 @@ fold_unary_intrinsic (gfc_intrinsic_op op)
 }
 
 
-/* Return the operator depending on the DTIO moded string.  */
+/* Return the operator depending on the DTIO moded string.  Note that
+   these are not operators in the normal sense and so have been placed
+   beyond GFC_INTRINSIC_END in gfortran.h:enum gfc_intrinsic_op.  */
 
 static gfc_intrinsic_op
 dtio_op (char* mode)
@@ -4790,6 +4792,9 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
   gfc_symbol *extended;
   gfc_typebound_proc *tb_io_proc, *specific_proc;
   bool t = false;
+
+  if (!derived || derived->attr.flavor != FL_DERIVED)
+    return NULL;
 
   /* Try to find a typebound DTIO binding.  */
   if (formatted == true)

@@ -256,8 +256,8 @@ Objective-C and Objective-C++ Dialects}.
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
 -Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
--Wno-attributes -Wbool-compare -Wno-builtin-macro-redefined @gol
--Wc90-c99-compat -Wc99-c11-compat @gol
+-Wno-attributes -Wbool-compare -Wbool-operation @gol
+-Wno-builtin-macro-redefined -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wno-cpp -Wdangling-else -Wdate-time @gol
@@ -273,7 +273,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wformat-security  -Wformat-signedness  -Wformat-y2k -Wframe-address @gol
 -Wframe-larger-than=@var{len} -Wno-free-nonheap-object -Wjump-misses-init @gol
 -Wignored-qualifiers  -Wignored-attributes  -Wincompatible-pointer-types @gol
--Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
+-Wimplicit  -Wimplicit-fallthrough  -Wimplicit-function-declaration @gol
+-Wimplicit-int @gol
 -Winit-self  -Winline  -Wno-int-conversion  -Wint-in-bool-context @gol
 -Wno-int-to-pointer-cast -Winvalid-memory-model -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len} @gol
@@ -642,7 +643,8 @@ Objective-C and Objective-C++ Dialects}.
 -mneon-for-64bits @gol
 -mslow-flash-data @gol
 -masm-syntax-unified @gol
--mrestrict-it}
+-mrestrict-it @gol
+-mpure-code}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
@@ -3660,6 +3662,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 @gccoptlist{-Waddress   @gol
 -Warray-bounds=1 @r{(only with} @option{-O2}@r{)}  @gol
 -Wbool-compare  @gol
+-Wbool-operation  @gol
 -Wc++11-compat  -Wc++14-compat@gol
 -Wchar-subscripts  @gol
 -Wcomment  @gol
@@ -3722,6 +3725,7 @@ name is still supported, but the newer name is more descriptive.)
 @gccoptlist{-Wclobbered  @gol
 -Wempty-body  @gol
 -Wignored-qualifiers @gol
+-Wimplicit-fallthrough @gol
 -Wmissing-field-initializers  @gol
 -Wmissing-parameter-type @r{(C only)}  @gol
 -Wold-style-declaration @r{(C only)}  @gol
@@ -4089,6 +4093,93 @@ enabled by default and it is made into an error by
 @opindex Wno-implicit
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
 This warning is enabled by @option{-Wall}.
+
+@item -Wimplicit-fallthrough
+@opindex Wimplicit-fallthrough
+@opindex Wno-implicit-fallthrough
+Warn when a switch case falls through.  For example:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    a = 1;
+    break;
+  case 2:
+    a = 2;
+  case 3:
+    a = 3;
+    break;
+  @}
+@end group
+@end smallexample
+
+This warning does not warn when the last statement of a case cannot
+fall through, e.g. when there is a return statement or a call to function
+declared with the noreturn attribute.  @option{-Wimplicit-fallthrough}
+also takes into account control flow statements, such as ifs, and only
+warns when appropriate.  E.g.@:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    if (i > 3) @{
+      bar (5);
+      break;
+    @} else if (i < 1) @{
+      bar (0);
+    @} else
+      return;
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+Since there are occasions where a switch case fall through is desirable,
+GCC provides an attribute, @code{__attribute__ ((fallthrough))}, that is
+to be used along with a null statement to suppress this warning that
+would normally occur:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    bar (0);
+    __attribute__ ((fallthrough));
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+C++17 provides a standard way to suppress the @option{-Wimplicit-fallthrough}
+warning using @code{[[fallthrough]];} instead of the GNU attribute.  In C++11
+or C++14 users can use @code{[[gnu::fallthrough]];}, which is a GNU extension.
+Instead of the these attributes, it is also possible to add a "falls through"
+comment to silence the warning.  GCC accepts a wide range of such comments,
+for example all of "Falls through.", "fallthru", "FALLS-THROUGH" work.  This
+comment needs to consist of two words merely, optionally followed by periods
+or whitespaces.
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    bar (0);
+    /* FALLTHRU */
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+This warning is enabled by @option{-Wextra}.
 
 @item -Wignored-qualifiers @r{(C and C++ only)}
 @opindex Wignored-qualifiers
@@ -4848,6 +4939,17 @@ int n = 5;
 @dots{}
 if ((n > 1) == 2) @{ @dots{} @}
 @end smallexample
+This warning is enabled by @option{-Wall}.
+
+@item -Wbool-operation
+@opindex Wno-bool-operation
+@opindex Wbool-operation
+Warn about suspicious operations on expressions of a boolean type.  For
+instance, bitwise negation of a boolean is very likely a bug in the program.
+For C, this warning also warns about incrementing or decrementing a boolean,
+which rarely makes sense.  (In C++, decrementing a boolean is always invalid.
+Incrementing a boolean is invalid in C++1z, and deprecated otherwise.)
+
 This warning is enabled by @option{-Wall}.
 
 @item -Wduplicated-cond
@@ -10158,6 +10260,7 @@ more details.  The run-time behavior can be influenced using the
 the available options are shown at startup of the instrumented program.  See
 @url{https://github.com/google/sanitizers/wiki/AddressSanitizerFlags#run-time-flags}
 for a list of supported options.
+The option can't be combined with @option{-fsanitize=thread}.
 
 @item -fsanitize=kernel-address
 @opindex fsanitize=kernel-address
@@ -10173,17 +10276,19 @@ details. The run-time behavior can be influenced using the @env{TSAN_OPTIONS}
 environment variable; see
 @url{https://github.com/google/sanitizers/wiki/ThreadSanitizerFlags} for a list of
 supported options.
+The option can't be combined with @option{-fsanitize=address}
+and/or @option{-fsanitize=leak}.
 
 @item -fsanitize=leak
 @opindex fsanitize=leak
 Enable LeakSanitizer, a memory leak detector.
-This option only matters for linking of executables and if neither
-@option{-fsanitize=address} nor @option{-fsanitize=thread} is used.  In that
-case the executable is linked against a library that overrides @code{malloc}
+This option only matters for linking of executables and
+the executable is linked against a library that overrides @code{malloc}
 and other allocator functions.  See
 @uref{https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer} for more
 details.  The run-time behavior can be influenced using the
 @env{LSAN_OPTIONS} environment variable.
+The option can't be combined with @option{-fsanitize=thread}.
 
 @item -fsanitize=undefined
 @opindex fsanitize=undefined
@@ -10357,6 +10462,7 @@ and program then exits with a non-zero exit code.
 Currently this feature only works for @option{-fsanitize=undefined} (and its suboptions
 except for @option{-fsanitize=unreachable} and @option{-fsanitize=return}),
 @option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero},
+@option{-fsanitize=bounds-strict},
 @option{-fsanitize=kernel-address} and @option{-fsanitize=address}.
 For these sanitizers error recovery is turned on by default, except @option{-fsanitize=address},
 for which this feature is experimental.
@@ -10373,12 +10479,12 @@ setting the @code{halt_on_error} flag in the corresponding environment variable.
 
 Syntax without explicit @var{opts} parameter is deprecated.  It is equivalent to
 @smallexample
--fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+-fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
 @end smallexample
 @noindent
 Similarly @option{-fno-sanitize-recover} is equivalent to
 @smallexample
--fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+-fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
 @end smallexample
 
 @item -fsanitize-undefined-trap-on-error
@@ -14535,6 +14641,19 @@ extensions.
 @option{-march=armv8-a+crc} enables code generation for the ARMv8-A
 architecture together with the optional CRC32 extensions.
 
+@option{-march=armv8.1-a} enables compiler support for the ARMv8.1-A
+architecture.  This also enables the features provided by
+@option{-march=armv8-a+crc}.
+
+@option{-march=armv8.2-a} enables compiler support for the ARMv8.2-A
+architecture.  This also enables the features provided by
+@option{-march=armv8.1-a}.
+
+@option{-march=armv8.2-a+fp16} enables compiler support for the
+ARMv8.2-A architecture with the optional FP16 instructions extension.
+This also enables the features provided by @option{-march=armv8.1-a}
+and implies @option{-mfp16-format=ieee}.
+
 @option{-march=native} causes the compiler to auto-detect the architecture
 of the build computer.  At present, this feature is only supported on
 GNU/Linux, and not all architectures are recognized.  If the auto-detect
@@ -14877,6 +14996,14 @@ Print CPU tuning information as comment in assembler file.  This is
 an option used only for regression testing of the compiler and not
 intended for ordinary use in compiling code.  This option is disabled
 by default.
+
+@item -mpure-code
+@opindex mpure-code
+Do not allow constant data to be placed in code sections.
+Additionally, when compiling for ELF object format give all text sections the
+ELF processor-specific section attribute @code{SHF_ARM_PURECODE}.  This option
+is only available when generating non-pic code for ARMv7-M targets.
+
 @end table
 
 @node AVR Options

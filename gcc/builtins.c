@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "predict.h"
 #include "tm_p.h"
@@ -2586,7 +2587,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
     {
     CASE_FLT_FN (BUILT_IN_IRINT):
       fallback_fn = BUILT_IN_LRINT;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LRINT):
     CASE_FLT_FN (BUILT_IN_LLRINT):
       builtin_optab = lrint_optab;
@@ -2594,7 +2595,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
 
     CASE_FLT_FN (BUILT_IN_IROUND):
       fallback_fn = BUILT_IN_LROUND;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LROUND):
     CASE_FLT_FN (BUILT_IN_LLROUND):
       builtin_optab = lround_optab;
@@ -5901,6 +5902,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ILOGB):
       if (! flag_unsafe_math_optimizations)
 	break;
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_ISINF):
     CASE_FLT_FN (BUILT_IN_FINITE):
     case BUILT_IN_ISFINITE:

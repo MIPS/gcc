@@ -6187,8 +6187,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	   register whose mode size isn't equal to SIZE since
 	   clear_storage can't handle this case.  */
 	else if (size > 0
-		 && (((int)vec_safe_length (CONSTRUCTOR_ELTS (exp))
-		      != fields_length (type))
+		 && (((int) CONSTRUCTOR_NELTS (exp) != fields_length (type))
 		     || mostly_zeros_p (exp))
 		 && (!REG_P (target)
 		     || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
@@ -10274,7 +10273,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 					    fold_convert_loc (loc, sizetype,
 							      low_bound));
 
-		if (compare_tree_int (index1, TREE_STRING_LENGTH (init)) < 0)
+		if (tree_fits_uhwi_p (index1)
+		    && compare_tree_int (index1, TREE_STRING_LENGTH (init)) < 0)
 		  {
 		    tree type = TREE_TYPE (TREE_TYPE (init));
 		    machine_mode mode = TYPE_MODE (type);

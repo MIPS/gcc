@@ -651,25 +651,25 @@ Gcc_backend::Gcc_backend()
 {
   /* We need to define the fetch_and_add functions, since we use them
      for ++ and --.  */
-  tree t = this->integer_type(BITS_PER_UNIT, 1)->get_tree();
+  tree t = this->integer_type(true, BITS_PER_UNIT)->get_tree();
   tree p = build_pointer_type(build_qualified_type(t, TYPE_QUAL_VOLATILE));
   this->define_builtin(BUILT_IN_SYNC_ADD_AND_FETCH_1, "__sync_fetch_and_add_1",
 		       NULL, build_function_type_list(t, p, t, NULL_TREE),
 		       false, false);
 
-  t = this->integer_type(BITS_PER_UNIT * 2, 1)->get_tree();
+  t = this->integer_type(true, BITS_PER_UNIT * 2)->get_tree();
   p = build_pointer_type(build_qualified_type(t, TYPE_QUAL_VOLATILE));
   this->define_builtin(BUILT_IN_SYNC_ADD_AND_FETCH_2, "__sync_fetch_and_add_2",
 		       NULL, build_function_type_list(t, p, t, NULL_TREE),
 		       false, false);
 
-  t = this->integer_type(BITS_PER_UNIT * 4, 1)->get_tree();
+  t = this->integer_type(true, BITS_PER_UNIT * 4)->get_tree();
   p = build_pointer_type(build_qualified_type(t, TYPE_QUAL_VOLATILE));
   this->define_builtin(BUILT_IN_SYNC_ADD_AND_FETCH_4, "__sync_fetch_and_add_4",
 		       NULL, build_function_type_list(t, p, t, NULL_TREE),
 		       false, false);
 
-  t = this->integer_type(BITS_PER_UNIT * 8, 1)->get_tree();
+  t = this->integer_type(true, BITS_PER_UNIT * 8)->get_tree();
   p = build_pointer_type(build_qualified_type(t, TYPE_QUAL_VOLATILE));
   this->define_builtin(BUILT_IN_SYNC_ADD_AND_FETCH_8, "__sync_fetch_and_add_8",
 		       NULL, build_function_type_list(t, p, t, NULL_TREE),
@@ -818,13 +818,14 @@ Gcc_backend::Gcc_backend()
 		       math_function_type_long, true, false);
 
   // We use __builtin_return_address in the thunk we build for
-  // functions which call recover.
+  // functions which call recover, and for runtime.getcallerpc.
+  t = build_function_type_list(ptr_type_node, unsigned_type_node, NULL_TREE);
   this->define_builtin(BUILT_IN_RETURN_ADDRESS, "__builtin_return_address",
-		       NULL,
-		       build_function_type_list(ptr_type_node,
-						unsigned_type_node,
-						NULL_TREE),
-		       false, false);
+		       NULL, t, false, false);
+
+  // The runtime calls __builtin_frame_address for runtime.getcallersp.
+  this->define_builtin(BUILT_IN_FRAME_ADDRESS, "__builtin_frame_address",
+		       NULL, t, false, false);
 
   // The compiler uses __builtin_trap for some exception handling
   // cases.

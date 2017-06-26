@@ -1,3 +1,75 @@
+2016-09-26  Nathan Sidwell  <nathan@acm.org>
+
+	* init.c (expand_default_init): Fix } indentation.
+	* method.c (process_subob_fn): Simplify control structure to
+	remove gotos.
+	(implicitly_declare_fn): Remove duplicated lambda ctor check.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* parser.c (cp_parser_storage_class_specifier_opt): Add
+	gcc_fallthrough.
+	(cp_parser_skip_to_end_of_template_parameter_list): Likewise.
+	(cp_parser_cache_defarg): Likewise.
+	(cp_parser_omp_for_cond): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (structural_comptypes): Likewise.
+	(cp_build_binary_op): Likewise.
+	(cp_build_modify_expr): Likewise.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* constexpr.c (cxx_eval_internal_function): Handle IFN_FALLTHROUGH.
+	(potential_constant_expression_1): Likewise.
+	* constraint.cc (function_concept_check_p): Check fn for null.
+	* parser.c (cp_parser_expression_statement): Handle attribute
+	fallthrough.
+	(cp_parser_statement): Likewise.
+	(cp_parser_label_for_labeled_statement): Set FALLTHROUGH_LABEL_P on
+	labels.
+	(cp_parser_std_attribute): Handle fallthrough attribute.
+	(cp_parser_check_std_attribute): Add %< %> quotes.
+	* pt.c (tsubst_copy_and_build): Handle internal functions.
+	(instantiation_dependent_scope_ref_p): Return if the expression is
+	null.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* typeck.c (cp_build_unary_op): Warn about bit not on expressions that
+	have boolean value.
+
+2016-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0138R2, C++17 construction rules for enum class values
+	* cp-tree.h (is_direct_enum_init): Declare.
+	* decl.c (is_direct_enum_init): New function.
+	(reshape_init): Use it.
+	* typeck.c (convert_for_assignment): Likewise.
+
+	* Make-lang.in (check-c++1z): Pass RUNTESTFLAGS down to
+	make check-g++.
+
+	* constexpr.c (call_stack): Remove unnecessary
+	= vNULL initialization of file scope vec.
+
+	* name-lookup.c (store_bindings, store_class_bindings): Don't
+	initialize static local bindings_need_stored to vNULL.
+
+	* typeck2.c (process_init_constructor_record): Use
+	CONSTRUCTOR_NELTS (...) instead of
+	vec_safe_length (CONSTRUCTOR_ELTS (...)).
+	* decl.c (reshape_init_r): Likewise.
+	(check_initializer): Likewise.
+
+2016-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71979
+	* class.c (build_base_path): Allow for lookup_base returning
+	NULL_TREE.
+
 2016-09-21  Jason Merrill  <jason@redhat.com>
 
 	Core 903

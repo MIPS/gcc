@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "df.h"
 #include "tm_p.h"
@@ -3488,7 +3489,7 @@ empty_delay_slot (rtx_insn *insn)
    situation.  */
 
 int
-emit_cbcond_nop (rtx insn)
+emit_cbcond_nop (rtx_insn *insn)
 {
   rtx next = next_active_insn (insn);
 
@@ -3832,6 +3833,7 @@ check_pic (int i)
 		      || (GET_CODE (XEXP (op, 0)) == MINUS
 			  && XEXP (XEXP (op, 0), 0) == sparc_got ()
 			  && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST)));
+      /* fallthrough */
     case 2:
     default:
       return 1;
@@ -5873,11 +5875,9 @@ sparc_asm_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
      backtraces in such cases.  This is pointless for sibling calls since
      the return address is explicitly adjusted.  */
 
-  rtx insn, last_real_insn;
+  rtx_insn *insn = get_last_insn ();
 
-  insn = get_last_insn ();
-
-  last_real_insn = prev_real_insn (insn);
+  rtx last_real_insn = prev_real_insn (insn);
   if (last_real_insn
       && NONJUMP_INSN_P (last_real_insn)
       && GET_CODE (PATTERN (last_real_insn)) == SEQUENCE)
@@ -8373,6 +8373,7 @@ epilogue_renumber (register rtx *where, int test)
 	return 1;
       if (! test && REGNO (*where) >= 24 && REGNO (*where) < 32)
 	*where = gen_rtx_REG (GET_MODE (*where), OUTGOING_REGNO (REGNO(*where)));
+      /* fallthrough */
     case SCRATCH:
     case CC0:
     case PC:

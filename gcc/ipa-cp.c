@@ -2065,6 +2065,8 @@ propagate_vr_accross_jump_function (cgraph_edge *cs,
       tree val = ipa_get_jf_constant (jfunc);
       if (TREE_CODE (val) == INTEGER_CST)
 	{
+	  if (TREE_OVERFLOW_P (val))
+	    val = drop_tree_overflow (val);
 	  jfunc->vr_known = true;
 	  jfunc->m_vr.type = VR_RANGE;
 	  jfunc->m_vr.min = val;
@@ -5204,11 +5206,9 @@ ipcp_store_vr_results (void)
 	 }
        else
 	 {
-	   static wide_int zero = integer_zero_node;
 	   vr.known = false;
 	   vr.type = VR_VARYING;
-	   vr.min = zero;
-	   vr.max = zero;
+	   vr.min = vr.max = wi::zero (INT_TYPE_SIZE);
 	 }
        ts->m_vr->quick_push (vr);
      }
