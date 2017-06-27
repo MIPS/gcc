@@ -1,3 +1,36 @@
+2016-09-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_v8_2a_fp16_scalar_hw): Delete redundant word
+	in function comment.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/46266
+	* lib/gcov.exp: Verify that <built-in>.gcov file is not
+	considered.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77745
+	* g++.dg/torture/pr77745.C: New testcase.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77478
+	* gcc.dg/torture/pr77478.c: New testcase.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/7970
+	PR gcov-profile/16855
+	PR gcov-profile/44779
+	* g++.dg/gcov/pr16855.C: New test.
+
+2016-09-27  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Require int32plus.
+
 2016-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/77666

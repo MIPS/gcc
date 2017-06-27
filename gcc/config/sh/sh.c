@@ -3199,6 +3199,12 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
 	 vector-move, so we have to provide the correct cost in the number
 	 of move insns to load/store the reg of the mode in question.  */
     case SET:
+      if (sh_movt_set_dest (x) != NULL || sh_movrt_set_dest (x) != NULL)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+
       if (register_operand (SET_DEST (x), VOIDmode)
 	    && (register_operand (SET_SRC (x), VOIDmode)
 		|| satisfies_constraint_Z (SET_SRC (x))))
@@ -3208,10 +3214,6 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
 				  / mov_insn_size (mode, TARGET_SH2A));
 	  return true;
         }
-
-      if (sh_movt_set_dest (x) != NULL || sh_movrt_set_dest (x) != NULL)
-	return COSTS_N_INSNS (1);
-
       return false;
 
     /* The cost of a mem access is mainly the cost of the address mode.  */
@@ -6549,7 +6551,7 @@ final_prescan_insn (rtx_insn *insn, rtx *opvec ATTRIBUTE_UNUSED,
 		    (asm_out_file, "L", CODE_LABEL_NUMBER (XEXP (note, 0)));
 		  break;
 		}
-	      /* else FALLTHROUGH */
+	      /* FALLTHROUGH */
 	    case CALL:
 	      asm_fprintf (asm_out_file, "\t.uses %LL%d\n",
 			   CODE_LABEL_NUMBER (XEXP (note, 0)));

@@ -1,3 +1,104 @@
+2016-09-27  Maciej W. Rozycki  <macro@imgtec.com>
+
+	* config/mips/constraints.md (d): Fix documentation.
+	* doc/md.texi (Machine Constraints): Update accordingly.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (dwarf2out_init): Move text_section_line_info,
+	cur_line_info_table initialization ...
+	(dwarf2out_assembly_start): ... here.
+
+2016-09-27  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm.md (*arm_movsi_insn): Add "arch" attribute.
+	* config/arm/vfp.md (*arm_movhi_vfp): Likewise.
+	(*thumb2_movhi_vfp): Likewise.
+	(*arm_movhi_fp16): Remove predication operand from VMOV.F16
+	template.  Expand predicable attribute to mark VMOV.F16 as not
+	predicable.  Add "arch" attribute.
+	(*thumb2_movhi_fp16): Likewise.
+	(*arm_movsi_vfp): Break a long line.  Add "arch" attribute.
+	(*thumb2_movsi_vfp): Add "arch" attribute.
+
+2016-09-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_symbol): Don't modify
+	VAR_DECL string.
+
+2016-09-27  Marek Polacek  <polacek@redhat.com>
+
+	* config/ia64/ia64.c (ia64_print_operand): Adjust fall through
+	comment.
+
+	* config/c6x/c6x.h: Adjust fall through comment.
+	* config/sh/sh.c (final_prescan_insn): Likewise.
+	* config/visium/visium.c (visium_expand_int_cstore): Likewise.
+	(visium_expand_fp_cstore): Likewise.
+
+2016-09-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (const_ok_for_op): Use "Fall through" comment form
+	expected by -Wimplicit-fallthrough.
+	(thumb1_size_rtx_costs): Likewise.
+	(thumb2_reorg): Likewise.
+	(tls_mentioned_p): Add "Fall through" comment.
+	(thumb2_reorg): Likewise.
+	* config/arm/arm-builtins.c (arm_expand_neon_args): Use "Fall through"
+	comment form expected by -Wimplicit-fallthrough.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/46266
+	* input.h (RESERVED_LOCATION_P): New macro.
+	* profile.c (branch_prob): Use RESERVED_LOCATION_P and
+	instread of comparison with UNKNOWN_LOCATION.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77745
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	When removing redundant stores make sure to check compatibility
+	of the TBAA state for downstream accesses.
+	* tree-ssa-sccvn.c (visit_reference_op_store): Likewise for when
+	value-numbering virtual operands for store matches.
+
+2016-09-27  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/51244
+	* config/sh/sh.c (sh_rtx_costs): Fix return value of SET of movt and
+	movrt patterns.  Match them before anything else in the SET case.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/7970
+	PR gcov-profile/16855
+	PR gcov-profile/44779
+	* coverage.c (build_gcov_exit_decl): New function.
+	(coverage_obj_init): Call the function and generate __gcov_exit
+	destructor.
+	* doc/gcov.texi: Document when __gcov_exit function is called.
+
+2016-09-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/77751
+	* Makefile.in (insn-attrtab.o-warn, insn-dfatab.o-warn,
+	insn-latencytab.o-warn, insn-output.o-warn, insn-emit.o-warn): Use
+	-Wno-error instead of -Wno-implicit-fallthrough.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/77749
+	* gcov-counter.def: Remove GCOV_COUNTER_V_DELTA.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (simplify_comparison): Add canonical FALLTHROUGH comments.
+	* config/i386/i386.c (ix86_dep_by_shift_count_body): Add FALLTHROUGH
+	comments.  Remove break after return.
+	(ix86_fp_compare_code_to_integer, has_dispatch,
+	ix86_simd_clone_usable): Remove break after return.
+
 2016-09-27  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	PR rlt-optimization/77714
