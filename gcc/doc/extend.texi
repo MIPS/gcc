@@ -4450,22 +4450,6 @@ This function attribute instructs the compiler to generate a hazard barrier
 return that clears all execution and instruction hazards while returning,
 instead of generating a normal return instruction.
 
-@item epi
-@itemx noepi
-@itemx epi("suffix")
-@cindex @code{epi} attribute
-@cindex @code{noepi} attribute
-@cindex @code{epi("suffix")} attribute
-On MIPS targets, you can use the @code{epi} and @code{noepi}
-function attributes to locally select or turn off common epilogue usage.
-A function with the @code{epi} attribute will use a common epilogue
-and with the @code{noepi} attribute a standard inline epilogue will be
-used.  These attributes override the @option{-mepi} and @option{-mno-epi}
-options on the command line (@pxref{MIPS Options}).
-
-A single optional argument is supported to specify a suffix to use for the
-common epilogue stub that will be used.  See @pxref{MIPS Options} for details.
-
 @item code_readable
 @cindex @code{code_readable} function attribute, MIPS
 For MIPS targets that support PC-relative addressing modes, this attribute
