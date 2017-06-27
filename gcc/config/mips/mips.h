@@ -3479,15 +3479,6 @@ struct GTY(())  machine_function {
   /* True if the function should generate hazard barrier return.  */
   bool use_hazard_barrier_return_p;
 
-  /* True if attribute common_epilogue is defined for this function.  */
-  bool use_common_epilogue_p;
-
-  /* If use_common_epilogue_p, holds suffix string.  */
-  const char *epi_suffix;
-
-  /* If use_common_epilogue_p, determines if $ra should also be restored.  */
-  bool epi_with_ra;
-
   /* True if we are safe to use SAVE/RESTORE instruction in the
      prologue/epilogue.  */
   bool safe_to_use_save_restore;
@@ -3554,8 +3545,3 @@ struct GTY(())  machine_function {
   (TARGET_LOAD_STORE_PAIRS \
    && (TUNE_P5600 || TUNE_I6400 || TUNE_P6600) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
-
-#define ISA_SUPPORTS_COMMON_EPILOGUE \
-  (mips_isa_rev >= 2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
-
-#define MIPS_EPI_MIN_GP_RESTORE 3
