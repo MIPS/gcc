@@ -16357,7 +16357,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  base = get_thread_pointer (tp_mode,
 				     for_mov || !TARGET_TLS_DIRECT_SEG_REFS);
 	  off = force_reg (tp_mode, off);
-	  return gen_rtx_PLUS (tp_mode, base, off);
+	  dest = gen_rtx_PLUS (tp_mode, base, off);
+	  if (tp_mode != Pmode)
+	    dest = convert_to_mode (Pmode, dest, 1);
 	}
       else
 	{
@@ -50832,6 +50834,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK ix86_hard_regno_scratch_ok
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

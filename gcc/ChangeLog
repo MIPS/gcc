@@ -1,3 +1,533 @@
+2016-10-19  Richard Biener  <rguenther@suse.de>
+
+	* domwalk.c (dom_walker::walk): Use RPO order.
+
+2016-10-19  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (evrp_dom_walker::evrp_dom_walker): Initialize
+	stmts_to_remove.
+	(evrp_dom_walker::~evrp_dom_walker): Free it.
+	(evrp_dom_walker::stmts_to_remove): Add.
+	(evrp_dom_walker::before_dom_children): Mark PHIs and stmts
+	whose output we fully propagate for removal.  Propagate
+	into BB destination PHI arguments.
+	(execute_early_vrp): Remove queued stmts.  Dump value ranges
+	before stmt removal.
+
+2016-10-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (OBJS): Add gimple-ssa-warn-alloca.o.
+	* passes.def: Add two instances of pass_walloca.
+	* tree-pass.h (make_pass_walloca): New.
+	* gimple-ssa-warn-alloca.c: New file.
+	* doc/invoke.texi: Document -Walloca, -Walloca-larger-than=, and
+	-Wvla-larger-than= options.
+
+2016-10-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* cfg.c (clear_bb_flags): Use FOR_ALL_BB_FN.
+	* config/nvptx/nvptx.c (nvptx_find_sese): Likewise.
+
+2016-10-18  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.h (vec_xl_len): New macro.
+	(vec_xst_len): New macro.
+	(vec_cmpnez): New macro.
+	(vec_cntlz_lsbb): New macro.
+	(vec_cnttz_lsbb): New macro.
+	(vec_xlx): New macro.
+	(vec_xrx): New macro.
+	(vec_all_nez): New C++ predicate template.
+	(vec_any_eqz): New C++ predicate template.
+	(vec_all_ne): Revised C++ predicate template under _ARCH_PWR9
+	conditional compilation.
+	(vec_any_eq): Revised C++ predicate template under _ARCH_PWR9
+	conditional compilation.
+	(vec_all_nez): New macro.
+	(vec_any_eqz): New macro.
+	(vec_all_ne): Revised macro under _ARCH_PWR9 conditional
+	compilation.
+	(vec_any_eq): Revised macro under _ARCH_PWR9 conditional
+	compilation.
+	* config/rs6000/vector.md (VI): Moved this mode iterator
+	definition from altivec.md to vector.md.
+	(UNSPEC_NEZ_P): New value.
+	(vector_ne_<mode>_p): New expansion for implementation of
+	vec_all_ne and vec_any_eq built-in functions.
+	(vector_nez_<mode>_p): New expansion for implementation of
+	vec_all_nez and vec_any_eqz built-in functions.
+	(vector_ne_v2di_p): New expansion for implementation of vec_all_ne
+	and vec_any_eq built-in function.
+	(cr6_test_for_zero): New commentary to explain this expansion.
+	(cr6_test_for_zero_reverse): New commentary to explain this expansion.
+	(cr6_test_for_lt): New commentary to explain this expansion.
+	(cr6_test_for_lt_reverse): New commentary to explain this
+	expansion.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloaded function prototypes for vec_all_ne, vec_all_nez,
+	vec_any_eq, vec_any_eqz, vec_cmpnez, vec_cntlz_lsbb,
+	vec_cnttz_lsbb, vec_xl_len, vec_xst_len, vec_xlx, and vec_xrx
+	built-in functions.
+	(altivec_resolve_overloaded_builtin): Modify the handling of
+	ALTIVEC_BUILTIN_VEC_CMPNE to use the Power9 instructions when
+	the compiler is configured to support TARGET_P9_VECTOR.
+	* config/rs6000/rs6000-builtin.def (BU_ALTIVEC_P): Add commentary
+	to explain the special processing that is given to predicate
+	built-ins introduced using this macro.
+	(BU_ALTIVEC_OVERLOAD_P): Add commentary to alert maintainers to
+	the special processing given to predicate built-ins introduced
+	using this macro.
+	(BU_VSX_P): Likewise.
+	(BU_P8V_AV_P): Likewise.
+	(BU_P9V_AV_P): Likewise.
+	(BU_P9V_AV_X): New macro.
+	(BU_P9V_64BIT_AV_X): New macro.
+	(BU_P9V_VSX_3): New macro.
+	(BU_P9V_OVERLOAD_P): New macro.
+	(LXVL): New BU_P9V_64BIT_VSX_2.
+	(VEXTUBLX): New BU_P9V_AV_2.
+	(VEXTUBRX): Likewise.
+	(VEXTUHLX): Likewise.
+	(VEXTUHRX): Likewise.
+	(VEXTUWLX): Likewise.
+	(VEXTUWRX): Likewise.
+	(STXVL): New BU_P9V_64BIT_AV_X.
+	(VCLZLSBB): New BU_P9V_AV_1.
+	(VCTZLSBB): Likewise.
+	(CMPNEB): New BU_P9V_AV_2.
+	(CMPNEH): Likewise.
+	(CMPNEW): Likewise.
+	(CMPNEF): Likewise.
+	(CMPNED): Likewise.
+	(VCMPNEB_P): New BU_P9V_AV_P.
+	(VCMPNEH_P): Likewise.
+	(VCMPNEW_P): Likewise.
+	(VCMPNED_P): Likewise.
+	(VCMPNEFP_P): Likewise.
+	(VCMPNEDP_P): Likewise.
+	(CMPNEZB): New BU_P9V_AV_2.
+	(CMPNEZH): Likewise.
+	(CMPNEZW): Likewise.
+	(VCMPNEZB_P): New BU_P9V_AV_P.
+	(VCMPNEZH_P): Likewise.
+	(VCMPNEZW_P): Likewise.
+	(LXVL): New BU_P9V_OVERLOAD_2.
+	(STXVL): New BU_P9V_OVERLOAD_3.
+	(VEXTULX): New BU_P9V_OVERLOAD_2.
+	(VEXTURX): Likewise.
+	(CMPNEZ): Likewise.
+	(VCMPNEZ_P): New BU_P9V_OVERLOAD_P.
+	(VCMPNE_P): Likewise.
+	(VCLZLSBB): New BU_P9V_OVERLOAD_1.
+	(VCTZLSBB): Likewise.
+	* config/rs6000/rs6000.c (altivec_expand_predicate_builtin): Add
+	comment to explain mode used for scratch register.
+	(altivec_expand_stxvl_builtin): New function.
+	(altivec_expand_builtin): Add case for new constant P9V_BUILTIN_STXVL.
+	(altivec_init_builtins): Add initialized variable
+	void_ftype_v16qi_pvoid_long and use this type to define the
+	built-in function __builtin_altivec_stxvl.
+	* config/rs6000/vsx.md (UNSPEC_LXVL): New value.
+	(UNSPEC_STXVL): New value.
+	(UNSPEC_VCLZLSBB): New value.
+	(UNSPEC_VCTZLSBB): New value.
+	(UNSPEC_VEXTUBLX): New value.
+	(UNSPEC_VEXTUHLX): New value.
+	(UNSPEC_VEXTUWLX): New value.
+	(UNSPEC_VEXTUBRX): New value.
+	(UNSPEC_VEXTUHRX): New value.
+	(UNSPEC_VEXTUWRX): New value.
+	(UNSPEC_VCMPNEB): New value.
+	(UNSPEC_VCMPNEZB): New value.
+	(UNSPEC_VCMPNEH): New value.
+	(UNSPEC_VCMPNEZH): New value.
+	(UNSPEC_VCMPNEW): New value.
+	(UNSPEC_VCMPNEZW): New value.
+	(*vsx_ne_<mode>_p): New insn for vector test all not equal with
+	vector of integer modes.
+	(*vsx_ne_<mode>_p): New insn for vector test all not equal with
+	vector of float or double modes.
+	(*vector_nez_<mode>_p): New insn for vector test all not equal or
+	zero.
+	(lxvl): New expand for load VSX vector with length.
+	(*lxvl): New insn for load VSX vector with length.
+	(stxvl): New expand for store VSX vector with length.
+	(*stxvl): New insn for store VSX vector with length.
+	(vcmpneb): New insn for vector of byte compare not equal.
+	(vcmpnezb): New insn for vector of byte compare not equal or zero.
+	(vcmpneh): New insn for vector of half word compare not equal.
+	(vcmpnezh): New insn for vector of half word compare not equal or
+	zero.
+	(vcmpnew): New insn for vector of word compare not equal.
+	(vcmpne<VSs>): New insn for vector of float or double compare not
+	equal.
+	(vcmpnezw): New insn for vector of word compare not equal or zero.
+	(vclzlsbb): New insn for vector count leading zero
+	least-significant bits byte.
+	(vctzlsbb): New insn for vector count trailing zero least
+	signficant bits byte.
+	(vextublx): New insn for vector extract unsigned byte left
+	indexed.
+	(vextubrx): New insn for vector extract unsigned byte right
+	indexed.
+	(vextuhlx): New insn for vector extract unsigned half word left
+	indexed.
+	(vextuhrx): New insn for vector extract unsigned half word right
+	indexed.
+	(vextuwlx): New insn for vector extract unsigned word left
+	indexed.
+	(vextuwrx): New insn for vector extract unsigned word right
+	indexed.
+	* config/rs6000/rs6000.h (RS6000_BTC_CONST): Enhance comment to
+	clarify intent of this constant.
+	* config/rs6000/altivec.md (VI): Move this mode iterator to vsx.md.
+	* doc/extend.texi (PowerPC Altivec Built-in Functions): Add
+	documentation for vec_all_nez, vec_any_eqz, vec_cmpnez,
+	vec_cntlz_lsbb, vec_cnttz_lsbb, vec_xl_len, vec_xst_len, vec_xlx,
+	and vec_xrx functions.
+
+2016-10-18  Andrew Pinski  <apinski@cavium.com>
+
+	PR tree-opt/65950
+	* predict.c (is_exit_with_zero_arg): New function.
+	(tree_bb_level_predictions): Don't consider paths leading to exit(0)
+	as nottaken.
+
+2016-10-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77991
+	* config/i386/i386.c (legitimize_tls_address)
+	<case TLS_MODEL_INITIAL_EXEC>: For TARGET_64BIT || TARGET_ANY_GNU_TLS
+	convert dest to Pmode if different than Pmode.
+
+2016-10-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/77916
+	* gimple-ssa-strength-reduction.c (analyze_increments): Reinstate
+	stopgap fix, as pointers with -1 increment are still broken.
+
+2016-10-18  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_output_symbol_ref): Move storage
+	mapping class decoration from here...
+	(rs6000_xcoff_encode_section): ...to here.
+
+	(rs6000_savres_strategy) [AIX,ELFv2]: Inline FPR save and restore
+	if shrink-wrapping and optimizing for speed.
+
+2016-10-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Handle
+	not visited but non-executable predecessors.  Return taken edge.
+	Simplify conditions and refactor propagation vs. folding step.
+
+2016-10-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): Do not select
+	{SAVE,REST}_MULTIPLE if shrink-wrapping separate components.
+	(rs6000_get_separate_components): Assert we do not have those
+	strategies selected.
+
+2016-10-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-propagate.h (substitute_and_fold): Adjust prototype.
+	* tree-ssa-propagate.c (ssa_prop_fini): Remove final BB_VISITED
+	clearing.
+	(substitute_and_fold_dom_walker): Adjust constructor.
+	(substitute_and_fold_dom_walker::before_dom_children): Remove
+	do_dce flag and handling (always true).
+	(substitute_and_fold): Likewise.
+	* tree-vrp.c (vrp_finalize): Adjust.
+	(execute_early_vrp): Remove final BB_VISITED clearing.
+	* tree-ssa-ccp.c (ccp_finalize): Adjust.
+	* tree-ssa-copy.c (fini_copy_prop): Likewise.
+	* ira.c (ira): Call clear_bb_flags.
+
+2016-10-18  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_operand::gen_gimple_expr): Use get_name to
+	get at the operand to look at with TREE_OPERAND for generic
+	sub-nodes.
+
+2016-10-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* genattrtab.c (attr_string): Use rtx_reader_ptr for call to
+	copy_md_ptr_loc.
+	(gen_attr): Use rtx_reader_ptr for lookup_enum_type call.
+	(write_test_expr): Use rtx_reader_ptr for calls to
+	fprint_c_condition.
+	(write_attr_value): Likewise.
+	* genconditions.c (write_one_condition): Use rtx_reader_ptr for
+	call to print_md_ptr_loc.
+	(write_one_condition): Likewise for calls to print_c_condition.
+	* genconstants.c: Include "statistics.h" and "vec.h".
+	(main): Update for conversion to member functions.
+	* genemit.c (emit_c_code): Use rtx_reader_ptr for
+	call to print_md_ptr_loc.
+	* genenums.c: Include "statistics.h" and "vec.h".
+	(main): Update for conversion of traverse_enum_types to a method.
+	* genmddeps.c: Include "statistics.h" and "vec.h".
+	* genoutput.c (process_template): Use rtx_reader_ptr for call to
+	print_md_ptr_loc.
+	* genpreds.c (write_predicate_subfunction): Likewise.
+	(write_predicate_expr): Likewise for calls to print_c_condition.
+	* genrecog.c (print_test): Likewise.
+	* gensupport.c (process_rtx): Likewise for calls to
+	copy_md_ptr_loc and join_c_conditions.
+	(alter_test_for_insn): Likewise for call to join_c_conditions.
+	(process_substs_on_one_elem): Likewise.
+	(gen_mnemonic_setattr): Update for move of string_obstack to a
+	field of rtx_reader.
+	(mnemonic_htab_callback): Likewise.  Fix formatting.
+	(gen_mnemonic_attr): Likewise.
+	* gentarget-def.c (def_target_insn): Use rtx_reader_ptr for calls
+	to print_c_condition.
+	* read-md.c: Include "statistics.h" and "vec.h".
+	(string_obstack): Convert this global to field "m_string_obstack"
+	of class rtx_reader.
+	(ptr_locs): Likewise, as "m_ptr_locs".
+	(ptr_loc_obstack): Likewise, as "m_ptr_loc_obstack".
+	(joined_conditions): Likewise, as "m_joined_conditions".
+	(joined_conditions_obstack): Likewise, as "m_joined_conditions_obstack".
+	(md_constants): Likewise, as "m_md_constants".
+	(enum_types): Likewise, as "m_enum_types".
+	(set_md_ptr_loc): Convert to...
+	(rtx_reader::set_md_ptr_loc): ...member function.
+	(get_md_ptr_loc): Convert to...
+	(rtx_reader::get_md_ptr_loc): ...member function.
+	(copy_md_ptr_loc): Convert to...
+	(rtx_reader::copy_md_ptr_loc): ...member function.
+	(fprint_md_ptr_loc): Convert to...
+	(rtx_reader::fprint_md_ptr_loc): ...member function.
+	(print_md_ptr_loc): Convert to...
+	(rtx_reader::print_md_ptr_loc): ...member function.
+	(join_c_conditions): Convert to...
+	(rtx_reader::join_c_conditions): ...member function.
+	(fprint_c_condition): Convert to...
+	(rtx_reader::fprint_c_condition): ...member function.
+	(print_c_condition): Convert to...
+	(rtx_reader::print_c_condition): ...member function.
+	(read_name): Convert to...
+	(rtx_reader::read_name): ...member function.
+	(read_escape): Convert to...
+	(rtx_reader::read_escape): ...member function.
+	(read_quoted_string): Convert to...
+	(rtx_reader::read_quoted_string): ...member function.
+	(read_braced_string): Convert to...
+	(rtx_reader::read_braced_string): ...member function.
+	(read_string): Convert to...
+	(rtx_reader::read_string): ...member function.
+	(read_skip_construct): Convert to...
+	(rtx_reader::read_skip_construct): ...member function.
+	(handle_constants): Convert to...
+	(rtx_reader::handle_constants): ...member function.
+	(traverse_md_constants): Convert to...
+	(rtx_reader::traverse_md_constants): ...member function.
+	(handle_enum): Convert to...
+	(rtx_reader::handle_enum): ...member function.
+	(lookup_enum_type): Convert to...
+	(rtx_reader::lookup_enum_type): ...member function.
+	(traverse_enum_types): Convert to...
+	(rtx_reader::traverse_enum_types): ...member function.
+	(rtx_reader::rtx_reader): Move initializations
+	of various former global data from rtx_reader::read_md_files to
+	here, as fields, along with the call to unlock_std_streams.
+	(rtx_reader::~rtx_reader): Clean up m_base_dir, and clean up
+	the new fields.
+	(rtx_reader::read_md_files): Move initializations of various
+	global data from here to the ctor.
+	* read-md.h (read_name): Convert to...
+	(rtx_reader::read_name): ...member function.
+	(rtx_reader::read_escape): New method decl.
+	(read_quoted_string): Convert to...
+	(rtx_reader::read_quoted_string): ...member function.
+	(rtx_reader::read_braced_string): New method decl.
+	(read_string): Convert to...
+	(rtx_reader::read_string): ...member function.
+	(rtx_reader::read_skip_construct): New method decl.
+	(rtx_reader::set_md_ptr_loc): New method decl.
+	(rtx_reader::get_md_ptr_loc): New method decl.
+	(copy_md_ptr_loc): Convert to...
+	(rtx_reader::copy_md_ptr_loc): ...member function.
+	(fprint_md_ptr_loc): Convert to...
+	(rtx_reader::fprint_md_ptr_loc): ...member function.
+	(print_md_ptr_loc): Convert to...
+	(rtx_reader::print_md_ptr_loc): ...member function.
+	(rtx_reader::lookup_enum_type): New method decl.
+	(rtx_reader::traverse_enum_types): New method decl.
+	(rtx_reader::handle_constants): New method decl.
+	(traverse_md_constants): Convert to...
+	(rtx_reader::traverse_md_constants): ...member function.
+	(rtx_reader::handle_enum): New method decl.
+	(rtx_reader::join_c_conditions): New method decl.
+	(fprint_c_condition): Convert to...
+	(rtx_reader::fprint_c_condition): ...member function.
+	(print_c_condition): Convert to...
+	(rtx_reader::print_c_condition): ...member function.
+	(rtx_reader::apply_iterator_to_string): New method decl.
+	(rtx_reader::copy_rtx_for_iterators): New method decl.
+	(rtx_reader::read_conditions): New method decl.
+	(rtx_reader::record_potential_iterator_use): New method decl.
+	(rtx_reader::read_mapping): New method decl.
+	(rtx_reader::read_rtx): New method decl.
+	(rtx_reader::read_rtx_code): New method decl.
+	(rtx_reader::read_rtx_operand): New method decl.
+	(rtx_reader::read_nested_rtx): New method decl.
+	(rtx_reader::read_rtx_variadic): New method decl.
+	(rtx_reader::get_string_obstack): New method.
+	(rtx_reader::get_md_constants): New method.
+	(string_obstack): Convert global variable decl to...
+	(rtx_reader::m_string_obstack): ...this new field.
+	(rtx_reader::m_ptr_locs): New field.
+	(rtx_reader::m_ptr_loc_obstack): New field.
+	(rtx_reader::m_joined_conditions): New field.
+	(rtx_reader::m_joined_conditions_obstack): New field.
+	(rtx_reader::m_md_constants): New field.
+	(rtx_reader::m_enum_types): New field.
+	* read-rtl.c (apply_iterator_to_string): Convert to...
+	(rtx_reader::apply_iterator_to_string): ...member function.
+	(copy_rtx_for_iterators): Convert to...
+	(rtx_reader::copy_rtx_for_iterators): ...member function.
+	(add_condition_to_string): Use rtx_reader_ptr for
+	calls join_c_conditions.
+	(apply_iterators): Use rtx_reader_ptr for calls to
+	join_c_conditions and copy_rtx_for_iterators.
+	(read_conditions): Convert to...
+	(rtx_reader::read_conditions): ...member function.
+	(record_potential_iterator_use): Convert to...
+	(rtx_reader::record_potential_iterator_use): ...member function.
+	(read_mapping): Convert to...
+	(rtx_reader::read_mapping): ...member function.
+	(read_subst_mapping): Use rtx_reader_ptr for read_string call.
+	(read_rtx): Convert to...
+	(rtx_reader::read_rtx): ...member function.
+	(read_rtx_code): Convert to...
+	(rtx_reader::read_rtx_code): ...member function.
+	(read_rtx_operand): Convert to...
+	(rtx_reader::read_rtx_operand): ...member function.  Update for move
+	of string_obstack to a field.
+	(read_nested_rtx): Convert to..
+	(rtx_reader::read_nested_rtx): ...member function.
+	(read_rtx_variadic): Convert to..
+	(rtx_reader::read_rtx_variadic): ...member function.
+
+2016-10-18  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-vrp.c (get_value_range): Check get_ptr_nonnull.
+
+2016-10-18  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Set value range
+	for pointer type too.
+	(ipcp_update_vr): set_ptr_nonnull for pointer.
+
+2016-10-18  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-ssa-alias.h (pt_solution_singleton_or_null_p): Renamed from
+	pt_solution_singleton_p.
+	* tree-ssa-ccp.c (fold_builtin_alloca_with_align): Use renamed
+	pt_solution_singleton_or_null_p from pt_solution_singleton_p.
+	* tree-ssa-structalias.c (find_what_p_points_to): Preserve
+	pointer nonnull computed by VRP.
+	Also Conservatively set pt.null to 1.
+	(pt_solution_reset): Conservatively set pt.null to 1.
+	(pt_solution_singleton_or_null_p): Renamed from
+	pt_solution_singleton_p.
+	* tree-ssanames.h (set_ptr_nonnull): Declare.
+	(get_ptr_nonnull): Likewise.
+	* tree-ssanames.c (set_ptr_nonnull): New.
+	(get_ptr_nonnull): Likewise.
+	* tree-vrp.c (vrp_finalize): Set ptr that are nonnull.
+	(evrp_dom_walker::before_dom_children): Likewise.
+
+2016-10-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/i386/i386.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Move to...
+	* config/i386/i386.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): ...here.
+	* config/ia64/ia64.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Move to...
+	* config/ia64/ia64.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): ...here.
+	* config/rs6000/rs6000.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Move to.
+	* config/rs6000/rs6000.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): ...here.
+	(rs6000_option_override_internal): Clear it if ABI_AIX.
+	* config/sparc/sparc.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Move to...
+	* config/sparc/sparc.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): ... here.
+
+2016-10-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (record_increment): Remove
+	garbage comment.
+
+2016-10-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expmed.c (expand_shift_1): Add MAY_FAIL parameter and do not assert
+	that the result is non-zero if it is true.
+	(maybe_expand_shift): New wrapper around expand_shift_1.
+	(emit_store_flag): Call maybe_expand_shift in lieu of expand_shift.
+
+2016-10-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/77916
+	* gimple-ssa-strength-reduction.c (create_add_on_incoming_edge):
+	Don't allow a MINUS_EXPR for pointer arithmetic for either known
+	or unknown strides.
+	(record_increment): Increments of -1 for unknown strides just use
+	a multiply initializer like other negative values.
+	(analyze_increments): Remove stopgap solution for -1 increment
+	applied to pointer arithmetic.
+
+2016-10-17  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* dominance.c (dom_info::dom_info): Add new constructor for region
+	which is vector of basic blocks.
+	(dom_init): New method to initialize members common for both
+	constructors.
+	(dom_info::dom_info): Invoke dom_init for partial initialization.
+	(dom_info::get_idom): Add check to corner cases on basic blocks which
+	are not in region.
+	(dom_info::calc_dfs_tree): Check M_FAKE_EXIT_EDGE instead of M_REVERSE
+	to detect unreachable bbs.
+	(dom_info::calc_idoms): Likewise.
+	(compute_dom_fast_query_in_region): New function.
+	(calculate_dominance_info_for_region): Likewise.
+	(free_dominance_info_for_region): Likewise.
+	* dominance.h: Add prototypes for introduced region-based functions
+	tree-if-conv.c: (build_region): New function.
+	(if_convertible_loop_p_1): Invoke local version of post-dominators
+	calculation before basic block predication with subsequent freeing
+	post-dominator info.
+	(tree_if_conversion): Remove free of post-dominator info
+	(pass_if_conversion::execute): Delete detection of infinite loops
+	and fake edges to exit block since post-dominator calculation is
+	performed per if-converted loop only.
+
+2016-10-17  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/77308
+	* config/arm/arm.c (arm_emit_coreregs_64bit_shift): Clear the result
+	register explicitly.
+	* config/arm/arm.md (ashldi3, ashrdi3, lshrdi3): Don't FAIL if
+	optimizing for size.
+
+2016-10-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c: Delete inclusion of
+	cortex-a57-fma-steering.h.
+	(aarch64_override_options): Delete call
+	to aarch64_register_fma_steering.
+	* config/aarch64/aarch64-protos.h (make_pass_fma_steering): Declare.
+	* config/aarch64/cortex-a57-fma-steering.h: Delete.
+	* config/aarch64/aarch64-passes.def: New file.
+	* config/aarch64/cortex-a57-fma-steering.c
+	(aarch64_register_fma_steering): Delete definition.
+	(make_pass_fma_steering): Remove static qualifier.
+	* config/aarch64/t-aarch64 (PASSES_EXTRA): New directive.
+	(cortex-a57-fma-steering.o): Remove dependency on
+	cortex-a57-fma-steering.h.
+
+2016-10-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* explow.c (validize_mem): Do not modify the argument in-place.
+
 2016-10-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-streamer.c (record_common_node): Explicitly list expected
@@ -95,7 +625,7 @@
 	(lookup_descr_for_decl): New function.
 	(convert_tramp_reference_op): Deal with descriptors.
 	(build_init_call_stmt): New function extracted from...
-	(finalize_nesting_tree_1): ...here.  Adjust and deal withdescriptors.
+	(finalize_nesting_tree_1): ...here.  Adjust and deal with descriptors.
 	* defaults.h (FUNCTION_ALIGNMENT): Define.
 	(TRAMPOLINE_ALIGNMENT): Set to above instead of FUNCTION_BOUNDARY.
 	* config/i386/i386.h (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Define.

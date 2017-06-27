@@ -1867,6 +1867,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_OPTAB_SUPPORTED_P
 #define TARGET_OPTAB_SUPPORTED_P rs6000_optab_supported_p
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
 
 
 /* Processor table.  */
@@ -4862,6 +4865,10 @@ rs6000_option_override_internal (bool global_init_p)
 	 Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
       if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
 	targetm.calls.split_complex_arg = NULL;
+
+      /* The AIX and ELFv1 ABIs define standard function descriptors.  */
+      if (DEFAULT_ABI == ABI_AIX)
+	targetm.calls.custom_function_descriptors = 0;
     }
 
   /* Initialize rs6000_cost with the appropriate target costs.  */
@@ -14162,6 +14169,11 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
+  /* Note that for many of the relevant operations (e.g. cmpne or
+     cmpeq) with float or double operands, it makes more sense for the
+     mode of the allocated scratch register to select a vector of
+     integer.  But the choice to copy the mode of operand 0 was made
+     long ago and there are no plans to change it.  */
   scratch = gen_reg_rtx (mode0);
 
   pat = GEN_FCN (icode) (scratch, op0, op1);
@@ -14493,6 +14505,44 @@ paired_expand_stv_builtin (enum insn_code icode, tree exp)
   pat = GEN_FCN (icode) (addr, op0);
   if (pat)
     emit_insn (pat);
+  return NULL_RTX;
+}
+
+static rtx
+altivec_expand_stxvl_builtin (enum insn_code icode, tree exp)
+{
+  rtx pat;
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
+  tree arg2 = CALL_EXPR_ARG (exp, 2);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
+  rtx op2 = expand_normal (arg2);
+  machine_mode mode0 = insn_data[icode].operand[0].mode;
+  machine_mode mode1 = insn_data[icode].operand[1].mode;
+  machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+  if (icode == CODE_FOR_nothing)
+    /* Builtin not supported on this processor.  */
+    return NULL_RTX;
+
+  /* If we got invalid arguments bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node
+      || arg1 == error_mark_node
+      || arg2 == error_mark_node)
+    return NULL_RTX;
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = copy_to_mode_reg (mode0, op0);
+  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
+  if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
+    op2 = copy_to_mode_reg (mode2, op2);
+
+  pat = GEN_FCN (icode) (op0, op1, op2);
+  if (pat)
+    emit_insn (pat);
+
   return NULL_RTX;
 }
 
@@ -15455,6 +15505,9 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrx, exp);
     case ALTIVEC_BUILTIN_STVRXL:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrxl, exp);
+
+    case P9V_BUILTIN_STXVL:
+      return altivec_expand_stxvl_builtin (CODE_FOR_stxvl, exp);
 
     case VSX_BUILTIN_STXVD2X_V1TI:
       return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v1ti, exp);
@@ -17203,6 +17256,12 @@ altivec_init_builtins (void)
     = build_function_type_list (void_type_node,
 				V16QI_type_node, long_integer_type_node,
 				pvoid_type_node, NULL_TREE);
+
+  tree void_ftype_v16qi_pvoid_long
+    = build_function_type_list (void_type_node,
+				V16QI_type_node, pvoid_type_node,
+				long_integer_type_node, NULL_TREE);
+
   tree void_ftype_v8hi_long_pvoid
     = build_function_type_list (void_type_node,
 				V8HI_type_node, long_integer_type_node,
@@ -17440,6 +17499,9 @@ altivec_init_builtins (void)
   def_builtin ("__builtin_vec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLXL);
   def_builtin ("__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
   def_builtin ("__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
+
+  def_builtin ("__builtin_altivec_stxvl", void_ftype_v16qi_pvoid_long,
+	       P9V_BUILTIN_STXVL);
 
   /* Add the DST variants.  */
   d = bdesc_dst;
@@ -25445,7 +25507,8 @@ rs6000_savres_strategy (rs6000_stack_t *info,
   else
     {
       gcc_checking_assert (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2);
-      if (info->first_fp_reg_save > 61)
+      if ((flag_shrink_wrap_separate && optimize_function_for_speed_p (cfun))
+	  || info->first_fp_reg_save > 61)
 	strategy |= SAVE_INLINE_FPRS | REST_INLINE_FPRS;
       strategy |= SAVE_INLINE_GPRS | REST_INLINE_GPRS;
       strategy |= SAVE_INLINE_VRS | REST_INLINE_VRS;
@@ -25511,7 +25574,10 @@ rs6000_savres_strategy (rs6000_stack_t *info,
   if (TARGET_MULTIPLE
       && !TARGET_POWERPC64
       && !(TARGET_SPE_ABI && info->spe_64bit_regs_used)
-      && info->first_gp_reg_save < 31)
+      && info->first_gp_reg_save < 31
+      && !(flag_shrink_wrap
+	   && flag_shrink_wrap_separate
+	   && optimize_function_for_speed_p (cfun)))
     {
       /* Prefer store multiple for saves over out-of-line routines,
 	 since the store-multiple instruction will always be smaller.  */
@@ -27444,6 +27510,9 @@ rs6000_get_separate_components (void)
 
   sbitmap components = sbitmap_alloc (32);
   bitmap_clear (components);
+
+  gcc_assert (!(info->savres_strategy & SAVE_MULTIPLE)
+	      && !(info->savres_strategy & REST_MULTIPLE));
 
   /* The GPRs we need saved to the frame.  */
   if ((info->savres_strategy & SAVE_INLINE_GPRS)
@@ -30667,31 +30736,14 @@ rs6000_xcoff_strip_dollar (const char *name)
 void
 rs6000_output_symbol_ref (FILE *file, rtx x)
 {
+  const char *name = XSTR (x, 0);
+
   /* Currently C++ toc references to vtables can be emitted before it
      is decided whether the vtable is public or private.  If this is
      the case, then the linker will eventually complain that there is
      a reference to an unknown section.  Thus, for vtables only,
-     we emit the TOC reference to reference the symbol and not the
-     section.  */
-  const char *name = XSTR (x, 0);
-
-  tree decl = SYMBOL_REF_DECL (x);
-  if (decl /* sync condition with assemble_external () */
-      && DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)
-      && (TREE_CODE (decl) == VAR_DECL
-	  || TREE_CODE (decl) == FUNCTION_DECL)
-      && name[strlen (name) - 1] != ']')
-    {
-      name = concat (name,
-		     (TREE_CODE (decl) == FUNCTION_DECL
-		      ? "[DS]" : "[UA]"),
-		     NULL);
-
-      /* Don't modify name in extern VAR_DECL to include mapping class.  */
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	XSTR (x, 0) = name;
-    }
-
+     we emit the TOC reference to reference the identifier and not the
+     symbol.  */
   if (VTABLE_NAME_P (name))
     {
       RS6000_OUTPUT_BASENAME (file, name);
@@ -35264,6 +35316,7 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
 {
   rtx symbol;
   int flags;
+  const char *symname;
 
   default_encode_section_info (decl, rtl, first);
 
@@ -35280,6 +35333,21 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
     flags &= ~SYMBOL_FLAG_HAS_BLOCK_INFO;
 
   SYMBOL_REF_FLAGS (symbol) = flags;
+
+  /* Append mapping class to extern decls.  */
+  symname = XSTR (symbol, 0);
+  if (decl /* sync condition with assemble_external () */
+      && DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)
+      && ((TREE_CODE (decl) == VAR_DECL && !DECL_THREAD_LOCAL_P (decl))
+	  || TREE_CODE (decl) == FUNCTION_DECL)
+      && symname[strlen (symname) - 1] != ']')
+    {
+      char *newname = (char *) alloca (strlen (symname) + 5);
+      strcpy (newname, symname);
+      strcat (newname, (TREE_CODE (decl) == FUNCTION_DECL
+			? "[DS]" : "[UA]"));
+      XSTR (symbol, 0) = ggc_strdup (newname);
+    }
 }
 #endif /* HAVE_AS_TLS */
 #endif /* TARGET_XCOFF */

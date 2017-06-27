@@ -230,7 +230,7 @@ enum {
 };
 void	runtime_hashinit(void);
 
-void	runtime_traceback(void)
+void	runtime_traceback(int32)
   __asm__ (GOSYM_PREFIX "runtime.traceback");
 void	runtime_tracebackothers(G*)
   __asm__ (GOSYM_PREFIX "runtime.tracebackothers");
@@ -256,7 +256,6 @@ extern	int8*	runtime_goos;
 extern	int32	runtime_ncpu;
 extern 	void	(*runtime_sysargs)(int32, uint8**);
 extern	struct debugVars runtime_debug;
-extern	uintptr	runtime_maxstacksize;
 
 extern	bool	runtime_isstarted;
 extern	bool	runtime_isarchive;
@@ -392,26 +391,14 @@ int64	runtime_tickspersecond(void)
      __asm__ (GOSYM_PREFIX "runtime.tickspersecond");
 void	runtime_blockevent(int64, int32);
 extern int64 runtime_blockprofilerate;
-void	runtime_addtimer(Timer*)
-  __asm__ (GOSYM_PREFIX "runtime.addtimer");
-bool	runtime_deltimer(Timer*)
-  __asm__ (GOSYM_PREFIX "runtime.deltimer");
-G*	runtime_netpoll(bool);
-void	runtime_netpollinit(void);
-int32	runtime_netpollopen(uintptr, PollDesc*);
-int32   runtime_netpollclose(uintptr);
-void	runtime_netpollready(G**, PollDesc*, int32);
-uintptr	runtime_netpollfd(PollDesc*);
-void	runtime_netpollarm(PollDesc*, int32);
-void**	runtime_netpolluser(PollDesc*);
-bool	runtime_netpollclosing(PollDesc*);
-void	runtime_netpolllock(PollDesc*);
-void	runtime_netpollunlock(PollDesc*);
+G*	runtime_netpoll(bool)
+  __asm__ (GOSYM_PREFIX "runtime.netpoll");
 void	runtime_crash(void);
 void	runtime_parsedebugvars(void)
   __asm__(GOSYM_PREFIX "runtime.parsedebugvars");
 void	_rt0_go(void);
-int32	runtime_setmaxthreads(int32);
+intgo	runtime_setmaxthreads(intgo)
+  __asm__ (GOSYM_PREFIX "runtime.setmaxthreads");
 G*	runtime_timejump(void);
 void	runtime_iterate_finq(void (*callback)(FuncVal*, void*, const FuncType*, const PtrType*));
 

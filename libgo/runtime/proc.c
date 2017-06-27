@@ -283,6 +283,9 @@ runtime_mcall(void (*pfn)(G*))
 {
 	M *mp;
 	G *gp;
+#ifndef USING_SPLIT_STACK
+	void *afterregs;
+#endif
 
 	// Ensure that all registers are on the stack for the garbage
 	// collector.
@@ -298,7 +301,9 @@ runtime_mcall(void (*pfn)(G*))
 #ifdef USING_SPLIT_STACK
 		__splitstack_getcontext(&g->stackcontext[0]);
 #else
-		gp->gcnextsp = &pfn;
+		// We have to point to an address on the stack that is
+		// below the saved registers.
+		gp->gcnextsp = &afterregs;
 #endif
 		gp->fromgogo = false;
 		getcontext(ucontext_arg(&gp->context[0]));
@@ -3470,14 +3475,14 @@ runtime_testSchedLocalQueueSteal(void)
 	}
 }
 
-int32
-runtime_setmaxthreads(int32 in)
+intgo
+runtime_setmaxthreads(intgo in)
 {
-	int32 out;
+	intgo out;
 
 	runtime_lock(&runtime_sched);
-	out = runtime_sched.maxmcount;
-	runtime_sched.maxmcount = in;
+	out = (intgo)runtime_sched.maxmcount;
+	runtime_sched.maxmcount = (int32)in;
 	checkmcount();
 	runtime_unlock(&runtime_sched);
 	return out;
