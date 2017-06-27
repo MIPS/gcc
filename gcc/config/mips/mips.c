@@ -9212,68 +9212,6 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   return true;
 }
 
-bool
-gen_mips16_copy_peep (rtx *operands, int n)
-{
-  rtx first_base_dest = NULL_RTX, first_base_src = NULL_RTX;
-  unsigned int alignment = 0;
-  HOST_WIDE_INT offset = 0;
-
-  for (int i = 0; i < n; i++)
-    {
-      rtx base_dest, base_src;
-      rtx src = operands[i * 3 + 1];
-      rtx dest = operands[i * 3 + 2];
-      HOST_WIDE_INT ofs_dest, ofs_src;
-
-      mips_split_plus (XEXP (dest, 0), &base_dest, &ofs_dest);
-      mips_split_plus (XEXP (src, 0), &base_src, &ofs_src);
-
-      if (i == 0)
-	{
-	  first_base_dest = base_dest;
-	  first_base_src = base_src;
-	  /* Just use either SRC or DEST offset as both must match.  */
-	  offset = ofs_src;
-	}
-
-      if (ofs_dest != ofs_src)
-	return false;
-
-      if (alignment == 0
-	  || alignment > MIN (MEM_ALIGN (dest),
-			      MEM_ALIGN (src)) / BITS_PER_UNIT)
-	alignment = MIN (MEM_ALIGN (dest), MEM_ALIGN (src)) / BITS_PER_UNIT;
-
-      if (!REG_P (base_dest) || !REG_P (base_src)
-	  || !M16_REG_P (REGNO (base_dest)) || !M16_REG_P (REGNO (base_src))
-	  || REGNO (base_dest) != REGNO (first_base_dest)
-	  || REGNO (base_src) != REGNO (first_base_src))
-	return false;
-
-      if (MEM_VOLATILE_P (dest) || MEM_VOLATILE_P (src))
-	return false;
-
-      /* We need to emit moves if an intermediate register is used later.
-	 This is disabled by default and only enabled for more aggressive
-	 optimization.  It will not be a win if all intermediates
-	 are needed.  */
-      if (!peep2_reg_dead_p (n * 2, operands[i * 3]))
-	return false;
-
-      /* We can only convert multiple loads/stores into COPYW if the offsets
-	 are increasing consecutively by 4.  */
-      if (i * 4 != ofs_dest % 16 || i * 4 != ofs_src % 16
-	  || ofs_dest != ofs_src || ofs_dest > 496)
-	return false;
-    }
-
-  emit_insn (gen_mips16_copy_ofs (first_base_dest, first_base_src,
-				  GEN_INT (offset), GEN_INT (n),
-				  GEN_INT (alignment)));
-  return true;
-}
-
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
    memory reference SRC to memory reference DEST.  The lowest alignment
    of SRC and DEST is specified by ALIGNMENT.  */
