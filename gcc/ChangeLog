@@ -1,3 +1,865 @@
+2016-11-02  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/xtensa.c (xtensa_output_integer_literal_parts):
+	New function.
+	(xtensa_output_literal): Use xtensa_output_integer_literal_parts
+	to format MODE_INT and MODE_PARTIAL_INT literals.
+
+2016-11-02  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/78168
+	* config/r6000/rs6000.c (rs6000_get_separate_components): Return
+	NULL if TARGET_SPE_ABI.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gimple-ssa-store-merging.c (encode_tree_to_bitpos): Don't forget to
+	clear padding bits even when they're less than a byte.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	* gimple-ssa-store-merging.c: Include gimplify-me.h.
+	(imm_store_chain_info::output_merged_stores): Force base_addr
+	to be proper GIMPLE for a MEM_REF address.
+	(pass_store_merging::execute): Restrict negative bitpos
+	handling to non-MEM_REF bases.  Remove TREE_THIS_VOLATILE
+	check.  Take into account non-NULL_TREE offset if the base
+	is already addressable.
+
+2016-11-26  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_crypto_sha1hv4si):
+	New pattern.
+	(aarch64_be_crypto_sha1hv4si): New pattern.
+
+2016-11-02  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md (add<mode>3): Remove
+	redundant code.  Don't split frame based additions.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	* gimple-ssa-store-merging.c (struct store_immediate_info): Remove
+	redundant val and dest members.
+	(store_immediate_info::store_immediate_info): Adjust.
+	(merged_store_group::merged_store_group): Adjust.
+	(merged_store_group::apply_stores): Likewise.
+	(struct imm_store_chain_info): Add base_addr field.
+	(imm_store_chain_info::imm_store_chain_info): New constructor.
+	(imm_store_chain_info::terminate_and_process_chain): Do not pass base.
+	(imm_store_chain_info::output_merged_store): Likewise.  Use
+	addr_base which is already the address.
+	(imm_store_chain_info::output_merged_stores): Likewise.
+	(pass_tree_store_merging::terminate_all_aliasing_chains): Take
+	imm_store_chain_info instead of base.  Fix alias check.
+	(pass_tree_store_merging::terminate_and_release_chain): Likewise.
+	(imm_store_chain_info::coalesce_immediate_stores): Adjust.
+	(pass_store_merging::execute): Refuse to operate on TARGET_MEM_REF.
+	use the address of the base and adjust for other changes.
+
+2016-11-02  Martin Liska  <mliska@suse.cz>
+
+	* fold-const-call.c (host_size_t_cst_p): Test whether
+	t is convertible to size_t.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/78170
+	* gimple-ssa-store-merging.c (encode_tree_to_bitpos): Truncate padding
+	introduced by native_encode_expr on little-endian as well.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/78162
+	* gimple-ssa-store-merging.c (execute): Mark stores with bitpos < 0
+	as invalid.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_register_saved_on_entry): Add
+	function comment.
+	(aarch64_next_callee_save): Likewise.
+	(aarch64_pushwb_single_reg): Likewise.
+	(aarch64_gen_storewb_pair): Likewise.
+	(aarch64_push_regs): Likewise.
+	(aarch64_gen_loadwb_pair): Likewise.
+	(aarch64_pop_regs): Likewise.
+	(aarch64_gen_store_pair): Likewise.
+	(aarch64_gen_load_pair): Likewise.
+	(aarch64_save_callee_saves): Likewise.
+	(aarch64_restore_callee_saves): Likewise.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78035
+	PR tree-optimization/77964
+	* gimple-pretty-print.c (pp_points_to_solution): Print
+	vars_contains_interposable.
+	* tree-ssa-alias.c: Include varasm.h.
+	(ptrs_compare_unequal): Check vars_contains_interposable and
+	decl_binds_to_current_def_p.
+	(dump_points_to_solution): Dump vars_contains_interposable.
+	* tree-ssa-alias.h (struct pt_solution): Add vars_contains_interposable
+	flag.
+	* tree-ssa-structalias.c: Include varasm.h.
+	(set_uids_in_ptset): Record whether vars contains a
+	not decl_binds_to_current_def_p variable in vars_contains_interposable.
+	(ipa_escaped_pt): Update initializer.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78047
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Initialize
+	fake field at offset zero conservatively regarding to may_have_pointers.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Call
+	infer_value_range on stmt ops and update value-ranges.
+	Dump visited stmts and blocks.
+	(evrp_dom_walker::push_value_range): Dump changes.
+	(evrp_dom_walker::pop_value_range): Likewise.
+	(evrp_dom_walker::try_find_new_range): Avoid noop changes.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* emit-rtl.c (prev_nonnote_insn_bb): Change argument type to
+	rtx_insn *.
+	* rtl.h (prev_nonnote_insn_bb): Adjust prototype.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* cfgrtl.c (delete_insn_chain): Change argument type to rtx_insn *
+	and adjust for that.
+	* cfgrtl.h (delete_insn_chain): Adjust prototype.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/rl78/rl78.c (gen-and_emit_move): Change argument type
+	to rtx_insn *.
+	(transcode_memory_rtx): Likewise.
+	(move_to_acc): Likewise.
+	(move_from_acc): Likewise.
+	(move_acc_to_reg): Likewise.
+	(move_to_x): Likewise.
+	(move_to_hl): Likewise.
+	(move_to_de): Likewise.
+	* config/rs6000/rs6000.c (emit_frame_save): Likewise.
+	(rs6000_emit_savres_rtx): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	* reorg.c (update_reg_unused_notes): Likewise.
+	* rtl.h (remove_note): Adjust prototype.
+	* rtlanal.c (remove_note): Make argument type rtx_insn *.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/alpha/alpha.c (alpha_legitimize_address_1): Split up
+	variables so some can be rtx_insn *.
+	(alpha_emit_xfloating_libcall): Likewise.
+	* config/mips/mips.c (mips_call_tls_get_addr): Likewise.
+	(mips_legitimize_tls_address): Likewise.
+	* optabs.c (expand_binop): Likewise.
+	* reload1.c (gen_reload): Likewise.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* reorg.c (relax_delay_slots): Split up the trial variable.
+
+2016-11-01  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/arc/arc.c (arc_emit_call_tls_get_addr): Make the type
+	of variables rtx_insn *.
+	* config/arm/arm.c (arm_call_tls_get_addr): Likewise.
+	(legitimize_tls_address): Likewise.
+	* config/bfin/bfin.c (hwloop_optimize): Likewise.
+	(bfin_gen_bundles): Likewise.
+	* config/c6x/c6x.c (reorg_split_calls): Likewise.
+	(c6x_reorg): Likewise.
+	* config/frv/frv.c (frv_reorder_packet): Likewise.
+	* config/i386/i386.c (ix86_split_idivmod): Likewise.
+	* config/ia64/ia64.c (ia64_expand_compare): Likewise.
+	* config/m32c/m32c.c (m32c_prepare_shift): Likewise.
+	* config/mn10300/mn10300.c: Likewise.
+	* config/rl78/rl78.c: Likewise.
+	* config/s390/s390.c (s390_fix_long_loop_prediction): Likewise.
+	* config/sh/sh-mem.cc (sh_expand_cmpstr): Likewise.
+	(sh_expand_cmpnstr): Likewise.
+	(sh_expand_strlen): Likewise.
+	(sh_expand_setmem): Likewise.
+	* config/sh/sh.md: Likewise.
+	* emit-rtl.c (emit_pattern_before): Likewise.
+	* except.c: Likewise.
+	* final.c: Likewise.
+	* jump.c: Likewise.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	* tree-inline.c (copy_tree_body_r): Only copy the taken branch of
+	a COND_EXPR with constant condition.
+
+2016-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_variable_die): Remove again origin_die variable
+	and its initialization.
+
+2016-11-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* dwarf2out.c (output_rnglists): Wrap basebuf, len in
+	HAVE_AS_LEB128.
+
+2016-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (add_name_and_src_coords_attributes): Add NO_LINKAGE_NAME
+	argument, don't call add_linkage_name if it is true.
+	(gen_variable_die): For C++ inline static data members, consider the
+	initial call when old_die is NULL to be declaration and call
+	add_name_and_src_coords_attributes in that case with true as
+	NO_LINKAGE_NAME.  Add DW_AT_inline attribute if needed.
+	(gen_member_die): For C++ inline static data members, emit a
+	definition DIE right away in DW_TAG_compile_unit context.
+
+2016-11-01  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/78166
+	* config/pa/pa.md: Add new shift/add patterns to handle
+	(plus (mult (reg) (mem_shadd_operand)) (reg)) source operand.
+
+2016-11-01  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/xtensa-protos.h
+	(xtensa_use_return_instruction_p): New prototype.
+	* config/xtensa/xtensa.c (xtensa_current_frame_size,
+	xtensa_callee_save_size): Remove.
+	(struct machine_function): Add new fields: current_frame_size,
+	callee_save_size, frame_laid_out and epilogue_done.
+	(compute_frame_size, xtensa_expand_prologue,
+	xtensa_expand_epilogue): Replace xtensa_callee_save_size with
+	cfun->machine->callee_save_size and xtensa_current_frame_size
+	with cfun->machine->current_frame_size.
+	(compute_frame_size): Update cfun->machine->frame_laid_out and
+	don't update frame layout after reload completion.
+	(xtensa_expand_epilogue): Set cfun->machine->epilogue_done
+	instead of zeroing xtensa_current_frame_size.
+	(xtensa_use_return_instruction_p): New function.
+	* config/xtensa/xtensa.h (xtensa_current_frame_size): Remove
+	declaration.
+	(INITIAL_ELIMINATION_OFFSET): Use return value of
+	compute_frame_size instead of xtensa_current_frame_size value.
+	* config/xtensa/xtensa.md ("return" pattern): Use new predicate
+	function xtensa_use_return_instruction_p instead of inline code.
+
+2016-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (BLOCK_IN_COLD_SECTION_P): Define.
+	* final.c (final_scan_insn): Set BLOCK_IN_COLD_SECTION_P.
+	* dwarf2out.c (rnglist_idx): New variable.
+	(struct dw_ranges): Add label, idx and maybe_new_sec fields.
+	(DEBUG_RNGLISTS_SECTION): Define.
+	(ranges_base_label): New variable.
+	(size_of_die) <case dw_val_class_range_list>: If using
+	DW_FORM_rnglistx, count size of uleb128 of range list index.
+	(value_format) <case dw_val_class_range_list>: For
+	-gdwarf-5 -gsplit-dwarf return DW_FORM_rnglistx.
+	(output_range_list_offset): Handle -gdwarf-5 .debug_rnglists
+	offsets.  Multiply dwarf < 5 offsets by 2 * DWARF_ADDR_SIZE.
+	(add_ranges_num): Remove useless prototype.  Don't multiply
+	by 2 * DWARF2_ADDR_SIZE.  Add maybe_new_sec argument, adjust
+	for new fields added to dw_ranges struct.
+	(add_ranges): Add maybe_new_sec argument and pass it
+	through to add_ranges_num.
+	(note_rnglist_head): New function.
+	(add_ranges_by_labels): Pass true as maybe_new_sec to
+	add_ranges_num, call note_rnglist_head on the head of the list.
+	(output_ranges): Add function comment.  Switch to
+	.debug_ranges section here and emit .Ldebug_ranges0 label.
+	(index_rnglists, output_rnglists): New functions.
+	(gen_subprogram_die): Formatting fixes.
+	(add_high_low_attributes): Don't divide offsets
+	by 2 * DWARF2_ADDR_SIZE.  Call note_rnglist_head on the
+	first list element or when pointing into the middle of
+	a list.  Pass true as second argument to add_ranges on the
+	first block fragment after cold/hot section switch.
+	(init_sections_and_labels): For -gdwarf-5 use .debug_rnglists
+	section instead of .debug_ranges.  Initialize
+	ranges_base_label if -gdwarf-5 -gsplit-dwarf.
+	(dwarf2out_finish): For -gdwarf-5 -gsplit-dwarf call
+	index_rnglists and add DW_AT_rnglists_base attr.  Don't switch
+	to dwarf_ranges_section here or emit .Ldebug_ranges0 label.
+	Call output_rnglists for -gdwarf-5.
+	(dwarf2out_c_finalize): Clear rnglist_idx.
+
+2016-11-01  Fritz Reese  <fritzoreese@gmail.com>
+
+	* combine.c (simplify_compare_const): Add gcc_fallthrough.
+
+2016-11-01  Bilyan Borisov  <bilyan.borisov@arm.com>
+	    Tamar Christina <tamar.christina@arm.com>
+
+	* config/arm/arm-c.c (arm_cpu_builtins): New macro definition.
+	* config/arm/arm_neon.h (vmaxnm_f32): New intrinsinc.
+	(vmaxnmq_f32): Likewise.
+	(vminnm_f32): Likewise.
+	(vminnmq_f32): Likewise.
+	* config/arm/arm_neon_builtins.def (vmaxnm): New builtin.
+	(vminnm): Likewise.
+	* config/arm/neon.md (neon_<fmaxmin_op><mode>, VCVTF): New
+	expander.
+
+2016-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_EXTRACT_FL): New iterator for all
+	binary floating point types supported by the hardware except for
+	double.
+	(vsx_xvcvsxwdp_df): Provide scalar result alternative to the
+	vector instruction for optimizing extracting a SImode from a
+	V4SImode vector and converting it to floating point.
+	(vsx_xvcvuxwdp_df): Likewise.
+	(vsx_extract_si): On ISA 3.0, allow extract target and temporary
+	registers to be any VSX register.  Move stores to the end of the
+	constraints.
+	(vsx_extract_si_<uns>float_df): New combiner pattern and splitter
+	to optimize extracting a SImode from a V4SImode vector and
+	converting it to a binary floating point type supported by the
+	hardware.  Use the vector converts instead of extracting the
+	element, sign extending it, and then converting it to double.
+	Other floating point types  than double first convert to double,
+	then the double is converted to that type.
+	(vsx_extract_si_<uns>float_<mode>): Likewise.
+
+2016-10-31  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/driver-aarch64.c (host_detect_local_cpu):
+	Rewrite handling of part num to handle the case where
+	multiple implementers share the same part num.
+
+2016-10-31  Jan Kratochvil  <jan.kratochvil@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (DWARF_COMPILE_UNIT_HEADER_SIZE): Adjust for -gdwarf-5.
+	(DWARF_COMDAT_TYPE_UNIT_HEADER_SIZE): Likewise.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (dwarf_AT): Handle DW_AT_dwo_name.
+	(use_debug_types): Adjust comment for DWARF5 DW_UT_type units.
+	(new_die): Handle DW_TAG_skeleton_unit like DW_TAG_compile_unit.
+	(is_cu_die, is_unit_die): Likewise.
+	(should_move_die_to_comdat, break_out_comdat_types): Adjust
+	comments for DWARF5 DW_UT_type units.
+	(output_compilation_unit_header): Add UT argument, output
+	start of DWARF5 .debug_info section header.
+	(output_comp_unit): Add dwo_id argument.  Adjust
+	output_compilation_unit_header caller, for DW_UT_split_compile
+	emit dwo_id field, otherwise padding1.  Emit padding2 field.
+	(add_top_level_skeleton_die_attrs): Add DW_AT_dwo_name
+	rather than DW_AT_GNU_dwo_name attr for -gdwarf-5.
+	(output_skeleton_debug_sections): Add dwo_id argument, for
+	-gdwarf-5 emit DWARF 5 DW_UT_skeleton header.
+	(output_comdat_type_unit): For -gdwarf-5 emit .debug_info
+	DW_UT_type or DW_UT_split_type units rather than .debug_types.
+	(dwarf2out_finish): Use DW_TAG_skeleton_unit rather than
+	DW_TAG_compile_unit for skeleton unit die.  Don't add
+	DW_AT_GNU_dwo_id attributes for -gdwarf-5, instead pass checksum
+	address to output_comp_unit and output_skeleton_debug_sections.
+
+	* dwarf2out.c (debug_line_str_section): New variable.
+	(debug_line_str_hash): Likewise.
+	(DEBUG_LINE_STR_SECTION): Define.
+	(set_indirect_string): Handle DW_FORM_line_strp like
+	DW_FORM_strp.
+	(find_string_form): Fix up formatting.
+	(size_of_die): Handle DW_FORM_line_strp like DW_FORM_strp.
+	Fix up indentation.
+	(output_die): Handle DW_FORM_line_strp.
+	(DWARF5_USE_DEBUG_LINE_STR): Define.
+	(output_line_string): New function.
+	(output_file_names): Add -gdwarf-5 support.
+	(output_line_info): Likewise.
+	(init_sections_and_labels): Initialize debug_line_str_section.
+	(output_indirect_string): Change 2nd argument from void *
+	to enum dwarf_form form, compare with form rather than
+	DW_FORM_strp.
+	(output_indirect_strings): Pass DW_FORM_strp to
+	output_indirect_string traversion.
+	(dwarf2out_finish): Output .debug_line_str strings.
+	(dwarf2out_c_finalize): Clear debug_line_str_section and
+	debug_line_str_hash.
+
+2016-10-31  Tom Tromey  <tom@tromey.com>
+
+	PR debug/77315
+	* dwarf2out.c (mem_loc_descriptor): Use DW_OP_form_tls_address.
+	(resolve_args_picking_1): Move DW_OP_form_tls_address case next to
+	DW_OP_GNU_push_tls_address case.
+	(loc_list_from_tree_1): Use DW_OP_form_tls_address.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.h (struct dw_loc_descr_node): Adjust comment
+	for frame_offset_rel bit.
+	(struct array_descr_info): Add rank field.
+	* dwarf2out.c (struct loc_descr_context): Add placeholder_arg
+	and placeholder_seen fields.
+	(resolve_args_picking_1): Handle also frame_offset_rel DW_OP_dup
+	and DW_OP_over.  Optimize DW_OP_pick 0 into DW_OP_dup and
+	DW_OP_pick 1 into DW_OP_over.
+	(function_to_dwarf_procedure, type_byte_size, field_byte_offset,
+	gen_variant_part): Clear placeholder_{arg,seen}.
+	(loc_list_from_tree_1): Drop const from context argument.
+	Handle integral PLACEHOLDER_EXPR if context->placeholder_arg.
+	(loc_list_for_address_of_addr_expr_of_indirect_ref,
+	loc_list_from_tree, loc_descriptor_from_tree): Drop const from
+	context argument.
+	(add_scalar_info): Drop const from context argument.  Handle
+	context->placeholder_arg.
+	(add_bound_info): Drop const from context argument.
+	(gen_descr_array_type_die): Drop const from ctx variable.
+	Initialize placeholder_arg and placeholder_seen.  Add DW_AT_rank
+	attribute and use a single DW_TAG_generic_subrange instead of
+	7 DW_TAG_subrange_type for assumed rank arrays.
+
+	* dwarf2out.h (enum dw_val_class): Add dw_val_class_loclistsptr.
+	* dwarf2out.c (struct dw_loc_list_struct): Change emitted field
+	from bool to 1-bit uchar bitfield.  Add num_assigned and
+	offset_emitted bitfields.
+	(dw_val_equal_p): Compare v.val_lbl_id rather than v.val_unsigned
+	for dw_val_class_lineptr and dw_val_class_macptr.  Handle
+	dw_val_class_loclistsptr.
+	(new_addr_loc_descr): Fix up formatting.
+	(DEBUG_LOCLISTS_SECTION, DEBUG_DWO_LOCLISTS_SECTION): Define.
+	(add_AT_low_high_pc): Fix up formatting.
+	(add_AT_loclistsptr): New function.
+	(AT_lbl): Allow dw_val_class_loclistsptr.
+	(print_dw_val, attr_checksum, attr_checksum_ordered, same_dw_val_p):
+	Handle dw_val_class_loclistsptr.
+	(loc_list_idx): New variable.
+	(output_loclists_offsets, assign_location_list_indexes): New
+	functions.
+	(size_of_die): For dw_val_class_loc_list -gsplit-dwarf -gdwarf-5
+	add size_of_uleb128 of the index.  Drop never used
+	dwarf_split_debug_info AT_index handling.  Handle
+	dw_val_class_loclistsptr.
+	(value_format): Return DW_FORM_loclistsx for dw_val_class_loc_list
+	if -gsplit-dwarf -gdwarf-5.  Handle dw_val_class_loclistsptr.
+	(output_loc_list): Handle DWARF 5 .debug_loclists* format.
+	(output_loc_list_offset): Handle -gsplit-dwarf -gdwarf-5
+	DW_FORM_loclistx indexes.
+	(output_attr_index_or_value): Fix up formatting.  Don't handle
+	dw_val_class_loc_list here.
+	(output_die): Formatting fixes.  Handle dw_val_class_loclistsptr.
+	For dw_val_class_loc_list call output_loc_list_offset rather than
+	output_attr_index_or_value.
+	(init_sections_and_labels): For -gdwarf-5 use .debug_loclists
+	or .debug_loclists.dwo section name for debug_loc_section.
+	(resolve_addr_in_expr): Formatting fix.
+	(index_location_lists): Likewise.
+	(dwarf2out_finish): If there are any location lists, for
+	-gsplit-dwarf -gdwarf-5 add DW_AT_loclists_base attribute.  Call
+	index_location_lists only if have_location_lists.  Call
+	assign_location_list_indexes for -gsplit-dwarf -gdwarf-5.  Emit
+	.debug_loclists{,.dwo} section header for -gdwarf-5, for -gdwarf-5
+	-gsplit-dwarf also emit offset table.
+
+	* dwarf2out.c (DWARF_LARGEST_DATA_FORM_BITS): Define.
+	(size_of_die, value_format, output_die): Use
+	DW_FORM_data16 for 128-bit dw_val_class_const_double or
+	dw_val_class_wide_int.
+
+	* dwarf2out.c (dwarf_op): Renamed to ...
+	(dwarf_OP): ... this.
+	(convert_descriptor_to_mode, scompare_loc_descriptor,
+	minmax_loc_descriptor, typed_binop, mem_loc_descriptor,
+	implicit_ptr_descriptor, optimize_one_addr_into_implicit_ptr): Adjust
+	callers.
+	(dwarf_AT, dwarf_TAG): New functions.
+	(check_die): Disallow DW_AT_call_all_calls next to
+	DW_AT_GNU_all_call_sites.
+	(gen_call_site_die): Use dwarf_TAG and dwarf_AT with DWARF 5 tag
+	and attributes instead of the corresponding GNU tag and attributes.
+	(gen_subprogram_die): Likewise.  Emit call site information even
+	for -gdwarf-5 -gstrict-dwarf.  Replace DW_AT_GNU_defaulted with
+	DW_AT_defaulted in comment.
+	(resolve_addr): Handle DW_AT_call_origin attribute on
+	DW_TAG_call_site DIE like DW_AT_abstract_origin on
+	DW_TAG_GNU_call_site DIE.
+
+	* dwarf2out.c (dwarf_op): New function.
+	(size_of_loc_descr): Handle DW_OP_{implicit_pointer,entry_value},
+	DW_OP_{const,regval,deref}_type and DW_OP_{convert,reinterpret}.
+	(output_loc_operands, output_loc_operands_raw): Likewise.
+	(resolve_args_picking_1, prune_unused_types_walk_loc_descr,
+	mark_base_types, hash_loc_operands, compare_loc_operands): Likewise.
+	(resolve_addr_in_expr): Likewise.  Only punt for !dwarf_strict
+	if dwarf_version < 5.
+	(convert_descriptor_to_mode): Use dwarf_op (DW_OP_xxx) instead of
+	DW_OP_GNU_xxx.
+	(scompare_loc_descriptor, ucompare_loc_descriptor,
+	minmax_loc_descriptor, typed_binop, mem_loc_descriptor,
+	implicit_ptr_descriptor, optimize_one_addr_into_implicit_ptr,
+	optimize_location_into_implicit_ptr): Likewise.  Only punt for
+	!dwarf_strict if dwarf_version < 5.
+	(string_cst_pool_decl): Adjust comment.
+	(non_dwarf_expression): Handle DW_OP_implicit_pointer.
+
+	* dwarf2out.h (enum dw_val_class): Add dw_val_class_const_implicit,
+	dw_val_class_unsigned_const_implicit and dw_val_class_file_implicit.
+	(struct dw_val_node): Add val_file_implicit field.
+	* dwarf2out.c (dw_val_equal_p, print_dw_val, attr_checksum,
+	attr_checksum_ordered, same_dw_val_p, size_of_die, value_format,
+	output_die): Handle dw_val_class_const_implicit,
+	dw_val_class_unsigned_const_implicit and dw_val_class_file_implicit.
+	(abbrev_die_table): Change into va_gc vec.
+	(abbrev_die_table_allocated, abbrev_die_table_in_use,
+	ABBREV_DIE_TABLE_INCREMENT): Remove.
+	(AT_int, AT_unsigned, AT_file): Allow dw_val_class_*_implicit.
+	(abbrev_opt_start, abbrev_usage_count, sorted_abbrev_dies): New
+	variables.
+	(build_abbrev_table): Adjust for abbrev_die_table being a va_gc vec.
+	If abbrev_opt_start, fill in abbrev_usage_count and abbrev_dies
+	vectors.
+	(die_abbrev_cmp, optimize_implicit_const, optimize_abbrev_table): New
+	functions.
+	(output_die_abbrevs): For DW_FORM_implicit_const emit sleb128 with
+	the implicit value.
+	(output_abbrev_section): Adjust for abbrev_die_table being a va_gc
+	vec.
+	(output_comp_unit): Initialize abbrev_opt_start if emitting the main
+	unit.  Call optimize_abbrev_table.
+	(dwarf2out_init, dwarf2out_finish, dwarf2out_c_finalize): Adjust for
+	abbrev_die_table being a va_gc vec.
+
+	PR tree-optimization/77860
+	* tree-ssa-reassoc.c (eliminate_using_constants): Handle
+	also integral complex and vector constants.
+
+	* dwarf2out.c (dwarf2out_define, dwarf2out_undef, output_macinfo_op,
+	optimize_macinfo_range, save_macinfo_strings): Replace
+	DW_MACRO_GNU_* constants with corresponding DW_MACRO_* constants.
+	(output_macinfo): Likewise.  Emit .debug_macro* rather than
+	.debug_macinfo* even for -gstrict-dwarf -gdwarf-5.
+	(init_sections_and_labels): Use .debug_macro* labels rather than
+	.debug_macinfo* labels even for -gstrict-dwarf -gdwarf-5.
+	(dwarf2out_finish): Use DW_AT_macros instead of DW_AT_macro_info
+	or DW_AT_GNU_macros for -gdwarf-5.
+
+2016-10-31  Waldemar Brodkorb  <wbx@openadk.org>
+
+	* config/microblaze/linux.h (UCLIBC_DYNAMIC_LINKER): Define.
+
+2016-09-11  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* common.opt (Wshadow=global): New option. Default for -Wshadow.
+	(Wshadow=local): New option.
+	(Wshadow-local): Hidden alias for -Wshadow=local.
+	(Wshadow=compatible-local): New option.
+	(Wshadow-compatible-local): Hidden alias for
+	-Wshadow=compatible-local.
+	* doc/invoke.texi: Document Wshadow=global, Wshadow=local and
+	Wshadow=compatible-local.
+
+2016-10-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-slp.c (vect_get_and_check_slp_defs): New parameter SWAP.
+	Check slp defs for COND_EXPR by swapping/inverting operands if the
+	new parameter SWAP indicates so.
+	(vect_build_slp_tree_1): New parameter SWAP.  Check COND_EXPR stmt
+	is isomorphic to the first stmt via swapping/inverting.  Store swap
+	information in the new parameter SWAP.
+	(vect_build_slp_tree): New local array SWAP and pass it to function
+	vect_build_slp_tree_1.  Cleanup result handling code for function
+	call to vect_get_and_check_slp_defs.  Skip operand swapping if the
+	order of operands has been fixed as indicated by SWAP[i].
+
+2016-10-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-data-refs.c (vect_slp_analyze_node_dependences): Skip
+	unnecessary data dependence check after visited store stmt.
+
+2016-10-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/71915
+	PR tree-optimization/71490
+	* gimple-ssa-strength-reduction.c (struct slsr_cand_d): Add
+	stride_type field.
+	(find_basis_for_base_expr): Require stride types to match when
+	seeking a basis.
+	(alloc_cand_and_find_basis): Record the stride type.
+	(slsr_process_phi): Pass stride type to alloc_cand_and_find_basis.
+	(backtrace_base_for_ref): Pass types to legal_cast_p_1 rather than
+	the expressions having those types.
+	(slsr_process_ref): Pass stride type to alloc_cand_and_find_basis.
+	(create_mul_ssa_cand): Likewise.
+	(create_mul_imm_cand): Likewise.
+	(create_add_ssa_cand): Likewise.
+	(create_add_imm_cand): Likewise.
+	(legal_cast_p_1): Change interface to accept types rather than the
+	expressions having those types.
+	(legal_cast_p): Pass types to legal_cast_p_1.
+	(slsr_process_cast): Pass stride type to
+	alloc_cand_and_find_basis.
+	(slsr_process_copy): Likewise.
+	(dump_candidate): Display stride type when a cast exists.
+	(create_add_on_incoming_edge): Introduce a cast when necessary for
+	the stride type.
+	(analyze_increments): Change the code checking for invalid casts
+	to rely on the stride type, and update the documentation and
+	example.  Change the code checking for pointer multiplies to rely
+	on the stride type.
+	(insert_initializers): Introduce a cast when necessary for the
+	stride type.  Use the stride type for the type of the initializer.
+
+2016-10-30  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* config/arm/arm.c (arm_const_not_ok_for_debug_p): Use VAR_P.
+
+2016-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/77919
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Only avoid forcing
+	into memory if both modes are complex and their inner modes have the
+	same precision.  If the two modes are different complex modes, convert
+	each part separately and generate a new CONCAT.
+
+2016-10-29  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa64-hpux.h (FINI_SECTION_ASM_OP): Define to null string.
+
+2016-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78148
+	* gimple-ssa-store-merging.c
+	(imm_store_chain_info::output_merged_store): Use build_aligned_type
+	instead of SET_TYPE_ALIGN on shared integral type.
+
+2016-10-29  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.h (BIGGEST_ALIGNMENT): Adjust comment.
+	(MALLOC_ABI_ALIGNMENT): Define to 128 on all targets except SOM.
+	Adjust comment.
+
+2016-10-28  Jeff Law  <law@redhat.com>
+
+	* config/vax/vax.h (REGNO_REG_CLASS): Access the REGNO argument.
+	* config/spu/spu.h (REGNO_REG_CLASS): Likewise.
+
+2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/sourcebuild.texi (Ada Tests): Remove mention of gcc chapter.
+ 
+2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* target.def (min_arithmetic_precision): New hook.
+	* doc/tm.texi.in (Misc): Add TARGET_MIN_ARITHMETIC_PRECISION.
+	* doc/tm.texi: Regenerate.
+	* internal-fn.c (expand_arith_overflow): Adjust handling of target
+	dependent support by means of TARGET_MIN_ARITHMETIC_PRECISION.
+	* targhooks.c (default_min_arithmetic_precision): New function.
+	* targhooks.h (default_min_arithmetic_precision): Declare.
+	* config/sparc/sparc.c (TARGET_MIN_ARITHMETIC_PRECISION): Define.
+	(sparc_min_arithmetic_precision): New function.
+
+2016-10-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/71847
+	* combine.c (change_zero_ext): Handle zero_ext of hard registers.
+	Swap commutative operands in new RTL if needed.  Handle zero_ext
+	in the set_dest.
+	(recog_for_combine): Pass *pnewpat to change_zero_ext instead of
+	PATTERN (insn).
+
+2016-10-28  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+	    Kugan Vivekanandarajah  <kuganv@linaro.org>
+	    Jim Wilson  <jim.wilson@linaro.org>
+
+	PR tree-optimization/43721
+	* target.def: New hook expand_divmod_libfunc.
+	* doc/tm.texi.in: Add hook for TARGET_EXPAND_DIVMOD_LIBFUNC.
+	* doc/tm.texi: Regenerate.
+	* internal-fn.def: Add new entry for DIVMOD ifn.
+	* internal-fn.c (expand_DIVMOD): New.
+	* tree-ssa-math-opts.c: Include optabs-libfuncs.h, tree-eh.h,
+	targhooks.h.
+	(widen_mul_stats): Add new field divmod_calls_inserted.
+	(target_supports_divmod_p): New.
+	(divmod_candidate_p): Likewise.
+	(convert_to_divmod): Likewise.
+	(pass_optimize_widening_mul::execute): Call calculate_dominance_info,
+	renumber_gimple_stmt_uids at beginning of function. Call
+	convert_to_divmod and record stats for divmod.
+	* config/arm/arm.c (arm_expand_divmod_libfunc): Override hook
+	TARGET_EXPAND_DIVMOD_LIBFUNC.
+	* doc/sourcebuild.texi: Add items for arm_divmod_simode, divmod,
+	divmod_simode.
+
+2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
+            Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* dojump.c (do_jump_by_parts_greater_rtx): Invert probability when
+	swapping the arms of the branch.
+	* internal-fn.c (expand_addsub_overflow): Use a straight-line code
+	sequence for the generic signed-signed-signed case.
+
+2016-10-28  Jeff Law  <law@redhat.com>
+
+	* config/bfin/bfin.c (bfin_legitimate_address_p): Add missing
+	fallthru comment.
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): Likewise.
+
+2016-10-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78029
+	* function.c (prologue_contains, epilogue_contains): New functions.
+	(record_prologue_seq, record_epilogue_seq): New functions.
+	* function.h (prologue_contains, epilogue_contains,
+	record_prologue_seq, record_epilogue_seq): New declarations.
+	* sched-deps.c (sched_analyze_insn): Make dependencies to prevent
+	mixing prologue and epilogue insns.
+	(init_deps): Initialize the new fields in struct deps_desc.
+	* sched-int.h (struct deps_desc): New fields last_prologue,
+	last_epilogue, and last_logue_was_epilogue.
+	* shrink-wrap.c (emit_common_heads_for_components): Record all
+	emitted prologue and epilogue insns.
+	(emit_common_tails_for_components): Ditto.
+	(insert_prologue_epilogue_for_components): Ditto.
+
+2016-10-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/22141
+	* Makefile.in (OBJS): Add gimple-ssa-store-merging.o.
+	* common.opt (fstore-merging): New Optimization option.
+	* opts.c (default_options_table): Add entry for
+	OPT_ftree_store_merging.
+	* fold-const.h (can_native_encode_type_p): Declare prototype.
+	* fold-const.c (can_native_encode_type_p): Define.
+	* params.def (PARAM_STORE_MERGING_ALLOW_UNALIGNED): Define.
+	(PARAM_MAX_STORES_TO_MERGE): Likewise.
+	* timevar.def (TV_GIMPLE_STORE_MERGING): New timevar.
+	* passes.def: Insert pass_tree_store_merging.
+	* tree-pass.h (make_pass_store_merging): Declare extern
+	prototype.
+	* gimple-ssa-store-merging.c: New file.
+	* doc/invoke.texi (Optimization Options): Document
+	-fstore-merging.
+	(--param documentation): Document store-merging-allow-unaligned
+	and max-stores-to-merge.
+
+2016-10-28  Will Schmidt <will_schmidt@vnet.ibm.com>
+
+	PR middle-end/72747
+	* gimplify.c (gimplify_init_constructor): Move emit of constructor
+	assignment to earlier in the if/else logic.
+
+2016-10-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78128
+	PR middle-end/71002
+	* fold-const.c (make_bit_field_ref): Only adjust alias set
+	when the original alias set was zero.
+
+2016-10-28  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_adjust_loop_scan_osc): New function.
+	(s390_adjust_loops): New function.
+	(s390_reorg): Invoke s390_adjust_loops.
+	* config/s390/s390.md: (UNSPEC_OSC_BREAK): New constant.
+	("osc_break"): New insn definition.
+
+2016-10-28  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.opt: Support alternate cpu level naming (archXX).
+	* config.gcc: Support alternate archXX cpu levels with
+	--with-arch= and --with-tune=.
+	* config/s390/linux.h: Translate new archXX cpu levels to the
+	original names when calling GAS.
+	* config/s390/tpf.h: Likewise.
+	* doc/invoke.texi: Document the alternate cpu level names.
+
+2016-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/77919
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Force CONCAT into
+	MEM if mode1 is not a complex mode.
+
+	PR rtl-optimization/78132
+	* ree.c (combine_reaching_defs): Give up if copy_needed and
+	!HARD_REGNO_MODE_OK (REGNO (src_reg), dst_mode).
+
+2016-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (<*vlop:code><VL:mode>3): Remove leading '*'.
+
+2016-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wH constraint): Add new
+	constraints for allowing 32-bit integers (and eventually 8/16-bit
+	integers) into the vector registers.
+	(wI constraint): Likewise.
+	(wJ constraint): Likewise.
+	(wK constraint): Likewise.
+	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
+	-mvsx-small-integer as a default option for ISA 2.07
+	(i.e. power8).
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mvsx-small-integer): Add new debug
+	switch to turn off small integer support in vector registers.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Eliminate
+	test for -mupper-regs-di, since it is already done with the
+	reg_add[mode].scalar_in_vsx_p.  Add support for the switch
+	-mvsx-small-integer.
+	(rs6000_debug_reg_global): Add support for wH, wI, wJ, and wK
+	constraints.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Add consistency checks for
+	-mvsx-small-integer.
+	(rs6000_secondary_reload_simple_move): SImode is a simple move if
+	-mvsx-small-integer.
+	(rs6000_secondary_reload): Use std::swap.
+	(rs6000_preferred_reload_class): Don't prefer FLOAT_REGS over
+	VSX_REGS for small integers in vector registers, since there is no
+	D-FORM address mode for such types.
+	(rs6000_register_move_cost): Use FIRST_FPR_REGNO instead of 32.
+	(rs6000_opt_masks): Add -mvsx-small-integer.
+	* config/rs6000/vsx.md (VSINT_84): Add SImode for small integer
+	support.
+	(VSX_EXTRACT_I2): Clone VSX_EXTRACT_I, but drop V4SI since SImode
+	extracts can be done on ISA 2.07.
+	(vsx_extract_<mode>): Add support for small integers in vsx
+	registers.
+	(vsx_extract_<mode>_p9): Use 'v' instead of VSX_EX, since we no
+	longer support V4SImode in this pattern.
+	(vsx_extract_si): New insn to support extraction of SImode in ISA
+	2.07 using either xxextractuw or vspltw.
+	(vsx_extract_<mode>_p8): Use 'v' instead of VSX_EX, since we no
+	longer support V4SImode in this pattern.
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wH, wI,
+	wJ, and wK constraints.
+	* config/rs6000/rs6000.md (f32_sv): Use correct instruction for
+	storing SDmode with VSX instructions.
+	(zero_extendsi<mode>2): Reorder pattern, so RLDICL comes after the
+	GPR load and before the FPR and VSX loads.  Remove ??, ! from the
+	constraints.  Add MFVSRWZ and XXEXTRACTUW instructions to support
+	small integers in vector registers.
+	(extendsi<mode>2): Reorder pattern, so EXTSW comes after the GPR
+	load and before the FPR and VSX loads.  Remove ??, ! from the
+	constraints.  Add VEXTSW2D support for small integers in vector
+	registers.
+	(lfiwax): Remove ! constraint.  Add VEXTSW2D support for small
+	integers in vector registers.
+	(floatsi<mode>2_lfiwax): If -mvsx-small-integer issue a normal
+	move instead of using an UNSPEC.
+	(lfiwzx): Remove ! constraint.  Add XXEXTRACTUW support for small
+	integers in vector registers.
+	(floatunssi<mode>2_lfiwzx): If -mvsx-small-integer issue a normal
+	move instead of using an UNSPEC.
+	(movsi_internal1): Add support for -mvsx-small-integer.  Align
+	columns so that it is more readable.
+	(SImode splitter for ISA 3.0 constants): Add splitter for
+	-128..127 constants that can easily be constructed on ISA 3.0.
+	* doc/md.texi (PowerPC Constraints): Document wH, wI, wJ, and wK
+	constraints.
+
 2016-10-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/78025
@@ -179,7 +1041,7 @@
 
 2016-10-26  Jakub Jelinek  <jakub@redhat.com>
 
-	* gen-pass-instances.awk (adjust_linenos): INcrement pass_lines[p]
+	* gen-pass-instances.awk (adjust_linenos): Increment pass_lines[p]
 	by increment rather than double it.
 	(insert_remove_pass): Strip leading whitespace from args[3].  Don't
 	emit a space before args[4].
@@ -1678,7 +2540,7 @@
 
 2016-10-14  Catherine Moore  <clm@codesourcery.com>
 
-	* gcc/config/mips/mips.c (mips_prepare_pch_save): Initialize
+	* config/mips/mips.c (mips_prepare_pch_save): Initialize
 	micromips_globals to zero.
 
 2016-10-14  Richard Biener  <rguenther@suse.de>
@@ -4829,8 +5691,8 @@
 	(arm_elf_section_type_flags): New.
 	* config/arm/elf.h (JUMP_TABLES_IN_TEXT_SECTION): Disable
 	for -mpure-code.
-	* gcc/doc/texi (TARGET_ASM_ELF_FLAGS_NUMERIC): New.
-	* gcc/doc/texi.in (TARGET_ASM_ELF_FLAGS_NUMERIC): Likewise.
+	* doc/texi (TARGET_ASM_ELF_FLAGS_NUMERIC): New.
+	* doc/texi.in (TARGET_ASM_ELF_FLAGS_NUMERIC): Likewise.
 
 2016-09-22  Jan Hubicka  <hubicka@ucw.cz>
 
@@ -6095,7 +6957,7 @@
 	* genmatch.c (parser::parse_expr): Increase buffer size to guarantee
 	it fits the output of the formatted function regardless of its
 	arguments.
-	* gcc/genmodes.c (parser::parse_expr): Same.
+	* genmodes.c (parser::parse_expr): Same.
 	* gimplify.c (gimplify_asm_expr): Same.
 	* passes.c (pass_manager::register_one_dump_file): Same.
 	* print-tree.c (print_node): Same.
@@ -6306,7 +7168,7 @@
 
 2016-08-30  Tamar Christina  <tamar.christina@arm.com>
 
-	* gcc/config/aarch64/aarch64-simd.md
+	* config/aarch64/aarch64-simd.md
 	(aarch64_ld2<mode>_dreg_le): New.
 	(aarch64_ld2<mode>_dreg_be): New.
 	(aarch64_ld2<mode>_dreg): Removed.
@@ -9772,7 +10634,7 @@
 
 2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
 
-	* gcc/config/avr.c (avr_legitimize_address) [AVR_TINY]: Force
+	* config/avr.c (avr_legitimize_address) [AVR_TINY]: Force
 	constant addresses outside [0,0xc0] into a register.
 	(avr_out_movhi_r_mr_reg_no_disp_tiny): Pass insn.  And handle
 	cases where the base address register is unused after.
@@ -10194,7 +11056,7 @@
 
 2016-07-14  Alan Modra  <amodra@gmail.com>
 
-	* gcc/config/rs6000/altivec.md (altivec_mov<mode>): Disparage
+	* config/rs6000/altivec.md (altivec_mov<mode>): Disparage
 	gpr alternatives.  Correct '*' placement on Y,r alternative.
 	Add '*' on operand 1 of r,r alternative.
 

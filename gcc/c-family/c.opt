@@ -1362,6 +1362,10 @@ fimplicit-templates
 C++ ObjC++ Var(flag_implicit_templates) Init(1)
 Emit implicit instantiations of templates.
 
+fnew-inheriting-ctors
+C++ ObjC++ Var(flag_new_inheriting_ctors) Init(1)
+Implement C++17 inheriting constructor semantics.
+
 ffriend-injection
 C++ ObjC++ Var(flag_friend_injection)
 Inject friend functions into enclosing namespace.
@@ -1705,7 +1709,7 @@ C ObjC C++ ObjC++ Joined
 -femit-struct-debug-detailed=<spec-list>	Detailed reduced debug info for structs.
 
 fext-numeric-literals
-C++ ObjC++
+C++ ObjC++ Var(flag_ext_numeric_literals) Init(1)
 Interpret imaginary, fixed-point, or other gnu number suffix as the corresponding
 number literal rather than a user-defined number literal.
 

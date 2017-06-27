@@ -12056,7 +12056,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    maybe_retrofit_in_chrg (r);
 	    if (DECL_CONSTRUCTOR_P (r))
 	      grok_ctor_properties (ctx, r);
-	    if (DECL_INHERITED_CTOR_BASE (r))
+	    if (DECL_INHERITED_CTOR (r))
 	      deduce_inheriting_ctor (r);
 	    /* If this is an instantiation of a member template, clone it.
 	       If it isn't, that'll be handled by
@@ -15484,7 +15484,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       {
 	tree low = RECUR (CASE_LOW (t));
 	tree high = RECUR (CASE_HIGH (t));
-	finish_case_label (EXPR_LOCATION (t), low, high);
+	tree l = finish_case_label (EXPR_LOCATION (t), low, high);
+	if (l && TREE_CODE (l) == CASE_LABEL_EXPR)
+	  FALLTHROUGH_LABEL_P (CASE_LABEL (l))
+	    = FALLTHROUGH_LABEL_P (CASE_LABEL (t));
       }
       break;
 
@@ -15494,6 +15497,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tree label;
 
 	label = finish_label_stmt (DECL_NAME (decl));
+	if (TREE_CODE (label) == LABEL_DECL)
+	  FALLTHROUGH_LABEL_P (label) = FALLTHROUGH_LABEL_P (decl);
 	if (DECL_ATTRIBUTES (decl) != NULL_TREE)
 	  cplus_decl_attributes (&label, DECL_ATTRIBUTES (decl), 0);
       }
@@ -17655,11 +17660,16 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
   DECL_TI_ARGS (fndecl) = targ_ptr;
 
   /* Now we know the specialization, compute access previously
-     deferred.  */
-  push_access_scope (fndecl);
-  if (!perform_deferred_access_checks (complain))
-    access_ok = false;
-  pop_access_scope (fndecl);
+     deferred.  Do no access control for inheriting constructors,
+     as we already checked access for the inherited constructor.  */
+  if (!(flag_new_inheriting_ctors
+	&& DECL_INHERITED_CTOR (fndecl)))
+    {
+      push_access_scope (fndecl);
+      if (!perform_deferred_access_checks (complain))
+	access_ok = false;
+      pop_access_scope (fndecl);
+    }
   pop_deferring_access_checks ();
 
   /* If we've just instantiated the main entry point for a function,
@@ -17817,6 +17827,11 @@ fn_type_unification (tree fn,
   static int deduction_depth;
   struct pending_template *old_last_pend = last_pending_template;
   struct tinst_level *old_error_tinst = last_error_tinst_level;
+
+  tree orig_fn = fn;
+  if (flag_new_inheriting_ctors)
+    fn = strip_inheriting_ctors (fn);
+
   tree tparms = DECL_INNERMOST_TEMPLATE_PARMS (fn);
   tree tinst;
   tree r = error_mark_node;
@@ -18104,6 +18119,11 @@ fn_type_unification (tree fn,
 	    goto fail;
 	  }
     }
+
+  /* After doing deduction with the inherited constructor, actually return an
+     instantiation of the inheriting constructor.  */
+  if (orig_fn != fn)
+    decl = instantiate_template (orig_fn, targs, complain);
 
   r = decl;
 
