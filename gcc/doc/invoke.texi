@@ -836,7 +836,6 @@ Objective-C and Objective-C++ Dialects}.
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -minline-intermix -mno-inline-intermix @gol
--mmips16-use-xsregs -mno-mips16-use-xsregs @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
@@ -17906,14 +17905,6 @@ performance so that a function will be compressed when not inlined or
 vice-versa.  When using this option it is necessary to protect functions
 that cannot be compiled as MIPS16 with a noinline attribute to ensure
 they are not inlined into a MIPS16 function.
-
-@item -mmips16-use-xsregs
-@itemx -mno-mips16-use-xsregs
-@opindex mmips16-use-xsregs
-@opindex mno-mips16-use-xsregs
-Enable the use of additional callee-saved registers for MIPS16 which would
-not normally be available.  This will often reduce code size and improve
-performance as these registers will be used instead of spilling to memory.
 
 @item -mabi=32
 @itemx -mabi=o64
