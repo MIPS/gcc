@@ -472,8 +472,6 @@
 		(const_string "yes")
 		(const_string "no")))
 
-(define_attr "tail_branch_mips16" "no,yes" (const_string "no"))
-
 (define_attr "compression" "none,all,micromips32,micromips"
   (const_string "none"))
 
@@ -1134,7 +1132,6 @@
 ;; branch detection condition in anyway.
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
-		   (eq_attr "tail_branch_mips16" "no")
 		   (ior (match_test "TARGET_CB_NEVER")
 			(and (eq_attr "compact_form" "maybe")
 			     (not (match_test "TARGET_CB_ALWAYS")))
@@ -7125,17 +7122,12 @@
 })
 
 (define_insn "sibcall_internal"
-  [(call (mem:SI (match_operand 0 "sibcall_insn_operand" "kc,YS"))
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 0, 1, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")
-   (set (attr "tail_branch_mips16")
-	(cond [(and (eq_attr "alternative" "1")
-		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
-		  (const_string "yes")]
-		  (const_string "no")))])
+   (set_attr "jal_macro" "no")])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "")
@@ -7151,21 +7143,16 @@
 
 (define_insn "sibcall_value_internal"
   [(set (match_operand 0 "register_operand" "")
-	(call (mem:SI (match_operand 1 "sibcall_insn_operand" "kc,YS"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")
-   (set (attr "tail_branch_mips16")
-	(cond [(and (eq_attr "alternative" "1")
-		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
-		  (const_string "yes")]
-		  (const_string "no")))])
+   (set_attr "jal_macro" "no")])
 
 (define_insn "sibcall_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "")
-	(call (mem:SI (match_operand 1 "sibcall_insn_operand" "kc,YS"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
               (match_operand 2 "" "")))
    (set (match_operand 3 "register_operand" "")
 	(call (mem:SI (match_dup 1))
@@ -7173,12 +7160,7 @@
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")
-   (set (attr "tail_branch_mips16")
-	(cond [(and (eq_attr "alternative" "1")
-		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
-		  (const_string "yes")]
-		  (const_string "no")))])
+   (set_attr "jal_macro" "no")])
 
 (define_expand "call"
   [(parallel [(call (match_operand 0 "")
