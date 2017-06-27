@@ -1,3 +1,299 @@
+2016-11-07  Tamar Christina  <tamar.christina@arm.com>
+
+	PR driver/78196
+	* Makefile.in (SELFTEST_FLAGS): Added -o /dev/null.
+
+2016-11-07  Martin Liska  <mliska@suse.cz>
+
+	* tree-profile.c (gimple_gen_time_profiler): Set proper type
+	to time_profiler_counter_ptr.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/37150
+	* tree-vectorizer.h (vect_transform_slp_perm_load): Add n_perms
+	parameter.
+	* tree-vect-slp.c (vect_supported_load_permutation_p): Adjust.
+	(vect_analyze_slp_cost_1): Account for the real number of
+	permutations emitted and for dead loads.
+	(vect_transform_slp_perm_load): Add n_perms parameter counting
+	the number of emitted permutations.
+	* tree-vect-stmts.c (vectorizable_load): Adjust.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78189
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Fix
+	alignment computation.
+
+2016-11-06  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-cp.c (ipcp_bits_lattice::meet_with): Remove unreachable code.
+
+2016-11-05  Martin Sebor  <msebor@redhat.com>
+
+	* doc/invoke.texi (Warning Options): Correct typos in -Walloca
+	documentation.
+
+2016-11-05  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR bootstrap/78188
+	PR c++/71848
+	* ipa-comdats.c (pass_ipa_comdats::gate): Require HAVE_COMDAT_GROUP.
+
+2016-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77834
+	* alias.c (nonoverlapping_memrefs_p): Return 0 if exprx or expry
+	doesn't have rtl set.
+
+2016-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (gimple-ssa.h): New #include.
+	(TARGET_GIMPLE_FOLD_BUILTIN): Define as
+	rs6000_gimple_fold_builtin.
+	(rs6000_gimple_fold_builtin): New function.  Add handling for
+	early expansion of vector addition builtins.
+
+2016-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.h (copy_blkmode_from_reg): Delete.
+	* expr.c (copy_blkmode_from_reg): Make static.
+
+2016-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* defaults.h (LOAD_EXTEND_OP): Define if not already defined.
+	* combine.c (LOAD_EXTEND_OP): Delete.
+	(simplify_comparison): Fix comment about LOAD_EXTEND_OP.
+	* cse.c (LOAD_EXTEND_OP): Delete.
+	* fold-const.c (LOAD_EXTEND_OP): Likewise.
+	* fwprop.c (free_load_extend): Remove #ifdef LOAD_EXTEND_OP/#endif.
+	* postreload.c (LOAD_EXTEND_OP): Delete.
+	* reload.c (push_reload): Remove #ifdef LOAD_EXTEND_OP/#endif.
+	Convert conditional compilation based on WORD_REGISTER_OPERATIONS.
+	(find_reloads): Likewise.
+	* reload1.c (eliminate_regs_1): Likewise.
+	* rtlanal.c (nonzero_bits1): Remove #ifdef LOAD_EXTEND_OP/#endif.
+	(num_sign_bit_copies1): Likewise.
+
+2016-11-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/i386/i386.c: Include "selftest.h" and "selftest-rtl.h".
+	(selftest::ix86_test_dumping_hard_regs): New function.
+	(selftest::ix86_run_selftests): New function.
+	(TARGET_RUN_TARGET_SELFTESTS): When CHECKING_P, wire this up to
+	selftest::ix86_run_selftests.
+	* doc/tm.texi.in (TARGET_RUN_TARGET_SELFTESTS): New.
+	* doc/tm.texi: Regenerate
+	* selftest-rtl.h: New file.
+	* rtl-tests.c: Include "selftest-rtl.h".
+	(selftest::assert_rtl_dump_eq): Make non-static.
+	(ASSERT_RTL_DUMP_EQ): Move to selftest-rtl.h.
+	(selftest::test_dumping_regs): Update comment.
+	* selftest-run-tests.c: Include "target.h".
+	(selftest::run_tests): If non-NULL, call
+	targetm.run_target_selftests.
+	* target.def (run_target_selftests): New hook.
+
+2016-11-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-arches.def (armv8-m.main+dsp): Set Cortex-M33 as
+	representative core for this architecture.
+	* config/arm/arm-cores.def (cortex-m33): Define new processor.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-tune.md: Likewise.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add Cortex-M33 to the list of
+	valid -mcpu options.
+	* doc/invoke.texi (ARM Options): Document new Cortex-M33 processor.
+
+2016-11-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-arches.def (armv8-m.base): Set Cortex-M23 as
+	representative core for this architecture.
+	* config/arm/arm-cores.def (cortex-m23): Define new processor.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-tune.md: Likewise.
+	* config/arm/arm.c (arm_v6m_tune): Add Cortex-M23 to the list of cores
+	this tuning parameters apply to in the comment.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add Cortex-M23 to the list of
+	valid -mcpu options.
+	* doc/invoke.texi (ARM Options): Document new Cortex-M23 processor.
+
+2016-11-04  Bin Cheng  <bin.cheng@arm.com>
+
+	* fold-const.c (fold_cond_expr_with_comparison): Remove call
+	to pedantic_non_lvalue_loc.  Remove useless code for lvalue
+	where cond_expr can't be a lvalue.
+
+2016-11-04  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_process_double_reg_moves): Use
+	gen_dexcl_2op call.
+	* config/arc/arc.md (movsi_insn): Disable unsupported move
+	instructions for ARCv2 cores.
+	(movdi): Use prepare_move_operands.
+	(movsf, movdf): Use move_dest_operand predicate.
+	* config/arc/constraints.md (Chs): Enable when barrel shifter is
+	present.
+	* config/arc/fpu.md (divsf3): Change to divsf3_fpu.
+	* config/arc/fpx.md (dexcl_3op_peep2_insn): Dx data register is
+	also a destination.
+	(dexcl_3op_peep2_insn_nores): Likewise.
+	* config/arc/arc.h (SHIFT_COUNT_TRUNCATED): Define to one.
+	(LINK_COMMAND_SPEC): Remove.
+
+2016-11-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78185
+	* loop-invariant.c (find_exits): Record entering inner
+	loops as possibly exiting to handle infinite sub-loops.
+	* tree-ssa-loop-im.c: Include tree-ssa-loop-niter.h.
+	(fill_always_executed_in_1): Honor infinite child loops.
+
+2016-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78192
+	* config/rs6000/vsx.md (vsx_extract_<mode>_di): The element number
+	has already been adjusted for endianness, so don't adjust it any
+	further.
+
+	PR target/77993
+	* config/rs6000/rs6000.h (FLOAT128_IBM_P): Do not allow IFmode or
+	ICmode unless we have standard PowerPC floating point.
+	* config/rs6000/rs6000.md (FP iterator): Likewise.
+	(FMOVE128 iterator): Likewise.
+
+2016-11-03  Jakub Jelinek  <jakub@redhat.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR debug/28767
+	PR debug/56974
+	* langhooks.h (struct lang_hooks_for_types): Add type_dwarf_attribute
+	langhook.
+	* langhooks.c (lhd_type_dwarf_attribute): New function.
+	* langhooks-def.h (lhd_type_dwarf_attribute): Declare.
+	(LANG_HOOKS_TYPE_DWARF_ATTRIBUTE): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add
+	LANG_HOOKS_TYPE_DWARF_ATTRIBUTE.
+	(check_qualified_type, check_aligned_type): Call it.
+	* dwarf2out.c (modified_type_die): Don't use type_main_variant
+	for FUNCTION_TYPE or METHOD_TYPE, instead walk over variants with
+	check_base_type and check_lang_type.
+	(gen_ptr_to_mbr_type_die): If lookup_type_die is already non-NULL,
+	return early.  For pointer-to-data-member add DW_AT_use_location
+	attribute.
+	(gen_subroutine_type_die): Add DW_AT_{,rvalue_}reference attribute
+	if needed.
+	(gen_type_die_with_usage): Don't use type_main_variant
+	for FUNCTION_TYPE or METHOD_TYPE, instead walk over variants with
+	check_base_type and check_lang_type.  Formatting fixes. Call
+	get_debug_type langhook.
+
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (check_lang_type): New.
+	(check_qualified_type): Use it.
+	(check_aligned_type): Use it.
+	* tree.h: Declare it.
+
+2016-11-03  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config.gcc (arm-wrs-vxworks): Set target_cpu_cname.
+	(arm*-freebsd*): Likewise.
+	(arm*-*-netbsdelf*): Likewise.
+	(arm*-*-linux*): Likewise.
+	(arm*-*-uclinux*eabi*): Likewise.
+	(arm*-*-phoenix*): Likewise.
+	(arm*-*-eabi*, arm*-*-symbianelf*, arm*-*-rtems*): Likewise.
+	(arm*-*-*): Don't clobber target_cpu_cname when --with-cpu is not
+	specified.  Default to arm6 if target_cpu_cname is not set.
+	* arm/arm.c (arm_option_override): Simplify logic.  Assert that the
+	default cpu has been correctly configured.
+	* arm/arm.h (TARGET_CPU_DEFAULT): Delete.
+	(target_cpus): Delete TARGET_CPU_generic, add TARGET_CPU_num_cores.
+	* arm/freebsd.h (SUBTARGET_CPU_DEFAULT): Delete.
+	* arm/linux-eabi.h (SUBTARGET_CPU_DEFAULT): Delete.
+	* arm/linux-elf.h (SUBTARGET_CPU_DEFAULT): Delete.
+	* arm/symbian.h (SUBTARGET_CPU_DEFAULT): Delete.
+	* arm/unknown-elf.h (SUBTARGET_CPU_DEFAULT): Delete.
+
+2016-11-03  Jiong Wang  <jiong.wang@arm.com>
+
+	* reg-notes.def (CFA_VAL_EXPRESSION): New entry.
+	* dwarf2cfi.c (dwarf2out_frame_debug_cfa_val_expression): New function.
+	(dwarf2out_frame_debug): Support REG_CFA_VAL_EXPRESSION.
+	(output_cfa_loc): Support DW_CFA_val_expression.
+	(output_cfa_loc_raw): Likewise.
+	(output_cfi): Likewise.
+	(output_cfi_directive): Likewise.
+	* dwarf2out.c (dw_cfi_oprnd1_desc): Support DW_CFA_val_expression.
+	(dw_cfi_oprnd2_desc): Likewise.
+	(mem_loc_descriptor): Recognize new pattern generated for value
+	expression.
+
+2016-11-03  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78186
+	* combine.c (change_zero_ext): Mask the RHS of a zero_extract as
+	well, when converting to IOR.
+
+2016-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (vec_interleave_lowv8qi): Delete.
+	(vec_interleave_highv8qi): Likewise.
+
+2016-11-03  Martin Liska  <mliska@suse.cz>
+
+	* profile.c (instrument_values): Fix coding style.
+	(branch_prob): Use renamed function.
+	* tree-profile.c (init_ic_make_global_vars): Likewise.
+	(gimple_init_edge_profiler): Rename to
+	gimple_init_gcov_profiler.
+	tree_time_profiler_counter variable declaration.
+	(gimple_gen_time_profiler): Rewrite to do a direct gimple code
+	emission.
+	* value-prof.h: Remove an argument.
+
+2016-11-03  Richard Biener  <rguenther@suse.de>
+
+	* config/rs6000/rs6000.c (rs6000_xcoff_declare_object_name): Use
+	symtab_node::get_create.
+
+2016-11-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* rtlanal.c (nonzero_bits1): Fix WORD_REGISTER_OPERATIONS condition.
+	Move comments into more natural position.
+
+2016-11-03  Vineet Gupta  <vgupta@synopsys.com>
+
+	* config/arc/arc.h (SIZE_TYPE): Define as unsigned int.
+	(PTRDIFF_TYPE): Define as int.
+
+2016-11-03  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* ccmp.c (expand_ccmp_expr_1): Adjust.
+	(expand_ccmp_expr): Likewise.
+	(expand_ccmp_next): Likewise.
+	* config/aarch64/aarch64.c (aarch64_gen_ccmp_next): Likewise.
+	(aarch64_gen_ccmp_first): Likewise.
+	* doc/tm.texi: Regenerate.
+	* target.def (gen_ccmp_first): Change argument types to rtx_insn *.
+	(gen_ccmp_next): Likewise.
+
+2016-11-03  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (destroy_loop_vec_info): Handle cond_expr.
+	(vect_is_simple_reduction): Swap cond_reduction by inversion.
+
+2016-11-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_init_libfuncs): New.  Call
+	darwin_rename_builtins here.
+	(ix86_expand_divmod_libfunc): New.
+	(TARGET_INIT_LIBFUNCS): Unconditionally define to ix86_init_libfuncs.
+	(TARGET_EXPAND_DIVMOD_LIBFUNC): Define.
+
 2016-11-02  Cesar Philippidis  <cesar@codesourcery.com>
 	    Nathan Sidwell  <nathan@acm.org>
 
@@ -651,7 +947,7 @@
 2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* doc/sourcebuild.texi (Ada Tests): Remove mention of gcc chapter.
- 
+
 2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* target.def (min_arithmetic_precision): New hook.
@@ -698,7 +994,7 @@
 	divmod_simode.
 
 2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
-            Segher Boessenkool  <segher@kernel.crashing.org>
+	    Segher Boessenkool  <segher@kernel.crashing.org>
 
 	* dojump.c (do_jump_by_parts_greater_rtx): Invert probability when
 	swapping the arms of the branch.
