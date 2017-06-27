@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "builtins.h"
 #include "asan.h"
+#include "dbgcnt.h"
 
 /* Hash set of poisoned variables in a bind expr.  */
 static hash_set<tree> *asan_poisoned_variables = NULL;
@@ -1627,11 +1628,13 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 	  && !asan_no_sanitize_address_p ()
 	  && !is_vla
 	  && TREE_ADDRESSABLE (decl)
-	  && !TREE_STATIC (decl))
+	  && !TREE_STATIC (decl)
+	  && !DECL_HAS_VALUE_EXPR_P (decl)
+	  && dbg_cnt (asan_use_after_scope))
 	{
 	  asan_poisoned_variables->add (decl);
 	  asan_poison_variable (decl, false, seq_p);
-	  if (gimplify_ctxp->live_switch_vars)
+	  if (!DECL_ARTIFICIAL (decl) && gimplify_ctxp->live_switch_vars)
 	    gimplify_ctxp->live_switch_vars->add (decl);
 	}
 
@@ -2243,7 +2246,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
     {
       vec<tree> labels;
       vec<tree> saved_labels;
-      hash_set<tree> *saved_live_switch_vars;
+      hash_set<tree> *saved_live_switch_vars = NULL;
       tree default_case = NULL_TREE;
       gswitch *switch_stmt;
 
@@ -2255,8 +2258,14 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
          labels.  Save all the things from the switch body to append after.  */
       saved_labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels.create (8);
-      saved_live_switch_vars = gimplify_ctxp->live_switch_vars;
-      gimplify_ctxp->live_switch_vars = new hash_set<tree> (4);
+
+      /* Do not create live_switch_vars if SWITCH_BODY is not a BIND_EXPR.  */
+      if (TREE_CODE (SWITCH_BODY (switch_expr)) == BIND_EXPR)
+	{
+	  saved_live_switch_vars = gimplify_ctxp->live_switch_vars;
+	  gimplify_ctxp->live_switch_vars = new hash_set<tree> (4);
+	}
+
       bool old_in_switch_expr = gimplify_ctxp->in_switch_expr;
       gimplify_ctxp->in_switch_expr = true;
 
@@ -2271,8 +2280,12 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 
       labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = saved_labels;
-      gcc_assert (gimplify_ctxp->live_switch_vars->elements () == 0);
-      delete gimplify_ctxp->live_switch_vars;
+
+      if (gimplify_ctxp->live_switch_vars)
+	{
+	  gcc_assert (gimplify_ctxp->live_switch_vars->elements () == 0);
+	  delete gimplify_ctxp->live_switch_vars;
+	}
       gimplify_ctxp->live_switch_vars = saved_live_switch_vars;
 
       preprocess_case_label_vec_for_gimple (labels, index_type,
@@ -6404,7 +6417,8 @@ gimplify_target_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	      else
 		cleanup = clobber;
 	    }
-	  if (asan_sanitize_use_after_scope ())
+	  if (asan_sanitize_use_after_scope ()
+	      && dbg_cnt (asan_use_after_scope))
 	    {
 	      tree asan_cleanup = build_asan_poison_call_expr (temp);
 	      if (asan_cleanup)

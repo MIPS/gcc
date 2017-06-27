@@ -368,6 +368,12 @@
 #  error "__cpp_aligned_new != 201606"
 #endif
 
+#ifndef __cpp_template_auto
+#  error "__cpp_template_auto"
+#elif __cpp_template_auto != 201606
+#  error "__cpp_template_auto != 201606"
+#endif
+
 #ifndef __cpp_inline_variables
 #  error "__cpp_inline_variables"
 #elif __cpp_inline_variables != 201606
@@ -378,6 +384,12 @@
 #  error "__cpp_capture_star_this"
 #elif __cpp_capture_star_this != 201603
 #  error "__cpp_capture_star_this != 201603"
+#endif
+
+#ifndef __cpp_noexcept_function_type
+#  error "__cpp_noexcept_function_type"
+#elif __cpp_noexcept_function_type != 201510
+#  error "__cpp_noexcept_function_type != 201510"
 #endif
 
 #ifdef __has_cpp_attribute

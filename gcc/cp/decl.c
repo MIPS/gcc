@@ -73,8 +73,6 @@ static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
 static tree builtin_function_1 (tree, tree, bool);
 static int member_function_or_else (tree, tree, enum overload_flags);
-static void bad_specifiers (tree, enum bad_spec_place, int, int, int, int,
-			    int);
 static void check_for_uninitialized_const_var (tree);
 static tree local_variable_p_walkfn (tree *, int *, void *);
 static const char *tag_name (enum tag_types);
@@ -226,6 +224,9 @@ struct GTY((for_user)) named_label_entry {
    (Zero if we are at namespace scope, one inside the body of a
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
+
+/* Whether the exception-specifier is part of a function type (i.e. C++17).  */
+bool flag_noexcept_type;
 
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
@@ -4176,6 +4177,8 @@ cxx_init_decl_processing (void)
   std_node = current_namespace;
   pop_namespace ();
 
+  flag_noexcept_type = (cxx_dialect >= cxx1z);
+
   c_common_nodes_and_builtins ();
 
   integer_two_node = build_int_cst (NULL_TREE, 2);
@@ -7974,6 +7977,7 @@ bad_specifiers (tree object,
   if (friendp)
     error ("%q+D declared as a friend", object);
   if (raises
+      && !flag_noexcept_type
       && (TREE_CODE (object) == TYPE_DECL
 	  || (!TYPE_PTRFN_P (TREE_TYPE (object))
 	      && !TYPE_REFFN_P (TREE_TYPE (object))
@@ -9618,6 +9622,11 @@ grokdeclarator (const cp_declarator *declarator,
   if (initialized > 1)
     funcdef_flag = true;
 
+  location_t typespec_loc = smallest_type_quals_location (type_quals,
+						      declspecs->locations);
+  if (typespec_loc == UNKNOWN_LOCATION)
+    typespec_loc = declspecs->locations[ds_type_spec];
+
   /* Look inside a declarator for the name being declared
      and get it as a string, for an error message.  */
   for (id_declarator = declarator;
@@ -10139,6 +10148,16 @@ grokdeclarator (const cp_declarator *declarator,
   /* We might have ignored or rejected some of the qualifiers.  */
   type_quals = cp_type_quals (type);
 
+  if (cxx_dialect >= cxx1z && type && is_auto (type)
+      && innermost_code != cdk_function
+      && id_declarator && declarator != id_declarator)
+    if (tree tmpl = CLASS_PLACEHOLDER_TEMPLATE (type))
+    {
+      error_at (typespec_loc, "template placeholder type %qT must be followed "
+		"by a simple declarator-id", type);
+      inform (DECL_SOURCE_LOCATION (tmpl), "%qD declared here", tmpl);
+    }
+
   staticp = 0;
   inlinep = decl_spec_seq_has_spec_p (declspecs, ds_inline);
   virtualp =  decl_spec_seq_has_spec_p (declspecs, ds_virtual);
@@ -10375,12 +10394,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 		if (SCALAR_TYPE_P (type) || VOID_TYPE_P (type))
 		  {
-		    location_t loc;
-		    loc = smallest_type_quals_location (type_quals,
-							declspecs->locations);
-		    if (loc == UNKNOWN_LOCATION)
-		      loc = declspecs->locations[ds_type_spec];
-		    warning_at (loc, OPT_Wignored_qualifiers, "type "
+		    warning_at (typespec_loc, OPT_Wignored_qualifiers, "type "
 				"qualifiers ignored on function return type");
 		  }
 		/* We now know that the TYPE_QUALS don't apply to the
@@ -10429,11 +10443,12 @@ grokdeclarator (const cp_declarator *declarator,
 	    funcdecl_p = inner_declarator && inner_declarator->kind == cdk_id;
 
 	    /* Handle a late-specified return type.  */
+	    tree late_return_type = declarator->u.function.late_return_type;
 	    if (funcdecl_p)
 	      {
-		if (type_uses_auto (type))
+		if (tree auto_node = type_uses_auto (type))
 		  {
-		    if (!declarator->u.function.late_return_type)
+		    if (!late_return_type)
 		      {
 			if (current_class_type
 			    && LAMBDA_TYPE_P (current_class_type))
@@ -10461,8 +10476,32 @@ grokdeclarator (const cp_declarator *declarator,
 			       name, type);
 			return error_mark_node;
 		      }
+		    if (tree tmpl = CLASS_PLACEHOLDER_TEMPLATE (auto_node))
+		      {
+			if (!late_return_type)
+			  {
+			    if (dguide_name_p (unqualified_id))
+			      error_at (typespec_loc, "deduction guide for "
+					"%qT must have trailing return type",
+					TREE_TYPE (tmpl));
+			    else
+			      error_at (typespec_loc, "deduced class type %qT "
+					"in function return type", type);
+			    inform (DECL_SOURCE_LOCATION (tmpl),
+				    "%qD declared here", tmpl);
+			  }
+			else if (CLASS_TYPE_P (late_return_type)
+				 && CLASSTYPE_TEMPLATE_INFO (late_return_type)
+				 && (CLASSTYPE_TI_TEMPLATE (late_return_type)
+				     == tmpl))
+			  /* OK */;
+			else
+			  error ("trailing return type %qT of deduction guide "
+				 "is not a specialization of %qT",
+				 late_return_type, TREE_TYPE (tmpl));
+		      }
 		  }
-		else if (declarator->u.function.late_return_type
+		else if (late_return_type
 			 && sfk != sfk_conversion)
 		  {
 		    if (cxx_dialect < cxx11)
@@ -10476,12 +10515,11 @@ grokdeclarator (const cp_declarator *declarator,
 		    return error_mark_node;
 		  }
 	      }
-	    type = splice_late_return_type
-	      (type, declarator->u.function.late_return_type);
+	    type = splice_late_return_type (type, late_return_type);
 	    if (type == error_mark_node)
 	      return error_mark_node;
 
-	    if (declarator->u.function.late_return_type)
+	    if (late_return_type)
 	      late_return_type_p = true;
 
 	    if (ctype == NULL_TREE
@@ -10609,6 +10647,9 @@ grokdeclarator (const cp_declarator *declarator,
 		 The optional attribute-specifier-seq appertains to
 		 the function type.  */
 	      decl_attributes (&type, attrs, 0);
+
+	    if (raises)
+	      type = build_exception_variant (type, raises);
 	  }
 	  break;
 
@@ -11260,7 +11301,8 @@ grokdeclarator (const cp_declarator *declarator,
       if (ctype || in_namespace)
 	error ("cannot use %<::%> in parameter declaration");
 
-      if (type_uses_auto (type))
+      if (type_uses_auto (type)
+	  && !(cxx_dialect >= cxx1z && template_parm_flag))
 	{
 	  if (cxx_dialect >= cxx14)
 	    error ("%<auto%> parameter not permitted in this context");

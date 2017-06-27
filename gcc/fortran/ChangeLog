@@ -1,3 +1,62 @@
+2016-11-09  Mikael Morin  <mikael@gcc.gnu.org>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/46459
+	* interface.c (compare_actual_formal): Add safety checks to avoid ICE.
+
+2016-11-09  Fritz O. Reese <fritzoreese@gmail.com>
+
+	PR fortran/78259
+	* trans-expr.c (gfc_trans_subcomponent_assign): Guard against NULL
+	values.
+
+2016-11-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60777
+	* expr.c (external_spec_function): Allow recursive specification
+	functions in F03.
+
+2016-11-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	* check.c (gfc_check_move_alloc): Prevent error that avoids
+	aliasing between to and from arguments from rejecting valid
+	code.
+
+2016-11-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/71894
+	* class.c (gfc_add_component_ref): Add safety checks to avoid ICE.
+
+2016-11-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/68440
+	* expr.c (check_alloc_comp_init): Loosen an assert.
+	* resolve.c (resolve_fl_parameter): Reject class parameters.
+
+2016-11-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/77596
+	* expr.c (gfc_check_pointer_assign): Add special check for procedure-
+	pointer component with absent interface.
+
+2016-11-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	* expr.c (gfc_generate_initializer):  Add where to EXPR_NULL
+	statement.
+	* iresolve.c (gfc_resolve_extends_type_of):  Add where to
+	both arguments of the function.
+	* resolve.c (resolve_select_type):  Add where to the
+	second argument of the new statement.
+
+2016-11-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	* match.c (gfc_match_select_type):  Add where for expr1.
+	* resolve.c (resolev_select_type): Add where for expr1 of new
+	statement.
+
 2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/78226

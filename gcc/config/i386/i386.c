@@ -2805,11 +2805,24 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 
   switch (GET_CODE (src))
     {
+    case ASHIFT:
+    case LSHIFTRT:
+      /* Consider only non-variable shifts narrower
+	 than general register width.  */
+      if (!(CONST_INT_P (XEXP (src, 1))
+	    && IN_RANGE (INTVAL (XEXP (src, 1)), 0, 31)))
+	return false;
+      break;
+
     case PLUS:
     case MINUS:
     case IOR:
     case XOR:
     case AND:
+      if (!REG_P (XEXP (src, 1))
+	  && !MEM_P (XEXP (src, 1))
+	  && !CONST_INT_P (XEXP (src, 1)))
+	return false;
       break;
 
     case REG:
@@ -2830,11 +2843,6 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
       && (GET_CODE (src) != AND
 	  || GET_CODE (XEXP (src, 0)) != NOT
 	  || !REG_P (XEXP (XEXP (src, 0), 0))))
-      return false;
-
-  if (!REG_P (XEXP (src, 1))
-      && !MEM_P (XEXP (src, 1))
-      && !CONST_INT_P (XEXP (src, 1)))
       return false;
 
   if ((GET_MODE (XEXP (src, 0)) != DImode
@@ -3387,6 +3395,13 @@ dimode_scalar_chain::compute_convert_gain ()
 	gain += 2 * ix86_cost->int_store[2] - ix86_cost->sse_store[1];
       else if (MEM_P (src) && REG_P (dst))
 	gain += 2 * ix86_cost->int_load[2] - ix86_cost->sse_load[1];
+      else if (GET_CODE (src) == ASHIFT
+	       || GET_CODE (src) == LSHIFTRT)
+	{
+	  gain += ix86_cost->add;
+    	  if (CONST_INT_P (XEXP (src, 0)))
+	    gain -= vector_const_cost (XEXP (src, 0));
+	}
       else if (GET_CODE (src) == PLUS
 	       || GET_CODE (src) == MINUS
 	       || GET_CODE (src) == IOR
@@ -3738,6 +3753,12 @@ dimode_scalar_chain::convert_insn (rtx_insn *insn)
 
   switch (GET_CODE (src))
     {
+    case ASHIFT:
+    case LSHIFTRT:
+      convert_op (&XEXP (src, 0), insn);
+      PUT_MODE (src, V2DImode);
+      break;
+
     case PLUS:
     case MINUS:
     case IOR:
@@ -23561,6 +23582,7 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
     cmp_op1 = force_reg (cmp_ops_mode, cmp_op1);
 
   if (optimize
+      || (maskcmp && cmp_mode != mode)
       || (op_true && reg_overlap_mentioned_p (dest, op_true))
       || (op_false && reg_overlap_mentioned_p (dest, op_false)))
     dest = gen_reg_rtx (maskcmp ? cmp_mode : mode);
@@ -33518,7 +33540,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  g = gimple_build_assign (gimple_call_lhs (stmt), NOP_EXPR, lhs);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;
@@ -33536,7 +33558,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  location_t loc = gimple_location (stmt);
 	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;
@@ -33553,7 +33575,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  arg0 = gimple_call_arg (stmt, 0);
 	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;

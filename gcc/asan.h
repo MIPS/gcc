@@ -59,7 +59,6 @@ extern hash_set <tree> *asan_used_labels;
 #define ASAN_STACK_MAGIC_LEFT		  0xf1
 #define ASAN_STACK_MAGIC_MIDDLE		  0xf2
 #define ASAN_STACK_MAGIC_RIGHT		  0xf3
-#define ASAN_STACK_MAGIC_PARTIAL	  0xf4
 #define ASAN_STACK_MAGIC_USE_AFTER_RET	  0xf5
 #define ASAN_STACK_MAGIC_USE_AFTER_SCOPE  0xf8
 
@@ -121,6 +120,10 @@ asan_intercepted_p (enum built_in_function fcode)
 	 || fcode == BUILT_IN_STRNCASECMP
 	 || fcode == BUILT_IN_STRNCAT
 	 || fcode == BUILT_IN_STRNCMP
+	 || fcode == BUILT_IN_STRCSPN
+	 || fcode == BUILT_IN_STRPBRK
+	 || fcode == BUILT_IN_STRSPN
+	 || fcode == BUILT_IN_STRSTR
 	 || fcode == BUILT_IN_STRNCPY;
 }
 
