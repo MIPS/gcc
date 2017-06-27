@@ -488,7 +488,6 @@ runtime_files = \
 	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	lfstack.c \
 	malloc.c \
 	runtime1.c \
 	sigqueue.c \
@@ -1231,7 +1230,7 @@ runtime-go.lo:
 runtime.inc: s-runtime-inc; @true
 s-runtime-inc: runtime-go.lo Makefile
 	rm -f runtime.inc.tmp2
-	grep -v "#define _" runtime.inc.tmp > runtime.inc.tmp2
+	grep -v "#define _" runtime.inc.tmp | grep -v "#define c0 " | grep -v "#define c1 " > runtime.inc.tmp2
 	for pattern in '_G[a-z]' '_P[a-z]' _Max _Lock _Sig _Trace _MHeap _Num; do \
 	  grep "#define $$pattern" runtime.inc.tmp >> runtime.inc.tmp2; \
 	done

@@ -1,4 +1,78 @@
+2016-10-22  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/c++config (_GLIBCXX_BEGIN_NAMESPACE_ALGO)
+	(_GLIBCXX_END_NAMESPACE_ALGO): Default to respectively
+	_GLIBCXX_BEGIN_NAMESPACE_VERSION and _GLIBCXX_END_NAMESPACE_VERSION.
+	(_GLIBCXX_BEGIN_NAMESPACE_CONTAINER, _GLIBCXX_END_NAMESPACE_CONTAINER):
+	Likewise.
+
+2016-10-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops.cc (permissions(const path&, perms, error_code&)):
+	Ignore symlink_nofollow flag if file is not a symlink.
+	* testsuite/experimental/filesystem/operations/permissions.cc: Test
+	symlink_nofollow on non-symlinks.
+
 2016-10-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/bits/fs_fwd.h (perms::resolve_symlinks):
+	Replace with symlink_nofollow (LWG 2720).
+	* src/filesystem/ops.cc (permissions(const path&, perms, error_code&)):
+	Handle symlink_nofollow.
+	* testsuite/experimental/filesystem/operations/create_symlink.cc: New
+	test.
+	* testsuite/experimental/filesystem/operations/permissions.cc: Test
+	overload taking error_code.
+
+	* include/experimental/bits/fs_ops.h
+	(exists(const path&, error_code&)): Clear error if status is known
+	(LWG 2725).
+	(status(const path&, error_code&)): Handle EOVERFLOW.
+	* testsuite/experimental/filesystem/operations/exists.cc: Test
+	overload taking an error_code.
+
+	* include/experimental/bits/fs_path.h (path::path(string_type&&))
+	(path::operator=(string&&), path::assign(string_type&&)): Define
+	construction and assignment from string_type rvalues (LWG 2707).
+
+2016-10-21  Eelis van der Weegen  <eelis@eelis.net>
+
+	* include/bits/stl_algo.h (__gen_two_uniform_ints): Move logic out
+	of shuffle into new function.
+	(shuffle): Call __gen_two_uniform_ints.
+	(__sample<ForwardIterator, OutputIterator, Cat, Size, URBG>): Use
+	__gen_two_uniform_ints and perform two samples at a time.
+
+2016-10-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/Makefile.am: Add <bits/refwrap.h> and <bits/std_function.h>.
+	Order alphabetically.
+	* include/Makefile.in: Regenerate.
+	* include/bits/refwrap.h: New header.
+	(_Maybe_get_result_type,_Weak_result_type_impl, _Weak_result_type)
+	(_Reference_wrapper_base_impl, _Reference_wrapper_base)
+	(reference_wrapper, ref, cref): Move here from <functional>.
+	* include/bits/shared_ptr_base.h: Include <bits/refwrap.h> and
+	<bits/stl_function.h> instead of <functional>.
+	* include/bits/std_function.h: New header.
+	(_Maybe_unary_or_binary_function, bad_function_call)
+	(__is_location_invariant, _Nocopy_types, _Any_data)
+	(_Simple_type_wrapper, _Function_base, _Function_handler, function):
+	Move here from <functional>.
+	* include/bits/unique_ptr.h: Include <bits/stl_function.h>.
+	* include/std/functional: Include new headers and move components to
+	them.
+	* include/std/future: Include <bits/std_function.h> instead of
+	<functional>.
+	* include/std/mutex: Likewise.
+	* include/std/regex: Likewise.
+	* src/c++11/compatibility-thread-c++0x.cc: Include <functional>.
+	* testsuite/20_util/default_delete/48631_neg.cc: Adjust dg-error line.
+	* testsuite/20_util/default_delete/void_neg.cc: Likewise.
+	* testsuite/20_util/unique_ptr/assign/48635_neg.cc: Adjust dg-error
+	lines.
+	* testsuite/20_util/unique_ptr/cons/cv_qual_neg.cc: Likewise.
+	* testsuite/30_threads/packaged_task/49668.cc: Include <functional>.
 
 	* libsupc++/exception_ptr.h (make_exception_ptr): Qualify new.
 	* testsuite/18_support/exception_ptr/make_exception_ptr_2.cc: New
@@ -3582,6 +3656,7 @@
 	* include/std/future: Include <functional>.
 	* include/std/memory: Do not include <functional>.
 	* include/std/mutex: [_GLIBCXX_HAVE_TLS]: Likewise.
+	* src/c++11/compatibility-thread-c++0x.cc: Include <functional>.
 	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc: Add
 	missing includes.
 	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.

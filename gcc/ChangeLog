@@ -1,4 +1,85 @@
+2016-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc-c.c (sparc_target_macros): Replace TARGET_64BIT
+	with TARGET_ARCH64.  Define __VIS to 0x400 if TARGET_VIS4.
+
+2016-10-21  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def: Rewrite so IMP and PART are
+	integer constants.
+	* config/aarch64/driver-aarch64.c (struct aarch64_core_data): Change
+	implementer_id to unsigned char.
+	Change part_no to unsigned int.
+	(AARCH64_BIG_LITTLE): New define.
+	(INVALID_IMP): New define.
+	(INVALID_CORE): New define.
+	(cpu_data): Change the last element's implementer_id and part_no to
+	integers.
+	(valid_bL_string_p): Rewrite to ..
+	(valid_bL_core_p): this for integers instead of strings.
+	(parse_field): New function.
+	(contains_string_p): Rewrite to ...
+	(contains_core_p): this for integers and only for the part_no.
+	(host_detect_local_cpu): Rewrite handling of implementation and
+	par num to be integers; simplifying the code.
+
+2016-10-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Create nonzero
+	value range for pointers in more cases.
+
+2016-10-21  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_add_constant_internal):
+	Add extra argument to allow emitting the move immediate.
+	Use add/sub with positive immediate.
+	(aarch64_add_constant): Add inline function.
+	(aarch64_add_sp): Likewise.
+	(aarch64_sub_sp): Likewise.
+	(aarch64_expand_prologue): Call aarch64_sub_sp.
+	(aarch64_expand_epilogue): Call aarch64_add_sp.
+	Decide when to leave out move.
+	(aarch64_output_mi_thunk): Call aarch64_add_constant.
+
+2016-10-21  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_layout_frame):
+	Align FP callee-saves.
+
 2016-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/adxintrin.h (_subborrow_u32, _addcarry_u32,
+	_addcarryx_u32, _subborrow_u64, _addcarry_u64, _addcarryx_u64):
+	Formatting fixes.
+	* config/i386/rdseedintrin.h (_rdseed16_step, _rdseed32_step,
+	_rdseed64_step): Likewise.
+	* config/i386/tbmintrin.h (__bextri_u32): Likewise.
+
+	PR target/78057
+	* config/i386/i386.c: Include fold-const-call.h, tree-vrp.h
+	and tree-ssanames.h.
+	(ix86_fold_builtin): Fold IX86_BUILTIN_[LT]ZCNT{16,32,64}
+	with INTEGER_CST argument.
+	(ix86_gimple_fold_builtin): New function.
+	(TARGET_GIMPLE_FOLD_BUILTIN): Define.
+
+	* dwarf2out.c (ranges_table): Change into vec<dw_ranges, va_gc> *.
+	(ranges_by_label): Change into vec<dw_ranges_by_label, va_gc> *.
+	(ranges_table_allocated, ranges_table_in_use,
+	ranges_by_label_allocated, ranges_by_label_in_use,
+	RANGES_TABLE_INCREMENT): Removed.
+	(add_ranges_num): Use vec_safe_push into ranges_table.
+	(add_ranges_by_labels): Use vec_safe_push into ranges_by_label.
+	(output_ranges): Adjust for ranges_table and ranges_by_label
+	conversion from arrays to vec.
+	(add_high_low_attributes, dwarf2out_finish): Adjust for range_table
+	conversion from arrays to vec.
+	(dwarf2out_c_finalize): Don't clear ranges_table_allocated,
+	ranges_table_in_use, ranges_by_label_allocated and
+	ranges_by_label_in_use.  Set ranges_by_label to NULL instead of 0.
+
+	* dwarf2out.c (gen_variable_die): Emit DW_AT_const_expr attribute
+	if needed.  Re-add origin_die variable and its initialization.
 
 	* gimplify.c (gimplify_bind_expr): Handle oacc_declare_returns
 	even for -fstack-reuse=none, or for volatile vars etc.

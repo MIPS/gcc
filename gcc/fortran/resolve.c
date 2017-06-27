@@ -8379,6 +8379,25 @@ fixup_array_ref (gfc_expr **expr1, gfc_expr *expr2,
 }
 
 
+static gfc_expr *
+build_loc_call (gfc_expr *sym_expr)
+{
+  gfc_expr *loc_call;
+  loc_call = gfc_get_expr ();
+  loc_call->expr_type = EXPR_FUNCTION;
+  gfc_get_sym_tree ("loc", gfc_current_ns, &loc_call->symtree, false);
+  loc_call->symtree->n.sym->attr.flavor = FL_PROCEDURE;
+  loc_call->symtree->n.sym->attr.intrinsic = 1;
+  loc_call->symtree->n.sym->result = loc_call->symtree->n.sym;
+  gfc_commit_symbol (loc_call->symtree->n.sym);
+  loc_call->ts.type = BT_INTEGER;
+  loc_call->ts.kind = gfc_index_integer_kind;
+  loc_call->value.function.isym = gfc_intrinsic_function_by_id (GFC_ISYM_LOC);
+  loc_call->value.function.actual = gfc_get_actual_arglist ();
+  loc_call->value.function.actual->expr = sym_expr;
+  return loc_call;
+}
+
 /* Resolve a SELECT TYPE statement.  */
 
 static void
@@ -8395,6 +8414,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
   int charlen = 0;
   int rank = 0;
   gfc_ref* ref = NULL;
+  gfc_expr *selector_expr = NULL;
 
   ns = code->ext.block.ns;
   gfc_resolve (ns);
@@ -8443,6 +8463,31 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
     {
       c = body->ext.block.case_list;
 
+      if (!error)
+	{
+	  /* Check for repeated cases.  */
+	  for (tail = code->block; tail; tail = tail->block)
+	    {
+	      gfc_case *d = tail->ext.block.case_list;
+	      if (tail == body)
+		break;
+
+	      if (c->ts.type == d->ts.type
+		  && ((c->ts.type == BT_DERIVED
+		       && c->ts.u.derived && d->ts.u.derived
+		       && !strcmp (c->ts.u.derived->name,
+				   d->ts.u.derived->name))
+		      || c->ts.type == BT_UNKNOWN
+		      || (!(c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
+			  && c->ts.kind == d->ts.kind)))
+		{
+		  gfc_error ("TYPE IS at %L overlaps with TYPE IS at %L",
+			     &c->where, &d->where);
+		  return;
+		}
+	    }
+	}
+
       /* Check F03:C815.  */
       if ((c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
 	  && !selector_type->attr.unlimited_polymorphic
@@ -8470,7 +8515,8 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	}
 
       /* Check F03:C814.  */
-      if (c->ts.type == BT_CHARACTER && c->ts.u.cl->length != NULL)
+      if (c->ts.type == BT_CHARACTER
+	  && (c->ts.u.cl->length != NULL || c->ts.deferred))
 	{
 	  gfc_error ("The type-spec at %L shall specify that each length "
 		     "type parameter is assumed", &c->where);
@@ -8559,31 +8605,47 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
   else
     ns->code->next = new_st;
   code = new_st;
-  code->op = EXEC_SELECT;
+  code->op = EXEC_SELECT_TYPE;
 
+  /* Use the intrinsic LOC function to generate an integer expression
+     for the vtable of the selector.  Note that the rank of the selector
+     expression has to be set to zero.  */
   gfc_add_vptr_component (code->expr1);
-  gfc_add_hash_component (code->expr1);
+  code->expr1->rank = 0;
+  code->expr1 = build_loc_call (code->expr1);
+  selector_expr = code->expr1->value.function.actual->expr;
 
   /* Loop over TYPE IS / CLASS IS cases.  */
   for (body = code->block; body; body = body->block)
     {
+      gfc_symbol *vtab;
+      gfc_expr *e;
       c = body->ext.block.case_list;
 
-      if (c->ts.type == BT_DERIVED)
-	c->low = c->high = gfc_get_int_expr (gfc_default_integer_kind, NULL,
-					     c->ts.u.derived->hash_value);
-      else if (c->ts.type != BT_CLASS && c->ts.type != BT_UNKNOWN)
+      /* Generate an index integer expression for address of the
+	 TYPE/CLASS vtable and store it in c->low.  The hash expression
+	 is stored in c->high and is used to resolve intrinsic cases.  */
+      if (c->ts.type != BT_UNKNOWN)
 	{
-	  gfc_symbol *ivtab;
-	  gfc_expr *e;
+	  if (c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
+	    {
+	      vtab = gfc_find_derived_vtab (c->ts.u.derived);
+	      gcc_assert (vtab);
+	      c->high = gfc_get_int_expr (gfc_default_integer_kind, NULL,
+					  c->ts.u.derived->hash_value);
+	    }
+	  else
+	    {
+	      vtab = gfc_find_vtab (&c->ts);
+	      gcc_assert (vtab && CLASS_DATA (vtab)->initializer);
+	      e = CLASS_DATA (vtab)->initializer;
+	      c->high = gfc_copy_expr (e);
+	    }
 
-	  ivtab = gfc_find_vtab (&c->ts);
-	  gcc_assert (ivtab && CLASS_DATA (ivtab)->initializer);
-	  e = CLASS_DATA (ivtab)->initializer;
-	  c->low = c->high = gfc_copy_expr (e);
+	  e = gfc_lval_expr_from_sym (vtab);
+	  c->low = build_loc_call (e);
 	}
-
-      else if (c->ts.type == BT_UNKNOWN)
+      else
 	continue;
 
       /* Associate temporary to selector.  This should only be done
@@ -8609,8 +8671,8 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 
       st = gfc_find_symtree (ns->sym_root, name);
       gcc_assert (st->n.sym->assoc);
-      st->n.sym->assoc->target = gfc_get_variable_expr (code->expr1->symtree);
-      st->n.sym->assoc->target->where = code->expr1->where;
+      st->n.sym->assoc->target = gfc_get_variable_expr (selector_expr->symtree);
+      st->n.sym->assoc->target->where = selector_expr->where;
       if (c->ts.type != BT_CLASS && c->ts.type != BT_UNKNOWN)
 	{
 	  gfc_add_data_component (st->n.sym->assoc->target);
@@ -8730,7 +8792,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	  new_st->expr1->value.function.isym->id = GFC_ISYM_EXTENDS_TYPE_OF;
 	  /* Set up arguments.  */
 	  new_st->expr1->value.function.actual = gfc_get_actual_arglist ();
-	  new_st->expr1->value.function.actual->expr = gfc_get_variable_expr (code->expr1->symtree);
+	  new_st->expr1->value.function.actual->expr = gfc_get_variable_expr (selector_expr->symtree);
 	  new_st->expr1->value.function.actual->expr->where = code->loc;
 	  gfc_add_vptr_component (new_st->expr1->value.function.actual->expr);
 	  vtab = gfc_find_derived_vtab (body->ext.block.case_list->ts.u.derived);
@@ -8758,8 +8820,6 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 
   if (ref)
     free (ref);
-
-  resolve_select (code, true);
 }
 
 
@@ -9921,10 +9981,6 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 		     "requires %<-frealloc-lhs%>", &lhs->where);
 	  return false;
 	}
-      /* See PR 43366.  */
-      gfc_error ("Assignment to an allocatable polymorphic variable at %L "
-		 "is not yet supported", &lhs->where);
-      return false;
     }
   else if (lhs->ts.type == BT_CLASS)
     {
@@ -10827,6 +10883,19 @@ start:
 	      break;
 
 	    gfc_check_pointer_assign (code->expr1, code->expr2);
+
+	    /* Assigning a class object always is a regular assign.  */
+	    if (code->expr2->ts.type == BT_CLASS
+		&& !CLASS_DATA (code->expr2)->attr.dimension
+		&& !(UNLIMITED_POLY (code->expr2)
+		     && code->expr1->ts.type == BT_DERIVED
+		     && (code->expr1->ts.u.derived->attr.sequence
+			 || code->expr1->ts.u.derived->attr.is_bind_c))
+		&& !(gfc_expr_attr (code->expr1).proc_pointer
+		     && code->expr2->expr_type == EXPR_VARIABLE
+		     && code->expr2->symtree->n.sym->attr.flavor
+			== FL_PROCEDURE))
+	      code->op = EXEC_ASSIGN;
 	    break;
 	  }
 

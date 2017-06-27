@@ -1,3 +1,21 @@
+2016-10-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77656
+	* pt.c (convert_template_argument): Call convert_nontype_argument
+	on value-dependent but not type-dependent arguments.
+	(convert_nontype_argument): Handle value-dependent arguments.
+	(canonicalize_expr_argument): New.
+	(deducible_expression, unify): Skip CONVERT_EXPR.
+	* error.c (dump_template_argument): Likewise.
+	* mangle.c (write_expression): Likewise.
+
+	* ptree.c (cxx_print_xnode) [TEMPLATE_PARM_INDEX]: Dump the decl.
+
+2016-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (cp_decl_dwarf_attribute): Handle
+	DW_AT_const_expr.
+
 2016-10-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-objcp-common.h (cp_function_decl_explicit_p,
