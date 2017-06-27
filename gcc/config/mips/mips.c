@@ -8860,8 +8860,8 @@ mips_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 	return false;
       if (align < BITS_PER_WORD)
 	return size < UNITS_PER_WORD;
-      /* It can be more profitable to use COPYW for at least 2 words.  */
-      if (TARGET_USE_COPYW_BY_PIECES && ISA_HAS_COPY
+      /* It is more profitable to use COPYW for at least 2 words.  */
+      if (ISA_HAS_COPY
 	  && align >= BITS_PER_WORD && size >= 2 * UNITS_PER_WORD)
 	return false;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
