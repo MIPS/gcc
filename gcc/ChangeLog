@@ -1,3 +1,35 @@
+2016-10-20  Richard Biener  <rguenther@suse.de>
+
+	* cgraphunit.c (analyze_functions): Set node->definition to
+	false to signal symbol removal to debug_hooks->late_global_decl.
+	* ipa.c (symbol_table::remove_unreachable_nodes): When not in
+	WPA signal symbol removal to the debuginfo machinery.
+	* dwarf2out.c (dwarf2out_late_global_decl): Instead of
+	using early_finised to guard the we're called for symbol
+	removal case look at the symtabs definition flag.
+	(gen_variable_die): Remove redundant check.
+
+2016-10-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("prefetch"): Add fallthrough comment.
+
+2016-10-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR tree-optimization/53979
+	* match.pd ((a ^ b) | a -> a | b): New pattern.
+
+2016-10-19  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa64-hpux.h (PA_INIT_FRAME_DUMMY_ASM_OP): Move to
+	config/pa/pa64-hpux-lib.h.
+	(PA_CRTBEGIN_HACK): Likewise.
+	(DTOR_LIST_BEGIN): Likewise.
+
+2016-10-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/arm/arm.c (arm_emit_coreregs_64bit_shift): Clear the result
+	register only if "in" and "out" are different registers.
+
 2016-10-19  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* omp-low.c (pass_oacc_device_lower::gate): New method.

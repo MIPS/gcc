@@ -1,7 +1,4 @@
-// { dg-options "-Wno-deprecated" }
-// { dg-do compile { target c++11 } }
-
-// Copyright (C) 2005-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,32 +15,33 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.6.6.2 Template class shared_ptr [util.smartptr.shared]
+// { dg-do run { target c++14 } }
 
-#include <memory>
+#include <experimental/memory>
 #include <testsuite_hooks.h>
 
-struct A { };
-struct B { };
+struct A : std::enable_shared_from_this<A> { };
+struct B : std::experimental::enable_shared_from_this<B> { };
+struct C : A, B { };
 
-// 20.6.6.2.3 shared_ptr assignment [util.smartptr.shared.assign]
-
-// Assignment from incompatible auto_ptr<Y>
-int
+void
 test01()
 {
-  std::shared_ptr<A> a;
-  std::auto_ptr<B> b;
-  a = std::move(b);                      // { dg-error "no match" }
+  // This should not fail to compile due to ambiguous base classes:
+  std::experimental::shared_ptr<C> p(new C);
 
-  return 0;
+  // And both base classes should have been enabled:
+  std::shared_ptr<A> pa = p->A::shared_from_this();
+  VERIFY( pa != nullptr );
+  // Can't compare pa and p because they're different types
+
+  std::experimental::shared_ptr<B> pb = p->B::shared_from_this();
+  VERIFY( pb != nullptr );
+  VERIFY( pb == p );
 }
 
-int 
+int
 main()
 {
   test01();
-  return 0;
 }
-
-// { dg-prune-output "cannot convert" }

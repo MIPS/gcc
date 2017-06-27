@@ -1,4 +1,126 @@
+2016-10-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/backward/auto_ptr.h (__shared_ptr(auto_ptr&&))
+	(shared_ptr(auto_ptr&&)): Adjust template parameter lists.
+	* include/bits/shared_ptr.h (__sp_compatible_with)
+	(__sp_is_constructible): New helper traits for shared_ptr.
+	(shared_ptr::_Convertible): Replace with _Constructible.
+	(shared_ptr::_Constructible, shared_ptr::_Assignable): Forward checks
+	to base class.
+	(shared_ptr::shared_ptr, shared_ptr::operator=): Constrain template
+	with _Constructible and _Assignable.
+	(shared_ptr::shared_ptr(shared_ptr<_Tp1>, _Tp*)): Use element_type
+	instead of _Tp.
+	(operator<): Likewise.
+	(operator>): Define in terms of operator<.
+	(static_pointer_cast, const_pointer_cast, dynamic_pointer_cast): Use
+	element_type instead of _Tp.
+	(reinterpret_pointer_cast): Define for C++17.
+	(weak_ptr::_Convertible): Replace with _Constructible.
+	(weak_ptr::_Constructible, weak_ptr::_Assignable): Forward checks
+	to base class.
+	(weak_ptr::weak_ptr, weak_ptr::operator=): Constrain templates
+	with _Constructible and _Assignable.
+	* include/bits/shared_ptr_base.h (__shared_ptr::_Convertible): Replace
+	with _Compatible.
+	(__shared_ptr::_SafeConv): New constraint for incoming raw pointers.
+	(__shared_ptr::_Compatible): New constraint for converting from
+	other types of shared_ptr and weak_ptr.
+	(__shared_ptr::_Assignable): Define in terms of _Compatible.
+	(__shared_ptr::_UniqCompatible, __shared_ptr::_UniqAssignable): New
+	constraints for converting from unique_ptr.
+	(__shared_ptr::__shared_ptr, __shared_ptr::operator=): Constrain
+	template with _SaveConf, _Compatible and _Assignable. Remove
+	__glibcxx_function_requires concept checks. Add static assertion for
+	deleter expression being well-formed.
+	(__shared_ptr::__shared_ptr(__shared_ptr<_Tp1>, _Tp*))
+	(__shared_ptr::operator*, __shared_ptr::operator->)
+	(__shared_ptr::get, __shared_ptr::_M_ptr): Use element_type instead
+	of _Tp.
+	(operator<): Likewise.
+	(operator>): Define in terms of operator<.
+	(static_pointer_cast, const_pointer_cast, dynamic_pointer_cast): Use
+	element_type instead of _Tp.
+	(reinterpret_pointer_cast): Define for C++17.
+	(weak_ptr::_Convertible): Replace with _Compatible.
+	(weak_ptr::_Compatible, weak_ptr::_Assignable): New constraints for
+	conversions from other types of weak_ptr and shared_ptr.
+	(__weak_ptr::__weak_ptr, __weak_ptr::operator=): Constrain templates
+	with _Constructible and _Assignable.
+	(__weak_ptr::_M_ptr): Use element_type instead of _Tp.
+	* testsuite/20_util/shared_ptr/assign/auto_ptr_neg.cc: Adjust
+	dg-error pattern.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr.cc: Test conversions.
+	* testsuite/20_util/shared_ptr/cons/unique_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/casts/reinterpret.cc: New test.
+
+2016-10-20  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Do the operator= SFINAE in the return type for optional,
+	not in the template parameters.
+	* include/std/optional (operator=(_Up&&)): Move SFINAE
+	from template parameters to the return type.
+	(operator=(const optional<_Up>&)): Likewise.
+	(operator=(optional<_Up>&&)): Likewise.
+
+2016-10-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/allocator.h: Remove trailing whitespace, tab-indent.
+	* include/ext/new_allocator.h: Likewise.
+
+	PR libstdc++/78052
+	* include/bits/allocator.h (allocator<void>::construct)
+	(allocator<void>::destroy): Define.
+	* testsuite/20_util/allocator/void.cc: New test.
+
+	* testsuite/20_util/enable_shared_from_this/56383.cc: Add tests for
+	additional ambiguous cases.
+
 2016-10-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/backward/auto_ptr.h (__shared_ptr(auto_ptr&&)): Call
+	_M_enable_shared_from_this_with instead of
+	__enable_shared_from_this_helper.
+	* include/bits/shared_ptr.h (__enable_shared_from_this_helper):
+	Remove overload for std::enable_shared_from_this..
+	(__enable_shared_from_this_base): Define friend function to select a
+	std::enable_shared_from_this base class.
+	* include/bits/shared_ptr_base.h (__enable_shared_from_this_helper):
+	Remove all overloads.
+	(__shared_ptr): Change all relevant constructors to call
+	_M_enable_shared_from_this_with instead of
+	__enable_shared_from_this_helper.
+	(__shared_ptr::__efst_base_t, __shared_ptr::__has_efst_base): Helpers
+	to detect accessible and unambiguous enable_shared_from_this bases.
+	(__shared_ptr::_M_enable_shared_from_this_with): New function to
+	replace __enable_shared_from_this_helper overloads.
+	(__enable_shared_from_this_helper): Remove overload for
+	std::__enable_shared_from_this.
+	(__enable_shared_from_this_base): Define friend function to select a
+	std::__enable_shared_from_this base class.
+	* include/experimental/bits/shared_ptr.h (experimental::shared_ptr):
+	Change relevant constructors to call _M_enable_shared_from_this_with.
+	(experimental::shared_ptr::__efst_base_t)
+	(experimental::shared_ptr::__has_efst_base): Helpers to detect
+	accessible and unambiguous enable_shared_from_this bases.
+	(experimental::shared_ptr::_M_enable_shared_from_this_with): Define.
+	(experimental::__enable_shared_from_this_helper): Remove overload for
+	std::experimental::enable_shared_from_this.
+	(experimental::__expt_enable_shared_from_this_base): Define friend
+	function to select a std::experimental::enable_shared_from_this base.
+	* testsuite/experimental/memory/shared_ptr/cons/
+	enable_shared_from_this.cc: New test.
+	* testsuite/experimental/memory/shared_ptr/cons/unique_ptr_ctor.cc:
+	Adjust expected behaviour for shared_ptr<A[]>.
+
+	* include/debug/vector (__gnu_debug::vector::emplace_back): Fix return
+	type.
+
+	* include/backward/auto_ptr.h (dauto_ptr): Correct comment about
+	conversions from auto_ptr<Derived> rvalues to auto_ptr<Base>.
+	* testsuite/20_util/auto_ptr/assign_neg.cc: Remove redundant dg-error
+	directives that only match notes, not errors.
 
 	* testsuite/experimental/memory/shared_ptr/cons/unique_ptr_ctor.cc:
 	Add tests for valid and invalid conversions.
