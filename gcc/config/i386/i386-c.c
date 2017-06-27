@@ -455,6 +455,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__iamcu");
       def_or_undef (parse_in, "__iamcu__");
     }
+  if (flag_ibt)
+    def_or_undef (parse_in, "__IBT__");
+  if (flag_shstk)
+    def_or_undef (parse_in, "__SHSTK__");
 }
 
 

@@ -927,3 +927,9 @@ Attempt to avoid generating instruction sequences containing ret bytes.
 mgeneral-regs-only
 Target Report RejectNegative Mask(GENERAL_REGS_ONLY) Var(ix86_target_flags) Save
 Generate code which uses only the general registers.
+
+mibt
+Target Var(flag_ibt) Init(0) Undocumented
+
+mshstk
+Target Var(flag_shstk) Init(0) Undocumented
