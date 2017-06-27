@@ -60,7 +60,7 @@ not after.
 #define MAX_SUBRECORD_LENGTH 2147483639   /* 2**31-9 */
 
 
-#define gfc_is_whitespace(c) ((c==' ') || (c=='\t'))
+#define gfc_is_whitespace(c) ((c==' ') || (c=='\t') || (c=='\f'))
 
 /* Macros to check for groups of structure-like types and flavors since
    derived types, structures, maps, unions are often treated similarly. */
@@ -2299,7 +2299,9 @@ typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
     *blank, *position, *action, *delim, *pad, *iostat, *iomsg, *convert,
-    *decimal, *encoding, *round, *sign, *asynchronous, *id, *newunit;
+    *decimal, *encoding, *round, *sign, *asynchronous, *id, *newunit,
+    *share, *cc;
+  char readonly;
   gfc_st_label *err;
 }
 gfc_open;
@@ -2328,7 +2330,7 @@ typedef struct
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
     *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert, *strm_pos,
     *asynchronous, *decimal, *encoding, *pending, *round, *sign, *size, *id,
-    *iqstream;
+    *iqstream, *share, *cc;
 
   gfc_st_label *err;
 
@@ -2563,8 +2565,6 @@ typedef struct
   int flag_init_logical;
   int flag_init_character;
   char flag_init_character_value;
-
-  int flag_dec_structure;
 
   int fpe;
   int fpe_summary;

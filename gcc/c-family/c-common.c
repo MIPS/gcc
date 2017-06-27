@@ -375,6 +375,7 @@ const struct c_common_resword c_common_reswords[] =
     RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
+  { "__builtin_launder", RID_BUILTIN_LAUNDER, D_CXXONLY },
   { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, 0 },
   { "__builtin_offsetof", RID_OFFSETOF, 0 },
   { "__builtin_types_compatible_p", RID_TYPES_COMPATIBLE_P, D_CONLY },
@@ -3327,6 +3328,11 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	return c_common_truthvalue_conversion (location,
 					       TREE_OPERAND (expr, 0));
 
+    case MULT_EXPR:
+      warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
+		  "%<*%> in boolean context, suggest %<&&%> instead");
+      break;
+
     case LSHIFT_EXPR:
       /* We will only warn on signed shifts here, because the majority of
 	 false positive warnings happen in code where unsigned arithmetic
@@ -3336,7 +3342,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
 	  && !TYPE_UNSIGNED (TREE_TYPE (expr)))
 	warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
-		    "<< in boolean context, did you mean '<' ?");
+		    "%<<<%> in boolean context, did you mean %<<%> ?");
       break;
 
     case COND_EXPR:

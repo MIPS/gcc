@@ -1330,6 +1330,10 @@ cxx_eval_internal_function (const constexpr_ctx *ctx, tree t,
       opcode = MULT_EXPR;
       break;
 
+    case IFN_LAUNDER:
+      return cxx_eval_constant_expression (ctx, CALL_EXPR_ARG (t, 0),
+					   false, non_constant_p, overflow_p);
+
     default:
       if (!ctx->quiet)
 	error_at (EXPR_LOC_OR_LOC (t, input_location),
@@ -1660,6 +1664,10 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       if (entry)
 	entry->result = result;
     }
+
+  /* The result of a constexpr function must be completely initialized.  */
+  if (TREE_CODE (result) == CONSTRUCTOR)
+    CONSTRUCTOR_NO_IMPLICIT_ZERO (result) = false;
 
   pop_cx_call_context ();
   return unshare_constructor (result);
@@ -4479,6 +4487,16 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
       non_constant_p = true;
     }
 
+  if (TREE_CODE (r) == CONSTRUCTOR
+      && CONSTRUCTOR_NO_IMPLICIT_ZERO (r))
+    {
+      if (!allow_non_constant)
+	error ("%qE is not a constant expression because it refers to "
+	       "an incompletely initialized variable", t);
+      TREE_CONSTANT (r) = false;
+      non_constant_p = true;
+    }
+
   /* Technically we should check this for all subexpressions, but that
      runs into problems with our internal representation of pointer
      subtraction and the 5.19 rules are still in flux.  */
@@ -4777,6 +4795,8 @@ maybe_constant_init (tree t, tree decl)
     t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == INIT_EXPR)
     t = TREE_OPERAND (t, 1);
+  if (TREE_CODE (t) == TARGET_EXPR)
+    t = TARGET_EXPR_INITIAL (t);
   if (!potential_nondependent_static_init_expression (t))
     /* Don't try to evaluate it.  */;
   else
@@ -4920,6 +4940,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 		case IFN_ADD_OVERFLOW:
 		case IFN_SUB_OVERFLOW:
 		case IFN_MUL_OVERFLOW:
+		case IFN_LAUNDER:
 		  bail = false;
 
 		default:

@@ -1,3 +1,189 @@
+2016-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78108
+	* gfortran.dg/submodule_18.f08: New test.
+	* gfortran.dg/submodule_19.f08: New test.
+
+2016-10-26  Michael Matz  <matz@suse.de>
+
+	* g++.dg/pr78060.C: New test.
+	* gfortran.dg/pr78061.f: New test.
+	* g++.dg/pr78088.C: New test.
+
+2016-10-26  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_io_1.f90: New test.
+	* gfortran.dg/dec_io_2.f90: New test.
+	* gfortran.dg/dec_io_3.f90: New test.
+	* gfortran.dg/dec_io_4.f90: New test.
+	* gfortran.dg/dec_io_5.f90: New test.
+	* gfortran.dg/dec_io_6.f90: New test.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/78106
+	* gcc.dg/asan/pr78106.c: Add -ffat-lto-objects to dg-options.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_bitwise_ops_1.f90: New test.
+	* gfortran.dg/dec_bitwise_ops_2.f90: New test.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt59.adb: New test.
+	* gnat.dg/opt59_pkg.ad[sb]: New helper.
+
+	* gnat.dg/opt60.adb: New test.
+
+2016-10-25  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/72770
+	* gfortran.dg/alloc_comp_class_5.f03: Added test again that caused
+	this pr.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78102
+	* gcc.target/i386/pr78102.c: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_logical_xor_1.f90: New test.
+	* gfortran.dg/dec_logical_xor_2.f90: New test.
+	* gfortran.dg/dec_logical_xor_3.f03: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_loc_rval_1.f90: New test.
+	* gfortran.dg/dec_loc_rval_2.f90: New test.
+	* gfortran.dg/dec_loc_rval_3.f03: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_type_print.f90: New testcase.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/feed_1.f90: New test.
+	* gfortran.dg/feed_2.f90: New test.
+
+2016-10-25  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78106
+	* gcc.dg/asan/pr78106.c: New test.
+
+2016-10-25  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/ipa/ipa-icf-32.c: Removed one scanned pattern.
+
+2016-10-25  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/78041
+	* gcc.target/arm/pr78041.c: New test.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/launder1.C: New test.
+	* g++.dg/cpp1z/launder2.C: New test.
+
+2016-10-25  Georg-Johann Lay  <avr@gjlay.de>
+	    Pitchumani Sivanupandi  <pitchumani.sivanupandi@microchip.com>
+
+	PR target/71676
+	PR target/71678
+	* gcc.target/avr/pr71676-2.c: New test.
+
+2016-10-25  Georg-Johann Lay  <avr@gjlay.de>
+	    Pitchumani Sivanupandi  <pitchumani.sivanupandi@microchip.com>
+
+	PR target/71676
+	PR target/71678
+	* gcc.target/avr/pr71676-1.c: New test.
+	* gcc.target/avr/pr71676-3.c: New test.
+	* gcc.target/avr/pr71676.c: New test.
+	* gcc.target/avr/pr71678.c: New test.
+
+2016-10-24  Kugan Vivekanandarajah  <kuganvi@linaro.org>
+
+	* gcc.target/aarch64/test_frame_common.h: Add noclone attribute
+	such that cloned verions of tested functions are not created.
+
+2016-10-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71895
+	* gfortran.dg/pr71895.f90: New test.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/ref-2.C: New test.
+
+2016-10-24  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context-3.c: New test.
+
+2016-10-24  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77735
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Same.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: Same.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Adjust/relax.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-6.c: XFAIL for LP64 only.
+	* gcc.dg/tree-ssa/builtin-sprintf.c: Add test cases.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/71491
+	* gcc.dg/vect/slp-43.c: Adjust for !vect_hw_misalign.
+	* gcc.dg/vect/slp-45.c: Likewise.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/cunroll-13.c: Disable EVRP.
+	* gcc.dg/tree-ssa/pr21458.c: Likewise.
+	* gcc.dg/tree-ssa/pr21458-2.c: New testcase for EVRP.
+
+2016-10-24  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78093
+	* lib/target-supports.exp (check_effective_target_avr_tiny): New proc.
+	* gcc.target/avr/torture/tiny-absdata-1.c: New test.
+
+2016-10-24  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pure-code/pure-code.exp: Restore saved globals.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/bmi2-pext-1.c: New test.
+	* gcc.target/i386/bmi2-pdep-1.c: New test.
+	* gcc.target/i386/bmi2-bzhi-3.c: New test.
+	* gcc.target/i386/tbm-bextri-1.c: New test.
+	* gcc.target/i386/bmi-bextr-6.c: New test.
+
+2016-10-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/77483
+	* gcc.target/i386/mask-unpack.c (dg-options): Add -mno-stackrealign.
+	* gcc.target/i386/pr65105-1.c: Likewise.
+	* gcc.target/i386/pr65105-2.c: Likewise.
+	* gcc.target/i386/pr65105-3.c: Likewise.
+	* gcc.target/i386/pr65105-5.c: Likewise.
+	* gcc.target/i386/pr67761.c: Likewise.
+	* gcc.target/i386/pr70799-1.c: Likewise.
+
+2016-10-24  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/77966
+	* c-c++-common/ubsan/unreachable-3.c: New test.
+
+2016-10-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77763
+	* gfortran.dg/pr77763.f90
+
 2016-10-23  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/54730
@@ -524,7 +710,7 @@
 	* g++.dg/concepts/decl-diagnose.C (struct X): Expect also error about
 	uninitialized const.
 
-2016-10-13  Sandra Loosemore <sandra@codesourcery.com>
+2016-10-13  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc.target/arm/scd42-1.c: Skip if -mcpu incompatible with
 	Xscale is specified, not just -march.

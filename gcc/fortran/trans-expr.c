@@ -158,6 +158,7 @@ gfc_get_ultimate_alloc_ptr_comps_caf_token (gfc_se *outerse, gfc_expr *expr)
 #define VTABLE_DEF_INIT_FIELD 3
 #define VTABLE_COPY_FIELD 4
 #define VTABLE_FINAL_FIELD 5
+#define VTABLE_DEALLOCATE_FIELD 6
 
 
 tree
@@ -198,7 +199,7 @@ gfc_class_vptr_get (tree decl)
   tree vptr;
   /* For class arrays decl may be a temporary descriptor handle, the vptr is
      then available through the saved descriptor.  */
-  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+  if (VAR_P (decl) && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
     decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
@@ -217,7 +218,7 @@ gfc_class_len_get (tree decl)
   tree len;
   /* For class arrays decl may be a temporary descriptor handle, the len is
      then available through the saved descriptor.  */
-  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+  if (VAR_P (decl) && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
     decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
@@ -239,7 +240,7 @@ gfc_class_len_or_zero_get (tree decl)
   tree len;
   /* For class arrays decl may be a temporary descriptor handle, the vptr is
      then available through the saved descriptor.  */
-  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+  if (VAR_P (decl) && DECL_LANG_SPECIFIC (decl)
       && GFC_DECL_SAVED_DESCRIPTOR (decl))
     decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
@@ -300,6 +301,7 @@ VTAB_GET_FIELD_GEN (extends, VTABLE_EXTENDS_FIELD)
 VTAB_GET_FIELD_GEN (def_init, VTABLE_DEF_INIT_FIELD)
 VTAB_GET_FIELD_GEN (copy, VTABLE_COPY_FIELD)
 VTAB_GET_FIELD_GEN (final, VTABLE_FINAL_FIELD)
+VTAB_GET_FIELD_GEN (deallocate, VTABLE_DEALLOCATE_FIELD)
 
 
 /* The size field is returned as an array index type.  Therefore treat
@@ -485,8 +487,7 @@ gfc_get_vptr_from_expr (tree expr)
 	  else
 	    type = NULL_TREE;
 	}
-      if (TREE_CODE (tmp) == VAR_DECL
-	  || TREE_CODE (tmp) == PARM_DECL)
+      if (VAR_P (tmp) || TREE_CODE (tmp) == PARM_DECL)
 	break;
     }
 
@@ -861,7 +862,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
     {
       ctree = gfc_class_len_get (var);
       /* When the actual arg is a char array, then set the _len component of the
-       unlimited polymorphic entity, too.  */
+	 unlimited polymorphic entity to the length of the string.  */
       if (e->ts.type == BT_CHARACTER)
 	{
 	  /* Start with parmse->string_length because this seems to be set to a
@@ -1506,27 +1507,6 @@ gfc_trans_class_init_assign (gfc_code *code)
 
   return gfc_finish_block (&block);
 }
-
-
-/* Return the backend_decl for the vtable of an arbitrary typespec
-   and the vtable symbol.  */
-
-tree
-gfc_get_vtable_decl (gfc_typespec *ts, gfc_symbol **vtab)
-{
-  gfc_symbol *vtable = gfc_find_vtab (ts);
-  gcc_assert (vtable != NULL);
-  if (vtab != NULL)
-    *vtab = vtable;
-  if (vtable->backend_decl == NULL_TREE)
-    return gfc_get_symbol_decl (vtable);
-  else
-    return vtable->backend_decl;
-}
-
-
-  /* Translate an assignment to a CLASS object
-     (pointer or ordinary assignment).  */
 
 
 /* End of prototype trans-class.c  */
@@ -2181,9 +2161,7 @@ gfc_conv_string_length (gfc_charlen * cl, gfc_expr * expr, stmtblock_t * pblock)
 
   gfc_init_se (&se, NULL);
 
-  if (!cl->length
-	&& cl->backend_decl
-	&& TREE_CODE (cl->backend_decl) == VAR_DECL)
+  if (!cl->length && cl->backend_decl && VAR_P (cl->backend_decl))
     return;
 
   /* If cl->length is NULL, use gfc_conv_expr to obtain the string length but
@@ -3685,7 +3663,7 @@ conv_base_obj_fcn_val (gfc_se * se, tree base_object, gfc_expr * expr)
   gfc_ref *ref;
   tree var;
 
-  if (TREE_CODE (base_object) != VAR_DECL)
+  if (!VAR_P (base_object))
     {
       var = gfc_create_var (TREE_TYPE (base_object), NULL);
       gfc_add_modify (&se->pre, var, base_object);
@@ -5696,8 +5674,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  else
 	    {
 	      tmp = parmse.string_length;
-	      if (TREE_CODE (tmp) != VAR_DECL
-		  && TREE_CODE (tmp) != COMPONENT_REF)
+	      if (!VAR_P (tmp) && TREE_CODE (tmp) != COMPONENT_REF)
 		tmp = gfc_evaluate_now (parmse.string_length, &se->pre);
 	      parmse.string_length = gfc_build_addr_expr (NULL_TREE, tmp);
 	    }
@@ -6040,7 +6017,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (ts.type == BT_CHARACTER && ts.deferred)
 	{
 	  tmp = len;
-	  if (TREE_CODE (tmp) != VAR_DECL)
+	  if (!VAR_P (tmp))
 	    tmp = gfc_evaluate_now (len, &se->pre);
 	  TREE_STATIC (tmp) = 1;
 	  gfc_add_modify (&se->pre, tmp,
@@ -9713,7 +9690,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 
   /* Stabilize a string length for temporaries.  */
   if (expr2->ts.type == BT_CHARACTER && !expr1->ts.deferred
-      && !(TREE_CODE (rse.string_length) == VAR_DECL
+      && !(VAR_P (rse.string_length)
 	   || TREE_CODE (rse.string_length) == PARM_DECL
 	   || TREE_CODE (rse.string_length) == INDIRECT_REF))
     string_length = gfc_evaluate_now (rse.string_length, &rse.pre);

@@ -63,37 +63,59 @@
    (set_attr "predicable" "no")])
 
 (define_insn "atomic_load<mode>"
-  [(set (match_operand:QHSI 0 "register_operand" "=r")
+  [(set (match_operand:QHSI 0 "register_operand" "=r,r,l")
     (unspec_volatile:QHSI
-      [(match_operand:QHSI 1 "arm_sync_memory_operand" "Q")
-       (match_operand:SI 2 "const_int_operand")]		;; model
+      [(match_operand:QHSI 1 "arm_sync_memory_operand" "Q,Q,Q")
+       (match_operand:SI 2 "const_int_operand" "n,Pf,n")]	;; model
       VUNSPEC_LDA))]
   "TARGET_HAVE_LDACQ"
   {
     enum memmodel model = memmodel_from_int (INTVAL (operands[2]));
     if (is_mm_relaxed (model) || is_mm_consume (model) || is_mm_release (model))
-      return \"ldr<sync_sfx>%?\\t%0, %1\";
+      {
+	if (TARGET_THUMB1)
+	  return \"ldr<sync_sfx>\\t%0, %1\";
+	else
+	  return \"ldr<sync_sfx>%?\\t%0, %1\";
+      }
     else
-      return \"lda<sync_sfx>%?\\t%0, %1\";
+      {
+	if (TARGET_THUMB1)
+	  return \"lda<sync_sfx>\\t%0, %1\";
+	else
+	  return \"lda<sync_sfx>%?\\t%0, %1\";
+      }
   }
-  [(set_attr "predicable" "yes")
+  [(set_attr "arch" "32,v8mb,any")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "atomic_store<mode>"
-  [(set (match_operand:QHSI 0 "memory_operand" "=Q")
+  [(set (match_operand:QHSI 0 "memory_operand" "=Q,Q,Q")
     (unspec_volatile:QHSI
-      [(match_operand:QHSI 1 "general_operand" "r")
-       (match_operand:SI 2 "const_int_operand")]		;; model
+      [(match_operand:QHSI 1 "general_operand" "r,r,l")
+       (match_operand:SI 2 "const_int_operand" "n,Pf,n")]	;; model
       VUNSPEC_STL))]
   "TARGET_HAVE_LDACQ"
   {
     enum memmodel model = memmodel_from_int (INTVAL (operands[2]));
     if (is_mm_relaxed (model) || is_mm_consume (model) || is_mm_acquire (model))
-      return \"str<sync_sfx>%?\t%1, %0\";
+      {
+	if (TARGET_THUMB1)
+	  return \"str<sync_sfx>\t%1, %0\";
+	else
+	  return \"str<sync_sfx>%?\t%1, %0\";
+      }
     else
-      return \"stl<sync_sfx>%?\t%1, %0\";
+      {
+	if (TARGET_THUMB1)
+	  return \"stl<sync_sfx>\t%1, %0\";
+	else
+	  return \"stl<sync_sfx>%?\t%1, %0\";
+      }
   }
-  [(set_attr "predicable" "yes")
+  [(set_attr "arch" "32,v8mb,any")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 ;; An LDRD instruction usable by the atomic_loaddi expander on LPAE targets
@@ -167,21 +189,23 @@
   DONE;
 })
 
+;; Constraints of this pattern must be at least as strict as those of the
+;; cbranchsi operations in thumb1.md and aim to be as permissive.
 (define_insn_and_split "atomic_compare_and_swap<mode>_1"
-  [(set (reg:CC_Z CC_REGNUM)					;; bool out
+  [(set (match_operand 0 "cc_register_operand" "=&c,&l,&l,&l")		;; bool out
 	(unspec_volatile:CC_Z [(const_int 0)] VUNSPEC_ATOMIC_CAS))
-   (set (match_operand:SI 0 "s_register_operand" "=&r")		;; val out
+   (set (match_operand:SI 1 "s_register_operand" "=&r,&l,&0,&l*h")	;; val out
 	(zero_extend:SI
-	  (match_operand:NARROW 1 "mem_noofs_operand" "+Ua")))	;; memory
-   (set (match_dup 1)
+	  (match_operand:NARROW 2 "mem_noofs_operand" "+Ua,Ua,Ua,Ua")))	;; memory
+   (set (match_dup 2)
 	(unspec_volatile:NARROW
-	  [(match_operand:SI 2 "arm_add_operand" "rIL")		;; expected
-	   (match_operand:NARROW 3 "s_register_operand" "r")	;; desired
-	   (match_operand:SI 4 "const_int_operand")		;; is_weak
-	   (match_operand:SI 5 "const_int_operand")		;; mod_s
-	   (match_operand:SI 6 "const_int_operand")]		;; mod_f
+	  [(match_operand:SI 3 "arm_add_operand" "rIL,lIL*h,J,*r")	;; expected
+	   (match_operand:NARROW 4 "s_register_operand" "r,r,r,r")	;; desired
+	   (match_operand:SI 5 "const_int_operand")		;; is_weak
+	   (match_operand:SI 6 "const_int_operand")		;; mod_s
+	   (match_operand:SI 7 "const_int_operand")]		;; mod_f
 	  VUNSPEC_ATOMIC_CAS))
-   (clobber (match_scratch:SI 7 "=&r"))]
+   (clobber (match_scratch:SI 8 "=&r,X,X,X"))]
   "<sync_predtab>"
   "#"
   "&& reload_completed"
@@ -189,27 +213,30 @@
   {
     arm_split_compare_and_swap (operands);
     DONE;
-  })
+  }
+  [(set_attr "arch" "32,v8mb,v8mb,v8mb")])
 
 (define_mode_attr cas_cmp_operand
   [(SI "arm_add_operand") (DI "cmpdi_operand")])
 (define_mode_attr cas_cmp_str
   [(SI "rIL") (DI "rDi")])
 
+;; Constraints of this pattern must be at least as strict as those of the
+;; cbranchsi operations in thumb1.md and aim to be as permissive.
 (define_insn_and_split "atomic_compare_and_swap<mode>_1"
-  [(set (reg:CC_Z CC_REGNUM)					;; bool out
+  [(set (match_operand 0 "cc_register_operand" "=&c,&l,&l,&l")		;; bool out
 	(unspec_volatile:CC_Z [(const_int 0)] VUNSPEC_ATOMIC_CAS))
-   (set (match_operand:SIDI 0 "s_register_operand" "=&r")	;; val out
-	(match_operand:SIDI 1 "mem_noofs_operand" "+Ua"))	;; memory
-   (set (match_dup 1)
+   (set (match_operand:SIDI 1 "s_register_operand" "=&r,&l,&0,&l*h")	;; val out
+	(match_operand:SIDI 2 "mem_noofs_operand" "+Ua,Ua,Ua,Ua"))	;; memory
+   (set (match_dup 2)
 	(unspec_volatile:SIDI
-	  [(match_operand:SIDI 2 "<cas_cmp_operand>" "<cas_cmp_str>") ;; expect
-	   (match_operand:SIDI 3 "s_register_operand" "r")	;; desired
-	   (match_operand:SI 4 "const_int_operand")		;; is_weak
-	   (match_operand:SI 5 "const_int_operand")		;; mod_s
-	   (match_operand:SI 6 "const_int_operand")]		;; mod_f
+	  [(match_operand:SIDI 3 "<cas_cmp_operand>" "<cas_cmp_str>,lIL*h,J,*r") ;; expect
+	   (match_operand:SIDI 4 "s_register_operand" "r,r,r,r")	;; desired
+	   (match_operand:SI 5 "const_int_operand")		;; is_weak
+	   (match_operand:SI 6 "const_int_operand")		;; mod_s
+	   (match_operand:SI 7 "const_int_operand")]		;; mod_f
 	  VUNSPEC_ATOMIC_CAS))
-   (clobber (match_scratch:SI 7 "=&r"))]
+   (clobber (match_scratch:SI 8 "=&r,X,X,X"))]
   "<sync_predtab>"
   "#"
   "&& reload_completed"
@@ -217,7 +244,8 @@
   {
     arm_split_compare_and_swap (operands);
     DONE;
-  })
+  }
+  [(set_attr "arch" "32,v8mb,v8mb,v8mb")])
 
 (define_insn_and_split "atomic_exchange<mode>"
   [(set (match_operand:QHSD 0 "s_register_operand" "=&r")	;; output
@@ -380,45 +408,57 @@
   })
 
 (define_insn "arm_load_exclusive<mode>"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
         (zero_extend:SI
 	  (unspec_volatile:NARROW
-	    [(match_operand:NARROW 1 "mem_noofs_operand" "Ua")]
+	    [(match_operand:NARROW 1 "mem_noofs_operand" "Ua,Ua")]
 	    VUNSPEC_LL)))]
   "TARGET_HAVE_LDREXBH"
-  "ldrex<sync_sfx>%?\t%0, %C1"
-  [(set_attr "predicable" "yes")
+  "@
+   ldrex<sync_sfx>%?\t%0, %C1
+   ldrex<sync_sfx>\t%0, %C1"
+  [(set_attr "arch" "32,v8mb")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "arm_load_acquire_exclusive<mode>"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
         (zero_extend:SI
 	  (unspec_volatile:NARROW
-	    [(match_operand:NARROW 1 "mem_noofs_operand" "Ua")]
+	    [(match_operand:NARROW 1 "mem_noofs_operand" "Ua,Ua")]
 	    VUNSPEC_LAX)))]
   "TARGET_HAVE_LDACQ"
-  "ldaex<sync_sfx>%?\\t%0, %C1"
-  [(set_attr "predicable" "yes")
+  "@
+   ldaex<sync_sfx>%?\\t%0, %C1
+   ldaex<sync_sfx>\\t%0, %C1"
+  [(set_attr "arch" "32,v8mb")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "arm_load_exclusivesi"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(unspec_volatile:SI
-	  [(match_operand:SI 1 "mem_noofs_operand" "Ua")]
+	  [(match_operand:SI 1 "mem_noofs_operand" "Ua,Ua")]
 	  VUNSPEC_LL))]
   "TARGET_HAVE_LDREX"
-  "ldrex%?\t%0, %C1"
-  [(set_attr "predicable" "yes")
+  "@
+   ldrex%?\t%0, %C1
+   ldrex\t%0, %C1"
+  [(set_attr "arch" "32,v8mb")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "arm_load_acquire_exclusivesi"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
 	(unspec_volatile:SI
-	  [(match_operand:SI 1 "mem_noofs_operand" "Ua")]
+	  [(match_operand:SI 1 "mem_noofs_operand" "Ua,Ua")]
 	  VUNSPEC_LAX))]
   "TARGET_HAVE_LDACQ"
-  "ldaex%?\t%0, %C1"
-  [(set_attr "predicable" "yes")
+  "@
+   ldaex%?\t%0, %C1
+   ldaex\t%0, %C1"
+  [(set_attr "arch" "32,v8mb")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "arm_load_exclusivedi"
@@ -460,7 +500,10 @@
 	gcc_assert ((REGNO (operands[2]) & 1) == 0 || TARGET_THUMB2);
 	return "strexd%?\t%0, %2, %H2, %C1";
       }
-    return "strex<sync_sfx>%?\t%0, %2, %C1";
+    if (TARGET_THUMB1)
+      return "strex<sync_sfx>\t%0, %2, %C1";
+    else
+      return "strex<sync_sfx>%?\t%0, %2, %C1";
   }
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])
@@ -482,13 +525,16 @@
    (set_attr "predicable_short_it" "no")])
 
 (define_insn "arm_store_release_exclusive<mode>"
-  [(set (match_operand:SI 0 "s_register_operand" "=&r")
+  [(set (match_operand:SI 0 "s_register_operand" "=&r,&r")
 	(unspec_volatile:SI [(const_int 0)] VUNSPEC_SLX))
-   (set (match_operand:QHSI 1 "mem_noofs_operand" "=Ua")
+   (set (match_operand:QHSI 1 "mem_noofs_operand" "=Ua,Ua")
 	(unspec_volatile:QHSI
-	  [(match_operand:QHSI 2 "s_register_operand" "r")]
+	  [(match_operand:QHSI 2 "s_register_operand" "r,r")]
 	  VUNSPEC_SLX))]
   "TARGET_HAVE_LDACQ"
-  "stlex<sync_sfx>%?\t%0, %2, %C1"
-  [(set_attr "predicable" "yes")
+  "@
+   stlex<sync_sfx>%?\t%0, %2, %C1
+   stlex<sync_sfx>\t%0, %2, %C1"
+  [(set_attr "arch" "32,v8mb")
+   (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")])

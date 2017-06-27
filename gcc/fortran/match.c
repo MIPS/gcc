@@ -159,7 +159,7 @@ gfc_match_member_sep(gfc_symbol *sym)
     return MATCH_YES;
 
   /* Beware ye who enter here.  */
-  if (!gfc_option.flag_dec_structure || !sym)
+  if (!flag_dec_structure || !sym)
     return MATCH_NO;
 
   tsym = NULL;
@@ -960,6 +960,19 @@ gfc_match_intrinsic_op (gfc_intrinsic_op *result)
 	    }
 	  break;
 
+	case 'x':
+	  if (gfc_next_ascii_char () == 'o'
+	      && gfc_next_ascii_char () == 'r'
+	      && gfc_next_ascii_char () == '.')
+	    {
+              if (!gfc_notify_std (GFC_STD_LEGACY, ".XOR. operator at %C"))
+                return MATCH_ERROR;
+	      /* Matched ".xor." - equivalent to ".neqv.".  */
+	      *result = INTRINSIC_NEQV;
+	      return MATCH_YES;
+	    }
+	  break;
+
 	default:
 	  break;
 	}
@@ -1621,6 +1634,9 @@ gfc_match_if (gfc_statement *if_type)
   match ("unlock", gfc_match_unlock, ST_UNLOCK)
   match ("where", match_simple_where, ST_WHERE)
   match ("write", gfc_match_write, ST_WRITE)
+
+  if (flag_dec)
+    match ("type", gfc_match_print, ST_WRITE)
 
   /* The gfc_match_assignment() above may have returned a MATCH_NO
      where the assignment was to a named constant.  Check that

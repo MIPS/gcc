@@ -413,6 +413,12 @@ decode_statement (void)
   gfc_undo_symbols ();
   gfc_current_locus = old_locus;
 
+  /* Try to match TYPE as an alias for PRINT.  */
+  if (gfc_match_type (&st) == MATCH_YES)
+    return st;
+  gfc_undo_symbols ();
+  gfc_current_locus = old_locus;
+
   match (NULL, gfc_match_do, ST_DO);
   match (NULL, gfc_match_block, ST_BLOCK);
   match (NULL, gfc_match_associate, ST_ASSOCIATE);
@@ -3588,17 +3594,18 @@ loop:
     /* Fortran 2008, C1116.  */
     switch (st)
       {
-        case ST_DATA_DECL:
+	case ST_ATTR_DECL:
 	case ST_COMMON:
 	case ST_DATA:
-	case ST_TYPE:
+	case ST_DATA_DECL:
+	case ST_DERIVED_DECL:
 	case ST_END_BLOCK_DATA:
-	case ST_ATTR_DECL:
 	case ST_EQUIVALENCE:
-	case ST_PARAMETER:
 	case ST_IMPLICIT:
 	case ST_IMPLICIT_NONE:
-	case ST_DERIVED_DECL:
+	case ST_PARAMETER:
+	case ST_STRUCTURE_DECL:
+	case ST_TYPE:
 	case ST_USE:
 	  break;
 
