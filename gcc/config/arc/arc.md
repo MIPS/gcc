@@ -1939,13 +1939,11 @@
 				  (const_int 0))))
    (clobber (match_operand:SI 3 "acc1_operand" ""))]
   "TARGET_MULMAC_32BY16_SET"
-  "@mululw 0, %0, %1
-    mululw 0, %0, %1
-    mululw%? 0, %1, %0"
+  "mululw 0, %0, %1"
   [(set_attr "length" "4,4,8")
-   (set_attr "type" "mulmac_600, mulmac_600, mulmac_600")
-   (set_attr "predicable" "no, no, yes")
-   (set_attr "cond" "nocond, canuse_limm, canuse")])
+   (set_attr "type" "mulmac_600")
+   (set_attr "predicable" "no")
+   (set_attr "cond" "nocond")])
 
 (define_insn "mac_600"
   [(set (match_operand:SI 2 "acc2_operand" "")
@@ -2374,13 +2372,11 @@
 				  (const_int 0))))
   ]
   "TARGET_MULMAC_32BY16_SET"
-  "@mululw 0, %0, %1
-    mululw 0, %0, %1
-    mululw%? 0, %1, %0"
+  "mululw 0, %0, %1"
   [(set_attr "length" "4,4,8")
    (set_attr "type" "mulmac_600")
-   (set_attr "predicable" "no,no,yes")
-   (set_attr "cond" "nocond, canuse_limm, canuse")])
+   (set_attr "predicable" "no")
+   (set_attr "cond" "nocond")])
 
 
 (define_insn "umac64_600"
@@ -6189,6 +6185,46 @@
 	      (set (zero_extract:SI (match_dup 0) (match_dup 5) (match_dup 6))
 		   (zero_extract:SI (match_dup 1) (match_dup 5) (match_dup 7)))])
    (match_dup 1)])
+
+(define_insn "*rotrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=w")
+	(rotatert:SI (match_operand:SI 1 "register_operand" "c")
+		     (const_int 1)))]
+  ""
+  "ror %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "predicable" "no")
+   (set_attr "length" "4")])
+
+(define_insn "*ashlsi2_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"           "=Rcqq,w")
+	(ashift:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		   (const_int 1)))]
+  ""
+  "asl%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
+
+(define_insn "*lshrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=Rcqq,w")
+	(lshiftrt:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		     (const_int 1)))]
+  ""
+  "lsr%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
+
+(define_insn "*ashrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=Rcqq,w")
+	(ashiftrt:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		     (const_int 1)))]
+  ""
+  "asr%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
 
 ;; include the arc-FPX instructions
 (include "fpx.md")

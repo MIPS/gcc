@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "memmodel.h"
 #include "tm.h"		/* For UNITS_PER_WORD.  */
 #include "tree.h"
 #include "gfortran.h"
@@ -1110,7 +1111,7 @@ compute_component_offset (tree field, tree type)
 static tree
 conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
 {
-  gfc_ref *ref = expr->ref;
+  gfc_ref *ref = expr->ref, *last_comp_ref;
   tree caf_ref = NULL_TREE, prev_caf_ref = NULL_TREE, reference_type, tmp, tmp2,
       field, last_type, inner_struct, mode, mode_rhs, dim_array, dim, dim_type,
       start, end, stride, vector, nvec;
@@ -1127,8 +1128,29 @@ conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
 
   /* Prevent uninit-warning.  */
   reference_type = NULL_TREE;
-  last_type = gfc_typenode_for_spec (&expr->symtree->n.sym->ts);
-  last_type_n = expr->symtree->n.sym->ts.type;
+
+  /* Skip refs upto the first coarray-ref.  */
+  last_comp_ref = NULL;
+  while (ref && (ref->type != REF_ARRAY || ref->u.ar.codimen == 0))
+    {
+      /* Remember the type of components skipped.  */
+      if (ref->type == REF_COMPONENT)
+	last_comp_ref = ref;
+      ref = ref->next;
+    }
+  /* When a component was skipped, get the type information of the last
+     component ref, else get the type from the symbol.  */
+  if (last_comp_ref)
+    {
+      last_type = gfc_typenode_for_spec (&last_comp_ref->u.c.component->ts);
+      last_type_n = last_comp_ref->u.c.component->ts.type;
+    }
+  else
+    {
+      last_type = gfc_typenode_for_spec (&expr->symtree->n.sym->ts);
+      last_type_n = expr->symtree->n.sym->ts.type;
+    }
+
   while (ref)
     {
       if (ref->type == REF_ARRAY && ref->u.ar.codimen > 0
@@ -6523,9 +6545,20 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
   if (actual->expr->ts.type == BT_CLASS)
     gfc_add_class_array_ref (actual->expr);
 
-  argse.want_pointer = 1;
   argse.data_not_needed = 1;
-  gfc_conv_expr_descriptor (&argse, actual->expr);
+  if (gfc_is_alloc_class_array_function (actual->expr))
+    {
+      /* For functions that return a class array conv_expr_descriptor is not
+	 able to get the descriptor right.  Therefore this special case.  */
+      gfc_conv_expr_reference (&argse, actual->expr);
+      argse.expr = gfc_build_addr_expr (NULL_TREE,
+					gfc_class_data_get (argse.expr));
+    }
+  else
+    {
+      argse.want_pointer = 1;
+      gfc_conv_expr_descriptor (&argse, actual->expr);
+    }
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
   arg1 = gfc_evaluate_now (argse.expr, &se->pre);

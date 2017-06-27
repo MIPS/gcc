@@ -26,7 +26,7 @@
 #include <iterator>
 #include <testsuite_hooks.h>
 
-#ifndef _GLIBCXX_ASSERT
+#ifdef TEST_TIMEGET_VERBOSE
 #  include <iostream>
 #  define PRINT(x) cout << #x << ": " << x << endl
 #  define TESTHEAD(x) cout << x << endl
@@ -38,7 +38,6 @@
 void test01()
 {
   using namespace std;
-  bool test __attribute__((unused)) = true;
 
   locale loc_c = locale::classic();
 

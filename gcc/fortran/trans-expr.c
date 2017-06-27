@@ -357,8 +357,7 @@ gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
   array_ref = NULL;
   for (ref = e->ref; ref; ref = ref->next)
     {
-      if (ref->type == REF_ARRAY
-	  && ref->u.ar.type != AR_ELEMENT)
+      if (ref->type == REF_ARRAY && ref->u.ar.type != AR_ELEMENT)
 	array_ref = ref;
 
       if (ref->type == REF_COMPONENT
@@ -367,11 +366,10 @@ gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
 	  /* Component to the right of a part reference with nonzero rank
 	     must not have the ALLOCATABLE attribute.  If attempts are
 	     made to reference such a component reference, an error results
-	     followed by anICE.  */
-	  if (array_ref
-	      && CLASS_DATA (ref->u.c.component)->attr.allocatable)
+	     followed by an ICE.  */
+	  if (array_ref && CLASS_DATA (ref->u.c.component)->attr.allocatable)
 	    return NULL;
-	class_ref = ref;
+	  class_ref = ref;
 	}
 
       if (ref->next == NULL)
@@ -1237,6 +1235,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       stmtblock_t body;
       stmtblock_t ifbody;
       gfc_loopinfo loop;
+      tree orig_nelems = nelems; /* Needed for bounds check.  */
 
       gfc_init_block (&body);
       tmp = fold_build2_loc (input_location, MINUS_EXPR,
@@ -1263,6 +1262,31 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 					gfc_build_array_ref (tmp, index, to));
 	}
       vec_safe_push (args, to_ref);
+
+      /* Add bounds check.  */
+      if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS) > 0 && is_from_desc)
+	{
+	  char *msg;
+	  const char *name = "<<unknown>>";
+	  tree from_len;
+
+	  if (DECL_P (to))
+	    name = (const char *)(DECL_NAME (to)->identifier.id.str);
+
+	  from_len = gfc_conv_descriptor_size (from_data, 1);
+	  tmp = fold_build2_loc (input_location, NE_EXPR,
+				  boolean_type_node, from_len, orig_nelems);
+	  msg = xasprintf ("Array bound mismatch for dimension %d "
+			   "of array '%s' (%%ld/%%ld)",
+			   1, name);
+
+	  gfc_trans_runtime_check (true, false, tmp, &body,
+				   &gfc_current_locus, msg,
+			     fold_convert (long_integer_type_node, orig_nelems),
+			       fold_convert (long_integer_type_node, from_len));
+
+	  free (msg);
+	}
 
       tmp = build_call_vec (fcn_type, fcn, args);
 
@@ -1428,7 +1452,7 @@ gfc_trans_class_init_assign (gfc_code *code)
   rhs->rank = 0;
 
   if (code->expr1->ts.type == BT_CLASS
-	&& CLASS_DATA (code->expr1)->attr.dimension)
+      && CLASS_DATA (code->expr1)->attr.dimension)
     tmp = gfc_trans_class_array_init_assign (rhs, lhs, code->expr1);
   else
     {
@@ -4009,6 +4033,10 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   if (sym->attr.flavor == FL_PROCEDURE)
     value = se->expr;
 
+  /* If the argument is a pass-by-value scalar, use the value as is.  */
+  else if (!sym->attr.dimension && sym->attr.value)
+    value = se->expr;
+
   /* If the argument is either a string or a pointer to a string,
      convert it to a boundless character type.  */
   else if (!sym->attr.dimension && sym->ts.type == BT_CHARACTER)
@@ -5876,7 +5904,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   if (comp)
     ts = comp->ts;
   else
-   ts = sym->ts;
+    ts = sym->ts;
 
   if (ts.type == BT_CHARACTER && sym->attr.is_bind_c)
     se->string_length = build_int_cst (gfc_charlen_type_node, 1);
@@ -9545,9 +9573,9 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
      nullification occurs before the call to the finalizer. In the case of
      a scalar to array assignment, this is done in gfc_trans_scalar_assign
      as part of the deep copy.  */
-  if (!scalar_to_array && (expr1->ts.type == BT_DERIVED)
-					      && (gfc_is_alloc_class_array_function (expr2)
-						      || gfc_is_alloc_class_scalar_function (expr2)))
+  if (!scalar_to_array && expr1->ts.type == BT_DERIVED
+		       && (gfc_is_alloc_class_array_function (expr2)
+			   || gfc_is_alloc_class_scalar_function (expr2)))
     {
       tmp = rse.expr;
       tmp = gfc_nullify_alloc_comp (expr1->ts.u.derived, rse.expr, 0);

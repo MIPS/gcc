@@ -670,7 +670,7 @@ force_constant_size (tree var)
 
   HOST_WIDE_INT max_size;
 
-  gcc_assert (TREE_CODE (var) == VAR_DECL);
+  gcc_assert (VAR_P (var));
 
   max_size = max_int_size_in_bytes (TREE_TYPE (var));
 
@@ -1113,7 +1113,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   /* Mark variables seen in this bind expr.  */
   for (t = BIND_EXPR_VARS (bind_expr); t ; t = DECL_CHAIN (t))
     {
-      if (TREE_CODE (t) == VAR_DECL)
+      if (VAR_P (t))
 	{
 	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
 
@@ -1143,7 +1143,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
       if ((TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
 	   || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
 	  && !TREE_THIS_VOLATILE (t)
-	  && (TREE_CODE (t) == VAR_DECL && !DECL_HARD_REGISTER (t))
+	  && (VAR_P (t) && !DECL_HARD_REGISTER (t))
 	  && !needs_to_live_in_memory (t))
 	DECL_GIMPLE_REG_P (t) = 1;
     }
@@ -1195,7 +1195,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   /* Add clobbers for all variables that go out of scope.  */
   for (t = BIND_EXPR_VARS (bind_expr); t ; t = DECL_CHAIN (t))
     {
-      if (TREE_CODE (t) == VAR_DECL
+      if (VAR_P (t)
 	  && !is_global_var (t)
 	  && DECL_CONTEXT (t) == current_function_decl
 	  && !DECL_HARD_REGISTER (t)
@@ -1455,7 +1455,7 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
     return GS_ERROR;
 
   if ((TREE_CODE (decl) == TYPE_DECL
-       || TREE_CODE (decl) == VAR_DECL)
+       || VAR_P (decl))
       && !TYPE_SIZES_GIMPLIFIED (TREE_TYPE (decl)))
     {
       gimplify_type_sizes (TREE_TYPE (decl), seq_p);
@@ -1474,7 +1474,7 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 	gimplify_type_sizes (TREE_TYPE (DECL_ORIGINAL_TYPE (decl)), seq_p);
     }
 
-  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+  if (VAR_P (decl) && !DECL_EXTERNAL (decl))
     {
       tree init = DECL_INITIAL (decl);
 
@@ -1692,6 +1692,8 @@ last_stmt_in_scope (gimple *stmt)
 	stmt = gimple_seq_last_stmt (gimple_try_eval (try_stmt));
 	gimple *last_eval = last_stmt_in_scope (stmt);
 	if (gimple_stmt_may_fallthru (last_eval)
+	    && (last_eval == NULL
+		|| !gimple_call_internal_p (last_eval, IFN_FALLTHROUGH))
 	    && gimple_try_kind (try_stmt) == GIMPLE_TRY_FINALLY)
 	  {
 	    stmt = gimple_seq_last_stmt (gimple_try_cleanup (try_stmt));
@@ -1822,6 +1824,10 @@ should_warn_for_implicit_fallthrough (gimple_stmt_iterator *gsi_p, tree label)
 {
   gimple_stmt_iterator gsi = *gsi_p;
 
+  /* Don't warn if the label is marked with a "falls through" comment.  */
+  if (FALLTHROUGH_LABEL_P (label))
+    return false;
+
   /* Don't warn for a non-case label followed by a statement:
        case 0:
 	 foo ();
@@ -1908,7 +1914,6 @@ warn_implicit_fallthrough_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	if (gimple_code (next) == GIMPLE_LABEL
 	    && gimple_has_location (next)
 	    && (label = gimple_label_label (as_a <glabel *> (next)))
-	    && !FALLTHROUGH_LABEL_P (label)
 	    && prev != NULL)
 	  {
 	    struct label_entry *l;
@@ -1918,7 +1923,7 @@ warn_implicit_fallthrough_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	    else if (gimple_code (prev) == GIMPLE_LABEL
 		     && (label = gimple_label_label (as_a <glabel *> (prev)))
 		     && (l = find_label_entry (&labels, label)))
-	      warned_p = warning_at (l->loc, OPT_Wimplicit_fallthrough,
+	      warned_p = warning_at (l->loc, OPT_Wimplicit_fallthrough_,
 				     "this statement may fall through");
 	    else if (!gimple_call_internal_p (prev, IFN_FALLTHROUGH)
 		     /* Try to be clever and don't warn when the statement
@@ -1926,7 +1931,7 @@ warn_implicit_fallthrough_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 		     && gimple_stmt_may_fallthru (prev)
 		     && gimple_has_location (prev))
 	      warned_p = warning_at (gimple_location (prev),
-				     OPT_Wimplicit_fallthrough,
+				     OPT_Wimplicit_fallthrough_,
 				     "this statement may fall through");
 	    if (warned_p)
 	      inform (gimple_location (next), "here");
@@ -2378,7 +2383,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
      be really nice if the front end wouldn't leak these at all.
      Currently the only known culprit is C++ destructors, as seen
      in g++.old-deja/g++.jason/binding.C.  */
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && !DECL_SEEN_IN_BIND_EXPR_P (decl)
       && !TREE_STATIC (decl) && !DECL_EXTERNAL (decl)
       && decl_function_context (decl) == current_function_decl)
@@ -2398,7 +2403,7 @@ gimplify_var_or_parm_decl (tree *expr_p)
 
       /* For referenced nonlocal VLAs add a decl for debugging purposes
 	 to the current function.  */
-      if (TREE_CODE (decl) == VAR_DECL
+      if (VAR_P (decl)
 	  && TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST
 	  && nonlocal_vlas != NULL
 	  && TREE_CODE (value_expr) == INDIRECT_REF
@@ -2533,7 +2538,7 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	;
       /* Expand DECL_VALUE_EXPR now.  In some cases that may expose
 	 additional COMPONENT_REFs.  */
-      else if ((TREE_CODE (*p) == VAR_DECL || TREE_CODE (*p) == PARM_DECL)
+      else if ((VAR_P (*p) || TREE_CODE (*p) == PARM_DECL)
 	       && gimplify_var_or_parm_decl (p) == GS_OK)
 	goto restart;
       else
@@ -4447,7 +4452,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	if (valid_const_initializer
 	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
-	    && TREE_CODE (object) == VAR_DECL
+	    && VAR_P (object)
 	    && (flag_merge_constants >= 2 || !TREE_ADDRESSABLE (object)))
 	  {
 	    if (notify_temp_creation)
@@ -5200,8 +5205,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       if (ret == GS_ERROR)
 	return ret;
       gcc_assert (!want_value
-		  && (TREE_CODE (*to_p) == VAR_DECL
-		      || TREE_CODE (*to_p) == MEM_REF));
+		  && (VAR_P (*to_p) || TREE_CODE (*to_p) == MEM_REF));
       gimplify_seq_add_stmt (pre_p, gimple_build_assign (*to_p, *from_p));
       *expr_p = NULL;
       return GS_ALL_DONE;
@@ -5349,7 +5353,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      temporaries (see for example is_gimple_reg_rhs) on the debug info, but
      make sure not to create DECL_DEBUG_EXPR links across functions.  */
   if (!gimplify_ctxp->into_ssa
-      && TREE_CODE (*from_p) == VAR_DECL
+      && VAR_P (*from_p)
       && DECL_IGNORED_P (*from_p)
       && DECL_P (*to_p)
       && !DECL_IGNORED_P (*to_p)
@@ -5935,7 +5939,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	      if (TREE_CODE (x) == MEM_REF
 		  && TREE_CODE (TREE_OPERAND (x, 0)) == ADDR_EXPR)
 		x = TREE_OPERAND (TREE_OPERAND (x, 0), 0);
-	      if ((TREE_CODE (x) == VAR_DECL
+	      if ((VAR_P (x)
 		   || TREE_CODE (x) == PARM_DECL
 		   || TREE_CODE (x) == RESULT_DECL)
 		  && !TREE_ADDRESSABLE (x)
@@ -12198,10 +12202,10 @@ gimplify_type_sizes (tree type, gimple_seq *list_p)
 	  && INTEGRAL_TYPE_P (TYPE_DOMAIN (type)))
 	{
 	  t = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
-	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
+	  if (t && VAR_P (t) && DECL_ARTIFICIAL (t))
 	    DECL_IGNORED_P (t) = 0;
 	  t = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-	  if (t && TREE_CODE (t) == VAR_DECL && DECL_ARTIFICIAL (t))
+	  if (t && VAR_P (t) && DECL_ARTIFICIAL (t))
 	    DECL_IGNORED_P (t) = 0;
 	}
       break;
@@ -12527,10 +12531,7 @@ gimplify_function_tree (tree fndecl)
 				tmp_var);
       gimplify_seq_add_stmt (&body, call);
       gimplify_seq_add_stmt (&body, tf);
-      new_bind = gimple_build_bind (NULL, body, gimple_bind_block (bind));
-      /* Clear the block for BIND, since it is no longer directly inside
-         the function, but within a try block.  */
-      gimple_bind_set_block (bind, NULL);
+      new_bind = gimple_build_bind (NULL, body, NULL);
 
       /* Replace the current function body with the body
          wrapped in the try/finally TF.  */
@@ -12545,10 +12546,7 @@ gimplify_function_tree (tree fndecl)
     {
       gcall *call = gimple_build_call_internal (IFN_TSAN_FUNC_EXIT, 0);
       gimple *tf = gimple_build_try (seq, call, GIMPLE_TRY_FINALLY);
-      gbind *new_bind = gimple_build_bind (NULL, tf, gimple_bind_block (bind));
-      /* Clear the block for BIND, since it is no longer directly inside
-	 the function, but within a try block.  */
-      gimple_bind_set_block (bind, NULL);
+      gbind *new_bind = gimple_build_bind (NULL, tf, NULL);
       /* Replace the current function body with the body
 	 wrapped in the try/finally TF.  */
       seq = NULL;

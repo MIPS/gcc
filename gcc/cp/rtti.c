@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "cp-tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "intl.h"
@@ -855,7 +856,7 @@ involves_incomplete_p (tree type)
     case UNION_TYPE:
       if (!COMPLETE_TYPE_P (type))
 	return true;
-
+      /* Fall through.  */
     default:
       /* All other types do not involve incomplete class types.  */
       return false;

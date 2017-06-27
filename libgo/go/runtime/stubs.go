@@ -5,6 +5,7 @@
 package runtime
 
 import (
+	"runtime/internal/atomic"
 	"runtime/internal/sys"
 	"unsafe"
 )
@@ -37,12 +38,7 @@ func getg() *g
 func mcall(fn func(*g))
 
 // systemstack runs fn on a system stack.
-// If systemstack is called from the per-OS-thread (g0) stack, or
-// if systemstack is called from the signal handling (gsignal) stack,
-// systemstack calls fn directly and returns.
-// Otherwise, systemstack is being called from the limited stack
-// of an ordinary goroutine. In this case, systemstack switches
-// to the per-OS-thread stack, calls fn, and switches back.
+//
 // It is common to use a func literal as the argument, in order
 // to share inputs and outputs with the code around the call
 // to system stack:
@@ -53,8 +49,14 @@ func mcall(fn func(*g))
 //	})
 //	... use x ...
 //
-//go:noescape
-func systemstack(fn func())
+// For the gc toolchain this permits running a function that requires
+// additional stack space in a context where the stack can not be
+// split.  For gccgo, however, stack splitting is not managed by the
+// Go runtime. In effect, all stacks are system stacks. So this gccgo
+// version just runs the function.
+func systemstack(fn func()) {
+	fn()
+}
 
 func badsystemstack() {
 	throw("systemstack called from unexpected goroutine")
@@ -194,25 +196,32 @@ func getcallersp(argp unsafe.Pointer) uintptr
 // argp used in Defer structs when there is no argp.
 const _NoArgs = ^uintptr(0)
 
-// //go:linkname time_now time.now
-// func time_now() (sec int64, nsec int32)
+//go:linkname time_now time.now
+func time_now() (sec int64, nsec int32)
 
-/*
+// For gccgo, expose this for C callers.
+//go:linkname unixnanotime runtime.unixnanotime
 func unixnanotime() int64 {
 	sec, nsec := time_now()
 	return sec*1e9 + int64(nsec)
 }
-*/
 
 // round n up to a multiple of a.  a must be a power of 2.
 func round(n, a uintptr) uintptr {
 	return (n + a - 1) &^ (a - 1)
 }
 
-/*
 // checkASM returns whether assembly runtime checks have passed.
-func checkASM() bool
-*/
+func checkASM() bool {
+	return true
+}
+
+// For gccgo this is in the C code.
+func osyield()
+
+// For gccgo this can be called directly.
+//extern syscall
+func syscall(trap uintptr, a1, a2, a3, a4, a5, a6 uintptr) uintptr
 
 // throw crashes the program.
 // For gccgo unless and until we port panic.go.
@@ -241,13 +250,197 @@ func typedmemmove(typ *_type, dst, src unsafe.Pointer) {
 	memmove(dst, src, typ.size)
 }
 
-// Here for gccgo unless and until we port string.go.
-type stringStruct struct {
-	str unsafe.Pointer
-	len int
+// Here for gccgo unless and until we port slice.go.
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
 }
 
-// Here for gccgo unless and until we port string.go.
-func stringStructOf(sp *string) *stringStruct {
-	return (*stringStruct)(unsafe.Pointer(sp))
+// Here for gccgo until we port malloc.go.
+const (
+	_64bit              = 1 << (^uintptr(0) >> 63) / 2
+	_MHeapMap_TotalBits = (_64bit*sys.GoosWindows)*35 + (_64bit*(1-sys.GoosWindows)*(1-sys.GoosDarwin*sys.GoarchArm64))*39 + sys.GoosDarwin*sys.GoarchArm64*31 + (1-_64bit)*32
+	_MaxMem             = uintptr(1<<_MHeapMap_TotalBits - 1)
+)
+
+// Here for gccgo until we port malloc.go.
+//extern runtime_mallocgc
+func c_mallocgc(size uintptr, typ uintptr, flag uint32) unsafe.Pointer
+func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
+	flag := uint32(0)
+	if !needzero {
+		flag = 1 << 3
+	}
+	return c_mallocgc(size, uintptr(unsafe.Pointer(typ)), flag)
 }
+
+// Here for gccgo until we port mgc.go.
+var writeBarrier struct {
+	enabled bool   // compiler emits a check of this before calling write barrier
+	needed  bool   // whether we need a write barrier for current GC phase
+	cgo     bool   // whether we need a write barrier for a cgo check
+	alignme uint64 // guarantee alignment so that compiler can use a 32 or 64-bit load
+}
+
+// Here for gccgo until we port atomic_pointer.go and mgc.go.
+//go:nosplit
+func casp(ptr *unsafe.Pointer, old, new unsafe.Pointer) bool {
+	if !atomic.Casp1((*unsafe.Pointer)(noescape(unsafe.Pointer(ptr))), noescape(old), new) {
+		return false
+	}
+	return true
+}
+
+// Here for gccgo until we port lock_*.go.
+func lock(l *mutex)
+func unlock(l *mutex)
+
+// Here for gccgo for Solaris.
+func errno() int
+
+// Temporary for gccgo until we port proc.go.
+func entersyscall(int32)
+func entersyscallblock(int32)
+func exitsyscall(int32)
+func gopark(func(*g, unsafe.Pointer) bool, unsafe.Pointer, string, byte, int)
+func goparkunlock(*mutex, string, byte, int)
+func goready(*g, int)
+
+// Temporary hack for gccgo until we port proc.go.
+//go:nosplit
+func acquireSudog() *sudog {
+	mp := acquirem()
+	pp := mp.p.ptr()
+	if len(pp.sudogcache) == 0 {
+		pp.sudogcache = append(pp.sudogcache, new(sudog))
+	}
+	n := len(pp.sudogcache)
+	s := pp.sudogcache[n-1]
+	pp.sudogcache[n-1] = nil
+	pp.sudogcache = pp.sudogcache[:n-1]
+	if s.elem != nil {
+		throw("acquireSudog: found s.elem != nil in cache")
+	}
+	releasem(mp)
+	return s
+}
+
+// Temporary hack for gccgo until we port proc.go.
+//go:nosplit
+func releaseSudog(s *sudog) {
+	if s.elem != nil {
+		throw("runtime: sudog with non-nil elem")
+	}
+	if s.selectdone != nil {
+		throw("runtime: sudog with non-nil selectdone")
+	}
+	if s.next != nil {
+		throw("runtime: sudog with non-nil next")
+	}
+	if s.prev != nil {
+		throw("runtime: sudog with non-nil prev")
+	}
+	if s.waitlink != nil {
+		throw("runtime: sudog with non-nil waitlink")
+	}
+	if s.c != nil {
+		throw("runtime: sudog with non-nil c")
+	}
+	gp := getg()
+	if gp.param != nil {
+		throw("runtime: releaseSudog with non-nil gp.param")
+	}
+	mp := acquirem() // avoid rescheduling to another P
+	pp := mp.p.ptr()
+	pp.sudogcache = append(pp.sudogcache, s)
+	releasem(mp)
+}
+
+// Temporary hack for gccgo until we port the garbage collector.
+func typeBitsBulkBarrier(typ *_type, p, size uintptr) {}
+
+// Here for gccgo until we port msize.go.
+func roundupsize(uintptr) uintptr
+
+// Here for gccgo until we port mgc.go.
+func GC()
+
+// Here for gccgo until we port proc.go.
+var worldsema uint32 = 1
+
+func stopTheWorldWithSema()
+func startTheWorldWithSema()
+
+// For gccgo to call from C code.
+//go:linkname acquireWorldsema runtime.acquireWorldsema
+func acquireWorldsema() {
+	semacquire(&worldsema, false)
+}
+
+// For gccgo to call from C code.
+//go:linkname releaseWorldsema runtime.releaseWorldsema
+func releaseWorldsema() {
+	semrelease(&worldsema)
+}
+
+// Here for gccgo until we port proc.go.
+func stopTheWorld(reason string) {
+	semacquire(&worldsema, false)
+	getg().m.preemptoff = reason
+	getg().m.gcing = 1
+	systemstack(stopTheWorldWithSema)
+}
+
+// Here for gccgo until we port proc.go.
+func startTheWorld() {
+	getg().m.gcing = 0
+	getg().m.locks++
+	systemstack(startTheWorldWithSema)
+	// worldsema must be held over startTheWorldWithSema to ensure
+	// gomaxprocs cannot change while worldsema is held.
+	semrelease(&worldsema)
+	getg().m.preemptoff = ""
+	getg().m.locks--
+}
+
+// For gccgo to call from C code, so that the C code and the Go code
+// can share the memstats variable for now.
+//go:linkname getMstats runtime.getMstats
+func getMstats() *mstats {
+	return &memstats
+}
+
+// Temporary for gccgo until we port proc.go.
+func setcpuprofilerate_m(hz int32)
+
+// Temporary for gccgo until we port mem_GOOS.go.
+func sysAlloc(n uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port proc.go, so that the C signal
+// handler can call into cpuprof.
+//go:linkname cpuprofAdd runtime.cpuprofAdd
+func cpuprofAdd(stk []uintptr) {
+	cpuprof.add(stk)
+}
+
+// For gccgo until we port proc.go.
+func Breakpoint()
+func LockOSThread()
+func UnlockOSThread()
+func allm() *m
+func allgs() []*g
+
+//go:nosplit
+func readgstatus(gp *g) uint32 {
+	return atomic.Load(&gp.atomicstatus)
+}
+
+// Temporary for gccgo until we port malloc.go
+func persistentalloc(size, align uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port mheap.go
+func setprofilebucket(p unsafe.Pointer, b *bucket)
+
+// Currently in proc.c.
+func tracebackothers(*g)

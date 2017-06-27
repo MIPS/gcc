@@ -596,7 +596,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	gnu_expr
 	  = gnat_to_gnu_external (Expression (Declaration_Node (gnat_entity)));
 
-      /* fall through */
+      /* ... fall through ... */
 
     case E_Exception:
     case E_Loop_Parameter:
@@ -3369,7 +3369,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case E_Record_Subtype:
       /* If Cloned_Subtype is Present it means this record subtype has
@@ -3804,7 +3804,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	    break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case E_Allocator_Type:
     case E_Access_Type:
@@ -4728,14 +4728,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	      && AGGREGATE_TYPE_P (gnu_type)
 	      && TYPE_BY_REFERENCE_P (gnu_type))
 	    SET_TYPE_MODE (gnu_type, BLKmode);
-
-	  if (Treat_As_Volatile (gnat_entity))
-	    {
-	      const int quals
-		= TYPE_QUAL_VOLATILE
-		  | (Is_Atomic_Or_VFA (gnat_entity) ? TYPE_QUAL_ATOMIC : 0);
-	      gnu_type = change_qualified_type (gnu_type, quals);
-	    }
 	}
 
       /* If this is a derived type, relate its alias set to that of its parent
@@ -4814,6 +4806,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  relate_alias_sets (gnu_type, gnat_to_gnu_type (gnat_parent_type),
 			     Is_Composite_Type (gnat_entity)
 			     ? ALIAS_SET_COPY : ALIAS_SET_SUPERSET);
+	}
+
+      if (Treat_As_Volatile (gnat_entity))
+	{
+	  const int quals
+	    = TYPE_QUAL_VOLATILE
+	      | (Is_Atomic_Or_VFA (gnat_entity) ? TYPE_QUAL_ATOMIC : 0);
+	  gnu_type = change_qualified_type (gnu_type, quals);
 	}
 
       if (!gnu_decl)
@@ -5386,12 +5386,9 @@ gnat_to_gnu_param (Entity_Id gnat_param, tree gnu_param_type, bool first,
     }
 
   /* If this is a read-only parameter, make a variant of the type that is
-     read-only.  ??? However, if this is an unconstrained array, that type
-     can be very complex, so skip it for now.  Likewise for any other
-     self-referential type.  */
-  if (ro_param
-      && TREE_CODE (gnu_param_type) != UNCONSTRAINED_ARRAY_TYPE
-      && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_param_type)))
+     read-only.  ??? However, if this is a self-referential type, the type
+     can be very complex, so skip it for now.  */
+  if (ro_param && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_param_type)))
     gnu_param_type = change_qualified_type (gnu_param_type, TYPE_QUAL_CONST);
 
   /* For foreign conventions, pass arrays as pointers to the element type.
@@ -6254,6 +6251,10 @@ gnu_ext_name_for_subprog (Entity_Id gnat_subprog, tree gnu_entity_name)
 static tree
 change_qualified_type (tree type, int type_quals)
 {
+  /* Qualifiers must be put on the associated array type.  */
+  if (TREE_CODE (type) == UNCONSTRAINED_ARRAY_TYPE)
+    return type;
+
   return build_qualified_type (type, TYPE_QUALS (type) | type_quals);
 }
 
@@ -6332,6 +6333,15 @@ array_type_has_nonaliased_component (tree gnu_type, Entity_Id gnat_type)
 static bool
 compile_time_known_address_p (Node_Id gnat_address)
 {
+  /* Handle reference to a constant.  */
+  if (Is_Entity_Name (gnat_address)
+      && Ekind (Entity (gnat_address)) == E_Constant)
+    {
+      gnat_address = Constant_Value (Entity (gnat_address));
+      if (No (gnat_address))
+	return false;
+    }
+
   /* Catch System'To_Address.  */
   if (Nkind (gnat_address) == N_Unchecked_Type_Conversion)
     gnat_address = Expression (gnat_address);
@@ -6822,7 +6832,7 @@ elaborate_reference (tree ref, Entity_Id gnat_entity, bool definition,
 /* Given a GNU tree and a GNAT list of choices, generate an expression to test
    the value passed against the list of choices.  */
 
-tree
+static tree
 choices_to_gnu (tree operand, Node_Id choices)
 {
   Node_Id choice;
@@ -6841,9 +6851,10 @@ choices_to_gnu (tree operand, Node_Id choices)
 	  this_test
 	    = build_binary_op (TRUTH_ANDIF_EXPR, boolean_type_node,
 			       build_binary_op (GE_EXPR, boolean_type_node,
-						operand, low),
+						operand, low, true),
 			       build_binary_op (LE_EXPR, boolean_type_node,
-						operand, high));
+						operand, high, true),
+			       true);
 
 	  break;
 
@@ -6855,9 +6866,10 @@ choices_to_gnu (tree operand, Node_Id choices)
 	  this_test
 	    = build_binary_op (TRUTH_ANDIF_EXPR, boolean_type_node,
 			       build_binary_op (GE_EXPR, boolean_type_node,
-						operand, low),
+						operand, low, true),
 			       build_binary_op (LE_EXPR, boolean_type_node,
-						operand, high));
+						operand, high, true),
+			       true);
 	  break;
 
 	case N_Identifier:
@@ -6876,19 +6888,20 @@ choices_to_gnu (tree operand, Node_Id choices)
 	      this_test
 		= build_binary_op (TRUTH_ANDIF_EXPR, boolean_type_node,
 				   build_binary_op (GE_EXPR, boolean_type_node,
-						    operand, low),
+						    operand, low, true),
 				   build_binary_op (LE_EXPR, boolean_type_node,
-						    operand, high));
+						    operand, high, true),
+				   true);
 	      break;
 	    }
 
-	  /* fall through */
+	  /* ... fall through ... */
 
 	case N_Character_Literal:
 	case N_Integer_Literal:
 	  single = gnat_to_gnu (choice);
 	  this_test = build_binary_op (EQ_EXPR, boolean_type_node, operand,
-				       single);
+				       single, true);
 	  break;
 
 	case N_Others_Choice:
@@ -6899,8 +6912,11 @@ choices_to_gnu (tree operand, Node_Id choices)
 	  gcc_unreachable ();
 	}
 
-      result = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, result,
-				this_test);
+      if (result == boolean_false_node)
+	result = this_test;
+      else
+	result = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, result,
+				  this_test, true);
     }
 
   return result;
@@ -8089,7 +8105,7 @@ annotate_value (tree gnu_size)
       else
 	return Uint_Minus_1;
 
-      /* fall through */
+      /* Fall through... */
 
     default:
       return No_Uint;

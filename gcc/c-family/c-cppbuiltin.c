@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"		/* For TARGET_CPU_CPP_BUILTINS & friends.  */
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -934,6 +935,9 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_constexpr=201603");
 	  cpp_define (pfile, "__cpp_if_constexpr=201606");
 	  cpp_define (pfile, "__cpp_capture_star_this=201603");
+	  cpp_define (pfile, "__cpp_inline_variables=201606");
+	  cpp_define (pfile, "__cpp_aggregate_bases=201603");
+	  cpp_define (pfile, "__cpp_deduction_guides=201606");
 	}
       if (flag_concepts)
 	/* Use a value smaller than the 201507 specified in
@@ -1212,10 +1216,6 @@ c_cpp_builtins (cpp_reader *pfile)
 #ifdef EH_FRAME_SECTION_NAME
       builtin_define_with_value ("__LIBGCC_EH_FRAME_SECTION_NAME__",
 				 EH_FRAME_SECTION_NAME, 1);
-#endif
-#ifdef JCR_SECTION_NAME
-      builtin_define_with_value ("__LIBGCC_JCR_SECTION_NAME__",
-				 JCR_SECTION_NAME, 1);
 #endif
 #ifdef CTORS_SECTION_ASM_OP
       builtin_define_with_value ("__LIBGCC_CTORS_SECTION_ASM_OP__",

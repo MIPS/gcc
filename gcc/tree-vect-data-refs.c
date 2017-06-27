@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "optabs-tree.h"
@@ -5977,7 +5978,7 @@ vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
 bool
 vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 {
-  if (TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_P (decl))
     return false;
 
   if (decl_in_symtab_p (decl)

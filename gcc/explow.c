@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "expmed.h"
 #include "optabs.h"
@@ -114,12 +115,15 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
 	      cst = gen_lowpart (mode, cst);
 	      gcc_assert (cst);
 	    }
-	  tem = plus_constant (mode, cst, c);
-	  tem = force_const_mem (GET_MODE (x), tem);
-	  /* Targets may disallow some constants in the constant pool, thus
-	     force_const_mem may return NULL_RTX.  */
-	  if (tem && memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
-	    return tem;
+	  if (GET_MODE (cst) == VOIDmode || GET_MODE (cst) == mode)
+	    {
+	      tem = plus_constant (mode, cst, c);
+	      tem = force_const_mem (GET_MODE (x), tem);
+	      /* Targets may disallow some constants in the constant pool, thus
+		 force_const_mem may return NULL_RTX.  */
+	      if (tem && memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
+		return tem;
+	    }
 	}
       break;
 
@@ -1354,6 +1358,8 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 	current_function_has_unbounded_dynamic_stack_size = 1;
     }
 
+  do_pending_stack_adjust ();
+
   final_label = NULL;
   final_target = NULL_RTX;
 
@@ -1410,8 +1416,6 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 
       emit_label (available_label);
     }
-
-  do_pending_stack_adjust ();
 
  /* We ought to be called always on the toplevel and stack ought to be aligned
     properly.  */

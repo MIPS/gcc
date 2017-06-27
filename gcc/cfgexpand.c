@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cfghooks.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "optabs.h"
@@ -576,7 +577,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  size_t *v;
 	  /* Nested function lowering might introduce LHSs
 	     that are COMPONENT_REFs.  */
-	  if (TREE_CODE (lhs) != VAR_DECL)
+	  if (!VAR_P (lhs))
 	    continue;
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
 	      && (v = decl_to_stack_part->get (lhs)))
@@ -1571,7 +1572,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   var = SSAVAR (var);
 
-  if (TREE_TYPE (var) != error_mark_node && TREE_CODE (var) == VAR_DECL)
+  if (TREE_TYPE (var) != error_mark_node && VAR_P (var))
     {
       if (is_global_var (var))
 	return 0;
@@ -1608,7 +1609,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   if (TREE_CODE (origvar) == SSA_NAME)
     {
-      gcc_assert (TREE_CODE (var) != VAR_DECL
+      gcc_assert (!VAR_P (var)
 		  || (!DECL_EXTERNAL (var)
 		      && !DECL_HAS_VALUE_EXPR_P (var)
 		      && !TREE_STATIC (var)
@@ -1616,7 +1617,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 		      && !DECL_HARD_REGISTER (var)
 		      && really_expand));
     }
-  if (TREE_CODE (var) != VAR_DECL && TREE_CODE (origvar) != SSA_NAME)
+  if (!VAR_P (var) && TREE_CODE (origvar) != SSA_NAME)
     ;
   else if (DECL_EXTERNAL (var))
     ;
@@ -1631,7 +1632,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_error_var (var);
     }
-  else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+  else if (VAR_P (var) && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
 	{
@@ -1689,7 +1690,7 @@ expand_used_vars_for_block (tree block, bool toplevel)
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     if (TREE_USED (t)
-        && ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
+        && ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
 	    || !DECL_NONSHAREABLE (t)))
       expand_one_var (t, toplevel, true);
 
@@ -1708,7 +1709,7 @@ clear_tree_used (tree block)
 
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     /* if (!TREE_STATIC (t) && !DECL_EXTERNAL (t)) */
-    if ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
+    if ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
 	|| !DECL_NONSHAREABLE (t))
       TREE_USED (t) = 0;
 
@@ -1984,7 +1985,7 @@ stack_protect_decl_p ()
     if (!is_global_var (var))
       {
 	tree var_type = TREE_TYPE (var);
-	if (TREE_CODE (var) == VAR_DECL
+	if (VAR_P (var)
 	    && (TREE_CODE (var_type) == ARRAY_TYPE
 		|| TREE_ADDRESSABLE (var)
 		|| (RECORD_OR_UNION_TYPE_P (var_type)
@@ -2641,6 +2642,7 @@ expand_call_stmt (gcall *stmt)
   else
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
+  CALL_EXPR_BY_DESCRIPTOR (exp) = gimple_call_by_descriptor_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
   CALL_WITH_BOUNDS_P (exp) = gimple_call_with_bounds_p (stmt);
 
@@ -4275,7 +4277,7 @@ expand_debug_expr (tree exp)
       /* This decl was probably optimized away.  */
       if (!op0)
 	{
-	  if (TREE_CODE (exp) != VAR_DECL
+	  if (!VAR_P (exp)
 	      || DECL_EXTERNAL (exp)
 	      || !TREE_STATIC (exp)
 	      || !DECL_NAME (exp)
@@ -4876,7 +4878,7 @@ expand_debug_expr (tree exp)
 	      tree decl
 		= get_ref_base_and_extent (TREE_OPERAND (exp, 0), &bitoffset,
 					   &bitsize, &maxsize, &reverse);
-	      if ((TREE_CODE (decl) == VAR_DECL
+	      if ((VAR_P (decl)
 		   || TREE_CODE (decl) == PARM_DECL
 		   || TREE_CODE (decl) == RESULT_DECL)
 		  && (!TREE_ADDRESSABLE (decl)
@@ -6100,7 +6102,10 @@ stack_protect_prologue (void)
   rtx x, y;
 
   x = expand_normal (crtl->stack_protect_guard);
-  y = expand_normal (guard_decl);
+  if (guard_decl)
+    y = expand_normal (guard_decl);
+  else
+    y = const0_rtx;
 
   /* Allow the target to copy from Y to X without leaking Y into a
      register.  */

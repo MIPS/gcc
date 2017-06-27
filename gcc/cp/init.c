@@ -584,9 +584,13 @@ get_nsdmi (tree member, bool in_ctor)
 	}
       /* Strip redundant TARGET_EXPR so we don't need to remap it, and
 	 so the aggregate init code below will see a CONSTRUCTOR.  */
-      if (init && SIMPLE_TARGET_EXPR_P (init))
+      bool simple_target = (init && SIMPLE_TARGET_EXPR_P (init));
+      if (simple_target)
 	init = TARGET_EXPR_INITIAL (init);
       init = break_out_target_exprs (init);
+      if (simple_target && TREE_CODE (init) != CONSTRUCTOR)
+	/* Now put it back so C++17 copy elision works.  */
+	init = get_target_expr (init);
     }
   current_class_ptr = save_ccp;
   current_class_ref = save_ccr;
@@ -1150,9 +1154,7 @@ emit_mem_initializers (tree mem_inits)
 	}
 
       /* Initialize the base.  */
-      if (BINFO_VIRTUAL_P (subobject))
-	construct_virtual_base (subobject, arguments);
-      else
+      if (!BINFO_VIRTUAL_P (subobject))
 	{
 	  tree base_addr;
 
@@ -1166,6 +1168,10 @@ emit_mem_initializers (tree mem_inits)
                               tf_warning_or_error);
 	  expand_cleanup_for_base (subobject, NULL_TREE);
 	}
+      else if (!ABSTRACT_CLASS_TYPE_P (current_class_type))
+	/* C++14 DR1658 Means we do not have to construct vbases of
+	   abstract classes.  */
+	construct_virtual_base (subobject, arguments);
     }
   in_base_initializer = 0;
 
@@ -2504,7 +2510,7 @@ warn_placement_new_too_small (tree type, tree nelts, tree size, tree oper)
 	      && warn_placement_new < 2)
 	    return;
 	}
-	  
+
       /* The size of the buffer can only be adjusted down but not up.  */
       gcc_checking_assert (0 <= adjust);
 
@@ -2526,8 +2532,13 @@ warn_placement_new_too_small (tree type, tree nelts, tree size, tree oper)
       else if (nelts && CONSTANT_CLASS_P (nelts))
 	  bytes_need = tree_to_uhwi (nelts)
 	    * tree_to_uhwi (TYPE_SIZE_UNIT (type));
-      else
+      else if (tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
 	bytes_need = tree_to_uhwi (TYPE_SIZE_UNIT (type));
+      else
+	{
+	  /* The type is a VLA.  */
+	  return;
+	}
 
       if (bytes_avail < bytes_need)
 	{
@@ -2578,6 +2589,16 @@ type_has_new_extended_alignment (tree t)
 	  && TYPE_ALIGN_UNIT (t) > (unsigned)aligned_new_threshold);
 }
 
+/* Return the alignment we expect malloc to guarantee.  This should just be
+   MALLOC_ABI_ALIGNMENT, but that macro defaults to only BITS_PER_WORD for some
+   reason, so don't let the threshold be smaller than max_align_t_align.  */
+
+unsigned
+malloc_alignment ()
+{
+  return MAX (max_align_t_align(), MALLOC_ABI_ALIGNMENT);
+}
+
 /* Generate code for a new-expression, including calling the "operator
    new" function, initializing the object, and, if an exception occurs
    during construction, cleaning up.  The arguments are as for
@@ -2622,7 +2643,6 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   tree alloc_fn;
   tree cookie_expr, init_expr;
   int nothrow, check_new;
-  int use_java_new = 0;
   /* If non-NULL, the number of extra bytes to allocate at the
      beginning of the storage allocated for an array-new expression in
      order to store the number of elements.  */
@@ -2866,149 +2886,97 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   bool member_new_p = false;
 
   /* Allocate the object.  */
-  if (vec_safe_is_empty (*placement) && TYPE_FOR_JAVA (elt_type))
+  tree fnname;
+  tree fns;
+
+  fnname = ansi_opname (array_p ? VEC_NEW_EXPR : NEW_EXPR);
+
+  member_new_p = !globally_qualified_p
+		 && CLASS_TYPE_P (elt_type)
+		 && (array_p
+		     ? TYPE_HAS_ARRAY_NEW_OPERATOR (elt_type)
+		     : TYPE_HAS_NEW_OPERATOR (elt_type));
+
+  if (member_new_p)
     {
-      tree class_addr;
-      tree class_decl;
-      static const char alloc_name[] = "_Jv_AllocObject";
-
-      if (!MAYBE_CLASS_TYPE_P (elt_type))
+      /* Use a class-specific operator new.  */
+      /* If a cookie is required, add some extra space.  */
+      if (array_p && TYPE_VEC_NEW_USES_COOKIE (elt_type))
+	size = size_binop (PLUS_EXPR, size, cookie_size);
+      else
 	{
-	  error ("%qT isn%'t a valid Java class type", elt_type);
-	  return error_mark_node;
+	  cookie_size = NULL_TREE;
+	  /* No size arithmetic necessary, so the size check is
+	     not needed. */
+	  if (outer_nelts_check != NULL && inner_size == 1)
+	    outer_nelts_check = NULL_TREE;
 	}
-
-      class_decl = build_java_class_ref (elt_type);
-      if (class_decl == error_mark_node)
-	return error_mark_node;
-
-      use_java_new = 1;
-      if (!get_global_value_if_present (get_identifier (alloc_name),
-					&alloc_fn))
-	{
-          if (complain & tf_error)
-            error ("call to Java constructor with %qs undefined", alloc_name);
-	  return error_mark_node;
-	}
-      else if (really_overloaded_fn (alloc_fn))
-	{
-          if (complain & tf_error)
-            error ("%qD should never be overloaded", alloc_fn);
-	  return error_mark_node;
-	}
-      alloc_fn = OVL_CURRENT (alloc_fn);
-      if (TREE_CODE (alloc_fn) != FUNCTION_DECL
-	  || TREE_CODE (TREE_TYPE (alloc_fn)) != FUNCTION_TYPE
-	  || !POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (alloc_fn))))
+      /* Perform the overflow check.  */
+      tree errval = TYPE_MAX_VALUE (sizetype);
+      if (cxx_dialect >= cxx11 && flag_exceptions)
+	errval = throw_bad_array_new_length ();
+      if (outer_nelts_check != NULL_TREE)
+	size = fold_build3 (COND_EXPR, sizetype, outer_nelts_check,
+			    size, errval);
+      /* Create the argument list.  */
+      vec_safe_insert (*placement, 0, size);
+      /* Do name-lookup to find the appropriate operator.  */
+      fns = lookup_fnfields (elt_type, fnname, /*protect=*/2);
+      if (fns == NULL_TREE)
 	{
 	  if (complain & tf_error)
-	    error ("%qD is not a function returning a pointer", alloc_fn);
+	    error ("no suitable %qD found in class %qT", fnname, elt_type);
 	  return error_mark_node;
 	}
-      class_addr = build1 (ADDR_EXPR, jclass_node, class_decl);
-      alloc_call = cp_build_function_call_nary (alloc_fn, complain,
-						class_addr, NULL_TREE);
-    }
-  else if (TYPE_FOR_JAVA (elt_type) && MAYBE_CLASS_TYPE_P (elt_type))
-    {
-      error ("Java class %q#T object allocated using placement new", elt_type);
-      return error_mark_node;
+      if (TREE_CODE (fns) == TREE_LIST)
+	{
+	  if (complain & tf_error)
+	    {
+	      error ("request for member %qD is ambiguous", fnname);
+	      print_candidates (fns);
+	    }
+	  return error_mark_node;
+	}
+      tree dummy = build_dummy_object (elt_type);
+      alloc_call = NULL_TREE;
+      if (align_arg)
+	{
+	  vec<tree, va_gc> *align_args
+	    = vec_copy_and_insert (*placement, align_arg, 1);
+	  alloc_call
+	    = build_new_method_call (dummy, fns, &align_args,
+				     /*conversion_path=*/NULL_TREE,
+				     LOOKUP_NORMAL, &alloc_fn, tf_none);
+	  /* If no matching function is found and the allocated object type
+	     has new-extended alignment, the alignment argument is removed
+	     from the argument list, and overload resolution is performed
+	     again.  */
+	  if (alloc_call == error_mark_node)
+	    alloc_call = NULL_TREE;
+	}
+      if (!alloc_call)
+	alloc_call = build_new_method_call (dummy, fns, placement,
+					    /*conversion_path=*/NULL_TREE,
+					    LOOKUP_NORMAL,
+					    &alloc_fn, complain);
     }
   else
     {
-      tree fnname;
-      tree fns;
-
-      fnname = ansi_opname (array_p ? VEC_NEW_EXPR : NEW_EXPR);
-
-      member_new_p = !globally_qualified_p
-	  && CLASS_TYPE_P (elt_type)
-	  && (array_p
-	      ? TYPE_HAS_ARRAY_NEW_OPERATOR (elt_type)
-	    : TYPE_HAS_NEW_OPERATOR (elt_type));
-
-      if (member_new_p)
+      /* Use a global operator new.  */
+      /* See if a cookie might be required.  */
+      if (!(array_p && TYPE_VEC_NEW_USES_COOKIE (elt_type)))
 	{
-	  /* Use a class-specific operator new.  */
-	  /* If a cookie is required, add some extra space.  */
-	  if (array_p && TYPE_VEC_NEW_USES_COOKIE (elt_type))
-	    size = size_binop (PLUS_EXPR, size, cookie_size);
-	  else
-	    {
-	      cookie_size = NULL_TREE;
-	      /* No size arithmetic necessary, so the size check is
-		 not needed. */
-	      if (outer_nelts_check != NULL && inner_size == 1)
-		outer_nelts_check = NULL_TREE;
-	    }
-	  /* Perform the overflow check.  */
-	  tree errval = TYPE_MAX_VALUE (sizetype);
-	  if (cxx_dialect >= cxx11 && flag_exceptions)
-	    errval = throw_bad_array_new_length ();
-	  if (outer_nelts_check != NULL_TREE)
-            size = fold_build3 (COND_EXPR, sizetype, outer_nelts_check,
-                                size, errval);
-	  /* Create the argument list.  */
-	  vec_safe_insert (*placement, 0, size);
-	  /* Do name-lookup to find the appropriate operator.  */
-	  fns = lookup_fnfields (elt_type, fnname, /*protect=*/2);
-	  if (fns == NULL_TREE)
-	    {
-              if (complain & tf_error)
-                error ("no suitable %qD found in class %qT", fnname, elt_type);
-	      return error_mark_node;
-	    }
-	  if (TREE_CODE (fns) == TREE_LIST)
-	    {
-              if (complain & tf_error)
-                {
-                  error ("request for member %qD is ambiguous", fnname);
-                  print_candidates (fns);
-                }
-	      return error_mark_node;
-	    }
-	  tree dummy = build_dummy_object (elt_type);
-	  alloc_call = NULL_TREE;
-	  if (align_arg)
-	    {
-	      vec<tree, va_gc> *align_args
-		= vec_copy_and_insert (*placement, align_arg, 1);
-	      alloc_call
-		= build_new_method_call (dummy, fns, &align_args,
-					 /*conversion_path=*/NULL_TREE,
-					 LOOKUP_NORMAL, &alloc_fn, tf_none);
-	      /* If no matching function is found and the allocated object type
-		 has new-extended alignment, the alignment argument is removed
-		 from the argument list, and overload resolution is performed
-		 again.  */
-	      if (alloc_call == error_mark_node)
-		alloc_call = NULL_TREE;
-	    }
-	  if (!alloc_call)
-	    alloc_call = build_new_method_call (dummy, fns, placement,
-						/*conversion_path=*/NULL_TREE,
-						LOOKUP_NORMAL,
-						&alloc_fn, complain);
+	  cookie_size = NULL_TREE;
+	  /* No size arithmetic necessary, so the size check is
+	     not needed. */
+	  if (outer_nelts_check != NULL && inner_size == 1)
+	    outer_nelts_check = NULL_TREE;
 	}
-      else
-	{
-	  /* Use a global operator new.  */
-	  /* See if a cookie might be required.  */
-	  if (!(array_p && TYPE_VEC_NEW_USES_COOKIE (elt_type)))
-	    {
-	      cookie_size = NULL_TREE;
-	      /* No size arithmetic necessary, so the size check is
-		 not needed. */
-	      if (outer_nelts_check != NULL && inner_size == 1)
-		outer_nelts_check = NULL_TREE;
-	    }
 
-	  alloc_call = build_operator_new_call (fnname, placement,
-						&size, &cookie_size,
-						align_arg,
-						outer_nelts_check,
-						&alloc_fn, complain);
-	}
+      alloc_call = build_operator_new_call (fnname, placement,
+					    &size, &cookie_size,
+					    align_arg, outer_nelts_check,
+					    &alloc_fn, complain);
     }
 
   if (alloc_call == error_mark_node)
@@ -3016,8 +2984,23 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 
   gcc_assert (alloc_fn != NULL_TREE);
 
+  /* Now, check to see if this function is actually a placement
+     allocation function.  This can happen even when PLACEMENT is NULL
+     because we might have something like:
+
+       struct S { void* operator new (size_t, int i = 0); };
+
+     A call to `new S' will get this allocation function, even though
+     there is no explicit placement argument.  If there is more than
+     one argument, or there are variable arguments, then this is a
+     placement allocation function.  */
+  placement_allocation_fn_p
+    = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1
+       || varargs_function_p (alloc_fn));
+
   if (warn_aligned_new
-      && TYPE_ALIGN (elt_type) > max_align_t_align ()
+      && !placement_allocation_fn_p
+      && TYPE_ALIGN (elt_type) > malloc_alignment ()
       && (warn_aligned_new > 1
 	  || CP_DECL_CONTEXT (alloc_fn) == global_namespace)
       && !aligned_allocation_fn_p (alloc_fn))
@@ -3075,20 +3058,6 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   while (TREE_CODE (alloc_call) == COMPOUND_EXPR)
     alloc_call = TREE_OPERAND (alloc_call, 1);
 
-  /* Now, check to see if this function is actually a placement
-     allocation function.  This can happen even when PLACEMENT is NULL
-     because we might have something like:
-
-       struct S { void* operator new (size_t, int i = 0); };
-
-     A call to `new S' will get this allocation function, even though
-     there is no explicit placement argument.  If there is more than
-     one argument, or there are variable arguments, then this is a
-     placement allocation function.  */
-  placement_allocation_fn_p
-    = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1
-       || varargs_function_p (alloc_fn));
-
   /* Preevaluate the placement args so that we don't reevaluate them for a
      placement delete.  */
   if (placement_allocation_fn_p)
@@ -3111,7 +3080,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
      So check for a null exception spec on the op new we just called.  */
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
-  check_new = (flag_check_new || nothrow) && ! use_java_new;
+  check_new = (flag_check_new || nothrow);
 
   if (cookie_size)
     {
@@ -3290,7 +3259,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	 unambiguous matching deallocation function can be found,
 	 propagating the exception does not cause the object's memory to be
 	 freed.  */
-      if (flag_exceptions && ! use_java_new)
+      if (flag_exceptions)
 	{
 	  enum tree_code dcode = array_p ? VEC_DELETE_EXPR : DELETE_EXPR;
 	  tree cleanup;
@@ -3530,59 +3499,6 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
   TREE_NO_WARNING (rval) = 1;
 
   return rval;
-}
-
-/* Given a Java class, return a decl for the corresponding java.lang.Class.  */
-
-tree
-build_java_class_ref (tree type)
-{
-  tree name = NULL_TREE, class_decl;
-  static tree CL_suffix = NULL_TREE;
-  if (CL_suffix == NULL_TREE)
-    CL_suffix = get_identifier("class$");
-  if (jclass_node == NULL_TREE)
-    {
-      jclass_node = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jclass"));
-      if (jclass_node == NULL_TREE)
-	{
-	  error ("call to Java constructor, while %<jclass%> undefined");
-	  return error_mark_node;
-	}
-      jclass_node = TREE_TYPE (jclass_node);
-    }
-
-  /* Mangle the class$ field.  */
-  {
-    tree field;
-    for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-      if (DECL_NAME (field) == CL_suffix)
-	{
-	  mangle_decl (field);
-	  name = DECL_ASSEMBLER_NAME (field);
-	  break;
-	}
-    if (!field)
-      {
-	error ("can%'t find %<class$%> in %qT", type);
-	return error_mark_node;
-      }
-  }
-
-  class_decl = IDENTIFIER_GLOBAL_VALUE (name);
-  if (class_decl == NULL_TREE)
-    {
-      class_decl = build_decl (input_location,
-			       VAR_DECL, name, TREE_TYPE (jclass_node));
-      TREE_STATIC (class_decl) = 1;
-      DECL_EXTERNAL (class_decl) = 1;
-      TREE_PUBLIC (class_decl) = 1;
-      DECL_ARTIFICIAL (class_decl) = 1;
-      DECL_IGNORED_P (class_decl) = 1;
-      pushdecl_top_level (class_decl);
-      make_decl_rtl (class_decl);
-    }
-  return class_decl;
 }
 
 static tree
@@ -4153,7 +4069,7 @@ build_vec_init (tree base, tree maxindex, tree init,
       tree to;
 
       for_stmt = begin_for_stmt (NULL_TREE, NULL_TREE);
-      finish_for_init_stmt (for_stmt);
+      finish_init_stmt (for_stmt);
       finish_for_cond (build2 (GT_EXPR, boolean_type_node, iterator,
 			       build_int_cst (TREE_TYPE (iterator), -1)),
 		       for_stmt, false);
@@ -4628,7 +4544,8 @@ push_base_cleanups (void)
   vec<tree, va_gc> *vbases;
 
   /* Run destructors for all virtual baseclasses.  */
-  if (CLASSTYPE_VBASECLASSES (current_class_type))
+  if (!ABSTRACT_CLASS_TYPE_P (current_class_type)
+      && CLASSTYPE_VBASECLASSES (current_class_type))
     {
       tree cond = (condition_conversion
 		   (build2 (BIT_AND_EXPR, integer_type_node,

@@ -2530,6 +2530,7 @@ This describes the stack layout and calling conventions.
 * Function Entry::
 * Profiling::
 * Tail Calls::
+* Shrink-wrapping separate components::
 * Stack Smashing Protection::
 * Miscellaneous Register Hooks::
 @end menu
@@ -3775,6 +3776,43 @@ the function prologue.  Normally, the profiling code comes after.
 
 @hook TARGET_WARN_FUNC_RETURN
 
+@node Shrink-wrapping separate components
+@subsection Shrink-wrapping separate components
+@cindex shrink-wrapping separate components
+
+The prologue may perform a variety of target dependent tasks such as
+saving callee-saved registers, saving the return address, aligning the
+stack, creating a stack frame, initializing the PIC register, setting
+up the static chain, etc.
+
+On some targets some of these tasks may be independent of others and
+thus may be shrink-wrapped separately.  These independent tasks are
+referred to as components and are handled generically by the target
+independent parts of GCC.
+
+Using the following hooks those prologue or epilogue components can be
+shrink-wrapped separately, so that the initialization (and possibly
+teardown) those components do is not done as frequently on execution
+paths where this would unnecessary.
+
+What exactly those components are is up to the target code; the generic
+code treats them abstractly, as a bit in an @code{sbitmap}.  These
+@code{sbitmap}s are allocated by the @code{shrink_wrap.get_separate_components}
+and @code{shrink_wrap.components_for_bb} hooks, and deallocated by the
+generic code.
+
+@hook TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS
+
+@hook TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB
+
+@hook TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS
+
+@hook TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS
+
+@hook TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS
+
+@hook TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS
+
 @node Stack Smashing Protection
 @subsection Stack smashing protection
 @cindex stack smashing protection
@@ -3932,6 +3970,8 @@ is used for aligning trampolines.
 @hook TARGET_TRAMPOLINE_INIT
 
 @hook TARGET_TRAMPOLINE_ADJUST_ADDRESS
+
+@hook TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 
 Implementing trampolines is difficult on many machines because they have
 separate instruction and data caches.  Writing into a stack location
@@ -4443,8 +4483,8 @@ the case of the add on the SPARC discussed above, we have the pattern
 
 @smallexample
 (define_insn ""
-  [(set (reg:CC_NOOV 0)
-        (compare:CC_NOOV
+  [(set (reg:CCNZ 0)
+        (compare:CCNZ
           (plus:SI (match_operand:SI 0 "register_operand" "%r")
                    (match_operand:SI 1 "arith_operand" "rI"))
           (const_int 0)))]
@@ -4453,7 +4493,7 @@ the case of the add on the SPARC discussed above, we have the pattern
 @end smallexample
 
 @noindent
-together with a @code{SELECT_CC_MODE} that returns @code{CC_NOOVmode}
+together with a @code{SELECT_CC_MODE} that returns @code{CCNZmode}
 for comparisons whose argument is a @code{plus}:
 
 @smallexample
@@ -4463,7 +4503,7 @@ for comparisons whose argument is a @code{plus}:
       ? CCFPEmode : CCFPmode)                            \
    : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
        || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
-      ? CC_NOOVmode : CCmode))
+      ? CCNZmode : CCmode))
 @end smallexample
 
 Another reason to use modes is to retain information on which operands
@@ -8185,12 +8225,6 @@ and scanf formatter settings.
 @hook TARGET_PROMOTED_TYPE
 
 @hook TARGET_CONVERT_TO_TYPE
-
-@defmac TARGET_USE_JCR_SECTION
-This macro determines whether to use the JCR section to register Java
-classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
-SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
-@end defmac
 
 @defmac OBJC_JBLEN
 This macro determines the size of the objective C jump buffer for the

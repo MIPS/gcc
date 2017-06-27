@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "c-target.h"
 #include "c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "diagnostic.h"
 #include "c-pragma.h"
@@ -770,8 +771,7 @@ c_common_post_options (const char **pfilename)
      support.  */
   if (c_dialect_cxx ())
     {
-      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
-	  && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
 	sorry ("-fexcess-precision=standard for C++");
       flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
     }
@@ -870,6 +870,10 @@ c_common_post_options (const char **pfilename)
   if (warn_shift_negative_value == -1)
     warn_shift_negative_value = (extra_warnings
 				 && (cxx_dialect >= cxx11 || flag_isoc99));
+
+  /* -Wregister is enabled by default in C++17.  */
+  if (!global_options_set.x_warn_register)
+    warn_register = cxx_dialect >= cxx1z;
 
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
@@ -1275,6 +1279,11 @@ sanitize_cpp_opts (void)
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+
+  if (warn_implicit_fallthrough < 5)
+    cpp_opts->cpp_warn_implicit_fallthrough = warn_implicit_fallthrough;
+  else
+    cpp_opts->cpp_warn_implicit_fallthrough = 0;
 
   if (cpp_opts->directives_only)
     {

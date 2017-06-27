@@ -1,3 +1,31 @@
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/cpplib.h (struct cpp_options): Add
+	cpp_warn_implicit_fallthrough.
+	* init.c (cpp_create_reader): Initialize it to 0.
+	* lex.c (fallthrough_comment_p): Handle different
+	cpp_warn_implicit_fallthrough levels.  Whitespace fixes.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* lex.c (fallthrough_comment_p): Accept Else, fallthrough.
+
+	* lex.c (fallthrough_comment_p): Extend to handle more common FALLTHRU
+	comment styles.
+
+	* lex.c (fallthrough_comment_p): Fix off-by-one size comparison
+	errors, cleanup.
+	(_cpp_lex_direct): Allow arbitrary comments in between
+	fallthrough_comment_p comment and following token.
+
+2016-10-04  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/77847
+	* lex.c (search_line_fast): Add a FALLTHROUGH comment to correct
+	compiler error in the version of this function that is
+	conditionally compiled when GCC_VERSION >= 4005 and both
+	__ALTIVEC__ and __BIG_ENDIAN__ symbols are defined.
+
 2016-09-26  Marek Polacek  <polacek@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 

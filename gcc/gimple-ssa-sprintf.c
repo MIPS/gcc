@@ -37,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 
    The pass handles all forms standard sprintf format directives,
    including character, integer, floating point, pointer, and strings,
-   with  the standard C flags, widths, and precisions.  For integers
+   with the standard C flags, widths, and precisions.  For integers
    and strings it computes the length of output itself.  For floating
    point it uses MPFR to fornmat known constants with up and down
    rounding and uses the resulting range of output lengths.  For
@@ -130,8 +130,8 @@ pass_sprintf_length::gate (function *)
      not optimizing and the pass is being invoked early, or when
      optimizing and the pass is being invoked during optimization
      (i.e., "late").  */
-  return ((0 < warn_format_length || flag_printf_return_value)
-	  && (0 < optimize) == fold_return_value);
+  return ((warn_format_length > 0 || flag_printf_return_value)
+	  && (optimize > 0) == fold_return_value);
 }
 
 /* The result of a call to a formatted function.  */
@@ -464,7 +464,7 @@ struct conversion_spec
 
   /* Format conversion function that given a conversion specification
      and an argument returns the formatting result.  */
-  fmtresult  (*fmtfunc) (const conversion_spec &, tree);
+  fmtresult (*fmtfunc) (const conversion_spec &, tree);
 
   /* Return True when a the format flag CHR has been used.  */
   bool get_flag (char chr) const
@@ -869,7 +869,14 @@ format_integer (const conversion_spec &spec, tree arg)
       break;
 
     default:
-      gcc_unreachable ();
+      {
+	fmtresult res = fmtresult ();
+	res.range.min = HOST_WIDE_INT_MAX;
+	res.range.max = HOST_WIDE_INT_MAX;
+	res.bounded = false;
+	res.constant = false;
+	return res;
+      }
     }
 
   /* The type of the argument to the directive, either deduced from
@@ -1034,10 +1041,10 @@ format_integer (const conversion_spec &spec, tree arg)
 	{
 	  /* The argument here may be the result of promoting the actual
 	     argument to int.  Try to determine the type of the actual
-	     argument before promotion and  narrow down its range that
+	     argument before promotion and narrow down its range that
 	     way.  */
 	  gimple *def = SSA_NAME_DEF_STMT (arg);
-	  if (gimple_code (def) == GIMPLE_ASSIGN)
+	  if (is_gimple_assign (def))
 	    {
 	      tree_code code = gimple_assign_rhs_code (def);
 	      if (code == NOP_EXPR)
@@ -1147,6 +1154,7 @@ format_floating (const conversion_spec &spec, int width, int prec)
 
   switch (spec.modifier)
     {
+    case FMT_LEN_l:
     case FMT_LEN_none:
       type = double_type_node;
       break;
@@ -1162,7 +1170,14 @@ format_floating (const conversion_spec &spec, int width, int prec)
       break;
 
     default:
-      gcc_unreachable ();
+      {
+	fmtresult res = fmtresult ();
+	res.range.min = HOST_WIDE_INT_MAX;
+	res.range.max = HOST_WIDE_INT_MAX;
+	res.bounded = false;
+	res.constant = false;
+	return res;
+      }
     }
 
   /* The minimum and maximum number of bytes produced by the directive.  */
@@ -1190,7 +1205,7 @@ format_floating (const conversion_spec &spec, int width, int prec)
     case 'a':
       {
 	/* The minimum output is "0x.p+0".  */
-	res.range.min = 6 + (0 < prec ? prec : 0);
+	res.range.min = 6 + (prec > 0 ? prec : 0);
 
 	/* Compute the maximum just once.  */
 	static const int a_max[] = {
@@ -1248,10 +1263,17 @@ format_floating (const conversion_spec &spec, int width, int prec)
       }
 
     default:
-      gcc_unreachable ();
+      {
+	fmtresult res = fmtresult ();
+	res.range.min = HOST_WIDE_INT_MAX;
+	res.range.max = HOST_WIDE_INT_MAX;
+	res.bounded = false;
+	res.constant = false;
+	return res;
+      }
     }
 
-  if (0 < width)
+  if (width > 0)
     {
       if (res.range.min < (unsigned)width)
 	res.range.min = width;
@@ -1442,7 +1464,7 @@ get_string_length (tree str)
 static fmtresult
 format_string (const conversion_spec &spec, tree arg)
 {
-  unsigned width = spec.have_width && 0 < spec.width ? spec.width : 0;
+  unsigned width = spec.have_width && spec.width > 0 ? spec.width : 0;
   int prec = spec.have_precision ? spec.precision : -1;
 
   if (spec.star_width)
@@ -1764,7 +1786,7 @@ format_directive (const pass_sprintf_length::call_info &info,
     }
   else
     {
-      if (!res->warned && 0 < fmtres.range.min && navail < fmtres.range.min)
+      if (!res->warned && fmtres.range.min > 0 && navail < fmtres.range.min)
 	{
 	  const char* fmtstr
 	    = (info.bounded
@@ -2340,7 +2362,7 @@ get_destination_size (tree dest)
      a member array as opposed to the whole enclosing object), otherwise
      use type-zero object size to determine the size of the enclosing
      object (the function fails without optimization in this type).  */
-  int ost = 0 < optimize;
+  int ost = optimize > 0;
   unsigned HOST_WIDE_INT size;
   if (compute_builtin_object_size (dest, ost, &size))
     return size;
@@ -2458,18 +2480,10 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
   call_info info = call_info ();
 
   info.callstmt = gsi_stmt (gsi);
-  info.func = gimple_call_fn (info.callstmt);
-  if (!info.func)
+  if (!gimple_call_builtin_p (info.callstmt, BUILT_IN_NORMAL))
     return;
 
-  if (TREE_CODE (info.func) == ADDR_EXPR)
-    info.func = TREE_OPERAND (info.func, 0);
-
-  if (TREE_CODE (info.func) != FUNCTION_DECL
-      || !DECL_BUILT_IN(info.func)
-      || DECL_BUILT_IN_CLASS (info.func) != BUILT_IN_NORMAL)
-    return;
-
+  info.func = gimple_call_fndecl (info.callstmt);
   info.fncode = DECL_FUNCTION_CODE (info.func);
 
   /* The size of the destination as in snprintf(dest, size, ...).  */
@@ -2496,6 +2510,14 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
       info.argidx = 2;
       break;
 
+    case BUILT_IN_SPRINTF_CHK:
+      // Signature:
+      //   __builtin___sprintf_chk (dst, ost, objsize, format, ...)
+      idx_objsize = 2;
+      idx_format = 3;
+      info.argidx = 4;
+      break;
+
     case BUILT_IN_SNPRINTF:
       // Signature:
       //   __builtin_snprintf (dst, size, format, ...)
@@ -2507,20 +2529,12 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
 
     case BUILT_IN_SNPRINTF_CHK:
       // Signature:
-      //   __builtin___sprintf_chk (dst, size, ost, objsize, format, ...)
+      //   __builtin___snprintf_chk (dst, size, ost, objsize, format, ...)
       idx_dstsize = 1;
       idx_objsize = 3;
       idx_format = 4;
       info.argidx = 5;
       info.bounded = true;
-      break;
-
-    case BUILT_IN_SPRINTF_CHK:
-      // Signature:
-      //   __builtin___sprintf_chk (dst, ost, objsize, format, ...)
-      idx_objsize = 2;
-      idx_format = 3;
-      info.argidx = 4;
       break;
 
     case BUILT_IN_VSNPRINTF:
@@ -2536,8 +2550,8 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
       // Signature:
       //   __builtin___vsnprintf_chk (dst, size, ost, objsize, format, va)
       idx_dstsize = 1;
-      idx_objsize = 2;
-      idx_format = 3;
+      idx_objsize = 3;
+      idx_format = 4;
       info.argidx = -1;
       info.bounded = true;
       break;
@@ -2565,7 +2579,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
 
   if (idx_dstsize == HOST_WIDE_INT_M1U)
     {
-      // For non-bounded functions like sprintf, to to determine
+      // For non-bounded functions like sprintf, to determine
       // the size of the destination from the object or pointer
       // passed to it as the first argument.
       dstsize = get_destination_size (gimple_call_arg (info.callstmt, 0));
@@ -2657,7 +2671,8 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
      attempt to substitute the computed result for the return value of
      the call.  Avoid this optimization when -frounding-math is in effect
      and the format string contains a floating point directive.  */
-  if (0 < optimize && flag_printf_return_value
+  if (optimize > 0
+      && flag_printf_return_value
       && (!flag_rounding_math || !res.floating))
     try_substitute_return_value (gsi, info, res);
 }
@@ -2676,7 +2691,7 @@ pass_sprintf_length::execute (function *fun)
 	  /* Iterate over statements, looking for function calls.  */
 	  gimple *stmt = gsi_stmt (si);
 
-	  if (gimple_code (stmt) == GIMPLE_CALL)
+	  if (is_gimple_call (stmt))
 	    handle_gimple_call (si);
 	}
     }

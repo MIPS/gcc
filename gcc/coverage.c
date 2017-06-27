@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "cgraph.h"
@@ -1078,7 +1079,7 @@ build_gcov_exit_decl (void)
   append_to_statement_list (stmt, &dtor);
 
   /* Generate a destructor to run it (with priority 99).  */
-  cgraph_build_static_cdtor ('D', dtor, DEFAULT_INIT_PRIORITY - 1);
+  cgraph_build_static_cdtor ('D', dtor, MAX_RESERVED_INIT_PRIORITY - 1);
 }
 
 /* Create the gcov_info types and object.  Generate the constructor

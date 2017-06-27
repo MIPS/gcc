@@ -231,9 +231,6 @@ func (mp *muintptr) set(m *m) { *mp = muintptr(unsafe.Pointer(m)) }
 //
 // sudogs are allocated from a special pool. Use acquireSudog and
 // releaseSudog to allocate and free them.
-/*
-Commented out for gccgo for now.
-
 type sudog struct {
 	// The following fields are protected by the hchan.lock of the
 	// channel this sudog is blocking on. shrinkstack depends on
@@ -253,7 +250,6 @@ type sudog struct {
 	waitlink    *sudog // g.waiting list
 	c           *hchan // channel
 }
-*/
 
 type gcstats struct {
 	// the struct must consist of only uint64's,
@@ -351,20 +347,14 @@ type g struct {
 	tracelastp     puintptr // last P emitted an event for this goroutine
 	lockedm        *m
 	sig            uint32
-
-	// Temporary gccgo field.
-	writenbuf int32
-	// Not for gccgo yet: writebuf       []byte
-	// Temporary different type for gccgo.
-	writebuf *byte
-
-	sigcode0 uintptr
-	sigcode1 uintptr
-	sigpc    uintptr
-	gopc     uintptr // pc of go statement that created this goroutine
-	startpc  uintptr // pc of goroutine function
-	racectx  uintptr
-	// Not for gccgo for now: waiting        *sudog    // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
+	writebuf       []byte
+	sigcode0       uintptr
+	sigcode1       uintptr
+	sigpc          uintptr
+	gopc           uintptr // pc of go statement that created this goroutine
+	startpc        uintptr // pc of goroutine function
+	racectx        uintptr
+	waiting        *sudog // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
 	// Not for gccgo: cgoCtxt        []uintptr // cgo traceback context
 
 	// Per-G GC state
@@ -396,7 +386,7 @@ type g struct {
 	gcnextsegment unsafe.Pointer
 	gcnextsp      unsafe.Pointer
 	gcinitialsp   unsafe.Pointer
-	gcregs        _ucontext_t
+	gcregs        g_ucontext_t
 
 	entry    unsafe.Pointer // goroutine entry point
 	fromgogo bool           // whether entered from gogo function
@@ -404,9 +394,9 @@ type g struct {
 	issystem     bool // do not output in stack dump
 	isbackground bool // ignore in deadlock detector
 
-	traceback *traceback // stack traceback buffer
+	traceback *tracebackg // stack traceback buffer
 
-	context      _ucontext_t        // saved context for setcontext
+	context      g_ucontext_t       // saved context for setcontext
 	stackcontext [10]unsafe.Pointer // split-stack context
 }
 
@@ -474,7 +464,7 @@ type m struct {
 	// Not for gccgo: libcallg  guintptr
 	// Not for gccgo: syscall   libcall // stores syscall parameters on windows
 
-	// Not for gccgo: mOS
+	mos mOS
 
 	// Remaining fields are specific to gccgo.
 
@@ -484,8 +474,6 @@ type m struct {
 	dropextram bool // drop after call is done
 
 	gcing int32
-
-	waitsema uintptr // semaphore on systems that don't use futexes
 
 	cgomal *cgoMal // allocations via _cgo_allocate
 }
@@ -530,7 +518,7 @@ type p struct {
 	gfree    *g
 	gfreecnt int32
 
-	// Not for gccgo for now: sudogcache []*sudog
+	sudogcache []*sudog
 	// Not for gccgo for now: sudogbuf   [128]*sudog
 
 	// Not for gccgo for now: tracebuf traceBufPtr
@@ -678,11 +666,11 @@ type forcegcstate struct {
 	idle uint32
 }
 
-/*
 // startup_random_data holds random bytes initialized at startup. These come from
 // the ELF AT_RANDOM auxiliary vector (vdso_linux_amd64.go or os_linux_386.go).
 var startupRandomData []byte
 
+/*
 // extendRandom extends the random numbers in r[:n] to the whole slice r.
 // Treats n<0 as n==0.
 func extendRandom(r []byte, n int) {
@@ -771,13 +759,15 @@ const (
 const _TracebackMaxFrames = 100
 
 var (
-//	emptystring string
-//	allglen     uintptr
-//	allm        *m
-//	allp        [_MaxGomaxprocs + 1]*p
-//	gomaxprocs  int32
-//	panicking   uint32
-//	ncpu        int32
+	//	emptystring string
+	//	allglen     uintptr
+	//	allm        *m
+	//	allp        [_MaxGomaxprocs + 1]*p
+	//	gomaxprocs  int32
+	//	panicking   uint32
+
+	ncpu int32
+
 //	forcegc     forcegcstate
 //	sched       schedt
 //	newprocs    int32
@@ -797,34 +787,19 @@ var (
 
 // Set by the linker so the runtime can determine the buildmode.
 var (
-//	islibrary bool // -buildmode=c-shared
-//	isarchive bool // -buildmode=c-archive
+	islibrary bool // -buildmode=c-shared
+	isarchive bool // -buildmode=c-archive
 )
 
 // Types that are only used by gccgo.
 
-// _ucontext_t is a Go version of the C ucontext_t type, used by getcontext.
-// _sizeof_ucontext_t is defined by the Makefile from <ucontext.h>.
+// g_ucontext_t is a Go version of the C ucontext_t type, used by getcontext.
+// _sizeof_ucontext_t is defined by mkrsysinfo.sh from <ucontext.h>.
 // On some systems getcontext and friends require a value that is
 // aligned to a 16-byte boundary.  We implement this by increasing the
 // required size and picking an appropriate offset when we use the
 // array.
-type _ucontext_t [(_sizeof_ucontext_t + 15) / unsafe.Sizeof(unsafe.Pointer(nil))]unsafe.Pointer
-
-// traceback is used to collect stack traces from other goroutines.
-type traceback struct {
-	gp     *g
-	locbuf [_TracebackMaxFrames]location
-	c      int
-}
-
-// location is a location in the program, used for backtraces.
-type location struct {
-	pc       uintptr
-	filename string
-	function string
-	lineno   int
-}
+type g_ucontext_t [(_sizeof_ucontext_t + 15) / unsafe.Sizeof(unsafe.Pointer(nil))]unsafe.Pointer
 
 // cgoMal tracks allocations made by _cgo_allocate
 // FIXME: _cgo_allocate has been removed from gc and can probably be

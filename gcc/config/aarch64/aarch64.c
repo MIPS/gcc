@@ -172,7 +172,6 @@ static const struct aarch64_flag_desc aarch64_fusible_pairs[] =
   { "all", AARCH64_FUSE_ALL },
   { NULL, AARCH64_FUSE_NOTHING }
 };
-#undef AARCH64_FUION_PAIR
 
 #define AARCH64_EXTRA_TUNING_OPTION(name, internal_name) \
   { name, AARCH64_EXTRA_TUNE_##internal_name },
@@ -183,7 +182,6 @@ static const struct aarch64_flag_desc aarch64_tuning_flags[] =
   { "all", AARCH64_EXTRA_TUNE_ALL },
   { NULL, AARCH64_EXTRA_TUNE_NONE }
 };
-#undef AARCH64_EXTRA_TUNING_OPTION
 
 /* Tuning parameters.  */
 
@@ -828,7 +826,6 @@ static const struct processor all_architectures[] =
 #define AARCH64_ARCH(NAME, CORE, ARCH_IDENT, ARCH_REV, FLAGS) \
   {NAME, CORE, CORE, AARCH64_ARCH_##ARCH_IDENT, ARCH_REV, FLAGS, NULL},
 #include "aarch64-arches.def"
-#undef AARCH64_ARCH
   {NULL, aarch64_none, aarch64_none, aarch64_no_arch, 0, 0, NULL}
 };
 
@@ -840,7 +837,6 @@ static const struct processor all_cores[] =
   all_architectures[AARCH64_ARCH_##ARCH].architecture_version,	\
   FLAGS, &COSTS##_tunings},
 #include "aarch64-cores.def"
-#undef AARCH64_CORE
   {"generic", generic, cortexa53, AARCH64_ARCH_8A, 8,
     AARCH64_FL_FOR_ARCH8, &generic_tunings},
   {NULL, aarch64_none, aarch64_none, aarch64_no_arch, 0, 0, NULL}
@@ -8276,6 +8272,44 @@ aarch64_override_options_internal (struct gcc_options *opts)
   aarch64_override_options_after_change_1 (opts);
 }
 
+/* Print a hint with a suggestion for a core or architecture name that
+   most closely resembles what the user passed in STR.  ARCH is true if
+   the user is asking for an architecture name.  ARCH is false if the user
+   is asking for a core name.  */
+
+static void
+aarch64_print_hint_for_core_or_arch (const char *str, bool arch)
+{
+  auto_vec<const char *> candidates;
+  const struct processor *entry = arch ? all_architectures : all_cores;
+  for (; entry->name != NULL; entry++)
+    candidates.safe_push (entry->name);
+  char *s;
+  const char *hint = candidates_list_and_hint (str, s, candidates);
+  if (hint)
+    inform (input_location, "valid arguments are: %s;"
+			     " did you mean %qs?", s, hint);
+  XDELETEVEC (s);
+}
+
+/* Print a hint with a suggestion for a core name that most closely resembles
+   what the user passed in STR.  */
+
+inline static void
+aarch64_print_hint_for_core (const char *str)
+{
+  aarch64_print_hint_for_core_or_arch (str, false);
+}
+
+/* Print a hint with a suggestion for an architecture name that most closely
+   resembles what the user passed in STR.  */
+
+inline static void
+aarch64_print_hint_for_arch (const char *str)
+{
+  aarch64_print_hint_for_core_or_arch (str, true);
+}
+
 /* Validate a command-line -mcpu option.  Parse the cpu and extensions (if any)
    specified in STR and throw errors if appropriate.  Put the results if
    they are valid in RES and ISA_FLAGS.  Return whether the option is
@@ -8298,6 +8332,7 @@ aarch64_validate_mcpu (const char *str, const struct processor **res,
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -mcpu", str);
+	aarch64_print_hint_for_core (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
 	error ("invalid feature modifier in -mcpu=%qs", str);
@@ -8316,7 +8351,7 @@ aarch64_validate_mcpu (const char *str, const struct processor **res,
 
 static bool
 aarch64_validate_march (const char *str, const struct processor **res,
-		       unsigned long *isa_flags)
+			 unsigned long *isa_flags)
 {
   enum aarch64_parse_opt_result parse_res
     = aarch64_parse_arch (str, res, isa_flags);
@@ -8331,6 +8366,7 @@ aarch64_validate_march (const char *str, const struct processor **res,
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -march", str);
+	aarch64_print_hint_for_arch (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
 	error ("invalid feature modifier in -march=%qs", str);
@@ -8363,6 +8399,7 @@ aarch64_validate_mtune (const char *str, const struct processor **res)
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -mtune", str);
+	aarch64_print_hint_for_core (str);
 	break;
       default:
 	gcc_unreachable ();
@@ -8734,6 +8771,7 @@ aarch64_handle_attr_arch (const char *str, const char *pragma_or_attr)
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for 'arch' target %s", str, pragma_or_attr);
+	aarch64_print_hint_for_arch (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
 	error ("invalid feature modifier %qs for 'arch' target %s",
@@ -8774,6 +8812,7 @@ aarch64_handle_attr_cpu (const char *str, const char *pragma_or_attr)
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for 'cpu' target %s", str, pragma_or_attr);
+	aarch64_print_hint_for_core (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
 	error ("invalid feature modifier %qs for 'cpu' target %s",
@@ -8808,6 +8847,7 @@ aarch64_handle_attr_tune (const char *str, const char *pragma_or_attr)
     {
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for 'tune' target %s", str, pragma_or_attr);
+	aarch64_print_hint_for_core (str);
 	break;
       default:
 	gcc_unreachable ();

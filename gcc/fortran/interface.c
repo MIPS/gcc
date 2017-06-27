@@ -495,6 +495,17 @@ compare_components (gfc_component *cmp1, gfc_component *cmp2,
   if (cmp1->attr.dimension && gfc_compare_array_spec (cmp1->as, cmp2->as) == 0)
     return 0;
 
+  if (cmp1->ts.type == BT_CHARACTER && cmp2->ts.type == BT_CHARACTER)
+    {
+      gfc_charlen *l1 = cmp1->ts.u.cl;
+      gfc_charlen *l2 = cmp2->ts.u.cl;
+      if (l1 && l2 && l1->length && l2->length
+          && l1->length->expr_type == EXPR_CONSTANT
+          && l2->length->expr_type == EXPR_CONSTANT
+          && gfc_dep_compare_expr (l1->length, l2->length) != 0)
+        return 0;
+    }
+
   /* Make sure that link lists do not put this function into an
      endless recursive loop!  */
   if (!(cmp1->ts.type == BT_DERIVED && derived1 == cmp1->ts.u.derived)
@@ -526,9 +537,16 @@ int
 gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
 {
   gfc_component *map1, *map2, *cmp1, *cmp2;
+  gfc_symbol *map1_t, *map2_t;
 
   if (un1->attr.flavor != FL_UNION || un2->attr.flavor != FL_UNION)
     return 0;
+
+  if (un1->attr.zero_comp != un2->attr.zero_comp)
+    return 0;
+
+  if (un1->attr.zero_comp)
+    return 1;
 
   map1 = un1->components;
   map2 = un2->components;
@@ -541,16 +559,26 @@ gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
      we compare the maps sequentially. */
   for (;;)
   {
-    cmp1 = map1->ts.u.derived->components;
-    cmp2 = map2->ts.u.derived->components;
+    map1_t = map1->ts.u.derived;
+    map2_t = map2->ts.u.derived;
+
+    cmp1 = map1_t->components;
+    cmp2 = map2_t->components;
+
+    /* Protect against null components.  */
+    if (map1_t->attr.zero_comp != map2_t->attr.zero_comp)
+      return 0;
+
+    if (map1_t->attr.zero_comp)
+      return 1;
+
     for (;;)
     {
       /* No two fields will ever point to the same map type unless they are
          the same component, because one map field is created with its type
          declaration. Therefore don't worry about recursion here. */
       /* TODO: worry about recursion into parent types of the unions? */
-      if (compare_components (cmp1, cmp2,
-            map1->ts.u.derived, map2->ts.u.derived) == 0)
+      if (compare_components (cmp1, cmp2, map1_t, map2_t) == 0)
         return 0;
 
       cmp1 = cmp1->next;
@@ -588,6 +616,10 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
     return 1;
 
   gcc_assert (derived1 && derived2);
+
+  /* Compare UNION types specially.  */
+  if (derived1->attr.flavor == FL_UNION || derived2->attr.flavor == FL_UNION)
+    return gfc_compare_union_types (derived1, derived2);
 
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
@@ -679,13 +711,14 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
       && (ts1->u.derived->attr.sequence || ts1->u.derived->attr.is_bind_c))
     return 1;
 
-  if (ts1->type == BT_UNION && ts2->type == BT_UNION)
+  if (ts1->type != ts2->type
+      && ((ts1->type != BT_DERIVED && ts1->type != BT_CLASS)
+	  || (ts2->type != BT_DERIVED && ts2->type != BT_CLASS)))
+    return 0;
+
+  if (ts1->type == BT_UNION)
     return gfc_compare_union_types (ts1->u.derived, ts2->u.derived);
 
-  if (ts1->type != ts2->type
-      && ((!gfc_bt_struct (ts1->type) && ts1->type != BT_CLASS)
-	  || (!gfc_bt_struct (ts2->type) && ts2->type != BT_CLASS)))
-    return 0;
   if (ts1->type != BT_DERIVED && ts1->type != BT_CLASS)
     return (ts1->kind == ts2->kind);
 
@@ -1667,14 +1700,23 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
   f1 = gfc_sym_get_dummy_args (s1);
   f2 = gfc_sym_get_dummy_args (s2);
 
+  /* Special case: No arguments.  */
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case: No arguments.  */
+    return 1;
 
   if (generic_flag)
     {
       if (count_types_test (f1, f2, p1, p2)
 	  || count_types_test (f2, f1, p2, p1))
 	return 0;
+
+      /* Special case: alternate returns.  If both f1->sym and f2->sym are
+	 NULL, then the leading formal arguments are alternate returns.  
+	 The previous conditional should catch argument lists with 
+	 different number of argument.  */
+      if (f1 && f1->sym == NULL && f2 && f2->sym == NULL)
+	return 1;
+
       if (generic_correspondence (f1, f2, p1, p2)
 	  || generic_correspondence (f2, f1, p2, p1))
 	return 0;
@@ -1842,13 +1884,15 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 				       generic_flag, 0, NULL, 0, NULL, NULL))
 	  {
 	    if (referenced)
-	      gfc_error ("Ambiguous interfaces %qs and %qs in %s at %L",
-			 p->sym->name, q->sym->name, interface_name,
-			 &p->where);
+	      gfc_error ("Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else if (!p->sym->attr.use_assoc && q->sym->attr.use_assoc)
-	      gfc_warning (0, "Ambiguous interfaces %qs and %qs in %s at %L",
-			   p->sym->name, q->sym->name, interface_name,
-			   &p->where);
+	      gfc_warning (0, "Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else
 	      gfc_warning (0, "Although not referenced, %qs has ambiguous "
 			   "interfaces at %L", interface_name, &p->where);

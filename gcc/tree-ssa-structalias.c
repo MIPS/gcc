@@ -385,8 +385,7 @@ new_var_info (tree t, const char *name, bool add_id)
     ret->is_global_var = (is_global_var (t)
 			  /* We have to treat even local register variables
 			     as escape points.  */
-			  || (TREE_CODE (t) == VAR_DECL
-			      && DECL_HARD_REGISTER (t)));
+			  || (VAR_P (t) && DECL_HARD_REGISTER (t)));
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = NULL;
   ret->next = 0;
@@ -2929,8 +2928,7 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
     }
 
   /* For global variables resort to the alias target.  */
-  if (TREE_CODE (t) == VAR_DECL
-      && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+  if (VAR_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
       varpool_node *node = varpool_node::get (t);
       if (node && node->alias && node->analyzed)
@@ -4063,15 +4061,34 @@ handle_const_call (gcall *stmt, vec<ce_s> *results)
 {
   struct constraint_expr rhsc;
   unsigned int k;
+  bool need_uses = false;
 
   /* Treat nested const functions the same as pure functions as far
      as the static chain is concerned.  */
   if (gimple_call_chain (stmt))
     {
       varinfo_t uses = get_call_use_vi (stmt);
+      make_constraint_to (uses->id, gimple_call_chain (stmt));
+      need_uses = true;
+    }
+
+  /* And if we applied NRV the address of the return slot escapes as well.  */
+  if (gimple_call_return_slot_opt_p (stmt)
+      && gimple_call_lhs (stmt) != NULL_TREE
+      && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
+    {
+      varinfo_t uses = get_call_use_vi (stmt);
+      auto_vec<ce_s> tmpc;
+      get_constraint_for_address_of (gimple_call_lhs (stmt), &tmpc);
+      make_constraints_to (uses->id, tmpc);
+      need_uses = true;
+    }
+
+  if (need_uses)
+    {
+      varinfo_t uses = get_call_use_vi (stmt);
       make_any_offset_constraints (uses);
       make_transitive_closure_constraints (uses);
-      make_constraint_to (uses->id, gimple_call_chain (stmt));
       rhsc.var = uses->id;
       rhsc.offset = 0;
       rhsc.type = SCALAR;
@@ -4138,6 +4155,22 @@ handle_pure_call (gcall *stmt, vec<ce_s> *results)
 	  make_transitive_closure_constraints (uses);
 	}
       make_constraint_to (uses->id, gimple_call_chain (stmt));
+    }
+
+  /* And if we applied NRV the address of the return slot.  */
+  if (gimple_call_return_slot_opt_p (stmt)
+      && gimple_call_lhs (stmt) != NULL_TREE
+      && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
+    {
+      if (!uses)
+	{
+	  uses = get_call_use_vi (stmt);
+	  make_any_offset_constraints (uses);
+	  make_transitive_closure_constraints (uses);
+	}
+      auto_vec<ce_s> tmpc;
+      get_constraint_for_address_of (gimple_call_lhs (stmt), &tmpc);
+      make_constraints_to (uses->id, tmpc);
     }
 
   /* Pure functions may return call-used and nonlocal memory.  */
@@ -6008,7 +6041,7 @@ create_variable_info_for (tree decl, const char *name, bool add_id)
 
   insert_vi_for_tree (decl, vi);
 
-  if (TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_P (decl))
     return id;
 
   /* Create initial constraints for globals.  */
@@ -6284,7 +6317,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
       if (vi->is_restrict_var)
 	pt->vars_contains_restrict = true;
 
-      if (TREE_CODE (vi->decl) == VAR_DECL
+      if (VAR_P (vi->decl)
 	  || TREE_CODE (vi->decl) == PARM_DECL
 	  || TREE_CODE (vi->decl) == RESULT_DECL)
 	{
@@ -7255,7 +7288,7 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
 
   /* For plain decl accesses see whether they are accesses to globals
      and rewrite them to MEM_REFs with { clique, 0 }.  */
-  if (TREE_CODE (base) == VAR_DECL
+  if (VAR_P (base)
       && is_global_var (base)
       /* ???  We can't rewrite a plain decl with the walk_stmt_load_store
 	 ops callback.  */
@@ -7264,7 +7297,7 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
       tree *basep = &ref;
       while (handled_component_p (*basep))
 	basep = &TREE_OPERAND (*basep, 0);
-      gcc_assert (TREE_CODE (*basep) == VAR_DECL);
+      gcc_assert (VAR_P (*basep));
       tree ptr = build_fold_addr_expr (*basep);
       tree zero = build_int_cst (TREE_TYPE (ptr), 0);
       *basep = build2 (MEM_REF, TREE_TYPE (*basep), ptr, zero);

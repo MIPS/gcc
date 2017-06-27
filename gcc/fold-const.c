@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "tree-ssa-operands.h"
 #include "optabs-query.h"
@@ -7142,7 +7143,16 @@ native_encode_real (const_tree expr, unsigned char *ptr, int len, int off)
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
+	{
+	  offset = byte;
+	  if (BYTES_BIG_ENDIAN)
+	    {
+	      /* Reverse bytes within each long, or within the entire float
+		 if it's smaller than a long (for HFmode).  */
+	      offset = MIN (3, total_bytes - 1) - offset;
+	      gcc_assert (offset >= 0);
+	    }
+	}
       offset = offset + ((bitpos / BITS_PER_UNIT) & ~3);
       if (offset >= off
 	  && offset - off < len)
@@ -7933,7 +7943,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       if (TREE_CODE (op0) == ADDR_EXPR)
 	{
 	  tree op00 = TREE_OPERAND (op0, 0);
-	  if ((TREE_CODE (op00) == VAR_DECL
+	  if ((VAR_P (op00)
 	       || TREE_CODE (op00) == PARM_DECL
 	       || TREE_CODE (op00) == RESULT_DECL)
 	      && !TREE_READONLY (op00))
@@ -14431,24 +14441,44 @@ fold_build_pointer_plus_hwi_loc (location_t loc, tree ptr, HOST_WIDE_INT off)
 }
 
 /* Return a char pointer for a C string if it is a string constant
-   or sum of string constant and integer constant.  */
+   or sum of string constant and integer constant.  We only support
+   string constants properly terminated with '\0' character.
+   If STRLEN is a valid pointer, length (including terminating character)
+   of returned string is stored to the argument.  */
 
 const char *
-c_getstr (tree src)
+c_getstr (tree src, unsigned HOST_WIDE_INT *strlen)
 {
   tree offset_node;
 
+  if (strlen)
+    *strlen = 0;
+
   src = string_constant (src, &offset_node);
   if (src == 0)
-    return 0;
+    return NULL;
 
-  if (offset_node == 0)
-    return TREE_STRING_POINTER (src);
-  else if (!tree_fits_uhwi_p (offset_node)
-	   || compare_tree_int (offset_node, TREE_STRING_LENGTH (src) - 1) > 0)
-    return 0;
+  unsigned HOST_WIDE_INT offset = 0;
+  if (offset_node != NULL_TREE)
+    {
+      if (!tree_fits_uhwi_p (offset_node))
+	return NULL;
+      else
+	offset = tree_to_uhwi (offset_node);
+    }
 
-  return TREE_STRING_POINTER (src) + tree_to_uhwi (offset_node);
+  unsigned HOST_WIDE_INT string_length = TREE_STRING_LENGTH (src);
+  const char *string = TREE_STRING_POINTER (src);
+
+  /* Support only properly null-terminated strings.  */
+  if (string_length == 0
+      || string[string_length - 1] != '\0'
+      || offset >= string_length)
+    return NULL;
+
+  if (strlen)
+    *strlen = string_length - offset;
+  return string + offset;
 }
 
 #if CHECKING_P

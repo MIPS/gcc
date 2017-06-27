@@ -4480,6 +4480,19 @@ Gogo::write_c_header()
        ++p)
     {
       Named_object* no = *p;
+
+      // Skip names that start with underscore followed by something
+      // other than an uppercase letter, as when compiling the runtime
+      // package they are mostly types defined by mkrsysinfo.sh based
+      // on the C system header files.  We don't need to translate
+      // types to C and back to Go.  But do accept the special cases
+      // _defer and _panic.
+      std::string name = Gogo::unpack_hidden_name(no->name());
+      if (name[0] == '_'
+	  && (name[1] < 'A' || name[1] > 'Z')
+	  && (name != "_defer" && name != "_panic"))
+	continue;
+
       if (no->is_type() && no->type_value()->struct_type() != NULL)
 	types.push_back(no);
       if (no->is_const() && no->const_value()->type()->integer_type() != NULL)
@@ -7201,6 +7214,14 @@ Named_object::get_backend(Gogo* gogo, std::vector<Bexpression*>& const_decls,
                           std::vector<Btype*>& type_decls,
                           std::vector<Bfunction*>& func_decls)
 {
+  // If this is a definition, avoid trying to get the backend
+  // representation, as that can crash.
+  if (this->is_redefinition_)
+    {
+      go_assert(saw_errors());
+      return;
+    }
+
   switch (this->classification_)
     {
     case NAMED_OBJECT_CONST:
