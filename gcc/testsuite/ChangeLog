@@ -1,3 +1,60 @@
+2016-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* gfortran.dg/select_type_37.f03: New test.
+
+2016-10-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/71627
+	* gcc.target/avr/pr71627.c: New test
+
+2016-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/overflow-1.c: New test.
+	* gcc.target/sparc/overflow-2.c: Likewise.
+	* gcc.target/sparc/overflow-3.c: Likewise.
+
+2016-10-21  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pure-code/pure-code.exp: Require arm_cortex_m
+	effective target.
+
+2016-10-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/78038
+	* gcc.target/aarch64/pr78038.c: New test.
+
+2016-10-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78051
+	* g++.dg/torture/pr78051.C: New testcase.
+
+2016-10-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/wdate-time.c: Restored test case.
+	* g++.dg/warn/Wconversion-real.C: Deleted empty file.
+
+2016-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/inline-var1.C (w): Initialize to 64 + 2.
+
+2016-10-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78037
+	* gcc.target/i386/pr78037.c: New test.
+
+2016-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/visium/overflow8.c: New.
+	* gcc.target/visium/overflow16.c: Likewise.
+	* gcc.target/visium/overflow32: Likewise.
+
+2016-10-20  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/loop-split.c: New test.
+	* gcc.dg/tree-ssa/ifc-9.c: Update.
+	* gcc.dg/tree-ssa/ifc-10.c: Update.
+
 2016-10-20  Richard Biener  <rguenther@suse.de>
 
 	* gcc.dg/graphite/pr35356-1.c: Update.

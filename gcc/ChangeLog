@@ -1,3 +1,260 @@
+2016-10-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (flag_compact): Move extern decl to...
+	* print-rtl.h (flag_compact): ...here.
+	* rtl-tests.c (selftests::assert_rtl_dump_eq): New function.
+	(ASSERT_RTL_DUMP_EQ): New macro.
+	(selftest::test_dumping_regs): New function.
+	(selftest::test_dumping_insns): New function.
+	(selftest::test_uncond_jump): Add uses of ASSERT_RTL_DUMP_EQ on
+	the insns.
+	(selftest::rtl_tests_c_tests): Call the new test functions.
+
+2016-10-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* cfgcleanup.c (merge_blocks_move_successor_nojumps): Adjust.
+	(outgoing_edges_match): Likewise.
+	(try_crossjump_to_edge): Likewise.
+	* cfgrtl.c (try_redirect_by_replacing_jump): Likewise.
+	(rtl_tidy_fallthru_edge): Likewise.
+	* rtl.h (tablejump_p): Adjust prototype.
+	* rtlanal.c (tablejump_p): Return the label as a rtx_insn *.
+
+2016-10-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* rtl.h (label_ref_label): New function.
+	(set_label_ref_label): New function.
+	(LABEL_REF_LABEL): Delete.
+	* alias.c (rtx_equal_for_memref_p): Adjust.
+	* cfgbuild.c (make_edges): Likewise.
+	(purge_dead_tablejump_edges): Likewise.
+	* cfgexpand.c (convert_debug_memory_address): Likewise.
+	* cfgrtl.c (patch_jump_insn): Likewise.
+	* combine.c (distribute_notes): Likewise.
+	* cse.c (hash_rtx_cb): Likewise.
+	(exp_equiv_p): Likewise.
+	(fold_rtx): Likewise.
+	(check_for_label_ref): Likewise.
+	* cselib.c (rtx_equal_for_cselib_1): Likewise.
+	(cselib_hash_rtx): Likewise.
+	* emit-rtl.c (mark_label_nuses): Likewise.
+	* explow.c (convert_memory_address_addr_space_1): Likewise.
+	* final.c (output_asm_label): Likewise.
+	(output_addr_const): Likewise.
+	* gcse.c (add_label_notes): Likewise.
+	* genconfig.c (walk_insn_part): Likewise.
+	* genrecog.c (validate_pattern): Likewise.
+	* ifcvt.c (cond_exec_get_condition): Likewise.
+	(noce_emit_store_flag): Likewise.
+	(noce_get_alt_condition): Likewise.
+	(noce_get_condition): Likewise.
+	* jump.c (maybe_propagate_label_ref): Likewise.
+	(mark_jump_label_1): Likewise.
+	(redirect_exp_1): Likewise.
+	(rtx_renumbered_equal_p): Likewise.
+	* lra-constraints.c (operands_match_p): Likewise.
+	* print-rtl.c (print_value): Likewise.
+	* reload.c (find_reloads): Likewise.
+	* reload1.c (set_label_offsets): Likewise.
+	* reorg.c (get_branch_condition): Likewise.
+	* rtl-tests.c (test_uncond_jump): Likewise.
+	* rtl.c (rtx_equal_p_cb): Likewise.
+	(rtx_equal_p): Likewise.
+	* rtlanal.c (reg_mentioned_p): Likewise.
+	(rtx_referenced_p): Likewise.
+	(get_condition): Likewise.
+	* varasm.c (const_hash_1): Likewise.
+	(compare_constant): Likewise.
+	(const_rtx_hash_1): Likewise.
+	(output_constant_pool_1): Likewise.
+
+2016-10-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/71627
+	* reload.c (find_valid_class_1): Allow regclass if atleast one
+	regno in regclass is ok. Compute and use rclass size based on
+	actually available regnos for mode in rclass.
+
+2016-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc-modes.def (CCV): New.
+	(CCXV): Likewise.
+	* config/sparc/predicates.md (v_comparison_operator): New.
+	(icc_comparison_operator): Add support for CCV/CCXV.
+	(xcc_comparison_operator): Likewise.
+	* config/sparc/sparc.c (output_cbranch): Likewise.
+	(sparc_print_operand): Likewise.
+	* config/sparc/sparc.md (UNSPEC_{ADD,SUB,NEG}V): New constants.
+	(uaddvdi4): New expander.
+	(addvdi4): Likewise.
+	(uaddvdi4_sp32): New instruction.
+	(addvdi4_sp32): Likewise.
+	(uaddvsi4): New expander.
+	(addvsi4): Likewise.
+	(cmp_ccc_plus_sltu_set): New instruction.
+	(cmp_ccv_plus): Likewise.
+	(cmp_ccxv_plus): Likewise.
+	(cmp_ccv_plus_set): Likewise.
+	(cmp_ccxv_plus_set): Likewise.
+	(cmp_ccv_plus_sltu_set): Likewise.
+	(uaddvdi4): New expander.
+	(subvdi4): Likewise.
+	(usubdi4_sp32): New instruction.
+	(subvdi4_sp32): Likewise.
+	(usubvsi4): New expander.
+	(subvsi4): Likewise.
+	(cmpsi_minus_sltu_set): New instruction.
+	(cmp_ccv_minus): Likewise.
+	(cmp_ccxv_minus): Likewise.
+	(cmp_ccv_minus_set): Likewise.
+	(cmp_ccxv_minus_set): Likewise.
+	(cmp_ccv_minus_sltu_set): Likewise.
+	(unegvdi3): New expander.
+	(negvdi3): Likewise.
+	(unegdi3_sp32): New instruction.
+	(negvdi3_sp32): Likewise.
+	(unegvsi3): New expander.
+	(negvsi3): Likewise.
+	(cmp_ccc_neg_sltu_set): New instruction.
+	(cmp_ccv_neg): Likewise.
+	(cmp_ccxv_neg): Likewise.
+	(cmp_ccv_neg_set): Likewise.
+	(cmp_ccxv_neg_set): Likewise.
+	(cmp_ccv_neg_sltu_set): Likewise.
+
+	* tree-ssa-loop-split.c: Remove trailing spaces.
+	* match.pd: Likewise.
+
+2016-10-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/78038
+	* ree.c (get_defs): Return NULL if a defining insn for REG cannot
+	be deduced to set REG through the RTL structure.
+	(make_defs_and_copies_lists): Return false on a failing get_defs call.
+
+2016-10-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78051
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Update stmt
+	and mark replaced if folding did something.
+
+2016-10-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): Swap "internal"
+	and "protected" in visibility types.
+	(rs6000_xcoff_declare_function_name): Fix formatting.
+	(rs6000_xcoff_declare_object_name): Fix formatting.
+
+2016-10-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_fold_builtin): Handle IX86_BUILTIN_INFQ
+	and IX86_BUILTIN_HUGE_VALQ here ...
+	(ix86_expand_builtin): ... not here.
+
+2016-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/gty.texi (for_user): Use @item next to @findex.
+
+2016-10-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78037
+	* config/i386/bmiintrin.h (__tzcnt_u16): Call __builtin_ia32_tzcnt_u16.
+	(__tzcnt_u32, _tzcnt_u32): Call __builtin_ia32_tzcnt_u32.
+	(__tzcnt_u64, _tzcnt_u64): Call __builtin_ia32_tzcnt_u64.
+	* config/i386/lzcntintrin.h (__lzcnt_u16): Call
+	__builtin_ia32_lzcnt_u16.
+	(__lzcnt_u32, _lzcnt_u32): Call __builtin_ia32_lzcnt_u32.
+	(__lzcnt_u64, _lzcnt_u64): Call __builtin_ia32_lzcnt_u64.
+	* config/i386/i386.md (UNSPEC_LZCNT, UNSPEC_TZCNT): New unspecs.
+	(ctz<mode>2, *ctz<mode>2): Use SWI48 mode iterator.
+	(bmi_tzcnt_<mode>): New expander.
+	(*bmi_tzcnt_<mode>_falsedep_1): New define_insn_and_split pattern.
+	(*bmi_tzcnt_<mode>_falsedep, *bmi_tzcnt_<mode>): New insn patterns.
+	(clz<mode>2_lzcnt, *clz<mode>2_lzcnt): Use SWI48 mode iterator.
+	(lzcnt_<mode>): New expander.
+	(*lzcnt_<mode>_falsedep_1): New define_insn_and_split pattern.
+	(*lzcnt_<mode>_falsedep, *lzcnt_<mode>): New insn patterns.
+	* config/i386/i386-builtin-types.def (UINT_FTYPE_UINT): New.
+	(UINT64_FTYPE_UINT64): New.
+	* config/i386/i386-builtin.def (__builtin_clzs): Remove description.
+	(__builtin_ia32_lzcnt_u16): New description.
+	(__builtin_ia32_lzcnt_u32): Ditto.
+	(__builtin_ia32_lzcnt_u64): Ditto.
+	(__builtin_ctzs): Remove description.
+	(__builtin_ia32_tzcnt_u16): New description.
+	(__builtin_ia32_tzcnt_u32): Ditto.
+	(__builtin_ia32_tzcnt_u64): Ditto.
+	* config/i386/i386.c (ix86_expand_args_builtin): Handle
+	UINT_FTYPE_UINT and UINT64_FTYPE_UINT64.
+
+2016-10-20  Martin Liska  <mliska@suse.cz>
+
+	PR lto/78049
+	* lto-streamer-in.c (fixup_call_stmt_edges_1): Replace value
+	comparison with STMT_UID_NOT_IN_RANGE.
+	(fixup_call_stmt_edges): Do not fixup edges of a thunk in
+	LTRANS.
+
+2016-10-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* compare-elim.c (conforming_compare): Accept UNSPECs.
+	(find_comparison_dom_walker::before_dom_children): Deal with
+	instructions both using and killing the flags register.
+	(equivalent_reg_at_start): New function extracted from...
+	(try_eliminate_compare): ...here.  Use it and add support for
+	registers and UNSPECs as second operand of the compare.
+	* config/visium/visium-modes.def (CCV): New.
+	* config/visium/predicates.md (visium_v_comparison_operator): New.
+	(visium_branch_operator): Deal with CCV mode.
+	* config/visium/visium.c (visium_select_cc_mode): Likewise.
+	(output_cbranch): Likewise.
+	* config/visium/visium.md (UNSPEC_{ADD,SUB,NEG}V): New constants.
+	(uaddv<mode>4): New expander.
+	(addv<mode>4): Likewise.
+	(add<mode>3_insn_set_carry): New instruction.
+	(add<mode>3_insn_set_overflow): Likewise.
+	(addsi3_insn_set_overflow): Likewise.
+	(usubv<mode>4): New expander.
+	(subv<mode>4): Likewise.
+	(sub<mode>3_insn_set_carry): New instruction.
+	(sub<mode>3_insn_set_overflow): Likewise.
+	(subsi3_insn_set_overflow): Likewise.
+	(unegv<mode>3): New expander.
+	(negv<mode>3): Likewise.
+	(neg<mode>2_insn_set_overflow): New instruction.
+	(addv_tst<mode>): Likewise.
+	(subv_tst<mode>): Likewise.
+	(negv_tst<mode>): Likewise.
+	(cbranch<mode>4_addv_insn): New splitter and instruction.
+	(cbranch<mode>4_subv_insn): Likewise.
+	(cbranch<mode>4_negv_insn): Likewise.
+
+2016-10-20  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (ptrs_compare_unequal): Remove code duplication.
+	Handle decls possibly not bound.
+	* tree-ssa-structalias.c (get_constraint_for_ssa_var): Add
+	nothing_id for decls that might not be bound if we are interested
+	for the address.
+	(get_constraint_for_component_ref): Deal with that.
+
+2016-10-20  Michael Matz  <matz@suse.de>
+
+	Loop splitting.
+	* common.opt (-fsplit-loops): New flag.
+	* passes.def (pass_loop_split): Add.
+	* opts.c (default_options_table): Add OPT_fsplit_loops entry at -O3.
+	(enable_fdo_optimizations): Add loop splitting.
+	* timevar.def (TV_LOOP_SPLIT): Add.
+	* tree-pass.h (make_pass_loop_split): Declare.
+	* tree-ssa-loop-manip.h (rewrite_into_loop_closed_ssa_1): Declare.
+	* tree-ssa-loop-unswitch.c: Include tree-ssa-loop-manip.h,
+	* tree-ssa-loop-split.c: New file.
+	* Makefile.in (OBJS): Add tree-ssa-loop-split.o.
+	* doc/invoke.texi (fsplit-loops): Document.
+	* doc/passes.texi (Loop optimization): Add paragraph about loop
+	splitting.
+
 2016-10-20  Richard Biener  <rguenther@suse.de>
 
 	* cgraphunit.c (analyze_functions): Set node->definition to

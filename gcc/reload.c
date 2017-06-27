@@ -715,25 +715,23 @@ find_valid_class_1 (machine_mode outer ATTRIBUTE_UNUSED,
 
   for (rclass = 1; rclass < N_REG_CLASSES; rclass++)
     {
-      int bad = 0;
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER && !bad; regno++)
-	{
-	  if (in_hard_reg_set_p (reg_class_contents[rclass], mode, regno)
-	      && !HARD_REGNO_MODE_OK (regno, mode))
-	    bad = 1;
-	}
-      
-      if (bad)
-	continue;
+      unsigned int computed_rclass_size = 0;
+
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+        {
+          if (in_hard_reg_set_p (reg_class_contents[rclass], mode, regno)
+              && (HARD_REGNO_MODE_OK (regno, mode)))
+            computed_rclass_size++;
+        }
 
       cost = register_move_cost (outer, (enum reg_class) rclass, dest_class);
 
-      if ((reg_class_size[rclass] > best_size
+      if ((computed_rclass_size > best_size
 	   && (best_cost < 0 || best_cost >= cost))
 	  || best_cost > cost)
 	{
 	  best_class = (enum reg_class) rclass;
-	  best_size = reg_class_size[rclass];
+	  best_size = computed_rclass_size;
 	  best_cost = register_move_cost (outer, (enum reg_class) rclass,
 					  dest_class);
 	}
@@ -2320,7 +2318,7 @@ operands_match_p (rtx x, rtx y)
       return 0;
 
     case LABEL_REF:
-      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
+      return label_ref_label (x) == label_ref_label (y);
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
@@ -4220,17 +4218,17 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	     this instruction.  */
 	  if (GET_CODE (substitution) == LABEL_REF
 	      && !find_reg_note (insn, REG_LABEL_OPERAND,
-				 LABEL_REF_LABEL (substitution))
+				 label_ref_label (substitution))
 	      /* For a JUMP_P, if it was a branch target it must have
 		 already been recorded as such.  */
 	      && (!JUMP_P (insn)
-		  || !label_is_jump_target_p (LABEL_REF_LABEL (substitution),
+		  || !label_is_jump_target_p (label_ref_label (substitution),
 					      insn)))
 	    {
 	      add_reg_note (insn, REG_LABEL_OPERAND,
-			    LABEL_REF_LABEL (substitution));
-	      if (LABEL_P (LABEL_REF_LABEL (substitution)))
-		++LABEL_NUSES (LABEL_REF_LABEL (substitution));
+			    label_ref_label (substitution));
+	      if (LABEL_P (label_ref_label (substitution)))
+		++LABEL_NUSES (label_ref_label (substitution));
 	    }
 
 	}
