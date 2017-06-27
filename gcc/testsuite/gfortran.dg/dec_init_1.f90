@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-fdec-structure -finit-derived -finit-local-zero -fdump-tree-original" }
+! { dg-options "-fdec-structure -finit-derived -finit-local-zero" }
 !
 ! Test -finit-derived with DEC structure and union.
 !

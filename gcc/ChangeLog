@@ -1,3 +1,168 @@
+2016-10-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* builtins.c (expand_builtin_nonlocal_goto): Avoid evaluating
+	PIC_OFFSET_TABLE_REGNUM twice.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd ((convert (op:s (convert@2 @0) (convert?@3 @1)))): Add
+	support for constant operand for OP.
+
+2016-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_member_die): Only reparent_child instead of
+	splice_child_die if child doesn't have DW_AT_specification attribute.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.h (TARGET_HAVE_LDREX): Define for ARMv8-M Baseline.
+	(TARGET_HAVE_LDREXBH): Likewise.
+	(TARGET_HAVE_LDACQ): Likewise.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (arm_split_atomic_op): Add function comment.  Add
+	logic to to decide whether to copy over old value to register for new
+	value.
+	* config/arm/sync.md: Add comments explaning why mode and code
+	attribute are not defined in iterators.md
+	(thumb1_atomic_op_str): New code attribute.
+	(thumb1_atomic_newop_str): Likewise.
+	(thumb1_atomic_fetch_op_str): Likewise.
+	(thumb1_atomic_fetch_newop_str): Likewise.
+	(thumb1_atomic_fetch_oldop_str): Likewise.
+	(atomic_exchange<mode>): Add new ARMv8-M Baseline only alternatives to
+	mirror the more restrictive constraints of the Thumb-1 insns after
+	split compared to Thumb-2 counterpart insns.
+	(atomic_<sync_optab><mode>): Likewise.  Add comment to keep constraints
+	in sync with non atomic version.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<sync_optab><mode>): Likewise.
+	(atomic_fetch_nand<mode>): Likewise.
+	(atomic_<sync_optab>_fetch<mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+	* config/arm/thumb1.md (thumb1_addsi3): Add comment to keep contraint
+	in sync with atomic version.
+	(thumb1_subsi3_insn): Likewise.
+	(thumb1_andsi3_insn): Likewise.
+	(thumb1_iorsi3_insn): Likewise.
+	(thumb1_xorsi3_insn): Likewise.
+
+2016-10-27  Nick Clifton  <nickc@redhat.com>
+
+	* plugin.c (register_plugin_info): Produce an error message if the
+	plugin is not found in the hash table.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd ((convert1 (minmax ((convert2 (x) c)))) -> minmax (x c)):
+	New pattern.
+
+2016-10-26  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78056
+	* config/rs6000/rs6000.c (spe_init_builtins): Modify loops to not
+	define builtin functions from the bdesc_spe_predicates or
+	bdesc_spe_evsel arrays if the builtin mask is not compatible with
+	the current compiler configuration.
+	(paired_init_builtins): Modify loop to not define define builtin
+	functions from the bdesc_paried_preds array if the builtin mask is
+	not compatible with the current compiler configuration.
+	(altivec_init_builtins): Modify loops to not define the
+	__builtin_altivec_stxvl function nor the builtin functions from
+	the bdesc_dst or bdesc_altivec_preds, or bdesc_abs arrays if the
+	builtin mask is not compatible with the current compiler
+	configuration.
+
+2016-10-26  Jeff Law  <law@redhat.com>
+
+	* config/sh/sh.c (output_branch): Add missing fallthru comments.
+	(gen_shl_and): Likewise.
+	* config/sh/sh.md (movsicc): Add missing fallthru comments.
+
+	* config/mips/mips.c (mips16_constant_cost): Add missing
+	fallthru comments.
+	(mips16_build_call_stub): Increase buffer size.  Adjust
+	fallthru comment.
+
+2016-10-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl.c (rtx_writer::print_rtx_operand_code_u): Print
+	INSN_UIDs for all insns in compact mode.
+	(rtx_writer::print_rtx): Likewise.
+	* print-rtl.h (rtx_writer::flag_compact): Update comment.
+	* rtl-tests.c (selftest::test_dumping_insns): Update expected
+	output to include INSN_UID.
+	(selftest::test_uncond_jump): Likewise.
+
+2016-10-26  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* haifa-sched.c (call_used_regs_num): Rename to...
+	(call_saved_regs_num): ...this.
+	(fixed_regs_num): New variable.
+	(sched_pressure_start_bb): Subtract out fixed_regs. Scale call_saved
+	regs not call_used.
+	(alloc_global_sched_pressure_data): Compute call_saved and fixed regs.
+
+2016-10-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (print_rtx_function): Rewrite in terms of
+	class rtx_writer.
+	* print-rtl.c (outfile): Delete global.
+	(sawclose): Likewise.
+	(indent): Likewise.
+	(in_call_function_usage): Likewise.
+	(flag_compact): Likewise.
+	(flag_simple): Likewise.
+	(rtx_writer::rtx_writer): New ctor.
+	(print_rtx_operand_code_0): Convert to...
+	(rtx_writer::print_rtx_operand_code_0): ...this.
+	(print_rtx_operand_code_e): Convert to...
+	(rtx_writer::print_rtx_operand_code_e): ...this.
+	(print_rtx_operand_codes_E_and_V): Convert to...
+	(rtx_writer::print_rtx_operand_codes_E_and_V): ...this.
+	(print_rtx_operand_code_i): Convert to...
+	(rtx_writer::print_rtx_operand_code_i): ...this.
+	(print_rtx_operand_code_r): Convert to...
+	(rtx_writer::print_rtx_operand_code_r): ...this.
+	(print_rtx_operand_code_u): Convert to...
+	(rtx_writer::print_rtx_operand_code_u): ...this.
+	(print_rtx_operand): Convert to...
+	(rtx_writer::print_rtx_operand): ...this.
+	(print_rtx): Convert to...
+	(rtx_writer::print_rtx): ...this.
+	(print_inline_rtx): Rewrite in terms of class rtx_writer.
+	(debug_rtx): Likewise.
+	(print_rtl): Convert to...
+	(rtx_writer::print_rtl): ...this.
+	(print_rtl): Reimplement in terms of class rtx_writer.
+	(print_rtl_single): Rewrite in terms of class rtx_writer.
+	(print_rtl_single_with_indent): Convert to..
+	(rtx_writer::print_rtl_single_with_indent): ...this.
+	(print_simple_rtl): Rewrite in terms of class rtx_writer.
+	* print-rtl.h (flag_compact): Delete decl.
+	(class rtx_writer): New class.
+	* rtl-tests.c (selftest::assert_rtl_dump_eq): Rewrite in terms of
+	class rtx_writer.
+
+2016-10-26  Jeff Law  <law@redhat.com>
+
+	* config/microblaze/microblaze.c (tls_mentioned_p): Avoid
+	fallthru.
+
+	* config/arc/arc.c (acr_print_operand): Adjust fallthru comment.
+	(check_if_valid_sleep_operand): Add missing fallthru comment.
+	(arc_register_move_cost): Increase buffer size.
+	* config/arc/arc.md (cbranch4si_scratch): Add missing fallthru
+	comment.
+	* config/arc/predicates.md (move_str_operand): Avoid fallthru.
+
+	* config/cr16/cr16.c (cr16_print_operand): Add missing fallthru
+	comment.  Add gcc_unreachable for path that should never happen.
+
+	* config/epiphany/epiphany.c (epiphany_print_operand): Adjust
+	fallthru comment.
+
 2016-10-26  Jakub Jelinek  <jakub@redhat.com>
 	    Martin Liska  <mliska@suse.cz>
 

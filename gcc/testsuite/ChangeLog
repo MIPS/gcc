@@ -1,3 +1,53 @@
+2016-10-27  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_init_1.f90: Remove -fdump-tree-original.
+	* gfortran.dg/dec_init_2.f90: Likewise.
+	* gfortran.dg/dec_init_3.f90: New test.
+	* gfortran.dg/dec_init_4.f90: Likewise.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/fold-narrowbopcst-1.c: New test.
+
+2016-10-27  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_io_5.f90: Don't use "test.txt", and use
+	dg-shouldfail/dg-output instead of XFAIL.
+	* gfortran.dg/dec_io_6.f90: Likewise.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/atomic-comp-swap-release-acquire-3.c: New test.
+	* gcc.target/arm/atomic-op-acq_rel-3.c: Likewise.
+	* gcc.target/arm/atomic-op-acquire-3.c: Likewise.
+	* gcc.target/arm/atomic-op-char-3.c: Likewise.
+	* gcc.target/arm/atomic-op-consume-3.c: Likewise.
+	* gcc.target/arm/atomic-op-int-3.c: Likewise.
+	* gcc.target/arm/atomic-op-relaxed-3.c: Likewise.
+	* gcc.target/arm/atomic-op-release-3.c: Likewise.
+	* gcc.target/arm/atomic-op-seq_cst-3.c: Likewise.
+	* gcc.target/arm/atomic-op-short-3.c: Likewise.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/fold-convmaxconv-1.c: New test.
+	* gcc.dg/fold-convminconv-1.c: New test.
+
+2016-10-26  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/78092
+	* gfortran.dg/pr78092.f90: New test.
+
+2016-10-26  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78056
+	* gcc.target/powerpc/vsu/vec-any-eqz-7.c (test_any_equal): Change
+	expected error message.
+	* gcc.target/powerpc/vsu/vec-xst-len-12.c (store_data): Change
+	expected error message.
+	* gcc.target/powerpc/vsu/vec-all-nez-7.c
+	(test_all_not_equal_and_not_zero): Change expected error message.
+
 2016-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/77973

@@ -1,3 +1,48 @@
+2016-10-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/ext/random/uniform_inside_sphere_distribution/cons/
+	default.cc: Fix effective target selector.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/cons/
+	parms.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	equal.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	generate.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	inequal.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	serialize.cc: Likewise.
+
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Use end() function to get end iterator.
+	* testsuite/experimental/filesystem/iterators/pop.cc: Remove printf
+	statements that were present for debugging.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Use end() function to get end
+	iterator.
+	* testsuite/experimental/filesystem/operations/last_write_time.cc:
+	Only require file timestamps to be accurate to one second.
+
+2016-10-26  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_map.h (map()): Make default.
+	* include/bits/stl_multimap.h (multimap()): Likewise.
+	* include/bits/stl_multiset.h (multiset()): Likewise.
+	* include/bits/stl_set.h (set()): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree_impl()): Add conditional noexcept.
+	(_Rb_tree()): Make default.
+
+2016-10-26  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libstdc++/78110
+	* libsupc++/new_opa.cc: Don't include <malloc.h> in a free standing
+	environment.  Declare memalign directly in that case.
+
+2016-10-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/filesystem/iterators/pop.cc: Remove
+	unreliable dependency on directory order.
+
 2016-10-26  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	Implement uniform_inside_sphere_distribution extension.
