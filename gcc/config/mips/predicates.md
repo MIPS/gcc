@@ -380,60 +380,8 @@
     }
 })
 
-(define_predicate "const_sibcall_insn_operand"
-  (match_code "const,symbol_ref,label_ref")
-{
-  enum mips_symbol_type symbol_type;
-
-  if (!mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &symbol_type))
-    return false;
-
-  if (TARGET_MIPS16 && symbol_type == SYMBOL_ABSOLUTE)
-    {
-      if (TARGET_MIPS16_TAIL_BRANCH)
-	{
-	  const char *callee_sec;
-	  const char *caller_sec = DECL_SECTION_NAME (current_function_decl);
-	  tree callee_decl = SYMBOL_REF_DECL (op);
-	  bool same_sec_p = true;
-
-	  /* Do not attempt to use a branch if the callee is known to be
-	     external, require ISA switching or in a different section.  */
-
-	  if (callee_decl)
-	    {
-	      callee_sec = DECL_SECTION_NAME (callee_decl);
-
-	      if (((callee_sec == NULL) ^ (caller_sec == NULL))
-		  || (caller_sec != NULL
-		      && strcmp (caller_sec, callee_sec) != 0))
-		same_sec_p = false;
-	    }
-
-	  if (callee_decl
-	      && GET_CODE (op) == SYMBOL_REF
-	      && SYMBOL_REF_LOCAL_P (op)
-	      && !SYMBOL_REF_EXTERNAL_P (op)
-	      && !mips_call_may_need_jalx_p (callee_decl)
-	      && same_sec_p)
-	    return true;
-	}
-
-      if (TARGET_MIPS16_TAIL_INDIRECT)
-	return false;
-
-      return false;
-    }
-
-  return call_insn_operand (op, mode);
-})
-
 (define_predicate "call_insn_operand"
   (ior (match_operand 0 "const_call_insn_operand")
-       (match_operand 0 "register_operand")))
-
-(define_predicate "sibcall_insn_operand"
-  (ior (match_operand 0 "const_sibcall_insn_operand")
        (match_operand 0 "register_operand")))
 
 ;; A legitimate CONST_INT operand that takes more than one instruction
