@@ -1,3 +1,22 @@
+2016-10-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/77916
+	PR tree-optimization/77937
+	* gimple-ssa-strength-reduction.c (analyze_increments): Remove
+	stopgap fix.
+	(insert_initializers): Requirement of initializer for -1 should be
+	based on pointer-typedness of the candidate basis.
+
+2016-10-19  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/78005
+	* tree-vect-loop-manip.c (vect_gen_prolog_loop_niters): Compute
+	upper (included) bound for niters of prolog loop.
+	(vect_gen_scalar_loop_niters): Change parameter VF to VFM1.
+	Compute niters of scalar loop above which vectorized loop is
+	preferred, as well as the upper (included) bound for the niters.
+	(vect_do_peeling): Record niter bound for loops accordingly.
+
 2016-10-19  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR lto/77458
@@ -1071,8 +1090,6 @@
 	(vect_can_advance_ivs_p): Call iv_phi_p.
 	(vect_update_ivs_after_vectorizer): Call iv_phi_p.  Directly insert
 	new gimple stmts in basic block.
-	(vect_do_peeling_for_loop_bound):
-	(vect_do_peeling_for_alignment):
 	(vect_gen_niters_for_prolog_loop): Rename to...
 	(vect_gen_prolog_loop_niters): ...Rename from.  Change parameters and
 	adjust implementation.
