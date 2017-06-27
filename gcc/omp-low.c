@@ -19919,18 +19919,13 @@ oacc_loop_discovery ()
   /* Clear basic block flags, in particular BB_VISITED which we're going to use
      in the following.  */
   clear_bb_flags ();
-
+  
   oacc_loop *top = new_oacc_loop_outer (current_function_decl);
   oacc_loop_discover_walk (top, ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   /* The siblings were constructed in reverse order, reverse them so
      that diagnostics come out in an unsurprising order.  */
   top = oacc_loop_sibling_nreverse (top);
-
-  /* Reset the visited flags.  */
-  basic_block bb;
-  FOR_ALL_BB_FN (bb, cfun)
-    bb->flags &= ~BB_VISITED;
 
   return top;
 }
