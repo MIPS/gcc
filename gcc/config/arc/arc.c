@@ -1726,6 +1726,26 @@ gen_compare_reg (rtx comparison, machine_mode omode)
 						 gen_rtx_REG (CC_FPXmode, 61),
 						 const0_rtx)));
     }
+  else if (TARGET_FPX_QUARK && (cmode == SFmode))
+    {
+      switch (code)
+	{
+	case NE: case EQ: case GT: case UNLE: case GE: case UNLT:
+	case UNEQ: case LTGT: case ORDERED: case UNORDERED:
+	  break;
+	case LT: case UNGE: case LE: case UNGT:
+	  code = swap_condition (code);
+	  tmp = x;
+	  x = y;
+	  y = tmp;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      emit_insn (gen_cmp_quark (cc_reg,
+				gen_rtx_COMPARE (mode, x, y)));
+    }
   else if (TARGET_HARD_FLOAT
 	   && ((cmode == SFmode && TARGET_FP_SP_BASE)
 	       || (cmode == DFmode && TARGET_FP_DP_BASE)))
@@ -4100,9 +4120,8 @@ arc_ccfsm_post_advance (rtx_insn *insn, struct arc_ccfsm *state)
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
 	   && ((type = get_attr_type (insn)) == TYPE_BRANCH
-	       || (type == TYPE_UNCOND_BRANCH
-		   /* ??? Maybe should also handle TYPE_RETURN here,
-		      but we don't have a testcase for that.  */
+	       || ((type == TYPE_UNCOND_BRANCH
+		    || type == TYPE_RETURN)
 		   && ARC_CCFSM_BRANCH_DELETED_P (state))))
     {
       if (ARC_CCFSM_BRANCH_DELETED_P (state))
@@ -7281,7 +7300,7 @@ arc_register_move_cost (machine_mode,
     return 8;
 
   /* Force an attempt to 'mov Dy,Dx' to spill.  */
-  if (TARGET_ARC700 && TARGET_DPFP
+  if ((TARGET_ARC700 || TARGET_EM) && TARGET_DPFP
       && from_class == DOUBLE_REGS && to_class == DOUBLE_REGS)
     return 100;
 
@@ -9534,8 +9553,8 @@ emit_unlikely_jump (rtx insn)
 {
   int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
-  insn = emit_jump_insn (insn);
-  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
+  rtx_insn *jump = emit_jump_insn (insn);
+  add_int_reg_note (jump, REG_BR_PROB, very_unlikely);
 }
 
 /* Expand code to perform a 8 or 16-bit compare and swap by doing

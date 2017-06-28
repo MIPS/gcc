@@ -450,13 +450,13 @@ negate_expr_p (tree t)
       if (TYPE_UNSIGNED (type))
 	break;
       /* INT_MIN/n * n doesn't overflow while negating one operand it does
-         if n is a power of two.  */
+         if n is a (negative) power of two.  */
       if (INTEGRAL_TYPE_P (TREE_TYPE (t))
 	  && ! TYPE_OVERFLOW_WRAPS (TREE_TYPE (t))
 	  && ! ((TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
-		 && ! integer_pow2p (TREE_OPERAND (t, 0)))
+		 && wi::popcount (wi::abs (TREE_OPERAND (t, 0))) != 1)
 		|| (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
-		    && ! integer_pow2p (TREE_OPERAND (t, 1)))))
+		    && wi::popcount (wi::abs (TREE_OPERAND (t, 1))) != 1)))
 	break;
 
       /* Fall through.  */
@@ -8700,8 +8700,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 
   /* We can fold X/C1 op C2 where C1 and C2 are integer constants
      into a single range test.  */
-  if ((TREE_CODE (arg0) == TRUNC_DIV_EXPR
-       || TREE_CODE (arg0) == EXACT_DIV_EXPR)
+  if (TREE_CODE (arg0) == TRUNC_DIV_EXPR
       && TREE_CODE (arg1) == INTEGER_CST
       && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
       && !integer_zerop (TREE_OPERAND (arg0, 1))

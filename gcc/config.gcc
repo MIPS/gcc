@@ -374,8 +374,8 @@ i[34567]86-*-*)
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
 		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
 		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
-		       avx512vbmivlintrin.h clwbintrin.h mwaitxintrin.h
-		       clzerointrin.h pkuintrin.h"
+		       avx512vbmivlintrin.h avx5124fmapsintrin.h avx5124vnniwintrin.h
+		       clwbintrin.h mwaitxintrin.h clzerointrin.h pkuintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -396,8 +396,8 @@ x86_64-*-*)
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
 		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
 		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
-		       avx512vbmivlintrin.h clwbintrin.h mwaitxintrin.h
-		       clzerointrin.h pkuintrin.h"
+		       avx512vbmivlintrin.h avx5124fmapsintrin.h avx5124vnniwintrin.h
+		       clwbintrin.h mwaitxintrin.h clzerointrin.h pkuintrin.h"
 	;;
 ia64-*-*)
 	extra_headers=ia64intrin.h
@@ -768,6 +768,7 @@ case ${target} in
   tmake_file="t-slibgcc"
   gas=yes
   gnu_ld=yes
+  use_gcc_stdint=wrap
 
   # NetBSD 2.0 and later get POSIX threads enabled by default.
   # Allow them to be explicitly enabled on any other version.
@@ -1454,11 +1455,11 @@ x86_64-*-freebsd*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/x86-64.h i386/freebsd.h i386/freebsd64.h"
 	;;
 i[34567]86-*-netbsdelf*)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/netbsd-elf.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-stdint.h netbsd-elf.h i386/netbsd-elf.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
 x86_64-*-netbsd*)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-stdint.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
 i[34567]86-*-openbsd*)

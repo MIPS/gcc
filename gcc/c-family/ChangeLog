@@ -1,3 +1,19 @@
+2016-11-21  Martin Sebor  <msebor@redhat.com>
+
+	* c.opt (-fprintf-return-value): Enable by default.
+
+2016-11-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* c.opt (-Wbuiltin-declaration-mismatch): New warning.
+	* c-common.c (c_common_nodes_and_builtins): Initialize
+	const_tm_ptr_type_node.
+
+2016-11-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/78285
+	* c-common.c (c_add_case_label): Turn error_at calls into inform.
+
 2016-11-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_structured_bindings.

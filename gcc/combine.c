@@ -2870,8 +2870,8 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	  rtx outer = SET_SRC (temp_expr);
 
 	  wide_int o
-	    = wi::insert (std::make_pair (outer, GET_MODE (SET_DEST (temp_expr))),
-			  std::make_pair (inner, GET_MODE (dest)),
+	    = wi::insert (rtx_mode_t (outer, GET_MODE (SET_DEST (temp_expr))),
+			  rtx_mode_t (inner, GET_MODE (dest)),
 			  offset, width);
 
 	  combine_merges++;
@@ -7382,6 +7382,7 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
   if (tmode != BLKmode
       && ((pos_rtx == 0 && (pos % BITS_PER_WORD) == 0
 	   && !MEM_P (inner)
+	   && (pos == 0 || REG_P (inner))
 	   && (inner_mode == tmode
 	       || !REG_P (inner)
 	       || TRULY_NOOP_TRUNCATION_MODES_P (tmode, inner_mode)
@@ -7458,10 +7459,9 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	}
       else
 	new_rtx = force_to_mode (inner, tmode,
-			     len >= HOST_BITS_PER_WIDE_INT
-			     ? HOST_WIDE_INT_M1U
-			     : (HOST_WIDE_INT_1U << len) - 1,
-			     0);
+				 len >= HOST_BITS_PER_WIDE_INT
+				 ? HOST_WIDE_INT_M1U
+				 : (HOST_WIDE_INT_1U << len) - 1, 0);
 
       /* If this extraction is going into the destination of a SET,
 	 make a STRICT_LOW_PART unless we made a MEM.  */

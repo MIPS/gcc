@@ -6804,11 +6804,12 @@ default_use_anchors_for_symbol_p (const_rtx symbol)
 	return false;
 
       /* Don't use section anchors for decls that won't fit inside a single
-	 anchor range to reduce the amount of instructions require to refer
+	 anchor range to reduce the amount of instructions required to refer
 	 to the entire declaration.  */
-      if (decl && DECL_SIZE (decl)
-	 && tree_to_shwi (DECL_SIZE (decl))
-	    >= (targetm.max_anchor_offset * BITS_PER_UNIT))
+      if (DECL_SIZE_UNIT (decl) == NULL_TREE
+	  || !tree_fits_uhwi_p (DECL_SIZE_UNIT (decl))
+	  || (tree_to_uhwi (DECL_SIZE_UNIT (decl))
+	      >= (unsigned HOST_WIDE_INT) targetm.max_anchor_offset))
 	return false;
 
     }
@@ -7627,7 +7628,7 @@ make_debug_expr_from_rtl (const_rtx exp)
     TREE_TYPE (ddecl) = type;
   else
     TREE_TYPE (ddecl) = lang_hooks.types.type_for_mode (mode, 1);
-  DECL_MODE (ddecl) = mode;
+  SET_DECL_MODE (ddecl, mode);
   dval = gen_rtx_DEBUG_EXPR (mode);
   DEBUG_EXPR_TREE_DECL (dval) = ddecl;
   SET_DECL_RTL (ddecl, dval);

@@ -259,6 +259,7 @@ Objective-C and Objective-C++ Dialects}.
 -Walloca -Walloca-larger-than=@var{n} @gol
 -Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
 -Wno-attributes -Wbool-compare -Wbool-operation @gol
+-Wno-builtin-declaration-mismatch @gol
 -Wno-builtin-macro-redefined -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
@@ -380,11 +381,12 @@ Objective-C and Objective-C++ Dialects}.
 -fmove-loop-invariants -fno-branch-count-reg @gol
 -fno-defer-pop -fno-fp-int-builtin-inexact -fno-function-cse @gol
 -fno-guess-branch-probability -fno-inline -fno-math-errno -fno-peephole @gol
--fno-peephole2 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
+-fno-peephole2 -fno-printf-return-value -fno-sched-interblock @gol
+-fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
--fprefetch-loop-arrays -fprintf-return-value @gol
+-fprefetch-loop-arrays @gol
 -fprofile-correction @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
 -fprofile-reorder-functions @gol
@@ -412,7 +414,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-vars -ftree-copy-prop -ftree-dce -ftree-dominator-opts @gol
 -ftree-dse -ftree-forwprop -ftree-fre -fcode-hoisting -ftree-loop-if-convert @gol
--ftree-loop-if-convert-stores -ftree-loop-im @gol
+-ftree-loop-im @gol
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
 -ftree-loop-vectorize @gol
@@ -621,7 +623,6 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mapcs-frame  -mno-apcs-frame @gol
 -mabi=@var{name} @gol
 -mapcs-stack-check  -mno-apcs-stack-check @gol
--mapcs-float  -mno-apcs-float @gol
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian @gol
@@ -5930,6 +5931,12 @@ unrecognized attributes, function attributes applied to variables,
 etc.  This does not stop errors for incorrect use of supported
 attributes.
 
+@item -Wno-builtin-declaration-mismatch
+@opindex Wno-builtin-declaration-mismatch
+@opindex Wbuiltin-declaration-mismatch
+Warn if a built-in function is declared with the wrong signature.
+This warning is enabled by default.
+
 @item -Wno-builtin-macro-redefined
 @opindex Wno-builtin-macro-redefined
 @opindex Wbuiltin-macro-redefined
@@ -8066,24 +8073,6 @@ the innermost loops in order to improve the ability of the
 vectorization pass to handle these loops.  This is enabled by default
 if vectorization is enabled.
 
-@item -ftree-loop-if-convert-stores
-@opindex ftree-loop-if-convert-stores
-Attempt to also if-convert conditional jumps containing memory writes.
-This transformation can be unsafe for multi-threaded programs as it
-transforms conditional memory writes into unconditional memory writes.
-For example,
-@smallexample
-for (i = 0; i < N; i++)
-  if (cond)
-    A[i] = expr;
-@end smallexample
-is transformed to
-@smallexample
-for (i = 0; i < N; i++)
-  A[i] = cond ? expr : A[i];
-@end smallexample
-potentially producing data races.
-
 @item -ftree-loop-distribution
 @opindex ftree-loop-distribution
 Perform loop distribution.  This flag can improve cache performance on
@@ -8291,18 +8280,19 @@ dependent on the structure of loops within the source code.
 
 Disabled at level @option{-Os}.
 
-@item -fprintf-return-value
-@opindex fprintf-return-value
-Substitute constants for known return value of formatted output functions
-such as @code{sprintf}, @code{snprintf}, @code{vsprintf}, and @code{vsnprintf}
-(but not @code{printf} of @code{fprintf}).  This transformation allows GCC
-to optimize or even eliminate branches based on the known return value of
-these functions called with arguments that are either constant, or whose
-values are known to be in a range that makes determining the exact return
-value possible.  For example, both the branch and the body of the @code{if}
-statement (but not the call to @code{snprint}) can be optimized away when
-@code{i} is a 32-bit or smaller integer because the return value is guaranteed
-to be at most 8.
+@item -fno-printf-return-value
+@opindex fno-printf-return-value
+Do not substitute constants for known return value of formatted output
+functions such as @code{sprintf}, @code{snprintf}, @code{vsprintf}, and
+@code{vsnprintf} (but not @code{printf} of @code{fprintf}).  This
+transformation allows GCC to optimize or even eliminate branches based
+on the known return value of these functions called with arguments that
+are either constant, or whose values are known to be in a range that
+makes determining the exact return value possible.  For example, when
+@option{-fprintf-return-value} is in effect, both the branch and the
+body of the @code{if} statement (but not the call to @code{snprint})
+can be optimized away when @code{i} is a 32-bit or smaller integer
+because the return value is guaranteed to be at most 8.
 
 @smallexample
 char buf[9];
@@ -8313,7 +8303,7 @@ if (snprintf (buf, "%08x", i) >= sizeof buf)
 The @option{-fprintf-return-value} option relies on other optimizations
 and yields best results with @option{-O2}.  It works in tandem with the
 @option{-Wformat-length} option.  The @option{-fprintf-return-value}
-option is disabled by default.
+option is enabled by default.
 
 @item -fno-peephole
 @itemx -fno-peephole2
@@ -14934,16 +14924,6 @@ insufficient space available then either the function
 called, depending upon the amount of stack space required.  The runtime
 system is required to provide these functions.  The default is
 @option{-mno-apcs-stack-check}, since this produces smaller code.
-
-@c not currently implemented
-@item -mapcs-float
-@opindex mapcs-float
-Pass floating-point arguments using the floating-point registers.  This is
-one of the variants of the APCS@.  This option is recommended if the
-target hardware has a floating-point unit or if a lot of floating-point
-arithmetic is going to be performed by the code.  The default is
-@option{-mno-apcs-float}, since the size of integer-only code is 
-slightly increased if @option{-mapcs-float} is used.
 
 @c not currently implemented
 @item -mapcs-reentrant

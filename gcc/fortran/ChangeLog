@@ -1,3 +1,34 @@
+2016-11-20  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/69741
+	* resolve.c (gfc_resolve_forall): Check for nonscalar index variables.
+
+2016-11-20  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78395
+	* resolve.c (resolve_typebound_function): Prevent stripping of refs,
+	when the base-expression is a class' typed one.
+
+2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+ 	    Alan Hayward  <alan.hayward@arm.com>
+ 	    David Sherwood  <david.sherwood@arm.com>
+
+	* trans-common.c (build_common_decl): Use SET_DECL_MODE.
+	* trans-decl.c (gfc_build_label_decl): Likewise.
+	* trans-types.c (gfc_get_array_descr_info): Likewise.
+
+2016-11-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/66227
+	* simplify.c (gfc_simplify_extends_type_of): Fix missed optimization.
+	Prevent over-simplification. Fix a comment. Add a comment.
+
+2016-11-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/58001
+	* io.c (next_char_not_space): Update handling of a 'tab' in a FORMAT.
+ 	(format_lex): Adjust invocations of next_char_not_space().
+
 2016-11-16  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/78356

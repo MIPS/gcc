@@ -4293,9 +4293,13 @@ c_common_nodes_and_builtins (void)
 	}
 
   if (c_dialect_cxx ())
-    /* For C++, make fileptr_type_node a distinct void * type until
-       FILE type is defined.  */
-    fileptr_type_node = build_variant_type_copy (ptr_type_node);
+    {
+      /* For C++, make fileptr_type_node a distinct void * type until
+	 FILE type is defined.  */
+      fileptr_type_node = build_variant_type_copy (ptr_type_node);
+      /* Likewise for const struct tm*.  */
+      const_tm_ptr_type_node = build_variant_type_copy (const_ptr_type_node);
+    }
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 
@@ -4968,19 +4972,19 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
       if (high_value)
 	{
 	  error_at (loc, "duplicate (or overlapping) case value");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first entry overlapping that value");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first entry overlapping that value");
 	}
       else if (low_value)
 	{
 	  error_at (loc, "duplicate case value") ;
-	  error_at (DECL_SOURCE_LOCATION (duplicate), "previously used here");
+	  inform (DECL_SOURCE_LOCATION (duplicate), "previously used here");
 	}
       else
 	{
 	  error_at (loc, "multiple default labels in one switch");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first default label");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first default label");
 	}
       goto error_out;
     }

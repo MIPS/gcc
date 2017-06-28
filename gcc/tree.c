@@ -1026,7 +1026,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	  if (code == FUNCTION_DECL)
 	    {
 	      SET_DECL_ALIGN (t, FUNCTION_ALIGNMENT (FUNCTION_BOUNDARY));
-	      DECL_MODE (t) = FUNCTION_MODE;
+	      SET_DECL_MODE (t, FUNCTION_MODE);
 	    }
 	  else
 	    SET_DECL_ALIGN (t, 1);
@@ -6012,6 +6012,7 @@ free_lang_data (void)
   /* Create gimple variants for common types.  */
   ptrdiff_type_node = integer_type_node;
   fileptr_type_node = ptr_type_node;
+  const_tm_ptr_type_node = const_ptr_type_node;
 
   /* Reset some langhooks.  Do not reset types_compatible_p, it may
      still be used indirectly via the get_alias_set langhook.  */
@@ -10338,6 +10339,7 @@ build_common_tree_nodes (bool signed_char)
   const_ptr_type_node
     = build_pointer_type (build_type_variant (void_type_node, 1, 0));
   fileptr_type_node = ptr_type_node;
+  const_tm_ptr_type_node = const_ptr_type_node;
 
   pointer_sized_int_node = build_nonstandard_integer_type (POINTER_SIZE, 1);
 
