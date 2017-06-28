@@ -1,4 +1,5 @@
 LIB2ADD=$(srcdir)/config/nvptx/reduction.c \
+	$(srcdir)/config/nvptx/mgomp.c \
 	$(srcdir)/config/nvptx/atomic.c
 
 LIB2ADDEH=
