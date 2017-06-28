@@ -1,5 +1,15 @@
 2016-11-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* g++.dg/cpp1z/noexcept-type14.C: New test.
+	* g++.dg/asan/asan_test.C: Remove -Wno-c++1z-compat from dg-options.
+
+2016-11-10  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/torture/fp-int-convert.h (M_OK2): New, use it in
+	WVAL0S tests added in r241817.
+
+2016-11-10  Jakub Jelinek  <jakub@redhat.com>
+
 	* gfortran.dg/gomp/pr77516.f90: Add dg-warning.
 	* gfortran.dg/gomp/target1.f90: Remove ordered clause where it is
 	no longer allowed and corresponding ordered construct.
