@@ -1,3 +1,32 @@
+2016-11-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59406
+	* include/bits/functional_hash.h: Add comment noting difference from
+	FNV-1a.
+	* include/tr1/functional_hash.h: Likewise.
+	* libsupc++/hash_bytes.cc: Likewise.
+
+	* include/bits/basic_string.h: Reuse _If_sv alias template for new
+	constructor.
+
+	* doc/xml/manual/intro.xml: Document LWG 2770 status. Remove entries
+	for 2742 and 2748.
+	* doc/html/*: Regenerate.
+	* include/std/utility (__tuple_size_cv_impl): New helper to safely
+	detect tuple_size<T>::value, as per LWG 2770.
+	(tuple_size<cv T>): Adjust partial specializations to derive from
+	__tuple_size_cv_impl.
+	* testsuite/20_util/tuple/cv_tuple_size.cc: Test SFINAE-friendliness.
+
+	* testsuite/libstdc++-prettyprinters/cxx17.cc: Adjust test for
+	variant<T&>.
+
+2016-11-15  Tim Shen  <timshen@google.com>
+
+	* include/std/variant: Remove variant<T&>, variant<void>, variant<>
+	support to rebase on the post-Issaquah design.
+	* testsuite/20_util/variant/compile.cc: Likewise.
+
 2016-11-15  Matthias Klose  <doko@ubuntu.com>
 
 	* configure: Regenerate.
@@ -341,9 +370,9 @@
 
 2016-11-09  Tim Shen  <timshen@google.com>
 
-	* libstdc++-v3/include/bits/regex.h (regex_iterator::regex_iterator()):
+	* include/bits/regex.h (regex_iterator::regex_iterator()):
 	Define end() as _M_pregex == nullptr.
-	* libstdc++-v3/include/bits/regex.tcc (regex_iterator::operator==(),
+	* include/bits/regex.tcc (regex_iterator::operator==(),
 	regex_iterator::operator++()): Fix operator==() and operator++() to
 	look at null-ness of _M_pregex on both sides.
 	* testsuite/28_regex/regression.cc: New testcase.

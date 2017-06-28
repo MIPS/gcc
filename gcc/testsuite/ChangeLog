@@ -1,3 +1,71 @@
+2016-11-16  Maciej W. Rozycki  <macro@imgtec.com>
+
+	* gcc.target/mips/data-sym-jump.c: New test case.
+	* gcc.target/mips/data-sym-pool.c: New test case.
+	* gcc.target/mips/insn-pseudo-4.c: Adjust for constant pool
+	annotation.
+
+2016-11-16  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* lib/target-supports.exp (check_avx2_hw_available): New.
+	(check_effective_target_avx2_runtime): New.
+	* gcc.dg/vect/vect-tail-nomask-1.c: New test.
+
+2016-11-16  Tamar Christina  <tamar.christina@arm.com>
+
+	PR testsuite/78136
+	* gcc.dg/cpp/trad/trad.exp
+	(dg-runtest): Moved $srcdir/$subdir/ to
+	DEFAULT_TRADCPPFLAGS.
+
+2016-11-16  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78356
+	* gfortran.dg/class_allocate_23.f08: New test.
+
+2016-11-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78333
+	* gcc.dg/pr78333.c: New testcase.
+
+2016-11-16  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78270
+	* gcc.dg/asan/pr78270.c: Update comment style.
+	* gcc.dg/asan/pr78270-2.c: New test.
+
+2016-11-16  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* c-c++-common/Wlogical-op-1.c: Use __INT{16,32}_TYPE__ instead
+	of {short,int} if __SIZEOF_INT__ is less than 4 bytes.
+
+2016-11-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78348
+	* gcc.dg/tree-ssa/ldist-24.c: New testcase.
+
+2016-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77823
+	* c-c++-common/ubsan/overflow-vec-1.c: New test.
+	* c-c++-common/ubsan/overflow-vec-2.c: New test.
+
+2016-11-15  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp1z/init-statement6.C: Rename a function.
+
+2016-11-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libgfortran/51119
+	* gfortran.dg/matmul_12.f90: New test case.
+
+2016-11-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/funcspec-56.inc: New file.
+	* gcc.target/i386.funcspec-5.c: Include funcspec-56.inc.  Remove
+	common 32-bit and 64-bit function specific options.
+	* gcc.target/i386.funcspec-6.c: Ditto.
+
 2016-11-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/cpp1z/decomp14.C: New test.
