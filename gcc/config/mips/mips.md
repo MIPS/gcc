@@ -3386,7 +3386,7 @@
 		    (not (match_test "ISA_HAS_MIPS16E2")))
 		  (const_string "no")
 	       (and (eq_attr "alternative" "0,1")
-		    (match_test "!GENERATE_MIPS16E || mips16e2_ze_policy != 0"))
+		    (match_test "!GENERATE_MIPS16E"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 

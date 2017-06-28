@@ -197,7 +197,7 @@
 	    (match_operand 0 "const_uns_arith_operand")
 	    (not (match_operand 0 "hi_mask_operand"))
 	    (not (match_operand 0 "qi_mask_operand")))
-       (and (match_test "ISA_HAS_MIPS16E2 && mips16e2_ze_policy != 1")
+       (and (match_test "ISA_HAS_MIPS16E2")
 	    (match_operand 0 "const_uns_arith_operand"))
        (match_operand 0 "low_bitmask_operand")
        (match_operand 0 "si_mask_operand")
