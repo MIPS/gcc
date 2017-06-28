@@ -1146,11 +1146,7 @@ static const char *cc1_options =
  %{coverage:-fprofile-arcs -ftest-coverage}\
  %{fprofile-arcs|fprofile-generate*|coverage:\
    %{!fprofile-update=single:\
-     %{pthread:-fprofile-update=atomic}}}\
- %{fprofile-update=single:\
-   %{fprofile-arcs|fprofile-generate*|coverage:\
-     %{pthread:%n-fprofile-update=atomic should be used\
- for a multithreaded application}}}";
+     %{pthread:-fprofile-update=prefer-atomic}}}";
 
 static const char *asm_options =
 "%{-target-help:%:print-asm-header()} "

@@ -1,3 +1,50 @@
+2016-11-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* dump-parse-tree.c (show_code):  Add prototype.
+	(gfc_debug_code):  New function.
+	(show_code_node):  Add space after SELECT TYPE.
+
+2016-11-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78300
+	* resolve.c (resolve_procedure_interface): Properly handle CLASS-valued
+	function results.
+
+2016-11-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60952
+	* decl.c (match_procedure_in_type): Apply the FL_PROCEDURE attribute
+	to the target procedure.
+
+2016-11-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/66366
+	* resolve.c (resolve_component): Move check for C437
+	to ...
+	* decl.c (build_struct): ... here. Fix indentation.
+
+2016-11-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/77501
+	* class.c (gfc_find_typebound_intrinsic_op): Remove an unnecessary
+	assert and nullification.
+	* decl.c (gfc_match_decl_type_spec): Use gfc_get_tbp_symtree,
+	fix indentation.
+	(gfc_match_generic): Remove an unnecessary assert.
+	Use gfc_get_tbp_symtree to avoid ICE.
+
+2016-11-10  Fritz O. Reese <fritzoreese@gmail.com>
+
+	PR fortran/78277
+	* gcc/fortran/decl.c (gfc_match_data_decl): Gracefully handle bad
+	anonymous structure declarations.
+
+2016-11-10  Fritz O. Reese <fritzoreese@gmail.com>
+
+	* decl.c (get_struct_decl, gfc_match_map, gfc_match_union): Fix
+	whitespace.
+	* interface.c (gfc_compare_union_types): Likewise.
+
 2016-11-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* cpp.c (cpp_define_builtins): Define _OPENMP to 201511 instead
