@@ -254,6 +254,13 @@ enum gfc_statement
   ST_OMP_END_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   ST_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   ST_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  ST_OMP_TARGET_PARALLEL, ST_OMP_END_TARGET_PARALLEL,
+  ST_OMP_TARGET_PARALLEL_DO, ST_OMP_END_TARGET_PARALLEL_DO,
+  ST_OMP_TARGET_PARALLEL_DO_SIMD, ST_OMP_END_TARGET_PARALLEL_DO_SIMD,
+  ST_OMP_TARGET_ENTER_DATA, ST_OMP_TARGET_EXIT_DATA,
+  ST_OMP_TARGET_SIMD, ST_OMP_END_TARGET_SIMD,
+  ST_OMP_TASKLOOP, ST_OMP_END_TASKLOOP,
+  ST_OMP_TASKLOOP_SIMD, ST_OMP_END_TASKLOOP_SIMD, ST_OMP_ORDERED_DEPEND,
   ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
   ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_EVENT_POST,
   ST_EVENT_WAIT,ST_NONE
@@ -875,6 +882,7 @@ typedef struct
 
   /* Mentioned in OMP DECLARE TARGET.  */
   unsigned omp_declare_target:1;
+  unsigned omp_declare_target_link:1;
 
   /* Mentioned in OACC DECLARE.  */
   unsigned oacc_declare_create:1;
@@ -1139,7 +1147,9 @@ enum gfc_omp_depend_op
 {
   OMP_DEPEND_IN,
   OMP_DEPEND_OUT,
-  OMP_DEPEND_INOUT
+  OMP_DEPEND_INOUT,
+  OMP_DEPEND_SINK_FIRST,
+  OMP_DEPEND_SINK
 };
 
 enum gfc_omp_map_op
@@ -1156,7 +1166,19 @@ enum gfc_omp_map_op
   OMP_MAP_FORCE_PRESENT,
   OMP_MAP_FORCE_DEVICEPTR,
   OMP_MAP_DEVICE_RESIDENT,
-  OMP_MAP_LINK
+  OMP_MAP_LINK,
+  OMP_MAP_RELEASE,
+  OMP_MAP_ALWAYS_TO,
+  OMP_MAP_ALWAYS_FROM,
+  OMP_MAP_ALWAYS_TOFROM
+};
+
+enum gfc_omp_linear_op
+{
+  OMP_LINEAR_DEFAULT,
+  OMP_LINEAR_REF,
+  OMP_LINEAR_VAL,
+  OMP_LINEAR_UVAL
 };
 
 /* For use in OpenMP clauses in case we need extra information
@@ -1171,6 +1193,8 @@ typedef struct gfc_omp_namelist
       gfc_omp_reduction_op reduction_op;
       gfc_omp_depend_op depend_op;
       gfc_omp_map_op map_op;
+      gfc_omp_linear_op linear_op;
+      struct gfc_common_head *common;
     } u;
   struct gfc_omp_namelist_udr *udr;
   struct gfc_omp_namelist *next;
@@ -1201,6 +1225,8 @@ enum
   OMP_LIST_LINK,
   OMP_LIST_USE_DEVICE,
   OMP_LIST_CACHE,
+  OMP_LIST_IS_DEVICE_PTR,
+  OMP_LIST_USE_DEVICE_PTR,
   OMP_LIST_NUM
 };
 
@@ -1243,6 +1269,19 @@ enum gfc_omp_cancel_kind
   OMP_CANCEL_TASKGROUP
 };
 
+enum gfc_omp_if_kind
+{
+  OMP_IF_PARALLEL,
+  OMP_IF_TASK,
+  OMP_IF_TASKLOOP,
+  OMP_IF_TARGET,
+  OMP_IF_TARGET_DATA,
+  OMP_IF_TARGET_UPDATE,
+  OMP_IF_TARGET_ENTER_DATA,
+  OMP_IF_TARGET_EXIT_DATA,
+  OMP_IF_LAST
+};
+
 typedef struct gfc_omp_clauses
 {
   struct gfc_expr *if_expr;
@@ -1252,9 +1291,11 @@ typedef struct gfc_omp_clauses
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
-  int collapse;
+  int collapse, orderedc;
   bool nowait, ordered, untied, mergeable;
-  bool inbranch, notinbranch;
+  bool inbranch, notinbranch, defaultmap, nogroup;
+  bool sched_simd, sched_monotonic, sched_nonmonotonic;
+  bool simd, threads, depend_source;
   enum gfc_omp_cancel_kind cancel;
   enum gfc_omp_proc_bind_kind proc_bind;
   struct gfc_expr *safelen_expr;
@@ -1262,8 +1303,14 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *num_teams;
   struct gfc_expr *device;
   struct gfc_expr *thread_limit;
+  struct gfc_expr *grainsize;
+  struct gfc_expr *hint;
+  struct gfc_expr *num_tasks;
+  struct gfc_expr *priority;
+  struct gfc_expr *if_exprs[OMP_IF_LAST];
   enum gfc_omp_sched_kind dist_sched_kind;
   struct gfc_expr *dist_chunk_size;
+  const char *critical_name;
 
   /* OpenACC. */
   struct gfc_expr *async_expr;
@@ -1555,7 +1602,9 @@ struct gfc_undo_change_set
 typedef struct gfc_common_head
 {
   locus where;
-  char use_assoc, saved, threadprivate, omp_declare_target;
+  char use_assoc, saved, threadprivate;
+  unsigned char omp_declare_target : 1;
+  unsigned char omp_declare_target_link : 1;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
   const char* binding_label;
@@ -2439,7 +2488,11 @@ enum gfc_exec_op
   EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
   EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
-  EXEC_OMP_TARGET_UPDATE
+  EXEC_OMP_TARGET_UPDATE, EXEC_OMP_END_CRITICAL,
+  EXEC_OMP_TARGET_ENTER_DATA, EXEC_OMP_TARGET_EXIT_DATA,
+  EXEC_OMP_TARGET_PARALLEL, EXEC_OMP_TARGET_PARALLEL_DO,
+  EXEC_OMP_TARGET_PARALLEL_DO_SIMD, EXEC_OMP_TARGET_SIMD,
+  EXEC_OMP_TASKLOOP, EXEC_OMP_TASKLOOP_SIMD
 };
 
 enum gfc_omp_atomic_op
@@ -2838,6 +2891,8 @@ bool gfc_add_automatic (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
+bool gfc_add_omp_declare_target_link (symbol_attribute *, const char *,
+				      locus *);
 bool gfc_add_saved_common (symbol_attribute *, locus *);
 bool gfc_add_target (symbol_attribute *, locus *);
 bool gfc_add_dummy (symbol_attribute *, const char *, locus *);

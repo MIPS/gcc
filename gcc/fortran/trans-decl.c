@@ -1377,7 +1377,14 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 	list = chainon (list, attr);
       }
 
-  if (sym_attr.omp_declare_target
+  if (sym_attr.omp_declare_target_link
+#if 0 /* TODO */
+      || sym_attr.oacc_declare_link
+#endif
+      )
+    list = tree_cons (get_identifier ("omp declare target link"),
+		      NULL_TREE, list);
+  else if (sym_attr.omp_declare_target
 #if 0 /* TODO */
       || sym_attr.oacc_declare_create
       || sym_attr.oacc_declare_copyin
@@ -1392,11 +1399,6 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 			      OMP_CLAUSE_NOHOST);
       list = tree_cons (get_identifier ("omp declare target"), c, list);
     }
-#if 0 /* TODO */
-  if (sym_attr.oacc_declare_link)
-    list = tree_cons (get_identifier ("omp declare target link"),
-		      NULL_TREE, list);
-#endif
 
   if (sym_attr.oacc_function != OACC_FUNCTION_NONE)
     {
