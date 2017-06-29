@@ -1,5 +1,5 @@
-/* Copyright (C) 2013-2016 Free Software Foundation, Inc.
-   Contributed by Jakub Jelinek <jakub@redhat.com>.
+/* Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Contributed by Alexander Monakov <amonakov@ispras.ru>
 
    This file is part of the GNU Offloading and Multi Processing Library
    (libgomp).
@@ -23,27 +23,27 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include "libgomp.h"
-#include <limits.h>
+/* This is the NVPTX implementation of the thread pool management
+   for libgomp.  This type is private to the library.  */
 
-void
-GOMP_teams (unsigned int num_teams, unsigned int thread_limit)
+#ifndef GOMP_POOL_H
+#define GOMP_POOL_H 1
+
+#include "libgomp.h"
+
+/* Get the thread pool.  */
+
+static inline struct gomp_thread_pool *
+gomp_get_thread_pool (struct gomp_thread *thr, unsigned nthreads)
 {
-  if (thread_limit)
-    {
-      struct gomp_task_icv *icv = gomp_icv (true);
-      icv->thread_limit_var
-	= thread_limit > INT_MAX ? UINT_MAX : thread_limit;
-    }
-  unsigned int num_blocks, block_id;
-  asm ("mov.u32 %0, %%nctaid.x;" : "=r" (num_blocks));
-  asm ("mov.u32 %0, %%ctaid.x;" : "=r" (block_id));
-  if (!num_teams || num_teams >= num_blocks)
-    num_teams = num_blocks;
-  else if (block_id >= num_teams)
-    {
-      gomp_free_thread (nvptx_thrs);
-      asm ("exit;");
-    }
-  gomp_num_teams_var = num_teams - 1;
+  /* NVPTX is running with a fixed pool of pre-started threads.  */
+  return thr->thread_pool;
 }
+
+static inline void
+gomp_release_thread_pool (struct gomp_thread_pool *pool)
+{
+  /* Do nothing.  */
+}
+
+#endif /* GOMP_POOL_H */
