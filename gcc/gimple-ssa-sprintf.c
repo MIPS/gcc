@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-object-size.h"
 #include "params.h"
 #include "tree-cfg.h"
+#include "tree-ssa-propagate.h"
 #include "calls.h"
 #include "cfgloop.h"
 #include "intl.h"
@@ -122,7 +123,7 @@ public:
       fold_return_value = param;
     }
 
-  void handle_gimple_call (gimple_stmt_iterator);
+  void handle_gimple_call (gimple_stmt_iterator*);
 
   struct call_info;
   void compute_format_length (const call_info &, format_result *);
@@ -712,6 +713,11 @@ struct pass_sprintf_length::call_info
   /* True for functions like snprintf that specify the size of
      the destination, false for others like sprintf that don't.  */
   bool bounded;
+
+  /* True for bounded functions like snprintf that specify a zero-size
+     buffer as a request to compute the size of output without actually
+     writing any.  */
+  bool nowrite;
 };
 
 /* Return the result of formatting the '%%' directive.  */
@@ -727,23 +733,23 @@ format_percent (const conversion_spec &, tree)
 }
 
 
-/* Ugh.  Compute intmax_type_node and uintmax_type_node the same way
-   lto/lto-lang.c does it.  This should be available in tree.h.  */
+/* Compute intmax_type_node and uintmax_type_node similarly to how
+   tree.c builds size_type_node.  */
 
 static void
 build_intmax_type_nodes (tree *pintmax, tree *puintmax)
 {
-  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
+  if (strcmp (UINTMAX_TYPE, "unsigned int") == 0)
     {
       *pintmax = integer_type_node;
       *puintmax = unsigned_type_node;
     }
-  else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
+  else if (strcmp (UINTMAX_TYPE, "long unsigned int") == 0)
     {
       *pintmax = long_integer_type_node;
       *puintmax = long_unsigned_type_node;
     }
-  else if (strcmp (SIZE_TYPE, "long long unsigned int") == 0)
+  else if (strcmp (UINTMAX_TYPE, "long long unsigned int") == 0)
     {
       *pintmax = long_long_integer_type_node;
       *puintmax = long_long_unsigned_type_node;
@@ -756,12 +762,14 @@ build_intmax_type_nodes (tree *pintmax, tree *puintmax)
 	    char name[50];
 	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
 
-	    if (strcmp (name, SIZE_TYPE) == 0)
+	    if (strcmp (name, UINTMAX_TYPE) == 0)
 	      {
 	        *pintmax = int_n_trees[i].signed_type;
 	        *puintmax = int_n_trees[i].unsigned_type;
+		return;
 	      }
 	  }
+      gcc_unreachable ();
     }
 }
 
@@ -845,15 +853,8 @@ format_pointer (const conversion_spec &spec, tree arg)
 static fmtresult
 format_integer (const conversion_spec &spec, tree arg)
 {
-  /* These are available as macros in the C and C++ front ends but,
-     sadly, not here.  */
-  static tree intmax_type_node;
-  static tree uintmax_type_node;
-
-  /* Initialize the intmax nodes above the first time through here.  */
-  if (!intmax_type_node)
-    build_intmax_type_nodes (&intmax_type_node, &uintmax_type_node);
-
+  tree intmax_type_node;
+  tree uintmax_type_node;
   /* Set WIDTH and PRECISION to either the values in the format
      specification or to zero.  */
   int width = spec.have_width ? spec.width : 0;
@@ -903,19 +904,20 @@ format_integer (const conversion_spec &spec, tree arg)
       break;
 
     case FMT_LEN_z:
-      dirtype = sign ? ptrdiff_type_node : size_type_node;
+      dirtype = signed_or_unsigned_type_for (!sign, size_type_node);
       break;
 
     case FMT_LEN_t:
-      dirtype = sign ? ptrdiff_type_node : size_type_node;
+      dirtype = signed_or_unsigned_type_for (!sign, ptrdiff_type_node);
       break;
 
     case FMT_LEN_j:
+      build_intmax_type_nodes (&intmax_type_node, &uintmax_type_node);
       dirtype = sign ? intmax_type_node : uintmax_type_node;
       break;
 
     default:
-	return fmtresult ();
+      return fmtresult ();
     }
 
   /* The type of the argument to the directive, either deduced from
@@ -2481,7 +2483,7 @@ get_destination_size (tree dest)
    have its range set to the range of return values, if that is known.  */
 
 static void
-try_substitute_return_value (gimple_stmt_iterator gsi,
+try_substitute_return_value (gimple_stmt_iterator *gsi,
 			     const pass_sprintf_length::call_info &info,
 			     const format_result &res)
 {
@@ -2497,14 +2499,29 @@ try_substitute_return_value (gimple_stmt_iterator gsi,
       && (info.bounded || res.number_chars <= info.objsize)
       && res.number_chars - 1 <= target_int_max ())
     {
-      /* Replace the left-hand side of the call with the constant
-	 result of the formatted function minus 1 for the terminating
-	 NUL which the functions' return value does not include.  */
-      gimple_call_set_lhs (info.callstmt, NULL_TREE);
       tree cst = build_int_cst (integer_type_node, res.number_chars - 1);
-      gimple *g = gimple_build_assign (lhs, cst);
-      gsi_insert_after (&gsi, g, GSI_NEW_STMT);
-      update_stmt (info.callstmt);
+
+      if (info.nowrite)
+	{
+	  /* Replace the call to the bounded function with a zero size
+	     (e.g., snprintf(0, 0, "%i", 123) with the constant result
+	     of the function minus 1 for the terminating NUL which
+	     the function's  return value does not include.  */
+	  if (!update_call_from_tree (gsi, cst))
+	    gimplify_and_update_call_from_tree (gsi, cst);
+	  gimple *callstmt = gsi_stmt (*gsi);
+	  update_stmt (callstmt);
+	}
+      else
+	{
+	  /* Replace the left-hand side of the call with the constant
+	     result of the formatted function minus 1 for the terminating
+	     NUL which the function's return value does not include.  */
+	  gimple_call_set_lhs (info.callstmt, NULL_TREE);
+	  gimple *g = gimple_build_assign (lhs, cst);
+	  gsi_insert_after (gsi, g, GSI_NEW_STMT);
+	  update_stmt (info.callstmt);
+	}
 
       if (dump_file)
 	{
@@ -2514,7 +2531,8 @@ try_substitute_return_value (gimple_stmt_iterator gsi,
 	  print_generic_expr (dump_file, cst, dump_flags);
 	  fprintf (dump_file, " for ");
 	  print_generic_expr (dump_file, info.func, dump_flags);
-	  fprintf (dump_file, " return value (output %s).\n",
+	  fprintf (dump_file, " %s (output %s).\n",
+		   info.nowrite ? "call" : "return value",
 		   res.constant ? "constant" : "variable");
 	}
     }
@@ -2579,11 +2597,11 @@ try_substitute_return_value (gimple_stmt_iterator gsi,
    functions and if so, handle it.  */
 
 void
-pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
+pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 {
   call_info info = call_info ();
 
-  info.callstmt = gsi_stmt (gsi);
+  info.callstmt = gsi_stmt (*gsi);
   if (!gimple_call_builtin_p (info.callstmt, BUILT_IN_NORMAL))
     return;
 
@@ -2736,6 +2754,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator gsi)
 	 without actually producing any.  Pretend the size is
 	 unlimited in this case.  */
       info.objsize = HOST_WIDE_INT_MAX;
+      info.nowrite = true;
     }
   else
     {
@@ -2796,7 +2815,7 @@ pass_sprintf_length::execute (function *fun)
 	  gimple *stmt = gsi_stmt (si);
 
 	  if (is_gimple_call (stmt))
-	    handle_gimple_call (si);
+	    handle_gimple_call (&si);
 	}
     }
 

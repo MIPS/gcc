@@ -11886,7 +11886,7 @@ ix86_code_end (void)
 #if TARGET_MACHO
       if (TARGET_MACHO)
 	{
-	  switch_to_section (darwin_sections[text_coal_section]);
+	  switch_to_section (darwin_sections[picbase_thunk_section]);
 	  fputs ("\t.weak_definition\t", asm_out_file);
 	  assemble_name (asm_out_file, name);
 	  fputs ("\n\t.private_extern\t", asm_out_file);
@@ -11920,6 +11920,9 @@ ix86_code_end (void)
       current_function_decl = decl;
       allocate_struct_function (decl, false);
       init_function_start (decl);
+      /* We're about to hide the function body from callees of final_* by
+	 emitting it directly; tell them we're a thunk, if they care.  */
+      cfun->is_thunk = true;
       first_function_block_is_cold = false;
       /* Make sure unwind info is emitted for the thunk if needed.  */
       final_start_function (emit_barrier (), asm_out_file, 1);
@@ -14625,36 +14628,68 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED, HOST_WIDE_INT)
   if (pic_offset_table_rtx
       && !ix86_use_pseudo_pic_reg ())
     SET_REGNO (pic_offset_table_rtx, REAL_PIC_OFFSET_TABLE_REGNUM);
-#if TARGET_MACHO
-  /* Mach-O doesn't support labels at the end of objects, so if
-     it looks like we might want one, insert a NOP.  */
-  {
-    rtx_insn *insn = get_last_insn ();
-    rtx_insn *deleted_debug_label = NULL;
-    while (insn
-	   && NOTE_P (insn)
-	   && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
-      {
-	/* Don't insert a nop for NOTE_INSN_DELETED_DEBUG_LABEL
-	   notes only, instead set their CODE_LABEL_NUMBER to -1,
-	   otherwise there would be code generation differences
-	   in between -g and -g0.  */
-	if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
-	  deleted_debug_label = insn;
-	insn = PREV_INSN (insn);
-      }
-    if (insn
-	&& (LABEL_P (insn)
-	    || (NOTE_P (insn)
-		&& NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL)))
-      fputs ("\tnop\n", file);
-    else if (deleted_debug_label)
-      for (insn = deleted_debug_label; insn; insn = NEXT_INSN (insn))
-	if (NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
-	  CODE_LABEL_NUMBER (insn) = -1;
-  }
-#endif
 
+  if (TARGET_MACHO)
+    {
+      rtx_insn *insn = get_last_insn ();
+      rtx_insn *deleted_debug_label = NULL;
+
+      /* Mach-O doesn't support labels at the end of objects, so if
+         it looks like we might want one, take special action.
+        First, collect any sequence of deleted debug labels.  */
+      while (insn
+	     && NOTE_P (insn)
+	     && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
+	{
+	  /* Don't insert a nop for NOTE_INSN_DELETED_DEBUG_LABEL
+	     notes only, instead set their CODE_LABEL_NUMBER to -1,
+	     otherwise there would be code generation differences
+	     in between -g and -g0.  */
+	  if (NOTE_P (insn) && NOTE_KIND (insn)
+	      == NOTE_INSN_DELETED_DEBUG_LABEL)
+	    deleted_debug_label = insn;
+	  insn = PREV_INSN (insn);
+	}
+
+      /* If we have:
+	 label:
+	    barrier
+	  then this needs to be detected, so skip past the barrier.  */
+
+      if (insn && BARRIER_P (insn))
+	insn = PREV_INSN (insn);
+
+      /* Up to now we've only seen notes or barriers.  */
+      if (insn)
+	{
+	  if (LABEL_P (insn)
+	      || (NOTE_P (insn)
+		  && NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL))
+	    /* Trailing label.  */
+	    fputs ("\tnop\n", file);
+	  else if (cfun && ! cfun->is_thunk)
+	    {
+	      /* See if we have a completely empty function body, skipping
+	         the special case of the picbase thunk emitted as asm.  */
+	      while (insn && ! INSN_P (insn))
+		insn = PREV_INSN (insn);
+	      /* If we don't find any insns, we've got an empty function body;
+		 I.e. completely empty - without a return or branch.  This is
+		 taken as the case where a function body has been removed
+		 because it contains an inline __builtin_unreachable().  GCC
+		 declares that reaching __builtin_unreachable() means UB so
+		 we're not obliged to do anything special; however, we want
+		 non-zero-sized function bodies.  To meet this, and help the
+		 user out, let's trap the case.  */
+	      if (insn == NULL)
+		fputs ("\tud2\n", file);
+	    }
+	}
+      else if (deleted_debug_label)
+	for (insn = deleted_debug_label; insn; insn = NEXT_INSN (insn))
+	  if (NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
+	    CODE_LABEL_NUMBER (insn) = -1;
+    }
 }
 
 /* Return a scratch register to use in the split stack prologue.  The
@@ -51039,17 +51074,26 @@ ix86_excess_precision (enum excess_precision_type type)
       case EXCESS_PRECISION_TYPE_IMPLICIT:
 	/* Otherwise, the excess precision we want when we are
 	   in a standards compliant mode, and the implicit precision we
-	   provide can be identical.  */
+	   provide would be identical were it not for the unpredictable
+	   cases.  */
 	if (!TARGET_80387)
 	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
-	else if (TARGET_MIX_SSE_I387)
-	  return FLT_EVAL_METHOD_UNPREDICTABLE;
-	else if (!TARGET_SSE_MATH)
-	  return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
-	else if (TARGET_SSE2)
-	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
-	else
-	  return FLT_EVAL_METHOD_UNPREDICTABLE;
+	else if (!TARGET_MIX_SSE_I387)
+	  {
+	    if (!TARGET_SSE_MATH)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
+	    else if (TARGET_SSE2)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+	  }
+
+	/* If we are in standards compliant mode, but we know we will
+	   calculate in unpredictable precision, return
+	   FLT_EVAL_METHOD_FLOAT.  There is no reason to introduce explicit
+	   excess precision if the target can't guarantee it will honor
+	   it.  */
+	return (type == EXCESS_PRECISION_TYPE_STANDARD
+		? FLT_EVAL_METHOD_PROMOTE_TO_FLOAT
+		: FLT_EVAL_METHOD_UNPREDICTABLE);
       default:
 	gcc_unreachable ();
     }

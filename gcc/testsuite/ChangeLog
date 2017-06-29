@@ -1,3 +1,169 @@
+2016-11-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78343
+	* gcc.dg/tree-ssa/20030808-1.c: Fix dump to generate.
+	* gcc.dg/tree-ssa/20040305-1.c: Likewise.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/78211
+	* g++.dg/ipa/pr78211.C: New test.
+
+2016-11-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78474
+	* gfortran.dg/submodule_22.f08: New test.
+
+	PR fortran/78331
+	* gfortran.dg/submodule_21.f08: New test.
+
+2016-11-27  John David Anglin  <danglin@gcc.gnu.org>
+
+	* g++.dg/torture/pr65655.C: Use dg-timeout-factor 2.
+
+2016-11-27  Iain Sandoe  <iain@codesourcery.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR target/67710
+	*  gcc.dg/darwin-minversion-1.c: Update min version check.
+	*  gcc.dg/darwin-minversion-2.c: Likewise.
+	*  gcc.dg/darwin-minversion-3.c: Likewise.
+
+2016-11-27  Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/57438
+	* gcc.dg/pr57438-1.c: New Test.
+	* gcc.dg/pr57438-2.c: New Test.
+
+2016-11-27  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/71767
+	* g++.dg/abi/key2.C: Adjust for changed Darwin sections and
+	linker-visible symbols.
+	* g++.dg/torture/darwin-cfstring-3.C: Likewise.
+	* gcc.dg/const-uniq-1.c: Likewise.
+	* gcc.dg/torture/darwin-cfstring-3.c: Likewise.
+	* gcc.target/i386/pr70799-1.c: Likewise.
+
+2016-11-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78438
+	PR rtl-optimization/78477
+	* gcc.c-torture/execute/pr78438.c: New test.
+	* gcc.c-torture/execute/pr78477.c: New test.
+
+	PR rtl-optimization/78526
+	* gcc.dg/pr78526.c: New test.
+
+2016-11-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/77541
+	* gcc.target/i386/pr77541.c: Change target to int128.
+
+2016-11-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60853
+	* gfortran.dg/typebound_assignment_8.f90: New test case.
+
+2016-11-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78527
+	* gcc.c-torture/compile/pr78527.c: New test.
+
+2016-11-25  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/78086
+	* g++.dg/gcov/pr16855.C: Clean up the test case.
+	* g++.dg/gcov/pr16855-priority.C: New test.
+
+2016-11-25  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/78515
+	* gcc.dg/torture/pr78515.c: New testcase.
+
+2016-11-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78293
+	* gfortran.dg/allocatable_function_10.f90: New test.
+	* gfortran.dg/class_array_15.f03: Increase builtin_free count
+	from 11 to 12.
+
+2016-11-25  Bin Cheng  <bin.cheng@arm.com>
+
+	PR middle-end/78507
+	PR middle-end/78510
+	PR middle-end/78517
+	* g++.dg/torture/pr78507.C: New test.
+	* gcc.dg/torture/pr78510.c: New test.
+	* gcc.dg/torture/pr78517.c: New test.
+
+2016-11-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78343
+	* gcc.dg/tree-ssa/sccp-2.c: New testcase.
+	* gcc.dg/autopar/uns-outer-6.c: Adjust.
+	* gcc.dg/tree-ssa/20030808-1.c: Likewise.
+	* gcc.dg/tree-ssa/20040305-1.c: Likewise.
+	* gcc.dg/vect/pr38529.c: Likewise.
+
+2016-11-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/77673
+	* gcc.dg/pr77673.c: New test.
+
+2016-11-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70965
+	* g++.dg/pr70965.C: New test.
+
+2016-11-25  Jakub Jelinek  <jakub@redhat.com>
+	    Andreas Schwab  <schwab@linux-m68k.org>
+
+	PR gcov-profile/78467
+	* gcc.dg/tree-prof/comp-goto-1.c (insn_t): Change offset to
+	signed int.
+
+2016-11-25  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/tree-ssa/tailcall-7-run.c: New test.
+	* gcc.dg/tree-ssa/tailcall-8-run.c: Likewise.
+
+2016-11-25  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/tree-ssa/tailcall-8.c: New test.
+
+2016-11-25  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/pr64277.c: Use __INT32_TYPE__ for targets
+	with sizeof(int) < 4.
+
+2016-11-24  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78476
+	* gcc.dg/tree-ssa/builtin-sprintf-5.c: New test.
+
+2016-11-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/77541
+	* gcc.target/i386/pr77541.c: New.
+
+2016-11-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78500
+	* gfortran.dg/class_result_4.f90: New test.
+
+2016-11-24  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/_Float16_1.c: New.
+	* gcc.target/aarch64/_Float16_2.c: Likewise.
+	* gcc.target/aarch64/_Float16_3.c: Likewise.
+
+2016-11-24  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/floatdihf2_1.c: New.
+
 2016-11-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR target/48863
