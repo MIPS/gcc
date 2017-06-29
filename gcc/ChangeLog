@@ -1,3 +1,87 @@
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78396
+	* tree-vectorizer.c (vectorize_loops): If an innermost loop didn't
+	vectorize try vectorizing an if-converted body using BB vectorization.
+
+2016-11-23  Richard Sandiford  <richard.sandiford@arm.com>
+	    Alan Hayward  <alan.hayward@arm.com>
+	    David Sherwood  <david.sherwood@arm.com>
+
+	* rtlanal.c (subreg_get_info): Use more local variables.
+	Remark that for HARD_REGNO_NREGS_HAS_PADDING, each scalar unit
+	occupies at least one register.  Assume that full hard registers
+	have consistent endianness.  Share previously-duplicated if block.
+	Rework the main handling so that it operates on independently-
+	addressable YMODE-sized blocks.  Use subreg_size_lowpart_offset
+	to check lowpart offsets, without trying to find an equivalent
+	integer mode first.  Handle WORDS_BIG_ENDIAN != REG_WORDS_BIG_ENDIAN
+	as a final register-endianness correction.
+
+2016-11-23  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/77881
+	PR bootstrap/78390
+	PR target/78438
+	PR bootstrap/78477
+	* combine.c (make_compound_operation_int): Do not convert a subreg of
+	a non-constant logical shift right to a zero_extract.  Handle the case
+	where some zero bits have been shifted into the range covered by that
+	subreg.
+
+2016-11-23  Richard Sandiford  <richard.sandiford@arm.com>
+	    Alan Hayward  <alan.hayward@arm.com>
+	    David Sherwood  <david.sherwood@arm.com>
+
+	* rtl.h (subreg_size_offset_from_lsb): Declare.
+	(subreg_offset_from_lsb): New function.
+	(subreg_size_lowpart_offset): Declare.
+	(subreg_lowpart_offset): Turn into an inline function.
+	(subreg_size_highpart_offset): Declare.
+	(subreg_highpart_offset): Turn into an inline function.
+	* emit-rtl.c (subreg_size_lowpart_offset): New function.
+	(subreg_size_highpart_offset): Likewise
+	* rtlanal.c (subreg_size_offset_from_lsb): Likewise.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78482
+	* tree-cfgcleanup.c: Include tree-ssa-loop-niter.h.
+	(remove_forwarder_block_with_phi): When merging with a loop
+	header creates a new latch reset number of iteration information
+	of the loop.
+
+2016-11-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (*ashrsi3_extend): Rename to...
+	(*ashrsi3_extend0): ...this.  Accept constant integers.
+	(*ashrsi3_extend2): Rename to...
+	(*ashrsi3_extend1): ...this.
+	(*ashrsi3_extend2): New pattern.
+	(*lshrsi3_extend1): Accept constant integers.
+	(*lshrsi3_extend2): Fix condition on operand 2.
+
+2016-11-23  Martin Liska  <mliska@suse.cz>
+
+	* config/i386/i386.c: Initialize function pointer to NULL.
+
+2016-11-23  Bin Cheng  <bin.cheng@arm.com>
+
+	* fold-const.c (fold_cond_expr_with_comparison): Move simplification
+	for A == C1 ? A : C2 to below.
+	* match.pd: Move from above to here:
+	(cond (eq (convert1? x) c1) (convert2? x) c2)
+	  -> (cond (eq x c1) c1 c2).
+
+2016-11-23  Bin Cheng  <bin.cheng@arm.com>
+
+	* fold-const.c (fold_cond_expr_with_comparison): Move simplification
+	for A cmp C1 ? A : C2 to below, also simplify remaining code.
+	* match.pd: Move and extend simplification from above to here:
+	(cond (cmp (convert1? x) c1) (convert2? x) c2) -> (minmax (x c)).
+	* tree-if-conv.c (ifcvt_follow_ssa_use_edges): New func.
+	(predicate_scalar_phi): Call fold_stmt using the new valueize func.
+
 2016-11-23  Martin Liska  <mliska@suse.cz>
             Martin Jambor  <mjambor@suse.cz>
 
