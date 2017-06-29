@@ -1,3 +1,183 @@
+2016-11-23  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR target/78213
+	* opts.c (finish_options): Set -fsyntax-only if running self
+	tests.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71762
+	* match.pd ((~X & Y) -> X < Y, (X & ~Y) -> Y < X,
+	(~X | Y) -> X <= Y, (X | ~Y) -> Y <= X): Remove.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR lto/78472
+	* tree.c (gimple_canonical_types_compatible_p): Ignore zero-sized
+	fields.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+	    Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.rog>
+
+	PR tree-optimization/78154
+	* tree-vrp.c (gimple_stmt_nonzero_warnv_p): Return true if function
+	returns it's argument and the argument is nonnull.
+	* builtin-attrs.def: Define ATTR_RETURNS_NONNULL,
+	ATT_RETNONNULL_NOTHROW_LEAF.
+	* builtins.def (BUILT_IN_MEMPCPY): Change attribute to
+	ATTR_RETNONNULL_NOTHROW_LEAF.
+	(BUILT_IN_STPCPY): Likewise.
+	(BUILT_IN_STPNCPY): Likewise.
+	(BUILT_IN_MEMPCPY_CHK): Likewise.
+	(BUILT_IN_STPCPY_CHK): Likewise.
+	(BUILT_IN_STPNCPY_CHK): Likewise.
+	(BUILT_IN_STRCAT): Change attribute to ATTR_RET1_NOTHROW_NONNULL_LEAF.
+	(BUILT_IN_STRNCAT): Likewise.
+	(BUILT_IN_STRNCPY): Likewise.
+	(BUILT_IN_MEMSET_CHK): Likewise.
+	(BUILT_IN_STRCAT_CHK): Likewise.
+	(BUILT_IN_STRCPY_CHK): Likewise.
+	(BUILT_IN_STRNCAT_CHK): Likewise.
+	(BUILT_IN_STRNCPY_CHK): Likewise.
+
+2016-11-23  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* fold-const.c (tree_expr_nonzero_p) : Make non-static.
+	* fold-const.h (tree_expr_nonzero_p) : Declare.
+	* match.pd (cmp (mult:c @0 @1) (mult:c @2 @1) : New Pattern.
+
+2016-11-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* system.h (HAVE_DESIGNATED_INITIALIZERS,
+	HAVE_DESIGNATED_UNION_INITIALIZERS): Do not use
+	"defined" in macros.
+	* doc/cpp.texi (Defined): Mention -Wexpansion-to-defined.
+	* doc/cppopts.texi (Invocation): Document -Wexpansion-to-defined.
+	* doc/invoke.texi (Warning Options): Document -Wexpansion-to-defined.
+
+2016-11-23  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/60300
+	* config/avr/constraints.md (Csp): Widen range to [-11..6].
+	* config/avr/avr.c (avr_prologue_setup_frame): Limit number
+	of RCALLs in prologue to 3.
+
+2016-11-22  Michael Collison  <michael.collison@arm.com>
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_and_split_imm1, aarch64_and_split_imm2)
+	(aarch64_and_bitmask_imm): New prototypes
+	* config/aarch64/aarch64.c (aarch64_and_split_imm1):
+	New overloaded function to create bit mask covering the
+	lowest to highest bits set.
+	(aarch64_and_split_imm2): New overloaded functions to create bit
+	mask of zeros between first and last bit set.
+	(aarch64_and_bitmask_imm): New function to determine if a integer
+	is a valid two instruction "and" operation.
+	* config/aarch64/aarch64.md:(and<mode>3): New define_insn and _split
+	allowing wider range of constants with "and" operations.
+	* (ior<mode>3, xor<mode>3): Use new LOGICAL2 iterator to prevent
+	"and" operator from matching restricted constant range used for
+	ior and xor operators.
+	* config/aarch64/constraints.md (UsO constraint): New SImode constraint
+	for constants in "and" operantions.
+	(UsP constraint): New DImode constraint for constants in "and" operations.
+	* config/aarch64/iterators.md (lconst2): New mode iterator.
+	(LOGICAL2): New code iterator.
+	* config/aarch64/predicates.md (aarch64_logical_and_immediate): New
+	predicate
+	(aarch64_logical_and_operand): New predicate allowing extended constants
+	for "and" operations.
+
+2016-11-22  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (trap): New pattern.
+	* config/tilepro/tilepro.md (trap): Likewise.
+
+2016-11-22  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (*zero_extract): Use
+	define_insn_and_split instead of define_insn; Handle pos + size >
+	64.
+	(*sign_extract): Likewise.
+
+2016-11-22  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/78455
+	* tree-ssa-uninit.c (can_chain_union_be_invalidated_p): Fix typo.
+
+2016-11-22  Ian Lance Taylor  <iant@golang.org>
+
+	PR go/78431
+	PR go/78432
+	* godump.c (go_format_type): Always pass alignment as 1 when
+	calling go_append_padding at end of struct/union.
+
+2016-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78451
+	* config/i386/avx512bwintrin.h (_mm512_setzero_qi,
+	_mm512_setzero_hi): Removed.
+	(_mm512_maskz_mov_epi16, _mm512_maskz_loadu_epi16,
+	_mm512_maskz_mov_epi8, _mm512_maskz_loadu_epi8,
+	_mm512_maskz_broadcastb_epi8, _mm512_maskz_set1_epi8,
+	_mm512_maskz_broadcastw_epi16, _mm512_maskz_set1_epi16,
+	_mm512_mulhrs_epi16, _mm512_maskz_mulhrs_epi16, _mm512_mulhi_epi16,
+	_mm512_maskz_mulhi_epi16, _mm512_mulhi_epu16,
+	_mm512_maskz_mulhi_epu16, _mm512_maskz_mullo_epi16,
+	_mm512_cvtepi8_epi16, _mm512_maskz_cvtepi8_epi16, _mm512_cvtepu8_epi16,
+	_mm512_maskz_cvtepu8_epi16, _mm512_permutexvar_epi16,
+	_mm512_maskz_permutexvar_epi16, _mm512_avg_epu8, _mm512_maskz_avg_epu8,
+	_mm512_maskz_add_epi8, _mm512_maskz_sub_epi8, _mm512_avg_epu16,
+	_mm512_maskz_avg_epu16, _mm512_subs_epi8, _mm512_maskz_subs_epi8,
+	_mm512_subs_epu8, _mm512_maskz_subs_epu8, _mm512_adds_epi8,
+	_mm512_maskz_adds_epi8, _mm512_adds_epu8, _mm512_maskz_adds_epu8,
+	_mm512_maskz_sub_epi16, _mm512_subs_epi16, _mm512_maskz_subs_epi16,
+	_mm512_subs_epu16, _mm512_maskz_subs_epu16, _mm512_maskz_add_epi16,
+	_mm512_adds_epi16, _mm512_maskz_adds_epi16, _mm512_adds_epu16,
+	_mm512_maskz_adds_epu16, _mm512_srl_epi16, _mm512_maskz_srl_epi16,
+	_mm512_packs_epi16, _mm512_sll_epi16, _mm512_maskz_sll_epi16,
+	_mm512_maddubs_epi16, _mm512_maskz_maddubs_epi16, _mm512_unpackhi_epi8,
+	_mm512_maskz_unpackhi_epi8, _mm512_unpackhi_epi16,
+	_mm512_maskz_unpackhi_epi16, _mm512_unpacklo_epi8,
+	_mm512_maskz_unpacklo_epi8, _mm512_unpacklo_epi16,
+	_mm512_maskz_unpacklo_epi16, _mm512_shuffle_epi8,
+	_mm512_maskz_shuffle_epi8, _mm512_min_epu16, _mm512_maskz_min_epu16,
+	_mm512_min_epi16, _mm512_maskz_min_epi16, _mm512_max_epu8,
+	_mm512_maskz_max_epu8, _mm512_max_epi8, _mm512_maskz_max_epi8,
+	_mm512_min_epu8, _mm512_maskz_min_epu8, _mm512_min_epi8,
+	_mm512_maskz_min_epi8, _mm512_max_epi16, _mm512_maskz_max_epi16,
+	_mm512_max_epu16, _mm512_maskz_max_epu16, _mm512_sra_epi16,
+	_mm512_maskz_sra_epi16, _mm512_srav_epi16, _mm512_maskz_srav_epi16,
+	_mm512_srlv_epi16, _mm512_maskz_srlv_epi16, _mm512_sllv_epi16,
+	_mm512_maskz_sllv_epi16, _mm512_maskz_packs_epi16, _mm512_packus_epi16,
+	_mm512_maskz_packus_epi16, _mm512_abs_epi8, _mm512_maskz_abs_epi8,
+	_mm512_abs_epi16, _mm512_maskz_abs_epi16, _mm512_dbsad_epu8,
+	_mm512_maskz_dbsad_epu8, _mm512_srli_epi16, _mm512_maskz_srli_epi16,
+	_mm512_slli_epi16, _mm512_maskz_slli_epi16, _mm512_shufflehi_epi16,
+	_mm512_maskz_shufflehi_epi16, _mm512_shufflelo_epi16,
+	_mm512_maskz_shufflelo_epi16, _mm512_srai_epi16,
+	_mm512_maskz_srai_epi16, _mm512_packs_epi32,
+	_mm512_maskz_packs_epi32, _mm512_packus_epi32,
+	_mm512_maskz_packus_epi32): Use _mm512_setzero_si512 instead of
+	_mm512_setzero_qi or _mm512_setzero_hi.
+	(_mm512_maskz_alignr_epi8, _mm512_dbsad_epu8,
+	_mm512_maskz_dbsad_epu8): Formatting fixes.
+	(_mm512_srli_epi16, _mm512_maskz_srli_epi16, _mm512_slli_epi16,
+	_mm512_maskz_slli_epi16, _mm512_shufflehi_epi16,
+	_mm512_maskz_shufflehi_epi16, _mm512_shufflelo_epi16,
+	_mm512_maskz_shufflelo_epi16, _mm512_srai_epi16,
+	_mm512_maskz_srai_epi16): Use _mm512_setzero_si512 instead of
+	_mm512_setzero_qi or _mm512_setzero_hi.
+
+2016-11-22  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc-ar.c (main): Fix indentation.
+	* gcov-io.c (gcov_write_summary): Remove extraneous {...}
+	* ggc-page.c (move_ptes_to_front): Fix formatting.
+	* hsa-dump.c (dump_has_cfun): Fix indentation.
+	* sel-sched-ir.h: Remove trailing blank lines.
+
 2016-11-22  Jakub Jelinek  <jakub@redhat.com>
             Alexander Monakov  <amonakov@ispras.ru>
 

@@ -1,3 +1,79 @@
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71762
+	* gcc.dg/torture/pr71762-1.c: New testcase.
+	* gcc.dg/torture/pr71762-2.c: Likewise.
+	* gcc.dg/torture/pr71762-3.c: Likewise.
+	* gcc.dg/tree-ssa/forwprop-28.c: XFAIL.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR lto/78472
+	* g++.dg/lto/pr78472_0.c: New testcase.
+	* g++.dg/lto/pr78472_1.C: Likewise.
+
+2016-11-23  Richard Biener  <rguenther@suse.de>
+	    Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.rog>
+
+	    PR tree-optimization/78154
+	    * gcc.dg/tree-ssa/pr78154.c: New test.
+
+2016-11-23  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.dg/pr31096.c: New testcase.
+	* gcc.dg/pr31096-1.c: New testcase.
+
+2016-11-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/cpp/defined.c: Mark newly introduced warnings and
+	adjust for warning->pedwarn change.
+	* gcc.dg/cpp/defined-syshdr.c,
+	gcc.dg/cpp/defined-Wexpansion-to-defined.c,
+	gcc.dg/cpp/defined-Wextra-Wno-expansion-to-defined.c,
+	gcc.dg/cpp/defined-Wextra.c,
+	gcc.dg/cpp/defined-Wno-expansion-to-defined.c: New testcases.
+
+2016-11-23  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/uninit-19.c: Add -finline-small-functions for avr.
+
+2016-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78451
+	* gcc.target/i386/pr78451.c: New test.
+	* gcc.target/i386/pr69255-1.c: Use #pragma GCC push_options
+	and #pragma GCC pop_options around the first #pragma GCC target.
+	* gcc.target/i386/pr69255-2.c: Likewise.
+	* gcc.target/i386/pr69255-3.c: Likewise.
+
+2016-11-23  Michael Collison  <michael.collison@arm.com>
+
+	* testsuite/gcc.target/aarch64/and_const.c: New test to verify
+	additional constants are recognized and fewer instructions generated.
+	* testsuite/gcc.target/aarch64/and_const2.c: New test to verify
+	additional constants are recognized and fewer instructions generated.
+
+2016-11-22  Ian Lance Taylor  <iant@golang.org>
+
+	* gcc.misc-tests/godump-1.c: Update expected output for recent
+	changes.
+
+2016-11-22  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/78455
+	* gcc.dg/uninit-23.c: New.
+
+2016-11-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78479
+	* gfortran.dg/char_component_initializer_3.f90: Add PR number in a
+	comment.
+
+2016-11-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78479
+	* gfortran.dg/char_component_initializer_3.f90: New test.
+
 2016-11-22  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/78451

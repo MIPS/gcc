@@ -1,3 +1,18 @@
+2016-11-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* c.opt (Wexpansion-to-defined): New.
+
+2016-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78451
+	* c-pragma.c (handle_pragma_target): Don't replace
+	current_target_pragma, but chainon the new args to the current one.
+
+2016-11-22  Nathan Sidwell  <nathan@acm.org>
+
+	* array-notation-common.c (cilkplus_extract_an_trplets): Fix
+	indentation and formatting.
+
 2016-11-21  Martin Sebor  <msebor@redhat.com>
 
 	* c.opt (-fprintf-return-value): Enable by default.
