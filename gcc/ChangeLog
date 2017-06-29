@@ -1,3 +1,111 @@
+2016-11-23  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR middle-end/78153
+	* gimple-fold.c (fold_stmt_1): Handle case for GIMPLE_RETURN.
+	* tree-vrp.c (extract_range_basic): Handle case for
+	CFN_BUILT_IN_STRLEN.
+
+2016-11-23  Jeff Law  <law@redhat.com>
+
+	* config/mcore/mcore.c (emit_new_cond_insn): Fix prototype.
+
+	* config/iq2000/iq2000.c (iq2000_rtx_costs): Avoid multiplication
+	in boolean context warning.
+
+	* config/ia64/ia64.c (ia64_emit_insn_before): Fix prototype.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/63250
+	* config/arm/arm-builtins.c (arm_simd_floatHF_type_node): Rename to...
+	(arm_fp16_type_node): ...This, make visibile.
+	(arm_simd_builtin_std_type): Rename arm_simd_floatHF_type_node to
+	arm_fp16_type_node.
+	(arm_init_simd_builtin_types): Likewise.
+	(arm_init_fp16_builtins): Likewise.
+	* config/arm/arm.c (arm_excess_precision): New.
+	(arm_floatn_mode): Likewise.
+	(TARGET_C_EXCESS_PRECISION): Likewise.
+	(TARGET_FLOATN_MODE): Likewise.
+	(arm_promoted_type): Only promote arm_fp16_type_node.
+	* config/arm/arm.h (arm_fp16_type_node): Declare.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm.c (arm_convert_to_type): Delete.
+	(TARGET_CONVERT_TO_TYPE): Delete.
+	(arm_init_libfuncs): Enable trunc_optab from DFmode to HFmode.
+	(arm_libcall_uses_aapcs_base): Add trunc_optab from DF- to HFmode.
+	* config/arm/arm.h (TARGET_FP16_TO_DOUBLE): New.
+	* config/arm/arm.md (truncdfhf2): Only convert through SFmode if we
+	are in fast math mode, and have no single step hardware instruction.
+	(extendhfdf2): Only expand through SFmode if we don't have a
+	single-step hardware instruction.
+	* config/arm/vfp.md (*truncdfhf2): New.
+	(extendhfdf2): Likewise.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* targhooks.c (default_floatn_mode): Enable _Float16 if a target
+	provides HFmode.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/s390/s390.h (TARGET_FLT_EVAL_METHOD): Delete.
+	* config/m68k/m68k.h (TARGET_FLT_EVAL_METHOD): Delete.
+	* config/i386/i386.h (TARGET_FLT_EVAL_METHOD): Delete.
+	* defaults.h (TARGET_FLT_EVAL_METHOD): Delete.
+	* doc/tm.texi.in (TARGET_FLT_EVAL_METHOD): Delete.
+	* doc/tm.texi: Regenerate.
+	* system.h (TARGET_FLT_EVAL_METHOD): Poison.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* toplev.c (init_excess_precision): Delete most logic.
+	* tree.c (excess_precision_type): Rewrite to use
+	TARGET_EXCESS_PRECISION.
+	* doc/invoke.texi (-fexcess-precision): Document behaviour in a
+	more generic fashion.
+	* ginclude/float.h: Wrap definition of FLT_EVAL_METHOD in
+	__STDC_WANT_IEC_60559_TYPES_EXT__.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* common.opt (fpermitted-flt-eval-methods): New.
+	* doc/invoke.texi (-fpermitted-flt-eval-methods): Document it.
+	* flag_types.h (permitted_flt_eval_methods): New.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/m68k/m68k.c (m68k_excess_precision): New.
+	(TARGET_C_EXCESS_PRECISION): Define.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/s390/s390.c (s390_excess_precision): New.
+	(TARGET_C_EXCESS_PRECISION): Define.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/i386/i386.c (ix86_excess_precision): New.
+	(TARGET_C_EXCESS_PRECISION): Define.
+
+2016-11-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* target.def (excess_precision): New hook.
+	* target.h (flt_eval_method): New.
+	(excess_precision_type): Likewise.
+	* targhooks.c (default_excess_precision): New.
+	* targhooks.h (default_excess_precision): New.
+	* doc/tm.texi.in (TARGET_C_EXCESS_PRECISION): New.
+	* doc/tm.texi: Regenerate.
+
+2016-11-23  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78461
+	* gimple-ssa-sprintf.c (format_string): Correct the maxima and
+	set the minimum number of bytes for an unknown string to zero.
+
 2016-11-23  Martin Jambor  <mjambor@suse.cz>
 	    Martin Liska  <mliska@suse.cz>
 

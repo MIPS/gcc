@@ -514,10 +514,12 @@ default_floatn_mode (int n, bool extended)
       switch (n)
 	{
 	case 16:
-	  /* We do not use HFmode for _Float16 by default because the
-	     required excess precision support is not present and the
-	     interactions with promotion of the older __fp16 need to
-	     be worked out.  */
+	  /* Always enable _Float16 if we have basic support for the mode.
+	     Targets can control the range and precision of operations on
+	     the _Float16 type using TARGET_C_EXCESS_PRECISION.  */
+#ifdef HAVE_HFmode
+	  cand = HFmode;
+#endif
 	  break;
 
 	case 32:
@@ -2133,6 +2135,14 @@ unsigned int
 default_min_arithmetic_precision (void)
 {
   return WORD_REGISTER_OPERATIONS ? BITS_PER_WORD : BITS_PER_UNIT;
+}
+
+/* Default implementation of TARGET_C_EXCESS_PRECISION.  */
+
+enum flt_eval_method
+default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
+{
+  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
 }
 
 #include "gt-targhooks.h"

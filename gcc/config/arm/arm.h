@@ -73,6 +73,11 @@ extern int arm_ccfsm_state;
 extern GTY(()) rtx arm_target_insn;
 /* Callback to output language specific object attributes.  */
 extern void (*arm_lang_output_object_attributes_hook)(void);
+
+/* This type is the user-visible __fp16.  We need it in a few places in
+   the backend.  Defined in arm-builtins.c.  */
+extern tree arm_fp16_type_node;
+
 
 #undef  CPP_SPEC
 #define CPP_SPEC "%(subtarget_cpp_spec)					\
@@ -178,6 +183,11 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 /* FPU supports VFP half-precision floating-point.  */
 #define TARGET_FP16							\
   (ARM_FPU_FSET_HAS (TARGET_FPU_FEATURES, FPU_FL_FP16))
+
+/* FPU supports converting between HFmode and DFmode in a single hardware
+   step.  */
+#define TARGET_FP16_TO_DOUBLE						\
+  (TARGET_HARD_FLOAT && (TARGET_FP16 && TARGET_VFP5))
 
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (TARGET_FPU_REV >= 4)
