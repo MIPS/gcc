@@ -1,3 +1,149 @@
+2016-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* common/config/sparc/sparc-common.c (sparc_option_optimization_table):
+	Enable REE at -O2 and higher.
+	* config/sparc/sparc.c (sparc_option_override): Disable it by default
+	in 32-bit mode.
+
+2016-11-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/48863
+	PR inline-asm/70184
+	* tree-ssa-ter.c (temp_expr_table): Add reg_vars_cnt field.
+	(new_temp_expr_table): Initialise reg_vars_cnt.
+	(free_temp_expr_table): Release reg_vars_cnt.
+	(process_replaceable): Add reg_vars_cnt argument, set reg_vars_cnt
+	field of TAB.
+	(find_replaceable_in_bb): Use the above to record register variable
+	write occurrences and cancel replacement across them.
+
+2016-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/78437
+	* ree.c (get_uses): New function.
+	(combine_reaching_defs): When a copy is needed, return false if any
+	reaching use of the source register reads it in a mode larger than
+	the mode it is set in and WORD_REGISTER_OPERATIONS is true.
+
+2016-11-24  Martin Liska  <mliska@suse.cz>
+
+	* gimple-pretty-print.c (dump_edge_probability): New function.
+	(dump_gimple_switch): Dump label edge probabilities.
+	(dump_gimple_cond): Likewise.
+	(dump_gimple_label): Dump
+	(dump_gimple_bb_header): Dump basic block frequency.
+	(pp_cfg_jump): Replace e->dest argument with e.
+	(dump_implicit_edges): Likewise.
+	* tree-ssa-loop-ivopts.c (get_scaled_computation_cost_at):
+	Use gimple_bb (at) instead of at->bb.
+
+2016-11-24  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* common.opt (flimit-function-alignment): New.
+	* doc/invoke.texi (-flimit-function-alignment): Document.
+	* emit-rtl.h (struct rtl_data): Add max_insn_address field.
+	* final.c (shorten_branches): Set it.
+	* varasm.c (assemble_start_function): Limit alignment if
+	requested.
+
+2016-11-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71595
+	* cfgloopmanip.h (remove_path): Add irred_invalidated and
+	loop_closed_ssa_invalidated parameters, defaulted to NULL.
+	* cfgloopmanip.c (remove_path): Likewise, pass them along to
+	called functions.  Only fix irred flags if the caller didn't
+	request state.
+	* tree-ssa-loop-ivcanon.c (unloop_loops): Use add_bb_to_loop.
+	(unloop_loops): Pass irred_invalidated and loop_closed_ssa_invalidated
+	to remove_path.
+
+2016-11-24  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/78120
+	* ifcvt.c (noce_conversion_profitable_p): Check original cost in all
+	cases, and additionally test against max_seq_cost for speed
+	optimization.
+	(noce_process_if_block): Compute an estimate for the original cost when
+	optimizing for speed, using the minimum of then and else block costs.
+
+	PR rtl-optimization/78120
+	* rtlanal.c (insn_rtx_cost): Use set_rtx_cost.
+
+	PR rtl-optimization/78120
+	* config/i386/i386.c (ix86_rtx_costs): Fully handle SETs.
+
+2016-11-24  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd: Refine type conversion in result expr for below pattern:
+	(cond (cmp (convert1? x) c1) (convert2? x) c2) -> (minmax (x c)).
+
+2016-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/78429
+	* tree.h (wi::fits_to_boolean_p): New predicate.
+	(wi::fits_to_tree_p): Use it for boolean types.
+	* tree.c (int_fits_type_p): Likewise.
+
+2016-11-24  Martin Liska  <mliska@suse.cz>
+
+	* print-tree.c (struct bucket): Remove.
+	(print_node): Add new argument which drives whether a tree node
+	is printed briefly or not.
+	(debug_tree): Replace a custom hash table with hash_set<T>.
+	* print-tree.h (print_node): Add the argument.
+
+2016-11-24  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_init_libfuncs): Add ATTRIBUTE_UNUSED.
+
+2016-11-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/78458
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Return MODE
+	if it is at least NREGS wide.
+
+2016-11-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p): For
+	TARGET_E500_DOUBLE. handle TDmode, TImode and PTImode the same as
+	TFmode, IFmode and KFmode.
+
+2016-11-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/spe.md (*frob_<SPE64:mode>_ti_8): New insn
+	pattern.
+
+2016-11-23  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* combine.c (change_zero_ext): Only change the mode of a hard register
+	destination if can_change_dest_mode holds for that.
+
+2016-11-23  Jeff Law  <law@redhat.com>
+
+	* varasm.c (assemble_name): Increase buffer size for name.
+
+	* config/spu/spu.md (floatunsdidf2): Remove unused local variable.
+
+2016-11-23  Jakub Kicinski  <jakub.kicinski@netronome.com>
+
+	* doc/extend.texi: Constify first argument to __builtin_object_size.
+
+2016-11-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* opth-gen.awk: Use unsigned shifts for bit masks.  Allow all bits
+	to be used.  Add brackets around macro argument.
+
+2016-11-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*<any_or:code>hi_1): Fix operand 2 constraints.
+
+2016-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/69278
+	* opts.c (parse_sanitizer_options): For -fsanitize=undefined,
+	restore enabling also SANITIZE_UNREACHABLE and SANITIZE_RETURN.
+
 2016-11-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/69183

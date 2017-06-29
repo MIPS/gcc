@@ -1,4 +1,93 @@
+2016-11-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/48863
+	PR inline-asm/70184
+	* gcc.target/arm/pr48863.c: New test.
+
+2016-11-24  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/builtin-unreachable-6.c: Update test to not to scan
+	parts for frequencies/probabilities.
+	* gcc.dg/pr34027-1.c: Likewise.
+	* gcc.dg/strict-overflow-2.c: Likewise.
+	* gcc.dg/tree-ssa/20040703-1.c: Likewise.
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr32044.c: Likewise.
+	* gcc.dg/tree-ssa/vector-3.c: Likewise.
+	* gcc.dg/tree-ssa/vrp101.c: Likewise.
+	* gcc.dg/tree-ssa/dump-2.c: New test.
+
+2016-11-24  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* gcc.target/i386/align-limit.c: New test.
+
+2016-11-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71595
+	* gcc.dg/torture/pr71595.c: New testcase.
+
+2016-11-24  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/78120
+	* gcc.target/i386/pr78120.c: New test.
+
+2016-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20161124-1.c: New test.
+
+2016-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/78493
+	* g++.dg/cpp1z/decomp18.C: New test.
+
+2016-11-23  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/aarch64/ldp_stp_1.c : Add -mcpu=generic.
+	* gcc.target/aarch64/store-pair-1.c : Likewise.
+
+2016-11-23  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/aarch64/fmaxmin.c : Add -fno-vect-cost-model.
+	* gcc.target/aarch64/fmul_fcvt_2.c : Likewise.
+	* gcc.target/aarch64/vect-abs-compile.c : Likewise.
+	* gcc.target/aarch64/vect-clz.c : Likewise.
+	* gcc.target/aarch64/vect-fcm-eq-d.c : Likewise.
+	* gcc.target/aarch64/vect-fcm-ge-d.c : Likewise.
+	* gcc.target/aarch64/vect-fcm-gt-d.c : Likewise.
+	* gcc.target/aarch64/vect-fmovd-zero.c : Likewise.
+	* gcc.target/aarch64/vect-fmovd.c : Likewise.
+	* gcc.target/aarch64/vect-fmovf-zero.c : Likewise.
+	* gcc.target/aarch64/vect-fmovf.c : Likewise.
+	* gcc.target/aarch64/vect_ctz_1.c : Likewise.
+
+2016-11-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/78458
+	* gcc.target/powerpc/pr78458.c: New.
+
+2016-11-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/20161123-1.c: New test.
+
+2016-11-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78297
+	* gfortran.dg/pr78297.f90: New test.
+
+2016-11-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.target/powerpc/builtins-3.c: Add -maltivec and -mvsx options.
+
 2016-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/69278
+	* g++.dg/ubsan/return-7.C: New test.
+	* c-c++-common/ubsan/unreachable-4.c: New test.
+
+	PR tree-optimization/78482
+	* gcc.dg/torture/pr78482.c (c, d): Use signed char instead of char.
+	(bar): New function.
+	(main): Call bar instead of printf.
 
 	PR middle-end/69183
 	* gfortran.dg/gomp/pr69183.f90: New test.
