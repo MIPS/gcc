@@ -1,3 +1,353 @@
+2016-11-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR tree-optimization/77856
+	* lra-constraints.c (inherit_in_ebb): Check original regno for
+	invalid invariant regs too.  Set only clobbered hard regs for the
+	invalid invariant regs.
+
+2016-11-30  Pitchumani Sivanupandi  <pitchumani.sivanupandi@microchip.com>
+
+	Commit files forgotten in r242966.
+
+	* config/avr/avr-arch.h (avr_mcu_t) [flash_size]: New member.
+	* config/avr/avr-devices.c (avr_mcu_types): Add flash size info.
+	* config/avr/gen-avr-mmcu-specs.c (print_mcu): Remove hard-coded
+	prefix check to find wrap-around value, instead use MCU flash size.
+	For 8k flash devices, update link_pmem_wrap spec string to
+	add --pmem-wrap-around=8k.
+	* config/avr/specs.h (LINK_RELAX_SPEC): Move link_pmem_wrap from
+	here...
+	(LINK_SPEC): ...to here.
+
+2016-11-30  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/78498
+	* selftest.c (selftest::assert_strndup_eq): New function.
+	(selftest::test_strndup): New function.
+	(selftest::test_libiberty): New function.
+	(selftest::selftest_c_tests): Call test_libiberty.
+
+2016-11-30  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78610
+	* ira.c (combine_and_move_insns): Don't substitute into TRAP_IF
+	instructions.
+
+2016-11-30  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/78574
+	* tree-ssa-loop-ivopts.c (find_deriving_biv_for_expr): Skip loop
+	header PHI that doesn't define biv.
+
+2016-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* emit-rtl.c (verify_insn_sharing): Call verify_rtx_sharing instead of
+	reset_used_flags.
+
+	* config/i386/i386.c (dimode_scalar_chain::convert_op): Avoid
+	sharing the SUBREG rtx between move and following insn.
+
+	* ira.c (ira_update_equiv_info_by_shuffle_insn): Use copy_rtx
+	for REG_EQUIV argument.
+
+2016-11-30  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-rmprofile: Add mappings for Cortex-M23 and Cortex-M33.
+
+2016-11-30  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR ipa/78555
+	* real.c (real_hash): Add cast to avoid left
+	shifting of negative values.
+
+2016-11-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/78362
+	* config/aarch64/aarch64.md (add<mode>3): Extract inner expression
+	from a subreg in operands[1] and don't call REGNO on a non-reg
+	expression when deciding to force operands[2] into a reg.
+
+2016-11-30  Claudiu Zissulescu  <claziss@synopsys.com>
+	    Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc-protos.h (arc_store_addr_hazard_p): Declare.
+	* config/arc/arc.c (arc_store_addr_hazard_p): New function.
+	(workaround_arc_anomaly): Call arc_store_addr_hazard_p for ARC700.
+	* config/arc/arc700.md: Add define_bypass for store/load.
+
+2016-11-30  Martin Liska  <mliska@suse.cz>
+
+	* cgraph.c (symbol_table::initialize): Initialize
+	ipa_clones_dump_file.
+	(cgraph_node::remove): Report to ipa_clones_dump_file.
+	* cgraph.h: Add new argument (suffix) to cloning methods.
+	* cgraphclones.c (dump_callgraph_transformation): New function.
+	(cgraph_node::create_clone): New argument.
+	(cgraph_node::create_virtual_clone): Likewise.
+	(cgraph_node::create_version_clone): Likewise.
+	* dumpfile.c: Add .ipa-clones dump file.
+	* dumpfile.h (enum tree_dump_index): Add TDI_clones
+	* ipa-inline-transform.c (clone_inlined_nodes): Report operation
+	to dump_callgraph_transformation.
+
+2016-11-30  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78541
+	* asan.c (asan_expand_mark_ifn): Properly
+	select a VAR_DECL from FRAME.* component reference.
+
+2016-11-30  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78583
+	* simplify-rtx.c (simplify_truncation): Add check missing from the
+	previous commit.
+
+2016-11-30  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78590
+	* combine.c (change_zero_ext): Transform zero_extend of subregs only
+	if the subreg_reg is a scalar integer mode.
+
+2016-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/78586
+	* gimple-ssa-sprintf.c (format_integer): Use TYPE_MAX_VALUE or
+	TYPE_MIN_VALUE or build_all_ones_cst instead of folding LSHIFT_EXPR.
+	Don't build_int_cst min/max twice.  Formatting fix.
+
+2016-11-30  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR rtl-optimization/78588
+	* combine.c (if_then_else_cond): Also guard against BLKmode.
+	* rtlanal.c (num_sign_bit_copies1): Add assert.
+
+2016-11-29  Jeff Law  <law@redhat.com>
+
+	* common/config/arc/arc-common.c (arc_handle_option): Remove unused
+	variables.
+
+	* lra-constraints.c (check_and_process_move): Constrain the
+	range of DCLASS and SCLASS to avoid false positive out of bounds
+	array index warning.
+
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* doc/install.texi (--with-target-bdw-gc): Remove stray '@'.
+
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/78569
+	* input.c (get_substring_ranges_for_loc): Fail gracefully if
+	line directives were present.
+
+2016-11-30  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/install.texi: Document configure options --enable-objc-gc
+	and --with-target-bdw-gc.
+
+2016-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78594
+	* config/rs6000/rs6000.md (mov<mode>_internal, QHI iterator): Add
+	'x' to stxsi<wd>x print pattern, so that QImode and HImode values
+	residing in traditional altivec registers can be stored
+	correctly.
+
+2016-11-29  Max Filippov  <jcmvbkbc@gmail.com>
+
+	PR target/78603
+	* config/xtensa/xtensa.c (hwloop_optimize): Don't emit zero
+	overhead loop start between a call and its CALL_ARG_LOCATION
+	note.
+
+2016-11-29  Waldemar Brodkorb  <wbx@openadk.org>
+
+	* config/bfin/linux.h (CPP_SPEC): Define.
+
+2016-11-29  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78512
+	* config/linux.h (TARGET_PRINTF_POINTER_FORMAT): Remove.
+	* config/rs6000/linux.h: Same.
+	* config/rs6000/linux64.h: Same.
+	* config/sol2.h: Same.
+	* config/sol2.c (solaris_printf_pointer_format): Remove.
+	* doc/tm.texi.in (TARGET_PRINTF_POINTER_FORMAT): Remove.
+	* doc/tm.texi: Regenerate.
+	* gimple-ssa-sprintf.c (format_pointer): Rempove.
+	(pass_sprintf_length::compute_format_length): Return bool.
+	(pass_sprintf_length::handle_gimple_call): Adjust.
+	* target.def (printf_pointer_format): Remove.
+	* targhooks.c (default_printf_pointer_format): Remove.
+	(linux_printf_pointer_format): Same.
+	* targhooks.h (default_printf_pointer_format): Remove.
+	(linux_printf_pointer_format, solaris_printf_pointer_format): Same.
+
+2016-11-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (UNSPEC_MASKOP): Move from i386.md.
+	(mshift): Ditto.
+	(SWI1248_AVX512BWDQ): Ditto.
+	(SWI1248_AVX512BW): Ditto.
+	(k<any_logic:code><mode>): Ditto.
+	(kandn<mode>): Ditto.
+	(kxnor<mode>): Ditto.
+	(knot<mode>): Ditto.
+	(*k<any_lshift:code><mode>): Ditto.
+	(kortestzhi, kortestchi): Ditto.
+	(kunpckhi, kunpcksi, kunpckdi): Ditto.
+
+2016-11-29  Andrew Pinski  <apinski@cavium.com>
+
+	* tree-vrp.c (simplify_stmt_using_ranges): Use boolean_type_node
+	for the EQ_EXPR.
+
+2016-11-29  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	PR target/71331
+	* config/tilegx/tilegx.c (tilegx_function_profiler): Save r10
+	to stack before call mcount.
+	(tilegx_can_use_return_insn_p): Clean up code.
+
+2016-11-29  Pitchumani Sivanupandi <pitchumani.s@atmel.com>
+
+	* config/avr/avr-mcu.def: (avr_mcu_types): Add flash size info.
+
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/72774
+	PR c++/72786
+	PR c++/77922
+	PR c++/78313
+	* spellcheck.c (selftest::test_find_closest_string): Verify that
+	we don't offer the goal string as a suggestion.
+	* spellcheck.h (best_match::get_best_meaningful_candidate): Don't
+	offer the goal string as a suggestion.
+
+
+2016-11-29  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_override_options): Avoid selection of
+	compact casesi for ARCv2.
+
+2016-11-29  Richard Biener  <rguenther@suse.de>
+
+	* tree-cfg.c (lower_phi_internal_fn): Do not look for further
+	PHIs after a regular stmt.
+	(stmt_starts_bb_p): PHIs not preceeded by a PHI or a label
+	start a new BB.
+
+2016-11-29  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/78582
+	* tree-profile.c (gimple_gen_time_profiler): Make one extra BB
+	to prevent PHI argument clash.
+
+2016-11-29  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.opt (marclinux): Fix typo.
+	(marclinux_prof): Likewise.
+
+2016-11-29  Jiong Wang  <jiong.wang@arm.com>
+
+	* target.def (stack_protect_runtime_enabled_p): New.
+	* function.c (expand_function_end): Guard stack_protect_epilogue with
+	targetm.stack_protect_runtime_enabled_p.
+	* cfgexpand.c (pass_expand::execute): Likewise.
+	* calls.c (expand_call): Likewise.
+	* doc/tm.texi.in (TARGET_STACK_PROTECT_RUNTIME_ENABLED_P): Add it.
+	* doc/tm.texi: Regenerate.
+
+2016-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78546
+	* match.pd: Add CST1 - (CST2 - A) -> CST3 + A missing case.
+
+2016-11-29  Janus Weil  <janus@gcc.gnu.org>
+
+	* doc/contrib.texi: Add a few missing gfortran contributors.
+
+2016-11-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* combine.c (change_zero_ext): Also handle extends from a subreg
+	to a mode bigger than that of the operand of the subreg.
+
+2016-11-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/77687
+	* config/rs6000/rs6000.c (rs6000_emit_stack_reset): Emit the
+	stack_restore_tie insn instead of stack_tie, for the SVR4 and
+	SPE ABIs.
+	* config/rs6000/rs6000.md (stack_restore_tie): New define_insn.
+
+2016-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* shrink-wrap.c (init_separate_shrink_wrap): Do not clear
+	head_components and tail_components.
+	(spread_components): New algorithm.
+	(emit_common_tails_for_components): Clear head_components and
+	tail_components.
+	(insert_prologue_epilogue_for_components): Write extra output to the
+	dump file for sibcalls and abnormal exits.
+
+2016-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78342
+	* combine.c: Include "cfghooks.h".
+	(try_combine): If we create an unconditional trap, break the basic
+	block in two just after it, and remove the edge between; also, set
+	the *new_direct_jump_p flag so that cleanup_cfg is run.
+
+2016-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* simplify-rtx.c (simplify_truncation): Handle truncate of zero_extract
+	and sign_extract.
+
+2016-11-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*and<mode>_1): Merge insn pattern from
+	*andsi_1 and *andhi_1 using SWI24 mode iterator.  Use multi-line
+	output template string.
+	(*anddi_1): Use multi-line output template string.
+	(*andqi_1): Ditto.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/78540
+	* rtl.h (remove_reg_equal_equiv_notes): Return bool instead of void.
+	* rtlanal.c (remove_reg_equal_equiv_notes): Return true if any
+	note has been removed.
+	* postreload.c (reload_combine_recognize_pattern): If
+	remove_reg_equal_equiv_notes returns true, call df_notes_rescan.
+
+2016-11-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78520
+	* gimple-ssa-sprintf.c (target_max_value): Remove.
+	(target_int_max, target_size_max): Use TYPE_MAX_VALUE.
+	(get_width_and_precision): New function.
+	(format_integer, format_floating, get_string_length, format_string):
+	Correct handling of width and precision with unknown value.
+	(format_directive): Add warning.
+	(pass_sprintf_length::compute_format_length): Allow for precision
+	to consist of a sole period with no asterisk or digits after it.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78546
+	* simplify-rtx.c (neg_const_int): When negating most negative
+	number in mode wider than HOST_BITS_PER_WIDE_INT, use
+	simplify_const_unary_operation to produce CONST_DOUBLE or
+	CONST_WIDE_INT.
+	(simplify_plus_minus): Handle the case where neg_const_int
+	doesn't return a CONST_INT.
+
+2016-11-28  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR target/78556
+	* config/rs6000/rs6000.c (vspltis_constant): Add casts to avoid
+	left shifting of negative values.
+
 2016-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/78298
@@ -44,9 +394,8 @@
 
 2016-11-28  Richard Biener  <rguenther@suse.de>
 
-	* tree-vrp.c (vrp_visit_assignment_or_call): Handle
-	simplifications to SSA names via extract_range_from_ssa_name
-	if allowed.
+	* tree-vrp.c (vrp_visit_assignment_or_call): Handle simplifications
+	to SSA names via extract_range_from_ssa_name if allowed.
 
 2016-11-28  Richard Biener  <rguenther@suse.de>
 
@@ -56,9 +405,8 @@
 
 2016-11-28  Paolo Bonzini  <bonzini@gnu.org>
 
-	* combine.c (simplify_if_then_else): Simplify IF_THEN_ELSE
-	that isolates a single bit, even if the condition involves
-	subregs.
+	* combine.c (simplify_if_then_else): Simplify IF_THEN_ELSE that
+	isolates a single bit, even if the condition involves subregs.
 
 2016-11-28  Tamar Christina  <tamar.christina@arm.com>
 
@@ -147,6 +495,7 @@
 	(vdupq_laneq_p64): Likewise.
 
 2016-11-28  Tamar Christina  <tamar.christina@arm.com>
+
 	* config/arm/arm_neon.h (vget_lane_p64): New.
 
 2016-11-28  Iain Sandoe  <iain@codesourcery.com>

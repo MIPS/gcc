@@ -1,3 +1,17 @@
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77922
+	* name-lookup.c (lookup_name_fuzzy): Filter out reserved words
+	that were filtered out by init_reswords.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/72808
+	* decl.c (finish_enum_value_list): Call fixup_type_variants on
+	current_class_type after
+	insert_late_enum_def_into_classtype_sorted_fields.
+
 2016-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/77591
