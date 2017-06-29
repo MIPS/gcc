@@ -2474,7 +2474,8 @@ gfc_match_oacc_routine (void)
 	  if (st)
 	    {
 	      sym = st->n.sym;
-	      if (strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
+	      if (gfc_current_ns->proc_name != NULL
+		  && strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
 	        sym = NULL;
 	    }
 	  else if (isym == NULL)

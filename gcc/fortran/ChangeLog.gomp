@@ -1,3 +1,10 @@
+2017-06-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	PR fortran/77765
+	* openmp.c (gfc_match_oacc_routine): Check if proc_name exist before
+	comparing the routine name against it.
+
 2017-06-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h gfc_omp_clauses: Add update_allocatable.
