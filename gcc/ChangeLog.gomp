@@ -1,3 +1,8 @@
+2017-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_propagate_unified): Fix gcc_assert
+	condition by allowing !INSN_P.
+
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (expand_omp_target): Revert GOACC_enter_exit_data ABI

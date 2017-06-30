@@ -2300,7 +2300,7 @@ nvptx_propagate_unified (rtx_insn *unified)
 	  && GET_RTX_CLASS (GET_CODE (SET_SRC (pat))) == RTX_COMPARE
 	  && XEXP (SET_SRC (pat), 0) == cond_reg)
 	break;
-      gcc_assert (NONJUMP_INSN_P (probe));
+      gcc_assert (NONJUMP_INSN_P (probe) || !INSN_P (probe));
     }
   rtx pred_reg = SET_DEST (pat);
 
