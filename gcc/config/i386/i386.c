@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "selftest.h"
 #include "selftest-rtl.h"
+#include "print-rtl.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2826,6 +2827,10 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 	return false;
       break;
 
+    case NEG:
+    case NOT:
+      break;
+
     case REG:
       return true;
 
@@ -2848,7 +2853,9 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 
   if ((GET_MODE (XEXP (src, 0)) != DImode
        && !CONST_INT_P (XEXP (src, 0)))
-      || (GET_MODE (XEXP (src, 1)) != DImode
+      || (GET_CODE (src) != NEG
+	  && GET_CODE (src) != NOT
+	  && GET_MODE (XEXP (src, 1)) != DImode
 	  && !CONST_INT_P (XEXP (src, 1))))
     return false;
 
@@ -3415,6 +3422,9 @@ dimode_scalar_chain::compute_convert_gain ()
 	  if (CONST_INT_P (XEXP (src, 1)))
 	    gain -= vector_const_cost (XEXP (src, 1));
 	}
+      else if (GET_CODE (src) == NEG
+	       || GET_CODE (src) == NOT)
+	gain += ix86_cost->add - COSTS_N_INSNS (1);
       else if (GET_CODE (src) == COMPARE)
 	{
 	  /* Assume comparison cost is the same.  */
@@ -3768,6 +3778,22 @@ dimode_scalar_chain::convert_insn (rtx_insn *insn)
       convert_op (&XEXP (src, 0), insn);
       convert_op (&XEXP (src, 1), insn);
       PUT_MODE (src, V2DImode);
+      break;
+
+    case NEG:
+      src = XEXP (src, 0);
+      convert_op (&src, insn);
+      subreg = gen_reg_rtx (V2DImode);
+      emit_insn_before (gen_move_insn (subreg, CONST0_RTX (V2DImode)), insn);
+      src = gen_rtx_MINUS (V2DImode, subreg, src);
+      break;
+
+    case NOT:
+      src = XEXP (src, 0);
+      convert_op (&src, insn);
+      subreg = gen_reg_rtx (V2DImode);
+      emit_insn_before (gen_move_insn (subreg, CONSTM1_RTX (V2DImode)), insn);
+      src = gen_rtx_XOR (V2DImode, src, subreg);
       break;
 
     case MEM:
@@ -34817,7 +34843,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4DI_FTYPE_V8HI:
     case V4DI_FTYPE_V4SI:
     case V4DI_FTYPE_V2DI:
+    case UQI_FTYPE_UQI:
     case UHI_FTYPE_UHI:
+    case USI_FTYPE_USI:
+    case USI_FTYPE_UQI:
+    case USI_FTYPE_UHI:
+    case UDI_FTYPE_UDI:
     case UHI_FTYPE_V16QI:
     case USI_FTYPE_V32QI:
     case UDI_FTYPE_V64QI:
@@ -34951,6 +34982,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case UINT_FTYPE_UINT_UCHAR:
     case UINT16_FTYPE_UINT16_INT:
     case UINT8_FTYPE_UINT8_INT:
+    case UQI_FTYPE_UQI_UQI:
     case UHI_FTYPE_UHI_UHI:
     case USI_FTYPE_USI_USI:
     case UDI_FTYPE_UDI_UDI:
@@ -34998,6 +35030,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4DI_FTYPE_V8DI_INT:
     case QI_FTYPE_V4SF_INT:
     case QI_FTYPE_V2DF_INT:
+    case UQI_FTYPE_UQI_INT:
+    case UHI_FTYPE_UHI_INT:
+    case USI_FTYPE_USI_INT:
+    case UDI_FTYPE_UDI_INT:
       nargs = 2;
       nargs_constant = 1;
       break;
@@ -51140,12 +51176,37 @@ ix86_test_dumping_hard_regs ()
   ASSERT_RTL_DUMP_EQ ("(reg:SI dx)", gen_raw_REG (SImode, 1));
 }
 
+/* Test dumping an insn with repeated references to the same SCRATCH,
+   to verify the rtx_reuse code.  */
+
+static void
+ix86_test_dumping_memory_blockage ()
+{
+  set_new_first_and_last_insn (NULL, NULL);
+
+  rtx pat = gen_memory_blockage ();
+  rtx_reuse_manager r;
+  r.preprocess (pat);
+
+  /* Verify that the repeated references to the SCRATCH show use
+     reuse IDS.  The first should be prefixed with a reuse ID,
+     and the second should be dumped as a "reuse_rtx" of that ID.
+     The expected string assumes Pmode == DImode.  */
+  if (Pmode == DImode)
+    ASSERT_RTL_DUMP_EQ_WITH_REUSE
+      ("(cinsn 1 (set (mem/v:BLK (0|scratch:DI) [0  A8])\n"
+       "        (unspec:BLK [\n"
+       "                (mem/v:BLK (reuse_rtx 0) [0  A8])\n"
+       "            ] UNSPEC_MEMORY_BLOCKAGE)))\n", pat, &r);
+}
+
 /* Run all target-specific selftests.  */
 
 static void
 ix86_run_selftests (void)
 {
   ix86_test_dumping_hard_regs ();
+  ix86_test_dumping_memory_blockage ();
 }
 
 } // namespace selftest

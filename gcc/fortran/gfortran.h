@@ -1559,6 +1559,8 @@ typedef struct gfc_symbol
   unsigned equiv_built:1;
   /* Set if this variable is used as an index name in a FORALL.  */
   unsigned forall_index:1;
+  /* Set if the symbol is used in a function result specification .  */
+  unsigned fn_result_spec:1;
   /* Used to avoid multiple resolutions of a single symbol.  */
   unsigned resolved:1;
   /* Set if this is a module function or subroutine with the
@@ -1783,7 +1785,7 @@ typedef struct gfc_namespace
   /* !$ACC ROUTINE names.  */
   gfc_oacc_routine_name *oacc_routine_names;
 
-  gfc_charlen *cl_list, *old_cl_list;
+  gfc_charlen *cl_list;
 
   gfc_dt_list *derived_types;
 

@@ -1057,29 +1057,38 @@ gen_reg_rtx (machine_mode mode)
   /* Do not call gen_reg_rtx with uninitialized crtl.  */
   gcc_assert (crtl->emit.regno_pointer_align_length);
 
-  /* Make sure regno_pointer_align, and regno_reg_rtx are large
-     enough to have an element for this pseudo reg number.  */
-
-  if (reg_rtx_no == crtl->emit.regno_pointer_align_length)
-    {
-      int old_size = crtl->emit.regno_pointer_align_length;
-      char *tmp;
-      rtx *new1;
-
-      tmp = XRESIZEVEC (char, crtl->emit.regno_pointer_align, old_size * 2);
-      memset (tmp + old_size, 0, old_size);
-      crtl->emit.regno_pointer_align = (unsigned char *) tmp;
-
-      new1 = GGC_RESIZEVEC (rtx, regno_reg_rtx, old_size * 2);
-      memset (new1 + old_size, 0, old_size * sizeof (rtx));
-      regno_reg_rtx = new1;
-
-      crtl->emit.regno_pointer_align_length = old_size * 2;
-    }
+  crtl->emit.ensure_regno_capacity ();
+  gcc_assert (reg_rtx_no < crtl->emit.regno_pointer_align_length);
 
   val = gen_raw_REG (mode, reg_rtx_no);
   regno_reg_rtx[reg_rtx_no++] = val;
   return val;
+}
+
+/* Make sure m_regno_pointer_align, and regno_reg_rtx are large
+   enough to have elements in the range 0 <= idx <= reg_rtx_no.  */
+
+void
+emit_status::ensure_regno_capacity ()
+{
+  int old_size = regno_pointer_align_length;
+
+  if (reg_rtx_no < old_size)
+    return;
+
+  int new_size = old_size * 2;
+  while (reg_rtx_no >= new_size)
+    new_size *= 2;
+
+  char *tmp = XRESIZEVEC (char, regno_pointer_align, new_size);
+  memset (tmp + old_size, 0, new_size - old_size);
+  regno_pointer_align = (unsigned char *) tmp;
+
+  rtx *new1 = GGC_RESIZEVEC (rtx, regno_reg_rtx, new_size);
+  memset (new1 + old_size, 0, (new_size - old_size) * sizeof (rtx));
+  regno_reg_rtx = new1;
+
+  crtl->emit.regno_pointer_align_length = new_size;
 }
 
 /* Return TRUE if REG is a PARM_DECL, FALSE otherwise.  */
@@ -2718,8 +2727,9 @@ verify_rtx_sharing (rtx orig, rtx insn)
       /* Share clobbers of hard registers (like cc0), but do not share pseudo reg
          clobbers or clobbers of hard registers that originated as pseudos.
          This is needed to allow safe register renaming.  */
-      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
-	  && ORIGINAL_REGNO (XEXP (x, 0)) == REGNO (XEXP (x, 0)))
+      if (REG_P (XEXP (x, 0))
+	  && HARD_REGISTER_NUM_P (REGNO (XEXP (x, 0)))
+	  && HARD_REGISTER_NUM_P (ORIGINAL_REGNO (XEXP (x, 0))))
 	return;
       break;
 
@@ -2970,8 +2980,9 @@ repeat:
       /* Share clobbers of hard registers (like cc0), but do not share pseudo reg
          clobbers or clobbers of hard registers that originated as pseudos.
          This is needed to allow safe register renaming.  */
-      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
-	  && ORIGINAL_REGNO (XEXP (x, 0)) == REGNO (XEXP (x, 0)))
+      if (REG_P (XEXP (x, 0))
+	  && HARD_REGISTER_NUM_P (REGNO (XEXP (x, 0)))
+	  && HARD_REGISTER_NUM_P (ORIGINAL_REGNO (XEXP (x, 0))))
 	return;
       break;
 
@@ -5521,8 +5532,9 @@ copy_insn_1 (rtx orig)
       /* Share clobbers of hard registers (like cc0), but do not share pseudo reg
          clobbers or clobbers of hard registers that originated as pseudos.
          This is needed to allow safe register renaming.  */
-      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER
-	  && ORIGINAL_REGNO (XEXP (orig, 0)) == REGNO (XEXP (orig, 0)))
+      if (REG_P (XEXP (orig, 0))
+	  && HARD_REGISTER_NUM_P (REGNO (XEXP (orig, 0)))
+	  && HARD_REGISTER_NUM_P (ORIGINAL_REGNO (XEXP (orig, 0))))
 	return orig;
       break;
 
@@ -5551,10 +5563,6 @@ copy_insn_1 (rtx orig)
      not be copied.  That is the sensible default behavior, and forces
      us to explicitly document why we are *not* copying a flag.  */
   copy = shallow_copy_rtx (orig);
-
-  /* We do not copy the USED flag, which is used as a mark bit during
-     walks over the RTL.  */
-  RTX_FLAG (copy, used) = 0;
 
   /* We do not copy JUMP, CALL, or FRAME_RELATED for INSNs.  */
   if (INSN_P (orig))
@@ -5672,7 +5680,8 @@ init_emit (void)
   crtl->emit.regno_pointer_align
     = XCNEWVEC (unsigned char, crtl->emit.regno_pointer_align_length);
 
-  regno_reg_rtx = ggc_vec_alloc<rtx> (crtl->emit.regno_pointer_align_length);
+  regno_reg_rtx
+    = ggc_cleared_vec_alloc<rtx> (crtl->emit.regno_pointer_align_length);
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,
@@ -6292,5 +6301,17 @@ need_atomic_barrier_p (enum memmodel model, bool pre)
       gcc_unreachable ();
     }
 }
+
+/* Initialize fields of rtl_data related to stack alignment.  */
+
+void
+rtl_data::init_stack_alignment ()
+{
+  stack_alignment_needed = STACK_BOUNDARY;
+  max_used_stack_slot_alignment = STACK_BOUNDARY;
+  stack_alignment_estimated = 0;
+  preferred_stack_boundary = STACK_BOUNDARY;
+}
+
 
 #include "gt-emit-rtl.h"

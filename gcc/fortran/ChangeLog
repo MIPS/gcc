@@ -1,3 +1,129 @@
+2016-12-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/61767
+	* class.c (has_finalizer_component): Fix this function to detect only
+	non-pointer non-allocatable components which have a finalizer.
+
+2016-12-09  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78505
+	* trans-stmt.c (gfc_trans_allocate): Add sync all after the execution
+	of the whole allocate-statement to adhere to the standard.
+
+2016-12-09  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* trans-array.c (gfc_array_deallocate): Remove wrapper.
+	(gfc_trans_dealloc_allocated): Same.
+	(structure_alloc_comps): Restructure deallocation of (nested)
+	allocatable components.  Insert dealloc of sub-component into the block
+	guarded by the if != NULL for the component.
+	(gfc_trans_deferred_array): Use the almightly deallocate_with_status.
+	* trans-array.h: Remove prototypes.
+	* trans-expr.c (gfc_conv_procedure_call): Use the almighty deallocate_
+	with_status.
+	* trans-openmp.c (gfc_walk_alloc_comps): Likewise.
+	(gfc_omp_clause_assign_op): Likewise. 
+	(gfc_omp_clause_dtor): Likewise.
+	* trans-stmt.c (gfc_trans_deallocate): Likewise.
+	* trans.c (gfc_deallocate_with_status): Allow deallocation of scalar
+	and arrays as well as coarrays.
+	(gfc_deallocate_scalar_with_status): Get the data member for coarrays
+	only when freeing an array with descriptor.  And set correct caf_mode
+	when freeing components of coarrays.
+	* trans.h: Change prototype of gfc_deallocate_with_status to allow
+	adding statements into the block guarded by the if (pointer != 0) and
+	supply a coarray handle.
+
+2016-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/44265
+	* gfortran.h : Add fn_result_spec bitfield to gfc_symbol.
+	* resolve.c (flag_fn_result_spec): New function.
+	(resolve_fntype): Call it for character result lengths.
+	* symbol.c (gfc_new_symbol): Set fn_result_spec to zero.
+	* trans-decl.c (gfc_sym_mangled_identifier): Include the
+	procedure name in the mangled name for symbols with the
+	fn_result_spec bit set.
+	(gfc_finish_var_decl): Mark the decls of these symbols
+	appropriately for the case where the function is external.
+	(gfc_get_symbol_decl): Mangle the name of these symbols.
+	(gfc_create_module_variable): Allow them through the assert.
+	(gfc_generate_function_code): Remove the assert before the
+	initialization of sym->tlink because the frontend no longer
+	uses this field.
+	* trans-expr.c (gfc_map_intrinsic_function): Add a case to
+	treat the LEN_TRIM intrinsic.
+	(gfc_trans_string_copy): Deal with Wstringop-overflow warning
+	that can occur with constant source lengths at -O3.
+
+2016-12-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/65173
+	PR fortran/69064
+	PR fortran/69859
+	PR fortran/78350
+	* gfortran.h (gfc_namespace): Remove old_cl_list member.
+	* parse.c (use_modules, next_statement): old_cl_list is gone.
+	(clear_default_charlen): Remove no longer used function.
+	(reject_statement): Do not try ot clean up gfc_charlen structure(s)
+	that may have been added to a cl_list list.
+	* symbol.c (gfc_new_charlen): old_cl_list structure is gone.
+
+2016-12-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/78659
+	* resolve.c (resolve_fl_namelist): Remove unneeded error.
+
+2016-12-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78226
+	* class.c (finalize_component): Add missing locus information.
+	(finalization_scalarizer): Likewise.
+	(finalization_get_offset): Likewise.
+	(finalizer_insert_packed_call): Likewise.
+	(generate_finalization_wrapper): Likewise.
+
+2016-12-05  Nathan Sidwell  <nathan@acm.org>
+
+	* error.c (gfc_warning_check): Call diagnostic_check_max_errors.
+	(gfc_error_check): Likewise.
+
+2016-12-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78618
+	* intrinsic.c (gfc_convert_type_warn): Do not set the full typespec for
+	the conversion symbol, but only type and kind. Set the full typespec
+	for the expression.
+	(gfc_convert_chartype): Ditto.
+
+2016-12-03  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/43207
+	* primary.c (gfc_match_varspec): Reject nonpolymorphic references to
+	abstract types.
+
+2016-12-03  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/42188
+	* primary.c (gfc_match_rvalue): Add a new check that gives better error
+	messages.
+
+2016-12-03  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58175
+	* resolve.c (gfc_resolve_finalizers): Prevent bogus warning.
+
+2016-12-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* simplify.c (gfc_convert_char_constant): Free result on error.
+
+2016-12-02  Janus Weil  <janus@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78618
+	* check.c (gfc_check_rank): Remove ATTRIBUTE_UNUSED.
+	* expr.c (gfc_check_assign): Fix error propagation.
+
 2016-12-01  Elizebeth Punnoose  <elizebeth.punnoose@hpe.com>
 
 	PR fortran/77505

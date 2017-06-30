@@ -4116,6 +4116,16 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
       new_expr = gfc_copy_expr (arg1->ts.u.cl->length);
       break;
 
+    case GFC_ISYM_LEN_TRIM:
+      new_expr = gfc_copy_expr (arg1);
+      gfc_apply_interface_mapping_to_expr (mapping, new_expr);
+
+      if (!new_expr)
+	return false;
+
+      gfc_replace_expr (arg1, new_expr);
+      return true;
+
     case GFC_ISYM_SIZE:
       if (!sym->as || sym->as->rank == 0)
 	return false;
@@ -5441,8 +5451,12 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  tmp = build_fold_indirect_ref_loc (input_location,
 						     parmse.expr);
-		  tmp = gfc_trans_dealloc_allocated (tmp, e,
-						     GFC_CAF_COARRAY_NOCOARRAY);
+		  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+		    tmp = gfc_conv_descriptor_data_get (tmp);
+		  tmp = gfc_deallocate_with_status (tmp, NULL_TREE, NULL_TREE,
+						    NULL_TREE, NULL_TREE, true,
+						    e,
+						    GFC_CAF_COARRAY_NOCOARRAY);
 		  if (fsym->attr.optional
 		      && e->expr_type == EXPR_VARIABLE
 		      && e->symtree->n.sym->attr.optional)
@@ -6484,10 +6498,18 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 			      builtin_decl_explicit (BUILT_IN_MEMMOVE),
 			      3, dest, src, slen);
 
+  /* Wstringop-overflow appears at -O3 even though this warning is not
+     explicitly available in fortran nor can it be switched off. If the
+     source length is a constant, its negative appears as a very large
+     postive number and triggers the warning in BUILTIN_MEMSET. Fixing
+     the result of the MINUS_EXPR suppresses this spurious warning.  */
+  tmp = fold_build2_loc (input_location, MINUS_EXPR,
+			 TREE_TYPE(dlen), dlen, slen);
+  if (slength && TREE_CONSTANT (slength))
+    tmp = gfc_evaluate_now (tmp, block);
+
   tmp4 = fold_build_pointer_plus_loc (input_location, dest, slen);
-  tmp4 = fill_with_spaces (tmp4, chartype,
-			   fold_build2_loc (input_location, MINUS_EXPR,
-					    TREE_TYPE(dlen), dlen, slen));
+  tmp4 = fill_with_spaces (tmp4, chartype, tmp);
 
   gfc_init_block (&tempblock);
   gfc_add_expr_to_block (&tempblock, tmp3);

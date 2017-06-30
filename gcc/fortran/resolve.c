@@ -566,6 +566,14 @@ resolve_contained_fntype (gfc_symbol *sym, gfc_namespace *ns)
 {
   bool t;
 
+  if (sym && sym->attr.flavor == FL_PROCEDURE
+      && sym->ns->parent
+      && sym->ns->parent->proc_name
+      && sym->ns->parent->proc_name->attr.flavor == FL_PROCEDURE
+      && !strcmp (sym->name, sym->ns->parent->proc_name->name))
+    gfc_error ("Contained procedure %qs at %L has the same name as its "
+	       "encompassing procedure", sym->name, &sym->declared_at);
+
   /* If this namespace is not a function or an entry master function,
      ignore it.  */
   if (! sym || !(sym->attr.function || sym->attr.flavor == FL_VARIABLE)
@@ -12527,7 +12535,7 @@ error:
   /* Warn if we haven't seen a scalar finalizer procedure (but we know there
      were nodes in the list, must have been for arrays.  It is surely a good
      idea to have a scalar version there if there's something to finalize.  */
-  if (warn_surprising && result && !seen_scalar)
+  if (warn_surprising && derived->f2k_derived->finalizers && !seen_scalar)
     gfc_warning (OPT_Wsurprising,
 		 "Only array FINAL procedures declared for derived type %qs"
 		 " defined at %L, suggest also scalar one",
@@ -13910,15 +13918,7 @@ resolve_fl_namelist (gfc_symbol *sym)
 			       "or POINTER components", nl->sym->name,
 			       sym->name, &sym->declared_at))
 	    return false;
-
-	  if (!dtio)
-	    {
-	      gfc_error ("NAMELIST object %qs in namelist %qs at %L has "
-			"ALLOCATABLE or POINTER components and thus requires "
-			"a defined input/output procedure", nl->sym->name,
-			sym->name, &sym->declared_at);
-	      return false;
-	    }
+	  return true;
 	}
     }
 
@@ -15765,6 +15765,54 @@ resolve_equivalence (gfc_equiv *eq)
 }
 
 
+/* Function called by resolve_fntype to flag other symbol used in the
+   length type parameter specification of function resuls.  */
+
+static bool
+flag_fn_result_spec (gfc_expr *expr,
+                     gfc_symbol *sym ATTRIBUTE_UNUSED,
+                     int *f ATTRIBUTE_UNUSED)
+{
+  gfc_namespace *ns;
+  gfc_symbol *s;
+
+  if (expr->expr_type == EXPR_VARIABLE)
+    {
+      s = expr->symtree->n.sym;
+      for (ns = s->ns; ns; ns = ns->parent)
+	if (!ns->parent)
+	  break;
+
+      if (!s->fn_result_spec
+	  && s->attr.flavor == FL_PARAMETER)
+	{
+	  /* Function contained in a module.... */
+	  if (ns->proc_name && ns->proc_name->attr.flavor == FL_MODULE)
+	    {
+	      gfc_symtree *st;
+	      s->fn_result_spec = 1;
+	      /* Make sure that this symbol is translated as a module
+		 variable.  */
+	      st = gfc_get_unique_symtree (ns);
+	      st->n.sym = s;
+	      s->refs++;
+	    }
+	  /* ... which is use associated and called.  */
+	  else if (s->attr.use_assoc || s->attr.used_in_submodule
+			||
+		  /* External function matched with an interface.  */
+		  (s->ns->proc_name
+		   && ((s->ns == ns
+			 && s->ns->proc_name->attr.if_source == IFSRC_DECL)
+		       || s->ns->proc_name->attr.if_source == IFSRC_IFBODY)
+		   && s->ns->proc_name->attr.function))
+	    s->fn_result_spec = 1;
+	}
+    }
+  return false;
+}
+
+
 /* Resolve function and ENTRY types, issue diagnostics if needed.  */
 
 static void
@@ -15815,6 +15863,9 @@ resolve_fntype (gfc_namespace *ns)
 	    el->sym->attr.untyped = 1;
 	  }
       }
+
+  if (sym->ts.type == BT_CHARACTER)
+    gfc_traverse_expr (sym->ts.u.cl->length, NULL, flag_fn_result_spec, 0);
 }
 
 

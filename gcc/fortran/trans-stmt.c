@@ -5506,7 +5506,7 @@ gfc_trans_allocate (gfc_code * code)
   stmtblock_t block;
   stmtblock_t post;
   tree nelems;
-  bool upoly_expr, tmp_expr3_len_flag = false, al_len_needs_set;
+  bool upoly_expr, tmp_expr3_len_flag = false, al_len_needs_set, is_coarray ;
   gfc_symtree *newsym = NULL;
 
   if (!code->ext.alloc.list)
@@ -5516,6 +5516,7 @@ gfc_trans_allocate (gfc_code * code)
   expr3 = expr3_vptr = expr3_len = expr3_esize = NULL_TREE;
   label_errmsg = label_finish = errmsg = errlen = NULL_TREE;
   e3_is = E3_UNSET;
+  is_coarray = false;
 
   gfc_init_block (&block);
   gfc_init_block (&post);
@@ -5555,8 +5556,9 @@ gfc_trans_allocate (gfc_code * code)
      expression.  */
   if (code->expr3)
     {
-      bool vtab_needed = false, temp_var_needed = false,
-	  is_coarray = gfc_is_coarray (code->expr3);
+      bool vtab_needed = false, temp_var_needed = false;
+
+      is_coarray = gfc_is_coarray (code->expr3);
 
       /* Figure whether we need the vtab from expr3.  */
       for (al = code->ext.alloc.list; !vtab_needed && al != NULL;
@@ -6093,6 +6095,9 @@ gfc_trans_allocate (gfc_code * code)
 	      tree caf_decl, token;
 	      gfc_se caf_se;
 
+	      /* Set flag, to add synchronize after the allocate.  */
+	      is_coarray = true;
+
 	      gfc_init_se (&caf_se, NULL);
 
 	      caf_decl = gfc_get_tree_for_caf_expr (expr);
@@ -6114,6 +6119,11 @@ gfc_trans_allocate (gfc_code * code)
 	}
       else
 	{
+	  /* Allocating coarrays needs a sync after the allocate executed.
+	     Set the flag to add the sync after all objects are allocated.  */
+	  is_coarray = is_coarray || (gfc_caf_attr (expr).codimension
+				      && flag_coarray == GFC_FCOARRAY_LIB);
+
 	  if (expr->ts.type == BT_CHARACTER && al_len != NULL_TREE
 	      && expr3_len != NULL_TREE)
 	    {
@@ -6357,6 +6367,15 @@ gfc_trans_allocate (gfc_code * code)
       gfc_add_modify (&block, se.expr, tmp);
     }
 
+  if (is_coarray && flag_coarray == GFC_FCOARRAY_LIB)
+    {
+      /* Add a sync all after the allocation has been executed.  */
+      tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_sync_all,
+				 3, null_pointer_node, null_pointer_node,
+				 integer_zero_node);
+      gfc_add_expr_to_block (&post, tmp);
+    }
+
   gfc_add_block_to_block (&block, &se.post);
   gfc_add_block_to_block (&block, &post);
 
@@ -6489,8 +6508,9 @@ gfc_trans_deallocate (gfc_code *code)
 		    : GFC_CAF_COARRAY_DEREGISTER;
 	      else
 		caf_dtype = GFC_CAF_COARRAY_NOCOARRAY;
-	      tmp = gfc_array_deallocate (se.expr, pstat, errmsg, errlen,
-					  label_finish, expr, caf_dtype);
+	      tmp = gfc_deallocate_with_status (se.expr, pstat, errmsg, errlen,
+						label_finish, false, expr,
+						caf_dtype);
 	      gfc_add_expr_to_block (&se.pre, tmp);
 	    }
 	  else if (TREE_CODE (se.expr) == COMPONENT_REF
