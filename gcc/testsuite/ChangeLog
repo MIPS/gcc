@@ -1,16 +1,114 @@
+2016-12-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/78561
+	* gcc.target/aarch64/pr78561.c: New.
+
+2016-12-02  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/fold-bopcond-1.c: New test.
+	* gcc.dg/fold-bopcond-2.c: New test.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/setmem_long-1.c: Fix test.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78547
+	* gcc.dg/pr78547.c: New test.
+
+	PR rtl-optimization/78575
+	* gcc.dg/pr78575.c: New test.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/litpool-r3-1.c: Fix label number test.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/77822
+	* gcc.target/s390/s390.exp: Support .C tests.
+	* gcc.target/s390/pr77822-2.c: New test.
+	* gcc.target/s390/pr77822-1.C: New test.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-nopeel-1.c: New test.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/zvector/vec-cmp-2.c: New test.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-scalar-cmp-1.c: Fix and harden the
+	pattern checks.
+	* gcc.target/s390/zvector/vec-cmp-1.c: New test.
+
+2016-12-02  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	* c-c++-common/asan/no-redundant-odr-indicators-1.c: New test.
+
+2016-12-01  Elizebeth Punnoose  <elizebeth.punnoose@hpe.com>
+
+	PR fortran/77505
+	* gfortran.dg/char_length_20.f90: New test.
+	* gfortran.dg/char_length_21.f90: Ditto.
+
+2016-12-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78279
+	* gfortran.dg/pr78279.f90: New test.
+
+2016-12-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/tls/pr77285-1.C: dg-add-options tls
+
+2016-12-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/pr78582.c (main): Call setjmp, not sigsetjmp.
+
+2016-12-01  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/torture/alias-2.c: New testcase.
+
+2016-12-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.target/avr/tiny-memx.c: Only perform if target avr_tiny.
+	* gcc.target/avr/tiny-caller-save.c: Dito.
+
+2016-12-01  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_lib_alloc_4.f90: Fix for 32-bits.
+
+2016-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/78587
+	* gcc.dg/debug/pr78587.c: New test.
+
+2016-12-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78607
+	* gcc.c-torture/compile/pr78607.c: New testcase.
+
+2016-11-30  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78586
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: New test cases.
+
 2016-11-30  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR tree-optimization/77856
-	* gcc.target/i386.c (pr77856.c): New.
+	* gcc.target/i386/pr77856.c: New.
 
 2016-11-30  David Edelsohn  <dje.gcc@gmail.com>
 
-	* g++.dg/debug/dwarf2/ptrdmem-1.C: Don't XFAIL scan-assembler-not on AIX.
+	* g++.dg/debug/dwarf2/ptrdmem-1.C: Don't XFAIL
+	scan-assembler-not on AIX.
 
 2016-11-30  Andre Vehreschild  <vehre@gcc.gnu.org>
 
-	Now really add the file.
-	* gfortran.dg/coarray_lib_alloc_4.f90: New test.
+	* gfortran.dg/coarray_lib_alloc_4.f90: Really add.
 
 2016-11-30  David Edelsohn  <dje.gcc@gmail.com>
 

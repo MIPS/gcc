@@ -1,3 +1,299 @@
+2016-12-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/78561
+	* varasm.c (recompute_pool_offsets): New.
+	(output_constant_pool): Call it.
+
+2016-12-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/78561
+	* config/rs6000/rs6000.c (rs6000_reg_live_or_pic_offset_p) Rename
+	get_pool_size to get_pool_size_upper_bound.
+	(rs6000_stack_info): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_elf_declare_function_name): Likewise.
+	(rs6000_set_up_by_prologue): Likewise.
+	(rs6000_can_eliminate): Likewise, reformat spaces to tabs.
+	* output.h (get_pool_size): Rename to...
+	(get_pool_size_upper_bound): ...This.
+	* varasm.c (get_pool_size): Rename to...
+	(get_pool_size_upper_bound): ...This.
+
+2016-12-02  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd: Add new pattern:
+	(cond (cmp (convert? x) c1) (op x c2) c3) -> (op (minmax x c1) c2).
+
+2016-12-02  Nathan Sidwell  <nathan@acm.org>
+
+	* diagnostic.c (diagnostic_report_diagnostic): Remove extraneous
+	braces.
+
+2016-12-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/78328
+	* gimple-ssa-warn-alloca.c (alloca_call_type): Handle
+	VR_ANTI_RANGE.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_save_gprs_to_fprs): Fix RTL sharing
+	problem.
+
+2016-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-arch.h (avr_mcu_t) [n_flash]: Remove field.
+	* config/avr/avr-devices.c (AVR_MCU): Remove N_FLASH macro argument.
+	* config/avr/avr-mcus.def (AVR_MCU): Remove initializer for n_flash.
+	* config/avr/avr.c (avr_set_core_architecture) [avr_n_flash]: Use
+	avr_mcu_types.flash_size to compute default value.
+	* config/avr/gen-avr-mmcu-specs.c (print_mcu) [cc1_n_flash]: Use
+	mcu->flash_size to compute value for spec.
+
+2016-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	* doc/invoke.texi (AVR Options) [-mabsdata]: Point to absdata.
+	* doc/extend.texi (AVR Variable Attributes) [progmem]: Hint
+	about linker description to avoid progmem altogether.
+	[absdata]: Point to -mabsdata option.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78547
+	* emit-rtl.c (unshare_all_rtl): Make sure DECL_RTL and
+	DECL_INCOMING_RTL is not shared.
+	* config/i386/i386.c (convert_scalars_to_vectors): If any
+	insns have been converted, adjust all parameter's DEC_RTL and
+	DECL_INCOMING_RTL back from V1TImode to TImode if the parameters have
+	TImode.
+
+	PR rtl-optimization/78575
+	* config/i386/i386.c (timode_scalar_chain::fix_debug_reg_uses): Use
+	DF infrastructure to wrap all V1TImode reg uses into TImode subreg
+	if not already wrapped in a subreg.  Make sure df_insn_rescan does not
+	affect further iterations.
+
+2016-12-02  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/78555
+	* sreal.c (sreal::to_int): Make absolute value before shifting.
+	(sreal::operator/): Likewise.
+	(sreal_verify_negative_division): New test.
+	(void sreal_c_tests): Call the new test.
+	* sreal.h (sreal::normalize_up): Use new SREAL_ABS and
+	SREAL_SIGN macros.
+	(sreal::normalize_down): Likewise.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* combine.c (combine_simplify_rtx):  Suppress replacement of
+	"(and (reg) (const_int bit))" with "if_then_else".
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/77822
+	* config/s390/s390.md ("extzv")
+	("*extzv<mode><clobbercc_or_nocc>")
+	("*extzvdi<clobbercc_or_nocc>_lshiftrt")
+	("*<risbg_n>_ior_and_sr_ze")
+	("*extract1bitdi<clobbercc_or_nocc>")
+	("*insv<mode><clobbercc_or_nocc>", "*insv_rnsbg_noshift")
+	("*insv_rnsbg_srl", "*insv<mode>_mem_reg")
+	("*insvdi_mem_reghigh", "*insvdi_reg_imm"): Use EXTRACT_ARGS_IN_RANGE
+	to validate the arguments of zero_extract and sign_extract.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/77822
+	* rtl.h (EXTRACT_ARGS_IN_RANGE): New.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc/config/s390/s390.c (s390_builtin_vectorization_cost): New
+	function.
+	(TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST): Define target
+	macro.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md (vec_halfhalf): New mode iterator.
+	("vec_pack_trunc_<mode>", "vec_pack_ssat_<mode>")
+	("vec_pack_usat_<mode>", "vec_unpacks_hi_v16qi")
+	("vec_unpacks_low_v16qi", "vec_unpacku_hi_v16qi")
+	("vec_unpacku_low_v16qi", "vec_unpacks_hi_v8hi")
+	("vec_unpacks_lo_v8hi", "vec_unpacku_hi_v8hi")
+	("vec_unpacku_lo_v8hi", "vec_unpacks_hi_v4si")
+	("vec_unpacks_lo_v4si", "vec_unpacku_hi_v4si")
+	("vec_unpacku_lo_v4si"): New pattern definitions.
+	* config/s390/vx-builtins.md: Move VI_HW_HSD mode iterator to
+	vector.md.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-protos.h (s390_reverse_condition): New
+	prototype.
+	* config/s390/s390.c (s390_canonicalize_comparison): Fold compares
+	of CC mode values.
+	(s390_reverse_condition): New function.
+	* config/s390/s390.h (REVERSE_CC_MODE, REVERSE_CONDITION): Define
+	target macros.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-modes.def (CCVEQANY, CCVH, CCVHANY, CCVHU)
+	(CCVHUANY): Remove modes.
+	(CCVIH, CCVIHU, CCVIALL, CCVIANY, CCVFALL, CCVFANY): Add modes and
+	documentation.
+	* config/s390/s390.c (s390_match_ccmode_set): Rename cc modes.
+	(s390_expand_vec_compare_scalar): Pick one of the cc consumer
+	modes.
+	(s390_branch_condition_mask): Adjust to use the new cc consumer
+	modes.  The new modes allow for proper reversal in the middle-end.
+	(s390_expand_vec_compare_cc): Determine the proper cc producer and
+	consumer modes for a comparison.
+	* config/s390/s390.md: Rename CCVH to CCVIH and CCVHU to CCVIHU
+	throughout the file.
+	* config/s390/vx-builtins.md: Likewise.
+
+2016-12-02  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	* asan.c (asan_global_struct): Refactor.
+	(create_odr_indicator): New function.
+	(asan_needs_odr_indicator_p): Likewise.
+	(is_odr_indicator): Likewise.
+	(asan_add_global): Introduce odr_indicator_ptr. Pass it into global's
+	constructor.
+	(asan_protect_global): Do not protect odr indicators.
+
+2016-12-01  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest): Avoid temporary
+	propagation of operands if there are no operands.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/78586
+	* gimple-ssa-sprintf.c (format_integer): Don't handle NOP_EXPR,
+	CONVERT_EXPR or COMPONENT_REF here.  Formatting fix.  For
+	SSA_NAME_DEF_STMT with NOP_EXPR only change argtype if the rhs1's
+	type is INTEGER_TYPE or POINTER_TYPE.
+
+2016-12-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78577
+	* config/rs6000/vsx.md (vextuhlx): Revise mode of operand 2.
+	(vextuhrx): Likewise.
+	(vextuwlx): Likewise.
+	(vextuwrx): Likewise.
+
+2016-12-01  David Malcolm  <dmalcolm@redhat.com>
+
+	* dwarf2out.c (dwarf2out_c_finalize): Reset early_dwarf and
+	early_dwarf_finished.
+
+2016-12-01  Eric Botcazou  <ebotcazou@adacore.com>
+            David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.opt (mlra): New target option.
+	* config/sparc/sparc.c (TARGET_LRA_P): Define to...
+	(sparc_lra_p): ...this.  New function.
+	(D_MODES, DF_MODES): Add missing cast.
+	* config/sparc/sparc.md (*movsi_lo_sum, *movsi_high): Do not
+	provide these insns when flag_pic.
+	(sethi_di_medlow, losum_di_medlow, seth44, setm44, setl44, sethh,
+	setlm, sethm, setlo, embmedany_sethi, embmedany_losum,
+	embmedany_brsum, embmedany_textuhi, embmedany_texthi,
+	embmedany_textulo, embmedany_textlo): Likewise.
+	(sethi_di_medlow_embmedany_pic): Provide it only with flag_pic.
+
+2016-12-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR debug/66419
+	PR c++/78235
+	* dbxout.c (dbxout_type_fields): Skip TEMPLATE_DECLs.
+
+2016-12-01  Richard Biener  <rguenther@suse.de>
+	    Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* vec.h (vec<T, A, vl_embed>::quick_grow_cleared): Guard call to
+	memset if len-oldlen != 0.
+	(vec<T, va_heap, vl_ptr>::safe_grow_cleared): Likewise.
+
+2016-12-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*andndi3_doubleword): Depend on TARGET_SSE2.
+
+2016-12-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c: Fix coding rule glitches.
+
+2016-12-01  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR tree-optimization/78598
+	* tree-ssa-loop-prefetch.c (ddown): Cast to signed to avoid
+	overflows.
+
+2016-12-01  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR rtl-optimization/78596
+	* combine.c (simplify_comparison): Cast to unsigned to avoid
+	left shifting of negative value.
+
+2016-12-01  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/install.texi: Don't use pkg-config to check for bdw-gc.
+
+2016-12-01  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (indirect_refs_may_alias_p): Do not
+	treat arrays with same type as objects that cannot overlap.
+
+2016-12-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_print_operand): Use SYMBOL_REF_P if possible.
+	(avr_handle_addr_attribute, avr_asm_output_aligned_decl_common)
+	(avr_asm_asm_output_aligned_bss, avr_addr_space_convert): Dito.
+
+2016-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/78587
+	* dwarf2out.c (loc_descr_plus_const): For negative offset use
+	uint_loc_descriptor instead of int_loc_descriptor and perform negation
+	in unsigned HOST_WIDE_INT type.
+	(scompare_loc_descriptor): Shift UINTVAL left instead of INTVAL.
+
+	PR target/78614
+	* config/rs6000/rs6000.c (rs6000_frame_related): Call
+	set_used_flags (pat) before any simplifications.  Clear used flag on
+	PARALLEL copy.  Don't guard add_reg_note call.  Call
+	copy_rtx_if_shared on pat before storing it into
+	REG_FRAME_RELATED_EXPR.
+
+2016-12-01  Alan Modra  <amodra@gmail.com>
+
+	* gcc/config/rs6000/rs6000.c (insn_is_swappable_p): Properly
+	look inside UNSPEC_VSX_XXSPLTW vec.
+
+2016-12-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78607
+	* combine.c (try_combine): Emit a barrier after a unconditional trap.
+
+2016-11-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78602
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): If the
+	element is not a constant or in a register, force it to a
+	register.
+
+	PR target/78560
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Force value
+	that will be set to a vector element to be in a register.
+	* config/rs6000/vsx.md (vsx_set_<mode>_p9): Fix thinko that used
+	the wrong multiplier to convert the element number to a byte
+	offset.
+
 2016-11-30  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR tree-optimization/77856

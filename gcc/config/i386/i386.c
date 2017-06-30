@@ -3831,30 +3831,32 @@ timode_scalar_chain::fix_debug_reg_uses (rtx reg)
   if (!flag_var_tracking)
     return;
 
-  df_ref ref;
-  for (ref = DF_REG_USE_CHAIN (REGNO (reg));
-       ref;
-       ref = DF_REF_NEXT_REG (ref))
+  df_ref ref, next;
+  for (ref = DF_REG_USE_CHAIN (REGNO (reg)); ref; ref = next)
     {
       rtx_insn *insn = DF_REF_INSN (ref);
+      /* Make sure the next ref is for a different instruction,
+         so that we're not affected by the rescan.  */
+      next = DF_REF_NEXT_REG (ref);
+      while (next && DF_REF_INSN (next) == insn)
+	next = DF_REF_NEXT_REG (next);
+
       if (DEBUG_INSN_P (insn))
 	{
 	  /* It may be a debug insn with a TImode variable in
 	     register.  */
-	  rtx val = PATTERN (insn);
-	  if (GET_MODE (val) != TImode)
-	    continue;
-	  gcc_assert (GET_CODE (val) == VAR_LOCATION);
-	  rtx loc = PAT_VAR_LOCATION_LOC (val);
-	  /* It may have been converted to TImode already.  */
-	  if (GET_MODE (loc) == TImode)
-	    continue;
-	  gcc_assert (REG_P (loc)
-		      && GET_MODE (loc) == V1TImode);
-	  /* Convert V1TImode register, which has been updated by a SET
-	     insn before, to SUBREG TImode.  */
-	  PAT_VAR_LOCATION_LOC (val) = gen_rtx_SUBREG (TImode, loc, 0);
-	  df_insn_rescan (insn);
+	  bool changed = false;
+	  for (; ref != next; ref = DF_REF_NEXT_REG (ref))
+	    {
+	      rtx *loc = DF_REF_LOC (ref);
+	      if (REG_P (*loc) && GET_MODE (*loc) == V1TImode)
+		{
+		  *loc = gen_rtx_SUBREG (TImode, *loc, 0);
+		  changed = true;
+		}
+	    }
+	  if (changed)
+	    df_insn_rescan (insn);
 	}
     }
 }
@@ -4073,6 +4075,28 @@ convert_scalars_to_vector ()
 	crtl->stack_alignment_needed = 128;
       if (crtl->stack_alignment_estimated < 128)
 	crtl->stack_alignment_estimated = 128;
+      /* Fix up DECL_RTL/DECL_INCOMING_RTL of arguments.  */
+      if (TARGET_64BIT)
+	for (tree parm = DECL_ARGUMENTS (current_function_decl);
+	     parm; parm = DECL_CHAIN (parm))
+	  {
+	    if (TYPE_MODE (TREE_TYPE (parm)) != TImode)
+	      continue;
+	    if (DECL_RTL_SET_P (parm)
+		&& GET_MODE (DECL_RTL (parm)) == V1TImode)
+	      {
+		rtx r = DECL_RTL (parm);
+		if (REG_P (r))
+		  SET_DECL_RTL (parm, gen_rtx_SUBREG (TImode, r, 0));
+	      }
+	    if (DECL_INCOMING_RTL (parm)
+		&& GET_MODE (DECL_INCOMING_RTL (parm)) == V1TImode)
+	      {
+		rtx r = DECL_INCOMING_RTL (parm);
+		if (REG_P (r))
+		  DECL_INCOMING_RTL (parm) = gen_rtx_SUBREG (TImode, r, 0);
+	      }
+	  }
     }
 
   return 0;

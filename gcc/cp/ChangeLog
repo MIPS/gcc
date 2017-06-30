@@ -1,3 +1,11 @@
+2016-12-01  Jason Merrill  <jason@redhat.com>
+
+	* call.c (add_function_candidate): Also exclude inherited ctors
+	that take a type reference-related to the derived class.
+
+	* call.c (add_function_candidate): Exclude inherited copy/move
+	ctors.
+
 2016-11-29  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c++/77922
@@ -216,7 +224,7 @@
 	IMAGPART_EXPR can be lvalues.
 
 	DR 374
-	PR c++/56840
+	PR c++/56480
 	* pt.c (check_specialization_namespace): Allow any enclosing
 	namespace.
 	(check_unqualified_spec_or_inst): New.

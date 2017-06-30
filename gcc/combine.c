@@ -4627,6 +4627,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       basic_block bb = BLOCK_FOR_INSN (i3);
       gcc_assert (bb);
       remove_edge (split_block (bb, i3));
+      emit_barrier_after_bb (bb);
       *new_direct_jump_p = 1;
     }
 
@@ -4637,6 +4638,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       basic_block bb = BLOCK_FOR_INSN (undobuf.other_insn);
       gcc_assert (bb);
       remove_edge (split_block (bb, undobuf.other_insn));
+      emit_barrier_after_bb (bb);
       *new_direct_jump_p = 1;
     }
 
@@ -5600,6 +5602,18 @@ combine_simplify_rtx (rtx x, machine_mode op0_mode, int in_dest,
 		     && OBJECT_P (SUBREG_REG (XEXP (x, 0)))))))
     {
       rtx cond, true_rtx, false_rtx;
+      unsigned HOST_WIDE_INT nz;
+
+      /* If the operation is an AND wrapped in a SIGN_EXTEND or ZERO_EXTEND with
+	 either operand being just a constant single bit value, do nothing since
+	 IF_THEN_ELSE is likely to increase the expression's complexity.  */
+      if (HWI_COMPUTABLE_MODE_P (mode)
+	  && pow2p_hwi (nz = nonzero_bits (x, mode))
+	  && ! ((code == SIGN_EXTEND || code == ZERO_EXTEND)
+		&& GET_CODE (XEXP (x, 0)) == AND
+		&& CONST_INT_P (XEXP (XEXP (x, 0), 0))
+		&& UINTVAL (XEXP (XEXP (x, 0), 0)) == nz))
+	      return x;
 
       cond = if_then_else_cond (x, &true_rtx, &false_rtx);
       if (cond != 0
@@ -12559,7 +12573,8 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		  if (GET_CODE (op0) == LSHIFTRT)
 		    code = unsigned_condition (code);
 
-		  const_op <<= INTVAL (XEXP (op0, 1));
+		  const_op = (unsigned HOST_WIDE_INT) const_op
+			      << INTVAL (XEXP (op0, 1));
 		  if (low_bits != 0
 		      && (code == GT || code == GTU
 			  || code == LE || code == LEU))
