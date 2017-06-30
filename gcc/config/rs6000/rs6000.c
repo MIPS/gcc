@@ -5203,15 +5203,6 @@ static void
 rs6000_option_override (void)
 {
   (void) rs6000_option_override_internal (true);
-
-  /* Register machine-specific passes.  This needs to be done at start-up.
-     It's convenient to do it here (like i386 does).  */
-  opt_pass *pass_analyze_swaps = make_pass_analyze_swaps (g);
-
-  struct register_pass_info analyze_swaps_info
-    = { pass_analyze_swaps, "cse1", 1, PASS_POS_INSERT_BEFORE };
-
-  register_pass (&analyze_swaps_info);
 }
 
 
@@ -5367,6 +5358,9 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 3;
 
       case unaligned_load:
+	if (TARGET_P9_VECTOR)
+	  return 3;
+
 	if (TARGET_EFFICIENT_UNALIGNED_VSX)
 	  return 1;
 
@@ -7528,8 +7522,52 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
     {
       int bit_shift = byte_shift + 3;
       rtx element2;
+      int dest_regno = regno_or_subregno (dest);
+      int src_regno = regno_or_subregno (src);
+      int element_regno = regno_or_subregno (element);
 
-      gcc_assert (REG_P (tmp_gpr) && REG_P (tmp_altivec));
+      gcc_assert (REG_P (tmp_gpr));
+
+      /* See if we want to generate VEXTU{B,H,W}{L,R}X if the destination is in
+	 a general purpose register.  */
+      if (TARGET_P9_VECTOR
+	  && (mode == V16QImode || mode == V8HImode || mode == V4SImode)
+	  && INT_REGNO_P (dest_regno)
+	  && ALTIVEC_REGNO_P (src_regno)
+	  && INT_REGNO_P (element_regno))
+	{
+	  rtx dest_si = gen_rtx_REG (SImode, dest_regno);
+	  rtx element_si = gen_rtx_REG (SImode, element_regno);
+
+	  if (mode == V16QImode)
+	    emit_insn (VECTOR_ELT_ORDER_BIG
+		       ? gen_vextublx (dest_si, element_si, src)
+		       : gen_vextubrx (dest_si, element_si, src));
+
+	  else if (mode == V8HImode)
+	    {
+	      rtx tmp_gpr_si = gen_rtx_REG (SImode, REGNO (tmp_gpr));
+	      emit_insn (gen_ashlsi3 (tmp_gpr_si, element_si, const1_rtx));
+	      emit_insn (VECTOR_ELT_ORDER_BIG
+			 ? gen_vextuhlx (dest_si, tmp_gpr_si, src)
+			 : gen_vextuhrx (dest_si, tmp_gpr_si, src));
+	    }
+
+
+	  else
+	    {
+	      rtx tmp_gpr_si = gen_rtx_REG (SImode, REGNO (tmp_gpr));
+	      emit_insn (gen_ashlsi3 (tmp_gpr_si, element_si, const2_rtx));
+	      emit_insn (VECTOR_ELT_ORDER_BIG
+			 ? gen_vextuwlx (dest_si, tmp_gpr_si, src)
+			 : gen_vextuwrx (dest_si, tmp_gpr_si, src));
+	    }
+
+	  return;
+	}
+
+
+      gcc_assert (REG_P (tmp_altivec));
 
       /* For little endian, adjust element ordering.  For V2DI/V2DF, we can use
 	 an XOR, otherwise we need to subtract.  The shift amount is so VSLO
@@ -15114,6 +15152,7 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
      with identical values.  We'd never reach here at runtime in
      this case.  */
   if (icode == CODE_FOR_altivec_vsldoi_v4sf
+      || icode == CODE_FOR_altivec_vsldoi_v2df
       || icode == CODE_FOR_altivec_vsldoi_v4si
       || icode == CODE_FOR_altivec_vsldoi_v8hi
       || icode == CODE_FOR_altivec_vsldoi_v16qi)
@@ -15555,7 +15594,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   size_t i;
   enum insn_code icode;
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  tree arg0;
+  tree arg0, arg1, arg2;
   rtx op0, pat;
   machine_mode tmode, mode0;
   enum rs6000_builtins fcode
@@ -15774,6 +15813,39 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case VSX_BUILTIN_VEC_EXT_V2DI:
     case VSX_BUILTIN_VEC_EXT_V1TI:
       return altivec_expand_vec_ext_builtin (exp, target);
+
+    case P9V_BUILTIN_VEXTRACT4B:
+    case P9V_BUILTIN_VEC_VEXTRACT4B:
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      STRIP_NOPS (arg1);
+
+      /* Generate a normal call if it is invalid.  */
+      if (arg1 == error_mark_node)
+	return expand_call (exp, target, false);
+
+      if (TREE_CODE (arg1) != INTEGER_CST || TREE_INT_CST_LOW (arg1) > 11)
+	{
+	  error ("second argument to vec_vextract4b must 0..11");
+	  return expand_call (exp, target, false);
+	}
+      break;
+
+    case P9V_BUILTIN_VINSERT4B:
+    case P9V_BUILTIN_VINSERT4B_DI:
+    case P9V_BUILTIN_VEC_VINSERT4B:
+      arg2 = CALL_EXPR_ARG (exp, 2);
+      STRIP_NOPS (arg2);
+
+      /* Generate a normal call if it is invalid.  */
+      if (arg2 == error_mark_node)
+	return expand_call (exp, target, false);
+
+      if (TREE_CODE (arg2) != INTEGER_CST || TREE_INT_CST_LOW (arg2) > 11)
+	{
+	  error ("third argument to vec_vinsert4b must 0..11");
+	  return expand_call (exp, target, false);
+	}
+      break;
 
     default:
       break;
@@ -41442,6 +41514,12 @@ find_alignment_op (rtx_insn *insn, rtx base_reg)
       if (!base_def_link || base_def_link->next)
 	break;
 
+      /* With stack-protector code enabled, and possibly in other
+	 circumstances, there may not be an associated insn for 
+	 the def.  */
+      if (DF_REF_IS_ARTIFICIAL (base_def_link->ref))
+	break;
+
       rtx_insn *and_insn = DF_REF_INSN (base_def_link->ref);
       and_operation = alignment_mask (and_insn);
       if (and_operation != 0)
@@ -41863,6 +41941,11 @@ public:
   virtual unsigned int execute (function *fun)
     {
       return rs6000_analyze_swaps (fun);
+    }
+
+  opt_pass *clone ()
+    {
+      return new pass_analyze_swaps (m_ctxt);
     }
 
 }; // class pass_analyze_swaps

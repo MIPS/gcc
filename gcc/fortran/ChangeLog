@@ -1,3 +1,94 @@
+2016-12-14  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78780
+	* trans-expr.c (gfc_trans_assignment_1): Improve check whether detour
+	caf-runtime routines is needed.
+
+2016-12-14  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78672
+	* array.c (gfc_find_array_ref): Add flag to return NULL when no ref is
+	found instead of erroring out.
+	* data.c (gfc_assign_data_value): Only constant expressions are valid
+	for initializers.
+	* gfortran.h: Reflect change of gfc_find_array_ref's signature.
+	* interface.c (compare_actual_formal): Access the non-elemental
+	array-ref.  Prevent taking a REF_COMPONENT for a REF_ARRAY.  Correct
+	indentation.
+	* module.c (load_omp_udrs): Clear typespec before reading into it.
+	* trans-decl.c (gfc_build_qualified_array): Prevent accessing the array
+	when it is a coarray.
+	* trans-expr.c (gfc_conv_cst_int_power): Use wi::abs()-function instead
+	of crutch preventing sanitizer's bickering here.
+	* trans-stmt.c (gfc_trans_deallocate): Only get data-component when it
+	is a descriptor-array here.
+
+2016-12-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78798
+	* gfortran.h (gfc_is_constant_expr, gfc_is_formal_arg,
+	gfc_is_compile_time_shape): Return bool instead of int.
+	* array.c (gfc_is_compile_time_shape): Ditto.
+	* expr.c (gfc_is_constant_expr): Ditto.
+	* resolve.c (gfc_is_formal_arg): Ditto. Make formal_arg_flag bool.
+
+2016-12-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/77785
+	* resolve.c (resolve_symbol): Correct attr lookup to the _data
+	component.
+	* trans-array.c (gfc_alloc_allocatable_for_assignment): Indirect ref
+	pointers and references before retrieving the caf-token.
+
+2016-12-13  Janus Weil  <janus@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78737
+	* gfortran.h (gfc_find_typebound_dtio_proc): New prototype.
+	* interface.c (gfc_compare_interfaces): Whitespace fix.
+	(gfc_find_typebound_dtio_proc): New function.
+	(gfc_find_specific_dtio_proc): Use it. Improve error recovery.
+	* trans-io.c (get_dtio_proc): Implement polymorphic calls to DTIO
+	procedures.
+
+2016-12-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78392
+	* expr.c (gfc_is_constant_expr): Specification functions are not
+	compile-time constants. Update documentation (add reference to F08
+	standard), add a FIXME.
+	(external_spec_function): Add reference to F08 standard.
+	* resolve.c (resolve_fl_variable): Ditto.
+
+2016-12-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	* error.c (gfc_warning_internal):  New function.
+	* frontend-passes.c (gfc_run_passes):  Call check_locus if
+	CHECKING_P is defined.
+	(check_locus_code):  New function.
+	(check_locus_expr):  New function.
+	(check_locus):  New function.
+	* gfortran.h:  Add prototype for gfc_warning_internal.
+
+2016-12-10 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78350
+	* resolve.c (resolve_structure_cons): Remove the block that
+	tried to remove a charlen and rely on namespace cleanup.
+
+2016-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77903
+	* decl.c (get_proc_name): Use the symbol tlink field instead of
+	the typespec interface field.
+	(gfc_match_function_decl, gfc_match_submod_proc): Ditto.
+	* gfortran.h : Since the symbol tlink field is no longer used
+	by the frontend for change management, change the comment to
+	reflect its current uses.
+	* parse.c (get_modproc_result): Same as decl.c changes.
+	* resolve.c (resolve_fl_procedure): Ditto.
+
 2016-12-09  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/61767
@@ -22,7 +113,7 @@
 	* trans-expr.c (gfc_conv_procedure_call): Use the almighty deallocate_
 	with_status.
 	* trans-openmp.c (gfc_walk_alloc_comps): Likewise.
-	(gfc_omp_clause_assign_op): Likewise. 
+	(gfc_omp_clause_assign_op): Likewise.
 	(gfc_omp_clause_dtor): Likewise.
 	* trans-stmt.c (gfc_trans_deallocate): Likewise.
 	* trans.c (gfc_deallocate_with_status): Allow deallocation of scalar

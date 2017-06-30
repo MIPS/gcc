@@ -1712,8 +1712,8 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
 	return 0;
 
       /* Special case: alternate returns.  If both f1->sym and f2->sym are
-	 NULL, then the leading formal arguments are alternate returns.  
-	 The previous conditional should catch argument lists with 
+	 NULL, then the leading formal arguments are alternate returns.
+	 The previous conditional should catch argument lists with
 	 different number of argument.  */
       if (f1 && f1->sym == NULL && f2 && f2->sym == NULL)
 	return 1;
@@ -2803,6 +2803,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
   int i, n, na;
   unsigned long actual_size, formal_size;
   bool full_array = false;
+  gfc_array_ref *actual_arr_ref;
 
   actual = *ap;
 
@@ -2942,37 +2943,38 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	 and assumed-shape dummies, the string length needs to match
 	 exactly.  */
       if (a->expr->ts.type == BT_CHARACTER
-	   && a->expr->ts.u.cl && a->expr->ts.u.cl->length
-	   && a->expr->ts.u.cl->length->expr_type == EXPR_CONSTANT
-	   && f->sym->ts.u.cl && f->sym->ts.u.cl && f->sym->ts.u.cl->length
-	   && f->sym->ts.u.cl->length->expr_type == EXPR_CONSTANT
-	   && (f->sym->attr.pointer || f->sym->attr.allocatable
-	       || (f->sym->as && f->sym->as->type == AS_ASSUMED_SHAPE))
-	   && (mpz_cmp (a->expr->ts.u.cl->length->value.integer,
-			f->sym->ts.u.cl->length->value.integer) != 0))
-	 {
-	   if (where && (f->sym->attr.pointer || f->sym->attr.allocatable))
-	     gfc_warning (OPT_Wargument_mismatch,
-			  "Character length mismatch (%ld/%ld) between actual "
-			  "argument and pointer or allocatable dummy argument "
-			  "%qs at %L",
-			  mpz_get_si (a->expr->ts.u.cl->length->value.integer),
-			  mpz_get_si (f->sym->ts.u.cl->length->value.integer),
-			  f->sym->name, &a->expr->where);
-	   else if (where)
-	     gfc_warning (OPT_Wargument_mismatch,
-			  "Character length mismatch (%ld/%ld) between actual "
-			  "argument and assumed-shape dummy argument %qs "
-			  "at %L",
-			  mpz_get_si (a->expr->ts.u.cl->length->value.integer),
-			  mpz_get_si (f->sym->ts.u.cl->length->value.integer),
-			  f->sym->name, &a->expr->where);
-	   return 0;
-	 }
+	  && a->expr->ts.u.cl && a->expr->ts.u.cl->length
+	  && a->expr->ts.u.cl->length->expr_type == EXPR_CONSTANT
+	  && f->sym->ts.type == BT_CHARACTER && f->sym->ts.u.cl
+	  && f->sym->ts.u.cl->length
+	  && f->sym->ts.u.cl->length->expr_type == EXPR_CONSTANT
+	  && (f->sym->attr.pointer || f->sym->attr.allocatable
+	      || (f->sym->as && f->sym->as->type == AS_ASSUMED_SHAPE))
+	  && (mpz_cmp (a->expr->ts.u.cl->length->value.integer,
+		       f->sym->ts.u.cl->length->value.integer) != 0))
+	{
+	  if (where && (f->sym->attr.pointer || f->sym->attr.allocatable))
+	    gfc_warning (OPT_Wargument_mismatch,
+			 "Character length mismatch (%ld/%ld) between actual "
+			 "argument and pointer or allocatable dummy argument "
+			 "%qs at %L",
+			 mpz_get_si (a->expr->ts.u.cl->length->value.integer),
+			 mpz_get_si (f->sym->ts.u.cl->length->value.integer),
+			 f->sym->name, &a->expr->where);
+	  else if (where)
+	    gfc_warning (OPT_Wargument_mismatch,
+			 "Character length mismatch (%ld/%ld) between actual "
+			 "argument and assumed-shape dummy argument %qs "
+			 "at %L",
+			 mpz_get_si (a->expr->ts.u.cl->length->value.integer),
+			 mpz_get_si (f->sym->ts.u.cl->length->value.integer),
+			 f->sym->name, &a->expr->where);
+	  return 0;
+	}
 
       if ((f->sym->attr.pointer || f->sym->attr.allocatable)
-	    && f->sym->ts.deferred != a->expr->ts.deferred
-	    && a->expr->ts.type == BT_CHARACTER)
+	  && f->sym->ts.deferred != a->expr->ts.deferred
+	  && a->expr->ts.type == BT_CHARACTER)
 	{
 	  if (where)
 	    gfc_error ("Actual argument at %L to allocatable or "
@@ -3195,15 +3197,20 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  return 0;
 	}
 
+      /* Find the last array_ref.  */
+      actual_arr_ref = NULL;
+      if (a->expr->ref)
+	actual_arr_ref = gfc_find_array_ref (a->expr, true);
+
       if (f->sym->attr.volatile_
-	  && a->expr->ref && a->expr->ref->u.ar.type == AR_SECTION
+	  && actual_arr_ref && actual_arr_ref->type == AR_SECTION
 	  && !(f->sym->as && f->sym->as->type == AS_ASSUMED_SHAPE))
 	{
 	  if (where)
 	    gfc_error ("Array-section actual argument at %L is "
 		       "incompatible with the non-assumed-shape "
 		       "dummy argument %qs due to VOLATILE attribute",
-		       &a->expr->where,f->sym->name);
+		       &a->expr->where, f->sym->name);
 	  return 0;
 	}
 
@@ -4826,13 +4833,10 @@ gfc_check_dtio_interfaces (gfc_symbol *derived)
 }
 
 
-gfc_symbol *
-gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
+gfc_symtree*
+gfc_find_typebound_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
 {
   gfc_symtree *tb_io_st = NULL;
-  gfc_symbol *dtio_sub = NULL;
-  gfc_symbol *extended;
-  gfc_typebound_proc *tb_io_proc, *specific_proc;
   bool t = false;
 
   if (!derived || derived->attr.flavor != FL_DERIVED)
@@ -4869,6 +4873,19 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
 					    true,
 					    &derived->declared_at);
     }
+  return tb_io_st;
+}
+
+
+gfc_symbol *
+gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
+{
+  gfc_symtree *tb_io_st = NULL;
+  gfc_symbol *dtio_sub = NULL;
+  gfc_symbol *extended;
+  gfc_typebound_proc *tb_io_proc, *specific_proc;
+
+  tb_io_st = gfc_find_typebound_dtio_proc (derived, write, formatted);
 
   if (tb_io_st != NULL)
     {
@@ -4893,17 +4910,17 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
 	dtio_sub = st->n.tb->u.specific->n.sym;
       else
 	dtio_sub = specific_proc->u.specific->n.sym;
-    }
 
-  if (tb_io_st != NULL)
-    goto finish;
+      goto finish;
+    }
 
   /* If there is not a typebound binding, look for a generic
      DTIO interface.  */
   for (extended = derived; extended;
        extended = gfc_get_derived_super_type (extended))
     {
-      if (extended == NULL || extended->ns == NULL)
+      if (extended == NULL || extended->ns == NULL
+	  || extended->attr.flavor == FL_UNKNOWN)
 	return NULL;
 
       if (formatted == true)

@@ -1,3 +1,18 @@
+2016-12-12  George Spelvin  <linux@sciencehorizons.net>
+
+	* config/avr/lib1funcs.S (__ashrdi3): Fix typo from r243545.
+
+2016-12-12  George Spelvin  <linux@sciencehorizons.net>
+
+	* config/avr/lib1funcs.S (__ashldi3): Use __tmp_reg__ to restore
+	R16 instead of push + pop.
+	(__ashrdi3, __lshrdi3): Same. And use __zero_reg__ for signs.
+
+2016-12-10  Krister Walfridsson  <krister.walfridsson@gmail.com>
+
+	* config.host (i[34567]86-*-netbsdelf*): Add i386/t-crtstuff to
+	tmake_file.
+
 2016-12-05  Cupertino Miranda  <cmiranda@synopsys.com>
 
 	* config.host (arc*-*-linux-uclibc*): Use default extra

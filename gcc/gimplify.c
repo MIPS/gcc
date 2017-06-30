@@ -1114,7 +1114,7 @@ build_asan_poison_call_expr (tree decl)
   return build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_ASAN_MARK,
 				       void_type_node, 3,
 				       build_int_cst (integer_type_node,
-						      ASAN_MARK_CLOBBER),
+						      ASAN_MARK_POISON),
 				       base, unit_size);
 }
 
@@ -1143,7 +1143,7 @@ asan_poison_variable (tree decl, bool poison, gimple_stmt_iterator *it,
   if (DECL_ALIGN_UNIT (decl) <= ASAN_SHADOW_GRANULARITY)
     SET_DECL_ALIGN (decl, BITS_PER_UNIT * ASAN_SHADOW_GRANULARITY);
 
-  HOST_WIDE_INT flags = poison ? ASAN_MARK_CLOBBER : ASAN_MARK_UNCLOBBER;
+  HOST_WIDE_INT flags = poison ? ASAN_MARK_POISON : ASAN_MARK_UNPOISON;
 
   gimple *g
     = gimple_build_call_internal (IFN_ASAN_MARK, 3,
@@ -12802,7 +12802,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
     return GS_ERROR;
   have_va_type = targetm.canonical_va_list_type (have_va_type);
   if (have_va_type == NULL_TREE
-      && TREE_CODE (valist) == ADDR_EXPR)
+      && POINTER_TYPE_P (TREE_TYPE (valist)))
     /* Handle 'Case 1: Not an array type' from c-common.c/build_va_arg.  */
     have_va_type
       = targetm.canonical_va_list_type (TREE_TYPE (TREE_TYPE (valist)));

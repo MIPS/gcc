@@ -997,8 +997,10 @@ IEEE binary128 format.  The @code{_Float64x} type is supported on all
 systems where @code{__float128} is supported.  The @code{_Float32}
 type is supported on all systems supporting IEEE binary32; the
 @code{_Float64} and @code{Float32x} types are supported on all systems
-supporting IEEE binary64.  GCC does not currently support
-@code{_Float16} or @code{_Float128x} on any systems.
+supporting IEEE binary64.  The @code{_Float16} type is supported on AArch64
+systems by default, and on ARM systems when the IEEE format for 16-bit
+floating-point types is selected with @option{-mfp16-format=ieee}.
+GCC does not currently support @code{_Float128x} on any systems.
 
 On the PowerPC, @code{__ibm128} provides access to the IBM extended
 double format, and it is intended to be used by the library functions
@@ -1010,11 +1012,12 @@ that handle conversions if/when long double is changed to be IEEE
 @cindex half-precision floating point
 @cindex @code{__fp16} data type
 
-On ARM targets, GCC supports half-precision (16-bit) floating point via
-the @code{__fp16} type.  You must enable this type explicitly
-with the @option{-mfp16-format} command-line option in order to use it.
+On ARM and AArch64 targets, GCC supports half-precision (16-bit) floating
+point via the @code{__fp16} type defined in the ARM C Language Extensions.
+On ARM systems, you must enable this type explicitly with the
+@option{-mfp16-format} command-line option in order to use it.
 
-ARM supports two incompatible representations for half-precision
+ARM targets support two incompatible representations for half-precision
 floating-point values.  You must choose one of the representations and
 use it consistently in your program.
 
@@ -1029,22 +1032,20 @@ format, but does not support infinities or NaNs.  Instead, the range
 of exponents is extended, so that this format can represent normalized
 values in the range of @math{2^{-14}} to 131008.
 
-The @code{__fp16} type is a storage format only.  For purposes
-of arithmetic and other operations, @code{__fp16} values in C or C++
-expressions are automatically promoted to @code{float}.  In addition,
-you cannot declare a function with a return value or parameters
-of type @code{__fp16}.
+The GCC port for AArch64 only supports the IEEE 754-2008 format, and does
+not require use of the @option{-mfp16-format} command-line option.
 
-Note that conversions from @code{double} to @code{__fp16}
-involve an intermediate conversion to @code{float}.  Because
-of rounding, this can sometimes produce a different result than a
-direct conversion.
+The @code{__fp16} type may only be used as an argument to intrinsics defined
+in @code{<arm_fp16.h>}, or as a storage format.  For purposes of
+arithmetic and other operations, @code{__fp16} values in C or C++
+expressions are automatically promoted to @code{float}.
 
-ARM provides hardware support for conversions between
+The ARM target provides hardware support for conversions between
 @code{__fp16} and @code{float} values
-as an extension to VFP and NEON (Advanced SIMD).  GCC generates
-code using these hardware instructions if you compile with
-options to select an FPU that provides them;
+as an extension to VFP and NEON (Advanced SIMD), and from ARMv8 provides
+hardware support for conversions between @code{__fp16} and @code{double}
+values.  GCC generates code using these hardware instructions if you
+compile with options to select an FPU that provides them;
 for example, @option{-mfpu=neon-fp16 -mfloat-abi=softfp},
 in addition to the @option{-mfp16-format} option to select
 a half-precision format.
@@ -1052,8 +1053,11 @@ a half-precision format.
 Language-level support for the @code{__fp16} data type is
 independent of whether GCC generates code using hardware floating-point
 instructions.  In cases where hardware support is not specified, GCC
-implements conversions between @code{__fp16} and @code{float} values
-as library calls.
+implements conversions between @code{__fp16} and other types as library
+calls.
+
+It is recommended that portable code use the @code{_Float16} type defined
+by ISO/IEC TS 18661-3:2015 (@xref{Floating Types}).
 
 @node Decimal Float
 @section Decimal Floating Types
@@ -16513,6 +16517,8 @@ vector unsigned char vec_vslb (vector unsigned char,
                                vector unsigned char);
 
 vector float vec_sld (vector float, vector float, const int);
+vector double vec_sld (vector double, vector double, const int);
+
 vector signed int vec_sld (vector signed int,
                            vector signed int,
                            const int);
@@ -17745,6 +17751,7 @@ vector int vec_pack (vector long long, vector long long);
 vector unsigned int vec_pack (vector unsigned long long,
                               vector unsigned long long);
 vector bool int vec_pack (vector bool long long, vector bool long long);
+vector float vec_pack (vector double, vector double);
 
 vector int vec_packs (vector long long, vector long long);
 vector unsigned int vec_packs (vector unsigned long long,
@@ -17987,6 +17994,15 @@ vector unsigned short vec_vctzh (vector unsigned short);
 
 vector int vec_vctzw (vector int);
 vector unsigned int vec_vctzw (vector int);
+
+long long vec_vextract4b (const vector signed char, const int);
+long long vec_vextract4b (const vector unsigned char, const int);
+
+vector signed char vec_insert4b (vector int, vector signed char, const int);
+vector unsigned char vec_insert4b (vector unsigned int, vector unsigned char,
+                                   const int);
+vector signed char vec_insert4b (long long, vector signed char, const int);
+vector unsigned char vec_insert4b (long long, vector unsigned char, const int);
 
 vector int vec_vprtyb (vector int);
 vector unsigned int vec_vprtyb (vector unsigned int);

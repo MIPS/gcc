@@ -693,13 +693,16 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Whether to allow x87 floating-point arithmetic on MODE (one of
    SFmode, DFmode and XFmode) in the current excess precision
    configuration.  */
-#define X87_ENABLE_ARITH(MODE) \
-  (flag_excess_precision == EXCESS_PRECISION_FAST || (MODE) == XFmode)
+#define X87_ENABLE_ARITH(MODE)				\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
+   || (MODE) == XFmode)
 
 /* Likewise, whether to allow direct conversions from integer mode
    IMODE (HImode, SImode or DImode) to MODE.  */
 #define X87_ENABLE_FLOAT(MODE, IMODE)			\
-  (flag_excess_precision == EXCESS_PRECISION_FAST	\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
    || (MODE) == XFmode					\
    || ((MODE) == DFmode && (IMODE) == SImode)		\
    || (IMODE) == HImode)
@@ -2397,6 +2400,7 @@ enum ix86_stack_slot
   SLOT_CW_FLOOR,
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
+  SLOT_STV_TEMP,
   MAX_386_STACK_LOCALS
 };
 

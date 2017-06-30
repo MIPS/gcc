@@ -1,3 +1,54 @@
+2016-12-14  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_tree.h
+	(_Rb_tree_impl(const _Key_compare&, const _Node_allocator&): Restore
+	before C++11 mode.
+
+2016-12-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (num_elements): New function.
+	(StdMapPrinter.to_string, StdSetPrinter.to_string)
+	(StdDequePrinter.to_string, Tr1UnorderedSetPrinter.to_string)
+	(Tr1UnorderedMapPrinter.to_string): Use num_elements.
+	* testsuite/libstdc++-prettyprinters/cxx11.cc: Adjust expected results
+	to use singular noun when there is only one element.
+	* testsuite/libstdc++-prettyprinters/debug.cc: Likewise.
+	* testsuite/libstdc++-prettyprinters/debug_cxx11.cc: Likewise.
+	* testsuite/libstdc++-prettyprinters/simple.cc: Likewise.
+	* testsuite/libstdc++-prettyprinters/simple11.cc: Likewise.
+	* testsuite/libstdc++-prettyprinters/tr1.cc: Likewise.
+
+	PR libstdc++/59170
+	* python/libstdcxx/v6/printers.py (StdDebugIteratorPrinter): Use
+	_M_sequence and _M_version to detect invalid iterators.
+	* testsuite/libstdc++-prettyprinters/debug.cc: Test debug mode vector
+	and test invalid iterators.
+	* testsuite/libstdc++-prettyprinters/debug_cxx11.cc: New test.
+
+2016-12-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* testsuite/21_strings/basic_string/numeric_conversions/char/stod.cc:
+	XFAIL run if newlib_broken_long_double_io.
+	* testsuite/21_strings/basic_string/numeric_conversions/wchar_t/stod.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/numeric_conversions/wchar_t/stold.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	Likewise.
+
+2016-12-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/filesystem/operations/is_empty.cc:
+	Remove stray character at end of dg-do directive.
+
+	* testsuite/experimental/filesystem/operations/temp_directory_path.cc:
+	Remove stray character at end of dg-do directive.
+
+2016-12-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/variant: Remove misplaced
+	_GLIBCXX_BEGIN_NAMESPACE_VERSION macro.
+
 2016-12-08  David Edelsohn  <dje.gcc@gmail.com>
 
 	* testsuite/25_algorithms/headers/algorithm/

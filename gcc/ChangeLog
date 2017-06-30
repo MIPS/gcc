@@ -1,3 +1,439 @@
+2016-12-14  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78786
+	* gimple-ssa-sprintf.c (target_dir_max): New macro.
+	(get_mpfr_format_length): New function.
+	(format_integer): Use HOST_WIDE_INT instead of int.
+	(format_floating_max): Same.
+	(format_floating): Call get_mpfr_format_length.
+	(format_directive): Use target_dir_max.
+
+2016-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78791
+	* config/i386/i386.h (enum ix86_stack_slot): Add SLOT_STV_TEMP.
+	* config/i386/i386.c (dimode_scalar_chain::make_vector_copies,
+	dimode_scalar_chain::convert_reg): Use SLOT_STV_TEMP instead of
+	SLOT_TEMP.
+
+2016-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59874
+	* config/i386/i386-builtin.def: Add __builtin_clzs and __builtin_ctzs.
+	(ix86_fold_builtin): Handle IX86_BUILTIN_CTZS and IX86_BUILTIN_CLZS.
+	* config/i386/i386.md (*ctzhi2): New insn_and_split pattern.
+	(*clzhi2): Ditto.
+
+2016-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/77844
+	* valtrack.c: Include rtl-iter.h.
+	(struct rtx_subst_pair): Add insn field.
+	(propagate_for_debug_subst): If pair->to contains at least 2
+	regs, create a DEBUG_INSN with a debug temp before pair->insn
+	and replace from with the debug temp instead of pair->to.
+	(propagate_for_debug): Initialize p.insn.
+	* combine.c (insn_uid_check): New inline function.
+	(INSN_COST, LOG_LINKS): Use it instead of INSN_UID.
+	(find_single_use, combine_instructions,
+	cant_combine_insn_p, try_combine): Use NONDEBUG_INSN_P instead of
+	INSN_P.
+
+2016-12-14  Martin Sebor  <msebor@redhat.com>
+
+	PR c/17308
+	* builtin-attrs.def (ATTR_NONNULL_1_1, ATTR_NONNULL_1_2): Defined.
+	(ATTR_NONNULL_1_3, ATTR_NONNULL_1_4, ATTR_NONNULL_1_5): Same.
+	(ATTR_NOTHROW_NONNULL_1_1, ATTR_NOTHROW_NONNULL_1_2): Same.
+	(ATTR_NOTHROW_NONNULL_1_3, ATTR_NOTHROW_NONNULL_1_4): Same.
+	(ATTR_NOTHROW_NONNULL_1_5): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_1_2): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_2_0): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_2_3): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_3_0): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_3_4): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_4_0): Same.
+	(ATTR_NONNULL_1_FORMAT_PRINTF_4_5): Same.
+	* builtins.c (validate_arg): Add argument.  Treat null pointers
+	passed to nonnull arguments as invalid.
+	(validate_arglist): Same.
+	* builtins.def (fprintf, fprintf_unlocked): Add nonnull attribute.
+	(printf, printf_unlocked, sprintf. vfprintf, vsprintf): Same.
+	(__sprintf_chk, __vsprintf_chk, __fprintf_chk, __vfprintf_chk): Same.
+	* calls.c (get_nonnull_ags, maybe_warn_null_arg): New functions.
+	(initialize_argument_information): Diagnose null pointers passed to
+	arguments declared nonnull.
+	* calls.h (get_nonnull_args): Declared.
+
+2016-12-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): On ISA
+	3.0/power9, add support to use the VEXTU{B,H,W}{L,R}X extract
+	instructions.
+	* config/rs6000/vsx.md (VSr2): Add IEEE 128-bit floating point
+	type constraint registers.
+	(VSr3): Likewise.
+	(FL_CONV): New mode iterator for binary floating types that have a
+	direct conversion from 64-bit integer to floating point.
+	(vsx_extract_<mode>_p9): Add support for the ISA 3.0/power9
+	VEXTU{B,H,W}{L,R}X extract instructions.
+	(vsx_extract_<mode>_p9 splitter): Add splitter to load up the
+	extract byte position into the GPR if we are using the
+	VEXTU{B,H,W}{L,R}X extract instructions.
+	(vsx_extract_<mode>_di_p9): Support extracts to GPRs.
+	(vsx_extract_<mode>_store_p9): Support extracting to GPRs so that
+	we can use reg+offset address instructions.
+	(vsx_extract_<mode>_var): Support extracts to GPRs.
+	(vsx_extract_<VSX_EXTRACT_I:mode>_<SDI:mode>_var): New combiner
+	insn to combine vector extracts with zero_extend.
+	(vsx_ext_<VSX_EXTRACT_I:VS_scalar>_fl_<FL_CONV:mode>): Optimize
+	extracting a small integer vector element and converting it to a
+	floating point type.
+	(vsx_ext_<VSX_EXTRACT_I:VS_scalar>_ufl_<FL_CONV:mode>): Likewise.
+	(UNSPEC_XXEXTRACTUW): New unspec.
+	(UNSPEC_XXINSERTW): Likewise.
+	(vextract4b): Add support for the vec_vextract4b built-in
+	function.
+	(vextract4b_internal): Likewise.
+	(vinsert4b): Add support for the vec_insert4b built-in function.
+	Include both a version that inserts element 1 from a V4SI object
+	and one that inserts a DI object.
+	(vinsert4b_internal): Likewise.
+	(vinsert4b_di): Likewise.
+	(vinsert4b_di_internal): Likewise.
+	* config/rs6000/predicates.md (const_0_to_11_operand): New
+	predicate, match 0..11.
+	* config/rs6000/rs6000-builtin.def (BU_P9V_VSX_3): Set built-in
+	type to ternary, not binary.
+	(BU_P9V_64BIT_VSX_3): Likewise.
+	(P9V_BUILTIN_VEXTRACT4B): Add support for vec_vinsert4b and
+	vec_extract4b non-overloaded built-in functions.
+	(P9V_BUILTIN_VINSERT4B): Likewise.
+	(P9V_BUILTIN_VINSERT4B_DI): Likewise.
+	(P9V_BUILTIN_VEC_VEXTULX): Move to section that adds 2 operand ISA
+	3.0 built-in functions.
+	(P9V_BUILTIN_VEC_VEXTURX): Likewise.
+	(P9V_BUILTIN_VEC_VEXTRACT4B): Add support for overloaded
+	vec_insert4b and vec_extract4 built-in functions.
+	(P9V_BUILTIN_VEC_VINSERT4B): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloaded support for vec_vinsert4b and vec_extract4b.
+	* config/rs6000/rs6000.c (altivec_expand_builtin): Add checks for
+	the vec_insert4b and vec_extract4b byte number being a constant in
+	the range 0..11.
+	* config/rs6000/altivec.h (vec_vinsert4b): Support vec_vinsert4b
+	and vec_extract4b built-in functions.
+	* doc/extend.doc (PowerPC VSX built-in functions): Document
+	vec_insert4b and vec_extract4b.
+
+2016-12-14  Martin Liska  <mliska@suse.cz>
+
+	* gimple-pretty-print.c (dump_probability): New function.
+	(dump_edge_probability): Use the function.
+	(dump_gimple_label): Likewise.
+	(dump_gimple_bb_header): Likewise.
+
+2016-12-14  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-strlen.c (fold_strstr_to_memcmp): New function.
+	(strlen_optimize_stmt): Call fold_strstr_to_memcmp.
+
+2016-12-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lra-constraints.c (process_address_1): Do not attempt to decompose
+	addresses for MEMs that satisfy fixed-form constraints.
+
+2016-12-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78788
+	* tree-vrp.c (set_value_range): Allow [-INF(OVF), +INF(OVF)].
+	(set_and_canonicalize_value_range): Do not drop the above to
+	VARYING.
+
+2016-12-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs600.c (rs6000_builtin_vectorization_cost):
+	Adjust unaligned load cost.
+
+2016-12-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78794
+	* config/i386/i386.c (dimode_scalar_chain::compute_convert_gain):
+	Calculate additional gain for andnot for targets without BMI.
+
+2016-12-13  Carl Love  <cel@us.ibm.com>
+
+	* config/rs6000/rs6000-c.c: Add built-in support for
+	vector float vec_pack (vector double, vector double)
+	vector double vec_sld (vector double, vector double)
+	* config/rs6000/rs6000.c: Add icode check for vsldoi_v2df to allow
+	4-bit unsigned literal.
+	* config/rs6000/rs6000-builtin.def: Add definition for VSLDOI_2DF
+	* doc/extend.texi: Update the built-in documentation file for the
+	new powerpc vec_pack and vec_sld built-ins.
+
+2016-12-13  Martin Liska  <mliska@suse.cz>
+
+	* sanopt.c (sanopt_optimize_walker): Set contains_asan_mark.
+	(sanopt_optimize): Add new argument.
+	(sanitize_asan_mark_unpoison): New function.
+	(maybe_contains_asan_check): Likewise.
+	(sanitize_asan_mark_poison): Likewise.
+	(pass_sanopt::execute): Call the new functions.
+
+2016-12-13  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/78428
+	* expr.c (store_constructor_field): Add new arguments to the function.
+	(store_constructor): Set up bitregion_end and add gcc_unreachable to
+	fields that have either non-constant size or (and) offset.
+
+2016-12-13  Marek Polacek  <polacek@redhat.com>
+
+	* tree-data-ref.c (compute_overlap_steps_for_affine_univar): Change
+	parameters' type from int to HOST_WIDE_INT.
+	(compute_overlap_steps_for_affine_1_2): Change parameters' type from
+	int to HOST_WIDE_INT.
+	(build_classic_dist_vector_1): Likewise.
+	(add_multivariate_self_dist): Likewise.
+
+2016-12-13  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/78725
+	* tree-ssa-loop-split.c (split_at_bb_p): Check for overflow and
+	at correct use point.
+
+2016-12-13  Martin Liska  <mliska@suse.cz>
+
+	* asan.c (asan_expand_mark_ifn): Use renamed
+	BUILT_IN_ASAN_{UN}CLOBBER_N to BUILT_IN_ASAN_{UN}POISON_STACK_MEMORY.
+	* sanitizer.def: Likewise.
+
+2016-12-13  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/extend.texi (Half-Precision): Update to document current
+	compiler behaviour.
+
+2016-12-13  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/extend.texi (Floating Types): Document availability of
+	_Float16 on ARM/AArch64.
+
+2016-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78699
+	* tree-vect-data-refs.c (vect_analyze_group_access_1): Limit
+	group size.
+
+2016-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78742
+	* tree.c (cst_and_fits_in_hwi): Look if the actual value fits.
+	* tree-object-size.c (compute_builtin_object_size): Use
+	tree_fits_shwi_p.
+	* tree-data-ref.c (initialize_matrix_A): Remove excess assert.
+
+2016-12-13  Martin Liska  <mliska@suse.cz>
+
+	* asan.c (asan_mark_poison_p): Remove.
+	(asan_mark_p): New function.
+	(transform_statements): Use the function.
+	(asan_expand_mark_ifn): Do not use masked enum.
+	* asan.h (enum asan_mark_flags): Declare it via a macro.
+	* gimple-pretty-print.c (dump_gimple_call_args): Dump first
+	argument of ASAN_MARK.
+	* gimplify.c (build_asan_poison_call_expr): Use new enum values.
+	(asan_poison_variable): Likewise.
+
+2016-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/77905
+	* ipa-pure-const.c (cdtor_p): Return true for
+	DECL_STATIC_{CON,DE}STRUCTOR even when it is
+	DECL_LOOPING_CONST_OR_PURE_P.
+
+2016-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/78777
+	* gimple-ssa-strength-reduction.c (create_add_on_incoming_edge,
+	insert_initializers): Use stmt_ends_bb_p instead of is_ctrl_stmt.
+
+	PR other/78766
+	* opt-functions.awk (opt_args): Use [{] instead of { in regexps.
+	Formatting fix.
+
+2016-12-12  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78622
+	PR middle-end78606
+	* gimple-ssa-sprintf.c (min_bytes_remaining): Use res.knownrange
+	rather than res.bounded.
+	(get_width_and_precision): Set precision to -1 when negative.
+	(adjust_range_for_overflow): New function.
+	(format_integer): Correct the handling of the space, plus, and pound
+	flags, and the special case of zero precision.
+	Always set res.bounded to true unless either precision or width
+	is specified and unknown.
+	Call adjust_range_for_overflow.
+	Avoid use zero as the shortest value when precision is specified
+	but unknown.
+	(format_directive): Remove vestigial quoting.  Always inform of
+	argument value or range when it's available.
+	(add_bytes): Correct the computation of boundrange used to
+	decide whether a warning is of a "maybe" or "defnitely" kind.
+
+2016-12-12  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* combine.c (change_zero_ext): Handle mode expanding zero_extracts.
+
+2016-12-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78738
+	* config/i386/i386.h (X87_ENABLE_ARITH): Also enable for
+	flag_unsafe_math_optimizations.
+	(X87_ENABLE_FLOAT): Ditto.
+
+2016-12-12  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/78716
+	* gimplify.c (gimplify_va_arg_expr): Don't require ADDR_EXPR for
+	Case 1; check POINTER_TYPE_P instead.
+
+2016-12-12  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/78669
+	* ira.c (combine_and_move_insns): When deleting an insn, clear the
+	replace flag for all used regs in that insn.
+
+2016-12-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-opts.h: Move struct arm_arch_core_flag and
+	arm_arch_core_flags to ...
+	* common/config/arm/arm-common.c: There.
+
+2016-12-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/constraints.md (T): Use special memory constraint.
+	(U): Minor tweak.
+	(W): Add TARGET_ARCH64 test.
+	* config/sparc/sparc.md (*movdi_insn_sp32): Replace 'W' with 'T'.
+	(*movdf_insn_sp32): Likewise.
+	(*mov<VM64:mode>_insn_sp32): Likewise.  Replace 'e' with 'f' in
+	conjunction with offsettable memory references.
+
+2016-12-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_emit_move_sequence): Call copy_rtx
+	to avoid shared structure error.
+
+2016-12-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/78695
+	* config/rs6000/rs6000.c (find_alignment_op): Discard from
+	consideration any artificial definition.
+
+2016-12-11  Iain Sandoe  <iain@codesourcery.com>
+
+	* configure.ac (CROSS directory tests): Remove the assumption that
+	Darwin hosts contain suitable target sysroots in "/".
+	* configure: Regenerate.
+
+2016-12-11  Iain Sandoe  <iain@codesourcery.com>
+
+	PR rtl-optimization/71496
+	* config/rs6000/darwin.md (load_macho_picbase_si): Mark as non-
+	copyable.  (load_macho_picbase_di, reload_macho_picbase_si,
+	reload_macho_picbase_di): Likewise.
+
+2012-12-11  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_callee_copies): New function.
+	* config/pa/pa.opt (mcaller-copies): New option.
+	* doc/invoke.texi (mcaller-copies): Document option.
+
+2016-12-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70799
+	* config/i386/i386.c (dimode_scalar_to_vector_candidate_p)
+	<case ASHIFT, case LSHIFTRT>: Consider all constant shifts.
+	Add FIXME comment.
+	(dimode_scalar_chain::compute_convert_gain): Reduce gain for
+	constant shifts larger or equal than 32.
+
+2016-12-11  Roger Pau Monné  <roger.pau@citrix.com>
+
+	* config/i386/x86-64.h: Append --32 to the assembler options when
+	-m16 is used on non-glibc systems as well.
+
+2016-12-10  Allan Sandfeld Jensen  <allan.jensen@qt.io>
+
+	PR target/70118
+	* config/i386/mmintrin.h (__m64_u): New type
+	* config/i386/emmintrin.h (_mm_loadl_epi64, _mm_storel_epi64):
+	Make the allowed unaligned memory access explicit.
+
+2016-12-10  Krister Walfridsson  <krister.walfridsson@gmail.com>
+
+	* config.gcc (i386-*-netbsd*): Make i486 the default arch on NetBSD.
+	Generally use cpu generic.
+
+2016-12-10  Jakub Jelinek  <jakub@redhat.com>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/78720
+	* match.pd (A < 0 ? C : 0): Only optimize for signed A.  If shift
+	is negative, sign extend to @1's type and than AND with C.
+
+2016-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/78758
+	* tree-object-size.c (compute_object_offset) <case ARRAY_REF>: Handle
+	non-zero low bound or non-standard element sizes.
+
+	PR sanitizer/78708
+	* lto-streamer-in.c (input_function): In addition to debug stmts
+	without -g, remove IFN_*SAN_* calls if corresponding flag_sanitize
+	bit is not enabled.
+
+2016-12-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-passes.def: New file.
+	* config/rs6000/rs6000-protos.h: Declare make_pass_analyze_swaps.
+	* config/rs6000/rs6000.c (rs6000_option_override): Remove
+	registration of machine-specific passes.
+	(pass_analyze_swaps::clone): New function.
+	* config/rs6000/t-rs6000: Define PASSES_EXTRA.
+
+2016-12-09  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR ipa/78721
+	* ipa-cp.c (propagate_vr_accross_jump_function): Call
+	drop_tree_overflow after fold_convert.
+
+2016-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/72742
+	* config/rs6000/rs6000.md (*and<mode>3_imm_mask_dot,
+	*and<mode>3_imm_mask_dot2): Add rs6000_is_valid_and_mask to insn
+	condition.
+
+2016-12-09  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/78683
+	* config/rs6000/rs6000.h (CLZ_DEFINED_VALUE_AT_ZERO): Use
+	GET_MODE_BITSIZE.  Return 2.
+	(CTZ_DEFINED_VALUE_AT_ZERO): Use GET_MODE_BITSIZE.  Return 2.  Handle
+	TARGET_POPCNTD the same as TARGET_CTZ.
+	* config/rs6000/rs6000.md (ctz<mode>2): Reimplement.
+	(ffs<mode>2): Reimplement.
+
+2016-12-09  Andre Vieira <andre.simoesdiasvieira@arm.com>
+
+	PR rtl-optimization/78255
+	* gcc/postreload.c (reload_cse_simplify): Do not CSE a function if
+	NO_FUNCTION_CSE is true.
+
 2016-12-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR ipa/78027

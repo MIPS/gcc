@@ -501,8 +501,16 @@ class StdDebugIteratorPrinter:
     # Just strip away the encapsulating __gnu_debug::_Safe_iterator
     # and return the wrapped iterator value.
     def to_string (self):
+        base_type = gdb.lookup_type('__gnu_debug::_Safe_iterator_base')
+        safe_seq = self.val.cast(base_type)['_M_sequence']
+        if not safe_seq or self.val['_M_version'] != safe_seq['_M_version']:
+            return "invalid iterator"
         itype = self.val.type.template_argument(0)
         return self.val.cast(itype)
+
+def num_elements(num):
+    """Return either "1 element" or "N elements" depending on the argument."""
+    return '1 element' if num == 1 else '%d elements' % num
 
 class StdMapPrinter:
     "Print a std::map or std::multimap"
@@ -535,8 +543,8 @@ class StdMapPrinter:
         self.val = val
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename,
-                                        len (RbtreeIterator (self.val)))
+        return '%s with %s' % (self.typename,
+                               num_elements(len(RbtreeIterator (self.val))))
 
     def children (self):
         rep_type = find_type(self.val.type, '_Rep_type')
@@ -575,8 +583,8 @@ class StdSetPrinter:
         self.val = val
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename,
-                                        len (RbtreeIterator (self.val)))
+        return '%s with %s' % (self.typename,
+                               num_elements(len(RbtreeIterator (self.val))))
 
     def children (self):
         rep_type = find_type(self.val.type, '_Rep_type')
@@ -677,7 +685,7 @@ class StdDequePrinter:
 
         size = self.buffer_size * delta_n + delta_s + delta_e
 
-        return '%s with %d elements' % (self.typename, long (size))
+        return '%s with %s' % (self.typename, num_elements(long(size)))
 
     def children(self):
         start = self.val['_M_impl']['_M_start']
@@ -791,7 +799,8 @@ class Tr1UnorderedSetPrinter:
         return self.val['_M_h']
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename, self.hashtable()['_M_element_count'])
+        count = self.hashtable()['_M_element_count']
+        return '%s with %s' % (self.typename, num_elements(count))
 
     @staticmethod
     def format_count (i):
@@ -816,7 +825,8 @@ class Tr1UnorderedMapPrinter:
         return self.val['_M_h']
 
     def to_string (self):
-        return '%s with %d elements' % (self.typename, self.hashtable()['_M_element_count'])
+        count = self.hashtable()['_M_element_count']
+        return '%s with %s' % (self.typename, num_elements(count))
 
     @staticmethod
     def flatten (list):
@@ -1507,8 +1517,8 @@ def build_libstdcxx_dictionary ():
                                   Tr1UnorderedSetPrinter)
 
     # These are the C++11 printer registrations for -D_GLIBCXX_DEBUG cases.
-    # The tr1 namespace printers do not seem to have any debug
-    # equivalents, so do no register them.
+    # The tr1 namespace containers do not have any debug equivalents,
+    # so do not register printers for them.
     libstdcxx_printer.add('std::__debug::unordered_map',
                           Tr1UnorderedMapPrinter)
     libstdcxx_printer.add('std::__debug::unordered_set',

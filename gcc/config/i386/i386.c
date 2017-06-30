@@ -2809,10 +2809,9 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
     {
     case ASHIFT:
     case LSHIFTRT:
-      /* Consider only non-variable shifts narrower
-	 than general register width.  */
-      if (!(CONST_INT_P (XEXP (src, 1))
-	    && IN_RANGE (INTVAL (XEXP (src, 1)), 0, 31)))
+      /* FIXME: consider also variable shifts.  */
+      if (!CONST_INT_P (XEXP (src, 1))
+	  || !IN_RANGE (INTVAL (XEXP (src, 1)), 0, 63))
 	return false;
       break;
 
@@ -3409,6 +3408,9 @@ dimode_scalar_chain::compute_convert_gain ()
 	  gain += ix86_cost->add;
     	  if (CONST_INT_P (XEXP (src, 0)))
 	    gain -= vector_const_cost (XEXP (src, 0));
+	  if (CONST_INT_P (XEXP (src, 1))
+	      && INTVAL (XEXP (src, 1)) >= 32)
+	    gain -= COSTS_N_INSNS (1);
 	}
       else if (GET_CODE (src) == PLUS
 	       || GET_CODE (src) == MINUS
@@ -3417,6 +3419,11 @@ dimode_scalar_chain::compute_convert_gain ()
 	       || GET_CODE (src) == AND)
 	{
 	  gain += ix86_cost->add;
+	  /* Additional gain for andnot for targets without BMI.  */
+	  if (GET_CODE (XEXP (src, 0)) == NOT
+	      && !TARGET_BMI)
+	    gain += 2 * ix86_cost->add;
+
 	  if (CONST_INT_P (XEXP (src, 0)))
 	    gain -= vector_const_cost (XEXP (src, 0));
 	  if (CONST_INT_P (XEXP (src, 1)))
@@ -3429,7 +3436,7 @@ dimode_scalar_chain::compute_convert_gain ()
 	{
 	  /* Assume comparison cost is the same.  */
 	}
-      else if (GET_CODE (src) == CONST_INT)
+      else if (CONST_INT_P (src))
 	{
 	  if (REG_P (dst))
 	    gain += COSTS_N_INSNS (2);
@@ -3553,7 +3560,7 @@ dimode_scalar_chain::make_vector_copies (unsigned regno)
 	  }
 	else
 	  {
-	    rtx tmp = assign_386_stack_local (DImode, SLOT_TEMP);
+	    rtx tmp = assign_386_stack_local (DImode, SLOT_STV_TEMP);
 	    emit_move_insn (adjust_address (tmp, SImode, 0),
 			    gen_rtx_SUBREG (SImode, reg, 0));
 	    emit_move_insn (adjust_address (tmp, SImode, 4),
@@ -3630,7 +3637,7 @@ dimode_scalar_chain::convert_reg (unsigned regno)
 	    }
 	  else
 	    {
-	      rtx tmp = assign_386_stack_local (DImode, SLOT_TEMP);
+	      rtx tmp = assign_386_stack_local (DImode, SLOT_STV_TEMP);
 	      emit_move_insn (tmp, reg);
 	      emit_move_insn (gen_rtx_SUBREG (SImode, scopy, 0),
 			      adjust_address (tmp, SImode, 0));
@@ -33566,6 +33573,7 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	  }
 
 	case IX86_BUILTIN_TZCNT16:
+	case IX86_BUILTIN_CTZS:
 	case IX86_BUILTIN_TZCNT32:
 	case IX86_BUILTIN_TZCNT64:
 	  gcc_assert (n_args == 1);
@@ -33573,7 +33581,8 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	    {
 	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
 	      tree arg = args[0];
-	      if (fn_code == IX86_BUILTIN_TZCNT16)
+	      if (fn_code == IX86_BUILTIN_TZCNT16
+		  || fn_code == IX86_BUILTIN_CTZS)
 		arg = fold_convert (short_unsigned_type_node, arg);
 	      if (integer_zerop (arg))
 		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
@@ -33583,6 +33592,7 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	  break;
 
 	case IX86_BUILTIN_LZCNT16:
+	case IX86_BUILTIN_CLZS:
 	case IX86_BUILTIN_LZCNT32:
 	case IX86_BUILTIN_LZCNT64:
 	  gcc_assert (n_args == 1);
@@ -33590,7 +33600,8 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	    {
 	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
 	      tree arg = args[0];
-	      if (fn_code == IX86_BUILTIN_LZCNT16)
+	      if (fn_code == IX86_BUILTIN_LZCNT16
+		  || fn_code == IX86_BUILTIN_CLZS)
 		arg = fold_convert (short_unsigned_type_node, arg);
 	      if (integer_zerop (arg))
 		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));

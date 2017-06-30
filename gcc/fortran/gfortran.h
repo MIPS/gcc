@@ -1546,14 +1546,20 @@ typedef struct gfc_symbol
   gfc_namelist *namelist, *namelist_tail;
 
   /* Change management fields.  Symbols that might be modified by the
-     current statement have the mark member nonzero and are kept in a
-     singly linked list through the tlink field.  Of these symbols,
+     current statement have the mark member nonzero.  Of these symbols,
      symbols with old_symbol equal to NULL are symbols created within
      the current statement.  Otherwise, old_symbol points to a copy of
-     the old symbol.  */
-
-  struct gfc_symbol *old_symbol, *tlink;
+     the old symbol. gfc_new is used in symbol.c to flag new symbols.  */
+  struct gfc_symbol *old_symbol;
   unsigned mark:1, gfc_new:1;
+
+  /* The tlink field is used in the front end to carry the module
+     declaration of separate module procedures so that the characteristics
+     can be compared with the corresponding declaration in a submodule. In
+     translation this field carries a linked list of symbols that require
+     deferred initialization.  */
+  struct gfc_symbol *tlink;
+
   /* Nonzero if all equivalences associated with this symbol have been
      processed.  */
   unsigned equiv_built:1;
@@ -2795,6 +2801,7 @@ const char *gfc_print_wide_char (gfc_char_t);
 
 bool gfc_warning (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 bool gfc_warning_now (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+bool gfc_warning_internal (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
   ATTRIBUTE_GCC_GFC(3,4);
 
@@ -3099,7 +3106,7 @@ bool gfc_check_init_expr (gfc_expr *);
 gfc_expr *gfc_build_conversion (gfc_expr *);
 void gfc_free_ref_list (gfc_ref *);
 void gfc_type_convert_binary (gfc_expr *, int);
-int gfc_is_constant_expr (gfc_expr *);
+bool gfc_is_constant_expr (gfc_expr *);
 bool gfc_simplify_expr (gfc_expr *, int);
 int gfc_has_vector_index (gfc_expr *);
 
@@ -3191,7 +3198,7 @@ bool gfc_resolve_iterator (gfc_iterator *, bool, bool);
 bool find_forall_index (gfc_expr *, gfc_symbol *, int);
 bool gfc_resolve_index (gfc_expr *, int);
 bool gfc_resolve_dim_arg (gfc_expr *);
-int gfc_is_formal_arg (void);
+bool gfc_is_formal_arg (void);
 void gfc_resolve_substring_charlen (gfc_expr *);
 match gfc_iso_c_sub_interface(gfc_code *, gfc_symbol *);
 gfc_expr *gfc_expr_to_initialize (gfc_expr *);
@@ -3225,11 +3232,11 @@ bool gfc_check_constructor (gfc_expr *, bool (*)(gfc_expr *));
 bool gfc_array_size (gfc_expr *, mpz_t *);
 bool gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
 bool gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
-gfc_array_ref *gfc_find_array_ref (gfc_expr *);
+gfc_array_ref *gfc_find_array_ref (gfc_expr *, bool a = false);
 tree gfc_conv_array_initializer (tree type, gfc_expr *);
 bool spec_size (gfc_array_spec *, mpz_t *);
 bool spec_dimen_size (gfc_array_spec *, int, mpz_t *);
-int gfc_is_compile_time_shape (gfc_array_spec *);
+bool gfc_is_compile_time_shape (gfc_array_spec *);
 
 bool gfc_ref_dimen_size (gfc_array_ref *, int dimen, mpz_t *, mpz_t *);
 
@@ -3263,6 +3270,7 @@ int gfc_has_vector_subscript (gfc_expr*);
 gfc_intrinsic_op gfc_equivalent_op (gfc_intrinsic_op);
 bool gfc_check_typebound_override (gfc_symtree*, gfc_symtree*);
 void gfc_check_dtio_interfaces (gfc_symbol*);
+gfc_symtree* gfc_find_typebound_dtio_proc (gfc_symbol *, bool, bool);
 gfc_symbol* gfc_find_specific_dtio_proc (gfc_symbol*, bool, bool);
 
 
