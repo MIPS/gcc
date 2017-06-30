@@ -1,3 +1,98 @@
+2016-12-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71444
+	* config/os/mingw32-w64/error_constants.h
+	(address_family_not_supported, address_in_use, address_not_available)
+	(already_connected, connection_aborted, connection_already_in_progress)
+	connection_refused, connection_reset, cross_device_link)
+	(destination_address_required, host_unreachable, message_size)
+	(network_down, network_reset, network_unreachable, no_buffer_space)
+	(no_protocol_option, not_a_socket, not_connected, operation_canceled)
+	(operation_in_progress, operation_not_supported, protocol_error)
+	(protocol_not_supported, too_many_links, too_many_symbolic_link_levels)
+	(value_too_large, wrong_protocol_type): Define.
+	(bad_message, identifier_removed, no_link, no_message_available)
+	(no_message, no_stream_resources, not_a_stream, owner_dead)
+	(state_not_recoverable, stream_timeout, text_file_busy): Define
+	conditionally.
+	* testsuite/19_diagnostics/headers/system_error/errc_std_c++0x.cc:
+	Guard test for no_message with _GLIBCXX_HAVE_ENOMSG.
+
+2016-12-19  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Make the perfect-forwarding constructor of a two-element tuple
+	sfinae away when the first argument is an allocator_arg.
+	* include/std/tuple (tuple(_U1&&, _U2&&)): Constrain.
+	* testsuite/20_util/tuple/cons/allocator_with_any.cc: New.
+	* testsuite/20_util/tuple/element_access/get_neg.cc: Adjust.
+
+2016-12-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_map.h (map::erase(iterator)): Add Doxygen markup
+	to reuse documentation for erase(const_iterator) overload.
+	* include/bits/stl_multimap.h (multimap::erase(iterator)): Likewise.
+
+	* include/bits/stl_tree.h (_Rb_tree::_M_erase_aux(const_iterator)):
+	Add assertion for undefined argument.
+	(_Rb_tree::_M_erase_aux(const_iterator, const_iterator)): Call
+	_M_erase_aux directly instead of through erase.
+	(_Rb_tree::_M_erase_aux(const Key&)): Likewise.
+	* testsuite/23_containers/map/modifiers/erase/end_neg.cc: New test.
+
+2016-12-16  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2769, Redundant const in the return type of
+	any_cast(const any&).
+	* include/std/any (_AnyCast): New.
+	(any_cast(const any&)): Use it and add an explicit cast for return.
+	(any_cast(any&)): Likewise.
+	(any_cast(any&&)): Likewise.
+	* testsuite/20_util/any/misc/any_cast.cc: Add a test for a type
+	that has an explicit copy constructor.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust.
+
+2016-12-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59170
+	* python/libstdcxx/v6/printers.py (StdListIteratorPrinter.to_string)
+	(StdSlistIteratorPrinter.to_string, StdVectorIteratorPrinter.to_string)
+	(StdRbtreeIteratorPrinter.to_string)
+	(StdDequeIteratorPrinter.to_string): Add check for value-initialized
+	iterators.
+	* testsuite/libstdc++-prettyprinters/simple.cc: Test them.
+	* testsuite/libstdc++-prettyprinters/simple11.cc: Likewise.
+
+	PR libstdc++/59161
+	* python/libstdcxx/v6/printers.py (StdListIteratorPrinter.to_string)
+	(StdSlistIteratorPrinter.to_string, StdVectorIteratorPrinter.to_string)
+	(StdRbtreeIteratorPrinter.to_string, StdDequeIteratorPrinter.to_string)
+	(StdDebugIteratorPrinter.to_string): Return string instead of
+	gdb.Value.
+	* testsuite/libstdc++-prettyprinters/59161.cc: New test.
+
+	* python/libstdcxx/v6/printers.py (UniquePointerPrinter.to_string):
+	Remove redundant parentheses.
+	(RbtreeIterator, StdRbtreeIteratorPrinter): Add docstrings.
+	(StdForwardListPrinter.to_string): Remove redundant parentheses.
+	(StdExpOptionalPrinter.to_string): Use string formatting instead of
+	concatenation.
+	(StdVariantPrinter.to_string, StdNodeHandlePrinter.to_string)
+	(TemplateTypePrinter): Adjust whitespace.
+
+	* python/libstdcxx/v6/xmethods.py (UniquePtrGetWorker.__init__): Use
+	correct element type for unique_ptr<T[]>.
+	(UniquePtrGetWorker._supports, UniquePtrDerefWorker._supports): New
+	functions to disable unsupported operators for unique_ptr<T[]>.
+	(UniquePtrSubscriptWorker): New worker for operator[].
+	(UniquePtrMethodsMatcher.__init__): Register UniquePtrSubscriptWorker.
+	(UniquePtrMethodsMatcher.match): Call _supports on the chosen worker.
+	(SharedPtrGetWorker, SharedPtrDerefWorker, SharedPtrSubscriptWorker)
+	(SharedPtrUseCountWorker, SharedPtrUniqueWorker): New workers.
+	(SharedPtrMethodsMatcher): New matcher for shared_ptr.
+	(register_libstdcxx_xmethods): Register SharedPtrMethodsMatcher.
+	* testsuite/libstdc++-xmethods/unique_ptr.cc: Test arrays.
+	* testsuite/libstdc++-xmethods/shared_ptr.cc: New test.
+
 2016-12-14  François Dumont  <fdumont@gcc.gnu.org>
 
 	* include/bits/stl_tree.h

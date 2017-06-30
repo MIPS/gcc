@@ -133,8 +133,8 @@ class UniquePointerPrinter:
             v = self.val['_M_t']['_M_head_impl']
         else:
             raise ValueError("Unsupported implementation for unique_ptr: %s" % self.val.type.fields()[0].type.tag)
-        return ('std::unique_ptr<%s> containing %s' % (str(v.type.target()),
-                                                       str(v)))
+        return 'std::unique_ptr<%s> containing %s' % (str(v.type.target()),
+                                                      str(v))
 
 def get_value_from_aligned_membuf(buf, valtype):
     """Returns the value held in a __gnu_cxx::__aligned_membuf."""
@@ -200,10 +200,12 @@ class StdListIteratorPrinter:
         self.typename = typename
 
     def to_string(self):
+        if not self.val['_M_node']:
+            return 'non-dereferenceable iterator for std::list'
         nodetype = find_type(self.val.type, '_Node')
         nodetype = nodetype.strip_typedefs().pointer()
         node = self.val['_M_node'].cast(nodetype).dereference()
-        return get_value_from_list_node(node)
+        return str(get_value_from_list_node(node))
 
 class StdSlistPrinter:
     "Print a __gnu_cxx::slist"
@@ -246,9 +248,11 @@ class StdSlistIteratorPrinter:
         self.val = val
 
     def to_string(self):
+        if not self.val['_M_node']:
+            return 'non-dereferenceable iterator for __gnu_cxx::slist'
         nodetype = find_type(self.val.type, '_Node')
         nodetype = nodetype.strip_typedefs().pointer()
-        return self.val['_M_node'].cast(nodetype).dereference()['_M_data']
+        return str(self.val['_M_node'].cast(nodetype).dereference()['_M_data'])
 
 class StdVectorPrinter:
     "Print a std::vector"
@@ -333,7 +337,9 @@ class StdVectorIteratorPrinter:
         self.val = val
 
     def to_string(self):
-        return self.val['_M_current'].dereference()
+        if not self.val['_M_current']:
+            return 'non-dereferenceable iterator for std::vector'
+        return str(self.val['_M_current'].dereference())
 
 class StdTuplePrinter:
     "Print a std::tuple"
@@ -428,6 +434,11 @@ class StdStackOrQueuePrinter:
         return None
 
 class RbtreeIterator(Iterator):
+    """
+    Turn an RB-tree-based container (std::map, std::set etc.) into
+    a Python iterable object.
+    """
+
     def __init__(self, rbtree):
         self.size = rbtree['_M_t']['_M_impl']['_M_node_count']
         self.node = rbtree['_M_t']['_M_impl']['_M_header']['_M_left']
@@ -480,7 +491,7 @@ def get_value_from_Rb_tree_node(node):
 # std::map::iterator), and has nothing to do with the RbtreeIterator
 # class above.
 class StdRbtreeIteratorPrinter:
-    "Print std::map::iterator"
+    "Print std::map::iterator, std::set::iterator, etc."
 
     def __init__ (self, typename, val):
         self.val = val
@@ -489,8 +500,10 @@ class StdRbtreeIteratorPrinter:
         self.link_type = nodetype.strip_typedefs().pointer()
 
     def to_string (self):
+        if not self.val['_M_node']:
+            return 'non-dereferenceable iterator for associative container'
         node = self.val['_M_node'].cast(self.link_type).dereference()
-        return get_value_from_Rb_tree_node(node)
+        return str(get_value_from_Rb_tree_node(node))
 
 class StdDebugIteratorPrinter:
     "Print a debug enabled version of an iterator"
@@ -506,7 +519,7 @@ class StdDebugIteratorPrinter:
         if not safe_seq or self.val['_M_version'] != safe_seq['_M_version']:
             return "invalid iterator"
         itype = self.val.type.template_argument(0)
-        return self.val.cast(itype)
+        return str(self.val.cast(itype))
 
 def num_elements(num):
     """Return either "1 element" or "N elements" depending on the argument."""
@@ -703,7 +716,9 @@ class StdDequeIteratorPrinter:
         self.val = val
 
     def to_string(self):
-        return self.val['_M_cur'].dereference()
+        if not self.val['_M_cur']:
+            return 'non-dereferenceable iterator for std::deque'
+        return str(self.val['_M_cur'].dereference())
 
 class StdStringPrinter:
     "Print a std::basic_string of some kind"
@@ -891,8 +906,8 @@ class StdForwardListPrinter:
 
     def to_string(self):
         if self.val['_M_impl']['_M_head']['_M_next'] == 0:
-            return 'empty %s' % (self.typename)
-        return '%s' % (self.typename)
+            return 'empty %s' % self.typename
+        return '%s' % self.typename
 
 class SingleObjContainerPrinter(object):
     "Base class for printers of containers of single objects"
@@ -994,9 +1009,10 @@ class StdExpOptionalPrinter(SingleObjContainerPrinter):
 
     def to_string (self):
         if self.contained_value is None:
-            return self.typename + " [no contained value]"
+            return "%s [no contained value]" % self.typename
         if hasattr (self.visualizer, 'children'):
-            return self.typename + " containing " + self.visualizer.to_string ()
+            return "%s containing %s" % (self.typename,
+                                         self.visualizer.to_string())
         return self.typename
 
 class StdVariantPrinter(SingleObjContainerPrinter):
@@ -1032,7 +1048,8 @@ class StdVariantPrinter(SingleObjContainerPrinter):
         if self.contained_value is None:
             return "%s [no contained value]" % self.typename
         if hasattr(self.visualizer, 'children'):
-            return "%s [index %d] containing %s" % (self.typename, self.index, self.visualizer.to_string())
+            return "%s [index %d] containing %s" % (self.typename, self.index,
+                                                    self.visualizer.to_string())
         return "%s [index %d]" % (self.typename, self.index)
 
 class StdNodeHandlePrinter(SingleObjContainerPrinter):
@@ -1060,7 +1077,6 @@ class StdNodeHandlePrinter(SingleObjContainerPrinter):
                                                    'array')
 
     def to_string(self):
-
         desc = 'node handle for '
         if not self.is_rb_tree_node:
             desc += 'unordered '
@@ -1230,7 +1246,8 @@ class Printer(object):
 libstdcxx_printer = None
 
 class TemplateTypePrinter(object):
-    r"""A type printer for class templates.
+    r"""
+    A type printer for class templates.
 
     Recognizes type names that match a regular expression.
     Replaces them with a formatted string which can use replacement field

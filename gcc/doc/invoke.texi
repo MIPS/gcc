@@ -612,7 +612,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcrc -mdsp-packa -mdvbf -mlock -mmac-d16 -mmac-24 -mrtsc -mswape @gol
 -mtelephony -mxy -misize -mannotate-align -marclinux -marclinux_prof @gol
 -mlong-calls -mmedium-calls -msdata @gol
--mucb-mcount -mvolatile-cache -mtp-regno=@var{regno} @gol
+-mvolatile-cache -mtp-regno=@var{regno} @gol
 -malign-call -mauto-modify-reg -mbbit-peephole -mno-brcc @gol
 -mcase-vector-pcrel -mcompact-casesi -mno-cond-exec -mearly-cbranchsi @gol
 -mexpand-adddi -mindexed-loads -mlra -mlra-priority-none @gol
@@ -7267,8 +7267,8 @@ release to an another.
 @opindex fno-keep-inline-dllexport
 This is a more fine-grained version of @option{-fkeep-inline-functions},
 which applies only to functions that are declared using the @code{dllexport}
-attribute or declspec (@xref{Function Attributes,,Declaring Attributes of
-Functions}.)
+attribute or declspec.  @xref{Function Attributes,,Declaring Attributes of
+Functions}.
 
 @item -fkeep-inline-functions
 @opindex fkeep-inline-functions
@@ -9114,12 +9114,12 @@ both casts and assignments cause values to be rounded to their
 semantic types (whereas @option{-ffloat-store} only affects
 assignments).  This option is enabled by default for C if a strict
 conformance option such as @option{-std=c99} is used.
+@option{-ffast-math} enables @option{-fexcess-precision=fast} by default
+regardless of whether a strict conformance option is used.
 
 @opindex mfpmath
 @option{-fexcess-precision=standard} is not implemented for languages
-other than C, and has no effect if
-@option{-funsafe-math-optimizations} or @option{-ffast-math} is
-specified.  On the x86, it also has no effect if @option{-mfpmath=sse}
+other than C.  On the x86, it has no effect if @option{-mfpmath=sse}
 or @option{-mfpmath=sse+387} is specified; in the former case, IEEE
 semantics apply without excess precision, and in the latter, rounding
 is unpredictable.
@@ -9128,7 +9128,8 @@ is unpredictable.
 @opindex ffast-math
 Sets the options @option{-fno-math-errno}, @option{-funsafe-math-optimizations},
 @option{-ffinite-math-only}, @option{-fno-rounding-math},
-@option{-fno-signaling-nans} and @option{-fcx-limited-range}.
+@option{-fno-signaling-nans}, @option{-fcx-limited-range} and
+@option{-fexcess-precision=fast}.
 
 This option causes the preprocessor macro @code{__FAST_MATH__} to be defined.
 
@@ -14057,8 +14058,9 @@ Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
 @samp{cortex-a72}, @samp{cortex-a73}, @samp{exynos-m1}, @samp{falkor},
-@samp{qdf24xx}, @samp{thunderx}, @samp{xgene1}, @samp{vulcan},
-@samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
+@samp{qdf24xx}, @samp{xgene1}, @samp{vulcan}, @samp{thunderx},
+@samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
+@samp{thunderxt83}, @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
 @samp{cortex-a73.cortex-a35}, @samp{cortex-a73.cortex-a53}, @samp{native}.
 
 The values @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
@@ -14757,12 +14759,6 @@ for @w{@code{arc-linux-uclibc}} and @w{@code{arceb-linux-uclibc}} targets.
 Do not generate sdata references.  This is the default for tool chains
 built for @w{@code{arc-linux-uclibc}} and @w{@code{arceb-linux-uclibc}}
 targets.
-
-@item -mucb-mcount
-@opindex mucb-mcount
-Instrument with mcount calls as used in UCB code.  I.e. do the
-counting in the callee, not the caller.  By default ARC instrumentation
-counts in the caller.
 
 @item -mvolatile-cache
 @opindex mvolatile-cache

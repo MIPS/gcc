@@ -1,11 +1,722 @@
+2016-12-22  Andrew Pinski  <apinski@cavium.com>
+
+        * match.pd (max:c @0 (plus@2 @0 INTEGER_CST@1)): New Pattern.
+	(min:c @0 (plus@2 @0 INTEGER_CST@1)) : New Pattern.
+
+2016-12-20  James Greenhalgh  <james.greenhalghj@arm.com>
+
+	* common.opt (excess_precision): Tag as SetByCombined.
+	* opts.c (set_fast_math_flags): Also set
+	flag_excess_precision_cmdline.
+	(fast_math_flags_set_p): Also check flag_excess_precision_cmdline.
+	* doc/invoke.texi (-fexcess-precision): Drop text saying the
+	option has no effect under -ffast-math, make it clear that
+	-ffast-math will cause -fexcess-precision=fast by default even for
+	standards compliant modes.
+	(-ffast-math): Document that this sets -fexcess-precision=fast.
+
+2016-12-20  Richard Biener  <rguenther@suse.de>
+
+	* passes.c (execute_one_pass): Handle going out of SSA w/o
+	hitting pass_startwith.  Handle skipping property providers.
+
+2016-12-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/78694
+	* config/arm/arm.c (dump_minipool): Copy mp->value before emitting it
+	in the minipool to avoid invalid RTL sharing.
+
+2016-12-19  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (expand_strn_compare): Declare.
+	* config/rs6000/rs6000.md (UNSPEC_CMPB): New unspec.
+	(cmpb<mode>3): pattern for generating cmpb.
+	(cmpstrnsi): pattern to expand strncmp ().
+	* config/rs6000/rs6000.opt (mstring-compare-inline-limit): Add a new
+	target option for controlling how much code inline expansion of
+	strncmp() will be allowed to generate.
+	* config/rs6000/rs6000.c (expand_strncmp_align_check): generate code
+	for runtime page crossing check of strncmp () args.
+	(expand_strn_compare): Function to do builtin expansion of strncmp ().
+
+2016-12-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (print_rtx_function): Update
+	example in comment to reflect current format.
+
+2016-12-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*popcounthi2_1): New insn_and_split pattern.
+
+2016-12-19  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/cpp.texi: Clean up anachronistic C99 references and remove
+	discussion of very old GCC versions.
+	(Differences from previous versions): Delete entire section.
+
+2016-12-19  Will Schmidt  <will_schmidt@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_gimple_fold_builtin): Add handling for
+	early expansion of vector multiply and subtract builtins.
+
+2016-12-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl.c (rtx_writer::print_rtx_operand_code_r): For
+	non-virtual pseudos in compact mode, wrap the regno in '<' and '>'
+	rather than using a '%' prefix.
+	* rtl-tests.c (selftest::test_dumping_regs): Update for above change.
+
+2016-12-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/78748
+	* config/s390/s390.md ("*andc_split_<mode>"): Allow memory destination
+	only if it coincides with operand 2.
+
+2016-12-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* combine.c (change_zero_ext): Skip generation of redundant AND.
+
+2016-12-19  Krister Walfridsson  <krister.walfridsson@gmail.com>
+
+	* config/netbsd.h (LINK_EH_SPEC): Define.
+
+2016-12-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lra-constraints.c (process_address): Add forward declaration.
+	(simplify_operand_subreg): In the MEM case, if the adjusted memory
+	reference is not sufficient aligned and the address was invalid,
+	reload the address before reloading the original memory reference.
+	Fix long lines and add a final return for the sake of clarity.
+
+2016-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/78832
+	* sanopt.c (sanitize_asan_mark_unpoison): Remove next variable, use
+	continue if gsi_next should be skipped.
+	(sanitize_asan_mark_poison): Remove prev variable, use continue if
+	gsi_prev should be skipped.  When removing ASAN_MARK, do gsi_prev
+	first and gsi_remove on a previously made copy of the iterator.
+
+2016-12-17  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* config/i386/avx512bwintrin.h: Add new k-mask intrinsics.
+	* config/i386/avx512dqintrin.h: Ditto.
+	* config/i386/avx512fintrin.h: Ditto.
+	* config/i386/i386-builtin.def (__builtin_ia32_kaddqi,
+	__builtin_ia32_kaddhi, __builtin_ia32_kaddsi,
+	__builtin_ia32_kadddi): New.
+	* config/i386/sse.md (kadd<mode>): New.
+
+2016-12-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*tzcnt<mode>_1): Merge *tzcnt<mode>_1_falsedep_1
+	and *tzcnt<mode>_1 to define_insn_and_split pattern.  Adjust split
+	condition to split after epilogue_completed.
+	(ctz<mode>2): Remove expander.
+	(ctz<mode>2): Merge *ctz<mode>2_falsedep_1 and *ctz<mode>2 to
+	define_insn_and_split pattern.  Adjust split condition to split
+	after epilogue_completed.
+	(clz<mode>2_lznct): Remove expander.
+	(clz<mode>2_lzcnt): Merge *clz<mode>2_lzcnt_falsedep_1 and
+	*clz<mode>2 to define_insn_and_split pattern.  Adjust split
+	condition to split after epilogue_completed.
+	(<lt_zcnt>_<mode>): Remove expander.
+	(<lt_zcnt>_<mode>): Merge *<lt_zcnt>_<mode>_falsedep_1 and
+	*<lt_zcnt>_<mode> to define_insn_and_split pattern.  Adjust split
+	condition to split after epilogue_completed.
+	(<lt_zcnt>_hi): New insn pattern.
+	(popcount<mode>2): Remove expander.
+	(popcount<mode>2): Merge *popcount<mode>2_falsedep_1 and
+	*popcount<mode>2 to define_insn_and_split pattern.  Adjust split
+	condition to split after epilogue_completed.
+	(popcounthi2): New insn pattern.
+
+2016-12-16  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.md (UNSPEC_CMPRB): New unspec value.
+	(UNSPEC_CMPRB2): New unspec value.
+	(UNSPEC_CMPEQB): New unspec value.
+	(cmprb): New expansion.
+	(*cmprb_internal): New insn.
+	(*setb_internal): New insn.
+	(cmprb2): New expansion.
+	(*cmprb2_internal): New insn.
+	(cmpeqb): New expansion.
+	(*cmpeqb_internal): New insn.
+	* config/rs6000/rs6000-builtin.def (BU_P9_2): New macro.
+	(BU_P9_64BIT_2): Likewise.
+	(BU_P9_OVERLOAD_2): Likewise.
+	(CMPRB): Add byte-in-range built-in function.
+	(CMBRB2): Add byte-in-either-range built-in function.
+	(CMPEQB): Add byte-in-set built-in function.
+	(CMPRB): Add overload support for byte-in-range function.
+	(CMPRB2): Add overload support for byte-in-either-range function.
+	(CMPEQB): Add overload support for byte-in-set built-in function.
+	* config/rs6000/rs6000-c.c (P9_BUILTIN_CMPRB): Macro expansion to
+	define argument types for new builtin.
+	(P9_BUILTIN_CMPRB2): Likewise.
+	(P9_BUILTIN_CMPEQB): Likewise.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Rearrange
+	the order of presentation for certain built-in functions
+	(scalar_extract_exp, scalar_extract_sig, scalar_insert_exp)
+	(scalar_cmp_exp_gt, scalar_cmp_exp_lt, scalar_cmp_exp_eq)
+	(scalar_cmp_exp_unordered, scalar_test_data_class)
+	(scalar_test_neg) to improve locality and flow.  Document
+	the new __builtin_scalar_byte_in_set,
+	__builtin_scalar_byte_in_range, and
+	__builtin_scalar_byte_in_either_range functions.
+
+2016-12-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md: New define_split above bswap<mode>2.
+
+2016-12-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md: New define_split above insv<mode>.
+
+2016-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/78408
+	* tree-ssa-ccp.c: Include tree-dfa.h.
+	(optimize_memcpy): New function.
+	(pass_fold_builtins::execute): Use it.  Remove useless conditional
+	break after BUILT_IN_VA_*.
+
+2016-12-16  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/78819
+	* tree-vrp.c (find_switch_asserts): Return if the insertion limit is 0.
+	Don't register an assertion if the default case shares a label with
+	another case.
+
+2016-12-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.md (subsi3_carryin): Add Thumb-2 RSC #0.
+	(arm_negdi2) Rename to negdi2_insn, allow on Thumb-2.
+	* config/arm/thumb2.md (thumb2_negdi2): Remove pattern.
+
+2016-12-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.c (thumb_core_reg_alloc_order): Swap R12 and R14.
+
+2016-12-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (call_prof): Remove.
+	(call_value_prof): Likewise.
+	(sibcall_prof): Likewise.
+	(sibcall_value_prof): Likewise.
+
+2016-12-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.h (LINK_SPEC): Tidy up.
+	(ENDFILE_SPEC): Likewise.
+	(LIB_SPEC): Likewise.
+	(STARTFILE_SPEC): Include gcrt0 when profiling.
+	(FUNCTION_PROFILER): Use __mcount.
+	* config/arc/arc.opt (mucb-mcount): Remove.
+	* doc/invoke.texi (ARC): Remove mucb-mcount doc.
+	* arc/arc-protos.h (arc_profile_call): Remove.
+	* config/arc/arc.c (write_profile_sections): Likewise.
+	(arc_profile_call): Likewise.
+	(unspec_prof_hash): Likewise.
+	(unspec_prof_htab_eq): Likewise.
+	(arc_legitimate_constant_p): Remove UNSPEC_PROF.
+	(arc_reorg): Remove call to write_profile_sections.
+	* config/arc/arc.md (call): Remove call to arc_profile_call.
+	(call_value): Likewise.
+	(sibcall): Likewise.
+	(sibcall_value): Likewise.
+	(define_constants): Remove UNSPEC_PROF.
+
+2016-12-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (mulsidi_600): Change to insn_and_split,
+	generate new mul64 insn for core multiplication work.
+	(umulsidi_600): Likewise, but use mulu64 insn.
+	(mul64): New pattern, content taken from old mulsidi_600 insn pattern.
+	(mulu64): Likewise, but using umulsidi_600.
+	(mulsidi3): Remove move to destination, this is now handled by
+	mulsidi_600 insn_and_split.
+	(umulsidi3): Likewise, but using umulsidi_600.
+
+2016-12-16  Richard Biener  <rguenther@suse.de>
+
+	PR c++/71694
+	* langhooks-def.h (lhd_unit_size_without_reusable_padding): Declare.
+	(LANG_HOOKS_UNIT_SIZE_WITHOUT_REUSABLE_PADDING): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Adjust.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	unit_size_without_reusable_padding.
+	* langhooks.c (lhd_unit_size_without_reusable_padding): New.
+	* stor-layout.c (finish_bitfield_representative): Use
+	unit_size_without_reusable_padding langhook to decide on the
+	last representatives size.
+
+2016-12-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71632
+	* expr.c (expand_cond_expr_using_cmove): Bail out early if
+	we end up recursing via TER.
+
+2016-12-15  Martin Sebor  <msebor@redhat.com>
+
+	PR bootstrap/78817
+	* vec.h (vec<T, va_heap, vl_ptr>::safe_grow_cleared): Assert
+	a pointer is non-null.
+
+2016-12-15  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* config/i386/avx512bwintrin.h: Add new k-mask intrinsics.
+	* config/i386/avx512dqintrin.h: Ditto.
+	* config/i386/avx512fintrin.h: Ditto.
+	* config/i386/i386-builtin.def (__builtin_ia32_kmovb,
+	__builtin_ia32_kmovd, __builtin_ia32_kmovq): New.
+	(__builtin_ia32_kmov16): Rename to __builtin_ia32_kmovw.
+	* config/i386/sse.md (kmov<mskmodesuffix>): New.
+
+2016-12-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (ffs<mode>2): Generate CCCmode flags register
+	for TARGET_BMI.
+	(ffssi2_no_cmove): Ditto.
+	(*tzcnt<mode>_1_falsedep_1): New insn_and_split pattern.
+	(*tzcnt<mode>_1_falsedep): New insn pattern.
+
+	(LT_ZCNT): New mode iterator.
+	(lt_zcnt): New mode attribute.
+	(lt_zcnt_type): New mode attribute.
+	(<lt_zcnt>_<mode>): Macroize expander from bmi_tzcnt_<mode> and
+	lzcnt_<mode> using LT_ZCNT mode iterator.
+	(*<lt_zcnt>_<mode>_falsedep_1): Macroize insn from
+	*bmi_tzcnt_<mode>_falsedep_1 and *lzcnt_<mode>_falsedep_1
+	using LT_ZCNT mode iterator.
+	(*<lt_zcnt>_<mode>_falsedep): Macroize insn from
+	*bmi_tzcnt_<mode>_falsedep and *lzcnt_<mode>_falsedep
+	using LT_ZCNT mode iterator.
+	(*<lt_zcnt>_<mode>): Macroize insn from *bmi_tzcnt_<mode>
+	and *lzcnt_<mode> using LT_ZCNT mode iterator.
+	* config/i386/i386-builtin.def (__builtin_ia32_tzcnt_u16)
+	(__builtin_ia32_tzcnt_u32, __builtin_ia32_tzcnt_u64, __builtin_ctzs):
+	Update for rename.
+
+2016-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* ipa-cp.c (class ipcp_bits_lattice): Formatting fixes.
+	(print_ipcp_constant_value): Likewise.
+	(ipcp_cloning_candidate_p): Likewise.
+	(ipcp_bits_lattice::get_value_and_mask): Likewise.
+	(ipcp_bits_lattice::meet_with_1): Likewise.
+	(ipcp_bits_lattice::meet_with): Likewise.
+	(initialize_node_lattices): Likewise.
+	(ipcp_lattice::add_value): Likewise.
+	(propagate_vals_accross_pass_through): Renamed to ...
+	(propagate_vals_across_pass_through): ... this function.
+	(propagate_vals_accross_ancestor): Renamed to ...
+	(propagate_vals_across_ancestor): ... this.
+	(propagate_scalar_accross_jump_function): Renamed to ...
+	(propagate_scalar_across_jump_function): ... this.
+	Adjust calls to above functions.
+	(propagate_context_accross_jump_function): Renamed to ...
+	(propagate_context_across_jump_function): ... this.
+	(propagate_bits_accross_jump_function): Renamed to ...
+	(propagate_bits_accross_jump_function): ... this.  Formatting fixes.
+	(propagate_vr_accross_jump_function): Renamed to ...
+	(propagate_vr_across_jump_function): ... this.
+	(merge_agg_lats_step): Formatting fixes.
+	(propagate_constants_accross_call): Renamed to ...
+	(propagate_constants_across_call): ... this.  Adjust calls to above
+	functions.
+	(ipa_get_indirect_edge_target_1): Formatting fixes.
+	(gather_context_independent_values): Likewise.
+	(estimate_local_effects): Likewise.
+	(add_all_node_vals_to_toposort): Likewise.
+	(propagate_constants_topo): Adjust calls to above functions.
+	(get_replacement_map): Formatting fixes.
+	(dump_profile_updates): Likewise.
+	(update_profiling_info): Likewise.
+	(update_specialized_profile): Likewise.
+	(create_specialized_node): Likewise.
+	(find_more_contexts_for_caller_subset): Likewise.
+	(decide_whether_version_node): Likewise.
+	(identify_dead_nodes): Likewise.
+	(ipcp_decision_stage): Likewise.
+	(ipcp_store_bits_results): Likewise.
+	(ipcp_store_vr_results): Likewise.
+	(ipcp_driver): Likewise.
+
+2016-12-15  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/78680
+	PR preprocessor/78811
+	* input.c (struct selftest::lexer_test): Add field
+	m_implicitly_expect_EOF.
+	(selftest::lexer_error_sink): New class.
+	(selftest::lexer_error_sink::s_singleton): New global.
+	(selftest::lexer_test::lexer_test): Initialize new field
+	"m_implicitly_expect_EOF".
+	(selftest::lexer_test::~lexer_test): Conditionalize the
+	check for the EOF token on the new field.
+	(selftest::test_lexer_string_locations_raw_string_unterminated):
+	New function.
+	(selftest::input_c_tests): Call the new test.
+
+2016-12-15  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.h (TARGET_BACKTRACE): Use crtl->is_leaf.
+	* config/arm/arm.c (arm_option_check_internal): Improve comment.
+	(thumb_force_lr_save): Use crtl->is_leaf.
+	(arm_get_frame_offsets): Remove comment.  Use crtl->is_leaf.
+	(thumb_far_jump_used_p): Remove comment.
+	(arm_frame_pointer_required): Use crtl->is_leaf.
+
+2016-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/extend.texi: Clean up @xref{...} uses.
+	* doc/invoke.texi: Likewise.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-fpus.def: Add CNAME field to all FPU definitions.
+	* genopt.sh: Use explicit enumeration tags for FPU entries.
+	* arm-tables.opt: Regenerated.
+	* arm.opt (mfpu): Provide initial value.
+	* arm-opts.h (enum fpu_type): Build the enumeration from the list of
+	available FPUs.  Add 'auto' entry on the end.
+	* arm.c (arm_configure_build_target): Only do explicit configuration
+	of the FPU features if the selected FPU is not 'auto'.
+	(arm_option_override): Adjust initialization of arm_fpu_index.
+	Emit an error if we have a hard float ABI request, but the processor
+	does not support floating-point.
+	(arm_option_print): Handle -mfpu=auto.
+	(arm_valid_target_attribute_rec): Don't permit fpu=auto in pragmas
+	or function attributes.
+	(arm_identify_fpu_from_isa): Handle effective soft-float when
+	the FPU is automatically detected.
+	* arm-cores.def (arm1136jf-s): Add feature ISA_FP_DBL.
+	(arm1176jzf-s): Likewise.
+	(mpcore): Likewise.
+	(arm1156t2f-s): Likewise.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-fpus.def (ARM_FPU): Remove features field from all definitions.
+	* arm.h (arm_fpu_feature_set): Delete typedef.
+	(FPU_FL_NONE): Delete.
+	(FPU_FL_NEON): Delete.
+	(FPU_FL_FP16): Delete.
+	(FPU_FL_CRYPTO): Delete.
+	(FPU_FL_DBL): Delete.
+	(FPU_FL_D32): Delete.
+	(FPU_FL_VFPv2): Delete.
+	(FPU_FL_VFPv3): Delete.
+	(FPU_FL_VFPv4): Delete.
+	(FPU_FL_VFPv5): Delete.
+	(FPU_FL_AMRv8): Delete.
+	(FPU_VFPv2): Delete.
+	(FPU_VFPv3): Delete.
+	(FPU_VFPv4): Delete.
+	(FPU_VFPv5): Delete.
+	(FPU_ARMv8): Delete.
+	(FPU_DBL): Delete.
+	(FPU_D32): Delete.
+	(FPU_NEON): Delete.
+	(FPU_CRYPTO): Delete.
+	(FPU_FP16): Delete.
+	(arm_fpu_desc): Delete features field.
+	* arm.c (all_fpus): Don't initialize feature field.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_can_inline_p): Use ISA features for determining
+	inlinability.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-protos.h (arm_configure_build_target): Change second argument
+	to cl_target_options.
+	* arm.c (arm_configure_build_target): Likewise.
+	(arm_option_restore): Update accordingly.
+	(arm_option_override): Create the target_option_default_node before
+	calling arm_configure_build_target.  Use it in call of latter.
+	Resynchronize after all other overrides have been calculated.
+	(arm_valid_target_attribute_tree): Use the target options for
+	reconfiguration.  Resynchronize after performing override checks.
+	* arm-c.c (arm_pragma_target_parse): Use target optiosn from cur_tree
+	to reconfigure the build target.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (TARGET_VFPD32): Use arm_active_target.
+	(TARGET_VFP3): Likewise.
+	(TARGET_VFP5): Likewise.
+	(TARGET_VFP_SINGLE): Likewise.
+	(TARGET_VFP_DOUBLE): Likewise.
+	(TARGET_NEON_FP16): Likewise.
+	(TARGET_FP16): Likewise.
+	(TARGET_FMA): Likewise.
+	(TARGET_FPU_ARMV8): Likewise.
+	(TARGET_CRYPTO): Likewise.
+	(TARGET_NEON): Likewise.
+	(TARGET_FPU_FEATURES): Delete.
+	* arm.c (arm_option_check_internal): Check for iwmmxt conflict with
+	Neon using arm_active_target.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (TARGET_FPU_NAME): Delete.
+	* arm.c (arm_identify_fpu_from_isa): New function.
+	(arm_declare_function_name): Use it to get the name for the FPU.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-protos.h: Include sbitmap.h
+	(arm_configure_build_target): Make public.
+	* arm.c (arm_configure_build_target): Now not static.
+	(arm_valid_target_attribute_rec): Move internal option check to...
+	(arm_valid_target_attribute_tree0: ... here.  Also reconfingure the
+	active target.
+	(arm_override_options_after_change): Call arm_configure_build_target.
+	(isa_all_fpubits): Renamed from isa_fpubits.
+	(arm_option_restore): New function.
+	(TARGET_OPTION_RESTORE): Register it.
+	(arm_configure_build_target): Initialize the FPU capability bits in
+	the isa.
+	(arm_option_override): Move the code that forces the setting of the
+	FPU option before the call to arm_configure_build_target.
+	* arm.opt (march): Mark as Save.
+	(mcpu, mtune): Likewise.
+	* arm-c.c (arm_pragma_target_parse): Reconfigure the build target
+	after pragmas change the target options.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-isa.h (isa_feature): Add bits for VFPv4, FPv5, fp16conv,
+	fP_dbl, fp_d32 and fp_crypto.
+	(ISA_ALL_FPU): Add all the new bits.
+	(ISA_VFPv2, ISA_VFPv3, ISA_VFPv4, ISA_FPv5): New macros.
+	(ISA_FP_ARMv8, ISA_FP_DBL, ISA_FP_D32, ISA_NEON, ISA_CRYPTO): Likewise.
+	* arm-fpus.def: Add ISA features to all FPUs.
+	* arm.h: (arm_fpu_desc): Add new field for ISA bits.
+	* arm.c (all_fpus): Initialize it.
+	* arm-tables.opt: Regenerated.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (FPU_FL_VFPv2) New feature bit.
+	(FPU_FL_VFPv3, FPU_FL_VFPv4, FPU_FL_VFPv5, FPU_FL_ARMv8): Likewise.
+	(FPU_VFPv2, FPU_VFPv3, FPU_VFPv4, FPU_VFPv5, FPU_ARMv8): New helper
+	macros.
+	(FPU_DBL, FPU_D32, FPU_NEON, FPU_CRYPTO, FPU_FP16): Likewise.
+	(TARGET_FPU_REV): Delete.
+	(TARGET_VFP3): Use feature bits.
+	(TARGET_VFP5): Likewise.
+	(TARGET_FMA): Likewise.
+	(TARGET_FPU_ARMV8): Likewise.
+	(struct arm_fpu_desc): Delete rev field.
+	* arm-fpus.def: Delete REV entry, use new feature bits and macros.
+	* arm.c (all_fpus): Delete rev field.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (vfp_reg_type): Delete.
+	(TARGET_FPU_REGS): Delete.
+	(arm_fpu_desc): Delete regs field.
+	(FPU_FL_NONE, FPU_FL_NEON, FPU_FL_FP16, FPU_FL_CRYPTO): Use unsigned
+	values.
+	(FPU_FL_DBL, FPU_FL_D32): Define.
+	(TARGET_VFPD32): Use feature test.
+	(TARGET_VFP_SINGLE): Likewise.
+	(TARGET_VFP_DOUBLE): Likewise.
+	* arm-fpus.def: Update all entries for new feature bits.
+	* arm.c (all_fpus): Update initializer macro.
+	(arm_can_inline_p): Remove test on fpu regs.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (arm_fp_model): Delete.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-cores.def: Remove FLAGS field from all core definitions.
+	* arm-arches.def: Likewise.
+	* arm-opts.h (enum processor_type): Remove FLAGS parameter from
+	ARM_CORES macro.
+	(arm_arch_core_flags): Likewise, plus ARM_ARCH macro.
+	* arm-protos.h (FL_*): Delete.
+	(arm_feature_set): Delete.
+	(ARM_FSET_*): Delete.
+	* arm.c (struct processors): Delete flags field.
+	(all_cores): Delete FLAGS parameter from macro, don't initialize flags.
+	(all architectures): Likewise.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-opts.h (struct arm_arch_core_flag): Add new field ISA.
+	Initialize it.
+	(arm_arch_core_flag): Delete flags field.
+	(arm_arch_core_flags): Don't initialize flags field.
+	* common/config/arm/arm-common.c (check_isa_bits_for): New function.
+	(arm_target_thumb_only): Use new isa bits arrays.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-protos.h (insn_flags): Delete declaration.
+	(arm_arch7ve): Declare.
+	* arm.c (insn_flags): Delete.
+	(arm_arch7ve): New variable.
+	(arm_selected_cpu): Delete.
+	(arm_option_check_internal): Use new ISA bitmap.
+	(arm_option_override_internal): Likewise.
+	(arm_configure_build_target): Declare arm_selected_cpu locally.
+	(arm_option_override): Use new ISA bitmap.  Initialize arm_arch7ve.
+	Rearrange variable intialization by general function.
+	* arm.h (TARGET_HAVE_LPAE): Use arm_arch7ve.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-builtins.c: Include sbitmap.h.
+	(def_mbuiltin): Change first parameter to a flag bit.  Use it to test
+	available features in the current target.
+	(struct builtin_description): Change type of feature field.
+	(IWMMXT_BUILTIN): Use the isa_features types.
+	(IWMMXT2_BUILTIN): Likewise.
+	(IWMMXT_BUILTIN2): Likewise.
+	(IWMMXT2_BUILTIN2): Likewise.
+	(CRC32_BUILTIN): Likewise.
+	(CRYPTO_BUILTIN): Likewise.
+	(iwmmx_builtin): Likewise.
+	(iwmmx2_builtin): Likewise.
+	(arm_iwmmxt_builtin): Check for specific feature bits.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-isa.h (enum isa_feature): Add isa_quirk_cm3_ldrd.
+	(ISA_ALL_QUIRKS): New macro.
+	* arm-cores.def (cortex-m3): Add isa_quirk_cm3_ldrd to isa feature list.
+	* arm.c (isa_quirkbits): New feature-list bitmap.
+	(arm_configure_build_target): Ignore quirk bits when comparing an
+	architecture feature list with a CPU feature list.
+	(arm_option_override): Initialize_isa_quirkbits.  If the user has
+	not specified -m[no-]fix-cortex-m3-ldrd, automatically enable the
+	feature if isa_quirk_cm3_ldrd appears in the isa feature list.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_option_override): Use arm_active_target as source of
+	information for arm_base_arch and arm_arch_name.
+	* (arm_file_start): Use arm_active_target for core name.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_selected_tune): Delete static variable.
+	(arm_selected_arch): Likewise.
+	(arm_configure_build_target): Declare local versions of arm_selected
+	target and arm_selected_arch.  Initialize more fields in target
+	data structure.
+	(arm_option_override): Use arm_active_target instead of
+	arm_selected_tune and arm_selected_arch.
+	(asm_file_start): Use arm_active_target.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-protos.h (arm_build_target): New structure.
+	(arm_active_target): Declare it.
+	* arm.c (arm_active_target): New variable.
+	(bitmap_popcount): New function.
+	(feature_count): Delete.
+	(arm_initialize_isa): New function.
+	isa_fpubits): New variable.
+	(arm_configure_build_target): New function.
+	(arm_option_override): Initialize isa_fpubits and arm_active_target.isa.
+	Use arm_configure_build_target.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-isa.h: New file.
+	* arm-protos.h: Include it.
+	* arm-arches.def: Add new ISA field to all entries.  Drop bogus
+	armv8.1-a+crc architecture.
+	* arm-cores.def: Similarly.  Group ARMv8 cores by profile.
+	* arm-opts.h (enum processor_type): Adjust for new field.
+	* arm.c (struct processors): New field 'isa_bits'.
+	(all_cores, all_architectures): Initialize new field.
+	* arm-tables.opt: Regenerated.
+	* arm-tune.md: Regenerated.
+
+2016-12-15  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-arches.def (ARM_ARCH): Add extra field TUNE_FLAGS, move
+	tuning properties from architectural FLAGS field.
+	* arm-cores.def (ARM_CORE): Likewise.
+	* arm-protos.h (TF_LDSCHED, TF_WBUF, TF_CO_PROC): New macros.
+	(TF_SMALLMUL, TF_STRONG, TF_SCALE, TF_NOMODE32): New macros.
+	(FL_LDSCHED, FL_STRONG, FL_WBUF, FL_SMALLMUL): Delete.
+	(FL_TUNE): Remove deleted elements.
+	(tune_flags): Convert type to unsigned int.
+	* arm.c (struct processors): Add new field tune_flags.
+	(all_cores, all_arches): Initialize it.
+	(arm_option_override): Adapt uses of tune_flags.  Use tune_flags
+	for deciding when we should have slow multiply operations.
+
+2016-12-14  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78519
+	* gimple-ssa-sprintf.c (format_string): Handle null pointers.
+	(format_directive): Diagnose null pointer arguments.
+	(pass_sprintf_length::handle_gimple_call): Diagnose null destination
+	pointers.  Correct location of null format string in diagnostics.
+
+2016-12-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (SELFTEST_FLAGS): Add path argument to -fself-test.
+	(s-selftest): Add dependency on the selftests data directory.
+	* common.opt (fself-test): Rename to...
+	(fself-test=): ...this, documenting the meaning of the argument.
+	* selftest-run-tests.c (along): Likewise.
+	* selftest-run-tests.c: Include "options.h".
+	(selftest::run_tests): Initialize selftest::path_to_selftest_files
+	from flag_self_test.
+	* selftest.c (selftest::path_to_selftest_files): New global.
+	(selftest::locate_file): New function.
+	(selftest::test_locate_file): New function.
+	(selftest_c_tests): Likewise.
+	(selftest::selftest_c_tests): Call test_locate_file.
+	* selftest.h (selftest::locate_file): New decl.
+	(selftest::path_to_selftest_files): New decl.
+
+2016-12-14  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def: Add -1 as the variant to all
+	of the cores.
+	(thunderx): Update to include LSE by default.
+	(thunderxt88p1): New core.
+	(thunderxt88): New core.
+	(thunderxt81): New core.
+	(thunderxt83): New core.
+	* config/aarch64/driver-aarch64.c (struct aarch64_core_data):
+	Add variant field.
+	(ALL_VARIANTS): New define.
+	(AARCH64_CORE): Support VARIANT operand.
+	(cpu_data): Likewise.
+	(host_detect_local_cpu): Parse variant field of /proc/cpuinfo.
+	Combine the arch and single core case and support variant searching.
+	* common/config/aarch64/aarch64-common.c (AARCH64_CORE):
+	Add VARIANT operand.
+	* config/aarch64/aarch64-opts.h (AARCH64_CORE): Likewise.
+	* config/aarch64/aarch64.c (AARCH64_CORE): Likewise.
+	* config/aarch64/aarch64.h (AARCH64_CORE): Likewise.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+	* doc/invoke.texi (AARCH64/mtune): Document thunderxt88,
+	thunderxt88p1, thunderxt81, thunderxt83 as available options.
+
 2016-12-14  Martin Jambor  <mjambor@suse.cz>
 
-	    * omp-offload.c: Fix coding style.
-	    * omp-expand.c: Likewise.
-	    * omp-general.c: Likewise.
-	    * omp-grid.c: Likewise.
-	    * omp-low.c: Fix coding style of parts touched by the
-	      previous splitting patch.
+	* omp-offload.c: Fix coding style.
+	* omp-expand.c: Likewise.
+	* omp-general.c: Likewise.
+	* omp-grid.c: Likewise.
+	* omp-low.c: Fix coding style of parts touched by the
+	previous splitting patch.
 
 2016-12-14  Martin Jambor  <mjambor@suse.cz>
 

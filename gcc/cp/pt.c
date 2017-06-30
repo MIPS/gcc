@@ -7379,9 +7379,10 @@ convert_template_argument (tree parm,
           /* Reject template arguments that are references to built-in
              functions with no library fallbacks.  */
           const_tree inner = TREE_OPERAND (val, 0);
-          if (TREE_CODE (TREE_TYPE (inner)) == REFERENCE_TYPE
-              && TREE_CODE (TREE_TYPE (TREE_TYPE (inner))) == FUNCTION_TYPE
-              && TREE_CODE (TREE_TYPE (inner)) == REFERENCE_TYPE
+	  const_tree innertype = TREE_TYPE (inner);
+	  if (innertype
+	      && TREE_CODE (innertype) == REFERENCE_TYPE
+	      && TREE_CODE (TREE_TYPE (innertype)) == FUNCTION_TYPE
               && 0 < TREE_OPERAND_LENGTH (inner)
               && reject_gcc_builtin (TREE_OPERAND (inner, 0)))
               return error_mark_node;
@@ -22480,6 +22481,7 @@ instantiate_decl (tree d, int defer_ok,
       tree tmpl_parm;
       tree spec_parm;
       tree block = NULL_TREE;
+      tree lambda_ctx = NULL_TREE;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -22493,7 +22495,23 @@ instantiate_decl (tree d, int defer_ok,
 	  && TREE_CODE (DECL_CONTEXT (code_pattern)) == FUNCTION_DECL)
 	block = push_stmt_list ();
       else
-	start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
+	{
+	  if (LAMBDA_FUNCTION_P (d))
+	    {
+	      /* When instantiating a lambda's templated function
+		 operator, we need to push the non-lambda class scope
+		 of the lambda itself so that the nested function
+		 stack is sufficiently correct to deal with this
+		 capture.  */
+	      lambda_ctx = DECL_CONTEXT (d);
+	      do 
+		lambda_ctx = decl_type_context (TYPE_NAME (lambda_ctx));
+	      while (lambda_ctx && LAMBDA_TYPE_P (lambda_ctx));
+	      if (lambda_ctx)
+		push_nested_class (lambda_ctx);
+	    }
+	  start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
+	}
 
       /* Some typedefs referenced from within the template code need to be
 	 access checked at template instantiation time, i.e now. These
@@ -22561,6 +22579,8 @@ instantiate_decl (tree d, int defer_ok,
 	  d = finish_function (0);
 	  expand_or_defer_fn (d);
 	}
+      if (lambda_ctx)
+	pop_nested_class ();
 
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern))
 	cp_check_omp_declare_reduction (d);
