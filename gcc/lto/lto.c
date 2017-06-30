@@ -53,7 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-symtab.h"
 #include "stringpool.h"
 #include "fold-const.h"
-#include "omp-low.h"
+#include "omp-general.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -2961,7 +2961,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       {
 	tree clauses = TREE_VALUE (attr);
 	/* TODO: device_type handling.  */
-	tree clause_bind = find_omp_clause (clauses, OMP_CLAUSE_BIND);
+	tree clause_bind = omp_find_clause (clauses, OMP_CLAUSE_BIND);
 	if (clause_bind)
 	  {
 	    tree clause_bind_name = OMP_CLAUSE_BIND_NAME (clause_bind);

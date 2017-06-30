@@ -35,8 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "tree-pretty-print.h"
 #include "parser.h"
-#include "omp-low.h"
 #include "gomp-constants.h"
+#include "omp-general.h"
+#include "omp-offload.h"
 #include "c-family/c-indentation.h"
 #include "context.h"
 #include "cp-cilkplus.h"
@@ -34872,7 +34873,7 @@ cp_parser_omp_simd (cp_parser *parser, cp_token *pragma_tok,
     {
       cp_omp_split_clauses (loc, OMP_SIMD, mask, clauses, cclauses);
       clauses = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
-      tree c = find_omp_clause (cclauses[C_OMP_CLAUSE_SPLIT_FOR],
+      tree c = omp_find_clause (cclauses[C_OMP_CLAUSE_SPLIT_FOR],
 				OMP_CLAUSE_ORDERED);
       if (c && OMP_CLAUSE_ORDERED_EXPR (c))
 	{
@@ -35900,8 +35901,8 @@ cp_parser_omp_target_update (cp_parser *parser, cp_token *pragma_tok,
   tree clauses
     = cp_parser_omp_all_clauses (parser, OMP_TARGET_UPDATE_CLAUSE_MASK,
 				 "#pragma omp target update", pragma_tok);
-  if (find_omp_clause (clauses, OMP_CLAUSE_TO) == NULL_TREE
-      && find_omp_clause (clauses, OMP_CLAUSE_FROM) == NULL_TREE)
+  if (omp_find_clause (clauses, OMP_CLAUSE_TO) == NULL_TREE
+      && omp_find_clause (clauses, OMP_CLAUSE_FROM) == NULL_TREE)
     {
       error_at (pragma_tok->location,
 		"%<#pragma omp target update%> must contain at least one "
@@ -36234,7 +36235,7 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
   clauses = cp_parser_oacc_all_clauses (parser, OACC_DECLARE_CLAUSE_MASK,
 					"#pragma acc declare", pragma_tok);
 
-  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+  if (omp_find_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
       error_at (pragma_tok->location,
 		"no valid clauses specified in %<#pragma acc declare%>");
@@ -36405,7 +36406,7 @@ cp_parser_oacc_enter_exit_data (cp_parser *parser, cp_token *pragma_tok,
     clauses = cp_parser_oacc_all_clauses (parser, OACC_EXIT_DATA_CLAUSE_MASK,
 					 "#pragma acc exit data", pragma_tok);
 
-  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+  if (omp_find_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
       error_at (loc, "%<#pragma acc %s data%> has no data movement clause",
 		enter ? "enter" : "exit");
@@ -36611,7 +36612,7 @@ cp_parser_oacc_update (cp_parser *parser, cp_token *pragma_tok)
 					"#pragma acc update", pragma_tok,
 					OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK);
 
-  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+  if (omp_find_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
       error_at (pragma_tok->location,
 		"%<#pragma acc update%> must contain at least one "
@@ -37724,7 +37725,7 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	}
 
       int compatible
-	= verify_oacc_routine_clauses (fndecl, &parser->oacc_routine->clauses,
+	= oacc_verify_routine_clauses (fndecl, &parser->oacc_routine->clauses,
 				       parser->oacc_routine->loc,
 				       "#pragma acc routine");
       if (compatible < 0)
@@ -37747,8 +37748,8 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	    }
 
 	  /* Set the routine's level of parallelism.  */
-	  tree dims = build_oacc_routine_dims (parser->oacc_routine->clauses);
-	  replace_oacc_fn_attrib (fndecl, dims);
+	  tree dims = oacc_build_routine_dims (parser->oacc_routine->clauses);
+	  oacc_replace_fn_attrib (fndecl, dims);
 
 	  /* Add an "omp declare target" attribute.  */
 	  DECL_ATTRIBUTES (fndecl)

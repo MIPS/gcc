@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-stmt.h"
 #include "gomp-constants.h"
 #include "gimplify.h"
-#include "omp-low.h"
+#include "omp-general.h"
 
 #define MAX_LABEL_VALUE 99999
 
@@ -1457,7 +1457,7 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 	}
 
       clause = build_omp_clause (UNKNOWN_LOCATION, code);
-      dims = build_oacc_routine_dims (clause);
+      dims = oacc_build_routine_dims (clause);
       list = tree_cons (get_identifier ("oacc function"),
 			dims, list);
     }

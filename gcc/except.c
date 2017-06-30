@@ -144,7 +144,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "builtins.h"
 #include "tree-hash-traits.h"
-#include "omp-low.h"
+#include "omp-general.h"
 
 static GTY(()) int call_site_base;
 
@@ -1479,7 +1479,7 @@ finish_eh_generation (void)
 {
   basic_block bb;
 
-  if (get_oacc_fn_attrib (current_function_decl))
+  if (oacc_get_fn_attrib (current_function_decl))
     return;
 
   /* Construct the landing pads.  */
