@@ -1449,8 +1449,7 @@ eliminate_unnecessary_stmts (void)
 		     dominate others.  Walking backwards, this should
 		     be the common case.  ??? Do we need to recompute
 		     dominators because of cfg_altered?  */
-		  if (!MAY_HAVE_DEBUG_STMTS
-		      || !first_dom_son (CDI_DOMINATORS, bb))
+		  if (!first_dom_son (CDI_DOMINATORS, bb))
 		    delete_basic_block (bb);
 		  else
 		    {
