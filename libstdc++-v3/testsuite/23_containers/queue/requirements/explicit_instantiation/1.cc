@@ -23,3 +23,8 @@
 #include <queue>
 
 template class std::queue<int>;
+
+struct NonDefaultConstructible : std::deque<int> {
+  NonDefaultConstructible(int) { }
+};
+template class std::queue<int, NonDefaultConstructible>;

@@ -128,7 +128,7 @@ public:
       fold_return_value = param;
     }
 
-  void handle_gimple_call (gimple_stmt_iterator*);
+  bool handle_gimple_call (gimple_stmt_iterator *);
 
   struct call_info;
   bool compute_format_length (call_info &, format_result *);
@@ -141,7 +141,7 @@ pass_sprintf_length::gate (function *)
      not optimizing and the pass is being invoked early, or when
      optimizing and the pass is being invoked during optimization
      (i.e., "late").  */
-  return ((warn_format_length > 0 || flag_printf_return_value)
+  return ((warn_format_overflow > 0 || flag_printf_return_value)
 	  && (optimize > 0) == fold_return_value);
 }
 
@@ -577,16 +577,22 @@ tree_digits (tree x, int base, HOST_WIDE_INT prec, bool plus, bool prefix)
       if (tree_fits_shwi_p (x))
 	{
 	  HOST_WIDE_INT i = tree_to_shwi (x);
-	  if (i < 0)
-	    {
-	      absval = -i;
-	      res = 1;
-	    }
-	  else
-	    {
-	      absval = i;
-	      res = plus;
-	    }
+         if (HOST_WIDE_INT_MIN == i)
+           {
+             /* Avoid undefined behavior due to negating a minimum.  */
+             absval = HOST_WIDE_INT_MAX;
+             res = 1;
+           }
+         else if (i < 0)
+	   {
+	     absval = -i;
+	     res = 1;
+	   }
+	 else
+	   {
+	     absval = i;
+	     res = plus;
+	   }
 	}
       else
 	return -1;
@@ -651,7 +657,7 @@ min_bytes_remaining (unsigned HOST_WIDE_INT navail, const format_result &res)
   if (HOST_WIDE_INT_MAX <= navail)
     return navail;
 
-  if (1 < warn_format_length || res.knownrange)
+  if (warn_format_overflow > 1 || res.knownrange)
     {
       /* At level 2, or when all directives output an exact number
 	 of bytes or when their arguments were bounded by known
@@ -728,7 +734,7 @@ struct pass_sprintf_length::call_info
   /* Return the warning option corresponding to the called function.  */
   int warnopt () const
   {
-    return bounded ? OPT_Wformat_truncation_ : OPT_Wformat_length_;
+    return bounded ? OPT_Wformat_truncation_ : OPT_Wformat_overflow_;
   }
 };
 
@@ -1653,7 +1659,7 @@ get_string_length (tree str)
       fmtresult res;
 
       res.range.min = (tree_fits_uhwi_p (lenrange[0])
-		       ? tree_to_uhwi (lenrange[0]) : 1 < warn_format_length);
+		       ? tree_to_uhwi (lenrange[0]) : warn_format_overflow > 1);
       res.range.max = (tree_fits_uhwi_p (lenrange[1])
 		       ? tree_to_uhwi (lenrange[1]) : HOST_WIDE_INT_M1U);
 
@@ -1693,12 +1699,12 @@ format_string (const conversion_spec &spec, tree arg)
      to a "%lc" directive adjusted for precision but not field width.
      6 is the longest UTF-8 sequence for a single wide character.  */
   const unsigned HOST_WIDE_INT max_bytes_for_unknown_wc
-    = (0 <= prec ? prec : 1 < warn_format_length ? 6 : 1);
+    = (0 <= prec ? prec : warn_format_overflow > 1 ? 6 : 1);
 
   /* The maximum number of bytes for an unknown string argument to either
      a "%s" or "%ls" directive adjusted for precision but not field width.  */
   const unsigned HOST_WIDE_INT max_bytes_for_unknown_str
-    = (0 <= prec ? prec : 1 < warn_format_length);
+    = (0 <= prec ? prec : warn_format_overflow > 1);
 
   /* The result is bounded unless overriddden for a non-constant string
      of an unknown length.  */
@@ -1718,7 +1724,7 @@ format_string (const conversion_spec &spec, tree arg)
 	     is the smaller of either 0 (at level 1) or 1 (at level 2)
 	     and WIDTH, and the maximum is MB_CUR_MAX in the selected
 	     locale, which is unfortunately, unknown.  */
-	  res.range.min = 1 == warn_format_length ? !nul : nul < 1;
+	  res.range.min = warn_format_overflow == 1 ? !nul : nul < 1;
 	  res.range.max = max_bytes_for_unknown_wc;
 	  /* The range above is good enough to issue warnings but not
 	     for value range propagation, so clear BOUNDED.  */
@@ -1756,7 +1762,7 @@ format_string (const conversion_spec &spec, tree arg)
 	    {
 	      bounded = false;
 
-	      if (warn_format_length > 1)
+	      if (warn_format_overflow > 1)
 		{
 		  /* Leave the minimum number of bytes the wide string
 		     converts to equal to its length and set the maximum
@@ -2038,7 +2044,7 @@ format_directive (const pass_sprintf_length::call_info &info,
 			    || warn_format_trunc > 1))
 		       || (!info.bounded
 			   && (spec.specifier == 's'
-			       || 1 < warn_format_length))))
+			       || warn_format_overflow > 1))))
 	    {
 	      /* The maximum directive output is longer than there is
 		 room in the destination and the output length is either
@@ -2049,7 +2055,8 @@ format_directive (const pass_sprintf_length::call_info &info,
 		  const char* fmtstr
 		    = (info.bounded
 		       ? G_("%<%.*s%> directive output may be truncated "
-			    "writing %wu or more bytes a region of size %wu")
+			    "writing %wu or more bytes into a region "
+			    "of size %wu")
 		       : G_("%<%.*s%> directive writing %wu or more bytes "
 			    "into a region of size %wu"));
 		  warned = fmtwarn (dirloc, pargrange, NULL,
@@ -2114,7 +2121,7 @@ format_directive (const pass_sprintf_length::call_info &info,
   if (!minunder4k || fmtres.range.max > 4095)
     res->under4k = false;
 
-  if (!warned && 1 < warn_format_length
+  if (!warned && warn_format_overflow > 1
       && (!minunder4k || fmtres.range.max > 4095))
     {
       /* The directive output may be longer than the maximum required
@@ -2151,7 +2158,7 @@ format_directive (const pass_sprintf_length::call_info &info,
 
   if (!warned
       && (exceedmin
-	  || (1 < warn_format_length
+	  || (warn_format_overflow > 1
 	      && res->number_chars_max > target_int_max ())))
     {
       /* The directive output causes the total length of output
@@ -2229,7 +2236,7 @@ add_bytes (const pass_sprintf_length::call_info &info,
      are bounded by the arrays they are known to refer to.  */
   if (!res->warned
       && (avail_range.max < nbytes
-	  || ((res->knownrange || 1 < warn_format_length)
+	  || ((res->knownrange || warn_format_overflow > 1)
 	      && avail_range.min < nbytes)))
     {
       /* Set NAVAIL to the number of available bytes used to decide
@@ -2237,7 +2244,7 @@ add_bytes (const pass_sprintf_length::call_info &info,
 	 warning will depend on AVAIL_RANGE.  */
       unsigned HOST_WIDE_INT navail = avail_range.max;
       if (nbytes <= navail && avail_range.min < HOST_WIDE_INT_MAX
-	  && (res->knownrange || 1 < warn_format_length))
+	  && (res->knownrange || warn_format_overflow > 1))
 	navail = avail_range.min;
 
       /* Compute the offset of the first format character that is beyond
@@ -2346,7 +2353,7 @@ add_bytes (const pass_sprintf_length::call_info &info,
 
   if (!res->warned
       && (exceedmin
-	  || (1 < warn_format_length
+	  || (warn_format_overflow > 1
 	      && (res->number_chars_max - !end) > target_int_max ())))
     {
       /* The function's output exceeds INT_MAX bytes.  */
@@ -2356,7 +2363,7 @@ add_bytes (const pass_sprintf_length::call_info &info,
 	 warning will depend on AVAIL_RANGE.  */
       unsigned HOST_WIDE_INT navail = avail_range.max;
       if (nbytes <= navail && avail_range.min < HOST_WIDE_INT_MAX
-	  && (res->bounded || 1 < warn_format_length))
+	  && (res->bounded || warn_format_overflow > 1))
 	navail = avail_range.min;
 
       /* Compute the offset of the first format character that is beyond
@@ -2723,6 +2730,9 @@ get_destination_size (tree dest)
      a member array as opposed to the whole enclosing object), otherwise
      use type-zero object size to determine the size of the enclosing
      object (the function fails without optimization in this type).  */
+
+  init_object_sizes ();
+
   int ost = optimize > 0;
   unsigned HOST_WIDE_INT size;
   if (compute_builtin_object_size (dest, ost, &size))
@@ -2735,9 +2745,11 @@ get_destination_size (tree dest)
    described by INFO, substitute the result for the return value of
    the call.  The result is suitable if the number of bytes it represents
    is known and exact.  A result that isn't suitable for substitution may
-   have its range set to the range of return values, if that is known.  */
+   have its range set to the range of return values, if that is known.
+   Return true if the call is removed and gsi_next should not be performed
+   in the caller.  */
 
-static void
+static bool
 try_substitute_return_value (gimple_stmt_iterator *gsi,
 			     const pass_sprintf_length::call_info &info,
 			     const format_result &res)
@@ -2797,6 +2809,24 @@ try_substitute_return_value (gimple_stmt_iterator *gsi,
 		   res.constant ? "constant" : "variable");
 	}
     }
+  else if (lhs == NULL_TREE
+	   && info.nowrite
+	   && !stmt_ends_bb_p (info.callstmt))
+    {
+      /* Remove the call to the bounded function with a zero size
+	 (e.g., snprintf(0, 0, "%i", 123)) if there is no lhs.  */
+      unlink_stmt_vdef (info.callstmt);
+      gsi_remove (gsi, true);
+      if (dump_file)
+	{
+	  location_t callloc = gimple_location (info.callstmt);
+	  fprintf (dump_file, "On line %i removing ",
+		   LOCATION_LINE (callloc));
+	  print_generic_expr (dump_file, info.func, dump_flags);
+	  fprintf (dump_file, " call.\n");
+	}
+      return true;
+    }
   else
     {
       unsigned HOST_WIDE_INT maxbytes;
@@ -2852,19 +2882,22 @@ try_substitute_return_value (gimple_stmt_iterator *gsi,
 		     inbounds, (unsigned long)res.number_chars - 1, ign);
 	}
     }
+
+  return false;
 }
 
 /* Determine if a GIMPLE CALL is to one of the sprintf-like built-in
-   functions and if so, handle it.  */
+   functions and if so, handle it.  Return true if the call is removed
+   and gsi_next should not be performed in the caller.  */
 
-void
+bool
 pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 {
   call_info info = call_info ();
 
   info.callstmt = gsi_stmt (*gsi);
   if (!gimple_call_builtin_p (info.callstmt, BUILT_IN_NORMAL))
-    return;
+    return false;
 
   info.func = gimple_call_fndecl (info.callstmt);
   info.fncode = DECL_FUNCTION_CODE (info.func);
@@ -2955,7 +2988,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
       break;
 
     default:
-      return;
+      return false;
     }
 
   /* The first argument is a pointer to the destination.  */
@@ -3011,7 +3044,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 	  if (range_type == VR_RANGE)
 	    {
 	      dstsize
-		= (warn_format_length < 2
+		= (warn_format_overflow < 2
 		   ? wi::fits_uhwi_p (max) ? max.to_uhwi () : max.to_shwi ()
 		   : wi::fits_uhwi_p (min) ? min.to_uhwi () : min.to_shwi ());
 	    }
@@ -3019,11 +3052,9 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
     }
 
   if (idx_objsize != HOST_WIDE_INT_M1U)
-    {
-      if (tree size = gimple_call_arg (info.callstmt, idx_objsize))
-	  if (tree_fits_uhwi_p (size))
-	    objsize = tree_to_uhwi (size);
-    }
+    if (tree size = gimple_call_arg (info.callstmt, idx_objsize))
+      if (tree_fits_uhwi_p (size))
+	objsize = tree_to_uhwi (size);
 
   if (info.bounded && !dstsize)
     {
@@ -3048,7 +3079,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 	  location_t loc = gimple_location (info.callstmt);
 	  warning_at (EXPR_LOC_OR_LOC (dstptr, loc),
 		      info.warnopt (), "null destination pointer");
-	  return;
+	  return false;
 	}
 
       /* Set the object size to the smaller of the two arguments
@@ -3077,12 +3108,12 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
       location_t loc = gimple_location (info.callstmt);
       warning_at (EXPR_LOC_OR_LOC (info.format, loc),
 		  info.warnopt (), "null format string");
-      return;
+      return false;
     }
 
   info.fmtstr = get_format_string (info.format, &info.fmtloc);
   if (!info.fmtstr)
-    return;
+    return false;
 
   /* The result is the number of bytes output by the formatted function,
      including the terminating NUL.  */
@@ -3098,7 +3129,8 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
       && optimize > 0
       && flag_printf_return_value
       && (!flag_rounding_math || !res.floating))
-    try_substitute_return_value (gsi, info, res);
+    return try_substitute_return_value (gsi, info, res);
+  return false;
 }
 
 /* Execute the pass for function FUN.  */
@@ -3109,16 +3141,21 @@ pass_sprintf_length::execute (function *fun)
   basic_block bb;
   FOR_EACH_BB_FN (bb, fun)
     {
-      for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
-	   gsi_next (&si))
+      for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si); )
 	{
 	  /* Iterate over statements, looking for function calls.  */
 	  gimple *stmt = gsi_stmt (si);
 
-	  if (is_gimple_call (stmt))
-	    handle_gimple_call (&si);
+	  if (is_gimple_call (stmt) && handle_gimple_call (&si))
+	    /* If handle_gimple_call returns true, the iterator is
+	       already pointing to the next statement.  */
+	    continue;
+
+	  gsi_next (&si);
 	}
     }
+
+  fini_object_sizes ();
 
   return 0;
 }

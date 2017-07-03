@@ -393,8 +393,8 @@ package body Sem_Ch10 is
 
                elsif Nkind (Cont_Item) = N_Pragma
                  and then
-                   Nam_In (Pragma_Name (Cont_Item), Name_Elaborate,
-                                                    Name_Elaborate_All)
+                   Nam_In (Pragma_Name_Unmapped (Cont_Item),
+                           Name_Elaborate, Name_Elaborate_All)
                  and then not Used_Type_Or_Elab
                then
                   Prag_Unit :=
@@ -1332,7 +1332,7 @@ package body Sem_Ch10 is
       Item := First (Context_Items (N));
       while Present (Item)
         and then Nkind (Item) = N_Pragma
-        and then Pragma_Name_Mapped (Item) in Configuration_Pragma_Names
+        and then Pragma_Name (Item) in Configuration_Pragma_Names
       loop
          Analyze (Item);
          Next (Item);
@@ -2532,21 +2532,7 @@ package body Sem_Ch10 is
          Set_Analyzed (N);
       end if;
 
-      --  If the library unit is a predefined unit, and we are in high
-      --  integrity mode, then temporarily reset Configurable_Run_Time_Mode
-      --  for the analysis of the with'ed unit. This mode does not prevent
-      --  explicit with'ing of run-time units.
-
-      if Configurable_Run_Time_Mode
-        and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (U)))
-      then
-         Configurable_Run_Time_Mode := False;
-         Semantics (Library_Unit (N));
-         Configurable_Run_Time_Mode := True;
-
-      else
-         Semantics (Library_Unit (N));
-      end if;
+      Semantics (Library_Unit (N));
 
       Intunit := Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit));
 
@@ -3384,7 +3370,7 @@ package body Sem_Ch10 is
       Item := First (Context_Items (N));
       while Present (Item)
         and then Nkind (Item) = N_Pragma
-        and then Pragma_Name_Mapped (Item) in Configuration_Pragma_Names
+        and then Pragma_Name (Item) in Configuration_Pragma_Names
       loop
          Next (Item);
       end loop;
@@ -3678,10 +3664,11 @@ package body Sem_Ch10 is
          --  Protect the frontend against previous critical errors
 
          case Nkind (Unit (Library_Unit (W))) is
-            when N_Subprogram_Declaration         |
-                 N_Package_Declaration            |
-                 N_Generic_Subprogram_Declaration |
-                 N_Generic_Package_Declaration    =>
+            when N_Generic_Package_Declaration
+               | N_Generic_Subprogram_Declaration
+               | N_Package_Declaration
+               | N_Subprogram_Declaration
+            =>
                null;
 
             when others =>
@@ -4526,7 +4513,7 @@ package body Sem_Ch10 is
                   Check_Declarations (Specification (Decl));
 
                elsif Nkind (Decl) = N_Pragma
-                 and then Pragma_Name_Mapped (Decl) = Name_Import
+                 and then Pragma_Name (Decl) = Name_Import
                then
                   Check_Pragma_Import (Decl);
                end if;
@@ -4558,7 +4545,7 @@ package body Sem_Ch10 is
                   Append_Elmt (Decl, Incomplete_Decls);
 
                elsif Nkind (Decl) = N_Pragma
-                 and then Pragma_Name_Mapped (Decl) = Name_Import
+                 and then Pragma_Name (Decl) = Name_Import
                then
                   Check_Pragma_Import (Decl);
                end if;
@@ -5826,7 +5813,7 @@ package body Sem_Ch10 is
 
             Decl := First (Decls);
             while Present (Decl) and then Nkind (Decl) = N_Pragma loop
-               if Pragma_Name_Mapped (Decl) = Name_Abstract_State then
+               if Pragma_Name (Decl) = Name_Abstract_State then
                   Process_State
                     (Get_Pragma_Arg
                        (First (Pragma_Argument_Associations (Decl))));
@@ -6017,8 +6004,9 @@ package body Sem_Ch10 is
             Error_Msg_N ("subprograms not allowed in limited with_clauses", N);
             return;
 
-         when N_Generic_Package_Declaration |
-              N_Generic_Subprogram_Declaration =>
+         when N_Generic_Package_Declaration
+            | N_Generic_Subprogram_Declaration
+         =>
             Error_Msg_N ("generics not allowed in limited with_clauses", N);
             return;
 

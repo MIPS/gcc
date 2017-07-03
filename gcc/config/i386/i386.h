@@ -85,6 +85,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX5124FMAPS_P(x) TARGET_ISA_AVX5124FMAPS_P(x)
 #define TARGET_AVX5124VNNIW	TARGET_ISA_AVX5124VNNIW
 #define TARGET_AVX5124VNNIW_P(x) TARGET_ISA_AVX5124VNNIW_P(x)
+#define TARGET_AVX512VPOPCNTDQ	TARGET_ISA_AVX512VPOPCNTDQ
+#define TARGET_AVX512VPOPCNTDQ_P(x) TARGET_ISA_AVX512VPOPCNTDQ_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -98,6 +100,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_ROUND	TARGET_ISA_ROUND
 #define TARGET_ABM	TARGET_ISA_ABM
 #define TARGET_ABM_P(x)	TARGET_ISA_ABM_P(x)
+#define TARGET_SGX	TARGET_ISA_SGX
+#define TARGET_SGX_P(x)	TARGET_ISA_SGX_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
 #define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
@@ -1207,9 +1211,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   (CC_REGNO_P (REGNO) ? VOIDmode					\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
    : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false) \
-   : (MODE) == HImode && !(TARGET_PARTIAL_REG_STALL			\
+   : (MODE) == HImode && !((GENERAL_REGNO_P (REGNO)			\
+			    && TARGET_PARTIAL_REG_STALL)		\
 			   || MASK_REGNO_P (REGNO)) ? SImode		\
-   : (MODE) == QImode && !(TARGET_64BIT || QI_REGNO_P (REGNO)		\
+   : (MODE) == QImode && !(ANY_QI_REGNO_P (REGNO)			\
 			   || MASK_REGNO_P (REGNO)) ? SImode		\
    : (MODE))
 
@@ -1553,30 +1558,6 @@ enum reg_class
 
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
-
-/* Place additional restrictions on the register class to use when it
-   is necessary to be able to hold a value of mode MODE in a reload
-   register for which class CLASS would ordinarily be used.
-
-   We avoid classes containing registers from multiple units due to
-   the limitation in ix86_secondary_memory_needed.  We limit these
-   classes to their "natural mode" single unit register class, depending
-   on the unit availability.
-
-   Please note that reg_class_subset_p is not commutative, so these
-   conditions mean "... if (CLASS) includes ALL registers from the
-   register set."  */
-
-#define LIMIT_RELOAD_CLASS(MODE, CLASS)					\
-  (((MODE) == QImode && !TARGET_64BIT					\
-    && reg_class_subset_p (Q_REGS, (CLASS))) ? Q_REGS			\
-   : (((MODE) == SImode || (MODE) == DImode)				\
-      && reg_class_subset_p (GENERAL_REGS, (CLASS))) ? GENERAL_REGS	\
-   : (SSE_FLOAT_MODE_P (MODE) && TARGET_SSE_MATH			\
-      && reg_class_subset_p (SSE_REGS, (CLASS))) ? SSE_REGS		\
-   : (X87_FLOAT_MODE_P (MODE)						\
-      && reg_class_subset_p (FLOAT_REGS, (CLASS))) ? FLOAT_REGS		\
-   : (CLASS))
 
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */

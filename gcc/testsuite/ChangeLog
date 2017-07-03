@@ -1,3 +1,437 @@
+2017-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71433
+	* gcc.dg/Warray-bounds-20.c: New testcase.
+
+2017-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/52563
+	PR testsuite/71237
+	PR testsuite/77737
+	* gcc.dg/tree-ssa/scev-3.c: Re-write to a GIMPLE testcase for IVOPTs.
+	* gcc.dg/tree-ssa/scev-4.c: Likewise.
+	* gcc.dg/tree-ssa/scev-5.c: Likewise.
+
+2017-01-17  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/pr79066.c: New.
+
+2017-01-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/33562
+	PR tree-optimization/61912
+	PR tree-optimization/77485
+	PR tree-optimization/79090
+	* gcc.dg/tree-ssa/ssa-dse-29.c: New test.
+	* g++.dg/tree-ssa/ssa-dse-2.C: New test.
+
+2017-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/79089
+	* gcc.c-torture/compile/pr79089.c: New test.
+
+	PR target/79080
+	* gcc.dg/pr79080.c: New test.
+
+2017-01-16  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/78304
+	* gcc.dg/format/pr78304.c: Convert argument from integral type
+	to a pointer.
+	* gcc.dg/format/pr78304-2.c: Likewise.
+
+2017-01-16  Carl Love  <cel@us.ibm.com>
+
+	* gcc.target/powerpc/builtins-3.c: New vec_nabs testcase.
+	* gcc.target/powerpc/builtins-3-p8.c: New vec_nabs testcase.
+
+2017-01-16 Carl Love  <cel@us.ibm.com>
+
+	* gcc.target/powerpc/builtins-3-p9.c (test_ne_long()):
+	Change arguments and return type to bool long long.
+
+2017-01-16  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/79051
+	* gcc.dg/attr-alloc_size-4.c: Avoid exercising a test case except
+	on x86.
+
+2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+        2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71737
+	* g++.dg/cpp0x/pr71737.C: New.
+
+2017-01-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/swaps-p8-27.c: New.
+
+2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71737
+	* g++.dg/cpp0x/pr71737.C: New.
+
+2017-01-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt62.adb: New test.
+	* gnat.dg/opt62_pkg.ads: New helper.
+
+2017-01-14  Bernd Schmidt  <bschmidt@redhat.com>
+
+        PR rtl-optimization/78626
+        PR rtl-optimization/78727
+	* gcc.dg/torture/pr78626.c: New test.
+	* gcc.dg/torture/pr78727.c: New test.
+
+2017-01-14  Alan Modra  <amodra@gmail.com>
+
+	* gcc.c-torture/compile/pr72749.c: New test.
+
+2017-01-13  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/78304
+	* gcc.dg/format/diagnostic-ranges.c (test_macro): Undef INT_FMT.
+	(test_macro_2): New test.
+	(test_macro_3): New test.
+	(test_macro_4): New test.
+	(test_non_contiguous_strings): Convert line number to line offset.
+	* gcc.dg/format/pr78304-2.c: New test case.
+	* gcc.dg/format/pr78304.c: New test case.
+
+2017-01-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/funcspec-56.inc: Add missing options and
+	reorder options by implied ISAs, as in ix86_target_string.
+
+2017-01-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71166
+	* g++.dg/cpp0x/constexpr-array18.C: New test.
+
+2017-01-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dse-25.c: New test.
+
+	PR tree-optimization/61912
+	PR tree-optimization/77485
+	* g++.dg/tree-ssa/ssa-dse-1.C: New test.
+	* gcc.dg/tree-ssa/pr30375: Adjust expected output.
+	* gcc.dg/tree-ssa/ssa-dse-24.c: New test.
+
+	PR tree-optimization/33562
+	PR tree-optimization/61912
+	PR tree-optimization/77485
+	* gcc.dg/tree-ssa/complex-4.c: Remove xfail.
+	* gcc.dg/tree-ssa/complex-5.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-9.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-18.c: New test.
+	* gcc.dg/tree-ssa/ssa-dse-19.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-20.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-21.c: Likewise.
+
+2017-01-13  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/79043
+	* gcc.c-torture/execute/pr79043.c: New test.
+
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78411
+	* gcc.target/i386/pr45685.c: Add -ftree-loop-if-convert.
+
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70697
+	* gfortran.dg/coarray/event_4.f08: New test.
+
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70696
+	* gfortran.dg/coarray/event_3.f08: New test.
+
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77283
+	* gcc.dg/tree-ssa/split-path-9.c: Fix.
+
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/gimplefe-22.c: New testcase.
+
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77283
+	* gcc.dg/tree-ssa/split-path-7.c: Adjust.
+	* gcc.dg/tree-ssa/split-path-8.c: New testcase.
+	* gcc.dg/tree-ssa/split-path-9.c: Likewise.
+
+2017-01-12  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.dg/pr77862.c: Require fpic target.
+
+2017-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/79004
+	* gcc.target/powerpc/pr79004.c: New test.
+2017-01-12  Martin Sebor  <msebor@redhat.com>
+
+	* gcc.dg/pr78138.c: Adjust.
+	* gcc.dg/pr78768.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-4.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-6.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-7.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-8.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-9.c: Adjust.
+	* gcc.dg/tree-ssa/pr78605.c: Adjust.
+	* gcc.dg/tree-ssa/pr78622.c: Adjust.
+
+2017-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/builtin-snprintf-1.c: New test.
+
+2017-01-12  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/79051
+	* gcc.dg/attr-alloc_size-4.c: Work harder to avoid false negatives
+	due to bug 79054.
+
+2017-01-12  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/pr78768.c: Require LTO.
+
+2017-01-12  Martin Sebor  <msebor@redhat.com>
+
+	PR c/79074
+	* c-c++-common/Waddress-2.c: Remove a test to avoid a C failure
+	due to the referenced bug.
+
+2017-01-12  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/79073
+	* gcc.dg/pr78973.c: Xfail on ILP32 targets.
+
+2017-01-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/builtin_target.c (check_features): Check all
+	supported __builtin_cpu_supports options.
+
+2017-01-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/78319
+	* gcc.dg/uninit-pred-8_a.c: Add -mtune=cortex-a15 for arm.
+	Remove xfail.
+
+2017-01-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/79044
+	* gcc.target/powerpc/swaps-p8-26.c: New.
+
+2017-01-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/gimplefe-21.c: New testcase.
+
+2017-01-12  Michael Collison  <michael.collison@arm.com>
+
+	* gcc.dg/zero_bits_compound-2.c: Fix test for aarch64.
+
+2017-01-11  Julia Koval  <julia.koval@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sgx.c New test.
+	* gcc.target/i386/sse-12.c: Add -msgx.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* g++.dg/other/i386-2.C: Ditto.
+	* g++.dg/other/i386-3.C: Ditto.
+
+2017-01-11  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/24511
+	* g++.dg/template/explicit9.C: New test.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77812
+	* g++.dg/pr77812.C: New.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71537
+	* g++.dg/cpp1y/constexpr-71537.C: New test.
+
+	* gcc.dg/tree-ssa/flatten-3.c: Add quotation marks around dg-options
+	argument.
+
+2017-01-11  Martin Sebor  <msebor@redhat.com>
+
+	PR c/47931
+	* c-c++-common/Waddress-2.c: New test.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78341
+	* g++.dg/cpp0x/pr78341.C: New test.
+
+2017-01-11  Martin Sebor  <msebor@redhat.com>
+
+	PR c/78768
+	* gcc.dg/pr78768.c: New test.
+
+2017-01-11  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/78877
+	* gcc.dg/spellcheck-options-14.c: New test case.
+	* gcc.dg/spellcheck-options-15.c: New test case.
+	* gcc.dg/spellcheck-options-16.c: New test case.
+	* gcc.dg/spellcheck-options-17.c: New test case.
+
+2017-01-11  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/tree-ssa/flatten-3.c: Add -fno-ipa-icf to dg-options.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/decomp4.C (test): Use 2 identifier decomposition
+	instead of just 1 for the decomposition from struct C.
+
+2017-01-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20170111-1.c: New test.
+
+2017-01-11  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr61743-1.c: Adjust.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/50199
+	* gcc.dg/lto/pr50199_0.c: New test.
+
+2017-01-10  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/78960
+	PR testsuite/78959
+	PR testsuite/78133
+	* gcc.dg/tree-ssa/builtin-sprintf.c: Require C99 runtime.
+	* gcc.dg/tree-ssa/pr78622.c: Ditto.
+
+2017-01-10  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78138
+	* gcc.dg/pr78138.c: New test.
+
+2017-01-10  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77949
+	* g++.dg/diagnostic/pr77949.C: New test case.
+
+2017-01-10  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78245
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Add tests.
+
+2017-01-10  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78775
+	* gcc.dg/attr-alloc_size-4.c: Add test cases.
+	* gcc.dg/attr-alloc_size-10.c: New test.
+	* gcc.dg/attr-alloc_size-11.c: New test.
+	* gcc.dg/builtin-stringop-chk-7.c: New test.
+	* gcc.dg/pr78775.c: New test.
+	* gcc.dg/pr78973-2.c: New test.
+	* gcc.dg/pr78973.c: New test.
+
+2017-01-10  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/77766
+	PR tree-optimization/78856
+	* gcc.c-torture/execute/pr77766.c: New test.
+
+2016-01-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79034
+	* g++.dg/torture/pr79034.C: New testcase.
+
+2017-01-10  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/ipa/ipa-icf-1.c: Change scanned pattern.
+	* gcc.dg/ipa/ipa-icf-10.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-11.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-12.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-13.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-16.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-18.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-2.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-20.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-21.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-23.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-25.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-26.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-27.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-3.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-35.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-36.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-37.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-5.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-7.c: Likewise.
+	* gcc.dg/ipa/ipa-icf-8.c: Likewise.
+	* gcc.dg/ipa/pr64307.c: Likewise.
+	* gcc.dg/ipa/pr77653.c: Likewise.
+
+2017-01-10  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* g++.dg/other/i386-2.C: Add -mavx512vpopcntdq.
+	* g++.dg/other/i386-3.C: Ditto.
+	* gcc.target/i386/sse-12.c: Ditto.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* gcc.target/i386/builtin_target.c: Handle new option.
+	* gcc.target/i386/funcspec-56.inc: Test new attributes.
+	* gcc.target/i386/avx512vpopcntdq-vpopcntd.c: New test.
+	* gcc.target/i386/avx512vpopcntdq-vpopcntq.c: Ditto.
+
+2017-01-09  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/79036
+	* gcc.dg/tree-ssa/builtin-sprintf.c: Handle extended formats
+	with different precisions.
+
+2017-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/opt/call2.C: New test.
+	* g++.dg/opt/call3.C: Likewise.
+	* gnat.dg/array26.adb: New test.
+	* gnat.dg/array26_pkg.ad[sb]: New helper.
+	* gnat.dg/array27.adb: New test.
+	* gnat.dg/array27_pkg.ad[sb]: New helper.
+	* gnat.dg/array28.adb: New test.
+	* gnat.dg/array28_pkg.ad[sb]: New helper.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* c-c++-common/goacc/host_data-2.c (f): Adjust expected spelling of
+	diagnostics.
+	* gfortran.dg/initialization_17.f90: Likewise.
+
+2017-01-09  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR testsuite/79026
+	* gcc.target/i386/pr78904-2.c: Require nonpic targets.
+	* gcc.target/i386/pr78904-4.c: Likewise.
+	* gcc.target/i386/pr78904-6.c: Likewise.
+	* gcc.target/i386/pr78967-2.c: Likewise.
+
 2017-01-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/78899

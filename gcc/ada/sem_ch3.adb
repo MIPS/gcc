@@ -1847,7 +1847,6 @@ package body Sem_Ch3 is
 
             when others =>
                return False;
-
          end case;
       end Contains_POC;
 
@@ -2179,6 +2178,10 @@ package body Sem_Ch3 is
       --  If the states have visible refinement, remove the visibility of each
       --  constituent at the end of the package body declaration.
 
+      procedure Resolve_Aspects;
+      --  Utility to resolve the expressions of aspects at the end of a list of
+      --  declarations.
+
       -----------------
       -- Adjust_Decl --
       -----------------
@@ -2370,6 +2373,21 @@ package body Sem_Ch3 is
          end if;
       end Remove_Visible_Refinements;
 
+      ---------------------
+      -- Resolve_Aspects --
+      ---------------------
+
+      procedure Resolve_Aspects is
+         E : Entity_Id;
+
+      begin
+         E := First_Entity (Current_Scope);
+         while Present (E) loop
+            Resolve_Aspect_Expressions (E);
+            Next_Entity (E);
+         end loop;
+      end Resolve_Aspects;
+
       --  Local variables
 
       Context     : Node_Id   := Empty;
@@ -2452,13 +2470,31 @@ package body Sem_Ch3 is
               and then not Is_Child_Unit (Current_Scope)
               and then No (Generic_Parent (Parent (L)))
             then
-               null;
+               --  This is needed in all cases to catch visibility errors in
+               --  aspect expressions, but several large user tests are now
+               --  rejected. Pending notification we restrict this call to
+               --  ASIS mode.
+
+               if ASIS_Mode then
+                  Resolve_Aspects;
+               end if;
 
             elsif L /= Visible_Declarations (Parent (L))
               or else No (Private_Declarations (Parent (L)))
               or else Is_Empty_List (Private_Declarations (Parent (L)))
             then
                Adjust_Decl;
+
+               --  In compilation mode the expansion of freeze node takes care
+               --  of resolving expressions of all aspects in the list. In ASIS
+               --  mode this must be done explicitly.
+
+               if ASIS_Mode
+                 and then Scope (Current_Scope) = Standard_Standard
+               then
+                  Resolve_Aspects;
+               end if;
+
                Freeze_All (First_Entity (Current_Scope), Decl);
                Freeze_From := Last_Entity (Current_Scope);
 
@@ -2474,16 +2510,7 @@ package body Sem_Ch3 is
             --  pragmas do not appear in the original generic tree.
 
             elsif Serious_Errors_Detected = 0 then
-               declare
-                  E : Entity_Id;
-
-               begin
-                  E := First_Entity (Current_Scope);
-                  while Present (E) loop
-                     Resolve_Aspect_Expressions (E);
-                     Next_Entity (E);
-                  end loop;
-               end;
+               Resolve_Aspects;
             end if;
 
          --  If next node is a body then freeze all types before the body.
@@ -2824,13 +2851,6 @@ package body Sem_Ch3 is
       if not Analyzed (T) then
          Set_Analyzed (T);
 
-         --  A type declared within a Ghost region is automatically Ghost
-         --  (SPARK RM 6.9(2)).
-
-         if Ghost_Mode > None then
-            Set_Is_Ghost_Entity (T);
-         end if;
-
          case Nkind (Def) is
             when N_Access_To_Subprogram_Definition =>
                Access_Subprogram_Declaration (T, Def);
@@ -2899,7 +2919,6 @@ package body Sem_Ch3 is
 
             when others =>
                raise Program_Error;
-
          end case;
       end if;
 
@@ -3072,13 +3091,6 @@ package body Sem_Ch3 is
       Set_Is_First_Subtype (T, True);
       Set_Etype (T, T);
 
-      --  An incomplete type declared within a Ghost region is automatically
-      --  Ghost (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None then
-         Set_Is_Ghost_Entity (T);
-      end if;
-
       --  Ada 2005 (AI-326): Minimum decoration to give support to tagged
       --  incomplete types.
 
@@ -3185,13 +3197,6 @@ package body Sem_Ch3 is
    begin
       Generate_Definition (Id);
       Enter_Name (Id);
-
-      --  A number declared within a Ghost region is automatically Ghost
-      --  (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None then
-         Set_Is_Ghost_Entity (Id);
-      end if;
 
       --  This is an optimization of a common case of an integer literal
 
@@ -3324,6 +3329,10 @@ package body Sem_Ch3 is
    -- Analyze_Object_Declaration --
    --------------------------------
 
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  Ghost mode.
+
    procedure Analyze_Object_Declaration (N : Node_Id) is
       Loc   : constant Source_Ptr := Sloc (N);
       Id    : constant Entity_Id  := Defining_Identifier (N);
@@ -3435,8 +3444,9 @@ package body Sem_Ch3 is
 
       --  Local variables
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
-      Related_Id      : Entity_Id;
+      Mode       : Ghost_Mode_Type;
+      Mode_Set   : Boolean := False;
+      Related_Id : Entity_Id;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -3501,14 +3511,14 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  The object declaration is Ghost when it is subject to pragma Ghost or
-      --  completes a deferred Ghost constant. Set the mode now to ensure that
-      --  any nodes generated during analysis and expansion are properly marked
-      --  as Ghost.
-
-      Set_Ghost_Mode (N, Prev_Entity);
-
       if Present (Prev_Entity) then
+
+         --  The object declaration is Ghost when it completes a deferred Ghost
+         --  constant.
+
+         Mark_And_Set_Ghost_Completion (N, Prev_Entity, Mode);
+         Mode_Set := True;
+
          Constant_Redeclaration (Id, N, T);
 
          Generate_Reference (Prev_Entity, Id, 'c');
@@ -3802,8 +3812,7 @@ package body Sem_Ch3 is
            and then Analyzed (N)
            and then No (Expression (N))
          then
-            Ghost_Mode := Save_Ghost_Mode;
-            return;
+            goto Leave;
          end if;
 
          --  If E is null and has been replaced by an N_Raise_Constraint_Error
@@ -4061,23 +4070,6 @@ package body Sem_Ch3 is
                   Set_Ekind (Id, E_Variable);
                end if;
 
-               --  An object declared within a Ghost region is automatically
-               --  Ghost (SPARK RM 6.9(2)).
-
-               if Ghost_Mode > None then
-                  Set_Is_Ghost_Entity (Id);
-
-                  --  The Ghost policy in effect at the point of declaration
-                  --  and at the point of completion must match
-                  --  (SPARK RM 6.9(14)).
-
-                  if Present (Prev_Entity)
-                    and then Is_Ghost_Entity (Prev_Entity)
-                  then
-                     Check_Ghost_Completion (Prev_Entity, Id);
-                  end if;
-               end if;
-
                Rewrite (N,
                  Make_Object_Renaming_Declaration (Loc,
                    Defining_Identifier => Id,
@@ -4087,9 +4079,7 @@ package body Sem_Ch3 is
                Set_Renamed_Object (Id, E);
                Freeze_Before (N, T);
                Set_Is_Frozen (Id);
-
-               Ghost_Mode := Save_Ghost_Mode;
-               return;
+               goto Leave;
 
             else
                --  Ensure that the generated subtype has a unique external name
@@ -4159,9 +4149,10 @@ package body Sem_Ch3 is
 
          elsif Nkind (E) = N_Aggregate
            and then Present (Component_Associations (E))
-           and then Present (Choices (First (Component_Associations (E))))
-           and then Nkind (First
-            (Choices (First (Component_Associations (E))))) = N_Others_Choice
+           and then Present (Choice_List (First (Component_Associations (E))))
+           and then
+             Nkind (First (Choice_List (First (Component_Associations (E))))) =
+               N_Others_Choice
          then
             null;
 
@@ -4262,22 +4253,6 @@ package body Sem_Ch3 is
       Init_Alignment               (Id);
       Init_Esize                   (Id);
       Set_Optimize_Alignment_Flags (Id);
-
-      --  An object declared within a Ghost region is automatically Ghost
-      --  (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None
-        or else (Present (Prev_Entity) and then Is_Ghost_Entity (Prev_Entity))
-      then
-         Set_Is_Ghost_Entity (Id);
-
-         --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(14)).
-
-         if Present (Prev_Entity) and then Is_Ghost_Entity (Prev_Entity) then
-            Check_Ghost_Completion (Prev_Entity, Id);
-         end if;
-      end if;
 
       --  Deal with aliased case
 
@@ -4481,7 +4456,9 @@ package body Sem_Ch3 is
          Check_No_Hidden_State (Id);
       end if;
 
-      Ghost_Mode := Save_Ghost_Mode;
+      if Mode_Set then
+         Restore_Ghost_Mode (Mode);
+      end if;
    end Analyze_Object_Declaration;
 
    ---------------------------
@@ -4919,8 +4896,8 @@ package body Sem_Ch3 is
 
          case Ekind (T) is
             when Array_Kind =>
-               Set_Ekind                       (Id, E_Array_Subtype);
-               Copy_Array_Subtype_Attributes   (Id, T);
+               Set_Ekind                     (Id, E_Array_Subtype);
+               Copy_Array_Subtype_Attributes (Id, T);
 
             when Decimal_Fixed_Point_Kind =>
                Set_Ekind                (Id, E_Decimal_Fixed_Point_Subtype);
@@ -4992,7 +4969,9 @@ package body Sem_Ch3 is
                   Set_Equivalent_Type   (Id, Equivalent_Type    (T));
                end if;
 
-            when E_Record_Type | E_Record_Subtype =>
+            when E_Record_Subtype
+               | E_Record_Type
+            =>
                Set_Ekind                (Id, E_Record_Subtype);
 
                if Ekind (T) = E_Record_Subtype
@@ -5147,7 +5126,7 @@ package body Sem_Ch3 is
                   Set_Stored_Constraint_From_Discriminant_Constraint (Id);
                end if;
 
-            when Incomplete_Kind  =>
+            when Incomplete_Kind =>
                if Ada_Version >= Ada_2005 then
 
                   --  In Ada 2005 an incomplete type can be explicitly tagged:
@@ -5501,13 +5480,13 @@ package body Sem_Ch3 is
    procedure Array_Type_Declaration (T : in out Entity_Id; Def : Node_Id) is
       Component_Def : constant Node_Id := Component_Definition (Def);
       Component_Typ : constant Node_Id := Subtype_Indication (Component_Def);
+      P             : constant Node_Id := Parent (Def);
       Element_Type  : Entity_Id;
       Implicit_Base : Entity_Id;
       Index         : Node_Id;
-      Related_Id    : Entity_Id := Empty;
       Nb_Index      : Nat;
-      P             : constant Node_Id := Parent (Def);
       Priv          : Entity_Id;
+      Related_Id    : Entity_Id := Empty;
 
    begin
       if Nkind (Def) = N_Constrained_Array_Definition then
@@ -5563,8 +5542,8 @@ package body Sem_Ch3 is
          then
             declare
                Loc   : constant Source_Ptr := Sloc (Def);
-               New_E : Entity_Id;
                Decl  : Entity_Id;
+               New_E : Entity_Id;
 
             begin
                New_E := Make_Temporary (Loc, 'T');
@@ -5704,12 +5683,6 @@ package body Sem_Ch3 is
                             (Implicit_Base, Empty);
 
          Propagate_Concurrent_Flags (Implicit_Base, Element_Type);
-
-         --  Inherit the "ghostness" from the constrained array type
-
-         if Ghost_Mode > None or else Is_Ghost_Entity (T) then
-            Set_Is_Ghost_Entity (Implicit_Base);
-         end if;
 
       --  Unconstrained array case
 
@@ -5864,9 +5837,10 @@ package body Sem_Ch3 is
       Set_Is_Internal (Anon);
 
       case Nkind (N) is
-         when N_Component_Declaration       |
-           N_Unconstrained_Array_Definition |
-           N_Constrained_Array_Definition   =>
+         when N_Constrained_Array_Definition
+            | N_Component_Declaration
+            | N_Unconstrained_Array_Definition
+         =>
             Comp := Component_Definition (N);
             Acc  := Access_Definition (Comp);
 
@@ -6188,12 +6162,6 @@ package body Sem_Ch3 is
          Copy_Array_Base_Type_Attributes (Implicit_Base, Parent_Base);
 
          Set_Has_Delayed_Freeze (Implicit_Base, True);
-
-         --  Inherit the "ghostness" from the parent base type
-
-         if Ghost_Mode > None or else Is_Ghost_Entity (Parent_Base) then
-            Set_Is_Ghost_Entity (Implicit_Base);
-         end if;
       end Make_Implicit_Base;
 
    --  Start of processing for Build_Derived_Array_Type
@@ -9127,9 +9095,13 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  We similarly inherit predicates
+      --  We similarly inherit predicates. Note that for scalar derived types
+      --  the predicate is inherited from the first subtype, and not from its
+      --  (anonymous) base type.
 
-      if Has_Predicates (Parent_Type) then
+      if Has_Predicates (Parent_Type)
+        or else Has_Predicates (First_Subtype (Parent_Type))
+      then
          Set_Has_Predicates (Derived_Type);
       end if;
 
@@ -9144,8 +9116,9 @@ package body Sem_Ch3 is
          Set_May_Inherit_Delayed_Rep_Aspects (Derived_Type);
       end if;
 
-      --  Propagate the attributes related to pragma Ghost from the parent type
-      --  to the derived type or type extension (SPARK RM 6.9(9)).
+      --  A derived type becomes Ghost when its parent type is also Ghost
+      --  (SPARK RM 6.9(9)). Note that the Ghost-related attributes are not
+      --  directly inherited because the Ghost policy in effect may differ.
 
       if Is_Ghost_Entity (Parent_Type) then
          Set_Is_Ghost_Entity (Derived_Type);
@@ -9160,9 +9133,10 @@ package body Sem_Ch3 is
          when Array_Kind =>
             Build_Derived_Array_Type (N, Parent_Type,  Derived_Type);
 
-         when E_Record_Type
+         when Class_Wide_Kind
             | E_Record_Subtype
-            | Class_Wide_Kind  =>
+            | E_Record_Type
+         =>
             Build_Derived_Record_Type
               (N, Parent_Type, Derived_Type, Derive_Subps);
             return;
@@ -11717,12 +11691,13 @@ package body Sem_Ch3 is
       Save_Homonym     := Homonym (Priv);
 
       case Ekind (Full_Base) is
-         when E_Record_Type    |
-              E_Record_Subtype |
-              Class_Wide_Kind  |
-              Private_Kind     |
-              Task_Kind        |
-              Protected_Kind   =>
+         when Class_Wide_Kind
+            | Private_Kind
+            | Protected_Kind
+            | Task_Kind
+            | E_Record_Subtype
+            | E_Record_Type
+         =>
             Copy_Node (Priv, Full);
 
             Set_Has_Discriminants
@@ -14932,12 +14907,6 @@ package body Sem_Ch3 is
          Set_Alias (New_Subp, Actual_Subp);
       end if;
 
-      --  Inherit the "ghostness" from the parent subprogram
-
-      if Is_Ghost_Entity (Alias (New_Subp)) then
-         Set_Is_Ghost_Entity (New_Subp);
-      end if;
-
       --  Derived subprograms of a tagged type must inherit the convention
       --  of the parent subprogram (a requirement of AI-117). Derived
       --  subprograms of untagged types simply get convention Ada by default.
@@ -18021,8 +17990,9 @@ package body Sem_Ch3 is
    is
    begin
       case T_Kind is
-         when Enumeration_Kind |
-              Integer_Kind =>
+         when Enumeration_Kind
+            | Integer_Kind
+         =>
             return Constraint_Kind = N_Range_Constraint;
 
          when Decimal_Fixed_Point_Kind =>
@@ -18037,14 +18007,15 @@ package body Sem_Ch3 is
             return Nkind_In (Constraint_Kind, N_Digits_Constraint,
                                               N_Range_Constraint);
 
-         when Access_Kind       |
-              Array_Kind        |
-              E_Record_Type     |
-              E_Record_Subtype  |
-              Class_Wide_Kind   |
-              E_Incomplete_Type |
-              Private_Kind      |
-              Concurrent_Kind  =>
+         when Access_Kind
+            | Array_Kind
+            | Class_Wide_Kind
+            | Concurrent_Kind
+            | Private_Kind
+            | E_Incomplete_Type
+            | E_Record_Subtype
+            | E_Record_Type
+         =>
             return Constraint_Kind = N_Index_Or_Discriminant_Constraint;
 
          when others =>
@@ -18307,7 +18278,8 @@ package body Sem_Ch3 is
       Set_Freeze_Node (CW_Type, Empty);
 
       --  Customize the class-wide type: It has no prim. op., it cannot be
-      --  abstract and its Etype points back to the specific root type.
+      --  abstract, its Etype points back to the specific root type, and it
+      --  cannot have any invariants.
 
       Set_Ekind                       (CW_Type, E_Class_Wide_Type);
       Set_Is_Tagged_Type              (CW_Type, True);
@@ -18316,6 +18288,9 @@ package body Sem_Ch3 is
       Set_Is_Constrained              (CW_Type, False);
       Set_Is_First_Subtype            (CW_Type, Is_First_Subtype (T));
       Set_Default_SSO                 (CW_Type);
+      Set_Has_Inheritable_Invariants  (CW_Type, False);
+      Set_Has_Inherited_Invariants    (CW_Type, False);
+      Set_Has_Own_Invariants          (CW_Type, False);
 
       if Ekind (T) = E_Class_Wide_Subtype then
          Set_Etype (CW_Type, Etype (Base_Type (T)));
@@ -18338,12 +18313,6 @@ package body Sem_Ch3 is
       --  The class-wide type of a class-wide type is itself (RM 3.9(14))
 
       Set_Class_Wide_Type (CW_Type, CW_Type);
-
-      --  Inherit the "ghostness" from the root tagged type
-
-      if Ghost_Mode > None or else Is_Ghost_Entity (T) then
-         Set_Is_Ghost_Entity (CW_Type);
-      end if;
    end Make_Class_Wide_Type;
 
    ----------------
@@ -18882,7 +18851,11 @@ package body Sem_Ch3 is
       end if;
 
       case Nkind (Original_Node (Exp)) is
-         when N_Aggregate | N_Extension_Aggregate | N_Function_Call | N_Op =>
+         when N_Aggregate
+            | N_Extension_Aggregate
+            | N_Function_Call
+            | N_Op
+         =>
             return True;
 
          when N_Identifier =>
@@ -18902,16 +18875,18 @@ package body Sem_Ch3 is
          --  A return statement for a build-in-place function returning a
          --  synchronized type also introduces an unchecked conversion.
 
-         when N_Type_Conversion           |
-              N_Unchecked_Type_Conversion =>
+         when N_Type_Conversion
+            | N_Unchecked_Type_Conversion
+         =>
             return not Comes_From_Source (Exp)
               and then
                 OK_For_Limited_Init_In_05
                   (Typ, Expression (Original_Node (Exp)));
 
-         when N_Indexed_Component     |
-              N_Selected_Component    |
-              N_Explicit_Dereference  =>
+         when N_Explicit_Dereference
+            | N_Indexed_Component
+            | N_Selected_Component
+         =>
             return Nkind (Exp) = N_Function_Call;
 
          --  A use of 'Input is a function call, hence allowed. Normally the
@@ -19482,6 +19457,10 @@ package body Sem_Ch3 is
    -- Process_Full_View --
    -----------------------
 
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  Ghost mode.
+
    procedure Process_Full_View (N : Node_Id; Full_T, Priv_T : Entity_Id) is
       procedure Collect_Implemented_Interfaces
         (Typ    : Entity_Id;
@@ -19576,11 +19555,14 @@ package body Sem_Ch3 is
 
       Full_Indic  : Node_Id;
       Full_Parent : Entity_Id;
+      Mode        : Ghost_Mode_Type;
       Priv_Parent : Entity_Id;
 
    --  Start of processing for Process_Full_View
 
    begin
+      Mark_And_Set_Ghost_Completion (N, Priv_T, Mode);
+
       --  First some sanity checks that must be done after semantic
       --  decoration of the full view and thus cannot be placed with other
       --  similar checks in Find_Type_Name
@@ -19693,7 +19675,7 @@ package body Sem_Ch3 is
          --  error situation [7.3(8)].
 
          if Priv_Parent = Any_Type or else Full_Parent = Any_Type then
-            return;
+            goto Leave;
 
          --  Ada 2005 (AI-251): Interfaces in the full type can be given in
          --  any order. Therefore we don't have to check that its parent must
@@ -20045,7 +20027,7 @@ package body Sem_Ch3 is
                         Next_Elmt (Prim_Elmt);
                      end loop;
 
-                     return;
+                     goto Leave;
                   end;
 
                --  For non-concurrent types, transfer explicit primitives, but
@@ -20182,19 +20164,6 @@ package body Sem_Ch3 is
          Set_Has_Specified_Stream_Output (Full_T);
       end if;
 
-      if Is_Ghost_Entity (Priv_T) then
-
-         --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(14)).
-
-         Check_Ghost_Completion (Priv_T, Full_T);
-
-         --  Propagate the attributes related to pragma Ghost from the private
-         --  to the full view.
-
-         Mark_Full_View_As_Ghost (Priv_T, Full_T);
-      end if;
-
       --  Propagate Default_Initial_Condition-related attributes from the
       --  partial view to the full view and its base type.
 
@@ -20243,6 +20212,9 @@ package body Sem_Ch3 is
             Set_Predicate_Function (Full_T, Predicate_Function (Priv_T));
          end if;
       end if;
+
+   <<Leave>>
+      Restore_Ghost_Mode (Mode);
    end Process_Full_View;
 
    -----------------------------------
@@ -20959,10 +20931,11 @@ package body Sem_Ch3 is
                Constrain_Integer (Def_Id, S);
                Inherit_Predicate_Flags (Def_Id, Subtype_Mark_Id);
 
-            when E_Record_Type     |
-                 E_Record_Subtype  |
-                 Class_Wide_Kind   |
-                 E_Incomplete_Type =>
+            when Class_Wide_Kind
+               | E_Incomplete_Type
+               | E_Record_Subtype
+               | E_Record_Type
+            =>
                Constrain_Discriminated_Type (Def_Id, S, Related_Nod);
 
                if Ekind (Def_Id) = E_Incomplete_Type then

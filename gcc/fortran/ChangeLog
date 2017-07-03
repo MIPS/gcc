@@ -1,3 +1,26 @@
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70697
+	* resolve.c (resolve_lock_unlock_event): Resolve the expression for
+	event's until_count.
+
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70696
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Ensure the backend_decl
+	is valid before accessing it.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* decl.c (attr_decl1): Fix spelling in translatable string.
+	* intrinsic.texi: Fix spelling - invokation -> invocation.
+	* lang.opt (faggressive-function-elimination, gfc_convert): Fix
+	typos in descriptions.
+	* openmp.c (resolve_omp_clauses): Add missing whitespace to
+	translatable strings.
+
 2017-01-08  Martin Sebor  <msebor@redhat.com>
 
 	PR tree-optimization/78913

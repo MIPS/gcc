@@ -1279,7 +1279,6 @@ markroot(ParFor *desc, uint32 i)
 		// For gccgo we use this for all the other global roots.
 		enqueue1(&wbuf, (Obj){(byte*)&runtime_m0, sizeof runtime_m0, 0});
 		enqueue1(&wbuf, (Obj){(byte*)&runtime_g0, sizeof runtime_g0, 0});
-		enqueue1(&wbuf, (Obj){(byte*)&runtime_allm, sizeof runtime_allm, 0});
 		enqueue1(&wbuf, (Obj){(byte*)&runtime_allp, sizeof runtime_allp, 0});
 		enqueue1(&wbuf, (Obj){(byte*)&work, sizeof work, 0});
 		break;
@@ -2002,7 +2001,7 @@ runtime_updatememstats(GCStats *stats)
 	if(stats)
 		runtime_memclr((byte*)stats, sizeof(*stats));
 	stacks_inuse = 0;
-	for(mp=runtime_allm; mp; mp=mp->alllink) {
+	for(mp=runtime_getallm(); mp; mp=mp->alllink) {
 		//stacks_inuse += mp->stackinuse*FixedStack;
 		if(stats) {
 			src = (uint64*)&mp->gcstats;
@@ -2730,39 +2729,4 @@ runtime_MHeap_MapBits(MHeap *h)
 
 	runtime_SysMap(h->arena_start - n, n - h->bitmap_mapped, h->arena_reserved, &mstats()->gc_sys);
 	h->bitmap_mapped = n;
-}
-
-// typedmemmove copies a value of type t to dst from src.
-
-extern void typedmemmove(const Type* td, void *dst, const void *src)
-  __asm__ (GOSYM_PREFIX "reflect.typedmemmove");
-
-void
-typedmemmove(const Type* td, void *dst, const void *src)
-{
-	runtime_memmove(dst, src, td->__size);
-}
-
-// typedslicecopy copies a slice of elemType values from src to dst,
-// returning the number of elements copied.
-
-extern intgo typedslicecopy(const Type* elem, Slice dst, Slice src)
-  __asm__ (GOSYM_PREFIX "reflect.typedslicecopy");
-
-intgo
-typedslicecopy(const Type* elem, Slice dst, Slice src)
-{
-	intgo n;
-	void *dstp;
-	void *srcp;
-
-	n = dst.__count;
-	if (n > src.__count)
-		n = src.__count;
-	if (n == 0)
-		return 0;
-	dstp = dst.__values;
-	srcp = src.__values;
-	memmove(dstp, srcp, (uintptr_t)n * elem->__size);
-	return n;
 }

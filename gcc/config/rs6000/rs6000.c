@@ -1558,6 +1558,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_CONST_NOT_OK_FOR_DEBUG_P
 #define TARGET_CONST_NOT_OK_FOR_DEBUG_P rs6000_const_not_ok_for_debug_p
 
+#undef TARGET_LEGITIMATE_COMBINED_INSN
+#define TARGET_LEGITIMATE_COMBINED_INSN rs6000_legitimate_combined_insn
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE rs6000_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -9074,6 +9077,50 @@ rs6000_const_not_ok_for_debug_p (rtx x)
     }
 
   return false;
+}
+
+
+/* Implement the TARGET_LEGITIMATE_COMBINED_INSN hook.  */
+
+static bool
+rs6000_legitimate_combined_insn (rtx_insn *insn)
+{
+  int icode = INSN_CODE (insn);
+
+  /* Reject creating doloop insns.  Combine should not be allowed
+     to create these for a number of reasons:
+     1) In a nested loop, if combine creates one of these in an
+     outer loop and the register allocator happens to allocate ctr
+     to the outer loop insn, then the inner loop can't use ctr.
+     Inner loops ought to be more highly optimized.
+     2) Combine often wants to create one of these from what was
+     originally a three insn sequence, first combining the three
+     insns to two, then to ctrsi/ctrdi.  When ctrsi/ctrdi is not
+     allocated ctr, the splitter takes use back to the three insn
+     sequence.  It's better to stop combine at the two insn
+     sequence.
+     3) Faced with not being able to allocate ctr for ctrsi/crtdi
+     insns, the register allocator sometimes uses floating point
+     or vector registers for the pseudo.  Since ctrsi/ctrdi is a
+     jump insn and output reloads are not implemented for jumps,
+     the ctrsi/ctrdi splitters need to handle all possible cases.
+     That's a pain, and it gets to be seriously difficult when a
+     splitter that runs after reload needs memory to transfer from
+     a gpr to fpr.  See PR70098 and PR71763 which are not fixed
+     for the difficult case.  It's better to not create problems
+     in the first place.  */
+  if (icode != CODE_FOR_nothing
+      && (icode == CODE_FOR_ctrsi_internal1
+	  || icode == CODE_FOR_ctrdi_internal1
+	  || icode == CODE_FOR_ctrsi_internal2
+	  || icode == CODE_FOR_ctrdi_internal2
+	  || icode == CODE_FOR_ctrsi_internal3
+	  || icode == CODE_FOR_ctrdi_internal3
+	  || icode == CODE_FOR_ctrsi_internal4
+	  || icode == CODE_FOR_ctrdi_internal4))
+    return false;
+
+  return true;
 }
 
 /* Construct the SYMBOL_REF for the tls_get_addr function.  */
@@ -27622,7 +27669,8 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
 	}
       else if (GET_CODE (stack_limit_rtx) == SYMBOL_REF
 	       && TARGET_32BIT
-	       && DEFAULT_ABI == ABI_V4)
+	       && DEFAULT_ABI == ABI_V4
+	       && !flag_pic)
 	{
 	  rtx toload = gen_rtx_CONST (VOIDmode,
 				      gen_rtx_PLUS (Pmode,
@@ -38525,7 +38573,7 @@ rs6000_asan_shadow_offset (void)
 
 /* Mask options that we want to support inside of attribute((target)) and
    #pragma GCC target operations.  Note, we do not include things like
-   64/32-bit, endianess, hard/soft floating point, etc. that would have
+   64/32-bit, endianness, hard/soft floating point, etc. that would have
    different calling sequences.  */
 
 struct rs6000_opt_mask {
@@ -41271,6 +41319,7 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VSX_VEC_INIT:
 	    return 0;
 	  case UNSPEC_VSPLT_DIRECT:
+	  case UNSPEC_VSX_XXSPLTD:
 	    *special = SH_SPLAT;
 	    return 1;
 	  case UNSPEC_REDUC_PLUS:
@@ -41344,7 +41393,10 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
       if (GET_CODE (body) == SET)
 	{
 	  rtx rhs = SET_SRC (body);
-	  gcc_assert (GET_CODE (rhs) == MEM);
+	  /* Even without a swap, the RHS might be a vec_select for, say,
+	     a byte-reversing load.  */
+	  if (GET_CODE (rhs) != MEM)
+	    return 0;
 	  if (GET_CODE (XEXP (rhs, 0)) == AND)
 	    return 0;
 
@@ -41361,7 +41413,10 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	  && GET_CODE (SET_SRC (body)) != UNSPEC)
 	{
 	  rtx lhs = SET_DEST (body);
-	  gcc_assert (GET_CODE (lhs) == MEM);
+	  /* Even without a swap, the LHS might be a vec_select for, say,
+	     a byte-reversing store.  */
+	  if (GET_CODE (lhs) != MEM)
+	    return 0;
 	  if (GET_CODE (XEXP (lhs, 0)) == AND)
 	    return 0;
 	  

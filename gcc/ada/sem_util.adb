@@ -1663,9 +1663,9 @@ package body Sem_Util is
                   return Cannot_Raise_Constraint_Error (Right_Opnd (Expr));
                end if;
 
-            when N_Op_Divide |
-                 N_Op_Mod    |
-                 N_Op_Rem
+            when N_Op_Divide
+               | N_Op_Mod
+               | N_Op_Rem
             =>
                if Do_Division_Check (Expr)
                     or else
@@ -1679,25 +1679,25 @@ package body Sem_Util is
                     Cannot_Raise_Constraint_Error (Right_Opnd (Expr));
                end if;
 
-            when N_Op_Add                    |
-                 N_Op_And                    |
-                 N_Op_Concat                 |
-                 N_Op_Eq                     |
-                 N_Op_Expon                  |
-                 N_Op_Ge                     |
-                 N_Op_Gt                     |
-                 N_Op_Le                     |
-                 N_Op_Lt                     |
-                 N_Op_Multiply               |
-                 N_Op_Ne                     |
-                 N_Op_Or                     |
-                 N_Op_Rotate_Left            |
-                 N_Op_Rotate_Right           |
-                 N_Op_Shift_Left             |
-                 N_Op_Shift_Right            |
-                 N_Op_Shift_Right_Arithmetic |
-                 N_Op_Subtract               |
-                 N_Op_Xor
+            when N_Op_Add
+               | N_Op_And
+               | N_Op_Concat
+               | N_Op_Eq
+               | N_Op_Expon
+               | N_Op_Ge
+               | N_Op_Gt
+               | N_Op_Le
+               | N_Op_Lt
+               | N_Op_Multiply
+               | N_Op_Ne
+               | N_Op_Or
+               | N_Op_Rotate_Left
+               | N_Op_Rotate_Right
+               | N_Op_Shift_Left
+               | N_Op_Shift_Right
+               | N_Op_Shift_Right_Arithmetic
+               | N_Op_Subtract
+               | N_Op_Xor
             =>
                if Do_Overflow_Check (Expr) then
                   return False;
@@ -1733,7 +1733,7 @@ package body Sem_Util is
       Par := Parent (Ref);
       while Present (Par) loop
          if Nkind (Par) = N_Pragma then
-            Prag_Nam := Pragma_Name_Mapped (Par);
+            Prag_Nam := Pragma_Name (Par);
 
             --  A concurrent constituent is allowed to appear in pragmas
             --  Initial_Condition and Initializes as this is part of the
@@ -2272,7 +2272,9 @@ package body Sem_Util is
             Collect_Identifiers (Low_Bound (N));
             Collect_Identifiers (High_Bound (N));
 
-         when N_Op | N_Membership_Test =>
+         when N_Membership_Test
+            | N_Op
+         =>
             declare
                Expr : Node_Id;
 
@@ -2349,8 +2351,9 @@ package body Sem_Util is
                end loop;
             end;
 
-         when N_Subprogram_Call      |
-              N_Entry_Call_Statement =>
+         when N_Entry_Call_Statement
+            | N_Subprogram_Call
+         =>
             declare
                Id     : constant Entity_Id := Get_Function_Id (N);
                Formal : Node_Id;
@@ -2371,8 +2374,9 @@ package body Sem_Util is
                end loop;
             end;
 
-         when N_Aggregate           |
-              N_Extension_Aggregate =>
+         when N_Aggregate
+            | N_Extension_Aggregate
+         =>
             declare
                Assoc     : Node_Id;
                Choice    : Node_Id;
@@ -2681,16 +2685,19 @@ package body Sem_Util is
                while Present (Elmt_2) loop
                   if Entity (Node (Elmt_1)) = Entity (Node (Elmt_2)) then
                      case Nkind (Parent (Node (Elmt_2))) is
-                        when N_Aggregate             |
-                             N_Component_Association |
-                             N_Component_Declaration =>
+                        when N_Aggregate
+                           | N_Component_Association
+                           | N_Component_Declaration
+                        =>
                            Error_Msg_N
                              ("value may be affected by call in other "
                               & "component because they are evaluated "
                               & "in unspecified order",
                               Node (Elmt_2));
 
-                        when N_In | N_Not_In =>
+                        when N_In
+                           | N_Not_In
+                        =>
                            Error_Msg_N
                              ("value may be affected by call in other "
                               & "alternative because they are evaluated "
@@ -3125,12 +3132,12 @@ package body Sem_Util is
                Check_Function_Result (Expr);
 
                if not Mentions_Post_State (Expr) then
-                  if Pragma_Name_Mapped (Prag) = Name_Contract_Cases then
+                  if Pragma_Name (Prag) = Name_Contract_Cases then
                      Error_Msg_NE
                        ("contract case does not check the outcome of calling "
                         & "&?T?", Expr, Subp_Id);
 
-                  elsif Pragma_Name_Mapped (Prag) = Name_Refined_Post then
+                  elsif Pragma_Name (Prag) = Name_Refined_Post then
                      Error_Msg_NE
                        ("refined postcondition does not check the outcome of "
                         & "calling &?T?", Prag, Subp_Id);
@@ -3242,7 +3249,7 @@ package body Sem_Util is
          Expr  : constant Node_Id :=
                    Get_Pragma_Arg
                      (First (Pragma_Argument_Associations (Prag)));
-         Nam   : constant Name_Id := Pragma_Name_Mapped (Prag);
+         Nam   : constant Name_Id := Pragma_Name (Prag);
          CCase : Node_Id;
 
       --  Start of processing for Check_Result_And_Post_State_In_Pragma
@@ -3335,8 +3342,8 @@ package body Sem_Util is
 
       Prag := Pre_Post_Conditions (Items);
       while Present (Prag) loop
-         if Nam_In (Pragma_Name (Prag), Name_Postcondition,
-                                        Name_Refined_Post)
+         if Nam_In (Pragma_Name_Unmapped (Prag),
+                    Name_Postcondition, Name_Refined_Post)
            and then not Error_Posted (Prag)
          then
             Post_Prag := Prag;
@@ -3351,7 +3358,7 @@ package body Sem_Util is
 
       Prag := Contract_Test_Cases (Items);
       while Present (Prag) loop
-         if Pragma_Name_Mapped (Prag) = Name_Contract_Cases
+         if Pragma_Name (Prag) = Name_Contract_Cases
            and then not Error_Posted (Prag)
          then
             Case_Prag := Prag;
@@ -3845,6 +3852,19 @@ package body Sem_Util is
          Report_Unused_Body_States (States);
       end if;
    end Check_Unused_Body_States;
+
+   -----------------
+   -- Choice_List --
+   -----------------
+
+   function Choice_List (N : Node_Id) return List_Id is
+   begin
+      if Nkind (N) = N_Iterated_Component_Association then
+         return Discrete_Choices (N);
+      else
+         return Choices (N);
+      end if;
+   end Choice_List;
 
    -------------------------
    -- Collect_Body_States --
@@ -4880,7 +4900,7 @@ package body Sem_Util is
 
       Arg : constant Node_Id :=
               Get_Pragma_Arg (First (Pragma_Argument_Associations (Prag)));
-      Nam : constant Name_Id := Pragma_Name_Mapped (Prag);
+      Nam : constant Name_Id := Pragma_Name (Prag);
 
    --  Start of processing for Contains_Refined_State
 
@@ -5183,67 +5203,67 @@ package body Sem_Util is
 
    begin
       case Nkind (N) is
-         when N_Abstract_Subprogram_Declaration        |
-              N_Expression_Function                    |
-              N_Formal_Subprogram_Declaration          |
-              N_Generic_Package_Declaration            |
-              N_Generic_Subprogram_Declaration         |
-              N_Package_Declaration                    |
-              N_Subprogram_Body                        |
-              N_Subprogram_Body_Stub                   |
-              N_Subprogram_Declaration                 |
-              N_Subprogram_Renaming_Declaration
+         when N_Abstract_Subprogram_Declaration
+            | N_Expression_Function
+            | N_Formal_Subprogram_Declaration
+            | N_Generic_Package_Declaration
+            | N_Generic_Subprogram_Declaration
+            | N_Package_Declaration
+            | N_Subprogram_Body
+            | N_Subprogram_Body_Stub
+            | N_Subprogram_Declaration
+            | N_Subprogram_Renaming_Declaration
          =>
             return Defining_Entity (Specification (N));
 
-         when N_Component_Declaration                  |
-              N_Defining_Program_Unit_Name             |
-              N_Discriminant_Specification             |
-              N_Entry_Body                             |
-              N_Entry_Declaration                      |
-              N_Entry_Index_Specification              |
-              N_Exception_Declaration                  |
-              N_Exception_Renaming_Declaration         |
-              N_Formal_Object_Declaration              |
-              N_Formal_Package_Declaration             |
-              N_Formal_Type_Declaration                |
-              N_Full_Type_Declaration                  |
-              N_Implicit_Label_Declaration             |
-              N_Incomplete_Type_Declaration            |
-              N_Loop_Parameter_Specification           |
-              N_Number_Declaration                     |
-              N_Object_Declaration                     |
-              N_Object_Renaming_Declaration            |
-              N_Package_Body_Stub                      |
-              N_Parameter_Specification                |
-              N_Private_Extension_Declaration          |
-              N_Private_Type_Declaration               |
-              N_Protected_Body                         |
-              N_Protected_Body_Stub                    |
-              N_Protected_Type_Declaration             |
-              N_Single_Protected_Declaration           |
-              N_Single_Task_Declaration                |
-              N_Subtype_Declaration                    |
-              N_Task_Body                              |
-              N_Task_Body_Stub                         |
-              N_Task_Type_Declaration
+         when N_Component_Declaration
+            | N_Defining_Program_Unit_Name
+            | N_Discriminant_Specification
+            | N_Entry_Body
+            | N_Entry_Declaration
+            | N_Entry_Index_Specification
+            | N_Exception_Declaration
+            | N_Exception_Renaming_Declaration
+            | N_Formal_Object_Declaration
+            | N_Formal_Package_Declaration
+            | N_Formal_Type_Declaration
+            | N_Full_Type_Declaration
+            | N_Implicit_Label_Declaration
+            | N_Incomplete_Type_Declaration
+            | N_Loop_Parameter_Specification
+            | N_Number_Declaration
+            | N_Object_Declaration
+            | N_Object_Renaming_Declaration
+            | N_Package_Body_Stub
+            | N_Parameter_Specification
+            | N_Private_Extension_Declaration
+            | N_Private_Type_Declaration
+            | N_Protected_Body
+            | N_Protected_Body_Stub
+            | N_Protected_Type_Declaration
+            | N_Single_Protected_Declaration
+            | N_Single_Task_Declaration
+            | N_Subtype_Declaration
+            | N_Task_Body
+            | N_Task_Body_Stub
+            | N_Task_Type_Declaration
          =>
             return Defining_Identifier (N);
 
          when N_Subunit =>
             return Defining_Entity (Proper_Body (N));
 
-         when N_Function_Instantiation                 |
-              N_Function_Specification                 |
-              N_Generic_Function_Renaming_Declaration  |
-              N_Generic_Package_Renaming_Declaration   |
-              N_Generic_Procedure_Renaming_Declaration |
-              N_Package_Body                           |
-              N_Package_Instantiation                  |
-              N_Package_Renaming_Declaration           |
-              N_Package_Specification                  |
-              N_Procedure_Instantiation                |
-              N_Procedure_Specification
+         when N_Function_Instantiation
+            | N_Function_Specification
+            | N_Generic_Function_Renaming_Declaration
+            | N_Generic_Package_Renaming_Declaration
+            | N_Generic_Procedure_Renaming_Declaration
+            | N_Package_Body
+            | N_Package_Instantiation
+            | N_Package_Renaming_Declaration
+            | N_Package_Specification
+            | N_Procedure_Instantiation
+            | N_Procedure_Specification
          =>
             declare
                Nam : constant Node_Id := Defining_Unit_Name (N);
@@ -5272,8 +5292,9 @@ package body Sem_Util is
                end if;
             end;
 
-         when N_Block_Statement                        |
-              N_Loop_Statement                         =>
+         when N_Block_Statement
+            | N_Loop_Statement
+         =>
             return Entity (Identifier (N));
 
          when others =>
@@ -5282,7 +5303,6 @@ package body Sem_Util is
             else
                raise Program_Error;
             end if;
-
       end case;
    end Defining_Entity;
 
@@ -5818,8 +5838,9 @@ package body Sem_Util is
 
                --  Treat the unchecked attributes as library-level
 
-               when Attribute_Unchecked_Access    |
-                    Attribute_Unrestricted_Access =>
+               when Attribute_Unchecked_Access
+                  | Attribute_Unrestricted_Access
+               =>
                   return Make_Level_Literal (Scope_Depth (Standard_Standard));
 
                --  No other access-valued attributes
@@ -6692,7 +6713,7 @@ package body Sem_Util is
          Decl := Next (Unit_Declaration_Node (Subp));
          while Present (Decl) loop
             if Nkind (Decl) = N_Pragma
-              and then Pragma_Name_Mapped (Decl) = Name_Extensions_Visible
+              and then Pragma_Name (Decl) = Name_Extensions_Visible
             then
                Prag := Decl;
                exit;
@@ -7290,11 +7311,10 @@ package body Sem_Util is
          pragma Assert (Present (Alt));
       end loop Search;
 
-      --  The above loop *must* terminate by finding a match, since
-      --  we know the case statement is valid, and the value of the
-      --  expression is known at compile time. When we fall out of
-      --  the loop, Alt points to the alternative that we know will
-      --  be selected at run time.
+      --  The above loop *must* terminate by finding a match, since we know the
+      --  case statement is valid, and the value of the expression is known at
+      --  compile time. When we fall out of the loop, Alt points to the
+      --  alternative that we know will be selected at run time.
 
       return Alt;
    end Find_Static_Alternative;
@@ -7572,7 +7592,14 @@ package body Sem_Util is
          end loop Find_Discrete_Value;
       end Search_For_Discriminant_Value;
 
-      if No (Variant) then
+      --  The case statement must include a variant that corresponds to the
+      --  value of the discriminant, unless the discriminant type has a
+      --  static predicate. In that case the absence of an others_choice that
+      --  would cover this value becomes a run-time error (3.8,1 (21.1/2)).
+
+      if No (Variant)
+        and then not Has_Static_Predicate (Etype (Discrim_Name))
+      then
          Error_Msg_NE
            ("value of discriminant & is out of range", Discrim_Value, Discrim);
          Report_Errors := True;
@@ -7583,8 +7610,10 @@ package body Sem_Util is
       --  components to the Into list. The nested components are part of
       --  the same record type.
 
-      Gather_Components
-        (Typ, Component_List (Variant), Governed_By, Into, Report_Errors);
+      if Present (Variant) then
+         Gather_Components
+           (Typ, Component_List (Variant), Governed_By, Into, Report_Errors);
+      end if;
    end Gather_Components;
 
    ------------------------
@@ -7838,10 +7867,10 @@ package body Sem_Util is
          return Entity (N);
       else
          case Nkind (N) is
-            when N_Indexed_Component  |
-                 N_Slice              |
-                 N_Selected_Component =>
-
+            when N_Indexed_Component
+               | N_Selected_Component
+               | N_Slice
+            =>
                --  If not generating code, a dereference may be left implicit.
                --  In thoses cases, return Empty.
 
@@ -8141,7 +8170,7 @@ package body Sem_Util is
 
    function Get_Pragma_Id (N : Node_Id) return Pragma_Id is
    begin
-      return Get_Pragma_Id (Pragma_Name (N));
+      return Get_Pragma_Id (Pragma_Name_Unmapped (N));
    end Get_Pragma_Id;
 
    ------------------------
@@ -8924,10 +8953,10 @@ package body Sem_Util is
                Assn := First (Constraints (Constr));
                while Present (Assn) loop
                   case Nkind (Assn) is
-                     when N_Subtype_Indication |
-                          N_Range              |
-                          N_Identifier
-                       =>
+                     when N_Identifier
+                        | N_Range
+                        | N_Subtype_Indication
+                     =>
                         if Depends_On_Discriminant (Assn) then
                            return True;
                         end if;
@@ -9509,19 +9538,21 @@ package body Sem_Util is
    function Has_Null_Exclusion (N : Node_Id) return Boolean is
    begin
       case Nkind (N) is
-         when N_Access_Definition               |
-              N_Access_Function_Definition      |
-              N_Access_Procedure_Definition     |
-              N_Access_To_Object_Definition     |
-              N_Allocator                       |
-              N_Derived_Type_Definition         |
-              N_Function_Specification          |
-              N_Subtype_Declaration             =>
+         when N_Access_Definition
+            | N_Access_Function_Definition
+            | N_Access_Procedure_Definition
+            | N_Access_To_Object_Definition
+            | N_Allocator
+            | N_Derived_Type_Definition
+            | N_Function_Specification
+            | N_Subtype_Declaration
+         =>
             return Null_Exclusion_Present (N);
 
-         when N_Component_Definition            |
-              N_Formal_Object_Declaration       |
-              N_Object_Renaming_Declaration     =>
+         when N_Component_Definition
+            | N_Formal_Object_Declaration
+            | N_Object_Renaming_Declaration
+         =>
             if Present (Subtype_Mark (N)) then
                return Null_Exclusion_Present (N);
             else pragma Assert (Present (Access_Definition (N)));
@@ -9551,7 +9582,6 @@ package body Sem_Util is
 
          when others =>
             return False;
-
       end case;
    end Has_Null_Exclusion;
 
@@ -10509,6 +10539,26 @@ package body Sem_Util is
           and then Assertion_Expression_Pragma (Get_Pragma_Id (Prag));
    end In_Assertion_Expression_Pragma;
 
+   ----------------------
+   -- In_Generic_Scope --
+   ----------------------
+
+   function In_Generic_Scope (E : Entity_Id) return Boolean is
+      S : Entity_Id;
+
+   begin
+      S := Scope (E);
+      while Present (S) and then S /= Standard_Standard loop
+         if Is_Generic_Unit (S) then
+            return True;
+         end if;
+
+         S := Scope (S);
+      end loop;
+
+      return False;
+   end In_Generic_Scope;
+
    -----------------
    -- In_Instance --
    -----------------
@@ -10677,7 +10727,7 @@ package body Sem_Util is
       loop
          if No (P) then
             return False;
-         elsif Nkind (P) = N_Pragma and then Pragma_Name_Mapped (P) = Nam then
+         elsif Nkind (P) = N_Pragma and then Pragma_Name (P) = Nam then
             return True;
          else
             P := Parent (P);
@@ -12046,32 +12096,38 @@ package body Sem_Util is
 
    function Is_Declaration (N : Node_Id) return Boolean is
    begin
+      return
+        Is_Declaration_Other_Than_Renaming (N)
+          or else Is_Renaming_Declaration (N);
+   end Is_Declaration;
+
+   ----------------------------------------
+   -- Is_Declaration_Other_Than_Renaming --
+   ----------------------------------------
+
+   function Is_Declaration_Other_Than_Renaming (N : Node_Id) return Boolean is
+   begin
       case Nkind (N) is
-         when N_Abstract_Subprogram_Declaration        |
-              N_Exception_Declaration                  |
-              N_Exception_Renaming_Declaration         |
-              N_Full_Type_Declaration                  |
-              N_Generic_Function_Renaming_Declaration  |
-              N_Generic_Package_Declaration            |
-              N_Generic_Package_Renaming_Declaration   |
-              N_Generic_Procedure_Renaming_Declaration |
-              N_Generic_Subprogram_Declaration         |
-              N_Number_Declaration                     |
-              N_Object_Declaration                     |
-              N_Object_Renaming_Declaration            |
-              N_Package_Declaration                    |
-              N_Package_Renaming_Declaration           |
-              N_Private_Extension_Declaration          |
-              N_Private_Type_Declaration               |
-              N_Subprogram_Declaration                 |
-              N_Subprogram_Renaming_Declaration        |
-              N_Subtype_Declaration                    =>
+         when N_Abstract_Subprogram_Declaration
+            | N_Exception_Declaration
+            | N_Expression_Function
+            | N_Full_Type_Declaration
+            | N_Generic_Package_Declaration
+            | N_Generic_Subprogram_Declaration
+            | N_Number_Declaration
+            | N_Object_Declaration
+            | N_Package_Declaration
+            | N_Private_Extension_Declaration
+            | N_Private_Type_Declaration
+            | N_Subprogram_Declaration
+            | N_Subtype_Declaration
+         =>
             return True;
 
-         when others                                   =>
+         when others =>
             return False;
       end case;
-   end Is_Declaration;
+   end Is_Declaration_Other_Than_Renaming;
 
    --------------------------------
    -- Is_Declared_Within_Variant --
@@ -13249,7 +13305,9 @@ package body Sem_Util is
 
       else
          case Nkind (N) is
-            when N_Indexed_Component | N_Slice =>
+            when N_Indexed_Component
+               | N_Slice
+            =>
                return
                  Is_Object_Reference (Prefix (N))
                    or else Is_Access_Type (Etype (Prefix (N)));
@@ -13647,8 +13705,8 @@ package body Sem_Util is
                       N_Slice)
         and then Prefix (Context) = Obj_Ref
         and then Is_OK_Volatile_Context
-          (Context => Parent (Context),
-           Obj_Ref => Context)
+                   (Context => Parent (Context),
+                    Obj_Ref => Context)
       then
          return True;
 
@@ -13673,12 +13731,17 @@ package body Sem_Util is
       --  occurring in a non-interfering context.
 
       elsif Nkind_In (Context, N_Type_Conversion,
-                      N_Unchecked_Type_Conversion)
+                               N_Unchecked_Type_Conversion)
         and then Expression (Context) = Obj_Ref
         and then Is_OK_Volatile_Context
-          (Context => Parent (Context),
-           Obj_Ref => Context)
+                   (Context => Parent (Context),
+                    Obj_Ref => Context)
       then
+         return True;
+
+      --  The volatile object appears as the expression in a delay statement
+
+      elsif Nkind (Context) in N_Delay_Statement then
          return True;
 
       --  Allow references to volatile objects in various checks. This is not a
@@ -13715,7 +13778,7 @@ package body Sem_Util is
          Nam := Chars (Identifier (Item));
 
       else pragma Assert (Nkind (Item) = N_Pragma);
-         Nam := Pragma_Name_Mapped (Item);
+         Nam := Pragma_Name (Item);
       end if;
 
       return    Nam = Name_Abstract_State
@@ -14185,16 +14248,17 @@ package body Sem_Util is
    function Is_Renaming_Declaration (N : Node_Id) return Boolean is
    begin
       case Nkind (N) is
-         when N_Exception_Renaming_Declaration         |
-              N_Generic_Function_Renaming_Declaration  |
-              N_Generic_Package_Renaming_Declaration   |
-              N_Generic_Procedure_Renaming_Declaration |
-              N_Object_Renaming_Declaration            |
-              N_Package_Renaming_Declaration           |
-              N_Subprogram_Renaming_Declaration        =>
+         when N_Exception_Renaming_Declaration
+            | N_Generic_Function_Renaming_Declaration
+            | N_Generic_Package_Renaming_Declaration
+            | N_Generic_Procedure_Renaming_Declaration
+            | N_Object_Renaming_Declaration
+            | N_Package_Renaming_Declaration
+            | N_Subprogram_Renaming_Declaration
+          =>
             return True;
 
-         when others                                   =>
+         when others =>
             return False;
       end case;
    end Is_Renaming_Declaration;
@@ -14363,23 +14427,27 @@ package body Sem_Util is
       pragma Assert (Nkind (Orig_N) in N_Subexpr);
 
       case Nkind (Orig_N) is
-         when N_Character_Literal |
-              N_Integer_Literal   |
-              N_Real_Literal      |
-              N_String_Literal    =>
+         when N_Character_Literal
+            | N_Integer_Literal
+            | N_Real_Literal
+            | N_String_Literal
+         =>
             null;
 
-         when N_Identifier    |
-              N_Expanded_Name =>
+         when N_Expanded_Name
+            | N_Identifier
+         =>
             if Is_Entity_Name (Orig_N)
               and then Present (Entity (Orig_N))  --  needed in some cases
             then
                case Ekind (Entity (Orig_N)) is
-                  when E_Constant            |
-                       E_Enumeration_Literal |
-                       E_Named_Integer       |
-                       E_Named_Real          =>
+                  when E_Constant
+                     | E_Enumeration_Literal
+                     | E_Named_Integer
+                     | E_Named_Real
+                  =>
                      null;
+
                   when others =>
                      if Is_Type (Entity (Orig_N)) then
                         null;
@@ -14389,22 +14457,25 @@ package body Sem_Util is
                end case;
             end if;
 
-         when N_Qualified_Expression |
-              N_Type_Conversion      =>
+         when N_Qualified_Expression
+            | N_Type_Conversion
+         =>
             Is_Ok := Is_SPARK_05_Initialization_Expr (Expression (Orig_N));
 
          when N_Unary_Op =>
             Is_Ok := Is_SPARK_05_Initialization_Expr (Right_Opnd (Orig_N));
 
-         when N_Binary_Op       |
-              N_Short_Circuit   |
-              N_Membership_Test =>
+         when N_Binary_Op
+            | N_Membership_Test
+            | N_Short_Circuit
+         =>
             Is_Ok := Is_SPARK_05_Initialization_Expr (Left_Opnd (Orig_N))
                        and then
                          Is_SPARK_05_Initialization_Expr (Right_Opnd (Orig_N));
 
-         when N_Aggregate           |
-              N_Extension_Aggregate =>
+         when N_Aggregate
+            | N_Extension_Aggregate
+         =>
             if Nkind (Orig_N) = N_Extension_Aggregate then
                Is_Ok :=
                  Is_SPARK_05_Initialization_Expr (Ancestor_Part (Orig_N));
@@ -14534,7 +14605,7 @@ package body Sem_Util is
          Nam := Chars (Identifier (Item));
 
       else pragma Assert (Nkind (Item) = N_Pragma);
-         Nam := Pragma_Name_Mapped (Item);
+         Nam := Pragma_Name (Item);
       end if;
 
       return    Nam = Name_Contract_Cases
@@ -15003,7 +15074,9 @@ package body Sem_Util is
 
       else
          case Nkind (Orig_Node) is
-            when N_Indexed_Component | N_Slice =>
+            when N_Indexed_Component
+               | N_Slice
+            =>
                return Is_Variable_Prefix (Prefix (Orig_Node));
 
             when N_Selected_Component =>
@@ -15363,9 +15436,9 @@ package body Sem_Util is
 
          --  Positional parameter for procedure or accept call
 
-         when N_Procedure_Call_Statement |
-              N_Accept_Statement
-          =>
+         when N_Accept_Statement
+            | N_Procedure_Call_Statement
+         =>
             declare
                Proc : Entity_Id;
                Form : Entity_Id;
@@ -15453,7 +15526,6 @@ package body Sem_Util is
 
          when others =>
             return False;
-
       end case;
    end Known_To_Be_Assigned;
 
@@ -15647,7 +15719,9 @@ package body Sem_Util is
          --  or slice is an lvalue, except if it is an access type, where we
          --  have an implicit dereference.
 
-         when N_Indexed_Component | N_Slice =>
+         when N_Indexed_Component
+            | N_Slice
+         =>
             if N /= Prefix (P)
               or else (Present (Etype (N)) and then Is_Access_Type (Etype (N)))
             then
@@ -15670,9 +15744,9 @@ package body Sem_Util is
          --  In older versions of Ada function call arguments are never
          --  lvalues. In Ada 2012 functions can have in-out parameters.
 
-         when N_Subprogram_Call      |
-              N_Entry_Call_Statement |
-              N_Accept_Statement
+         when N_Accept_Statement
+            | N_Entry_Call_Statement
+            | N_Subprogram_Call
          =>
             if Nkind (P) = N_Function_Call and then Ada_Version < Ada_2012 then
                return False;
@@ -15773,7 +15847,6 @@ package body Sem_Util is
 
          when others =>
             return False;
-
       end case;
    end May_Be_Lvalue;
 
@@ -17712,7 +17785,6 @@ package body Sem_Util is
 
          else
             Return_Master_Scope_Depth_Of_Call : declare
-
                function Innermost_Master_Scope_Depth
                  (N : Node_Id) return Uint;
                --  Returns the scope depth of the given node's innermost
@@ -17735,42 +17807,42 @@ package body Sem_Util is
 
                   while Present (Node_Par) loop
                      case Nkind (Node_Par) is
-                        when N_Component_Declaration           |
-                             N_Entry_Declaration               |
-                             N_Formal_Object_Declaration       |
-                             N_Formal_Type_Declaration         |
-                             N_Full_Type_Declaration           |
-                             N_Incomplete_Type_Declaration     |
-                             N_Loop_Parameter_Specification    |
-                             N_Object_Declaration              |
-                             N_Protected_Type_Declaration      |
-                             N_Private_Extension_Declaration   |
-                             N_Private_Type_Declaration        |
-                             N_Subtype_Declaration             |
-                             N_Function_Specification          |
-                             N_Procedure_Specification         |
-                             N_Task_Type_Declaration           |
-                             N_Body_Stub                       |
-                             N_Generic_Instantiation           |
-                             N_Proper_Body                     |
-                             N_Implicit_Label_Declaration      |
-                             N_Package_Declaration             |
-                             N_Single_Task_Declaration         |
-                             N_Subprogram_Declaration          |
-                             N_Generic_Declaration             |
-                             N_Renaming_Declaration            |
-                             N_Block_Statement                 |
-                             N_Formal_Subprogram_Declaration   |
-                             N_Abstract_Subprogram_Declaration |
-                             N_Entry_Body                      |
-                             N_Exception_Declaration           |
-                             N_Formal_Package_Declaration      |
-                             N_Number_Declaration              |
-                             N_Package_Specification           |
-                             N_Parameter_Specification         |
-                             N_Single_Protected_Declaration    |
-                             N_Subunit                         =>
-
+                        when N_Abstract_Subprogram_Declaration
+                           | N_Block_Statement
+                           | N_Body_Stub
+                           | N_Component_Declaration
+                           | N_Entry_Body
+                           | N_Entry_Declaration
+                           | N_Exception_Declaration
+                           | N_Formal_Object_Declaration
+                           | N_Formal_Package_Declaration
+                           | N_Formal_Subprogram_Declaration
+                           | N_Formal_Type_Declaration
+                           | N_Full_Type_Declaration
+                           | N_Function_Specification
+                           | N_Generic_Declaration
+                           | N_Generic_Instantiation
+                           | N_Implicit_Label_Declaration
+                           | N_Incomplete_Type_Declaration
+                           | N_Loop_Parameter_Specification
+                           | N_Number_Declaration
+                           | N_Object_Declaration
+                           | N_Package_Declaration
+                           | N_Package_Specification
+                           | N_Parameter_Specification
+                           | N_Private_Extension_Declaration
+                           | N_Private_Type_Declaration
+                           | N_Procedure_Specification
+                           | N_Proper_Body
+                           | N_Protected_Type_Declaration
+                           | N_Renaming_Declaration
+                           | N_Single_Protected_Declaration
+                           | N_Single_Task_Declaration
+                           | N_Subprogram_Declaration
+                           | N_Subtype_Declaration
+                           | N_Subunit
+                           | N_Task_Type_Declaration
+                        =>
                            return Scope_Depth
                                     (Nearest_Dynamic_Scope
                                        (Defining_Entity (Node_Par)));
@@ -20348,7 +20420,8 @@ package body Sem_Util is
       case Size is
          when 8 | 16 | 32 | 64 =>
             return Size = UI_To_Int (Alignment (Typ)) * 8;
-         when others           =>
+
+         when others =>
             return False;
       end case;
    end Support_Atomic_Primitives;
@@ -20659,13 +20732,27 @@ package body Sem_Util is
             if Nkind (Parent (E)) = N_Entry_Body then
                declare
                   Prot_Item : Entity_Id;
+                  Prot_Type : Entity_Id;
+
                begin
+                  if Ekind (E) = E_Entry then
+                     Prot_Type := Scope (E);
+
+                  --  Bodies of entry families are nested within an extra scope
+                  --  that contains an entry index declaration
+
+                  else
+                     Prot_Type := Scope (Scope (E));
+                  end if;
+
+                  pragma Assert (Ekind (Prot_Type) = E_Protected_Type);
+
                   --  Traverse the entity list of the protected type and locate
                   --  an entry declaration which matches the entry body.
 
-                  Prot_Item := First_Entity (Scope (E));
+                  Prot_Item := First_Entity (Prot_Type);
                   while Present (Prot_Item) loop
-                     if Ekind (Prot_Item) = E_Entry
+                     if Ekind (Prot_Item) in Entry_Kind
                        and then Corresponding_Body (Parent (Prot_Item)) = E
                      then
                         U := Prot_Item;
@@ -20712,6 +20799,10 @@ package body Sem_Util is
               and then Present (Corresponding_Spec_Of_Stub (P))
             then
                U := Corresponding_Spec_Of_Stub (P);
+
+               if Is_Single_Protected_Object (U) then
+                  U := Etype (U);
+               end if;
             end if;
 
          when E_Subprogram_Body =>
@@ -20749,6 +20840,10 @@ package body Sem_Util is
               and then Present (Corresponding_Spec_Of_Stub (P))
             then
                U := Corresponding_Spec_Of_Stub (P);
+
+               if Is_Single_Task_Object (U) then
+                  U := Etype (U);
+               end if;
             end if;
 
          when Type_Kind =>

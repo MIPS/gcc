@@ -274,8 +274,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-div-by-zero  -Wdouble-promotion  -Wduplicated-cond @gol
 -Wempty-body  -Wenum-compare  -Wno-endif-labels  -Wexpansion-to-defined @gol
 -Werror  -Werror=*  -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
--Wno-format-contains-nul  -Wno-format-extra-args  -Wformat-length=@var{n} @gol
--Wformat-nonliteral @gol
+-Wno-format-contains-nul  -Wno-format-extra-args  @gol
+-Wformat-nonliteral -Wformat-overflow=@var{n} @gol
 -Wformat-security  -Wformat-signedness  -Wformat-truncation=@var{n} @gol
 -Wformat-y2k  -Wframe-address @gol
 -Wframe-larger-than=@var{len}  -Wno-free-nonheap-object  -Wjump-misses-init @gol
@@ -530,7 +530,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Developer Options
 @xref{Developer Options,,GCC Developer Options}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fchecking  -fchecking=@var{n}  -fdbg-cnt-list @gol
+-dumpfullversion  -fchecking  -fchecking=@var{n}  -fdbg-cnt-list @gol
 -fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
@@ -3425,8 +3425,8 @@ for 88-color and 256-color modes background colors.
 
 The default @env{GCC_COLORS} is
 @smallexample
-error=01;31:warning=01;35:note=01;36:range1=32:range2=34:locus=01:quote=01:\
-fixit-insert=32:fixit-delete=31:\
+error=01;31:warning=01;35:note=01;36:range1=32:range2=34:locus=01:\
+quote=01:fixit-insert=32:fixit-delete=31:\
 diff-filename=01:diff-hunk=32:diff-delete=31:diff-insert=32
 @end smallexample
 @noindent
@@ -3745,7 +3745,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wimplicit-int @r{(C and Objective-C only)} @gol
 -Wimplicit-function-declaration @r{(C and Objective-C only)} @gol
 -Winit-self @r{(only for C++)} @gol
--Wlogical-not-parentheses
+-Wlogical-not-parentheses @gol
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
 -Wmaybe-uninitialized @gol
 -Wmemset-elt-size @gol
@@ -3962,10 +3962,10 @@ in the case of @code{scanf} formats, this option suppresses the
 warning if the unused arguments are all pointers, since the Single
 Unix Specification says that such unused arguments are allowed.
 
-@item -Wformat-length
-@itemx -Wformat-length=@var{level}
-@opindex Wformat-length
-@opindex Wno-format-length
+@item -Wformat-overflow
+@itemx -Wformat-overflow=@var{level}
+@opindex Wformat-overflow
+@opindex Wno-format-overflow
 Warn about calls to formatted input/output functions such as @code{sprintf}
 and @code{vsprintf} that might overflow the destination buffer.  When the
 exact number of bytes written by a format directive cannot be determined
@@ -3975,11 +3975,11 @@ will in most cases improve the accuracy of the warning, it may also
 result in false positives.
 
 @table @gcctabopt
-@item -Wformat-length
-@item -Wformat-length=1
-@opindex Wformat-length
-@opindex Wno-format-length
-Level @var{1} of @option{-Wformat-length} enabled by @option{-Wformat}
+@item -Wformat-overflow
+@item -Wformat-overflow=1
+@opindex Wformat-overflow
+@opindex Wno-format-overflow
+Level @var{1} of @option{-Wformat-overflow} enabled by @option{-Wformat}
 employs a conservative approach that warns only about calls that most
 likely overflow the buffer.  At this level, numeric arguments to format
 directives with unknown values are assumed to have the value of one, and
@@ -4002,7 +4002,7 @@ void f (int a, int b)
 @}
 @end smallexample
 
-@item -Wformat-length=2
+@item -Wformat-overflow=2
 Level @var{2} warns also about calls that might overflow the destination
 buffer given an argument of sufficient length or magnitude.  At level
 @var{2}, unknown numeric arguments are assumed to have the minimum
@@ -4091,13 +4091,13 @@ compile-time it is estimated based on heuristics that depend on
 the @var{level} argument and on optimization.  While enabling optimization
 will in most cases improve the accuracy of the warning, it may also result
 in false positives.  Except as noted otherwise, the option uses the same
-logic @option{-Wformat-length}.
+logic @option{-Wformat-overflow}.
 
 @table @gcctabopt
 @item -Wformat-truncation
 @item -Wformat-truncation=1
 @opindex Wformat-truncation
-@opindex Wno-format-length
+@opindex Wno-format-overflow
 Level @var{1} of @option{-Wformat-truncation} enabled by @option{-Wformat}
 employs a conservative approach that warns only about calls to bounded
 functions whose return value is unused and that will most likely result
@@ -8463,7 +8463,7 @@ if (snprintf (buf, "%08x", i) >= sizeof buf)
 
 The @option{-fprintf-return-value} option relies on other optimizations
 and yields best results with @option{-O2}.  It works in tandem with the
-@option{-Wformat-length} and @option{-Wformat-truncation} options.
+@option{-Wformat-overflow} and @option{-Wformat-truncation} options.
 The @option{-fprintf-return-value} option is enabled by default.
 
 @item -fno-peephole
@@ -9885,6 +9885,10 @@ when adding a new one.
 @item avg-loop-niter
 Average number of iterations of a loop.
 
+@item dse-max-object-size
+Maximum size (in bytes) of objects tracked bytewise by dead store elimination.
+Larger values may result in larger compilation times.
+
 @item scev-max-expr-size
 Bound on size of expressions used in the scalar evolutions analyzer.
 Large expressions slow the analyzer.
@@ -10329,7 +10333,7 @@ Percentage penalty the recursive functions will receive when they
 are evaluated for cloning.
 
 @item ipa-cp-single-call-penalty
-Percentage penalty functions containg a single call to another
+Percentage penalty functions containing a single call to another
 function will receive when they are evaluated for cloning.
 
 
@@ -10922,14 +10926,11 @@ ThreadSanitizer and UndefinedBehaviorSanitizer, while default value for
 AddressSanitizer is @code{halt_on_error=1}. This can be overridden through
 setting the @code{halt_on_error} flag in the corresponding environment variable.
 
-Syntax without explicit @var{opts} parameter is deprecated.  It is equivalent to
+Syntax without an explicit @var{opts} parameter is deprecated.  It is
+equivalent to specifying an @var{opts} list of:
+
 @smallexample
--fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
-@end smallexample
-@noindent
-Similarly @option{-fno-sanitize-recover} is equivalent to
-@smallexample
--fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
+undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
 @end smallexample
 
 @item -fsanitize-address-use-after-scope
@@ -13804,8 +13805,17 @@ Print the compiler's target machine (for example,
 
 @item -dumpversion
 @opindex dumpversion
-Print the compiler version (for example, @code{3.0})---and don't do
-anything else.
+Print the compiler version (for example, @code{3.0}, @code{6.3.0} or @code{7})---and don't do
+anything else.  This is the compiler version used in filesystem paths,
+specs, can be depending on how the compiler has been configured just
+a single number (major version), two numbers separated by dot (major and
+minor version) or three numbers separated by dots (major, minor and patchlevel
+version).
+
+@item -dumpfullversion
+@opindex dumpfullversion
+Print the full compiler version, always 3 numbers separated by dots,
+major, minor and patchlevel version.
 
 @item -dumpspecs
 @opindex dumpspecs

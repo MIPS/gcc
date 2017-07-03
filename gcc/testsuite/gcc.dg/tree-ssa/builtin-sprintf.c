@@ -3,8 +3,10 @@
    constant folding.  With optimization enabled the test will fail to
    link if any of the assertions fails.  Without optimization the test
    aborts at runtime if any of the assertions fails.  */
-/* { dg-do run } */
-/* { dg-additional-options "-O2 -Wall -Wno-pedantic -fprintf-return-value" } */
+/* { dg-do run }
+   The h and hh length modifiers are a C99 feature (see PR 78959).
+   { dg-require-effective-target c99_runtime }
+   { dg-additional-options "-O2 -Wall -Wno-pedantic -fprintf-return-value" } */
 
 #ifndef LINE
 #  define LINE   0
@@ -714,7 +716,16 @@ test_g_long_double (void)
   EQL ( 10,  11, "%Lg", 1.0L / 512);
 
   /* Numbers that are not exactly representable.  */
+#if __LDBL_DIG__ < 31
+  /* x86_64, for example, represents 0.1 as 1.000000...1...e-1
+     and formats it as either "0.1" (when rounded down) or "0.100001"
+     (rounded up).  */
   RNG ( 3,  8,  9, "%Lg", 0.1L);
+#else
+  /* powerpc64 represents 0.1 as 9.999999...6e-2 and formats it
+   as "0.0999999" (rounded down) or "0.1" (rounded up).  */
+  RNG ( 3,  9, 10, "%Lg", 0.1L);
+#endif
   RNG ( 4,  8,  9, "%Lg", 0.12L);
   RNG ( 5,  8,  9, "%Lg", 0.123L);
   RNG ( 6,  8,  9, "%Lg", 0.1234L);

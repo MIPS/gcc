@@ -1400,8 +1400,8 @@ package body Exp_Ch9 is
 
          Prag := Pre_Post_Conditions (Items);
          while Present (Prag) loop
-            if Nam_In (Pragma_Name (Prag), Name_Postcondition,
-                                           Name_Precondition)
+            if Nam_In (Pragma_Name_Unmapped (Prag),
+                       Name_Postcondition, Name_Precondition)
               and then Is_Checked (Prag)
             then
                Has_Pragma := True;
@@ -1416,7 +1416,7 @@ package body Exp_Ch9 is
 
          Prag := Contract_Test_Cases (Items);
          while Present (Prag) loop
-            if Pragma_Name_Mapped (Prag) = Name_Contract_Cases
+            if Pragma_Name (Prag) = Name_Contract_Cases
               and then Is_Checked (Prag)
             then
                Has_Pragma := True;
@@ -3349,10 +3349,14 @@ package body Exp_Ch9 is
          Find_Enclosing_Context (Par, Context, Context_Id, Decls);
       end if;
 
-      --  Do not create a master if one already exists or there is no task
-      --  hierarchy.
+      --  Nothing to do if the context already has a master
 
-      if Has_Master_Entity (Context_Id)
+      if Has_Master_Entity (Context_Id) then
+         return;
+
+      --  Nothing to do if tasks or tasking hierarchies are prohibited
+
+      elsif Restriction_Active (No_Tasking)
         or else Restriction_Active (No_Task_Hierarchy)
       then
          return;
@@ -3425,9 +3429,11 @@ package body Exp_Ch9 is
       Master_Id   : Entity_Id;
 
    begin
-      --  Nothing to do if there is no task hierarchy
+      --  Nothing to do if tasks or tasking hierarchies are prohibited
 
-      if Restriction_Active (No_Task_Hierarchy) then
+      if Restriction_Active (No_Tasking)
+        or else Restriction_Active (No_Task_Hierarchy)
+      then
          return;
       end if;
 
@@ -4620,12 +4626,12 @@ package body Exp_Ch9 is
 
                   --  Some additional statements for protected entry calls
 
-                  --     Protected_Entry_Call (
-                  --       Object => po._object'Access,
-                  --       E => <entry index>;
-                  --       Uninterpreted_Data => P'Address;
-                  --       Mode => Simple_Call;
-                  --       Block => Bnn);
+                  --     Protected_Entry_Call
+                  --       (Object             => po._object'Access,
+                  --        E                  => <entry index>;
+                  --        Uninterpreted_Data => P'Address;
+                  --        Mode               => Simple_Call;
+                  --        Block              => Bnn);
 
                   Call :=
                     Make_Procedure_Call_Statement (Loc,
@@ -4642,9 +4648,10 @@ package body Exp_Ch9 is
                         New_Occurrence_Of (Comm_Name, Loc)));
 
                when System_Tasking_Protected_Objects_Single_Entry =>
-                  --     Protected_Single_Entry_Call (
-                  --       Object => po._object'Access,
-                  --       Uninterpreted_Data => P'Address);
+
+                  --     Protected_Single_Entry_Call
+                  --       (Object             => po._object'Access,
+                  --        Uninterpreted_Data => P'Address);
 
                   Call :=
                     Make_Procedure_Call_Statement (Loc,
@@ -6020,23 +6027,25 @@ package body Exp_Ch9 is
       function Is_Pure_Barrier (N : Node_Id) return Traverse_Result is
       begin
          case Nkind (N) is
-            when N_Expanded_Name |
-                 N_Identifier    =>
+            when N_Expanded_Name
+               | N_Identifier
+            =>
                if No (Entity (N)) then
                   return Abandon;
                end if;
 
                case Ekind (Entity (N)) is
-                  when E_Constant            |
-                       E_Discriminant        |
-                       E_Named_Integer       |
-                       E_Named_Real          |
-                       E_Enumeration_Literal =>
+                  when E_Constant
+                     | E_Discriminant
+                     | E_Enumeration_Literal
+                     | E_Named_Integer
+                     | E_Named_Real
+                  =>
                      return OK;
 
-                  when E_Component |
-                       E_Variable  =>
-
+                  when E_Component
+                     | E_Variable
+                  =>
                      --  A variable in the protected type is expanded as a
                      --  component.
 
@@ -6048,13 +6057,15 @@ package body Exp_Ch9 is
                      null;
                end case;
 
-            when N_Integer_Literal   |
-                 N_Real_Literal      |
-                 N_Character_Literal =>
+            when N_Character_Literal
+               | N_Integer_Literal
+               | N_Real_Literal
+            =>
                return OK;
 
-            when N_Op_Boolean |
-                 N_Op_Not     =>
+            when N_Op_Boolean
+               | N_Op_Not
+            =>
                if Ekind (Entity (N)) = E_Operator then
                   return OK;
                end if;
@@ -8551,7 +8562,6 @@ package body Exp_Ch9 is
 
             when others =>
                raise Program_Error;
-
          end case;
 
          Next (Op_Body);
@@ -9142,7 +9152,7 @@ package body Exp_Ch9 is
                Ritem := First_Rep_Item (Prot_Typ);
                while Present (Ritem) loop
                   if Nkind (Ritem) = N_Pragma
-                    and then Pragma_Name_Mapped (Ritem) = Name_Attach_Handler
+                    and then Pragma_Name (Ritem) = Name_Attach_Handler
                   then
                      Num_Attach_Handler := Num_Attach_Handler + 1;
                   end if;
@@ -11553,14 +11563,15 @@ package body Exp_Ch9 is
    --  values of this task. The general form of this type declaration is
 
    --    type taskV (discriminants) is record
-   --      _Task_Id           : Task_Id;
-   --      entry_family       : array (bounds) of Void;
-   --      _Priority          : Integer            := priority_expression;
-   --      _Size              : Size_Type          := size_expression;
-   --      _Task_Info         : Task_Info_Type     := task_info_expression;
-   --      _CPU               : Integer            := cpu_range_expression;
-   --      _Relative_Deadline : Time_Span          := time_span_expression;
-   --      _Domain            : Dispatching_Domain := dd_expression;
+   --      _Task_Id              : Task_Id;
+   --      entry_family          : array (bounds) of Void;
+   --      _Priority             : Integer            := priority_expression;
+   --      _Size                 : Size_Type          := size_expression;
+   --      _Secondary_Stack_Size : Size_Type          := size_expression;
+   --      _Task_Info            : Task_Info_Type     := task_info_expression;
+   --      _CPU                  : Integer            := cpu_range_expression;
+   --      _Relative_Deadline    : Time_Span          := time_span_expression;
+   --      _Domain               : Dispatching_Domain := dd_expression;
    --    end record;
 
    --  The discriminants are present only if the corresponding task type has
@@ -11583,6 +11594,13 @@ package body Exp_Ch9 is
    --  task definition. The expression captures the argument that was present
    --  in the pragma, and is used to override the task stack size otherwise
    --  associated with the task type.
+
+   --  The _Secondary_Stack_Size field is present only the task entity has a
+   --  Secondary_Stack_Size rep item. It will be filled at the freeze point,
+   --  when the record init proc is built, to capture the expression of the
+   --  rep item (see Build_Record_Init_Proc in Exp_Ch3). Note that it cannot
+   --  be filled here since aspect evaluations are delayed till the freeze
+   --  point.
 
    --  The _Priority field is present only if the task entity has a Priority or
    --  Interrupt_Priority rep item (pragma, aspect specification or attribute
@@ -11682,7 +11700,7 @@ package body Exp_Ch9 is
          N := First (Visible_Declarations (T));
          while Present (N) loop
             if Nkind (N) = N_Pragma
-              and then Pragma_Name_Mapped (N) = Name_Relative_Deadline
+              and then Pragma_Name (N) = Name_Relative_Deadline
             then
                return N;
             end if;
@@ -11693,7 +11711,7 @@ package body Exp_Ch9 is
          N := First (Private_Declarations (T));
          while Present (N) loop
             if Nkind (N) = N_Pragma
-              and then Pragma_Name_Mapped (N) = Name_Relative_Deadline
+              and then Pragma_Name (N) = Name_Relative_Deadline
             then
                return N;
             end if;
@@ -11921,6 +11939,24 @@ package body Exp_Ch9 is
                    Expression (First (
                      Pragma_Argument_Associations (
                        Get_Rep_Pragma (TaskId, Name_Storage_Size))))))));
+      end if;
+
+      --  Add the _Secondary_Stack_Size component if a Secondary_Stack_Size
+      --  rep item is present.
+
+      if Has_Rep_Item
+           (TaskId, Name_Secondary_Stack_Size, Check_Parents => False)
+      then
+         Append_To (Cdecls,
+           Make_Component_Declaration (Loc,
+             Defining_Identifier  =>
+               Make_Defining_Identifier (Loc, Name_uSecondary_Stack_Size),
+
+             Component_Definition =>
+               Make_Component_Definition (Loc,
+                 Aliased_Present    => False,
+                 Subtype_Indication =>
+                   New_Occurrence_Of (RTE (RE_Size_Type), Loc))));
       end if;
 
       --  Add the _Task_Info component if a Task_Info pragma is present
@@ -12745,7 +12781,6 @@ package body Exp_Ch9 is
 
             when others =>
                raise Program_Error;
-
          end case;
       end loop;
 
@@ -13380,8 +13415,8 @@ package body Exp_Ch9 is
             High := Type_High_Bound (Etype (Index));
             Low  := Type_Low_Bound  (Etype (Index));
 
-            --  In the simple case the entry family is given by a subtype
-            --  mark and the index constant has the same type.
+            --  In the simple case the entry family is given by a subtype mark
+            --  and the index constant has the same type.
 
             if Is_Entity_Name (Original_Node (
                  Discrete_Subtype_Definition (Parent (Index))))
@@ -13706,7 +13741,7 @@ package body Exp_Ch9 is
 
                   --  Get_Rep_Item returns either priority pragma.
 
-                  if Pragma_Name_Mapped (Prio_Clause) = Name_Priority then
+                  if Pragma_Name (Prio_Clause) = Name_Priority then
                      Prio_Type := RTE (RE_Any_Priority);
                   else
                      Prio_Type := RTE (RE_Interrupt_Priority);
@@ -13806,7 +13841,7 @@ package body Exp_Ch9 is
                   Called_Subp := RE_Initialize_Protection;
 
                when others =>
-                     raise Program_Error;
+                  raise Program_Error;
             end case;
 
             --  Entry_Queue_Maxes parameter. This is an access to an array of
@@ -13940,7 +13975,7 @@ package body Exp_Ch9 is
 
             while Present (Ritem) loop
                if Nkind (Ritem) = N_Pragma
-                 and then Pragma_Name_Mapped (Ritem) = Name_Attach_Handler
+                 and then Pragma_Name (Ritem) = Name_Attach_Handler
                then
                   declare
                      Handler : constant Node_Id :=
@@ -14112,6 +14147,29 @@ package body Exp_Ch9 is
       else
          Append_To (Args,
            New_Occurrence_Of (Storage_Size_Variable (Ttyp), Loc));
+      end if;
+
+      --  Secondary_Stack_Size parameter. Set Default_Secondary_Stack_Size
+      --  unless there is a Secondary_Stack_Size rep item, in which case we
+      --  take the value from the rep item. If the restriction
+      --  No_Secondary_Stack is active then a size of 0 is passed regardless
+      --  to prevent the allocation of the unused stack.
+
+      if Restriction_Active (No_Secondary_Stack) then
+         Append_To (Args, Make_Integer_Literal (Loc, 0));
+
+      elsif Has_Rep_Item
+              (Ttyp, Name_Secondary_Stack_Size, Check_Parents => False)
+      then
+         Append_To (Args,
+             Make_Selected_Component (Loc,
+               Prefix        => Make_Identifier (Loc, Name_uInit),
+               Selector_Name =>
+                 Make_Identifier (Loc, Name_uSecondary_Stack_Size)));
+
+      else
+         Append_To (Args,
+           New_Occurrence_Of (RTE (RE_Unspecified_Size), Loc));
       end if;
 
       --  Task_Info parameter. Set to Unspecified_Task_Info unless there is a
@@ -14367,9 +14425,10 @@ package body Exp_Ch9 is
                    or else
                      (Nkind (Stmt) = N_Pragma
                        and then
-                         Nam_In (Pragma_Name (Stmt), Name_Unreferenced,
-                                                     Name_Unmodified,
-                                                     Name_Warnings)))
+                         Nam_In (Pragma_Name_Unmapped (Stmt),
+                                 Name_Unreferenced,
+                                 Name_Unmodified,
+                                 Name_Warnings)))
       loop
          Next (Stmt);
       end loop;
@@ -14595,7 +14654,6 @@ package body Exp_Ch9 is
 
          when others =>
             return False;
-
       end case;
    end Trivial_Accept_OK;
 

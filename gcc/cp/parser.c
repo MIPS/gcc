@@ -12926,7 +12926,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 
 /* Helper of cp_parser_simple_declaration, parse a decomposition declaration.
      decl-specifier-seq ref-qualifier [opt] [ identifier-list ]
-       brace-or-equal-initializer ;  */
+       initializer ;  */
 
 static tree
 cp_parser_decomposition_declaration (cp_parser *parser,
@@ -13025,21 +13025,12 @@ cp_parser_decomposition_declaration (cp_parser *parser,
       || cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
     {
       bool non_constant_p = false, is_direct_init = false;
-      tree initializer;
       *init_loc = cp_lexer_peek_token (parser->lexer)->location;
-      /* Parse the initializer.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-	{
-	  initializer = cp_parser_braced_list (parser, &non_constant_p);
-	  CONSTRUCTOR_IS_DIRECT_INIT (initializer) = 1;
-	  is_direct_init = true;
-	}
-      else
-	{
-	  /* Consume the `='.  */
-	  cp_parser_require (parser, CPP_EQ, RT_EQ);
-	  initializer = cp_parser_initializer_clause (parser, &non_constant_p);
-	}
+      tree initializer = cp_parser_initializer (parser, &is_direct_init,
+						&non_constant_p);
+      if (TREE_CODE (initializer) == TREE_LIST)
+	initializer = build_x_compound_expr_from_list (initializer, ELK_INIT,
+						       tf_warning_or_error);
 
       if (decl != error_mark_node)
 	{
@@ -18375,6 +18366,7 @@ cp_parser_using_declaration (cp_parser* parser,
       /* Look for the `using' keyword.  */
       cp_parser_require_keyword (parser, RID_USING, RT_USING);
       
+ again:
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
       /* See if it's `typename'.  */
@@ -18441,6 +18433,16 @@ cp_parser_using_declaration (cp_parser* parser,
       if (!cp_parser_parse_definitely (parser))
 	return false;
     }
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+    {
+      cp_token *ell = cp_lexer_consume_token (parser->lexer);
+      if (cxx_dialect < cxx1z
+	  && !in_system_header_at (ell->location))
+	pedwarn (ell->location, 0,
+		 "pack expansion in using-declaration only available "
+		 "with -std=c++1z or -std=gnu++1z");
+      qscope = make_pack_expansion (qscope);
+    }
 
   /* The function we call to handle a using-declaration is different
      depending on what scope we are in.  */
@@ -18458,7 +18460,7 @@ cp_parser_using_declaration (cp_parser* parser,
       if (at_class_scope_p ())
 	{
 	  /* Create the USING_DECL.  */
-	  decl = do_class_using_decl (parser->scope, identifier);
+	  decl = do_class_using_decl (qscope, identifier);
 
 	  if (decl && typename_p)
 	    USING_DECL_TYPENAME_P (decl) = 1;
@@ -18491,6 +18493,17 @@ cp_parser_using_declaration (cp_parser* parser,
 	  else
 	    do_toplevel_using_decl (decl, qscope, identifier);
 	}
+    }
+
+  if (!access_declaration_p
+      && cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+    {
+      cp_token *comma = cp_lexer_consume_token (parser->lexer);
+      if (cxx_dialect < cxx1z)
+	pedwarn (comma->location, 0,
+		 "comma-separated list in using-declaration only available "
+		 "with -std=c++1z or -std=gnu++1z");
+      goto again;
     }
 
   /* Look for the final `;'.  */
@@ -22154,7 +22167,10 @@ cp_parser_class_specifier_1 (cp_parser* parser)
 	  next_loc = linemap_position_for_loc_and_offset (line_table, loc, 1);
 
 	rich_location richloc (line_table, next_loc);
-	richloc.add_fixit_insert_before (next_loc, ";");
+
+	/* If we successfully offset the location, suggest the fix-it.  */
+	if (next_loc != loc)
+	  richloc.add_fixit_insert_before (next_loc, ";");
 
 	if (CLASSTYPE_DECLARED_CLASS (type))
 	  error_at_rich_loc (&richloc,
@@ -24912,11 +24928,7 @@ cp_parser_std_attribute_spec (cp_parser *parser)
 
       if (!cp_parser_parse_definitely (parser))
 	{
-	  gcc_assert (alignas_expr == error_mark_node
-		      || alignas_expr == NULL_TREE);
-
-	  alignas_expr =
-	    cp_parser_assignment_expression (parser);
+	  alignas_expr = cp_parser_assignment_expression (parser);
 	  if (alignas_expr == error_mark_node)
 	    cp_parser_skip_to_end_of_statement (parser);
 	  if (alignas_expr == NULL_TREE

@@ -58,7 +58,7 @@ runtime_atoi(const byte *p, intgo len)
 }
 
 uint32
-runtime_fastrand1(void)
+runtime_fastrand(void)
 {
 	M *m;
 	uint32 x;
@@ -88,20 +88,11 @@ runtime_cputicks(void)
   asm volatile(".insn s,0xb27c0000,%0" /* stckf */ : "+Q" (clock) : : "cc" );
   return (int64)clock;
 #else
-  // Currently cputicks() is used in blocking profiler and to seed runtime·fastrand1().
+  // Currently cputicks() is used in blocking profiler and to seed runtime·fastrand().
   // runtime·nanotime() is a poor approximation of CPU ticks that is enough for the profiler.
-  // TODO: need more entropy to better seed fastrand1.
+  // TODO: need more entropy to better seed fastrand.
   return runtime_nanotime();
 #endif
-}
-
-// Called to initialize a new m (including the bootstrap m).
-// Called on the parent thread (main thread in case of bootstrap), can allocate memory.
-void
-runtime_mpreinit(M *mp)
-{
-	mp->gsignal = runtime_malg(true, true, (byte**)&mp->gsignalstack, &mp->gsignalstacksize);
-	mp->gsignal->m = mp;
 }
 
 void

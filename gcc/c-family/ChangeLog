@@ -1,3 +1,42 @@
+2017-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/49726
+	* c.opt (gen-decls): Add Driver flag.
+
+2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+     	2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71737
+	* c-common.c (set_underlying_type): Always set DECL_ORIGINAL_TYPE.
+
+2017-01-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71737
+	* c-common.c (set_underlying_type): Always set DECL_ORIGINAL_TYPE.
+
+2017-01-12  Martin Sebor  <msebor@redhat.com>
+
+	(-Wformat-overflow): ...to this.
+
+2017-01-11  Martin Sebor  <msebor@redhat.com>
+
+	PR c/78768
+	* c.opt (-Walloca-larger-than, -Wformat-length, -Wformat-truncation):
+	Also enable for LTO.
+
+2017-01-10  Jason Merrill  <jason@redhat.com>
+
+	Implement P0195R2, C++17 variadic using.
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_variadic_using.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* c.opt (Wnormalized=): Fix typo in description.
+
 2017-01-08  Martin Sebor  <msebor@redhat.com>
 
 	PR middle-end/77708

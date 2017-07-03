@@ -1476,7 +1476,38 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
 
     case MEM_REF:
       {
-	if (integer_zerop (TREE_OPERAND (node, 1))
+	if (flags & TDF_GIMPLE)
+	  {
+	    pp_string (pp, "__MEM <");
+	    dump_generic_node (pp, TREE_TYPE (node),
+			       spc, flags | TDF_SLIM, false);
+	    if (TYPE_ALIGN (TREE_TYPE (node))
+		!= TYPE_ALIGN (TYPE_MAIN_VARIANT (TREE_TYPE (node))))
+	      {
+		pp_string (pp, ", ");
+		pp_decimal_int (pp, TYPE_ALIGN (TREE_TYPE (node)));
+	      }
+	    pp_greater (pp);
+	    pp_string (pp, " (");
+	    if (TREE_TYPE (TREE_OPERAND (node, 0))
+		!= TREE_TYPE (TREE_OPERAND (node, 1)))
+	      {
+		pp_left_paren (pp);
+		dump_generic_node (pp, TREE_TYPE (TREE_OPERAND (node, 1)),
+				   spc, flags | TDF_SLIM, false);
+		pp_right_paren (pp);
+	      }
+	    dump_generic_node (pp, TREE_OPERAND (node, 0),
+			       spc, flags | TDF_SLIM, false);
+	    if (! integer_zerop (TREE_OPERAND (node, 1)))
+	      {
+		pp_string (pp, " + ");
+		dump_generic_node (pp, TREE_OPERAND (node, 1),
+				   spc, flags | TDF_SLIM, false);
+	      }
+	    pp_right_paren (pp);
+	  }
+	else if (integer_zerop (TREE_OPERAND (node, 1))
 	    /* Dump the types of INTEGER_CSTs explicitly, for we can't
 	       infer them and MEM_ATTR caching will share MEM_REFs
 	       with differently-typed op0s.  */
@@ -1650,7 +1681,18 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       break;
 
     case INTEGER_CST:
-      if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
+      if (flags & TDF_GIMPLE
+	  && (POINTER_TYPE_P (TREE_TYPE (node))
+	      || (TYPE_PRECISION (TREE_TYPE (node))
+		  < TYPE_PRECISION (integer_type_node))
+	      || exact_log2 (TYPE_PRECISION (TREE_TYPE (node))) == -1))
+	{
+	  pp_string (pp, "_Literal (");
+	  dump_generic_node (pp, TREE_TYPE (node), spc, flags, false);
+	  pp_string (pp, ") ");
+	}
+      if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE
+	  && ! (flags & TDF_GIMPLE))
 	{
 	  /* In the case of a pointer, one may want to divide by the
 	     size of the pointed-to type.  Unfortunately, this not
@@ -1690,6 +1732,24 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
 	    }
 	  print_hex (val, pp_buffer (pp)->digit_buffer);
 	  pp_string (pp, pp_buffer (pp)->digit_buffer);
+	}
+      if ((flags & TDF_GIMPLE)
+	  && ! (POINTER_TYPE_P (TREE_TYPE (node))
+		|| (TYPE_PRECISION (TREE_TYPE (node))
+		    < TYPE_PRECISION (integer_type_node))
+		|| exact_log2 (TYPE_PRECISION (TREE_TYPE (node))) == -1))
+	{
+	  if (TYPE_UNSIGNED (TREE_TYPE (node)))
+	    pp_character (pp, 'u');
+	  if (TYPE_PRECISION (TREE_TYPE (node))
+	      == TYPE_PRECISION (unsigned_type_node))
+	    ;
+	  else if (TYPE_PRECISION (TREE_TYPE (node))
+		   == TYPE_PRECISION (long_unsigned_type_node))
+	    pp_character (pp, 'l');
+	  else if (TYPE_PRECISION (TREE_TYPE (node))
+		   == TYPE_PRECISION (long_long_unsigned_type_node))
+	    pp_string (pp, "ll");
 	}
       if (TREE_OVERFLOW (node))
 	pp_string (pp, "(OVF)");

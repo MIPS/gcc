@@ -460,7 +460,21 @@ begin
       end if;
    end if;
 
-   --  Qualify all entity names in inner packages, package bodies, etc.
+   --  In GNATprove mode, force the loading of a few RTE units
+
+   if GNATprove_Mode then
+      declare
+         Unused : Entity_Id;
+
+      begin
+         --  Ensure that System.Interrupt_Priority is available to GNATprove
+         --  for the generation of VCs related to ceiling priority.
+
+         Unused := RTE (RE_Interrupt_Priority);
+      end;
+   end if;
+
+   --  Qualify all entity names in inner packages, package bodies, etc
 
    Exp_Dbug.Qualify_All_Entity_Names;
 
@@ -492,7 +506,7 @@ begin
       Item := First (Context_Items (Cunit (Main_Unit)));
       while Present (Item) loop
          if Nkind (Item) = N_Pragma
-           and then Pragma_Name_Mapped (Item) = Name_Initialize_Scalars
+           and then Pragma_Name (Item) = Name_Initialize_Scalars
          then
             Initialize_Scalars := True;
          end if;

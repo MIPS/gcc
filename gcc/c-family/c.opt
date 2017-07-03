@@ -313,7 +313,7 @@ C ObjC C++ ObjC++ Var(warn_alloc_zero) Warning
 -Walloc-zero Warn for calls to allocation functions that specify zero bytes.
 
 Walloca-larger-than=
-C ObjC C++ ObjC++ Var(warn_alloca_limit) Warning Joined RejectNegative UInteger
+C ObjC C++ LTO ObjC++ Var(warn_alloca_limit) Warning Joined RejectNegative UInteger
 -Walloca-larger-than=<number> Warn on unbounded uses of
 alloca, and on bounded uses of alloca whose bound can be larger than
 <number> bytes.
@@ -520,14 +520,14 @@ Wformat-extra-args
 C ObjC C++ ObjC++ Var(warn_format_extra_args) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
 Warn if passing too many arguments to a function for its format string.
 
-Wformat-length
-C ObjC C++ ObjC++ Warning Alias(Wformat-length=, 1, 0)
-Warn about function calls with format strings that write past the end
-of the destination region.  Same as -Wformat-length=1.
-
 Wformat-nonliteral
 C ObjC C++ ObjC++ Var(warn_format_nonliteral) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 2, 0)
 Warn about format strings that are not literals.
+
+Wformat-overflow
+C ObjC C++ LTO ObjC++ Warning Alias(Wformat-overflow=, 1, 0)
+Warn about function calls with format strings that write past the end
+of the destination region.  Same as -Wformat-overflow=1.
 
 Wformat-security
 C ObjC C++ ObjC++ Var(warn_format_security) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 2, 0)
@@ -538,7 +538,7 @@ C ObjC C++ ObjC++ Var(warn_format_signedness) Warning
 Warn about sign differences with format functions.
 
 Wformat-truncation
-C ObjC C++ ObjC++ Warning Alias(Wformat-truncation=, 1, 0)
+C ObjC C++ LTO ObjC++ Warning Alias(Wformat-truncation=, 1, 0)
 Warn about calls to snprintf and similar functions that truncate output.
 Same as -Wformat-truncation=1.
 
@@ -554,8 +554,8 @@ Wformat=
 C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_format) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall, 1, 0)
 Warn about printf/scanf/strftime/strfmon format string anomalies.
 
-Wformat-length=
-C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_format_length) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
+Wformat-overflow=
+C ObjC C++ LTO ObjC++ Joined RejectNegative UInteger Var(warn_format_overflow) Warning LangEnabledBy(C ObjC C++ ObjC++,Wformat=, warn_format >= 1, 0)
 Warn about function calls with format strings that write past the end
 of the destination region.
 
@@ -802,7 +802,7 @@ C ObjC C++ ObjC++ Warning Alias(Wnormalized=,nfc,none)
 
 Wnormalized=
 C ObjC C++ ObjC++ RejectNegative Joined Warning CPP(warn_normalize) CppReason(CPP_W_NORMALIZE) Init(normalized_C) Var(cpp_warn_normalize) Enum(cpp_normalize_level)
--Wnormalized=<none|id|nfc|nfkc>	Warn about non-normalised Unicode strings.
+-Wnormalized=<none|id|nfc|nfkc>	Warn about non-normalized Unicode strings.
 
 ; Required for these enum values.
 SourceInclude
@@ -1762,7 +1762,7 @@ ObjC ObjC++ Var(flag_zero_link)
 Generate lazy class lookup (via objc_getClass()) for use in Zero-Link mode.
 
 gen-decls
-ObjC ObjC++ Var(flag_gen_declaration)
+ObjC ObjC++ Driver Var(flag_gen_declaration)
 Dump declarations to a .decl file.
 
 femit-struct-debug-baseonly

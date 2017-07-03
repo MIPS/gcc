@@ -108,12 +108,14 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   uint8_type->integer_type()->set_is_byte();
   Named_object* byte_type = Named_object::make_type("byte", NULL, uint8_type,
 						    loc);
+  byte_type->type_value()->set_is_alias();
   this->add_named_type(byte_type->type_value());
 
   // "rune" is an alias for "int32".
   int32_type->integer_type()->set_is_rune();
   Named_object* rune_type = Named_object::make_type("rune", NULL, int32_type,
 						    loc);
+  rune_type->type_value()->set_is_alias();
   this->add_named_type(rune_type->type_value());
 
   this->add_named_type(Type::make_named_bool_type());
@@ -744,6 +746,7 @@ Gogo::register_gc_vars(const std::vector<Named_object*>& var_gc,
   Expression* length = Expression::make_integer_ul(roots_len, NULL,
                                                    builtin_loc);
   Array_type* root_array_type = Type::make_array_type(root_type, length);
+  root_array_type->set_is_array_incomparable();
   Type* ptdt = Type::make_type_descriptor_ptr_type();
   Struct_type* root_list_type =
       Type::make_builtin_struct_type(2,
@@ -1774,6 +1777,10 @@ Gogo::start_function(const std::string& name, Function_type* type,
 	  if (rtype->classification() == Type::TYPE_POINTER)
 	    rtype = rtype->points_to();
 
+	  while (rtype->named_type() != NULL
+		 && rtype->named_type()->is_alias())
+	    rtype = rtype->named_type()->real_type();
+
 	  if (rtype->is_error_type())
 	    ret = Named_object::make_function(name, NULL, function);
 	  else if (rtype->named_type() != NULL)
@@ -2343,7 +2350,7 @@ Gogo::clear_file_scope()
 // parse tree is lowered.
 
 void
-Gogo::queue_specific_type_function(Type* type, Named_type* name,
+Gogo::queue_specific_type_function(Type* type, Named_type* name, int64_t size,
 				   const std::string& hash_name,
 				   Function_type* hash_fntype,
 				   const std::string& equal_name,
@@ -2351,7 +2358,7 @@ Gogo::queue_specific_type_function(Type* type, Named_type* name,
 {
   go_assert(!this->specific_type_functions_are_written_);
   go_assert(!this->in_global_scope());
-  Specific_type_function* tsf = new Specific_type_function(type, name,
+  Specific_type_function* tsf = new Specific_type_function(type, name, size,
 							   hash_name,
 							   hash_fntype,
 							   equal_name,
@@ -2386,7 +2393,7 @@ Specific_type_functions::type(Type* t)
     case Type::TYPE_NAMED:
       {
 	Named_type* nt = t->named_type();
-	if (!t->compare_is_identity(this->gogo_) && t->is_comparable())
+	if (t->needs_specific_type_functions(this->gogo_))
 	  t->type_functions(this->gogo_, nt, NULL, NULL, &hash_fn, &equal_fn);
 
 	// If this is a struct type, we don't want to make functions
@@ -2420,7 +2427,7 @@ Specific_type_functions::type(Type* t)
 
     case Type::TYPE_STRUCT:
     case Type::TYPE_ARRAY:
-      if (!t->compare_is_identity(this->gogo_) && t->is_comparable())
+      if (t->needs_specific_type_functions(this->gogo_))
 	t->type_functions(this->gogo_, NULL, NULL, NULL, &hash_fn, &equal_fn);
       break;
 
@@ -2443,7 +2450,7 @@ Gogo::write_specific_type_functions()
     {
       Specific_type_function* tsf = this->specific_type_functions_.back();
       this->specific_type_functions_.pop_back();
-      tsf->type->write_specific_type_functions(this, tsf->name,
+      tsf->type->write_specific_type_functions(this, tsf->name, tsf->size,
 					       tsf->hash_name,
 					       tsf->hash_fntype,
 					       tsf->equal_name,
@@ -4833,7 +4840,8 @@ Function::closure_var()
       // we find them.
       Location loc = this->type_->location();
       Struct_field_list* sfl = new Struct_field_list;
-      Type* struct_type = Type::make_struct_type(sfl, loc);
+      Struct_type* struct_type = Type::make_struct_type(sfl, loc);
+      struct_type->set_is_struct_incomparable();
       Variable* var = new Variable(Type::make_pointer_type(struct_type),
 				   NULL, false, false, false, loc);
       var->set_is_used();
@@ -5716,7 +5724,8 @@ Function::build_defer_wrapper(Gogo* gogo, Named_object* named_function,
       Expression* ref =
 	Expression::make_temporary_reference(this->defer_stack_, end_loc);
       Bexpression* bref = ref->get_backend(&context);
-      ret = gogo->backend()->conditional_expression(NULL, bref, ret, NULL,
+      ret = gogo->backend()->conditional_expression(this->fndecl_,
+                                                    NULL, bref, ret, NULL,
                                                     end_loc);
       stmts.push_back(gogo->backend()->expression_statement(this->fndecl_, ret));
     }
@@ -6862,7 +6871,7 @@ Type_declaration::add_method_declaration(const std::string&  name,
   return ret;
 }
 
-// Return whether any methods ere defined.
+// Return whether any methods are defined.
 
 bool
 Type_declaration::has_methods() const
@@ -6875,6 +6884,36 @@ Type_declaration::has_methods() const
 void
 Type_declaration::define_methods(Named_type* nt)
 {
+  if (this->methods_.empty())
+    return;
+
+  while (nt->is_alias())
+    {
+      Type *t = nt->real_type()->forwarded();
+      if (t->named_type() != NULL)
+	nt = t->named_type();
+      else if (t->forward_declaration_type() != NULL)
+	{
+	  Named_object* no = t->forward_declaration_type()->named_object();
+	  Type_declaration* td = no->type_declaration_value();
+	  td->methods_.insert(td->methods_.end(), this->methods_.begin(),
+			      this->methods_.end());
+	  this->methods_.clear();
+	  return;
+	}
+      else
+	{
+	  for (std::vector<Named_object*>::const_iterator p =
+		 this->methods_.begin();
+	       p != this->methods_.end();
+	       ++p)
+	    go_error_at((*p)->location(),
+			("invalid receiver type "
+			 "(receiver must be a named type"));
+	  return;
+	}
+    }
+
   for (std::vector<Named_object*>::const_iterator p = this->methods_.begin();
        p != this->methods_.end();
        ++p)

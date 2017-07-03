@@ -1,3 +1,57 @@
+2017-01-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78337 - ICE on invalid with generic lambda
+	* semantics.c (process_outer_var_ref): Check if containing_function
+	is null.  Move inform call under complain test.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77812
+	* name-lookup.c (set_namespace_binding_1): An overload of 1 decl
+	is a new overload.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	* name-lookup.c (push_overloaded_decl_1): Refactor OVERLOAD creation.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78341
+	* parser.c (cp_parser_std_attribute_spec): Remove over-eager
+	assertion.  Formatting fix.
+
+	PR c++/72813
+	* decl2.c (c_parse_final_cleanups): Set flag_syntax_only to 1 after
+	writing PCH file.
+
+2017-01-10  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77949
+	* parser.c (cp_parser_class_specifier_1): Only suggest inserting
+	a missing semicolon if we have a valid insertion location for
+	the fix-it hint.
+
+2017-01-10  Jason Merrill  <jason@redhat.com>
+
+	FI 20, decomposition declaration with parenthesized initializer.
+	* parser.c (cp_parser_decomposition_declaration): Use
+	cp_parser_initializer.
+
+2017-01-09  Jason Merrill  <jason@redhat.com>
+
+	Implement P0195R2, C++17 variadic using.
+	* parser.c (cp_parser_using_declaration): Handle ellipsis and comma.
+	* pt.c (tsubst_decl): Handle pack expansion in USING_DECL_SCOPE.
+	* error.c (dump_decl): Likewise.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* semantics.c (finish_omp_clauses): Add missing whitespace to
+	translatable strings.
+	* cp-cilkplus.c (cpp_validate_cilk_plus_loop_aux): Fix comment typo.
+
 2017-01-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/78948 - instantiation from discarded statement
