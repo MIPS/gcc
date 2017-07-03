@@ -5860,6 +5860,20 @@
 }
   [(set_attr "type" "ghost")])
 
+(define_insn_and_split "loadgp_pabi_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=&d")
+	(unspec:P [(match_operand:P 1)]
+		  UNSPEC_LOADGP))]
+  "mips_current_loadgp_style () == LOADGP_PABI"
+  { return mips_must_initialize_gp_p () ? "#" : ""; }
+  "&& mips_must_initialize_gp_p ()"
+  [(const_int 0)]
+{
+  mips_emit_move (operands[0], operands[1]);
+  DONE;
+}
+  [(set_attr "type" "ghost")])
+
 ;; Likewise, for -mno-shared code.  Operand 0 is the __gnu_local_gp symbol.
 (define_insn_and_split "loadgp_absolute_<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")

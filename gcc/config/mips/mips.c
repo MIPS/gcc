@@ -6606,6 +6606,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
 
+      if (TARGET_NANOMIPS && flag_pic
+	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
+	  && mips_lo_relocs[symbol_type] != 0
+	  && symbol_type == SYMBOL_GOTOFF_LOADGP)
+	return "aluipc\t%0,%R1";
+
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
 	  && mips_lo_relocs[symbol_type] != 0
 	  && !mips_string_constant_p (src))
@@ -10444,6 +10450,8 @@ mips_init_relocs (void)
       mips_hi_relocs[SYMBOL_GOTOFF_LOADGP] = "%hi(%neg(%gp_rel(";
       mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%lo(%neg(%gp_rel(";
     }
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%pcrel_hi(";
 
   mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
   mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsldm(";
@@ -12787,7 +12795,7 @@ mips_global_pointer (void)
 
   /* If the global pointer is call-saved, try to use a call-clobbered
      alternative.  */
-  if (TARGET_CALL_SAVED_GP && crtl->is_leaf)
+  if (!TARGET_NANOMIPS && TARGET_CALL_SAVED_GP && crtl->is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
       if (!df_regs_ever_live_p (regno)
 	  && call_really_used_regs[regno]
@@ -13720,6 +13728,9 @@ mips_current_loadgp_style (void)
   if (!TARGET_USE_GOT || cfun->machine->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
 
+  if (TARGET_PABI)
+    return LOADGP_PABI;
+
   if (TARGET_RTP_PIC)
     return LOADGP_RTP;
 
@@ -14642,6 +14653,7 @@ static void
 mips_emit_loadgp (void)
 {
   rtx addr, offset, incoming_address, base, index, pic_reg;
+  rtx gp;
 
   pic_reg = TARGET_MIPS16 ? MIPS16_PIC_TEMP : pic_offset_table_rtx;
   switch (mips_current_loadgp_style ())
@@ -14666,6 +14678,13 @@ mips_emit_loadgp (void)
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
       emit_insn (PMODE_INSN (gen_loadgp_newabi,
 			     (pic_reg, offset, incoming_address)));
+      break;
+
+    case LOADGP_PABI:
+      gp = gen_rtx_SYMBOL_REF (Pmode, "_gp");
+      addr= mips_unspec_address (gp, SYMBOL_GOTOFF_LOADGP);
+      emit_insn (PMODE_INSN (gen_loadgp_pabi,
+			     (pic_reg, addr)));
       break;
 
     case LOADGP_RTP:

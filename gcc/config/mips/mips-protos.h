@@ -149,6 +149,7 @@ enum mips_loadgp_style {
   LOADGP_NONE,
   LOADGP_OLDABI,
   LOADGP_NEWABI,
+  LOADGP_PABI,
   LOADGP_ABSOLUTE,
   LOADGP_RTP
 };

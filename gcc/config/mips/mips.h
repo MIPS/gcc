@@ -194,7 +194,8 @@ struct mips_cpu_info {
    && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
 
 /* True if we need to use a global offset table to access some symbols.  */
-#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
+#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC \
+			|| (TARGET_NANOMIPS && flag_pic))
 
 /* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
 #define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OABI)
