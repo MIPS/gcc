@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -6450,32 +6450,18 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
       return;
     }
 
+  /* The string copy algorithm below generates code like
+
+     if (dlen > 0) {
+         memmove (dest, src, min(dlen, slen));
+         if (slen < dlen)
+             memset(&dest[slen], ' ', dlen - slen);
+     }
+  */
+
   /* Do nothing if the destination length is zero.  */
   cond = fold_build2_loc (input_location, GT_EXPR, boolean_type_node, dlen,
 			  build_int_cst (size_type_node, 0));
-
-  /* The following code was previously in _gfortran_copy_string:
-
-       // The two strings may overlap so we use memmove.
-       void
-       copy_string (GFC_INTEGER_4 destlen, char * dest,
-                    GFC_INTEGER_4 srclen, const char * src)
-       {
-         if (srclen >= destlen)
-           {
-             // This will truncate if too long.
-             memmove (dest, src, destlen);
-           }
-         else
-           {
-             memmove (dest, src, srclen);
-             // Pad with spaces.
-             memset (&dest[srclen], ' ', destlen - srclen);
-           }
-       }
-
-     We're now doing it here for better optimization, but the logic
-     is the same.  */
 
   /* For non-default character kinds, we have to multiply the string
      length by the base type size.  */
@@ -6499,17 +6485,19 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   else
     src = gfc_build_addr_expr (pvoid_type_node, src);
 
-  /* Truncate string if source is too long.  */
-  cond2 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node, slen,
-			   dlen);
+  /* First do the memmove. */
+  tmp2 = fold_build2_loc (input_location, MIN_EXPR, TREE_TYPE (dlen), dlen,
+			  slen);
   tmp2 = build_call_expr_loc (input_location,
 			      builtin_decl_explicit (BUILT_IN_MEMMOVE),
-			      3, dest, src, dlen);
+			      3, dest, src, tmp2);
+  stmtblock_t tmpblock2;
+  gfc_init_block (&tmpblock2);
+  gfc_add_expr_to_block (&tmpblock2, tmp2);
 
-  /* Else copy and pad with spaces.  */
-  tmp3 = build_call_expr_loc (input_location,
-			      builtin_decl_explicit (BUILT_IN_MEMMOVE),
-			      3, dest, src, slen);
+  /* If the destination is longer, fill the end with spaces.  */
+  cond2 = fold_build2_loc (input_location, LT_EXPR, boolean_type_node, slen,
+			   dlen);
 
   /* Wstringop-overflow appears at -O3 even though this warning is not
      explicitly available in fortran nor can it be switched off. If the
@@ -6525,13 +6513,14 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   tmp4 = fill_with_spaces (tmp4, chartype, tmp);
 
   gfc_init_block (&tempblock);
-  gfc_add_expr_to_block (&tempblock, tmp3);
   gfc_add_expr_to_block (&tempblock, tmp4);
   tmp3 = gfc_finish_block (&tempblock);
 
   /* The whole copy_string function is there.  */
   tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, cond2,
-			 tmp2, tmp3);
+			 tmp3, build_empty_stmt (input_location));
+  gfc_add_expr_to_block (&tmpblock2, tmp);
+  tmp = gfc_finish_block (&tmpblock2);
   tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, cond, tmp,
 			 build_empty_stmt (input_location));
   gfc_add_expr_to_block (block, tmp);
@@ -7517,7 +7506,8 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init, bool coarray)
 	 Register only allocatable components, that are not coarray'ed
 	 components (%comp[*]).  Only register when the constructor is not the
 	 null-expression.  */
-      if (coarray && !cm->attr.codimension && cm->attr.allocatable
+      if (coarray && !cm->attr.codimension
+	  && (cm->attr.allocatable || cm->attr.pointer)
 	  && (!c->expr || c->expr->expr_type == EXPR_NULL))
 	{
 	  tree token, desc, size;
@@ -8132,6 +8122,52 @@ trans_class_vptr_len_assignment (stmtblock_t *block, gfc_expr * le,
   return lhs_vptr;
 }
 
+
+/* Assign tokens for pointer components.  */
+
+static void
+trans_caf_token_assign (gfc_se *lse, gfc_se *rse, gfc_expr *expr1,
+			gfc_expr *expr2)
+{
+  symbol_attribute lhs_attr, rhs_attr;
+  tree tmp, lhs_tok, rhs_tok;
+  /* Flag to indicated component refs on the rhs.  */
+  bool rhs_cr;
+
+  lhs_attr = gfc_caf_attr (expr1);
+  if (expr2->expr_type != EXPR_NULL)
+    {
+      rhs_attr = gfc_caf_attr (expr2, false, &rhs_cr);
+      if (lhs_attr.codimension && rhs_attr.codimension)
+	{
+	  lhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (lse, expr1);
+	  lhs_tok = build_fold_indirect_ref (lhs_tok);
+
+	  if (rhs_cr)
+	    rhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (rse, expr2);
+	  else
+	    {
+	      tree caf_decl;
+	      caf_decl = gfc_get_tree_for_caf_expr (expr2);
+	      gfc_get_caf_token_offset (rse, &rhs_tok, NULL, caf_decl,
+					NULL_TREE, NULL);
+	    }
+	  tmp = build2_loc (input_location, MODIFY_EXPR, void_type_node,
+			    lhs_tok,
+			    fold_convert (TREE_TYPE (lhs_tok), rhs_tok));
+	  gfc_prepend_expr_to_block (&lse->post, tmp);
+	}
+    }
+  else if (lhs_attr.codimension)
+    {
+      lhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (lse, expr1);
+      lhs_tok = build_fold_indirect_ref (lhs_tok);
+      tmp = build2_loc (input_location, MODIFY_EXPR, void_type_node,
+			lhs_tok, null_pointer_node);
+      gfc_prepend_expr_to_block (&lse->post, tmp);
+    }
+}
+
 /* Indentify class valued proc_pointer assignments.  */
 
 static bool
@@ -8251,6 +8287,11 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 
       gfc_add_modify (&block, lse.expr,
 		      fold_convert (TREE_TYPE (lse.expr), rse.expr));
+
+      /* Also set the tokens for pointer components in derived typed
+	 coarrays.  */
+      if (flag_coarray == GFC_FCOARRAY_LIB)
+	trans_caf_token_assign (&lse, &rse, expr1, expr2);
 
       gfc_add_block_to_block (&block, &rse.post);
       gfc_add_block_to_block (&block, &lse.post);
@@ -9625,17 +9666,38 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 
 static tree
 trans_class_assignment (stmtblock_t *block, gfc_expr *lhs, gfc_expr *rhs,
-			gfc_se *lse, gfc_se *rse, bool use_vptr_copy)
+			gfc_se *lse, gfc_se *rse, bool use_vptr_copy,
+			bool class_realloc)
 {
-  tree tmp;
-  tree fcn;
-  tree stdcopy, to_len, from_len;
+  tree tmp, fcn, stdcopy, to_len, from_len, vptr;
   vec<tree, va_gc> *args = NULL;
 
-  tmp = trans_class_vptr_len_assignment (block, lhs, rhs, rse, &to_len,
+  vptr = trans_class_vptr_len_assignment (block, lhs, rhs, rse, &to_len,
 					 &from_len);
 
-  fcn = gfc_vptr_copy_get (tmp);
+  /* Generate allocation of the lhs.  */
+  if (class_realloc)
+    {
+      stmtblock_t alloc;
+      tree class_han;
+
+      tmp = gfc_vptr_size_get (vptr);
+      class_han = GFC_CLASS_TYPE_P (TREE_TYPE (lse->expr))
+	  ? gfc_class_data_get (lse->expr) : lse->expr;
+      gfc_init_block (&alloc);
+      gfc_allocate_using_malloc (&alloc, class_han, tmp, NULL_TREE);
+      tmp = fold_build2_loc (input_location, EQ_EXPR,
+			     boolean_type_node, class_han,
+			     build_int_cst (prvoid_type_node, 0));
+      tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
+			     gfc_unlikely (tmp,
+					   PRED_FORTRAN_FAIL_ALLOC),
+			     gfc_finish_block (&alloc),
+			     build_empty_stmt (input_location));
+      gfc_add_expr_to_block (&lse->pre, tmp);
+    }
+
+  fcn = gfc_vptr_copy_get (vptr);
 
   tmp = GFC_CLASS_TYPE_P (TREE_TYPE (rse->expr))
       ? gfc_class_data_get (rse->expr) : rse->expr;
@@ -9961,15 +10023,10 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   if (is_poly_assign)
-    {
-      tmp = trans_class_assignment (&body, expr1, expr2, &lse, &rse,
-				    use_vptr_copy || (lhs_attr.allocatable
-						      && !lhs_attr.dimension));
-      /* Modify the expr1 after the assignment, to allow the realloc below.
-	 Therefore only needed, when realloc_lhs is enabled.  */
-      if (flag_realloc_lhs && !lhs_attr.pointer)
-	gfc_add_data_component (expr1);
-    }
+    tmp = trans_class_assignment (&body, expr1, expr2, &lse, &rse,
+				  use_vptr_copy || (lhs_attr.allocatable
+						    && !lhs_attr.dimension),
+				  flag_realloc_lhs && !lhs_attr.pointer);
   else if (flag_coarray == GFC_FCOARRAY_LIB
 	   && lhs_caf_attr.codimension && rhs_caf_attr.codimension
 	   && ((lhs_caf_attr.allocatable && lhs_refs_comp)
@@ -10011,7 +10068,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   if (lss == gfc_ss_terminator)
     {
       /* F2003: Add the code for reallocation on assignment.  */
-      if (flag_realloc_lhs && is_scalar_reallocatable_lhs (expr1))
+      if (flag_realloc_lhs && is_scalar_reallocatable_lhs (expr1)
+	  && !is_poly_assign)
 	alloc_scalar_allocatable_for_assignment (&block, string_length,
 						 expr1, expr2);
 

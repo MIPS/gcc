@@ -1,5 +1,5 @@
 /* Output Dwarf2 format symbol table information from GCC.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -3356,6 +3356,7 @@ static int get_AT_flag (dw_die_ref, enum dwarf_attribute);
 static unsigned get_AT_unsigned (dw_die_ref, enum dwarf_attribute);
 static inline dw_die_ref get_AT_ref (dw_die_ref, enum dwarf_attribute);
 static bool is_cxx (void);
+static bool is_cxx (const_tree);
 static bool is_fortran (void);
 static bool is_ada (void);
 static bool remove_AT (dw_die_ref, enum dwarf_attribute);
@@ -4988,6 +4989,27 @@ is_cxx (void)
 
   return (lang == DW_LANG_C_plus_plus || lang == DW_LANG_ObjC_plus_plus
 	  || lang == DW_LANG_C_plus_plus_11 || lang == DW_LANG_C_plus_plus_14);
+}
+
+/* Return TRUE if DECL was created by the C++ frontend.  */
+
+static bool
+is_cxx (const_tree decl)
+{
+  if (in_lto_p)
+    {
+      const_tree context = decl;
+      while (context && TREE_CODE (context) != TRANSLATION_UNIT_DECL)
+	{
+	  if (TREE_CODE (context) == BLOCK)
+	    context = BLOCK_SUPERCONTEXT (context);
+	  else
+	    context = get_containing_scope (context);
+	}
+      if (context && TRANSLATION_UNIT_LANGUAGE (context))
+	return strncmp (TRANSLATION_UNIT_LANGUAGE (context), "GNU C++", 7) == 0;
+    }
+  return is_cxx ();
 }
 
 /* Return TRUE if the language is Java.  */
@@ -9586,7 +9608,7 @@ output_loc_list (dw_loc_list_ref list_head)
 	 perhaps put it into DW_TAG_dwarf_procedure and refer to that
 	 in the expression, but >= 64KB expressions for a single value
 	 in a single range are unlikely very useful.  */
-      if (size > 0xffff)
+      if (dwarf_version < 5 && size > 0xffff)
 	continue;
       if (dwarf_version >= 5)
 	{
@@ -9637,8 +9659,6 @@ output_loc_list (dw_loc_list_ref list_head)
 		    {
 		      if (strcmp (curr2->begin, curr2->end) == 0
 			  && !curr2->force)
-			continue;
-		      if ((unsigned long) size_of_locs (curr2->expr) > 0xffff)
 			continue;
 		      break;
 		    }
@@ -9740,8 +9760,13 @@ output_loc_list (dw_loc_list_ref list_head)
 	}
 
       /* Output the block length for this list of location operations.  */
-      gcc_assert (size <= 0xffff);
-      dw2_asm_output_data (2, size, "%s", "Location expression size");
+      if (dwarf_version >= 5)
+	dw2_asm_output_data_uleb128 (size, "Location expression size");
+      else
+	{
+	  gcc_assert (size <= 0xffff);
+	  dw2_asm_output_data (2, size, "Location expression size");
+	}
 
       output_loc_sequence (curr->expr, -1);
     }
@@ -20930,6 +20955,11 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  if (ENUM_IS_OPAQUE (type))
 	    add_AT_flag (type_die, DW_AT_declaration, 1);
 	}
+      if (!dwarf_strict)
+	add_AT_unsigned (type_die, DW_AT_encoding,
+			 TYPE_UNSIGNED (type)
+			 ? DW_ATE_unsigned
+			 : DW_ATE_signed);
     }
   else if (! TYPE_SIZE (type))
     return type_die;
@@ -24754,7 +24784,7 @@ is_naming_typedef_decl (const_tree decl)
       /* It looks like Ada produces TYPE_DECLs that are very similar
          to C++ naming typedefs but that have different
          semantics. Let's be specific to c++ for now.  */
-      || !is_cxx ())
+      || !is_cxx (decl))
     return FALSE;
 
   return (DECL_ORIGINAL_TYPE (decl) == NULL_TREE

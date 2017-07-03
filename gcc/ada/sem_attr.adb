@@ -1306,7 +1306,7 @@ package body Sem_Attr is
             if Nkind (Prag) = N_Aspect_Specification then
                Prag_Nam := Chars (Identifier (Prag));
             else
-               Prag_Nam := Pragma_Name (Prag);
+               Prag_Nam := Pragma_Name_Mapped (Prag);
             end if;
 
             if Prag_Nam = Name_Check then
@@ -3833,6 +3833,42 @@ package body Sem_Attr is
          Check_Standard_Prefix;
          Rewrite (N, New_Occurrence_Of (Boolean_Literals (Fast_Math), Loc));
 
+      -----------------------
+      -- Finalization_Size --
+      -----------------------
+
+      when Attribute_Finalization_Size =>
+         Check_E0;
+
+         --  The prefix denotes an object
+
+         if Is_Object_Reference (P) then
+            Check_Object_Reference (P);
+
+         --  The prefix denotes a type
+
+         elsif Is_Entity_Name (P) and then Is_Type (Entity (P)) then
+            Check_Type;
+            Check_Not_Incomplete_Type;
+
+            --  Attribute 'Finalization_Size is not defined for class-wide
+            --  types because it is not possible to know statically whether
+            --  a definite type will have controlled components or not.
+
+            if Is_Class_Wide_Type (Etype (P)) then
+               Error_Attr_P
+                 ("prefix of % attribute cannot denote a class-wide type");
+            end if;
+
+         --  The prefix denotes an illegal construct
+
+         else
+            Error_Attr_P
+              ("prefix of % attribute must be a definite type or an object");
+         end if;
+
+         Set_Etype (N, Universal_Integer);
+
       -----------
       -- First --
       -----------
@@ -4478,9 +4514,11 @@ package body Sem_Attr is
 
          if Is_Ignored (Enclosing_Pragma) then
             Rewrite (N, Relocate_Node (P));
-         end if;
+            Preanalyze_And_Resolve (N);
 
-         Preanalyze_And_Resolve (P);
+         else
+            Preanalyze_And_Resolve (P);
+         end if;
       end Loop_Entry;
 
       -------------
@@ -8397,6 +8435,13 @@ package body Sem_Attr is
       when Attribute_Exponent =>
          Fold_Uint (N,
            Eval_Fat.Exponent (P_Base_Type, Expr_Value_R (E1)), Static);
+
+      -----------------------
+      -- Finalization_Size --
+      -----------------------
+
+      when Attribute_Finalization_Size =>
+         null;
 
       -----------
       -- First --

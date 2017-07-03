@@ -1,5 +1,5 @@
 /* Map (unsigned int) keys to (source file, line, column) triples.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -752,7 +752,7 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
 	 single line we can sometimes just increase its column_bits instead. */
       if (line_delta < 0
 	  || last_line != ORDINARY_MAP_STARTING_LINE_NUMBER (map)
-	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits)
+	  || SOURCE_COLUMN (map, highest) >= (1U << (column_bits - range_bits))
 	  || range_bits < map->m_range_bits)
 	map = linemap_check_ordinary
 	        (const_cast <line_map *>

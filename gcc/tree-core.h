@@ -1,5 +1,5 @@
 /* Core data structures for the 'tree' type.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1099,6 +1099,9 @@ struct GTY(()) tree_base {
 
        FALLTHROUGH_LABEL_P in
 	   LABEL_DECL
+
+       SSA_NAME_IS_VIRTUAL_OPERAND in
+	   SSA_NAME
 
    private_flag:
 

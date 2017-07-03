@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2016 Free Software Foundation, Inc.
+   Copyright (C) 1988-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -926,6 +926,7 @@ wrapup_globals_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 	    && DECL_EXTERNAL (decl)
 	    && !TREE_PUBLIC (decl)
 	    && !DECL_ARTIFICIAL (decl)
+	    && !DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (decl)
 	    && !TREE_NO_WARNING (decl))
 	  {
 	    warning_at (DECL_SOURCE_LOCATION (decl),
@@ -4291,6 +4292,9 @@ cxx_init_decl_processing (void)
 
   global_type_node = make_node (LANG_TYPE);
   record_unknown_type (global_type_node, "global type");
+
+  any_targ_node = make_node (LANG_TYPE);
+  record_unknown_type (any_targ_node, "any type");
 
   /* Now, C++.  */
   current_lang_name = lang_name_cplusplus;
@@ -7721,10 +7725,9 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	else
 	  {
 	    tree tt = finish_non_static_data_member (field, t, NULL_TREE);
-	    tree probe = tt;
-	    if (REFERENCE_REF_P (probe))
-	      probe = TREE_OPERAND (probe, 0);
-	    TREE_TYPE (v[i]) = TREE_TYPE (probe);
+	    if (REFERENCE_REF_P (tt))
+	      tt = TREE_OPERAND (tt, 0);
+	    TREE_TYPE (v[i]) = TREE_TYPE (tt);
 	    layout_decl (v[i], 0);
 	    SET_DECL_VALUE_EXPR (v[i], tt);
 	    DECL_HAS_VALUE_EXPR_P (v[i]) = 1;

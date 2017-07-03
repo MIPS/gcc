@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991-2016 Free Software Foundation, Inc.
+   Copyright (C) 1991-2017 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -1806,6 +1806,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_LRA_P
 #define TARGET_LRA_P rs6000_lra_p
+
+#undef TARGET_COMPUTE_PRESSURE_CLASSES
+#define TARGET_COMPUTE_PRESSURE_CLASSES rs6000_compute_pressure_classes
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE rs6000_can_eliminate
@@ -3858,6 +3861,13 @@ rs6000_option_override_internal (bool global_init_p)
       && !global_options_set.x_flag_ira_loop_pressure)
     flag_ira_loop_pressure = 1;
 
+  /* -fsanitize=address needs to turn on -fasynchronous-unwind-tables in order
+     for tracebacks to be complete but not if any -fasynchronous-unwind-tables
+     options were already specified.  */
+  if (flag_sanitize & SANITIZE_USER_ADDRESS
+      && !global_options_set.x_flag_asynchronous_unwind_tables)
+    flag_asynchronous_unwind_tables = 1;
+
   /* Set the pointer size.  */
   if (TARGET_64BIT)
     {
@@ -3923,6 +3933,67 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   gcc_assert (cpu_index >= 0);
+
+  if (have_cpu)
+    {
+#ifndef HAVE_AS_POWER9
+      if (processor_target_table[rs6000_cpu_index].processor 
+	  == PROCESSOR_POWER9)
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power9 instructions because "
+		   "assembler lacks power9 support");
+	}
+#endif
+#ifndef HAVE_AS_POWER8
+      if (processor_target_table[rs6000_cpu_index].processor
+	  == PROCESSOR_POWER8)
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power8 instructions because "
+		   "assembler lacks power8 support");
+	}
+#endif
+#ifndef HAVE_AS_POPCNTD
+      if (processor_target_table[rs6000_cpu_index].processor
+	  == PROCESSOR_POWER7)
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power7 instructions because "
+		   "assembler lacks power7 support");
+	}
+#endif
+#ifndef HAVE_AS_DFP
+      if (processor_target_table[rs6000_cpu_index].processor
+	  == PROCESSOR_POWER6)
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power6 instructions because "
+		   "assembler lacks power6 support");
+	}
+#endif
+#ifndef HAVE_AS_POPCNTB
+      if (processor_target_table[rs6000_cpu_index].processor
+	  == PROCESSOR_POWER5)
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power5 instructions because "
+		   "assembler lacks power5 support");
+	}
+#endif
+
+      if (!have_cpu)
+	{
+	  /* PowerPC 64-bit LE requires at least ISA 2.07.  */
+	  const char *default_cpu = (!TARGET_POWERPC64
+				     ? "powerpc"
+				     : (BYTES_BIG_ENDIAN
+					? "powerpc64"
+					: "powerpc64le"));
+
+	  rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
+	}
+    }
 
   /* If we have a cpu, either through an explicit -mcpu=<xxx> or if the
      compiler was configured with --with-cpu=<xxx>, replace all of the ISA bits
@@ -5097,6 +5168,12 @@ rs6000_option_override_internal (bool global_init_p)
 			     global_options.x_param_values,
 			     global_options_set.x_param_values);
       maybe_set_param_value (PARAM_MAX_COMPLETELY_PEELED_INSNS, 400,
+			     global_options.x_param_values,
+			     global_options_set.x_param_values);
+
+      /* Use the 'model' -fsched-pressure algorithm by default.  */
+      maybe_set_param_value (PARAM_SCHED_PRESSURE_ALGORITHM,
+			     SCHED_PRESSURE_MODEL,
 			     global_options.x_param_values,
 			     global_options_set.x_param_values);
 
@@ -10325,6 +10402,78 @@ rs6000_emit_le_vsx_move (rtx dest, rtx source, machine_mode mode)
     }
 }
 
+/* Return whether a SFmode or SImode move can be done without converting one
+   mode to another.  This arrises when we have:
+
+	(SUBREG:SF (REG:SI ...))
+	(SUBREG:SI (REG:SF ...))
+
+   and one of the values is in a floating point/vector register, where SFmode
+   scalars are stored in DFmode format.  */
+
+bool
+valid_sf_si_move (rtx dest, rtx src, machine_mode mode)
+{
+  if (TARGET_ALLOW_SF_SUBREG)
+    return true;
+
+  if (mode != SFmode && GET_MODE_CLASS (mode) != MODE_INT)
+    return true;
+
+  if (!SUBREG_P (src) || !sf_subreg_operand (src, mode))
+    return true;
+
+  /*.  Allow (set (SUBREG:SI (REG:SF)) (SUBREG:SI (REG:SF))).  */
+  if (SUBREG_P (dest))
+    {
+      rtx dest_subreg = SUBREG_REG (dest);
+      rtx src_subreg = SUBREG_REG (src);
+      return GET_MODE (dest_subreg) == GET_MODE (src_subreg);
+    }
+
+  return false;
+}
+
+
+/* Helper function to change moves with:
+
+	(SUBREG:SF (REG:SI)) and
+	(SUBREG:SI (REG:SF))
+
+   into separate UNSPEC insns.  In the PowerPC architecture, scalar SFmode
+   values are stored as DFmode values in the VSX registers.  We need to convert
+   the bits before we can use a direct move or operate on the bits in the
+   vector register as an integer type.
+
+   Skip things like (set (SUBREG:SI (...) (SUBREG:SI (...)).  */
+
+static bool
+rs6000_emit_move_si_sf_subreg (rtx dest, rtx source, machine_mode mode)
+{
+  if (TARGET_DIRECT_MOVE_64BIT && !reload_in_progress && !reload_completed
+      && !lra_in_progress
+      && (!SUBREG_P (dest) || !sf_subreg_operand (dest, mode))
+      && SUBREG_P (source) && sf_subreg_operand (source, mode))
+    {
+      rtx inner_source = SUBREG_REG (source);
+      machine_mode inner_mode = GET_MODE (inner_source);
+
+      if (mode == SImode && inner_mode == SFmode)
+	{
+	  emit_insn (gen_movsi_from_sf (dest, inner_source));
+	  return true;
+	}
+
+      if (mode == SFmode && inner_mode == SImode)
+	{
+	  emit_insn (gen_movsf_from_si (dest, inner_source));
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 /* Emit a move from SOURCE to DEST in mode MODE.  */
 void
 rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
@@ -10354,6 +10503,11 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
       /* This should be fixed with the introduction of CONST_WIDE_INT.  */
       gcc_unreachable ();
     }
+
+  /* See if we need to special case SImode/SFmode SUBREG moves.  */
+  if ((mode == SImode || mode == SFmode) && SUBREG_P (source)
+      && rs6000_emit_move_si_sf_subreg (dest, source, mode))
+    return;
 
   /* Check if GCC is setting up a block move that will end up using FP
      registers as temporaries.  We must make sure this is acceptable.  */
@@ -15823,9 +15977,9 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       if (arg1 == error_mark_node)
 	return expand_call (exp, target, false);
 
-      if (TREE_CODE (arg1) != INTEGER_CST || TREE_INT_CST_LOW (arg1) > 11)
+      if (TREE_CODE (arg1) != INTEGER_CST || TREE_INT_CST_LOW (arg1) > 12)
 	{
-	  error ("second argument to vec_vextract4b must 0..11");
+	  error ("second argument to vec_vextract4b must be 0..12");
 	  return expand_call (exp, target, false);
 	}
       break;
@@ -15840,9 +15994,9 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       if (arg2 == error_mark_node)
 	return expand_call (exp, target, false);
 
-      if (TREE_CODE (arg2) != INTEGER_CST || TREE_INT_CST_LOW (arg2) > 11)
+      if (TREE_CODE (arg2) != INTEGER_CST || TREE_INT_CST_LOW (arg2) > 12)
 	{
-	  error ("third argument to vec_vinsert4b must 0..11");
+	  error ("third argument to vec_vinsert4b must be 0..12");
 	  return expand_call (exp, target, false);
 	}
       break;
@@ -17355,6 +17509,8 @@ spe_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled.  */
+      gcc_assert (d->icode != CODE_FOR_nothing);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17385,6 +17541,8 @@ spe_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled.  */
+      gcc_assert (d->icode != CODE_FOR_nothing);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17451,6 +17609,9 @@ paired_init_builtins (void)
 		     d->name);
 	  continue;
 	}
+
+      /* Cannot define builtin if the instruction is disabled.  */
+      gcc_assert (d->icode != CODE_FOR_nothing);
 
       if (TARGET_DEBUG_BUILTIN)
 	fprintf (stderr, "paired pred #%d, insn = %s [%d], mode = %s\n",
@@ -17821,6 +17982,8 @@ altivec_init_builtins (void)
     {
       HOST_WIDE_INT mask = d->mask;
 
+      /* It is expected that these dst built-in functions may have
+	 d->icode equal to CODE_FOR_nothing.  */
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
@@ -17850,7 +18013,11 @@ altivec_init_builtins (void)
       if (rs6000_overloaded_builtin_p (d->code))
 	mode1 = VOIDmode;
       else
-	mode1 = insn_data[d->icode].operand[1].mode;
+	{
+	  /* Cannot define builtin if the instruction is disabled.  */
+	  gcc_assert (d->icode != CODE_FOR_nothing);
+	  mode1 = insn_data[d->icode].operand[1].mode;
+	}
 
       switch (mode1)
 	{
@@ -17898,6 +18065,8 @@ altivec_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled.  */
+      gcc_assert (d->icode != CODE_FOR_nothing);
       mode0 = insn_data[d->icode].operand[0].mode;
 
       switch (mode0)
@@ -18084,6 +18253,9 @@ htm_init_builtins (void)
       tree gpr_type_node;
       tree rettype;
       tree argtype;
+
+      /* It is expected that these htm built-in functions may have
+	 d->icode equal to CODE_FOR_nothing.  */
 
       if (TARGET_32BIT && TARGET_POWERPC64)
 	gpr_type_node = long_long_unsigned_type_node;
@@ -25154,9 +25326,7 @@ rs6000_split_signbit (rtx dest, rtx src)
   rtx dest_di = (d_mode == DImode) ? dest : gen_lowpart (DImode, dest);
   rtx shift_reg = dest_di;
 
-  gcc_assert (REG_P (dest));
-  gcc_assert (REG_P (src) || MEM_P (src));
-  gcc_assert (s_mode == KFmode || s_mode == TFmode);
+  gcc_assert (FLOAT128_IEEE_P (s_mode) && TARGET_POWERPC64);
 
   if (MEM_P (src))
     {
@@ -25168,17 +25338,20 @@ rs6000_split_signbit (rtx dest, rtx src)
 
   else
     {
-      unsigned int r = REGNO (src);
+      unsigned int r = reg_or_subregno (src);
 
-      /* If this is a VSX register, generate the special mfvsrd instruction
-	 to get it in a GPR.  Until we support SF and DF modes, that will
-	 always be true.  */
-      gcc_assert (VSX_REGNO_P (r));
+      if (INT_REGNO_P (r))
+	shift_reg = gen_rtx_REG (DImode, r + (BYTES_BIG_ENDIAN == 0));
 
-      if (s_mode == KFmode)
-	emit_insn (gen_signbitkf2_dm2 (dest_di, src));
       else
-	emit_insn (gen_signbittf2_dm2 (dest_di, src));
+	{
+	  /* Generate the special mfvsrd instruction to get it in a GPR.  */
+	  gcc_assert (VSX_REGNO_P (r));
+	  if (s_mode == KFmode)
+	    emit_insn (gen_signbitkf2_dm2 (dest_di, src));
+	  else
+	    emit_insn (gen_signbittf2_dm2 (dest_di, src));
+	}
     }
 
   emit_insn (gen_lshrdi3 (dest_di, shift_reg, GEN_INT (63)));
@@ -37952,6 +38125,32 @@ static bool
 rs6000_lra_p (void)
 {
   return TARGET_LRA;
+}
+
+/* Compute register pressure classes.  We implement the target hook to avoid
+   IRA picking something like NON_SPECIAL_REGS as a pressure class, which can
+   lead to incorrect estimates of number of available registers and therefor
+   increased register pressure/spill.   */
+static int
+rs6000_compute_pressure_classes (enum reg_class *pressure_classes)
+{
+  int n;
+
+  n = 0;
+  pressure_classes[n++] = GENERAL_REGS;
+  if (TARGET_VSX)
+    pressure_classes[n++] = VSX_REGS;
+  else
+    {
+      if (TARGET_ALTIVEC)
+	pressure_classes[n++] = ALTIVEC_REGS;
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	pressure_classes[n++] = FLOAT_REGS;
+    }
+  pressure_classes[n++] = CR_REGS;
+  pressure_classes[n++] = SPECIAL_REGS;
+
+  return n;
 }
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.

@@ -1,5 +1,5 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -804,7 +804,7 @@ extern const char *fname_as_string (int);
 extern tree fname_decl (location_t, unsigned, tree);
 
 extern int check_user_alignment (const_tree, bool);
-extern void check_function_arguments (location_t loc, const_tree, int, tree *);
+extern bool check_function_arguments (location_t loc, const_tree, int, tree *);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),

@@ -2800,7 +2800,7 @@ package body Errout is
       --  identifiers, pragmas, and pragma argument associations.
 
       if Nkind (Node) = N_Pragma then
-         Nam := Pragma_Name (Node);
+         Nam := Pragma_Name_Mapped (Node);
          Loc := Sloc (Node);
 
       --  The other cases have Chars fields
@@ -2992,7 +2992,7 @@ package body Errout is
             when '\' =>
                Continuation := True;
 
-               if Text (P) = '\' then
+               if P <= Text'Last and then Text (P) = '\' then
                   Continuation_New_Line := True;
                   P := P + 1;
                end if;

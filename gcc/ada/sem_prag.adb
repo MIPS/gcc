@@ -89,8 +89,6 @@ with Urealp;    use Urealp;
 with Validsw;   use Validsw;
 with Warnsw;    use Warnsw;
 
-with GNAT.HTable; use GNAT.HTable;
-
 package body Sem_Prag is
 
    ----------------------------------------------
@@ -165,40 +163,6 @@ package body Sem_Prag is
      Table_Initial        => 100,
      Table_Increment      => 100,
      Table_Name           => "Name_Externals");
-
-   ---------------------------------------------------------
-   -- Handling of inherited class-wide pre/postconditions --
-   ---------------------------------------------------------
-
-   --  Following AI12-0113, the expression for a class-wide condition is
-   --  transformed for a subprogram that inherits it, by replacing calls
-   --  to primitive operations of the original controlling type into the
-   --  corresponding overriding operations of the derived type. The following
-   --  hash table manages this mapping, and is expanded on demand whenever
-   --  such inherited expression needs to be constructed.
-
-   --  The mapping is also used to check whether an inherited operation has
-   --  a condition that depends on overridden operations. For such an
-   --  operation we must create a wrapper that is then treated as a normal
-   --  overriding. In SPARK mode such operations are illegal.
-
-   --  For a given root type there may be several type extensions with their
-   --  own overriding operations, so at various times a given operation of
-   --  the root will be mapped into different overridings. The root type is
-   --  also mapped into the current type extension to indicate that its
-   --  operations are mapped into the overriding operations of that current
-   --  type extension.
-
-   subtype Num_Primitives is Integer range 0 .. 510;
-   function Entity_Hash (E : Entity_Id) return Num_Primitives;
-
-   package Primitives_Mapping is new Gnat.HTable.Simple_Htable
-     (Header_Num => Num_Primitives,
-      Key        => Entity_Id,
-      Element    => Entity_Id,
-      No_element => Empty,
-      Hash       => Entity_Hash,
-      Equal      => "=");
 
    -------------------------------------
    -- Local Subprograms and Variables --
@@ -2006,7 +1970,7 @@ package body Sem_Prag is
          return;
       end if;
 
-      Error_Msg_Name_1 := Pragma_Name (N);
+      Error_Msg_Name_1 := Pragma_Name_Mapped (N);
 
       --  An external property pragma must apply to an effectively volatile
       --  object other than a formal subprogram parameter (SPARK RM 7.1.3(2)).
@@ -5289,7 +5253,7 @@ package body Sem_Prag is
          --  previously given aspect specification or attribute definition
          --  clause for the same pragma.
 
-         P := Get_Rep_Item (E, Pragma_Name (N), Check_Parents => False);
+         P := Get_Rep_Item (E, Pragma_Name_Mapped (N), Check_Parents => False);
 
          if Present (P) then
 
@@ -5322,7 +5286,7 @@ package body Sem_Prag is
 
             --  Here we have a definite duplicate
 
-            Error_Msg_Name_1 := Pragma_Name (N);
+            Error_Msg_Name_1 := Pragma_Name_Mapped (N);
             Error_Msg_Sloc := Sloc (P);
 
             --  For a single protected or a single task object, the error is
@@ -6496,7 +6460,7 @@ package body Sem_Prag is
          if Is_Rewrite_Substitution (N)
            and then Nkind (Original_Node (N)) = N_Pragma
          then
-            Error_Msg_Name_1 := Pragma_Name (Original_Node (N));
+            Error_Msg_Name_1 := Pragma_Name_Mapped (Original_Node (N));
          end if;
 
          --  Case where pragma comes from an aspect specification
@@ -7212,7 +7176,7 @@ package body Sem_Prag is
 
                      if Nam_In (Pragma_Name (Decl), Name_Export,
                                                     Name_Convention,
-                                                    Pragma_Name (N))
+                                                    Pragma_Name_Mapped (N))
                      then
                         exit;
 
@@ -7704,8 +7668,7 @@ package body Sem_Prag is
 
          Rewrite (N,
            Make_Pragma (Loc,
-             Pragma_Identifier            =>
-               Make_Identifier (Loc, Nam),
+             Chars                        => Nam,
              Pragma_Argument_Associations => New_List (
                Make_Pragma_Argument_Association (Loc,
                  Expression =>
@@ -10382,7 +10345,7 @@ package body Sem_Prag is
 
       --  Deal with unrecognized pragma
 
-      Pname := Pragma_Name (N);
+      Pname := Pragma_Name_Mapped (N);
 
       if not Is_Pragma_Name (Pname) then
          if Warn_On_Unrecognized_Pragma then
@@ -13785,7 +13748,7 @@ package body Sem_Prag is
 
          --  pragma Default_Initial_Condition [ (null | boolean_EXPRESSION) ];
 
-         when Pragma_Default_Initial_Condition => Default_Init_Cond : declare
+         when Pragma_Default_Initial_Condition => DIC : declare
             Discard : Boolean;
             Stmt    : Node_Id;
             Typ     : Entity_Id;
@@ -13801,7 +13764,7 @@ package body Sem_Prag is
                --  Skip prior pragmas, but check for duplicates
 
                if Nkind (Stmt) = N_Pragma then
-                  if Pragma_Name (Stmt) = Pname then
+                  if Pragma_Name_Mapped (Stmt) = Pname then
                      Error_Msg_Name_1 := Pname;
                      Error_Msg_Sloc   := Sloc (Stmt);
                      Error_Msg_N ("pragma % duplicates pragma declared#", N);
@@ -13836,13 +13799,21 @@ package body Sem_Prag is
             --  purposes of legality checks and removal of ignored Ghost code.
 
             Mark_Pragma_As_Ghost (N, Typ);
-            Set_Has_Default_Init_Cond (Typ);
-            Set_Has_Inherited_Default_Init_Cond (Typ, False);
+
+            --  The pragma signals that the type defines its own DIC assertion
+            --  expression.
+
+            Set_Has_Own_DIC (Typ);
 
             --  Chain the pragma on the rep item chain for further processing
 
             Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
-         end Default_Init_Cond;
+
+            --  Create the declaration of the procedure which verifies the
+            --  assertion expression of pragma DIC at runtime.
+
+            Build_DIC_Procedure_Declaration (Typ);
+         end DIC;
 
          ----------------------------------
          -- Default_Scalar_Storage_Order --
@@ -15291,7 +15262,7 @@ package body Sem_Prag is
                --  Skip prior pragmas, but check for duplicates
 
                if Nkind (Stmt) = N_Pragma then
-                  if Pragma_Name (Stmt) = Pname then
+                  if Pragma_Name_Mapped (Stmt) = Pname then
                      Error_Msg_Name_1 := Pname;
                      Error_Msg_Sloc   := Sloc (Stmt);
                      Error_Msg_N ("pragma % duplicates pragma declared#", N);
@@ -16565,8 +16536,8 @@ package body Sem_Prag is
                   if Is_Imported (Def_Id)
                     and then Present (First_Rep_Item (Def_Id))
                     and then Nkind (First_Rep_Item (Def_Id)) = N_Pragma
-                    and then
-                      Pragma_Name (First_Rep_Item (Def_Id)) = Name_Interface
+                    and then Pragma_Name_Mapped (First_Rep_Item (Def_Id)) =
+                      Name_Interface
                   then
                      null;
                   else
@@ -16820,18 +16791,6 @@ package body Sem_Prag is
             Typ     : Entity_Id;
             Typ_Arg : Node_Id;
 
-            CRec_Typ : Entity_Id;
-            --  The corresponding record type of Full_Typ
-
-            Full_Base : Entity_Id;
-            --  The base type of Full_Typ
-
-            Full_Typ : Entity_Id;
-            --  The full view of Typ
-
-            Priv_Typ : Entity_Id;
-            --  The partial view of Typ
-
          begin
             GNAT_Pragma;
             Check_At_Least_N_Arguments (2);
@@ -16924,16 +16883,6 @@ package body Sem_Prag is
             if Class_Present (N) then
                Set_Has_Inheritable_Invariants (Typ);
             end if;
-
-            Get_Views (Typ, Priv_Typ, Full_Typ, Full_Base, CRec_Typ);
-
-            --  Propagate invariant-related attributes to all views of the type
-            --  and any additional types that may have been created.
-
-            Propagate_Invariant_Attributes (Priv_Typ,  From_Typ => Typ);
-            Propagate_Invariant_Attributes (Full_Typ,  From_Typ => Typ);
-            Propagate_Invariant_Attributes (Full_Base, From_Typ => Typ);
-            Propagate_Invariant_Attributes (CRec_Typ,  From_Typ => Typ);
 
             --  Chain the pragma on to the rep item chain, for processing when
             --  the type is frozen.
@@ -17605,7 +17554,7 @@ package body Sem_Prag is
             Nod := Next (N);
             while Present (Nod) loop
                if Nkind (Nod) = N_Pragma
-                 and then Pragma_Name (Nod) = Name_Main
+                 and then Pragma_Name_Mapped (Nod) = Name_Main
                then
                   Error_Msg_Name_1 := Pname;
                   Error_Msg_N ("duplicate pragma% not permitted", Nod);
@@ -17649,7 +17598,7 @@ package body Sem_Prag is
             Nod := Next (N);
             while Present (Nod) loop
                if Nkind (Nod) = N_Pragma
-                 and then Pragma_Name (Nod) = Name_Main_Storage
+                 and then Pragma_Name_Mapped (Nod) = Name_Main_Storage
                then
                   Error_Msg_Name_1 := Pname;
                   Error_Msg_N ("duplicate pragma% not permitted", Nod);
@@ -17658,6 +17607,79 @@ package body Sem_Prag is
                Next (Nod);
             end loop;
          end Main_Storage;
+
+         ----------------------
+         -- Max_Queue_Length --
+         ----------------------
+
+         --  pragma Max_Queue_Length (static_integer_EXPRESSION);
+
+         when Pragma_Max_Queue_Length => Max_Queue_Length : declare
+            Arg        : Node_Id;
+            Entry_Decl : Node_Id;
+            Entry_Id   : Entity_Id;
+            Val        : Uint;
+
+         begin
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+
+            Entry_Decl :=
+              Find_Related_Declaration_Or_Body (N, Do_Checks => True);
+
+            --  Entry declaration
+
+            if Nkind (Entry_Decl) = N_Entry_Declaration then
+
+               --  Entry illegally within a task
+
+               if Nkind (Parent (N)) = N_Task_Definition then
+                  Error_Pragma ("pragma % cannot apply to task entries");
+                  return;
+               end if;
+
+               Entry_Id := Unique_Defining_Entity (Entry_Decl);
+
+            --  Otherwise the pragma is associated with an illegal construct
+
+            else
+               Error_Pragma ("pragma % must apply to a protected entry");
+               return;
+            end if;
+
+            --  Mark the pragma as Ghost if the related subprogram is also
+            --  Ghost. This also ensures that any expansion performed further
+            --  below will produce Ghost nodes.
+
+            Mark_Pragma_As_Ghost (N, Entry_Id);
+
+            --  Analyze the Integer expression
+
+            Arg := Get_Pragma_Arg (Arg1);
+            Check_Arg_Is_OK_Static_Expression (Arg, Any_Integer);
+
+            Val := Expr_Value (Arg);
+
+            if Val <= 0 then
+               Error_Pragma_Arg
+                 ("argument for pragma% must be positive", Arg1);
+
+            elsif not UI_Is_In_Int_Range (Val) then
+               Error_Pragma_Arg
+                 ("argument for pragma% out of range of Integer", Arg1);
+
+            end if;
+
+            --  Manually substitute the expression value of the pragma argument
+            --  if it's not an integer literal because this is not taken care
+            --  of automatically elsewhere.
+
+            if Nkind (Arg) /= N_Integer_Literal then
+               Rewrite (Arg, Make_Integer_Literal (Sloc (Arg), Val));
+            end if;
+
+            Record_Rep_Item (Entry_Id, N);
+         end Max_Queue_Length;
 
          -----------------
          -- Memory_Size --
@@ -18962,6 +18984,48 @@ package body Sem_Prag is
             end if;
          end Persistent_BSS;
 
+         --------------------
+         -- Rename_Pragma --
+         --------------------
+
+         --  pragma Rename_Pragma (
+         --           [New_Name =>] IDENTIFIER,
+         --           [Renamed  =>] pragma_IDENTIFIER);
+
+         when Pragma_Rename_Pragma => Rename_Pragma : declare
+            New_Name : constant Node_Id := Get_Pragma_Arg (Arg1);
+            Old_Name : constant Node_Id := Get_Pragma_Arg (Arg2);
+
+         begin
+            GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
+            Check_Arg_Count (2);
+            Check_Optional_Identifier (Arg1, Name_New_Name);
+            Check_Optional_Identifier (Arg2, Name_Renamed);
+
+            if Nkind (New_Name) /= N_Identifier then
+               Error_Pragma_Arg ("identifier expected", Arg1);
+            end if;
+
+            if Nkind (Old_Name) /= N_Identifier then
+               Error_Pragma_Arg ("identifier expected", Arg2);
+            end if;
+
+            --  The New_Name arg should not be an existing pragma (but we allow
+            --  it; it's just a warning). The Old_Name arg must be an existing
+            --  pragma.
+
+            if Is_Pragma_Name (Chars (New_Name)) then
+               Error_Pragma_Arg ("??pragma is already defined", Arg1);
+            end if;
+
+            if not Is_Pragma_Name (Chars (Old_Name)) then
+               Error_Pragma_Arg ("existing pragma name expected", Arg1);
+            end if;
+
+            Map_Pragma_Name (From => Chars (New_Name), To => Chars (Old_Name));
+         end Rename_Pragma;
+
          -------------
          -- Polling --
          -------------
@@ -19599,7 +19663,7 @@ package body Sem_Prag is
 
                Import :=
                  Make_Pragma (Loc,
-                   Pragma_Identifier => Make_Identifier (Loc, Name_Import),
+                   Chars => Name_Import,
                    Pragma_Argument_Associations => New_List (
                      Make_Pragma_Argument_Association (Loc,
                        Expression => Make_Identifier (Loc, Name_Intrinsic)),
@@ -21262,7 +21326,7 @@ package body Sem_Prag is
                   --  this also takes care of pragmas generated for aspects.
 
                   if Nkind (Stmt) = N_Pragma then
-                     if Pragma_Name (Stmt) = Pname then
+                     if Pragma_Name_Mapped (Stmt) = Pname then
                         Error_Msg_Name_1 := Pname;
                         Error_Msg_Sloc   := Sloc (Stmt);
                         Error_Msg_N ("pragma% duplicates pragma declared#", N);
@@ -22112,7 +22176,7 @@ package body Sem_Prag is
                if Present (Items) then
                   Prag := Contract_Test_Cases (Items);
                   while Present (Prag) loop
-                     if Pragma_Name (Prag) = Name_Test_Case
+                     if Pragma_Name_Mapped (Prag) = Name_Test_Case
                        and then Prag /= N
                        and then String_Equal
                                   (Name, Get_Name_From_CTC_Pragma (Prag))
@@ -22342,7 +22406,7 @@ package body Sem_Prag is
                Nod := Next (N);
                while Present (Nod) loop
                   if Nkind (Nod) = N_Pragma
-                    and then Pragma_Name (Nod) = Name_Time_Slice
+                    and then Pragma_Name_Mapped (Nod) = Name_Time_Slice
                   then
                      Error_Msg_Name_1 := Pname;
                      Error_Msg_N ("duplicate pragma% not permitted", Nod);
@@ -24599,7 +24663,7 @@ package body Sem_Prag is
       In_Out_Items   : Elist_Id := No_Elist;
       Out_Items      : Elist_Id := No_Elist;
       Proof_In_Items : Elist_Id := No_Elist;
-      --  These list contain the entities of all Input, In_Out, Output and
+      --  These lists contain the entities of all Input, In_Out, Output and
       --  Proof_In items defined in the corresponding Global pragma.
 
       Repeat_Items : Elist_Id := No_Elist;
@@ -24656,7 +24720,7 @@ package body Sem_Prag is
       procedure Collect_Global_Items
         (List : Node_Id;
          Mode : Name_Id := Name_Input);
-      --  Gather all input, in out, output and Proof_In items from node List
+      --  Gather all Input, In_Out, Output and Proof_In items from node List
       --  and separate them in lists In_Items, In_Out_Items, Out_Items and
       --  Proof_In_Items. Flags Has_In_State, Has_In_Out_State, Has_Out_State
       --  and Has_Proof_In_State are set when there is at least one abstract
@@ -26652,140 +26716,6 @@ package body Sem_Prag is
       return False;
    end Appears_In;
 
-   ---------------------------------
-   -- Build_Class_Wide_Expression --
-   ---------------------------------
-
-   procedure Build_Class_Wide_Expression
-     (Prag        : Node_Id;
-      Subp        : Entity_Id;
-      Par_Subp    : Entity_Id;
-      Adjust_Sloc : Boolean)
-   is
-      function Replace_Entity (N : Node_Id) return Traverse_Result;
-      --  Replace reference to formal of inherited operation or to primitive
-      --  operation of root type, with corresponding entity for derived type,
-      --  when constructing the class-wide condition of an overriding
-      --  subprogram.
-
-      --------------------
-      -- Replace_Entity --
-      --------------------
-
-      function Replace_Entity (N : Node_Id) return Traverse_Result is
-         New_E : Entity_Id;
-
-      begin
-         if Adjust_Sloc then
-            Adjust_Inherited_Pragma_Sloc (N);
-         end if;
-
-         if Nkind (N) = N_Identifier
-           and then Present (Entity (N))
-           and then
-             (Is_Formal (Entity (N)) or else Is_Subprogram (Entity (N)))
-           and then
-             (Nkind (Parent (N)) /= N_Attribute_Reference
-               or else Attribute_Name (Parent (N)) /= Name_Class)
-         then
-            --  The replacement does not apply to dispatching calls within the
-            --  condition, but only to calls whose static tag is that of the
-            --  parent type.
-
-            if Is_Subprogram (Entity (N))
-              and then Nkind (Parent (N)) = N_Function_Call
-              and then Present (Controlling_Argument (Parent (N)))
-            then
-               return OK;
-            end if;
-
-            --  Determine whether entity has a renaming
-
-            New_E := Primitives_Mapping.Get (Entity (N));
-
-            if Present (New_E) then
-               Rewrite (N, New_Occurrence_Of (New_E, Sloc (N)));
-            end if;
-
-            --  Check that there are no calls left to abstract operations if
-            --  the current subprogram is not abstract.
-
-            if Nkind (Parent (N)) = N_Function_Call
-              and then N = Name (Parent (N))
-            then
-               if not Is_Abstract_Subprogram (Subp)
-                 and then Is_Abstract_Subprogram (Entity (N))
-               then
-                  Error_Msg_Sloc := Sloc (Current_Scope);
-                  Error_Msg_NE
-                    ("cannot call abstract subprogram in inherited condition "
-                      & "for&#", N, Current_Scope);
-
-               --  In SPARK mode, reject an inherited condition for an
-               --  inherited operation if it contains a call to an overriding
-               --  operation, because this implies that the pre/postcondition
-               --  of the inherited operation have changed silently.
-
-               elsif SPARK_Mode = On
-                 and then Warn_On_Suspicious_Contract
-                 and then Present (Alias (Subp))
-                 and then Present (New_E)
-                 and then Comes_From_Source (New_E)
-               then
-                  Error_Msg_N
-                    ("cannot modify inherited condition (SPARK RM 6.1.1(1))",
-                     Parent (Subp));
-                  Error_Msg_Sloc   := Sloc (New_E);
-                  Error_Msg_Node_2 := Subp;
-                  Error_Msg_NE
-                    ("\overriding of&# forces overriding of&",
-                     Parent (Subp), New_E);
-               end if;
-            end if;
-
-            --  Update type of function call node, which should be the same as
-            --  the function's return type.
-
-            if Is_Subprogram (Entity (N))
-              and then Nkind (Parent (N)) = N_Function_Call
-            then
-               Set_Etype (Parent (N), Etype (Entity (N)));
-            end if;
-
-         --  The whole expression will be reanalyzed
-
-         elsif Nkind (N) in N_Has_Etype then
-            Set_Analyzed (N, False);
-         end if;
-
-         return OK;
-      end Replace_Entity;
-
-      procedure Replace_Condition_Entities is
-        new Traverse_Proc (Replace_Entity);
-
-      --  Local variables
-
-      Par_Formal  : Entity_Id;
-      Subp_Formal : Entity_Id;
-
-   --  Start of processing for Build_Class_Wide_Expression
-
-   begin
-      --  Add mapping from old formals to new formals
-
-      Par_Formal := First_Formal (Par_Subp);
-      Subp_Formal  := First_Formal (Subp);
-
-      while Present (Par_Formal) and then Present (Subp_Formal) loop
-         Primitives_Mapping.Set (Par_Formal, Subp_Formal);
-         Next_Formal (Par_Formal);
-         Next_Formal (Subp_Formal);
-      end loop;
-
-      Replace_Condition_Entities (Prag);
-   end Build_Class_Wide_Expression;
-
    -----------------------------------
    -- Build_Pragma_Check_Equivalent --
    -----------------------------------
@@ -26833,7 +26763,7 @@ package body Sem_Prag is
       --  Local variables
 
       Loc          : constant Source_Ptr := Sloc (Prag);
-      Prag_Nam     : constant Name_Id    := Pragma_Name (Prag);
+      Prag_Nam     : constant Name_Id    := Pragma_Name_Mapped (Prag);
       Check_Prag   : Node_Id;
       Msg_Arg      : Node_Id;
       Nam          : Name_Id;
@@ -27816,15 +27746,6 @@ package body Sem_Prag is
       end if;
    end Duplication_Error;
 
-   -----------------
-   -- Entity_Hash --
-   -----------------
-
-   function Entity_Hash (E : Entity_Id) return Num_Primitives is
-   begin
-      return Num_Primitives (E mod 511);
-   end Entity_Hash;
-
    ------------------------------
    -- Find_Encapsulating_State --
    ------------------------------
@@ -27869,7 +27790,9 @@ package body Sem_Prag is
          --  Skip prior pragmas, but check for duplicates
 
          if Nkind (Stmt) = N_Pragma then
-            if Do_Checks and then Pragma_Name (Stmt) = Pragma_Name (Prag) then
+            if Do_Checks
+              and then Pragma_Name_Mapped (Stmt) = Pragma_Name_Mapped (Prag)
+            then
                Duplication_Error
                  (Prag => Prag,
                   Prev => Stmt);
@@ -28076,7 +27999,7 @@ package body Sem_Prag is
       Do_Checks : Boolean := False) return Node_Id
    is
       Context  : constant Node_Id := Parent (Prag);
-      Prag_Nam : constant Name_Id := Pragma_Name (Prag);
+      Prag_Nam : constant Name_Id := Pragma_Name_Mapped (Prag);
       Stmt     : Node_Id;
 
    begin
@@ -28086,7 +28009,7 @@ package body Sem_Prag is
          --  Skip prior pragmas, but check for duplicates
 
          if Nkind (Stmt) = N_Pragma then
-            if Do_Checks and then Pragma_Name (Stmt) = Prag_Nam then
+            if Do_Checks and then Pragma_Name_Mapped (Stmt) = Prag_Nam then
                Duplication_Error
                  (Prag => Prag,
                   Prev => Stmt);
@@ -28463,7 +28386,7 @@ package body Sem_Prag is
    begin
       pragma Assert
         (Nkind (N) = N_Pragma
-          and then Pragma_Name (N) = Name_SPARK_Mode
+          and then Pragma_Name_Mapped (N) = Name_SPARK_Mode
           and then Is_List_Member (N));
 
       --  Pragma SPARK_Mode affects the elaboration of a package body when it
@@ -28642,6 +28565,7 @@ package body Sem_Prag is
       Pragma_Machine_Attribute              => -1,
       Pragma_Main                           => -1,
       Pragma_Main_Storage                   => -1,
+      Pragma_Max_Queue_Length               =>  0,
       Pragma_Memory_Size                    =>  0,
       Pragma_No_Return                      =>  0,
       Pragma_No_Body                        =>  0,
@@ -28692,6 +28616,7 @@ package body Sem_Prag is
       Pragma_Refined_Post                   => -1,
       Pragma_Refined_State                  => -1,
       Pragma_Relative_Deadline              =>  0,
+      Pragma_Rename_Pragma                  =>  0,
       Pragma_Remote_Access_Type             => -1,
       Pragma_Remote_Call_Interface          => -1,
       Pragma_Remote_Types                   => -1,
@@ -28833,7 +28758,7 @@ package body Sem_Prag is
    function Is_Pragma_String_Literal (Par : Node_Id) return Boolean is
       Pragn : constant Node_Id := Parent (Par);
       Assoc : constant List_Id := Pragma_Argument_Associations (Pragn);
-      Pname : constant Name_Id := Pragma_Name (Pragn);
+      Pname : constant Name_Id := Pragma_Name_Mapped (Pragn);
       Argn  : Natural;
       N     : Node_Id;
 
@@ -28895,7 +28820,7 @@ package body Sem_Prag is
    begin
       pragma Assert
         (Nkind (N) = N_Pragma
-          and then Pragma_Name (N) = Name_SPARK_Mode
+          and then Pragma_Name_Mapped (N) = Name_SPARK_Mode
           and then Is_List_Member (N));
 
       --  For pragma SPARK_Mode to be private, it has to appear in the private
@@ -29661,146 +29586,5 @@ package body Sem_Prag is
 
       return Empty;
    end Test_Case_Arg;
-
-   -------------------------------
-   -- Update_Primitives_Mapping --
-   -------------------------------
-
-   procedure Update_Primitives_Mapping
-     (Inher_Id : Entity_Id;
-      Subp_Id  : Entity_Id)
-   is
-      function Overridden_Ancestor (S : Entity_Id) return Entity_Id;
-      --  Locate the primitive operation with the name of S whose controlling
-      --  type is the dispatching type of Inher_Id.
-
-      -------------------------
-      -- Overridden_Ancestor --
-      -------------------------
-
-      function Overridden_Ancestor (S : Entity_Id) return Entity_Id is
-         Par : constant Entity_Id := Find_Dispatching_Type (Inher_Id);
-         Anc : Entity_Id;
-
-      begin
-         Anc := S;
-
-         --  Locate the ancestor subprogram with the proper controlling type
-
-         while Present (Overridden_Operation (Anc)) loop
-            Anc := Overridden_Operation (Anc);
-            exit when Find_Dispatching_Type (Anc) = Par;
-         end loop;
-
-         return Anc;
-      end Overridden_Ancestor;
-
-      --  Local variables
-
-      Old_Typ  : constant Entity_Id := Find_Dispatching_Type (Inher_Id);
-      Typ      : constant Entity_Id := Find_Dispatching_Type (Subp_Id);
-      Decl     : Node_Id;
-      Old_Elmt : Elmt_Id;
-      Old_Prim : Entity_Id;
-      Prim     : Entity_Id;
-
-   --  Start of processing for Update_Primitives_Mapping
-
-   begin
-      --  If the types are already in the map, it has been previously built for
-      --  some other overriding primitive.
-
-      if Primitives_Mapping.Get (Old_Typ) = Typ then
-         return;
-
-      else
-         --  Initialize new mapping with the primitive operations
-
-         Decl := First (List_Containing (Unit_Declaration_Node (Subp_Id)));
-
-         --  Look for primitive operations of the current type that have
-         --  overridden an operation of the type related to the original
-         --  class-wide precondition. There may be several intermediate
-         --  overridings between them.
-
-         while Present (Decl) loop
-            if Nkind_In (Decl, N_Abstract_Subprogram_Declaration,
-                               N_Subprogram_Declaration)
-            then
-               Prim := Defining_Entity (Decl);
-
-               if Is_Subprogram (Prim)
-                 and then Present (Overridden_Operation (Prim))
-                 and then Find_Dispatching_Type (Prim) = Typ
-               then
-                  Old_Prim := Overridden_Ancestor (Prim);
-
-                  Primitives_Mapping.Set (Old_Prim, Prim);
-               end if;
-            end if;
-
-            Next (Decl);
-         end loop;
-
-         --  Now examine inherited operations. these do not override, but have
-         --  an alias, which is the entity used in a call. That alias may be
-         --  inherited or come from source, in which case it may override an
-         --  earlier operation. We only need to examine inherited functions,
-         --  that can appear within the inherited expression.
-
-         Prim := First_Entity (Scope (Subp_Id));
-         while Present (Prim) loop
-            if not Comes_From_Source (Prim)
-              and then Ekind (Prim) = E_Function
-              and then Present (Alias (Prim))
-            then
-               Old_Prim := Alias (Prim);
-
-               if Comes_From_Source (Old_Prim) then
-                  Old_Prim := Overridden_Ancestor (Old_Prim);
-
-               else
-                  while Present (Alias (Old_Prim))
-                    and then Scope (Old_Prim) /= Scope (Inher_Id)
-                  loop
-                     Old_Prim := Alias (Old_Prim);
-
-                     if Comes_From_Source (Old_Prim) then
-                        Old_Prim := Overridden_Ancestor (Old_Prim);
-                        exit;
-                     end if;
-                  end loop;
-               end if;
-
-               Primitives_Mapping.Set (Old_Prim, Prim);
-            end if;
-
-            Next_Entity (Prim);
-         end loop;
-
-         --  If the parent operation is an interface operation, the overriding
-         --  indicator is not present. Instead, we get from the interface
-         --  operation the primitive of the current type that implements it.
-
-         if Is_Interface (Old_Typ) then
-            Old_Elmt := First_Elmt (Collect_Primitive_Operations (Old_Typ));
-            while Present (Old_Elmt) loop
-               Old_Prim := Node (Old_Elmt);
-               Prim := Find_Primitive_Covering_Interface (Typ, Old_Prim);
-
-               if Present (Prim) then
-                  Primitives_Mapping.Set (Old_Prim, Prim);
-               end if;
-
-               Next_Elmt (Old_Elmt);
-            end loop;
-         end if;
-      end if;
-
-      --  Map the types themselves, so that the process is not repeated for
-      --  other overriding primitives.
-
-      Primitives_Mapping.Set (Old_Typ, Typ);
-   end Update_Primitives_Mapping;
 
 end Sem_Prag;

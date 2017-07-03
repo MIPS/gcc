@@ -1396,6 +1396,7 @@ begin
            Pragma_Machine_Attribute              |
            Pragma_Main                           |
            Pragma_Main_Storage                   |
+           Pragma_Max_Queue_Length               |
            Pragma_Memory_Size                    |
            Pragma_No_Body                        |
            Pragma_No_Elaboration_Code_All        |
@@ -1449,6 +1450,7 @@ begin
            Pragma_Restricted_Run_Time            |
            Pragma_Rational                       |
            Pragma_Ravenscar                      |
+           Pragma_Rename_Pragma                  |
            Pragma_Reviewable                     |
            Pragma_Share_Generic                  |
            Pragma_Shared                         |

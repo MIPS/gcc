@@ -1485,8 +1485,18 @@ package body Exp_Ch3 is
                   --  The constraints come from the discriminant default exps,
                   --  they must be reevaluated, so we use New_Copy_Tree but we
                   --  ensure the proper Sloc (for any embedded calls).
+                  --  In addition, if a predicate check is needed on the value
+                  --  of the discriminant, insert it ahead of the call.
 
                   Arg := New_Copy_Tree (Arg, New_Sloc => Loc);
+
+                  if Has_Predicates (Etype (Discr))
+                    and then not Predicate_Checks_Suppressed (Empty)
+                    and then not Predicates_Ignored (Etype (Discr))
+                  then
+                     Prepend_To (Res,
+                       Make_Predicate_Check (Etype (Discr), Arg));
+                  end if;
                end if;
             end if;
 
@@ -1728,6 +1738,18 @@ package body Exp_Ch3 is
               Make_Adjust_Call
                 (Obj_Ref => New_Copy_Tree (Lhs),
                  Typ     => Etype (Id)));
+         end if;
+
+         --  If a component type has a predicate, add check to the component
+         --  assignment. Discriminants are handled at the point of the call,
+         --  which provides for a better error message.
+
+         if Comes_From_Source (Exp)
+           and then Has_Predicates (Typ)
+           and then not Predicate_Checks_Suppressed (Empty)
+           and then not Predicates_Ignored (Typ)
+         then
+            Append (Make_Predicate_Check (Typ, Exp), Res);
          end if;
 
          return Res;
@@ -2758,7 +2780,7 @@ package body Exp_Ch3 is
                            --  Conversion for Priority expression
 
                            if Nam = Name_Priority then
-                              if Pragma_Name (Ritem) = Name_Priority
+                              if Pragma_Name_Mapped (Ritem) = Name_Priority
                                 and then not GNAT_Mode
                               then
                                  Exp := Convert_To (RTE (RE_Priority), Exp);
@@ -6506,19 +6528,18 @@ package body Exp_Ch3 is
       --  pragma Default_Initial_Condition, add a runtime check to verify
       --  the assumption of the pragma (SPARK RM 7.3.3). Generate:
 
-      --    <Base_Typ>Default_Init_Cond (<Base_Typ> (Def_Id));
+      --    <Base_Typ>DIC (<Base_Typ> (Def_Id));
 
       --  Note that the check is generated for source objects only
 
       if Comes_From_Source (Def_Id)
-        and then (Has_Default_Init_Cond (Typ)
-                   or else Has_Inherited_Default_Init_Cond (Typ))
+        and then Has_DIC (Typ)
+        and then Present (DIC_Procedure (Typ))
         and then not Has_Init_Expression (N)
-        and then Present (Default_Init_Cond_Procedure (Typ))
       then
          declare
-            DIC_Call : constant Node_Id :=
-                         Build_Default_Init_Cond_Call (Loc, Def_Id, Typ);
+            DIC_Call : constant Node_Id := Build_DIC_Call (Loc, Def_Id, Typ);
+
          begin
             if Present (Next_N) then
                Insert_Before_And_Analyze (Next_N, DIC_Call);
@@ -7297,6 +7318,13 @@ package body Exp_Ch3 is
 
       Process_Pending_Access_Types (Def_Id);
       Freeze_Stream_Operations (N, Def_Id);
+
+      --  Generate the [spec and] body of the procedure tasked with the runtime
+      --  verification of pragma Default_Initial_Condition's expression.
+
+      if Has_DIC (Def_Id) then
+         Build_DIC_Procedure_Body (Def_Id);
+      end if;
 
       --  Generate the [spec and] body of the invariant procedure tasked with
       --  the runtime verification of all invariants that pertain to the type.

@@ -5618,7 +5618,7 @@ package body Exp_Ch6 is
 
          elsif Present (Next (N))
            and then Nkind (Next (N)) = N_Pragma
-           and then Get_Pragma_Id (Pragma_Name (Next (N))) = Pragma_Import
+           and then Get_Pragma_Id (Next (N)) = Pragma_Import
          then
             --  In SPARK, subprogram declarations are also permitted in
             --  declarative parts when immediately followed by a corresponding
@@ -6006,6 +6006,7 @@ package body Exp_Ch6 is
       --  case this must be handled as an inter-object call.
 
       if not In_Open_Scopes (Scop)
+        or else Is_Entry_Wrapper (Current_Scope)
         or else not Is_Entity_Name (Name (N))
       then
          if Nkind (Name (N)) = N_Selected_Component then
@@ -6013,6 +6014,19 @@ package body Exp_Ch6 is
 
          elsif Nkind (Name (N)) = N_Indexed_Component then
             Rec := Prefix (Prefix (Name (N)));
+
+         --  If this is a call within an entry wrapper, it appears within a
+         --  precondition that calls another primitive of the synchronized
+         --  type. The target object of the call is the first actual on the
+         --  wrapper. Note that this is an external call, because the wrapper
+         --  is called outside of the synchronized object. This means that
+         --  an entry call to an entry with preconditions involves two
+         --  synchronized operations.
+
+         elsif Ekind (Current_Scope) = E_Procedure
+           and then Is_Entry_Wrapper (Current_Scope)
+         then
+            Rec := New_Occurrence_Of (First_Entity (Current_Scope), Sloc (N));
 
          else
             --  If the context is the initialization procedure for a protected

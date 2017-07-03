@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -985,6 +985,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define_formatted (pfile, "__STDCPP_DEFAULT_NEW_ALIGNMENT__=%d",
 				aligned_new_threshold);
 	}
+      if (flag_new_ttp)
+	cpp_define (pfile, "__cpp_template_template_args=201611");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */

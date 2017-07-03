@@ -2823,6 +2823,19 @@ package body Sem_Ch13 is
                   goto Continue;
                end Initializes;
 
+               --  Max_Queue_Length
+
+               when Aspect_Max_Queue_Length =>
+                  Make_Aitem_Pragma
+                    (Pragma_Argument_Associations => New_List (
+                       Make_Pragma_Argument_Association (Loc,
+                         Expression => Relocate_Node (Expr))),
+                     Pragma_Name                  => Name_Max_Queue_Length);
+
+                  Decorate (Aspect, Aitem);
+                  Insert_Pragma (Aitem);
+                  goto Continue;
+
                --  Obsolescent
 
                when Aspect_Obsolescent => declare
@@ -6855,7 +6868,7 @@ package body Sem_Ch13 is
 
             --  The only pragma of interest is Complete_Representation
 
-            if Pragma_Name (CC) = Name_Complete_Representation then
+            if Pragma_Name_Mapped (CC) = Name_Complete_Representation then
                CR_Pragma := CC;
             end if;
 
@@ -8393,7 +8406,7 @@ package body Sem_Ch13 is
          Ritem := First_Rep_Item (Typ);
          while Present (Ritem) loop
             if Nkind (Ritem) = N_Pragma
-              and then Pragma_Name (Ritem) = Name_Predicate
+              and then Pragma_Name_Mapped (Ritem) = Name_Predicate
             then
                Add_Predicate (Ritem);
 
@@ -8411,7 +8424,7 @@ package body Sem_Ch13 is
 
                begin
                   if Nkind (Prag) = N_Pragma
-                    and then Pragma_Name (Prag) = Name_Predicate
+                    and then Pragma_Name_Mapped (Prag) = Name_Predicate
                   then
                      Add_Predicate (Prag);
                   end if;
@@ -9251,6 +9264,7 @@ package body Sem_Ch13 is
               Aspect_Implicit_Dereference       |
               Aspect_Initial_Condition          |
               Aspect_Initializes                |
+              Aspect_Max_Queue_Length           |
               Aspect_Obsolescent                |
               Aspect_Part_Of                    |
               Aspect_Post                       |
@@ -12353,7 +12367,7 @@ package body Sem_Ch13 is
 
       if Is_Overloadable (T) and then Nkind (N) = N_Pragma then
          declare
-            Pname : constant Name_Id := Pragma_Name (N);
+            Pname : constant Name_Id := Pragma_Name_Mapped (N);
          begin
             if Nam_In (Pname, Name_Convention, Name_Import,   Name_Export,
                               Name_External,   Name_Interface)
@@ -13546,7 +13560,7 @@ package body Sem_Ch13 is
 
       procedure No_Independence is
       begin
-         if Pragma_Name (N) = Name_Independent then
+         if Pragma_Name_Mapped (N) = Name_Independent then
             Error_Msg_NE ("independence cannot be guaranteed for&", N, E);
          else
             Error_Msg_NE
@@ -13677,7 +13691,7 @@ package body Sem_Ch13 is
       for J in Independence_Checks.First .. Independence_Checks.Last loop
          N  := Independence_Checks.Table (J).N;
          E  := Independence_Checks.Table (J).E;
-         IC := Pragma_Name (N) = Name_Independent_Components;
+         IC := Pragma_Name_Mapped (N) = Name_Independent_Components;
 
          --  Deal with component case
 

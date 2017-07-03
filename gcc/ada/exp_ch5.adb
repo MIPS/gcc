@@ -3209,10 +3209,6 @@ package body Exp_Ch5 is
             if Present (Condition_Actions (E))
               or else Compile_Time_Known_Value (Condition (E))
             then
-               --  Note this is not an implicit if statement, since it is part
-               --  of an explicit if statement in the source (or of an implicit
-               --  if statement that has already been tested).
-
                New_If :=
                  Make_If_Statement (Sloc (E),
                    Condition       => Condition (E),
@@ -3243,6 +3239,15 @@ package body Exp_Ch5 is
                end if;
 
                Analyze (New_If);
+
+               --  Note this is not an implicit if statement, since it is part
+               --  of an explicit if statement in the source (or of an implicit
+               --  if statement that has already been tested). We set the flag
+               --  after calling Analyze to avoid generating extra warnings
+               --  specific to pure if statements, however (see
+               --  Sem_Ch5.Analyze_If_Statement).
+
+               Set_Comes_From_Source (New_If, Comes_From_Source (N));
                return;
 
             --  No special processing for that elsif part, move to next
@@ -3764,14 +3769,18 @@ package body Exp_Ch5 is
                elsif Is_Derived_Type (T) then
 
                   --  The default iterator must be a primitive operation of the
-                  --  type, at the same dispatch slot position.
+                  --  type, at the same dispatch slot position. The DT position
+                  --  may not be established if type is not frozen yet.
 
                   Prim := First_Elmt (Primitive_Operations (T));
                   while Present (Prim) loop
                      Op := Node (Prim);
 
-                     if Chars (Op) = Chars (Iter)
-                       and then DT_Position (Op) = DT_Position (Iter)
+                     if Alias (Op) = Iter
+                       or else
+                         (Chars (Op) = Chars (Iter)
+                           and then Present (DTC_Entity (Op))
+                           and then DT_Position (Op) = DT_Position (Iter))
                      then
                         return Op;
                      end if;

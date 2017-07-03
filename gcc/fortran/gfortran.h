@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2808,7 +2808,7 @@ bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
-void gfc_error (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+void gfc_error_opt (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
@@ -2851,7 +2851,7 @@ int gfc_validate_kind (bt, int, bool);
 int gfc_get_int_kind_from_width_isofortranenv (int size);
 int gfc_get_real_kind_from_width_isofortranenv (int size);
 tree gfc_get_union_type (gfc_symbol *);
-tree gfc_get_derived_type (gfc_symbol * derived, bool in_coarray = false);
+tree gfc_get_derived_type (gfc_symbol * derived, int codimen = 0);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
 extern int gfc_max_integer_kind;

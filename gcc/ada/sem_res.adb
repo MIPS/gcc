@@ -4265,10 +4265,12 @@ package body Sem_Res is
                --  Apply predicate tests except in certain special cases. Note
                --  that it might be more consistent to apply these only when
                --  expansion is active (in Exp_Ch6.Expand_Actuals), as we do
-               --  for the outbound predicate tests ???
+               --  for the outbound predicate tests ??? In any case indicate
+               --  the function being called, for better warnings if the call
+               --  leads to an infinite recursion.
 
                if Predicate_Tests_On_Arguments (Nam) then
-                  Apply_Predicate_Check (A, F_Typ);
+                  Apply_Predicate_Check (A, F_Typ, Nam);
                end if;
 
                --  Apply required constraint checks
@@ -6285,12 +6287,14 @@ package body Sem_Res is
 
       --  A protected function cannot be called within the definition of the
       --  enclosing protected type, unless it is part of a pre/postcondition
-      --  on another protected operation.
+      --  on another protected operation. This may appear in the entry wrapper
+      --  created for an entry with preconditions.
 
       if Is_Protected_Type (Scope (Nam))
         and then In_Open_Scopes (Scope (Nam))
         and then not Has_Completion (Scope (Nam))
         and then not In_Spec_Expression
+        and then not Is_Entry_Wrapper (Current_Scope)
       then
          Error_Msg_NE
            ("& cannot be called before end of protected definition", N, Nam);
@@ -10014,7 +10018,7 @@ package body Sem_Res is
             --  Special handling of Asssert pragma
 
             if Nkind (Orig) = N_Pragma
-              and then Pragma_Name (Orig) = Name_Assert
+              and then Pragma_Name_Mapped (Orig) = Name_Assert
             then
                declare
                   Expr : constant Node_Id :=
@@ -10055,7 +10059,7 @@ package body Sem_Res is
             --  Similar processing for Check pragma
 
             elsif Nkind (Orig) = N_Pragma
-              and then Pragma_Name (Orig) = Name_Check
+              and then Pragma_Name_Mapped (Orig) = Name_Check
             then
                --  Don't want to warn if original condition is explicit False
 

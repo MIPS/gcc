@@ -60,7 +60,6 @@ with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
-with Stringt;  use Stringt;
 with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
@@ -1417,7 +1416,7 @@ package body Exp_Ch9 is
 
          Prag := Contract_Test_Cases (Items);
          while Present (Prag) loop
-            if Pragma_Name (Prag) = Name_Contract_Cases
+            if Pragma_Name_Mapped (Prag) = Name_Contract_Cases
               and then Is_Checked (Prag)
             then
                Has_Pragma := True;
@@ -1495,6 +1494,7 @@ package body Exp_Ch9 is
       Wrapper_Id :=
         Make_Defining_Identifier (Loc, New_External_Name (Chars (E), 'E'));
       Set_Contract_Wrapper (E, Wrapper_Id);
+      Set_Is_Entry_Wrapper (Wrapper_Id);
 
       --  The wrapper body is analyzed when the enclosing type is frozen
 
@@ -1680,395 +1680,6 @@ package body Exp_Ch9 is
 
       return Ecount;
    end Build_Entry_Count_Expression;
-
-   -----------------------
-   -- Build_Entry_Names --
-   -----------------------
-
-   procedure Build_Entry_Names
-     (Obj_Ref : Node_Id;
-      Obj_Typ : Entity_Id;
-      Stmts   : List_Id)
-   is
-      Loc   : constant Source_Ptr := Sloc (Obj_Ref);
-      Data  : Entity_Id := Empty;
-      Index : Entity_Id := Empty;
-      Typ   : Entity_Id := Obj_Typ;
-
-      procedure Build_Entry_Name (Comp_Id : Entity_Id);
-      --  Given an entry [family], create a static string which denotes the
-      --  name of Comp_Id and assign it to the underlying data structure which
-      --  contains the entry names of a concurrent object.
-
-      function Object_Reference return Node_Id;
-      --  Return a reference to field _object or _task_id depending on the
-      --  concurrent object being processed.
-
-      ----------------------
-      -- Build_Entry_Name --
-      ----------------------
-
-      procedure Build_Entry_Name (Comp_Id : Entity_Id) is
-         function Build_Range (Def : Node_Id) return Node_Id;
-         --  Given a discrete subtype definition of an entry family, generate a
-         --  range node which covers the range of Def's type.
-
-         procedure Create_Index_And_Data;
-         --  Generate the declarations of variables Index and Data. Subsequent
-         --  calls do nothing.
-
-         function Increment_Index return Node_Id;
-         --  Increment the index used in the assignment of string names to the
-         --  Data array.
-
-         function Name_Declaration (Def_Id : Entity_Id) return Node_Id;
-         --  Given the name of a temporary variable, create the following
-         --  declaration for it:
-         --
-         --    Def_Id : aliased constant String := <String_Name_From_Buffer>;
-
-         function Set_Entry_Name (Def_Id : Entity_Id) return Node_Id;
-         --  Given the name of a temporary variable, place it in the array of
-         --  string names. Generate:
-         --
-         --    Data (Index) := Def_Id'Unchecked_Access;
-
-         -----------------
-         -- Build_Range --
-         -----------------
-
-         function Build_Range (Def : Node_Id) return Node_Id is
-            High : Node_Id := Type_High_Bound (Etype (Def));
-            Low  : Node_Id := Type_Low_Bound  (Etype (Def));
-
-         begin
-            --  If a bound references a discriminant, generate an identifier
-            --  with the same name. Resolution will map it to the formals of
-            --  the init proc.
-
-            if Is_Entity_Name (Low)
-              and then Ekind (Entity (Low)) = E_Discriminant
-            then
-               Low :=
-                 Make_Selected_Component (Loc,
-                   Prefix        => New_Copy_Tree (Obj_Ref),
-                   Selector_Name => Make_Identifier (Loc, Chars (Low)));
-            else
-               Low := New_Copy_Tree (Low);
-            end if;
-
-            if Is_Entity_Name (High)
-              and then Ekind (Entity (High)) = E_Discriminant
-            then
-               High :=
-                 Make_Selected_Component (Loc,
-                   Prefix        => New_Copy_Tree (Obj_Ref),
-                   Selector_Name => Make_Identifier (Loc, Chars (High)));
-            else
-               High := New_Copy_Tree (High);
-            end if;
-
-            return
-              Make_Range (Loc,
-                Low_Bound  => Low,
-                High_Bound => High);
-         end Build_Range;
-
-         ---------------------------
-         -- Create_Index_And_Data --
-         ---------------------------
-
-         procedure Create_Index_And_Data is
-         begin
-            if No (Index) and then No (Data) then
-               declare
-                  Count    : RE_Id;
-                  Data_Typ : RE_Id;
-                  Size     : Entity_Id;
-
-               begin
-                  if Is_Protected_Type (Typ) then
-                     Count    := RO_PE_Number_Of_Entries;
-                     Data_Typ := RE_Protected_Entry_Names_Array;
-                  else
-                     Count    := RO_ST_Number_Of_Entries;
-                     Data_Typ := RE_Task_Entry_Names_Array;
-                  end if;
-
-                  --  Step 1: Generate the declaration of the index variable:
-
-                  --    Index : Entry_Index := 1;
-
-                  Index := Make_Temporary (Loc, 'I');
-
-                  Append_To (Stmts,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Index,
-                      Object_Definition   =>
-                        New_Occurrence_Of (RTE (RE_Entry_Index), Loc),
-                      Expression          => Make_Integer_Literal (Loc, 1)));
-
-                  --  Step 2: Generate the declaration of an array to house all
-                  --  names:
-
-                  --    Size : constant Entry_Index := <Count> (Obj_Ref);
-                  --    Data : aliased <Data_Typ> := (1 .. Size => null);
-
-                  Size := Make_Temporary (Loc, 'S');
-
-                  Append_To (Stmts,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Size,
-                      Constant_Present    => True,
-                      Object_Definition   =>
-                        New_Occurrence_Of (RTE (RE_Entry_Index), Loc),
-                      Expression          =>
-                        Make_Function_Call (Loc,
-                          Name                   =>
-                            New_Occurrence_Of (RTE (Count), Loc),
-                          Parameter_Associations =>
-                            New_List (Object_Reference))));
-
-                  Data := Make_Temporary (Loc, 'A');
-
-                  Append_To (Stmts,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Data,
-                      Aliased_Present     => True,
-                      Object_Definition   =>
-                        New_Occurrence_Of (RTE (Data_Typ), Loc),
-                      Expression          =>
-                        Make_Aggregate (Loc,
-                          Component_Associations => New_List (
-                            Make_Component_Association (Loc,
-                              Choices    => New_List (
-                                Make_Range (Loc,
-                                  Low_Bound  =>
-                                    Make_Integer_Literal (Loc, 1),
-                                  High_Bound =>
-                                    New_Occurrence_Of (Size, Loc))),
-                              Expression => Make_Null (Loc))))));
-               end;
-            end if;
-         end Create_Index_And_Data;
-
-         ---------------------
-         -- Increment_Index --
-         ---------------------
-
-         function Increment_Index return Node_Id is
-         begin
-            return
-              Make_Assignment_Statement (Loc,
-                Name       => New_Occurrence_Of (Index, Loc),
-                Expression =>
-                  Make_Op_Add (Loc,
-                    Left_Opnd  => New_Occurrence_Of (Index, Loc),
-                    Right_Opnd => Make_Integer_Literal (Loc, 1)));
-         end Increment_Index;
-
-         ----------------------
-         -- Name_Declaration --
-         ----------------------
-
-         function Name_Declaration (Def_Id : Entity_Id) return Node_Id is
-         begin
-            return
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Def_Id,
-                Aliased_Present     => True,
-                Constant_Present    => True,
-                Object_Definition   =>
-                  New_Occurrence_Of (Standard_String, Loc),
-                Expression          =>
-                  Make_String_Literal (Loc, String_From_Name_Buffer));
-         end Name_Declaration;
-
-         --------------------
-         -- Set_Entry_Name --
-         --------------------
-
-         function Set_Entry_Name (Def_Id : Entity_Id) return Node_Id is
-         begin
-            return
-              Make_Assignment_Statement (Loc,
-                Name       =>
-                  Make_Indexed_Component (Loc,
-                    Prefix      => New_Occurrence_Of (Data, Loc),
-                    Expressions => New_List (New_Occurrence_Of (Index, Loc))),
-
-                Expression =>
-                  Make_Attribute_Reference (Loc,
-                    Prefix         => New_Occurrence_Of (Def_Id, Loc),
-                    Attribute_Name => Name_Unchecked_Access));
-         end Set_Entry_Name;
-
-         --  Local variables
-
-         Temp_Id  : Entity_Id;
-         Subt_Def : Node_Id;
-
-      --  Start of processing for Build_Entry_Name
-
-      begin
-         if Ekind (Comp_Id) = E_Entry_Family then
-            Subt_Def := Discrete_Subtype_Definition (Parent (Comp_Id));
-
-            Create_Index_And_Data;
-
-            --  Step 1: Create the string name of the entry family.
-            --  Generate:
-            --    Temp : aliased constant String := "name ()";
-
-            Temp_Id := Make_Temporary (Loc, 'S');
-            Get_Name_String (Chars (Comp_Id));
-            Add_Char_To_Name_Buffer (' ');
-            Add_Char_To_Name_Buffer ('(');
-            Add_Char_To_Name_Buffer (')');
-
-            Append_To (Stmts, Name_Declaration (Temp_Id));
-
-            --  Generate:
-            --    for Member in Family_Low .. Family_High loop
-            --       Set_Entry_Name (...);
-            --       Index := Index + 1;
-            --    end loop;
-
-            Append_To (Stmts,
-              Make_Loop_Statement (Loc,
-                Iteration_Scheme =>
-                  Make_Iteration_Scheme (Loc,
-                    Loop_Parameter_Specification =>
-                      Make_Loop_Parameter_Specification (Loc,
-                        Defining_Identifier         =>
-                          Make_Temporary (Loc, 'L'),
-                        Discrete_Subtype_Definition =>
-                          Build_Range (Subt_Def))),
-
-                Statements       => New_List (
-                  Set_Entry_Name (Temp_Id),
-                  Increment_Index),
-                End_Label        => Empty));
-
-         --  Entry
-
-         else
-            Create_Index_And_Data;
-
-            --  Step 1: Create the string name of the entry. Generate:
-            --    Temp : aliased constant String := "name";
-
-            Temp_Id := Make_Temporary (Loc, 'S');
-            Get_Name_String (Chars (Comp_Id));
-
-            Append_To (Stmts, Name_Declaration (Temp_Id));
-
-            --  Step 2: Associate the string name with the underlying data
-            --  structure.
-
-            Append_To (Stmts, Set_Entry_Name (Temp_Id));
-            Append_To (Stmts, Increment_Index);
-         end if;
-      end Build_Entry_Name;
-
-      ----------------------
-      -- Object_Reference --
-      ----------------------
-
-      function Object_Reference return Node_Id is
-         Conc_Typ : constant Entity_Id := Corresponding_Record_Type (Typ);
-         Field    : Name_Id;
-         Ref      : Node_Id;
-
-      begin
-         if Is_Protected_Type (Typ) then
-            Field := Name_uObject;
-         else
-            Field := Name_uTask_Id;
-         end if;
-
-         Ref :=
-           Make_Selected_Component (Loc,
-             Prefix        =>
-               Unchecked_Convert_To (Conc_Typ, New_Copy_Tree (Obj_Ref)),
-             Selector_Name => Make_Identifier (Loc, Field));
-
-         if Is_Protected_Type (Typ) then
-            Ref :=
-              Make_Attribute_Reference (Loc,
-                Prefix         => Ref,
-                Attribute_Name => Name_Unchecked_Access);
-         end if;
-
-         return Ref;
-      end Object_Reference;
-
-      --  Local variables
-
-      Comp : Node_Id;
-      Proc : RE_Id;
-
-   --  Start of processing for Build_Entry_Names
-
-   begin
-      --  Retrieve the original concurrent type
-
-      if Is_Concurrent_Record_Type (Typ) then
-         Typ := Corresponding_Concurrent_Type (Typ);
-      end if;
-
-      pragma Assert (Is_Concurrent_Type (Typ));
-
-      --  Nothing to do if the type has no entries
-
-      if not Has_Entries (Typ) then
-         return;
-      end if;
-
-      --  Avoid generating entry names for a protected type with only one entry
-
-      if Is_Protected_Type (Typ)
-        and then Find_Protection_Type (Base_Type (Typ)) /=
-                   RTE (RE_Protection_Entries)
-      then
-         return;
-      end if;
-
-      --  Step 1: Populate the array with statically generated strings denoting
-      --  entries and entry family names.
-
-      Comp := First_Entity (Typ);
-      while Present (Comp) loop
-         if Comes_From_Source (Comp)
-           and then Ekind_In (Comp, E_Entry, E_Entry_Family)
-         then
-            Build_Entry_Name (Comp);
-         end if;
-
-         Next_Entity (Comp);
-      end loop;
-
-      --  Step 2: Associate the array with the related concurrent object:
-
-      --    Set_Entry_Names (Obj_Ref, <Data>'Unchecked_Access);
-
-      if Present (Data) then
-         if Is_Protected_Type (Typ) then
-            Proc := RO_PE_Set_Entry_Names;
-         else
-            Proc := RO_ST_Set_Entry_Names;
-         end if;
-
-         Append_To (Stmts,
-           Make_Procedure_Call_Statement (Loc,
-             Name                   => New_Occurrence_Of (RTE (Proc), Loc),
-             Parameter_Associations => New_List (
-               Object_Reference,
-               Make_Attribute_Reference (Loc,
-                 Prefix         => New_Occurrence_Of (Data, Loc),
-                 Attribute_Name => Name_Unchecked_Access))));
-      end if;
-   end Build_Entry_Names;
 
    ---------------------------
    -- Build_Parameter_Block --
@@ -9045,7 +8656,7 @@ package body Exp_Ch9 is
    --  the specs refer to this type.
 
    procedure Expand_N_Protected_Type_Declaration (N : Node_Id) is
-      Discr_Map : constant Elist_Id := New_Elmt_List;
+      Discr_Map : constant Elist_Id   := New_Elmt_List;
       Loc       : constant Source_Ptr := Sloc (N);
       Prot_Typ  : constant Entity_Id  := Defining_Identifier (N);
 
@@ -9055,17 +8666,9 @@ package body Exp_Ch9 is
       Pdef : constant Node_Id := Protected_Definition (N);
       --  This contains two lists; one for visible and one for private decls
 
-      Body_Arr     : Node_Id;
-      Body_Id      : Entity_Id;
-      Cdecls       : List_Id;
-      Comp         : Node_Id;
       Current_Node : Node_Id := N;
       E_Count      : Int;
       Entries_Aggr : Node_Id;
-      New_Priv     : Node_Id;
-      Object_Comp  : Node_Id;
-      Priv         : Node_Id;
-      Rec_Decl     : Node_Id;
 
       procedure Check_Inlining (Subp : Entity_Id);
       --  If the original operation has a pragma Inline, propagate the flag
@@ -9295,7 +8898,17 @@ package body Exp_Ch9 is
 
       --  Local variables
 
-      Sub : Node_Id;
+      Body_Arr     : Node_Id;
+      Body_Id      : Entity_Id;
+      Cdecls       : List_Id;
+      Comp         : Node_Id;
+      Expr         : Node_Id;
+      New_Priv     : Node_Id;
+      Obj_Def      : Node_Id;
+      Object_Comp  : Node_Id;
+      Priv         : Node_Id;
+      Rec_Decl     : Node_Id;
+      Sub          : Node_Id;
 
    --  Start of processing for Expand_N_Protected_Type_Declaration
 
@@ -9529,7 +9142,7 @@ package body Exp_Ch9 is
                Ritem := First_Rep_Item (Prot_Typ);
                while Present (Ritem) loop
                   if Nkind (Ritem) = N_Pragma
-                    and then Pragma_Name (Ritem) = Name_Attach_Handler
+                    and then Pragma_Name_Mapped (Ritem) = Name_Attach_Handler
                   then
                      Num_Attach_Handler := Num_Attach_Handler + 1;
                   end if;
@@ -9760,6 +9373,96 @@ package body Exp_Ch9 is
          end loop;
       end if;
 
+      --  Create the declaration of an array object which contains the values
+      --  of aspect/pragma Max_Queue_Length for all entries of the protected
+      --  type. This object is later passed to the appropriate protected object
+      --  initialization routine.
+
+      if Has_Entries (Prot_Typ)
+        and then Corresponding_Runtime_Package (Prot_Typ) =
+                    System_Tasking_Protected_Objects_Entries
+      then
+         declare
+            Count      : Int;
+            Item       : Entity_Id;
+            Max_Vals   : Node_Id;
+            Maxes      : List_Id;
+            Maxes_Id   : Entity_Id;
+            Need_Array : Boolean := False;
+
+         begin
+            --  First check if there is any Max_Queue_Length pragma
+
+            Item := First_Entity (Prot_Typ);
+            while Present (Item) loop
+               if Is_Entry (Item) and then Has_Max_Queue_Length (Item) then
+                  Need_Array := True;
+                  exit;
+               end if;
+
+               Next_Entity (Item);
+            end loop;
+
+            --  Gather the Max_Queue_Length values of all entries in a list. A
+            --  value of zero indicates that the entry has no limitation on its
+            --  queue length.
+
+            if Need_Array then
+               Count := 0;
+               Item  := First_Entity (Prot_Typ);
+               Maxes := New_List;
+               while Present (Item) loop
+                  if Is_Entry (Item) then
+                     Count := Count + 1;
+                     Append_To (Maxes,
+                       Make_Integer_Literal
+                         (Loc, Get_Max_Queue_Length (Item)));
+                  end if;
+
+                  Next_Entity (Item);
+               end loop;
+
+               --  Create the declaration of the array object. Generate:
+
+               --    Maxes_Id : aliased constant
+               --                 Protected_Entry_Queue_Max_Array
+               --                   (1 .. Count) := (..., ...);
+
+               Maxes_Id :=
+                 Make_Defining_Identifier (Loc,
+                   Chars => New_External_Name (Chars (Prot_Typ), 'B'));
+
+               Max_Vals :=
+                 Make_Object_Declaration (Loc,
+                   Defining_Identifier => Maxes_Id,
+                   Aliased_Present     => True,
+                   Constant_Present    => True,
+                   Object_Definition   =>
+                     Make_Subtype_Indication (Loc,
+                       Subtype_Mark =>
+                         New_Occurrence_Of
+                           (RTE (RE_Protected_Entry_Queue_Max_Array), Loc),
+                       Constraint   =>
+                         Make_Index_Or_Discriminant_Constraint (Loc,
+                           Constraints => New_List (
+                             Make_Range (Loc,
+                               Make_Integer_Literal (Loc, 1),
+                               Make_Integer_Literal (Loc, Count))))),
+                   Expression          => Make_Aggregate (Loc, Maxes));
+
+               --  A pointer to this array will be placed in the corresponding
+               --  record by its initialization procedure so this needs to be
+               --  analyzed here.
+
+               Insert_After (Current_Node, Max_Vals);
+               Current_Node := Max_Vals;
+               Analyze (Max_Vals);
+
+               Set_Entry_Max_Queue_Lengths_Array (Prot_Typ, Maxes_Id);
+            end if;
+         end;
+      end if;
+
       --  Emit declaration for Entry_Bodies_Array, now that the addresses of
       --  all protected subprograms have been collected.
 
@@ -9770,36 +9473,34 @@ package body Exp_Ch9 is
 
          case Corresponding_Runtime_Package (Prot_Typ) is
             when System_Tasking_Protected_Objects_Entries =>
-               Body_Arr :=
-                 Make_Object_Declaration (Loc,
-                   Defining_Identifier => Body_Id,
-                   Aliased_Present     => True,
-                   Object_Definition   =>
-                     Make_Subtype_Indication (Loc,
-                       Subtype_Mark =>
-                         New_Occurrence_Of
-                           (RTE (RE_Protected_Entry_Body_Array), Loc),
-                       Constraint   =>
-                         Make_Index_Or_Discriminant_Constraint (Loc,
-                           Constraints => New_List (
-                              Make_Range (Loc,
-                                Make_Integer_Literal (Loc, 1),
-                                Make_Integer_Literal (Loc, E_Count))))),
-                   Expression          => Entries_Aggr);
+               Expr    := Entries_Aggr;
+               Obj_Def :=
+                  Make_Subtype_Indication (Loc,
+                    Subtype_Mark =>
+                      New_Occurrence_Of
+                        (RTE (RE_Protected_Entry_Body_Array), Loc),
+                    Constraint   =>
+                      Make_Index_Or_Discriminant_Constraint (Loc,
+                        Constraints => New_List (
+                          Make_Range (Loc,
+                            Make_Integer_Literal (Loc, 1),
+                            Make_Integer_Literal (Loc, E_Count)))));
 
             when System_Tasking_Protected_Objects_Single_Entry =>
-               Body_Arr :=
-                 Make_Object_Declaration (Loc,
-                   Defining_Identifier => Body_Id,
-                   Aliased_Present     => True,
-                   Object_Definition   =>
-                     New_Occurrence_Of (RTE (RE_Entry_Body), Loc),
-                   Expression          =>
-                     Remove_Head (Expressions (Entries_Aggr)));
+               Expr    := Remove_Head (Expressions (Entries_Aggr));
+               Obj_Def := New_Occurrence_Of (RTE (RE_Entry_Body), Loc);
 
             when others =>
                raise Program_Error;
          end case;
+
+         Body_Arr :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Body_Id,
+             Aliased_Present     => True,
+             Constant_Present    => True,
+             Object_Definition   => Obj_Def,
+             Expression          => Expr);
 
          --  A pointer to this array will be placed in the corresponding record
          --  by its initialization procedure so this needs to be analyzed here.
@@ -9821,6 +9522,7 @@ package body Exp_Ch9 is
             Sub :=
               Make_Subprogram_Declaration (Loc,
                 Specification => Build_Find_Body_Index_Spec (Prot_Typ));
+
             Insert_After (Current_Node, Sub);
             Analyze (Sub);
          end if;
@@ -11980,7 +11682,7 @@ package body Exp_Ch9 is
          N := First (Visible_Declarations (T));
          while Present (N) loop
             if Nkind (N) = N_Pragma
-              and then Pragma_Name (N) = Name_Relative_Deadline
+              and then Pragma_Name_Mapped (N) = Name_Relative_Deadline
             then
                return N;
             end if;
@@ -11991,7 +11693,7 @@ package body Exp_Ch9 is
          N := First (Private_Declarations (T));
          while Present (N) loop
             if Nkind (N) = N_Pragma
-              and then Pragma_Name (N) = Name_Relative_Deadline
+              and then Pragma_Name_Mapped (N) = Name_Relative_Deadline
             then
                return N;
             end if;
@@ -14004,7 +13706,7 @@ package body Exp_Ch9 is
 
                   --  Get_Rep_Item returns either priority pragma.
 
-                  if Pragma_Name (Prio_Clause) = Name_Priority then
+                  if Pragma_Name_Mapped (Prio_Clause) = Name_Priority then
                      Prio_Type := RTE (RE_Any_Priority);
                   else
                      Prio_Type := RTE (RE_Interrupt_Priority);
@@ -14106,6 +13808,32 @@ package body Exp_Ch9 is
                when others =>
                      raise Program_Error;
             end case;
+
+            --  Entry_Queue_Maxes parameter. This is an access to an array of
+            --  naturals representing the entry queue maximums for each entry
+            --  in the protected type. Zero represents no max. The access is
+            --  null if there is no limit for all entries (usual case).
+
+            if Has_Entry
+              and then Pkg_Id = System_Tasking_Protected_Objects_Entries
+            then
+               if Present (Entry_Max_Queue_Lengths_Array (Ptyp)) then
+                  Append_To (Args,
+                    Make_Attribute_Reference (Loc,
+                      Prefix         =>
+                        New_Occurrence_Of
+                          (Entry_Max_Queue_Lengths_Array (Ptyp), Loc),
+                      Attribute_Name => Name_Unrestricted_Access));
+               else
+                  Append_To (Args, Make_Null (Loc));
+               end if;
+
+            --  Edge cases exist where entry initialization functions are
+            --  called, but no entries exist, so null is appended.
+
+            elsif Pkg_Id = System_Tasking_Protected_Objects_Entries then
+               Append_To (Args, Make_Null (Loc));
+            end if;
 
             --  Entry_Bodies parameter. This is a pointer to an array of
             --  pointers to the entry body procedures and barrier functions of
@@ -14212,7 +13940,7 @@ package body Exp_Ch9 is
 
             while Present (Ritem) loop
                if Nkind (Ritem) = N_Pragma
-                 and then Pragma_Name (Ritem) = Name_Attach_Handler
+                 and then Pragma_Name_Mapped (Ritem) = Name_Attach_Handler
                then
                   declare
                      Handler : constant Node_Id :=

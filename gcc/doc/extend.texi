@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -5725,6 +5725,8 @@ This attribute specifies the data type for the declaration---whichever
 type corresponds to the mode @var{mode}.  This in effect lets you
 request an integer or floating-point type according to its width.
 
+@xref{Machine Modes,,, gccint, GNU Compiler Collection (GCC) Internals},
+for a list of the possible keywords for @var{mode}.
 You may also specify a mode of @code{byte} or @code{__byte__} to
 indicate the mode corresponding to a one-byte integer, @code{word} or
 @code{__word__} for the mode of a one-word integer, and @code{pointer}
@@ -10464,7 +10466,7 @@ is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
 
 Further details and examples about these built-in functions are described 
 in the Cilk Plus language manual which can be found at 
-@uref{http://www.cilkplus.org}.
+@uref{https://www.cilkplus.org}.
 
 @node Other Builtins
 @section Other Built-in Functions Provided by GCC
@@ -12625,8 +12627,9 @@ The built-in intrinsics for the Advanced SIMD extension are available when
 NEON is enabled.
 
 Currently, ARM and AArch64 back ends do not support ACLE 2.0 fully.  Both
-back ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM back end's
-16-bit floating-point Advanced SIMD intrinsics currently comply to ACLE v1.1.
+back ends support CRC32 intrinsics and the ARM back end supports the
+Coprocessor intrinsics, all from @file{arm_acle.h}.  The ARM back end's 16-bit
+floating-point Advanced SIMD intrinsics currently comply to ACLE v1.1.
 AArch64's back end does not have support for 16-bit floating point Advanced SIMD
 intrinsics yet.
 

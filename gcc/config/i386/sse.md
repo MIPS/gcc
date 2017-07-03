@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -520,12 +520,6 @@
 
 ;; All 256bit vector integer modes
 (define_mode_iterator VI_256 [V32QI V16HI V8SI V4DI])
-
-;; All 512bit vector integer modes
-(define_mode_iterator VI_512
-  [(V64QI "TARGET_AVX512BW")
-   (V32HI "TARGET_AVX512BW")
-   V16SI V8DI])
 
 ;; Various 128bit vector integer mode combinations
 (define_mode_iterator VI12_128 [V16QI V8HI])
@@ -1187,8 +1181,8 @@
 			 (match_operand:DF 3 "memory_operand")))]
   "TARGET_SSE2 && TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
    && ix86_operands_ok_for_move_multiple (operands, true, DFmode)"
-  [(set (match_dup 2) (match_dup 4))]
-  "operands[4] = adjust_address (operands[1], V2DFmode, 0);")
+  [(set (match_dup 2) (match_dup 5))]
+  "operands[5] = adjust_address (operands[1], V2DFmode, 0);")
 
 (define_peephole2
   [(set (match_operand:DF 0 "sse_reg_operand")
@@ -1199,8 +1193,8 @@
   "TARGET_SSE2 && TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
    && REGNO (operands[4]) == REGNO (operands[2])
    && ix86_operands_ok_for_move_multiple (operands, true, DFmode)"
-  [(set (match_dup 2) (match_dup 4))]
-  "operands[4] = adjust_address (operands[1], V2DFmode, 0);")
+  [(set (match_dup 2) (match_dup 5))]
+  "operands[5] = adjust_address (operands[1], V2DFmode, 0);")
 
 ;; Merge movlpd/movhpd to movupd for TARGET_SSE_UNALIGNED_STORE_OPTIMAL targets.
 (define_peephole2
@@ -11249,17 +11243,17 @@
    (set_attr "prefix" "orig,vex")
    (set_attr "mode" "TI")])
 
-(define_expand "vcond<V_512:mode><VI_512:mode>"
+(define_expand "vcond<V_512:mode><VI_AVX512BW:mode>"
   [(set (match_operand:V_512 0 "register_operand")
 	(if_then_else:V_512
 	  (match_operator 3 ""
-	    [(match_operand:VI_512 4 "nonimmediate_operand")
-	     (match_operand:VI_512 5 "general_operand")])
+	    [(match_operand:VI_AVX512BW 4 "nonimmediate_operand")
+	     (match_operand:VI_AVX512BW 5 "general_operand")])
 	  (match_operand:V_512 1)
 	  (match_operand:V_512 2)))]
   "TARGET_AVX512F
    && (GET_MODE_NUNITS (<V_512:MODE>mode)
-       == GET_MODE_NUNITS (<VI_512:MODE>mode))"
+       == GET_MODE_NUNITS (<VI_AVX512BW:MODE>mode))"
 {
   bool ok = ix86_expand_int_vcond (operands);
   gcc_assert (ok);
@@ -11315,17 +11309,17 @@
   DONE;
 })
 
-(define_expand "vcondu<V_512:mode><VI_512:mode>"
+(define_expand "vcondu<V_512:mode><VI_AVX512BW:mode>"
   [(set (match_operand:V_512 0 "register_operand")
 	(if_then_else:V_512
 	  (match_operator 3 ""
-	    [(match_operand:VI_512 4 "nonimmediate_operand")
-	     (match_operand:VI_512 5 "nonimmediate_operand")])
+	    [(match_operand:VI_AVX512BW 4 "nonimmediate_operand")
+	     (match_operand:VI_AVX512BW 5 "nonimmediate_operand")])
 	  (match_operand:V_512 1 "general_operand")
 	  (match_operand:V_512 2 "general_operand")))]
   "TARGET_AVX512F
    && (GET_MODE_NUNITS (<V_512:MODE>mode)
-       == GET_MODE_NUNITS (<VI_512:MODE>mode))"
+       == GET_MODE_NUNITS (<VI_AVX512BW:MODE>mode))"
 {
   bool ok = ix86_expand_int_vcond (operands);
   gcc_assert (ok);

@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -1102,7 +1102,7 @@ DEFPARAM (PARAM_STORE_MERGING_ALLOW_UNALIGNED,
 
 DEFPARAM (PARAM_MAX_STORES_TO_MERGE,
 	  "max-stores-to-merge",
-	  "Maximum number of constant stores to merge in the"
+	  "Maximum number of constant stores to merge in the "
 	  "store merging pass",
 	  64, 2, 0)
 

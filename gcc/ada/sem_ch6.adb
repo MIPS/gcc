@@ -62,6 +62,7 @@ with Sem_Ch3;   use Sem_Ch3;
 with Sem_Ch4;   use Sem_Ch4;
 with Sem_Ch5;   use Sem_Ch5;
 with Sem_Ch8;   use Sem_Ch8;
+with Sem_Ch9;   use Sem_Ch9;
 with Sem_Ch10;  use Sem_Ch10;
 with Sem_Ch12;  use Sem_Ch12;
 with Sem_Ch13;  use Sem_Ch13;
@@ -2691,7 +2692,7 @@ package body Sem_Ch6 is
                   Analyze (Prag);
                   Set_Has_Pragma_Inline (Subp);
 
-                  if Pragma_Name (Prag) = Name_Inline_Always then
+                  if Pragma_Name_Mapped (Prag) = Name_Inline_Always then
                      Set_Is_Inlined (Subp);
                      Set_Has_Pragma_Inline_Always (Subp);
                   end if;
@@ -3640,6 +3641,21 @@ package body Sem_Ch6 is
             Generate_Definition (Body_Id);
             Generate_Reference
               (Body_Id, Body_Id, 'b', Set_Ref => False, Force => True);
+
+            --  If the body is an entry wrapper created for an entry with
+            --  preconditions, it must be compiled in the context of the
+            --  enclosing synchronized object, because it may mention other
+            --  operations of the type.
+
+            if Is_Entry_Wrapper (Body_Id) then
+               declare
+                  Prot : constant Entity_Id := Etype (First_Entity (Body_Id));
+               begin
+                  Push_Scope (Prot);
+                  Install_Declarations (Prot);
+               end;
+            end if;
+
             Install_Formals (Body_Id);
 
             Push_Scope (Body_Id);
@@ -4000,6 +4016,14 @@ package body Sem_Ch6 is
 
       Process_End_Label (HSS, 't', Current_Scope);
       End_Scope;
+
+      --  If we are compiling an entry wrapper, remove the enclosing
+      --  synchronized object from the stack.
+
+      if Is_Entry_Wrapper (Body_Id) then
+         End_Scope;
+      end if;
+
       Check_Subprogram_Order (N);
       Set_Analyzed (Body_Id);
 
@@ -6040,7 +6064,7 @@ package body Sem_Ch6 is
 
          begin
             if Nkind (Orig) = N_Pragma
-              and then Pragma_Name (Orig) = Name_Assert
+              and then Pragma_Name_Mapped (Orig) = Name_Assert
               and then not Error_Posted (Orig)
             then
                declare
@@ -7182,6 +7206,15 @@ package body Sem_Ch6 is
       then
          return Ctype <= Mode_Conformant
            or else Subtypes_Statically_Match (Type_1, Full_View (Type_2));
+
+      --  Another confusion between views in a nested instance with an
+      --  actual private type whose full view is not in scope.
+
+      elsif Ekind (Type_2) = E_Private_Subtype
+        and then In_Instance
+        and then Etype (Type_2) = Type_1
+      then
+         return True;
 
       --  In Ada 2012, incomplete types (including limited views) can appear
       --  as actuals in instantiations.
@@ -9268,7 +9301,7 @@ package body Sem_Ch6 is
                      if Class_Present (Prag)
                        and then not Split_PPC (Prag)
                      then
-                        if Pragma_Name (Prag) = Name_Precondition then
+                        if Pragma_Name_Mapped (Prag) = Name_Precondition then
                            Error_Msg_N
                              ("info: & inherits `Pre''Class` aspect from "
                               & "#?L?", E);
