@@ -2771,6 +2771,9 @@ mips_got_symbol_type_p (enum mips_symbol_type type)
     {
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOT_DISP:
+    // @tmt is this a good idea ?
+    /* case SYMBOL_GOT_PCREL32_NANO: */
+    /* case SYMBOL_GOT_PCREL_SPLIT_NANO: */
       return true;
 
     default:
@@ -2983,6 +2986,7 @@ mips_rtx_constant_in_small_data_p (machine_mode mode)
    We need this because many versions of GAS will treat "la $25,foo" as
    part of a call sequence and so allow a global "foo" to be lazily bound.  */
 
+//@tmt disable ?
 bool
 mips_dangerous_for_la25_p (rtx x)
 {
@@ -3065,6 +3069,74 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
       if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
 	return SYMBOL_GP_RELATIVE;
+    }
+
+  if (TARGET_NANOMIPS && flag_pic)
+    {
+      // @tmt non-pre fptr arg for auto long calls treated as func not data
+      if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
+	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
+	{
+	  if (mips_symbol_binds_local_p (x))
+	    {
+	      if (nano_pic_model_var != NANO_PIC_LARGE
+		  && !SYMBOL_REF_LONG_CALL_P (x))
+		return SYMBOL_ABSOLUTE;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_PCREL32_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_PCREL_SPLIT_NANO;
+	    }
+	  else
+	    {
+	      if (nano_pic_model_var == NANO_PIC_AUTO)
+		return SYMBOL_GOT_DISP;
+	      else if (nano_pic_model_var == NANO_PIC_MEDIUM)
+		return SYMBOL_GOT_DISP;
+	      else if (nano_pic_model_var == NANO_PIC_LARGE
+		       && TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_GOT_PCREL32_NANO;
+	      else if (nano_pic_model_var == NANO_PIC_LARGE
+		       && TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_GOT_PCREL_SPLIT_NANO;
+	    }
+	}
+      else
+	{
+	  if (mips_symbol_binds_local_p (x))
+	    {
+	      if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
+		return SYMBOL_PCREL_SPLIT_NANO;
+	      else if (TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && !(nano_pic_model_var == NANO_PIC_LARGE
+			    && TARGET_NANOMIPS == NANOMIPS_NMS))
+		return SYMBOL_GP_RELATIVE;
+	      // @tmt are functions exactly 2-byte aligned, somehow ?
+	      /* else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 2 */
+	      else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+		       && nano_pic_model_var == NANO_PIC_AUTO)
+		return SYMBOL_PCREL_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_PCREL32_NANO;
+	      else
+		return SYMBOL_PCREL_SPLIT_NANO;
+	    }
+	  else
+	    {
+	      if (nano_pic_model_var == NANO_PIC_AUTO)
+		return SYMBOL_GOT_PAGE_OFST;
+	      if (nano_pic_model_var == NANO_PIC_MEDIUM)
+		return SYMBOL_GOT_DISP;
+	      if (nano_pic_model_var == NANO_PIC_LARGE
+		  && TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_GOT_PCREL32_NANO;
+	      if (nano_pic_model_var == NANO_PIC_LARGE
+		  && TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_GOT_PCREL_SPLIT_NANO;
+	    }
+	}
     }
 
   /* Do not use small-data accesses for weak symbols; they may end up
@@ -3211,6 +3283,9 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       return true;
 
     case SYMBOL_PC_RELATIVE:
+    case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_PCREL_NANO:
+    case SYMBOL_PCREL32_NANO:
       /* Allow constant pool references to be converted to LABEL+CONSTANT.
 	 In this case, we no longer have access to the underlying constant,
 	 but the original symbol-based access was known to be valid.  */
@@ -3244,6 +3319,9 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
+      // @tmt is this correct?:
+    case SYMBOL_GOT_PCREL32_NANO:
+    case SYMBOL_GOT_PCREL_SPLIT_NANO:
     case SYMBOL_TLSGD:
     case SYMBOL_TLSLDM:
     case SYMBOL_GOTTPREL:
@@ -3299,9 +3377,20 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
+      if (TARGET_NANOMIPS && flag_pic
+	  && nano_pic_model_var == NANO_PIC_LARGE
+	  && mode != MAX_MACHINE_MODE)
+	return 0;
       return 1;
 
+    case SYMBOL_PCREL_NANO:
+      // @tmt look into this
+      if (mode != MAX_MACHINE_MODE)
+	return 0;
+      /* Fall through.  */
+
     case SYMBOL_PC_RELATIVE:
+    case SYMBOL_PCREL32_NANO:
       /* PC-relative constants can be only be used with ADDIUPC,
 	 DADDIUPC, LWPC and LDPC.  */
       if (mode == MAX_MACHINE_MODE
@@ -3313,6 +3402,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       return 0;
 
     case SYMBOL_GOT_DISP:
+    case SYMBOL_GOT_PCREL32_NANO:
       /* The constant will have to be loaded from the GOT before it
 	 is used in an address.  */
       if (mode != MAX_MACHINE_MODE)
@@ -3353,6 +3443,8 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_GOTTPREL:
     case SYMBOL_TPREL:
     case SYMBOL_HALF:
+    case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_GOT_PCREL_SPLIT_NANO:
       /* A 16-bit constant formed by a single relocation, or a 32-bit
 	 constant formed from a high 16-bit relocation and a low 16-bit
 	 relocation.  Use mips_split_p to determine which.  32-bit
@@ -4520,6 +4612,21 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 	      case SYMBOL_GP_RELATIVE:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		break;
+
+	      case SYMBOL_GOT_PAGE_OFST:
+		if (TARGET_NANOMIPS && flag_pic
+		    && nano_pic_model_var == NANO_PIC_AUTO
+		    && context == SYMBOL_CONTEXT_LEA)
+		  {
+		    *low_out = mips_got_load (temp, addr, SYMBOL_GOTOFF_DISP);
+		  }
+		else
+		  {
+		    high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
+		    high = mips_force_temporary (temp, high);
+		    *low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		  }
 		break;
 
 	      case SYMBOL_ABSOLUTE:
@@ -6600,6 +6707,13 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
 	    return "move\t%0,%+";
 
+	  if (TARGET_NANOMIPS && flag_pic
+	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
+		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
+	    return "aluipc\t%0,%h1";
+
 	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
 	}
 
@@ -8586,9 +8700,15 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
      try to allow its address to be resolved lazily.  This isn't
      possible for sibcalls when $gp is call-saved because the value
      of $gp on entry to the stub would be our caller's gp, not ours.  */
+
+  enum mips_symbol_type symbol_type =
+    mips_classify_symbol (addr, SYMBOL_CONTEXT_CALL);
+
   if (TARGET_EXPLICIT_RELOCS
       && !(type == MIPS_CALL_SIBCALL && TARGET_CALL_SAVED_GP)
-      && mips_ok_for_lazy_binding_p (addr))
+      && mips_ok_for_lazy_binding_p (addr)
+      && symbol_type != SYMBOL_GOT_PCREL32_NANO
+      && symbol_type != SYMBOL_GOT_PCREL_SPLIT_NANO)
     {
       addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_CALL);
       emit_insn (gen_rtx_SET (dest, addr));
@@ -10401,6 +10521,9 @@ mips_init_relocs (void)
        then lowered by mips_rewrite_small_data.  */
     mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gp_rel(";
 
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gprel(";
+
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
@@ -10408,6 +10531,25 @@ mips_init_relocs (void)
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
 	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
+	}
+      else if (TARGET_PABI)
+	{
+	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
+	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
+
+	  mips_lo_relocs[SYMBOL_PCREL_NANO] = "%pcrel(";
+
+	  mips_lo_relocs[SYMBOL_PCREL32_NANO] = "%pcrel32(";
+
+	  mips_hi_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%lo(";
+	  mips_split_p[SYMBOL_PCREL_SPLIT_NANO] = true;
+
+	  mips_lo_relocs[SYMBOL_GOT_PCREL32_NANO] = "%got_pcrel32(";
+
+	  mips_hi_relocs[SYMBOL_GOT_PCREL_SPLIT_NANO] = "%got_pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_GOT_PCREL_SPLIT_NANO] = "%got_lo(";
+	  mips_split_p[SYMBOL_GOT_PCREL_SPLIT_NANO] = true;
 	}
       else
 	{
@@ -10433,11 +10575,22 @@ mips_init_relocs (void)
 	}
       else
 	{
-	  if (TARGET_NABI)
+	  if (TARGET_NABI || TARGET_PABI)
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_disp(";
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
-	  mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
+
+	  if (TARGET_PABI)
+	    {
+	      // @tmt look into this
+	      if (nano_pic_model_var == NANO_PIC_AUTO)
+		mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
+	      else
+		mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_disp(";
+	    }
+	  else
+	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
+
 	  if (TARGET_MIPS16)
 	    /* Expose the use of $28 as soon as possible.  */
 	    mips_split_p[SYMBOL_GOT_DISP] = true;
@@ -11278,6 +11431,7 @@ mips_in_small_data_p (const_tree decl)
    case.  We also don't want to use them for PC-relative accesses,
    where the PC acts as an anchor.  */
 
+// @tmt look into this
 static bool
 mips_use_anchors_for_symbol_p (const_rtx symbol)
 {
@@ -16918,6 +17072,7 @@ mips_init_libfuncs (void)
 
 /* Build up a multi-insn sequence that loads label TARGET into $AT.  */
 
+// @tmt look into this
 static void
 mips_process_load_label (rtx target)
 {
@@ -17114,7 +17269,10 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
 
       if (reg_p && mips_get_pic_call_symbol (operands, size_opno))
 	{
-	  s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
+	  if (TARGET_NANOMIPS && flag_pic)
+	    s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
+	  else
+	    s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
 	  /* Not sure why this shouldn't permit a short delay but it did not
 	     allow it before so we still don't allow it.  */
 	  short_delay = "";
@@ -25374,6 +25532,10 @@ mips_option_override (void)
   /* Only optimize PIC indirect calls if they are actually required.  */
   if (!TARGET_USE_GOT || !TARGET_EXPLICIT_RELOCS)
     target_flags &= ~MASK_RELAX_PIC_CALLS;
+
+  if (TARGET_NANOMIPS && flag_pic
+      && nano_pic_model_var == NANO_PIC_AUTO)
+    target_flags |= MASK_RELAX_PIC_CALLS;
 
   /* Save base state of options.  */
   mips_base_target_flags = target_flags;
