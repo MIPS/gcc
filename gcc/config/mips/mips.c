@@ -25114,6 +25114,14 @@ mips_option_override (void)
   if (TARGET_NANOMIPS && TARGET_ABICALLS)
     error ("-mabicalls is not supported for nanoMIPS");
 
+  if (TARGET_NANOMIPS
+      && flag_pic == 1 && nano_pic_model_var != NANO_PIC_AUTO)
+    nano_pic_model_var = NANO_PIC_MEDIUM;
+
+  if (TARGET_NANOMIPS
+      && flag_pic == 2 && nano_pic_model_var != NANO_PIC_AUTO)
+    nano_pic_model_var = NANO_PIC_LARGE;
+
   if (TARGET_ABICALLS_PIC2)
     /* We need to set flag_pic for executables as well as DSOs
        because we may reference symbols that are not defined in
