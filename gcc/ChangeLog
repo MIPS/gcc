@@ -1,3 +1,48 @@
+2017-01-22  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* README.Portability: Remove note on an Irix compatibility issue.
+
+2017-01-22  Dimitry Andric <dim@FreeBSD.org>
+
+	* gcov.c (INCLUDE_ALGORITHM): Define.
+	(INCLUDE_VECTOR): Define.
+	No longer include <vector> and <algorithm> directly.
+	
+2017-01-21  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (Thread-Local): Change www.akkadia.org reference
+	to https.
+	* doc/invoke.texi (Code Gen Options): Ditto.
+
+2017-01-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/78407
+	* cfg.c (update_bb_profile_for_threading): Fix updating of probablity.
+
+2017-01-21  Bernd Schmidt  <bschmidt@redhat.com>
+
+	rtl-optimization/79125
+	* cprop.c (local_cprop_pass): Handle cases where we make an
+	unconditional trap.
+
+2017-01-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/61729
+	PR target/77850
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Adjust address to
+	read from, for big endian.
+
+2017-01-20  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_init_builtins): Register
+	register pauth builtins for LP64 only.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79152
+	* gimplify.c (should_warn_for_implicit_fallthrough): Handle consecutive
+	non-case labels.
+
 2017-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
 	* omp-expand.c (expand_omp_simd): Clear PROP_gimple_lomp_dev regardless

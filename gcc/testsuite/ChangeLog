@@ -1,3 +1,48 @@
+2017-01-22  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gcc.dg/tree-ssa/pr77445-2.c: Quote brackets.
+
+2017-01-21  Marek Polacek  <polacek@redhat.com>
+
+	PR testsuite/79169
+	* g++.dg/warn/Wduplicated-branches1.C: Use signed char.
+
+2017-01-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/pr77445-2.c: Adjust template.
+
+2017-01-21  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/79125
+	* gcc.dg/torture/pr79125.c: New test.
+
+2017-01-20  Jiong Wang  <jiong.wang@arm.com>
+
+	* testsuite/gcc.target/aarch64/return_address_sign_1.c: Enable on LP64
+	only.
+	* testsuite/gcc.target/aarch64/return_address_sign_2.c: Likewise.
+	* testsuite/gcc.target/aarch64/return_address_sign_3.c: Likewise.
+
+2017-01-20  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79495
+	* g++.dg/cpp1z/inh-ctor38.C: New.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79152
+	* c-c++-common/Wimplicit-fallthrough-35.c: New test.
+
+2017-01-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_configured_with): New procedure.
+	(check_effective_target_default_mode): new effective target.
+	* gcc.target/arm/optional_thumb-1.c: Skip if GCC was configured with a
+	default mode.  Fix dg-skip-if target selector syntax.
+	* gcc.target/arm/optional_thumb-2.c: Likewise.
+	* gcc.target/arm/optional_thumb-3.c: Fix dg-skip-if target selector
+	syntax.
+
 2017-01-20  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c++/77829

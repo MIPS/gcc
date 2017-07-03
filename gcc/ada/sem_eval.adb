@@ -1142,7 +1142,7 @@ package body Sem_Eval is
          return Unknown;
       end if;
 
-      --  We do not attempt comparisons for packed arrays arrays represented as
+      --  We do not attempt comparisons for packed arrays represented as
       --  modular types, where the semantics of comparison is quite different.
 
       if Is_Packed_Array_Impl_Type (Ltyp)
@@ -1342,12 +1342,22 @@ package body Sem_Eval is
             if Is_Same_Value (Lnode, Rnode) then
                if Loffs = Roffs then
                   return EQ;
-               elsif Loffs < Roffs then
-                  Diff.all := Roffs - Loffs;
-                  return LT;
-               else
-                  Diff.all := Loffs - Roffs;
-                  return GT;
+               end if;
+
+               --  When the offsets are not equal, we can go farther only if
+               --  the types are not modular (e.g. X < X + 1 is False if X is
+               --  the largest number).
+
+               if not Is_Modular_Integer_Type (Ltyp)
+                 and then not Is_Modular_Integer_Type (Rtyp)
+               then
+                  if Loffs < Roffs then
+                     Diff.all := Roffs - Loffs;
+                     return LT;
+                  else
+                     Diff.all := Loffs - Roffs;
+                     return GT;
+                  end if;
                end if;
             end if;
          end;
