@@ -1811,6 +1811,7 @@ BU_P8V_AV_2 (VMAXUD,		"vmaxud",	CONST,	umaxv2di3)
 BU_P8V_AV_2 (VMRGEW,		"vmrgew",	CONST,	p8_vmrgew)
 BU_P8V_AV_2 (VMRGOW,		"vmrgow",	CONST,	p8_vmrgow)
 BU_P8V_AV_2 (VBPERMQ,		"vbpermq",	CONST,	altivec_vbpermq)
+BU_P8V_AV_2 (VBPERMQ2,		"vbpermq2",	CONST,	altivec_vbpermq2)
 BU_P8V_AV_2 (VPKUDUM,		"vpkudum",	CONST,	altivec_vpkudum)
 BU_P8V_AV_2 (VPKSDSS,		"vpksdss",	CONST,	altivec_vpksdss)
 BU_P8V_AV_2 (VPKUDUS,		"vpkudus",	CONST,	altivec_vpkudus)
@@ -1927,12 +1928,24 @@ BU_P9V_OVERLOAD_2 (VSRV,	"vsrv")
 BU_P9V_AV_2 (VADUB,		"vadub",		CONST,  vaduv16qi3)
 BU_P9V_AV_2 (VADUH,		"vaduh",		CONST,  vaduv8hi3)
 BU_P9V_AV_2 (VADUW,		"vaduw",		CONST,  vaduv4si3)
+BU_P9V_AV_2 (VRLWNM,		"vrlwnm",		CONST,	altivec_vrlwnm)
+BU_P9V_AV_2 (VRLDNM,		"vrldnm",		CONST,	altivec_vrldnm)
+BU_P9V_AV_2 (VBPERMD,		"vbpermd",		CONST,  altivec_vbpermd)
 
 /* ISA 3.0 vector overloaded 2 argument functions. */
 BU_P9V_OVERLOAD_2 (VADU,	"vadu")
 BU_P9V_OVERLOAD_2 (VADUB,	"vadub")
 BU_P9V_OVERLOAD_2 (VADUH,	"vaduh")
 BU_P9V_OVERLOAD_2 (VADUW,	"vaduw")
+BU_P9V_OVERLOAD_2 (RLNM,	"rlnm")
+BU_P9V_OVERLOAD_2 (VBPERM,	"vbperm_api")
+
+/* ISA 3.0 3-argument vector functions.  */
+BU_P9V_AV_3 (VRLWMI,		"vrlwmi",		CONST,	altivec_vrlwmi)
+BU_P9V_AV_3 (VRLDMI,		"vrldmi",		CONST,	altivec_vrldmi)
+
+/* ISA 3.0 vector overloaded 3-argument functions.  */
+BU_P9V_OVERLOAD_3 (RLMI,	"rlmi")
 
 /* 1 argument vsx scalar functions added in ISA 3.0 (power9).  */
 BU_P9V_64BIT_VSX_1 (VSEEDP,	"scalar_extract_exp",	CONST,	xsxexpdp)
@@ -1940,6 +1953,14 @@ BU_P9V_64BIT_VSX_1 (VSESDP,	"scalar_extract_sig",	CONST,	xsxsigdp)
 
 BU_P9V_VSX_1 (VSTDCNDP,	"scalar_test_neg_dp",	CONST,	xststdcnegdp)
 BU_P9V_VSX_1 (VSTDCNSP,	"scalar_test_neg_sp",	CONST,	xststdcnegsp)
+
+BU_P9V_VSX_1 (XXBRQ_V16QI,	"xxbrq_v16qi",	CONST,	p9_xxbrq_v16qi)
+BU_P9V_VSX_1 (XXBRQ_V1TI,	"xxbrq_v1ti",	CONST,	p9_xxbrq_v1ti)
+BU_P9V_VSX_1 (XXBRD_V2DI,	"xxbrd_v2di",	CONST,	p9_xxbrd_v2di)
+BU_P9V_VSX_1 (XXBRD_V2DF,	"xxbrd_v2df",	CONST,	p9_xxbrd_v2df)
+BU_P9V_VSX_1 (XXBRW_V4SI,	"xxbrw_v4si",	CONST,	p9_xxbrw_v4si)
+BU_P9V_VSX_1 (XXBRW_V4SF,	"xxbrw_v4sf",	CONST,	p9_xxbrw_v4sf)
+BU_P9V_VSX_1 (XXBRH_V8HI,	"xxbrh_v8hi",	CONST,	p9_xxbrh_v8hi)
 
 /* 2 argument vsx scalar functions added in ISA 3.0 (power9).  */
 BU_P9V_64BIT_VSX_2 (VSIEDP,	"scalar_insert_exp",	CONST,	xsiexpdp)
@@ -1959,6 +1980,8 @@ BU_P9V_OVERLOAD_1 (VSESDP,	"scalar_extract_sig")
 BU_P9V_OVERLOAD_1 (VSTDCN,	"scalar_test_neg")
 BU_P9V_OVERLOAD_1 (VSTDCNDP,	"scalar_test_neg_dp")
 BU_P9V_OVERLOAD_1 (VSTDCNSP,	"scalar_test_neg_sp")
+
+BU_P9V_OVERLOAD_1 (REVB,	"revb")
 
 /* ISA 3.0 vector scalar overloaded 2 argument functions.  */
 BU_P9V_OVERLOAD_2 (VSIEDP,	"scalar_insert_exp")

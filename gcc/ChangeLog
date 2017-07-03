@@ -1,3 +1,668 @@
+2017-01-20  Graham Markall  <graham.markall@embecosm.com>
+
+	* config/arc/arc.h (LINK_SPEC): Use arclinux_nps emulation when
+	mcpu=nps400.
+
+2017-01-20  Martin Jambor  <mjambor@suse.cz>
+
+        * hsa.h: Renaed to hsa-common.h.  Adjusted a comment.
+        * hsa.c: Renaed to hsa-common.c.  Change include of gt-hsa.h to
+        gt-hsa-common.h.
+        * Makefile.in (OBJS): Rename hsa.o to hsa-common.o.
+        (GTFILES): Rename hsa.c to hsa-common.c.
+        * hsa-brig.c: Change include of hsa.h to hsa-common.h.
+        * hsa-dump.c: Likewise.
+        * hsa-gen.c: Likewise.
+        * hsa-regalloc.c: Likewise.
+        * ipa-hsa.c: Likewise.
+        * omp-expand.c: Likewise.
+        * omp-low.c: Likewise.
+        * toplev.c: Likewise.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64279
+	* doc/invoke.texi: Document -Wduplicated-branches.
+	* fold-const.c (operand_equal_p): Handle MODIFY_EXPR, INIT_EXPR,
+	COMPOUND_EXPR, PREDECREMENT_EXPR, PREINCREMENT_EXPR,
+	POSTDECREMENT_EXPR, POSTINCREMENT_EXPR, CLEANUP_POINT_EXPR, EXPR_STMT,
+	STATEMENT_LIST, and RETURN_EXPR.  For non-pure non-const functions
+	return 0 only when not OEP_LEXICOGRAPHIC.
+	(fold_build_cleanup_point_expr): Use the expression
+	location when building CLEANUP_POINT_EXPR.
+	* tree-core.h (enum operand_equal_flag): Add OEP_LEXICOGRAPHIC.
+	* tree.c (add_expr): Handle error_mark_node.
+
+2017-01-20  Martin Liska  <mliska@suse.cz>
+
+	PR lto/69188
+	* tree-profile.c (init_ic_make_global_vars): Do not call
+	finalize_decl.
+	(gimple_init_gcov_profiler): Likewise.
+
+2017-01-20  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/71190
+	* cgraph.h (maybe_create_reference): Remove argument and
+	update comment.
+	* cgraphclones.c (cgraph_node::create_virtual_clone): Remove one
+	argument.
+	* ipa-cp.c (create_specialized_node): Likewise.
+	* symtab.c (symtab_node::maybe_create_reference): Handle
+	VAR_DECLs and ADDR_EXPRs and select ipa_ref_use type.
+
+2017-01-20  Martin Liska  <mliska@suse.cz>
+
+	* read-rtl-function.c (function_reader::create_function): Use
+	build_decl instread of build_decl_stat.
+
+2017-01-20  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* config/i386/avx512bwintrin.h: Add k-mask registers shift intrinsics.
+	* config/i386/avx512dqintrin.h: Ditto.
+	* config/i386/avx512fintrin.h: Ditto.
+	* config/i386/i386-builtin-types.def: Add new types.
+	* gcc/config/i386/i386.c: Handle new types.
+	* config/i386/i386-builtin.def (__builtin_ia32_kshiftliqi)
+	(__builtin_ia32_kshiftlihi, __builtin_ia32_kshiftlisi)
+	(__builtin_ia32_kshiftlidi, __builtin_ia32_kshiftriqi)
+	(__builtin_ia32_kshiftrihi, __builtin_ia32_kshiftrisi)
+	(__builtin_ia32_kshiftridi): New.
+	* config/i386/sse.md (k<code><mode>): Rename *k<code><mode>.
+
+2017-01-19  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/78875
+	PR target/79140
+	* config/rs6000/rs6000.c (TARGET_STACK_PROTECT_GUARD): Unconditionally
+	define to rs6000_init_stack_protect_guard.
+	(rs6000_init_stack_protect_guard): New function.
+
+2017-01-19  Matthew Fortune  <matthew.fortune@imgtec.com>
+	    Yunqiang Su  <yunqiang.su@imgtec.com>
+
+	* config.gcc (supported_defaults): Add madd4.
+	(with_madd4): Add validation.
+	(all_defaults): Add madd4.
+	* config/mips/mips.opt (mmadd4): New option.
+	* gcc/config/mips/mips.h (OPTION_DEFAULT_SPECS): Add a default for
+	mmadd4.
+	(TARGET_CPU_CPP_BUILTINS): Add builtin_define for
+	__mips_no_madd4.
+	(ISA_HAS_UNFUSED_MADD4): Gate with mips_madd4.
+	(ISA_HAS_FUSED_MADD4): Likewise.
+	* gcc/doc/invoke.texi (-mmadd4): Document the new option.
+	* gcc/doc/install.texi (--with-madd4): Document the new option.
+
+2017-01-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (enum aarch64_builtins): New
+	entries for AARCH64_PAUTH_BUILTIN_XPACLRI,
+	AARCH64_PAUTH_BUILTIN_PACIA1716, AARCH64_PAUTH_BUILTIN_AUTIA1716.
+	(aarch64_init_pauth_hint_builtins): New.
+	(aarch64_init_builtins): Call aarch64_init_pauth_hint_builtins.
+	(aarch64_expand_builtin): Expand new builtins.
+
+2017-01-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* reg-notes.def (CFA_TOGGLE_RA_MANGLE): New reg-note.
+	* combine-stack-adj.c (no_unhandled_cfa): Handle
+	REG_CFA_TOGGLE_RA_MANGLE.
+	* dwarf2cfi.c (dwarf2out_frame_debug): Handle REG_CFA_TOGGLE_RA_MANGLE.
+	* config/aarch64/aarch64.c (aarch64_expand_prologue): Generates DWARF
+	info for return address signing.
+	(aarch64_expand_epilogue): Likewise.
+
+2017-01-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-opts.h (aarch64_function_type): New enum.
+	* config/aarch64/aarch64-protos.h
+	(aarch64_return_address_signing_enabled): New declaration.
+	* config/aarch64/aarch64.c (aarch64_return_address_signing_enabled):
+	New function.
+	(aarch64_expand_prologue): Sign return address before it's pushed onto
+	stack.
+	(aarch64_expand_epilogue): Authenticate return address fetched from
+	stack.
+	(aarch64_override_options): Sanity check for ILP32 and ISA level.
+	(aarch64_attributes): New function attributes for "sign-return-address".
+	* config/aarch64/aarch64.md (UNSPEC_AUTI1716, UNSPEC_AUTISP,
+	UNSPEC_PACI1716, UNSPEC_PACISP, UNSPEC_XPACLRI): New unspecs.
+	("*do_return"): Generate combined instructions according to key index.
+	("<pauth_mnem_prefix>sp", "<pauth_mnem_prefix1716", "xpaclri"): New.
+	* config/aarch64/iterators.md (PAUTH_LR_SP, PAUTH_17_16): New integer
+	iterators.
+	(pauth_mnem_prefix, pauth_hint_num_a): New integer attributes.
+	* config/aarch64/aarch64.opt (msign-return-address=): New.
+	* doc/extend.texi (AArch64 Function Attributes): Documents
+	"sign-return-address=".
+	* doc/invoke.texi (AArch64 Options): Documents "-msign-return-address=".
+
+2017-01-19  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* doc/invoke.texi: Add missing -mlxc1-sxc1 options to
+	overall option summary.
+
+2017-01-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-arches.def: New entry for "armv8.3-a".
+	* config/aarch64/aarch64.h (AARCH64_FL_V8_3, AARCH64_FL_FOR_ARCH8_3,
+	AARCH64_ISA_V8_3, TARGET_ARMV8_3): New.
+	* doc/invoke.texi (AArch64 Options): Document "armv8.3-a".
+
+2017-01-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Enable
+	-mpower9-minmax by default for -mcpu=power9.
+	(ISA_3_MASKS_IEEE): Require -mvsx-small-integer to enable IEEE
+	128-bit floating point.
+
+2017-01-20  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (cmpstrnsi, cmpstrsi): Fail if
+	optimizing for size.
+
+2017-01-20  Alan Modra  <amodra@gmail.com>
+
+	PR target/79144
+	* config/rs6000/rs6000.c (expand_strn_compare): Get the asm name
+	for strcmp and strncmp from corresponding builtin decl.
+
+2017-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config.gcc (x86_64-*-rtems*): Use i386/rtemself.h
+	instead of i386/rtems-64.h.
+	* config/i386/rtems-64.h: Remove.
+
+2017-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78478
+	Revert:
+	2013-11-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/rtemself.h (LONG_DOUBLE_TYPE_SIZE): New define.
+
+2017-01-19  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_gen_const_vector_dup):
+	Change int to HOST_WIDE_INT.
+	* config/aarch64/aarch64-protos.h
+	(aarch64_simd_gen_const_vector_dup): Likewise.
+	* config/aarch64/aarch64-simd.md: Add copysign<mode>3.
+
+2017-01-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* langhooks-def.h (lhd_type_for_size): New decl.
+	(LANG_HOOKS_TYPE_FOR_SIZE): Define as lhd_type_for_size.
+	* langhooks.c (lhd_type_for_size): New function, taken from
+	lto_type_for_size.
+
+2017-01-19  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/power9.md (power9-alu): Remove 'cmp' type and add
+	define_bypass for CR latency.
+	(power9-cracked-alu): Update bypass latency and remove power9-branch.
+	(power9-alu2): Add define_bypass for CR latency.
+	(power9-cmp): New.
+	(power9-mul): Update insn latency.
+	(power9-mul-compare): Update insn latency, bypass latency and remove
+	power9-branch.
+
+2016-01-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_nopcrelative_literal_loads):
+	Delete.
+	* config/aarch64/aarch64.md
+	(aarch64_reload_movcp<GPF_TF:mode><P:mode>): Delete reference to
+	aarch64_nopcrelative_literal_loads.
+	(aarch64_reload_movcp<VALL:mode><P:mode>): Likewise.
+
+2017-01-19  Chenghua Xu  <paul.hua.gm@gmail.com>
+
+	* config/mips/mips.h (ISA_HAS_FUSED_MADD4): Enable for
+	TARGET_LOONGSON_3A.
+	(ISA_HAS_UNFUSED_MADD4): Exclude TARGET_LOONGSON_3A.
+
+2017-01-19  Doug Gilmore  <doug.gilmore@imgtec.com>
+
+	PR target/78176
+	* config.gcc (supported_defaults): Add lxc1-sxc1.
+	(with_lxc1_sxc1): Add validation.
+	(all_defaults): Add lxc1-sxc1.
+	* config/mips/mips.opt (mlxc1-sxc1): New option.
+	* gcc/config/mips/mips.h (OPTION_DEFAULT_SPECS): Add a default for
+	mlxc1-sxc1.
+	(TARGET_CPU_CPP_BUILTINS): Add builtin_define for
+	__mips_no_lxc1_sxc1.
+	(ISA_HAS_LXC1_SXC1): Gate with mips_lxc1_sxc1.
+	* gcc/doc/invoke.texi (-mlxc1-sxc1): Document the new option.
+	* doc/install.texi (--with-lxc1-sxc1): Document the new option.
+
+2017-01-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/72488
+	* tree-ssa-sccvn.c (run_scc_vn): When we abort the VN make
+	sure to restore SSA info.
+	* tree-ssa.c (verify_ssa): Verify SSA info is not shared.
+
+2017-01-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR rtl-optimization/79121
+	* expr.c (expand_expr_real_2, case LSHIFT_EXPR): Look at the signedness
+	of the inner type when shifting an extended value.
+
+2017-01-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/78407
+	* symtab.c (symtab_node::equal_address_to): Fix comparing of
+	interposable aliases.
+
+2017-01-18  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/78516
+	* config/rs6000/spe.md (mov_si<mode>_e500_subreg0): Fix constraints.
+	Use the evmergelohi instruction.
+	(mov_si<mode>_e500_subreg4_2_le): Likewise.
+	(mov_sitf_e500_subreg8_2_be): Likewise.
+	(mov_sitf_e500_subreg12_2_le): Likewise.
+	(mov_si<mode>_e500_subreg0_2_le): Fix constraints.
+	(mov_si<mode>_e500_subreg4_2_be): Likewise.
+	(mov_sitf_e500_subreg8_2_le): Likewise.
+	(mov_sitf_e500_subreg12_2_be): Likewise.
+
+2017-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vbpermq): Change "type"
+	attribute from vecsimple to vecperm.
+	(altivec_vbpermq2): Likewise.
+
+2017-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/79040
+	* config/rs6000/altivec.h: Fix typo of vec_cntlz to vec_cnttz.
+
+2017-01-18  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+	* config/rs6000/rs6000-protos.h (expand_strn_compare): Add arg.
+	* config/rs6000/rs6000.c (expand_strn_compare): Add ability to expand
+	strcmp. Fix bug where comparison didn't stop with zero byte. Fix
+	case where N arg is SIZE_MAX.
+	* config/rs6000/rs6000.md (cmpstrnsi): Args to expand_strn_compare.
+	(cmpstrsi): Add pattern.
+
+2017-01-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	__builtin_vec_revb builtins.
+	* config/rs6000/rs6000-builtins.def (P9V_BUILTIN_XXBRQ_V16QI): Add
+	built-in functions to support generation of the ISA 3.0 XXBR<x>
+	vector byte reverse instructions.
+	(P9V_BUILTIN_XXBRQ_V1TI): Likewise.
+	(P9V_BUILTIN_XXBRD_V2DI): Likewise.
+	(P9V_BUILTIN_XXBRD_V2DF): Likewise.
+	(P9V_BUILTIN_XXBGW_V4SI): Likewise.
+	(P9V_BUILTIN_XXBGW_V4SF): Likewise.
+	(P9V_BUILTIN_XXBGH_V8HI): Likewise.
+	(P9V_BUILTIN_VEC_REVB): Likewise.
+	* config/rs6000/vsx.md (p9_xxbrq_v1ti): New insns/expanders to
+	generate the ISA 3.0 XXBR<x> vector byte reverse instructions.
+	(p9_xxbrq_v16qi): Likewise.
+	(p9_xxbrd_<mode>, VSX_D iterator): Likewise.
+	(p9_xxbrw_<mode>, VSX_W iterator): Likewise.
+	(p9_xxbrh_v8hi): Likewise.
+	* config/rs6000/altivec.h (vec_revb): Define if ISA 3.0.
+	* doc/extend.texi (RS/6000 Altivec Built-ins): Document the
+	vec_revb built-in functions.
+
+2017-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/78952
+	* config/i386/i386.md (any_extract): New code iterator.
+	(*insvqi_2): Use any_extract for source operand.
+	(*insvqi_3): Use any_shiftrt for source operand.
+
+2017-01-18  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_sched_adjust_priority)
+	New function.
+	(TARGET_SCHED_ADJUST_PRIORITY): Define target hook.
+
+2017-01-18  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR lto/79061
+	* asan.c (get_translation_unit_decl): New function.
+	(asan_add_global): Extract modules file name from globals
+	TRANSLATION_UNIT_DECL in lto mode.
+	* tree.c (build_translation_unit_decl): Add source location for newly
+	built TRANSLATION_UNIT_DECL.
+
+2017-01-18  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/install.texi: Allow default for --with-target-bdw-gc-include.
+
+2016-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h (vec_bperm): Change #define.
+	* config/rs6000/altivec.md (UNSPEC_VBPERMD): New enum constant.
+	(altivec_vbpermq2): New define_insn.
+	(altivec_vbpermd): Likewise.
+	* config/rs6000/rs6000-builtin.def (VBPERMQ2): New monomorphic
+	function interface.
+	(VBPERMD): Likewise.
+	(VBPERM): New polymorphic function interface.
+	* config/rs6000/r6000-c.c (altivec_overloaded_builtins_table):
+	Add entries for P9V_BUILTIN_VEC_VBPERM.
+	* doc/extend.texi: Add interfaces for vec_bperm.
+
+2017-01-18  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-c.c (s390_expand_overloaded_builtin): Downcase
+	first letter of error messages.
+	(s390_resolve_overloaded_builtin): Likewise.
+	* config/s390/s390.c (s390_expand_builtin): Likewise.
+	(s390_invalid_arg_for_unprototyped_fn): Likewise.
+	(s390_valid_target_attribute_inner_p): Likewise.
+	* config/s390/s390.md ("tabort"): Likewise.
+
+2017-01-18  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* config/mips/mips.h (ISA_HAS_DIV3): Remove unused macro.
+	(ISA_AVOID_DIV_HILO): New macro.
+	(ISA_HAS_DIV): Use new ISA_AVOID_DIV_HILO macro.
+	(ISA_HAS_DDIV): Likewise.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* doc/invoke.texi (fabi-version): Correct number of occurrences.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* doc/invoke.texi (fabi-version): Spelling fix.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/70182
+	* doc/invoke.texi (fabi-version): Mention mangling fix for
+	operator names.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/77489
+	* doc/invoke.texi (fabi-version): Document discriminator mangling.
+
+2017-01-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/78875
+	* config/rs6000/rs6000-opts.h (stack_protector_guard): New enum.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Handle
+	the new options.
+	* config/rs6000/rs6000.md (stack_protect_set): Handle the new more
+	flexible settings.
+	(stack_protect_test): Ditto.
+	* config/rs6000/rs6000.opt (mstack-protector-guard=,
+	mstack-protector-guard-reg=, mstack-protector-guard-offset=): New
+	options.
+	* doc/invoke.texi (Option Summary) [RS/6000 and PowerPC Options]:
+	Add -mstack-protector-guard=, -mstack-protector-guard-reg=, and
+	-mstack-protector-guard-offset=.
+	(RS/6000 and PowerPC Options): Ditto.
+
+2017-01-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (MASK_CLASS_P): New define.
+	* config/i386/i386.c (inline_secondary_memory_needed): Ensure that
+	there are no registers from different register sets also when
+	mask registers are used.  Update function comment.
+	* config/i386/i386.md (*movsi_internal): Split (*k/*krm) alternative
+	to (*k/*r) and (*k/*km) alternatives.
+
+2017-01-17  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md (eh_return): Remove pattern and splitter.
+	* config/aarch64/aarch64.h (AARCH64_EH_STACKADJ_REGNUM): Remove.
+	(EH_RETURN_HANDLER_RTX): New define.
+	* config/aarch64/aarch64.c (aarch64_frame_pointer_required):
+	Force frame pointer in EH return functions.
+	(aarch64_expand_epilogue): Add barrier for eh_return.
+	(aarch64_final_eh_return_addr): Remove.
+	(aarch64_eh_return_handler_rtx): New function.
+	* config/aarch64/aarch64-protos.h (aarch64_final_eh_return_addr):
+	Remove.
+	(aarch64_eh_return_handler_rtx): New prototype.
+
+2017-01-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h (vec_rlmi): New #define.
+	(vec_vrlnm): Likewise.
+	(vec_rlnm): Likewise.
+	* config/rs6000/altivec.md (UNSPEC_VRLMI): New UNSPEC enum value.
+	(UNSPEC_VRLNM): Likewise.
+	(VIlong): New mode iterator.
+	(altivec_vrl<VI_char>mi): New define_insn.
+	(altivec_vrl<VI_char>nm): Likewise.
+	* config/rs6000/rs6000-builtin.def (VRLWNM): New monomorphic
+	function entry.
+	(VRLDNM): Likewise.
+	(RLNM): New polymorphic function entry.
+	(VRLWMI): New monomorphic function entry.
+	(VRLDMI): Likewise.
+	(RLMI): New polymorphic function entry.
+	* config/rs6000/r6000-c.c (altivec_overloaded_builtin_table): Add
+	new entries for P9V_BUILTIN_VEC_RLMI and P9V_BUILTIN_VEC_RLNM.
+	* doc/extend.texi: Add description of vec_rlmi, vec_rlnm, and
+	vec_vrlnm.
+
+2017-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/78839
+	* dwarf2out.c (field_byte_offset): Restore the
+	PCC_BITFIELD_TYPE_MATTERS behavior for INTEGER_CST DECL_FIELD_OFFSET
+	and DECL_FIELD_BIT_OFFSET.  Use fold_build2 instead of build2 + fold.
+	(analyze_variants_discr, gen_variant_part): Use fold_build2 instead
+	of build2 + fold.
+
+2017-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/67205
+	* config/aarch64/aarch64.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Define
+
+2017-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/71669
+	* dwarf2out.c (add_data_member_location_attribute): For constant
+	offset bitfield emit for -gdwarf-5 DW_AT_data_bit_offset attribute
+	instead of DW_AT_data_member_location, DW_AT_bit_offset and
+	DW_AT_byte_size attributes.
+
+2017-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Also use a TOC reference
+	after forcing to constant memory when the code model is medium.
+
+2017-01-17  Julia Koval  <julia.koval@intel.com>
+
+	PR target/76731
+	* config/i386/avx512fintrin.h
+	(_mm512_i32gather_ps): Change __addr type to void const*.
+	(_mm512_mask_i32gather_ps): Ditto.
+	(_mm512_i32gather_pd): Ditto.
+	(_mm512_mask_i32gather_pd): Ditto.
+	(_mm512_i64gather_ps): Ditto.
+	(_mm512_mask_i64gather_ps): Ditto.
+	(_mm512_i64gather_pd): Ditto.
+	(_mm512_mask_i64gather_pd): Ditto.
+	(_mm512_i32gather_epi32): Ditto.
+	(_mm512_mask_i32gather_epi32): Ditto.
+	(_mm512_i32gather_epi64): Ditto.
+	(_mm512_mask_i32gather_epi64): Ditto.
+	(_mm512_i64gather_epi32): Ditto.
+	(_mm512_mask_i64gather_epi32): Ditto.
+	(_mm512_i64gather_epi64): Ditto.
+	(_mm512_mask_i64gather_epi64): Ditto.
+	(_mm512_i32scatter_ps): Change __addr type to void*.
+	(_mm512_mask_i32scatter_ps): Ditto.
+	(_mm512_i32scatter_pd): Ditto.
+	(_mm512_mask_i32scatter_pd): Ditto.
+	(_mm512_i64scatter_ps): Ditto.
+	(_mm512_mask_i64scatter_ps): Ditto.
+	(_mm512_i64scatter_pd): Ditto.
+	(_mm512_mask_i64scatter_pd): Ditto.
+	(_mm512_i32scatter_epi32): Ditto.
+	(_mm512_mask_i32scatter_epi32): Ditto.
+	(_mm512_i32scatter_epi64): Ditto.
+	(_mm512_mask_i32scatter_epi64): Ditto.
+	(_mm512_i64scatter_epi32): Ditto.
+	(_mm512_mask_i64scatter_epi32): Ditto.
+	(_mm512_i64scatter_epi64): Ditto.
+	(_mm512_mask_i64scatter_epi64): Ditto.
+	* config/i386/avx512pfintrin.h
+	(_mm512_mask_prefetch_i32gather_pd): Change __addr type to void const*.
+	(_mm512_mask_prefetch_i32gather_ps): Ditto.
+	(_mm512_mask_prefetch_i64gather_pd): Ditto.
+	(_mm512_mask_prefetch_i64gather_ps): Ditto.
+	(_mm512_prefetch_i32scatter_pd): Change __addr type to void*.
+	(_mm512_prefetch_i32scatter_ps): Ditto.
+	(_mm512_mask_prefetch_i32scatter_pd): Ditto.
+	(_mm512_mask_prefetch_i32scatter_ps): Ditto.
+	(_mm512_prefetch_i64scatter_pd): Ditto.
+	(_mm512_prefetch_i64scatter_ps): Ditto.
+	(_mm512_mask_prefetch_i64scatter_pd): Ditto.
+	(_mm512_mask_prefetch_i64scatter_ps): Ditto.
+	* config/i386/avx512vlintrin.h
+	(_mm256_mmask_i32gather_ps): Change __addr type to void const*.
+	(_mm_mmask_i32gather_ps): Ditto.
+	(_mm256_mmask_i32gather_pd): Ditto.
+	(_mm_mmask_i32gather_pd): Ditto.
+	(_mm256_mmask_i64gather_ps): Ditto.
+	(_mm_mmask_i64gather_ps): Ditto.
+	(_mm256_mmask_i64gather_pd): Ditto.
+	(_mm_mmask_i64gather_pd): Ditto.
+	(_mm256_mmask_i32gather_epi32): Ditto.
+	(_mm_mmask_i32gather_epi32): Ditto.
+	(_mm256_mmask_i32gather_epi64): Ditto.
+	(_mm_mmask_i32gather_epi64): Ditto.
+	(_mm256_mmask_i64gather_epi32): Ditto.
+	(_mm_mmask_i64gather_epi32): Ditto.
+	(_mm256_mmask_i64gather_epi64): Ditto.
+	(_mm_mmask_i64gather_epi64): Ditto.
+	(_mm256_i32scatter_ps): Change __addr type to void*.
+	(_mm256_mask_i32scatter_ps): Ditto.
+	(_mm_i32scatter_ps): Ditto.
+	(_mm_mask_i32scatter_ps): Ditto.
+	(_mm256_i32scatter_pd): Ditto.
+	(_mm256_mask_i32scatter_pd): Ditto.
+	(_mm_i32scatter_pd): Ditto.
+	(_mm_mask_i32scatter_pd): Ditto.
+	(_mm256_i64scatter_ps): Ditto.
+	(_mm256_mask_i64scatter_ps): Ditto.
+	(_mm_i64scatter_ps): Ditto.
+	(_mm_mask_i64scatter_ps): Ditto.
+	(_mm256_i64scatter_pd): Ditto.
+	(_mm256_mask_i64scatter_pd): Ditto.
+	(_mm_i64scatter_pd): Ditto.
+	(_mm_mask_i64scatter_pd): Ditto.
+	(_mm256_i32scatter_epi32): Ditto.
+	(_mm256_mask_i32scatter_epi32): Ditto.
+	(_mm_i32scatter_epi32): Ditto.
+	(_mm_mask_i32scatter_epi32): Ditto.
+	(_mm256_i32scatter_epi64): Ditto.
+	(_mm256_mask_i32scatter_epi64): Ditto.
+	(_mm_i32scatter_epi64): Ditto.
+	(_mm_mask_i32scatter_epi64): Ditto.
+	(_mm256_i64scatter_epi32): Ditto.
+	(_mm256_mask_i64scatter_epi32): Ditto.
+	(_mm_i64scatter_epi32): Ditto.
+	(_mm_mask_i64scatter_epi32): Ditto.
+	(_mm256_i64scatter_epi64): Ditto.
+	(_mm256_mask_i64scatter_epi64): Ditto.
+	(_mm_i64scatter_epi64): Ditto.
+	(_mm_mask_i64scatter_epi64): Ditto.
+	* config/i386/i386-builtin-types.def (V16SF_V16SF_PCFLOAT_V16SI_HI_INT)
+	(V8DF_V8DF_PCDOUBLE_V8SI_QI_INT, V8SF_V8SF_PCFLOAT_V8DI_QI_INT)
+	(V8DF_V8DF_PCDOUBLE_V8DI_QI_INT, V16SI_V16SI_PCINT_V16SI_HI_INT)
+	(V8DI_V8DI_PCINT64_V8SI_QI_INT, V8SI_V8SI_PCINT_V8DI_QI_INT)
+	(V8DI_V8DI_PCINT64_V8DI_QI_INT, V2DF_V2DF_PCDOUBLE_V4SI_QI_INT)
+	(V4DF_V4DF_PCDOUBLE_V4SI_QI_INT, V2DF_V2DF_PCDOUBLE_V2DI_QI_INT)
+	(V4DF_V4DF_PCDOUBLE_V4DI_QI_INT, V4SF_V4SF_PCFLOAT_V4SI_QI_INT)
+	(V8SF_V8SF_PCFLOAT_V8SI_QI_INT, V4SF_V4SF_PCFLOAT_V2DI_QI_INT)
+	(V4SF_V4SF_PCFLOAT_V4DI_QI_INT, V2DI_V2DI_PCINT64_V4SI_QI_INT)
+	(V4DI_V4DI_PCINT64_V4SI_QI_INT, V2DI_V2DI_PCINT64_V2DI_QI_INT)
+	(V4DI_V4DI_PCINT64_V4DI_QI_INT, V4SI_V4SI_PCINT_V4SI_QI_INT)
+	(V8SI_V8SI_PCINT_V8SI_QI_INT, V4SI_V4SI_PCINT_V2DI_QI_INT)
+	(V4SI_V4SI_PCINT_V4DI_QI_INT, VOID_PFLOAT_HI_V16SI_V16SF_INT)
+	(VOID_PFLOAT_QI_V8SI_V8SF_INT, VOID_PFLOAT_QI_V4SI_V4SF_INT)
+	(VOID_PDOUBLE_QI_V8SI_V8DF_INT, VOID_PDOUBLE_QI_V4SI_V4DF_INT)
+	(VOID_PDOUBLE_QI_V4SI_V2DF_INT, VOID_PFLOAT_QI_V8DI_V8SF_INT)
+	(VOID_PFLOAT_QI_V4DI_V4SF_INT, VOID_PFLOAT_QI_V2DI_V4SF_INT)
+	(VOID_PDOUBLE_QI_V8DI_V8DF_INT, VOID_PDOUBLE_QI_V4DI_V4DF_INT)
+	(VOID_PDOUBLE_QI_V2DI_V2DF_INT, VOID_PINT_HI_V16SI_V16SI_INT)
+	(VOID_PINT_QI_V8SI_V8SI_INT, VOID_PINT_QI_V4SI_V4SI_INT)
+	(VOID_PLONGLONG_QI_V8SI_V8DI_INT, VOID_PLONGLONG_QI_V4SI_V4DI_INT)
+	(VOID_PLONGLONG_QI_V4SI_V2DI_INT, VOID_PINT_QI_V8DI_V8SI_INT)
+	(VOID_PINT_QI_V4DI_V4SI_INT, VOID_PINT_QI_V2DI_V4SI_INT)
+	(VOID_PLONGLONG_QI_V8DI_V8DI_INT, VOID_QI_V8SI_PCINT64_INT_INT)
+	(VOID_PLONGLONG_QI_V4DI_V4DI_INT, VOID_PLONGLONG_QI_V2DI_V2DI_INT)
+	(VOID_HI_V16SI_PCINT_INT_INT, VOID_QI_V8DI_PCINT64_INT_INT)
+	(VOID_QI_V8DI_PCINT_INT_INT): Remove.
+	(V16SF_V16SF_PCVOID_V16SI_HI_INT,  V8DF_V8DF_PCVOID_V8SI_QI_INT)
+	(V8SF_V8SF_PCVOID_V8DI_QI_INT, V8DF_V8DF_PCVOID_V8DI_QI_INT)
+	(V16SI_V16SI_PCVOID_V16SI_HI_INT, V8DI_V8DI_PCVOID_V8SI_QI_INT)
+	(V8SI_V8SI_PCVOID_V8DI_QI_INT, V8DI_V8DI_PCVOID_V8DI_QI_INT)
+	(VOID_PVOID_HI_V16SI_V16SF_INT, VOID_PVOID_QI_V8SI_V8DF_INT)
+	(VOID_PVOID_QI_V8DI_V8SF_INT, VOID_PVOID_QI_V8DI_V8DF_INT)
+	(VOID_PVOID_HI_V16SI_V16SI_INT, VOID_PVOID_QI_V8SI_V8DI_INT)
+	(VOID_PVOID_QI_V8DI_V8SI_INT, VOID_PVOID_QI_V8DI_V8DI_INT)
+	(V2DF_V2DF_PCVOID_V4SI_QI_INT, V4DF_V4DF_PCVOID_V4SI_QI_INT)
+	(V2DF_V2DF_PCVOID_V2DI_QI_INT, V4DF_V4DF_PCVOID_V4DI_QI_INT
+	(V4SF_V4SF_PCVOID_V4SI_QI_INT, V8SF_V8SF_PCVOID_V8SI_QI_INT)
+	(V4SF_V4SF_PCVOID_V2DI_QI_INT, V4SF_V4SF_PCVOID_V4DI_QI_INT)
+	(V2DI_V2DI_PCVOID_V4SI_QI_INT, V4DI_V4DI_PCVOID_V4SI_QI_INT)
+	(V2DI_V2DI_PCVOID_V2DI_QI_INT, V4DI_V4DI_PCVOID_V4DI_QI_INT)
+	(V4SI_V4SI_PCVOID_V4SI_QI_INT, V8SI_V8SI_PCVOID_V8SI_QI_INT)
+	(V4SI_V4SI_PCVOID_V2DI_QI_INT, V4SI_V4SI_PCVOID_V4DI_QI_INT)
+	(VOID_PVOID_QI_V8SI_V8SF_INT, VOID_PVOID_QI_V4SI_V4SF_INT)
+	(VOID_PVOID_QI_V4SI_V4DF_INT, VOID_PVOID_QI_V4SI_V2DF_INT)
+	(VOID_PVOID_QI_V4DI_V4SF_INT, VOID_PVOID_QI_V2DI_V4SF_INT)
+	(VOID_PVOID_QI_V4DI_V4DF_INT, VOID_PVOID_QI_V2DI_V2DF_INT)
+	(VOID_PVOID_QI_V8SI_V8SI_INT, VOID_PVOID_QI_V4SI_V4SI_INT)
+	(VOID_PVOID_QI_V4SI_V4DI_INT, VOID_PVOID_QI_V4SI_V2DI_INT)
+	(VOID_PVOID_QI_V4DI_V4SI_INT, VOID_PVOID_QI_V2DI_V4SI_INT)
+	(VOID_PVOID_QI_V4DI_V4DI_INT, VOID_PVOID_QI_V2DI_V2DI_INT)
+	(VOID_QI_V8SI_PCVOID_INT_INT, VOID_HI_V16SI_PCVOID_INT_INT)
+	(VOID_QI_V8DI_PCVOID_INT_INT): Add.
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Adjust builtin
+	definitions accordingly.
+
+2017-01-17  Kito Cheng  <kito.cheng@gmail.com>
+	    Kuan-Lin Chen  <kuanlinchentw@gmail.com>
+
+	PR target/79079
+	* internal-fn.c (expand_mul_overflow): Use convert_modes instead of
+	gen_lowpart.
+
+2017-01-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/79058
+	* ira-conflicts.c (ira_build_conflicts): Update total conflict
+	hard regs for inner regno.
+
+2017-01-17  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/71207
+	* ipa-polymorphic-call.c (contains_type_p): Fix wrong
+	assumption and add comment.
+
+2017-01-17  Nathan Sidwell  <nathan@acm.org>
+
+	* ipa-visibility.c (localize_node): New function, broken out of ...
+	(function_and_variable_visibility): ... here. Call it.
+
+2017-01-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/77445
+	* tree-ssa-threadupdate.c (remove_ctrl_stmt_and_useless_edges):
+	correctly set frequency of oudgoing edge.
+	(duplicate_thread_path): Fix profile updating.
+
 2017-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR other/79046
@@ -47,14 +712,14 @@
 
 	Revert:
 	2016-12-02  Tadek Kijkowski  <tkijkowski@gmail.com>
-        * Makefile.in (PREPROCESSOR_DEFINES): Add a level of indirection
-        for several include directories that may be relative to sysroot.
-        * config/i386/x-mingw32 (gplus_includedir): Define.
-        (gplus_tool_includedir, gplus_backward_include_dir): Likewise.
-        (native_system_includedir): Likewise.
-        * config/i386/mingw32.h (STANDARD_STARTFILE_PREFIX_1): Do not
-        override if TARGET_SYSTEM_ROOT is defined.
-        (NATIVE_SYSTEM_HEADER_DIR): Likewise.
+	* Makefile.in (PREPROCESSOR_DEFINES): Add a level of indirection
+	for several include directories that may be relative to sysroot.
+	* config/i386/x-mingw32 (gplus_includedir): Define.
+	(gplus_tool_includedir, gplus_backward_include_dir): Likewise.
+	(native_system_includedir): Likewise.
+	* config/i386/mingw32.h (STANDARD_STARTFILE_PREFIX_1): Do not
+	override if TARGET_SYSTEM_ROOT is defined.
+	(NATIVE_SYSTEM_HEADER_DIR): Likewise.
 
 	PR tree-optimization/79090
 	PR tree-optimization/33562

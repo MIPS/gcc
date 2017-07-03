@@ -6974,6 +6974,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 			|| type_dependent_expression_p (fn)
 			|| any_type_dependent_arguments_p (args)))
 		  {
+		    maybe_generic_this_capture (instance, fn);
 		    postfix_expression
 		      = build_nt_call_vec (postfix_expression, args);
 		    release_tree_vector (args);
@@ -13028,9 +13029,6 @@ cp_parser_decomposition_declaration (cp_parser *parser,
       *init_loc = cp_lexer_peek_token (parser->lexer)->location;
       tree initializer = cp_parser_initializer (parser, &is_direct_init,
 						&non_constant_p);
-      if (TREE_CODE (initializer) == TREE_LIST)
-	initializer = build_x_compound_expr_from_list (initializer, ELK_INIT,
-						       tf_warning_or_error);
 
       if (decl != error_mark_node)
 	{

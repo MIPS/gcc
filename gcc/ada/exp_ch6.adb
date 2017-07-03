@@ -219,18 +219,14 @@ package body Exp_Ch6 is
    --  reference to the object itself, and the call becomes a call to the
    --  corresponding protected subprogram.
 
-   function Expression_Of_Expression_Function
-     (Subp : Entity_Id) return Node_Id;
-   --  Return the expression of the expression function Subp
-
-   function Has_Unconstrained_Access_Discriminants
-     (Subtyp : Entity_Id) return Boolean;
-   --  Returns True if the given subtype is unconstrained and has one
-   --  or more access discriminants.
-
    procedure Expand_Simple_Function_Return (N : Node_Id);
    --  Expand simple return from function. In the case where we are returning
    --  from a function body this is called by Expand_N_Simple_Return_Statement.
+
+   function Has_Unconstrained_Access_Discriminants
+     (Subtyp : Entity_Id) return Boolean;
+   --  Returns True if the given subtype is unconstrained and has one or more
+   --  access discriminants.
 
    procedure Rewrite_Function_Call_For_C (N : Node_Id);
    --  When generating C code, replace a call to a function that returns an
@@ -3319,6 +3315,17 @@ package body Exp_Ch6 is
             Add_View_Conversion_Invariants (Formal, Actual);
          end if;
 
+         --  Generating C the initialization of an allocator is performed by
+         --  means of individual statements, and hence it must be done before
+         --  the call.
+
+         if Modify_Tree_For_C
+           and then Nkind (Actual) = N_Allocator
+           and then Nkind (Expression (Actual)) = N_Qualified_Expression
+         then
+            Remove_Side_Effects (Actual);
+         end if;
+
          --  This label is required when skipping extra actual generation for
          --  Unchecked_Union parameters.
 
@@ -3913,16 +3920,13 @@ package body Exp_Ch6 is
 
       if Ekind_In (Subp, E_Function, E_Procedure) then
 
-         --  We perform two simple optimization on calls:
-
-         --  a) replace calls to null procedures unconditionally;
-
-         --  b) for To_Address, just do an unchecked conversion. Not only is
-         --  this efficient, but it also avoids order of elaboration problems
-         --  when address clauses are inlined (address expression elaborated
+         --  We perform a simple optimization on calls for To_Address by
+         --  replacing them with an unchecked conversion. Not only is this
+         --  efficient, but it also avoids order of elaboration problems when
+         --  address clauses are inlined (address expression elaborated at the
          --  at the wrong point).
 
-         --  We perform these optimization regardless of whether we are in the
+         --  We perform this optimization regardless of whether we are in the
          --  main unit or in a unit in the context of the main unit, to ensure
          --  that tree generated is the same in both cases, for CodePeer use.
 
@@ -3930,10 +3934,6 @@ package body Exp_Ch6 is
             Rewrite (Call_Node,
               Unchecked_Convert_To
                 (RTE (RE_Address), Relocate_Node (First_Actual (Call_Node))));
-            return;
-
-         elsif Is_Null_Procedure (Subp) then
-            Rewrite (Call_Node, Make_Null_Statement (Loc));
             return;
          end if;
 
@@ -3943,7 +3943,7 @@ package body Exp_Ch6 is
             null;
 
          --  Frontend inlining of expression functions (performed also when
-         --  backend inlining is enabled)
+         --  backend inlining is enabled).
 
          elsif Is_Inlinable_Expression_Function (Subp) then
             Rewrite (N, New_Copy (Expression_Of_Expression_Function (Subp)));
@@ -5542,13 +5542,7 @@ package body Exp_Ch6 is
          Utyp : constant Entity_Id := Underlying_Type (Typ);
 
       begin
-         if not Acts_As_Spec (N)
-           and then Nkind (Parent (Parent (Spec_Id))) /=
-                      N_Subprogram_Body_Stub
-         then
-            null;
-
-         elsif Is_Limited_View (Typ) then
+         if Is_Limited_View (Typ) then
             Set_Returns_By_Ref (Spec_Id);
 
          elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
@@ -6970,36 +6964,6 @@ package body Exp_Ch6 is
       end if;
    end Expand_Simple_Function_Return;
 
-   ---------------------------------------
-   -- Expression_Of_Expression_Function --
-   ---------------------------------------
-
-   function Expression_Of_Expression_Function
-     (Subp : Entity_Id) return Node_Id
-   is
-      Expr_Func : Node_Id;
-
-   begin
-      pragma Assert (Is_Expression_Function_Or_Completion (Subp));
-
-      if Nkind (Original_Node (Subprogram_Spec (Subp)))
-           = N_Expression_Function
-      then
-         Expr_Func := Original_Node (Subprogram_Spec (Subp));
-
-      elsif Nkind (Original_Node (Subprogram_Body (Subp)))
-              = N_Expression_Function
-      then
-         Expr_Func := Original_Node (Subprogram_Body (Subp));
-
-      else
-         pragma Assert (False);
-         null;
-      end if;
-
-      return Original_Node (Expression (Expr_Func));
-   end Expression_Of_Expression_Function;
-
    --------------------------------------------
    -- Has_Unconstrained_Access_Discriminants --
    --------------------------------------------
@@ -7306,9 +7270,11 @@ package body Exp_Ch6 is
       declare
          Typ  : constant Entity_Id := Etype (Subp);
          Utyp : constant Entity_Id := Underlying_Type (Typ);
+
       begin
          if Is_Limited_View (Typ) then
             Set_Returns_By_Ref (Subp);
+
          elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
             Set_Returns_By_Ref (Subp);
          end if;
@@ -7326,39 +7292,6 @@ package body Exp_Ch6 is
          Analyze_Entry_Or_Subprogram_Contract (Subp);
       end if;
    end Freeze_Subprogram;
-
-   --------------------------------------
-   -- Is_Inlinable_Expression_Function --
-   --------------------------------------
-
-   function Is_Inlinable_Expression_Function (Subp : Entity_Id) return Boolean
-   is
-      Return_Expr : Node_Id;
-
-   begin
-      if Is_Expression_Function_Or_Completion (Subp)
-        and then Has_Pragma_Inline_Always (Subp)
-        and then Needs_No_Actuals (Subp)
-        and then No (Contract (Subp))
-        and then not Is_Dispatching_Operation (Subp)
-        and then Needs_Finalization (Etype (Subp))
-        and then not Is_Class_Wide_Type (Etype (Subp))
-        and then not (Has_Invariants (Etype (Subp)))
-        and then Present (Subprogram_Body (Subp))
-        and then Was_Expression_Function (Subprogram_Body (Subp))
-      then
-         Return_Expr := Expression_Of_Expression_Function (Subp);
-
-         --  The returned object must not have a qualified expression and its
-         --  nominal subtype must be statically compatible with the result
-         --  subtype of the expression function.
-
-         return Nkind (Return_Expr) = N_Identifier
-           and then Etype (Return_Expr) = Etype (Subp);
-      end if;
-
-      return False;
-   end Is_Inlinable_Expression_Function;
 
    -----------------------
    -- Is_Null_Procedure --

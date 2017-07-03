@@ -484,10 +484,13 @@ package body Contracts is
       --  volatile formal parameter or return type (SPARK RM 7.1.3(9)). This
       --  check is relevant only when SPARK_Mode is on, as it is not a standard
       --  legality rule. The check is performed here because Volatile_Function
-      --  is processed after the analysis of the related subprogram body.
+      --  is processed after the analysis of the related subprogram body. The
+      --  check only applies to source subprograms and not to generated TSS
+      --  subprograms.
 
       if SPARK_Mode = On
         and then Ekind_In (Body_Id, E_Function, E_Generic_Function)
+        and then Comes_From_Source (Spec_Id)
         and then not Is_Volatile_Function (Body_Id)
       then
          Check_Nonvolatile_Function_Profile (Body_Id);
@@ -2222,7 +2225,7 @@ package body Contracts is
          --  enclosing subprogram, which would cause problems for unnesting
          --  routines in the absence of inlining.
 
-         if Generate_C_Code then
+         if Modify_Tree_For_C then
             Set_Has_Pragma_Inline        (Proc_Id);
             Set_Has_Pragma_Inline_Always (Proc_Id);
             Set_Is_Inlined               (Proc_Id);

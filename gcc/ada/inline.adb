@@ -2483,13 +2483,12 @@ package body Inline is
                --  errors, e.g. when the expression is a numeric literal and
                --  the context is private. If the expression is an aggregate,
                --  use a qualified expression, because an aggregate is not a
-               --  legal argument of a conversion. Ditto for numeric literals,
-               --  which must be resolved to a specific type.
+               --  legal argument of a conversion. Ditto for numeric literals
+               --  and attributes that yield a universal type, because those
+               --  must be resolved to a specific type.
 
-               if Nkind_In (Expression (N), N_Aggregate,
-                                            N_Null,
-                                            N_Real_Literal,
-                                            N_Integer_Literal)
+               if Nkind_In (Expression (N), N_Aggregate, N_Null)
+                 or else Yields_Universal_Type (Expression (N))
                then
                   Ret :=
                     Make_Qualified_Expression (Sloc (N),
@@ -3087,8 +3086,10 @@ package body Inline is
 
          elsif Base_Type (Etype (F)) = Base_Type (Etype (A))
            and then Etype (F) /= Base_Type (Etype (F))
+           and then Is_Constrained (Etype (F))
          then
             Temp_Typ := Etype (F);
+
          else
             Temp_Typ := Etype (A);
          end if;
@@ -3150,8 +3151,14 @@ package body Inline is
                    Subtype_Mark => New_Occurrence_Of (Etype (F), Loc),
                    Expression   => Relocate_Node (Expression (A)));
 
-            elsif Etype (F) /= Etype (A) then
-               New_A := Unchecked_Convert_To (Etype (F), Relocate_Node (A));
+            --  In GNATprove mode, keep the most precise type of the actual
+            --  for the temporary variable. Otherwise, the AST may contain
+            --  unexpected assignment statements to a temporary variable of
+            --  unconstrained type renaming a local variable of constrained
+            --  type, which is not expected by GNATprove.
+
+            elsif Etype (F) /= Etype (A) and then not GNATprove_Mode then
+               New_A    := Unchecked_Convert_To (Etype (F), Relocate_Node (A));
                Temp_Typ := Etype (F);
 
             else

@@ -1,3 +1,95 @@
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64279
+	* call.c (build_conditional_expr_1): Warn about duplicated branches.
+	* semantics.c (finish_expr_stmt): Build statement using the proper
+	location.
+
+2017-01-19  Jason Merrill  <jason@redhat.com>
+
+	US 20 - forwarding references and class template argument deduction
+	* cp-tree.h (TEMPLATE_TYPE_PARM_FOR_CLASS): New.
+	* pt.c (push_template_decl_real): Set it.
+	(maybe_adjust_types_for_deduction): Check it.
+	(rewrite_template_parm): Copy it.
+
+	US 19 - deduction guides and constructors
+	* call.c (joust): Prefer deduction guides to constructors.
+	* pt.c (build_deduction_guide): Set DECL_ARTIFICIAL.
+	(deduction_guide_p): Check DECL_P.
+
+	* decl.c (check_initializer): Always use build_aggr_init for array
+	decomposition.
+
+	PR c++/79130 - decomposition and direct-initialization
+	* init.c (build_aggr_init): Communicate direct-initialization to
+	build_vec_init.
+	(build_vec_init): Check for array copy sooner.
+	* parser.c (cp_parser_decomposition_declaration): Remove call to
+	build_x_compound_expr_from_list.
+
+2017-01-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68666 - member variable template-id
+	* typeck.c (finish_class_member_access_expr): Handle variable
+	template-id.
+	* pt.c (lookup_and_finish_template_variable): No longer static.
+	* cp-tree.h: Declare it.
+
+2017-01-18  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/78488
+	* call.c (build_over_call): When checking ellipsis conversions for
+	an inherited ctor, make sure there is at least one conversion.
+
+2017-01-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78894 - ICE with class deduction and default arg
+	* pt.c (build_deduction_guide): Set DECL_PRIMARY_TEMPLATE.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/77489
+	* mangle.c (write_discriminator): Reorganize abi warning check.
+
+2017-01-18  Nathan Sidwell  <nathan@acm.org>
+
+	* cp-tree.h: Clarify exception spec node comment.
+	* except.c (nothrow_spec_p): Simplify by checking node-equality.
+
+	PR c++/79091
+	* mangle.c (write_exception_spec): Check nothrow explicitly.
+	(write_encoding): Don't increment processing_template_decl around
+	encoding.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/70182
+	* mangle.c (write_template_args): Add "on" for operator names.
+
+2017-01-18  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/77489
+	* mangle.c (write_discriminator): Handle discriminator >= 10.
+
+2017-01-17  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/61636
+	* cp-tree.h (maybe_generic_this_capture): Declare.
+	* lambda.c (resolvable_dummy_lambda): New, broken out of ...
+	(maybe_resolve_dummy): ... here.  Call it.
+	(maybe_generic_this_capture): New.
+	* parser.c (cp_parser_postfix_expression): Speculatively capture
+	this in generic lambda in unresolved member function call.
+	* pt.c (tsubst_copy_and_build): Force hard error from failed
+	member function lookup in generic lambda.
+
+2017-01-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR c++/70565
+	* cp-array-notation.c (expand_array_notation_exprs): Handle
+	OMP_PARALLEL.
+
 2017-01-11  Jason Merrill  <jason@redhat.com>
 
 	PR c++/78337 - ICE on invalid with generic lambda

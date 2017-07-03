@@ -1808,11 +1808,17 @@ package body Sem_Ch13 is
                     ("aspect must name a discriminant of current type", Expr);
 
                else
+                  --  Discriminant type be an anonymous access type or an
+                  --  anonymous access to subprogram.
+
+                  --  Missing synchronized types???
+
                   Disc := First_Discriminant (E);
                   while Present (Disc) loop
                      if Chars (Expr) = Chars (Disc)
-                       and then Ekind (Etype (Disc)) =
-                                  E_Anonymous_Access_Type
+                       and then Ekind_In (Etype (Disc),
+                                          E_Anonymous_Access_Subprogram_Type,
+                                          E_Anonymous_Access_Type)
                      then
                         Set_Has_Implicit_Dereference (E);
                         Set_Has_Implicit_Dereference (Disc);
@@ -2256,6 +2262,13 @@ package body Sem_Ch13 is
 
                   if A_Id = Aspect_Dynamic_Predicate then
                      Set_Has_Dynamic_Predicate_Aspect (E);
+
+                     --  If the entity has a dynamic predicate, any inherited
+                     --  static predicate becomes dynamic as well, and the
+                     --  predicate function includes the conjunction of both.
+
+                     Set_Has_Static_Predicate_Aspect (E, False);
+
                   elsif A_Id = Aspect_Static_Predicate then
                      Set_Has_Static_Predicate_Aspect (E);
                   end if;
@@ -8684,7 +8697,7 @@ package body Sem_Ch13 is
                         Expression => Expr))));
 
             --  If declaration has not been analyzed yet, Insert declaration
-            --  before freeze node.  Insert body itself after freeze node.
+            --  before freeze node. Insert body itself after freeze node.
 
             if not Analyzed (FDecl) then
                Insert_Before_And_Analyze (N, FDecl);

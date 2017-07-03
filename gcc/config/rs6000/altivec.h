@@ -168,6 +168,9 @@
 #define vec_re __builtin_vec_re
 #define vec_round __builtin_vec_round
 #define vec_recipdiv __builtin_vec_recipdiv
+#define vec_rlmi __builtin_vec_rlmi
+#define vec_vrlnm __builtin_vec_rlnm
+#define vec_rlnm(a,b,c) (__builtin_vec_rlnm((a),((b)<<8)|(c)))
 #define vec_rsqrt __builtin_vec_rsqrt
 #define vec_rsqrte __builtin_vec_rsqrte
 #define vec_vsubfp __builtin_vec_vsubfp
@@ -348,7 +351,7 @@
 #define vec_vaddudm __builtin_vec_vaddudm
 #define vec_vadduqm __builtin_vec_vadduqm
 #define vec_vbpermq __builtin_vec_vbpermq
-#define vec_bperm __builtin_vec_vbpermq
+#define vec_bperm __builtin_vec_vbperm_api
 #define vec_vclz __builtin_vec_vclz
 #define vec_cntlz __builtin_vec_vclz
 #define vec_vclzb __builtin_vec_vclzb
@@ -390,7 +393,7 @@
 #ifdef _ARCH_PWR9
 /* Vector additions added in ISA 3.0.  */
 #define vec_vctz __builtin_vec_vctz
-#define vec_cntlz __builtin_vec_vctz
+#define vec_cnttz __builtin_vec_vctz
 #define vec_vctzb __builtin_vec_vctzb
 #define vec_vctzd __builtin_vec_vctzd
 #define vec_vctzh __builtin_vec_vctzh
@@ -441,6 +444,8 @@
 
 #define vec_xlx __builtin_vec_vextulx
 #define vec_xrx __builtin_vec_vexturx
+
+#define vec_revb __builtin_vec_revb
 #endif
 
 /* Predicates.

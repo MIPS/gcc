@@ -33,6 +33,7 @@ with Einfo;     use Einfo;
 with Errout;    use Errout;
 with Eval_Fat;  use Eval_Fat;
 with Exp_Ch3;   use Exp_Ch3;
+with Exp_Ch7;   use Exp_Ch7;
 with Exp_Ch9;   use Exp_Ch9;
 with Exp_Disp;  use Exp_Disp;
 with Exp_Dist;  use Exp_Dist;
@@ -1332,7 +1333,9 @@ package body Sem_Ch3 is
       if Nkind (S) /= N_Subtype_Indication then
          Analyze (S);
 
-         if Ekind (Root_Type (Entity (S))) = E_Incomplete_Type then
+         if Present (Entity (S))
+           and then Ekind (Root_Type (Entity (S))) = E_Incomplete_Type
+         then
             Set_Directly_Designated_Type (T, Entity (S));
 
             --  If the designated type is a limited view, we cannot tell if
@@ -2153,6 +2156,17 @@ package body Sem_Ch3 is
       --  (They have the sloc of the label as found in the source, and that
       --  is ahead of the current declarative part).
 
+      procedure Build_Assertion_Bodies (Decls : List_Id; Context : Node_Id);
+      --  Create the subprogram bodies which verify the run-time semantics of
+      --  the pragmas listed below for each elibigle type found in declarative
+      --  list Decls. The pragmas are:
+      --
+      --    Default_Initial_Condition
+      --    Invariant
+      --    Type_Invariant
+      --
+      --  Context denotes the owner of the declarative list.
+
       procedure Check_Entry_Contracts;
       --  Perform a pre-analysis of the pre- and postconditions of an entry
       --  declaration. This must be done before full resolution and creation
@@ -2194,6 +2208,85 @@ package body Sem_Ch3 is
             Prev (Decl);
          end loop;
       end Adjust_Decl;
+
+      ----------------------------
+      -- Build_Assertion_Bodies --
+      ----------------------------
+
+      procedure Build_Assertion_Bodies (Decls : List_Id; Context : Node_Id) is
+         procedure Build_Assertion_Bodies_For_Type (Typ : Entity_Id);
+         --  Create the subprogram bodies which verify the run-time semantics
+         --  of the pragmas listed below for type Typ. The pragmas are:
+         --
+         --    Default_Initial_Condition
+         --    Invariant
+         --    Type_Invariant
+
+         -------------------------------------
+         -- Build_Assertion_Bodies_For_Type --
+         -------------------------------------
+
+         procedure Build_Assertion_Bodies_For_Type (Typ : Entity_Id) is
+         begin
+            --  Preanalyze and resolve the Default_Initial_Condition assertion
+            --  expression at the end of the declarations to catch any errors.
+
+            if Has_DIC (Typ) then
+               Build_DIC_Procedure_Body (Typ);
+            end if;
+
+            if Nkind (Context) = N_Package_Specification then
+
+               --  Preanalyze and resolve the invariants of a private type
+               --  at the end of the visible declarations to catch potential
+               --  errors. Inherited class-wide invariants are not included
+               --  because they have already been resolved.
+
+               if Decls = Visible_Declarations (Context)
+                 and then Ekind_In (Typ, E_Limited_Private_Type,
+                                         E_Private_Type,
+                                         E_Record_Type_With_Private)
+                 and then Has_Own_Invariants (Typ)
+               then
+                  Build_Invariant_Procedure_Body
+                    (Typ               => Typ,
+                     Partial_Invariant => True);
+
+               --  Preanalyze and resolve the invariants of a private type's
+               --  full view at the end of the private declarations to catch
+               --  potential errors.
+
+               elsif Decls = Private_Declarations (Context)
+                 and then not Is_Private_Type (Typ)
+                 and then Has_Private_Declaration (Typ)
+                 and then Has_Invariants (Typ)
+               then
+                  Build_Invariant_Procedure_Body (Typ);
+               end if;
+            end if;
+         end Build_Assertion_Bodies_For_Type;
+
+         --  Local variables
+
+         Decl    : Node_Id;
+         Decl_Id : Entity_Id;
+
+      --  Start of processing for Build_Assertion_Bodies
+
+      begin
+         Decl := First (Decls);
+         while Present (Decl) loop
+            if Is_Declaration (Decl) then
+               Decl_Id := Defining_Entity (Decl);
+
+               if Is_Type (Decl_Id) then
+                  Build_Assertion_Bodies_For_Type (Decl_Id);
+               end if;
+            end if;
+
+            Next (Decl);
+         end loop;
+      end Build_Assertion_Bodies;
 
       ---------------------------
       -- Check_Entry_Contracts --
@@ -2466,6 +2559,8 @@ package body Sem_Ch3 is
                Freeze_All (First_Entity (Current_Scope), Decl);
                Freeze_From := Last_Entity (Current_Scope);
 
+            --  Current scope is a package specification
+
             elsif Scope (Current_Scope) /= Standard_Standard
               and then not Is_Child_Unit (Current_Scope)
               and then No (Generic_Parent (Parent (L)))
@@ -2485,6 +2580,8 @@ package body Sem_Ch3 is
             then
                Adjust_Decl;
 
+               --  End of a package declaration
+
                --  In compilation mode the expansion of freeze node takes care
                --  of resolving expressions of all aspects in the list. In ASIS
                --  mode this must be done explicitly.
@@ -2494,6 +2591,9 @@ package body Sem_Ch3 is
                then
                   Resolve_Aspects;
                end if;
+
+               --  This is a freeze point because it is the end of a
+               --  compilation unit.
 
                Freeze_All (First_Entity (Current_Scope), Decl);
                Freeze_From := Last_Entity (Current_Scope);
@@ -2561,6 +2661,12 @@ package body Sem_Ch3 is
             end if;
 
             Adjust_Decl;
+
+            --  The generated body of an expression function does not freeze,
+            --  unless it is a completion, in which case only the expression
+            --  itself freezes. THis is handled when the body itself is
+            --  analyzed (see Freeze_Expr_Types, sem_ch6.adb).
+
             Freeze_All (Freeze_From, Decl);
             Freeze_From := Last_Entity (Current_Scope);
          end if;
@@ -2568,10 +2674,12 @@ package body Sem_Ch3 is
          Decl := Next_Decl;
       end loop;
 
-      --  Analyze the contracts of packages and their bodies
+      --  Post-freezing actions
 
       if Present (L) then
          Context := Parent (L);
+
+         --  Analyze the contracts of packages and their bodies
 
          if Nkind (Context) = N_Package_Specification then
 
@@ -2630,6 +2738,15 @@ package body Sem_Ch3 is
          --  protected, subprogram, or task body (SPARK RM 7.2.2(3)).
 
          Check_State_Refinements (Context);
+
+         --  Create the subprogram bodies which verify the run-time semantics
+         --  of pragmas Default_Initial_Condition and [Type_]Invariant for all
+         --  types within the current declarative list. This ensures that all
+         --  assertion expressions are preanalyzed and resolved at the end of
+         --  the declarative part. Note that the resolution happens even when
+         --  freezing does not take place.
+
+         Build_Assertion_Bodies (L, Context);
       end if;
    end Analyze_Declarations;
 
@@ -2666,44 +2783,48 @@ package body Sem_Ch3 is
       ----------------------------------
 
       procedure Check_Nonoverridable_Aspects is
-         Prev_Aspects   : constant List_Id :=
-                            Aspect_Specifications (Parent (Def_Id));
-         Par_Type       : Entity_Id;
-
-         function Has_Aspect_Spec
-           (Specs : List_Id;
-            Aspect_Name : Name_Id) return Boolean;
+         function Get_Aspect_Spec
+           (Specs       : List_Id;
+            Aspect_Name : Name_Id) return Node_Id;
          --  Check whether a list of aspect specifications includes an entry
          --  for a specific aspect. The list is either that of a partial or
          --  a full view.
 
          ---------------------
-         -- Has_Aspect_Spec --
+         -- Get_Aspect_Spec --
          ---------------------
 
-         function Has_Aspect_Spec
-           (Specs : List_Id;
-            Aspect_Name : Name_Id) return Boolean
+         function Get_Aspect_Spec
+           (Specs       : List_Id;
+            Aspect_Name : Name_Id) return Node_Id
          is
             Spec : Node_Id;
+
          begin
             Spec := First (Specs);
             while Present (Spec) loop
                if Chars (Identifier (Spec)) = Aspect_Name then
-                  return True;
+                  return Spec;
                end if;
                Next (Spec);
             end loop;
-            return False;
-         end Has_Aspect_Spec;
+
+            return Empty;
+         end Get_Aspect_Spec;
+
+         --  Local variables
+
+         Prev_Aspects   : constant List_Id :=
+                            Aspect_Specifications (Parent (Def_Id));
+         Par_Type       : Entity_Id;
+         Prev_Aspect    : Node_Id;
 
       --  Start of processing for Check_Nonoverridable_Aspects
 
       begin
-
-         --  Get parent type of derived type. Note that Prev is the entity
-         --  in the partial declaration, but its contents are now those of
-         --  full view, while Def_Id reflects the partial view.
+         --  Get parent type of derived type. Note that Prev is the entity in
+         --  the partial declaration, but its contents are now those of full
+         --  view, while Def_Id reflects the partial view.
 
          if Is_Private_Type (Def_Id) then
             Par_Type := Etype (Full_View (Def_Id));
@@ -2719,8 +2840,13 @@ package body Sem_Ch3 is
            and then Present (Discriminant_Specifications (Parent (Prev)))
            and then Present (Get_Reference_Discriminant (Par_Type))
          then
-            if
-              not Has_Aspect_Spec (Prev_Aspects, Name_Implicit_Dereference)
+            Prev_Aspect :=
+              Get_Aspect_Spec (Prev_Aspects, Name_Implicit_Dereference);
+
+            if No (Prev_Aspect)
+              and then Present
+                         (Discriminant_Specifications
+                           (Original_Node (Parent (Prev))))
             then
                Error_Msg_N
                  ("type does not inherit implicit dereference", Prev);
@@ -2730,13 +2856,27 @@ package body Sem_Ch3 is
                --  is consistent with that of the parent.
 
                declare
-                  Par_Discr : constant Entity_Id :=
+                  Par_Discr  : constant Entity_Id :=
                                 Get_Reference_Discriminant (Par_Type);
-                  Cur_Discr : constant Entity_Id :=
+                  Cur_Discr  : constant Entity_Id :=
                                 Get_Reference_Discriminant (Prev);
+
                begin
                   if Corresponding_Discriminant (Cur_Discr) /= Par_Discr then
                      Error_Msg_N ("aspect incosistent with that of parent", N);
+                  end if;
+
+                  --  Check that specification in partial view matches the
+                  --  inherited aspect. Compare names directly because aspect
+                  --  expression may not be analyzed.
+
+                  if Present (Prev_Aspect)
+                    and then Nkind (Expression (Prev_Aspect)) = N_Identifier
+                    and then Chars (Expression (Prev_Aspect)) /=
+                               Chars (Cur_Discr)
+                  then
+                     Error_Msg_N
+                       ("aspect incosistent with that of parent", N);
                   end if;
                end;
             end if;
@@ -6740,8 +6880,12 @@ package body Sem_Ch3 is
          --  If we constructed a default range for the case where no range
          --  was given, then the expressions in the range must not freeze
          --  since they do not correspond to expressions in the source.
+         --  However, if the type inherits predicates the expressions will
+         --  be elaborated earlier and must freeze.
 
-         if Nkind (Indic) /= N_Subtype_Indication then
+         if Nkind (Indic) /= N_Subtype_Indication
+           and then not Has_Predicates (Derived_Type)
+         then
             Set_Must_Not_Freeze (Lo);
             Set_Must_Not_Freeze (Hi);
             Set_Must_Not_Freeze (Rang_Expr);
@@ -7325,6 +7469,7 @@ package body Sem_Ch3 is
                   Set_Full_View (Derived_Type, Full_Der);
                else
                   Set_Underlying_Full_View (Derived_Type, Full_Der);
+                  Set_Is_Underlying_Full_View (Full_Der);
                end if;
 
                if not Is_Base_Type (Derived_Type) then
@@ -7382,6 +7527,7 @@ package body Sem_Ch3 is
             Set_Full_View (Derived_Type, Full_Der);
          else
             Set_Underlying_Full_View (Derived_Type, Full_Der);
+            Set_Is_Underlying_Full_View (Full_Der);
          end if;
 
          --  In any case, the primitive operations are inherited from the
@@ -7488,6 +7634,7 @@ package body Sem_Ch3 is
             else
                Build_Full_Derivation;
                Set_Underlying_Full_View (Derived_Type, Full_Der);
+               Set_Is_Underlying_Full_View (Full_Der);
             end if;
 
             --  The full view will be used to swap entities on entry/exit to
@@ -8851,6 +8998,9 @@ package body Sem_Ch3 is
 
       --  STEP 5a: Copy the parent record declaration for untagged types
 
+      Set_Has_Implicit_Dereference
+        (Derived_Type, Has_Implicit_Dereference (Parent_Type));
+
       if not Is_Tagged then
 
          --  Discriminant_Constraint (Derived_Type) has been properly
@@ -8893,8 +9043,6 @@ package body Sem_Ch3 is
             Set_Stored_Constraint
               (Derived_Type, Expand_To_Stored_Constraint (Parent_Type, Discs));
             Replace_Components (Derived_Type, New_Decl);
-            Set_Has_Implicit_Dereference
-              (Derived_Type, Has_Implicit_Dereference (Parent_Type));
          end if;
 
          --  Insert the new derived type declaration
@@ -9513,12 +9661,19 @@ package body Sem_Ch3 is
             --  If any of the discriminant constraints is given by a
             --  discriminant and we are in a derived type declaration we
             --  have a discriminant renaming. Establish link between new
-            --  and old discriminant.
+            --  and old discriminant. The new discriminant has an implicit
+            --  dereference if the old one does.
 
             if Denotes_Discriminant (Discr_Expr (J)) then
                if Derived_Def then
-                  Set_Corresponding_Discriminant
-                    (Entity (Discr_Expr (J)), Discr);
+                  declare
+                     New_Discr : constant Entity_Id := Entity (Discr_Expr (J));
+
+                  begin
+                     Set_Corresponding_Discriminant (New_Discr, Discr);
+                     Set_Has_Implicit_Dereference (New_Discr,
+                       Has_Implicit_Dereference (Discr));
+                  end;
                end if;
 
             --  Force the evaluation of non-discriminant expressions.
@@ -9534,9 +9689,8 @@ package body Sem_Ch3 is
                   null;
 
                elsif Nkind (Parent (Parent (Def))) = N_Component_Declaration
-                 and then
-                   Has_Per_Object_Constraint
-                     (Defining_Identifier (Parent (Parent (Def))))
+                 and then Has_Per_Object_Constraint
+                            (Defining_Identifier (Parent (Parent (Def))))
                then
                   null;
 
@@ -9556,7 +9710,7 @@ package body Sem_Ch3 is
 
             if Ekind (Etype (Discr)) = E_Anonymous_Access_Type
               and then not Is_Class_Wide_Type
-                         (Designated_Type (Etype (Discr)))
+                             (Designated_Type (Etype (Discr)))
               and then Etype (Discr_Expr (J)) /= Any_Type
               and then Is_Class_Wide_Type
                          (Designated_Type (Etype (Discr_Expr (J))))
@@ -9570,7 +9724,7 @@ package body Sem_Ch3 is
             then
                Error_Msg_NE
                  ("constraint for discriminant& must be access to variable",
-                    Def, Discr);
+                  Def, Discr);
             end if;
          end if;
 
@@ -9899,6 +10053,7 @@ package body Sem_Ch3 is
 
       Analyze (Indic);
       Set_Underlying_Full_View (Typ, Full_View (Subt));
+      Set_Is_Underlying_Full_View (Full_View (Subt));
    end Build_Underlying_Full_View;
 
    -------------------------------
@@ -11774,12 +11929,22 @@ package body Sem_Ch3 is
       --  already frozen. We skip this processing if the type is an anonymous
       --  subtype of a record component, or is the corresponding record of a
       --  protected type, since these are processed when the enclosing type
-      --  is frozen.
+      --  is frozen. If the parent type is declared in a nested package then
+      --  the freezing of the private and full views also happens later.
 
       if not Is_Type (Scope (Full)) then
-         Set_Has_Delayed_Freeze (Full,
-           Has_Delayed_Freeze (Full_Base)
-             and then (not Is_Frozen (Full_Base)));
+         if Is_Itype (Priv)
+           and then In_Same_Source_Unit (Full, Full_Base)
+           and then Scope (Full_Base) /= Scope (Full)
+         then
+            Set_Has_Delayed_Freeze (Full);
+            Set_Has_Delayed_Freeze (Priv);
+
+         else
+            Set_Has_Delayed_Freeze (Full,
+              Has_Delayed_Freeze (Full_Base)
+                and then (not Is_Frozen (Full_Base)));
+         end if;
       end if;
 
       Set_Freeze_Node (Full, Empty);

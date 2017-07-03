@@ -1447,7 +1447,7 @@ x86_64-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h"
 	;;
 x86_64-*-rtems*)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/rtems-64.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/rtemself.h"
 	;;
 i[34567]86-*-rdos*)
     tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/rdos.h"
@@ -3940,7 +3940,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch arch_32 arch_64 float fpu nan fp_32 odd_spreg_32 tune tune_32 tune_64 divide llsc mips-plt synci"
+		supported_defaults="abi arch arch_32 arch_64 float fpu nan fp_32 odd_spreg_32 tune tune_32 tune_64 divide llsc mips-plt synci lxc1-sxc1 madd4"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -4060,6 +4060,36 @@ case "${target}" in
 			;;
 		*)
 			echo "Unknown synci type used in --with-synci" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_lxc1_sxc1} in
+		yes)
+			with_lxc1_sxc1=lxc1-sxc1
+			;;
+		no)
+			with_lxc1_sxc1=no-lxc1-sxc1
+			;;
+		"")
+			;;
+		*)
+			echo "Unknown lxc1-sxc1 type used in --with-lxc1-sxc1" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_madd4} in
+		yes)
+			with_madd4=madd4
+			;;
+		no)
+			with_madd4=no-madd4
+			;;
+		"")
+			;;
+		*)
+			echo "Unknown madd4 type used in --with-madd4" 1>&2
 			exit 1
 			;;
 		esac
@@ -4496,7 +4526,7 @@ case ${target} in
 esac
 
 t=
-all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls"
+all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls lxc1-sxc1 madd4"
 for option in $all_defaults
 do
 	eval "val=\$with_"`echo $option | sed s/-/_/g`

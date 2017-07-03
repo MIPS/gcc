@@ -1736,13 +1736,24 @@ package body Exp_Util is
    --  Start of processing for Build_DIC_Procedure_Body
 
    begin
-      Work_Typ := Typ;
+      Work_Typ := Base_Type (Typ);
 
-      --  The input type denotes the implementation base type of a constrained
-      --  array type. Work with the first subtype as the DIC pragma is on its
-      --  rep item chain.
+      --  Do not process class-wide types as these are Itypes, but lack a first
+      --  subtype (see below).
 
-      if Ekind (Work_Typ) = E_Array_Type and then Is_Itype (Work_Typ) then
+      if Is_Class_Wide_Type (Work_Typ) then
+         return;
+
+      --  Do not process the underlying full view of a private type. There is
+      --  no way to get back to the partial view, plus the body will be built
+      --  by the full view or the base type.
+
+      elsif Is_Underlying_Full_View (Work_Typ) then
+         return;
+
+      --  Use the first subtype when dealing with various base types
+
+      elsif Is_Itype (Work_Typ) then
          Work_Typ := First_Subtype (Work_Typ);
 
       --  The input denotes the corresponding record type of a protected or a
@@ -1964,13 +1975,24 @@ package body Exp_Util is
       --  The working type
 
    begin
-      Work_Typ := Typ;
+      Work_Typ := Base_Type (Typ);
 
-      --  The input type denotes the implementation base type of a constrained
-      --  array type. Work with the first subtype as the DIC pragma is on its
-      --  rep item chain.
+      --  Do not process class-wide types as these are Itypes, but lack a first
+      --  subtype (see below).
 
-      if Ekind (Work_Typ) = E_Array_Type and then Is_Itype (Work_Typ) then
+      if Is_Class_Wide_Type (Work_Typ) then
+         return;
+
+      --  Do not process the underlying full view of a private type. There is
+      --  no way to get back to the partial view, plus the body will be built
+      --  by the full view or the base type.
+
+      elsif Is_Underlying_Full_View (Work_Typ) then
+         return;
+
+      --  Use the first subtype when dealing with various base types
+
+      elsif Is_Itype (Work_Typ) then
          Work_Typ := First_Subtype (Work_Typ);
 
       --  The input denotes the corresponding record type of a protected or a
@@ -9240,7 +9262,7 @@ package body Exp_Util is
          --  initializing a fat pointer and the expression must be free of
          --  side effects to safely compute its bounds.
 
-         if Generate_C_Code
+         if Modify_Tree_For_C
            and then Is_Access_Type (Etype (Exp))
            and then Is_Array_Type (Designated_Type (Etype (Exp)))
            and then not Is_Constrained (Designated_Type (Etype (Exp)))
@@ -9371,7 +9393,7 @@ package body Exp_Util is
          --  be identified here to avoid entering into a never-ending loop
          --  generating internal object declarations.
 
-         elsif Generate_C_Code
+         elsif Modify_Tree_For_C
            and then Nkind (Parent (Exp)) = N_Object_Declaration
            and then
              (Nkind (Exp) /= N_Function_Call
@@ -9423,7 +9445,7 @@ package body Exp_Util is
          --  When generating C code, no need for a 'reference since the
          --  secondary stack is not supported.
 
-         if GNATprove_Mode or Generate_C_Code then
+         if GNATprove_Mode or Modify_Tree_For_C then
             Res := New_Occurrence_Of (Def_Id, Loc);
             Ref_Type := Exp_Type;
 
@@ -9461,7 +9483,7 @@ package body Exp_Util is
             --  Do not generate a 'reference in SPARK mode or C generation
             --  since the access type is not created in the first place.
 
-            if GNATprove_Mode or Generate_C_Code then
+            if GNATprove_Mode or Modify_Tree_For_C then
                New_Exp := E;
 
             --  Otherwise generate reference, marking the value as non-null
@@ -9505,7 +9527,7 @@ package body Exp_Util is
          --     type Rec (D : Integer) is ...
          --     Obj : constant Rec := SomeFunc;
 
-         if Generate_C_Code
+         if Modify_Tree_For_C
            and then Nkind (Parent (Exp)) = N_Object_Declaration
            and then Has_Discriminants (Exp_Type)
            and then Nkind (Exp) = N_Function_Call
@@ -10602,7 +10624,7 @@ package body Exp_Util is
       --  a fat pointer and the expression cannot be assumed to be free of side
       --  effects since it must referenced several times to compute its bounds.
 
-      elsif Generate_C_Code
+      elsif Modify_Tree_For_C
         and then Nkind (N) = N_Type_Conversion
         and then Is_Access_Type (Typ)
         and then Is_Array_Type (Designated_Type (Typ))
