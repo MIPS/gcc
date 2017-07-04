@@ -1,3 +1,45 @@
+2017-02-09  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* configure.ac (ACX_BUGURL): Update.
+	* configure: Regenerate.
+
+2017-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69823
+	* graphite-scop-detection.c (scop_detection::harmful_loop_in_region):
+	Properly enumerate all BBs in the region.  Use auto_vec/auto_bitmap.
+
+2017-02-09  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc-c.def: Add __NPS400__ definition.
+	* config/arc/arc.h (CPP_SPEC): Don't define __NPS400__ here.
+	(TARGET_NPS400): Define.
+
+2017-02-09  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc-arch.h (arc_arch_t): Move unchanged to earlier in
+	file.
+	(arc_cpu_t): Change base_architecture field, arch, to a arc_arc_t
+	pointer, arch_info.
+	(arc_cpu_types): Fill the arch_info field with a pointer into the
+	arc_arch_types table.
+	(arc_selected_cpu): Declare.
+	* config/arc/arc.c (arc_selected_cpu): Make global.
+	(arc_selected_arch): Delete.
+	(arc_base_cpu): Delete.
+	(arc_override_options): Remove references to deleted variables,
+	update access to arch information.
+	(ARC_OPT): Update access to arch information.
+	(ARC_OPTX): Likewise.
+	* config/arc/arc.h (arc_base_cpu): Remove declaration.
+	(TARGET_ARC600): Update access to arch information.
+	(TARGET_ARC601): Likewise.
+	(TARGET_ARC700): Likewise.
+	(TARGET_EM): Likewise.
+	(TARGET_HS): Likewise.
+	* config/arc/driver-arc.c (arc_cpu_to_as): Update access to arch
+	information.
+
 2017-02-08  Pat Haugen  <pthaugen@us.ibm.com>
 
 	PR target/78604
