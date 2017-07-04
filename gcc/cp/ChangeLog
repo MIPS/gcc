@@ -1,3 +1,29 @@
+2017-01-25  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR lto/79061
+	* decl.c (cxx_init_decl_processing): Pass main_input_filename
+	to build_translation_unit_decl.
+
+2017-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79205
+	* cp-gimplify.c (cp_genericize_r): Add result of
+	convert_from_reference on invisiref parm to p_set.
+
+2017-01-24  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/78469 - defaulted ctor and inaccessible dtor
+	* cp-tree.h (tsubst_flags): Add tf_no_cleanup.
+	* init.c (build_new_1): Pass tf_no_cleanup to build_value_init.
+	* tree.c (build_target_expr): Check tf_no_cleanup.
+
+	PR c++/79118 - anon-members and constexpr
+	* constexpr.c (cx_check_missing_mem_inits): Caller passes type not
+	ctor decl.  Recursively check anonymous members.
+	(register_constexpr_fundef): Adjust cx_check_missing_mem_inits
+	call.
+	(explain_invalid_constexpr_fn): Likewise.
+
 2017-01-23  Nathan Sidwell  <nathan@acm.org>
 
 	PR c++/71710 - template using directive of field
