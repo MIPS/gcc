@@ -1,3 +1,244 @@
+2017-01-24  Pekka Jääskeläinen <pekka@parmance.com>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* lib/brig-dg.exp: New file.
+	* lib/brig.exp: Likewise.
+	* brig.dg/README: Likewise.
+	* brig.dg/dg.exp: Likewise.
+	* brig.dg/test/gimple/alloca.hsail: Likewise.
+	* brig.dg/test/gimple/atomics.hsail: Likewise.
+	* brig.dg/test/gimple/branches.hsail: Likewise.
+	* brig.dg/test/gimple/fbarrier.hsail: Likewise.
+	* brig.dg/test/gimple/function_calls.hsail: Likewise.
+	* brig.dg/test/gimple/kernarg.hsail: Likewise.
+	* brig.dg/test/gimple/mem.hsail: Likewise.
+	* brig.dg/test/gimple/mulhi.hsail: Likewise.
+	* brig.dg/test/gimple/packed.hsail: Likewise.
+	* brig.dg/test/gimple/smoke_test.hsail: Likewise.
+	* brig.dg/test/gimple/variables.hsail: Likewise.
+	* brig.dg/test/gimple/vector.hsail: Likewise.
+
+2017-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/asan/asan_test.C: Enable on all *-*-linux* targets that
+	support asan, only on i?86/x86_64 require sse2_runtime.
+
+2017-01-23  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/66669
+	* gcc.dg/loop-8.c: Modify dg-skip-if directive to exclude this
+	test on powerpc targets.
+
+2017-01-23  Martin Sebor  <msebor@redhat.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf.c: Add test cases.
+
+2017-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79088
+	PR tree-optimization/79188
+	* gcc.dg/torture/pr79088.c: New testcase.
+	* gcc.dg/torture/pr79188.c: Likewise.
+
+2017-01-23  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/bfp/scalar-insert-exp-3.c: New test.
+	* gcc.target/powerpc/bfp/scalar-insert-exp-4.c: New test.
+	* gcc.target/powerpc/bfp/scalar-insert-exp-5.c: New test.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-0.c: Adjust return
+	type of test function to reflect change in built-in function's
+	return type.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-1.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-2.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-3.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-4.c: Adjust return
+	type and second argument type to reflect change in built-in
+	function's type signature.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-5.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-6.c: Adjust return
+	type of test function to reflect change in built-in function's
+	return type.
+	* gcc.target/powerpc/bfp/scalar-test-data-class-7.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-neg-0.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-neg-1.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-neg-2.c: Likewise.
+	* gcc.target/powerpc/bfp/scalar-test-neg-3.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-exp-0.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-exp-1.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-exp-2.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-exp-3.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-sig-0.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-sig-1.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-sig-2.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-extract-sig-3.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-insert-exp-4.c: New test.
+	* gcc.target/powerpc/bfp/vec-insert-exp-5.c: New test.
+	* gcc.target/powerpc/bfp/vec-insert-exp-6.c: New test.
+	* gcc.target/powerpc/bfp/vec-insert-exp-7.c: New test.
+	* gcc.target/powerpc/bfp/vec-test-data-class-0.c: Adjust return
+	type of test function to reflect change in built-in function's
+	return type.
+	* gcc.target/powerpc/bfp/vec-test-data-class-1.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-test-data-class-2.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-test-data-class-3.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-test-data-class-4.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-test-data-class-5.c: Likewise.
+	* gcc.target/powerpc/bfp/vec-test-data-class-6.c: Adjust types of
+	test function's result and second argument to reflect change in
+	built-in function's type signature.
+	* gcc.target/powerpc/bfp/vec-test-data-class-7.c: Likewise.
+
+2017-01-23  Nathan Sidwell  <nathan@acm.org>
+
+	PR C++/71710
+	* g++.dg/template/pr71710.C: New.
+
+	PR c++/71406
+	PR c++/77508
+	* g++.dg/template/pr71406.C: New.
+
+2017-01-23  Thomas Koenig  <tkoenig@netcologne.de>
+
+	* gfortran.dg/integer_exponentiation_7.f90:  New test.
+
+2017-01-23  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/78634
+	* gcc.target/i386/funcspec-11.c: Also pass -mtune=i686.
+
+2017-01-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/70754
+	* gfortran.dg/pr70754.f90: New test.
+
+2017-01-23  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/79196
+	* gcc.dg/asan/pr79196.c: New test.
+	* gcc.dg/strlenopt-30.c: Update scanned pattern.
+
+2017-01-23  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/78384
+	* gcc.dg/pr78384.c: New test.
+
+2017-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79186
+	* gcc.dg/torture/pr79186.c: New testcase.
+	* gcc.dg/torture/pr79187.c: Likewise.
+
+2017-01-23  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/ipa/vrp8.c: New test.
+
+2017-01-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/79108
+	* gfortran.dg/lto/pr79108_0.f90: New test.
+
+2017-01-23  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* gcc.target/i386/avx512bw-ktestd-1.c: New test.
+	* gcc.target/i386/avx512bw-ktestq-1.c: Ditto.
+	* gcc.target/i386/avx512dq-ktestb-1.c: Ditto.
+	* gcc.target/i386/avx512f-ktestw-1.c: Ditto.
+	* gcc.target/i386/avx512bw-kortestd-1.c: Ditto.
+	* gcc.target/i386/avx512bw-kortestq-1.c: Ditto.
+	* gcc.target/i386/avx512dq-kortestb-1.c: Ditto.
+	* gcc.target/i386/avx512f-kortestw-1.c: Ditto.
+	* gcc.target/i386/avx512bw-ktestd-2.c: Ditt
+	* gcc.target/i386/avx512bw-ktestq-2.c: Ditto.
+	* gcc.target/i386/avx512dq-ktestb-2.c: Ditto.
+	* gcc.target/i386/avx512f-ktestw-2.c: Ditto.
+	* gcc.target/i386/avx512bw-kortestd-2.c: Ditto.
+	* gcc.target/i386/avx512bw-kortestq-2.c: Ditto.
+	* gcc.target/i386/avx512dq-kortestb-2.c: Ditto.
+	* gcc.target/i386/avx512f-kortestw-2.c: Ditto.
+
+2017-01-23  Richard Biener  <rguenther@suse.de>
+	    Nick Clifton  <nickc@redhat.com>
+
+	PR testsuite/78421
+	* lib/target-supports.exp (check_effective_target_vect_hw_misalign):
+	If the target is ARM return the result of the
+	check_effective_target_arm_vect_no_misalign proc.
+	* gcc.dg/vect/vect-strided-a-u8-i2-gap.c: If the target does not
+	support unaligned vectors then only expect one of the loops to be
+	unrolled.
+
+2017-01-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/asan/use-after-scope-10.c: New test.
+	* gcc.dg/asan/use-after-scope-11.c: New test.
+	* g++.dg/asan/use-after-scope-5.C: New test.
+
+2017-01-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/asan/use-after-scope-3.c: Add additional flags.
+	* gcc.dg/asan/use-after-scope-9.c: Likewise and grep for
+	sanopt optimization for ASAN_POISON.
+
+2016-01-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.dg/lto/pr69188_0.c: Require profiling support for testcase.
+
+2017-01-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h (CHECK_POLY): New.
+	(CHECK_RESULTS_NAMED_NO_FP16): Call CHECK_POLY instead of CHECK
+	for poly*_t types.
+	* gcc.target/aarch64/advsimd-intrinsics/vcnt.c (FNNAME): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vcombine.c (void
+	exec_vcombine): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vcreate.c (FNNAME): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vget_high.c (void exec_vget_high): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vget_low.c (void exec_vget_low): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vldX.c (void exec_vldX): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vldX_dup.c (void exec_vldX_dup): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vldX_lane.c (void exec_vldX_lane): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vmvn.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vqtbX.c (void exec_vqtbX): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p128.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vrev.c (void exec_vrev): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vsXi_n.inc: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vshuffle.inc: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vsli_n.c (void vsli_extra): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vsri_n.c (void vsri_extra): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vstX_lane.c (void exec_vstX_lane): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vtbX.c (void exec_vtbX): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/p64_p128.c (int main):
+	Likewise.
+	(TEST_VGET_LANE): Cast to uint to avoid warning.
+	* gcc.target/aarch64/advsimd-intrinsics/unary_sat_op.inc (void
+	FNNAME): Fix PRIx format for int16_t, int32_t, uint16_t, uint32_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vfms_vfma_n.c (void
+	exec_vfma_vfms_n): Fix PRIx format for float64_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vmovn.c (void exec_vmovn):
+	Fix PRIx format for int8_t, int16_t, uint8_t, uint16_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul_lane.c (void
+	exec_vmul_lane): Fix PRIx format for int16_t, uint16_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul_n.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vmull.c (void exec_vmull):
+	Fix PRIx format for int16_t, int64_t, uint16_t, uint64_t. Call
+	CHECK_POLY instead of CHECK for poly64_t types.
+	* gcc.target/aarch64/advsimd-intrinsics/vmull_lane.c (void
+	exec_vmull_lane): Fix PRIx format for int64_t, uint64_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vpXXX.inc:
+	Fix PRIx format for int8_t, int16_t, uint8_t, uint16_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vqabs.c (void
+	vqabs_extra): Fix PRIx format for int16_t, int32_t, uint16_t,
+	uint32_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vqdmull.c: Fix PRIx format
+	for int32_t, int64_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vqneg.c (void
+	vqneg_extra): Fix PRIx format for int16_t, int32_t.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p64.c
+	(TEST_VREINTERPRET_TO_POLY): New. (main): Call
+	TEST_VREINTERPRET_TO_POLY instead of TEST_VREINTERPRET where
+	needed.
+
 2017-01-22  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/79154
@@ -242,12 +483,6 @@
 	* gcc.target/powerpc/pr58673-1.c: Likewise.
 	* gcc.target/powerpc/pr58673-2.c: Likewise.
 	* gcc.target/powerpc/pr59054.c: Likewise.
-
-2017-01-18  Maxim Ostapenko  <m.ostapenko@samsung.com>
-
-	PR lto/79061
-	* gcc.dg/cpp/mi1.c: Adjust testcase.
-	* gcc.dg/pch/cpp-3.c: Likewise.
 
 2016-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 

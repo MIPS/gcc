@@ -4764,10 +4764,7 @@ vec<tree, va_gc> *all_translation_units;
 tree
 build_translation_unit_decl (tree name)
 {
-  linemap_add (line_table, LC_ENTER, false, main_input_filename, 1);
-  location_t loc = linemap_line_start (line_table, 1, 0);
-  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
-  tree tu = build_decl (loc, TRANSLATION_UNIT_DECL,
+  tree tu = build_decl (UNKNOWN_LOCATION, TRANSLATION_UNIT_DECL,
 			name, NULL_TREE);
   TRANSLATION_UNIT_LANGUAGE (tu) = lang_hooks.name;
   vec_safe_push (all_translation_units, tu);
@@ -5908,7 +5905,7 @@ find_decls_types_in_var (varpool_node *v, struct free_lang_data_d *fld)
 /* If T needs an assembler name, have one created for it.  */
 
 void
-assign_assembler_name_if_neeeded (tree t)
+assign_assembler_name_if_needed (tree t)
 {
   if (need_assembler_name_p (t))
     {
@@ -5975,7 +5972,7 @@ free_lang_data_in_cgraph (void)
      now because free_lang_data_in_decl will invalidate data needed
      for mangling.  This breaks mangling on interdependent decls.  */
   FOR_EACH_VEC_ELT (fld.decls, i, t)
-    assign_assembler_name_if_neeeded (t);
+    assign_assembler_name_if_needed (t);
 
   /* Traverse every decl found freeing its language data.  */
   FOR_EACH_VEC_ELT (fld.decls, i, t)

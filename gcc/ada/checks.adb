@@ -826,10 +826,10 @@ package body Checks is
    -- Apply_Arithmetic_Overflow_Strict --
    --------------------------------------
 
-   --  This routine is called only if the type is an integer type, and a
-   --  software arithmetic overflow check may be needed for op (add, subtract,
-   --  or multiply). This check is performed only if Software_Overflow_Checking
-   --  is enabled and Do_Overflow_Check is set. In this case we expand the
+   --  This routine is called only if the type is an integer type and an
+   --  arithmetic overflow check may be needed for op (add, subtract, or
+   --  multiply). This check is performed if Backend_Overflow_Checks_On_Target
+   --  is not enabled and Do_Overflow_Check is set. In this case we expand the
    --  operation into a more complex sequence of tests that ensures that
    --  overflow is properly caught.
 
@@ -2360,6 +2360,9 @@ package body Checks is
                  and then not Is_Elementary_Type (Etype (Orig_Act_2))
                  and then May_Cause_Aliasing (Formal_1, Formal_2)
                then
+                  Remove_Side_Effects (Actual_1);
+                  Remove_Side_Effects (Actual_2);
+
                   Overlap_Check
                     (Actual_1 => Actual_1,
                      Actual_2 => Actual_2,
@@ -7206,12 +7209,18 @@ package body Checks is
             Force_Evaluation (Exp, Name_Req => False);
          end if;
 
-         --  Build the prefix for the 'Valid call
+         --  Build the prefix for the 'Valid call. If the expression denotes
+         --  a name, use a renaming to alias it, otherwise use a constant to
+         --  capture the value of the expression.
+
+         --    Temp : ... renames Expr;      --  reference to a name
+         --    Temp : constant ... := Expr;  --  all other cases
 
          PV :=
            Duplicate_Subexpr_No_Checks
              (Exp           => Exp,
               Name_Req      => False,
+              Renaming_Req  => Is_Name_Reference (Exp),
               Related_Id    => Related_Id,
               Is_Low_Bound  => Is_Low_Bound,
               Is_High_Bound => Is_High_Bound);

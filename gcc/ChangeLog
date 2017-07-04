@@ -1,3 +1,360 @@
+2017-01-24  Pekka Jääskeläinen <pekka@parmance.com>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* brig-builtins.def: New file.
+	* builtins.def (DEF_HSAIL_BUILTIN): New macro.
+	(DEF_HSAIL_ATOMIC_BUILTIN): Likewise.
+	(DEF_HSAIL_SAT_BUILTIN): Likewise.
+	(DEF_HSAIL_INTR_BUILTIN): Likewise.
+	(DEF_HSAIL_CVT_ZEROI_SAT_BUILTIN): Likewise.
+	* builtin-types.def (BT_INT8): New.
+	(BT_INT16): Likewise.
+	(BT_UINT8): Likewise.
+	(BT_UINT16): Likewise.
+	(BT_FN_ULONG): Likewise.
+	(BT_FN_UINT_INT): Likewise.
+	(BT_FN_UINT_ULONG): Likewise.
+	(BT_FN_UINT_LONG): Likewise.
+	(BT_FN_UINT_PTR): Likewise.
+	(BT_FN_ULONG_PTR): Likewise.
+	(BT_FN_INT8_FLOAT): Likewise.
+	(BT_FN_INT16_FLOAT): Likewise.
+	(BT_FN_UINT32_FLOAT): Likewise.
+	(BT_FN_UINT16_FLOAT): Likewise.
+	(BT_FN_UINT8_FLOAT): Likewise.
+	(BT_FN_UINT64_FLOAT): Likewise.
+	(BT_FN_UINT16_UINT32): Likewise.
+	(BT_FN_UINT32_UINT16): Likewise.
+	(BT_FN_UINT16_UINT16_UINT16): Likewise.
+	(BT_FN_INT_PTR_INT): Likewise.
+	(BT_FN_UINT_PTR_UINT): Likewise.
+	(BT_FN_LONG_PTR_LONG): Likewise.
+	(BT_FN_ULONG_PTR_ULONG): Likewise.
+	(BT_FN_VOID_UINT64_UINT64): Likewise.
+	(BT_FN_UINT8_UINT8_UINT8): Likewise.
+	(BT_FN_INT8_INT8_INT8): Likewise.
+	(BT_FN_INT16_INT16_INT16): Likewise.
+	(BT_FN_INT_INT_INT): Likewise.
+	(BT_FN_UINT_FLOAT_UINT): Likewise.
+	(BT_FN_FLOAT_UINT_UINT): Likewise.
+	(BT_FN_ULONG_UINT_UINT): Likewise.
+	(BT_FN_ULONG_UINT_PTR): Likewise.
+	(BT_FN_ULONG_ULONG_ULONG): Likewise.
+	(BT_FN_UINT_UINT_UINT): Likewise.
+	(BT_FN_VOID_UINT_PTR): Likewise.
+	(BT_FN_UINT_UINT_PTR: Likewise.
+	(BT_FN_UINT32_UINT64_PTR): Likewise.
+	(BT_FN_INT_INT_UINT_UINT): Likewise.
+	(BT_FN_UINT_UINT_UINT_UINT): Likewise.
+	(BT_FN_UINT_UINT_UINT_PTR): Likewise.
+	(BT_FN_UINT_ULONG_ULONG_UINT): Likewise.
+	(BT_FN_ULONG_ULONG_ULONG_ULONG): Likewise.
+	(BT_FN_LONG_LONG_UINT_UINT): Likewise.
+	(BT_FN_ULONG_ULONG_UINT_UINT): Likewise.
+	(BT_FN_VOID_UINT32_UINT64_PTR): Likewise.
+	(BT_FN_VOID_UINT32_UINT32_PTR): Likewise.
+	(BT_FN_UINT_UINT_UINT_UINT_UINT): Likewise.
+	(BT_FN_UINT_FLOAT_FLOAT_FLOAT_FLOAT): Likewise.
+	(BT_FN_ULONG_ULONG_ULONG_UINT_UINT): Likewise.
+	* doc/frontends.texi: List BRIG FE.
+	* doc/install.texi (Testing): Add BRIG tesring requirements.
+	* doc/invoke.texi (Overall Options): Mention BRIG.
+	* doc/standards.texi (Standards): Doucment BRIG HSA version.
+
+2017-01-24  Richard Biener  <rguenther@suse.de>
+
+	PR translation/79208
+	* ipa-devirt.c (odr_types_equivalent_p): Fix typo in diagnostic.
+
+2017-01-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR bootstrap/79198
+	* ipa-prop.c (ipa_free_all_node_params): Call summary destructor.
+	* ipa-prop.c (ipa_node_params_t::insert): Initialize fields known_csts
+	and known_contexts.
+
+2017-01-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/79123
+	* gimple-ssa-warn-alloca.c (alloca_call_type): Make sure
+	casts from signed to unsigned really don't have a range.
+
+2017-01-24  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* gimple-ssa-sprintf.c (format_floating): Change MPFR_RNDx to
+	GMP_RNDx for compatiblity.
+
+2017-01-24  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/79132
+	* tree-ssa-reassoc.c (rewrite_expr_tree_parallel): Insert assert
+	that would prevent us to call alloca with -1 as argument.
+
+2017-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (output_compilation_unit_header, output_file_names):
+	Avoid -Wformat-security warning.
+
+2017-01-23  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (thunderx2t99_addrcost_table): Improve
+	cost table.
+
+2017-01-23  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78703
+	* gimple-ssa-sprintf.c (warn_level): New global.
+	(format_integer): Use it here and throughout the rest of the file.
+	Use the same switch to compute sign as base.
+	(maybe_warn): New function.
+	(format_directive): Factor out warnings into maybe_warn.
+	Add debugging output.  Use warn_level.
+	(add_bytes): Use warn_level.
+	(pass_sprintf_length::compute_format_length): Add debugging output.
+	(try_substitute_return_value): Same.
+	(pass_sprintf_length::handle_gimple_call): Set and use warn_level.
+
+	PR middle-end/78703
+	* gimple-ssa-sprintf.c (struct format_result): Remove constant member.
+	(struct fmtresult, format_integer, format_floating): Adjust.
+	(fmtresult::fmtresult): Set max correctly in two argument ctor.
+	(get_string_length, format_string,format_directive): Same.
+	(pass_sprintf_length::compute_format_length): Same.
+	(try_substitute_return_value): Simplify slightly.
+
+	PR middle-end/78703
+	* gimple-ssa-sprintf.c (pass_sprintf_length::gate): Adjust formatting.
+	(fmtresult::operator+=): Outlined.
+	(struct fmtresult): Add ctors.
+	(struct conversion_spec): Rename...
+	(struct directive): ...to this.  Add and remove data members.
+	(directive::set_width, directive::set_precision): New functions.
+	(format_percent): Use fmtresult ctor.
+	(get_width_and_precision): Remove.
+	(format_integer): Make naming changes.  Avoid computing width and
+	precision.
+	(format_floating): Same.  Adjust indentation.
+	(format_character, format_none): New functions.
+	(format_string): Moved character handling to format_character.
+	(format_directive): Remove arguments, change return type.
+	(parse_directive): New function.
+	(pass_sprintf_length::compute_format_length): Move directive
+	parsing to parse_directive.
+
+2017-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (assign_assembler_name_if_neeeded): Rename to ...
+	(assign_assembler_name_if_needed): ... this.
+	* tree.c (assign_assembler_name_if_neeeded): Rename to ...
+	(assign_assembler_name_if_needed): ... this.
+	(free_lang_data_in_cgraph): Adjust callers.
+	* cgraphunit.c (cgraph_node::analyze): Likewise.
+	* omp-expand.c (expand_omp_taskreg, expand_omp_target):
+	Likewise.
+
+2017-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79088
+	PR tree-optimization/79188
+	* tree-ssa-threadupdate.c (mark_threaded_blocks): Move code
+	resetting loop bounds after last path deletion.  Reset loop
+	bounds of the target loop, make code match the comments.
+	* tree-ssa-threadbackwards.c (pass_early_thread_jumps::execute):
+	Make sure loops need no fixups.
+
+2017-01-23  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000-builtin.def (VSIEDPF): Add scalar insert
+	exponent support with double type for first argument.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Changed
+	type returned by __builtin_vec_extract_sig,
+	__builtin_vec_extract_sig_sp, and __builtin_vec_extract_sig_dp
+	functions from "vector int" to "vector unsigned int" or from
+	"vector long long int" to "vector unsigned long long int".
+	Changed type returned by __builtin_vec_extract_exp,
+	__builtin_vec_extract_exp_sp, and __builtin_vec_extract_exp_dp
+	functions from "vector int" to "vector unsigned int" or from
+	"vector long long int" to "vector unsigned long long int".
+	Changed return type of __builtin_vec_test_data_class,
+	__builtin_vec_test_data_class_sp, and
+	__builtin_vec_test_data_class_dp from "vector int" to
+	"vector bool int" or from "vector long long int" to "vector bool
+	long long int" and changed second argument type from "unsigned
+	int" to "int".  Added new overloaded function forms "vector float
+	__builtin_vec_insert_exp (vector float, vector unsigned int)" and
+	"vector float __builtin_vec_insert_exp_sp (vector float, vector
+	unsigned int)" and "vector double __builtin_vec_insert_exp (vector
+	double, vector unsigned long long int)" and "vector double
+	__builtin_vec_insert_exp_dp (vector double, vector unsigned long
+	long int)".  Changed return type of
+	__builtin_scalar_test_data_class and
+	__builtin_scalar_test_data_class_sp and
+	__builtin_scalar_test_data_class_dp from "unsigned int" to "bool
+	int" and changed second argument from "unsigned int" to "int".
+	Changed type returned by __builtin_scalar_test_neg,
+	__builtin_scalar_test_neg_sp, and __builtin_scalar_test_neg_dp
+	from "int" to "bool int".  Added new overloaded function form
+	"double __builtin_scalar_insert_exp (double, unsigned long long int)".
+	* config/rs6000/vsx.md (xsiexpdpf): New insn for scalar insert
+	exponent double-precision with floating point first argument.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Adjust
+	documentation of scalar_test_data_class, scalar_test_neg,
+	scalar_extract_sig, scalar_extract_exp, scalar_insert_exp,
+	vector_extract_exp, vec_extract_sig, vec_insert_exp, and
+	vec_test_data_class built-in functions to reflect refinements in
+	their type signatures.
+
+2017-01-23  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/aarch64/aarch64.c (aarch64_elf_asm_constructor): Increase
+	size of buf.
+	(aarch64_elf_asm_destructor): Likewise.
+
+2017-01-23  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/78634
+	* config/i386/i386.c (ix86_max_noce_ifcvt_seq_cost): New function.
+	(TARGET_MAX_NOCE_IFCVT_SEQ_COST): Define.
+	* ifcvt.c (noce_try_cmove): Add missing cost check.
+
+	PR rtl-optimization/71724
+	* combine.c (if_then_else_cond): Look for situations where it is
+	beneficial to undo the work of one of the recursive calls.
+
+2017-01-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/70754
+	* tree-predcom.c (stmt_combining_refs): New parameter INSERT_BEFORE.
+	(reassociate_to_the_same_stmt): New parameter INSERT_BEFORE.  Insert
+	combined stmt before it if not NULL.
+	(combine_chains): Process refs reversely and compute dominance point
+	for root ref.
+
+2017-01-23  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/79196
+	* tree-ssa-strlen.c (fold_strstr_to_memcmp): Rename to ...
+	(fold_strstr_to_strncmp): ... this.  Fold the pattern to strncmp
+	instead of memcmp.
+	(strlen_optimize_stmt): Call the renamed function.
+
+2017-01-23  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/78384
+	* tree-ssa-loop-split.c (patch_loop_exit): Use correct edge.
+
+2017-01-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79186
+	* tree-vrp.c (register_new_assert_for): Make sure we've seen
+	both incoming edges before moving an assert.
+
+2017-01-23  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (load_from_param_1): Removed.
+	(load_from_unmodified_param): Bits from load_from_param_1 put back
+	here.
+	(load_from_param): Removed.
+	(compute_complex_assign_jump_func): Removed stmt2 and just replaced it
+	with stmt.  Reverted back to use of load_from_unmodified_param.
+
+2017-01-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/79108
+	* ipa-prop.h (ipa_param_descriptor): Anotate with with GTY(()).
+	(ipa_node_params): Annotate with GTY((for_user)).  Make descriptors
+	field a pointer to garbage collected vector, mark lattices and
+	ipcp_orig_node with GTY((skip)).
+	(ipa_get_param_count): Adjust to descriptors being a pointer.
+	(ipa_get_param): Likewise.
+	(ipa_get_type): Likewise.
+	(ipa_get_param_move_cost): Likewise.
+	(ipa_set_param_used): Likewise.
+	(ipa_get_controlled_uses): Likewise.
+	(ipa_set_controlled_uses): Likewise.
+	(ipa_is_param_used): Likewise.
+	(ipa_node_params_t): Move into garbage collector.  New methods insert
+	and remove.
+	(ipa_node_params_sum): Annotate wth GTY(()).
+	(ipa_check_create_node_params): Adjust to ipa_node_params_sum being
+	garbage collected.
+	(ipa_load_from_parm_agg): Adjust declaration.
+	* ipa-icf.c (param_used_p): Adjust to descriptors being a pointer.
+	* ipa-profile.c (ipa_profile): Likewise.
+	* ipa-prop.c (ipa_get_param_decl_index_1): Likewise.
+	(ipa_populate_param_decls): Make descriptors parameter garbage
+	collected.
+	(ipa_dump_param): Adjust to descriptors being a pointer.
+	(ipa_alloc_node_params): Likewise.
+	(ipa_initialize_node_params): Likewise.
+	(load_from_param_1): Make descriptors parameter garbage collected.
+	(load_from_unmodified_param): Likewise.
+	(load_from_param): Likewise.
+	(ipa_load_from_parm_agg): Likewise.
+	(ipa_node_params::~ipa_node_params): Removed.
+	(ipa_free_all_node_params): Remove call to delete operator.
+	(ipa_node_params_t::insert): New.
+	(ipa_node_params_t::remove): Likewise.
+	(ipa_node_params_t::duplicate): Adjust to descriptors being a pointer,
+	copy known_csts and known_contexts vectors.
+	(ipa_read_node_info): Adjust to descriptors being a pointer.
+	(ipcp_modif_dom_walker): Make m_descriptors field garbage
+	collected.
+	(ipcp_transform_function): Make descriptors variable garbage
+	collected.
+
+2017-01-23  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* config/i386/avx512bwintrin.h: Add k-mask test, kortest intrinsics.
+	* config/i386/avx512dqintrin.h: Ditto.
+	* config/i386/avx512fintrin.h: Ditto.
+	* gcc/config/i386/i386.c: Handle new builtins.
+	* config/i386/i386-builtin.def: Add new builtins.
+	* config/i386/sse.md (ktest<mode>, kortest<mode>): New.
+	(UNSPEC_KORTEST, UNSPEC_KTEST): New.
+
+2017-01-23  Jakub Jelinek  <jakub@redhat.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	* asan.h: Define ASAN_USE_AFTER_SCOPE_ATTRIBUTE.
+	* asan.c (asan_expand_poison_ifn): Support stores and use
+	appropriate ASAN report function.
+	* internal-fn.c (expand_ASAN_POISON_USE): New function.
+	* internal-fn.def (ASAN_POISON_USE): Declare.
+	* tree-into-ssa.c (maybe_add_asan_poison_write): New function.
+	(maybe_register_def): Create ASAN_POISON_USE when sanitizing.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Remove
+	ASAN_POISON calls w/o LHS.
+	* tree-ssa.c (execute_update_addresses_taken): Create clobber
+	for ASAN_MARK (UNPOISON, &x, ...) in order to prevent usage of a LHS
+	from ASAN_MARK (POISON, &x, ...) coming to a PHI node.
+	* gimplify.c (asan_poison_variables): Add attribute
+	use_after_scope_memory to variables that really needs to live
+	in memory.
+	* tree-ssa.c (is_asan_mark_p): Do not rewrite into SSA when
+	having the attribute.
+
+2017-01-23  Martin Liska  <mliska@suse.cz>
+
+	* asan.c (create_asan_shadow_var): New function.
+	(asan_expand_poison_ifn): Likewise.
+	* asan.h (asan_expand_poison_ifn): New declaration.
+	* internal-fn.c (expand_ASAN_POISON): Likewise.
+	* internal-fn.def (ASAN_POISON): New builtin.
+	* sanopt.c (pass_sanopt::execute): Expand
+	asan_expand_poison_ifn.
+	* tree-inline.c (copy_decl_for_dup_finish): Make function
+	external.
+	* tree-inline.h (copy_decl_for_dup_finish): Likewise.
+	* tree-ssa.c (is_asan_mark_p): New function.
+	(execute_update_addresses_taken): Rewrite local variables
+	(identified just by use-after-scope as addressable) into SSA.
+
+2017-01-22  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Specific): opensource.apple.com uses https
+	now. Remove trailing slash.
+
 2017-01-22  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* README.Portability: Remove note on an Irix compatibility issue.
@@ -7,7 +364,7 @@
 	* gcov.c (INCLUDE_ALGORITHM): Define.
 	(INCLUDE_VECTOR): Define.
 	No longer include <vector> and <algorithm> directly.
-	
+
 2017-01-21  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/extend.texi (Thread-Local): Change www.akkadia.org reference
@@ -395,15 +752,6 @@
 	* config/aarch64/aarch64.c (aarch64_sched_adjust_priority)
 	New function.
 	(TARGET_SCHED_ADJUST_PRIORITY): Define target hook.
-
-2017-01-18  Maxim Ostapenko  <m.ostapenko@samsung.com>
-
-	PR lto/79061
-	* asan.c (get_translation_unit_decl): New function.
-	(asan_add_global): Extract modules file name from globals
-	TRANSLATION_UNIT_DECL in lto mode.
-	* tree.c (build_translation_unit_decl): Add source location for newly
-	built TRANSLATION_UNIT_DECL.
 
 2017-01-18  Matthias Klose  <doko@ubuntu.com>
 

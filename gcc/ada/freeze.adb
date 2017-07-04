@@ -1332,8 +1332,6 @@ package body Freeze is
    -------------------------------
 
    procedure Check_Expression_Function (N : Node_Id; Nam : Entity_Id) is
-      Decl : Node_Id;
-
       function Find_Constant (Nod : Node_Id) return Traverse_Result;
       --  Function to search for deferred constant
 
@@ -1356,6 +1354,7 @@ package body Freeze is
                                                          N_Object_Declaration
            and then not Is_Imported (Entity (Nod))
            and then not Has_Completion (Entity (Nod))
+           and then not Is_Frozen (Entity (Nod))
          then
             Error_Msg_NE
               ("premature use of& in call or instance", N, Entity (Nod));
@@ -1374,6 +1373,10 @@ package body Freeze is
       end Find_Constant;
 
       procedure Check_Deferred is new Traverse_Proc (Find_Constant);
+
+      --  Local variables
+
+      Decl : Node_Id;
 
    --  Start of processing for Check_Expression_Function
 
@@ -4261,10 +4264,14 @@ package body Freeze is
                  ("\??since no component clauses were specified", ADC);
 
             --  Here is where we do the processing to adjust component clauses
-            --  for reversed bit order, when not using reverse SSO.
+            --  for reversed bit order, when not using reverse SSO. If an error
+            --  has been reported on Rec already (such as SSO incompatible with
+            --  bit order), don't bother adjusting as this may generate extra
+            --  noise.
 
             elsif Reverse_Bit_Order (Rec)
               and then not Reverse_Storage_Order (Rec)
+              and then not Error_Posted (Rec)
             then
                Adjust_Record_For_Reverse_Bit_Order (Rec);
 
@@ -7945,8 +7952,61 @@ package body Freeze is
    -----------------------
 
    procedure Freeze_Subprogram (E : Entity_Id) is
-      Retype : Entity_Id;
+      procedure Set_Profile_Convention (Subp_Id : Entity_Id);
+      --  Set the conventions of all anonymous access-to-subprogram formals and
+      --  result subtype of subprogram Subp_Id to the convention of Subp_Id.
+
+      ----------------------------
+      -- Set_Profile_Convention --
+      ----------------------------
+
+      procedure Set_Profile_Convention (Subp_Id : Entity_Id) is
+         Conv : constant Convention_Id := Convention (Subp_Id);
+
+         procedure Set_Type_Convention (Typ : Entity_Id);
+         --  Set the convention of anonymous access-to-subprogram type Typ and
+         --  its designated type to Conv.
+
+         -------------------------
+         -- Set_Type_Convention --
+         -------------------------
+
+         procedure Set_Type_Convention (Typ : Entity_Id) is
+         begin
+            --  Set the convention on both the anonymous access-to-subprogram
+            --  type and the subprogram type it points to because both types
+            --  participate in conformance-related checks.
+
+            if Ekind (Typ) = E_Anonymous_Access_Subprogram_Type then
+               Set_Convention (Typ, Conv);
+               Set_Convention (Designated_Type (Typ), Conv);
+            end if;
+         end Set_Type_Convention;
+
+         --  Local variables
+
+         Formal : Entity_Id;
+
+      --  Start of processing for Set_Profile_Convention
+
+      begin
+         Formal := First_Formal (Subp_Id);
+         while Present (Formal) loop
+            Set_Type_Convention (Etype (Formal));
+            Next_Formal (Formal);
+         end loop;
+
+         if Ekind (Subp_Id) = E_Function then
+            Set_Type_Convention (Etype (Subp_Id));
+         end if;
+      end Set_Profile_Convention;
+
+      --  Local variables
+
       F      : Entity_Id;
+      Retype : Entity_Id;
+
+   --  Start of processing for Freeze_Subprogram
 
    begin
       --  Subprogram may not have an address clause unless it is imported
@@ -7954,8 +8014,7 @@ package body Freeze is
       if Present (Address_Clause (E)) then
          if not Is_Imported (E) then
             Error_Msg_N
-              ("address clause can only be given " &
-               "for imported subprogram",
+              ("address clause can only be given for imported subprogram",
                Name (Address_Clause (E)));
          end if;
       end if;
@@ -7986,8 +8045,8 @@ package body Freeze is
       --  referenced data may change even if the address value does not.
 
       --  Note that if the programmer gave an explicit Pure_Function pragma,
-      --  then we believe the programmer, and leave the subprogram Pure.
-      --  We also suppress this check on run-time files.
+      --  then we believe the programmer, and leave the subprogram Pure. We
+      --  also suppress this check on run-time files.
 
       if Is_Pure (E)
         and then Is_Subprogram (E)
@@ -7995,6 +8054,20 @@ package body Freeze is
         and then not Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit))
       then
          Check_Function_With_Address_Parameter (E);
+      end if;
+
+      --  Ensure that all anonymous access-to-subprogram types inherit the
+      --  convention of their related subprogram (RM 6.3.1 13.1/3). This is
+      --  not done for a defaulted convention Ada because those types also
+      --  default to Ada. Convention Protected must not be propagated when
+      --  the subprogram is an entry because this would be illegal. The only
+      --  way to force convention Protected on these kinds of types is to
+      --  include keyword "protected" in the access definition.
+
+      if Convention (E) /= Convention_Ada
+        and then Convention (E) /= Convention_Protected
+      then
+         Set_Profile_Convention (E);
       end if;
 
       --  For non-foreign convention subprograms, this is where we create

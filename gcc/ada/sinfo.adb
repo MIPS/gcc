@@ -466,6 +466,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Aggregate
+        or else NT (N).Nkind = N_Delta_Aggregate
         or else NT (N).Nkind = N_Extension_Aggregate);
       return List2 (N);
    end Component_Associations;
@@ -1265,6 +1266,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Component_Declaration
         or else NT (N).Nkind = N_Delay_Relative_Statement
         or else NT (N).Nkind = N_Delay_Until_Statement
+        or else NT (N).Nkind = N_Delta_Aggregate
         or else NT (N).Nkind = N_Discriminant_Association
         or else NT (N).Nkind = N_Discriminant_Specification
         or else NT (N).Nkind = N_Exception_Declaration
@@ -1605,6 +1607,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Task_Definition);
       return Flag5 (N);
    end Has_Storage_Size_Pragma;
+
+   function Has_Target_Names
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Assignment_Statement);
+      return Flag8 (N);
+   end Has_Target_Names;
 
    function Has_Wide_Character
       (N : Node_Id) return Boolean is
@@ -3767,6 +3777,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Aggregate
+        or else NT (N).Nkind = N_Delta_Aggregate
         or else NT (N).Nkind = N_Extension_Aggregate);
       Set_List2_With_Parent (N, Val);
    end Set_Component_Associations;
@@ -4557,6 +4568,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Component_Declaration
         or else NT (N).Nkind = N_Delay_Relative_Statement
         or else NT (N).Nkind = N_Delay_Until_Statement
+        or else NT (N).Nkind = N_Delta_Aggregate
         or else NT (N).Nkind = N_Discriminant_Association
         or else NT (N).Nkind = N_Discriminant_Specification
         or else NT (N).Nkind = N_Exception_Declaration
@@ -4897,6 +4909,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Task_Definition);
       Set_Flag5 (N, Val);
    end Set_Has_Storage_Size_Pragma;
+
+   procedure Set_Has_Target_Names
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Assignment_Statement);
+      Set_Flag8 (N, Val);
+   end Set_Has_Target_Names;
 
    procedure Set_Has_Wide_Character
       (N : Node_Id; Val : Boolean := True) is

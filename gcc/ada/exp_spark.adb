@@ -24,6 +24,7 @@
 ------------------------------------------------------------------------------
 
 with Atree;    use Atree;
+with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Exp_Ch5;  use Exp_Ch5;
 with Exp_Dbug; use Exp_Dbug;
@@ -32,11 +33,14 @@ with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Rtsfind;  use Rtsfind;
+with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Snames;   use Snames;
+with Stand;    use Stand;
 with Tbuild;   use Tbuild;
+with Uintp;    use Uintp;
 
 package body Exp_SPARK is
 
@@ -148,6 +152,77 @@ package body Exp_SPARK is
                New_Occurrence_Of (RTE (RE_To_Address), Loc),
              Parameter_Associations => New_List (Expr)));
          Analyze_And_Resolve (N, Typ);
+
+      --  For attributes which return Universal_Integer, introduce a conversion
+      --  to the expected type with the appropriate check flags set.
+
+      elsif Attr_Id = Attribute_Alignment
+        or else Attr_Id = Attribute_Bit
+        or else Attr_Id = Attribute_Bit_Position
+        or else Attr_Id = Attribute_Descriptor_Size
+        or else Attr_Id = Attribute_First_Bit
+        or else Attr_Id = Attribute_Last_Bit
+        or else Attr_Id = Attribute_Length
+        or else Attr_Id = Attribute_Max_Size_In_Storage_Elements
+        or else Attr_Id = Attribute_Pos
+        or else Attr_Id = Attribute_Position
+        or else Attr_Id = Attribute_Range_Length
+        or else Attr_Id = Attribute_Object_Size
+        or else Attr_Id = Attribute_Size
+        or else Attr_Id = Attribute_Value_Size
+        or else Attr_Id = Attribute_VADS_Size
+        or else Attr_Id = Attribute_Aft
+        or else Attr_Id = Attribute_Max_Alignment_For_Allocation
+      then
+         --  If the expected type is Long_Long_Integer, there will be no check
+         --  flag as the compiler assumes attributes always fit in this type.
+         --  Since in SPARK_Mode we do not take Storage_Error into account, we
+         --  cannot make this assumption and need to produce a check.
+         --  ??? It should be enough to add this check for attributes 'Length
+         --  and 'Range_Length when the type is as big as Long_Long_Integer.
+
+         declare
+            Typ : Entity_Id := Empty;
+         begin
+            if Attr_Id = Attribute_Range_Length then
+               Typ := Etype (Prefix (N));
+
+            elsif Attr_Id = Attribute_Length then
+               Typ := Etype (Prefix (N));
+
+               declare
+                  Indx : Node_Id;
+                  J    : Int;
+
+               begin
+                  if Is_Access_Type (Typ) then
+                     Typ := Designated_Type (Typ);
+                  end if;
+
+                  if No (Expressions (N)) then
+                     J := 1;
+                  else
+                     J := UI_To_Int (Expr_Value (First (Expressions (N))));
+                  end if;
+
+                  Indx := First_Index (Typ);
+                  while J > 1 loop
+                     Next_Index (Indx);
+                     J := J - 1;
+                  end loop;
+
+                  Typ := Etype (Indx);
+               end;
+            end if;
+
+            Apply_Universal_Integer_Attribute_Checks (N);
+
+            if Present (Typ)
+              and then RM_Size (Typ) = RM_Size (Standard_Long_Long_Integer)
+            then
+               Set_Do_Overflow_Check (N);
+            end if;
+         end;
       end if;
    end Expand_SPARK_Attribute_Reference;
 

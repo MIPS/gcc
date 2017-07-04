@@ -716,6 +716,23 @@ package body Sem_Ch4 is
                then
                   null;
 
+               --  An unusual case arises when the parent of a derived type is
+               --  a limited record extension  with unknown discriminants, and
+               --  its full view has no discriminants.
+               --
+               --  A more general fix might be to create the proper underlying
+               --  type for such a derived type, but it is a record type with
+               --  no private attributes, so this required extending the
+               --  meaning of this attribute. ???
+
+               elsif Ekind (Etype (Type_Id)) = E_Record_Type_With_Private
+                 and then Present (Underlying_Type (Etype (Type_Id)))
+                 and then
+                   not Has_Discriminants (Underlying_Type (Etype (Type_Id)))
+                 and then not Comes_From_Source (Parent (N))
+               then
+                  null;
+
                elsif Is_Class_Wide_Type (Type_Id) then
                   Error_Msg_N
                     ("initialization required in class-wide allocation", N);
@@ -2390,15 +2407,19 @@ package body Sem_Ch4 is
             end if;
 
             if Is_Array_Type (Array_Type) then
-               null;
+
+               --  In order to correctly access First_Index component later,
+               --  replace string literal subtype by its parent type.
+
+               if Ekind (Array_Type) = E_String_Literal_Subtype then
+                  Array_Type := Etype (Array_Type);
+               end if;
 
             elsif Present (Pent) and then Ekind (Pent) = E_Entry_Family then
                Analyze (Exp);
                Set_Etype (N, Any_Type);
 
-               if not Has_Compatible_Type
-                 (Exp, Entry_Index_Type (Pent))
-               then
+               if not Has_Compatible_Type (Exp, Entry_Index_Type (Pent)) then
                   Error_Msg_N ("invalid index type in entry name", N);
 
                elsif Present (Next (Exp)) then
@@ -9270,12 +9291,20 @@ package body Sem_Ch4 is
                Typ := Corresponding_Record_Type (Typ);
             end if;
 
-            --  Simple case. Object may be a subtype of the tagged type or
-            --  may be the corresponding record of a synchronized type.
+            --  Simple case. Object may be a subtype of the tagged type or may
+            --  be the corresponding record of a synchronized type.
 
             return Obj_Type = Typ
               or else Base_Type (Obj_Type) = Typ
               or else Corr_Type = Typ
+
+              --  Object may be of a derived type whose parent has unknown
+              --  discriminants, in which case the type matches the underlying
+              --  record view of its base.
+
+              or else
+                (Has_Unknown_Discriminants (Typ)
+                  and then Typ = Underlying_Record_View (Base_Type (Obj_Type)))
 
                --  Prefix can be dereferenced
 
@@ -9283,8 +9312,8 @@ package body Sem_Ch4 is
                 (Is_Access_Type (Corr_Type)
                   and then Designated_Type (Corr_Type) = Typ)
 
-               --  Formal is an access parameter, for which the object
-               --  can provide an access.
+               --  Formal is an access parameter, for which the object can
+               --  provide an access.
 
               or else
                 (Ekind (Typ) = E_Anonymous_Access_Type

@@ -1,4 +1,4 @@
-------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
@@ -145,7 +145,7 @@ package body Ch4 is
    --  | INDEXED_COMPONENT  | SLICE
    --  | SELECTED_COMPONENT | ATTRIBUTE
    --  | TYPE_CONVERSION    | FUNCTION_CALL
-   --  | CHARACTER_LITERAL
+   --  | CHARACTER_LITERAL  | TARGET_NAME
 
    --  DIRECT_NAME ::= IDENTIFIER | OPERATOR_SYMBOL
 
@@ -180,6 +180,8 @@ package body Ch4 is
    --    [formal_parameter_SELECTOR_NAME =>] EXPLICIT_ACTUAL_PARAMETER
 
    --  EXPLICIT_ACTUAL_PARAMETER ::= EXPRESSION | variable_NAME
+
+   --  TARGET_NAME ::= @   (AI12-0125-3: abbreviation for LHS)
 
    --  Note: syntactically a procedure call looks just like a function call,
    --  so this routine is in practice used to scan out procedure calls as well.
@@ -229,6 +231,11 @@ package body Ch4 is
       end if;
 
       --  Loop through designators in qualified name
+      --  AI12-0125 : target_name
+
+      if Token = Tok_At_Sign then
+         Scan_Reserved_Identifier (Force_Msg => False);
+      end if;
 
       Name_Node := Token_Node;
 
@@ -1374,7 +1381,7 @@ package body Ch4 is
             Expr_Node := P_Expression_Or_Range_Attribute_If_OK;
          end if;
 
-         --  Extension aggregate
+         --  Extension or Delta aggregate
 
          if Token = Tok_With then
             if Nkind (Expr_Node) = N_Attribute_Reference
@@ -1388,9 +1395,18 @@ package body Ch4 is
                Error_Msg_SC ("(Ada 83) extension aggregate not allowed");
             end if;
 
-            Aggregate_Node := New_Node (N_Extension_Aggregate, Lparen_Sloc);
-            Set_Ancestor_Part (Aggregate_Node, Expr_Node);
             Scan; -- past WITH
+            if Token = Tok_Delta then
+               Scan; -- past DELTA
+               Aggregate_Node := New_Node (N_Delta_Aggregate, Lparen_Sloc);
+               Set_Expression (Aggregate_Node, Expr_Node);
+               Expr_Node := Empty;
+               goto Aggregate;
+
+            else
+               Aggregate_Node := New_Node (N_Extension_Aggregate, Lparen_Sloc);
+               Set_Ancestor_Part (Aggregate_Node, Expr_Node);
+            end if;
 
             --  Deal with WITH NULL RECORD case
 
@@ -1579,7 +1595,11 @@ package body Ch4 is
       --  All component associations (positional and named) have been scanned
 
       T_Right_Paren;
-      Set_Expressions (Aggregate_Node, Expr_List);
+
+      if Nkind (Aggregate_Node) /= N_Delta_Aggregate then
+         Set_Expressions (Aggregate_Node, Expr_List);
+      end if;
+
       Set_Component_Associations (Aggregate_Node, Assoc_List);
       return Aggregate_Node;
    end P_Aggregate_Or_Paren_Expr;
@@ -1615,6 +1635,10 @@ package body Ch4 is
       Assoc_Node : Node_Id;
 
    begin
+      if Token = Tok_For then
+         return P_Iterated_Component_Association;
+      end if;
+
       Assoc_Node := New_Node (N_Component_Association, Token_Ptr);
       Set_Choices (Assoc_Node, P_Discrete_Choice_List);
       Set_Sloc (Assoc_Node, Token_Ptr);
@@ -2325,9 +2349,9 @@ package body Ch4 is
       --  Come here at end of simple expression, where we do a couple of
       --  special checks to improve error recovery.
 
-      --  Special test to improve error recovery. If the current token
-      --  is a period, then someone is trying to do selection on something
-      --  that is not a name, e.g. a qualified expression.
+      --  Special test to improve error recovery. If the current token is a
+      --  period, then someone is trying to do selection on something that is
+      --  not a name, e.g. a qualified expression.
 
       if Token = Tok_Dot then
          Error_Msg_SC ("prefix for selection is not a name");
@@ -2790,6 +2814,15 @@ package body Ch4 is
             when Tok_Minus =>
                Error_Msg_SC ("parentheses required for unary minus");
                Scan; -- past minus
+
+            when Tok_At_Sign =>  --  AI12-0125 : target_name
+               if Ada_Version < Ada_2020 then
+                  Error_Msg_SC ("target name is an Ada 2020 extension");
+                  Error_Msg_SC ("\compile with -gnatX");
+               end if;
+
+               Node1 := P_Name;
+               return Node1;
 
             --  Anything else is illegal as the first token of a primary, but
             --  we test for some common errors, to improve error messages.
