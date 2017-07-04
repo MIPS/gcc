@@ -1,3 +1,28 @@
+2017-02-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/79344
+	* trans-stmt.c (gfc_trans_allocate): Only deallocate the components of
+	the temporary, when a new object was created for the temporary.  Not
+	when it is just an alias to an existing object.
+
+2017-02-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/79335
+	* trans-decl.c (generate_coarray_sym_init): Retrieve the symbol's
+	attributes before using them.
+
+2017-02-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78958
+	* trans-stmt.c (gfc_trans_allocate): Add the multiplying the _len
+	component of unlimited polymorphic objects when source-allocating.
+
+2017-02-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/79230
+	* trans-array.c (structure_alloc_comps): Ignore pointer components when
+	freeing structures.
+
 2017-01-25  Maxim Ostapenko  <m.ostapenko@samsung.com>
 
 	PR lto/79061
