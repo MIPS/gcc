@@ -1,3 +1,112 @@
+2017-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/asan/pr63316.c: Use dg-skip-if instead of dg-options.
+	* c-c++-common/asan/misalign-1.c: Likewise.
+	* c-c++-common/asan/misalign-2.c: Likewise.
+	* g++.dg/asan/pr69276.C: Add dg-skip-if, remove dg-additional-options.
+	* gcc.dg/asan/pr66314.c: Remove -Os from dg-options, add dg-skip-if.
+	* gcc.dg/asan/use-after-scope-3.c: Use dg-skip-if instead of dg-options.
+	* gcc.dg/asan/use-after-scope-9.c: Add dg-skip-if, remove -O2 and
+	add -ffat-lto-objects from/to dg-additional-options.
+	* gcc.dg/asan/use-after-scope-10.c: Add dg-skip-if, remove -O2 from
+	dg-additional-options.
+
+	PR target/79197
+	* gcc.target/powerpc/pr79197.c: New test.
+	* gcc.c-torture/compile/pr79197.c: New test.
+
+2017-02-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr71078-3.c: Do not rely on math.h.
+
+2017-02-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69637
+	* g++.dg/cpp0x/pr69637-1.C: New.
+	* g++.dg/cpp0x/pr69637-2.C: Likewise.
+
+2017-02-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/s390.exp: Rename __S390_VX__ to __VX__.
+
+2017-02-01  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70012
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-33.c: Adjust test
+	conditions.
+
+2017-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/79324
+	* gcc.dg/debug/dwarf2/align-1.c: Add -gno-strict-dwarf to dg-options.
+	* gcc.dg/debug/dwarf2/align-2.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-3.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-4.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-5.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-6.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-as-1.c: Likewise.
+	* g++.dg/debug/dwarf2/align-1.C: Likewise.
+	* g++.dg/debug/dwarf2/align-2.C: Likewise.
+	* g++.dg/debug/dwarf2/align-3.C: Likewise.
+	* g++.dg/debug/dwarf2/align-4.C: Likewise.
+	* g++.dg/debug/dwarf2/align-5.C: Likewise.
+	* g++.dg/debug/dwarf2/align-6.C: Likewise.
+
+2017-02-01  Martin Liska  <mliska@suse.cz>
+
+	PR testsuite/79272
+	* gcc.dg/ipa/pr77653.c: Add dg-require-alias to the test.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/76957
+	* gcc.dg/graphite/scop-dsyr2k-2.c: New testcase.
+	* gcc.dg/graphite/scop-dsyrk-2.c: Likewise.
+	* gcc.dg/graphite/scop-dsyr2k.c: XFAIL.
+	* gcc.dg/graphite/scop-dsyrk.c: Likewise.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79315
+	* gfortran.dg/pr79315.f90: New testcase.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* gcc.dg/graphite/pr71824.c: New testcase.
+
+2017-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79304
+	* g++.dg/diagnostic/pr79304.C: New test.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/79298
+	* g++.dg/spellcheck-pr79298.C: New test case.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/79210
+	* gcc.dg/format/pr79210.c: New test case.
+	* gcc.dg/plugin/diagnostic-test-string-literals-2.c (test_pr79210):
+	New function.
+
+2017-01-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79290
+	* g++.dg/warn/pr79290.C: New.
+
+	PR c++/67273
+	PR c++/79253
+	* g++.dg/cpp1y/pr67273.C: New.
+	* g++.dg/cpp1y/pr79253.C: New.
+
+2017-01-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79264
+	* g++.dg/cpp1y/pr61636-1.C: Augment.
+
 2017-01-31  Christophe Lyon  <christophe.lyon@linaro.org>
 
 	* gcc.dg/memcmp-1.c (static void test_driver_memcmp): Call

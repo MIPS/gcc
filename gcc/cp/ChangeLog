@@ -1,3 +1,48 @@
+2017-02-02  Richard Biener  <rguenther@suse.de>
+
+	PR cp/14179
+	* cp-gimplify.c (cp_fold): When folding a CONSTRUCTOR copy
+	it lazily on the first changed element only and copy it
+	fully upfront, only storing changed elements.
+
+2017-02-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69637
+	* decl2.c (grokbitfield): In case of error don't set-up DECL_INITIAL
+	to the width.
+
+2017-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79304
+	* error.c (dump_expr) <case COMPONENT_REF>: Don't print .
+	after ARROW_EXPR.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/79298
+	* name-lookup.c (suggest_alternative_in_explicit_scope): Resolve
+	any namespace aliases.
+
+2017-01-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79290
+	* typeck.c (build_ptrmemfunc_access_expr): Set TREE_NO_WARNING.
+
+	PR c++/67273
+	PR c++/79253
+	* pt.c: (instantiate_decl): Push to top level when current
+	function scope doesn't match.  Only push lmabda scope stack when
+	pushing to top.
+
+	* cp-tree.h (instantiate_decl): Make defer_ok bool.
+	* pt.c: Fix instantiate_decl calls to pass true/false not 0/1
+	(instantiate_decl): Simplify and reorder state saving and restoration.
+
+	PR c++/79264
+	* lambda.c (maybe_generic_this_capture): Deal with template-id-exprs.
+	* semantics.c (finish_member_declaration): Assert class is being
+	defined.
+
 2017-01-30  Alexandre Oliva <aoliva@redhat.com>
 
 	Introduce C++ support in libcc1.
