@@ -15049,7 +15049,6 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
       nc = copy_node (oc);
       OMP_CLAUSE_CHAIN (nc) = new_clauses;
       new_clauses = nc;
-      bool needs_ice = false;
 
       switch (OMP_CLAUSE_CODE (nc))
 	{
@@ -15079,16 +15078,11 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
 				      in_decl);
 	  break;
-	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_TILE:
-	  /* These clauses really need a positive integral constant
-	     expression, but we don't have a predicate for that
-	     (yet).  */
-	  needs_ice = true;
-	  /* FALLTHRU */
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
+	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
@@ -15109,8 +15103,8 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	  OMP_CLAUSE_OPERAND (nc, 0)
-	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, in_decl,
-			   /*integral_constant_expression_p=*/needs_ice);
+	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, 
+			   in_decl, /*integral_constant_expression_p=*/false);
 	  break;
 	case OMP_CLAUSE_REDUCTION:
 	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (oc))

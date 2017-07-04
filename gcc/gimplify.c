@@ -9729,23 +9729,13 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 						 (OMP_FOR_INIT (for_stmt))
 					       * 2);
     }
-  int collapse = 0;
-  /* Find the first of COLLAPSE or TILE.  */
-  for (c = OMP_FOR_CLAUSES (for_stmt); c; c = TREE_CHAIN (c))
-    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_COLLAPSE)
-      {
-	collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (c));
-	if (collapse == 1)
-	  /* Not really collapsing.  */
-	  collapse = 0;
-	break;
-      }
-    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TILE)
-      {
-	collapse = list_length (OMP_CLAUSE_TILE_LIST (c));
-	break;
-      }
-
+  int collapse = 1, tile = 0;
+  c = omp_find_clause (OMP_FOR_CLAUSES (for_stmt), OMP_CLAUSE_COLLAPSE);
+  if (c)
+    collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (c));
+  c = omp_find_clause (OMP_FOR_CLAUSES (for_stmt), OMP_CLAUSE_TILE);
+  if (c)
+    tile = list_length (OMP_CLAUSE_TILE_LIST (c));
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
@@ -10159,7 +10149,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  OMP_CLAUSE_LINEAR_STEP (c2) = OMP_CLAUSE_LINEAR_STEP (c);
 	}
 
-      if ((var != decl || collapse) && orig_for_stmt == for_stmt)
+      if ((var != decl || collapse > 1 || tile) && orig_for_stmt == for_stmt)
 	{
 	  for (c = OMP_FOR_CLAUSES (for_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
 	    if (((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
@@ -10169,7 +10159,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 		     && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c) == NULL))
 		&& OMP_CLAUSE_DECL (c) == decl)
 	      {
-		if (is_doacross && (!collapse || i >= collapse))
+		if (is_doacross && (collapse == 1 || i >= collapse))
 		  t = var;
 		else
 		  {

@@ -465,18 +465,18 @@ oacc_xform_loop (gcall *call)
 
 /* Transform a GOACC_TILE call.  Determines the element loop span for
    the specified loop of the nest.  This is 1 if we're not tiling.
-
+   
    GOACC_TILE (collapse_count, loop_no, tile_arg, gwv_tile, gwv_element);  */
 
 static void
 oacc_xform_tile (gcall *call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  unsigned collapse = (unsigned) TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+  unsigned collapse = tree_to_uhwi (gimple_call_arg (call, 0));
   /* Inner loops have higher loop_nos.  */
-  unsigned loop_no = (unsigned) TREE_INT_CST_LOW (gimple_call_arg (call, 1));
+  unsigned loop_no = tree_to_uhwi (gimple_call_arg (call, 1));
   tree tile_size = gimple_call_arg (call, 2);
-  unsigned e_mask = (unsigned) TREE_INT_CST_LOW (gimple_call_arg (call, 4));
+  unsigned e_mask = tree_to_uhwi (gimple_call_arg (call, 4));
   tree lhs = gimple_call_lhs (call);
   tree type = TREE_TYPE (lhs);
   gimple_seq seq = NULL;
@@ -486,11 +486,12 @@ oacc_xform_tile (gcall *call)
 		& ~(GOMP_DIM_MASK (GOMP_DIM_VECTOR)
 		    | GOMP_DIM_MASK (GOMP_DIM_WORKER))));
   push_gimplify_context (!seen_error ());
-  if (
+
 #ifndef ACCEL_COMPILER
-      1 ||
+  /* Partitioning disabled on host compilers.  */
+  e_mask = 0;
 #endif
-      !e_mask)
+  if (!e_mask)
     /* Not paritioning.  */
     span = integer_one_node;
   else if (!integer_zerop (tile_size))
@@ -1089,22 +1090,22 @@ oacc_loop_process (oacc_loop *loop)
       tree e_mask_arg = build_int_cst (unsigned_type_node, loop->e_mask);
       tree chunk_arg = loop->chunk_size;
       gcall *call;
-
+      
       for (ix = 0; loop->ifns.iterate (ix, &call); ix++)
 	switch (gimple_call_internal_fn (call))
 	  {
 	  case IFN_GOACC_LOOP:
 	    {
 	      bool is_e = gimple_call_arg (call, 5) == integer_minus_one_node;
-	      *gimple_call_arg_ptr (call, 5) = is_e ? e_mask_arg : mask_arg;
+	      gimple_call_set_arg (call, 5, is_e ? e_mask_arg : mask_arg);
 	      if (!is_e)
-		*gimple_call_arg_ptr (call, 4) = chunk_arg;
+		gimple_call_set_arg (call, 4, chunk_arg);
 	    }
 	    break;
 
 	  case IFN_GOACC_TILE:
-	    *gimple_call_arg_ptr (call, 3) = mask_arg;
-	    *gimple_call_arg_ptr (call, 4) = e_mask_arg;
+	    gimple_call_set_arg (call, 3, mask_arg);
+	    gimple_call_set_arg (call, 4, e_mask_arg);
 	    break;
 
 	  default:
@@ -1153,14 +1154,14 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
       bool auto_par = (loop->flags & OLF_AUTO) != 0;
       bool seq_par = (loop->flags & OLF_SEQ) != 0;
       bool tiling = (loop->flags & OLF_TILE) != 0;
-
+      
       this_mask = ((loop->flags >> OLF_DIM_BASE)
 		   & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1));
 
       /* Apply auto partitioning if this is a non-partitioned regular
 	 loop, or (no more than) single axis tiled loop.  */
-      bool maybe_auto = !seq_par
-	&& this_mask == (tiling ? this_mask & -this_mask : 0);
+      bool maybe_auto
+	= !seq_par && this_mask == (tiling ? this_mask & -this_mask : 0);
 
       if ((this_mask != 0) + auto_par + seq_par > 1)
 	{
@@ -1179,6 +1180,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 	      this_mask = 0;
 	    }
 	}
+
       if (maybe_auto && (loop->flags & OLF_INDEPENDENT))
 	{
 	  loop->flags |= OLF_AUTO;
@@ -1261,8 +1263,8 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 
   if (loop->child)
     {
-      loop->inner = oacc_loop_fixed_partitions
-	(loop->child, outer_mask | this_mask | loop->e_mask);
+      unsigned tmp_mask = outer_mask | this_mask | loop->e_mask;
+      loop->inner = oacc_loop_fixed_partitions (loop->child, tmp_mask);
       mask_all |= loop->inner;
     }
 
@@ -1301,7 +1303,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
       /* Find the first outermost available partition. */
       while (this_mask <= outer_mask)
 	this_mask <<= 1;
-
+      
       /* Grab two axes if tiling, and we've not assigned anything  */
       if (tiling && !(loop->mask | loop->e_mask))
 	this_mask |= this_mask << 1;
@@ -1324,9 +1326,11 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
     }
 
   if (loop->child)
-    loop->inner = oacc_loop_auto_partitions
-      (loop->child, outer_mask | loop->mask | loop->e_mask,
-       outer_assign | assign);
+    {
+      unsigned tmp_mask = outer_mask | loop->mask | loop->e_mask;
+      loop->inner = oacc_loop_auto_partitions (loop->child, tmp_mask,
+					       outer_assign | assign);
+    }
 
   if (assign && (!loop->mask || (tiling && !loop->e_mask) || !outer_assign))
     {
@@ -1342,6 +1346,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
 
       /* Pick the partitioning just inside that one.  */
       this_mask >>= 1;
+
       /* And avoid picking one use by an outer loop.  */
       this_mask &= ~outer_mask;
 
@@ -1582,7 +1587,7 @@ execute_oacc_device_lower ()
 	    oacc_xform_tile (call);
 	    rescan = true;
 	    break;
-
+	    
 	  case IFN_GOACC_LOOP:
 	    oacc_xform_loop (call);
 	    rescan = true;

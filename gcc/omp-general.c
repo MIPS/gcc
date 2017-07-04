@@ -135,7 +135,7 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   fd->pre = NULL;
   fd->have_nowait = distribute || simd;
   fd->have_ordered = false;
-  fd->tiling = NULL;
+  fd->tiling = NULL_TREE;
   fd->collapse = 1;
   fd->ordered = 0;
   fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
@@ -232,7 +232,9 @@ omp_extract_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   int cnt = fd->ordered ? fd->ordered : fd->collapse;
   for (i = 0; i < cnt; i++)
     {
-      if (i == 0 && fd->collapse == 1 && !fd->tiling
+      if (i == 0
+	  && fd->collapse == 1
+	  && !fd->tiling
 	  && (fd->ordered == 0 || loops == NULL))
 	loop = &fd->loop;
       else if (loops != NULL)

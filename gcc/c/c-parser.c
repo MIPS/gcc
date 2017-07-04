@@ -12109,7 +12109,6 @@ c_parser_oacc_clause_tile (c_parser *parser, tree list)
 	  expr = c_fully_fold (expr, false, NULL);
 
 	  if (!INTEGRAL_TYPE_P (TREE_TYPE (expr))
-	      || TREE_CODE (expr) != INTEGER_CST
 	      || !tree_fits_shwi_p (expr)
 	      || tree_to_shwi (expr) <= 0)
 	    {

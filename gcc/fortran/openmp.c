@@ -4979,6 +4979,8 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
     if (omp_clauses->wait_list)
       for (el = omp_clauses->wait_list; el; el = el->next)
 	resolve_scalar_int_expr (el->expr, "WAIT");
+  if (omp_clauses->collapse && omp_clauses->tile_list)
+    gfc_error ("Incompatible use of TILE and COLLAPSE at %L", &code->loc);
   if (omp_clauses->depend_source && code->op != EXEC_OMP_ORDERED)
     gfc_error ("SOURCE dependence type only allowed "
 	       "on ORDERED directive at %L", &code->loc);
@@ -4996,8 +4998,6 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	gfc_error ("%s must contain at least one MAP clause at %L",
 		   p, &code->loc);
     }
-  if (omp_clauses->collapse && omp_clauses->tile_list)
-    gfc_error ("Incompatible use of TILE and COLLAPSE at %L", &code->loc);
 }
 
 

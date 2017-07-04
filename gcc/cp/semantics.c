@@ -7115,12 +7115,12 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		      /* Zero is used to indicate '*', we permit you
 			 to get there via an ICE of value zero.  */
 		      t = maybe_constant_value (t);
-		      if (TREE_CODE (t) != INTEGER_CST
-			  || !tree_fits_shwi_p (t)
+		      if (!tree_fits_shwi_p (t)
 			  || tree_to_shwi (t) < 0)
 			{
 			  error_at (OMP_CLAUSE_LOCATION (c),
-				    "%<tile%> argument needs positive integral constant");
+				    "%<tile%> argument needs positive "
+				    "integral constant");
 			  remove = true;
 			}
 		    }
@@ -8026,7 +8026,9 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
   gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (incrv));
   if (TREE_VEC_LENGTH (declv) > 1)
     {
-      tree c = omp_find_clause (clauses, OMP_CLAUSE_TILE);
+      tree c;
+
+      c = omp_find_clause (clauses, OMP_CLAUSE_TILE);
       if (c)
 	collapse = list_length (OMP_CLAUSE_TILE_LIST (c));
       else

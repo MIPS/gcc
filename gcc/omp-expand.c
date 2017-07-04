@@ -1463,10 +1463,10 @@ expand_oacc_collapse_init (const struct omp_for_data *fd,
 	  tree num = build_int_cst (integer_type_node, fd->collapse);
 	  tree loop_no = build_int_cst (integer_type_node, ix);
 	  tree tile = TREE_VALUE (tiling);
-	  gcall *call = gimple_build_call_internal
-	    (IFN_GOACC_TILE, 5, num, loop_no, tile,
-	     /* gwv-outer=*/integer_zero_node,
-	     /* gwv-inner=*/integer_zero_node);
+	  gcall *call
+	    = gimple_build_call_internal (IFN_GOACC_TILE, 5, num, loop_no, tile,
+					  /* gwv-outer=*/integer_zero_node,
+					  /* gwv-inner=*/integer_zero_node);
 
 	  counts[ix].outer = create_tmp_var (iter_type, ".outer");
 	  counts[ix].tile = create_tmp_var (diff_type, ".tile");
@@ -5621,7 +5621,7 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
 	  expr = build2 (MIN_EXPR, diff_type,
 			 build2 (MINUS_EXPR, diff_type, bound, offset),
 			 build2 (MULT_EXPR, diff_type, tile_size,
-				  element_s));
+				 element_s));
 	  expr = force_gimple_operand_gsi (&gsi, expr, false, NULL_TREE,
 					   true, GSI_SAME_STMT);
 	  ass = gimple_build_assign (e_range, expr);
@@ -5633,29 +5633,26 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
 	  e_step = create_tmp_var (diff_type, ".e_step");
 
 	  /* Mark these as element loops.  */
-	  tree e_gwv = integer_minus_one_node;
+	  tree t, e_gwv = integer_minus_one_node;
 	  tree chunk = build_int_cst (diff_type, 0); /* Never chunked.  */
 
-	  call = gimple_build_call_internal
-	    (IFN_GOACC_LOOP, 7,
-	     build_int_cst (integer_type_node, IFN_GOACC_LOOP_OFFSET),
-	     dir, e_range, element_s, chunk, e_gwv, chunk);
+	  t = build_int_cst (integer_type_node, IFN_GOACC_LOOP_OFFSET);
+	  call = gimple_build_call_internal (IFN_GOACC_LOOP, 7, t, dir, e_range,
+					     element_s, chunk, e_gwv, chunk);
 	  gimple_call_set_lhs (call, e_offset);
 	  gimple_set_location (call, loc);
 	  gsi_insert_before (&gsi, call, GSI_SAME_STMT);
 
-	  call = gimple_build_call_internal
-	    (IFN_GOACC_LOOP, 7,
-	     build_int_cst (integer_type_node, IFN_GOACC_LOOP_BOUND),
-	     dir, e_range, element_s, chunk, e_gwv, e_offset);
+	  t = build_int_cst (integer_type_node, IFN_GOACC_LOOP_BOUND);
+	  call = gimple_build_call_internal (IFN_GOACC_LOOP, 7, t, dir, e_range,
+					     element_s, chunk, e_gwv, e_offset);
 	  gimple_call_set_lhs (call, e_bound);
 	  gimple_set_location (call, loc);
 	  gsi_insert_before (&gsi, call, GSI_SAME_STMT);
 
-	  call = gimple_build_call_internal
-	    (IFN_GOACC_LOOP, 6,
-	     build_int_cst (integer_type_node, IFN_GOACC_LOOP_STEP),
-	     dir, e_range, element_s, chunk, e_gwv);
+	  t = build_int_cst (integer_type_node, IFN_GOACC_LOOP_STEP);
+	  call = gimple_build_call_internal (IFN_GOACC_LOOP, 6, t, dir, e_range,
+					     element_s, chunk, e_gwv);
 	  gimple_call_set_lhs (call, e_step);
 	  gimple_set_location (call, loc);
 	  gsi_insert_before (&gsi, call, GSI_SAME_STMT);
