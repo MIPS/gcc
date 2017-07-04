@@ -1,3 +1,187 @@
+2017-02-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/78604
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Invert
+	condition/operands for integer GE/LE/GEU/LEU operations.
+
+2017-02-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR translation/79397
+	* config/rs6000/rs6000.opt (maltivec=le, maltivec=be): Fix spelling
+	of AltiVec.
+
+2017-02-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/79375
+	* ipa-prop.c (ipa_alloc_node_params): Make static, return bool
+	whether allocation happened.
+	(ipa_initialize_node_params): Do not call ipa_alloc_node_params if
+	nothing was allocated.
+
+2017-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79408
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): If op1 is not
+	constant, but SSA_NAME with a known integer range, use the minimum
+	of that range instead of op1 to determine if modulo can be replaced
+	with its first operand.
+
+2016-02-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/riscv/riscv.c (riscv_build_integer_1): Avoid use of INT16_MAX.
+
+2017-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* graphite-scop-detection.c (scop_detection::build_scop_breadth):
+	Check all loops contained in the merged region.
+
+2017-02-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (popcount<mode>2): New pattern.
+
+2017-02-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def (thunderx): Disable LSE.
+	(thunderxt88): Likewise.
+	(thunderxt81): Disable LSE and change v8.1 to v8.
+	(thunderxt83): Likewise.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79399
+	* ira-int.h (struct target_ira_int): Change x_max_struct_costs_size
+	type from int to size_t.
+	* ira-costs.c (struct_costs_size): Change type from int to size_t.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79386
+	* cprop.c (bypass_conditional_jumps): Initialize
+	bypass_last_basic_block already before splitting bbs after
+	unconditional traps...
+	(bypass_conditional_jumps): ... rather than here.
+
+	PR target/79299
+	* config/i386/sse.md (xtg_mode, gatherq_mode): New mode attrs.
+	(*avx512f_gathersi<mode>, *avx512f_gathersi<mode>_2,
+	*avx512f_gatherdi<mode>, *avx512f_gatherdi<mode>_2): Use them,
+	fix -masm=intel patterns.
+
+2017-02-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79256
+	PR middle-end/79278
+	* builtins.c (get_object_alignment_2): Use min_align_of_type
+	to extract alignment for MEM_REFs to honor BIGGEST_FIELD_ALIGNMENT
+	and ADJUST_FIELD_ALIGN.
+
+	* doc/tm.texi.in (ADJUST_FIELD_ALIGN): Adjust to take additional
+	type parameter.
+	* doc/tm.texi: Regenerate.
+	* stor-layout.c (layout_decl): Adjust.
+	(update_alignment_for_field): Likewise.
+	(place_field): Likewise.
+	(min_align_of_type): Likewise.
+	* config/arc/arc.h (ADJUST_FIELD_ALIGN): Adjust.
+	* config/epiphany/epiphany.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/epiphany/epiphany.c (epiphany_adjust_field_align): Likewise.
+	* config/frv/frv.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/frv/frv.c (frv_adjust_field_align): Likewise.
+	* config/i386/i386.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/i386/i386.c (x86_field_alignment): Likewise.
+	* config/rs6000/aix.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/darwin.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/freebsd64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/sysv4.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/rs6000.c (rs6000_special_adjust_field_align_p):
+	 Likewise.
+
+	Revert
+	2017-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79256
+	* targhooks.c (default_builtin_vector_alignment_reachable): Honor
+	BIGGEST_FIELD_ALIGNMENT and ADJUST_FIELD_ALIGN to fix up bogus
+	alignment on TYPE.
+
+2017-02-07  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* config/mips/mips.c (mips_expand_builtin_insn): Convert the QImode
+	argument of the pshufh, psllh, psllw, psrah, psraw, psrlh, psrlw
+	builtins to SImode and emit a zero-extend, if necessary.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* docs/invoke.texi (RISC-V Options): Alphabetize.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* doc/invoke.texi (RISC-V Options): Use two spaces to separate
+	options.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* config/riscv/riscv.c: New file.
+	* gcc/common/config/riscv/riscv-common.c: Likewise.
+	* config.gcc: Likewise.
+	* config/riscv/constraints.md: Likewise.
+	* config/riscv/elf.h: Likewise.
+	* config/riscv/generic.md: Likewise.
+	* config/riscv/linux.h: Likewise.
+	* config/riscv/multilib-generator: Likewise.
+	* config/riscv/peephole.md: Likewise.
+	* config/riscv/pic.md: Likewise.
+	* config/riscv/predicates.md: Likewise.
+	* config/riscv/riscv-builtins.c: Likewise.
+	* config/riscv/riscv-c.c: Likewise.
+	* config/riscv/riscv-ftypes.def: Likewise.
+	* config/riscv/riscv-modes.def: Likewise.
+	* config/riscv/riscv-opts.h: Likewise.
+	* config/riscv/riscv-protos.h: Likewise.
+	* config/riscv/riscv.h: Likewise.
+	* config/riscv/riscv.md: Likewise.
+	* config/riscv/riscv.opt: Likewise.
+	* config/riscv/sync.md: Likewise.
+	* config/riscv/t-elf-multilib: Likewise.
+	* config/riscv/t-linux: Likewise.
+	* config/riscv/t-linux-multilib: Likewise.
+	* config/riscv/t-riscv: Likewise.
+	* configure.ac: Likewise.
+	* doc/contrib.texi: Add Kito Cheng, Palmer Dabbelt, and Andrew
+	Waterman as RISC-V maintainers.
+	* doc/install.texi: Add RISC-V entries.
+	* doc/invoke.texi: Add RISC-V options section.
+	* doc/md.texi: Add RISC-V constraints section.
+	* configure: Regenerated.
+
+2017-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66144
+	* config/rs6000/vector.md (vcond<mode><mode>): Allow the true and
+	false values to be constant vectors with all 0 or all 1 bits set.
+	(vcondu<mode><mode>): Likewise.
+	* config/rs6000/predicates.md (vector_int_reg_or_same_bit): New
+	predicate.
+	(fpmask_comparison_operator): Update comment.
+	(vecint_comparison_operator): New predicate.
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Optimize
+	vector conditionals when the true and false values are constant
+	vectors with all 0 bits or all 1 bits set.
+
+2017-02-06  Martin Sebor  <msebor@redhat.com>
+
+	PR  tree-optimization/79376
+	* gimple-fold.c (get_range_strlen): Set the minimum length to zero.
+
+2017-02-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (vector modes -> vec_extract* splitter): Use
+	explicit subreg RTX with operand 1.  Use VECTOR_MODE_P predicate
+	to simplify split condition.
+
 2017-02-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-expand.c (oxpand_omp_atomic_fetch_op,

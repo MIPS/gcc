@@ -1,3 +1,36 @@
+2017-02-07  Nathan Sidwell  <nathan@acm.org>
+
+	* method.c (synthesized_method_base_walk): New.  Broken out of ...
+	(synthesized_method_walk): ... here.  Call it.  Cleanup
+	initializations.
+
+2017-02-07  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/79360
+	* typeck2.c (process_init_constructor_union): Consider only
+	FIELD_DECLs when looking for an NSDMI.
+
+2017-02-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71193 - incomplete types in templates
+	* parser.c (cp_parser_postfix_dot_deref_expression): In a template
+	handle incomplete type by pedwarning and then treating as dependent.
+
+2017-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79379
+	* constexpr.c (cxx_eval_constant_expression): Handle ANNOTATE_EXPR.
+	(potential_constant_expression_1): Likewise.
+
+	PR c++/79377
+	* tree.c (build_min_non_dep_op_overload): For POST{INC,DEC}REMENT_EXPR
+	allow one fewer than expected arguments if flag_permissive.
+
+	PR c++/79372
+	* decl.c (cp_finish_decomp): On error set decl type to error_mark_node.
+	* pt.c (tsubst_expr): Don't call tsubst_decomp_names on decompositions
+	with error_mark_node type.
+
 2017-02-03  Jason Merrill  <jason@redhat.com>
 
 	PR c++/78689 - ICE on constructor with label

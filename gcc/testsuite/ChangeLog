@@ -1,4 +1,121 @@
+2017-02-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/78604
+	* gcc.target/powerpc/pr78604.c: New.
+
+2017-02-08  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/68972
+	* g++.dg/cpp1y/vla-initlist1.C: Add dg-skip-if directive to
+	disable this test on power architecture.
+
+2017-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	PR tree-optimization/79409
+	* gcc.dg/graphite/pr71824-3.c: New testcase.
+
+2017-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79408
+	* gcc.dg/tree-ssa/pr79408.c: New test.
+
+2017-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* gcc.dg/graphite/pr71824-2.c: New testcase.
+
+2017-02-07  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.target/aarch64/popcount.c : New Testcase.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79386
+	* gcc.c-torture/compile/pr79386.c: New test.
+
+2017-02-07  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/tls/thread_local-order2.C: Only xfail execution on
+	*-*-solaris*.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79299
+	* gcc.target/i386/avx512vl-pr79299-1.c: New test.
+	* gcc.target/i386/avx512vl-pr79299-2.c: New test.
+
+2017-02-07  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/gimplefe-23.c: New testcase.
+	* gcc.dg/gimplefe-24.c: Likewise.
+
+2017-02-07  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/test_frame_1.c: Scan epilogue with
+	scan-assembler instead of scan-assembler-times.
+	* gcc.target/aarch64/test_frame_10.c: Likewise.
+	* gcc.target/aarch64/test_frame_12.c: Likewise.
+	* gcc.target/aarch64/test_frame_2.c: Likewise.
+	* gcc.target/aarch64/test_frame_4.c: Likewise.
+	* gcc.target/aarch64/test_frame_6.c: Likewise.
+	* gcc.target/aarch64/test_frame_7.c: Likewise.
+	* gcc.target/aarch64/test_frame_8.c: Likewise.
+
+2017-02-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr78419.c: Require ifunc support.
+
+2017-02-07  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/torture/stackalign/builtin-apply-2.c: Fix skip-if syntax.
+
+2017-02-07  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/79360
+	* g++.dg/cpp1y/nsdmi-union2.C: New test.
+
+2017-02-06  Kito Cheng  <kito.cheng@gmail.com>
+
+	* lib/target-supports.exp: Define the RISC-V target.
+	* g++.dg/cpp0x/constexpr-rom.C: Skip on RISC-V
+	* gcc.dg/builtin-apply2.c: Likewise.
+	* gcc.dg/ifcvt-4.c: Likewise.
+	* gcc.dg/loop-8.c: Likewise.
+	* gcc.dg/sibcall-10.c: Likewise.
+	* gcc.dg/sibcall-9.c: Likewise.
+	* gcc.dg/torture/stackalign/builtin-apply-2.c: Likewise.
+	* gcc.dg/tree-ssa/20040204-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-cse-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Likewise.
+	* gcc.c-torture/execute/20101011-1.c: Define DO_TEST on RISC-V.
+	* gcc.dg/20020312-2.c: Don't define PIC_REG on RISC-V.
+	* gcc.dg/stack-usage-1.c: Define SIZE on RISC-V.
+
+2017-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66144
+	* gcc.target/powerpc/pr66144-1.c: New test.
+	* gcc.target/powerpc/pr66144-2.c: Likewise.
+	* gcc.target/powerpc/pr66144-3.c: Likewise.
+
+2017-02-06  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/79376
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-14.c: New test.
+	* gcc.dg/tree-ssa/pr79376.c: Ditto.
+
 2017-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79379
+	* g++.dg/cpp1y/constexpr-79379.C: New test.
+
+	PR c++/79377
+	* g++.dg/lookup/pr79377.C: New test.
+
+	PR c++/79372
+	* g++.dg/cpp1z/decomp25.C: New test.
 
 	PR tree-optimization/79284
 	* gcc.c-torture/compile/pr79284.c: New test.
