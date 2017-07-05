@@ -3105,7 +3105,8 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	{
 	  if (mips_symbol_binds_local_p (x))
 	    {
-	      if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
+	      if (SYMBOL_REF_DECL (x)
+		  && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
@@ -3114,8 +3115,9 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 			    && TARGET_NANOMIPS == NANOMIPS_NMS))
 		return SYMBOL_GP_RELATIVE;
 	      // @tmt are functions exactly 2-byte aligned, somehow ?
-	      /* else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 2 */
-	      else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+		       /* && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 2 */
+	      else if (SYMBOL_REF_DECL (x)
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
 		       && nano_pic_model_var == NANO_PIC_AUTO)
 		return SYMBOL_PCREL_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
