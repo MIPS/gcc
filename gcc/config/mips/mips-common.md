@@ -4777,7 +4777,7 @@
       && !VAR_P (SYMBOL_REF_DECL (operands[2])))
     return "<load>\t%0,%R2(%1)";
 
-  return "<d>addiu\t%0,%R2(%1)";
+  return "<d>addiu\t%0,%1,%R2";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
@@ -4794,9 +4794,9 @@
    && TARGET_NANOMIPS == NANOMIPS_NMF)"
 {
   if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) <= 2)
-    return "<d>addiu.b\t%0,%R2(%1)";
+    return "<d>addiu.b\t%0,%1,%R2";
   else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) >= 4)
-    return "<d>addiu.w\t%0,%R2(%1)";
+    return "<d>addiu.w\t%0,%1,%R2";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
