@@ -4281,6 +4281,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
      ISAs come first.  Target string will be displayed in the same order.  */
   static struct ix86_target_opts isa2_opts[] =
   {
+    { "-mrdpid",	OPTION_MASK_ISA_RDPID },
     { "-msgx",		OPTION_MASK_ISA_SGX },
     { "-mavx5124vnniw", OPTION_MASK_ISA_AVX5124VNNIW },
     { "-mavx5124fmaps", OPTION_MASK_ISA_AVX5124FMAPS },
@@ -4348,6 +4349,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
     { "-mmpx",		OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB }
   };
+
   /* Flag options.  */
   static struct ix86_target_opts flag_opts[] =
   {
@@ -6711,6 +6713,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("fxsr",	OPT_mfxsr),
     IX86_ATTR_ISA ("mpx",	OPT_mmpx),
     IX86_ATTR_ISA ("clwb",	OPT_mclwb),
+    IX86_ATTR_ISA ("rdpid",	OPT_mrdpid),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -15054,6 +15057,8 @@ ix86_expand_split_stack_prologue (void)
   add_function_usage_to (call_insn, call_fusage);
   if (!TARGET_64BIT)
     add_reg_note (call_insn, REG_ARGS_SIZE, GEN_INT (0));
+  /* Indicate that this function can't jump to non-local gotos.  */
+  make_reg_eh_region_note_nothrow_nononlocal (as_a <rtx_insn *> (call_insn));
 
   /* In order to make call/return prediction work right, we now need
      to execute a return instruction.  See
@@ -17844,8 +17849,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	      break;
 
 	    default:
-	      output_operand_lossage
-		("invalid operand size for operand code 'O'");
+	      output_operand_lossage ("invalid operand size for operand "
+				      "code 'O'");
 	      return;
 	    }
 
@@ -17879,15 +17884,14 @@ ix86_print_operand (FILE *file, rtx x, int code)
 		  return;
 
 		default:
-		  output_operand_lossage
-		    ("invalid operand size for operand code 'z'");
+		  output_operand_lossage ("invalid operand size for operand "
+					  "code 'z'");
 		  return;
 		}
 	    }
 
 	  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-	    warning
-	      (0, "non-integer operand used with operand code 'z'");
+	    warning (0, "non-integer operand used with operand code 'z'");
 	  /* FALLTHRU */
 
 	case 'Z':
@@ -17949,13 +17953,12 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    }
 	  else
 	    {
-	      output_operand_lossage
-		("invalid operand type used with operand code 'Z'");
+	      output_operand_lossage ("invalid operand type used with "
+				      "operand code 'Z'");
 	      return;
 	    }
 
-	  output_operand_lossage
-	    ("invalid operand size for operand code 'Z'");
+	  output_operand_lossage ("invalid operand size for operand code 'Z'");
 	  return;
 
 	case 'd':
@@ -18154,7 +18157,12 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  break;
 
 	case 'K':
-	  gcc_assert (CONST_INT_P (x));
+	  if (!CONST_INT_P (x))
+	    {
+	      output_operand_lossage ("operand is not an integer, invalid "
+				      "operand code 'K'");
+	      return;
+	    }
 
 	  if (INTVAL (x) & IX86_HLE_ACQUIRE)
 #ifdef HAVE_AS_IX86_HLE
@@ -18177,8 +18185,12 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case 'r':
-	  gcc_assert (CONST_INT_P (x));
-	  gcc_assert (INTVAL (x) == ROUND_SAE);
+	  if (!CONST_INT_P (x) || INTVAL (x) != ROUND_SAE)
+	    {
+	      output_operand_lossage ("operand is not a specific integer, "
+				      "invalid operand code 'r'");
+	      return;
+	    }
 
 	  if (ASSEMBLER_DIALECT == ASM_INTEL)
 	    fputs (", ", file);
@@ -18191,7 +18203,12 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case 'R':
-	  gcc_assert (CONST_INT_P (x));
+	  if (!CONST_INT_P (x))
+	    {
+	      output_operand_lossage ("operand is not an integer, invalid "
+				      "operand code 'R'");
+	      return;
+	    }
 
 	  if (ASSEMBLER_DIALECT == ASM_INTEL)
 	    fputs (", ", file);
@@ -18306,7 +18323,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	default:
-	    output_operand_lossage ("invalid operand code '%c'", code);
+	  output_operand_lossage ("invalid operand code '%c'", code);
 	}
     }
 
@@ -32063,11 +32080,11 @@ ix86_init_mmx_sse_builtins (void)
 	       IX86_BUILTIN_SBB64);
 
   /* Read/write FLAGS.  */
-  def_builtin (~OPTION_MASK_ISA_64BIT, "__builtin_ia32_readeflags_u32",
+  def_builtin (0, "__builtin_ia32_readeflags_u32",
                UNSIGNED_FTYPE_VOID, IX86_BUILTIN_READ_FLAGS);
   def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_ia32_readeflags_u64",
                UINT64_FTYPE_VOID, IX86_BUILTIN_READ_FLAGS);
-  def_builtin (~OPTION_MASK_ISA_64BIT, "__builtin_ia32_writeeflags_u32",
+  def_builtin (0, "__builtin_ia32_writeeflags_u32",
                VOID_FTYPE_UNSIGNED, IX86_BUILTIN_WRITE_FLAGS);
   def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_ia32_writeeflags_u64",
                VOID_FTYPE_UINT64, IX86_BUILTIN_WRITE_FLAGS);
@@ -36711,9 +36728,18 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
      Originally the builtin was not created if it wasn't applicable to the
      current ISA based on the command line switches.  With function specific
      options, we need to check in the context of the function making the call
-     whether it is supported.  */
-  if ((ix86_builtins_isa[fcode].isa
-       && !(ix86_builtins_isa[fcode].isa & ix86_isa_flags))
+     whether it is supported.  Treat AVX512VL specially.  For other flags,
+     if isa includes more than one ISA bit, treat those are requiring any
+     of them.  For AVX512VL, require both AVX512VL and the non-AVX512VL
+     ISAs.  Similarly for 64BIT, but we shouldn't be building such builtins
+     at all, -m64 is a whole TU option.  */
+  if (((ix86_builtins_isa[fcode].isa
+	& ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_64BIT))
+       && !(ix86_builtins_isa[fcode].isa
+	    & ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_64BIT)
+	    & ix86_isa_flags))
+      || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_AVX512VL)
+	  && !(ix86_isa_flags & OPTION_MASK_ISA_AVX512VL))
       || (ix86_builtins_isa[fcode].isa2
 	  && !(ix86_builtins_isa[fcode].isa2 & ix86_isa_flags2)))
     {
@@ -38689,6 +38715,9 @@ s4fma_expand:
 		}
 	      return target;
 	    }
+	    case IX86_BUILTIN_RDPID:
+	      return ix86_expand_special_args_builtin (bdesc_args2 + i, exp,
+						     target);
 	  default:
 	    return ix86_expand_args_builtin (bdesc_args2 + i, exp, target);
 	  }

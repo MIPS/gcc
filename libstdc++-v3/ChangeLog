@@ -1,3 +1,64 @@
+2017-02-19  Dinka Ranns  <dinka.ranns@googlemail.com>
+
+	C++17 GB50 resolution
+	* include/std/chrono (duration::operator++()): Add
+	_GLIBCXX17_CONSTEXPR.
+	(duration::operator++(int)): Likewise.
+	(duration::operator--()): Likewise.
+	(duration::operator--(int)): Likewise.
+	(duration::operator+=(const duration&)): Likewise.
+	(duration::operator-=(const duration&)): Likewise.
+	(duration::operator*=(const rep&)): Likewise.
+	(duration::operator/=(const rep&)): Likewise.
+	(duration::operator%=(const rep&)): Likewise.
+	(duration::operator%=(const duration&)): Likewise.
+	(time_point::operator+=(const duration&)): Likewise.
+	(time_point::operator-=(const duration&)): Likewise.
+	* testsuite/20_util/duration/arithmetic/constexpr_c++17.cc: New test.
+	* testsuite/20_util/duration/literals/range.cc: Adjust dg-error.
+	* testsuite/20_util/time_point/arithmetic/constexpr.cc: New test.
+
+2017-02-19  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/debug.xml: Adjust link to ThreadSanitizer.
+
+2017-02-18  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/io.xml: Update link to groups.google.com.
+	Tweak link description.
+
+2017-02-18  Gerald Pfeifer  <gerald@pfeifer.com>
+	
+	* doc/xml/manual/profile_mode.xml: Fix link.
+
+2017-02-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/policy_data_structures.xml: Simplify and
+	standardize references to boost.org.
+	* doc/xml/manual/policy_data_structures_biblio.xml: Ditto.
+	* doc/xml/manual/shared_ptr.xml: Ditto.
+
+2017-02-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60936
+	* src/c++11/snprintf_lite.cc (__concat_size_t): Calculate length
+	written to buffer, not length remaining in buffer.
+
+2017-02-15  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/78723
+	* include/std/variant (operator<(), operator>(), operator<=(),
+	operator>=(), operator==(), operator!=()): Implement P0393R3.
+	* testsuite/20_util/variant/compile.cc: Adjust tests.
+	* testsuite/20_util/variant/run.cc: Adjust tests.
+
+2017-02-15  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/79513
+	* include/std/variant (visit()): Forward variant types to the return
+	type detection code.
+	* testsuite/20_util/variant/compile.cc: Add test cases.
+
 2017-02-13  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libstdc++/79348

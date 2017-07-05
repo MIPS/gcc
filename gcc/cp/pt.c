@@ -3576,8 +3576,12 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
 
-    case CONSTRUCTOR:
     case TEMPLATE_DECL:
+      if (!DECL_TEMPLATE_TEMPLATE_PARM_P (t))
+	return NULL_TREE;
+      gcc_fallthrough();
+
+    case CONSTRUCTOR:
       cp_walk_tree (&TREE_TYPE (t),
 		    &find_parameter_packs_r, ppd, ppd->visited);
       return NULL_TREE;
@@ -4615,6 +4619,9 @@ process_partial_specialization (tree decl)
 
   /* If we aren't in a dependent class, we can actually try deduction.  */
   else if (tpd.level == 1
+	   /* FIXME we should be able to handle a partial specialization of a
+	      partial instantiation, but currently we can't (c++/41727).  */
+	   && TMPL_ARGS_DEPTH (specargs) == 1
 	   && !get_partial_spec_bindings (maintmpl, maintmpl, specargs))
     {
       if (permerror (input_location, "partial specialization %qD is not "
@@ -7612,6 +7619,10 @@ convert_template_argument (tree parm,
 
       if (tree a = type_uses_auto (t))
 	{
+	  if (ARGUMENT_PACK_P (orig_arg))
+	    /* There's nothing to check for an auto argument pack.  */
+	    return orig_arg;
+
 	  t = do_auto_deduction (t, arg, a, complain, adc_unify, args);
 	  if (t == error_mark_node)
 	    return error_mark_node;
@@ -10001,6 +10012,8 @@ tsubst_attribute (tree t, tree *decl_p, tree args,
       /* An attribute pack expansion.  */
       tree purp = TREE_PURPOSE (t);
       tree pack = tsubst_pack_expansion (val, args, complain, in_decl);
+      if (pack == error_mark_node)
+	return error_mark_node;
       int len = TREE_VEC_LENGTH (pack);
       tree list = NULL_TREE;
       tree *q = &list;
@@ -10073,6 +10086,28 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
   tree t;
   tree *p;
 
+  if (attributes == NULL_TREE)
+    return;
+
+  if (DECL_P (*decl_p))
+    {
+      if (TREE_TYPE (*decl_p) == error_mark_node)
+	return;
+      p = &DECL_ATTRIBUTES (*decl_p);
+      /* DECL_ATTRIBUTES comes from copy_node in tsubst_decl, and is identical
+         to our attributes parameter.  */
+      gcc_assert (*p == attributes);
+    }
+  else
+    {
+      p = &TYPE_ATTRIBUTES (*decl_p);
+      /* TYPE_ATTRIBUTES was set up (with abi_tag and may_alias) in
+	 lookup_template_class_1, and should be preserved.  */
+      gcc_assert (*p != attributes);
+      while (*p)
+	p = &TREE_CHAIN (*p);
+    }
+
   for (t = attributes; t; t = TREE_CHAIN (t))
     if (ATTR_IS_DEPENDENT (t))
       {
@@ -10081,21 +10116,13 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 	break;
       }
 
-  if (DECL_P (*decl_p))
-    {
-      if (TREE_TYPE (*decl_p) == error_mark_node)
-	return;
-      p = &DECL_ATTRIBUTES (*decl_p);
-    }
-  else
-    p = &TYPE_ATTRIBUTES (*decl_p);
-
+  *p = attributes;
   if (last_dep)
     {
       tree late_attrs = NULL_TREE;
       tree *q = &late_attrs;
 
-      for (*p = attributes; *p; )
+      for (; *p; )
 	{
 	  t = *p;
 	  if (ATTR_IS_DEPENDENT (t))
@@ -11635,8 +11662,11 @@ tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
             new_arg = error_mark_node;
 
           if (TREE_CODE (new_arg) == NONTYPE_ARGUMENT_PACK) {
-            TREE_TYPE (new_arg) = tsubst (TREE_TYPE (orig_arg), args,
-                                          complain, in_decl);
+	    if (type_uses_auto (TREE_TYPE (orig_arg)))
+	      TREE_TYPE (new_arg) = TREE_TYPE (orig_arg);
+	    else
+	      TREE_TYPE (new_arg) = tsubst (TREE_TYPE (orig_arg), args,
+					    complain, in_decl);
             TREE_CONSTANT (new_arg) = TREE_CONSTANT (orig_arg);
 
             if (TREE_TYPE (new_arg) == error_mark_node)
@@ -15588,6 +15618,11 @@ tsubst_decomp_names (tree decl, tree pattern_decl, tree args,
        && DECL_NAME (decl2);
        decl2 = DECL_CHAIN (decl2))
     {
+      if (TREE_TYPE (decl2) == error_mark_node && *cnt == 0)
+	{
+	  gcc_assert (errorcount);
+	  return error_mark_node;
+	}
       (*cnt)++;
       gcc_assert (DECL_HAS_VALUE_EXPR_P (decl2));
       tree v = DECL_VALUE_EXPR (decl2);
@@ -20900,8 +20935,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
     case INDIRECT_REF:
       if (REFERENCE_REF_P (parm))
 	{
+	  bool pexp = PACK_EXPANSION_P (arg);
+	  if (pexp)
+	    arg = PACK_EXPANSION_PATTERN (arg);
 	  if (REFERENCE_REF_P (arg))
 	    arg = TREE_OPERAND (arg, 0);
+	  if (pexp)
+	    arg = make_pack_expansion (arg);
 	  return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
 			strict, explain_p);
 	}
@@ -23914,6 +23954,10 @@ type_dependent_expression_p (tree expression)
 bool
 type_dependent_object_expression_p (tree object)
 {
+  /* An IDENTIFIER_NODE can sometimes have a TREE_TYPE, but it's still
+     dependent.  */
+  if (TREE_CODE (object) == IDENTIFIER_NODE)
+    return true;
   tree scope = TREE_TYPE (object);
   return (!scope || dependent_scope_p (scope));
 }
@@ -25096,7 +25140,7 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
     {
       tree t = cands;
       for (; t; t = OVL_NEXT (t))
-	if (DECL_NONCONVERTING_P (DECL_TEMPLATE_RESULT (OVL_CURRENT (t))))
+	if (DECL_NONCONVERTING_P (STRIP_TEMPLATE (OVL_CURRENT (t))))
 	  break;
       if (t)
 	{
@@ -25104,7 +25148,7 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
 	  for (t = cands; t; t = OVL_NEXT (t))
 	    {
 	      tree f = OVL_CURRENT (t);
-	      if (!DECL_NONCONVERTING_P (DECL_TEMPLATE_RESULT (f)))
+	      if (!DECL_NONCONVERTING_P (STRIP_TEMPLATE (f)))
 		pruned = build_overload (f, pruned);
 	    }
 	  cands = pruned;
@@ -25179,6 +25223,10 @@ do_auto_deduction (tree type, tree init, tree auto_node,
   if (tree tmpl = CLASS_PLACEHOLDER_TEMPLATE (auto_node))
     /* C++17 class template argument deduction.  */
     return do_class_deduction (type, tmpl, init, flags, complain);
+
+  if (TREE_TYPE (init) == NULL_TREE)
+    /* Nothing we can do with this, even in deduction context.  */
+    return type;
 
   /* [dcl.spec.auto]: Obtain P from T by replacing the occurrences of auto
      with either a new invented type template parameter U or, if the

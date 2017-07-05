@@ -1,8 +1,290 @@
+2017-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/inline-var-2.C: New test.
+
+2017-02-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79653
+	* g++.dg/cpp0x/alignas10.C: New test.
+	* g++.dg/cpp0x/alignas9.C: New test.
+
+	PR c++/79657
+	* g++.dg/ext/underlying_type12.C: New test.
+
+	PR c/79662
+	* gcc.dg/enum-incomplete-4.c: New test.
+
+2017-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70465
+	* gcc.target/i386/pr70465-2.c: New test.
+
+2017-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/pr61441.c: Use dg-add-options ieee.
+
+2017-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79673
+	* gcc.target/i386/pr79673.c: New testcase.
+
+2017-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79666
+	* gcc.dg/torture/pr79666.c: New testcase.
+
+2017-02-22  Martin Liska  <mliska@suse.cz>
+
+	PR lto/79587
+	* gcc.dg/tree-prof/pr79587.c: New test.
+
+2017-02-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79535
+	* g++.dg/ext/flexary23.C: New test.
+
+2017-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/79593
+	* gcc.target/i386/pr79593.c: New test.
+
+2017-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79654
+	* g++.dg/cpp1z/decomp26.C: New test.
+
+	PR sanitizer/79589
+	* g++.dg/ubsan/pr79589.C: New test.
+
+2017-02-21  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/79621
+	* gcc.c-torture/compile/pr79621.c: New test.
+
+2017-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79655
+	* g++.dg/cpp1y/constexpr-79655.C: New test.
+
+	PR c++/79639
+	* g++.dg/cpp1y/constexpr-79639.C: New test.
+
+	PR target/79633
+	* gcc.target/i386/mpx/pr79633.c: New test.
+
+	PR target/79570
+	* gcc.dg/pr79570.c: New test.
+
+	PR c++/79641
+	* c-c++-common/pr79641.c: New test.
+
+	PR tree-optimization/79649
+	* gcc.target/i386/pr79649.c: New test.
+
+	PR target/79494
+	* gcc.dg/pr79494.c: New test.
+
+2017-02-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.dg/plugin/diagnostic-test-expressions-1.c: Add -Wno-psabi
+	to dg-options.
+
+2017-02-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.dg/gimplefe-26.c: Require c99_runtime.
+
+2017-02-20  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78056
+	* gcc.target/powerpc/pr78056-8.c: Remove.
+
+2017-02-20  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/79537
+	* gcc.dg/comp-goto-4.c: New test.
+
+	PR sanitizer/79558
+	* c-c++-common/ubsan/bounds-14.c: New test.
+
+2017-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79568
+	* gcc.target/i386/pr79568-1.c: New test.
+	* gcc.target/i386/pr79568-2.c: New test.
+	* gcc.target/i386/pr79568-3.c: New test.
+
+2017-02-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79382
+	* gfortran.dg/dtio_10.f90: Change test of error message.
+	* gfortran.dg/dtio_23.f90: New test.
+	* gfortran.dg/dtio_24.f90: New test.
+
+2017-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79434
+	* gfortran.dg/submodule_25.f08: New test.
+
+2017-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79447
+	* gfortran.dg/submodule_24.f08: New test.
+
+2017-02-19  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/79229
+	* gfortran.dg/class_allocate_24.f90: New test.
+
+2017-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79402
+	* gfortran.dg/submodule_23.f90: New test.
+
+2017-02-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/79380
+	* g++.dg/cpp0x/alignas8.C: New.
+
+2017-02-19  Eric Fiselier  <eric@efcs.ca>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/69523
+	* g++.dg/cpp0x/Wliteral-suffix2.C: New test.
+
+2017-02-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/gimplefe-26.c: New test.
+
+2017-02-18  John David Anglin  <danglin@gcc.gnu.org>
+
+	* g++.dg/tls/thread_local-order2.C: xfail on hppa*-*-hpux*.
+
+2017-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79569
+	* gcc.target/i386/3dnowA-3.c: New test.
+
+	PR target/79559
+	* gcc.target/i386/pr79559.c: New test.
+
+2017-02-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c11-float-2.c: New test.
+	* gcc.dg/torture/float128-floath.c,
+	gcc.dg/torture/float128x-floath.c,
+	gcc.dg/torture/float16-floath.c, gcc.dg/torture/float32-floath.c,
+	gcc.dg/torture/float32x-floath.c, gcc.dg/torture/float64-floath.c,
+	gcc.dg/torture/float64x-floath.c: Do not test comparison of
+	*_DECIMAL_DIG macros with DECIMAL_DIG.
+
+2017-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/79261
+	* gcc.target/powerpc/vec-xxpermdi.c: New file.
+
+2017-02-17  Julia Koval  <julia.koval@intel.com>
+
+	* gcc.target/i386/rdpid.c New test.
+	* gcc.target/i386/sse-12.c: Add -mrdpid.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* g++.dg/other/i386-2.C: Ditto.
+	* g++.dg/other/i386-3.C: Ditto.
+
+2017-02-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.dg/pr59833.c: Add -fsignaling-nans to options.
+	* gcc.dg/pr61441.c: Ditto.
+
+2017-02-17  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/79574
+	* gcc.dg/pr79574.c: New test.
+
+2017-02-17  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/79536
+	* gcc.dg/torture/pr79536.c: New test.
+
+2017-02-16  Alan Modra  <amodra@gmail.com>
+
+	* gcc.c-torture/execute/pr79286.c: New.
+
+2017-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79512
+	* c-c++-common/gomp/pr79512.c: New test.
+
+2017-02-15  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/79363
+	* g++.dg/ext/flexary12.C: Adjust.
+	* g++.dg/ext/flexary20.C: Same.
+	* g++.dg/ext/flexary21.C: Same.
+	* g++.dg/ext/flexary22.C: New test.
+
+2017-02-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/79347
+	* gcc.dg/vect/pr79347.c: New test.
+
+2017-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79301
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Remove (with pedwarn) from
+	[[deprecated]] comment.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Likewise.
+	* g++.dg/cpp1y/feat-cxx11.C: Likewise.
+	* g++.dg/cpp1y/attr-deprecated-neg.C: Don't expect warnings for
+	[[deprecated]] in -std=c++11.
+	* g++.dg/cpp0x/fallthrough2.C: Don't expect warnings for
+	[[fallthrough]] in -std=c++11 and -std=c++14.
+
+	PR c++/79288
+	* g++.dg/tls/pr79288.C: New test.
+
+2017-02-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79515
+	* gcc.dg/dfp/pr79515.c: New.
+
+2017-02-15  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/cpp0x/pr79296.C: Move dg-do compile directive first.
+
+2017-02-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.dg/graphite/graphite.exp: Merge "fuse_files" into
+	"opt_files".
+
+2017-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79487
+	* gcc.dg/dfp/pr79487.c: New test.
+	* c-c++-common/ubsan/float-cast-overflow-8.c (TEST): Revert
+	2017-02-13 change.
+
+2017-01-14  Carl Love  <cel@us.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-3.c: Add missing test case for the
+	xvcvsxdsp and xvcvuxdsp instructions.
+
+2017-02-14  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/vec-adde-int128.c: Only run if int128 exists.
+	* gcc.target/powerpc/vec-addec-int128.c: Ditto.
+	* gcc.target/powerpc/vec-adde.c: Require vsx_hw, don't require a
+	64-bit default target.
+	* gcc.target/powerpc/vec-addec.c: Require p8vector_hw, don't require
+	a 64-bit default target.
+
 2017-02-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/79481
 	* gcc.target/i386/sse-14.c (test_2vx): Add void return type.
-	(test_3vx): Change return type from int to void. 
+	(test_3vx): Change return type from int to void.
 	(_mm512_prefetch_i32gather_ps, _mm512_prefetch_i32scatter_ps,
 	_mm512_prefetch_i64gather_ps, _mm512_prefetch_i64scatter_ps,
 	_mm512_prefetch_i32gather_pd, _mm512_prefetch_i32scatter_pd,
@@ -293,7 +575,7 @@
 
 2017-02-07  Andrew Pinski  <apinski@cavium.com>
 
-	* gcc.target/aarch64/popcount.c : New Testcase.
+	* gcc.target/aarch64/popcount.c: New Testcase.
 
 2017-02-07  Jakub Jelinek  <jakub@redhat.com>
 

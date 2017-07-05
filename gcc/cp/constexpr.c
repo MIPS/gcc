@@ -1635,6 +1635,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  constexpr_ctx ctx_with_save_exprs = *ctx;
 	  hash_set<tree> save_exprs;
 	  ctx_with_save_exprs.save_exprs = &save_exprs;
+	  ctx_with_save_exprs.call = &new_call;
 
 	  tree jump_target = NULL_TREE;
 	  cxx_eval_constant_expression (&ctx_with_save_exprs, body,
@@ -2262,9 +2263,10 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   nelts = cxx_eval_constant_expression (ctx, nelts, false, non_constant_p,
 					overflow_p);
   VERIFY_CONSTANT (nelts);
-  if (lval
-      ? !tree_int_cst_le (index, nelts)
-      : !tree_int_cst_lt (index, nelts))
+  if ((lval
+       ? !tree_int_cst_le (index, nelts)
+       : !tree_int_cst_lt (index, nelts))
+      || tree_int_cst_sgn (index) < 0)
     {
       diag_array_subscript (ctx, ary, index);
       *non_constant_p = true;
@@ -3386,7 +3388,13 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   /* And then find/build up our initializer for the path to the subobject
      we're initializing.  */
   tree *valp;
-  if (DECL_P (object))
+  if (object == ctx->object && VAR_P (object)
+      && DECL_NAME (object) && ctx->call == NULL)
+    /* The variable we're building up an aggregate initializer for is outside
+       the constant-expression, so don't evaluate the store.  We check
+       DECL_NAME to handle TARGET_EXPR temporaries, which are fair game.  */
+    valp = NULL;
+  else if (DECL_P (object))
     valp = ctx->values->get (object);
   else
     valp = NULL;
@@ -3510,11 +3518,12 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	 wants to modify it.  */
       if (*valp == NULL_TREE)
 	{
-	  *valp = new_ctx.ctor = build_constructor (type, NULL);
-	  CONSTRUCTOR_NO_IMPLICIT_ZERO (new_ctx.ctor) = no_zero_init;
+	  *valp = build_constructor (type, NULL);
+	  CONSTRUCTOR_NO_IMPLICIT_ZERO (*valp) = no_zero_init;
 	}
-      else
-	new_ctx.ctor = *valp;
+      else if (TREE_CODE (*valp) == PTRMEM_CST)
+	*valp = cplus_expand_constant (*valp);
+      new_ctx.ctor = *valp;
       new_ctx.object = target;
     }
 

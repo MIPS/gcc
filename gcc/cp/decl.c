@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "cilk.h"
 #include "builtins.h"
+#include "gimplify.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -792,14 +793,17 @@ poplevel (int keep, int reverse, int functionbody)
      back ends won't understand OVERLOAD, so we remove them here.
      Because the BLOCK_VARS are (temporarily) shared with
      CURRENT_BINDING_LEVEL->NAMES we must do this fixup after we have
-     popped all the bindings.  */
+     popped all the bindings.  Also remove undeduced 'auto' decls,
+     which LTO doesn't understand, and can't have been used by anything.  */
   if (block)
     {
       tree* d;
 
       for (d = &BLOCK_VARS (block); *d; )
 	{
-	  if (TREE_CODE (*d) == TREE_LIST)
+	  if (TREE_CODE (*d) == TREE_LIST
+	      || (!processing_template_decl
+		  && undeduced_auto_decl (*d)))
 	    *d = TREE_CHAIN (*d);
 	  else
 	    d = &DECL_CHAIN (*d);
@@ -6791,6 +6795,9 @@ type_dependent_init_p (tree init)
   else if (TREE_CODE (init) == CONSTRUCTOR)
   /* A brace-enclosed initializer, e.g.: int i = { 3 }; ? */
     {
+      if (dependent_type_p (TREE_TYPE (init)))
+	return true;
+
       vec<constructor_elt, va_gc> *elts;
       size_t nelts;
       size_t i;
@@ -7511,7 +7518,6 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	    }
 	  first = DECL_CHAIN (first);
 	}
-      TREE_TYPE (decl) = error_mark_node;
       if (DECL_P (decl) && DECL_NAMESPACE_SCOPE_P (decl))
 	SET_DECL_ASSEMBLER_NAME (decl, get_identifier ("<decomp>"));
       return;
@@ -7596,7 +7602,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  t = build4_loc (DECL_SOURCE_LOCATION (v[i]), ARRAY_REF,
 			  eltype, t, size_int (i), NULL_TREE,
 			  NULL_TREE);
@@ -7615,7 +7621,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  t = build1_loc (DECL_SOURCE_LOCATION (v[i]),
 			  i ? IMAGPART_EXPR : REALPART_EXPR, eltype,
 			  t);
@@ -7633,7 +7639,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  convert_vector_to_array_for_subscript (DECL_SOURCE_LOCATION (v[i]),
 						 &t, size_int (i));
 	  t = build4_loc (DECL_SOURCE_LOCATION (v[i]), ARRAY_REF,
@@ -7732,7 +7738,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	  continue;
 	else
 	  {
-	    tree tt = finish_non_static_data_member (field, t, NULL_TREE);
+	    tree tt = finish_non_static_data_member (field, unshare_expr (t),
+						     NULL_TREE);
 	    if (REFERENCE_REF_P (tt))
 	      tt = TREE_OPERAND (tt, 0);
 	    TREE_TYPE (v[i]) = TREE_TYPE (tt);
@@ -12195,14 +12202,6 @@ grokdeclarator (const cp_declarator *declarator,
 					    : input_location,
 					    VAR_DECL, unqualified_id, type);
 		set_linkage_for_static_data_member (decl);
-		if (thread_p)
-		  {
-		    CP_DECL_THREAD_LOCAL_P (decl) = true;
-		    if (!processing_template_decl)
-		      set_decl_tls_model (decl, decl_default_tls_model (decl));
-		    if (declspecs->gnu_thread_keyword_p)
-		      SET_DECL_GNU_TLS_P (decl);
-		  }
 		if (concept_p)
 		    error ("static data member %qE declared %<concept%>",
 			   unqualified_id);
@@ -12223,6 +12222,15 @@ grokdeclarator (const cp_declarator *declarator,
 		     definition is provided, unless this is an inline
 		     variable.  */
 		  DECL_EXTERNAL (decl) = 1;
+
+		if (thread_p)
+		  {
+		    CP_DECL_THREAD_LOCAL_P (decl) = true;
+		    if (!processing_template_decl)
+		      set_decl_tls_model (decl, decl_default_tls_model (decl));
+		    if (declspecs->gnu_thread_keyword_p)
+		      SET_DECL_GNU_TLS_P (decl);
+		  }
 	      }
 	    else
 	      {

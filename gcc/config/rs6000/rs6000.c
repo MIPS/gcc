@@ -66,6 +66,7 @@
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
+#include "except.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -15436,6 +15437,8 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
     }
   else if (icode == CODE_FOR_vsx_xxpermdi_v2df
            || icode == CODE_FOR_vsx_xxpermdi_v2di
+           || icode == CODE_FOR_vsx_xxpermdi_v2df_be
+           || icode == CODE_FOR_vsx_xxpermdi_v2di_be
            || icode == CODE_FOR_vsx_xxsldwi_v16qi
            || icode == CODE_FOR_vsx_xxsldwi_v8hi
            || icode == CODE_FOR_vsx_xxsldwi_v4si
@@ -18594,6 +18597,7 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       break;
 
       /* unsigned args, signed return.  */
+    case VSX_BUILTIN_XVCVUXDSP:
     case VSX_BUILTIN_XVCVUXDDP_UNS:
     case ALTIVEC_BUILTIN_UNSFLOAT_V4SI_V4SF:
       h.uns_p[1] = 1;
@@ -31677,6 +31681,8 @@ rs6000_expand_split_stack_prologue (void)
      split_stack_return use r0.  */
   use_reg (&call_fusage, r0);
   add_function_usage_to (insn, call_fusage);
+  /* Indicate that this function can't jump to non-local gotos.  */
+  make_reg_eh_region_note_nothrow_nononlocal (insn);
   emit_insn (gen_frame_load (r0, r1, info->lr_save_offset));
   insn = emit_move_insn (lr, r0);
   add_reg_note (insn, REG_CFA_RESTORE, lr);

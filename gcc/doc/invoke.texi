@@ -338,6 +338,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-@var{version} @gol
 -ggdb  -grecord-gcc-switches  -gno-record-gcc-switches @gol
 -gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
+-gcolumn-info  -gno-column-info @gol
 -gvms  -gxcoff  -gxcoff+  -gz@r{[}=@var{type}@r{]} @gol
 -fdebug-prefix-map=@var{old}=@var{new}  -fdebug-types-section @gol
 -feliminate-dwarf2-dups  -fno-eliminate-unused-debug-types @gol
@@ -371,7 +372,7 @@ Objective-C and Objective-C++ Dialects}.
 -fif-conversion2  -findirect-inlining @gol
 -finline-functions  -finline-functions-called-once  -finline-limit=@var{n} @gol
 -finline-small-functions  -fipa-cp  -fipa-cp-clone @gol
--fipa-cp-alignment  -fipa-bit-cp @gol
+-fipa-bit-cp @gol
 -fipa-pta  -fipa-profile  -fipa-pure-const  -fipa-reference  -fipa-icf @gol
 -fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region}  -fira-hoist-pressure @gol
@@ -544,6 +545,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-passes @gol
 -fdump-rtl-@var{pass}  -fdump-rtl-@var{pass}=@var{filename} @gol
 -fdump-statistics @gol
+-fdump-final-insns@r{[}=@var{file}@r{]}
 -fdump-tree-all @gol
 -fdump-tree-@var{switch} @gol
 -fdump-tree-@var{switch}-@var{options} @gol
@@ -1188,9 +1190,9 @@ See RS/6000 and PowerPC Options.
 -mavx512bw  -mavx512dq  -mavx512ifma  -mavx512vbmi  -msha  -maes @gol
 -mpclmul  -mfsgsbase  -mrdrnd  -mf16c  -mfma @gol
 -mprefetchwt1  -mclflushopt  -mxsavec  -mxsaves @gol
--msse4a  -m3dnow  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop  -mlzcnt @gol
--mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  -mmwaitx @gol
--mclzero  -mpku  -mthreads @gol
+-msse4a  -m3dnow  -m3dnowa  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop @gol
+-mlzcnt  -mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  @gol
+-mmwaitx  -mclzero  -mpku  -mthreads @gol
 -mms-bitfields  -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically  -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy}  -mmemset-strategy=@var{strategy} @gol
@@ -2855,6 +2857,11 @@ int main() @{
 
 In this case, @code{PRId64} is treated as a separate preprocessing token.
 
+Additionally, warn when a user-defined literal operator is declared with
+a literal suffix identifier that doesn't begin with an underscore. Literal
+suffix identifiers that don't begin with an underscore are reserved for
+future standardization.
+
 This warning is enabled by default.
 
 @item -Wlto-type-mismatch
@@ -3000,19 +3007,13 @@ But this use is not portable across different compilers.
 @item -Wno-non-template-friend @r{(C++ and Objective-C++ only)}
 @opindex Wno-non-template-friend
 @opindex Wnon-template-friend
-Disable warnings when non-templatized friend functions are declared
-within a template.  Since the advent of explicit template specification
-support in G++, if the name of the friend is an unqualified-id (i.e.,
-@samp{friend foo(int)}), the C++ language specification demands that the
-friend declare or define an ordinary, nontemplate function.  (Section
-14.5.3).  Before G++ implemented explicit specification, unqualified-ids
-could be interpreted as a particular specialization of a templatized
-function.  Because this non-conforming behavior is no longer the default
-behavior for G++, @option{-Wnon-template-friend} allows the compiler to
-check existing code for potential trouble spots and is on by default.
-This new compiler behavior can be turned off with
-@option{-Wno-non-template-friend}, which keeps the conformant compiler code
-but disables the helpful warning.
+Disable warnings when non-template friend functions are declared
+within a template.  In very old versions of GCC that predate implementation
+of the ISO standard, declarations such as 
+@samp{friend int foo(int)}, where the name of the friend is an unqualified-id,
+could be interpreted as a particular specialization of a template
+function; the warning exists to diagnose compatibility problems, 
+and is enabled by default.
 
 @item -Wold-style-cast @r{(C++ and Objective-C++ only)}
 @opindex Wold-style-cast
@@ -6222,7 +6223,7 @@ Do not warn if a multicharacter constant (@samp{'FOOF'}) is used.
 Usually they indicate a typo in the user's code, as they have
 implementation-defined values, and should not be used in portable code.
 
-@item -Wnormalized@r{[}=@r{<}none@r{|}id@r{|}nfc@r{|}nfkc@r{>]}
+@item -Wnormalized=@r{[}none@r{|}id@r{|}nfc@r{|}nfkc@r{]}
 @opindex Wnormalized=
 @opindex Wnormalized
 @opindex Wno-normalized
@@ -6826,6 +6827,14 @@ DWARF extensions from later standard versions is allowed.
 Allow using extensions of later DWARF standard version than selected with
 @option{-gdwarf-@var{version}}.
 
+@item -gcolumn-info
+@item -gno-column-info
+@opindex gcolumn-info
+@opindex gno-column-info
+Emit location column information into DWARF debugging information, rather
+than just file and line.
+This option is disabled by default.
+
 @item -gz@r{[}=@var{type}@r{]}
 @opindex gz
 Produce compressed debug sections in DWARF format, if that is supported.
@@ -7059,7 +7068,6 @@ also turns on the following optimization flags:
 -finline-small-functions @gol
 -findirect-inlining @gol
 -fipa-cp @gol
--fipa-cp-alignment @gol
 -fipa-bit-cp @gol
 -fipa-sra @gol
 -fipa-icf @gol
@@ -8068,15 +8076,6 @@ Because this optimization can create multiple copies of functions,
 it may significantly increase code size
 (see @option{--param ipcp-unit-growth=@var{value}}).
 This flag is enabled by default at @option{-O3}.
-
-@item -fipa-cp-alignment
-@opindex -fipa-cp-alignment
-When enabled, this optimization propagates alignment of function
-parameters to support better vectorization and string operations.
-
-This flag is enabled by default at @option{-O2} and @option{-Os}.  It
-requires that @option{-fipa-cp} is enabled.
-@option{-fipa-cp-alignment} is obsolete, use @option{-fipa-bit-cp} instead.
 
 @item -fipa-bit-cp
 @opindex -fipa-bit-cp
@@ -10488,9 +10487,9 @@ E.g. to disable inline code use
 @option{--param asan-instrumentation-with-call-threshold=0}.
 
 @item use-after-scope-direct-emission-threshold
-If size of a local variable in bytes is smaller or equal to this number,
-direct instruction emission is utilized to poison and unpoison local variables.
-Default value in 256.
+If the size of a local variable in bytes is smaller or equal to this
+number, directly poison (or unpoison) shadow memory instead of using
+run-time callbacks.  The default value is 256.
 
 @item chkp-max-ctor-size
 Static constructors generated by Pointer Bounds Checker may become very
@@ -25036,6 +25035,9 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -m3dnow
 @opindex m3dnow
 @need 200
+@itemx -m3dnowa
+@opindex m3dnowa
+@need 200
 @itemx -mpopcnt
 @opindex mpopcnt
 @need 200
@@ -25085,7 +25087,7 @@ These switches enable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,
 AVX512VL, AVX512BW, AVX512DQ, AVX512IFMA AVX512VBMI, BMI, BMI2, FXSR,
-XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU or 3DNow!@:
+XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU, 3DNow!@: or enhanced 3DNow!@:
 extended instruction sets.  Each has a corresponding @option{-mno-} option
 to disable use of these instructions.
 

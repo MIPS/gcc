@@ -5815,8 +5815,9 @@ cp_parser_unqualified_id (cp_parser* parser,
 	      const char *name = UDLIT_OP_SUFFIX (id);
 	      if (name[0] != '_' && !in_system_header_at (input_location)
 		  && declarator_p)
-		warning (0, "literal operator suffixes not preceded by %<_%>"
-			    " are reserved for future standardization");
+		warning (OPT_Wliteral_suffix,
+			 "literal operator suffixes not preceded by %<_%>"
+			 " are reserved for future standardization");
 	    }
 
 	  return id;
@@ -12885,7 +12886,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 	break;
       else if (maybe_range_for_decl)
 	{
-	  if (declares_class_or_enum && token->type == CPP_COLON)
+	  if ((declares_class_or_enum & 2) && token->type == CPP_COLON)
 	    permerror (decl_specifiers.locations[ds_type_spec],
 		       "types may not be defined in a for-range-declaration");
 	  break;
@@ -15722,6 +15723,7 @@ cp_parser_template_name (cp_parser* parser,
 	    cp_lexer_purge_tokens_after (parser->lexer, start);
 	  if (is_identifier)
 	    *is_identifier = true;
+	  parser->context->object_type = NULL_TREE;
 	  return identifier;
 	}
 
@@ -15733,7 +15735,12 @@ cp_parser_template_name (cp_parser* parser,
 	  && (!parser->scope
 	      || (TYPE_P (parser->scope)
 		  && dependent_type_p (parser->scope))))
-	return identifier;
+	{
+	  /* We're optimizing away the call to cp_parser_lookup_name, but we
+	     still need to do this.  */
+	  parser->context->object_type = NULL_TREE;
+	  return identifier;
+	}
     }
 
   /* Look up the name.  */
@@ -22767,7 +22774,10 @@ cp_parser_class_head (cp_parser* parser,
       /* If the class was unnamed, create a dummy name.  */
       if (!id)
 	id = make_anon_name ();
-      type = xref_tag (class_key, id, /*tag_scope=*/ts_current,
+      tag_scope tag_scope = (parser->in_type_id_in_expr_p
+			     ? ts_within_enclosing_non_class
+			     : ts_current);
+      type = xref_tag (class_key, id, tag_scope,
 		       parser->num_template_parameter_lists);
     }
 
@@ -23919,8 +23929,8 @@ cp_parser_exception_specification_opt (cp_parser* parser)
 	}
       else if (cxx_dialect >= cxx11 && !in_system_header_at (loc))
 	warning_at (loc, OPT_Wdeprecated,
-		    "dynamic exception specifications are deprecated in C++11;"
-		    " use %<noexcept%> instead");
+		    "dynamic exception specifications are deprecated in "
+		    "C++11");
     }
   /* In C++17, throw() is equivalent to noexcept (true).  throw()
      is deprecated in C++11 and above as well, but is still widely used,
@@ -24752,22 +24762,10 @@ cp_parser_std_attribute (cp_parser *parser, tree attr_ns)
 	TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
       /* C++14 deprecated attribute is equivalent to GNU's.  */
       else if (is_attribute_p ("deprecated", attr_id))
-	{
-	  if (cxx_dialect == cxx11)
-	    pedwarn (token->location, OPT_Wpedantic,
-		     "%<deprecated%> is a C++14 feature;"
-		     " use %<gnu::deprecated%>");
-	  TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
-	}
+	TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
       /* C++17 fallthrough attribute is equivalent to GNU's.  */
       else if (is_attribute_p ("fallthrough", attr_id))
-	{
-	  if (cxx_dialect < cxx1z)
-	    pedwarn (token->location, OPT_Wpedantic,
-		     "%<fallthrough%> is a C++17 feature;"
-		     " use %<gnu::fallthrough%>");
-	  TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
-	}
+	TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
       /* Transactional Memory TS optimize_for_synchronized attribute is
 	 equivalent to GNU transaction_callable.  */
       else if (is_attribute_p ("optimize_for_synchronized", attr_id))
@@ -24982,11 +24980,16 @@ cp_parser_std_attribute_spec (cp_parser *parser)
       alignas_expr = cxx_alignas_expr (alignas_expr);
       alignas_expr = build_tree_list (NULL_TREE, alignas_expr);
 
+      /* Handle alignas (pack...).  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
 	{
 	  cp_lexer_consume_token (parser->lexer);
 	  alignas_expr = make_pack_expansion (alignas_expr);
 	}
+
+      /* Something went wrong, so don't build the attribute.  */
+      if (alignas_expr == error_mark_node)
+	return error_mark_node;
 
       if (cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN) == NULL)
 	{
@@ -27233,6 +27236,8 @@ cp_parser_late_parse_one_default_arg (cp_parser *parser, tree decl,
       if (TREE_CODE (decl) == PARM_DECL)
 	parsed_arg = check_default_argument (parmtype, parsed_arg,
 					     tf_warning_or_error);
+      else if (maybe_reject_flexarray_init (decl, parsed_arg))
+	parsed_arg = error_mark_node;
       else
 	parsed_arg = digest_nsdmi_init (decl, parsed_arg);
     }
@@ -36178,6 +36183,11 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	  cp_lexer_consume_token (parser->lexer);
 	  return cp_parser_omp_target_update (parser, pragma_tok, context);
 	}
+    }
+  if (!flag_openmp)  /* flag_openmp_simd  */
+    {
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      return false;
     }
 
   stmt = make_node (OMP_TARGET);
