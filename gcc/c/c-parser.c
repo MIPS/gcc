@@ -7455,7 +7455,7 @@ c_parser_generic_selection (c_parser *parser)
 	  else
 	    {
 	      error_at (assoc.type_location,
-			"%<_Generic> selector matches multiple associations");
+			"%<_Generic%> selector matches multiple associations");
 	      inform (matched_assoc.type_location,
 		      "other match is here");
 	    }
@@ -12248,7 +12248,7 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	default:
 	  c_parser_error (parser,
 			  "expected %<+%>, %<*%>, %<-%>, %<&%>, "
-			  "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
+			  "%<^%>, %<|%>, %<&&%>, %<||%> or identifier");
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
 	  return list;
 	}
@@ -15661,7 +15661,7 @@ c_parser_omp_ordered (c_parser *parser, enum pragma_context context,
 	  if (context == pragma_stmt)
 	    {
 	      error_at (loc,
-			"%<#pragma omp ordered%> with %<depend> clause may "
+			"%<#pragma omp ordered%> with %<depend%> clause may "
 			"only be used in compound statements");
 	      c_parser_skip_to_pragma_eol (parser, false);
 	      return false;
@@ -16504,7 +16504,7 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
 	    map_seen |= 1;
 	    error_at (OMP_CLAUSE_LOCATION (*pc),
 		      "%<#pragma omp target exit data%> with map-type other "
-		      "than %<from%>, %<release> or %<delete%> on %<map%>"
+		      "than %<from%>, %<release%> or %<delete%> on %<map%>"
 		      " clause");
 	    *pc = OMP_CLAUSE_CHAIN (*pc);
 	    continue;
@@ -17167,7 +17167,7 @@ c_parser_omp_declare_reduction (c_parser *parser, enum pragma_context context)
     default:
       c_parser_error (parser,
 		      "expected %<+%>, %<*%>, %<-%>, %<&%>, "
-		      "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or identifier");
+		      "%<^%>, %<|%>, %<&&%>, %<||%> or identifier");
       goto fail;
     }
 

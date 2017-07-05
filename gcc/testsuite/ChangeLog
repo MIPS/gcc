@@ -1,3 +1,369 @@
+2017-03-07  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/79809
+	* g++.dg/Walloca1.C: New test.
+
+2017-03-07  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/68270
+	* g++.dg/pr68270.C: New test.
+
+2017-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79901
+	* gcc.target/i386/pr79901.c: New test.
+
+	PR sanitizer/79897
+	* c-c++-common/ubsan/pr79897.c: New test.
+
+2017-03-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/79571
+	* gcc.target/i386/pr79571.c: New.
+
+2017-03-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79796 - ICE with NSDMI and this pointer
+	* g++.dg/cpp0x/nsdmi13.C: New test.
+
+2017-03-06  Julia Koval  <julia.koval@intel.com>
+
+	PR target/79793
+	 * gcc.target/i386/interrupt-12.c: Update scan-assembler-times
+	 directives.
+	 * gcc.target/i386/interrupt-13.c: Ditto.
+	 * gcc.target/i386/interrupt-14.c: Ditto.
+	 * gcc.target/i386/interrupt-15.c: Ditto.
+
+2017-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79822
+	* g++.dg/cpp0x/constexpr-79822.C: New test.
+
+2017-03-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79894
+	* gcc.dg/vect/pr79887.c: New testcase.
+
+2017-03-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79824
+	* gcc.dg/vect/pr79824-1.c: New testcase.
+	* gcc.dg/vect/pr79824-2.c: Likewise.
+
+2017-03-06  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* gcc.dg/lto/pr60449_0.c: Add dg-require-effective-target for
+	gettimeofday.  Remove dg-skip-if for AVR.
+	* lib/target-supports.exp (check_effective_target_gettimeofday):
+	New proc.
+
+2017-03-06  Robin Dapp  <rdapp@linux.vnet.ibm.com>
+
+	* gcc.target/s390/hotpatch-1.c: Check for nopr %r0.
+	* gcc.target/s390/hotpatch-10.c: Likewise.
+	* gcc.target/s390/hotpatch-11.c: Likewise.
+	* gcc.target/s390/hotpatch-12.c: Likewise.
+	* gcc.target/s390/hotpatch-13.c: Likewise.
+	* gcc.target/s390/hotpatch-14.c: Likewise.
+	* gcc.target/s390/hotpatch-15.c: Likewise.
+	* gcc.target/s390/hotpatch-16.c: Likewise.
+	* gcc.target/s390/hotpatch-17.c: Likewise.
+	* gcc.target/s390/hotpatch-18.c: Likewise.
+	* gcc.target/s390/hotpatch-19.c: Likewise.
+	* gcc.target/s390/hotpatch-2.c: Likewise.
+	* gcc.target/s390/hotpatch-26.c: Likewise.
+	* gcc.target/s390/hotpatch-27.c: Likewise.
+	* gcc.target/s390/hotpatch-28.c: Likewise.
+	* gcc.target/s390/hotpatch-3.c: Likewise.
+	* gcc.target/s390/hotpatch-4.c: Likewise.
+	* gcc.target/s390/hotpatch-5.c: Likewise.
+	* gcc.target/s390/hotpatch-6.c: Likewise.
+	* gcc.target/s390/hotpatch-7.c: Likewise.
+	* gcc.target/s390/hotpatch-8.c: Likewise.
+	* gcc.target/s390/hotpatch-9.c: Likewise.
+
+2017-03-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/64574
+	* g++.dg/template/crash125.C: New.
+
+2017-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79812
+	* gcc.target/i386/avx512f-vpermq-imm-3.c: New test.
+
+2017-03-06  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* gcc.target/mips/inline-memcpy-3.c (dg-options): Add -mabi=32.
+
+2017-03-06  Prachi Godbole  <prachi.godbole@imgtec.com>
+
+	* gcc.target/mips/msa-minmax.c: New tests.
+
+2017-03-06  Martin Liska  <mliska@suse.cz>
+
+	PR sanitize/79783
+	* g++.dg/asan/pr79783.C: New test.
+
+2017-03-06  Prachi Godbole  <prachi.godbole@imgtec.com>
+
+	* gcc.target/mips/msa-dotp.c: New tests.
+
+2017-03-06  Prachi Godbole  <prachi.godbole@imgtec.com>
+
+	* gcc.target/mips/msa-bclri.c: New test.
+
+2017-03-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70266
+	* g++.dg/tm/pr70266.C: New.
+
+2017-03-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+            Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* gfortran.dg/coarray/fail_image_1.f08: New test.
+	* gfortran.dg/coarray/fail_image_2.f08: New test.
+	* gfortran.dg/coarray/failed_images_1.f08: New test.
+	* gfortran.dg/coarray/failed_images_2.f08: New test.
+	* gfortran.dg/coarray/image_status_1.f08: New test.
+	* gfortran.dg/coarray/image_status_2.f08: New test.
+	* gfortran.dg/coarray/stopped_images_1.f08: New test.
+	* gfortran.dg/coarray/stopped_images_2.f08: New test.
+	* gfortran.dg/coarray_fail_st.f90: New test.
+	* gfortran.dg/coarray_failed_images_1.f08: New test.
+	* gfortran.dg/coarray_image_status_1.f08: New test.
+	* gfortran.dg/coarray_stopped_images_1.f08: New test.
+
+2017-03-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79758
+	* gcc.dg/noncompile/pr79758.c: New test.
+
+2017-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79805
+	* g++.dg/opt/pr79805.C: New test.
+
+2017-03-03  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* gcc.target/i386/avx512vpopcntdq-check.h: New.
+	* gcc.target/i386/avx512vpopcntdq-vpopcntd-1.c: Ditto.
+	* gcc.target/i386/avx512vpopcntdq-vpopcntq-1.c: Ditto.
+	* gcc.target/i386/avx512f-helper.h: Add avx512vpopcntdq-check.h.
+	* gcc.target/i386/i386.exp
+	(check_effective_target_avx512vpopcntdq): New.
+
+2017-03-03  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* gcc.target/mips/pr68273.c (dg-final): Match SImode registers only for
+	ilp32 targets and match DImode registers for lp64 targets.
+
+2017-03-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/pr71624.C: Disable for x32.
+	* g++.dg/pr71633.C: Ditto.
+
+2017-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79807
+	* gcc.target/i386/pr79807.c: New test.
+
+2017-03-03  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/79803
+	* gcc.dg/tree-ssa/pr79803.c: New test.
+
+2017-03-03  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/79574
+	* gcc.dg/pr79574-2.c: New test.
+
+2017-03-03  Richard Biener  <rguenther@suse.de>
+
+	PR c++/79825
+	* g++.dg/warn/Wuninitialized-8.C: New testcase.
+
+2017-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/pr57134.c: Use empty inline asm string literal.
+
+2017-03-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79791
+	* g++.dg/warn/Wwrite-strings-1.C: New test.
+	* g++.dg/warn/Wwrite-strings-2.C: New test.
+	* g++.dg/warn/Wwrite-strings-3.C: New test.
+	* g++.dg/warn/Wwrite-strings-4.C: New test.
+	* g++.dg/warn/Wwrite-strings-5.C: New test.
+	* g++.dg/warn/Wwrite-strings-6.C: New test.
+	* g++.dg/warn/Wwrite-strings-7.C: New test.
+	* g++.dg/warn/Wwrite-strings-8.C: New test.
+	* g++.dg/warn/Wwrite-strings-9.C: New test.
+	* g++.dg/warn/Wwrite-strings-10.C: New test.
+	* g++.dg/warn/Wwrite-strings-11.C: New test.
+	* g++.dg/warn/Wwrite-strings-12.C: New test.
+
+2017-03-03  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79818
+	* gcc.dg/torture/pr79818.c: New testcase.
+
+2017-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79782
+	* g++.dg/warn/Wunused-parm-10.C: New test.
+
+2017-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/rtl/x86_64/*.c: Test for
+	"{ i?86-*-* x86_64-*-* } && lp64" targets only.
+
+2017-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/79514
+	* gcc.target/i386/pr79514.c: New test.
+
+2017-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79780
+	* gcc.c-torture/compile/pr79780.c: New test.
+
+2017-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79345
+	PR c++/42000
+	* g++.dg/warn/Wuninitialized-7.C: New testcase.
+	* c-c++-common/ubsan/bounds-2.c: Add -Wno-uninitialized.
+	* gcc.dg/uninit-pr19430-2.c: Add expected warning.
+
+2017-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR c/79756
+	* gcc.dg/vector-1.c: New testcase.
+
+2017-03-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/66768
+	* gcc.target/i386/pr66768.c: New test.
+
+2017-03-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/rtl/x86_64/dfinit.c: Only run for lp64.
+	* gcc.dg/rtl/x86_64/final.c: Likewise.
+	* gcc.dg/rtl/x86_64/into-cfglayout.c: Likewise.
+	* gcc.dg/rtl/x86_64/ira.c: Likewise.
+	* gcc.dg/rtl/x86_64/times-two.c.after-expand.c: Likewise.
+	* gcc.dg/rtl/x86_64/vregs.c: Likewise.
+
+2017-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79777
+	* gcc.dg/torture/pr79777.c: New testcase.
+
+2017-03-01  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/79692
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-10.c: Correct %#g.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-15.c: New test.
+	* gcc.dg/tree-ssa/builtin-snprintf-3.c: Ditto.
+
+2017-03-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/invsize-2.c: New test.
+	* gcc.target/i386/invsize-3.c: Ditto.
+	* gcc.target/i386/invsize-4.c: Ditto.
+	* gcc.target/i386/pr66274.c: Expect "unsuported size" warning.
+	* gcc.target/i386/stackalign/asm-1.c: Ditto.
+
+2017-03-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/79439
+	* gcc.target/powerpc/pr79439.c: New test.
+
+2017-03-01  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/pr79544.c: Add test for vec_vsrad and fix up
+	scan string.
+
+
+2017-03-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/79395
+	* gcc.target/powerpc/vsu/vec-all-ne-10.c: Change scan-assembler
+	pattern to look for vcmpequd. instead of vcmpnew.
+	* gcc.target/powerpc/vsu/vec-all-ne-14.c: Likewise.
+	* gcc.target/powerpc/vsu/vec-all-ne-7.c: Change scan-assembler
+	pattern to look for xvcmpeqsp. instead of xvcmpnesp.
+	* gcc.target/powerpc/vsu/vec-all-ne-8.c: Change scan-assembler to
+	look for xvcmpeqdp. instead of xvcmpnedp.
+	* gcc.target/powerpc/vsu/vec-all-ne-9.c: Change scan-assembler to
+	look for vcmpequd. instead of vcmpnew.
+	* gcc.target/powerpc/vsu/vec-any-eq-10.c: Likewise.
+	* gcc.target/powerpc/vsu/vec-any-eq-14.c: Likewise.
+	* gcc.target/powerpc/vsu/vec-any-eq-7.c: Change scan-assembler to
+	look for xvcmpeqsp. instead of xvcmpnesp.
+	* gcc.target/powerpc/vsu/vec-any-eq-8.c: Change scan-assembler to
+	look for xvcmpeqdp. instead of xvcmpnedp.
+	* gcc.target/powerpc/vsu/vec-any-eq-9.c: Change scan-assembler to
+	look for vcmpequd. instead of vcmpnew.
+	* gcc.target/powerpc/vsu/vec-cmpne-8.c: Change scan-assembler to
+	look for vcmpeqsp instead of xvcmpnesp.
+	* gcc.target/powerpc/vsu/vec-cmpne-9.c: Change scan-assembler to
+	look for xvcmpeqdp instead of xvcmpnedp.
+
+2017-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79721
+	* gcc.dg/torture/pr79721.c: New testcase.
+
+2017-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79681
+	* g++.dg/cpp1y/constexpr-79681-1.C: New test.
+	* g++.dg/cpp1y/constexpr-79681-2.C: New test.
+
+	PR c++/79746
+	* g++.dg/warn/Wunused-parm-9.C: New test.
+
+	PR tree-optimization/79734
+	* g++.dg/opt/pr79734.C: New test.
+
+2017-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79737
+	* gcc.c-torture/execute/pr79737-1.c: New test.
+	* gcc.c-torture/execute/pr79737-2.c: New test.
+
+2017-02-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/20170228-1.c: New test.
+
+2017-02-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/invsize-1.c: New test.
+
+2017-02-28  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/79691
+	* gcc.dg/tree-ssa/pr79691.c: New test.
+
+2017-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79729
+	* gcc.target/i386/pr79729.c: New test.
+
+2017-02-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79740
+	* gcc.dg/torture/pr79740.c: New testcase.
+
+2017-02-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79731
+	* c-c++-common/torture/pr79731.c: New testcase.
+
 2017-02-28  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/79732
@@ -942,7 +1308,7 @@
 
 2017-02-02  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
 
-        * gcc.dg/sms-8.c: Update options for powerpc*-*-*.
+	* gcc.dg/sms-8.c: Update options for powerpc*-*-*.
 
 2017-02-02  Jan Hubicka  <hubicka@ucw.cz>
 
