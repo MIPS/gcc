@@ -2162,7 +2162,8 @@ constant_value_1 (tree decl, bool strict_p, bool return_aggregate_cst_ok_p)
       init = DECL_INITIAL (decl);
       if (init == error_mark_node)
 	{
-	  if (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	  if (TREE_CODE (decl) == CONST_DECL
+	      || DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
 	    /* Treat the error as a constant to avoid cascading errors on
 	       excessively recursive template instantiation (c++/9335).  */
 	    return init;
@@ -2202,6 +2203,13 @@ constant_value_1 (tree decl, bool strict_p, bool return_aggregate_cst_ok_p)
 	 initialization, since it doesn't represent the entire value.  */
       if (TREE_CODE (init) == CONSTRUCTOR
 	  && !DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	break;
+      /* If the variable has a dynamic initializer, don't use its
+	 DECL_INITIAL which doesn't reflect the real value.  */
+      if (VAR_P (decl)
+	  && TREE_STATIC (decl)
+	  && !DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_NONTRIVIALLY_INITIALIZED_P (decl))
 	break;
       decl = unshare_expr (init);
     }

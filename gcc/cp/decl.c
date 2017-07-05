@@ -8909,13 +8909,13 @@ grokfndecl (tree ctype,
 	  if (long_long_unsigned_p)
 	    {
 	      if (cpp_interpret_int_suffix (parse_in, suffix, strlen (suffix)))
-		warning (0, "integer suffix %<%s%>"
+		warning (0, "integer suffix %qs"
 			    " shadowed by implementation", suffix);
 	    }
 	  else if (long_double_p)
 	    {
 	      if (cpp_interpret_float_suffix (parse_in, suffix, strlen (suffix)))
-		warning (0, "floating point suffix %<%s%>"
+		warning (0, "floating point suffix %qs"
 			    " shadowed by implementation", suffix);
 	    }
 	}
@@ -11534,7 +11534,8 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (declarator
       && declarator->kind == cdk_id
-      && declarator->std_attributes)
+      && declarator->std_attributes
+      && attrlist != NULL)
     /* [dcl.meaning]/1: The optional attribute-specifier-seq following
        a declarator-id appertains to the entity that is declared.  */
     *attrlist = chainon (*attrlist, declarator->std_attributes);
@@ -11970,7 +11971,7 @@ grokdeclarator (const cp_declarator *declarator,
 		     headers because glibc uses them.  */;
 		else if (name)
 		  pedwarn (input_location, OPT_Wpedantic,
-			   "ISO C++ forbids flexible array member %<%s%>", name);
+			   "ISO C++ forbids flexible array member %qs", name);
 		else
 		  pedwarn (input_location, OPT_Wpedantic,
 			   "ISO C++ forbids flexible array members");
@@ -14455,9 +14456,12 @@ finish_enum_value_list (tree enumtype)
       input_location = saved_location;
 
       /* Do not clobber shared ints.  */
-      value = copy_node (value);
+      if (value != error_mark_node)
+	{
+	  value = copy_node (value);
 
-      TREE_TYPE (value) = enumtype;
+	  TREE_TYPE (value) = enumtype;
+	}
       DECL_INITIAL (decl) = value;
     }
 

@@ -3074,8 +3074,8 @@ struct simd_call_arg_info
 {
   tree vectype;
   tree op;
-  enum vect_def_type dt;
   HOST_WIDE_INT linear_step;
+  enum vect_def_type dt;
   unsigned int align;
   bool simd_lane_linear;
 };
@@ -6125,6 +6125,8 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  if (slp)
 	    break;
 	}
+
+      vec_oprnds.release ();
       return true;
     }
 

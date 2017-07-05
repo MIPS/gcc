@@ -1862,7 +1862,13 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  init_loc = c_parser_peek_token (parser)->location;
 		  rich_location richloc (line_table, init_loc);
 		  start_init (NULL_TREE, asm_name, global_bindings_p (), &richloc);
+		  /* A parameter is initialized, which is invalid.  Don't
+		     attempt to instrument the initializer.  */
+		  int flag_sanitize_save = flag_sanitize;
+		  if (nested && !empty_ok)
+		    flag_sanitize = 0;
 		  init = c_parser_expr_no_commas (parser, NULL);
+		  flag_sanitize = flag_sanitize_save;
 		  if (TREE_CODE (init.value) == COMPONENT_REF
 		      && DECL_C_BIT_FIELD (TREE_OPERAND (init.value, 1)))
 		    error_at (here,
@@ -1920,7 +1926,13 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  init_loc = c_parser_peek_token (parser)->location;
 		  rich_location richloc (line_table, init_loc);
 		  start_init (d, asm_name, global_bindings_p (), &richloc);
+		  /* A parameter is initialized, which is invalid.  Don't
+		     attempt to instrument the initializer.  */
+		  int flag_sanitize_save = flag_sanitize;
+		  if (TREE_CODE (d) == PARM_DECL)
+		    flag_sanitize = 0;
 		  init = c_parser_initializer (parser);
+		  flag_sanitize = flag_sanitize_save;
 		  finish_init ();
 		}
 	      if (oacc_routine_data)
@@ -2685,7 +2697,6 @@ c_parser_enum_specifier (c_parser *parser)
   location_t enum_loc;
   location_t ident_loc = UNKNOWN_LOCATION;  /* Quiet warning.  */
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ENUM));
-  enum_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   attrs = c_parser_attributes (parser);
   enum_loc = c_parser_peek_token (parser)->location;
@@ -11822,7 +11833,7 @@ c_parser_oacc_shape_clause (c_parser *parser, location_t loc,
 	  if (c == boolean_true_node)
 	    {
 	      warning_at (loc, 0,
-			  "%<%s%> value must be positive", str);
+			  "%qs value must be positive", str);
 	      expr = integer_one_node;
 	    }
 

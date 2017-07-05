@@ -3396,8 +3396,6 @@ can also be obtained from:
 @uref{http://www.amelek.gda.pl/avr/,,http://www.amelek.gda.pl/avr/}
 @end itemize
 
-We @emph{strongly} recommend using binutils 2.13 or newer.
-
 The following error:
 @smallexample
 Error: register required
@@ -3471,9 +3469,6 @@ Mainly for monolithic embedded systems.  Includes a multilib for the
 A GNU/Linux port for the CRIS architecture, currently targeting
 @samp{ETRAX 100 LX} by default.
 @end table
-
-For @code{cris-axis-elf} you need binutils 2.11
-or newer.  For @code{cris-axis-linux-gnu} you need binutils 2.12 or newer.
 
 Pre-packaged tools can be obtained from
 @uref{ftp://ftp.axis.com/@/pub/@/axis/@/tools/@/cris/@/compiler-kit/}.  More
@@ -4125,14 +4120,6 @@ the use of break, use the @option{--with-divide=breaks}
 @command{configure} option when configuring GCC@.  The default is to
 use traps on systems that support them.
 
-The assembler from GNU binutils 2.17 and earlier has a bug in the way
-it sorts relocations for REL targets (o32, o64, EABI).  This can cause
-bad code to be generated for simple C++ programs.  Also the linker
-from GNU binutils versions prior to 2.17 has a bug which causes the
-runtime linker stubs in very large programs to
-be incorrectly generated.  GNU Binutils 2.18 and later (and snapshots
-made after Nov. 9, 2006) should be free from both of these problems.
-
 @html
 <hr />
 @end html
@@ -4207,9 +4194,7 @@ Use the @option{--disable-sjlj-exceptions} and
 You can specify a default version for the @option{-mcpu=@var{cpu_type}}
 switch by using the configure option @option{--with-cpu-@var{cpu_type}}.
 
-You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.15}
-or newer for a working GCC@.
+You will need GNU binutils 2.15 or newer.
 
 @html
 <hr />

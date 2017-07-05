@@ -265,7 +265,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-builtin-declaration-mismatch @gol
 -Wno-builtin-macro-redefined  -Wc90-c99-compat  -Wc99-c11-compat @gol
 -Wc++-compat  -Wc++11-compat  -Wc++14-compat  -Wcast-align  -Wcast-qual  @gol
--Wchar-subscripts  -Wclobbered  -Wcomment  -Wconditionally-supported  @gol
+-Wchar-subscripts -Wchkp  -Wclobbered  -Wcomment  @gol
+-Wconditionally-supported  @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-cpp  -Wdangling-else  -Wdate-time @gol
 -Wdelete-incomplete @gol
 -Wno-deprecated  -Wno-deprecated-declarations  -Wno-designated-init @gol
@@ -3865,6 +3866,11 @@ of error, as programmers often forget that this type is signed on some
 machines.
 This warning is enabled by @option{-Wall}.
 
+@item -Wchkp
+@opindex Wchkp
+Warn about an invalid memory access that is found by Pointer Bounds Checker
+(@option{-fcheck-pointer-bounds}).
+
 @item -Wno-coverage-mismatch
 @opindex Wno-coverage-mismatch
 Warn if feedback profiles do not match when using the
@@ -5139,7 +5145,7 @@ were declared with the C++11 @code{final} specifier,
 or, if possible, its type were
 declared in an anonymous namespace or with the @code{final} specifier.
 This warning is
-more effective with link time optimization, where the information about the
+more effective with link-time optimization, where the information about the
 class hierarchy graph is more complete. It is recommended to first consider
 suggestions of @option{-Wsuggest-final-types} and then rebuild with new
 annotations.
@@ -8103,7 +8109,7 @@ is enabled.
 Perform Identical Code Folding for functions and read-only variables.
 The optimization reduces code size and may disturb unwind stacks by replacing
 a function by equivalent one with a different name. The optimization works
-more effectively with link time optimization enabled.
+more effectively with link-time optimization enabled.
 
 Nevertheless the behavior is similar to Gold Linker ICF optimization, GCC ICF
 works on different levels and thus the optimizations are not same - there are
@@ -8832,7 +8838,7 @@ should specify the optimization options to be used for link-time
 optimization though GCC tries to be clever at guessing an
 optimization level to use from the options used at compile time
 if you fail to specify one at link time.  You can always override
-the automatic decision to do link-time optimization at link time
+the automatic decision to do link-time optimization
 by passing @option{-fno-lto} to the link command.
 
 To make whole program optimization effective, it is necessary to make
@@ -10732,12 +10738,14 @@ more details.  The run-time behavior can be influenced using the
 the available options are shown at startup of the instrumented program.  See
 @url{https://github.com/google/sanitizers/wiki/AddressSanitizerFlags#run-time-flags}
 for a list of supported options.
-The option can't be combined with @option{-fsanitize=thread}.
+The option can't be combined with @option{-fsanitize=thread}
+and/or @option{-fcheck-pointer-bounds}.
 
 @item -fsanitize=kernel-address
 @opindex fsanitize=kernel-address
 Enable AddressSanitizer for Linux kernel.
 See @uref{https://github.com/google/kasan/wiki} for more details.
+The option can't be combined with @option{-fcheck-pointer-bounds}.
 
 @item -fsanitize=thread
 @opindex fsanitize=thread
@@ -10748,8 +10756,8 @@ details. The run-time behavior can be influenced using the @env{TSAN_OPTIONS}
 environment variable; see
 @url{https://github.com/google/sanitizers/wiki/ThreadSanitizerFlags} for a list of
 supported options.
-The option can't be combined with @option{-fsanitize=address}
-and/or @option{-fsanitize=leak}.
+The option can't be combined with @option{-fsanitize=address},
+@option{-fsanitize=leak} and/or @option{-fcheck-pointer-bounds}.
 
 @item -fsanitize=leak
 @opindex fsanitize=leak
@@ -10838,13 +10846,15 @@ a++;
 This option enables instrumentation of array bounds.  Various out of bounds
 accesses are detected.  Flexible array members, flexible array member-like
 arrays, and initializers of variables with static storage are not instrumented.
+The option can't be combined with @option{-fcheck-pointer-bounds}.
 
 @item -fsanitize=bounds-strict
 @opindex fsanitize=bounds-strict
 This option enables strict instrumentation of array bounds.  Most out of bounds
 accesses are detected, including flexible array members and flexible array
 member-like arrays.  Initializers of variables with static storage are not
-instrumented.
+instrumented.  The option can't be combined
+with @option{-fcheck-pointer-bounds}.
 
 @item -fsanitize=alignment
 @opindex fsanitize=alignment
