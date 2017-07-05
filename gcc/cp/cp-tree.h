@@ -4733,6 +4733,7 @@ enum special_function_kind {
 			      deletes the object after it has been
 			      destroyed.  */
   sfk_conversion,	   /* A conversion operator.  */
+  sfk_deduction_guide,	   /* A class template deduction guide.  */
   sfk_inheriting_constructor /* An inheriting constructor */
 };
 
@@ -5909,7 +5910,7 @@ extern tree reshape_init                        (tree, tree, tsubst_flags_t);
 extern tree next_initializable_field (tree);
 extern tree fndecl_declared_return_type		(tree);
 extern bool undeduced_auto_decl			(tree);
-extern void require_deduced_type		(tree);
+extern bool require_deduced_type		(tree, tsubst_flags_t = tf_warning_or_error);
 
 extern tree finish_case_label			(location_t, tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree, tsubst_flags_t);
@@ -6151,7 +6152,8 @@ extern tree do_auto_deduction                   (tree, tree, tree);
 extern tree do_auto_deduction                   (tree, tree, tree,
                                                  tsubst_flags_t,
                                                  auto_deduction_context,
-						 tree = NULL_TREE);
+						 tree = NULL_TREE,
+						 int = LOOKUP_NORMAL);
 extern tree type_uses_auto			(tree);
 extern tree type_uses_auto_or_concept		(tree);
 extern void append_type_to_template_for_access_check (tree, tree, tree,
@@ -6281,7 +6283,7 @@ extern tree extract_fnparm_pack                 (tree, tree *);
 extern tree template_parm_to_arg                (tree);
 extern tree dguide_name				(tree);
 extern bool dguide_name_p			(tree);
-extern bool deduction_guide_p			(tree);
+extern bool deduction_guide_p			(const_tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -6657,7 +6659,7 @@ extern tree array_type_nelts_total		(tree);
 extern tree array_type_nelts_top		(tree);
 extern tree break_out_target_exprs		(tree);
 extern tree build_ctor_subob_ref		(tree, tree, tree);
-extern tree replace_placeholders		(tree, tree);
+extern tree replace_placeholders		(tree, tree, bool * = NULL);
 extern tree get_type_decl			(tree);
 extern tree decl_namespace_context		(tree);
 extern bool decl_anon_ns_mem_p			(const_tree);

@@ -10845,6 +10845,8 @@ aarch64_simd_container_mode (machine_mode mode, unsigned width)
 	    return V2DFmode;
 	  case SFmode:
 	    return V4SFmode;
+	  case HFmode:
+	    return V8HFmode;
 	  case SImode:
 	    return V4SImode;
 	  case HImode:
@@ -10861,6 +10863,8 @@ aarch64_simd_container_mode (machine_mode mode, unsigned width)
 	  {
 	  case SFmode:
 	    return V2SFmode;
+	  case HFmode:
+	    return V4HFmode;
 	  case SImode:
 	    return V2SImode;
 	  case HImode:
@@ -10910,21 +10914,6 @@ aarch64_mangle_type (const_tree type)
 
   /* Use the default mangling.  */
   return NULL;
-}
-
-
-/* Return true if the rtx_insn contains a MEM RTX somewhere
-   in it.  */
-
-static bool
-has_memory_op (rtx_insn *mem_insn)
-{
-  subrtx_iterator::array_type array;
-  FOR_EACH_SUBRTX (iter, array, PATTERN (mem_insn), ALL)
-    if (MEM_P (*iter))
-      return true;
-
-  return false;
 }
 
 /* Find the first rtx_insn before insn that will generate an assembly
@@ -11019,7 +11008,7 @@ aarch64_madd_needs_nop (rtx_insn* insn)
      Restore recog state to INSN to avoid state corruption.  */
   extract_constrain_insn_cached (insn);
 
-  if (!prev || !has_memory_op (prev))
+  if (!prev || !contains_mem_rtx_p (PATTERN (prev)))
     return false;
 
   body = single_set (prev);
@@ -14697,6 +14686,35 @@ aarch64_excess_precision (enum excess_precision_type type)
   return FLT_EVAL_METHOD_UNPREDICTABLE;
 }
 
+/* Implement TARGET_SCHED_CAN_SPECULATE_INSN.  Return true if INSN can be
+   scheduled for speculative execution.  Reject the long-running division
+   and square-root instructions.  */
+
+static bool
+aarch64_sched_can_speculate_insn (rtx_insn *insn)
+{
+  switch (get_attr_type (insn))
+    {
+      case TYPE_SDIV:
+      case TYPE_UDIV:
+      case TYPE_FDIVS:
+      case TYPE_FDIVD:
+      case TYPE_FSQRTS:
+      case TYPE_FSQRTD:
+      case TYPE_NEON_FP_SQRT_S:
+      case TYPE_NEON_FP_SQRT_D:
+      case TYPE_NEON_FP_SQRT_S_Q:
+      case TYPE_NEON_FP_SQRT_D_Q:
+      case TYPE_NEON_FP_DIV_S:
+      case TYPE_NEON_FP_DIV_D:
+      case TYPE_NEON_FP_DIV_S_Q:
+      case TYPE_NEON_FP_DIV_D_Q:
+	return false;
+      default:
+	return true;
+    }
+}
+
 /* Target-specific selftests.  */
 
 #if CHECKING_P
@@ -15084,6 +15102,9 @@ aarch64_libgcc_floating_mode_supported_p
 #undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 #define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \
   aarch64_use_by_pieces_infrastructure_p
+
+#undef TARGET_SCHED_CAN_SPECULATE_INSN
+#define TARGET_SCHED_CAN_SPECULATE_INSN aarch64_sched_can_speculate_insn
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost

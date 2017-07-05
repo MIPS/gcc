@@ -1,3 +1,43 @@
+2017-02-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/79348
+	* config/abi/post/x86_64-linux-gnu/x32/baseline_symbols.txt: Updated.
+
+2017-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/79348
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/aarch64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390x-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+
+2017-02-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79486
+	* include/std/future (__future_base::_Task_state::_M_run)
+	(__future_base::_Task_state::_M_run_delayed): Use lvalue types in
+	result_of expressions.
+	* testsuite/30_threads/packaged_task/79486.cc: New.
+
+2017-02-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79467
+	* include/bits/shared_ptr_base.h (__shared_ptr(_Yp*, _Deleter))
+	(__shared_ptr(_Yp*, _Deleter, _Alloc)): Use lvalue types in
+	__is_callable check.
+	* testsuite/20_util/shared_ptr/cons/79467.cc: New.
+
+	* include/bits/atomic_base.h: Re-indent.
+
+2017-02-10  Gerald Pfeifer  <gerald@pfeifer.com> 
+
+	* doc/xml/manual/profile_mode.xml: Update a paper reference. 
+
 2017-02-08  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* src/c++11/snprintf_lite.cc (__err): Use https for bug reporting.

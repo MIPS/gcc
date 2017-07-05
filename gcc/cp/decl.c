@@ -6953,7 +6953,8 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if (VAR_P (decl) && DECL_DECOMPOSITION_P (decl))
 	adc = adc_decomp_type;
       type = TREE_TYPE (decl) = do_auto_deduction (type, d_init, auto_node,
-						   tf_warning_or_error, adc);
+						   tf_warning_or_error, adc,
+						   NULL_TREE, flags);
       if (type == error_mark_node)
 	return;
       if (TREE_CODE (type) == FUNCTION_TYPE)
@@ -8862,14 +8863,6 @@ grokfndecl (tree ctype,
 		    "namespace scope", decl);
 	  return NULL_TREE;
 	}
-      tree type = TREE_TYPE (DECL_NAME (decl));
-      if (CP_DECL_CONTEXT (decl) != CP_TYPE_CONTEXT (type))
-	{
-	  error_at (location, "deduction guide %qD must be declared in the "
-		    "same scope as %qT", decl, type);
-	  inform (location_of (type), "  declared here");
-	  return NULL_TREE;
-	}
       if (funcdef_flag)
 	error_at (location,
 		  "deduction guide %qD must not have a function body", decl);
@@ -9890,6 +9883,20 @@ check_special_function_return_type (special_function_kind sfk,
       type = optype;
       break;
 
+    case sfk_deduction_guide:
+      if (type)
+	error ("return type specified for deduction guide");
+      else if (type_quals != TYPE_UNQUALIFIED)
+	error_at (smallest_type_quals_location (type_quals, locations),
+		  "qualifiers are not allowed on declaration of "
+		  "deduction guide");
+      type = make_template_placeholder (CLASSTYPE_TI_TEMPLATE (optype));
+      for (int i = 0; i < ds_last; ++i)
+	if (i != ds_explicit && locations[i])
+	  error_at (locations[i],
+		    "decl-specifier in declaration of deduction guide");
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -10237,7 +10244,6 @@ grokdeclarator (const cp_declarator *declarator,
 		  {
 		    gcc_assert (flags == NO_SPECIAL);
 		    flags = TYPENAME_FLAG;
-		    ctor_return_type = TREE_TYPE (dname);
 		    sfk = sfk_conversion;
 		    if (is_typename_at_global_scope (dname))
 		      name = identifier_to_locale (IDENTIFIER_POINTER (dname));
@@ -10417,8 +10423,9 @@ grokdeclarator (const cp_declarator *declarator,
 #endif
   typedef_type = type;
 
-
-  if (sfk != sfk_conversion)
+  if (sfk == sfk_conversion || sfk == sfk_deduction_guide)
+    ctor_return_type = TREE_TYPE (dname);
+  else
     ctor_return_type = ctype;
 
   if (sfk != sfk_none)
@@ -11038,12 +11045,13 @@ grokdeclarator (const cp_declarator *declarator,
 			if (!late_return_type)
 			  {
 			    if (dguide_name_p (unqualified_id))
-			      error_at (typespec_loc, "deduction guide for "
-					"%qT must have trailing return type",
-					TREE_TYPE (tmpl));
+			      error_at (declarator->id_loc, "deduction guide "
+					"for %qT must have trailing return "
+					"type", TREE_TYPE (tmpl));
 			    else
-			      error_at (typespec_loc, "deduced class type %qT "
-					"in function return type", type);
+			      error_at (declarator->id_loc, "deduced class "
+					"type %qT in function return type",
+					type);
 			    inform (DECL_SOURCE_LOCATION (tmpl),
 				    "%qD declared here", tmpl);
 			  }
@@ -11170,6 +11178,11 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		if (late_return_type_p)
 		  error ("a conversion function cannot have a trailing return type");
+	      }
+	    else if (sfk == sfk_deduction_guide)
+	      {
+		if (explicitp == 1)
+		  explicitp = 2;
 	      }
 
 	    arg_types = grokparms (declarator->u.function.parameters,
@@ -12339,6 +12352,8 @@ grokdeclarator (const cp_declarator *declarator,
 	if (decl == NULL_TREE)
 	  return error_mark_node;
 
+	if (explicitp == 2)
+	  DECL_NONCONVERTING_P (decl) = 1;
 	if (staticp == 1)
 	  {
 	    int invalid_static = 0;
@@ -16255,24 +16270,29 @@ fndecl_declared_return_type (tree fn)
   return TREE_TYPE (TREE_TYPE (fn));
 }
 
-/* Returns true iff DECL was declared with an auto return type and it has
+/* Returns true iff DECL was declared with an auto type and it has
    not yet been deduced to a real type.  */
 
 bool
 undeduced_auto_decl (tree decl)
 {
-  if (cxx_dialect < cxx14)
+  if (cxx_dialect < cxx11)
     return false;
   return type_uses_auto (TREE_TYPE (decl));
 }
 
 /* Complain if DECL has an undeduced return type.  */
 
-void
-require_deduced_type (tree decl)
+bool
+require_deduced_type (tree decl, tsubst_flags_t complain)
 {
   if (undeduced_auto_decl (decl))
-    error ("use of %qD before deduction of %<auto%>", decl);
+    {
+      if (complain & tf_error)
+	error ("use of %qD before deduction of %<auto%>", decl);
+      return false;
+    }
+  return true;
 }
 
 #include "gt-cp-decl.h"

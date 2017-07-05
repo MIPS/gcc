@@ -389,7 +389,7 @@ process (FILE *in, FILE *out)
   fprintf (out, "static __attribute__((constructor)) void init (void)\n"
 	   "{\n"
 	   "  GOMP_offload_register_ver (%#x, __OFFLOAD_TABLE__,"
-	   "%d/*NVIDIA_PTX*/, &target_data);\n",
+	   " %d/*NVIDIA_PTX*/, &target_data);\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
 	   GOMP_DEVICE_NVIDIA_PTX);
   if (avoid_offloading_p)
@@ -402,7 +402,7 @@ process (FILE *in, FILE *out)
   fprintf (out, "static __attribute__((destructor)) void fini (void)\n"
 	   "{\n"
 	   "  GOMP_offload_unregister_ver (%#x, __OFFLOAD_TABLE__,"
-	   "%d/*NVIDIA_PTX*/, &target_data);\n",
+	   " %d/*NVIDIA_PTX*/, &target_data);\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
 	   GOMP_DEVICE_NVIDIA_PTX);
   if (avoid_offloading_p)

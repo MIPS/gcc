@@ -379,6 +379,9 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
   if (TREE_CODE (member) == COMPONENT_REF)
     {
       tree aggr = TREE_OPERAND (member, 0);
+      if (TREE_CODE (aggr) == VAR_DECL)
+	/* Initializing a local variable, don't add anything.  */
+	return true;
       if (TREE_CODE (aggr) != COMPONENT_REF)
 	/* Normal member initialization.  */
 	member = TREE_OPERAND (member, 1);
@@ -3465,6 +3468,11 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 	     order.  */
 	  tree fields = TYPE_FIELDS (DECL_CONTEXT (index));
 	  unsigned HOST_WIDE_INT idx;
+
+	  if (code == UNION_TYPE && CONSTRUCTOR_NELTS (*valp)
+	      && CONSTRUCTOR_ELT (*valp, 0)->index != index)
+	    /* Changing active member.  */
+	    vec_safe_truncate (CONSTRUCTOR_ELTS (*valp), 0);
 
 	  for (idx = 0;
 	       vec_safe_iterate (CONSTRUCTOR_ELTS (*valp), idx, &cep);

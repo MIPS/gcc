@@ -2559,12 +2559,15 @@ format_directive (const pass_sprintf_length::call_info &info,
     res->range.max += fmtres.range.max;
 
   /* Raise the total unlikely maximum by the larger of the maximum
-     and the unlikely maximum.  It doesn't matter if the unlikely
-     maximum overflows.  */
+     and the unlikely maximum.  */
+  unsigned HOST_WIDE_INT save = res->range.unlikely;
   if (fmtres.range.max < fmtres.range.unlikely)
     res->range.unlikely += fmtres.range.unlikely;
   else
     res->range.unlikely += fmtres.range.max;
+
+  if (res->range.unlikely < save)
+    res->range.unlikely = HOST_WIDE_INT_M1U;
 
   res->range.min += fmtres.range.min;
   res->range.likely += fmtres.range.likely;
@@ -2616,7 +2619,12 @@ format_directive (const pass_sprintf_length::call_info &info,
 
   /* Has the likely and maximum directive output exceeded INT_MAX?  */
   bool likelyximax = *dir.beg && res->range.likely > target_int_max ();
-  bool maxximax = *dir.beg && res->range.max > target_int_max ();
+  /* Don't consider the maximum to be in excess when it's the result
+     of a string of unknown length (i.e., whose maximum has been set
+     to be greater than or equal to HOST_WIDE_INT_MAX.  */
+  bool maxximax = (*dir.beg
+		   && res->range.max > target_int_max ()
+		   && res->range.max < HOST_WIDE_INT_MAX);
 
   if (!warned
       /* Warn for the likely output size at level 1.  */
@@ -3443,6 +3451,10 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 
   info.format = gimple_call_arg (info.callstmt, idx_format);
 
+  /* True when the destination size is constant as opposed to the lower
+     or upper bound of a range.  */
+  bool dstsize_cst_p = true;
+
   if (idx_dstsize == HOST_WIDE_INT_M1U)
     {
       /* For non-bounded functions like sprintf, determine the size
@@ -3483,8 +3495,8 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
       else if (TREE_CODE (size) == SSA_NAME)
 	{
 	  /* Try to determine the range of values of the argument
-	     and use the greater of the two at -Wformat-level 1 and
-	     the smaller of them at level 2.  */
+	     and use the greater of the two at level 1 and the smaller
+	     of them at level 2.  */
 	  wide_int min, max;
 	  enum value_range_type range_type
 	    = get_range_info (size, &min, &max);
@@ -3495,6 +3507,11 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 		   ? wi::fits_uhwi_p (max) ? max.to_uhwi () : max.to_shwi ()
 		   : wi::fits_uhwi_p (min) ? min.to_uhwi () : min.to_shwi ());
 	    }
+
+	  /* The destination size is not constant.  If the function is
+	     bounded (e.g., snprintf) a lower bound of zero doesn't
+	     necessarily imply it can be eliminated.  */
+	  dstsize_cst_p = false;
 	}
     }
 
@@ -3511,7 +3528,7 @@ pass_sprintf_length::handle_gimple_call (gimple_stmt_iterator *gsi)
 	 without actually producing any.  Pretend the size is
 	 unlimited in this case.  */
       info.objsize = HOST_WIDE_INT_MAX;
-      info.nowrite = true;
+      info.nowrite = dstsize_cst_p;
     }
   else
     {

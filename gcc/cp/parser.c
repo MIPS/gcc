@@ -7334,7 +7334,9 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 		   (scope, current_class_type))))
 	{
 	  scope = complete_type (scope);
-	  if (!COMPLETE_TYPE_P (scope))
+	  if (!COMPLETE_TYPE_P (scope)
+	      /* Avoid clobbering e.g. OVERLOADs or DECLs.  */
+	      && EXPR_P (postfix_expression))
 	    {
 	      /* In a template, be permissive by treating an object expression
 		 of incomplete type as dependent (after a pedwarn).  */
@@ -19053,26 +19055,9 @@ cp_parser_init_declarator (cp_parser* parser,
 
   token = cp_lexer_peek_token (parser->lexer);
 
-  cp_parser_declarator_kind cdk = CP_PARSER_DECLARATOR_NAMED;
-  if (token->type == CPP_OPEN_PAREN
-      && decl_specifiers->type
-      && is_auto (decl_specifiers->type)
-      && CLASS_PLACEHOLDER_TEMPLATE (decl_specifiers->type))
-    {
-      // C++17 deduction guide.
-      cdk = CP_PARSER_DECLARATOR_ABSTRACT;
-
-      for (int i = 0; i < ds_last; ++i)
-	if (i != ds_type_spec
-	    && decl_specifiers->locations[i]
-	    && !cp_parser_simulate_error (parser))
-	  error_at (decl_specifiers->locations[i],
-		    "decl-specifier in declaration of deduction guide");
-    }
-
   /* Parse the declarator.  */
   declarator
-    = cp_parser_declarator (parser, cdk,
+    = cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
 			    &ctor_dtor_or_conv_p,
 			    /*parenthesized_p=*/NULL,
 			    member_p, friend_p);
@@ -19085,17 +19070,6 @@ cp_parser_init_declarator (cp_parser* parser,
      further.  */
   if (declarator == cp_error_declarator)
     return error_mark_node;
-
-  if (cdk == CP_PARSER_DECLARATOR_ABSTRACT)
-    {
-      gcc_assert (declarator->kind == cdk_function
-		  && !declarator->declarator);
-      tree t = CLASS_PLACEHOLDER_TEMPLATE (decl_specifiers->type);
-      declarator->declarator = make_id_declarator (NULL_TREE, dguide_name (t),
-						   sfk_none);
-      declarator->declarator->id_loc
-	= decl_specifiers->locations[ds_type_spec];
-    }
 
   /* Check that the number of template-parameter-lists is OK.  */
   if (!cp_parser_check_declarator_template_parameters (parser, declarator,
@@ -19139,6 +19113,25 @@ cp_parser_init_declarator (cp_parser* parser,
 
   if (function_declarator_p (declarator))
     {
+      /* Handle C++17 deduction guides.  */
+      if (!decl_specifiers->type
+	  && ctor_dtor_or_conv_p <= 0
+	  && cxx_dialect >= cxx1z)
+	{
+	  cp_declarator *id = get_id_declarator (declarator);
+	  tree name = id->u.id.unqualified_name;
+	  parser->scope = id->u.id.qualifying_scope;
+	  tree tmpl = cp_parser_lookup_name_simple (parser, name, id->id_loc);
+	  if (tmpl
+	      && (DECL_CLASS_TEMPLATE_P (tmpl)
+		  || DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)))
+	    {
+	      id->u.id.unqualified_name = dguide_name (tmpl);
+	      id->u.id.sfk = sfk_deduction_guide;
+	      ctor_dtor_or_conv_p = 1;
+	    }
+	}
+
       /* Check to see if the token indicates the start of a
 	 function-definition.  */
       if (cp_parser_token_starts_function_definition_p (token))
@@ -19205,8 +19198,8 @@ cp_parser_init_declarator (cp_parser* parser,
 
   /* [dcl.dcl]
 
-     Only in function declarations for constructors, destructors, and
-     type conversions can the decl-specifier-seq be omitted.
+     Only in function declarations for constructors, destructors, type
+     conversions, and deduction guides can the decl-specifier-seq be omitted.
 
      We explicitly postpone this check past the point where we handle
      function-definitions because we tolerate function-definitions
@@ -19456,8 +19449,8 @@ cp_parser_init_declarator (cp_parser* parser,
      attributes [opt] direct-abstract-declarator
 
    If CTOR_DTOR_OR_CONV_P is not NULL, *CTOR_DTOR_OR_CONV_P is used to
-   detect constructor, destructor or conversion operators. It is set
-   to -1 if the declarator is a name, and +1 if it is a
+   detect constructors, destructors, deduction guides, or conversion operators.
+   It is set to -1 if the declarator is a name, and +1 if it is a
    function. Otherwise it is set to zero. Usually you just want to
    test for >0, but internally the negative value is used.
 
@@ -25932,8 +25925,8 @@ cp_parser_global_scope_opt (cp_parser* parser, bool current_scope_valid_p)
 }
 
 /* Returns TRUE if the upcoming token sequence is the start of a
-   constructor declarator.  If FRIEND_P is true, the declarator is
-   preceded by the `friend' specifier.  */
+   constructor declarator or C++17 deduction guide.  If FRIEND_P is true, the
+   declarator is preceded by the `friend' specifier.  */
 
 static bool
 cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
@@ -25978,8 +25971,10 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 			       || friend_p);
 
   /* Outside of a class-specifier, there must be a
-     nested-name-specifier.  */
-  if (!nested_name_specifier && outside_class_specifier_p)
+     nested-name-specifier.  Except in C++17 mode, where we
+     might be declaring a guiding declaration.  */
+  if (!nested_name_specifier && outside_class_specifier_p
+      && cxx_dialect < cxx1z)
     constructor_p = false;
   else if (nested_name_specifier == error_mark_node)
     constructor_p = false;
@@ -26010,6 +26005,9 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 	   };
 
 	 we must recognize that the nested `S' names a class.  */
+      if (cxx_dialect >= cxx1z)
+	cp_parser_parse_tentatively (parser);
+
       tree type_decl;
       type_decl = cp_parser_class_name (parser,
 					/*typename_keyword_p=*/false,
@@ -26018,6 +26016,24 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					/*check_dependency_p=*/false,
 					/*class_head_p=*/false,
 					/*is_declaration=*/false);
+
+      if (cxx_dialect >= cxx1z
+	  && !cp_parser_parse_definitely (parser))
+	{
+	  type_decl = NULL_TREE;
+	  tree tmpl = cp_parser_template_name (parser,
+					       /*template_keyword*/false,
+					       /*check_dependency_p*/false,
+					       /*is_declaration*/false,
+					       none_type,
+					       /*is_identifier*/NULL);
+	  if (DECL_CLASS_TEMPLATE_P (tmpl)
+	      || DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl))
+	    /* It's a deduction guide, return true.  */;
+	  else
+	    cp_parser_simulate_error (parser);
+	}
+
       /* If there was no class-name, then this is not a constructor.
 	 Otherwise, if we are in a class-specifier and we aren't
 	 handling a friend declaration, check that its type matches
@@ -26025,6 +26041,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 	 is left alone for error recovery purposes.  */
       constructor_p = (!cp_parser_error_occurred (parser)
 		       && (outside_class_specifier_p
+			   || type_decl == NULL_TREE
 			   || type_decl == error_mark_node
 			   || same_type_p (current_class_type,
 					   TREE_TYPE (type_decl))));
@@ -26059,7 +26076,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 	     in the scope of the class.  */
 	  if (current_class_type)
 	    type = NULL_TREE;
-	  else
+	  else if (type_decl)
 	    {
 	      type = TREE_TYPE (type_decl);
 	      if (TREE_CODE (type) == TYPENAME_TYPE)
@@ -36347,7 +36364,7 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	       || !DECL_EXTERNAL (decl)))
 	    {
 	      error_at (loc,
-			"%qD must be a global variable in"
+			"%qD must be a global variable in "
 			"%<#pragma acc declare link%>",
 			decl);
 	      error = true;
