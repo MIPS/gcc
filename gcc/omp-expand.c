@@ -8235,7 +8235,7 @@ const pass_data pass_data_expand_omp =
 {
   GIMPLE_PASS, /* type */
   "ompexp", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */
@@ -8282,7 +8282,7 @@ const pass_data pass_data_expand_omp_ssa =
 {
   GIMPLE_PASS, /* type */
   "ompexpssa", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg | PROP_ssa, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */

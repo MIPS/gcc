@@ -1405,8 +1405,8 @@ check_redeclaration_exception_specification (tree new_decl,
   if (! DECL_IS_BUILTIN (old_decl)
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
-      const char *msg
-	= "declaration of %qF has a different exception specifier";
+      const char *const msg
+	= G_("declaration of %qF has a different exception specifier");
       bool complained = true;
       location_t new_loc = DECL_SOURCE_LOCATION (new_decl);
       if (DECL_IN_SYSTEM_HEADER (old_decl))
@@ -8184,6 +8184,7 @@ expand_static_init (tree decl, tree init)
 	       } catch {
 		 if (!flag) __cxa_guard_abort (&guard);
 	       }
+	     }
 	   }
 
 	 Note that the `flag' variable is only set to 1 *after* the
