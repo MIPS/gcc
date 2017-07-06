@@ -1,3 +1,80 @@
+2017-03-30  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/80246
+	* config/rs6000/dfp.md (dfp_dxex_<mode>): Update mode of operand 0.
+	(dfp_diex_<mode>): Update mode of operand 1.
+	* doc/extend.texi (dxex, dxexq): Document change to return type.
+	(diex, diexq): Document change to argument type.
+
+2017-03-30  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/77333
+	* cgraph.h (cgraph_build_function_type_skip_args): Declare.
+	* cgraph.c (redirect_call_stmt_to_callee): Set gimple fntype so that
+	it reflects the signature changes performed at the callee side.
+	* cgraphclones.c (build_function_type_skip_args): Make public, renamed
+	to cgraph_build_function_type_skip_args.
+	(build_function_decl_skip_args): Adjust call to the above function.
+
+2017-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/80206
+	* config/i386/sse.md
+	(<extract_type>_vextract<shuffletype><extract_suf>_mask): Use
+	register as dest whenever it is a MEM not rtx_equal_p to the
+	corresponding dup operand, and when forcing into reg move the
+	reg into the memory afterwards.
+	(<extract_type_2>_vextract<shuffletype><extract_suf_2>_mask):
+	Likewise.  Use <ssehalfvecmode> instead of <ssequartermode>
+	for the force_reg mode.
+	(avx512vl_vextractf128<mode>): Use register as dest either
+	always when a MEM, or when it is a MEM not rtx_equal_p to the
+	corresponding dup operand, or even not when it is a CONST_VECTOR
+	depending on the mode and lo vs. hi.
+	(avx512dq_vextract<shuffletype>64x2_1_maskm): Remove extraneous
+	parens.
+	(avx512f_vextract<shuffletype>32x4_1_maskm): Likewise.
+	(<mask_codefor>avx512dq_vextract<shuffletype>64x2_1<mask_name>):
+	Likewise.  Require that operands[2] is even.
+	(<mask_codefor>avx512f_vextract<shuffletype>32x4_1<mask_name>):
+	Remove extraneous parens.  Require that operands[2] is a multiple
+	of 4.
+	(vec_extract_lo_<mode><mask_name>): Don't bother testing if
+	operands[0] is a MEM if <mask_applied>, the predicates/constraints
+	disallow memory then.
+
+2017-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77498
+	* tree-ssa-pre.c (phi_translate_1): Do not allow simplifications
+	to non-constants over backedges.
+
+2017-03-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/80233
+	* combine.c (combine_instructions): Only take NONDEBUG_INSN_P insns
+	as last_combined_insn.  Do not test for BARRIER_P separately.
+
+2017-03-29  Andreas Schwab  <schwab@suse.de>
+
+	PR ada/80146
+	* calls.c (prepare_call_address): Convert funexp to Pmode before
+	copying to temp reg.
+
+2017-03-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/80158
+	* gimple-ssa-strength-reduction.c (replace_mult_candidate):
+	Handle possible future case of more than one alternate
+	interpretation.
+	(replace_rhs_if_not_dup): Likewise.
+	(replace_one_candidate): Likewise.
+
+2017-03-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/80193
+	* ira.c (ira): Do not check allocation for LRA.
+
 2017-03-28  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx-protos.h (nvptx_output_simt_enter): Declare.
@@ -548,7 +625,7 @@
 	matching condition.
 
 2017-03-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-            Richard Biener  <rguenth@suse.com>
+            Richard Biener  <rguenth@suse.de>
 
 	PR tree-optimization/79908
 	PR tree-optimization/80136
@@ -729,7 +806,7 @@
 	conditional jump, if the jump is the last insn of the loop.
 
 2017-03-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-            Richard Biener  <rguenth@suse.com>
+            Richard Biener  <rguenth@suse.de>
 
 	PR tree-optimization/79908
 	* tree-stdarg.c (expand_ifn_va_arg_1): For a VA_ARG whose LHS has
