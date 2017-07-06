@@ -6716,7 +6716,24 @@ extern void cxx_print_error_function		(diagnostic_context *,
 						 struct diagnostic_info *);
 
 /* in typeck.c */
-extern bool cxx_mark_addressable		(tree, bool = false);
+
+/* Flags for cxx_mark_addressable.  */
+
+enum cxx_mark_addressable_flags
+{
+  CXX_MARK_ADDRESSABLE_FLAGS_NONE = 0,
+  /* This is for ARRAY_REF construction - in that case we don't want
+     to look through VIEW_CONVERT_EXPR from VECTOR_TYPE to ARRAY_TYPE,
+     it is fine to use ARRAY_REFs for vector subscripts on vector
+     register variables.  */
+  CXX_MARK_ADDRESSABLE_FLAGS_ARRAY_REF = 1 << 0,
+  /* Allow `current_class_ptr' to be addressable.  */
+  CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS = 1 << 1
+};
+
+extern bool cxx_mark_addressable		(tree,
+						 enum cxx_mark_addressable_flags flags
+						 = CXX_MARK_ADDRESSABLE_FLAGS_NONE);
 extern int string_conv_p			(const_tree, const_tree, int);
 extern tree cp_truthvalue_conversion		(tree);
 extern tree condition_conversion		(tree);

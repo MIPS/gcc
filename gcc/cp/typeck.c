@@ -3217,7 +3217,8 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	      && (TREE_CODE (TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))))
 		  != INTEGER_CST)))
 	{
-	  if (!cxx_mark_addressable (array))
+	  if (!cxx_mark_addressable (array,
+				     CXX_MARK_ADDRESSABLE_FLAGS_ARRAY_REF))
 	    return error_mark_node;
 	}
 
@@ -6269,19 +6270,22 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
-   Value is true if successful.
-
-   C++: we do not allow `current_class_ptr' to be addressable unless
-   ALLOW_THIS is true.  */
+   Value is true if successful.  */
 
 bool
-cxx_mark_addressable (tree exp, bool allow_this)
+cxx_mark_addressable (tree exp, enum cxx_mark_addressable_flags flags)
 {
   tree x = exp;
 
   while (1)
     switch (TREE_CODE (x))
       {
+      case VIEW_CONVERT_EXPR:
+	if ((flags & CXX_MARK_ADDRESSABLE_FLAGS_ARRAY_REF)
+	    && TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	    && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (x, 0))))
+	  return true;
+	/* FALLTHRU */
       case ADDR_EXPR:
       case COMPONENT_REF:
       case ARRAY_REF:
@@ -6293,7 +6297,7 @@ cxx_mark_addressable (tree exp, bool allow_this)
       case PARM_DECL:
 	if (x == current_class_ptr)
 	  {
-	    if (!allow_this)
+	    if (!(flags & CXX_MARK_ADDRESSABLE_FLAGS_ALLOW_THIS))
 	      error ("cannot take the address of %<this%>, which is an rvalue expression");
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later.  */
 	    return true;
@@ -6337,7 +6341,7 @@ cxx_mark_addressable (tree exp, bool allow_this)
 
       case TARGET_EXPR:
 	TREE_ADDRESSABLE (x) = 1;
-	cxx_mark_addressable (TREE_OPERAND (x, 0), allow_this);
+	cxx_mark_addressable (TREE_OPERAND (x, 0), flags);
 	return true;
 
       default:
