@@ -3098,15 +3098,15 @@ arm_configure_build_target (struct arm_build_target *target,
 		arm_selected_tune = arm_selected_cpu;
 
 	      arm_selected_cpu = arm_selected_arch;
+	      target->arch_name = arm_selected_arch->name;
 	    }
 	  else
 	    {
 	      /* Architecture and CPU are essentially the same.
 		 Prefer the CPU setting.  */
 	      arm_selected_arch = NULL;
+	      target->core_name = arm_selected_cpu->name;
 	    }
-
-	  target->core_name = arm_selected_cpu->name;
 	}
       else
 	{
@@ -8727,6 +8727,9 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       return COSTS_N_INSNS (1);
 
     case MULT:
+      if (arm_arch6m && arm_m_profile_small_mul)
+	return COSTS_N_INSNS (32);
+
       if (CONST_INT_P (XEXP (x, 1)))
 	{
 	  int cycles = 0;
@@ -26228,7 +26231,7 @@ arm_thumb1_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
     {
       int labelno = thunk_label++;
       ASM_GENERATE_INTERNAL_LABEL (label, "LTHUMBFUNC", labelno);
-      /* Thunks are entered in arm mode when avaiable.  */
+      /* Thunks are entered in arm mode when available.  */
       if (TARGET_THUMB1_ONLY)
 	{
 	  /* push r3 so we can use it as a temporary.  */
@@ -26546,12 +26549,11 @@ arm_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   return mode;
 }
 
-/* AAPCS based ABIs use short enums by default.  */
 
 static bool
 arm_default_short_enums (void)
 {
-  return TARGET_AAPCS_BASED && arm_abi != ARM_ABI_AAPCS_LINUX;
+  return ARM_DEFAULT_SHORT_ENUMS;
 }
 
 
