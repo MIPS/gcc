@@ -1,3 +1,39 @@
+2017-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/80423
+	* g++.dg/other/pr80423.C: New test.
+
+2017-04-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/pr80170.c: Require ptr32plus.
+
+2017-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/80426
+	* gcc.c-torture/execute/20170419-1.c: New test.
+
+2017-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/80461
+	* g++.dg/debug/pr80461.C: New test.
+
+	PR c++/80459
+	* c-c++-common/opaque-vector.c (SIZEOF_MAXINT): Define.
+	(f): Don't test long double vectors if __SIZEOF_LONG_DOUBLE__
+	is not power of 2, or is more than 16 or more than SIZEOF_MAXINT.
+
+	PR debug/80436
+	* g++.dg/opt/pr80436.C: New test.
+
+2017-04-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/pr80341.c: Require int32plus.
+
+2017-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+            Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20170419-1.c: New test.
+
 2017-04-19  Tom de Vries  <tom@codesourcery.com>
 
 	PR testsuite/80221
