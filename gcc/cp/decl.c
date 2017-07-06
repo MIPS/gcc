@@ -7571,9 +7571,6 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     {
-      /* If e is a constant reference, use the referent directly.  */
-      if (DECL_INITIAL (decl))
-	dexp = DECL_INITIAL (decl);
       dexp = convert_from_reference (dexp);
       type = TREE_TYPE (type);
     }
@@ -11500,9 +11497,9 @@ grokdeclarator (const cp_declarator *declarator,
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
 	  if (current_class_type
-	      && (!friendp || funcdef_flag))
+	      && (!friendp || funcdef_flag || initialized))
 	    {
-	      error (funcdef_flag
+	      error (funcdef_flag || initialized
 		     ? G_("cannot define member function %<%T::%s%> "
 			  "within %<%T%>")
 		     : G_("cannot declare member function %<%T::%s%> "
@@ -13944,6 +13941,9 @@ xref_basetypes (tree ref, tree base_list)
 
   if (max_vbases)
     {
+      /* An aggregate can't have virtual base classes.  */
+      CLASSTYPE_NON_AGGREGATE (ref) = true;
+
       vec_alloc (CLASSTYPE_VBASECLASSES (ref), max_vbases);
 
       if (max_dvbases)

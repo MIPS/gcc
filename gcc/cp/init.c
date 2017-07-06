@@ -1617,6 +1617,10 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
   if (init == error_mark_node)
     return error_mark_node;
 
+  location_t init_loc = (init
+			 ? EXPR_LOC_OR_LOC (init, input_location)
+			 : location_of (exp));
+
   TREE_READONLY (exp) = 0;
   TREE_THIS_VOLATILE (exp) = 0;
 
@@ -1656,6 +1660,16 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
 	    TREE_TYPE (init) = cv_unqualified (itype);
 	  from_array = (itype && same_type_p (TREE_TYPE (init),
 					      TREE_TYPE (exp)));
+
+	  if (init && !from_array
+	      && !BRACE_ENCLOSED_INITIALIZER_P (init))
+	    {
+	      if (complain & tf_error)
+		permerror (init_loc, "array must be initialized "
+			   "with a brace-enclosed initializer");
+	      else
+		return error_mark_node;
+	    }
 	}
 
       stmt_expr = build_vec_init (exp, NULL_TREE, init,
@@ -2693,6 +2707,22 @@ malloc_alignment ()
   return MAX (max_align_t_align(), MALLOC_ABI_ALIGNMENT);
 }
 
+/* Determine whether an allocation function is a namespace-scope
+   non-replaceable placement new function. See DR 1748.
+   TODO: Enable in all standard modes.  */
+static bool
+std_placement_new_fn_p (tree alloc_fn)
+{
+  if ((cxx_dialect > cxx14) && DECL_NAMESPACE_SCOPE_P (alloc_fn))
+    {
+      tree first_arg = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (alloc_fn)));
+      if ((TREE_VALUE (first_arg) == ptr_type_node)
+	  && TREE_CHAIN (first_arg) == void_list_node)
+	return true;
+    }
+  return false;
+}
+
 /* Generate code for a new-expression, including calling the "operator
    new" function, initializing the object, and, if an exception occurs
    during construction, cleaning up.  The arguments are as for
@@ -3171,7 +3201,8 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
      So check for a null exception spec on the op new we just called.  */
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
-  check_new = (flag_check_new || nothrow);
+  check_new
+    = flag_check_new || (nothrow && !std_placement_new_fn_p (alloc_fn));
 
   if (cookie_size)
     {
@@ -3945,6 +3976,9 @@ build_vec_init (tree base, tree maxindex, tree init,
 	  ? vec_copy_assign_is_trivial (inner_elt_type, init)
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
+	   && (BRACE_ENCLOSED_INITIALIZER_P (init)
+	       || (same_type_ignoring_top_level_qualifiers_p
+		   (atype, TREE_TYPE (init))))
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
 	   && (vec_safe_is_empty (CONSTRUCTOR_ELTS (init))
