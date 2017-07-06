@@ -8704,7 +8704,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      if (save_p)
 		{
 		  tem = save_expr (build2 (code, type, cval1, cval2));
-		  SET_EXPR_LOCATION (tem, loc);
+		  protected_set_expr_location (tem, loc);
 		  return tem;
 		}
 	      return fold_build2_loc (loc, code, type, cval1, cval2);
@@ -14006,7 +14006,8 @@ fold_indirect_ref_1 (location_t loc, tree type, tree op0)
 
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
-  if (!POINTER_TYPE_P (subtype))
+  if (!POINTER_TYPE_P (subtype)
+      || TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (op0)))
     return NULL_TREE;
 
   if (TREE_CODE (sub) == ADDR_EXPR)
