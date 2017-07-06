@@ -1,3 +1,492 @@
+2017-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/80102
+	* reg-notes.def (REG_CFA_NOTE): Define.  Use it for CFA related
+	notes.
+	* cfgcleanup.c (reg_note_cfa_p): New array.
+	(insns_have_identical_cfa_notes): New function.
+	(old_insns_match_p): Don't cross-jump in between /f
+	and non-/f instructions.  If both i1 and i2 are frame related,
+	verify all CFA notes, their order and content.
+
+2017-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78543
+	* config/rs6000/rs6000.md (bswaphi2_extenddi): Combine bswap
+	HImode and SImode with zero extend to DImode to one insn.
+	(bswap<mode>2_extenddi): Likewise.
+	(bswapsi2_extenddi): Likewise.
+	(bswaphi2_extendsi): Likewise.
+	(bswaphi2): Combine bswap HImode and SImode into one insn.
+	Separate memory insns from swapping register.
+	(bswapsi2): Likewise.
+	(bswap<mode>2): Likewise.
+	(bswaphi2_internal): Delete, no longer used.
+	(bswapsi2_internal): Likewise.
+	(bswap<mode>2_load): Split bswap HImode/SImode into separate load,
+	store, and gpr<-gpr swap insns.
+	(bswap<mode>2_store): Likewise.
+	(bswaphi2_reg): Register only splitter, combine with the splitter.
+	(bswaphi2 splitter): Likewise.
+	(bswapsi2_reg): Likewise.
+	(bswapsi2 splitter): Likewise.
+	(bswapdi2): If we have the LDBRX and STDBRX instructions, split
+	the insns into load, store, and register/register insns.
+	(bswapdi2_ldbrx): Likewise.
+	(bswapdi2_load): Likewise.
+	(bswapdi2_store): Likewise.
+	(bswapdi2_reg): Likewise.
+
+2017-03-27  Gunther Nikl  <gnikl@users.sourceforge.net>
+
+	* system.h (HAVE_DESIGNATED_INITIALIZERS): Fix non C++ case.
+	(HAVE_DESIGNATED_UNION_INITIALIZERS): Likewise.
+
+2017-03-27  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/80103
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Edit and
+	add comments.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Add
+	special handling for target option conflicts between dform
+	options (-mpower9-dform, -mpower9-dform-vector,
+	-mpower9-dform-scalar) and -mno-direct-move.
+
+2017-03-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80181
+	* tree-ssa-ccp.c (likely_value): UNDEFINED ^ X is UNDEFINED.
+
+2017-03-27  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/predicates.md (move_double_src_operand): Replace the
+	call to move_double_src_operand with a call to address_operand.
+
+2017-03-27  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/elf.h (ARGET_ARC_TP_REGNO_DEFAULT): Define.
+	* config/arc/linux.h (ARGET_ARC_TP_REGNO_DEFAULT): Likewise.
+	* config/arc/arc.opt (mtp-regno): Use ARGET_ARC_TP_REGNO_DEFAULT.
+
+2017-03-27  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/predicates.md (long_immediate_loadstore_operand):
+	Consider scaled addresses cases.
+
+2017-03-27  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_epilogue_uses): BLINK should be also
+	restored when in interrupt.
+	* config/arc/arc.md (simple_return): ARCv2 rtie instruction
+	doesn't have delay slot.
+
+2017-03-27  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/79776
+	* tree-ssa-structalias.c (associate_varinfo_to_alias): Skip
+	inlined thunk clones.
+
+2017-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/80168
+	* asan.c (instrument_derefs): Copy over last operand from
+	original COMPONENT_REF to the new COMPONENT_REF with
+	DECL_BIT_FIELD_REPRESENTATIVE.
+	* ubsan.c (instrument_object_size): Likewise.
+
+2017-03-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80170
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Make
+	sure DR/SCEV didnt fold in constants we do not see when looking
+	at the reference base alignment.
+
+2017-03-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80171
+	* gimple-fold.c (fold_ctor_reference): Properly guard against
+	NULL return value from canonicalize_constructor_val.
+
+2017-03-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/80180
+	* config/i386/i386.c (ix86_expand_builtin)
+	<IX86_BUILTIN_RDSEED{16,32,64}_STEP>: Do not expand arg0 between
+	flags reg setting and flags reg using instructions.
+	<IX86_BUILTIN_RDRAND{16,32,64}_STEP>: Ditto.  Use non-flags reg
+	clobbering instructions to zero extend op2.
+
+2017-03-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Configuration) <--with-aix-soname>:
+	Update link to AIX ld.
+
+2017-03-25  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/80160
+	PR rtl-optimization/80159
+	* lra-assigns.c (must_not_spill_p): Tighten new test to also take
+	reg_alternate_class into account.
+
+2017-03-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/80148
+	* lra-assigns.c (assign_by_spills): Add spilled non-reload pseudos
+	to consider in curr_insn_transform.
+
+2017-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* genrecog.c (validate_pattern): Add VEC_SELECT validation.
+	* genmodes.c (emit_min_insn_modes_c): Call emit_mode_nunits
+	and emit_mode_inner.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtins.def: Add VXE builtins.  Add a flags
+	argument to the overloaded builtin variants.  Use the new flag to
+	deprecate certain builtin variants.
+	* config/s390/s390-builtin-types.def: Add new builtin types.
+	* config/s390/s390-builtins.h: Support new flags field for
+	overloaded builtins.
+	* config/s390/s390-c.c (OB_DEF_VAR): New flags field.
+	(s390_macro_to_expand): Enable vector float data type.
+	(s390_cpu_cpp_builtins_internal): Indicate support of the new
+	builtins by incrementing the __VEC__ version number.
+	(s390_expand_overloaded_builtin): Support expansion of vec_xl and
+	vec_xst.
+	(s390_resolve_overloaded_builtin): Emit error messages depending
+	on the builtin flags.
+	* config/s390/s390.c (s390_expand_builtin): Support additional
+	flags argument.  Change error message to match the messages
+	emitted in s390-c.c.
+	* config/s390/s390.md: New UNSPEC_* constants.
+	(op_type): Add new instruction types.
+	* config/s390/vecintrin.h: Add new builtins and test data class
+	constants.
+	* config/s390/vx-builtins.md (V_HW_32_64): Add V4SF.
+	(V_HW_4, VEC_HW, VECF_HW): New mode iterators.
+	(VEC_INEXACT, VEC_NOINEXACT): New constants.
+	("vec_splats<mode>", "vec_insert<mode>", "vec_promote<mode>")
+	("vec_insert_and_zero<mode>", "vec_mergeh<mode>")
+	("vec_mergel<mode>"): V_HW -> VEC_HW.
+
+	("vlrlrv16qi", "vstrlrv16qi", "vbpermv16qi", "vec_msumv2di")
+	("vmslg", "*vftci<mode>_cconly", "vftci<mode>_intcconly")
+	("*vftci<mode>", "vftci<mode>_intcc", "vec_double_s64")
+	("vec_double_u64", "vfmin<mode>", "vfmax<mode>"): New definition.
+
+	("and_av2df3", "and_cv2df3", "vec_andc_av2df3")
+	("vec_andc_cv2df3", "xor_av2df3", "xor_cv2df3", "vec_nor_av2df3")
+	("vec_nor_cv2df3", "ior_av2df3", "ior_cv2df3", "vec_nabs")
+	("*vftcidb", "*vftcidb_cconly", "vftcidb"): Remove definition.
+
+	("vec_all_<fpcmpcc:code>v2df", "vec_any_<fpcmpcc:code>v2df")
+	("vec_scatter_elementv4si_DI", "vec_cmp<fpcmp:code>v2df")
+	("vec_di_to_df_s64", "vec_di_to_df_u64", "vec_df_to_di_u64")
+	("vfidb", "*vldeb", "*vledb", "*vec_cmp<insn_cmp>v2df_cconly")
+	("vec_cmpeqv2df_cc", "vec_cmpeqv2df_cc", "vec_cmphv2df_cc")
+	("vec_cmphev2df_cc", "*vec_cmpeqv2df_cc")
+	("*vec_cmphv2df_cc", "*vec_cmphev2df_cc"): Enable new modes as ...
+
+	("vec_all_<fpcmpcc:code><mode>", "vec_any_<fpcmpcc:code><mode>")
+	("vec_scatter_element<V_HW_4:mode>_DI")
+	("vec_cmp<fpcmp:code><mode>", "vcdgb", "vcdlgb", "vclgdb")
+	("vec_fpint<mode>", "vflls")
+	("vflrd", "*vec_cmp<insn_cmp><mode>_cconly", "vec_cmpeq<mode>_cc")
+	("vec_cmpeq<mode>_cc", "vec_cmph<mode>_cc", "vec_cmphe<mode>_cc")
+	("*vec_cmpeq<mode>_cc", "*vec_cmph<mode>_cc")
+	("*vec_cmphe<mode>_cc"): ... these.
+
+	("vec_ctd_s64", "vec_ctsl", "vec_ctul", "vec_st2f"): Use rounding
+	mode constant instead of magic value.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vec_compare): Support other
+	vector floating point modes than just V2DF.
+	(s390_expand_vcond): Likewise.
+	(s390_hard_regno_mode_ok): Allow SFmode values in VRs.
+	(s390_cannot_change_mode_class): Prevent mode changes between TF
+	and V1TF in vector registers.
+	* config/s390/s390.md (DF, SF): New mode attributes.
+	("*cmp<mode>_ccs", "add<mode>3", "sub<mode>3", "mul<mode>3")
+	("fma<mode>4", "fms<mode>4", "div<mode>3", "*neg<mode>2"): Add
+	SFmode support for VRs.
+	* config/s390/vector.md (V_HW, V_HW2, VT_HW, ti*, nonvec): Add new
+	vector fp modes.
+	(VFT, VF_HW): New mode iterators.
+	(vw, sdx): New mode attributes.
+	("addv2df3", "subv2df3", "mulv2df3", "divv2df3", "sqrtv2df2")
+	("fmav2df4","fmsv2df4", "negv2df2", "absv2df2", "*negabsv2df2")
+	("smaxv2df3", "sminv2df3", "*vec_cmp<VFCMP_HW_OP:code>v2df_nocc")
+	("vec_cmpuneqv2df", "vec_cmpltgtv2df", "vec_orderedv2df")
+	("vec_unorderedv2df"): Adjust the v2df only patterns to support
+	also the new vector floating point modes.  Renaming to ...
+
+	("add<mode>3", "sub<mode>3", "mul<mode>3", "div<mode>3")
+	("sqrt<mode>2", "fma<mode>4", "fms<mode>4", "neg<mode>2")
+	("abs<mode>2", "negabs<mode>2", "smax<mode>3")
+	("smin<mode>3", "*vec_cmp<VFCMP_HW_OP:code><mode>_nocc")
+	("vec_cmpuneq<mode>", "vec_cmpltgt<mode>", "vec_ordered<mode>")
+	("vec_unordered<mode>"): ... these.
+
+	("neg_fma<mode>4", "neg_fms<mode>4", "*smax<mode>3_vxe")
+	("*smin<mode>3_vxe", "*sminv2df3_vx", "*vec_extendv4sf")
+	("*vec_extendv2df"): New insn definitions.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*adddi3_sign", "*subdi3_sign", "mulditi3")
+	("mulditi3_2", "*muldi3_sign"): New patterns.
+	("muldi3", "*muldi3", "mulsi3", "*mulsi3"): Add an expander and
+	rename the pattern definition.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("indirect_jump"): Turn insn definition into
+	expander.
+	("*indirect_jump", "*indirect2_jump"): New pattern definitions.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vec_init): Use vllezl
+	instruction if possible.
+	* config/s390/vector.md (vec_halfnumelts): New mode
+	attribute.
+	("*vec_vllezlf<mode>"): New pattern.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md ("popcountv16qi2", "popcountv8hi2")
+	("popcountv4si2", "popcountv2di2"): Rename to ...
+	("popcount<mode>2", "popcountv8hi2_vx", "popcountv4si2_vx")
+	("popcountv2di2_vx"): ... these and add !TARGET_VXE to the
+	condition.
+	("popcount<mode>2_vxe"): New pattern.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* common/config/s390/s390-common.c (processor_flags_table): Add
+	arch12.
+	* config.gcc: Add arch12.
+	* config/s390/driver-native.c (s390_host_detect_local_cpu):
+	Default to arch12 for unknown CPU model numbers.
+	* config/s390/s390-builtins.def: Add B_VXE builtin flag.
+	* config/s390/s390-c.c (s390_cpu_cpp_builtins_internal): Adjust
+	PROCESSOR_max sanity check.
+	* config/s390/s390-opts.h (enum processor_type): Add
+	PROCESSOR_ARCH12.
+	* config/s390/s390.c (processor_table): Add arch12.
+	(s390_expand_builtin): Add check for B_VXE flag.
+	(s390_issue_rate): Add PROCESSOR_ARCH12.
+	(s390_get_sched_attrmask): Likewise.
+	(s390_get_unit_mask): Likewise.
+	(s390_sched_score): Enable z13 scheduling for arch12.
+	(s390_sched_reorder): Likewise.
+	(s390_sched_variable_issue): Likewise.
+	* config/s390/s390.h (enum processor_flags): Add PF_ARCH12 and
+	PF_VXE.
+	(s390_tune_attr): Use z13 scheduling also for arch12.
+	(TARGET_CPU_ARCH12, TARGET_CPU_ARCH12_P, TARGET_CPU_VXE)
+	(TARGET_CPU_VXE_P, TARGET_ARCH12, TARGET_ARCH12_P, TARGET_VXE)
+	(TARGET_VXE_P): New macros.
+	* config/s390/s390.md: Add arch12 to cpu attribute.  Add arch12
+	and vxe to cpu_facility.  Add arch12 and vxe to enabled attribute.
+	* config/s390/s390.opt: Add arch12 as processor_type.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md
+	("fixuns_truncdddi2", "fixuns_trunctddi2")
+	("fixuns_trunc<BFP:mode><GPR:mode>2"): Merge into ...
+	("fixuns_trunc<FP:mode><GPR:mode>2"): New expander.
+
+	("fixuns_trunc<BFP:mode><GPR:mode>2", "fixuns_trunc<mode>si2"):
+	Rename expanders to ...
+
+	("fixuns_trunc<BFP:mode><GPR:mode>2_emu")
+	("fixuns_truncdddi2_emu"): ... these.
+
+	("fixuns_trunc<mode>si2_emu"): New expander.
+
+	("*fixuns_truncdfdi2_z13"): Rename to ...
+	("*fixuns_truncdfdi2_vx"): ... this.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/2964.md: Remove the single element vector compare
+	instructions which are no longer used.
+	* config/s390/s390.c (s390_select_ccmode): Remove handling of
+	vector CCmodes.
+	(s390_canonicalize_comparison): Remove handling of DFmode
+	compares.
+	(s390_expand_vec_compare_scalar): Remove function.
+	(s390_emit_compare): Don't call s390_expand_vec_compare_scalar.
+	* config/s390/s390.md ("*vec_cmp<insn_cmp>df_cconly"): Remove
+	pattern.
+	("*cmp<mode>_ccs"): Add wfcdb instruction.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("mov<mode>_64dfp" DD_DF): Use vleig for loading a
+	FP zero.
+	("*mov<mode>_64" DD_DF): Remove the vector instructions. These
+	will anyway by matched by mov<mode>_64dfp.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("mov<mode>" SD_SF): Change vleg/vsteg to
+	vlef/vstef.  Add missing operand to vleif.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vec_init): Enable vector load
+	pair for all vector types with 64 bit elements.
+	* config/s390/vx-builtins.md (V_HW_64): Move mode iterator to ...
+	* config/s390/vector.md (V_HW_64): ... here.
+	(V_128_NOSINGLE): New mode iterator.
+	("vec_init<V_HW:mode>"): Use V_128 as mode iterator.
+	("*vec_splat<mode>"): Use V_128_NOSINGLE mode iterator.
+	("*vec_tf_to_v1tf", "*vec_ti_to_v1ti"): New pattern definitions.
+	("*vec_load_pairv2di"): Change to ...
+	("*vec_load_pair<mode>"): ... this one.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/constraints.md: Add comments.
+	(jKK): Reject element sizes > 8 bytes.
+	* config/s390/s390.c (s390_split_ok_p): Enable splitting also for
+	s_operands.
+	* config/s390/s390.md: Add the s_operand checks formerly in
+	s390_split_ok_p to various splitters where they are still
+	required.
+	* config/s390/vector.md ("mov<mode>" V_128): Add GPR alternatives
+	for 128 bit vectors.  Plus two splitters.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md: Rename the cpu facilty vec to vx throughout
+	the file.
+
+2017-03-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/79893
+	* config/s390/s390-c.c (s390_adjust_builtin_arglist): Issue an
+	error if the boundary argument is not constant.
+
+2017-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/80112
+	* loop-doloop.c (doloop_condition_get): Don't check condition
+	if cmp isn't SET with IF_THEN_ELSE src.
+
+2017-03-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/80158
+	* gimple-ssa-strength-reduction.c (replace_mult_candidate): When
+	replacing a candidate statement, also replace it for the
+	candidate's alternate interpretation.
+	(replace_rhs_if_not_dup): Likewise.
+	(replace_one_candidate): Likewise.
+
+2017-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80167
+	* graphite-isl-ast-to-gimple.c
+	(translate_isl_ast_to_gimple::is_valid_rename): Handle default-defs
+	properly.
+	(translate_isl_ast_to_gimple::get_rename): Likewise.
+
+2017-03-23  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Change
+	handling of certain combinations of target options, including the
+	combinations -mpower8-vector vs. -mno-vsx, -mpower9-vector vs.
+	-mno-power8-vector, and -mpower9_dform vs. -mno-power9-vector.
+
+2017-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/71436
+	* config/arm/arm.md (*load_multiple): Add reload_completed to
+	matching condition.
+
+2017-03-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+            Richard Biener  <rguenth@suse.com>
+
+	PR tree-optimization/79908
+	PR tree-optimization/80136
+	* tree-stdarg.c (expand_ifn_va_arg_1): For a VA_ARG whose LHS has
+	been cast away, gimplify_and_add suffices.
+
+2017-03-23  Markus Trippelsdorf  <markus@trippelsdorf.de> 
+
+	* tree-vrp.c (identify_jump_threads): Delete avail_exprs.
+
+2017-03-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80032
+	* gimplify.c (gimple_push_cleanup): Forced unconditional
+	cleanups still have to go to the conditional_cleanups
+	sequence.
+
+2017-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/80072
+	* tree-ssa-reassoc.c (struct operand_entry): Change id field type
+	to unsigned int.
+	(next_operand_entry_id): Change type to unsigned int.
+	(sort_by_operand_rank): Make sure to return the right return value
+	even if unsigned fields are bigger than INT_MAX.
+	(struct oecount): Change cnt and id type to unsigned int.
+	(oecount_hasher::equal): Formatting fix.
+	(oecount_cmp): Make sure to return the right return value
+	even if unsigned fields are bigger than INT_MAX.
+	(undistribute_ops_list): Change next_oecount_id type to unsigned int.
+
+	PR c++/80129
+	* gimplify.c (gimplify_modify_expr_rhs) <case COND_EXPR>: Clear
+	TREE_READONLY on result if writing it more than once.
+
+	PR sanitizer/80110
+	* doc/invoke.texi (-fsanitize=thread): Document that with
+	-fnon-call-exceptions atomics are not able to throw
+	exceptions.
+
+	PR sanitizer/80110
+	* tsan.c: Include tree-eh.h.
+	(instrument_builtin_call): Call maybe_clean_eh_stmt or
+	maybe_clean_or_replace_eh_stmt where needed.
+	(instrument_memory_accesses): Add cfg_changed argument.
+	Call gimple_purge_dead_eh_edges on each block and set *cfg_changed
+	if it returned true.
+	(tsan_pass): Adjust caller.  Return TODO_cleanup_cfg if cfg_changed.
+
+	PR rtl-optimization/63191
+	* config/i386/i386.c (ix86_delegitimize_address): Turn into small
+	wrapper function, moved the whole old content into ...
+	(ix86_delegitimize_address_1): ... this.  New inline function.
+	(ix86_find_base_term): Use ix86_delegitimize_address_1 with
+	true as last argument instead of ix86_delegitimize_address.
+
+2017-03-22  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (generic_branch_cost): Copy
+	cortexa57_branch_cost.
+
+2017-03-22  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (generic_tunings): Add AES fusion.
+
+2017-03-21  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/80123
+	* doc/md.texi (Constraints): Document wA constraint.
+	* config/rs6000/constraints.md (wA): New.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add wA reg_class.
+	(rs6000_init_hard_regno_mode_ok): Init wA constraint.
+	* config/rs6000/rs6000.h (RS6000_CONSTRAINT_wA): New.
+	* config/rs6000/vsx.md (vsx_splat_<mode>): Use wA constraint.
+
 2017-03-22  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR c++/80029
