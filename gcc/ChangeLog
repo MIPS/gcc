@@ -1,3 +1,141 @@
+2017-03-17  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/80052
+	* aarch64.opt(verbose-cost-dump): Fix typo.
+
+2017-03-17  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/79951
+	* config/rs6000/rs6000.md (copysign<mode>3_fcpsgn): Test
+	for VECTOR_UNIT_VSX_P (<MODE>mode) too.
+
+2017-03-17  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* reload.c (find_reloads): When reloading a nonoffsettable address,
+	use RELOAD_OTHER for it and its address reloads.
+
+	PR rtl-optimization/79910
+	* combine.c (record_used_regs): New static function.
+	(try_combine): Handle situations where there is an additional
+	instruction between I2 and I3 which needs to have a LOG_LINK
+	updated.
+
+2017-03-17  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71437
+	* tree-vrp.c (simplify_stmt_for_jump_threading): Lookup the
+	conditional in the hash table first.
+	(vrp_dom_walker::before_dom_children): Extract condition from
+	ASSERT_EXPR.  Record condition, its inverion and any implied
+	conditions as well.
+
+2017-03-17  Marek Polacek  <polacek@redhat.com>
+	    Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR tree-optimization/80079
+	* gimple-ssa-store-merging.c (class pass_store_merging): Initialize
+	m_stores_head.
+
+2017-03-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80075
+	* tree-eh.c (stmt_could_throw_1_p): Only handle gimple assigns.
+	Properly verify the LHS before the RHS possibly claims to be
+	handled.
+	(stmt_could_throw_p): Hande gimple conds fully here.  Clobbers
+	do not throw.
+
+2017-03-17  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/invoke.texi (Option Options): Include -fipa-vrp in the list.
+	(List of -O2 options): Likewise.
+	(-fipa-bit-cp): Replace "ipa" with "interprocedural."
+	(-fipa-vrp) New.
+
+2017-03-17  Tom de Vries  <tom@codesourcery.com>
+
+	* gcov-dump.c (print_usage): Print bug_report_url.
+
+2017-03-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80050
+	* genmatch.c (parser::next): Remove pointless check for CPP_EOF.
+	(parser::peek): Likewise.
+
+2017-03-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80048
+	* sese.c (free_sese_info): Properly release rename_map and
+	copied_bb_map elements.
+
+2017-03-16  Alexandre Oliva <aoliva@redhat.com>
+
+	* gimple-ssa-store-merging.c (struct imm_store_chain_info):
+	Add linked-list forward and backlinks.  Insert on
+	construction, remove on destruction.
+	(class pass_store_merging): Add m_stores_head field.
+	(pass_store_merging::terminate_and_process_all_chains):
+	Iterate over m_stores_head list.
+	(pass_store_merging::terminate_all_aliasing_chains):
+	Likewise.
+	(pass_store_merging::execute): Check for debug stmts first.
+	Push new chains onto the m_stores_head stack.
+
+2017-03-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71294
+	* config/rs6000/vsx.md (vsx_splat_<mode>, VSX_D iterator): Allow a
+	SPLAT operation on ISA 2.07 64-bit systems that have direct move,
+	but no MTVSRDD support, by doing MTVSRD and XXPERMDI.
+
+2017-03-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71437
+	* tree-ssa-dom.c (dom_opt_dom_walker): Remove thread_across_edge
+	member function.  Implementation moved into after_dom_children
+	member function and into the threader's thread_outgoing_edges
+	function.
+	(dom_opt_dom_walker::after_dom_children): Simplify by moving
+	some code into new thread_outgoing_edges.
+	* tree-ssa-threadedge.c (thread_across_edge): Make static and simplify
+	definition.  Simplify marker handling (do it here).   Assume we always
+	have the available expression and the const/copies tables.
+	(thread_outgoing_edges): New function extracted from tree-ssa-dom.c
+	and tree-vrp.c
+	* tree-ssa-threadedge.h (thread_outgoing_edges): Declare.
+	* tree-vrp.c (equiv_stack): No longer file scoped.
+	(vrp_dom_walker): New class.
+	(vrp_dom_walker::before_dom_children): New member function.
+	(vrp_dom_walker::after_dom_children): Likewise.
+	(identify_jump_threads):  Setup domwalker.  Use it rather than
+	walking edges in a random order by hand.  Simplify setup/finalization.
+	(finalize_jump_threads): Remove.
+	(vrp_finalize): Do not call identify_jump_threads here.
+	(execute_vrp): Do it here instead and call thread_through_all_blocks
+	here too.
+
+	PR tree-optimization/71437
+	* tree-ssa-dom.c (pfn_simplify): Add basic_block argument.  All
+	callers changed.
+	(simplify_stmt_for_jump_threading): Add basic_block argument.  All
+	callers changed.
+	(lhs_of_dominating_assert): Moved from here into tree-vrp.c.
+	(dom_opt_dom_walker::thread_across_edge): Remove
+	handle_dominating_asserts argument.  All callers changed.
+	(record_temporary_equivalences_from_stmts_at_dest): Corresponding
+	changes.  Remove calls to lhs_of_dominating_assert.  Other
+	uses of handle_dominating_asserts turn into unconditional code
+	(simplify_control_stmt_condition_1): Likewise.
+	(simplify_control_stmt_condition): Likewise.
+	(thread_through_normal_block, thread_across_edge): Likewise.
+	* tree-ssa-threadedge.h (thread_across_edge): Corresponding changes.
+	* tree-vrp.c (lhs_of_dominating_assert): Move here.  Return original
+	object if it is not an SSA_NAME.
+	(simplify_stmt_for_jump_threading): Call lhs_of_dominating_assert
+	before calling into the VRP specific simplifiers.
+	(identify_jump_threads): Remove handle_dominating_asserts
+	argument.
+
 2017-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/79886
