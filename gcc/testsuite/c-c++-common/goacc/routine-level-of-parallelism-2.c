@@ -4,8 +4,8 @@
 
 #pragma acc routine gang
 void g_1 (void) /* { dg-warning "region is gang partitioned but does not contain gang partitioned code" } */
-/* { dg-bogus "region is worker partitioned but does not contain worker partitioned code" "worker partitioned" { xfail *-*-* } 6 } */
-/* { dg-bogus "region is vector partitioned but does not contain vector partitioned code" "worker partitioned" { xfail *-*-* } 6 } */
+/* { dg-bogus "region is worker partitioned but does not contain worker partitioned code" "worker partitioned" { xfail *-*-* } .-1 } */
+/* { dg-bogus "region is vector partitioned but does not contain vector partitioned code" "worker partitioned" { xfail *-*-* } .-2 } */
 {
 }
 #pragma acc routine (g_1) gang

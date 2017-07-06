@@ -161,108 +161,108 @@ void s_4 (void)
 #pragma acc routine \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 163 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 165 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 167 } */
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 void g_5 (void)
 {
 }
 #pragma acc routine (g_5) \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 174 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 176 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 178 } */
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (g_5) \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 182 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 184 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 186 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 #pragma acc routine \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
   seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 191 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 193 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 195 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 extern void w_5 (void);
 #pragma acc routine (w_5) \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 200 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 202 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 204 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (w_5) \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
   seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 208 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 210 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 212 } */
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 #pragma acc routine \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 217 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 219 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 221 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 extern void v_5 (void);
 #pragma acc routine (v_5) \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 226 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 228 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 230 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (v_5) \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 234 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 236 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 238 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 extern void s_5 (void);
 #pragma acc routine (s_5) \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 244 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 246 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 248 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (s_5) \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 252 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 254 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 256 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (s_5) \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 260 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 262 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 264 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 
 /* Like the *_5 tests, but with the order of clauses changed in the second and
@@ -271,116 +271,116 @@ extern void s_5 (void);
 #pragma acc routine \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 273 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 275 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 277 } */
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 void g_6 (void)
 {
 }
 #pragma acc routine (g_6) \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*g_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 283 } */ \
+  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*g_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 285 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 287 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 289 } */
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (g_6) \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*g_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 292 } */ \
+  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*g_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   gang gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 294 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 296 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 298 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 #pragma acc routine \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
   seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 303 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 305 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 307 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 extern void w_6 (void);
 #pragma acc routine (w_6) \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*w_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 311 } */ \
+  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*w_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 313 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 315 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 317 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (w_6) \
   seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*w_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 320 } */ \
+  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*w_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 322 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 324 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 326 } */
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 #pragma acc routine \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 331 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 333 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 335 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 extern void v_6 (void);
 #pragma acc routine (v_6) \
   seq seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*v_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 339 } */ \
+  /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*v_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 341 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 343 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 345 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (v_6) \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error "incompatible .gang. clause when applying .#pragma acc routine. to .\[void \]*v_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 348 } */ \
+  /* { dg-error "incompatible .gang. clause when applying .#pragma acc routine. to .\[void \]*v_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 350 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   seq seq seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 352 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 354 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 extern void s_6 (void);
 #pragma acc routine (s_6) \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 360 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 362 } */ \
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 364 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (s_6) \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*s_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 367 } */ \
+  /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*s_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 369 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 371 } */ \
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   worker worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } 373 } */
+  /* { dg-error ".worker. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 #pragma acc routine (s_6) \
   worker worker /* { dg-error "too many 'worker' clauses" } */ \
-  /* { dg-error "incompatible .worker. clause when applying .#pragma acc routine. to .\[void \]*s_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } 376 } */ \
+  /* { dg-error "incompatible .worker. clause when applying .#pragma acc routine. to .\[void \]*s_6\[\\(\\)\]*., which has already been marked as an accelerator routine" "" { target *-*-* } .-1 } */ \
   seq seq seq /* { dg-error "too many 'seq' clauses" } */ \
-  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } 378 } */ \
+  /* { dg-error ".seq. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   vector vector vector vector /* { dg-error "too many 'vector' clauses" } */ \
-  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } 380 } */ \
+  /* { dg-error ".vector. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */ \
   gang gang /* { dg-error "too many 'gang' clauses" } */ \
-  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } 382 } */
+  /* { dg-error ".gang. specifies a conflicting level of parallelism" "" { target *-*-* } .-1 } */
 
 
 /* Like the *_6 tests, but without all the duplicate clauses, so that the
