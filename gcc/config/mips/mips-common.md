@@ -4712,13 +4712,12 @@
 
 ;; nanoMIPS PC-relative PIC expansions:
 
+;; @tmt should we use lapc[32] here instead ?
 (define_insn "*lea_2Baligned_pcrel_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand")
 	(match_operand:P 1 "pcrel_nano_operand"))]
   "TARGET_NANOMIPS && flag_pic"
-  "lapc\t%0,%R1"
-  ;; "lapc\t%0,%1"
-  ;; "addiupc\t%0,%R1"
+  "lapc\t%0,%1"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
 
@@ -4733,13 +4732,12 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
+;; @tmt use square brackets in lapc
 (define_insn "*lea_pcrel32_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand")
 	(match_operand:P 1 "pcrel32_nano_operand"))]
   "TARGET_NANOMIPS && flag_pic"
-  "lapc\t%0,%R1"
-  ;; "lapc\t%0,%1"
-  ;; "addiupc\t%0,%R1"
+  "lapc48\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
@@ -4750,7 +4748,6 @@
 	(mem:P (match_operand:P 1 "pcrel32_nano_operand")))]
   "TARGET_NANOMIPS && flag_pic"
   "lwpc\t%0,%1"
-  ;; "lwpc\t%0,%R1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
@@ -4759,7 +4756,6 @@
 	(match_operand:P 1 "register_operand"))]
   "TARGET_NANOMIPS && flag_pic"
   "swpc\t%1,%0"
-  ;; "swpc\t%1,%R0"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
