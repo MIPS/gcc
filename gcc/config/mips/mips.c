@@ -17269,12 +17269,21 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
       if (!reg_p && TARGET_ABICALLS_PIC2)
 	s += sprintf (s, ".option\tpic0\n\t");
 
-      if (reg_p && mips_get_pic_call_symbol (operands, size_opno))
+      if (TARGET_NANOMIPS && flag_pic
+	  && reg_p
+	  && mips_get_pic_call_symbol (operands, size_opno)
+	  && SYMBOL_REF_DECL (operands[size_opno])
+	  && !SYMBOL_REF_LONG_CALL_P (operands[size_opno]))
 	{
-	  if (TARGET_NANOMIPS && flag_pic)
-	    s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
-	  else
-	    s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
+	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
+	  // @tmt should we keep short_delay ?
+	  short_delay = "";
+	}
+      else if (!(TARGET_NANOMIPS)
+	       && reg_p
+	       && mips_get_pic_call_symbol (operands, size_opno))
+	{
+	  s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
 	  /* Not sure why this shouldn't permit a short delay but it did not
 	     allow it before so we still don't allow it.  */
 	  short_delay = "";
@@ -25536,7 +25545,8 @@ mips_option_override (void)
     target_flags &= ~MASK_RELAX_PIC_CALLS;
 
   if (TARGET_NANOMIPS && flag_pic
-      && nano_pic_model_var == NANO_PIC_AUTO)
+      && nano_pic_model_var == NANO_PIC_AUTO
+      && !TARGET_LONG_CALLS)
     target_flags |= MASK_RELAX_PIC_CALLS;
 
   /* Save base state of options.  */
