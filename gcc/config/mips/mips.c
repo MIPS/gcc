@@ -736,8 +736,6 @@ enum mips_fol_collides
   FOLC_NEAR,
   FOLC_HOT,
   FOLC_COLD,
-  FOLC_EPI,
-  FOLC_NOEPI,
   FOLC_END
 };
 
@@ -773,8 +771,6 @@ static const struct attr_desc mips_func_opt_list_strings[] = {
   {"near",		 0,	     FOL_ARG_NONE, 1 << FOLC_FAR },
   {"hot",		 0,	     FOL_ARG_NONE, 1 << FOLC_COLD },
   {"cold",		 0,	     FOL_ARG_NONE, 1 << FOLC_HOT },
-  {"epi",		 0,	     FOL_ARG_OPTIONAL_STRING, 1 << FOLC_NOEPI },
-  {"noepi",		 0,	     FOL_ARG_NONE, 1 << FOLC_EPI },
   {"code_readable",	 0,	     FOL_ARG_STRING, 0 },
   {"alias",		 0,	     FOL_ARG_STRING, 0 },
   {"aligned",		 0,	     FOL_ARG_SINGLE_NUM, 0},
