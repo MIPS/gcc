@@ -4450,6 +4450,23 @@ This function attribute instructs the compiler to generate a hazard barrier
 return that clears all execution and instruction hazards while returning,
 instead of generating a normal return instruction.
 
+@item inline_intermix
+@cindex @code{inline_intermix} function attribute, MIPS
+On MIPS targets, you can use the @code{inline_intermix} attribute to override
+the default inlining rule that prevents functions with different ISAs being
+inlined.  This can be helpful when the ISA selection is made for performance
+or code density reasons instead of fundamental dependency on a specific ISA.
+The attribute takes a single optional argument:
+
+@table @samp
+@item no
+The function must not be inlined into a function with a different ISA.
+@item yes
+The function can be inlined into a function with a different ISA.
+@end table
+
+If there is no argument supplied, the default of @code{"yes"} applies.
+
 @item code_readable
 @cindex @code{code_readable} function attribute, MIPS
 For MIPS targets that support PC-relative addressing modes, this attribute
