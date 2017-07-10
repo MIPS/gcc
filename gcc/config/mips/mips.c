@@ -614,6 +614,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
 };
 
 static tree mips_handle_code_readable_attr (tree *, tree, tree, int, bool *);
+static tree mips_handle_inline_intermix_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
 						      bool *);
@@ -634,6 +635,8 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
+  { "inline_intermix", 0, 1, true,  false, false,
+    mips_handle_inline_intermix_attr, false },
   { "code_readable", 0, 1, true,  false, false, mips_handle_code_readable_attr,
     false },
   /* Allow functions to be specified as interrupt handlers */
@@ -772,6 +775,7 @@ static const struct attr_desc mips_func_opt_list_strings[] = {
   {"hot",		 0,	     FOL_ARG_NONE, 1 << FOLC_COLD },
   {"cold",		 0,	     FOL_ARG_NONE, 1 << FOLC_HOT },
   {"code_readable",	 0,	     FOL_ARG_STRING, 0 },
+  {"inline_intermix",	 0,	     FOL_ARG_STRING, 0 },
   {"alias",		 0,	     FOL_ARG_STRING, 0 },
   {"aligned",		 0,	     FOL_ARG_SINGLE_NUM, 0},
   {"alloc_size",	 0,	     FOL_ARG_NUM_ONE_OR_TWO, 0},
@@ -1914,6 +1918,71 @@ mips_use_debug_exception_return_p (tree type)
 			   TYPE_ATTRIBUTES (type)) != NULL;
 }
 
+/* Verify the arguments to an inline_intermix attribute.  */
+
+static tree
+mips_handle_inline_intermix_attr (tree *node ATTRIBUTE_UNUSED, tree name,
+				  tree args, int flags ATTRIBUTE_UNUSED,
+				  bool *no_add_attrs)
+{
+  if (!is_attribute_p ("inline_intermix", name) || args == NULL)
+    return NULL_TREE;
+
+  if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute requires a string argument", name);
+      *no_add_attrs = true;
+    }
+  else if (strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "no") != 0
+	   && strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "yes") != 0)
+    {
+      warning (OPT_Wattributes,
+	       "argument to %qE attribute is neither no nor yes", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Determine the inline_intermix setting for a function if it has one.
+   When inline_intermix is used without an argument it is the same as
+   inline_intermix=yes.  */
+
+static bool
+mips_get_inline_intermix_attr (tree decl)
+{
+  tree attr;
+
+  if (decl == NULL)
+    return TARGET_INLINE_INTERMIX;
+
+  attr = lookup_attribute ("inline_intermix", DECL_ATTRIBUTES (decl));
+
+  if (attr != NULL)
+    {
+      if (TREE_VALUE (attr) != NULL_TREE)
+	{
+	  const char * str;
+
+	  str = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+	  if (strcmp (str, "no") == 0)
+	    return false;
+	  else if (strcmp (str, "yes") == 0)
+	    return true;
+
+	  /* mips_handle_inline_intermix_attr will have verified the
+	     arguments are correct before adding the attribute.  */
+	  gcc_unreachable ();
+	}
+
+      /* No argument is the same as inline_intermix=true like the
+	 command line option -minline-intermix.  */
+      return true;
+    }
+
+  return TARGET_INLINE_INTERMIX;
+}
 
 /* Verify the arguments to a code_readable attribute.  */
 
@@ -2290,7 +2359,7 @@ static bool
 mips_can_inline_p (tree caller, tree callee)
 {
   if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller)
-      && !TARGET_INLINE_INTERMIX)
+      && !mips_get_inline_intermix_attr (callee))
     return false;
   return default_target_can_inline_p (caller, callee);
 }

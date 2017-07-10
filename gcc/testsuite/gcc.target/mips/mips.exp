@@ -282,6 +282,7 @@ foreach option {
     fix-r10000
     fix-vr4130
     gpopt
+    inline-intermix
     local-sdata
     long-calls
     lxc1-sxc1
