@@ -12522,6 +12522,18 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   /* Emit the amount of stack space to allocate or deallocate.  */
   s += sprintf (s, "%d", (int) info.size);
 
+  /* Save or restore $fp.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
+
+  /* Save or restore $ra.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
+    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
       /* Save or restore $16.  */
@@ -12553,14 +12565,22 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 				    ARRAY_SIZE (nanomips_s0_s7_regs));
 
   /* Save or restore $30.  */
-  if (ISA_HAS_SAVE_RESTORE
+  if (!TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
       && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
     s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
 
   /* Save or restore $31.  */
-  if (ISA_HAS_SAVE_RESTORE
+  if (!TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
       && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
     s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+
+  /* Save or restore $gp.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, GLOBAL_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[GLOBAL_POINTER_REGNUM]);
 
   return buffer;
 }
