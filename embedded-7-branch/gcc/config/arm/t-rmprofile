@@ -74,8 +74,6 @@ MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv4-sp-d16/mfloat-abi=soft
 MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv4-sp-d16/mfloat-abi=hard
 MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv5-d16/mfloat-abi=softfp
 MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv5-d16/mfloat-abi=hard
-MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv5-sp-d16/mfloat-abi=softfp
-MULTILIB_REQUIRED      += mthumb/march=armv7e-m/mfpu=fpv5-sp-d16/mfloat-abi=hard
 
 # ARMv8-M Mainline
 MULTILIB_REQUIRED      += mthumb/march=armv8-m.main
@@ -174,3 +172,7 @@ MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.softfp=ma
 MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.hard=march.armv7/mfpu.fpv5-d16/mfloat-abi.hard
 MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.softfp=mthumb/march.armv7/mfpu.fpv5-d16/mfloat-abi.softfp
 MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.hard=mthumb/march.armv7/mfpu.fpv5-d16/mfloat-abi.hard
+
+# Map ARMv7E-M FPV5-SP-D16 to FPV4-SP-D16
+MULTILIB_REUSE         += mthumb/march.armv7e-m/mfpu.fpv4-sp-d16/mfloat-abi.softfp=mthumb/march.armv7e-m/mfpu.fpv5-sp-d16/mfloat-abi.softfp
+MULTILIB_REUSE         += mthumb/march.armv7e-m/mfpu.fpv4-sp-d16/mfloat-abi.hard=mthumb/march.armv7e-m/mfpu.fpv5-sp-d16/mfloat-abi.hard

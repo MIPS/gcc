@@ -1,3 +1,8 @@
+2017-07-10  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-rmprofile: Remove multilibs for fpv5-sp-d16 and map it to
+	fpv4-sp-d16.
+
 2017-06-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
@@ -26,7 +31,7 @@
 	2017-05-04  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
 		    Andre Simoes Dias Vieira  <andre.simoesdiasvieira@arm.com>
 
-	gcc/
+	gcc
 	* config/arm/arm.md (movsi): Add TARGET_32BIT in addition to the
 	TARGET_HAVE_MOVT conditional.
 	(movt splitter): Likewise.
