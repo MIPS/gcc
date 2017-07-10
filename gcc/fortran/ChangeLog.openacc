@@ -1042,7 +1042,7 @@
 
 	* f95-lang.c (ATTR_NULL): Define.
 
-Copyright (C) 2013-2016 Free Software Foundation, Inc.
+Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
@@ -1050,5 +1050,5 @@ notice and this notice are preserved.
 
 Local Variables:
 mode: change-log
-change-log-default-name: "ChangeLog.gomp"
+change-log-default-name: "ChangeLog.openacc"
 End:
