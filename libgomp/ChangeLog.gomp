@@ -1,3 +1,18 @@
+2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
+	backport from mainline:
+	2017-06-27  Tom de Vries  <tom@codesourcery.com>
+
+	* env.c (parse_unsigned_long_1): Factor out of ...
+	(parse_unsigned_long): ... here.
+	(parse_int_1): Factor out of ...
+	(parse_int): ... here.
+	(parse_int_secure): New function.
+	(initialize_env): Use parse_int_secure for GOMP_DEBUG.
+	* secure_getenv.h: Factor out of ...
+	* plugin/plugin-hsa.c: ... here.
+	* testsuite/libgomp.oacc-c-c++-common/gomp-debug-env.c: New test.
+
 2017-06-30  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-flt-2.c: New test.
