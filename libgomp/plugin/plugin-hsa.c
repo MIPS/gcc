@@ -36,7 +36,7 @@
 #include <dlfcn.h>
 #include "libgomp-plugin.h"
 #include "gomp-constants.h"
-#include "secure-getenv.h"
+#include "secure_getenv.h"
 
 /* Keep the following GOMP prefixed structures in sync with respective parts of
    the compiler.  */
