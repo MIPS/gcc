@@ -1,5 +1,13 @@
 2017-07-11  Tom de Vries  <tom@codesourcery.com>
 
+	backport from mainline:
+	PR target/80855
+	2017-06-09  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/nvptx/label-values.c: New test.
+
+2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2017-06-01  Tom de Vries  <tom@codesourcery.com>
 
