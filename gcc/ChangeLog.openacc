@@ -1,5 +1,14 @@
 2017-07-11  Tom de Vries  <tom@codesourcery.com>
 
+	backport from mainline:
+	PR target/80855
+	2017-06-09  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.md (define_expand "mov<QHSDISDFM>"): Error out with
+	"target cannot support label values" when encountering LABEL_REF.
+
+2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2017-06-06  Tom de Vries  <tom@codesourcery.com>
 
