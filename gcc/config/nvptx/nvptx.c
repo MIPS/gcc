@@ -5127,6 +5127,13 @@ nvptx_set_current_function (tree fndecl)
   nvptx_previous_fndecl = fndecl;
 }
 
+static bool
+nvptx_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED,
+			      rtx x ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
 
@@ -5240,6 +5247,9 @@ nvptx_set_current_function (tree fndecl)
 
 #undef TARGET_GOACC_EXPAND_ACCEL_VAR
 #define TARGET_GOACC_EXPAND_ACCEL_VAR nvptx_goacc_expand_accel_var
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM nvptx_cannot_force_const_mem
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
