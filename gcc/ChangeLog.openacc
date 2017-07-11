@@ -1,6 +1,16 @@
 2017-07-11  Tom de Vries  <tom@codesourcery.com>
 
 	backport from mainline:
+	2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (WORKAROUND_PTXJIT_BUG): New macro.
+	(bb_first_real_insn): New function.
+	(nvptx_single): Add extra initialization of broadcasted condition
+	variables.
+
+2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
+	backport from mainline:
 	PR target/79939
 	2017-06-11  Tom de Vries  <tom@codesourcery.com>
 
