@@ -1,6 +1,17 @@
 2017-07-11  Tom de Vries  <tom@codesourcery.com>
 
 	backport from mainline:
+	PR target/79939
+	2017-06-11  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_cannot_force_const_mem): New function.
+	Return true.
+	(TARGET_CANNOT_FORCE_CONST_MEM): Redefine to
+	nvptx_cannot_force_const_mem.
+
+2017-07-11  Tom de Vries  <tom@codesourcery.com>
+
+	backport from mainline:
 	PR target/80855
 	2017-06-09  Tom de Vries  <tom@codesourcery.com>
 

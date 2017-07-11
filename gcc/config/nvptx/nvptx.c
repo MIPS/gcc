@@ -5601,6 +5601,13 @@ nvptx_goacc_reduction (gcall *call)
     }
 }
 
+static bool
+nvptx_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED,
+			      rtx x ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 static rtx
 nvptx_goacc_expand_accel_var (tree var)
 {
@@ -5755,6 +5762,9 @@ nvptx_set_current_function (tree fndecl)
 
 #undef TARGET_GOACC_REDUCTION
 #define TARGET_GOACC_REDUCTION nvptx_goacc_reduction
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM nvptx_cannot_force_const_mem
 
 #undef TARGET_GOACC_EXPAND_ACCEL_VAR
 #define TARGET_GOACC_EXPAND_ACCEL_VAR nvptx_goacc_expand_accel_var
