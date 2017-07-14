@@ -4805,7 +4805,7 @@
   "TARGET_NANOMIPS && flag_pic && nano_pic_model_var == NANO_PIC_LARGE \
    && TARGET_NANOMIPS == NANOMIPS_NMF"
 {
-  return "<d>addiugp\t%0,%%gprel32(%2)";
+  return "<d>addiu[gp48]\t%0,%1,%%gprel32(%2)";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips48")
