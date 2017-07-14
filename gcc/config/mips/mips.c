@@ -11876,10 +11876,10 @@ static const unsigned char mips16e_save_restore_regs[] = {
   31, 30, 23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4
 };
 
-/* A list of the registers that can be saved by the uMIPS++ SAVE instruction,
+/* A list of the registers that can be saved by the nanoMIPS SAVE instruction,
    ordered from the uppermost in memory to the lowest in memory.  */
 static const unsigned char nanomips_save_restore_regs[] = {
-  31, 30, 28, 23, 22, 21, 20, 19, 18, 17, 16
+  30, 31, 16, 17, 18, 19, 20, 21, 22, 23, 28
 };
 
 static const unsigned char nanomips_savef_restoref_regs[] = {
