@@ -11691,6 +11691,9 @@ mips_file_start (void)
   /* Generate a special section to describe the ABI switches used to
      produce the resultant binary.  */
 
+#ifdef NANOMIPS_SUPPORT
+  fprintf (asm_out_file, "\t.linkrelax\n");
+#else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
      information in order to correctly debug binaries produced by
@@ -11698,6 +11701,7 @@ mips_file_start (void)
      gdb/mips-tdep.c.  */
   fprintf (asm_out_file, "\t.section .mdebug.%s\n\t.previous\n",
 	   mips_mdebug_abi_name ());
+#endif
 
   /* There is no ELF header flag to distinguish long32 forms of the
      EABI from long64 forms.  Emit a special section to help tools
@@ -11741,7 +11745,7 @@ mips_file_start (void)
     fputs ("\t.module\tnooddspreg\n", asm_out_file);
 #endif
 
-#else
+#elif ! defined (NANOMIPS_SUPPORT)
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
     int attr;
