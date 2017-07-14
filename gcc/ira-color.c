@@ -1336,7 +1336,6 @@ update_costs_from_allocno (ira_allocno_t allocno, int hard_regno,
   enum reg_class rclass, aclass;
   ira_allocno_t another_allocno, from = NULL;
   ira_copy_t cp, next_cp;
-
   rclass = REGNO_REG_CLASS (hard_regno);
   do
     {
@@ -1419,7 +1418,6 @@ static void
 update_costs_from_copies (ira_allocno_t allocno, bool decr_p, bool record_p)
 {
   int hard_regno;
-
   hard_regno = ALLOCNO_HARD_REGNO (allocno);
   ira_assert (hard_regno >= 0 && ALLOCNO_CLASS (allocno) != NO_REGS);
   start_update_cost ();
@@ -1998,6 +1996,26 @@ merge_threads (ira_allocno_t t1, ira_allocno_t t2)
   ALLOCNO_COLOR_DATA (t1)->next_thread_allocno = t2;
   ALLOCNO_COLOR_DATA (last)->next_thread_allocno = next;
   ALLOCNO_COLOR_DATA (t1)->thread_freq += ALLOCNO_COLOR_DATA (t2)->thread_freq;
+}
+
+vec<int>
+get_copy_thread_allocnos (ira_allocno_t a)
+{
+  vec<int> copies = vNULL;
+  ira_allocno_t all, first = NULL, last;
+
+  for (all = ALLOCNO_COLOR_DATA (a)->next_thread_allocno;
+       all != a;
+       all = ALLOCNO_COLOR_DATA (all)->next_thread_allocno)
+    copies.safe_push (ALLOCNO_NUM (all));
+
+  return copies;
+}
+
+ira_allocno_t
+get_first_allocno_from_thread (ira_allocno_t a)
+{
+  return ALLOCNO_COLOR_DATA (a)->first_thread_allocno;
 }
 
 /* Create threads by processing CP_NUM copies from sorted copies.  We
