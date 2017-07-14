@@ -2601,6 +2601,8 @@ enum reg_class
 
 #define RETURN_ADDR_RTX mips_return_addr
 
+#define MIPS_FRAME_BIAS 0
+
 /* Mask off the MIPS16 ISA bit in unwind addresses.
 
    The reason for this is a little subtle.  When unwinding a call,

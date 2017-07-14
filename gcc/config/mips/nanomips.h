@@ -203,6 +203,12 @@ FP_ASM_SPEC "\
 #undef DEFAULT_SIGNED_CHAR
 #define DEFAULT_SIGNED_CHAR 0
 
+#undef MIPS_FRAME_BIAS
+#define MIPS_FRAME_BIAS 4096
+
+#define FRAME_ADDR_RTX(frame) \
+   plus_constant (Pmode, frame, MIPS_FRAME_BIAS)
+
 /* Describe how we implement __builtin_eh_return.  */
 
 /* At the moment, nothing appears to use more than 2 EH data registers.

@@ -13408,9 +13408,9 @@ mips_compute_frame_info_oabi_nabi (void)
      |  for register varargs          |
      +--------------------------------+ <-- frame_pointer_rtx /
      |  GPR save area  | $fp          |     stack_pointer_rtx + gp_sp_offset
-     |                 | $ra          |     + UNITS_PER_WORD
-     |                 |--------------| <-- hard_frame_pointer_rtx
-     |                 | $s0-$s7, $gp |
+     |                 | $ra          |     + UNITS_PER_WORD /
+     |                 |--------------|     hard_frame_pointer_rtx
+     |                 | $s0-$s7, $gp |     + MIPS_FRAME_BIAS
      +--------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
      |  FPR save area                 |     + UNITS_PER_HWFPVALUE
      +--------------------------------+ <-- stack_pointer_rtx + cop0_sp_offset
@@ -13597,8 +13597,7 @@ mips_compute_frame_info_pabi (void)
       && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM))
     {
       frame->hard_frame_pointer_offset = frame->total_size;
-      /* The hard frame pointer points to the $fp and $ra pair.  */
-      frame->hard_frame_pointer_offset -= 2 * UNITS_PER_WORD;
+      frame->hard_frame_pointer_offset -= MIPS_FRAME_BIAS;
       /* For now we need to do a separate stack adjustment before
 	 using SAVE/RESTORE for variadic functions and/or when we need to
 	 save argument registers.  */
@@ -15221,11 +15220,11 @@ mips_expand_prologue_pabi (void)
 	}
       else
 	{
+	  rtx offset = GEN_INT (-(MIPS_FRAME_BIAS
+				  - MIN (frame->total_size,
+					 MIPS_MAX_FIRST_STACK_STEP)));
 	  rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
-				    stack_pointer_rtx,
-				    GEN_INT (MIN (frame->total_size,
-						  MIPS_MAX_FIRST_STACK_STEP)
-					     - 2 * UNITS_PER_WORD));
+				    stack_pointer_rtx, offset);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	}
     }
@@ -15730,8 +15729,8 @@ mips_expand_epilogue_pabi (bool sibcall_p)
     }
 
   /* Get an rtx for STEP that we can add to BASE.  */
-  adjust = GEN_INT (frame_pointer_needed ? - (reg_area_size
-					      - 2 * UNITS_PER_WORD)
+  adjust = GEN_INT (frame_pointer_needed ? (MIPS_FRAME_BIAS
+					    - reg_area_size)
 					 : step1);
   if (!IN_RANGE (INTVAL (adjust), -0xfff, 0xffff))
     {
