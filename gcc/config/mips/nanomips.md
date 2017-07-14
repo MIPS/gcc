@@ -63,8 +63,11 @@
    (set_attr "has_16bit_ver" "yes,yes,yes,rri_add,yes,no,no,no,yes")
    (set_attr "mode" "<MODE>")
    (set (attr "enabled")
-	(cond [(and (eq_attr "alternative" "4,6,8")
+	(cond [(and (eq_attr "alternative" "4")
 		    (match_test "TARGET_64BIT"))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "8")
+		    (match_test "TARGET_NANOMIPS == NANOMIPS_NMS"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
