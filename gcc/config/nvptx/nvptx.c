@@ -2294,22 +2294,25 @@ nvptx_propagate_unified (rtx_insn *unified)
 {
   rtx_insn *probe = unified;
   rtx cond_reg = SET_DEST (PATTERN (unified));
-  rtx pat;
+  rtx pat = NULL_RTX;
 
   /* Find the comparison.  (We could skip this and simply scan to he
      blocks' terminating branch, if we didn't care for self
      checking.)  */
   for (;;)
     {
-      probe = NEXT_INSN (probe);
+      probe = next_real_insn (probe);
+      if (!probe)
+	break;
       pat = PATTERN (probe);
 
       if (GET_CODE (pat) == SET
 	  && GET_RTX_CLASS (GET_CODE (SET_SRC (pat))) == RTX_COMPARE
 	  && XEXP (SET_SRC (pat), 0) == cond_reg)
 	break;
-      gcc_assert (NONJUMP_INSN_P (probe) || !INSN_P (probe));
+      gcc_assert (NONJUMP_INSN_P (probe));
     }
+  gcc_assert (pat);
   rtx pred_reg = SET_DEST (pat);
 
   /* Find the branch.  */
