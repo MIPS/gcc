@@ -1,3 +1,8 @@
+2017-07-16  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_propagate_unified): Use next_real_insn to
+	find comparison insn.  Assert that comparison is found.
+
 2017-07-11  Tom de Vries  <tom@codesourcery.com>
 
 	backport from mainline:
