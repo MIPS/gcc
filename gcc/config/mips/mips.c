@@ -7314,7 +7314,8 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
     }
 
   /* See whether the argument has doubleword alignment.  */
-  alignment = mips_function_arg_boundary (mode, type);
+  doubleword_aligned_p = (mips_function_arg_boundary (mode, type)
+			  > BITS_PER_WORD);
 
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
@@ -7324,25 +7325,13 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		      : cum->num_gprs);
 
   /* Advance to an even register if the argument is doubleword-aligned.  */
-  if (alignment > BITS_PER_WORD)
-    {
-      if (TARGET_PABI)
-	info->reg_offset = ROUND_UP (info->reg_offset,
-				     alignment / BITS_PER_WORD);
-      else
-	info->reg_offset += info->reg_offset & 1;
-    }
+  if (doubleword_aligned_p)
+    info->reg_offset += info->reg_offset & 1;
 
   /* Work out the offset of a stack argument.  */
   info->stack_offset = cum->stack_words;
-  if (alignment > BITS_PER_WORD)
-    {
-      if (TARGET_PABI)
-	info->stack_offset = ROUND_UP (info->stack_offset,
-				       alignment / BITS_PER_WORD);
-      else
-	info->stack_offset += info->stack_offset & 1;
-    }
+  if (doubleword_aligned_p)
+    info->stack_offset += info->stack_offset & 1;
 
   max_regs = MAX_ARGS_IN_REGISTERS - info->reg_offset;
 
@@ -7553,6 +7542,39 @@ mips_arg_partial_bytes (cumulative_args_t cum,
   return info.stack_words > 0 ? info.reg_words * UNITS_PER_WORD : 0;
 }
 
+unsigned int
+mips_function_arg_alignment (machine_mode mode, const_tree type)
+{
+  unsigned int alignment = 0;
+  if (type)
+    {
+      if (TARGET_PABI)
+	{
+	  /* Scalar and vector types use base type alignment.  */
+	  if (!AGGREGATE_TYPE_P (type))
+	    alignment = TYPE_ALIGN (TYPE_MAIN_VARIANT (type));
+
+	  /* Array types element type alignment.  */
+	  if (TREE_CODE (type) == ARRAY_TYPE)
+	    alignment = TYPE_ALIGN (TREE_TYPE (type));
+
+	  /* Record/aggregate type use the greates member alignment of
+	     a member.  */
+	  for (tree field = TYPE_FIELDS (type);
+	       field;
+	       field = DECL_CHAIN (field))
+	    if (DECL_ALIGN (field) > PARM_BOUNDARY)
+	      return true;
+	}
+      else
+	alignment = TYPE_ALIGN (type);
+    }
+  else
+    alignment = GET_MODE_ALIGNMENT (mode);
+
+  return alignment;
+}
+
 /* Implement TARGET_FUNCTION_ARG_BOUNDARY.  Every parameter gets at
    least PARM_BOUNDARY bits of alignment, but will be given anything up
    to STACK_BOUNDARY bits if the type requires it.  */
@@ -7562,7 +7584,7 @@ mips_function_arg_boundary (machine_mode mode, const_tree type)
 {
   unsigned int alignment;
 
-  alignment = type ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode);
+  alignment = mips_function_arg_alignment (mode, type);
   if (alignment < PARM_BOUNDARY)
     alignment = PARM_BOUNDARY;
   if (alignment > STACK_BOUNDARY)
