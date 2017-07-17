@@ -2661,10 +2661,9 @@ enum reg_class
 
 /* o32 and o64 reserve stack space for all argument registers.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 			\
-   mips_reg_parm_stack_space ((FNDECL), false)
-
-#define INCOMING_REG_PARM_STACK_SPACE(FNDECL) 		\
-   mips_reg_parm_stack_space ((FNDECL), true)
+  (TARGET_OLDABI					\
+   ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
+   : 0)
 
 /* Define this if it is the responsibility of the caller to
    allocate the area reserved for arguments passed in registers.
@@ -3622,6 +3621,9 @@ struct GTY(())  machine_function {
   /* The number of extra stack bytes taken up by register varargs.
      This area is allocated by the callee at the very top of the frame.  */
   int varargs_size;
+
+  /* Size of register parameters pushed on stack by callee.  */
+  int reg_param_stack_space;
 
   /* The current frame information, calculated by mips_compute_frame_info.  */
   struct mips_frame_info frame;
