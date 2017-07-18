@@ -1,3 +1,105 @@
+2017-05-02  Release Manager
+
+	* GCC 7.1.0 released.
+
+2017-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80591
+	* gcc.dg/torture/pr80591.c: New testcase.
+
+2017-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80534
+	* g++.dg/other/pr80534-1.C: New test.
+	* g++.dg/other/pr80534-2.C: New test.
+
+	PR target/77728
+	* g++.dg/abi/pr77728-2.C: Don't expect -Wpsabi notes.
+
+2017-04-25  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/80497
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-17.c: New test.
+
+2017-04-25  Marek Polacek  <polacek@redhat.com>
+
+	2017-04-25  Marek Polacek  <polacek@redhat.com>
+	Backport from mainline
+
+	PR sanitizer/80349
+	* g++.dg/ubsan/pr80349-2.C: New test.
+
+2017-04-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77728
+	* g++.dg/abi/pr77728-1.C: New test.
+
+2017-04-25  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	Backport from mainline
+	PR target/80482
+	* gcc.target/powerpc/vec-constvolatile.c: New test.
+
+2017-04-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77728
+	* g++.dg/abi/pr77728-2.C: New test.
+
+2017-04-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-04-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+        PR target/80464
+        * gfortran.fortran-torture/compile/pr80464.f90: New test.
+
+2017-04-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-04-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+        PR target/79895
+        * gcc.target/s390/pr79895.c: New test.
+
+2017-04-25  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	Backport from maineline
+	2017-04-25  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+        PR target/80080
+        * gcc.target/s390/md/atomic_compare_exchange-1.c: New test.
+        * gcc.target/s390/md/atomic_compare_exchange-1.inc: New test.
+        * gcc.target/s390/md/atomic_exchange-1.inc: New test.
+
+2017-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/80501
+	* gcc.c-torture/execute/pr80501.c: New test.
+
+	PR rtl-optimization/80500
+	* gcc.dg/pr80500.c: New test.
+
+2017-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-04-24  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/79931
+	* g++.dg/ipa/pr79931.C: New test.
+
+2017-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/80426
+	* gcc.c-torture/execute/20170429-1.c: Rename into...
+	* gcc.c-torture/execute/20170419-1.c: ...this.
+
+2017-04-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/80473
+	* g++.dg/diagnostic/pr80473.C: New test.
+
 2017-04-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/80423
