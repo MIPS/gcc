@@ -192,7 +192,14 @@ read_file (const location &loc, const char *path)
   fclose (f_in);
 
   /* 0-terminate the buffer.  */
+  if (total_sz == 0)
+    {
+      size_t new_alloc_sz = alloc_sz ? alloc_sz * 2: total_sz + 1;
+      result = (char *)xrealloc (result, new_alloc_sz);
+      alloc_sz = new_alloc_sz;
+    }
   gcc_assert (total_sz < alloc_sz);
+  gcc_assert (result);
   result[total_sz] = '\0';
 
   return result;
@@ -296,6 +303,17 @@ test_read_file ()
   free (buf);
 }
 
+/* Verify that read_file can cope with an empty file.  */
+
+static void
+test_read_empty_file ()
+{
+  temp_source_file t (SELFTEST_LOCATION, "empty.txt", "");
+  char *buf = read_file (SELFTEST_LOCATION, t.get_filename ());
+  ASSERT_STREQ ("", buf);
+  free (buf);
+}
+
 /* Verify locate_file (and read_file).  */
 
 static void
@@ -317,6 +335,7 @@ selftest_c_tests ()
   test_assertions ();
   test_named_temp_file ();
   test_read_file ();
+  test_read_empty_file ();
   test_locate_file ();
 }
 
