@@ -1,3 +1,77 @@
+2017-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/81428
+	* match.pd (X / X -> one): Don't optimize _Fract divisions, as 1
+	can't be built for those types.
+
+	PR tree-optimization/81365
+	* tree-ssa-phiprop.c (propagate_with_phi): When considering hoisting
+	aggregate moves onto bb predecessor edges, make sure there are no
+	loads that could alias the lhs in between the start of bb and the
+	loads from *phi.
+
+	Backported from mainline
+	2017-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/81225
+	* config/i386/sse.md (vec_extract_lo_<mode><mask_name>): For
+	V8FI, V16FI and VI8F_256 iterators, use <store_mask_predicate> instead
+	of nonimmediate_operand and <store_mask_constraint> instead of m for
+	the input operand.  For V8FI iterator, always split if input is a MEM.
+	For V16FI and V8SF_256 iterators, don't test if both operands are MEM
+	if <mask_applied>.  For VI4F_256 iterator, use <store_mask_predicate>
+	instead of register_operand and <store_mask_constraint> instead of v for
+	the input operand.  Make sure both operands aren't MEMs for if not
+	<mask_applied>.
+
+2017-07-17  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2017-07-17 trunk r250258.
+
+	PR 80929
+	* config/avr/avr.c (avr_mul_highpart_cost): New static function.
+	(avr_rtx_costs_1) [TRUNCATE]: Use it to compute mul_highpart cost.
+	[LSHIFTRT, outer_code = TRUNCATE]: Same.
+
+2017-07-17  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2017-07-17  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	*  gcc/config/sparc/rtemself.h (TARGET_OS_CPP_BUILTINS): Add
+	conditional builtin define __FIX_LEON3FT_B2BST.
+
+2017-07-17  Daniel Cederman  <cederman@gaisler.com>
+
+	Backport from mainline
+	2017-07-17  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/t-rtems: Add mfix-gr712rc multilibs. Replace
+	MULTILIB_EXCEPTIONS with MULTILIB_REQUIRED. Match -mfix-gr712rc
+	with -mfix-ut700.
+
+2017-07-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/81424
+	* optabs.c (prepare_cmp_insn): Use copy_to_reg instead of force_reg
+	to remove potential trapping from operands if -fnon-call-exceptions.
+
+2017-07-16  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sparc.md (divdf3_fix): Add NOP to prevent back
+	to back store errata sensitive sequence from being generated.
+	(sqrtdf2_fix): Likewise.
+
+2017-07-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2017-07-12 trunk r250156.
+
+	PR target/79883
+	* config/avr/avr.c (avr_set_current_function): In diagnostic
+	messages: Quote keywords and (parts of) identifiers.
+	[WITH_AVRLIBC]: Warn for functions named "ISR", "SIGNAL" or
+	"INTERRUPT".
+
 2017-07-11  Daniel Cederman  <cederman@gaisler.com>
 
 	* config/sparc/sparc.opt (mfix-ut700): New option.
