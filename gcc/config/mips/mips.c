@@ -3111,9 +3111,15 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
-		       && !(nano_pic_model_var == NANO_PIC_LARGE
-			    && TARGET_NANOMIPS == NANOMIPS_NMS))
+		       && (nano_pic_model_var == NANO_PIC_AUTO
+			   || nano_pic_model_var == NANO_PIC_MEDIUM))
 		return SYMBOL_GP_RELATIVE;
+	      else if (TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && (nano_pic_model_var == NANO_PIC_LARGE
+			   && TARGET_NANOMIPS == NANOMIPS_NMF))
+		return SYMBOL_GPREL32_NANO;
 	      // @tmt are functions exactly 2-byte aligned, somehow ?
 		       /* && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 2 */
 	      else if (SYMBOL_REF_DECL (x)
@@ -3299,6 +3305,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       /* Fall through.  */
 
     case SYMBOL_GP_RELATIVE:
+    case SYMBOL_GPREL32_NANO:
       /* Make sure that the offset refers to something within the
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
@@ -3378,13 +3385,14 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 		 ? 1
 		 : 2;
 
+    case SYMBOL_GPREL32_NANO:
+      if (mode != MAX_MACHINE_MODE)
+	return 0;
+      /* Fall through.  */
+
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
-      if (TARGET_NANOMIPS && flag_pic
-	  && nano_pic_model_var == NANO_PIC_LARGE
-	  && mode != MAX_MACHINE_MODE)
-	return 0;
       return 1;
 
     case SYMBOL_PCREL_NANO:
@@ -4614,6 +4622,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      case SYMBOL_GP_RELATIVE:
+	      case SYMBOL_GPREL32_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
@@ -5014,10 +5023,18 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
 
-  return (mips_lo_relocs[SYMBOL_GP_RELATIVE]
-	  && !mips_split_p[SYMBOL_GP_RELATIVE]
-	  && mips_symbolic_constant_p (x, context, &symbol_type)
-	  && symbol_type == SYMBOL_GP_RELATIVE);
+  if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
+      && !mips_split_p[SYMBOL_GP_RELATIVE]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GP_RELATIVE)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL32_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL32_NANO)
+    return true;
+
+  return false;
 }
 
 /* Return true if OP refers to small data symbols directly, not through
@@ -6493,7 +6510,8 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
   return (mips_symbolic_constant_p (x, context, &symbol_type)
-	  && symbol_type == SYMBOL_GP_RELATIVE
+	  && (symbol_type == SYMBOL_GP_RELATIVE
+	      || symbol_type == SYMBOL_GPREL32_NANO)
 	  && CONSTANT_POOL_ADDRESS_P (x));
 }
 
@@ -10528,6 +10546,9 @@ mips_init_relocs (void)
   if (TARGET_PABI)
     mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gprel(";
 
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel32(";
+
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
@@ -11393,9 +11414,12 @@ mips_in_small_data_p (const_tree decl)
 	  && strncmp (name, ".sbss_", 6) != 0)
 	return false;
 
+      //@tmt what does this mean for nanoMIPS?
       /* If a symbol is defined externally, the assembler will use the
 	 usual -G rules when deciding how to implement macros.  */
-      if (mips_lo_relocs[SYMBOL_GP_RELATIVE] || !DECL_EXTERNAL (decl))
+      if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
+	  || mips_lo_relocs[SYMBOL_GPREL32_NANO]
+	  || !DECL_EXTERNAL (decl))
 	return true;
     }
   else if (TARGET_EMBEDDED_DATA)
