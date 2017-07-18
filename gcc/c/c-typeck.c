@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
 #include "asan.h"
+#include "blt.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -6112,6 +6113,53 @@ maybe_warn_string_init (location_t loc, tree type, struct c_expr expr)
 		  "array initialized from parenthesized string constant");
 }
 
+/* Attempt to locate the parameter with the given index within FNDECL,
+   returning LOC if it can't be found (or blt was not enabled).  */
+
+static location_t
+get_fndecl_argument_location (tree fundecl, int argnum, location_t loc)
+{
+  blt_node *node = blt_get_node_for_tree (fundecl);
+  if (!node)
+    return loc;
+
+  if (node->get_kind () != BLT_DIRECT_DECLARATOR)
+    return loc;
+
+  /* We expect a parameter-list containing parameter-declaration.  */
+  node = node->get_first_child_of_kind (BLT_PARAMETER_LIST);
+  if (!node)
+    return loc;
+
+  auto_vec<blt_node *> params;
+  node->get_children_of_kind (params, BLT_PARAMETER_DECLARATION);
+
+  if (argnum >= (int)params.length ())
+    return loc;
+
+  blt_node *param = params[argnum];
+  return param->get_range ();
+}
+
+/* Issue a note about a mismatching argument for parameter PARMNUM
+   to FUNDECL, for types EXPECTED_TYPE and ACTUAL_TYPE.
+   Attempt to issue the note at the pertinent parameter of the decl;
+   failing that issue it at the location of FUNDECL; failing that
+   issue it at PLOC.  */
+
+static void
+inform_for_arg (tree fundecl, location_t ploc, int parmnum,
+		tree expected_type, tree actual_type)
+{
+  location_t loc = (fundecl && !DECL_IS_BUILTIN (fundecl)
+		    ? DECL_SOURCE_LOCATION (fundecl) : ploc);
+  loc = get_fndecl_argument_location (fundecl, parmnum - 1, loc);
+
+  inform (loc,
+	  "expected %qT but argument is of type %qT",
+	  expected_type, actual_type);
+}
+
 /* Convert value RHS to type TYPE as preparation for an assignment to
    an lvalue of type TYPE.  If ORIGTYPE is not NULL_TREE, it is the
    original type of RHS; this differs from TREE_TYPE (RHS) for enum
@@ -6183,10 +6231,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       {                                                                  \
       case ic_argpass:                                                   \
         if (pedwarn (PLOC, OPT, AR, parmnum, rname))			 \
-          inform ((fundecl && !DECL_IS_BUILTIN (fundecl))	         \
-		  ? DECL_SOURCE_LOCATION (fundecl) : PLOC,		 \
-                  "expected %qT but argument is of type %qT",            \
-                  type, rhstype);                                        \
+          inform_for_arg (fundecl, (PLOC), parmnum, type, rhstype);	\
         break;                                                           \
       case ic_assign:                                                    \
         pedwarn (LOCATION, OPT, AS);                                     \
@@ -6212,10 +6257,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       {                                                                  \
       case ic_argpass:                                                   \
         if (pedwarn (PLOC, OPT, AR, parmnum, rname, QUALS))		 \
-          inform ((fundecl && !DECL_IS_BUILTIN (fundecl))	         \
-		  ? DECL_SOURCE_LOCATION (fundecl) : PLOC,		 \
-                  "expected %qT but argument is of type %qT",            \
-                  type, rhstype);                                        \
+          inform_for_arg (fundecl, (PLOC), parmnum, type, rhstype);	\
         break;                                                           \
       case ic_assign:                                                    \
         pedwarn (LOCATION, OPT, AS, QUALS);				 \
@@ -6241,10 +6283,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       {                                                                  \
       case ic_argpass:                                                   \
         if (warning_at (PLOC, OPT, AR, parmnum, rname, QUALS))           \
-          inform ((fundecl && !DECL_IS_BUILTIN (fundecl))                \
-                  ? DECL_SOURCE_LOCATION (fundecl) : PLOC,               \
-                  "expected %qT but argument is of type %qT",            \
-                  type, rhstype);                                        \
+          inform_for_arg (fundecl, (PLOC), parmnum, type, rhstype);      \
         break;                                                           \
       case ic_assign:                                                    \
         warning_at (LOCATION, OPT, AS, QUALS);                           \

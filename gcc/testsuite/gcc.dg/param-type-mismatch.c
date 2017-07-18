@@ -1,9 +1,6 @@
-/* { dg-options "-fdiagnostics-show-caret" }  */
+/* { dg-options "-fdiagnostics-show-caret -fblt" }  */
 
-/* A collection of calls where argument 2 is of the wrong type.
-
-   TODO: we should highlight the second parameter of the callee, rather
-   than its name.  */
+/* A collection of calls where argument 2 is of the wrong type.  */
 
 /* decl, with argname.  */
 
@@ -19,7 +16,7 @@ int test_1 (int first, int second, float third)
   /* { dg-message "expected 'const char \\*' but argument is of type 'int'" "" { target *-*-* } callee_1 } */
   /* { dg-begin-multiline-output "" }
  extern int callee_1 (int one, const char *two, float three);
-            ^~~~~~~~
+                               ^~~~~~~~~~~~~~~
      { dg-end-multiline-output "" } */
 }
 
@@ -37,7 +34,7 @@ int test_2 (int first, int second, float third)
   /* { dg-message "expected 'const char \\*' but argument is of type 'int'" "" { target *-*-* } callee_2 } */
   /* { dg-begin-multiline-output "" }
  extern int callee_2 (int, const char *, float);
-            ^~~~~~~~
+                           ^~~~~~~~~~~~
      { dg-end-multiline-output "" } */
 }
 
@@ -58,6 +55,6 @@ int test_3 (int first, int second, float third)
   /* { dg-message "expected 'const char \\*' but argument is of type 'int'" "" { target *-*-* } callee_3 } */
   /* { dg-begin-multiline-output "" }
  static int callee_3 (int one, const char *two, float three)
-            ^~~~~~~~
+                               ^~~~~~~~~~~~~~~
      { dg-end-multiline-output "" } */
 }
