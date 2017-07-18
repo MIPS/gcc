@@ -692,11 +692,19 @@
 	  && type == SYMBOL_PCREL_NANO);
 })
 
-(define_predicate "pcrel32_nano_operand"
+(define_predicate "pcrel32_lea_nano_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_PCREL32_NANO);
+})
+
+(define_predicate "pcrel32_mem_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_MEM, &type)
 	  && type == SYMBOL_PCREL32_NANO);
 })
 

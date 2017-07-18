@@ -3118,6 +3118,8 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       /* && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 2 */
 	      else if (SYMBOL_REF_DECL (x)
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+		       && !(context == SYMBOL_CONTEXT_MEM
+			    && TARGET_NANOMIPS == NANOMIPS_NMF)
 		       && nano_pic_model_var == NANO_PIC_AUTO)
 		return SYMBOL_PCREL_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
