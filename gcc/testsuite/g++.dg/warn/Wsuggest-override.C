@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-std=c++11 -Wsuggest-override" }
+// { dg-options "-std=c++11 -Wsuggest-override -fdiagnostics-show-caret -fblt" }
 struct A
 {
 	A();
@@ -16,8 +16,18 @@ struct B : A
 	B();
 	virtual ~B();
 	virtual void f(); // { dg-warning "can be marked override" }
+/* { dg-begin-multiline-output "" }
+  virtual void f();
+               ^
+                   override
+   { dg-end-multiline-output "" } */
 virtual int bar() override;
 int c();
 operator int();
 virtual operator float(); // { dg-warning "can be marked override" }
+/* { dg-begin-multiline-output "" }
+ virtual operator float();
+         ^~~~~~~~
+                          override
+   { dg-end-multiline-output "" } */
 };

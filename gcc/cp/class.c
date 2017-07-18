@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "intl.h"
 #include "asan.h"
+#include "gcc-rich-location.h"
+#include "blt.h"
 
 /* Id for dumping the class hierarchy.  */
 int class_dump_id;
@@ -3024,8 +3026,25 @@ check_for_override (tree decl, tree ctype)
       overrides_found = true;
       if (warn_override && !DECL_OVERRIDE_P (decl)
 	  && !DECL_DESTRUCTOR_P (decl))
-	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wsuggest_override,
-		    "%qD can be marked override", decl);
+	{
+	  gcc_rich_location richloc (DECL_SOURCE_LOCATION (decl));
+	  /* Attempt to suggest adding " override" after the declarator
+	     (and before the semicolon).  */
+	  blt_node *asnode = blt_get_node_for_tree (decl);
+	  if (asnode)
+	    {
+	      /* Expect a member-declaration containing a
+		 decl-specifier-seq declarator token(;).
+		 We want the declarator.  */
+	      blt_node *declarator
+		= asnode->get_first_child_of_kind (BLT_DECLARATOR);
+	      if (declarator)
+		richloc.add_fixit_insert_after (declarator->get_finish (),
+						" override");
+	    }
+	  warning_at_rich_loc (&richloc, OPT_Wsuggest_override,
+			       "%qD can be marked override", decl);
+	}
     }
 
   if (DECL_VIRTUAL_P (decl))
