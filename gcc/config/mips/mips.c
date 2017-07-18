@@ -626,6 +626,7 @@ static tree mips_handle_code_readable_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
 						      bool *);
+static tree nanomips_handle_model_attribute (tree *, tree, tree, int, bool *);
 
 /* Attribute handler.  */
 static tree mips_handle_common_epi_attr (tree *, tree, tree, int, bool *);
@@ -659,6 +660,8 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "epi", 0, 1, false, false, false, mips_handle_common_epi_attr,
      false },
   { "noepi",	   0, 0, false, false, false, NULL, false },
+  { "model",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
+    false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
@@ -676,8 +679,23 @@ static const struct attribute_spec nanomips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  // @tmt this doesn't work because TARGET_ATTRIBUTE_TABLE is redefined with
+  // the old value at the end of mips.c
+  /* { "model",	   1, 1,  true, false, false, nanomips_handle_model_attribute, */
+  /*   false }, */
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
+
+#undef TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P
+#define TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P mips_attribute_takes_identifier_p
+
+static bool
+mips_attribute_takes_identifier_p (const_tree attr_id)
+{
+  if (is_attribute_p ("model", attr_id))
+    return true;
+  return false;
+}
 
 struct mips_sdata_entry
 {
@@ -1926,7 +1944,6 @@ mips_far_type_p (const_tree type)
 	  || lookup_attribute ("far", TYPE_ATTRIBUTES (type)) != NULL);
 }
 
-
 /* Check if the interrupt attribute is set for a function.  */
 
 static bool
@@ -2523,6 +2540,43 @@ mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
 	}
 
       return NULL_TREE;
+    }
+
+  return NULL_TREE;
+}
+
+static tree
+nanomips_handle_model_attribute (tree *node, tree name, tree args,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (args == NULL)
+    {
+      warning (OPT_Wattributes, "%qE attribute requires an argument",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  tree arg = TREE_VALUE (args);
+
+  if (!(TARGET_NANOMIPS && flag_pic))
+    {
+      warning (OPT_Wattributes, "%qE attribute only works for nanoMIPS PIC",
+	       name);
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (arg) != STRING_CST)
+    {
+      warning (OPT_Wattributes, "%qE attribute requires a string argument",
+	       name);
+      *no_add_attrs = true;
+    }
+  else if (strcmp (TREE_STRING_POINTER (arg), "auto") != 0
+	   && strcmp (TREE_STRING_POINTER (arg), "medium") != 0
+	   && strcmp (TREE_STRING_POINTER (arg), "large") != 0)
+    {
+      warning (OPT_Wattributes, "invalid argument of %qE attribute",
+	       name);
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
@@ -11264,15 +11318,58 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
 {
   default_encode_section_info (decl, rtl, first);
 
+  /* Careful not to prod global register variables.  */
+  if (!MEM_P (rtl))
+    return;
+
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx symbol = XEXP (rtl, 0);
+
+      if (TARGET_NANOMIPS && flag_pic)
+	{
+	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+
+	  if (attr != NULL)
+	    {
+	      tree attr_id = TREE_VALUE (TREE_VALUE (attr));
+
+	      if (strcmp (TREE_STRING_POINTER (attr_id), "auto") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_AUTO_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "medium") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_MEDIUM_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "large") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LARGE_PIC;
+	    }
+	}
+
       tree type = TREE_TYPE (decl);
 
       /* Encode whether the symbol is short or long.  */
       if ((TARGET_LONG_CALLS && !mips_near_type_p (type))
 	  || mips_far_type_p (type))
 	SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      rtx symbol = XEXP (rtl, 0);
+
+      if (TARGET_NANOMIPS && flag_pic)
+	{
+	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+
+	  if (attr != NULL)
+	    {
+	      tree attr_id = TREE_VALUE (TREE_VALUE (attr));
+
+	      if (strcmp (TREE_STRING_POINTER (attr_id), "auto") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_AUTO_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "medium") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_MEDIUM_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "large") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LARGE_PIC;
+	    }
+	}
     }
 }
 

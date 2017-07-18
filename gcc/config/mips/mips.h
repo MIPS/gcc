@@ -2867,6 +2867,18 @@ typedef struct mips_args {
 #define SYMBOL_REF_BIND_NOW_P(RTX) \
   ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_BIND_NOW) != 0)
 
+#define SYMBOL_FLAG_AUTO_PIC	(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_REF_AUTO_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_AUTO_PIC) != 0)
+
+#define SYMBOL_FLAG_MEDIUM_PIC	(SYMBOL_FLAG_MACH_DEP << 3)
+#define SYMBOL_REF_MEDIUM_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_MEDIUM_PIC) != 0)
+
+#define SYMBOL_FLAG_LARGE_PIC	(SYMBOL_FLAG_MACH_DEP << 4)
+#define SYMBOL_REF_LARGE_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_LARGE_PIC) != 0)
+
 /* True if we're generating a form of MIPS16 code in which jump tables
    are stored in the text section and encoded as 16-bit PC-relative
    offsets.  This is only possible when general text loads are allowed,
