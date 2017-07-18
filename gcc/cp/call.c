@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "internal-fn.h"
+#include "blt.h"
 
 /* The various kinds of conversion.  */
 
@@ -6590,6 +6591,77 @@ maybe_print_user_conv_context (conversion *convs)
 	}
 }
 
+/* Attempt to locate the blt_node for FNDECL, or return NULL
+   if not found (or blt was not enabled).  */
+
+static blt_node *
+get_blt_node_for_function_decl (tree fndecl)
+{
+  if (!flag_blt)
+    return NULL;
+
+  blt_node *node = blt_get_node_for_tree (fndecl);
+  if (node)
+    return node;
+
+  tree template_decl = DECL_TI_TEMPLATE (fndecl);
+  if (template_decl)
+    {
+      node = blt_get_node_for_tree (template_decl);
+      if (node)
+        return node;
+    }
+
+  return NULL;
+}
+
+/* Attempt to locate the parameter with the given index within
+   FNDECL, returning DECL_SOURCE_LOCATION (fndecl) if it can't
+   be found (or blt was not enabled).  */
+
+static location_t
+get_fndecl_argument_location (tree fndecl, int argnum)
+{
+  location_t loc = DECL_SOURCE_LOCATION (fndecl);
+  blt_node *node = get_blt_node_for_function_decl (fndecl);
+  if (!node)
+    return loc;
+
+  /* For "member-declaration", expect the "direct-declarator" to be
+     inside a "declarator".  */
+  if (node->get_kind () == BLT_MEMBER_DECLARATION)
+    {
+      node = node->get_first_child_of_kind (BLT_DECLARATOR);
+      if (!node)
+        return loc;
+      node = node->get_first_child_of_kind (BLT_DIRECT_DECLARATOR);
+      if (!node)
+        return loc;
+    }
+
+  if (node->get_kind () != BLT_DIRECT_DECLARATOR)
+    return loc;
+
+  blt_node *pdc
+    = node->get_first_child_of_kind (BLT_PARAMETER_DECLARATION_CLAUSE);
+  if (!pdc)
+    return loc;
+
+  blt_node *pdl = pdc->get_first_child_of_kind (BLT_PARAMETER_DECLARATION_LIST);
+  if (!pdl)
+    return loc;
+
+  auto_vec<blt_node *> params;
+  pdl->get_children_of_kind (params, BLT_PARAMETER_DECLARATION);
+
+  if (argnum >= (int)params.length ())
+    return loc;
+
+  blt_node *param = params[argnum];
+  return param->get_range ();
+}
+
+
 /* Perform the conversions in CONVS on the expression EXPR.  FN and
    ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
    indicates the `this' argument of a method.  INNER is nonzero when
@@ -6691,8 +6763,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	complained = permerror (loc, "invalid conversion from %qH to %qI",
 				TREE_TYPE (expr), totype);
       if (complained && fn)
-	inform (DECL_SOURCE_LOCATION (fn),
-		"  initializing argument %P of %qD", argnum, fn);
+        {
+          location_t decl_loc = get_fndecl_argument_location (fn, argnum);
+          inform (decl_loc,
+                  "  initializing argument %P of %qD", argnum, fn);
+        }
 
       return cp_convert (totype, expr, complain);
     }
