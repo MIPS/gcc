@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "intl.h"
 #include "opts.h"
+#include "blt.h"
 
 /* Lattice values for const and pure functions.  Everything starts out
    being const, then may drop to pure and then neither depending on
@@ -181,12 +182,32 @@ suggest_attribute (int option, tree decl, bool known_finite,
   if (warned_about->contains (decl))
     return warned_about;
   warned_about->add (decl);
-  warning_at (DECL_SOURCE_LOCATION (decl),
-	      option,
-	      known_finite
-	      ? G_("function might be candidate for attribute %qs")
-	      : G_("function might be candidate for attribute %qs"
-		   " if it is known to return normally"), attrib_name);
+  if (warning_at (DECL_SOURCE_LOCATION (decl),
+		  option,
+		  known_finite
+		  ? G_("function might be candidate for attribute %qs")
+		  : G_("function might be candidate for attribute %qs"
+		       " if it is known to return normally"), attrib_name))
+    {
+      // maybe emit fixit hint
+      blt_node *bltnode = blt_get_node_for_tree (decl);
+      if (bltnode)
+	{
+	  /* FIXME: what about C++?  */
+	  /* FIXME: in c, we have a direct-declarator.  */
+	  /* We want to find a forward decl of the function, and add the
+	     attribute there... */
+	  // FIXME: for now, just add it after the decl:
+	  rich_location richloc (line_table, DECL_SOURCE_LOCATION (decl));
+	  pretty_printer pp;
+	  pp_printf (&pp, " __attribute__((%s))", attrib_name);
+	  // FIXME: what about commas?
+	  // FIXME: presumably need to find any other attributes
+	  richloc.add_fixit_insert_after (bltnode->get_finish (),
+					  pp_formatted_text (&pp));
+	  inform_at_rich_loc (&richloc, "FIXME");
+	}
+    }
   return warned_about;
 }
 
