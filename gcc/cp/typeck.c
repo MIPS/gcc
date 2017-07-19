@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "gcc-rich-location.h"
 #include "asan.h"
+#include "blt.h"
 
 static tree cp_build_addr_expr_strict (tree, tsubst_flags_t);
 static tree cp_build_function_call (tree, tree, tsubst_flags_t);
@@ -8869,6 +8870,61 @@ maybe_warn_about_returning_address_of_local (tree retval)
   return false;
 }
 
+/* Attempt to use BLT locate the return type within FNDECL, returning
+   UNKNOWN_LOCATION if there is a problem (or if BLT is disabled).  */
+
+static location_t
+get_location_of_return_type (tree fndecl)
+{
+  blt_node *node = blt_get_node_for_tree (fndecl);
+  if (!node)
+    return UNKNOWN_LOCATION;
+
+  /* We have a direct-declarator within a function-definition,
+     or a member-declaration.
+     Locate the function-definition or member-declaration.  */
+  blt_node *iter;
+  for (iter = node; iter; iter = iter->get_parent ())
+    if (iter->get_kind () == BLT_FUNCTION_DEFINITION
+	|| iter->get_kind () == BLT_MEMBER_DECLARATION)
+      break;
+  if (!iter)
+    return UNKNOWN_LOCATION;
+
+  /* Locate the decl specifiers within the function-definition
+     or member-declaration.  */
+  blt_node *dss = iter->get_first_child_of_kind (BLT_DECL_SPECIFIER_SEQ);
+  if (!dss)
+    return UNKNOWN_LOCATION;
+
+  /* Locate the type-specifier within the decl specifiers.  It ought to
+     be "void".  */
+  blt_node *ts = dss->get_first_child_of_kind (BLT_TYPE_SPECIFIER);
+  if (!ts)
+    return UNKNOWN_LOCATION;
+
+  return ts->get_range ();
+}
+
+/* Attempt to locate the return type within FNDECL; if successful,
+   emit a note highlighting it.  */
+
+void
+attempt_to_highlight_return_type (tree fndecl)
+{
+  location_t ret_type_loc
+    = get_location_of_return_type (fndecl);
+  if (ret_type_loc == UNKNOWN_LOCATION)
+    return;
+
+  tree result = DECL_RESULT (fndecl);
+  tree return_type = TREE_TYPE (result);
+
+  inform (ret_type_loc,
+	  "the return type was declared as %qT here", return_type);
+}
+
+
 /* Check that returning RETVAL from the current function is valid.
    Return an expression explicitly showing all conversions required to
    change RETVAL into the function return type, and to assign it to
@@ -8994,8 +9050,11 @@ check_return_expr (tree retval, bool *no_warning)
   if (!retval && fn_returns_value_p)
     {
       if (functype != error_mark_node)
-	permerror (input_location, "return-statement with no value, in "
-		   "function returning %qT", valtype);
+	{
+	  if (permerror (input_location, "return-statement with no value, in "
+			 "function returning %qT", valtype))
+	    attempt_to_highlight_return_type (current_function_decl);
+	}
       /* Remember that this function did return.  */
       current_function_returns_value = 1;
       /* And signal caller that TREE_NO_WARNING should be set on the
@@ -9013,8 +9072,11 @@ check_return_expr (tree retval, bool *no_warning)
 	   its side-effects.  */
 	  finish_expr_stmt (retval);
       else
-	permerror (input_location, "return-statement with a value, in function "
-		   "returning 'void'");
+	{
+	  if (permerror (input_location, "return-statement with a value,"
+			 " in function returning %<void%>"))
+	    attempt_to_highlight_return_type (current_function_decl);
+	}
       current_function_returns_null = 1;
 
       /* There's really no value to return, after all.  */

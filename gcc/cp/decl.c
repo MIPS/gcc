@@ -15643,8 +15643,9 @@ finish_function (int flags)
       && !DECL_DESTRUCTOR_P (fndecl)
       && targetm.warn_func_return (fndecl))
     {
-      warning (OPT_Wreturn_type,
- 	       "no return statement in function returning non-void");
+      if (warning (OPT_Wreturn_type,
+		   "no return statement in function returning non-void"))
+	attempt_to_highlight_return_type (current_function_decl);
       TREE_NO_WARNING (fndecl) = 1;
     }
 
