@@ -3080,6 +3080,29 @@ mips_use_pic_fn_addr_reg_p (const_rtx x)
   return true;
 }
 
+static enum nanomips_pic_model
+mips_get_nano_pic_model (const_rtx x)
+{
+  rtx offset;
+  rtx symbol;
+
+  split_const ((rtx) x, &symbol, &offset);
+
+  if (UNSPEC_ADDRESS_P (symbol))
+    symbol = UNSPEC_ADDRESS (symbol);
+
+  if (SYMBOL_REF_AUTO_PIC_P (symbol))
+    return NANO_PIC_AUTO;
+
+  if (SYMBOL_REF_MEDIUM_PIC_P (symbol))
+    return NANO_PIC_MEDIUM;
+
+  if (SYMBOL_REF_LARGE_PIC_P (symbol))
+    return NANO_PIC_LARGE;
+
+  return nano_pic_model_var;
+}
+
 /* Return the method that should be used to access SYMBOL_REF or
    LABEL_REF X in context CONTEXT.  */
 
@@ -3127,13 +3150,15 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
   if (TARGET_NANOMIPS && flag_pic)
     {
+      enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
+
       // @tmt non-pre fptr arg for auto long calls treated as func not data
       if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
 	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
 	{
 	  if (mips_symbol_binds_local_p (x))
 	    {
-	      if (nano_pic_model_var != NANO_PIC_LARGE
+	      if (symbol_pic_model != NANO_PIC_LARGE
 		  && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_ABSOLUTE;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
@@ -3143,14 +3168,14 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    }
 	  else
 	    {
-	      if (nano_pic_model_var == NANO_PIC_AUTO)
+	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_DISP;
-	      else if (nano_pic_model_var == NANO_PIC_MEDIUM)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
 		return SYMBOL_GOT_DISP;
-	      else if (nano_pic_model_var == NANO_PIC_LARGE
+	      else if (symbol_pic_model == NANO_PIC_LARGE
 		       && TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      else if (nano_pic_model_var == NANO_PIC_LARGE
+	      else if (symbol_pic_model == NANO_PIC_LARGE
 		       && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
@@ -3165,13 +3190,13 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
-		       && (nano_pic_model_var == NANO_PIC_AUTO
-			   || nano_pic_model_var == NANO_PIC_MEDIUM))
+		       && (symbol_pic_model == NANO_PIC_AUTO
+			   || symbol_pic_model == NANO_PIC_MEDIUM))
 		return SYMBOL_GP_RELATIVE;
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
-		       && (nano_pic_model_var == NANO_PIC_LARGE
+		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMF))
 		return SYMBOL_GPREL32_NANO;
 	      // @tmt are functions exactly 2-byte aligned, somehow ?
@@ -3180,7 +3205,7 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
 		       && !(context == SYMBOL_CONTEXT_MEM
 			    && TARGET_NANOMIPS == NANOMIPS_NMF)
-		       && nano_pic_model_var == NANO_PIC_AUTO)
+		       && symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_PCREL_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_PCREL32_NANO;
@@ -3189,14 +3214,14 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    }
 	  else
 	    {
-	      if (nano_pic_model_var == NANO_PIC_AUTO)
+	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_PAGE_OFST;
-	      if (nano_pic_model_var == NANO_PIC_MEDIUM)
+	      if (symbol_pic_model == NANO_PIC_MEDIUM)
 		return SYMBOL_GOT_DISP;
-	      if (nano_pic_model_var == NANO_PIC_LARGE
+	      if (symbol_pic_model == NANO_PIC_LARGE
 		  && TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      if (nano_pic_model_var == NANO_PIC_LARGE
+	      if (symbol_pic_model == NANO_PIC_LARGE
 		  && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
@@ -4683,7 +4708,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 
 	      case SYMBOL_GOT_PAGE_OFST:
 		if (TARGET_NANOMIPS && flag_pic
-		    && nano_pic_model_var == NANO_PIC_AUTO
+		    && mips_get_nano_pic_model (addr) == NANO_PIC_AUTO
 		    && context == SYMBOL_CONTEXT_LEA)
 		  {
 		    *low_out = mips_got_load (temp, addr, SYMBOL_GOTOFF_DISP);
@@ -10659,14 +10684,11 @@ mips_init_relocs (void)
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
 
+	  // @tmt FIXME: the exact string used below is irrelevant
+	  // because this reloc is used for both auto and medium models,
+	  // so we need to change it dynamically
 	  if (TARGET_PABI)
-	    {
-	      // @tmt look into this
-	      if (nano_pic_model_var == NANO_PIC_AUTO)
-		mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
-	      else
-		mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_disp(";
-	    }
+	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
 
@@ -10720,6 +10742,17 @@ mips_print_operand_reloc (FILE *file, rtx op, enum mips_symbol_context context,
 
   symbol_type = mips_classify_symbolic_expression (op, context);
   gcc_assert (relocs[symbol_type]);
+
+  // @tmt FIXME: both if's are needed because mips_lo_relocs is global
+  if (TARGET_NANOMIPS && flag_pic
+      && symbol_type == SYMBOL_GOTOFF_CALL
+      && mips_get_nano_pic_model (op) == NANO_PIC_AUTO)
+    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
+
+  if (TARGET_NANOMIPS && flag_pic
+      && symbol_type == SYMBOL_GOTOFF_CALL
+      && mips_get_nano_pic_model (op) == NANO_PIC_MEDIUM)
+    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_disp(";
 
   fputs (relocs[symbol_type], file);
   output_addr_const (file, mips_strip_unspec_address (op));
@@ -17393,10 +17426,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
 	s += sprintf (s, ".option\tpic0\n\t");
 
       if (TARGET_NANOMIPS && flag_pic
-	  && reg_p
-	  && mips_get_pic_call_symbol (operands, size_opno)
-	  && SYMBOL_REF_DECL (operands[size_opno])
-	  && !SYMBOL_REF_LONG_CALL_P (operands[size_opno]))
+	  && reg_p && mips_get_pic_call_symbol (operands, size_opno))
 	{
 	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
 	  // @tmt should we keep short_delay ?
@@ -22055,7 +22085,9 @@ mips_annotate_pic_calls (void)
 	continue;
 
       symbol = mips_find_pic_call_symbol (insn, reg, true);
-      if (symbol)
+      if (symbol
+	  && mips_get_nano_pic_model (symbol) == NANO_PIC_AUTO
+	  && !mips_symbol_binds_local_p (symbol))
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
 	  if (second_call)
@@ -25667,9 +25699,9 @@ mips_option_override (void)
   if (!TARGET_USE_GOT || !TARGET_EXPLICIT_RELOCS)
     target_flags &= ~MASK_RELAX_PIC_CALLS;
 
-  if (TARGET_NANOMIPS && flag_pic
-      && nano_pic_model_var == NANO_PIC_AUTO
-      && !TARGET_LONG_CALLS)
+  /* We only need this for pre-emptible functions in the auto model, but we
+     need to check at the symbol level (done in mips_annotate_pic_calls).  */
+  if (TARGET_NANOMIPS && flag_pic)
     target_flags |= MASK_RELAX_PIC_CALLS;
 
   /* Save base state of options.  */
