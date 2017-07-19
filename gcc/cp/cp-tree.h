@@ -7146,6 +7146,8 @@ extern tree finish_left_unary_fold_expr      (tree, int);
 extern tree finish_right_unary_fold_expr     (tree, int);
 extern tree finish_binary_fold_expr          (tree, tree, int);
 
+extern void attempt_to_highlight_return_type (tree fndecl);
+
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);
 extern void cxx_incomplete_type_diagnostic	(location_t, const_tree,
