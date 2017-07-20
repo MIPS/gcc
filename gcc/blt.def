@@ -1,0 +1,87 @@
+/* Bonus location trees.
+   Copyright (C) 2017 Free Software Foundation, Inc.
+
+   This file is part of GCC.
+
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+
+   GCC is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+/* The first set of DEF_BLT_NODE corresponds to enum cpp_ttype.  */
+
+#ifndef TTYPE_TABLE
+#error TTYPE_TABLE not defined
+#endif
+
+#define OP(e, s) DEF_BLT_NODE (BLT_TOKEN_OP_##e, s "-token")
+#define TK(e, s) DEF_BLT_NODE (BLT_TOKEN_TK_##e, #e "-token")
+
+TTYPE_TABLE
+
+#undef OP
+#undef TK
+
+DEF_BLT_NODE (BLT_KEYWORD, "keyword")
+
+/* Additional nodes kinds, beyond enum cpp_ttype.
+   These are named after non-terminals within the C and C++ grammar.
+   They're just IDs; they don't need to mean anything for other languages.  */
+
+DEF_BLT_NODE (BLT_ASM_SPECIFICATION, "asm-specification")
+DEF_BLT_NODE (BLT_ASSIGNMENT_EXPRESSION, "assignment-expression")
+DEF_BLT_NODE (BLT_BLOCK_DECLARATION, "block-declaration")
+DEF_BLT_NODE (BLT_CLASS_HEAD, "class-head")
+DEF_BLT_NODE (BLT_CLASS_KEY, "class-key")
+DEF_BLT_NODE (BLT_CLASS_SPECIFIER, "class-specifier")
+DEF_BLT_NODE (BLT_CV_QUALIFIER, "cv-qualifier")
+DEF_BLT_NODE (BLT_CV_QUALIFIER_SEQ, "cv-qualifier-seq")
+DEF_BLT_NODE (BLT_DECLARATION, "declaration")
+DEF_BLT_NODE (BLT_DECLARATION_SEQ, "declaration-seq")
+DEF_BLT_NODE (BLT_DECLARATION_SPECIFIERS, "declaration-specifiers")
+DEF_BLT_NODE (BLT_DECLARATOR, "declarator")
+DEF_BLT_NODE (BLT_DECL_SPECIFIER, "decl-specifier")
+DEF_BLT_NODE (BLT_DECL_SPECIFIER_SEQ, "decl-specifier-seq")
+DEF_BLT_NODE (BLT_DIRECT_DECLARATOR, "direct-declarator")
+DEF_BLT_NODE (BLT_EXCEPTION_DECLARATION, "exception-declaration")
+DEF_BLT_NODE (BLT_EXPLICIT_INSTANTIATION, "explicit-instantiation")
+DEF_BLT_NODE (BLT_EXPLICIT_SPECIALIZATION, "explicit-specialization")
+DEF_BLT_NODE (BLT_EXPRESSION, "expression")
+DEF_BLT_NODE (BLT_EXPRESSION_LIST, "expression-list")
+DEF_BLT_NODE (BLT_EXTERNAL_DECLARATION, "external-declaration")
+DEF_BLT_NODE (BLT_FUNCTION_DEFINITION, "function-definition")
+DEF_BLT_NODE (BLT_FUNCTION_TRY_BLOCK, "function-try-block")
+DEF_BLT_NODE (BLT_HANDLER, "handler")
+DEF_BLT_NODE (BLT_HANDLER_SEQ, "handler-seq")
+DEF_BLT_NODE (BLT_IDENTIFIER, "identifier")
+DEF_BLT_NODE (BLT_ID_EXPRESSION, "id-expression")
+DEF_BLT_NODE (BLT_MEMBER_DECLARATION, "member-declaration")
+DEF_BLT_NODE (BLT_NONEMPTY_EXPR_LIST, "nonempty-expr-list")
+DEF_BLT_NODE (BLT_PARAMETER_DECLARATION, "parameter-declaration")
+DEF_BLT_NODE (BLT_PARAMETER_DECLARATION_CLAUSE, "parameter-declaration-clause")
+DEF_BLT_NODE (BLT_PARAMETER_DECLARATION_LIST, "parameter-declaration-list")
+DEF_BLT_NODE (BLT_PARAMETER_LIST, "parameter-list")
+DEF_BLT_NODE (BLT_POSTFIX_EXPRESSION, "postfix-expression")
+DEF_BLT_NODE (BLT_PRIMARY_EXPRESSION, "primary-expression")
+DEF_BLT_NODE (BLT_SIMPLE_DECLARATION, "simple-declaration")
+DEF_BLT_NODE (BLT_STRUCT_CONTENTS, "struct-contents")
+DEF_BLT_NODE (BLT_STRUCT_DECLARATION, "struct-declaration")
+DEF_BLT_NODE (BLT_STRUCT_OR_UNION_SPECIFIER, "struct-or-union-specifier")
+DEF_BLT_NODE (BLT_TEMPLATE_DECLARATION, "template-declaration")
+DEF_BLT_NODE (BLT_TEMPLATE_PARAMETER_LIST, "template-parameter-list")
+DEF_BLT_NODE (BLT_THROW_EXPRESSION, "throw-expression")
+DEF_BLT_NODE (BLT_TRANSLATION_UNIT, "translation-unit")
+DEF_BLT_NODE (BLT_TRY_BLOCK, "try-block")
+DEF_BLT_NODE (BLT_TYPE_ID_LIST, "type-id-list")
+DEF_BLT_NODE (BLT_TYPE_SPECIFIER, "type-specifier")
+DEF_BLT_NODE (BLT_UNARY_EXPRESSION, "unary-expression")
+DEF_BLT_NODE (BLT_UNQUALIFIED_ID, "unqualified-id")

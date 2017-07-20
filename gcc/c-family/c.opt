@@ -1209,6 +1209,10 @@ fasm
 C ObjC C++ ObjC++ Var(flag_no_asm, 0)
 Recognize the \"asm\" keyword.
 
+fblt
+C ObjC C++ ObjC++ Var(flag_blt)
+Capture additional location information.  FIXME: name.
+
 ; Define extra predefined macros for use in libgcc.
 fbuilding-libgcc
 C ObjC C++ ObjC++ Undocumented Var(flag_building_libgcc)
@@ -1381,6 +1385,10 @@ Write all declarations as Ada code transitively.
 fdump-ada-spec-slim
 C ObjC C++ ObjC++ RejectNegative Var(flag_dump_ada_spec_slim)
 Write all declarations as Ada code for the given file only.
+
+fdump-blt
+C ObjC C++ ObjC++ Var(flag_dump_blt)
+Dump the extra location information from -fblt.  FIXME: name.
 
 felide-constructors
 C++ ObjC++ Var(flag_elide_constructors) Init(1)
