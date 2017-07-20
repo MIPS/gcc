@@ -6160,6 +6160,18 @@ inform_for_arg (tree fundecl, location_t ploc, int parmnum,
 	  expected_type, actual_type);
 }
 
+/* FIXME.  */
+
+static void
+inform_about_return_type ()
+{
+  blt_node *bltnode = blt_get_node_for_tree (current_function_decl);
+  if (!bltnode)
+    return;
+  debug (bltnode);
+  inform (UNKNOWN_LOCATION, "would highlight return type here");
+}
+
 /* Convert value RHS to type TYPE as preparation for an assignment to
    an lvalue of type TYPE.  If ORIGTYPE is not NULL_TREE, it is the
    original type of RHS; this differs from TREE_TYPE (RHS) for enum
@@ -6240,7 +6252,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
         pedwarn_init (LOCATION, OPT, IN);                                \
         break;                                                           \
       case ic_return:                                                    \
-        pedwarn (LOCATION, OPT, RE);					 \
+        if (pedwarn (LOCATION, OPT, RE))				\
+	  inform_about_return_type ();					\
         break;                                                           \
       default:                                                           \
         gcc_unreachable ();                                              \
@@ -6266,7 +6279,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
         pedwarn (LOCATION, OPT, IN, QUALS);				 \
         break;                                                           \
       case ic_return:                                                    \
-        pedwarn (LOCATION, OPT, RE, QUALS);				 \
+        if (pedwarn (LOCATION, OPT, RE, QUALS))				\
+	  inform_about_return_type ();					\
         break;                                                           \
       default:                                                           \
         gcc_unreachable ();                                              \
@@ -6292,7 +6306,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
         warning_at (LOCATION, OPT, IN, QUALS);                           \
         break;                                                           \
       case ic_return:                                                    \
-        warning_at (LOCATION, OPT, RE, QUALS);                           \
+        if (warning_at (LOCATION, OPT, RE, QUALS))			\
+	  inform_about_return_type ();					\
         break;                                                           \
       default:                                                           \
         gcc_unreachable ();                                              \
