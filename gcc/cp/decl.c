@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "gimplify.h"
 #include "asan.h"
+#include "blt.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -9876,12 +9877,12 @@ name_unnamed_type (tree type, tree decl)
    declarator, in cases like "struct S;"), or the ERROR_MARK_NODE if an
    error occurs. */
 
-tree
-grokdeclarator (const cp_declarator *declarator,
-		cp_decl_specifier_seq *declspecs,
-		enum decl_context decl_context,
-		int initialized,
-		tree* attrlist)
+static tree
+grokdeclarator_1 (const cp_declarator *declarator,
+		  cp_decl_specifier_seq *declspecs,
+		  enum decl_context decl_context,
+		  int initialized,
+		  tree* attrlist)
 {
   tree type = NULL_TREE;
   int longlong = 0;
@@ -12348,6 +12349,20 @@ grokdeclarator (const cp_declarator *declarator,
 
     return decl;
   }
+}
+
+tree
+grokdeclarator (const cp_declarator *declarator,
+		cp_decl_specifier_seq *declspecs,
+		enum decl_context decl_context,
+		int initialized,
+		tree* attrlist)
+{
+  tree result = grokdeclarator_1 (declarator, declspecs, decl_context,
+				  initialized, attrlist);
+  if (declarator && declarator->bltnode)
+    declarator->bltnode->set_tree (result);
+  return result;
 }
 
 /* Subroutine of start_function.  Ensure that each of the parameter

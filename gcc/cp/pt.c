@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "type-utils.h"
 #include "gimplify.h"
 #include "gcc-rich-location.h"
+#include "blt.h"
 
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */
@@ -4479,6 +4480,13 @@ build_template_decl (tree decl, tree parms, bool member_template_p)
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
   DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
+
+  if (flag_blt)
+    {
+      blt_node *decl_bltnode = blt_get_node_for_tree (decl);
+      if (decl_bltnode)
+        blt_set_node_for_tree (tmpl, decl_bltnode);
+    }
 
   return tmpl;
 }
