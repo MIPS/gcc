@@ -9884,6 +9884,57 @@ c_finish_goto_ptr (location_t loc, tree expr)
   return add_stmt (t);
 }
 
+/* Attempt to use BLT locate the return type within FNDECL, returning
+   UNKNOWN_LOCATION if there is a problem (or if BLT is disabled).  */
+
+static location_t
+get_location_of_return_type (tree fndecl)
+{
+  blt_node *node = blt_get_node_for_tree (fndecl);
+  if (!node)
+    return UNKNOWN_LOCATION;
+
+  /* We have a direct-declarator.
+     Go up two to find the external-declaration.  */
+  blt_node *ext_decl = node->get_ancestor_of_kind (BLT_EXTERNAL_DECLARATION);
+  if (!ext_decl)
+    return UNKNOWN_LOCATION;
+
+  /* Locate the declaration-specifiers within the direct-declarator.  */
+  blt_node *dss
+    = ext_decl->get_first_child_of_kind (BLT_DECLARATION_SPECIFIERS);
+  if (!dss)
+    return UNKNOWN_LOCATION;
+
+  /* Locate the type-specifier within the decl specifiers.  */
+  blt_node *ts = dss->get_first_child_of_kind (BLT_TYPE_SPECIFIER);
+  if (!ts)
+    return UNKNOWN_LOCATION;
+
+  /* FIXME: we want just the return type, not "extern" etc.  */
+  return ts->get_range ();
+}
+
+/* Attempt to locate the return type within FNDECL; if successful,
+   emit a note highlighting the return type; otherwise emit a note
+   highlighting the decl.  */
+
+static void
+attempt_to_highlight_return_type (tree fndecl)
+{
+  location_t ret_type_loc = get_location_of_return_type (fndecl);
+  if (ret_type_loc == UNKNOWN_LOCATION)
+    inform (DECL_SOURCE_LOCATION (fndecl), "declared here");
+  else
+    {
+      tree result = DECL_RESULT (fndecl);
+      tree return_type = TREE_TYPE (result);
+      inform (ret_type_loc, "the return type was declared as %qT here",
+	      return_type);
+    }
+}
+
+
 /* Generate a C `return' statement.  RETVAL is the expression for what
    to return, or a null pointer for `return;' with no value.  LOC is
    the location of the return statement, or the location of the expression,
@@ -9956,8 +10007,7 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 	       "%<return%> with no value, in function returning non-void");
 	  no_warning = true;
 	  if (warned_here)
-	    inform (DECL_SOURCE_LOCATION (current_function_decl),
-		    "declared here");
+	    attempt_to_highlight_return_type (current_function_decl);
 	}
     }
   else if (valtype == NULL_TREE || TREE_CODE (valtype) == VOID_TYPE)
@@ -9973,8 +10023,7 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 	  (xloc, OPT_Wpedantic, "ISO C forbids "
 	   "%<return%> with expression, in function returning void");
       if (warned_here)
-	inform (DECL_SOURCE_LOCATION (current_function_decl),
-		"declared here");
+	attempt_to_highlight_return_type (current_function_decl);
     }
   else
     {
