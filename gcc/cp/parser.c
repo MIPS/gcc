@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-cilkplus.h"
 #include "gcc-rich-location.h"
 #include "tree-iterator.h"
+#include "blt.h"
 
 
 /* The lexer.  */
@@ -1348,6 +1349,181 @@ cp_token_cache_new (cp_token *first, cp_token *last)
   return cache;
 }
 
+
+
+/* A RAII-style class for optionally building a concrete parse tree (or
+   at least, something close to it) as the recursive descent parser runs.
+
+   Close to a no-op if -fblt is not selected.  */
+
+class auto_blt_node
+{
+public:
+  auto_blt_node (cp_parser* parser, enum blt_kind kind,
+                 cp_expr *expr_ptr = NULL);
+  ~auto_blt_node ();
+
+  void set_tree (tree node);
+
+private:
+  cp_parser *m_parser;
+  cp_expr *m_expr_ptr;
+  blt_node *m_parent;
+};
+
+/* RAII-style construction of the blt_node tree: push a blt_node of KIND
+   onto the current stack of blt_nodes, popping it when it goes out
+   of scope.  */
+
+#define AUTO_BLT_NODE(PARSER, KIND) \
+  auto_blt_node tmp_blt_node ((PARSER), (KIND))
+
+/* As above, but with an addition cp_expr *.
+   If non-NULL, then the node's tree will be set to that of the tree
+   within the cp_expr when the AUTO_BLT_NODE_WITH_RETURN goes out of
+   scope.  */
+
+#define AUTO_BLT_NODE_WITH_RETURN(PARSER, KIND, ADDR_OF_CP_EXPR) \
+  auto_blt_node tmp_blt_node ((PARSER), (KIND), (ADDR_OF_CP_EXPR))
+
+/* The blt_node currently being constructed (the macro assumes that "parser"
+   exists in the current scope).  */
+
+#define CURRENT_BLT_NODE (parser->blt_current_node)
+
+/* Peek the next token within PARSER and a child node for it to the
+   current blt_node.  */
+
+#define BLT_ADD_NEXT_TOKEN(PARSER) \
+  add_node_for_next_token (PARSER)
+
+/* Peek the next token within "parser" and a child node for it to the
+   current blt_node, using KIND as the kind.  */
+
+#define ADD_NODE_FOR_NEXT_TOKEN(KIND) \
+  add_node_for_next_token (parser, (KIND))
+
+/* Set the tree node for the current AUTO_BLT_NODE.  */
+
+#define BLT_SET_TREE(TREE_NODE) \
+  tmp_blt_node.set_tree (TREE_NODE);
+
+/* Peek the next token within PARSER and a child node for it to the
+   current blt_node.  */
+
+static blt_node *
+add_node_for_next_token (cp_parser *parser)
+{
+  if (!flag_blt)
+    return NULL;
+
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  blt_node *parent = parser->blt_current_node;
+  enum blt_kind kind = (enum blt_kind)token->type;
+  blt_node *node = new blt_node (kind, token->location);
+  parent->add_child (node);
+  node->set_finish (token->location);
+  return node;
+}
+
+/* As above, but use KIND as the kind of the new blt_node.  */
+
+static blt_node *
+add_node_for_next_token (cp_parser *parser, enum blt_kind kind)
+{
+  if (!flag_blt)
+    return NULL;
+
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  blt_node *parent = parser->blt_current_node;
+  blt_node *node = new blt_node (kind, token->location);
+  parent->add_child (node);
+  node->set_finish (token->location);
+  return node;
+}
+
+/* auto_blt_node's constructor.
+
+   If -fblt was not enabled, return immediately.
+
+   Otherwise push a new blt_node of KIND as a child of the previous top
+   of the blt stack, effectively constructing a tree.
+
+   Set the new blt_node's start location to that of the next token
+   within PARSER.  */
+
+auto_blt_node::auto_blt_node (cp_parser *parser, enum blt_kind kind,
+                              cp_expr *expr_ptr)
+{
+  if (!flag_blt)
+    return;
+
+  /* Do this here rather than as an initializer list
+     to avoid doing work when -fblt is not set.  */
+  m_parser = parser;
+  m_expr_ptr = expr_ptr;
+  m_parent = parser->blt_current_node;
+
+  cp_token *first_token = cp_lexer_peek_token (parser->lexer);
+  blt_node *node = new blt_node (kind, first_token->location);
+  parser->blt_current_node = node;
+  if (m_parent)
+    m_parent->add_child (node);
+  else
+    parser->blt_root_node = node;
+}
+
+/* auto_blt_node's destructor.
+
+   If -fblt was not enabled, return immediately.
+
+   Otherwise, pop the current blt_node from the stack,
+   and set its finish location to that of the last
+   token that was consumed.
+
+   If m_expr_ptr was set, set the blt_node's tree to be that
+   of the m_expr_ptr.  */
+
+auto_blt_node::~auto_blt_node ()
+{
+  if (!flag_blt)
+    return;
+
+  blt_node *node = m_parser->blt_current_node;
+
+  cp_token_position prev
+    = cp_lexer_previous_token_position (m_parser->lexer);
+  node->set_finish (cp_lexer_token_at (m_parser->lexer, prev)->location);
+
+  if (0)
+    {
+      location_t start = node->get_start ();
+      location_t finish = node->get_finish ();
+      location_t range = make_location (start, start, finish);
+      inform (range, "%qs", node->get_name ());
+    }
+
+  if (m_expr_ptr)
+    node->set_tree (m_expr_ptr->get_value ());
+
+  /* Use stashed parent, rather than the curent node's parent
+     to allow for reparenting within the tree.  */
+  m_parser->blt_current_node = m_parent;
+}
+
+/* Set the tree node for the current blt_node within this AUTO_BLT_NODE.  */
+
+void
+auto_blt_node::set_tree (tree tree_node)
+{
+  if (!flag_blt)
+    return;
+
+  blt_node *node = m_parser->blt_current_node;
+  node->set_tree (tree_node);
+}
+
+
 /* Diagnose if #pragma omp declare simd isn't followed immediately
    by function declaration or definition.  */
 
@@ -1456,6 +1632,7 @@ make_declarator (cp_declarator_kind kind)
   declarator->declarator = NULL;
   declarator->parameter_pack_p = false;
   declarator->id_loc = UNKNOWN_LOCATION;
+  declarator->bltnode = NULL;
 
   return declarator;
 }
@@ -1691,7 +1868,8 @@ cp_parameter_declarator *
 make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
 			   cp_declarator *declarator,
 			   tree default_argument,
-			   bool template_parameter_pack_p = false)
+			   bool template_parameter_pack_p = false,
+			   blt_node *bltnode = NULL)
 {
   cp_parameter_declarator *parameter;
 
@@ -1705,6 +1883,7 @@ make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
   parameter->declarator = declarator;
   parameter->default_argument = default_argument;
   parameter->template_parameter_pack_p = template_parameter_pack_p;
+  parameter->bltnode = bltnode;
 
   return parameter;
 }
@@ -3868,6 +4047,10 @@ cp_parser_identifier (cp_parser* parser)
 {
   cp_token *token;
 
+  AUTO_BLT_NODE (parser, BLT_IDENTIFIER);
+  if (0)
+    BLT_ADD_NEXT_TOKEN (parser);
+
   /* Look for the identifier.  */
   token = cp_parser_require (parser, CPP_NAME, RT_NAME);
   /* Return the value.  */
@@ -4371,19 +4554,23 @@ cp_parser_translation_unit (cp_parser* parser)
 
   bool success;
 
-  /* Create the declarator obstack, if necessary.  */
-  if (!cp_error_declarator)
-    {
-      gcc_obstack_init (&declarator_obstack);
-      /* Create the error declarator.  */
-      cp_error_declarator = make_declarator (cdk_error);
-      /* Create the empty parameter list.  */
-      no_parameters = make_parameter_declarator (NULL, NULL, NULL_TREE);
-      /* Remember where the base of the declarator obstack lies.  */
-      declarator_obstack_base = obstack_next_free (&declarator_obstack);
-    }
+  {
+    AUTO_BLT_NODE (parser, BLT_TRANSLATION_UNIT);
 
-  cp_parser_declaration_seq_opt (parser);
+    /* Create the declarator obstack, if necessary.  */
+    if (!cp_error_declarator)
+      {
+        gcc_obstack_init (&declarator_obstack);
+        /* Create the error declarator.  */
+        cp_error_declarator = make_declarator (cdk_error);
+        /* Create the empty parameter list.  */
+        no_parameters = make_parameter_declarator (NULL, NULL, NULL_TREE);
+        /* Remember where the base of the declarator obstack lies.  */
+        declarator_obstack_base = obstack_next_free (&declarator_obstack);
+      }
+
+    cp_parser_declaration_seq_opt (parser);
+  }
 
   /* If there are no tokens left then all went well.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
@@ -4787,6 +4974,8 @@ cp_parser_primary_expression (cp_parser *parser,
 			      bool decltype_p,
 			      cp_id_kind *idk)
 {
+  AUTO_BLT_NODE (parser, BLT_PRIMARY_EXPRESSION);
+
   cp_token *token = NULL;
 
   /* Assume the primary expression is not an id-expression.  */
@@ -5419,6 +5608,8 @@ cp_parser_id_expression (cp_parser *parser,
 			 bool declarator_p,
 			 bool optional_p)
 {
+  AUTO_BLT_NODE (parser, BLT_ID_EXPRESSION);
+
   bool global_scope_p;
   bool nested_name_specifier_p;
 
@@ -5558,6 +5749,8 @@ cp_parser_unqualified_id (cp_parser* parser,
 			  bool declarator_p,
 			  bool optional_p)
 {
+  AUTO_BLT_NODE (parser, BLT_UNQUALIFIED_ID);
+
   cp_token *token;
 
   /* Peek at the next token.  */
@@ -6419,6 +6612,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
   bool is_member_access = false;
   int saved_in_statement = -1;
 
+  AUTO_BLT_NODE_WITH_RETURN (parser, BLT_POSTFIX_EXPRESSION, &postfix_expression);
+
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   loc = token->location;
@@ -6437,6 +6632,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	cp_expr expression;
 	const char *saved_message;
 	bool saved_in_type_id_in_expr_p;
+
+        BLT_ADD_NEXT_TOKEN (parser);
 
 	/* All of these can be handled in the same way from the point
 	   of view of parsing.  Begin by consuming the token
@@ -6524,6 +6721,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	bool saved_in_type_id_in_expr_p;
 
 	/* Consume the `typeid' token.  */
+        BLT_ADD_NEXT_TOKEN (parser);
 	cp_lexer_consume_token (parser->lexer);
 	/* Look for the `(' token.  */
 	cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
@@ -7552,6 +7750,8 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 					 bool *non_constant_p,
 					 location_t *close_paren_loc)
 {
+  AUTO_BLT_NODE (parser, BLT_EXPRESSION_LIST);
+
   vec<tree, va_gc> *expression_list;
   bool fold_expr_p = is_attribute_list != non_attr;
   tree identifier = NULL_TREE;
@@ -7830,6 +8030,8 @@ static cp_expr
 cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
 			    bool address_p, bool cast_p, bool decltype_p)
 {
+  AUTO_BLT_NODE (parser, BLT_UNARY_EXPRESSION);
+
   cp_token *token;
   enum tree_code unary_operator;
 
@@ -9297,6 +9499,7 @@ static cp_expr
 cp_parser_assignment_expression (cp_parser* parser, cp_id_kind * pidk,
 				 bool cast_p, bool decltype_p)
 {
+  AUTO_BLT_NODE (parser, BLT_ASSIGNMENT_EXPRESSION);
   cp_expr expr;
 
   /* If the next token is the `throw' keyword, then we're looking at
@@ -12502,6 +12705,8 @@ cp_parser_already_scoped_statement (cp_parser* parser, bool *if_p,
 static void
 cp_parser_declaration_seq_opt (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_DECLARATION_SEQ);
+
   while (true)
     {
       cp_token *token;
@@ -12573,6 +12778,8 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 static void
 cp_parser_declaration (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_DECLARATION);
+
   cp_token token1;
   cp_token token2;
   int saved_pedantic;
@@ -12717,6 +12924,8 @@ cp_parser_block_declaration (cp_parser *parser,
       return;
     }
 
+  AUTO_BLT_NODE (parser, BLT_BLOCK_DECLARATION);
+
   /* Peek at the next token to figure out which kind of declaration is
      present.  */
   token1 = cp_lexer_peek_token (parser->lexer);
@@ -12801,6 +13010,8 @@ cp_parser_simple_declaration (cp_parser* parser,
 			      bool function_definition_allowed_p,
 			      tree *maybe_range_for_decl)
 {
+  AUTO_BLT_NODE (parser, BLT_SIMPLE_DECLARATION);
+
   cp_decl_specifier_seq decl_specifiers;
   int declares_class_or_enum;
   bool saw_declarator;
@@ -13291,6 +13502,8 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 			      cp_decl_specifier_seq *decl_specs,
 			      int* declares_class_or_enum)
 {
+  AUTO_BLT_NODE (parser, BLT_DECL_SPECIFIER_SEQ);
+
   bool constructor_possible_p = !parser->in_declarator_p;
   bool found_decl_spec = false;
   cp_token *start_token = NULL;
@@ -13390,6 +13603,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  else
 	    {
 	      ds = ds_friend;
+	      ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
 	      /* Consume the token.  */
 	      cp_lexer_consume_token (parser->lexer);
 	    }
@@ -13397,6 +13611,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 
         case RID_CONSTEXPR:
 	  ds = ds_constexpr;
+	  ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
           cp_lexer_consume_token (parser->lexer);
           break;
 
@@ -13419,6 +13634,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	       typedef  */
 	case RID_TYPEDEF:
 	  ds = ds_typedef;
+	  ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
 	  /* Consume the token.  */
 	  cp_lexer_consume_token (parser->lexer);
 	  /* A constructor declarator cannot appear in a typedef.  */
@@ -13443,6 +13659,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_AUTO:
           if (cxx_dialect == cxx98) 
             {
+	      ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
 	      /* Consume the token.  */
 	      cp_lexer_consume_token (parser->lexer);
 
@@ -13467,6 +13684,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_STATIC:
 	case RID_EXTERN:
 	case RID_MUTABLE:
+	  ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
 	  /* Consume the token.  */
 	  cp_lexer_consume_token (parser->lexer);
           cp_parser_set_storage_class (parser, decl_specs, token->keyword,
@@ -13475,6 +13693,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_THREAD:
 	  /* Consume the token.  */
 	  ds = ds_thread;
+          ADD_NODE_FOR_NEXT_TOKEN (BLT_DECL_SPECIFIER);
 	  cp_lexer_consume_token (parser->lexer);
 	  break;
 
@@ -14852,6 +15071,8 @@ cp_parser_operator (cp_parser* parser)
 static void
 cp_parser_template_declaration (cp_parser* parser, bool member_p)
 {
+  AUTO_BLT_NODE (parser, BLT_TEMPLATE_DECLARATION);
+
   /* Check for `export'.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_EXPORT))
     {
@@ -14876,6 +15097,8 @@ cp_parser_template_declaration (cp_parser* parser, bool member_p)
 static tree
 cp_parser_template_parameter_list (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_TEMPLATE_PARAMETER_LIST);
+
   tree parameter_list = NULL_TREE;
 
   begin_template_parm_list ();
@@ -16348,6 +16571,8 @@ cp_parser_template_argument (cp_parser* parser)
 static void
 cp_parser_explicit_instantiation (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_EXPLICIT_INSTANTIATION);
+
   int declares_class_or_enum;
   cp_decl_specifier_seq decl_specifiers;
   tree extension_specifier = NULL_TREE;
@@ -16461,6 +16686,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
 static void
 cp_parser_explicit_specialization (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_EXPLICIT_SPECIALIZATION);
+
   bool need_lang_pop;
   cp_token *token = cp_lexer_peek_token (parser->lexer);
 
@@ -16562,6 +16789,8 @@ cp_parser_type_specifier (cp_parser* parser,
 			  int* declares_class_or_enum,
 			  bool* is_cv_qualifier)
 {
+  AUTO_BLT_NODE (parser, BLT_TYPE_SPECIFIER);
+
   tree type_spec = NULL_TREE;
   cp_token *token;
   enum rid keyword;
@@ -16652,18 +16881,21 @@ cp_parser_type_specifier (cp_parser* parser,
 
     case RID_CONST:
       ds = ds_const;
+      ADD_NODE_FOR_NEXT_TOKEN (BLT_CV_QUALIFIER);
       if (is_cv_qualifier)
 	*is_cv_qualifier = true;
       break;
 
     case RID_VOLATILE:
       ds = ds_volatile;
+      ADD_NODE_FOR_NEXT_TOKEN (BLT_CV_QUALIFIER);
       if (is_cv_qualifier)
 	*is_cv_qualifier = true;
       break;
 
     case RID_RESTRICT:
       ds = ds_restrict;
+      ADD_NODE_FOR_NEXT_TOKEN (BLT_CV_QUALIFIER);
       if (is_cv_qualifier)
 	*is_cv_qualifier = true;
       break;
@@ -19108,6 +19340,48 @@ strip_declarator_types (tree type, cp_declarator *declarator)
   return type;
 }
 
+/* Subroutine for cp_parser_init_declarator for once
+   we know we're dealing with a function-definition.
+
+   We're below a:
+   + PARENT
+     `-block-declaration
+       `-simple-declaration
+         |-decl-specifier-seq
+         |-declarator
+
+  Convert the simple-declaration to a function-definition,
+  and lose the block-declaration, resulting in:
+
+   + PARENT
+     `-function-definition
+       |-decl-specifier-seq
+       |-declarator.  */
+
+static void
+update_blt_for_function_definition (cp_parser *parser)
+{
+  if (!CURRENT_BLT_NODE)
+    return;
+
+  blt_node *block_decl
+    = CURRENT_BLT_NODE->get_ancestor_of_kind (BLT_BLOCK_DECLARATION);
+
+  if (!block_decl)
+    /* We might have a template-declaration.  */
+    return;
+
+  blt_node *simple_decl
+    = block_decl->get_first_child_of_kind (BLT_SIMPLE_DECLARATION);
+  gcc_assert (simple_decl);
+
+  blt_node *parent = block_decl->get_parent ();
+  gcc_assert (parent);
+
+  simple_decl->set_kind (BLT_FUNCTION_DEFINITION);
+  parent->replace_child (block_decl, simple_decl);
+}
+
 /* Declarators [gram.dcl.decl] */
 
 /* Parse an init-declarator.
@@ -19324,6 +19598,7 @@ cp_parser_init_declarator (cp_parser* parser,
 		      "on a function-definition");
 	  /* This is a function-definition.  */
 	  *function_definition_p = true;
+          update_blt_for_function_definition (parser);
 
 	  /* Parse the function definition.  */
 	  if (member_p)
@@ -19640,6 +19915,8 @@ cp_parser_declarator (cp_parser* parser,
 		      bool* parenthesized_p,
 		      bool member_p, bool friend_p)
 {
+  AUTO_BLT_NODE (parser, BLT_DECLARATOR);
+
   cp_declarator *declarator;
   enum tree_code code;
   cp_cv_quals cv_quals;
@@ -19741,6 +20018,8 @@ cp_parser_direct_declarator (cp_parser* parser,
 			     int* ctor_dtor_or_conv_p,
 			     bool member_p, bool friend_p)
 {
+  AUTO_BLT_NODE (parser, BLT_DIRECT_DECLARATOR);
+
   cp_token *token;
   cp_declarator *declarator = NULL;
   tree scope = NULL_TREE;
@@ -19808,6 +20087,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		cp_parser_parse_tentatively (parser);
 
 	      /* Consume the `('.  */
+	      BLT_ADD_NEXT_TOKEN (parser);
 	      cp_lexer_consume_token (parser->lexer);
 	      if (first)
 		{
@@ -20254,6 +20534,9 @@ cp_parser_direct_declarator (cp_parser* parser,
   parser->default_arg_ok_p = saved_default_arg_ok_p;
   parser->in_declarator_p = saved_in_declarator_p;
 
+  if (declarator)
+    declarator->bltnode = CURRENT_BLT_NODE;
+
   return declarator;
 }
 
@@ -20396,6 +20679,8 @@ cp_parser_ptr_operator (cp_parser* parser,
 static cp_cv_quals
 cp_parser_cv_qualifier_seq_opt (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_CV_QUALIFIER_SEQ);
+
   cp_cv_quals cv_quals = TYPE_UNQUALIFIED;
 
   while (true)
@@ -20427,6 +20712,8 @@ cp_parser_cv_qualifier_seq_opt (cp_parser* parser)
 
       if (!cv_qualifier)
 	break;
+
+      ADD_NODE_FOR_NEXT_TOKEN (BLT_CV_QUALIFIER);
 
       if (cv_quals & cv_qualifier)
 	{
@@ -21039,6 +21326,8 @@ function_being_declared_is_template_p (cp_parser* parser)
 static tree
 cp_parser_parameter_declaration_clause (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_PARAMETER_DECLARATION_CLAUSE);
+
   tree parameters;
   cp_token *token;
   bool ellipsis_p;
@@ -21068,6 +21357,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
   if (token->type == CPP_ELLIPSIS)
     {
       /* Consume the `...' token.  */
+      BLT_ADD_NEXT_TOKEN (parser);
       cp_lexer_consume_token (parser->lexer);
       return NULL_TREE;
     }
@@ -21089,6 +21379,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
 	       == CPP_CLOSE_PAREN))
     {
       /* Consume the `void' token.  */
+      BLT_ADD_NEXT_TOKEN (parser);
       cp_lexer_consume_token (parser->lexer);
       /* There are no parameters.  */
       return void_list_node;
@@ -21108,6 +21399,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
   if (token->type == CPP_COMMA)
     {
       /* Consume the `,'.  */
+      BLT_ADD_NEXT_TOKEN (parser);
       cp_lexer_consume_token (parser->lexer);
       /* Expect an ellipsis.  */
       ellipsis_p
@@ -21118,6 +21410,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
   else if (token->type == CPP_ELLIPSIS)
     {
       /* Consume the `...' token.  */
+      BLT_ADD_NEXT_TOKEN (parser);
       cp_lexer_consume_token (parser->lexer);
       /* And remember that we saw it.  */
       ellipsis_p = true;
@@ -21129,6 +21422,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
   if (!ellipsis_p)
     parameters = chainon (parameters, void_list_node);
 
+  BLT_SET_TREE (parameters);
   return parameters;
 }
 
@@ -21146,6 +21440,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
 static tree
 cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 {
+  AUTO_BLT_NODE (parser, BLT_PARAMETER_DECLARATION_LIST);
   tree parameters = NULL_TREE;
   tree *tail = &parameters;
   bool saved_in_unbraced_linkage_specification_p;
@@ -21203,6 +21498,7 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 				 PARM,
 				 parameter->default_argument != NULL_TREE,
 				 &parameter->decl_specifiers.attributes);
+          BLT_SET_TREE (decl);
 	}
 
       deprecated_state = DEPRECATED_NORMAL;
@@ -21253,6 +21549,7 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 	    break;
 	  /* Otherwise, there must be more parameters.  Consume the
 	     `,'.  */
+          BLT_ADD_NEXT_TOKEN (parser);
 	  cp_lexer_consume_token (parser->lexer);
 	  /* When parsing something like:
 
@@ -21308,6 +21605,7 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 	  }
       }
 
+  BLT_SET_TREE (parameters);
   return parameters;
 }
 
@@ -21333,6 +21631,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
 				 bool template_parm_p,
 				 bool *parenthesized_p)
 {
+  AUTO_BLT_NODE (parser, BLT_PARAMETER_DECLARATION);
+
   int declares_class_or_enum;
   cp_decl_specifier_seq decl_specifiers;
   cp_declarator *declarator;
@@ -21543,7 +21843,8 @@ cp_parser_parameter_declaration (cp_parser *parser,
   return make_parameter_declarator (&decl_specifiers,
 				    declarator,
 				    default_argument,
-				    template_parameter_pack_p);
+				    template_parameter_pack_p,
+                                    CURRENT_BLT_NODE);
 }
 
 /* Parse a default argument and return it.
@@ -22207,6 +22508,8 @@ cp_parser_class_specifier_1 (cp_parser* parser)
   tree scope = NULL_TREE;
   cp_token *closing_brace;
 
+  AUTO_BLT_NODE (parser, BLT_CLASS_SPECIFIER);
+
   push_deferring_access_checks (dk_no_deferred);
 
   /* Parse the class-head.  */
@@ -22515,6 +22818,8 @@ cp_parser_class_specifier_1 (cp_parser* parser)
   parser->in_unbraced_linkage_specification_p
     = saved_in_unbraced_linkage_specification_p;
 
+  BLT_SET_TREE (type);
+
   return type;
 }
 
@@ -22563,6 +22868,8 @@ static tree
 cp_parser_class_head (cp_parser* parser,
 		      bool* nested_name_specifier_p)
 {
+  AUTO_BLT_NODE (parser, BLT_CLASS_HEAD);
+
   tree nested_name_specifier;
   enum tag_types class_key;
   tree id = NULL_TREE;
@@ -23041,6 +23348,8 @@ cp_parser_class_key (cp_parser* parser)
   cp_token *token;
   enum tag_types tag_type;
 
+  AUTO_BLT_NODE (parser, BLT_CLASS_KEY);
+
   /* Look for the class-key.  */
   token = cp_parser_require (parser, CPP_KEYWORD, RT_CLASS_KEY);
   if (!token)
@@ -23171,9 +23480,11 @@ cp_parser_member_specification_opt (cp_parser* parser)
 static void
 cp_parser_member_declaration (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_MEMBER_DECLARATION);
+
   cp_decl_specifier_seq decl_specifiers;
   tree prefix_attributes;
-  tree decl;
+  tree decl = NULL_TREE;
   int declares_class_or_enum;
   bool friend_p;
   cp_token *token = NULL;
@@ -23677,6 +23988,7 @@ cp_parser_member_declaration (cp_parser* parser)
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
  out:
   parser->colon_corrects_to_scope_p = saved_colon_corrects_to_scope_p;
+  BLT_SET_TREE (decl);
 }
 
 /* Parse a pure-specifier.
@@ -24140,6 +24452,8 @@ cp_parser_exception_specification_opt (cp_parser* parser)
 static tree
 cp_parser_type_id_list (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_TYPE_ID_LIST);
+
   tree types = NULL_TREE;
 
   while (true)
@@ -24189,6 +24503,8 @@ cp_parser_type_id_list (cp_parser* parser)
 static tree
 cp_parser_try_block (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_TRY_BLOCK);
+
   tree try_block;
 
   cp_parser_require_keyword (parser, RID_TRY, RT_TRY);
@@ -24213,6 +24529,8 @@ cp_parser_try_block (cp_parser* parser)
 static bool
 cp_parser_function_try_block (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_FUNCTION_TRY_BLOCK);
+
   tree compound_stmt;
   tree try_block;
   bool ctor_initializer_p;
@@ -24243,6 +24561,8 @@ cp_parser_function_try_block (cp_parser* parser)
 static void
 cp_parser_handler_seq (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_HANDLER_SEQ);
+
   while (true)
     {
       cp_token *token;
@@ -24265,6 +24585,8 @@ cp_parser_handler_seq (cp_parser* parser)
 static void
 cp_parser_handler (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_HANDLER);
+
   tree handler;
   tree declaration;
 
@@ -24292,6 +24614,8 @@ cp_parser_handler (cp_parser* parser)
 static tree
 cp_parser_exception_declaration (cp_parser* parser)
 {
+  AUTO_BLT_NODE (parser, BLT_EXCEPTION_DECLARATION);
+
   cp_decl_specifier_seq type_specifiers;
   cp_declarator *declarator;
   const char *saved_message;
@@ -24345,6 +24669,8 @@ cp_parser_throw_expression (cp_parser* parser)
   tree expression;
   cp_token* token;
 
+  AUTO_BLT_NODE (parser, BLT_THROW_EXPRESSION);
+
   cp_parser_require_keyword (parser, RID_THROW, RT_THROW);
   token = cp_lexer_peek_token (parser->lexer);
   /* Figure out whether or not there is an assignment-expression
@@ -24385,6 +24711,8 @@ cp_parser_asm_specification_opt (cp_parser* parser)
      asm-specification.  */
   if (!cp_parser_is_keyword (token, RID_ASM))
     return NULL_TREE;
+
+  AUTO_BLT_NODE (parser, BLT_ASM_SPECIFICATION);
 
   /* Consume the `asm' token.  */
   cp_lexer_consume_token (parser->lexer);
@@ -28113,7 +28441,10 @@ cp_parser_require (cp_parser* parser,
 		   required_token token_desc)
 {
   if (cp_lexer_next_token_is (parser->lexer, type))
-    return cp_lexer_consume_token (parser->lexer);
+    {
+      BLT_ADD_NEXT_TOKEN (parser);
+      return cp_lexer_consume_token (parser->lexer);
+    }
   else
     {
       /* Output the MESSAGE -- unless we're parsing tentatively.  */
@@ -38647,6 +38978,12 @@ c_parse_file (void)
   push_deferring_access_checks (flag_access_control
 				? dk_no_deferred : dk_no_check);
   cp_parser_translation_unit (the_parser);
+
+  if (flag_blt && flag_dump_blt)
+    the_parser->blt_root_node->dump (stderr);
+
+  the_blt_root_node = the_parser->blt_root_node;
+
   the_parser = NULL;
 }
 

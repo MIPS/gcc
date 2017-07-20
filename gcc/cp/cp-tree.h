@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "function.h"
 
+class blt_node;
+
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
    diagnostic-core.h, not after.  We override the definition of GCC_DIAG_STYLE
@@ -5699,6 +5701,8 @@ struct cp_parameter_declarator {
   tree default_argument;
   /* True iff this is a template parameter pack.  */
   bool template_parameter_pack_p;
+  /* The blt_node for this parameter, if any.  */
+  blt_node *bltnode;
 };
 
 /* A declarator.  */
@@ -5774,6 +5778,7 @@ struct cp_declarator {
       bool rvalue_ref;
     } reference;
   } u;
+  blt_node *bltnode;
 };
 
 /* A level of template instantiation.  */
