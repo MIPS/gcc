@@ -1146,6 +1146,8 @@ layout::print_source_line (int row, const char *line, int line_width,
 							   line_width);
   line += m_x_offset;
 
+  pp_emit_prefix (m_pp);
+
   pp_space (m_pp);
   int first_non_ws = INT_MAX;
   int last_non_ws = 0;
@@ -1214,6 +1216,8 @@ layout::should_print_annotation_line_p (int row) const
 void
 layout::print_annotation_line (int row, const line_bounds lbounds)
 {
+  pp_emit_prefix (m_pp);
+
   int x_bound = get_x_bound_for_row (row, m_exploc.column,
 				     lbounds.m_last_non_ws);
 
@@ -1274,6 +1278,8 @@ layout::print_leading_fixits (int row)
 
       if (hint->affects_line_p (m_exploc.file, row))
 	{
+	  pp_emit_prefix (m_pp);
+
 	  /* Printing the '+' with normal colorization
 	     and the inserted line with "insert" colorization
 	     helps them stand out from each other, and from
@@ -1695,6 +1701,9 @@ layout::print_trailing_fixits (int row)
 
   FOR_EACH_VEC_ELT (corrections.m_corrections, i, c)
     {
+      if (i == 0)
+	pp_emit_prefix (m_pp);
+
       /* For now we assume each fixit hint can only touch one line.  */
       if (c->insertion_p ())
 	{
@@ -1739,7 +1748,8 @@ layout::print_trailing_fixits (int row)
     }
 
   /* Add a trailing newline, if necessary.  */
-  move_to_column (&column, 0);
+  if (column > 0)
+    print_newline ();
 }
 
 /* Disable any colorization and emit a newline.  */
@@ -1835,8 +1845,8 @@ layout::get_x_bound_for_row (int row, int caret_column,
 }
 
 /* Given *COLUMN as an x-coordinate, print spaces to position
-   successive output at DEST_COLUMN, printing a newline if necessary,
-   and updating *COLUMN.  */
+   successive output at DEST_COLUMN, printing a newline if necessary
+   (and, if so, any prefix), and updating *COLUMN.  */
 
 void
 layout::move_to_column (int *column, int dest_column)
@@ -1846,6 +1856,7 @@ layout::move_to_column (int *column, int dest_column)
     {
       print_newline ();
       *column = 0;
+      pp_emit_prefix (m_pp);
     }
 
   while (*column < dest_column)
@@ -1864,6 +1875,7 @@ layout::show_ruler (int max_column) const
   /* Hundreds.  */
   if (max_column > 99)
     {
+      pp_emit_prefix (m_pp);
       pp_space (m_pp);
       for (int column = 1 + m_x_offset; column <= max_column; column++)
 	if (0 == column % 10)
@@ -1874,6 +1886,7 @@ layout::show_ruler (int max_column) const
     }
 
   /* Tens.  */
+  pp_emit_prefix (m_pp);
   pp_space (m_pp);
   for (int column = 1 + m_x_offset; column <= max_column; column++)
     if (0 == column % 10)
@@ -1883,6 +1896,7 @@ layout::show_ruler (int max_column) const
   pp_newline (m_pp);
 
   /* Units.  */
+  pp_emit_prefix (m_pp);
   pp_space (m_pp);
   for (int column = 1 + m_x_offset; column <= max_column; column++)
     pp_character (m_pp, '0' + (column % 10));
@@ -1961,9 +1975,6 @@ diagnostic_show_locus (diagnostic_context * context,
 
   context->last_location = loc;
 
-  const char *saved_prefix = pp_get_prefix (context->printer);
-  pp_set_prefix (context->printer, NULL);
-
   layout layout (context, richloc, diagnostic_kind);
   for (int line_span_idx = 0; line_span_idx < layout.get_num_line_spans ();
        line_span_idx++)
@@ -1978,8 +1989,6 @@ diagnostic_show_locus (diagnostic_context * context,
       for (int row = line_span->get_first_line (); row <= last_line; row++)
 	layout.print_line (row);
     }
-
-  pp_set_prefix (context->printer, saved_prefix);
 }
 
 #if CHECKING_P
@@ -1997,6 +2006,7 @@ class test_diagnostic_context : public diagnostic_context
   test_diagnostic_context ()
   {
     diagnostic_initialize (this, 0);
+    pp_prefixing_rule (printer) = DIAGNOSTICS_SHOW_PREFIX_NEVER;
     show_caret = true;
     show_column = true;
     start_span = start_span_cb;
@@ -2140,23 +2150,75 @@ test_one_liner_fixit_insert_after ()
 		pp_formatted_text (dc.printer));
 }
 
-/* Removal fix-it hint: removal of the ".field". */
+/* Removal fix-it hint: removal of the ".field".
+   Also verify the interaction of pp_set_prefix with rulers and
+   fix-it hints.  */
 
 static void
 test_one_liner_fixit_remove ()
 {
-  test_diagnostic_context dc;
   location_t start = linemap_position_for_column (line_table, 10);
   location_t finish = linemap_position_for_column (line_table, 15);
   location_t dot = make_location (start, start, finish);
   rich_location richloc (line_table, dot);
   richloc.add_fixit_remove ();
-  diagnostic_show_locus (&dc, &richloc, DK_ERROR);
-  ASSERT_STREQ ("\n"
-		" foo = bar.field;\n"
-		"          ^~~~~~\n"
-		"          ------\n",
-		pp_formatted_text (dc.printer));
+
+  /* Normal.  */
+  {
+    test_diagnostic_context dc;
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  " foo = bar.field;\n"
+		  "          ^~~~~~\n"
+		  "          ------\n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Test of adding a prefix.  */
+  {
+    test_diagnostic_context dc;
+    pp_prefixing_rule (dc.printer) = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
+    pp_set_prefix (dc.printer, "TEST PREFIX:");
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  "TEST PREFIX: foo = bar.field;\n"
+		  "TEST PREFIX:          ^~~~~~\n"
+		  "TEST PREFIX:          ------\n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Normal, with ruler.  */
+  {
+    test_diagnostic_context dc;
+    dc.show_ruler_p = true;
+    dc.caret_max_width = 104;
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  "          0         0         0         0         0         0         0         0         0         1    \n"
+		  "          1         2         3         4         5         6         7         8         9         0    \n"
+		  " 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234\n"
+		  " foo = bar.field;\n"
+		  "          ^~~~~~\n"
+		  "          ------\n",
+		  pp_formatted_text (dc.printer));
+  }
+
+  /* Test of adding a prefix, with ruler.  */
+  {
+    test_diagnostic_context dc;
+    dc.show_ruler_p = true;
+    dc.caret_max_width = 50;
+    pp_prefixing_rule (dc.printer) = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
+    pp_set_prefix (dc.printer, "TEST PREFIX:");
+    diagnostic_show_locus (&dc, &richloc, DK_ERROR);
+    ASSERT_STREQ ("\n"
+		  "TEST PREFIX:          1         2         3         4         5\n"
+		  "TEST PREFIX: 12345678901234567890123456789012345678901234567890\n"
+		  "TEST PREFIX: foo = bar.field;\n"
+		  "TEST PREFIX:          ^~~~~~\n"
+		  "TEST PREFIX:          ------\n",
+		  pp_formatted_text (dc.printer));
+  }
 }
 
 /* Replace fix-it hint: replacing "field" with "m_field". */

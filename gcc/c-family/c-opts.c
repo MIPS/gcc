@@ -163,11 +163,11 @@ static void
 c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
+  pp_destroy_prefix (context->printer);
   diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
-  pp_destroy_prefix (context->printer);
   pp_flush (context->printer);
 }
 

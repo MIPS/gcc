@@ -133,6 +133,7 @@ custom_diagnostic_finalizer (diagnostic_context *context,
   bool old_show_color = pp_show_color (context->printer);
   if (force_show_locus_color)
     pp_show_color (context->printer) = true;
+  pp_indentation (context->printer) = 0;
   diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   pp_show_color (context->printer) = old_show_color;
 
