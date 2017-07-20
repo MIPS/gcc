@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
 #include "asan.h"
+#include "blt.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -4503,6 +4504,7 @@ build_array_declarator (location_t loc,
 	}
       current_scope->had_vla_unspec = true;
     }
+  declarator->bltnode = NULL;
   return declarator;
 }
 
@@ -4627,6 +4629,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 			 deprecated_state);
   if (!decl || decl == error_mark_node)
     return NULL_TREE;
+  if (declarator->bltnode)
+    declarator->bltnode->set_tree (decl);
 
   if (expr)
     add_stmt (fold_convert (void_type_node, expr));
@@ -8527,6 +8531,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL,
 			  &attributes, NULL, NULL, DEPRECATED_NORMAL);
+  if (declarator->bltnode)
+    declarator->bltnode->set_tree (decl1);
   invoke_plugin_callbacks (PLUGIN_START_PARSE_FUNCTION, decl1);
 
   /* If the declarator is not suitable for a function definition,
@@ -9645,6 +9651,7 @@ build_attrs_declarator (tree attrs, struct c_declarator *target)
   ret->kind = cdk_attrs;
   ret->declarator = target;
   ret->u.attrs = attrs;
+  ret->bltnode = NULL;
   return ret;
 }
 
@@ -9653,12 +9660,14 @@ build_attrs_declarator (tree attrs, struct c_declarator *target)
 
 struct c_declarator *
 build_function_declarator (struct c_arg_info *args,
-			   struct c_declarator *target)
+			   struct c_declarator *target,
+			   blt_node *bltnode)
 {
   struct c_declarator *ret = XOBNEW (&parser_obstack, struct c_declarator);
   ret->kind = cdk_function;
   ret->declarator = target;
   ret->u.arg_info = args;
+  ret->bltnode = bltnode;
   return ret;
 }
 
@@ -9674,6 +9683,7 @@ build_id_declarator (tree ident)
   ret->u.id = ident;
   /* Default value - may get reset to a more precise location. */
   ret->id_loc = input_location;
+  ret->bltnode = NULL;
   return ret;
 }
 
@@ -9700,6 +9710,7 @@ make_pointer_declarator (struct c_declspecs *type_quals_attrs,
   ret->kind = cdk_pointer;
   ret->declarator = itarget;
   ret->u.pointer_quals = quals;
+  ret->bltnode = NULL;
   return ret;
 }
 

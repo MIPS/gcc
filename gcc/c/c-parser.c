@@ -65,6 +65,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "read-rtl-function.h"
 #include "run-rtl-passes.h"
 #include "intl.h"
+#include "blt.h"
 
 /* We need to walk over decls with incomplete struct/union/enum types
    after parsing the whole translation unit.
@@ -206,7 +207,114 @@ struct GTY(()) c_parser {
   /* Buffer to hold all the tokens from parsing the vector attribute for the
      SIMD-enabled functions (formerly known as elemental functions).  */
   vec <c_token, va_gc> *cilk_simd_fn_tokens;
+
+  location_t last_token_location;
+  blt_node * GTY((skip)) blt_root_node;
+  blt_node * GTY((skip)) blt_current_node;
 };
+
+/* A RAII-style class for optionally building a concrete parse tree (or
+   at least, something close to it) as the recursive descent parser runs.
+
+   Close to a no-op if -fblt is not selected.  */
+
+class auto_blt_node
+{
+public:
+  auto_blt_node (c_parser* parser, enum blt_kind kind);
+  ~auto_blt_node ();
+
+  void set_tree (tree node);
+
+private:
+  c_parser *m_parser;
+};
+
+/* RAII-style construction of the blt_node tree: push a blt_node of KIND
+   onto the current stack of blt_nodes, popping it when it goes out
+   of scope.  */
+
+#define AUTO_BLT_NODE(PARSER, KIND) \
+  auto_blt_node tmp_blt_node ((PARSER), (KIND))
+
+/* The blt_node currently being constructed (the macro assumes that "parser"
+   exists in the current scope).  */
+
+#define CURRENT_BLT_NODE (parser->blt_current_node)
+
+/* auto_blt_node's constructor.
+
+   If -fblt was not enabled, return immediately.
+
+   Otherwise push a new blt_node of KIND as a child of the previous top
+   of the blt stack, effectively constructing a tree.
+
+   Set the new blt_node's start location to that of the next token
+   within PARSER.  */
+
+auto_blt_node::auto_blt_node (c_parser *parser, enum blt_kind kind)
+{
+  if (!flag_blt)
+    return;
+
+  /* Do this here rather than as an initializer
+     to avoid doing work when -fblt is not set.  */
+  m_parser = parser;
+
+  c_token *first_token = c_parser_peek_token (parser);
+  blt_node *parent = parser->blt_current_node;
+  blt_node *node = new blt_node (kind, first_token->location);
+  parser->blt_current_node = node;
+  if (parent)
+    parent->add_child (node);
+  else
+    parser->blt_root_node = node;
+}
+
+/* auto_blt_node's destructor.
+
+   If -fblt was not enabled, return immediately.
+
+   Otherwise, pop the current blt_node from the stack,
+   and set its finish location to that of the last
+   token that was consumed.  */
+
+auto_blt_node::~auto_blt_node ()
+{
+  if (!flag_blt)
+    return;
+
+  blt_node *node = m_parser->blt_current_node;
+  node->set_finish (m_parser->last_token_location);
+
+  if (0)
+    {
+      location_t start = node->get_start ();
+      location_t finish = node->get_finish ();
+      location_t range = make_location (start, start, finish);
+      inform (range, "%qs", node->get_name ());
+    }
+
+#if 0
+  if (m_expr_ptr)
+    node->set_tree (m_expr_ptr->get_value ());
+#endif
+
+  m_parser->blt_current_node = node->get_parent ();
+}
+
+/* Set the current blt_node's tree to be TREE_NODE.
+   Do nothing if -fblt is not set.  */
+
+void
+auto_blt_node::set_tree (tree tree_node)
+{
+  if (!flag_blt)
+    return;
+
+  blt_node *node = m_parser->blt_current_node;
+  node->set_tree (tree_node);
+}
 
 /* Return a pointer to the Nth token in PARSERs tokens_buf.  */
 
@@ -770,6 +878,7 @@ c_parser_consume_token (c_parser *parser)
   gcc_assert (parser->tokens[0].type != CPP_EOF);
   gcc_assert (!parser->in_pragma || parser->tokens[0].type != CPP_PRAGMA_EOL);
   gcc_assert (parser->error || parser->tokens[0].type != CPP_PRAGMA);
+  parser->last_token_location = parser->tokens[0].location;
   if (parser->tokens != &parser->tokens_buf[0])
     parser->tokens++;
   else if (parser->tokens_avail == 2)
@@ -1336,6 +1445,8 @@ static void c_parser_parse_rtl_body (c_parser *parser, char *start_with_pass);
 static void
 c_parser_translation_unit (c_parser *parser)
 {
+  AUTO_BLT_NODE (parser, BLT_TRANSLATION_UNIT);
+
   if (c_parser_next_token_is (parser, CPP_EOF))
     {
       pedwarn (c_parser_peek_token (parser)->location, OPT_Wpedantic,
@@ -1388,6 +1499,8 @@ c_parser_translation_unit (c_parser *parser)
 static void
 c_parser_external_declaration (c_parser *parser)
 {
+  AUTO_BLT_NODE (parser, BLT_EXTERNAL_DECLARATION);
+
   int ext;
   switch (c_parser_peek_token (parser)->type)
     {
@@ -2378,6 +2491,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 		    bool alignspec_ok, bool auto_type_ok,
 		    enum c_lookahead_kind la)
 {
+  AUTO_BLT_NODE (parser, BLT_DECLARATION_SPECIFIERS);
+
   bool attrs_ok = start_attr_ok;
   bool seen_type = specs->typespec_kind != ctsk_none;
 
@@ -2426,6 +2541,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	     forgotten a semicolon.  */
 	  if (seen_type || !c_parser_next_tokens_start_typename (parser, la))
 	    break;
+
+	  AUTO_BLT_NODE (parser, BLT_TYPE_SPECIFIER);
 
 	  /* Now at an unknown typename (C_ID_ID), a C_ID_TYPENAME or
 	     a C_ID_CLASSNAME.  */
@@ -2524,48 +2641,61 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_INT_N_1:
 	case RID_INT_N_2:
 	case RID_INT_N_3:
-	  if (!typespec_ok)
-	    goto out;
-	  attrs_ok = true;
-	  seen_type = true;
-	  if (c_dialect_objc ())
-	    parser->objc_need_raw_identifier = true;
-	  t.kind = ctsk_resword;
-	  t.spec = c_parser_peek_token (parser)->value;
-	  t.expr = NULL_TREE;
-	  t.expr_const_operands = true;
-	  declspecs_add_type (loc, specs, t);
-	  c_parser_consume_token (parser);
+	  {
+	    if (!typespec_ok)
+	      goto out;
+
+	    AUTO_BLT_NODE (the_parser, BLT_TYPE_SPECIFIER);
+	    attrs_ok = true;
+	    seen_type = true;
+	    if (c_dialect_objc ())
+	      parser->objc_need_raw_identifier = true;
+	    t.kind = ctsk_resword;
+	    t.spec = c_parser_peek_token (parser)->value;
+	    t.expr = NULL_TREE;
+	    t.expr_const_operands = true;
+	    declspecs_add_type (loc, specs, t);
+	    c_parser_consume_token (parser);
+	  }
 	  break;
 	case RID_ENUM:
-	  if (!typespec_ok)
-	    goto out;
-	  attrs_ok = true;
-	  seen_type = true;
-	  t = c_parser_enum_specifier (parser);
-          invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
-	  declspecs_add_type (loc, specs, t);
+	  {
+	    if (!typespec_ok)
+	      goto out;
+	    AUTO_BLT_NODE (the_parser, BLT_TYPE_SPECIFIER);
+	    attrs_ok = true;
+	    seen_type = true;
+	    t = c_parser_enum_specifier (parser);
+	    invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
+	    declspecs_add_type (loc, specs, t);
+	  }
 	  break;
 	case RID_STRUCT:
 	case RID_UNION:
-	  if (!typespec_ok)
-	    goto out;
-	  attrs_ok = true;
-	  seen_type = true;
-	  t = c_parser_struct_or_union_specifier (parser);
-          invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
-	  declspecs_add_type (loc, specs, t);
+	  {
+	    if (!typespec_ok)
+	      goto out;
+	    AUTO_BLT_NODE (the_parser, BLT_TYPE_SPECIFIER);
+	    attrs_ok = true;
+	    seen_type = true;
+	    t = c_parser_struct_or_union_specifier (parser);
+	    invoke_plugin_callbacks (PLUGIN_FINISH_TYPE, t.spec);
+	    declspecs_add_type (loc, specs, t);
+	  }
 	  break;
 	case RID_TYPEOF:
-	  /* ??? The old parser rejected typeof after other type
-	     specifiers, but is a syntax error the best way of
-	     handling this?  */
-	  if (!typespec_ok || seen_type)
-	    goto out;
-	  attrs_ok = true;
-	  seen_type = true;
-	  t = c_parser_typeof_specifier (parser);
-	  declspecs_add_type (loc, specs, t);
+	  {
+	    /* ??? The old parser rejected typeof after other type
+	       specifiers, but is a syntax error the best way of
+	       handling this?  */
+	    if (!typespec_ok || seen_type)
+	      goto out;
+	    AUTO_BLT_NODE (the_parser, BLT_TYPE_SPECIFIER);
+	    attrs_ok = true;
+	    seen_type = true;
+	    t = c_parser_typeof_specifier (parser);
+	    declspecs_add_type (loc, specs, t);
+	  }
 	  break;
 	case RID_ATOMIC:
 	  /* C parser handling of Objective-C constructs needs
@@ -2863,6 +2993,8 @@ c_parser_enum_specifier (c_parser *parser)
 static struct c_typespec
 c_parser_struct_or_union_specifier (c_parser *parser)
 {
+  AUTO_BLT_NODE (parser, BLT_STRUCT_OR_UNION_SPECIFIER);
+
   struct c_typespec ret;
   tree attrs;
   tree ident = NULL_TREE;
@@ -2898,6 +3030,8 @@ c_parser_struct_or_union_specifier (c_parser *parser)
     {
       /* Parse a struct or union definition.  Start the scope of the
 	 tag before parsing components.  */
+      AUTO_BLT_NODE (parser, BLT_STRUCT_CONTENTS);
+
       struct c_struct_parse_info *struct_info;
       tree type = start_struct (struct_loc, code, ident, &struct_info);
       tree postfix_attrs;
@@ -3006,6 +3140,10 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       ret.expr = NULL_TREE;
       ret.expr_const_operands = true;
       timevar_pop (TV_PARSE_STRUCT);
+
+      if (CURRENT_BLT_NODE)
+	CURRENT_BLT_NODE->set_tree (ret.spec);
+
       return ret;
     }
   else if (!ident)
@@ -3017,7 +3155,12 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       ret.expr_const_operands = true;
       return ret;
     }
+
   ret = parser_xref_tag (ident_loc, code, ident);
+
+  if (CURRENT_BLT_NODE)
+    CURRENT_BLT_NODE->set_tree (ret.spec);
+
   return ret;
 }
 
@@ -3056,6 +3199,8 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 static tree
 c_parser_struct_declaration (c_parser *parser)
 {
+  AUTO_BLT_NODE (parser, BLT_STRUCT_DECLARATION);
+
   struct c_declspecs *specs;
   tree prefix_attrs;
   tree all_prefix_attrs;
@@ -3393,6 +3538,8 @@ struct c_declarator *
 c_parser_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
 		     bool *seen_id)
 {
+  AUTO_BLT_NODE (parser, BLT_DECLARATOR);
+
   /* Parse any initial pointer part.  */
   if (c_parser_next_token_is (parser, CPP_MULT))
     {
@@ -3419,6 +3566,8 @@ static struct c_declarator *
 c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
 			    bool *seen_id)
 {
+  AUTO_BLT_NODE (parser, BLT_DIRECT_DECLARATOR);
+
   /* The direct declarator must start with an identifier (possibly
      omitted) or a parenthesized declarator (possibly abstract).  In
      an ordinary declarator, initial parentheses must start a
@@ -3462,6 +3611,7 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
     {
       struct c_declarator *inner
 	= build_id_declarator (c_parser_peek_token (parser)->value);
+      inner->bltnode = CURRENT_BLT_NODE;
       *seen_id = true;
       inner->id_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
@@ -3498,7 +3648,8 @@ c_parser_direct_declarator (c_parser *parser, bool type_seen_p, c_dtr_syn kind,
 	    {
 	      inner
 		= build_function_declarator (args,
-					     build_id_declarator (NULL_TREE));
+					     build_id_declarator (NULL_TREE),
+					     CURRENT_BLT_NODE);
 	      return c_parser_direct_declarator_inner (parser, *seen_id,
 						       inner);
 	    }
@@ -3646,7 +3797,7 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 	return NULL;
       else
 	{
-	  inner = build_function_declarator (args, inner);
+	  inner = build_function_declarator (args, inner, CURRENT_BLT_NODE);
 	  return c_parser_direct_declarator_inner (parser, id_present, inner);
 	}
     }
@@ -3661,6 +3812,8 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 static struct c_arg_info *
 c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 {
+  AUTO_BLT_NODE (parser, BLT_PARAMETER_LIST);
+
   push_scope ();
   declare_parm_level ();
   /* If the list starts with an identifier, it is an identifier list.
@@ -3832,6 +3985,8 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs, tree expr)
 static struct c_parm *
 c_parser_parameter_declaration (c_parser *parser, tree attrs)
 {
+  AUTO_BLT_NODE (parser, BLT_PARAMETER_DECLARATION);
+
   struct c_declspecs *specs;
   struct c_declarator *declarator;
   tree prefix_attrs;
@@ -6422,6 +6577,8 @@ static struct c_expr
 c_parser_expr_no_commas (c_parser *parser, struct c_expr *after,
 			 tree omp_atomic_lhs)
 {
+  AUTO_BLT_NODE (parser, BLT_ASSIGNMENT_EXPRESSION);
+
   struct c_expr lhs, rhs, ret;
   enum tree_code code;
   location_t op_location, exp_location;
@@ -8655,6 +8812,8 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 static struct c_expr
 c_parser_expression (c_parser *parser)
 {
+  AUTO_BLT_NODE (parser, BLT_EXPRESSION);
+
   location_t tloc = c_parser_peek_token (parser)->location;
   struct c_expr expr;
   expr = c_parser_expr_no_commas (parser, NULL);
@@ -8742,6 +8901,8 @@ c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p,
 		    vec<location_t> *locations,
 		    unsigned int *literal_zero_mask)
 {
+  AUTO_BLT_NODE (parser, BLT_NONEMPTY_EXPR_LIST);
+
   vec<tree, va_gc> *ret;
   vec<tree, va_gc> *orig_types;
   struct c_expr expr;
@@ -18166,6 +18327,12 @@ c_parse_file (void)
     using_eh_for_cleanups ();
 
   c_parser_translation_unit (the_parser);
+
+  if (flag_blt && flag_dump_blt)
+    the_parser->blt_root_node->dump (stderr);
+
+  the_blt_root_node = the_parser->blt_root_node;
+
   the_parser = NULL;
 }
 
