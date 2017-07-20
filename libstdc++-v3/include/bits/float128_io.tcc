@@ -1,6 +1,6 @@
 // -*- C++ -*- header.
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,7 @@
 
 #pragma GCC system_header
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
 
 #include <iostream>
 #include <iomanip> // For setw().
@@ -94,6 +94,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
-#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
+#endif // _GLIBCXX_HAVE_FLOAT128_MATH
 
 #endif // _GLIBCXX_BITS_FLOAT128_IO_TCC

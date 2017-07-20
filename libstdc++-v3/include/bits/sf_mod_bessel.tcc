@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,7 +49,6 @@
 #pragma GCC system_header
 
 #include <complex>
-#include <utility> // For exchange
 #include <ext/math_const.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
@@ -60,24 +59,20 @@ namespace __detail
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
-   *   @brief This routine computes the asymptotic modified cylindrical
-   *          Bessel and functions of order nu: @f$ I_{\nu}(x) @f$,
-   *          @f$ N_{\nu}(x) @f$.  Use this for @f$ x >> nu^2 + 1 @f$.
+   * @brief This routine computes the asymptotic modified cylindrical
+   * 	    Bessel and functions of order nu: @f$ I_{\nu}(x) @f$,
+   * 	    @f$ N_{\nu}(x) @f$.  Use this for @f$ x >> nu^2 + 1 @f$.
    *
-   *   References:
-   *    (1) Handbook of Mathematical Functions,
-   *        ed. Milton Abramowitz and Irene A. Stegun,
-   *        Dover Publications,
-   *        Section 9 p. 364, Equations 9.2.5-9.2.10
+   * References:
+   *  (1) Handbook of Mathematical Functions,
+   * 	  ed. Milton Abramowitz and Irene A. Stegun,
+   * 	  Dover Publications,
+   * 	  Section 9 p. 364, Equations 9.2.5-9.2.10
    *
-   *   @param  __nu  The order of the Bessel functions.
-   *   @param  __x   The argument of the Bessel functions.
-   *   @param  _Inu  The output regular modified Bessel function.
-   *   @param  _Knu  The output irregular modified Bessel function.
-   *   @param  _Ipnu  The output derivative of the regular
-   *                   modified Bessel function.
-   *   @param  _Kpnu  The output derivative of the irregular
-   *                   modified Bessel function.
+   * @param  __nu  The order of the Bessel functions.
+   * @param  __x   The argument of the Bessel functions.
+   * @return A struct containing the modified cylindrical Bessel functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
@@ -109,7 +104,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _Rsum += __bk_xk;
 	  __ak_xk *= (__2nu - __2km1) * (__2nu + __2km1) / (__k * __8x);
 	  _Psum += __ak_xk;
-	  auto __convP = std::abs(__ak_xk) < _S_eps * std::abs(_Psum);
+	  const auto __convP = std::abs(__ak_xk) < _S_eps * std::abs(_Psum);
 
 	  ++__k;
 	  __2km1 += 2;
@@ -117,37 +112,33 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _Ssum += __bk_xk;
 	  __ak_xk *= (__2nu - __2km1) * (__2nu + __2km1) / (__k * __8x);
 	  _Qsum += __ak_xk;
-	  auto __convQ = std::abs(__ak_xk) < _S_eps * std::abs(_Qsum);
+	  const auto __convQ = std::abs(__ak_xk) < _S_eps * std::abs(_Qsum);
 
 	  if (__convP && __convQ && __k > (__nu / _Tp{2}))
 	    break;
 	}
       while (__k < _Tp{100} * __nu);
 
-      auto __coef = std::sqrt(_Tp{1} / (_Tp{2} * _S_pi * __x));
-      auto _Inu = __coef * std::exp(__x) * (_Psum - _Qsum);
-      auto _Ipnu = __coef * std::exp(__x) * (_Rsum - _Ssum);
-      auto _Knu = _S_pi * __coef * std::exp(-__x) * (_Psum + _Qsum);
-      auto _Kpnu =  -_S_pi * __coef * std::exp(-__x) * (_Rsum + _Ssum);
+      const auto __coef = std::sqrt(_Tp{1} / (_Tp{2} * _S_pi * __x));
+      const auto _Inu = __coef * std::exp(__x) * (_Psum - _Qsum);
+      const auto _Ipnu = __coef * std::exp(__x) * (_Rsum - _Ssum);
+      const auto _Knu = _S_pi * __coef * std::exp(-__x) * (_Psum + _Qsum);
+      const auto _Kpnu =  -_S_pi * __coef * std::exp(-__x) * (_Rsum + _Ssum);
 
       return __bess_t{__nu, __x, _Inu, _Ipnu, _Knu, _Kpnu};
     }
 
   /**
-   *   @brief  Compute the modified Bessel functions @f$ I_\nu(x) @f$ and
-   *           @f$ K_\nu(x) @f$ and their first derivatives
-   *           @f$ I'_\nu(x) @f$ and @f$ K'_\nu(x) @f$ respectively.
-   *           These four functions are computed together for numerical
-   *           stability.
+   * @brief  Compute the modified Bessel functions @f$ I_\nu(x) @f$ and
+   * 	     @f$ K_\nu(x) @f$ and their first derivatives
+   * 	     @f$ I'_\nu(x) @f$ and @f$ K'_\nu(x) @f$ respectively.
+   * 	     These four functions are computed together for numerical
+   * 	     stability.
    *
-   *   @param  __nu  The order of the Bessel functions.
-   *   @param  __x   The argument of the Bessel functions.
-   *   @param  _Inu  The output regular modified Bessel function.
-   *   @param  _Knu  The output irregular modified Bessel function.
-   *   @param  _Ipnu  The output derivative of the regular
-   *                   modified Bessel function.
-   *   @param  _Kpnu  The output derivative of the irregular
-   *                   modified Bessel function.
+   * @param  __nu  The order of the Bessel functions.
+   * @param  __x   The argument of the Bessel functions.
+   * @return A struct containing the modified cylindrical Bessel functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
@@ -167,9 +158,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const auto __mu2 = __mu * __mu;
       const auto __xi = _Tp{1} / __x;
       const auto __xi2 = _Tp{2} * __xi;
-      auto __h = __nu * __xi;
-      if (__h < _S_fp_min)
-	__h = _S_fp_min;
+      auto __h = std::max(_S_fp_min, __nu * __xi);
       auto __b = __xi2 * __nu;
       auto __d = _Tp{0};
       auto __c = __h;
@@ -200,7 +189,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _Inul = _Inutemp;
 	}
 
-      auto __f = _Ipnul / _Inul;
+      const auto __f = _Ipnul / _Inul;
       _Tp _Kmu, _Knu1;
       if (__x < _S_x_min)
 	{
@@ -214,7 +203,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  const auto __fact2 = (std::abs(__e) < _S_eps
 			     ? _Tp{1}
 			     : std::sinh(__e) / __e);
-	  auto __gamt = __gamma_temme(__mu);
+	  const auto __gamt = __gamma_temme(__mu);
 	  auto __ff = __fact
 		    * (__gamt.__gamma_1_value * std::cosh(__e)
 		     + __gamt.__gamma_2_value * __fact2 * __d);
@@ -253,7 +242,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  auto __h = __delh;
 	  auto __q1 = _Tp{0};
 	  auto __q2 = _Tp{1};
-	  auto __a1 = _Tp{0.25L} - __mu2;
+	  const auto __a1 = _Tp{0.25L} - __mu2;
 	  auto __q = __c = __a1;
 	  auto __a = -__a1;
 	  auto __s = _Tp{1} + __q * __delh;
@@ -284,14 +273,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _Knu1 = _Kmu * (__mu + __x + _Tp{0.5L} - __h) * __xi;
 	}
 
-      auto _Kpmu = __mu * __xi * _Kmu - _Knu1;
-      auto _Inumu = __xi / (__f * _Kmu - _Kpmu);
-      auto _Inu = _Inumu * _Inul1 / _Inul;
-      auto _Ipnu = _Inumu * _Ipnu1 / _Inul;
+      const auto _Kpmu = __mu * __xi * _Kmu - _Knu1;
+      const auto _Inumu = __xi / (__f * _Kmu - _Kpmu);
+      const auto _Inu = _Inumu * _Inul1 / _Inul;
+      const auto _Ipnu = _Inumu * _Ipnu1 / _Inul;
       for (int __i = 1; __i <= __n; ++__i)
-	_Kmu = std::exchange(_Knu1, (__mu + _Tp(__i)) * __xi2 * _Knu1 + _Kmu);
-      auto _Knu = _Kmu;
-      auto _Kpnu = __nu * __xi * _Kmu - _Knu1;
+	_Kmu = __gnu_cxx::__exchange(_Knu1,
+				     (__mu + _Tp(__i)) * __xi2 * _Knu1 + _Kmu);
+      const auto _Knu = _Kmu;
+      const auto _Kpnu = __nu * __xi * _Kmu - _Knu1;
 
       return __bess_t{__nu, __x, _Inu, _Ipnu, _Knu, _Kpnu};
     }
@@ -300,14 +290,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @brief  Return the modified cylindrical Bessel functions
    *         and their derivatives of order @f$ \nu @f$ by various means.
    *
-   *   @param  __nu  The order of the Bessel functions.
-   *   @param  __x   The argument of the Bessel functions.
-   *   @param  _Inu  The output regular modified Bessel function.
-   *   @param  _Knu  The output irregular modified Bessel function.
-   *   @param  _Ipnu  The output derivative of the regular
-   *                   modified Bessel function.
-   *   @param  _Kpnu  The output derivative of the irregular
-   *                   modified Bessel function.
+   * @param  __nu  The order of the Bessel functions.
+   * @param  __x   The argument of the Bessel functions.
+   * @return A struct containing the modified cylindrical Bessel functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
@@ -319,9 +305,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const auto _S_pi = __gnu_cxx::__const_pi(__x);
       if (__nu < _Tp{0})
 	{
-	  auto _Bessm = __cyl_bessel_ik(-__nu, __x);
-	  auto __arg = -__nu * _S_pi;
-	  auto __sinnupi = __sin_pi(-__nu);
+	  const auto _Bessm = __cyl_bessel_ik(-__nu, __x);
+	  const auto __arg = -__nu * _S_pi;
+	  const auto __sinnupi = __sin_pi(-__nu);
 	  if (std::abs(__sinnupi) < _S_eps) // Carefully preserve +-inf.
 	    return __bess_t{__nu, __x, _Bessm.__I_value, _Bessm.__I_deriv,
 					_Bessm.__K_value, _Bessm.__K_deriv};
@@ -358,18 +344,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
-   *   @brief  Return the regular modified Bessel function of order
-   *           @f$ \nu @f$: @f$ I_{\nu}(x) @f$.
+   * @brief  Return the regular modified Bessel function of order
+   * 	     @f$ \nu @f$: @f$ I_{\nu}(x) @f$.
    *
-   *   The regular modified cylindrical Bessel function is:
-   *   @f[
-   *    I_{\nu}(x) = \sum_{k=0}^{\infty}
-   *              \frac{(x/2)^{\nu + 2k}}{k!\Gamma(\nu+k+1)}
-   *   @f]
+   * The regular modified cylindrical Bessel function is:
+   * @f[
+   *  I_{\nu}(x) = \sum_{k=0}^{\infty}
+   * 		\frac{(x/2)^{\nu + 2k}}{k!\Gamma(\nu+k+1)}
+   * @f]
    *
-   *   @param  __nu  The order of the regular modified Bessel function.
-   *   @param  __x   The argument of the regular modified Bessel function.
-   *   @return  The output regular modified Bessel function.
+   * @param  __nu  The order of the regular modified Bessel function.
+   * @param  __x   The argument of the regular modified Bessel function.
+   * @return  The output regular modified Bessel function.
    */
   template<typename _Tp>
     _Tp
@@ -386,24 +372,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
-   *   @brief  Return the irregular modified Bessel function
-   *           @f$ K_{\nu}(x) @f$ of order @f$ \nu @f$.
+   * @brief  Return the irregular modified Bessel function
+   * 	     @f$ K_{\nu}(x) @f$ of order @f$ \nu @f$.
    *
-   *   The irregular modified Bessel function is defined by:
-   *   @f[
-   *      K_{\nu}(x) = \frac{\pi}{2}
-   *                   \frac{I_{-\nu}(x) - I_{\nu}(x)}{\sin \nu\pi}
-   *   @f]
-   *   where for integral @f$ \nu = n @f$ a limit is taken:
-   *   @f$ lim_{\nu \to n} @f$.
-   *   For negative argument we have simply:
-   *   @f[
-   *      K_{-\nu}(x) = K_{\nu}(x)
-   *   @f]
+   * The irregular modified Bessel function is defined by:
+   * @f[
+   * 	K_{\nu}(x) = \frac{\pi}{2}
+   * 		     \frac{I_{-\nu}(x) - I_{\nu}(x)}{\sin \nu\pi}
+   * @f]
+   * where for integral @f$ \nu = n @f$ a limit is taken:
+   * @f$ lim_{\nu \to n} @f$.
+   * For negative argument we have simply:
+   * @f[
+   * 	K_{-\nu}(x) = K_{\nu}(x)
+   * @f]
    *
-   *   @param  __nu  The order of the irregular modified Bessel function.
-   *   @param  __x   The argument of the irregular modified Bessel function.
-   *   @return  The output irregular modified Bessel function.
+   * @param  __nu  The order of the irregular modified Bessel function.
+   * @param  __x   The argument of the irregular modified Bessel function.
+   * @return  The output irregular modified Bessel function.
    */
   template<typename _Tp>
     _Tp
@@ -418,20 +404,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
-   *   @brief  Compute the spherical modified Bessel functions
-   *           @f$ i_n(x) @f$ and @f$ k_n(x) @f$ and their first
-   *           derivatives @f$ i'_n(x) @f$ and @f$ k'_n(x) @f$
-   *           respectively.
+   * @brief  Compute the spherical modified Bessel functions
+   * 	     @f$ i_n(x) @f$ and @f$ k_n(x) @f$ and their first
+   * 	     derivatives @f$ i'_n(x) @f$ and @f$ k'_n(x) @f$
+   * 	     respectively.
    *
-   *   @param  __n  The order of the modified spherical Bessel function.
-   *   @param  __x  The argument of the modified spherical Bessel function.
-   *   @param  __i_n  The output regular modified spherical Bessel function.
-   *   @param  __k_n  The output irregular modified spherical
-   *                  Bessel function.
-   *   @param  __ip_n  The output derivative of the regular modified
-   *                   spherical Bessel function.
-   *   @param  __kp_n  The output derivative of the irregular modified
-   *                   spherical Bessel function.
+   * @param  __n  The order of the modified spherical Bessel function.
+   * @param  __x  The argument of the modified spherical Bessel function.
+   * @return A struct containing the modified spherical Bessel functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__sph_mod_bessel_t<unsigned int, _Tp, _Tp>
@@ -442,6 +423,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       if (__isnan(__x))
 	return __sph_t{__n, __x, _S_NaN, _S_NaN, _S_NaN, _S_NaN};
+      else if (__x == _Tp{0})
+	{
+	  const auto _S_inf = __gnu_cxx::__infinity(__x);
+	  if (__n == 0)
+	    return __sph_t{__n, __x, _Tp{1}, _Tp{0}, _S_inf, -_S_inf};
+	  else
+	    return __sph_t{__n, __x, _Tp{0}, _Tp{0}, _S_inf, -_S_inf};
+	}
       else
 	{
 	  const auto __nu = _Tp(__n + 0.5L);
@@ -450,10 +439,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  const auto __factor = __gnu_cxx::__const_root_pi_div_2(_Tp{})
 			      / std::sqrt(__x);
 
-	  auto __i_n = __factor * _Bess.__I_value;
-	  auto __ip_n = __factor * _Bess.__I_deriv - __i_n / (_Tp{2} * __x);
-	  auto __k_n = __factor * _Bess.__K_value;
-	  auto __kp_n = __factor * _Bess.__K_deriv - __k_n / (_Tp{2} * __x);
+	  const auto __i_n = __factor * _Bess.__I_value;
+	  const auto __ip_n = __factor * _Bess.__I_deriv
+			    - __i_n / (_Tp{2} * __x);
+	  const auto __k_n = __factor * _Bess.__K_value;
+	  const auto __kp_n = __factor * _Bess.__K_deriv
+			    - __k_n / (_Tp{2} * __x);
 
 	  return __sph_t{__n, __x, __i_n, __ip_n, __k_n, __kp_n};
 	}
@@ -461,18 +452,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief  Compute the Airy functions
-   *           @f$ Ai(x) @f$ and @f$ Bi(x) @f$ and their first
-   *           derivatives @f$ Ai'(x) @f$ and @f$ Bi(x) @f$
-   *           respectively.
+   * @brief  Compute the Airy functions
+   * 	     @f$ Ai(x) @f$ and @f$ Bi(x) @f$ and their first
+   * 	     derivatives @f$ Ai'(x) @f$ and @f$ Bi(x) @f$
+   * 	     respectively.
    *
-   *   @param  __z  The argument of the Airy functions.
-   *   @param  _Ai  The output Airy function of the first kind.
-   *   @param  _Bi  The output Airy function of the second kind.
-   *   @param  _Aip  The output derivative of the Airy function
-   *                  of the first kind.
-   *   @param  _Bip  The output derivative of the Airy function
-   *                  of the second kind.
+   * @param  __z  The argument of the Airy functions.
+   * @return A struct containing the Airy functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__airy_t<_Tp, _Tp>
@@ -495,31 +482,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return __ai_t{__z, _Tp{0}, _Tp{0}, _Tp{0}, _Tp{0}};
       else if (__z > _Tp{0})
 	{
-	  auto _Bess13 = __cyl_bessel_ik(_Tp{1} / _Tp{3}, __xi);
-	  auto _Ai = __rootz * _Bess13.__K_value / (_S_sqrt3 * _S_pi);
-	  auto _Bi = __rootz * (_Bess13.__K_value / _S_pi
-		     + _Tp{2} * _Bess13.__I_value / _S_sqrt3);
+	  const auto _Bess13 = __cyl_bessel_ik(_Tp{1} / _Tp{3}, __xi);
+	  const auto _Ai = __rootz * _Bess13.__K_value / (_S_sqrt3 * _S_pi);
+	  const auto _Bi = __rootz * (_Bess13.__K_value / _S_pi
+				    + _Tp{2} * _Bess13.__I_value / _S_sqrt3);
 
-	  auto _Bess23 = __cyl_bessel_ik(_Tp{2} / _Tp{3}, __xi);
-	  auto _Aip = -__z * _Bess23.__K_value / (_S_sqrt3 * _S_pi);
-	  auto _Bip = __z * (_Bess23.__K_value / _S_pi
-		  + _Tp{2} * _Bess23.__I_value / _S_sqrt3);
+	  const auto _Bess23 = __cyl_bessel_ik(_Tp{2} / _Tp{3}, __xi);
+	  const auto _Aip = -__z * _Bess23.__K_value / (_S_sqrt3 * _S_pi);
+	  const auto _Bip = __z * (_Bess23.__K_value / _S_pi
+				 + _Tp{2} * _Bess23.__I_value / _S_sqrt3);
 
 	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
 	}
       else if (__z < _Tp{0})
 	{
-	  auto _Bess13 = __cyl_bessel_jn(_Tp{1} / _Tp{3}, __xi);
-	  auto _Ai = +__rootz * (_Bess13.__J_value
-			       - _Bess13.__N_value / _S_sqrt3) / _Tp{2};
-	  auto _Bi = -__rootz * (_Bess13.__N_value
-			       + _Bess13.__J_value / _S_sqrt3) / _Tp{2};
+	  const auto _Bess13 = __cyl_bessel_jn(_Tp{1} / _Tp{3}, __xi);
+	  const auto _Ai = +__rootz * (_Bess13.__J_value
+				     - _Bess13.__N_value / _S_sqrt3) / _Tp{2};
+	  const auto _Bi = -__rootz * (_Bess13.__N_value
+				     + _Bess13.__J_value / _S_sqrt3) / _Tp{2};
 
-	  auto _Bess23 = __cyl_bessel_jn(_Tp{2} / _Tp{3}, __xi);
-	  auto _Aip = __absz * (_Bess23.__N_value / _S_sqrt3
-			      + _Bess23.__J_value) / _Tp{2};
-	  auto _Bip = __absz * (_Bess23.__J_value / _S_sqrt3
-			      - _Bess23.__N_value) / _Tp{2};
+	  const auto _Bess23 = __cyl_bessel_jn(_Tp{2} / _Tp{3}, __xi);
+	  const auto _Aip = __absz * (_Bess23.__N_value / _S_sqrt3
+				    + _Bess23.__J_value) / _Tp{2};
+	  const auto _Bip = __absz * (_Bess23.__J_value / _S_sqrt3
+				    - _Bess23.__N_value) / _Tp{2};
 
 	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
 	}
@@ -528,14 +515,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  // Reference:
 	  //  Abramowitz & Stegun, page 446 section 10.4.4 on Airy functions.
 	  // The number is Ai(0) = 3^{-2/3}/\Gamma(2/3).
-	  auto _Ai = _Tp{0.3550280538878172392600631860041831763979791741991772L};
-	  auto _Bi = _Ai * _S_sqrt3;
+	  const auto _Ai
+	    = _Tp{0.3550280538878172392600631860041831763979791741991772L};
+	  const auto _Bi = _Ai * _S_sqrt3;
 
 	  // Reference:
 	  //  Abramowitz & Stegun, page 446 section 10.4.5 on Airy functions.
 	  // The number is Ai'(0) = -3^{-1/3}/\Gamma(1/3).
-	  auto _Aip = -_Tp{0.25881940379280679840518356018920396347909113835493L};
-	  auto _Bip = -_Aip * _S_sqrt3;
+	  const auto _Aip
+	    = -_Tp{0.25881940379280679840518356018920396347909113835493L};
+	  const auto _Bip = -_Aip * _S_sqrt3;
 
 	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
 	}
@@ -554,21 +543,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f]
    *
    * @param  __x   The argument of the Airy functions.
-   * @return  A struct containing all the values and derivatives.
+   * @return A struct containing the Fock-type Airy functions
+   *         of the first and second kinds and their derivatives.
    */
   template<typename _Tp>
     __gnu_cxx::__fock_airy_t<_Tp, std::complex<_Tp>>
     __fock_airy(_Tp __x)
     {
-      using __fock_t = __gnu_cxx::__fock_airy_t<_Tp, std::complex<_Tp>>;
+      using _Cmplx = std::complex<_Tp>;
+      using __fock_t = __gnu_cxx::__fock_airy_t<_Tp, _Cmplx>;
       const auto _S_sqrtpi = __gnu_cxx::__const_root_pi(__x);
 
-      auto _Ai = __airy(__x);
+      const auto _Ai = __airy(__x);
 
-      auto __w1 = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_value, _Ai.__Bi_value);
-      auto __w1p = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_deriv, _Ai.__Bi_deriv);
-      auto __w2 = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_value, -_Ai.__Bi_value);
-      auto __w2p = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_deriv, -_Ai.__Bi_deriv);
+      const auto __w1 = _S_sqrtpi * _Cmplx(_Ai.__Ai_value, _Ai.__Bi_value);
+      const auto __w1p = _S_sqrtpi * _Cmplx(_Ai.__Ai_deriv, _Ai.__Bi_deriv);
+      const auto __w2 = _S_sqrtpi * _Cmplx(_Ai.__Ai_value, -_Ai.__Bi_value);
+      const auto __w2p = _S_sqrtpi * _Cmplx(_Ai.__Ai_deriv, -_Ai.__Bi_deriv);
 
       return __fock_t{__x, __w1, __w1p, __w2, __w2p};
     }

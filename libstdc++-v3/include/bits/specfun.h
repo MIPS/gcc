@@ -1,4 +1,4 @@
-// math special functions -*- C++ -*-
+// Special functions -*- C++ -*-
 
 // Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
@@ -54,11 +54,15 @@
 #  include <bits/numeric_limits.h>
 #  include <bits/complex_util.h>
 #  include <bits/sf_trig.tcc>
+#  include <bits/sf_bernoulli.tcc>
 #  include <bits/sf_gamma.tcc>
+#  include <bits/sf_euler.tcc>
+#  include <bits/sf_stirling.tcc>
 #  include <bits/sf_bessel.tcc>
 #  include <bits/sf_beta.tcc>
 #  include <bits/sf_cardinal.tcc>
 #  include <bits/sf_chebyshev.tcc>
+#  include <bits/sf_coulomb.tcc>
 #  include <bits/sf_dawson.tcc>
 #  include <bits/sf_ellint.tcc>
 #  include <bits/sf_expint.tcc>
@@ -69,7 +73,6 @@
 #  include <bits/sf_jacobi.tcc>
 #  include <bits/sf_laguerre.tcc>
 #  include <bits/sf_legendre.tcc>
-#  include <bits/sf_hydrogen.tcc>
 #  include <bits/sf_mod_bessel.tcc>
 #  include <bits/sf_hermite.tcc>
 #  include <bits/sf_theta.tcc>
@@ -126,6 +129,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * IS 29124 - Extensions to the C++ Library to Support Mathematical Special
    * Functions</a>.
    *
+   * Follow-up proosals for new special functions have also been published:
+   * <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3494.pdf">
+   * A proposal to add special mathematical functions according to
+   * the ISO/IEC 80000-2:2009 standard, Vincent Reverdy</a>.
+   *
+   * <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2004/n1668.pdf">
+   * A Proposal to add Mathematical Functions for Statistics
+   * to the C++ Standard Library, Paul A Bristow</a>.
+   *
+   * <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0081r0.pdf">
+   * A proposal to add sincos to the standard library, Paul Dreik</a>.
+
    * For C++17 these functions were incorporated into the main standard.
    *
    * @section contents Contents
@@ -162,15 +177,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * In addition a large number of new functions are added as extensions:
    * - @ref __gnu_cxx::airy_ai "airy_ai - Airy functions of the first kind"
    * - @ref __gnu_cxx::airy_bi "airy_bi - Airy functions of the second kind"
-   * - @ref __gnu_cxx::bincoef "bincoef - Binomial coefficients"
+   * - @ref __gnu_cxx::bernoulli "bernoulli - Bernoulli polynomials"
+   * - @ref __gnu_cxx::binomial "binomial - Binomial coefficients"
    * - @ref __gnu_cxx::bose_einstein "bose_einstein - Bose-Einstein integrals"
    * - @ref __gnu_cxx::chebyshev_t "chebyshev_t - Chebyshev polynomials of the first kind"
    * - @ref __gnu_cxx::chebyshev_u "chebyshev_u - Chebyshev polynomials of the second kind"
    * - @ref __gnu_cxx::chebyshev_v "chebyshev_v - Chebyshev polynomials of the third kind"
    * - @ref __gnu_cxx::chebyshev_w "chebyshev_w - Chebyshev polynomials of the fourth kind"
    * - @ref __gnu_cxx::clausen "clausen - Clausen integrals"
-   * - @ref __gnu_cxx::clausen_c "clausen_c - Clausen cosine integrals"
-   * - @ref __gnu_cxx::clausen_s "clausen_s - Clausen sine integrals"
+   * - @ref __gnu_cxx::clausen_cl "clausen_cl - Clausen cosine integrals"
+   * - @ref __gnu_cxx::clausen_sl "clausen_sl - Clausen sine integrals"
    * - @ref __gnu_cxx::comp_ellint_d "comp_ellint_d - Incomplete Legendre D elliptic integral"
    * - @ref __gnu_cxx::conf_hyperg_lim "conf_hyperg_lim - Confluent hypergeometric limit functions"
    * - @ref __gnu_cxx::cos_pi "cos_pi - Reperiodized cosine function."
@@ -180,11 +196,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * - @ref __gnu_cxx::cyl_hankel_1 "cyl_hankel_1 - Cylindrical Hankel functions of the first kind"
    * - @ref __gnu_cxx::cyl_hankel_2 "cyl_hankel_2 - Cylindrical Hankel functions of the second kind"
    * - @ref __gnu_cxx::dawson "dawson - Dawson integrals"
+   * - @ref __gnu_cxx::debye "debye - Debye functions"
    * - @ref __gnu_cxx::dilog "dilog - Dilogarithm functions"
    * - @ref __gnu_cxx::dirichlet_beta "dirichlet_beta - Dirichlet beta function"
    * - @ref __gnu_cxx::dirichlet_eta "dirichlet_eta - Dirichlet beta function"
    * - @ref __gnu_cxx::dirichlet_lambda "dirichlet_lambda - Dirichlet lambda function"
-   * - @ref __gnu_cxx::double_factorial "double_factorial - "
+   * - @ref __gnu_cxx::double_factorial "double_factorial - Double factorials"
    * - @ref __gnu_cxx::ellint_d "ellint_d - Legendre D elliptic integrals"
    * - @ref __gnu_cxx::ellint_rc "ellint_rc - Carlson elliptic functions R_C"
    * - @ref __gnu_cxx::ellint_rd "ellint_rd - Carlson elliptic functions R_D"
@@ -192,11 +209,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * - @ref __gnu_cxx::ellint_rg "ellint_rg - Carlson elliptic functions R_G"
    * - @ref __gnu_cxx::ellint_rj "ellint_rj - Carlson elliptic functions R_J"
    * - @ref __gnu_cxx::ellnome "ellnome - Elliptic nome"
+   * - @ref __gnu_cxx::euler "euler - Euler numbers"
+   * - @ref __gnu_cxx::euler "euler - Euler polynomials"
+   * - @ref __gnu_cxx::eulerian_1 "eulerian_1 - Eulerian numbers of the first kind"
+   * - @ref __gnu_cxx::eulerian_2 "eulerian_2 - Eulerian numbers of the second kind"
    * - @ref __gnu_cxx::expint "expint - Exponential integrals"
    * - @ref __gnu_cxx::factorial "factorial - Factorials"
+   * - @ref __gnu_cxx::falling_factorial "falling_factorial - Falling factorials"
    * - @ref __gnu_cxx::fermi_dirac "fermi_dirac - Fermi-Dirac integrals"
    * - @ref __gnu_cxx::fresnel_c "fresnel_c - Fresnel cosine integrals"
    * - @ref __gnu_cxx::fresnel_s "fresnel_s - Fresnel sine integrals"
+   * - @ref __gnu_cxx::gamma_reciprocal "gamma_reciprocal - Reciprocal gamma function"
    * - @ref __gnu_cxx::gegenbauer "gegenbauer - Gegenbauer polynomials"
    * - @ref __gnu_cxx::heuman_lambda "heuman_lambda - Heuman lambda functions"
    * - @ref __gnu_cxx::hurwitz_zeta "hurwitz_zeta - Hurwitz zeta functions"
@@ -206,22 +229,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * - @ref __gnu_cxx::jacobi_cn "jacobi_cn - Jacobi cosine amplitude functions"
    * - @ref __gnu_cxx::jacobi_dn "jacobi_dn - Jacobi delta amplitude functions"
    * - @ref __gnu_cxx::jacobi_zeta "jacobi_zeta - Jacobi zeta functions"
-   * - @ref __gnu_cxx::lbincoef "lbincoef - Log binomial coefficients"
+   * - @ref __gnu_cxx::lbinomial "lbinomial - Log binomial coefficients"
    * - @ref __gnu_cxx::ldouble_factorial "ldouble_factorial - Log double factorials"
    * - @ref __gnu_cxx::legendre_q "legendre_q - Legendre functions of the second kind"
    * - @ref __gnu_cxx::lfactorial "lfactorial - Log factorials"
+   * - @ref __gnu_cxx::lfalling_factorial "lfalling_factorial - Log falling factorials"
    * - @ref __gnu_cxx::lgamma "lgamma - Log gamma for complex arguments"
-   * - @ref __gnu_cxx::lpochhammer_lower "lpochhammer_lower - Log lower Pochhammer functions"
-   * - @ref __gnu_cxx::lpochhammer "lpochhammer - Log upper Pochhammer functions"
+   * - @ref __gnu_cxx::lrising_factorial "lrising_factorial - Log rising factorials"
    * - @ref __gnu_cxx::owens_t "owens_t - Owens T functions"
    * - @ref __gnu_cxx::pgamma "pgamma - Regularized lower incomplete gamma functions"
-   * - @ref __gnu_cxx::pochhammer_lower "pochhammer_lower - Lower Pochhammer functions"
-   * - @ref __gnu_cxx::pochhammer "pochhammer - Upper Pochhammer functions"
    * - @ref __gnu_cxx::psi "psi - Psi or digamma function"
    * - @ref __gnu_cxx::qgamma "qgamma - Regularized upper incomplete gamma functions"
    * - @ref __gnu_cxx::radpoly "radpoly - Radial polynomials"
+   * - @ref __gnu_cxx::rising_factorial "rising_factorial - Rising factorials"
    * - @ref __gnu_cxx::sinhc "sinhc - Hyperbolic sinus cardinal function"
-   * - @ref __gnu_cxx::sinhc_pi "sinhc_pi - "
+   * - @ref __gnu_cxx::sinhc_pi "sinhc_pi - Reperiodized hyperbolic sinus cardinal function"
    * - @ref __gnu_cxx::sinc "sinc - Normalized sinus cardinal function"
    * - @ref __gnu_cxx::sincos "sincos - Sine + cosine function"
    * - @ref __gnu_cxx::sincos_pi "sincos_pi - Reperiodized sine + cosine function"
@@ -235,6 +257,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * - @ref __gnu_cxx::sph_hankel_1 "sph_hankel_1 - Spherical Hankel functions of the first kind"
    * - @ref __gnu_cxx::sph_hankel_2 "sph_hankel_2 - Spherical Hankel functions of the first kind"
    * - @ref __gnu_cxx::sph_harmonic "sph_harmonic - Spherical"
+   * - @ref __gnu_cxx::stirling_1 "stirling_1 - Stirling numbers of the first kind"
+   * - @ref __gnu_cxx::stirling_2 "stirling_2 - Stirling numbers of the second kind"
    * - @ref __gnu_cxx::tan_pi "tan_pi - Reperiodized tangent function."
    * - @ref __gnu_cxx::tanh_pi "tanh_pi - Reperiodized hyperbolic tangent function."
    * - @ref __gnu_cxx::tgamma "tgamma - Gamma for complex arguments"
@@ -244,6 +268,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * - @ref __gnu_cxx::theta_2 "theta_2 - Exponential theta function 2"
    * - @ref __gnu_cxx::theta_3 "theta_3 - Exponential theta function 3"
    * - @ref __gnu_cxx::theta_4 "theta_4 - Exponential theta function 4"
+   * - @ref __gnu_cxx::tricomi_u "tricomi_u - Tricomi confluent hypergeometric function"
    * - @ref __gnu_cxx::zernike "zernike - Zernike polynomials"
    *
    * @section general General Features
@@ -1183,7 +1208,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * and
    * @f[
    * 	\zeta(s) = \frac{1}{1-2^{1-s}}\sum_{k=1}^{\infty}(-1)^{k-1}k^{-s}
-   *              \mbox{ for } 0 <= s <= 1
+   *              \mbox{ for } 0 <= s < 1
    * @f]
    * For s < 1 use the reflection formula:
    * @f[
@@ -1270,12 +1295,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the spherical Legendre function of nonnegative integral
-   * degree @f$ l @f$ and order @f$ m @f$ and real angle @f$ \theta @f$ in radians.
+   * degree @f$ l @f$ and order @f$ m @f$ and real angle @f$ \theta @f$
+   * in radians.
    *
    * The spherical Legendre function is defined by
    * @f[
-   *  Y_l^m(\theta,\phi) = (-1)^m[\frac{(2l+1)}{4\pi}
-   *                              \frac{(l-m)!}{(l+m)!}]
+   *  Y_l^m(\theta,\phi) = (-1)^m\frac{(2l+1)}{4\pi} \frac{(l-m)!}{(l+m)!}
    *                   P_l^m(\cos\theta) \exp^{im\phi}
    * @f]
    *
@@ -1399,6 +1424,56 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tpa, _Tpc, _Tp>;
       return std::__detail::__conf_hyperg<__type>(__a, __c, __x);
+    }
+
+  // Confluent hypergeometric functions
+
+  /**
+   * Return the Tricomi confluent hypergeometric function @f$ U(a,c,x) @f$
+   * of @c float numeratorial parameter @f$ a @f$, denominatorial parameter @f$ c @f$,
+   * and argument @f$ x @f$.
+   *
+   * @see tricomi_u for details.
+   */
+  inline float
+  tricomi_uf(float __a, float __c, float __x)
+  { return std::__detail::__tricomi_u<float>(__a, __c, __x); }
+
+  /**
+   * Return the Tricomi confluent hypergeometric function @f$ U(a,c,x) @f$
+   * of <tt>long double</tt> numeratorial parameter @f$ a @f$,
+   * denominatorial parameter @f$ c @f$, and argument @f$ x @f$.
+   *
+   * @see tricomi_u for details.
+   */
+  inline long double
+  tricomi_ul(long double __a, long double __c, long double __x)
+  { return std::__detail::__tricomi_u<long double>(__a, __c, __x); }
+
+  /**
+   * Return the Tricomi confluent hypergeometric function @f$ U(a,c,x) @f$
+   * of real numeratorial parameter @f$ a @f$, denominatorial parameter @f$ c @f$,
+   * and argument @f$ x @f$.
+   *
+   * The Tricomi confluent hypergeometric function is defined by
+   * @f[
+   *    U(a,c,x) = \frac{\Gamma(1-c)}{\Gamma(a-c+1)} {}_1F_1(a;c;x)
+   *       + \frac{\Gamma(c-1)}{\Gamma(a)} x^{1-c} {}_1F_1(a-c+1;2-c;x)
+   * @f]
+   * where @f$ {}_1F_1(a;c;x) @f$ if the confluent hypergeometric function.
+   *
+   * @see conf_hyperg.
+   *
+   * @param __a The numeratorial parameter
+   * @param __c The denominatorial parameter
+   * @param __x The argument
+   */
+  template<typename _Tpa, typename _Tpc, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tpa, _Tpc, _Tp>
+    tricomi_u(_Tpa __a, _Tpc __c, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tpa, _Tpc, _Tp>;
+      return std::__detail::__tricomi_u<__type>(__a, __c, __x);
     }
 
   // Hypergeometric functions
@@ -1778,18 +1853,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return std::__detail::__coshint<__type>(__x);
     }
 
-  // Slots for Jacobi elliptic function tuple.
-  enum
-  {
-    _GLIBCXX_JACOBI_SN,
-    _GLIBCXX_JACOBI_CN,
-    _GLIBCXX_JACOBI_DN
-  };
-
   // Jacobi elliptic sine amplitude functions.
 
   /**
-   * Return the Jacobi elliptic @f$ sn(k,u) @f$ integral
+   * Return the Jacobi elliptic sine amplitude function @f$ sn(k,u) @f$
    * of @c float modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_sn for details.
@@ -1797,12 +1864,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline float
   jacobi_snf(float __k, float __u)
   {
-    return std::get<_GLIBCXX_JACOBI_SN>
-		(std::__detail::__jacobi_sncndn<float>(__k, __u));
+    return std::__detail::__jacobi_sncndn<float>(__k, __u).__sn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ sn(k,u) @f$ integral
+   * Return the Jacobi elliptic sine amplitude function @f$ sn(k,u) @f$
    * of <tt>long double</tt> modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_sn for details.
@@ -1810,19 +1876,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline long double
   jacobi_snl(long double __k, long double __u)
   {
-    return std::get<_GLIBCXX_JACOBI_SN>
-		(std::__detail::__jacobi_sncndn<long double>(__k, __u));
+    return std::__detail::__jacobi_sncndn<long double>(__k, __u).__sn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ sn(k,u) @f$ integral
+   * Return the Jacobi elliptic sine amplitude function @f$ sn(k,u) @f$
    * of real modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * The Jacobi elliptic @c sn integral is defined by
    * @f[
    *    \sin(\phi) = sn(k, F(k,\phi))
    * @f]
-   * where @f$ F(k,\phi) @f$ is the elliptic integral of the first kind.
+   * where @f$ F(k,\phi) @f$ is the Legendre elliptic integral
+   * of the first kind (@see ellint_1).
    *
    * @tparam _Kp The type of the real modulus
    * @tparam _Up The type of the real argument
@@ -1834,14 +1900,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     jacobi_sn(_Kp __k, _Up __u)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Kp, _Up>;
-      return std::get<_GLIBCXX_JACOBI_SN>
-		(std::__detail::__jacobi_sncndn<__type>(__k, __u));
+      return std::__detail::__jacobi_sncndn<__type>(__k, __u).__sn_value;
     }
 
   // Jacobi elliptic cosine amplitude functions.
 
   /**
-   * Return the Jacobi elliptic @f$ cn(k,u) @f$ integral
+   * Return the Jacobi elliptic cosine amplitude function @f$ cn(k,u) @f$
    * of @c float modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_cn for details.
@@ -1849,12 +1914,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline float
   jacobi_cnf(float __k, float __u)
   {
-    return std::get<_GLIBCXX_JACOBI_CN>
-		(std::__detail::__jacobi_sncndn<float>(__k, __u));
+    return std::__detail::__jacobi_sncndn<float>(__k, __u).__cn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ cn(k,u) @f$ integral
+   * Return the Jacobi elliptic cosine amplitude function @f$ cn(k,u) @f$
    * of <tt>long double</tt> modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_cn for details.
@@ -1862,19 +1926,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline long double
   jacobi_cnl(long double __k, long double __u)
   {
-    return std::get<_GLIBCXX_JACOBI_CN>
-		(std::__detail::__jacobi_sncndn<long double>(__k, __u));
+    return std::__detail::__jacobi_sncndn<long double>(__k, __u).__cn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ cn(k,u) @f$ integral
+   * Return the Jacobi elliptic cosine amplitude function @f$ cn(k,u) @f$
    * of real modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * The Jacobi elliptic @c cn integral is defined by
    * @f[
    *    \cos(\phi) = cn(k, F(k,\phi))
    * @f]
-   * where @f$ F(k,\phi) @f$ is the elliptic integral of the first kind.
+   * where @f$ F(k,\phi) @f$ is the Legendre elliptic integral
+   * of the first kind (@see ellint_1).
    *
    * @tparam _Kp The type of the real modulus
    * @tparam _Up The type of the real argument
@@ -1886,14 +1950,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     jacobi_cn(_Kp __k, _Up __u)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Kp, _Up>;
-      return std::get<_GLIBCXX_JACOBI_CN>
-		(std::__detail::__jacobi_sncndn<__type>(__k, __u));
+      return std::__detail::__jacobi_sncndn<__type>(__k, __u).__cn_value;
     }
 
   // Jacobi elliptic delta amplitude functions.
 
   /**
-   * Return the Jacobi elliptic @f$ dn(k,u) @f$ integral
+   * Return the Jacobi elliptic delta amplitude function @f$ dn(k,u) @f$
    * of @c float modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_dn for details.
@@ -1901,12 +1964,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline float
   jacobi_dnf(float __k, float __u)
   {
-    return std::get<_GLIBCXX_JACOBI_DN>
-		(std::__detail::__jacobi_sncndn<float>(__k, __u));
+    return std::__detail::__jacobi_sncndn<float>(__k, __u).__dn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ dn(k,u) @f$ integral
+   * Return the Jacobi elliptic delta amplitude function @f$ dn(k,u) @f$
    * of <tt>long double</tt> modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * @see jacobi_dn for details.
@@ -1914,19 +1976,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   inline long double
   jacobi_dnl(long double __k, long double __u)
   {
-    return std::get<_GLIBCXX_JACOBI_DN>
-		(std::__detail::__jacobi_sncndn<long double>(__k, __u));
+    return std::__detail::__jacobi_sncndn<long double>(__k, __u).__dn_value;
   }
 
   /**
-   * Return the Jacobi elliptic @f$ dn(k,u) @f$ integral
+   * Return the Jacobi elliptic delta amplitude function @f$ dn(k,u) @f$
    * of real modulus @f$ k @f$ and argument @f$ u @f$.
    *
    * The Jacobi elliptic @c dn integral is defined by
    * @f[
    *    \sqrt{1 - k^2\sin(\phi)} = dn(k, F(k,\phi))
    * @f]
-   * where @f$ F(k,\phi) @f$ is the elliptic integral of the first kind.
+   * where @f$ F(k,\phi) @f$ is the Legendre elliptic integral
+   * of the first kind (@see ellint_1).
    *
    * @tparam _Kp The type of the real modulus
    * @tparam _Up The type of the real argument
@@ -1938,8 +2000,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     jacobi_dn(_Kp __k, _Up __u)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Kp, _Up>;
-      return std::get<_GLIBCXX_JACOBI_DN>
-		(std::__detail::__jacobi_sncndn<__type>(__k, __u));
+      return std::__detail::__jacobi_sncndn<__type>(__k, __u).__dn_value;
     }
 
   // Chebyshev polynomials of the first kind
@@ -2449,10 +2510,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f$ H^{(1)}_n(x) @f$ of real order @f$ \nu @f$
    * and argument @f$ x >= 0 @f$.
    *
-   * The cylindrical Hankel function of the first kind is defined by:
+   * The spherical Hankel function of the first kind is defined by:
    * @f[
-   *    H^{(1)}_\nu(x) = \left(\frac{\pi}{2x} \right) ^{1/2}
-   *       \left[ J_{n+1/2}(x) + iN_{n+1/2}(x) \right]
+   *    H^{(1)}_\nu(x) = J_\nu(x) + iN_\nu(x)
    * @f]
    * where @f$ J_\nu(x) @f$ and @f$ N_\nu(x) @f$ are the cylindrical Bessel
    * and Neumann functions respectively (@see cyl_bessel and cyl_neumann).
@@ -2500,8 +2560,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The cylindrical Hankel function of the second kind is defined by:
    * @f[
-   *    H^{(2)}_\nu(x) = \left(\frac{\pi}{2x} \right) ^{1/2}
-   *       \left[ J_{n+1/2}(x) - iN_{n+1/2}(x) \right]
+   *    H^{(2)}_\nu(x) = J_\nu(x) - iN_\nu(x)
    * @f]
    * where @f$ J_\nu(x) @f$ and @f$ N_\nu(x) @f$ are the cylindrical Bessel
    * and Neumann functions respectively (@see cyl_bessel and cyl_neumann).
@@ -2548,6 +2607,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f[
    *    h^{(1)}_n(x) = \left(\frac{\pi}{2x} \right) ^{1/2} H^{(1)}_{n+1/2}(x)
    * @f]
+   * or in terms of the cylindrical Bessel and Neumann functions by:
+   * @f[
+   *    h^{(1)}_n(x) = \left(\frac{\pi}{2x} \right) ^{1/2}
+   *       \left[ J_{n+1/2}(x) + iN_{n+1/2}(x) \right]
+   * @f]
    *
    * @tparam _Tp The real type of the argument
    * @param __n The non-negative order
@@ -2590,6 +2654,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * The spherical Hankel function of the second kind is defined by:
    * @f[
    *    h^{(2)}_n(x) = \left(\frac{\pi}{2x} \right) ^{1/2} H^{(2)}_{n+1/2}(x)
+   * @f]
+   * or in terms of the cylindrical Bessel and Neumann functions by:
+   * @f[
+   *    h^{(2)}_n(x) = \left(\frac{\pi}{2x} \right) ^{1/2}
+   *       \left[ J_{n+1/2}(x) - iN_{n+1/2}(x) \right]
    * @f]
    *
    * @tparam _Tp The real type of the argument
@@ -2813,7 +2882,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     airy_bi(std::complex<_Tp> __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__airy<__type>(__x).__Bi_value;
+      return std::__detail::__airy_bi<__type>(__x);
+    }
+
+  // Log Gamma function for real argument.
+
+  /**
+   * Return the logarithm of the gamma function for
+   * <tt> float </tt> argument.
+   *
+   * @see lgamma for details.
+   */
+  inline float
+  lgammaf(float __a)
+  { return std::__detail::__log_gamma<float>(__a); }
+
+  /**
+   * Return the logarithm of the gamma function for
+   * <tt> long double </tt> argument.
+   *
+   * @see lgamma for details.
+   */
+  inline long double
+  lgammal(long double __a)
+  { return std::__detail::__log_gamma<long double>(__a); }
+
+  /**
+   * Return the logarithm of the gamma function for real argument.
+   */
+  template<typename _Ta>
+    inline __gnu_cxx::__promote_fp_t<_Ta>
+    lgamma(_Ta __a)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta>;
+      return std::__detail::__log_gamma<__type>(__a);
     }
 
   // Log Gamma function for complex argument.
@@ -2847,6 +2949,38 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using __type = std::complex<__gnu_cxx::__promote_fp_t<_Ta>>;
       return std::__detail::__log_gamma<__type>(__a);
+    }
+
+  // Gamma function for real argument.
+
+  /**
+   * Return the gamma function for <tt> float </tt> argument.
+   *
+   * @see lgamma for details.
+   */
+  inline float
+  tgammaf(float __a)
+  { return std::__detail::__gamma<float>(__a); }
+
+  /**
+   * Return the gamma function for <tt> long double </tt>
+   * argument.
+   *
+   * @see lgamma for details.
+   */
+  inline long double
+  tgammal(long double __a)
+  { return std::__detail::__gamma<long double>(__a); }
+
+  /**
+   * Return the gamma function for real argument.
+   */
+  template<typename _Ta>
+    inline __gnu_cxx::__promote_fp_t<_Ta>
+    tgamma(_Ta __a)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta>;
+      return std::__detail::__gamma<__type>(__a);
     }
 
   // Gamma function for complex argument.
@@ -3334,8 +3468,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { return std::__detail::__hurwitz_zeta<float>(__s, __a); }
 
   /**
-   * Return the Hurwitz zeta function of <tt>long double</tt> argument @f$ s @f$,
-   * and parameter @f$ a @f$.
+   * Return the Hurwitz zeta function of <tt>long double</tt>
+   * argument @f$ s @f$, and parameter @f$ a @f$.
    *
    * @see hurwitz_zeta for details.
    */
@@ -3344,7 +3478,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { return std::__detail::__hurwitz_zeta<long double>(__s, __a); }
 
   /**
-   * Return the Hurwitz zeta function of real argument @f$ s @f$, and parameter @f$ a @f$.
+   * Return the Hurwitz zeta function of real argument @f$ s @f$,
+   * and parameter @f$ a @f$.
    *
    * The the Hurwitz zeta function is defined by
    * @f[
@@ -3416,11 +3551,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return std::__detail::__psi<__type>(__x);
     }
 
+  /**
+   * Return the harmonic number @f$ H_n @f$.
+   *
+   * The the harmonic number is defined by
+   * @f[
+   *    H_n = \sum_{k=1}^{n}\frac{1}{k}
+   * @f]
+   *
+   * @param __n The parameter
+   */
+  template<typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tp>
+    harmonic(unsigned int __n)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__harmonic_number<__type>(__n);
+    }
+
   // Incomplete beta functions
 
   /**
-   * Return the regularized incomplete beta function of parameters @f$ a @f$, @f$ b @f$,
-   * and argument @f$ x @f$.
+   * Return the regularized incomplete beta function of parameters
+   * @f$ a @f$, @f$ b @f$, and argument @f$ x @f$.
    *
    * See ibeta for details.
    */
@@ -3564,7 +3717,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { return std::__detail::__dawson<float>(__x); }
 
   /**
-   * Return the Dawson integral, @f$ F(x) @f$, for <tt>long double</tt> argument @f$ x @f$.
+   * Return the Dawson integral, @f$ F(x) @f$,
+   * for <tt>long double</tt> argument @f$ x @f$.
    *
    * @see dawson for details.
    */
@@ -3640,102 +3794,214 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return std::__detail::__expint<__type>(__n, __x);
     }
 
-  //  Log upper Pochhammer symbol
-
-  inline float
-  lpochhammerf(float __a, float __n)
-  { return std::__detail::__log_pochhammer<float>(__a, __n); }
-
-  inline long double
-  lpochhammerl(long double __a, long double __n)
-  { return std::__detail::__log_pochhammer<long double>(__a, __n); }
+  //  Log rising factorials
 
   /**
-   * 
+   * Return the logarithm of the rising factorial @f$ a^{\overline{\nu}} @f$
+   * for float arguments.
+   *
+   * @see lrising_factorial for details.
    */
-  template<typename _Tp, typename _Tn>
-    inline __gnu_cxx::__promote_fp_t<_Tp, _Tn>
-    lpochhammer(_Tp __a, _Tn __n)
+  inline float
+  lrising_factorialf(float __a, float __nu)
+  { return std::__detail::__log_rising_factorial<float>(__a, __nu); }
+
+  /**
+   * Return the logarithm of the rising factorial @f$ ln(a^{\overline{\nu}}) @f$
+   * for <tt> long double </tt> arguments.
+   *
+   * @see lrising_factorial for details.
+   */
+  inline long double
+  lrising_factoriall(long double __a, long double __nu)
+  { return std::__detail::__log_rising_factorial<long double>(__a, __nu); }
+
+  /**
+   * @brief  Return the logarithm of the rising factorial function
+   * or the (upper) Pochhammer symbol.
+   * The rising factorial function is defined for integer order by
+   * @f[
+   *   a^{\overline{\nu}} = \Gamma(a + \nu) / \Gamma(n)
+   *	     = \prod_{k=0}^{\nu-1} (a + k), \overline{0} = 1
+   * @f]
+   * Thus this function returns
+   * @f[
+   *   ln[a^{\overline{\nu}}] = ln[\Gamma(a + \nu)] - ln[\Gamma(\nu)],
+   *      ln[a^{\overline{0}}] = 0
+   * @f]
+   * Many notations exist for this function: @f$ (a)_\nu @f$
+   * (especially in the literature of special functions),
+   *  @f[ \left[ \begin{array}{c}
+   *	  a \\
+   *	  \nu \end{array} \right] @f], and others.
+   */
+  template<typename _Tp, typename _Tnu>
+    inline __gnu_cxx::__promote_fp_t<_Tp, _Tnu>
+    lrising_factorial(_Tp __a, _Tnu __nu)
     {
-      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tn>;
-      return std::__detail::__log_pochhammer<__type>(__a, __n);
+      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tnu>;
+      return std::__detail::__log_rising_factorial<__type>(__a, __nu);
     }
 
-  //  Log lower Pochhammer symbol
-
-  inline float
-  lpochhammer_lowerf(float __a, float __n)
-  { return std::__detail::__log_pochhammer_lower<float>(__a, __n); }
-
-  inline long double
-  lpochhammer_lowerl(long double __a, long double __n)
-  { return std::__detail::__log_pochhammer_lower<long double>(__a, __n); }
+  //  Log falling factorials
 
   /**
-   * 
+   * Return the logarithm of the falling factorial @f$ ln(a^{\overline{\nu}})@f$
+   * for float arguments.
+   *
+   * @see lfalling_factorial for details.
    */
-  template<typename _Tp, typename _Tn>
-    inline __gnu_cxx::__promote_fp_t<_Tp, _Tn>
-    lpochhammer_lower(_Tp __a, _Tn __n)
+  inline float
+  lfalling_factorialf(float __a, float __nu)
+  { return std::__detail::__log_falling_factorial<float>(__a, __nu); }
+
+  /**
+   * Return the logarithm of the falling factorial @f$ ln(a^{\overline{\nu}})@f$
+   * for float arguments.
+   *
+   * @see lfalling_factorial for details.
+   */
+  inline long double
+  lfalling_factoriall(long double __a, long double __nu)
+  { return std::__detail::__log_falling_factorial<long double>(__a, __nu); }
+
+  /**
+   * @brief  Return the logarithm of the falling factorial function
+   * or the lower Pochhammer symbol.
+   * The falling factorial function is defined by
+   * @f[
+   *   a^{\underline{n}} = \Gamma(a + 1) / \Gamma(a - \nu + 1)
+   *	     = \prod_{k=0}^{n-1} (a - k), a^{\underline{0}} = 1
+   * @f]
+   * In particular, @f$ n^{\underline{n}} = n! @f$.
+   * Thus this function returns
+   * @f[
+   *   ln[a^{\underline{n}}] = ln[\Gamma(a + 1)] - ln[\Gamma(a - \nu + 1)],
+   *      ln[a^{\underline{0}}] = 0
+   * @f]
+   * Many notations exist for this function: @f$ (a)_\nu @f$,
+   * @f[ \{ \begin{array}{c}
+   *	  a \\
+   *	  \nu \end{array} \}
+   * @f], and others.
+   */
+  template<typename _Tp, typename _Tnu>
+    inline __gnu_cxx::__promote_fp_t<_Tp, _Tnu>
+    lfalling_factorial(_Tp __a, _Tnu __nu)
     {
-      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tn>;
-      return std::__detail::__log_pochhammer_lower<__type>(__a, __n);
+      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tnu>;
+      return std::__detail::__log_falling_factorial<__type>(__a, __nu);
     }
 
-  //  Upper Pochhammer symbols
-
-  inline float
-  pochhammerf(float __a, float __n)
-  { return std::__detail::__pochhammer<float>(__a, __n); }
-
-  inline long double
-  pochhammerl(long double __a, long double __n)
-  { return std::__detail::__pochhammer<long double>(__a, __n); }
+  //  Rising factorials
 
   /**
-   * 
+   * Return the rising factorial @f$ a^{\overline{\nu}} @f$
+   * for float arguments.
+   *
+   * @see rising_factorial for details.
    */
-  template<typename _Tp, typename _Tn>
-    inline __gnu_cxx::__promote_fp_t<_Tp, _Tn>
-    pochhammer(_Tp __a, _Tn __n)
+  inline float
+  rising_factorialf(float __a, float __nu)
+  { return std::__detail::__rising_factorial<float>(__a, __nu); }
+
+  /**
+   * Return the rising factorial @f$ a^{\overline{\nu}} @f$
+   * for <tt> long double </tt> arguments.
+   *
+   * @see rising_factorial for details.
+   */
+  inline long double
+  rising_factoriall(long double __a, long double __nu)
+  { return std::__detail::__rising_factorial<long double>(__a, __nu); }
+
+  /**
+   * @brief  Return the rising factorial function
+   * or the (upper) Pochhammer function.
+   * The rising factorial function is defined by
+   * @f[
+   *   a^{\overline{\nu}} = \Gamma(a + \nu) / \Gamma(\nu)
+   * @f]
+   * Many notations exist for this function: @f$ (a)_\nu @f$,
+   * (especially in the literature of special functions),
+   *  @f[ \left[ \begin{array}{c}
+   *	  a \\
+   *	  n \end{array} \right] @f], and others.
+   */
+  template<typename _Tp, typename _Tnu>
+    inline __gnu_cxx::__promote_fp_t<_Tp, _Tnu>
+    rising_factorial(_Tp __a, _Tnu __nu)
     {
-      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tn>;
-      return std::__detail::__pochhammer<__type>(__a, __n);
+      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tnu>;
+      return std::__detail::__rising_factorial<__type>(__a, __nu);
     }
 
-  //  Lower Pochhammer symbols
-
-  inline float
-  pochhammer_lowerf(float __a, float __n)
-  { return std::__detail::__pochhammer_lower<float>(__a, __n); }
-
-  inline long double
-  pochhammer_lowerl(long double __a, long double __n)
-  { return std::__detail::__pochhammer_lower<long double>(__a, __n); }
+  //  Falling factorials
 
   /**
-   * 
+   * Return the falling factorial @f$ a^{\underline{\nu}} @f$
+   * for float arguments.
+   *
+   * @see falling_factorial for details.
    */
-  template<typename _Tp, typename _Tn>
-    inline __gnu_cxx::__promote_fp_t<_Tp, _Tn>
-    pochhammer_lower(_Tp __a, _Tn __n)
+  inline float
+  falling_factorialf(float __a, float __nu)
+  { return std::__detail::__falling_factorial<float>(__a, __nu); }
+
+  /**
+   * Return the falling factorial @f$ a^{\underline{\nu}} @f$
+   * for <tt> long double </tt> arguments.
+   *
+   * @see falling_factorial for details.
+   */
+  inline long double
+  falling_factoriall(long double __a, long double __nu)
+  { return std::__detail::__falling_factorial<long double>(__a, __nu); }
+
+  /**
+   * @brief  Return the falling factorial function
+   * or the lower Pochhammer symbol for real argument @f$ a @f$
+   * and integral order @f$ n @f$.
+   * The falling factorial function is defined by
+   * @f[
+   *   a^{\underline{n}} = \prod_{k=0}^{n-1} (a - k), a^{\underline{0}} = 1
+   *	     = \Gamma(a + 1) / \Gamma(a - n + 1)
+   * @f]
+   * In particular, @f$ n^{\underline{n}} = n! @f$.
+   */
+  template<typename _Tp, typename _Tnu>
+    inline __gnu_cxx::__promote_fp_t<_Tp, _Tnu>
+    falling_factorial(_Tp __a, _Tnu __nu)
     {
-      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tn>;
-      return std::__detail::__pochhammer_lower<__type>(__a, __n);
+      using __type = __gnu_cxx::__promote_fp_t<_Tp, _Tnu>;
+      return std::__detail::__falling_factorial<__type>(__a, __nu);
     }
 
   // Factorial
 
+  /**
+   * Return the factorial @f$ n! @f$ of the argument as a @c float.
+   *
+   * @see factorial for more details
+   */
   inline float
   factorialf(unsigned int __n)
   { return std::__detail::__factorial<float>(__n); }
 
+  /**
+   * Return the factorial @f$ n! @f$ of the argument as a <tt>long double</tt>.
+   *
+   * @see factorial for more details
+   */
   inline long double
   factoriall(unsigned int __n)
   { return std::__detail::__factorial<long double>(__n); }
 
   /**
-   * 
+   * @brief Return the factorial @f$ n! @f$ of the argument as a real number.
+   * @f[
+   *   n! = 1 \times 2 \times ... \times n, 0! = 1
+   * @f]
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
@@ -3747,16 +4013,36 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Double factorial
 
+  /**
+   * Return the double factorial @f$ n!! @f$ of the argument as a @c float.
+   *
+   * @see double_factorial for more details
+   */
   inline float
   double_factorialf(int __n)
   { return std::__detail::__double_factorial<float>(__n); }
 
+  /**
+   * Return the double factorial @f$ n!! @f$ of the argument
+   * as a <tt> long double </tt>.
+   *
+   * @see double_factorial for more details
+   */
   inline long double
   double_factoriall(int __n)
   { return std::__detail::__double_factorial<long double>(__n); }
 
   /**
-   * 
+   * @brief Return the double factorial @f$ n!! @f$ of the argument
+   * as a real number.
+   * @f[
+   *   n!! = n(n-2)...(2), 0!! = 1
+   * @f]
+   * for even @f$ n @f$ and
+   * @f[
+   *   n!! = n(n-2)...(1), (-1)!! = 1
+   * @f]
+   * for odd @f$ n @f$.
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
@@ -3768,16 +4054,32 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Log factorial
 
+  /**
+   * Return the logarithm of the factorial @f$ ln(n!) @f$ of the argument
+   * as a @c float.
+   *
+   * @see lfactorial for more details
+   */
   inline float
   lfactorialf(unsigned int __n)
   { return std::__detail::__log_factorial<float>(__n); }
 
+  /**
+   * Return the logarithm of the factorial @f$ ln(n!) @f$ of the argument
+   * as a <tt>long double</tt>.
+   *
+   * @see lfactorial for more details
+   */
   inline long double
   lfactoriall(unsigned int __n)
   { return std::__detail::__log_factorial<long double>(__n); }
 
   /**
-   * 
+   * @brief Return the logarithm of the factorial @f$ ln(n!) @f$ of the argument
+   * as a real number.
+   * @f[
+   *   n! = 1 \times 2 \times ... \times n, 0! = 1
+   * @f]
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
@@ -3789,16 +4091,37 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Log double factorial
 
+  /**
+   * Return the logarithm of the double factorial @f$ ln(n!!) @f$
+   * of the argument as a @c float.
+   *
+   * @see ldouble_factorial for more details
+   */
   inline float
   ldouble_factorialf(int __n)
   { return std::__detail::__log_double_factorial<float>(__n); }
 
+  /**
+   * Return the logarithm of the double factorial @f$ ln(n!!) @f$
+   * of the argument as a <tt> long double </tt>.
+   *
+   * @see double_factorial for more details
+   */
   inline long double
   ldouble_factoriall(int __n)
   { return std::__detail::__log_double_factorial<long double>(__n); }
 
   /**
-   * 
+   * @brief Return the logarithm of the double factorial @f$ ln(n!!) @f$
+   * of the argument as a real number.
+   * @f[
+   *   n!! = n(n-2)...(2), 0!! = 1
+   * @f]
+   * for even @f$ n @f$ and
+   * @f[
+   *   n!! = n(n-2)...(1), (-1)!! = 1
+   * @f]
+   * for odd @f$ n @f$.
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
@@ -3810,44 +4133,88 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Binomial coefficient
 
+  /**
+   * Return the binomial coefficient as a @c float.
+   *
+   * @see binomial for details.
+   */
   inline float
-  bincoeff(unsigned int __n, unsigned int __k)
-  { return std::__detail::__bincoef<float>(__n, __k); }
-
-  inline long double
-  bincoefl(unsigned int __n, unsigned int __k)
-  { return std::__detail::__bincoef<long double>(__n, __k); }
+  binomialf(unsigned int __n, unsigned int __k)
+  { return std::__detail::__binomial<float>(__n, __k); }
 
   /**
-   * 
+   * Return the binomial coefficient as a <tt>long double</tt>.
+   *
+   * @see binomial for details.
+   */
+  inline long double
+  binomiall(unsigned int __n, unsigned int __k)
+  { return std::__detail::__binomial<long double>(__n, __k); }
+
+  /**
+   * @brief Return the binomial coefficient as a real number.
+   * The binomial coefficient is given by:
+   * @f[
+   *   \binom{n}{k} = \frac{n!}{(n-k)! k!}
+   * @f]
+   * The binomial coefficients are generated by:
+   * @f[
+   *   \left(1 + t\right)^n = \sum_{k=0}^n \binom{n}{k} t^k
+   * @f]
+   *
+   * @param __n The first argument of the binomial coefficient.
+   * @param __k The second argument of the binomial coefficient.
+   * @return  The binomial coefficient.
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    bincoef(unsigned int __n, unsigned int __k)
+    binomial(unsigned int __n, unsigned int __k)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__bincoef<__type>(__n, __k);
+      return std::__detail::__binomial<__type>(__n, __k);
     }
 
   // Log binomial coefficient
 
+  /**
+   * Return the logarithm of the binomial coefficient as a @c float.
+   *
+   * @see lbinomial for details.
+   */
   inline float
-  lbincoeff(unsigned int __n, unsigned int __k)
-  { return std::__detail::__log_bincoef<float>(__n, __k); }
-
-  inline long double
-  lbincoefl(unsigned int __n, unsigned int __k)
-  { return std::__detail::__log_bincoef<long double>(__n, __k); }
+  lbinomialf(unsigned int __n, unsigned int __k)
+  { return std::__detail::__log_binomial<float>(__n, __k); }
 
   /**
-   * 
+   * Return the logarithm of the binomial coefficient as a <tt>long double</tt>.
+   *
+   * @see lbinomial for details.
+   */
+  inline long double
+  lbinomiall(unsigned int __n, unsigned int __k)
+  { return std::__detail::__log_binomial<long double>(__n, __k); }
+
+  /**
+   * @brief Return the logarithm of the binomial coefficient as a real number.
+   * The binomial coefficient is given by:
+   * @f[
+   *   \binom{n}{k} = \frac{n!}{(n-k)! k!}
+   * @f]
+   * The binomial coefficients are generated by:
+   * @f[
+   *   \left(1 + t\right)^n = \sum_{k=0}^n \binom{n}{k} t^k
+   * @f]
+   *
+   * @param __n The first argument of the binomial coefficient.
+   * @param __k The second argument of the binomial coefficient.
+   * @return  The logarithm of the binomial coefficient.
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    lbincoef(unsigned int __n, unsigned int __k)
+    lbinomial(unsigned int __n, unsigned int __k)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__log_bincoef<__type>(__n, __k);
+      return std::__detail::__log_binomial<__type>(__n, __k);
     }
 
   // Bernoulli numbers
@@ -3876,8 +4243,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The Bernoulli numbers are defined by
    * @f[
-   *    
+   *    B_{2n} = (-1)^{n+1} 2\frac{(2n)!}{(2\pi)^{2n}} \zeta(2n),
+   *    B_1 = -1/2
    * @f]
+   * All odd Bernoulli numbers except @f$ B_1 @f$ are zero.
    *
    * @param __n The order.
    */
@@ -3898,8 +4267,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @see legendre_q for details.
    */
   inline float
-  legendre_qf(unsigned int __n, float __x)
-  { return std::__detail::__legendre_q<float>(__n, __x); }
+  legendre_qf(unsigned int __l, float __x)
+  { return std::__detail::__legendre_q<float>(__l, __x); }
 
   /**
    * Return the Legendre function of the second kind @f$ Q_l(x) @f$
@@ -3908,8 +4277,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @see legendre_q for details.
    */
   inline long double
-  legendre_ql(unsigned int __n, long double __x)
-  { return std::__detail::__legendre_q<long double>(__n, __x); }
+  legendre_ql(unsigned int __l, long double __x)
+  { return std::__detail::__legendre_q<long double>(__l, __x); }
 
   /**
    * Return the Legendre function of the second kind @f$ Q_l(x) @f$ of
@@ -3932,10 +4301,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    legendre_q(unsigned int __n, _Tp __x)
+    legendre_q(unsigned int __l, _Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__legendre_q<__type>(__n, __x);
+      return std::__detail::__legendre_q<__type>(__l, __x);
     }
 
   // Scaled lower incomplete gamma
@@ -4034,7 +4403,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *    + \frac{2}{\pi} K(m) Z(1-m,\phi)
    * @f]
    * where @f$ m = k^2 @f$, @f$ K(k) @f$ is the complete elliptic function
-   * of the first kind, and @f$ Z(k,phi) @f$ is the Jacobi zeta function.
+   * of the first kind, and @f$ Z(k,\phi) @f$ is the Jacobi zeta function.
    *
    * @tparam _Tk the floating-point type of the modulus
    * @tparam _Tphi the floating-point type of the angular limit argument
@@ -4514,8 +4883,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Spherical harmonic functions
 
   /**
-   * Return the complex spherical harmonic function of degree @f$ l @f$, order @f$ m @f$,
-   * and @c float zenith angle @f$ \theta @f$, and azimuth angle @f$ \phi @f$.
+   * Return the complex spherical harmonic function of degree @f$ l @f$,
+   * order @f$ m @f$, and @c float zenith angle @f$ \theta @f$,
+   * and azimuth angle @f$ \phi @f$.
    *
    * @see sph_harmonic for details.
    */
@@ -4525,8 +4895,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { return std::__detail::__sph_harmonic<float>(__l, __m, __theta, __phi); }
 
   /**
-   * Return the complex spherical harmonic function of degree @f$ l @f$, order @f$ m @f$,
-   * and <tt>long double</tt> zenith angle @f$ \theta @f$,
+   * Return the complex spherical harmonic function of degree @f$ l @f$,
+   * order @f$ m @f$, and <tt>long double</tt> zenith angle @f$ \theta @f$,
    * and azimuth angle @f$ \phi @f$.
    *
    * @see sph_harmonic for details.
@@ -4539,13 +4909,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   }
 
   /**
-   * Return the complex spherical harmonic function of degree @f$ l @f$, order @f$ m @f$,
-   * and real zenith angle @f$ \theta @f$, and azimuth angle @f$ \phi @f$.
+   * Return the complex spherical harmonic function of degree @f$ l @f$,
+   * order @f$ m @f$, and real zenith angle @f$ \theta @f$,
+   * and azimuth angle @f$ \phi @f$.
    *
    * The spherical harmonic function is defined by:
    * @f[
-   *    Y_l^m(\theta,\phi) = (-1)^m[\frac{(2l+1)}{4\pi}
-   *                                \frac{(l-m)!}{(l+m)!}]
+   *    Y_l^m(\theta,\phi) = (-1)^m\frac{(2l+1)}{4\pi} \frac{(l-m)!}{(l+m)!}
    *                     P_l^{|m|}(\cos\theta) \exp^{im\phi}
    * @f]
    *
@@ -4677,6 +5047,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *    \eta(-s) = 2 \frac{1-2^{-s-1}}{1-2^{-s}} \pi^{-s-1} 
    *              s \sin(\frac{\pi s}{2}) \Gamma(s) \eta(s+1)
    * @f]
+   * The Dirichlet eta function, in terms of the polylogarithm, is
+   * @f[
+   *   \renewcommand\Re{\operatorname{Re}}
+   *   \renewcommand\Im{\operatorname{Im}}
+   *   \eta(s) = -\Re{Li_s(-1)}
+   * @f]
    *
    * @param __s 
    */
@@ -4720,6 +5096,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *    \beta(1-s) = \left( \frac{2}{\pi}\right)^s \sin(\frac{\pi s}{2})
    *               \Gamma(s) \beta(s)
    * @f]
+   * The Dirichlet beta function, in terms of the polylogarithm, is
+   * @f[
+   *   \renewcommand\Re{\operatorname{Re}}
+   *   \renewcommand\Im{\operatorname{Im}}
+   *   \beta(s) = \Im{Li_s(i)}
+   * @f]
    *
    * @param __s 
    */
@@ -4759,6 +5141,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *    \lambda(s) = \sum_{k=0}^\infty \frac{1}{(2k+1)^s}
    *    = \left( 1 - 2^{-s} \right) \zeta(s)
    * @f]
+   * In terms of the Riemann zeta and the Dirichlet eta functions
+   * @f[
+   *   \lambda(s) = \frac{1}{2}(\zeta(s) + \eta(s))
+   * @f]
    *
    * @param __s 
    */
@@ -4770,185 +5156,186 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return std::__detail::__dirichlet_lambda<__type>(__s);
     }
 
-  // Clausen S functions
+  // Clausen Sl functions
 
   /**
-   * Return the Clausen sine function @f$ S_n(w) @f$ of order @f$ m @f$
-   * and @c float argument @f$ w @f$.
+   * Return the Clausen sine function @f$ Sl_m(x) @f$ of order @f$ m @f$
+   * and @c float argument @f$ x @f$.
    *
-   * @see clausen_s for details.
+   * @see clausen_sl for details.
    */
   inline float
-  clausen_sf(unsigned int __m, float __w)
-  { return std::__detail::__clausen_s<float>(__m, __w); }
+  clausen_slf(unsigned int __m, float __x)
+  { return std::__detail::__clausen_sl<float>(__m, __x); }
 
   /**
-   * Return the Clausen sine function @f$ S_n(w) @f$ of order @f$ m @f$
-   * and <tt>long double</tt> argument @f$ w @f$.
+   * Return the Clausen sine function @f$ Sl_m(x) @f$ of order @f$ m @f$
+   * and <tt>long double</tt> argument @f$ x @f$.
    *
-   * @see clausen_s for details.
+   * @see clausen_sl for details.
    */
   inline long double
-  clausen_sl(unsigned int __m, long double __w)
-  { return std::__detail::__clausen_s<long double>(__m, __w); }
+  clausen_sll(unsigned int __m, long double __x)
+  { return std::__detail::__clausen_sl<long double>(__m, __x); }
 
   /**
-   * Return the Clausen sine function @f$ S_n(w) @f$ of order @f$ m @f$
-   * and real argument @f$ w @f$.
+   * Return the Clausen sine function @f$ Sl_m(x) @f$ of order @f$ m @f$
+   * and real argument @f$ x @f$.
    *
    * The Clausen sine function is defined by
    * @f[
-   *    S_n(w) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^n}
+   *    Sl_m(x) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^m}
    * @f]
    *
    * @tparam _Tp The real type of the argument
    * @param __m The unsigned integer order
-   * @param __w The real argument
+   * @param __x The real argument
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    clausen_s(unsigned int __m, _Tp __w)
+    clausen_sl(unsigned int __m, _Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__clausen_s<__type>(__m, __w);
+      return std::__detail::__clausen_sl<__type>(__m, __x);
     }
 
-  // Clausen C functions
+  // Clausen Cl functions
 
   /**
-   * Return the Clausen cosine function @f$ C_n(w) @f$ of order @f$ m @f$
-   * and @c float argument @f$ w @f$.
+   * Return the Clausen cosine function @f$ Cl_m(x) @f$ of order @f$ m @f$
+   * and @c float argument @f$ x @f$.
    *
-   * @see clausen_c for details.
+   * @see clausen_cl for details.
    */
   inline float
-  clausen_cf(unsigned int __m, float __w)
-  { return std::__detail::__clausen_c<float>(__m, __w); }
+  clausen_clf(unsigned int __m, float __x)
+  { return std::__detail::__clausen_cl<float>(__m, __x); }
 
   /**
-   * Return the Clausen cosine function @f$ C_n(w) @f$ of order @f$ m @f$
-   * and <tt>long double</tt> argument @f$ w @f$.
+   * Return the Clausen cosine function @f$ Cl_m(x) @f$ of order @f$ m @f$
+   * and <tt>long double</tt> argument @f$ x @f$.
    *
-   * @see clausen_c for details.
+   * @see clausen_cl for details.
    */
   inline long double
-  clausen_cl(unsigned int __m, long double __w)
-  { return std::__detail::__clausen_c<long double>(__m, __w); }
+  clausen_cll(unsigned int __m, long double __x)
+  { return std::__detail::__clausen_cl<long double>(__m, __x); }
 
   /**
-   * Return the Clausen cosine function @f$ C_n(w) @f$ of order @f$ m @f$
-   * and real argument @f$ w @f$.
+   * Return the Clausen cosine function @f$ Cl_m(x) @f$ of order @f$ m @f$
+   * and real argument @f$ x @f$.
    *
    * The Clausen cosine function is defined by
    * @f[
-   *    C_n(w) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^n}
+   *    Cl_m(x) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^m}
    * @f]
    *
    * @tparam _Tp The real type of the argument
    * @param __m The unsigned integer order
-   * @param __w The real argument
+   * @param __x The real argument
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    clausen_c(unsigned int __m, _Tp __w)
+    clausen_cl(unsigned int __m, _Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__clausen_c<__type>(__m, __w);
+      return std::__detail::__clausen_cl<__type>(__m, __x);
     }
 
   // Clausen functions - real argument
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and @c float argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(x) @f$ of integer order @f$ m @f$
+   * and @c float argument @f$ x @f$.
    *
    * @see clausen for details.
    */
   inline float
-  clausenf(unsigned int __m, float __w)
-  { return std::__detail::__clausen<float>(__m, __w); }
+  clausenf(unsigned int __m, float __x)
+  { return std::__detail::__clausen<float>(__m, __x); }
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and <tt>long double</tt> argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(x) @f$ of integer order @f$ m @f$
+   * and <tt>long double</tt> argument @f$ x @f$.
    *
    * @see clausen for details.
    */
   inline long double
-  clausenl(unsigned int __m, long double __w)
-  { return std::__detail::__clausen<long double>(__m, __w); }
+  clausenl(unsigned int __m, long double __x)
+  { return std::__detail::__clausen<long double>(__m, __x); }
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and real argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(x) @f$ of integer order @f$ m @f$
+   * and real argument @f$ x @f$.
    *
    * The Clausen function is defined by
    * @f[
-   *    Cl_n(w) = S_n(w) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^n} \mbox{ for even } m
-   * = C_n(w) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^n} \mbox{ for odd } m
+   *    C_m(x)
+   *      = Sl_m(x) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^m} \mbox{ for even } m
+   *      = Cl_m(x) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^m} \mbox{ for odd } m
    * @f]
    *
    * @tparam _Tp The real type of the argument
    * @param __m The integral order
-   * @param __w The complex argument
+   * @param __x The real argument
    */
   template<typename _Tp>
     inline __gnu_cxx::__promote_fp_t<_Tp>
-    clausen(unsigned int __m, _Tp __w)
+    clausen(unsigned int __m, _Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__clausen<__type>(__m, __w);
+      return std::__detail::__clausen<__type>(__m, __x);
     }
 
   // Clausen functions - complex argument
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and <tt>std::complex<float></tt> argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(z) @f$ of integer order @f$ m @f$
+   * and <tt>std::complex<float></tt> argument @f$ z @f$.
    *
    * @see clausen for details.
    */
   inline std::complex<float>
-  clausenf(unsigned int __m, std::complex<float> __w)
-  { return std::__detail::__clausen<float>(__m, __w); }
+  clausenf(unsigned int __m, std::complex<float> __z)
+  { return std::__detail::__clausen<float>(__m, __z); }
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and <tt>std::complex<long double></tt> argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(z) @f$ of integer order @f$ m @f$
+   * and <tt>std::complex<long double></tt> argument @f$ z @f$.
    *
    * @see clausen for details.
    */
   inline std::complex<long double>
-  clausenl(unsigned int __m, std::complex<long double> __w)
-  { return std::__detail::__clausen<long double>(__m, __w); }
+  clausenl(unsigned int __m, std::complex<long double> __z)
+  { return std::__detail::__clausen<long double>(__m, __z); }
 
   /**
-   * Return the Clausen function @f$ Cl_n(w) @f$ of integer order @f$ m @f$
-   * and complex argument @f$ w @f$.
+   * Return the Clausen function @f$ C_m(z) @f$ of integer order @f$ m @f$
+   * and complex argument @f$ z @f$.
    *
    * The Clausen function is defined by
    * @f[
-   *    Cl_n(w) = S_n(w) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^n} \mbox{ for even } m
-   * = C_n(w) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^n} \mbox{ for odd } m
+   *    C_m(z) = Sl_m(z) = \sum_{k=1}^\infty\frac{\sin(kx)}{k^m} \mbox{ for even } m
+   *           = Cl_m(z) = \sum_{k=1}^\infty\frac{\cos(kx)}{k^m} \mbox{ for odd } m
    * @f]
    *
    * @tparam _Tp The real type of the complex components
    * @param __m The integral order
-   * @param __w The complex argument
+   * @param __z The complex argument
    */
   template<typename _Tp>
     inline std::complex<__gnu_cxx::__promote_fp_t<_Tp>>
-    clausen(unsigned int __m, std::complex<_Tp> __w)
+    clausen(unsigned int __m, std::complex<_Tp> __z)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
-      return std::__detail::__clausen<__type>(__m, __w);
+      return std::__detail::__clausen<__type>(__m, __z);
     }
 
   // Exponential theta_1 functions.
 
   /**
    * Return the exponential theta-1 function @f$ \theta_1(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_1 for details.
    */
@@ -4958,7 +5345,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-1 function @f$ \theta_1(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_1 for details.
    */
@@ -4968,7 +5355,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-1 function @f$ \theta_1(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * The Neville theta-1 function is defined by
    * @f[
@@ -4991,7 +5378,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-2 function @f$ \theta_2(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_2 for details.
    */
@@ -5001,7 +5388,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-2 function @f$ \theta_2(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_2 for details.
    */
@@ -5011,7 +5398,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-2 function @f$ \theta_2(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * The exponential theta-2 function is defined by
    * @f[
@@ -5034,7 +5421,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-3 function @f$ \theta_3(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_3 for details.
    */
@@ -5044,7 +5431,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-3 function @f$ \theta_3(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_3 for details.
    */
@@ -5054,7 +5441,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-3 function @f$ \theta_3(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * The exponential theta-3 function is defined by
    * @f[
@@ -5077,7 +5464,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-4 function @f$ \theta_4(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_4 for details.
    */
@@ -5087,7 +5474,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-4 function @f$ \theta_4(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * @see theta_4 for details.
    */
@@ -5097,7 +5484,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the exponential theta-4 function @f$ \theta_4(\nu,x) @f$
-   * of period @f$ nu @f$ and argument @f$ x @f$.
+   * of period @f$ \nu @f$ and argument @f$ x @f$.
    *
    * The exponential theta-4 function is defined by
    * @f[
@@ -5143,7 +5530,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The elliptic nome function is defined by
    * @f[
-   *    q(k) = \exp \left(-\pi\frac{K(k)}{K(\sqrt{1-k^2})} \right)
+   *    q(k) = \exp \left(-\pi\frac{K(\sqrt{1-k^2})}{K(k)} \right)
    * @f]
    * where @f$ K(k) @f$ is the complete elliptic function of the first kind.
    *
@@ -5186,8 +5573,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The Neville theta-s function is defined by
    * @f[
-   *    
+   *  \theta_s(k,x) = \sqrt{\frac{\pi}{2 k k' K(k)}}
+   *                  \theta_1\left(q(k),\frac{\pi x}{2K(k)}\right)
    * @f]
+   * where @f$ q(k) @f$ is the elliptic nome, @f$ K(k) @f$ is
+   * the complete Legendre elliptic integral of the first kind,
+   * and @f$ \theta_1(\nu,x) @f$ is the exponential theta-1 function.
+   * @see ellnome, std::comp_ellint_1, and theta_1 for details.
    *
    * @param __k The modulus @f$ -1 <= k <= +1 @f$
    * @param __x The argument
@@ -5228,8 +5620,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The Neville theta-c function is defined by
    * @f[
-   *    
+   *    \theta_c(k,x) = \sqrt{\frac{\pi}{2 k K(k)}}
+   *                  \theta_1\left(q(k),\frac{\pi x}{2K(k)}\right)
    * @f]
+   * where @f$ q(k) @f$ is the elliptic nome, @f$ K(k) @f$ is
+   * the complete Legendre elliptic integral of the first kind,
+   * and @f$ \theta_1(\nu,x) @f$ is the exponential theta-1 function.
+   * @see ellnome, std::comp_ellint_1, and theta_1 for details.
    *
    * @param __k The modulus @f$ -1 <= k <= +1 @f$
    * @param __x The argument
@@ -5270,8 +5667,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The Neville theta-d function is defined by
    * @f[
-   *    \theta_d(k,x) = 
+   *    \theta_d(k,x) = \sqrt{\frac{\pi}{2K(k)}}
+   *                  \theta_3\left(q(k),\frac{\pi x}{2K(k)}\right)
    * @f]
+   * where @f$ q(k) @f$ is the elliptic nome, @f$ K(k) @f$ is
+   * the complete Legendre elliptic integral of the first kind,
+   * and @f$ \theta_3(\nu,x) @f$ is the exponential theta-3 function.
+   * @see ellnome, std::comp_ellint_1, and theta_3 for details.
    *
    * @param __k The modulus @f$ -1 <= k <= +1 @f$
    * @param __x The argument
@@ -5312,8 +5714,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * The Neville theta-n function is defined by
    * @f[
-   *    \theta_n(k,x) = 
+   *  \theta_n(k,x) = \sqrt{\frac{\pi}{2k'K(k)}}
+   *                  \theta_4\left(q(k),\frac{\pi x}{2K(k)}\right)
    * @f]
+   * where @f$ q(k) @f$ is the elliptic nome, @f$ K(k) @f$ is
+   * the complete Legendre elliptic integral of the first kind,
+   * and @f$ \theta_4(\nu,x) @f$ is the exponential theta-4 function.
+   * @see ellnome, std::comp_ellint_1, and theta_4 for details.
    *
    * @param __k The modulus @f$ -1 <= k <= +1 @f$
    * @param __x The argument
@@ -5689,7 +6096,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f]
    */
   template<typename _Tp>
-    inline __gnu_cxx::__sincos_t<_Tp>
+    inline __gnu_cxx::__sincos_t<__gnu_cxx::__promote_fp_t<_Tp>>
     sincos(_Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
@@ -5717,18 +6124,565 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return both the sine and the cosine of a reperiodized real argument.
-   * 
+   *
    * @f[
    *   sincos_\pi(x) = {\sin(\pi x), \cos(\pi x)}
    * @f]
    */
   template<typename _Tp>
-    inline __gnu_cxx::__sincos_t<_Tp>
+    inline __gnu_cxx::__sincos_t<__gnu_cxx::__promote_fp_t<_Tp>>
     sincos_pi(_Tp __x)
     {
       using __type = __gnu_cxx::__promote_fp_t<_Tp>;
       return std::__detail::__sincos_pi<__type>(__x);
     }
+
+  /**
+   * @brief Return the gamma propability distribution function.
+   *
+   * The formula for the gamma probability density function is:
+   * @f[
+   *    \Gamma(x|\alpha,\beta) = \frac{1}{\beta\Gamma(\alpha)}
+   *                             (x/\beta)^{\alpha - 1} e^{-x/\beta}
+   * @f]
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    gamma_pdf(_Ta __alpha, _Tb __beta, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__gamma_pdf<__type>(__alpha, __beta, __x);
+    }
+
+  /**
+   * @brief Return the gamma cumulative propability distribution function.
+   *
+   * The formula for the gamma probability density function is:
+   * @f[
+   *    \Gamma(x|\alpha,\beta) = \frac{1}{\beta\Gamma(\alpha)}
+   *                             (x/\beta)^{\alpha - 1} e^{-x/\beta}
+   * @f]
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    gamma_cdf(_Ta __alpha, _Tb __beta, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__gamma_cdf<__type>(__alpha, __beta, __x);
+    }
+
+  /**
+   * @brief Return the normal probability density function.
+   *
+   * The formula for the normal probability density function is
+   * @f[
+   *   f(x|\mu,\sigma) = \frac{e^{(x-\mu)^2/2\sigma^2}}{\sigma\sqrt{2\pi}}
+   * @f]
+   */
+  template<typename _Tmu, typename _Tsig, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>
+    normal_pdf(_Tmu __mu, _Tsig __sigma, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>;
+      return std::__detail::__normal_pdf<__type>(__mu, __sigma, __x);
+    }
+
+  /**
+   * @brief Return the normal cumulative probability density function.
+   *
+   * The formula for the normal cumulative probability density function is
+   * @f[
+   *     F(x|\mu,\sigma)
+   *        = \frac{1}{2}\left[ 1-erf(\frac{x-\mu}{\sqrt{2}\sigma}) \right]
+   * @f]
+   */
+  template<typename _Tmu, typename _Tsig, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>
+    normal_cdf(_Tmu __mu, _Tsig __sigma, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>;
+      return std::__detail::__normal_cdf<__type>(__mu, __sigma, __x);
+    }
+
+  /**
+   * @brief Return the lognormal probability density function.
+   *
+   * The formula for the lognormal probability density function is
+   * @f[
+   *   f(x|\mu,\sigma) = \frac{e^{(\ln{x}-\mu)^2/2\sigma^2}}{\sigma\sqrt{2\pi}}
+   * @f]
+   */
+  template<typename _Tmu, typename _Tsig, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>
+    lognormal_pdf(_Tmu __mu, _Tsig __sigma, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>;
+      return std::__detail::__lognormal_pdf<__type>(__mu, __sigma, __x);
+    }
+
+  /**
+   * @brief Return the lognormal cumulative probability density function.
+   *
+   * The formula for the lognormal cumulative probability density function is
+   * @f[
+   *   F(x|\mu,\sigma)
+   *     = \frac{1}{2}\left[ 1-erf(\frac{\ln{x}-\mu}{\sqrt{2}\sigma}) \right]
+   * @f]
+   */
+  template<typename _Tmu, typename _Tsig, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>
+    lognormal_cdf(_Tmu __mu, _Tsig __sigma, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tmu, _Tsig, _Tp>;
+      return std::__detail::__lognormal_cdf<__type>(__mu, __sigma, __x);
+    }
+
+  /**
+   * @brief Return the exponential probability density function.
+   *
+   * The formula for the exponential probability density function is
+   * @f[
+   *   f(x|\lambda) = \lambda e^{-\lambda x} \mbox{ for } x >= 0
+   * @f]
+   */
+  template<typename _Tlam, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tlam, _Tp>
+    exponential_pdf(_Tlam __lambda, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tlam, _Tp>;
+      return std::__detail::__exponential_pdf<__type>(__lambda, __x);
+    }
+
+  /**
+   * @brief Return the exponential cumulative probability density function.
+   *
+   * The formula for the exponential cumulative probability density function is
+   * @f[
+   *   F(x|\lambda) = 1 - e^{-\lambda x} \mbox{ for } x >= 0
+   * @f]
+   */
+  template<typename _Tlam, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tlam, _Tp>
+    exponential_cdf(_Tlam __lambda, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tlam, _Tp>;
+      return std::__detail::__exponential_cdf<__type>(__lambda, __x);
+    }
+
+  /**
+   * @brief Return the Weibull probability density function.
+   *
+   * The formula for the Weibull probability density function is
+   * @f[
+   *   f(x | a, b) = \frac{a}{b}
+   *                 \left(\frac{x}{b} \right)^{a-1}
+   *                 \exp{-\left(\frac{x}{b}\right)^a}
+   *                 \mbox{ for } x >= 0
+   * @f]
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    weibull_pdf(_Ta __a, _Tb __b, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__weibull_pdf<__type>(__a, __b, __x);
+    }
+
+  /**
+   * @brief Return the Weibull cumulative probability density function.
+   *
+   * The formula for the Weibull cumulative probability density function is
+   * @f[
+   *   F(x|\lambda) = 1 - e^{-(x / b)^a} \mbox{ for } x >= 0
+   * @f]
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    weibull_cdf(_Ta __a, _Tb __b, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__weibull_cdf<__type>(__a, __b, __x);
+    }
+
+  /**
+   * @brief  Return the Students T probability function.
+   *
+   * The students T propability function is related to the incomplete beta function:
+   * @f[
+   *   A(t|\nu) = 1 - I_{\frac{\nu}{\nu + t^2}}(\frac{\nu}{2}, \frac{1}{2})
+   *   A(t|\nu) = 
+   * @f]
+   *
+   * @param __t 
+   * @param __nu 
+   */
+  template<typename _Tt, typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    student_t_cdf(_Tt __t, unsigned int __nu)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__student_t_cdf<__type>(__t, __nu);
+    }
+
+  /**
+   * @brief  Return the complement of the Students T probability function.
+   *
+   * The complement of the students T propability function is:
+   * @f[
+   *   A_c(t|\nu) = I_{\frac{\nu}{\nu + t^2}}(\frac{\nu}{2}, \frac{1}{2})
+   * 		  = 1 - A(t|\nu)
+   * @f]
+   *
+   * @param __t 
+   * @param __nu 
+   */
+  template<typename _Tt, typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    student_t_pdf(_Tt __t, unsigned int __nu)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__student_t_pdf<__type>(__t, __nu);
+    }
+
+  /**
+   * @brief  Return the F-distribution propability function.
+   * This returns the probability that the observed chi-square for a correct model
+   * exceeds the value @f$ \chi^2 @f$.
+   *
+   * The f-distribution propability function is related to the incomplete beta function:
+   * @f[
+   *   Q(F|\nu_1, \nu_2) = I_{\frac{\nu_2}{\nu_2 + \nu_1 F}}
+   * 			     (\frac{\nu_2}{2}, \frac{\nu_1}{2})
+   * @f]
+   *
+   * @param __nu1 The number of degrees of freedom of sample 1
+   * @param __nu2 The number of degrees of freedom of sample 2
+   * @param __F The F statistic
+   */
+  template<typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    fisher_f_cdf(_Tp __F, unsigned int __nu1, unsigned int __nu2)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__fisher_f_cdf<__type>(__F, __nu1, __nu2);
+    }
+
+  /**
+   * @brief  Return the F-distribution propability function.
+   * This returns the probability that the observed chi-square
+   * for a correct model exceeds the value @f$ \chi^2 @f$.
+   *
+   * The f-distribution propability function is related
+   * to the incomplete beta function:
+   * @f[
+   *   P(F|\nu_1, \nu_2) = 1 - I_{\frac{\nu_2}{\nu_2 + \nu_1 F}}
+   * 			     (\frac{\nu_2}{2}, \frac{\nu_1}{2})
+   * 			 = 1 - Q(F|\nu_1, \nu_2)
+   * @f]
+   *
+   * @param __F 
+   * @param __nu1 
+   * @param __nu2 
+   */
+  template<typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    fisher_f_pdf(_Tp __F, unsigned int __nu1, unsigned int __nu2)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__fisher_f_pdf<__type>(__F, __nu1, __nu2);
+    }
+
+  /**
+   * @brief  Return the binomial probability mass function.
+   *
+   * The binomial cumulative distribution function is related
+   * to the incomplete beta function:
+   * @f[
+   *   f(k|n,p) = \binom{n}{k}p^k(1-p)^{n-k}
+   * @f]
+   *
+   * @param __p 
+   * @param __n 
+   * @param __k 
+   */
+  template<typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    binomial_pdf(_Tp __p, unsigned int __n, unsigned int __k)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__binomial_pdf<__type>(__p, __n, __k);
+    }
+
+  /**
+   * @brief  Return the binomial cumulative distribution function.
+   *
+   * The binomial cumulative distribution function is related
+   * to the incomplete beta function:
+   * @f[
+   *   P(k|n,p) = I_p(k, n-k+1)
+   * @f]
+   *
+   * @param __p 
+   * @param __n 
+   * @param __k 
+   */
+  template<typename _Tp>
+    __gnu_cxx::__promote_fp_t<_Tp>
+    binomial_cdf(_Tp __p, unsigned int __n, unsigned int __k)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__binomial_cdf<__type>(__p, __n, __k);
+    }
+
+  /**
+   * @brief  Return the logistic probability density function.
+   *
+   * The formula for the logistic probability density function is
+   * @f[
+   *     f(x| a, b) = \frac{e^{(x - a)/b}}{b[1 + e^{(x - a)/b}]^2}
+   * @f]
+   * where @f$b > 0@f$.
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    logistic_pdf(_Ta __a, _Tb __b, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__logistic_pdf<__type>(__a, __b, __x);
+    }
+
+  /**
+   * @brief  Return the logistic cumulative distribution function.
+   *
+   * The formula for the logistic probability function is
+   * @f[
+   *     P(x| a, b) = \frac{e^{(x - a)/b}}{1 + e^{(x - a)/b}}
+   * @f]
+   * where @f$b > 0@f$.
+   */
+  template<typename _Ta, typename _Tb, typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>
+    logistic_cdf(_Ta __a, _Tb __b, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta, _Tb, _Tp>;
+      return std::__detail::__logistic_cdf<__type>(__a, __b, __x);
+    }
+
+  // Reciprocal Gamma function.
+
+  /**
+   * Return the reciprocal gamma function for <tt> float </tt> argument.
+   *
+   * @see gamma_reciprocal for details.
+   */
+  inline float
+  gamma_reciprocalf(float __a)
+  { return std::__detail::__gamma_reciprocal<float>(__a); }
+
+  /**
+   * Return the reciprocal gamma function for <tt> long double </tt>
+   * argument.
+   *
+   * @see gamma_reciprocal for details.
+   */
+  inline long double
+  gamma_reciprocall(long double __a)
+  { return std::__detail::__gamma_reciprocal<long double>(__a); }
+
+  /**
+   * Return the reciprocal gamma function for real argument.
+   *
+   * The reciprocal of the Gamma function is what you'd expect:
+   * @f[
+   *     \Gamma_r(a) = \frac{1}{\Gamma(a)}
+   * @f]
+   * But unlike the Gamma function this function has no singularities
+   * and is exponentially decreasing for increasing argument.
+   */
+  template<typename _Ta>
+    inline __gnu_cxx::__promote_fp_t<_Ta>
+    gamma_reciprocal(_Ta __a)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Ta>;
+      return std::__detail::__gamma_reciprocal<__type>(__a);
+    }
+
+  // Debye functions.
+
+  /**
+   * Return the Debye function @f$ D_n(x) @f$
+   * of positive order @f$ n @f$ and @c float argument @f$ x @f$.
+   *
+   * @see debye for details.
+   */
+  inline float
+  debyef(unsigned int __n, float __x)
+  { return std::__detail::__debye<float>(__n, __x); }
+
+  /**
+   * Return the Debye function @f$ D_n(x) @f$
+   * of positive order @f$ n @f$ and real argument @f$ x @f$.
+   *
+   * @see debye for details.
+   */
+  inline long double
+  debyel(unsigned int __n, long double __x)
+  { return std::__detail::__debye<long double>(__n, __x); }
+
+  /**
+   * Return the Debye function @f$ D_n(x) @f$
+   * of positive order @f$ n @f$ and real argument @f$ x @f$.
+   *
+   * The Debye function is defined by:
+   * @f[
+   *    D_n(x) = \frac{n}{x^n}\int_{0}^{x}\frac{t^n}{e^t-1}dt
+   * @f]
+   *
+   * @tparam _Tp The real type of the argument
+   * @param __n The positive integral order
+   * @param __x The real argument @f$ x >= 0 @f$
+   */
+  template<typename _Tp>
+    inline __gnu_cxx::__promote_fp_t<_Tp>
+    debye(unsigned int __n, _Tp __x)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp>;
+      return std::__detail::__debye<__type>(__n, __x);
+    }
+
+  /**
+   * Return the Bernoulli polynomial @f$ B_n(x) @f$ of order n at argument x.
+   *
+   * The values at 0 and 1 are equal to the corresponding Bernoulli number:
+   * @f[
+   *   B_n(0) = B_n(1) = B_n
+   * @f]
+   *
+   * The derivative is proportional to the previous polynomial:
+   * @f[
+   *   B_n'(x) = n * B_{n-1}(x)
+   * @f]
+   *
+   * The series expansion for the Bernoulli polynomials is:
+   * @f[
+   *   B_n(x) = \sum_{k=0}^{n} B_k \binom{n}{k} x^{n-k}
+   * @f]
+   *
+   * A useful argument promotion is:
+   * @f[
+   *   B_n(x+1) - B_n(x) = n * x^{n-1}
+   * @f]
+   */
+  template<typename _Tp>
+    inline _Tp
+    bernoulli(unsigned int __n, _Tp __x)
+    { return std::__detail::__bernoulli(__n, __x); }
+
+  /**
+   * @brief This returns Euler number @f$ E_n @f$.
+   *
+   * @param __n the order n of the Euler number.
+   * @return  The Euler number of order n.
+   */
+  template<typename _Tp>
+    inline _Tp
+    euler(unsigned int __n)
+    { return std::__detail::__euler<_Tp>(__n); }
+
+  /**
+   * Return the Eulerian number of the first kind.
+   * The Eulerian numbers of the first kind are defined by recursion:
+   * @f[
+   *   \newcommand{\eulerian}[2]{\genfrac{\langle}{\rangle}{0pt}{0}{#1}{#2}}
+   *
+   *   \eulerian{n}{m} = (n-m)\eulerian{n-1}{m-1} + (m+1)\eulerian{n-1}{m}
+   *   \mbox{ for } n > 0
+   * @f]
+   * Note that @f$ A(n,m) @f$ is a common older notation.
+   *
+   * @todo Develop an iterator model for Eulerian numbers of the first kind.
+   */
+  template<typename _Tp>
+    inline _Tp
+    eulerian_1(unsigned int __n, unsigned int __m)
+    { return std::__detail::__eulerian_1<_Tp>(__n, __m); }
+
+  /**
+   * Return the Eulerian number of the second kind.
+   * The Eulerian numbers of the second kind are defined by recursion:
+   * @f[
+   *   \newcommand{\eulerian}[2]
+   *   {\left\langle\genfrac{\langle}{\rangle}{0pt}{0}{#1}{#2}\right\rangle}
+   *
+   *   \eulerian{n}{m} = (2n-m-1)\eulerian{n-1}{m-1} + (m+1)\eulerian{n-1}{m}
+   *       \mbox{ for } n > 0
+   * @f]
+   *
+   * @todo Develop an iterator model for Eulerian numbers of the second kind.
+   */
+  template<typename _Tp>
+    inline _Tp
+    eulerian_2(unsigned int __n, unsigned int __m)
+    { return std::__detail::__eulerian_2<_Tp>(__n, __m); }
+
+  /**
+   * Return the Stirling number of the first kind.
+   *
+   * The Stirling numbers of the first kind are the coefficients of
+   * the Pocchammer polynomials or the rising factorials:
+   * @f[
+   *   \newcommand{\stirling}[2]{\genfrac{[}{]}{0pt}{0}{#1}{#2}}
+   *   (x)_n = \sum_{k=0}^{n} \stirling{n}{k} x^k
+   * @f]
+   *
+   * The recursion is
+   * @f[
+   *   \newcommand{\stirling}[2]{\genfrac{[}{]}{0pt}{0}{#1}{#2}}
+   *
+   *   \stirling{n+1}{m} = \stirling{n}{m-1} - n \stirling{n}{m}
+   * @f]
+   * with starting values
+   * @f[
+   *   \newcommand{\stirling}[2]{\genfrac{[}{]}{0pt}{0}{#1}{#2}}
+   *   \stirling{0}{0\rightarrow m} = {1, 0, 0, ..., 0}
+   * @f]
+   * and
+   * @f[
+   *   \newcommand{\stirling}[2]{\genfrac{[}{]}{0pt}{0}{#1}{#2}}
+   *   \stirling{0\rightarrow n}{0} = {1, 0, 0, ..., 0}
+   * @f]
+   * The Stirling number of the first kind is denoted by other symbols
+   * in the literature, usually @f$ S_n^{(m)} @f$.
+   *
+   * @todo Develop an iterator model for Stirling numbers of the first kind.
+   */
+  template<typename _Tp>
+    inline _Tp
+    stirling_1(unsigned int __n, unsigned int __m)
+    { return std::__detail::__stirling_1<_Tp>(__n, __m); }
+
+  /**
+   * Return the Stirling number of the second kind by series expansion
+   * or by recursion.
+   *
+   * The series is:
+   * @f[
+   *   \newcommand{\stirling}[2]{\genfrac{\{}{\}}{0pt}{0}{#1}{#2}}
+   *
+   *   \sigma_n^{(m)} = \stirling{n}{m}
+   *      = \sum_{k=0}^{m}\frac{(-1)^{m-k}k^n}{(m-k)!k!}
+   * @f]
+   *
+   * The Stirling number of the second kind is denoted by other symbols
+   * in the literature: 
+   * @f$ \sigma_n^{(m)} @f$, @f$ \textit{S}_n^{(m)} @f$ and others.
+   *
+   * @todo Develop an iterator model for Stirling numbers of the second kind.
+   */
+  template<typename _Tp>
+    inline _Tp
+    stirling_2(unsigned int __n, unsigned int __m)
+    { return std::__detail::__stirling_2<_Tp>(__n, __m); }
 
 #endif // __cplusplus >= 201103L
 
@@ -5736,6 +6690,84 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __gnu_cxx
+
+#if __cplusplus > 201402L
+
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  // [c.math.hypot3], three-dimensional hypotenuse
+#define __cpp_lib_hypot 201603
+
+#include <limits>
+
+  // Avoid including all of <algorithm>
+  template<typename _Tp>
+    constexpr _Tp
+    __fmax3(_Tp __x, _Tp __y, _Tp __z)
+    { return std::fmax(std::fmax(__x, __y), std::fmax(__y, __z)); }
+
+  template<typename _Tp>
+    constexpr _Tp
+    __hypot3(_Tp __x, _Tp __y, _Tp __z)
+    {
+      if (std::__detail::__isnan(__x)
+       || std::__detail::__isnan(__y)
+       || std::__detail::__isnan(__z))
+	return std::numeric_limits<_Tp>::quiet_NaN();
+      else
+	{
+	  __x = std::abs(__x);
+	  __y = std::abs(__y);
+	  __z = std::abs(__z);
+	  const auto __amax = __fmax3(__x, __y, __z);
+	  if (__amax == _Tp{0})
+	    return _Tp{0};
+	  else if (std::__detail::__isinf(__amax))
+	    return std::numeric_limits<_Tp>::infinity();
+	  else
+	    {
+	      __x /= __amax;
+	      __y /= __amax;
+	      __z /= __amax;
+	      return __amax * std::sqrt(__x * __x + __y * __y + __z * __z);
+            }
+	}
+    }
+
+  /**
+   * Return the three-dimensional hypoteneuse @f$ \sqrt{x^2 + y^2 + z^2} @f$
+   * for @c float arguments x, y, and z.
+   */
+  constexpr inline float
+  hypot(float __x, float __y, float __z)
+  { return std::__hypot3<float>(__x, __y, __z); }
+
+  /**
+   * Return the three-dimensional hypoteneuse @f$ \sqrt{x^2 + y^2 + z^2} @f$
+   * for <tt>long double</tt> arguments x, y, and z.
+   */
+  constexpr inline long double
+  hypot(long double __x, long double __y, long double __z)
+  { return std::__hypot3<long double>(__x, __y, __z); }
+
+  /**
+   * Return the three-dimensional hypoteneuse @f$ \sqrt{x^2 + y^2 + z^2} @f$
+   * for real arguments x, y, and z.
+   */
+  template<typename _Tp, typename _Up, typename _Vp>
+    constexpr typename __gnu_cxx::__promote_3<_Tp, _Up, _Vp>::__type
+    hypot(_Tp __x, _Up __y, _Vp __z)
+    {
+      using __type = typename __gnu_cxx::__promote_3<_Tp, _Up, _Vp>::__type;
+      return std::__hypot3<__type>(__x, __y, __z);
+    }
+
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
+
+#endif // C++17
 
 #pragma GCC visibility pop
 

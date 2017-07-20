@@ -519,27 +519,31 @@
 )
 
 (define_insn "prefetch"
-  [(prefetch (match_operand:DI 0 "register_operand" "r")
+  [(prefetch (match_operand:DI 0 "aarch64_prefetch_operand" "Dp")
             (match_operand:QI 1 "const_int_operand" "")
             (match_operand:QI 2 "const_int_operand" ""))]
   ""
   {
-    const char * pftype[2][4] = 
+    const char * pftype[2][4] =
     {
-      {"prfm\\tPLDL1STRM, %a0",
-       "prfm\\tPLDL3KEEP, %a0",
-       "prfm\\tPLDL2KEEP, %a0",
-       "prfm\\tPLDL1KEEP, %a0"},
-      {"prfm\\tPSTL1STRM, %a0",
-       "prfm\\tPSTL3KEEP, %a0",
-       "prfm\\tPSTL2KEEP, %a0",
-       "prfm\\tPSTL1KEEP, %a0"},
+      {"prfm\\tPLDL1STRM, %0",
+       "prfm\\tPLDL3KEEP, %0",
+       "prfm\\tPLDL2KEEP, %0",
+       "prfm\\tPLDL1KEEP, %0"},
+      {"prfm\\tPSTL1STRM, %0",
+       "prfm\\tPSTL3KEEP, %0",
+       "prfm\\tPSTL2KEEP, %0",
+       "prfm\\tPSTL1KEEP, %0"},
     };
 
     int locality = INTVAL (operands[2]);
 
     gcc_assert (IN_RANGE (locality, 0, 3));
 
+    /* PRFM accepts the same addresses as a 64-bit LDR so wrap
+       the address into a DImode MEM so that aarch64_print_operand knows
+       how to print it.  */
+    operands[0] = gen_rtx_MEM (DImode, operands[0]);
     return pftype[INTVAL(operands[1])][locality];
   }
   [(set_attr "type" "load1")]
@@ -713,12 +717,6 @@
 ;; Subroutine calls and sibcalls
 ;; -------------------------------------------------------------------
 
-(define_expand "call_internal"
-  [(parallel [(call (match_operand 0 "memory_operand" "")
-		    (match_operand 1 "general_operand" ""))
-	      (use (match_operand 2 "" ""))
-	      (clobber (reg:DI LR_REGNUM))])])
-
 (define_expand "call"
   [(parallel [(call (match_operand 0 "memory_operand" "")
 		    (match_operand 1 "general_operand" ""))
@@ -727,56 +725,21 @@
   ""
   "
   {
-    rtx callee, pat;
-
-    /* In an untyped call, we can get NULL for operand 2.  */
-    if (operands[2] == NULL)
-      operands[2] = const0_rtx;
-
-    /* Decide if we should generate indirect calls by loading the
-       64-bit address of the callee into a register before performing
-       the branch-and-link.  */
-    callee = XEXP (operands[0], 0);
-    if (GET_CODE (callee) == SYMBOL_REF
-	? (aarch64_is_long_call_p (callee)
-	   || aarch64_is_noplt_call_p (callee))
-	: !REG_P (callee))
-      XEXP (operands[0], 0) = force_reg (Pmode, callee);
-
-    pat = gen_call_internal (operands[0], operands[1], operands[2]);
-    aarch64_emit_call_insn (pat);
+    aarch64_expand_call (NULL_RTX, operands[0], false);
     DONE;
   }"
 )
 
-(define_insn "*call_reg"
-  [(call (mem:DI (match_operand:DI 0 "register_operand" "r"))
+(define_insn "*call_insn"
+  [(call (mem:DI (match_operand:DI 0 "aarch64_call_insn_operand" "r, Usf"))
 	 (match_operand 1 "" ""))
-   (use (match_operand 2 "" ""))
    (clobber (reg:DI LR_REGNUM))]
   ""
-  "blr\\t%0"
-  [(set_attr "type" "call")]
+  "@
+  blr\\t%0
+  bl\\t%a0"
+  [(set_attr "type" "call, call")]
 )
-
-(define_insn "*call_symbol"
-  [(call (mem:DI (match_operand:DI 0 "" ""))
-	 (match_operand 1 "" ""))
-   (use (match_operand 2 "" ""))
-   (clobber (reg:DI LR_REGNUM))]
-  "GET_CODE (operands[0]) == SYMBOL_REF
-   && !aarch64_is_long_call_p (operands[0])
-   && !aarch64_is_noplt_call_p (operands[0])"
-  "bl\\t%a0"
-  [(set_attr "type" "call")]
-)
-
-(define_expand "call_value_internal"
-  [(parallel [(set (match_operand 0 "" "")
-		   (call (match_operand 1 "memory_operand" "")
-			 (match_operand 2 "general_operand" "")))
-	      (use (match_operand 3 "" ""))
-	      (clobber (reg:DI LR_REGNUM))])])
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -787,59 +750,22 @@
   ""
   "
   {
-    rtx callee, pat;
-
-    /* In an untyped call, we can get NULL for operand 3.  */
-    if (operands[3] == NULL)
-      operands[3] = const0_rtx;
-
-    /* Decide if we should generate indirect calls by loading the
-       64-bit address of the callee into a register before performing
-       the branch-and-link.  */
-    callee = XEXP (operands[1], 0);
-    if (GET_CODE (callee) == SYMBOL_REF
-	? (aarch64_is_long_call_p (callee)
-	   || aarch64_is_noplt_call_p (callee))
-	: !REG_P (callee))
-      XEXP (operands[1], 0) = force_reg (Pmode, callee);
-
-    pat = gen_call_value_internal (operands[0], operands[1], operands[2],
-                                   operands[3]);
-    aarch64_emit_call_insn (pat);
+    aarch64_expand_call (operands[0], operands[1], false);
     DONE;
   }"
 )
 
-(define_insn "*call_value_reg"
+(define_insn "*call_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand:DI 1 "register_operand" "r"))
+	(call (mem:DI (match_operand:DI 1 "aarch64_call_insn_operand" "r, Usf"))
 		      (match_operand 2 "" "")))
-   (use (match_operand 3 "" ""))
    (clobber (reg:DI LR_REGNUM))]
   ""
-  "blr\\t%1"
-  [(set_attr "type" "call")]
-
+  "@
+  blr\\t%1
+  bl\\t%a1"
+  [(set_attr "type" "call, call")]
 )
-
-(define_insn "*call_value_symbol"
-  [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand:DI 1 "" ""))
-	      (match_operand 2 "" "")))
-   (use (match_operand 3 "" ""))
-   (clobber (reg:DI LR_REGNUM))]
-  "GET_CODE (operands[1]) == SYMBOL_REF
-   && !aarch64_is_long_call_p (operands[1])
-   && !aarch64_is_noplt_call_p (operands[1])"
-  "bl\\t%a1"
-  [(set_attr "type" "call")]
-)
-
-(define_expand "sibcall_internal"
-  [(parallel [(call (match_operand 0 "memory_operand" "")
-		    (match_operand 1 "general_operand" ""))
-	      (return)
-	      (use (match_operand 2 "" ""))])])
 
 (define_expand "sibcall"
   [(parallel [(call (match_operand 0 "memory_operand" "")
@@ -848,28 +774,10 @@
 	      (use (match_operand 2 "" ""))])]
   ""
   {
-    rtx pat;
-    rtx callee = XEXP (operands[0], 0);
-    if (!REG_P (callee)
-       && ((GET_CODE (callee) != SYMBOL_REF)
-	   || aarch64_is_noplt_call_p (callee)))
-      XEXP (operands[0], 0) = force_reg (Pmode, callee);
-
-    if (operands[2] == NULL_RTX)
-      operands[2] = const0_rtx;
-
-    pat = gen_sibcall_internal (operands[0], operands[1], operands[2]);
-    aarch64_emit_call_insn (pat);
+    aarch64_expand_call (NULL_RTX, operands[0], true);
     DONE;
   }
 )
-
-(define_expand "sibcall_value_internal"
-  [(parallel [(set (match_operand 0 "" "")
-		   (call (match_operand 1 "memory_operand" "")
-			 (match_operand 2 "general_operand" "")))
-	      (return)
-	      (use (match_operand 3 "" ""))])])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -879,19 +787,7 @@
 	      (use (match_operand 3 "" ""))])]
   ""
   {
-    rtx pat;
-    rtx callee = XEXP (operands[1], 0);
-    if (!REG_P (callee)
-       && ((GET_CODE (callee) != SYMBOL_REF)
-	   || aarch64_is_noplt_call_p (callee)))
-      XEXP (operands[1], 0) = force_reg (Pmode, callee);
-
-    if (operands[3] == NULL_RTX)
-      operands[3] = const0_rtx;
-
-    pat = gen_sibcall_value_internal (operands[0], operands[1], operands[2],
-                                      operands[3]);
-    aarch64_emit_call_insn (pat);
+    aarch64_expand_call (operands[0], operands[1], true);
     DONE;
   }
 )
@@ -899,8 +795,7 @@
 (define_insn "*sibcall_insn"
   [(call (mem:DI (match_operand:DI 0 "aarch64_call_insn_operand" "Ucs, Usf"))
 	 (match_operand 1 "" ""))
-   (return)
-   (use (match_operand 2 "" ""))]
+   (return)]
   "SIBLING_CALL_P (insn)"
   "@
    br\\t%0
@@ -913,8 +808,7 @@
 	(call (mem:DI
 		(match_operand:DI 1 "aarch64_call_insn_operand" "Ucs, Usf"))
 	      (match_operand 2 "" "")))
-   (return)
-   (use (match_operand 3 "" ""))]
+   (return)]
   "SIBLING_CALL_P (insn)"
   "@
    br\\t%1
@@ -1026,8 +920,8 @@
 )
 
 (define_insn_and_split "*movsi_aarch64"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r  ,*w, r,*w")
-	(match_operand:SI 1 "aarch64_mov_operand"  " r,r,k,M,n,m, m,rZ,*w,S,Ush,rZ,*w,*w"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r  ,*w,r,*w")
+	(match_operand:SI 1 "aarch64_mov_operand"  " r,r,k,M,n,m, m,rZ,*w,Usa,Ush,rZ,w,*w"))]
   "(register_operand (operands[0], SImode)
     || aarch64_reg_or_zero (operands[1], SImode))"
   "@
@@ -1058,8 +952,8 @@
 )
 
 (define_insn_and_split "*movdi_aarch64"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r,  *w, r,*w,w")
-	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,n,m, m,rZ,*w,S,Ush,rZ,*w,*w,Dd"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r,  *w,r,*w,w")
+	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,n,m, m,rZ,*w,Usa,Ush,rZ,w,*w,Dd"))]
   "(register_operand (operands[0], DImode)
     || aarch64_reg_or_zero (operands[1], DImode))"
   "@
@@ -1123,7 +1017,7 @@
    #
    #
    #
-   orr\\t%0.16b, %1.16b, %1.16b
+   mov\\t%0.16b, %1.16b
    ldp\\t%0, %H0, %1
    stp\\t%1, %H1, %0
    stp\\txzr, xzr, %0
@@ -1237,7 +1131,7 @@
   "TARGET_FLOAT && (register_operand (operands[0], TFmode)
     || aarch64_reg_or_fp_zero (operands[1], TFmode))"
   "@
-   orr\\t%0.16b, %1.16b, %1.16b
+   mov\\t%0.16b, %1.16b
    #
    #
    #
@@ -2011,6 +1905,17 @@
   [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
 )
 
+(define_insn "aarch64_sub<mode>_compare0"
+  [(set (reg:CC_NZ CC_REGNUM)
+	(compare:CC_NZ
+	 (minus:GPI (match_operand:GPI 0 "register_operand" "r")
+		   (match_operand:GPI 1 "aarch64_plus_operand" "r"))
+	 (const_int 0)))]
+  ""
+  "cmp\\t%<w>0, %<w>1"
+  [(set_attr "type" "alus_sreg")]
+)
+
 (define_insn "*compare_neg<mode>"
   [(set (reg:CC_Z CC_REGNUM)
 	(compare:CC_Z
@@ -2338,6 +2243,55 @@
   ""
   "subs\\t%<w>0, %<w>1, %<w>2"
   [(set_attr "type" "alus_sreg")]
+)
+
+(define_insn "sub<mode>3_compare1_imm"
+  [(set (reg:CC CC_REGNUM)
+	(compare:CC
+	  (match_operand:GPI 1 "register_operand" "r")
+	  (match_operand:GPI 3 "const_int_operand" "n")))
+   (set (match_operand:GPI 0 "register_operand" "=r")
+	(plus:GPI (match_dup 1)
+		  (match_operand:GPI 2 "aarch64_sub_immediate" "J")))]
+  "INTVAL (operands[3]) == -INTVAL (operands[2])"
+  "subs\\t%<w>0, %<w>1, #%n2"
+  [(set_attr "type" "alus_sreg")]
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "register_operand")
+	(minus:GPI (match_operand:GPI 1 "aarch64_reg_or_zero")
+		    (match_operand:GPI 2 "aarch64_reg_or_zero")))
+   (set (reg:CC CC_REGNUM)
+	(compare:CC
+	  (match_dup 1)
+	  (match_dup 2)))]
+  "!reg_overlap_mentioned_p (operands[0], operands[1])
+   && !reg_overlap_mentioned_p (operands[0], operands[2])"
+  [(const_int 0)]
+  {
+    emit_insn (gen_sub<mode>3_compare1 (operands[0], operands[1],
+					 operands[2]));
+    DONE;
+  }
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "register_operand")
+	(plus:GPI (match_operand:GPI 1 "register_operand")
+		  (match_operand:GPI 2 "aarch64_sub_immediate")))
+   (set (reg:CC CC_REGNUM)
+	(compare:CC
+	  (match_dup 1)
+	  (match_operand:GPI 3 "const_int_operand")))]
+  "!reg_overlap_mentioned_p (operands[0], operands[1])
+   && INTVAL (operands[3]) == -INTVAL (operands[2])"
+  [(const_int 0)]
+  {
+    emit_insn (gen_sub<mode>3_compare1_imm (operands[0], operands[1],
+					 operands[2], operands[3]));
+    DONE;
+  }
 )
 
 (define_insn "*sub_<shift>_<mode>"
@@ -3999,6 +3953,97 @@
   }
 )
 
+;; When the LSL, LSR, ASR, ROR instructions operate on all register arguments
+;; they truncate the shift/rotate amount by the size of the registers they
+;; operate on: 32 for W-regs, 64 for X-regs.  This allows us to optimise away
+;; such redundant masking instructions.  GCC can do that automatically when
+;; SHIFT_COUNT_TRUNCATED is true, but we can't enable it for TARGET_SIMD
+;; because some of the SISD shift alternatives don't perform this truncations.
+;; So this pattern exists to catch such cases.
+
+(define_insn "*aarch64_<optab>_reg_<mode>3_mask1"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(SHIFT:GPI
+	  (match_operand:GPI 1 "register_operand" "r")
+	  (match_operator 4 "subreg_lowpart_operator"
+	   [(and:GPI (match_operand:GPI 2 "register_operand" "r")
+		     (match_operand 3 "const_int_operand" "n"))])))]
+  "(~INTVAL (operands[3]) & (GET_MODE_BITSIZE (<MODE>mode) - 1)) == 0"
+  "<shift>\t%<w>0, %<w>1, %<w>2"
+  [(set_attr "type" "shift_reg")]
+)
+
+(define_insn_and_split "*aarch64_reg_<mode>3_neg_mask2"
+  [(set (match_operand:GPI 0 "register_operand" "=&r")
+	(SHIFT:GPI
+	  (match_operand:GPI 1 "register_operand" "r")
+	  (match_operator 4 "subreg_lowpart_operator"
+	  [(neg:SI (and:SI (match_operand:SI 2 "register_operand" "r")
+			   (match_operand 3 "const_int_operand" "n")))])))]
+  "((~INTVAL (operands[3]) & (GET_MODE_BITSIZE (<MODE>mode) - 1)) == 0)"
+  "#"
+  "&& true"
+  [(const_int 0)]
+  {
+    rtx tmp = (can_create_pseudo_p () ? gen_reg_rtx (SImode)
+	       : operands[0]);
+    emit_insn (gen_negsi2 (tmp, operands[2]));
+
+    rtx and_op = gen_rtx_AND (SImode, tmp, operands[3]);
+    rtx subreg_tmp = gen_rtx_SUBREG (GET_MODE (operands[4]), and_op,
+				     SUBREG_BYTE (operands[4]));
+    emit_insn (gen_<optab><mode>3 (operands[0], operands[1], subreg_tmp));
+    DONE;
+  }
+)
+
+(define_insn_and_split "*aarch64_reg_<mode>3_minus_mask"
+  [(set (match_operand:GPI 0 "register_operand" "=&r")
+	(ashift:GPI
+	  (match_operand:GPI 1 "register_operand" "r")
+	  (minus:QI (match_operand 2 "const_int_operand" "n")
+		    (match_operator 5 "subreg_lowpart_operator"
+		    [(and:SI (match_operand:SI 3 "register_operand" "r")
+			     (match_operand 4 "const_int_operand" "n"))]))))]
+  "((~INTVAL (operands[4]) & (GET_MODE_BITSIZE (<MODE>mode) - 1)) == 0)
+   && INTVAL (operands[2]) == GET_MODE_BITSIZE (<MODE>mode)"
+  "#"
+  "&& true"
+  [(const_int 0)]
+  {
+    rtx tmp = (can_create_pseudo_p () ? gen_reg_rtx (SImode)
+	       : operands[0]);
+
+    emit_insn (gen_negsi2 (tmp, operands[3]));
+
+    rtx and_op = gen_rtx_AND (SImode, tmp, operands[4]);
+    rtx subreg_tmp = gen_rtx_SUBREG (GET_MODE (operands[5]), and_op,
+				     SUBREG_BYTE (operands[5]));
+
+    emit_insn (gen_ashl<mode>3 (operands[0], operands[1], subreg_tmp));
+    DONE;
+  }
+)
+
+(define_insn "*aarch64_<optab>_reg_di3_mask2"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(SHIFT:DI
+	  (match_operand:DI 1 "register_operand" "r")
+	  (match_operator 4 "subreg_lowpart_operator"
+	   [(and:SI (match_operand:SI 2 "register_operand" "r")
+		     (match_operand 3 "aarch64_shift_imm_di" "Usd"))])))]
+  "((~INTVAL (operands[3]) & (GET_MODE_BITSIZE (DImode)-1)) == 0)"
+{
+  rtx xop[3];
+  xop[0] = operands[0];
+  xop[1] = operands[1];
+  xop[2] = gen_lowpart (GET_MODE (operands[4]), operands[2]);
+  output_asm_insn ("<shift>\t%x0, %x1, %x2", xop);
+  return "";
+}
+  [(set_attr "type" "shift_reg")]
+)
+
 ;; Logical left shift using SISD or Integer instruction
 (define_insn "*aarch64_ashl_sisd_or_int_<mode>3"
   [(set (match_operand:GPI 0 "register_operand" "=r,r,w,w")
@@ -4997,6 +5042,18 @@
   [(set_attr "type" "f_minmax<stype>")]
 )
 
+(define_expand "lrint<GPF:mode><GPI:mode>2"
+  [(match_operand:GPI 0 "register_operand")
+   (match_operand:GPF 1 "register_operand")]
+  "TARGET_FLOAT"
+{
+  rtx cvt = gen_reg_rtx (<GPF:MODE>mode);
+  emit_insn (gen_rint<GPF:mode>2 (cvt, operands[1]));
+  emit_insn (gen_lbtrunc<GPF:mode><GPI:mode>2 (operands[0], cvt));
+  DONE;
+}
+)
+
 ;; For copysign (x, y), we want to generate:
 ;;
 ;;   LDR d2, #(1 << 63)
@@ -5030,14 +5087,16 @@
    (match_operand:SF 2 "register_operand")]
   "TARGET_FLOAT && TARGET_SIMD"
 {
-  rtx mask = gen_reg_rtx (DImode);
+  rtx v_bitmask = gen_reg_rtx (V2SImode);
 
   /* Juggle modes to get us in to a vector mode for BSL.  */
-  rtx op1 = lowpart_subreg (V2SFmode, operands[1], SFmode);
+  rtx op1 = lowpart_subreg (DImode, operands[1], SFmode);
   rtx op2 = lowpart_subreg (V2SFmode, operands[2], SFmode);
   rtx tmp = gen_reg_rtx (V2SFmode);
-  emit_move_insn (mask, GEN_INT (HOST_WIDE_INT_1U << 31));
-  emit_insn (gen_aarch64_simd_bslv2sf (tmp, mask, op2, op1));
+  emit_move_insn (v_bitmask,
+		  aarch64_simd_gen_const_vector_dup (V2SImode,
+						     HOST_WIDE_INT_M1U << 31));
+  emit_insn (gen_aarch64_simd_bslv2sf (tmp, v_bitmask, op2, op1));
   emit_move_insn (operands[0], lowpart_subreg (SFmode, tmp, V2SFmode));
   DONE;
 }

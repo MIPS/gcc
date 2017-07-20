@@ -2918,7 +2918,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s,
 	      size_type __n2) const;
-  };
+
+      // Allow basic_stringbuf::__xfer_bufptrs to call _M_length:
+      template<typename, typename, typename> friend class basic_stringbuf;
+    };
 _GLIBCXX_END_NAMESPACE_CXX11
 #else  // !_GLIBCXX_USE_CXX11_ABI
   // Reference-counted COW string implentation
@@ -5673,6 +5676,18 @@ _GLIBCXX_END_NAMESPACE_CXX11
 # endif
   };
 #endif  // !_GLIBCXX_USE_CXX11_ABI
+
+#if __cpp_deduction_guides >= 201606
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
+  template<typename _InputIterator, typename _CharT
+	     = typename iterator_traits<_InputIterator>::value_type,
+	   typename _Allocator = allocator<_CharT>,
+	   typename = _RequireInputIter<_InputIterator>,
+	   typename = _RequireAllocator<_Allocator>>
+    basic_string(_InputIterator, _InputIterator, _Allocator = _Allocator())
+      -> basic_string<_CharT, char_traits<_CharT>, _Allocator>;
+_GLIBCXX_END_NAMESPACE_CXX11
+#endif
 
   // operator+
   /**

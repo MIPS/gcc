@@ -35,6 +35,10 @@
   (and (match_code "const_int")
        (match_test "op == CONST0_RTX (mode)")))
 
+(define_special_predicate "subreg_lowpart_operator"
+  (and (match_code "subreg")
+       (match_test "subreg_lowpart_p (op)")))
+
 (define_predicate "aarch64_ccmp_immediate"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), -31, 31)")))
@@ -76,6 +80,10 @@
 
 (define_predicate "aarch64_fp_vec_pow2"
   (match_test "aarch64_vec_fpconst_pow_of_2 (op) > 0"))
+
+(define_predicate "aarch64_sub_immediate"
+  (and (match_code "const_int")
+       (match_test "aarch64_uimm12_shift (-INTVAL (op))")))
 
 (define_predicate "aarch64_plus_immediate"
   (and (match_code "const_int")
@@ -164,6 +172,9 @@
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), PARALLEL,
 					       0)")))
+
+(define_predicate "aarch64_prefetch_operand"
+  (match_test "aarch64_address_valid_for_prefetch_p (op, false)"))
 
 (define_predicate "aarch64_valid_symref"
   (match_code "const, symbol_ref, label_ref")

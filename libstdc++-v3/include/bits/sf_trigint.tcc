@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -195,11 +195,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  ++__k;
 	}
 
+      auto __sint = std::sin(__t);
+      auto __cost = std::cos(__t);
       _Si = _S_pi_2
-	   - std::cos(__t) * __invt * __sume
-	   - std::sin(__t) * __invt * __sumo;
-      _Ci = std::sin(__t) * __invt * __sume
-	   - std::cos(__t) * __invt * __sumo;
+	  - __cost * __invt * __sume
+	  - __sint * __invt * __sumo;
+      _Ci = __sint * __invt * __sume
+	  - __cost * __invt * __sumo;
 
       return;
     }

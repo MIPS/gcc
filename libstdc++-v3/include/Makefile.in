@@ -428,7 +428,6 @@ bits_headers = \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
-	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/node_handle.h \
 	${bits_srcdir}/numeric_limits.h \
 	${bits_srcdir}/numeric_limits_float128.h \
@@ -460,6 +459,7 @@ bits_headers = \
 	${bits_srcdir}/sf_beta.tcc \
 	${bits_srcdir}/sf_cardinal.tcc \
 	${bits_srcdir}/sf_chebyshev.tcc \
+	${bits_srcdir}/sf_coulomb.tcc \
 	${bits_srcdir}/sf_dawson.tcc \
 	${bits_srcdir}/sf_distributions.tcc \
 	${bits_srcdir}/sf_ellint.tcc \
@@ -469,7 +469,6 @@ bits_headers = \
 	${bits_srcdir}/sf_gegenbauer.tcc \
 	${bits_srcdir}/sf_hankel.tcc \
 	${bits_srcdir}/sf_hermite.tcc \
-	${bits_srcdir}/sf_hydrogen.tcc \
 	${bits_srcdir}/sf_hyperg.tcc \
 	${bits_srcdir}/sf_hypint.tcc \
 	${bits_srcdir}/sf_jacobi.tcc \
@@ -1018,6 +1017,7 @@ experimental_headers = \
 	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/regex \
 	${experimental_srcdir}/set \
+	${experimental_srcdir}/source_location \
 	${experimental_srcdir}/string \
 	${experimental_srcdir}/string_view \
 	${experimental_srcdir}/system_error \

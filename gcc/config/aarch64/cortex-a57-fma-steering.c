@@ -411,9 +411,9 @@ fma_forest::merge_forest (fma_forest *other_forest)
      the list of tree roots of ref_forest.  */
   this->m_globals->remove_forest (other_forest);
   this->m_roots->splice (this->m_roots->begin (), *other_roots);
-  delete other_forest;
-
   this->m_nb_nodes += other_forest->m_nb_nodes;
+
+  delete other_forest;
 }
 
 /* Dump information about the forest FOREST.  */
@@ -603,7 +603,7 @@ fma_node::rename (fma_forest *forest)
     {
       rtx_insn *insn = this->m_insn;
       HARD_REG_SET unavailable;
-      enum machine_mode mode;
+      machine_mode mode;
       int reg;
 
       if (dump_file)

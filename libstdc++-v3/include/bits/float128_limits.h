@@ -1,6 +1,6 @@
 // -*- C++ -*- header.
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,9 +32,19 @@
 
 #pragma GCC system_header
 
-#include <quadmath.h>
+//#include <quadmath.h>
+#define FLT128_MAX 1.18973149535723176508575932662800702e4932Q
+#define FLT128_MIN 3.36210314311209350626267781732175260e-4932Q
+#define FLT128_EPSILON 1.92592994438723585305597794258492732e-34Q
+#define FLT128_DENORM_MIN 6.475175119438025110924438958227646552e-4966Q
+#define FLT128_MANT_DIG 113
+#define FLT128_MIN_EXP (-16381)
+#define FLT128_MAX_EXP 16384
+#define FLT128_DIG 33
+#define FLT128_MIN_10_EXP (-4931)
+#define FLT128_MAX_10_EXP 4932
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -114,6 +124,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
-#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
+#endif // _GLIBCXX_HAVE_FLOAT128_MATH
 
 #endif // _GLIBCXX_BITS_FLOAT128_LIMITS_H

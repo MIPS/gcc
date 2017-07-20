@@ -1639,6 +1639,7 @@ vn_reference_lookup_or_insert_for_pieces (tree vuse,
 }
 
 static vn_nary_op_t vn_nary_op_insert_stmt (gimple *stmt, tree result);
+static unsigned mprts_hook_cnt;
 
 /* Hook for maybe_push_res_to_seq, lookup the expression in the VN tables.  */
 
@@ -1648,8 +1649,22 @@ vn_lookup_simplify_result (code_helper rcode, tree type, tree *ops)
   if (!rcode.is_tree_code ())
     return NULL_TREE;
   vn_nary_op_t vnresult = NULL;
-  return vn_nary_op_lookup_pieces (TREE_CODE_LENGTH ((tree_code) rcode),
-				   (tree_code) rcode, type, ops, &vnresult);
+  tree res = vn_nary_op_lookup_pieces (TREE_CODE_LENGTH ((tree_code) rcode),
+				       (tree_code) rcode, type, ops, &vnresult);
+  /* We can end up endlessly recursing simplifications if the lookup above
+     presents us with a def-use chain that mirrors the original simplification.
+     See PR80887 for an example.  Limit successful lookup artificially
+     to 10 times if we are called as mprts_hook.  */
+  if (res
+      && mprts_hook
+      && --mprts_hook_cnt == 0)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Resetting mprts_hook after too many "
+		 "invocations.\n");
+      mprts_hook = NULL;
+    }
+  return res;
 }
 
 /* Return a value-number for RCODE OPS... either by looking up an existing
@@ -1666,6 +1681,7 @@ vn_nary_build_or_lookup_1 (code_helper rcode, tree type, tree *ops,
      So first simplify and lookup this expression to see if it
      is already available.  */
   mprts_hook = vn_lookup_simplify_result;
+  mprts_hook_cnt = 9;
   bool res = false;
   switch (TREE_CODE_LENGTH ((tree_code) rcode))
     {
@@ -1740,7 +1756,7 @@ vn_nary_build_or_lookup_1 (code_helper rcode, tree type, tree *ops,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Inserting name ");
-	  print_generic_expr (dump_file, result, 0);
+	  print_generic_expr (dump_file, result);
 	  fprintf (dump_file, " for expression ");
 	  print_gimple_expr (dump_file, new_stmt, 0, TDF_SLIM);
 	  fprintf (dump_file, "\n");
@@ -2035,7 +2051,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  ops[1] = bitsize_int (ref->size);
 	  ops[2] = bitsize_int (offset - offset2);
 	  tree val = vn_nary_build_or_lookup (rcode, vr->type, ops);
-	  if (val)
+	  if (val
+	      && (TREE_CODE (val) != SSA_NAME
+		  || ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val)))
 	    {
 	      vn_reference_t res = vn_reference_lookup_or_insert_for_pieces
 		  (vuse, vr->set, vr->type, vr->operands, val);
@@ -2916,14 +2934,11 @@ vn_phi_compute_hash (vn_phi_t vp1)
    the other.  */
 
 static bool
-cond_stmts_equal_p (gcond *cond1, gcond *cond2, bool *inverted_p)
+cond_stmts_equal_p (gcond *cond1, tree lhs1, tree rhs1,
+		    gcond *cond2, tree lhs2, tree rhs2, bool *inverted_p)
 {
   enum tree_code code1 = gimple_cond_code (cond1);
   enum tree_code code2 = gimple_cond_code (cond2);
-  tree lhs1 = gimple_cond_lhs (cond1);
-  tree lhs2 = gimple_cond_lhs (cond2);
-  tree rhs1 = gimple_cond_rhs (cond1);
-  tree rhs2 = gimple_cond_rhs (cond2);
 
   *inverted_p = false;
   if (code1 == code2)
@@ -2941,10 +2956,6 @@ cond_stmts_equal_p (gcond *cond1, gcond *cond2, bool *inverted_p)
   else
     return false;
 
-  lhs1 = vn_valueize (lhs1);
-  rhs1 = vn_valueize (rhs1);
-  lhs2 = vn_valueize (lhs2);
-  rhs2 = vn_valueize (rhs2);
   return ((expressions_equal_p (lhs1, lhs2)
 	   && expressions_equal_p (rhs1, rhs2))
 	  || (commutative_tree_code (code1)
@@ -3002,7 +3013,10 @@ vn_phi_eq (const_vn_phi_t const vp1, const_vn_phi_t const vp2)
 	      return false;
 	    bool inverted_p;
 	    if (! cond_stmts_equal_p (as_a <gcond *> (last1),
-				      as_a <gcond *> (last2), &inverted_p))
+				      vp1->cclhs, vp1->ccrhs,
+				      as_a <gcond *> (last2),
+				      vp2->cclhs, vp2->ccrhs,
+				      &inverted_p))
 	      return false;
 
 	    /* Get at true/false controlled edges into the PHI.  */
@@ -3081,6 +3095,16 @@ vn_phi_lookup (gimple *phi)
   vp1.type = TREE_TYPE (gimple_phi_result (phi));
   vp1.phiargs = shared_lookup_phiargs;
   vp1.block = gimple_bb (phi);
+  /* Extract values of the controlling condition.  */
+  vp1.cclhs = NULL_TREE;
+  vp1.ccrhs = NULL_TREE;
+  basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1.block);
+  if (EDGE_COUNT (idom1->succs) == 2)
+    if (gcond *last1 = dyn_cast <gcond *> (last_stmt (idom1)))
+      {
+	vp1.cclhs = vn_valueize (gimple_cond_lhs (last1));
+	vp1.ccrhs = vn_valueize (gimple_cond_rhs (last1));
+      }
   vp1.hashcode = vn_phi_compute_hash (&vp1);
   slot = current_info->phis->find_slot_with_hash (&vp1, vp1.hashcode,
 						  NO_INSERT);
@@ -3117,6 +3141,16 @@ vn_phi_insert (gimple *phi, tree result)
   vp1->type = TREE_TYPE (gimple_phi_result (phi));
   vp1->phiargs = args;
   vp1->block = gimple_bb (phi);
+  /* Extract values of the controlling condition.  */
+  vp1->cclhs = NULL_TREE;
+  vp1->ccrhs = NULL_TREE;
+  basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1->block);
+  if (EDGE_COUNT (idom1->succs) == 2)
+    if (gcond *last1 = dyn_cast <gcond *> (last_stmt (idom1)))
+      {
+	vp1->cclhs = vn_valueize (gimple_cond_lhs (last1));
+	vp1->ccrhs = vn_valueize (gimple_cond_rhs (last1));
+      }
   vp1->result = result;
   vp1->hashcode = vn_phi_compute_hash (vp1);
 
@@ -3137,11 +3171,11 @@ print_scc (FILE *out, vec<tree> scc)
   tree var;
   unsigned int i;
 
-  fprintf (out, "SCC consists of:");
+  fprintf (out, "SCC consists of %u:", scc.length ());
   FOR_EACH_VEC_ELT (scc, i, var)
     {
       fprintf (out, " ");
-      print_generic_expr (out, var, 0);
+      print_generic_expr (out, var);
     }
   fprintf (out, "\n");
 }
@@ -3263,9 +3297,9 @@ set_ssa_val_to (tree from, tree to)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Not changing value number of ");
-	      print_generic_expr (dump_file, from, 0);
+	      print_generic_expr (dump_file, from);
 	      fprintf (dump_file, " from VARYING to ");
-	      print_generic_expr (dump_file, to, 0);
+	      print_generic_expr (dump_file, to);
 	      fprintf (dump_file, "\n");
 	    }
 	  return false;
@@ -3278,11 +3312,11 @@ set_ssa_val_to (tree from, tree to)
 	    {
 	      fprintf (dump_file, "Forcing VARYING instead of changing "
 		       "value number of ");
-	      print_generic_expr (dump_file, from, 0);
+	      print_generic_expr (dump_file, from);
 	      fprintf (dump_file, " from ");
-	      print_generic_expr (dump_file, currval, 0);
+	      print_generic_expr (dump_file, currval);
 	      fprintf (dump_file, " (non-constant) to ");
-	      print_generic_expr (dump_file, to, 0);
+	      print_generic_expr (dump_file, to);
 	      fprintf (dump_file, " (constant)\n");
 	    }
 	  to = from;
@@ -3295,9 +3329,9 @@ set_ssa_val_to (tree from, tree to)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Setting value number of ");
-      print_generic_expr (dump_file, from, 0);
+      print_generic_expr (dump_file, from);
       fprintf (dump_file, " to ");
-      print_generic_expr (dump_file, to, 0);
+      print_generic_expr (dump_file, to);
     }
 
   if (currval != to
@@ -3312,6 +3346,9 @@ set_ssa_val_to (tree from, tree to)
 	       == get_addr_base_and_unit_offset (TREE_OPERAND (to, 0), &toff))
 	   && coff == toff))
     {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, " (changed)\n");
+
       /* If we equate two SSA names we have to make the side-band info
          of the leader conservative (and remember whatever original value
 	 was present).  */
@@ -3326,22 +3363,6 @@ set_ssa_val_to (tree from, tree to)
 			 gimple_bb (SSA_NAME_DEF_STMT (to))))
 		/* Keep the info from the dominator.  */
 		;
-	      else if (SSA_NAME_IS_DEFAULT_DEF (from)
-		       || dominated_by_p_w_unex
-			    (gimple_bb (SSA_NAME_DEF_STMT (to)),
-			     gimple_bb (SSA_NAME_DEF_STMT (from))))
-		{
-		  /* Save old info.  */
-		  if (! VN_INFO (to)->info.range_info)
-		    {
-		      VN_INFO (to)->info.range_info = SSA_NAME_RANGE_INFO (to);
-		      VN_INFO (to)->range_info_anti_range_p
-			= SSA_NAME_ANTI_RANGE_P (to);
-		    }
-		  /* Use that from the dominator.  */
-		  SSA_NAME_RANGE_INFO (to) = SSA_NAME_RANGE_INFO (from);
-		  SSA_NAME_ANTI_RANGE_P (to) = SSA_NAME_ANTI_RANGE_P (from);
-		}
 	      else
 		{
 		  /* Save old info.  */
@@ -3353,6 +3374,12 @@ set_ssa_val_to (tree from, tree to)
 		    }
 		  /* Rather than allocating memory and unioning the info
 		     just clear it.  */
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "clearing range info of ");
+		      print_generic_expr (dump_file, to);
+		      fprintf (dump_file, "\n");
+		    }
 		  SSA_NAME_RANGE_INFO (to) = NULL;
 		}
 	    }
@@ -3365,17 +3392,6 @@ set_ssa_val_to (tree from, tree to)
 			 gimple_bb (SSA_NAME_DEF_STMT (to))))
 		/* Keep the info from the dominator.  */
 		;
-	      else if (SSA_NAME_IS_DEFAULT_DEF (from)
-		       || dominated_by_p_w_unex
-			    (gimple_bb (SSA_NAME_DEF_STMT (to)),
-			     gimple_bb (SSA_NAME_DEF_STMT (from))))
-		{
-		  /* Save old info.  */
-		  if (! VN_INFO (to)->info.ptr_info)
-		    VN_INFO (to)->info.ptr_info = SSA_NAME_PTR_INFO (to);
-		  /* Use that from the dominator.  */
-		  SSA_NAME_PTR_INFO (to) = SSA_NAME_PTR_INFO (from);
-		}
 	      else if (! SSA_NAME_PTR_INFO (from)
 		       /* Handle the case of trivially equivalent info.  */
 		       || memcmp (SSA_NAME_PTR_INFO (to),
@@ -3387,14 +3403,18 @@ set_ssa_val_to (tree from, tree to)
 		    VN_INFO (to)->info.ptr_info = SSA_NAME_PTR_INFO (to);
 		  /* Rather than allocating memory and unioning the info
 		     just clear it.  */
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "clearing points-to info of ");
+		      print_generic_expr (dump_file, to);
+		      fprintf (dump_file, "\n");
+		    }
 		  SSA_NAME_PTR_INFO (to) = NULL;
 		}
 	    }
 	}
 
       VN_INFO (from)->valnum = to;
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, " (changed)\n");
       return true;
     }
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3774,9 +3794,9 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 	{
 	  fprintf (dump_file, "No store match\n");
 	  fprintf (dump_file, "Value numbering store ");
-	  print_generic_expr (dump_file, lhs, 0);
+	  print_generic_expr (dump_file, lhs);
 	  fprintf (dump_file, " to ");
-	  print_generic_expr (dump_file, op, 0);
+	  print_generic_expr (dump_file, op);
 	  fprintf (dump_file, "\n");
 	}
       /* Have to set value numbers before insert, since insert is
@@ -3892,6 +3912,7 @@ try_to_simplify (gassign *stmt)
 
   /* First try constant folding based on our current lattice.  */
   mprts_hook = vn_lookup_simplify_result;
+  mprts_hook_cnt = 9;
   tem = gimple_fold_stmt_to_constant_1 (stmt, vn_valueize, vn_valueize);
   mprts_hook = NULL;
   if (tem
@@ -3918,9 +3939,9 @@ visit_use (tree use)
       && !SSA_NAME_IS_DEFAULT_DEF (use))
     {
       fprintf (dump_file, "Value numbering ");
-      print_generic_expr (dump_file, use, 0);
+      print_generic_expr (dump_file, use);
       fprintf (dump_file, " stmt = ");
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0);
     }
 
   /* Handle uninitialized uses.  */
@@ -3951,9 +3972,9 @@ visit_use (tree use)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "RHS ");
-	      print_gimple_expr (dump_file, ass, 0, 0);
+	      print_gimple_expr (dump_file, ass, 0);
 	      fprintf (dump_file, " simplified to ");
-	      print_generic_expr (dump_file, simplified, 0);
+	      print_generic_expr (dump_file, simplified);
 	      fprintf (dump_file, "\n");
 	    }
 	}
@@ -4037,9 +4058,9 @@ visit_use (tree use)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "call ");
-		  print_gimple_expr (dump_file, call_stmt, 0, 0);
+		  print_gimple_expr (dump_file, call_stmt, 0);
 		  fprintf (dump_file, " simplified to ");
-		  print_generic_expr (dump_file, simplified, 0);
+		  print_generic_expr (dump_file, simplified);
 		  fprintf (dump_file, "\n");
 		}
 	    }
@@ -4300,7 +4321,7 @@ process_scc (vec<tree> scc)
    and process them.  Returns true if all went well, false if
    we run into resource limits.  */
 
-static bool
+static void
 extract_and_process_scc_for_name (tree name)
 {
   auto_vec<tree> scc;
@@ -4316,24 +4337,37 @@ extract_and_process_scc_for_name (tree name)
       scc.safe_push (x);
     } while (x != name);
 
-  /* Bail out of SCCVN in case a SCC turns out to be incredibly large.  */
-  if (scc.length ()
-      > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
+  /* Drop all defs in the SCC to varying in case a SCC turns out to be
+     incredibly large.
+     ???  Just switch to a non-optimistic mode that avoids any iteration.  */
+  if (scc.length () > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
     {
       if (dump_file)
-	fprintf (dump_file, "WARNING: Giving up with SCCVN due to "
-		 "SCC size %u exceeding %u\n", scc.length (),
-		 (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
-
-      return false;
+	{
+	  print_scc (dump_file, scc);
+	  fprintf (dump_file, "WARNING: Giving up value-numbering SCC due to "
+		   "size %u exceeding %u\n", scc.length (),
+		   (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
+	}
+      tree var;
+      unsigned i;
+      FOR_EACH_VEC_ELT (scc, i, var)
+	{
+	  gimple *def = SSA_NAME_DEF_STMT (var);
+	  mark_use_processed (var);
+	  if (SSA_NAME_IS_DEFAULT_DEF (var)
+	      || gimple_code (def) == GIMPLE_PHI)
+	    set_ssa_val_to (var, var);
+	  else
+	    defs_to_varying (def);
+	}
+      return;
     }
 
   if (scc.length () > 1)
     sort_scc (scc);
 
   process_scc (scc);
-
-  return true;
 }
 
 /* Depth first search on NAME to discover and process SCC's in the SSA
@@ -4343,7 +4377,7 @@ extract_and_process_scc_for_name (tree name)
    Returns true if successful, false if we stopped processing SCC's due
    to resource constraints.  */
 
-static bool
+static void
 DFS (tree name)
 {
   auto_vec<ssa_op_iter> itervec;
@@ -4383,12 +4417,11 @@ start_over:
 	{
 	  /* See if we found an SCC.  */
 	  if (VN_INFO (name)->low == VN_INFO (name)->dfsnum)
-	    if (!extract_and_process_scc_for_name (name))
-	      return false;
+	    extract_and_process_scc_for_name (name);
 
 	  /* Check if we are done.  */
 	  if (namevec.is_empty ())
-	    return true;
+	    return;
 
 	  /* Restore the last use walker and continue walking there.  */
 	  use = name;
@@ -4671,7 +4704,7 @@ class sccvn_dom_walker : public dom_walker
 {
 public:
   sccvn_dom_walker ()
-    : dom_walker (CDI_DOMINATORS, true), fail (false), cond_stack (0) {}
+    : dom_walker (CDI_DOMINATORS, true), cond_stack (0) {}
 
   virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -4681,7 +4714,6 @@ public:
   void record_conds (basic_block,
 		     enum tree_code code, tree lhs, tree rhs, bool value);
 
-  bool fail;
   auto_vec<std::pair <basic_block, std::pair <vn_nary_op_t, vn_nary_op_t> > >
     cond_stack;
 };
@@ -4777,9 +4809,6 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
   edge e;
   edge_iterator ei;
 
-  if (fail)
-    return NULL;
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Visiting BB %d\n", bb->index);
 
@@ -4835,12 +4864,8 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
     {
       gphi *phi = gsi.phi ();
       tree res = PHI_RESULT (phi);
-      if (!VN_INFO (res)->visited
-	  && !DFS (res))
-	{
-	  fail = true;
-	  return NULL;
-	}
+      if (!VN_INFO (res)->visited)
+	DFS (res);
     }
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
        !gsi_end_p (gsi); gsi_next (&gsi))
@@ -4848,12 +4873,8 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
       ssa_op_iter i;
       tree op;
       FOR_EACH_SSA_TREE_OPERAND (op, gsi_stmt (gsi), i, SSA_OP_ALL_DEFS)
-	if (!VN_INFO (op)->visited
-	    && !DFS (op))
-	  {
-	    fail = true;
-	    return NULL;
-	  }
+	if (!VN_INFO (op)->visited)
+	  DFS (op);
     }
 
   /* Finally look at the last stmt.  */
@@ -4870,7 +4891,7 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Visiting control stmt ending BB %d: ", bb->index);
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0);
     }
 
   /* ???  We can even handle stmts with outgoing EH or ABNORMAL edges
@@ -4925,7 +4946,7 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
    due to resource constraints.  DEFAULT_VN_WALK_KIND_ specifies
    how we use the alias oracle walking during the VN process.  */
 
-bool
+void
 run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
 {
   size_t i;
@@ -4961,12 +4982,6 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
      SSA defs and decide whether outgoing edges are not executable.  */
   sccvn_dom_walker walker;
   walker.walk (ENTRY_BLOCK_PTR_FOR_FN (cfun));
-  if (walker.fail)
-    {
-      scc_vn_restore_ssa_info ();
-      free_scc_vn ();
-      return false;
-    }
 
   /* Initialize the value ids and prune out remaining VN_TOPs
      from dead code.  */
@@ -5004,15 +5019,13 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
 	  if (VN_INFO (name)->visited
 	      && SSA_VAL (name) != name)
 	    {
-	      print_generic_expr (dump_file, name, 0);
+	      print_generic_expr (dump_file, name);
 	      fprintf (dump_file, " = ");
-	      print_generic_expr (dump_file, SSA_VAL (name), 0);
+	      print_generic_expr (dump_file, SSA_VAL (name));
 	      fprintf (dump_file, "\n");
 	    }
 	}
     }
-
-  return true;
 }
 
 /* Return the maximum value id we have ever seen.  */

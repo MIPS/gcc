@@ -1,6 +1,6 @@
 // Math extensions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,13 +40,32 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
+   * Return -1 if the integer argument is odd and +1 if it is even.
+   */
+  template<typename _Tp, typename _IntTp>
+    inline _Tp
+    __parity(_IntTp __k)
+    { return __k & 1 ? _Tp{-1} : _Tp{+1}; }
+
+  /**
    * A function to return the max of the absolute values of two numbers
    * ... so we won't include everything.
+   * @param __a The left hand side
+   * @param __b The right hand side
    */
   template<typename _Tp>
     inline _Tp
-    __fpmaxabs(_Tp __a, _Tp __b)
-    { std::abs(__a) < std::abs(__b) ? std::abs(__a) : std::abs(__b); }
+    __fp_max_abs(_Tp __a, _Tp __b)
+    {
+      if (std::isnan(__a) || std::isnan(__b))
+	return std::numeric_limits<_Tp>::quiet_NaN();
+      else
+	{
+	  const auto __aa = std::abs(__a);
+	  const auto __bb = std::abs(__b);
+	  return std::max(__aa, __bb);
+	}
+    }
 
   /**
    * A function to reliably compare two floating point numbers.
@@ -61,12 +80,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline bool
     __fp_is_equal(_Tp __a, _Tp __b, _Tp __mul = _Tp{1})
     {
-      const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
-      bool __retval = true;
-      if ((__a != _Tp{0}) || (__b != _Tp{0}))
-	// Looks mean, but is necessary that the next line has sense.
-	__retval = (std::abs(__a - __b) < __fpmaxabs(__a, __b) * _S_tol);
-      return __retval;
+      if (std::isnan(__a) || std::isnan(__b) || std::isnan(__mul))
+	return false;
+      else
+	{
+	  const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
+	  bool __retval = true;
+	  if ((__a != _Tp{0}) || (__b != _Tp{0}))
+	    // Looks mean, but is necessary that the next line has sense.
+	    __retval = (std::abs(__a - __b) < __fp_max_abs(__a, __b) * _S_tol);
+	  return __retval;
+	}
     }
 
   /**
@@ -81,11 +105,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline bool
     __fp_is_zero(_Tp __a, _Tp __mul = _Tp{1})
     {
-      const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
-      if (__a != _Tp{0})
-	return (std::abs(__a) < _S_tol);
+      if (std::isnan(__a) || std::isnan(__mul))
+	return false;
       else
-        return true;
+	{
+	  const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
+	  if (__a != _Tp{0})
+	    return (std::abs(__a) < _S_tol);
+	  else
+            return true;
+	}
     }
 
   /**
@@ -113,28 +142,43 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * A function to reliably detect if a floating point number is an integer.
    *
    * @param __a The floating point number
+   * @param __mul The multiplier of machine epsilon for the tolerance
    * @return @c true if a is an integer within mul * epsilon.
    */
   template<typename _Tp>
     inline __fp_is_integer_t
     __fp_is_integer(_Tp __a, _Tp __mul = _Tp{1})
     {
-      auto __n = static_cast<int>(std::nearbyint(__a));
-      return __fp_is_integer_t{__fp_is_equal(__a, _Tp(__n), __mul), __n};
+      if (std::isnan(__a) || std::isnan(__mul))
+	return __fp_is_integer_t{false, 0};
+      else
+	{
+	  const auto __n = static_cast<int>(std::nearbyint(__a));
+	  const auto __eq = __fp_is_equal(__a, _Tp(__n), __mul);
+	  return __fp_is_integer_t{__eq, __n};
+	}
     }
 
   /**
    * A function to reliably detect if a floating point number is a half-integer.
    *
    * @param __a The floating point number
-   * @return @c true if 2*a is an integer within mul * epsilon.
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if 2a is an integer within mul * epsilon
+   *            and the returned value is half the integer, int(a) / 2. 
    */
   template<typename _Tp>
     inline __fp_is_integer_t
     __fp_is_half_integer(_Tp __a, _Tp __mul = _Tp{1})
     {
-      auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
-      return __fp_is_integer_t{__fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul), __n / 2};
+      if (std::isnan(__a) || std::isnan(__mul))
+	return __fp_is_integer_t{false, 0};
+      else
+	{
+	  const auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
+	  const auto __eq = __fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul);
+	  return __fp_is_integer_t{__eq, __n / 2};
+	}
     }
 
   /**
@@ -142,16 +186,63 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * half-odd-integer.
    *
    * @param __a The floating point number
-   * @return @c true if 2*a is an odd integer within mul * epsilon.
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if 2a is an odd integer within mul * epsilon
+   *            and the returned value is int(a - 1) / 2.
    */
   template<typename _Tp>
     inline __fp_is_integer_t
     __fp_is_half_odd_integer(_Tp __a, _Tp __mul = _Tp{1})
     {
-      auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
-      bool __halfodd = (__n & 1 == 1)
-		      && __fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul);
-      return __fp_is_integer_t{__halfodd, (__n - 1) / 2};
+      if (std::isnan(__a) || std::isnan(__mul))
+	return __fp_is_integer_t{false, 0};
+      else
+	{
+	  const auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
+	  const bool __halfodd = (__n & 1 == 1)
+			       && __fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul);
+	  return __fp_is_integer_t{__halfodd, (__n - 1) / 2};
+	}
+    }
+
+  /**
+   * A function to reliably detect if a floating point number is an even integer.
+   *
+   * @param __a The floating point number
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if a is an even integer within mul * epsilon.
+   */
+  template<typename _Tp>
+    inline __fp_is_integer_t
+    __fp_is_even_integer(_Tp __a, _Tp __mul = _Tp{1})
+    {
+      if (std::isnan(__a) || std::isnan(__mul))
+	return __fp_is_integer_t{false, 0};
+      else
+	{
+	  const auto __integ = __fp_is_integer(__a, __mul);
+	  return __fp_is_integer_t{__integ && !(__integ() & 1), __integ()};
+	}
+    }
+
+  /**
+   * A function to reliably detect if a floating point number is an odd integer.
+   *
+   * @param __a The floating point number
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if a is an odd integer within mul * epsilon.
+   */
+  template<typename _Tp>
+    inline __fp_is_integer_t
+    __fp_is_odd_integer(_Tp __a, _Tp __mul = _Tp{1})
+    {
+      if (std::isnan(__a) || std::isnan(__mul))
+	return __fp_is_integer_t{false, 0};
+      else
+	{
+	  const auto __integ = __fp_is_integer(__a, __mul);
+	  return __fp_is_integer_t{__integ && (__integ() & 1), __integ()};
+	}
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

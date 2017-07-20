@@ -36,6 +36,9 @@
 // ISO C++ 14882: 26.5  C library
 //
 
+#ifndef _GLIBCXX_CMATH
+#define _GLIBCXX_CMATH 1
+
 #pragma GCC system_header
 
 #include <bits/c++config.h>
@@ -44,10 +47,10 @@
 #define _GLIBCXX_INCLUDE_NEXT_C_HEADERS
 #include_next <math.h>
 #undef _GLIBCXX_INCLUDE_NEXT_C_HEADERS
-#include <bits/std_abs.h>
-
-#ifndef _GLIBCXX_CMATH
-#define _GLIBCXX_CMATH 1
+// Don't need this for g++-6.*
+#if __GNUC__ > 6
+#  include <bits/std_abs.h>
+#endif
 
 // Get rid of those macros defined in <math.h> in lieu of real functions.
 #undef div
@@ -407,6 +410,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   pow(long double __x, int __n)
   { return __builtin_powil(__x, __n); }
 #endif
+#endif
+
+#if _GLIBCXX_HAVE_FLOAT128_MATH
+  // Prevent infinite recursion with pow for __float128.
+  inline __float128 pow(__float128 __x, __float128 __y);
 #endif
 
   template<typename _Tp, typename _Up>
@@ -1863,53 +1871,9 @@ _GLIBCXX_END_NAMESPACE_VERSION
 
 #endif // C++11
 
-#if __cplusplus > 201402L
-namespace std _GLIBCXX_VISIBILITY(default)
-{
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  // [c.math.hypot3], three-dimensional hypotenuse
-#define __cpp_lib_hypot 201603
-
-  template<typename _Tp>
-    inline _Tp
-    __hypot3(_Tp __x, _Tp __y, _Tp __z)
-    {
-      __x = std::abs(__x);
-      __y = std::abs(__y);
-      __z = std::abs(__z);
-      if (_Tp __a = __x < __y ? __y < __z ? __z : __y : __x < __z ? __z : __x)
-	return __a * std::sqrt((__x / __a) * (__x / __a)
-			       + (__y / __a) * (__y / __a)
-			       + (__z / __a) * (__z / __a));
-      else
-	return {};
-    }
-
-  inline float
-  hypot(float __x, float __y, float __z)
-  { return std::__hypot3<float>(__x, __y, __z); }
-
-  inline double
-  hypot(double __x, double __y, double __z)
-  { return std::__hypot3<double>(__x, __y, __z); }
-
-  inline long double
-  hypot(long double __x, long double __y, long double __z)
-  { return std::__hypot3<long double>(__x, __y, __z); }
-
-  template<typename _Tp, typename _Up, typename _Vp>
-    typename __gnu_cxx::__promote_3<_Tp, _Up, _Vp>::__type
-    hypot(_Tp __x, _Up __y, _Vp __z)
-    {
-      using __type = typename __gnu_cxx::__promote_3<_Tp, _Up, _Vp>::__type;
-      return std::__hypot3<__type>(__x, __y, __z);
-    }
-_GLIBCXX_END_NAMESPACE_VERSION
-} // namespace
-#endif // C++17
-
-#include <bits/float128_math.h>
+#if _GLIBCXX_HAVE_FLOAT128_MATH
+#  include <bits/float128_math.h>
+#endif
 
 #if defined(_GLIBCXX_USE_STD_SPEC_FUNCS) && !defined(_GLIBCXX_NO_SPECFUN)
 #  include <bits/specfun.h>

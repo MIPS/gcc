@@ -566,19 +566,8 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
 {
   enum tree_code code;
   tree result;
-#ifdef LTO_STREAMER_DEBUG
-  HOST_WIDE_INT orig_address_in_writer;
-#endif
 
   result = NULL_TREE;
-
-#ifdef LTO_STREAMER_DEBUG
-  /* Read the word representing the memory address for the tree
-     as it was written by the writer.  This is useful when
-     debugging differences between the writer and reader.  */
-  orig_address_in_writer = streamer_read_hwi (ib);
-  gcc_assert ((intptr_t) orig_address_in_writer == orig_address_in_writer);
-#endif
 
   code = lto_tag_to_tree_code (tag);
 
@@ -629,15 +618,6 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
 	 make_node call.  */
       result = make_node (code);
     }
-
-#ifdef LTO_STREAMER_DEBUG
-  /* Store the original address of the tree as seen by the writer
-     in RESULT's aux field.  This is useful when debugging streaming
-     problems.  This way, a debugging session can be started on
-     both writer and reader with a breakpoint using this address
-     value in both.  */
-  lto_orig_address_map (result, (intptr_t) orig_address_in_writer);
-#endif
 
   return result;
 }
@@ -841,8 +821,8 @@ lto_input_ts_type_non_common_tree_pointers (struct lto_input_block *ib,
     TYPE_ARG_TYPES (expr) = stream_read_tree (ib, data_in);
 
   if (!POINTER_TYPE_P (expr))
-    TYPE_MINVAL (expr) = stream_read_tree (ib, data_in);
-  TYPE_MAXVAL (expr) = stream_read_tree (ib, data_in);
+    TYPE_MIN_VALUE_RAW (expr) = stream_read_tree (ib, data_in);
+  TYPE_MAX_VALUE_RAW (expr) = stream_read_tree (ib, data_in);
   if (RECORD_OR_UNION_TYPE_P (expr))
     TYPE_BINFO (expr) = stream_read_tree (ib, data_in);
 }

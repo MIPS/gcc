@@ -2369,7 +2369,7 @@ DEFHOOK
 DEFHOOK
 (chkp_bound_mode,
  "Return mode to be used for bounds.",
- enum machine_mode, (void),
+ machine_mode, (void),
  default_chkp_bound_mode)
 
 DEFHOOK
@@ -4370,7 +4370,7 @@ DEFHOOK
  "Use it to store bounds for anonymous register arguments stored\n\
 into the stack.  Arguments meaning is similar to\n\
 @code{TARGET_SETUP_INCOMING_VARARGS}.",
- void, (cumulative_args_t args_so_far, enum machine_mode mode, tree type,
+ void, (cumulative_args_t args_so_far, machine_mode mode, tree type,
 	int *pretend_args_size, int second_time),
  default_setup_incoming_vararg_bounds)
 
@@ -5394,6 +5394,18 @@ The default is four for machines with a @code{casesi} instruction and\n\
 five otherwise.  This is best for most machines.",
  unsigned int, (void),
  default_case_values_threshold)
+
+/* Optional callback to advise the target to compute the frame layout.  */
+DEFHOOK
+(compute_frame_layout,
+ "This target hook is called once each time the frame layout needs to be\n\
+recalculated.  The calculations can be cached by the target and can then\n\
+be used by @code{INITIAL_ELIMINATION_OFFSET} instead of re-computing the\n\
+layout on every invocation of that hook.  This is particularly useful\n\
+for targets that have an expensive frame layout function.  Implementing\n\
+this callback is optional.",
+ void, (void),
+ hook_void_void)
 
 /* Return true if a function must have and use a frame pointer.  */
 DEFHOOK

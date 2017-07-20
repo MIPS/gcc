@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package runtime
 
@@ -216,7 +216,7 @@ func sigtrampgo(sig uint32, info *_siginfo_t, ctx unsafe.Pointer) {
 		c := sigctxt{info, ctx}
 		if sig == _SIGPROF {
 			_, pc := getSiginfo(info, ctx)
-			sigprofNonGoPC(pc)
+			sigprofNonGo(pc)
 			return
 		}
 		badsignal(uintptr(sig), &c)
@@ -599,6 +599,7 @@ func minitSignalMask() {
 // unminitSignals is called from dropm, via unminit, to undo the
 // effect of calling minit on a non-Go thread.
 //go:nosplit
+//go:nowritebarrierrec
 func unminitSignals() {
 	if getg().m.newSigstack {
 		signalstack(nil, 0)

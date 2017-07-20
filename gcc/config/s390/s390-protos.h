@@ -79,6 +79,7 @@ extern bool s390_bytemask_vector_p (rtx, unsigned *);
 extern bool s390_split_ok_p (rtx, rtx, machine_mode, int);
 extern bool s390_overlap_p (rtx, rtx, HOST_WIDE_INT);
 extern bool s390_offset_p (rtx, rtx, rtx);
+extern bool s390_rel_address_ok_p (rtx);
 extern int tls_symbolic_operand (rtx);
 
 extern bool s390_match_ccmode (rtx_insn *, machine_mode);
@@ -112,8 +113,8 @@ extern void s390_expand_vec_strlen (rtx, rtx, rtx);
 extern void s390_expand_vec_movstr (rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern bool s390_expand_insv (rtx, rtx, rtx, rtx);
-extern void s390_expand_cs_hqi (machine_mode, rtx, rtx, rtx,
-				rtx, rtx, bool);
+extern void s390_expand_cs (machine_mode, rtx, rtx, rtx, rtx, rtx, bool);
+extern void s390_expand_atomic_exchange_tdsi (rtx, rtx, rtx);
 extern void s390_expand_atomic (machine_mode, enum rtx_code,
 				rtx, rtx, rtx, bool);
 extern void s390_expand_tbegin (rtx, rtx, rtx, bool);

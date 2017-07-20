@@ -1,6 +1,6 @@
-// TR29124 math special functions -*- C++ -*-
+// Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,23 +34,6 @@
 
 #include <bits/complex_util.h>
 
-namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
-{
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  /**
-   * A struct to store a cosine and a sine value.
-   */
-  template<typename _Tp>
-    struct __sincos_t
-    {
-      _Tp sin_value;
-      _Tp cos_value;
-    };
-
-_GLIBCXX_END_NAMESPACE_VERSION
-} // namespace __gnu_cxx
-
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 // Implementation-space details.
@@ -61,7 +44,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized sine of argument x:
    * @f[
-   *   \sin_\pi(x) = \sin(\pi x)
+   *   \mathrm{sin_\pi}(x) = \sin(\pi x)
    * @f]
    */
   template<typename _Tp>
@@ -92,7 +75,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized hyperbolic sine of argument x:
    * @f[
-   *   \sinh_\pi(x) = \sinh(\pi x)
+   *   \mathrm{sinh_\pi}(x) = \sinh(\pi x)
    * @f]
    */
   template<typename _Tp>
@@ -111,7 +94,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized cosine of argument x:
    * @f[
-   *   \cos_\pi(x) = \cos(\pi x)
+   *   \mathrm{cos_\pi}(x) = \cos(\pi x)
    * @f]
    */
   template<typename _Tp>
@@ -139,7 +122,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized hyperbolic cosine of argument x:
    * @f[
-   *   \cosh_\pi(x) = \cosh(\pi x)
+   *   \mathrm{cosh_\pi}(x) = \cosh(\pi x)
    * @f]
    */
   template<typename _Tp>
@@ -174,7 +157,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized hyperbolic tangent of argument x:
    * @f[
-   *   \tanh_\pi(x) = \tanh(\pi x)
+   *   \mathrm{tanh_\pi}(x) = \tanh(\pi x)
    * @f]
    */
   template<typename _Tp>
@@ -190,8 +173,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized sine of complex argument z:
    * @f[
-   *   \sin_\pi(z) = \sin(\pi z)
-   *     = \sin_\pi(x) \cosh_\pi(y) + i \cos_\pi(x) \sinh_\pi(y)
+   *   \mathrm{sin_\pi}(z) = \sin(\pi z)
+   *     = \mathrm{sin_\pi}(x) \mathrm{cosh_\pi}(y)
+   *   + i \mathrm{cos_\pi}(x) \mathrm{sinh_\pi}(y)
    * @f]
    */
   template<typename _Tp>
@@ -211,8 +195,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized hyperbolic sine of complex argument z:
    * @f[
-   *   \sinh_\pi(z) = \sinh(\pi z)
-   *     = \sinh(\pi x) \cos_\pi(y) + i \cosh(\pi x) \sin_\pi(y)
+   *   \mathrm{sinh_\pi}(z) = \sinh(\pi z)
+   *     = \mathrm{\sinh_\pi}(x) \mathrm{cos_\pi}(y)
+   *   + i \mathrm{\cosh_\pi}(x) \mathrm{sin_\pi}(y)
    * @f]
    */
   template<typename _Tp>
@@ -231,8 +216,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the reperiodized cosine of complex argument z:
-   * \cos_\pi(z) = \cos(\pi z)
-   *    = \cos_\pi(x) \cosh_\pi(y) - i \sin_\pi(x) \sinh_\pi(y)
+   * @f[
+   *    \mathrm{cos_\pi}(z) = \cos(\pi z)
+   *       = \mathrm{cos_\pi}(x) \mathrm{cosh_\pi}(y)
+   *     - i \mathrm{sin_\pi}(x) \mathrm{sinh_\pi}(y)
+   * @f]
    */
   template<typename _Tp>
     std::complex<_Tp>
@@ -250,8 +238,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the reperiodized hyperbolic cosine of complex argument z:
-   * \cosh_\pi(z) = \cosh_\pi(z)
-   *    = \cosh_\pi(x) \cos_\pi(y) + i \sinh_\pi(x) \sin_\pi(y)
+   * @f[
+   *    \mathrm{cosh_\pi}(z) = \mathrm{cosh_\pi}(z)
+   *       = \mathrm{cosh_\pi}(x) \mathrm{cos_\pi}(y)
+   *     + i \mathrm{sinh_\pi}(x) \mathrm{sin_\pi}(y)
+   * @f]
    */
   template<typename _Tp>
     std::complex<_Tp>
@@ -270,8 +261,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized tangent of complex argument z:
    * @f[
-   *   \tan_\pi(z) = \tan(\pi z)
-   *     = \frac{\tan_\pi(x) + i \tanh_\pi(y)}{1 - i \tan_\pi(x) \tanh_\pi(y)}
+   *   \mathrm{tan_\pi}(z) = \tan(\pi z)
+   *     = \frac{\mathrm{tan_\pi}(x) + i \mathrm{tanh_\pi}(y)}
+   *            {1 - i \mathrm{tan_\pi}(x) \mathrm{tanh_\pi}(y)}
    * @f]
    */
   template<typename _Tp>
@@ -292,8 +284,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * Return the reperiodized hyperbolic tangent of complex argument z:
    * @f[
-   *   \tanh_\pi(z) = \tanh(\pi z)
-   *     = \frac{\tanh_\pi(x) + i \tan_\pi(y)}{1 + i \tanh_\pi(x) \tan_\pi(y)}
+   *   \mathrm{tanh_\pi}(z) = \tanh(\pi z)
+   *     = \frac{\mathrm{tanh_\pi}(x) + i \mathrm{tan_\pi}(y)}
+   *            {1 + i \mathrm{tanh_\pi}(x) \mathrm{tan_\pi}(y)}
    * @f]
    */
   template<typename _Tp>
@@ -369,8 +362,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else if (__x < _Tp{0})
 	{
 	  __gnu_cxx::__sincos_t<_Tp> __tempsc = __sincos_pi(-__x);
-	  return __gnu_cxx::__sincos_t<_Tp>{-__tempsc.sin_value,
-					     __tempsc.cos_value};
+	  return __gnu_cxx::__sincos_t<_Tp>{-__tempsc.__sin_v,
+					     __tempsc.__cos_v};
 	}
       else if (__x < _Tp{0.5L})
 	return __sincos(_S_pi * __x);
@@ -378,8 +371,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{
 	  __gnu_cxx::__sincos_t<_Tp>
 	    __tempsc = __sincos(_S_pi * (_Tp{1} - __x));
-	  return __gnu_cxx::__sincos_t<_Tp>{__tempsc.sin_value,
-					   -__tempsc.cos_value};
+	  return __gnu_cxx::__sincos_t<_Tp>{__tempsc.__sin_v,
+					   -__tempsc.__cos_v};
 	}
       else
 	{
@@ -404,7 +397,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __polar_pi(_Tp __rho, _Tp __phi_pi)
     {
       __gnu_cxx::__sincos_t<_Tp> __sc = __sincos_pi(__phi_pi);
-      return std::complex<_Tp>(__rho * __sc.cos_value, __rho * __sc.sin_value);
+      return std::complex<_Tp>(__rho * __sc.__cos_v,
+			       __rho * __sc.__sin_v);
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

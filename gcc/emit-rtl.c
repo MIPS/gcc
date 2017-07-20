@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "stor-layout.h"
 #include "opts.h"
+#include "predict.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -190,9 +191,8 @@ static reg_attrs *get_reg_attrs (tree, int);
 static rtx gen_const_vector (machine_mode, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
 
-/* Probability of the conditional branch currently proceeded by try_split.
-   Set to -1 otherwise.  */
-int split_branch_probability = -1;
+/* Probability of the conditional branch currently proceeded by try_split.  */
+profile_probability split_branch_probability;
 
 /* Returns a hash code for X (which is a really a CONST_INT).  */
 
@@ -1954,7 +1954,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	  while (TREE_CODE (t2) == ARRAY_REF);
 
 	  if (DECL_P (t2)
-	      || TREE_CODE (t2) == COMPONENT_REF)
+	      || (TREE_CODE (t2) == COMPONENT_REF
+		  /* For trailing arrays t2 doesn't have a size that
+		     covers all valid accesses.  */
+		  && ! array_at_struct_end_p (t)))
 	    {
 	      attrs.expr = t2;
 	      attrs.offset_known_p = false;
@@ -3659,7 +3662,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
   rtx_insn *before, *after;
   rtx note;
   rtx_insn *seq, *tem;
-  int probability;
+  profile_probability probability;
   rtx_insn *insn_last, *insn;
   int njumps = 0;
   rtx_insn *call_insn = NULL;
@@ -3670,12 +3673,16 @@ try_split (rtx pat, rtx_insn *trial, int last)
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
-    split_branch_probability = XINT (note, 0);
+    split_branch_probability
+      = profile_probability::from_reg_br_prob_note (XINT (note, 0));
+  else
+    split_branch_probability = profile_probability::uninitialized ();
+
   probability = split_branch_probability;
 
   seq = split_insns (pat, trial);
 
-  split_branch_probability = -1;
+  split_branch_probability = profile_probability::uninitialized ();
 
   if (!seq)
     return trial;
@@ -3706,7 +3713,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	    CROSSING_JUMP_P (insn) = CROSSING_JUMP_P (trial);
 	  mark_jump_label (PATTERN (insn), insn, 0);
 	  njumps++;
-	  if (probability != -1
+	  if (probability.initialized_p ()
 	      && any_condjump_p (insn)
 	      && !find_reg_note (insn, REG_BR_PROB, 0))
 	    {
@@ -3715,7 +3722,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 		 is responsible for this step using
 		 split_branch_probability variable.  */
 	      gcc_assert (njumps == 1);
-	      add_int_reg_note (insn, REG_BR_PROB, probability);
+	      add_reg_br_prob_note (insn, probability);
 	    }
 	}
     }

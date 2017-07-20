@@ -485,7 +485,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
     case SYMBOL_REF:
       if (SYMBOL_REF_WEAK (x))
 	return 1;
-      if (!CONSTANT_POOL_ADDRESS_P (x))
+      if (!CONSTANT_POOL_ADDRESS_P (x) && !SYMBOL_REF_FUNCTION_P (x))
 	{
 	  tree decl;
 	  HOST_WIDE_INT decl_size;
@@ -644,8 +644,11 @@ rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 
     case PLUS:
       /* An address is assumed not to trap if:
-         - it is the pic register plus a constant.  */
-      if (XEXP (x, 0) == pic_offset_table_rtx && CONSTANT_P (XEXP (x, 1)))
+	 - it is the pic register plus a const unspec without offset.  */
+      if (XEXP (x, 0) == pic_offset_table_rtx
+	  && GET_CODE (XEXP (x, 1)) == CONST
+	  && GET_CODE (XEXP (XEXP (x, 1), 0)) == UNSPEC
+	  && offset == 0)
 	return 0;
 
       /* - or it is an address that can't trap plus a constant integer.  */
@@ -1220,6 +1223,24 @@ reg_set_p (const_rtx reg, const_rtx insn)
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
     return true;
+
+  /* There are no REG_INC notes for SP autoinc.  */
+  if (reg == stack_pointer_rtx && INSN_P (insn))
+    {
+      subrtx_var_iterator::array_type array;
+      FOR_EACH_SUBRTX_VAR (iter, array, PATTERN (insn), NONCONST)
+	{
+	  rtx mem = *iter;
+	  if (mem
+	      && MEM_P (mem)
+	      && GET_RTX_CLASS (GET_CODE (XEXP (mem, 0))) == RTX_AUTOINC)
+	    {
+	      if (XEXP (XEXP (mem, 0), 0) == stack_pointer_rtx)
+		return true;
+	      iter.skip_subrtxes ();
+	    }
+	}
+    }
 
   return set_of (reg, insn) != NULL_RTX;
 }
@@ -4146,6 +4167,13 @@ rtx_cost (rtx x, machine_mode mode, enum rtx_code outer_code,
 	return COSTS_N_INSNS (2 + factor);
       break;
 
+    case TRUNCATE:
+      if (MODES_TIEABLE_P (mode, GET_MODE (XEXP (x, 0))))
+	{
+	  total = 0;
+	  break;
+	}
+      /* FALLTHRU */
     default:
       if (targetm.rtx_costs (x, mode, outer_code, opno, &total, speed))
 	return total;
@@ -5235,23 +5263,41 @@ insn_rtx_cost (rtx pat, bool speed)
   int i, cost;
   rtx set;
 
-  /* Extract the single set rtx from the instruction pattern.
-     We can't use single_set since we only have the pattern.  */
+  /* Extract the single set rtx from the instruction pattern.  We
+     can't use single_set since we only have the pattern.  We also
+     consider PARALLELs of a normal set and a single comparison.  In
+     that case we use the cost of the non-comparison SET operation,
+     which is most-likely to be the real cost of this operation.  */
   if (GET_CODE (pat) == SET)
     set = pat;
   else if (GET_CODE (pat) == PARALLEL)
     {
       set = NULL_RTX;
+      rtx comparison = NULL_RTX;
+
       for (i = 0; i < XVECLEN (pat, 0); i++)
 	{
 	  rtx x = XVECEXP (pat, 0, i);
 	  if (GET_CODE (x) == SET)
 	    {
-	      if (set)
-		return 0;
-	      set = x;
+	      if (GET_CODE (SET_SRC (x)) == COMPARE)
+		{
+		  if (comparison)
+		    return 0;
+		  comparison = x;
+		}
+	      else
+		{
+		  if (set)
+		    return 0;
+		  set = x;
+		}
 	    }
 	}
+
+      if (!set && comparison)
+	set = comparison;
+
       if (!set)
 	return 0;
     }

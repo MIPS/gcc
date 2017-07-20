@@ -131,10 +131,10 @@
   /* Allow labels and local symbols.  */
   if (GET_CODE (op) == LABEL_REF)
     return true;
-  if (GET_CODE (op) == SYMBOL_REF)
+  if (SYMBOL_REF_P (op))
     return (!SYMBOL_FLAG_NOTALIGN2_P (op)
 	    && SYMBOL_REF_TLS_MODEL (op) == 0
-	    && (!flag_pic || SYMBOL_REF_LOCAL_P (op)));
+	    && s390_rel_address_ok_p (op));
 
   /* Everything else must have a CONST, so strip it.  */
   if (GET_CODE (op) != CONST)
@@ -156,10 +156,11 @@
   /* Labels and local symbols allowed here as well.  */
   if (GET_CODE (op) == LABEL_REF)
     return true;
-  if (GET_CODE (op) == SYMBOL_REF)
+  if (SYMBOL_REF_P (op))
     return (!SYMBOL_FLAG_NOTALIGN2_P (op)
 	    && SYMBOL_REF_TLS_MODEL (op) == 0
-	    && (!flag_pic || SYMBOL_REF_LOCAL_P (op)));
+	    && s390_rel_address_ok_p (op));
+
 
   /* Now we must have a @GOTENT offset or @PLT stub
      or an @INDNTPOFF TLS offset.  */
@@ -198,6 +199,11 @@
   (ior (match_operand 0 "nonimmediate_operand")
       (and (match_code "const_int")
 	   (match_test "INTVAL (op) <= 32767 && INTVAL (op) >= -32768"))))
+
+(define_predicate "reload_const_wide_int_operand"
+  (and (match_code "const_wide_int")
+       (match_test "legitimate_reload_constant_p (op)")))
+
 
 ;; operators --------------------------------------------------------------
 

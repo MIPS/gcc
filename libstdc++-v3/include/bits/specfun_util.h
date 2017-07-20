@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,9 +40,16 @@
 #  include <ratio>
 #  include <complex>
 #endif
+#if __cplusplus >= 201402L
+#  include <utility> // For exchange
+#endif
 
+#define _GLIBCXX_HAVE_FLOAT128_MATH 0
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
-#  include <quadmath.h>
+#  if __has_include(<quadmath.h>)
+#    include <quadmath.h>
+#    define _GLIBCXX_HAVE_FLOAT128_MATH 1
+#  endif
 #endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
 
 namespace std _GLIBCXX_VISIBILITY(default)
@@ -119,12 +126,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __isnan<long double>(long double __x)
     { return __builtin_isnanl(__x); }
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
   template<>
     inline bool
     __isnan<__float128>(__float128 __x)
     { return __builtin_isnanq(__x); }
-#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
+#endif
 
 #endif // _GLIBCXX_USE_C99_MATH && !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
 
@@ -175,7 +182,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __promote_fp_help<long double>
     { using __type = long double; };
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
   template<>
     struct __promote_fp_help<__float128>
     { using __type = __float128; };
@@ -184,6 +191,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename... _Tps>
     using __promote_fp_help_t = typename __promote_fp_help<_Tps...>::__type;
 
+#if __cplusplus < 201402L
+  // Decay refs and cv...
+  // Alternatively we could decay refs and propagate cv to promoted type.
+  template<typename _Tp, typename... _Tps>
+    struct __promote_fp
+    {
+      using __decaytype = typename std::decay<_Tp>::type;
+      using __type = decltype(__promote_fp_help_t<__decaytype>{}
+		   + typename __promote_fp<_Tps...>::__type{});
+    };
+
+  template<>
+    template<typename _Tp>
+      struct __promote_fp<_Tp>
+      {
+	using __decaytype = typename std::decay<_Tp>::type;
+	using __type = decltype(__promote_fp_help_t<__decaytype>{});
+      };
+#else
   // Decay refs and cv...
   // Alternatively we could decay refs and propagate cv to promoted type.
   template<typename _Tp, typename... _Tps>
@@ -195,9 +221,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     template<typename _Tp>
       struct __promote_fp<_Tp>
       { using __type = decltype(__promote_fp_help_t<std::decay_t<_Tp>>{}); };
+#endif
 
   template<typename... _Tps>
     using __promote_fp_t = typename __promote_fp<_Tps...>::__type;
+
+// Need an exchange utility.
+#if __cplusplus < 201402L
+  template<typename _Tp, typename _Up = _Tp>
+    _Tp
+    __exchange(_Tp& __obj, _Up&& __new_val)
+    {
+      _Tp __old_val = std::move(__obj);
+      __obj = std::forward<_Up>(__new_val);
+      return __old_val;
+    }
+#else
+  template<typename _Tp, typename _Up = _Tp>
+    _Tp
+    __exchange(_Tp& __obj, _Up&& __new_val)
+    { return std::exchange(__obj, std::forward<_Up>(__new_val)); }
+#endif
 
 #endif // __cplusplus >= 201103L
 

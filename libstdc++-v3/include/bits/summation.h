@@ -1,6 +1,6 @@
-// math special functions -*- C++ -*-
+// Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -251,8 +251,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using value_type = _Tp;
 
       ///  Default constructor.
-      _VanWijngaardenSum()
-      : _M_sum{}, _M_term{}, _M_delta{}, _M_num_terms{0}, _M_converged{false}
+      _VanWijngaardenSum(std::size_t __start_term = 0u)
+      : _M_sum{}, _M_term{}, _M_delta{}, _M_num_terms{0},
+	_M_start_term{__start_term},
+	_M_converged{false}
       { }
 
       /// Add a new term to the sum.
@@ -283,6 +285,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::size_t
       num_terms() const
       { return this->_M_num_terms; }
+
+      /// Return the number of initial terms to add to the sum before
+      /// switching to the vanWijngaarden algorithm.
+      std::size_t
+      start_term() const
+      { return this->_M_start_term; }
 
       /// Return the current last term contributing to the sum.
       value_type
@@ -316,6 +324,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       value_type _M_term;
       std::vector<value_type> _M_delta;
       std::size_t _M_num_terms;
+      std::size_t _M_start_term;
       bool _M_converged;
     };
 
@@ -327,18 +336,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _TermFn>
     class _VanWijngaardenCompressor
     {
+    private:
+
+      _TermFn _M_term_fn;
+
     public:
+
+      using __return_t = decltype(_M_term_fn.operator()(std::size_t{}));
 
       _VanWijngaardenCompressor(_TermFn __term_fn)
       : _M_term_fn{__term_fn}
       { }
 
-      auto
+      __return_t
       operator[](std::size_t __j) const;
-
-    private:
-
-      _TermFn _M_term_fn;
     };
 
   /**
@@ -628,6 +639,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using value_type = _Tp;
 
+      explicit _RemainderTerm(_Tp __val, _Tp __rem)
+      : term(__val), remainder(__rem)
+      { }
+
       value_type term = value_type{};
       value_type remainder = value_type{};
     };
@@ -711,7 +726,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : _M_n{0}, _M_term{}, _M_beta{__beta}
       { }
 
-      constexpr void
+      /*constexpr*/ void
       operator<<(value_type __term)
       {
 	this->_M_term = __term;

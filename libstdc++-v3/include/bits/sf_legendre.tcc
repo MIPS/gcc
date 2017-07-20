@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,6 +50,7 @@
 
 #include <complex>
 #include <ext/math_const.h>
+#include <vector>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -59,30 +60,33 @@ namespace __detail
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
-   *   @brief  Return the Legendre polynomial by upward recursion
-   *           on order @f$ l @f$.
+   * @brief  Return the Legendre polynomial by upward recursion
+   * 	     on order @f$ l @f$.
    *
-   *   The Legendre function of order @f$ l @f$ and argument @f$ x @f$,
-   *   @f$ P_l(x) @f$, is defined by:
-   *   @f[
-   *     P_l(x) = \frac{1}{2^l l!}\frac{d^l}{dx^l}(x^2 - 1)^{l}
-   *   @f]
+   * The Legendre function of order @f$ l @f$ and argument @f$ x @f$,
+   * @f$ P_l(x) @f$, is defined by:
+   * @f[
+   *   P_l(x) = \frac{1}{2^l l!}\frac{d^l}{dx^l}(x^2 - 1)^{l}
+   * @f]
+   * This can be expressed as a series:
+   * @f[
+   *   P_l(x) = \frac{1}{2^l l!}\sum_{k=0}^{\lfloor l/2 \rfloor}
+   *            \frac{(-1)^k(2l-2k)!}{k!(l-k)!(l-2k)!}x^{l-2k}
+   * @f]
    *
-   *   @param  __l  The order of the Legendre polynomial.  @f$l >= 0@f$.
-   *   @param  __x  The argument of the Legendre polynomial.  @f$|x| <= 1@f$.
+   * @param  __l  The order of the Legendre polynomial.  @f$ l >= 0 @f$.
+   * @param  __x  The argument of the Legendre polynomial.
    */
   template<typename _Tp>
     _Tp
     __poly_legendre_p(unsigned int __l, _Tp __x)
     {
-      if ((__x < -_Tp{1}) || (__x > +_Tp{1}))
-	std::__throw_domain_error(__N("__poly_legendre_p: argument out of range"));
-      else if (__isnan(__x))
+      if (__isnan(__x))
 	return __gnu_cxx::__quiet_NaN(__x);
-      else if (__x == +_Tp{1})
-	return +_Tp{1};
-      else if (__x == -_Tp{1})
-	return (__l % 2 == 1 ? -_Tp{1} : +_Tp{1});
+      else if (__x == _Tp{+1})
+	return _Tp{+1};
+      else if (__x == _Tp{-1})
+	return (__l % 2 == 1 ? _Tp{-1} : _Tp{+1});
       else
 	{
 	  auto _P_lm2 = _Tp{1};
@@ -125,14 +129,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Tp
     __legendre_q(unsigned int __l, _Tp __x)
     {
+      const auto _S_eps = __gnu_cxx::__epsilon(__x);
+      const auto _S_inf = __gnu_cxx::__infinity(__x);
       if ((__x < -_Tp{1}) || (__x > +_Tp{1}))
 	std::__throw_domain_error(__N("__legendre_q: argument out of range"));
       else if (__isnan(__x))
 	return __gnu_cxx::__quiet_NaN(__x);
-      else if (__x == +_Tp{1})
-	return +_Tp{1};
-      else if (__x == -_Tp{1})
-	return (__l % 2 == 1 ? -_Tp{1} : +_Tp{1});
+      else if (std::abs(__x - _Tp{1}) < _S_eps)
+	return _S_inf;
+      else if (std::abs(__x + _Tp{1}) < _S_eps)
+	return (__l & 1 ? +1 : -1) * _S_inf;
       else
 	{
 	  auto _Q_lm2 = _Tp{0.5L} * std::log((_Tp{1} + __x) / (_Tp{1} - __x));
@@ -171,16 +177,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *   @param  __m  The order of the associated Legendre function.
    *              @f$ m <= l @f$.
    *   @param  __x  The argument of the associated Legendre function.
-   *              @f$ |x| <= 1 @f$.
    */
   template<typename _Tp>
     _Tp
     __assoc_legendre_p(unsigned int __l, unsigned int __m, _Tp __x)
     {
-      if (__x < -_Tp{1} || __x > +_Tp{1})
-	std::__throw_domain_error(__N("__assoc_legendre_p: "
-				      "argument out of range"));
-      else if (__m > __l)
+      if (__m > __l)
 	std::__throw_domain_error(__N("__assoc_legendre_p: "
 				      "degree out of range"));
       else if (__isnan(__x))
@@ -358,6 +360,103 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       return __sph_legendre(__l, std::abs(__m), __theta)
 	   * std::polar(_Tp{1}, _Tp(__m) * __phi);
+    }
+
+
+  /**
+   * Build a list of zeros and weights for the Gauss-Legendre integration rule
+   * for the Legendre polynomial of degree @c l.
+   */
+  template<typename _Tp>
+    std::vector<__gnu_cxx::__quadrature_point_t<_Tp>>
+    __legendre_zeros(unsigned int __l, _Tp proto = _Tp{})
+    {
+      const auto _S_eps = __gnu_cxx::__epsilon(proto);
+      const auto _S_pi = __gnu_cxx::__const_pi(proto);
+      const unsigned int _S_maxit = 1000u;
+
+      std::vector<__gnu_cxx::__quadrature_point_t<_Tp>> __pt(__l);
+
+      auto __m = __l / 2;
+
+      // Treat the central zero for odd order specially.
+      // Be careful to avoid overflow of the factorials.
+      // An alternative would be to proceed with the recursion
+      // for large order.
+      if (__l & 1)
+	{
+	  if (__l < _S_num_factorials<_Tp>)
+	    {
+	      const auto __lm = __l - 1;
+	      const auto __lmfact = __factorial<_Tp>(__lm);
+	      const auto __mm = __lm / 2;
+	      const auto __mmfact = __factorial<_Tp>(__mm);
+	      auto __Plm1 = (__lm & 1 ? -1 : 1) * __lmfact / __mmfact / __mmfact
+			    / std::pow(_Tp{2}, __lm);
+	      auto __Ppl = __l * __Plm1;
+	      __pt[__m].__zero = _Tp{0};
+	      __pt[__m].__weight = _Tp{2} / __Ppl / __Ppl;
+	    }
+	  else
+	    {
+	      const auto _S_ln2 = __gnu_cxx::__const_ln_2(proto);
+	      const auto __lm = __l - 1;
+	      const auto __lmfact = __log_factorial<_Tp>(__lm);
+	      const auto __mm = __lm / 2;
+	      const auto __mmfact = __log_factorial<_Tp>(__mm);
+	      auto __Plm1 = (__lm & 1 ? -1 : 1)
+			  * std::exp(__lmfact - 2 * __mmfact - __lm * _S_ln2);
+	      auto __Ppl = __l * __Plm1;
+	      __pt[__m].__zero = _Tp{0};
+	      __pt[__m].__weight = _Tp{2} / __Ppl / __Ppl;
+	    }
+	}
+
+      for (auto __i = 1u; __i <= __m; ++__i)
+	{
+	  // Clever approximation of root.
+	  auto __z = std::cos(_S_pi * (__i - _Tp{1} / _Tp{4})
+				    / (__l + _Tp{1} / _Tp{2}));
+	  auto __z1 = __z;
+	  auto __w = _Tp{0};
+	  for (auto __its = 0u; __its < _S_maxit; ++__its)
+	    {
+	      // Compute __P, __P1, and __P2 the Legendre polynomials of order
+	      // l, l-1, l-2 respectively by iterating through the recursion
+	      // relation for the Legendre polynomials.
+	      // Compute __Pp the derivative of the Legendre polynomial of order l.
+	      auto __P1 = _Tp{0};
+	      auto __P = _Tp{1};
+	      for  (auto __k = 1u; __k <= __l; ++__k)
+		{
+		  auto __P2 = __P1;
+		  __P1 = __P;
+		  // Recursion for Legendre polynomials.
+		  __P = ((_Tp{2} * __k - _Tp{1}) * __z * __P1
+		      - (__k - _Tp{1}) * __P2) / __k;
+		}
+	      // Recursion for the derivative of The Legendre polynomial.
+	      auto __Pp = __l * (__z * __P - __P1) / (__z * __z - _Tp{1});
+	      __z1 = __z;
+	      // Converge on root by Newton's method.
+	      __z = __z1 - __P / __Pp;
+	      if (std::abs(__z - __z1) < _S_eps)
+		{
+		  __w = _Tp{2} / ((_Tp{1} - __z * __z) * __Pp * __Pp);
+		  break;
+		}
+	      if (__its > _S_maxit)
+		std::__throw_logic_error("__legendre_zeros: "
+					 "Too many iterations");
+	    }
+
+	  __pt[__i - 1].__zero = -__z;
+	  __pt[__l - __i].__zero = __z;
+	  __pt[__i - 1].__weight = __w;
+	  __pt[__l - __i].__weight = __w;
+	}
+
+      return __pt;
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

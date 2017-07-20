@@ -175,6 +175,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __promote<_Tp, false>
     { };
 
+#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+  template<>
+    struct __promote<__float128>
+    { typedef __float128 __type; };
+#endif // FLOAT128
+
   template<>
     struct __promote<long double>
     { typedef long double __type; };

@@ -916,7 +916,7 @@ dbxout_function_end (tree decl ATTRIBUTE_UNUSED)
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
-  if (flag_reorder_blocks_and_partition)
+  if (crtl->has_bb_partition)
     {
       dbxout_begin_empty_stabs (N_FUN);
       dbxout_stab_value_label_diff (crtl->subsections.hot_section_end_label,
@@ -952,8 +952,6 @@ get_lang_number (void)
     return N_SO_FORTRAN;
   else if (lang_GNU_Fortran ())
     return N_SO_FORTRAN90; /* CHECKME */
-  else if (strcmp (language_string, "GNU Pascal") == 0)
-    return N_SO_PASCAL;
   else if (strcmp (language_string, "GNU Objective-C") == 0)
     return N_SO_OBJC;
   else if (strcmp (language_string, "GNU Objective-C++") == 0)

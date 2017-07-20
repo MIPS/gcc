@@ -310,7 +310,6 @@ class_array_ref_detected (gfc_ref *ref, bool *full_array)
       else if (ref->next && ref->next->type == REF_ARRAY
 	    && !ref->next->next
 	    && ref->type == REF_COMPONENT
-	    && ref->next->type == REF_ARRAY
 	    && ref->next->u.ar.type != AR_ELEMENT)
 	{
 	  with_data = true;
@@ -1613,6 +1612,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   final->attr.flavor = FL_PROCEDURE;
   final->attr.function = 1;
   final->attr.pure = 0;
+  final->attr.recursive = 1;
   final->result = final;
   final->ts.type = BT_INTEGER;
   final->ts.kind = 4;

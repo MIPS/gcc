@@ -1997,7 +1997,7 @@
         (FIXUORS:SI (unspec:SDF
                         [(match_operand:SDF 1
                            "register_operand" "<F_constraint>")] VCVT)))]
-  "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
+  "TARGET_HARD_FLOAT && TARGET_VFP5 <vfp_double_cond>"
   "vcvt<vrint_variant>.<su>32.<V_if_elem>\\t%0, %<V_reg>1"
   [(set_attr "predicable" "no")
    (set_attr "conds" "unconditional")
@@ -2079,3 +2079,40 @@
 ;; fmdhr et al (VFPv1)
 ;; Support for xD (single precision only) variants.
 ;; fmrrs, fmsrr
+
+;; Split an immediate DF move to two immediate SI moves.
+(define_insn_and_split "no_literal_pool_df_immediate"
+  [(set (match_operand:DF 0 "s_register_operand" "")
+	(match_operand:DF 1 "const_double_operand" ""))]
+  "TARGET_THUMB2 && arm_disable_literal_pool
+  && !(TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE
+       && vfp3_const_double_rtx (operands[1]))"
+  "#"
+  "&& !reload_completed"
+  [(set (subreg:SI (match_dup 1) 0) (match_dup 2))
+   (set (subreg:SI (match_dup 1) 4) (match_dup 3))
+   (set (match_dup 0) (match_dup 1))]
+  "
+  long buf[2];
+  real_to_target (buf, CONST_DOUBLE_REAL_VALUE (operands[1]), DFmode);
+  operands[2] = GEN_INT ((int) buf[0]);
+  operands[3] = GEN_INT ((int) buf[1]);
+  operands[1] = gen_reg_rtx (DFmode);
+  ")
+
+;; Split an immediate SF move to one immediate SI move.
+(define_insn_and_split "no_literal_pool_sf_immediate"
+  [(set (match_operand:SF 0 "s_register_operand" "")
+	(match_operand:SF 1 "const_double_operand" ""))]
+  "TARGET_THUMB2 && arm_disable_literal_pool
+  && !(TARGET_HARD_FLOAT && vfp3_const_double_rtx (operands[1]))"
+  "#"
+  "&& !reload_completed"
+  [(set (subreg:SI (match_dup 1) 0) (match_dup 2))
+   (set (match_dup 0) (match_dup 1))]
+  "
+  long buf;
+  real_to_target (&buf, CONST_DOUBLE_REAL_VALUE (operands[1]), SFmode);
+  operands[2] = GEN_INT ((int) buf);
+  operands[1] = gen_reg_rtx (SFmode);
+  ")

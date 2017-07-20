@@ -1149,7 +1149,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   memset (&init_dr, 0, sizeof (struct data_reference));
   DR_REF (&init_dr) = init_ref;
   DR_STMT (&init_dr) = phi;
-  if (!dr_analyze_innermost (&init_dr, loop))
+  if (!dr_analyze_innermost (&DR_INNERMOST (&init_dr), init_ref, loop))
     return NULL;
 
   if (!valid_initializer_p (&init_dr, ref->distance + 1, root->ref))
@@ -2498,7 +2498,6 @@ tree_predictive_commoning_loop (struct loop *loop)
   struct tree_niter_desc desc;
   bool unroll = false;
   edge exit;
-  bitmap tmp_vars;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Processing loop %d\n",  loop->num);
@@ -2549,7 +2548,7 @@ tree_predictive_commoning_loop (struct loop *loop)
   /* Find the suitable components and split them into chains.  */
   components = filter_suitable_components (loop, components);
 
-  tmp_vars = BITMAP_ALLOC (NULL);
+  auto_bitmap tmp_vars;
   looparound_phis = BITMAP_ALLOC (NULL);
   determine_roots (loop, components, &chains);
   release_components (components);
@@ -2617,7 +2616,6 @@ tree_predictive_commoning_loop (struct loop *loop)
 end: ;
   release_chains (chains);
   free_data_refs (datarefs);
-  BITMAP_FREE (tmp_vars);
   BITMAP_FREE (looparound_phis);
 
   free_affine_expand_cache (&name_expansions);

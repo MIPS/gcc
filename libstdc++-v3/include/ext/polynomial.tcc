@@ -1,6 +1,6 @@
 // Math extensions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -63,11 +63,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	const auto __s = std::norm(__z);
 	size_type __n = this->degree();
 	auto __aa = this->coefficient(__n);
-	auto __bb = this->coefficient(__n - 1);
-	for (size_type __j = 2; __j <= __n; ++__j)
-	  __bb = this->coefficient(__n - __j)
-	       - __s * std::exchange(__aa, __bb + __r * __aa);
-	return __aa * __z + __bb;
+	if (__n > 0)
+	  {
+	    auto __bb = this->coefficient(__n - 1);
+	    for (size_type __j = 2; __j <= __n; ++__j)
+	      __bb = this->coefficient(__n - __j)
+		   - __s * __exchange(__aa, __bb + __r * __aa);
+	    return __aa * __z + __bb;
+	  }
+	else
+	  return __aa;
       };
 
     //  Could/should this be done by output iterator range?
@@ -201,7 +206,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    auto __bb = this->coefficient(__n - 2);
 	    for (size_type __j = 4; __j <= __n; __j += 2)
 	      __bb = this->coefficient(__n - __j)
-		   - __s * std::exchange(__aa, __bb + __r * __aa);
+		   - __s * __exchange(__aa, __bb + __r * __aa);
 	    return __aa * __zz + __bb;
 	  }
 	else
@@ -237,7 +242,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    auto __bb = this->coefficient(__n - 2);
 	    for (size_type __j = 4; __j <= __n; __j += 2)
 	      __bb = this->coefficient(__n - __j)
-		   - __s * std::exchange(__aa, __bb + __r * __aa);
+		   - __s * __exchange(__aa, __bb + __r * __aa);
 	    return __z * (__aa * __zz + __bb);
 	  }
 	else

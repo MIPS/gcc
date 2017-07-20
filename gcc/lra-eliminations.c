@@ -279,7 +279,7 @@ static rtx
 move_plus_up (rtx x)
 {
   rtx subreg_reg;
-  enum machine_mode x_mode, subreg_reg_mode;
+  machine_mode x_mode, subreg_reg_mode;
   
   if (GET_CODE (x) != SUBREG || !subreg_lowpart_p (x))
     return x;
@@ -1195,6 +1195,8 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
   bool prev, result;
   struct lra_elim_table *ep, *ep1;
   HARD_REG_SET temp_hard_reg_set;
+
+  targetm.compute_frame_layout ();
 
   /* Clear self elimination offsets.  */
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)

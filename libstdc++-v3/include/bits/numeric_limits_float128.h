@@ -1,6 +1,6 @@
 // -*- C++ -*- header.
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,17 @@
 
 #pragma GCC system_header
 
+#define _GLIBCXX_HAVE_FLOAT128_MATH 0
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#  if __has_include(<quadmath.h>)
+#    include <quadmath.h>
+#    define _GLIBCXX_HAVE_FLOAT128_MATH 1
+#  endif
+#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
+
+#if _GLIBCXX_HAVE_FLOAT128_MATH
+
+#include <bits/float128_math.h>
 
 namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 {
@@ -216,20 +226,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<>
     inline __float128
+    __max_integer(__float128) _GLIBCXX_USE_NOEXCEPT
+    { return std::ldexp(1, __digits(__float128{})); }
+
+  template<>
+    inline __float128
     __sqrt_max<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__max(__float128{})); }
 
-#ifdef NO_CBRT
-  template<>
-    inline __float128
-    __cbrt_max<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__max(__float128{}), 1 / 3.0Q); }
-#else
   template<>
     inline __float128
     __cbrt_max<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__max(__float128{})); }
-#endif
 
   template<>
     inline __float128
@@ -252,17 +260,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __sqrt_min<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__min(__float128{})); }
 
-#ifdef NO_CBRT
-  template<>
-    inline __float128
-    __cbrt_max<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__min(__float128{}), 1 / 3.0Q); }
-#else
   template<>
     inline __float128
     __cbrt_min<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__min(__float128{})); }
-#endif
 
   template<>
     inline __float128
@@ -284,17 +285,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __sqrt_eps<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__epsilon(__float128{})); }
 
-#ifdef NO_CBRT
-  template<>
-    inline __float128
-    __cbrt_max<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__epsilon(__float128{}), 1 / 3.0Q); }
-#else
   template<>
     inline __float128
     __cbrt_eps<__float128>(__float128) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__epsilon(__float128{})); }
-#endif
 
   template<>
     inline __float128
@@ -314,6 +308,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __gnu_cxx
 
-#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
+#endif // _GLIBCXX_HAVE_FLOAT128_MATH
 
 #endif // _GLIBCXX_BITS_NUMERIC_LIMITS_FLOAT128_H

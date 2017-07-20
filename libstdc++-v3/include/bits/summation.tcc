@@ -1,6 +1,6 @@
-// math special functions -*- C++ -*-
+// Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,7 +33,6 @@
 #pragma GCC system_header
 
 #include <vector>
-#include <utility> // For exchange
 #include <bits/complex_util.h>
 
 namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
@@ -51,11 +50,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	std::__throw_runtime_error(__N("_VanWijngaardenSum: bad term"));
       if (std::__detail::__isinf(__term))
 	std::__throw_runtime_error(__N("_VanWijngaardenSum: infinite term"));
+      if (this->_M_num_terms > 1 && this->_M_term * __term > value_type{0})
+	std::__throw_runtime_error(__N("_VanWijngaardenSum: "
+					"terms not alternating in sign"));
 
       ++this->_M_num_terms;
       this->_M_term = __term;
 
-      if (this->_M_delta.size() == 0)
+      if (this->_M_num_terms <= this->_M_start_term)
+	this->_M_sum += __term;
+      else if (this->_M_delta.size() == 0)
 	{
 	  this->_M_delta.push_back(__term);
 	  this->_M_sum += value_type{0.5L} * this->_M_delta.back();
@@ -66,7 +70,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  this->_M_delta[0] = __term;
 	  auto __n = this->_M_delta.size();
 	  for (auto __j = 0; __j < __n - 1; ++__j)
-	    __temp = std::exchange(this->_M_delta[__j + 1],
+	    __temp = __exchange(this->_M_delta[__j + 1],
 			     value_type{0.5L} * (this->_M_delta[__j] + __temp));
 	  auto __next = value_type{0.5L} * (this->_M_delta.back() + __temp);
 	  if (std::abs(__next) < std::abs(this->_M_delta.back()))
@@ -94,7 +98,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  ADL for ctors anyone?  I'd like to put a lambda in here*
    */
   template<typename _TermFn>
-    auto
+    typename _VanWijngaardenCompressor<_TermFn>::__return_t
     _VanWijngaardenCompressor<_TermFn>::operator[](std::size_t __j) const
     {
       using value_type = decltype(this->_M_term_fn(__j));

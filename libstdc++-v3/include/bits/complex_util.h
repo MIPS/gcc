@@ -1,6 +1,6 @@
-// TR29124 math special functions -*- C++ -*-
+// Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -238,8 +238,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   template<typename _Tp>
     bool
-    __fp_is_real(const std::complex<_Tp>& __w, const _Tp __mul = _Tp{5})
-    { return __gnu_cxx::__fp_is_equal(std::imag(__w), _Tp{0}, __mul); }
+    __fp_is_real(const std::complex<_Tp>& __w, const _Tp __mul = _Tp{1})
+    { return __gnu_cxx::__fp_is_zero(std::imag(__w), __mul); }
 
   // Specialize for real numbers.
   template<typename _Tp>
@@ -257,8 +257,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   template<typename _Tp>
     bool
-    __fp_is_imag(const std::complex<_Tp>& __w, const _Tp __mul = _Tp{5})
-    { return __gnu_cxx::__fp_is_equal(std::real(__w), _Tp{0}, __mul); }
+    __fp_is_imag(const std::complex<_Tp>& __w, const _Tp __mul = _Tp{1})
+    { return __gnu_cxx::__fp_is_zero(std::real(__w), __mul); }
 
   // Specialize for real numbers.
   template<typename _Tp>
@@ -280,15 +280,61 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     inline bool
     __fp_is_equal(const std::complex<_Tp>& __a, const std::complex<_Tp>& __b,
-	      _Tp __mul = _Tp{1})
+		  _Tp __mul = _Tp{1})
     {
       const auto _S_eps = std::numeric_limits<_Tp>::epsilon();
       const auto _S_tol = __mul * _S_eps;
       bool __retval = true;
       if (!__fp_is_zero(std::abs(__a), __mul) || !__fp_is_zero(std::abs(__b), __mul))
 	// Looks mean, but is necessary that the next line has sense.
-	__retval = (std::abs(__a - __b) < __fpmaxabs(__a, __b) * _S_tol);
+	__retval = (std::abs(__a - __b) < __fp_max_abs(__a, __b) * _S_tol);
       return __retval;
+    }
+
+  /**
+   * A function to reliably compare a complex number and a real number.
+   *
+   * @param __a The complex left hand side
+   * @param __b The real right hand side
+   * @param __mul The multiplier for numeric epsilon for comparison
+   * @return @c true if a and b are equal to zero
+   *         or differ only by @f$ max(a,b) * mul * epsilon @f$
+   */
+  template<typename _Tp>
+    inline bool
+    __fp_is_equal(const std::complex<_Tp>& __a, _Tp __b,
+		  _Tp __mul = _Tp{1})
+    {
+      const auto _S_eps = std::numeric_limits<_Tp>::epsilon();
+      const auto _S_tol = __mul * _S_eps;
+      bool __retval = true;
+      if (__fp_is_real(__a, __mul))
+	return __fp_is_equal(std::real(__a), __b, __mul);
+      else
+      	return false;
+    }
+
+  /**
+   * A function to reliably compare a real number and a complex number.
+   *
+   * @param __a The real left hand side
+   * @param __b The complex right hand side
+   * @param __mul The multiplier for numeric epsilon for comparison
+   * @return @c true if a and b are equal to zero
+   *         or differ only by @f$ max(a,b) * mul * epsilon @f$
+   */
+  template<typename _Tp>
+    inline bool
+    __fp_is_equal(const _Tp __a, std::complex<_Tp>& __b,
+		  _Tp __mul = _Tp{1})
+    {
+      const auto _S_eps = std::numeric_limits<_Tp>::epsilon();
+      const auto _S_tol = __mul * _S_eps;
+      bool __retval = true;
+      if (__fp_is_real(__b, __mul))
+	return __fp_is_equal(__a, std::real(__b), __mul);
+      else
+      	return false;
     }
 
   /**
@@ -324,7 +370,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * A function to reliably detect if a complex number is a real half-integer.
    *
    * @param __a The complex number
-   * @return @c true if 2*a is an integer within mul * epsilon.
+   * @return @c true if 2a is an integer within mul * epsilon
+   *            and the returned value is half the integer, int(a) / 2.
    */
   template<typename _Tp>
     inline __fp_is_integer_t
@@ -341,7 +388,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * half-odd-integer.
    *
    * @param __a The complex number
-   * @return @c true if 2*a is an odd integer within mul * epsilon.
+   * @return @c true if 2a is an odd integer within mul * epsilon
+   *            and the returned value is int(a - 1) / 2.
    */
   template<typename _Tp>
     inline __fp_is_integer_t
@@ -351,6 +399,46 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return __fp_is_half_odd_integer(std::real(__a), __mul);
       else
       	return __fp_is_integer_t{false, 0};
+    }
+
+  /**
+   * A function to reliably detect if a floating point number is an even integer.
+   *
+   * @param __a The floating point number
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if a is an even integer within mul * epsilon.
+   */
+  template<typename _Tp>
+    inline __fp_is_integer_t
+    __fp_is_even_integer(const std::complex<_Tp>& __a, _Tp __mul = _Tp{1})
+    {
+      if (__fp_is_real(__a, __mul))
+	{
+	  const auto __integ = __fp_is_integer(std::real(__a), __mul);
+	  return __fp_is_integer_t{__integ && !(__integ() & 1), __integ()};
+	}
+      else
+	return __fp_is_integer_t{false, 0};
+    }
+
+  /**
+   * A function to reliably detect if a floating point number is an odd integer.
+   *
+   * @param __a The floating point number
+   * @param __mul The multiplier of machine epsilon for the tolerance
+   * @return @c true if a is an odd integer within mul * epsilon.
+   */
+  template<typename _Tp>
+    inline __fp_is_integer_t
+    __fp_is_odd_integer(const std::complex<_Tp>& __a, _Tp __mul = _Tp{1})
+    {
+      if (__fp_is_real(__a, __mul))
+	{
+	  const auto __integ = __fp_is_integer(std::real(__a), __mul);
+	  return __fp_is_integer_t{__integ && (__integ() & 1), __integ()};
+	}
+      else
+	return __fp_is_integer_t{false, 0};
     }
 
 #if __cplusplus >= 201103L

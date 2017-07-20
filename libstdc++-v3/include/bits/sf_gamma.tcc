@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -78,7 +78,7 @@ template<>
   constexpr std::size_t _S_num_factorials<double> = 171;
 template<>
   constexpr std::size_t _S_num_factorials<long double> = 171;
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
 template<>
   constexpr std::size_t _S_num_factorials<__float128> = 171;
 #endif
@@ -268,7 +268,7 @@ template<>
   constexpr std::size_t _S_num_double_factorials<double> = 301;
 template<>
   constexpr std::size_t _S_num_double_factorials<long double> = 301;
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
 template<>
   constexpr std::size_t _S_num_double_factorials<__float128> = 301;
 #endif
@@ -588,7 +588,7 @@ template<>
   constexpr std::size_t _S_num_neg_double_factorials<double> = 150;
 template<>
   constexpr std::size_t _S_num_neg_double_factorials<long double> = 999;
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
 template<>
   constexpr std::size_t _S_num_neg_double_factorials<__float128> = 999;
 #endif
@@ -1722,96 +1722,6 @@ _S_neg_double_factorial_table[999]
 	return __log_double_factorial(_Tp(__n));
     }
 
-  /**
-   *  @brief This returns Bernoulli numbers from a table or by summation
-   *         for larger values.
-   *
-   *  Upward recursion is unstable.
-   *
-   *  @param __n the order n of the Bernoulli number.
-   *  @return  The Bernoulli number of order n.
-   */
-  template<typename _Tp>
-    _GLIBCXX14_CONSTEXPR _Tp
-    __bernoulli_series(unsigned int __n)
-    {
-      constexpr unsigned long _S_num_bern_tab = 12;
-      constexpr _Tp
-      _S_bernoulli_2n[_S_num_bern_tab]
-      {
-	 _Tp{1ULL},
-	 _Tp{1ULL}             / _Tp{6ULL},
-	-_Tp{1ULL}             / _Tp{30ULL},
-	 _Tp{1ULL}             / _Tp{42ULL},
-	-_Tp{1ULL}             / _Tp{30ULL},
-	 _Tp{5ULL}             / _Tp{66ULL},
-	-_Tp{691ULL}           / _Tp{2730ULL},
-	 _Tp{7ULL}             / _Tp{6ULL},
-	-_Tp{3617ULL}          / _Tp{510ULL},
-	 _Tp{43867ULL}         / _Tp{798ULL},
-	-_Tp{174611ULL}        / _Tp{330ULL},
-	 _Tp{854513ULL}        / _Tp{138ULL}
-      };
-      constexpr _Tp _S_2pi = __gnu_cxx::__const_2_pi(_Tp{});
-
-      if (__n == 0)
-	return _Tp{1};
-      else if (__n == 1)
-	return -_Tp{1} / _Tp{2};
-      // Take care of the rest of the odd ones.
-      else if (__n % 2 == 1)
-	return _Tp{0};
-      // Take care of some small evens that are painful for the series.
-      else if (__n / 2 < _S_num_bern_tab)
-	return _S_bernoulli_2n[__n / 2];
-      else
-	{
-	  auto __fact = _Tp{1};
-	  if ((__n / 2) % 2 == 0)
-	    __fact *= -_Tp{1};
-	  for (unsigned int __k = 1; __k <= __n; ++__k)
-	    __fact *= __k / _S_2pi;
-	  __fact *= _Tp{2};
-
-	 // Riemann zeta function minus-1 for even integer argument.
-	  auto __sum = _Tp{0};
-	  for (unsigned int __i = 2; __i < 1000; ++__i)
-	    {
-	      auto __term = std::pow(_Tp(__i), -_Tp(__n));
-	      __sum += __term;
-	      if (__term < __gnu_cxx::__epsilon<_Tp>() * __sum)
-		break;
-	    }
-
-	  return __fact + __fact * __sum;
-	}
-    }
-
-
-  /**
-   *   @brief This returns Bernoulli number @f$ B_n @f$.
-   *
-   *   @param __n the order n of the Bernoulli number.
-   *   @return  The Bernoulli number of order n.
-   */
-  template<typename _Tp>
-    _GLIBCXX14_CONSTEXPR _Tp
-    __bernoulli(int __n)
-    { return __bernoulli_series<_Tp>(__n); }
-
-
-  /**
-   * @brief This returns Bernoulli number @f$ B_2n @f$ at even integer
-   * arguments @f$ 2n @f$.
-   *
-   * @param __n the half-order n of the Bernoulli number.
-   * @return  The Bernoulli number of order 2n.
-   */
-  template<typename _Tp>
-    _GLIBCXX14_CONSTEXPR _Tp
-    __bernoulli_2n(int __n)
-    { return __bernoulli_series<_Tp>(2 * __n); }
-
 
   /**
    *  @brief Return @f$log(\Gamma(x))@f$ by asymptotic expansion
@@ -1934,7 +1844,7 @@ _S_neg_double_factorial_table[999]
       };
     };
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
   template<>
     struct __gamma_spouge_data<__float128>
     {
@@ -2000,7 +1910,7 @@ _S_neg_double_factorial_table[999]
    * @f]
    * where @f$ \Gamma(z) @f$ is the gamma function.
    *
-   * @param __x The argument of the log of the gamma function.
+   * @param __z The argument of the log of the gamma function.
    * @return  The logarithm of the gamma function.
    */
   template<typename _Tp>
@@ -2144,7 +2054,7 @@ _S_neg_double_factorial_table[999]
       };
     };
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if _GLIBCXX_HAVE_FLOAT128_MATH
   template<>
     struct __gamma_lanczos_data<__float128>
     {
@@ -2184,7 +2094,7 @@ _S_neg_double_factorial_table[999]
    * @f]
    * where @f$ \Gamma(z) @f$ is the gamma function.
    *
-   * @param __x The argument of the log of the gamma function.
+   * @param __z The argument of the log of the gamma function.
    * @return  The logarithm of the gamma function.
    */
   template<typename _Tp>
@@ -2218,7 +2128,7 @@ _S_neg_double_factorial_table[999]
    *
    * For complex argument the fully complex log of the gamma function is returned.
    *
-   * @param __x The argument of the log of the gamma function.
+   * @param __z The argument of the log of the gamma function.
    * @return  The logarithm of the gamma function.
    */
   template<typename _Tp>
@@ -2261,6 +2171,9 @@ _S_neg_double_factorial_table[999]
    *           + (-1)^k\sum_{j=1}^{k-1}(-1)^j\zeta(j+1-k)c_j\right]
    * @f]
    * where @f$ c_1 = 1 @f$
+   *
+   * @param __a The argument of the reciprocal of the gamma function.
+   * @return  The reciprocal of the gamma function.
    */
   template<typename _Tp>
     _Tp
@@ -2315,6 +2228,66 @@ _S_neg_double_factorial_table[999]
       return __gam;
     }
 
+  template<typename _Tp>
+    _Tp
+    __gamma(_Tp __a);
+
+  /**
+   * Return the reciprocal of the Gamma function:
+   * @f[
+   *   \frac{1}{\Gamma(a)}
+   * @f]
+   *
+   * @param __a The argument of the reciprocal of the gamma function.
+   * @return  The reciprocal of the gamma function.
+   */
+  template<typename _Tp>
+    _Tp
+    __gamma_reciprocal(_Tp __a)
+    {
+      using _Real = std::__detail::__num_traits_t<_Tp>;
+
+      if (std::__detail::__isnan(__a))
+	return __gnu_cxx::__quiet_NaN(__a);
+      else
+	{
+	  const auto _S_pi = __gnu_cxx::__const_pi(__a);
+	  const auto __an = __gnu_cxx::__fp_is_integer(__a);
+	  if (__an)
+	    {
+	      auto __n = __an();
+	      if (__n <= 0)
+		return _Tp{0};
+	      else if (__n < int(_S_num_factorials<_Real>))
+		return _Tp{1}
+		  / _Real(_S_factorial_table[__n - 1].__factorial);
+	      else
+	        {
+		  auto __k = int(_S_num_factorials<_Real>);
+		  auto __rgam = _Tp{1}
+			      / _Real(_S_factorial_table[__k - 1].__factorial);
+		  while (__k < __n && std::abs(__rgam) > _Real{0})
+		    __rgam /= _Real(__k++);
+		  return __rgam;
+		}
+	    }
+	  else if (std::real(__a) > _Real{1})
+	    {
+	      auto __n = int(std::floor(std::real(__a)));
+	      auto __nu = __a - _Tp(__n);
+	      auto __rgam = __gamma_reciprocal_series(__nu);
+	      while (std::real(__a) > _Real{1} && std::abs(__rgam) > _Tp{0})
+	        __rgam /= (__a -= _Real{1});
+	      return __rgam;
+	    }
+	  else if (std::real(__a) > _Real{0})
+	    return __gamma_reciprocal_series(__a);
+	  else
+	    return std::__detail::__sin_pi(__a)
+		 * std::__detail::__gamma(_Tp{1} - __a) / _S_pi;
+	}
+    }
+
   /**
    * @brief Return @f$ log(|\Gamma(a)|) @f$.
    * 	    This will return values even for @f$ a < 0 @f$.
@@ -2341,7 +2314,7 @@ _S_neg_double_factorial_table[999]
 	    return _S_logpi - std::log(__sin_fact) - __log_gamma(_Val{1} - __a);
 	}
       else if (std::real(__a) > _Real{1}
-      	    && std::abs(__a) < _S_num_factorials<_Tp>)
+	    && std::abs(__a) < _S_num_factorials<_Tp>)
 	{
 	  auto __fact = _Tp{1};
 	  auto __arg = __a;
@@ -2435,7 +2408,7 @@ _S_neg_double_factorial_table[999]
    */
   template<typename _Tp>
     _Tp
-    __log_bincoef(unsigned int __n, unsigned int __k)
+    __log_binomial(unsigned int __n, unsigned int __k)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -2472,11 +2445,11 @@ _S_neg_double_factorial_table[999]
    */
   template<typename _Tp>
     _Tp
-    __log_bincoef(_Tp __nu, unsigned int __k)
+    __log_binomial(_Tp __nu, unsigned int __k)
     {
       auto __n = std::nearbyint(__nu);
       if (__n >= 0 && __nu == __n)
-	return __log_bincoef<_Tp>((unsigned int)__n, __k);
+	return __log_binomial<_Tp>((unsigned int)__n, __k);
       else
 	{
 	  return __log_gamma(_Tp(1) + __nu)
@@ -2503,7 +2476,7 @@ _S_neg_double_factorial_table[999]
    */
   template<typename _Tp>
     _Tp
-    __log_bincoef_sign(_Tp __nu, unsigned int __k)
+    __log_binomial_sign(_Tp __nu, unsigned int __k)
     {
       auto __n = std::nearbyint(__nu);
       if (__n >= 0 && __nu == __n)
@@ -2518,7 +2491,7 @@ _S_neg_double_factorial_table[999]
 
   template<typename _Tp>
     std::complex<_Tp>
-    __log_bincoef_sign(std::complex<_Tp> __nu, unsigned int __k)
+    __log_binomial_sign(std::complex<_Tp> __nu, unsigned int __k)
     { return std::complex<_Tp>{1}; }
 
 
@@ -2539,12 +2512,12 @@ _S_neg_double_factorial_table[999]
    */
   template<typename _Tp>
     _Tp
-    __bincoef(unsigned int __n, unsigned int __k)
+    __binomial(unsigned int __n, unsigned int __k)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
       // Max e exponent before overflow.
-      const auto __max_bincoeff
+      const auto __max_binom
                       = __gnu_cxx::__max_exponent10<_Real>()
                       * std::log(_Real(10)) - _Real(1);
 
@@ -2558,8 +2531,8 @@ _S_neg_double_factorial_table[999]
 	     / __factorial<_Tp>(__k) / __factorial<_Tp>(__n - __k);
       else
         {
-	  const auto __log_coeff = __log_bincoef<_Val>(__n, __k);
-	  if (std::abs(__log_coeff) > __max_bincoeff)
+	  const auto __log_coeff = __log_binomial<_Val>(__n, __k);
+	  if (std::abs(__log_coeff) > __max_binom)
 	    return __gnu_cxx::__infinity<_Tp>();
 	  else
 	    return std::exp(__log_coeff);
@@ -2584,7 +2557,7 @@ _S_neg_double_factorial_table[999]
    */
   template<typename _Tp>
     _Tp
-    __bincoef(_Tp __nu, unsigned int __k)
+    __binomial(_Tp __nu, unsigned int __k)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -2593,20 +2566,20 @@ _S_neg_double_factorial_table[999]
       if (__isnan(__nu))
 	return __gnu_cxx::__quiet_NaN(__nu);
       else if (__nu == __n && __n >= 0 && __n < _S_num_factorials<_Real>)
-	return __bincoef<_Tp>((unsigned int)__n, __k);
+	return __binomial<_Tp>((unsigned int)__n, __k);
       else if (std::abs(__nu) < _S_num_factorials<_Real>
       	    && __k < _S_num_factorials<_Real>)
 	return __gamma(__nu + _Tp{1})
 	     / __gamma(_Tp(__k + 1)) / __gamma(__nu - _Tp(__k + 1));
       else
 	{
-	  const auto __max_bincoeff
+	  const auto __max_binom
                 	  = __gnu_cxx::__max_exponent10(__nu)
                 	  * std::log(_Tp{10}) - _Tp{1};
 
-	  const auto __log_coeff = __log_bincoef(__nu, __k);
-	  const auto __sign = __log_bincoef_sign(__nu, __k);
-	  if (__log_coeff > __max_bincoeff)
+	  const auto __log_coeff = __log_binomial(__nu, __k);
+	  const auto __sign = __log_binomial_sign(__nu, __k);
+	  if (__log_coeff > __max_binom)
 	    return __gnu_cxx::__infinity(__nu) * __sign;
 	  else
 	    return std::exp(__log_coeff) * __sign;
@@ -2641,7 +2614,7 @@ _S_neg_double_factorial_table[999]
 	    return __gnu_cxx::__infinity(std::real(__a));
 	}
       else if (std::real(__a) > _Real{1}
-      	    && std::abs(__a) < _S_num_factorials<_Tp>)
+	    && std::abs(__a) < _S_num_factorials<_Tp>)
 	{
 	  auto __fact = _Tp{1};
 	  auto __arg = __a;
@@ -2746,6 +2719,36 @@ _S_neg_double_factorial_table[999]
 				   "a too large, itmax too small in routine."));
     }
 
+
+  /**
+   * @brief Return the incomplete gamma functions.
+   */
+  template<typename _Tp>
+    std::pair<_Tp, _Tp>
+    __gamma(_Tp __a, _Tp __x)
+    {
+      using _Val = _Tp;
+      using _Real = std::__detail::__num_traits_t<_Val>;
+      const auto _S_NaN = __gnu_cxx::__quiet_NaN(__a);
+
+      if (__isnan(__a) || __isnan(__x))
+	return std::make_pair(_S_NaN, _S_NaN);
+
+      auto __ia = __gnu_cxx::__fp_is_integer(__a);
+      if (__ia && __ia() <= 0)
+	std::__throw_domain_error(__N("__pgamma: "
+				      "non-positive integer argument a"));
+      else if (std::real(__x) < std::real(__a + _Real{1}))
+	{
+	  auto _Pgam = __gamma_series(__a, __x).first;
+	  return std::make_pair(_Pgam, _Val{1} - _Pgam);
+	}
+      else
+	{
+	  auto _Qgam = __gamma_cont_frac(__a, __x).first;
+	  return std::make_pair(_Val{1} - _Qgam, _Qgam);
+	}
+    }
 
   /**
    * @brief  Return the regularized lower incomplete gamma function.
@@ -2885,19 +2888,19 @@ _S_neg_double_factorial_table[999]
     }
 
   /**
-   * @brief  Return the logarithm of the lower Pochhammer symbol
-   * or the falling factorial function for real argument @f$ a @f$
+   * @brief  Return the logarithm of the falling factorial function
+   * or the lower Pochhammer symbol for real argument @f$ a @f$
    * and integral order @f$ n @f$.
-   * The lower Pochammer symbol is defined by
+   * The falling factorial function is defined by
    * @f[
-   *   (a)_n = \prod_{k=0}^{n-1} (a - k), (a)_0 = 1
+   *   a^{\underline{n}} = \prod_{k=0}^{n-1} (a - k), (a)_0 = 1
    *	     = \Gamma(a + 1) / \Gamma(a - n + 1)
    * @f]
-   * In particular, $f[ (n)_n = n! $f].
+   * In particular, @f$ n^{\underline{n}} = n! @f$.
    */
   template<typename _Tp>
     _Tp
-    __pochhammer_lower(_Tp __a, int __n)
+    __falling_factorial(_Tp __a, int __n)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -2942,19 +2945,17 @@ _S_neg_double_factorial_table[999]
     }
 
   /**
-   * @brief  Return the logarithm of the lower Pochhammer symbol
-   * or the falling factorial function for real argument @f$ a @f$
+   * @brief Return the logarithm of the falling factorial function
+   * or the lower Pochhammer symbol for real argument @f$ a @f$
    * and order @f$ \nu @f$.
-   * The lower Pochammer symbol is defined by
+   * The falling factorial function is defined by
    * @f[
-   *   (a)_\nu = \Gamma(a + 1) / \Gamma(a - \nu + 1)
-   *	     = \prod_{k=0}^{n-1} (a - k), (a)_0 = 1, \nu = n
+   *   a^{\underline{\nu}} = \Gamma(a + 1) / \Gamma(a - \nu + 1)
    * @f]
-   * In particular, $f[ (n)_n = n! $f].
    */
   template<typename _Tp>
     _Tp
-    __pochhammer_lower(_Tp __a, _Tp __nu)
+    __falling_factorial(_Tp __a, _Tp __nu)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -2972,7 +2973,7 @@ _S_neg_double_factorial_table[999]
 	  if (__ia && __ia() < __inu())
 	    return -_S_inf;
 	  else
-	    return __pochhammer_lower(__a, __inu());
+	    return __falling_factorial(__a, __inu());
 	}
       else
 	{
@@ -2988,26 +2989,27 @@ _S_neg_double_factorial_table[999]
     }
 
   /**
-   * @brief  Return the logarithm of the lower Pochhammer symbol
-   * or the falling factorial function.
+   * @brief  Return the logarithm of the falling factorial function
+   * or the lower Pochhammer symbol.
    * The lower Pochammer symbol is defined by
    * @f[
-   *   (a)_\nu = \Gamma(a + 1) / \Gamma(a - \nu + 1)
+   *   a^{\underline{n}} = \Gamma(a + 1) / \Gamma(a - \nu + 1)
    *	     = \prod_{k=0}^{n-1} (a - k), (a)_0 = 1
    * @f]
-   * In particular, $f[ (n)_n = n! $f].
+   * In particular, @f$ n^{\underline{n}} = n! @f$.
    * Thus this function returns
    * @f[
-   *   ln[(a)_\nu] = ln[\Gamma(a + 1)] - ln[\Gamma(a - \nu + 1)], ln[(a)_0] = 0
+   *   ln[a^{\underline{n}}] = ln[\Gamma(a + 1)] - ln[\Gamma(a - \nu + 1)],
+   *      ln[a^{\underline{0}}] = 0
    * @f]
-   * Many notations exist: @f[ a^{\underline{n}} @f],
+   * Many notations exist for this function: @f[ (a)_\nu @f],
    *  @f[ \{ \begin{array}{c}
    *	  a \\
-   *	  n \end{array} \} @f], and others.
+   *	  \nu \end{array} \} @f], and others.
    */
   template<typename _Tp>
     _Tp
-    __log_pochhammer_lower(_Tp __a, _Tp __nu)
+    __log_falling_factorial(_Tp __a, _Tp __nu)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -3032,11 +3034,11 @@ _S_neg_double_factorial_table[999]
 		     - __log_factorial<_Val>(unsigned(__ia() - __inu()));
 	    }
 	  else
-	    return std::log(__pochhammer_lower(__a, __inu()));
+	    return std::log(std::abs(__falling_factorial(__a, __inu())));
 	}
       else if (std::abs(__a) < _S_num_factorials<_Real>
 	    && std::abs(__a - __nu) < _S_num_factorials<_Real>)
-	return std::log(__pochhammer_lower(__a, __nu));
+	return std::log(std::abs(__falling_factorial(__a, __nu)));
       else
 	return __log_gamma(__a + _Tp{1}) - __log_gamma(__a - __nu + _Tp{1});
     }
@@ -3046,17 +3048,18 @@ _S_neg_double_factorial_table[999]
    * or the rising factorial function.
    * The Pochammer symbol is defined by
    * @f[
-   *   (a)_\nu = \Gamma(a + \nu) / \Gamma(\nu)
+   *   a^{\overline{n}} = \Gamma(a + \nu) / \Gamma(\nu)
    *	     = \prod_{k=0}^{n-1} (a + k), (a)_0 = 1
    * @f]
-   * Many notations exist: @f[ a^{\overline{n}} @f],
+   * Many notations exist for this function: @f[ (a)_\nu @f],
+   * (especially in the literature of special functions),
    *  @f[ \left[ \begin{array}{c}
    *	  a \\
    *	  n \end{array} \right] @f], and others.
    */
   template<typename _Tp>
     _Tp
-    __pochhammer(_Tp __a, int __n)
+    __rising_factorial(_Tp __a, int __n)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -3097,21 +3100,21 @@ _S_neg_double_factorial_table[999]
     }
 
   /**
-   * @brief  Return the (upper) Pochhammer function
-   * or the rising factorial function.
-   * The Pochammer symbol is defined by
+   * @brief  Return the rising factorial function
+   * or the (upper) Pochhammer function.
+   * The rising factorial function is defined by
    * @f[
-   *   (a)_\nu = \Gamma(a + \nu) / \Gamma(\nu)
-   *	     = \prod_{k=0}^{n-1} (a + k), (a)_0 = 1
+   *   a^{\overline{\nu}} = \Gamma(a + \nu) / \Gamma(\nu)
    * @f]
-   * Many notations exist: @f[ a^{\overline{n}} @f],
+   * Many notations exist for this function: @f[ (a)_\nu @f],
+   * (especially in the literature of special functions),
    *  @f[ \left[ \begin{array}{c}
    *	  a \\
    *	  n \end{array} \right] @f], and others.
    */
   template<typename _Tp>
     _Tp
-    __pochhammer(_Tp __a, _Tp __nu)
+    __rising_factorial(_Tp __a, _Tp __nu)
     {
       const auto _S_eps = __gnu_cxx::__epsilon(std::real(__a));
 
@@ -3122,7 +3125,7 @@ _S_neg_double_factorial_table[999]
       else if (std::abs(__nu - std::nearbyint(__nu)) < _S_eps)
 	{
 	  auto __n = int(std::nearbyint(__nu));
-	  return __pochhammer(__a, __n);
+	  return __rising_factorial(__a, __n);
 	}
       else
 	{
@@ -3136,25 +3139,26 @@ _S_neg_double_factorial_table[999]
     }
 
   /**
-   * @brief  Return the logarithm of the (upper) Pochhammer symbol
-   * or the rising factorial function.
+   * @brief  Return the logarithm of the rising factorial function
+   * or the (upper) Pochhammer symbol.
    * The Pochammer symbol is defined for integer order by
    * @f[
-   *   (a)_\nu = \Gamma(a + \nu) / \Gamma(n)
+   *   a^{\overline{\nu}} = \Gamma(a + \nu) / \Gamma(n)
    *	     = \prod_{k=0}^{\nu-1} (a + k), (a)_0 = 1
    * @f]
    * Thus this function returns
    * @f[
-   *   ln[(a)_\nu] = ln[\Gamma(a + \nu)] - ln[\Gamma(\nu)], ln[(a)_0] = 0
+   *   ln[a^{\overline{\nu}}] = ln[\Gamma(a + \nu)] - ln[\Gamma(\nu)], ln[(a)_0] = 0
    * @f]
-   * Many notations exist: @f[ a^{\overline{n}} @f],
+   * Many notations exist for this function: @f[ (a)_\nu @f]
+   * (especially in the literature of special functions),
    *  @f[ \left[ \begin{array}{c}
    *	  a \\
-   *	  n \end{array} \right] @f], and others.
+   *	  \nu \end{array} \right] @f], and others.
    */
   template<typename _Tp>
     _Tp
-    __log_pochhammer(_Tp __a, _Tp __nu)
+    __log_rising_factorial(_Tp __a, _Tp __nu)
     {
       using _Val = _Tp;
       using _Real = std::__detail::__num_traits_t<_Val>;
@@ -3165,7 +3169,7 @@ _S_neg_double_factorial_table[999]
 	return _Tp{0};
       else if (std::abs(__a) < _S_num_factorials<_Real>
 	    && std::abs(__a + __nu) < _S_num_factorials<_Real>)
-	return std::log(__pochhammer(__a, __nu));
+	return std::log(__rising_factorial(__a, __nu));
       else
 	return __log_gamma(__a + __nu) - __log_gamma(__a);
     }
@@ -3250,7 +3254,7 @@ _S_neg_double_factorial_table[999]
         {
 	  unsigned int __k = _S_num_harmonic_numer - 1;
 	  auto _H_k = _Tp(_S_harmonic_numer[__k]) / _Tp(_S_harmonic_denom[__k]);
-	  for (__k = _S_num_harmonic_numer; __k <= __n; ++__k)
+	  for (__k = _S_num_harmonic_numer + 1; __k <= __n; ++__k)
 	    _H_k += _Tp{1} / _Tp(__k);
 	  return _H_k;
 	}
@@ -3266,7 +3270,7 @@ _S_neg_double_factorial_table[999]
    * @f]
    * The digamma series for integral argument is given by:
    * @f[
-   *   \psi(n) = -\gamma_E + \sum_{k=1}^{\infty} \frac{1}{k}
+   *   \psi(n) = -\gamma_E + \sum_{k=1}^{n-1} \frac{1}{k}
    * @f]
    * The latter sum is called the harmonic number, @f$ H_n @f$.
    */
@@ -3275,7 +3279,10 @@ _S_neg_double_factorial_table[999]
     __psi(unsigned int __n)
     {
       constexpr _Tp __gamma_E = __gnu_cxx::__const_gamma_e(_Tp{});
-      return -__gamma_E + __harmonic_number<_Tp>(__n);
+      if (__n > 1)
+	return -__gamma_E + __harmonic_number<_Tp>(__n - 1);
+      else
+	return -__gamma_E;
     }
 
   /**
@@ -3362,40 +3369,31 @@ _S_neg_double_factorial_table[999]
       const auto __gamma_E = __gnu_cxx::__const_gamma_e(__x);
       const auto __2_ln_2 = _Tp{2} * __gnu_cxx::__const_ln_2(__x);
 
-      const auto __n = std::nearbyint(__x);
-      const bool __integral = (std::abs(__x - _Tp(__n)) < _S_eps);
-      const auto __m = std::nearbyint(_Tp{2} * __x);
-      const bool __half_integral = !__integral
-				&& (std::abs(_Tp{2} * __x - _Tp(__m)) < _S_eps);
-      if (__integral)
-	{
-	  if (__n <= 0)
-	    return __gnu_cxx::__quiet_NaN(__x);
-	  else
-	    {
-	      _Tp __sum = -__gamma_E;
-	      for (int __k = 1; __k < __n; ++__k)
-		__sum += _Tp{1} / __k;
-	      return __sum;
-	    }
-	}
-      if (__half_integral)
-	{
-	  _Tp __sum = -__gamma_E - __2_ln_2;
-	  for (int __k = 1; __k < __m / 2; ++__k)
-	    __sum += _Tp{2} / (2 * __k - 1);
-	  return __sum;
-	}
-      else if (__x < _Tp{0})
+      const auto __n = __gnu_cxx::__fp_is_integer(__x);
+      const auto __m = __gnu_cxx::__fp_is_half_odd_integer(__x);
+      if (__x < _Tp{0})
 	{
 	  const auto __pi = __gnu_cxx::__const_pi(__x);
 	  return __psi(_Tp{1} - __x) - __pi / __tan_pi(__x);
+	}
+      else if (__n)
+	{
+	  if (__n() <= 0)
+	    return __gnu_cxx::__quiet_NaN(__x);
+	  else
+	    return __psi<_Tp>(__n());
+	}
+      else if (__m)
+	{
+	  _Tp __sum = -__gamma_E - __2_ln_2;
+	  for (int __k = 1; __k <= __m(); ++__k)
+	    __sum += _Tp{2} / _Tp(2 * __k - 1);
+	  return __sum;
 	}
       else if (__x > _S_x_asymp)
 	return __psi_asymp(__x);
       else
 	{
-	  //return __psi_series(__x);
 	  // The series does not converge quickly enough.
 	  // Reflect to larger argument and use asymptotic expansion.
 	  auto __w = _Tp{0};

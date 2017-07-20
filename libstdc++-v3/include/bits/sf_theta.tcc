@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -256,8 +256,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
-   *  Use MacLaurin series to calculate the elliptic nome
-   *  given the , k.
+   * Use MacLaurin series to calculate the elliptic nome
+   * given the elliptic argument k.
+   * @f[
+   *    q(k) = exp\left(-\pi\frac{K(k')}{K(k)}\right)
+   * @f]
+   * where @f$ k' = \sqrt{1 - k^2} @f$ is the complementary elliptic argument
+   * and @f$  @f$ is the Legendre elliptic integral of the first kind.
    */
   template<typename _Tp>
     _Tp
@@ -272,15 +277,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
-   *  Use the arithmetic-geometric mean to calculate the elliptic nome
-   *  given the , k.
+   * Use the arithmetic-geometric mean to calculate the elliptic nome
+   * given the elliptic argument k.
+   * @f[
+   *    q(k) = exp\left(-\pi\frac{K(k')}{K(k)}\right)
+   * @f]
+   * where @f$ k' = \sqrt{1 - k^2} @f$ is the complementary elliptic argument
+   * and @f$  @f$ is the Legendre elliptic integral of the first kind.
    */
   template<typename _Tp>
     _Tp
     __ellnome_k(_Tp __k)
     {
       const auto _S_pi = _Tp{3.1415926535897932384626433832795029L};
-      auto __kp = std::sqrt((_Tp{1} - __k) * (_Tp{1} + __k));
+      auto __kp = std::sqrt(_Tp{1} - __k * __k);
       auto __K = __comp_ellint_1(__k);
       auto __Kp = __comp_ellint_1(__kp);
       return std::exp(-_S_pi * __Kp / __K);
@@ -288,6 +298,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the elliptic nome given the modulus @c k.
+   * @f[
+   *    q(k) = exp\left(-\pi\frac{K(k')}{K(k)}\right)
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -307,6 +320,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the Neville @f$ \theta_s @f$ function
+   * @f[
+   *  \theta_s(k,x) = \sqrt{\frac{\pi}{2 k k' K(k)}}
+   *                  \theta_1\left(q(k),\frac{\pi x}{2K(k)}\right)
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -323,7 +340,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 				      " argument k out of range"));
       else
 	{
-	  auto __kc = std::sqrt((_Tp{1} - __k) * (_Tp{1} + __k));
+	  auto __kc = std::sqrt(_Tp{1} - __k * __k);
 	  auto _Kk = __comp_ellint_1(__k);
 	  auto __q = __ellnome(__k);
 	  return std::sqrt(_S_pi_2 / (__k * __kc * _Kk))
@@ -333,6 +350,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the Neville @f$ \theta_c @f$ function
+   * @f[
+   *    \theta_c(k,x) = \sqrt{\frac{\pi}{2 k K(k)}}
+   *                  \theta_1\left(q(k),\frac{\pi x}{2K(k)}\right)
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -358,6 +379,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the Neville @f$ \theta_d @f$ function
+   * @f[
+   *    \theta_d(k,x) = \sqrt{\frac{\pi}{2K(k)}}
+   *                  \theta_3\left(q(k),\frac{\pi x}{2K(k)}\right)
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -383,6 +408,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * Return the Neville @f$ \theta_n @f$ function
+   *
+   * The Neville theta-n function is defined by
+   * @f[
+   *  \theta_n(k,x) = \sqrt{\frac{\pi}{2k'K(k)}}
+   *                  \theta_4\left(q(k),\frac{\pi x}{2K(k)}\right)
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -399,7 +430,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 				      " argument k out of range"));
       else
 	{
-	  auto __kc = std::sqrt((_Tp{1} - __k) * (_Tp{1} + __k));
+	  auto __kc = std::sqrt(_Tp{1} - __k * __k);
 	  auto _Kk = __comp_ellint_1(__k);
 	  auto __q = __ellnome(__k);
 	  return std::sqrt(_S_pi_2 / (__kc * _Kk))
@@ -412,7 +443,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f$ sn(k, u), cn(k, u), dn(k, u) @f$.
    */
   template<typename _Tp>
-    std::tuple<_Tp, _Tp, _Tp>
+    __gnu_cxx::__jacobi_t<_Tp>
     __jacobi_sncndn(_Tp __k, _Tp __u)
     {
       using _Val = __num_traits_t<_Tp>;
@@ -420,7 +451,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const auto _S_NaN = __gnu_cxx::__quiet_NaN(__u);
 
       if (__isnan(__k) || __isnan(__u))
-	return std::make_tuple(_S_NaN, _S_NaN, _S_NaN);
+	return __gnu_cxx::__jacobi_t<_Tp>{_S_NaN, _S_NaN, _S_NaN};
       else if (std::abs(__k) > _Tp{1})
 	std::__throw_domain_error(__N("__jacobi_sncndn:"
 				      " argument k out of range"));
@@ -429,14 +460,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  auto __sn = std::tanh(__u);
 	  auto __cn = _Tp{1} / std::cosh(__u);
 	  auto __dn = __cn;
-	  return std::make_tuple(__sn, __cn, __dn);
+	  return __gnu_cxx::__jacobi_t<_Tp>{__sn, __cn, __dn};
 	}
       else if (std::abs(__k) < _Tp{2} * _S_eps)
 	{
 	  auto __sn = std::sin(__u);
 	  auto __cn = std::cos(__u);
 	  auto __dn = _Tp{1};
-	  return std::make_tuple(__sn, __cn, __dn);
+	  return __gnu_cxx::__jacobi_t<_Tp>{__sn, __cn, __dn};
 	}
       else
 	{
@@ -451,9 +482,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  bool __bo = (__mc < _Tp{0});
 	  if (__bo)
 	    {
-	      __d = _Tp{1} - __mc;
+	      __d = __k * __k;
 	      __mc /= -_Tp{1} / __d;
-	      __u *= (__d = std::sqrt(__d));
+	      __u *= (__d = __k);
 	    }
 	  auto __a = _Tp{1};
 	  auto __dn = _Tp{1};
@@ -476,11 +507,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    {
 	      __a = __cn / __sn;
 	      __c *= __a;
-	      for (auto __ii = __l; __ii + 1 >= 1; --__ii)
+	      for (auto __ii = __l; __ii >= 0; --__ii)
 		{
 		  _Tp __b = __m[__ii];
 		  __a *= __c;
-		  __c *= (__dn);
+		  __c *= __dn;
 		  __dn = (__n[__ii] + __a) / (__b + __a);
 		  __a = __c / __b;
 		}
@@ -490,12 +521,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	  if (__bo)
 	    {
-	      __a = __dn;
-	      __dn = __cn;
-	      __cn = __a;
+	      std::swap(__dn, __cn);
 	      __sn /= __d;
 	    }
-	  return std::make_tuple(__sn, __cn, __dn);
+	  return __gnu_cxx::__jacobi_t<_Tp>{__sn, __cn, __dn};
 	}
     }
 

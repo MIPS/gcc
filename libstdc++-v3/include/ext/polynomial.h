@@ -1,6 +1,6 @@
 // Math extensions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,7 +40,7 @@
 #include <iosfwd>
 #include <limits>
 #include <array>
-#include <utility> // For exchange
+#include <bits/specfun_util.h> // For exchange
 
 namespace std {
   template<typename _Tp>
@@ -172,6 +172,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      __numer.push_back({-value_type(*__xi), value_type{1}});
 	    }
 	}
+
+      /**
+       * Create a polynomial from a generator and a maximum degree.
+       */
+      template<typename Gen>
+	_Polynomial(Gen __gen, size_type __degree)
+	: _M_coeff()
+	{
+	  this->_M_coeff.reserve(__degree);
+	  for (size_type __k = 0; __k <= __degree; ++__k)
+	    this->_M_coeff.push_back(__gen(__k));
+	}
+
 
       /**
        *  Swap the polynomial with another polynomial.
@@ -318,7 +331,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial __res(value_type{},
 			  this->degree() > 0UL ? this->degree() - 1 : 0UL);
 	for (size_type __n = this->degree(), __i = 1; __i <= __n; ++__i)
-	  __res._M_coeff[__i - 1] = __i * _M_coeff[__i];
+	  __res._M_coeff[__i - 1] = __i * this->_M_coeff[__i];
 	return __res;
       }
 
@@ -331,7 +344,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial __res(value_type{}, this->degree() + 1);
 	__res._M_coeff[0] = __c;
 	for (size_type __n = this->degree(), __i = 0; __i <= __n; ++__i)
-	  __res._M_coeff[__i + 1] = _M_coeff[__i] / value_type(__i + 1);
+	  __res._M_coeff[__i + 1] = this->_M_coeff[__i] / value_type(__i + 1);
 	return __res;
       }
 
@@ -356,7 +369,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Polynomial&
       operator=(const value_type& __x)
       {
-	_M_coeff = {__x};
+	this->_M_coeff = {__x};
 	return *this;
       }
 
@@ -385,7 +398,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Polynomial&
       operator=(std::initializer_list<value_type> __ila)
       {
-	_M_coeff = __ila;
+	this->_M_coeff = __ila;
 	return *this;
       }
 
@@ -396,8 +409,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator+=(const _Up& __x)
 	{
-	  degree(this->degree()); // Resize if necessary.
-	  _M_coeff[0] += static_cast<value_type>(__x);
+	  this->degree(this->degree()); // Resize if necessary.
+	  this->_M_coeff[0] += static_cast<value_type>(__x);
 	  return *this;
 	}
 
@@ -408,8 +421,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator-=(const _Up& __x)
 	{
-	  degree(this->degree()); // Resize if necessary.
-	  _M_coeff[0] -= static_cast<value_type>(__x);
+	  this->degree(this->degree()); // Resize if necessary.
+	  this->_M_coeff[0] -= static_cast<value_type>(__x);
 	  return *this;
 	}
 
@@ -420,9 +433,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator*=(const _Up& __x)
 	{
-	  degree(this->degree()); // Resize if necessary.
-	  for (size_type __i = 0; __i < _M_coeff.size(); ++__i)
-	    _M_coeff[__i] *= static_cast<value_type>(__x);
+	  this->degree(this->degree()); // Resize if necessary.
+	  for (size_type __i = 0; __i < this->_M_coeff.size(); ++__i)
+	    this->_M_coeff[__i] *= static_cast<value_type>(__x);
 	  return *this;
 	}
 
@@ -433,7 +446,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator/=(const _Up& __x)
 	{
-	  for (size_type __i = 0; __i < _M_coeff.size(); ++__i)
+	  for (size_type __i = 0; __i < this->_M_coeff.size(); ++__i)
 	    this->_M_coeff[__i] /= static_cast<value_type>(__x);
 	  return *this;
 	}
@@ -446,7 +459,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator%=(const _Up&)
 	{
-	  degree(0UL); // Resize.
+	  this->degree(0UL); // Resize.
 	  this->_M_coeff[0] = value_type{};
 	  return *this;
 	}
@@ -471,7 +484,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_Polynomial&
 	operator-=(const _Polynomial<_Up>& __poly)
 	{
-	  this->degree(std::max(this->degree(), __poly.degree())); // Resize if necessary.
+	  // Resize if necessary.
+	  this->degree(std::max(this->degree(), __poly.degree()));
 	  for (size_type __n = __poly.degree(), __i = 0; __i <= __n; ++__i)
 	    this->_M_coeff[__i] -= static_cast<value_type>(__poly._M_coeff[__i]);
 	  return *this;

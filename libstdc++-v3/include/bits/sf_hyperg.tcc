@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -55,23 +55,21 @@ namespace __detail
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
-   *   @brief This routine returns the confluent hypergeometric limit function
-   *          by series expansion.
+   * @brief This routine returns the confluent hypergeometric limit function
+   * 	    by series expansion.
    *
-   *   @f[
-   *     _0F_1(-;c;x) = \Gamma(c)
-   *                      \sum_{n=0}^{\infty}
-   *                      \frac{1}{\Gamma(c+n)}
-   *                      \frac{x^n}{n!}
-   *   @f]
+   * @f[
+   *   {}_0F_1(-;c;x) = \Gamma(c)
+   * 		\sum_{n=0}^{\infty} \frac{1}{\Gamma(c+n)} \frac{x^n}{n!}
+   * @f]
    *
-   *   If a and b are integers and a < 0 and either b > 0 or b < a
-   *   then the series is a polynomial with a finite number of
-   *   terms.
+   * If a and b are integers and a < 0 and either b > 0 or b < a
+   * then the series is a polynomial with a finite number of
+   * terms.
    *
-   *   @param  __c  The "denominator" parameter.
-   *   @param  __x  The argument of the confluent hypergeometric limit function.
-   *   @return  The confluent hypergeometric limit function.
+   * @param  __c  The "denominator" parameter.
+   * @param  __x  The argument of the confluent hypergeometric limit function.
+   * @return  The confluent hypergeometric limit function.
    */
   template<typename _Tp>
     _Tp
@@ -86,9 +84,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (__i = 0; __i < __max_iter; ++__i)
 	{
 	  __term *= __x / ((__c + _Tp(__i)) * _Tp(1 + __i));
+	  __Fac += __term;
 	  if (std::abs(__term) < __eps)
 	    break;
-	  __Fac += __term;
 	}
       if (__i == __max_iter)
 	std::__throw_runtime_error(__N("__conf_hyperg_lim_series: "
@@ -99,12 +97,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief  Return the confluent hypergeometric limit function
-   *           @f$ _0F_1(-;c;x) @f$.
+   * @brief  Return the confluent hypergeometric limit function
+   *	     @f$ {}_0F_1(-;c;x) @f$.
    *
-   *   @param  __c  The @a denominator parameter.
-   *   @param  __x  The argument of the confluent hypergeometric limit function.
-   *   @return  The confluent limit hypergeometric function.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric limit function.
+   * @return  The confluent limit hypergeometric function.
    */
   template<typename _Tp>
     _Tp
@@ -123,20 +121,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief This routine returns the confluent hypergeometric function
-   *          by series expansion.
+   * @brief This routine returns the confluent hypergeometric function
+   * 	    by series expansion.
    *
-   *   @f[
-   *     _1F_1(a;c;x) = \frac{\Gamma(c)}{\Gamma(a)}
-   *                      \sum_{n=0}^{\infty}
-   *                      \frac{\Gamma(a+n)}{\Gamma(c+n)}
-   *                      \frac{x^n}{n!}
-   *   @f]
+   * @f[
+   *   {}_1F_1(a;c;x) = \frac{\Gamma(c)}{\Gamma(a)}
+   * 			\sum_{n=0}^{\infty}
+   * 			\frac{\Gamma(a+n)}{\Gamma(c+n)}
+   * 			\frac{x^n}{n!}
+   * @f]
    *
-   *   @param  __a  The "numerator" parameter.
-   *   @param  __c  The "denominator" parameter.
-   *   @param  __x  The argument of the confluent hypergeometric function.
-   *   @return  The confluent hypergeometric function.
+   * @param  __a  The "numerator" parameter.
+   * @param  __c  The "denominator" parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The confluent hypergeometric function.
    */
   template<typename _Tp>
     _Tp
@@ -152,9 +150,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{
 	  __term *= (__a + _Tp(__i)) * __x
 		  / ((__c + _Tp(__i)) * _Tp(1 + __i));
+	  __Fac += __term;
 	  if (std::abs(__term) < __eps)
 	    break;
-	  __Fac += __term;
 	}
       if (__i == __max_iter)
 	std::__throw_runtime_error(__N("__conf_hyperg_series: "
@@ -165,13 +163,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *  @brief  Return the hypergeometric function @f$ _1F_1(a;c;x) @f$
-   *          by an iterative procedure described in
-   *          Luke, Algorithms for the Computation of Mathematical Functions.
+   * @brief  Return the hypergeometric function @f$ {}_1F_1(a;c;x) @f$
+   *	     by an iterative procedure described in
+   *	     Luke, Algorithms for the Computation of Mathematical Functions.
    *
-   *  Like the case of the 2F1 rational approximations, these are
-   *  probably guaranteed to converge for x < 0, barring gross
-   *  numerical instability in the pre-asymptotic regime.
+   * Like the case of the 2F1 rational approximations, these are
+   * probably guaranteed to converge for x < 0, barring gross
+   * numerical instability in the pre-asymptotic regime.
    */
   template<typename _Tp>
     _Tp
@@ -270,13 +268,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief  Return the confluent hypergeometric function
-   *           @f$ _1F_1(a;c;x) @f$.
+   * @brief  Return the confluent hypergeometric function
+   * 	     @f$ {}_1F_1(a;c;x) = M(a,c,x) @f$.
    *
-   *   @param  __a  The @a numerator parameter.
-   *   @param  __c  The @a denominator parameter.
-   *   @param  __x  The argument of the confluent hypergeometric function.
-   *   @return  The confluent hypergeometric function.
+   * @param  __a  The @a numerator parameter.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The confluent hypergeometric function.
    */
   template<typename _Tp>
     _Tp
@@ -299,24 +297,77 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief Return the hypergeometric function @f$ _2F_1(a,b;c;x) @f$
-   *   by series expansion.
+   * @brief  Return the Tricomi confluent hypergeometric function
+   * @f[
+   *   U(a,c,x) = \frac{\Gamma(1-c)}{\Gamma(a-c+1)} {}_1F_1(a;c;x)
+   *       + \frac{\Gamma(c-1)}{\Gamma(a)} x^{1-c} {}_1F_1(a-c+1;2-c;x)
+   * @f]
+   * @param  __a  The @a numerator parameter.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The Tricomi confluent hypergeometric function.
+   */
+  template<typename _Tp>
+    _Tp
+    __tricomi_u_naive(_Tp __a, _Tp __c, _Tp __x)
+    {
+      auto __U1 = _Tp{};
+      auto __b = __a - __c + _Tp{1};
+      auto __ib = __gnu_cxx::__fp_is_integer(__b);
+      if (!__ib || (__ib && __ib() > 0))
+	__U1 = std::tgamma(_Tp{1} - __c)
+	       * __conf_hyperg(__a, __c, __x)
+	       / std::tgamma(__b);
+
+      auto __U2 = _Tp{};
+      auto __ia = __gnu_cxx::__fp_is_integer(__a);
+      if (!__ia || (__ia && __ia() > 0))
+	__U2 = std::tgamma(__c - _Tp{1})
+	       * std::pow(__x, _Tp{1} - __c)
+	       * __conf_hyperg(__b, _Tp{2} - __c, __x)
+	       / std::tgamma(__a);
+
+      return __U1 + __U2;
+    }
+
+  /**
+   * @brief  Return the Tricomi confluent hypergeometric function
+   * @f[
+   *   U(a,c,x) = \frac{\Gamma(1-c)}{\Gamma(a-c+1)} {}_1F_1(a;c;x)
+   *       + \frac{\Gamma(c-1)}{\Gamma(a)} x^{1-c} {}_1F_1(a-c+1;2-c;x)
+   * @f]
+   * @param  __a  The @a numerator parameter.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The Tricomi confluent hypergeometric function.
+   */
+  template<typename _Tp>
+    _Tp
+    __tricomi_u(_Tp __a, _Tp __c, _Tp __x)
+    {
+      return __tricomi_u_naive(__a, __c, __x);
+    }
+
+
+  /**
+   * @brief Return the hypergeometric function @f$ {}_2F_1(a,b;c;x) @f$
+   * by series expansion.
    *
-   *   The hypergeometric function is defined by
-   *   @f[
-   *     _2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
-   *                      \sum_{n=0}^{\infty}
-   *                      \frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
-   *                      \frac{x^n}{n!}
-   *   @f]
+   * The hypergeometric function is defined by
+   * @f[
+   *   {}_2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
+   * 			\sum_{n=0}^{\infty}
+   * 			\frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
+   * 			\frac{x^n}{n!}
+   * @f]
    *
-   *   This works and it's pretty fast.
+   * This works and it's pretty fast.
    *
-   *   @param  __a  The first @a numerator parameter.
-   *   @param  __b  The second @a numerator parameter.
-   *   @param  __c  The @a denominator parameter.
-   *   @param  __x  The argument of the confluent hypergeometric function.
-   *   @return  The confluent hypergeometric function.
+   * @param  __a  The first @a numerator parameter.
+   * @param  __b  The second @a numerator parameter.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The confluent hypergeometric function.
    */
   template<typename _Tp>
     _Tp
@@ -328,13 +379,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       auto __Fabc = _Tp{1};
       const unsigned int __max_iter = 100000;
       unsigned int __i;
-      for (__i = 0; __i < __max_iter; ++__i)
+      for (__i = 0u; __i < __max_iter; ++__i)
 	{
 	  __term *= (__a + _Tp(__i)) * (__b + _Tp(__i)) * __x
 		  / ((__c + _Tp(__i)) * _Tp(1 + __i));
+	  __Fabc += __term;
 	  if (std::abs(__term) < __eps)
 	    break;
-	  __Fabc += __term;
 	}
       if (__i == __max_iter)
 	std::__throw_runtime_error(__N("Series failed to converge "
@@ -345,9 +396,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief  Return the hypergeometric function @f$ _2F_1(a,b;c;x) @f$
-   *           by an iterative procedure described in
-   *           Luke, Algorithms for the Computation of Mathematical Functions.
+   * @brief  Return the hypergeometric function @f$ {}_2F_1(a,b;c;x) @f$
+   * 	     by an iterative procedure described in
+   * 	     Luke, Algorithms for the Computation of Mathematical Functions.
    */
   template<typename _Tp>
     _Tp
@@ -454,34 +505,35 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *  @brief  Return the hypergeometric function @f$ _2F_1(a,b;c;x) @f$
-   *  by the reflection formulae in Abramowitz & Stegun formula
-   *  15.3.6 for d = c - a - b not integral and formula 15.3.11 for
-   *  d = c - a - b integral.  This assumes a, b, c != negative
-   *  integer.
+   * @brief  Return the hypergeometric function @f$ {}_2F_1(a,b;c;x) @f$
+   * by the reflection formulae in Abramowitz & Stegun formula
+   * 15.3.6 for d = c - a - b not integral and formula 15.3.11 for
+   * d = c - a - b integral.  This assumes a, b, c != negative
+   * integer.
    *
-   *   The hypergeometric function is defined by
-   *   @f[
-   *     _2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
-   *                      \sum_{n=0}^{\infty}
-   *                      \frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
-   *                      \frac{x^n}{n!}
-   *   @f]
+   * The hypergeometric function is defined by
+   * @f[
+   *   {}_2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
+   *    		\sum_{n=0}^{\infty}
+   *    		\frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
+   *    		\frac{x^n}{n!}
+   * @f]
    *
-   *   The reflection formula for nonintegral @f$ d = c - a - b @f$ is:
-   *   @f[
-   *     _2F_1(a,b;c;x) = \frac{\Gamma(c)\Gamma(d)}{\Gamma(c-a)\Gamma(c-b)}
-   *                            _2F_1(a,b;1-d;1-x)
-   *                    + \frac{\Gamma(c)\Gamma(-d)}{\Gamma(a)\Gamma(b)}
-   *                            _2F_1(c-a,c-b;1+d;1-x)
-   *   @f]
+   * The reflection formula for nonintegral @f$ d = c - a - b @f$ is:
+   * @f[
+   *   {}_2F_1(a,b;c;x) = \frac{\Gamma(c)\Gamma(d)}{\Gamma(c-a)\Gamma(c-b)}
+   *    		      {}_2F_1(a,b;1-d;1-x)
+   *    	      + \frac{\Gamma(c)\Gamma(-d)}{\Gamma(a)\Gamma(b)}
+   *    		      {}_2F_1(c-a,c-b;1+d;1-x)
+   * @f]
    *
-   *   The reflection formula for integral @f$ m = c - a - b @f$ is:
-   *   @f[
-   *     _2F_1(a,b;a+b+m;x) = \frac{\Gamma(m)\Gamma(a+b+m)}{\Gamma(a+m)\Gamma(b+m)}
-   *                        \sum_{k=0}^{m-1} \frac{(m+a)_k(m+b)_k}{k!(1-m)_k}
-   *                      -
-   *   @f]
+   * The reflection formula for integral @f$ m = c - a - b @f$ is:
+   * @f[
+   *   {}_2F_1(a,b;a+b+m;x)
+   *        = \frac{\Gamma(m)\Gamma(a+b+m)}{\Gamma(a+m)\Gamma(b+m)}
+   *          \sum_{k=0}^{m-1} \frac{(m+a)_k(m+b)_k}{k!(1-m)_k} (1 - x)^k
+   *    		 + (-1)^m 
+   * @f]
    */
   template<typename _Tp>
     _Tp
@@ -557,7 +609,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		    }
 
 		  if (__ln_pre1 > _S_log_max)
-		    std::__throw_runtime_error(__N("__hyperg_luke: "
+		    std::__throw_runtime_error(__N("__hyperg_reflect: "
 						   "overflow of gamma functions"));
 		  else
 		    __F1 = std::exp(__ln_pre1) * __sum1;
@@ -640,10 +692,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 	  return __F;
 	}
-      else
+      else // d = c - a - b not an integer.
 	{
-	  // d = c - a - b not an integer.
-
 	  // These gamma functions appear in the denominator, so we
 	  // catch their harmless domain errors and set the terms to zero.
 	  bool __ok1 = true;
@@ -694,31 +744,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			    + __d * std::log(_Tp{1} - __x);
 	      if (__ln_pre1 < _S_log_max && __ln_pre2 < _S_log_max)
 		{
-		  __pre1 = std::exp(__ln_pre1);
-		  __pre2 = std::exp(__ln_pre2);
-		  __pre1 *= __sgn1;
-		  __pre2 *= __sgn2;
+		  __pre1 = __sgn1 * std::exp(__ln_pre1);
+		  __pre2 = __sgn2 * std::exp(__ln_pre2);
 		}
 	      else
-		{
-		  std::__throw_runtime_error(__N("__hyperg_reflect: "
-						"overflow of gamma functions"));
-		}
+		std::__throw_runtime_error(__N("__hyperg_reflect: "
+					       "overflow of gamma functions"));
 	    }
 	  else if (__ok1 && !__ok2)
 	    {
 	      auto __ln_pre1 = __ln_gc + __ln_gd - __ln_g1ca - __ln_g1cb;
 	      if (__ln_pre1 < _S_log_max)
 		{
-		  __pre1 = std::exp(__ln_pre1);
-		  __pre1 *= __sgn1;
+		  __pre1 = __sgn1 * std::exp(__ln_pre1);
 		  __pre2 = _Tp{0};
 		}
 	      else
-		{
-		  std::__throw_runtime_error(__N("__hyperg_reflect: "
-						"overflow of gamma functions"));
-		}
+		std::__throw_runtime_error(__N("__hyperg_reflect: "
+					       "overflow of gamma functions"));
 	    }
 	  else if (!__ok1 && __ok2)
 	    {
@@ -727,22 +770,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      if (__ln_pre2 < _S_log_max)
 		{
 		  __pre1 = _Tp{0};
-		  __pre2 = std::exp(__ln_pre2);
-		  __pre2 *= __sgn2;
+		  __pre2 = __sgn2 * std::exp(__ln_pre2);
 		}
 	      else
-		{
-		  std::__throw_runtime_error(__N("__hyperg_reflect: "
-						"overflow of gamma functions"));
-		}
+		std::__throw_runtime_error(__N("__hyperg_reflect: "
+					       "overflow of gamma functions"));
 	    }
 	  else
-	    {
-	      __pre1 = _Tp{0};
-	      __pre2 = _Tp{0};
-	      std::__throw_runtime_error(__N("__hyperg_reflect: "
-					     "underflow of gamma functions"));
-	    }
+	    std::__throw_runtime_error(__N("__hyperg_reflect: "
+					   "underflow of gamma functions"));
 
 	  const auto __F1 = __hyperg_series(__a, __b, _Tp{1} - __d,
 					    _Tp{1} - __x);
@@ -757,21 +793,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /**
-   *   @brief Return the hypergeometric function @f$ _2F_1(a,b;c;x) @f$.
+   * @brief Return the hypergeometric function @f$ {}_2F_1(a,b;c;x) @f$.
    *
-   *   The hypergeometric function is defined by
-   *   @f[
-   *     _2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
-   *                      \sum_{n=0}^{\infty}
-   *                      \frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
-   *                      \frac{x^n}{n!}
-   *   @f]
+   * The hypergeometric function is defined by
+   * @f[
+   *   {}_2F_1(a,b;c;x) = \frac{\Gamma(c)}{\Gamma(a)\Gamma(b)}
+   * 			\sum_{n=0}^{\infty}
+   * 			\frac{\Gamma(a+n)\Gamma(b+n)}{\Gamma(c+n)}
+   * 			\frac{x^n}{n!}
+   * @f]
    *
-   *   @param  __a  The first @a numerator parameter.
-   *   @param  __b  The second @a numerator parameter.
-   *   @param  __c  The @a denominator parameter.
-   *   @param  __x  The argument of the confluent hypergeometric function.
-   *   @return  The confluent hypergeometric function.
+   * @param  __a  The first @a numerator parameter.
+   * @param  __b  The second @a numerator parameter.
+   * @param  __c  The @a denominator parameter.
+   * @param  __x  The argument of the confluent hypergeometric function.
+   * @return  The confluent hypergeometric function.
    */
   template<typename _Tp>
     _Tp

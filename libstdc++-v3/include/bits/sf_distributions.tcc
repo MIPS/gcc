@@ -1,6 +1,6 @@
 // Special functions -*- C++ -*-
 
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -207,16 +207,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   template<typename _Tp>
     _Tp
-    __normal_pdf(_Tp __nu, _Tp __sigma, _Tp __x)
+    __normal_pdf(_Tp __mu, _Tp __sigma, _Tp __x)
     {
       const auto _S_sqrt_2 = __gnu_cxx::__const_root_2(__x);
       const auto _S_sqrt_pi = __gnu_cxx::__const_root_pi(__x);
       const auto _S_sqrt_2pi = _S_sqrt_2 * _S_sqrt_pi;
-      if (__isnan(__nu) || __isnan(__sigma))
+      if (__isnan(__mu) || __isnan(__sigma))
 	return __gnu_cxx::__quiet_NaN(__x);
       else
 	{
-	  __x -= __nu;
+	  __x -= __mu;
 	  __x /= __sigma;
 	  __x *= __x;
 	  __x /= _Tp{2};
@@ -335,6 +335,28 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return _Tp{1} - std::exp(-__lambda * __x);
     }
 
+  /**
+   * @brief Return the complement of the exponential cumulative
+   * probability density function.
+   *
+   * The formula for the complement of the exponential cumulative
+   * probability density function is
+   * @f[
+   *   F(x|\lambda) = e^{-\lambda x} \mbox{ for } x >= 0
+   * @f]
+   */
+  template<typename _Tp>
+    _Tp
+    __exponential_cdfc(_Tp __lambda, _Tp __x)
+    {
+      if (__isnan(__lambda) || __isnan(__x))
+	return __gnu_cxx::__quiet_NaN(__x);
+      else if (__x < _Tp{0})
+	return _Tp{0};
+      else
+	return std::exp(-__lambda * __x);
+    }
+
 
   /**
    * @brief Return the Weibull probability density function.
@@ -381,6 +403,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   /**
+   * @brief  Return the Students T probability density.
+   *
+   * The students T propability density is:
+   * @f[
+   *   A(t|\nu) = 1 - I_{\frac{\nu}{\nu + t^2}}(\frac{\nu}{2}, \frac{1}{2})
+   *   A(t|\nu) = 
+   * @f]
+   *
+   * @param __t 
+   * @param __nu 
+   */
+  template<typename _Tp>
+    _Tp
+    __student_t_pdf(_Tp __t, unsigned int __nu)
+    {
+      const auto _S_pi = __gnu_cxx::__const_pi(__t);
+      if (__isnan(__t))
+	return __gnu_cxx::__quiet_NaN(__t);
+      else
+	return __gamma(_Tp(__nu + 1) / _Tp{2})
+	     * std::pow((_Tp(__nu) + __t * __t) / __nu, -_Tp(__nu + 1) / 2 )
+	     / __gamma(_Tp(__nu) / _Tp{2}) / std::sqrt(_Tp(__nu) * _S_pi);
+    }
+
+  /**
    * @brief  Return the Students T probability function.
    *
    * The students T propability function is related to the incomplete beta function:
@@ -424,6 +471,36 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else
 	return __beta_inc(_Tp(__nu) / _Tp{2}, _Tp{0.5L},
 			  _Tp(__nu) / (_Tp(__nu) + __t * __t));
+    }
+
+  /**
+   * @brief  Return the F-distribution propability function.
+   * This returns the probability that the observed chi-square for a correct model
+   * exceeds the value @f$ \chi^2 @f$.
+   *
+   * The f-distribution propability function is related to the incomplete beta function:
+   * @f[
+   *   Q(F|\nu_1, \nu_2) = I_{\frac{\nu_2}{\nu_2 + \nu_1 F}}
+   * 			     (\frac{\nu_2}{2}, \frac{\nu_1}{2})
+   * @f]
+   *
+   * @param __nu1 The number of degrees of freedom of sample 1
+   * @param __nu2 The number of degrees of freedom of sample 2
+   * @param __F The F statistic
+   */
+  template<typename _Tp>
+    _Tp
+    __fisher_f_pdf(_Tp __F, unsigned int __nu1, unsigned int __nu2)
+    {
+      if (__isnan(__F))
+	return __gnu_cxx::__quiet_NaN(__F);
+      else if (__F < _Tp{0})
+	std::__throw_domain_error(__N("__f_cdf: F is negative"));
+      else
+	return std::sqrt(std::pow(_Tp(__nu1) * __F, _Tp(__nu1))
+		       * std::pow(_Tp(__nu2), _Tp(__nu2))
+		/ std::pow(_Tp(__nu1) * __F + _Tp(__nu2), _Tp(__nu1 + __nu2)))
+	    / __F / __beta(_Tp(__nu1) / _Tp{2}, _Tp(__nu2) / _Tp{2});
     }
 
   /**
@@ -514,11 +591,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else if (__k == __n)
 	return std::pow(__p, __n);
       else
-	return __bincoef<_Tp>(__n, __k)
+	return __binomial<_Tp>(__n, __k)
 	     * std::pow(__p, __k)
 	     * std::pow(_Tp{1} - __p, __n - __k);
     }
-
 
   /**
    * @brief  Return the binomial cumulative distribution function.
@@ -578,6 +654,42 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return _Tp{0};
       else
 	return __beta_inc(_Tp(__n - __k - 1), _Tp(__k), _Tp{1} - __p);
+    }
+
+  /**
+   * @brief  Return the logistic probability density function.
+   *
+   * The formula for the logistic probability density function is
+   * @f[
+   *     p(x| a, b) = \frac{e^{(x - a)/b}}{b[1 + e^{(x - a)/b}]^2}
+   * @f]
+   * where @f$b > 0@f$.
+   */
+  template<typename _Tp>
+    _Tp
+    __logistic_pdf(_Tp __a, _Tp __b, _Tp __x)
+    {
+      const auto __arg = (__x - __a) / __b;
+      const auto __exparg = std::exp(__arg);
+      return __exparg / (__b * (_Tp{1} + __exparg) * (_Tp{1} + __exparg));
+    }
+
+  /**
+   * @brief  Return the logistic cumulative distribution function.
+   *
+   * The formula for the logistic probability function is
+   * @f[
+   *     cdf(x| a, b) = \frac{e^{(x - a)/b}}{1 + e^{(x - a)/b}}
+   * @f]
+   * where @f$b > 0@f$.
+   */
+  template<typename _Tp>
+    _Tp
+    __logistic_cdf(_Tp __a, _Tp __b, _Tp __x)
+    {
+      const auto __arg = (__x - __a) / __b;
+      const auto __exparg = std::exp(__arg);
+      return __exparg / (_Tp{1} + __exparg);
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

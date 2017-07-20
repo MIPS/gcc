@@ -96,7 +96,8 @@ static rtx do_store_flag (sepops, rtx, machine_mode);
 #ifdef PUSH_ROUNDING
 static void emit_single_push_insn (machine_mode, rtx, tree);
 #endif
-static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx, int);
+static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx,
+			  profile_probability);
 static rtx const_vector_from_tree (tree);
 static rtx const_scalar_mask_from_tree (tree);
 static tree tree_expr_size (const_tree);
@@ -1452,7 +1453,7 @@ compare_by_pieces_d::generate (rtx op0, rtx op1, machine_mode mode)
       m_accumulator = NULL_RTX;
     }
   do_compare_rtx_and_jump (op0, op1, NE, true, mode, NULL_RTX, NULL,
-			   m_fail_label, -1);
+			   m_fail_label, profile_probability::uninitialized ());
 }
 
 /* Return true if MODE can be used for a set of moves and comparisons,
@@ -1484,7 +1485,8 @@ compare_by_pieces_d::finish_mode (machine_mode mode)
 {
   if (m_accumulator != NULL_RTX)
     do_compare_rtx_and_jump (m_accumulator, const0_rtx, NE, true, mode,
-			     NULL_RTX, NULL, m_fail_label, -1);
+			     NULL_RTX, NULL, m_fail_label,
+			     profile_probability::uninitialized ());
 }
 
 /* Generate several move instructions to compare LEN bytes from blocks
@@ -1845,7 +1847,9 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
   emit_label (cmp_label);
 
   emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
-			   true, top_label, REG_BR_PROB_BASE * 90 / 100);
+			   true, top_label,
+			   profile_probability::guessed_always ()
+				.apply_scale (9, 10));
 }
 
 /* Expand a call to memcpy or memmove or memcmp, and return the result.
@@ -2192,7 +2196,8 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 		      && (!REG_P (tmps[i]) || GET_MODE (tmps[i]) != mode)))
 		tmps[i] = extract_bit_field (tmps[i], bytelen * BITS_PER_UNIT,
 					     subpos * BITS_PER_UNIT,
-					     1, NULL_RTX, mode, mode, false);
+					     1, NULL_RTX, mode, mode, false,
+					     NULL);
 	    }
 	  else
 	    {
@@ -2202,7 +2207,8 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 	      mem = assign_stack_temp (GET_MODE (src), slen);
 	      emit_move_insn (mem, src);
 	      tmps[i] = extract_bit_field (mem, bytelen * BITS_PER_UNIT,
-					   0, 1, NULL_RTX, mode, mode, false);
+					   0, 1, NULL_RTX, mode, mode, false,
+					   NULL);
 	    }
 	}
       /* FIXME: A SIMD parallel will eventually lead to a subreg of a
@@ -2245,7 +2251,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
       else
 	tmps[i] = extract_bit_field (src, bytelen * BITS_PER_UNIT,
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
-				     mode, mode, false);
+				     mode, mode, false, NULL);
 
       if (shift)
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
@@ -2697,7 +2703,7 @@ copy_blkmode_from_reg (rtx target, rtx srcreg, tree type)
 		       extract_bit_field (src, bitsize,
 					  xbitpos % BITS_PER_WORD, 1,
 					  NULL_RTX, copy_mode, copy_mode,
-					  false),
+					  false, NULL),
 		       false);
     }
 }
@@ -2776,7 +2782,7 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
 		       extract_bit_field (src_word, bitsize,
 					  bitpos % BITS_PER_WORD, 1,
 					  NULL_RTX, word_mode, word_mode,
-					  false),
+					  false, NULL),
 		       false);
     }
 
@@ -3225,7 +3231,7 @@ read_complex_part (rtx cplx, bool imag_p)
     }
 
   return extract_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0,
-			    true, NULL_RTX, imode, imode, false);
+			    true, NULL_RTX, imode, imode, false, NULL);
 }
 
 /* A subroutine of emit_move_insn_1.  Yet another lowpart generator.
@@ -5400,7 +5406,8 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
 
       do_pending_stack_adjust ();
       NO_DEFER_POP;
-      jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
+      jumpifnot (TREE_OPERAND (exp, 0), lab1,
+		 profile_probability::uninitialized ());
       store_expr_with_bounds (TREE_OPERAND (exp, 1), target, call_param_p,
 			      nontemporal, reverse, btarget);
       emit_jump_insn (targetm.gen_jump (lab2));
@@ -6502,7 +6509,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		    /* Generate a conditional jump to exit the loop.  */
 		    exit_cond = build2 (LT_EXPR, integer_type_node,
 					index, hi_index);
-		    jumpif (exit_cond, loop_end, -1);
+		    jumpif (exit_cond, loop_end,
+			    profile_probability::uninitialized ());
 
 		    /* Update the loop counter, and jump to the head of
 		       the loop.  */
@@ -6911,7 +6919,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	{
 	  machine_mode temp_mode = smallest_mode_for_size (bitsize, MODE_INT);
 	  temp = extract_bit_field (temp, bitsize, 0, 1, NULL_RTX, temp_mode,
-				    temp_mode, false);
+				    temp_mode, false, NULL);
 	}
 
       /* Store the value in the bitfield.  */
@@ -8792,54 +8800,71 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
       expand_operands (treeop0, treeop1, subtarget, &op0, &op1, EXPAND_NORMAL);
       return REDUCE_BIT_FIELD (expand_mult (mode, op0, op1, target, unsignedp));
 
+    case TRUNC_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+
     case TRUNC_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
-      /* If this is a fixed-point operation, then we cannot use the code
-	 below because "expand_divmod" doesn't support sat/no-sat fixed-point
-         divisions.   */
-      if (ALL_FIXED_POINT_MODE_P (mode))
-	goto binop;
+     {
+       /* If this is a fixed-point operation, then we cannot use the code
+	  below because "expand_divmod" doesn't support sat/no-sat fixed-point
+	  divisions.   */
+       if (ALL_FIXED_POINT_MODE_P (mode))
+	 goto binop;
 
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      /* Possible optimization: compute the dividend with EXPAND_SUM
-	 then if the divisor is constant can optimize the case
-	 where some terms of the dividend have coeffs divisible by it.  */
-      expand_operands (treeop0, treeop1,
-		       subtarget, &op0, &op1, EXPAND_NORMAL);
-      if (SCALAR_INT_MODE_P (mode)
-	  && optimize >= 2
-	  && get_range_pos_neg (treeop0) == 1
-	  && get_range_pos_neg (treeop1) == 1)
-	{
-	  /* If both arguments are known to be positive when interpreted
-	     as signed, we can expand it as both signed and unsigned
-	     division or modulo.  Choose the cheaper sequence in that case.  */
-	  bool speed_p = optimize_insn_for_speed_p ();
-	  do_pending_stack_adjust ();
-	  start_sequence ();
-	  rtx uns_ret = expand_divmod (0, code, mode, op0, op1, target, 1);
-	  rtx_insn *uns_insns = get_insns ();
-	  end_sequence ();
-	  start_sequence ();
-	  rtx sgn_ret = expand_divmod (0, code, mode, op0, op1, target, 0);
-	  rtx_insn *sgn_insns = get_insns ();
-	  end_sequence ();
-	  unsigned uns_cost = seq_cost (uns_insns, speed_p);
-	  unsigned sgn_cost = seq_cost (sgn_insns, speed_p);
-	  if (uns_cost < sgn_cost || (uns_cost == sgn_cost && unsignedp))
-	    {
-	      emit_insn (uns_insns);
-	      return uns_ret;
-	    }
-	  emit_insn (sgn_insns);
-	  return sgn_ret;
-	}
-      return expand_divmod (0, code, mode, op0, op1, target, unsignedp);
+       if (modifier == EXPAND_STACK_PARM)
+	 target = 0;
+       /* Possible optimization: compute the dividend with EXPAND_SUM
+	  then if the divisor is constant can optimize the case
+	  where some terms of the dividend have coeffs divisible by it.  */
+       expand_operands (treeop0, treeop1,
+			subtarget, &op0, &op1, EXPAND_NORMAL);
+       bool mod_p = code == TRUNC_MOD_EXPR || code == FLOOR_MOD_EXPR
+		    || code == CEIL_MOD_EXPR || code == ROUND_MOD_EXPR;
+       if (SCALAR_INT_MODE_P (mode)
+	   && optimize >= 2
+	   && get_range_pos_neg (treeop0) == 1
+	   && get_range_pos_neg (treeop1) == 1)
+	 {
+	   /* If both arguments are known to be positive when interpreted
+	      as signed, we can expand it as both signed and unsigned
+	      division or modulo.  Choose the cheaper sequence in that case.  */
+	   bool speed_p = optimize_insn_for_speed_p ();
+	   do_pending_stack_adjust ();
+	   start_sequence ();
+	   rtx uns_ret = expand_divmod (mod_p, code, mode, op0, op1, target, 1);
+	   rtx_insn *uns_insns = get_insns ();
+	   end_sequence ();
+	   start_sequence ();
+	   rtx sgn_ret = expand_divmod (mod_p, code, mode, op0, op1, target, 0);
+	   rtx_insn *sgn_insns = get_insns ();
+	   end_sequence ();
+	   unsigned uns_cost = seq_cost (uns_insns, speed_p);
+	   unsigned sgn_cost = seq_cost (sgn_insns, speed_p);
 
+	   /* If costs are the same then use as tie breaker the other
+	      other factor.  */
+	   if (uns_cost == sgn_cost)
+	     {
+		uns_cost = seq_cost (uns_insns, !speed_p);
+		sgn_cost = seq_cost (sgn_insns, !speed_p);
+	     }
+
+	   if (uns_cost < sgn_cost || (uns_cost == sgn_cost && unsignedp))
+	     {
+	       emit_insn (uns_insns);
+	       return uns_ret;
+	     }
+	   emit_insn (sgn_insns);
+	   return sgn_ret;
+	 }
+       return expand_divmod (mod_p, code, mode, op0, op1, target, unsignedp);
+     }
     case RDIV_EXPR:
       goto binop;
 
@@ -8848,16 +8873,6 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
       temp = expand_mult_highpart (mode, op0, op1, target, unsignedp);
       gcc_assert (temp);
       return temp;
-
-    case TRUNC_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      expand_operands (treeop0, treeop1,
-		       subtarget, &op0, &op1, EXPAND_NORMAL);
-      return expand_divmod (1, code, mode, op0, op1, target, unsignedp);
 
     case FIXED_CONVERT_EXPR:
       op0 = expand_normal (treeop0);
@@ -9034,7 +9049,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	lab = gen_label_rtx ();
 	do_compare_rtx_and_jump (target, cmpop1, comparison_code,
 				 unsignedp, mode, NULL_RTX, NULL, lab,
-				 -1);
+				 profile_probability::uninitialized ());
       }
       emit_move_insn (target, op1);
       emit_label (lab);
@@ -9263,7 +9278,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	emit_move_insn (target, const0_rtx);
 
 	rtx_code_label *lab1 = gen_label_rtx ();
-	jumpifnot_1 (code, treeop0, treeop1, lab1, -1);
+	jumpifnot_1 (code, treeop0, treeop1, lab1,
+		     profile_probability::uninitialized ());
 
 	if (TYPE_PRECISION (type) == 1 && !TYPE_UNSIGNED (type))
 	  emit_move_insn (target, constm1_rtx);
@@ -9514,7 +9530,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	NO_DEFER_POP;
 	rtx_code_label *lab0 = gen_label_rtx ();
 	rtx_code_label *lab1 = gen_label_rtx ();
-	jumpifnot (treeop0, lab0, -1);
+	jumpifnot (treeop0, lab0,
+		   profile_probability::uninitialized ());
 	store_expr (treeop1, temp,
 		    modifier == EXPAND_STACK_PARM,
 		    false, false);
@@ -9759,7 +9776,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	      if (targetm.gen_ccmp_first)
 		{
 		  gcc_checking_assert (targetm.gen_ccmp_next != NULL);
-		  r = expand_ccmp_expr (g);
+		  r = expand_ccmp_expr (g, mode);
 		  if (r)
 		    break;
 		}
@@ -9773,7 +9790,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    case GIMPLE_SINGLE_RHS:
 	      {
 		r = expand_expr_real (gimple_assign_rhs1 (g), target,
-				      tmode, modifier, NULL, inner_reference_p);
+				      tmode, modifier, alt_rtl,
+				      inner_reference_p);
 		break;
 	      }
 	    default:
@@ -10203,7 +10221,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 					0, TYPE_UNSIGNED (TREE_TYPE (exp)),
 					(modifier == EXPAND_STACK_PARM
 					 ? NULL_RTX : target),
-					mode, mode, false);
+					mode, mode, false, alt_rtl);
 	  }
 	if (reverse
 	    && modifier != EXPAND_MEMORY
@@ -10621,11 +10639,11 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    /* If the field isn't aligned enough to fetch as a memref,
 	       fetch it as a bit field.  */
 	    || (mode1 != BLKmode
-		&& (((TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
-		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)
-		      || (MEM_P (op0)
-			  && (MEM_ALIGN (op0) < GET_MODE_ALIGNMENT (mode1)
-			      || (bitpos % GET_MODE_ALIGNMENT (mode1) != 0))))
+		&& (((MEM_P (op0)
+		      ? MEM_ALIGN (op0) < GET_MODE_ALIGNMENT (mode1)
+		        || (bitpos % GET_MODE_ALIGNMENT (mode1) != 0)
+		      : TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
+		        || (bitpos % GET_MODE_ALIGNMENT (mode) != 0))
 		     && modifier != EXPAND_MEMORY
 		     && ((modifier == EXPAND_CONST_ADDRESS
 			  || modifier == EXPAND_INITIALIZER)
@@ -10700,7 +10718,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    op0 = extract_bit_field (op0, bitsize, bitpos, unsignedp,
 				     (modifier == EXPAND_STACK_PARM
 				      ? NULL_RTX : target),
-				     ext_mode, ext_mode, reversep);
+				     ext_mode, ext_mode, reversep, alt_rtl);
 
 	    /* If the result has a record type and the mode of OP0 is an
 	       integral mode then, if BITSIZE is narrower than this mode
@@ -10921,7 +10939,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       else if (reduce_bit_field)
 	return extract_bit_field (op0, TYPE_PRECISION (type), 0,
 				  TYPE_UNSIGNED (type), NULL_RTX,
-				  mode, mode, false);
+				  mode, mode, false, NULL);
       /* As a last resort, spill op0 to memory, and reload it in a
 	 different mode.  */
       else if (!MEM_P (op0))
@@ -11032,7 +11050,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    int value = TREE_CODE (rhs) == BIT_IOR_EXPR;
 	    do_jump (TREE_OPERAND (rhs, 1),
 		     value ? label : 0,
-		     value ? 0 : label, -1);
+		     value ? 0 : label,
+		     profile_probability::uninitialized ());
 	    expand_assignment (lhs, build_int_cst (TREE_TYPE (rhs), value),
 			       false);
 	    do_pending_stack_adjust ();
@@ -11502,7 +11521,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 int
 try_casesi (tree index_type, tree index_expr, tree minval, tree range,
 	    rtx table_label, rtx default_label, rtx fallback_label,
-            int default_probability)
+            profile_probability default_probability)
 {
   struct expand_operand ops[5];
   machine_mode index_mode = SImode;
@@ -11572,7 +11591,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
 
 static void
 do_tablejump (rtx index, machine_mode mode, rtx range, rtx table_label,
-	      rtx default_label, int default_probability)
+	      rtx default_label, profile_probability default_probability)
 {
   rtx temp, vector;
 
@@ -11635,7 +11654,8 @@ do_tablejump (rtx index, machine_mode mode, rtx range, rtx table_label,
 
 int
 try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
-	       rtx table_label, rtx default_label, int default_probability)
+	       rtx table_label, rtx default_label, 
+	       profile_probability default_probability)
 {
   rtx index;
 

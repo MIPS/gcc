@@ -52,9 +52,49 @@ struct innermost_loop_behavior
   tree init;
   tree step;
 
-  /* Alignment information.  ALIGNED_TO is set to the largest power of two
-     that divides OFFSET.  */
-  tree aligned_to;
+  /* BASE_ADDRESS is known to be misaligned by BASE_MISALIGNMENT bytes
+     from an alignment boundary of BASE_ALIGNMENT bytes.  For example,
+     if we had:
+
+       struct S __attribute__((aligned(16))) { ... };
+
+       char *ptr;
+       ... *(struct S *) (ptr - 4) ...;
+
+     the information would be:
+
+       base_address:      ptr
+       base_aligment:      16
+       base_misalignment:   4
+       init:               -4
+
+     where init cancels the base misalignment.  If instead we had a
+     reference to a particular field:
+
+       struct S __attribute__((aligned(16))) { ... int f; ... };
+
+       char *ptr;
+       ... ((struct S *) (ptr - 4))->f ...;
+
+     the information would be:
+
+       base_address:      ptr
+       base_aligment:      16
+       base_misalignment:   4
+       init:               -4 + offsetof (S, f)
+
+     where base_address + init might also be misaligned, and by a different
+     amount from base_address.  */
+  unsigned int base_alignment;
+  unsigned int base_misalignment;
+
+  /* The largest power of two that divides OFFSET, capped to a suitably
+     high value if the offset is zero.  This is a byte rather than a bit
+     quantity.  */
+  unsigned int offset_alignment;
+
+  /* Likewise for STEP.  */
+  unsigned int step_alignment;
 };
 
 /* Describes the evolutions of indices of the memory reference.  The indices
@@ -143,10 +183,39 @@ struct data_reference
 #define DR_INIT(DR)                (DR)->innermost.init
 #define DR_STEP(DR)                (DR)->innermost.step
 #define DR_PTR_INFO(DR)            (DR)->alias.ptr_info
-#define DR_ALIGNED_TO(DR)          (DR)->innermost.aligned_to
+#define DR_BASE_ALIGNMENT(DR)      (DR)->innermost.base_alignment
+#define DR_BASE_MISALIGNMENT(DR)   (DR)->innermost.base_misalignment
+#define DR_OFFSET_ALIGNMENT(DR)    (DR)->innermost.offset_alignment
+#define DR_STEP_ALIGNMENT(DR)      (DR)->innermost.step_alignment
 #define DR_INNERMOST(DR)           (DR)->innermost
 
 typedef struct data_reference *data_reference_p;
+
+/* This struct is used to store the information of a data reference,
+   including the data ref itself and the segment length for aliasing
+   checks.  This is used to merge alias checks.  */
+
+struct dr_with_seg_len
+{
+  dr_with_seg_len (data_reference_p d, tree len)
+    : dr (d), seg_len (len) {}
+
+  data_reference_p dr;
+  tree seg_len;
+};
+
+/* This struct contains two dr_with_seg_len objects with aliasing data
+   refs.  Two comparisons are generated from them.  */
+
+struct dr_with_seg_len_pair_t
+{
+  dr_with_seg_len_pair_t (const dr_with_seg_len& d1,
+			       const dr_with_seg_len& d2)
+    : first (d1), second (d2) {}
+
+  dr_with_seg_len first;
+  dr_with_seg_len second;
+};
 
 enum data_dependence_direction {
   dir_positive,
@@ -209,10 +278,10 @@ struct subscript
 
 typedef struct subscript *subscript_p;
 
-#define SUB_CONFLICTS_IN_A(SUB) SUB->conflicting_iterations_in_a
-#define SUB_CONFLICTS_IN_B(SUB) SUB->conflicting_iterations_in_b
-#define SUB_LAST_CONFLICT(SUB) SUB->last_conflict
-#define SUB_DISTANCE(SUB) SUB->distance
+#define SUB_CONFLICTS_IN_A(SUB) (SUB)->conflicting_iterations_in_a
+#define SUB_CONFLICTS_IN_B(SUB) (SUB)->conflicting_iterations_in_b
+#define SUB_LAST_CONFLICT(SUB) (SUB)->last_conflict
+#define SUB_DISTANCE(SUB) (SUB)->distance
 
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */
@@ -268,20 +337,20 @@ struct data_dependence_relation
 
 typedef struct data_dependence_relation *ddr_p;
 
-#define DDR_A(DDR) DDR->a
-#define DDR_B(DDR) DDR->b
-#define DDR_AFFINE_P(DDR) DDR->affine_p
-#define DDR_ARE_DEPENDENT(DDR) DDR->are_dependent
-#define DDR_SUBSCRIPTS(DDR) DDR->subscripts
+#define DDR_A(DDR) (DDR)->a
+#define DDR_B(DDR) (DDR)->b
+#define DDR_AFFINE_P(DDR) (DDR)->affine_p
+#define DDR_ARE_DEPENDENT(DDR) (DDR)->are_dependent
+#define DDR_SUBSCRIPTS(DDR) (DDR)->subscripts
 #define DDR_SUBSCRIPT(DDR, I) DDR_SUBSCRIPTS (DDR)[I]
 #define DDR_NUM_SUBSCRIPTS(DDR) DDR_SUBSCRIPTS (DDR).length ()
 
-#define DDR_LOOP_NEST(DDR) DDR->loop_nest
+#define DDR_LOOP_NEST(DDR) (DDR)->loop_nest
 /* The size of the direction/distance vectors: the number of loops in
    the loop nest.  */
 #define DDR_NB_LOOPS(DDR) (DDR_LOOP_NEST (DDR).length ())
-#define DDR_INNER_LOOP(DDR) DDR->inner_loop
-#define DDR_SELF_REFERENCE(DDR) DDR->self_reference_p
+#define DDR_INNER_LOOP(DDR) (DDR)->inner_loop
+#define DDR_SELF_REFERENCE(DDR) (DDR)->self_reference_p
 
 #define DDR_DIST_VECTS(DDR) ((DDR)->dist_vects)
 #define DDR_DIR_VECTS(DDR) ((DDR)->dir_vects)
@@ -293,10 +362,10 @@ typedef struct data_dependence_relation *ddr_p;
   DDR_DIR_VECTS (DDR)[I]
 #define DDR_DIST_VECT(DDR, I) \
   DDR_DIST_VECTS (DDR)[I]
-#define DDR_REVERSED_P(DDR) DDR->reversed_p
+#define DDR_REVERSED_P(DDR) (DDR)->reversed_p
 
 
-bool dr_analyze_innermost (struct data_reference *, struct loop *);
+bool dr_analyze_innermost (innermost_loop_behavior *, tree, struct loop *);
 extern bool compute_data_dependences_for_loop (struct loop *, bool,
 					       vec<loop_p> *,
 					       vec<data_reference_p> *,
@@ -336,12 +405,28 @@ extern bool compute_all_dependences (vec<data_reference_p> ,
 				     vec<loop_p>, bool);
 extern tree find_data_references_in_bb (struct loop *, basic_block,
                                         vec<data_reference_p> *);
+extern unsigned int dr_alignment (innermost_loop_behavior *);
+
+/* Return the alignment in bytes that DR is guaranteed to have at all
+   times.  */
+
+inline unsigned int
+dr_alignment (data_reference *dr)
+{
+  return dr_alignment (&DR_INNERMOST (dr));
+}
 
 extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
 
+extern bool runtime_alias_check_p (ddr_p, struct loop *, bool);
+extern int data_ref_compare_tree (tree, tree);
+extern void prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *,
+					   unsigned HOST_WIDE_INT);
+extern void create_runtime_alias_checks (struct loop *,
+					 vec<dr_with_seg_len_pair_t> *, tree*);
 /* Return true when the base objects of data references A and B are
    the same memory object.  */
 

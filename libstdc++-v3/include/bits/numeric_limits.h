@@ -1,6 +1,6 @@
 // math special functions -*- C++ -*-
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -214,20 +214,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Tp>
     inline _Tp
+    __max_integer(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
+    { return std::ldexp(_Tp{1}, __digits(_Tp{})); }
+
+  template<typename _Tp>
+    inline _Tp
     __sqrt_max(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__max(_Tp{})); }
 
-#ifdef NO_CBRT
-  template<typename _Tp>
-    inline _Tp
-    __cbrt_max(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__max(_Tp{}), 1 / _Tp{3}); }
-#else
   template<typename _Tp>
     inline _Tp
     __cbrt_max(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__max(_Tp{})); }
-#endif
 
   template<typename _Tp>
     inline _Tp
@@ -250,17 +248,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __sqrt_min(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__min(_Tp{})); }
 
-#ifdef NO_CBRT
-  template<typename _Tp>
-    inline _Tp
-    __cbrt_min(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__min(_Tp{}), 1 / _Tp{3}); }
-#else
   template<typename _Tp>
     inline _Tp
     __cbrt_min(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__min(_Tp{})); }
-#endif
 
   template<typename _Tp>
     inline _Tp
@@ -282,17 +273,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __sqrt_eps(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::sqrt(__epsilon(_Tp{})); }
 
-#ifdef NO_CBRT
-  template<typename _Tp>
-    inline _Tp
-    __cbrt_eps(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
-    { return std::pow(__epsilon(_Tp{}), 1 / _Tp{3}); }
-#else
   template<typename _Tp>
     inline _Tp
     __cbrt_eps(_Tp = _Tp{}) _GLIBCXX_USE_NOEXCEPT
     { return std::cbrt(__epsilon(_Tp{})); }
-#endif
 
   template<typename _Tp>
     inline _Tp

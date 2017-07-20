@@ -241,6 +241,24 @@ arm_early_load_addr_dep (rtx producer, rtx consumer)
   return reg_overlap_mentioned_p (value, addr);
 }
 
+/* Return nonzero if the CONSUMER instruction (a load) does need
+   a Pmode PRODUCER's value to calculate the address.  */
+
+int
+arm_early_load_addr_dep_ptr (rtx producer, rtx consumer)
+{
+  rtx value = arm_find_sub_rtx_with_code (PATTERN (producer), SET, false);
+  rtx addr = arm_find_sub_rtx_with_code (PATTERN (consumer), SET, false);
+
+  if (!value || !addr || !MEM_P (SET_SRC (value)))
+    return 0;
+
+  value = SET_DEST (value);
+  addr = SET_SRC (addr);
+
+  return GET_MODE (value) == Pmode && reg_overlap_mentioned_p (value, addr);
+}
+
 /* Return nonzero if the CONSUMER instruction (an ALU op) does not
    have an early register shift value or amount dependency on the
    result of PRODUCER.  */
@@ -254,12 +272,7 @@ arm_no_early_alu_shift_dep (rtx producer, rtx consumer)
     return 0;
 
   if ((early_op = arm_find_shift_sub_rtx (op)))
-    {
-      if (REG_P (early_op))
-	early_op = op;
-
-      return !reg_overlap_mentioned_p (value, early_op);
-    }
+    return !reg_overlap_mentioned_p (value, early_op);
 
   return 0;
 }
@@ -334,6 +347,24 @@ int
 arm_early_store_addr_dep (rtx producer, rtx consumer)
 {
   return !arm_no_early_store_addr_dep (producer, consumer);
+}
+
+/* Return nonzero if the CONSUMER instruction (a store) does need
+   a Pmode PRODUCER's value to calculate the address.  */
+
+int
+arm_early_store_addr_dep_ptr (rtx producer, rtx consumer)
+{
+  rtx value = arm_find_sub_rtx_with_code (PATTERN (producer), SET, false);
+  rtx addr = arm_find_sub_rtx_with_code (PATTERN (consumer), SET, false);
+
+  if (!value || !addr || !MEM_P (SET_SRC (value)))
+    return 0;
+
+  value = SET_DEST (value);
+  addr = SET_DEST (addr);
+
+  return GET_MODE (value) == Pmode && reg_overlap_mentioned_p (value, addr);
 }
 
 /* Return non-zero iff the consumer (a multiply-accumulate or a
@@ -470,38 +501,6 @@ aarch_accumulator_forwarding (rtx_insn *producer, rtx_insn *consumer)
     return 0;
 
   return (REGNO (dest) == REGNO (accumulator));
-}
-
-/* Return nonzero if the CONSUMER instruction is some sort of
-   arithmetic or logic + shift operation, and the register we are
-   writing in PRODUCER is not used in a register shift by register
-   operation.  */
-
-int
-aarch_forward_to_shift_is_not_shifted_reg (rtx_insn *producer,
-					   rtx_insn *consumer)
-{
-  rtx value, op;
-  rtx early_op;
-
-  if (!arm_get_set_operands (producer, consumer, &value, &op))
-    return 0;
-
-  if ((early_op = arm_find_shift_sub_rtx (op)))
-    {
-      if (REG_P (early_op))
-	early_op = op;
-
-      /* Any other canonicalisation of a shift is a shift-by-constant
-	 so we don't care.  */
-      if (GET_CODE (early_op) == ASHIFT)
-	return (!REG_P (XEXP (early_op, 0))
-		|| !REG_P (XEXP (early_op, 1)));
-      else
-	return 1;
-    }
-
-  return 0;
 }
 
 /* Return non-zero if the consumer (a multiply-accumulate instruction)
