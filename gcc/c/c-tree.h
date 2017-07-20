@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "diagnostic.h"
 
+class blt_node;
+
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
@@ -451,6 +453,7 @@ struct c_declarator {
     /* For attributes.  */
     tree attrs;
   } u;
+  blt_node *bltnode;
 };
 
 /* A type name.  */
@@ -577,7 +580,8 @@ extern struct c_parm *build_c_parm (struct c_declspecs *, tree,
 extern struct c_declarator *build_attrs_declarator (tree,
 						    struct c_declarator *);
 extern struct c_declarator *build_function_declarator (struct c_arg_info *,
-						       struct c_declarator *);
+						       struct c_declarator *,
+						       blt_node *);
 extern struct c_declarator *build_id_declarator (tree);
 extern struct c_declarator *make_pointer_declarator (struct c_declspecs *,
 						     struct c_declarator *);
