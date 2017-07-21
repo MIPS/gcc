@@ -4787,9 +4787,9 @@
   "TARGET_NANOMIPS && flag_pic"
 {
   if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) <= 2)
-    return "<d>addiu.b\t%0,%1,%R2";
+    return "<d>addiu[gp.b]\t%0,%1,%R2";
   else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) >= 4)
-    return "<d>addiu.w\t%0,%1,%R2";
+    return "<d>addiu[gp.w]\t%0,%1,%R2";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
