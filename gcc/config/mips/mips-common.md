@@ -8548,3 +8548,100 @@
 			 (const_int 8)
 			 (const_int 0))
 	(match_dup 0))])
+
+(define_insn "*store_word_multiple"
+  [(match_parallel 0 ""
+       [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	     (match_operand:SI 2 "register_operand" "r"))])]
+  "ISA_HAS_LWM_SWM
+   && mips_word_multiple_pattern_p (true, operands[0])"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_expand "store_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_LWP_SWP || ISA_HAS_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op0;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_LWM_SWM && !IN_RANGE (INTVAL (operands[2]), 2, 8))
+      || GET_CODE (operands[0]) != MEM
+      || GET_CODE (operands[1]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[1]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  to = force_reg (SImode, XEXP (operands[0], 0));
+  if (!virtuals_instantiated
+      && REGNO (to) == VIRTUAL_INCOMING_ARGS_REGNUM)
+    {
+      rtx newreg = gen_reg_rtx (SImode);
+      emit_move_insn (newreg, to);
+      to = newreg;
+    }
+  op0 = replace_equiv_address (operands[0], to);
+
+  XVECEXP (operands[3], 0, 0)
+    = gen_rtx_SET (adjust_address_nv (op0, SImode, 0), operands[1]);
+
+  for (i = 1; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (adjust_address_nv (op0, SImode, i * 4),
+		     gen_rtx_REG (SImode, regno + i));
+})
+
+(define_insn "*load_word_multiple"
+  [(match_parallel 0 ""
+       [(set (match_operand:SI 1 "register_operand" "=r")
+	     (match_operand:SI 2 "memory_operand" "ZA"))])]
+  "ISA_HAS_LWM_SWM
+   && mips_word_multiple_pattern_p (false, operands[0])"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_expand "load_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_LWP_SWP || ISA_HAS_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op1;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_LWM_SWM && !IN_RANGE (INTVAL (operands[2]), 2, 8))
+      || GET_CODE (operands[1]) != MEM
+      || GET_CODE (operands[0]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[0]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  op1 = replace_equiv_address (operands[1],
+			       force_reg (SImode, XEXP (operands[1], 0)));
+
+  for (i = 0; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (gen_rtx_REG (SImode, regno + i),
+		     adjust_address_nv (op1, SImode, i * 4));
+})
+

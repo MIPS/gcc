@@ -25770,7 +25770,7 @@ mips_word_multiple_pattern_p (bool store_p, rtx pattern)
   rtx first_base = 0;
   unsigned int regmask = 0;
 
-  if (TARGET_LWP_SWP)
+  if (TARGET_NANOMIPS == NANOMIPS_NMF)
     return nanomips_word_multiple_pattern_p (store_p, pattern);
 
   for (n = 0; n < XVECLEN (pattern, 0); n++)
@@ -25855,7 +25855,7 @@ mips_output_word_multiple (bool store_p, rtx pattern)
   HOST_WIDE_INT offset;
   rtx base, mem, set, last_set, last_reg;
 
-  if (TARGET_LWP_SWP)
+  if (TARGET_NANOMIPS == NANOMIPS_NMF)
     return nanomips_output_word_multiple (store_p, pattern);
 
   /* Parse the pattern.  */

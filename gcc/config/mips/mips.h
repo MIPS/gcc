@@ -267,7 +267,8 @@ struct mips_cpu_info {
 #define SAVE_RESTORE_SHIFT	4
 #define ISA_HAS_SAVEF_RESTOREF	(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
 				 && TARGET_SAVEF_RESTOREF)
-#define ISA_HAS_LWM_SWM		(TARGET_MICROMIPS || TARGET_NANOMIPS)
+#define ISA_HAS_LWM_SWM		(TARGET_MICROMIPS \
+				 || TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
