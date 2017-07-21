@@ -1,5 +1,5 @@
 /* { dg-lto-do link } */
-/* { dg-skip-if "may not support gettimeofday" { mips*-*-elf* } { "*" } { "" } } */
+/* { dg-skip-if "may not support gettimeofday" { mips*-*-elf* nanomips*-*-elf* } { "*" } { "" } } */
 
 extern int printf (const char *__restrict __format, ...);
 typedef long int __time_t;
