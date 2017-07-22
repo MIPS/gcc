@@ -211,7 +211,7 @@ propagate_for_debug (rtx_insn *insn, rtx_insn *last, rtx dest, rtx src,
     {
       insn = next;
       next = NEXT_INSN (insn);
-      if (DEBUG_INSN_P (insn))
+      if (BIND_DEBUG_INSN_P (insn))
 	{
 	  loc = simplify_replace_fn_rtx (INSN_VAR_LOCATION_LOC (insn),
 					 dest, propagate_for_debug_subst, &p);

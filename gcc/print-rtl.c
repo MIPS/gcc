@@ -259,10 +259,11 @@ rtx_writer::print_rtx_operand_code_0 (const_rtx in_rtx ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BEGIN_STMT:
+	case NOTE_INSN_INLINE_ENTRY:
 #ifndef GENERATOR_FILE
 	  {
 	    expanded_location xloc
-	      = expand_location (NOTE_BEGIN_STMT_LOCATION (in_rtx));
+	      = expand_location (NOTE_MARKER_LOCATION (in_rtx));
 	    fprintf (m_outfile, " %s:%i", xloc.file, xloc.line);
 	  }
 #endif

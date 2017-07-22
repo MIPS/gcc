@@ -5820,7 +5820,7 @@ update_ebb_live_info (rtx_insn *head, rtx_insn *tail)
       if (!curr_bb)
 	{
 	  gcc_assert (DEBUG_INSN_P (curr_insn));
-	  if (!INSN_VAR_LOCATION_DECL (curr_insn))
+	  if (MARKER_DEBUG_INSN_P (curr_insn))
 	    continue;
 	  curr_bb = prev_bb;
 	}

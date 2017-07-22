@@ -573,7 +573,7 @@ gsi_remove (gimple_stmt_iterator *i, bool remove_permanently)
 
   if (remove_permanently)
     {
-      if (gimple_debug_begin_stmt_p (stmt))
+      if (gimple_debug_nonbind_marker_p (stmt))
 	cfun->debug_marker_count--;
       require_eh_edge_purge = remove_stmt_from_eh_lp (stmt);
       gimple_remove_stmt_histograms (cfun, stmt);

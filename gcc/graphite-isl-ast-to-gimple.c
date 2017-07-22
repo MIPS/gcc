@@ -1647,7 +1647,7 @@ rename_uses (gimple *copy, gimple_stmt_iterator *gsi_tgt, basic_block old_bb,
       if (gimple_debug_bind_p (copy))
 	gimple_debug_bind_reset_value (copy);
       else if (gimple_debug_source_bind_p (copy)
-	       || gimple_debug_begin_stmt_p (copy))
+	       || gimple_debug_nonbind_marker_p (copy))
 	return false;
       else
 	gcc_unreachable ();

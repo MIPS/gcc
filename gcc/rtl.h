@@ -1590,7 +1590,7 @@ extern const char * const reg_note_name[];
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 3, NOTE)
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 3, NOTE)
 #define NOTE_VAR_LOCATION(INSN)	XCEXP (INSN, 3, NOTE)
-#define NOTE_BEGIN_STMT_LOCATION(INSN) XCINT (INSN, 3, NOTE)
+#define NOTE_MARKER_LOCATION(INSN) XCUINT (INSN, 3, NOTE)
 #define NOTE_CFI(INSN)		XCCFI (INSN, 3, NOTE)
 #define NOTE_LABEL_NUMBER(INSN)	XCINT (INSN, 3, NOTE)
 
@@ -1601,6 +1601,13 @@ extern const char * const reg_note_name[];
 /* Nonzero if INSN is a note marking the beginning of a basic block.  */
 #define NOTE_INSN_BASIC_BLOCK_P(INSN) \
   (NOTE_P (INSN) && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
+
+/* Nonzero if INSN is a debug nonbind marker note,
+   for which NOTE_MARKER_LOCATION can be used.  */
+#define NOTE_MARKER_P(INSN)				\
+  (NOTE_P (INSN) &&					\
+   (NOTE_KIND (INSN) == NOTE_INSN_BEGIN_STMT		\
+    || NOTE_KIND (INSN) == NOTE_INSN_INLINE_ENTRY))
 
 /* Variable declaration and the location of a variable.  */
 #define PAT_VAR_LOCATION_DECL(PAT) (XCTREE ((PAT), 0, VAR_LOCATION))
@@ -1621,8 +1628,33 @@ extern const char * const reg_note_name[];
 #define NOTE_VAR_LOCATION_STATUS(NOTE) \
   PAT_VAR_LOCATION_STATUS (NOTE_VAR_LOCATION (NOTE))
 
+/* Evaluate to TRUE if INSN is a debug insn that denotes a variable
+   location/value tracking annotation.  */
+#define BIND_DEBUG_INSN_P(INSN)			\
+  (DEBUG_INSN_P (INSN)				\
+   && (GET_CODE (PATTERN (INSN))		\
+       == VAR_LOCATION))
+/* Evaluate to TRUE if INSN is a debug insn that denotes a program
+   source location marker.  */
+#define MARKER_DEBUG_INSN_P(INSN)		\
+  (DEBUG_INSN_P (INSN)				\
+   && (GET_CODE (PATTERN (INSN))		\
+       != VAR_LOCATION))
+/* Evaluate to the marker kind.  Currently the only kind is
+   BEGIN_STMT.  */
+#define INSN_DEBUG_MARKER_KIND(INSN)		  \
+  (GET_CODE (PATTERN (INSN)) == BEGIN_STMT_MARKER \
+   ? NOTE_INSN_BEGIN_STMT			  \
+   : GET_CODE (PATTERN (INSN)) == LEXICAL_BLOCK	  \
+   ? NOTE_INSN_INLINE_ENTRY			  \
+   : (enum insn_note)-1)
+
 /* The VAR_LOCATION rtx in a DEBUG_INSN.  */
-#define INSN_VAR_LOCATION(INSN) PATTERN (INSN)
+#define INSN_VAR_LOCATION(INSN) \
+  (RTL_FLAG_CHECK1 ("INSN_VAR_LOCATION", PATTERN (INSN), VAR_LOCATION))
+/* A pointer to the VAR_LOCATION rtx in a DEBUG_INSN.  */
+#define INSN_VAR_LOCATION_PTR(INSN) \
+  (&PATTERN (INSN))
 
 /* Accessors for a tree-expanded var location debug insn.  */
 #define INSN_VAR_LOCATION_DECL(INSN) \
@@ -1653,6 +1685,9 @@ extern const char * const reg_note_name[];
 
 /* PARM_DECL DEBUG_PARAMETER_REF references.  */
 #define DEBUG_PARAMETER_REF_DECL(RTX) XCTREE (RTX, 0, DEBUG_PARAMETER_REF)
+
+/* The lexical block referenced by the LEXICAL_BLOCK RTX.  */
+#define LEXICAL_BLOCK_TREE(RTX) XCTREE (RTX, 0, LEXICAL_BLOCK)
 
 /* Codes that appear in the NOTE_KIND field for kinds of notes
    that are not line numbers.  These codes are all negative.

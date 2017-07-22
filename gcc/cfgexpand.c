@@ -5281,7 +5281,7 @@ expand_debug_locations (void)
   flag_strict_aliasing = 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (DEBUG_INSN_P (insn))
+    if (BIND_DEBUG_INSN_P (insn))
       {
 	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
 	rtx val;
@@ -5668,8 +5668,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	  for (;;)
 	    {
 	      tree var;
-	      tree value;
-	      rtx val;
+	      tree value = NULL_TREE;
+	      rtx val = NULL_RTX;
 	      machine_mode mode;
 
 	      if (gimple_debug_bind_p (stmt))
@@ -5688,25 +5688,31 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
 		  if (gimple_debug_bind_has_value_p (stmt))
 		    value = gimple_debug_bind_get_value (stmt);
-		  else
-		    value = NULL_TREE;
 		}
-	      else if (gimple_debug_begin_stmt_p (stmt)
-		       && !cfun->begin_stmt_markers)
+	      else if (gimple_debug_nonbind_marker_p (stmt)
+		       && !cfun->debug_nonbind_markers)
 		goto delink_debug_stmt;
-	      else
+	      else if (gimple_debug_begin_stmt_p (stmt))
+		val = gen_rtx_BEGIN_STMT_MARKER (VOIDmode);
+	      else if (gimple_debug_inline_entry_p (stmt))
 		{
-		  gcc_assert (gimple_debug_begin_stmt_p (stmt));
-		  var = value = NULL_TREE;
-		  mode = VOIDmode;
+		  tree block = gimple_block (stmt);
+
+		  if (block)
+		    val = gen_rtx_LEXICAL_BLOCK (VOIDmode, block);
+		  else
+		    goto delink_debug_stmt;
 		}
+	      else
+		gcc_unreachable ();
 
 	      last = get_last_insn ();
 
 	      set_curr_insn_location (gimple_location (stmt));
 
-	      val = gen_rtx_VAR_LOCATION
-		(mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
+	      if (!val)
+		val = gen_rtx_VAR_LOCATION
+		  (mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
 
 	      emit_debug_insn (val);
 
@@ -5714,9 +5720,11 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		{
 		  /* We can't dump the insn with a TREE where an RTX
 		     is expected.  */
-		  PAT_VAR_LOCATION_LOC (val) = const0_rtx;
+		  if (GET_CODE (val) == VAR_LOCATION)
+		    PAT_VAR_LOCATION_LOC (val) = const0_rtx;
 		  maybe_dump_rtl_for_gimple_stmt (stmt, last);
-		  PAT_VAR_LOCATION_LOC (val) = (rtx)value;
+		  if (GET_CODE (val) == VAR_LOCATION)
+		    PAT_VAR_LOCATION_LOC (val) = (rtx)value;
 		}
 
 	    delink_debug_stmt:
@@ -5733,7 +5741,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		break;
 	      stmt = gsi_stmt (nsi);
 	      if (!gimple_debug_bind_p (stmt)
-		  && !gimple_debug_begin_stmt_p (stmt))
+		  && !gimple_debug_nonbind_marker_p (stmt))
 		break;
 	    }
 
@@ -6382,7 +6390,7 @@ pass_expand::execute (function *fun)
   /* If the function has too many markers, drop them while expanding.  */
   if (cfun->debug_marker_count
       >= PARAM_VALUE (PARAM_MAX_DEBUG_MARKER_COUNT))
-    cfun->begin_stmt_markers = false;
+    cfun->debug_nonbind_markers = false;
 
   lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (fun),

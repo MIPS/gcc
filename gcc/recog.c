@@ -2258,6 +2258,8 @@ extract_insn (rtx_insn *insn)
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
     case VAR_LOCATION:
+    case BEGIN_STMT_MARKER:
+    case LEXICAL_BLOCK:
       return;
 
     case SET:

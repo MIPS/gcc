@@ -113,12 +113,12 @@ lower_function_body (void)
   /* If we had begin stmt markers from e.g. PCH, but this compilation
      doesn't want them, lower_stmt will have cleaned them up; we can
      now clear the flag that indicates we had them.  */
-  if (!MAY_HAVE_DEBUG_STMTS && cfun->begin_stmt_markers)
+  if (!MAY_HAVE_DEBUG_STMTS && cfun->debug_nonbind_markers)
     {
       /* This counter needs not be exact, but before lowering it will
 	 most certainly be.  */
       gcc_assert (cfun->debug_marker_count == 0);
-      cfun->begin_stmt_markers = false;
+      cfun->debug_nonbind_markers = false;
     }
 
   /* If the function falls off the end, we need a null return statement.
@@ -308,7 +308,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       break;
 
     case GIMPLE_DEBUG:
-      gcc_checking_assert (cfun->begin_stmt_markers);
+      gcc_checking_assert (cfun->debug_nonbind_markers);
       /* Propagate fallthruness.  */
       /* If the function (e.g. from PCH) had debug stmts, but they're
 	 disabled for this compilation, remove them.  */

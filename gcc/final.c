@@ -1653,7 +1653,6 @@ reemit_insn_block_notes (void)
 {
   tree cur_block = DECL_INITIAL (cfun->decl);
   rtx_insn *insn;
-  rtx_note *note;
 
   insn = get_insns ();
   for (; insn; insn = NEXT_INSN (insn))
@@ -1661,17 +1660,30 @@ reemit_insn_block_notes (void)
       tree this_block;
 
       /* Prevent lexical blocks from straddling section boundaries.  */
-      if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_SWITCH_TEXT_SECTIONS)
-        {
-          for (tree s = cur_block; s != DECL_INITIAL (cfun->decl);
-               s = BLOCK_SUPERCONTEXT (s))
-            {
-              rtx_note *note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
-              NOTE_BLOCK (note) = s;
-              note = emit_note_after (NOTE_INSN_BLOCK_BEG, insn);
-              NOTE_BLOCK (note) = s;
-            }
-        }
+      if (NOTE_P (insn))
+	switch (NOTE_KIND (insn))
+	  {
+	  case NOTE_INSN_SWITCH_TEXT_SECTIONS:
+	    {
+	      for (tree s = cur_block; s != DECL_INITIAL (cfun->decl);
+		   s = BLOCK_SUPERCONTEXT (s))
+		{
+		  rtx_note *note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
+		  NOTE_BLOCK (note) = s;
+		  note = emit_note_after (NOTE_INSN_BLOCK_BEG, insn);
+		  NOTE_BLOCK (note) = s;
+		}
+	    }
+	    break;
+
+	  case NOTE_INSN_BEGIN_STMT:
+	  case NOTE_INSN_INLINE_ENTRY:
+	    this_block = LOCATION_BLOCK (NOTE_MARKER_LOCATION (insn));
+	    goto set_cur_block_to_this_block;
+
+	  default:
+	    continue;
+	}
 
       if (!active_insn_p (insn))
         continue;
@@ -1692,6 +1704,7 @@ reemit_insn_block_notes (void)
 	    this_block = choose_inner_scope (this_block,
 					     insn_scope (body->insn (i)));
 	}
+    set_cur_block_to_this_block:
       if (! this_block)
 	{
 	  if (INSN_LOCATION (insn) == UNKNOWN_LOCATION)
@@ -1708,7 +1721,7 @@ reemit_insn_block_notes (void)
     }
 
   /* change_scope emits before the insn, not after.  */
-  note = emit_note (NOTE_INSN_DELETED);
+  rtx_note *note = emit_note (NOTE_INSN_DELETED);
   change_scope (note, cur_block, DECL_INITIAL (cfun->decl));
   delete_insn (note);
 
@@ -2502,14 +2515,27 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BEGIN_STMT:
-	  gcc_checking_assert (cfun->begin_stmt_markers);
+	  gcc_checking_assert (cfun->debug_nonbind_markers);
 	  if (!DECL_IGNORED_P (current_function_decl)
 	      && notice_source_line (insn, NULL))
 	    {
+	    output_source_line:
 	      (*debug_hooks->source_line) (last_linenum, last_columnnum,
 					   last_filename, last_discriminator,
 					   true);
 	      clear_next_view_needed (seen);
+	    }
+	  break;
+
+	case NOTE_INSN_INLINE_ENTRY:
+	  gcc_checking_assert (cfun->debug_nonbind_markers);
+	  if (!DECL_IGNORED_P (current_function_decl))
+	    {
+	      (*debug_hooks->inline_entry) (LOCATION_BLOCK
+					    (NOTE_MARKER_LOCATION (insn)));
+	      if (!notice_source_line (insn, NULL))
+		gcc_unreachable ();
+	      goto output_source_line;
 	    }
 	  break;
 
@@ -2602,7 +2628,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	const char *templ;
 	bool is_stmt, *is_stmt_p;
 
-	if (MAY_HAVE_DEBUG_INSNS && cfun->begin_stmt_markers)
+	if (MAY_HAVE_DEBUG_INSNS && cfun->debug_nonbind_markers)
 	  {
 	    is_stmt = false;
 	    is_stmt_p = NULL;
@@ -3214,10 +3240,10 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
   const char *filename;
   int linenum, columnnum;
 
-  if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_BEGIN_STMT)
+  if (NOTE_MARKER_P (insn))
     {
       expanded_location xloc
-	= expand_location (NOTE_BEGIN_STMT_LOCATION (insn));
+	= expand_location (NOTE_MARKER_LOCATION (insn));
       filename = xloc.file;
       linenum = xloc.line;
       columnnum = xloc.column;
@@ -4816,6 +4842,7 @@ rest_of_clean_state (void)
 	  && (!NOTE_P (insn) ||
 	      (NOTE_KIND (insn) != NOTE_INSN_VAR_LOCATION
 	       && NOTE_KIND (insn) != NOTE_INSN_BEGIN_STMT
+	       && NOTE_KIND (insn) != NOTE_INSN_INLINE_ENTRY
 	       && NOTE_KIND (insn) != NOTE_INSN_CALL_ARG_LOCATION
 	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_BEG
 	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_END

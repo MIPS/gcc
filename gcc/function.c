@@ -1949,10 +1949,11 @@ instantiate_virtual_regs (void)
 	   Fortunately, they shouldn't contain virtual registers either.  */
         if (GET_CODE (PATTERN (insn)) == USE
 	    || GET_CODE (PATTERN (insn)) == CLOBBER
-	    || GET_CODE (PATTERN (insn)) == ASM_INPUT)
+	    || GET_CODE (PATTERN (insn)) == ASM_INPUT
+	    || MARKER_DEBUG_INSN_P (insn))
 	  continue;
-	else if (DEBUG_INSN_P (insn))
-	  instantiate_virtual_regs_in_rtx (&INSN_VAR_LOCATION (insn));
+	else if (BIND_DEBUG_INSN_P (insn))
+	  instantiate_virtual_regs_in_rtx (INSN_VAR_LOCATION_PTR (insn));
 	else
 	  instantiate_virtual_regs_in_insn (insn);
 
@@ -4951,7 +4952,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   /* Don't enable begin stmt markers if var-tracking at assignments is
      disabled.  The markers make little sense without the variable
      binding annotations among them.  */
-  cfun->begin_stmt_markers = lang_hooks.emits_begin_stmt
+  cfun->debug_nonbind_markers = lang_hooks.emits_begin_stmt
     && debug_statement_frontiers && MAY_HAVE_DEBUG_STMTS;
 }
 

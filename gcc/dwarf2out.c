@@ -2717,6 +2717,7 @@ static void dwarf2out_imported_module_or_decl_1 (tree, tree, tree,
 						 dw_die_ref);
 static void dwarf2out_abstract_function (tree);
 static void dwarf2out_var_location (rtx_insn *);
+static void dwarf2out_inline_entry (tree);
 static void dwarf2out_size_function (tree);
 static void dwarf2out_begin_function (tree);
 static void dwarf2out_end_function (unsigned int);
@@ -2764,6 +2765,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_rtx_code_label,	/* label */
   debug_nothing_int,		/* handle_pch */
   dwarf2out_var_location,
+  dwarf2out_inline_entry,	/* inline_entry */
   dwarf2out_size_function,	/* size_function */
   dwarf2out_switch_text_section,
   dwarf2out_set_name,
@@ -2802,6 +2804,7 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
   debug_nothing_rtx_code_label,	         /* label */
   debug_nothing_int,		         /* handle_pch */
   debug_nothing_rtx_insn,	         /* var_location */
+  debug_nothing_tree,	         	 /* inline_entry */
   debug_nothing_tree,			 /* size_function */
   debug_nothing_void,                    /* switch_text_section */
   debug_nothing_tree_tree,		 /* set_name */
@@ -3956,6 +3959,9 @@ static char ranges_base_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 #endif
 #ifndef BLOCK_BEGIN_LABEL
 #define BLOCK_BEGIN_LABEL	"LBB"
+#endif
+#ifndef BLOCK_INLINE_ENTRY_LABEL
+#define BLOCK_INLINE_ENTRY_LABEL "LBI"
 #endif
 #ifndef BLOCK_END_LABEL
 #define BLOCK_END_LABEL		"LBE"
@@ -23447,7 +23453,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       dw_die_ref pdie;
       dw_attr_node *attr = NULL;
 
-      if (inlined_function_outer_scope_p (stmt))
+      if (!debug_statement_frontiers && inlined_function_outer_scope_p (stmt))
 	{
 	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
 				       BLOCK_NUMBER (stmt));
@@ -23525,6 +23531,16 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       ASM_GENERATE_INTERNAL_LABEL (label_high, BLOCK_END_LABEL,
 				   BLOCK_NUMBER (stmt));
       add_AT_low_high_pc (die, label, label_high, false);
+    }
+
+  if (BLOCK_INLINE_ENTRY_LABEL_USED_P (stmt)
+      && (dwarf_version >= 3 || !dwarf_strict))
+    {
+      gcc_assert (debug_statement_frontiers);
+      gcc_assert (inlined_function_outer_scope_p (stmt));
+      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL,
+				   BLOCK_NUMBER (stmt));
+      add_AT_lbl_id (die, DW_AT_entry_pc, label);
     }
 }
 
@@ -23618,7 +23634,7 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
       dw_die_ref subr_die
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
 
-      if (call_arg_locations)
+      if (call_arg_locations || debug_statement_frontiers)
 	BLOCK_DIE (stmt) = subr_die;
       add_abstract_origin_attribute (subr_die, decl);
       if (TREE_ASM_WRITTEN (stmt))
@@ -26582,6 +26598,7 @@ dwarf2out_var_location (rtx_insn *loc_note)
       || ! NOTE_P (next_note)
       || (NOTE_KIND (next_note) != NOTE_INSN_VAR_LOCATION
 	  && NOTE_KIND (next_note) != NOTE_INSN_BEGIN_STMT
+	  && NOTE_KIND (next_note) != NOTE_INSN_INLINE_ENTRY
 	  && NOTE_KIND (next_note) != NOTE_INSN_CALL_ARG_LOCATION))
     next_note = NULL;
 
@@ -26768,6 +26785,68 @@ create_label:
 
   last_var_location_insn = next_real;
   last_in_cold_section_p = in_cold_section_p;
+}
+
+/* Check whether BLOCK, a lexical block, is nested within OUTER, or is
+   OUTER itself.  */
+static bool
+block_within_block_p (tree block, tree outer)
+{
+  if (block == outer)
+    return true;
+
+  /* Quickly check that OUTER is up BLOCK's supercontext chain.  */
+  for (tree context = BLOCK_SUPERCONTEXT (block);
+       context != outer;
+       context = BLOCK_SUPERCONTEXT (context))
+    if (!context || TREE_CODE (context) != BLOCK)
+      return false;
+
+  /* Now check that each block is actually referenced by its
+     parent.  */
+  for (tree context = BLOCK_SUPERCONTEXT (block); ;
+       context = BLOCK_SUPERCONTEXT (context))
+    {
+      if (BLOCK_FRAGMENT_ORIGIN (context))
+	{
+	  gcc_assert (!BLOCK_SUBBLOCKS (context));
+	  context = BLOCK_FRAGMENT_ORIGIN (context);
+	}
+      for (tree sub = BLOCK_SUBBLOCKS (context);
+	   sub != block;
+	   sub = BLOCK_CHAIN (sub))
+	if (!sub)
+	  return false;
+      if (context == outer)
+	return true;
+      else
+	block = context;
+    }
+}
+
+/* Called during final while assembling the marker of the entry point
+   for an inlined function.  */
+
+static void
+dwarf2out_inline_entry (tree block)
+{
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  gcc_assert (DECL_P (block_ultimate_origin (block)));
+
+  gcc_checking_assert (block_within_block_p (block,
+					     DECL_INITIAL
+					     (current_function_decl)));
+
+  gcc_assert (inlined_function_outer_scope_p (block));
+  gcc_assert (!BLOCK_DIE (block));
+
+  if (BLOCK_INLINE_ENTRY_LABEL_USED_P (block))
+    return; // gcc_unreachable ();
+
+  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL, BLOCK_NUMBER (block));
+  ASM_OUTPUT_LABEL (asm_out_file, label);
+  BLOCK_INLINE_ENTRY_LABEL_USED_P (block) = true;
 }
 
 /* Called from finalize_size_functions for size functions so that their body

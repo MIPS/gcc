@@ -1173,9 +1173,9 @@ input_function (tree fn_decl, struct data_in *data_in,
 	      /* Remember that the input function has begin stmt
 		 markers, so that we know to expect them when emitting
 		 debug info.  */
-	      if (!cfun->begin_stmt_markers
-		  && gimple_debug_begin_stmt_p (stmt))
-		cfun->begin_stmt_markers = true;
+	      if (!cfun->debug_nonbind_markers
+		  && gimple_debug_nonbind_marker_p (stmt))
+		cfun->debug_nonbind_markers = true;
 	    }
 	}
     }

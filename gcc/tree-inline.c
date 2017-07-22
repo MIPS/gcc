@@ -1347,8 +1347,8 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
   gimple_seq stmts = NULL;
 
   if (is_gimple_debug (stmt)
-      && (gimple_debug_begin_stmt_p (stmt)
-	  ? !cfun->begin_stmt_markers
+      && (gimple_debug_nonbind_marker_p (stmt)
+	  ? !cfun->debug_nonbind_markers
 	  : !opt_for_fn (id->dst_fn, flag_var_tracking_assignments)))
     return stmts;
 
@@ -1632,17 +1632,15 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	  gimple_seq_add_stmt (&stmts, copy);
 	  return stmts;
 	}
-      if (gimple_debug_begin_stmt_p (stmt))
+      if (gimple_debug_nonbind_marker_p (stmt))
 	{
-	  /* If the inlined function is has too many debug markers,
+	  /* If the inlined function has too many debug markers,
 	     don't copy them.  */
 	  if (id->src_cfun->debug_marker_count
 	      > PARAM_VALUE (PARAM_MAX_DEBUG_MARKER_COUNT))
 	    return stmts;
 
-	  gdebug *copy
-	    = gimple_build_debug_begin_stmt (gimple_block (stmt),
-					     gimple_location (stmt));
+	  gdebug *copy = as_a <gdebug *> (gimple_copy (stmt));
 	  id->debug_stmts.safe_push (copy);
 	  gimple_seq_add_stmt (&stmts, copy);
 	  return stmts;
@@ -1744,7 +1742,7 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
     }
 
   if (gimple_debug_bind_p (copy) || gimple_debug_source_bind_p (copy)
-      || gimple_debug_begin_stmt_p (copy))
+      || gimple_debug_nonbind_marker_p (copy))
     {
       gimple_seq_add_stmt (&stmts, copy);
       return stmts;
@@ -2583,10 +2581,9 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
 	      value = gimple_debug_source_bind_get_value (stmt);
 	      new_stmt = gimple_build_debug_source_bind (var, value, stmt);
 	    }
-	  else if (gimple_debug_begin_stmt_p (stmt))
+	  else if (gimple_debug_nonbind_marker_p (stmt))
 	    {
-	      new_stmt = gimple_build_debug_begin_stmt (gimple_block (stmt),
-							gimple_location (stmt));
+	      new_stmt = as_a <gdebug *> (gimple_copy (stmt));
 	    }
 	  else
 	    gcc_unreachable ();
@@ -2904,7 +2901,7 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
       gimple_set_block (stmt, n ? *n : id->block);
     }
 
-  if (gimple_debug_begin_stmt_p (stmt))
+  if (gimple_debug_nonbind_marker_p (stmt))
     return;
 
   /* Remap all the operands in COPY.  */
@@ -4663,6 +4660,14 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 			GSI_NEW_STMT);
     }
   initialize_inlined_parameters (id, stmt, fn, bb);
+  if (debug_statement_frontiers && id->block
+      && inlined_function_outer_scope_p (id->block))
+    {
+      gimple_stmt_iterator si = gsi_last_bb (bb);
+      gsi_insert_after (&si, gimple_build_debug_inline_entry
+			(id->block, DECL_SOURCE_LOCATION (fn)),
+			GSI_NEW_STMT);
+    }
 
   if (DECL_INITIAL (fn))
     {

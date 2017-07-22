@@ -9920,41 +9920,27 @@ vt_init_cfa_base (void)
   cselib_preserve_cfa_base_value (val, REGNO (cfa_base_rtx));
 }
 
-/* Evaluate to TRUE if INSN is a debug insn that denotes a variable
-   location/value tracking annotation.  */
-#define VTA_DEBUG_INSN_P(INSN)			\
-  (DEBUG_INSN_P (INSN)				\
-   && INSN_VAR_LOCATION_DECL (insn))
-/* Evaluate to TRUE if INSN is a debug insn that denotes a program
-   source location marker.  */
-#define MARKER_DEBUG_INSN_P(INSN)		\
-  (DEBUG_INSN_P (INSN)				\
-   && !INSN_VAR_LOCATION_DECL (insn))
-/* Evaluate to the marker kind.  Currently the only kind is
-   BEGIN_STMT.  */
-#define INSN_DEBUG_MARKER_KIND(insn) 0
-
 /* Reemit INSN, a MARKER_DEBUG_INSN, as a note.  */
 
 static rtx_insn *
-reemit_marker_as_note (rtx_insn *insn)
+reemit_marker_as_note (rtx_insn *insn, basic_block *bb)
 {
   gcc_checking_assert (MARKER_DEBUG_INSN_P (insn));
-  /* FIXME: we could use loc and status for other kinds of markers, or
-     for additional information in them.  */
-  gcc_checking_assert (VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)));
-  gcc_checking_assert (INSN_VAR_LOCATION_STATUS (insn)
-		       == VAR_INIT_STATUS_INITIALIZED);
 
-  switch (INSN_DEBUG_MARKER_KIND (insn))
+  enum insn_note kind = INSN_DEBUG_MARKER_KIND (insn);
+
+  switch (kind)
     {
-    case 0:
+    case NOTE_INSN_BEGIN_STMT:
+    case NOTE_INSN_INLINE_ENTRY:
       {
 	rtx_insn *note = NULL;
-	if (cfun->begin_stmt_markers)
+	if (cfun->debug_nonbind_markers)
 	  {
-	    note = emit_note_before (NOTE_INSN_BEGIN_STMT, insn);
-	    NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
+	    note = emit_note_before (kind, insn);
+	    NOTE_MARKER_LOCATION (note) = INSN_LOCATION (insn);
+	    if (bb)
+	      BLOCK_FOR_INSN (note) = *bb;
 	  }
 	delete_insn (insn);
 	return note;
@@ -10182,7 +10168,7 @@ vt_initialize (void)
 		      /* Reset debug insns between basic blocks.
 			 Their location is not reliable, because they
 			 were probably not maintained up to date.  */
-		      if (VTA_DEBUG_INSN_P (insn))
+		      if (BIND_DEBUG_INSN_P (insn))
 			INSN_VAR_LOCATION_LOC (insn)
 			  = gen_rtx_UNKNOWN_VAR_LOC ();
 		    }
@@ -10212,9 +10198,7 @@ vt_initialize (void)
 		    {
 		      if (MARKER_DEBUG_INSN_P (insn))
 			{
-			  insn = reemit_marker_as_note (insn);
-			  if (insn)
-			    BLOCK_FOR_INSN (insn) = save_bb;
+			  insn = reemit_marker_as_note (insn, &save_bb);
 			  continue;
 			}
 
@@ -10314,7 +10298,7 @@ delete_vta_debug_insns (void)
 	  {
 	    if (MARKER_DEBUG_INSN_P (insn))
 	      {
-		insn = reemit_marker_as_note (insn);
+		insn = reemit_marker_as_note (insn, NULL);
 		continue;
 	      }
 
@@ -10348,7 +10332,7 @@ vt_debug_insns_local (bool skipped)
   /* ??? Just skip it all for now.  If we skipped the global pass,
      arrange for stmt markers to be dropped as well.  */
   if (skipped)
-    cfun->begin_stmt_markers = 0;
+    cfun->debug_nonbind_markers = 0;
   delete_vta_debug_insns ();
 }
 
@@ -10450,7 +10434,7 @@ variable_tracking_main_1 (void)
     {
       vt_finalize ();
 
-      cfun->begin_stmt_markers = 0;
+      cfun->debug_nonbind_markers = 0;
 
       delete_vta_debug_insns ();
 

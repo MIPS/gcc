@@ -602,15 +602,31 @@ static struct lra_operand_data debug_operand_data =
   };
 
 /* The following data are used as static insn data for all debug
-   insns.  If structure lra_static_insn_data is changed, the
+   bind insns.  If structure lra_static_insn_data is changed, the
    initializer should be changed too.  */
-static struct lra_static_insn_data debug_insn_static_data =
+static struct lra_static_insn_data debug_bind_static_data =
   {
     &debug_operand_data,
     0,	/* Duplication operands #.  */
     -1, /* Commutative operand #.  */
     1,	/* Operands #.	There is only one operand which is debug RTL
 	   expression.	*/
+    0,	/* Duplications #.  */
+    0,	/* Alternatives #.  We are not interesting in alternatives
+	   because we does not proceed debug_insns for reloads.	 */
+    NULL, /* Hard registers referenced in machine description.	*/
+    NULL  /* Descriptions of operands in alternatives.	*/
+  };
+
+/* The following data are used as static insn data for all debug
+   marker insns.  If structure lra_static_insn_data is changed, the
+   initializer should be changed too.  */
+static struct lra_static_insn_data debug_marker_static_data =
+  {
+    &debug_operand_data,
+    0,	/* Duplication operands #.  */
+    -1, /* Commutative operand #.  */
+    0,	/* Operands #.	There isn't any operand.  */
     0,	/* Duplications #.  */
     0,	/* Alternatives #.  We are not interesting in alternatives
 	   because we does not proceed debug_insns for reloads.	 */
@@ -951,12 +967,20 @@ lra_set_insn_recog_data (rtx_insn *insn)
   data->regs = NULL;
   if (DEBUG_INSN_P (insn))
     {
-      data->insn_static_data = &debug_insn_static_data;
       data->dup_loc = NULL;
       data->arg_hard_regs = NULL;
       data->preferred_alternatives = ALL_ALTERNATIVES;
-      data->operand_loc = XNEWVEC (rtx *, 1);
-      data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
+      if (BIND_DEBUG_INSN_P (insn))
+	{
+	  data->insn_static_data = &debug_bind_static_data;
+	  data->operand_loc = XNEWVEC (rtx *, 1);
+	  data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
+	}
+      else if (MARKER_DEBUG_INSN_P (insn))
+	{
+	  data->insn_static_data = &debug_marker_static_data;
+	  data->operand_loc = NULL;
+	}
       return data;
     }
   if (icode < 0)
