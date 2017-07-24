@@ -2633,10 +2633,9 @@ enum reg_class
 
 /* o32 and o64 reserve stack space for all argument registers.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 			\
-   mips_reg_parm_stack_space ((FNDECL), false)
-
-#define INCOMING_REG_PARM_STACK_SPACE(FNDECL) 		\
-   mips_reg_parm_stack_space ((FNDECL), true)
+  (TARGET_OABI					\
+   ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
+   : 0)
 
 /* Define this if it is the responsibility of the caller to
    allocate the area reserved for arguments passed in registers.
