@@ -8606,7 +8606,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "register_operand" "=r")
 	     (match_operand:SI 2 "memory_operand" "ZA"))])]
-  "ISA_HAS_LWM_SWM
+  "0&&ISA_HAS_LWM_SWM
    && mips_word_multiple_pattern_p (false, operands[0])"
   { return mips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")
@@ -8617,7 +8617,7 @@
   [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
 			  (match_operand:SI 1 "" ""))
 		     (use (match_operand:SI 2 "" ""))])]
-  "ISA_HAS_LWP_SWP || ISA_HAS_LWM_SWM"
+  "ISA_HAS_LWP_SWP || 0&&ISA_HAS_LWM_SWM"
 {
   int regno;
   int count;
