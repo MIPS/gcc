@@ -22527,6 +22527,11 @@ mips_reorg_process_insns (void)
   if (TARGET_MIPS16)
     cfun->machine->all_noreorder_p = false;
 
+  /* Temporarily enable reorder in general to allow the LI instruction
+     to expand in the assembler for the nanoMIPS subset.  */
+  if (TARGET_NANOMIPS == NANOMIPS_NMS)
+    cfun->machine->all_noreorder_p = false;
+
   /* Code that doesn't use explicit relocs can't be ".set nomacro".  */
   if (!TARGET_EXPLICIT_RELOCS)
     cfun->machine->all_noreorder_p = false;
