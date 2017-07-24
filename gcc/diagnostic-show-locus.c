@@ -1872,6 +1872,10 @@ layout::move_to_column (int *column, int dest_column)
 void
 layout::show_ruler (int max_column) const
 {
+  /* FIXME.  */
+  if (max_column == INT_MAX)
+    max_column = 79;
+
   /* Hundreds.  */
   if (max_column > 99)
     {
