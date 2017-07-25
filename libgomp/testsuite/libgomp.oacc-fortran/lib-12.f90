@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-xfail-run-if "n/a" { openacc_host_selected } }
 
 program main
   use openacc

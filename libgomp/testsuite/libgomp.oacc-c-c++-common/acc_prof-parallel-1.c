@@ -206,11 +206,6 @@ void cb_enter_data_start (acc_prof_info *prof_info, acc_event_info *event_info, 
   assert (event_info->other_event.implicit == 1);
   assert (event_info->other_event.tool_info == NULL);
 
-  if (acc_device_type == acc_device_host
-      || state < 100) //TODO
-    assert (api_info->device_api == acc_device_api_none);
-  else
-    assert (api_info->device_api == acc_device_api_cuda);
   assert (api_info->valid_bytes == _ACC_API_INFO_VALID_BYTES);
   assert (api_info->device_type == prof_info->device_type);
   assert (api_info->vendor == -1);

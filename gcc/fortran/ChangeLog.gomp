@@ -1,3 +1,8 @@
+2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Add representation of wait
+	clause without argument as 'wait (GOMP_ASYNC_NOVAL)'.
+
 2017-06-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

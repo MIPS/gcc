@@ -1,3 +1,8 @@
+2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* omp-low.c (expand_omp_target): Add middle-end support for handling
+	OMP_CLAUSE_WAIT clause with a GOMP_ASYNC_NOVAL(-1) as the argument.
+
 2017-07-19  Tom de Vries  <tom@codesourcery.com>
 
 	backport from mainline:

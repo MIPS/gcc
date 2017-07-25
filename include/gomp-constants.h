@@ -249,13 +249,14 @@ enum gomp_map_kind
 #define GOMP_LAUNCH_CODE_SHIFT	28
 #define GOMP_LAUNCH_DEVICE_SHIFT 16
 #define GOMP_LAUNCH_OP_SHIFT 0
+#define GOMP_LAUNCH_OP_MASK 0xffff
 #define GOMP_LAUNCH_PACK(CODE,DEVICE,OP)	\
   (((CODE) << GOMP_LAUNCH_CODE_SHIFT)		\
    | ((DEVICE) << GOMP_LAUNCH_DEVICE_SHIFT)	\
-   | ((OP) << GOMP_LAUNCH_OP_SHIFT))
+   | (((OP) & GOMP_LAUNCH_OP_MASK) << GOMP_LAUNCH_OP_SHIFT))
 #define GOMP_LAUNCH_CODE(X) (((X) >> GOMP_LAUNCH_CODE_SHIFT) & 0xf)
 #define GOMP_LAUNCH_DEVICE(X) (((X) >> GOMP_LAUNCH_DEVICE_SHIFT) & 0xfff)
-#define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & 0xffff)
+#define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & GOMP_LAUNCH_OP_MASK)
 #define GOMP_LAUNCH_OP_MAX 0xffff
 
 /* Bitmask to apply in order to find out the intended device of a target

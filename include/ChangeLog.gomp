@@ -1,3 +1,9 @@
+2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gomp-constants.h (GOMP_LAUNCH_OP_MASK): Define.
+	(GOMP_LAUNCH_PACK): Add bitwise-and of GOMP_LAUNCH_OP_MASK.
+	(GOMP_LAUNCH_OP): Likewise.
+
 2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gomp-constants.h (enum gomp_map_kind): Define GOMP_MAP_DECLARE,

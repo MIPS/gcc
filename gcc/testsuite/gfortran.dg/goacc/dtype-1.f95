@@ -175,13 +175,13 @@ end subroutine sr5b
 
 ! { dg-final { scan-tree-dump-times "oacc_parallel device_type\\(\\*\\) \\\[ async\\(10\\) wait\\(10\\) num_gangs\\(10\\) num_workers\\(10\\) vector_length\\(10\\) \\\] device_type\\(nvidia_ptx\\) \\\[ async\\(3\\) wait\\(3\\) num_gangs\\(300\\) num_workers\\(300\\) vector_length\\(128\\) \\\] async\\(1\\) wait\\(1\\) num_gangs\\(1\\) num_workers\\(1\\) vector_length\\(1\\)" 1 "omplower" } }
 
-! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ async\\(-1\\) \\\]" 1 "omplower" } }
+! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ async\\(-1\\) wait\\(-1\\) \\\]" 1 "omplower" } }
 
 ! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ async\\(1\\) wait\\(1\\) \\\]" 1 "omplower" } }
 
 ! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(\\*\\) \\\[ async\\(0\\) wait\\(0\\) \\\] device_type\\(nvidia\\) \\\[ async\\(2\\) wait\\(2\\) \\\]" 1 "omplower" } }
 
-! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(\\*\\) \\\[ async\\(0\\) wait\\(0\\) \\\] device_type\\(nvidia_ptx\\) \\\[ async\\(1\\) wait\\(1\\) \\\] async\\(-1\\)" 1 "omplower" } }
+! { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(\\*\\) \\\[ async\\(0\\) wait\\(0\\) \\\] device_type\\(nvidia_ptx\\) \\\[ async\\(1\\) wait\\(1\\) \\\] async\\(-1\\) wait\\(-1\\)" 1 "omplower" } }
 
 ! { dg-final { scan-tree-dump-times "acc loop device_type\\(nvidia\\) \\\[ tile\\(1\\) gang \\\] private\\(i1\\) private\\(i1\\.1\\)" 1 "omplower" } }
 

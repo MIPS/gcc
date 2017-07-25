@@ -870,19 +870,23 @@ typedef struct acc_dispatch_t
   /* Execute.  */
   __typeof (GOMP_OFFLOAD_openacc_exec) *exec_func;
 
-  /* Async cleanup callback registration.  */
-  __typeof (GOMP_OFFLOAD_openacc_register_async_cleanup)
-    *register_async_cleanup_func;
+  struct {
+    gomp_mutex_t lock;
+    int nasyncqueue;
+    struct goacc_asyncqueue **asyncqueue;
+    struct goacc_asyncqueue_list *active;
+    
+    __typeof (GOMP_OFFLOAD_openacc_async_construct) *construct_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_destruct) *destruct_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_test) *test_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_synchronize) *synchronize_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_serialize) *serialize_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_queue_callback) *queue_callback_func;
 
-  /* Asynchronous routines.  */
-  __typeof (GOMP_OFFLOAD_openacc_async_test) *async_test_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_test_all) *async_test_all_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait) *async_wait_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_async) *async_wait_async_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_all) *async_wait_all_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_wait_all_async)
-    *async_wait_all_async_func;
-  __typeof (GOMP_OFFLOAD_openacc_async_set_async) *async_set_async_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_exec) *exec_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_host2dev) *host2dev_func;
+    __typeof (GOMP_OFFLOAD_openacc_async_dev2host) *dev2host_func;
+  } async;
 
   /* Create/destroy TLS data.  */
   __typeof (GOMP_OFFLOAD_openacc_create_thread_data) *create_thread_data_func;
@@ -974,17 +978,31 @@ enum gomp_map_vars_kind
   GOMP_MAP_VARS_ENTER_DATA
 };
 
-extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
+extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *, int);
 extern void gomp_acc_remove_pointer (void *, size_t, bool, int, int, int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
 				       unsigned short *);
-
+extern void gomp_copy_host2dev (struct gomp_device_descr *,
+				struct goacc_asyncqueue *,
+				void *, const void *, size_t);
+extern void gomp_copy_dev2host (struct gomp_device_descr *,
+				struct goacc_asyncqueue *,
+				void *, const void *, size_t);
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,
 					      size_t *, void *, bool,
 					      enum gomp_map_vars_kind);
+extern struct target_mem_desc *gomp_map_vars_async (struct gomp_device_descr *,
+						    struct goacc_asyncqueue *,
+						    size_t, void **, void **,
+						    size_t *, void *, bool,
+						    enum gomp_map_vars_kind);
+extern void gomp_unmap_tgt (struct target_mem_desc *);
 extern void gomp_unmap_vars (struct target_mem_desc *, bool);
+extern void gomp_unmap_vars_async (struct target_mem_desc *, bool,
+				   struct goacc_asyncqueue *);
 extern void gomp_init_device (struct gomp_device_descr *);
+extern bool gomp_fini_device (struct gomp_device_descr *);
 extern void gomp_unload_device (struct gomp_device_descr *);
 extern bool gomp_offload_target_available_p (int);
 extern bool gomp_remove_var (struct gomp_device_descr *, splay_tree_key);

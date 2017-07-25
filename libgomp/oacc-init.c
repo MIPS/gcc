@@ -390,7 +390,7 @@ acc_shutdown_1 (acc_device_t d)
       if (acc_dev->state == GOMP_DEVICE_INITIALIZED)
         {
 	  devices_active = true;
-	  ret &= acc_dev->fini_device_func (acc_dev->target_id);
+	  ret &= gomp_fini_device (acc_dev);
 	  acc_dev->state = GOMP_DEVICE_UNINITIALIZED;
 	}
       gomp_mutex_unlock (&acc_dev->lock);
@@ -513,8 +513,6 @@ goacc_attach_host_thread_to_device (int ord)
     = acc_dev->openacc.create_thread_data_func (ord);
 
   thr->default_async = acc_async_default;
-  
-  acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
 
 /* OpenACC 2.0a (3.2.12, 3.2.13) doesn't specify whether the serialization of

@@ -14226,16 +14226,30 @@ expand_omp_target (struct omp_region *region)
 	  /* ... push a placeholder.  */
 	  args.safe_push (integer_zero_node);
 
+	bool noval_seen = false;
+	tree noval = build_int_cst (integer_type_node, GOMP_ASYNC_NOVAL);
+	
 	for (; c; c = OMP_CLAUSE_CHAIN (c))
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WAIT)
 	    {
+	      if (tree_int_cst_compare (OMP_CLAUSE_WAIT_EXPR (c), noval) == 0)
+		{
+		  noval_seen = true;
+		  continue;
+		}
+
 	      args.safe_push (fold_convert_loc (OMP_CLAUSE_LOCATION (c),
 						integer_type_node,
 						OMP_CLAUSE_WAIT_EXPR (c)));
 	      num_waits++;
 	    }
 
-	if (!tagging || num_waits)
+	if (noval_seen && num_waits == 0)
+	  args[t_wait_idx] =
+	    (tagging
+	     ? oacc_launch_pack (GOMP_LAUNCH_WAIT, NULL_TREE, GOMP_ASYNC_NOVAL)
+	     : noval);
+	else if (!tagging || num_waits)
 	  {
 	    tree len;
 
