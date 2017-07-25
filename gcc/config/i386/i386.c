@@ -10422,25 +10422,20 @@ ix86_function_arg (cumulative_args_t cum_v, machine_mode omode,
 	{
 	  /* This is the pointer argument.  */
 	  gcc_assert (TYPE_MODE (type) == Pmode);
-	  if (cfun->machine->func_type == TYPE_INTERRUPT)
-	    /* -WORD(AP) in the current frame in interrupt handler.  */
-	    arg = plus_constant (Pmode, arg_pointer_rtx,
-				 -UNITS_PER_WORD);
-	  else
-	    /* (AP) in the current frame in exception handler.  */
-	    arg = arg_pointer_rtx;
+	  /* -WORD(AP) in the current frame in interrupt handler.  */
+	  arg = plus_constant (Pmode, arg_pointer_rtx, -UNITS_PER_WORD);
 	}
       else
 	{
 	  gcc_assert (cfun->machine->func_type == TYPE_EXCEPTION
 		      && TREE_CODE (type) == INTEGER_TYPE
 		      && TYPE_MODE (type) == word_mode);
-	  /* The integer argument is the error code at -WORD(AP) in
+	  /* The integer argument is the error code at -2 * WORD(AP) in
 	     the current frame in exception handler.  */
 	  arg = gen_rtx_MEM (word_mode,
 			     plus_constant (Pmode,
 					    arg_pointer_rtx,
-					    -UNITS_PER_WORD));
+					    -2 * UNITS_PER_WORD));
 	}
       return arg;
     }
@@ -12915,8 +12910,8 @@ ix86_compute_frame_layout (void)
 	  the registers need to be saved before allocating the frame.  */
        && flag_stack_check != STATIC_BUILTIN_STACK_CHECK);
 
-  /* Skip return address.  */
-  offset = UNITS_PER_WORD;
+  /* Skip return address and error code in exception handler.  */
+  offset = INCOMING_FRAME_SP_OFFSET;
 
   /* Skip pushed static chain.  */
   if (ix86_static_chain_on_stack)
@@ -15221,8 +15216,9 @@ ix86_expand_epilogue (int style)
   m->fs.red_zone_offset = 0;
   if (ix86_using_red_zone () && crtl->args.pops_args < 65536)
     {
-      /* The red-zone begins below the return address.  */
-      m->fs.red_zone_offset = RED_ZONE_SIZE + UNITS_PER_WORD;
+      /* The red-zone begins below return address and error code in
+	 exception handler.  */
+      m->fs.red_zone_offset = RED_ZONE_SIZE + INCOMING_FRAME_SP_OFFSET;
 
       /* When the register save area is in the aligned portion of
          the stack, determine the maximum runtime displacement that
@@ -15517,18 +15513,7 @@ ix86_expand_epilogue (int style)
     }
 
   if (cfun->machine->func_type != TYPE_NORMAL)
-    {
-      /* Return with the "IRET" instruction from interrupt handler.
-	 Pop the 'ERROR_CODE' off the stack before the 'IRET'
-	 instruction in exception handler.  */
-      if (cfun->machine->func_type == TYPE_EXCEPTION)
-	{
-	  rtx r = plus_constant (Pmode, stack_pointer_rtx,
-				 UNITS_PER_WORD);
-	  emit_insn (gen_rtx_SET (stack_pointer_rtx, r));
-	}
-      emit_jump_insn (gen_interrupt_return ());
-    }
+    emit_jump_insn (gen_interrupt_return ());
   else if (crtl->args.pops_args && crtl->args.size)
     {
       rtx popc = GEN_INT (crtl->args.pops_args);
