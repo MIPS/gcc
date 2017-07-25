@@ -72,14 +72,13 @@ main (int argc, char **argv)
       abort ();
     }
 
-  fprintf (stderr, "CheCKpOInT\n");
-  acc_wait (1);
+  acc_wait (0);
 
   gettimeofday (&tv2, NULL);
 
   t2 = ((tv2.tv_sec - tv1.tv_sec) * 1000000) + (tv2.tv_usec - tv1.tv_usec);
 
-  if (t2 > t1)
+  if (t2 - t1 > 100)
     {
       fprintf (stderr, "too long 1\n");
       abort ();
@@ -87,7 +86,7 @@ main (int argc, char **argv)
 
   gettimeofday (&tv1, NULL);
 
-  acc_wait (1);
+  acc_wait (0);
 
   gettimeofday (&tv2, NULL);
 
@@ -103,7 +102,3 @@ main (int argc, char **argv)
 
   return 0;
 }
-
-/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "unknown async \[0-9\]+" } */
-/* { dg-shouldfail "" } */
