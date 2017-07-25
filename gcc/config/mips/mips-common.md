@@ -4720,17 +4720,6 @@
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
 
-;; @tmt should this be P?
-;; @tmt what mode should this be ?
-;; @tmt why is this not a mem ?
-(define_insn "*load_got_pcrel32_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand")
-	(match_operand:P 1 "got_pcrel32_nano_operand"))]
-  "TARGET_NANOMIPS && flag_pic"
-  "lwpc\t%0,%R1"
-  [(set_attr "compression" "nanomips48")
-   (set_attr "mode" "SI")])
-
 (define_insn "*lea_pcrel32_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand")
 	(match_operand:P 1 "pcrel32_lea_nano_operand"))]
@@ -4776,6 +4765,16 @@
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
+
+;; @tmt what mode should this be ?
+;; @tmt why is this not a mem ?
+(define_insn "*load_got_pcrel32_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand")
+	(match_operand:P 1 "got_pcrel32_nano_operand"))]
+  "TARGET_NANOMIPS && flag_pic"
+  "lwpc\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
 
 ;; nanoMIPS GP-relative PIC expansions:
 
