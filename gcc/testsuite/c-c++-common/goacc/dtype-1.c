@@ -96,11 +96,11 @@ test ()
 
 /* { dg-final { scan-tree-dump-times "oacc_parallel device_type\\(\\*\\) \\\[ wait\\(10\\) vector_length\\(10\\) num_workers\\(10\\) num_gangs\\(10\\) async\\(10\\) \\\] device_type\\(nvidia\\) \\\[ wait\\(3\\) vector_length\\(128\\) num_workers\\(300\\) num_gangs\\(300\\) async\\(3\\) \\\] wait\\(1\\) vector_length\\(1\\) num_workers\\(1\\) num_gangs\\(1\\) async\\(1\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ async\\(-1\\) \\\]" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ wait\\(-1\\) async\\(-1\\) \\\]" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ wait\\(1\\) async\\(1\\) \\\] async\\(-1\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(nvidia\\) \\\[ wait\\(1\\) async\\(1\\) \\\] wait\\(-1\\) async\\(-1\\)" 1 "omplower" } } */
 
-/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(\\*\\) \\\[ wait\\(0\\) async\\(0\\) \\\] device_type\\(nvidia\\) \\\[ wait\\(2\\) async\\(2\\) \\\] async\\(-1\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "oacc_kernels device_type\\(\\*\\) \\\[ wait\\(0\\) async\\(0\\) \\\] device_type\\(nvidia\\) \\\[ wait\\(2\\) async\\(2\\) \\\] wait\\(-1\\) async\\(-1\\)" 1 "omplower" } } */
 
 /* { dg-final { scan-tree-dump-times "acc loop device_type\\(nvidia\\) \\\[ tile\\(1\\) gang \\\] private\\(i1\\.0\\) private\\(i1\\)" 1 "omplower" } } */
 

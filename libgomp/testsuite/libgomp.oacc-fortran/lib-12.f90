@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } { "-O0" "-O1" } { "" } }
+! { dg-xfail-run-if "n/a" { openacc_host_selected } }
 
 program main
   use openacc

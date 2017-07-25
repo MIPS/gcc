@@ -109,7 +109,7 @@ main (int argc, char **argv)
 
   for (i = 0; i <= N; i++)
     {
-      if (acc_async_test (i) != 0)
+      if (acc_async_test (i) == 0)
 	abort ();
     }
 

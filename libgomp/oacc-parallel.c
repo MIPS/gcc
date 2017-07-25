@@ -214,6 +214,8 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
       fn (hostaddrs);
       goto out;
     }
+  else if (profiling_dispatch_p)
+    api_info.device_api = acc_device_api_cuda;
 
   /* Default: let the runtime choose.  */
   for (i = 0; i != GOMP_DIM_MAX; i++)
@@ -259,10 +261,14 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 
 	case GOMP_LAUNCH_WAIT:
 	  {
-	    unsigned num_waits = GOMP_LAUNCH_OP (tag);
+	    /* Be careful to cast the op field as a signed 16-bit, and
+	       sign-extend to full integer.  */
+	    int num_waits = ((signed short) GOMP_LAUNCH_OP (tag));
 
-	    if (num_waits)
+	    if (num_waits > 0)
 	      goacc_wait (async, num_waits, &ap);
+	    else if (num_waits == acc_async_noval)
+	      acc_wait_all_async (async);
 	    break;
 	  }
 
@@ -273,8 +279,6 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
     }
   va_end (ap);
   
-  acc_dev->openacc.async_set_async_func (async);
-
   if (!(acc_dev->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC))
     {
       k.host_start = (uintptr_t) fn;
@@ -306,8 +310,11 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
       goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
 				&api_info);
     }
-  tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
-		       GOMP_MAP_VARS_OPENACC);
+
+  goacc_aq aq = get_goacc_asyncqueue (async);
+
+  tgt = gomp_map_vars_async (acc_dev, aq, mapnum, hostaddrs, NULL, sizes, kinds,
+			     true, GOMP_MAP_VARS_OPENACC);
   if (profiling_dispatch_p)
     {
       prof_info.event_type = acc_ev_enter_data_end;
@@ -328,14 +335,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 	devaddrs[i] = NULL;
     }
 
-  acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs,
-			      async, dims, tgt);
-
-  /* If running synchronously, unmap immediately.  */
-  bool copyfrom = true;
-  if (async < acc_async_noval)
+  if (aq == NULL)
     {
-    unmap:
+      acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs,
+				  dims, tgt);
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_start;
@@ -345,7 +348,8 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 	  goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
 				    &api_info);
 	}
-      gomp_unmap_vars (tgt, copyfrom);
+      /* If running synchronously, unmap immediately.  */
+      gomp_unmap_vars (tgt, true);
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_end;
@@ -357,26 +361,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
     }
   else
     {
-      bool async_unmap = false;
-      for (size_t i = 0; i < tgt->list_count; i++)
-	{
-	  splay_tree_key k = tgt->list[i].key;
-	  if (k && k->refcount == 1)
-	    {
-	      async_unmap = true;
-	      break;
-	    }
-	}
-      if (async_unmap)
-	tgt->device_descr->openacc.register_async_cleanup_func (tgt, async);
-      else
-	{
-	  copyfrom = false;
-	  goto unmap;
-	}
+      acc_dev->openacc.async.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs,
+					dims, tgt, aq);
+      goacc_async_copyout_unmap_vars (tgt, aq);
     }
-
-  acc_dev->openacc.async_set_async_func (acc_async_sync);
 
  out:
   if (profiling_dispatch_p)
@@ -723,7 +711,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
       goto out;
     }
 
-  if (num_waits)
+  if (num_waits > 0)
     {
       va_list ap;
 
@@ -731,8 +719,8 @@ GOACC_enter_exit_data (int device, size_t mapnum,
       goacc_wait (async, num_waits, &ap);
       va_end (ap);
     }
-
-  acc_dev->openacc.async_set_async_func (async);
+  else if (num_waits == acc_async_noval)
+    acc_wait_all_async (async);
 
   /* In c, non-pointers and arrays are represented by a single data clause.
      Dynamically allocated arrays and subarrays are represented by a data
@@ -782,7 +770,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 					   &sizes[i], &kinds[i]);
 	      else
 		gomp_acc_insert_pointer (pointer, &hostaddrs[i],
-					 &sizes[i], &kinds[i]);
+					 &sizes[i], &kinds[i], async);
 	      /* Increment 'i' by two because OpenACC requires fortran
 		 arrays to be contiguous, so each PSET is associated with
 		 one of MAP_FORCE_ALLOC/MAP_FORCE_PRESET/MAP_FORCE_TO, and
@@ -807,18 +795,18 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  {
 		    if (finalize)
-		      acc_delete_finalize (hostaddrs[i], sizes[i]);
+		      acc_delete_finalize_async (hostaddrs[i], sizes[i], async);
 		    else
-		      acc_delete (hostaddrs[i], sizes[i]);
+		      acc_delete_async (hostaddrs[i], sizes[i], async);
 		  }
 		break;
 	      case GOMP_MAP_DECLARE_DEALLOCATE:
 	      case GOMP_MAP_FROM:
 	      case GOMP_MAP_FORCE_FROM:
 		if (finalize)
-		  acc_copyout_finalize (hostaddrs[i], sizes[i]);
+		  acc_copyout_finalize_async (hostaddrs[i], sizes[i], async);
 		else
-		  acc_copyout (hostaddrs[i], sizes[i]);
+		  acc_copyout_async (hostaddrs[i], sizes[i], async);
 		break;
 	      default:
 		gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -843,8 +831,6 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  }
       }
 
-  acc_dev->openacc.async_set_async_func (acc_async_sync);
-
  out:
   if (profiling_dispatch_p)
     {
@@ -867,18 +853,22 @@ goacc_wait (int async, int num_waits, va_list *ap)
   while (num_waits--)
     {
       int qid = va_arg (*ap, int);
-      
-      if (acc_async_test (qid))
+      goacc_aq aq = get_goacc_asyncqueue (qid);
+      if (acc_dev->openacc.async.test_func (aq))
 	continue;
-
       if (async == acc_async_sync)
-	acc_wait (qid);
+	acc_dev->openacc.async.synchronize_func (aq);
       else if (qid == async)
-	;/* If we're waiting on the same asynchronous queue as we're
+      /* If we're waiting on the same asynchronous queue as we're
 	    launching on, the queue itself will order work as
 	    required, so there's no need to wait explicitly.  */
+	;
       else
-	acc_dev->openacc.async_wait_async_func (qid, async);
+	{
+	  goacc_aq aq2 = get_goacc_asyncqueue (async);
+	  acc_dev->openacc.async.synchronize_func (aq);
+	  acc_dev->openacc.async.serialize_func (aq, aq2);
+	}
     }
 }
 
@@ -956,7 +946,7 @@ GOACC_update (int device, size_t mapnum,
       goto out;
     }
 
-  if (num_waits)
+  if (num_waits > 0)
     {
       va_list ap;
 
@@ -964,8 +954,8 @@ GOACC_update (int device, size_t mapnum,
       goacc_wait (async, num_waits, &ap);
       va_end (ap);
     }
-
-  acc_dev->openacc.async_set_async_func (async);
+  else if (num_waits == acc_async_noval)
+    acc_wait_all_async (async);
 
   bool update_device = false;
   for (i = 0; i < mapnum; ++i)
@@ -1006,7 +996,7 @@ GOACC_update (int device, size_t mapnum,
 	  /* Fallthru  */
 	case GOMP_MAP_FORCE_TO:
 	  update_device = true;
-	  acc_update_device (hostaddrs[i], sizes[i]);
+	  acc_update_device_async (hostaddrs[i], sizes[i], async);
 	  break;
 
 	case GOMP_MAP_FROM:
@@ -1018,7 +1008,7 @@ GOACC_update (int device, size_t mapnum,
 	  /* Fallthru  */
 	case GOMP_MAP_FORCE_FROM:
 	  update_device = false;
-	  acc_update_self (hostaddrs[i], sizes[i]);
+	  acc_update_self_async (hostaddrs[i], sizes[i], async);
 	  break;
 
 	default:
@@ -1026,8 +1016,6 @@ GOACC_update (int device, size_t mapnum,
 	  break;
 	}
     }
-
-  acc_dev->openacc.async_set_async_func (acc_async_sync);
 
  out:
   if (profiling_dispatch_p)
@@ -1074,7 +1062,7 @@ GOACC_wait (int async, int num_waits, ...)
   else if (async == acc_async_sync)
     acc_wait_all ();
   else if (async == acc_async_noval)
-    thr->dev->openacc.async_wait_all_async_func (acc_async_noval);
+    acc_wait_all_async (async);
 
   if (profiling_setup_p)
     {

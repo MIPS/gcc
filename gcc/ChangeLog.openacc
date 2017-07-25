@@ -1,3 +1,15 @@
+2017-08-01  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-expand.c (expand_omp_target): Don't expect OMP_CLAUSE_WAIT_EXPR
+	to be a constant expression.
+
+2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* omp-expand.c (expand_omp_target): Add middle-end support for
+	handling OMP_CLAUSE_WAIT clause with a GOMP_ASYNC_NOVAL(-1) as the
+	argument.
+
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-expand.c (expand_omp_target): Revert GOACC_enter_exit_data

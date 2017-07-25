@@ -101,8 +101,12 @@ acc_get_cuda_stream (int async)
 
   void *ret = NULL;
   if (thr && thr->dev && thr->dev->openacc.cuda.get_stream_func)
-    ret = thr->dev->openacc.cuda.get_stream_func (async);
- 
+    {
+      goacc_aq aq = lookup_goacc_asyncqueue (thr, false, async);
+      if (aq)
+	ret = thr->dev->openacc.cuda.get_stream_func (aq);
+    }
+
   if (profiling_setup_p)
     {
       thr->prof_info = NULL;
@@ -138,7 +142,12 @@ acc_set_cuda_stream (int async, void *stream)
 
   int ret = -1;
   if (thr && thr->dev && thr->dev->openacc.cuda.set_stream_func)
-    ret = thr->dev->openacc.cuda.set_stream_func (async, stream);
+    {
+      goacc_aq aq = get_goacc_asyncqueue (async);
+      gomp_mutex_lock (&thr->dev->openacc.async.lock);
+      ret = thr->dev->openacc.cuda.set_stream_func (aq, stream);
+      gomp_mutex_unlock (&thr->dev->openacc.async.lock);
+    }
 
   if (profiling_setup_p)
     {
