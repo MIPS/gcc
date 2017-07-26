@@ -235,12 +235,19 @@ gori::get_range (irange& r, tree name, edge e)
   stmt = last_stmt_gori (bb);
   gcc_assert (stmt);
 
+  irange bool_range;
+
   if (e->flags & EDGE_TRUE_VALUE)
-    return range_generator.get_range_from_stmt (stmt, r, name,
-						SRO_NON_ZERO_DEF);
+    {
+      set_boolean_range_one (bool_range);
+      return range_generator.get_range_from_stmt (stmt, r, name, bool_range);
+    }
 
   if (e->flags & EDGE_FALSE_VALUE)
-    return range_generator.get_range_from_stmt (stmt, r, name, SRO_ZERO_DEF);
+    {
+      set_boolean_range_zero (bool_range);
+      return range_generator.get_range_from_stmt (stmt, r, name, bool_range);
+    }
 
   return false;
 }
@@ -390,188 +397,16 @@ ranger::get_operand_range (irange& r, tree op)
   return true;
 }
 
-
-/*
-     b_6 = a_3 + 2
-     if (b_6 < 20)
-   adjust ((b_6 < 20), b_6, a_3) adjusts the expression from b_6 to a_3.
-     (a_3 + 2 < 20), normalized to (a_3 < (20- 2)) folded to (a_3 < 18).  
-    True is returned if successful.  */
-
-bool
-ranger::adjust_back (irange &r, tree def, tree name, sro_truth truth)
-{
-  irange op1_range, op2_range;
-  range_stmt stmt = SSA_NAME_DEF_STMT (def);
-
-  for ( ; stmt.valid (); stmt = SSA_NAME_DEF_STMT (def))
-    {
-      tree op1 = stmt.operand1 ();
-      tree op2 = stmt.operand2 ();
-      if (op1 == name)
-	{ 
-	  if (get_operand_range (op2_range, op2))
-	    return stmt.handler ()->op1_adjust (r, op2_range, truth);
-	  else
-	    return false;
-	}
-
-      if (op2 == name)
-	{
-	  if (get_operand_range (op1_range, op1))
-	    return stmt.handler ()->op2_adjust (r, op1_range, truth);
-	  else
-	    return false;
-	}
-     
-
-      if (def_chain.in_chain_p (op1, name))
-	{
-	  /* Cant be derived on both sides.  */
-	  if (def_chain.in_chain_p (op2, name))
-	    return false;  // remove_from_gori
-
-	  /* Evaluate range now.  */
-	  if (!get_operand_range (op2_range, op2))
-	    return false;
-
-	  if (!stmt.handler ()->op1_adjust (r, op2_range, truth))
-	    return false;
-     
-          def = op1;
-	}
-      else
-        {
-	  if (!get_operand_range (op1_range, op1))
-	    return false;
-	  
-	  if (!def_chain.in_chain_p (op2, name))
-	    return false;  //remove_from_gori
-
-	  if (!stmt.handler ()->op1_adjust (r, op1_range, truth))
-	    return false;
-     
-          def = op2;
-	}
-    }
-  return false;
-}
-
-bool
-ranger::evaluate_bool_op (tree op, irange& op_range, tree name,
-				     sro_truth truth)
-{
-  range_stmt op_stmt;
-  gimple *s;
-
-  gcc_assert (TREE_TYPE (op) == boolean_type_node);
-
-  if (TREE_CODE (op) == INTEGER_CST)
-    {
-      op_range.set_range (boolean_type_node, op, op);
-      return true;
-    }
-
-  s = SSA_NAME_DEF_STMT (op);
-  op_stmt = s;
-  if (!op_stmt.valid ())
-    return false;  // remove_from_gori
-
-  return !get_range_from_stmt (op_stmt, op_range, name, truth);
-}
- 
-enum bool_value { bool_is_zero, bool_is_one, bool_is_unknown };
-
-
-bool
-ranger::handle_boolean_mix (range_stmt& stmt, irange& r, tree name,
-			  sro_truth truth, tree name_op, tree non_name_op)
-{
-  irange boolop_range;
-  enum bool_value  bv;
-  range_stmt op_stmt;
-  gimple *s;
-
-  irange boolrange_false (boolean_type_node, boolean_false_node,
-			  boolean_false_node);
-  irange boolrange_true (boolean_type_node, boolean_true_node,
-			 boolean_true_node);
-
-  if (non_name_op)
-    {
-      evaluate_bool_op (non_name_op, boolop_range, name, truth);
-
-      /* set the value of the boolean operator.  */
-      if (boolop_range == boolrange_false)
-	bv = bool_is_zero;
-      else
-	if (boolop_range == boolrange_true)
-	  bv = bool_is_one;
-	else
-	  bv = bool_is_unknown;
-    }
-  else
-    bv = bool_is_unknown;
-
-  /* Here we special case each of the possible operator mixes.  All of these
-     operations are order independent. */
-
-  switch (stmt.get_code ())
-    {
-      case NE_EXPR:
-      case EQ_EXPR:
-        // Equal or not-uequal to zero reverses the logic.
-        if (bv == bool_is_zero)
-	  truth = SRO_TRUTH_NEGATE (truth);
-        break;
-
-      case BIT_AND_EXPR:
-      case TRUTH_AND_EXPR:
-        // op && 0 is always an empty range on the true side.
-	// op && 1 if always an empty range on the false size.
-        if ((bv == bool_is_zero && (truth == SRO_NON_ZERO_DEF))
-	    || (bv == bool_is_one && (truth == SRO_ZERO_DEF)))
-	  {
-	    r.clear (TREE_TYPE (name));
-	    return true;
-	  }
-        break;
-
-      case BIT_IOR_EXPR:
-      case TRUTH_OR_EXPR:
-        // op || 1 is always an empty range on the false side.
-        if (bv == bool_is_one && (truth == SRO_ZERO_DEF))
-	  {
-	    r.clear (TREE_TYPE (name));
-	    return true;
-	  }
-        break;
-
-      case TRUTH_NOT_EXPR:
-      case BIT_NOT_EXPR:
-        truth = SRO_TRUTH_NEGATE (truth);
-	break;
-
-      default:
-        error ("unexpected boolean mix operator");
-    }
-
-  s = SSA_NAME_DEF_STMT (name_op);
-  op_stmt = s;
-  if (!op_stmt.valid ())
-    return false;  // remove_from_gori
-
-  return !get_range_from_stmt (op_stmt, r, name, truth);
-}
-
-
-/* Given the expression in STMT, return an evaluation in R for NAME. */
+/* Given the expression in STMT, return an evaluation in R for NAME.
+   Returning false means the name being looked for is NOT resolvable, and
+   can be removed from the GORI map to qavoid future searches.  */
 bool
 ranger::get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
-			   sro_truth truth)
+			     const irange& lhs)
 {
   range_stmt op_stmt;
-  irange op1_range, op2_range;
+  irange op1_range, op2_range, tmp;
+  irange r1, r2;
   tree op1, op2;
   tree op1_type, op2_type;
   bool op1_in_chain, op2_in_chain;
@@ -582,7 +417,7 @@ ranger::get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
   if (op1 == name)
     { 
       if (get_operand_range (op2_range, op2))
-	return stmt.handler ()-> op1_range (r, op2_range, truth);
+	return stmt.handler ()-> op1_irange (r, lhs, op2_range);
       else
         return false;
     }
@@ -590,94 +425,70 @@ ranger::get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
   if (op2 == name)
     {
       if (get_operand_range (op1_range, op1))
-	return stmt.handler ()-> op2_range (r, op1_range, truth);
+	return stmt.handler ()-> op2_irange (r, lhs, op1_range);
       else
         return false;
     }
 
+  /* Reaching this point means NAME is not in this stmt, but one of the
+     names in it ought to be derived from it.  */
   op1_in_chain = def_chain.in_chain_p (op1, name);
   op2_in_chain = def_chain.in_chain_p (op2, name);
 
   /* If neither operand is derived, then this stmt tells us nothing. */
   if (!op1_in_chain && !op2_in_chain)
-    return false;   // remove_from_gori  
+    return false;
+  
+  /* Look for the case where both the result and the operands are boolean
+     types.  THIs indicates a logical expression such as (a = b && c), and
+     these are handled normally for operand adjustment, but they need to look
+     at the result when ti comes back for folding. */
 
-  /* At this point, check for the case where we have a boolean expression and 
-     we are looking thru it for a non-boolean range. 
-     results.  consider
-        c_2 = b_3 < 100
-	d_2 = c2 != 0
-
-     if we are querying the range of b_3 on the non-zero side (true),
-     evaluation of c_2 will return the range [0,99] for unsigned.
-     the 0 on the RHS of c2 != 0 is a boolean, we we'll see a boolean
-     range [0,0] for that.
-
-     In order to evaluate this properly, we need to consider the boolean range
-     and the operator and adjust the truth value accordingly.  */
-
-  if (op1_in_chain)
-    op1_type = TREE_TYPE (name);
-  else
-    op1_type = TREE_TYPE (op1);
-
-  if (op2_in_chain)
-    op2_type = TREE_TYPE (name);
+  op1_type = TREE_TYPE (op1);
+  if (TYPE_P (op2))
+    op2_type = op2;
   else
     op2_type = TREE_TYPE (op2);
 
-  /* When we have a mix and one type is a boolean we need to look at the logic
-     and see if there are any adjustments neccessary.  */
-  if (op1_type != op2_type && (op1_type == boolean_type_node ||
-					    op2_type == boolean_type_node))
+  /* Check to see if there is a combine handler. If there is, recursively
+     resolve the operands and then cobine them.  */
+  r1.set_range (op1_type);
+  r2.set_range (op2_type);
+  if (stmt.handler ()->combine_range (r, r1, r2))
     {
-      /* And if the types are different, the one we are looking for cannot
-	 be a boolean.  */
-      gcc_assert (TREE_TYPE (name) != boolean_type_node);
+      stmt.handler ()->op1_irange (op1_range, lhs, r1);
+      stmt.handler ()->op2_irange (op2_range, lhs, r2);
 
       if (op1_in_chain)
-	return handle_boolean_mix (stmt, r, name, truth, op1, op2);
+        get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r1, name, op1_range);
       else
-	return handle_boolean_mix (stmt, r, name, truth, op2, op1);
-    }
+        get_operand_range (r1, op1);
 
-  /* At this point we know the types are the same.  */
+      if (op2_in_chain)
+        get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r2, name, op2_range);
+      else
+        get_operand_range (r2, op2);
+
+      /* Now call the combine routine with the 2 real ranges.  */
+      return stmt.handler ()->combine_range (r, r1, r2);
+    }
 
   if (op1_in_chain)
     {
-      if (TREE_TYPE (op2) == boolean_type_node)
-        return handle_boolean_mix (stmt, r, name, truth, op1, op2);
-
-      /* Evaluate range now.  */
-      if (!get_operand_range (op2_range, op2))
-	return false;
-
-      if (!stmt.handler ()-> op1_range (r, op2_range, truth))
-	return false;
-
-      /* Adjust range to be in terms of NAME.  */
-      return adjust_back (r, op1, name, truth);
+      get_operand_range (op2_range, op2);
+      stmt.handler ()->op1_irange (op1_range, lhs, op2_range);
+      return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op1_range);
     }
 
-  /* must be op2 in chain.  */
-  if (TREE_TYPE (op1) == boolean_type_node)
-    return handle_boolean_mix (stmt, r, name, truth, op2, op1);
-
-  /* evaluate a riange for op1.  */
-  if (!get_operand_range (op1_range, op1))
-    return false;
-    
-  if (!stmt.handler ()->op2_range (r, op1_range, truth))
-    return false;
-
-  /* Adjust range to be in terms of NAME.  */
-  return adjust_back (r, op2, name, truth);
+  get_operand_range (op1_range, op1);
+  stmt.handler ()->op2_irange (op2_range, lhs, op1_range);
+  return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op2_range);
 }
 
 /* Given the expression in STMT, return an evaluation in R for NAME. */
 bool
 ranger::get_range_from_stmt (gimple *stmt, irange& r, tree name,
-			   sro_truth truth)
+			     const irange& lhs)
 {
   range_stmt rn;
   rn = stmt;
@@ -686,5 +497,5 @@ ranger::get_range_from_stmt (gimple *stmt, irange& r, tree name,
   if (!rn.valid())
     return false;
 
-  return get_range_from_stmt (rn, r, name, truth);
+  return get_range_from_stmt (rn, r, name, lhs);
 }

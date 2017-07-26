@@ -46,43 +46,62 @@ along with GCC; see the file COPYING3.  If not see
 
 
 
-enum sro_truth {
-  SRO_ZERO_DEF,		/* Expression resulting in a zero result.  */
-  SRO_NON_ZERO_DEF	/* Expression resulting in a non-zero result.  */
-};
-
-#define SRO_TRUTH_NEGATE(T)  \
-	  (((T) == SRO_NON_ZERO_DEF) ? SRO_ZERO_DEF : SRO_NON_ZERO_DEF)
-
 class irange_operator
 {
 public:
-  virtual void dump (FILE *f) = 0;
+  virtual void dump (FILE *f) const = 0;
 
   /* Set a range based on this operation between 2 operands.
      Return the TRUE if a valid range is created.  */
-  virtual bool fold_range (irange& r, irange& lh, irange& rh);
+  virtual bool fold_range (irange& r, const irange& op1,
+			   const irange& op2) const;
 
-  /* Set the ranges for op?, given the range for the other operand is VAL.
-     TRUTH indicates whether the range should be calculated for a zero or
-     non-zero result.  ie. for less than:
-       zero (false)  = op1 < op2    produces [op2, MAX]
-       non-zero (true) = op1 < op2  produces [MIN, op2-1]
-     Return true if ranges were created.  */
-  virtual bool op1_range (irange& r, irange& val, sro_truth truth);
-  virtual bool op2_range (irange& r, irange& val, sro_truth truth);
-
-  /* op?_adjust adjusts ranges in RANGE_EXPR based on re-expressing the range
-     in terms of op?, given that VAL is the range of the other operand.
+  /* Set the range for op? in the general case. R is the range for the LHS
+     of the expression, VAL is the range for the other operand, and
+     the result is returned in R.
      ie   [range] = op1 + VAL
-     op1_adjust re-forms as   new_range = [range] - VAL.
-     TRUTH indicates whether the range will be will be processed by a zero
-     or non-zero expression.  This matters sometimes.
+     This is re-formed as  new_range = [range] - VAL.
      Return TRUE if the operation could be performd and the range is valid.  */
-  virtual bool op1_adjust (irange& r, irange& val, sro_truth truth);
-  virtual bool op2_adjust (irange& r, irange& val, sro_truth truth);
+  virtual bool op1_irange (irange& r, const irange& lhs,
+			   const irange& op2) const;
+  virtual bool op2_irange (irange& r, const irange& lhs,
+			   const irange& op1) const;
+
+  /* If calculating a range through this operation requires resolving ranges
+     and possibly combining them, this function is required to return true.
+     This is typically for logical operations.  */
+  virtual bool combine_range (irange& r, const irange& op1,
+			      const irange& op2) const;
 };
 
 extern irange_operator *irange_op_handler(enum tree_code code);
+
+static inline void
+set_boolean_range (irange& r)
+{
+  unsigned int prec = TYPE_PRECISION (boolean_type_node);
+  wide_int lb = wi::uhwi (0, prec);
+  wide_int ub = wi::uhwi (1, prec);
+  r.set_range (boolean_type_node, lb, ub);
+}
+
+static inline void
+set_boolean_range_zero (irange& r)
+{
+  unsigned int prec = TYPE_PRECISION (boolean_type_node);
+  wide_int lb = wi::uhwi (0, prec);
+  wide_int ub = wi::uhwi (0, prec);
+  r.set_range (boolean_type_node, lb, ub);
+}
+
+static inline void
+set_boolean_range_one (irange &r)
+{
+  unsigned int prec = TYPE_PRECISION (boolean_type_node);
+  wide_int lb = wi::uhwi (1, prec);
+  wide_int ub = wi::uhwi (1, prec);
+
+  r.set_range (boolean_type_node, lb, ub);
+}
 
 #endif /* GCC_RANGE_OP_H */

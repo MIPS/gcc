@@ -31,16 +31,12 @@ class ranger
 {
   ssa_define_chain& def_chain;
   bool get_operand_range (irange& r, tree op);
-  bool adjust_back (irange &r, tree def, tree name, sro_truth truth);
-  bool evaluate_bool_op (tree op, irange& op_range, tree name, sro_truth truth);
-  bool handle_boolean_mix (range_stmt& stmt, irange& r, tree name,
-                           sro_truth truth, tree name_op, tree non_name_op);
   bool get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
-			    sro_truth truth);
+			    const irange& lhs);
 public:
   ranger (ssa_define_chain & dc);
   bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
-			    sro_truth truth);
+			    const irange& lhs);
 };
 
 inline

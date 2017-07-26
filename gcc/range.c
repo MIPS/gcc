@@ -158,7 +158,7 @@ irange::range_for_type_p () const
 
 
 bool
-irange::valid_p ()
+irange::valid_p () const
 {
   if (!n)
     return false;
@@ -763,14 +763,14 @@ irange::Not ()
 }
 
 wide_int
-irange::lower_bound (unsigned index)
+irange::lower_bound (unsigned index) const
 {
   gcc_assert (n != 0 && index <= n/2);
   return bounds[index * 2];
 }
 
 wide_int
-irange::upper_bound (unsigned index)
+irange::upper_bound (unsigned index) const
 {
   gcc_assert (n != 0 && index <= n/2);
   return bounds[index * 2 + 1];

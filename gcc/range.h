@@ -56,11 +56,11 @@ public:
   void set_overflow () { overflow = true; }
   void clear_overflow () { overflow = false; }
 
-  unsigned num_ranges () { return n / 2; }
+  unsigned num_ranges () const { return n / 2; }
   wide_int lower_bound () const { return bounds[0]; }
-  wide_int lower_bound (unsigned index);
+  wide_int lower_bound (unsigned index) const;
   wide_int upper_bound () const { return bounds[n - 1]; }
-  wide_int upper_bound (unsigned index);
+  wide_int upper_bound (unsigned index) const;
 
   void remove_range (unsigned i) { remove (i, i + 1); }
   void clear () { n = 0; }
@@ -73,12 +73,12 @@ public:
   void dump (pretty_printer *pp);
   void dump (FILE *);
 
-  bool valid_p ();
+  bool valid_p () const;
   void cast (tree type);
   bool contains_p (wide_int element);
   bool contains_p (tree);
 
-  tree get_type () { return type; }
+  tree get_type () const { return type; }
 
   irange& operator= (const irange &r);
   irange& operator= (tree t);
