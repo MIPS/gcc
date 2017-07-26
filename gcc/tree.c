@@ -14260,7 +14260,6 @@ verify_type (const_tree t)
     }
 }
 
-
 /* Return 1 if ARG interpreted as signed in its precision is known to be
    always positive or 2 if ARG is known to be always negative, or 3 if
    ARG may be positive or negative.  */
@@ -14299,7 +14298,7 @@ get_range_pos_neg (tree arg)
   if (TREE_CODE (arg) != SSA_NAME)
     return 3;
   wide_int arg_min, arg_max;
-  while (get_range_info (arg, &arg_min, &arg_max) != VR_RANGE)
+  while (!get_range_info (arg, &arg_min, &arg_max))
     {
       gimple *g = SSA_NAME_DEF_STMT (arg);
       if (is_gimple_assign (g)
@@ -14309,6 +14308,8 @@ get_range_pos_neg (tree arg)
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TYPE_PRECISION (TREE_TYPE (t)) <= prec)
 	    {
+	      /* Narrower value zero extended into wider type
+		 will always result in positive values.  */
 	      if (TYPE_UNSIGNED (TREE_TYPE (t))
 		  && TYPE_PRECISION (TREE_TYPE (t)) < prec)
 		return 1;
