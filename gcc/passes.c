@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfgcleanup.h"
 #include "insn-addr.h" /* for INSN_ADDRESSES_ALLOC.  */
 #include "diagnostic-core.h" /* for fnotice */
+#include "ssa-range-gen.h"
 
 using namespace gcc;
 
@@ -2552,6 +2553,13 @@ execute_one_pass (opt_pass *pass)
 
   if (!current_function_decl)
     symtab->process_new_functions ();
+
+  if (pass->name && !strcmp (pass->name, "ssa"))
+    {
+      gori g;
+      g.build ();
+      g.exercise (dump_file);
+    }
 
   pass_fini_dump_file (pass);
 

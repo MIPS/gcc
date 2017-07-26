@@ -1421,6 +1421,7 @@ OBJS = \
 	profile.o \
 	profile-count.o \
 	range.o \
+	range-op.o \
 	read-md.o \
 	read-rtl.o \
 	read-rtl-function.o \
@@ -1460,6 +1461,9 @@ OBJS = \
 	spellcheck.o \
 	spellcheck-tree.o \
 	sreal.o \
+	ssa-def-chain.o \
+	ssa-range-gen.o \
+	ssa-range-stmt.o \
 	stack-ptr-mod.o \
 	statistics.o \
 	stmt.o \
