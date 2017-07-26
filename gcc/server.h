@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SERVER_H
 #define GCC_SERVER_H
 
-/* Wrapper aroung "int" for file descriptors.  */
+/* Wrapper around "int" for file descriptors.  */
 
 struct file_descriptor
 {
