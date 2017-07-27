@@ -141,21 +141,21 @@ class irange
 
 /* Return R1 U R2.  */
 static inline
-irange &irange_union (const irange &r1, const irange &r2)
+irange irange_union (const irange &r1, const irange &r2)
 {
   return irange (r1).union_ (r2);
 }
 
 /* Return R1 ^ R2.  */
 static inline
-irange &irange_intersect (const irange &r1, const irange &r2)
+irange irange_intersect (const irange &r1, const irange &r2)
 {
   return irange (r1).intersect (r2);
 }
 
 /* Return the inverse range of R1.  */
 static inline
-irange &irange_invert (const irange &r1)
+irange irange_invert (const irange &r1)
 {
   return irange (r1).invert ();
 }
