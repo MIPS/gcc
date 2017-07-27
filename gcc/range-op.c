@@ -156,21 +156,21 @@ enum bool_range_state { BRS_FALSE, BRS_TRUE, BRS_EMPTY, BRS_FULL };
 static bool_range_state
 get_bool_state (irange& r, const irange& lhs, const_tree val_type)
 {
-  // there are multiple types of boolean nodes.  "const cool" fer instance
-  gcc_assert (lhs.valid_p () && lhs.get_type () == boolean_type_node);
-
-  if (wi::eq_p (lhs.upper_bound (), 0))
-    return BRS_FALSE;
-
-  if (wi::eq_p (lhs.lower_bound (), 1))
-    return BRS_TRUE;
-
   /* If there is no result, then this is unexectuable, so no range. */
   if (lhs.empty_p ())
     {
       r.clear (val_type);
       return BRS_EMPTY;
     }
+
+  // there are multiple types of boolean nodes.  "const cool" fer instance
+  // gcc_assert (lhs.valid_p () && lhs.get_type () == boolean_type_node);
+
+  if (wi::eq_p (lhs.upper_bound (), 0))
+    return BRS_FALSE;
+
+  if (wi::eq_p (lhs.lower_bound (), 1))
+    return BRS_TRUE;
 
   r.set_range_for_type (val_type);
   return BRS_FULL;
@@ -234,7 +234,7 @@ operator_equal::op1_irange (irange& r, const irange& lhs,
       case BRS_FALSE:
         /* If the result is false, the only time we know anything is if OP2 is
 	   a constant.  */
-	if (wi::eq_p (lhs.lower_bound(), lhs.upper_bound()))
+	if (wi::eq_p (op2.lower_bound(), op2.upper_bound()))
 	  r = irange_invert (op2);
 	else
 	  r.set_range_for_type (op2.get_type ());
@@ -587,11 +587,11 @@ operator_gt::op1_irange (irange& r, const irange& lhs, const irange& op2) const
   switch (get_bool_state (r, lhs, op2.get_type ()))
     {
       case BRS_TRUE:
-	build_gt (r, op2.get_type (), op2.upper_bound ());
+	build_gt (r, op2.get_type (), op2.lower_bound ());
 	break;
 
       case BRS_FALSE:
-	build_le (r, op2.get_type (), op2.lower_bound ());
+	build_le (r, op2.get_type (), op2.upper_bound ());
 	break;
 
       default:
@@ -607,11 +607,11 @@ operator_gt::op2_irange (irange& r, const irange& lhs, const irange& op1) const
   switch (get_bool_state (r, lhs, op1.get_type ()))
     {
       case BRS_FALSE:
-	build_gt (r, op1.get_type (), op1.upper_bound ());
+	build_gt (r, op1.get_type (), op1.lower_bound ());
 	break;
 
       case BRS_TRUE:
-	build_le (r, op1.get_type (), op1.lower_bound ());
+	build_le (r, op1.get_type (), op1.upper_bound ());
 	break;
 
       default:
@@ -992,9 +992,33 @@ bool
 operator_logical_and::fold_range (irange& r, const irange& lh,
 				  const irange& rh) const
 {
-  r = irange_intersect (lh, rh);
+  
+  // Empty ranges are viral.
+  if (lh.empty_p () || rh.empty_p ())
+    {
+      r.clear (boolean_type_node);
+      return true;
+    }
+
+  // 0 && anything is 0
+  if ((wi::eq_p (lh.lower_bound (), 0) && wi::eq_p (lh.upper_bound (), 0))
+      || (wi::eq_p (lh.lower_bound (), 0) && wi::eq_p (rh.upper_bound (), 0)))
+    {
+      r.set_range (boolean_type_node, boolean_false_node, boolean_false_node);
+      return true;
+    }
+
+  // To reach this point, there must be a logical 1 on each side, and the only
+  // remaining question is whether there is a zero or not.
+
+  if (lh.contains_p (0) || rh.contains_p (0))
+    r.set_range (boolean_type_node, boolean_false_node, boolean_true_node);
+  else
+    r.set_range (boolean_type_node, boolean_true_node, boolean_true_node);
+  
   return true;
 }
+
 
 
 bool
@@ -1362,8 +1386,8 @@ irange_op_table::irange_op_table ()
   irange_tree[NE_EXPR] = &op_not_equal;
   irange_tree[EQ_EXPR] = &op_equal;
 
-  irange_tree[PLUS_EXPR] = &op_plus;
-  irange_tree[MINUS_EXPR] = &op_minus;
+//  irange_tree[PLUS_EXPR] = &op_plus;
+//  irange_tree[MINUS_EXPR] = &op_minus;
 //  irange_tree[NOP_EXPR] = &op_cast;
 //  irange_tree[CONVERT_EXPR] = &op_cast;
 

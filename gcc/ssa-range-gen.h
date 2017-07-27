@@ -31,8 +31,7 @@ class ranger
 {
   ssa_define_chain& def_chain;
   bool get_operand_range (irange& r, tree op);
-  bool get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
-			    const irange& lhs);
+  bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
 public:
   ranger (ssa_define_chain & dc);
   bool get_range_from_stmt (gimple *stmt, irange& r, tree name,

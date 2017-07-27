@@ -401,7 +401,7 @@ ranger::get_operand_range (irange& r, tree op)
    Returning false means the name being looked for is NOT resolvable, and
    can be removed from the GORI map to qavoid future searches.  */
 bool
-ranger::get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
+ranger::get_range (range_stmt& stmt, irange& r, tree name,
 			     const irange& lhs)
 {
   range_stmt op_stmt;
@@ -482,7 +482,7 @@ ranger::get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
 
   get_operand_range (op1_range, op1);
   stmt.handler ()->op2_irange (op2_range, lhs, op1_range);
-  return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op2_range);
+  return get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r, name, op2_range);
 }
 
 /* Given the expression in STMT, return an evaluation in R for NAME. */
@@ -497,5 +497,5 @@ ranger::get_range_from_stmt (gimple *stmt, irange& r, tree name,
   if (!rn.valid())
     return false;
 
-  return get_range_from_stmt (rn, r, name, lhs);
+  return get_range (rn, r, name, lhs);
 }
