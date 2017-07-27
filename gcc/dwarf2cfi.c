@@ -2819,6 +2819,9 @@ create_pseudo_cfg (void)
   memset (&ti, 0, sizeof (ti));
   ti.head = get_insns ();
   ti.beg_row = cie_cfi_row;
+  /* Set cfa.offset to INCOMING_FRAME_SP_OFFSET here since it may be
+     different for each function.  */
+  cie_cfi_row->cfa.offset = INCOMING_FRAME_SP_OFFSET;
   ti.cfa_store = cie_cfi_row->cfa;
   ti.cfa_temp.reg = INVALID_REGNUM;
   trace_info.quick_push (ti);
