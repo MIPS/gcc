@@ -4362,6 +4362,14 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	      if (ret != GS_ERROR)
 		ret = GS_OK;
 
+	      /* If we are going to write RESULT more than once, clear
+		 TREE_READONLY flag, otherwise we might incorrectly promote
+		 the variable to static const and initialize it at compile
+		 time in one of the branches.  */
+	      if (VAR_P (result)
+		  && TREE_TYPE (TREE_OPERAND (cond, 1)) != void_type_node
+		  && TREE_TYPE (TREE_OPERAND (cond, 2)) != void_type_node)
+		TREE_READONLY (result) = 0;
 	      if (TREE_TYPE (TREE_OPERAND (cond, 1)) != void_type_node)
 		TREE_OPERAND (cond, 1)
 		  = build2 (code, void_type_node, result,
@@ -5799,9 +5807,11 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
     return;
 
   /* Never elide decls whose type has TREE_ADDRESSABLE set.  This means
-     there are constructors involved somewhere.  */
-  if (TREE_ADDRESSABLE (TREE_TYPE (decl))
-      || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+     there are constructors involved somewhere.  Exception is a shared clause,
+     there is nothing privatized in that case.  */
+  if ((flags & GOVD_SHARED) == 0
+      && (TREE_ADDRESSABLE (TREE_TYPE (decl))
+	  || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))))
     flags |= GOVD_SEEN;
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
@@ -5860,7 +5870,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 of PRIVATE.  The sharing would take place via the pointer variable
 	 which we remapped above.  */
       if (flags & GOVD_SHARED)
-	flags = GOVD_PRIVATE | GOVD_DEBUG_PRIVATE
+	flags = GOVD_SHARED | GOVD_DEBUG_PRIVATE
 		| (flags & (GOVD_SEEN | GOVD_EXPLICIT));
 
       /* We're going to make use of the TYPE_SIZE_UNIT at least in the
@@ -7767,7 +7777,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     return 0;
   if (flags & GOVD_DEBUG_PRIVATE)
     {
-      gcc_assert ((flags & GOVD_DATA_SHARE_CLASS) == GOVD_PRIVATE);
+      gcc_assert ((flags & GOVD_DATA_SHARE_CLASS) == GOVD_SHARED);
       private_debug = true;
     }
   else if (flags & GOVD_MAP)
@@ -7980,7 +7990,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 		{
 		  gcc_assert ((n->value & GOVD_DEBUG_PRIVATE) == 0
 			      || ((n->value & GOVD_DATA_SHARE_CLASS)
-				  == GOVD_PRIVATE));
+				  == GOVD_SHARED));
 		  OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_PRIVATE);
 		  OMP_CLAUSE_PRIVATE_DEBUG (c) = 1;
 		}
@@ -9435,8 +9445,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gimple_omp_for_set_combined_into_p (gfor, true);
       for (i = 0; i < (int) gimple_omp_for_collapse (gfor); i++)
 	{
-	  t = unshare_expr (gimple_omp_for_index (gfor, i));
-	  gimple_omp_for_set_index (gforo, i, t);
+	  tree type = TREE_TYPE (gimple_omp_for_index (gfor, i));
+	  tree v = create_tmp_var (type);
+	  gimple_omp_for_set_index (gforo, i, v);
 	  t = unshare_expr (gimple_omp_for_initial (gfor, i));
 	  gimple_omp_for_set_initial (gforo, i, t);
 	  gimple_omp_for_set_cond (gforo, i,
@@ -9444,7 +9455,13 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  t = unshare_expr (gimple_omp_for_final (gfor, i));
 	  gimple_omp_for_set_final (gforo, i, t);
 	  t = unshare_expr (gimple_omp_for_incr (gfor, i));
+	  gcc_assert (TREE_OPERAND (t, 0) == gimple_omp_for_index (gfor, i));
+	  TREE_OPERAND (t, 0) = v;
 	  gimple_omp_for_set_incr (gforo, i, t);
+	  t = build_omp_clause (input_location, OMP_CLAUSE_PRIVATE);
+	  OMP_CLAUSE_DECL (t) = v;
+	  OMP_CLAUSE_CHAIN (t) = gimple_omp_for_clauses (gforo);
+	  gimple_omp_for_set_clauses (gforo, t);
 	}
       gimplify_seq_add_stmt (pre_p, gforo);
     }
@@ -11157,8 +11174,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if (fallback == fb_none && *expr_p && !is_gimple_stmt (*expr_p))
     {
       /* We aren't looking for a value, and we don't have a valid
-	 statement.  If it doesn't have side-effects, throw it away.  */
-      if (!TREE_SIDE_EFFECTS (*expr_p))
+	 statement.  If it doesn't have side-effects, throw it away.
+	 We can also get here with code such as "*&&L;", where L is
+	 a LABEL_DECL that is marked as FORCED_LABEL.  */
+      if (TREE_CODE (*expr_p) == LABEL_DECL
+	  || !TREE_SIDE_EFFECTS (*expr_p))
 	*expr_p = NULL;
       else if (!TREE_THIS_VOLATILE (*expr_p))
 	{

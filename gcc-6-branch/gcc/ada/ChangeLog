@@ -1,3 +1,55 @@
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-03-28  Andreas Schwab  <schwab@suse.de>
+
+	Backport from trunk
+
+	2017-03-28  Andreas Schwab  <schwab@suse.de>
+
+	PR ada/80117
+	* system-linux-aarch64-ilp32.ads: New file.
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS_COMMON): Rename
+	from LIBGNAT_TARGET_PAIRS.
+	(LIBGNAT_TARGET_PAIRS_32, LIBGNAT_TARGET_PAIRS_64): Define.
+	(LIBGNAT_TARGET_PAIRS): Use LIBGNAT_TARGET_PAIRS_COMMON, and
+	LIBGNAT_TARGET_PAIRS_64 or LIBGNAT_TARGET_PAIRS_32 for -mabi=lp64
+	or -mabi=ilp32, resp.
+
+2017-03-08  Thanassis Tsiodras  <ttsiodras@gmail.com>
+
+	PR ada/79903
+	* socket.c (__gnat_gethostbyaddr): Add missing test for __rtems__.
+
+2017-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/79945
+	* system-linux-ppc.ads (Default_Bit_Order): Use Standard's setting.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_field): Do not remove the wrapper
+	around a justified modular type if it doesn't have the same scalar
+	storage order as the enclosing record type.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gnat_to_gnu): Do not apply special handling
+	of boolean rvalues to function calls.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (fold_bit_position): New function.
+	(rest_of_record_type_compilation): Call it instead of bit_position to
+	compute the field position and remove the call to remove_conversions.
+	(compute_related_constant): Factor out the multiplication in both
+	operands, if any, and streamline the final test.
+
+2017-02-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (return_value_ok_for_nrv_p): Add sanity check.
+
 2017-02-12  John Marino  <gnugcc@marino.st>
 
 	* gcc-interface/Makefile.in: Support aarch64-freebsd.

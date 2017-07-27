@@ -107,6 +107,17 @@ lvalue_kind (const_tree ref)
       return op1_lvalue_kind;
 
     case COMPONENT_REF:
+      if (BASELINK_P (TREE_OPERAND (ref, 1)))
+	{
+	  tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (ref, 1));
+
+	  /* For static member function recurse on the BASELINK, we can get
+	     here e.g. from reference_binding.  If BASELINK_FUNCTIONS is
+	     OVERLOAD, the overload is resolved first if possible through
+	     resolve_address_of_overloaded_function.  */
+	  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_STATIC_FUNCTION_P (fn))
+	    return lvalue_kind (TREE_OPERAND (ref, 1));
+	}
       op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
       /* Look at the member designator.  */
       if (!op1_lvalue_kind)
@@ -1446,6 +1457,10 @@ strip_typedefs (tree t, bool *remove_attributes)
 		   DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t),
 		   tf_none));
       break;
+    case UNDERLYING_TYPE:
+      type = strip_typedefs (UNDERLYING_TYPE_TYPE (t), remove_attributes);
+      result = finish_underlying_type (type);
+      break;
     default:
       break;
     }
@@ -1463,29 +1478,40 @@ strip_typedefs (tree t, bool *remove_attributes)
 	result = TYPE_MAIN_VARIANT (t);
     }
   gcc_assert (!typedef_variant_p (result));
-  if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
-      || TYPE_ALIGN (t) != TYPE_ALIGN (result))
+
+  if (COMPLETE_TYPE_P (result) && !COMPLETE_TYPE_P (t))
+  /* If RESULT is complete and T isn't, it's likely the case that T
+     is a variant of RESULT which hasn't been updated yet.  Skip the
+     attribute handling.  */;
+  else
     {
-      gcc_assert (TYPE_USER_ALIGN (t));
-      if (remove_attributes)
-	*remove_attributes = true;
-      else
+      if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
+	  || TYPE_ALIGN (t) != TYPE_ALIGN (result))
 	{
-	  if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
-	    result = build_variant_type_copy (result);
+	  gcc_assert (TYPE_USER_ALIGN (t));
+	  if (remove_attributes)
+	    *remove_attributes = true;
 	  else
-	    result = build_aligned_type (result, TYPE_ALIGN (t));
-	  TYPE_USER_ALIGN (result) = true;
+	    {
+	      if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
+		result = build_variant_type_copy (result);
+	      else
+		result = build_aligned_type (result, TYPE_ALIGN (t));
+	      TYPE_USER_ALIGN (result) = true;
+	    }
+	}
+
+      if (TYPE_ATTRIBUTES (t))
+	{
+	  if (remove_attributes)
+	    result = apply_identity_attributes (result, TYPE_ATTRIBUTES (t),
+						remove_attributes);
+	  else
+	    result = cp_build_type_attribute_variant (result,
+						      TYPE_ATTRIBUTES (t));
 	}
     }
-  if (TYPE_ATTRIBUTES (t))
-    {
-      if (remove_attributes)
-	result = apply_identity_attributes (result, TYPE_ATTRIBUTES (t),
-					    remove_attributes);
-      else
-	result = cp_build_type_attribute_variant (result, TYPE_ATTRIBUTES (t));
-    }
+
   return cp_build_qualified_type (result, cp_type_quals (t));
 }
 

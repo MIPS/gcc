@@ -1827,19 +1827,19 @@
   [(set_attr "type" "vecdouble")])
 
 (define_insn "vsx_xvcvsxdsp"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:V4SI [(match_operand:V2DF 1 "vsx_register_operand" "wf,wa")]
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V4SF [(match_operand:V2DI 1 "vsx_register_operand" "wf,wa")]
 		     UNSPEC_VSX_CVSXDSP))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
   "xvcvsxdsp %x0,%x1"
   [(set_attr "type" "vecfloat")])
 
 (define_insn "vsx_xvcvuxdsp"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:V4SI [(match_operand:V2DF 1 "vsx_register_operand" "wf,wa")]
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wd,?wa")
+	(unspec:V4SF [(match_operand:V2DI 1 "vsx_register_operand" "wf,wa")]
 		     UNSPEC_VSX_CVUXDSP))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
-  "xvcvuxwdp %x0,%x1"
+  "xvcvuxdsp %x0,%x1"
   [(set_attr "type" "vecdouble")])
 
 ;; Convert from 32-bit to 64-bit types
@@ -2276,6 +2276,38 @@
 	  op1 = gen_lowpart (V2DImode, op1);
 	}
     }
+  emit_insn (gen (target, op0, op1, perm0, perm1));
+  DONE;
+})
+
+;; Special version of xxpermdi that retains big-endian semantics.
+(define_expand "vsx_xxpermdi_<mode>_be"
+  [(match_operand:VSX_L 0 "vsx_register_operand" "")
+   (match_operand:VSX_L 1 "vsx_register_operand" "")
+   (match_operand:VSX_L 2 "vsx_register_operand" "")
+   (match_operand:QI 3 "u5bit_cint_operand" "")]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  rtx target = operands[0];
+  rtx op0 = operands[1];
+  rtx op1 = operands[2];
+  int mask = INTVAL (operands[3]);
+  rtx perm0 = GEN_INT ((mask >> 1) & 1);
+  rtx perm1 = GEN_INT ((mask & 1) + 2);
+  rtx (*gen) (rtx, rtx, rtx, rtx, rtx);
+
+  if (<MODE>mode == V2DFmode)
+    gen = gen_vsx_xxpermdi2_v2df_1;
+  else
+    {
+      gen = gen_vsx_xxpermdi2_v2di_1;
+      if (<MODE>mode != V2DImode)
+	{
+	  target = gen_lowpart (V2DImode, target);
+	  op0 = gen_lowpart (V2DImode, op0);
+	  op1 = gen_lowpart (V2DImode, op1);
+	}
+    }
   /* In little endian mode, vsx_xxpermdi2_<mode>_1 will perform a
      transformation we don't want; it is necessary for
      rs6000_expand_vec_perm_const_1 but not for this use.  So we
@@ -2397,16 +2429,34 @@
 })
 
 ;; V2DF/V2DI splat
-(define_insn "vsx_splat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSa>,<VSa>,we")
+(define_insn_and_split "vsx_splat_<mode>"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand"
+			"=<VSa>,    <VSa>,?we,??<VS_64dm>")
+
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,Z,b")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand"
+			"<VS_64reg>,Z,    b,  wA")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
-   mtvsrdd %x0,%1,%1"
-  [(set_attr "type" "vecperm,vecload,mftgpr")])
+   mtvsrdd %x0,%1,%1
+   #"
+  "&& reload_completed
+   && !vsx_register_operand (operands[1], <VS_scalar>mode)
+   && !(MEM_P (operands[1])
+        && indexed_or_indirect_address (XEXP (operands[1], 0), Pmode))
+   && !(TARGET_POWERPC64 && TARGET_P9_VECTOR
+	&& base_reg_operand (operands[1], <VS_scalar>mode))"
+  [(set (match_dup 2)
+	(match_dup 1))
+   (set (match_dup 0)
+	(vec_duplicate:VSX_D (match_dup 2)))]
+{
+  operands[2] = gen_rtx_REG (<VS_scalar>mode, reg_or_subregno (operands[0]));
+}
+  [(set_attr "type" "vecperm,vecload,vecperm,vecperm")
+   (set_attr "length" "4,4,4,8")])
 
 ;; V4SI splat (ISA 3.0)
 ;; When SI's are allowed in VSX registers, add XXSPLTW support

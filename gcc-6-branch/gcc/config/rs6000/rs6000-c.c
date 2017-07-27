@@ -428,6 +428,9 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("__FLOAT128__");
   if (TARGET_FLOAT128_HW)
     builtin_define ("__FLOAT128_HARDWARE__");
+#ifdef TARGET_LIBC_PROVIDES_HWCAP_IN_TCB
+  builtin_define ("__BUILTIN_CPU_SUPPORTS__");
+#endif
 
   if (TARGET_EXTRA_BUILTINS && cpp_get_options (pfile)->lang != CLK_ASM)
     {
@@ -2411,7 +2414,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_SRA, P8V_BUILTIN_VSRAD,
     RS6000_BTI_V2DI, RS6000_BTI_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
-  { ALTIVEC_BUILTIN_VEC_SRA, P8V_BUILTIN_VSRD,
+  { ALTIVEC_BUILTIN_VEC_SRA, P8V_BUILTIN_VSRAD,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_VSRAW, ALTIVEC_BUILTIN_VSRAW,
     RS6000_BTI_V4SI, RS6000_BTI_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
@@ -4512,7 +4515,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
 
   { P8V_BUILTIN_VEC_VSRAD, P8V_BUILTIN_VSRAD,
     RS6000_BTI_V2DI, RS6000_BTI_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
-  { P8V_BUILTIN_VEC_VSRAD, P8V_BUILTIN_VSRD,
+  { P8V_BUILTIN_VEC_VSRAD, P8V_BUILTIN_VSRAD,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
 
   { P8V_BUILTIN_VEC_VSUBCUQ, P8V_BUILTIN_VSUBCUQ,

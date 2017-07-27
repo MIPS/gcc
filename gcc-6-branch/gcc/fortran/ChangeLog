@@ -1,3 +1,106 @@
+2017-07-04  Release Manager
+
+	* GCC 6.4.0 released.
+
+2017-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/80918
+	* openmp.c (resolve_omp_clauses): Fix a typo.
+
+2017-06-09  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/70601
+	* trans-expr.c (gfc_conv_procedure_call): Fix detection of allocatable
+	function results.
+
+2017-05-03  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/65542
+	Backport from trunk
+	* intrinsic.c (gfc_intrinsic_func_interface):  Return an error
+	for -std=f95 for disallowed transformational functions in
+	initialization expressions.
+
+2017-06-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/80904
+	Backport from trunk
+	* frontend-passes.c (matmul_lhs_realloc):  Correct
+	allocation size for case A1B2.
+
+2017-05-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/80752
+	* expr.c (gfc_generate_initializer):  If type conversion fails,
+	check for error and return NULL.
+
+2017-05-01  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/80392
+	* trans-types.c (gfc_get_derived_type): Prevent an infinite loop when
+	building a derived type that includes a procedure pointer component
+	with a polymorphic result.
+
+2017-04-21  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/80361
+	* class.c (generate_finalization_wrapper): Give the finalization wrapper
+	the recursive attribute.
+
+2017-04-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/71838
+	* symbol.c (check_conflict): A dummy procedure in a submodule,
+	module procedure is not an error.
+	(gfc_add_flavor): Ditto.
+
+2017-04-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/79676
+	* module.c (mio_symbol_attribute): Remove reset of the flag
+	'no_module_procedures'.
+	(check_for_module_procedures): New function. Move declaration
+	of 'no_module_procedures' to above it.
+	(gfc_dump_module): Traverse namespace calling new function.
+
+2017-03-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/79434
+	* parse.c (check_component, parse_union): Whitespace.
+	(set_syms_host_assoc): For a derived type, check if the module
+	in which it was declared is one of the submodule ancestors. If
+	it is, make the components public. Otherwise, reset attribute
+	'host_assoc' and set 'use-assoc' so that encapsulation is
+	preserved.
+
+2017-03-14  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-03-06  Richard Biener  <rguenther@suse.de>
+
+	PR fortran/79894
+	* trans.c (gfc_add_modify_loc): Weaken assert.
+
+2017-02-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78474
+	* module.c (gfc_match_submodule): If there is more than one
+	colon, it is a syntax error.
+
+	PR fortran/78331
+	* module.c (gfc_use_module): If an smod file does not exist it
+	is either because the module does not have a module procedure
+	interface or there is an error in the module.
+
 2017-02-07  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* trans-types.c	(gfc_get_int_kind_from_width_isofortranen):  Choose

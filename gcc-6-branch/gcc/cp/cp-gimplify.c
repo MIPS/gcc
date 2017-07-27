@@ -1065,6 +1065,19 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	}
     }
 
+  if (TREE_CODE (stmt) == INTEGER_CST
+      && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE
+      && (flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
+      && !wtd->no_sanitize_p)
+    {
+      ubsan_maybe_instrument_reference (stmt_p);
+      if (*stmt_p != stmt)
+	{
+	  *walk_subtrees = 0;
+	  return NULL_TREE;
+	}
+    }
+
   /* Other than invisiref parms, don't walk the same tree twice.  */
   if (p_set->contains (stmt))
     {
@@ -1413,6 +1426,16 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       *stmt_p = cplus_expand_constant (stmt);
       *walk_subtrees = 0;
     }
+  else if (TREE_CODE (stmt) == MEM_REF)
+    {
+      /* For MEM_REF, make sure not to sanitize the second operand even
+         if it has reference type.  It is just an offset with a type
+	 holding other information.  There is no other processing we
+	 need to do for INTEGER_CSTs, so just ignore the second argument
+	 unconditionally.  */
+      cp_walk_tree (&TREE_OPERAND (stmt, 0), cp_genericize_r, data, NULL);
+      *walk_subtrees = 0;
+    }
   else if ((flag_sanitize
 	    & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
 	   && !wtd->no_sanitize_p)
@@ -1420,7 +1443,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       if ((flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
 	  && TREE_CODE (stmt) == NOP_EXPR
 	  && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE)
-	ubsan_maybe_instrument_reference (stmt);
+	ubsan_maybe_instrument_reference (stmt_p);
       else if (TREE_CODE (stmt) == CALL_EXPR)
 	{
 	  tree fn = CALL_EXPR_FN (stmt);
@@ -1553,7 +1576,8 @@ cp_genericize (tree fndecl)
 
 	  if (outer)
 	    for (var = BLOCK_VARS (outer); var; var = DECL_CHAIN (var))
-	      if (DECL_NAME (t) == DECL_NAME (var)
+	      if (VAR_P (var)
+		  && DECL_NAME (t) == DECL_NAME (var)
 		  && DECL_HAS_VALUE_EXPR_P (var)
 		  && DECL_VALUE_EXPR (var) == t)
 		{
@@ -1800,7 +1824,8 @@ cxx_omp_const_qual_no_mutable (tree decl)
 
 	  if (outer)
 	    for (var = BLOCK_VARS (outer); var; var = DECL_CHAIN (var))
-	      if (DECL_NAME (decl) == DECL_NAME (var)
+	      if (VAR_P (var)
+		  && DECL_NAME (decl) == DECL_NAME (var)
 		  && (TYPE_MAIN_VARIANT (type)
 		      == TYPE_MAIN_VARIANT (TREE_TYPE (var))))
 		{
@@ -1875,7 +1900,11 @@ cxx_omp_finish_clause (tree c, gimple_seq *)
     make_shared = true;
 
   if (make_shared)
-    OMP_CLAUSE_CODE (c) = OMP_CLAUSE_SHARED;
+    {
+      OMP_CLAUSE_CODE (c) = OMP_CLAUSE_SHARED;
+      OMP_CLAUSE_SHARED_FIRSTPRIVATE (c) = 0;
+      OMP_CLAUSE_SHARED_READONLY (c) = 0;
+    }
 }
 
 /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
