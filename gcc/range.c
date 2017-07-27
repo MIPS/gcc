@@ -86,6 +86,7 @@ irange::set_range (const_tree typ, const wide_int &lbound,
       bounds[0] = lbound;
       bounds[1] = ubound;
     }
+  gcc_assert (!CHECKING_P || (valid_p () && !empty_p ()));
 }
 
 // Set range from an IRANGE_STORAGE and TYPE.
@@ -111,7 +112,7 @@ irange::set_range (const irange_storage *storage, const_tree typ)
       i += 2;
     }
   nitems = i;
-  gcc_assert (nitems <= max_pairs * 2);
+  gcc_assert (!CHECKING_P || valid_p ());
 }
 
 /* Set range from an SSA_NAME's available range.  If there is no
@@ -150,6 +151,7 @@ irange::irange (const irange &r)
   nitems = r.nitems;
   for (unsigned i = 0; i < nitems; ++i)
     bounds[i] = r.bounds[i];
+  gcc_assert (!CHECKING_P || valid_p ());
 }
 
 bool
@@ -196,10 +198,14 @@ irange::range_for_type_p () const
 bool
 irange::valid_p () const
 {
-  if (!nitems
+  if (type == NULL_TREE
       || nitems % 2
       || nitems > max_pairs * 2)
     return false;
+
+  /* An empty range is valid, as long as it has a type.  */
+  if (!nitems)
+    return true;
 
   /* Check that the bounds are in the right order.
 
@@ -236,6 +242,7 @@ irange::cast (const_tree new_type)
   if (!sign_change && TYPE_PRECISION (type) == new_precision)
     {
       type = new_type;
+      gcc_assert (!CHECKING_P || valid_p ());
       return;
     }
 
@@ -264,6 +271,7 @@ irange::cast (const_tree new_type)
 				      TYPE_SIGN (new_type));
 	  type = new_type;
 	  nitems = 2;
+	  gcc_assert (!CHECKING_P || valid_p ());
 	  return;
 	}
     }
@@ -317,6 +325,7 @@ irange::cast (const_tree new_type)
 	      bounds[1] = max;
 	      nitems = 2;
 	      type = new_type;
+	      gcc_assert (!CHECKING_P || valid_p ());
 	      return;
 	    }
 	  /* From no sign bit to sign bit: [15, 150]
@@ -342,7 +351,7 @@ irange::cast (const_tree new_type)
   type = new_type;
   if (sign_change)
     canonicalize ();
-  gcc_assert (valid_p ());
+  gcc_assert (!CHECKING_P || (valid_p () && !empty_p ()));
 }
 
 // Return TRUE if the current range contains ELEMENT.
@@ -394,7 +403,6 @@ irange::canonicalize ()
 	bounds[i + 2] = x;
 	bounds[i + 3] = y;
       }
-  gcc_assert (valid_p ()); // See note before for(;;).
 
   /* Merge any edges that touch.
      [9,10][11,20] => [9,20].  */
@@ -410,6 +418,8 @@ irange::canonicalize ()
 	  remove (i + 1, i + 2);
 	}
     }
+  /* See note before for(;;).  */
+  gcc_assert (!CHECKING_P || valid_p ());
 }
 
 // Prepend [X,Y] into THIS.
@@ -476,6 +486,7 @@ irange::union_ (const wide_int &x, const wide_int &y)
       bounds[0] = x;
       bounds[1] = y;
       nitems = 2;
+      gcc_assert (!CHECKING_P || valid_p ());
       return *this;
     }
 
@@ -483,12 +494,14 @@ irange::union_ (const wide_int &x, const wide_int &y)
   if (wi::lt_p (y, bounds[0], TYPE_SIGN (type)))
     {
       prepend (x, y);
+      gcc_assert (!CHECKING_P || valid_p ());
       return *this;
     }
   /* If [X,Y] comes after, put it at the end.  */
   if (wi::gt_p (x, bounds[nitems - 1], TYPE_SIGN (type)))
     {
       append (x, y);
+      gcc_assert (!CHECKING_P || valid_p ());
       return *this;
     }
   /* Handle [X,Y] swalling up all of THIS.  */
@@ -498,6 +511,7 @@ irange::union_ (const wide_int &x, const wide_int &y)
       bounds[0] = x;
       bounds[1] = y;
       nitems = 2;
+      gcc_assert (!CHECKING_P || valid_p ());
       return *this;
     }
   /* Handle X starting before, while Y is within.
@@ -511,7 +525,10 @@ irange::union_ (const wide_int &x, const wide_int &y)
       /*    Y
 	 X[a,b]   => [X,b].  */
       if (nitems == 2)
-	return *this;
+	{
+	  gcc_assert (!CHECKING_P || valid_p ());
+	  return *this;
+	}
 
       for (unsigned i = 1; i < nitems; i += 2)
 	if (wi::le_p (y, bounds[i], TYPE_SIGN (type)))
@@ -521,6 +538,7 @@ irange::union_ (const wide_int &x, const wide_int &y)
 	    else
 	      bounds[1] = bounds[i];
 	    remove (2, i);
+	    gcc_assert (!CHECKING_P || valid_p ());
 	    return *this;
 	  }
       gcc_unreachable ();
@@ -575,13 +593,17 @@ irange::union_ (const wide_int &x, const wide_int &y)
 
   /* If [x,y] is inside of subrange [xpos,ypos], there's nothing to do.  */
   if (xpos + 1 == ypos)
-    return *this;
+    {
+      gcc_assert (!CHECKING_P || valid_p ());
+      return *this;
+    }
 
   /* Merge the sub-ranges in between xpos and ypos.  */
   wide_int tmp = bounds[ypos];
   remove (xpos + 2, ypos);
   bounds[xpos + 1] = tmp;
 
+  gcc_assert (!CHECKING_P || valid_p ());
   return *this;
 }
 
@@ -602,6 +624,9 @@ irange::union_ (const irange &r)
 
   for (unsigned i = 0; i < r.nitems; i += 2)
     union_ (r.bounds[i], r.bounds[i + 1]);
+
+  /* There is no valid_p() check here because the calls to union_
+     above would have called valid_p().  */
 
   overflow |= r.overflow;
   return *this;
@@ -630,6 +655,7 @@ irange::intersect (const wide_int &x, const wide_int &y)
 	}
     }
   nitems = pos;
+  gcc_assert (!CHECKING_P || valid_p ());
   return *this;
 }
 
@@ -664,6 +690,8 @@ irange::intersect (const irange &r)
 
   /* Overflow is sticky only if both ranges overflowed.  */
   overflow = (orig_range.overflow && r.overflow);
+  /* There is no valid_p() check here because the calls to union_
+     above would have called valid_p().  */
   return *this;
 }
 
@@ -764,6 +792,7 @@ irange::invert ()
 	nitems -= 2;
     }
 
+  gcc_assert (!CHECKING_P || valid_p ());
   return *this;
 }
 
@@ -855,7 +884,7 @@ make_irange (irange *result, const_tree lb, const_tree ub, const_tree type)
 {
   irange r (TREE_TYPE (lb), lb, ub);
   *result = r;
-  if (result->valid_p ())
+  if (result->valid_p () && !result->empty_p ())
     {
       if (type)
         result->cast (type);
@@ -869,7 +898,7 @@ make_irange_not (irange *result, const_tree not_exp, const_tree type)
 {
   irange r (TREE_TYPE (not_exp), not_exp, not_exp, irange::INVERSE);
   *result = r;
-  if (result->valid_p ())
+  if (result->valid_p () && !result->empty_p ())
     {
       if (type)
         result->cast (type);
