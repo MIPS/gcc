@@ -3461,9 +3461,10 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 		 : 2;
 
     case SYMBOL_GPREL32_NANO:
-      if (mode != MAX_MACHINE_MODE)
-	return 0;
-      /* Fall through.  */
+      if (mode == MAX_MACHINE_MODE)
+	return 1;
+
+      return 0;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
