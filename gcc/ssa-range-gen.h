@@ -61,7 +61,7 @@ public:
   /* True if NAME Generates range info on one or more outgoing edges of BB.  */
   bool range_p (basic_block bb, tree name);
   /* What is the static calculated range of NAME on outgoing edge E.  */
-  bool get_range (irange& r, tree name, edge e);
+  bool range_on_edge (irange& r, tree name, edge e);
 
   void dump (FILE *f);
   void exercise (FILE *f);   /* do a full mapping pass, dump if provided.  */

@@ -219,7 +219,7 @@ gori::range_p (basic_block bb, tree name)
 
 /* Known range on an edge.  */
 bool
-gori::get_range (irange& r, tree name, edge e)
+gori::range_on_edge (irange& r, tree name, edge e)
 {
   gimple *stmt;
   basic_block bb = e->src;
@@ -278,7 +278,7 @@ gori::exercise (FILE *output)
 	      tree name = ssa_name (x);
 	      if (name && range_p (bb, name))
 		{
-		  if (get_range (range, name, e))
+		  if (range_on_edge (range, name, e))
 		    {
 		      if (output)
 			{
