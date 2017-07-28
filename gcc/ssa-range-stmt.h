@@ -49,7 +49,6 @@ enum range_stmt_state {
 class range_stmt
 {
 private:
-  gimple *g;
   enum range_stmt_state state;
   tree_code code;
   tree op1;
