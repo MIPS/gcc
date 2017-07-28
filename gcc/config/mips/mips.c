@@ -3471,10 +3471,10 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       return 1;
 
     case SYMBOL_PCREL_NANO:
-      // @tmt look into this
-      if (mode != MAX_MACHINE_MODE)
-	return 0;
-      /* Fall through.  */
+      if (mode == MAX_MACHINE_MODE)
+	return 1;
+
+      return 0;
 
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL32_NANO:
