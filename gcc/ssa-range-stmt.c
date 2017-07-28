@@ -206,6 +206,10 @@ range_stmt::is_relational()
 {
   if (code >= TRUTH_ANDIF_EXPR && code <= NE_EXPR)
     return true;
+  if (code >= BIT_AND_EXPR && code <= BIT_NOT_EXPR &&
+      types_compatible_p (TREE_TYPE (op1), boolean_type_node))
+    return true;
+
   return false;
 }
 
