@@ -90,8 +90,6 @@ class irange
   void clear_overflow () { overflow = false; }
 
   unsigned num_pairs () const { return nitems / 2; }
-  /* Implicit conversion to `unsigned int' returns the number of pairs.  */
-  operator unsigned () const { return num_pairs (); }
   /* Returns the lower bound of PAIR.  */
   wide_int lower_bound (unsigned pair = 0) const
     {

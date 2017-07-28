@@ -1035,8 +1035,8 @@ irange_tests ()
   /* Check that [~5] is really [-MIN,4][6,MAX].  */
   r0 = irange (integer_type_node, INT(5), INT(5), irange::INVERSE);
   r1 = irange (integer_type_node, minint, INT(4));
-  ASSERT_TRUE (r1.union_ (irange (integer_type_node,
-				  INT(6), maxint)));
+  ASSERT_FALSE (r1.union_ (irange (integer_type_node,
+				   INT(6), maxint)).empty_p ());
 
   ASSERT_TRUE (r0 == r1);
 
@@ -1173,8 +1173,8 @@ irange_tests ()
   /* NOT([10,20]) ==> [-MIN,9][21,MAX].  */
   r0 = r1 = irange (integer_type_node, INT(10), INT(20));
   r2 = irange (integer_type_node, minint, INT(9));
-  ASSERT_TRUE (r2.union_ (irange (integer_type_node,
-				  INT(21), maxint)));
+  ASSERT_FALSE (r2.union_ (irange (integer_type_node,
+				   INT(21), maxint)).empty_p ());
   r1.invert ();
   ASSERT_TRUE (r1 == r2);
   /* Test that NOT(NOT(x)) == x.  */
@@ -1184,7 +1184,7 @@ irange_tests ()
   /* NOT(-MIN,+MAX) is the empty set and should return false.  */
   r0 = irange (integer_type_node, wide_int_to_tree (integer_type_node, minint),
 		  wide_int_to_tree (integer_type_node, maxint));
-  ASSERT_TRUE (!r0.invert ());
+  ASSERT_TRUE (r0.invert ().empty_p ());
   r1.clear ();
   ASSERT_TRUE (r0 == r1);
 
@@ -1382,7 +1382,7 @@ irange_tests ()
 
   /* Test non-destructive intersection.  */
   r0 = rold = RANGE1 (10, 20);
-  ASSERT_TRUE (irange_intersect (r0, RANGE1 (15, 30)));
+  ASSERT_FALSE (irange_intersect (r0, RANGE1 (15, 30)).empty_p ());
   ASSERT_TRUE (r0 == rold);
 }
 
