@@ -2667,7 +2667,6 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case TRY_CATCH_EXPR:
-    case WITH_CLEANUP_EXPR:
     case CLEANUP_POINT_EXPR:
       dump_expr (pp, TREE_OPERAND (t, 0), flags);
       break;
@@ -3176,10 +3175,6 @@ type_to_string (tree typ, int verbose)
       if (len == aka_len && memcmp (p, p+aka_start, len) == 0)
 	p[len] = '\0';
     }
-
-  if (typ && TYPE_P (typ) && TREE_CODE (typ) == ENUMERAL_TYPE)
-    pp_string (cxx_pp, M_(" {enum}"));
-
   return pp_ggc_formatted_text (cxx_pp);
 }
 

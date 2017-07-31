@@ -1,3 +1,72 @@
+2017-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* check.c (gfc_check_num_images): Fix a pasto.
+
+2017-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-decl.c (gfc_trans_use_stmts): Pass false as new argument to
+	the imported_module_or_decl debug hook.
+
+2017-07-28  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* resolve.c (find_reachable_labels): Adjust.
+
+2017-07-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* ioparm.def: Use 1U << 31 instead of 1 << 31 as flags2 mask.
+
+2017-07-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* dump-parse-tree.c (show_symbol):  Show binding label if present.
+
+2017-07-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66102
+	* fortran/trans-array.c (gfc_conv_resolve_dependencies):
+	Break if dependency has been found.
+
+2017-07-23  Alexander Monakov  <amonakov@ispras.ru>
+
+	* interface.c (pair_cmp): Fix gfc_symbol comparison.  Adjust comment.
+
+2017-07-18  Nathan Sidwell  <nathan@acm.org>
+
+	* trans.c (gfc_build_array_ref): Use TYPE_MAX_VALUE.
+
+2017-07-09  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/81341
+	* class.c (class_array_ref_detected): Remove a redundant
+	condition.
+
+2017-07-06  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/70071
+	* array.c (gfc_ref_dimen_size): Handle bad subscript triplets.
+
+2017-07-03  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/79866
+	* resolve.c (resolve_symbol): Fix typo.
+
+2017-07-03  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/79843
+	* symbol.c (check_conflict): Add missing "conflicts".
+
+2017-06-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/77765
+	* openmp.c (gfc_match_oacc_routine): Check if proc_name exist before
+	comparing the routine name against it.
+
+2017-06-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/80164
+	* trans-stmt.c (gfc_trans_call): If no code expr, use code->loc
+	as warning/error locus.
+
 2017-06-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/81160

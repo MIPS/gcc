@@ -1582,6 +1582,12 @@ Test system supports executing NEON v2 instructions.
 ARM Target supports @code{-mfpu=neon -mfloat-abi=softfp} or compatible
 options.  Some multilibs may be incompatible with these options.
 
+@item arm_neon_ok_no_float_abi
+@anchor{arm_neon_ok_no_float_abi}
+ARM Target supports NEON with @code{-mfpu=neon}, but without any
+-mfloat-abi= option.  Some multilibs may be incompatible with this
+option.
+
 @item arm_neonv2_ok
 @anchor{arm_neonv2_ok}
 ARM Target supports @code{-mfpu=neon-vfpv4 -mfloat-abi=softfp} or compatible
@@ -2304,6 +2310,11 @@ the codeset to convert to.
 @item dg-require-profiling @var{profopt}
 Skip the test if the target does not support profiling with option
 @var{profopt}.
+
+@item dg-require-stack-check @var{check}
+Skip the test if the target does not support the @code{-fstack-check}
+option.  If @var{check} is @code{""}, support for @code{-fstack-check}
+is checked, for @code{-fstack-check=("@var{check}")} otherwise.
 
 @item dg-require-visibility @var{vis}
 Skip the test if the target does not support the @code{visibility} attribute.

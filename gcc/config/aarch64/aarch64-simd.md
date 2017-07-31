@@ -1033,6 +1033,18 @@
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
 )
 
+(define_insn "*aarch64_mla_elt_merge<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+	(plus:VDQHS
+	  (mult:VDQHS (vec_duplicate:VDQHS
+		  (match_operand:<VEL> 1 "register_operand" "w"))
+		(match_operand:VDQHS 2 "register_operand" "w"))
+	  (match_operand:VDQHS 3 "register_operand" "0")))]
+ "TARGET_SIMD"
+ "mla\t%0.<Vtype>, %2.<Vtype>, %1.<Vetype>[0]"
+  [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
+)
+
 (define_insn "aarch64_mls<mode>"
  [(set (match_operand:VDQ_BHSI 0 "register_operand" "=w")
        (minus:VDQ_BHSI (match_operand:VDQ_BHSI 1 "register_operand" "0")
@@ -1077,6 +1089,18 @@
 					  INTVAL (operands[2])));
     return "mls\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
+  [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
+)
+
+(define_insn "*aarch64_mls_elt_merge<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+	(minus:VDQHS
+	  (match_operand:VDQHS 1 "register_operand" "0")
+	  (mult:VDQHS (vec_duplicate:VDQHS
+		  (match_operand:<VEL> 2 "register_operand" "w"))
+		(match_operand:VDQHS 3 "register_operand" "w"))))]
+  "TARGET_SIMD"
+  "mls\t%0.<Vtype>, %3.<Vtype>, %2.<Vetype>[0]"
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
 )
 
@@ -2809,38 +2833,10 @@
    (match_operand:VDC 2 "register_operand")]
   "TARGET_SIMD"
 {
-  rtx op1, op2;
-  if (BYTES_BIG_ENDIAN)
-    {
-      op1 = operands[2];
-      op2 = operands[1];
-    }
-  else
-    {
-      op1 = operands[1];
-      op2 = operands[2];
-    }
-  emit_insn (gen_aarch64_combine_internal<mode> (operands[0], op1, op2));
-  DONE;
-}
-)
+  aarch64_split_simd_combine (operands[0], operands[1], operands[2]);
 
-(define_insn_and_split "aarch64_combine_internal<mode>"
-  [(set (match_operand:<VDBL> 0 "register_operand" "=&w")
-        (vec_concat:<VDBL> (match_operand:VDC 1 "register_operand" "w")
-			   (match_operand:VDC 2 "register_operand" "w")))]
-  "TARGET_SIMD"
-  "#"
-  "&& reload_completed"
-  [(const_int 0)]
-{
-  if (BYTES_BIG_ENDIAN)
-    aarch64_split_simd_combine (operands[0], operands[2], operands[1]);
-  else
-    aarch64_split_simd_combine (operands[0], operands[1], operands[2]);
   DONE;
 }
-[(set_attr "type" "multiple")]
 )
 
 (define_expand "aarch64_simd_combine<mode>"
