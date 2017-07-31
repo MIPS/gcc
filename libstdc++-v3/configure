@@ -5353,6 +5353,24 @@ fi
 rm -f conftest*
 
 
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <stdio.h>
+  #if !defined(__UCLIBC__) && !defined(__BIONIC__) && !defined(__GLIBC__)
+    _using_musl
+  #endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "_using_musl" >/dev/null 2>&1; then :
+  musl=yes
+else
+  musl=no
+fi
+rm -f conftest*
+
+
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
 
@@ -11596,7 +11614,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11599 "configure"
+#line 11617 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11702,7 +11720,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11705 "configure"
+#line 11723 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15388,7 +15406,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15391 "configure"
+#line 15409 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15423,7 +15441,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15426 "configure"
+#line 15444 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15458,7 +15476,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15461 "configure"
+#line 15479 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15494,7 +15512,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15497 "configure"
+#line 15515 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15575,7 +15593,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15578 "configure"
+#line 15596 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15617,7 +15635,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15620 "configure"
+#line 15638 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15651,7 +15669,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15654 "configure"
+#line 15672 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
