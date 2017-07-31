@@ -2629,6 +2629,7 @@ enum reg_class
 
    Masking off the ISA bit means that the target-independent code
    will search for "(RA & -2) - 1", which is guaranteed to be odd.  */
+#ifndef NANOMIPS_SUPPORT
 #define MASK_RETURN_ADDR GEN_INT (-2)
 
 
@@ -2636,6 +2637,7 @@ enum reg_class
    code from vtable index.  */
 
 #define TARGET_PTRMEMFUNC_VBIT_LOCATION ptrmemfunc_vbit_in_delta
+#endif
 
 /* The eliminations to $17 are only used for mips16 code.  See the
    definition of HARD_FRAME_POINTER_REGNUM.  */
