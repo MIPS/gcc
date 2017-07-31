@@ -141,6 +141,14 @@ case ${host} in
       ;;
     esac
     ;;
+  nanomips*-*-linux*)
+    case ${target} in
+      nanomips*-*-linux*)
+	host_extra_gcc_objs="driver-native.o"
+	host_xmake_file="${host_xmake_file} mips/x-native"
+      ;;
+    esac
+    ;;
   rs6000-*-* \
   | powerpc*-*-* )
     case ${target} in
