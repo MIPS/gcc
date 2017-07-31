@@ -434,6 +434,7 @@ mips*-*-*)
 	;;
 nanomips*-*-*)
 	cpu_type=mips
+	extra_headers="msa.h"
 	extra_options="${extra_options} g.opt mips/nanomips-tables.opt"
 	;;
 nds32*)
@@ -2048,6 +2049,19 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	target_cpu_default="MASK_ABICALLS"
 	tm_file="elfos.h ${tm_file} mips/elf.h netbsd.h netbsd-elf.h mips/netbsd.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
+	;;
+nanomips*-*-linux*)
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/nanomips.h mips/gnu-user.h mips/linux.h mips/linux-common.h mips/nano-linux.h"
+	extra_options="${extra_options} linux-android.opt mips/nanomips.opt"
+	md_file=mips/nanomips.md
+	tmake_file="${tmake_file} mips/t-nanomips-multi"
+	tm_defines="${tm_defines} NANOMIPS_SUPPORT=1 MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
+	with_arch_32="32r6"
+	with_arch_64="64r6"
+	with_nanomips="yes"
+	gnu_ld=no
+	gas=yes
+	TM_MULTILIB_EXCEPTIONS_CONFIG="*mclib=*"
 	;;
 mips*-img-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h mips/mti-linux.h"

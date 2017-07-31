@@ -113,6 +113,13 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   #endif
   ], bionic=yes, bionic=no)
 
+  AC_EGREP_CPP([_using_musl], [
+  #include <stdio.h>
+  #if !defined(__UCLIBC__) && !defined(__BIONIC__) && !defined(__GLIBC__)
+    _using_musl
+  #endif
+  ], musl=yes, musl=no)
+
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
   GLIBCXX_CHECK_HOST
