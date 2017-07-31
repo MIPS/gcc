@@ -1,7 +1,33 @@
+2017-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc-interface/utils.c (gnat_write_global_declarations): Pass false
+	as new argument to the imported_module_or_decl debug hook.
+
+2017-07-25  Javier Miranda  <miranda@adacore.com>
+
+	* checks.adb (Apply_Divide_Checks): Ensure that operands are not
+	evaluated twice. 
+
+2017-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc-interface/ada-tree.h (TYPE_OBJECT_RECORD_TYPE,
+	TYPE_GCC_MIN_VALUE): Use TYPE_MIN_VALUE_RAW instead of TYPE_MINVAL.
+	(TYPE_GCC_MAX_VALUE): Use TYPE_MAX_VALUE_RAW instead of TYPE_MAXVAL.
+
+2017-07-18  Mike Frysinger  <vapier@chromium.org>
+
+	* gcc-interface/Makefile.in (../../gnatmake$(exeext)): Delete $(P).
+	(../../gnatlink$(exeext)): Likewise.
+
+2017-07-15  John Paul Adrian Glaubitz  <glaubitz@physik.fu-berlin.de>
+
+	PR ada/81446
+	* system-linux-m68k.ads: Add pragma No_Elaboration_Code_All.
+	(Backend_Overflow_Checks): Set to True.
+
 2017-06-23  Jakub Jelinek  <jakub@redhat.com>
 
-	* gcc-interface/trans.c (gnat_to_gnu): Initialize sync to false to
-	avoid UB.
+	* gcc-interface/trans.c (gnat_to_gnu): Initialize sync to false.
 
 2017-06-21  Pierre-Marie de Rodat  <derodat@adacore.com>
 

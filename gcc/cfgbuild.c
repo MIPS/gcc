@@ -545,10 +545,11 @@ compute_outgoing_frequencies (basic_block b)
 	{
 	  probability = XINT (note, 0);
 	  e = BRANCH_EDGE (b);
-	  e->probability = probability;
-	  e->count = b->count.apply_probability (probability);
+	  e->probability
+		 = profile_probability::from_reg_br_prob_note (probability);
+	  e->count = b->count.apply_probability (e->probability);
 	  f = FALLTHRU_EDGE (b);
-	  f->probability = REG_BR_PROB_BASE - probability;
+	  f->probability = e->probability.invert ();
 	  f->count = b->count - e->count;
 	  return;
 	}
@@ -560,7 +561,7 @@ compute_outgoing_frequencies (basic_block b)
   else if (single_succ_p (b))
     {
       e = single_succ_edge (b);
-      e->probability = REG_BR_PROB_BASE;
+      e->probability = profile_probability::always ();
       e->count = b->count;
       return;
     }
@@ -656,7 +657,8 @@ find_many_sub_basic_blocks (sbitmap blocks)
 		  }
 		else
 		  uninitialized_src = true;
-		bb->frequency += EDGE_FREQUENCY (e);
+		if (e->probability.initialized_p ())
+		  bb->frequency += EDGE_FREQUENCY (e);
 	      }
 	    /* When some edges are missing with read profile, this is
 	       most likely because RTL expansion introduced loop.
@@ -671,10 +673,18 @@ find_many_sub_basic_blocks (sbitmap blocks)
 		     && profile_status_for_fn (cfun) != PROFILE_READ))
 	      bb->count = profile_count::uninitialized ();
 	  }
-	else
-	  /* If nothing changed, there is no need to create new BBs.  */
-	  if (EDGE_COUNT (bb->succs) == n_succs[bb->index])
+ 	/* If nothing changed, there is no need to create new BBs.  */
+	else if (EDGE_COUNT (bb->succs) == n_succs[bb->index])
+	  {
+	    /* In rare occassions RTL expansion might have mistakely assigned
+	       a probabilities different from what is in CFG.  This happens
+	       when we try to split branch to two but optimize out the
+	       second branch during the way. See PR81030.  */
+	    if (JUMP_P (BB_END (bb)) && any_condjump_p (BB_END (bb))
+		&& EDGE_COUNT (bb->succs) >= 2)
+	      update_br_prob_note (bb);
 	    continue;
+	  }
 
 	compute_outgoing_frequencies (bb);
       }

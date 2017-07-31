@@ -231,9 +231,8 @@ check_dtor_name (tree basetype, tree name)
   else if (identifier_p (name))
     {
       if ((MAYBE_CLASS_TYPE_P (basetype)
-	   && name == constructor_name (basetype))
-	  || (TREE_CODE (basetype) == ENUMERAL_TYPE
-	      && name == TYPE_IDENTIFIER (basetype)))
+	   || TREE_CODE (basetype) == ENUMERAL_TYPE)
+	  && name == constructor_name (basetype))
 	return true;
       else
 	name = get_type_value (name);
@@ -5424,8 +5423,8 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 {
   tree ctype;
   const vec<tree, va_gc> *non_static_args;
-  bool check_list_ctor;
-  bool check_converting;
+  bool check_list_ctor = false;
+  bool check_converting = false;
   unification_kind_t strict;
 
   if (!fns)
@@ -5436,7 +5435,7 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
   if (DECL_CONV_FN_P (fn))
     {
       check_list_ctor = false;
-      check_converting = !!(flags & LOOKUP_ONLYCONVERTING);
+      check_converting = (flags & LOOKUP_ONLYCONVERTING) != 0;
       if (flags & LOOKUP_NO_CONVERSION)
 	/* We're doing return_type(x).  */
 	strict = DEDUCE_CONV;
@@ -5453,17 +5452,12 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
     {
       if (DECL_CONSTRUCTOR_P (fn))
 	{
-	  check_list_ctor = !!(flags & LOOKUP_LIST_ONLY);
+	  check_list_ctor = (flags & LOOKUP_LIST_ONLY) != 0;
 	  /* For list-initialization we consider explicit constructors
 	     and complain if one is chosen.  */
 	  check_converting
 	    = ((flags & (LOOKUP_ONLYCONVERTING|LOOKUP_LIST_INIT_CTOR))
 	       == LOOKUP_ONLYCONVERTING);
-	}
-      else
-	{
-	  check_list_ctor = false;
-	  check_converting = false;
 	}
       strict = DEDUCE_CALL;
       ctype = conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE;
@@ -5477,9 +5471,6 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 
   for (lkp_iterator iter (fns); iter; ++iter)
     {
-      tree fn_first_arg;
-      const vec<tree, va_gc> *fn_args;
-
       fn = *iter;
 
       if (check_converting && DECL_NONCONVERTING_P (fn))
@@ -5487,10 +5478,13 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
       if (check_list_ctor && !is_list_ctor (fn))
 	continue;
 
-      /* Figure out which set of arguments to use.  */
+      tree fn_first_arg = NULL_TREE;
+      const vec<tree, va_gc> *fn_args = args;
+
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
 	{
-	  /* If this function is a non-static member and we didn't get an
+	  /* Figure out where the object arg comes from.  If this
+	     function is a non-static member and we didn't get an
 	     implicit object argument, move it out of args.  */
 	  if (first_arg == NULL_TREE)
 	    {
@@ -5506,12 +5500,6 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 
 	  fn_first_arg = first_arg;
 	  fn_args = non_static_args;
-	}
-      else
-	{
-	  /* Otherwise, just use the list of arguments provided.  */
-	  fn_first_arg = NULL_TREE;
-	  fn_args = args;
 	}
 
       if (TREE_CODE (fn) == TEMPLATE_DECL)
@@ -8340,7 +8328,10 @@ maybe_warn_class_memaccess (location_t loc, tree fndecl, tree *args)
   if (!dest || !TREE_TYPE (dest) || !POINTER_TYPE_P (TREE_TYPE (dest)))
     return;
 
-  STRIP_NOPS (dest);
+  /* Remove the outermost (usually implicit) conversion to the void*
+     argument type.  */
+  if (TREE_CODE (dest) == NOP_EXPR)
+    dest = TREE_OPERAND (dest, 0);
 
   tree srctype = NULL_TREE;
 
@@ -8357,7 +8348,7 @@ maybe_warn_class_memaccess (location_t loc, tree fndecl, tree *args)
   if (current_function_decl
       && (DECL_CONSTRUCTOR_P (current_function_decl)
 	  || DECL_DESTRUCTOR_P (current_function_decl))
-      && is_this_parameter (dest))
+      && is_this_parameter (tree_strip_nop_conversions (dest)))
     {
       tree ctx = DECL_CONTEXT (current_function_decl);
       bool special = same_type_ignoring_top_level_qualifiers_p (ctx, desttype);
@@ -8677,20 +8668,22 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
 tree
 in_charge_arg_for_name (tree name)
 {
- if (name == base_ctor_identifier
-      || name == base_dtor_identifier)
-    return integer_zero_node;
-  else if (name == complete_ctor_identifier)
-    return integer_one_node;
-  else if (name == complete_dtor_identifier)
-    return integer_two_node;
-  else if (name == deleting_dtor_identifier)
-    return integer_three_node;
+  if (IDENTIFIER_CTOR_P (name))
+    {
+      if (name == complete_ctor_identifier)
+	return integer_one_node;
+      gcc_checking_assert (name == base_ctor_identifier);
+    }
+  else
+    {
+      if (name == complete_dtor_identifier)
+	return integer_two_node;
+      else if (name == deleting_dtor_identifier)
+	return integer_three_node;
+      gcc_checking_assert (name == base_dtor_identifier);
+    }
 
-  /* This function should only be called with one of the names listed
-     above.  */
-  gcc_unreachable ();
-  return NULL_TREE;
+  return integer_zero_node;
 }
 
 /* We've built up a constructor call RET.  Complain if it delegates to the
@@ -8729,11 +8722,7 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
   vec<tree, va_gc> *allocated = NULL;
   tree ret;
 
-  gcc_assert (name == complete_ctor_identifier
-	      || name == base_ctor_identifier
-	      || name == complete_dtor_identifier
-	      || name == base_dtor_identifier
-	      || name == deleting_dtor_identifier
+  gcc_assert (IDENTIFIER_CDTOR_P (name)
 	      || name == cp_assignment_operator_id (NOP_EXPR));
   if (TYPE_P (binfo))
     {
@@ -8753,9 +8742,7 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
     instance = build_dummy_object (class_type);
   else
     {
-      if (name == complete_dtor_identifier
-	  || name == base_dtor_identifier
-	  || name == deleting_dtor_identifier)
+      if (IDENTIFIER_DTOR_P (name))
 	gcc_assert (args == NULL || vec_safe_is_empty (*args));
 
       /* Convert to the base class, if necessary.  */
@@ -8879,7 +8866,7 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
 static char *
 name_as_c_string (tree name, tree type, bool *free_p)
 {
-  char *pretty_name;
+  const char *pretty_name;
 
   /* Assume that we will not allocate memory.  */
   *free_p = false;
@@ -8887,7 +8874,7 @@ name_as_c_string (tree name, tree type, bool *free_p)
   if (IDENTIFIER_CDTOR_P (name))
     {
       pretty_name
-	= CONST_CAST (char *, identifier_to_locale (IDENTIFIER_POINTER (constructor_name (type))));
+	= identifier_to_locale (IDENTIFIER_POINTER (constructor_name (type)));
       /* For a destructor, add the '~'.  */
       if (IDENTIFIER_DTOR_P (name))
 	{
@@ -8906,9 +8893,9 @@ name_as_c_string (tree name, tree type, bool *free_p)
       *free_p = true;
     }
   else
-    pretty_name = CONST_CAST (char *, identifier_to_locale (IDENTIFIER_POINTER (name)));
+    pretty_name = identifier_to_locale (IDENTIFIER_POINTER (name));
 
-  return pretty_name;
+  return CONST_CAST (char *, pretty_name);
 }
 
 /* Build a call to "INSTANCE.FN (ARGS)".  If FN_P is non-NULL, it will
@@ -8996,6 +8983,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       if (! (complain & tf_error))
 	return error_mark_node;
 
+      name = constructor_name (basetype);
       if (permerror (input_location,
 		     "cannot call constructor %<%T::%D%> directly",
 		     basetype, name))
@@ -9004,26 +8992,6 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       call = build_functional_cast (basetype, build_tree_list_vec (user_args),
 				    complain);
       return call;
-    }
-
-  /* Figure out whether to skip the first argument for the error
-     message we will display to users if an error occurs.  We don't
-     want to display any compiler-generated arguments.  The "this"
-     pointer hasn't been added yet.  However, we must remove the VTT
-     pointer if this is a call to a base-class constructor or
-     destructor.  */
-  skip_first_for_error = false;
-  if (IDENTIFIER_CDTOR_P (name))
-    {
-      /* Callers should explicitly indicate whether they want to construct
-	 the complete object or just the part without virtual bases.  */
-      gcc_assert (name != ctor_identifier);
-      /* Similarly for destructors.  */
-      gcc_assert (name != dtor_identifier);
-      /* Remove the VTT pointer, if present.  */
-      if ((name == base_ctor_identifier || name == base_dtor_identifier)
-	  && CLASSTYPE_VBASECLASSES (basetype))
-	skip_first_for_error = true;
     }
 
   /* Process the argument list.  */
@@ -9038,12 +9006,28 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
      static member function.  */
   instance = mark_type_use (instance);
 
-  /* It's OK to call destructors and constructors on cv-qualified objects.
-     Therefore, convert the INSTANCE to the unqualified type, if
-     necessary.  */
-  if (DECL_DESTRUCTOR_P (fn)
-      || DECL_CONSTRUCTOR_P (fn))
+
+  /* Figure out whether to skip the first argument for the error
+     message we will display to users if an error occurs.  We don't
+     want to display any compiler-generated arguments.  The "this"
+     pointer hasn't been added yet.  However, we must remove the VTT
+     pointer if this is a call to a base-class constructor or
+     destructor.  */
+  skip_first_for_error = false;
+  if (IDENTIFIER_CDTOR_P (name))
     {
+      /* Callers should explicitly indicate whether they want to ctor
+	 the complete object or just the part without virtual bases.  */
+      gcc_assert (name != ctor_identifier);
+
+      /* Remove the VTT pointer, if present.  */
+      if ((name == base_ctor_identifier || name == base_dtor_identifier)
+	  && CLASSTYPE_VBASECLASSES (basetype))
+	skip_first_for_error = true;
+
+      /* It's OK to call destructors and constructors on cv-qualified
+	 objects.  Therefore, convert the INSTANCE to the unqualified
+	 type, if necessary.  */
       if (!same_type_p (basetype, TREE_TYPE (instance)))
 	{
 	  instance = build_this (instance);
@@ -9051,8 +9035,8 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	  instance = build_fold_indirect_ref (instance);
 	}
     }
-  if (DECL_DESTRUCTOR_P (fn))
-    name = complete_dtor_identifier;
+  else
+    gcc_assert (!DECL_DESTRUCTOR_P (fn) && !DECL_CONSTRUCTOR_P (fn));
 
   /* For the overload resolution we need to find the actual `this`
      that would be captured if the call turns out to be to a
@@ -9119,11 +9103,10 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 			   &candidates, complain);
     }
   else
-    {
-      add_candidates (fns, first_mem_arg, user_args, optype,
-		      explicit_targs, template_only, conversion_path,
-		      access_binfo, flags, &candidates, complain);
-    }
+    add_candidates (fns, first_mem_arg, user_args, optype,
+		    explicit_targs, template_only, conversion_path,
+		    access_binfo, flags, &candidates, complain);
+
   any_viable_p = false;
   candidates = splice_viable (candidates, false, &any_viable_p);
 
@@ -9141,17 +9124,18 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	    {
 	      tree arglist = build_tree_list_vec (user_args);
 	      tree errname = name;
+	      bool twiddle = false;
 	      if (IDENTIFIER_CDTOR_P (errname))
 		{
-		  tree fn = DECL_ORIGIN (OVL_FIRST (fns));
-		  errname = DECL_NAME (fn);
+		  twiddle = IDENTIFIER_DTOR_P (errname);
+		  errname = constructor_name (basetype);
 		}
 	      if (explicit_targs)
 		errname = lookup_template_function (errname, explicit_targs);
 	      if (skip_first_for_error)
 		arglist = TREE_CHAIN (arglist);
-	      error ("no matching function for call to %<%T::%E(%A)%#V%>",
-		     basetype, errname, arglist,
+	      error ("no matching function for call to %<%T::%s%E(%A)%#V%>",
+		     basetype, &"~"[!twiddle], errname, arglist,
 		     TREE_TYPE (instance));
 	    }
 	  print_z_candidates (location_of (name), candidates);

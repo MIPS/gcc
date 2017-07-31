@@ -5256,6 +5256,7 @@ cp_build_binary_op (location_t location,
 
   if (sanitize_flags_p ((SANITIZE_SHIFT
 			 | SANITIZE_DIVIDE | SANITIZE_FLOAT_DIVIDE))
+      && current_function_decl != NULL_TREE
       && !processing_template_decl
       && (doing_div_or_mod || doing_shift))
     {
@@ -6681,7 +6682,7 @@ maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
 	       ? xvalue_p (expr) : lvalue_p (expr))
 	   && same_type_p (TREE_TYPE (expr), TREE_TYPE (type)))
 	  || same_type_p (TREE_TYPE (expr), type))
-	warning (OPT_Wuseless_cast, "useless cast to type %qT", type);
+	warning (OPT_Wuseless_cast, "useless cast to type %q#T", type);
     }
 }
 

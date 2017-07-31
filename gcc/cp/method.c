@@ -137,8 +137,8 @@ make_thunk (tree function, bool this_adjusting,
   DECL_SAVED_FUNCTION_DATA (thunk) = NULL;
   /* The thunk itself is not a constructor or destructor, even if
      the thing it is thunking to is.  */
-  DECL_DESTRUCTOR_P (thunk) = 0;
-  DECL_CONSTRUCTOR_P (thunk) = 0;
+  DECL_CXX_DESTRUCTOR_P (thunk) = 0;
+  DECL_CXX_CONSTRUCTOR_P (thunk) = 0;
   DECL_EXTERNAL (thunk) = 1;
   DECL_ARTIFICIAL (thunk) = 1;
   /* The THUNK is not a pending inline, even if the FUNCTION is.  */
@@ -223,8 +223,8 @@ make_alias_for (tree target, tree newid)
   if (TREE_CODE (alias) == FUNCTION_DECL)
     {
       DECL_SAVED_FUNCTION_DATA (alias) = NULL;
-      DECL_DESTRUCTOR_P (alias) = 0;
-      DECL_CONSTRUCTOR_P (alias) = 0;
+      DECL_CXX_DESTRUCTOR_P (alias) = 0;
+      DECL_CXX_CONSTRUCTOR_P (alias) = 0;
       DECL_PENDING_INLINE_P (alias) = 0;
       DECL_DECLARED_INLINE_P (alias) = 0;
       DECL_INITIAL (alias) = error_mark_node;
@@ -1342,7 +1342,7 @@ walk_field_subobs (tree fields, tree fnname, special_function_kind sfk,
 	  if (bad && deleted_p)
 	    *deleted_p = true;
 	}
-      else if (sfk == sfk_constructor)
+      else if (sfk == sfk_constructor || sfk == sfk_inheriting_constructor)
 	{
 	  bool bad;
 
@@ -1808,10 +1808,8 @@ maybe_explain_implicit_delete (tree decl)
 	    informed = false;
 	}
       else if (DECL_ARTIFICIAL (decl)
-	       && (sfk == sfk_copy_assignment
-		   || sfk == sfk_copy_constructor)
-	       && (type_has_user_declared_move_constructor (ctype)
-		   || type_has_user_declared_move_assign (ctype)))
+	       && (sfk == sfk_copy_assignment || sfk == sfk_copy_constructor)
+	       && classtype_has_move_assign_or_move_ctor_p (ctype, true))
 	{
 	  inform (DECL_SOURCE_LOCATION (decl),
 		  "%q#D is implicitly declared as deleted because %qT "
@@ -1968,12 +1966,12 @@ implicitly_declare_fn (special_function_kind kind, tree type,
     {
     case sfk_destructor:
       /* Destructor.  */
-      name = constructor_name (type);
+      name = dtor_identifier;
       break;
 
     case sfk_constructor:
       /* Default constructor.  */
-      name = constructor_name (type);
+      name = ctor_identifier;
       break;
 
     case sfk_copy_constructor:
@@ -1982,7 +1980,6 @@ implicitly_declare_fn (special_function_kind kind, tree type,
     case sfk_move_assignment:
     case sfk_inheriting_constructor:
     {
-      bool move_p;
       if (kind == sfk_copy_assignment
 	  || kind == sfk_move_assignment)
 	{
@@ -1990,7 +1987,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
 	  name = cp_assignment_operator_id (NOP_EXPR);
 	}
       else
-	name = constructor_name (type);
+	name = ctor_identifier;
 
       if (kind == sfk_inheriting_constructor)
 	parameter_types = inherited_parms;
@@ -2000,8 +1997,8 @@ implicitly_declare_fn (special_function_kind kind, tree type,
 	    rhs_parm_type = cp_build_qualified_type (type, TYPE_QUAL_CONST);
 	  else
 	    rhs_parm_type = type;
-	  move_p = (kind == sfk_move_assignment
-		    || kind == sfk_move_constructor);
+	  bool move_p = (kind == sfk_move_assignment
+			 || kind == sfk_move_constructor);
 	  rhs_parm_type = cp_build_reference_type (rhs_parm_type, move_p);
 
 	  parameter_types = tree_cons (NULL_TREE, rhs_parm_type, parameter_types);
@@ -2054,16 +2051,14 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   fn = build_lang_decl (FUNCTION_DECL, name, fn_type);
   if (kind != sfk_inheriting_constructor)
     DECL_SOURCE_LOCATION (fn) = DECL_SOURCE_LOCATION (TYPE_NAME (type));
-  if (kind == sfk_constructor || kind == sfk_copy_constructor
-      || kind == sfk_move_constructor || kind == sfk_inheriting_constructor)
-    DECL_CONSTRUCTOR_P (fn) = 1;
-  else if (kind == sfk_destructor)
-    DECL_DESTRUCTOR_P (fn) = 1;
+
+  if (!IDENTIFIER_CDTOR_P (name))
+    /* Assignment operator.  */
+    SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
+  else if (IDENTIFIER_CTOR_P (name))
+    DECL_CXX_CONSTRUCTOR_P (fn) = true;
   else
-    {
-      DECL_ASSIGNMENT_OPERATOR_P (fn) = 1;
-      SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
-    }
+    DECL_CXX_DESTRUCTOR_P (fn) = true;
 
   SET_DECL_ALIGN (fn, MINIMUM_METHOD_BOUNDARY);
 
@@ -2251,8 +2246,10 @@ after_nsdmi_defaulted_late_checks (tree t)
     return;
   if (t == error_mark_node)
     return;
-  for (tree fn = TYPE_METHODS (t); fn; fn = DECL_CHAIN (fn))
-    if (!DECL_ARTIFICIAL (fn) && DECL_DEFAULTED_IN_CLASS_P (fn))
+  for (tree fn = TYPE_FIELDS (t); fn; fn = DECL_CHAIN (fn))
+    if (!DECL_ARTIFICIAL (fn)
+	&& DECL_DECLARES_FUNCTION_P (fn)
+	&& DECL_DEFAULTED_IN_CLASS_P (fn))
       {
 	tree fn_spec = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn));
 	if (UNEVALUATED_NOEXCEPT_SPEC_P (fn_spec))
@@ -2375,31 +2372,34 @@ lazily_declare_fn (special_function_kind sfk, tree type)
   /* [class.copy]/8 If the class definition declares a move constructor or
      move assignment operator, the implicitly declared copy constructor is
      defined as deleted.... */
-  if ((sfk == sfk_copy_assignment
-       || sfk == sfk_copy_constructor)
-      && (type_has_user_declared_move_constructor (type)
-	  || type_has_user_declared_move_assign (type)))
+  if ((sfk == sfk_copy_assignment || sfk == sfk_copy_constructor)
+      && classtype_has_move_assign_or_move_ctor_p (type, true))
     DECL_DELETED_FN (fn) = true;
 
-  /* A destructor may be virtual.  */
+  /* Destructors and assignment operators may be virtual.  */
   if (sfk == sfk_destructor
       || sfk == sfk_move_assignment
       || sfk == sfk_copy_assignment)
     check_for_override (fn, type);
+
   /* Add it to CLASSTYPE_METHOD_VEC.  */
   bool added = add_method (type, fn, false);
   gcc_assert (added);
-  /* Add it to TYPE_METHODS.  */
+
+  /* Add it to TYPE_FIELDS.  */
   if (sfk == sfk_destructor
       && DECL_VIRTUAL_P (fn))
     /* The ABI requires that a virtual destructor go at the end of the
        vtable.  */
-    TYPE_METHODS (type) = chainon (TYPE_METHODS (type), fn);
+    TYPE_FIELDS (type) = chainon (TYPE_FIELDS (type), fn);
   else
     {
-      DECL_CHAIN (fn) = TYPE_METHODS (type);
-      TYPE_METHODS (type) = fn;
+      DECL_CHAIN (fn) = TYPE_FIELDS (type);
+      TYPE_FIELDS (type) = fn;
     }
+  /* Propagate TYPE_FIELDS.  */
+  fixup_type_variants (type);
+
   maybe_add_class_template_decl_list (type, fn, /*friend_p=*/0);
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)
       || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn))

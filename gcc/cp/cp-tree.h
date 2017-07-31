@@ -206,8 +206,19 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* std::align_val_t */
 #define align_type_node			cp_global_trees[CPTI_ALIGN_TYPE]
 
-/* We cache these tree nodes so as to call get_identifier less
-   frequently.  */
+/* We cache these tree nodes so as to call get_identifier less frequently.
+   For identifiers for functions, including special member functions such
+   as ctors and assignment operators, the nodes can be used (among other
+   things) to iterate over their overloads defined by/for a type.  For
+   example:
+
+     tree ovlid = cp_assignment_operator_id (NOP_EXPR);
+     tree overloads = lookup_fnfields_slot (type, ovlid);
+     for (ovl_iterator it (overloads); it; ++it) { ... }
+
+   iterates over the set of implicitly and explicitly defined overloads
+   of the assignment operator for type (including the copy and move
+   assignment operators, whether deleted or not).  */
 
 /* The name of a constructor that takes an in-charge parameter to
    decide whether or not to construct virtual base classes.  */
@@ -228,6 +239,18 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* The name of a destructor that destroys virtual base classes, and
    then deletes the entire object.  */
 #define deleting_dtor_identifier	cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
+
+/* The name of the identifier used internally to represent operator CODE.  */
+#define cp_operator_id(CODE) \
+  (operator_name_info[(int) (CODE)].identifier)
+
+/* The name of the identifier used to represent assignment operator CODE,
+   both simple (i.e., operator= with CODE == NOP_EXPR) and compound (e.g.,
+   operator+= with CODE == PLUS_EXPR).  Includes copy and move assignment.
+   Use copy_fn_p() to test specifically for copy assignment.  */
+#define cp_assignment_operator_id(CODE)				\
+  (assignment_operator_name_info[(int) (CODE)].identifier)
+
 #define delta_identifier		cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier		cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
 /* The name of the parameter that contains a pointer to the VTT to use
@@ -527,7 +550,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 struct GTY(()) lang_identifier {
   struct c_common_identifier c_common;
   cxx_binding *bindings;
-  tree class_template_info;
   tree label_value;
 };
 
@@ -953,9 +975,6 @@ enum GTY(()) abstract_class_use {
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
-
-#define IDENTIFIER_TEMPLATE(NODE)	\
-  (LANG_IDENTIFIER_CAST (NODE)->class_template_info)
 
 /* The IDENTIFIER_BINDING is the innermost cxx_binding for the
     identifier.  Its PREVIOUS is the next outermost binding.  Each
@@ -1772,10 +1791,6 @@ struct GTY(()) language_function {
 #define current_function_auto_return_pattern \
   (cp_function_chain->x_auto_return_pattern)
 
-#define cp_operator_id(CODE) \
-  (operator_name_info[(int) (CODE)].identifier)
-#define cp_assignment_operator_id(CODE) \
-  (assignment_operator_name_info[(int) (CODE)].identifier)
 /* In parser.c.  */
 extern tree cp_literal_operator_id (const char *);
 
@@ -1817,7 +1832,7 @@ enum languages { lang_c, lang_cplusplus };
 /* Set CLASS_TYPE_P for T to VAL.  T must be a class, struct, or
    union type.  */
 #define SET_CLASS_TYPE_P(T, VAL) \
-  (TYPE_LANG_FLAG_5 (T) = (VAL))
+  (TYPE_LANG_FLAG_5 (RECORD_OR_UNION_CHECK (T)) = (VAL))
 
 /* Nonzero if T is a class type.  Zero for template type parameters,
    typename types, and so forth.  */
@@ -1826,7 +1841,7 @@ enum languages { lang_c, lang_cplusplus };
 
 /* Nonzero if T is a class type but not an union.  */
 #define NON_UNION_CLASS_TYPE_P(T) \
-  (CLASS_TYPE_P (T) && TREE_CODE (T) != UNION_TYPE)
+  (TREE_CODE (T) == RECORD_TYPE && TYPE_LANG_FLAG_5 (T))
 
 /* Keep these checks in ascending code order.  */
 #define RECORD_OR_UNION_CODE_P(T)	\
@@ -2133,29 +2148,21 @@ struct GTY(()) lang_type {
    and the RECORD_TYPE for the class template otherwise.  */
 #define CLASSTYPE_DECL_LIST(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->decl_list)
 
-/* The slot in the CLASSTYPE_METHOD_VEC where constructors go.  */
-#define CLASSTYPE_CONSTRUCTOR_SLOT 0
-
-/* The slot in the CLASSTYPE_METHOD_VEC where destructors go.  */
-#define CLASSTYPE_DESTRUCTOR_SLOT 1
-
 /* The first slot in the CLASSTYPE_METHOD_VEC where conversion
    operators can appear.  */
-#define CLASSTYPE_FIRST_CONVERSION_SLOT 2
+#define CLASSTYPE_FIRST_CONVERSION_SLOT 0
 
 /* A FUNCTION_DECL or OVERLOAD for the constructors for NODE.  These
    are the constructors that take an in-charge parameter.  */
 #define CLASSTYPE_CONSTRUCTORS(NODE) \
-  ((*CLASSTYPE_METHOD_VEC (NODE))[CLASSTYPE_CONSTRUCTOR_SLOT])
+  (lookup_fnfields_slot_nolazy (NODE, ctor_identifier))
 
-/* A FUNCTION_DECL for the destructor for NODE.  These are the
+/* A FUNCTION_DECL for the destructor for NODE.  This is the
    destructors that take an in-charge parameter.  If
    CLASSTYPE_LAZY_DESTRUCTOR is true, then this entry will be NULL
    until the destructor is created with lazily_declare_fn.  */
-#define CLASSTYPE_DESTRUCTORS(NODE) \
-  (CLASSTYPE_METHOD_VEC (NODE)						      \
-   ? (*CLASSTYPE_METHOD_VEC (NODE))[CLASSTYPE_DESTRUCTOR_SLOT]		      \
-   : NULL_TREE)
+#define CLASSTYPE_DESTRUCTOR(NODE) \
+  (lookup_fnfields_slot_nolazy (NODE, dtor_identifier))
 
 /* A dictionary of the nested user-defined-types (class-types, or enums)
    found within this class.  This table includes nested member class
@@ -2182,11 +2189,9 @@ struct GTY(()) lang_type {
 
 /* The type corresponding to NODE when NODE is used as a base class,
    i.e., NODE without virtual base classes or tail padding.  */
-
 #define CLASSTYPE_AS_BASE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->as_base)
 
 /* True iff NODE is the CLASSTYPE_AS_BASE version of some type.  */
-
 #define IS_FAKE_BASE_TYPE(NODE)					\
   (TREE_CODE (NODE) == RECORD_TYPE				\
    && TYPE_CONTEXT (NODE) && CLASS_TYPE_P (TYPE_CONTEXT (NODE))	\
@@ -2495,25 +2500,27 @@ struct GTY(()) lang_decl_fn {
   struct lang_decl_min min;
 
   /* In an overloaded operator, this is the value of
-     DECL_OVERLOADED_OPERATOR_P.  */
+     DECL_OVERLOADED_OPERATOR_P.
+     FIXME: We should really do better in compressing this.  */
   ENUM_BITFIELD (tree_code) operator_code : 16;
 
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
-  unsigned assignment_operator_p : 1;
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
   unsigned defaulted_p : 1;
   unsigned has_in_charge_parm_p : 1;
   unsigned has_vtt_parm_p : 1;
-  
   unsigned pending_inline_p : 1;
+
   unsigned nonconverting : 1;
   unsigned thunk_p : 1;
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned omp_declare_reduction_p : 1;
-  /* 2 spare bits on 32-bit hosts, 34 on 64-bit hosts.  */
+  /* 3 spare bits.  */
+
+  /* 32-bits padding on 64-bit host.  */
 
   /* For a non-thunk function decl, this is a tree list of
      friendly classes. For a thunk function decl, it is the
@@ -2559,7 +2566,9 @@ struct GTY(()) lang_decl_ns {
   vec<tree, va_gc> *usings;
   vec<tree, va_gc> *inlinees;
 
-  /* Map from IDENTIFIER nodes to DECLS.  */
+  /* Map from IDENTIFIER nodes to DECLS.  It'd be nice to have this
+     inline, but as the hash_map has a dtor, we can't then put this
+     struct into a union (until moving to c++11).  */
   hash_map<lang_identifier *, tree> *bindings;
 };
 
@@ -2689,26 +2698,23 @@ struct GTY(()) lang_decl {
 /* For FUNCTION_DECLs and TEMPLATE_DECLs: nonzero means that this function
    is a constructor.  */
 #define DECL_CONSTRUCTOR_P(NODE) \
-  DECL_CXX_CONSTRUCTOR_P (STRIP_TEMPLATE (NODE))
+  IDENTIFIER_CTOR_P (DECL_NAME (NODE))
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a constructor for a complete
    object.  */
 #define DECL_COMPLETE_CONSTRUCTOR_P(NODE)		\
-  (DECL_CONSTRUCTOR_P (NODE)				\
-   && DECL_NAME (NODE) == complete_ctor_identifier)
+  (DECL_NAME (NODE) == complete_ctor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a constructor for a base
    object.  */
 #define DECL_BASE_CONSTRUCTOR_P(NODE)		\
-  (DECL_CONSTRUCTOR_P (NODE)			\
-   && DECL_NAME (NODE) == base_ctor_identifier)
+  (DECL_NAME (NODE) == base_ctor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a constructor, but not either the
    specialized in-charge constructor or the specialized not-in-charge
    constructor.  */
 #define DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P(NODE)		\
-  (DECL_DECLARES_FUNCTION_P (NODE) && DECL_CONSTRUCTOR_P (NODE) \
-   && !DECL_CLONED_FUNCTION_P (NODE))
+  (DECL_NAME (NODE) == ctor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a copy constructor.  */
 #define DECL_COPY_CONSTRUCTOR_P(NODE) \
@@ -2721,32 +2727,28 @@ struct GTY(()) lang_decl {
 /* Nonzero if NODE (a FUNCTION_DECL or TEMPLATE_DECL)
    is a destructor.  */
 #define DECL_DESTRUCTOR_P(NODE)				\
-  DECL_CXX_DESTRUCTOR_P (STRIP_TEMPLATE (NODE))
+  IDENTIFIER_DTOR_P (DECL_NAME (NODE))
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor, but not the
    specialized in-charge constructor, in-charge deleting constructor,
    or the base destructor.  */
 #define DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P(NODE)			\
-  (DECL_DECLARES_FUNCTION_P (NODE) && DECL_DESTRUCTOR_P (NODE)	\
-   && !DECL_CLONED_FUNCTION_P (NODE))
+  (DECL_NAME (NODE) == dtor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a complete
    object.  */
 #define DECL_COMPLETE_DESTRUCTOR_P(NODE)		\
-  (DECL_DESTRUCTOR_P (NODE)				\
-   && DECL_NAME (NODE) == complete_dtor_identifier)
+  (DECL_NAME (NODE) == complete_dtor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a base
    object.  */
 #define DECL_BASE_DESTRUCTOR_P(NODE)		\
-  (DECL_DESTRUCTOR_P (NODE)			\
-   && DECL_NAME (NODE) == base_dtor_identifier)
+  (DECL_NAME (NODE) == base_dtor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a complete
    object that deletes the object after it has been destroyed.  */
 #define DECL_DELETING_DESTRUCTOR_P(NODE)		\
-  (DECL_DESTRUCTOR_P (NODE)				\
-   && DECL_NAME (NODE) == deleting_dtor_identifier)
+  (DECL_NAME (NODE) == deleting_dtor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a cloned constructor or
    destructor.  */
@@ -2836,9 +2838,7 @@ struct GTY(()) lang_decl {
   (LANG_DECL_FN_CHECK (NODE)->operator_code = (CODE))
 
 /* If NODE is an overloaded operator, then this returns the TREE_CODE
-   associated with the overloaded operator.
-   DECL_ASSIGNMENT_OPERATOR_P must also be checked to determine
-   whether or not NODE is an assignment operator.  If NODE is not an
+   associated with the overloaded operator.  If NODE is not an
    overloaded operator, ERROR_MARK is returned.  Since the numerical
    value of ERROR_MARK is zero, this macro can be used as a predicate
    to test whether or not NODE is an overloaded operator.  */
@@ -2848,7 +2848,7 @@ struct GTY(()) lang_decl {
 
 /* Nonzero if NODE is an assignment operator (including += and such).  */
 #define DECL_ASSIGNMENT_OPERATOR_P(NODE) \
-  (LANG_DECL_FN_CHECK (NODE)->assignment_operator_p)
+  IDENTIFIER_ASSIGN_OP_P (DECL_NAME (NODE))
 
 /* For FUNCTION_DECLs: nonzero means that this function is a
    constructor or a destructor with an extra in-charge parameter to
@@ -3514,13 +3514,13 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define PACK_EXPANSION_PARAMETER_PACKS(NODE)		\
   *(TREE_CODE (NODE) == EXPR_PACK_EXPANSION		\
     ? &TREE_OPERAND (NODE, 1)				\
-    : &TYPE_MINVAL (TYPE_PACK_EXPANSION_CHECK (NODE)))
+    : &TYPE_MIN_VALUE_RAW (TYPE_PACK_EXPANSION_CHECK (NODE)))
 
 /* Any additional template args to be applied when substituting into
    the pattern, set by tsubst_pack_expansion for partial instantiations.  */
 #define PACK_EXPANSION_EXTRA_ARGS(NODE)		\
   *(TREE_CODE (NODE) == TYPE_PACK_EXPANSION	\
-    ? &TYPE_MAXVAL (NODE)			\
+    ? &TYPE_MAX_VALUE_RAW (NODE)			\
     : &TREE_OPERAND ((NODE), 2))
 
 /* True iff this pack expansion is within a function context.  */
@@ -4322,7 +4322,8 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* For a pointer-to-member constant `X::Y' this is the _DECL for
    `Y'.  */
-#define PTRMEM_CST_MEMBER(NODE) (((ptrmem_cst_t)PTRMEM_CST_CHECK (NODE))->member)
+#define PTRMEM_CST_MEMBER(NODE) \
+  (((ptrmem_cst_t)PTRMEM_CST_CHECK (NODE))->member)
 
 /* The expression in question for a TYPEOF_TYPE.  */
 #define TYPEOF_TYPE_EXPR(NODE) (TYPE_VALUES_RAW (TYPEOF_TYPE_CHECK (NODE)))
@@ -5202,14 +5203,6 @@ extern GTY(()) vec<tree, va_gc> *keyed_classes;
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
 
-#define THIS_NAME "this"
-
-#define IN_CHARGE_NAME "__in_chrg"
-
-#define VTBL_PTR_TYPE		"__vtbl_ptr_type"
-#define VTABLE_DELTA_NAME	"__delta"
-#define VTABLE_PFN_NAME		"__pfn"
-
 #define LAMBDANAME_PREFIX "__lambda"
 #define LAMBDANAME_FORMAT LAMBDANAME_PREFIX "%d"
 
@@ -6022,10 +6015,7 @@ extern tree default_init_uninitialized_part (tree);
 extern bool trivial_default_constructor_is_constexpr (tree);
 extern bool type_has_constexpr_default_constructor (tree);
 extern bool type_has_virtual_destructor		(tree);
-extern bool type_has_move_constructor		(tree);
-extern bool type_has_move_assign		(tree);
-extern bool type_has_user_declared_move_constructor (tree);
-extern bool type_has_user_declared_move_assign(tree);
+extern bool classtype_has_move_assign_or_move_ctor_p (tree, bool user_declared);
 extern bool type_build_ctor_call		(tree);
 extern bool type_build_dtor_call		(tree);
 extern void explain_non_literal_class		(tree);
@@ -6097,6 +6087,7 @@ extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
 extern bool check_omp_return			(void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
+extern tree build_typename_type			(tree, tree, tree, tag_types);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree build_library_fn_ptr		(const char *, tree, int);
 extern tree build_cp_library_fn_ptr		(const char *, tree, int);
@@ -6340,6 +6331,7 @@ extern void yyungetc				(int, int);
 extern tree unqualified_name_lookup_error	(tree,
 						 location_t = UNKNOWN_LOCATION);
 extern tree unqualified_fn_lookup_error		(cp_expr);
+extern tree make_conv_op_name			(tree);
 extern tree build_lang_decl			(enum tree_code, tree, tree);
 extern tree build_lang_decl_loc			(location_t, enum tree_code, tree, tree);
 extern void retrofit_lang_decl			(tree);
@@ -6581,10 +6573,9 @@ extern int accessible_p				(tree, tree, bool);
 extern int accessible_in_template_p		(tree, tree);
 extern tree lookup_field_1			(tree, tree, bool);
 extern tree lookup_field			(tree, tree, int, bool);
-extern int lookup_fnfields_1			(tree, tree);
 extern tree lookup_fnfields_slot		(tree, tree);
 extern tree lookup_fnfields_slot_nolazy		(tree, tree);
-extern int class_method_index_for_fn		(tree, tree);
+extern tree lookup_all_conversions		(tree);
 extern tree lookup_fnfields			(tree, tree, int);
 extern tree lookup_member			(tree, tree, int, bool,
 						 tsubst_flags_t,
@@ -6612,6 +6603,7 @@ extern tree dfs_walk_all (tree, tree (*) (tree, void *),
 extern tree dfs_walk_once (tree, tree (*) (tree, void *),
 			   tree (*) (tree, void *), void *);
 extern tree binfo_via_virtual			(tree, tree);
+extern bool binfo_direct_p			(tree);
 extern tree build_baselink			(tree, tree, tree, tree);
 extern tree adjust_result_of_qualified_name_lookup
 						(tree, tree, tree);
@@ -7194,7 +7186,6 @@ extern tree mangle_vtbl_for_type		(tree);
 extern tree mangle_vtt_for_type			(tree);
 extern tree mangle_ctor_vtbl_for_type		(tree, tree);
 extern tree mangle_thunk			(tree, int, tree, tree, tree);
-extern tree mangle_conv_op_name_for_type	(tree);
 extern tree mangle_guard_variable		(tree);
 extern tree mangle_tls_init_fn			(tree);
 extern tree mangle_tls_wrapper_fn		(tree);
@@ -7377,6 +7368,12 @@ extern void cp_ubsan_instrument_member_accesses (tree *);
 extern tree cp_ubsan_maybe_instrument_downcast	(location_t, tree, tree, tree);
 extern tree cp_ubsan_maybe_instrument_cast_to_vbase (location_t, tree, tree);
 extern void cp_ubsan_maybe_initialize_vtbl_ptrs (tree);
+
+#if CHECKING_P
+namespace selftest {
+  extern void run_cp_tests (void);
+} // namespace selftest
+#endif /* #if CHECKING_P */
 
 /* Inline bodies.  */
 

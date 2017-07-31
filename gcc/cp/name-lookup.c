@@ -2354,9 +2354,13 @@ do_pushdecl (tree decl, bool is_friend)
 	  ; /* Ignore using decls here.  */
 	else if (tree match = duplicate_decls (decl, *iter, is_friend))
 	  {
-	    if (iter.hidden_p ()
-		&& match != error_mark_node
-		&& !DECL_HIDDEN_P (match))
+	    if (match == error_mark_node)
+	      ;
+	    else if (TREE_CODE (match) == TYPE_DECL)
+	      /* The IDENTIFIER will have the type referring to the
+		 now-smashed TYPE_DECL, because ...?  Reset it.  */
+	      SET_IDENTIFIER_TYPE_VALUE (name, TREE_TYPE (match));
+	    else if (iter.hidden_p () && !DECL_HIDDEN_P (match))
 	      {
 		/* Unhiding a previously hidden decl.  */
 		tree head = iter.reveal_node (old);
@@ -2422,6 +2426,9 @@ do_pushdecl (tree decl, bool is_friend)
 	{
 	  ns = current_namespace;
 	  slot = find_namespace_slot (ns, name, true);
+	  /* Update OLD to reflect the namespace we're going to be
+	     pushing into.  */
+	  old = MAYBE_STAT_DECL (*slot);
 	}
 
       old = update_binding (level, binding, slot, old, decl, is_friend);
@@ -3183,27 +3190,14 @@ set_identifier_type_value (tree id, tree decl)
 }
 
 /* Return the name for the constructor (or destructor) for the
-   specified class TYPE.  When given a template, this routine doesn't
-   lose the specialization.  */
-
-static inline tree
-constructor_name_full (tree type)
-{
-  return TYPE_IDENTIFIER (TYPE_MAIN_VARIANT (type));
-}
-
-/* Return the name for the constructor (or destructor) for the
-   specified class.  When given a template, return the plain
-   unspecialized name.  */
+   specified class.  */
 
 tree
 constructor_name (tree type)
 {
-  tree name;
-  name = constructor_name_full (type);
-  if (IDENTIFIER_TEMPLATE (name))
-    name = IDENTIFIER_TEMPLATE (name);
-  return name;
+  tree decl = TYPE_NAME (TYPE_MAIN_VARIANT (type));
+
+  return decl ? DECL_NAME (decl) : NULL_TREE;
 }
 
 /* Returns TRUE if NAME is the name for the constructor for TYPE,
@@ -3212,27 +3206,16 @@ constructor_name (tree type)
 bool
 constructor_name_p (tree name, tree type)
 {
-  tree ctor_name;
-
   gcc_assert (MAYBE_CLASS_TYPE_P (type));
-
-  if (!name)
-    return false;
-
-  if (!identifier_p (name))
-    return false;
 
   /* These don't have names.  */
   if (TREE_CODE (type) == DECLTYPE_TYPE
       || TREE_CODE (type) == TYPEOF_TYPE)
     return false;
 
-  ctor_name = constructor_name_full (type);
-  if (name == ctor_name)
+  if (name && name == constructor_name (type))
     return true;
-  if (IDENTIFIER_TEMPLATE (ctor_name)
-      && name == IDENTIFIER_TEMPLATE (ctor_name))
-    return true;
+
   return false;
 }
 
@@ -3981,7 +3964,7 @@ push_class_level_binding_1 (tree name, tree x)
        /* A data member of an anonymous union.  */
        || (TREE_CODE (x) == FIELD_DECL
 	   && DECL_CONTEXT (x) != current_class_type))
-      && DECL_NAME (x) == constructor_name (current_class_type))
+      && DECL_NAME (x) == DECL_NAME (TYPE_NAME (current_class_type)))
     {
       tree scope = context_for_name_lookup (x);
       if (TYPE_P (scope) && same_type_p (scope, current_class_type))
@@ -4191,8 +4174,7 @@ do_class_using_decl (tree scope, tree name)
 	      return NULL_TREE;
 	    }
 	}
-      else if (name == ctor_identifier
-	       && BINFO_INHERITANCE_CHAIN (BINFO_INHERITANCE_CHAIN (binfo)))
+      else if (name == ctor_identifier && !binfo_direct_p (binfo))
 	{
 	  error ("cannot inherit constructors from indirect base %qT", scope);
 	  return NULL_TREE;
@@ -4778,7 +4760,7 @@ suggest_alternatives_for (location_t location, tree name,
 /* Subroutine of maybe_suggest_missing_header for handling unrecognized names
    for some of the most common names within "std::".
    Given non-NULL NAME, a name for lookup within "std::", return the header
-   name defining it within the C++ Standard Library (without '<' and '>'),
+   name defining it within the C++ Standard Library (with '<' and '>'),
    or NULL.  */
 
 static const char *
@@ -4791,61 +4773,61 @@ get_std_name_hint (const char *name)
   };
   static const std_name_hint hints[] = {
     /* <array>.  */
-    {"array", "array"}, // C++11
+    {"array", "<array>"}, // C++11
     /* <deque>.  */
-    {"deque", "deque"},
+    {"deque", "<deque>"},
     /* <forward_list>.  */
-    {"forward_list", "forward_list"},  // C++11
+    {"forward_list", "<forward_list>"},  // C++11
     /* <fstream>.  */
-    {"basic_filebuf", "fstream"},
-    {"basic_ifstream", "fstream"},
-    {"basic_ofstream", "fstream"},
-    {"basic_fstream", "fstream"},
+    {"basic_filebuf", "<fstream>"},
+    {"basic_ifstream", "<fstream>"},
+    {"basic_ofstream", "<fstream>"},
+    {"basic_fstream", "<fstream>"},
     /* <iostream>.  */
-    {"cin", "iostream"},
-    {"cout", "iostream"},
-    {"cerr", "iostream"},
-    {"clog", "iostream"},
-    {"wcin", "iostream"},
-    {"wcout", "iostream"},
-    {"wclog", "iostream"},
+    {"cin", "<iostream>"},
+    {"cout", "<iostream>"},
+    {"cerr", "<iostream>"},
+    {"clog", "<iostream>"},
+    {"wcin", "<iostream>"},
+    {"wcout", "<iostream>"},
+    {"wclog", "<iostream>"},
     /* <list>.  */
-    {"list", "list"},
+    {"list", "<list>"},
     /* <map>.  */
-    {"map", "map"},
-    {"multimap", "map"},
+    {"map", "<map>"},
+    {"multimap", "<map>"},
     /* <queue>.  */
-    {"queue", "queue"},
-    {"priority_queue", "queue"},
+    {"queue", "<queue>"},
+    {"priority_queue", "<queue>"},
     /* <ostream>.  */
-    {"ostream", "ostream"},
-    {"wostream", "ostream"},
-    {"ends", "ostream"},
-    {"flush", "ostream"},
-    {"endl", "ostream"},
+    {"ostream", "<ostream>"},
+    {"wostream", "<ostream>"},
+    {"ends", "<ostream>"},
+    {"flush", "<ostream>"},
+    {"endl", "<ostream>"},
     /* <set>.  */
-    {"set", "set"},
-    {"multiset", "set"},
+    {"set", "<set>"},
+    {"multiset", "<set>"},
     /* <sstream>.  */
-    {"basic_stringbuf", "sstream"},
-    {"basic_istringstream", "sstream"},
-    {"basic_ostringstream", "sstream"},
-    {"basic_stringstream", "sstream"},
+    {"basic_stringbuf", "<sstream>"},
+    {"basic_istringstream", "<sstream>"},
+    {"basic_ostringstream", "<sstream>"},
+    {"basic_stringstream", "<sstream>"},
     /* <stack>.  */
-    {"stack", "stack"},
+    {"stack", "<stack>"},
     /* <string>.  */
-    {"string", "string"},
-    {"wstring", "string"},
-    {"u16string", "string"},
-    {"u32string", "string"},
+    {"string", "<string>"},
+    {"wstring", "<string>"},
+    {"u16string", "<string>"},
+    {"u32string", "<string>"},
     /* <unordered_map>.  */
-    {"unordered_map", "unordered_map"}, // C++11
-    {"unordered_multimap", "unordered_map"}, // C++11
+    {"unordered_map", "<unordered_map>"}, // C++11
+    {"unordered_multimap", "<unordered_map>"}, // C++11
     /* <unordered_set>.  */
-    {"unordered_set", "unordered_set"}, // C++11
-    {"unordered_multiset", "unordered_set"}, // C++11
+    {"unordered_set", "<unordered_set>"}, // C++11
+    {"unordered_multiset", "<unordered_set>"}, // C++11
     /* <vector>.  */
-    {"vector", "vector"},
+    {"vector", "<vector>"},
   };
   const size_t num_hints = sizeof (hints) / sizeof (hints[0]);
   for (size_t i = 0; i < num_hints; i++)
@@ -4876,10 +4858,14 @@ maybe_suggest_missing_header (location_t location, tree name, tree scope)
   const char *name_str = IDENTIFIER_POINTER (name);
   const char *header_hint = get_std_name_hint (name_str);
   if (header_hint)
-    inform (location,
-	    "%<std::%s%> is defined in header %<<%s>%>;"
-	    " did you forget to %<#include <%s>%>?",
-	    name_str, header_hint, header_hint);
+    {
+      gcc_rich_location richloc (location);
+      maybe_add_include_fixit (&richloc, header_hint);
+      inform_at_rich_loc (&richloc,
+			  "%<std::%s%> is defined in header %qs;"
+			  " did you forget to %<#include %s%>?",
+			  name_str, header_hint, header_hint);
+    }
 }
 
 /* Look for alternatives for NAME, an IDENTIFIER_NODE for which name
@@ -6059,11 +6045,12 @@ add_using_namespace (vec<tree, va_gc> *&usings, tree target)
 /* Tell the debug system of a using directive.  */
 
 static void
-emit_debug_info_using_namespace (tree from, tree target)
+emit_debug_info_using_namespace (tree from, tree target, bool implicit)
 {
   /* Emit debugging info.  */
   tree context = from != global_namespace ? from : NULL_TREE;
-  debug_hooks->imported_module_or_decl (target, NULL_TREE, context, false);
+  debug_hooks->imported_module_or_decl (target, NULL_TREE, context, false,
+					implicit);
 }
 
 /* Process a namespace-scope using directive.  */
@@ -6078,7 +6065,7 @@ finish_namespace_using_directive (tree target, tree attribs)
   add_using_namespace (DECL_NAMESPACE_USING (current_namespace),
 		       ORIGINAL_NAMESPACE (target));
   emit_debug_info_using_namespace (current_namespace,
-				   ORIGINAL_NAMESPACE (target));
+				   ORIGINAL_NAMESPACE (target), false);
 
   if (attribs == error_mark_node)
     return;
@@ -6237,14 +6224,14 @@ push_namespace (tree name, bool make_inline)
 	  else if (TREE_PUBLIC (current_namespace))
 	    TREE_PUBLIC (ns) = 1;
 
-	  if (name == anon_identifier || make_inline)
-	    emit_debug_info_using_namespace (current_namespace, ns);
-
 	  if (make_inline)
 	    {
 	      DECL_NAMESPACE_INLINE_P (ns) = true;
 	      vec_safe_push (DECL_NAMESPACE_INLINEES (current_namespace), ns);
 	    }
+
+	  if (name == anon_identifier || make_inline)
+	    emit_debug_info_using_namespace (current_namespace, ns, true);
 	}
     }
 
@@ -6372,8 +6359,8 @@ cp_emit_debug_info_for_using (tree t, tree context)
 	  if (building_stmt_list_p ())
 	    add_stmt (build_stmt (input_location, USING_STMT, fn));
 	  else
-	    debug_hooks->imported_module_or_decl (fn,
-						  NULL_TREE, context, false);
+	    debug_hooks->imported_module_or_decl (fn, NULL_TREE, context,
+						  false, false);
 	}
     }
 }

@@ -1,3 +1,108 @@
+2017-07-31  Martin Liska  <mliska@suse.cz>
+
+	PR sanitize/81530
+	* c-ubsan.c (ubsan_maybe_instrument_array_ref):
+	Guard condition with flag_sanitize_p also with current_function_decl
+	non-null equality.
+	(ubsan_maybe_instrument_reference_or_call): Likewise.
+
+2017-07-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* c-format.c (asm_fprintf_char_table): Add 'z' to format_chars.
+
+2017-07-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (dump_generic_ada_node): Take into account signedness
+	for enumeral types.
+	(print_ada_declaration): Add missing guard for record types.
+
+2017-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/45784
+	* c-omp.c (c_finish_omp_for): If the condition is wrapped in
+	rhs of COMPOUND_EXPR(s), skip them and readd their lhs into
+	new COMPOUND_EXPRs around the rhs of the comparison.
+
+2017-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/81417
+	* c-warn.c (warn_for_sign_compare): Tweak the warning message.  Print
+	the types.
+
+2017-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-attribs.c (c_common_attribute_table): Add noipa attribute.
+	(handle_noipa_attribute): New function.
+
+2017-07-07  Torsten Duwe  <duwe@suse.de>
+
+	* c-attribs.c (c_common_attribute_table): Add entry for
+	"patchable_function_entry".
+
+2017-07-20  Nathan Sidwell  <nathan@acm.org>
+
+	Remove TYPE_METHODS.
+	* c-ada-spec.c (is_tagged_type, has_nontrivial_methods,
+	dump_ada_template, print_ada_methods,
+	print_ada_declaration): Member fns are on TYPE_FIELDS.
+
+2017-07-18  Nathan Sidwell  <nathan@acm.org>
+
+	* c-warn.c (warn_for_memset): Use TYPE_{MIN,MAX}_VALUE.
+
+2017-07-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (try_to_locate_new_include_insertion_point): New
+	function.
+	(per_file_includes_t): New typedef.
+	(added_includes_t): New typedef.
+	(added_includes): New variable.
+	(maybe_add_include_fixit): New function.
+	* c-common.h (maybe_add_include_fixit): New decl.
+
+2017-07-10  Martin Sebor  <msebor@redhat.com>
+
+	PR other/81345
+	* c.opt (-Wstringop-overflow): Set defaults in LangEnabledBy.
+
+2017-07-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (selftest::c_family_tests): New.
+	* c-common.h (selftest::run_c_tests): Move decl to c/c-lang.h.
+	(selftest::c_family_tests): New decl.
+
+2017-07-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/81231
+	* c-common.c (sync_resolve_size): Give error for pointers to incomplete
+	types.
+
+2017-07-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-warn.c (warn_if_unused_value): Remove WITH_CLEANUP_EXPR handling.
+
+2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/81128
+	* c-attribs.c (handle_alias_ifunc_attribute): Append ifunc alias
+	to a function declaration.
+
+2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR driver/79659
+	* c.opt: Add IntegerRange to various options.
+
+2017-06-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/80116
+	* c-common.h (warn_for_multistatement_macros): Declare.
+	* c-warn.c: Include "c-family/c-indentation.h".
+	(warn_for_multistatement_macros): New function.
+	* c.opt (Wmultistatement-macros): New option.
+	* c-indentation.c (guard_tinfo_to_string): No longer static.
+	Change the parameter type to "enum rid".  Handle RID_SWITCH.
+	* c-indentation.h (guard_tinfo_to_string): Declare.
+
 2017-06-23  Marc Glisse  <marc.glisse@inria.fr>
 
 	* c-common.c (c_common_nodes_and_builtins): Use builtin_structptr_types.

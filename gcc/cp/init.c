@@ -1718,7 +1718,6 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
                      tsubst_flags_t complain)
 {
   tree type = TREE_TYPE (exp);
-  tree ctor_name;
 
   /* It fails because there may not be a constructor which takes
      its own type as the first (or only parameter), but which does
@@ -1846,10 +1845,9 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
     }
    else
     {
-      if (true_exp == exp)
-	ctor_name = complete_ctor_identifier;
-      else
-	ctor_name = base_ctor_identifier;
+      tree ctor_name = (true_exp == exp
+			? complete_ctor_identifier : base_ctor_identifier);
+
       rval = build_special_member_call (exp, ctor_name, &parms, binfo, flags,
 					complain);
     }
@@ -3912,7 +3910,8 @@ finish_length_check (tree atype, tree iterator, tree obase, unsigned n)
 	}
       /* Don't check an array new when -fno-exceptions.  */
     }
-  else if (sanitize_flags_p (SANITIZE_BOUNDS))
+  else if (sanitize_flags_p (SANITIZE_BOUNDS)
+	   && current_function_decl != NULL_TREE)
     {
       /* Make sure the last element of the initializer is in bounds. */
       finish_expr_stmt
@@ -4582,8 +4581,7 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 	           && MAYBE_CLASS_TYPE_P (type) && !CLASSTYPE_FINAL (type)
 		   && TYPE_POLYMORPHIC_P (type))
 	    {
-	      tree dtor;
-	      dtor = CLASSTYPE_DESTRUCTORS (type);
+	      tree dtor = CLASSTYPE_DESTRUCTOR (type);
 	      if (!dtor || !DECL_VINDEX (dtor))
 		{
 		  if (CLASSTYPE_PURE_VIRTUALS (type))
@@ -4673,7 +4671,7 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
       /* If the destructor is non-virtual, there is no deleting
 	 variant.  Instead, we must explicitly call the appropriate
 	 `operator delete' here.  */
-      else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTORS (type))
+      else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTOR (type))
 	       && auto_delete == sfk_deleting_destructor)
 	{
 	  /* We will use ADDR multiple times so we must save it.  */
