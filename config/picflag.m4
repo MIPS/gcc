@@ -47,6 +47,10 @@ case "${$2}" in
     mips-sgi-irix6*)
 	# PIC is the default.
 	;;
+    nanomips*-*-linux*)
+	# FIXME: PIC not supported in the current version
+	PICFLAG=
+	;;
     rs6000-ibm-aix* | powerpc-ibm-aix*)
 	# All AIX code is PIC.
 	;;
