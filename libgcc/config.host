@@ -885,6 +885,11 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	esac
 	md_unwind_header=mips/linux-unwind.h
 	;;
+nanomips*-*-linux*)				# Linux nanoMIPS, either endian.
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} t-crtfm"
+	md_unwind_header=mips/linux-unwind.h
+	;;
 mips*-sde-elf*)
 	tmake_file="$tmake_file mips/t-crtstuff mips/t-mips16"
 	case "${with_newlib}" in

@@ -26,9 +26,11 @@ along with GCC; see the file COPYING3.  If not see
 #undef ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
+#ifndef NANOMIPS_SUPPORT
 /* If we don't set MASK_ABICALLS, we can't default to PIC.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT MASK_ABICALLS
+#endif
 
 #define TARGET_OS_CPP_BUILTINS()				\
   do {								\
@@ -52,6 +54,19 @@ along with GCC; see the file COPYING3.  If not see
 #undef MIPS_DEFAULT_GVALUE
 #define MIPS_DEFAULT_GVALUE 0
 
+#ifdef NANOMIPS_SUPPORT
+#undef GNU_USER_TARGET_LINK_SPEC
+#define GNU_USER_TARGET_LINK_SPEC "\
+  %{EB} %{EL} %{shared} \
+  %{!shared: \
+    %{!static: \
+      %{rdynamic:-export-dynamic} \
+      %{m64: -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "} \
+      %{m32: -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}} \
+    %{static}} \
+  %{m64:-m" GNU_USER_LINK_EMULATION64 "} \
+  %{m32:-m" GNU_USER_LINK_EMULATION32 "}"
+#else
 #undef GNU_USER_TARGET_LINK_SPEC
 #define GNU_USER_TARGET_LINK_SPEC "\
   %{G*} %{EB} %{EL} %{mips*} %{shared} \
@@ -65,13 +80,16 @@ along with GCC; see the file COPYING3.  If not see
   %{mabi=n32:-m" GNU_USER_LINK_EMULATIONN32 "} \
   %{mabi=64:-m" GNU_USER_LINK_EMULATION64 "} \
   %{mabi=32:-m" GNU_USER_LINK_EMULATION32 "}"
+#endif
 
 #undef LINK_SPEC
 #define LINK_SPEC GNU_USER_TARGET_LINK_SPEC
 
+#ifndef NANOMIPS_SUPPORT
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC \
   "%{!mno-abicalls:%{mplt:-call_nonpic;:-KPIC}}"
+#endif
 
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
@@ -88,11 +106,13 @@ along with GCC; see the file COPYING3.  If not see
 	fputc ( '\n', FILE);						\
  } while (0)
 
+#ifndef NANOMIPS_SUPPORT
 /* The glibc _mcount stub will save $v0 for us.  Don't mess with saving
    it, since ASM_OUTPUT_REG_PUSH/ASM_OUTPUT_REG_POP do not work in the
    presence of $gp-relative calls.  */
 #undef ASM_OUTPUT_REG_PUSH
 #undef ASM_OUTPUT_REG_POP
+#endif
 
 #undef LIB_SPEC
 #define LIB_SPEC GNU_USER_TARGET_LIB_SPEC
@@ -107,7 +127,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* -march=native handling only makes sense with compiler running on
    a MIPS chip.  */
-#if defined(__mips__)
+#if defined(__mips)
 extern const char *host_detect_local_cpu (int argc, const char **argv);
 # define EXTRA_SPEC_FUNCTIONS \
   { "local_cpu_detect", host_detect_local_cpu },
@@ -119,9 +139,17 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 # define MARCH_MTUNE_NATIVE_SPECS ""
 #endif
 
+#if DEFAULT_LIBC == LIBC_MUSL
+# define DEFAULT_LIBC_SPECS "%{!mglibc:-mmusl}"
+#else
+# define DEFAULT_LIBC_SPECS ""
+#endif
+
+#ifdef NANOMIPS_SUPPORT
 #define LINUX_DRIVER_SELF_SPECS \
   NO_SHARED_SPECS							\
   MARCH_MTUNE_NATIVE_SPECS,						\
+  DEFAULT_LIBC_SPECS,							\
   /* -mplt has no effect without -mno-shared.  Simplify later		\
      specs handling by removing a redundant option.  */			\
   "%{!mno-shared:%<mplt}",						\
@@ -129,6 +157,13 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   "%{mabi=64:%{!msym32:%<mplt}}",					\
   "%{!EB:%{!EL:%(endian_spec)}}",					\
   "%{!mabi=*: -" MULTILIB_ABI_DEFAULT "}"
+#else
+#define LINUX_DRIVER_SELF_SPECS \
+  NO_SHARED_SPECS							\
+  MARCH_MTUNE_NATIVE_SPECS,						\
+  "%{!EB:%{!EL:%(endian_spec)}}",					\
+  "%{!m32:%{!m64: -" MULTILIB_ABI_DEFAULT "}}"
+#endif
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS \
