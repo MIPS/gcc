@@ -393,10 +393,9 @@ init_tree_optimization_optabs (tree optnode)
   TREE_OPTIMIZATION_BASE_OPTABS (optnode) = this_target_optabs;
   struct target_optabs *tmp_optabs = (struct target_optabs *)
     TREE_OPTIMIZATION_OPTABS (optnode);
-  if (tmp_optabs)
-    memset (tmp_optabs, 0, sizeof (struct target_optabs));
-  else
+  if (!tmp_optabs)
     tmp_optabs = ggc_alloc<target_optabs> ();
+  memset (tmp_optabs, 0, sizeof (struct target_optabs));
 
   /* Generate a new set of optabs into tmp_optabs.  */
   init_all_optabs (tmp_optabs);
