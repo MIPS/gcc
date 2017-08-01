@@ -1,3 +1,9 @@
+2017-08-01  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-expand.c (expand_omp_target): Don't expect OMP_CLAUSE_WAIT_EXPR
+	to be a constant expression.
+
 2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* omp-expand.c (expand_omp_target): Add middle-end support for
