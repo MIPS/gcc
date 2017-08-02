@@ -14232,15 +14232,17 @@ expand_omp_target (struct omp_region *region)
 	for (; c; c = OMP_CLAUSE_CHAIN (c))
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WAIT)
 	    {
-	      if (tree_int_cst_compare (OMP_CLAUSE_WAIT_EXPR (c), noval) == 0)
+	      tree wait_expr = OMP_CLAUSE_WAIT_EXPR (c);
+
+	      if (TREE_CODE (wait_expr) == INTEGER_CST
+		  && tree_int_cst_compare (wait_expr, noval) == 0)
 		{
 		  noval_seen = true;
 		  continue;
 		}
 
 	      args.safe_push (fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-						integer_type_node,
-						OMP_CLAUSE_WAIT_EXPR (c)));
+						integer_type_node, wait_expr));
 	      num_waits++;
 	    }
 
