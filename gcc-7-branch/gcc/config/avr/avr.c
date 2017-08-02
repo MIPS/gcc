@@ -553,9 +553,9 @@ avr_optimize_casesi (rtx_insn *insns[6], rtx *xop)
   HOST_WIDE_INT hig_idx = low_idx + num_idx;
 
   // Maximum ranges of (un)signed QImode resp. HImode.
-  int imin = QImode == mode ? INT8_MIN : INT16_MIN;
-  int imax = QImode == mode ? INT8_MAX : INT16_MAX;
-  unsigned umax = QImode == mode ? UINT8_MAX : UINT16_MAX;
+  unsigned umax = QImode == mode ? 0xff : 0xffff;
+  int imax = QImode == mode ? 0x7f : 0x7fff;
+  int imin = -imax - 1;
 
   // Testing the case range and whether it fits into the range of the
   // (un)signed mode.  This test should actually always pass because it
@@ -10140,18 +10140,26 @@ avr_encode_section_info (tree decl, rtx rtl, int new_decl_p)
 
   if (new_decl_p
       && decl && DECL_P (decl)
-      && NULL_TREE == DECL_INITIAL (decl)
       && !DECL_EXTERNAL (decl)
       && avr_progmem_p (decl, DECL_ATTRIBUTES (decl)))
     {
-      // Don't warn for (implicit) aliases like in PR80462.
-      tree asmname = DECL_ASSEMBLER_NAME (decl);
-      varpool_node *node = varpool_node::get_for_asmname (asmname);
-      bool alias_p = node && node->alias;
+      if (!TREE_READONLY (decl))
+        {
+          // This might happen with C++ if stuff needs constructing.
+          error ("variable %q+D with dynamic initialization put "
+                 "into program memory area", decl);
+        }
+      else if (NULL_TREE == DECL_INITIAL (decl))
+        {
+          // Don't warn for (implicit) aliases like in PR80462.
+          tree asmname = DECL_ASSEMBLER_NAME (decl);
+          varpool_node *node = varpool_node::get_for_asmname (asmname);
+          bool alias_p = node && node->alias;
 
-      if (!alias_p)
-        warning (OPT_Wuninitialized, "uninitialized variable %q+D put into "
-                 "program memory area", decl);
+          if (!alias_p)
+            warning (OPT_Wuninitialized, "uninitialized variable %q+D put "
+                     "into program memory area", decl);
+        }
     }
 
   default_encode_section_info (decl, rtl, new_decl_p);
