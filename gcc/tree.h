@@ -1780,10 +1780,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define BLOCK_DIE(NODE) (BLOCK_CHECK (NODE)->block.die)
 
 
-/* Set when an inline entry label is emitted for a BLOCK.  See dwarf2out.c.  */
-#define BLOCK_INLINE_ENTRY_LABEL_USED_P(NODE) \
-  (BLOCK_CHECK (NODE)->base.default_def_flag)
-
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
 

@@ -23010,6 +23010,48 @@ block_die_hasher::equal (die_struct *x, die_struct *y)
   return x->decl_id == y->decl_id && x->die_parent == y->die_parent;
 }
 
+/* Hold information about markers for inlined entry points.  */
+struct GTY ((for_user)) inline_entry_data
+{
+  /* The block that's the inlined_function_outer_scope for an inlined
+     function.  */
+  tree block;
+
+  /* The label at the inlined entry point.  */
+  const char *label_pfx;
+  unsigned int label_num;
+
+  /* The view number to be used as the inlined entry point.  */
+  var_loc_view view;
+};
+
+struct inline_entry_data_hasher : ggc_ptr_hash <inline_entry_data>
+{
+  typedef tree compare_type;
+  static inline hashval_t hash (const inline_entry_data *);
+  static inline bool equal (const inline_entry_data *, const_tree);
+};
+
+/* Hash table routines for inline_entry_data.  */
+
+inline hashval_t
+inline_entry_data_hasher::hash (const inline_entry_data *data)
+{
+  return htab_hash_pointer (data->block);
+}
+
+inline bool
+inline_entry_data_hasher::equal (const inline_entry_data *data,
+				 const_tree block)
+{
+  return data->block == block;
+}
+
+/* Inlined entry points pending DIE creation in this compilation unit.  */
+
+static GTY(()) hash_table<inline_entry_data_hasher> *inline_entry_data_table;
+
+
 /* Return TRUE if DECL, which may have been previously generated as
    OLD_DIE, is a candidate for a DW_AT_specification.  DECLARATION is
    true if decl (or its origin) is either an extern declaration or a
@@ -23533,14 +23575,30 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       add_AT_low_high_pc (die, label, label_high, false);
     }
 
-  if (BLOCK_INLINE_ENTRY_LABEL_USED_P (stmt)
-      && (dwarf_version >= 3 || !dwarf_strict))
+  if (inline_entry_data **iedp
+      = !inline_entry_data_table ? NULL
+      : inline_entry_data_table->find_slot_with_hash (stmt,
+						      htab_hash_pointer (stmt),
+						      NO_INSERT))
     {
+      inline_entry_data *ied = *iedp;
       gcc_assert (debug_statement_frontiers);
       gcc_assert (inlined_function_outer_scope_p (stmt));
-      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL,
-				   BLOCK_NUMBER (stmt));
+      ASM_GENERATE_INTERNAL_LABEL (label, ied->label_pfx, ied->label_num);
       add_AT_lbl_id (die, DW_AT_entry_pc, label);
+
+      if (debug_variable_location_views && !RESETTING_VIEW_P (ied->view))
+	{
+	  if (!output_asm_line_debug_info ())
+	    add_AT_unsigned (die, DW_AT_GNU_entry_view, ied->view);
+	  else
+	    {
+	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", ied->view);
+	      add_AT_lbl_id (die, DW_AT_GNU_entry_view, label);
+	    }
+	}
+
+      inline_entry_data_table->clear_slot (iedp);
     }
 }
 
@@ -26830,8 +26888,6 @@ block_within_block_p (tree block, tree outer)
 static void
 dwarf2out_inline_entry (tree block)
 {
-  char label[MAX_ARTIFICIAL_LABEL_BYTES];
-
   gcc_assert (DECL_P (block_ultimate_origin (block)));
 
   gcc_checking_assert (block_within_block_p (block,
@@ -26841,12 +26897,40 @@ dwarf2out_inline_entry (tree block)
   gcc_assert (inlined_function_outer_scope_p (block));
   gcc_assert (!BLOCK_DIE (block));
 
-  if (BLOCK_INLINE_ENTRY_LABEL_USED_P (block))
+  /* If we can't represent it, don't bother.  */
+  if (!(dwarf_version >= 3 || !dwarf_strict))
+    return;
+
+  /* Can the entry point ever not be at the beginning of an
+     unfragmented lexical block?  */
+  if (!(BLOCK_FRAGMENT_CHAIN (block)
+	|| (cur_line_info_table && !RESETTING_VIEW_P (cur_line_info_table))))
+    return;
+
+  if (!inline_entry_data_table)
+    inline_entry_data_table
+      = hash_table<inline_entry_data_hasher>::create_ggc (10);
+
+
+  inline_entry_data **iedp
+    = inline_entry_data_table->find_slot_with_hash (block,
+						    htab_hash_pointer (block),
+						    INSERT);
+  if (*iedp)
     return; // gcc_unreachable ();
 
-  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL, BLOCK_NUMBER (block));
+  inline_entry_data *ied = *iedp = ggc_cleared_alloc<inline_entry_data> ();
+  ied->block = block;
+  ied->label_pfx = BLOCK_INLINE_ENTRY_LABEL;
+  ied->label_num = BLOCK_NUMBER (block);
+  if (cur_line_info_table)
+    ied->view = cur_line_info_table->view;
+
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_INLINE_ENTRY_LABEL,
+			       BLOCK_NUMBER (block));
   ASM_OUTPUT_LABEL (asm_out_file, label);
-  BLOCK_INLINE_ENTRY_LABEL_USED_P (block) = true;
 }
 
 /* Called from finalize_size_functions for size functions so that their body
