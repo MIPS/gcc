@@ -7967,6 +7967,44 @@ mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
 }
 
+
+/* Return the size of the INCOMING_REG_PARM_STACK_SPACE area for FUN.  */
+
+int
+mips_incoming_reg_parm_stack_space (tree fun)
+{
+  tree fntype, parm;
+
+  if (!TARGET_PABI)
+    return 0;
+
+  /* GCC is calling a library function.  */
+  if (!fun)
+    return 0;
+
+  fntype = fun;
+  if (!TYPE_P (fun))
+    fntype = TREE_TYPE (fun);
+
+  /* Functions with varargs are handled separately.  */
+  if (stdarg_p (fntype))
+    return 0;
+
+  /* If address of parameter is taken.  */
+  for (parm = DECL_ARGUMENTS (fun);
+       parm && parm != void_list_node;
+       parm = TREE_CHAIN (parm))
+    if (TREE_ADDRESSABLE (parm))
+      {
+	cfun->machine->reg_param_stack_space =
+		MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD;
+	return cfun->machine->reg_param_stack_space;
+      }
+
+  /* Return 0 for everything else.  */
+  return 0;
+}
+
 /* Implement TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
@@ -13412,6 +13450,7 @@ mips_compute_frame_info_oabi_nabi (void)
       && flag_frame_header_optimization
       && !MAIN_NAME_P (DECL_NAME (current_function_decl))
       && cfun->machine->varargs_size == 0
+      && cfun->machine->reg_param_stack_space == 0
       && crtl->args.pretend_args_size == 0
       && frame->var_size == 0
       && frame->num_acc == 0
@@ -14146,6 +14185,13 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
   /* Let's limit the use of this function to nanoMIPS for now to avoid
      accidental use for other ISAs.  */
   gcc_assert (TARGET_NANOMIPS);
+
+  /* Create GP-arg-save-area in callee.  */
+  if (!step_for_args && cfun->machine->reg_param_stack_space)
+    {
+      step_for_args = cfun->machine->reg_param_stack_space;
+      step += step_for_args;
+    }
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
@@ -16159,6 +16205,7 @@ mips_can_use_return_insn (void)
      We then catch remaining cases in the reorg pass.  */
   return !mips_can_use_simple_return_insn ()
 	 && cfun->machine->varargs_size == 0
+	 && cfun->machine->reg_param_stack_space == 0
 	 && crtl->args.pretend_args_size == 0
 	 && cfun->machine->frame.num_fp == 0
 	 && cfun->machine->frame.num_acc == 0
