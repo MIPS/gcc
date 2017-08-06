@@ -13571,10 +13571,11 @@ output_probe_stack_range (rtx reg, rtx end)
   return "";
 }
 
-/* Finalize stack_realign_needed flag, which will guide prologue/epilogue
-   to be generated in correct form.  */
+/* Finalize stack_realign_needed and frame_pointer_needed flags, which
+   will guide prologue/epilogue to be generated in correct form.  */
+
 static void
-ix86_finalize_stack_realign_flags (void)
+ix86_finalize_stack_frame_flags (void)
 {
   /* Check if stack realign is really needed after reload, and
      stores result in cfun */
@@ -13596,13 +13597,13 @@ ix86_finalize_stack_realign_flags (void)
     }
 
   /* If the only reason for frame_pointer_needed is that we conservatively
-     assumed stack realignment might be needed, but in the end nothing that
-     needed the stack alignment had been spilled, clear frame_pointer_needed
-     and say we don't need stack realignment.  */
-  if (stack_realign
+     assumed stack realignment might be needed or -fno-omit-frame-pointer
+     is used, but in the end nothing that needed the stack alignment had
+     been spilled nor stack access, clear frame_pointer_needed and say we
+     don't need stack realignment.  */
+  if ((stack_realign || !flag_omit_frame_pointer)
       && frame_pointer_needed
       && crtl->is_leaf
-      && flag_omit_frame_pointer
       && crtl->sp_is_unchanging
       && !ix86_current_function_calls_tls_descriptor
       && !crtl->accesses_prior_frames
@@ -13709,7 +13710,7 @@ ix86_expand_prologue (void)
   bool sse_registers_saved;
   rtx static_chain = NULL_RTX;
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
 
   /* DRAP should not coexist with stack_realign_fp */
   gcc_assert (!(crtl->drap_reg && stack_realign_fp));
@@ -14393,7 +14394,7 @@ ix86_expand_epilogue (int style)
   bool restore_regs_via_mov;
   bool using_drap;
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
   ix86_compute_frame_layout (&frame);
 
   m->fs.sp_valid = (!frame_pointer_needed
@@ -14903,7 +14904,7 @@ ix86_expand_split_stack_prologue (void)
 
   gcc_assert (flag_split_stack && reload_completed);
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
   ix86_compute_frame_layout (&frame);
   allocate = frame.stack_pointer_offset - INCOMING_FRAME_SP_OFFSET;
 
