@@ -14159,9 +14159,9 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
       && !restore)
     {
       unsigned zero_mask = 0;
-      rtx save = mips_build_save_restore (restore_p, &zero_mask, &offset,
-					  0/*nargs*/, step_for_args,
-					  false, false);
+      rtx save = gen_add3_insn (stack_pointer_rtx,
+				stack_pointer_rtx,
+				GEN_INT(-step_for_args));
       if (save)
 	{
 	  RTX_FRAME_RELATED_P (emit_insn (save)) = 1;
@@ -14255,10 +14255,9 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
     {
       unsigned int zero_mask = 0;
 
-      rtx restore = mips_build_save_restore (restore_p, &zero_mask,
-					     &offset, 0,
-					     step_for_args,
-					     false, false);
+      rtx restore = gen_add3_insn (stack_pointer_rtx,
+				   stack_pointer_rtx,
+				   GEN_INT(step_for_args));
       if (restore)
 	{
 	  RTX_FRAME_RELATED_P (emit_insn (restore)) = 1;
