@@ -3183,7 +3183,7 @@ mips_string_constant_p (rtx x)
       && GET_CODE (XEXP (x, 0)) == PLUS)
     x = XEXP (XEXP (x, 0), 0);
 
-  if (TARGET_LI48 >= 2 && GET_CODE (x) == SYMBOL_REF)
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF)
     return true;
 
   if (GET_CODE (x) == SYMBOL_REF
@@ -24359,10 +24359,9 @@ class pass_optimize_multi_refs : public rtl_opt_pass
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return (TARGET_MICROMIPS
-	      || TARGET_NANOMIPS == NANOMIPS_NMF)
-	     && TARGET_OPTIMIZE_MULTIPLE_REFS
-	     && (TARGET_LI48 || TARGET_ADDIUPC32);
+      return (TARGET_NANOMIPS == NANOMIPS_NMF
+	      && TARGET_OPTIMIZE_MULTIPLE_REFS
+	      && (TARGET_LI48 || TARGET_ADDIUPC32));
     }
 
   virtual unsigned int execute (function *);
