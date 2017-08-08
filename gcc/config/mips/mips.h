@@ -1443,7 +1443,7 @@ struct mips_cpu_info {
 
 /* ISA includes the bbit* instructions.  */
 #define ISA_HAS_BBIT		((TARGET_OCTEON && !TARGET_MIPS16)	\
-				 || (TARGET_NANOMIPS		\
+				 || (TARGET_NANOMIPS == NANOMIPS_NMF	\
 				     && TARGET_BRANCH_ON_BIT))
 
 /* ISA includes the cins instruction.  */
