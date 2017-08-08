@@ -21,7 +21,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "memory_operand" "=ZA")
 	     (match_operand:SI 2 "register_operand" "r"))])]
-  "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP)
+  "(ISA_HAS_LWM_SWM || ISA_HAS_NEW_LWM_SWM)
    && mips_word_multiple_pattern_p (true, operands[0])"
   { return mips_output_word_multiple (true, operands[0]); }
   [(set_attr "type" "multimem")
@@ -32,7 +32,7 @@
   [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
 			  (match_operand:SI 1 "" ""))
 		     (use (match_operand:SI 2 "" ""))])]
-  "ISA_HAS_LWP_SWP"
+  "ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM"
 {
   int regno;
   int count;
@@ -41,9 +41,9 @@
   int i;
 
   if (GET_CODE (operands[2]) != CONST_INT
-      || (!TARGET_LWP_SWP && INTVAL (operands[2]) != 2)
-      || (TARGET_LWP_SWP && INTVAL (operands[2]) > 8)
-      || (TARGET_LWP_SWP && INTVAL (operands[2]) < 2)
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) > 8)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) < 2)
       || GET_CODE (operands[0]) != MEM
       || GET_CODE (operands[1]) != REG)
     FAIL;
@@ -68,7 +68,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "register_operand" "=r")
 	     (match_operand:SI 2 "memory_operand" "ZA"))])]
-  "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP)
+  "(ISA_HAS_LWM_SWM || ISA_HAS_NEW_LWM_SWM)
    && mips_word_multiple_pattern_p (false, operands[0])"
   { return mips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")
@@ -79,7 +79,7 @@
   [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
 			  (match_operand:SI 1 "" ""))
 		     (use (match_operand:SI 2 "" ""))])]
-  "ISA_HAS_LWP_SWP"
+  "ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM"
 {
   int regno;
   int count;
@@ -88,9 +88,9 @@
   int i;
 
   if (GET_CODE (operands[2]) != CONST_INT
-      || (!TARGET_LWP_SWP && INTVAL (operands[2]) != 2)
-      || (TARGET_LWP_SWP && INTVAL (operands[2]) > 8)
-      || (TARGET_LWP_SWP && INTVAL (operands[2]) < 2)
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) > 8)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) < 2)
       || GET_CODE (operands[1]) != MEM
       || GET_CODE (operands[0]) != REG)
     FAIL;
@@ -114,7 +114,7 @@
         (match_operand:SI 1 "non_volatile_mem_operand" ""))
    (set (match_operand:SI 2 "d_operand" "")
         (match_operand:SI 3 "non_volatile_mem_operand" ""))]
-  "ISA_HAS_LWP_SWP
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
    && umips_load_store_pair_p (true, operands)"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
@@ -126,7 +126,7 @@
 	      (set (match_operand:SI 2 "register_operand" "=d")
 		   (match_operand:SI 3 "non_volatile_mem_operand" "ZP"))])]
 
-  "ISA_HAS_LWP_SWP
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
    && umips_load_store_pair_p (true, operands)"
 {
   umips_output_load_store_pair (true, operands);

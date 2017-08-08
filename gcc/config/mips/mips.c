@@ -25753,7 +25753,7 @@ mips_word_multiple_pattern_p (bool store_p, rtx pattern)
   rtx first_base = 0;
   unsigned int regmask = 0;
 
-  if (TARGET_LWP_SWP)
+  if (ISA_HAS_NEW_LWM_SWM)
     return nanomips_word_multiple_pattern_p (store_p, pattern);
 
   for (n = 0; n < XVECLEN (pattern, 0); n++)
@@ -25838,7 +25838,7 @@ mips_output_word_multiple (bool store_p, rtx pattern)
   HOST_WIDE_INT offset;
   rtx base, mem, set, last_set, last_reg;
 
-  if (TARGET_LWP_SWP)
+  if (ISA_HAS_NEW_LWM_SWM)
     return nanomips_output_word_multiple (store_p, pattern);
 
   /* Parse the pattern.  */
@@ -25914,10 +25914,10 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   if (offset2 != offset1 + 4)
     return false;
 
-  if (TARGET_LWP_SWP && !MIPS_9BIT_OFFSET_P (offset1))
+  if (ISA_HAS_NEW_LWM_SWM && !MIPS_9BIT_OFFSET_P (offset1))
     return false;
 
-  if (!TARGET_LWP_SWP && !UMIPS_12BIT_OFFSET_P (offset1))
+  if (ISA_HAS_LWP_SWP && !UMIPS_12BIT_OFFSET_P (offset1))
     return false;
 
   return true;
@@ -26267,7 +26267,7 @@ umips_output_load_store_pair_1 (bool load_p, rtx reg, rtx mem)
 {
   rtx ops[] = {reg, mem};
 
-  if (TARGET_LWP_SWP)
+  if (ISA_HAS_NEW_LWM_SWM)
     {
       if (load_p)
 	output_asm_insn ("lwm\t%0,%1, 2", ops);
