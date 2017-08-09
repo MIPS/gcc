@@ -4266,7 +4266,7 @@
 	    (float:V2SF (match_operand:V2SI 2 "nonimmediate_operand" "ym")))
 	  (match_operand:V4SF 1 "register_operand" "0")
 	  (const_int 3)))]
-  "TARGET_SSE"
+  "TARGET_SSE && TARGET_MMX"
   "cvtpi2ps\t{%2, %0|%0, %2}"
   [(set_attr "type" "ssecvt")
    (set_attr "mode" "V4SF")])
@@ -4277,7 +4277,7 @@
 	  (unspec:V4SI [(match_operand:V4SF 1 "nonimmediate_operand" "xm")]
 		       UNSPEC_FIX_NOTRUNC)
 	  (parallel [(const_int 0) (const_int 1)])))]
-  "TARGET_SSE"
+  "TARGET_SSE && TARGET_MMX"
   "cvtps2pi\t{%1, %0|%0, %q1}"
   [(set_attr "type" "ssecvt")
    (set_attr "unit" "mmx")
@@ -4288,7 +4288,7 @@
 	(vec_select:V2SI
 	  (fix:V4SI (match_operand:V4SF 1 "nonimmediate_operand" "xm"))
 	  (parallel [(const_int 0) (const_int 1)])))]
-  "TARGET_SSE"
+  "TARGET_SSE && TARGET_MMX"
   "cvttps2pi\t{%1, %0|%0, %q1}"
   [(set_attr "type" "ssecvt")
    (set_attr "unit" "mmx")
@@ -4660,7 +4660,7 @@
 (define_insn "sse2_cvtpi2pd"
   [(set (match_operand:V2DF 0 "register_operand" "=x,x")
 	(float:V2DF (match_operand:V2SI 1 "nonimmediate_operand" "y,m")))]
-  "TARGET_SSE2"
+  "TARGET_SSE2 && TARGET_MMX"
   "cvtpi2pd\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
    (set_attr "unit" "mmx,*")
@@ -4671,7 +4671,7 @@
   [(set (match_operand:V2SI 0 "register_operand" "=y")
 	(unspec:V2SI [(match_operand:V2DF 1 "nonimmediate_operand" "xm")]
 		     UNSPEC_FIX_NOTRUNC))]
-  "TARGET_SSE2"
+  "TARGET_SSE2 && TARGET_MMX"
   "cvtpd2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
    (set_attr "unit" "mmx")
@@ -4683,7 +4683,7 @@
 (define_insn "sse2_cvttpd2pi"
   [(set (match_operand:V2SI 0 "register_operand" "=y")
 	(fix:V2SI (match_operand:V2DF 1 "nonimmediate_operand" "xm")))]
-  "TARGET_SSE2"
+  "TARGET_SSE2 && TARGET_MMX"
   "cvttpd2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
    (set_attr "unit" "mmx")
@@ -14437,7 +14437,7 @@
 	    (ssse3_plusminus:HI
 	      (vec_select:HI (match_dup 2) (parallel [(const_int 2)]))
 	      (vec_select:HI (match_dup 2) (parallel [(const_int 3)]))))))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "ph<plusminus_mnemonic>w\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "atom_unit" "complex")
@@ -14535,7 +14535,7 @@
 	      (match_operand:V2SI 2 "nonimmediate_operand" "ym")
 	      (parallel [(const_int 0)]))
 	    (vec_select:SI (match_dup 2) (parallel [(const_int 1)])))))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "ph<plusminus_mnemonic>d\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "atom_unit" "complex")
@@ -14714,7 +14714,7 @@
 	      (vec_select:V4QI (match_dup 2)
 		(parallel [(const_int 1) (const_int 3)
 			   (const_int 5) (const_int 7)]))))))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "pmaddubsw\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "atom_unit" "simul")
@@ -14809,7 +14809,9 @@
 		(const_int 14))
 	      (match_operand:V4HI 3 "const1_operand"))
 	    (const_int 1))))]
-  "TARGET_SSSE3 && ix86_binary_operator_ok (MULT, V4HImode, operands)"
+  "TARGET_SSSE3
+   && TARGET_MMX
+   && ix86_binary_operator_ok (MULT, V4HImode, operands)"
   "pmulhrsw\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseimul")
    (set_attr "prefix_extra" "1")
@@ -14840,7 +14842,7 @@
 	(unspec:V8QI [(match_operand:V8QI 1 "register_operand" "0")
 		      (match_operand:V8QI 2 "nonimmediate_operand" "ym")]
 		     UNSPEC_PSHUFB))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "pshufb\t{%2, %0|%0, %2}";
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
@@ -14870,7 +14872,7 @@
 	  [(match_operand:MMXMODEI 1 "register_operand" "0")
 	   (match_operand:MMXMODEI 2 "nonimmediate_operand" "ym")]
 	  UNSPEC_PSIGN))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "psign<mmxvecsize>\t{%2, %0|%0, %2}";
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
@@ -14936,7 +14938,7 @@
 		    (match_operand:DI 2 "nonimmediate_operand" "ym")
 		    (match_operand:SI 3 "const_0_to_255_mul_8_operand" "n")]
 		   UNSPEC_PALIGNR))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
 {
   operands[3] = GEN_INT (INTVAL (operands[3]) / 8);
   return "palignr\t{%3, %2, %0|%0, %2, %3}";
@@ -15011,7 +15013,7 @@
   [(set (match_operand:MMXMODEI 0 "register_operand" "=y")
 	(abs:MMXMODEI
 	  (match_operand:MMXMODEI 1 "nonimmediate_operand" "ym")))]
-  "TARGET_SSSE3"
+  "TARGET_SSSE3 && TARGET_MMX"
   "pabs<mmxvecsize>\t{%1, %0|%0, %1}";
   [(set_attr "type" "sselog1")
    (set_attr "prefix_rep" "0")

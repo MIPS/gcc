@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -mno-sse4.2 -mno-crc32" } */
-/* { dg-final { scan-assembler "__builtin_ia32_crc32di" } } */
+/* { dg-final { scan-assembler "__builtin_ia32_crc32di" { target ia32 } } } */
 
 unsigned long long __builtin_ia32_crc32di (unsigned long long x,
 					   unsigned long long y);
@@ -8,5 +8,5 @@ unsigned long long __builtin_ia32_crc32di (unsigned long long x,
 unsigned long long
 crc32d (unsigned long long x, unsigned long long y)
 {
-  return __builtin_ia32_crc32di (x, y);
+  return __builtin_ia32_crc32di (x, y); /* { dg-error "needs isa option\[^\n\r]*-msse4.2 -mcrc32" "" { target { ! ia32 } } } */
 }

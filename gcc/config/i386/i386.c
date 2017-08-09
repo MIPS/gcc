@@ -32068,42 +32068,13 @@ def_builtin (HOST_WIDE_INT mask, const char *name,
   if (!(mask & OPTION_MASK_ISA_64BIT) || TARGET_64BIT)
     {
       ix86_builtins_isa[(int) code].isa = mask;
-
-      /* OPTION_MASK_ISA_AVX512VL has special meaning. Despite of generic case,
-	 where any bit set means that built-in is enable, this bit must be *and-ed*
-	 with another one. E.g.: OPTION_MASK_ISA_AVX512DQ | OPTION_MASK_ISA_AVX512VL
-	 means that *both* cpuid bits must be set for the built-in to be available.
-	 Handle this here.  */
-      if (mask & ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
-	mask &= ~OPTION_MASK_ISA_AVX512VL;
-
-      mask &= ~OPTION_MASK_ISA_64BIT;
-      if (mask == 0
-	  || (mask & ix86_isa_flags) != 0
-	  || (lang_hooks.builtin_function
-	      == lang_hooks.builtin_function_ext_scope))
-
-	{
-	  tree type = ix86_get_builtin_func_type (tcode);
-	  decl = add_builtin_function (name, type, code, BUILT_IN_MD,
-				       NULL, NULL_TREE);
-	  ix86_builtins[(int) code] = decl;
-	  ix86_builtins_isa[(int) code].set_and_not_built_p = false;
-	}
-      else
-	{
-	  /* Just a MASK where set_and_not_built_p == true can potentially
-	     include a builtin.  */
-	  deferred_isa_values |= mask;
-	  ix86_builtins[(int) code] = NULL_TREE;
-	  ix86_builtins_isa[(int) code].tcode = tcode;
-	  ix86_builtins_isa[(int) code].name = name;
-	  ix86_builtins_isa[(int) code].leaf_p = false;
-	  ix86_builtins_isa[(int) code].nothrow_p = false;
-	  ix86_builtins_isa[(int) code].const_p = false;
-	  ix86_builtins_isa[(int) code].pure_p = false;
-	  ix86_builtins_isa[(int) code].set_and_not_built_p = true;
-	}
+      /* Always declare it.  ix86_expand_builtin will give an error
+	 if the builtin isn't available.  */
+      tree type = ix86_get_builtin_func_type (tcode);
+      decl = add_builtin_function (name, type, code, BUILT_IN_MD,
+				   NULL, NULL_TREE);
+      ix86_builtins[(int) code] = decl;
+      ix86_builtins_isa[(int) code].set_and_not_built_p = false;
     }
 
   return decl;
@@ -37530,7 +37501,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
      if isa includes more than one ISA bit, treat those are requiring any
      of them.  For AVX512VL, require both AVX512VL and the non-AVX512VL
      ISAs.  Similarly for 64BIT, but we shouldn't be building such builtins
-     at all, -m64 is a whole TU option.  */
+     at all, -m64 is a whole TU option.  For builtins with MMX register,
+     MMX must be enabled.  */
   if (((ix86_builtins_isa[fcode].isa
 	& ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_64BIT))
        && !(ix86_builtins_isa[fcode].isa
@@ -37538,6 +37510,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	    & ix86_isa_flags))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_AVX512VL)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_AVX512VL))
+      || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_MMX)
+	  && !(ix86_isa_flags & OPTION_MASK_ISA_MMX))
       || (ix86_builtins_isa[fcode].isa2
 	  && !(ix86_builtins_isa[fcode].isa2 & ix86_isa_flags2)))
     {
