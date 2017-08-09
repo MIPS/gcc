@@ -23488,6 +23488,42 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
+  if (inline_entry_data **iedp
+      = !inline_entry_data_table ? NULL
+      : inline_entry_data_table->find_slot_with_hash (stmt,
+						      htab_hash_pointer (stmt),
+						      NO_INSERT))
+    {
+      inline_entry_data *ied = *iedp;
+      gcc_assert (debug_statement_frontiers);
+      gcc_assert (inlined_function_outer_scope_p (stmt));
+      ASM_GENERATE_INTERNAL_LABEL (label, ied->label_pfx, ied->label_num);
+      add_AT_lbl_id (die, DW_AT_entry_pc, label);
+
+      if (debug_variable_location_views && !RESETTING_VIEW_P (ied->view))
+	{
+	  if (!output_asm_line_debug_info ())
+	    add_AT_unsigned (die, DW_AT_GNU_entry_view, ied->view);
+	  else
+	    {
+	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", ied->view);
+	      /* FIXME: this will resolve to a small number.  Could we
+		 possibly emit smaller data?  Ideally we'd emit a
+		 uleb128, but that would make the size of DIEs
+		 impossible for the compiler to compute, since it's
+		 the assembler that computes the value of the view
+		 label in this case.  Ideally, we'd have a single form
+		 encompassing both the address and the view, and
+		 indirecting them through a table might make things
+		 easier, but even that would be more wasteful,
+		 space-wise, than what we have now.  */
+	      add_AT_lbl_id (die, DW_AT_GNU_entry_view, label);
+	    }
+	}
+
+      inline_entry_data_table->clear_slot (iedp);
+    }
+
   if (BLOCK_FRAGMENT_CHAIN (stmt)
       && (dwarf_version >= 3 || !dwarf_strict))
     {
@@ -23573,32 +23609,6 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       ASM_GENERATE_INTERNAL_LABEL (label_high, BLOCK_END_LABEL,
 				   BLOCK_NUMBER (stmt));
       add_AT_low_high_pc (die, label, label_high, false);
-    }
-
-  if (inline_entry_data **iedp
-      = !inline_entry_data_table ? NULL
-      : inline_entry_data_table->find_slot_with_hash (stmt,
-						      htab_hash_pointer (stmt),
-						      NO_INSERT))
-    {
-      inline_entry_data *ied = *iedp;
-      gcc_assert (debug_statement_frontiers);
-      gcc_assert (inlined_function_outer_scope_p (stmt));
-      ASM_GENERATE_INTERNAL_LABEL (label, ied->label_pfx, ied->label_num);
-      add_AT_lbl_id (die, DW_AT_entry_pc, label);
-
-      if (debug_variable_location_views && !RESETTING_VIEW_P (ied->view))
-	{
-	  if (!output_asm_line_debug_info ())
-	    add_AT_unsigned (die, DW_AT_GNU_entry_view, ied->view);
-	  else
-	    {
-	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", ied->view);
-	      add_AT_lbl_id (die, DW_AT_GNU_entry_view, label);
-	    }
-	}
-
-      inline_entry_data_table->clear_slot (iedp);
     }
 }
 
@@ -30274,6 +30284,9 @@ dwarf2out_finish (const char *)
 
   /* Flush out any latecomers to the limbo party.  */
   flush_limbo_die_list ();
+
+  if (inline_entry_data_table)
+    gcc_assert (inline_entry_data_table->elements () == 0);
 
   if (flag_checking)
     {
