@@ -518,6 +518,11 @@ remove_unused_scope_block_p (tree scope, bool in_ctor_dtor_block)
    else if (!BLOCK_SUPERCONTEXT (scope)
             || TREE_CODE (BLOCK_SUPERCONTEXT (scope)) == FUNCTION_DECL)
      unused = false;
+   /* Preserve the block, it is referenced by at least the inline
+      entry point marker.  */
+   else if (debug_statement_frontiers
+	    && inlined_function_outer_scope_p (scope))
+     unused = false;
    /* Innermost blocks with no live variables nor statements can be always
       eliminated.  */
    else if (!nsubblocks)
@@ -546,11 +551,13 @@ remove_unused_scope_block_p (tree scope, bool in_ctor_dtor_block)
      }
    else if (BLOCK_VARS (scope) || BLOCK_NUM_NONLOCALIZED_VARS (scope))
      unused = false;
-   /* See if this block is important for representation of inlined function.
-      Inlined functions are always represented by block with
-      block_ultimate_origin being set to FUNCTION_DECL and DECL_SOURCE_LOCATION
-      set...  */
-   else if (inlined_function_outer_scope_p (scope))
+   /* See if this block is important for representation of inlined
+      function.  Inlined functions are always represented by block
+      with block_ultimate_origin being set to FUNCTION_DECL and
+      DECL_SOURCE_LOCATION set, unless they expand to nothing...  But
+      see above for the case of statement frontiers.  */
+   else if (!debug_statement_frontiers
+	    && inlined_function_outer_scope_p (scope))
      unused = false;
    else
    /* Verfify that only blocks with source location set
