@@ -26901,10 +26901,12 @@ dwarf2out_inline_entry (tree block)
   if (!(dwarf_version >= 3 || !dwarf_strict))
     return;
 
+  if (BLOCK_FRAGMENT_ORIGIN (block))
+    block = BLOCK_FRAGMENT_ORIGIN (block);
   /* Can the entry point ever not be at the beginning of an
      unfragmented lexical block?  */
-  if (!(BLOCK_FRAGMENT_CHAIN (block)
-	|| (cur_line_info_table && !RESETTING_VIEW_P (cur_line_info_table))))
+  else if (!(BLOCK_FRAGMENT_CHAIN (block)
+	     || (cur_line_info_table && !RESETTING_VIEW_P (cur_line_info_table))))
     return;
 
   if (!inline_entry_data_table)
