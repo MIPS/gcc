@@ -191,6 +191,7 @@ enum mips_split_type {
 };
 
 extern int mips_incoming_reg_parm_stack_space (tree);
+extern int mips_reg_parm_stack_space (tree, bool);
 extern void mips_adjust_reg_alloc_order (void);
 extern rtl_opt_pass * make_pass_optimize_multi_refs (gcc::context *);
 extern bool mips_string_constant_p (rtx);

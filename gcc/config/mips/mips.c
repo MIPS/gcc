@@ -14178,7 +14178,6 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
   int regno;
   HOST_WIDE_INT offset, first_step = 0;
   unsigned int mask = cfun->machine->frame.mask;
-  unsigned int step_for_args = cfun->machine->varargs_size;
   bool restore_p = (fn == mips_save_reg) ? false : true;
   bool used_save_restore_p = false;
 
@@ -14186,36 +14185,19 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
      accidental use for other ISAs.  */
   gcc_assert (TARGET_NANOMIPS);
 
-  /* Create GP-arg-save-area in callee.  */
+/*
   if (!step_for_args && cfun->machine->reg_param_stack_space)
     {
       step_for_args = cfun->machine->reg_param_stack_space;
       step += step_for_args;
     }
+    */
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
      need a nop in the epilogue if at least one register is reloaded in
      addition to return address.  */
   offset = cfun->machine->frame.gp_sp_offset - sp_offset;
-
-
-  if (ISA_HAS_SAVE_RESTORE
-      && step_for_args != 0
-      && !restore)
-    {
-      unsigned zero_mask = 0;
-      rtx save = gen_add3_insn (stack_pointer_rtx,
-				stack_pointer_rtx,
-				GEN_INT(-step_for_args));
-      if (save)
-	{
-	  RTX_FRAME_RELATED_P (emit_insn (save)) = 1;
-	  mips_frame_barrier ();
-	}
-    }
-
-  step -= step_for_args;
 
   if (ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore
@@ -14293,22 +14275,6 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
     {
       mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
       offset -= UNITS_PER_WORD;
-    }
-
-  if (ISA_HAS_SAVE_RESTORE
-      && step_for_args != 0
-      && restore)
-    {
-      unsigned int zero_mask = 0;
-
-      rtx restore = gen_add3_insn (stack_pointer_rtx,
-				   stack_pointer_rtx,
-				   GEN_INT(step_for_args));
-      if (restore)
-	{
-	  RTX_FRAME_RELATED_P (emit_insn (restore)) = 1;
-	  mips_frame_barrier ();
-	}
     }
 }
 
@@ -15213,7 +15179,7 @@ static void
 mips_expand_prologue_pabi (void)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT size;
+  HOST_WIDE_INT size, reg_parm_area_size = 0;
   unsigned int nargs;
 
   if (cfun->machine->global_pointer != INVALID_REGNUM)
@@ -15268,6 +15234,10 @@ mips_expand_prologue_pabi (void)
 	  && mips_valid_savef_restoref_p (frame->fmask))
 	use_savef_p = true;
 
+      reg_parm_area_size = cfun->machine->varargs_size;
+      size -= reg_parm_area_size;
+
+//printf ("func %s %d\n", current_function_name(), cfun->machine->reg_param_stack_space);
       step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
 
       if (cfun->machine->interrupt_handler_p)
@@ -15371,6 +15341,12 @@ mips_expand_prologue_pabi (void)
 				   gen_rtx_REG (SImode, GP_REG_FIRST)));
 	}
 
+      if (TARGET_PABI && reg_parm_area_size != 0)
+	RTX_FRAME_RELATED_P (
+	  emit_insn (gen_add3_insn (stack_pointer_rtx,
+				    stack_pointer_rtx,
+				    GEN_INT (-reg_parm_area_size)))) = 1;
+
       mips_save_restore_gprs_and_adjust_sp (size, step, mips_save_reg,
 					    false, NULL, false);
       /* We ensure that the above does adjust the stack pointer, thus, take
@@ -15384,7 +15360,7 @@ mips_expand_prologue_pabi (void)
   if (frame_pointer_needed)
     {
       rtx offset = GEN_INT (-(MIPS_FRAME_BIAS
-			      - MIN (frame->total_size,
+			      - MIN (frame->total_size - reg_parm_area_size,
 				     MIPS_MAX_FIRST_STACK_STEP)));
       rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
 				stack_pointer_rtx, offset);
@@ -15968,7 +15944,7 @@ static void
 mips_expand_epilogue_pabi (bool sibcall_p)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT step1 = 0, step2 = 0, reg_area_size = 0;
+  HOST_WIDE_INT step1 = 0, step2 = 0, reg_area_size = 0, reg_parm_area_size;
   rtx base, adjust;
   rtx_insn *insn;
   rtx restore;
@@ -16002,13 +15978,17 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   if (!frame_pointer_needed)
     {
       base = stack_pointer_rtx;
-      step1 = frame->total_size;
+      step1 = frame->total_size
+              - cfun->machine->varargs_size;
     }
   else
     {
       base = hard_frame_pointer_rtx;
       step1 = frame->hard_frame_pointer_offset - reg_area_size;
     }
+
+  reg_parm_area_size = cfun->machine->varargs_size;
+
   mips_epilogue.cfa_reg = base;
   mips_epilogue.cfa_offset = step1;
   mips_epilogue.cfa_restores = NULL_RTX;
@@ -16051,7 +16031,8 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   mips_for_each_saved_fpr (frame->total_size - step2, mips_restore_reg);
 
   /* Restore the registers.  */
-  mips_save_restore_gprs_and_adjust_sp (frame->total_size - step2, step2,
+  mips_save_restore_gprs_and_adjust_sp (frame->total_size - step2
+					- reg_parm_area_size, step2,
 					mips_restore_reg, &use_restore_jrc_p,
 					&restore, sibcall_p);
 
@@ -16097,6 +16078,10 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   else
     /* Deallocate the final bit of the frame.  */
     mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
+
+  if (reg_parm_area_size > 0)
+    mips_deallocate_stack (stack_pointer_rtx,
+			   GEN_INT (reg_parm_area_size), 0);
 
   if (cfun->machine->use_frame_header_for_callee_saved_regs)
     mips_epilogue_emit_cfa_restores ();
@@ -28932,6 +28917,164 @@ mips_adjust_costs (void *p, int func)
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating = rating;
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used
       = s_regs_used;
+}
+
+static bool
+mips_parm_needs_stack (cumulative_args_t args_so_far, tree type)
+{
+  machine_mode mode;
+  int unsignedp;
+  rtx entry_parm;
+
+  /* Catch errors.  */
+  if (type == NULL || type == error_mark_node)
+    return true;
+
+  /* Handle types with no storage requirement.  */
+  if (TYPE_MODE (type) == VOIDmode)
+    return false;
+
+  /* Handle complex types.  */
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    return (mips_parm_needs_stack (args_so_far, TREE_TYPE (type))
+	    || mips_parm_needs_stack (args_so_far, TREE_TYPE (type)));
+
+  /* Handle transparent aggregates.  */
+  if ((TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE)
+      && TYPE_TRANSPARENT_AGGR (type))
+    type = TREE_TYPE (first_field (type));
+
+  /* See if this arg was passed by invisible reference.  */
+  if (pass_by_reference (get_cumulative_args (args_so_far),
+			 TYPE_MODE (type), type, true))
+    type = build_pointer_type (type);
+
+  /* Find mode as it is passed by the ABI.  */
+  unsignedp = TYPE_UNSIGNED (type);
+  mode = promote_mode (type, TYPE_MODE (type), &unsignedp);
+
+  /* If we must pass in stack, we need a stack.  */
+  if (must_pass_in_stack_var_size (mode, type))
+    return true;
+
+  /* If there is no incoming register, we need a stack.  */
+  entry_parm = mips_function_arg (args_so_far, mode, type, true);
+  if (entry_parm == NULL)
+    return true;
+
+  /* Likewise if we need to pass both in registers and on the stack.  */
+  if (GET_CODE (entry_parm) == PARALLEL
+      && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
+    return true;
+
+  /* Also true if we're partially in registers and partially not.  */
+  if (mips_arg_partial_bytes (args_so_far, mode, type, true) != 0)
+    return true;
+
+  /* Update info on where next arg arrives in registers.  */
+  mips_function_arg_advance (args_so_far, mode, type, true);
+  return false;
+}
+
+/* Return true if FUN has no prototype, has a variable argument
+   list, or passes any parameter in memory.  */
+
+static bool
+mips_function_parms_need_stack (tree fun, bool incoming)
+{
+  tree fntype, result;
+  CUMULATIVE_ARGS args_so_far_v;
+  cumulative_args_t args_so_far;
+
+  if (!fun)
+    /* Must be a libcall, all of which only use reg parms.  */
+    return false;
+
+  fntype = fun;
+  if (!TYPE_P (fun))
+    fntype = TREE_TYPE (fun);
+
+  /* Varargs functions need the parameter save area.  */
+  if ((!incoming && !prototype_p (fntype)) || stdarg_p (fntype))
+    return true;
+
+  mips_init_cumulative_args (&args_so_far_v, fntype);
+  args_so_far = pack_cumulative_args (&args_so_far_v);
+
+  /* When incoming, we will have been passed the function decl.
+     It is necessary to use the decl to handle K&R style functions,
+     where TYPE_ARG_TYPES may not be available.  */
+  if (incoming)
+    {
+      gcc_assert (DECL_P (fun));
+      result = DECL_RESULT (fun);
+    }
+  else
+    result = TREE_TYPE (fntype);
+
+  if (result && aggregate_value_p (result, fntype))
+    {
+      if (!TYPE_P (result))
+	result = TREE_TYPE (result);
+      result = build_pointer_type (result);
+      mips_parm_needs_stack (args_so_far, result);
+    }
+
+  if (incoming)
+    {
+      tree parm;
+
+      for (parm = DECL_ARGUMENTS (fun);
+	   parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm))
+	if (mips_parm_needs_stack (args_so_far, TREE_TYPE (parm)))
+	  return true;
+    }
+  else
+    {
+      function_args_iterator args_iter;
+      tree arg_type;
+
+      FOREACH_FUNCTION_ARGS (fntype, arg_type, args_iter)
+	if (mips_parm_needs_stack (args_so_far, arg_type))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Return the size of the REG_PARM_STACK_SPACE are for FUN.  This is
+   usually a constant depending on the ABI.  However, in the P32/P64 ABI
+   the register parameter area is optional when calling a function that
+   has a prototype is scope, has no variable argument list, and passes
+   all parameters in registers.  */
+
+int
+mips_reg_parm_stack_space (tree fun, bool incoming)
+{
+  int reg_parm_stack_space;
+
+  switch (mips_abi)
+    {
+    case ABI_32:
+      reg_parm_stack_space = MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD;
+      break;
+
+    case ABI_P32:
+    case ABI_P64:
+      if (mips_function_parms_need_stack (fun, incoming))
+	reg_parm_stack_space = TARGET_64BIT ? 64 : 32;
+      else
+	reg_parm_stack_space = 0;
+      break;
+
+    default:
+      reg_parm_stack_space = 0;
+      break;
+    }
+
+  cfun->machine->reg_param_stack_space = reg_parm_stack_space;
+  return reg_parm_stack_space;
 }
 
 /* Initialize the GCC target structure.  */

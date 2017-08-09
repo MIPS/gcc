@@ -2637,15 +2637,15 @@ enum reg_class
    ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
    : 0)
 
-#define INCOMING_REG_PARM_STACK_SPACE(FNDECL) 		\
-  mips_incoming_reg_parm_stack_space ((FNDECL))
-
+/*#define INCOMING_REG_PARM_STACK_SPACE(FNDECL) 		\
+  mips_reg_parm_stack_space ((FNDECL), true)
+*/
 /* Define this if it is the responsibility of the caller to
    allocate the area reserved for arguments passed in registers.
    If `ACCUMULATE_OUTGOING_ARGS' is also defined, the only effect
    of this macro is to determine whether the space is included in
    `crtl->outgoing_args_size'.  */
-#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) (TARGET_PABI ? 0 : 1)
 
 #define STACK_BOUNDARY (TARGET_NABI || TARGET_PABI ? 128 : 64)
 
