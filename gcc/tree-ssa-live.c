@@ -645,6 +645,16 @@ dump_scope_block (FILE *file, int indent, tree scope, dump_flags_t flags)
 	    fprintf (file, "#%i", BLOCK_NUMBER (origin));
 	}
     }
+  if (BLOCK_FRAGMENT_ORIGIN (scope))
+    fprintf (file, " Fragment of : #%i",
+	     BLOCK_NUMBER (BLOCK_FRAGMENT_ORIGIN (scope)));
+  else if (BLOCK_FRAGMENT_CHAIN (scope))
+    {
+      fprintf (file, " Fragment chain :");
+      for (t = BLOCK_FRAGMENT_CHAIN (scope); t ;
+	   t = BLOCK_FRAGMENT_CHAIN (t))
+	fprintf (file, " #%i", BLOCK_NUMBER (t));
+    }
   fprintf (file, " \n");
   for (var = BLOCK_VARS (scope); var; var = DECL_CHAIN (var))
     {
