@@ -26929,7 +26929,10 @@ dwarf2out_inline_entry (tree block)
 						    htab_hash_pointer (block),
 						    INSERT);
   if (*iedp)
-    return; // gcc_unreachable ();
+    /* ??? Ideally, we'd record all entry points for the same inlined
+       function (some may have been duplicated by e.g. unrolling), but
+       we have no way to represent that ATM.  */
+    return;
 
   inline_entry_data *ied = *iedp = ggc_cleared_alloc<inline_entry_data> ();
   ied->block = block;
