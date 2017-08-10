@@ -195,12 +195,10 @@ along with GCC; see the file COPYING3.  If not see
 FP_ASM_SPEC "\
 %(subtarget_asm_spec)"
 
-/* -N tells gold that we are not targetting a demand paged environment.  */
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %(endian_spec) \
-%{shared} \
-%{fuse-ld=gold:-N}"
+%{shared}"
 
 #undef DEFAULT_SIGNED_CHAR
 #define DEFAULT_SIGNED_CHAR 0
