@@ -6641,8 +6641,8 @@
   if (TARGET_NANOMIPS)
     return
       mips_output_conditional_branch (insn, operands,
-				      MIPS_BRANCH_C ("sdbbp32 3 # bb<bbeq>z", "%1,%2,%0"),
-				      MIPS_BRANCH_C ("sdbbp32 3 # bb<bbeqinv>z",
+				      MIPS_BRANCH_C ("bb<bbeq>z", "%1,%2,%0"),
+				      MIPS_BRANCH_C ("bb<bbeqinv>z",
 						   "%1,%2,%0"));
   else
     return

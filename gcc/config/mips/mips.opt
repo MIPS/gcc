@@ -563,20 +563,20 @@ mmemcpy-interleave=
 Target Undocumented RejectNegative Joined UInteger Var(mips_memcpy_interleave) Init(16)
 
 mmulti-memcpy
-Target Undocumented Var(mips_use_multi_memcpy) Init (0)
+Target Undocumented Var(mips_use_multi_memcpy) Init(0)
 
 mopt-restorejrc
 Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
 
 madd-addiupc32
-Target Undocumented Var(TARGET_ADDIUPC32) Init (0)
+Target Undocumented Var(TARGET_ADDIUPC32) Init(0)
 
 mjumptable-density=
-Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init (0)
+Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
 -mjumptable-density=DENSITY	Percentage of non default target labels.
 
 mjumptable-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)
 
 mbranch-on-bit
-Target Undocumented Var(TARGET_BRANCH_ON_BIT) Init (1)
+Target Undocumented Var(TARGET_BRANCH_ON_BIT) Init(1)
