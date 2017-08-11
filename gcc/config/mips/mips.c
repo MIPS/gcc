@@ -7564,7 +7564,7 @@ mips_function_arg_alignment (machine_mode mode, const_tree type)
 	       field;
 	       field = DECL_CHAIN (field))
 	    if (DECL_ALIGN (field) > PARM_BOUNDARY)
-	      return true;
+	      return DECL_ALIGN (field);
 	}
       else
 	alignment = TYPE_ALIGN (type);
