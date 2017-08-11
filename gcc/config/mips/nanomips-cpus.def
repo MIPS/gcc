@@ -39,8 +39,7 @@ MIPS_CPU ("32r6", PROCESSOR_32R6, 38, 0)
 MIPS_CPU ("32r6s", PROCESSOR_32R6S, 38, 0)
 MIPS_CPU ("64r6", PROCESSOR_64R6, 70, 0)
 
-/* MIPS32 Release 7 processors.  */
-/* FORNOW: Change to PROCESSOR_I7001 after we have a scheduler in place.  */
-MIPS_CPU ("i6001", PROCESSOR_I6001, 38, 0)
+/* nanoMIPS32 Release 6 processors.  */
+MIPS_CPU ("i6300", PROCESSOR_I6300, 38, 0)
 /* FORNOW: Dummy processor tuned to generic scheduler.  */
 MIPS_CPU ("m6001", PROCESSOR_M6001, 38, 0)

@@ -34,6 +34,7 @@
 MULTILIB_OPTIONS = mclib=small/mclib=tiny/muclibc/mmusl march=32r6/march=32r6s/march=64r6 m32/m64 EB/EL msoft-float
 MULTILIB_DIRNAMES = small tiny uclibc musl 32r6 32r6s 64r6 m32 m64 eb el sof
 MULTILIB_MATCHES = EL=mel EB=meb
+MULTILIB_MATCHES += march?32r6=march?i6300 march?32r6s=march?m6001
 
 # Allow the exceptions list to be controlled by configure time options
 MULTILIB_EXCEPTIONS = $(TM_MULTILIB_EXCEPTIONS_CONFIG)
