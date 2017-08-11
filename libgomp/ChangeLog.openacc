@@ -1,5 +1,10 @@
 2017-08-11  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* plugin/plugin-nvptx.c (nvptx_exec): Dynamically allocate
+	default num_workers.
+
+2017-08-11  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* plugin/cuda/cuda.h (CUdevice_attribute): Add
 	CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
 	CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR.
