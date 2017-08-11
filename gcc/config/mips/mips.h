@@ -2637,9 +2637,6 @@ enum reg_class
    ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
    : 0)
 
-/*#define INCOMING_REG_PARM_STACK_SPACE(FNDECL) 		\
-  mips_reg_parm_stack_space ((FNDECL), true)
-*/
 /* Define this if it is the responsibility of the caller to
    allocate the area reserved for arguments passed in registers.
    If `ACCUMULATE_OUTGOING_ARGS' is also defined, the only effect

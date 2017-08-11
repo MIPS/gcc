@@ -7539,7 +7539,8 @@ mips_arg_partial_bytes (cumulative_args_t cum,
   struct mips_arg_info info;
 
   mips_get_arg_info (&info, get_cumulative_args (cum), mode, type, named);
-  return info.stack_words > 0 ? info.reg_words * UNITS_PER_WORD : 0;
+  return info.stack_words > 0 && !TARGET_PABI
+	 ? info.reg_words * UNITS_PER_WORD : 0;
 }
 
 unsigned int
@@ -7664,7 +7665,7 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
-  if (mips_abi == ABI_EABI)
+  if (mips_abi == ABI_EABI || TARGET_PABI)
     {
       int size;
 
@@ -7694,6 +7695,7 @@ mips_callee_copies (cumulative_args_t cum ATTRIBUTE_UNUSED,
 		    machine_mode mode ATTRIBUTE_UNUSED,
 		    const_tree type ATTRIBUTE_UNUSED, bool named)
 {
+  /* FIXME PABI */
   return mips_abi == ABI_EABI && named;
 }
 
@@ -7967,44 +7969,6 @@ mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
 }
 
-
-/* Return the size of the INCOMING_REG_PARM_STACK_SPACE area for FUN.  */
-
-int
-mips_incoming_reg_parm_stack_space (tree fun)
-{
-  tree fntype, parm;
-
-  if (!TARGET_PABI)
-    return 0;
-
-  /* GCC is calling a library function.  */
-  if (!fun)
-    return 0;
-
-  fntype = fun;
-  if (!TYPE_P (fun))
-    fntype = TREE_TYPE (fun);
-
-  /* Functions with varargs are handled separately.  */
-  if (stdarg_p (fntype))
-    return 0;
-
-  /* If address of parameter is taken.  */
-  for (parm = DECL_ARGUMENTS (fun);
-       parm && parm != void_list_node;
-       parm = TREE_CHAIN (parm))
-    if (TREE_ADDRESSABLE (parm))
-      {
-	cfun->machine->reg_param_stack_space =
-		MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD;
-	return cfun->machine->reg_param_stack_space;
-      }
-
-  /* Return 0 for everything else.  */
-  return 0;
-}
-
 /* Implement TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
@@ -13450,7 +13414,6 @@ mips_compute_frame_info_oabi_nabi (void)
       && flag_frame_header_optimization
       && !MAIN_NAME_P (DECL_NAME (current_function_decl))
       && cfun->machine->varargs_size == 0
-      && cfun->machine->reg_param_stack_space == 0
       && crtl->args.pretend_args_size == 0
       && frame->var_size == 0
       && frame->num_acc == 0
@@ -14184,14 +14147,6 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
   /* Let's limit the use of this function to nanoMIPS for now to avoid
      accidental use for other ISAs.  */
   gcc_assert (TARGET_NANOMIPS);
-
-/*
-  if (!step_for_args && cfun->machine->reg_param_stack_space)
-    {
-      step_for_args = cfun->machine->reg_param_stack_space;
-      step += step_for_args;
-    }
-    */
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
@@ -16190,7 +16145,6 @@ mips_can_use_return_insn (void)
      We then catch remaining cases in the reorg pass.  */
   return !mips_can_use_simple_return_insn ()
 	 && cfun->machine->varargs_size == 0
-	 && cfun->machine->reg_param_stack_space == 0
 	 && crtl->args.pretend_args_size == 0
 	 && cfun->machine->frame.num_fp == 0
 	 && cfun->machine->frame.num_acc == 0
@@ -28917,164 +28871,6 @@ mips_adjust_costs (void *p, int func)
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating = rating;
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used
       = s_regs_used;
-}
-
-static bool
-mips_parm_needs_stack (cumulative_args_t args_so_far, tree type)
-{
-  machine_mode mode;
-  int unsignedp;
-  rtx entry_parm;
-
-  /* Catch errors.  */
-  if (type == NULL || type == error_mark_node)
-    return true;
-
-  /* Handle types with no storage requirement.  */
-  if (TYPE_MODE (type) == VOIDmode)
-    return false;
-
-  /* Handle complex types.  */
-  if (TREE_CODE (type) == COMPLEX_TYPE)
-    return (mips_parm_needs_stack (args_so_far, TREE_TYPE (type))
-	    || mips_parm_needs_stack (args_so_far, TREE_TYPE (type)));
-
-  /* Handle transparent aggregates.  */
-  if ((TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE)
-      && TYPE_TRANSPARENT_AGGR (type))
-    type = TREE_TYPE (first_field (type));
-
-  /* See if this arg was passed by invisible reference.  */
-  if (pass_by_reference (get_cumulative_args (args_so_far),
-			 TYPE_MODE (type), type, true))
-    type = build_pointer_type (type);
-
-  /* Find mode as it is passed by the ABI.  */
-  unsignedp = TYPE_UNSIGNED (type);
-  mode = promote_mode (type, TYPE_MODE (type), &unsignedp);
-
-  /* If we must pass in stack, we need a stack.  */
-  if (must_pass_in_stack_var_size (mode, type))
-    return true;
-
-  /* If there is no incoming register, we need a stack.  */
-  entry_parm = mips_function_arg (args_so_far, mode, type, true);
-  if (entry_parm == NULL)
-    return true;
-
-  /* Likewise if we need to pass both in registers and on the stack.  */
-  if (GET_CODE (entry_parm) == PARALLEL
-      && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
-    return true;
-
-  /* Also true if we're partially in registers and partially not.  */
-  if (mips_arg_partial_bytes (args_so_far, mode, type, true) != 0)
-    return true;
-
-  /* Update info on where next arg arrives in registers.  */
-  mips_function_arg_advance (args_so_far, mode, type, true);
-  return false;
-}
-
-/* Return true if FUN has no prototype, has a variable argument
-   list, or passes any parameter in memory.  */
-
-static bool
-mips_function_parms_need_stack (tree fun, bool incoming)
-{
-  tree fntype, result;
-  CUMULATIVE_ARGS args_so_far_v;
-  cumulative_args_t args_so_far;
-
-  if (!fun)
-    /* Must be a libcall, all of which only use reg parms.  */
-    return false;
-
-  fntype = fun;
-  if (!TYPE_P (fun))
-    fntype = TREE_TYPE (fun);
-
-  /* Varargs functions need the parameter save area.  */
-  if ((!incoming && !prototype_p (fntype)) || stdarg_p (fntype))
-    return true;
-
-  mips_init_cumulative_args (&args_so_far_v, fntype);
-  args_so_far = pack_cumulative_args (&args_so_far_v);
-
-  /* When incoming, we will have been passed the function decl.
-     It is necessary to use the decl to handle K&R style functions,
-     where TYPE_ARG_TYPES may not be available.  */
-  if (incoming)
-    {
-      gcc_assert (DECL_P (fun));
-      result = DECL_RESULT (fun);
-    }
-  else
-    result = TREE_TYPE (fntype);
-
-  if (result && aggregate_value_p (result, fntype))
-    {
-      if (!TYPE_P (result))
-	result = TREE_TYPE (result);
-      result = build_pointer_type (result);
-      mips_parm_needs_stack (args_so_far, result);
-    }
-
-  if (incoming)
-    {
-      tree parm;
-
-      for (parm = DECL_ARGUMENTS (fun);
-	   parm && parm != void_list_node;
-	   parm = TREE_CHAIN (parm))
-	if (mips_parm_needs_stack (args_so_far, TREE_TYPE (parm)))
-	  return true;
-    }
-  else
-    {
-      function_args_iterator args_iter;
-      tree arg_type;
-
-      FOREACH_FUNCTION_ARGS (fntype, arg_type, args_iter)
-	if (mips_parm_needs_stack (args_so_far, arg_type))
-	  return true;
-    }
-
-  return false;
-}
-
-/* Return the size of the REG_PARM_STACK_SPACE are for FUN.  This is
-   usually a constant depending on the ABI.  However, in the P32/P64 ABI
-   the register parameter area is optional when calling a function that
-   has a prototype is scope, has no variable argument list, and passes
-   all parameters in registers.  */
-
-int
-mips_reg_parm_stack_space (tree fun, bool incoming)
-{
-  int reg_parm_stack_space;
-
-  switch (mips_abi)
-    {
-    case ABI_32:
-      reg_parm_stack_space = MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD;
-      break;
-
-    case ABI_P32:
-    case ABI_P64:
-      if (mips_function_parms_need_stack (fun, incoming))
-	reg_parm_stack_space = TARGET_64BIT ? 64 : 32;
-      else
-	reg_parm_stack_space = 0;
-      break;
-
-    default:
-      reg_parm_stack_space = 0;
-      break;
-    }
-
-  cfun->machine->reg_param_stack_space = reg_parm_stack_space;
-  return reg_parm_stack_space;
 }
 
 /* Initialize the GCC target structure.  */
