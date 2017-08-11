@@ -1,3 +1,14 @@
+2017-08-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* plugin/cuda/cuda.h (CUdevice_attribute): Add
+	CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+	CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR.
+	* plugin/plugin-nvptx.c (struct ptx_device): Add
+	compute_capability_major, compute_capability_minor members.
+	(nvptx_open_device): Probe driver for those values.  Adjust
+	regs_per_sm and max_shared_memory_per_multiprocessor for K80
+	hardware.
+
 2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* libgomp-plugin.h (struct goacc_asyncqueue): Declare.
