@@ -1,3 +1,11 @@
+2017-08-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): Delete define.
+	(PTX_DEFAULT_RUNTIME_DIM): New define.
+	(nvptx_goacc_validate_dims): Use it to allow the runtime to
+	dynamically allocate num_workers and num_gangs.
+	(nvptx_dim_limit): Don't impose an arbritary num_workers.
+
 2017-08-01  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 

@@ -5120,7 +5120,7 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 /* Define dimension sizes for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
-#define PTX_GANG_DEFAULT  0 /* Defer to runtime.  */
+#define PTX_DEFAULT_RUNTIME_DIM 0 /* Defer to runtime.  */
 
 /* Implement TARGET_SIMT_VF target hook: number of threads in a warp.  */
 
@@ -5191,9 +5191,9 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
     {
       dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
       if (dims[GOMP_DIM_WORKER] < 0)
-	dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+	dims[GOMP_DIM_WORKER] = PTX_DEFAULT_RUNTIME_DIM;
       if (dims[GOMP_DIM_GANG] < 0)
-	dims[GOMP_DIM_GANG] = PTX_GANG_DEFAULT;
+	dims[GOMP_DIM_GANG] = PTX_DEFAULT_RUNTIME_DIM;
       changed = true;
     }
 
@@ -5207,9 +5207,6 @@ nvptx_dim_limit (int axis)
 {
   switch (axis)
     {
-    case GOMP_DIM_WORKER:
-      return PTX_WORKER_LENGTH;
-
     case GOMP_DIM_VECTOR:
       return PTX_VECTOR_LENGTH;
 
