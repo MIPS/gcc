@@ -72,7 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 				     ? NANOMIPS_NMS			\
 				     : (mips_arch == PROCESSOR_32R6	\
 					|| mips_arch == PROCESSOR_64R6	\
-					|| mips_arch == PROCESSOR_I6001)\
+					|| mips_arch == PROCESSOR_I6300)\
 					? NANOMIPS_NMF : 0)
 
 /* Scheduling target defines.  */
@@ -127,36 +127,27 @@ along with GCC; see the file COPYING3.  If not see
 #undef MULTILIB_DEFAULTS
 
 #undef MIPS_ISA_LEVEL_SPEC
-#define MIPS_ISA_LEVEL_SPEC \
-  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
-     %{march=i6001|march=m6001: -march=32r6}}"
 
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
 
 #undef MIPS_DEFAULT_ISA_LEVEL_SPEC
 #define MIPS_DEFAULT_ISA_LEVEL_SPEC \
-  "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
-     %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
+  "%{!march=*: -" MULTILIB_ISA_DEFAULT "}"
 
 #undef MIPS_32BIT_OPTION_SPEC
 #define MIPS_32BIT_OPTION_SPEC \
-  "march=32r6|march=32r6s|march=i6001|march=m6001"
+  "march=32r6|march=32r6s|march=i6300|march=m6001"
 
 #undef BASE_DRIVER_SELF_SPECS
 #define BASE_DRIVER_SELF_SPECS \
-  "%{march=32r6|march=32r6s|march=64r6|march=i6001|march=m6001: \
+  "%{march=32r6|march=32r6s|march=64r6|march=i6300|march=m6001: \
      %{!-fuse-ld=*: -fuse-ld=gold}}"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
   /* Set the ISA for the default multilib.  */				\
   MIPS_DEFAULT_ISA_LEVEL_SPEC,						\
-									\
-  /* Make sure a -mips option is present.  This helps us to pick	\
-     the right multilib, and also makes the later specs easier		\
-     to write.  */							\
-  MIPS_ISA_LEVEL_SPEC,							\
 									\
   /* Infer the default float setting from -march.  */			\
   MIPS_ARCH_FLOAT_SPEC,							\

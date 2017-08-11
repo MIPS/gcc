@@ -19289,7 +19289,7 @@ generic nanoMIPS, nanoMIPS Subset ISA, or the name of a particular processor.
 The ISA names are:
 @samp{32r6}, @samp{32r6s}, @samp{64r6}.
 The processor names are:
-@samp{i6001}, @samp{m6001}.
+@samp{i6300}, @samp{m6001}.
 
 The native Linux/GNU toolchain also supports the value @samp{native},
 which selects the best architecture option for the host processor.

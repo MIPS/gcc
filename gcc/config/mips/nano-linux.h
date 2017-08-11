@@ -44,11 +44,6 @@ along with GCC; see the file COPYING3.  If not see
   /* Set the ISA for the default multilib.  */				\
   MIPS_DEFAULT_ISA_LEVEL_SPEC,						\
 									\
-  /* Make sure a -mips option is present.  This helps us to pick	\
-     the right multilib, and also makes the later specs easier		\
-     to write.  */							\
-  MIPS_ISA_LEVEL_SPEC,							\
-									\
   /* Infer the default float setting from -march.  */			\
   MIPS_ARCH_FLOAT_SPEC,							\
 									\
