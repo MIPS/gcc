@@ -7396,7 +7396,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* The n32 and n64 ABIs say that if any 64-bit chunk of the structure
      contains a double in its entirety, then that 64-bit chunk is passed
      in a floating-point register.  */
-  if ((TARGET_NABI || TARGET_PABI)
+  if (TARGET_NABI
       && TARGET_HARD_FLOAT
       && named
       && type != 0
@@ -7551,21 +7551,15 @@ mips_function_arg_alignment (machine_mode mode, const_tree type)
     {
       if (TARGET_PABI)
 	{
-	  /* Scalar and vector types use base type alignment.  */
-	  if (!AGGREGATE_TYPE_P (type))
-	    alignment = TYPE_ALIGN (TYPE_MAIN_VARIANT (type));
-
-	  /* Array types element type alignment.  */
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    alignment = TYPE_ALIGN (TREE_TYPE (type));
-
-	  /* Record/aggregate type use the greates member alignment of
-	     a member.  */
-	  for (tree field = TYPE_FIELDS (type);
-	       field;
-	       field = DECL_CHAIN (field))
-	    if (DECL_ALIGN (field) > PARM_BOUNDARY)
-	      return DECL_ALIGN (field);
+	  if (!integer_zerop (TYPE_SIZE (type)))
+	    {
+	      if (TYPE_MODE (type) == mode)
+		alignment = TYPE_ALIGN (type);
+	      else
+		alignment = GET_MODE_ALIGNMENT (mode);
+	    }
+	  else
+	    alignment = 0;
 	}
       else
 	alignment = TYPE_ALIGN (type);
@@ -13664,7 +13658,7 @@ mips_compute_frame_info_pabi (void)
   /* Move above the callee-allocated area for pretend stack arguments.  */
   /* Offset should be already aligned to 16 bytes and the pretend args
      size also.  */
-  offset += crtl->args.pretend_args_size;
+  gcc_assert (crtl->args.pretend_args_size == 0);
   frame->total_size = offset;
 
   /* Work out the offsets of the save areas from the top of the frame.  */
@@ -13687,8 +13681,6 @@ mips_compute_frame_info_pabi (void)
 	 save argument registers.  */
       frame->hard_frame_pointer_offset -=
 	MIPS_STACK_ALIGN (cfun->machine->varargs_size);
-      /* This is aligned to STACK_BYTES.  */
-      frame->hard_frame_pointer_offset -= crtl->args.pretend_args_size;
     }
 }
 
