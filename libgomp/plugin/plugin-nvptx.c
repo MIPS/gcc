@@ -285,7 +285,9 @@ struct ptx_device
   bool map;
   bool concur;
   bool mkern;
-  int  mode;
+  int mode;
+  int compute_capability_major;
+  int compute_capability_minor;
   int clock_khz;
   int num_sms;
   int regs_per_block;
@@ -448,6 +450,14 @@ nvptx_open_device (int n)
   ptx_dev->mode = pi;
 
   CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev);
+  ptx_dev->compute_capability_major = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev);
+  ptx_dev->compute_capability_minor = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
 		  &pi, CU_DEVICE_ATTRIBUTE_INTEGRATED, dev);
   ptx_dev->mkern = pi;
 
@@ -512,19 +522,36 @@ nvptx_open_device (int n)
 
   GOMP_PLUGIN_debug (0, "Nvidia device %d:\n\tGPU_OVERLAP = %d\n"
 		     "\tCAN_MAP_HOST_MEMORY = %d\n\tCONCURRENT_KERNELS = %d\n"
-		     "\tCOMPUTE_MODE = %d\n\tINTEGRATED = %d\n"
+		     "\tCOMPUTE_MODE = %d\n"
+		     "\tCU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR = %d\n"
+		     "\tCU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR = %d\n"
+		     "\tINTEGRATED = %d\n"
 		     "\tMAX_THREADS_PER_BLOCK = %d\n\tWARP_SIZE = %d\n"
 		     "\tMULTIPROCESSOR_COUNT = %d\n"
 		     "\tMAX_THREADS_PER_MULTIPROCESSOR = %d\n"
 		     "\tMAX_REGISTERS_PER_MULTIPROCESSOR = %d\n"
 		     "\tMAX_SHARED_MEMORY_PER_MULTIPROCESSOR = %d\n",
 		     ptx_dev->ord, ptx_dev->overlap, ptx_dev->map,
-		     ptx_dev->concur, ptx_dev->mode, ptx_dev->mkern,
-		     ptx_dev->max_threads_per_block, ptx_dev->warp_size,
-		     ptx_dev->num_sms,
+		     ptx_dev->concur, ptx_dev->mode,
+		     ptx_dev->compute_capability_major,
+		     ptx_dev->compute_capability_minor,
+		     ptx_dev->mkern, ptx_dev->max_threads_per_block,
+		     ptx_dev->warp_size, ptx_dev->num_sms,
 		     ptx_dev->max_threads_per_multiprocessor,
 		     ptx_dev->regs_per_sm,
 		     ptx_dev->max_shared_memory_per_multiprocessor);
+
+  /* K80 (SM_37) boards contain two physical GPUs.  Consequntly they
+     report 2x larger values for MAX_REGISTERS_PER_MULTIPROCESSOR and
+     MAX_SHARED_MEMORY_PER_MULTIPROCESSOR.  Those values need to be
+     adjusted on order to allow the nvptx_exec to select an
+     appropriate num_workers.  */
+  if (ptx_dev->compute_capability_major == 3
+      && ptx_dev->compute_capability_minor == 7)
+    {
+      ptx_dev->regs_per_sm /= 2;
+      ptx_dev->max_shared_memory_per_multiprocessor /= 2;
+    }
 
   return ptx_dev;
 }
