@@ -115,6 +115,8 @@
 #include "bb-reorder.h"
 #include "except.h"
 #include "fibonacci_heap.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -1665,6 +1667,12 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
                                           &bbs_in_hot_partition);
       if (cold_bb_count)
         sanitize_hot_paths (false, cold_bb_count, &bbs_in_hot_partition);
+
+      hash_set <basic_block> set;
+      find_bbs_reachable_by_hot_paths (&set);
+      FOR_EACH_BB_FN (bb, cfun)
+	if (!set.contains (bb))
+	  BB_SET_PARTITION (bb, BB_COLD_PARTITION);
     }
 
   /* The format of .gcc_except_table does not allow landing pads to
@@ -2898,7 +2906,8 @@ pass_partition_blocks::execute (function *fun)
 
   crossing_edges = find_rarely_executed_basic_blocks_and_crossing_edges ();
   if (!crossing_edges.exists ())
-    return 0;
+    /* Make sure to process deferred rescans and clear changeable df flags.  */
+    return TODO_df_finish;
 
   crtl->has_bb_partition = true;
 
@@ -2964,7 +2973,8 @@ pass_partition_blocks::execute (function *fun)
       df_analyze ();
     }
 
-  return 0;
+  /* Make sure to process deferred rescans and clear changeable df flags.  */
+  return TODO_df_finish;
 }
 
 } // anon namespace

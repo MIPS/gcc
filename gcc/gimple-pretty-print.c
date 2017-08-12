@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "trans-mem.h"
 #include "cfganal.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 
 #define INDENT(SPACE)							\
@@ -91,10 +93,10 @@ dump_profile (int frequency, profile_count &count)
 
   char *buf;
   if (count.initialized_p ())
-    asprintf (&buf, "[%.2f%%] [count: %" PRId64 "]", fvalue,
-	      count.to_gcov_type ());
+    buf = xasprintf ("[%.2f%%] [count: %" PRId64 "]", fvalue,
+		     count.to_gcov_type ());
   else
-    asprintf (&buf, "[%.2f%%] [count: INV]", fvalue);
+    buf = xasprintf ("[%.2f%%] [count: INV]", fvalue);
 
   const char *ret = xstrdup_for_dump (buf);
   free (buf);
@@ -121,12 +123,12 @@ dump_probability (profile_probability probability, profile_count &count)
 
   char *buf;
   if (count.initialized_p ())
-    asprintf (&buf, "[%.2f%%] [count: %" PRId64 "]", fvalue,
-	      count.to_gcov_type ());
+    buf = xasprintf ("[%.2f%%] [count: %" PRId64 "]", fvalue,
+		     count.to_gcov_type ());
   else if (probability.initialized_p ())
-    asprintf (&buf, "[%.2f%%] [count: INV]", fvalue);
+    buf = xasprintf ("[%.2f%%] [count: INV]", fvalue);
   else
-    asprintf (&buf, "[INV] [count: INV]");
+    buf = xasprintf ("[INV] [count: INV]");
 
   const char *ret = xstrdup_for_dump (buf);
   free (buf);
@@ -1120,9 +1122,6 @@ dump_gimple_label (pretty_printer *buffer, glabel *gs, int spc,
   else
     {
       dump_generic_node (buffer, label, spc, flags, false);
-      basic_block bb = gimple_bb (gs);
-      if (bb && !(flags & TDF_GIMPLE))
-	pp_scalar (buffer, " %s", dump_profile (bb->frequency, bb->count));
       pp_colon (buffer);
     }
   if (flags & TDF_GIMPLE)
@@ -2695,16 +2694,12 @@ dump_gimple_bb_header (FILE *outf, basic_block bb, int indent,
     }
   else
     {
-      gimple *stmt = first_stmt (bb);
-      if (!stmt || gimple_code (stmt) != GIMPLE_LABEL)
-	{
-	  if (flags & TDF_GIMPLE)
-	    fprintf (outf, "%*sbb_%d:\n", indent, "", bb->index);
-	  else
-	    fprintf (outf, "%*s<bb %d> %s:\n",
-		     indent, "", bb->index, dump_profile (bb->frequency,
-							  bb->count));
-	}
+      if (flags & TDF_GIMPLE)
+	fprintf (outf, "%*sbb_%d:\n", indent, "", bb->index);
+      else
+	fprintf (outf, "%*s<bb %d> %s:\n",
+		 indent, "", bb->index, dump_profile (bb->frequency,
+						      bb->count));
     }
 }
 
@@ -2760,22 +2755,10 @@ pp_cfg_jump (pretty_printer *buffer, edge e, dump_flags_t flags)
     }
   else
     {
-      gimple *stmt = first_stmt (e->dest);
-
       pp_string (buffer, "goto <bb ");
       pp_decimal_int (buffer, e->dest->index);
       pp_greater (buffer);
-      if (stmt && gimple_code (stmt) == GIMPLE_LABEL)
-	{
-	  pp_string (buffer, " (");
-	  dump_generic_node (buffer,
-			     gimple_label_label (as_a <glabel *> (stmt)),
-			     0, 0, false);
-	  pp_right_paren (buffer);
-	  pp_semicolon (buffer);
-	}
-      else
-	pp_semicolon (buffer);
+      pp_semicolon (buffer);
 
       dump_edge_probability (buffer, e);
     }

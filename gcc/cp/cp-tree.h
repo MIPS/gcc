@@ -2148,29 +2148,21 @@ struct GTY(()) lang_type {
    and the RECORD_TYPE for the class template otherwise.  */
 #define CLASSTYPE_DECL_LIST(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->decl_list)
 
-/* The slot in the CLASSTYPE_METHOD_VEC where constructors go.  */
-#define CLASSTYPE_CONSTRUCTOR_SLOT 0
-
-/* The slot in the CLASSTYPE_METHOD_VEC where destructors go.  */
-#define CLASSTYPE_DESTRUCTOR_SLOT 1
-
 /* The first slot in the CLASSTYPE_METHOD_VEC where conversion
    operators can appear.  */
-#define CLASSTYPE_FIRST_CONVERSION_SLOT 2
+#define CLASSTYPE_FIRST_CONVERSION_SLOT 0
 
 /* A FUNCTION_DECL or OVERLOAD for the constructors for NODE.  These
    are the constructors that take an in-charge parameter.  */
 #define CLASSTYPE_CONSTRUCTORS(NODE) \
-  ((*CLASSTYPE_METHOD_VEC (NODE))[CLASSTYPE_CONSTRUCTOR_SLOT])
+  (lookup_fnfields_slot_nolazy (NODE, ctor_identifier))
 
 /* A FUNCTION_DECL for the destructor for NODE.  This is the
    destructors that take an in-charge parameter.  If
    CLASSTYPE_LAZY_DESTRUCTOR is true, then this entry will be NULL
    until the destructor is created with lazily_declare_fn.  */
 #define CLASSTYPE_DESTRUCTOR(NODE) \
-  (CLASSTYPE_METHOD_VEC (NODE)						      \
-   ? (*CLASSTYPE_METHOD_VEC (NODE))[CLASSTYPE_DESTRUCTOR_SLOT]		      \
-   : NULL_TREE)
+  (lookup_fnfields_slot_nolazy (NODE, dtor_identifier))
 
 /* A dictionary of the nested user-defined-types (class-types, or enums)
    found within this class.  This table includes nested member class
@@ -5304,7 +5296,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
    (Normally, these entities are registered in the symbol table, but
    not found by lookup.)  */
 #define LOOKUP_HIDDEN (LOOKUP_PREFER_NAMESPACES << 1)
-/* Prefer that the lvalue be treated as an rvalue.  */
+/* We're trying to treat an lvalue as an rvalue.  */
 #define LOOKUP_PREFER_RVALUE (LOOKUP_HIDDEN << 1)
 /* We're inside an init-list, so narrowing conversions are ill-formed.  */
 #define LOOKUP_NO_NARROWING (LOOKUP_PREFER_RVALUE << 1)
@@ -6305,7 +6297,7 @@ extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
 extern tree build_value_init			(tree, tsubst_flags_t);
 extern tree build_value_init_noctor		(tree, tsubst_flags_t);
-extern tree get_nsdmi				(tree, bool);
+extern tree get_nsdmi				(tree, bool, tsubst_flags_t);
 extern tree build_offset_ref			(tree, tree, bool,
 						 tsubst_flags_t);
 extern tree throw_bad_array_new_length		(void);
@@ -6363,7 +6355,7 @@ extern bool trivial_fn_p			(tree);
 extern tree forward_parm			(tree);
 extern bool is_trivially_xible			(enum tree_code, tree, tree);
 extern bool is_xible				(enum tree_code, tree, tree);
-extern tree get_defaulted_eh_spec		(tree);
+extern tree get_defaulted_eh_spec		(tree, tsubst_flags_t = tf_warning_or_error);
 extern void after_nsdmi_defaulted_late_checks   (tree);
 extern bool maybe_explain_implicit_delete	(tree);
 extern void explain_implicit_non_constexpr	(tree);
@@ -6393,6 +6385,7 @@ extern tree cp_convert_range_for (tree, tree, tree, tree, unsigned int, bool);
 extern bool parsing_nsdmi (void);
 extern bool parsing_default_capturing_generic_lambda_in_template (void);
 extern void inject_this_parameter (tree, cp_cv_quals);
+extern location_t defarg_location (tree);
 
 /* in pt.c */
 extern bool check_template_shadow		(tree);
@@ -6456,7 +6449,7 @@ extern int more_specialized_fn			(tree, tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
 extern bool always_instantiate_p		(tree);
-extern void maybe_instantiate_noexcept		(tree);
+extern bool maybe_instantiate_noexcept		(tree, tsubst_flags_t = tf_warning_or_error);
 extern tree instantiate_decl			(tree, bool, bool);
 extern int comp_template_parms			(const_tree, const_tree);
 extern bool builtin_pack_fn_p			(tree);
@@ -7174,7 +7167,7 @@ extern tree split_nonconstant_init		(tree, tree);
 extern bool check_narrowing			(tree, tree, tsubst_flags_t);
 extern tree digest_init				(tree, tree, tsubst_flags_t);
 extern tree digest_init_flags			(tree, tree, int, tsubst_flags_t);
-extern tree digest_nsdmi_init		        (tree, tree);
+extern tree digest_nsdmi_init		        (tree, tree, tsubst_flags_t);
 extern tree build_scoped_ref			(tree, tree, tree *);
 extern tree build_x_arrow			(location_t, tree,
 						 tsubst_flags_t);

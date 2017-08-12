@@ -2592,6 +2592,7 @@ reset_decl_linkage (tree decl)
   determine_visibility (decl);
   tentative_decl_linkage (decl);
 }
+
 static void
 reset_type_linkage_2 (tree type)
 {
@@ -2615,18 +2616,14 @@ reset_type_linkage_2 (tree type)
       for (tree m = TYPE_FIELDS (type); m; m = DECL_CHAIN (m))
 	{
 	  tree mem = STRIP_TEMPLATE (m);
-	  if (VAR_P (mem))
+	  if (TREE_CODE (mem) == VAR_DECL || TREE_CODE (mem) == FUNCTION_DECL)
 	    reset_decl_linkage (mem);
-	}
-      for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
-	{
-	  tree mem = STRIP_TEMPLATE (m);
-	  reset_decl_linkage (mem);
 	}
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (type),
 			     bt_reset_linkage_2, NULL);
     }
 }
+
 static void
 bt_reset_linkage_2 (binding_entry b, void */*data*/)
 {
@@ -3159,11 +3156,9 @@ get_tls_init_fn (tree var)
   if (!flag_extern_tls_init && DECL_EXTERNAL (var))
     return NULL_TREE;
 
-#ifdef ASM_OUTPUT_DEF
   /* If the variable is internal, or if we can't generate aliases,
      call the local init function directly.  */
-  if (!TREE_PUBLIC (var))
-#endif
+  if (!TREE_PUBLIC (var) || !TARGET_SUPPORTS_ALIASES)
     return get_local_tls_init_fn ();
 
   tree sname = mangle_tls_init_fn (var);
@@ -4244,9 +4239,8 @@ handle_tls_init (void)
       tree init = TREE_PURPOSE (vars);
       one_static_initialization_or_destruction (var, init, true);
 
-#ifdef ASM_OUTPUT_DEF
       /* Output init aliases even with -fno-extern-tls-init.  */
-      if (TREE_PUBLIC (var))
+      if (TARGET_SUPPORTS_ALIASES && TREE_PUBLIC (var))
 	{
           tree single_init_fn = get_tls_init_fn (var);
 	  if (single_init_fn == NULL_TREE)
@@ -4256,7 +4250,6 @@ handle_tls_init (void)
 		(single_init_fn, fn);
 	  gcc_assert (alias != NULL);
 	}
-#endif
     }
 
   finish_then_clause (if_stmt);
@@ -4301,17 +4294,18 @@ generate_mangling_alias (tree decl, tree id2)
    implementation.  */
 
 void
-note_mangling_alias (tree decl ATTRIBUTE_UNUSED, tree id2 ATTRIBUTE_UNUSED)
+note_mangling_alias (tree decl, tree id2)
 {
-#ifdef ASM_OUTPUT_DEF
-  if (!defer_mangling_aliases)
-    generate_mangling_alias (decl, id2);
-  else
+  if (TARGET_SUPPORTS_ALIASES)
     {
-      vec_safe_push (mangling_aliases, decl);
-      vec_safe_push (mangling_aliases, id2);
+      if (!defer_mangling_aliases)
+	generate_mangling_alias (decl, id2);
+      else
+	{
+	  vec_safe_push (mangling_aliases, decl);
+	  vec_safe_push (mangling_aliases, id2);
+	}
     }
-#endif
 }
 
 /* Emit all mangling aliases that were deferred up to this point.  */
@@ -4991,25 +4985,20 @@ mark_used (tree decl, tsubst_flags_t complain)
   if (TREE_CODE (decl) == CONST_DECL)
     used_types_insert (DECL_CONTEXT (decl));
 
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    maybe_instantiate_noexcept (decl);
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && !maybe_instantiate_noexcept (decl, complain))
+    return false;
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DELETED_FN (decl))
     {
-      if (DECL_ARTIFICIAL (decl))
-	{
-	  if (DECL_OVERLOADED_OPERATOR_P (decl) == TYPE_EXPR
-	      && LAMBDA_TYPE_P (DECL_CONTEXT (decl)))
-	    {
-	      /* We mark a lambda conversion op as deleted if we can't
-		 generate it properly; see maybe_add_lambda_conv_op.  */
-	      sorry ("converting lambda which uses %<...%> to "
-		     "function pointer");
-	      return false;
-	    }
-	}
-      if (complain & tf_error)
+      if (DECL_ARTIFICIAL (decl)
+	  && DECL_OVERLOADED_OPERATOR_P (decl) == TYPE_EXPR
+	  && LAMBDA_TYPE_P (DECL_CONTEXT (decl)))
+	/* We mark a lambda conversion op as deleted if we can't
+	   generate it properly; see maybe_add_lambda_conv_op.  */
+	sorry ("converting lambda which uses %<...%> to function pointer");
+      else if (complain & tf_error)
 	{
 	  error ("use of deleted function %qD", decl);
 	  if (!maybe_explain_implicit_delete (decl))

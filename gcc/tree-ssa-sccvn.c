@@ -60,6 +60,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "gimple-iterator.h"
 #include "gimple-match.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
    Cooper and L. Taylor Simpson in "SCC-Based Value numbering"
@@ -2635,6 +2637,14 @@ vn_nary_op_eq (const_vn_nary_op_t const vno1, const_vn_nary_op_t const vno2)
   for (i = 0; i < vno1->length; ++i)
     if (!expressions_equal_p (vno1->op[i], vno2->op[i]))
       return false;
+
+  /* BIT_INSERT_EXPR has an implict operand as the type precision
+     of op1.  Need to check to make sure they are the same.  */
+  if (vno1->opcode == BIT_INSERT_EXPR
+      && TREE_CODE (vno1->op[1]) == INTEGER_CST
+      && TYPE_PRECISION (TREE_TYPE (vno1->op[1]))
+	 != TYPE_PRECISION (TREE_TYPE (vno2->op[1])))
+    return false;
 
   return true;
 }

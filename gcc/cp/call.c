@@ -39,6 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "internal-fn.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* The various kinds of conversion.  */
 
@@ -99,7 +101,7 @@ struct conversion {
   /* If KIND is ck_ref_bind, true when either an lvalue reference is
      being bound to an lvalue expression or an rvalue reference is
      being bound to an rvalue expression.  If KIND is ck_rvalue,
-     true when we should treat an lvalue as an rvalue (12.8p33).  If
+     true when we are treating an lvalue as an rvalue (12.8p33).  If
      KIND is ck_base, always false.  */
   BOOL_BITFIELD rvaluedness_matches_p: 1;
   BOOL_BITFIELD check_narrowing: 1;
@@ -914,7 +916,7 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
       if (i < CONSTRUCTOR_NELTS (ctor))
 	val = CONSTRUCTOR_ELT (ctor, i)->value;
       else if (DECL_INITIAL (field))
-	val = get_nsdmi (field, /*ctor*/false);
+	val = get_nsdmi (field, /*ctor*/false, complain);
       else if (TREE_CODE (ftype) == REFERENCE_TYPE)
 	/* Value-initialization of reference is ill-formed.  */
 	return NULL;
@@ -1159,6 +1161,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	}
       conv = build_conv (ck_rvalue, from, conv);
       if (flags & LOOKUP_PREFER_RVALUE)
+	/* Tell convert_like_real to set LOOKUP_PREFER_RVALUE.  */
 	conv->rvaluedness_matches_p = true;
     }
 
@@ -1627,11 +1630,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
       conv = build_identity_conv (tfrom, expr);
       conv = direct_reference_binding (rto, conv);
 
-      if (flags & LOOKUP_PREFER_RVALUE)
-	/* The top-level caller requested that we pretend that the lvalue
-	   be treated as an rvalue.  */
-	conv->rvaluedness_matches_p = TYPE_REF_IS_RVALUE (rto);
-      else if (TREE_CODE (rfrom) == REFERENCE_TYPE)
+      if (TREE_CODE (rfrom) == REFERENCE_TYPE)
 	/* Handle rvalue reference to function properly.  */
 	conv->rvaluedness_matches_p
 	  = (TYPE_REF_IS_RVALUE (rto) == TYPE_REF_IS_RVALUE (rfrom));
@@ -1657,8 +1656,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
       /* Don't allow binding of lvalues (other than function lvalues) to
 	 rvalue references.  */
       if (is_lvalue && TYPE_REF_IS_RVALUE (rto)
-	  && TREE_CODE (to) != FUNCTION_TYPE
-          && !(flags & LOOKUP_PREFER_RVALUE))
+	  && TREE_CODE (to) != FUNCTION_TYPE)
 	conv->bad_p = true;
 
       /* Nor the reverse.  */
@@ -3735,7 +3733,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
   gcc_assert (!MAYBE_CLASS_TYPE_P (fromtype) || !MAYBE_CLASS_TYPE_P (totype)
 	      || !DERIVED_FROM_P (totype, fromtype));
 
-  if (MAYBE_CLASS_TYPE_P (totype))
+  if (CLASS_TYPE_P (totype))
     /* Use lookup_fnfields_slot instead of lookup_fnfields to avoid
        creating a garbage BASELINK; constructors can't be inherited.  */
     ctors = lookup_fnfields_slot (totype, complete_ctor_identifier);
@@ -5423,8 +5421,8 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 {
   tree ctype;
   const vec<tree, va_gc> *non_static_args;
-  bool check_list_ctor;
-  bool check_converting;
+  bool check_list_ctor = false;
+  bool check_converting = false;
   unification_kind_t strict;
 
   if (!fns)
@@ -5435,7 +5433,7 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
   if (DECL_CONV_FN_P (fn))
     {
       check_list_ctor = false;
-      check_converting = !!(flags & LOOKUP_ONLYCONVERTING);
+      check_converting = (flags & LOOKUP_ONLYCONVERTING) != 0;
       if (flags & LOOKUP_NO_CONVERSION)
 	/* We're doing return_type(x).  */
 	strict = DEDUCE_CONV;
@@ -5452,17 +5450,12 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
     {
       if (DECL_CONSTRUCTOR_P (fn))
 	{
-	  check_list_ctor = !!(flags & LOOKUP_LIST_ONLY);
+	  check_list_ctor = (flags & LOOKUP_LIST_ONLY) != 0;
 	  /* For list-initialization we consider explicit constructors
 	     and complain if one is chosen.  */
 	  check_converting
 	    = ((flags & (LOOKUP_ONLYCONVERTING|LOOKUP_LIST_INIT_CTOR))
 	       == LOOKUP_ONLYCONVERTING);
-	}
-      else
-	{
-	  check_list_ctor = false;
-	  check_converting = false;
 	}
       strict = DEDUCE_CALL;
       ctype = conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE;
@@ -5476,9 +5469,6 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 
   for (lkp_iterator iter (fns); iter; ++iter)
     {
-      tree fn_first_arg;
-      const vec<tree, va_gc> *fn_args;
-
       fn = *iter;
 
       if (check_converting && DECL_NONCONVERTING_P (fn))
@@ -5486,10 +5476,13 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
       if (check_list_ctor && !is_list_ctor (fn))
 	continue;
 
-      /* Figure out which set of arguments to use.  */
+      tree fn_first_arg = NULL_TREE;
+      const vec<tree, va_gc> *fn_args = args;
+
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
 	{
-	  /* If this function is a non-static member and we didn't get an
+	  /* Figure out where the object arg comes from.  If this
+	     function is a non-static member and we didn't get an
 	     implicit object argument, move it out of args.  */
 	  if (first_arg == NULL_TREE)
 	    {
@@ -5505,12 +5498,6 @@ add_candidates (tree fns, tree first_arg, const vec<tree, va_gc> *args,
 
 	  fn_first_arg = first_arg;
 	  fn_args = non_static_args;
-	}
-      else
-	{
-	  /* Otherwise, just use the list of arguments provided.  */
-	  fn_first_arg = NULL_TREE;
-	  fn_args = args;
 	}
 
       if (TREE_CODE (fn) == TEMPLATE_DECL)
@@ -6926,6 +6913,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       else
 	flags |= LOOKUP_ONLYCONVERTING;
       if (convs->rvaluedness_matches_p)
+	/* standard_conversion got LOOKUP_PREFER_RVALUE.  */
 	flags |= LOOKUP_PREFER_RVALUE;
       if (TREE_CODE (expr) == TARGET_EXPR
 	  && TARGET_EXPR_LIST_INIT_P (expr))
@@ -7724,6 +7712,19 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	  argarray[j++] = (*args)[arg_index];
 	  ++arg_index;
 	  parm = TREE_CHAIN (parm);
+	}
+
+      if (flags & LOOKUP_PREFER_RVALUE)
+	{
+	  /* The implicit move specified in 15.8.3/3 fails "...if the type of
+	     the first parameter of the selected constructor is not an rvalue
+	     reference to the object’s type (possibly cv-qualified)...." */
+	  gcc_assert (!(complain & tf_error));
+	  tree ptype = convs[0]->type;
+	  if (TREE_CODE (ptype) != REFERENCE_TYPE
+	      || !TYPE_REF_IS_RVALUE (ptype)
+	      || CONVERSION_RANK (convs[0]) > cr_exact)
+	    return error_mark_node;
 	}
     }
   /* Bypass access control for 'this' parameter.  */

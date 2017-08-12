@@ -351,6 +351,35 @@
   }
 )
 
+(define_expand "xorsign<mode>3"
+  [(match_operand:VHSDF 0 "register_operand")
+   (match_operand:VHSDF 1 "register_operand")
+   (match_operand:VHSDF 2 "register_operand")]
+  "TARGET_SIMD"
+{
+
+  machine_mode imode = <V_cmp_result>mode;
+  rtx v_bitmask = gen_reg_rtx (imode);
+  rtx op1x = gen_reg_rtx (imode);
+  rtx op2x = gen_reg_rtx (imode);
+
+  rtx arg1 = lowpart_subreg (imode, operands[1], <MODE>mode);
+  rtx arg2 = lowpart_subreg (imode, operands[2], <MODE>mode);
+
+  int bits = GET_MODE_UNIT_BITSIZE (<MODE>mode) - 1;
+
+  emit_move_insn (v_bitmask,
+		  aarch64_simd_gen_const_vector_dup (<V_cmp_result>mode,
+						     HOST_WIDE_INT_M1U << bits));
+
+  emit_insn (gen_and<v_cmp_result>3 (op2x, v_bitmask, arg2));
+  emit_insn (gen_xor<v_cmp_result>3 (op1x, arg1, op2x));
+  emit_move_insn (operands[0],
+		  lowpart_subreg (<MODE>mode, op1x, imode));
+  DONE;
+}
+)
+
 (define_expand "copysign<mode>3"
   [(match_operand:VHSDF 0 "register_operand")
    (match_operand:VHSDF 1 "register_operand")
@@ -1033,6 +1062,18 @@
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
 )
 
+(define_insn "*aarch64_mla_elt_merge<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+	(plus:VDQHS
+	  (mult:VDQHS (vec_duplicate:VDQHS
+		  (match_operand:<VEL> 1 "register_operand" "w"))
+		(match_operand:VDQHS 2 "register_operand" "w"))
+	  (match_operand:VDQHS 3 "register_operand" "0")))]
+ "TARGET_SIMD"
+ "mla\t%0.<Vtype>, %2.<Vtype>, %1.<Vetype>[0]"
+  [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
+)
+
 (define_insn "aarch64_mls<mode>"
  [(set (match_operand:VDQ_BHSI 0 "register_operand" "=w")
        (minus:VDQ_BHSI (match_operand:VDQ_BHSI 1 "register_operand" "0")
@@ -1077,6 +1118,18 @@
 					  INTVAL (operands[2])));
     return "mls\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
+  [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
+)
+
+(define_insn "*aarch64_mls_elt_merge<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+	(minus:VDQHS
+	  (match_operand:VDQHS 1 "register_operand" "0")
+	  (mult:VDQHS (vec_duplicate:VDQHS
+		  (match_operand:<VEL> 2 "register_operand" "w"))
+		(match_operand:VDQHS 3 "register_operand" "w"))))]
+  "TARGET_SIMD"
+  "mls\t%0.<Vtype>, %3.<Vtype>, %2.<Vetype>[0]"
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
 )
 
@@ -5593,9 +5646,9 @@
   DONE;
 })
 
-;; Standard pattern name vec_init<mode>.
+;; Standard pattern name vec_init<mode><Vel>.
 
-(define_expand "vec_init<mode>"
+(define_expand "vec_init<mode><Vel>"
   [(match_operand:VALL_F16 0 "register_operand" "")
    (match_operand 1 "" "")]
   "TARGET_SIMD"
@@ -5650,9 +5703,9 @@
  "urecpe\\t%0.<Vtype>, %1.<Vtype>"
   [(set_attr "type" "neon_fp_recpe_<Vetype><q>")])
 
-;; Standard pattern name vec_extract<mode>.
+;; Standard pattern name vec_extract<mode><Vel>.
 
-(define_expand "vec_extract<mode>"
+(define_expand "vec_extract<mode><Vel>"
   [(match_operand:<VEL> 0 "aarch64_simd_nonimmediate_operand" "")
    (match_operand:VALL_F16 1 "register_operand" "")
    (match_operand:SI 2 "immediate_operand" "")]
