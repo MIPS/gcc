@@ -3198,13 +3198,17 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMF))
 		return SYMBOL_GPREL32_NANO;
-	      else if (symbol_pic_model == NANO_PIC_AUTO
-		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
-		       && !(context == SYMBOL_CONTEXT_MEM
-			    && TARGET_NANOMIPS == NANOMIPS_NMF))
-		return SYMBOL_PCREL_NANO;
-	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
+		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
+		          == 4
+		       && context == SYMBOL_CONTEXT_MEM)
 		return SYMBOL_PCREL32_NANO;
+	      else if (symbol_pic_model == NANO_PIC_AUTO
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2)
+		return SYMBOL_PCREL_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
+		       && context == SYMBOL_CONTEXT_LEA)
+		return SYMBOL_LAPC48_NANO;
 	      else
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
@@ -3369,6 +3373,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_LAPC48_NANO:
     case SYMBOL_PCREL_NANO:
     case SYMBOL_PCREL32_NANO:
       /* Allow constant pool references to be converted to LABEL+CONSTANT.
@@ -3461,6 +3466,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 		 : 2;
 
     case SYMBOL_GPREL32_NANO:
+    case SYMBOL_LAPC48_NANO:
       if (mode == MAX_MACHINE_MODE)
 	return 1;
 
@@ -3478,7 +3484,6 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       return 0;
 
     case SYMBOL_PC_RELATIVE:
-    case SYMBOL_PCREL32_NANO:
       /* PC-relative constants can be only be used with ADDIUPC,
 	 DADDIUPC, LWPC and LDPC.  */
       if (mode == MAX_MACHINE_MODE
@@ -3487,6 +3492,12 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	return 1;
 
       /* The constant must be loaded using ADDIUPC or DADDIUPC first.  */
+      return 0;
+
+    case SYMBOL_PCREL32_NANO:
+      if (GET_MODE_SIZE (mode) == 4)
+	return 1;
+
       return 0;
 
     case SYMBOL_GOT_DISP:
@@ -4701,6 +4712,10 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 	      case SYMBOL_GPREL32_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		break;
+
+	      case SYMBOL_LAPC48_NANO:
+		*low_out = gen_rtx_LO_SUM (Pmode, temp, addr);
 		break;
 
 	      case SYMBOL_GOT_PAGE_OFST:
@@ -6809,6 +6824,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
 	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
+		  || symbol_type == SYMBOL_LAPC48_NANO
 		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
 	    return "aluipc\t%0,%h1";
 
@@ -10645,6 +10661,10 @@ mips_init_relocs (void)
 	  mips_hi_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%pcrel_hi(";
 	  mips_lo_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_PCREL_SPLIT_NANO] = true;
+
+	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "";
+	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";
+	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
 
 	  mips_lo_relocs[SYMBOL_GOT_PCREL32_NANO] = "%got_pcrel32(";
 

@@ -4720,14 +4720,6 @@
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "*lea_pcrel32_pic_nano<mode>"
-  [(set (match_operand:P 0 "register_operand")
-	(match_operand:P 1 "pcrel32_lea_nano_operand"))]
-  "TARGET_NANOMIPS && flag_pic"
-  "lapc[48]\t%0,%1"
-  [(set_attr "compression" "nanomips48")
-   (set_attr "mode" "<MODE>")])
-
 ;; @tmt reload_completed?
   ;; "TARGET_NANOMIPS && flag_pic && reload_completed"
 (define_insn "*load_pcrel32_pic_nanosi"
@@ -4756,6 +4748,11 @@
   if (SYMBOL_REF_DECL (operands[2])
       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) == 4096)
     return "";
+
+  if (SYMBOL_REF_DECL (operands[2])
+      && TARGET_NANOMIPS == NANOMIPS_NMF)
+    return "lapc[48]\t%0,%2";
+
   if (SYMBOL_REF_DECL (operands[2])
       && !VAR_P (SYMBOL_REF_DECL (operands[2])))
     return "<load>\t%0,%R2(%1)";
