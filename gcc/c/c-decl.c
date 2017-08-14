@@ -1557,11 +1557,10 @@ pushtag (location_t loc, tree name, tree type)
 	  && (TYPE_MAIN_VARIANT (TREE_TYPE (b->decl))
 	      != TYPE_MAIN_VARIANT (type)))
 	{
-	  warning_at (loc, OPT_Wc___compat,
-		      ("using %qD as both a typedef and a tag is "
-		       "invalid in C++"),
-		      b->decl);
-	  if (b->locus != UNKNOWN_LOCATION)
+	  if (warning_at (loc, OPT_Wc___compat,
+			  ("using %qD as both a typedef and a tag is "
+			   "invalid in C++"), b->decl)
+	      && b->locus != UNKNOWN_LOCATION)
 	    inform (b->locus, "originally defined here");
 	}
     }
@@ -6596,11 +6595,10 @@ grokdeclarator (const struct c_declarator *declarator,
 		  || (current_scope == file_scope && B_IN_EXTERNAL_SCOPE (b)))
 	      && TYPE_MAIN_VARIANT (b->decl) != TYPE_MAIN_VARIANT (type))
 	    {
-	      warning_at (declarator->id_loc, OPT_Wc___compat,
-			  ("using %qD as both a typedef and a tag is "
-			   "invalid in C++"),
-			  decl);
-	      if (b->locus != UNKNOWN_LOCATION)
+	      if (warning_at (declarator->id_loc, OPT_Wc___compat,
+			      ("using %qD as both a typedef and a tag is "
+			       "invalid in C++"), decl)
+		  && b->locus != UNKNOWN_LOCATION)
 		inform (b->locus, "originally defined here");
 	    }
 	}
@@ -8475,7 +8473,7 @@ build_enumerator (location_t decl_loc, location_t loc,
   /* Set basis for default for next value.  */
   the_enum->enum_next_value
     = build_binary_op (EXPR_LOC_OR_LOC (value, input_location),
-		       PLUS_EXPR, value, integer_one_node, 0);
+		       PLUS_EXPR, value, integer_one_node, false);
   the_enum->enum_overflow = tree_int_cst_lt (the_enum->enum_next_value, value);
 
   /* Now create a declaration for the enum value name.  */
