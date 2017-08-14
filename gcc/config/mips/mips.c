@@ -3184,8 +3184,9 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	{
 	  if (mips_symbol_binds_local_p (x))
 	    {
-	      if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
-		return SYMBOL_PCREL_SPLIT_NANO;
+	      if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
+		  && context == SYMBOL_CONTEXT_LEA)
+		return SYMBOL_PCREL_4K_NANO;
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
@@ -3375,6 +3376,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_PCREL_SPLIT_NANO:
     case SYMBOL_LAPC48_NANO:
     case SYMBOL_PCREL_NANO:
+    case SYMBOL_PCREL_4K_NANO:
     case SYMBOL_PCREL32_NANO:
       /* Allow constant pool references to be converted to LABEL+CONSTANT.
 	 In this case, we no longer have access to the underlying constant,
@@ -3467,6 +3469,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 
     case SYMBOL_GPREL32_NANO:
     case SYMBOL_LAPC48_NANO:
+    case SYMBOL_PCREL_4K_NANO:
       if (mode == MAX_MACHINE_MODE)
 	return 1;
 
@@ -4712,6 +4715,10 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 	      case SYMBOL_GPREL32_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		break;
+
+	      case SYMBOL_PCREL_4K_NANO:
+		*low_out = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		break;
 
 	      case SYMBOL_LAPC48_NANO:
@@ -6825,6 +6832,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 					   &symbol_type)
 	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
 		  || symbol_type == SYMBOL_LAPC48_NANO
+		  || symbol_type == SYMBOL_PCREL_4K_NANO
 		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
 	    return "aluipc\t%0,%h1";
 
@@ -10665,6 +10673,10 @@ mips_init_relocs (void)
 	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "";
 	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";
 	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
+
+	  mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_PCREL_4K_NANO] = "";
+	  mips_split_p[SYMBOL_PCREL_4K_NANO] = true;
 
 	  mips_lo_relocs[SYMBOL_GOT_PCREL32_NANO] = "%got_pcrel32(";
 
