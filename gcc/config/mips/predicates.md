@@ -766,7 +766,16 @@
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
 	  && type != SYMBOL_GPREL32_NANO
 	  && type != SYMBOL_GOT_PCREL_SPLIT_NANO
+	  && type != SYMBOL_LAPC48_NANO
 	  && type != SYMBOL_GP_RELATIVE);
+})
+
+(define_predicate "lapc48_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_LAPC48_NANO);
 })
 
 (define_predicate "got_page_ofst_operand"

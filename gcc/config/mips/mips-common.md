@@ -4750,16 +4750,20 @@
       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) == 4096)
     return "";
 
-  if (SYMBOL_REF_DECL (operands[2])
-      && VAR_P (SYMBOL_REF_DECL (operands[2]))
-      && TARGET_NANOMIPS == NANOMIPS_NMF)
-    return "lapc[48]\t%0,%2";
-
   return "<d>addiu\t%0,%1,%R2";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
+
+(define_insn "*lapc48_var_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "lapc48_nano_operand" "")))]
+  "TARGET_NANOMIPS && flag_pic"
+  "lapc[48]\t%0,%2"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
 
 (define_insn "*got_pcrel_lo_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
