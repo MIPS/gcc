@@ -4786,33 +4786,30 @@
 
 ;; nanoMIPS GP-relative PIC expansions:
 
-	;; (lo_sum:P (reg:P GLOBAL_POINTER_REGNUM)
-(define_insn "*lea_gprel_pic_nano<mode>"
-  [(set (match_operand:P 0 "register_operand" "=d")
-	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "gprel_nano_operand" "")))]
+(define_insn "*lea_gprel_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel_nano_operand" "")))]
   "TARGET_NANOMIPS && flag_pic"
 {
-  if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) <= 2)
-    return "<d>addiu[gp.b]\t%0,%1,%R2";
-  else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) >= 4)
-    return "<d>addiu[gp.w]\t%0,%1,%R2";
+  if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[1])) <= 2)
+    return "addiu[gp.b]\t%0,$gp,%R1";
+  else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[1])) >= 4)
+    return "addiu[gp.w]\t%0,$gp,%R1";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "SI")])
 
-(define_insn "*lea_gprel32_pic_nano<mode>"
-  [(set (match_operand:P 0 "register_operand" "=d")
-	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "gprel32_nano_operand" "")))]
+(define_insn "*lea_gprel32_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel32_nano_operand" "")))]
   "TARGET_NANOMIPS && flag_pic"
-{
-  return "<d>addiu[gp48]\t%0,%1,%R2";
-}
+  "addiu[gp48]\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips48")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "SI")])
 
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: mips_print_operand works out which relocation
