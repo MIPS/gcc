@@ -708,12 +708,29 @@
 	  && type == SYMBOL_PCREL32_NANO);
 })
 
+;; (define_predicate "got_pcrel32_lea_nano_operand"
+;;   (match_code "const,symbol_ref,label_ref")
+;; {
+;;   enum mips_symbol_type type;
+;;   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+;; 	  && type == SYMBOL_GOT_PCREL32_NANO);
+;; })
+
+;; (define_predicate "got_pcrel32_call_nano_operand"
 (define_predicate "got_pcrel32_nano_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &type)
 	  && type == SYMBOL_GOT_PCREL32_NANO);
+})
+
+(define_predicate "got_pcrel_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &type)
+	  && type == SYMBOL_GOT_PCREL_SPLIT_NANO);
 })
 
 (define_predicate "gprel_nano_operand"
@@ -722,6 +739,16 @@
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
 	  && type == SYMBOL_GP_RELATIVE);
+})
+
+(define_predicate "lapc48_func_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+ // return ((mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &type)
+//	   || mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type))
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_LAPC48_FUNC_NANO);
 })
 
 (define_predicate "gprel32_nano_operand"
@@ -738,6 +765,7 @@
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
 	  && type != SYMBOL_GPREL32_NANO
+	  && type != SYMBOL_GOT_PCREL_SPLIT_NANO
 	  && type != SYMBOL_GP_RELATIVE);
 })
 

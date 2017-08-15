@@ -3153,16 +3153,18 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
       enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
 
       // @tmt non-pre fptr arg for auto long calls treated as func not data
-      if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
-	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
+      if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x)))
+      /* if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x)) */
+	  /* && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x))) */
 	{
 	  if (mips_symbol_binds_local_p (x))
 	    {
 	      if (symbol_pic_model != NANO_PIC_LARGE
+		  && context == SYMBOL_CONTEXT_CALL
 		  && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_ABSOLUTE;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
-		return SYMBOL_PCREL32_NANO;
+		return SYMBOL_LAPC48_FUNC_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
@@ -3372,6 +3374,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       /* In other cases the relocations can handle any offset.  */
       return true;
 
+    case SYMBOL_LAPC48_FUNC_NANO:
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL_SPLIT_NANO:
     case SYMBOL_LAPC48_NANO:
@@ -3478,6 +3481,9 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
+      return 1;
+
+    case SYMBOL_LAPC48_FUNC_NANO:
       return 1;
 
     case SYMBOL_PCREL_NANO:
@@ -8836,6 +8842,12 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
       emit_insn (gen_rtx_SET (dest, addr));
       return true;
     }
+  else if (TARGET_NANOMIPS && flag_pic
+	   && symbol_type == SYMBOL_GOT_PCREL32_NANO)
+    {
+      emit_insn (gen_rtx_SET (dest, addr));
+      return false;
+    }
   else
     {
       mips_emit_move (dest, addr);
@@ -10669,6 +10681,8 @@ mips_init_relocs (void)
 	  mips_hi_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%pcrel_hi(";
 	  mips_lo_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_PCREL_SPLIT_NANO] = true;
+
+	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
 
 	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "";
 	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";

@@ -4738,7 +4738,7 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
-;; @tmt fix this:
+;; @tmt fix predicate
 (define_insn "*low_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
@@ -4746,22 +4746,29 @@
   "TARGET_NANOMIPS && flag_pic"
 {
   if (SYMBOL_REF_DECL (operands[2])
+      && VAR_P (SYMBOL_REF_DECL (operands[2]))
       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) == 4096)
     return "";
 
   if (SYMBOL_REF_DECL (operands[2])
+      && VAR_P (SYMBOL_REF_DECL (operands[2]))
       && TARGET_NANOMIPS == NANOMIPS_NMF)
     return "lapc[48]\t%0,%2";
-
-  if (SYMBOL_REF_DECL (operands[2])
-      && !VAR_P (SYMBOL_REF_DECL (operands[2])))
-    return "<load>\t%0,%R2(%1)";
 
   return "<d>addiu\t%0,%1,%R2";
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
+
+(define_insn "*got_pcrel_lo_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "got_pcrel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS && flag_pic"
+  "<load>\t%0,%R2(%1)"
+  [(set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
 
 ;; @tmt what mode should this be ?
 ;; @tmt why is this not a mem ?
@@ -4770,6 +4777,14 @@
 	(match_operand:P 1 "got_pcrel32_nano_operand"))]
   "TARGET_NANOMIPS && flag_pic"
   "lwpc\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lapc48_func_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand")
+	(match_operand:P 1 "lapc48_func_nano_operand"))]
+  "TARGET_NANOMIPS && flag_pic"
+  "lapc[48]\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
