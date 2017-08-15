@@ -11695,6 +11695,7 @@ mips_set_text_contents_type (FILE *file ATTRIBUTE_UNUSED,
 #endif
 }
 
+#ifndef NANOMIPS_SUPPORT
 /* Return the FOO in the name of the ".mdebug.FOO" section associated
    with the current ABI.  */
 
@@ -11721,6 +11722,7 @@ mips_mdebug_abi_name (void)
       gcc_unreachable ();
     }
 }
+#endif
 
 /* Implement TARGET_ASM_FILE_START.  */
 
