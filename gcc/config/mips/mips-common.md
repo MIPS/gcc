@@ -4738,20 +4738,12 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
-;; @tmt fix predicate
-(define_insn "*low_pic_nano<mode>"
+(define_insn "*pcrel_split_low_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "not_gprel_nano_operand" "")))]
+		  (match_operand:P 2 "pcrel_split_nano_operand" "")))]
   "TARGET_NANOMIPS && flag_pic"
-{
-  if (SYMBOL_REF_DECL (operands[2])
-      && VAR_P (SYMBOL_REF_DECL (operands[2]))
-      && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[2])) == 4096)
-    return "";
-
-  return "<d>addiu\t%0,%1,%R2";
-}
+  "<d>addiu\t%0,%1,%R2"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
