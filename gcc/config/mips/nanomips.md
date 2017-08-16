@@ -339,3 +339,373 @@
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
 ])
+
+;; Load word pair as LWM.
+(define_peephole2
+  [(set (match_operand:SI 0 "d_operand" "")
+	(match_operand:SI 1 "non_volatile_mem_operand" ""))
+   (set (match_operand:SI 2 "d_operand" "")
+	(match_operand:SI 3 "non_volatile_mem_operand" ""))]
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])])
+
+;; The behavior of the LWP insn is undefined if placed in a delay slot.
+(define_insn "*lwp"
+  [(parallel [(set (match_operand:SI 0 "register_operand" "=d")
+		   (match_operand:SI 1 "non_volatile_mem_operand" "ZO"))
+	      (set (match_operand:SI 2 "register_operand" "=d")
+		   (match_operand:SI 3 "non_volatile_mem_operand" "ZP"))])]
+
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands)"
+{
+  umips_output_load_store_pair (true, operands);
+  return "";
+}
+  [(set_attr "type" "load")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+;; Store load pair as SWM.
+(define_peephole2
+  [(set (match_operand:SI 0 "non_volatile_mem_operand" "")
+	(match_operand:SI 1 "d_operand" ""))
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "")
+	(match_operand:SI 3 "d_operand" ""))]
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands)"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])])
+
+;; The behavior of the SWP insn is undefined if placed in a delay slot.
+(define_insn "*swp"
+  [(set (match_operand:SI 0 "non_volatile_mem_operand" "=ZO")
+	(match_operand:SI 1 "register_operand" "d"))
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "=ZP")
+	(match_operand:SI 3 "register_operand" "d"))]
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands)"
+{
+  umips_output_load_store_pair (false, operands);
+  return "";
+}
+  [(set_attr "type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple8"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))
+     (set (match_operand:SI 7 "memory_operand" "=ZA")
+	  (match_operand:SI 8 "register_operand" "r"))
+     (set (match_operand:SI 9 "memory_operand" "=ZA")
+	  (match_operand:SI 10 "register_operand" "r"))
+     (set (match_operand:SI 11 "memory_operand" "=ZA")
+	  (match_operand:SI 12 "register_operand" "r"))
+     (set (match_operand:SI 13 "memory_operand" "=ZA")
+	  (match_operand:SI 14 "register_operand" "r"))
+     (set (match_operand:SI 15 "memory_operand" "=ZA")
+	  (match_operand:SI 16 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple7"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))
+     (set (match_operand:SI 7 "memory_operand" "=ZA")
+	  (match_operand:SI 8 "register_operand" "r"))
+     (set (match_operand:SI 9 "memory_operand" "=ZA")
+	  (match_operand:SI 10 "register_operand" "r"))
+     (set (match_operand:SI 11 "memory_operand" "=ZA")
+	  (match_operand:SI 12 "register_operand" "r"))
+     (set (match_operand:SI 13 "memory_operand" "=ZA")
+	  (match_operand:SI 14 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple6"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))
+     (set (match_operand:SI 7 "memory_operand" "=ZA")
+	  (match_operand:SI 8 "register_operand" "r"))
+     (set (match_operand:SI 9 "memory_operand" "=ZA")
+	  (match_operand:SI 10 "register_operand" "r"))
+     (set (match_operand:SI 11 "memory_operand" "=ZA")
+	  (match_operand:SI 12 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple5"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))
+     (set (match_operand:SI 7 "memory_operand" "=ZA")
+	  (match_operand:SI 8 "register_operand" "r"))
+     (set (match_operand:SI 9 "memory_operand" "=ZA")
+	  (match_operand:SI 10 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple4"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))
+     (set (match_operand:SI 7 "memory_operand" "=ZA")
+	  (match_operand:SI 8 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple3"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))
+     (set (match_operand:SI 5 "memory_operand" "=ZA")
+	  (match_operand:SI 6 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*store_word_multiple2"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	  (match_operand:SI 2 "register_operand" "r"))
+     (set (match_operand:SI 3 "memory_operand" "=ZA")
+	  (match_operand:SI 4 "register_operand" "r"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
+  { return mips_output_word_multiple (true, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_expand "store_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_NEW_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op0;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || INTVAL (operands[2]) > 8
+      || INTVAL (operands[2]) < 2
+      || GET_CODE (operands[0]) != MEM
+      || GET_CODE (operands[1]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[1]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  to = force_reg (SImode, XEXP (operands[0], 0));
+  op0 = replace_equiv_address (operands[0], to);
+
+  XVECEXP (operands[3], 0, 0)
+    = gen_rtx_SET (adjust_address_nv (op0, SImode, 0), operands[1]);
+
+  for (i = 1; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (adjust_address_nv (op0, SImode, i * 4),
+		     gen_rtx_REG (SImode, regno + i));
+})
+
+(define_insn "*load_word_multiple8"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (match_operand:SI 6 "memory_operand" "m"))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (match_operand:SI 8 "memory_operand" "m"))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (match_operand:SI 10 "memory_operand" "m"))
+     (set (match_operand:SI 11 "register_operand" "=&r")
+	  (match_operand:SI 12 "memory_operand" "m"))
+     (set (match_operand:SI 13 "register_operand" "=&r")
+	  (match_operand:SI 14 "memory_operand" "m"))
+     (set (match_operand:SI 15 "register_operand" "=r")
+	  (match_operand:SI 16 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 8"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple7"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (match_operand:SI 6 "memory_operand" "m"))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (match_operand:SI 8 "memory_operand" "m"))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (match_operand:SI 10 "memory_operand" "m"))
+     (set (match_operand:SI 11 "register_operand" "=&r")
+	  (match_operand:SI 12 "memory_operand" "m"))
+     (set (match_operand:SI 13 "register_operand" "=r")
+	  (match_operand:SI 14 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 7"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple6"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (match_operand:SI 6 "memory_operand" "m"))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (match_operand:SI 8 "memory_operand" "m"))
+     (set (match_operand:SI 9 "register_operand" "=&r")
+	  (match_operand:SI 10 "memory_operand" "m"))
+     (set (match_operand:SI 11 "register_operand" "=r")
+	  (match_operand:SI 12 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 6"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple5"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (match_operand:SI 6 "memory_operand" "m"))
+     (set (match_operand:SI 7 "register_operand" "=&r")
+	  (match_operand:SI 8 "memory_operand" "m"))
+     (set (match_operand:SI 9 "register_operand" "=r")
+	  (match_operand:SI 10 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 5"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple4"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=&r")
+	  (match_operand:SI 6 "memory_operand" "m"))
+     (set (match_operand:SI 7 "register_operand" "=r")
+	  (match_operand:SI 8 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 4"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple3"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=&r")
+	  (match_operand:SI 4 "memory_operand" "m"))
+     (set (match_operand:SI 5 "register_operand" "=r")
+	  (match_operand:SI 6 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 3"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*load_word_multiple2"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "register_operand" "=&r")
+	  (match_operand:SI 2 "memory_operand" "ZA"))
+     (set (match_operand:SI 3 "register_operand" "=r")
+	  (match_operand:SI 4 "memory_operand" "m"))])]
+  "ISA_HAS_NEW_LWM_SWM && XVECLEN (operands[0], 0) == 2"
+  { return mips_output_word_multiple (false, operands[0]); }
+  [(set_attr "type" "multimem")
+   (set_attr "mode" "SI")
+   (set_attr "can_delay" "no")])
+
+(define_expand "load_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_NEW_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op1;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || INTVAL (operands[2]) > 8
+      || INTVAL (operands[2]) < 2
+      || GET_CODE (operands[1]) != MEM
+      || GET_CODE (operands[0]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[0]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  op1 = replace_equiv_address (operands[1],
+			       force_reg (SImode, XEXP (operands[1], 0)));
+
+  for (i = 0; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (gen_rtx_REG (SImode, regno + i),
+		     adjust_address_nv (op1, SImode, i * 4));
+})

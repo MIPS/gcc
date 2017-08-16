@@ -838,3 +838,15 @@
 (define_predicate "reg_or_vector_same_uimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
+(define_special_predicate "load_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (false, op);
+})
+
+(define_special_predicate "store_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (true, op);
+})
