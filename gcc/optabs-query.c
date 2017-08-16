@@ -633,7 +633,7 @@ static bool
 supports_at_least_one_mode_p (optab op)
 {
   for (int i = 0; i < NUM_MACHINE_MODES; ++i)
-    if (direct_optab_handler (op, machine_mode_enum (i)) != CODE_FOR_nothing)
+    if (direct_optab_handler (op, (machine_mode) i) != CODE_FOR_nothing)
       return true;
 
   return false;

@@ -1,5 +1,6 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
+/* The cost model thinks that the double loop isn't a win for SVE-128.  */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -msve-vector-bits=scalable -fno-vect-cost-model" } */
 
 #include <stdint.h>
 

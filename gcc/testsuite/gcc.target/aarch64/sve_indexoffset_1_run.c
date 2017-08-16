@@ -1,5 +1,6 @@
 /* { dg-do run { target aarch64_sve_hw } } */
 /* { dg-options "-std=c99 -ftree-vectorize -O2 -fno-inline -march=armv8-a+sve" } */
+/* { dg-options "-std=c99 -ftree-vectorize -O2 -fno-inline -march=armv8-a+sve -msve-vector-bits=256" { target aarch64_sve256_hw } } */
 
 #include "sve_indexoffset_1.c"
 

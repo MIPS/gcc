@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-std=c++11 -O2 -ftree-vectorize -fno-inline -march=armv8-a+sve -msve-vector-bits=256" } */
+/* { dg-options "-std=c++11 -O2 -ftree-vectorize -fno-inline -march=armv8-a+sve -msve-vector-bits=256 -fdump-tree-vect-details" } */
 
 double mat[100][4];
 double mat2[100][8];
@@ -70,15 +70,16 @@ void slp_non_chained_reduc (int n, double * __restrict__ out)
     }
 }
 
-/* === Strict FP Reductions shouldn't be used here === */
+/* Strict FP reductions shouldn't be used for the outer loops, only the
+   inner loops.  */
 
-float double_reduc1 (float *__restrict__ i)
+float double_reduc1 (float (*__restrict__ i)[16])
 {
   float l = 0;
 
   for (int a = 0; a < 8; a++)
-    for (int b = 0; b < 4; b++)
-      l += i[a];
+    for (int b = 0; b < 8; b++)
+      l += i[b][a];
   return l;
 }
 
@@ -87,12 +88,12 @@ float double_reduc2 (float *__restrict__ i)
   float l = 0;
 
   for (int a = 0; a < 8; a++)
-    for (int b = 2; b >= 0; b--)
+    for (int b = 0; b < 16; b++)
       {
-        l += i[b * 2];
-        l += i[b * 2 + 1];
-        l += i[b * 2 + 2];
-        l += i[b * 2 + 3];
+        l += i[b * 4];
+        l += i[b * 4 + 1];
+        l += i[b * 4 + 2];
+        l += i[b * 4 + 3];
       }
   return l;
 }
@@ -102,7 +103,7 @@ float double_reduc3 (float *__restrict__ i, float *__restrict__ j)
   float k = 0, l = 0;
 
   for (int a = 0; a < 8; a++)
-    for (int b = 0; b < 4; b++)
+    for (int b = 0; b < 8; b++)
       {
         k += i[b];
         l += j[b];
@@ -110,6 +111,11 @@ float double_reduc3 (float *__restrict__ i, float *__restrict__ j)
   return l * k;
 }
 
-/* { dg-final { scan-assembler-not {\tfadda\ts[0-9]+} } } */
+/* { dg-final { scan-assembler-times {\tfadda\ts[0-9]+, p[0-7], s[0-9]+, z[0-9]+\.s} 4 } } */
 /* { dg-final { scan-assembler-times {\tfadda\td[0-9]+, p[0-7], d[0-9]+, z[0-9]+\.d} 9 } } */
-
+/* 1 reduction each for double_reduc{1,2} and 2 for double_reduc3.  Each one
+   is reported three times, once for SVE, once for 128-bit AdvSIMD and once
+   for 64-bit AdvSIMD.  */
+/* { dg-final { scan-tree-dump-times "Detected double reduction" 12 "vect" } } */
+/* double_reduc2 has 2 reductions and slp_non_chained_reduc has 3.  */
+/* { dg-final { scan-tree-dump-times "Detected reduction" 10 "vect" } } */

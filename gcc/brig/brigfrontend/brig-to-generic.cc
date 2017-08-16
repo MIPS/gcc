@@ -45,6 +45,7 @@
 #include "phsa.h"
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
+#include "profile-count.h"
 #include "tree-cfg.h"
 #include "errors.h"
 #include "fold-const.h"
@@ -479,8 +480,8 @@ build_reinterpret_cast (tree destination_type, tree source)
   if (destination_type == source_type)
     return source;
 
-  size_t src_size = int_size_in_bytes (source_type);
-  size_t dst_size = int_size_in_bytes (destination_type);
+  size_t src_size = int_size_in_bytes_hwi (source_type);
+  size_t dst_size = int_size_in_bytes_hwi (destination_type);
   if (src_size == dst_size)
     return build1 (VIEW_CONVERT_EXPR, destination_type, source);
   else if (src_size < dst_size)
@@ -770,15 +771,14 @@ get_unsigned_int_type (tree original_type)
   if (VECTOR_TYPE_P (original_type))
     {
       size_t esize
-	= int_size_in_bytes (TREE_TYPE (original_type)) * BITS_PER_UNIT;
-      size_t ecount = TYPE_VECTOR_SUBPARTS (original_type);
+	= int_size_in_bytes_hwi (TREE_TYPE (original_type)) * BITS_PER_UNIT;
+      poly_uint64 ecount = TYPE_VECTOR_SUBPARTS (original_type);
       return build_vector_type (build_nonstandard_integer_type (esize, true),
 				ecount);
     }
   else
-    return build_nonstandard_integer_type (int_size_in_bytes (original_type)
-					   * BITS_PER_UNIT,
-					   true);
+    return (build_nonstandard_integer_type
+	    (int_size_in_bytes_hwi (original_type) * BITS_PER_UNIT, true));
 }
 
 void

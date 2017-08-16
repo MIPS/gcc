@@ -1782,7 +1782,8 @@ xtensa_emit_call (int callop, rtx *operands)
   rtx tgt = operands[callop];
 
   if (GET_CODE (tgt) == CONST_INT)
-    sprintf (result, "call%d\t0x%lx", WINDOW_SIZE, INTVAL (tgt));
+    sprintf (result, "call%d\t" HOST_WIDE_INT_PRINT_HEX,
+	     WINDOW_SIZE, INTVAL (tgt));
   else if (register_operand (tgt, VOIDmode))
     sprintf (result, "callx%d\t%%%d", WINDOW_SIZE, callop);
   else
@@ -2185,13 +2186,20 @@ xtensa_option_override (void)
   int regno;
   machine_mode mode;
 
+  /* Use CONST16 in the absence of L32R.
+     Set it in the TARGET_OPTION_OVERRIDE to avoid dependency on xtensa
+     configuration in the xtensa-common.c  */
+
+  if (!TARGET_L32R)
+    target_flags |= MASK_CONST16;
+
   if (!TARGET_BOOLEANS && TARGET_HARD_FLOAT)
     error ("boolean registers required for the floating-point option");
 
   /* Set up array giving whether a given register can hold a given mode.  */
   for (mode = VOIDmode;
        mode != MAX_MACHINE_MODE;
-       mode = (machine_mode_enum) ((int) mode + 1))
+       mode = (machine_mode) ((int) mode + 1))
     {
       int size = GET_MODE_SIZE (mode);
       enum mode_class mclass = GET_MODE_CLASS (mode);
@@ -2356,14 +2364,14 @@ print_operand (FILE *file, rtx x, int letter)
 
     case 'L':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", (32 - INTVAL (x)) & 0x1f);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, (32 - INTVAL (x)) & 0x1f);
       else
 	output_operand_lossage ("invalid %%L value");
       break;
 
     case 'R':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x) & 0x1f);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x) & 0x1f);
       else
 	output_operand_lossage ("invalid %%R value");
       break;
@@ -2377,7 +2385,7 @@ print_operand (FILE *file, rtx x, int letter)
 
     case 'd':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x));
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       else
 	output_operand_lossage ("invalid %%d value");
       break;
@@ -2442,7 +2450,7 @@ print_operand (FILE *file, rtx x, int letter)
       else if (GET_CODE (x) == MEM)
 	output_address (GET_MODE (x), XEXP (x, 0));
       else if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x));
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       else
 	output_addr_const (file, x);
     }
@@ -2682,7 +2690,7 @@ xtensa_frame_pointer_required (void)
 }
 
 HOST_WIDE_INT
-xtensa_initial_elimination_offset (int from, int to)
+xtensa_initial_elimination_offset (int from, int to ATTRIBUTE_UNUSED)
 {
   long frame_size = compute_frame_size (get_frame_size ());
   HOST_WIDE_INT offset;
@@ -4082,8 +4090,6 @@ xtensa_invalid_within_doloop (const rtx_insn *insn)
 
 /* Optimize LOOP.  */
 
-#if TARGET_LOOPS
-
 static bool
 hwloop_optimize (hwloop_info loop)
 {
@@ -4270,14 +4276,9 @@ static struct hw_doloop_hooks xtensa_doloop_hooks =
 static void
 xtensa_reorg_loops (void)
 {
-  reorg_loops (false, &xtensa_doloop_hooks);
+  if (TARGET_LOOPS)
+    reorg_loops (false, &xtensa_doloop_hooks);
 }
-#else
-static inline void
-xtensa_reorg_loops (void)
-{
-}
-#endif
 
 /* Implement the TARGET_MACHINE_DEPENDENT_REORG pass.  */
 

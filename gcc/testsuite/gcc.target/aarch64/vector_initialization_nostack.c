@@ -49,5 +49,4 @@ f12 (void)
   return sum;
 }
 
-
 /* { dg-final { scan-assembler-not "sp" } } */

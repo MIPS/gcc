@@ -101,8 +101,8 @@ struct incomplete
 static int defer_incomplete_level = 0;
 static struct incomplete *defer_incomplete_list;
 
-/* This variable is used to delay expanding From_Limited_With types until the
-   end of the spec.  */
+/* This variable is used to delay expanding types coming from a limited with
+   clause and completed Taft Amendment types until the end of the spec.  */
 static struct incomplete *defer_limited_with_list;
 
 typedef struct subst_pair_d {
@@ -310,11 +310,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
   /* Contains the list of attributes directly attached to the entity.  */
   struct attrib *attr_list = NULL;
 
-  /* Since a use of an Itype is a definition, process it as such if it
-     is not in a with'ed unit.  */
+  /* Since a use of an Itype is a definition, process it as such if it is in
+     the main unit, except for E_Access_Subtype because it's actually a use
+     of its base type, see below.  */
   if (!definition
       && is_type
       && Is_Itype (gnat_entity)
+      && Ekind (gnat_entity) != E_Access_Subtype
       && !present_gnu_tree (gnat_entity)
       && In_Extended_Main_Code_Unit (gnat_entity))
     {
@@ -1390,7 +1392,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	      = create_var_decl (create_concat_name (gnat_entity, "ALIGN"),
 				 NULL_TREE, gnu_new_type, NULL_TREE,
 				 false, false, false, false, false,
-				 true, debug_info_p, NULL, gnat_entity);
+				 true, debug_info_p && definition, NULL,
+				 gnat_entity);
 
 	    /* Initialize the aligned field if we have an initializer.  */
 	    if (gnu_expr)
@@ -1439,7 +1442,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 				      NULL_TREE, gnu_type, gnu_expr,
 				      const_flag, Is_Public (gnat_entity),
 				      imported_p || !definition, static_flag,
-				      volatile_flag, true, debug_info_p,
+				      volatile_flag, true,
+				      debug_info_p && definition,
 				      NULL, gnat_entity);
 		gnu_expr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_unc_var);
 		TREE_CONSTANT (gnu_expr) = 1;
@@ -1490,8 +1494,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  = create_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
 			     gnu_expr, const_flag, Is_Public (gnat_entity),
 			     imported_p || !definition, static_flag,
-			     volatile_flag, artificial_p, debug_info_p,
-			     attr_list, gnat_entity, !renamed_obj);
+			     volatile_flag, artificial_p,
+			     debug_info_p && definition, attr_list,
+			     gnat_entity, !renamed_obj);
 	DECL_BY_REF_P (gnu_decl) = used_by_ref;
 	DECL_POINTS_TO_READONLY_P (gnu_decl) = used_by_ref && inner_const_flag;
 	DECL_CAN_NEVER_BE_NULL_P (gnu_decl) = Can_Never_Be_Null (gnat_entity);
@@ -1543,8 +1548,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	      = create_var_decl (gnu_entity_name, gnu_ext_name, gnu_type,
 				 gnu_expr, true, Is_Public (gnat_entity),
 				 !definition, static_flag, volatile_flag,
-				 artificial_p, debug_info_p, attr_list,
-				 gnat_entity, false);
+				 artificial_p, debug_info_p && definition,
+				 attr_list, gnat_entity, false);
 
 	    SET_DECL_CONST_CORRESPONDING_VAR (gnu_decl, gnu_corr_var);
 	  }
@@ -3580,6 +3585,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	const bool is_from_limited_with
 	  = (IN (Ekind (gnat_desig_equiv), Incomplete_Kind)
 	     && From_Limited_With (gnat_desig_equiv));
+	/* Whether it is a completed Taft Amendment type.  Such a type is to
+	   be treated as coming from a limited with clause if it is not in
+	   the main unit, i.e. we break potential circularities here in case
+	   the body of an external unit is loaded for inter-unit inlining.  */
+        const bool is_completed_taft_type
+	  = (IN (Ekind (gnat_desig_equiv), Incomplete_Kind)
+	     && Has_Completion_In_Body (gnat_desig_equiv)
+	     && Present (Full_View (gnat_desig_equiv)));
 	/* The "full view" of the designated type.  If this is an incomplete
 	   entity from a limited with, treat its non-limited view as the full
 	   view.  Otherwise, if this is an incomplete or private type, use the
@@ -3647,13 +3660,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 
 	/* Get the type of the thing we are to point to and build a pointer to
 	   it.  If it is a reference to an incomplete or private type with a
-	   full view that is a record or an array, make a dummy type node and
-	   get the actual type later when we have verified it is safe.  */
+	   full view that is a record, an array or an access, make a dummy type
+	   and get the actual type later when we have verified it is safe.  */
 	else if ((!in_main_unit
 		  && !present_gnu_tree (gnat_desig_equiv)
 		  && Present (gnat_desig_full)
 		  && (Is_Record_Type (gnat_desig_full)
-		      || Is_Array_Type (gnat_desig_full)))
+		      || Is_Array_Type (gnat_desig_full)
+		      || Is_Access_Type (gnat_desig_full)))
 		 /* Likewise if this is a reference to a record, an array or a
 		    subprogram type and we are to defer elaborating incomplete
 		    types.  We do this because this access type may be the full
@@ -3764,7 +3778,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	    save_gnu_tree (gnat_entity, gnu_decl, false);
 	    saved = true;
 
-	    if (defer_incomplete_level == 0 && !is_from_limited_with)
+	    if (defer_incomplete_level == 0
+		&& !is_from_limited_with
+		&& !is_completed_taft_type)
 	      {
 		update_pointer_to (TYPE_MAIN_VARIANT (gnu_desig_type),
 				   gnat_to_gnu_type (gnat_desig_equiv));
@@ -3773,7 +3789,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	      {
 		struct incomplete *p = XNEW (struct incomplete);
 		struct incomplete **head
-		  = (is_from_limited_with
+		  = (is_from_limited_with || is_completed_taft_type
 		     ? &defer_limited_with_list : &defer_incomplete_list);
 
 		p->old_type = gnu_desig_type;
@@ -3813,7 +3829,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
     case E_Access_Subtype:
       /* We treat this as identical to its base type; any constraint is
 	 meaningful only to the front-end.  */
-      gnu_type = gnat_to_gnu_type (Etype (gnat_entity));
+      gnu_decl = gnat_to_gnu_entity (Etype (gnat_entity), NULL_TREE, false);
+      saved = true;
 
       /* The designated subtype must be elaborated as well, if it does
 	 not have its own freeze node.  But designated subtypes created
@@ -3845,8 +3862,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	    gnat_to_gnu_entity (Directly_Designated_Type (gnat_entity),
 				NULL_TREE, false);
 	}
-
-      maybe_present = true;
       break;
 
     /* Subprogram Entities
@@ -4072,7 +4087,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 					 gnu_type, gnu_param_list,
 					 inline_status, public_flag,
 					 extern_flag, artificial_p,
-					 debug_info_p, attr_list, gnat_entity);
+					 debug_info_p,
+					 definition && imported_p, attr_list,
+					 gnat_entity);
 
 		DECL_STUBBED_P (gnu_decl)
 		  = (Convention (gnat_entity) == Convention_Stubbed);
@@ -4767,7 +4784,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  }
 
       for (p = defer_limited_with_list; p; p = p->next)
-	if (p->old_type && Non_Limited_View (p->full_type) == gnat_entity)
+	if (p->old_type
+	    && (Non_Limited_View (p->full_type) == gnat_entity
+		|| Full_View (p->full_type) == gnat_entity))
 	  {
 	    update_pointer_to (TYPE_MAIN_VARIANT (p->old_type),
 			       TREE_TYPE (gnu_decl));
@@ -6783,19 +6802,24 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 {
   const Entity_Id gnat_record_type = Underlying_Type (Scope (gnat_field));
   const Entity_Id gnat_field_type = Etype (gnat_field);
-  const bool is_aliased
-    = Is_Aliased (gnat_field);
   const bool is_atomic
     = (Is_Atomic_Or_VFA (gnat_field) || Is_Atomic_Or_VFA (gnat_field_type));
+  const bool is_aliased = Is_Aliased (gnat_field);
   const bool is_independent
     = (Is_Independent (gnat_field) || Is_Independent (gnat_field_type));
   const bool is_volatile
     = (Treat_As_Volatile (gnat_field) || Treat_As_Volatile (gnat_field_type));
+  const bool is_strict_alignment = Strict_Alignment (gnat_field_type);
+  /* We used to consider that volatile fields also require strict alignment,
+     but that was an interpolation and would cause us to reject a pragma
+     volatile on a packed record type containing boolean components, while
+     there is no basis to do so in the RM.  In such cases, the writes will
+     involve load-modify-store sequences, but that's OK for volatile.  The
+     only constraint is the implementation advice whereby only the bits of
+     the components should be accessed if they both start and end on byte
+     boundaries, but that should be guaranteed by the GCC memory model.  */
   const bool needs_strict_alignment
-    = (is_aliased
-       || is_independent
-       || is_volatile
-       || Strict_Alignment (gnat_field_type));
+    = (is_atomic || is_aliased || is_independent || is_strict_alignment);
   tree gnu_field_type = gnat_to_gnu_type (gnat_field_type);
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field, gnu_size, gnu_pos;
@@ -6917,9 +6941,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		s = "position of aliased field& must be multiple of ^ bits";
 	      else if (is_independent)
 		s = "position of independent field& must be multiple of ^ bits";
-	      else if (is_volatile)
-		s = "position of volatile field& must be multiple of ^ bits";
-	      else if (Strict_Alignment (gnat_field_type))
+	      else if (is_strict_alignment)
 		s = "position of & with aliased or tagged part must be"
 		    " multiple of ^ bits";
 	      else
@@ -6947,9 +6969,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		    s = "size of aliased field& must be ^ bits";
 		  else if (is_independent)
 		    s = "size of independent field& must be at least ^ bits";
-		  else if (is_volatile)
-		    s = "size of volatile field& must be at least ^ bits";
-		  else if (Strict_Alignment (gnat_field_type))
+		  else if (is_strict_alignment)
 		    s = "size of & with aliased or tagged part must be"
 			" at least ^ bits";
 		  else
@@ -6969,10 +6989,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		  if (is_independent)
 		    s = "size of independent field& must be multiple of"
 			" Storage_Unit";
-		  else if (is_volatile)
-		    s = "size of volatile field& must be multiple of"
-			" Storage_Unit";
-		  else if (Strict_Alignment (gnat_field_type))
+		  else if (is_strict_alignment)
 		    s = "size of & with aliased or tagged part must be"
 			" multiple of Storage_Unit";
 		  else
@@ -7079,9 +7096,9 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   /* Now create the decl for the field.  */
   gnu_field
     = create_field_decl (gnu_field_id, gnu_field_type, gnu_record_type,
-			 gnu_size, gnu_pos, packed, Is_Aliased (gnat_field));
+			 gnu_size, gnu_pos, packed, is_aliased);
   Sloc_to_locus (Sloc (gnat_field), &DECL_SOURCE_LOCATION (gnu_field));
-  DECL_ALIASED_P (gnu_field) = Is_Aliased (gnat_field);
+  DECL_ALIASED_P (gnu_field) = is_aliased;
   TREE_SIDE_EFFECTS (gnu_field) = TREE_THIS_VOLATILE (gnu_field) = is_volatile;
 
   if (Ekind (gnat_field) == E_Discriminant)

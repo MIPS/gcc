@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-Ofast -march=armv8-a+sve -msve-vector-bits=256" } */
+/* Pick an arbitrary target for which unaligned accesses are more
+   expensive.  */
+/* { dg-options "-Ofast -march=armv8-a+sve -msve-vector-bits=256 -mtune=thunderx -fno-vect-cost-model" } */
 
 #define START 1
 #define END 505

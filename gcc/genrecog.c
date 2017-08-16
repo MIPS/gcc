@@ -4113,8 +4113,7 @@ match_pattern_2 (state *s, md_rtx_info *info, position *pos, rtx pattern)
 		   and DImode register_operands, as described above.  */
 		machine_mode mode = GET_MODE (e->pattern);
 		if (pred && safe_predicate_mode (pred, mode))
-		  s = add_decision (s, rtx_test::mode (e->pos),
-				    (machine_mode_enum) mode, true);
+		  s = add_decision (s, rtx_test::mode (e->pos), mode, true);
 
 		/* Assign to operands[] first, so that the rtx usually doesn't
 		   need to be live across the call to the predicate.
@@ -4138,7 +4137,7 @@ match_pattern_2 (state *s, md_rtx_info *info, position *pos, rtx pattern)
 
 	default:
 	  s = add_decision (s, rtx_test::mode (e->pos),
-			    (machine_mode_enum) GET_MODE (e->pattern), false);
+			    GET_MODE (e->pattern), false);
 	  break;
 	}
     }
@@ -4519,7 +4518,7 @@ print_parameter_value (const parameter &param)
 	break;
 
       case parameter::MODE:
-	printf ("E_%smode", GET_MODE_NAME ((machine_mode_enum) param.value));
+	printf ("E_%smode", GET_MODE_NAME ((machine_mode) param.value));
 	break;
 
       case parameter::INT:

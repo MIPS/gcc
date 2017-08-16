@@ -108,7 +108,7 @@ enum aarch64_type_qualifiers
 typedef struct
 {
   const char *name;
-  machine_mode_enum mode;
+  machine_mode mode;
   const enum insn_code code;
   unsigned int fcode;
   enum aarch64_type_qualifiers *qualifiers;
@@ -342,7 +342,7 @@ static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
 typedef struct
 {
   const char *name;
-  machine_mode_enum mode;
+  machine_mode mode;
   const enum insn_code icode;
   unsigned int fcode;
 } aarch64_crc_builtin_datum;
@@ -459,7 +459,7 @@ struct aarch64_simd_type_info
   tree eltype;
 
   /* Machine mode the internal type maps to.  */
-  machine_mode_enum mode;
+  enum machine_mode mode;
 
   /* Qualifiers.  */
   enum aarch64_type_qualifiers q;

@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "stor-layout.h"
 #include "opts.h"
+#include "predict.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -197,9 +198,8 @@ static rtx lookup_const_fixed (rtx);
 static rtx gen_const_vector (machine_mode, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
 
-/* Probability of the conditional branch currently proceeded by try_split.
-   Set to -1 otherwise.  */
-int split_branch_probability = -1;
+/* Probability of the conditional branch currently proceeded by try_split.  */
+profile_probability split_branch_probability;
 
 /* Returns a hash code for X (which is a really a CONST_INT).  */
 
@@ -465,7 +465,7 @@ set_mode_and_regno (rtx x, machine_mode mode, unsigned int regno)
 rtx
 gen_raw_REG (machine_mode mode, unsigned int regno)
 {
-  rtx x = rtx_alloc_stat (REG MEM_STAT_INFO);
+  rtx x = rtx_alloc (REG MEM_STAT_INFO);
   set_mode_and_regno (x, mode, regno);
   REG_ATTRS (x) = NULL;
   ORIGINAL_REGNO (x) = regno;
@@ -1868,6 +1868,17 @@ operand_subword_force (rtx op, poly_int64 offset, machine_mode mode)
   return result;
 }
 
+mem_attrs::mem_attrs ()
+  : expr (NULL_TREE),
+    offset (0),
+    size (0),
+    alias (0),
+    align (0),
+    addrspace (ADDR_SPACE_GENERIC),
+    offset_known_p (false),
+    size_known_p (false)
+{}
+
 /* Returns 1 if both MEM_EXPR can be considered equal
    and 0 otherwise.  */
 
@@ -2000,8 +2011,6 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
      info.  Callers should not set DECL_RTL until after the call to
      set_mem_attributes.  */
   gcc_assert (!DECL_P (t) || ref != DECL_RTL_IF_SET (t));
-
-  memset (&attrs, 0, sizeof (attrs));
 
   /* Get the alias set from the expression or type (perhaps using a
      front-end routine) and use it.  */
@@ -3874,7 +3883,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
   rtx_insn *before, *after;
   rtx note;
   rtx_insn *seq, *tem;
-  int probability;
+  profile_probability probability;
   rtx_insn *insn_last, *insn;
   int njumps = 0;
   rtx_insn *call_insn = NULL;
@@ -3885,12 +3894,16 @@ try_split (rtx pat, rtx_insn *trial, int last)
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
-    split_branch_probability = XINT (note, 0);
+    split_branch_probability
+      = profile_probability::from_reg_br_prob_note (XINT (note, 0));
+  else
+    split_branch_probability = profile_probability::uninitialized ();
+
   probability = split_branch_probability;
 
   seq = split_insns (pat, trial);
 
-  split_branch_probability = -1;
+  split_branch_probability = profile_probability::uninitialized ();
 
   if (!seq)
     return trial;
@@ -3921,7 +3934,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	    CROSSING_JUMP_P (insn) = CROSSING_JUMP_P (trial);
 	  mark_jump_label (PATTERN (insn), insn, 0);
 	  njumps++;
-	  if (probability != -1
+	  if (probability.initialized_p ()
 	      && any_condjump_p (insn)
 	      && !find_reg_note (insn, REG_BR_PROB, 0))
 	    {
@@ -3930,7 +3943,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 		 is responsible for this step using
 		 split_branch_probability variable.  */
 	      gcc_assert (njumps == 1);
-	      add_int_reg_note (insn, REG_BR_PROB, probability);
+	      add_reg_br_prob_note (insn, probability);
 	    }
 	}
     }
@@ -6244,7 +6257,7 @@ init_emit_regs (void)
 
   for (i = 0; i < (int) MAX_MACHINE_MODE; i++)
     {
-      mode = (machine_mode_enum) i;
+      mode = (machine_mode) i;
       attrs = ggc_cleared_alloc<mem_attrs> ();
       attrs->align = BITS_PER_UNIT;
       attrs->addrspace = ADDR_SPACE_GENERIC;
@@ -6369,7 +6382,7 @@ init_emit_once (void)
 
       for (mode = MIN_MODE_PARTIAL_INT;
 	   mode <= MAX_MODE_PARTIAL_INT;
-	   mode = (machine_mode_enum) ((int) mode + 1))
+	   mode = (machine_mode)((int)(mode) + 1))
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
     }
 
@@ -6386,7 +6399,7 @@ init_emit_once (void)
 
   for (mode = MIN_MODE_PARTIAL_INT;
        mode <= MAX_MODE_PARTIAL_INT;
-       mode = (machine_mode_enum) ((int) mode + 1))
+       mode = (machine_mode)((int)(mode) + 1))
     const_tiny_rtx[3][(int) mode] = constm1_rtx;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_COMPLEX_INT)
@@ -6508,7 +6521,7 @@ init_emit_once (void)
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
-    if (GET_MODE_CLASS ((machine_mode_enum) i) == MODE_CC)
+    if (GET_MODE_CLASS ((machine_mode) i) == MODE_CC)
       const_tiny_rtx[0][i] = const0_rtx;
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_POINTER_BOUNDS)

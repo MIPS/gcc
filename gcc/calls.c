@@ -858,6 +858,8 @@ flags_from_decl_or_type (const_tree exp)
 	flags |= ECF_NOVOPS;
       if (lookup_attribute ("leaf", DECL_ATTRIBUTES (exp)))
 	flags |= ECF_LEAF;
+      if (lookup_attribute ("cold", DECL_ATTRIBUTES (exp)))
+	flags |= ECF_COLD;
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
@@ -1067,6 +1069,7 @@ save_fixed_argument_area (int reg_parm_stack_space, rtx argblock, int *low_to_sa
     if (stack_usage_map[low] != 0 || low >= stack_usage_watermark)
       {
 	int num_to_save;
+	machine_mode save_mode;
 	int delta;
 	rtx addr;
 	rtx stack_area;
@@ -1080,15 +1083,15 @@ save_fixed_argument_area (int reg_parm_stack_space, rtx argblock, int *low_to_sa
 
 	num_to_save = high - low + 1;
 
-	opt_scalar_int_mode save_mode
-	  = int_mode_for_size (num_to_save * BITS_PER_UNIT, 1);
-
 	/* If we don't have the required alignment, must do this
 	   in BLKmode.  */
-	if (save_mode.exists ()
-	    && (low & (MIN (GET_MODE_SIZE (*save_mode),
-			    BIGGEST_ALIGNMENT / UNITS_PER_WORD) - 1)))
-	  save_mode = opt_scalar_int_mode ();
+	scalar_int_mode imode;
+	if (int_mode_for_size (num_to_save * BITS_PER_UNIT, 1).exists (&imode)
+	    && (low & (MIN (GET_MODE_SIZE (imode),
+			    BIGGEST_ALIGNMENT / UNITS_PER_WORD) - 1)) == 0)
+	  save_mode = imode;
+	else
+	  save_mode = BLKmode;
 
 	if (ARGS_GROW_DOWNWARD)
 	  delta = -high;
@@ -1096,21 +1099,18 @@ save_fixed_argument_area (int reg_parm_stack_space, rtx argblock, int *low_to_sa
 	  delta = low;
 
 	addr = plus_constant (Pmode, argblock, delta);
+	stack_area = gen_rtx_MEM (save_mode, memory_address (save_mode, addr));
 
-	if (!save_mode.exists ())
+	set_mem_align (stack_area, PARM_BOUNDARY);
+	if (save_mode == BLKmode)
 	  {
-	    stack_area = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
-	    set_mem_align (stack_area, PARM_BOUNDARY);
 	    save_area = assign_stack_temp (BLKmode, num_to_save);
 	    emit_block_move (validize_mem (save_area), stack_area,
 			     GEN_INT (num_to_save), BLOCK_OP_CALL_PARM);
 	  }
 	else
 	  {
-	    stack_area = gen_rtx_MEM (*save_mode,
-				      memory_address (*save_mode, addr));
-	    set_mem_align (stack_area, PARM_BOUNDARY);
-	    save_area = gen_reg_rtx (*save_mode);
+	    save_area = gen_reg_rtx (save_mode);
 	    emit_move_insn (save_area, stack_area);
 	  }
 
@@ -1265,32 +1265,38 @@ alloc_max_size (void)
 		  else if (!strcasecmp (end, "KiB") || strcmp (end, "KB"))
 		    unit = 1024;
 		  else if (!strcmp (end, "MB"))
-		    unit = 1000LU * 1000;
+		    unit = HOST_WIDE_INT_UC (1000) * 1000;
 		  else if (!strcasecmp (end, "MiB"))
-		    unit = 1024LU * 1024;
+		    unit = HOST_WIDE_INT_UC (1024) * 1024;
 		  else if (!strcasecmp (end, "GB"))
-		    unit = 1000LU * 1000 * 1000;
+		    unit = HOST_WIDE_INT_UC (1000) * 1000 * 1000;
 		  else if (!strcasecmp (end, "GiB"))
-		    unit = 1024LU * 1024 * 1024;
+		    unit = HOST_WIDE_INT_UC (1024) * 1024 * 1024;
 		  else if (!strcasecmp (end, "TB"))
-		    unit = 1000LU * 1000 * 1000 * 1000;
+		    unit = HOST_WIDE_INT_UC (1000) * 1000 * 1000 * 1000;
 		  else if (!strcasecmp (end, "TiB"))
-		    unit = 1024LU * 1024 * 1024 * 1024;
+		    unit = HOST_WIDE_INT_UC (1024) * 1024 * 1024 * 1024;
 		  else if (!strcasecmp (end, "PB"))
-		    unit = 1000LU * 1000 * 1000 * 1000 * 1000;
+		    unit = HOST_WIDE_INT_UC (1000) * 1000 * 1000 * 1000 * 1000;
 		  else if (!strcasecmp (end, "PiB"))
-		    unit = 1024LU * 1024 * 1024 * 1024 * 1024;
+		    unit = HOST_WIDE_INT_UC (1024) * 1024 * 1024 * 1024 * 1024;
 		  else if (!strcasecmp (end, "EB"))
-		    unit = 1000LU * 1000 * 1000 * 1000 * 1000 * 1000;
+		    unit = HOST_WIDE_INT_UC (1000) * 1000 * 1000 * 1000 * 1000
+			   * 1000;
 		  else if (!strcasecmp (end, "EiB"))
-		    unit = 1024LU * 1024 * 1024 * 1024 * 1024 * 1024;
+		    unit = HOST_WIDE_INT_UC (1024) * 1024 * 1024 * 1024 * 1024
+			   * 1024;
 		  else
 		    unit = 0;
 		}
 
 	      if (unit)
-		alloc_object_size_limit
-		  = build_int_cst (ssizetype, limit * unit);
+		{
+		  wide_int w = wi::uhwi (limit, HOST_BITS_PER_WIDE_INT + 64);
+		  w *= unit;
+		  if (wi::ltu_p (w, alloc_object_size_limit))
+		    alloc_object_size_limit = wide_int_to_tree (ssizetype, w);
+		}
 	    }
 	}
     }
@@ -4614,7 +4620,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   for (; count < nargs; count++)
     {
       rtx val = va_arg (p, rtx);
-      machine_mode mode = (machine_mode_enum) va_arg (p, int);
+      machine_mode mode = (machine_mode) va_arg (p, int);
       int unsigned_p = 0;
 
       /* We cannot convert the arg value to the mode the library wants here;

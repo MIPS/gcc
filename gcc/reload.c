@@ -168,8 +168,8 @@ struct decomposition
   int reg_flag;		/* Nonzero if referencing a register.  */
   int safe;		/* Nonzero if this can't conflict with anything.  */
   rtx base;		/* Base address for MEM.  */
-  poly_int64 start;	/* Starting offset or register number.  */
-  poly_int64 end;	/* Ending offset or register number.  */
+  poly_int64_pod start;	/* Starting offset or register number.  */
+  poly_int64_pod end;	/* Ending offset or register number.  */
 };
 
 #ifdef SECONDARY_MEMORY_NEEDED
@@ -1068,7 +1068,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
      register class.  But if it is inside a STRICT_LOW_PART, we have
      no choice, so we hope we do get the right register class there.  */
 
-  scalar_int_mode inner_int_mode;
+  scalar_int_mode inner_mode;
   if (in != 0 && GET_CODE (in) == SUBREG
       && (subreg_lowpart_p (in) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
@@ -1085,10 +1085,10 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 		  || (must_le (GET_MODE_SIZE (inmode), UNITS_PER_WORD)
 		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
-						 &inner_int_mode)
-		      && GET_MODE_SIZE (inner_int_mode) <= UNITS_PER_WORD
-		      && paradoxical_subreg_p (inmode, inner_int_mode)
-		      && LOAD_EXTEND_OP (inner_int_mode) != UNKNOWN)
+						 &inner_mode)
+		      && GET_MODE_SIZE (inner_mode) <= UNITS_PER_WORD
+		      && paradoxical_subreg_p (inmode, inner_mode)
+		      && LOAD_EXTEND_OP (inner_mode) != UNKNOWN)
 		  || (WORD_REGISTER_OPERATIONS
 		      && partial_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 		      && (known_equal_after_align_down
@@ -2278,17 +2278,18 @@ operands_match_p (rtx x, rtx y)
 	 multiple hard register group of scalar integer registers, so that
 	 for example (reg:DI 0) and (reg:SI 1) will be considered the same
 	 register.  */
-      scalar_int_mode int_mode;
+      scalar_int_mode xmode;
       if (REG_WORDS_BIG_ENDIAN
-	  && is_a <scalar_int_mode> (GET_MODE (x), &int_mode)
-	  && GET_MODE_SIZE (int_mode) > UNITS_PER_WORD
+	  && is_a <scalar_int_mode> (GET_MODE (x), &xmode)
+	  && GET_MODE_SIZE (xmode) > UNITS_PER_WORD
 	  && i < FIRST_PSEUDO_REGISTER)
-	i += hard_regno_nregs[i][int_mode] - 1;
+	i += hard_regno_nregs[i][xmode] - 1;
+      scalar_int_mode ymode;
       if (REG_WORDS_BIG_ENDIAN
-	  && is_a <scalar_int_mode> (GET_MODE (y), &int_mode)
-	  && GET_MODE_SIZE (int_mode) > UNITS_PER_WORD
+	  && is_a <scalar_int_mode> (GET_MODE (y), &ymode)
+	  && GET_MODE_SIZE (ymode) > UNITS_PER_WORD
 	  && j < FIRST_PSEUDO_REGISTER)
-	j += hard_regno_nregs[j][int_mode] - 1;
+	j += hard_regno_nregs[j][ymode] - 1;
 
       return i == j;
     }
@@ -3135,7 +3136,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		  operand = SUBREG_REG (operand);
 		  /* Force reload if this is a constant or PLUS or if there may
 		     be a problem accessing OPERAND in the outer mode.  */
-		  scalar_int_mode int_mode;
+		  scalar_int_mode inner_mode;
 		  if (CONSTANT_P (operand)
 		      || GET_CODE (operand) == PLUS
 		      /* We must force a reload of paradoxical SUBREGs
@@ -3175,12 +3176,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			      || (must_le (GET_MODE_SIZE (operand_mode[i]),
 					   UNITS_PER_WORD)
 				  && (is_a <scalar_int_mode>
-				      (GET_MODE (operand), &int_mode))
-				  && (GET_MODE_SIZE (int_mode)
+				      (GET_MODE (operand), &inner_mode))
+				  && (GET_MODE_SIZE (inner_mode)
 				      <= UNITS_PER_WORD)
 				  && paradoxical_subreg_p (operand_mode[i],
-							   int_mode)
-				  && LOAD_EXTEND_OP (int_mode) != UNKNOWN)))
+							   inner_mode)
+				  && LOAD_EXTEND_OP (inner_mode) != UNKNOWN)))
 		      )
 		    force_reload = 1;
 		}

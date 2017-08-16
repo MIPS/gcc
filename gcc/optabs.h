@@ -56,10 +56,13 @@ struct expand_operand {
 
   /* The mode passed to the convert_*_operand function.  It has a
      type-dependent meaning.  */
-  machine_mode_enum mode : 16;
+  ENUM_BITFIELD (machine_mode) mode : 16;
 
   /* The value of the operand.  */
   rtx value;
+
+  /* The value of an EXPAND_INTEGER operand.  */
+  poly_int64 int_value;
 };
 
 /* Initialize OP with the given fields.  Initialise the other fields
@@ -69,13 +72,14 @@ static inline void
 create_expand_operand (struct expand_operand *op,
 		       enum expand_operand_type type,
 		       rtx value, machine_mode mode,
-		       bool unsigned_p)
+		       bool unsigned_p, poly_int64 int_value = 0)
 {
   op->type = type;
   op->unsigned_p = unsigned_p;
   op->unused = 0;
   op->mode = mode;
   op->value = value;
+  op->int_value = int_value;
 }
 
 /* Make OP describe an operand that must use rtx X, even if X is volatile.  */
@@ -149,9 +153,11 @@ create_address_operand (struct expand_operand *op, rtx value)
    of that rtx if so.  */
 
 static inline void
-create_integer_operand (struct expand_operand *op, HOST_WIDE_INT intval)
+create_integer_operand (struct expand_operand *op, poly_int64 intval)
 {
-  create_expand_operand (op, EXPAND_INTEGER, GEN_INT (intval), VOIDmode, false);
+  create_expand_operand (op, EXPAND_INTEGER,
+			 immed_poly_int_const (intval, MAX_MODE_INT),
+			 VOIDmode, false, intval);
 }
 
 
@@ -248,7 +254,9 @@ extern rtx prepare_operand (enum insn_code, rtx, int, machine_mode,
 /* Emit a pair of rtl insns to compare two rtx's and to jump
    to a label if the comparison is true.  */
 extern void emit_cmp_and_jump_insns (rtx, rtx, enum rtx_code, rtx,
-				     machine_mode, int, rtx, int prob=-1);
+				     machine_mode, int, rtx,
+				     profile_probability prob
+					= profile_probability::uninitialized ());
 
 /* Generate code to indirectly jump to a location given in the rtx LOC.  */
 extern void emit_indirect_jump (rtx);

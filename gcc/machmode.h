@@ -29,15 +29,50 @@ extern const unsigned short mode_unit_precision[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 
-/* Allow direct conversion of enums to specific mode classes only
-   when USE_ENUM_MODES is defined.  This is only intended for use
-   by gencondmd, so that it can tell more easily when .md conditions
-   are always false.  */
+template<typename T>
+struct mode_traits
+{
+  /* For use by the machmode support code only.
+
+     There are cases in which the machmode support code needs to forcibly
+     convert a machine_mode to a specific mode class T, and in which the
+     context guarantees that this is valid without the need for an assert.
+     This can be done using:
+
+       return typename mode_traits<T>::from_int (mode);
+
+     when returning a T and:
+
+       res = T (typename mode_traits<T>::from_int (mode));
+
+     when assigning to a value RES that must be assignment-compatible
+     with (but possibly not the same as) T.  */
 #ifdef USE_ENUM_MODES
-#define PROTECT_ENUM_CONVERSION public
+  /* Allow direct conversion of enums to specific mode classes only
+     when USE_ENUM_MODES is defined.  This is only intended for use
+     by gencondmd, so that it can tell more easily when .md conditions
+     are always false.  */
+  typedef machine_mode from_int;
 #else
-#define PROTECT_ENUM_CONVERSION protected
+  /* Here we use an enum type distinct from machine_mode but with the
+     same range as machine_mode.  T should have a constructor that
+     accepts this enum type; it should not have a constructor that
+     accepts machine_mode.
+
+     We use this somewhat indirect approach to avoid too many constructor
+     calls when the compiler is built with -O0.  For example, even in
+     unoptimized code, the return statement above would construct the
+     returned T directly from the numerical value of MODE.  */
+  enum from_int { dummy = MAX_MACHINE_MODE };
 #endif
+};
+
+template<>
+struct mode_traits<machine_mode>
+{
+  /* machine_mode itself needs no conversion.  */
+  typedef machine_mode from_int;
+};
 
 /* Always treat machine modes as fixed-size while compiling code specific
    to targets that have no variable-size modes.  */
@@ -209,25 +244,28 @@ template<typename T>
 class opt_mode
 {
 public:
+  enum from_int { dummy = MAX_MACHINE_MODE };
+
   ALWAYS_INLINE opt_mode () : m_mode (E_VOIDmode) {}
   ALWAYS_INLINE opt_mode (const T &m) : m_mode (m) {}
-  machine_mode_enum else_void () const;
-  machine_mode_enum else_blk () const;
+  ALWAYS_INLINE opt_mode (from_int m) : m_mode (machine_mode (m)) {}
+
+  machine_mode else_void () const;
+  machine_mode else_blk () const;
   T operator * () const;
 
-  /* Return true if the object contains a T rather than nothing.  */
-  ALWAYS_INLINE bool exists () const { return m_mode != E_VOIDmode; }
+  bool exists () const;
   template<typename U> bool exists (U *) const;
 
 private:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* If the object contains a T, return its enum value, otherwise return
    E_VOIDmode.  */
 
 template<typename T>
-ALWAYS_INLINE machine_mode_enum
+ALWAYS_INLINE machine_mode
 opt_mode<T>::else_void () const
 {
   return m_mode;
@@ -236,7 +274,7 @@ opt_mode<T>::else_void () const
 /* If the T exists, return its enum value, otherwise return E_BLKmode.  */
 
 template<typename T>
-inline machine_mode_enum
+inline machine_mode
 opt_mode<T>::else_blk () const
 {
   return m_mode == E_VOIDmode ? E_BLKmode : m_mode;
@@ -249,7 +287,16 @@ inline T
 opt_mode<T>::operator * () const
 {
   gcc_checking_assert (m_mode != E_VOIDmode);
-  return T::from_int (m_mode);
+  return typename mode_traits<T>::from_int (m_mode);
+}
+
+/* Return true if the object contains a T rather than nothing.  */
+
+template<typename T>
+ALWAYS_INLINE bool
+opt_mode<T>::exists () const
+{
+  return m_mode != E_VOIDmode;
 }
 
 /* Return true if the object contains a T, storing it in *MODE if so.  */
@@ -261,7 +308,7 @@ opt_mode<T>::exists (U *mode) const
 {
   if (m_mode != E_VOIDmode)
     {
-      *mode = T::from_int (m_mode);
+      *mode = T (typename mode_traits<T>::from_int (m_mode));
       return true;
     }
   return false;
@@ -272,11 +319,12 @@ opt_mode<T>::exists (U *mode) const
 template<typename T>
 struct pod_mode
 {
+  typedef typename mode_traits<T>::from_int from_int;
   typedef typename T::measurement_type measurement_type;
 
-  machine_mode_enum m_mode;
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
-  ALWAYS_INLINE operator T () const { return T::from_int (m_mode); }
+  machine_mode m_mode;
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
+  ALWAYS_INLINE operator T () const { return from_int (m_mode); }
   ALWAYS_INLINE pod_mode &operator = (const T &m) { m_mode = m; return *this; }
 };
 
@@ -284,7 +332,7 @@ struct pod_mode
 
 template<typename T>
 inline bool
-is_a (machine_mode_enum m)
+is_a (machine_mode m)
 {
   return T::includes_p (m);
 }
@@ -293,20 +341,20 @@ is_a (machine_mode_enum m)
 
 template<typename T>
 inline T
-as_a (machine_mode_enum m)
+as_a (machine_mode m)
 {
   gcc_checking_assert (T::includes_p (m));
-  return T::from_int (m);
+  return typename mode_traits<T>::from_int (m);
 }
 
 /* Convert M to an opt_mode<T>.  */
 
 template<typename T>
 inline opt_mode<T>
-dyn_cast (machine_mode_enum m)
+dyn_cast (machine_mode m)
 {
   if (T::includes_p (m))
-    return T::from_int (m);
+    return T (typename mode_traits<T>::from_int (m));
   return opt_mode<T> ();
 }
 
@@ -315,11 +363,11 @@ dyn_cast (machine_mode_enum m)
 
 template<typename T, typename U>
 inline bool
-is_a (machine_mode_enum m, U *result)
+is_a (machine_mode m, U *result)
 {
   if (T::includes_p (m))
     {
-      *result = T::from_int (m);
+      *result = T (typename mode_traits<T>::from_int (m));
       return true;
     }
   return false;
@@ -329,101 +377,76 @@ is_a (machine_mode_enum m, U *result)
 class scalar_int_mode
 {
 public:
+  typedef mode_traits<scalar_int_mode>::from_int from_int;
   typedef unsigned short measurement_type;
 
   ALWAYS_INLINE scalar_int_mode () {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+  ALWAYS_INLINE scalar_int_mode (from_int m) : m_mode (machine_mode (m)) {}
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
 
-  static bool includes_p (machine_mode_enum);
-  static scalar_int_mode from_int (int);
-
-PROTECT_ENUM_CONVERSION:
-  ALWAYS_INLINE scalar_int_mode (machine_mode_enum m) : m_mode (m) {}
+  static bool includes_p (machine_mode);
 
 protected:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* Return true if M is a scalar_int_mode.  */
 
 inline bool
-scalar_int_mode::includes_p (machine_mode_enum m)
+scalar_int_mode::includes_p (machine_mode m)
 {
   return SCALAR_INT_MODE_P (m);
-}
-
-/* Return M as a scalar_int_mode.  This function should only be used by
-   utility functions; general code should use as_a<T> instead.  */
-
-ALWAYS_INLINE scalar_int_mode
-scalar_int_mode::from_int (int i)
-{
-  return machine_mode_enum (i);
 }
 
 /* Represents a machine mode that is known to be a SCALAR_FLOAT_MODE_P.  */
 class scalar_float_mode
 {
 public:
+  typedef mode_traits<scalar_float_mode>::from_int from_int;
   typedef unsigned short measurement_type;
 
   ALWAYS_INLINE scalar_float_mode () {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+  ALWAYS_INLINE scalar_float_mode (from_int m) : m_mode (machine_mode (m)) {}
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
 
-  static bool includes_p (machine_mode_enum);
-  static scalar_float_mode from_int (int i);
-
-PROTECT_ENUM_CONVERSION:
-  ALWAYS_INLINE scalar_float_mode (machine_mode_enum m) : m_mode (m) {}
+  static bool includes_p (machine_mode);
 
 protected:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* Return true if M is a scalar_float_mode.  */
 
 inline bool
-scalar_float_mode::includes_p (machine_mode_enum m)
+scalar_float_mode::includes_p (machine_mode m)
 {
   return SCALAR_FLOAT_MODE_P (m);
 }
 
-/* Return M as a scalar_float_mode.  This function should only be used by
-   utility functions; general code should use as_a<T> instead.  */
-
-ALWAYS_INLINE scalar_float_mode
-scalar_float_mode::from_int (int i)
-{
-  return machine_mode_enum (i);
-}
-
-/* Represents a machine mode that is known to be scalar.  All properties
-   (size, precision, etc.) are compile-time constants.  */
+/* Represents a machine mode that is known to be scalar.  */
 class scalar_mode
 {
 public:
+  typedef mode_traits<scalar_mode>::from_int from_int;
   typedef unsigned short measurement_type;
 
   ALWAYS_INLINE scalar_mode () {}
+  ALWAYS_INLINE scalar_mode (from_int m) : m_mode (machine_mode (m)) {}
   ALWAYS_INLINE scalar_mode (const scalar_int_mode &m) : m_mode (m) {}
   ALWAYS_INLINE scalar_mode (const scalar_float_mode &m) : m_mode (m) {}
   ALWAYS_INLINE scalar_mode (const scalar_int_mode_pod &m) : m_mode (m) {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
 
-  static bool includes_p (machine_mode_enum);
-  static scalar_mode from_int (int);
-
-PROTECT_ENUM_CONVERSION:
-  ALWAYS_INLINE scalar_mode (machine_mode_enum m) : m_mode (m) {}
+  static bool includes_p (machine_mode);
 
 protected:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* Return true if M represents some kind of scalar value.  */
 
 inline bool
-scalar_mode::includes_p (machine_mode_enum m)
+scalar_mode::includes_p (machine_mode m)
 {
   switch (GET_MODE_CLASS (m))
     {
@@ -442,83 +465,39 @@ scalar_mode::includes_p (machine_mode_enum m)
     }
 }
 
-/* Return M as a scalar_mode.  This function should only be used by
-   utility functions; general code should use as_a<T> instead.  */
-
-ALWAYS_INLINE scalar_mode
-scalar_mode::from_int (int i)
-{
-  return machine_mode_enum (i);
-}
-
 /* Represents a machine mode that is known to be a COMPLEX_MODE_P.  */
 class complex_mode
 {
 public:
+  typedef mode_traits<complex_mode>::from_int from_int;
   typedef unsigned short measurement_type;
 
   ALWAYS_INLINE complex_mode () {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+  ALWAYS_INLINE complex_mode (from_int m) : m_mode (machine_mode (m)) {}
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
 
-  static bool includes_p (machine_mode_enum);
-  static complex_mode from_int (int);
-
-PROTECT_ENUM_CONVERSION:
-  ALWAYS_INLINE complex_mode (machine_mode_enum m) : m_mode (m) {}
+  static bool includes_p (machine_mode);
 
 protected:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* Return true if M is a complex_mode.  */
 
 inline bool
-complex_mode::includes_p (machine_mode_enum m)
+complex_mode::includes_p (machine_mode m)
 {
   return COMPLEX_MODE_P (m);
-}
-
-/* Return M as a complex_mode.  This function should only be used by
-   utility functions; general code should use as_a<T> instead.  */
-
-ALWAYS_INLINE complex_mode
-complex_mode::from_int (int i)
-{
-  return machine_mode_enum (i);
-}
-
-/* Represents a general machine mode (scalar or non-scalar).  */
-class machine_mode
-{
-public:
-  typedef poly_uint16 measurement_type;
-
-  ALWAYS_INLINE machine_mode () {}
-  template<typename T>
-  ALWAYS_INLINE machine_mode (const T &m) : m_mode (m) {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
-
-  static ALWAYS_INLINE bool includes_p (machine_mode_enum) { return true; }
-  static machine_mode from_int (int i);
-
-protected:
-  machine_mode_enum m_mode;
-};
-
-ALWAYS_INLINE machine_mode
-machine_mode::from_int (int i)
-{
-  return (machine_mode_enum) i;
 }
 
 /* Return the base GET_MODE_SIZE value for MODE.  */
 
 ALWAYS_INLINE poly_uint16
-mode_to_bytes (machine_mode_enum mode)
+mode_to_bytes (machine_mode mode)
 {
 #if GCC_VERSION >= 4001
-  return __builtin_constant_p (mode) ?
-	 mode_size_inline (mode) : mode_size[mode];
+  return (__builtin_constant_p (mode)
+	  ? mode_size_inline (mode) : mode_size[mode]);
 #else
   return mode_size[mode];
 #endif
@@ -527,7 +506,7 @@ mode_to_bytes (machine_mode_enum mode)
 /* Return the base GET_MODE_BITSIZE value for MODE.  */
 
 ALWAYS_INLINE poly_uint16
-mode_to_bits (machine_mode_enum mode)
+mode_to_bits (machine_mode mode)
 {
   return mode_to_bytes (mode) * BITS_PER_UNIT;
 }
@@ -535,7 +514,7 @@ mode_to_bits (machine_mode_enum mode)
 /* Return the base GET_MODE_PRECISION value for MODE.  */
 
 ALWAYS_INLINE poly_uint16
-mode_to_precision (machine_mode_enum mode)
+mode_to_precision (machine_mode mode)
 {
   return mode_precision[mode];
 }
@@ -543,11 +522,12 @@ mode_to_precision (machine_mode_enum mode)
 /* Return the base GET_MODE_INNER value for MODE.  */
 
 ALWAYS_INLINE scalar_mode
-mode_to_inner (machine_mode_enum mode)
+mode_to_inner (machine_mode mode)
 {
 #if GCC_VERSION >= 4001
-  return scalar_mode::from_int (__builtin_constant_p (mode) ?
-				mode_inner_inline (mode) : mode_inner[mode]);
+  return scalar_mode::from_int (__builtin_constant_p (mode)
+				? mode_inner_inline (mode)
+				: mode_inner[mode]);
 #else
   return scalar_mode::from_int (mode_inner[mode]);
 #endif
@@ -556,7 +536,7 @@ mode_to_inner (machine_mode_enum mode)
 /* Return the base GET_MODE_UNIT_SIZE value for MODE.  */
 
 ALWAYS_INLINE unsigned char
-mode_to_unit_size (machine_mode_enum mode)
+mode_to_unit_size (machine_mode mode)
 {
 #if GCC_VERSION >= 4001
   return (__builtin_constant_p (mode)
@@ -569,7 +549,7 @@ mode_to_unit_size (machine_mode_enum mode)
 /* Return the base GET_MODE_UNIT_PRECISION value for MODE.  */
 
 ALWAYS_INLINE unsigned short
-mode_to_unit_precision (machine_mode_enum mode)
+mode_to_unit_precision (machine_mode mode)
 {
 #if GCC_VERSION >= 4001
   return (__builtin_constant_p (mode)
@@ -582,11 +562,11 @@ mode_to_unit_precision (machine_mode_enum mode)
 /* Return the base GET_MODE_NUNITS value for MODE.  */
 
 ALWAYS_INLINE poly_uint16
-mode_to_nunits (machine_mode_enum mode)
+mode_to_nunits (machine_mode mode)
 {
 #if GCC_VERSION >= 4001
-  return __builtin_constant_p (mode) ?
-         mode_nunits_inline (mode) : mode_nunits[mode];
+  return (__builtin_constant_p (mode)
+	  ? mode_nunits_inline (mode) : mode_nunits[mode]);
 #else
   return mode_nunits[mode];
 #endif
@@ -598,7 +578,7 @@ mode_to_nunits (machine_mode_enum mode)
 #define GET_MODE_SIZE(MODE) ((unsigned short) mode_to_bytes (MODE).coeffs[0])
 #else
 ALWAYS_INLINE poly_uint16
-GET_MODE_SIZE (machine_mode_enum mode)
+GET_MODE_SIZE (machine_mode mode)
 {
   return mode_to_bytes (mode);
 }
@@ -624,7 +604,7 @@ GET_MODE_SIZE (const T &mode)
 #define GET_MODE_BITSIZE(MODE) ((unsigned short) mode_to_bits (MODE).coeffs[0])
 #else
 ALWAYS_INLINE poly_uint16
-GET_MODE_BITSIZE (machine_mode_enum mode)
+GET_MODE_BITSIZE (machine_mode mode)
 {
   return mode_to_bits (mode);
 }
@@ -651,7 +631,7 @@ GET_MODE_BITSIZE (const T &mode)
   ((unsigned short) mode_to_precision (MODE).coeffs[0])
 #else
 ALWAYS_INLINE poly_uint16
-GET_MODE_PRECISION (machine_mode_enum mode)
+GET_MODE_PRECISION (machine_mode mode)
 {
   return mode_to_precision (mode);
 }
@@ -709,7 +689,7 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 #define GET_MODE_NUNITS(MODE) (mode_to_nunits (MODE).coeffs[0])
 #else
 ALWAYS_INLINE poly_uint16
-GET_MODE_NUNITS (machine_mode_enum mode)
+GET_MODE_NUNITS (machine_mode mode)
 {
   return mode_to_nunits (mode);
 }
@@ -735,10 +715,7 @@ template<typename T>
 ALWAYS_INLINE opt_mode<T>
 GET_MODE_WIDER_MODE (const T &m)
 {
-  machine_mode_enum wider = (machine_mode_enum) mode_wider[m];
-  if (wider != E_VOIDmode)
-    return T::from_int (wider);
-  return opt_mode<T> ();
+  return typename opt_mode<T>::from_int (mode_wider[m]);
 }
 
 /* For scalars, this is a mode with twice the precision.  For vectors,
@@ -748,16 +725,12 @@ template<typename T>
 ALWAYS_INLINE opt_mode<T>
 GET_MODE_2XWIDER_MODE (const T &m)
 {
-  machine_mode_enum wider = (machine_mode_enum) mode_2xwider[m];
-  if (wider != E_VOIDmode)
-    return T::from_int (wider);
-  return opt_mode<T> ();
+  return typename opt_mode<T>::from_int (mode_2xwider[m]);
 }
 
 /* Get the complex mode from the component mode.  */
 extern const unsigned char mode_complex[NUM_MACHINE_MODES];
-#define GET_MODE_COMPLEX_MODE(MODE) \
-  (machine_mode ((machine_mode_enum) mode_complex[MODE]))
+#define GET_MODE_COMPLEX_MODE(MODE) ((machine_mode) mode_complex[MODE])
 
 /* Represents a machine mode that must have a fixed size.  The main
    use of this class is to represent the modes of objects that always
@@ -766,42 +739,31 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
 class fixed_size_mode
 {
 public:
+  typedef mode_traits<fixed_size_mode>::from_int from_int;
   typedef unsigned short measurement_type;
 
   ALWAYS_INLINE fixed_size_mode () {}
+  ALWAYS_INLINE fixed_size_mode (from_int m) : m_mode (machine_mode (m)) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_mode &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_int_mode &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_float_mode &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_mode_pod &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_int_mode_pod &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const complex_mode &m) : m_mode (m) {}
-  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+  ALWAYS_INLINE operator machine_mode () const { return m_mode; }
 
-  static bool includes_p (machine_mode_enum);
-  static fixed_size_mode from_int (int i);
-
-PROTECT_ENUM_CONVERSION:
-  ALWAYS_INLINE fixed_size_mode (machine_mode_enum m) : m_mode (m) {}
+  static bool includes_p (machine_mode);
 
 protected:
-  machine_mode_enum m_mode;
+  machine_mode m_mode;
 };
 
 /* Return true if MODE has a fixed size.  */
 
 inline bool
-fixed_size_mode::includes_p (machine_mode_enum mode)
+fixed_size_mode::includes_p (machine_mode mode)
 {
   return mode_to_bytes (mode).is_constant ();
-}
-
-/* Return M as a fixed_size_mode.  This function should only be used by
-   utility functions; general code should use as_a<T> instead.  */
-
-ALWAYS_INLINE fixed_size_mode
-fixed_size_mode::from_int (int i)
-{
-  return machine_mode_enum (i);
 }
 
 /* Wrapper for mode arguments to target macros, so that if a target
@@ -904,12 +866,13 @@ extern unsigned get_mode_alignment (machine_mode);
 
 extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
 #define GET_CLASS_NARROWEST_MODE(CLASS) \
-  (machine_mode ((machine_mode_enum) class_narrowest_mode[CLASS]))
+  ((machine_mode) class_narrowest_mode[CLASS])
 
 /* The narrowest full integer mode available on the target.  */
 
 #define NARROWEST_INT_MODE \
-  (scalar_int_mode::from_int (class_narrowest_mode[MODE_INT]))
+  (scalar_int_mode \
+   (scalar_int_mode::from_int (class_narrowest_mode[MODE_INT])))
 
 /* Return the narrowest mode in T's class.  */
 
@@ -917,7 +880,8 @@ template<typename T>
 inline T
 get_narrowest_mode (T mode)
 {
-  return T::from_int (class_narrowest_mode[GET_MODE_CLASS (mode)]);
+  return typename mode_traits<T>::from_int
+    (class_narrowest_mode[GET_MODE_CLASS (mode)]);
 }
 
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD
@@ -940,7 +904,7 @@ extern void init_adjust_machine_modes (void);
 inline bool
 HWI_COMPUTABLE_MODE_P (machine_mode mode)
 {
-  machine_mode_enum mme = mode;
+  machine_mode mme = mode;
   return (SCALAR_INT_MODE_P (mme)
 	  && mode_to_precision (mme).coeffs[0] <= HOST_BITS_PER_WIDE_INT);
 }
@@ -972,7 +936,7 @@ is_int_mode (machine_mode mode, T *int_mode)
 {
   if (GET_MODE_CLASS (mode) == MODE_INT)
     {
-      *int_mode = scalar_int_mode::from_int (mode);
+      *int_mode = scalar_int_mode (scalar_int_mode::from_int (mode));
       return true;
     }
   return false;
@@ -987,7 +951,7 @@ is_float_mode (machine_mode mode, T *float_mode)
 {
   if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
-      *float_mode = scalar_float_mode::from_int (mode);
+      *float_mode = scalar_float_mode (scalar_float_mode::from_int (mode));
       return true;
     }
   return false;
@@ -1002,7 +966,7 @@ is_complex_int_mode (machine_mode mode, T *cmode)
 {
   if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
     {
-      *cmode = complex_mode::from_int (mode);
+      *cmode = complex_mode (complex_mode::from_int (mode));
       return true;
     }
   return false;
@@ -1017,7 +981,7 @@ is_complex_float_mode (machine_mode mode, T *cmode)
 {
   if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
     {
-      *cmode = complex_mode::from_int (mode);
+      *cmode = complex_mode (complex_mode::from_int (mode));
       return true;
     }
   return false;

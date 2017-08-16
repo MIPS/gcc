@@ -289,7 +289,7 @@ init_reg_tables (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      machine_mode m = (machine_mode_enum) i;
+      machine_mode m = (machine_mode) i;
       
       switch (GET_MODE_CLASS (m))
 	{

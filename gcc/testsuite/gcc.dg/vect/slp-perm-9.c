@@ -45,6 +45,7 @@ int main (int argc, const char* argv[])
       check_results[3*i] = 9 * i + 6;
       check_results[3*i+1] = 9 * i + 15;
       check_results[3*i+2] = 9 * i + 4;
+      __asm__ volatile ("" : : : "memory");
     }
 
   foo (input, output);
@@ -57,7 +58,7 @@ int main (int argc, const char* argv[])
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 2 "vect" { target { ! { vect_perm_short || vect_load_lanes } } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { target { vect_perm_short || vect_load_lanes } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_perm_short || vect_load_lanes } } } } */
 /* { dg-final { scan-tree-dump-times "permutation requires at least three vectors" 1 "vect" { target { vect_perm_short && { ! vect_perm3_short } } } } } */
 /* { dg-final { scan-tree-dump-not "permutation requires at least three vectors" "vect" { target vect_perm3_short } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect" { target { { ! vect_perm3_short } || vect_load_lanes } } } } */

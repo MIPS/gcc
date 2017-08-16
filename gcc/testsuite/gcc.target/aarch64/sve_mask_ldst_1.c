@@ -3,19 +3,17 @@
 
 #include <stdint.h>
 
-#define NUM_ELEMS(TYPE) (73 + sizeof (TYPE))
-
 #define DEF_MASK_LOAD(TYPE)\
-void maskload_##TYPE (TYPE *__restrict__ a, TYPE *__restrict__ b)\
+void maskload_##TYPE (TYPE *__restrict__ a, TYPE *__restrict__ b, int n)\
 {\
-  for (TYPE i = 0; i < NUM_ELEMS(TYPE); i++)\
+  for (int i = 0; i < n; i++)\
     a[i] = a[i] < 4 ? b[i] : a[i];\
 }\
 
 #define DEF_MASK_STORE(TYPE)\
-void maskstore_##TYPE (TYPE *__restrict__ a, TYPE *__restrict__ b)\
+void maskstore_##TYPE (TYPE *__restrict__ a, TYPE *__restrict__ b, int n)\
 {\
-  for (TYPE i = 0; i < NUM_ELEMS(TYPE); i++)\
+  for (int i = 0; i < n; i++)\
     if (b[i] != 0)\
       a[i] = b[i];\
 }\

@@ -488,7 +488,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
     case SYMBOL_REF:
       if (SYMBOL_REF_WEAK (x))
 	return 1;
-      if (!CONSTANT_POOL_ADDRESS_P (x))
+      if (!CONSTANT_POOL_ADDRESS_P (x) && !SYMBOL_REF_FUNCTION_P (x))
 	{
 	  tree decl;
 	  poly_int64 decl_size;
@@ -646,8 +646,11 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 
     case PLUS:
       /* An address is assumed not to trap if:
-         - it is the pic register plus a constant.  */
-      if (XEXP (x, 0) == pic_offset_table_rtx && CONSTANT_P (XEXP (x, 1)))
+	 - it is the pic register plus a const unspec without offset.  */
+      if (XEXP (x, 0) == pic_offset_table_rtx
+	  && GET_CODE (XEXP (x, 1)) == CONST
+	  && GET_CODE (XEXP (XEXP (x, 1), 0)) == UNSPEC
+	  && must_eq (offset, 0))
 	return 0;
 
       /* - or it is an address that can't trap plus a constant integer.  */
@@ -2467,7 +2470,7 @@ void
 add_int_reg_note (rtx_insn *insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
-  REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode_enum) kind,
+  REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode) kind,
 				       datum, REG_NOTES (insn));
 }
 
@@ -2498,8 +2501,7 @@ duplicate_reg_note (rtx note)
   reg_note kind = REG_NOTE_KIND (note);
 
   if (GET_CODE (note) == INT_LIST)
-    return gen_rtx_INT_LIST ((machine_mode_enum) kind, XINT (note, 0),
-			     NULL_RTX);
+    return gen_rtx_INT_LIST ((machine_mode) kind, XINT (note, 0), NULL_RTX);
   else if (GET_CODE (note) == EXPR_LIST)
     return alloc_reg_note (kind, copy_insn_1 (XEXP (note, 0)), NULL_RTX);
   else
@@ -5431,23 +5433,41 @@ insn_rtx_cost (rtx pat, bool speed)
   int i, cost;
   rtx set;
 
-  /* Extract the single set rtx from the instruction pattern.
-     We can't use single_set since we only have the pattern.  */
+  /* Extract the single set rtx from the instruction pattern.  We
+     can't use single_set since we only have the pattern.  We also
+     consider PARALLELs of a normal set and a single comparison.  In
+     that case we use the cost of the non-comparison SET operation,
+     which is most-likely to be the real cost of this operation.  */
   if (GET_CODE (pat) == SET)
     set = pat;
   else if (GET_CODE (pat) == PARALLEL)
     {
       set = NULL_RTX;
+      rtx comparison = NULL_RTX;
+
       for (i = 0; i < XVECLEN (pat, 0); i++)
 	{
 	  rtx x = XVECEXP (pat, 0, i);
 	  if (GET_CODE (x) == SET)
 	    {
-	      if (set)
-		return 0;
-	      set = x;
+	      if (GET_CODE (SET_SRC (x)) == COMPARE)
+		{
+		  if (comparison)
+		    return 0;
+		  comparison = x;
+		}
+	      else
+		{
+		  if (set)
+		    return 0;
+		  set = x;
+		}
 	    }
 	}
+
+      if (!set && comparison)
+	set = comparison;
+
       if (!set)
 	return 0;
     }

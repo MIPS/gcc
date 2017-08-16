@@ -424,6 +424,11 @@ along with GCC; see the file COPYING3.  If not see
    constant_lower_bound (a)
       Assert that a is nonnegative and return the smallest value it can have.
 
+   lower_bound (a, b)
+      Return a value that must be less than or equal to both a and b.
+      It will be the greatest such value for some indeterminate values
+      but necessarily for all.
+
    upper_bound (a, b)
       Return a value that must be greater than or equal to both a and b.
       It will be the least such value for some indeterminate values
@@ -981,9 +986,12 @@ struct if_poly<poly_int<N, T> >
    everything smaller than HOST_WIDE_INT promotes to HOST_WIDE_INT.  */
 #define RANK(X) int_traits<X>::rank
 template<unsigned int N, typename T1, typename T2 = T1,
-	  int sel = ((RANK (T1) < RANK (HOST_WIDE_INT)
-		      && RANK (T2) < RANK (HOST_WIDE_INT))
-		     ? 0 : RANK (T1) < RANK (T2) ? 1 : 2)>
+	 int sel = ((RANK (T1) <= RANK (HOST_WIDE_INT)
+		     && RANK (T2) <= RANK (HOST_WIDE_INT))
+		    ? 0
+		    : (RANK (T1) <= RANK (unsigned HOST_WIDE_INT)
+		       && RANK (T2) <= RANK (unsigned HOST_WIDE_INT))
+		    ? 1 : 2)>
 struct poly_result;
 #undef RANK
 
@@ -998,14 +1006,14 @@ struct poly_result<N, T1, T2, 0>
 template<unsigned int N, typename T1, typename T2>
 struct poly_result<N, T1, T2, 1>
 {
-  typedef poly_int<N, typename int_traits <T2>::result> t;
+  typedef poly_int<N, unsigned HOST_WIDE_INT> t;
 };
 
 /* T2 promotes to T1.  */
 template<unsigned int N, typename T1, typename T2>
 struct poly_result<N, T1, T2, 2>
 {
-  typedef poly_int<N, typename int_traits <T1>::result> t;
+  typedef poly_int<N, WI_BINARY_RESULT (T1, T2)> t;
 };
 
 #define POLY_POLY_RESULT(N, T1, T2) typename poly_result<N, T1, T2>::t
@@ -1557,6 +1565,41 @@ constant_lower_bound (const poly_int_pod<N, Ca> &a)
 {
   gcc_checking_assert (must_ge (a, Ca (0)));
   return a.coeffs[0];
+}
+
+/* Return a value that is known to be no greater than A and B, both of
+   which are known to be nonnegative.  This will be the greatest lower
+   bound for some indeterminate values but not necessarily for all.  */
+
+template<unsigned int N, typename Ca, typename Cb>
+inline POLY_SCALAR_RESULT (N, Ca, Cb)
+lower_bound (const poly_int_pod<N, Ca> &a, const Cb &b)
+{
+  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
+  gcc_checking_assert (must_ge (a, Ca (0)));
+  gcc_checking_assert (b >= Cb (0));
+  poly_int<N, C> r;
+  r.coeffs[0] = MIN (C (a.coeffs[0]), C (b));
+  for (unsigned int i = 1; i < N; ++i)
+    r.coeffs[1] = C (a.coeffs[i]);
+  return r;
+}
+
+/* Return a value that is known to be no greater than A and B, both of
+   which are known to be nonnegative.  This will be the greatest lower
+   bound for some indeterminate values but not necessarily for all.  */
+
+template<unsigned int N, typename Ca, typename Cb>
+inline POLY_POLY_RESULT (N, Ca, Cb)
+lower_bound (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
+  gcc_checking_assert (must_ge (a, Ca (0)));
+  gcc_checking_assert (must_ge (b, Cb (0)));
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; ++i)
+    r.coeffs[i] = MIN (C (a.coeffs[i]), C (b.coeffs[i]));
+  return r;
 }
 
 /* Return a value that is known to be no less than A and B, both of

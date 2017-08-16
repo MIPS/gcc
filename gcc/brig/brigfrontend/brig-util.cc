@@ -241,7 +241,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
     {
       if (TYPE_UNSIGNED (tree_type))
 	{
-	  switch (int_size_in_bytes (tree_type))
+	  switch (int_size_in_bytes_hwi (tree_type))
 	    {
 	    case 1:
 	      return BRIG_TYPE_U8;
@@ -257,7 +257,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
 	}
       else
 	{
-	  switch (int_size_in_bytes (tree_type))
+	  switch (int_size_in_bytes_hwi (tree_type))
 	    {
 	    case 1:
 	      return BRIG_TYPE_S8;
@@ -275,7 +275,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
   else if (VECTOR_TYPE_P (tree_type))
     {
       tree element_type = TREE_TYPE (tree_type);
-      size_t element_size = int_size_in_bytes (element_type) * 8;
+      size_t element_size = int_size_in_bytes_hwi (element_type) * 8;
       BrigType16_t brig_element_type;
       switch (element_size)
 	{
@@ -300,7 +300,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
 	}
 
       BrigType16_t pack_type;
-      switch (int_size_in_bytes (tree_type) * 8)
+      switch (int_size_in_bytes_hwi (tree_type) * 8)
 	{
 	case 32:
 	  pack_type = BRIG_TYPE_PACK_32;

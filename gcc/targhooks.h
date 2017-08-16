@@ -203,6 +203,7 @@ extern tree default_builtin_tm_load_store (tree);
 extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
 extern int default_register_move_cost (machine_mode, reg_class_t,
 				       reg_class_t);
+extern bool default_slow_unaligned_access (machine_mode, unsigned int);
 extern HOST_WIDE_INT default_estimated_poly_value (poly_int64);
 
 extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
@@ -211,7 +212,9 @@ extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
 						    bool);
 extern int default_compare_by_pieces_branch_ratio (machine_mode);
 
-extern bool default_slow_unaligned_access (machine_mode, unsigned int);
+extern void default_print_patchable_function_entry (FILE *,
+						    unsigned HOST_WIDE_INT,
+						    bool);
 
 extern bool default_profile_before_prologue (void);
 extern reg_class_t default_preferred_reload_class (rtx, reg_class_t);

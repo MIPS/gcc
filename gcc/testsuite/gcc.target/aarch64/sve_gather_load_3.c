@@ -3,10 +3,10 @@
 
 #define TEST_LOOP(NAME, DATA_TYPE, INDEX_TYPE)		\
   DATA_TYPE __attribute__ ((noinline))			\
-  NAME (char *data, INDEX_TYPE *indices, signed char n)	\
+  NAME (char *data, INDEX_TYPE *indices, int n)		\
   {							\
     DATA_TYPE sum = 0;					\
-    for (signed char i = 0; i < n; ++i)			\
+    for (int i = 0; i < n; ++i)				\
       sum += *(DATA_TYPE *) (data + indices[i]);	\
     return sum;						\
   }

@@ -57,6 +57,8 @@ int main()
   return 0;
 }
 
+/* We should also be able to use 2-lane SLP to initialize the real and
+   imaginary components in the first loop of main.  */
 /* For targets with gather/scatter we can vectorize the unrolled loop
    directly, before SLP runs.  That's probably a pessimisation though.  */
-/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { xfail { vect_gather_scatter } } } } */
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 2 "slp1" { xfail vect_gather_scatter } } } */

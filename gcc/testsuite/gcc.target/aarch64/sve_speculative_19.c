@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -fno-common -ffast-math -march=armv8-a+sve -fdump-tree-vect-details" } */
+/* { dg-options "-O3 -fno-common -ffast-math -march=armv8-a+sve -fdump-tree-vect-details -msve-vector-bits=scalable" } */
 
 /* Speculative loop with two strided loads which cannot both be aligned.
    Will attempt first faulting and fail to use it.  */

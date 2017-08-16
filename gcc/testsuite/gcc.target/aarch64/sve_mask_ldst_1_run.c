@@ -5,6 +5,8 @@
 
 #include <stdlib.h>
 
+#define NUM_ELEMS(TYPE) (73 + sizeof (TYPE))
+
 #define DEF_INIT_VECTOR(TYPE)\
   TYPE a_##TYPE[NUM_ELEMS (TYPE) + 1];\
   TYPE b_##TYPE[NUM_ELEMS (TYPE) + 1];\
@@ -17,7 +19,7 @@
   b_##TYPE[NUM_ELEMS (TYPE)] = 4;
 
 #define TEST_MASK_LOAD(TYPE)\
-  maskload_##TYPE (a_##TYPE, b_##TYPE);\
+  maskload_##TYPE (a_##TYPE, b_##TYPE, NUM_ELEMS (TYPE));\
   for (int i = 0; i < NUM_ELEMS (TYPE); i++ )\
     if (a_##TYPE[i] != 4)\
       {\
@@ -27,7 +29,7 @@
     abort ();
 
 #define TEST_MASK_STORE(TYPE)\
-  maskstore_##TYPE (a_##TYPE, b_##TYPE);\
+  maskstore_##TYPE (a_##TYPE, b_##TYPE, NUM_ELEMS (TYPE));\
   for (int i = 0; i < NUM_ELEMS (TYPE); i++ )\
     if (a_##TYPE[i] != 4)\
       {\

@@ -107,19 +107,18 @@ streamer_tree_cache_get_hash (struct streamer_tree_cache_d *cache, unsigned ix)
 }
 
 static inline void
-bp_pack_machine_mode (struct bitpack_d *bp, machine_mode_enum mode)
+bp_pack_machine_mode (struct bitpack_d *bp, machine_mode mode)
 {
   streamer_mode_table[mode] = 1;
-  bp_pack_enum (bp, machine_mode_enum, 1 << 8, mode);
+  bp_pack_enum (bp, machine_mode, 1 << 8, mode);
 }
 
-static inline machine_mode_enum
+static inline machine_mode
 bp_unpack_machine_mode (struct bitpack_d *bp)
 {
-  return (machine_mode_enum)
+  return (machine_mode)
 	   ((struct lto_input_block *)
-	    bp->stream)->mode_table[bp_unpack_enum (bp, machine_mode_enum,
-						    1 << 8)];
+	    bp->stream)->mode_table[bp_unpack_enum (bp, machine_mode, 1 << 8)];
 }
 
 #endif  /* GCC_TREE_STREAMER_H  */

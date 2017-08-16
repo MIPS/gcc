@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=256" } */
+/* Pick an arbitrary target for which unaligned accesses are more
+   expensive.  */
+/* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=256 -mtune=thunderx" } */
 
 #define N 512
 #define START 7

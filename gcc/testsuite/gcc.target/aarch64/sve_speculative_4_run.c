@@ -1,5 +1,6 @@
 /* { dg-do run { target { aarch64_sve_hw } } } */
-/* { dg-options "-O3 -fno-inline -march=armv8-a+sve -ffast-math -msve-vector-bits=256" } */
+/* { dg-options "-O3 -fno-inline -march=armv8-a+sve -ffast-math" } */
+/* { dg-options "-O3 -fno-inline -march=armv8-a+sve -ffast-math -msve-vector-bits=256" { target aarch64_sve256_hw } } */
 
 #include "sve_speculative_4.c"
 

@@ -20,4 +20,4 @@ void mydata::Set (float x)
 /* 256-bit vectors will be handled by loop vectorisation instead, since there
    is no prologue or epilogue that would raise the cost.  SLP isn't yet
    possible with variable-length vectors.  */
-/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { xfail { vect256 || vect_variable_length } } } } */
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { xfail { { vect256 || vect_variable_length } || aarch64*-*-* } } } } */

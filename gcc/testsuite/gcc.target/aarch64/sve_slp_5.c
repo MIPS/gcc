@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -ffast-math" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -msve-vector-bits=scalable -ffast-math" } */
 
 #include <stdint.h>
 

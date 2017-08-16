@@ -36,11 +36,11 @@ along with GCC; see the file COPYING3.  If not see
    The available functions are:
 
    iv_analyze (insn, mode, reg, iv): Stores the description of the induction
-     variable corresponding to the use of register REG (of mode MODE) in INSN
-     to IV.  Returns true if REG is an induction variable in INSN. false
-     otherwise.  If use of REG is not found in INSN, following insns are
-     scanned (so that we may call this function on insn returned by
-     get_condition).
+     variable corresponding to the use of register REG in INSN to IV, given
+     that REG has mode MODE.  Returns true if REG is an induction variable
+     in INSN. false otherwise.  If a use of REG is not found in INSN,
+     the following insns are scanned (so that we may call this function
+     on insns returned by get_condition).
    iv_analyze_result (insn, def, iv):  Stores to IV the description of the iv
      corresponding to DEF, which is a register defined in INSN.
    iv_analyze_expr (insn, mode, expr, iv):  Stores to IV the description of iv

@@ -223,6 +223,16 @@ struct cpu_approx_modes
   const unsigned int recip_sqrt;	/* Reciprocal square root.  */
 };
 
+/* Cache prefetch settings for prefetch-loop-arrays.  */
+struct cpu_prefetch_tune
+{
+  const int num_slots;
+  const int l1_cache_size;
+  const int l1_cache_line_size;
+  const int l2_cache_size;
+  const int default_opt_level;
+};
+
 struct tune_params
 {
   const struct cpu_cost_table *insn_extra_cost;
@@ -244,9 +254,6 @@ struct tune_params
   int min_div_recip_mul_df;
   /* Value for aarch64_case_values_threshold; or 0 for the default.  */
   unsigned int max_case_values;
-  /* Value for PARAM_L1_CACHE_LINE_SIZE; or 0 to use the default.  */
-  unsigned int cache_line_size;
-
 /* An enum specifying how to take into account CPU autoprefetch capabilities
    during instruction scheduling:
    - AUTOPREFETCHER_OFF: Do not take autoprefetch capabilities into account.
@@ -264,6 +271,10 @@ struct tune_params
   } autoprefetcher_model;
 
   unsigned int extra_tuning_flags;
+
+  /* Place prefetch struct pointer at the end to enable type checking
+     errors when tune_params misses elements (e.g., from erroneous merges).  */
+  const struct cpu_prefetch_tune *prefetch;
 };
 
 #define AARCH64_FUSION_PAIR(x, name) \
@@ -328,6 +339,7 @@ unsigned HOST_WIDE_INT aarch64_and_split_imm2 (HOST_WIDE_INT val_in);
 bool aarch64_and_bitmask_imm (unsigned HOST_WIDE_INT val_in, machine_mode mode);
 int aarch64_branch_cost (bool, bool);
 enum aarch64_symbol_type aarch64_classify_symbolic_expression (rtx);
+bool aarch64_can_const_movi_rtx_p (rtx x, machine_mode mode);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
 bool aarch64_const_vec_all_same_in_range_p (rtx, HOST_WIDE_INT,
 					    HOST_WIDE_INT);
@@ -337,6 +349,7 @@ bool aarch64_emit_approx_sqrt (rtx, rtx, bool);
 void aarch64_expand_call (rtx, rtx, bool);
 bool aarch64_expand_movmem (rtx *);
 bool aarch64_float_const_zero_rtx_p (rtx);
+bool aarch64_float_const_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
 bool aarch64_fusion_enabled_p (enum aarch64_fusion_pairs);
 bool aarch64_gen_movmemqi (rtx *);
@@ -351,7 +364,7 @@ bool aarch64_mask_and_shift_for_ubfiz_p (scalar_int_mode, rtx, rtx);
 bool aarch64_modes_tieable_p (machine_mode mode1,
 			      machine_mode mode2);
 bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
-bool aarch64_move_imm (HOST_WIDE_INT, scalar_int_mode);
+bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 bool aarch64_sve_cnt_immediate_p (rtx);
 bool aarch64_sve_addvl_addpl_immediate_p (rtx);
 bool aarch64_sve_inc_dec_immediate_p (rtx);
@@ -371,8 +384,9 @@ bool aarch64_pad_arg_upward (machine_mode, const_tree);
 bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
-bool aarch64_simd_check_vect_par_cnst_half (rtx, machine_mode, bool);
-bool aarch64_simd_imm_scalar_p (rtx x, machine_mode mode);
+bool aarch64_reinterpret_float_as_int (rtx value, unsigned HOST_WIDE_INT *fail);
+bool aarch64_simd_check_vect_par_cnst_half (rtx op, machine_mode mode,
+					    bool high);
 bool aarch64_simd_scalar_immediate_valid_for_move (rtx, scalar_int_mode);
 bool aarch64_simd_shift_imm_p (rtx, machine_mode, bool);
 bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *);

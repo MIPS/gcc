@@ -394,7 +394,8 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
   /* ??? If the target doesn't have a vec_init, then we have no easy way
      of performing this operation.  Most of this sort of generic support
      is hidden away in the vector lowering support in gimple.  */
-  icode = optab_handler (vec_init_optab, vmode);
+  icode = convert_optab_handler (vec_init_optab, vmode,
+				 GET_MODE_INNER (vmode));
   if (icode == CODE_FOR_nothing)
     return NULL;
 
@@ -706,7 +707,8 @@ expand_doubleword_shift (scalar_int_mode op1_mode, optab binoptab,
 
   NO_DEFER_POP;
   do_compare_rtx_and_jump (cmp1, cmp2, cmp_code, false, op1_mode,
-			   0, 0, subword_label, -1);
+			   0, 0, subword_label,
+			   profile_probability::uninitialized ());
   OK_DEFER_POP;
 
   if (!expand_superword_shift (binoptab, outof_input, superword_op1,
@@ -3219,7 +3221,8 @@ expand_abs (machine_mode mode, rtx op0, rtx target,
   NO_DEFER_POP;
 
   do_compare_rtx_and_jump (target, CONST0_RTX (mode), GE, 0, mode,
-			   NULL_RTX, NULL, op1, -1);
+			   NULL_RTX, NULL, op1,
+			   profile_probability::uninitialized ());
 
   op0 = expand_unop (mode, result_unsignedp ? neg_optab : negv_optab,
                      target, target, 0);
@@ -3875,9 +3878,9 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
   if (cfun->can_throw_non_call_exceptions)
     {
       if (may_trap_p (x))
-	x = force_reg (mode, x);
+	x = copy_to_reg (x);
       if (may_trap_p (y))
-	y = force_reg (mode, y);
+	y = copy_to_reg (y);
     }
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
@@ -4007,7 +4010,8 @@ prepare_operand (enum insn_code icode, rtx x, int opnum, machine_mode mode,
    we can do the branch.  */
 
 static void
-emit_cmp_and_jump_insn_1 (rtx test, machine_mode mode, rtx label, int prob)
+emit_cmp_and_jump_insn_1 (rtx test, machine_mode mode, rtx label,
+			  profile_probability prob)
 {
   machine_mode optab_mode;
   enum mode_class mclass;
@@ -4022,13 +4026,13 @@ emit_cmp_and_jump_insn_1 (rtx test, machine_mode mode, rtx label, int prob)
   gcc_assert (insn_operand_matches (icode, 0, test));
   insn = emit_jump_insn (GEN_FCN (icode) (test, XEXP (test, 0),
                                           XEXP (test, 1), label));
-  if (prob != -1
+  if (prob.initialized_p ()
       && profile_status_for_fn (cfun) != PROFILE_ABSENT
       && insn
       && JUMP_P (insn)
       && any_condjump_p (insn)
       && !find_reg_note (insn, REG_BR_PROB, 0))
-    add_int_reg_note (insn, REG_BR_PROB, prob);
+    add_reg_br_prob_note (insn, prob);
 }
 
 /* Generate code to compare X with Y so that the condition codes are
@@ -4053,7 +4057,7 @@ emit_cmp_and_jump_insn_1 (rtx test, machine_mode mode, rtx label, int prob)
 void
 emit_cmp_and_jump_insns (rtx x, rtx y, enum rtx_code comparison, rtx size,
 			 machine_mode mode, int unsignedp, rtx label,
-                         int prob)
+                         profile_probability prob)
 {
   rtx op0 = x, op1 = y;
   rtx test;
@@ -4943,7 +4947,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
     FOR_EACH_MODE_FROM (fmode_iter, as_a <scalar_mode> (GET_MODE (from)))
       {
 	scalar_mode fmode = *fmode_iter;
-	if (CODE_FOR_nothing != can_fix_p (GET_MODE (to), fmode,
+	if (CODE_FOR_nothing != can_fix_p (to_mode, fmode,
 					   0, &must_trunc)
 	    && (!DECIMAL_FLOAT_MODE_P (fmode)
 		|| (GET_MODE_BITSIZE (fmode) > GET_MODE_PRECISION (to_mode))))
@@ -4980,10 +4984,10 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	    target = expand_binop (GET_MODE (from), sub_optab, from, limit,
 				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	    expand_fix (to, target, 0);
-	    target = expand_binop (GET_MODE (to), xor_optab, to,
+	    target = expand_binop (to_mode, xor_optab, to,
 				   gen_int_mode
 				   (HOST_WIDE_INT_1 << (bitsize - 1),
-				    GET_MODE (to)),
+				    to_mode),
 				   to, 1, OPTAB_LIB_WIDEN);
 
 	    if (target != to)
@@ -4991,12 +4995,12 @@ expand_fix (rtx to, rtx from, int unsignedp)
 
 	    emit_label (lab2);
 
-	    if (optab_handler (mov_optab, GET_MODE (to)) != CODE_FOR_nothing)
+	    if (optab_handler (mov_optab, to_mode) != CODE_FOR_nothing)
 	      {
 		/* Make a place for a REG_NOTE and add it.  */
 		insn = emit_move_insn (to, to);
 		set_dst_reg_note (insn, REG_EQUAL,
-				  gen_rtx_fmt_e (UNSIGNED_FIX, GET_MODE (to),
+				  gen_rtx_fmt_e (UNSIGNED_FIX, to_mode,
 						 copy_rtx (from)),
 				  to);
 	      }
@@ -5194,7 +5198,7 @@ debug_optab_libfuncs (void)
   for (i = FIRST_NORM_OPTAB; i <= LAST_NORMLIB_OPTAB; ++i)
     for (j = 0; j < NUM_MACHINE_MODES; ++j)
       {
-	rtx l = optab_libfunc ((optab) i, (machine_mode_enum) j);
+	rtx l = optab_libfunc ((optab) i, (machine_mode) j);
 	if (l)
 	  {
 	    gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -5210,8 +5214,8 @@ debug_optab_libfuncs (void)
     for (j = 0; j < NUM_MACHINE_MODES; ++j)
       for (k = 0; k < NUM_MACHINE_MODES; ++k)
 	{
-	  rtx l = convert_optab_libfunc ((optab) i, (machine_mode_enum) j,
-					 (machine_mode_enum) k);
+	  rtx l = convert_optab_libfunc ((optab) i, (machine_mode) j,
+					 (machine_mode) k);
 	  if (l)
 	    {
 	      gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -5915,7 +5919,8 @@ expand_compare_and_swap_loop (rtx mem, rtx old_reg, rtx new_reg, rtx seq)
 
   /* Mark this jump predicted not taken.  */
   emit_cmp_and_jump_insns (success, const0_rtx, EQ, const0_rtx,
-			   GET_MODE (success), 1, label, 0);
+			   GET_MODE (success), 1, label,
+			   profile_probability::guessed_never ());
   return true;
 }
 
@@ -6333,7 +6338,7 @@ expand_asm_memory_barrier (void)
 {
   rtx asm_op, clob;
 
-  asm_op = gen_rtx_ASM_OPERANDS (VOIDmode, empty_string, empty_string, 0,
+  asm_op = gen_rtx_ASM_OPERANDS (VOIDmode, "", "", 0,
 				 rtvec_alloc (0), rtvec_alloc (0),
 				 rtvec_alloc (0), UNKNOWN_LOCATION);
   MEM_VOLATILE_P (asm_op) = 1;
@@ -7064,7 +7069,9 @@ maybe_legitimize_operand (enum insn_code icode, unsigned int opno,
 
     case EXPAND_INTEGER:
       mode = insn_data[(int) icode].operand[opno].mode;
-      if (mode != VOIDmode && const_int_operand (op->value, mode))
+      if (mode != VOIDmode
+	  && must_eq (trunc_int_for_mode (op->int_value, mode),
+		      op->int_value))
 	goto input;
       break;
     }

@@ -30,10 +30,8 @@ enum tree_dump_index
   TDI_cgraph,			/* dump function call graph.  */
   TDI_inheritance,		/* dump type inheritance graph.  */
   TDI_clones,			/* dump IPA cloning decisions.  */
-  TDI_tu,			/* dump the whole translation unit.  */
-  TDI_class,			/* dump class hierarchy.  */
   TDI_original,			/* dump each function before optimizing it */
-  TDI_generic,			/* dump each function after genericizing it */
+  TDI_gimple,			/* dump each function after gimplifying it */
   TDI_nested,			/* dump each function after unnesting it */
 
   TDI_lang_all,			/* enable all the language dumps.  */
@@ -44,57 +42,55 @@ enum tree_dump_index
   TDI_end
 };
 
+/* Enum used to distinguish dump files to types.  */
+
+enum dump_kind
+{
+  DK_none,
+  DK_lang,
+  DK_tree,
+  DK_rtl,
+  DK_ipa
+};
+
 /* Bit masks to control dumping. Not all values are applicable to all
    dumps. Add new ones at the end. When you define new values, extend
    the DUMP_OPTIONS array in dumpfile.c. The TDF_* flags coexist with
    MSG_* flags (for -fopt-info) and the bit values must be chosen to
    allow that.  */
-#define TDF_LANG	0	/* is a lang-specific dump.  */
-#define TDF_TREE	1	/* is a tree dump */
-#define TDF_RTL		2	/* is a RTL dump */
-#define TDF_IPA		3	/* is an IPA dump */
-#define TDF_KIND_MASK   3
-#define TDF_KIND(X) ((X) & TDF_KIND_MASK)
-#define TDF_FLAGS(X) ((X) & ~TDF_KIND_MASK)
-
-/* Bit 2 unused, available for hire.  */
-#define TDF_ADDRESS	(1 << 3)	/* dump node addresses */
-#define TDF_SLIM	(1 << 4)	/* don't go wild following links */
-#define TDF_RAW		(1 << 5)	/* don't unparse the function */
-#define TDF_DETAILS	(1 << 6)	/* show more detailed info about
+#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
+#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+#define TDF_RAW		(1 << 2)	/* don't unparse the function */
+#define TDF_DETAILS	(1 << 3)	/* show more detailed info about
 					   each pass */
-#define TDF_STATS	(1 << 7)	/* dump various statistics about
+#define TDF_STATS	(1 << 4)	/* dump various statistics about
 					   each pass */
-#define TDF_BLOCKS	(1 << 8)	/* display basic block boundaries */
-#define TDF_VOPS	(1 << 9)	/* display virtual operands */
-#define TDF_LINENO	(1 << 10)	/* display statement line numbers */
-#define TDF_UID		(1 << 11)	/* display decl UIDs */
+#define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
+#define TDF_VOPS	(1 << 6)	/* display virtual operands */
+#define TDF_LINENO	(1 << 7)	/* display statement line numbers */
+#define TDF_UID		(1 << 8)	/* display decl UIDs */
 
-#define TDF_STMTADDR	(1 << 12)	/* Address of stmt.  */
+#define TDF_STMTADDR	(1 << 9)       /* Address of stmt.  */
 
-#define TDF_GRAPH	(1 << 13)	/* a graph dump is being emitted */
-#define TDF_MEMSYMS	(1 << 14)	/* display memory symbols in expr.
+#define TDF_GRAPH	(1 << 10)	/* a graph dump is being emitted */
+#define TDF_MEMSYMS	(1 << 11)	/* display memory symbols in expr.
 					   Implies TDF_VOPS.  */
 
-#define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
-					   message.  */
-#define TDF_VERBOSE	(1 << 16)	/* A dump that uses the full tree
-					   dumper to print stmts.  */
-#define TDF_RHS_ONLY	(1 << 17)	/* a flag to only print the RHS of
+#define TDF_RHS_ONLY	(1 << 12)	/* a flag to only print the RHS of
 					   a gimple stmt.  */
-#define TDF_ASMNAME	(1 << 18)	/* display asm names of decls  */
-#define TDF_EH		(1 << 19)	/* display EH region number
+#define TDF_ASMNAME	(1 << 13)	/* display asm names of decls  */
+#define TDF_EH		(1 << 14)	/* display EH region number
 					   holding this gimple statement.  */
-#define TDF_NOUID	(1 << 20)	/* omit UIDs from dumps.  */
-#define TDF_ALIAS	(1 << 21)	/* display alias information  */
-#define TDF_ENUMERATE_LOCALS (1 << 22)	/* Enumerate locals by uid.  */
-#define TDF_CSELIB	(1 << 23)	/* Dump cselib details.  */
-#define TDF_SCEV	(1 << 24)	/* Dump SCEV details.  */
-#define TDF_COMMENT	(1 << 25)	/* Dump lines with prefix ";;"  */
-#define TDF_GIMPLE	(1 << 26)	/* Dump in GIMPLE FE syntax  */
-#define MSG_OPTIMIZED_LOCATIONS	 (1 << 27)  /* -fopt-info optimized sources */
-#define MSG_MISSED_OPTIMIZATION	 (1 << 28)  /* missed opportunities */
-#define MSG_NOTE		 (1 << 29)  /* general optimization info */
+#define TDF_NOUID	(1 << 15)	/* omit UIDs from dumps.  */
+#define TDF_ALIAS	(1 << 16)	/* display alias information  */
+#define TDF_ENUMERATE_LOCALS (1 << 17)	/* Enumerate locals by uid.  */
+#define TDF_CSELIB	(1 << 18)	/* Dump cselib details.  */
+#define TDF_SCEV	(1 << 19)	/* Dump SCEV details.  */
+#define TDF_GIMPLE	(1 << 20)	/* Dump in GIMPLE FE syntax  */
+#define TDF_FOLDING	(1 << 21)	/* Dump folding details.  */
+#define MSG_OPTIMIZED_LOCATIONS	 (1 << 22)  /* -fopt-info optimized sources */
+#define MSG_MISSED_OPTIMIZATION	 (1 << 23)  /* missed opportunities */
+#define MSG_NOTE		 (1 << 24)  /* general optimization info */
 #define MSG_ALL		(MSG_OPTIMIZED_LOCATIONS | MSG_MISSED_OPTIMIZATION \
 			 | MSG_NOTE)
 
@@ -124,27 +120,40 @@ typedef uint64_t dump_flags_t;
 /* Define a tree dump switch.  */
 struct dump_file_info
 {
-  const char *suffix;		/* suffix to give output file.  */
-  const char *swtch;		/* command line dump switch */
-  const char *glob;		/* command line glob  */
-  const char *pfilename;	/* filename for the pass-specific stream  */
-  const char *alt_filename;	/* filename for the -fopt-info stream  */
-  FILE *pstream;		/* pass-specific dump stream  */
-  FILE *alt_stream;		/* -fopt-info stream */
-  dump_flags_t pflags;		/* dump flags */
-  int optgroup_flags;		/* optgroup flags for -fopt-info */
-  int alt_flags;		/* flags for opt-info */
-  int pstate;			/* state of pass-specific stream */
-  int alt_state;		/* state of the -fopt-info stream */
-  int num;			/* dump file number */
-  bool owns_strings;		/* fields "suffix", "swtch", "glob" can be
-				   const strings, or can be dynamically
-				   allocated, needing free.  */
-  bool graph_dump_initialized;	/* When a given dump file is being
-				   initialized, this flag is set to
-				   true if the corresponding TDF_graph
-				   dump file has also been
-				   initialized.  */
+  /* Suffix to give output file.  */
+  const char *suffix;
+  /* Command line dump switch.  */
+  const char *swtch;
+  /* Command line glob.  */
+  const char *glob;
+  /* Filename for the pass-specific stream.  */
+  const char *pfilename;
+  /* Filename for the -fopt-info stream.  */
+  const char *alt_filename;
+  /* Pass-specific dump stream.  */
+  FILE *pstream;
+  /* -fopt-info stream.  */
+  FILE *alt_stream;
+  /* Dump kind.  */
+  dump_kind dkind;
+  /* Dump flags.  */
+  dump_flags_t pflags;
+  /* A pass flags for -fopt-info.  */
+  int alt_flags;
+  /* Flags for -fopt-info given by a user.  */
+  int optgroup_flags;
+  /* State of pass-specific stream.  */
+  int pstate;
+  /* State of the -fopt-info stream.  */
+  int alt_state;
+  /* Dump file number.  */
+  int num;
+  /* Fields "suffix", "swtch", "glob" can be const strings,
+     or can be dynamically allocated, needing free.  */
+  bool owns_strings;
+  /* When a given dump file is being initialized, this flag is set to true
+     if the corresponding TDF_graph dump file has also been initialized.  */
+  bool graph_dump_initialized;
 };
 
 /* In dumpfile.c */
@@ -204,8 +213,12 @@ public:
      SUFFIX, SWTCH, and GLOB. */
   unsigned int
   dump_register (const char *suffix, const char *swtch, const char *glob,
-		 dump_flags_t flags, int optgroup_flags,
-		 bool take_ownership);
+		 dump_kind dkind, int optgroup_flags, bool take_ownership);
+
+  /* Allow languages and middle-end to register their dumps before the
+     optimization passes.  */
+  void
+  register_dumps ();
 
   /* Return the dump_file_info for the given phase.  */
   struct dump_file_info *
@@ -258,7 +271,7 @@ private:
   dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob);
 
   int
-  dump_enable_all (dump_flags_t flags, const char *filename);
+  dump_enable_all (dump_kind dkind, dump_flags_t flags, const char *filename);
 
   int
   opt_info_enable_passes (int optgroup_flags, dump_flags_t flags,

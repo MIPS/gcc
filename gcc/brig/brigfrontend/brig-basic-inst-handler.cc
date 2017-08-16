@@ -33,6 +33,7 @@
 #include "stor-layout.h"
 #include "diagnostic-core.h"
 #include "brig-builtins.h"
+#include "fold-const.h"
 
 brig_basic_inst_handler::brig_basic_inst_handler (brig_to_generic &parent)
   : brig_code_entry_handler (parent)
@@ -96,9 +97,12 @@ brig_basic_inst_handler::build_shuffle (tree arith_type,
      output elements can originate from any input element.  */
   vec<constructor_elt, va_gc> *mask_offset_vals = NULL;
 
+  /* BRIG doesn't support variable-length vectors.  */
+  unsigned int element_count
+    = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
+
   vec<constructor_elt, va_gc> *input_mask_vals = NULL;
-  size_t input_mask_element_size
-    = exact_log2 (TYPE_VECTOR_SUBPARTS (arith_type));
+  size_t input_mask_element_size = exact_log2 (element_count);
 
   /* Unpack the tightly packed mask elements to BIT_FIELD_REFs
      from which to construct the mask vector as understood by
@@ -108,29 +112,25 @@ brig_basic_inst_handler::build_shuffle (tree arith_type,
   tree mask_element_type
     = build_nonstandard_integer_type (input_mask_element_size, true);
 
-  for (size_t i = 0; i < TYPE_VECTOR_SUBPARTS (arith_type); ++i)
+  for (size_t i = 0; i < element_count; ++i)
     {
       tree mask_element
 	= build3 (BIT_FIELD_REF, mask_element_type, mask_operand,
-		  build_int_cst (unsigned_char_type_node,
-				 input_mask_element_size),
-		  build_int_cst (unsigned_char_type_node,
-				 i * input_mask_element_size));
+		  bitsize_int (input_mask_element_size),
+		  bitsize_int (i * input_mask_element_size));
 
       mask_element = convert (element_type, mask_element);
 
       tree offset;
-      if (i < TYPE_VECTOR_SUBPARTS (arith_type) / 2)
+      if (i < element_count / 2)
 	offset = build_int_cst (element_type, 0);
       else
-	offset
-	  = build_int_cst (element_type, TYPE_VECTOR_SUBPARTS (arith_type));
+	offset = build_int_cst (element_type, element_count);
 
       CONSTRUCTOR_APPEND_ELT (mask_offset_vals, NULL_TREE, offset);
       CONSTRUCTOR_APPEND_ELT (input_mask_vals, NULL_TREE, mask_element);
     }
-  tree mask_vec_type
-    = build_vector_type (element_type, TYPE_VECTOR_SUBPARTS (arith_type));
+  tree mask_vec_type = build_vector_type (element_type, element_count);
 
   tree mask_vec = build_constructor (mask_vec_type, input_mask_vals);
   tree offset_vec = build_constructor (mask_vec_type, mask_offset_vals);
@@ -159,7 +159,9 @@ brig_basic_inst_handler::build_unpack (tree_stl_vec &operands)
   vec<constructor_elt, va_gc> *input_mask_vals = NULL;
   vec<constructor_elt, va_gc> *and_mask_vals = NULL;
 
-  size_t element_count = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0]));
+  /* BRIG doesn't support variable-length vectors.  */
+  size_t element_count
+    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0])).to_constant ();
   tree vec_type = build_vector_type (element_type, element_count);
 
   for (size_t i = 0; i < element_count; ++i)
@@ -190,12 +192,12 @@ brig_basic_inst_handler::build_unpack (tree_stl_vec &operands)
 
   tree cleared = build2 (BIT_AND_EXPR, vec_type, perm, and_mask_vec);
 
-  size_t s = int_size_in_bytes (TREE_TYPE (cleared)) * BITS_PER_UNIT;
+  size_t s = int_size_in_bytes_hwi (TREE_TYPE (cleared)) * BITS_PER_UNIT;
   tree raw_type = build_nonstandard_integer_type (s, true);
 
   tree as_int = build_reinterpret_cast (raw_type, cleared);
 
-  if (int_size_in_bytes (src_element_type) < 4)
+  if (int_size_in_bytes_hwi (src_element_type) < 4)
     {
       if (INTEGRAL_TYPE_P (src_element_type))
 	return extend_int (as_int, uint32_type_node, src_element_type);
@@ -214,8 +216,11 @@ brig_basic_inst_handler::build_pack (tree_stl_vec &operands)
      TODO: Reuse this for implementing 'bitinsert'
      without a builtin call.  */
 
-  size_t ecount = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0]));
-  size_t vecsize = int_size_in_bytes (TREE_TYPE (operands[0])) * BITS_PER_UNIT;
+  /* BRIG doesn't support variable-length vectors.  */
+  size_t ecount
+    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0])).to_constant ();
+  size_t vecsize = (int_size_in_bytes_hwi (TREE_TYPE (operands[0]))
+		    * BITS_PER_UNIT);
   tree wide_type = build_nonstandard_integer_type (vecsize, 1);
 
   tree src_vect = build_reinterpret_cast (wide_type, operands[0]);
@@ -233,7 +238,7 @@ brig_basic_inst_handler::build_pack (tree_stl_vec &operands)
   pos = add_temp_var ("pos", convert (wide_type, t));
 
   tree element_type = TREE_TYPE (TREE_TYPE (operands[0]));
-  size_t element_width = int_size_in_bytes (element_type) * BITS_PER_UNIT;
+  size_t element_width = int_size_in_bytes_hwi (element_type) * BITS_PER_UNIT;
   tree ewidth = build_int_cstu (wide_type, element_width);
 
   tree bitoffset = build2 (MULT_EXPR, wide_type, ewidth, pos);
@@ -278,7 +283,8 @@ brig_basic_inst_handler::build_unpack_lo_or_hi (BrigOpcode16_t brig_opcode,
   tree mask_vec_type
     = build_vector_type (element_type, TYPE_VECTOR_SUBPARTS (arith_type));
 
-  size_t element_count = TYPE_VECTOR_SUBPARTS (arith_type);
+  /* BRIG doesn't support variable-length vectors.  */
+  size_t element_count = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
   vec<constructor_elt, va_gc> *input_mask_vals = NULL;
 
   size_t offset = (brig_opcode == BRIG_OPCODE_UNPACKLO) ? 0 : element_count / 2;
@@ -600,9 +606,10 @@ brig_basic_inst_handler::operator () (const BrigBase *base)
 	  gcc_unreachable ();
 	}
 
-      size_t promoted_type_size = int_size_in_bytes (promoted_type) * 8;
-
-      for (size_t i = 0; i < TYPE_VECTOR_SUBPARTS (arith_type); ++i)
+      size_t promoted_type_size = int_size_in_bytes_hwi (promoted_type) * 8;
+      /* BRIG doesn't support variable-length vectors.  */
+      size_t element_count = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
+      for (size_t i = 0; i < element_count; ++i)
 	{
 	  tree operand0 = convert (promoted_type, operand0_elements.at (i));
 	  tree operand1 = convert (promoted_type, operand1_elements.at (i));
@@ -707,9 +714,11 @@ brig_basic_inst_handler::build_lower_element_broadcast (tree vec_operand)
      direct broadcast in GENERIC and this way there's no need for
      a separate extract of the lowest element.  */
   tree element_type = TREE_TYPE (TREE_TYPE (vec_operand));
-  size_t esize = 8 * int_size_in_bytes (element_type);
+  size_t esize = 8 * int_size_in_bytes_hwi (element_type);
 
-  size_t element_count = TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec_operand));
+  /* BRIG doesn't support variable-length vectors.  */
+  size_t element_count
+    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec_operand)).to_constant ();
   tree mask_inner_type = build_nonstandard_integer_type (esize, 1);
   vec<constructor_elt, va_gc> *constructor_vals = NULL;
 

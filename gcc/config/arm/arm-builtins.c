@@ -29,6 +29,7 @@
 #include "gimple-expr.h"
 #include "memmodel.h"
 #include "tm_p.h"
+#include "profile-count.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"
@@ -256,24 +257,24 @@ arm_storestruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
       qualifier_none, qualifier_struct_load_store_lane_index };
 #define STORE1LANE_QUALIFIERS (arm_storestruct_lane_qualifiers)
 
-#define v8qi_UP  V8QImode
-#define v4hi_UP  V4HImode
-#define v4hf_UP  V4HFmode
-#define v2si_UP  V2SImode
-#define v2sf_UP  V2SFmode
-#define di_UP    DImode
-#define v16qi_UP V16QImode
-#define v8hi_UP  V8HImode
-#define v8hf_UP  V8HFmode
-#define v4si_UP  V4SImode
-#define v4sf_UP  V4SFmode
-#define v2di_UP  V2DImode
-#define ti_UP	 TImode
-#define ei_UP	 EImode
-#define oi_UP	 OImode
-#define hf_UP	 HFmode
-#define si_UP	 SImode
-#define void_UP	 VOIDmode
+#define v8qi_UP  E_V8QImode
+#define v4hi_UP  E_V4HImode
+#define v4hf_UP  E_V4HFmode
+#define v2si_UP  E_V2SImode
+#define v2sf_UP  E_V2SFmode
+#define di_UP    E_DImode
+#define v16qi_UP E_V16QImode
+#define v8hi_UP  E_V8HImode
+#define v8hf_UP  E_V8HFmode
+#define v4si_UP  E_V4SImode
+#define v4sf_UP  E_V4SFmode
+#define v2di_UP  E_V2DImode
+#define ti_UP	 E_TImode
+#define ei_UP	 E_EImode
+#define oi_UP	 E_OImode
+#define hf_UP	 E_HFmode
+#define si_UP	 E_SImode
+#define void_UP	 E_VOIDmode
 
 #define UP(X) X##_UP
 
@@ -1877,7 +1878,7 @@ arm_init_builtins (void)
      arm_init_neon_builtins which uses it.  */
   arm_init_fp16_builtins ();
 
-  if (TARGET_HARD_FLOAT)
+  if (TARGET_MAYBE_HARD_FLOAT)
     {
       arm_init_neon_builtins ();
       arm_init_vfp_builtins ();
@@ -1886,7 +1887,7 @@ arm_init_builtins (void)
 
   arm_init_acle_builtins ();
 
-  if (TARGET_HARD_FLOAT)
+  if (TARGET_MAYBE_HARD_FLOAT)
     {
       tree ftype_set_fpscr
 	= build_function_type_list (void_type_node, unsigned_type_node, NULL);
@@ -2246,7 +2247,12 @@ constant_arg:
 		{
 		  error ("%Kargument %d must be a constant immediate",
 			 exp, argc + 1);
-		  return const0_rtx;
+		  /* We have failed to expand the pattern, and are safely
+		     in to invalid code.  But the mid-end will still try to
+		     build an assignment for this node while it expands,
+		     before stopping for the error, just pass it back
+		     TARGET to ensure a valid assignment.  */
+		  return target;
 		}
 	      break;
 
@@ -3054,15 +3060,15 @@ arm_expand_builtin (tree exp,
     }
 
   for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
-    if (d->code == (const enum arm_builtins) fcode)
+    if (d->code == (enum arm_builtins) fcode)
       return arm_expand_binop_builtin (d->icode, exp, target);
 
   for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
-    if (d->code == (const enum arm_builtins) fcode)
+    if (d->code == (enum arm_builtins) fcode)
       return arm_expand_unop_builtin (d->icode, exp, target, 0);
 
   for (i = 0, d = bdesc_3arg; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
-    if (d->code == (const enum arm_builtins) fcode)
+    if (d->code == (enum arm_builtins) fcode)
       return arm_expand_ternop_builtin (d->icode, exp, target);
 
   /* @@@ Should really do something sensible here.  */
@@ -3094,7 +3100,7 @@ arm_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
    NULL_TREE is returned if no such builtin is available.  */
 #undef ARM_CHECK_BUILTIN_MODE
 #define ARM_CHECK_BUILTIN_MODE(C)    \
-  (TARGET_FPU_ARMV8   \
+  (TARGET_VFP5   \
    && flag_unsafe_math_optimizations \
    && ARM_CHECK_BUILTIN_MODE_1 (C))
 

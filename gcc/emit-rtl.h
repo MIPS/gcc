@@ -28,12 +28,12 @@ struct GTY(()) incoming_args {
   /* Number of bytes of args popped by function being compiled on its return.
      Zero if no bytes are to be popped.
      May affect compilation of return insn or of function epilogue.  */
-  poly_int64 pops_args;
+  poly_int64_pod pops_args;
 
   /* If function's args have a fixed size, this is that size, in bytes.
      Otherwise, it is -1.
      May affect compilation of return insn or of function epilogue.  */
-  poly_int64 size;
+  poly_int64_pod size;
 
   /* # bytes the prologue should push and pretend that the caller pushed them.
      The prologue must do this, but only if parms can be passed in
@@ -68,7 +68,7 @@ struct GTY(()) rtl_data {
 
   /* # of bytes of outgoing arguments.  If ACCUMULATE_OUTGOING_ARGS is
      defined, the needed space is pushed by the prologue.  */
-  poly_int64 outgoing_args_size;
+  poly_int64_pod outgoing_args_size;
 
   /* If nonzero, an RTL expression for the location at which the current
      function returns its result.  If the current function returns its
@@ -126,7 +126,7 @@ struct GTY(()) rtl_data {
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */
-  poly_int64 x_frame_offset;
+  poly_int64_pod x_frame_offset;
 
   /* Insn after which register parms and SAVE_EXPRs are born, if nonopt.  */
   rtx_insn *x_parm_birth_insn;
@@ -267,7 +267,7 @@ struct GTY(()) rtl_data {
 
   /* Nonzero if function being compiled doesn't contain any calls
      (ignoring the prologue and epilogue).  This is set prior to
-     local register allocation and is valid for the remaining
+     register allocation in IRA and is valid for the remaining
      compiler passes.  */
   bool is_leaf;
 

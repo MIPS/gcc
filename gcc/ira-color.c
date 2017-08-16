@@ -3907,7 +3907,7 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
 
 /* Widest width in which each pseudo reg is referred to (via subreg).
    It is used for sorting pseudo registers.  */
-static machine_mode_enum *regno_max_ref_mode;
+static machine_mode *regno_max_ref_mode;
 
 /* Sort pseudos according their slot numbers (putting ones with
   smaller numbers first, or last when the frame pointer is not
@@ -4144,7 +4144,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
    reload.  */
 void
 ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
-			       machine_mode_enum *reg_max_ref_mode)
+			       machine_mode *reg_max_ref_mode)
 {
   int max_regno = max_reg_num ();
   int i, regno, num, slot_num;

@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 
 #include "except.h"		/* expand_builtin_dwarf_sp_column */
+#include "profile-count.h"	/* For expr.h */
 #include "expr.h"		/* init_return_column_size */
 #include "output.h"		/* asm_out_file */
 #include "debug.h"		/* dwarf2out_do_frame, dwarf2out_do_cfi_asm */
@@ -104,8 +105,8 @@ struct dw_trace_info
      while scanning insns.  However, the args_size value is irrelevant at
      any point except can_throw_internal_p insns.  Therefore the "delay"
      sizes the values that must actually be emitted for this trace.  */
-  poly_int64 beg_true_args_size, end_true_args_size;
-  poly_int64 beg_delay_args_size, end_delay_args_size;
+  poly_int64_pod beg_true_args_size, end_true_args_size;
+  poly_int64_pod beg_delay_args_size, end_delay_args_size;
 
   /* The first EH insn in the trace, where beg_delay_args_size must be set.  */
   rtx_insn *eh_head;

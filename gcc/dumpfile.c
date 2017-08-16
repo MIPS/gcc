@@ -26,7 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "context.h"
+#include "profile-count.h"
 #include "tree-cfg.h"
+#include "langhooks.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -47,37 +49,28 @@ FILE *alt_dump_file = NULL;
 const char *dump_file_name;
 dump_flags_t dump_flags;
 
+#define DUMP_FILE_INFO(suffix, swtch, dkind, num) \
+  {suffix, swtch, NULL, NULL, NULL, NULL, NULL, dkind, 0, 0, 0, 0, 0, num, \
+   false, false}
+
 /* Table of tree dump switches. This must be consistent with the
    TREE_DUMP_INDEX enumeration in dumpfile.h.  */
 static struct dump_file_info dump_files[TDI_end] =
 {
-  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, false, false},
-  {".cgraph", "ipa-cgraph", NULL, NULL, NULL, NULL, NULL, TDF_IPA,
-   0, 0, 0, 0, 0, false, false},
-  {".type-inheritance", "ipa-type-inheritance", NULL, NULL, NULL, NULL, NULL, TDF_IPA,
-   0, 0, 0, 0, 0, false, false},
-  {".ipa-clones", "ipa-clones", NULL, NULL, NULL, NULL, NULL, TDF_IPA,
-   0, 0, 0, 0, 0, false, false},
-  {".tu", "translation-unit", NULL, NULL, NULL, NULL, NULL, TDF_LANG,
-   0, 0, 0, 0, 1, false, false},
-  {".class", "class-hierarchy", NULL, NULL, NULL, NULL, NULL, TDF_LANG,
-   0, 0, 0, 0, 2, false, false},
-  {".original", "tree-original", NULL, NULL, NULL, NULL, NULL, TDF_TREE,
-   0, 0, 0, 0, 3, false, false},
-  {".gimple", "tree-gimple", NULL, NULL, NULL, NULL, NULL, TDF_TREE,
-   0, 0, 0, 0, 4, false, false},
-  {".nested", "tree-nested", NULL, NULL, NULL, NULL, NULL, TDF_TREE,
-   0, 0, 0, 0, 5, false, false},
-#define FIRST_AUTO_NUMBERED_DUMP 6
+  DUMP_FILE_INFO (NULL, NULL, DK_none, 0),
+  DUMP_FILE_INFO (".cgraph", "ipa-cgraph", DK_ipa, 0),
+  DUMP_FILE_INFO (".type-inheritance", "ipa-type-inheritance", DK_ipa, 0),
+  DUMP_FILE_INFO (".ipa-clones", "ipa-clones", DK_ipa, 0),
+  DUMP_FILE_INFO (".original", "tree-original", DK_tree, 0),
+  DUMP_FILE_INFO (".gimple", "tree-gimple", DK_tree, 0),
+  DUMP_FILE_INFO (".nested", "tree-nested", DK_tree, 0),
+#define FIRST_AUTO_NUMBERED_DUMP 1
+#define FIRST_ME_AUTO_NUMBERED_DUMP 3
 
-  {NULL, "lang-all", NULL, NULL, NULL, NULL, NULL, TDF_LANG,
-   0, 0, 0, 0, 0, false, false},
-  {NULL, "tree-all", NULL, NULL, NULL, NULL, NULL, TDF_TREE,
-   0, 0, 0, 0, 0, false, false},
-  {NULL, "rtl-all", NULL, NULL, NULL, NULL, NULL, TDF_RTL,
-   0, 0, 0, 0, 0, false, false},
-  {NULL, "ipa-all", NULL, NULL, NULL, NULL, NULL, TDF_IPA,
-   0, 0, 0, 0, 0, false, false},
+  DUMP_FILE_INFO (NULL, "lang-all", DK_lang, 0),
+  DUMP_FILE_INFO (NULL, "tree-all", DK_tree, 0),
+  DUMP_FILE_INFO (NULL, "rtl-all", DK_rtl, 0),
+  DUMP_FILE_INFO (NULL, "ipa-all", DK_ipa, 0),
 };
 
 /* Define a name->number mapping for a dump flag value.  */
@@ -107,21 +100,20 @@ static const struct dump_option_value_info dump_options[] =
   {"uid", TDF_UID},
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
-  {"verbose", TDF_VERBOSE},
   {"eh", TDF_EH},
   {"alias", TDF_ALIAS},
   {"nouid", TDF_NOUID},
   {"enumerate_locals", TDF_ENUMERATE_LOCALS},
   {"scev", TDF_SCEV},
   {"gimple", TDF_GIMPLE},
+  {"folding", TDF_FOLDING},
   {"optimized", MSG_OPTIMIZED_LOCATIONS},
   {"missed", MSG_MISSED_OPTIMIZATION},
   {"note", MSG_NOTE},
   {"optall", MSG_ALL},
-  {"all", ~(TDF_KIND_MASK | TDF_RAW | TDF_SLIM | TDF_LINENO
-	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC | TDF_VERBOSE
-	    | TDF_RHS_ONLY | TDF_NOUID | TDF_ENUMERATE_LOCALS | TDF_SCEV
-	    | TDF_GIMPLE)},
+  {"all", dump_flags_t (~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_GRAPH
+			| TDF_STMTADDR | TDF_RHS_ONLY | TDF_NOUID
+			| TDF_ENUMERATE_LOCALS | TDF_SCEV | TDF_GIMPLE))},
   {NULL, 0}
 };
 
@@ -181,8 +173,7 @@ gcc::dump_manager::~dump_manager ()
 unsigned int
 gcc::dump_manager::
 dump_register (const char *suffix, const char *swtch, const char *glob,
-	       dump_flags_t flags, int optgroup_flags,
-	       bool take_ownership)
+	       dump_kind dkind, int optgroup_flags, bool take_ownership)
 {
   int num = m_next_dump++;
 
@@ -191,24 +182,50 @@ dump_register (const char *suffix, const char *swtch, const char *glob,
   if (count >= m_extra_dump_files_alloced)
     {
       if (m_extra_dump_files_alloced == 0)
-	m_extra_dump_files_alloced = 32;
+	m_extra_dump_files_alloced = 512;
       else
 	m_extra_dump_files_alloced *= 2;
       m_extra_dump_files = XRESIZEVEC (struct dump_file_info,
 				       m_extra_dump_files,
 				       m_extra_dump_files_alloced);
+
+      /* Construct a new object in the space allocated above.  */
+      new (m_extra_dump_files + count) dump_file_info ();
+    }
+  else
+    {
+      /* Zero out the already constructed object.  */
+      m_extra_dump_files[count] = dump_file_info ();
     }
 
-  memset (&m_extra_dump_files[count], 0, sizeof (struct dump_file_info));
   m_extra_dump_files[count].suffix = suffix;
   m_extra_dump_files[count].swtch = swtch;
   m_extra_dump_files[count].glob = glob;
-  m_extra_dump_files[count].pflags = flags;
+  m_extra_dump_files[count].dkind = dkind;
   m_extra_dump_files[count].optgroup_flags = optgroup_flags;
   m_extra_dump_files[count].num = num;
   m_extra_dump_files[count].owns_strings = take_ownership;
 
   return count + TDI_end;
+}
+
+
+/* Allow languages and middle-end to register their dumps before the
+   optimization passes.  */
+
+void
+gcc::dump_manager::
+register_dumps ()
+{
+  lang_hooks.register_dumps (this);
+  /* If this assert fails, some FE registered more than
+     FIRST_ME_AUTO_NUMBERED_DUMP - FIRST_AUTO_NUMBERED_DUMP
+     dump files.  Bump FIRST_ME_AUTO_NUMBERED_DUMP accordingly.  */
+  gcc_assert (m_next_dump <= FIRST_ME_AUTO_NUMBERED_DUMP);
+  m_next_dump = FIRST_ME_AUTO_NUMBERED_DUMP;
+  dump_files[TDI_original].num = m_next_dump++;
+  dump_files[TDI_gimple].num = m_next_dump++;
+  dump_files[TDI_nested].num = m_next_dump++;
 }
 
 
@@ -285,11 +302,10 @@ get_dump_file_name (struct dump_file_info *dfi) const
     dump_id[0] = '\0';
   else
     {
-      /* LANG, TREE, RTL, IPA.  */
-      char suffix = "ltri"[TDF_KIND (dfi->pflags)];
+      /* (null), LANG, TREE, RTL, IPA.  */
+      char suffix = " ltri"[dfi->dkind];
       
-      if (snprintf (dump_id, sizeof (dump_id), ".%03d%c", dfi->num, suffix)
-	  < 0)
+      if (snprintf (dump_id, sizeof (dump_id), ".%03d%c", dfi->num, suffix) < 0)
 	dump_id[0] = '\0';
     }
 
@@ -515,7 +531,7 @@ dump_start (int phase, dump_flags_t *flag_ptr)
       dfi->pstream = stream;
       dump_file = dfi->pstream;
       /* Initialize current dump flags. */
-      pflags = TDF_FLAGS (dfi->pflags);
+      pflags = dfi->pflags;
     }
 
   stream = dump_open_alternate_stream (dfi);
@@ -525,7 +541,7 @@ dump_start (int phase, dump_flags_t *flag_ptr)
       count++;
       alt_dump_file = dfi->alt_stream;
       /* Initialize current -fopt-info flags. */
-      alt_flags = TDF_FLAGS (dfi->alt_flags);
+      alt_flags = dfi->alt_flags;
     }
 
   if (flag_ptr)
@@ -678,15 +694,14 @@ dump_end (int phase ATTRIBUTE_UNUSED, FILE *stream)
 
 int
 gcc::dump_manager::
-dump_enable_all (dump_flags_t flags, const char *filename)
+dump_enable_all (dump_kind dkind, dump_flags_t flags, const char *filename)
 {
-  dump_flags_t ir_dump_type = TDF_KIND (flags);
   int n = 0;
   size_t i;
 
   for (i = TDI_none + 1; i < (size_t) TDI_end; i++)
     {
-      if (TDF_KIND (dump_files[i].pflags) == ir_dump_type)
+      if ((dump_files[i].dkind == dkind))
         {
           const char *old_filename = dump_files[i].pfilename;
           dump_files[i].pstate = -1;
@@ -707,7 +722,7 @@ dump_enable_all (dump_flags_t flags, const char *filename)
 
   for (i = 0; i < m_extra_dump_files_in_use; i++)
     {
-      if (TDF_KIND (m_extra_dump_files[i].pflags) == ir_dump_type)
+      if ((m_extra_dump_files[i].dkind == dkind))
         {
           const char *old_filename = m_extra_dump_files[i].pfilename;
           m_extra_dump_files[i].pstate = -1;
@@ -853,7 +868,7 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob)
   /* Process -fdump-tree-all and -fdump-rtl-all, by enabling all the
      known dumps.  */
   if (dfi->suffix == NULL)
-    dump_enable_all (dfi->pflags, dfi->pfilename);
+    dump_enable_all (dfi->dkind, dfi->pflags, dfi->pfilename);
 
   return 1;
 }
@@ -1038,6 +1053,7 @@ enable_rtl_dump_file (void)
 {
   gcc::dump_manager *dumps = g->get_dumps ();
   int num_enabled =
-    dumps->dump_enable_all (TDF_RTL | TDF_DETAILS | TDF_BLOCKS, NULL);
+    dumps->dump_enable_all (DK_rtl, dump_flags_t (TDF_DETAILS) | TDF_BLOCKS,
+			    NULL);
   return num_enabled > 0;
 }

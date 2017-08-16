@@ -429,8 +429,7 @@ omp_max_vf (void)
       || optimize_debug
       || !flag_tree_loop_optimize
       || (!flag_tree_loop_vectorize
-	  && (global_options_set.x_flag_tree_loop_vectorize
-	      || global_options_set.x_flag_tree_vectorize)))
+	  && global_options_set.x_flag_tree_loop_vectorize))
     return 1;
 
   auto_vec<poly_uint64, 8> sizes;

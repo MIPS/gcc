@@ -1,5 +1,6 @@
 /* { dg-do run { target aarch64_sve_hw } } */
 /* { dg-options "-O -march=armv8-a+sve" } */
+/* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256" { target aarch64_sve256_hw } } */
 
 #include "sve_vec_perm_const_1.c"
 #include "sve_vec_perm_const_1_overrun.c"

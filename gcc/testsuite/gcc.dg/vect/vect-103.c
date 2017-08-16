@@ -56,8 +56,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-/* If the number of elements in the vector is variable, we can't decide
-   at compile time whether a dependence distance is a multiple of the
-   number of elements.  */
-/* { dg-final { scan-tree-dump-times "dependence distance modulo vf == 0" 1 "vect" { xfail vect_variable_length } } } */
+/* { dg-final { scan-tree-dump-times "accesses have the same alignment" 1 "vect" } } */
 

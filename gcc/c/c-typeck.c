@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
+#include "asan.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -72,6 +73,7 @@ int in_typeof;
 /* The argument of last parsed sizeof expression, only to be tested
    if expr.original_code == SIZEOF_EXPR.  */
 tree c_last_sizeof_arg;
+location_t c_last_sizeof_loc;
 
 /* Nonzero if we might need to print a "missing braces around
    initializer" message within this initializer.  */
@@ -105,7 +107,7 @@ static tree digest_init (location_t, tree, tree, tree, bool, bool, int);
 static void output_init_element (location_t, tree, tree, bool, tree, tree, int,
 				 bool, struct obstack *);
 static void output_pending_init_elements (int, struct obstack *);
-static int set_designator (location_t, int, struct obstack *);
+static bool set_designator (location_t, int, struct obstack *);
 static void push_range_stack (tree, struct obstack *);
 static void add_pending_init (location_t, tree, tree, tree, bool,
 			      struct obstack *);
@@ -1308,7 +1310,8 @@ comp_target_types (location_t location, tree ttl, tree ttr)
    If the CONTEXT chain ends in a null, that tree's context is still
    being parsed, so if two trees have context chains ending in null,
    they're in the same translation unit.  */
-int
+
+bool
 same_translation_unit_p (const_tree t1, const_tree t2)
 {
   while (t1 && TREE_CODE (t1) != TRANSLATION_UNIT_DECL)
@@ -2911,6 +2914,7 @@ c_expr_sizeof_expr (location_t loc, struct c_expr expr)
 				       &expr_const_operands);
       ret.value = c_sizeof (loc, TREE_TYPE (folded_expr));
       c_last_sizeof_arg = expr.value;
+      c_last_sizeof_loc = loc;
       ret.original_code = SIZEOF_EXPR;
       ret.original_type = NULL;
       if (c_vla_type_p (TREE_TYPE (folded_expr)))
@@ -2940,6 +2944,7 @@ c_expr_sizeof_type (location_t loc, struct c_type_name *t)
   type = groktypename (t, &type_expr, &type_expr_const);
   ret.value = c_sizeof (loc, type);
   c_last_sizeof_arg = type;
+  c_last_sizeof_loc = loc;
   ret.original_code = SIZEOF_EXPR;
   ret.original_type = NULL;
   if ((type_expr || TREE_CODE (ret.value) == INTEGER_CST)
@@ -3589,7 +3594,7 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
       result.value = build_unary_op (loc, code, arg.value, false);
 
       if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
-	overflow_warning (loc, result.value);
+	overflow_warning (loc, result.value, arg.value);
     }
 
   /* We are typically called when parsing a prefix token at LOC acting on
@@ -6376,7 +6381,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       if (codel == BOOLEAN_TYPE || codel == COMPLEX_TYPE
 	  || (coder == REAL_TYPE
 	      && (codel == INTEGER_TYPE || codel == ENUMERAL_TYPE)
-	      && (flag_sanitize & SANITIZE_FLOAT_CAST)))
+	      && sanitize_flags_p (SANITIZE_FLOAT_CAST)))
 	in_late_binary_op = true;
       ret = convert_and_check (expr_loc != UNKNOWN_LOCATION
 			       ? expr_loc : location, type, orig_rhs);
@@ -8178,9 +8183,9 @@ pop_init_level (location_t loc, int implicit,
 }
 
 /* Common handling for both array range and field name designators.
-   ARRAY argument is nonzero for array ranges.  Returns zero for success.  */
+   ARRAY argument is nonzero for array ranges.  Returns false for success.  */
 
-static int
+static bool
 set_designator (location_t loc, int array,
 		struct obstack *braced_init_obstack)
 {
@@ -8190,12 +8195,12 @@ set_designator (location_t loc, int array,
   /* Don't die if an entire brace-pair level is superfluous
      in the containing level.  */
   if (constructor_type == NULL_TREE)
-    return 1;
+    return true;
 
   /* If there were errors in this designator list already, bail out
      silently.  */
   if (designator_erroneous)
-    return 1;
+    return true;
 
   if (!designator_depth)
     {
@@ -8209,7 +8214,7 @@ set_designator (location_t loc, int array,
 					      last_init_list_comma),
 			      true, braced_init_obstack);
       constructor_designated = 1;
-      return 0;
+      return false;
     }
 
   switch (TREE_CODE (constructor_type))
@@ -8231,18 +8236,18 @@ set_designator (location_t loc, int array,
   if (array && subcode != ARRAY_TYPE)
     {
       error_init (loc, "array index in non-array initializer");
-      return 1;
+      return true;
     }
   else if (!array && subcode != RECORD_TYPE && subcode != UNION_TYPE)
     {
       error_init (loc, "field name not in record or union initializer");
-      return 1;
+      return true;
     }
 
   constructor_designated = 1;
   finish_implicit_inits (loc, braced_init_obstack);
   push_init_level (loc, 2, braced_init_obstack);
-  return 0;
+  return false;
 }
 
 /* If there are range designators in designator list, push a new designator
@@ -8775,7 +8780,7 @@ set_nonincremental_init_from_string (tree str,
   constructor_incremental = 0;
 }
 
-/* Return value of FIELD in pending initializer or zero if the field was
+/* Return value of FIELD in pending initializer or NULL_TREE if the field was
    not initialized yet.  */
 
 static tree
@@ -8827,7 +8832,7 @@ find_init_member (tree field, struct obstack * braced_init_obstack)
 	  && (constructor_elements->last ().index == field))
 	return constructor_elements->last ().value;
     }
-  return 0;
+  return NULL_TREE;
 }
 
 /* "Output" the next constructor element.
@@ -9821,6 +9826,7 @@ c_finish_goto_label (location_t loc, tree label)
     return NULL_TREE;
   TREE_USED (decl) = 1;
   {
+    add_stmt (build_predict_expr (PRED_GOTO, NOT_TAKEN));
     tree t = build1 (GOTO_EXPR, void_type_node, decl);
     SET_EXPR_LOCATION (t, loc);
     return add_stmt (t);
@@ -9953,7 +9959,7 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 	  || (TREE_CODE (TREE_TYPE (t)) == REAL_TYPE
 	      && (TREE_CODE (TREE_TYPE (res)) == INTEGER_TYPE
 		  || TREE_CODE (TREE_TYPE (res)) == ENUMERAL_TYPE)
-	      && (flag_sanitize & SANITIZE_FLOAT_CAST)))
+	      && sanitize_flags_p (SANITIZE_FLOAT_CAST)))
         in_late_binary_op = true;
       inner = t = convert (TREE_TYPE (res), t);
       in_late_binary_op = save;
@@ -11839,9 +11845,9 @@ build_binary_op (location_t location, enum tree_code code,
 	return error_mark_node;
     }
 
-  if ((flag_sanitize & (SANITIZE_SHIFT | SANITIZE_DIVIDE
-			| SANITIZE_FLOAT_DIVIDE))
-      && do_ubsan_in_current_function ()
+  if (sanitize_flags_p ((SANITIZE_SHIFT
+			 | SANITIZE_DIVIDE | SANITIZE_FLOAT_DIVIDE))
+      && current_function_decl != NULL_TREE
       && (doing_div_or_mod || doing_shift)
       && !require_constant_value)
     {
@@ -11850,10 +11856,10 @@ build_binary_op (location_t location, enum tree_code code,
       op1 = save_expr (op1);
       op0 = c_fully_fold (op0, false, NULL);
       op1 = c_fully_fold (op1, false, NULL);
-      if (doing_div_or_mod && (flag_sanitize & (SANITIZE_DIVIDE
-						| SANITIZE_FLOAT_DIVIDE)))
+      if (doing_div_or_mod && (sanitize_flags_p ((SANITIZE_DIVIDE
+						  | SANITIZE_FLOAT_DIVIDE))))
 	instrument_expr = ubsan_instrument_division (location, op0, op1);
-      else if (doing_shift && (flag_sanitize & SANITIZE_SHIFT))
+      else if (doing_shift && sanitize_flags_p (SANITIZE_SHIFT))
 	instrument_expr = ubsan_instrument_shift (location, code, op0, op1);
     }
 
@@ -12366,9 +12372,9 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  && TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
 			== INTEGER_CST)
 	{
-	  tree size = size_binop (PLUS_EXPR,
-				  TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
-				  size_one_node);
+	  tree size
+	    = fold_convert (sizetype, TYPE_MAX_VALUE (TYPE_DOMAIN (type)));
+	  size = size_binop (PLUS_EXPR, size, size_one_node);
 	  if (TREE_CODE (low_bound) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_lt (size, low_bound))
@@ -14014,7 +14020,7 @@ c_build_va_arg (location_t loc1, tree expr, location_t loc2, tree type)
 }
 
 /* Return truthvalue of whether T1 is the same tree structure as T2.
-   Return 1 if they are the same. Return 0 if they are different.  */
+   Return 1 if they are the same. Return false if they are different.  */
 
 bool
 c_tree_equal (tree t1, tree t2)

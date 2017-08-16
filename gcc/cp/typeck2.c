@@ -821,8 +821,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	  || (DECL_IN_AGGR_P (decl) && !DECL_VAR_DECLARED_INLINE_P (decl)))
 	{
 	  /* Diagnose a non-constant initializer for constexpr.  */
-	  if (processing_template_decl
-	      && !require_potential_constant_expression (value))
+	  if (!require_potential_constant_expression (value))
 	    value = error_mark_node;
 	  else
 	    value = cxx_constant_value (value, decl);
@@ -955,7 +954,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	{
 	  if (complain & tf_warning)
 	    warning_at (loc, OPT_Wnarrowing, "narrowing conversion of %qE "
-			"from %qT to %qT inside { } is ill-formed in C++11",
+			"from %qH to %qI inside { } is ill-formed in C++11",
 			init, ftype, type);
 	  ok = true;
 	}
@@ -966,7 +965,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	      if ((!almost_ok || pedantic)
 		  && pedwarn (loc, OPT_Wnarrowing,
 			      "narrowing conversion of %qE "
-			      "from %qT to %qT inside { }",
+			      "from %qH to %qI inside { }",
 			      init, ftype, type)
 		  && almost_ok)
 		inform (loc, " the expression has a constant value but is not "
@@ -979,7 +978,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	  int savederrorcount = errorcount;
 	  global_dc->pedantic_errors = 1;
 	  pedwarn (loc, OPT_Wnarrowing,
-		   "narrowing conversion of %qE from %qT to %qT "
+		   "narrowing conversion of %qE from %qH to %qI "
 		   "inside { }", init, ftype, type);
 	  if (errorcount == savederrorcount)
 	    ok = true;

@@ -548,7 +548,7 @@ empty_p (bitmap b)
 inline bitmap
 early_remat::alloc_bitmap (void)
 {
-  return bitmap_obstack_alloc (&m_obstack);
+  return bitmap_alloc (&m_obstack);
 }
 
 /* Initialize *PTR to an empty bitmap if it is currently null.  */

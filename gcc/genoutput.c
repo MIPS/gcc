@@ -115,7 +115,7 @@ struct operand_data
   int index;
   const char *predicate;
   const char *constraint;
-  machine_mode_enum mode;
+  machine_mode mode;
   unsigned char n_alternatives;
   char address_p;
   char strict_low;

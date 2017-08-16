@@ -2288,7 +2288,7 @@ setup_reg_spill_flag (void)
     for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
       for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (targetm.spill_class ((enum reg_class) cl,
-				 (machine_mode_enum) mode) != NO_REGS)
+				 (machine_mode) mode) != NO_REGS)
 	  {
 	    lra_reg_spill_p = true;
 	    return;

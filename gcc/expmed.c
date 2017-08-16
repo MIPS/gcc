@@ -158,7 +158,6 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
 		      machine_mode mode, int speed)
 {
   int m, n, mode_bitsize;
-  machine_mode mode_from;
 
   mode_bitsize = GET_MODE_UNIT_BITSIZE (mode);
 
@@ -279,17 +278,17 @@ init_expmed (void)
       set_zero_cost (speed, set_src_cost (const0_rtx, mode, speed));
 
       for (mode = MIN_MODE_INT; mode <= MAX_MODE_INT;
-	   mode = (machine_mode_enum) (mode + 1))
+	   mode = (machine_mode)(mode + 1))
 	init_expmed_one_mode (&all, mode, speed);
 
       if (MIN_MODE_PARTIAL_INT != VOIDmode)
 	for (mode = MIN_MODE_PARTIAL_INT; mode <= MAX_MODE_PARTIAL_INT;
-	     mode = (machine_mode_enum) (mode + 1))
+	     mode = (machine_mode)(mode + 1))
 	  init_expmed_one_mode (&all, mode, speed);
 
       if (MIN_MODE_VECTOR_INT != VOIDmode)
 	for (mode = MIN_MODE_VECTOR_INT; mode <= MAX_MODE_VECTOR_INT;
-	     mode = (machine_mode_enum) (mode + 1))
+	     mode = (machine_mode)(mode + 1))
 	  init_expmed_one_mode (&all, mode, speed);
     }
 
@@ -512,7 +511,7 @@ lowpart_bit_field_p (poly_uint64 bitnum, poly_uint64 bitsize,
 {
   if (BYTES_BIG_ENDIAN)
     return (multiple_p (bitnum, BITS_PER_UNIT)
-	    && (multiple_p (bitnum + bitsize, GET_MODE_BITSIZE (struct_mode))
+	    && (must_eq (bitnum + bitsize, GET_MODE_BITSIZE (struct_mode))
 		|| multiple_p (bitnum + bitsize, BITS_PER_WORD)));
   else
     return multiple_p (bitnum, BITS_PER_WORD);
@@ -744,20 +743,20 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
      available.  */
   machine_mode outermode = GET_MODE (op0);
   scalar_mode innermode = GET_MODE_INNER (outermode);
-  HOST_WIDE_INT elt;
+  poly_uint64 pos;
   if (VECTOR_MODE_P (outermode)
       && !MEM_P (op0)
       && optab_handler (vec_set_optab, outermode) != CODE_FOR_nothing
       && fieldmode == innermode
       && must_eq (bitsize, GET_MODE_BITSIZE (innermode))
-      && constant_multiple_p (bitnum, GET_MODE_BITSIZE (innermode), &elt))
+      && multiple_p (bitnum, GET_MODE_BITSIZE (innermode), &pos))
     {
       struct expand_operand ops[3];
       enum insn_code icode = optab_handler (vec_set_optab, outermode);
 
       create_fixed_operand (&ops[0], op0);
       create_input_operand (&ops[1], value, innermode);
-      create_integer_operand (&ops[2], elt);
+      create_integer_operand (&ops[2], pos);
       if (maybe_expand_insn (icode, 3, ops))
 	return true;
     }
@@ -1136,7 +1135,7 @@ store_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	  && bitnum.is_constant (&ibitnum)
 	  && get_best_mode (ibitsize, ibitnum,
 			    bitregion_start, bitregion_end,
-			    MEM_ALIGN (str_rtx), 0,
+			    MEM_ALIGN (str_rtx), INT_MAX,
 			    MEM_VOLATILE_P (str_rtx), &best_mode))
 	addr_mode = best_mode;
       str_rtx = adjust_bitfield_address_size (str_rtx, addr_mode,
@@ -1616,6 +1615,61 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       return op0;
     }
 
+  /* First try to check for vector from vector extractions.  */
+  if (VECTOR_MODE_P (GET_MODE (op0))
+      && !MEM_P (op0)
+      && VECTOR_MODE_P (tmode)
+      && must_eq (bitsize, GET_MODE_SIZE (tmode))
+      && may_gt (GET_MODE (op0), GET_MODE_SIZE (tmode)))
+    {
+      machine_mode new_mode = GET_MODE (op0);
+      if (GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode))
+	{
+	  poly_uint64 nunits;
+	  if (!multiple_p (GET_MODE_BITSIZE (GET_MODE (op0)),
+			   GET_MODE_UNIT_BITSIZE (tmode), &nunits))
+	    new_mode = VOIDmode;
+	  else
+	    {
+	      new_mode = mode_for_vector (GET_MODE_INNER (tmode), nunits);
+	      if (!VECTOR_MODE_P (new_mode)
+		  || may_ne (GET_MODE_SIZE (new_mode),
+			     GET_MODE_SIZE (GET_MODE (op0)))
+		  || GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode)
+		  || !targetm.vector_mode_supported_p (new_mode))
+		new_mode = VOIDmode;
+	    }
+	}
+      poly_uint64 pos;
+      if (new_mode != VOIDmode
+	  && (convert_optab_handler (vec_extract_optab, new_mode, tmode)
+	      != CODE_FOR_nothing)
+	  && multiple_p (bitnum, GET_MODE_BITSIZE (tmode), &pos))
+	{
+	  struct expand_operand ops[3];
+	  machine_mode outermode = new_mode;
+	  machine_mode innermode = tmode;
+	  enum insn_code icode
+	    = convert_optab_handler (vec_extract_optab, outermode, innermode);
+
+	  if (new_mode != GET_MODE (op0))
+	    op0 = gen_lowpart (new_mode, op0);
+	  create_output_operand (&ops[0], target, innermode);
+	  ops[0].target = 1;
+	  create_input_operand (&ops[1], op0, outermode);
+	  create_integer_operand (&ops[2], pos);
+	  if (maybe_expand_insn (icode, 3, ops))
+	    {
+	      if (alt_rtl && ops[0].target)
+		*alt_rtl = target;
+	      target = ops[0].value;
+	      if (GET_MODE (target) != mode)
+		return gen_lowpart (tmode, target);
+	      return target;
+	    }
+	}
+    }
+
   /* See if we can get a better vector mode before extracting.  */
   if (VECTOR_MODE_P (GET_MODE (op0))
       && !MEM_P (op0)
@@ -1650,17 +1704,15 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   machine_mode outermode = GET_MODE (op0);
   if (VECTOR_MODE_P (outermode) && !MEM_P (op0))
     {
-      enum insn_code icode = optab_handler (vec_extract_optab, outermode);
       scalar_mode innermode = GET_MODE_INNER (outermode);
-      unsigned HOST_WIDE_INT ibitsize, ibitnum;
+      enum insn_code icode = convert_optab_handler (vec_extract_optab,
+						    outermode, innermode);
+      poly_uint64 pos;
       if (icode != CODE_FOR_nothing
-	  && bitsize.is_constant (&ibitsize)
-	  && bitnum.is_constant (&ibitnum)
-	  && ((ibitnum + ibitsize - 1) / GET_MODE_BITSIZE (innermode)
-	      == ibitnum / GET_MODE_BITSIZE (innermode)))
+	  && must_eq (bitsize, GET_MODE_BITSIZE (innermode))
+	  && multiple_p (bitnum, GET_MODE_BITSIZE (innermode), &pos))
 	{
 	  struct expand_operand ops[3];
-	  unsigned HOST_WIDE_INT pos = ibitnum / GET_MODE_BITSIZE (innermode);
 
 	  create_output_operand (&ops[0], target, innermode);
 	  ops[0].target = 1;
@@ -4356,8 +4408,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 				 + shift_cost (speed, int_mode, 1)
 				 + 2 * add_cost (speed, int_mode));
 			    t1 = expmed_mult_highpart
-			      (int_mode, op0,
-			       gen_int_mode (ml, int_mode),
+			      (int_mode, op0, gen_int_mode (ml, int_mode),
 			       NULL_RTX, 1, max_cost - extra_cost);
 			    if (t1 == 0)
 			      goto fail1;
@@ -4455,8 +4506,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 					      : sdiv_optab),
 					     int_mode)
 			      != CODE_FOR_nothing)
-			     || (optab_handler (sdivmod_optab,
-						int_mode)
+			     || (optab_handler (sdivmod_optab, int_mode)
 				 != CODE_FOR_nothing)))
 		  ;
 		else if (EXACT_POWER_OF_2_OR_ZERO_P (abs_d)
@@ -5000,8 +5050,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 	    ml = invert_mod2n (d >> pre_shift, size);
 	    t1 = expand_shift (RSHIFT_EXPR, int_mode, op0,
 			       pre_shift, NULL_RTX, unsignedp);
-	    quotient = expand_mult (int_mode, t1,
-				    gen_int_mode (ml, int_mode),
+	    quotient = expand_mult (int_mode, t1, gen_int_mode (ml, int_mode),
 				    NULL_RTX, 1);
 
 	    insn = get_last_insn ();
@@ -5651,6 +5700,215 @@ emit_store_flag_1 (rtx target, enum rtx_code code, rtx op0, rtx op1,
   return 0;
 }
 
+/* Subroutine of emit_store_flag that handles cases in which the operands
+   are scalar integers.  SUBTARGET is the target to use for temporary
+   operations and TRUEVAL is the value to store when the condition is
+   true.  All other arguments are as for emit_store_flag.  */
+
+rtx
+emit_store_flag_int (rtx target, rtx subtarget, enum rtx_code code, rtx op0,
+		     rtx op1, scalar_int_mode mode, int unsignedp,
+		     int normalizep, rtx trueval)
+{
+  machine_mode target_mode = target ? GET_MODE (target) : VOIDmode;
+  rtx_insn *last = get_last_insn ();
+  rtx tem;
+
+  /* If this is an equality comparison of integers, we can try to exclusive-or
+     (or subtract) the two operands and use a recursive call to try the
+     comparison with zero.  Don't do any of these cases if branches are
+     very cheap.  */
+
+  if ((code == EQ || code == NE) && op1 != const0_rtx)
+    {
+      tem = expand_binop (mode, xor_optab, op0, op1, subtarget, 1,
+			  OPTAB_WIDEN);
+
+      if (tem == 0)
+	tem = expand_binop (mode, sub_optab, op0, op1, subtarget, 1,
+			    OPTAB_WIDEN);
+      if (tem != 0)
+	tem = emit_store_flag (target, code, tem, const0_rtx,
+			       mode, unsignedp, normalizep);
+      if (tem != 0)
+	return tem;
+
+      delete_insns_since (last);
+    }
+
+  /* For integer comparisons, try the reverse comparison.  However, for
+     small X and if we'd have anyway to extend, implementing "X != 0"
+     as "-(int)X >> 31" is still cheaper than inverting "(int)X == 0".  */
+  rtx_code rcode = reverse_condition (code);
+  if (can_compare_p (rcode, mode, ccp_store_flag)
+      && ! (optab_handler (cstore_optab, mode) == CODE_FOR_nothing
+	    && code == NE
+	    && GET_MODE_SIZE (mode) < UNITS_PER_WORD
+	    && op1 == const0_rtx))
+    {
+      int want_add = ((STORE_FLAG_VALUE == 1 && normalizep == -1)
+		      || (STORE_FLAG_VALUE == -1 && normalizep == 1));
+
+      /* Again, for the reverse comparison, use either an addition or a XOR.  */
+      if (want_add
+	  && rtx_cost (GEN_INT (normalizep), mode, PLUS, 1,
+		       optimize_insn_for_speed_p ()) == 0)
+	{
+	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
+				   STORE_FLAG_VALUE, target_mode);
+	  if (tem != 0)
+	    tem = expand_binop (target_mode, add_optab, tem,
+				gen_int_mode (normalizep, target_mode),
+				target, 0, OPTAB_WIDEN);
+	}
+      else if (!want_add
+	       && rtx_cost (trueval, mode, XOR, 1,
+			    optimize_insn_for_speed_p ()) == 0)
+	{
+	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
+				   normalizep, target_mode);
+	  if (tem != 0)
+	    tem = expand_binop (target_mode, xor_optab, tem, trueval, target,
+				INTVAL (trueval) >= 0, OPTAB_WIDEN);
+	}
+
+      if (tem != 0)
+	return tem;
+      delete_insns_since (last);
+    }
+
+  /* Some other cases we can do are EQ, NE, LE, and GT comparisons with
+     the constant zero.  Reject all other comparisons at this point.  Only
+     do LE and GT if branches are expensive since they are expensive on
+     2-operand machines.  */
+
+  if (op1 != const0_rtx
+      || (code != EQ && code != NE
+	  && (BRANCH_COST (optimize_insn_for_speed_p (),
+			   false) <= 1 || (code != LE && code != GT))))
+    return 0;
+
+  /* Try to put the result of the comparison in the sign bit.  Assume we can't
+     do the necessary operation below.  */
+
+  tem = 0;
+
+  /* To see if A <= 0, compute (A | (A - 1)).  A <= 0 iff that result has
+     the sign bit set.  */
+
+  if (code == LE)
+    {
+      /* This is destructive, so SUBTARGET can't be OP0.  */
+      if (rtx_equal_p (subtarget, op0))
+	subtarget = 0;
+
+      tem = expand_binop (mode, sub_optab, op0, const1_rtx, subtarget, 0,
+			  OPTAB_WIDEN);
+      if (tem)
+	tem = expand_binop (mode, ior_optab, op0, tem, subtarget, 0,
+			    OPTAB_WIDEN);
+    }
+
+  /* To see if A > 0, compute (((signed) A) << BITS) - A, where BITS is the
+     number of bits in the mode of OP0, minus one.  */
+
+  if (code == GT)
+    {
+      if (rtx_equal_p (subtarget, op0))
+	subtarget = 0;
+
+      tem = maybe_expand_shift (RSHIFT_EXPR, mode, op0,
+				GET_MODE_BITSIZE (mode) - 1,
+				subtarget, 0);
+      if (tem)
+	tem = expand_binop (mode, sub_optab, tem, op0, subtarget, 0,
+			    OPTAB_WIDEN);
+    }
+
+  if (code == EQ || code == NE)
+    {
+      /* For EQ or NE, one way to do the comparison is to apply an operation
+	 that converts the operand into a positive number if it is nonzero
+	 or zero if it was originally zero.  Then, for EQ, we subtract 1 and
+	 for NE we negate.  This puts the result in the sign bit.  Then we
+	 normalize with a shift, if needed.
+
+	 Two operations that can do the above actions are ABS and FFS, so try
+	 them.  If that doesn't work, and MODE is smaller than a full word,
+	 we can use zero-extension to the wider mode (an unsigned conversion)
+	 as the operation.  */
+
+      /* Note that ABS doesn't yield a positive number for INT_MIN, but
+	 that is compensated by the subsequent overflow when subtracting
+	 one / negating.  */
+
+      if (optab_handler (abs_optab, mode) != CODE_FOR_nothing)
+	tem = expand_unop (mode, abs_optab, op0, subtarget, 1);
+      else if (optab_handler (ffs_optab, mode) != CODE_FOR_nothing)
+	tem = expand_unop (mode, ffs_optab, op0, subtarget, 1);
+      else if (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+	{
+	  tem = convert_modes (word_mode, mode, op0, 1);
+	  mode = word_mode;
+	}
+
+      if (tem != 0)
+	{
+	  if (code == EQ)
+	    tem = expand_binop (mode, sub_optab, tem, const1_rtx, subtarget,
+				0, OPTAB_WIDEN);
+	  else
+	    tem = expand_unop (mode, neg_optab, tem, subtarget, 0);
+	}
+
+      /* If we couldn't do it that way, for NE we can "or" the two's complement
+	 of the value with itself.  For EQ, we take the one's complement of
+	 that "or", which is an extra insn, so we only handle EQ if branches
+	 are expensive.  */
+
+      if (tem == 0
+	  && (code == NE
+	      || BRANCH_COST (optimize_insn_for_speed_p (),
+			      false) > 1))
+	{
+	  if (rtx_equal_p (subtarget, op0))
+	    subtarget = 0;
+
+	  tem = expand_unop (mode, neg_optab, op0, subtarget, 0);
+	  tem = expand_binop (mode, ior_optab, tem, op0, subtarget, 0,
+			      OPTAB_WIDEN);
+
+	  if (tem && code == EQ)
+	    tem = expand_unop (mode, one_cmpl_optab, tem, subtarget, 0);
+	}
+    }
+
+  if (tem && normalizep)
+    tem = maybe_expand_shift (RSHIFT_EXPR, mode, tem,
+			      GET_MODE_BITSIZE (mode) - 1,
+			      subtarget, normalizep == 1);
+
+  if (tem)
+    {
+      if (!target)
+	;
+      else if (GET_MODE (tem) != target_mode)
+	{
+	  convert_move (target, tem, 0);
+	  tem = target;
+	}
+      else if (!subtarget)
+	{
+	  emit_move_insn (target, tem);
+	  tem = target;
+	}
+    }
+  else
+    delete_insns_since (last);
+
+  return tem;
+}
+
 /* Emit a store-flags instruction for comparison CODE on OP0 and OP1
    and storing in TARGET.  Normally return TARGET.
    Return 0 if that cannot be done.
@@ -5712,7 +5970,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
   /* If optimizing, use different pseudo registers for each insn, instead
      of reusing the same pseudo.  This leads to better CSE, but slows
-     down the compiler, since there are more pseudos */
+     down the compiler, since there are more pseudos.  */
   subtarget = (!optimize
 	       && (target_mode == mode)) ? target : NULL_RTX;
   trueval = GEN_INT (normalizep ? normalizep : STORE_FLAG_VALUE);
@@ -5726,50 +5984,51 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
       rcode = reverse_condition_maybe_unordered (code);
       if (can_compare_p (rcode, mode, ccp_store_flag)
-          && (code == ORDERED || code == UNORDERED
+	  && (code == ORDERED || code == UNORDERED
 	      || (! HONOR_NANS (mode) && (code == LTGT || code == UNEQ))
 	      || (! HONOR_SNANS (mode) && (code == EQ || code == NE))))
 	{
-          int want_add = ((STORE_FLAG_VALUE == 1 && normalizep == -1)
-		          || (STORE_FLAG_VALUE == -1 && normalizep == 1));
+	  int want_add = ((STORE_FLAG_VALUE == 1 && normalizep == -1)
+			  || (STORE_FLAG_VALUE == -1 && normalizep == 1));
 
 	  /* For the reverse comparison, use either an addition or a XOR.  */
-          if (want_add
+	  if (want_add
 	      && rtx_cost (GEN_INT (normalizep), mode, PLUS, 1,
 			   optimize_insn_for_speed_p ()) == 0)
 	    {
 	      tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
 				       STORE_FLAG_VALUE, target_mode);
 	      if (tem)
-                return expand_binop (target_mode, add_optab, tem,
+		return expand_binop (target_mode, add_optab, tem,
 				     gen_int_mode (normalizep, target_mode),
 				     target, 0, OPTAB_WIDEN);
 	    }
-          else if (!want_add
-	           && rtx_cost (trueval, mode, XOR, 1,
-			        optimize_insn_for_speed_p ()) == 0)
+	  else if (!want_add
+		   && rtx_cost (trueval, mode, XOR, 1,
+				optimize_insn_for_speed_p ()) == 0)
 	    {
 	      tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
 				       normalizep, target_mode);
 	      if (tem)
-                return expand_binop (target_mode, xor_optab, tem, trueval,
-				     target, INTVAL (trueval) >= 0, OPTAB_WIDEN);
+		return expand_binop (target_mode, xor_optab, tem, trueval,
+				     target, INTVAL (trueval) >= 0,
+				     OPTAB_WIDEN);
 	    }
 	}
 
       delete_insns_since (last);
 
-      /* Cannot split ORDERED and UNORDERED, only try the above trick.   */
+      /* Cannot split ORDERED and UNORDERED, only try the above trick.  */
       if (code == ORDERED || code == UNORDERED)
 	return 0;
 
       and_them = split_comparison (code, mode, &first_code, &code);
 
       /* If there are no NaNs, the first comparison should always fall through.
-         Effectively change the comparison to the other one.  */
+	 Effectively change the comparison to the other one.  */
       if (!HONOR_NANS (mode))
 	{
-          gcc_assert (first_code == (and_them ? ORDERED : UNORDERED));
+	  gcc_assert (first_code == (and_them ? ORDERED : UNORDERED));
 	  return emit_store_flag_1 (target, code, op0, op1, mode, 0, normalizep,
 				    target_mode);
 	}
@@ -5785,216 +6044,25 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	return 0;
 
       if (and_them)
-        tem = emit_conditional_move (target, code, op0, op1, mode,
+	tem = emit_conditional_move (target, code, op0, op1, mode,
 				     tem, const0_rtx, GET_MODE (tem), 0);
       else
-        tem = emit_conditional_move (target, code, op0, op1, mode,
+	tem = emit_conditional_move (target, code, op0, op1, mode,
 				     trueval, tem, GET_MODE (tem), 0);
 
       if (tem == 0)
-        delete_insns_since (last);
+	delete_insns_since (last);
       return tem;
     }
 
   /* The remaining tricks only apply to integer comparisons.  */
 
   scalar_int_mode int_mode;
-  if (!is_int_mode (mode, &int_mode))
-    return 0;
+  if (is_int_mode (mode, &int_mode))
+    return emit_store_flag_int (target, subtarget, code, op0, op1, int_mode,
+				unsignedp, normalizep, trueval);
 
-  /* If this is an equality comparison of integers, we can try to exclusive-or
-     (or subtract) the two operands and use a recursive call to try the
-     comparison with zero.  Don't do any of these cases if branches are
-     very cheap.  */
-
-  if ((code == EQ || code == NE) && op1 != const0_rtx)
-    {
-      tem = expand_binop (int_mode, xor_optab, op0, op1, subtarget, 1,
-			  OPTAB_WIDEN);
-
-      if (tem == 0)
-	tem = expand_binop (int_mode, sub_optab, op0, op1, subtarget, 1,
-			    OPTAB_WIDEN);
-      if (tem != 0)
-	tem = emit_store_flag (target, code, tem, const0_rtx,
-			       int_mode, unsignedp, normalizep);
-      if (tem != 0)
-	return tem;
-
-      delete_insns_since (last);
-    }
-
-  /* For integer comparisons, try the reverse comparison.  However, for
-     small X and if we'd have anyway to extend, implementing "X != 0"
-     as "-(int)X >> 31" is still cheaper than inverting "(int)X == 0".  */
-  rcode = reverse_condition (code);
-  if (can_compare_p (rcode, int_mode, ccp_store_flag)
-      && ! (optab_handler (cstore_optab, int_mode) == CODE_FOR_nothing
-	    && code == NE
-	    && GET_MODE_SIZE (int_mode) < UNITS_PER_WORD
-	    && op1 == const0_rtx))
-    {
-      int want_add = ((STORE_FLAG_VALUE == 1 && normalizep == -1)
-		      || (STORE_FLAG_VALUE == -1 && normalizep == 1));
-
-      /* Again, for the reverse comparison, use either an addition or a XOR.  */
-      if (want_add
-	  && rtx_cost (GEN_INT (normalizep), int_mode, PLUS, 1,
-		       optimize_insn_for_speed_p ()) == 0)
-	{
-	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, int_mode, 0,
-				   STORE_FLAG_VALUE, target_mode);
-	  if (tem != 0)
-            tem = expand_binop (target_mode, add_optab, tem,
-				gen_int_mode (normalizep, target_mode),
-				target, 0, OPTAB_WIDEN);
-	}
-      else if (!want_add
-	       && rtx_cost (trueval, int_mode, XOR, 1,
-			    optimize_insn_for_speed_p ()) == 0)
-	{
-	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, int_mode, 0,
-				   normalizep, target_mode);
-	  if (tem != 0)
-            tem = expand_binop (target_mode, xor_optab, tem, trueval, target,
-				INTVAL (trueval) >= 0, OPTAB_WIDEN);
-	}
-
-      if (tem != 0)
-	return tem;
-      delete_insns_since (last);
-    }
-
-  /* Some other cases we can do are EQ, NE, LE, and GT comparisons with
-     the constant zero.  Reject all other comparisons at this point.  Only
-     do LE and GT if branches are expensive since they are expensive on
-     2-operand machines.  */
-
-  if (op1 != const0_rtx
-      || (code != EQ && code != NE
-	  && (BRANCH_COST (optimize_insn_for_speed_p (),
-			   false) <= 1 || (code != LE && code != GT))))
-    return 0;
-
-  /* Try to put the result of the comparison in the sign bit.  Assume we can't
-     do the necessary operation below.  */
-
-  tem = 0;
-
-  /* To see if A <= 0, compute (A | (A - 1)).  A <= 0 iff that result has
-     the sign bit set.  */
-
-  if (code == LE)
-    {
-      /* This is destructive, so SUBTARGET can't be OP0.  */
-      if (rtx_equal_p (subtarget, op0))
-	subtarget = 0;
-
-      tem = expand_binop (int_mode, sub_optab, op0, const1_rtx, subtarget, 0,
-			  OPTAB_WIDEN);
-      if (tem)
-	tem = expand_binop (int_mode, ior_optab, op0, tem, subtarget, 0,
-			    OPTAB_WIDEN);
-    }
-
-  /* To see if A > 0, compute (((signed) A) << BITS) - A, where BITS is the
-     number of bits in the mode of OP0, minus one.  */
-
-  if (code == GT)
-    {
-      if (rtx_equal_p (subtarget, op0))
-	subtarget = 0;
-
-      tem = maybe_expand_shift (RSHIFT_EXPR, int_mode, op0,
-				GET_MODE_BITSIZE (int_mode) - 1,
-				subtarget, 0);
-      if (tem)
-	tem = expand_binop (int_mode, sub_optab, tem, op0, subtarget, 0,
-			    OPTAB_WIDEN);
-    }
-
-  if (code == EQ || code == NE)
-    {
-      /* For EQ or NE, one way to do the comparison is to apply an operation
-	 that converts the operand into a positive number if it is nonzero
-	 or zero if it was originally zero.  Then, for EQ, we subtract 1 and
-	 for NE we negate.  This puts the result in the sign bit.  Then we
-	 normalize with a shift, if needed.
-
-	 Two operations that can do the above actions are ABS and FFS, so try
-	 them.  If that doesn't work, and MODE is smaller than a full word,
-	 we can use zero-extension to the wider mode (an unsigned conversion)
-	 as the operation.  */
-
-      /* Note that ABS doesn't yield a positive number for INT_MIN, but
-	 that is compensated by the subsequent overflow when subtracting
-	 one / negating.  */
-
-      if (optab_handler (abs_optab, int_mode) != CODE_FOR_nothing)
-	tem = expand_unop (int_mode, abs_optab, op0, subtarget, 1);
-      else if (optab_handler (ffs_optab, int_mode) != CODE_FOR_nothing)
-	tem = expand_unop (int_mode, ffs_optab, op0, subtarget, 1);
-      else if (GET_MODE_SIZE (int_mode) < UNITS_PER_WORD)
-	{
-	  tem = convert_modes (word_mode, int_mode, op0, 1);
-	  int_mode = word_mode;
-	}
-
-      if (tem != 0)
-	{
-	  if (code == EQ)
-	    tem = expand_binop (int_mode, sub_optab, tem, const1_rtx,
-				subtarget, 0, OPTAB_WIDEN);
-	  else
-	    tem = expand_unop (int_mode, neg_optab, tem, subtarget, 0);
-	}
-
-      /* If we couldn't do it that way, for NE we can "or" the two's complement
-	 of the value with itself.  For EQ, we take the one's complement of
-	 that "or", which is an extra insn, so we only handle EQ if branches
-	 are expensive.  */
-
-      if (tem == 0
-	  && (code == NE
-	      || BRANCH_COST (optimize_insn_for_speed_p (),
-		      	      false) > 1))
-	{
-	  if (rtx_equal_p (subtarget, op0))
-	    subtarget = 0;
-
-	  tem = expand_unop (int_mode, neg_optab, op0, subtarget, 0);
-	  tem = expand_binop (int_mode, ior_optab, tem, op0, subtarget, 0,
-			      OPTAB_WIDEN);
-
-	  if (tem && code == EQ)
-	    tem = expand_unop (int_mode, one_cmpl_optab, tem, subtarget, 0);
-	}
-    }
-
-  if (tem && normalizep)
-    tem = maybe_expand_shift (RSHIFT_EXPR, int_mode, tem,
-			      GET_MODE_BITSIZE (int_mode) - 1,
-			      subtarget, normalizep == 1);
-
-  if (tem)
-    {
-      if (!target)
-        ;
-      else if (GET_MODE (tem) != target_mode)
-	{
-	  convert_move (target, tem, 0);
-	  tem = target;
-	}
-      else if (!subtarget)
-	{
-	  emit_move_insn (target, tem);
-	  tem = target;
-	}
-    }
-  else
-    delete_insns_since (last);
-
-  return tem;
+  return 0;
 }
 
 /* Like emit_store_flag, but always succeeds.  */
@@ -6026,7 +6094,8 @@ emit_store_flag_force (rtx target, enum rtx_code code, rtx op0, rtx op1,
     {
       label = gen_label_rtx ();
       do_compare_rtx_and_jump (target, const0_rtx, EQ, unsignedp, mode,
-			       NULL_RTX, NULL, label, -1);
+			       NULL_RTX, NULL, label,
+			       profile_probability::uninitialized ());
       emit_move_insn (target, trueval);
       emit_label (label);
       return target;
@@ -6064,7 +6133,7 @@ emit_store_flag_force (rtx target, enum rtx_code code, rtx op0, rtx op1,
   emit_move_insn (target, trueval);
   label = gen_label_rtx ();
   do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode, NULL_RTX, NULL,
-			   label, -1);
+			   label, profile_probability::uninitialized ());
 
   emit_move_insn (target, falseval);
   emit_label (label);
@@ -6082,5 +6151,5 @@ do_cmp_and_jump (rtx arg1, rtx arg2, enum rtx_code op, machine_mode mode,
 {
   int unsignedp = (op == LTU || op == LEU || op == GTU || op == GEU);
   do_compare_rtx_and_jump (arg1, arg2, op, unsignedp, mode, NULL_RTX,
-			   NULL, label, -1);
+			   NULL, label, profile_probability::uninitialized ());
 }

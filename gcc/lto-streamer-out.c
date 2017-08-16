@@ -839,8 +839,8 @@ DFS::DFS_write_tree_body (struct output_block *ob,
 	DFS_follow_tree_edge (TYPE_ARG_TYPES (expr));
 
       if (!POINTER_TYPE_P (expr))
-	DFS_follow_tree_edge (TYPE_MINVAL (expr));
-      DFS_follow_tree_edge (TYPE_MAXVAL (expr));
+	DFS_follow_tree_edge (TYPE_MIN_VALUE_RAW (expr));
+      DFS_follow_tree_edge (TYPE_MAX_VALUE_RAW (expr));
       if (RECORD_OR_UNION_TYPE_P (expr))
 	DFS_follow_tree_edge (TYPE_BINFO (expr));
     }
@@ -1279,8 +1279,8 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 	       || code == METHOD_TYPE)
 	visit (TYPE_ARG_TYPES (t));
       if (!POINTER_TYPE_P (t))
-	visit (TYPE_MINVAL (t));
-      visit (TYPE_MAXVAL (t));
+	visit (TYPE_MIN_VALUE_RAW (t));
+      visit (TYPE_MAX_VALUE_RAW (t));
       if (RECORD_OR_UNION_TYPE_P (t))
 	visit (TYPE_BINFO (t));
     }
@@ -1868,8 +1868,8 @@ output_cfg (struct output_block *ob, struct function *fn)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  streamer_write_uhwi (ob, e->dest->index);
-	  streamer_write_hwi (ob, e->probability);
-	  streamer_write_gcov_count (ob, e->count);
+	  e->probability.stream_out (ob);
+	  e->count.stream_out (ob);
 	  streamer_write_uhwi (ob, e->flags);
 	}
     }
@@ -2729,7 +2729,7 @@ lto_write_mode_table (void)
   for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
     if (streamer_mode_table[i])
       {
-	machine_mode m = (machine_mode_enum) i;
+	machine_mode m = (machine_mode) i;
 	machine_mode inner_m = GET_MODE_INNER (m);
 	if (inner_m != m)
 	  streamer_mode_table[(int) inner_m] = 1;
@@ -2740,7 +2740,7 @@ lto_write_mode_table (void)
     for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
       if (streamer_mode_table[i] && i != (int) VOIDmode && i != (int) BLKmode)
 	{
-	  machine_mode m = (machine_mode_enum) i;
+	  machine_mode m = (machine_mode) i;
 	  if ((GET_MODE_INNER (m) == m) ^ (pass == 0))
 	    continue;
 	  bp_pack_value (&bp, m, 8);

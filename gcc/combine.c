@@ -213,7 +213,7 @@ struct reg_stat_type {
 
   unsigned HOST_WIDE_INT	last_set_nonzero_bits;
   char				last_set_sign_bit_copies;
-  machine_mode_enum		last_set_mode : 8;
+  ENUM_BITFIELD(machine_mode)	last_set_mode : 8;
 
   /* Set nonzero if references to register n in expressions should not be
      used.  last_set_invalid is set nonzero when this register is being
@@ -248,7 +248,7 @@ struct reg_stat_type {
      truncation if we know that value already contains a truncated
      value.  */
 
-  machine_mode_enum		truncated_to_mode : 8;
+  ENUM_BITFIELD(machine_mode)	truncated_to_mode : 8;
 };
 
 
@@ -390,12 +390,7 @@ struct undo
 {
   struct undo *next;
   enum undo_kind kind;
-  union {
-    rtx r;
-    int i;
-    machine_mode_enum m;
-    struct insn_link *l;
-  } old_contents;
+  union { rtx r; int i; machine_mode m; struct insn_link *l; } old_contents;
   union { rtx *r; int *i; struct insn_link **l; } where;
 };
 
@@ -1221,8 +1216,10 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
 	      INSN_COST (insn) = insn_rtx_cost (PATTERN (insn),
 	      					optimize_this_for_speed_p);
 	    if (dump_file)
-	      fprintf (dump_file, "insn_cost %d: %d\n",
-		       INSN_UID (insn), INSN_COST (insn));
+	      {
+		fprintf (dump_file, "insn_cost %d for ", INSN_COST (insn));
+		dump_insn_slim (dump_file, insn);
+	      }
 	  }
     }
 
@@ -7321,10 +7318,9 @@ simplify_set (rtx x)
 static rtx
 simplify_logical (rtx x)
 {
-  machine_mode mode = GET_MODE (x);
   rtx op0 = XEXP (x, 0);
   rtx op1 = XEXP (x, 1);
-  scalar_int_mode int_mode;
+  scalar_int_mode mode;
 
   switch (GET_CODE (x))
     {
@@ -7332,12 +7328,12 @@ simplify_logical (rtx x)
       /* We can call simplify_and_const_int only if we don't lose
 	 any (sign) bits when converting INTVAL (op1) to
 	 "unsigned HOST_WIDE_INT".  */
-      if (is_a <scalar_int_mode> (mode, &int_mode)
+      if (is_a <scalar_int_mode> (GET_MODE (x), &mode)
 	  && CONST_INT_P (op1)
-	  && (HWI_COMPUTABLE_MODE_P (int_mode)
+	  && (HWI_COMPUTABLE_MODE_P (mode)
 	      || INTVAL (op1) > 0))
 	{
-	  x = simplify_and_const_int (x, int_mode, op0, INTVAL (op1));
+	  x = simplify_and_const_int (x, mode, op0, INTVAL (op1));
 	  if (GET_CODE (x) != AND)
 	    return x;
 
@@ -8326,18 +8322,9 @@ make_compound_operation_int (scalar_int_mode mode, rtx *x_ptr,
 				     XEXP (inner_x0, 1),
 				     i, 1, 0, in_code == COMPARE);
 
-	  if (new_rtx)
-	    {
-	      /* If we narrowed the mode when dropping the subreg, then
-		 we must zero-extend to keep the semantics of the AND.  */
-	      if (GET_MODE_SIZE (inner_mode) >= GET_MODE_SIZE (mode))
-		;
-	      else if (SCALAR_INT_MODE_P (inner_mode))
-		new_rtx = simplify_gen_unary (ZERO_EXTEND, mode,
-					      new_rtx, inner_mode);
-	      else
-		new_rtx = NULL;
-	    }
+	  /* If we narrowed the mode when dropping the subreg, then we lose.  */
+	  if (GET_MODE_SIZE (inner_mode) < GET_MODE_SIZE (mode))
+	    new_rtx = NULL;
 
 	  /* If that didn't give anything, see if the AND simplifies on
 	     its own.  */
@@ -8927,7 +8914,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
   return gen_lowpart_or_truncate (mode, x);
 }
 
-/* Subroutine of force_to_mode that handles cases where both X and
+/* Subroutine of force_to_mode that handles cases in which both X and
    the result are scalar integers.  MODE is the mode of the result,
    XMODE is the mode of X, and OP_MODE says which of MODE or XMODE
    is preferred for simplified versions of X.  The other arguments

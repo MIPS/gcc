@@ -473,7 +473,7 @@ init_reg_sets_1 (void)
       CLEAR_HARD_REG_SET (ok_regs2);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (!TEST_HARD_REG_BIT (fixed_nonglobal_reg_set, j)
-	    && targetm.hard_regno_mode_ok (j, (machine_mode_enum) m))
+	    && targetm.hard_regno_mode_ok (j, (machine_mode) m))
 	  {
 	    SET_HARD_REG_BIT (ok_regs, j);
 	    if (!fixed_regs[j])
@@ -481,7 +481,7 @@ init_reg_sets_1 (void)
 	  }
 
       for (i = 0; i < N_REG_CLASSES; i++)
-	if ((targetm.class_max_nregs ((reg_class_t) i, (machine_mode_enum) m)
+	if ((targetm.class_max_nregs ((reg_class_t) i, (machine_mode) m)
 	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
@@ -509,7 +509,7 @@ init_reg_modes_target (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 0; j < MAX_MACHINE_MODE; j++)
       hard_regno_nregs[i][j]
-	= HARD_REGNO_NREGS (i, MACRO_MODE ((machine_mode_enum) j));
+	= HARD_REGNO_NREGS (i, MACRO_MODE ((machine_mode) j));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -561,7 +561,7 @@ init_fake_stack_mems (void)
   int i;
 
   for (i = 0; i < MAX_MACHINE_MODE; i++)
-    top_of_stack[i] = gen_rtx_MEM ((machine_mode_enum) i, stack_pointer_rtx);
+    top_of_stack[i] = gen_rtx_MEM ((machine_mode) i, stack_pointer_rtx);
 }
 
 
@@ -673,7 +673,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   /* Iterate over all of the CCmodes.  */
   for (m = (unsigned int) CCmode; m < (unsigned int) NUM_MACHINE_MODES; ++m)
     {
-      mode = (machine_mode_enum) m;
+      mode = (machine_mode) m;
       if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	  && targetm.hard_regno_mode_ok (regno, mode)
 	  && (!call_saved

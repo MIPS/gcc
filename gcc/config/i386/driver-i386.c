@@ -783,6 +783,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	case 0x4e:
 	case 0x5e:
 	  /* Skylake.  */
+	case 0x8e:
+	case 0x9e:
+	  /* Kaby Lake.  */
 	  cpu = "skylake";
 	  break;
 	case 0x57:
@@ -796,6 +799,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	      /* Assume Knights Landing.  */
 	      if (has_avx512f)
 		cpu = "knl";
+	      /* Assume Skylake.  */
+	      else if (has_clflushopt)
+		cpu = "skylake";
 	      /* Assume Broadwell.  */
 	      else if (has_adx)
 		cpu = "broadwell";

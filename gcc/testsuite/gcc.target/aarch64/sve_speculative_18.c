@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -fno-common -ffast-math -march=armv8-a+sve -fdump-tree-vect-details" } */
+/* { dg-options "-O3 -fno-common -ffast-math -march=armv8-a+sve -fdump-tree-vect-details -msve-vector-bits=scalable" } */
 
 /* Speculative loop with two loads which cannot both be aligned.
    Will use first faulting (instead of versioning) to cope with alignment

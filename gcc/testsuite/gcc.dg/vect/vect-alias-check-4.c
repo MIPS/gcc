@@ -1,55 +1,35 @@
-/* { dg-do run } */
+/* { dg-do compile } */
+/* { dg-require-effective-target vect_int } */
+/* { dg-additional-options "--param vect-max-version-for-alias-checks=0" } */
 
-#define N 200
-#define M 4
+#define N 16
 
-typedef signed char sc;
-typedef unsigned char uc;
-typedef signed short ss;
-typedef unsigned short us;
-typedef int si;
-typedef unsigned int ui;
-typedef signed long long sll;
-typedef unsigned long long ull;
+struct s1 { int a[N]; };
+struct s2 { struct s1 b; int c; };
+struct s3 { int d; struct s1 e; };
+union u { struct s2 f; struct s3 g; };
 
-#define FOR_EACH_TYPE(M) \
-  M (sc) M (uc) \
-  M (ss) M (us) \
-  M (si) M (ui) \
-  M (sll) M (ull) \
-  M (float) M (double)
+/* We allow a and b to overlap arbitrarily.  */
 
-#define TEST_VALUE(I) ((I) * 5 / 2)
-
-#define ADD_TEST(TYPE)				\
-  void __attribute__((noinline, noclone))	\
-  test_##TYPE (TYPE *a, TYPE *b)		\
-  {						\
-    for (int i = 0; i < N; i += 2)		\
-      {						\
-	a[i + 0] = b[i + 0] + 2;		\
-	a[i + 1] = b[i + 1] + 3;		\
-      }						\
-  }
-
-#define DO_TEST(TYPE)					\
-  for (int j = 1; j < M; ++j)				\
-    {							\
-      TYPE a[N + M];					\
-      for (int i = 0; i < N + M; ++i)			\
-	a[i] = TEST_VALUE (i);				\
-      test_##TYPE (a + j, a);				\
-      for (int i = 0; i < N; i += 2)			\
-	if (a[i + j] != (TYPE) (a[i] + 2)		\
-	    || a[i + j + 1] != (TYPE) (a[i + 1] + 3))	\
-	  __builtin_abort ();				\
-    }
-
-FOR_EACH_TYPE (ADD_TEST)
-
-int
-main (void)
+void
+f1 (int a[][N], int b[][N])
 {
-  FOR_EACH_TYPE (DO_TEST)
-  return 0;
+  for (int i = 0; i < N; ++i)
+    a[0][i] += b[0][i];
 }
+
+void
+f2 (union u *a, union u *b)
+{
+  for (int i = 0; i < N; ++i)
+    a->f.b.a[i] += b->g.e.a[i];
+}
+
+void
+f3 (struct s1 *a, struct s1 *b)
+{
+  for (int i = 0; i < N - 1; ++i)
+    a->a[i + 1] += b->a[i];
+}
+
+/* { dg-final { scan-tree-dump-not "LOOP VECTORIZED" "vect" } } */

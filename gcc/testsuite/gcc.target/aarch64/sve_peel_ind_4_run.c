@@ -1,5 +1,6 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-Ofast -march=armv8-a+sve" } */
+/* { dg-options "-Ofast -march=armv8-a+sve -mtune=thunderx -fno-vect-cost-model" } */
+/* { dg-options "-Ofast -march=armv8-a+sve -msve-vector-bits=256 -mtune=thunderx -fno-vect-cost-model" { target aarch64_sve256_hw } } */
 
 #include "sve_peel_ind_4.c"
 

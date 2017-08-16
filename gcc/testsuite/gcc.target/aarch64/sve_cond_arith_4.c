@@ -66,14 +66,16 @@ TEST_ALL
 /* { dg-final { scan-assembler-times {\tfdiv\tz[0-9]+\.s, p[0-7]/m,} 6 } } */
 /* { dg-final { scan-assembler-times {\tfdiv\tz[0-9]+\.d, p[0-7]/m,} 14 } } */
 
-/* { dg-final { scan-assembler-times {\tld1b\tz[0-9]+\.b, p[0-7]/z,} 12 } } */
+/* The load XFAILs for fixed-length SVE account for extra loads from the
+   constant pool.  */
+/* { dg-final { scan-assembler-times {\tld1b\tz[0-9]+\.b, p[0-7]/z,} 12 { xfail { aarch64_sve && { ! vect_variable_length } } } } } */
 /* { dg-final { scan-assembler-times {\tst1b\tz[0-9]+\.b, p[0-7],} 12 } } */
 
-/* { dg-final { scan-assembler-times {\tld1h\tz[0-9]+\.h, p[0-7]/z,} 12 } } */
+/* { dg-final { scan-assembler-times {\tld1h\tz[0-9]+\.h, p[0-7]/z,} 12 { xfail { aarch64_sve && { ! vect_variable_length } } } } } */
 /* { dg-final { scan-assembler-times {\tst1h\tz[0-9]+\.h, p[0-7],} 12 } } */
 
 /* 72 for x operations, 6 for foo operations.  */
-/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z,} 78 } } */
+/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z,} 78 { xfail { aarch64_sve && { ! vect_variable_length } } } } } */
 /* 36 for x operations, 6 for foo operations.  */
 /* { dg-final { scan-assembler-times {\tst1w\tz[0-9]+\.s, p[0-7],} 42 } } */
 

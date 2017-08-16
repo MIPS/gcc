@@ -82,18 +82,18 @@ static const char * const word_regnames[] =
 /* Structure for G13 MDUC registers.  */
 struct mduc_reg_type
 {
-  unsigned int address;
-  machine_mode mode;
+  unsigned int       address;
+  enum machine_mode  mode;
 };
 
 struct mduc_reg_type  mduc_regs[] =
 {
-  {0xf00e8, QImode},
-  {0xffff0, HImode},
-  {0xffff2, HImode},
-  {0xf2224, HImode},
-  {0xf00e0, HImode},
-  {0xf00e2, HImode}
+  {0xf00e8, E_QImode},
+  {0xffff0, E_HImode},
+  {0xffff2, E_HImode},
+  {0xf2224, E_HImode},
+  {0xf00e0, E_HImode},
+  {0xf00e2, E_HImode}
 };
 
 struct GTY(()) machine_function

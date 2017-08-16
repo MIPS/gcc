@@ -98,7 +98,7 @@ static regset_head reg_has_output_reload;
 static HARD_REG_SET reg_is_output_reload;
 
 /* Widest mode in which each pseudo reg is referred to (via subreg).  */
-static machine_mode_enum *reg_max_ref_mode;
+static machine_mode *reg_max_ref_mode;
 
 /* Vector to remember old contents of reg_renumber before spilling.  */
 static short *reg_old_renumber;
@@ -450,7 +450,7 @@ init_reload (void)
 
       for (int mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (!double_reg_address_ok[mode]
-	    && memory_address_p ((machine_mode_enum) mode, tem))
+	    && memory_address_p ((enum machine_mode)mode, tem))
 	  double_reg_address_ok[mode] = 1;
     }
 
@@ -4099,7 +4099,7 @@ init_eliminable_invariants (rtx_insn *first, bool do_subregs)
 
   grow_reg_equivs ();
   if (do_subregs)
-    reg_max_ref_mode = XCNEWVEC (machine_mode_enum, max_regno);
+    reg_max_ref_mode = XCNEWVEC (machine_mode, max_regno);
   else
     reg_max_ref_mode = NULL;
 

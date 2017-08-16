@@ -6,17 +6,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define NUM_ELEMS(TYPE) (73 + sizeof (TYPE))
+
 #define DEF_INIT_VECTOR(TYPE)				\
   TYPE r_##TYPE[NUM_ELEMS (TYPE) + 1];			\
   for (int i = 0; i < NUM_ELEMS (TYPE) + 1; i++)	\
     r_##TYPE[i] = (i * 2) * (i & 1 ? 1 : -1);
 
-#define TEST_REDUC_PLUS(RES,TYPE) (RES) += reduc_plus_##TYPE (r_##TYPE);
-#define TEST_REDUC_MAX(RES,TYPE) (RES) += reduc_max##TYPE (r_##TYPE);
-#define TEST_REDUC_MIN(RES,TYPE) (RES) += reduc_min##TYPE (r_##TYPE);
-#define TEST_REDUC_AND(RES,TYPE) (RES) += reduc_and##TYPE (r_##TYPE);
-#define TEST_REDUC_IOR(RES,TYPE) (RES) += reduc_ior##TYPE (r_##TYPE);
-#define TEST_REDUC_XOR(RES,TYPE) (RES) += reduc_xor##TYPE (r_##TYPE);
+#define TEST_REDUC_PLUS(RES,TYPE) \
+  (RES) += reduc_plus_##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
+#define TEST_REDUC_MAX(RES,TYPE) \
+  (RES) += reduc_max##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
+#define TEST_REDUC_MIN(RES,TYPE) \
+  (RES) += reduc_min##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
+#define TEST_REDUC_AND(RES,TYPE) \
+  (RES) += reduc_and##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
+#define TEST_REDUC_IOR(RES,TYPE) \
+  (RES) += reduc_ior##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
+#define TEST_REDUC_XOR(RES,TYPE) \
+  (RES) += reduc_xor##TYPE (r_##TYPE, NUM_ELEMS (TYPE));
 
 int main ()
 {

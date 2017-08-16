@@ -28,10 +28,11 @@ vec_slp_##TYPE (TYPE *restrict a, TYPE *restrict b, int n)	\
 
 TEST_ALL (VEC_PERM)
 
-/* The loop should be fully-masked.  */
-/* { dg-final { scan-assembler-times {\tld1w\t} 6 } } */
+/* The loop should be fully-masked.  The load XFAILs for fixed-length
+   SVE account for extra loads from the constant pool.  */
+/* { dg-final { scan-assembler-times {\tld1w\t} 6 { xfail { aarch64_sve && { ! vect_variable_length } } } } } */
 /* { dg-final { scan-assembler-times {\tst1w\t} 3 } } */
-/* { dg-final { scan-assembler-times {\tld1d\t} 6 } } */
+/* { dg-final { scan-assembler-times {\tld1d\t} 6 { xfail { aarch64_sve && { ! vect_variable_length } } } } } */
 /* { dg-final { scan-assembler-times {\tst1d\t} 3 } } */
 /* { dg-final { scan-assembler-not {\tldr} } } */
 /* { dg-final { scan-assembler-not {\tstr} } } */

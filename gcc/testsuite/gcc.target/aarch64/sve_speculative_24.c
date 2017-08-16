@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -march=armv8-a+sve" } */
+/* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=scalable" } */
 
 int __attribute__ ((noinline, noclone))
 foo (int *mask)

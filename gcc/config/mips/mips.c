@@ -5930,7 +5930,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   if (mode == VOIDmode)
     {
       if (TARGET_MIPS16 && cum->fp_code != 0)
-	return gen_rtx_REG ((machine_mode_enum) cum->fp_code, 0);
+	return gen_rtx_REG ((machine_mode) cum->fp_code, 0);
       else
 	return NULL;
     }
@@ -20092,7 +20092,7 @@ mips_option_override (void)
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
       mips_hard_regno_mode_ok[mode][regno]
-	= mips_hard_regno_mode_ok_p (regno, (machine_mode_enum) mode);
+	= mips_hard_regno_mode_ok_p (regno, (machine_mode) mode);
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;

@@ -2631,6 +2631,8 @@ kind_expr:
 	 of the named constants from iso_c_binding.  */
       ts->is_c_interop = e->ts.is_iso_c;
       ts->f90_type = e->ts.f90_type;
+      if (e->symtree)
+	ts->interop_kind = e->symtree->n.sym;
     }
 
   gfc_free_expr (e);
@@ -4230,7 +4232,8 @@ match_attr_spec (void)
       if ((d == DECL_STATIC || d == DECL_AUTOMATIC)
 	  && !flag_dec_static)
 	{
-	  gfc_error ("%s at %L is a DEC extension, enable with -fdec-static",
+	  gfc_error ("%s at %L is a DEC extension, enable with "
+		     "%<-fdec-static%>",
 		     d == DECL_STATIC ? "STATIC" : "AUTOMATIC", &seen_at[d]);
 	  m = MATCH_ERROR;
 	  goto cleanup;
@@ -7909,8 +7912,10 @@ gfc_match_automatic (void)
 
   if (!flag_dec_static)
     {
-      gfc_error ("AUTOMATIC at %C is a DEC extension, enable with "
-		 "-fdec-static");
+      gfc_error ("%s at %C is a DEC extension, enable with "
+		 "%<-fdec-static%>",
+		 "AUTOMATIC"
+		 );
       return MATCH_ERROR;
     }
 
@@ -7963,7 +7968,9 @@ gfc_match_static (void)
 
   if (!flag_dec_static)
     {
-      gfc_error ("STATIC at %C is a DEC extension, enable with -fdec-static");
+      gfc_error ("%s at %C is a DEC extension, enable with "
+		 "%<-fdec-static%>",
+		 "STATIC");
       return MATCH_ERROR;
     }
 
@@ -8722,8 +8729,9 @@ gfc_match_structure_decl (void)
 
   if (!flag_dec_structure)
     {
-      gfc_error ("STRUCTURE at %C is a DEC extension, enable with "
-		 "-fdec-structure");
+      gfc_error ("%s at %C is a DEC extension, enable with "
+		 "%<-fdec-structure%>",
+		 "STRUCTURE");
       return MATCH_ERROR;
     }
 
@@ -9963,7 +9971,7 @@ gfc_match_final_decl (void)
       for (f = block->f2k_derived->finalizers; f; f = f->next)
 	if (f->proc_sym == sym)
 	  {
-	    gfc_error ("%qs at %C is already defined as FINAL procedure!",
+	    gfc_error ("%qs at %C is already defined as FINAL procedure",
 		       name);
 	    return MATCH_ERROR;
 	  }

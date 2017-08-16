@@ -3,26 +3,13 @@
 
 #include <stdint.h>
 
-#define NUM_ELEMS(TYPE) (73 + sizeof (TYPE))
-
-#define ITER_int8_t uint8_t
-#define ITER_int16_t uint16_t
-#define ITER_int32_t uint32_t
-#define ITER_int64_t uint64_t
-#define ITER_uint8_t uint8_t
-#define ITER_uint16_t uint16_t
-#define ITER_uint32_t uint32_t
-#define ITER_uint64_t uint64_t
-#define ITER_float uint32_t
-#define ITER_double uint64_t
-
-#define DEF_REDUC_PLUS(TYPE)				\
-TYPE reduc_plus_##TYPE (TYPE *__restrict__ a)		\
-{							\
-  TYPE r = 0;						\
-  for (ITER_##TYPE i = 0; i < NUM_ELEMS (TYPE); i++)	\
-    r += a[i];						\
-  return r;						\
+#define DEF_REDUC_PLUS(TYPE)			\
+TYPE reduc_plus_##TYPE (TYPE *a, int n)		\
+{						\
+  TYPE r = 0;					\
+  for (int i = 0; i < n; ++i)			\
+    r += a[i];					\
+  return r;					\
 }
 
 DEF_REDUC_PLUS (int8_t)
@@ -36,13 +23,13 @@ DEF_REDUC_PLUS (uint64_t)
 DEF_REDUC_PLUS (float)
 DEF_REDUC_PLUS (double)
 
-#define DEF_REDUC_MAXMIN(TYPE,NAME,CMP_OP)		\
-TYPE reduc_##NAME##TYPE (TYPE *__restrict__ a)		\
-{							\
-  TYPE r = 13;						\
-  for (ITER_##TYPE i = 0; i < NUM_ELEMS (TYPE); i++)	\
-    r = a[i] CMP_OP r ? a[i] : r;			\
-  return r;						\
+#define DEF_REDUC_MAXMIN(TYPE,NAME,CMP_OP)	\
+TYPE reduc_##NAME##TYPE (TYPE *a, int n)	\
+{						\
+  TYPE r = 13;					\
+  for (int i = 0; i < n; ++i)			\
+    r = a[i] CMP_OP r ? a[i] : r;		\
+  return r;					\
 }
 
 DEF_REDUC_MAXMIN (int8_t, max, >)
@@ -67,14 +54,14 @@ DEF_REDUC_MAXMIN (uint64_t, min, <)
 DEF_REDUC_MAXMIN (float, min, <)
 DEF_REDUC_MAXMIN (double, min, <)
 
-#define DEF_REDUC_BITWISE(TYPE,NAME,BIT_OP)\
-TYPE reduc_##NAME##TYPE (TYPE *__restrict__ a)\
-{\
-  TYPE r = 13;\
-  for (ITER_##TYPE i = 0; i < NUM_ELEMS (TYPE); i++)\
-    r BIT_OP a[i];\
-  return r;\
-}\
+#define DEF_REDUC_BITWISE(TYPE,NAME,BIT_OP)	\
+TYPE reduc_##NAME##TYPE (TYPE *a, int n)	\
+{						\
+  TYPE r = 13;					\
+  for (int i = 0; i < n; ++i)			\
+    r BIT_OP a[i];				\
+  return r;					\
+}
 
 DEF_REDUC_BITWISE (int8_t, and, &=)
 DEF_REDUC_BITWISE (int16_t, and, &=)

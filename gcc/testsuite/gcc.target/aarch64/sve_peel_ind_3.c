@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=256" } */
+/* Pick an arbitrary target for which unaligned accesses are more
+   expensive.  */
+/* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=256 -mtune=thunderx" } */
 
 #define N 32
 #define MAX_START 8
@@ -8,9 +10,9 @@
 int x[MAX_START][N] __attribute__((aligned(32)));
 
 void __attribute__((weak))
-foo (unsigned int start)
+foo (int start)
 {
-  for (unsigned int i = start; i < start + COUNT; ++i)
+  for (int i = start; i < start + COUNT; ++i)
     x[start][i] = i;
 }
 

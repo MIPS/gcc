@@ -147,6 +147,8 @@ struct addr_diff_vec_flags
    they cannot be modified in place.  */
 struct GTY(()) mem_attrs
 {
+  mem_attrs ();
+
   /* The expression that the MEM accesses, or null if not known.
      This expression might be larger than the memory reference itself.
      (In other words, the MEM might access only part of the object.)  */
@@ -200,7 +202,7 @@ union rtunion
   const char *rt_str;
   rtx rt_rtx;
   rtvec rt_rtvec;
-  machine_mode_enum rt_type;
+  machine_mode rt_type;
   addr_diff_vec_flags rt_addr_diff_vec_flags;
   struct cselib_val *rt_cselib;
   tree rt_tree;
@@ -303,7 +305,7 @@ struct GTY((desc("0"), tag("0"),
   ENUM_BITFIELD(rtx_code) code: 16;
 
   /* The kind of value the expression has.  */
-  machine_mode_enum mode : 8;
+  ENUM_BITFIELD(machine_mode) mode : 8;
 
   /* 1 in a MEM if we should keep the alias set for this mem unchanged
      when we access a component.
@@ -700,7 +702,7 @@ class GTY(()) rtx_note : public rtx_insn
 #define GET_CODE(RTX)	    ((enum rtx_code) (RTX)->code)
 #define PUT_CODE(RTX, CODE) ((RTX)->code = (CODE))
 
-#define GET_MODE(RTX)		(machine_mode ((RTX)->mode))
+#define GET_MODE(RTX)		((machine_mode) (RTX)->mode)
 #define PUT_MODE_RAW(RTX, MODE)	((RTX)->mode = (MODE))
 
 /* RTL vector.  These appear inside RTX's when there is a need
@@ -1146,30 +1148,30 @@ is_a_helper <rtx_note *>::test (rtx_insn *insn)
 
 extern void rtl_check_failed_bounds (const_rtx, int, const char *, int,
 				     const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_type1 (const_rtx, int, int, const char *, int,
 				    const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_type2 (const_rtx, int, int, int, const char *,
 				    int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code1 (const_rtx, enum rtx_code, const char *,
 				    int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code2 (const_rtx, enum rtx_code, enum rtx_code,
 				    const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code_mode (const_rtx, enum rtx_code, machine_mode,
 					bool, const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_block_symbol (const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void cwi_check_failed_bounds (const_rtx, int, const char *, int,
 				     const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtvec_check_failed_bounds (const_rtvec, int, const char *, int,
 				       const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 
 #else   /* not ENABLE_RTL_CHECKING */
 
@@ -1267,7 +1269,7 @@ extern void rtvec_check_failed_bounds (const_rtvec, int, const char *, int,
 
 extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 				   int, const char *)
-    ATTRIBUTE_NORETURN
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD
     ;
 
 #else	/* not ENABLE_RTL_FLAG_CHECKING */
@@ -1569,9 +1571,9 @@ enum reg_note
 };
 
 /* Define macros to extract and insert the reg-note kind in an EXPR_LIST.  */
-#define REG_NOTE_KIND(LINK) ((enum reg_note) (LINK)->mode)
+#define REG_NOTE_KIND(LINK) ((enum reg_note) GET_MODE (LINK))
 #define PUT_REG_NOTE_KIND(LINK, KIND) \
-  PUT_MODE_RAW (LINK, (machine_mode_enum) KIND)
+  PUT_MODE_RAW (LINK, (machine_mode) (KIND))
 
 /* Names for REG_NOTE's in EXPR_LIST insn's.  */
 
@@ -2167,13 +2169,13 @@ wi::int_traits <rtx_mode_t>::decompose (HOST_WIDE_INT *,
 
 namespace wi
 {
-  hwi_with_prec shwi (HOST_WIDE_INT, machine_mode_enum);
-  wide_int min_value (machine_mode_enum, signop);
-  wide_int max_value (machine_mode_enum, signop);
+  hwi_with_prec shwi (HOST_WIDE_INT, machine_mode mode);
+  wide_int min_value (machine_mode, signop);
+  wide_int max_value (machine_mode, signop);
 }
 
 inline wi::hwi_with_prec
-wi::shwi (HOST_WIDE_INT val, machine_mode_enum mode)
+wi::shwi (HOST_WIDE_INT val, machine_mode mode)
 {
   return shwi (val, GET_MODE_PRECISION (as_a <scalar_mode> (mode)));
 }
@@ -2181,7 +2183,7 @@ wi::shwi (HOST_WIDE_INT val, machine_mode_enum mode)
 /* Produce the smallest number that is represented in MODE.  The precision
    is taken from MODE and the sign from SGN.  */
 inline wide_int
-wi::min_value (machine_mode_enum mode, signop sgn)
+wi::min_value (machine_mode mode, signop sgn)
 {
   return min_value (GET_MODE_PRECISION (as_a <scalar_mode> (mode)), sgn);
 }
@@ -2189,7 +2191,7 @@ wi::min_value (machine_mode_enum mode, signop sgn)
 /* Produce the largest number that is represented in MODE.  The precision
    is taken from MODE and the sign from SGN.  */
 inline wide_int
-wi::max_value (machine_mode_enum mode, signop sgn)
+wi::max_value (machine_mode mode, signop sgn)
 {
   return max_value (GET_MODE_PRECISION (as_a <scalar_mode> (mode)), sgn);
 }
@@ -2733,8 +2735,7 @@ extern poly_int64 trunc_int_for_mode (poly_int64, machine_mode);
 extern rtx plus_constant (machine_mode, rtx, poly_int64, bool = false);
 
 /* In rtl.c */
-extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
-#define rtx_alloc(c) rtx_alloc_stat (c MEM_STAT_INFO)
+extern rtx rtx_alloc (RTX_CODE CXX_MEM_STAT_INFO);
 extern rtx rtx_alloc_stat_v (RTX_CODE MEM_STAT_DECL, int);
 #define rtx_alloc_v(c, SZ) rtx_alloc_stat_v (c MEM_STAT_INFO, SZ)
 #define const_wide_int_alloc(NWORDS)				\
@@ -2755,8 +2756,7 @@ extern rtx copy_rtx_if_shared (rtx);
 
 /* In rtl.c */
 extern unsigned int rtx_size (const_rtx);
-extern rtx shallow_copy_rtx_stat (const_rtx MEM_STAT_DECL);
-#define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
+extern rtx shallow_copy_rtx (const_rtx CXX_MEM_STAT_INFO);
 extern int rtx_equal_p (const_rtx, const_rtx);
 extern bool rtvec_all_equal_p (const_rtvec);
 
@@ -2765,7 +2765,9 @@ extern bool rtvec_all_equal_p (const_rtvec);
 inline bool
 const_vec_duplicate_p (const_rtx x)
 {
-  return GET_CODE (x) == CONST_VECTOR && rtvec_all_equal_p (XVEC (x, 0));
+  return ((GET_CODE (x) == CONST_VECTOR && rtvec_all_equal_p (XVEC (x, 0)))
+	  || (GET_CODE (x) == CONST
+	      && GET_CODE (XEXP (x, 0)) == VEC_DUPLICATE));
 }
 
 /* Return true if X is a vector constant with a duplicated element value.
@@ -2775,9 +2777,14 @@ template <typename T>
 inline bool
 const_vec_duplicate_p (T x, T *elt)
 {
-  if (const_vec_duplicate_p (x))
+  if (GET_CODE (x) == CONST_VECTOR && rtvec_all_equal_p (XVEC (x, 0)))
     {
       *elt = CONST_VECTOR_ELT (x, 0);
+      return true;
+    }
+  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == VEC_DUPLICATE)
+    {
+      *elt = XEXP (XEXP (x, 0), 0);
       return true;
     }
   return false;
@@ -2790,8 +2797,10 @@ template <typename T>
 inline T
 unwrap_const_vec_duplicate (T x)
 {
-  if (const_vec_duplicate_p (x))
-    x = CONST_VECTOR_ELT (x, 0);
+  if (GET_CODE (x) == CONST_VECTOR && rtvec_all_equal_p (XVEC (x, 0)))
+    return CONST_VECTOR_ELT (x, 0);
+  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == VEC_DUPLICATE)
+    return XEXP (XEXP (x, 0), 0);
   return x;
 }
 
@@ -2994,7 +3003,6 @@ extern rtx *find_constant_term_loc (rtx *);
 
 /* In emit-rtl.c  */
 extern rtx_insn *try_split (rtx, rtx_insn *, int);
-extern int split_branch_probability;
 
 /* In insn-recog.c (generated by genrecog).  */
 extern rtx_insn *split_insns (rtx, rtx_insn *);
@@ -3850,9 +3858,9 @@ extern location_t curr_insn_location (void);
 
 /* rtl-error.c */
 extern void _fatal_insn_not_found (const_rtx, const char *, int, const char *)
-     ATTRIBUTE_NORETURN;
+     ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void _fatal_insn (const char *, const_rtx, const char *, int, const char *)
-     ATTRIBUTE_NORETURN;
+     ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 
 #define fatal_insn(msgid, insn) \
 	_fatal_insn (msgid, insn, __FILE__, __LINE__, __FUNCTION__)

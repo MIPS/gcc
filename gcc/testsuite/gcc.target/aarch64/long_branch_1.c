@@ -88,4 +88,4 @@ start3:
 
 /* { dg-final { scan-assembler "Lbcond" } } */
 /* { dg-final { scan-assembler "Lcb" } } */
-/* { dg-final { scan-assembler "Ltb" } } */
+/* { dg-final { scan-assembler "Ltb" { xfail *-*-* } } } */

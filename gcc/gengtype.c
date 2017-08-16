@@ -1725,7 +1725,7 @@ open_base_files (void)
       "tree-dfa.h", "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h",  "cfgloop.h", "target.h", "lto-streamer.h",
       "target-globals.h", "ipa-ref.h", "cgraph.h", "symbol-summary.h",
-      "ipa-prop.h", "ipa-inline.h", "dwarf2out.h", "omp-offload.h", NULL
+      "ipa-prop.h", "ipa-fnsummary.h", "dwarf2out.h", "omp-offload.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -5203,7 +5203,7 @@ main (int argc, char **argv)
       POS_HERE (do_scalar_typedef ("jword", &pos));
       POS_HERE (do_scalar_typedef ("JCF_u2", &pos));
       POS_HERE (do_scalar_typedef ("void", &pos));
-      POS_HERE (do_scalar_typedef ("machine_mode_enum", &pos));
+      POS_HERE (do_scalar_typedef ("machine_mode", &pos));
       POS_HERE (do_scalar_typedef ("fixed_size_mode", &pos));
       POS_HERE (do_typedef ("PTR", 
 			    create_pointer (resolve_typedef ("void", &pos)),

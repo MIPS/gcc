@@ -563,7 +563,7 @@ static void
 vect_set_nonspeculative_masks (loop_vec_info loop_vinfo,
 			       gimple_stmt_iterator *gsi)
 {
-  vec_niters_and_mask nim = {};
+  vec_niters_and_mask nim;
   vec_loop_masks *masks = &LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo);
   tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
   tree niters = NULL_TREE;
@@ -1362,7 +1362,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
 static edge
 slpeel_add_loop_guard (basic_block guard_bb, tree cond,
 		       basic_block guard_to, basic_block dom_bb,
-		       int probability, bool irreducible_p)
+		       profile_probability probability, bool irreducible_p)
 {
   gimple_stmt_iterator gsi;
   edge new_e, enter_e;
@@ -1388,12 +1388,12 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond,
 
   new_e->count = guard_bb->count;
   new_e->probability = probability;
-  new_e->count = apply_probability (enter_e->count, probability);
+  new_e->count = enter_e->count.apply_probability (probability);
   if (irreducible_p)
     new_e->flags |= EDGE_IRREDUCIBLE_LOOP;
 
   enter_e->count -= new_e->count;
-  enter_e->probability = inverse_probability (probability);
+  enter_e->probability = probability.invert ();
   set_immediate_dominator (CDI_DOMINATORS, guard_to, dom_bb);
 
   /* Split enter_e to preserve LOOPS_HAVE_PREHEADERS.  */
@@ -1744,7 +1744,6 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo,
 static tree
 get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
   gimple *dr_stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
@@ -1759,7 +1758,7 @@ get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
 		 ? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1)
 		 : size_zero_node);
   tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt, seq,
-							  offset, loop);
+							  offset);
   tree type = unsigned_type_for (TREE_TYPE (start_addr));
   tree target_align_minus_1 = build_int_cst (type, target_align - 1);
   HOST_WIDE_INT elem_size
@@ -1999,10 +1998,11 @@ vect_prepare_for_masked_peels (loop_vec_info loop_vinfo)
 }
 
 /* This function builds ni_name = number of iterations.  Statements
-   are emitted on the loop preheader edge.  */
+   are emitted on the loop preheader edge.  If NEW_VAR_P is not NULL, set
+   it to TRUE if new ssa_var is generated.  */
 
 tree
-vect_build_loop_niters (loop_vec_info loop_vinfo)
+vect_build_loop_niters (loop_vec_info loop_vinfo, bool *new_var_p)
 {
   if (!LOOP_VINFO_NITERS (loop_vinfo))
     {
@@ -2022,7 +2022,11 @@ vect_build_loop_niters (loop_vec_info loop_vinfo)
       var = create_tmp_var (TREE_TYPE (ni), "niters");
       ni_name = force_gimple_operand (ni, &stmts, false, var);
       if (stmts)
-	gsi_insert_seq_on_edge_immediate (pe, stmts);
+	{
+	  gsi_insert_seq_on_edge_immediate (pe, stmts);
+	  if (new_var_p != NULL)
+	    *new_var_p = true;
+	}
 
       return ni_name;
     }
@@ -2097,6 +2101,7 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
   tree ni_minus_gap, var;
   tree niters_vector;
   tree vf;
+  tree type = TREE_TYPE (niters);
   edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
   bool final_iter_may_be_partial = LOOP_VINFO_FULLY_MASKED_P (loop_vinfo);
 
@@ -2108,12 +2113,11 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
      correct calculation of RATIO.  */
   if (LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
     {
-      ni_minus_gap = fold_build2 (MINUS_EXPR, TREE_TYPE (niters),
-				  niters,
-				  build_one_cst (TREE_TYPE (niters)));
+      ni_minus_gap = fold_build2 (MINUS_EXPR, type, niters,
+				  build_one_cst (type));
       if (!is_gimple_val (ni_minus_gap))
 	{
-	  var = create_tmp_var (TREE_TYPE (niters), "ni_gap");
+	  var = create_tmp_var (type, "ni_gap");
 	  gimple *stmts = NULL;
 	  ni_minus_gap = force_gimple_operand (ni_minus_gap, &stmts,
 					       true, var);
@@ -2130,28 +2134,34 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
      (niters - vf) >> log2(vf) + 1 by using the fact that we know ratio
      will be at least one.  */
   if (niters_no_overflow && !final_iter_may_be_partial)
-    niters_vector = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (niters),
-				 ni_minus_gap, vf);
+    niters_vector = fold_build2 (TRUNC_DIV_EXPR, type, ni_minus_gap, vf);
   else
     {
-      tree one = build_int_cst (TREE_TYPE (niters), 1);
+      tree one = build_int_cst (type, 1);
       tree sub = (final_iter_may_be_partial ? one : vf);
-      niters_vector
-	= fold_build2 (PLUS_EXPR, TREE_TYPE (niters),
-		       fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (niters),
-				    fold_build2 (MINUS_EXPR,
-						 TREE_TYPE (niters),
-						 ni_minus_gap, sub),
-				    vf),
-		       build_int_cst (TREE_TYPE (niters), 1));
+      niters_vector = fold_build2 (PLUS_EXPR, type,
+				   fold_build2 (TRUNC_DIV_EXPR, type,
+						fold_build2 (MINUS_EXPR, type,
+							     ni_minus_gap,
+							     sub),
+						vf),
+				   build_int_cst (type, 1));
     }
 
   if (!is_gimple_val (niters_vector))
     {
-      var = create_tmp_var (TREE_TYPE (niters), "bnd");
-      gimple *stmts = NULL;
+      var = create_tmp_var (type, "bnd");
+      gimple_seq stmts = NULL;
       niters_vector = force_gimple_operand (niters_vector, &stmts, true, var);
       gsi_insert_seq_on_edge_immediate (pe, stmts);
+      /* Peeling algorithm guarantees that vector loop bound is at least ONE,
+	 we set range information to make niters analyzer's life easier.  */
+      if (stmts != NULL && TREE_CODE (vf) == INTEGER_CST)
+	{
+	  wide_int upper = wi::udiv_trunc (TYPE_MAX_VALUE (type), vf);
+	  set_range_info (niters_vector, VR_RANGE, build_int_cst (type, 1),
+			  wide_int_to_tree (type, upper));
+	}
     }
   *niters_vector_ptr = niters_vector;
 
@@ -2582,7 +2592,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
   edge e, guard_e;
   tree type, guard_cond;
   basic_block guard_bb, guard_to;
-  int prob_prolog, prob_vector, prob_epilog;
+  profile_probability prob_prolog, prob_vector, prob_epilog;
   poly_uint64 bound_scalar = 0;
   int estimated_vf;
   tree vf = LOOP_VINFO_CAP (loop_vinfo).niters;
@@ -2603,12 +2613,12 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
     return NULL;
 
   type = TREE_TYPE (niters);
-  prob_vector = 9 * REG_BR_PROB_BASE / 10;
+  prob_vector = profile_probability::guessed_always ().apply_scale (9, 10);
   estimated_vf = estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
   if (estimated_vf == 2)
     estimated_vf = 3;
-  prob_prolog = (estimated_vf - 1) * REG_BR_PROB_BASE / estimated_vf;
-  prob_epilog = prob_prolog;
+  prob_prolog = prob_epilog = profile_probability::guessed_always ()
+			.apply_scale (estimated_vf - 1, estimated_vf);
 
   struct loop *prolog, *epilog = NULL, *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *first_loop = loop;
@@ -2639,10 +2649,12 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 
   /* Prolog loop may be skipped.  */
   bool skip_prolog = (prolog_peeling != 0);
-  /* Skip to epilog if scalar loop may be preferred.  It's only used when
-     we peel for epilog loop.  */
+  /* Skip to epilog if scalar loop may be preferred.  It's only needed
+     when we peel for epilog loop and when it hasn't been checked with
+     loop versioning.  */
   bool skip_vector = (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-		      || may_lt (LOOP_VINFO_INT_NITERS (loop_vinfo),
+		      ? !LOOP_REQUIRES_VERSIONING (loop_vinfo)
+		      :  may_lt (LOOP_VINFO_INT_NITERS (loop_vinfo),
 				 bound_prolog + bound_epilog));
   /* Epilog loop must be executed if the number of iterations for epilog
      loop is known at compile time, otherwise we need to add a check at
@@ -2664,9 +2676,11 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	 separately.  Note in this case, the probability of epilog loop
 	 needs to be scaled back later.  */
       basic_block bb_before_loop = loop_preheader_edge (loop)->src;
-      scale_bbs_frequencies_int (&bb_before_loop, 1, prob_vector,
-				 REG_BR_PROB_BASE);
-      scale_loop_profile (loop, prob_vector, 0);
+      if (prob_vector.initialized_p ())
+	{
+	  scale_bbs_frequencies (&bb_before_loop, 1, prob_vector);
+	  scale_loop_profile (loop, prob_vector, 0);
+	}
     }
 
   source_location loop_loc = find_loop_location (loop);
@@ -2705,14 +2719,13 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (loop_preheader_edge (loop));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond,
 					   guard_to, guard_bb,
-					   inverse_probability (prob_prolog),
+					   prob_prolog.invert (),
 					   irred_flag);
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
 	  slpeel_update_phi_nodes_for_guard1 (prolog, loop, guard_e, e);
 
-	  scale_bbs_frequencies_int (&bb_after_prolog, 1, prob_prolog,
-				     REG_BR_PROB_BASE);
+	  scale_bbs_frequencies (&bb_after_prolog, 1, prob_prolog);
 	  scale_loop_profile (prolog, prob_prolog, bound_prolog);
 	}
       /* Update init address of DRs.  */
@@ -2723,7 +2736,15 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
       LOOP_VINFO_NITERSM1 (loop_vinfo)
 	= fold_build2 (MINUS_EXPR, type,
 		       LOOP_VINFO_NITERSM1 (loop_vinfo), niters_prolog);
-      niters = vect_build_loop_niters (loop_vinfo);
+      bool new_var_p = false;
+      niters = vect_build_loop_niters (loop_vinfo, &new_var_p);
+      /* It's guaranteed that vector loop bound before vectorization is at
+	 least VF, so set range information for newly generated var.  */
+      poly_uint64 const_vf;
+      if (new_var_p && poly_tree_p (vf, &const_vf))
+	set_range_info (niters, VR_RANGE,
+			build_int_cstu (type, constant_lower_bound (const_vf)),
+			TYPE_MAX_VALUE (type));
 
       /* Prolog iterates at most bound_prolog times, latch iterates at
 	 most bound_prolog - 1 times.  */
@@ -2769,7 +2790,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (loop_preheader_edge (epilog));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond,
 					   guard_to, guard_bb,
-					   inverse_probability (prob_vector),
+					   prob_vector.invert (),
 					   irred_flag);
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
@@ -2780,9 +2801,15 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to->frequency = guard_bb->frequency;
 	  guard_to->count = guard_bb->count;
 	  single_succ_edge (guard_to)->count = guard_to->count;
-	  /* Scale probability of epilog loop back.  */
-	  int scale_up = REG_BR_PROB_BASE * REG_BR_PROB_BASE / prob_vector;
-	  scale_loop_frequencies (epilog, scale_up, REG_BR_PROB_BASE);
+	  /* Scale probability of epilog loop back.
+	     FIXME: We should avoid scaling down and back up.  Profile may
+	     get lost if we scale down to 0.  */
+	  int scale_up = REG_BR_PROB_BASE * REG_BR_PROB_BASE
+			 / prob_vector.to_reg_br_prob_base ();
+	  basic_block *bbs = get_loop_body (epilog);
+	  scale_bbs_frequencies_int (bbs, epilog->num_nodes, scale_up,
+				     REG_BR_PROB_BASE);
+	  free (bbs);
 	}
 
       basic_block bb_before_epilog = loop_preheader_edge (epilog)->src;
@@ -2814,7 +2841,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (single_exit (epilog));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond, guard_to,
 					   skip_vector ? anchor : guard_bb,
-					   inverse_probability (prob_epilog),
+					   prob_epilog.invert (),
 					   irred_flag);
 	  slpeel_update_phi_nodes_for_guard2 (loop, epilog, guard_e,
 					      single_exit (epilog));
@@ -2822,11 +2849,9 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	     the guard_bb, which is the case when skip_vector is true.  */
 	  if (guard_bb != bb_before_epilog)
 	    {
-	      prob_epilog = (combine_probabilities (prob_vector, prob_epilog)
-			     + inverse_probability (prob_vector));
+	      prob_epilog = prob_vector * prob_epilog + prob_vector.invert ();
 
-	      scale_bbs_frequencies_int (&bb_before_epilog, 1, prob_epilog,
-					 REG_BR_PROB_BASE);
+	      scale_bbs_frequencies (&bb_before_epilog, 1, prob_epilog);
 	    }
 	  scale_loop_profile (epilog, prob_epilog, 0);
 	}
@@ -2899,7 +2924,6 @@ chain_cond_expr (tree *cond_expr, tree part_cond_expr)
     *cond_expr = part_cond_expr;
 }
 
-
 /* Function vect_create_cond_for_align_checks.
 
    Create a conditional expression that represents the alignment checks for
@@ -2930,7 +2954,6 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
                                    tree *cond_expr,
 				   gimple_seq *cond_expr_stmt_list)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   vec<gimple *> may_misalign_stmts
     = LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo);
   gimple *ref_stmt;
@@ -2971,7 +2994,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       /* create: addr_tmp = (int)(address_of_first_vector) */
       addr_base =
 	vect_create_addr_base_for_vector_ref (ref_stmt, &new_stmt_list,
-					      offset, loop);
+					      offset);
       if (new_stmt_list != NULL)
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
@@ -3014,90 +3037,27 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   chain_cond_expr (cond_expr, part_cond_expr);
 }
 
-/* If ALIGN is nonzero, set up *SEQ_MIN_OUT and *SEQ_MAX_OUT so that for
-   every address ADDR accessed by D:
-
-     *SEQ_MIN_OUT <= ADDR (== ADDR & -ALIGN) <= *SEQ_MAX_OUT
-
-   In this case, every element accessed by D is aligned to at least
-   ALIGN bytes.
-
-   If ALIGN is zero then instead set *SEG_MAX_OUT so that:
-
-     *SEQ_MIN_OUT <= ADDR < *SEQ_MAX_OUT.  */
+/* If LOOP_VINFO_CHECK_UNEQUAL_ADDRS contains <A1, B1>, ..., <An, Bn>,
+   create a tree representation of: (&A1 != &B1) && ... && (&An != &Bn).
+   Set *COND_EXPR to a tree that is true when both the original *COND_EXPR
+   and this new condition are true.  Treat a null *COND_EXPR as "true".  */
 
 static void
-get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
-		     tree *seg_max_out, HOST_WIDE_INT align)
+vect_create_cond_for_unequal_addrs (loop_vec_info loop_vinfo, tree *cond_expr)
 {
-  /* Each access has the following pattern:
-
-	  <- |seg_len| ->
-	  <--- A: -ve step --->
-	  +-----+-------+-----+-------+-----+
-	  | n-1 | ,.... |  0  | ..... | n-1 |
-	  +-----+-------+-----+-------+-----+
-			<--- B: +ve step --->
-			<- |seg_len| ->
-			|
-		   base address
-
-     where "n" is the number of scalar iterations covered by the segment.
-     (This should be VF for a particular pair if we know that both steps
-     are the same, otherwise it will be the full number of scalar loop
-     iterations.)
-
-     A is the range of bytes accessed when the step is negative,
-     B is the range when the step is positive.
-
-     If the access size is "access_size" bytes, the lowest addressed byte is:
-
-	 base + (step < 0 ? seg_len : 0)   [LB]
-
-     and the highest addressed byte is always below:
-
-	 base + (step < 0 ? 0 : seg_len) + access_size   [UB]
-
-     Thus:
-
-	 LB <= ADDR < UB
-
-     If ALIGN is nonzero, all three values are aligned to at least ALIGN
-     bytes, so:
-
-	 LB <= ADDR <= UB - ALIGN
-
-     where "- ALIGN" folds naturally with the "+ access_size" and often
-     cancels it out.
-
-     We don't try to simplify LB and UB beyond this (e.g. by using
-     MIN and MAX based on whether seg_len rather than the stride is
-     negative) because it is possible for the absolute size of the
-     segment to overflow the range of a ssize_t.
-
-     Keeping the pointer_plus outside of the cond_expr should allow
-     the cond_exprs to be shared with other alias checks.  */
-  tree indicator = dr_direction_indicator (d.dr);
-  tree neg_step = fold_build2 (LT_EXPR, boolean_type_node,
-			       fold_convert (ssizetype, indicator),
-			       ssize_int (0));
-  tree addr_base = fold_build_pointer_plus (DR_BASE_ADDRESS (d.dr),
-					    DR_OFFSET (d.dr));
-  addr_base = fold_build_pointer_plus (addr_base, DR_INIT (d.dr));
-  tree seg_len = fold_convert (sizetype, d.seg_len);
-
-  tree min_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
-				seg_len, size_zero_node);
-  tree max_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
-				size_zero_node, seg_len);
-  max_reach = fold_build2 (PLUS_EXPR, sizetype, max_reach,
-			   size_int (d.access_size - align));
-
-  *seg_min_out = fold_build_pointer_plus (addr_base, min_reach);
-  *seg_max_out = fold_build_pointer_plus (addr_base, max_reach);
+  vec<vec_object_pair> pairs = LOOP_VINFO_CHECK_UNEQUAL_ADDRS (loop_vinfo);
+  unsigned int i;
+  vec_object_pair *pair;
+  FOR_EACH_VEC_ELT (pairs, i, pair)
+    {
+      tree addr1 = build_fold_addr_expr (pair->first);
+      tree addr2 = build_fold_addr_expr (pair->second);
+      tree part_cond_expr = fold_build2 (NE_EXPR, boolean_type_node,
+					 addr1, addr2);
+      chain_cond_expr (cond_expr, part_cond_expr);
+    }
 }
-
-
+	
 /* Create an expression that is true when all lower-bound conditions for
    the vectorized loop are met.  Chain this condition with *COND_EXPR.  */
 
@@ -3121,204 +3081,6 @@ vect_create_cond_for_lower_bounds (loop_vec_info loop_vinfo, tree *cond_expr)
 					 build_int_cstu (type, bound));
       chain_cond_expr (cond_expr, part_cond_expr);
     }
-}
-
-
-/* Given two data references and segment lengths described by DR_A and DR_B,
-   create expression checking if the two addresses ranges intersect with
-   each other based on index of the two addresses.  This can only be done
-   if DR_A and DR_B referring to the same (array) object and the index is
-   the only difference.  For example:
-
-                       DR_A                           DR_B
-      data-ref         arr[i]                         arr[j]
-      base_object      arr                            arr
-      index            {i_0, +, 1}_loop               {j_0, +, 1}_loop
-
-   The addresses and their index are like:
-
-        |<- ADDR_A    ->|          |<- ADDR_B    ->|
-     ------------------------------------------------------->
-        |   |   |   |   |          |   |   |   |   |
-     ------------------------------------------------------->
-        i_0 ...         i_0+4      j_0 ...         j_0+4
-
-   We can create expression based on index rather than address:
-
-     (i_0 + 4 < j_0 || j_0 + 4 < i_0)
-
-   Note evolution step of index needs to be considered in comparison.  */
-
-static bool
-create_intersect_range_checks_index (loop_vec_info loop_vinfo, tree *cond_expr,
-				     const dr_with_seg_len& dr_a,
-				     const dr_with_seg_len& dr_b)
-{
-  if (integer_zerop (DR_STEP (dr_a.dr))
-      || integer_zerop (DR_STEP (dr_b.dr))
-      || DR_NUM_DIMENSIONS (dr_a.dr) != DR_NUM_DIMENSIONS (dr_b.dr))
-    return false;
-
-  if (!tree_fits_uhwi_p (dr_a.seg_len) || !tree_fits_uhwi_p (dr_b.seg_len))
-    return false;
-
-  if (!tree_fits_shwi_p (DR_STEP (dr_a.dr)))
-    return false;
-
-  if (!operand_equal_p (DR_BASE_OBJECT (dr_a.dr), DR_BASE_OBJECT (dr_b.dr), 0))
-    return false;
-
-  if (!operand_equal_p (DR_STEP (dr_a.dr), DR_STEP (dr_b.dr), 0))
-    return false;
-
-  gcc_assert (TREE_CODE (DR_STEP (dr_a.dr)) == INTEGER_CST);
-
-  bool neg_step = tree_int_cst_compare (DR_STEP (dr_a.dr), size_zero_node) < 0;
-  unsigned HOST_WIDE_INT abs_step
-    = absu_hwi (tree_to_shwi (DR_STEP (dr_a.dr)));
-
-  unsigned HOST_WIDE_INT seg_len1 = (tree_to_uhwi (dr_a.seg_len)
-				     + dr_a.access_size);
-  unsigned HOST_WIDE_INT seg_len2 = (tree_to_uhwi (dr_b.seg_len)
-				     + dr_b.access_size);
-
-  /* Infer the number of iterations with which the memory segment is accessed
-     by DR.  In other words, alias is checked if memory segment accessed by
-     DR_A in some iterations intersect with memory segment accessed by DR_B
-     in the same amount iterations.
-     Note segnment length is a linear function of number of iterations with
-     DR_STEP as the coefficient.  */
-  unsigned HOST_WIDE_INT niter_len1 = (seg_len1 + abs_step - 1) / abs_step;
-  unsigned HOST_WIDE_INT niter_len2 = (seg_len2 + abs_step - 1) / abs_step;
-
-  unsigned int i;
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  for (i = 0; i < DR_NUM_DIMENSIONS (dr_a.dr); i++)
-    {
-      tree access1 = DR_ACCESS_FN (dr_a.dr, i);
-      tree access2 = DR_ACCESS_FN (dr_b.dr, i);
-      /* Two indices must be the same if they are not scev, or not scev wrto
-	 current loop being vecorized.  */
-      if (TREE_CODE (access1) != POLYNOMIAL_CHREC
-	  || TREE_CODE (access2) != POLYNOMIAL_CHREC
-	  || CHREC_VARIABLE (access1) != (unsigned)loop->num
-	  || CHREC_VARIABLE (access2) != (unsigned)loop->num)
-	{
-	  if (operand_equal_p (access1, access2, 0))
-	    continue;
-
-	  return false;
-	}
-      /* The two indices must have the same step.  */
-      if (!operand_equal_p (CHREC_RIGHT (access1), CHREC_RIGHT (access2), 0))
-	return false;
-
-      tree idx_step = CHREC_RIGHT (access1);
-      /* Index must have const step, otherwise DR_STEP won't be constant.  */
-      gcc_assert (TREE_CODE (idx_step) == INTEGER_CST);
-      /* Index must evaluate in the same direction as DR.  */
-      gcc_assert (!neg_step || tree_int_cst_sign_bit (idx_step) == 1);
-
-      tree min1 = CHREC_LEFT (access1);
-      tree min2 = CHREC_LEFT (access2);
-      if (!types_compatible_p (TREE_TYPE (min1), TREE_TYPE (min2)))
-	return false;
-
-      /* Ideally, alias can be checked against loop's control IV, but we
-	 need to prove linear mapping between control IV and reference
-	 index.  Although that should be true, we check against (array)
-	 index of data reference.  Like segment length, index length is
-	 linear function of the number of iterations with index_step as
-	 the coefficient, i.e, niter_len * idx_step.  */
-      tree idx_len1 = fold_build2 (MULT_EXPR, TREE_TYPE (min1), idx_step,
-				   build_int_cst (TREE_TYPE (min1),
-						  niter_len1));
-      tree idx_len2 = fold_build2 (MULT_EXPR, TREE_TYPE (min2), idx_step,
-				   build_int_cst (TREE_TYPE (min2),
-						  niter_len2));
-      tree max1 = fold_build2 (PLUS_EXPR, TREE_TYPE (min1), min1, idx_len1);
-      tree max2 = fold_build2 (PLUS_EXPR, TREE_TYPE (min2), min2, idx_len2);
-      /* Adjust ranges for negative step.  */
-      if (neg_step)
-	{
-	  min1 = fold_build2 (MINUS_EXPR, TREE_TYPE (min1), max1, idx_step);
-	  max1 = fold_build2 (MINUS_EXPR, TREE_TYPE (min1),
-			      CHREC_LEFT (access1), idx_step);
-	  min2 = fold_build2 (MINUS_EXPR, TREE_TYPE (min2), max2, idx_step);
-	  max2 = fold_build2 (MINUS_EXPR, TREE_TYPE (min2),
-			      CHREC_LEFT (access2), idx_step);
-	}
-      tree part_cond_expr
-	= fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
-	    fold_build2 (LE_EXPR, boolean_type_node, max1, min2),
-	    fold_build2 (LE_EXPR, boolean_type_node, max2, min1));
-      if (*cond_expr)
-	*cond_expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-				  *cond_expr, part_cond_expr);
-      else
-	*cond_expr = part_cond_expr;
-    }
-  return true;
-}
-
-/* Given two data references and segment lengths described by DR_A and DR_B,
-   create expression checking if the two addresses ranges intersect with
-   each other:
-
-     ((DR_A_addr_0 + DR_A_segment_length_0) <= DR_B_addr_0)
-     || (DR_B_addr_0 + DER_B_segment_length_0) <= DR_A_addr_0))  */
-
-static void
-create_intersect_range_checks (loop_vec_info loop_vinfo, tree *cond_expr,
-			       const dr_with_seg_len& dr_a,
-			       const dr_with_seg_len& dr_b)
-{
-  *cond_expr = NULL_TREE;
-  if (create_intersect_range_checks_index (loop_vinfo, cond_expr, dr_a, dr_b))
-    return;
-
-  unsigned HOST_WIDE_INT min_align;
-  tree_code cmp_code;
-  if (TREE_CODE (DR_STEP (dr_a.dr)) == INTEGER_CST
-      && TREE_CODE (DR_STEP (dr_b.dr)) == INTEGER_CST)
-    {
-      /* In this case adding access_size to seg_len is likely to give
-	 a simple X * step, where X is either the number of scalar
-	 iterations or the vectorization factor.  We're better off
-	 keeping that, rather than subtracting an alignment from it.
-
-	 In this case the maximum values are exclusive and so there is
-	 no alias if the maximum of one segment equals the minimum
-	 of another.  */
-      min_align = 0;
-      cmp_code = LE_EXPR;
-    }
-  else
-    {
-      /* Calculate the minimum alignment shared by all four pointers,
-	 then arrange for this alignment to be subtracted from the
-	 exclusive maximum values to get inclusive maximum values.
-	 This "- min_align" is cumulative with a "+ access_size"
-	 in the calculation of the maximum values.  In the best
-	 (and common) case, the two cancel each other out, leaving
-	 us with an inclusive bound based only on seg_len.  In the
-	 worst case we're simply adding a smaller number than before.
-
-	 Because the maximum values are inclusive, there is an alias
-	 if the maximum value of one segment is equal to the minimum
-	 value of the other.  */
-      min_align = MIN (dr_a.align, dr_b.align);
-      cmp_code = LT_EXPR;
-    }
-
-  tree seg_a_min, seg_a_max, seg_b_min, seg_b_max;
-  get_segment_min_max (dr_a, &seg_a_min, &seg_a_max, min_align);
-  get_segment_min_max (dr_b, &seg_b_min, &seg_b_max, min_align);
-
-  *cond_expr
-    = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
-	fold_build2 (cmp_code, boolean_type_node, seg_a_max, seg_b_min),
-	fold_build2 (cmp_code, boolean_type_node, seg_b_max, seg_a_min));
 }
 
 /* Function vect_create_cond_for_alias_checks.
@@ -3346,31 +3108,12 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 {
   vec<dr_with_seg_len_pair_t> comp_alias_ddrs =
     LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
-  tree part_cond_expr;
 
   if (comp_alias_ddrs.is_empty ())
     return;
 
-  for (size_t i = 0, s = comp_alias_ddrs.length (); i < s; ++i)
-    {
-      const dr_with_seg_len& dr_a = comp_alias_ddrs[i].first;
-      const dr_with_seg_len& dr_b = comp_alias_ddrs[i].second;
-
-      if (dump_enabled_p ())
-	{
-	  dump_printf_loc (MSG_NOTE, vect_location,
-			   "create runtime check for data references ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a.dr));
-	  dump_printf (MSG_NOTE, " and ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b.dr));
-	  dump_printf (MSG_NOTE, "\n");
-	}
-
-      /* Create condition expression for each pair data references.  */
-      create_intersect_range_checks (loop_vinfo, &part_cond_expr, dr_a, dr_b);
-      chain_cond_expr (cond_expr, part_cond_expr);
-    }
-
+  create_runtime_alias_checks (LOOP_VINFO_LOOP (loop_vinfo),
+			       &comp_alias_ddrs, cond_expr);
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
 		     "created %u versioning for alias checks.\n",
@@ -3399,7 +3142,8 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 
 void
 vect_loop_versioning (loop_vec_info loop_vinfo,
-		      unsigned int th, bool check_profitability)
+		      unsigned int th, bool check_profitability,
+		      poly_uint64 versioning_threshold)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo), *nloop;
   struct loop *scalar_loop = LOOP_VINFO_SCALAR_LOOP (loop_vinfo);
@@ -3413,17 +3157,28 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
   tree cond_expr = NULL_TREE;
   gimple_seq cond_expr_stmt_list = NULL;
   tree arg;
-  unsigned prob = 4 * REG_BR_PROB_BASE / 5;
+  profile_probability prob = profile_probability::likely ();
   gimple_seq gimplify_stmt_list = NULL;
-  tree scalar_loop_iters = LOOP_VINFO_NITERS (loop_vinfo);
+  tree scalar_loop_iters = LOOP_VINFO_NITERSM1 (loop_vinfo);
   bool version_align = LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (loop_vinfo);
   bool version_alias = LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo);
   bool version_niter = LOOP_REQUIRES_VERSIONING_FOR_NITERS (loop_vinfo);
 
   if (check_profitability)
-    cond_expr = fold_build2 (GT_EXPR, boolean_type_node, scalar_loop_iters,
+    cond_expr = fold_build2 (GE_EXPR, boolean_type_node, scalar_loop_iters,
 			     build_int_cst (TREE_TYPE (scalar_loop_iters),
-						       th));
+					    th - 1));
+  if (may_ne (versioning_threshold, 0U))
+    {
+      tree expr = fold_build2 (GE_EXPR, boolean_type_node, scalar_loop_iters,
+			       build_int_cst (TREE_TYPE (scalar_loop_iters),
+					      versioning_threshold - 1));
+      if (cond_expr)
+	cond_expr = fold_build2 (BIT_AND_EXPR, boolean_type_node,
+				 expr, cond_expr);
+      else
+	cond_expr = expr;
+    }
 
   if (version_niter)
     vect_create_cond_for_niters_checks (loop_vinfo, &cond_expr);
@@ -3438,6 +3193,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 
   if (version_alias)
     {
+      vect_create_cond_for_unequal_addrs (loop_vinfo, &cond_expr);
       vect_create_cond_for_lower_bounds (loop_vinfo, &cond_expr);
       vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr);
     }
@@ -3455,9 +3211,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
       /* We don't want to scale SCALAR_LOOP's frequencies, we need to
 	 scale LOOP's frequencies instead.  */
       nloop = loop_version (scalar_loop, cond_expr, &condition_bb,
-			    prob, REG_BR_PROB_BASE - prob,
-			    REG_BR_PROB_BASE, REG_BR_PROB_BASE - prob, true);
-      scale_loop_frequencies (loop, prob, REG_BR_PROB_BASE);
+			    prob, prob.invert (), prob, prob.invert (), true);
+      scale_loop_frequencies (loop, prob);
       /* CONDITION_BB was created above SCALAR_LOOP's preheader,
 	 while we need to move it above LOOP's preheader.  */
       e = loop_preheader_edge (loop);
@@ -3484,8 +3239,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
     }
   else
     nloop = loop_version (loop, cond_expr, &condition_bb,
-			  prob, REG_BR_PROB_BASE - prob,
-			  prob, REG_BR_PROB_BASE - prob, true);
+			  prob, prob.invert (), prob, prob.invert (), true);
 
   if (version_niter)
     {

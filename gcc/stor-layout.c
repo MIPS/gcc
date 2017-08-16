@@ -2680,8 +2680,7 @@ set_min_and_max_values_for_integral_type (tree type,
 
 /* Set the extreme values of TYPE based on its precision in bits,
    then lay it out.  Used when make_signed_type won't do
-   because the tree code is not INTEGER_TYPE.
-   E.g. for Pascal, when the -fsigned-char option is given.  */
+   because the tree code is not INTEGER_TYPE.  */
 
 void
 fixup_signed_type (tree type)
@@ -2821,11 +2820,13 @@ bit_field_mode_iterator::prefer_smaller_modes ()
    memory access to that range.  Otherwise, we are allowed to touch
    any adjacent non bit-fields.
 
-   The underlying object is known to be aligned to a boundary of ALIGN bits.
-   If LARGEST_MODE_BITSIZE is not 0, it means that we should not use a mode
-   larger than LARGEST_MODE_BITSIZE bits.
+   The chosen mode must have no more than LARGEST_MODE_BITSIZE bits.
+   INT_MAX is a suitable value for LARGEST_MODE_BITSIZE if the caller
+   doesn't want to apply a specific limit.
 
    If no mode meets all these conditions, we return VOIDmode.
+
+   The underlying object is known to be aligned to a boundary of ALIGN bits.
 
    If VOLATILEP is false and SLOW_BYTE_ACCESS is false, we return the
    smallest mode meeting these conditions.
@@ -2906,8 +2907,7 @@ get_best_mode (int bitsize, int bitpos,
 	    so that the final bitfield reference still has a MEM_EXPR
 	    and MEM_OFFSET.  */
 	 && GET_MODE_ALIGNMENT (mode) <= align
-	 && (largest_mode_bitsize == 0
-	     || GET_MODE_BITSIZE (mode) <= largest_mode_bitsize))
+	 && GET_MODE_BITSIZE (mode) <= largest_mode_bitsize)
     {
       *best_mode = mode;
       found = true;

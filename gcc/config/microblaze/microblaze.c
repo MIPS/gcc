@@ -1574,7 +1574,7 @@ microblaze_function_arg (cumulative_args_t cum_v, machine_mode mode,
   if (mode == VOIDmode)
     {
       if (cum->num_adjusts > 0)
-	ret = gen_rtx_PARALLEL ((machine_mode_enum) cum->fp_code,
+	ret = gen_rtx_PARALLEL ((machine_mode) cum->fp_code,
 				gen_rtvec_v (cum->num_adjusts, cum->adjust));
     }
 
@@ -1676,7 +1676,7 @@ microblaze_option_override (void)
 {
   register int i, start;
   register int regno;
-  machine_mode mode;
+  register machine_mode mode;
   int ver;
 
   microblaze_section_threshold = (global_options_set.x_g_switch_value
@@ -1824,7 +1824,7 @@ microblaze_option_override (void)
   /* Set up array giving whether a given register can hold a given mode.   */
 
   for (mode = VOIDmode;
-       mode != MAX_MACHINE_MODE; mode = (machine_mode_enum) ((int) mode + 1))
+       mode != MAX_MACHINE_MODE; mode = (machine_mode) ((int) mode + 1))
     {
       register int size = GET_MODE_SIZE (mode);
 
