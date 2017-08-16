@@ -20,8 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /*  This file contains basic routines manipulating call graph
 
-    The call-graph is a data structure designed for intra-procedural optimization.
-    It represents a multi-graph where nodes are functions and edges are call sites. */
+    The call-graph is a data structure designed for inter-procedural
+    optimization.  It represents a multi-graph where nodes are functions
+    (symbols within symbol table) and edges are call sites. */
 
 #include "config.h"
 #include "system.h"
@@ -60,6 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "context.h"
 #include "gimplify.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -581,10 +584,11 @@ cgraph_node *
 cgraph_node::create_same_body_alias (tree alias, tree decl)
 {
   cgraph_node *n;
-#ifndef ASM_OUTPUT_DEF
+
   /* If aliases aren't supported by the assembler, fail.  */
-  return NULL;
-#endif
+  if (!TARGET_SUPPORTS_ALIASES)
+    return NULL;
+
   /* Langhooks can create same body aliases of symbols not defined.
      Those are useless. Drop them on the floor.  */
   if (symtab->global_info_ready)
@@ -1314,16 +1318,19 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	    }
 	  gcc_assert (e2->speculative);
 	  push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
+
+	  profile_probability prob = e->count.probability_in (e->count
+							      + e2->count);
+	  if (prob.initialized_p ())
+	    ;
+	  else if (e->frequency || e2->frequency)
+	    prob = profile_probability::probability_in_gcov_type
+		     (e->frequency, e->frequency + e2->frequency).guessed ();
+	  else 
+	    prob = profile_probability::even ();
 	  new_stmt = gimple_ic (e->call_stmt,
 				dyn_cast<cgraph_node *> (ref->referred),
-				e->count > profile_count::zero ()
-				|| e2->count > profile_count::zero ()
-				? e->count.probability_in (e->count + e2->count)
-				: e->frequency || e2->frequency
-				? RDIV (e->frequency * REG_BR_PROB_BASE,
-					e->frequency + e2->frequency)
-				: REG_BR_PROB_BASE / 2,
-				e->count, e->count + e2->count);
+				prob, e->count, e->count + e2->count);
 	  e->speculative = false;
 	  e->caller->set_call_stmt_including_clones (e->call_stmt, new_stmt,
 						     false);
@@ -2315,7 +2322,8 @@ cgraph_node::get_availability (symtab_node *ref)
     avail = AVAIL_AVAILABLE;
   else if (transparent_alias)
     ultimate_alias_target (&avail, ref);
-  else if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
+  else if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl))
+	   || lookup_attribute ("noipa", DECL_ATTRIBUTES (decl)))
     avail = AVAIL_INTERPOSABLE;
   else if (!externally_visible)
     avail = AVAIL_AVAILABLE;

@@ -46,6 +46,8 @@
 #include "gimplify.h"
 #include "opts.h"
 #include "common/common-target.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 #include "ada.h"
 #include "adadecode.h"
@@ -5883,7 +5885,7 @@ gnat_to_gnu (Node_Id gnat_node)
   tree gnu_result_type = void_type_node;
   tree gnu_expr, gnu_lhs, gnu_rhs;
   Node_Id gnat_temp;
-  bool sync;
+  bool sync = false;
 
   /* Save node number for error message and set location information.  */
   error_gnat_node = gnat_node;

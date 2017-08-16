@@ -47,7 +47,7 @@ extern unsigned int arm_dbx_register_number (unsigned int);
 extern void arm_output_fn_unwind (FILE *, bool);
 
 extern rtx arm_expand_builtin (tree exp, rtx target, rtx subtarget
-			       ATTRIBUTE_UNUSED, enum machine_mode mode
+			       ATTRIBUTE_UNUSED, machine_mode mode
 			       ATTRIBUTE_UNUSED, int ignore ATTRIBUTE_UNUSED);
 extern tree arm_builtin_decl (unsigned code, bool initialize_p
 			      ATTRIBUTE_UNUSED);
@@ -464,6 +464,8 @@ struct arm_build_target
   const char *arch_pp_name;
   /* The base architecture value.  */
   enum base_architecture base_arch;
+  /* The profile letter for the architecture, upper case by convention.  */
+  char profile;
   /* Bitmap encapsulating the isa_bits for the target environment.  */
   sbitmap isa;
   /* Flags used for tuning.  Long term, these move into tune_params.  */
@@ -507,6 +509,8 @@ struct arch_option
   const char *arch;
   /* Base architecture, from which this specific architecture is derived.  */
   enum base_architecture base_arch;
+  /* The profile letter for the architecture, upper case by convention.  */
+  const char profile;
   /* Default tune target (in the absence of any more specific data).  */
   enum processor_type tune_id;
 };

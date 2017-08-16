@@ -56,6 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-chkp.h"
 #include "tree-cfg.h"
 #include "fold-const-call.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 
 /* Return true when DECL can be referenced from current unit.
@@ -571,7 +573,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
 /* Replace the call at *GSI with the gimple value VAL.  */
 
-static void
+void
 replace_call_with_value (gimple_stmt_iterator *gsi, tree val)
 {
   gimple *stmt = gsi_stmt (*gsi);
@@ -607,9 +609,10 @@ replace_call_with_call_and_fold (gimple_stmt_iterator *gsi, gimple *repl)
       && TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
     {
       gimple_set_vdef (repl, gimple_vdef (stmt));
-      gimple_set_vuse (repl, gimple_vuse (stmt));
       SSA_NAME_DEF_STMT (gimple_vdef (repl)) = repl;
     }
+  if (gimple_vuse (stmt))
+    gimple_set_vuse (repl, gimple_vuse (stmt));
   gsi_replace (gsi, repl, false);
   fold_stmt (gsi);
 }
@@ -4244,7 +4247,7 @@ maybe_canonicalize_mem_ref_addr (tree *t)
 				       TREE_TYPE (*t),
 				       TREE_OPERAND (TREE_OPERAND (*t, 0), 0),
 				       TYPE_SIZE (TREE_TYPE (*t)),
-				       wide_int_to_tree (sizetype, idx));
+				       wide_int_to_tree (bitsizetype, idx));
 		      res = true;
 		    }
 		}

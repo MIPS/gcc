@@ -196,10 +196,6 @@ extern tree arm_fp16_type_node;
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (bitmap_bit_p (arm_active_target.isa, isa_bit_VFPv4))
 
-/* FPU is ARMv8 compatible.  */
-#define TARGET_FPU_ARMV8					\
-  (bitmap_bit_p (arm_active_target.isa, isa_bit_FP_ARMv8))
-
 /* FPU supports Crypto extensions.  */
 #define TARGET_CRYPTO (bitmap_bit_p (arm_active_target.isa, isa_bit_crypto))
 
@@ -216,7 +212,7 @@ extern tree arm_fp16_type_node;
 
 /* FPU supports the floating point FP16 instructions for ARMv8.2 and later.  */
 #define TARGET_VFP_FP16INST \
-  (TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 && arm_fp16_inst)
+  (TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP5 && arm_fp16_inst)
 
 /* FPU supports the AdvSIMD FP16 instructions for ARMv8.2 and later.  */
 #define TARGET_NEON_FP16INST (TARGET_VFP_FP16INST && TARGET_NEON_RDMA)
@@ -384,7 +380,8 @@ enum base_architecture
   BASE_ARCH_7EM = 7,
   BASE_ARCH_8A = 8,
   BASE_ARCH_8M_BASE = 8,
-  BASE_ARCH_8M_MAIN = 8
+  BASE_ARCH_8M_MAIN = 8,
+  BASE_ARCH_8R = 8
 };
 
 /* The major revision number of the ARM Architecture implemented by the target.  */
@@ -2189,13 +2186,7 @@ extern int making_const_table;
 /* Expands to an upper-case char of the target's architectural
    profile.  */
 #define TARGET_ARM_ARCH_PROFILE				\
-  (!arm_arch_notm					\
-    ? 'M'						\
-    : (arm_arch7					\
-      ? (strlen (arm_arch_name) >=3			\
-	? (arm_arch_name[strlen (arm_arch_name) - 3])	\
-      	: 0)						\
-      : 0))
+  (arm_active_target.profile)
 
 /* Bit-field indicating what size LDREX/STREX loads/stores are available.
    Bit 0 for bytes, up to bit 3 for double-words.  */
@@ -2263,11 +2254,16 @@ const char *arm_canon_arch_option (int argc, const char **argv);
 #define CANON_ARCH_SPEC_FUNCTION		\
   { "canon_arch", arm_canon_arch_option },
 
+const char *arm_be8_option (int argc, const char **argv);
+#define BE8_SPEC_FUNCTION			\
+  { "be8_linkopt", arm_be8_option },
+
 # define EXTRA_SPEC_FUNCTIONS			\
   MCPU_MTUNE_NATIVE_FUNCTIONS			\
   ASM_CPU_SPEC_FUNCTIONS			\
   CANON_ARCH_SPEC_FUNCTION			\
-  TARGET_MODE_SPEC_FUNCTIONS
+  TARGET_MODE_SPEC_FUNCTIONS			\
+  BE8_SPEC_FUNCTION
 
 /* Automatically add -mthumb for Thumb-only targets if mode isn't specified
    via the configuration option --with-mode or via the command line. The

@@ -93,6 +93,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "gdb/gdb-index.h"
 #include "rtl-iter.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 static void dwarf2out_source_line (unsigned int, unsigned int, const char *,
 				   int, bool);
@@ -2712,7 +2714,7 @@ static bool dwarf2out_ignore_block (const_tree);
 static void dwarf2out_early_global_decl (tree);
 static void dwarf2out_late_global_decl (tree);
 static void dwarf2out_type_decl (tree, int);
-static void dwarf2out_imported_module_or_decl (tree, tree, tree, bool);
+static void dwarf2out_imported_module_or_decl (tree, tree, tree, bool, bool);
 static void dwarf2out_imported_module_or_decl_1 (tree, tree, tree,
 						 dw_die_ref);
 static void dwarf2out_abstract_function (tree);
@@ -2798,7 +2800,7 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
   debug_nothing_tree,		         /* early_global_decl */
   debug_nothing_tree,		         /* late_global_decl */
   debug_nothing_tree_int,		 /* type_decl */
-  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+  debug_nothing_tree_tree_tree_bool_bool,/* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx_code_label,	         /* label */
@@ -5194,16 +5196,6 @@ is_cxx (const_tree decl)
 	return strncmp (TRANSLATION_UNIT_LANGUAGE (context), "GNU C++", 7) == 0;
     }
   return is_cxx ();
-}
-
-/* Return TRUE if the language is Java.  */
-
-static inline bool
-is_java (void)
-{
-  unsigned int lang = get_AT_unsigned (comp_unit_die (), DW_AT_language);
-
-  return lang == DW_LANG_Java;
 }
 
 /* Return TRUE if the language is Fortran.  */
@@ -11096,8 +11088,8 @@ output_pubname (dw_offset die_offset, pubname_entry *entry)
         case DW_TAG_enumerator:
           GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
                                           GDB_INDEX_SYMBOL_KIND_VARIABLE);
-          if (!is_cxx () && !is_java ())
-            GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
+	  if (!is_cxx ())
+	    GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
           break;
         case DW_TAG_subprogram:
           GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
@@ -11125,7 +11117,7 @@ output_pubname (dw_offset die_offset, pubname_entry *entry)
         case DW_TAG_union_type:
         case DW_TAG_enumeration_type:
           GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
-          if (!is_cxx () && !is_java ())
+	  if (!is_cxx ())
 	    GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
           break;
         default:
@@ -12047,7 +12039,7 @@ output_file_names (void)
       output_line_string (str_form, filename0, "File Entry", 0);
 
       /* Include directory index.  */
-      if (dwarf_version >= 5 && idx_form != DW_FORM_udata)
+      if (idx_form != DW_FORM_udata)
 	dw2_asm_output_data (idx_form == DW_FORM_data1 ? 1 : 2,
 			     0, NULL);
       else
@@ -12879,6 +12871,15 @@ modified_type_die (tree type, int cv_quals, bool reverse,
 
       if (qualified_type == dtype)
 	{
+	  tree origin = decl_ultimate_origin (name);
+
+	  /* Typedef variants that have an abstract origin don't get their own
+	     type DIE (see gen_typedef_die), so fall back on the ultimate
+	     abstract origin instead.  */
+	  if (origin != NULL)
+	    return modified_type_die (TREE_TYPE (origin), cv_quals, reverse,
+				      context_die);
+
 	  /* For a named type, use the typedef.  */
 	  gen_type_die (qualified_type, context_die);
 	  return lookup_type_die (qualified_type);
@@ -20203,7 +20204,6 @@ lower_bound_default (void)
     case DW_LANG_C_plus_plus_14:
     case DW_LANG_ObjC:
     case DW_LANG_ObjC_plus_plus:
-    case DW_LANG_Java:
       return 0;
     case DW_LANG_Fortran77:
     case DW_LANG_Fortran90:
@@ -20219,7 +20219,6 @@ lower_bound_default (void)
     case DW_LANG_Ada83:
     case DW_LANG_Cobol74:
     case DW_LANG_Cobol85:
-    case DW_LANG_Pascal83:
     case DW_LANG_Modula2:
     case DW_LANG_PLI:
       return dwarf_version >= 4 ? 1 : -1;
@@ -23756,46 +23755,6 @@ gen_field_die (tree decl, struct vlr_context *ctx, dw_die_ref context_die)
   equate_decl_number_to_die (decl, decl_die);
 }
 
-#if 0
-/* Don't generate either pointer_type DIEs or reference_type DIEs here.
-   Use modified_type_die instead.
-   We keep this code here just in case these types of DIEs may be needed to
-   represent certain things in other languages (e.g. Pascal) someday.  */
-
-static void
-gen_pointer_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref ptr_die
-    = new_die (DW_TAG_pointer_type, scope_die_for (type, context_die), type);
-
-  equate_type_number_to_die (type, ptr_die);
-  add_type_attribute (ptr_die, TREE_TYPE (type), TYPE_UNQUALIFIED, false,
-		      context_die);
-  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
-}
-
-/* Don't generate either pointer_type DIEs or reference_type DIEs here.
-   Use modified_type_die instead.
-   We keep this code here just in case these types of DIEs may be needed to
-   represent certain things in other languages (e.g. Pascal) someday.  */
-
-static void
-gen_reference_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref ref_die, scope_die = scope_die_for (type, context_die);
-
-  if (TYPE_REF_IS_RVALUE (type) && dwarf_version >= 4)
-    ref_die = new_die (DW_TAG_rvalue_reference_type, scope_die, type);
-  else
-    ref_die = new_die (DW_TAG_reference_type, scope_die, type);
-
-  equate_type_number_to_die (type, ref_die);
-  add_type_attribute (ref_die, TREE_TYPE (type), TYPE_UNQUALIFIED, false,
-		      context_die);
-  add_AT_unsigned (mod_type_die, DW_AT_byte_size, PTR_SIZE);
-}
-#endif
-
 /* Generate a DIE for a pointer to a member type.  TYPE can be an
    OFFSET_TYPE, for a pointer to data member, or a RECORD_TYPE, for a
    pointer to member function.  */
@@ -24027,8 +23986,6 @@ gen_compile_unit_die (const char *filename)
     }
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
-  else if (strcmp (language_string, "GNU Pascal") == 0)
-    language = DW_LANG_Pascal83;
   else if (dwarf_version >= 3 || !dwarf_strict)
     {
       if (strcmp (language_string, "GNU Ada") == 0)
@@ -24044,8 +24001,6 @@ gen_compile_unit_die (const char *filename)
 		language = DW_LANG_Fortran08;
 	    }
 	}
-      else if (strcmp (language_string, "GNU Java") == 0)
-	language = DW_LANG_Java;
       else if (strcmp (language_string, "GNU Objective-C") == 0)
 	language = DW_LANG_ObjC;
       else if (strcmp (language_string, "GNU Objective-C++") == 0)
@@ -24539,7 +24494,8 @@ gen_member_die (tree type, dw_die_ref context_die)
 {
   tree member;
   tree binfo = TYPE_BINFO (type);
-  dw_die_ref child;
+
+  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
 
   /* If this is not an incomplete type, output descriptions of each of its
      members. Note that as we output the DIEs necessary to represent the
@@ -24576,13 +24532,16 @@ gen_member_die (tree type, dw_die_ref context_die)
 	   && (lang_hooks.decls.decl_dwarf_attribute (member, DW_AT_inline)
 	       != -1));
 
+      /* Ignore clones.  */
+      if (DECL_ABSTRACT_ORIGIN (member))
+	continue;
+
       /* If we thought we were generating minimal debug info for TYPE
 	 and then changed our minds, some of the member declarations
 	 may have already been defined.  Don't define them again, but
 	 do put them in the right order.  */
 
-      child = lookup_decl_die (member);
-      if (child)
+      if (dw_die_ref child = lookup_decl_die (member))
 	{
 	  /* Handle inline static data members, which only have in-class
 	     declarations.  */
@@ -24610,6 +24569,7 @@ gen_member_die (tree type, dw_die_ref context_die)
 		  static_inline_p = false;
 		}
 	    }
+
 	  if (child->die_tag == DW_TAG_variable
 	      && child->die_parent == comp_unit_die ()
 	      && ref == NULL)
@@ -24648,27 +24608,6 @@ gen_member_die (tree type, dw_die_ref context_die)
 	  DECL_EXTERNAL (member) = old_extern;
 	}
     }
-
-  /* We do not keep type methods in type variants.  */
-  gcc_assert (TYPE_MAIN_VARIANT (type) == type);
-  /* Now output info about the function members (if any).  */
-  if (TYPE_METHODS (type) != error_mark_node)
-    for (member = TYPE_METHODS (type); member; member = DECL_CHAIN (member))
-      {
-	/* Don't include clones in the member list.  */
-	if (DECL_ABSTRACT_ORIGIN (member))
-	  continue;
-	/* Nor constructors for anonymous classes.  */
-	if (DECL_ARTIFICIAL (member)
-	    && dwarf2_name (member, 0) == NULL)
-	  continue;
-
-	child = lookup_decl_die (member);
-	if (child)
-	  splice_child_die (context_die, child);
-	else
-	  gen_decl_die (member, NULL, NULL, context_die);
-      }
 }
 
 /* Generate a DIE for a structure or union type.  If TYPE_DECL_SUPPRESS_DEBUG
@@ -24817,7 +24756,7 @@ static void
 gen_typedef_die (tree decl, dw_die_ref context_die)
 {
   dw_die_ref type_die;
-  tree origin;
+  tree type;
 
   if (TREE_ASM_WRITTEN (decl))
     {
@@ -24826,75 +24765,71 @@ gen_typedef_die (tree decl, dw_die_ref context_die)
       return;
     }
 
+  /* As we avoid creating DIEs for local typedefs (see decl_ultimate_origin
+     checks in process_scope_var and modified_type_die), this should be called
+     only for original types.  */
+  gcc_assert (decl_ultimate_origin (decl) == NULL);
+
   TREE_ASM_WRITTEN (decl) = 1;
   type_die = new_die (DW_TAG_typedef, context_die, decl);
-  origin = decl_ultimate_origin (decl);
-  if (origin != NULL)
-    add_abstract_origin_attribute (type_die, origin);
-  else
-    {
-      tree type = TREE_TYPE (decl);
 
+  add_name_and_src_coords_attributes (type_die, decl);
+  if (DECL_ORIGINAL_TYPE (decl))
+    {
+      type = DECL_ORIGINAL_TYPE (decl);
       if (type == error_mark_node)
 	return;
 
-      add_name_and_src_coords_attributes (type_die, decl);
-      if (DECL_ORIGINAL_TYPE (decl))
-	{
-	  type = DECL_ORIGINAL_TYPE (decl);
-
-	  if (type == error_mark_node)
-	    return;
-
-	  gcc_assert (type != TREE_TYPE (decl));
-	  equate_type_number_to_die (TREE_TYPE (decl), type_die);
-	}
-      else
-	{
-	  if (is_naming_typedef_decl (TYPE_NAME (type)))
-	    {
-	      /* Here, we are in the case of decl being a typedef naming
-	         an anonymous type, e.g:
-	             typedef struct {...} foo;
-	         In that case TREE_TYPE (decl) is not a typedef variant
-	         type and TYPE_NAME of the anonymous type is set to the
-	         TYPE_DECL of the typedef. This construct is emitted by
-	         the C++ FE.
-
-	         TYPE is the anonymous struct named by the typedef
-	         DECL. As we need the DW_AT_type attribute of the
-	         DW_TAG_typedef to point to the DIE of TYPE, let's
-	         generate that DIE right away. add_type_attribute
-	         called below will then pick (via lookup_type_die) that
-	         anonymous struct DIE.  */
-	      if (!TREE_ASM_WRITTEN (type))
-	        gen_tagged_type_die (type, context_die, DINFO_USAGE_DIR_USE);
-
-	      /* This is a GNU Extension.  We are adding a
-		 DW_AT_linkage_name attribute to the DIE of the
-		 anonymous struct TYPE.  The value of that attribute
-		 is the name of the typedef decl naming the anonymous
-		 struct.  This greatly eases the work of consumers of
-		 this debug info.  */
-	      add_linkage_name_raw (lookup_type_die (type), decl);
-	    }
-	}
-
-      add_type_attribute (type_die, type, decl_quals (decl), false,
-			  context_die);
-
-      if (is_naming_typedef_decl (decl))
-	/* We want that all subsequent calls to lookup_type_die with
-	   TYPE in argument yield the DW_TAG_typedef we have just
-	   created.  */
-	equate_type_number_to_die (type, type_die);
-
-      type = TREE_TYPE (decl);
-
-      add_alignment_attribute (type_die, type);
-
-      add_accessibility_attribute (type_die, decl);
+      gcc_assert (type != TREE_TYPE (decl));
+      equate_type_number_to_die (TREE_TYPE (decl), type_die);
     }
+  else
+    {
+      type = TREE_TYPE (decl);
+      if (type == error_mark_node)
+	return;
+
+      if (is_naming_typedef_decl (TYPE_NAME (type)))
+	{
+	  /* Here, we are in the case of decl being a typedef naming
+	     an anonymous type, e.g:
+		 typedef struct {...} foo;
+	     In that case TREE_TYPE (decl) is not a typedef variant
+	     type and TYPE_NAME of the anonymous type is set to the
+	     TYPE_DECL of the typedef. This construct is emitted by
+	     the C++ FE.
+
+	     TYPE is the anonymous struct named by the typedef
+	     DECL. As we need the DW_AT_type attribute of the
+	     DW_TAG_typedef to point to the DIE of TYPE, let's
+	     generate that DIE right away. add_type_attribute
+	     called below will then pick (via lookup_type_die) that
+	     anonymous struct DIE.  */
+	  if (!TREE_ASM_WRITTEN (type))
+	    gen_tagged_type_die (type, context_die, DINFO_USAGE_DIR_USE);
+
+	  /* This is a GNU Extension.  We are adding a
+	     DW_AT_linkage_name attribute to the DIE of the
+	     anonymous struct TYPE.  The value of that attribute
+	     is the name of the typedef decl naming the anonymous
+	     struct.  This greatly eases the work of consumers of
+	     this debug info.  */
+	  add_linkage_name_raw (lookup_type_die (type), decl);
+	}
+    }
+
+  add_type_attribute (type_die, type, decl_quals (decl), false,
+		      context_die);
+
+  if (is_naming_typedef_decl (decl))
+    /* We want that all subsequent calls to lookup_type_die with
+       TYPE in argument yield the DW_TAG_typedef we have just
+       created.  */
+    equate_type_number_to_die (type, type_die);
+
+  add_alignment_attribute (type_die, TREE_TYPE (decl));
+
+  add_accessibility_attribute (type_die, decl);
 
   if (DECL_ABSTRACT_P (decl))
     equate_decl_number_to_die (decl, type_die);
@@ -25006,15 +24941,23 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       if (TREE_ASM_WRITTEN (type))
 	return;
 
+      tree name = TYPE_NAME (type);
+      tree origin = decl_ultimate_origin (name);
+      if (origin != NULL)
+	{
+	  gen_decl_die (origin, NULL, NULL, context_die);
+	  return;
+	}
+
       /* Prevent broken recursion; we can't hand off to the same type.  */
-      gcc_assert (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) != type);
+      gcc_assert (DECL_ORIGINAL_TYPE (name) != type);
 
       /* Give typedefs the right scope.  */
       context_die = scope_die_for (type, context_die);
 
       TREE_ASM_WRITTEN (type) = 1;
 
-      gen_decl_die (TYPE_NAME (type), NULL, NULL, context_die);
+      gen_decl_die (name, NULL, NULL, context_die);
       return;
     }
 
@@ -25332,6 +25275,22 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
     }
   else
     die = NULL;
+
+  /* Avoid creating DIEs for local typedefs and concrete static variables that
+     will only be pruned later.  */
+  if ((origin || decl_ultimate_origin (decl))
+      && (TREE_CODE (decl_or_origin) == TYPE_DECL
+	  || (VAR_P (decl_or_origin) && TREE_STATIC (decl_or_origin))))
+    {
+      origin = decl_ultimate_origin (decl_or_origin);
+      if (decl && VAR_P (decl) && die != NULL)
+	{
+	  die = lookup_decl_die (origin);
+	  if (die != NULL)
+	    equate_decl_number_to_die (decl, die);
+	}
+      return;
+    }
 
   if (die != NULL && die->die_parent == NULL)
     add_child_die (context_die, die);
@@ -25689,6 +25648,11 @@ gen_namespace_die (tree decl, dw_die_ref context_die)
       add_AT_die_ref (namespace_die, DW_AT_import, origin_die);
       equate_decl_number_to_die (decl, namespace_die);
     }
+  if ((dwarf_version >= 5 || !dwarf_strict)
+      && lang_hooks.decls.decl_dwarf_attribute (decl,
+						DW_AT_export_symbols) == 1)
+    add_AT_flag (namespace_die, DW_AT_export_symbols, 1);
+
   /* Bypass dwarf2_name's check for DECL_NAMELESS.  */
   if (want_pubnames ())
     add_pubname_string (lang_hooks.dwarf_name (decl, 1), namespace_die);
@@ -26102,11 +26066,13 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
 /* Output debug information for imported module or decl DECL.
    NAME is non-NULL name in context if the decl has been renamed.
    CHILD is true if decl is one of the renamed decls as part of
-   importing whole module.  */
+   importing whole module.
+   IMPLICIT is set if this hook is called for an implicit import
+   such as inline namespace.  */
 
 static void
 dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
-				   bool child)
+				   bool child, bool implicit)
 {
   /* dw_die_ref at_import_die;  */
   dw_die_ref scope_die;
@@ -26115,6 +26081,16 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
     return;
 
   gcc_assert (decl);
+
+  /* For DWARF5, just DW_AT_export_symbols on the DW_TAG_namespace
+     should be enough, for DWARF4 and older even if we emit as extension
+     DW_AT_export_symbols add the implicit DW_TAG_imported_module anyway
+     for the benefit of consumers unaware of DW_AT_export_symbols.  */
+  if (implicit
+      && dwarf_version >= 5
+      && lang_hooks.decls.decl_dwarf_attribute (decl,
+						DW_AT_export_symbols) == 1)
+    return;
 
   set_early_dwarf s;
 
@@ -27684,6 +27660,7 @@ output_macinfo (void)
   macinfo_entry *ref;
   vec<macinfo_entry, va_gc> *files = NULL;
   macinfo_hash_type *macinfo_htab = NULL;
+  char dl_section_ref[MAX_ARTIFICIAL_LABEL_BYTES];
 
   if (! length)
     return;
@@ -27693,6 +27670,12 @@ output_macinfo (void)
 	      && (int) DW_MACINFO_undef == (int) DW_MACRO_undef
 	      && (int) DW_MACINFO_start_file == (int) DW_MACRO_start_file
 	      && (int) DW_MACINFO_end_file == (int) DW_MACRO_end_file);
+
+  /* AIX Assembler inserts the length, so adjust the reference to match the
+     offset expected by debuggers.  */
+  strcpy (dl_section_ref, debug_line_section_label);
+  if (XCOFF_DEBUGGING_INFO)
+    strcat (dl_section_ref, DWARF_INITIAL_LENGTH_SIZE_STR);
 
   /* For .debug_macro emit the section header.  */
   if (!dwarf_strict || dwarf_version >= 5)
@@ -27704,7 +27687,7 @@ output_macinfo (void)
       else
 	dw2_asm_output_data (1, 2, "Flags: 32-bit, lineptr present");
       dw2_asm_output_offset (DWARF_OFFSET_SIZE,
-                             (!dwarf_split_debug_info ? debug_line_section_label
+                             (!dwarf_split_debug_info ? dl_section_ref
                               : debug_skeleton_line_section_label),
                              debug_line_section, NULL);
     }
