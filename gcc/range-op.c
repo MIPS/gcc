@@ -664,11 +664,11 @@ operator_ge::op1_irange (irange& r, const irange& lhs, const irange& op2) const
   switch (get_bool_state (r, lhs, op2.get_type ()))
     {
       case BRS_TRUE:
-	build_ge (r, op2.get_type (), op2.upper_bound ());
+	build_ge (r, op2.get_type (), op2.lower_bound ());
 	break;
 
       case BRS_FALSE:
-	build_lt (r, op2.get_type (), op2.lower_bound ());
+	build_lt (r, op2.get_type (), op2.upper_bound ());
 	break;
 
       default:
@@ -684,11 +684,11 @@ operator_ge::op2_irange (irange& r, const irange& lhs, const irange& op1) const
   switch (get_bool_state (r, lhs, op1.get_type ()))
     {
       case BRS_FALSE:
-	build_ge (r, op1.get_type (), op1.upper_bound ());
+	build_ge (r, op1.get_type (), op1.lower_bound ());
 	break;
 
       case BRS_TRUE:
-	build_lt (r, op1.get_type (), op1.lower_bound ());
+	build_lt (r, op1.get_type (), op1.upper_bound ());
 	break;
 
       default:
@@ -726,13 +726,18 @@ op_ir (opm_mode mode, irange& r, const wide_int& lh, const irange& rh)
         {
 	  lb = wi::add (lh, lb, s, &ov_lb);
 	  ub = wi::add (lh, ub, s, &ov_ub);
+	  add_to_range (r, lb, ov_lb, ub, ov_ub);
 	}
       else
         {
 	  lb = wi::sub (lh, lb, s, &ov_lb);
 	  ub = wi::sub (lh, ub, s, &ov_ub);
+	  /* 10 - [1, 20] gives us [9, -10] which requires reversing bounds. */
+	  if (wi::le_p (lb, ub, s))
+	    add_to_range (r, lb, ov_lb, ub, ov_ub);
+	  else
+	    add_to_range (r, ub, ov_ub, lb, ov_lb);
 	}
-      add_to_range (r, lb, ov_lb, ub, ov_ub);
     }
   return true;
 }
@@ -771,6 +776,12 @@ op_ri (opm_mode mode, irange& r, const irange& lh, const wide_int& rh)
 static bool
 op_rr (opm_mode mode, irange& r, const irange& lh, const irange& rh)
 {
+  if (lh.empty_p () || rh.empty_p ())
+    {
+      r.clear (lh.get_type ());
+      return true;
+    }
+
   if (wi::eq_p (lh.upper_bound (), lh.lower_bound ()))
     op_ir (mode, r, lh.upper_bound (), rh);
   else
@@ -1386,8 +1397,8 @@ irange_op_table::irange_op_table ()
   irange_tree[NE_EXPR] = &op_not_equal;
   irange_tree[EQ_EXPR] = &op_equal;
 
-//  irange_tree[PLUS_EXPR] = &op_plus;
-//  irange_tree[MINUS_EXPR] = &op_minus;
+  irange_tree[PLUS_EXPR] = &op_plus;
+  irange_tree[MINUS_EXPR] = &op_minus;
 //  irange_tree[NOP_EXPR] = &op_cast;
 //  irange_tree[CONVERT_EXPR] = &op_cast;
 

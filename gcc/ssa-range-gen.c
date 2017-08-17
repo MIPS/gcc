@@ -503,5 +503,13 @@ ranger::get_range_from_stmt (gimple *stmt, irange& r, tree name,
   if (!rn.valid())
     return false;
 
+  /* If the lhs has no range, ie , it cannot be executed, then the query
+     has no range either.  */
+  if (lhs.empty_p ())
+    {
+      r = lhs;
+      return true;
+    }
+
   return get_range (rn, r, name, lhs);
 }
