@@ -952,10 +952,31 @@ bool
 operator_cast::op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const
 {
-  /* Unary cast is simply the old range converted to the cast type. 
-     lhs = (op2-type) op1  */
-  r = lhs;
+  const_tree lhs_type = lhs.get_type ();
+  const_tree op2_type = op2.get_type ();
+  irange op_type;
+
+  /* if the precision of the LHS is smaller than the precision of the RHS,
+     then there would be truncation of the value on the RHS, and so we can tell
+     nothing about it.  */
+  if (TYPE_PRECISION (lhs_type) < TYPE_PRECISION (op2_type))
+    {
+      r.set_range_for_type (op2_type);
+      return true;
+    }
+
+  /* Given that the LHS precision is not less than the rhs precision,
+     The LHS range is resticted to the range of the RHS by this assignment.  */
+  op_type.set_range_for_type (op2_type);
+  op_type.cast (lhs_type);
+
+  /* op_type is the range of the RHS cast to the type of the LHS. Intersecting
+     this with the actual LHS range will produce the range of the RHS.  */
+  r = irange_intersect (lhs, op_type);
+
+  /* Cast the truncated range of the LHS back to the type on the RHS.  */
   r.cast (op2.get_type ());
+
   return true;
 }
 
@@ -1399,8 +1420,9 @@ irange_op_table::irange_op_table ()
 
   irange_tree[PLUS_EXPR] = &op_plus;
   irange_tree[MINUS_EXPR] = &op_minus;
-//  irange_tree[NOP_EXPR] = &op_cast;
-//  irange_tree[CONVERT_EXPR] = &op_cast;
+  
+  irange_tree[NOP_EXPR] = &op_cast;
+  irange_tree[CONVERT_EXPR] = &op_cast;
 
   irange_tree[TRUTH_AND_EXPR] = &op_logical_and;
   irange_tree[TRUTH_OR_EXPR] = &op_logical_or;
