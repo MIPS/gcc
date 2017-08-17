@@ -166,14 +166,20 @@ get_bool_state (irange& r, const irange& lhs, const_tree val_type)
   // there are multiple types of boolean nodes.  "const cool" fer instance
   // gcc_assert (lhs.valid_p () && lhs.get_type () == boolean_type_node);
 
-  if (wi::eq_p (lhs.upper_bound (), 0))
+  // if the bounds arent the same, then its not a constant.  */
+  if (!wi::eq_p (lhs.upper_bound (), lhs.lower_bound ()))
+    {
+      r.set_range_for_type (val_type);
+      return BRS_FULL;
+    }
+
+  irange zero;
+  set_boolean_range_zero (zero);
+
+  if (lhs == zero)
     return BRS_FALSE;
 
-  if (wi::eq_p (lhs.lower_bound (), 1))
-    return BRS_TRUE;
-
-  r.set_range_for_type (val_type);
-  return BRS_FULL;
+  return BRS_TRUE;
 }
 
 
@@ -1118,7 +1124,8 @@ operator_bitwise_and::fold_range (irange& r, const irange& lh,
 				  const irange& rh) const
 {
   /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
+  if (types_compatible_p (const_cast <tree> (lh.get_type ()),
+			  boolean_type_node))
     return op_logical_and.fold_range (r, lh, rh);
 
   /* For now do nothing with bitwise AND of iranges, just return the type. */
@@ -1131,7 +1138,8 @@ operator_bitwise_and::combine_range (irange& r, const irange& lh,
 				     const irange& rh) const
 {
   /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
+  if (types_compatible_p (const_cast <tree> (lh.get_type ()),
+			  boolean_type_node))
     return op_logical_and.combine_range (r, lh, rh);
 
   /* If its not logical, we dont need to combine anything.  */
@@ -1143,7 +1151,8 @@ operator_bitwise_and::op1_irange (irange& r, const irange& lhs,
 				  const irange& op2) const
 {
   /* If this is really a logical operation, call that.  */
-  if (lhs.get_type () == boolean_type_node)
+  if (types_compatible_p (const_cast <tree> (lhs.get_type ()),
+			  boolean_type_node))
     return op_logical_and.op1_irange (r, lhs, op2);
 
   /* For now do nothing with bitwise AND of iranges, just return the type. */
