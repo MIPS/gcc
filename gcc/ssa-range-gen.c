@@ -459,17 +459,23 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
       stmt.handler ()->op1_irange (op1_range, lhs, r1);
       stmt.handler ()->op2_irange (op2_range, lhs, r2);
 
+      /* When combining ranges, we are actually passing a different type
+         through the operands of a logical. That means if we can't determine
+	 a value for an operand, we actually want the range for the type of
+	 the name we are looking for, not the type of the actual operand.
+	 the get_range_from_stmt query will return a range of that type, and 
+	 we need the samein order to combine them.  */
       if (op1_in_chain)
         get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r1, name, op1_range);
       else
-        get_operand_range (r1, op1);
+        get_operand_range (r1, TREE_TYPE (name));
 
       if (op2_in_chain)
         get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r2, name, op2_range);
       else
-        get_operand_range (r2, op2);
+        get_operand_range (r2, TREE_TYPE (name));
 
-      /* Now call the combine routine with the 2 real ranges.  */
+      /* Now call the combine routine with the 2 ranges.  */
       return stmt.handler ()->combine_range (r, r1, r2);
     }
 
@@ -484,7 +490,7 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
   stmt.handler ()->op2_irange (op2_range, lhs, op1_range);
   return get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r, name, op2_range);
 }
-
+ 
 /* Given the expression in STMT, return an evaluation in R for NAME. */
 bool
 ranger::get_range_from_stmt (gimple *stmt, irange& r, tree name,
