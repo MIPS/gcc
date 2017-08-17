@@ -965,16 +965,21 @@ operator_cast::op1_irange (irange& r, const irange& lhs,
       return true;
     }
 
-  /* Given that the LHS precision is not less than the rhs precision,
-     The LHS range is resticted to the range of the RHS by this assignment.  */
-  op_type.set_range_for_type (op2_type);
-  op_type.cast (lhs_type);
+  /* If the LHS precision is greater than the rhs precision, the LHS range
+     is resticted to the range of the RHS by this assignment.  */
+  if (TYPE_PRECISION (lhs_type) > TYPE_PRECISION (op2_type))
+    {
+      /* Cast the range of the RHS to the type of the LHS. */
+      op_type.set_range_for_type (op2_type);
+      op_type.cast (lhs_type);
 
-  /* op_type is the range of the RHS cast to the type of the LHS. Intersecting
-     this with the actual LHS range will produce the range of the RHS.  */
-  r = irange_intersect (lhs, op_type);
+      /* Intersect this with the LHS range will produce the RHS range.  */
+      r = irange_intersect (lhs, op_type);
+    }
+  else
+    r = lhs;
 
-  /* Cast the truncated range of the LHS back to the type on the RHS.  */
+  /* Cast the calculated range to the type of the RHS.  */
   r.cast (op2.get_type ());
 
   return true;
