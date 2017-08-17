@@ -446,15 +446,21 @@
   "@internal
    A microMIPS memory operand 1 for use with the LWP/SWP insns."
   (and (match_code "mem")
-       (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")))
+       (ior (and (match_test "TARGET_MICROMIPS")
+		 (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")))))
+
 
 (define_memory_constraint "ZP"
   "@internal
    A microMIPS memory operand 2 for use with the LWP/SWP insns.
    It is a 12-bit signed offset + one consecutive element."
   (and (match_code "mem")
-       (match_test "umips_12bit_offset_address_memop2_p (XEXP (op, 0),
-							mode)")))
+       (ior (and (match_test "TARGET_MICROMIPS")
+		 (match_test "umips_12bit_offset_address_memop2_p (XEXP (op, 0), mode)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "mips_9bit_offset_address_memop2_p (XEXP (op, 0), mode)")))))
 
 (define_memory_constraint "ZR"
  "@internal

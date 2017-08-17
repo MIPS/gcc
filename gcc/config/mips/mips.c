@@ -3965,6 +3965,22 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
+/* Return true if X is a legitimate address with a 9-bit offset + one
+   consecutive element.
+   MODE is the mode of the value being accessed.  */
+
+bool
+mips_9bit_offset_address_memop2_p (rtx x, machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && CONST_INT_P (addr.offset)
+	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)
+				 - GET_MODE_SIZE (mode)));
+}
+
 /* Return the number of instructions needed to load constant X,
    assuming that BASE_INSN_LENGTH is the length of one instruction.
    Return 0 if X isn't a valid constant.  */
