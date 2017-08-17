@@ -612,7 +612,8 @@ irange::union_ (const wide_int &x, const wide_int &y)
 irange &
 irange::union_ (const irange &r)
 {
-  gcc_assert (type == r.type);
+  gcc_assert (types_compatible_p (const_cast <tree> (type),
+				  const_cast <tree> (r.type)));
 
   if (empty_p ())
     {
@@ -664,7 +665,8 @@ irange::intersect (const wide_int &x, const wide_int &y)
 irange &
 irange::intersect (const irange &r)
 {
-  gcc_assert (type == r.type);
+  gcc_assert (types_compatible_p (const_cast <tree> (type),
+				  const_cast <tree> (r.type)));
   irange orig_range (*this);
 
   /* Intersection with an empty range is an empty range.  */
