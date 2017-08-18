@@ -3318,7 +3318,8 @@ mips_string_constant_p (rtx x)
       && GET_CODE (XEXP (x, 0)) == PLUS)
     x = XEXP (XEXP (x, 0), 0);
 
-  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF)
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
+      && !flag_pic)
     return true;
 
   if (GET_CODE (x) == SYMBOL_REF
