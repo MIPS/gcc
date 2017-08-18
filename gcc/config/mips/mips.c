@@ -6831,6 +6831,9 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
 	    return "move\t%0,%+";
 
+	  // @tmt we need to do this for SYMBOL_LAPC_NANO and SYMBOL_LAPC48_NANO
+	  // for data accesses, when they get split into
+	  // aluipc %pcrel_hi + {l,s}X %lo.
 	  if (TARGET_NANOMIPS && flag_pic
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
@@ -10681,11 +10684,11 @@ mips_init_relocs (void)
 
 	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
 
-	  mips_hi_relocs[SYMBOL_LAPC_NANO] = "";
+	  mips_hi_relocs[SYMBOL_LAPC_NANO] = "%pcrel_hi(";
 	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "";
 	  mips_split_p[SYMBOL_LAPC_NANO] = true;
 
-	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "";
+	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "%pcrel_hi(";
 	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";
 	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
 
