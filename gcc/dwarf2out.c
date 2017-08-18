@@ -10648,6 +10648,28 @@ output_die (dw_die_ref die)
 			 (unsigned long) die->die_offset);
 }
 
+/* Output the dwarf version number.  */
+
+static void
+output_dwarf_version ()
+{
+  /* ??? For now, if -gdwarf-6 is specified, we output version 5 with
+     views in loclist.  That will change eventually.  */
+  if (dwarf_version == 6)
+    {
+      static bool once;
+      if (!once)
+	{
+	  warning (0,
+		   "-gdwarf-6 is output as version 5 with incompatibilities");
+	  once = true;
+	}
+      dw2_asm_output_data (2, 5, "DWARF version number");
+    }
+  else
+    dw2_asm_output_data (2, dwarf_version, "DWARF version number");
+}
+
 /* Output the compilation unit that appears at the beginning of the
    .debug_info section, and precedes the DIE descriptions.  */
 
@@ -10664,7 +10686,7 @@ output_compilation_unit_header (enum dwarf_unit_type ut)
 			   "Length of Compilation Unit Info");
     }
 
-  dw2_asm_output_data (2, dwarf_version, "DWARF version number");
+  output_dwarf_version ();
   if (dwarf_version >= 5)
     {
       const char *name;
@@ -10853,7 +10875,7 @@ output_skeleton_debug_sections (dw_die_ref comp_unit,
                        - DWARF_INITIAL_LENGTH_SIZE
                        + size_of_die (comp_unit),
                       "Length of Compilation Unit Info");
-  dw2_asm_output_data (2, dwarf_version, "DWARF version number");
+  output_dwarf_version ();
   if (dwarf_version >= 5)
     {
       dw2_asm_output_data (1, DW_UT_skeleton, "DW_UT_skeleton");
@@ -11152,7 +11174,7 @@ output_pubnames (vec<pubname_entry, va_gc> *names)
     }
 
   /* Version number for pubnames/pubtypes is independent of dwarf version.  */
-  dw2_asm_output_data (2, 2, "DWARF Version");
+  dw2_asm_output_data (2, 2, "DWARF pubnames/pubtypes version");
 
   if (dwarf_split_debug_info)
     dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_info_section_label,
@@ -11234,7 +11256,7 @@ output_aranges (void)
     }
 
   /* Version number for aranges is still 2, even up to DWARF5.  */
-  dw2_asm_output_data (2, 2, "DWARF Version");
+  dw2_asm_output_data (2, 2, "DWARF aranges version");
   if (dwarf_split_debug_info)
     dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_info_section_label,
                            debug_skeleton_info_section,
@@ -11495,7 +11517,7 @@ output_rnglists (void)
   dw2_asm_output_delta (DWARF_OFFSET_SIZE, l2, l1,
 			"Length of Range Lists");
   ASM_OUTPUT_LABEL (asm_out_file, l1);
-  dw2_asm_output_data (2, dwarf_version, "DWARF Version");
+  output_dwarf_version ();
   dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Address Size");
   dw2_asm_output_data (1, 0, "Segment Size");
   /* Emit the offset table only for -gsplit-dwarf.  If we don't care
@@ -12285,7 +12307,7 @@ output_line_info (bool prologue_only)
 
   ASM_OUTPUT_LABEL (asm_out_file, l1);
 
-  dw2_asm_output_data (2, dwarf_version, "DWARF Version");
+  output_dwarf_version ();
   if (dwarf_version >= 5)
     {
       dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Address Size");
@@ -30559,7 +30581,7 @@ dwarf2out_finish (const char *)
 	  dw2_asm_output_delta (DWARF_OFFSET_SIZE, l2, l1,
 			    "Length of Location Lists");
 	  ASM_OUTPUT_LABEL (asm_out_file, l1);
-	  dw2_asm_output_data (2, dwarf_version, "DWARF Version");
+	  output_dwarf_version ();
 	  dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Address Size");
 	  dw2_asm_output_data (1, 0, "Segment Size");
 	  dw2_asm_output_data (4, dwarf_split_debug_info ? loc_list_idx : 0,
