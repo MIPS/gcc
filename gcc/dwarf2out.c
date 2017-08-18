@@ -18678,6 +18678,7 @@ static inline void
 add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
 			     dw_loc_list_ref descr)
 {
+  bool check_no_locviews = true;
   if (descr == 0)
     return;
   if (single_element_loc_list_p (descr))
@@ -18688,8 +18689,14 @@ add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
       gcc_assert (descr->ll_symbol);
       if (attr_kind == DW_AT_location && descr->vl_symbol
 	  && dwarf2out_locviews_in_attribute ())
-	add_AT_view_list (die, DW_AT_GNU_locviews);
+	{
+	  add_AT_view_list (die, DW_AT_GNU_locviews);
+	  check_no_locviews = false;
+	}
     }
+
+  if (check_no_locviews)
+    gcc_assert (!get_AT (die, DW_AT_GNU_locviews));
 }
 
 /* Add DW_AT_accessibility attribute to DIE if needed.  */
@@ -29522,7 +29529,11 @@ resolve_addr (dw_die_ref die)
 	{
 	  gcc_checking_assert (a->dw_attr == DW_AT_GNU_locviews);
 	  gcc_checking_assert (dwarf2out_locviews_in_attribute ());
-	  if (!view_list_to_loc_list_val_node (&a->dw_attr_val))
+	  dw_val_node *llnode
+	    = view_list_to_loc_list_val_node (&a->dw_attr_val);
+	  /* If we no longer have a loclist, or it no longer needs
+	     views, drop this attribute.  */
+	  if (!llnode || !llnode->v.val_loc_list->vl_symbol)
 	    {
 	      remove_AT (die, a->dw_attr);
 	      ix--;
@@ -30167,6 +30178,8 @@ optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type *htab)
   dw_attr_node *a;
   unsigned ix;
   dw_loc_list_struct **slot;
+  bool drop_locviews = false;
+  bool has_locviews = false;
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     if (AT_class (a) == dw_val_class_loc_list)
@@ -30177,10 +30190,32 @@ optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type *htab)
 	hash_loc_list (list);
 	slot = htab->find_slot_with_hash (list, list->hash, INSERT);
 	if (*slot == NULL)
-	  *slot = list;
+	  {
+	    *slot = list;
+	    if (loc_list_has_views (list))
+	      gcc_assert (list->vl_symbol);
+	    else if (list->vl_symbol)
+	      {
+		drop_locviews = true;
+		list->vl_symbol = NULL;
+	      }
+	  }
 	else
-          a->dw_attr_val.v.val_loc_list = *slot;
+	  {
+	    if (list->vl_symbol && !(*slot)->vl_symbol)
+	      drop_locviews = true;
+	    a->dw_attr_val.v.val_loc_list = *slot;
+	  }
       }
+    else if (AT_class (a) == dw_val_class_view_list)
+      {
+	gcc_checking_assert (a->dw_attr == DW_AT_GNU_locviews);
+	has_locviews = true;
+      }
+
+
+  if (drop_locviews && has_locviews)
+    remove_AT (die, DW_AT_GNU_locviews);
 
   FOR_EACH_CHILD (die, c, optimize_location_lists_1 (c, htab));
 }
