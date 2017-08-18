@@ -160,7 +160,7 @@ irange::operator== (const irange &r) const
   if (type != r.type || nitems != r.nitems || overflow != r.overflow)
     return false;
   for (unsigned i = 0; i < nitems; ++i)
-    if (bounds[i] != r.bounds[i])
+    if (!wi::eq_p (bounds[i], r.bounds[i]))
       return false;
   return true;
 }
