@@ -23533,7 +23533,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       ASM_GENERATE_INTERNAL_LABEL (label, ied->label_pfx, ied->label_num);
       add_AT_lbl_id (die, DW_AT_entry_pc, label);
 
-      if (debug_variable_location_views && !RESETTING_VIEW_P (ied->view))
+      if (debug_variable_location_views && !ZERO_VIEW_P (ied->view))
 	{
 	  if (!output_asm_line_debug_info ())
 	    add_AT_unsigned (die, DW_AT_GNU_entry_view, ied->view);
@@ -26926,7 +26926,8 @@ dwarf2out_inline_entry (tree block)
   /* Can the entry point ever not be at the beginning of an
      unfragmented lexical block?  */
   else if (!(BLOCK_FRAGMENT_CHAIN (block)
-	     || (cur_line_info_table && !RESETTING_VIEW_P (cur_line_info_table))))
+	     || (cur_line_info_table
+		 && !ZERO_VIEW_P (cur_line_info_table->view))))
     return;
 
   if (!inline_entry_data_table)
