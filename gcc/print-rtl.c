@@ -1804,9 +1804,21 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
 
     case DEBUG_INSN:
       {
-	if (!INSN_VAR_LOCATION_DECL (x))
+	if (MARKER_DEBUG_INSN_P (x))
 	  {
-	    pp_string (pp, "debug begin stmt marker");
+	    switch (INSN_DEBUG_MARKER_KIND (x))
+	      {
+	      case NOTE_INSN_BEGIN_STMT:
+		pp_string (pp, "debug begin stmt marker");
+		break;
+
+	      case NOTE_INSN_INLINE_ENTRY:
+		pp_string (pp, "debug inline entry marker");
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
 	    break;
 	  }
 
