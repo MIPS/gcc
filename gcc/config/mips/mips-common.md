@@ -4712,14 +4712,6 @@
 
 ;; nanoMIPS PC-relative PIC expansions:
 
-(define_insn "*lea_2Baligned_pcrel_pic_nano<mode>"
-  [(set (match_operand:P 0 "register_operand")
-	(match_operand:P 1 "pcrel_nano_operand"))]
-  "TARGET_NANOMIPS && flag_pic"
-  "lapc\t%0,%1"
-  [(set_attr "compression" "nanomips32")
-   (set_attr "mode" "<MODE>")])
-
 ;; @tmt reload_completed?
   ;; "TARGET_NANOMIPS && flag_pic && reload_completed"
 (define_insn "*load_pcrel32_pic_nanosi"
@@ -4747,6 +4739,15 @@
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "<MODE>")])
+
+(define_insn "*lapc_var_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "lapc_nano_operand" "")))]
+  "TARGET_NANOMIPS && flag_pic"
+  "lapc\t%0,%2 # jourard"
+  [(set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
 
 (define_insn "*lapc48_var_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")

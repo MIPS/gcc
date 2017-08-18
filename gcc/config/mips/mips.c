@@ -3207,8 +3207,9 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && context == SYMBOL_CONTEXT_MEM)
 		return SYMBOL_PCREL32_NANO;
 	      else if (symbol_pic_model == NANO_PIC_AUTO
-		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2)
-		return SYMBOL_PCREL_NANO;
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+		       && context == SYMBOL_CONTEXT_LEA)
+		return SYMBOL_LAPC_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
 		       && context == SYMBOL_CONTEXT_LEA)
 		return SYMBOL_LAPC48_NANO;
@@ -3378,8 +3379,8 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_LAPC48_FUNC_NANO:
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_LAPC_NANO:
     case SYMBOL_LAPC48_NANO:
-    case SYMBOL_PCREL_NANO:
     case SYMBOL_PCREL_4K_NANO:
     case SYMBOL_PCREL32_NANO:
       /* Allow constant pool references to be converted to LABEL+CONSTANT.
@@ -3472,6 +3473,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 		 : 2;
 
     case SYMBOL_GPREL32_NANO:
+    case SYMBOL_LAPC_NANO:
     case SYMBOL_LAPC48_NANO:
     case SYMBOL_PCREL_4K_NANO:
       if (mode == MAX_MACHINE_MODE)
@@ -3486,12 +3488,6 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 
     case SYMBOL_LAPC48_FUNC_NANO:
       return 1;
-
-    case SYMBOL_PCREL_NANO:
-      if (mode == MAX_MACHINE_MODE)
-	return 1;
-
-      return 0;
 
     case SYMBOL_PC_RELATIVE:
       /* PC-relative constants can be only be used with ADDIUPC,
@@ -4728,6 +4724,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		*low_out = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		break;
 
+	      case SYMBOL_LAPC_NANO:
 	      case SYMBOL_LAPC48_NANO:
 		*low_out = gen_rtx_LO_SUM (Pmode, temp, addr);
 		break;
@@ -6838,6 +6835,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
 	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
+		  || symbol_type == SYMBOL_LAPC_NANO
 		  || symbol_type == SYMBOL_LAPC48_NANO
 		  || symbol_type == SYMBOL_PCREL_4K_NANO
 		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
@@ -10675,8 +10673,6 @@ mips_init_relocs (void)
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
 	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
 
-	  mips_lo_relocs[SYMBOL_PCREL_NANO] = "%pcrel(";
-
 	  mips_lo_relocs[SYMBOL_PCREL32_NANO] = "%pcrel32(";
 
 	  mips_hi_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%pcrel_hi(";
@@ -10684,6 +10680,10 @@ mips_init_relocs (void)
 	  mips_split_p[SYMBOL_PCREL_SPLIT_NANO] = true;
 
 	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
+
+	  mips_hi_relocs[SYMBOL_LAPC_NANO] = "";
+	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "";
+	  mips_split_p[SYMBOL_LAPC_NANO] = true;
 
 	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "";
 	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";
