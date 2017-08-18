@@ -9875,6 +9875,7 @@ dwarf2out_maybe_output_loclist_view_pair (dw_loc_list_ref curr)
   dw2_asm_output_data (1, DW_LLE_view_pair,
 		       "DW_LLE_view_pair");
 
+# if DWARF2_ASM_VIEW_DEBUG_INFO
   if (ZERO_VIEW_P (curr->vbegin))
     dw2_asm_output_data_uleb128 (0, "Location view begin");
   else
@@ -9892,7 +9893,11 @@ dwarf2out_maybe_output_loclist_view_pair (dw_loc_list_ref curr)
       ASM_GENERATE_INTERNAL_LABEL (label, "LVU", curr->vend);
       dw2_asm_output_symname_uleb128 (label, "Location view end");
     }
-#endif
+# else /* !DWARF2_ASM_VIEW_DEBUG_INFO */
+  dw2_asm_output_data_uleb128 (curr->vbegin, "Location view begin");
+  dw2_asm_output_data_uleb128 (curr->vend, "Location view end");
+# endif /* DWARF2_ASM_VIEW_DEBUG_INFO */
+#endif /* DW_LLE_view_pair */
 
   return;
 }
