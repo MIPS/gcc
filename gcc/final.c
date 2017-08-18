@@ -3251,7 +3251,7 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
 	  gcc_checking_assert ((UNKNOWN_LOCATION
 				== LOCATION_LOCUS (NOTE_MARKER_LOCATION
 						   (insn)))
-			       || (BUILTIN_LOCATION
+			       || (BUILTINS_LOCATION
 				   == LOCATION_LOCUS (NOTE_MARKER_LOCATION
 						      (insn))));
 	  return false;
