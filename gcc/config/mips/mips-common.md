@@ -4745,7 +4745,7 @@
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
 		  (match_operand:P 2 "lapc_nano_operand" "")))]
   "TARGET_NANOMIPS && flag_pic"
-  "lapc\t%0,%2 # jourard"
+  "lapc\t%0,%2"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
