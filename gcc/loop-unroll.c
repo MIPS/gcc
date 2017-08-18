@@ -2031,6 +2031,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
 
 	  while (!INSN_P (orig_insn)
 		 || (BIND_DEBUG_INSN_P (orig_insn)
+		     && INSN_VAR_LOCATION_DECL (orig_insn)
 		     && (TREE_CODE (INSN_VAR_LOCATION_DECL (orig_insn))
 			 == LABEL_DECL)))
             orig_insn = NEXT_INSN (orig_insn);
