@@ -817,9 +817,7 @@ rtx_writer::print_rtx (const_rtx in_rtx)
 #ifndef GENERATOR_FILE
       if (GET_CODE (in_rtx) == VAR_LOCATION)
 	{
-	  if (!PAT_VAR_LOCATION_DECL (in_rtx))
-	    fputs (" <begin stmt marker>", m_outfile);
-	  else if (TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) == STRING_CST)
+	  if (TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) == STRING_CST)
 	    fputs (" <debug string placeholder>", m_outfile);
 	  else
 	    print_mem_expr (m_outfile, PAT_VAR_LOCATION_DECL (in_rtx));
