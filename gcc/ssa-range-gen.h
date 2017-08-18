@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 class ranger
 {
   ssa_define_chain& def_chain;
+  bool combine_range (range_stmt& stmt, irange& r, tree name, const irange& lhs,
+		      bool op1_in_chain, bool op2_in_chain);
   bool get_operand_range (irange& r, tree op);
   bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
 public:

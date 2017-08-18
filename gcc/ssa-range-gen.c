@@ -368,6 +368,130 @@ gori::get_range (irange& r, tree name, basic_block bb)
 
 
 bool
+ranger::combine_range (range_stmt& stmt, irange& r, tree name,
+		       const irange& lhs, bool op1_in_chain, bool op2_in_chain)
+{
+  tree op1, op2;
+  irange r1, r2;
+  irange op1_range, op2_range;
+
+  irange bool_zero, bool_one;
+  irange op1_true, op1_false, op2_true, op2_false;
+
+  /* Look for boolean and/or condition.  */
+  switch (stmt.get_code ())
+    {
+      case TRUTH_AND_EXPR:
+      case TRUTH_OR_EXPR:
+        break;
+
+      case BIT_AND_EXPR:
+      case BIT_IOR_EXPR:
+        if (!types_compatible_p (TREE_TYPE (stmt.operand1 ()),
+				 boolean_type_node))
+	  return false;
+	break;
+
+      default:
+        return false;
+    }
+
+
+  /* If the LHS is TRUE OR FALSE, then we cant really tell anything.  */
+  if (!wi::eq_p (lhs.lower_bound(), lhs.upper_bound()))
+    {
+      r.set_range_for_type (TREE_TYPE (name));
+      return true;
+    }
+
+  set_boolean_range_zero (bool_zero);
+  set_boolean_range_one (bool_one);
+
+  op1 = stmt.operand1 ();
+  op2 = stmt.operand2 ();
+
+  /* The false path is not always a simple inversion of the true side.
+     Calulate ranges for true and false on both sides. */
+
+  if (op1_in_chain)
+    {
+      get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_true, name, bool_one);
+      get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_false, name, bool_zero);
+    }
+  else
+    {
+      get_operand_range (op1_true, TREE_TYPE (name));
+      get_operand_range (op1_false, TREE_TYPE (name));
+    }
+
+  if (op2_in_chain)
+    {
+      get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_true, name, bool_one);
+      get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_false, name, bool_zero);
+    }
+  else
+    {
+      get_operand_range (op2_true, TREE_TYPE (name));
+      get_operand_range (op2_false, TREE_TYPE (name));
+    }
+
+  /* Now combine based on the result.  */
+  switch (stmt.get_code ())
+    {
+
+      /* A logical AND of two ranges is executed when we are walking forward
+	 with ranges that have been determined.   x_8 is an unsigned char.
+	       b_1 = x_8 < 20
+	       b_2 = x_8 > 5
+	       c_2 = b_1 && b_2
+	 if we are looking for the range of x_8, the ranges on each side 
+	 will be:   b_1 carries x_8 = [0, 19],   b_2 carries [6, 255]
+	 the result of the AND is the intersection of the 2 ranges, [6, 255]. */
+      case TRUTH_AND_EXPR:
+      case BIT_AND_EXPR:
+        if (lhs != bool_zero)
+	  r = irange_intersect (op1_true, op2_true);
+	else
+	  {
+	    irange ff = irange_intersect (op1_false, op2_false);
+	    irange tf = irange_intersect (op1_true, op2_false);
+	    irange ft = irange_intersect (op1_false, op2_true);
+	    r = irange_union (ff, tf);
+	    r.union_ (ft);
+	  }
+        break;
+
+      /* A logical OR of two ranges is executed when we are walking forward with
+	 ranges that have been determined.   x_8 is an unsigned char.
+	       b_1 = x_8 > 20
+	       b_2 = x_8 < 5
+	       c_2 = b_1 || b_2
+	 if we are looking for the range of x_8, the ranges on each side
+	 will be:   b_1 carries x_8 = [21, 255],   b_2 carries [0, 4]
+	 the result of the OR is the union_ of the 2 ranges, [0,4][21,255].  */
+      case TRUTH_OR_EXPR:
+      case BIT_IOR_EXPR:
+        if (lhs == bool_zero)
+	  r = irange_intersect (op1_false, op2_false);
+	else
+	  {
+	    irange tt = irange_intersect (op1_true, op2_true);
+	    irange tf = irange_intersect (op1_true, op2_false);
+	    irange ft = irange_intersect (op1_false, op2_true);
+	    r = irange_union (tt, tf);
+	    r.union_ (ft);
+	  }
+	break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  return true;
+}
+
+
+bool
 ranger::get_operand_range (irange& r, tree op)
 {
   /* This check allows unary operations to be handled without having to 
@@ -405,10 +529,8 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
 			     const irange& lhs)
 {
   range_stmt op_stmt;
-  irange op1_range, op2_range, tmp;
-  irange r1, r2;
+  irange op1_range, op2_range;
   tree op1, op2;
-  tree op1_type, op2_type;
   bool op1_in_chain, op2_in_chain;
 
   op1 = stmt.operand1 ();
@@ -439,45 +561,13 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
   if (!op1_in_chain && !op2_in_chain)
     return false;
   
-  /* Look for the case where both the result and the operands are boolean
-     types.  THIs indicates a logical expression such as (a = b && c), and
-     these are handled normally for operand adjustment, but they need to look
-     at the result when ti comes back for folding. */
+  /* Check for boolean cases which require developing ranges and combining.  */
+  if (combine_range (stmt, r, name, lhs, op1_in_chain, op2_in_chain))
+    return true;
 
-  op1_type = TREE_TYPE (op1);
-  if (TYPE_P (op2))
-    op2_type = op2;
-  else
-    op2_type = TREE_TYPE (op2);
-
-  /* Check to see if there is a combine handler. If there is, recursively
-     resolve the operands and then cobine them.  */
-  r1.set_range_for_type (op1_type);
-  r2.set_range_for_type (op2_type);
-  if (stmt.handler ()->combine_range (r, r1, r2))
-    {
-      stmt.handler ()->op1_irange (op1_range, lhs, r1);
-      stmt.handler ()->op2_irange (op2_range, lhs, r2);
-
-      /* When combining ranges, we are actually passing a different type
-         through the operands of a logical. That means if we can't determine
-	 a value for an operand, we actually want the range for the type of
-	 the name we are looking for, not the type of the actual operand.
-	 the get_range_from_stmt query will return a range of that type, and 
-	 we need the samein order to combine them.  */
-      if (op1_in_chain)
-        get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r1, name, op1_range);
-      else
-        get_operand_range (r1, TREE_TYPE (name));
-
-      if (op2_in_chain)
-        get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r2, name, op2_range);
-      else
-        get_operand_range (r2, TREE_TYPE (name));
-
-      /* Now call the combine routine with the 2 ranges.  */
-      return stmt.handler ()->combine_range (r, r1, r2);
-    }
+  /* Don't look thru expressions with more than one in_chain argument.  */
+  if (op1_in_chain && op2_in_chain)
+    return false;
 
   if (op1_in_chain)
     {

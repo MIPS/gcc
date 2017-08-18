@@ -136,15 +136,6 @@ irange_operator::op2_irange (irange& r ATTRIBUTE_UNUSED,
   return false;
 }
 
-bool
-irange_operator::combine_range (irange& r ATTRIBUTE_UNUSED,
-			        const irange& lhs ATTRIBUTE_UNUSED,
-			        const irange& op1 ATTRIBUTE_UNUSED) const
-{
-  return false;
-}
-
-
 /*  -----------------------------------------------------------------------  */
 
 enum bool_range_state { BRS_FALSE, BRS_TRUE, BRS_EMPTY, BRS_FULL };
@@ -1000,8 +991,6 @@ class operator_logical_and : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1014,22 +1003,6 @@ operator_logical_and::dump (FILE *f) const
   fprintf (f, " && ");
 }
 
-
-/* A logical AND of two ranges is executed when we are walking forward with
-   ranges that have been determined.   x_8 is an unsigned char.
-	 b_1 = x_8 < 20
-	 b_2 = x_8 > 5
-	 c_2 = b_1 && b_2
-   if we are looking for the range of x_8, the ranges on each side of the AND
-   will be:   b_1 carries x_8 = [0, 19],   b_2 carries [6, 255]
-   the result of the AND is the intersection of the 2 ranges, [6, 255]. */
-bool
-operator_logical_and::combine_range (irange& r, const irange& lh,
-				     const irange& rh) const
-{
-  r = irange_intersect (lh, rh);
-  return true;
-}
 
 bool
 operator_logical_and::fold_range (irange& r, const irange& lh,
@@ -1096,8 +1069,6 @@ class operator_bitwise_and : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1134,19 +1105,6 @@ operator_bitwise_and::fold_range (irange& r, const irange& lh,
 }
 
 bool
-operator_bitwise_and::combine_range (irange& r, const irange& lh,
-				     const irange& rh) const
-{
-  /* If this is really a logical operation, call that.  */
-  if (types_compatible_p (const_cast <tree> (lh.get_type ()),
-			  boolean_type_node))
-    return op_logical_and.combine_range (r, lh, rh);
-
-  /* If its not logical, we dont need to combine anything.  */
-  return false;
-}
-
-bool
 operator_bitwise_and::op1_irange (irange& r, const irange& lhs,
 				  const irange& op2) const
 {
@@ -1173,8 +1131,6 @@ class operator_logical_or : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1188,25 +1144,9 @@ operator_logical_or::dump (FILE *f) const
 }
 
 
-/* A logical OR of two ranges is executed when we are walking forward with
-   ranges that have been determined.   x_8 is an unsigned char.
-	 b_1 = x_8 > 20
-	 b_2 = x_8 < 5
-	 c_2 = b_1 || b_2
-   if we are looking for the range of x_8, the ranges on each side of the OR
-   will be:   b_1 carries x_8 = [21, 255],   b_2 carries [0, 4]
-   the result of the OR is the union_ of the 2 ranges, [0,4][21,255].  */
 bool
 operator_logical_or::fold_range (irange& r, const irange& lh,
 				  const irange& rh) const
-{
-  r = irange_union (lh, rh);
-  return true;
-}
-
-bool
-operator_logical_or::combine_range (irange& r, const irange& lh,
-				    const irange& rh) const
 {
   r = irange_union (lh, rh);
   return true;
@@ -1244,8 +1184,6 @@ class operator_bitwise_or : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1279,20 +1217,6 @@ operator_bitwise_or::fold_range (irange& r, const irange& lh,
   r.set_range_for_type (lh.get_type ());
   return true;
 }
-
-bool
-operator_bitwise_or::combine_range (irange& r, const irange& lh,
-				    const irange& rh) const
-{
-  /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
-    return op_logical_or.combine_range (r, lh, rh);
-
-  /* If it isnt a logical op, no combining necessary.  */
-  return false;
-}
-
-
 
 bool
 operator_bitwise_or::op1_irange (irange& r, const irange& lhs,

@@ -66,12 +66,6 @@ public:
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
 			   const irange& op1) const;
-
-  /* If calculating a range through this operation requires resolving ranges
-     and possibly combining them, this function is required to return true.
-     This is typically for logical operations.  */
-  virtual bool combine_range (irange& r, const irange& op1,
-			      const irange& op2) const;
 };
 
 extern irange_operator *irange_op_handler(enum tree_code code);
