@@ -2533,10 +2533,10 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  gcc_checking_assert (cfun->debug_nonbind_markers);
 	  if (!DECL_IGNORED_P (current_function_decl))
 	    {
+	      if (!notice_source_line (insn, NULL))
+		break;
 	      (*debug_hooks->inline_entry) (LOCATION_BLOCK
 					    (NOTE_MARKER_LOCATION (insn)));
-	      if (!notice_source_line (insn, NULL))
-		gcc_unreachable ();
 	      goto output_source_line;
 	    }
 	  break;
@@ -3246,6 +3246,16 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
     {
       expanded_location xloc
 	= expand_location (NOTE_MARKER_LOCATION (insn));
+      if (xloc.line == 0)
+	{
+	  gcc_checking_assert ((UNKNOWN_LOCATION
+				== LOCATION_LOCUS (NOTE_MARKER_LOCATION
+						   (insn)))
+			       || (BUILTIN_LOCATION
+				   == LOCATION_LOCUS (NOTE_MARKER_LOCATION
+						      (insn))));
+	  return false;
+	}
       filename = xloc.file;
       linenum = xloc.line;
       columnnum = xloc.column;
