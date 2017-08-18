@@ -1,4 +1,4 @@
-/* { dg-options "-mno-gpopt addressing=absolute" } */
+/* { dg-options "-mno-gpopt addressing=absolute -march=32r6s" } */
 
 int a, b, c, d;
 

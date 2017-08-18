@@ -1,4 +1,4 @@
-/* { dg-options "-march=32r6" } */
+/* { dg-options "-march=32r6s" } */
 /* { dg-do compile } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 

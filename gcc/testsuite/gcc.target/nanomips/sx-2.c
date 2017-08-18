@@ -12,5 +12,3 @@ TEST (2, short)
 /* { dg-final { scan-assembler-times "\tshx\t" 2 } } */
 TEST (3, int)
 /* { dg-final { scan-assembler-times "\tswxs\t" 2 } } */
-TEST (4, long long)
-/* { dg-final { scan-assembler-times "\tsw\t" 4 } } */
