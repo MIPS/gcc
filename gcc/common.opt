@@ -2883,11 +2883,11 @@ Common Driver JoinedOrMissing Negative(gvms)
 Generate debug information in extended STABS format.
 
 gno-statement-frontiers
-Common Driver RejectNegative Var(debug_statement_frontiers, 0) Init(2)
+Common Driver RejectNegative Var(debug_nonbind_markers_p, 0) Init(2)
 Don't enforce progressive recommended breakpoint locations.
 
 gstatement-frontiers
-Common Driver RejectNegative Var(debug_statement_frontiers, 1)
+Common Driver RejectNegative Var(debug_nonbind_markers_p, 1)
 Emit progressive recommended breakpoint locations.
 
 gno-strict-dwarf

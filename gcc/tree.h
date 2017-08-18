@@ -1128,7 +1128,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Nonzero if is_gimple_debug() may possibly hold.  */
 #define MAY_HAVE_DEBUG_STMTS					\
-  (flag_var_tracking_assignments || debug_statement_frontiers)
+  (flag_var_tracking_assignments || debug_nonbind_markers_p)
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
@@ -1775,7 +1775,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
 #define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
 #define BLOCK_DIE(NODE) (BLOCK_CHECK (NODE)->block.die)
-
 
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
