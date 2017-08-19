@@ -37,8 +37,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-phinodes.h"
 #include "tree-inline.h"
 #include "tree-vectorizer.h"
+#include "stringpool.h"
+#include "tree-vrp.h"
+#include "tree-ssanames.h"
+#include "ssa-range-gen.h"
+#include "domwalk.h"
+
+#include "graph.h"
+#include "tree-pretty-print.h"
+#include "gimple-pretty-print.h"
 
 static int max_threaded_paths;
+
+// FIXME
+bool early_threader;
+gimple *orig_stmt;
 
 /* Simple helper to get the last statement from BB, which is assumed
    to be a control statement.   Return NULL if the last statement is
@@ -412,6 +425,14 @@ profitable_jump_thread_path (vec<basic_block, va_gc> *&path,
   return taken_edge;
 }
 
+static void
+graphme ()
+{
+  system("rm -f /tmp/base.dot");
+  print_graph_cfg("/tmp/base", cfun);
+  system("/home/aldyh/bin/dotview");
+}
+
 /* PATH is vector of blocks forming a jump threading path in reverse
    order.  TAKEN_EDGE is the edge taken from path[0].
 
@@ -423,6 +444,16 @@ convert_and_register_jump_thread_path (vec<basic_block, va_gc> *path,
 				       edge taken_edge)
 {
   vec<jump_thread_edge *> *jump_thread_path = new vec<jump_thread_edge *> ();
+
+  static int first = 1;
+  if (path->length () > 2 && first)
+    {
+      first = 0;
+      for (unsigned i = 0; i < path->length (); i++)
+	fprintf (stderr, "bb%d\t", (*path)[i]->index);
+      debug_gimple_stmt (orig_stmt);
+      graphme();
+    }
 
   /* Record the edges between the blocks in PATH.  */
   for (unsigned int j = 0; j < path->length () - 1; j++)
@@ -443,6 +474,149 @@ convert_and_register_jump_thread_path (vec<basic_block, va_gc> *path,
 
   register_jump_thread (jump_thread_path);
   --max_threaded_paths;
+}
+
+/* Walker for every path from an SSA's definition to an arbitrary BB.
+
+   Use it like this:
+
+	class my_walker : public ssa_path_walker
+	{
+	 public:
+	  my_walker (tree name, basic_block start_bb)
+	    : ssa_path_walker (name, start_bb) { }
+	  virtual void analyze_path () { do_stuff (path); }
+	}
+	my_walker (x_99, some_bb).walk ();
+ */
+
+class ssa_path_walker
+{
+ public:
+  /* The SSA name we are interested in.  */
+  tree name;
+  /* The block this NAME was defined in.  */
+  basic_block def_bb;
+  basic_block start_bb;
+  /* The path from DEF_BB to START_BB.
+
+     The path is stored in reverse since we are traversing the preds, so:
+
+	path[path.length() - 1] is DEF_BB.
+	path[0] is START_BB.
+  */
+  auto_vec<basic_block, 10> path;
+
+  ssa_path_walker (tree name, basic_block start_bb,
+		   unsigned max_path_length = 0);
+  ssa_path_walker () { gcc_unreachable (); }
+  ~ssa_path_walker ();
+  /* Find all paths from BB back to DEF_BB.  */
+  void walk () { walk_helper (start_bb); }
+  /* Callback to call on every path.  */
+  virtual void analyze_path () { }
+ private:
+  /* Visited blocks per path.  */
+  hash_set<basic_block> *visited;
+  /* Maximum path length we care about.  Set to 0 if we wish to
+     consider all paths regardless of length. */
+  unsigned max_path_length;
+  void walk_helper (basic_block bb);
+};
+
+ssa_path_walker::ssa_path_walker (tree name, basic_block start_bb,
+				  unsigned max_path_length)
+: name (name), start_bb (start_bb), max_path_length (max_path_length)
+{
+  gimple *def_stmt = SSA_NAME_DEF_STMT (name);
+  gcc_assert (def_stmt != NULL);
+  def_bb = gimple_bb (def_stmt);
+  visited = new hash_set<basic_block>;
+}
+
+ssa_path_walker::~ssa_path_walker ()
+{
+  delete visited;
+}
+
+/* Find all paths from BB back to DEF_BB.
+
+   Every time a path is found, call analyze_path() with PATH set to
+   the found path.  */
+
+void
+ssa_path_walker::walk_helper (basic_block bb)
+{
+  if (!def_bb)
+    return;
+  if (visited->add (bb))
+    return;
+  if (max_path_length && path.length () + 1 > max_path_length)
+    return;
+
+  path.safe_push (bb);
+
+  edge e;
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      /* If we reached the defining block, we've reached the top, and
+	 have a path.  */
+      if (e->src == def_bb)
+	{
+	  /* Push the DEF_BB for completeness sake.  */
+	  path.safe_push (def_bb);
+	  analyze_path ();
+	  path.pop ();
+	}
+      else
+	walk_helper (e->src);
+    }
+
+  path.pop ();
+  visited->remove (bb);
+}
+
+class range_on_path_walker : public ssa_path_walker
+{
+ public:
+  range_on_path_walker (tree name, basic_block start_bb)
+    : ssa_path_walker (name, start_bb,
+		       PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH)) { }
+  void dump_range_on_path ();
+  virtual void analyze_path ();
+};
+
+void
+range_on_path_walker::dump_range_on_path ()
+{
+  gori g;
+  irange range;
+  range.set_range_for_type (TREE_TYPE (name));
+
+  fprintf (stderr, "path: ");
+  for (unsigned i = path.length () - 1; i > 0; --i)
+    {
+      fprintf (stderr, "bb%d", path[i]->index);
+      edge e = find_edge (path[i], path[i - 1]);
+      gcc_assert (e);
+      irange r;
+      if (g.range_on_edge (r, name, e))
+	{
+	  fprintf (stderr, "(R)");
+	  range.intersect (r);
+	}
+      fprintf (stderr, " => ");
+    }
+  fprintf (stderr, "bb%d\n", path[0]->index);
+  fprintf (stderr, "\trange: ");
+  range.dump ();
+}
+
+void
+range_on_path_walker::analyze_path ()
+{
+  dump_range_on_path ();
 }
 
 /* While following a chain of SSA_NAME definitions, we jumped from a definition
@@ -662,8 +836,7 @@ handle_assignment (gimple *stmt, tree name, basic_block var_bb,
 }
 
 /* We trace the value of the SSA_NAME NAME back through any phi nodes looking
-   for places where it gets a constant value and save the path.  Stop after
-   having recorded MAX_PATHS jump threading paths.
+   for places where it gets a constant value and save the path.
 
    SPEED_P indicate that we could increase code size to improve the code path */
 
@@ -782,8 +955,19 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
   hash_set<basic_block> *visited_bbs = new hash_set<basic_block>;
 
   max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
+  orig_stmt = stmt;
   fsm_find_control_statement_thread_paths (name, visited_bbs, bb_path, false,
 					   speed_p);
+
+  irange r;
+  basic_block use_bb = gimple_bb (stmt);
+  if (getenv("asdf2") && early_threader)
+    {
+      fprintf (stderr, "range path to BB%d for SSA = ", use_bb->index);
+      print_generic_stmt (stderr, name, 0);
+      range_on_path_walker (name, use_bb).walk ();
+      fprintf (stderr, "-----------------------------\n");
+    }
 
   delete visited_bbs;
   vec_free (bb_path);
@@ -886,6 +1070,7 @@ pass_early_thread_jumps::gate (function *fun ATTRIBUTE_UNUSED)
 unsigned int
 pass_early_thread_jumps::execute (function *fun)
 {
+  early_threader = true;
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
 
   /* Try to thread each block with more than one successor.  */
@@ -897,7 +1082,11 @@ pass_early_thread_jumps::execute (function *fun)
     }
   thread_through_all_blocks (true);
 
+  if (getenv("asdf2"))
+    graphme ();
+
   loop_optimizer_finalize ();
+  early_threader = false;
   return 0;
 }
 
