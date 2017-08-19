@@ -1794,7 +1794,7 @@ finalize_type_size (tree type)
 
       /* Don't override a larger alignment requirement coming from a user
 	 alignment of one of the fields.  */
-      if (mode_align >= TYPE_ALIGN (type))
+      if (mode_align > TYPE_ALIGN (type))
 	{
 	  SET_TYPE_ALIGN (type, mode_align);
 	  TYPE_USER_ALIGN (type) = 0;
