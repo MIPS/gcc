@@ -1304,54 +1304,21 @@ static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
 /* Costs to use when optimizing for speed, indexed by processor.  */
 static const struct mips_rtx_cost_data
   mips_rtx_cost_data[NUM_PROCESSOR_VALUES] = {
-  { /* FORNOW: NANOMIPS32R6 - taken from 24KC */
-    SOFT_FP_COSTS,
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (41),           /* int_div_si */
-    COSTS_N_INSNS (41),           /* int_div_di */
-		     1,           /* branch_cost */
-		     4            /* memory_latency */
-  },
-  { /* FORNOW: NANOMIPS32R6S - taken from 24KC */
-    SOFT_FP_COSTS,
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (41),           /* int_div_si */
-    COSTS_N_INSNS (41),           /* int_div_di */
-		     1,           /* branch_cost */
-		     4            /* memory_latency */
-  },
-  { /* FORNOW: NANOMIPS64R6 - taken from I6400 */
-    COSTS_N_INSNS (4),            /* fp_add */
-    COSTS_N_INSNS (5),            /* fp_mult_sf */
-    COSTS_N_INSNS (5),            /* fp_mult_df */
-    COSTS_N_INSNS (32),           /* fp_div_sf */
-    COSTS_N_INSNS (32),           /* fp_div_df */
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (36),           /* int_div_si */
-    COSTS_N_INSNS (36),           /* int_div_di */
-		    2,            /* branch_cost */
-		    4             /* memory_latency */
-   },
   { /* I6001 */
-    /* FORNOW: Only placeholder.  */
     SOFT_FP_COSTS,
-    COSTS_N_INSNS (4),            /* int_mult_si */
-    COSTS_N_INSNS (6),            /* int_mult_di */
-    COSTS_N_INSNS (42),           /* int_div_si */
-    COSTS_N_INSNS (42),           /* int_div_di */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
   { /* M6001 */
-    /* FORNOW: Only placeholder.  */
     SOFT_FP_COSTS,
-    COSTS_N_INSNS (4),            /* int_mult_si */
-    COSTS_N_INSNS (6),            /* int_mult_di */
-    COSTS_N_INSNS (42),           /* int_div_si */
-    COSTS_N_INSNS (42),           /* int_div_di */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   }
@@ -18008,7 +17975,7 @@ mips_issue_rate (void)
 #ifdef NANOMIPS_SUPPORT
   switch (mips_tune)
     {
-    case PROCESSOR_64R6:
+    case PROCESSOR_I6001:
       return 2;
 
     default:
@@ -18195,7 +18162,10 @@ mips_multipass_dfa_lookahead (void)
   if (TUNE_OCTEON)
     return 2;
 
-  if (TUNE_P5600 || TUNE_P6600 || TUNE_I6400 || TUNE_NANOMIPS64R6)
+  if (TUNE_P5600 || TUNE_P6600 || TUNE_I6400)
+    return 4;
+
+  if (TUNE_I6001)
     return 4;
 
   return 0;

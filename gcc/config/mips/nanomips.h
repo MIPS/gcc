@@ -67,13 +67,10 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_INTERAPTIV_MR2	    0
 
 #undef TARGET_NANOMIPS
-#define TARGET_NANOMIPS		    ((mips_arch == PROCESSOR_32R6S	\
-				      || mips_arch == PROCESSOR_M6001)	\
+#define TARGET_NANOMIPS		    (mips_arch == PROCESSOR_M6001	\
 				     ? NANOMIPS_NMS			\
-				     : (mips_arch == PROCESSOR_32R6	\
-					|| mips_arch == PROCESSOR_64R6	\
-					|| mips_arch == PROCESSOR_I6300)\
-					? NANOMIPS_NMF : 0)
+				     : mips_arch == PROCESSOR_I6001	\
+				     ? NANOMIPS_NMF : 0)
 
 /* Scheduling target defines.  */
 #undef TUNE_20KC
@@ -118,8 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_I6400		    0
 #undef TUNE_P6600
 #define TUNE_P6600		    0
-#undef TUNE_NANOMIPS64R6
-#define TUNE_NANOMIPS64R6	    (mips_tune == PROCESSOR_64R6)
+#define TUNE_I6001                  (mips_tune == PROCESSOR_I6001)
 
 /* Currently, querying of DFA is only needed for Loongson.  */
 #undef CPU_UNITS_QUERY
@@ -137,11 +133,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef MIPS_32BIT_OPTION_SPEC
 #define MIPS_32BIT_OPTION_SPEC \
-  "march=32r6|march=32r6s|march=i6300|march=m6001"
+  "march=32r6|march=32r6s|march=i6001|march=m6001"
 
 #undef BASE_DRIVER_SELF_SPECS
 #define BASE_DRIVER_SELF_SPECS \
-  "%{march=32r6|march=32r6s|march=64r6|march=i6300|march=m6001: \
+  "%{march=32r6|march=32r6s|march=64r6|march=i6001|march=m6001: \
      %{!-fuse-ld=*: -fuse-ld=gold}}"
 
 #undef DRIVER_SELF_SPECS
