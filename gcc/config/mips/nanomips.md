@@ -18,12 +18,129 @@
 ;; <http://www.gnu.org/licenses/>.
 
 (define_enum "processor" [
-  32r6
-  32r6s
-  64r6
-  i6300
+  i6001
   m6001
 ])
+
+(include "i6001.md")
+
+;; FIXME: let's use 24KC scheduler temporarily for nanoMIPS32R6/nanoMIPS32R6s
+(define_automaton "r24k_cpu, r24k_mdu")
+
+;; Integer execution unit.
+(define_cpu_unit "r24k_iss"		"r24k_cpu")
+(define_cpu_unit "r24k_ixu_arith"	"r24k_cpu")
+(define_cpu_unit "r24k_mul3a"	        "r24k_mdu")
+(define_cpu_unit "r24k_mul3b"	        "r24k_mdu")
+(define_cpu_unit "r24k_mul3c"	        "r24k_mdu")
+
+;; --------------------------------------------------------------
+;; Producers
+;; --------------------------------------------------------------
+
+;; 1. Loads: lb, lbu, lh, lhu, ll, lw, lwl, lwr, lwpc, lwxs
+(define_insn_reservation "r24k_int_load" 2
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "load"))
+  "r24k_iss+r24k_ixu_arith")
+
+;; 2. Arithmetic: add, addi, addiu, addiupc, addu, and, andi, clo, clz,
+;;    ext, ins, lui, movn, movz, nor, or, ori, rotr, rotrv, seb, seh, sll,
+;;    sllv, slt, slti, sltiu, sltu, sra, srav, srl, srlv, sub, subu, wsbh,
+;;    xor, xori
+;; (movn/movz is not matched, we'll need to split condmov to
+;;  differentiate between integer/float moves)
+(define_insn_reservation "r24k_int_arith" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "arith,const,logical,move,nop,shift,signext,slt"))
+  "r24k_iss+r24k_ixu_arith")
+
+;; 3. Links: bgezal, bgezall, bltzal, bltzall, jal, jalr, jalx
+;; 3a. jr/jalr consumer
+(define_insn_reservation "r24k_int_jump" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "call,jump"))
+  "r24k_iss+r24k_ixu_arith")
+
+;; 3b. branch consumer
+(define_insn_reservation "r24k_int_branch" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "branch"))
+  "r24k_iss+r24k_ixu_arith")
+
+;; 4. MDU: fully pipelined multiplier
+;; mult - delivers result to hi/lo in 1 cycle (pipelined)
+(define_insn_reservation "r24k_int_mult" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "imul"))
+  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
+
+;; madd, msub - delivers result to hi/lo in 1 cycle (pipelined)
+(define_insn_reservation "r24k_int_madd" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "imadd"))
+  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
+
+;; mul - delivers result to gpr in 5 cycles
+(define_insn_reservation "r24k_int_mul3" 5
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "imul3"))
+  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)*5")
+
+;; mfhi, mflo, mflhxu - deliver result to gpr in 5 cycles
+(define_insn_reservation "r24k_int_mfhilo" 5
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "mfhi,mflo"))
+  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
+
+;; mthi, mtlo, mtlhx - deliver result to hi/lo, thence madd, handled as bypass
+(define_insn_reservation "r24k_int_mthilo" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "mthi,mtlo"))
+  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
+
+;; div - default to 36 cycles for 32bit operands.  Faster for 24bit, 16bit and
+;; 8bit, but is tricky to identify.
+(define_insn_reservation "r24k_int_div" 36
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "idiv"))
+  "r24k_iss+(r24k_mul3a+r24k_mul3b+r24k_mul3c)*36")
+
+
+;; 5. Cop: cfc1, di, ei, mfc0, mtc0
+;; (Disabled until we add proper cop0 support)
+;;(define_insn_reservation "r24k_int_cop" 3
+;;  (and (eq_attr "cpu" "m6001")
+;;       (eq_attr "type" "cop0"))
+;;  "r24k_iss+r24k_ixu_arith")
+
+
+;; 6. Store
+(define_insn_reservation "r24k_int_store" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "store"))
+  "r24k_iss+r24k_ixu_arith")
+
+
+;; 7. Multiple instructions
+(define_insn_reservation "r24k_int_multi" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "multi"))
+  "r24k_iss+r24k_ixu_arith+(r24k_mul3a+r24k_mul3b+r24k_mul3c)")
+
+;; 8. Unknowns - Currently these include blockage, consttable and alignment
+;;    rtls. They do not really affect scheduling latency, (blockage affects
+;;    scheduling via log links, but not used here).
+(define_insn_reservation "r24k_int_unknown" 0
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "unknown,atomic,syncloop"))
+  "r24k_iss")
+
+;; 9. Prefetch
+(define_insn_reservation "r24k_int_prefetch" 1
+  (and (eq_attr "cpu" "m6001")
+       (eq_attr "type" "prefetch,prefetchx"))
+  "r24k_iss+r24k_ixu_arith")
 
 (include "mips-common.md")
 
@@ -159,182 +276,6 @@
 }
   [(set_attr "type" "move")
    (set_attr "can_delay" "no")])
-
-;; FIXME: let's use 24KC scheduler temporarily for nanoMIPS32R6/nanoMIPS32R6s
-(define_automaton "r24k_cpu, r24k_mdu")
-
-;; Integer execution unit.
-(define_cpu_unit "r24k_iss"		"r24k_cpu")
-(define_cpu_unit "r24k_ixu_arith"	"r24k_cpu")
-(define_cpu_unit "r24k_mul3a"	        "r24k_mdu")
-(define_cpu_unit "r24k_mul3b"	        "r24k_mdu")
-(define_cpu_unit "r24k_mul3c"	        "r24k_mdu")
-
-;; --------------------------------------------------------------
-;; Producers
-;; --------------------------------------------------------------
-
-;; 1. Loads: lb, lbu, lh, lhu, ll, lw, lwl, lwr, lwpc, lwxs
-(define_insn_reservation "r24k_int_load" 2
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "load"))
-  "r24k_iss+r24k_ixu_arith")
-
-
-;; 2. Arithmetic: add, addi, addiu, addiupc, addu, and, andi, clo, clz,
-;;    ext, ins, lui, movn, movz, nor, or, ori, rotr, rotrv, seb, seh, sll,
-;;    sllv, slt, slti, sltiu, sltu, sra, srav, srl, srlv, sub, subu, wsbh,
-;;    xor, xori
-;; (movn/movz is not matched, we'll need to split condmov to
-;;  differentiate between integer/float moves)
-(define_insn_reservation "r24k_int_arith" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "arith,const,logical,move,nop,shift,signext,slt"))
-  "r24k_iss+r24k_ixu_arith")
-
-
-;; 3. Links: bgezal, bgezall, bltzal, bltzall, jal, jalr, jalx
-;; 3a. jr/jalr consumer
-(define_insn_reservation "r24k_int_jump" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "call,jump"))
-  "r24k_iss+r24k_ixu_arith")
-
-;; 3b. branch consumer
-(define_insn_reservation "r24k_int_branch" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "branch"))
-  "r24k_iss+r24k_ixu_arith")
-
-
-;; 4. MDU: fully pipelined multiplier
-;; mult - delivers result to hi/lo in 1 cycle (pipelined)
-(define_insn_reservation "r24k_int_mult" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "imul"))
-  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
-
-;; madd, msub - delivers result to hi/lo in 1 cycle (pipelined)
-(define_insn_reservation "r24k_int_madd" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "imadd"))
-  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
-
-;; mul - delivers result to gpr in 5 cycles
-(define_insn_reservation "r24k_int_mul3" 5
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "imul3"))
-  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)*5")
-
-;; mfhi, mflo, mflhxu - deliver result to gpr in 5 cycles
-(define_insn_reservation "r24k_int_mfhilo" 5
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "mfhi,mflo"))
-  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
-
-;; mthi, mtlo, mtlhx - deliver result to hi/lo, thence madd, handled as bypass
-(define_insn_reservation "r24k_int_mthilo" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "mthi,mtlo"))
-  "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
-
-;; div - default to 36 cycles for 32bit operands.  Faster for 24bit, 16bit and
-;; 8bit, but is tricky to identify.
-(define_insn_reservation "r24k_int_div" 36
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "idiv"))
-  "r24k_iss+(r24k_mul3a+r24k_mul3b+r24k_mul3c)*36")
-
-
-;; 5. Cop: cfc1, di, ei, mfc0, mtc0
-;; (Disabled until we add proper cop0 support)
-;;(define_insn_reservation "r24k_int_cop" 3
-;;  (and (eq_attr "cpu" "32r6,32r6s")
-;;       (eq_attr "type" "cop0"))
-;;  "r24k_iss+r24k_ixu_arith")
-
-
-;; 6. Store
-(define_insn_reservation "r24k_int_store" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "store"))
-  "r24k_iss+r24k_ixu_arith")
-
-
-;; 7. Multiple instructions
-(define_insn_reservation "r24k_int_multi" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "multi"))
-  "r24k_iss+r24k_ixu_arith+(r24k_mul3a+r24k_mul3b+r24k_mul3c)")
-
-;; 8. Unknowns - Currently these include blockage, consttable and alignment
-;;    rtls. They do not really affect scheduling latency, (blockage affects
-;;    scheduling via log links, but not used here).
-(define_insn_reservation "r24k_int_unknown" 0
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "unknown,atomic,syncloop"))
-  "r24k_iss")
-
-
-;; 9. Prefetch
-(define_insn_reservation "r24k_int_prefetch" 1
-  (and (eq_attr "cpu" "32r6,32r6s")
-       (eq_attr "type" "prefetch,prefetchx"))
-  "r24k_iss+r24k_ixu_arith")
-
-
-;; --------------------------------------------------------------
-;; Bypass to Consumer
-;; --------------------------------------------------------------
-
-;; load->next use :  2 cycles (Default)
-;; load->load base:  3 cycles
-;; load->store base: 3 cycles
-;; load->prefetch:   3 cycles
-(define_bypass 3 "r24k_int_load" "r24k_int_load")
-(define_bypass 3 "r24k_int_load" "r24k_int_store" "!mips_store_data_bypass_p")
-(define_bypass 3 "r24k_int_load" "r24k_int_prefetch")
-
-;; arith->next use :  1 cycles (Default)
-;; arith->load base:  2 cycles
-;; arith->store base: 2 cycles
-;; arith->prefetch:   2 cycles
-(define_bypass 2 "r24k_int_arith" "r24k_int_load")
-(define_bypass 2 "r24k_int_arith" "r24k_int_store" "!mips_store_data_bypass_p")
-(define_bypass 2 "r24k_int_arith" "r24k_int_prefetch")
-
-;; mul3->next use : 5 cycles (default)
-;; mul3->l/s base : 6 cycles
-;; mul3->prefetch : 6 cycles
-(define_bypass 6 "r24k_int_mul3" "r24k_int_load")
-(define_bypass 6 "r24k_int_mul3" "r24k_int_store" "!mips_store_data_bypass_p")
-(define_bypass 6 "r24k_int_mul3" "r24k_int_prefetch")
-
-;; mul3->madd/msub : 1 cycle
-(define_bypass 1 "r24k_int_mul3" "r24k_int_madd" "mips_linked_madd_p")
-
-;; mfhilo->next use  : 5 cycles (default)
-;; mfhilo->l/s base  : 6 cycles
-;; mfhilo->prefetch  : 6 cycles
-;; mthilo->madd/msub : 2 cycle (only for mthi/lo not mfhi/lo)
-(define_bypass 6 "r24k_int_mfhilo" "r24k_int_load")
-(define_bypass 6 "r24k_int_mfhilo" "r24k_int_store"
-  "!mips_store_data_bypass_p")
-(define_bypass 6 "r24k_int_mfhilo" "r24k_int_prefetch")
-(define_bypass 2 "r24k_int_mthilo" "r24k_int_madd")
-
-;; cop->next use : 3 cycles (Default)
-;; cop->l/s base : 4 cycles
-;; (define_bypass 4 "r24k_int_cop" "r24k_int_load")
-;; (define_bypass 4 "r24k_int_cop" "r24k_int_store"
-;;   "!mips_store_data_bypass_p")
-
-;; multi->next use : 1 cycles (Default)
-;; multi->l/s base : 2 cycles
-;; multi->prefetch : 2 cycles
-(define_bypass 2 "r24k_int_multi" "r24k_int_load")
-(define_bypass 2 "r24k_int_multi" "r24k_int_store" "!mips_store_data_bypass_p")
-(define_bypass 2 "r24k_int_multi" "r24k_int_prefetch")
 
 (define_insn "*store_word_multiple8"
   [(match_parallel 0 "store_multiple_operation"
