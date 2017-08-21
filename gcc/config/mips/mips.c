@@ -12511,6 +12511,32 @@ mips_safe_to_use_save_restore_p (struct mips_frame_info *frame)
   return safe_p;
 }
 
+static void
+mips_cfun_set_interrupt_properties (void)
+{
+  /* Set this function's interrupt properties.  */
+  if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
+    {
+      if (mips_isa_rev < 2)
+	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
+      else if (TARGET_MIPS16)
+	error ("interrupt handlers cannot be MIPS16 functions");
+      else
+	{
+	  cfun->machine->interrupt_handler_p = true;
+	  cfun->machine->int_mask =
+	    mips_interrupt_mask (TREE_TYPE (current_function_decl));
+	  cfun->machine->use_shadow_register_set =
+	    mips_use_shadow_register_set (TREE_TYPE (current_function_decl));
+	  cfun->machine->keep_interrupts_masked_p =
+	    mips_keep_interrupts_masked_p (TREE_TYPE (current_function_decl));
+	  cfun->machine->use_debug_exception_return_p =
+	    mips_use_debug_exception_return_p (TREE_TYPE
+					       (current_function_decl));
+	}
+    }
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -12592,27 +12618,7 @@ mips_compute_frame_info (void)
   if (reload_completed)
     return;
 
-  /* Set this function's interrupt properties.  */
-  if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
-    {
-      if (mips_isa_rev < 2)
-	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
-      else if (TARGET_MIPS16)
-	error ("interrupt handlers cannot be MIPS16 functions");
-      else
-	{
-	  cfun->machine->interrupt_handler_p = true;
-	  cfun->machine->int_mask =
-	    mips_interrupt_mask (TREE_TYPE (current_function_decl));
-	  cfun->machine->use_shadow_register_set =
-	    mips_use_shadow_register_set (TREE_TYPE (current_function_decl));
-	  cfun->machine->keep_interrupts_masked_p =
-	    mips_keep_interrupts_masked_p (TREE_TYPE (current_function_decl));
-	  cfun->machine->use_debug_exception_return_p =
-	    mips_use_debug_exception_return_p (TREE_TYPE
-					       (current_function_decl));
-	}
-    }
+  mips_cfun_set_interrupt_properties ();
 
   /* Determine whether to use hazard barrier return or not.  */
   if (mips_use_hazard_barrier_return_p (current_function_decl))
