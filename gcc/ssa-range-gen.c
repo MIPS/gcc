@@ -235,18 +235,16 @@ gori::range_on_edge (irange& r, tree name, edge e)
   stmt = last_stmt_gori (bb);
   gcc_assert (stmt);
 
-  irange bool_range;
-
   if (e->flags & EDGE_TRUE_VALUE)
     {
-      set_boolean_range_one (bool_range);
-      return range_generator.get_range_from_stmt (stmt, r, name, bool_range);
+      irange bool_true (boolean_type_node,  1 , 1);
+      return range_generator.get_range_from_stmt (stmt, r, name, bool_true);
     }
 
   if (e->flags & EDGE_FALSE_VALUE)
     {
-      set_boolean_range_zero (bool_range);
-      return range_generator.get_range_from_stmt (stmt, r, name, bool_range);
+      irange bool_false (boolean_type_node,  0 , 0);
+      return range_generator.get_range_from_stmt (stmt, r, name, bool_false);
     }
 
   return false;
@@ -375,7 +373,6 @@ ranger::combine_range (range_stmt& stmt, irange& r, tree name,
   irange r1, r2;
   irange op1_range, op2_range;
 
-  irange bool_zero, bool_one;
   irange op1_true, op1_false, op2_true, op2_false;
 
   /* Look for boolean and/or condition.  */
@@ -404,11 +401,11 @@ ranger::combine_range (range_stmt& stmt, irange& r, tree name,
       return true;
     }
 
-  set_boolean_range_zero (bool_zero);
-  set_boolean_range_one (bool_one);
-
   op1 = stmt.operand1 ();
   op2 = stmt.operand2 ();
+
+  irange bool_zero (boolean_type_node, 0, 0);
+  irange bool_one (boolean_type_node, 1, 1);
 
   /* The false path is not always a simple inversion of the true side.
      Calulate ranges for true and false on both sides. */

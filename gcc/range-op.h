@@ -70,32 +70,4 @@ public:
 
 extern irange_operator *irange_op_handler(enum tree_code code);
 
-static inline void
-set_boolean_range (irange& r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (0, prec);
-  wide_int ub = wi::uhwi (1, prec);
-  r.set_range (boolean_type_node, lb, ub);
-}
-
-static inline void
-set_boolean_range_zero (irange& r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (0, prec);
-  wide_int ub = wi::uhwi (0, prec);
-  r.set_range (boolean_type_node, lb, ub);
-}
-
-static inline void
-set_boolean_range_one (irange &r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (1, prec);
-  wide_int ub = wi::uhwi (1, prec);
-
-  r.set_range (boolean_type_node, lb, ub);
-}
-
 #endif /* GCC_RANGE_OP_H */

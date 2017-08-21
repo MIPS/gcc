@@ -164,10 +164,7 @@ get_bool_state (irange& r, const irange& lhs, const_tree val_type)
       return BRS_FULL;
     }
 
-  irange zero;
-  set_boolean_range_zero (zero);
-
-  if (lhs == zero)
+  if (lhs == irange (boolean_type_node, 0 ,0))
     return BRS_FALSE;
 
   return BRS_TRUE;
@@ -204,9 +201,9 @@ operator_equal::fold_range (irange& r, const irange& op1,
       && wi::eq_p (op2.lower_bound (), op2.upper_bound ()))
     {
       if (wi::eq_p (op1.lower_bound (), op2.upper_bound()))
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
     }
   else
     {
@@ -214,9 +211,9 @@ operator_equal::fold_range (irange& r, const irange& op1,
          we don;t really know anything for sure.  */
       r = irange_intersect (op1, op2);
       if (r.empty_p ())
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
       else
-	set_boolean_range (r);
+	r.set_range_for_type (boolean_type_node);
     }
 
   return true;
@@ -291,9 +288,9 @@ operator_not_equal::fold_range (irange& r, const irange& op1,
       && wi::eq_p (op2.lower_bound (), op2.upper_bound ()))
     {
       if (wi::ne_p (op1.lower_bound (), op2.upper_bound()))
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
     }
   else
     {
@@ -301,9 +298,9 @@ operator_not_equal::fold_range (irange& r, const irange& op1,
          we don;t really know anything for sure.  */
       r = irange_intersect (op1, op2);
       if (r.empty_p ())
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range (r);
+	r.set_range_for_type (boolean_type_node);
     }
 
   return true;
@@ -417,12 +414,12 @@ operator_lt::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::lt_p (op1.upper_bound (), op2.lower_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::lt_p (op1.lower_bound (), op2.upper_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 ,0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
   return true;
 }
 
@@ -492,12 +489,12 @@ operator_le::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::le_p (op1.upper_bound (), op2.lower_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::le_p (op1.lower_bound (), op2.upper_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 ,0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
   return true;
 }
 
@@ -568,12 +565,12 @@ operator_gt::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::gt_p (op1.lower_bound (), op2.upper_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::gt_p (op1.upper_bound (), op2.lower_bound (), sign))
-      set_boolean_range_zero (r);
+    r.set_range (boolean_type_node, 0, 0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
 
   return true;
 }
@@ -645,12 +642,12 @@ operator_ge::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::ge_p (op1.lower_bound (), op2.upper_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1 , 1);
   else
     if (!wi::ge_p (op1.upper_bound (), op2.lower_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 , 0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
 
   return true;
 } 
@@ -1045,13 +1042,13 @@ operator_logical_and::op1_irange (irange& r, const irange& lhs,
      {
        /* A true result means both sides of the AND must be true.  */
        case BRS_TRUE:
-         set_boolean_range_one (r);
+         r.set_range (boolean_type_node, 1, 1);
 	 break;
      
        /* Any other result means only one side has to be false, the other
 	  side can be anything. SO we cant be sure of any result here.  */
       default:
-        set_boolean_range (r);
+        r.set_range_for_type (boolean_type_node);
 	break;
     }
   return true;
@@ -1160,13 +1157,13 @@ operator_logical_or::op1_irange (irange& r, const irange& lhs,
      {
        /* A false result means both sides of the OR must be false.  */
        case BRS_FALSE:
-         set_boolean_range_zero (r);
+         r.set_range (boolean_type_node, 0 , 0);
 	 break;
      
        /* Any other result means only one side has to be true, the other
 	  side can be anything. SO we cant be sure of any result here.  */
       default:
-        set_boolean_range (r);
+        r.set_range_for_type (boolean_type_node);
 	break;
     }
   return true;
