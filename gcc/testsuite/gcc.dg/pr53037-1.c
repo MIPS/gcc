@@ -39,7 +39,7 @@ struct foo5
 {
   int i1;
   int x __attribute__((warn_if_not_aligned(16))); /* { dg-warning "'x' offset 4 in 'struct foo5' isn't aligned to 16" } */
-}; /* { dg-warning "alignment 4 of 'struct foo5' is less than 16" } */
+}; /* { dg-warning "alignment \[24\] of 'struct foo5' is less than 16" } */
 
 struct foo6
 {
@@ -72,7 +72,7 @@ union bar3
 {
   int i1;
   int x __attribute__((warn_if_not_aligned(16))); 
-}; /* { dg-warning "alignment 4 of 'union bar3' is less than 16" } */
+}; /* { dg-warning "alignment \[24\] of 'union bar3' is less than 16" } */
 
 union bar4
 {
