@@ -4726,7 +4726,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 
 	      case SYMBOL_LAPC_NANO:
 	      case SYMBOL_LAPC48_NANO:
-		*low_out = gen_rtx_LO_SUM (Pmode, temp, addr);
+		*low_out = addr;
 		break;
 
 	      case SYMBOL_GOT_PAGE_OFST:

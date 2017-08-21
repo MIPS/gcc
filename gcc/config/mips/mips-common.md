@@ -4741,20 +4741,18 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*lapc_var_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand" "=d")
-	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "lapc_nano_operand" "")))]
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "lapc_nano_operand" ""))]
   "TARGET_NANOMIPS && flag_pic"
-  "lapc\t%0,%2"
+  "lapc\t%0,%1"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
 (define_insn "*lapc48_var_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand" "=d")
-	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "lapc48_nano_operand" "")))]
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "lapc48_nano_operand" ""))]
   "TARGET_NANOMIPS && flag_pic"
-  "lapc[48]\t%0,%2"
+  "lapc[48]\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
