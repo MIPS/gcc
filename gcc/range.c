@@ -89,6 +89,29 @@ irange::set_range (const_tree typ, const wide_int &lbound,
   gcc_assert (!CHECKING_P || (valid_p () && !empty_p ()));
 }
 
+/* Set range from type T and integer bounds X, Y.
+
+   RT is PLAIN if it is a normal range, or INVERSE if it is an inverse
+   range.  */
+
+void
+irange::set_range (const_tree t, int x, int y, kind rt)
+{
+  int precision = TYPE_PRECISION (t);
+  wide_int xi, yi;
+  if (TYPE_UNSIGNED (t))
+    {
+      xi = wi::uhwi (x, precision);
+      yi = wi::uhwi (y, precision);
+    }
+  else
+    {
+      xi = wi::shwi (x, precision);
+      yi = wi::shwi (y, precision);
+    }
+  set_range (t, xi, yi, rt);
+}
+
 // Set range from an IRANGE_STORAGE and TYPE.
 
 void
@@ -949,7 +972,7 @@ namespace selftest {
 #define INT64(N) build_int_cstu (long_long_integer_type_node, (N))
 #define UINT64(N) build_int_cstu (long_long_unsigned_type_node, (N))
 #define UINT128(N) build_int_cstu (u128_type, (N))
-#define UCHAR(N) build_int_cst (unsigned_char_type_node, (N))
+#define UCHAR(N) build_int_cstu (unsigned_char_type_node, (N))
 #define SCHAR(N) build_int_cst (signed_char_type_node, (N))
 
 #define RANGE1(A,B) irange (integer_type_node, INT(A), INT(B))
