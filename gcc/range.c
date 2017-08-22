@@ -1409,6 +1409,11 @@ irange_tests ()
   r0 = rold = RANGE1 (10, 20);
   ASSERT_FALSE (irange_intersect (r0, RANGE1 (15, 30)).empty_p ());
   ASSERT_TRUE (r0 == rold);
+
+  /* Test the internal sanity of wide_int's wrt HWIs.  */
+  ASSERT_TRUE (wi::max_value (TYPE_PRECISION (boolean_type_node),
+			      TYPE_SIGN (boolean_type_node))
+	       == wi::uhwi (1, TYPE_PRECISION (boolean_type_node)));
 }
 
 } // namespace selftest
