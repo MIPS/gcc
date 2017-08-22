@@ -3902,22 +3902,6 @@ umips_12bit_offset_address_p (rtx x, machine_mode mode)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
-/* Return true if X is a legitimate address with a 12-bit offset + one
-   consecutive element.
-   MODE is the mode of the value being accessed.  */
-
-bool
-umips_12bit_offset_address_memop2_p (rtx x, machine_mode mode)
-{
-  struct mips_address_info addr;
-
-  return (mips_classify_address (&addr, x, mode, false)
-	  && addr.type == ADDRESS_REG
-	  && CONST_INT_P (addr.offset)
-	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)
-				   - GET_MODE_SIZE (mode)));
-}
-
 /* Return true if X is a legitimate address with a 9-bit offset.
    MODE is the mode of the value being accessed.  */
 
@@ -3930,22 +3914,6 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
-}
-
-/* Return true if X is a legitimate address with a 9-bit offset + one
-   consecutive element.
-   MODE is the mode of the value being accessed.  */
-
-bool
-mips_9bit_offset_address_memop2_p (rtx x, machine_mode mode)
-{
-  struct mips_address_info addr;
-
-  return (mips_classify_address (&addr, x, mode, false)
-	  && addr.type == ADDRESS_REG
-	  && CONST_INT_P (addr.offset)
-	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)
-				 - GET_MODE_SIZE (mode)));
 }
 
 /* Return the number of instructions needed to load constant X,
@@ -26232,10 +26200,10 @@ mips_load_store_bond_insns ()
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order
-   dest1, src1, dest2, src2.  Return true if the operands can be used
+   dest1, src1, dest2, src2.  Return non-zero if the operands can be used
    in an LWP or SWP instruction; LOAD_P says which.  */
 
-bool
+int
 umips_load_store_pair_p (bool load_p, rtx *operands)
 {
   rtx reg1, reg2, mem1, mem2;
@@ -26255,11 +26223,15 @@ umips_load_store_pair_p (bool load_p, rtx *operands)
       mem2 = operands[2];
     }
 
-  if (REGNO (reg2) == REGNO (reg1) + 1)
-    return umips_load_store_pair_p_1 (load_p, false, reg1, mem1, mem2);
+  /* Return 1 if operands are valid without swapping instructions,
+     return 2 otherwise.  */
+  if (REGNO (reg2) == REGNO (reg1) + 1
+      && umips_load_store_pair_p_1 (load_p, false, reg1, mem1, mem2))
+    return 1;
 
-  if (REGNO (reg1) == REGNO (reg2) + 1)
-    return umips_load_store_pair_p_1 (load_p, true, reg2, mem2, mem1);
+  if (REGNO (reg1) == REGNO (reg2) + 1
+      && umips_load_store_pair_p_1 (load_p, true, reg2, mem2, mem1))
+    return 2;
 
   return false;
 }

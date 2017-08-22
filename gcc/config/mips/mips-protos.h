@@ -379,7 +379,7 @@ extern bool mips_signed_immediate_p (unsigned HOST_WIDE_INT, int, int);
 extern bool mips_unsigned_immediate_p (unsigned HOST_WIDE_INT, int, int);
 extern const char *mips_output_word_multiple (bool, rtx);
 extern bool mips_word_multiple_pattern_p (bool, rtx);
-extern bool umips_load_store_pair_p (bool, rtx *);
+extern int umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
 extern bool nanomips_move_balc_p (rtx *);
 extern bool mips_movep_target_p (rtx, rtx);

@@ -606,16 +606,25 @@
 	(match_operand:SI 1 "non_volatile_mem_operand" ""))
    (set (match_operand:SI 2 "d_operand" "")
 	(match_operand:SI 3 "non_volatile_mem_operand" ""))]
-  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands)"
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands) == 1"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (set (match_dup 2) (match_dup 3))])])
 
+(define_peephole2
+  [(set (match_operand:SI 0 "d_operand" "")
+	(match_operand:SI 1 "non_volatile_mem_operand" ""))
+   (set (match_operand:SI 2 "d_operand" "")
+	(match_operand:SI 3 "non_volatile_mem_operand" ""))]
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands) == 2"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])])
+
 ;; The behavior of the LWP insn is undefined if placed in a delay slot.
 (define_insn "*lwp"
-  [(parallel [(set (match_operand:SI 0 "register_operand" "=d")
+  [(parallel [(set (match_operand:SI 0 "register_operand" "=&d")
 		   (match_operand:SI 1 "non_volatile_mem_operand" "ZO"))
 	      (set (match_operand:SI 2 "register_operand" "=d")
-		   (match_operand:SI 3 "non_volatile_mem_operand" "ZP"))])]
+		   (match_operand:SI 3 "non_volatile_mem_operand" "m"))])]
 
   "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (true, operands)"
 {
@@ -632,15 +641,24 @@
 	(match_operand:SI 1 "d_operand" ""))
    (set (match_operand:SI 2 "non_volatile_mem_operand" "")
 	(match_operand:SI 3 "d_operand" ""))]
-  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands)"
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands) == 1"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (set (match_dup 2) (match_dup 3))])])
+
+(define_peephole2
+  [(set (match_operand:SI 0 "non_volatile_mem_operand" "")
+	(match_operand:SI 1 "d_operand" ""))
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "")
+	(match_operand:SI 3 "d_operand" ""))]
+  "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands) == 2"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])])
 
 ;; The behavior of the SWP insn is undefined if placed in a delay slot.
 (define_insn "*swp"
   [(set (match_operand:SI 0 "non_volatile_mem_operand" "=ZO")
 	(match_operand:SI 1 "register_operand" "d"))
-   (set (match_operand:SI 2 "non_volatile_mem_operand" "=ZP")
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "=m")
 	(match_operand:SI 3 "register_operand" "d"))]
   "ISA_HAS_NEW_LWM_SWM && umips_load_store_pair_p (false, operands)"
 {
