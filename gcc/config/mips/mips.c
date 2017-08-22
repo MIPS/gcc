@@ -3481,6 +3481,12 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 
       return 0;
 
+    case SYMBOL_GOT_PCREL_SPLIT_NANO:
+      if (mode == MAX_MACHINE_MODE)
+	return 2;
+
+      return 0;
+
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
@@ -3549,7 +3555,6 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_TPREL:
     case SYMBOL_HALF:
     case SYMBOL_PCREL_SPLIT_NANO:
-    case SYMBOL_GOT_PCREL_SPLIT_NANO:
       /* A 16-bit constant formed by a single relocation, or a 32-bit
 	 constant formed from a high 16-bit relocation and a low 16-bit
 	 relocation.  Use mips_split_p to determine which.  32-bit
