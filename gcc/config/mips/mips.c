@@ -22161,6 +22161,7 @@ mips_annotate_pic_calls (void)
       symbol = mips_find_pic_call_symbol (insn, reg, true);
       if (symbol
 	  && mips_get_nano_pic_model (symbol) == NANO_PIC_AUTO
+	  && mips_classify_symbol (symbol, SYMBOL_CONTEXT_CALL) == SYMBOL_GOT_DISP
 	  && !mips_symbol_binds_local_p (symbol))
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
