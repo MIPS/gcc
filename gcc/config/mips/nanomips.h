@@ -232,6 +232,11 @@ FP_ASM_SPEC "\
 #define INIT_ARRAY_SECTION_ASM_OP CTORS_SECTION_ASM_OP
 #define FINI_ARRAY_SECTION_ASM_OP DTORS_SECTION_ASM_OP
 
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR default_elf_init_array_asm_out_constructor
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR default_elf_fini_array_asm_out_destructor
+
 #define CTOR_LIST_BEGIN asm (CTORS_SECTION_ASM_OP)
 #define CTOR_LIST_END	/* empty */
 #define DTOR_LIST_BEGIN asm (DTORS_SECTION_ASM_OP)
