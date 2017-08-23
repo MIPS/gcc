@@ -4810,6 +4810,20 @@
    (set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
+(define_insn_and_split "*gprel_hi_split_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "gprel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS && flag_pic"
+  "#"
+  "&& epilogue_completed"
+  [(set (match_dup 0) (high:SI (match_dup 2)))
+   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_unspec_address (operands[1], SYMBOL_GPREL_SPLIT_NANO);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "insn_count" "2")])
+
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: mips_print_operand works out which relocation
 ;; should be applied.

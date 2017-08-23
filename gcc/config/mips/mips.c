@@ -3201,6 +3201,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMF))
 		return SYMBOL_GPREL32_NANO;
+	      else if (TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && (symbol_pic_model == NANO_PIC_LARGE
+			   && TARGET_NANOMIPS == NANOMIPS_NMS))
+		return SYMBOL_GPREL_SPLIT_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
 		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
 		          == 4
@@ -3393,6 +3399,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 
     case SYMBOL_GP_RELATIVE:
     case SYMBOL_GPREL32_NANO:
+    case SYMBOL_GPREL_SPLIT_NANO:
       /* Make sure that the offset refers to something within the
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
@@ -3486,6 +3493,9 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	return 2;
 
       return 0;
+
+    case SYMBOL_GPREL_SPLIT_NANO:
+      return 3;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -5141,6 +5151,9 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
       && symbol_type == SYMBOL_GPREL32_NANO)
     return true;
 
+  /* @tmt We intentionally don't return true for SYMBOL_GPREL_SPLIT_NANO
+     because we don't want to mess with its LO_SUM.  */
+
   return false;
 }
 
@@ -6618,7 +6631,8 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
   enum mips_symbol_type symbol_type;
   return (mips_symbolic_constant_p (x, context, &symbol_type)
 	  && (symbol_type == SYMBOL_GP_RELATIVE
-	      || symbol_type == SYMBOL_GPREL32_NANO)
+	      || symbol_type == SYMBOL_GPREL32_NANO
+	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO)
 	  && CONSTANT_POOL_ADDRESS_P (x));
 }
 
@@ -10668,6 +10682,13 @@ mips_init_relocs (void)
   if (TARGET_PABI)
     mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel32(";
 
+  if (TARGET_PABI)
+    {
+      mips_hi_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%gprel_hi(";
+      mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%lo(";
+      mips_split_p[SYMBOL_GPREL_SPLIT_NANO] = true;
+    }
+
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
@@ -11601,6 +11622,7 @@ mips_in_small_data_p (const_tree decl)
 	 usual -G rules when deciding how to implement macros.  */
       if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
 	  || mips_lo_relocs[SYMBOL_GPREL32_NANO]
+	  || mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
 	  || !DECL_EXTERNAL (decl))
 	return true;
     }

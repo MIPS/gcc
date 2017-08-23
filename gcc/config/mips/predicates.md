@@ -751,6 +751,16 @@
 	  && type == SYMBOL_GPREL32_NANO);
 })
 
+;; @tmt Note the absence of const in match_code.
+;; This avoids re-matching the high part after we wrap it in a (CONST (UNSPEC.
+(define_predicate "gprel_split_nano_operand"
+  (match_code "symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GPREL_SPLIT_NANO);
+})
+
 (define_predicate "pcrel_split_nano_operand"
   (match_code "const,symbol_ref,label_ref")
 {
