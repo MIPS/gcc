@@ -3170,15 +3170,15 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    }
 	  else
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO)
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_LARGE
-		       && TARGET_NANOMIPS == NANOMIPS_NMF)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      else if (symbol_pic_model == NANO_PIC_LARGE
-		       && TARGET_NANOMIPS == NANOMIPS_NMS)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
 	}
