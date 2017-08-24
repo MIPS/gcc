@@ -16,11 +16,9 @@
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_short\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
-// @tmt We can't test strict PID because we don't really have a command line
-// option for it, hence the aluipc here:
-
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_4Kaligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */

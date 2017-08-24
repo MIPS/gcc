@@ -4,22 +4,21 @@
 
 /* { dg-final { scan-assembler "aluipc\t\\\$gp,%pcrel_hi\\(_gp\\)" } } */
 
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\\[gp\\.w\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_4Kaligned\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_char\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_short\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.w\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_int\\)" } } */
 
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\\[gp\\.w\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_4Kaligned\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_char\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_short\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp\\.w\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_int\\)" } } */
 
-// @tmt We can't test strict PID because we don't really have a command line
-// option for it, hence the aluipc here:
-
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_4Kaligned\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" } } */
 /* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)" } } */

@@ -16,7 +16,7 @@
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_short\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_4Kaligned\\)" } } */
 /* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 1.  */
 /* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_2aligned\\)" } } */
 /* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 2.  */
