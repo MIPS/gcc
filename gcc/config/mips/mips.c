@@ -3187,7 +3187,10 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	  if (mips_symbol_binds_local_p (x))
 	    {
 	      if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
-		  && context == SYMBOL_CONTEXT_LEA)
+		  && context == SYMBOL_CONTEXT_LEA
+		  && !(TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)))
 		return SYMBOL_PCREL_4K_NANO;
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
@@ -3212,6 +3215,9 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		          == 4
 		       && context == SYMBOL_CONTEXT_MEM)
 		return SYMBOL_PCREL32_NANO;
+	      else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
+		       && context == SYMBOL_CONTEXT_MEM)
+		return SYMBOL_PCREL_4K_NANO;
 	      else if (symbol_pic_model == NANO_PIC_AUTO
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
 		       && context == SYMBOL_CONTEXT_LEA)
