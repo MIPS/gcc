@@ -1952,9 +1952,9 @@ instantiate_virtual_regs (void)
         if (GET_CODE (PATTERN (insn)) == USE
 	    || GET_CODE (PATTERN (insn)) == CLOBBER
 	    || GET_CODE (PATTERN (insn)) == ASM_INPUT
-	    || MARKER_DEBUG_INSN_P (insn))
+	    || DEBUG_MARKER_INSN_P (insn))
 	  continue;
-	else if (BIND_DEBUG_INSN_P (insn))
+	else if (DEBUG_BIND_INSN_P (insn))
 	  instantiate_virtual_regs_in_rtx (INSN_VAR_LOCATION_PTR (insn));
 	else
 	  instantiate_virtual_regs_in_insn (insn);

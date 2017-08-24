@@ -3844,7 +3844,7 @@ combine_and_move_insns (void)
       /* Last pass - adjust debug insns referencing cleared regs.  */
       if (MAY_HAVE_DEBUG_INSNS)
 	for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	  if (BIND_DEBUG_INSN_P (insn))
+	  if (DEBUG_BIND_INSN_P (insn))
 	    {
 	      rtx old_loc = INSN_VAR_LOCATION_LOC (insn);
 	      INSN_VAR_LOCATION_LOC (insn)

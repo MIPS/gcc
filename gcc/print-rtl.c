@@ -1802,7 +1802,7 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
 
     case DEBUG_INSN:
       {
-	if (MARKER_DEBUG_INSN_P (x))
+	if (DEBUG_MARKER_INSN_P (x))
 	  {
 	    switch (INSN_DEBUG_MARKER_KIND (x))
 	      {

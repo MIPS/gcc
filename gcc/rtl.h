@@ -1626,13 +1626,13 @@ extern const char * const reg_note_name[];
 
 /* Evaluate to TRUE if INSN is a debug insn that denotes a variable
    location/value tracking annotation.  */
-#define BIND_DEBUG_INSN_P(INSN)			\
+#define DEBUG_BIND_INSN_P(INSN)			\
   (DEBUG_INSN_P (INSN)				\
    && (GET_CODE (PATTERN (INSN))		\
        == VAR_LOCATION))
 /* Evaluate to TRUE if INSN is a debug insn that denotes a program
    source location marker.  */
-#define MARKER_DEBUG_INSN_P(INSN)		\
+#define DEBUG_MARKER_INSN_P(INSN)		\
   (DEBUG_INSN_P (INSN)				\
    && (GET_CODE (PATTERN (INSN))		\
        != VAR_LOCATION))

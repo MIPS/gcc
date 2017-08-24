@@ -970,13 +970,13 @@ lra_set_insn_recog_data (rtx_insn *insn)
       data->dup_loc = NULL;
       data->arg_hard_regs = NULL;
       data->preferred_alternatives = ALL_ALTERNATIVES;
-      if (BIND_DEBUG_INSN_P (insn))
+      if (DEBUG_BIND_INSN_P (insn))
 	{
 	  data->insn_static_data = &debug_bind_static_data;
 	  data->operand_loc = XNEWVEC (rtx *, 1);
 	  data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
 	}
-      else if (MARKER_DEBUG_INSN_P (insn))
+      else if (DEBUG_MARKER_INSN_P (insn))
 	{
 	  data->insn_static_data = &debug_marker_static_data;
 	  data->operand_loc = NULL;

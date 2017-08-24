@@ -839,7 +839,7 @@ fixup_debug_insns (rtx reg, rtx replacement, rtx_insn *from, rtx_insn *to)
     {
       rtx t;
 
-      if (!BIND_DEBUG_INSN_P (insn))
+      if (!DEBUG_BIND_INSN_P (insn))
 	continue;
       
       t = INSN_VAR_LOCATION_LOC (insn);

@@ -9925,7 +9925,7 @@ vt_init_cfa_base (void)
 static rtx_insn *
 reemit_marker_as_note (rtx_insn *insn, basic_block *bb)
 {
-  gcc_checking_assert (MARKER_DEBUG_INSN_P (insn));
+  gcc_checking_assert (DEBUG_MARKER_INSN_P (insn));
 
   enum insn_note kind = INSN_DEBUG_MARKER_KIND (insn);
 
@@ -10168,7 +10168,7 @@ vt_initialize (void)
 		      /* Reset debug insns between basic blocks.
 			 Their location is not reliable, because they
 			 were probably not maintained up to date.  */
-		      if (BIND_DEBUG_INSN_P (insn))
+		      if (DEBUG_BIND_INSN_P (insn))
 			INSN_VAR_LOCATION_LOC (insn)
 			  = gen_rtx_UNKNOWN_VAR_LOC ();
 		    }
@@ -10196,7 +10196,7 @@ vt_initialize (void)
 		  adjust_insn (bb, insn);
 		  if (MAY_HAVE_DEBUG_INSNS)
 		    {
-		      if (MARKER_DEBUG_INSN_P (insn))
+		      if (DEBUG_MARKER_INSN_P (insn))
 			{
 			  insn = reemit_marker_as_note (insn, &save_bb);
 			  continue;
@@ -10296,7 +10296,7 @@ delete_vta_debug_insns (void)
 	   insn = next)
 	if (DEBUG_INSN_P (insn))
 	  {
-	    if (MARKER_DEBUG_INSN_P (insn))
+	    if (DEBUG_MARKER_INSN_P (insn))
 	      {
 		insn = reemit_marker_as_note (insn, NULL);
 		continue;

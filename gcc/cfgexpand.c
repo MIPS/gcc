@@ -5291,7 +5291,7 @@ expand_debug_locations (void)
   flag_strict_aliasing = 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (BIND_DEBUG_INSN_P (insn))
+    if (DEBUG_BIND_INSN_P (insn))
       {
 	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
 	rtx val;
