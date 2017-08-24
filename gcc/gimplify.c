@@ -989,7 +989,7 @@ unshare_expr_without_location (tree expr)
    EXPR is the location of the EXPR.  */
 
 static location_t
-expr_location (tree expr, location_t or_else = UNKNOWN_LOCATION)
+rexpr_location (tree expr, location_t or_else = UNKNOWN_LOCATION)
 {
   if (!expr)
     return or_else;
@@ -1012,16 +1012,16 @@ expr_location (tree expr, location_t or_else = UNKNOWN_LOCATION)
   if (!found || !tsi_one_before_end_p (i))
     return or_else;
 
-  return expr_location (tsi_stmt (i), or_else);
+  return rexpr_location (tsi_stmt (i), or_else);
 }
 
 /* Return TRUE iff EXPR (maybe recursively) has a location; see
-   expr_location for the potential recursion.  */
+   rexpr_location for the potential recursion.  */
 
 static inline bool
-expr_has_location (tree expr)
+rexpr_has_location (tree expr)
 {
-  return expr_location (expr) != UNKNOWN_LOCATION;
+  return rexpr_location (expr) != UNKNOWN_LOCATION;
 }
 
 
@@ -3489,7 +3489,7 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p,
       append_to_statement_list (t, &expr);
 
       /* Set the source location of the && on the second 'if'.  */
-      new_locus = expr_location (pred, locus);
+      new_locus = rexpr_location (pred, locus);
       t = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p, false_label_p,
 			   new_locus);
       append_to_statement_list (t, &expr);
@@ -3512,7 +3512,7 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p,
       append_to_statement_list (t, &expr);
 
       /* Set the source location of the || on the second 'if'.  */
-      new_locus = expr_location (pred, locus);
+      new_locus = rexpr_location (pred, locus);
       t = shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p, false_label_p,
 			   new_locus);
       append_to_statement_list (t, &expr);
@@ -3534,7 +3534,7 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p,
 
       /* Keep the original source location on the first 'if'.  Set the source
 	 location of the ? on the second 'if'.  */
-      new_locus = expr_location (pred, locus);
+      new_locus = rexpr_location (pred, locus);
       expr = build3 (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
 		     shortcut_cond_r (TREE_OPERAND (pred, 1), true_label_p,
 				      false_label_p, locus),
@@ -3627,8 +3627,8 @@ shortcut_cond_expr (tree expr)
 	  location_t locus = EXPR_LOC_OR_LOC (expr, input_location);
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  /* Set the source location of the && on the second 'if'.  */
-	  if (expr_has_location (pred))
-	    SET_EXPR_LOCATION (expr, expr_location (pred));
+	  if (rexpr_has_location (pred))
+	    SET_EXPR_LOCATION (expr, rexpr_location (pred));
 	  then_ = shortcut_cond_expr (expr);
 	  then_se = then_ && TREE_SIDE_EFFECTS (then_);
 	  pred = TREE_OPERAND (pred, 0);
@@ -3649,8 +3649,8 @@ shortcut_cond_expr (tree expr)
 	  location_t locus = EXPR_LOC_OR_LOC (expr, input_location);
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  /* Set the source location of the || on the second 'if'.  */
-	  if (expr_has_location (pred))
-	    SET_EXPR_LOCATION (expr, expr_location (pred));
+	  if (rexpr_has_location (pred))
+	    SET_EXPR_LOCATION (expr, rexpr_location (pred));
 	  else_ = shortcut_cond_expr (expr);
 	  else_se = else_ && TREE_SIDE_EFFECTS (else_);
 	  pred = TREE_OPERAND (pred, 0);
@@ -3750,8 +3750,8 @@ shortcut_cond_expr (tree expr)
 	{
 	  tree last = expr_last (expr);
 	  t = build_and_jump (&end_label);
-	  if (expr_has_location (last))
-	    SET_EXPR_LOCATION (t, expr_location (last));
+	  if (rexpr_has_location (last))
+	    SET_EXPR_LOCATION (t, rexpr_location (last));
 	  append_to_statement_list (t, &expr);
 	}
       if (emit_false)
@@ -4052,8 +4052,8 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	 location information on the branches.  */
       && (optimize
 	  || !EXPR_HAS_LOCATION (expr)
-	  || !expr_has_location (label_true)
-	  || EXPR_LOCATION (expr) == expr_location (label_true)))
+	  || !rexpr_has_location (label_true)
+	  || EXPR_LOCATION (expr) == rexpr_location (label_true)))
     {
       have_then_clause_p = true;
       label_true = GOTO_DESTINATION (label_true);
@@ -4068,8 +4068,8 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	 location information on the branches.  */
       && (optimize
 	  || !EXPR_HAS_LOCATION (expr)
-	  || !expr_has_location (label_false)
-	  || EXPR_LOCATION (expr) == expr_location (label_false)))
+	  || !rexpr_has_location (label_false)
+	  || EXPR_LOCATION (expr) == rexpr_location (label_false)))
     {
       have_else_clause_p = true;
       label_false = GOTO_DESTINATION (label_false);
