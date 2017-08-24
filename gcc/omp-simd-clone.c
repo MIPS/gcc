@@ -48,7 +48,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "tree-eh.h"
 #include "varasm.h"
-
+#include "stringpool.h"
+#include "attribs.h"
 
 /* Return the number of elements in vector type VECTYPE, which is associated
    with a SIMD clone.  At present these always have a constant length.  */

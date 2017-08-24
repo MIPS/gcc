@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"
+#include "tree-dfa.h"
 
 
 /* The maximum number of dominator BBs we search for conditions
@@ -1980,6 +1981,21 @@ expand_simple_operations (tree expr, tree stop)
 
       if (code == SSA_NAME)
 	return expand_simple_operations (e, stop);
+      else if (code == ADDR_EXPR)
+	{
+	  poly_int64 offset;
+	  tree base = get_addr_base_and_unit_offset (TREE_OPERAND (e, 0),
+						     &offset);
+	  if (base
+	      && TREE_CODE (base) == MEM_REF)
+	    {
+	      ee = expand_simple_operations (TREE_OPERAND (base, 0), stop);
+	      poly_offset_int new_offset = offset + mem_ref_offset (base);
+	      return fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (expr), ee,
+				  poly_offset_int_to_tree (sizetype,
+							   new_offset));
+	    }
+	}
 
       return expr;
     }

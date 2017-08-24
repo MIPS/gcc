@@ -1313,7 +1313,7 @@ print_exp (pretty_printer *pp, const_rtx x, int verbose)
       op[1] = XEXP (x, 1);
       break;
     case NOT:
-      st[0] = "!";
+      st[0] = "~";
       op[0] = XEXP (x, 0);
       break;
     case AND:

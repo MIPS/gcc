@@ -4584,10 +4584,10 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
   /* Compute reload_mode and reload_nregs.  */
   for (i = 0; i < n_reloads; i++)
     {
-      rld[i].mode
-	= (rld[i].inmode == VOIDmode
-	   || partial_subreg_p (rld[i].inmode, rld[i].outmode)
-	   ? rld[i].outmode : rld[i].inmode);
+      rld[i].mode = rld[i].inmode;
+      if (rld[i].mode == VOIDmode
+	  || partial_subreg_p (rld[i].mode, rld[i].outmode))
+	rld[i].mode = rld[i].outmode;
 
       rld[i].nregs = ira_reg_class_max_nregs [rld[i].rclass][rld[i].mode];
     }

@@ -580,6 +580,7 @@ public:
   bool to_shwi (poly_int_pod<N, HOST_WIDE_INT> *) const;
   bool to_uhwi (poly_int_pod<N, unsigned HOST_WIDE_INT> *) const;
   poly_int_pod<N, HOST_WIDE_INT> force_shwi () const;
+  poly_int_pod<N, unsigned HOST_WIDE_INT> force_uhwi () const;
 
 #if POLY_INT_CONVERSION
   operator C () const;
@@ -795,6 +796,19 @@ poly_int_pod<N, C>::force_shwi () const
   poly_int_pod<N, HOST_WIDE_INT> r;
   for (unsigned int i = 0; i < N; i++)
     r.coeffs[i] = this->coeffs[i].to_shwi ();
+  return r;
+}
+
+/* Force a wide-int based constant to unsigned HOST_WIDE_INT precision,
+   truncating if necessary.  */
+
+template<unsigned int N, typename C>
+poly_int_pod<N, unsigned HOST_WIDE_INT>
+poly_int_pod<N, C>::force_uhwi () const
+{
+  poly_int_pod<N, unsigned HOST_WIDE_INT> r;
+  for (unsigned int i = 0; i < N; i++)
+    r.coeffs[i] = this->coeffs[i].to_uhwi ();
   return r;
 }
 

@@ -666,18 +666,13 @@ suitable_reference_p (struct data_reference *a, enum ref_step_type *ref_step)
   return true;
 }
 
-/* Stores DR_OFFSET (DR) + DR_INIT (DR) to OFFSET.  */
+/* Stores DR_OFFSET (DR) to OFFSET.  */
 
 static void
 aff_combination_dr_offset (struct data_reference *dr, aff_tree *offset)
 {
-  tree type = TREE_TYPE (DR_OFFSET (dr));
-  aff_tree delta;
-
-  tree_to_aff_combination_expand (DR_OFFSET (dr), type, offset,
-				  &name_expansions);
-  aff_combination_const (&delta, type, wi::to_widest (DR_INIT (dr)));
-  aff_combination_add (offset, &delta);
+  tree_to_aff_combination_expand (DR_OFFSET (dr), TREE_TYPE (DR_OFFSET (dr)),
+				  offset, &name_expansions);
 }
 
 /* Determines number of iterations of the innermost enclosing loop before B
@@ -710,8 +705,7 @@ determine_offset (struct data_reference *a, struct data_reference *b,
       /* If the references have loop invariant address, check that they access
 	 exactly the same location.  */
       *off = 0;
-      return (operand_equal_p (DR_OFFSET (a), DR_OFFSET (b), 0)
-	      && operand_equal_p (DR_INIT (a), DR_INIT (b), 0));
+      return operand_equal_p (DR_OFFSET (a), DR_OFFSET (b), 0);
     }
 
   /* Compare the offsets of the addresses, and check whether the difference
@@ -1175,8 +1169,7 @@ valid_initializer_p (struct data_reference *ref,
   /* If the address of the reference is invariant, initializer must access
      exactly the same location.  */
   if (integer_zerop (DR_STEP (root)))
-    return (operand_equal_p (DR_OFFSET (ref), DR_OFFSET (root), 0)
-	    && operand_equal_p (DR_INIT (ref), DR_INIT (root), 0));
+    return operand_equal_p (DR_OFFSET (ref), DR_OFFSET (root), 0);
 
   /* Verify that this index of REF is equal to the root's index at
      -DISTANCE-th iteration.  */
@@ -1251,7 +1244,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   memset (&init_dr, 0, sizeof (struct data_reference));
   DR_REF (&init_dr) = init_ref;
   DR_STMT (&init_dr) = phi;
-  if (!dr_analyze_innermost (&DR_INNERMOST (&init_dr), init_ref, loop))
+  if (!dr_analyze_innermost (&DR_INNERMOST (&init_dr), init_ref, phi, loop))
     return NULL;
 
   if (!valid_initializer_p (&init_dr, ref->distance + 1, root->ref))
@@ -1485,8 +1478,7 @@ static tree
 ref_at_iteration (data_reference_p dr, int iter,
 		  gimple_seq *stmts, tree niters = NULL_TREE)
 {
-  tree off = DR_OFFSET (dr);
-  tree coff = DR_INIT (dr);
+  tree off, coff;
   tree ref = DR_REF (dr);
   enum tree_code ref_code = ERROR_MARK;
   tree ref_type = NULL_TREE;
@@ -1494,6 +1486,7 @@ ref_at_iteration (data_reference_p dr, int iter,
   tree ref_op2 = NULL_TREE;
   tree new_offset;
 
+  split_constant_offset (DR_OFFSET (dr), &off, &coff);
   if (iter != 0)
     {
       new_offset = size_binop (MULT_EXPR, DR_STEP (dr), ssize_int (iter));
@@ -2944,7 +2937,7 @@ prepare_finalizers_chain (struct loop *loop, chain_p chain)
 
       if (TREE_CODE (niters) != INTEGER_CST && TREE_CODE (niters) != SSA_NAME)
 	{
-	  niters = copy_node (niters);
+	  niters = unshare_expr (niters);
 	  niters = force_gimple_operand (niters, &stmts, true, NULL);
 	  if (stmts)
 	    {

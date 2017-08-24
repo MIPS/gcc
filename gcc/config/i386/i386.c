@@ -5686,6 +5686,10 @@ ix86_option_override_internal (bool main_args_p,
   if (!opts_set->x_ix86_abi)
     opts->x_ix86_abi = DEFAULT_ABI;
 
+  if (opts->x_ix86_abi == MS_ABI && TARGET_X32_P (opts->x_ix86_isa_flags))
+    error ("-mabi=ms not supported with X32 ABI");
+  gcc_assert (opts->x_ix86_abi == SYSV_ABI || opts->x_ix86_abi == MS_ABI);
+
   /* For targets using ms ABI enable ms-extensions, if not
      explicit turned off.  For non-ms ABI we turn off this
      option.  */
@@ -6653,16 +6657,73 @@ ix86_option_override_internal (bool main_args_p,
   gcc_assert ((opts->x_target_flags & MASK_LONG_DOUBLE_64) == 0
 	      || (opts->x_target_flags & MASK_LONG_DOUBLE_128) == 0);
 
-  /* Save the initial options in case the user does function specific
-     options.  */
-  if (main_args_p)
-    target_option_default_node = target_option_current_node
-      = build_target_option_node (opts);
-
   /* Handle stack protector */
   if (!opts_set->x_ix86_stack_protector_guard)
     opts->x_ix86_stack_protector_guard
       = TARGET_HAS_BIONIC ? SSP_GLOBAL : SSP_TLS;
+
+#ifdef TARGET_THREAD_SSP_OFFSET
+  ix86_stack_protector_guard_offset = TARGET_THREAD_SSP_OFFSET;
+#endif
+
+  if (global_options_set.x_ix86_stack_protector_guard_offset_str)
+    {
+      char *endp;
+      const char *str = ix86_stack_protector_guard_offset_str;
+
+      errno = 0;
+      int64_t offset;
+
+#if defined(INT64_T_IS_LONG)
+      offset = strtol (str, &endp, 0);
+#else
+      offset = strtoll (str, &endp, 0);
+#endif
+
+      if (!*str || *endp || errno)
+	error ("%qs is not a valid number "
+	       "in -mstack-protector-guard-offset=", str);
+
+      if (!IN_RANGE (offset, HOST_WIDE_INT_C (-0x80000000),
+		     HOST_WIDE_INT_C (0x7fffffff)))
+	error ("%qs is not a valid offset "
+	       "in -mstack-protector-guard-offset=", str);
+
+      ix86_stack_protector_guard_offset = offset;
+    }
+
+  ix86_stack_protector_guard_reg = DEFAULT_TLS_SEG_REG;
+
+  /* The kernel uses a different segment register for performance
+     reasons; a system call would not have to trash the userspace
+     segment register, which would be expensive.  */
+  if (ix86_cmodel == CM_KERNEL)
+    ix86_stack_protector_guard_reg = ADDR_SPACE_SEG_GS;
+
+  if (global_options_set.x_ix86_stack_protector_guard_reg_str)
+    {
+      const char *str = ix86_stack_protector_guard_reg_str;
+      addr_space_t seg = ADDR_SPACE_GENERIC;
+
+      /* Discard optional register prefix.  */
+      if (str[0] == '%')
+	str++;
+
+      if (strlen (str) == 2 && str[1] == 's')
+	{
+	  if (str[0] == 'f')
+	    seg = ADDR_SPACE_SEG_FS;
+	  else if (str[0] == 'g')
+	    seg = ADDR_SPACE_SEG_GS;
+	}
+
+      if (seg == ADDR_SPACE_GENERIC)
+	error ("%qs is not a valid base register "
+	       "in -mstack-protector-guard-reg=",
+	       ix86_stack_protector_guard_reg_str);
+
+      ix86_stack_protector_guard_reg = seg;
+    }
 
   /* Handle -mmemcpy-strategy= and -mmemset-strategy=  */
   if (opts->x_ix86_tune_memcpy_strategy)
@@ -6678,6 +6739,12 @@ ix86_option_override_internal (bool main_args_p,
       ix86_parse_stringop_strategy_string (str, true);
       free (str);
     }
+
+  /* Save the initial options in case the user does function specific
+     options.  */
+  if (main_args_p)
+    target_option_default_node = target_option_current_node
+      = build_target_option_node (opts);
 
   return true;
 }
@@ -8716,8 +8783,12 @@ ix86_function_type_abi (const_tree fntype)
   if (abi == SYSV_ABI
       && lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
     {
-      if (TARGET_X32)
-	error ("X32 does not support ms_abi attribute");
+      static int warned;
+      if (TARGET_X32 && !warned)
+	{
+	  error ("X32 does not support ms_abi attribute");
+	  warned = 1;
+	}
 
       abi = MS_ABI;
     }
@@ -14120,10 +14191,11 @@ output_probe_stack_range (rtx reg, rtx end)
   return "";
 }
 
-/* Finalize stack_realign_needed flag, which will guide prologue/epilogue
-   to be generated in correct form.  */
+/* Finalize stack_realign_needed and frame_pointer_needed flags, which
+   will guide prologue/epilogue to be generated in correct form.  */
+
 static void
-ix86_finalize_stack_realign_flags (void)
+ix86_finalize_stack_frame_flags (void)
 {
   /* Check if stack realign is really needed after reload, and
      stores result in cfun */
@@ -14146,13 +14218,13 @@ ix86_finalize_stack_realign_flags (void)
     }
 
   /* If the only reason for frame_pointer_needed is that we conservatively
-     assumed stack realignment might be needed, but in the end nothing that
-     needed the stack alignment had been spilled, clear frame_pointer_needed
-     and say we don't need stack realignment.  */
-  if (stack_realign
+     assumed stack realignment might be needed or -fno-omit-frame-pointer
+     is used, but in the end nothing that needed the stack alignment had
+     been spilled nor stack access, clear frame_pointer_needed and say we
+     don't need stack realignment.  */
+  if ((stack_realign || !flag_omit_frame_pointer)
       && frame_pointer_needed
       && crtl->is_leaf
-      && flag_omit_frame_pointer
       && crtl->sp_is_unchanging
       && !ix86_current_function_calls_tls_descriptor
       && !crtl->accesses_prior_frames
@@ -14221,6 +14293,42 @@ ix86_finalize_stack_realign_flags (void)
       df_scan_blocks ();
       df_compute_regs_ever_live (true);
       df_analyze ();
+
+      if (flag_var_tracking)
+	{
+	  /* Since frame pointer is no longer available, replace it with
+	     stack pointer - UNITS_PER_WORD in debug insns.  */
+	  df_ref ref, next;
+	  for (ref = DF_REG_USE_CHAIN (HARD_FRAME_POINTER_REGNUM);
+	       ref; ref = next)
+	    {
+	      rtx_insn *insn = DF_REF_INSN (ref);
+	      /* Make sure the next ref is for a different instruction,
+		 so that we're not affected by the rescan.  */
+	      next = DF_REF_NEXT_REG (ref);
+	      while (next && DF_REF_INSN (next) == insn)
+		next = DF_REF_NEXT_REG (next);
+
+	      if (DEBUG_INSN_P (insn))
+		{
+		  bool changed = false;
+		  for (; ref != next; ref = DF_REF_NEXT_REG (ref))
+		    {
+		      rtx *loc = DF_REF_LOC (ref);
+		      if (*loc == hard_frame_pointer_rtx)
+			{
+			  *loc = plus_constant (Pmode,
+						stack_pointer_rtx,
+						-UNITS_PER_WORD);
+			  changed = true;
+			}
+		    }
+		  if (changed)
+		    df_insn_rescan (insn);
+		}
+	    }
+	}
+
       recompute_frame_layout_p = true;
     }
 
@@ -14343,7 +14451,7 @@ ix86_expand_prologue (void)
   if (ix86_function_naked (current_function_decl))
     return;
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
 
   /* DRAP should not coexist with stack_realign_fp */
   gcc_assert (!(crtl->drap_reg && stack_realign_fp));
@@ -15207,7 +15315,7 @@ ix86_expand_epilogue (int style)
       return;
     }
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
   frame = m->frame;
 
   m->fs.sp_realigned = stack_realign_fp;
@@ -15725,6 +15833,30 @@ static GTY(()) rtx split_stack_fn;
 
 static GTY(()) rtx split_stack_fn_large;
 
+/* Return location of the stack guard value in the TLS block.  */
+
+rtx
+ix86_split_stack_guard (void)
+{
+  int offset;
+  addr_space_t as = DEFAULT_TLS_SEG_REG;
+  rtx r;
+
+  gcc_assert (flag_split_stack);
+
+#ifdef TARGET_THREAD_SPLIT_STACK_OFFSET
+  offset = TARGET_THREAD_SPLIT_STACK_OFFSET;
+#else
+  gcc_unreachable ();
+#endif
+
+  r = GEN_INT (offset);
+  r = gen_const_mem (Pmode, r);
+  set_mem_addr_space (r, as);
+
+  return r;
+}
+
 /* Handle -fsplit-stack.  These are the first instructions in the
    function, even before the regular prologue.  */
 
@@ -15742,7 +15874,7 @@ ix86_expand_split_stack_prologue (void)
 
   gcc_assert (flag_split_stack && reload_completed);
 
-  ix86_finalize_stack_realign_flags ();
+  ix86_finalize_stack_frame_flags ();
   frame = cfun->machine->frame;
   allocate = frame.stack_pointer_offset - INCOMING_FRAME_SP_OFFSET;
 
@@ -15756,10 +15888,8 @@ ix86_expand_split_stack_prologue (void)
      us SPLIT_STACK_AVAILABLE bytes, so if we need less than that we
      can compare directly.  Otherwise we need to do an addition.  */
 
-  limit = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
-			  UNSPEC_STACK_CHECK);
-  limit = gen_rtx_CONST (Pmode, limit);
-  limit = gen_rtx_MEM (Pmode, limit);
+  limit = ix86_split_stack_guard ();
+
   if (allocate < SPLIT_STACK_AVAILABLE)
     current = stack_pointer_rtx;
   else
@@ -16830,10 +16960,6 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	  case UNSPEC_INDNTPOFF:
 	  case UNSPEC_NTPOFF:
 	  case UNSPEC_DTPOFF:
-	    break;
-
-	  case UNSPEC_STACK_CHECK:
-	    gcc_assert (flag_split_stack);
 	    break;
 
 	  default:
@@ -17925,17 +18051,10 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	putc (ASSEMBLER_DIALECT == ASM_INTEL ? ')' : ']', file);
       break;
 
-     case UNSPEC:
-       if (XINT (x, 1) == UNSPEC_STACK_CHECK)
-	 {
-	   bool f = i386_asm_output_addr_const_extra (file, x);
-	   gcc_assert (f);
-	   break;
-	 }
-
-       gcc_assert (XVECLEN (x, 0) == 1);
-       output_pic_addr_const (file, XVECEXP (x, 0, 0), code);
-       switch (XINT (x, 1))
+    case UNSPEC:
+      gcc_assert (XVECLEN (x, 0) == 1);
+      output_pic_addr_const (file, XVECEXP (x, 0, 0), code);
+      switch (XINT (x, 1))
 	{
 	case UNSPEC_GOT:
 	  fputs ("@GOT", file);
@@ -18628,7 +18747,6 @@ print_reg (rtx x, int code, FILE *file)
    + -- print a branch hint as 'cs' or 'ds' prefix
    ; -- print a semicolon (after prefixes due to bug in older gas).
    ~ -- print "i" if TARGET_AVX2, "f" otherwise.
-   @ -- print a segment register of thread base pointer load
    ^ -- print addr32 prefix if TARGET_64BIT and Pmode != word_mode
    ! -- print MPX prefix for jxx/call/ret instructions if required.
  */
@@ -19172,19 +19290,6 @@ ix86_print_operand (FILE *file, rtx x, int code)
 #endif
 	  return;
 
-	case '@':
-	  if (ASSEMBLER_DIALECT == ASM_ATT)
-	    putc ('%', file);
-
-	  /* The kernel uses a different segment register for performance
-	     reasons; a system call would not have to trash the userspace
-	     segment register, which would be expensive.  */
-	  if (TARGET_64BIT && ix86_cmodel != CM_KERNEL)
-	    fputs ("fs", file);
-	  else
-	    fputs ("gs", file);
-	  return;
-
 	case '~':
 	  putc (TARGET_AVX2 ? 'i' : 'f', file);
 	  return;
@@ -19343,8 +19448,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 static bool
 ix86_print_operand_punct_valid_p (unsigned char code)
 {
-  return (code == '@' || code == '*' || code == '+' || code == '&'
-	  || code == ';' || code == '~' || code == '^' || code == '!');
+  return (code == '*' || code == '+' || code == '&' || code == ';'
+	  || code == '~' || code == '^' || code == '!');
 }
 
 /* Print a memory operand whose address is ADDR.  */
@@ -19644,22 +19749,6 @@ i386_asm_output_addr_const_extra (FILE *file, rtx x)
       machopic_output_function_base_name (file);
       break;
 #endif
-
-    case UNSPEC_STACK_CHECK:
-      {
-	int offset;
-
-	gcc_assert (flag_split_stack);
-
-#ifdef TARGET_THREAD_SPLIT_STACK_OFFSET
-	offset = TARGET_THREAD_SPLIT_STACK_OFFSET;
-#else
-	gcc_unreachable ();
-#endif
-
-	fprintf (file, "%s:%d", TARGET_64BIT ? "%fs" : "%gs", offset);
-      }
-      break;
 
     default:
       return false;
@@ -33422,13 +33511,18 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      break;
 	    case PROCESSOR_NEHALEM:
 	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AES)
-		arg_str = "westmere";
+		{
+		  arg_str = "westmere";
+		  priority = P_AES;
+		}
 	      else
-		/* We translate "arch=corei7" and "arch=nehalem" to
-		   "corei7" so that it will be mapped to M_INTEL_COREI7
-		   as cpu type to cover all M_INTEL_COREI7_XXXs.  */
-		arg_str = "corei7";
-	      priority = P_PROC_SSE4_2;
+		{
+		  /* We translate "arch=corei7" and "arch=nehalem" to
+		     "corei7" so that it will be mapped to M_INTEL_COREI7
+		     as cpu type to cover all M_INTEL_COREI7_XXXs.  */
+		  arg_str = "corei7";
+		  priority = P_PROC_SSE4_2;
+		}
 	      break;
 	    case PROCESSOR_SANDYBRIDGE:
 	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_F16C)
@@ -33868,30 +33962,30 @@ ix86_get_function_versions_dispatcher (void *decl)
 }
 
 /* Make the resolver function decl to dispatch the versions of
-   a multi-versioned function,  DEFAULT_DECL.  Create an
+   a multi-versioned function,  DEFAULT_DECL.  IFUNC_ALIAS_DECL is
+   ifunc alias that will point to the created resolver.  Create an
    empty basic block in the resolver and store the pointer in
    EMPTY_BB.  Return the decl of the resolver function.  */
 
 static tree
 make_resolver_func (const tree default_decl,
-		    const tree dispatch_decl,
+		    const tree ifunc_alias_decl,
 		    basic_block *empty_bb)
 {
   char *resolver_name;
   tree decl, type, decl_name, t;
-  bool is_uniq = false;
 
   /* IFUNC's have to be globally visible.  So, if the default_decl is
      not, then the name of the IFUNC should be made unique.  */
   if (TREE_PUBLIC (default_decl) == 0)
-    is_uniq = true;
+    {
+      char *ifunc_name = make_unique_name (default_decl, "ifunc", true);
+      symtab->change_decl_assembler_name (ifunc_alias_decl,
+					  get_identifier (ifunc_name));
+      XDELETEVEC (ifunc_name);
+    }
 
-  /* Append the filename to the resolver function if the versions are
-     not externally visible.  This is because the resolver function has
-     to be externally visible for the loader to find it.  So, appending
-     the filename will prevent conflicts with a resolver function from
-     another module which is based on the same version name.  */
-  resolver_name = make_unique_name (default_decl, "resolver", is_uniq);
+  resolver_name = make_unique_name (default_decl, "resolver", false);
 
   /* The resolver function should return a (void *). */
   type = build_function_type_list (ptr_type_node, NULL_TREE);
@@ -33903,14 +33997,13 @@ make_resolver_func (const tree default_decl,
   DECL_NAME (decl) = decl_name;
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_IGNORED_P (decl) = 0;
-  /* IFUNC resolvers have to be externally visible.  */
-  TREE_PUBLIC (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  TREE_PUBLIC (decl) = 0;
   DECL_UNINLINABLE (decl) = 1;
 
   /* Resolver is not external, body is generated.  */
   DECL_EXTERNAL (decl) = 0;
-  DECL_EXTERNAL (dispatch_decl) = 0;
+  DECL_EXTERNAL (ifunc_alias_decl) = 0;
 
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
@@ -33941,14 +34034,14 @@ make_resolver_func (const tree default_decl,
 
   pop_cfun ();
 
-  gcc_assert (dispatch_decl != NULL);
-  /* Mark dispatch_decl as "ifunc" with resolver as resolver_name.  */
-  DECL_ATTRIBUTES (dispatch_decl) 
-    = make_attribute ("ifunc", resolver_name, DECL_ATTRIBUTES (dispatch_decl));
+  gcc_assert (ifunc_alias_decl != NULL);
+  /* Mark ifunc_alias_decl as "ifunc" with resolver as resolver_name.  */
+  DECL_ATTRIBUTES (ifunc_alias_decl)
+    = make_attribute ("ifunc", resolver_name,
+		      DECL_ATTRIBUTES (ifunc_alias_decl));
 
   /* Create the alias for dispatch to resolver here.  */
-  /*cgraph_create_function_alias (dispatch_decl, decl);*/
-  cgraph_node::create_same_body_alias (dispatch_decl, decl);
+  cgraph_node::create_same_body_alias (ifunc_alias_decl, decl);
   XDELETEVEC (resolver_name);
   return decl;
 }
@@ -39829,7 +39922,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
     CASE_CFN_LFLOOR:
     CASE_CFN_LLFLOOR:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == SImode && in_mode == DFmode)
@@ -39856,7 +39949,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
     CASE_CFN_LCEIL:
     CASE_CFN_LLCEIL:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == SImode && in_mode == DFmode)
@@ -39906,7 +39999,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
     CASE_CFN_LROUND:
     CASE_CFN_LLROUND:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == SImode && in_mode == DFmode)
@@ -39931,7 +40024,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 
     CASE_CFN_FLOOR:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == DFmode && in_mode == DFmode)
@@ -39956,7 +40049,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 
     CASE_CFN_CEIL:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == DFmode && in_mode == DFmode)
@@ -39981,7 +40074,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 
     CASE_CFN_TRUNC:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == DFmode && in_mode == DFmode)
@@ -40006,7 +40099,7 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 
     CASE_CFN_RINT:
       /* The round insn does not trap on denormals.  */
-      if (flag_trapping_math || !TARGET_ROUND)
+      if (flag_trapping_math || !TARGET_SSE4_1)
 	break;
 
       if (out_mode == DFmode && in_mode == DFmode)
@@ -45809,17 +45902,60 @@ ix86_mangle_type (const_tree type)
     }
 }
 
-#ifdef TARGET_THREAD_SSP_OFFSET
-/* If using TLS guards, don't waste time creating and expanding
-   __stack_chk_guard decl and MEM as we are going to ignore it.  */
+static GTY(()) tree ix86_tls_stack_chk_guard_decl;
+
 static tree
 ix86_stack_protect_guard (void)
 {
   if (TARGET_SSP_TLS_GUARD)
-    return NULL_TREE;
+    {
+      tree type_node = lang_hooks.types.type_for_mode (ptr_mode, 1);
+      int qual = ENCODE_QUAL_ADDR_SPACE (ix86_stack_protector_guard_reg);
+      tree type = build_qualified_type (type_node, qual);
+      tree t;
+
+      if (global_options_set.x_ix86_stack_protector_guard_symbol_str)
+	{
+	  t = ix86_tls_stack_chk_guard_decl;
+
+	  if (t == NULL)
+	    {
+	      rtx x;
+
+	      t = build_decl
+		(UNKNOWN_LOCATION, VAR_DECL,
+		 get_identifier (ix86_stack_protector_guard_symbol_str),
+		 type);
+	      TREE_STATIC (t) = 1;
+	      TREE_PUBLIC (t) = 1;
+	      DECL_EXTERNAL (t) = 1;
+	      TREE_USED (t) = 1;
+	      TREE_THIS_VOLATILE (t) = 1;
+	      DECL_ARTIFICIAL (t) = 1;
+	      DECL_IGNORED_P (t) = 1;
+
+	      /* Do not share RTL as the declaration is visible outside of
+		 current function.  */
+	      x = DECL_RTL (t);
+	      RTX_FLAG (x, used) = 1;
+
+	      ix86_tls_stack_chk_guard_decl = t;
+	    }
+	}
+      else
+	{
+	  tree asptrtype = build_pointer_type (type);
+
+	  t = build_int_cst (asptrtype, ix86_stack_protector_guard_offset);
+	  t = build2 (MEM_REF, asptrtype, t,
+		      build_int_cst (asptrtype, 0));
+	}
+
+      return t;
+    }
+
   return default_stack_protect_guard ();
 }
-#endif
 
 /* For 32-bit code we can save PIC register setup by using
    __stack_chk_fail_local hidden function instead of calling
@@ -52164,7 +52300,7 @@ ix86_optab_supported_p (int op, machine_mode mode1, machine_mode,
       if (SSE_FLOAT_MODE_P (mode1)
 	  && TARGET_SSE_MATH
 	  && !flag_trapping_math
-	  && !TARGET_ROUND)
+	  && !TARGET_SSE4_1)
 	return opt_type == OPTIMIZE_FOR_SPEED;
       return true;
 
@@ -52174,7 +52310,7 @@ ix86_optab_supported_p (int op, machine_mode mode1, machine_mode,
       if (SSE_FLOAT_MODE_P (mode1)
 	  && TARGET_SSE_MATH
 	  && !flag_trapping_math
-	  && TARGET_ROUND)
+	  && TARGET_SSE4_1)
 	return true;
       return opt_type == OPTIMIZE_FOR_SPEED;
 
@@ -52833,10 +52969,8 @@ ix86_run_selftests (void)
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE ix86_mangle_type
 
-#ifdef TARGET_THREAD_SSP_OFFSET
 #undef TARGET_STACK_PROTECT_GUARD
 #define TARGET_STACK_PROTECT_GUARD ix86_stack_protect_guard
-#endif
 
 #if !TARGET_MACHO
 #undef TARGET_STACK_PROTECT_FAIL

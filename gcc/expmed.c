@@ -158,6 +158,7 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
 		      machine_mode mode, int speed)
 {
   int m, n, mode_bitsize;
+  machine_mode mode_from;
 
   mode_bitsize = GET_MODE_UNIT_BITSIZE (mode);
 
@@ -215,9 +216,10 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
   scalar_int_mode int_mode_to;
   if (is_a <scalar_int_mode> (mode, &int_mode_to))
     {
-      opt_scalar_int_mode int_mode_from;
-      FOR_EACH_MODE_IN_CLASS (int_mode_from, MODE_INT)
-	init_expmed_one_conv (all, int_mode_to, *int_mode_from, speed);
+      for (mode_from = MIN_MODE_INT; mode_from <= MAX_MODE_INT;
+	   mode_from = (machine_mode)(mode_from + 1))
+	init_expmed_one_conv (all, int_mode_to,
+			      as_a <scalar_int_mode> (mode_from), speed);
 
       scalar_int_mode wider_mode;
       if (GET_MODE_CLASS (int_mode_to) == MODE_INT
@@ -2432,6 +2434,7 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
   optab lrotate_optab = rotl_optab;
   optab rrotate_optab = rotr_optab;
   machine_mode op1_mode;
+  scalar_mode scalar_mode = GET_MODE_INNER (mode);
   int attempt;
   bool speed = optimize_insn_for_speed_p ();
 
@@ -2457,10 +2460,10 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
     {
       if (CONST_INT_P (op1)
 	  && ((unsigned HOST_WIDE_INT) INTVAL (op1) >=
-	      (unsigned HOST_WIDE_INT) GET_MODE_UNIT_BITSIZE (mode)))
+	      (unsigned HOST_WIDE_INT) GET_MODE_BITSIZE (scalar_mode)))
 	op1 = gen_int_shift_amount (mode,
 				    (unsigned HOST_WIDE_INT) INTVAL (op1)
-				    % GET_MODE_UNIT_BITSIZE (mode));
+				    % GET_MODE_BITSIZE (scalar_mode));
       else if (GET_CODE (op1) == SUBREG
 	       && subreg_lowpart_p (op1)
 	       && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (op1)))
@@ -2474,10 +2477,10 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
      amount instead.  */
   if (rotate
       && CONST_INT_P (op1)
-      && IN_RANGE (INTVAL (op1), GET_MODE_UNIT_BITSIZE (mode) / 2 + left,
-		   GET_MODE_UNIT_BITSIZE (mode) - 1))
+      && IN_RANGE (INTVAL (op1), GET_MODE_BITSIZE (scalar_mode) / 2 + left,
+		   GET_MODE_BITSIZE (scalar_mode) - 1))
     {
-      op1 = gen_int_shift_amount (mode, (GET_MODE_UNIT_BITSIZE (mode)
+      op1 = gen_int_shift_amount (mode, (GET_MODE_BITSIZE (scalar_mode)
 					 - INTVAL (op1)));
       left = !left;
       code = left ? LROTATE_EXPR : RROTATE_EXPR;
@@ -2490,7 +2493,7 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
   if (rotate
       && CONST_INT_P (op1)
       && INTVAL (op1) == BITS_PER_UNIT
-      && GET_MODE_UNIT_SIZE (mode) == 2
+      && GET_MODE_SIZE (scalar_mode) == 2
       && optab_handler (bswap_optab, HImode) != CODE_FOR_nothing)
     return expand_unop (HImode, bswap_optab, shifted, NULL_RTX,
 				  unsignedp);
@@ -2503,7 +2506,7 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
   if (code == LSHIFT_EXPR
       && CONST_INT_P (op1)
       && INTVAL (op1) > 0
-      && INTVAL (op1) < GET_MODE_UNIT_PRECISION (mode)
+      && INTVAL (op1) < GET_MODE_PRECISION (scalar_mode)
       && INTVAL (op1) < MAX_BITS_PER_WORD
       && (shift_cost (speed, mode, INTVAL (op1))
 	  > INTVAL (op1) * add_cost (speed, mode))
@@ -2559,13 +2562,13 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
 		return shifted;
 	      else if (CONST_INT_P (op1))
 		other_amount = gen_int_shift_amount
-		  (mode, GET_MODE_UNIT_BITSIZE (mode) - INTVAL (op1));
+		  (mode, GET_MODE_BITSIZE (scalar_mode) - INTVAL (op1));
 	      else
 		{
 		  other_amount
 		    = simplify_gen_unary (NEG, GET_MODE (op1),
 					  op1, GET_MODE (op1));
-		  HOST_WIDE_INT mask = GET_MODE_UNIT_PRECISION (mode) - 1;
+		  HOST_WIDE_INT mask = GET_MODE_PRECISION (scalar_mode) - 1;
 		  other_amount
 		    = simplify_gen_binary (AND, GET_MODE (op1), other_amount,
 					   gen_int_mode (mask, GET_MODE (op1)));

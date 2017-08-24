@@ -288,7 +288,8 @@ process_assignment (gassign *stmt,
 	  /* Even if the type modes are the same, if the precision of the
 	     type is smaller than mode's precision,
 	     reduce_to_bit_field_precision would generate additional code.  */
-	  if (partial_integral_type_p (TREE_TYPE (dest)))
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (dest))
+	      && !type_has_mode_precision_p (TREE_TYPE (dest)))
 	    return FAIL;
 	}
 

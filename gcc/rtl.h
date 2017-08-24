@@ -2840,15 +2840,64 @@ extern rtx gen_highpart (machine_mode, rtx);
 extern rtx gen_highpart_mode (machine_mode, machine_mode, rtx);
 extern rtx operand_subword (rtx, poly_int64, int, machine_mode);
 extern rtx operand_subword_force (rtx, poly_int64, machine_mode);
-extern bool partial_subreg_p (machine_mode, machine_mode);
-extern bool partial_subreg_p (const_rtx);
 extern machine_mode wider_subreg_mode (machine_mode, machine_mode);
 extern machine_mode wider_subreg_mode (const_rtx);
 extern machine_mode narrower_subreg_mode (machine_mode, machine_mode);
-extern bool paradoxical_subreg_p (machine_mode, machine_mode);
-extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
 extern poly_int64 subreg_size_lowpart_offset (poly_int64, poly_int64);
+
+/* Return true if a subreg of mode OUTERMODE would only access part of
+   an inner register with mode INNERMODE.  The other bits of the inner
+   register would then be "don't care" on read.  The behavior for writes
+   depends on REGMODE_NATURAL_SIZE; bits in the same REGMODE_NATURAL_SIZE-d
+   chunk would be clobbered but other bits would be preserved.  */
+
+inline bool
+partial_subreg_p (machine_mode outermode, machine_mode innermode)
+{
+  /* Modes involved in a subreg must be ordered.  In particular, we must
+     always know at compile time whether the subreg is paradoxical.  */
+  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
+  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
+  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
+  return may_lt (outer_prec, inner_prec);
+}
+
+/* Likewise return true if X is a subreg that is smaller than the inner
+   register.  Use df_read_modify_subreg_p to test whether writing to such
+   a subreg preserves any part of the inner register.  */
+
+inline bool
+partial_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+  return partial_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
+
+/* Return true if a subreg with the given outer and inner modes is
+   paradoxical.  */
+
+inline bool
+paradoxical_subreg_p (machine_mode outermode, machine_mode innermode)
+{
+  /* Modes involved in a subreg must be ordered.  In particular, we must
+     always know at compile time whether the subreg is paradoxical.  */
+  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
+  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
+  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
+  return may_gt (outer_prec, inner_prec);
+}
+
+/* Return true if X is a paradoxical subreg, false otherwise.  */
+
+inline bool
+paradoxical_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+  return paradoxical_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
 
 /* Return the SUBREG_BYTE for an OUTERMODE lowpart of an INNERMODE value.  */
 

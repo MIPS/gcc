@@ -39,6 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "ubsan.h"
 #include "expr.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 #include "gimplify-me.h"
 #include "dfp.h"
@@ -1579,8 +1581,10 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
 
   /* If this is not a signed operation, don't instrument anything here.
      Also punt on bit-fields.  */
-  if (!full_integral_type_p (lhsinner)
-      || TYPE_OVERFLOW_WRAPS (lhsinner))
+  if (!INTEGRAL_TYPE_P (lhsinner)
+      || TYPE_OVERFLOW_WRAPS (lhsinner)
+      || may_ne (GET_MODE_BITSIZE (TYPE_MODE (lhsinner)),
+		 TYPE_PRECISION (lhsinner)))
     return;
 
   switch (code)

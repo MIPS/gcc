@@ -2780,9 +2780,7 @@ use_gather_scatters_1 (stmt_vec_info stmt_info, int offmode_bits, int scale,
 		     TYPE_MODE (offset_vectype)) == CODE_FOR_nothing)
     return false;
 
-  tree dr_offset = fold_convert (sizetype, DR_OFFSET (dr));
-  tree dr_init = fold_convert (sizetype, DR_INIT (dr));
-  tree offset = fold_build2 (PLUS_EXPR, sizetype, dr_offset, dr_init);
+  tree offset = fold_convert (sizetype, DR_OFFSET (dr));
   tree base = fold_build_pointer_plus (DR_BASE_ADDRESS (dr), offset);
 
   info->decl = decl;
@@ -3347,7 +3345,8 @@ get_load_store_type (gimple *stmt, tree vectype, bool slp, bool masked_p,
   if (*memory_access_type == VMAT_ELEMENTWISE
       && !STMT_VINFO_STRIDED_P (stmt_info)
       && !(stmt == GROUP_FIRST_ELEMENT (stmt_info)
-	   && GROUP_NUM_STMTS (stmt_info) == 1))
+	   && GROUP_NUM_STMTS (stmt_info) == 1
+	   && !pow2p_hwi (GROUP_SIZE (stmt_info))))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -5551,8 +5550,10 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   if (!VECTOR_BOOLEAN_TYPE_P (vectype_out)
-      && (partial_integral_type_p (lhs_type)
-	  || partial_integral_type_p (rhs_type)))
+      && ((INTEGRAL_TYPE_P (lhs_type)
+	   && !type_has_mode_precision_p (lhs_type))
+	  || (INTEGRAL_TYPE_P (rhs_type)
+	      && !type_has_mode_precision_p (rhs_type))))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6155,8 +6156,8 @@ vectorizable_assignment (gimple *stmt, gimple_stmt_iterator *gsi,
   if ((CONVERT_EXPR_CODE_P (code)
        || code == VIEW_CONVERT_EXPR)
       && INTEGRAL_TYPE_P (TREE_TYPE (scalar_dest))
-      && (partial_integral_type_p (TREE_TYPE (scalar_dest))
-	  || partial_integral_type_p (TREE_TYPE (op)))
+      && (!type_has_mode_precision_p (TREE_TYPE (scalar_dest))
+	  || !type_has_mode_precision_p (TREE_TYPE (op)))
       /* But a conversion that does not change the bit-pattern is ok.  */
       && !((TYPE_PRECISION (TREE_TYPE (scalar_dest))
 	    > TYPE_PRECISION (TREE_TYPE (op)))
@@ -6331,7 +6332,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
 
   scalar_dest = gimple_assign_lhs (stmt);
   vectype_out = STMT_VINFO_VECTYPE (stmt_info);
-  if (partial_integral_type_p (TREE_TYPE (scalar_dest)))
+  if (!type_has_mode_precision_p (TREE_TYPE (scalar_dest)))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6716,8 +6717,7 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Most operations cannot handle bit-precision types without extra
      truncations.  */
   if (!VECTOR_BOOLEAN_TYPE_P (vectype_out)
-      && may_ne (TYPE_PRECISION (TREE_TYPE (scalar_dest)),
-		 GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (scalar_dest))))
+      && !type_has_mode_precision_p (TREE_TYPE (scalar_dest))
       /* Exception are bitwise binary operations.  */
       && code != BIT_IOR_EXPR
       && code != BIT_XOR_EXPR
@@ -7311,9 +7311,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       stride_base
 	= fold_build_pointer_plus
 	    (unshare_expr (DR_BASE_ADDRESS (first_dr)),
-	     size_binop (PLUS_EXPR,
-			 convert_to_ptrofftype (unshare_expr (DR_OFFSET (first_dr))),
-			 convert_to_ptrofftype (DR_INIT (first_dr))));
+	     convert_to_ptrofftype (unshare_expr (DR_OFFSET (first_dr))));
       stride_step = fold_convert (sizetype, unshare_expr (DR_STEP (first_dr)));
 
       /* For a store with loop-invariant (but other than power-of-2)
@@ -7629,7 +7627,6 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      && TREE_CODE (DR_BASE_ADDRESS (first_dr)) == ADDR_EXPR
 	      && VAR_P (TREE_OPERAND (DR_BASE_ADDRESS (first_dr), 0))
 	      && integer_zerop (DR_OFFSET (first_dr))
-	      && integer_zerop (DR_INIT (first_dr))
 	      && alias_sets_conflict_p (get_alias_set (aggr_type),
 					get_alias_set (TREE_TYPE (ref_type))))
 	    {
@@ -8203,9 +8200,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       stride_base
 	= fold_build_pointer_plus
 	    (DR_BASE_ADDRESS (first_dr),
-	     size_binop (PLUS_EXPR,
-			 convert_to_ptrofftype (DR_OFFSET (first_dr)),
-			 convert_to_ptrofftype (DR_INIT (first_dr))));
+	     convert_to_ptrofftype (DR_OFFSET (first_dr)));
       stride_step = fold_convert (sizetype, DR_STEP (first_dr));
 
       /* For a load with loop-invariant (but other than power-of-2)
@@ -8617,7 +8612,6 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      && TREE_CODE (DR_BASE_ADDRESS (first_dr)) == ADDR_EXPR
 	      && VAR_P (TREE_OPERAND (DR_BASE_ADDRESS (first_dr), 0))
 	      && integer_zerop (DR_OFFSET (first_dr))
-	      && integer_zerop (DR_INIT (first_dr))
 	      && alias_sets_conflict_p (get_alias_set (aggr_type),
 					get_alias_set (TREE_TYPE (ref_type)))
 	      && (alignment_support_scheme == dr_aligned
@@ -8640,8 +8634,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		= STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt_for_drptr));
 	      tree diff = fold_convert (sizetype,
 					size_binop (MINUS_EXPR,
-						    DR_INIT (first_dr),
-						    DR_INIT (ptrdr)));
+						    DR_CONST_OFFSET (first_dr),
+						    DR_CONST_OFFSET (ptrdr)));
 	      dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, gsi,
 					     stmt, diff);
 	    }

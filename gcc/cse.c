@@ -3966,9 +3966,9 @@ record_jump_cond (enum rtx_code code, machine_mode mode, rtx op0,
      if we test MODE instead, we can get an infinite recursion
      alternating between two modes each wider than MODE.  */
 
-  if (code == NE && GET_CODE (op0) == SUBREG
-      && subreg_lowpart_p (op0)
-      && partial_subreg_p (op0))
+  if (code == NE
+      && partial_subreg_p (op0)
+      && subreg_lowpart_p (op0))
     {
       machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
       rtx tem = record_jump_cond_subreg (inner_mode, op1);
@@ -3977,9 +3977,9 @@ record_jump_cond (enum rtx_code code, machine_mode mode, rtx op0,
 			  reversed_nonequality);
     }
 
-  if (code == NE && GET_CODE (op1) == SUBREG
-      && subreg_lowpart_p (op1)
-      && partial_subreg_p (op1))
+  if (code == NE
+      && partial_subreg_p (op1)
+      && subreg_lowpart_p (op1))
     {
       machine_mode inner_mode = GET_MODE (SUBREG_REG (op1));
       rtx tem = record_jump_cond_subreg (inner_mode, op0);

@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "domwalk.h"
 #include "tree-cfgcleanup.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 #define VR_INITIALIZER { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL }
 
@@ -1628,6 +1630,8 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
   signop sign = TYPE_SIGN (TREE_TYPE (val1));
   wide_int res;
 
+  *overflow_p = false;
+
   switch (code)
     {
     case RSHIFT_EXPR:
@@ -1699,8 +1703,6 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
       gcc_unreachable ();
     }
 
-  *overflow_p = overflow;
-
   if (overflow
       && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (val1)))
     {
@@ -1743,6 +1745,8 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
 	return wi::min_value (TYPE_PRECISION (TREE_TYPE (val1)),
 			      TYPE_SIGN (TREE_TYPE (val1)));
     }
+
+  *overflow_p = overflow;
 
   return res;
 }
@@ -5265,7 +5269,7 @@ register_edge_assert_for_2 (tree name, edge e,
 	      && tree_fits_uhwi_p (cst2)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && IN_RANGE (tree_to_uhwi (cst2), 1, prec - 1)
-	      && full_integral_type_p (TREE_TYPE (val)))
+	      && type_has_mode_precision_p (TREE_TYPE (val)))
 	    {
 	      mask = wi::mask (tree_to_uhwi (cst2), false, prec);
 	      val2 = fold_binary (LSHIFT_EXPR, TREE_TYPE (val), val, cst2);

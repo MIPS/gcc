@@ -6672,7 +6672,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   /* Do not try to vectorize bit-precision reductions.  */
-  if (partial_integral_type_p (scalar_type))
+  if (!type_has_mode_precision_p (scalar_type))
     return false;
 
   /* All uses but the last are expected to be defined in the loop.

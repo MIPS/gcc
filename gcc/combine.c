@@ -7216,9 +7216,8 @@ simplify_set (rtx x)
   /* If we have (set (cc0) (subreg ...)), we try to remove the subreg
      in SRC.  */
   if (dest == cc0_rtx
-      && GET_CODE (src) == SUBREG
-      && subreg_lowpart_p (src)
-      && partial_subreg_p (src))
+      && partial_subreg_p (src)
+      && subreg_lowpart_p (src))
     {
       rtx inner = SUBREG_REG (src);
       machine_mode inner_mode = GET_MODE (inner);
@@ -7659,7 +7658,7 @@ expand_field_assignment (const_rtx x)
 	    }
 	}
 
-      /* If destination is a subreg that overwrites the whole of the inner
+      /* If the destination is a subreg that overwrites the whole of the inner
 	 register, we can move the subreg to the source.  */
       else if (GET_CODE (SET_DEST (x)) == SUBREG
 	       /* We need SUBREGs to compute nonzero_bits properly.  */
@@ -13661,12 +13660,14 @@ record_truncated_value (rtx x)
 
   if (GET_CODE (x) == SUBREG && REG_P (SUBREG_REG (x)))
     {
-      if (!partial_subreg_p (x))
+      machine_mode original_mode = GET_MODE (SUBREG_REG (x));
+      truncated_mode = GET_MODE (x);
+
+      if (!partial_subreg_p (truncated_mode, original_mode))
 	return true;
 
       truncated_mode = GET_MODE (x);
-      if (TRULY_NOOP_TRUNCATION_MODES_P (truncated_mode,
-					 GET_MODE (SUBREG_REG (x))))
+      if (TRULY_NOOP_TRUNCATION_MODES_P (truncated_mode, original_mode))
 	return true;
 
       x = SUBREG_REG (x);
@@ -14274,7 +14275,7 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx_insn *to_insn,
       if (GET_CODE (dest) == ZERO_EXTRACT
 	  || GET_CODE (dest) == STRICT_LOW_PART
 	  || (GET_CODE (dest) == SUBREG
-	      && df_read_modify_subreg_p (dest)))
+	      && !df_read_modify_subreg_p (dest)))
 	{
 	  move_deaths (dest, maybe_kill_insn, from_luid, to_insn, pnotes);
 	  return;

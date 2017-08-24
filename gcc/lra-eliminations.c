@@ -292,8 +292,8 @@ move_plus_up (rtx x)
   subreg_reg = SUBREG_REG (x);
   x_mode = GET_MODE (x);
   subreg_reg_mode = GET_MODE (subreg_reg);
-  if (GET_CODE (subreg_reg) == PLUS
-      && !paradoxical_subreg_p (subreg_reg)
+  if (!paradoxical_subreg_p (x)
+      && GET_CODE (subreg_reg) == PLUS
       && CONSTANT_P (XEXP (subreg_reg, 1))
       && GET_MODE_CLASS (x_mode) == MODE_INT
       && GET_MODE_CLASS (subreg_reg_mode) == MODE_INT)

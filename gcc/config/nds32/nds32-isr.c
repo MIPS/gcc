@@ -29,6 +29,8 @@
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "diagnostic-core.h"
 #include "output.h"
 

@@ -25,10 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "ubsan.h"
 #include "c-family/c-ubsan.h"
-#include "asan.h"
 #include "stor-layout.h"
 #include "builtins.h"
 #include "gimplify.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "asan.h"
 
 /* Instrument division by zero and INT_MIN / -1.  If not instrumenting,
    return NULL_TREE.  */
@@ -130,7 +132,8 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
   /* If this is not a signed operation, don't perform overflow checks.
      Also punt on bit-fields.  */
   if (TYPE_OVERFLOW_WRAPS (type0)
-      || !full_integral_type_p (type0)
+      || may_ne (GET_MODE_BITSIZE (TYPE_MODE (type0)),
+		 TYPE_PRECISION (type0))
       || !sanitize_flags_p (SANITIZE_SHIFT_BASE))
     ;
 

@@ -31,6 +31,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "emit-rtl.h"

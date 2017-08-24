@@ -237,7 +237,6 @@ struct vect_addr_base_info
 {
   /* Map from.  */
   tree dr_base;
-  tree dr_init;
   tree dr_offset;
   tree arg_offset;
   tree arg_byte_offset;
@@ -1042,14 +1041,15 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 
 #define STMT_VINFO_DR_WRT_VEC_LOOP(S)      (S)->dr_wrt_vec_loop
 #define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_wrt_vec_loop.base_address
-#define STMT_VINFO_DR_INIT(S)              (S)->dr_wrt_vec_loop.init
 #define STMT_VINFO_DR_OFFSET(S)            (S)->dr_wrt_vec_loop.offset
+#define STMT_VINFO_DR_VAR_OFFSET(S)        (S)->dr_wrt_vec_loop.var_offset
+#define STMT_VINFO_DR_CONST_OFFSET(S)      (S)->dr_wrt_vec_loop.const_offset
 #define STMT_VINFO_DR_STEP(S)              (S)->dr_wrt_vec_loop.step
 #define STMT_VINFO_DR_BASE_ALIGNMENT(S)    (S)->dr_wrt_vec_loop.base_alignment
 #define STMT_VINFO_DR_BASE_MISALIGNMENT(S) \
   (S)->dr_wrt_vec_loop.base_misalignment
-#define STMT_VINFO_DR_OFFSET_ALIGNMENT(S) \
-  (S)->dr_wrt_vec_loop.offset_alignment
+#define STMT_VINFO_DR_VAR_OFFSET_ALIGNMENT(S) \
+  (S)->dr_wrt_vec_loop.var_offset_alignment
 #define STMT_VINFO_DR_STEP_ALIGNMENT(S) \
   (S)->dr_wrt_vec_loop.step_alignment
 

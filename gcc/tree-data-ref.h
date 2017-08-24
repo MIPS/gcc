@@ -28,29 +28,44 @@ along with GCC; see the file COPYING3.  If not see
   innermost_loop_behavior describes the evolution of the address of the memory
   reference in the innermost enclosing loop.  The address is expressed as
   BASE + STEP * # of iteration, and base is further decomposed as the base
-  pointer (BASE_ADDRESS),  loop invariant offset (OFFSET) and
-  constant offset (INIT).  Examples, in loop nest
+  pointer (BASE_ADDRESS) and the loop invariant offset (OFFSET).
+  OFFSET is further expressed as the sum of a zero or non-constant term
+  (VAR_OFFSET) and a constant term (CONST_OFFSET).  VAR_OFFSET should be
+  treated as an abstract representation; in particular, it may contain
+  chrecs.  CONST_OFFSET is always an INTEGER_CST.
 
-  for (i = 0; i < 100; i++)
-    for (j = 3; j < 100; j++)
+  Examples, in loop nest
 
-                       Example 1                      Example 2
-      data-ref         a[j].b[i][j]                   *(p + x + 16B + 4B * j)
+  1: for (i = 0; i < 100; i++)
+  2:   for (j = 3; j < 100; j++)
+
+                    Example 1                         Example 2
+      data-ref      a[j].b[i][j]                      *(p + x + 16B + 4B * j)
 
 
   innermost_loop_behavior
-      base_address     &a                             p
-      offset           i * D_i			      x
-      init             3 * D_j + offsetof (b)         28
-      step             D_j                            4
+      base_address  &a                                p
+      offset        i * D_i + 3 * D_j + offsetof (b)  x + 28
+      var_offset    {0, +, D_i}_1                     x (or an equiv. chrec)
+      const_offset  3 * D_j + offsetof (b)            28
+      step          D_j                               4
 
-  */
+  The main two uses of VAR_OFFSET and CONST_OFFSET are:
+
+  1. to better analyze the alignment, since CONST_OFFSET can be treated as
+     the misalignment wrt the alignment of VAR_OFFSET.
+
+  2. to find data references that are a constant number of bytes apart.
+     If two data references have the same BASE_ADDRESS and VAR_OFFSET,
+     the distance between them is given by the difference in their
+     CONST_OFFSETs.  */
 struct innermost_loop_behavior
 {
   tree base_address;
   tree offset;
-  tree init;
   tree step;
+  tree var_offset;
+  tree const_offset;
 
   /* BASE_ADDRESS is known to be misaligned by BASE_MISALIGNMENT bytes
      from an alignment boundary of BASE_ALIGNMENT bytes.  For example,
@@ -91,7 +106,7 @@ struct innermost_loop_behavior
   /* The largest power of two that divides OFFSET, capped to a suitably
      high value if the offset is zero.  This is a byte rather than a bit
      quantity.  */
-  unsigned int offset_alignment;
+  unsigned int var_offset_alignment;
 
   /* Likewise for STEP.  */
   unsigned int step_alignment;
@@ -186,12 +201,13 @@ struct data_reference
 #define DR_IS_CONDITIONAL_IN_STMT(DR) (DR)->is_conditional_in_stmt
 #define DR_BASE_ADDRESS(DR)        (DR)->innermost.base_address
 #define DR_OFFSET(DR)              (DR)->innermost.offset
-#define DR_INIT(DR)                (DR)->innermost.init
+#define DR_VAR_OFFSET(DR)          (DR)->innermost.var_offset
+#define DR_CONST_OFFSET(DR)        (DR)->innermost.const_offset
 #define DR_STEP(DR)                (DR)->innermost.step
 #define DR_PTR_INFO(DR)            (DR)->alias.ptr_info
 #define DR_BASE_ALIGNMENT(DR)      (DR)->innermost.base_alignment
 #define DR_BASE_MISALIGNMENT(DR)   (DR)->innermost.base_misalignment
-#define DR_OFFSET_ALIGNMENT(DR)    (DR)->innermost.offset_alignment
+#define DR_VAR_OFFSET_ALIGNMENT(DR) (DR)->innermost.var_offset_alignment
 #define DR_STEP_ALIGNMENT(DR)      (DR)->innermost.step_alignment
 #define DR_INNERMOST(DR)           (DR)->innermost
 
@@ -421,7 +437,8 @@ typedef struct data_dependence_relation *ddr_p;
 #define DDR_COULD_BE_INDEPENDENT_P(DDR) (DDR)->could_be_independent_p
 
 
-bool dr_analyze_innermost (innermost_loop_behavior *, tree, struct loop *);
+bool dr_analyze_innermost (innermost_loop_behavior *, tree,
+			   gimple *, struct loop *);
 extern bool compute_data_dependences_for_loop (struct loop *, bool,
 					       vec<loop_p> *,
 					       vec<data_reference_p> *,
@@ -475,8 +492,6 @@ dr_alignment (data_reference *dr)
 
 extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
-extern bool dr_equal_offsets_p (struct data_reference *,
-                                struct data_reference *);
 extern tree dr_direction_indicator (struct data_reference *);
 extern tree dr_zero_step_indicator (struct data_reference *);
 extern bool dr_known_forward_stride_p (struct data_reference *);
@@ -689,6 +704,25 @@ lambda_matrix_new (int m, int n, struct obstack *lambda_obstack)
     mat[i] = XOBNEWVEC (lambda_obstack, int, n);
 
   return mat;
+}
+
+/* Check if DRA and DRB have equal DR_VAR_OFFSETs.  */
+
+inline bool
+dr_var_offsets_equal_p (struct data_reference *dra,
+			struct data_reference *drb)
+{
+  return eq_evolutions_p (DR_VAR_OFFSET (dra), DR_VAR_OFFSET (drb));
+}
+
+/* Compare the DR_VAR_OFFSETs of DRA and DRB for sorting purposes,
+   returning a qsort-style result.  */
+
+inline int
+dr_var_offsets_compare (struct data_reference *dra,
+			struct data_reference *drb)
+{
+  return data_ref_compare_tree (DR_VAR_OFFSET (dra), DR_VAR_OFFSET (drb));
 }
 
 #endif  /* GCC_TREE_DATA_REF_H  */

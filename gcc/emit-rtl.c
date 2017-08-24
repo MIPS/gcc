@@ -1696,33 +1696,6 @@ subreg_lowpart_p (const_rtx x)
 		  SUBREG_BYTE (x));
 }
 
-/* Return true if a subreg of mode OUTERMODE would only access part of
-   an inner register with mode INNERMODE.  The other bits of the inner
-   register would then be "don't care" on read.  The behavior for writes
-   depends on REGMODE_NATURAL_SIZE; bits in the same REGMODE_NATURAL_SIZE-d
-   chunk would be clobbered but other bits would be preserved.  */
-bool
-partial_subreg_p (machine_mode outermode, machine_mode innermode)
-{
-  /* Modes involved in a subreg must be ordered.  In particular, we must
-     always know at compile time whether the subreg is paradoxical.  */
-  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
-  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
-  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
-  return may_lt (outer_prec, inner_prec);
-}
-
-/* Likewise return true if X is a subreg that is smaller than the inner
-   register.  Use df_read_modify_subreg_p to test whether writing to such
-   a subreg preserves any part of the inner register.  */
-bool
-partial_subreg_p (const_rtx x)
-{
-  if (GET_CODE (x) != SUBREG)
-    return false;
-  return partial_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
-}
-
 /* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
    return the mode that is big enough to hold both the outer and inner
    values.  Prefer the outer mode in the event of a tie.  */
@@ -1746,28 +1719,6 @@ machine_mode
 narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
 {
   return paradoxical_subreg_p (outermode, innermode) ? innermode : outermode;
-}
-
-/* Return true if a subreg with the given outer and inner modes is
-   paradoxical.  */
-bool
-paradoxical_subreg_p (machine_mode outermode, machine_mode innermode)
-{
-  /* Modes involved in a subreg must be ordered.  In particular, we must
-     always know at compile time whether the subreg is paradoxical.  */
-  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
-  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
-  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
-  return may_gt (outer_prec, inner_prec);
-}
-
-/* Return true if X is a paradoxical subreg, false otherwise.  */
-bool
-paradoxical_subreg_p (const_rtx x)
-{
-  if (GET_CODE (x) != SUBREG)
-    return false;
-  return paradoxical_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
 }
 
 /* Return subword OFFSET of operand OP.

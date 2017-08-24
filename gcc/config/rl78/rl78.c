@@ -31,6 +31,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"

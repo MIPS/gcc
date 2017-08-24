@@ -157,8 +157,7 @@ static vec<data_reference_p> datarefs_vec;
 #define DR_INDEX(dr)      ((uintptr_t) (dr)->aux)
 
 /* Hash table for data dependence relation in the loop to be distributed.  */
-static hash_table<ddr_hasher> ddrs_table (389);
-
+static hash_table<ddr_hasher> *ddrs_table;
 
 /* A Reduced Dependence Graph (RDG) vertex representing a statement.  */
 struct rdg_vertex
@@ -904,8 +903,7 @@ build_addr_arg_loc (location_t loc, data_reference_p dr, tree nb_bytes)
 {
   tree addr_base;
 
-  addr_base = size_binop_loc (loc, PLUS_EXPR, DR_OFFSET (dr), DR_INIT (dr));
-  addr_base = fold_convert_loc (loc, sizetype, addr_base);
+  addr_base = fold_convert_loc (loc, sizetype, DR_OFFSET (dr));
 
   /* Test for a negative stride, iterating over every element.  */
   if (tree_int_cst_sgn (DR_STEP (dr)) == -1)
@@ -1183,7 +1181,7 @@ get_data_dependence (struct graph *rdg, data_reference_p a, data_reference_p b)
 	      <= rdg_vertex_for_stmt (rdg, DR_STMT (b)));
   ent.a = a;
   ent.b = b;
-  slot = ddrs_table.find_slot (&ent, INSERT);
+  slot = ddrs_table->find_slot (&ent, INSERT);
   if (*slot == NULL)
     {
       ddr = initialize_data_dependence_relation (a, b, loop_nest);
@@ -1290,8 +1288,7 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
 
 	  /* Partition can only be executed sequentially if there is any
 	     unknown data reference.  */
-	  if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr)
-	      || !DR_INIT (dr) || !DR_STEP (dr))
+	  if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_STEP (dr))
 	    partition->type = PTYPE_SEQUENTIAL;
 
 	  bitmap_set_bit (partition->datarefs, idx);
@@ -1508,21 +1505,18 @@ share_memory_accesses (struct graph *rdg,
     {
       dr1 = datarefs_vec[i];
 
-      if (!DR_BASE_ADDRESS (dr1)
-	  || !DR_OFFSET (dr1) || !DR_INIT (dr1) || !DR_STEP (dr1))
+      if (!DR_BASE_ADDRESS (dr1) || !DR_OFFSET (dr1) || !DR_STEP (dr1))
 	continue;
 
       EXECUTE_IF_SET_IN_BITMAP (partition2->datarefs, 0, j, bj)
 	{
 	  dr2 = datarefs_vec[j];
 
-	  if (!DR_BASE_ADDRESS (dr2)
-	      || !DR_OFFSET (dr2) || !DR_INIT (dr2) || !DR_STEP (dr2))
+	  if (!DR_BASE_ADDRESS (dr2) || !DR_OFFSET (dr2) || !DR_STEP (dr2))
 	    continue;
 
 	  if (operand_equal_p (DR_BASE_ADDRESS (dr1), DR_BASE_ADDRESS (dr2), 0)
 	      && operand_equal_p (DR_OFFSET (dr1), DR_OFFSET (dr2), 0)
-	      && operand_equal_p (DR_INIT (dr1), DR_INIT (dr2), 0)
 	      && operand_equal_p (DR_STEP (dr1), DR_STEP (dr2), 0))
 	    return true;
 	}
@@ -1706,7 +1700,6 @@ pg_add_dependence_edges (struct graph *rdg, int dir,
 		 runtime alias check.  */
 	      if (!DR_BASE_ADDRESS (dr1) || !DR_BASE_ADDRESS (dr2)
 		  || !DR_OFFSET (dr1) || !DR_OFFSET (dr2)
-		  || !DR_INIT (dr1) || !DR_INIT (dr2)
 		  || !DR_STEP (dr1) || !tree_fits_uhwi_p (DR_STEP (dr1))
 		  || !DR_STEP (dr2) || !tree_fits_uhwi_p (DR_STEP (dr2))
 		  || res == 0)
@@ -2200,7 +2193,7 @@ compute_alias_check_pairs (struct loop *loop, vec<ddr_p> *alias_ddrs,
 					    DR_BASE_ADDRESS (dr_b));
 
       if (comp_res == 0)
-	comp_res = data_ref_compare_tree (DR_OFFSET (dr_a), DR_OFFSET (dr_b));
+	comp_res = dr_var_offsets_compare (dr_a, dr_b);
       gcc_assert (comp_res != 0);
 
       if (latch_dominated_by_data_ref (loop, dr_a))
@@ -2266,7 +2259,7 @@ version_loop_by_alias_check (struct loop *loop, vec<ddr_p> *alias_ddrs)
   compute_alias_check_pairs (loop, alias_ddrs, &comp_alias_pairs);
   create_runtime_alias_checks (loop, &comp_alias_pairs, &cond_expr);
   cond_expr = force_gimple_operand_1 (cond_expr, &cond_stmts,
-				      is_gimple_condexpr, NULL_TREE);
+				      is_gimple_val, NULL_TREE);
 
   /* Depend on vectorizer to fold IFN_LOOP_DIST_ALIAS.  */
   if (flag_tree_loop_vectorize)
@@ -2369,6 +2362,7 @@ static int
 distribute_loop (struct loop *loop, vec<gimple *> stmts,
 		 control_dependences *cd, int *nb_calls, bool *destroy_p)
 {
+  ddrs_table = new hash_table<ddr_hasher> (389);
   struct graph *rdg;
   partition *partition;
   bool any_builtin;
@@ -2380,6 +2374,7 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
   if (!find_loop_nest (loop, &loop_nest))
     {
       loop_nest.release ();
+      delete ddrs_table;
       return 0;
     }
 
@@ -2394,6 +2389,7 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
 
       loop_nest.release ();
       free_data_refs (datarefs_vec);
+      delete ddrs_table;
       return 0;
     }
 
@@ -2407,6 +2403,7 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
       free_rdg (rdg);
       loop_nest.release ();
       free_data_refs (datarefs_vec);
+      delete ddrs_table;
       return 0;
     }
 
@@ -2545,13 +2542,13 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
  ldist_done:
   loop_nest.release ();
   free_data_refs (datarefs_vec);
-  for (hash_table<ddr_hasher>::iterator iter = ddrs_table.begin ();
-       iter != ddrs_table.end (); ++iter)
+  for (hash_table<ddr_hasher>::iterator iter = ddrs_table->begin ();
+       iter != ddrs_table->end (); ++iter)
     {
       free_dependence_relation (*iter);
       *iter = NULL;
     }
-  ddrs_table.empty ();
+  delete ddrs_table;
 
   FOR_EACH_VEC_ELT (partitions, i, partition)
     partition_free (partition);
