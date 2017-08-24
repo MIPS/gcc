@@ -2618,9 +2618,7 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
 	      new_stmt = gimple_build_debug_source_bind (var, value, stmt);
 	    }
 	  else if (gimple_debug_nonbind_marker_p (stmt))
-	    {
-	      new_stmt = as_a <gdebug *> (gimple_copy (stmt));
-	    }
+	    new_stmt = as_a <gdebug *> (gimple_copy (stmt));
 	  else
 	    gcc_unreachable ();
 	  gsi_insert_before (&dsi, new_stmt, GSI_SAME_STMT);
