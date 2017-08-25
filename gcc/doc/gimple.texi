@@ -1624,15 +1624,22 @@ Build a @code{GIMPLE_DEBUG} statement with
 @code{GIMPLE_DEBUG_BEGIN_STMT} @code{subcode}.  The effect of this
 statement is to tell debug information generation machinery that the
 user statement at the given @code{location} and @code{block} starts at
-the point at which the statement is inserted.
+the point at which the statement is inserted.  The intent is that side
+effects (e.g. variable bindings) of all prior user statements are
+observable, and that none of the side effects of subsequent user
+statements are.
 @end deftypefn
 
 @deftypefn {GIMPLE function} gimple gimple_build_debug_inline_entry (tree block, location_t location)
 Build a @code{GIMPLE_DEBUG} statement with
 @code{GIMPLE_DEBUG_INLINE_ENTRY} @code{subcode}.  The effect of this
-statement is to tell debug information generation machinery that a call
-at @code{location} underwent inline substitution, and that @code{block}
-is the enclosing lexical block created for the substitution.
+statement is to tell debug information generation machinery that a
+function call at @code{location} underwent inline substitution, that
+@code{block} is the enclosing lexical block created for the
+substitution, and that at the point of the program in which the stmt is
+inserted, all parameters for the inlined function are bound to the
+respective arguments, and none of the side effects of its stmts are
+observable.
 @end deftypefn
 
 @node @code{GIMPLE_EH_FILTER}
