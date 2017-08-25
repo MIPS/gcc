@@ -18,6 +18,6 @@ long long f (int n, int *v, int m)
   return result;
 }
 
-/* { dg-final { scan-assembler-not "mult\t\[^\n\]*\\\$0" } } */
-/* { dg-final { scan-assembler "\tmthi\t" } } */
-/* { dg-final { scan-assembler "\tmtlo\t" } } */
+/* { dg-final { scan-assembler "mult\t\[^\n\]*\\\$zero" } } */
+/* { dg-final { scan-assembler-not "\tmthi\t" } } */
+/* { dg-final { scan-assembler-not "\tmtlo\t" } } */
