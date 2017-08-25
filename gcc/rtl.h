@@ -1636,13 +1636,14 @@ extern const char * const reg_note_name[];
   (DEBUG_INSN_P (INSN)				\
    && (GET_CODE (PATTERN (INSN))		\
        != VAR_LOCATION))
-/* Evaluate to the marker kind.  Currently the only kind is
-   BEGIN_STMT.  */
+/* Evaluate to the marker kind.  */
 #define INSN_DEBUG_MARKER_KIND(INSN)		  \
-  (GET_CODE (PATTERN (INSN)) == BEGIN_STMT_MARKER \
-   ? NOTE_INSN_BEGIN_STMT			  \
-   : GET_CODE (PATTERN (INSN)) == LEXICAL_BLOCK	  \
-   ? NOTE_INSN_INLINE_ENTRY			  \
+  (GET_CODE (PATTERN (INSN)) == DEBUG_MARKER	  \
+   ? (GET_MODE (PATTERN (INSN)) == VOIDmode	  \
+      ? NOTE_INSN_BEGIN_STMT			  \
+      : GET_MODE (PATTERN (INSN)) == BLKmode	  \
+      ? NOTE_INSN_INLINE_ENTRY			  \
+      : (enum insn_note)-1) 			  \
    : (enum insn_note)-1)
 
 /* The VAR_LOCATION rtx in a DEBUG_INSN.  */
@@ -1681,9 +1682,6 @@ extern const char * const reg_note_name[];
 
 /* PARM_DECL DEBUG_PARAMETER_REF references.  */
 #define DEBUG_PARAMETER_REF_DECL(RTX) XCTREE (RTX, 0, DEBUG_PARAMETER_REF)
-
-/* The lexical block referenced by the LEXICAL_BLOCK RTX.  */
-#define LEXICAL_BLOCK_TREE(RTX) XCTREE (RTX, 0, LEXICAL_BLOCK)
 
 /* Codes that appear in the NOTE_KIND field for kinds of notes
    that are not line numbers.  These codes are all negative.

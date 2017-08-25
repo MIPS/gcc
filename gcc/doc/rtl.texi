@@ -3426,17 +3426,14 @@ containing function.
 @item (debug_parameter_ref:@var{mode} @var{decl})
 Refers to a parameter that was completely optimized out.
 
-@findex begin_stmt_marker
-@item (begin_stmt_marker)
-Marks a program location that should be used as the beginning of a
-statement, a recommended inspection point logically after all prior side
-effects, and before any subsequent side effects.
-
-@findex lexical_block
-@item (lexical_block @var{block})
-Marks a program location that refers to a lexical block.  It is
-currently used to denote an inline entry point: the referenced block is
-the lexical block enclosing the inlined function.
+@findex debug_marker
+@item (debug_marker:@var{mode})
+Marks a program location.  With @code{VOIDmode}, it stands for the
+beginning of a statement, a recommended inspection point logically after
+all prior side effects, and before any subsequent side effects.  With
+@code{BLKmode}, it indicates an inline entry point: the lexical block
+encoded in the @code{INSN_LOCATION} is the enclosing block that encloses
+the inlined function.
 
 @end table
 
@@ -3744,13 +3741,16 @@ binds a user variable tree to an RTL representation of the
 it stands for the value bound to the corresponding
 @code{DEBUG_EXPR_DECL}.
 
-A @code{GIMPLE_DEBUG_BEGIN_STMT} is expanded to RTL as a
-@code{DEBUG_INSN} with a @code{BEGIN_STMT_MARKER} @code{PATTERN},
-whereas a @code{GIMPLE_DEBUG_INLINE_ENTRY} is expanded to RTL as a
-@code{DEBUG_INSN} with a @code{LEXICAL_BLOCK} @code{PATTERN}.  These
+@code{GIMPLE_DEBUG_BEGIN_STMT} and @code{GIMPLE_DEBUG_INLINE_ENTRY} are
+expanded to RTL as a @code{DEBUG_INSN} with a @code{DEBUG_MARKER}
+@code{PATTERN}; the difference is the RTL mode: the former's
+@code{DEBUG_MARKER} is @code{VOIDmode}, whereas the latter is
+@code{BLKmode}; information about the inlined function can be taken from
+the lexical block encoded in the @code{INSN_LOCATION}.  These
 @code{DEBUG_INSN}s, that do not carry @code{VAR_LOCATION} information,
-can be detected by testing @code{DEBUG_MARKER_INSN_P}, whereas those
-that do can be recognized as @code{DEBUG_BIND_INSN_P}.
+just @code{DEBUG_MARKER}s, can be detected by testing
+@code{DEBUG_MARKER_INSN_P}, whereas those that do can be recognized as
+@code{DEBUG_BIND_INSN_P}.
 
 Throughout optimization passes, @code{DEBUG_INSN}s are not reordered
 with respect to each other, particularly during scheduling.  Binding

@@ -762,10 +762,7 @@ DEF_RTL_EXPR(ENTRY_VALUE, "entry_value", "0", RTX_OBJ)
 DEF_RTL_EXPR(DEBUG_PARAMETER_REF, "debug_parameter_ref", "t", RTX_OBJ)
 
 /* Used in marker DEBUG_INSNs to avoid being recognized as an insn.  */
-DEF_RTL_EXPR(BEGIN_STMT_MARKER, "begin_stmt_marker", "", RTX_OBJ)
-
-/* Used in marker DEBUG_INSNs to refer to a lexical block.  */
-DEF_RTL_EXPR(LEXICAL_BLOCK, "lexical_block", "t", RTX_OBJ)
+DEF_RTL_EXPR(DEBUG_MARKER, "debug_marker", "", RTX_OBJ)
 
 /* All expressions from this point forward appear only in machine
    descriptions.  */
