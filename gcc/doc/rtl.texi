@@ -3413,6 +3413,31 @@ Stands for the value bound to the @code{DEBUG_EXPR_DECL} @var{decl},
 that points back to it, within value expressions in
 @code{VAR_LOCATION} nodes.
 
+@findex debug_implicit_ptr
+@item (debug_implicit_ptr:@var{mode} @var{decl})
+Stands for the location of a @var{decl} that is no longer addressable.
+
+@findex entry_value
+@item (entry_value:@var{mode} @var{decl})
+Stands for the value a @var{decl} had at the entry point of the
+containing function.
+
+@findex debug_parameter_ref
+@item (debug_parameter_ref:@var{mode} @var{decl})
+Refers to a parameter that was completely optimized out.
+
+@findex begin_stmt_marker
+@item (begin_stmt_marker)
+Marks a program location that should be used as the beginning of a
+statement, a recommended inspection point logically after all prior side
+effects, and before any subsequent side effects.
+
+@findex lexical_block
+@item (lexical_block @var{block})
+Marks a program location that refers to a lexical block.  It is
+currently used to denote an inline entry point: the referenced block is
+the lexical block enclosing the inlined function.
+
 @end table
 
 @node Insns
@@ -3693,6 +3718,13 @@ variable.
 @item NOTE_INSN_BEGIN_STMT
 This note is used to generate @code{is_stmt} markers in line number
 debuggign information.  It indicates the beginning of a user
+statement.
+
+@findex NOTE_INSN_INLINE_ENTRY
+@item NOTE_INSN_INLINE_ENTRY
+This note is used to generate @code{entry_pc} for inlined subroutines in
+debugging information.  It indicates an inspection point at which all
+arguments for the inlined function have been bound, and before its first
 statement.
 
 @end table
