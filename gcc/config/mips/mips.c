@@ -3418,6 +3418,11 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 If the symbol is local, the linker should provide enough local
 	 GOT entries for a 16-bit offset, but larger offsets may lead
 	 to GOT overflow.  */
+
+      // @tmt This is definitely a FIXME.
+      if (TARGET_NANOMIPS && flag_pic)
+	return false;
+
       return SMALL_INT9TO12 (offset);
 
     case SYMBOL_TPREL:
