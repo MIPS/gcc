@@ -2839,7 +2839,7 @@ Common Driver Joined UInteger Var(dwarf_version) Init(4) Negative(gstabs)
 Generate debug information in DWARF v2 (or later) format.
 
 ggdb
-Common Driver RejectNegative JoinedOrMissing
+Common Driver JoinedOrMissing
 Generate debug information in default extended format.
 
 gno-
@@ -2883,11 +2883,11 @@ Common Driver Report Var(dwarf_strict) Init(0)
 Don't emit DWARF additions beyond selected version.
 
 gtoggle
-Common Driver RejectNegative Report Var(flag_gtoggle)
+Common Driver Report Var(flag_gtoggle)
 Toggle debug information generation.
 
 gvariable-location-views
-Common Driver Var(debug_variable_location_views, 1) Init(2)
+Common Driver Var(debug_variable_location_views) Init(2)
 Augment variable location lists with progressive views.
 
 gvms
@@ -2917,7 +2917,7 @@ EnumValue
 Enum(compressed_debug_sections) String(zlib-gnu) Value(2)
 
 gz
-Common Driver RejectNegative 
+Common Driver
 Generate compressed debug sections.
 
 gz=
