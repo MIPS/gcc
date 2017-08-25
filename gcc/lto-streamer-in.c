@@ -1119,7 +1119,10 @@ input_function (tree fn_decl, struct data_in *data_in,
 	     Similarly remove all IFN_*SAN_* internal calls   */
 	  if (!flag_wpa)
 	    {
-	      if (!MAY_HAVE_DEBUG_STMTS && is_gimple_debug (stmt))
+	      if (is_gimple_debug (stmt)
+		  && (gimple_debug_nonbind_marker_p (stmt)
+		      ? !MAY_HAVE_DEBUG_MARKER_STMTS
+		      : !MAY_HAVE_DEBUG_BIND_STMTS))
 		remove = true;
 	      if (is_gimple_call (stmt)
 		  && gimple_call_internal_p (stmt))

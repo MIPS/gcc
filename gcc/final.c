@@ -2630,7 +2630,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	const char *templ;
 	bool is_stmt, *is_stmt_p;
 
-	if (MAY_HAVE_DEBUG_INSNS && cfun->debug_nonbind_markers)
+	if (MAY_HAVE_DEBUG_MARKER_INSNS && cfun->debug_nonbind_markers)
 	  {
 	    is_stmt = false;
 	    is_stmt_p = NULL;
@@ -4669,7 +4669,7 @@ rest_of_handle_final (void)
   const char *fnname = get_fnname_from_decl (current_function_decl);
 
   /* Turn debug markers into notes.  */
-  if (!flag_var_tracking && MAY_HAVE_DEBUG_INSNS)
+  if (!MAY_HAVE_DEBUG_BIND_INSNS && MAY_HAVE_DEBUG_MARKER_INSNS)
     variable_tracking_main ();
 
   assemble_start_function (current_function_decl, fnname);

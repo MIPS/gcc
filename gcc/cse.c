@@ -7047,7 +7047,7 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_BIND_INSNS)
     {
       counts = XCNEWVEC (int, nreg * 3);
       for (insn = insns; insn; insn = NEXT_INSN (insn))
@@ -7109,12 +7109,15 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
       if (! live_insn && dbg_cnt (delete_trivial_dead))
 	{
 	  if (DEBUG_INSN_P (insn))
-	    count_reg_usage (INSN_VAR_LOCATION_LOC (insn), counts + nreg,
-			     NULL_RTX, -1);
+	    {
+	      if (DEBUG_BIND_INSN_P (insn))
+		count_reg_usage (INSN_VAR_LOCATION_LOC (insn), counts + nreg,
+				 NULL_RTX, -1);
+	    }
 	  else
 	    {
 	      rtx set;
-	      if (MAY_HAVE_DEBUG_INSNS
+	      if (MAY_HAVE_DEBUG_BIND_INSNS
 		  && (set = single_set (insn)) != NULL_RTX
 		  && is_dead_reg (SET_DEST (set), counts)
 		  /* Used at least once in some DEBUG_INSN.  */
@@ -7154,7 +7157,7 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
 	}
     }
 
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_BIND_INSNS)
     {
       for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
 	if (DEBUG_BIND_INSN_P (insn))

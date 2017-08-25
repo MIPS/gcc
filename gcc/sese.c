@@ -163,7 +163,7 @@ sese_build_liveouts (sese_info_p region, bitmap liveouts)
       sese_build_liveouts_bb (region, liveouts, bb);
 
   /* FIXME: We could start iterating form the successor of sese.  */
-  if (MAY_HAVE_DEBUG_STMTS)
+  if (MAY_HAVE_DEBUG_BIND_STMTS)
     FOR_EACH_BB_FN (bb, cfun)
       if (!bb_in_sese_p (bb, region->region))
 	sese_reset_debug_liveouts_bb (region, liveouts, bb);

@@ -5557,7 +5557,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	   a_2 = ...
            #DEBUG ... => #D1
 	 */
-      if (MAY_HAVE_DEBUG_INSNS
+      if (MAY_HAVE_DEBUG_BIND_INSNS
 	  && SA.values
 	  && !is_gimple_debug (stmt))
 	{
@@ -5697,8 +5697,11 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		  if (gimple_debug_bind_has_value_p (stmt))
 		    value = gimple_debug_bind_get_value (stmt);
 		}
+	      /* If this function was first compiled with markers
+		 enabled, but they're now disable (e.g. LTO), drop
+		 them on the floor.  */
 	      else if (gimple_debug_nonbind_marker_p (stmt)
-		       && !cfun->debug_nonbind_markers)
+		       && !MAY_HAVE_DEBUG_MARKER_INSNS)
 		goto delink_debug_stmt;
 	      else if (gimple_debug_begin_stmt_p (stmt))
 		val = gen_rtx_DEBUG_MARKER (VOIDmode);
@@ -6207,7 +6210,7 @@ pass_expand::execute (function *fun)
   timevar_pop (TV_OUT_OF_SSA);
   SA.partition_to_pseudo = XCNEWVEC (rtx, SA.map->num_partitions);
 
-  if (MAY_HAVE_DEBUG_STMTS && flag_tree_ter)
+  if (MAY_HAVE_DEBUG_BIND_STMTS && flag_tree_ter)
     {
       gimple_stmt_iterator gsi;
       FOR_EACH_BB_FN (bb, cfun)
@@ -6403,7 +6406,7 @@ pass_expand::execute (function *fun)
 		  next_bb)
     bb = expand_gimple_basic_block (bb, var_ret_seq != NULL_RTX);
 
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_BIND_INSNS)
     expand_debug_locations ();
 
   if (deep_ter_debug_map)
