@@ -217,6 +217,19 @@ irange::range_for_type_p () const
   return (*this == tmp);
 }
 
+/* Return TRUE if range contains exactly one element.  If so, set ELEM
+   to said element.  */
+
+bool
+irange::one_element_p (wide_int &elem) const
+{
+  if (num_pairs () == 1 && bounds[0] == bounds[1])
+    {
+      elem = bounds[0];
+      return true;
+    }
+  return false;
+}
 
 bool
 irange::valid_p () const

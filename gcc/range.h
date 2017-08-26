@@ -114,6 +114,9 @@ class irange
   bool empty_p () const { return !nitems; }
   bool range_for_type_p () const;
   bool simple_range_p () const { return nitems == 2; }
+  /* Return TRUE if range contains exactly one element.  If so, set
+     ELEM to said element.  */
+  bool one_element_p (wide_int &elem) const;
 
   void dump ();
   void dump (pretty_printer *pp);

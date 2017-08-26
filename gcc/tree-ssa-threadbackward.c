@@ -505,7 +505,7 @@ class ssa_path_walker
 	path[path.length() - 1] is DEF_BB.
 	path[0] is START_BB.
   */
-  auto_vec<basic_block, 10> path;
+  auto_vec<basic_block> path;
 
   ssa_path_walker (tree name, basic_block start_bb,
 		   unsigned max_path_length = 0);
@@ -577,46 +577,112 @@ ssa_path_walker::walk_helper (basic_block bb)
   visited->remove (bb);
 }
 
-class range_on_path_walker : public ssa_path_walker
+/* A path of BBs for an SSA name with a precomputed range of RANGE.  */
+
+class path_with_range
 {
+  /* The path from the definition of an SSA to a given BB.  */
+  vec<basic_block> path;
+  /* The range for the SSA on this path.  */
+  irange range;
+
  public:
-  range_on_path_walker (tree name, basic_block start_bb)
-    : ssa_path_walker (name, start_bb,
-		       PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH)) { }
-  void dump_range_on_path ();
-  virtual void analyze_path ();
+  path_with_range (const irange &r, const auto_vec<basic_block> &p)
+  {
+    range = r;
+    path = p.copy ();
+  }
+  void release () { path.release (); }
+  void dump ();
 };
 
 void
-range_on_path_walker::dump_range_on_path ()
+path_with_range::dump ()
 {
-  gori g;
-  irange range;
-  range.set_range_for_type (TREE_TYPE (name));
-
   fprintf (stderr, "path: ");
-  for (unsigned i = path.length () - 1; i > 0; --i)
+  for (int i = path.length () - 1; i > 0; --i)
     {
       fprintf (stderr, "bb%d", path[i]->index);
       edge e = find_edge (path[i], path[i - 1]);
       gcc_assert (e);
-      irange r;
-      if (g.range_on_edge (r, name, e))
-	{
-	  fprintf (stderr, "(R)");
-	  range.intersect (r);
-	}
       fprintf (stderr, " => ");
     }
   fprintf (stderr, "bb%d\n", path[0]->index);
   fprintf (stderr, "\trange: ");
   range.dump ();
+
+  wide_int x;
+  if (range.one_element_p (x))
+    fprintf (stderr, "\trange is a simple constant\n");
 }
+
+class range_on_path_walker : public ssa_path_walker
+{
+  /* A set of all the paths from def(NAME) to START_BB that have a
+     range.  This set is built as the walk is performed, so reading
+     paths_with_range is only valid after the walker has finished.  */
+  auto_vec<path_with_range> paths_with_range;
+ public:
+  range_on_path_walker (tree name, basic_block start_bb)
+    : ssa_path_walker (name, start_bb,
+		       PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH)) { }
+  /* The number of meaningful paths with range for NAME.  */
+  int num_paths_with_range () { return paths_with_range.length (); }
+  /* Return path I.  */
+  path_with_range get_path_with_range (int i) { return paths_with_range[i]; }
+  virtual void analyze_path ();
+  void dump_paths ();
+  ~range_on_path_walker ();
+};
+
+void
+range_on_path_walker::dump_paths ()
+{
+  if (num_paths_with_range () == 0)
+    return;
+
+  fprintf (stderr, "range path to BB%d for SSA = ", start_bb->index);
+  print_generic_stmt (stderr, name, 0);
+
+  for (int i = 0; i < num_paths_with_range (); ++i)
+    {
+      path_with_range p = get_path_with_range (i);
+      fprintf (stderr, "\t");
+      p.dump ();
+    }
+  fprintf (stderr, "-----------------------------\n");
+}
+
+range_on_path_walker::~range_on_path_walker ()
+{
+  for (unsigned i = 0; i < paths_with_range.length (); ++i)
+    paths_with_range[i].release ();
+}
+
+/* Calculate the range for a PATH for an SSA NAME.  Accumulate all
+   paths and ranges for NAME in `paths_with_range'.  */
 
 void
 range_on_path_walker::analyze_path ()
 {
-  dump_range_on_path ();
+  gori g;
+  irange range;
+  range.set_range_for_type (TREE_TYPE (name));
+
+  for (unsigned i = path.length () - 1; i > 0; --i)
+    {
+      edge e = find_edge (path[i], path[i - 1]);
+      gcc_assert (e);
+      irange r;
+      if (g.range_on_edge (r, name, e))
+	range.intersect (r);
+    }
+  /* Ignore ranges spanning the entire type.  */
+  if (!range.range_for_type_p ())
+    {
+      path_with_range p (range, path);
+      paths_with_range.safe_push (p);
+    }
 }
 
 /* While following a chain of SSA_NAME definitions, we jumped from a definition
@@ -963,10 +1029,9 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
   basic_block use_bb = gimple_bb (stmt);
   if (getenv("asdf2") && early_threader)
     {
-      fprintf (stderr, "range path to BB%d for SSA = ", use_bb->index);
-      print_generic_stmt (stderr, name, 0);
-      range_on_path_walker (name, use_bb).walk ();
-      fprintf (stderr, "-----------------------------\n");
+      range_on_path_walker w (name, use_bb);
+      w.walk ();
+      w.dump_paths ();
     }
 
   delete visited_bbs;
