@@ -844,7 +844,14 @@ irange::dump (pretty_printer *buffer)
     {
       if (i % 2 == 0)
 	pp_character (buffer, '[');
-      wide_int val = bounds[i];
+
+      /* Wide ints may be sign extended to the full extent of the
+	 underlying HWI storage, even if the precision we care about
+	 is smaller.  Chop off the excess bits for prettier output.  */
+      signop sign = TYPE_UNSIGNED (type) ? UNSIGNED : SIGNED;
+      widest_int val = widest_int::from (bounds[i], sign);
+      val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
+
       print_hex (val, pp_buffer (buffer)->digit_buffer);
       pp_string (buffer, pp_buffer (buffer)->digit_buffer);
       if (i % 2 == 0)
@@ -854,9 +861,6 @@ irange::dump (pretty_printer *buffer)
     }
   if (overflow)
     pp_string (buffer, "(overflow)");
-
-  pp_string (buffer, " precision = ");
-  pp_decimal_int (buffer, TYPE_PRECISION (type));
 }
 
 /* Dump the current range onto FILE F.  */
