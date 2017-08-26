@@ -66,42 +66,8 @@ public:
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
 			   const irange& op1) const;
-
-  /* If calculating a range through this operation requires resolving ranges
-     and possibly combining them, this function is required to return true.
-     This is typically for logical operations.  */
-  virtual bool combine_range (irange& r, const irange& op1,
-			      const irange& op2) const;
 };
 
 extern irange_operator *irange_op_handler(enum tree_code code);
-
-static inline void
-set_boolean_range (irange& r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (0, prec);
-  wide_int ub = wi::uhwi (1, prec);
-  r.set_range (boolean_type_node, lb, ub);
-}
-
-static inline void
-set_boolean_range_zero (irange& r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (0, prec);
-  wide_int ub = wi::uhwi (0, prec);
-  r.set_range (boolean_type_node, lb, ub);
-}
-
-static inline void
-set_boolean_range_one (irange &r)
-{
-  unsigned int prec = TYPE_PRECISION (boolean_type_node);
-  wide_int lb = wi::uhwi (1, prec);
-  wide_int ub = wi::uhwi (1, prec);
-
-  r.set_range (boolean_type_node, lb, ub);
-}
 
 #endif /* GCC_RANGE_OP_H */

@@ -136,15 +136,6 @@ irange_operator::op2_irange (irange& r ATTRIBUTE_UNUSED,
   return false;
 }
 
-bool
-irange_operator::combine_range (irange& r ATTRIBUTE_UNUSED,
-			        const irange& lhs ATTRIBUTE_UNUSED,
-			        const irange& op1 ATTRIBUTE_UNUSED) const
-{
-  return false;
-}
-
-
 /*  -----------------------------------------------------------------------  */
 
 enum bool_range_state { BRS_FALSE, BRS_TRUE, BRS_EMPTY, BRS_FULL };
@@ -166,14 +157,17 @@ get_bool_state (irange& r, const irange& lhs, const_tree val_type)
   // there are multiple types of boolean nodes.  "const cool" fer instance
   // gcc_assert (lhs.valid_p () && lhs.get_type () == boolean_type_node);
 
-  if (wi::eq_p (lhs.upper_bound (), 0))
+  // if the bounds arent the same, then its not a constant.  */
+  if (!wi::eq_p (lhs.upper_bound (), lhs.lower_bound ()))
+    {
+      r.set_range_for_type (val_type);
+      return BRS_FULL;
+    }
+
+  if (lhs == irange (boolean_type_node, 0 ,0))
     return BRS_FALSE;
 
-  if (wi::eq_p (lhs.lower_bound (), 1))
-    return BRS_TRUE;
-
-  r.set_range_for_type (val_type);
-  return BRS_FULL;
+  return BRS_TRUE;
 }
 
 
@@ -207,9 +201,9 @@ operator_equal::fold_range (irange& r, const irange& op1,
       && wi::eq_p (op2.lower_bound (), op2.upper_bound ()))
     {
       if (wi::eq_p (op1.lower_bound (), op2.upper_bound()))
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
     }
   else
     {
@@ -217,9 +211,9 @@ operator_equal::fold_range (irange& r, const irange& op1,
          we don;t really know anything for sure.  */
       r = irange_intersect (op1, op2);
       if (r.empty_p ())
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
       else
-	set_boolean_range (r);
+	r.set_range_for_type (boolean_type_node);
     }
 
   return true;
@@ -294,9 +288,9 @@ operator_not_equal::fold_range (irange& r, const irange& op1,
       && wi::eq_p (op2.lower_bound (), op2.upper_bound ()))
     {
       if (wi::ne_p (op1.lower_bound (), op2.upper_bound()))
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range_zero (r);
+	r.set_range (boolean_type_node, 0, 0);
     }
   else
     {
@@ -304,9 +298,9 @@ operator_not_equal::fold_range (irange& r, const irange& op1,
          we don;t really know anything for sure.  */
       r = irange_intersect (op1, op2);
       if (r.empty_p ())
-	set_boolean_range_one (r);
+	r.set_range (boolean_type_node, 1, 1);
       else
-	set_boolean_range (r);
+	r.set_range_for_type (boolean_type_node);
     }
 
   return true;
@@ -420,12 +414,12 @@ operator_lt::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::lt_p (op1.upper_bound (), op2.lower_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::lt_p (op1.lower_bound (), op2.upper_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 ,0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
   return true;
 }
 
@@ -495,12 +489,12 @@ operator_le::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::le_p (op1.upper_bound (), op2.lower_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::le_p (op1.lower_bound (), op2.upper_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 ,0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
   return true;
 }
 
@@ -571,12 +565,12 @@ operator_gt::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::gt_p (op1.lower_bound (), op2.upper_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1, 1);
   else
     if (!wi::gt_p (op1.upper_bound (), op2.lower_bound (), sign))
-      set_boolean_range_zero (r);
+    r.set_range (boolean_type_node, 0, 0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
 
   return true;
 }
@@ -648,12 +642,12 @@ operator_ge::fold_range (irange& r, const irange& op1, const irange& op2) const
   gcc_checking_assert (sign == TYPE_SIGN (op2.get_type ()));
 
   if (wi::ge_p (op1.lower_bound (), op2.upper_bound (), sign))
-    set_boolean_range_one (r);
+    r.set_range (boolean_type_node, 1 , 1);
   else
     if (!wi::ge_p (op1.upper_bound (), op2.lower_bound (), sign))
-      set_boolean_range_zero (r);
+      r.set_range (boolean_type_node, 0 , 0);
     else 
-      set_boolean_range (r);
+      r.set_range_for_type (boolean_type_node);
 
   return true;
 } 
@@ -664,11 +658,11 @@ operator_ge::op1_irange (irange& r, const irange& lhs, const irange& op2) const
   switch (get_bool_state (r, lhs, op2.get_type ()))
     {
       case BRS_TRUE:
-	build_ge (r, op2.get_type (), op2.upper_bound ());
+	build_ge (r, op2.get_type (), op2.lower_bound ());
 	break;
 
       case BRS_FALSE:
-	build_lt (r, op2.get_type (), op2.lower_bound ());
+	build_lt (r, op2.get_type (), op2.upper_bound ());
 	break;
 
       default:
@@ -684,11 +678,11 @@ operator_ge::op2_irange (irange& r, const irange& lhs, const irange& op1) const
   switch (get_bool_state (r, lhs, op1.get_type ()))
     {
       case BRS_FALSE:
-	build_ge (r, op1.get_type (), op1.upper_bound ());
+	build_ge (r, op1.get_type (), op1.lower_bound ());
 	break;
 
       case BRS_TRUE:
-	build_lt (r, op1.get_type (), op1.lower_bound ());
+	build_lt (r, op1.get_type (), op1.upper_bound ());
 	break;
 
       default:
@@ -726,13 +720,18 @@ op_ir (opm_mode mode, irange& r, const wide_int& lh, const irange& rh)
         {
 	  lb = wi::add (lh, lb, s, &ov_lb);
 	  ub = wi::add (lh, ub, s, &ov_ub);
+	  add_to_range (r, lb, ov_lb, ub, ov_ub);
 	}
       else
         {
 	  lb = wi::sub (lh, lb, s, &ov_lb);
 	  ub = wi::sub (lh, ub, s, &ov_ub);
+	  /* 10 - [1, 20] gives us [9, -10] which requires reversing bounds. */
+	  if (wi::le_p (lb, ub, s))
+	    add_to_range (r, lb, ov_lb, ub, ov_ub);
+	  else
+	    add_to_range (r, ub, ov_ub, lb, ov_lb);
 	}
-      add_to_range (r, lb, ov_lb, ub, ov_ub);
     }
   return true;
 }
@@ -771,6 +770,12 @@ op_ri (opm_mode mode, irange& r, const irange& lh, const wide_int& rh)
 static bool
 op_rr (opm_mode mode, irange& r, const irange& lh, const irange& rh)
 {
+  if (lh.empty_p () || rh.empty_p ())
+    {
+      r.clear (lh.get_type ());
+      return true;
+    }
+
   if (wi::eq_p (lh.upper_bound (), lh.lower_bound ()))
     op_ir (mode, r, lh.upper_bound (), rh);
   else
@@ -941,10 +946,36 @@ bool
 operator_cast::op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const
 {
-  /* Unary cast is simply the old range converted to the cast type. 
-     lhs = (op2-type) op1  */
-  r = lhs;
+  const_tree lhs_type = lhs.get_type ();
+  const_tree op2_type = op2.get_type ();
+  irange op_type;
+
+  /* if the precision of the LHS is smaller than the precision of the RHS,
+     then there would be truncation of the value on the RHS, and so we can tell
+     nothing about it.  */
+  if (TYPE_PRECISION (lhs_type) < TYPE_PRECISION (op2_type))
+    {
+      r.set_range_for_type (op2_type);
+      return true;
+    }
+
+  /* If the LHS precision is greater than the rhs precision, the LHS range
+     is resticted to the range of the RHS by this assignment.  */
+  if (TYPE_PRECISION (lhs_type) > TYPE_PRECISION (op2_type))
+    {
+      /* Cast the range of the RHS to the type of the LHS. */
+      op_type.set_range_for_type (op2_type);
+      op_type.cast (lhs_type);
+
+      /* Intersect this with the LHS range will produce the RHS range.  */
+      r = irange_intersect (lhs, op_type);
+    }
+  else
+    r = lhs;
+
+  /* Cast the calculated range to the type of the RHS.  */
   r.cast (op2.get_type ());
+
   return true;
 }
 
@@ -957,8 +988,6 @@ class operator_logical_and : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -971,22 +1000,6 @@ operator_logical_and::dump (FILE *f) const
   fprintf (f, " && ");
 }
 
-
-/* A logical AND of two ranges is executed when we are walking forward with
-   ranges that have been determined.   x_8 is an unsigned char.
-	 b_1 = x_8 < 20
-	 b_2 = x_8 > 5
-	 c_2 = b_1 && b_2
-   if we are looking for the range of x_8, the ranges on each side of the AND
-   will be:   b_1 carries x_8 = [0, 19],   b_2 carries [6, 255]
-   the result of the AND is the intersection of the 2 ranges, [6, 255]. */
-bool
-operator_logical_and::combine_range (irange& r, const irange& lh,
-				     const irange& rh) const
-{
-  r = irange_intersect (lh, rh);
-  return true;
-}
 
 bool
 operator_logical_and::fold_range (irange& r, const irange& lh,
@@ -1029,13 +1042,13 @@ operator_logical_and::op1_irange (irange& r, const irange& lhs,
      {
        /* A true result means both sides of the AND must be true.  */
        case BRS_TRUE:
-         set_boolean_range_one (r);
+         r.set_range (boolean_type_node, 1, 1);
 	 break;
      
        /* Any other result means only one side has to be false, the other
 	  side can be anything. SO we cant be sure of any result here.  */
       default:
-        set_boolean_range (r);
+        r.set_range_for_type (boolean_type_node);
 	break;
     }
   return true;
@@ -1053,8 +1066,6 @@ class operator_bitwise_and : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1081,7 +1092,8 @@ operator_bitwise_and::fold_range (irange& r, const irange& lh,
 				  const irange& rh) const
 {
   /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
+  if (types_compatible_p (const_cast <tree> (lh.get_type ()),
+			  boolean_type_node))
     return op_logical_and.fold_range (r, lh, rh);
 
   /* For now do nothing with bitwise AND of iranges, just return the type. */
@@ -1090,23 +1102,12 @@ operator_bitwise_and::fold_range (irange& r, const irange& lh,
 }
 
 bool
-operator_bitwise_and::combine_range (irange& r, const irange& lh,
-				     const irange& rh) const
-{
-  /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
-    return op_logical_and.combine_range (r, lh, rh);
-
-  /* If its not logical, we dont need to combine anything.  */
-  return false;
-}
-
-bool
 operator_bitwise_and::op1_irange (irange& r, const irange& lhs,
 				  const irange& op2) const
 {
   /* If this is really a logical operation, call that.  */
-  if (lhs.get_type () == boolean_type_node)
+  if (types_compatible_p (const_cast <tree> (lhs.get_type ()),
+			  boolean_type_node))
     return op_logical_and.op1_irange (r, lhs, op2);
 
   /* For now do nothing with bitwise AND of iranges, just return the type. */
@@ -1127,8 +1128,6 @@ class operator_logical_or : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1142,25 +1141,9 @@ operator_logical_or::dump (FILE *f) const
 }
 
 
-/* A logical OR of two ranges is executed when we are walking forward with
-   ranges that have been determined.   x_8 is an unsigned char.
-	 b_1 = x_8 > 20
-	 b_2 = x_8 < 5
-	 c_2 = b_1 || b_2
-   if we are looking for the range of x_8, the ranges on each side of the OR
-   will be:   b_1 carries x_8 = [21, 255],   b_2 carries [0, 4]
-   the result of the OR is the union_ of the 2 ranges, [0,4][21,255].  */
 bool
 operator_logical_or::fold_range (irange& r, const irange& lh,
 				  const irange& rh) const
-{
-  r = irange_union (lh, rh);
-  return true;
-}
-
-bool
-operator_logical_or::combine_range (irange& r, const irange& lh,
-				    const irange& rh) const
 {
   r = irange_union (lh, rh);
   return true;
@@ -1174,13 +1157,13 @@ operator_logical_or::op1_irange (irange& r, const irange& lhs,
      {
        /* A false result means both sides of the OR must be false.  */
        case BRS_FALSE:
-         set_boolean_range_zero (r);
+         r.set_range (boolean_type_node, 0 , 0);
 	 break;
      
        /* Any other result means only one side has to be true, the other
 	  side can be anything. SO we cant be sure of any result here.  */
       default:
-        set_boolean_range (r);
+        r.set_range_for_type (boolean_type_node);
 	break;
     }
   return true;
@@ -1198,8 +1181,6 @@ class operator_bitwise_or : public irange_operator
 public:
   void dump (FILE *f) const;
   virtual bool fold_range (irange& r, const irange& lh, const irange& rh) const;
-  virtual bool combine_range (irange& r, const irange& lh,
-			      const irange& rh) const;
   virtual bool op1_irange (irange& r, const irange& lhs,
 			   const irange& op2) const;
   virtual bool op2_irange (irange& r, const irange& lhs,
@@ -1233,20 +1214,6 @@ operator_bitwise_or::fold_range (irange& r, const irange& lh,
   r.set_range_for_type (lh.get_type ());
   return true;
 }
-
-bool
-operator_bitwise_or::combine_range (irange& r, const irange& lh,
-				    const irange& rh) const
-{
-  /* If this is really a logical operation, call that.  */
-  if (lh.get_type () == boolean_type_node)
-    return op_logical_or.combine_range (r, lh, rh);
-
-  /* If it isnt a logical op, no combining necessary.  */
-  return false;
-}
-
-
 
 bool
 operator_bitwise_or::op1_irange (irange& r, const irange& lhs,
@@ -1386,10 +1353,11 @@ irange_op_table::irange_op_table ()
   irange_tree[NE_EXPR] = &op_not_equal;
   irange_tree[EQ_EXPR] = &op_equal;
 
-//  irange_tree[PLUS_EXPR] = &op_plus;
-//  irange_tree[MINUS_EXPR] = &op_minus;
-//  irange_tree[NOP_EXPR] = &op_cast;
-//  irange_tree[CONVERT_EXPR] = &op_cast;
+  irange_tree[PLUS_EXPR] = &op_plus;
+  irange_tree[MINUS_EXPR] = &op_minus;
+  
+  irange_tree[NOP_EXPR] = &op_cast;
+  irange_tree[CONVERT_EXPR] = &op_cast;
 
   irange_tree[TRUTH_AND_EXPR] = &op_logical_and;
   irange_tree[TRUTH_OR_EXPR] = &op_logical_or;

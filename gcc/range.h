@@ -78,11 +78,13 @@ class irange
     { set_range (typ, lbound, ubound, rt); }
   irange (const irange &);
   irange (const irange_storage *stor, tree typ) { set_range (stor, typ); }
+  irange (const_tree t, int x, int y) { set_range (t, x, y, PLAIN); }
 
   void set_range (const irange_storage *, const_tree);
   void set_range (const_tree);
   void set_range (const_tree, const wide_int &lbound, const wide_int &ubound,
 		  kind rt = PLAIN);
+  void set_range (const_tree t, int x, int y, kind rt = PLAIN);
   void set_range_for_type (const_tree);
 
   bool overflow_p () const { return overflow && !TYPE_OVERFLOW_WRAPS (type); }
