@@ -3196,8 +3196,16 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_AUTO
-			   || symbol_pic_model == NANO_PIC_MEDIUM))
+			   || symbol_pic_model == NANO_PIC_MEDIUM)
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) <= 2)
 		return SYMBOL_GP_RELATIVE;
+	      else if (TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && (symbol_pic_model == NANO_PIC_AUTO
+			   || symbol_pic_model == NANO_PIC_MEDIUM)
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 4)
+		return SYMBOL_GPREL_WORD_NANO;
 	      else if (TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
@@ -3403,6 +3411,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 
       /* Fall through.  */
 
+    case SYMBOL_GPREL_WORD_NANO:
     case SYMBOL_GP_RELATIVE:
     case SYMBOL_GPREL32_NANO:
     case SYMBOL_GPREL_SPLIT_NANO:
@@ -3509,6 +3518,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       return 3;
 
     case SYMBOL_GP_RELATIVE:
+    case SYMBOL_GPREL_WORD_NANO:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
       return 1;
@@ -4741,6 +4751,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      case SYMBOL_GP_RELATIVE:
+	      case SYMBOL_GPREL_WORD_NANO:
 	      case SYMBOL_GPREL32_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
@@ -5155,6 +5166,12 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
       && !mips_split_p[SYMBOL_GP_RELATIVE]
       && mips_symbolic_constant_p (x, context, &symbol_type)
       && symbol_type == SYMBOL_GP_RELATIVE)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL_WORD_NANO]
+      && !mips_split_p[SYMBOL_GPREL_WORD_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL_WORD_NANO)
     return true;
 
   if (mips_lo_relocs[SYMBOL_GPREL32_NANO]
@@ -6642,6 +6659,7 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
   enum mips_symbol_type symbol_type;
   return (mips_symbolic_constant_p (x, context, &symbol_type)
 	  && (symbol_type == SYMBOL_GP_RELATIVE
+	      || symbol_type == SYMBOL_GPREL_WORD_NANO
 	      || symbol_type == SYMBOL_GPREL32_NANO
 	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO)
 	  && CONSTANT_POOL_ADDRESS_P (x));
@@ -10691,6 +10709,9 @@ mips_init_relocs (void)
     mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gprel(";
 
   if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GPREL_WORD_NANO] = "%gprel(";
+
+  if (TARGET_PABI)
     mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel32(";
 
   if (TARGET_PABI)
@@ -11632,6 +11653,7 @@ mips_in_small_data_p (const_tree decl)
       /* If a symbol is defined externally, the assembler will use the
 	 usual -G rules when deciding how to implement macros.  */
       if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
+	  || mips_lo_relocs[SYMBOL_GPREL_WORD_NANO]
 	  || mips_lo_relocs[SYMBOL_GPREL32_NANO]
 	  || mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
 	  || !DECL_EXTERNAL (decl))
