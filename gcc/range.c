@@ -180,7 +180,9 @@ irange::irange (const irange &r)
 bool
 irange::operator== (const irange &r) const
 {
-  if (type != r.type || nitems != r.nitems || overflow != r.overflow)
+  if (!types_compatible_p (const_cast <tree> (type),
+			   const_cast <tree> (r.type))
+      || nitems != r.nitems || overflow != r.overflow)
     return false;
   for (unsigned i = 0; i < nitems; ++i)
     if (!wi::eq_p (bounds[i], r.bounds[i]))
