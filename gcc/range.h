@@ -115,9 +115,9 @@ class irange
   bool range_for_type_p () const;
   bool simple_range_p () const { return nitems == 2; }
 
-  void dump ();
-  void dump (pretty_printer *pp);
-  void dump (FILE *);
+  void dump () const;
+  void dump (pretty_printer *pp) const;
+  void dump (FILE *) const;
 
   bool valid_p () const;
   void cast (const_tree type);

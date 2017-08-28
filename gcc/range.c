@@ -835,7 +835,7 @@ irange::upper_bound (unsigned pair) const
 /* Dump the current range onto BUFFER.  */
 
 void
-irange::dump (pretty_printer *buffer)
+irange::dump (pretty_printer *buffer) const
 {
   if (!nitems)
     {
@@ -870,7 +870,7 @@ irange::dump (pretty_printer *buffer)
 /* Dump the current range onto FILE F.  */
 
 void
-irange::dump (FILE *f)
+irange::dump (FILE *f) const
 {
   pretty_printer buffer;
   buffer.buffer->stream = f;
@@ -886,7 +886,7 @@ irange::dump (FILE *f)
    debugger... */
 
 void
-irange::dump ()
+irange::dump () const
 {
   dump (stderr);
 }
