@@ -863,6 +863,8 @@ irange::dump (pretty_printer *buffer)
     }
   if (overflow)
     pp_string (buffer, "(overflow)");
+  pp_string (buffer, " precision = ");
+  pp_decimal_int (buffer, TYPE_PRECISION (type));
 }
 
 /* Dump the current range onto FILE F.  */
