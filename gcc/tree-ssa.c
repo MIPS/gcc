@@ -242,7 +242,7 @@ gimple_replace_ssa_lhs (gimple *stmt, tree nlhs)
 tree
 target_for_debug_bind (tree var)
 {
-  if (!flag_var_tracking_assignments)
+  if (!MAY_HAVE_DEBUG_BIND_STMTS)
     return NULL_TREE;
 
   if (TREE_CODE (var) == SSA_NAME)
