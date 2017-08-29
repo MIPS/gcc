@@ -858,10 +858,14 @@ irange::dump (pretty_printer *buffer) const
     }
   if (!nitems)
     pp_string (buffer, "[]");
+
+  pp_string (buffer, " type: ");
+  dump_generic_node (buffer, const_cast <tree> (type), 0, 0, false);
+  pp_string (buffer, ", precision = ");
+  pp_decimal_int (buffer, TYPE_PRECISION (type));
   if (overflow)
     pp_string (buffer, " (overflow)");
-  pp_string (buffer, " precision = ");
-  pp_decimal_int (buffer, TYPE_PRECISION (type));
+  pp_newline_and_flush (buffer);
 }
 
 /* Dump the current range onto FILE F.  */
@@ -872,7 +876,6 @@ irange::dump (FILE *f) const
   pretty_printer buffer;
   buffer.buffer->stream = f;
   dump (&buffer);
-  pp_newline_and_flush (&buffer);
 }
 
 /* Like above but dump to STDERR.
