@@ -49,10 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 
 static int max_threaded_paths;
 
-// FIXME
-bool early_threader;
-gimple *orig_stmt;
-
 /* Simple helper to get the last statement from BB, which is assumed
    to be a control statement.   Return NULL if the last statement is
    not a control statement.  */
@@ -112,7 +108,7 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
    final taken edge from the path, NULL otherwise.
 
    NAME is the SSA_NAME of the variable we found to have a constant
-   value on PATH.  ARG is the value of that SSA_NAME.
+   value on PATH.  ARG is the constant value of NAME on that path.
 
    BBI will be appended to PATH when we have a profitable jump threading
    path.  Callers are responsible for removing BBI from PATH in that case.
@@ -425,7 +421,7 @@ profitable_jump_thread_path (vec<basic_block, va_gc> *&path,
   return taken_edge;
 }
 
-static void
+static void DEBUG_FUNCTION
 graphme ()
 {
   system("rm -f /tmp/base.dot");
@@ -444,16 +440,6 @@ convert_and_register_jump_thread_path (vec<basic_block, va_gc> *path,
 				       edge taken_edge)
 {
   vec<jump_thread_edge *> *jump_thread_path = new vec<jump_thread_edge *> ();
-
-  static int first = 1;
-  if (path->length () > 2 && first)
-    {
-      first = 0;
-      for (unsigned i = 0; i < path->length (); i++)
-	fprintf (stderr, "bb%d\t", (*path)[i]->index);
-      debug_gimple_stmt (orig_stmt);
-      graphme();
-    }
 
   /* Record the edges between the blocks in PATH.  */
   for (unsigned int j = 0; j < path->length () - 1; j++)
@@ -582,7 +568,7 @@ ssa_path_walker::walk_helper (basic_block bb)
 class path_with_range
 {
   /* The path from the definition of an SSA to a given BB.  */
-  vec<basic_block> path;
+  vec<basic_block, va_gc> *path;
   /* The range for the SSA on this path.  */
   irange range;
 
@@ -590,9 +576,13 @@ class path_with_range
   path_with_range (const irange &r, const auto_vec<basic_block> &p)
   {
     range = r;
-    path = p.copy ();
+    vec_alloc (path, p.length ());
+    basic_block bb;
+    for (unsigned i = 0; p.iterate (i, &bb); ++i)
+      path->quick_push (bb);
   }
-  void release () { path.release (); }
+  vec<basic_block, va_gc> *get_path () { return path; }
+  bool is_range_constant (wide_int &c) { return range.one_element_p (c); }
   void dump ();
 };
 
@@ -600,14 +590,14 @@ void
 path_with_range::dump ()
 {
   fprintf (stderr, "path: ");
-  for (int i = path.length () - 1; i > 0; --i)
+  for (int i = path->length () - 1; i > 0; --i)
     {
-      fprintf (stderr, "bb%d", path[i]->index);
-      edge e = find_edge (path[i], path[i - 1]);
+      fprintf (stderr, "bb%d", (*path)[i]->index);
+      edge e = find_edge ((*path)[i], (*path)[i - 1]);
       gcc_assert (e);
       fprintf (stderr, " => ");
     }
-  fprintf (stderr, "bb%d\n", path[0]->index);
+  fprintf (stderr, "bb%d\n", (*path)[0]->index);
   fprintf (stderr, "\trange: ");
   range.dump ();
 
@@ -631,12 +621,13 @@ class range_on_path_walker : public ssa_path_walker
   /* Return path I.  */
   path_with_range get_path_with_range (int i) { return paths_with_range[i]; }
   virtual void analyze_path ();
-  void dump_paths ();
-  ~range_on_path_walker ();
+  void dump ();
 };
 
+/* Dump all the paths accumulated by the walker.  */
+
 void
-range_on_path_walker::dump_paths ()
+range_on_path_walker::dump ()
 {
   if (num_paths_with_range () == 0)
     return;
@@ -651,12 +642,6 @@ range_on_path_walker::dump_paths ()
       p.dump ();
     }
   fprintf (stderr, "-----------------------------\n");
-}
-
-range_on_path_walker::~range_on_path_walker ()
-{
-  for (unsigned i = 0; i < paths_with_range.length (); ++i)
-    paths_with_range[i].release ();
 }
 
 /* Calculate the range for a PATH for an SSA NAME.  Accumulate all
@@ -686,7 +671,7 @@ range_on_path_walker::analyze_path ()
 }
 
 /* While following a chain of SSA_NAME definitions, we jumped from a definition
-   in LAST_BB to a definition in VAR_BB (walking backwards).
+   in LAST_BB to a definition in NEW_BB (walking backwards).
 
    Verify there is a single path between the blocks and none of the blocks
    in the path is already in VISITED_BBS.  If so, then update VISISTED_BBS,
@@ -755,12 +740,46 @@ check_subpath_and_update_thread_path (basic_block last_bb, basic_block new_bb,
   return true;
 }
 
+/* If this is a profitable jump thread path, register it.
+
+   NAME is an SSA NAME with a possible constant value of ARG on PATH.
+
+   DEF_BB is the basic block that ultimately defines the constant.
+
+   SPEED_P indicate that we could increase code size to improve the
+   code path.
+*/
+
+static void
+register_jump_thread_path_if_profitable (vec<basic_block, va_gc> *&path,
+					 tree name,
+					 tree arg,
+					 basic_block def_bb,
+					 bool speed_p)
+{
+  if (TREE_CODE_CLASS (TREE_CODE (arg)) != tcc_constant)
+    return;
+
+  bool irreducible = false;
+  edge taken_edge = profitable_jump_thread_path (path, def_bb, name, arg,
+						 speed_p, &irreducible);
+  if (taken_edge)
+    {
+      convert_and_register_jump_thread_path (path, taken_edge);
+      path->pop ();
+
+      if (irreducible)
+	vect_free_loop_info_assumptions ((*path)[0]->loop_father);
+    }
+
+}
+
 static void fsm_find_control_statement_thread_paths (tree,
 						     hash_set<basic_block> *,
 						     vec<basic_block, va_gc> *&,
 						     bool, bool);
 
-/* Given PHI which defines NAME in block VAR_BB, recurse through the
+/* Given PHI which defines NAME in block DEF_BB, recurse through the
    PHI's arguments searching for paths where NAME will ultimately have
    a constant value.
 
@@ -774,7 +793,7 @@ static void fsm_find_control_statement_thread_paths (tree,
    SPEED_P indicates if we are optimizing for speed over space.  */
 
 static void
-handle_phi (gphi *phi, tree name, basic_block var_bb,
+handle_phi (gphi *phi, tree name, basic_block def_bb,
 	    hash_set<basic_block> *visited_bbs,
 	    vec<basic_block, va_gc> *&path,
 	    bool seen_loop_phi, bool speed_p)
@@ -786,7 +805,7 @@ handle_phi (gphi *phi, tree name, basic_block var_bb,
       basic_block bbi = gimple_phi_arg_edge (phi, i)->src;
 
       /* Skip edges pointing outside the current loop.  */
-      if (!arg || var_bb->loop_father != bbi->loop_father)
+      if (!arg || def_bb->loop_father != bbi->loop_father)
 	continue;
 
       if (TREE_CODE (arg) == SSA_NAME)
@@ -801,22 +820,7 @@ handle_phi (gphi *phi, tree name, basic_block var_bb,
 	  continue;
 	}
 
-      if (TREE_CODE_CLASS (TREE_CODE (arg)) != tcc_constant)
-	continue;
-
-      /* If this is a profitable jump thread path, then convert it
-	 into the canonical form and register it.  */
-      bool irreducible = false;
-      edge taken_edge = profitable_jump_thread_path (path, bbi, name, arg,
-						     speed_p, &irreducible);
-      if (taken_edge)
-	{
-	  convert_and_register_jump_thread_path (path, taken_edge);
-	  path->pop ();
-
-	  if (irreducible)
-	    vect_free_loop_info_assumptions ((*path)[0]->loop_father);
-	}
+      register_jump_thread_path_if_profitable (path, name, arg, bbi, speed_p);
     }
 }
 
@@ -850,7 +854,7 @@ handle_assignment_p (gimple *stmt)
   return false;
 }
 
-/* Given STMT which defines NAME in block VAR_BB, recurse through the
+/* Given STMT which defines NAME in block DEF_BB, recurse through the
    PHI's arguments searching for paths where NAME will ultimately have
    a constant value.
 
@@ -864,7 +868,7 @@ handle_assignment_p (gimple *stmt)
    SPEED_P indicates if we are optimizing for speed over space.  */
 
 static void
-handle_assignment (gimple *stmt, tree name, basic_block var_bb,
+handle_assignment (gimple *stmt, tree name, basic_block def_bb,
 		   hash_set<basic_block> *visited_bbs,
 		   vec<basic_block, va_gc> *&path,
 		   bool seen_loop_phi, bool speed_p)
@@ -877,27 +881,17 @@ handle_assignment (gimple *stmt, tree name, basic_block var_bb,
 
   else
     {
-      /* profitable_jump_thread_path is going to push the current
+      /* register_jump_thread_path_if_profitable will push the current
 	 block onto the path.  But the path will always have the current
 	 block at this point.  So we can just pop it.  */
       path->pop ();
 
-      bool irreducible = false;
-      edge taken_edge = profitable_jump_thread_path (path, var_bb,
-						     name, arg, speed_p,
-						     &irreducible);
-      if (taken_edge)
-	{
-	  convert_and_register_jump_thread_path (path, taken_edge);
-	  path->pop ();
-
-	  if (irreducible)
-	    vect_free_loop_info_assumptions ((*path)[0]->loop_father);
-	}
+      register_jump_thread_path_if_profitable (path, name, arg, def_bb,
+					       speed_p);
 
       /* And put the current block back onto the path so that the
 	 state of the stack is unchanged when we leave.  */
-      vec_safe_push (path, var_bb);
+      vec_safe_push (path, def_bb);
     }
 }
 
@@ -918,9 +912,9 @@ fsm_find_control_statement_thread_paths (tree name,
     return;
 
   gimple *def_stmt = SSA_NAME_DEF_STMT (name);
-  basic_block var_bb = gimple_bb (def_stmt);
+  basic_block def_bb = gimple_bb (def_stmt);
 
-  if (var_bb == NULL)
+  if (def_bb == NULL)
     return;
 
   /* We allow the SSA chain to contains PHIs and simple copies and constant
@@ -939,7 +933,7 @@ fsm_find_control_statement_thread_paths (tree name,
     return;
 
   /* Avoid infinite recursion.  */
-  if (visited_bbs->add (var_bb))
+  if (visited_bbs->add (def_bb))
     return;
 
   int next_path_length = 0;
@@ -954,28 +948,28 @@ fsm_find_control_statement_thread_paths (tree name,
     }
 
   /* Following the chain of SSA_NAME definitions, we jumped from a definition in
-     LAST_BB_IN_PATH to a definition in VAR_BB.  When these basic blocks are
-     different, append to PATH the blocks from LAST_BB_IN_PATH to VAR_BB.  */
-  if (var_bb != last_bb_in_path)
+     LAST_BB_IN_PATH to a definition in DEF_BB.  When these basic blocks are
+     different, append to PATH the blocks from LAST_BB_IN_PATH to DEF_BB.  */
+  if (def_bb != last_bb_in_path)
     {
-      /* When VAR_BB == LAST_BB_IN_PATH, then the first block in the path
+      /* When DEF_BB == LAST_BB_IN_PATH, then the first block in the path
 	 will already be in VISITED_BBS.  When they are not equal, then we
 	 must ensure that first block is accounted for to ensure we do not
 	 create bogus jump threading paths.  */
       visited_bbs->add ((*path)[0]);
-      if (!check_subpath_and_update_thread_path (last_bb_in_path, var_bb,
+      if (!check_subpath_and_update_thread_path (last_bb_in_path, def_bb,
 						 visited_bbs, path,
 						 &next_path_length))
 	return;
     }
 
-  gcc_assert (path->last () == var_bb);
+  gcc_assert (path->last () == def_bb);
 
   if (gimple_code (def_stmt) == GIMPLE_PHI)
-    handle_phi (as_a <gphi *> (def_stmt), name, var_bb,
+    handle_phi (as_a <gphi *> (def_stmt), name, def_bb,
 		visited_bbs, path, seen_loop_phi, speed_p);
   else if (gimple_code (def_stmt) == GIMPLE_ASSIGN)
-    handle_assignment (def_stmt, name, var_bb,
+    handle_assignment (def_stmt, name, def_bb,
 		       visited_bbs, path, seen_loop_phi, speed_p);
 
   /* Remove all the nodes that we added from NEXT_PATH.  */
@@ -1021,17 +1015,39 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
   hash_set<basic_block> *visited_bbs = new hash_set<basic_block>;
 
   max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
-  orig_stmt = stmt;
+  if (getenv("asdf3"))
+    goto doit;
   fsm_find_control_statement_thread_paths (name, visited_bbs, bb_path, false,
 					   speed_p);
 
-  irange r;
-  basic_block use_bb = gimple_bb (stmt);
-  if (getenv("asdf2") && early_threader)
+ doit:
+  /* If we didn't thread any paths by chasing down constant
+     definitions, try threading by making use of available range
+     information.  */
+  if (max_threaded_paths == PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS))
     {
-      range_on_path_walker w (name, use_bb);
+      range_on_path_walker w (name, bb);
       w.walk ();
-      w.dump_paths ();
+      for (int i = 0; i < w.num_paths_with_range (); ++i)
+	{
+	  path_with_range p = w.get_path_with_range (i);
+	  wide_int c;
+	  if (p.is_range_constant (c))
+	    {
+	      vec<basic_block, va_gc> *path = p.get_path ();
+	      /* register_jump_thread_path_if_profitable will push the current
+		 block onto the path.  But the path will always have the current
+		 block at this point.  So we can just pop it.  */
+	      basic_block bb = path->pop ();
+	      bool s=speed_p;
+	      speed_p=true;
+	      register_jump_thread_path_if_profitable
+		(path, name, wide_int_to_tree (TREE_TYPE (name), c),
+		 bb, speed_p);
+	      speed_p=s;
+	      break;
+	    }
+	}
     }
 
   delete visited_bbs;
@@ -1135,7 +1151,6 @@ pass_early_thread_jumps::gate (function *fun ATTRIBUTE_UNUSED)
 unsigned int
 pass_early_thread_jumps::execute (function *fun)
 {
-  early_threader = true;
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
 
   /* Try to thread each block with more than one successor.  */
@@ -1147,11 +1162,7 @@ pass_early_thread_jumps::execute (function *fun)
     }
   thread_through_all_blocks (true);
 
-  if (getenv("asdf2"))
-    graphme ();
-
   loop_optimizer_finalize ();
-  early_threader = false;
   return 0;
 }
 
