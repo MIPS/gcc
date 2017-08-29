@@ -118,9 +118,9 @@ class irange
      ELEM to said element.  */
   bool one_element_p (wide_int &elem) const;
 
-  void dump ();
-  void dump (pretty_printer *pp);
-  void dump (FILE *);
+  void dump () const;
+  void dump (pretty_printer *pp) const;
+  void dump (FILE *) const;
 
   bool valid_p () const;
   void cast (const_tree type);
