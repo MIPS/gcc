@@ -837,11 +837,6 @@ irange::upper_bound (unsigned pair) const
 void
 irange::dump (pretty_printer *buffer) const
 {
-  if (!nitems)
-    {
-      pp_string (buffer, "[]");
-      return;
-    }
   for (unsigned i = 0; i < nitems; ++i)
     {
       if (i % 2 == 0)
@@ -861,8 +856,10 @@ irange::dump (pretty_printer *buffer) const
       else
 	pp_character (buffer, ']');
     }
+  if (!nitems)
+    pp_string (buffer, "[]");
   if (overflow)
-    pp_string (buffer, "(overflow)");
+    pp_string (buffer, " (overflow)");
   pp_string (buffer, " precision = ");
   pp_decimal_int (buffer, TYPE_PRECISION (type));
 }
