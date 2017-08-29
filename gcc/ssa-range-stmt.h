@@ -50,31 +50,44 @@ class range_stmt
 {
 private:
   enum range_stmt_state state;
+  gimple *g;
   tree_code code;
   tree op1;
   tree op2;
   enum range_stmt_state determine_state (tree op1, tree op2);
   void from_stmt (gimple *s);
-  bool fold (irange& res, irange* value1, irange* value2);
+  bool fold (irange& res, irange* value1, irange* value2) const;
+  class irange_operator *handler() const;
 public:
   range_stmt ();
   range_stmt (gimple *stmt);
   range_stmt &operator= (gimple *stmt);
 
   bool valid () const;
+  gimple *get_gimple () const;
   tree_code get_code () const;
   bool is_relational ();
-  class irange_operator *handler();
 
-  bool ssa_required (tree *name1, tree *name2);
+  bool ssa_required (tree *name1, tree *name2) const;
   tree operand1 () const;
   tree operand2 () const;
-  bool fold (irange& res);
 
-  void dump (FILE *f);
+  bool fold (irange& res, FILE *trace = NULL) const;
+  bool op1_irange (irange& r, const irange& lhs, const irange& op2,
+		   FILE *trace = NULL) const;
+  bool op2_irange (irange& r, const irange& lhs, const irange& op1,
+		   FILE *trace = NULL) const;
+
+
+  void dump (FILE *f) const;
 };
 
 
+inline gimple *
+range_stmt::get_gimple () const
+{
+  return g;
+}
 
 inline bool
 range_stmt::valid () const

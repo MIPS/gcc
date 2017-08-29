@@ -96,7 +96,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 irange_operator *
-range_stmt::handler ()
+range_stmt::handler () const
 {
   return irange_op_handler (code);
 }
@@ -187,17 +187,20 @@ range_stmt::from_stmt (gimple *s)
 range_stmt::range_stmt ()
 {
   state = RS_INV;
+  g = NULL;
 }
 
 range_stmt::range_stmt (gimple *s)
 {
   from_stmt (s);
+  g = s;
 }
 
 range_stmt&
 range_stmt::operator= (gimple *s)
 {
   from_stmt (s);
+  g = s;
   return *this;
 }
 
@@ -221,7 +224,7 @@ range_stmt::is_relational()
    an ssa_name with no range.  */
 
 bool
-range_stmt::fold (irange &res, irange* value1, irange* value2)
+range_stmt::fold (irange &res, irange* value1, irange* value2) const
 {
   bool result = false;
   irange r1, r2;
@@ -289,36 +292,114 @@ range_stmt::fold (irange &res, irange* value1, irange* value2)
    Return TRUE if a range is calculated. */
    
 bool
-range_stmt::fold (irange& r)
+range_stmt::fold (irange& r, FILE *trace) const
 {
   tree n1, n2;
   irange r1, r2;
   irange *r1p = NULL, *r2p = NULL;
-  
+  bool res;
+
+  if (trace)
+    {
+      fprintf (trace, "Calling fold() on : ");
+      dump (trace);
+    }
 
   if (!ssa_required (&n1, &n2))
-    return false;
+    {
+      if (trace)
+	fprintf (trace, "   No ssa-names present\n");
+      return false;
+    }
 
   if (n1)
     {
       r1 = n1;
       r1p = &r1;
+      if (trace)
+        {
+	  fprintf (trace, "  name1 range = ");
+	  r1.dump ();
+	}
     }
 
   if (n2)
     {
       r2 = n2;
       r2p = &r2;
+      if (trace)
+        {
+	  fprintf (trace, "  name2 range = ");
+	  r2.dump ();
+	}
     }
 
-  return fold (r, r1p, r2p);
+  res = fold (r, r1p, r2p);
+  if (trace)
+    {
+      fprintf (trace, "\nFold Result range : ");
+      r.dump (trace);
+      fprintf (trace, "\n");
+      fflush (trace);
+    }
+
+  return res;
 }
+
+bool
+range_stmt::op1_irange (irange& r, const irange& lhs, const irange& op2,
+		        FILE *trace) const
+{  
+  bool res;
+  if (trace)
+    {
+      fprintf (trace, "\nCalling op1_irange () on : ");
+      dump (trace);
+      fprintf (trace, "\n  lhs = ");
+      lhs.dump (trace);
+      fprintf (trace, "  op2 = ");
+      op2.dump (trace);
+    }
+  res = handler ()->op1_irange (r, lhs, op2);
+  if (trace)
+    {
+      fprintf (trace, "  result of op1_irange: ");
+      r.dump (trace);
+      fflush (trace);
+    }
+  return res;
+}
+
+bool
+range_stmt::op2_irange (irange& r, const irange& lhs, const irange& op1,
+		        FILE *trace) const
+{  
+  bool res;
+  if (trace)
+    {
+      fprintf (trace, "\nCalling op2_irange () on : ");
+      dump (trace);
+      fprintf (trace, "\n  lhs = ");
+      lhs.dump (trace);
+      fprintf (trace, "  op1 = ");
+      op1.dump (trace);
+    }
+  res = handler ()->op2_irange (r, lhs, op1);
+  if (trace)
+    {
+      fprintf (trace, "  result of op2_irange: ");
+      r.dump (trace);
+      fflush (trace);
+    }
+  return res;
+}
+
 
 
 /* Return the ssa operands as a list.  NAME1 will be set it there are any
    ssa_names. NAME2 will only be set if there are 2 ssa_names.  */
 bool
-range_stmt::ssa_required (tree *name1, tree *name2)
+range_stmt::ssa_required (tree *name1, tree *name2) const
 {
   switch (state)
     {
@@ -347,8 +428,9 @@ range_stmt::ssa_required (tree *name1, tree *name2)
 
 
 void
-range_stmt::dump (FILE *f)
+range_stmt::dump (FILE *f) const
 {
+  print_gimple_stmt (f, g, 0, 0);
   switch (state)
   {
     case RS_INV:
@@ -394,6 +476,7 @@ range_stmt::dump (FILE *f)
       irange_op_handler (code)->dump (f);
       print_generic_expr (f, op2, TDF_SLIM);
     }
+
 }
 
 

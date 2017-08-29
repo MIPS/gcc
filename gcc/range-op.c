@@ -316,7 +316,7 @@ operator_not_equal::op1_irange (irange& r, const irange& lhs,
       case BRS_TRUE:
         /* If the result is true, the only time we know anything is if OP2 is
 	   a constant.  */
-	if (wi::eq_p (lhs.lower_bound(), lhs.upper_bound()))
+	if (wi::eq_p (op2.lower_bound(), op2.upper_bound()))
 	  r = irange_invert (op2);
 	else
 	  r.set_range_for_type (op2.get_type ());

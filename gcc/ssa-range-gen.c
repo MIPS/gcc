@@ -394,10 +394,17 @@ ranger::combine_range (range_stmt& stmt, irange& r, tree name,
     }
 
 
-  /* If the LHS is TRUE OR FALSE, then we cant really tell anything.  */
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nIn Combine_range for ");
+      print_gimple_stmt (dump_file, stmt.get_gimple (), 0 ,0);
+    }
+  /* If the LHS can be TRUE OR FALSE, then we cant really tell anything.  */
   if (!wi::eq_p (lhs.lower_bound(), lhs.upper_bound()))
     {
       r.set_range_for_type (TREE_TYPE (name));
+      if (dump_file)
+	fprintf (dump_file, " : LHS can be true or false, know nothing.\n");
       return true;
     }
 
@@ -432,6 +439,18 @@ ranger::combine_range (range_stmt& stmt, irange& r, tree name,
       get_operand_range (op2_false, TREE_TYPE (name));
     }
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "  combining following 4 ranges:\n");
+      fprintf (dump_file, "op1_true : ");
+      op1_true.dump (dump_file);
+      fprintf (dump_file, "op1_false : ");
+      op1_false.dump (dump_file);
+      fprintf (dump_file, "op2_true : ");
+      op2_true.dump (dump_file);
+      fprintf (dump_file, "op2_false : ");
+      op2_false.dump (dump_file);
+    }
   /* Now combine based on the result.  */
   switch (stmt.get_code ())
     {
@@ -484,6 +503,11 @@ ranger::combine_range (range_stmt& stmt, irange& r, tree name,
         gcc_unreachable ();
     }
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "result range is ");
+      r.dump (dump_file);
+    }
   return true;
 }
 
@@ -536,7 +560,7 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
   if (op1 == name)
     { 
       if (get_operand_range (op2_range, op2))
-	return stmt.handler ()-> op1_irange (r, lhs, op2_range);
+	return stmt.op1_irange (r, lhs, op2_range, dump_file);
       else
         return false;
     }
@@ -544,7 +568,7 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
   if (op2 == name)
     {
       if (get_operand_range (op1_range, op1))
-	return stmt.handler ()-> op2_irange (r, lhs, op1_range);
+	return stmt.op2_irange (r, lhs, op1_range, dump_file);
       else
         return false;
     }
@@ -569,12 +593,12 @@ ranger::get_range (range_stmt& stmt, irange& r, tree name,
   if (op1_in_chain)
     {
       get_operand_range (op2_range, op2);
-      stmt.handler ()->op1_irange (op1_range, lhs, op2_range);
+      stmt.op1_irange (op1_range, lhs, op2_range, dump_file);
       return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op1_range);
     }
 
   get_operand_range (op1_range, op1);
-  stmt.handler ()->op2_irange (op2_range, lhs, op1_range);
+  stmt.op2_irange (op2_range, lhs, op1_range, dump_file);
   return get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r, name, op2_range);
 }
  
