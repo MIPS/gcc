@@ -1,3 +1,216 @@
+2017-08-29  Alan Modra  <amodra@gmail.com>
+
+	Apply from mainline
+	2017-08-12  Alan Modra  <amodra@gmail.com>
+	PR target/81170
+	PR target/81295
+	* config/rs6000/sysv4.h (STARTFILE_LINUX_SPEC): Upgrade to
+	match gnu-user.h startfile.
+	(ENDFILE_LINUX_SPEC): Similarly.
+
+	2017-08-08  Alan Modra  <amodra@gmail.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+	PR target/81170
+	PR target/81295
+	PR driver/81523
+	* gcc.c (NO_PIE_SPEC): Delete.
+	(PIE_SPEC): Define as !no-pie/pie.  Move static|shared|r
+	exclusion..
+	(LINK_PIE_SPEC): ..to here.
+	(LINK_COMMAND_SPEC): Support -no-pie.
+	* config/gnu-user.h (GNU_USER_TARGET_STARTFILE_SPEC): Correct
+	chain of crtbegin*.o selection, update for PIE_SPEC changes and
+	format.
+	(GNU_USER_TARGET_ENDFILE_SPEC): Similarly.
+	* config/sol2.h (STARTFILE_CRTBEGIN_SPEC): Similarly.
+	(ENDFILE_CRTEND_SPEC): Similarly.
+
+2017-08-29  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81977
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Fix look through
+	memcpy.
+
+	2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	PR debug/81993
+	* dwarf2out.c (gen_remaining_tmpl_value_param_die_attributes):
+	Do nothing for removed DIEs.
+
+2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81088
+	* fold-const.c (split_tree): Drop TREE_OVERFLOW flag from
+	literal constants.
+	(fold_binary_loc): When associating do not treat pre-existing
+	TREE_OVERFLOW on literal constants as a reason to allow
+	TREE_OVERFLOW on associated literal constants.
+
+	2017-06-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81065
+	* fold-const.c (extract_muldiv_1): Remove bogus distribution
+	case of C * (x * C2 + C3).
+	(fold_addr_of_array_ref_difference): Properly fold index difference.
+
+	2017-06-07  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/80932
+	* fold-const.c (extract_muldiv_1) <case MINUS_EXPR>: Add
+	TYPE_OVERFLOW_WRAPS check. 
+
+2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-08-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81884
+	* tree-ssa-alias.c (stmt_kills_ref_p): Handle array accesses
+	at struct end conservatively when comparing common bases.
+
+	2017-05-04  Richard Biener  <rguenther@suse.de>
+ 
+	* tree.c (array_at_struct_end_p): Handle arrays at struct
+	end with flexarrays more conservatively.  Refactor and treat
+	arrays of arrays or aggregates more strict.  Fix
+	VIEW_CONVERT_EXPR handling.  Remove allow_compref argument.
+	* tree.h (array_at_struct_end_p): Adjust prototype.
+	* gimple-fold.c (get_range_strlen): Likewise.
+	* tree-chkp.c (chkp_may_narrow_to_field): Likewise.
+
+2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-08-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81181
+	* tree-ssa-pre.c (compute_antic_aux): Defer clean() to ...
+	(compute_antic): ... end of iteration here.
+
+	2017-08-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81723
+	* tree-vect-slp.c (struct bst_traits): New hash traits.
+	(bst_fail): New global.
+	(vect_build_slp_tree_2): New worker, split out from ...
+	(vect_build_slp_tree): ... this now wrapping it with using
+	bst_fail set to cache SLP tree build fails.  Properly handle
+	max_tree_size.
+	(vect_analyze_slp_instance): Allocate and free bst_fail.
+
+	2017-08-24  Richard Biener  <rguenther@suse.de>
+
+	PR target/81921
+	* config/i386/i386.c: Include symbol-summary.h, ipa-prop.h
+	and ipa-inline.h.
+	(ix86_can_inline_p): When ix86_fpmath flags do not match
+	check whether the callee uses FP math at all.
+
+2017-08-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2017-08-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/72804
+	* config/rs6000/vsx.md (*vsx_le_permute_<mode>): Add support for
+	operands residing in integer registers.
+	(*vsx_le_perm_load_<mode>): Likewise.
+	(*vsx_le_perm_store_<mode>): Likewise.
+	(define_peephole2): Add peepholes to optimize the above.
+
+2017-08-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2017-08-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/80210
+	* config/rs6000/rs6000.c (rs6000_activate_target_options): New function.
+	(rs6000_set_current_function): Rewrite function to use it.
+
+2017-08-22  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2017-08-22  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (powerpc-*-rtems*): Add rs6000/linux64.opt.
+	* config/rs6000/rtems.h (ASM_PREFERRED_EH_DATA_FORMAT): New define.
+	(DOT_SYMBOLS): Likewise.
+	(MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	(RELOCATABLE_NEEDS_FIXUP): Likewise.
+	(RS6000_ABI_NAME): Likewise.
+	(TARGET_CMODEL): Likewise.
+	(TOC_SECTION_ASM_OP): Likewise.
+	(SET_CMODEL): New macro.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Evaluate cmodel options.
+
+2017-08-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2017-08-22 trunk r251256.
+
+	PR target/81910
+	* config/avr/avr.c (avr_handle_addr_attribute): Early return if
+	not VAR_P. Filter attribute warnings with OPT_Wattributes.
+	(avr_attribute_table) <io, io_low, address>: Initialize
+	.decl_required with true.
+
+2017-08-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/79883
+	* config/avr/avr.c (avr_set_current_function): Typo in diagnostic.
+
+2017-08-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/81894
+	* doc/extend.texi (x86 Built-in Functions): Correct the name of
+	__builtin_ia32_lzcnt_u16.
+
+2017-08-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2017-08-17  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR target/81861
+	* config/i386/i386.c (ix86_option_override_internal): Save target
+	specific options after ix86_stack_protector_guard_reg was changed.
+
+2017-08-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-08-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/81354
+	* gimple-ssa-strength-reduction.c (create_add_on_incoming_edge):
+	Insert on edges rather than explicitly creating landing pads.
+	(analyze_candidates_and_replace): Commit edge inserts.
+
+2017-08-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/78460
+	PR target/67712
+	* config/sh/sh-mem.cc (sh_expand_cmpnstr): Only unroll for
+	constant count if that count is less than 32.
+
+2017-08-14  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Set to 7.2.1.
+
+2017-08-14  Release Manager
+
+	* GCC 7.2.0 released.
+
+2017-08-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81766
+	* function.c (thread_prologue_and_epilogue_insns): Restore
+	behavior of always calling find_many_sub_basic_blocks on
+	the inserted prologue.
+
 2017-08-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/79499
