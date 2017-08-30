@@ -23564,8 +23564,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       dw_die_ref pdie;
       dw_attr_node *attr = NULL;
 
-      if (!MAY_HAVE_DEBUG_MARKER_INSNS
-	  && inlined_function_outer_scope_p (stmt))
+      if (!MAY_HAVE_DEBUG_MARKER_INSNS && inlined_function_outer_scope_p (stmt))
 	{
 	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
 				       BLOCK_NUMBER (stmt));
