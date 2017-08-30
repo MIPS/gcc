@@ -2382,7 +2382,7 @@ common_handle_option (struct gcc_options *opts,
       
       /* FALLTHRU */
     case OPT_gdwarf_:
-      if (value < 2 || value > 5)
+      if (value < 2 || value > 6)
 	error_at (loc, "dwarf version %d is not supported", value);
       else
 	opts->x_dwarf_version = value;
