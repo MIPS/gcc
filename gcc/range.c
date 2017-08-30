@@ -734,8 +734,7 @@ irange::invert ()
      [5, 10][20, 30], we would need a 3 sub-range set
      [-MIN, 4][11, 19][31, MAX].
 
-     In this case convert the current range to something more
-     conservative, and return the inverse of that.
+     In this case, return the most conservative thing.
 
      However, if any of the extremes of the range are -MIN/+MAX, we
      know we will not need an extra bound.  For example:
@@ -749,10 +748,9 @@ irange::invert ()
       && bounds[0] != min
       && bounds[nitems] != max)
     {
-      bounds[0] = bounds[0];
-      bounds[1] = bounds[nitems - 1];
+      bounds[1] = max;
       nitems = 2;
-      return invert ();
+      return *this;
     }
 
   /* The inverse of the empty set is the entire domain.  */
