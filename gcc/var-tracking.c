@@ -9938,6 +9938,7 @@ reemit_marker_as_note (rtx_insn *insn, basic_block *bb)
   switch (kind)
     {
     case NOTE_INSN_BEGIN_STMT:
+    case NOTE_INSN_INLINE_ENTRY:
       {
 	rtx_insn *note = NULL;
 	if (cfun->debug_nonbind_markers)
