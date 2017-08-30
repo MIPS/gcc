@@ -525,9 +525,6 @@ gori::exercise (FILE *output)
   basic_block bb;
   irange range;
   
-  if (output)
-    dump (output);
-
   FOR_EACH_BB_FN (bb, cfun)
     {
       edge_iterator ei;
@@ -554,7 +551,6 @@ gori::exercise (FILE *output)
 			  print_generic_expr (output, name, TDF_SLIM);
 			  fprintf(output, "  \t");
 			  range.dump(output);
-			  fprintf(output, "\n");
 			}
 		    }
 		}
@@ -565,6 +561,9 @@ gori::exercise (FILE *output)
 
     }
     
+  if (output)
+    dump (output);
+
 }
 
 
