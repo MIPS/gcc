@@ -3387,6 +3387,13 @@
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "3,4")
 		    (not (match_test "TARGET_NANOMIPS")))
+		  (const_string "no")
+	       ;; FIXME. We may need to revise this later.
+	       ;; This fails when generating low part with HImode being
+	       ;; rejected in mips_symbol_insns for -mno-gpopt for
+	       ;; reg=[symbol:SI]&0xffff
+	       (and (eq_attr "alternative" "0,1")
+		    (match_test "TARGET_NANOMIPS"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
@@ -4809,6 +4816,19 @@
   [(set_attr "got" "load")
    (set_attr "mode" "<MODE>")])
 
+(define_insn_and_split "*got_disp_auto_nano<mode>"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "got_page_ofst_operand" "")))]
+  "TARGET_NANOMIPS"
+  "#"
+  ""
+  [(set (match_dup 0)
+	(unspec:P [(reg:SI GLOBAL_POINTER_REGNUM) (match_dup 3)] UNSPEC_LOAD_GOT))]
+  { operands[3] = mips_unspec_address (operands[2], SYMBOL_GOTOFF_DISP); }
+  [(set_attr "got" "load")
+   (set_attr "mode" "<MODE>")])
+
 ;; Convenience expander that generates the rhs of a load_got<mode> insn.
 (define_expand "unspec_got_<mode>"
   [(unspec:P [(match_operand:P 0)
@@ -4828,9 +4848,155 @@
   [(set_attr "got" "load")
    (set_attr "mode" "<MODE>")])
 
+;; nanoMIPS PC-relative PIC expansions:
+
+(define_insn "*load_pcrel32_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(mem:P (match_operand:P 1 "pcrel32_mem_nano_operand")))]
+  "TARGET_NANOMIPS"
+  "lwpc\t%0,%1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*store_pcrel32_pic_nano<mode>"
+  [(set (mem:P (match_operand:P 0 "pcrel32_mem_nano_operand"))
+	(match_operand:P 1 "reg_or_0_operand" "d,J"))]
+  "TARGET_NANOMIPS"
+  "@
+    swpc\t%1,%0
+    swpc\t%z1,%0"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*load_sf_pcrel32_pic_nano<mode>"
+  [(set (match_operand:SF 0 "register_operand" "=d")
+	(mem:SF (match_operand:P 1 "pcrel32_mem_nano_operand")))]
+  "TARGET_NANOMIPS && TARGET_SOFT_FLOAT"
+  "lwpc\t%0,%1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*store_sf_pcrel32_pic_nano<mode>"
+  [(set (mem:SF (match_operand:P 0 "pcrel32_mem_nano_operand"))
+	(match_operand:SF 1 "reg_or_0_operand" "d,J"))]
+  "TARGET_NANOMIPS"
+  "@
+    swpc\t%1,%0
+    swpc\t%z1,%0"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*lapc_var_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "lapc_nano_operand" ""))]
+  "TARGET_NANOMIPS"
+  "lapc\t%0,%1"
+  [(set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lapc48_var_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operand:SI 1 "lapc48_nano_operand" ""))]
+  "TARGET_NANOMIPS"
+  "lapc[48]\t%0,%1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+(define_insn "*got_pcrel_lo_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "got_pcrel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "<load>\t%0,%R2(%1)"
+  [(set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+;; @tmt what mode should this be ?
+(define_insn "*load_got_pcrel32_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(match_operand:P 1 "got_pcrel32_nano_operand"))]
+  "TARGET_NANOMIPS"
+  "lwpc\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lapc48_func_pic_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(match_operand:P 1 "lapc48_func_nano_operand"))]
+  "TARGET_NANOMIPS"
+  "lapc[48]\t%0,%1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+;; nanoMIPS GP-relative PIC expansions:
+
+(define_insn "*lea_gprel_subword_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel_subword_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu[gp.b]\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lea_gprel_word_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel_word_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu[gp.w]\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lea_gprel32_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel32_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu[gp48]\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+(define_insn_and_split "*gprel_hi_split_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(high:SI (match_operand:SI 1 "gprel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "#"
+  "&& epilogue_completed"
+  [(set (match_dup 0) (high:SI (match_dup 2)))
+   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+{
+  operands[2] = mips_unspec_address (operands[1], SYMBOL_GPREL_SPLIT_NANO);
+  operands[3] = pic_offset_table_rtx;
+}
+  [(set_attr "insn_count" "2")])
+
+;; @tmt Keep using ADDIU instead of ORI here until we can make the ADDU in
+;; the pattern above be the last instruction in the sequence.
+(define_insn "*gprel_low_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "gprel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu\t%0,%1,%R2"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "SI")])
+
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: mips_print_operand works out which relocation
 ;; should be applied.
+
+(define_insn "*low_symbol_nano<mode>"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "symbolic_operand" "")))]
+  "TARGET_NANOMIPS"
+  "ori\t%0,%1,%R2"
+  [(set_attr "alu_type" "or")
+   (set_attr "mode" "<MODE>")])
 
 (define_insn "*low<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
@@ -5092,21 +5258,32 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*mov<mode>_internal"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,d,kd,ZY")
-	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,n,ZY,kd"))]
-  "!TARGET_MIPS16
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D"))]
+  "!TARGET_MIPS16 && !TARGET_NANOMIPS
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move,load,store")
-   (set_attr "compress_as" "all,micro_or_nano,micro_or_nano,*,*,micro_or_nano,micro_or_nano,*,micro_or_nano,micro_or_nano,*,*,*,*,*,*,*,*,*,*,*,*,*,*,micro_or_nano,micro_or_nano")
-   (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
-   (set_attr "subset_16bit" "move,move,std,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
+  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore")
+   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*")
+   (set_attr "mode" "SI")])
+
+(define_insn "*mov<mode>_nanomips"
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,d,d,d,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Uubp,L,n,s,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
+  "TARGET_NANOMIPS
+   && (register_operand (operands[0], <MODE>mode)
+       || reg_or_0_operand (operands[1], <MODE>mode))"
+  { return mips_output_move (insn, operands[0], operands[1]); }
+  [(set_attr "move_type" "move,move,const,const,const,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
+   (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48,nanomips48,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
+   (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,no,no,no,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
+   (set_attr "subset_16bit" "move,move,std,std,no,no,no,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
    (set_attr "mode" "SI")
    (set (attr "enabled")
-	(cond [(and (eq_attr "alternative" "23")
-		    (match_test "!(TARGET_NANOMIPS /*&& TARGET_LI48*/)"))
-		  (const_string "no")]
+	(cond [(and (eq_attr "alternative" "5")
+		    (match_test "TARGET_NANOMIPS == NANOMIPS_NMS"))
+		 (const_string "no")]
 	      (const_string "yes")))])
 
 
@@ -5918,6 +6095,20 @@
   operands[3] = gen_rtx_HIGH (Pmode, operands[1]);
   operands[4] = gen_rtx_PLUS (Pmode, operands[0], operands[2]);
   operands[5] = gen_rtx_LO_SUM (Pmode, operands[0], operands[1]);
+}
+  [(set_attr "type" "ghost")])
+
+(define_insn_and_split "loadgp_pabi_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=&d")
+	(unspec:P [(match_operand:P 1)]
+		  UNSPEC_LOADGP))]
+  "mips_current_loadgp_style () == LOADGP_PABI"
+  { return mips_must_initialize_gp_p () ? "#" : ""; }
+  "&& mips_must_initialize_gp_p ()"
+  [(const_int 0)]
+{
+  mips_emit_move (operands[0], operands[1]);
+  DONE;
 }
   [(set_attr "type" "ghost")])
 
@@ -7005,7 +7196,7 @@
 (define_insn "*jump_pic"
   [(set (pc)
 	(label_ref (match_operand 0)))]
-  "!TARGET_MIPS16 && !TARGET_ABSOLUTE_JUMPS"
+  "!TARGET_MIPS16 && !TARGET_NANOMIPS && !TARGET_ABSOLUTE_JUMPS"
 {
   if (get_attr_length (insn) <= 8)
     {
@@ -7025,6 +7216,14 @@
 }
   [(set_attr "type" "branch")
    (set_attr "compact_form" "maybe")])
+
+(define_insn "*jump_label_nanomips"
+  [(set (pc)
+	(label_ref (match_operand 0 "" "")))]
+  "TARGET_NANOMIPS && !TARGET_ABSOLUTE_JUMPS"
+  "b%:\t%0"
+  [(set_attr "type" "branch")
+   (set_attr "compact_form" "always")])
 
 ;; We need a different insn for the mips16, because a mips16 branch
 ;; does not have a delay slot.

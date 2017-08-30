@@ -627,6 +627,7 @@ static tree mips_handle_inline_intermix_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
 						      bool *);
+static tree nanomips_handle_model_attribute (tree *, tree, tree, int, bool *);
 
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec mips_attribute_table[] = {
@@ -674,8 +675,21 @@ static const struct attribute_spec nanomips_attribute_table[] = {
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
   { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
+  { "model",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
+    false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
+
+#undef TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P
+#define TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P mips_attribute_takes_identifier_p
+
+static bool
+mips_attribute_takes_identifier_p (const_tree attr_id)
+{
+  if (is_attribute_p ("model", attr_id))
+    return true;
+  return false;
+}
 
 struct mips_sdata_entry
 {
@@ -1889,7 +1903,6 @@ mips_far_type_p (const_tree type)
 	  || lookup_attribute ("far", TYPE_ATTRIBUTES (type)) != NULL);
 }
 
-
 /* Check if the interrupt attribute is set for a function.  */
 
 static bool
@@ -2524,6 +2537,43 @@ mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
 
   return NULL_TREE;
 }
+
+static tree
+nanomips_handle_model_attribute (tree *node, tree name, tree args,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (args == NULL)
+    {
+      warning (OPT_Wattributes, "%qE attribute requires an argument",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  tree arg = TREE_VALUE (args);
+
+  if (!TARGET_NANOMIPS)
+    {
+      warning (OPT_Wattributes, "%qE attribute only works for nanoMIPS",
+	       name);
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (arg) != STRING_CST)
+    {
+      warning (OPT_Wattributes, "%qE attribute requires a string argument",
+	       name);
+      *no_add_attrs = true;
+    }
+  else if (strcmp (TREE_STRING_POINTER (arg), "auto") != 0
+	   && strcmp (TREE_STRING_POINTER (arg), "medium") != 0
+	   && strcmp (TREE_STRING_POINTER (arg), "large") != 0)
+    {
+      warning (OPT_Wattributes, "invalid argument of %qE attribute",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 /* If X is a PLUS of a CONST_INT, return the two terms in *BASE_PTR
    and *OFFSET_PTR.  Return X in *BASE_PTR and 0 in *OFFSET_PTR otherwise.  */
@@ -2771,6 +2821,9 @@ mips_got_symbol_type_p (enum mips_symbol_type type)
     {
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOT_DISP:
+    // @tmt is this a good idea ?
+    /* case SYMBOL_GOT_PCREL32_NANO: */
+    /* case SYMBOL_GOT_PCREL_SPLIT_NANO: */
       return true;
 
     default:
@@ -2976,7 +3029,8 @@ mips_rtx_constant_in_small_data_p (machine_mode mode)
 {
   return (!TARGET_EMBEDDED_DATA
 	  && TARGET_LOCAL_SDATA
-	  && GET_MODE_SIZE (mode) <= mips_small_data_threshold);
+	  && (GET_MODE_SIZE (mode) <= mips_small_data_threshold
+	      || TARGET_PID));
 }
 
 /* Return true if X should not be moved directly into register $25.
@@ -3022,11 +3076,55 @@ mips_use_pic_fn_addr_reg_p (const_rtx x)
   return true;
 }
 
+static enum nanomips_pic_model
+mips_get_nano_pic_model (const_rtx x)
+{
+  rtx offset;
+  rtx symbol;
+
+  split_const ((rtx) x, &symbol, &offset);
+
+  if (UNSPEC_ADDRESS_P (symbol))
+    symbol = UNSPEC_ADDRESS (symbol);
+
+  if (flag_pic && !(mips_symbol_binds_local_p (symbol)))
+    {
+      if (SYMBOL_REF_AUTO_PIC_P (symbol))
+	return NANO_PIC_AUTO;
+
+      if (nano_pic_model_var == NANO_PIC_AUTO
+	  && !(SYMBOL_REF_MEDIUM_PIC_P (symbol)
+	       || SYMBOL_REF_LARGE_PIC_P (symbol)))
+	return NANO_PIC_AUTO;
+
+      if (flag_pic == 1)
+	return NANO_PIC_MEDIUM;
+
+      if (flag_pic == 2)
+	return NANO_PIC_LARGE;
+    }
+
+  if (SYMBOL_REF_AUTO_PIC_P (symbol))
+    return NANO_PIC_AUTO;
+
+  if (SYMBOL_REF_MEDIUM_PIC_P (symbol))
+    return NANO_PIC_MEDIUM;
+
+  if (SYMBOL_REF_LARGE_PIC_P (symbol))
+    return NANO_PIC_LARGE;
+
+  if (nano_pic_model_var == NANO_PIC_NONE)
+    return NANO_PIC_AUTO;
+
+  return nano_pic_model_var;
+}
+
 /* Return the method that should be used to access SYMBOL_REF or
    LABEL_REF X in context CONTEXT.  */
 
 static enum mips_symbol_type
-mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
+mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
+			HOST_WIDE_INT offset)
 {
   const_tree decl;
 
@@ -3035,6 +3133,22 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
   if (GET_CODE (x) == LABEL_REF)
     {
+      if (TARGET_NANOMIPS)
+	{
+	  if ((TARGET_PCREL
+	       || (!TARGET_PCREL && TARGET_NANOMIPS == NANOMIPS_NMS))
+	      && (nano_pic_model_var == NANO_PIC_AUTO
+		  || nano_pic_model_var == NANO_PIC_NONE))
+	    return SYMBOL_LAPC_NANO;
+	  else if (TARGET_PCREL
+		   && TARGET_NANOMIPS == NANOMIPS_NMF)
+	    return SYMBOL_LAPC48_NANO;
+	  else if (TARGET_PCREL)
+	    return SYMBOL_PCREL_SPLIT_NANO;
+	  else
+	    return SYMBOL_ABSOLUTE;
+	}
+
       /* Only return SYMBOL_PC_RELATIVE if we are generating MIPS16
 	 code and if we know that the label is in the current function's
 	 text section.  LABEL_REFs are used for jump tables as well as
@@ -3065,6 +3179,118 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
       if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
 	return SYMBOL_GP_RELATIVE;
+    }
+
+  if (TARGET_NANOMIPS)
+    {
+      enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
+
+      if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
+	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
+	{
+	  if (flag_pic && !mips_symbol_binds_local_p (x))
+	    {
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_CALL;
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_DISP;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_GOT_PCREL32_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_GOT_PCREL_SPLIT_NANO;
+	    }
+	  else
+	    {
+	      if (!SYMBOL_REF_LONG_CALL_P (x))
+		return SYMBOL_ABSOLUTE;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
+		       && TARGET_PCREL)
+		return SYMBOL_LAPC48_FUNC_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS
+		       && TARGET_PCREL)
+		return SYMBOL_PCREL_SPLIT_NANO;
+	    }
+	}
+      else if (SYMBOL_REF_DECL (x))
+	{
+	  if (flag_pic && !mips_symbol_binds_local_p (x))
+	    {
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_PAGE_OFST;
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_DISP;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_GOT_PCREL32_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_GOT_PCREL_SPLIT_NANO;
+	    }
+	  else
+	    {
+	      if (VAR_P (SYMBOL_REF_DECL (x))
+		  && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
+		  && context == SYMBOL_CONTEXT_LEA
+		  && !(TARGET_GPOPT
+		       && SYMBOL_REF_SMALL_P (x)))
+		return SYMBOL_PCREL_4K_NANO;
+	      else if (TARGET_GPOPT
+		       && VAR_P (SYMBOL_REF_DECL (x))
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && (symbol_pic_model == NANO_PIC_AUTO
+			   || symbol_pic_model == NANO_PIC_MEDIUM)
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) <= 2)
+		return SYMBOL_GP_RELATIVE;
+	      else if (TARGET_GPOPT
+		       && VAR_P (SYMBOL_REF_DECL (x))
+		       && SYMBOL_REF_SMALL_P (x)
+		       && !SYMBOL_REF_WEAK (x)
+		       && (symbol_pic_model == NANO_PIC_AUTO
+			   || symbol_pic_model == NANO_PIC_MEDIUM)
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 4)
+		return SYMBOL_GPREL_WORD_NANO;
+	      else if (TARGET_GPOPT
+		       && VAR_P (SYMBOL_REF_DECL (x))
+		       && SYMBOL_REF_SMALL_P (x)
+		       && (symbol_pic_model == NANO_PIC_LARGE
+			   && TARGET_NANOMIPS == NANOMIPS_NMF))
+		return SYMBOL_GPREL32_NANO;
+	      else if (TARGET_GPOPT
+		       && VAR_P (SYMBOL_REF_DECL (x))
+		       && SYMBOL_REF_SMALL_P (x)
+		       && (symbol_pic_model == NANO_PIC_LARGE
+			   && TARGET_NANOMIPS == NANOMIPS_NMS))
+		return SYMBOL_GPREL_SPLIT_NANO;
+	      else if (TARGET_PCREL
+		       && VAR_P (SYMBOL_REF_DECL (x))
+		       && TARGET_NANOMIPS == NANOMIPS_NMF
+		       && context == SYMBOL_CONTEXT_MEM
+		       && DECL_SIZE_UNIT (SYMBOL_REF_DECL (x))
+		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
+		       == 4)
+		return SYMBOL_PCREL32_NANO;
+	      else if (VAR_P (SYMBOL_REF_DECL (x))
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
+		       && context == SYMBOL_CONTEXT_MEM)
+		return SYMBOL_PCREL_4K_NANO;
+	      else if ((TARGET_PCREL || (!TARGET_PCREL && TARGET_NANOMIPS == NANOMIPS_NMS))
+		       && !SYMBOL_REF_WEAK (x)
+		       && symbol_pic_model == NANO_PIC_AUTO
+		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
+		       && context == SYMBOL_CONTEXT_LEA
+		       && offset % 2 == 0)
+		return SYMBOL_LAPC_NANO;
+	      else if (TARGET_PCREL
+		       && TARGET_NANOMIPS == NANOMIPS_NMF
+		       && context == SYMBOL_CONTEXT_LEA)
+		return SYMBOL_LAPC48_NANO;
+	      else if (TARGET_PCREL)
+		return SYMBOL_PCREL_SPLIT_NANO;
+	    }
+	}
     }
 
   /* Do not use small-data accesses for weak symbols; they may end up
@@ -3115,6 +3341,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
   return SYMBOL_ABSOLUTE;
 }
 
+static enum mips_symbol_type
+mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
+{
+  return mips_classify_symbol_1 (x, context, 0);
+}
+
 /* Classify the base of symbolic expression X, given that X appears in
    context CONTEXT.  */
 
@@ -3154,7 +3386,19 @@ mips_string_constant_p (rtx x)
       && GET_CODE (XEXP (x, 0)) == PLUS)
     x = XEXP (XEXP (x, 0), 0);
 
-  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF)
+  /* Don't use LI48 for 4K-aligned symbols, as LUI is always better.  */
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
+      && SYMBOL_REF_DECL (x)
+      && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
+    return false;
+
+  if (GET_CODE (x) == LABEL_REF
+      && !TARGET_PCREL)
+    return true;
+
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
+      && !TARGET_PCREL
+      && !(flag_pic && !mips_symbol_binds_local_p (x)))
     return true;
 
   if (GET_CODE (x) == SYMBOL_REF
@@ -3182,7 +3426,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     }
   else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
     {
-      *symbol_type = mips_classify_symbol (x, context);
+      *symbol_type = mips_classify_symbol_1 (x, context, INTVAL (offset));
       if (*symbol_type == SYMBOL_TLS)
 	return false;
     }
@@ -3210,7 +3454,13 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       /* In other cases the relocations can handle any offset.  */
       return true;
 
+    case SYMBOL_LAPC48_FUNC_NANO:
     case SYMBOL_PC_RELATIVE:
+    case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_LAPC_NANO:
+    case SYMBOL_LAPC48_NANO:
+    case SYMBOL_PCREL_4K_NANO:
+    case SYMBOL_PCREL32_NANO:
       /* Allow constant pool references to be converted to LABEL+CONSTANT.
 	 In this case, we no longer have access to the underlying constant,
 	 but the original symbol-based access was known to be valid.  */
@@ -3220,10 +3470,17 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       /* Fall through.  */
 
     case SYMBOL_GP_RELATIVE:
+    case SYMBOL_GPREL32_NANO:
+    case SYMBOL_GPREL_SPLIT_NANO:
       /* Make sure that the offset refers to something within the
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
       return offset_within_block_p (x, INTVAL (offset));
+
+    case SYMBOL_GPREL_WORD_NANO:
+      if (INTVAL (offset) % 4 == 0)
+	return offset_within_block_p (x, INTVAL (offset));
+      return false;
 
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOTOFF_PAGE:
@@ -3232,6 +3489,12 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 If the symbol is local, the linker should provide enough local
 	 GOT entries for a 16-bit offset, but larger offsets may lead
 	 to GOT overflow.  */
+
+      // @tmt FIXME: This prevents an ICE when using an offset for auto model
+      // GOT data accesses.
+      if (TARGET_NANOMIPS)
+	return false;
+
       return SMALL_INT9TO12 (offset);
 
     case SYMBOL_TPREL:
@@ -3240,10 +3503,14 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 offset is only valid if we know it won't lead to such a carry.  */
       return mips_offset_within_alignment_p (x, INTVAL (offset));
 
+    case SYMBOL_GOT_CALL:
     case SYMBOL_GOT_DISP:
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
+      // @tmt is this correct?:
+    case SYMBOL_GOT_PCREL32_NANO:
+    case SYMBOL_GOT_PCREL_SPLIT_NANO:
     case SYMBOL_TLSGD:
     case SYMBOL_TLSLDM:
     case SYMBOL_GOTTPREL:
@@ -3292,13 +3559,36 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48)
+	       : (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48
+		  && mode == MAX_MACHINE_MODE)
 		 ? 1
 		 : 2;
 
+    case SYMBOL_GPREL32_NANO:
+    case SYMBOL_LAPC_NANO:
+    case SYMBOL_LAPC48_NANO:
+    case SYMBOL_PCREL_4K_NANO:
+      if (mode == MAX_MACHINE_MODE)
+	return 1;
+
+      return 0;
+
+    case SYMBOL_GOT_PCREL_SPLIT_NANO:
+      if (mode == MAX_MACHINE_MODE)
+	return 2;
+
+      return 0;
+
+    case SYMBOL_GPREL_SPLIT_NANO:
+      return 3;
+
     case SYMBOL_GP_RELATIVE:
+    case SYMBOL_GPREL_WORD_NANO:
       /* Treat GP-relative accesses as taking a single instruction on
 	 MIPS16 too; the copy of $gp can often be shared.  */
+      return 1;
+
+    case SYMBOL_LAPC48_FUNC_NANO:
       return 1;
 
     case SYMBOL_PC_RELATIVE:
@@ -3312,7 +3602,15 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
       /* The constant must be loaded using ADDIUPC or DADDIUPC first.  */
       return 0;
 
+    case SYMBOL_PCREL32_NANO:
+      if (GET_MODE_SIZE (mode) == 4)
+	return 1;
+
+      return 0;
+
+    case SYMBOL_GOT_CALL:
     case SYMBOL_GOT_DISP:
+    case SYMBOL_GOT_PCREL32_NANO:
       /* The constant will have to be loaded from the GOT before it
 	 is used in an address.  */
       if (mode != MAX_MACHINE_MODE)
@@ -3338,7 +3636,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	         (d)addu $at,$at,$gp
 
 	     ...and the final address will be $at + %got_lo(symbol).  */
-      return 3;
+      return TARGET_NANOMIPS ? 1 : 3;
 
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_DISP:
@@ -3353,6 +3651,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_GOTTPREL:
     case SYMBOL_TPREL:
     case SYMBOL_HALF:
+    case SYMBOL_PCREL_SPLIT_NANO:
       /* A 16-bit constant formed by a single relocation, or a 32-bit
 	 constant formed from a high 16-bit relocation and a low 16-bit
 	 relocation.  Use mips_split_p to determine which.  32-bit
@@ -4486,12 +4785,24 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      case SYMBOL_GP_RELATIVE:
+	      case SYMBOL_GPREL_WORD_NANO:
+	      case SYMBOL_GPREL32_NANO:
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
 
+	      case SYMBOL_PCREL_4K_NANO:
+		*low_out = gen_rtx_HIGH (Pmode, copy_rtx (addr));
+		break;
+
+	      case SYMBOL_LAPC_NANO:
+	      case SYMBOL_LAPC48_NANO:
+		*low_out = addr;
+		break;
+
 	      case SYMBOL_ABSOLUTE:
-		if (mips_string_constant_p (addr))
+		if (mips_string_constant_p (addr)
+		    && mode == MAX_MACHINE_MODE)
 		  {
 		    *low_out = addr;
 		    break;
@@ -4871,10 +5182,29 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
 
-  return (mips_lo_relocs[SYMBOL_GP_RELATIVE]
-	  && !mips_split_p[SYMBOL_GP_RELATIVE]
-	  && mips_symbolic_constant_p (x, context, &symbol_type)
-	  && symbol_type == SYMBOL_GP_RELATIVE);
+  if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
+      && !mips_split_p[SYMBOL_GP_RELATIVE]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GP_RELATIVE)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL_WORD_NANO]
+      && !mips_split_p[SYMBOL_GPREL_WORD_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL_WORD_NANO)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL32_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL32_NANO)
+    return true;
+
+  if (mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL_SPLIT_NANO)
+    return true;
+
+  return false;
 }
 
 /* Return true if OP refers to small data symbols directly, not through
@@ -4935,6 +5265,12 @@ mips_rewrite_small_data_1 (rtx *loc, enum mips_symbol_context context)
 	  iter.skip_subrtxes ();
 	}
       else if (GET_CODE (*loc) == LO_SUM)
+	iter.skip_subrtxes ();
+  /* Checking for HIGH is meant to guard against the accidental insertion of a
+     LO_SUM into the HIGH part of the SYMBOL_GPREL_SPLIT_NANO pattern. This
+     would have happened because mips_rewrite_small_data_p returns true for
+     SYMBOL_GPREL_SPLIT_NANO.  */
+      else if (GET_CODE (*loc) == HIGH)
 	iter.skip_subrtxes ();
     }
 }
@@ -6351,7 +6687,10 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
   return (mips_symbolic_constant_p (x, context, &symbol_type)
-	  && symbol_type == SYMBOL_GP_RELATIVE
+	  && (symbol_type == SYMBOL_GP_RELATIVE
+	      || symbol_type == SYMBOL_GPREL_WORD_NANO
+	      || symbol_type == SYMBOL_GPREL32_NANO
+	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO)
 	  && CONSTANT_POOL_ADDRESS_P (x));
 }
 
@@ -6545,7 +6884,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
 	  if (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48
-	      && LI32_INT (src))
+	      && LI32_INT (src) && !ubp_operand (src, mode))
 	    return "li\t%0,%1 # LI48";
 
 	  if (!TARGET_MIPS16)
@@ -6568,11 +6907,53 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
 	    return "move\t%0,%+";
 
+	  // @tmt we need to do this for SYMBOL_LAPC_NANO and SYMBOL_LAPC48_NANO
+	  // for data accesses, when they get split into
+	  // aluipc %pcrel_hi + {l,s}X %lo.
+	  if (TARGET_NANOMIPS
+	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
+		  || symbol_type == SYMBOL_LAPC48_NANO
+		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
+	    return "aluipc\t%0,%h1";
+
+	  if (TARGET_NANOMIPS
+	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && (symbol_type == SYMBOL_PCREL_4K_NANO
+		  || symbol_type == SYMBOL_LAPC_NANO))
+	    {
+	      if (TARGET_PCREL)
+		return "aluipc\t%0,%h1";
+	      else
+		return "lui\t%0,%h1";
+	    }
+
 	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	}
+
+      if (src_code == LABEL_REF)
+	{
+	  if (TARGET_NANOMIPS
+	      && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+					   &symbol_type))
+	    {
+	      if (symbol_type == SYMBOL_LAPC_NANO)
+		return "lapc\t%0,%1";
+	      if (symbol_type == SYMBOL_LAPC48_NANO)
+		return "lapc[48]\t%0,%1";
+	    }
 	}
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
+
+      if (TARGET_NANOMIPS
+	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
+	  && mips_lo_relocs[symbol_type] != 0
+	  && symbol_type == SYMBOL_GOTOFF_LOADGP)
+	return "aluipc\t%0,%R1";
 
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
 	  && mips_lo_relocs[symbol_type] != 0
@@ -8568,6 +8949,55 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
      try to allow its address to be resolved lazily.  This isn't
      possible for sibcalls when $gp is call-saved because the value
      of $gp on entry to the stub would be our caller's gp, not ours.  */
+
+  if (TARGET_NANOMIPS
+      && GET_CODE (addr) != CONST_INT)
+    {
+      enum mips_symbol_type symbol_type =
+	mips_classify_symbol (addr, SYMBOL_CONTEXT_CALL);
+
+      if (symbol_type == SYMBOL_GOT_PCREL32_NANO)
+	{
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_LAPC48_FUNC_NANO)
+	{
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_PCREL_SPLIT_NANO)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_ABSOLUTE)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
+      if (!(type == MIPS_CALL_SIBCALL)
+	  && !mips_symbol_binds_local_p (addr))
+	{
+	  if (symbol_type == SYMBOL_GOT_CALL)
+	    addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_CALL);
+	  else
+	    addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_DISP);
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return true;
+	}
+    }
+
   if (TARGET_EXPLICIT_RELOCS
       && !(type == MIPS_CALL_SIBCALL && TARGET_CALL_SAVED_GP)
       && mips_ok_for_lazy_binding_p (addr))
@@ -10321,6 +10751,22 @@ mips_init_relocs (void)
        then lowered by mips_rewrite_small_data.  */
     mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gp_rel(";
 
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GP_RELATIVE] = "%gprel(";
+
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GPREL_WORD_NANO] = "%gprel(";
+
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel32(";
+
+  if (TARGET_PABI)
+    {
+      mips_hi_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%gprel_hi(";
+      mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%gprel_lo(";
+      mips_split_p[SYMBOL_GPREL_SPLIT_NANO] = true;
+    }
+
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
@@ -10328,6 +10774,43 @@ mips_init_relocs (void)
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
 	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
+	}
+      else if (TARGET_PABI)
+	{
+	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
+	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
+
+	  mips_lo_relocs[SYMBOL_PCREL32_NANO] = "%pcrel32(";
+
+	  mips_hi_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_PCREL_SPLIT_NANO] = "%lo(";
+	  mips_split_p[SYMBOL_PCREL_SPLIT_NANO] = true;
+
+	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
+
+	  if (TARGET_PCREL)
+	    mips_hi_relocs[SYMBOL_LAPC_NANO] = "%pcrel_hi(";
+	  else
+	    mips_hi_relocs[SYMBOL_LAPC_NANO] = "%hi(";
+	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "%lo(";
+	  mips_split_p[SYMBOL_LAPC_NANO] = true;
+
+	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "%pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "%lo(";
+	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
+
+	  if (TARGET_PCREL)
+	    mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%pcrel_hi(";
+	  else
+	    mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%hi(";
+	  mips_lo_relocs[SYMBOL_PCREL_4K_NANO] = "%lo(";
+	  mips_split_p[SYMBOL_PCREL_4K_NANO] = true;
+
+	  mips_lo_relocs[SYMBOL_GOT_PCREL32_NANO] = "%got_pcrel32(";
+
+	  mips_hi_relocs[SYMBOL_GOT_PCREL_SPLIT_NANO] = "%got_pcrel_hi(";
+	  mips_lo_relocs[SYMBOL_GOT_PCREL_SPLIT_NANO] = "%got_lo(";
+	  mips_split_p[SYMBOL_GOT_PCREL_SPLIT_NANO] = true;
 	}
       else
 	{
@@ -10353,11 +10836,19 @@ mips_init_relocs (void)
 	}
       else
 	{
-	  if (TARGET_NEWABI)
+	  if (TARGET_NEWABI || TARGET_PABI)
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_disp(";
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
-	  mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
+
+	  // @tmt FIXME: the exact string used below is irrelevant
+	  // because this reloc is used for both auto and medium models,
+	  // so we need to change it dynamically
+	  if (TARGET_PABI)
+	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
+	  else
+	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%call16(";
+
 	  if (TARGET_MIPS16)
 	    /* Expose the use of $28 as soon as possible.  */
 	    mips_split_p[SYMBOL_GOT_DISP] = true;
@@ -10370,6 +10861,8 @@ mips_init_relocs (void)
       mips_hi_relocs[SYMBOL_GOTOFF_LOADGP] = "%hi(%neg(%gp_rel(";
       mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%lo(%neg(%gp_rel(";
     }
+  if (TARGET_PABI)
+    mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%pcrel_hi(";
 
   mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
   mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsldm(";
@@ -10406,7 +10899,6 @@ mips_print_operand_reloc (FILE *file, rtx op, enum mips_symbol_context context,
 
   symbol_type = mips_classify_symbolic_expression (op, context);
   gcc_assert (relocs[symbol_type]);
-
   fputs (relocs[symbol_type], file);
   output_addr_const (file, mips_strip_unspec_address (op));
   for (p = relocs[symbol_type]; *p != 0; p++)
@@ -11004,15 +11496,65 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
 {
   default_encode_section_info (decl, rtl, first);
 
+  /* Careful not to prod global register variables.  */
+  if (!MEM_P (rtl))
+    return;
+
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       rtx symbol = XEXP (rtl, 0);
+
+      if (TARGET_NANOMIPS)
+	{
+	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+
+	  if (attr != NULL)
+	    {
+	      tree attr_id = TREE_VALUE (TREE_VALUE (attr));
+
+	      if (strcmp (TREE_STRING_POINTER (attr_id), "auto") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_AUTO_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "medium") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_MEDIUM_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "large") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LARGE_PIC;
+	    }
+	}
+
       tree type = TREE_TYPE (decl);
 
       /* Encode whether the symbol is short or long.  */
       if ((TARGET_LONG_CALLS && !mips_near_type_p (type))
 	  || mips_far_type_p (type))
 	SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
+
+      if (!mips_near_type_p (type)
+	  && ((nano_pic_model_var == NANO_PIC_LARGE
+	       && !(SYMBOL_REF_AUTO_PIC_P (symbol)
+		    || SYMBOL_REF_MEDIUM_PIC_P (symbol)))
+	      || SYMBOL_REF_LARGE_PIC_P (symbol)))
+	SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      rtx symbol = XEXP (rtl, 0);
+
+      if (TARGET_NANOMIPS)
+	{
+	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+
+	  if (attr != NULL)
+	    {
+	      tree attr_id = TREE_VALUE (TREE_VALUE (attr));
+
+	      if (strcmp (TREE_STRING_POINTER (attr_id), "auto") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_AUTO_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "medium") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_MEDIUM_PIC;
+	      else if (strcmp (TREE_STRING_POINTER (attr_id), "large") == 0)
+		SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LARGE_PIC;
+	    }
+	}
     }
 }
 
@@ -11197,7 +11739,11 @@ mips_in_small_data_p (const_tree decl)
 
       /* If a symbol is defined externally, the assembler will use the
 	 usual -G rules when deciding how to implement macros.  */
-      if (mips_lo_relocs[SYMBOL_GP_RELATIVE] || !DECL_EXTERNAL (decl))
+      if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
+	  || mips_lo_relocs[SYMBOL_GPREL_WORD_NANO]
+	  || mips_lo_relocs[SYMBOL_GPREL32_NANO]
+	  || mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
+	  || !DECL_EXTERNAL (decl))
 	return true;
     }
   else if (TARGET_EMBEDDED_DATA)
@@ -11229,6 +11775,8 @@ mips_in_small_data_p (const_tree decl)
   /* We have traditionally not treated zero-sized objects as small data,
      so this is now effectively part of the ABI.  */
   size = int_size_in_bytes (TREE_TYPE (decl));
+  if (TARGET_PID)
+    return size > 0;
   return size > 0 && size <= mips_small_data_threshold;
 }
 
@@ -11237,6 +11785,7 @@ mips_in_small_data_p (const_tree decl)
    case.  We also don't want to use them for PC-relative accesses,
    where the PC acts as an anchor.  */
 
+// @tmt look into this
 static bool
 mips_use_anchors_for_symbol_p (const_rtx symbol)
 {
@@ -11714,7 +12263,8 @@ mips_file_start (void)
      produce the resultant binary.  */
 
 #ifdef NANOMIPS_SUPPORT
-  fprintf (asm_out_file, "\t.linkrelax\n");
+  if (TARGET_LINKRELAX)
+    fprintf (asm_out_file, "\t.linkrelax\n");
 #else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
@@ -12739,6 +13289,9 @@ mips_global_pointer (void)
   unsigned int regno;
 
   /* $gp is always available unless we're using a GOT.  */
+
+  // @tmt should we keep this, even though we don't set up $gp for -mgpopt?
+  /* if (!TARGET_USE_GOT && !TARGET_GPOPT) */
   if (!TARGET_USE_GOT)
     return GLOBAL_POINTER_REGNUM;
 
@@ -12754,7 +13307,7 @@ mips_global_pointer (void)
 
   /* If the global pointer is call-saved, try to use a call-clobbered
      alternative.  */
-  if (TARGET_CALL_SAVED_GP && crtl->is_leaf)
+  if (!TARGET_NANOMIPS && TARGET_CALL_SAVED_GP && crtl->is_leaf)
     for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
       if (!df_regs_ever_live_p (regno)
 	  && call_really_used_regs[regno]
@@ -13634,8 +14187,12 @@ mips_compute_frame_info (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if (!TARGET_USE_GOT || cfun->machine->global_pointer == INVALID_REGNUM)
+  if (!TARGET_USE_GOT
+      || cfun->machine->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
+
+  if (TARGET_PABI)
+    return LOADGP_PABI;
 
   if (TARGET_RTP_PIC)
     return LOADGP_RTP;
@@ -14585,6 +15142,7 @@ static void
 mips_emit_loadgp (void)
 {
   rtx addr, offset, incoming_address, base, index, pic_reg;
+  rtx gp;
 
   pic_reg = TARGET_MIPS16 ? MIPS16_PIC_TEMP : pic_offset_table_rtx;
   switch (mips_current_loadgp_style ())
@@ -14609,6 +15167,13 @@ mips_emit_loadgp (void)
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
       emit_insn (PMODE_INSN (gen_loadgp_newabi,
 			     (pic_reg, offset, incoming_address)));
+      break;
+
+    case LOADGP_PABI:
+      gp = gen_rtx_SYMBOL_REF (Pmode, "_gp");
+      addr= mips_unspec_address (gp, SYMBOL_GOTOFF_LOADGP);
+      emit_insn (PMODE_INSN (gen_loadgp_pabi,
+			     (pic_reg, addr)));
       break;
 
     case LOADGP_RTP:
@@ -16887,7 +17452,17 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
       if (!reg_p && TARGET_ABICALLS_PIC2)
 	s += sprintf (s, ".option\tpic0\n\t");
 
-      if (reg_p && mips_get_pic_call_symbol (operands, size_opno))
+      if (TARGET_NANOMIPS
+	  && reg_p && mips_get_pic_call_symbol (operands, size_opno))
+	{
+	  /* This will always be 16-bit, except for insn32 mode.  */
+	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR16,%%%d\n1:\t", size_opno);
+	  // @tmt should we keep short_delay ?
+	  short_delay = "";
+	}
+      else if (!(TARGET_NANOMIPS)
+	       && reg_p
+	       && mips_get_pic_call_symbol (operands, size_opno))
 	{
 	  s += sprintf (s, "%%*.reloc\t1f,R_MIPS_JALR,%%%d\n1:\t", size_opno);
 	  /* Not sure why this shouldn't permit a short delay but it did not
@@ -16977,6 +17552,8 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
     }
   else if (TARGET_ABSOLUTE_JUMPS)
     output_asm_insn (MIPS_ABSOLUTE_JUMP ("j\t%0%/"), &taken);
+  else if (TARGET_NANOMIPS)
+    output_asm_insn ("bc\t%0", &taken);
   else
     {
       mips_output_load_label (taken);
@@ -21606,7 +22183,11 @@ mips_annotate_pic_calls (void)
 	continue;
 
       symbol = mips_find_pic_call_symbol (insn, reg, true);
-      if (symbol)
+      if (symbol
+	  && mips_get_nano_pic_model (symbol) == NANO_PIC_AUTO
+	  && mips_classify_symbol (symbol, SYMBOL_CONTEXT_CALL) ==
+	  SYMBOL_GOT_CALL
+	  && !mips_symbol_binds_local_p (symbol))
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
 	  if (second_call)
@@ -22214,9 +22795,14 @@ mips_orphaned_high_part_p (mips_offset_table *htab, rtx_insn *insn)
     {
       /* Check for %his.  */
       x = SET_SRC (set);
+      /* @tmt Should we do this for 4K-aligned symbols too?  */
       if (GET_CODE (x) == HIGH
-	  && absolute_symbolic_operand (XEXP (x, 0), VOIDmode))
-	return !mips_lo_sum_offset_lookup (htab, XEXP (x, 0), NO_INSERT);
+	  && (absolute_symbolic_operand (XEXP (x, 0), VOIDmode)
+	      || (!TARGET_PCREL
+		  && mips_symbolic_constant_p (XEXP (x, 0),
+					       SYMBOL_CONTEXT_LEA, &type)
+		  && type == SYMBOL_LAPC_NANO)))
+	      return !mips_lo_sum_offset_lookup (htab, XEXP (x, 0), NO_INSERT);
 
       /* Check for local %gots (and %got_pages, which is redundant but OK).  */
       if (GET_CODE (x) == UNSPEC
@@ -24640,6 +25226,11 @@ mips_option_override (void)
       if (optimize_size
 	  && (target_flags_explicit & MASK_CHECK_ZERO_DIV) == 0)
 	target_flags &= ~MASK_CHECK_ZERO_DIV;
+
+      if (!TARGET_LINKRELAX
+	  && (nano_pic_model_var == NANO_PIC_AUTO
+	      || nano_pic_model_var == NANO_PIC_NONE))
+	error ("-mno-relax cannot be used with the automatic model");
     }
 #endif
 
@@ -24978,9 +25569,10 @@ mips_option_override (void)
 	       "-mabi=eabi");
       else if (!TARGET_NANOMIPS && !TARGET_ABICALLS)
 	error ("position-independent code requires %qs", "-mabicalls");
-      if (TARGET_NANOMIPS)
-	sorry ("PIC not currently supported");
     }
+
+  if (TARGET_NANOMIPS && TARGET_ABICALLS)
+    error ("-mabicalls is not supported for nanoMIPS");
 
   if (TARGET_ABICALLS_PIC2)
     /* We need to set flag_pic for executables as well as DSOs
@@ -25030,6 +25622,9 @@ mips_option_override (void)
 		     "-mabicalls");
 	}
     }
+
+  if (TARGET_PID && !TARGET_GPOPT)
+    error ("%<-mpid %> requires %<-mgpopt%>");
 
   /* Set NaN and ABS defaults.  */
   if (mips_nan == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
@@ -25220,6 +25815,11 @@ mips_option_override (void)
   /* Only optimize PIC indirect calls if they are actually required.  */
   if (!TARGET_USE_GOT || !TARGET_EXPLICIT_RELOCS)
     target_flags &= ~MASK_RELAX_PIC_CALLS;
+
+  /* We only need this for pre-emptible functions in the auto model, but we
+     need to check at the symbol level (done in mips_annotate_pic_calls).  */
+  if (TARGET_NANOMIPS && flag_pic)
+    target_flags |= MASK_RELAX_PIC_CALLS;
 
   /* Save base state of options.  */
   mips_base_target_flags = target_flags;

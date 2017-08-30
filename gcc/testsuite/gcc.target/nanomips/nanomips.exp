@@ -233,6 +233,8 @@ set mips_option_groups {
     abi "-m(32|64)"
     addressing "addressing=.*"
     arch "-march=(32r6|32r6s|64r6)|isa(|_rev)(=|<=|>=).*"
+    model "-mcmodel=(auto|medium|large)"
+    pcrel "-m(no-|)pcrel"
     debug "-g.*"
     dump_pattern "-dp"
     endianness "-E(L|B)|-me(l|b)"
@@ -271,6 +273,7 @@ foreach option {
     dspr3
     extern-sdata
     gpopt
+    pid
     local-sdata
     long-calls
     plt
@@ -823,9 +826,12 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mfp64" "-mhard-float"
     mips_option_dependency options "-mfp64" "-mdouble-float"
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
-    mips_option_dependency options "-fpic" "-mshared"
-    mips_option_dependency options "-mshared" "-mno-plt"
+    # @tmt -fpic will not imply -mshared for nanoMIPS
+    # FIXME: Add dependencies for new command line options.
+    # mips_option_dependency options "-fpic" "-mshared"
+    # mips_option_dependency options "-mshared" "-mno-plt"
     mips_option_dependency options "-mno-plt" "addressing=unknown"
+    mips_option_dependency options "-mpid" "-mgpopt"
 
     # Work out information about the current ABI.
     set abi_test_option_p [mips_test_option_p options abi]

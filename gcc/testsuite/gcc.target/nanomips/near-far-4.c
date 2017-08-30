@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-require-effective-target nonpic } */
 /* { dg-options "-mno-long-calls addressing=absolute" } */
 
 extern int long_call_func () __attribute__((long_call));
