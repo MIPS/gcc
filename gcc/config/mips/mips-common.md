@@ -4772,7 +4772,7 @@
 ;; @tmt reload_completed?
   ;; "TARGET_NANOMIPS && flag_pic && reload_completed"
 (define_insn "*load_pcrel32_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand")
+  [(set (match_operand:P 0 "register_operand" "=d")
 	(mem:P (match_operand:P 1 "pcrel32_mem_nano_operand")))]
   "TARGET_NANOMIPS && flag_pic"
   "lwpc\t%0,%1"
@@ -4781,7 +4781,7 @@
 
 (define_insn "*store_pcrel32_pic_nano<mode>"
   [(set (mem:P (match_operand:P 0 "pcrel32_mem_nano_operand"))
-	(match_operand:P 1 "register_operand"))]
+	(match_operand:P 1 "register_operand" "=d"))]
   "TARGET_NANOMIPS && flag_pic"
   "swpc\t%1,%0"
   [(set_attr "compression" "nanomips48")
@@ -4825,7 +4825,7 @@
 ;; @tmt what mode should this be ?
 ;; @tmt why is this not a mem ?
 (define_insn "*load_got_pcrel32_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand")
+  [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "got_pcrel32_nano_operand"))]
   "TARGET_NANOMIPS && flag_pic"
   "lwpc\t%0,%R1"
@@ -4833,7 +4833,7 @@
    (set_attr "mode" "SI")])
 
 (define_insn "*lapc48_func_pic_nanosi"
-  [(set (match_operand:P 0 "register_operand")
+  [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "lapc48_func_nano_operand"))]
   "TARGET_NANOMIPS && flag_pic"
   "lapc[48]\t%0,%1"
