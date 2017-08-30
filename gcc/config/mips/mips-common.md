@@ -4842,17 +4842,22 @@
 
 ;; nanoMIPS GP-relative PIC expansions:
 
-(define_insn "*lea_gprel_pic_nanosi"
+(define_insn "*lea_gprel_subword_pic_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
-		   (match_operand:SI 1 "gprel_nano_operand" "")))]
+		   (match_operand:SI 1 "gprel_subword_nano_operand" "")))]
   "TARGET_NANOMIPS && flag_pic"
-{
-  if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[1])) <= 2)
-    return "addiu[gp.b]\t%0,$gp,%R1";
-  else if (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (operands[1])) >= 4)
-    return "addiu[gp.w]\t%0,$gp,%R1";
-}
+  "addiu[gp.b]\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+(define_insn "*lea_gprel_word_pic_nanosi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "gprel_word_nano_operand" "")))]
+  "TARGET_NANOMIPS && flag_pic"
+  "addiu[gp.w]\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])

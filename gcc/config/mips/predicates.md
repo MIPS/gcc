@@ -673,12 +673,20 @@
 	  && type == SYMBOL_GOT_PCREL_SPLIT_NANO);
 })
 
-(define_predicate "gprel_nano_operand"
+(define_predicate "gprel_subword_nano_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
 	  && type == SYMBOL_GP_RELATIVE);
+})
+
+(define_predicate "gprel_word_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GPREL_WORD_NANO);
 })
 
 (define_predicate "lapc48_func_nano_operand"
