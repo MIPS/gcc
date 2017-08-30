@@ -191,7 +191,8 @@ struct mips_cpu_info {
   (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
 
 /* True if we need to use a global offset table to access some symbols.  */
-#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
+#define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC \
+			|| (TARGET_NANOMIPS && flag_pic))
 
 /* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
 #define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI)
@@ -2895,6 +2896,18 @@ typedef struct mips_args {
 #define SYMBOL_FLAG_BIND_NOW (SYMBOL_FLAG_MACH_DEP << 1)
 #define SYMBOL_REF_BIND_NOW_P(RTX) \
   ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_BIND_NOW) != 0)
+
+#define SYMBOL_FLAG_AUTO_PIC	(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_REF_AUTO_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_AUTO_PIC) != 0)
+
+#define SYMBOL_FLAG_MEDIUM_PIC	(SYMBOL_FLAG_MACH_DEP << 3)
+#define SYMBOL_REF_MEDIUM_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_MEDIUM_PIC) != 0)
+
+#define SYMBOL_FLAG_LARGE_PIC	(SYMBOL_FLAG_MACH_DEP << 4)
+#define SYMBOL_REF_LARGE_PIC_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_LARGE_PIC) != 0)
 
 /* True if we're generating a form of MIPS16 code in which jump tables
    are stored in the text section and encoded as 16-bit PC-relative

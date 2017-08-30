@@ -29,3 +29,15 @@ Generate 64-bit code.
 mbalc-stubs
 Target Report
 Enable/disable out-of-range call optimization through trampoline stubs.
+
+mpcrel
+Target Report Var(TARGET_PCREL) Init(1)
+Use PC-relative addressing to acccess symbols.
+
+mpid
+Target Report Var(TARGET_PID) Init(0)
+Always use GP-relative addressing to acccess symbols.
+
+mrelax
+Target Report Var(TARGET_LINKRELAX) Init(1)
+Tell the assembler that the linker is able to perform relaxations.

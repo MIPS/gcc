@@ -1,24 +1,25 @@
-/* { dg-options "-G4 -mno-extern-sdata" } */
+/* { dg-require-effective-target nonpic } */
+/* { dg-options "-mgpopt -G4 -mno-extern-sdata" } */
 
-/* { dg-final { scan-assembler     "%gp_?rel\\(l4a\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(l4b\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(l4c\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(e4a\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(e4b\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(c4\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(g4a\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(g4b\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(g4c\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(l4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(l4b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(l4c\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(e4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(e4b\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(c4\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(g4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(g4b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(g4c\\)" } } */
 
-/* { dg-final { scan-assembler-not "%gp_?rel\\(l8a\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(l8b\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(l8c\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(e8a\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(e8b\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(c8\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(g8a\\)" } } */
-/* { dg-final { scan-assembler-not "%gp_?rel\\(g8b\\)" } } */
-/* { dg-final { scan-assembler     "%gp_?rel\\(g8c\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(l8a\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(l8b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(l8c\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(e8a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(e8b\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(c8\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(g8a\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)\\(g8b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|)\\(g8c\\)" } } */
 
 static volatile int l4a;
 static volatile int l4b = 1;
