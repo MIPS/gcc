@@ -1916,7 +1916,7 @@ gimple_copy (gimple *stmt)
       gimple_set_modified (copy, true);
     }
 
-  if (gimple_debug_begin_stmt_p (stmt))
+  if (gimple_debug_nonbind_marker_p (stmt))
     cfun->debug_marker_count++;
 
   return copy;
