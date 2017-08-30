@@ -421,14 +421,6 @@ profitable_jump_thread_path (vec<basic_block, va_gc> *&path,
   return taken_edge;
 }
 
-static void DEBUG_FUNCTION
-graphme ()
-{
-  system("rm -f /tmp/base.dot");
-  print_graph_cfg("/tmp/base", cfun);
-  system("/home/aldyh/bin/dotview");
-}
-
 /* PATH is vector of blocks forming a jump threading path in reverse
    order.  TAKEN_EDGE is the edge taken from path[0].
 
@@ -462,70 +454,78 @@ convert_and_register_jump_thread_path (vec<basic_block, va_gc> *path,
   --max_threaded_paths;
 }
 
-/* Walker for every path from an SSA's definition to an arbitrary BB.
+/* Generic walker for every path from an SSA's definition to an arbitrary BB.
 
    Use it like this:
 
 	class my_walker : public ssa_path_walker
 	{
 	 public:
-	  my_walker (tree name, basic_block start_bb)
-	    : ssa_path_walker (name, start_bb) { }
+	  my_walker (tree name, basic_block use_bb)
+	    : ssa_path_walker (name, use_bb) { }
 	  virtual void analyze_path () { do_stuff (path); }
 	}
-	my_walker (x_99, some_bb).walk ();
+	my_walker w (x_99, some_bb);
+	w.walk ();
  */
 
 class ssa_path_walker
 {
- public:
   /* The SSA name we are interested in.  */
   tree name;
-  /* The block this NAME was defined in.  */
+  /* The BB defining NAME.  */
   basic_block def_bb;
-  basic_block start_bb;
-  /* The path from DEF_BB to START_BB.
-
-     The path is stored in reverse since we are traversing the preds, so:
-
-	path[path.length() - 1] is DEF_BB.
-	path[0] is START_BB.
-  */
-  auto_vec<basic_block> path;
-
-  ssa_path_walker (tree name, basic_block start_bb,
-		   unsigned max_path_length = 0);
-  ssa_path_walker () { gcc_unreachable (); }
-  ~ssa_path_walker ();
-  /* Find all paths from BB back to DEF_BB.  */
-  void walk () { walk_helper (start_bb); }
-  /* Callback to call on every path.  */
-  virtual void analyze_path () { }
- private:
+  /* The BB using NAME.  */
+  basic_block use_bb;
   /* Visited blocks per path.  */
   hash_set<basic_block> *visited;
   /* Maximum path length we care about.  Set to 0 if we wish to
      consider all paths regardless of length. */
-  unsigned max_path_length;
+  unsigned max_path;
   void walk_helper (basic_block bb);
+
+ public:
+  /* The reverse path from def(NAME) to USE_BB:
+
+	path[path.length() - 1] is DEF_BB.
+	path[0] is USE_BB.
+  */
+  auto_vec<basic_block> path;
+
+  tree get_name () const { return name; }
+  basic_block get_use_bb () const { return use_bb; }
+  ssa_path_walker (tree name_, basic_block use_bb_, unsigned max_path = 0);
+  ssa_path_walker () { gcc_unreachable (); }
+  ~ssa_path_walker () { delete visited; }
+  /* Find all paths from BB back to DEF_BB.  */
+  void walk () { walk_helper (use_bb); }
+  /* Callback to call on every path.  */
+  virtual void analyze_path () { }
 };
 
-ssa_path_walker::ssa_path_walker (tree name, basic_block start_bb,
-				  unsigned max_path_length)
-: name (name), start_bb (start_bb), max_path_length (max_path_length)
+/* Constructor for ssa_path_walker.
+
+   NAME_ is the SSA name we are interested in.
+
+   USE_BB_ is a use of NAME_.
+
+   If nonzero, MAX_PATH_ specifies the maximum path length to consider
+   when generating a path.  Any path with a length greater than this
+   will be ignored.  */
+
+ssa_path_walker::ssa_path_walker (tree name_, basic_block use_bb_,
+				  unsigned max_path_)
 {
+  name = name_;
+  use_bb = use_bb_;
+  max_path = max_path_;
   gimple *def_stmt = SSA_NAME_DEF_STMT (name);
   gcc_assert (def_stmt != NULL);
   def_bb = gimple_bb (def_stmt);
   visited = new hash_set<basic_block>;
 }
 
-ssa_path_walker::~ssa_path_walker ()
-{
-  delete visited;
-}
-
-/* Find all paths from BB back to DEF_BB.
+/* Find all paths from DEF_BB to BB.
 
    Every time a path is found, call analyze_path() with PATH set to
    the found path.  */
@@ -537,7 +537,7 @@ ssa_path_walker::walk_helper (basic_block bb)
     return;
   if (visited->add (bb))
     return;
-  if (max_path_length && path.length () + 1 > max_path_length)
+  if (max_path && path.length () + 1 > max_path)
     return;
 
   path.safe_push (bb);
@@ -567,12 +567,13 @@ ssa_path_walker::walk_helper (basic_block bb)
 
 class path_with_range
 {
-  /* The path from the definition of an SSA to a given BB.  */
+  /* The path.  */
   vec<basic_block, va_gc> *path;
   /* The range for the SSA on this path.  */
   irange range;
 
  public:
+  path_with_range () { }
   path_with_range (const irange &r, const auto_vec<basic_block> &p)
   {
     range = r;
@@ -581,13 +582,13 @@ class path_with_range
     for (unsigned i = 0; p.iterate (i, &bb); ++i)
       path->quick_push (bb);
   }
-  vec<basic_block, va_gc> *get_path () { return path; }
-  bool is_range_constant (wide_int &c) { return range.one_element_p (c); }
-  void dump ();
+  vec<basic_block, va_gc> *get_path () const { return path; }
+  irange get_range () const { return range; }
+  void dump () const;
 };
 
 void
-path_with_range::dump ()
+path_with_range::dump () const
 {
   fprintf (stderr, "path: ");
   for (int i = path->length () - 1; i > 0; --i)
@@ -606,68 +607,97 @@ path_with_range::dump ()
     fprintf (stderr, "\trange is a simple constant\n");
 }
 
-class range_on_path_walker : public ssa_path_walker
+/* A class that will calculate all paths containing a range for an SSA NAME
+   from its definition to a USE_BB.
+
+   Example use:
+
+	paths_with_ranges w (some_ssa_name, use_bb);
+	w.generate ();
+
+	path_with_range p;
+	for (unsigned i = 0; w.iterate (i, p); ++i)
+	  {
+	    vec<basic_block, va_gc> *path = p.get_path ();
+	    irange range = p.get_range ();
+	    do_stuff (PATH, RANGE);
+	  }
+*/
+
+class paths_with_ranges : ssa_path_walker
 {
-  /* A set of all the paths from def(NAME) to START_BB that have a
+  /* A set of all the paths from def(NAME) to USE_BB that have a
      range.  This set is built as the walk is performed, so reading
      paths_with_range is only valid after the walker has finished.  */
   auto_vec<path_with_range> paths_with_range;
  public:
-  range_on_path_walker (tree name, basic_block start_bb)
-    : ssa_path_walker (name, start_bb,
+  paths_with_ranges (tree name, basic_block use_bb)
+    : ssa_path_walker (name, use_bb,
 		       PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH)) { }
-  /* The number of meaningful paths with range for NAME.  */
-  int num_paths_with_range () { return paths_with_range.length (); }
-  /* Return path I.  */
-  path_with_range get_path_with_range (int i) { return paths_with_range[i]; }
+  void generate () { walk (); }
+  inline bool iterate (unsigned, path_with_range &) const;
   virtual void analyze_path ();
-  void dump ();
+  void dump () const;
 };
+
+/* Iterate through all available paths.  */
+
+inline bool
+paths_with_ranges::iterate (unsigned int i, path_with_range &p) const
+{
+  if (i < paths_with_range.length ())
+    {
+      p = paths_with_range[i];
+      return true;
+    }
+  return false;
+}
 
 /* Dump all the paths accumulated by the walker.  */
 
 void
-range_on_path_walker::dump ()
+paths_with_ranges::dump () const
 {
-  if (num_paths_with_range () == 0)
+  if (paths_with_range.length () == 0)
     return;
 
-  fprintf (stderr, "range path to BB%d for SSA = ", start_bb->index);
-  print_generic_stmt (stderr, name, 0);
+  fprintf (stderr, "range path to BB%d for SSA = ", get_use_bb ()->index);
+  print_generic_stmt (stderr, get_name (), 0);
 
-  for (int i = 0; i < num_paths_with_range (); ++i)
+  path_with_range p;
+  for (unsigned i = 0; iterate (i, p); ++i)
     {
-      path_with_range p = get_path_with_range (i);
       fprintf (stderr, "\t");
       p.dump ();
     }
   fprintf (stderr, "-----------------------------\n");
 }
 
-/* Calculate the range for a PATH for an SSA NAME.  Accumulate all
-   paths and ranges for NAME in `paths_with_range'.  */
+/* Calculate the range for the current PATH and add it into the full
+   set of paths.  */
 
 void
-range_on_path_walker::analyze_path ()
+paths_with_ranges::analyze_path ()
 {
   gori g;
   irange range;
-  range.set_range_for_type (TREE_TYPE (name));
+  range.set_range_for_type (TREE_TYPE (get_name ()));
 
+  /* Calculate the range for PATH.  */
   for (unsigned i = path.length () - 1; i > 0; --i)
     {
       edge e = find_edge (path[i], path[i - 1]);
       gcc_assert (e);
       irange r;
-      if (g.range_on_edge (r, name, e))
+      if (g.range_on_edge (r, get_name (), e))
 	range.intersect (r);
     }
   /* Ignore ranges spanning the entire type.  */
-  if (!range.range_for_type_p ())
-    {
-      path_with_range p (range, path);
-      paths_with_range.safe_push (p);
-    }
+  if (range.range_for_type_p ())
+    return;
+  /* Save the current path and range into the full set.  */
+  path_with_range p (range, path);
+  paths_with_range.safe_push (p);
 }
 
 /* While following a chain of SSA_NAME definitions, we jumped from a definition
@@ -1026,24 +1056,25 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
      information.  */
   if (max_threaded_paths == PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS))
     {
-      range_on_path_walker w (name, bb);
-      w.walk ();
-      for (int i = 0; i < w.num_paths_with_range (); ++i)
+      paths_with_ranges w (name, bb);
+      w.generate ();
+      path_with_range p;
+      for (unsigned i = 0; w.iterate (i, p); ++i)
 	{
-	  path_with_range p = w.get_path_with_range (i);
+	  irange range = p.get_range ();
 	  wide_int c;
-	  if (p.is_range_constant (c))
+	  if (range.one_element_p (c))
 	    {
 	      vec<basic_block, va_gc> *path = p.get_path ();
 	      /* register_jump_thread_path_if_profitable will push the current
 		 block onto the path.  But the path will always have the current
 		 block at this point.  So we can just pop it.  */
-	      basic_block bb = path->pop ();
+	      basic_block def_bb = path->pop ();
 	      bool s=speed_p;
 	      speed_p=true;
 	      register_jump_thread_path_if_profitable
 		(path, name, wide_int_to_tree (TREE_TYPE (name), c),
-		 bb, speed_p);
+		 def_bb, speed_p);
 	      speed_p=s;
 	      break;
 	    }
