@@ -54,6 +54,23 @@ mabicalls
 Target Report Mask(ABICALLS) Condition(MIPS_SUPPORT_LEGACY)
 Generate code that can be used in SVR4-style dynamic objects.
 
+mcmodel=
+Target RejectNegative Joined Enum(cmodel) Var(nano_pic_model_var) Init(NANO_PIC_NONE)
+Choose a nanoMIPS PIC model.
+
+Enum
+Name(cmodel) Type(enum nanomips_pic_model)
+Available PIC models for nanoMIPS (for use with the -mcmodel= option):
+
+EnumValue
+Enum(cmodel) String(auto) Value(NANO_PIC_AUTO)
+
+EnumValue
+Enum(cmodel) String(medium) Value(NANO_PIC_MEDIUM)
+
+EnumValue
+Enum(cmodel) String(large) Value(NANO_PIC_LARGE)
+
 mmad
 Target Report Var(TARGET_MAD) Condition(MIPS_SUPPORT_LEGACY)
 Use PMC-style 'mad' instructions.
