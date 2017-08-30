@@ -346,10 +346,10 @@ Objective-C and Objective-C++ Dialects}.
 -gcolumn-info  -gno-column-info @gol
 -gstatement-frontiers  -gno-statement-frontiers @gol
 -gvariable-location-views  -gno-variable-location-views @gol
--gvms  -gxcoff  -gxcoff+ -gz@r{[}=@var{type}@r{]} @gol
--fdebug-prefix-map=@var{old}=@var{new} -fdebug-types-section @gol
--feliminate-dwarf2-dups -fno-eliminate-unused-debug-types @gol
--femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
+-gvms  -gxcoff  -gxcoff+  -gz@r{[}=@var{type}@r{]} @gol
+-fdebug-prefix-map=@var{old}=@var{new}  -fdebug-types-section @gol
+-feliminate-dwarf2-dups  -fno-eliminate-unused-debug-types @gol
+-femit-struct-debug-baseonly  -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -feliminate-unused-debug-symbols  -femit-class-debug-always @gol
 -fno-merge-debug-strings  -fno-dwarf2-cfi-asm @gol
