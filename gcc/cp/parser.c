@@ -10717,7 +10717,7 @@ cp_parser_lambda_body (cp_parser* parser, tree lambda_expr)
 static void
 add_debug_begin_stmt (location_t loc)
 {
-  if (!debug_nonbind_markers_p)
+  if (!MAY_HAVE_DEBUG_MARKER_STMTS)
     return;
 
   tree stmt = build0 (DEBUG_BEGIN_STMT, void_type_node);

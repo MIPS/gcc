@@ -23528,7 +23528,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 						      NO_INSERT))
     {
       inline_entry_data *ied = *iedp;
-      gcc_assert (debug_nonbind_markers_p);
+      gcc_assert (MAY_HAVE_DEBUG_MARKER_INSNS);
       gcc_assert (inlined_function_outer_scope_p (stmt));
       ASM_GENERATE_INTERNAL_LABEL (label, ied->label_pfx, ied->label_num);
       add_AT_lbl_id (die, DW_AT_entry_pc, label);
@@ -23564,7 +23564,8 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
       dw_die_ref pdie;
       dw_attr_node *attr = NULL;
 
-      if (!debug_nonbind_markers_p && inlined_function_outer_scope_p (stmt))
+      if (!MAY_HAVE_DEBUG_MARKER_INSNS
+	  && inlined_function_outer_scope_p (stmt))
 	{
 	  ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
 				       BLOCK_NUMBER (stmt));
@@ -23735,7 +23736,7 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
       dw_die_ref subr_die
 	= new_die (DW_TAG_inlined_subroutine, context_die, stmt);
 
-      if (call_arg_locations || debug_nonbind_markers_p)
+      if (call_arg_locations || MAY_HAVE_DEBUG_MARKER_INSNS)
 	BLOCK_DIE (stmt) = subr_die;
       add_abstract_origin_attribute (subr_die, decl);
       if (TREE_ASM_WRITTEN (stmt))
