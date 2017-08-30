@@ -7053,7 +7053,7 @@
 (define_insn "*jump_pic"
   [(set (pc)
 	(label_ref (match_operand 0)))]
-  "!TARGET_MIPS16 && !TARGET_ABSOLUTE_JUMPS"
+  "!TARGET_MIPS16 && !TARGET_NANOMIPS && !TARGET_ABSOLUTE_JUMPS"
 {
   if (get_attr_length (insn) <= 8)
     {
@@ -7073,6 +7073,14 @@
 }
   [(set_attr "type" "branch")
    (set_attr "compact_form" "maybe")])
+
+(define_insn "*jump_label_nanomips"
+  [(set (pc)
+	(label_ref (match_operand 0 "" "")))]
+  "TARGET_NANOMIPS && !TARGET_ABSOLUTE_JUMPS"
+  "b%:\t%0"
+  [(set_attr "type" "branch")
+   (set_attr "compact_form" "always")])
 
 ;; We need a different insn for the mips16, because a mips16 branch
 ;; does not have a delay slot.
