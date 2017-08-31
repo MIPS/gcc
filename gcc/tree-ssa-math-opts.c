@@ -690,6 +690,8 @@ pass_cse_reciprocals::execute (function *fun)
 			  gimple_set_vdef (stmt2, gimple_vdef (call));
 			  SSA_NAME_DEF_STMT (gimple_vdef (stmt2)) = stmt2;
 			}
+		      gimple_call_set_nothrow (stmt2,
+					       gimple_call_nothrow_p (call));
 		      gimple_set_vuse (stmt2, gimple_vuse (call));
 		      gimple_stmt_iterator gsi2 = gsi_for_stmt (call);
 		      gsi_replace (&gsi2, stmt2, true);
@@ -3785,6 +3787,7 @@ convert_mult_to_fma (gimple *mul_stmt, tree op1, tree op2)
 					       gimple_call_arg (use_stmt, 0),
 					       addop, mulop1, op2);
       gimple_set_lhs (fma_stmt, gimple_get_lhs (use_stmt));
+      gimple_call_set_nothrow (fma_stmt, !stmt_can_throw_internal (use_stmt));
       gsi_replace (&gsi, fma_stmt, true);
       /* Valueize aggressively so that we generate FMS, FNMA and FNMS
 	 regardless of where the negation occurs.  */
@@ -4148,6 +4151,8 @@ convert_to_divmod (gassign *stmt)
   tree res = make_temp_ssa_name (build_complex_type (TREE_TYPE (op1)),
 				 call_stmt, "divmod_tmp");
   gimple_call_set_lhs (call_stmt, res);
+  /* We rejected throwing statements above.  */
+  gimple_call_set_nothrow (call_stmt, true);
 
   /* Insert the call before top_stmt.  */
   gimple_stmt_iterator top_stmt_gsi = gsi_for_stmt (top_stmt);

@@ -1697,22 +1697,6 @@ subreg_lowpart_p (const_rtx x)
 }
 
 /* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
-   return the mode that is big enough to hold both the outer and inner
-   values.  Prefer the outer mode in the event of a tie.  */
-machine_mode
-wider_subreg_mode (machine_mode outermode, machine_mode innermode)
-{
-  return partial_subreg_p (outermode, innermode) ? innermode : outermode;
-}
-
-/* Likewise for subreg X.  */
-machine_mode
-wider_subreg_mode (const_rtx x)
-{
-  return wider_subreg_mode (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
-}
-
-/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
    return the smaller of the two modes if they are different sizes,
    otherwise return the outer mode.  */
 machine_mode
@@ -6231,7 +6215,7 @@ init_derived_machine_modes (void)
   opt_scalar_int_mode mode_iter, opt_byte_mode, opt_word_mode;
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
-      scalar_int_mode mode = *mode_iter;
+      scalar_int_mode mode = mode_iter.require ();
 
       if (GET_MODE_BITSIZE (mode) == BITS_PER_UNIT
 	  && !opt_byte_mode.exists ())
@@ -6242,9 +6226,9 @@ init_derived_machine_modes (void)
 	opt_word_mode = mode;
     }
 
-  byte_mode = *opt_byte_mode;
-  word_mode = *opt_word_mode;
-  ptr_mode = *int_mode_for_size (POINTER_SIZE, 0);
+  byte_mode = opt_byte_mode.require ();
+  word_mode = opt_word_mode.require ();
+  ptr_mode = int_mode_for_size (POINTER_SIZE, 0).require ();
 }
 
 /* Create some permanent unique rtl objects shared between all functions.  */
@@ -6301,7 +6285,7 @@ init_emit_once (void)
   else
     const_true_rtx = gen_rtx_CONST_INT (VOIDmode, STORE_FLAG_VALUE);
 
-  double_mode = *float_mode_for_size (DOUBLE_TYPE_SIZE);
+  double_mode = float_mode_for_size (DOUBLE_TYPE_SIZE).require ();
 
   real_from_integer (&dconst0, double_mode, 0, SIGNED);
   real_from_integer (&dconst1, double_mode, 1, SIGNED);
@@ -6389,7 +6373,7 @@ init_emit_once (void)
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_FRACT)
     {
-      scalar_mode smode = *smode_iter;
+      scalar_mode smode = smode_iter.require ();
       FCONST0 (smode).data.high = 0;
       FCONST0 (smode).data.low = 0;
       FCONST0 (smode).mode = smode;
@@ -6399,7 +6383,7 @@ init_emit_once (void)
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_UFRACT)
     {
-      scalar_mode smode = *smode_iter;
+      scalar_mode smode = smode_iter.require ();
       FCONST0 (smode).data.high = 0;
       FCONST0 (smode).data.low = 0;
       FCONST0 (smode).mode = smode;
@@ -6409,7 +6393,7 @@ init_emit_once (void)
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_ACCUM)
     {
-      scalar_mode smode = *smode_iter;
+      scalar_mode smode = smode_iter.require ();
       FCONST0 (smode).data.high = 0;
       FCONST0 (smode).data.low = 0;
       FCONST0 (smode).mode = smode;
@@ -6430,7 +6414,7 @@ init_emit_once (void)
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_UACCUM)
     {
-      scalar_mode smode = *smode_iter;
+      scalar_mode smode = smode_iter.require ();
       FCONST0 (smode).data.high = 0;
       FCONST0 (smode).data.low = 0;
       FCONST0 (smode).mode = smode;
@@ -6477,7 +6461,7 @@ init_emit_once (void)
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_POINTER_BOUNDS)
     {
-      scalar_mode smode = *smode_iter;
+      scalar_mode smode = smode_iter.require ();
       wide_int wi_zero = wi::zero (GET_MODE_PRECISION (smode));
       const_tiny_rtx[0][smode] = immed_wide_int_const (wi_zero, smode);
     }

@@ -3917,7 +3917,7 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	unsigned int nelts = CONST_VECTOR_NUNITS (x);
 	unsigned int elt_bits = GET_MODE_BITSIZE (mode) / nelts;
 	unsigned int int_bits = MAX (elt_bits, BITS_PER_UNIT);
-	scalar_int_mode int_mode = *int_mode_for_size (int_bits, 0);
+	scalar_int_mode int_mode = int_mode_for_size (int_bits, 0).require ();
 
 	/* Build the constant up one integer at a time.  */
 	unsigned int elts_per_int = int_bits / elt_bits;

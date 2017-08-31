@@ -313,7 +313,7 @@ expand_vector_parallel (gimple_stmt_iterator *gsi, elem_op_func f, tree type,
     {
       /* Use a single scalar operation with a mode no wider than word_mode.  */
       scalar_int_mode mode
-	= *int_mode_for_size (tree_to_uhwi (TYPE_SIZE (type)), 0);
+	= int_mode_for_size (tree_to_uhwi (TYPE_SIZE (type)), 0).require ();
       compute_type = lang_hooks.types.type_for_mode (mode, 1);
       result = f (gsi, compute_type, a, b, NULL_TREE, NULL_TREE, code, type);
       warning_at (loc, OPT_Wvector_operation_performance,

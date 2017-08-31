@@ -1189,7 +1189,7 @@ c_cpp_builtins (cpp_reader *pfile)
       opt_scalar_float_mode mode_iter;
       FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_FLOAT)
 	{
-	  scalar_float_mode mode = *mode_iter;
+	  scalar_float_mode mode = mode_iter.require ();
 	  const char *name = GET_MODE_NAME (mode);
 	  char *macro_name
 	    = (char *) alloca (strlen (name)

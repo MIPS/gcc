@@ -2070,8 +2070,8 @@ floating-point registers is still 32-bit.
 @deftypefn {Target Hook} bool TARGET_HARD_REGNO_MODE_OK (unsigned int @var{regno}, machine_mode @var{mode})
 This hook returns true if it is permissible to store a value
 of mode @var{mode} in hard register number @var{regno} (or in several
-registers starting with that one).  For a machine where all registers
-are equivalent, the hook would typically return true unconditionally.
+registers starting with that one).  The default definition returns true
+unconditionally.
 
 You need not include code to check for the numbers of fixed registers,
 because the allocation mechanism considers them to be always occupied.
@@ -2149,7 +2149,7 @@ accessibility of the value in a narrower mode.
 
 You should define this hook to return true in as many cases as
 possible since doing so will allow GCC to perform better register
-allocation.
+allocation.  The default definition returns true unconditionally.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_HARD_REGNO_SCRATCH_OK (unsigned int @var{regno})

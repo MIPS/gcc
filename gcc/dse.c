@@ -1671,7 +1671,7 @@ find_shift_sequence (poly_int64 access_size,
       rtx_insn *shift_seq, *insn;
       int cost;
 
-      new_mode = *new_mode_iter;
+      new_mode = new_mode_iter.require ();
       if (GET_MODE_BITSIZE (new_mode) > BITS_PER_WORD)
 	break;
 

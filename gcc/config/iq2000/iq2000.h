@@ -165,17 +165,6 @@
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-#define HARD_REGNO_MODE_OK(REGNO, MODE) 			\
- ((REGNO_REG_CLASS (REGNO) == GR_REGS)				\
-  ? ((REGNO) & 1) == 0 || GET_MODE_SIZE (MODE) <= 4     	\
-  : ((REGNO) & 1) == 0 || GET_MODE_SIZE (MODE) == 4)
-
-#define MODES_TIEABLE_P(MODE1, MODE2)				\
-  ((GET_MODE_CLASS (MODE1) == MODE_FLOAT ||			\
-    GET_MODE_CLASS (MODE1) == MODE_COMPLEX_FLOAT)		\
-   == (GET_MODE_CLASS (MODE2) == MODE_FLOAT ||			\
-       GET_MODE_CLASS (MODE2) == MODE_COMPLEX_FLOAT))
-
 #define AVOID_CCMODE_COPIES
 
 
@@ -318,16 +307,6 @@ typedef struct iq2000_args
    For a library call, FNTYPE is 0.  */
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   init_cumulative_args (& CUM, FNTYPE, LIBNAME)				\
-
-#define FUNCTION_ARG_PADDING(MODE, TYPE)				\
-  (! BYTES_BIG_ENDIAN							\
-   ? PAD_UPWARD								\
-   : (((MODE) == BLKmode						\
-       ? ((TYPE) && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST		\
-	  && compare_tree_int (TYPE_SIZE (TYPE), PARM_BOUNDARY) < 0)	\
-       : (GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY			\
-	  && (GET_MODE_CLASS (MODE) == MODE_INT)))			\
-      ? PAD_DOWNWARD : PAD_UPWARD))
 
 #define FUNCTION_ARG_REGNO_P(N)						\
   (((N) >= GP_ARG_FIRST && (N) <= GP_ARG_LAST))			

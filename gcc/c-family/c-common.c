@@ -2156,12 +2156,16 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
   else
     mclass = unsignedp ? MODE_UACCUM : MODE_ACCUM;
 
-  opt_scalar_mode mode;
-  FOR_EACH_MODE_IN_CLASS (mode, mclass)
-    if (GET_MODE_IBIT (*mode) >= ibit && GET_MODE_FBIT (*mode) >= fbit)
-      break;
+  opt_scalar_mode opt_mode;
+  scalar_mode mode;
+  FOR_EACH_MODE_IN_CLASS (opt_mode, mclass)
+    {
+      mode = opt_mode.require ();
+      if (GET_MODE_IBIT (mode) >= ibit && GET_MODE_FBIT (mode) >= fbit)
+	break;
+    }
 
-  if (!mode.exists () || !targetm.scalar_mode_supported_p (*mode))
+  if (!opt_mode.exists (&mode) || !targetm.scalar_mode_supported_p (mode))
     {
       sorry ("GCC cannot support operators with integer types and "
 	     "fixed-point types that have too many integral and "
@@ -2169,7 +2173,7 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
       return NULL_TREE;
     }
 
-  return c_common_type_for_mode (*mode, satp);
+  return c_common_type_for_mode (mode, satp);
 }
 
 /* Used for communication between c_common_type_for_mode and
@@ -5508,7 +5512,7 @@ parse_optimize_options (tree args, bool attr_p)
   /* And apply them.  */
   decode_options (&global_options, &global_options_set,
 		  decoded_options, decoded_options_count,
-		  input_location, global_dc);
+		  input_location, global_dc, NULL);
 
   targetm.override_options_after_change();
 

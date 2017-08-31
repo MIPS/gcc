@@ -1034,7 +1034,7 @@ mark_referenced_regs (rtx *loc, refmarker_fn *mark, void *arg)
 	      /* If we're setting only part of a multi-word register,
 		 we shall mark it as referenced, because the words
 		 that are not being set should be restored.  */
-	      && !df_read_modify_subreg_p (*loc)))
+	      && !read_modify_subreg_p (*loc)))
 	return;
     }
   if (code == MEM || code == SUBREG)

@@ -3216,14 +3216,3 @@ expand_PHI (internal_fn, gcall *)
 {
     gcc_unreachable ();
 }
-
-/* Return the ECF_* flags for function FN.  */
-
-int
-internal_fn_flags (enum internal_fn fn)
-{
-  int flags = internal_fn_flags_array[(int) fn];
-  if (direct_internal_fn_p (fn) && !flag_non_call_exceptions)
-    flags |= ECF_NOTHROW;
-  return flags;
-}

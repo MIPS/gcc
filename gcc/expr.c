@@ -175,7 +175,7 @@ init_expr_target (void)
   opt_scalar_float_mode mode_iter;
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_FLOAT)
     {
-      scalar_float_mode mode = *mode_iter;
+      scalar_float_mode mode = mode_iter.require ();
       scalar_float_mode srcmode;
       FOR_EACH_MODE_UNTIL (srcmode, mode)
 	{
@@ -563,7 +563,7 @@ convert_mode_scalar (rtx to, rtx from, int unsignedp)
 	  opt_scalar_mode intermediate_iter;
 	  FOR_EACH_MODE_FROM (intermediate_iter, from_mode)
 	    {
-	      scalar_mode intermediate = *intermediate_iter;
+	      scalar_mode intermediate = intermediate_iter.require ();
 	      if (((can_extend_p (to_mode, intermediate, unsignedp)
 		    != CODE_FOR_nothing)
 		   || (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (intermediate)
@@ -691,7 +691,7 @@ convert_modes (machine_mode mode, machine_mode oldmode, rtx x, int unsignedp)
           || (REG_P (x)
               && (!HARD_REGISTER_P (x)
 		  || targetm.hard_regno_mode_ok (REGNO (x), int_mode))
-	      && TRULY_NOOP_TRUNCATION_MODES_P (int_mode, GET_MODE (x)))))
+              && TRULY_NOOP_TRUNCATION_MODES_P (int_mode, GET_MODE (x)))))
    return gen_lowpart (int_mode, x);
 
   /* Converting from integer constant into mode is always equivalent to an
@@ -714,7 +714,8 @@ convert_modes (machine_mode mode, machine_mode oldmode, rtx x, int unsignedp)
 static unsigned int
 alignment_for_piecewise_move (unsigned int max_pieces, unsigned int align)
 {
-  scalar_int_mode tmode = *int_mode_for_size (max_pieces * BITS_PER_UNIT, 1);
+  scalar_int_mode tmode
+    = int_mode_for_size (max_pieces * BITS_PER_UNIT, 1).require ();
 
   if (align >= GET_MODE_ALIGNMENT (tmode))
     align = GET_MODE_ALIGNMENT (tmode);
@@ -724,7 +725,7 @@ alignment_for_piecewise_move (unsigned int max_pieces, unsigned int align)
       opt_scalar_int_mode mode_iter;
       FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
 	{
-	  tmode = *mode_iter;
+	  tmode = mode_iter.require ();
 	  if (GET_MODE_SIZE (tmode) > max_pieces
 	      || targetm.slow_unaligned_access (tmode, align))
 	    break;
@@ -748,8 +749,8 @@ widest_int_mode_for_size (unsigned int size)
 
   opt_scalar_int_mode tmode;
   FOR_EACH_MODE_IN_CLASS (tmode, MODE_INT)
-    if (GET_MODE_SIZE (*tmode) < size)
-      result = *tmode;
+    if (GET_MODE_SIZE (tmode.require ()) < size)
+      result = tmode.require ();
 
   return result;
 }
@@ -1742,7 +1743,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
   opt_scalar_int_mode mode_iter;
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
-      scalar_int_mode mode = *mode_iter;
+      scalar_int_mode mode = mode_iter.require ();
       enum insn_code code = direct_optab_handler (movmem_optab, mode);
 
       if (code != CODE_FOR_nothing
@@ -2699,7 +2700,7 @@ copy_blkmode_from_reg (rtx target, rtx srcreg, tree type)
     {
       opt_scalar_int_mode mem_mode = int_mode_for_size (bitsize, 1);
       if (mem_mode.exists ())
-	copy_mode = *mem_mode;
+	copy_mode = mem_mode.require ();
     }
   else if (REG_P (target) && GET_MODE_BITSIZE (tmode) < BITS_PER_WORD)
     copy_mode = tmode;
@@ -2818,11 +2819,11 @@ copy_blkmode_to_reg (machine_mode mode_in, tree src)
 	 entire structure.  */
       opt_scalar_int_mode mode_iter;
       FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
-	if (GET_MODE_SIZE (*mode_iter) >= bytes)
+	if (GET_MODE_SIZE (mode_iter.require ()) >= bytes)
 	  break;
 
       /* A suitable mode should have been found.  */
-      mode = *mode_iter;
+      mode = mode_iter.require ();
     }
 
   if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (word_mode))
@@ -3074,7 +3075,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
   opt_scalar_int_mode mode_iter;
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
-      scalar_int_mode mode = *mode_iter;
+      scalar_int_mode mode = mode_iter.require ();
       enum insn_code code = direct_optab_handler (setmem_optab, mode);
 
       if (code != CODE_FOR_nothing

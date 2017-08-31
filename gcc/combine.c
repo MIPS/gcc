@@ -585,7 +585,7 @@ find_single_use_1 (rtx dest, rtx *loc)
 	  && !REG_P (SET_DEST (x))
 	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
 		&& REG_P (SUBREG_REG (SET_DEST (x)))
-		&& !df_read_modify_subreg_p (SET_DEST (x))))
+		&& !read_modify_subreg_p (SET_DEST (x))))
 	break;
 
       return find_single_use_1 (dest, &SET_SRC (x));
@@ -2357,8 +2357,8 @@ combinable_i3pat (rtx_insn *i3, rtx *loc, rtx i2dest, rtx i1dest, rtx i0dest,
 
 	  || (REG_P (inner_dest)
 	      && REGNO (inner_dest) < FIRST_PSEUDO_REGISTER
-	      && (!targetm.hard_regno_mode_ok (REGNO (inner_dest),
-					       GET_MODE (inner_dest))))
+	      && !targetm.hard_regno_mode_ok (REGNO (inner_dest),
+					      GET_MODE (inner_dest)))
 	  || (i1_not_in_src && reg_overlap_mentioned_p (i1dest, src))
 	  || (i0_not_in_src && reg_overlap_mentioned_p (i0dest, src)))
 	return 0;
@@ -7663,7 +7663,7 @@ expand_field_assignment (const_rtx x)
       else if (GET_CODE (SET_DEST (x)) == SUBREG
 	       /* We need SUBREGs to compute nonzero_bits properly.  */
 	       && nonzero_sign_valid
-	       && !df_read_modify_subreg_p (SET_DEST (x)))
+	       && !read_modify_subreg_p (SET_DEST (x)))
 	{
 	  x = gen_rtx_SET (SUBREG_REG (SET_DEST (x)),
 			   gen_lowpart
@@ -7957,7 +7957,7 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
   if (GET_MODE_BITSIZE (inner_mode).is_constant (&inner_size)
       && get_best_reg_extraction_insn (&insn, pattern, inner_size, mode))
     {
-      wanted_inner_reg_mode = *insn.struct_mode;
+      wanted_inner_reg_mode = insn.struct_mode.require ();
       pos_mode = insn.pos_mode;
       extraction_mode = insn.field_mode;
     }
@@ -7977,7 +7977,7 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
       wanted_inner_mode = smallest_int_mode_for_size (len);
       while (pos % GET_MODE_BITSIZE (wanted_inner_mode) + len
 	     > GET_MODE_BITSIZE (wanted_inner_mode))
-	wanted_inner_mode = *GET_MODE_WIDER_MODE (wanted_inner_mode);
+	wanted_inner_mode = GET_MODE_WIDER_MODE (wanted_inner_mode).require ();
     }
 
   orig_pos = pos;
@@ -8809,8 +8809,8 @@ gen_lowpart_or_truncate (machine_mode mode, rtx x)
     {
       /* Bit-cast X into an integer mode.  */
       if (!SCALAR_INT_MODE_P (GET_MODE (x)))
-	x = gen_lowpart (*int_mode_for_mode (GET_MODE (x)), x);
-      x = simplify_gen_unary (TRUNCATE, *int_mode_for_mode (mode),
+	x = gen_lowpart (int_mode_for_mode (GET_MODE (x)).require (), x);
+      x = simplify_gen_unary (TRUNCATE, int_mode_for_mode (mode).require (),
 			      x, GET_MODE (x));
     }
 
@@ -11931,7 +11931,7 @@ gen_lowpart_for_combine (machine_mode omode, rtx x)
 
       if (imode == VOIDmode)
 	{
-	  imode = *int_mode_for_mode (omode);
+	  imode = int_mode_for_mode (omode).require ();
 	  x = gen_lowpart_common (imode, x);
 	  if (x == NULL)
 	    goto fail;
@@ -13143,7 +13143,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
       && ! have_insn_for (COMPARE, mode))
     FOR_EACH_WIDER_MODE (tmode_iter, mode)
       {
-	tmode = *tmode_iter;
+	tmode = tmode_iter.require ();
 	if (!HWI_COMPUTABLE_MODE_P (tmode))
 	  break;
 	if (have_insn_for (COMPARE, tmode))
@@ -14275,7 +14275,7 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx_insn *to_insn,
       if (GET_CODE (dest) == ZERO_EXTRACT
 	  || GET_CODE (dest) == STRICT_LOW_PART
 	  || (GET_CODE (dest) == SUBREG
-	      && !df_read_modify_subreg_p (dest)))
+	      && !read_modify_subreg_p (dest)))
 	{
 	  move_deaths (dest, maybe_kill_insn, from_luid, to_insn, pnotes);
 	  return;

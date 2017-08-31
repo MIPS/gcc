@@ -473,6 +473,7 @@ default_floatn_mode (int n, bool extended)
   if (extended)
     {
       opt_scalar_float_mode cand1, cand2;
+      scalar_float_mode mode;
       switch (n)
 	{
 	case 32:
@@ -497,20 +498,21 @@ default_floatn_mode (int n, bool extended)
 	  /* Those are the only valid _FloatNx types.  */
 	  gcc_unreachable ();
 	}
-      if (cand1.exists ()
-	  && REAL_MODE_FORMAT (*cand1)->ieee_bits > n
-	  && targetm.scalar_mode_supported_p (*cand1)
-	  && targetm.libgcc_floating_mode_supported_p (*cand1))
+      if (cand1.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits > n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand1;
-      if (cand2.exists ()
-	  && REAL_MODE_FORMAT (*cand2)->ieee_bits > n
-	  && targetm.scalar_mode_supported_p (*cand2)
-	  && targetm.libgcc_floating_mode_supported_p (*cand2))
+      if (cand2.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits > n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand2;
     }
   else
     {
       opt_scalar_float_mode cand;
+      scalar_float_mode mode;
       switch (n)
 	{
 	case 16:
@@ -543,10 +545,10 @@ default_floatn_mode (int n, bool extended)
 	default:
 	  break;
 	}
-      if (cand.exists ()
-	  && REAL_MODE_FORMAT (*cand)->ieee_bits == n
-	  && targetm.scalar_mode_supported_p (*cand)
-	  && targetm.libgcc_floating_mode_supported_p (*cand))
+      if (cand.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits == n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand;
     }
   return opt_scalar_float_mode ();
@@ -731,13 +733,29 @@ default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-/* Default implementation of TARGET_FUNCTION_ARG_PADDING.  */
+/* Default implementation of TARGET_FUNCTION_ARG_PADDING: usually pad
+   upward, but pad short args downward on big-endian machines.  */
 
 pad_direction
-default_function_arg_padding (machine_mode mode ATTRIBUTE_UNUSED,
-			      const_tree type ATTRIBUTE_UNUSED)
+default_function_arg_padding (machine_mode mode, const_tree type)
 {
-  return FUNCTION_ARG_PADDING (MACRO_MODE (mode), type);
+  if (!BYTES_BIG_ENDIAN)
+    return PAD_UPWARD;
+
+  poly_uint64 size;
+  if (mode == BLKmode)
+    {
+      if (!type || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	return PAD_UPWARD;
+      size = int_size_in_bytes (type);
+    }
+  else
+    size = GET_MODE_SIZE (mode);
+
+  if (must_lt (size, (unsigned int) PARM_BOUNDARY / BITS_PER_UNIT))
+    return PAD_DOWNWARD;
+
+  return PAD_UPWARD;
 }
 
 rtx
@@ -1416,41 +1434,10 @@ default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-/* The default implementation of TARGET_HARD_REGNO_MODE_OK.  */
-
-bool
-default_hard_regno_mode_ok (unsigned int regno ATTRIBUTE_UNUSED,
-			    machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return HARD_REGNO_MODE_OK (regno, MACRO_MODE (mode));
-}
-
-/* The default implementation of TARGET_MODES_TIEABLE_P.  */
-
-bool
-default_modes_tieable_p (machine_mode mode1 ATTRIBUTE_UNUSED,
-			 machine_mode mode2 ATTRIBUTE_UNUSED)
-{
-  return MODES_TIEABLE_P (MACRO_MODE (mode1), MACRO_MODE (mode2));
-}
-
 bool
 default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 {
   return true;
-}
-
-/* The default implementation of TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  */
-
-bool
-default_hard_regno_call_part_clobbered (unsigned int regno ATTRIBUTE_UNUSED,
-					machine_mode mode ATTRIBUTE_UNUSED)
-{
-#ifdef HARD_REGNO_CALL_PART_CLOBBERED
-  return HARD_REGNO_CALL_PART_CLOBBERED (regno, MACRO_MODE (mode));
-#else
-  return false;
-#endif
 }
 
 /* The default implementation of TARGET_MODE_DEPENDENT_ADDRESS_P.  */
@@ -1491,27 +1478,18 @@ default_target_option_pragma_parse (tree ARG_UNUSED (args),
 bool
 default_target_can_inline_p (tree caller, tree callee)
 {
-  bool ret = false;
   tree callee_opts = DECL_FUNCTION_SPECIFIC_TARGET (callee);
   tree caller_opts = DECL_FUNCTION_SPECIFIC_TARGET (caller);
-
-  /* If callee has no option attributes, then it is ok to inline */
-  if (!callee_opts)
-    ret = true;
-
-  /* If caller has no option attributes, but callee does then it is not ok to
-     inline */
-  else if (!caller_opts)
-    ret = false;
+  if (! callee_opts)
+    callee_opts = target_option_default_node;
+  if (! caller_opts)
+    caller_opts = target_option_default_node;
 
   /* If both caller and callee have attributes, assume that if the
      pointer is different, the two functions have different target
      options since build_target_option_node uses a hash table for the
      options.  */
-  else
-    ret = (callee_opts == caller_opts);
-
-  return ret;
+  return callee_opts == caller_opts;
 }
 
 /* If the machine does not have a case insn that compares the bounds,

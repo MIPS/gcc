@@ -230,6 +230,10 @@ static void visium_init_libfuncs (void);
 
 static unsigned int visium_reorg (void);
 
+static bool visium_hard_regno_mode_ok (unsigned int, machine_mode);
+
+static bool visium_modes_tieable_p (machine_mode, machine_mode);
+
 /* Setup the global target hooks structure.  */
 
 #undef  TARGET_MAX_ANCHOR_OFFSET
@@ -340,6 +344,12 @@ static unsigned int visium_reorg (void);
 
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM FLAGS_REGNUM
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK visium_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P visium_modes_tieable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -836,6 +846,35 @@ visium_hard_regno_rename_ok (unsigned int from ATTRIBUTE_UNUSED,
     return 0;
 
   return 1;
+}
+
+/* Implement TARGET_HARD_REGNO_MODE_OK.
+
+   Modes with sizes which cross from the one register class to the
+   other cannot be allowed. Only single floats are allowed in the
+   floating point registers, and only fixed point values in the EAM
+   registers. */
+
+static bool
+visium_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  if (GP_REGISTER_P (regno))
+    return GP_REGISTER_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
+
+  if (FP_REGISTER_P (regno))
+    return mode == SFmode || (mode == SImode && TARGET_FPU_IEEE);
+
+  return (GET_MODE_CLASS (mode) == MODE_INT
+	  && HARD_REGNO_NREGS (regno, mode) == 1);
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.  */
+
+static bool
+visium_modes_tieable_p (machine_mode mode1, machine_mode mode2)
+{
+  return (GET_MODE_CLASS (mode1) == MODE_INT
+	  && GET_MODE_CLASS (mode2) == MODE_INT);
 }
 
 /* Return true if it is ok to do sibling call optimization for the specified

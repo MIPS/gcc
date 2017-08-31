@@ -238,8 +238,7 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define POINTER_BOUNDS_MODE_P(MODE)      \
   (GET_MODE_CLASS (MODE) == MODE_POINTER_BOUNDS)
 
-/* An optional T (i.e. a T or nothing), where T is some form of mode class.
-   operator * gives the T value.  */
+/* An optional T (i.e. a T or nothing), where T is some form of mode class.  */
 template<typename T>
 class opt_mode
 {
@@ -252,7 +251,7 @@ public:
 
   machine_mode else_void () const;
   machine_mode else_blk () const;
-  T operator * () const;
+  T require () const;
 
   bool exists () const;
   template<typename U> bool exists (U *) const;
@@ -284,7 +283,7 @@ opt_mode<T>::else_blk () const
 
 template<typename T>
 inline T
-opt_mode<T>::operator * () const
+opt_mode<T>::require () const
 {
   gcc_checking_assert (m_mode != E_VOIDmode);
   return typename mode_traits<T>::from_int (m_mode);
@@ -1040,7 +1039,7 @@ namespace mode_iterator
   inline void
   get_wider (opt_mode<T> *iter)
   {
-    *iter = GET_MODE_WIDER_MODE (**iter);
+    *iter = GET_MODE_WIDER_MODE (iter->require ());
   }
 
   inline void
@@ -1056,7 +1055,7 @@ namespace mode_iterator
   inline void
   get_known_wider (T *iter)
   {
-    *iter = *GET_MODE_WIDER_MODE (*iter);
+    *iter = GET_MODE_WIDER_MODE (*iter).require ();
   }
 
   /* Set mode iterator *ITER to the mode that is two times wider than the
@@ -1066,7 +1065,7 @@ namespace mode_iterator
   inline void
   get_2xwider (opt_mode<T> *iter)
   {
-    *iter = GET_MODE_2XWIDER_MODE (**iter);
+    *iter = GET_MODE_2XWIDER_MODE (iter->require ());
   }
 
   inline void

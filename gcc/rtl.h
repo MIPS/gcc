@@ -2205,6 +2205,7 @@ extern poly_int64 subreg_lsb (const_rtx);
 extern poly_int64 subreg_lsb_1 (machine_mode, machine_mode, poly_int64);
 extern poly_int64 subreg_size_offset_from_lsb (poly_int64, poly_int64,
 					       poly_int64);
+extern bool read_modify_subreg_p (const_rtx);
 
 /* Return the subreg byte offset for a subreg whose outer mode is
    OUTER_MODE, whose inner mode is INNER_MODE, and where there are
@@ -2839,9 +2840,9 @@ extern rtx gen_lowpart_if_possible (machine_mode, rtx);
 extern rtx gen_highpart (machine_mode, rtx);
 extern rtx gen_highpart_mode (machine_mode, machine_mode, rtx);
 extern rtx operand_subword (rtx, poly_int64, int, machine_mode);
+
+/* In emit-rtl.c */
 extern rtx operand_subword_force (rtx, poly_int64, machine_mode);
-extern machine_mode wider_subreg_mode (machine_mode, machine_mode);
-extern machine_mode wider_subreg_mode (const_rtx);
 extern machine_mode narrower_subreg_mode (machine_mode, machine_mode);
 extern int subreg_lowpart_p (const_rtx);
 extern poly_int64 subreg_size_lowpart_offset (poly_int64, poly_int64);
@@ -2864,7 +2865,7 @@ partial_subreg_p (machine_mode outermode, machine_mode innermode)
 }
 
 /* Likewise return true if X is a subreg that is smaller than the inner
-   register.  Use df_read_modify_subreg_p to test whether writing to such
+   register.  Use read_modify_subreg_p to test whether writing to such
    a subreg preserves any part of the inner register.  */
 
 inline bool
@@ -2906,6 +2907,24 @@ subreg_lowpart_offset (machine_mode outermode, machine_mode innermode)
 {
   return subreg_size_lowpart_offset (GET_MODE_SIZE (outermode),
 				     GET_MODE_SIZE (innermode));
+}
+
+/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
+   return the mode that is big enough to hold both the outer and inner
+   values.  Prefer the outer mode in the event of a tie.  */
+
+inline machine_mode
+wider_subreg_mode (machine_mode outermode, machine_mode innermode)
+{
+  return partial_subreg_p (outermode, innermode) ? innermode : outermode;
+}
+
+/* Likewise for subreg X.  */
+
+inline machine_mode
+wider_subreg_mode (const_rtx x)
+{
+  return wider_subreg_mode (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
 }
 
 extern poly_int64 subreg_size_highpart_offset (poly_int64, poly_int64);

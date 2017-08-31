@@ -1943,11 +1943,11 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
       FOR_EACH_MODE_IN_CLASS (tmpmode, MODE_INT)
 	{
 	  /* Have we found a large enough mode?  */
-	  if (must_ge (GET_MODE_SIZE (*tmpmode), bytes))
+	  if (must_ge (GET_MODE_SIZE (tmpmode.require ()), bytes))
 	    break;
 	}
 
-      PUT_MODE (val, *tmpmode);
+      PUT_MODE (val, tmpmode.require ());
     }
   return val;
 }

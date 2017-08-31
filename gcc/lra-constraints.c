@@ -1696,7 +1696,7 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
 	  bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
 
 	  insert_before = (type != OP_OUT
-			   || df_read_modify_subreg_p (operand));
+			   || read_modify_subreg_p (operand));
 	  insert_after = (type != OP_IN);
 	  insert_move_for_subreg (insert_before ? &before : NULL,
 				  insert_after ? &after : NULL,
@@ -4259,7 +4259,7 @@ curr_insn_transform (bool check_only_p)
 		     constraints.  */
 		  if (type == OP_OUT
 		      && (curr_static_id->operand[i].strict_low
-			  || df_read_modify_subreg_p (*loc)))
+			  || read_modify_subreg_p (*loc)))
 		    type = OP_INOUT;
 		  loc = &SUBREG_REG (*loc);
 		  mode = GET_MODE (*loc);
@@ -5533,7 +5533,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	 mode used for each independent register may not be supported
 	 so reject the split.  Splitting the wider mode should theoretically
 	 be possible but is not implemented.  */
-      if (! HARD_REGNO_MODE_OK (hard_regno, mode))
+      if (!targetm.hard_regno_mode_ok (hard_regno, mode))
 	{
 	  if (lra_dump_file != NULL)
 	    {

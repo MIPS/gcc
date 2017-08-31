@@ -2095,7 +2095,7 @@ mask_exists (int size, vec<int> vec)
 static gimple *
 predicate_load_or_store (gimple_stmt_iterator *gsi, gassign *stmt, tree mask)
 {
-  gimple *new_stmt;
+  gcall *new_stmt;
 
   tree lhs = gimple_assign_lhs (stmt);
   tree rhs = gimple_assign_rhs1 (stmt);
@@ -2126,6 +2126,7 @@ predicate_load_or_store (gimple_stmt_iterator *gsi, gassign *stmt, tree mask)
       gimple_set_vdef (new_stmt, gimple_vdef (stmt));
       SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
     }
+  gimple_call_set_nothrow (new_stmt, true);
   return new_stmt;
 }
 
@@ -2203,6 +2204,7 @@ predicate_rhs_code (gassign *stmt, tree mask, tree cond)
   internal_fn cond_fn = get_conditional_internal_fn (code, lhs_type);
   gcall *new_stmt = gimple_build_call_internal_vec (cond_fn, args);
   gimple_call_set_lhs (new_stmt, lhs);
+  gimple_call_set_nothrow (new_stmt, true);
 
   return new_stmt;
 }

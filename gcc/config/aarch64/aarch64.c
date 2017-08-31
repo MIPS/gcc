@@ -1257,9 +1257,9 @@ aarch64_hard_regno_nregs (unsigned regno, machine_mode mode)
   gcc_unreachable ();
 }
 
-/* Implement HARD_REGNO_MODE_OK.  */
+/* Implement TARGET_HARD_REGNO_MODE_OK.  */
 
-int
+static bool
 aarch64_hard_regno_mode_ok (unsigned regno, machine_mode mode)
 {
   if (GET_MODE_CLASS (mode) == MODE_CC)
@@ -1282,7 +1282,7 @@ aarch64_hard_regno_mode_ok (unsigned regno, machine_mode mode)
     return mode == Pmode;
 
   if (GP_REGNUM_P (regno) && must_le (GET_MODE_SIZE (mode), 16))
-    return 1;
+    return true;
 
   if (FP_REGNUM_P (regno))
     {
@@ -1293,7 +1293,17 @@ aarch64_hard_regno_mode_ok (unsigned regno, machine_mode mode)
 	return !VECTOR_MODE_P (mode) || vec_flags != 0;
     }
 
-  return 0;
+  return false;
+}
+
+/* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  The callee only saves
+   the lower 64 bits of a 128-bit register.  Tell the compiler the callee
+   clobbers the top 64 bits when restoring the bottom 64 bits.  */
+
+static bool
+aarch64_hard_regno_call_part_clobbered (unsigned int regno, machine_mode mode)
+{
+  return FP_REGNUM_P (regno) && may_gt (GET_MODE_SIZE (mode), 8);
 }
 
 /* Implement REGMODE_NATURAL_SIZE.  */
@@ -3336,22 +3346,19 @@ aarch64_get_reg_raw_mode (int regno)
   return default_get_reg_raw_mode (regno);
 }
 
-/* For use by FUNCTION_ARG_PADDING (MODE, TYPE).
-
-   Return true if an argument passed on the stack should be padded upwards,
-   i.e. if the least-significant byte of the stack slot has useful data.
+/* Implement TARGET_FUNCTION_ARG_PADDING.
 
    Small aggregate types are placed in the lowest memory address.
 
    The related parameter passing rules are B.4, C.3, C.5 and C.14.  */
 
-bool
-aarch64_pad_arg_upward (machine_mode mode, const_tree type)
+static pad_direction
+aarch64_function_arg_padding (machine_mode mode, const_tree type)
 {
   /* On little-endian targets, the least significant byte of every stack
      argument is passed at the lowest byte address of the stack slot.  */
   if (!BYTES_BIG_ENDIAN)
-    return true;
+    return PAD_UPWARD;
 
   /* Otherwise, integral, floating-point and pointer types are padded downward:
      the least significant byte of a stack argument is passed at the highest
@@ -3360,10 +3367,10 @@ aarch64_pad_arg_upward (machine_mode mode, const_tree type)
       ? (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type)
 	 || POINTER_TYPE_P (type))
       : (SCALAR_INT_MODE_P (mode) || SCALAR_FLOAT_MODE_P (mode)))
-    return false;
+    return PAD_DOWNWARD;
 
   /* Everything else padded upward, i.e. data in first byte of stack slot.  */
-  return true;
+  return PAD_UPWARD;
 }
 
 /* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST).
@@ -5624,7 +5631,7 @@ aarch64_float_const_rtx_p (rtx x)
     {
       scalar_int_mode imode = (mode == HFmode
 			       ? SImode
-			       : *int_mode_for_mode (mode));
+			       : int_mode_for_mode (mode).require ());
       int num_instr = aarch64_internal_mov_immediate
 			(NULL_RTX, gen_int_mode (ival, imode), false, imode);
       return num_instr < 3;
@@ -5667,7 +5674,7 @@ aarch64_can_const_movi_rtx_p (rtx x, machine_mode mode)
       if (aarch64_float_const_zero_rtx_p (x))
 	return true;
 
-      imode = *int_mode_for_mode (mode);
+      imode = int_mode_for_mode (mode).require ();
     }
   else if (GET_CODE (x) == CONST_INT
 	   && is_a <scalar_int_mode> (mode, &imode))
@@ -8132,7 +8139,7 @@ aarch64_rtx_costs (rtx x, machine_mode mode, int outer ATTRIBUTE_UNUSED,
 
 	  scalar_int_mode imode = (mode == HFmode
 				   ? SImode
-				   : *int_mode_for_mode (mode));
+				   : int_mode_for_mode (mode).require ());
 	  int ncost = aarch64_internal_mov_immediate
 		(NULL_RTX, gen_int_mode (ival, imode), false, imode);
 	  *cost += COSTS_N_INSNS (ncost);
@@ -9425,7 +9432,7 @@ aarch64_emit_approx_sqrt (rtx dst, rtx src, bool recp)
     }
 
   machine_mode mmsk
-    = mode_for_vector (*int_mode_for_mode (GET_MODE_INNER (mode)),
+    = mode_for_vector (int_mode_for_mode (GET_MODE_INNER (mode)).require (),
 		       GET_MODE_NUNITS (mode));
   if (!recp)
     {
@@ -12946,7 +12953,7 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info)
   if (elt_size > 8)
     return false;
 
-  scalar_int_mode elt_int_mode = *int_mode_for_mode (elt_mode);
+  scalar_int_mode elt_int_mode = int_mode_for_mode (elt_mode).require ();
 
   /* Splat vector constant out into a byte vector.  */
   auto_vec<unsigned char, 16> bytes;
@@ -15128,7 +15135,8 @@ aarch64_evpc_sve_tbl (struct expand_vec_perm_d *d)
   gcc_assert (must_eq (nelt, GET_MODE_NUNITS (d->vmode)));
 
   rtx rperm[MAX_COMPILE_TIME_VEC_BYTES];
-  scalar_int_mode sel_emode = *int_mode_for_mode (GET_MODE_INNER (d->vmode));
+  scalar_int_mode sel_emode
+    = int_mode_for_mode (GET_MODE_INNER (d->vmode)).require ();
   machine_mode sel_vmode = mode_for_vector (sel_emode, nelt);
 
   for (unsigned int i = 0; i < nelt; ++i)
@@ -15570,16 +15578,15 @@ aarch64_expand_sve_vcond (machine_mode data_mode, machine_mode cmp_mode,
   emit_set_insn (ops[0], gen_rtx_UNSPEC (data_mode, vec, UNSPEC_SEL));
 }
 
-/* Implement MODES_TIEABLE_P.  In principle we should always return true.
-   However due to issues with register allocation it is preferable to avoid
-   tieing integer scalar and FP scalar modes.  Executing integer operations
-   in general registers is better than treating them as scalar vector
-   operations.  This reduces latency and avoids redundant int<->FP moves.
-   So tie modes if they are either the same class, or vector modes with
-   other vector modes, vector structs or any scalar mode.
-*/
+/* Implement TARGET_MODES_TIEABLE_P.  In principle we should always return
+   true.  However due to issues with register allocation it is preferable
+   to avoid tieing integer scalar and FP scalar modes.  Executing integer
+   operations in general registers is better than treating them as scalar
+   vector operations.  This reduces latency and avoids redundant int<->FP
+   moves.  So tie modes if they are either the same class, or vector modes
+   with other vector modes, vector structs or any scalar mode.  */
 
-bool
+static bool
 aarch64_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 {
   if (GET_MODE_CLASS (mode1) == GET_MODE_CLASS (mode2))
@@ -17130,6 +17137,9 @@ aarch64_run_selftests (void)
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY aarch64_function_arg_boundary
 
+#undef TARGET_FUNCTION_ARG_PADDING
+#define TARGET_FUNCTION_ARG_PADDING aarch64_function_arg_padding
+
 #undef TARGET_GET_RAW_RESULT_MODE
 #define TARGET_GET_RAW_RESULT_MODE aarch64_get_reg_raw_mode
 #undef TARGET_GET_RAW_ARG_MODE
@@ -17440,6 +17450,16 @@ aarch64_libgcc_floating_mode_supported_p
 /* The architecture reserves bits 0 and 1 so use bit 2 for descriptors.  */
 #undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 #define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 4
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK aarch64_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P aarch64_modes_tieable_p
+
+#undef TARGET_HARD_REGNO_CALL_PART_CLOBBERED
+#define TARGET_HARD_REGNO_CALL_PART_CLOBBERED \
+  aarch64_hard_regno_call_part_clobbered
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

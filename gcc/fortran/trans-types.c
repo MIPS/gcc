@@ -374,7 +374,7 @@ gfc_init_kinds (void)
   i_index = 0;
   FOR_EACH_MODE_IN_CLASS (int_mode_iter, MODE_INT)
     {
-      scalar_int_mode mode = *int_mode_iter;
+      scalar_int_mode mode = int_mode_iter.require ();
       int kind, bitsize;
 
       if (!targetm.scalar_mode_supported_p (mode))
@@ -426,7 +426,7 @@ gfc_init_kinds (void)
   r_index = 0;
   FOR_EACH_MODE_IN_CLASS (float_mode_iter, MODE_FLOAT)
     {
-      scalar_float_mode mode = *float_mode_iter;
+      scalar_float_mode mode = float_mode_iter.require ();
       const struct real_format *fmt = REAL_MODE_FORMAT (mode);
       int kind;
 

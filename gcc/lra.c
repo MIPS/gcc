@@ -832,7 +832,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
   if (code == SUBREG)
     {
       mode = wider_subreg_mode (op);
-      if (df_read_modify_subreg_p (op))
+      if (read_modify_subreg_p (op))
 	subreg_p = true;
       op = SUBREG_REG (op);
       code = GET_CODE (op);
@@ -1426,7 +1426,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
   if (GET_CODE (x) == SUBREG)
     {
       mode = wider_subreg_mode (x);
-      if (df_read_modify_subreg_p (x))
+      if (read_modify_subreg_p (x))
 	subreg_p = true;
       x = SUBREG_REG (x);
       code = GET_CODE (x);

@@ -2623,25 +2623,6 @@ df_ref_record (enum df_ref_class cl,
 }
 
 
-/* A set to a non-paradoxical SUBREG for which the number of word_mode units
-   covered by the outer mode is smaller than that covered by the inner mode,
-   is a read-modify-write operation.
-   This function returns true iff the SUBREG X is such a SUBREG.  */
-
-bool
-df_read_modify_subreg_p (const_rtx x)
-{
-  if (!partial_subreg_p (x))
-    return false;
-  poly_int64 isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
-  poly_int64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
-  /* It doesn't make sense for REGMODE_NATURAL_SIZE to pick a size
-     that isn't ordered wrt the mode passed to it.  */
-  gcc_checking_assert (ordered_p (isize, regsize));
-  return may_gt (isize, regsize);
-}
-
-
 /* Process all the registers defined in the rtx pointed by LOC.
    Autoincrement/decrement definitions will be picked up by df_uses_record.
    Any change here has to be matched in df_find_hard_reg_defs_1.  */
@@ -2697,7 +2678,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
     }
   else if (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst)))
     {
-      if (df_read_modify_subreg_p (dst))
+      if (read_modify_subreg_p (dst))
 	flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
 
       flags |= DF_REF_SUBREG;
@@ -2911,7 +2892,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	switch (GET_CODE (dst))
 	  {
 	    case SUBREG:
-	      if (df_read_modify_subreg_p (dst))
+	      if (read_modify_subreg_p (dst))
 		{
 		  df_uses_record (collection_rec, &SUBREG_REG (dst),
 				  DF_REF_REG_USE, bb, insn_info,

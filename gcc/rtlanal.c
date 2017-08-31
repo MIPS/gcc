@@ -1275,7 +1275,7 @@ reg_referenced_p (const_rtx x, const_rtx body)
 	  && !REG_P (SET_DEST (body))
 	  && ! (GET_CODE (SET_DEST (body)) == SUBREG
 		&& REG_P (SUBREG_REG (SET_DEST (body)))
-		&& !df_read_modify_subreg_p (SET_DEST (body)))
+		&& !read_modify_subreg_p (SET_DEST (body)))
 	  && reg_overlap_mentioned_p (x, SET_DEST (body)))
 	return 1;
       return 0;
@@ -1505,6 +1505,27 @@ modified_in_p (const_rtx x, const_rtx insn)
     }
 
   return 0;
+}
+
+/* Return true if X is a SUBREG and if storing a value to X would
+   preserve some of its SUBREG_REG.  For example, on a normal 32-bit
+   target, using a SUBREG to store to one half of a DImode REG would
+   preserve the other half.  */
+
+bool
+read_modify_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+
+  poly_int64 isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
+  poly_int64 osize = GET_MODE_SIZE (GET_MODE (x));
+  poly_int64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  gcc_checking_assert (ordered_p (isize, osize));
+  /* It doesn't make sense for REGMODE_NATURAL_SIZE to pick a size
+     that isn't ordered wrt the mode passed to it.  */
+  gcc_checking_assert (ordered_p (isize, regsize));
+  return may_gt (isize, osize) && may_gt (isize, regsize);
 }
 
 /* Helper function for set_of.  */
@@ -2157,7 +2178,7 @@ covers_regno_no_parallel_p (const_rtx dest, unsigned int test_regno)
 {
   unsigned int regno, endregno;
 
-  if (GET_CODE (dest) == SUBREG && !df_read_modify_subreg_p (dest))
+  if (GET_CODE (dest) == SUBREG && !read_modify_subreg_p (dest))
     dest = SUBREG_REG (dest);
 
   if (!REG_P (dest))
@@ -4336,7 +4357,7 @@ rtx_cost (rtx x, machine_mode mode, enum rtx_code outer_code,
       break;
 
     case TRUNCATE:
-      if (MODES_TIEABLE_P (mode, GET_MODE (XEXP (x, 0))))
+      if (targetm.modes_tieable_p (mode, GET_MODE (XEXP (x, 0))))
 	{
 	  total = 0;
 	  break;
@@ -5834,15 +5855,15 @@ init_num_sign_bit_copies_in_rep (void)
   scalar_int_mode mode;
 
   FOR_EACH_MODE_IN_CLASS (in_mode_iter, MODE_INT)
-    FOR_EACH_MODE_UNTIL (mode, *in_mode_iter)
+    FOR_EACH_MODE_UNTIL (mode, in_mode_iter.require ())
       {
-	scalar_int_mode in_mode = *in_mode_iter;
+	scalar_int_mode in_mode = in_mode_iter.require ();
 	scalar_int_mode i;
 
 	/* Currently, it is assumed that TARGET_MODE_REP_EXTENDED
 	   extends to the next widest mode.  */
 	gcc_assert (targetm.mode_rep_extended (mode, in_mode) == UNKNOWN
-		    || *GET_MODE_WIDER_MODE (mode) == in_mode);
+		    || GET_MODE_WIDER_MODE (mode).require () == in_mode);
 
 	/* We are in in_mode.  Count how many bits outside of mode
 	   have to be copies of the sign-bit.  */
@@ -5850,7 +5871,7 @@ init_num_sign_bit_copies_in_rep (void)
 	  {
 	    /* This must always exist (for the last iteration it will be
 	       IN_MODE).  */
-	    scalar_int_mode wider = *GET_MODE_WIDER_MODE (i);
+	    scalar_int_mode wider = GET_MODE_WIDER_MODE (i).require ();
 
 	    if (targetm.mode_rep_extended (i, wider) == SIGN_EXTEND
 		/* We can only check sign-bit copies starting from the

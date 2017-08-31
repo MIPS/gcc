@@ -91,6 +91,8 @@
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
+static pad_direction rs6000_function_arg_padding (machine_mode, const_tree);
+
 /* Structure used to define the rs6000 stack */
 typedef struct rs6000_stack {
   int reload_completed;		/* stack info won't change from here on */
@@ -203,7 +205,8 @@ static bool rs6000_returns_struct;
 #endif
 
 /* Value is TRUE if register/mode pair is acceptable.  */
-bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
+static bool rs6000_hard_regno_mode_ok_p
+  [NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 
 /* Maximum number of registers needed for a given register class and mode.  */
 unsigned char rs6000_class_max_nregs[NUM_MACHINE_MODES][LIM_REG_CLASSES];
@@ -1795,6 +1798,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_FUNCTION_ARG_ADVANCE rs6000_function_arg_advance
 #undef TARGET_FUNCTION_ARG
 #define TARGET_FUNCTION_ARG rs6000_function_arg
+#undef TARGET_FUNCTION_ARG_PADDING
+#define TARGET_FUNCTION_ARG_PADDING rs6000_function_arg_padding
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY rs6000_function_arg_boundary
 
@@ -1964,6 +1969,15 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_OPTION_FUNCTION_VERSIONS
 #define TARGET_OPTION_FUNCTION_VERSIONS common_function_versions
 
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK rs6000_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P rs6000_modes_tieable_p
+
+#undef TARGET_HARD_REGNO_CALL_PART_CLOBBERED
+#define TARGET_HARD_REGNO_CALL_PART_CLOBBERED \
+  rs6000_hard_regno_call_part_clobbered
 
 
 /* Processor table.  */
@@ -2033,7 +2047,7 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
 /* Value is 1 if hard register REGNO can hold a value of machine-mode
    MODE.  */
 static int
-rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
+rs6000_hard_regno_mode_ok_uncached (int regno, machine_mode mode)
 {
   int last_regno = regno + rs6000_hard_regno_nregs[mode][regno] - 1;
 
@@ -2124,6 +2138,74 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
      and it must be able to fit within the register set.  */
 
   return GET_MODE_SIZE (mode) <= UNITS_PER_WORD;
+}
+
+/* Implement TARGET_HARD_REGNO_MODE_OK.  */
+
+static bool
+rs6000_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  return rs6000_hard_regno_mode_ok_p[mode][regno];
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.
+
+   PTImode cannot tie with other modes because PTImode is restricted to even
+   GPR registers, and TImode can go in any GPR as well as VSX registers (PR
+   57744).
+
+   Altivec/VSX vector tests were moved ahead of scalar float mode, so that IEEE
+   128-bit floating point on VSX systems ties with other vectors.  */
+
+static bool
+rs6000_modes_tieable_p (machine_mode mode1, machine_mode mode2)
+{
+  if (mode1 == PTImode)
+    return mode2 == PTImode;
+  if (mode2 == PTImode)
+    return false;
+
+  if (ALTIVEC_OR_VSX_VECTOR_MODE (mode1))
+    return ALTIVEC_OR_VSX_VECTOR_MODE (mode2);
+  if (ALTIVEC_OR_VSX_VECTOR_MODE (mode2))
+    return false;
+
+  if (SCALAR_FLOAT_MODE_P (mode1))
+    return SCALAR_FLOAT_MODE_P (mode2);
+  if (SCALAR_FLOAT_MODE_P (mode2))
+    return false;
+
+  if (GET_MODE_CLASS (mode1) == MODE_CC)
+    return GET_MODE_CLASS (mode2) == MODE_CC;
+  if (GET_MODE_CLASS (mode2) == MODE_CC)
+    return false;
+
+  if (PAIRED_VECTOR_MODE (mode1))
+    return PAIRED_VECTOR_MODE (mode2);
+  if (PAIRED_VECTOR_MODE (mode2))
+    return false;
+
+  return true;
+}
+
+/* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  */
+
+static bool
+rs6000_hard_regno_call_part_clobbered (unsigned int regno, machine_mode mode)
+{
+  if (TARGET_32BIT
+      && TARGET_POWERPC64
+      && GET_MODE_SIZE (mode) > 4
+      && INT_REGNO_P (regno))
+    return true;
+
+  if (TARGET_VSX
+      && FP_REGNO_P (regno)
+      && GET_MODE_SIZE (mode) > 8
+      && !FLOAT128_2REG_P (mode))
+    return true;
+
+  return false;
 }
 
 /* Print interesting facts about registers.  */
@@ -2577,7 +2659,7 @@ rs6000_debug_reg_global (void)
       for (m2 = 0; m2 < ARRAY_SIZE (print_tieable_modes); m2++)
 	{
 	  machine_mode mode2 = print_tieable_modes[m2];
-	  if (mode1 != mode2 && MODES_TIEABLE_P (mode1, mode2))
+	  if (mode1 != mode2 && rs6000_modes_tieable_p (mode1, mode2))
 	    {
 	      if (first_time)
 		{
@@ -2927,8 +3009,7 @@ rs6000_setup_reg_addr_masks (void)
 	      && (rc == RELOAD_REG_GPR
 		  || ((msize == 8 || m2 == SFmode)
 		      && (rc == RELOAD_REG_FPR
-			  || (rc == RELOAD_REG_VMX
-			      && TARGET_P9_DFORM_SCALAR)))))
+			  || (rc == RELOAD_REG_VMX && TARGET_P9_VECTOR)))))
 	    addr_mask |= RELOAD_REG_OFFSET;
 
 	  /* VSX registers can do REG+OFFSET addresssing if ISA 3.0
@@ -2936,7 +3017,7 @@ rs6000_setup_reg_addr_masks (void)
 	     only 12-bits.  While GPRs can handle the full offset range, VSX
 	     registers can only handle the restricted range.  */
 	  else if ((addr_mask != 0) && !indexed_only_p
-		   && msize == 16 && TARGET_P9_DFORM_VECTOR
+		   && msize == 16 && TARGET_P9_VECTOR
 		   && (ALTIVEC_OR_VSX_VECTOR_MODE (m2)
 		       || (m2 == TImode && TARGET_VSX)))
 	    {
@@ -3256,13 +3337,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
     }
 
-  /* Support for new D-form instructions.  */
-  if (TARGET_P9_DFORM_SCALAR)
-    rs6000_constraints[RS6000_CONSTRAINT_wb] = ALTIVEC_REGS;
-
-  /* Support for ISA 3.0 (power9) vectors.  */
   if (TARGET_P9_VECTOR)
-    rs6000_constraints[RS6000_CONSTRAINT_wo] = VSX_REGS;
+    {
+      /* Support for new D-form instructions.  */
+      rs6000_constraints[RS6000_CONSTRAINT_wb] = ALTIVEC_REGS;
+
+      /* Support for ISA 3.0 (power9) vectors.  */
+      rs6000_constraints[RS6000_CONSTRAINT_wo] = VSX_REGS;
+    }
 
   /* Support for new direct moves (ISA 3.0 + 64bit).  */
   if (TARGET_DIRECT_MOVE_128)
@@ -3543,7 +3625,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[xmode].fusion_addis_ld[rtype] = addis_insns[i].load;
 	  reg_addr[xmode].fusion_addis_st[rtype] = addis_insns[i].store;
 
-	  if (rtype == RELOAD_REG_FPR && TARGET_P9_DFORM_SCALAR)
+	  if (rtype == RELOAD_REG_FPR && TARGET_P9_VECTOR)
 	    {
 	      reg_addr[xmode].fusion_addis_ld[RELOAD_REG_VMX]
 		= addis_insns[i].load;
@@ -3577,10 +3659,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_hard_regno_nregs[m][r]
 	= rs6000_hard_regno_nregs_internal (r, (machine_mode)m);
 
-  /* Precalculate HARD_REGNO_MODE_OK.  */
+  /* Precalculate TARGET_HARD_REGNO_MODE_OK.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
-      if (rs6000_hard_regno_mode_ok (r, (machine_mode)m))
+      if (rs6000_hard_regno_mode_ok_uncached (r, (machine_mode)m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 
   /* Precalculate CLASS_MAX_NREGS sizes.  */
@@ -4240,8 +4322,7 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
-  if (TARGET_P9_VECTOR || TARGET_MODULO || TARGET_P9_DFORM_SCALAR
-      || TARGET_P9_DFORM_VECTOR || TARGET_P9_DFORM_BOTH > 0)
+  if (TARGET_P9_VECTOR || TARGET_MODULO || TARGET_P9_MISC)
     rs6000_isa_flags |= (ISA_3_0_MASKS_SERVER & ~ignore_masks);
   else if (TARGET_P9_MINMAX)
     {
@@ -4465,81 +4546,6 @@ rs6000_option_override_internal (bool global_init_p)
 	     OPTION_MASK_P8_VECTOR is not explicit.  */
 	  rs6000_isa_flags |= OPTION_MASK_P8_VECTOR;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_P8_VECTOR;
-	}
-    }
-
-  /* -mpower9-dform turns on both -mpower9-dform-scalar and
-      -mpower9-dform-vector.  */
-  if (TARGET_P9_DFORM_BOTH > 0)
-    {
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR))
-	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
-
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_SCALAR))
-	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_SCALAR;
-    }
-  else if (TARGET_P9_DFORM_BOTH == 0)
-    {
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR))
-	rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
-
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_SCALAR))
-	rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_SCALAR;
-    }
-
-  /* ISA 3.0 D-form instructions require p9-vector and upper-regs.  */
-  if ((TARGET_P9_DFORM_SCALAR || TARGET_P9_DFORM_VECTOR) && !TARGET_P9_VECTOR)
-    {
-      /* We prefer to not mention undocumented options in
-	 error messages.  However, if users have managed to select
-	 power9-dform without selecting power9-vector, they
-	 already know about undocumented flags.  */
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
-	  && (rs6000_isa_flags_explicit & (OPTION_MASK_P9_DFORM_SCALAR
-					   | OPTION_MASK_P9_DFORM_VECTOR)))
-	error ("%qs requires %qs", "-mpower9-dform", "-mpower9-vector");
-      else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
-	{
-	  rs6000_isa_flags &=
-	    ~(OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
-	  rs6000_isa_flags_explicit |=
-	    (OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
-	}
-      else
-	{
-	  /* We know that OPTION_MASK_P9_VECTOR is not explicit and
-	     OPTION_MASK_P9_DFORM_SCALAR or OPTION_MASK_P9_DORM_VECTOR
-	     may be explicit.  */
-	  rs6000_isa_flags |= OPTION_MASK_P9_VECTOR;
-	  rs6000_isa_flags_explicit |= OPTION_MASK_P9_VECTOR;
-	}
-    }
-
-  if ((TARGET_P9_DFORM_SCALAR || TARGET_P9_DFORM_VECTOR)
-      && !TARGET_DIRECT_MOVE)
-    {
-      /* We prefer to not mention undocumented options in
-	 error messages.  However, if users have managed to select
-	 power9-dform without selecting direct-move, they
-	 already know about undocumented flags.  */
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_DIRECT_MOVE)
-	  && ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) ||
-	      (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_SCALAR) ||
-	      (TARGET_P9_DFORM_BOTH == 1)))
-	error ("%qs, %qs, %qs require %qs", "-mpower9-dform",
-	       "-mpower9-dform-vector", "-mpower9-dform-scalar",
-	       "-mdirect-move");
-      else if ((rs6000_isa_flags_explicit & OPTION_MASK_DIRECT_MOVE) == 0)
-	{
-	  rs6000_isa_flags |= OPTION_MASK_DIRECT_MOVE;
-	  rs6000_isa_flags_explicit |= OPTION_MASK_DIRECT_MOVE;
-	}
-      else
-	{
-	  rs6000_isa_flags &=
-	    ~(OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
-	  rs6000_isa_flags_explicit |=
-	    (OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
 	}
     }
 
@@ -11247,7 +11253,7 @@ rs6000_return_in_msb (const_tree valtype)
   return (DEFAULT_ABI == ABI_ELFv2
 	  && BYTES_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
-	  && (FUNCTION_ARG_PADDING (TYPE_MODE (valtype), valtype)
+	  && (rs6000_function_arg_padding (TYPE_MODE (valtype), valtype)
 	      == PAD_UPWARD));
 }
 
@@ -11465,13 +11471,13 @@ abi_v4_pass_in_fpr (machine_mode mode)
   return false;
 }
 
-/* Implement FUNCTION_ARG_PADDING.
+/* Implement TARGET_FUNCTION_ARG_PADDING.
 
    For the AIX ABI structs are always stored left shifted in their
    argument slot.  */
 
-pad_direction
-function_arg_padding (machine_mode mode, const_tree type)
+static pad_direction
+rs6000_function_arg_padding (machine_mode mode, const_tree type)
 {
 #ifndef AGGREGATE_PADDING_FIXED
 #define AGGREGATE_PADDING_FIXED 0
@@ -11483,7 +11489,7 @@ function_arg_padding (machine_mode mode, const_tree type)
   if (!AGGREGATE_PADDING_FIXED)
     {
       /* GCC used to pass structures of the same size as integer types as
-	 if they were in fact integers, ignoring FUNCTION_ARG_PADDING.
+	 if they were in fact integers, ignoring TARGET_FUNCTION_ARG_PADDING.
 	 i.e. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
 	 passed padded downward, except that -mstrict-align further
 	 muddied the water in that multi-component structures of 2 and 4
@@ -11516,7 +11522,7 @@ function_arg_padding (machine_mode mode, const_tree type)
     }
 
   /* Fall back to the default.  */
-  return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
+  return default_function_arg_padding (mode, type);
 }
 
 /* If defined, a C expression that gives the alignment boundary, in bits,
@@ -14122,6 +14128,21 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 127))
 	{
 	  error ("argument 2 must be a 7-bit unsigned literal");
+	  return CONST0_RTX (tmode);
+	}
+    }
+  else if (icode == CODE_FOR_unpackv1ti
+	   || icode == CODE_FOR_unpackkf
+	   || icode == CODE_FOR_unpacktf
+	   || icode == CODE_FOR_unpackif
+	   || icode == CODE_FOR_unpacktd)
+    {
+      /* Only allow 1-bit unsigned literals. */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 1))
+	{
+	  error ("argument 2 must be a 1-bit unsigned literal");
 	  return CONST0_RTX (tmode);
 	}
     }
@@ -27384,7 +27405,7 @@ rs6000_emit_prologue (void)
 
 	    savereg = gen_rtx_REG (V4SImode, i);
 
-	    if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+	    if (TARGET_P9_VECTOR && quad_address_offset_p (offset))
 	      {
 		mem = gen_frame_mem (V4SImode,
 				     gen_rtx_PLUS (Pmode, frame_reg_rtx,
@@ -28075,7 +28096,7 @@ rs6000_emit_epilogue (int sibcall)
 		  = (info->altivec_save_offset + frame_off
 		     + 16 * (i - info->first_altivec_reg_save));
 
-		if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+		if (TARGET_P9_VECTOR && quad_address_offset_p (offset))
 		  {
 		    mem = gen_frame_mem (V4SImode,
 					 gen_rtx_PLUS (Pmode, frame_reg_rtx,
@@ -28291,7 +28312,7 @@ rs6000_emit_epilogue (int sibcall)
 		  = (info->altivec_save_offset + frame_off
 		     + 16 * (i - info->first_altivec_reg_save));
 
-		if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+		if (TARGET_P9_VECTOR && quad_address_offset_p (offset))
 		  {
 		    mem = gen_frame_mem (V4SImode,
 					 gen_rtx_PLUS (Pmode, frame_reg_rtx,
@@ -35566,8 +35587,8 @@ rs6000_do_expand_vec_perm (rtx target, rtx op0, rtx op1,
 
   imode = vmode;
   if (GET_MODE_CLASS (vmode) != MODE_VECTOR_INT)
-    imode = mode_for_vector (*int_mode_for_mode (GET_MODE_INNER (vmode)),
-			     nelt);
+    imode = mode_for_vector
+      (int_mode_for_mode (GET_MODE_INNER (vmode)).require (), nelt);
 
   x = gen_rtx_CONST_VECTOR (imode, gen_rtvec_v (nelt, perm));
   x = expand_vec_perm (vmode, op0, op1, x, target);
@@ -36151,8 +36172,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "power8-fusion",		OPTION_MASK_P8_FUSION,		false, true  },
   { "power8-fusion-sign",	OPTION_MASK_P8_FUSION_SIGN,	false, true  },
   { "power8-vector",		OPTION_MASK_P8_VECTOR,		false, true  },
-  { "power9-dform-scalar",	OPTION_MASK_P9_DFORM_SCALAR,	false, true  },
-  { "power9-dform-vector",	OPTION_MASK_P9_DFORM_VECTOR,	false, true  },
   { "power9-fusion",		OPTION_MASK_P9_FUSION,		false, true  },
   { "power9-minmax",		OPTION_MASK_P9_MINMAX,		false, true  },
   { "power9-misc",		OPTION_MASK_P9_MISC,		false, true  },
@@ -36938,14 +36957,6 @@ rs6000_disable_incompatible_switches (void)
 	  rs6000_isa_flags &= ~dep_flags;
 	  ignore_masks |= no_flag | dep_flags;
 	}
-    }
-
-  if (!TARGET_P9_VECTOR
-      && (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR) != 0
-      && TARGET_P9_DFORM_BOTH > 0)
-    {
-      error ("%qs turns off %qs", "-mno-power9-vector", "-mpower9-dform");
-      TARGET_P9_DFORM_BOTH = 0;
     }
 
   return ignore_masks;
@@ -38687,7 +38698,7 @@ emit_fusion_p9_load (rtx reg, rtx mem, rtx tmp_reg)
       else
 	gcc_unreachable ();
     }
-  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_DFORM_SCALAR)
+  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_VECTOR)
     {
       if (mode == SFmode)
 	load_string = "lxssp";
@@ -38774,7 +38785,7 @@ emit_fusion_p9_store (rtx mem, rtx reg, rtx tmp_reg)
       else
 	gcc_unreachable ();
     }
-  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_DFORM_SCALAR)
+  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_VECTOR)
     {
       if (mode == SFmode)
 	store_string = "stxssp";

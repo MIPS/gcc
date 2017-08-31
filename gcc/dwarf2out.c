@@ -178,7 +178,7 @@ static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_frame_section;
 
 /* Maximum size (in bytes) of an artificially generated label.  */
-#define MAX_ARTIFICIAL_LABEL_BYTES	30
+#define MAX_ARTIFICIAL_LABEL_BYTES	40
 
 /* According to the (draft) DWARF 3 specification, the initial length
    should either be 4 or 12 bytes.  When it's 12 bytes, the first 4
@@ -4154,6 +4154,16 @@ add_dwarf_attr (dw_die_ref die, dw_attr_node *attr)
   /* Maybe this should be an assert?  */
   if (die == NULL)
     return;
+
+  if (flag_checking)
+    {
+      /* Check we do not add duplicate attrs.  Can't use get_AT here
+         because that recurses to the specification/abstract origin DIE.  */
+      dw_attr_node *a;
+      unsigned ix;
+      FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+	gcc_assert (a->dw_attr != attr->dw_attr);
+    }
 
   vec_safe_reserve (die->die_attr, 1);
   vec_safe_push (die->die_attr, *attr);
@@ -10030,7 +10040,7 @@ output_die (dw_die_ref die)
   if (! die->comdat_type_p && die->die_id.die_symbol
       /* Don't output the symbol twice.  For LTO we want the label
          on the section beginning, not on the actual DIE.  */
-      && (!flag_generate_lto
+      && ((!flag_generate_lto && !flag_generate_offload)
 	  || die->die_tag != DW_TAG_compile_unit))
     output_die_symbol (die);
 
@@ -10481,7 +10491,7 @@ output_comp_unit (dw_die_ref die, int output_if_empty,
 
   /* For LTO cross unit DIE refs we want a symbol on the start of the
      debuginfo section, not on the CU DIE.  */
-  if (flag_generate_lto && oldsym)
+  if ((flag_generate_lto || flag_generate_offload) && oldsym)
     {
       /* ???  No way to get visibility assembled without a decl.  */
       tree decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
@@ -20985,7 +20995,7 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 	add_AT_unsigned (array_die, DW_AT_byte_size, size);
       /* ???  We can't annotate types late, but for LTO we may not
 	 generate a location early either (gfortran.dg/save_6.f90).  */
-      else if (! (early_dwarf && flag_generate_lto)
+      else if (! (early_dwarf && (flag_generate_lto || flag_generate_offload))
 	       && TYPE_DOMAIN (type) != NULL_TREE
 	       && TYPE_MAX_VALUE (TYPE_DOMAIN (type)) != NULL_TREE)
 	{
@@ -21751,7 +21761,10 @@ dwarf2out_abstract_function (tree decl)
     return;
 
   old_die = lookup_decl_die (decl);
-  /* With early debug we always have an old DIE.  */
+  /* With early debug we always have an old DIE unless we are in LTO
+     and the user did not compile but only link with debug.  */
+  if (in_lto_p && ! old_die)
+    return;
   gcc_assert (old_die != NULL);
   if (get_AT (old_die, DW_AT_inline)
       || get_AT (old_die, DW_AT_abstract_origin))
@@ -22221,28 +22234,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    add_AT_flag (subr_die, DW_AT_rvalue_reference, 1);
 	}
     }
-  /* Tag abstract instances with DW_AT_inline.  */
-  else if (DECL_ABSTRACT_P (decl))
-    {
-      if (DECL_DECLARED_INLINE_P (decl))
-	{
-	  if (cgraph_function_possibly_inlined_p (decl))
-	    add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_declared_inlined);
-	  else
-	    add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_declared_not_inlined);
-	}
-      else
-	{
-	  if (cgraph_function_possibly_inlined_p (decl))
-	    add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_inlined);
-	  else
-	    add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_not_inlined);
-	}
-
-      if (DECL_DECLARED_INLINE_P (decl)
-	  && lookup_attribute ("artificial", DECL_ATTRIBUTES (decl)))
-	add_AT_flag (subr_die, DW_AT_artificial, 1);
-    }
   /* For non DECL_EXTERNALs, if range information is available, fill
      the DIE with it.  */
   else if (!DECL_EXTERNAL (decl) && !early_dwarf)
@@ -22485,7 +22476,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    {
 	      dw_die_ref parm_die = gen_decl_die (parm, NULL, NULL, subr_die);
 
-	      if (parm == DECL_ARGUMENTS (decl)
+	      if (early_dwarf
+		  && parm == DECL_ARGUMENTS (decl)
 		  && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE
 		  && parm_die
 		  && (dwarf_version >= 3 || !dwarf_strict))
@@ -25630,10 +25622,16 @@ dwarf2out_early_global_decl (tree decl)
 	     with C++ constructor clones for example and makes
 	     dwarf2out_abstract_function happy which requires the early
 	     DIE of the abstract instance to be present.  */
-	  if (DECL_ABSTRACT_ORIGIN (decl))
+	  tree origin = DECL_ABSTRACT_ORIGIN (decl);
+	  dw_die_ref origin_die;
+	  if (origin != NULL
+	      /* Do not emit the DIE multiple times but make sure to
+	         process it fully here in case we just saw a declaration.  */
+	      && ((origin_die = lookup_decl_die (origin)) == NULL
+		  || is_declaration_die (origin_die)))
 	    {
-	      current_function_decl = DECL_ABSTRACT_ORIGIN (decl);
-	      dwarf2out_decl (DECL_ABSTRACT_ORIGIN (decl));
+	      current_function_decl = origin;
+	      dwarf2out_decl (origin);
 	    }
 
 	  current_function_decl = decl;
@@ -26176,7 +26174,8 @@ gen_remaining_tmpl_value_param_die_attribute (void)
       j = 0;
       FOR_EACH_VEC_ELT (*tmpl_value_parm_die_table, i, e)
 	{
-	  if (!tree_add_const_value_attribute (e->die, e->arg))
+	  if (!e->die->removed
+	      && !tree_add_const_value_attribute (e->die, e->arg))
 	    {
 	      dw_loc_descr_ref loc = NULL;
 	      if (! early_dwarf
@@ -29197,7 +29196,7 @@ resolve_addr (dw_die_ref die)
 		    add_AT_flag (tdie, DW_AT_external, 1);
 		    add_AT_flag (tdie, DW_AT_declaration, 1);
 		    add_linkage_attr (tdie, tdecl);
-		    add_name_and_src_coords_attributes (tdie, tdecl);
+		    add_name_and_src_coords_attributes (tdie, tdecl, true);
 		    equate_decl_number_to_die (tdecl, tdie);
 		  }
 	      }
@@ -29879,9 +29878,9 @@ dwarf2out_finish (const char *)
 
   gen_remaining_tmpl_value_param_die_attribute ();
 
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     {
-      gcc_assert (flag_fat_lto_objects);
+      gcc_assert (flag_fat_lto_objects || flag_generate_offload);
 
       /* Prune stuff so that dwarf2out_finish runs successfully
 	 for the fat part of the object.  */
@@ -30107,13 +30106,6 @@ dwarf2out_finish (const char *)
       output_comdat_type_unit (ctnode);
       *slot = ctnode;
     }
-
-  /* The AT_pubnames attribute needs to go in all skeleton dies, including
-     both the main_cu and all skeleton TUs.  Making this call unconditional
-     would end up either adding a second copy of the AT_pubnames attribute, or
-     requiring a special case in add_top_level_skeleton_die_attrs.  */
-  if (!dwarf_split_debug_info)
-    add_AT_pubnames (comp_unit_die ());
 
   if (dwarf_split_debug_info)
     {
@@ -30457,7 +30449,7 @@ note_variable_value_in_expr (dw_die_ref die, dw_loc_descr_ref loc)
       {
 	tree decl = loc->dw_loc_oprnd1.v.val_decl_ref;
 	dw_die_ref ref = lookup_decl_die (decl);
-	if (! ref && flag_generate_lto)
+	if (! ref && (flag_generate_lto || flag_generate_offload))
 	  {
 	    /* ???  This is somewhat a hack because we do not create DIEs
 	       for variables not in BLOCK trees early but when generating
@@ -30664,11 +30656,18 @@ dwarf2out_early_finish (const char *filename)
   for (limbo_die_node *node = limbo_die_list; node; node = node->next)
     note_variable_value (node->die);
 
+  /* The AT_pubnames attribute needs to go in all skeleton dies, including
+     both the main_cu and all skeleton TUs.  Making this call unconditional
+     would end up either adding a second copy of the AT_pubnames attribute, or
+     requiring a special case in add_top_level_skeleton_die_attrs.  */
+  if (!dwarf_split_debug_info)
+    add_AT_pubnames (comp_unit_die ());
+
   /* The early debug phase is now finished.  */
   early_dwarf_finished = true;
 
   /* Do not generate DWARF assembler now when not producing LTO bytecode.  */
-  if (!flag_generate_lto)
+  if (!flag_generate_lto && !flag_generate_offload)
     return;
 
   /* Now as we are going to output for LTO initialize sections and labels
@@ -30723,13 +30722,6 @@ dwarf2out_early_finish (const char *filename)
       output_comdat_type_unit (ctnode);
       *slot = ctnode;
     }
-
-  /* The AT_pubnames attribute needs to go in all skeleton dies, including
-     both the main_cu and all skeleton TUs.  Making this call unconditional
-     would end up either adding a second copy of the AT_pubnames attribute, or
-     requiring a special case in add_top_level_skeleton_die_attrs.  */
-  if (!dwarf_split_debug_info)
-    add_AT_pubnames (comp_unit_die ());
 
   /* Stick a unique symbol to the main debuginfo section.  */
   compute_comp_unit_symbol (comp_unit_die ());

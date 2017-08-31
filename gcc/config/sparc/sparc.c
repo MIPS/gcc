@@ -650,6 +650,7 @@ static rtx sparc_function_arg (cumulative_args_t,
 			       machine_mode, const_tree, bool);
 static rtx sparc_function_incoming_arg (cumulative_args_t,
 					machine_mode, const_tree, bool);
+static pad_direction sparc_function_arg_padding (machine_mode, const_tree);
 static unsigned int sparc_function_arg_boundary (machine_mode,
 						 const_tree);
 static int sparc_arg_partial_bytes (cumulative_args_t,
@@ -677,6 +678,9 @@ static scalar_int_mode sparc_cstore_mode (enum insn_code icode);
 static void sparc_atomic_assign_expand_fenv (tree *, tree *, tree *);
 static bool sparc_fixed_condition_code_regs (unsigned int *, unsigned int *);
 static unsigned int sparc_min_arithmetic_precision (void);
+static bool sparc_hard_regno_mode_ok (unsigned int, machine_mode);
+static bool sparc_modes_tieable_p (machine_mode, machine_mode);
+
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 /* Table of valid machine attributes.  */
@@ -795,6 +799,8 @@ char sparc_hard_reg_printed[8];
 #define TARGET_FUNCTION_ARG sparc_function_arg
 #undef TARGET_FUNCTION_INCOMING_ARG
 #define TARGET_FUNCTION_INCOMING_ARG sparc_function_incoming_arg
+#undef TARGET_FUNCTION_ARG_PADDING
+#define TARGET_FUNCTION_ARG_PADDING sparc_function_arg_padding
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY sparc_function_arg_boundary
 
@@ -900,6 +906,12 @@ char sparc_hard_reg_printed[8];
 
 #undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 #define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK sparc_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P sparc_modes_tieable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4976,7 +4988,7 @@ enum sparc_mode_class {
    registers can hold double-word quantities in 32-bit mode.  */
 
 /* This points to either the 32-bit or the 64-bit version.  */
-const int *hard_regno_mode_classes;
+static const int *hard_regno_mode_classes;
 
 static const int hard_32bit_mode_classes[] = {
   S_MODES, S_MODES, T_MODES, S_MODES, T_MODES, S_MODES, D_MODES, S_MODES,
@@ -5028,7 +5040,7 @@ static const int hard_64bit_mode_classes[] = {
   CC_MODES, 0, D_MODES
 };
 
-int sparc_mode_class [NUM_MACHINE_MODES];
+static int sparc_mode_class [NUM_MACHINE_MODES];
 
 enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
@@ -7308,18 +7320,17 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
     }
 }
 
-/* Handle the FUNCTION_ARG_PADDING macro.
-   For the 64-bit ABI structs are always stored left shifted in their
-   argument slot.  */
+/* Implement TARGET_FUNCTION_ARG_PADDING.  For the 64-bit ABI structs
+   are always stored left shifted in their argument slot.  */
 
-pad_direction
-function_arg_padding (machine_mode mode, const_tree type)
+static pad_direction
+sparc_function_arg_padding (machine_mode mode, const_tree type)
 {
   if (TARGET_ARCH64 && type && AGGREGATE_TYPE_P (type))
     return PAD_UPWARD;
 
   /* Fall back to the default.  */
-  return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
+  return default_function_arg_padding (mode, type);
 }
 
 /* Handle the TARGET_RETURN_IN_MEMORY target hook.
@@ -13124,15 +13135,24 @@ sparc_regmode_natural_size (machine_mode mode)
   return size;
 }
 
-/* Return TRUE if it is a good idea to tie two pseudo registers
-   when one has mode MODE1 and one has mode MODE2.
-   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be FALSE for correct output.
+/* Implement TARGET_HARD_REGNO_MODE_OK.
+
+   ??? Because of the funny way we pass parameters we should allow certain
+   ??? types of float/complex values to be in integer registers during
+   ??? RTL generation.  This only matters on arch32.  */
+
+static bool
+sparc_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  return (hard_regno_mode_classes[regno] & sparc_mode_class[mode]) != 0;
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.
 
    For V9 we have to deal with the fact that only the lower 32 floating
    point registers are 32-bit addressable.  */
 
-bool
+static bool
 sparc_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 {
   enum mode_class mclass1, mclass2;

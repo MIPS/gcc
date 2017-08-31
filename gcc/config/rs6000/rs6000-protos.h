@@ -197,7 +197,6 @@ extern void rs6000_xcoff_asm_output_aligned_decl_common (FILE *, tree,
 							 unsigned HOST_WIDE_INT);
 extern void rs6000_elf_declare_function_name (FILE *, const char *, tree);
 extern bool rs6000_elf_in_small_data_p (const_tree);
-extern pad_direction function_arg_padding (machine_mode, const_tree);
 
 #endif /* TREE_CODE */
 
@@ -252,7 +251,6 @@ const char * rs6000_xcoff_strip_dollar (const char *);
 
 void rs6000_final_prescan_insn (rtx_insn *, rtx *operand, int num_operands);
 
-extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];
 extern unsigned char rs6000_class_max_nregs[][LIM_REG_CLASSES];
 extern unsigned char rs6000_hard_regno_nregs[][FIRST_PSEUDO_REGISTER];
 

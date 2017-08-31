@@ -2985,7 +2985,7 @@ nios2_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
     cum->regs_used += param_size;
 }
 
-pad_direction
+static pad_direction
 nios2_function_arg_padding (machine_mode mode, const_tree type)
 {
   /* On little-endian targets, the first byte of every stack argument
@@ -5011,6 +5011,9 @@ nios2_adjust_reg_alloc_order (void)
 
 #undef TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE nios2_function_arg_advance
+
+#undef TARGET_FUNCTION_ARG_PADDING
+#define TARGET_FUNCTION_ARG_PADDING nios2_function_arg_padding
 
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES nios2_arg_partial_bytes

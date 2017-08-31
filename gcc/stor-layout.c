@@ -1984,7 +1984,7 @@ finish_bitfield_representative (tree repr, tree field)
   /* Find the smallest nice mode to use.  */
   opt_scalar_int_mode mode_iter;
   FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
-    if (GET_MODE_BITSIZE (*mode_iter) >= bitsize)
+    if (GET_MODE_BITSIZE (mode_iter.require ()) >= bitsize)
       break;
 
   scalar_int_mode mode;
@@ -2240,7 +2240,8 @@ layout_type (tree type)
 	/* Allow the caller to choose the type mode, which is how decimal
 	   floats are distinguished from binary ones.  */
 	if (TYPE_MODE (type) == VOIDmode)
-	  SET_TYPE_MODE (type, *float_mode_for_size (TYPE_PRECISION (type)));
+	  SET_TYPE_MODE
+	    (type, float_mode_for_size (TYPE_PRECISION (type)).require ());
 	scalar_float_mode mode = as_a <scalar_float_mode> (TYPE_MODE (type));
 	TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (mode));
 	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
@@ -2780,9 +2781,9 @@ bit_field_mode_iterator
 bool
 bit_field_mode_iterator::next_mode (scalar_int_mode *out_mode)
 {
-  for (; m_mode.exists (); m_mode = GET_MODE_WIDER_MODE (*m_mode))
+  scalar_int_mode mode;
+  for (; m_mode.exists (&mode); m_mode = GET_MODE_WIDER_MODE (mode))
     {
-      scalar_int_mode mode = *m_mode;
       unsigned int unit = GET_MODE_BITSIZE (mode);
 
       /* Skip modes that don't have full precision.  */

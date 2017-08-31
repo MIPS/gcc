@@ -860,7 +860,7 @@ init_optabs (void)
      have a libgcc2 function for that width.  */
   if (INT_TYPE_SIZE < BITS_PER_WORD)
     {
-      scalar_int_mode mode = *int_mode_for_size (INT_TYPE_SIZE, 0);
+      scalar_int_mode mode = int_mode_for_size (INT_TYPE_SIZE, 0).require ();
       set_optab_libfunc (ffs_optab, mode, "ffs");
     }
 
@@ -914,7 +914,7 @@ init_sync_libfuncs_1 (optab tab, const char *base, int max)
   for (i = 1; i <= max; i *= 2)
     {
       if (i > 1)
-	mode = *GET_MODE_2XWIDER_MODE (mode);
+	mode = GET_MODE_2XWIDER_MODE (mode).require ();
       buf[len + 1] = '0' + i;
       set_optab_libfunc (tab, mode, buf);
     }

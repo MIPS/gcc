@@ -2159,7 +2159,7 @@ widen_leading (scalar_int_mode mode, rtx op0, rtx target, optab unoptab)
   opt_scalar_int_mode wider_mode_iter;
   FOR_EACH_WIDER_MODE (wider_mode_iter, mode)
     {
-      scalar_int_mode wider_mode = *wider_mode_iter;
+      scalar_int_mode wider_mode = wider_mode_iter.require ();
       if (optab_handler (unoptab, wider_mode) != CODE_FOR_nothing)
 	{
 	  rtx xop0, temp;
@@ -2324,13 +2324,14 @@ widen_bswap (scalar_int_mode mode, rtx op0, rtx target)
   opt_scalar_int_mode wider_mode_iter;
 
   FOR_EACH_WIDER_MODE (wider_mode_iter, mode)
-    if (optab_handler (bswap_optab, *wider_mode_iter) != CODE_FOR_nothing)
+    if (optab_handler (bswap_optab, wider_mode_iter.require ())
+	!= CODE_FOR_nothing)
       break;
 
   if (!wider_mode_iter.exists ())
     return NULL_RTX;
 
-  scalar_int_mode wider_mode = *wider_mode_iter;
+  scalar_int_mode wider_mode = wider_mode_iter.require ();
   last = get_last_insn ();
 
   x = widen_operand (op0, wider_mode, mode, true, true);
@@ -2387,7 +2388,7 @@ expand_parity (scalar_int_mode mode, rtx op0, rtx target)
   opt_scalar_int_mode wider_mode_iter;
   FOR_EACH_MODE_FROM (wider_mode_iter, mode)
     {
-      scalar_int_mode wider_mode = *wider_mode_iter;
+      scalar_int_mode wider_mode = wider_mode_iter.require ();
       if (optab_handler (popcount_optab, wider_mode) != CODE_FOR_nothing)
 	{
 	  rtx xop0, temp;
@@ -3834,7 +3835,7 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
       opt_scalar_int_mode cmp_mode_iter;
       FOR_EACH_MODE_IN_CLASS (cmp_mode_iter, MODE_INT)
 	{
-	  scalar_int_mode cmp_mode = *cmp_mode_iter;
+	  scalar_int_mode cmp_mode = cmp_mode_iter.require ();
 	  cmp_code = direct_optab_handler (cmpmem_optab, cmp_mode);
 	  if (cmp_code == CODE_FOR_nothing)
 	    cmp_code = direct_optab_handler (cmpstr_optab, cmp_mode);
@@ -4731,13 +4732,14 @@ expand_float (rtx to, rtx from, int unsignedp)
 	 with unsigned values greater than the signed maximum value.  */
 
       FOR_EACH_MODE_FROM (fmode_iter, to_mode)
-	if (GET_MODE_PRECISION (from_mode) < GET_MODE_BITSIZE (*fmode_iter)
-	    && can_float_p (*fmode_iter, from_mode, 0) != CODE_FOR_nothing)
-	  break;
+	{
+	  scalar_mode fmode = fmode_iter.require ();
+	  if (GET_MODE_PRECISION (from_mode) < GET_MODE_BITSIZE (fmode)
+	      && can_float_p (fmode, from_mode, 0) != CODE_FOR_nothing)
+	    break;
+	}
 
-      if (fmode_iter.exists ())
-	fmode = *fmode_iter;
-      else
+      if (!fmode_iter.exists (&fmode))
 	{
 	  /* There is no such mode.  Pretend the target is wide enough.  */
 	  fmode = to_mode;
@@ -4946,7 +4948,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
       && HWI_COMPUTABLE_MODE_P (to_mode))
     FOR_EACH_MODE_FROM (fmode_iter, as_a <scalar_mode> (GET_MODE (from)))
       {
-	scalar_mode fmode = *fmode_iter;
+	scalar_mode fmode = fmode_iter.require ();
 	if (CODE_FOR_nothing != can_fix_p (to_mode, fmode,
 					   0, &must_trunc)
 	    && (!DECIMAL_FLOAT_MODE_P (fmode)
@@ -6356,17 +6358,19 @@ expand_asm_memory_barrier (void)
 void
 expand_mem_thread_fence (enum memmodel model)
 {
+  if (is_mm_relaxed (model))
+    return;
   if (targetm.have_mem_thread_fence ())
-    emit_insn (targetm.gen_mem_thread_fence (GEN_INT (model)));
-  else if (!is_mm_relaxed (model))
     {
-      if (targetm.have_memory_barrier ())
-	emit_insn (targetm.gen_memory_barrier ());
-      else if (synchronize_libfunc != NULL_RTX)
-	emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
-      else
-	expand_asm_memory_barrier ();
+      emit_insn (targetm.gen_mem_thread_fence (GEN_INT (model)));
+      expand_asm_memory_barrier ();
     }
+  else if (targetm.have_memory_barrier ())
+    emit_insn (targetm.gen_memory_barrier ());
+  else if (synchronize_libfunc != NULL_RTX)
+    emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
+  else
+    expand_asm_memory_barrier ();
 }
 
 /* This routine will either emit the mem_signal_fence pattern or issue a 

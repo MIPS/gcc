@@ -6068,7 +6068,7 @@ c6x_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno, int *total,
       /* Recognize a mult_highpart operation.  */
       if ((mode == HImode || mode == SImode)
 	  && GET_CODE (XEXP (x, 0)) == LSHIFTRT
-	  && GET_MODE (XEXP (x, 0)) == *GET_MODE_2XWIDER_MODE (mode)
+	  && GET_MODE (XEXP (x, 0)) == GET_MODE_2XWIDER_MODE (mode).require ()
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) == GET_MODE_BITSIZE (mode))
@@ -6699,6 +6699,25 @@ c6x_debug_unwind_info (void)
 
   return default_debug_unwind_info ();
 }
+
+/* Implement TARGET_HARD_REGNO_MODE_OK.  */
+
+static bool
+c6x_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  return GET_MODE_SIZE (mode) <= UNITS_PER_WORD || (regno & 1) == 0;
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.  */
+
+static bool
+c6x_modes_tieable_p (machine_mode mode1, machine_mode mode2)
+{
+  return (mode1 == mode2
+	  || (GET_MODE_SIZE (mode1) <= UNITS_PER_WORD
+	      && GET_MODE_SIZE (mode2) <= UNITS_PER_WORD));
+}
+
 
 /* Target Structure.  */
 
@@ -6864,6 +6883,11 @@ c6x_debug_unwind_info (void)
 #define TARGET_EXPAND_BUILTIN c6x_expand_builtin
 #undef  TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL c6x_builtin_decl
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK c6x_hard_regno_mode_ok
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P c6x_modes_tieable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -5501,8 +5501,8 @@ DEFHOOK
 (hard_regno_mode_ok,
  "This hook returns true if it is permissible to store a value\n\
 of mode @var{mode} in hard register number @var{regno} (or in several\n\
-registers starting with that one).  For a machine where all registers\n\
-are equivalent, the hook would typically return true unconditionally.\n\
+registers starting with that one).  The default definition returns true\n\
+unconditionally.\n\
 \n\
 You need not include code to check for the numbers of fixed registers,\n\
 because the allocation mechanism considers them to be always occupied.\n\
@@ -5554,7 +5554,7 @@ register if floating point arithmetic is not being done.  As long as the\n\
 floating registers are not in class @code{GENERAL_REGS}, they will not\n\
 be used unless some pattern's constraint asks for one.",
  bool, (unsigned int regno, machine_mode mode),
- default_hard_regno_mode_ok)
+ hook_bool_uint_mode_true)
 
 DEFHOOK
 (modes_tieable_p,
@@ -5571,9 +5571,9 @@ accessibility of the value in a narrower mode.\n\
 \n\
 You should define this hook to return true in as many cases as\n\
 possible since doing so will allow GCC to perform better register\n\
-allocation.",
+allocation.  The default definition returns true unconditionally.",
  bool, (machine_mode mode1, machine_mode mode2),
- default_modes_tieable_p)
+ hook_bool_mode_mode_true)
 
 /* Return true if is OK to use a hard register REGNO as scratch register
    in peephole2.  */
@@ -5600,7 +5600,7 @@ return true for a 64-bit mode but false for a 32-bit mode.\n\
 The default implementation returns false, which is correct\n\
 for targets that don't have partly call-clobbered registers.",
  bool, (unsigned int regno, machine_mode mode),
- default_hard_regno_call_part_clobbered)
+ hook_bool_uint_mode_false)
 
 /* Return the smallest number of different values for which it is best to
    use a jump-table instead of a tree of conditional branches.  */

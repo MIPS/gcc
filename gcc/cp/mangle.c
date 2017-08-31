@@ -3016,6 +3016,7 @@ write_expression (tree expr)
 	{
 	  scope = TREE_OPERAND (expr, 0);
 	  member = TREE_OPERAND (expr, 1);
+	  gcc_assert (!BASELINK_P (member));
 	}
       else
 	{

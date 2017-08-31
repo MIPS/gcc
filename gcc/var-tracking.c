@@ -6347,7 +6347,7 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 		opt_scalar_int_mode mode_iter;
 		FOR_EACH_WIDER_MODE (mode_iter, mode)
 		  {
-		    mode = *mode_iter;
+		    mode = mode_iter.require ();
 		    if (GET_MODE_BITSIZE (mode) > BITS_PER_WORD)
 		      break;
 

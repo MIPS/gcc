@@ -4119,9 +4119,9 @@ gimplify_parameters (void)
    rounding affects the initial and starting offsets, but not the argument
    size.
 
-   The second, controlled by targetm.calls.function_arg_padding and
-   PARM_BOUNDARY, optionally rounds the size of the parm to PARM_BOUNDARY.
-   The initial offset is not affected by this rounding, while the size always
+   The second, controlled by TARGET_FUNCTION_ARG_PADDING and PARM_BOUNDARY,
+   optionally rounds the size of the parm to PARM_BOUNDARY.  The
+   initial offset is not affected by this rounding, while the size always
    is and the starting offset may be.  */
 
 /*  LOCATE->OFFSET will be negative for ARGS_GROW_DOWNWARD case;
@@ -6288,7 +6288,7 @@ fndecl_name (tree fndecl)
 {
   if (fndecl == NULL)
     return "(nofn)";
-  return lang_hooks.decl_printable_name (fndecl, 2);
+  return lang_hooks.decl_printable_name (fndecl, 1);
 }
 
 /* Returns the name of function FN.  */

@@ -206,12 +206,12 @@ get_best_extraction_insn (extraction_insn *insn,
   opt_scalar_int_mode mode_iter;
   FOR_EACH_MODE_FROM (mode_iter, smallest_int_mode_for_size (struct_bits))
     {
-      scalar_int_mode mode = *mode_iter;
+      scalar_int_mode mode = mode_iter.require ();
       if (get_extraction_insn (insn, pattern, type, mode))
 	{
 	  FOR_EACH_MODE_FROM (mode_iter, mode)
 	    {
-	      mode = *mode_iter;
+	      mode = mode_iter.require ();
 	      if (may_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (field_mode))
 		  || TRULY_NOOP_TRUNCATION_MODES_P (insn->field_mode,
 						    field_mode))

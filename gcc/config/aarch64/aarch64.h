@@ -420,10 +420,6 @@ extern unsigned aarch64_architecture_version;
 
 #define HARD_REGNO_NREGS(REGNO, MODE)	aarch64_hard_regno_nregs (REGNO, MODE)
 
-#define HARD_REGNO_MODE_OK(REGNO, MODE)	aarch64_hard_regno_mode_ok (REGNO, MODE)
-
-#define MODES_TIEABLE_P(MODE1, MODE2) aarch64_modes_tieable_p (MODE1, MODE2)
-
 #define DWARF2_UNWIND_INFO 1
 
 /* Use R0 through R3 to pass exception handling information.  */
@@ -704,9 +700,6 @@ typedef struct
 } CUMULATIVE_ARGS;
 #endif
 
-#define FUNCTION_ARG_PADDING(MODE, TYPE) \
-  (aarch64_pad_arg_upward (MODE, TYPE) ? PAD_UPWARD : PAD_DOWNWARD)
-
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
   (aarch64_pad_reg_upward (MODE, TYPE, FIRST) ? PAD_UPWARD : PAD_DOWNWARD)
 
@@ -919,12 +912,6 @@ typedef struct
    required size of load/store.  */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
   aarch64_hard_regno_caller_save_mode ((REGNO), (NREGS), (MODE))
-
-/* Callee only saves lower 64-bits of a 128-bit register.  Tell the
-   compiler the callee clobbers the top 64-bits when restoring the
-   bottom 64-bits.  */
-#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE) \
-		(FP_REGNUM_P (REGNO) && may_gt (GET_MODE_SIZE (MODE), 8))
 
 #undef SWITCHABLE_TARGET
 #define SWITCHABLE_TARGET 1

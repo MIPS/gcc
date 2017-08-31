@@ -1383,7 +1383,7 @@ vect_verify_full_masking (loop_vec_info loop_vinfo)
   tree cmp_type = NULL_TREE;
   FOR_EACH_MODE_IN_CLASS (cmp_mode_iter, MODE_INT)
     {
-      scalar_int_mode cmp_mode = *cmp_mode_iter;
+      scalar_int_mode cmp_mode = cmp_mode_iter.require ();
       if (GET_MODE_BITSIZE (cmp_mode) >= min_ni_width)
 	{
 	  tree this_type = lang_hooks.types.type_for_mode (cmp_mode, true);
@@ -7499,10 +7499,12 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 		}
 	      tree mask = vect_get_loop_mask (gsi, masks, vec_num * ncopies,
 					      vectype_in, i * ncopies + j);
-	      new_stmt = gimple_build_call_internal (cond_fn, 3, mask,
-						     vop[0], vop[1]);
-	      new_temp = make_ssa_name (vec_dest, new_stmt);
-	      gimple_call_set_lhs (new_stmt, new_temp);
+	      gcall *call = gimple_build_call_internal (cond_fn, 3, mask,
+							vop[0], vop[1]);
+	      new_temp = make_ssa_name (vec_dest, call);
+	      gimple_call_set_lhs (call, new_temp);
+	      gimple_call_set_nothrow (call, true);
+	      new_stmt = call;
 	    }
 	  else
 	    {

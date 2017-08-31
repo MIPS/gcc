@@ -5358,7 +5358,7 @@ expand_builtin_signbit (tree exp, rtx target)
 
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
-      imode = *int_mode_for_mode (fmode);
+      imode = int_mode_for_mode (fmode).require ();
       temp = gen_lowpart (imode, temp);
     }
   else
@@ -10358,7 +10358,7 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
   if (DECL_FUNCTION_CODE (decl) == BUILT_IN_FFS
       && INT_TYPE_SIZE < BITS_PER_WORD)
     {
-      scalar_int_mode mode = *int_mode_for_size (INT_TYPE_SIZE, 0);
+      scalar_int_mode mode = int_mode_for_size (INT_TYPE_SIZE, 0).require ();
       set_user_assembler_libfunc ("ffs", asmspec);
       set_optab_libfunc (ffs_optab, mode, "ffs");
     }

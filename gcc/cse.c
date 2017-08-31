@@ -4862,7 +4862,7 @@ cse_insn (rtx_insn *insn)
 	  opt_scalar_int_mode wider_mode_iter;
 	  FOR_EACH_WIDER_MODE (wider_mode_iter, int_mode)
 	    {
-	      scalar_int_mode wider_mode = *wider_mode_iter;
+	      scalar_int_mode wider_mode = wider_mode_iter.require ();
 	      if (GET_MODE_PRECISION (wider_mode) > BITS_PER_WORD)
 		break;
 
@@ -4901,7 +4901,7 @@ cse_insn (rtx_insn *insn)
 
 	  FOR_EACH_WIDER_MODE (tmode_iter, int_mode)
 	    {
-	      scalar_int_mode tmode = *tmode_iter;
+	      scalar_int_mode tmode = tmode_iter.require ();
 	      if (GET_MODE_SIZE (tmode) > UNITS_PER_WORD)
 		break;
 
@@ -4956,7 +4956,7 @@ cse_insn (rtx_insn *insn)
 	    {
 	      struct table_elt *larger_elt;
 
-	      scalar_int_mode tmode = *tmode_iter;
+	      scalar_int_mode tmode = tmode_iter.require ();
 	      if (GET_MODE_SIZE (tmode) > UNITS_PER_WORD)
 		break;
 
@@ -6662,6 +6662,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	 equivalences due to the condition being tested.  */
       insn = BB_END (bb);
       if (path_entry < path_size - 1
+	  && EDGE_COUNT (bb->succs) == 2
 	  && JUMP_P (insn)
 	  && single_set (insn)
 	  && any_condjump_p (insn))

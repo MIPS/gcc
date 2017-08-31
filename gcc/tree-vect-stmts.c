@@ -2382,22 +2382,25 @@ do_scatter_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  >= GET_MODE_BITSIZE (SCALAR_TYPE_MODE (ptrtype)))
 	off_unsigned = false;
 
+      gcall *call;
       if (builtin_scatter_p)
-	new_stmt
+	call
 	  = gimple_build_call (gs_info->decl, 5, ptr, mask, op, src, scale);
       else if (masked_loop_p)
 	{
 	  tree mask = vect_get_loop_mask (gsi, masks, ncopies, vectype, j);
 	  if (masked_stmt_p)
 	    mask = prepare_load_store_mask (masktype, mask, mask_op, gsi);
-	  new_stmt = gimple_build_call_internal
+	  call = gimple_build_call_internal
 	    (off_unsigned ? IFN_MASK_SCATTER_STOREU : IFN_MASK_SCATTER_STORES,
 	     5, ptr, op, scale, src, mask);
 	}
       else
-	new_stmt = gimple_build_call_internal
+	call = gimple_build_call_internal
 	  (off_unsigned ? IFN_SCATTER_STOREU : IFN_SCATTER_STORES, 4, ptr, op,
 	   scale, src);
+      gimple_call_set_nothrow (call, true);
+      new_stmt = call;
 
       vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
@@ -2662,10 +2665,11 @@ do_gather_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       bool masked_loop_p = (loop_vinfo
 			    && LOOP_VINFO_FULLY_MASKED_P (loop_vinfo));
 
+      gcall *call;
       if (builtin_gather_p)
 	{
 	  gcc_assert (!masked_loop_p);
-	  new_stmt = gimple_build_call
+	  call = gimple_build_call
 	    (gs_info->decl, 5, masked_stmt_p ? mask_op : merge, ptr, op,
 	     masked_stmt_p ? mask_op : mask, scale);
 	}
@@ -2683,20 +2687,21 @@ do_gather_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		mask = vect_get_loop_mask (gsi, masks, ncopies, vectype, j);
 	      if (masked_stmt_p)
 		mask = prepare_load_store_mask (masktype, mask, mask_op, gsi);
-	      new_stmt = gimple_build_call_internal (ifn, 4, ptr, op, scale,
-						     mask);
+	      call = gimple_build_call_internal (ifn, 4, ptr, op, scale, mask);
 	    }
 	  else
-	    new_stmt = gimple_build_call_internal (ifn, 3, ptr, op, scale);
+	    call = gimple_build_call_internal (ifn, 3, ptr, op, scale);
 	}
+      gimple_call_set_nothrow (call, true);
+      new_stmt = call;
 
       if (!useless_type_conversion_p (vectype, rettype))
 	{
 	  gcc_assert (must_eq (TYPE_VECTOR_SUBPARTS (vectype),
 			       TYPE_VECTOR_SUBPARTS (rettype)));
 	  op = vect_get_new_ssa_name (rettype, vect_simple_var);
-	  gimple_call_set_lhs (new_stmt, op);
-	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	  gimple_call_set_lhs (call, op);
+	  vect_finish_stmt_generation (stmt, call, gsi);
 	  var = make_ssa_name (vec_dest);
 	  op = build1 (VIEW_CONVERT_EXPR, vectype, op);
 	  new_stmt
@@ -2704,8 +2709,8 @@ do_gather_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	}
       else
 	{
-	  var = make_ssa_name (vec_dest, new_stmt);
-	  gimple_call_set_lhs (new_stmt, var);
+	  var = make_ssa_name (vec_dest, call);
+	  gimple_call_set_lhs (call, var);
 	}
 
       vect_finish_stmt_generation (stmt, new_stmt, gsi);
@@ -3422,7 +3427,7 @@ do_load_lanes (gimple *stmt, gimple_stmt_iterator *gsi,
   tree scalar_dest = gimple_get_lhs (stmt);
   tree vec_array = create_vector_array (vectype, group_size);
 
-  gimple *new_stmt;
+  gcall *new_stmt;
   if (mask)
     {
       /* Emit: VEC_ARRAY = MASK_LOAD_LANES (DATAREF_PTR, ALIAS_PTR, MASK).  */
@@ -3439,6 +3444,7 @@ do_load_lanes (gimple *stmt, gimple_stmt_iterator *gsi,
       new_stmt = gimple_build_call_internal (IFN_LOAD_LANES, 1, data_ref);
     }
   gimple_call_set_lhs (new_stmt, vec_array);
+  gimple_call_set_nothrow (new_stmt, true);
   vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
   /* Extract each vector into an SSA_NAME.  */
@@ -3476,7 +3482,7 @@ do_store_lanes (gimple *stmt, gimple_stmt_iterator *gsi,
   for (unsigned int i = 0; i < group_size; i++)
     write_vector_array (stmt, gsi, operands[i], vec_array, i);
 
-  gimple *new_stmt;
+  gcall *new_stmt;
   if (mask)
     {
       /* Emit: MASK_STORE_LANES (DATAREF_PTR, ALIAS_PTR, MASK, VEC_ARRAY).  */
@@ -3493,6 +3499,7 @@ do_store_lanes (gimple *stmt, gimple_stmt_iterator *gsi,
       new_stmt = gimple_build_call_internal (IFN_STORE_LANES, 1, vec_array);
       gimple_call_set_lhs (new_stmt, data_ref);
     }
+  gimple_call_set_nothrow (new_stmt, true);
   vect_finish_stmt_generation (stmt, new_stmt, gsi);
   return new_stmt;
 }
@@ -3813,9 +3820,11 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 					misalign
 					? least_bit_hwi (misalign)
 					: align);
-	      new_stmt
+	      gcall *call
 		= gimple_build_call_internal (IFN_MASK_STORE, 4, dataref_ptr,
 					      ptr, mask, vec_rhs);
+	      gimple_call_set_nothrow (call, true);
+	      new_stmt = call;
 	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
 	    }
 	  if (i == 0)
@@ -3905,16 +3914,17 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 					misalign
 					? least_bit_hwi (misalign)
 					: align);
-	      new_stmt
+	      gcall *call
 		= gimple_build_call_internal (IFN_MASK_LOAD, 3, dataref_ptr,
 					      ptr, mask);
-	      gimple_call_set_lhs (new_stmt, make_ssa_name (vec_dest));
-	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	      gimple_call_set_lhs (call, make_ssa_name (vec_dest));
+	      gimple_call_set_nothrow (call, true);
+	      vect_finish_stmt_generation (stmt, call, gsi);
 	      if (i == 0)
-		STMT_VINFO_VEC_STMT (stmt_info) = *vec_stmt = new_stmt;
+		STMT_VINFO_VEC_STMT (stmt_info) = *vec_stmt = call;
 	      else
-		STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
-	      prev_stmt_info = vinfo_for_stmt (new_stmt);
+		STMT_VINFO_RELATED_STMT (prev_stmt_info) = call;
+	      prev_stmt_info = vinfo_for_stmt (call);
 	    }
 	}
 
@@ -4364,8 +4374,11 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			 at present.  */
 		      gcc_assert (!conditional_p);
 		      tree half_res = make_ssa_name (vectype_in);
-		      new_stmt = gimple_build_call_internal_vec (ifn, vargs);
-		      gimple_call_set_lhs (new_stmt, half_res);
+		      gcall *call
+			= gimple_build_call_internal_vec (ifn, vargs);
+		      gimple_call_set_lhs (call, half_res);
+		      gimple_call_set_nothrow (call, true);
+		      new_stmt = call;
 		      vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		      if ((i & 1) == 0)
 			{
@@ -4388,12 +4401,15 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			    (TREE_TYPE (mask), mask, vargs[0], gsi);
 			}
 
+		      gcall *call;
 		      if (ifn != IFN_LAST)
-			new_stmt = gimple_build_call_internal_vec (ifn, vargs);
+			call = gimple_build_call_internal_vec (ifn, vargs);
 		      else
-			new_stmt = gimple_build_call_vec (fndecl, vargs);
-		      new_temp = make_ssa_name (vec_dest, new_stmt);
-		      gimple_call_set_lhs (new_stmt, new_temp);
+			call = gimple_build_call_vec (fndecl, vargs);
+		      new_temp = make_ssa_name (vec_dest, call);
+		      gimple_call_set_lhs (call, new_temp);
+		      gimple_call_set_nothrow (call, true);
+		      new_stmt = call;
 		    }
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		  SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
@@ -4444,8 +4460,10 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		 present.  */
 	      gcc_assert (!conditional_p);
 	      tree half_res = make_ssa_name (vectype_in);
-	      new_stmt = gimple_build_call_internal_vec (ifn, vargs);
-	      gimple_call_set_lhs (new_stmt, half_res);
+	      gcall *call = gimple_build_call_internal_vec (ifn, vargs);
+	      gimple_call_set_lhs (call, half_res);
+	      gimple_call_set_nothrow (call, true);
+	      new_stmt = call;
 	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
 	      if ((j & 1) == 0)
 		{
@@ -4458,12 +4476,15 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 	  else
 	    {
+	      gcall *call;
 	      if (ifn != IFN_LAST)
-		new_stmt = gimple_build_call_internal_vec (ifn, vargs);
+		call = gimple_build_call_internal_vec (ifn, vargs);
 	      else
-		new_stmt = gimple_build_call_vec (fndecl, vargs);
+		call = gimple_build_call_vec (fndecl, vargs);
 	      new_temp = make_ssa_name (vec_dest, new_stmt);
-	      gimple_call_set_lhs (new_stmt, new_temp);
+	      gimple_call_set_lhs (call, new_temp);
+	      gimple_call_set_nothrow (call, true);
+	      new_stmt = call;
 	    }
 	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 
@@ -4508,12 +4529,15 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		      vargs.quick_push (vec_oprndsk[i]);
 		      vargs.quick_push (vec_oprndsk[i + 1]);
 		    }
+		  gcall *call;
 		  if (ifn != IFN_LAST)
-		    new_stmt = gimple_build_call_internal_vec (ifn, vargs);
+		    call = gimple_build_call_internal_vec (ifn, vargs);
 		  else
-		    new_stmt = gimple_build_call_vec (fndecl, vargs);
-		  new_temp = make_ssa_name (vec_dest, new_stmt);
-		  gimple_call_set_lhs (new_stmt, new_temp);
+		    call = gimple_build_call_vec (fndecl, vargs);
+		  new_temp = make_ssa_name (vec_dest, call);
+		  gimple_call_set_lhs (call, new_temp);
+		  gimple_call_set_nothrow (call, true);
+		  new_stmt = call;
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		  SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
 		}
@@ -5691,7 +5715,7 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
       fltsz = GET_MODE_SIZE (lhs_mode);
       FOR_EACH_2XWIDER_MODE (rhs_mode_iter, rhs_mode)
 	{
-	  rhs_mode = *rhs_mode_iter;
+	  rhs_mode = rhs_mode_iter.require ();
 	  if (GET_MODE_SIZE (rhs_mode) > fltsz)
 	    break;
 
@@ -7362,7 +7386,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		     supported.  */
 		  unsigned lsize
 		    = group_size * GET_MODE_BITSIZE (elmode);
-		  elmode = *int_mode_for_size (lsize, 0);
+		  elmode = int_mode_for_size (lsize, 0).require ();
 		  vmode = mode_for_vector (elmode, const_nunits / group_size);
 		  /* If we can't construct such a vector fall back to
 		     element extracts from the original vector type and
@@ -7743,8 +7767,10 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      if (masked_loop_p)
 		{
 		  tree ptr = build_int_cst (ref_type, align);
-		  new_stmt = gimple_build_call_internal
+		  gcall *call = gimple_build_call_internal
 		    (IFN_MASK_STORE, 4, dataref_ptr, ptr, mask, vec_oprnd);
+		  gimple_call_set_nothrow (call, true);
+		  new_stmt = call;
 		}
 	      else
 		{
@@ -7796,7 +7822,8 @@ vect_gen_perm_mask_any (tree vectype, unsigned int nunits,
 
   gcc_checking_assert (must_eq (nunits, TYPE_VECTOR_SUBPARTS (vectype)));
 
-  scalar_int_mode imode = *int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype)));
+  scalar_int_mode imode
+    = int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype))).require ();
   mask_elt_type = lang_hooks.types.type_for_mode (imode, 1);
   mask_type = get_vectype_for_scalar_type (mask_elt_type);
 
@@ -8271,7 +8298,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		     to a larger load.  */
 		  unsigned lsize
 		    = group_size * TYPE_PRECISION (TREE_TYPE (vectype));
-		  elmode = *int_mode_for_size (lsize, 0);
+		  elmode = int_mode_for_size (lsize, 0).require ();
 		  vmode = mode_for_vector (elmode, const_nunits / group_size);
 		  /* If we can't construct such a vector fall back to
 		     element loads of the original vector type.  */
@@ -8720,16 +8747,20 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			   load at the first element.  */
 			gcc_assert (!firstfaulting_p);
 			tree ptr = build_int_cst (ref_type, align);
-			new_stmt = gimple_build_call_internal
+			gcall *call = gimple_build_call_internal
 			  (IFN_MASK_LOAD, 3, dataref_ptr, ptr, mask);
-			gimple_call_set_lhs (new_stmt, vec_dest);
+			gimple_call_set_lhs (call, vec_dest);
+			gimple_call_set_nothrow (call, true);
+			new_stmt = call;
 		      }
 		    else if (firstfaulting_p)
 		      {
 			tree ptr = build_int_cst (ref_type, align);
-			new_stmt = gimple_build_call_internal
+			gcall *call = gimple_build_call_internal
 			  (IFN_FIRSTFAULT_LOAD, 2, dataref_ptr, ptr);
-			gimple_call_set_lhs (new_stmt, vec_dest);
+			gimple_call_set_lhs (call, vec_dest);
+			gimple_call_set_nothrow (call, true);
+			new_stmt = call;
 		      }
 		    else
 		      {

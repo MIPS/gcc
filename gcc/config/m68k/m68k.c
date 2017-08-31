@@ -189,6 +189,8 @@ static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 static enum flt_eval_method
 m68k_excess_precision (enum excess_precision_type);
+static bool m68k_hard_regno_mode_ok (unsigned int, machine_mode);
+static bool m68k_modes_tieable_p (machine_mode, machine_mode);
 
 /* Initialize the GCC target structure.  */
 
@@ -335,6 +337,12 @@ m68k_excess_precision (enum excess_precision_type);
 /* The value stored by TAS.  */
 #undef TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 #define TARGET_ATOMIC_TEST_AND_SET_TRUEVAL 128
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK m68k_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P m68k_modes_tieable_p
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
@@ -5172,12 +5180,12 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
   return 1;
 }
 
-/* Value is true if hard register REGNO can hold a value of machine-mode
-   MODE.  On the 68000, we let the cpu registers can hold any mode, but
-   restrict the 68881 registers to floating-point modes.  */
+/* Implement TARGET_HARD_REGNO_MODE_OK.  On the 68000, we let the cpu
+   registers can hold any mode, but restrict the 68881 registers to
+   floating-point modes.  */
 
-bool
-m68k_regno_mode_ok (int regno, machine_mode mode)
+static bool
+m68k_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
   if (DATA_REGNO_P (regno))
     {
@@ -5200,6 +5208,18 @@ m68k_regno_mode_ok (int regno, machine_mode mode)
 	return true;
     }
   return false;
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.  */
+
+static bool
+m68k_modes_tieable_p (machine_mode mode1, machine_mode mode2)
+{
+  return (!TARGET_HARD_FLOAT
+	  || ((GET_MODE_CLASS (mode1) == MODE_FLOAT
+	       || GET_MODE_CLASS (mode1) == MODE_COMPLEX_FLOAT)
+	      == (GET_MODE_CLASS (mode2) == MODE_FLOAT
+		  || GET_MODE_CLASS (mode2) == MODE_COMPLEX_FLOAT)));
 }
 
 /* Implement SECONDARY_RELOAD_CLASS.  */

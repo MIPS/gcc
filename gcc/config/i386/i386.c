@@ -87,6 +87,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-rtl.h"
 #include "intl.h"
 #include "ifcvt.h"
+#include "symbol-summary.h"
+#include "ipa-prop.h"
+#include "ipa-fnsummary.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -6319,7 +6322,7 @@ ix86_option_override_internal (bool main_args_p,
     }
 
   /* Set the default value for -mstackrealign.  */
-  if (opts->x_ix86_force_align_arg_pointer == -1)
+  if (!opts_set->x_ix86_force_align_arg_pointer)
     opts->x_ix86_force_align_arg_pointer = STACK_REALIGN_DEFAULT;
 
   ix86_default_incoming_stack_boundary = PREFERRED_STACK_BOUNDARY;
@@ -6544,27 +6547,18 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_target_flags |= MASK_CLD & ~opts_set->x_target_flags;
 #endif
 
-  if (!TARGET_64BIT_P (opts->x_ix86_isa_flags) && opts->x_flag_pic)
+  /* Set the default value for -mfentry.  */
+  if (!opts_set->x_flag_fentry)
+    opts->x_flag_fentry = TARGET_SEH;
+  else
     {
-      if (opts->x_flag_fentry > 0)
-        sorry ("-mfentry isn%'t supported for 32-bit in combination "
+      if (!TARGET_64BIT_P (opts->x_ix86_isa_flags) && opts->x_flag_pic
+	  && opts->x_flag_fentry)
+	sorry ("-mfentry isn%'t supported for 32-bit in combination "
 	       "with -fpic");
-      opts->x_flag_fentry = 0;
-    }
-  else if (TARGET_SEH)
-    {
-      if (opts->x_flag_fentry == 0)
+      else if (TARGET_SEH && !opts->x_flag_fentry)
 	sorry ("-mno-fentry isn%'t compatible with SEH");
-      opts->x_flag_fentry = 1;
     }
-  else if (opts->x_flag_fentry < 0)
-   {
-#if defined(PROFILE_BEFORE_PROLOGUE)
-     opts->x_flag_fentry = 1;
-#else
-     opts->x_flag_fentry = 0;
-#endif
-   }
 
   if (TARGET_SEH && TARGET_CALL_MS2SYSV_XLOGUES)
     sorry ("-mcall-ms2sysv-xlogues isn%'t currently supported with SEH");
@@ -7404,16 +7398,6 @@ ix86_valid_target_attribute_tree (tree args,
       /* If fpmath= is not set, and we now have sse2 on 32-bit, use it.  */
       if (enum_opts_set.x_ix86_fpmath)
 	opts_set->x_ix86_fpmath = (enum fpmath_unit) 1;
-      else if (!TARGET_64BIT_P (opts->x_ix86_isa_flags)
-	       && TARGET_SSE_P (opts->x_ix86_isa_flags))
-	{
-	  if (TARGET_80387_P (opts->x_target_flags))
-	    opts->x_ix86_fpmath = (enum fpmath_unit) (FPMATH_SSE
-						      | FPMATH_387);
-	  else
-	    opts->x_ix86_fpmath = (enum fpmath_unit) FPMATH_SSE;
-	  opts_set->x_ix86_fpmath = (enum fpmath_unit) 1;
-	}
 
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
       bool r = ix86_option_override_internal (false, opts, opts_set);
@@ -7508,53 +7492,54 @@ ix86_valid_target_attribute_p (tree fndecl,
 static bool
 ix86_can_inline_p (tree caller, tree callee)
 {
-  bool ret = false;
   tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
   tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
-
-  /* If callee has no option attributes, then it is ok to inline.  */
   if (!callee_tree)
-    ret = true;
+    callee_tree = target_option_default_node;
+  if (!caller_tree)
+    caller_tree = target_option_default_node;
+  if (callee_tree == caller_tree)
+    return true;
 
-  /* If caller has no option attributes, but callee does then it is not ok to
-     inline.  */
-  else if (!caller_tree)
+  struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
+  struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+  bool ret = false;
+
+  /* Callee's isa options should be a subset of the caller's, i.e. a SSE4
+     function can inline a SSE2 function but a SSE2 function can't inline
+     a SSE4 function.  */
+  if (((caller_opts->x_ix86_isa_flags & callee_opts->x_ix86_isa_flags)
+       != callee_opts->x_ix86_isa_flags)
+      || ((caller_opts->x_ix86_isa_flags2 & callee_opts->x_ix86_isa_flags2)
+	  != callee_opts->x_ix86_isa_flags2))
+    ret = false;
+
+  /* See if we have the same non-isa options.  */
+  else if (caller_opts->x_target_flags != callee_opts->x_target_flags)
+    ret = false;
+
+  /* See if arch, tune, etc. are the same.  */
+  else if (caller_opts->arch != callee_opts->arch)
+    ret = false;
+
+  else if (caller_opts->tune != callee_opts->tune)
+    ret = false;
+
+  else if (caller_opts->x_ix86_fpmath != callee_opts->x_ix86_fpmath
+	   /* If the calle doesn't use FP expressions differences in
+	      ix86_fpmath can be ignored.  We are called from FEs
+	      for multi-versioning call optimization, so beware of
+	      ipa_fn_summaries not available.  */
+	   && (! ipa_fn_summaries
+	       || ipa_fn_summaries->get
+	       (cgraph_node::get (callee))->fp_expressions))
+    ret = false;
+
+  else if (caller_opts->branch_cost != callee_opts->branch_cost)
     ret = false;
 
   else
-    {
-      struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
-      struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
-
-      /* Callee's isa options should be a subset of the caller's, i.e. a SSE4
-	 function can inline a SSE2 function but a SSE2 function can't inline
-	 a SSE4 function.  */
-      if (((caller_opts->x_ix86_isa_flags & callee_opts->x_ix86_isa_flags)
-	   != callee_opts->x_ix86_isa_flags)
-	  || ((caller_opts->x_ix86_isa_flags2 & callee_opts->x_ix86_isa_flags2)
-	      != callee_opts->x_ix86_isa_flags2))
-	ret = false;
-
-      /* See if we have the same non-isa options.  */
-      else if (caller_opts->x_target_flags != callee_opts->x_target_flags)
-	ret = false;
-
-      /* See if arch, tune, etc. are the same.  */
-      else if (caller_opts->arch != callee_opts->arch)
-	ret = false;
-
-      else if (caller_opts->tune != callee_opts->tune)
-	ret = false;
-
-      else if (caller_opts->x_ix86_fpmath != callee_opts->x_ix86_fpmath)
-	ret = false;
-
-      else if (caller_opts->branch_cost != callee_opts->branch_cost)
-	ret = false;
-
-      else
-	ret = true;
-    }
+    ret = true;
 
   return ret;
 }
@@ -12965,6 +12950,14 @@ ix86_compute_frame_layout (void)
   gcc_assert (preferred_alignment >= STACK_BOUNDARY / BITS_PER_UNIT);
   gcc_assert (preferred_alignment <= stack_alignment_needed);
 
+  /* The only ABI saving SSE regs should be 64-bit ms_abi.  */
+  gcc_assert (TARGET_64BIT || !frame->nsseregs);
+  if (TARGET_64BIT && m->call_ms2sysv)
+    {
+      gcc_assert (stack_alignment_needed >= 16);
+      gcc_assert (!frame->nsseregs);
+    }
+
   /* For SEH we have to limit the amount of code movement into the prologue.
      At present we do this via a BLOCKAGE, at which point there's very little
      scheduling that can be done, which means that there's very little point
@@ -13027,54 +13020,88 @@ ix86_compute_frame_layout (void)
   if (TARGET_SEH)
     frame->hard_frame_pointer_offset = offset;
 
-  /* When re-aligning the stack frame, but not saving SSE registers, this
-     is the offset we want adjust the stack pointer to.  */
-  frame->stack_realign_allocate_offset = offset;
-
-  /* The re-aligned stack starts here.  Values before this point are not
-     directly comparable with values below this point.  Use sp_valid_at
-     to determine if the stack pointer is valid for a given offset and
-     fp_valid_at for the frame pointer.  */
-  if (stack_realign_fp)
-    offset = ROUND_UP (offset, stack_alignment_needed);
-  frame->stack_realign_offset = offset;
-
-  if (TARGET_64BIT && m->call_ms2sysv)
-    {
-      gcc_assert (stack_alignment_needed >= 16);
-      gcc_assert (!frame->nsseregs);
-
-      m->call_ms2sysv_pad_in = !!(offset & UNITS_PER_WORD);
-      offset += xlogue_layout::get_instance ().get_stack_space_used ();
-    }
-
-  /* Align and set SSE register save area.  */
-  else if (frame->nsseregs)
-    {
-      /* The only ABI that has saved SSE registers (Win64) also has a
-	 16-byte aligned default stack.  However, many programs violate
-	 the ABI, and Wine64 forces stack realignment to compensate.
-
-	 If the incoming stack boundary is at least 16 bytes, or DRAP is
-	 required and the DRAP re-alignment boundary is at least 16 bytes,
-	 then we want the SSE register save area properly aligned.  */
-      if (ix86_incoming_stack_boundary >= 128
-	       || (stack_realign_drap && stack_alignment_needed >= 16))
-	offset = ROUND_UP (offset, 16);
-      offset += frame->nsseregs * 16;
-      frame->stack_realign_allocate_offset = offset;
-    }
-
-  frame->sse_reg_save_offset = offset;
-
-  /* Va-arg area */
+  /* Calculate the size of the va-arg area (not including padding, if any).  */
   frame->va_arg_size = ix86_varargs_gpr_size + ix86_varargs_fpr_size;
-  offset += frame->va_arg_size;
+
+  if (stack_realign_fp)
+    {
+      /* We may need a 16-byte aligned stack for the remainder of the
+	 register save area, but the stack frame for the local function
+	 may require a greater alignment if using AVX/2/512.  In order
+	 to avoid wasting space, we first calculate the space needed for
+	 the rest of the register saves, add that to the stack pointer,
+	 and then realign the stack to the boundary of the start of the
+	 frame for the local function.  */
+      HOST_WIDE_INT space_needed = 0;
+      HOST_WIDE_INT sse_reg_space_needed = 0;
+
+      if (TARGET_64BIT)
+	{
+	  if (m->call_ms2sysv)
+	    {
+	      m->call_ms2sysv_pad_in = 0;
+	      space_needed = xlogue_layout::get_instance ().get_stack_space_used ();
+	    }
+
+	  else if (frame->nsseregs)
+	    /* The only ABI that has saved SSE registers (Win64) also has a
+	       16-byte aligned default stack.  However, many programs violate
+	       the ABI, and Wine64 forces stack realignment to compensate.  */
+	    space_needed = frame->nsseregs * 16;
+
+	  sse_reg_space_needed = space_needed = ROUND_UP (space_needed, 16);
+
+	  /* 64-bit frame->va_arg_size should always be a multiple of 16, but
+	     rounding to be pedantic.  */
+	  space_needed = ROUND_UP (space_needed + frame->va_arg_size, 16);
+	}
+      else
+	space_needed = frame->va_arg_size;
+
+      /* Record the allocation size required prior to the realignment AND.  */
+      frame->stack_realign_allocate = space_needed;
+
+      /* The re-aligned stack starts at frame->stack_realign_offset.  Values
+	 before this point are not directly comparable with values below
+	 this point.  Use sp_valid_at to determine if the stack pointer is
+	 valid for a given offset, fp_valid_at for the frame pointer, or
+	 choose_baseaddr to have a base register chosen for you.
+
+	 Note that the result of (frame->stack_realign_offset
+	 & (stack_alignment_needed - 1)) may not equal zero.  */
+      offset = ROUND_UP (offset + space_needed, stack_alignment_needed);
+      frame->stack_realign_offset = offset - space_needed;
+      frame->sse_reg_save_offset = frame->stack_realign_offset
+							+ sse_reg_space_needed;
+    }
+  else
+    {
+      frame->stack_realign_offset = offset;
+
+      if (TARGET_64BIT && m->call_ms2sysv)
+	{
+	  m->call_ms2sysv_pad_in = !!(offset & UNITS_PER_WORD);
+	  offset += xlogue_layout::get_instance ().get_stack_space_used ();
+	}
+
+      /* Align and set SSE register save area.  */
+      else if (frame->nsseregs)
+	{
+	  /* If the incoming stack boundary is at least 16 bytes, or DRAP is
+	     required and the DRAP re-alignment boundary is at least 16 bytes,
+	     then we want the SSE register save area properly aligned.  */
+	  if (ix86_incoming_stack_boundary >= 128
+		  || (stack_realign_drap && stack_alignment_needed >= 16))
+	    offset = ROUND_UP (offset, 16);
+	  offset += frame->nsseregs * 16;
+	}
+      frame->sse_reg_save_offset = offset;
+      offset += frame->va_arg_size;
+    }
 
   /* Align start of frame for local function.  */
-  if (stack_realign_fp
-      || m->call_ms2sysv
-      || offset != frame->sse_reg_save_offset
+  if (m->call_ms2sysv
+      || frame->va_arg_size != 0
       || size != 0
       || !crtl->is_leaf
       || cfun->calls_alloca
@@ -13182,26 +13209,36 @@ choose_baseaddr_len (unsigned int regno, HOST_WIDE_INT offset)
   return len;
 }
 
-/* Determine if the stack pointer is valid for accessing the cfa_offset.
-   The register is saved at CFA - CFA_OFFSET.  */
+/* Determine if the stack pointer is valid for accessing the CFA_OFFSET in
+   the frame save area.  The register is saved at CFA - CFA_OFFSET.  */
 
-static inline bool
+static bool
 sp_valid_at (HOST_WIDE_INT cfa_offset)
 {
   const struct machine_frame_state &fs = cfun->machine->fs;
-  return fs.sp_valid && !(fs.sp_realigned
-			  && cfa_offset <= fs.sp_realigned_offset);
+  if (fs.sp_realigned && cfa_offset <= fs.sp_realigned_offset)
+    {
+      /* Validate that the cfa_offset isn't in a "no-man's land".  */
+      gcc_assert (cfa_offset <= fs.sp_realigned_fp_last);
+      return false;
+    }
+  return fs.sp_valid;
 }
 
-/* Determine if the frame pointer is valid for accessing the cfa_offset.
-   The register is saved at CFA - CFA_OFFSET.  */
+/* Determine if the frame pointer is valid for accessing the CFA_OFFSET in
+   the frame save area.  The register is saved at CFA - CFA_OFFSET.  */
 
 static inline bool
 fp_valid_at (HOST_WIDE_INT cfa_offset)
 {
   const struct machine_frame_state &fs = cfun->machine->fs;
-  return fs.fp_valid && !(fs.sp_valid && fs.sp_realigned
-			  && cfa_offset > fs.sp_realigned_offset);
+  if (fs.sp_realigned && cfa_offset > fs.sp_realigned_fp_last)
+    {
+      /* Validate that the cfa_offset isn't in a "no-man's land".  */
+      gcc_assert (cfa_offset >= fs.sp_realigned_offset);
+      return false;
+    }
+  return fs.fp_valid;
 }
 
 /* Choose a base register based upon alignment requested, speed and/or
@@ -13312,10 +13349,13 @@ choose_basereg (HOST_WIDE_INT cfa_offset, rtx &base_reg,
 }
 
 /* Return an RTX that points to CFA_OFFSET within the stack frame and
-   the alignment of address.  If align is non-null, it should point to
+   the alignment of address.  If ALIGN is non-null, it should point to
    an alignment value (in bits) that is preferred or zero and will
-   recieve the alignment of the base register that was selected.  The
-   valid base registers are taken from CFUN->MACHINE->FS.  */
+   recieve the alignment of the base register that was selected,
+   irrespective of rather or not CFA_OFFSET is a multiple of that
+   alignment value.
+
+   The valid base registers are taken from CFUN->MACHINE->FS.  */
 
 static rtx
 choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align)
@@ -14398,35 +14438,35 @@ ix86_emit_outlined_ms2sysv_save (const struct ix86_frame &frame)
   rtx sym, addr;
   rtx rax = gen_rtx_REG (word_mode, AX_REG);
   const struct xlogue_layout &xlogue = xlogue_layout::get_instance ();
-  HOST_WIDE_INT rax_offset = xlogue.get_stub_ptr_offset () + m->fs.sp_offset;
-  HOST_WIDE_INT stack_alloc_size = frame.stack_pointer_offset - m->fs.sp_offset;
-  HOST_WIDE_INT stack_align_off_in = xlogue.get_stack_align_off_in ();
+  HOST_WIDE_INT allocate = frame.stack_pointer_offset - m->fs.sp_offset;
 
-  /* Verify that the incoming stack 16-byte alignment offset matches the
-     layout we're using.  */
-  gcc_assert (stack_align_off_in == (m->fs.sp_offset & UNITS_PER_WORD));
+  /* AL should only be live with sysv_abi.  */
+  gcc_assert (!ix86_eax_live_at_start_p ());
+
+  /* Setup RAX as the stub's base pointer.  We use stack_realign_offset rather
+     we've actually realigned the stack or not.  */
+  align = GET_MODE_ALIGNMENT (V4SFmode);
+  addr = choose_baseaddr (frame.stack_realign_offset
+			  + xlogue.get_stub_ptr_offset (), &align);
+  gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
+  emit_insn (gen_rtx_SET (rax, addr));
+
+  /* Allocate stack if not already done.  */
+  if (allocate > 0)
+      pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
+				GEN_INT (-allocate), -1, false);
 
   /* Get the stub symbol.  */
   sym = xlogue.get_stub_rtx (frame_pointer_needed ? XLOGUE_STUB_SAVE_HFP
 						  : XLOGUE_STUB_SAVE);
   RTVEC_ELT (v, vi++) = gen_rtx_USE (VOIDmode, sym);
 
-  /* Setup RAX as the stub's base pointer.  */
-  align = GET_MODE_ALIGNMENT (V4SFmode);
-  addr = choose_baseaddr (rax_offset, &align);
-  gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
-  insn = emit_insn (gen_rtx_SET (rax, addr));
-
-  gcc_assert (stack_alloc_size >= xlogue.get_stack_space_used ());
-  pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-			     GEN_INT (-stack_alloc_size), -1,
-			     m->fs.cfa_reg == stack_pointer_rtx);
   for (i = 0; i < ncregs; ++i)
     {
       const xlogue_layout::reginfo &r = xlogue.get_reginfo (i);
       rtx reg = gen_rtx_REG ((SSE_REGNO_P (r.regno) ? V4SFmode : word_mode),
 			     r.regno);
-      RTVEC_ELT (v, vi++) = gen_frame_store (reg, rax, -r.offset);;
+      RTVEC_ELT (v, vi++) = gen_frame_store (reg, rax, -r.offset);
     }
 
   gcc_assert (vi == (unsigned)GET_NUM_ELEM (v));
@@ -14680,12 +14720,16 @@ ix86_expand_prologue (void)
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
       gcc_assert (align_bytes > MIN_STACK_BOUNDARY / BITS_PER_UNIT);
 
+      /* Record last valid frame pointer offset.  */
+      m->fs.sp_realigned_fp_last = frame.reg_save_offset;
+
       /* The computation of the size of the re-aligned stack frame means
 	 that we must allocate the size of the register save area before
 	 performing the actual alignment.  Otherwise we cannot guarantee
 	 that there's enough storage above the realignment point.  */
-      allocate = frame.stack_realign_allocate_offset - m->fs.sp_offset;
-      if (allocate && !m->call_ms2sysv)
+      allocate = frame.reg_save_offset - m->fs.sp_offset
+		 + frame.stack_realign_allocate;
+      if (allocate)
         pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
 				   GEN_INT (-allocate), -1, false);
 
@@ -14693,14 +14737,18 @@ ix86_expand_prologue (void)
       insn = emit_insn (ix86_gen_andsp (stack_pointer_rtx,
 					stack_pointer_rtx,
 					GEN_INT (-align_bytes)));
-      /* For the purposes of register save area addressing, the stack
-	 pointer can no longer be used to access anything in the frame
-	 below m->fs.sp_realigned_offset and the frame pointer cannot be
-	 used for anything at or above.  */
       m->fs.sp_offset = ROUND_UP (m->fs.sp_offset, align_bytes);
-      m->fs.sp_realigned = true;
-      m->fs.sp_realigned_offset = m->fs.sp_offset - frame.nsseregs * 16;
+      m->fs.sp_realigned_offset = m->fs.sp_offset
+					      - frame.stack_realign_allocate;
+      /* The stack pointer may no longer be equal to CFA - m->fs.sp_offset.
+	 Beyond this point, stack access should be done via choose_baseaddr or
+	 by using sp_valid_at and fp_valid_at to determine the correct base
+	 register.  Henceforth, any CFA offset should be thought of as logical
+	 and not physical.  */
+      gcc_assert (m->fs.sp_realigned_offset >= m->fs.sp_realigned_fp_last);
       gcc_assert (m->fs.sp_realigned_offset == frame.stack_realign_offset);
+      m->fs.sp_realigned = true;
+
       /* SEH unwind emit doesn't currently support REG_CFA_EXPRESSION, which
 	 is needed to describe where a register is saved using a realigned
 	 stack pointer, so we need to invalidate the stack pointer for that
@@ -14762,7 +14810,7 @@ ix86_expand_prologue (void)
      so probe if the size is non-negative to preserve the protection area.  */
   if (allocate >= 0 && flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
     {
-      /* We expect the registers to be saved when probes are used.  */
+      /* We expect the GP registers to be saved when probes are used.  */
       gcc_assert (int_registers_saved);
 
       if (STACK_CHECK_MOVING_SP)
@@ -15397,10 +15445,10 @@ ix86_expand_epilogue (int style)
   if (restore_regs_via_mov || frame.nsseregs)
     {
       /* Ensure that the entire register save area is addressable via
-	 the stack pointer, if we will restore via sp.  */
+	 the stack pointer, if we will restore SSE regs via sp.  */
       if (TARGET_64BIT
 	  && m->fs.sp_offset > 0x7fffffff
-	  && !(fp_valid_at (frame.stack_realign_offset) || m->fs.drap_valid)
+	  && sp_valid_at (frame.stack_realign_offset)
 	  && (frame.nsseregs + frame.nregs) != 0)
 	{
 	  pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
@@ -26317,7 +26365,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, machine_mode mode)
 
   if (GET_CODE (operand) == CONST_VECTOR)
     {
-      scalar_int_mode imode = *int_mode_for_mode (mode);
+      scalar_int_mode imode = int_mode_for_mode (mode).require ();
       /* Caution: if we looked through a constant pool memory above,
 	 the operand may actually have a different mode now.  That's
 	 ok, since we want to pun this all the way back to an integer.  */
@@ -41234,11 +41282,10 @@ ix86_register_move_cost (machine_mode mode, reg_class_t class1_i,
   return 2;
 }
 
-/* Return TRUE if hard register REGNO can hold a value of machine-mode
-   MODE.  */
+/* Implement TARGET_HARD_REGNO_MODE_OK.  */
 
-bool
-ix86_hard_regno_mode_ok (int regno, machine_mode mode)
+static bool
+ix86_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
   /* Flags and only flags can only hold CCmode values.  */
   if (CC_REGNO_P (regno))
@@ -41345,6 +41392,17 @@ ix86_hard_regno_mode_ok (int regno, machine_mode mode)
   return false;
 }
 
+/* Implement TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  The only ABI that
+   saves SSE registers across calls is Win64 (thus no need to check the
+   current ABI here), and with AVX enabled Win64 only guarantees that
+   the low 16 bytes are saved.  */
+
+static bool
+ix86_hard_regno_call_part_clobbered (unsigned int regno, machine_mode mode)
+{
+  return SSE_REGNO_P (regno) && GET_MODE_SIZE (mode) > 16;
+}
+
 /* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a
    tieable integer mode.  */
 
@@ -41368,11 +41426,13 @@ ix86_tieable_integer_mode_p (machine_mode mode)
     }
 }
 
-/* Return true if MODE1 is accessible in a register that can hold MODE2
+/* Implement TARGET_MODES_TIEABLE_P.
+
+   Return true if MODE1 is accessible in a register that can hold MODE2
    without copying.  That is, all register classes that can hold MODE2
    can also hold MODE1.  */
 
-bool
+static bool
 ix86_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 {
   if (mode1 == mode2)
@@ -43459,7 +43519,7 @@ static inline machine_mode
 get_mode_wider_vector (machine_mode o)
 {
   /* ??? Rely on the ordering that genmodes.c gives to vectors.  */
-  machine_mode n = *GET_MODE_WIDER_MODE (o);
+  machine_mode n = GET_MODE_WIDER_MODE (o).require ();
   gcc_assert (GET_MODE_NUNITS (o) == GET_MODE_NUNITS (n) * 2);
   gcc_assert (GET_MODE_SIZE (o) == GET_MODE_SIZE (n));
   return n;
@@ -53192,6 +53252,16 @@ ix86_run_selftests (void)
 
 #undef TARGET_NOCE_CONVERSION_PROFITABLE_P
 #define TARGET_NOCE_CONVERSION_PROFITABLE_P ix86_noce_conversion_profitable_p
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK ix86_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P ix86_modes_tieable_p
+
+#undef TARGET_HARD_REGNO_CALL_PART_CLOBBERED
+#define TARGET_HARD_REGNO_CALL_PART_CLOBBERED \
+  ix86_hard_regno_call_part_clobbered
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS
