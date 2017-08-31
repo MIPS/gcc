@@ -3162,11 +3162,9 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    }
 	  else
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO
-		  && !SYMBOL_REF_LONG_CALL_P (x))
+	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM
-		       && !SYMBOL_REF_LONG_CALL_P (x))
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
 		return SYMBOL_GOT_DISP;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
