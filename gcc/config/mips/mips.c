@@ -12308,15 +12308,19 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 
   if (ISA_HAS_SAVEF_RESTOREF && !jrc_p)
     {
-      set = XVECEXP (pattern, 0, 1);
-      mem = MEM_P (SET_SRC (set)) ? SET_SRC (set)
-						  : SET_DEST (set);
-      if (MEM_P (mem)
-	  && (GET_MODE (mem) == SFmode || GET_MODE (mem) == DFmode))
+      set = XVECEXP (pattern, 0, 0);
+      if (GET_CODE (SET_SRC (set)) == MEM
+	  || GET_CODE (SET_DEST (set)) == MEM)
 	{
-	  fp_p = true;
-	  if (savef_restoref_p)
-	    *savef_restoref_p = fp_p;
+	  mem = MEM_P (SET_SRC (set)) ? SET_SRC (set)
+						      : SET_DEST (set);
+	  if (MEM_P (mem)
+	      && (GET_MODE (mem) == SFmode || GET_MODE (mem) == DFmode))
+	    {
+	      fp_p = true;
+	      if (savef_restoref_p)
+		*savef_restoref_p = fp_p;
+	    }
 	}
     }
 
@@ -12539,11 +12543,8 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 				      ARRAY_SIZE (mips16e_a0_a3_regs));
     }
   else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
-    {
-      for (i = ARRAY_SIZE (nanomips_savef_restoref_regs); i > 0; i--)
-	if (BITSET_P (info.mask, nanomips_savef_restoref_regs[i] - FP_REG_FIRST))
-	  s += sprintf (s, ",%s", reg_names[nanomips_savef_restoref_regs[i]]);
-    }
+    s = mips_output_register_range (s, info.mask, nanomips_savef_restoref_regs,
+				    ARRAY_SIZE (nanomips_savef_restoref_regs));
   else
     s = mips_output_register_range (s, info.mask, nanomips_s0_s7_regs,
 				    ARRAY_SIZE (nanomips_s0_s7_regs));
@@ -14158,7 +14159,10 @@ mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
       rtx save_restore = mips_build_save_restore (restore_p, &fmask, &offset,
 						  0/*nargs*/, offset/*step*/,
 						  true/*fp_p*/, false/*jrc_p*/);
-      RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
+      if (!restore_p)
+	RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
+      else
+	emit_insn (save_restore);
       mips_frame_barrier ();
 
       offset -= cfun->machine->frame.num_fp * UNITS_PER_HWFPVALUE;
@@ -15728,9 +15732,11 @@ mips_expand_epilogue_pabi (bool sibcall_p)
 
   mips_epilogue.cfa_restore_sp_offset = step2;
 
-  mips_for_each_saved_acc (frame->total_size - step2, mips_restore_reg);
+  mips_for_each_saved_acc (frame->total_size - step2 - reg_parm_area_size,
+			   mips_restore_reg);
 
-  mips_for_each_saved_fpr (frame->total_size - step2, mips_restore_reg);
+  mips_for_each_saved_fpr (frame->total_size - step2 - reg_parm_area_size,
+			   mips_restore_reg);
 
   /* Restore the registers.  */
   mips_save_restore_gprs_and_adjust_sp (frame->total_size - step2
