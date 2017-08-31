@@ -2556,9 +2556,8 @@ execute_one_pass (opt_pass *pass)
 
   if (pass->name && !strcmp (pass->name, "ssa"))
     {
-      gori g;
-      g.build ();
-      g.exercise (dump_file);
+      path_ranger r;
+      r.exercise (dump_file);
     }
 
   pass_fini_dump_file (pass);

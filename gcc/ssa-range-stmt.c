@@ -340,7 +340,6 @@ range_stmt::fold (irange& r, FILE *trace) const
       fprintf (trace, "\nFold Result range : ");
       r.dump (trace);
       fprintf (trace, "\n");
-      fflush (trace);
     }
 
   return res;
@@ -365,7 +364,6 @@ range_stmt::op1_irange (irange& r, const irange& lhs, const irange& op2,
     {
       fprintf (trace, "  result of op1_irange: ");
       r.dump (trace);
-      fflush (trace);
     }
   return res;
 }
@@ -389,7 +387,6 @@ range_stmt::op2_irange (irange& r, const irange& lhs, const irange& op1,
     {
       fprintf (trace, "  result of op2_irange: ");
       r.dump (trace);
-      fflush (trace);
     }
   return res;
 }
