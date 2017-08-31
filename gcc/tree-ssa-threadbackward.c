@@ -1045,16 +1045,14 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
   hash_set<basic_block> *visited_bbs = new hash_set<basic_block>;
 
   max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
-  if (getenv("asdf3"))
-    goto doit;
   fsm_find_control_statement_thread_paths (name, visited_bbs, bb_path, false,
 					   speed_p);
 
- doit:
   /* If we didn't thread any paths by chasing down constant
      definitions, try threading by making use of available range
      information.  */
-  if (max_threaded_paths == PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS))
+  if (getenv("asdf3")
+      && max_threaded_paths == PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS))
     {
       paths_with_ranges w (name, bb);
       w.generate ();
