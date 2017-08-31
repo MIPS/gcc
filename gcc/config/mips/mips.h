@@ -2794,8 +2794,9 @@ typedef struct mips_args {
 /* True if using EABI and varargs can be passed in floating-point
    registers.  Under these conditions, we need a more complex form
    of va_list, which tracks GPR, FPR and stack arguments separately.  */
-#define EABI_FLOAT_VARARGS_P \
-	(mips_abi == ABI_EABI && UNITS_PER_FPVALUE >= UNITS_PER_DOUBLE)
+#define FLOAT_VARARGS_P \
+	((TARGET_PABI || mips_abi == ABI_EABI)				\
+	 && UNITS_PER_FPVALUE >= UNITS_PER_DOUBLE)
 
 
 #define EPILOGUE_USES(REGNO)	mips_epilogue_uses (REGNO)

@@ -7231,6 +7231,20 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		     && GET_MODE_SIZE (mode) <= UNITS_PER_FPVALUE);
       break;
 
+    case ABI_P32:
+    case ABI_P64:
+      info->fpr_p = ((GET_MODE_CLASS (mode) == MODE_FLOAT
+		      || mode == V2SFmode)
+		     && GET_MODE_SIZE (mode) <= UNITS_PER_FPVALUE);
+      /* We can pass up to 64-bit in an FP register, hence, we want to
+	 increment the FP index by 1 unless we started to pass arguments
+	 on the stack.  */
+      if (info->fpr_p
+	  && TARGET_HARD_FLOAT_ABI
+	  && (cum->num_fprs + MAX_FPRS_PER_FMT) <= MAX_ARGS_IN_REGISTERS)
+	num_words = (num_bytes + UNITS_PER_FPVALUE - 1) / UNITS_PER_FPVALUE;
+      break;
+
     case ABI_32:
     case ABI_O64:
       /* Only leading floating-point scalars are passed in
@@ -7249,8 +7263,6 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 
     case ABI_N32:
     case ABI_64:
-    case ABI_P32:
-    case ABI_P64:
       /* Scalar, complex and vector floating-point types are passed in
 	 floating-point registers, as long as this is a named rather
 	 than a variable argument.  */
@@ -7298,12 +7310,15 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
      but the other ABIs allocate them like integer registers.  */
-  info->reg_offset = (mips_abi == ABI_EABI && info->fpr_p
+  info->reg_offset = (((TARGET_HARD_FLOAT_ABI
+			&& TARGET_PABI) || mips_abi == ABI_EABI)
+		       && info->fpr_p
 		      ? cum->num_fprs
 		      : cum->num_gprs);
 
   /* Advance to an even register if the argument is doubleword-aligned.  */
-  if (alignment > BITS_PER_WORD)
+  if (alignment > BITS_PER_WORD
+      && (TARGET_SOFT_FLOAT_ABI || (TARGET_HARD_FLOAT_ABI && !info->fpr_p)))
     info->reg_offset = ROUND_UP (info->reg_offset,
 				 alignment / BITS_PER_WORD);
 
@@ -7502,7 +7517,8 @@ mips_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
      num_gprs to MAX_ARGS_IN_REGISTERS if a doubleword-aligned
      argument required us to skip the final GPR and pass the whole
      argument on the stack.  */
-  if (mips_abi != ABI_EABI || !info.fpr_p)
+  if ((mips_abi != ABI_EABI
+       && !(TARGET_HARD_FLOAT_ABI && TARGET_PABI)) || !info.fpr_p)
     cum->num_gprs = info.reg_offset + info.reg_words;
   else if (info.reg_words > 0)
     cum->num_fprs += MAX_FPRS_PER_FMT;
@@ -7968,7 +7984,7 @@ mips_setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
 
   /* Found out how many registers we need to save.  */
   gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.num_gprs;
-  fp_saved = (EABI_FLOAT_VARARGS_P
+  fp_saved = (FLOAT_VARARGS_P
 	      ? MAX_ARGS_IN_REGISTERS - local_cum.num_fprs
 	      : 0);
 
@@ -8032,7 +8048,7 @@ mips_setup_incoming_varargs (cumulative_args_t cum, machine_mode mode,
 static tree
 mips_build_builtin_va_list (void)
 {
-  if (TARGET_PABI || EABI_FLOAT_VARARGS_P)
+  if (TARGET_PABI || FLOAT_VARARGS_P)
     {
       /* We keep 3 pointers, and two offsets.
 
@@ -8105,7 +8121,7 @@ mips_build_builtin_va_list (void)
 static void
 mips_va_start (tree valist, rtx nextarg)
 {
-  if (TARGET_PABI || EABI_FLOAT_VARARGS_P)
+  if (TARGET_PABI || FLOAT_VARARGS_P)
     {
       const CUMULATIVE_ARGS *cum;
       tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff;
@@ -8284,7 +8300,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (indirect_p)
     type = build_pointer_type (type);
 
-  if (!EABI_FLOAT_VARARGS_P && !TARGET_PABI)
+  if (!FLOAT_VARARGS_P && !TARGET_PABI)
     addr = mips_std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
   else
     {
