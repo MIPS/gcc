@@ -673,6 +673,7 @@ static const struct attribute_spec nanomips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
