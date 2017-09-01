@@ -4774,7 +4774,7 @@
 (define_insn "*load_pcrel32_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(mem:P (match_operand:P 1 "pcrel32_mem_nano_operand")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "lwpc\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
@@ -4782,7 +4782,7 @@
 (define_insn "*store_pcrel32_pic_nano<mode>"
   [(set (mem:P (match_operand:P 0 "pcrel32_mem_nano_operand"))
 	(match_operand:P 1 "register_operand" "=d"))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "swpc\t%1,%0"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
@@ -4791,7 +4791,7 @@
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
 		  (match_operand:P 2 "pcrel_split_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "<d>addiu\t%0,%1,%R2"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
@@ -4800,7 +4800,7 @@
 (define_insn "*lapc_var_pic_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(match_operand:SI 1 "lapc_nano_operand" ""))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "lapc\t%0,%1"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
@@ -4808,7 +4808,7 @@
 (define_insn "*lapc48_var_pic_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(match_operand:SI 1 "lapc48_nano_operand" ""))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "lapc[48]\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
@@ -4817,7 +4817,7 @@
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
 		  (match_operand:P 2 "got_pcrel_split_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "<load>\t%0,%R2(%1)"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
@@ -4827,7 +4827,7 @@
 (define_insn "*load_got_pcrel32_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "got_pcrel32_nano_operand"))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "lwpc\t%0,%R1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
@@ -4835,7 +4835,7 @@
 (define_insn "*lapc48_func_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "lapc48_func_nano_operand"))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "lapc[48]\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
@@ -4846,7 +4846,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel_subword_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "addiu[gp.b]\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
@@ -4856,7 +4856,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel_word_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "addiu[gp.w]\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
@@ -4866,7 +4866,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel32_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "addiu[gp48]\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips48")
@@ -4875,7 +4875,7 @@
 (define_insn_and_split "*gprel_hi_split_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(high:SI (match_operand:SI 1 "gprel_split_nano_operand" "")))]
-  "TARGET_NANOMIPS && flag_pic"
+  "TARGET_NANOMIPS"
   "#"
   "&& epilogue_completed"
   [(set (match_dup 0) (high:SI (match_dup 2)))
