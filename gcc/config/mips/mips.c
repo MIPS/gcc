@@ -3164,11 +3164,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		  && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
-	  else
+	  else if (flag_pic)
 	    {
 	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
+	      else if (flag_pic == 1)
 		return SYMBOL_GOT_DISP;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
@@ -3245,17 +3245,17 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	      else if (TARGET_PCREL)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
-	  else
+	  else if (flag_pic)
 	    {
 	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_PAGE_OFST;
-	      if (symbol_pic_model == NANO_PIC_MEDIUM)
+	      else if (flag_pic == 1)
 		return SYMBOL_GOT_DISP;
-	      if (symbol_pic_model == NANO_PIC_LARGE
-		  && TARGET_NANOMIPS == NANOMIPS_NMF)
+	      else if (flag_pic == 2
+		       && TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      if (symbol_pic_model == NANO_PIC_LARGE
-		  && TARGET_NANOMIPS == NANOMIPS_NMS)
+	      else if (flag_pic == 2
+		       && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
 	}
@@ -25412,14 +25412,6 @@ mips_option_override (void)
 
   if (TARGET_NANOMIPS && TARGET_ABICALLS)
     error ("-mabicalls is not supported for nanoMIPS");
-
-  if (TARGET_NANOMIPS
-      && flag_pic == 1 && nano_pic_model_var != NANO_PIC_AUTO)
-    nano_pic_model_var = NANO_PIC_MEDIUM;
-
-  if (TARGET_NANOMIPS
-      && flag_pic == 2 && nano_pic_model_var != NANO_PIC_AUTO)
-    nano_pic_model_var = NANO_PIC_LARGE;
 
   if (TARGET_ABICALLS_PIC2)
     /* We need to set flag_pic for executables as well as DSOs
