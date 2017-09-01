@@ -2550,9 +2550,9 @@ nanomips_handle_model_attribute (tree *node, tree name, tree args,
 
   tree arg = TREE_VALUE (args);
 
-  if (!(TARGET_NANOMIPS && flag_pic))
+  if (!TARGET_NANOMIPS)
     {
-      warning (OPT_Wattributes, "%qE attribute only works for nanoMIPS PIC",
+      warning (OPT_Wattributes, "%qE attribute only works for nanoMIPS",
 	       name);
       *no_add_attrs = true;
     }
@@ -3140,7 +3140,7 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	return SYMBOL_GP_RELATIVE;
     }
 
-  if (TARGET_NANOMIPS && flag_pic)
+  if (TARGET_NANOMIPS)
     {
       enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
 
@@ -3423,7 +3423,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 
       // @tmt FIXME: This prevents an ICE when using an offset for auto model
       // GOT data accesses.
-      if (TARGET_NANOMIPS && flag_pic)
+      if (TARGET_NANOMIPS)
 	return false;
 
       return SMALL_INT9TO12 (offset);
@@ -4729,7 +4729,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      case SYMBOL_GOT_PAGE_OFST:
-		if (TARGET_NANOMIPS && flag_pic
+		if (TARGET_NANOMIPS
 		    && mips_get_nano_pic_model (addr) == NANO_PIC_AUTO
 		    && context == SYMBOL_CONTEXT_LEA)
 		  {
@@ -6844,7 +6844,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  // @tmt we need to do this for SYMBOL_LAPC_NANO and SYMBOL_LAPC48_NANO
 	  // for data accesses, when they get split into
 	  // aluipc %pcrel_hi + {l,s}X %lo.
-	  if (TARGET_NANOMIPS && flag_pic
+	  if (TARGET_NANOMIPS
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
 	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
@@ -6860,7 +6860,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
 
-      if (TARGET_NANOMIPS && flag_pic
+      if (TARGET_NANOMIPS
 	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
 	  && mips_lo_relocs[symbol_type] != 0
 	  && symbol_type == SYMBOL_GOTOFF_LOADGP)
@@ -8858,7 +8858,7 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
       emit_insn (gen_rtx_SET (dest, addr));
       return true;
     }
-  else if (TARGET_NANOMIPS && flag_pic
+  else if (TARGET_NANOMIPS
 	   && symbol_type == SYMBOL_GOT_PCREL32_NANO)
     {
       emit_insn (gen_rtx_SET (dest, addr));
@@ -10741,12 +10741,12 @@ mips_print_operand_reloc (FILE *file, rtx op, enum mips_symbol_context context,
   gcc_assert (relocs[symbol_type]);
 
   // @tmt FIXME: both if's are needed because mips_lo_relocs is global
-  if (TARGET_NANOMIPS && flag_pic
+  if (TARGET_NANOMIPS
       && symbol_type == SYMBOL_GOTOFF_CALL
       && mips_get_nano_pic_model (op) == NANO_PIC_AUTO)
     mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
 
-  if (TARGET_NANOMIPS && flag_pic
+  if (TARGET_NANOMIPS
       && symbol_type == SYMBOL_GOTOFF_CALL
       && mips_get_nano_pic_model (op) == NANO_PIC_MEDIUM)
     mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_disp(";
@@ -11356,7 +11356,7 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     {
       rtx symbol = XEXP (rtl, 0);
 
-      if (TARGET_NANOMIPS && flag_pic)
+      if (TARGET_NANOMIPS)
 	{
 	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
 
@@ -11384,7 +11384,7 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     {
       rtx symbol = XEXP (rtl, 0);
 
-      if (TARGET_NANOMIPS && flag_pic)
+      if (TARGET_NANOMIPS)
 	{
 	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
 
@@ -17262,7 +17262,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
       if (!reg_p && TARGET_ABICALLS_PIC2)
 	s += sprintf (s, ".option\tpic0\n\t");
 
-      if (TARGET_NANOMIPS && flag_pic
+      if (TARGET_NANOMIPS
 	  && reg_p && mips_get_pic_call_symbol (operands, size_opno))
 	{
 	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
