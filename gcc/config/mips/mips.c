@@ -3144,8 +3144,6 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
     {
       enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
 
-      // @tmt FIXME: We treat fptr's as long calls because a long call needs
-      // to load the address of the function separately.
       if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
 	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
 	{

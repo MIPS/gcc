@@ -2,7 +2,7 @@
 /* { dg-options "-m32 -march=32r6 -fpic -mlong-calls" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
-/* lapc[48] reg, a_sta_func */
+/* lapc[48] reg, a_sta_func # 1 */
 /* jalrc reg # 1 */
 
 /* lapc[48] reg, a_longcall */
@@ -12,7 +12,7 @@
 /* .reloc 1f,R_NANOMIPS_JALR,a_ext_func */
 /* jalrc reg # 3 */
 
-/* lapc reg, a_sta_func */
+/* lapc[48] reg, a_sta_func # 2 */
 /* lapc[48] reg, a_sta_fptr # 1 */
 /* jalrc reg # 4 */
 
@@ -20,11 +20,10 @@
 /* lapc[48] reg, a_sta_fptr # 2 */
 /* jalrc reg # 5 */
 
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_sta_func" } } */
+/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_sta_func" 2 } } */
 /* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_longcall" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_call\\(a_ext_func\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR,a_ext_func" } } */
-/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_func" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_ext_func\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_sta_fptr" 2 } } */
 
