@@ -2,41 +2,43 @@
 /* { dg-options "-m32 -march=32r6s -fpic -mlong-calls" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
-/* aluipc reg, %pcrel_hi(a_sta_func) # 1 */
-/* addiu reg, reg, %lo(a_sta_func) # 1 */
+/* aluipc reg, %pcrel_hi(a_sta_func) */
+/* addiu reg, reg, %lo(a_sta_func) */
 /* jalrc reg # 1 */
 
 /* aluipc reg, %pcrel_hi(a_longcall) */
 /* addiu reg, reg, %lo(a_longcall) */
 /* jalrc reg # 2 */
 
-/* aluipc reg, %got_pcrel_hi(a_ext_func) # 1 */
-/* lw reg, %got_lo(a_ext_func)(reg) # 1 */
+/* lw reg, %gotcall(a_ext_func) */
+/* .reloc 1f,R_NANOMIPS_JALR,a_ext_func */
 /* jalrc reg # 3 */
 
-/* aluipc reg, %pcrel_hi(a_sta_func) # 2 */
-/* addiu reg, reg, %lo(a_sta_func) # 2 */
+/* lapc reg, a_sta_func */
 /* aluipc reg, %pcrel_hi(a_sta_fptr) # 1 */
 /* addiu reg, reg, %lo(a_sta_fptr) # 1 */
 /* jalrc reg # 4 */
 
-/* aluipc reg, %got_pcrel_hi(a_ext_func) # 2 */
-/* lw reg, %got_lo(a_ext_func)(reg) # 2 */
+/* lw reg, %got_disp(a_ext_func) */
 /* aluipc reg, %pcrel_hi(a_sta_fptr) # 2 */
 /* addiu reg, reg, %lo(a_sta_fptr) # 2 */
 /* jalrc reg # 5 */
 
+/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_func\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_sta_func\\)" } } */
+
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_longcall\\)" } } */
 /* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_longcall\\)" } } */
 
-/* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_func\\)" 2 } } */
-/* { dg-final { scan-assembler-times "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_sta_func\\)" 2 } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_call\\(a_ext_func\\)\\(\\\$gp\\)" } } */
+/* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR,a_ext_func" } } */
+
+/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_func" } } */
 
 /* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_fptr\\)" 2 } } */
 /* { dg-final { scan-assembler-times "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_sta_fptr\\)" 2 } } */
 
-/* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%got_pcrel_hi\\(a_ext_func\\)" 2 } } */
-/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,%got_lo\\(a_ext_func\\)\\(\\\$\[ast0-9\]+\\)" 2 } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_ext_func\\)\\(\\\$gp\\)" } } */
 
 
 /* aluipc reg, %pcrel_hi(m_sta_func) # 1 */
@@ -47,8 +49,7 @@
 /* addiu reg, reg, %lo(m_longcall) */
 /* jalrc reg # 7 */
 
-/* aluipc reg, %got_pcrel_hi(m_ext_func) # 1 */
-/* lw reg, %got_lo(m_ext_func)(reg) # 1 */
+/* lw reg, %got_disp(m_ext_func) */
 /* jalrc reg # 8 */
 
 /* aluipc reg, %pcrel_hi(m_sta_func) # 2 */
@@ -57,8 +58,7 @@
 /* addiu reg, reg, %lo(m_sta_fptr) # 1 */
 /* jalrc reg # 9 */
 
-/* aluipc reg, %got_pcrel_hi(m_ext_func) # 2 */
-/* lw reg, %got_lo(m_ext_func)(reg) # 2 */
+/* lw reg, %got_disp(m_ext_func) */
 /* aluipc reg, %pcrel_hi(m_sta_fptr) # 2 */
 /* addiu reg, reg, %lo(m_sta_fptr) # 2 */
 /* jalrc reg # 10 */
@@ -72,8 +72,7 @@
 /* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_fptr\\)" 2 } } */
 /* { dg-final { scan-assembler-times "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(m_sta_fptr\\)" 2 } } */
 
-/* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%got_pcrel_hi\\(m_ext_func\\)" 2 } } */
-/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,%got_lo\\(m_ext_func\\)\\(\\\$\[ast0-9\]+\\)" 2 } } */
+/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,%got_disp\\(m_ext_func\\)\\(\\\$gp\\)" 2 } } */
 
 
 /* aluipc reg, %pcrel_hi(l_sta_func) # 1 */

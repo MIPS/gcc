@@ -11,7 +11,7 @@
 /* .reloc 1f, R_NANOMIPS_JALR, a_ext_func */
 /* jalrc reg # 2 */
 
-/* lapc[48] reg, a_sta_func */
+/* lapc reg, a_sta_func */
 /* balc a_sta_fptr # 1*/
 
 /* lw reg, %got_disp(a_ext_func)($gp) */
@@ -21,7 +21,7 @@
 /* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_longcall" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_call\\(a_ext_func\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR,a_ext_func" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_sta_func" } } */
+/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_func" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_ext_func\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler-times "balc\ta_sta_fptr" 2 } } */
 
