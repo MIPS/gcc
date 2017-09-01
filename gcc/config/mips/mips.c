@@ -11887,6 +11887,10 @@ static const unsigned char nanomips_savef_restoref_regs[] = {
   47/*$fs8*/, 46, 45, 44, 43, 42, 41, 40/*$fs0*/
 };
 
+static const unsigned char nanomips_gp_caller_saved_regs[] = {
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+};
+
 /* Return the index of the lowest X in the range [0, SIZE) for which
    bit REGS[X] is set in MASK.  Return SIZE if there is no such X.  */
 
@@ -14144,6 +14148,18 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
     {
       mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
       offset -= UNITS_PER_WORD;
+    }
+
+  /* Save/restore the remaining registers, if needed.  This may happen in
+     e.g. an interrupt handler.  */
+  for (unsigned int i = 0; i < ARRAY_SIZE (nanomips_gp_caller_saved_regs); i++)
+    {
+      regno = nanomips_gp_caller_saved_regs[i];
+      if (BITSET_P (mask, regno))
+	{
+	  mips_save_restore_reg (word_mode, regno, offset, fn);
+	  offset -= UNITS_PER_WORD;
+	}
     }
 }
 
