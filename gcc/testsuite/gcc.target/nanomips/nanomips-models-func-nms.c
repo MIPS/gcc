@@ -12,8 +12,7 @@
 /* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR,a_ext_func" } } */
 /* jalrc reg # 2 */
 
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_func\\)" } } */
-/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_sta_func\\)" } } */
+/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_func" } } */
 /* balc a_sta_fptr # 1*/
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_ext_func\\)\\(\\\$gp\\)" } } */
