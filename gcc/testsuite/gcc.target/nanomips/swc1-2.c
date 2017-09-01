@@ -10,5 +10,5 @@ foo (float a[], float b, float c, float d)
   a[1023] = a1;
   a[1024] = a2;
 }
-/* { dg-final { scan-assembler "\tswc1\t\\\$f1,(4092|-4)\\\(\\\$a0\\\)\n" } } */
-/* { dg-final { scan-assembler "\tswc1\t\\\$f2,0\\\(\\\$a.\\\)\n" } } */
+/* { dg-final { scan-assembler "\tswc1\t\\\$f0,(4092|-4)\\\(\\\$a0\\\)\n" } } */
+/* { dg-final { scan-assembler "\tswc1\t\\\$f1,0\\\(\\\$a.\\\)\n" } } */

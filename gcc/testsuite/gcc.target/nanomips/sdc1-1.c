@@ -10,5 +10,5 @@ foo (double a[], double b, double c, double d)
   a[0] = a1;
   a[1] = a2;
 }
-/* { dg-final { scan-assembler "\tsdc1\t\\\$f2,0\\\(\\\$a0\\\)\n" } } */
-/* { dg-final { scan-assembler "\tsdc1\t\\\$f4,8\\\(\\\$a0\\\)\n" } } */
+/* { dg-final { scan-assembler "\tsdc1\t\\\$f0,0\\\(\\\$a0\\\)\n" } } */
+/* { dg-final { scan-assembler "\tsdc1\t\\\$f1,8\\\(\\\$a0\\\)\n" } } */
