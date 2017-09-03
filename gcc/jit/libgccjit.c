@@ -1,5 +1,5 @@
 /* Implementation of the C API; all wrappers into the internal C++ API
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -2969,4 +2969,56 @@ gcc_jit_rvalue_set_bool_require_tail_call (gcc_jit_rvalue *rvalue,
 			  rvalue->get_debug_string ());
 
   call->set_require_tail_call (require_tail_call);
+}
+
+/* Public entrypoint.  See description in libgccjit.h.
+
+   After error-checking, the real work is done by the
+   gcc::jit::recording::type::get_aligned method, in
+   jit-recording.c.  */
+
+gcc_jit_type *
+gcc_jit_type_get_aligned (gcc_jit_type *type,
+			  size_t alignment_in_bytes)
+{
+  RETURN_NULL_IF_FAIL (type, NULL, NULL, "NULL type");
+
+  gcc::jit::recording::context *ctxt = type->m_ctxt;
+
+  JIT_LOG_FUNC (ctxt->get_logger ());
+
+  RETURN_NULL_IF_FAIL_PRINTF1
+    (pow2_or_zerop (alignment_in_bytes), ctxt, NULL,
+     "alignment not a power of two: %zi",
+     alignment_in_bytes);
+
+  return (gcc_jit_type *)type->get_aligned (alignment_in_bytes);
+}
+
+/* Public entrypoint.  See description in libgccjit.h.
+
+   After error-checking, the real work is done by the
+   gcc::jit::recording::type::get_vector method, in
+   jit-recording.c.  */
+
+gcc_jit_type *
+gcc_jit_type_get_vector (gcc_jit_type *type, size_t num_units)
+{
+  RETURN_NULL_IF_FAIL (type, NULL, NULL, "NULL type");
+
+  gcc::jit::recording::context *ctxt = type->m_ctxt;
+
+  JIT_LOG_FUNC (ctxt->get_logger ());
+
+  RETURN_NULL_IF_FAIL_PRINTF1
+    (type->is_int () || type->is_float (), ctxt, NULL,
+     "type is not integral or floating point: %s",
+     type->get_debug_string ());
+
+  RETURN_NULL_IF_FAIL_PRINTF1
+    (pow2_or_zerop (num_units), ctxt, NULL,
+     "num_units not a power of two: %zi",
+     num_units);
+
+  return (gcc_jit_type *)type->get_vector (num_units);
 }

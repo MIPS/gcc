@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -26,9 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "memmodel.h"
 #include "gimple.h"
 #include "df.h"
+#include "predict.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "expmed.h"
@@ -206,7 +209,7 @@ static void alpha_override_options_after_change (void);
 
 #if TARGET_ABI_OPEN_VMS
 static void alpha_write_linkage (FILE *, const char *);
-static bool vms_valid_pointer_mode (machine_mode);
+static bool vms_valid_pointer_mode (scalar_int_mode);
 #else
 #define vms_patch_builtins()  gcc_unreachable()
 #endif
@@ -688,22 +691,22 @@ resolve_reload_operand (rtx op)
    indicates only DFmode.  */
 
 static bool
-alpha_scalar_mode_supported_p (machine_mode mode)
+alpha_scalar_mode_supported_p (scalar_mode mode)
 {
   switch (mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-    case TImode: /* via optabs.c */
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
+    case E_DImode:
+    case E_TImode: /* via optabs.c */
       return true;
 
-    case SFmode:
-    case DFmode:
+    case E_SFmode:
+    case E_DFmode:
       return true;
 
-    case TFmode:
+    case E_TFmode:
       return TARGET_HAS_XFLOATING_LIBS;
 
     default:
@@ -816,7 +819,7 @@ alpha_in_small_data_p (const_tree exp)
 
 #if TARGET_ABI_OPEN_VMS
 static bool
-vms_valid_pointer_mode (machine_mode mode)
+vms_valid_pointer_mode (scalar_int_mode mode)
 {
   return (mode == SImode || mode == DImode);
 }
@@ -2780,7 +2783,7 @@ alpha_emit_conditional_move (rtx cmp, machine_mode mode)
       emit_insn (gen_rtx_SET (tem, gen_rtx_fmt_ee (cmp_code, cmp_mode,
 						   op0, op1)));
 
-      cmp_mode = cmp_mode == DImode ? DFmode : DImode;
+      cmp_mode = cmp_mode == DImode ? E_DFmode : E_DImode;
       op0 = gen_lowpart (cmp_mode, tem);
       op1 = CONST0_RTX (cmp_mode);
       cmp = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
@@ -3073,20 +3076,20 @@ alpha_emit_xfloating_libcall (rtx func, rtx target, rtx operands[],
     {
       switch (GET_MODE (operands[i]))
 	{
-	case TFmode:
+	case E_TFmode:
 	  reg = gen_rtx_REG (TFmode, regno);
 	  regno += 2;
 	  break;
 
-	case DFmode:
+	case E_DFmode:
 	  reg = gen_rtx_REG (DFmode, regno + 32);
 	  regno += 1;
 	  break;
 
-	case VOIDmode:
+	case E_VOIDmode:
 	  gcc_assert (CONST_INT_P (operands[i]));
 	  /* FALLTHRU */
-	case DImode:
+	case E_DImode:
 	  reg = gen_rtx_REG (DImode, regno);
 	  regno += 1;
 	  break;
@@ -3101,13 +3104,13 @@ alpha_emit_xfloating_libcall (rtx func, rtx target, rtx operands[],
 
   switch (GET_MODE (target))
     {
-    case TFmode:
+    case E_TFmode:
       reg = gen_rtx_REG (TFmode, 16);
       break;
-    case DFmode:
+    case E_DFmode:
       reg = gen_rtx_REG (DFmode, 32);
       break;
-    case DImode:
+    case E_DImode:
       reg = gen_rtx_REG (DImode, 0);
       break;
     default:
@@ -4319,10 +4322,9 @@ alpha_expand_builtin_vector_binop (rtx (*gen) (rtx, rtx, rtx),
 static void
 emit_unlikely_jump (rtx cond, rtx label)
 {
-  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
   rtx x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
   rtx_insn *insn = emit_jump_insn (gen_rtx_SET (pc_rtx, x));
-  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
+  add_reg_br_prob_note (insn, profile_probability::very_unlikely ());
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
@@ -4381,16 +4383,16 @@ emit_insxl (machine_mode mode, rtx op1, rtx op2)
 
   switch (mode)
     {
-    case QImode:
+    case E_QImode:
       fn = gen_insbl;
       break;
-    case HImode:
+    case E_HImode:
       fn = gen_inswl;
       break;
-    case SImode:
+    case E_SImode:
       fn = gen_insll;
       break;
-    case DImode:
+    case E_DImode:
       fn = gen_insql;
       break;
     default:
@@ -9456,6 +9458,25 @@ And in the noreturn case:
 
   if (current_function_has_exception_handlers ())
     alpha_pad_function_end ();
+
+  /* CALL_PAL that implements trap insn, updates program counter to point
+     after the insn.  In case trap is the last insn in the function,
+     emit NOP to guarantee that PC remains inside function boundaries.
+     This workaround is needed to get reliable backtraces.  */
+  
+  rtx_insn *insn = prev_active_insn (get_last_insn ());
+
+  if (insn && NONJUMP_INSN_P (insn))
+    {
+      rtx pat = PATTERN (insn);
+      if (GET_CODE (pat) == PARALLEL)
+	{
+	  rtx vec = XVECEXP (pat, 0, 0);
+	  if (GET_CODE (vec) == TRAP_IF
+	      && XEXP (vec, 0) == const1_rtx)
+	    emit_insn_after (gen_unop (), insn);
+	}
+    }
 }
 
 static void
@@ -9553,9 +9574,9 @@ alpha_arg_type (machine_mode mode)
 {
   switch (mode)
     {
-    case SFmode:
+    case E_SFmode:
       return TARGET_FLOAT_VAX ? FF : FS;
-    case DFmode:
+    case E_DFmode:
       return TARGET_FLOAT_VAX ? FD : FT;
     default:
       return I64;

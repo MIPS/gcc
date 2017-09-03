@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -25,11 +25,14 @@ extern void asan_function_start (void);
 extern void asan_finish_file (void);
 extern rtx_insn *asan_emit_stack_protection (rtx, rtx, unsigned int,
 					     HOST_WIDE_INT *, tree *, int);
+extern rtx_insn *asan_emit_allocas_unpoison (rtx, rtx, rtx_insn *);
 extern bool asan_protect_global (tree);
 extern void initialize_sanitizer_builtins (void);
 extern tree asan_dynamic_init_call (bool);
 extern bool asan_expand_check_ifn (gimple_stmt_iterator *, bool);
 extern bool asan_expand_mark_ifn (gimple_stmt_iterator *);
+extern bool asan_expand_poison_ifn (gimple_stmt_iterator *, bool *,
+				    hash_map<tree, tree> &);
 
 extern gimple_stmt_iterator create_cond_insert_point
      (gimple_stmt_iterator *, bool, bool, bool, basic_block *, basic_block *);
@@ -65,6 +68,8 @@ extern hash_set <tree> *asan_used_labels;
 #define ASAN_STACK_FRAME_MAGIC		0x41b58ab3
 #define ASAN_STACK_RETIRED_MAGIC	0x45e0360e
 
+#define ASAN_USE_AFTER_SCOPE_ATTRIBUTE	"use after scope memory"
+
 /* Various flags for Asan builtins.  */
 enum asan_check_flags
 {
@@ -75,12 +80,17 @@ enum asan_check_flags
 };
 
 /* Flags for Asan check builtins.  */
+#define IFN_ASAN_MARK_FLAGS DEF(POISON), DEF(UNPOISON)
+
 enum asan_mark_flags
 {
-  ASAN_MARK_CLOBBER = 1 << 0,
-  ASAN_MARK_UNCLOBBER = 1 << 1,
-  ASAN_MARK_LAST = 1 << 2
+#define DEF(X) ASAN_MARK_##X
+  IFN_ASAN_MARK_FLAGS
+#undef DEF
 };
+
+/* Return true if STMT is ASAN_MARK with FLAG as first argument.  */
+extern bool asan_mark_p (gimple *stmt, enum asan_mark_flags flag);
 
 /* Return the size of padding needed to insert after a protected
    decl of SIZE.  */
@@ -97,6 +107,8 @@ extern bool set_asan_shadow_offset (const char *);
 extern void set_sanitized_sections (const char *);
 
 extern bool asan_sanitize_stack_p (void);
+
+extern bool asan_sanitize_allocas_p (void);
 
 /* Return TRUE if builtin with given FCODE will be intercepted by
    libasan.  */
@@ -135,13 +147,6 @@ asan_sanitize_use_after_scope (void)
   return (flag_sanitize_address_use_after_scope && asan_sanitize_stack_p ());
 }
 
-static inline bool
-asan_no_sanitize_address_p (void)
-{
-  return lookup_attribute ("no_sanitize_address",
-			   DECL_ATTRIBUTES (current_function_decl));
-}
-
 /* Return true if DECL should be guarded on the stack.  */
 
 static inline bool
@@ -150,6 +155,26 @@ asan_protect_stack_decl (tree decl)
   return DECL_P (decl)
     && (!DECL_ARTIFICIAL (decl)
 	|| (asan_sanitize_use_after_scope () && TREE_ADDRESSABLE (decl)));
+}
+
+/* Return true when flag_sanitize & FLAG is non-zero.  If FN is non-null,
+   remove all flags mentioned in "no_sanitize" of DECL_ATTRIBUTES.  */
+
+static inline bool
+sanitize_flags_p (unsigned int flag, const_tree fn = current_function_decl)
+{
+  unsigned int result_flags = flag_sanitize & flag;
+  if (result_flags == 0)
+    return false;
+
+  if (fn != NULL_TREE)
+    {
+      tree value = lookup_attribute ("no_sanitize", DECL_ATTRIBUTES (fn));
+      if (value)
+	result_flags &= ~tree_to_uhwi (TREE_VALUE (value));
+    }
+
+  return result_flags;
 }
 
 #endif /* TREE_ASAN */

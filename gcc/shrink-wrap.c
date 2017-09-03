@@ -1,5 +1,5 @@
 /* Shrink-wrapping related optimizations.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -561,9 +561,11 @@ handle_simple_exit (edge e)
       BB_END (old_bb) = end;
 
       redirect_edge_succ (e, new_bb);
+      new_bb->count = e->count;
+      new_bb->frequency = EDGE_FREQUENCY (e);
       e->flags |= EDGE_FALLTHRU;
 
-      e = make_edge (new_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
+      e = make_single_succ_edge (new_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
     }
 
   e->flags &= ~EDGE_FALLTHRU;
@@ -758,7 +760,7 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
      reachable from PRO that we already found, and in VEC a stack of
      those we still need to consider (to find successors).  */
 
-  bitmap bb_with = BITMAP_ALLOC (NULL);
+  auto_bitmap bb_with;
   bitmap_set_bit (bb_with, pro->index);
 
   vec<basic_block> vec;
@@ -822,7 +824,7 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
     {
       calculate_dominance_info (CDI_POST_DOMINATORS);
 
-      bitmap bb_tmp = BITMAP_ALLOC (NULL);
+      auto_bitmap bb_tmp;
       bitmap_copy (bb_tmp, bb_with);
       basic_block last_ok = pro;
       vec.truncate (0);
@@ -859,7 +861,6 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
 
       pro = last_ok;
 
-      BITMAP_FREE (bb_tmp);
       free_dominance_info (CDI_POST_DOMINATORS);
     }
 
@@ -871,7 +872,6 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
 
   if (pro == entry)
     {
-      BITMAP_FREE (bb_with);
       free_dominance_info (CDI_DOMINATORS);
       return;
     }
@@ -923,7 +923,7 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
 
 	bb->frequency = RDIV (num * bb->frequency, den);
 	dup->frequency -= bb->frequency;
-	bb->count = RDIV (num * bb->count, den);
+	bb->count = bb->count.apply_scale (num, den);
 	dup->count -= bb->count;
       }
 
@@ -983,6 +983,7 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
 
   basic_block new_bb = create_empty_bb (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
   BB_COPY_PARTITION (new_bb, pro);
+  new_bb->count = profile_count::zero ();
   if (dump_file)
     fprintf (dump_file, "Made prologue block %d\n", new_bb->index);
 
@@ -995,7 +996,7 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
 	  continue;
 	}
 
-      new_bb->count += RDIV (e->src->count * e->probability, REG_BR_PROB_BASE);
+      new_bb->count += e->src->count.apply_probability (e->probability);
       new_bb->frequency += EDGE_FREQUENCY (e);
 
       redirect_edge_and_branch_force (e, new_bb);
@@ -1006,7 +1007,6 @@ try_shrink_wrapping (edge *entry_edge, rtx_insn *prologue_seq)
   *entry_edge = make_single_succ_edge (new_bb, pro, EDGE_FALLTHRU);
   force_nonfallthru (*entry_edge);
 
-  BITMAP_FREE (bb_with);
   free_dominance_info (CDI_DOMINATORS);
 }
 
@@ -1131,8 +1131,6 @@ init_separate_shrink_wrap (sbitmap components)
       SW (bb)->head_components = sbitmap_alloc (SBITMAP_SIZE (components));
       SW (bb)->tail_components = sbitmap_alloc (SBITMAP_SIZE (components));
       bitmap_clear (SW (bb)->has_components);
-      bitmap_clear (SW (bb)->head_components);
-      bitmap_clear (SW (bb)->tail_components);
     }
 }
 
@@ -1253,46 +1251,146 @@ place_prologue_for_one_component (unsigned int which, basic_block head)
     }
 }
 
-/* Mark HAS_COMPONENTS for every block dominated by at least one block with
-   HAS_COMPONENTS set for the respective components, starting at HEAD.  */
+/* Set HAS_COMPONENTS in every block to the maximum it can be set to without
+   setting it on any path from entry to exit where it was not already set
+   somewhere (or, for blocks that have no path to the exit, consider only
+   paths from the entry to the block itself).  */
 static void
-spread_components (basic_block head)
+spread_components (sbitmap components)
 {
-  basic_block bb = head;
-  bool first_visit = true;
-  /* This keeps a tally of all components active.  */
-  sbitmap components = SW (head)->has_components;
+  basic_block entry_block = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  basic_block exit_block = EXIT_BLOCK_PTR_FOR_FN (cfun);
 
-  for (;;)
+  /* A stack of all blocks left to consider, and a bitmap of all blocks
+     on that stack.  */
+  vec<basic_block> todo;
+  todo.create (n_basic_blocks_for_fn (cfun));
+  auto_bitmap seen;
+
+  auto_sbitmap old (SBITMAP_SIZE (components));
+
+  /* Find for every block the components that are *not* needed on some path
+     from the entry to that block.  Do this with a flood fill from the entry
+     block.  Every block can be visited at most as often as the number of
+     components (plus one), and usually much less often.  */
+
+  if (dump_file)
+    fprintf (dump_file, "Spreading down...\n");
+
+  basic_block bb;
+  FOR_ALL_BB_FN (bb, cfun)
+    bitmap_clear (SW (bb)->head_components);
+
+  bitmap_copy (SW (entry_block)->head_components, components);
+
+  edge e;
+  edge_iterator ei;
+
+  todo.quick_push (single_succ (entry_block));
+  bitmap_set_bit (seen, single_succ (entry_block)->index);
+  while (!todo.is_empty ())
     {
-      if (first_visit)
-	{
-	  bitmap_ior (SW (bb)->has_components, SW (bb)->has_components,
-		      components);
+      bb = todo.pop ();
 
-	  if (first_dom_son (CDI_DOMINATORS, bb))
-	    {
-	      components = SW (bb)->has_components;
-	      bb = first_dom_son (CDI_DOMINATORS, bb);
-	      continue;
-	    }
-	}
+      bitmap_copy (old, SW (bb)->head_components);
 
-      components = SW (bb)->has_components;
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	bitmap_ior (SW (bb)->head_components, SW (bb)->head_components,
+		    SW (e->src)->head_components);
 
-      if (next_dom_son (CDI_DOMINATORS, bb))
+      bitmap_and_compl (SW (bb)->head_components, SW (bb)->head_components,
+			SW (bb)->has_components);
+
+      if (!bitmap_equal_p (old, SW (bb)->head_components))
+	FOR_EACH_EDGE (e, ei, bb->succs)
+	  if (bitmap_set_bit (seen, e->dest->index))
+	    todo.quick_push (e->dest);
+
+      bitmap_clear_bit (seen, bb->index);
+    }
+
+  /* Find for every block the components that are *not* needed on some reverse
+     path from the exit to that block.  */
+
+  if (dump_file)
+    fprintf (dump_file, "Spreading up...\n");
+
+  /* First, mark all blocks not reachable from the exit block as not needing
+     any component on any path to the exit.  Mark everything, and then clear
+     again by a flood fill.  */
+
+  FOR_ALL_BB_FN (bb, cfun)
+    bitmap_copy (SW (bb)->tail_components, components);
+
+  FOR_EACH_EDGE (e, ei, exit_block->preds)
+    {
+      todo.quick_push (e->src);
+      bitmap_set_bit (seen, e->src->index);
+    }
+
+  while (!todo.is_empty ())
+    {
+      bb = todo.pop ();
+
+      if (!bitmap_empty_p (SW (bb)->tail_components))
+	FOR_EACH_EDGE (e, ei, bb->preds)
+	  if (bitmap_set_bit (seen, e->src->index))
+	    todo.quick_push (e->src);
+
+      bitmap_clear (SW (bb)->tail_components);
+
+      bitmap_clear_bit (seen, bb->index);
+    }
+
+  /* And then, flood fill backwards to find for every block the components
+     not needed on some path to the exit.  */
+
+  bitmap_copy (SW (exit_block)->tail_components, components);
+
+  FOR_EACH_EDGE (e, ei, exit_block->preds)
+    {
+      todo.quick_push (e->src);
+      bitmap_set_bit (seen, e->src->index);
+    }
+
+  while (!todo.is_empty ())
+    {
+      bb = todo.pop ();
+
+      bitmap_copy (old, SW (bb)->tail_components);
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	bitmap_ior (SW (bb)->tail_components, SW (bb)->tail_components,
+		    SW (e->dest)->tail_components);
+
+      bitmap_and_compl (SW (bb)->tail_components, SW (bb)->tail_components,
+			SW (bb)->has_components);
+
+      if (!bitmap_equal_p (old, SW (bb)->tail_components))
+	FOR_EACH_EDGE (e, ei, bb->preds)
+	  if (bitmap_set_bit (seen, e->src->index))
+	    todo.quick_push (e->src);
+
+      bitmap_clear_bit (seen, bb->index);
+    }
+
+  /* Finally, mark everything not not needed both forwards and backwards.  */
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      bitmap_and (SW (bb)->head_components, SW (bb)->head_components,
+		  SW (bb)->tail_components);
+      bitmap_and_compl (SW (bb)->has_components, components,
+			SW (bb)->head_components);
+    }
+
+  FOR_ALL_BB_FN (bb, cfun)
+    {
+      if (dump_file)
 	{
-	  bb = next_dom_son (CDI_DOMINATORS, bb);
-	  basic_block parent = get_immediate_dominator (CDI_DOMINATORS, bb);
-	  components = SW (parent)->has_components;
-	  first_visit = true;
-	}
-      else
-	{
-	  if (bb == head)
-	    return;
-	  bb = get_immediate_dominator (CDI_DOMINATORS, bb);
-	  first_visit = false;
+	  fprintf (dump_file, "bb %d components:", bb->index);
+	  dump_components ("has", SW (bb)->has_components);
+	  fprintf (dump_file, "\n");
 	}
     }
 }
@@ -1303,8 +1401,8 @@ spread_components (basic_block head)
 static void
 disqualify_problematic_components (sbitmap components)
 {
-  sbitmap pro = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap epi = sbitmap_alloc (SBITMAP_SIZE (components));
+  auto_sbitmap pro (SBITMAP_SIZE (components));
+  auto_sbitmap epi (SBITMAP_SIZE (components));
 
   basic_block bb;
   FOR_EACH_BB_FN (bb, cfun)
@@ -1369,9 +1467,6 @@ disqualify_problematic_components (sbitmap components)
 	    }
 	}
     }
-
-  sbitmap_free (pro);
-  sbitmap_free (epi);
 }
 
 /* Place code for prologues and epilogues for COMPONENTS where we can put
@@ -1379,11 +1474,14 @@ disqualify_problematic_components (sbitmap components)
 static void
 emit_common_heads_for_components (sbitmap components)
 {
-  sbitmap pro = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap epi = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap tmp = sbitmap_alloc (SBITMAP_SIZE (components));
+  auto_sbitmap pro (SBITMAP_SIZE (components));
+  auto_sbitmap epi (SBITMAP_SIZE (components));
+  auto_sbitmap tmp (SBITMAP_SIZE (components));
 
   basic_block bb;
+  FOR_ALL_BB_FN (bb, cfun)
+    bitmap_clear (SW (bb)->head_components);
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       /* Find which prologue resp. epilogue components are needed for all
@@ -1454,10 +1552,6 @@ emit_common_heads_for_components (sbitmap components)
 	  bitmap_ior (SW (bb)->head_components, SW (bb)->head_components, epi);
 	}
     }
-
-  sbitmap_free (pro);
-  sbitmap_free (epi);
-  sbitmap_free (tmp);
 }
 
 /* Place code for prologues and epilogues for COMPONENTS where we can put
@@ -1465,11 +1559,14 @@ emit_common_heads_for_components (sbitmap components)
 static void
 emit_common_tails_for_components (sbitmap components)
 {
-  sbitmap pro = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap epi = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap tmp = sbitmap_alloc (SBITMAP_SIZE (components));
+  auto_sbitmap pro (SBITMAP_SIZE (components));
+  auto_sbitmap epi (SBITMAP_SIZE (components));
+  auto_sbitmap tmp (SBITMAP_SIZE (components));
 
   basic_block bb;
+  FOR_ALL_BB_FN (bb, cfun)
+    bitmap_clear (SW (bb)->tail_components);
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       /* Find which prologue resp. epilogue components are needed for all
@@ -1561,10 +1658,6 @@ emit_common_tails_for_components (sbitmap components)
 	  bitmap_ior (SW (bb)->tail_components, SW (bb)->tail_components, pro);
 	}
     }
-
-  sbitmap_free (pro);
-  sbitmap_free (epi);
-  sbitmap_free (tmp);
 }
 
 /* Place prologues and epilogues for COMPONENTS on edges, if we haven't already
@@ -1572,8 +1665,8 @@ emit_common_tails_for_components (sbitmap components)
 static void
 insert_prologue_epilogue_for_components (sbitmap components)
 {
-  sbitmap pro = sbitmap_alloc (SBITMAP_SIZE (components));
-  sbitmap epi = sbitmap_alloc (SBITMAP_SIZE (components));
+  auto_sbitmap pro (SBITMAP_SIZE (components));
+  auto_sbitmap epi (SBITMAP_SIZE (components));
 
   basic_block bb;
   FOR_EACH_BB_FN (bb, cfun)
@@ -1608,6 +1701,10 @@ insert_prologue_epilogue_for_components (sbitmap components)
 			   e->dest->index);
 		  dump_components ("epi", epi);
 		  dump_components ("pro", pro);
+		  if (e->flags & EDGE_SIBCALL)
+		    fprintf (dump_file, "  (SIBCALL)");
+		  else if (e->flags & EDGE_ABNORMAL)
+		    fprintf (dump_file, "  (ABNORMAL)");
 		  fprintf (dump_file, "\n");
 		}
 
@@ -1646,9 +1743,6 @@ insert_prologue_epilogue_for_components (sbitmap components)
 	    }
 	}
     }
-
-  sbitmap_free (pro);
-  sbitmap_free (epi);
 
   commit_edge_insertions ();
 }
@@ -1702,7 +1796,7 @@ try_shrink_wrapping_separate (basic_block first_bb)
   EXECUTE_IF_SET_IN_BITMAP (components, 0, j, sbi)
     place_prologue_for_one_component (j, first_bb);
 
-  spread_components (first_bb);
+  spread_components (components);
 
   disqualify_problematic_components (components);
 

@@ -7,6 +7,8 @@
 package runtime
 
 import (
+	"runtime/internal/atomic"
+	"runtime/internal/sys"
 	"unsafe"
 )
 
@@ -23,12 +25,15 @@ import (
 
 var Entersyscall = entersyscall
 var Exitsyscall = exitsyscall
+var LockedOSThread = lockedOSThread
+var Xadduintptr = atomic.Xadduintptr
 
-// var LockedOSThread = lockedOSThread
+var FuncPC = funcPC
 
-// var Xadduintptr = xadduintptr
+var Fastlog2 = fastlog2
 
-// var FuncPC = funcPC
+var Atoi = atoi
+var Atoi32 = atoi32
 
 type LFNode struct {
 	Next    uint64
@@ -47,39 +52,6 @@ func GCMask(x interface{}) (ret []byte) {
 	return nil
 }
 
-//func testSchedLocalQueue()
-//func testSchedLocalQueueSteal()
-//
-//func RunSchedLocalQueueTest() {
-//	testSchedLocalQueue()
-//}
-//
-//func RunSchedLocalQueueStealTest() {
-//	testSchedLocalQueueSteal()
-//}
-
-//var StringHash = stringHash
-//var BytesHash = bytesHash
-//var Int32Hash = int32Hash
-//var Int64Hash = int64Hash
-//var EfaceHash = efaceHash
-//var IfaceHash = ifaceHash
-//var MemclrBytes = memclrBytes
-
-var HashLoad = &hashLoad
-
-// entry point for testing
-//func GostringW(w []uint16) (s string) {
-//	s = gostringw(&w[0])
-//	return
-//}
-
-//var Gostringnocopy = gostringnocopy
-//var Maxstring = &maxstring
-
-//type Uintreg uintreg
-
-/*
 func RunSchedLocalQueueTest() {
 	_p_ := new(p)
 	gs := make([]g, len(_p_.runq))
@@ -183,8 +155,21 @@ var Int32Hash = int32Hash
 var Int64Hash = int64Hash
 var EfaceHash = efaceHash
 var IfaceHash = ifaceHash
-var MemclrBytes = memclrBytes
-*/
+
+func MemclrBytes(b []byte) {
+	s := (*slice)(unsafe.Pointer(&b))
+	memclrNoHeapPointers(s.array, uintptr(s.len))
+}
+
+var HashLoad = &hashLoad
+
+// entry point for testing
+//func GostringW(w []uint16) (s string) {
+//	s = gostringw(&w[0])
+//	return
+//}
+
+type Uintreg sys.Uintreg
 
 var Open = open
 var Close = closefd
@@ -198,7 +183,6 @@ func SetEnvs(e []string) { envs = e }
 
 // For benchmarking.
 
-/*
 func BenchSetType(n int, x interface{}) {
 	e := *efaceOf(&x)
 	t := e._type
@@ -228,11 +212,7 @@ func BenchSetType(n int, x interface{}) {
 
 const PtrSize = sys.PtrSize
 
-var TestingAssertE2I2GC = &testingAssertE2I2GC
-var TestingAssertE2T2GC = &testingAssertE2T2GC
-
 var ForceGCPeriod = &forcegcperiod
-*/
 
 // SetTracebackEnv is like runtime/debug.SetTraceback, but it raises
 // the "environment" traceback level, so later calls to
@@ -242,7 +222,6 @@ func SetTracebackEnv(level string) {
 	traceback_env = traceback_cache
 }
 
-/*
 var ReadUnaligned32 = readUnaligned32
 var ReadUnaligned64 = readUnaligned64
 
@@ -251,7 +230,7 @@ func CountPagesInUse() (pagesInUse, counted uintptr) {
 
 	pagesInUse = uintptr(mheap_.pagesInUse)
 
-	for _, s := range h_allspans {
+	for _, s := range mheap_.allspans {
 		if s.state == mSpanInUse {
 			counted += s.npages
 		}
@@ -261,4 +240,16 @@ func CountPagesInUse() (pagesInUse, counted uintptr) {
 
 	return
 }
-*/
+
+// BlockOnSystemStack switches to the system stack, prints "x\n" to
+// stderr, and blocks in a stack containing
+// "runtime.blockOnSystemStackInternal".
+func BlockOnSystemStack() {
+	systemstack(blockOnSystemStackInternal)
+}
+
+func blockOnSystemStackInternal() {
+	print("x\n")
+	lock(&deadlock)
+	lock(&deadlock)
+}

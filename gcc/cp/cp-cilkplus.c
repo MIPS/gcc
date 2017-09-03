@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains routines to handle Cilk Plus specific
    routines for the C++ Compiler.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>.
 
    This file is part of GCC.
@@ -36,7 +36,7 @@ is_conversion_operator_function_decl_p (tree t)
   if (TREE_CODE (t) != FUNCTION_DECL)
     return false;
 
-  return DECL_NAME (t) && IDENTIFIER_TYPENAME_P (DECL_NAME (t));
+  return DECL_CONV_FN_P (t);
 }
 
 /* Recursively traverse EXP to search for a CILK_SPAWN_STMT subtree.
@@ -137,7 +137,7 @@ cilk_cp_detect_spawn_and_unwrap (tree *exp0)
    This function is passed in as a function pointer to walk_tree.  *TP is
    the current tree pointer, *WALK_SUBTREES is set to 0 by this function if
    recursing into TP's subtrees is unnecessary. *DATA is a bool variable that
-   is set to false if an error has occured.  */
+   is set to false if an error has occurred.  */
 
 static tree
 cpp_validate_cilk_plus_loop_aux (tree *tp, int *walk_subtrees, void *data)
@@ -223,11 +223,7 @@ cilk_install_body_with_frame_cleanup (tree fndecl, tree orig_body, void *wd)
   location_t loc = EXPR_LOCATION (orig_body);
   tree list = alloc_stmt_list ();
   DECL_SAVED_TREE (fndecl) = list;
-  tree fptr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (frame)), frame);
-  tree body = cilk_install_body_pedigree_operations (fptr);
-  gcc_assert (TREE_CODE (body) == STATEMENT_LIST);
-  tree detach_expr = build_call_expr (cilk_detach_fndecl, 1, fptr);
-  append_to_statement_list (detach_expr, &body);
+  tree body = alloc_stmt_list ();
   cilk_outline (fndecl, &orig_body, (struct wrapper_data *) wd);
   append_to_statement_list (orig_body, &body);
   if (flag_exceptions)

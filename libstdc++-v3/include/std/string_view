@@ -1,6 +1,6 @@
 // Components for manipulating non-owning sequences of characters -*- C++ -*-
 
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -427,45 +427,35 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       size_t	    _M_len;
       const _CharT* _M_str;
     };
-_GLIBCXX_END_NAMESPACE_VERSION
 
   // [string.view.comparison], non-member basic_string_view comparison function
+
   namespace __detail
   {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-    //  Identity transform to make ADL work with just one argument.
-    //  See n3766.html.
-    template<typename _Tp = void>
-      struct __identity
-      { typedef _Tp type; };
-
-    template<>
-      struct __identity<void>;
-
+    // Identity transform to create a non-deduced context, so that only one
+    // argument participates in template argument deduction and the other
+    // argument gets implicitly converted to the deduced type. See n3766.html.
     template<typename _Tp>
-      using __idt = typename __identity<_Tp>::type;
-_GLIBCXX_END_NAMESPACE_VERSION
+      using __idt = common_type_t<_Tp>;
   }
-
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _CharT, typename _Traits>
     inline bool
     operator==(basic_string_view<_CharT, _Traits> __x,
                basic_string_view<_CharT, _Traits> __y) noexcept
-    { return __x.compare(__y) == 0; }
+    { return __x.size() == __y.size() && __x.compare(__y) == 0; }
 
   template<typename _CharT, typename _Traits>
     inline bool
     operator==(basic_string_view<_CharT, _Traits> __x,
                __detail::__idt<basic_string_view<_CharT, _Traits>> __y) noexcept
-    { return __x.compare(__y) == 0; }
+    { return __x.size() == __y.size() && __x.compare(__y) == 0; }
 
   template<typename _CharT, typename _Traits>
     inline bool
     operator==(__detail::__idt<basic_string_view<_CharT, _Traits>> __x,
                basic_string_view<_CharT, _Traits> __y) noexcept
-    { return __x.compare(__y) == 0; }
+    { return __x.size() == __y.size() && __x.compare(__y) == 0; }
 
   template<typename _CharT, typename _Traits>
     inline bool
@@ -644,8 +634,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
   inline namespace string_view_literals
   {
-  _GLIBCXX_BEGIN_NAMESPACE_VERSION
-
     inline constexpr basic_string_view<char>
     operator""sv(const char* __str, size_t __len)
     { return basic_string_view<char>{__str, __len}; }
@@ -665,8 +653,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator""sv(const char32_t* __str, size_t __len)
     { return basic_string_view<char32_t>{__str, __len}; }
 #endif
-
-  _GLIBCXX_END_NAMESPACE_VERSION
   } // namespace string_literals
   } // namespace literals
 

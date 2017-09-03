@@ -1,5 +1,5 @@
 /* Set up combined include path chain for the preprocessor.
-   Copyright (C) 1986-2016 Free Software Foundation, Inc.
+   Copyright (C) 1986-2017 Free Software Foundation, Inc.
 
    Broken out of cppinit.c and cppfiles.c and rewritten Mar 2003.
 
@@ -314,7 +314,7 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 }
 
 /* Add SYSROOT to any user-supplied paths in CHAIN starting with
-   "=".  */
+   "=" or "$SYSROOT".  */
 
 static void
 add_sysroot_to_chain (const char *sysroot, int chain)
@@ -322,8 +322,15 @@ add_sysroot_to_chain (const char *sysroot, int chain)
   struct cpp_dir *p;
 
   for (p = heads[chain]; p != NULL; p = p->next)
-    if (p->name[0] == '=' && p->user_supplied_p)
-      p->name = concat (sysroot, p->name + 1, NULL);
+    {
+      if (p->user_supplied_p)
+	{
+	  if (p->name[0] == '=')
+	    p->name = concat (sysroot, p->name + 1, NULL);
+	  if (strncmp (p->name, "$SYSROOT", strlen ("$SYSROOT")) == 0)
+	    p->name = concat (sysroot, p->name + strlen ("$SYSROOT"), NULL);
+	}
+    }
 }
 
 /* Merge the four include chains together in the order quote, bracket,

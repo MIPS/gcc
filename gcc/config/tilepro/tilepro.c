@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Tilera TILEPro.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -30,6 +30,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "expmed.h"
 #include "optabs.h"
 #include "regs.h"
@@ -83,18 +84,18 @@ tilepro_option_override (void)
 
 /* Implement TARGET_SCALAR_MODE_SUPPORTED_P.  */
 static bool
-tilepro_scalar_mode_supported_p (machine_mode mode)
+tilepro_scalar_mode_supported_p (scalar_mode mode)
 {
   switch (mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
+    case E_DImode:
       return true;
 
-    case SFmode:
-    case DFmode:
+    case E_SFmode:
+    case E_DFmode:
       return true;
 
     default:
@@ -1207,15 +1208,15 @@ tilepro_simd_int (rtx num, machine_mode mode)
 
   switch (mode)
     {
-    case QImode:
+    case E_QImode:
       n = 0x01010101 * (n & 0x000000FF);
       break;
-    case HImode:
+    case E_HImode:
       n = 0x00010001 * (n & 0x0000FFFF);
       break;
-    case SImode:
+    case E_SImode:
       break;
-    case DImode:
+    case E_DImode:
       break;
     default:
       gcc_unreachable ();
@@ -1688,7 +1689,7 @@ tilepro_expand_unaligned_load (rtx dest_reg, rtx mem, HOST_WIDE_INT bitsize,
 	extract_bit_field (gen_lowpart (SImode, wide_result),
 			   bitsize, bit_offset % BITS_PER_UNIT,
 			   !sign, gen_lowpart (SImode, dest_reg),
-			   SImode, SImode, false);
+			   SImode, SImode, false, NULL);
 
       if (extracted != dest_reg)
 	emit_move_insn (dest_reg, gen_lowpart (SImode, extracted));
@@ -2419,9 +2420,8 @@ cbranch_predicted_p (rtx_insn *insn)
 
   if (x)
     {
-      int pred_val = XINT (x, 0);
-
-      return pred_val >= REG_BR_PROB_BASE / 2;
+      return profile_probability::from_reg_br_prob_note (XINT (x, 0))
+	     >= profile_probability::even ();
     }
 
   return false;
@@ -3533,8 +3533,11 @@ tilepro_expand_prologue (void)
   /* Save lr first in its special location because code after this
      might use the link register as a scratch register.  */
   if (df_regs_ever_live_p (TILEPRO_LINK_REGNUM) || crtl->calls_eh_return)
-    FRP (frame_emit_store (TILEPRO_LINK_REGNUM, TILEPRO_LINK_REGNUM,
-			   stack_pointer_rtx, stack_pointer_rtx, 0));
+    {
+      FRP (frame_emit_store (TILEPRO_LINK_REGNUM, TILEPRO_LINK_REGNUM,
+			     stack_pointer_rtx, stack_pointer_rtx, 0));
+      emit_insn (gen_blockage ());
+    }
 
   if (total_size == 0)
     {

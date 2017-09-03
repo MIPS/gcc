@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -607,6 +607,8 @@ package body Ch6 is
                   Error_Msg_SP ("only procedures can be null");
                else
                   Set_Null_Present (Specification_Node);
+                  Set_Null_Statement (Specification_Node,
+                    New_Node (N_Null_Statement, Prev_Token_Ptr));
                end if;
 
                goto Subprogram_Declaration;
@@ -1909,8 +1911,9 @@ package body Ch6 is
 
             if Token = Tok_Do then
                Push_Scope_Stack;
-               Scope.Table (Scope.Last).Etyp := E_Return;
                Scope.Table (Scope.Last).Ecol := Ret_Strt;
+               Scope.Table (Scope.Last).Etyp := E_Return;
+               Scope.Table (Scope.Last).Labl := Error;
                Scope.Table (Scope.Last).Sloc := Ret_Sloc;
 
                Scan; -- past DO

@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -82,26 +82,41 @@ along with GCC; see the file COPYING3.  If not see
 /* Names to predefine in the preprocessor for this target machine.  */
 #define TARGET_SUB_OS_CPP_BUILTINS()
 #define TARGET_OS_CPP_BUILTINS()			\
-    do {						\
-	builtin_define_std ("unix");			\
-	builtin_define_std ("sun");			\
-	builtin_define ("__svr4__");			\
-	builtin_define ("__SVR4");			\
-	builtin_assert ("system=unix");			\
-	builtin_assert ("system=svr4");			\
-	/* For C++ we need to add some additional macro	\
-	   definitions required by the C++ standard	\
-	   library.  */					\
-	if (c_dialect_cxx ())				\
+  do {							\
+    builtin_define_std ("unix");			\
+    builtin_define_std ("sun");				\
+    builtin_define ("__svr4__");			\
+    builtin_define ("__SVR4");				\
+    builtin_assert ("system=unix");			\
+    builtin_assert ("system=svr4");			\
+    /* For C++ we need to add some additional macro	\
+       definitions required by the C++ standard		\
+       library.  */					\
+    if (c_dialect_cxx ())				\
+      {							\
+	switch (cxx_dialect)				\
 	  {						\
+	  case cxx98:					\
+	  case cxx11:					\
+	  case cxx14:					\
+	    /* C++11 and C++14 are based on C99.	\
+	       libstdc++ makes use of C99 features	\
+	       even for C++98.  */			\
 	    builtin_define ("__STDC_VERSION__=199901L");\
-	    builtin_define ("_XOPEN_SOURCE=600");	\
-	    builtin_define ("_LARGEFILE_SOURCE=1");	\
-	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
-	    builtin_define ("__EXTENSIONS__");		\
+	    break;					\
+							\
+	  default:					\
+	    /* C++17 is based on C11.  */		\
+	    builtin_define ("__STDC_VERSION__=201112L");\
+	    break;					\
 	  }						\
-	TARGET_SUB_OS_CPP_BUILTINS();			\
-    } while (0)
+	builtin_define ("_XOPEN_SOURCE=600");		\
+	builtin_define ("_LARGEFILE_SOURCE=1");		\
+	builtin_define ("_LARGEFILE64_SOURCE=1");	\
+	builtin_define ("__EXTENSIONS__");		\
+      }							\
+    TARGET_SUB_OS_CPP_BUILTINS();			\
+  } while (0)
 
 #define SUBTARGET_OVERRIDE_OPTIONS			\
   do {							\
@@ -159,9 +174,9 @@ along with GCC; see the file COPYING3.  If not see
 			    %{!ansi:values-Xa.o%s}"
 
 #if defined(HAVE_LD_PIE) && defined(HAVE_SOLARIS_CRTS)
-#define STARTFILE_CRTBEGIN_SPEC "%{shared:crtbeginS.o%s} \
-				 %{" PIE_SPEC ":crtbeginS.o%s} \
-				 %{" NO_PIE_SPEC ":crtbegin.o%s}"
+#define STARTFILE_CRTBEGIN_SPEC "%{static:crtbegin.o%s; \
+				   shared|" PIE_SPEC ":crtbeginS.o%s; \
+				   :crtbegin.o%s}"
 #else
 #define STARTFILE_CRTBEGIN_SPEC	"crtbegin.o%s"
 #endif
@@ -209,9 +224,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #if defined(HAVE_LD_PIE) && defined(HAVE_SOLARIS_CRTS)
-#define ENDFILE_CRTEND_SPEC "%{shared:crtendS.o%s;: \
-			       %{" PIE_SPEC ":crtendS.o%s} \
-			       %{" NO_PIE_SPEC ":crtend.o%s}}"
+#define ENDFILE_CRTEND_SPEC "%{static:crtend.o%s; \
+			       shared|" PIE_SPEC ":crtendS.o%s; \
+			       :crtend.o%s}"
 #else
 #define ENDFILE_CRTEND_SPEC "crtend.o%s"
 #endif
@@ -313,6 +328,11 @@ along with GCC; see the file COPYING3.  If not see
 #else
 /* GNU ld needs --export-dynamic to implement -rdynamic.  */
 #define RDYNAMIC_SPEC "--export-dynamic"
+#endif
+
+#ifndef USE_GLD
+/* Prefer native form with Solaris ld.  */
+#define SYSROOT_SPEC "-z sysroot=%R"
 #endif
 
 #ifndef USE_GLD
@@ -439,10 +459,6 @@ along with GCC; see the file COPYING3.  If not see
    We redefine this hook so the version from elfos.h header won't be used.  */
 #undef TARGET_LIBC_HAS_FUNCTION
 #define TARGET_LIBC_HAS_FUNCTION default_libc_has_function
-
-/* The format string to which "%p" corresponds.  */
-#undef TARGET_LIBC_PRINTF_POINTER_FORMAT
-#define TARGET_LIBC_PRINTF_POINTER_FORMAT solaris_libc_printf_pointer_format
 
 extern GTY(()) tree solaris_pending_aligns;
 extern GTY(()) tree solaris_pending_inits;

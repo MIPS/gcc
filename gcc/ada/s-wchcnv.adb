@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -93,11 +93,10 @@ package body System.WCh_Cnv is
          W := Shift_Left (W, 6) or (U and 2#00111111#);
       end Get_UTF_Byte;
 
-   --  Start of processing for Char_Sequence_To_Wide
+   --  Start of processing for Char_Sequence_To_UTF_32
 
    begin
       case EM is
-
          when WCEM_Hex =>
             if C /= ASCII.ESC then
                return Character'Pos (C);
@@ -245,7 +244,6 @@ package body System.WCh_Cnv is
             end if;
 
             return UTF_32_Code (B1);
-
       end case;
    end Char_Sequence_To_UTF_32;
 
@@ -293,7 +291,6 @@ package body System.WCh_Cnv is
       --  Processing depends on encoding mode
 
       case EM is
-
          when WCEM_Hex =>
             if Val < 256 then
                Out_Char (Character'Val (Val));
@@ -409,7 +406,7 @@ package body System.WCh_Cnv is
          when WCEM_Brackets =>
 
             --  Values in the range 0-255 are directly output. Note that there
-            --  is some issue with [ (16#5B#] since this will cause confusion
+            --  is an issue with [ (16#5B#) since this will cause confusion
             --  if the resulting string is interpreted using brackets encoding.
 
             --  One possibility would be to always output [ as ["5B"] but in

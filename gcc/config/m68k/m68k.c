@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Motorola 68000 family.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "cfghooks.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "rtl.h"
 #include "df.h"
 #include "alias.h"
@@ -183,6 +185,8 @@ static rtx m68k_function_arg (cumulative_args_t, machine_mode,
 static bool m68k_cannot_force_const_mem (machine_mode mode, rtx x);
 static bool m68k_output_addr_const_extra (FILE *, rtx);
 static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
+static enum flt_eval_method
+m68k_excess_precision (enum excess_precision_type);
 
 /* Initialize the GCC target structure.  */
 
@@ -322,6 +326,9 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 #undef TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA m68k_output_addr_const_extra
+
+#undef TARGET_C_EXCESS_PRECISION
+#define TARGET_C_EXCESS_PRECISION m68k_excess_precision
 
 /* The value stored by TAS.  */
 #undef TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
@@ -1614,11 +1621,11 @@ output_dbcc_and_branch (rtx *operands)
      to compensate for the fact that dbcc decrements in HImode.  */
   switch (GET_MODE (operands[0]))
     {
-      case SImode:
+      case E_SImode:
         output_asm_insn ("clr%.w %0\n\tsubq%.l #1,%0\n\tjpl %l1", operands);
         break;
 
-      case HImode:
+      case E_HImode:
         break;
 
       default:
@@ -5263,9 +5270,9 @@ rtx
 m68k_libcall_value (machine_mode mode)
 {
   switch (mode) {
-  case SFmode:
-  case DFmode:
-  case XFmode:
+  case E_SFmode:
+  case E_DFmode:
+  case E_XFmode:
     if (TARGET_68881)
       return gen_rtx_REG (mode, FP0_REG);
     break;
@@ -5286,9 +5293,9 @@ m68k_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 
   mode = TYPE_MODE (valtype);
   switch (mode) {
-  case SFmode:
-  case DFmode:
-  case XFmode:
+  case E_SFmode:
+  case E_DFmode:
+  case E_XFmode:
     if (TARGET_68881)
       return gen_rtx_REG (mode, FP0_REG);
     break;
@@ -5514,11 +5521,11 @@ sched_attr_op_type (rtx_insn *insn, bool opx_p, bool address_p)
     {
       switch (GET_MODE (op))
 	{
-	case SFmode:
+	case E_SFmode:
 	  return OP_TYPE_IMM_W;
 
-	case VOIDmode:
-	case DFmode:
+	case E_VOIDmode:
+	case E_DFmode:
 	  return OP_TYPE_IMM_L;
 
 	default:
@@ -5532,13 +5539,13 @@ sched_attr_op_type (rtx_insn *insn, bool opx_p, bool address_p)
     {
       switch (GET_MODE (op))
 	{
-	case QImode:
+	case E_QImode:
 	  return OP_TYPE_IMM_Q;
 
-	case HImode:
+	case E_HImode:
 	  return OP_TYPE_IMM_W;
 
-	case SImode:
+	case E_SImode:
 	  return OP_TYPE_IMM_L;
 
 	default:
@@ -6014,7 +6021,7 @@ struct _sched_ib
     /* Size of buffer in records.  */
     int n_insns;
 
-    /* Array to hold data on adjustements made to the size of the buffer.  */
+    /* Array to hold data on adjustments made to the size of the buffer.  */
     int *adjust;
 
     /* Index of the above array.  */
@@ -6076,7 +6083,7 @@ m68k_sched_variable_issue (FILE *sched_dump ATTRIBUTE_UNUSED,
 	  if (sched_ib.records.adjust_index == sched_ib.records.n_insns)
 	    sched_ib.records.adjust_index = 0;
 
-	  /* Undo adjustement we did 7 instructions ago.  */
+	  /* Undo adjustment we did 7 instructions ago.  */
 	  sched_ib.size
 	    += sched_ib.records.adjust[sched_ib.records.adjust_index];
 
@@ -6532,6 +6539,38 @@ m68k_epilogue_uses (int regno ATTRIBUTE_UNUSED)
   return (reload_completed
 	  && (m68k_get_function_kind (current_function_decl)
 	      == m68k_fk_interrupt_handler));
+}
+
+
+/* Implement TARGET_C_EXCESS_PRECISION.
+
+   Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
+   instructions, we get proper intermediate rounding, otherwise we
+   get extended precision results.  */
+
+static enum flt_eval_method
+m68k_excess_precision (enum excess_precision_type type)
+{
+  switch (type)
+    {
+      case EXCESS_PRECISION_TYPE_FAST:
+	/* The fastest type to promote to will always be the native type,
+	   whether that occurs with implicit excess precision or
+	   otherwise.  */
+	return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+      case EXCESS_PRECISION_TYPE_STANDARD:
+      case EXCESS_PRECISION_TYPE_IMPLICIT:
+	/* Otherwise, the excess precision we want when we are
+	   in a standards compliant mode, and the implicit precision we
+	   provide can be identical.  */
+	if (TARGET_68040 || ! TARGET_68881)
+	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+
+	return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
+      default:
+	gcc_unreachable ();
+    }
+  return FLT_EVAL_METHOD_UNPREDICTABLE;
 }
 
 #include "gt-m68k.h"

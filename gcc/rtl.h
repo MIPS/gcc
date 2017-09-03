@@ -1,5 +1,5 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,10 +24,6 @@ along with GCC; see the file COPYING3.  If not see
    machmode.h and other files to exist and would not normally have been
    included by coretypes.h.  */
 #ifdef GENERATOR_FILE
-#include "machmode.h"     
-#include "signop.h"
-#include "wide-int.h"
-#include "double-int.h"
 #include "real.h"
 #include "fixed-value.h"
 #include "statistics.h"
@@ -638,6 +634,7 @@ public:
      This method gets the underlying vec.  */
 
   inline rtvec get_labels () const;
+  inline scalar_int_mode get_data_mode () const;
 };
 
 class GTY(()) rtx_barrier : public rtx_insn
@@ -1148,30 +1145,30 @@ is_a_helper <rtx_note *>::test (rtx_insn *insn)
 
 extern void rtl_check_failed_bounds (const_rtx, int, const char *, int,
 				     const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_type1 (const_rtx, int, int, const char *, int,
 				    const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_type2 (const_rtx, int, int, int, const char *,
 				    int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code1 (const_rtx, enum rtx_code, const char *,
 				    int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code2 (const_rtx, enum rtx_code, enum rtx_code,
 				    const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_code_mode (const_rtx, enum rtx_code, machine_mode,
 					bool, const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtl_check_failed_block_symbol (const char *, int, const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void cwi_check_failed_bounds (const_rtx, int, const char *, int,
 				     const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void rtvec_check_failed_bounds (const_rtvec, int, const char *, int,
 				       const char *)
-    ATTRIBUTE_NORETURN;
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 
 #else   /* not ENABLE_RTL_CHECKING */
 
@@ -1269,7 +1266,7 @@ extern void rtvec_check_failed_bounds (const_rtvec, int, const char *, int,
 
 extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 				   int, const char *)
-    ATTRIBUTE_NORETURN
+    ATTRIBUTE_NORETURN ATTRIBUTE_COLD
     ;
 
 #else	/* not ENABLE_RTL_FLAG_CHECKING */
@@ -1479,6 +1476,24 @@ inline rtvec rtx_jump_table_data::get_labels () const
     return XVEC (pat, 0);
   else
     return XVEC (pat, 1); /* presumably an ADDR_DIFF_VEC */
+}
+
+/* Return the mode of the data in the table, which is always a scalar
+   integer.  */
+
+inline scalar_int_mode
+rtx_jump_table_data::get_data_mode () const
+{
+  return as_a <scalar_int_mode> (GET_MODE (PATTERN (this)));
+}
+
+/* If LABEL is followed by a jump table, return the table, otherwise
+   return null.  */
+
+inline rtx_jump_table_data *
+jump_table_for_label (const rtx_code_label *label)
+{
+  return safe_dyn_cast <rtx_jump_table_data *> (NEXT_INSN (label));
 }
 
 #define RTX_FRAME_RELATED_P(RTX)					\
@@ -2021,6 +2036,9 @@ struct address_info {
   /* The address space.  */
   addr_space_t as;
 
+  /* True if this is an RTX_AUTOINC address.  */
+  bool autoinc_p;
+
   /* A pointer to the top-level address.  */
   rtx *outer;
 
@@ -2076,9 +2094,6 @@ struct address_info {
 
   /* If BASE is nonnull, this is the code of the rtx that contains it.  */
   enum rtx_code base_outer_code;
-
-  /* True if this is an RTX_AUTOINC address.  */
-  bool autoinc_p;
 };
 
 /* This is used to bundle an rtx and a mode together so that the pair
@@ -2105,8 +2120,7 @@ namespace wi
 inline unsigned int
 wi::int_traits <rtx_mode_t>::get_precision (const rtx_mode_t &x)
 {
-  gcc_checking_assert (x.second != BLKmode && x.second != VOIDmode);
-  return GET_MODE_PRECISION (x.second);
+  return GET_MODE_PRECISION (as_a <scalar_mode> (x.second));
 }
 
 inline wi::storage_ref
@@ -2151,7 +2165,7 @@ namespace wi
 inline wi::hwi_with_prec
 wi::shwi (HOST_WIDE_INT val, machine_mode mode)
 {
-  return shwi (val, GET_MODE_PRECISION (mode));
+  return shwi (val, GET_MODE_PRECISION (as_a <scalar_mode> (mode)));
 }
 
 /* Produce the smallest number that is represented in MODE.  The precision
@@ -2159,7 +2173,7 @@ wi::shwi (HOST_WIDE_INT val, machine_mode mode)
 inline wide_int
 wi::min_value (machine_mode mode, signop sgn)
 {
-  return min_value (GET_MODE_PRECISION (mode), sgn);
+  return min_value (GET_MODE_PRECISION (as_a <scalar_mode> (mode)), sgn);
 }
 
 /* Produce the largest number that is represented in MODE.  The precision
@@ -2167,7 +2181,7 @@ wi::min_value (machine_mode mode, signop sgn)
 inline wide_int
 wi::max_value (machine_mode mode, signop sgn)
 {
-  return max_value (GET_MODE_PRECISION (mode), sgn);
+  return max_value (GET_MODE_PRECISION (as_a <scalar_mode> (mode)), sgn);
 }
 
 extern void init_rtlanal (void);
@@ -2178,6 +2192,25 @@ extern void get_full_rtx_cost (rtx, machine_mode, enum rtx_code, int,
 extern unsigned int subreg_lsb (const_rtx);
 extern unsigned int subreg_lsb_1 (machine_mode, machine_mode,
 				  unsigned int);
+extern unsigned int subreg_size_offset_from_lsb (unsigned int, unsigned int,
+						 unsigned int);
+extern bool read_modify_subreg_p (const_rtx);
+
+/* Return the subreg byte offset for a subreg whose outer mode is
+   OUTER_MODE, whose inner mode is INNER_MODE, and where there are
+   LSB_SHIFT *bits* between the lsb of the outer value and the lsb of
+   the inner value.  This is the inverse of subreg_lsb_1 (which converts
+   byte offsets to bit shifts).  */
+
+inline unsigned int
+subreg_offset_from_lsb (machine_mode outer_mode,
+			machine_mode inner_mode,
+			unsigned int lsb_shift)
+{
+  return subreg_size_offset_from_lsb (GET_MODE_SIZE (outer_mode),
+				      GET_MODE_SIZE (inner_mode), lsb_shift);
+}
+
 extern unsigned int subreg_regno_offset	(unsigned int, machine_mode,
 					 unsigned int, machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, machine_mode,
@@ -2676,13 +2709,22 @@ get_full_set_src_cost (rtx x, machine_mode mode, struct full_rtx_costs *c)
 }
 #endif
 
+/* A convenience macro to validate the arguments of a zero_extract
+   expression.  It determines whether SIZE lies inclusively within
+   [1, RANGE], POS lies inclusively within between [0, RANGE - 1]
+   and the sum lies inclusively within [1, RANGE].  RANGE must be
+   >= 1, but SIZE and POS may be negative.  */
+#define EXTRACT_ARGS_IN_RANGE(SIZE, POS, RANGE) \
+  (IN_RANGE ((POS), 0, (unsigned HOST_WIDE_INT) (RANGE) - 1) \
+   && IN_RANGE ((SIZE), 1, (unsigned HOST_WIDE_INT) (RANGE) \
+			   - (unsigned HOST_WIDE_INT)(POS)))
+
 /* In explow.c */
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, machine_mode);
 extern rtx plus_constant (machine_mode, rtx, HOST_WIDE_INT, bool = false);
 
 /* In rtl.c */
-extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
-#define rtx_alloc(c) rtx_alloc_stat (c MEM_STAT_INFO)
+extern rtx rtx_alloc (RTX_CODE CXX_MEM_STAT_INFO);
 extern rtx rtx_alloc_stat_v (RTX_CODE MEM_STAT_DECL, int);
 #define rtx_alloc_v(c, SZ) rtx_alloc_stat_v (c MEM_STAT_INFO, SZ)
 #define const_wide_int_alloc(NWORDS)				\
@@ -2702,8 +2744,7 @@ extern rtx copy_rtx_if_shared (rtx);
 
 /* In rtl.c */
 extern unsigned int rtx_size (const_rtx);
-extern rtx shallow_copy_rtx_stat (const_rtx MEM_STAT_DECL);
-#define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
+extern rtx shallow_copy_rtx (const_rtx CXX_MEM_STAT_INFO);
 extern int rtx_equal_p (const_rtx, const_rtx);
 extern bool rtvec_all_equal_p (const_rtvec);
 
@@ -2742,6 +2783,24 @@ unwrap_const_vec_duplicate (T x)
   return x;
 }
 
+/* Return the unpromoted (outer) mode of SUBREG_PROMOTED_VAR_P subreg X.  */
+
+inline scalar_int_mode
+subreg_unpromoted_mode (rtx x)
+{
+  gcc_checking_assert (SUBREG_PROMOTED_VAR_P (x));
+  return as_a <scalar_int_mode> (GET_MODE (x));
+}
+
+/* Return the promoted (inner) mode of SUBREG_PROMOTED_VAR_P subreg X.  */
+
+inline scalar_int_mode
+subreg_promoted_mode (rtx x)
+{
+  gcc_checking_assert (SUBREG_PROMOTED_VAR_P (x));
+  return as_a <scalar_int_mode> (GET_MODE (SUBREG_REG (x)));
+}
+
 /* In emit-rtl.c */
 extern rtvec gen_rtvec_v (int, rtx *);
 extern rtvec gen_rtvec_v (int, rtx_insn **);
@@ -2762,17 +2821,77 @@ extern rtx operand_subword (rtx, unsigned int, int, machine_mode);
 
 /* In emit-rtl.c */
 extern rtx operand_subword_force (rtx, unsigned int, machine_mode);
-extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
-extern unsigned int subreg_lowpart_offset (machine_mode,
-					   machine_mode);
-extern unsigned int subreg_highpart_offset (machine_mode,
-					    machine_mode);
+extern unsigned int subreg_size_lowpart_offset (unsigned int, unsigned int);
+
+/* Return true if a subreg of mode OUTERMODE would only access part of
+   an inner register with mode INNERMODE.  The other bits of the inner
+   register would then be "don't care" on read.  The behavior for writes
+   depends on REGMODE_NATURAL_SIZE; bits in the same REGMODE_NATURAL_SIZE-d
+   chunk would be clobbered but other bits would be preserved.  */
+
+inline bool
+partial_subreg_p (machine_mode outermode, machine_mode innermode)
+{
+  return GET_MODE_PRECISION (outermode) < GET_MODE_PRECISION (innermode);
+}
+
+/* Likewise return true if X is a subreg that is smaller than the inner
+   register.  Use read_modify_subreg_p to test whether writing to such
+   a subreg preserves any part of the inner register.  */
+
+inline bool
+partial_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+  return partial_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
+
+/* Return true if a subreg with the given outer and inner modes is
+   paradoxical.  */
+
+inline bool
+paradoxical_subreg_p (machine_mode outermode, machine_mode innermode)
+{
+  return GET_MODE_PRECISION (outermode) > GET_MODE_PRECISION (innermode);
+}
+
+/* Return true if X is a paradoxical subreg, false otherwise.  */
+
+inline bool
+paradoxical_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+  return paradoxical_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
+
+/* Return the SUBREG_BYTE for an OUTERMODE lowpart of an INNERMODE value.  */
+
+inline unsigned int
+subreg_lowpart_offset (machine_mode outermode, machine_mode innermode)
+{
+  return subreg_size_lowpart_offset (GET_MODE_SIZE (outermode),
+				     GET_MODE_SIZE (innermode));
+}
+
+extern unsigned int subreg_size_highpart_offset (unsigned int, unsigned int);
+
+/* Return the SUBREG_BYTE for an OUTERMODE highpart of an INNERMODE value.  */
+
+inline unsigned int
+subreg_highpart_offset (machine_mode outermode, machine_mode innermode)
+{
+  return subreg_size_highpart_offset (GET_MODE_SIZE (outermode),
+				      GET_MODE_SIZE (innermode));
+}
+
 extern int byte_lowpart_offset (machine_mode, machine_mode);
 extern rtx make_safe_from (rtx, rtx);
-extern rtx convert_memory_address_addr_space_1 (machine_mode, rtx,
+extern rtx convert_memory_address_addr_space_1 (scalar_int_mode, rtx,
 						addr_space_t, bool, bool);
-extern rtx convert_memory_address_addr_space (machine_mode, rtx,
+extern rtx convert_memory_address_addr_space (scalar_int_mode, rtx,
 					      addr_space_t);
 #define convert_memory_address(to_mode,x) \
 	convert_memory_address_addr_space ((to_mode), (x), ADDR_SPACE_GENERIC)
@@ -2896,7 +3015,6 @@ extern rtx *find_constant_term_loc (rtx *);
 
 /* In emit-rtl.c  */
 extern rtx_insn *try_split (rtx, rtx_insn *, int);
-extern int split_branch_probability;
 
 /* In insn-recog.c (generated by genrecog).  */
 extern rtx_insn *split_insns (rtx, rtx_insn *);
@@ -2972,7 +3090,7 @@ inline rtx single_set (const rtx_insn *insn)
   return single_set_2 (insn, PATTERN (insn));
 }
 
-extern machine_mode get_address_mode (rtx mem);
+extern scalar_int_mode get_address_mode (rtx mem);
 extern int rtx_addr_can_trap_p (const_rtx);
 extern bool nonzero_address_p (const_rtx);
 extern int rtx_unstable_p (const_rtx);
@@ -3021,7 +3139,7 @@ extern void add_int_reg_note (rtx_insn *, enum reg_note, int);
 extern void add_shallow_copy_of_reg_note (rtx_insn *, rtx);
 extern rtx duplicate_reg_note (rtx);
 extern void remove_note (rtx_insn *, const_rtx);
-extern void remove_reg_equal_equiv_notes (rtx_insn *);
+extern bool remove_reg_equal_equiv_notes (rtx_insn *);
 extern void remove_reg_equal_equiv_notes_for_regno (unsigned int);
 extern int side_effects_p (const_rtx);
 extern int volatile_refs_p (const_rtx);
@@ -3044,6 +3162,7 @@ extern bool rtx_referenced_p (const_rtx, const_rtx);
 extern bool tablejump_p (const rtx_insn *, rtx_insn **, rtx_jump_table_data **);
 extern int computed_jump_p (const rtx_insn *);
 extern bool tls_referenced_p (const_rtx);
+extern bool contains_mem_rtx_p (rtx x);
 
 /* Overload for refers_to_regno_p for checking a single register.  */
 inline bool
@@ -3309,7 +3428,7 @@ extern struct target_rtl *this_target_rtl;
 
 #ifndef GENERATOR_FILE
 /* Return the attributes of a MEM rtx.  */
-static inline struct mem_attrs *
+static inline const struct mem_attrs *
 get_mem_attrs (const_rtx x)
 {
   struct mem_attrs *attrs;
@@ -3665,7 +3784,9 @@ extern void init_varasm_once (void);
 extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In read-rtl.c */
+#ifdef GENERATOR_FILE
 extern bool read_rtx (const char *, vec<rtx> *);
+#endif
 
 /* In alias.c */
 extern rtx canon_rtx (rtx);
@@ -3703,8 +3824,8 @@ extern GTY(()) rtx stack_limit_rtx;
 extern unsigned int variable_tracking_main (void);
 
 /* In stor-layout.c.  */
-extern void get_mode_bounds (machine_mode, int, machine_mode,
-			     rtx *, rtx *);
+extern void get_mode_bounds (scalar_int_mode, int,
+			     scalar_int_mode, rtx *, rtx *);
 
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
@@ -3719,10 +3840,10 @@ struct rtl_hooks
 {
   rtx (*gen_lowpart) (machine_mode, rtx);
   rtx (*gen_lowpart_no_emit) (machine_mode, rtx);
-  rtx (*reg_nonzero_bits) (const_rtx, machine_mode, const_rtx, machine_mode,
-			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
-  rtx (*reg_num_sign_bit_copies) (const_rtx, machine_mode, const_rtx, machine_mode,
-				  unsigned int, unsigned int *);
+  rtx (*reg_nonzero_bits) (const_rtx, scalar_int_mode, scalar_int_mode,
+			   unsigned HOST_WIDE_INT *);
+  rtx (*reg_num_sign_bit_copies) (const_rtx, scalar_int_mode, scalar_int_mode,
+				  unsigned int *);
   bool (*reg_truncated_to_mode) (machine_mode, const_rtx);
 
   /* Whenever you add entries here, make sure you adjust rtlhooks-def.h.  */
@@ -3744,9 +3865,9 @@ extern location_t curr_insn_location (void);
 
 /* rtl-error.c */
 extern void _fatal_insn_not_found (const_rtx, const char *, int, const char *)
-     ATTRIBUTE_NORETURN;
+     ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 extern void _fatal_insn (const char *, const_rtx, const char *, int, const char *)
-     ATTRIBUTE_NORETURN;
+     ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 
 #define fatal_insn(msgid, insn) \
 	_fatal_insn (msgid, insn, __FILE__, __LINE__, __FUNCTION__)
@@ -3777,9 +3898,10 @@ struct GTY(()) cgraph_rtl_info {
 inline rtx_code
 load_extend_op (machine_mode mode)
 {
-  if (SCALAR_INT_MODE_P (mode)
-      && GET_MODE_PRECISION (mode) < BITS_PER_WORD)
-    return LOAD_EXTEND_OP (mode);
+  scalar_int_mode int_mode;
+  if (is_a <scalar_int_mode> (mode, &int_mode)
+      && GET_MODE_PRECISION (int_mode) < BITS_PER_WORD)
+    return LOAD_EXTEND_OP (int_mode);
   return UNKNOWN;
 }
 

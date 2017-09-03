@@ -1310,14 +1310,16 @@ Parse::declaration()
   const Token* token = this->peek_token();
 
   unsigned int pragmas = this->lex_->get_and_clear_pragmas();
-  if (pragmas != 0 && !token->is_keyword(KEYWORD_FUNC))
+  if (pragmas != 0
+      && !token->is_keyword(KEYWORD_FUNC)
+      && !token->is_keyword(KEYWORD_TYPE))
     go_warning_at(token->location(), 0,
 		  "ignoring magic comment before non-function");
 
   if (token->is_keyword(KEYWORD_CONST))
     this->const_decl();
   else if (token->is_keyword(KEYWORD_TYPE))
-    this->type_decl();
+    this->type_decl(pragmas);
   else if (token->is_keyword(KEYWORD_VAR))
     this->var_decl();
   else if (token->is_keyword(KEYWORD_FUNC))
@@ -1342,7 +1344,8 @@ Parse::declaration_may_start_here()
 // Decl<P> = P | "(" [ List<P> ] ")" .
 
 void
-Parse::decl(void (Parse::*pfn)(void*), void* varg)
+Parse::decl(void (Parse::*pfn)(void*, unsigned int), void* varg,
+	    unsigned int pragmas)
 {
   if (this->peek_token()->is_eof())
     {
@@ -1352,9 +1355,12 @@ Parse::decl(void (Parse::*pfn)(void*), void* varg)
     }
 
   if (!this->peek_token()->is_op(OPERATOR_LPAREN))
-    (this->*pfn)(varg);
+    (this->*pfn)(varg, pragmas);
   else
     {
+      if (pragmas != 0)
+	go_warning_at(this->location(), 0,
+		      "ignoring magic //go:... comment before group");
       if (!this->advance_token()->is_op(OPERATOR_RPAREN))
 	{
 	  this->list(pfn, varg, true);
@@ -1378,9 +1384,10 @@ Parse::decl(void (Parse::*pfn)(void*), void* varg)
 // might follow.  This is either a '}' or a ')'.
 
 void
-Parse::list(void (Parse::*pfn)(void*), void* varg, bool follow_is_paren)
+Parse::list(void (Parse::*pfn)(void*, unsigned int), void* varg,
+	    bool follow_is_paren)
 {
-  (this->*pfn)(varg);
+  (this->*pfn)(varg, 0);
   Operator follow = follow_is_paren ? OPERATOR_RPAREN : OPERATOR_RCURLY;
   while (this->peek_token()->is_op(OPERATOR_SEMICOLON)
 	 || this->peek_token()->is_op(OPERATOR_COMMA))
@@ -1389,7 +1396,7 @@ Parse::list(void (Parse::*pfn)(void*), void* varg, bool follow_is_paren)
 	go_error_at(this->location(), "unexpected comma");
       if (this->advance_token()->is_op(follow))
 	break;
-      (this->*pfn)(varg);
+      (this->*pfn)(varg, 0);
     }
 }
 
@@ -1508,17 +1515,17 @@ Parse::const_spec(Type** last_type, Expression_list** last_expr_list)
 // TypeDecl = "type" Decl<TypeSpec> .
 
 void
-Parse::type_decl()
+Parse::type_decl(unsigned int pragmas)
 {
   go_assert(this->peek_token()->is_keyword(KEYWORD_TYPE));
   this->advance_token();
-  this->decl(&Parse::type_spec, NULL);
+  this->decl(&Parse::type_spec, NULL, pragmas);
 }
 
-// TypeSpec = identifier Type .
+// TypeSpec = identifier ["="] Type .
 
 void
-Parse::type_spec(void*)
+Parse::type_spec(void*, unsigned int pragmas)
 {
   const Token* token = this->peek_token();
   if (!token->is_identifier())
@@ -1531,6 +1538,13 @@ Parse::type_spec(void*)
   Location location = token->location();
   token = this->advance_token();
 
+  bool is_alias = false;
+  if (token->is_op(OPERATOR_EQ))
+    {
+      is_alias = true;
+      token = this->advance_token();
+    }
+
   // The scope of the type name starts at the point where the
   // identifier appears in the source code.  We implement this by
   // declaring the type before we read the type definition.
@@ -1542,13 +1556,13 @@ Parse::type_spec(void*)
     }
 
   Type* type;
-  if (name == "_" && this->peek_token()->is_keyword(KEYWORD_INTERFACE))
+  if (name == "_" && token->is_keyword(KEYWORD_INTERFACE))
     {
       // We call Parse::interface_type explicity here because we do not want
       // to record an interface with a blank type name.
       type = this->interface_type(false);
     }
-  else if (!this->peek_token()->is_op(OPERATOR_SEMICOLON))
+  else if (!token->is_op(OPERATOR_SEMICOLON))
     type = this->type();
   else
     {
@@ -1579,10 +1593,21 @@ Parse::type_spec(void*)
 	      type = Type::make_error_type();
 	    }
 
-	  this->gogo_->define_type(named_type,
-				   Type::make_named_type(named_type, type,
-							 location));
+	  Named_type* nt = Type::make_named_type(named_type, type, location);
+	  if (is_alias)
+	    nt->set_is_alias();
+
+	  this->gogo_->define_type(named_type, nt);
 	  go_assert(named_type->package() == NULL);
+
+	  if ((pragmas & GOPRAGMA_NOTINHEAP) != 0)
+	    {
+	      nt->set_not_in_heap();
+	      pragmas &= ~GOPRAGMA_NOTINHEAP;
+	    }
+	  if (pragmas != 0)
+	    go_warning_at(location, 0,
+			  "ignoring magic //go:... comment before type");
 	}
       else
 	{
@@ -1599,15 +1624,19 @@ Parse::var_decl()
 {
   go_assert(this->peek_token()->is_keyword(KEYWORD_VAR));
   this->advance_token();
-  this->decl(&Parse::var_spec, NULL);
+  this->decl(&Parse::var_spec, NULL, 0);
 }
 
 // VarSpec = IdentifierList
 //             ( CompleteType [ "=" ExpressionList ] | "=" ExpressionList ) .
 
 void
-Parse::var_spec(void*)
+Parse::var_spec(void*, unsigned int pragmas)
 {
+  if (pragmas != 0)
+    go_warning_at(this->location(), 0,
+		  "ignoring magic //go:... comment before var");
+
   // Get the variable names.
   Typed_identifier_list til;
   this->identifier_list(&til);
@@ -5689,14 +5718,18 @@ Parse::import_decl()
 {
   go_assert(this->peek_token()->is_keyword(KEYWORD_IMPORT));
   this->advance_token();
-  this->decl(&Parse::import_spec, NULL);
+  this->decl(&Parse::import_spec, NULL, 0);
 }
 
 // ImportSpec = [ "." | PackageName ] PackageFileName .
 
 void
-Parse::import_spec(void*)
+Parse::import_spec(void*, unsigned int pragmas)
 {
+  if (pragmas != 0)
+    go_warning_at(this->location(), 0,
+		  "ignoring magic //go:... comment before import");
+
   const Token* token = this->peek_token();
   Location location = token->location();
 

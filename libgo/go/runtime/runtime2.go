@@ -5,6 +5,8 @@
 package runtime
 
 import (
+	"runtime/internal/atomic"
+	"runtime/internal/sys"
 	"unsafe"
 )
 
@@ -202,12 +204,18 @@ func (gp guintptr) ptr() *g { return (*g)(unsafe.Pointer(gp)) }
 //go:nosplit
 func (gp *guintptr) set(g *g) { *gp = guintptr(unsafe.Pointer(g)) }
 
-/*
 //go:nosplit
 func (gp *guintptr) cas(old, new guintptr) bool {
 	return atomic.Casuintptr((*uintptr)(unsafe.Pointer(gp)), uintptr(old), uintptr(new))
 }
-*/
+
+// setGNoWB performs *gp = new without a write barrier.
+// For times when it's impractical to use a guintptr.
+//go:nosplit
+//go:nowritebarrier
+func setGNoWB(gp **g, new *g) {
+	(*guintptr)(unsafe.Pointer(gp)).set(new)
+}
 
 type puintptr uintptr
 
@@ -224,6 +232,14 @@ func (mp muintptr) ptr() *m { return (*m)(unsafe.Pointer(mp)) }
 
 //go:nosplit
 func (mp *muintptr) set(m *m) { *mp = muintptr(unsafe.Pointer(m)) }
+
+// setMNoWB performs *mp = new without a write barrier.
+// For times when it's impractical to use an muintptr.
+//go:nosplit
+//go:nowritebarrier
+func setMNoWB(mp **m, new *m) {
+	(*muintptr)(unsafe.Pointer(mp)).set(new)
+}
 
 // sudog represents a g in a wait list, such as for sending/receiving
 // on a channel.
@@ -249,6 +265,7 @@ type sudog struct {
 	// The following fields are never accessed concurrently.
 	// waitlink is only accessed by g.
 
+	acquiretime int64
 	releasetime int64
 	ticket      uint32
 	waitlink    *sudog // g.waiting list
@@ -357,8 +374,8 @@ type g struct {
 	sigpc          uintptr
 	gopc           uintptr // pc of go statement that created this goroutine
 	startpc        uintptr // pc of goroutine function
-	racectx        uintptr
-	waiting        *sudog // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
+	// Not for gccgo: racectx        uintptr
+	waiting *sudog // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
 	// Not for gccgo: cgoCtxt        []uintptr // cgo traceback context
 
 	// Per-G GC state
@@ -385,23 +402,25 @@ type g struct {
 	isforeign bool           // whether current exception is not from Go
 
 	// Fields that hold stack and context information if status is Gsyscall
-	gcstack       unsafe.Pointer
+	gcstack       uintptr
 	gcstacksize   uintptr
-	gcnextsegment unsafe.Pointer
-	gcnextsp      unsafe.Pointer
+	gcnextsegment uintptr
+	gcnextsp      uintptr
 	gcinitialsp   unsafe.Pointer
 	gcregs        g_ucontext_t
 
-	entry    unsafe.Pointer // goroutine entry point
-	fromgogo bool           // whether entered from gogo function
+	entry    func(unsafe.Pointer) // goroutine function to run
+	entryfn  uintptr              // function address passed to __go_go
+	fromgogo bool                 // whether entered from gogo function
 
-	issystem     bool // do not output in stack dump
-	isbackground bool // ignore in deadlock detector
+	scanningself bool // whether goroutine is scanning its own stack
+
+	isSystemGoroutine bool // whether goroutine is a "system" goroutine
 
 	traceback *tracebackg // stack traceback buffer
 
-	context      g_ucontext_t       // saved context for setcontext
-	stackcontext [10]unsafe.Pointer // split-stack context
+	context      g_ucontext_t // saved context for setcontext
+	stackcontext [10]uintptr  // split-stack context
 }
 
 type m struct {
@@ -414,7 +433,7 @@ type m struct {
 	gsignal *g     // signal-handling g
 	sigmask sigset // storage for saved signal mask
 	// Not for gccgo: tls           [6]uintptr // thread-local storage (for x86 extern register)
-	mstartfn    uintptr
+	mstartfn    func()
 	curg        *g       // current running goroutine
 	caughtsig   guintptr // goroutine running during fatal signal
 	p           puintptr // attached p for executing go code (nil if not executing go code)
@@ -478,8 +497,6 @@ type m struct {
 	dropextram bool // drop after call is done
 
 	gcing int32
-
-	cgomal *cgoMal // allocations via _cgo_allocate
 }
 
 type p struct {
@@ -494,10 +511,9 @@ type p struct {
 	mcache      *mcache
 	// Not for gccgo: racectx     uintptr
 
-	// Not for gccgo yet: deferpool    [5][]*_defer // pool of available defer structs of different sizes (see panic.go)
-	// Not for gccgo yet: deferpoolbuf [5][32]*_defer
-	// Temporary gccgo type for deferpool field.
-	deferpool *_defer
+	// gccgo has only one size of defer.
+	deferpool    []*_defer
+	deferpoolbuf [32]*_defer
 
 	// Cache of goroutine ids, amortizes accesses to runtime·sched.goidgen.
 	goidcache    uint64
@@ -523,25 +539,25 @@ type p struct {
 	gfreecnt int32
 
 	sudogcache []*sudog
-	// Not for gccgo for now: sudogbuf   [128]*sudog
+	sudogbuf   [128]*sudog
 
-	// Not for gccgo for now: tracebuf traceBufPtr
+	tracebuf traceBufPtr
 
-	// Not for gccgo for now: palloc persistentAlloc // per-P to avoid mutex
+	palloc persistentAlloc // per-P to avoid mutex
 
 	// Per-P GC state
-	// Not for gccgo for now: gcAssistTime     int64 // Nanoseconds in assistAlloc
-	// Not for gccgo for now: gcBgMarkWorker   guintptr
-	// Not for gccgo for now: gcMarkWorkerMode gcMarkWorkerMode
+	gcAssistTime     int64 // Nanoseconds in assistAlloc
+	gcBgMarkWorker   guintptr
+	gcMarkWorkerMode gcMarkWorkerMode
 
 	// gcw is this P's GC work buffer cache. The work buffer is
 	// filled by write barriers, drained by mutator assists, and
 	// disposed on certain GC state transitions.
-	// Not for gccgo for now: gcw gcWork
+	gcw gcWork
 
 	runSafePointFn uint32 // if 1, run sched.safePointFn at next safe point
 
-	pad [64]byte
+	pad [sys.CacheLineSize]byte
 }
 
 const (
@@ -629,29 +645,6 @@ const (
 	_SigUnblock              // unblocked in minit
 )
 
-/*
-gccgo does not use this.
-
-// Layout of in-memory per-function information prepared by linker
-// See https://golang.org/s/go12symtab.
-// Keep in sync with linker
-// and with package debug/gosym and with symtab.go in package runtime.
-type _func struct {
-	entry   uintptr // start pc
-	nameoff int32   // function name
-
-	args int32 // in/out args size
-	_    int32 // previously legacy frame size; kept for layout compatibility
-
-	pcsp      int32
-	pcfile    int32
-	pcln      int32
-	npcdata   int32
-	nfuncdata int32
-}
-
-*/
-
 // Lock-free stack node.
 // // Also known to export_test.go.
 type lfnode struct {
@@ -669,7 +662,6 @@ type forcegcstate struct {
 // the ELF AT_RANDOM auxiliary vector (vdso_linux_amd64.go or os_linux_386.go).
 var startupRandomData []byte
 
-/*
 // extendRandom extends the random numbers in r[:n] to the whole slice r.
 // Treats n<0 as n==0.
 func extendRandom(r []byte, n int) {
@@ -690,13 +682,12 @@ func extendRandom(r []byte, n int) {
 		}
 	}
 }
-*/
 
 // deferred subroutine calls
 // This is the gccgo version.
 type _defer struct {
 	// The next entry in the stack.
-	next *_defer
+	link *_defer
 
 	// The stack variable for the function which called this defer
 	// statement.  This is set to true if we are returning from
@@ -707,6 +698,10 @@ type _defer struct {
 	// deferred.  This function can not recover this value from
 	// the panic stack.  This can happen if a deferred function
 	// has a defer statement itself.
+	panicStack *_panic
+
+	// The panic that caused the defer to run. This is used to
+	// discard panics that have already been handled.
 	_panic *_panic
 
 	// The function to call.
@@ -725,17 +720,13 @@ type _defer struct {
 	// function function will be somewhere in libffi, so __retaddr
 	// is not useful.
 	makefunccanrecover bool
-
-	// Set to true if this defer stack entry is not part of the
-	// defer pool.
-	special bool
 }
 
 // panics
 // This is the gccgo version.
 type _panic struct {
 	// The next entry in the stack.
-	next *_panic
+	link *_panic
 
 	// The value associated with this panic.
 	arg interface{}
@@ -746,6 +737,10 @@ type _panic struct {
 	// Whether this panic was pushed on the stack because of an
 	// exception thrown in some other language.
 	isforeign bool
+
+	// Whether this panic was already seen by a deferred function
+	// which called panic again.
+	aborted bool
 }
 
 const (
@@ -759,28 +754,29 @@ const _TracebackMaxFrames = 100
 
 var (
 	//	emptystring string
-	//	allglen     uintptr
-	//	allm        *m
-	//	allp        [_MaxGomaxprocs + 1]*p
-	//	gomaxprocs  int32
-	//	panicking   uint32
 
-	ncpu int32
+	allglen    uintptr
+	allm       *m
+	allp       [_MaxGomaxprocs + 1]*p
+	gomaxprocs int32
+	panicking  uint32
+	ncpu       int32
+	forcegc    forcegcstate
+	sched      schedt
+	newprocs   int32
 
-	//	forcegc     forcegcstate
+	// Information about what cpu features are available.
+	// Set on startup in asm_{x86,amd64}.s.
+	cpuid_ecx   uint32
+	support_aes bool
 
-	sched schedt
-
-//	newprocs    int32
-
-// Information about what cpu features are available.
-// Set on startup in asm_{x86,amd64}.s.
-//	cpuid_ecx         uint32
-//	cpuid_edx         uint32
-//	cpuid_ebx7        uint32
-//	lfenceBeforeRdtsc bool
-//	support_avx       bool
-//	support_avx2      bool
+	// cpuid_edx         uint32
+	// cpuid_ebx7        uint32
+	// lfenceBeforeRdtsc bool
+	// support_avx       bool
+	// support_avx2      bool
+	// support_bmi1      bool
+	// support_bmi2      bool
 
 //	goarm                uint8 // set by cmd/link on arm systems
 //	framepointer_enabled bool  // set by cmd/link
@@ -800,16 +796,15 @@ var (
 // aligned to a 16-byte boundary.  We implement this by increasing the
 // required size and picking an appropriate offset when we use the
 // array.
-type g_ucontext_t [(_sizeof_ucontext_t + 15) / unsafe.Sizeof(unsafe.Pointer(nil))]unsafe.Pointer
-
-// cgoMal tracks allocations made by _cgo_allocate
-// FIXME: _cgo_allocate has been removed from gc and can probably be
-// removed from gccgo too.
-type cgoMal struct {
-	next  *cgoMal
-	alloc unsafe.Pointer
-}
+type g_ucontext_t [(_sizeof_ucontext_t + 15) / unsafe.Sizeof(uintptr(0))]uintptr
 
 // sigset is the Go version of the C type sigset_t.
 // _sigset_t is defined by the Makefile from <signal.h>.
 type sigset _sigset_t
+
+// getMemstats returns a pointer to the internal memstats variable,
+// for C code.
+//go:linkname getMemstats runtime.getMemstats
+func getMemstats() *mstats {
+	return &memstats
+}

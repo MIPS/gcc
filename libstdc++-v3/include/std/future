@@ -1,6 +1,6 @@
 // <future> -*- C++ -*-
 
-// Copyright (C) 2009-2016 Free Software Foundation, Inc.
+// Copyright (C) 2009-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -192,8 +192,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     future<__async_result_of<_Fn, _Args...>>
     async(_Fn&& __fn, _Args&&... __args);
 
-#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1) \
-  && (ATOMIC_INT_LOCK_FREE > 1)
+#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
 
   /// Base class and enclosing scope.
   struct __future_base
@@ -472,7 +471,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  // Used by std::promise to copy construct the result.
           typename promise<_Res>::_Ptr_type operator()() const
           {
-            _State_baseV2::_S_check(_M_promise->_M_future);
             _M_promise->_M_storage->_M_set(*_M_arg);
             return std::move(_M_promise->_M_storage);
           }
@@ -487,13 +485,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  // Used by std::promise to move construct the result.
           typename promise<_Res>::_Ptr_type operator()() const
           {
-            _State_baseV2::_S_check(_M_promise->_M_future);
             _M_promise->_M_storage->_M_set(std::move(*_M_arg));
             return std::move(_M_promise->_M_storage);
           }
           promise<_Res>*    _M_promise;
           _Res*             _M_arg;
         };
+
+      // set void
+      template<typename _Res>
+	struct _Setter<_Res, void>
+	{
+	  static_assert(is_void<_Res>::value, "Only used for promise<void>");
+
+	  typename promise<_Res>::_Ptr_type operator()() const
+	  { return std::move(_M_promise->_M_storage); }
+
+	  promise<_Res>*    _M_promise;
+	};
 
       struct __exception_ptr_tag { };
 
@@ -504,7 +513,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  // Used by std::promise to store an exception as the result.
           typename promise<_Res>::_Ptr_type operator()() const
           {
-            _State_baseV2::_S_check(_M_promise->_M_future);
             _M_promise->_M_storage->_M_error = *_M_ex;
             return std::move(_M_promise->_M_storage);
           }
@@ -517,6 +525,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         static _Setter<_Res, _Arg&&>
         __setter(promise<_Res>* __prom, _Arg&& __arg)
         {
+	  _S_check(__prom->_M_future);
           return _Setter<_Res, _Arg&&>{ __prom, std::__addressof(__arg) };
         }
 
@@ -524,8 +533,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         static _Setter<_Res, __exception_ptr_tag>
         __setter(exception_ptr& __ex, promise<_Res>* __prom)
         {
+	  _S_check(__prom->_M_future);
           return _Setter<_Res, __exception_ptr_tag>{ __prom, &__ex };
         }
+
+      template<typename _Res>
+	static _Setter<_Res, void>
+	__setter(promise<_Res>* __prom)
+	{
+	  _S_check(__prom->_M_future);
+	  return _Setter<_Res, void>{ __prom };
+	}
 
       template<typename _Tp>
         static void
@@ -1028,6 +1046,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef __future_base::_Result<_Res>	_Res_type;
       typedef __future_base::_Ptr<_Res_type>	_Ptr_type;
       template<typename, typename> friend class _State::_Setter;
+      friend _State;
 
       shared_ptr<_State>                        _M_future;
       _Ptr_type                                 _M_storage;
@@ -1138,6 +1157,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef __future_base::_Result<_Res&>	_Res_type;
       typedef __future_base::_Ptr<_Res_type> 	_Ptr_type;
       template<typename, typename> friend class _State::_Setter;
+      friend _State;
 
       shared_ptr<_State>                        _M_future;
       _Ptr_type                                 _M_storage;
@@ -1227,6 +1247,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef __future_base::_Result<void>	_Res_type;
       typedef __future_base::_Ptr<_Res_type> 	_Ptr_type;
       template<typename, typename> friend class _State::_Setter;
+      friend _State;
 
       shared_ptr<_State>                        _M_future;
       _Ptr_type                                 _M_storage;
@@ -1287,14 +1308,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { return future<void>(_M_future); }
 
       // Setting the result
-      void set_value();
+      void
+      set_value()
+      { _M_future->_M_set_result(_State::__setter(this)); }
 
       void
       set_exception(exception_ptr __p)
       { _M_future->_M_set_result(_State::__setter(__p, this)); }
 
       void
-      set_value_at_thread_exit();
+      set_value_at_thread_exit()
+      { _M_future->_M_set_delayed_result(_State::__setter(this), _M_future); }
 
       void
       set_exception_at_thread_exit(exception_ptr __p)
@@ -1303,30 +1327,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 					 _M_future);
       }
     };
-
-  // set void
-  template<>
-    struct __future_base::_State_base::_Setter<void, void>
-    {
-      promise<void>::_Ptr_type operator()() const
-      {
-        _State_base::_S_check(_M_promise->_M_future);
-        return std::move(_M_promise->_M_storage);
-      }
-
-      promise<void>*    _M_promise;
-    };
-
-  inline void
-  promise<void>::set_value()
-  { _M_future->_M_set_result(_State::_Setter<void, void>{ this }); }
-
-  inline void
-  promise<void>::set_value_at_thread_exit()
-  {
-    _M_future->_M_set_delayed_result(_State::_Setter<void, void>{this},
-				     _M_future);
-  }
 
   template<typename _Ptr_type, typename _Fn, typename _Res>
     struct __future_base::_Task_setter
@@ -1417,7 +1417,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       virtual void
       _M_run(_Args&&... __args)
       {
-	auto __boundfn = [&] () -> typename result_of<_Fn(_Args&&...)>::type {
+	auto __boundfn = [&] () -> typename result_of<_Fn&(_Args&&...)>::type {
 	    return std::__invoke(_M_impl._M_fn, std::forward<_Args>(__args)...);
 	};
 	this->_M_set_result(_S_task_setter(this->_M_result, __boundfn));
@@ -1426,7 +1426,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       virtual void
       _M_run_delayed(_Args&&... __args, weak_ptr<_State_base> __self)
       {
-	auto __boundfn = [&] () -> typename result_of<_Fn(_Args&&...)>::type {
+	auto __boundfn = [&] () -> typename result_of<_Fn&(_Args&&...)>::type {
 	    return std::__invoke(_M_impl._M_fn, std::forward<_Args>(__args)...);
 	};
 	this->_M_set_delayed_result(_S_task_setter(this->_M_result, __boundfn),
@@ -1751,7 +1751,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #endif // _GLIBCXX_ASYNC_ABI_COMPAT
 #endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
-       // && ATOMIC_INT_LOCK_FREE
 
   // @} group futures
 _GLIBCXX_END_NAMESPACE_VERSION

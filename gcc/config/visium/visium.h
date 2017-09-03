@@ -1,5 +1,5 @@
 /* Definitions of target machine for Visium.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by C.Nettleton, J.P.Parkes and P.Garbett.
 
    This file is part of GCC.
@@ -1528,13 +1528,13 @@ do									\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM,BODY,VALUE,REL)  		\
   switch (GET_MODE (BODY))						\
     {									\
-    case SImode:							\
+    case E_SImode:							\
       asm_fprintf ((STREAM), "\t.long\t%LL%d-%LL%d\n", (VALUE),(REL));	\
       break;								\
-    case HImode:							\
+    case E_HImode:							\
       asm_fprintf ((STREAM), "\t.word\t%LL%d-%LL%d\n", (VALUE),(REL));	\
       break;								\
-    case QImode:							\
+    case E_QImode:							\
       asm_fprintf ((STREAM), "\t.byte\t%LL%d-%LL%d\n", (VALUE),(REL));	\
       break;								\
     default:								\

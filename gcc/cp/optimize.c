@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998-2016 Free Software Foundation, Inc.
+   Copyright (C) 1998-2017 Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GCC.
@@ -184,10 +184,10 @@ cdtor_comdat_group (tree complete, tree base)
 static bool
 can_alias_cdtor (tree fn)
 {
-#ifndef ASM_OUTPUT_DEF
   /* If aliases aren't supported by the assembler, fail.  */
-  return false;
-#endif
+  if (!TARGET_SUPPORTS_ALIASES)
+    return false;
+
   /* We can't use an alias if there are virtual bases.  */
   if (CLASSTYPE_VBASECLASSES (DECL_CONTEXT (fn)))
     return false;
@@ -262,7 +262,7 @@ maybe_thunk_body (tree fn, bool force)
   populate_clone_array (fn, fns);
 
   /* Don't use thunks if the base clone omits inherited parameters.  */
-  if (ctor_omit_inherited_parms (fns[0]))
+  if (fns[0] && ctor_omit_inherited_parms (fns[0]))
     return 0;
 
   DECL_ABSTRACT_P (fn) = false;
@@ -324,9 +324,9 @@ maybe_thunk_body (tree fn, bool force)
       if (length > max_parms)
         max_parms = length;
     }
-  args = (tree *) alloca (max_parms * sizeof (tree));
+  args = XALLOCAVEC (tree, max_parms);
 
-  /* We know that any clones immediately follow FN in TYPE_METHODS.  */
+  /* We know that any clones immediately follow FN in TYPE_FIELDS.  */
   FOR_EACH_CLONE (clone, fn)
     {
       tree clone_parm;
@@ -447,7 +447,7 @@ maybe_clone_body (tree fn)
   if (!tree_versionable_function_p (fn))
     need_alias = true;
 
-  /* We know that any clones immediately follow FN in the TYPE_METHODS
+  /* We know that any clones immediately follow FN in the TYPE_FIELDS
      list.  */
   push_to_top_level ();
   for (idx = 0; idx < 3; idx++)
@@ -516,7 +516,7 @@ maybe_clone_body (tree fn)
   /* Emit the DWARF1 abstract instance.  */
   (*debug_hooks->deferred_inline_function) (fn);
 
-  /* We know that any clones immediately follow FN in the TYPE_METHODS list. */
+  /* We know that any clones immediately follow FN in the TYPE_FIELDS. */
   for (idx = 0; idx < 3; idx++)
     {
       tree parm;
@@ -621,9 +621,21 @@ maybe_clone_body (tree fn)
                  function.  */
               else
                 {
-                  decl_map->put (parm, clone_parm);
+		  tree replacement;
 		  if (clone_parm)
-		    clone_parm = DECL_CHAIN (clone_parm);
+		    {
+		      replacement = clone_parm;
+		      clone_parm = DECL_CHAIN (clone_parm);
+		    }
+		  else
+		    {
+		      /* Inheriting ctors can omit parameters from the base
+			 clone.  Replace them with null lvalues.  */
+		      tree reftype = build_reference_type (TREE_TYPE (parm));
+		      replacement = fold_convert (reftype, null_pointer_node);
+		      replacement = convert_from_reference (replacement);
+		    }
+                  decl_map->put (parm, replacement);
                 }
             }
 

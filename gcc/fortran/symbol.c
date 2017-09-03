@@ -1,5 +1,5 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -474,8 +474,13 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
 	}
     }
 
-  if (attr->dummy && ((attr->function || attr->subroutine) && 
-			gfc_current_state () == COMP_CONTAINS))
+  /* The copying of procedure dummy arguments for module procedures in
+     a submodule occur whilst the current state is COMP_CONTAINS. It
+     is necessary, therefore, to let this through.  */
+  if (attr->dummy
+      && (attr->function || attr->subroutine)
+      && gfc_current_state () == COMP_CONTAINS
+      && !(gfc_new_block && gfc_new_block->abr_modproc_decl))
     gfc_error_now ("internal procedure %qs at %L conflicts with "
 		   "DUMMY argument", name, where);
 
@@ -539,6 +544,7 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (in_equivalence, oacc_declare_copyin);
   conf (in_equivalence, oacc_declare_deviceptr);
   conf (in_equivalence, oacc_declare_device_resident);
+  conf (in_equivalence, is_bind_c);
 
   conf (dummy, result);
   conf (entry, result);
@@ -839,13 +845,13 @@ conflict:
 conflict_std:
   if (name == NULL)
     {
-      return gfc_notify_std (standard, "%s attribute "
+      return gfc_notify_std (standard, "%s attribute conflicts "
                              "with %s attribute at %L", a1, a2,
                              where);
     }
   else
     {
-      return gfc_notify_std (standard, "%s attribute "
+      return gfc_notify_std (standard, "%s attribute conflicts "
 			     "with %s attribute in %qs at %L",
                              a1, a2, name, where);
     }
@@ -1646,6 +1652,13 @@ gfc_add_flavor (symbol_attribute *attr, sym_flavor f, const char *name,
   if (attr->flavor == f && f == FL_VARIABLE)
     return true;
 
+  /* Copying a procedure dummy argument for a module procedure in a
+     submodule results in the flavor being copied and would result in
+     an error without this.  */
+  if (gfc_new_block && gfc_new_block->abr_modproc_decl
+      && attr->flavor == f && f == FL_PROCEDURE)
+    return true;
+
   if (attr->flavor != FL_UNKNOWN)
     {
       if (where == NULL)
@@ -2149,7 +2162,7 @@ gfc_add_component (gfc_symbol *sym, const char *name,
   else
     tail->next = p;
 
-  p->name = gfc_get_string (name);
+  p->name = gfc_get_string ("%s", name);
   p->loc = gfc_current_locus;
   p->ts.type = BT_UNKNOWN;
 
@@ -2756,7 +2769,7 @@ gfc_new_symtree (gfc_symtree **root, const char *name)
   gfc_symtree *st;
 
   st = XCNEW (gfc_symtree);
-  st->name = gfc_get_string (name);
+  st->name = gfc_get_string ("%s", name);
 
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
@@ -2769,10 +2782,20 @@ void
 gfc_delete_symtree (gfc_symtree **root, const char *name)
 {
   gfc_symtree st, *st0;
+  const char *p;
 
-  st0 = gfc_find_symtree (*root, name);
+  /* Submodules are marked as mod.submod.  When freeing a submodule
+     symbol, the symtree only has "submod", so adjust that here.  */
 
-  st.name = gfc_get_string (name);
+  p = strrchr(name, '.');
+  if (p)
+    p++;
+  else
+    p = name;
+
+  st0 = gfc_find_symtree (*root, p);
+
+  st.name = gfc_get_string ("%s", p);
   gfc_delete_bbt (root, &st, compare_symtree);
 
   free (st0);
@@ -2834,7 +2857,7 @@ gfc_get_uop (const char *name)
   st = gfc_new_symtree (&ns->uop_root, name);
 
   uop = st->n.uop = XCNEW (gfc_user_op);
-  uop->name = gfc_get_string (name);
+  uop->name = gfc_get_string ("%s", name);
   uop->access = ACCESS_UNKNOWN;
   uop->ns = ns;
 
@@ -2955,7 +2978,7 @@ gfc_new_symbol (const char *name, gfc_namespace *ns)
   if (strlen (name) > GFC_MAX_SYMBOL_LEN)
     gfc_internal_error ("new_symbol(): Symbol name too long");
 
-  p->name = gfc_get_string (name);
+  p->name = gfc_get_string ("%s", name);
 
   /* Make sure flags for symbol being C bound are clear initially.  */
   p->attr.is_bind_c = 0;
@@ -2965,6 +2988,7 @@ gfc_new_symbol (const char *name, gfc_namespace *ns)
   p->common_block = NULL;
   p->f2k_derived = NULL;
   p->assoc = NULL;
+  p->fn_result_spec = 0;
   
   return p;
 }
@@ -3794,31 +3818,22 @@ gfc_charlen*
 gfc_new_charlen (gfc_namespace *ns, gfc_charlen *old_cl)
 {
   gfc_charlen *cl;
+
   cl = gfc_get_charlen ();
 
   /* Copy old_cl.  */
   if (old_cl)
     {
-      /* Put into namespace, but don't allow reject_statement
-	 to free it if old_cl is given.  */
-      gfc_charlen **prev = &ns->cl_list;
-      cl->next = ns->old_cl_list;
-      while (*prev != ns->old_cl_list)
-	prev = &(*prev)->next;
-      *prev = cl;
-      ns->old_cl_list = cl;
       cl->length = gfc_copy_expr (old_cl->length);
       cl->length_from_typespec = old_cl->length_from_typespec;
       cl->backend_decl = old_cl->backend_decl;
       cl->passed_length = old_cl->passed_length;
       cl->resolved = old_cl->resolved;
     }
-  else
-    {
-      /* Put into namespace.  */
-      cl->next = ns->cl_list;
-      ns->cl_list = cl;
-    }
+
+  /* Put into namespace.  */
+  cl->next = ns->cl_list;
+  ns->cl_list = cl;
 
   return cl;
 }
@@ -4154,7 +4169,7 @@ gfc_get_gsymbol (const char *name)
 
   s = XCNEW (gfc_gsymbol);
   s->type = GSYM_UNKNOWN;
-  s->name = gfc_get_string (name);
+  s->name = gfc_get_string ("%s", name);
 
   gfc_insert_bbt (&gfc_gsym_root, s, gsym_compare);
 
@@ -4617,7 +4632,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
     }
 
   /* Say what module this symbol belongs to.  */
-  tmp_sym->module = gfc_get_string (mod_name);
+  tmp_sym->module = gfc_get_string ("%s", mod_name);
   tmp_sym->from_intmod = INTMOD_ISO_C_BINDING;
   tmp_sym->intmod_sym_id = s;
   tmp_sym->attr.is_iso_c = 1;
@@ -4714,7 +4729,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	      gfc_get_sym_tree (hidden_name, gfc_current_ns, &tmp_symtree, false);
 	      dt_sym = tmp_symtree->n.sym;
 	      dt_sym->name = gfc_get_string (s == ISOCBINDING_PTR
-					    ? "c_ptr" : "c_funptr");
+					     ? "c_ptr" : "c_funptr");
 
 	      /* Generate an artificial generic function.  */
 	      head = tmp_sym->generic;
@@ -4734,7 +4749,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	    }
 
 	  /* Say what module this symbol belongs to.  */
-	  dt_sym->module = gfc_get_string (mod_name);
+	  dt_sym->module = gfc_get_string ("%s", mod_name);
 	  dt_sym->from_intmod = INTMOD_ISO_C_BINDING;
 	  dt_sym->intmod_sym_id = s;
           dt_sym->attr.use_assoc = 1;

@@ -1,5 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997-2016 Free Software Foundation, Inc.
+   Copyright (C) 1997-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -250,7 +250,7 @@ gendef (const char *format)
      the memory and initializes it.  */
   puts ("{");
   puts ("  rtx rt;");
-  puts ("  rt = rtx_alloc_stat (code PASS_MEM_STAT);\n");
+  puts ("  rt = rtx_alloc (code PASS_MEM_STAT);\n");
 
   puts ("  PUT_MODE_RAW (rt, mode);");
 

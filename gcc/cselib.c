@@ -1,5 +1,5 @@
 /* Common subexpression elimination library for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -125,7 +125,7 @@ cselib_hasher::equal (const cselib_val *v, const key *x_arg)
   /* We don't guarantee that distinct rtx's have different hash values,
      so we need to do a comparison.  */
   for (l = v->locs; l; l = l->next)
-    if (rtx_equal_for_cselib_1 (l->loc, x, memmode))
+    if (rtx_equal_for_cselib_1 (l->loc, x, memmode, 0))
       {
 	promote_debug_loc (l);
 	return true;
@@ -834,7 +834,7 @@ autoinc_split (rtx x, rtx *off, machine_mode memmode)
    addresses, MEMMODE should be VOIDmode.  */
 
 int
-rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
+rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
 {
   enum rtx_code code;
   const char *fmt;
@@ -867,6 +867,9 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       if (GET_CODE (y) == VALUE)
 	return e == canonical_cselib_val (CSELIB_VAL_PTR (y));
 
+      if (depth == 128)
+	return 0;
+
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
@@ -876,7 +879,7 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
 	     list.  */
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (t, y, memmode))
+	  else if (rtx_equal_for_cselib_1 (t, y, memmode, depth + 1))
 	    return 1;
 	}
 
@@ -887,13 +890,16 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       cselib_val *e = canonical_cselib_val (CSELIB_VAL_PTR (y));
       struct elt_loc_list *l;
 
+      if (depth == 128)
+	return 0;
+
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
 
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (x, t, memmode))
+	  else if (rtx_equal_for_cselib_1 (x, t, memmode, depth + 1))
 	    return 1;
 	}
 
@@ -914,12 +920,12 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       if (!xoff != !yoff)
 	return 0;
 
-      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode))
+      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode, depth))
 	return 0;
 
       /* Don't recurse if nothing changed.  */
       if (x != xorig || y != yorig)
-	return rtx_equal_for_cselib_1 (x, y, memmode);
+	return rtx_equal_for_cselib_1 (x, y, memmode, depth);
 
       return 0;
     }
@@ -953,7 +959,8 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
     case MEM:
       /* We have to compare any autoinc operations in the addresses
 	 using this MEM's mode.  */
-      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x));
+      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x),
+				     depth);
 
     default:
       break;
@@ -988,17 +995,20 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
 	  /* And the corresponding elements must match.  */
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    if (! rtx_equal_for_cselib_1 (XVECEXP (x, i, j),
-					  XVECEXP (y, i, j), memmode))
+					  XVECEXP (y, i, j), memmode, depth))
 	      return 0;
 	  break;
 
 	case 'e':
 	  if (i == 1
 	      && targetm.commutative_p (x, UNKNOWN)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode))
+	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode,
+					 depth)
+	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode,
+					 depth))
 	    return 1;
-	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode))
+	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode,
+					depth))
 	    return 0;
 	  break;
 
@@ -1999,6 +2009,8 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 
       e = new_cselib_val (next_uid, GET_MODE (x), x);
       new_elt_loc_list (e, x);
+
+      scalar_int_mode int_mode;
       if (REG_VALUES (i) == 0)
 	{
 	  /* Maintain the invariant that the first entry of
@@ -2008,27 +2020,27 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 	  REG_VALUES (i) = new_elt_list (REG_VALUES (i), NULL);
 	}
       else if (cselib_preserve_constants
-	       && GET_MODE_CLASS (mode) == MODE_INT)
+	       && is_int_mode (mode, &int_mode))
 	{
 	  /* During var-tracking, try harder to find equivalences
 	     for SUBREGs.  If a setter sets say a DImode register
 	     and user uses that register only in SImode, add a lowpart
 	     subreg location.  */
 	  struct elt_list *lwider = NULL;
+	  scalar_int_mode lmode;
 	  l = REG_VALUES (i);
 	  if (l && l->elt == NULL)
 	    l = l->next;
 	  for (; l; l = l->next)
-	    if (GET_MODE_CLASS (GET_MODE (l->elt->val_rtx)) == MODE_INT
-		&& GET_MODE_SIZE (GET_MODE (l->elt->val_rtx))
-		   > GET_MODE_SIZE (mode)
+	    if (is_int_mode (GET_MODE (l->elt->val_rtx), &lmode)
+		&& GET_MODE_SIZE (lmode) > GET_MODE_SIZE (int_mode)
 		&& (lwider == NULL
-		    || GET_MODE_SIZE (GET_MODE (l->elt->val_rtx))
-		       < GET_MODE_SIZE (GET_MODE (lwider->elt->val_rtx))))
+		    || partial_subreg_p (lmode,
+					 GET_MODE (lwider->elt->val_rtx))))
 	      {
 		struct elt_loc_list *el;
 		if (i < FIRST_PSEUDO_REGISTER
-		    && hard_regno_nregs[i][GET_MODE (l->elt->val_rtx)] != 1)
+		    && hard_regno_nregs[i][lmode] != 1)
 		  continue;
 		for (el = l->elt->locs; el; el = el->next)
 		  if (!REG_P (el->loc))
@@ -2038,7 +2050,7 @@ cselib_lookup_1 (rtx x, machine_mode mode,
 	      }
 	  if (lwider)
 	    {
-	      rtx sub = lowpart_subreg (mode, lwider->elt->val_rtx,
+	      rtx sub = lowpart_subreg (int_mode, lwider->elt->val_rtx,
 					GET_MODE (lwider->elt->val_rtx));
 	      if (sub)
 		new_elt_loc_list (e, sub);

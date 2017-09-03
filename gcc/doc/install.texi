@@ -44,7 +44,7 @@
 @settitle Installing GCC: GNU Free Documentation License
 @end ifset
 
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c IMPORTANT: whenever you modify this file, run `install.texi2html' to
@@ -69,7 +69,7 @@
 
 @c Part 2 Summary Description and Copyright
 @copying
-Copyright @copyright{} 1988-2016 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2017 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -385,7 +385,7 @@ installed but it is not in your default library search path, the
 The in-tree build is only supported with the MPC version that
 download_prerequisites installs.
 
-@item isl Library version 0.16, 0.15, or 0.14.
+@item isl Library version 0.15 or later.
 
 Necessary to build GCC with the Graphite loop optimizations.
 It can be downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/}.
@@ -894,6 +894,10 @@ ideas of what it is for.  People use it as if it specified where to
 install part of GCC@.  Perhaps they make this assumption because
 installing GCC creates the directory.
 
+@item --with-gcc-major-version-only
+Specifies that GCC should use only the major number rather than
+@var{major}.@var{minor}.@var{patchlevel} in filesystem paths.
+
 @item --with-native-system-header-dir=@var{dirname}
 Specifies that @var{dirname} is the directory that contains native system
 header files, rather than @file{/usr/include}.  This option is most useful
@@ -1043,6 +1047,11 @@ and for cross builds configured with @option{--with-sysroot}, and without
 More documentation about multiarch can be found at
 @uref{https://wiki.debian.org/Multiarch}.
 
+@item --enable-sjlj-exceptions
+Force use of the @code{setjmp}/@code{longjmp}-based scheme for exceptions.
+@samp{configure} ordinarily picks the correct value based on the platform.
+Only use this option if you are sure you need a different setting.
+
 @item --enable-vtable-verify
 Specify whether to enable or disable the vtable verification feature.
 Enabling this feature causes libstdc++ to be built with its virtual calls
@@ -1081,19 +1090,63 @@ sysv, aix.
 
 @item --with-multilib-list=@var{list}
 @itemx --without-multilib-list
-Specify what multilibs to build.
-Currently only implemented for arm*-*-*, sh*-*-* and x86-64-*-linux*.
+Specify what multilibs to build.  @var{list} is a comma separated list of
+values, possibly consisting of a single value.  Currently only implemented
+for arm*-*-*, sh*-*-* and x86-64-*-linux*.  The accepted values and meaning
+for each target is given below.
 
 @table @code
 @item arm*-*-*
-@var{list} is either @code{default} or @code{aprofile}.  Specifying
-@code{default} is equivalent to omitting this option while specifying
-@code{aprofile} builds multilibs for each combination of ISA (@code{-marm} or
-@code{-mthumb}), architecture (@code{-march=armv7-a}, @code{-march=armv7ve},
-or @code{-march=armv8-a}), FPU available (none, @code{-mfpu=vfpv3-d16},
-@code{-mfpu=neon}, @code{-mfpu=vfpv4-d16}, @code{-mfpu=neon-vfpv4} or
-@code{-mfpu=neon-fp-armv8} depending on architecture) and floating-point ABI
-(@code{-mfloat-abi=softfp} or @code{-mfloat-abi=hard}).
+@var{list} is a comma separated list of @code{aprofile} and @code{rmprofile}
+to build multilibs for A or R and M architecture profiles respectively.  Note
+that, due to some limitation of the current multilib framework, using the
+combined @code{aprofile,rmprofile} multilibs selects in some cases a less
+optimal multilib than when using the multilib profile for the architecture
+targetted.  The special value @code{default} is also accepted and is equivalent
+to omitting the option, ie. only the default run-time library will be enabled.
+
+The table below gives the combination of ISAs, architectures, FPUs and
+floating-point ABIs for which multilibs are built for each accepted value.
+The union of these options is considered when specifying both @code{aprofile}
+and @code{rmprofile}.
+
+@multitable @columnfractions .15 .28 .30
+@item Option @tab aprofile @tab rmprofile
+@item ISAs
+@tab @code{-marm} and @code{-mthumb}
+@tab @code{-mthumb}
+@item Architectures@*@*@*@*@*@*
+@tab default architecture@*
+@code{-march=armv7-a}@*
+@code{-march=armv7ve}@*
+@code{-march=armv8-a}@*@*@*
+@tab default architecture@*
+@code{-march=armv6s-m}@*
+@code{-march=armv7-m}@*
+@code{-march=armv7e-m}@*
+@code{-march=armv8-m.base}@*
+@code{-march=armv8-m.main}@*
+@code{-march=armv7}
+@item FPUs@*@*@*@*@*
+@tab none@*
+@code{-mfpu=vfpv3-d16}@*
+@code{-mfpu=neon}@*
+@code{-mfpu=vfpv4-d16}@*
+@code{-mfpu=neon-vfpv4}@*
+@code{-mfpu=neon-fp-armv8}
+@tab none@*
+@code{-mfpu=vfpv3-d16}@*
+@code{-mfpu=fpv4-sp-d16}@*
+@code{-mfpu=fpv5-sp-d16}@*
+@code{-mfpu=fpv5-d16}@*
+@item floating-point@/ ABIs@*@*
+@tab @code{-mfloat-abi=soft}@*
+@code{-mfloat-abi=softfp}@*
+@code{-mfloat-abi=hard}
+@tab @code{-mfloat-abi=soft}@*
+@code{-mfloat-abi=softfp}@*
+@code{-mfloat-abi=hard}
+@end multitable
 
 @item sh*-*-*
 @var{list} is a comma separated list of CPU names.  These must be of the
@@ -1331,6 +1384,39 @@ On MIPS targets, make @option{-msynci} the default when no
 On MIPS targets, make @option{-mno-synci} the default when no
 @option{-msynci} option is passed.  This is the default.
 
+@item --with-lxc1-sxc1
+On MIPS targets, make @option{-mlxc1-sxc1} the default when no
+@option{-mno-lxc1-sxc1} option is passed.  This is the default.
+
+@item --without-lxc1-sxc1
+On MIPS targets, make @option{-mno-lxc1-sxc1} the default when no
+@option{-mlxc1-sxc1} option is passed.  The indexed load/store
+instructions are not directly a problem but can lead to unexpected
+behaviour when deployed in an application intended for a 32-bit address
+space but run on a 64-bit processor.  The issue is seen because all
+known MIPS 64-bit Linux kernels execute o32 and n32 applications
+with 64-bit addressing enabled which affects the overflow behaviour
+of the indexed addressing mode.  GCC will assume that ordinary
+32-bit arithmetic overflow behaviour is the same whether performed
+as an @code{addu} instruction or as part of the address calculation
+in @code{lwxc1} type instructions.  This assumption holds true in a
+pure 32-bit environment and can hold true in a 64-bit environment if
+the address space is accurately set to be 32-bit for o32 and n32.
+
+@item --with-madd4
+On MIPS targets, make @option{-mmadd4} the default when no
+@option{-mno-madd4} option is passed.  This is the default.
+
+@item --without-madd4
+On MIPS targets, make @option{-mno-madd4} the default when no
+@option{-mmadd4} option is passed.  The @code{madd4} instruction
+family can be problematic when targeting a combination of cores that
+implement these instructions differently.  There are two known cores
+that implement these as fused operations instead of unfused (where
+unfused is normally expected).  Disabling these instructions is the
+only way to ensure compatible code is generated; this will incur
+a performance penalty.
+
 @item --with-mips-plt
 On MIPS targets, make use of copy relocations and PLTs.
 These features are extensions to the traditional
@@ -1435,7 +1521,7 @@ linker does search for @samp{libNAME.so} before @samp{libNAME.a} library
 filenames with the @samp{-lNAME} linker flag.
 
 @anchor{AixLdCommand}For detailed information please refer to the AIX
-@uref{http://www-01.ibm.com/support/knowledgecenter/search/%22the%20ld%20command%2C%20also%20called%20the%20linkage%20editor%20or%20binder%22,,ld
+@uref{https://www.ibm.com/support/knowledgecenter/search/%22the%20ld%20command%2C%20also%20called%20the%20linkage%20editor%20or%20binder%22,,ld
 Command} reference.
 
 As long as shared library creation is enabled, upon:
@@ -1540,14 +1626,17 @@ their runtime libraries should be built.  For a list of valid values for
 grep ^language= */config-lang.in
 @end smallexample
 Currently, you can use any of the following:
-@code{all}, @code{ada}, @code{c}, @code{c++}, @code{fortran},
+@code{all}, @code{default}, @code{ada}, @code{c}, @code{c++}, @code{fortran},
 @code{go}, @code{jit}, @code{lto}, @code{objc}, @code{obj-c++}.
 Building the Ada compiler has special requirements, see below.
-If you do not pass this flag, or specify the option @code{all}, then all
+If you do not pass this flag, or specify the option @code{default}, then the
 default languages available in the @file{gcc} sub-tree will be configured.
 Ada, Go, Jit, and Objective-C++ are not default languages.  LTO is not a
 default language, but is built by default because @option{--enable-lto} is
-enabled by default.  The other languages are default languages.
+enabled by default.  The other languages are default languages.  If
+@code{all} is specified, then all available languages are built.  An
+exception is @code{jit} language, which requires
+@option{--enable-host-shared} to be included with @code{all}.
 
 @item --enable-stage1-languages=@var{lang1},@var{lang2},@dots{}
 Specify that a particular subset of compilers and their runtime
@@ -1998,12 +2087,6 @@ explicitly specify the directory where they are installed.  The
 shorthand for
 @option{--with-hsa-runtime-lib=@/@var{hsainstalldir}/lib} and
 @option{--with-hsa-runtime-include=@/@var{hsainstalldir}/include}.
-
-@item --with-hsa-kmt-lib=@var{pathname}
-
-If you configure GCC with HSA offloading but do not have the HSA
-KMT library installed in a standard location then you can
-explicitly specify the directory where it resides.
 @end table
 
 @subheading Cross-Compiler-Specific Options
@@ -2398,6 +2481,40 @@ In order to avoid shell and @command{make} quoting issues for complex
 overrides, you can pass a setting for @env{CONFIG_SITE} and set
 variables in the site file.
 
+@subheading Objective-C-Specific Options
+
+The following options apply to the build of the Objective-C runtime library.
+
+@table @code
+@item --enable-objc-gc
+Specify that an additional variant of the GNU Objective-C runtime library
+is built, using an external build of the Boehm-Demers-Weiser garbage
+collector (@uref{http://www.hboehm.info/gc/}).  This library needs to be
+available for each multilib variant, unless configured with
+@option{--enable-objc-gc=@samp{auto}} in which case the build of the
+additional runtime library is skipped when not available and the build
+continues.
+
+@item --with-target-bdw-gc=@var{list}
+@itemx --with-target-bdw-gc-include=@var{list}
+@itemx --with-target-bdw-gc-lib=@var{list}
+Specify search directories for the garbage collector header files and
+libraries. @var{list} is a comma separated list of key value pairs of the
+form @samp{@var{multilibdir}=@var{path}}, where the default multilib key
+is named as @samp{.} (dot), or is omitted (e.g.
+@samp{--with-target-bdw-gc=/opt/bdw-gc,32=/opt-bdw-gc32}).
+
+The options @option{--with-target-bdw-gc-include} and
+@option{--with-target-bdw-gc-lib} must always be specified together
+for each multilib variant and they take precedence over
+@option{--with-target-bdw-gc}.  If @option{--with-target-bdw-gc-include}
+is missing values for a multilib, then the value for the default
+multilib is used (e.g. @samp{--with-target-bdw-gc-include=/opt/bdw-gc/include}
+@samp{--with-target-bdw-gc-lib=/opt/bdw-gc/lib64,32=/opt-bdw-gc/lib32}).
+If none of these options are specified, the library is assumed in
+default locations.
+@end table
+
 @html
 <hr />
 <p>
@@ -2757,8 +2874,9 @@ bootstrap the compiler with profile feedback, use @code{make profiledbootstrap}.
 When @samp{make profiledbootstrap} is run, it will first build a @code{stage1}
 compiler.  This compiler is used to build a @code{stageprofile} compiler
 instrumented to collect execution counts of instruction and branch
-probabilities.  Then runtime libraries are compiled with profile collected.
-Finally a @code{stagefeedback} compiler is built using the information collected.
+probabilities.  Training run is done by building @code{stagetrain}
+compiler.  Finally a @code{stagefeedback} compiler is built
+using the information collected.
 
 Unlike standard bootstrap, several additional restrictions apply.  The
 compiler used to build @code{stage1} needs to support a 64-bit integral type.
@@ -2815,7 +2933,10 @@ separately.
 
 Second, you must have the testing tools installed.  This includes
 @uref{http://www.gnu.org/software/dejagnu/,,DejaGnu}, Tcl, and Expect;
-the DejaGnu site has links to these.
+the DejaGnu site has links to these. For running the BRIG frontend
+tests, a tool to assemble the binary BRIGs from HSAIL text,
+@uref{https://github.com/HSAFoundation/HSAIL-Tools/,,HSAILasm} must
+be installed.
 
 If the directories where @command{runtest} and @command{expect} were
 installed are not in the @env{PATH}, you may need to set the following
@@ -2869,6 +2990,16 @@ the testsuite with filenames matching @samp{9805*}, you would use
 
 @smallexample
 make check-g++ RUNTESTFLAGS="old-deja.exp=9805* @var{other-options}"
+@end smallexample
+
+The file-matching expression following @var{filename}@command{.exp=} is treated
+as a series of whitespace-delimited glob expressions so that multiple patterns
+may be passed, although any whitespace must either be escaped or surrounded by
+single quotes if multiple expressions are desired. For example,
+
+@smallexample
+make check-g++ RUNTESTFLAGS="old-deja.exp=9805*\ virtual2.c @var{other-options}"
+make check-g++ RUNTESTFLAGS="'old-deja.exp=9805* virtual2.c' @var{other-options}"
 @end smallexample
 
 The @file{*.exp} files are located in the testsuite directories of the GCC
@@ -3219,13 +3350,22 @@ Solaris 2 (SPARC, Intel):
 @end itemize
 
 @item
+macOS:
+@itemize
+@item
+The @uref{https://brew.sh,,Homebrew} package manager;
+@item
+@uref{https://www.macports.org,,MacPorts}.
+@end itemize
+
+@item
 Microsoft Windows:
 @itemize
 @item
-The @uref{http://sourceware.org/cygwin/,,Cygwin} project;
+The @uref{https://sourceware.org/cygwin/,,Cygwin} project;
 @item
 The @uref{http://www.mingw.org/,,MinGW} and
-@uref{http://mingw-w64.org/,,mingw-w64} projects.
+@uref{http://mingw-w64.org/doku.php,,mingw-w64} projects.
 @end itemize
 
 @item
@@ -3357,6 +3497,14 @@ information have to.
 @uref{#powerpcle-x-eabisim,,powerpcle-*-eabisim}
 @item
 @uref{#powerpcle-x-eabi,,powerpcle-*-eabi}
+@item
+@uref{#riscv32-x-elf,,riscv32-*-elf}
+@item
+@uref{#riscv32-x-linux,,riscv32-*-linux}
+@item
+@uref{#riscv64-x-elf,,riscv64-*-elf}
+@item
+@uref{#riscv64-x-linux,,riscv64-*-linux}
 @item
 @uref{#s390-x-linux,,s390-*-linux*}
 @item
@@ -3506,10 +3654,7 @@ Use @samp{configure --target=arc-linux-uclibc --with-cpu=arc700 --enable-languag
 @end html
 @anchor{arm-x-eabi}
 @heading arm-*-eabi
-ARM-family processors.  Subtargets that use the ELF object format
-require GNU binutils 2.13 or newer.  Such subtargets include:
-@code{arm-*-netbsdelf}, @code{arm-*-*linux-*}
-and @code{arm-*-rtemseabi}.
+ARM-family processors.
 
 Building the Ada frontend commonly fails (an infinite loop executing
 @code{xsinfo}) if the host compiler is GNAT 4.8.  Host compilers built from the
@@ -3543,8 +3688,6 @@ can also be obtained from:
 @uref{http://www.amelek.gda.pl/avr/,,http://www.amelek.gda.pl/avr/}
 @end itemize
 
-We @emph{strongly} recommend using binutils 2.13 or newer.
-
 The following error:
 @smallexample
 Error: register required
@@ -3567,7 +3710,7 @@ See ``Blackfin Options'' in the main manual
 @end ifhtml
 
 More information, and a version of binutils with support for this processor,
-is available at @uref{http://blackfin.uclinux.org}
+is available at @uref{https://blackfin.uclinux.org}
 
 @html
 <hr />
@@ -3618,9 +3761,6 @@ Mainly for monolithic embedded systems.  Includes a multilib for the
 A GNU/Linux port for the CRIS architecture, currently targeting
 @samp{ETRAX 100 LX} by default.
 @end table
-
-For @code{cris-axis-elf} you need binutils 2.11
-or newer.  For @code{cris-axis-linux-gnu} you need binutils 2.12 or newer.
 
 Pre-packaged tools can be obtained from
 @uref{ftp://ftp.axis.com/@/pub/@/axis/@/tools/@/cris/@/compiler-kit/}.  More
@@ -3785,7 +3925,7 @@ The libffi library haven't been ported to 64-bit HP-UX@ and doesn't build.
 
 Refer to @uref{binaries.html,,binaries} for information about obtaining
 precompiled GCC binaries for HP-UX@.  Precompiled binaries must be obtained
-to build the Ada language as it can't be bootstrapped using C@.  Ada is
+to build the Ada language as it cannot be bootstrapped using C@.  Ada is
 only available for the 32-bit PA-RISC runtime.
 
 Starting with GCC 3.4 an ISO C compiler is required to bootstrap.  The
@@ -3865,12 +4005,12 @@ Although the HP and GNU linkers are both supported for the
 HP linker be used for link editing on this target.
 
 At this time, the GNU linker does not support the creation of long
-branch stubs.  As a result, it can't successfully link binaries
+branch stubs.  As a result, it cannot successfully link binaries
 containing branch offsets larger than 8 megabytes.  In addition,
 there are problems linking shared libraries, linking executables
 with @option{-static}, and with dwarf2 unwind and exception support.
 It also doesn't provide stubs for internal calls to global functions
-in shared libraries, so these calls can't be overloaded.
+in shared libraries, so these calls cannot be overloaded.
 
 The HP dynamic loader does not support GNU symbol versioning, so symbol
 versioning is not supported.  It may be necessary to disable symbol
@@ -4272,14 +4412,6 @@ the use of break, use the @option{--with-divide=breaks}
 @command{configure} option when configuring GCC@.  The default is to
 use traps on systems that support them.
 
-The assembler from GNU binutils 2.17 and earlier has a bug in the way
-it sorts relocations for REL targets (o32, o64, EABI).  This can cause
-bad code to be generated for simple C++ programs.  Also the linker
-from GNU binutils versions prior to 2.17 has a bug which causes the
-runtime linker stubs in very large programs to
-be incorrectly generated.  GNU Binutils 2.18 and later (and snapshots
-made after Nov. 9, 2006) should be free from both of these problems.
-
 @html
 <hr />
 @end html
@@ -4354,9 +4486,7 @@ Use the @option{--disable-sjlj-exceptions} and
 You can specify a default version for the @option{-mcpu=@var{cpu_type}}
 switch by using the configure option @option{--with-cpu-@var{cpu_type}}.
 
-You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.15}
-or newer for a working GCC@.
+You will need GNU binutils 2.15 or newer.
 
 @html
 <hr />
@@ -4368,7 +4498,7 @@ PowerPC running Darwin (Mac OS X kernel).
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://opensource.apple.com/}.
+@uref{https://opensource.apple.com}.
 
 This version of GCC requires at least cctools-590.36.  The
 cctools-590.36 package referenced from
@@ -4444,11 +4574,47 @@ This configuration is intended for embedded systems.
 @html
 <hr />
 @end html
+@anchor{riscv32-x-elf}
+@heading riscv32-*-elf
+The RISC-V RV32 instruction set.
+This configuration is intended for embedded systems.
+This (and all other RISC-V) targets are supported upstream as of the
+binutils 2.28 release.
+
+@html
+<hr />
+@end html
+@anchor{riscv32-x-linux}
+@heading riscv32-*-linux
+The RISC-V RV32 instruction set running GNU/Linux.
+This (and all other RISC-V) targets are supported upstream as of the
+binutils 2.28 release.
+
+@html
+<hr />
+@end html
+@anchor{riscv64-x-elf}
+@heading riscv64-*-elf
+The RISC-V RV64 instruction set.
+This configuration is intended for embedded systems.
+This (and all other RISC-V) targets are supported upstream as of the
+binutils 2.28 release.
+
+@html
+<hr />
+@end html
+@anchor{riscv64-x-linux}
+@heading riscv64-*-linux
+The RISC-V RV64 instruction set running GNU/Linux.
+This (and all other RISC-V) targets are supported upstream as of the
+binutils 2.28 release.
+
+@html
+<hr />
+@end html
 @anchor{rx-x-elf}
 @heading rx-*-elf
-The Renesas RX processor.  See
-@uref{http://eu.renesas.com/fmwk.jsp?cnt=rx600_series_landing.jsp&fp=/products/mpumcu/rx_family/rx600_series}
-for more information about this processor.
+The Renesas RX processor.
 
 @html
 <hr />
@@ -4630,11 +4796,6 @@ This bug is fixed in Sun patch 118683-03 or later.
 @end html
 @anchor{sparc-x-linux}
 @heading sparc-*-linux*
-
-GCC versions 3.0 and higher require binutils 2.11.2 and glibc 2.2.4
-or newer on this platform.  All earlier binutils and glibc
-releases mishandled unaligned relocations on @code{sparc-*-*} targets.
-
 
 @html
 <hr />
@@ -4818,7 +4979,7 @@ the Win32 subsystem that provides a subset of POSIX.
 
 @subheading Intel 64-bit versions
 GCC contains support for x86-64 using the mingw-w64
-runtime library, available from @uref{http://mingw-w64.sourceforge.net/}.
+runtime library, available from @uref{http://mingw-w64.org/doku.php}.
 This library should be used with the target triple x86_64-pc-mingw32.
 
 Presently Windows for Itanium is not supported.
@@ -4905,7 +5066,7 @@ modern targets.
 
 For some systems, old versions of GNU binutils may also be useful,
 and are available from @file{pub/binutils/old-releases} on
-@uref{http://sourceware.org/mirrors.html,,sourceware.org mirror sites}.
+@uref{https://sourceware.org/mirrors.html,,sourceware.org mirror sites}.
 
 Some of the information on specific systems above relates to
 such older systems, but much of the information

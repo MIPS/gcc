@@ -1,5 +1,5 @@
 /* Forward propagation of expressions for single use variables.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -527,9 +527,9 @@ forward_propagate_into_gimple_cond (gcond *stmt)
       if (dump_file && tmp)
 	{
 	  fprintf (dump_file, "  Replaced '");
-	  print_gimple_expr (dump_file, stmt, 0, 0);
+	  print_gimple_expr (dump_file, stmt, 0);
 	  fprintf (dump_file, "' with '");
-	  print_generic_expr (dump_file, tmp, 0);
+	  print_generic_expr (dump_file, tmp);
 	  fprintf (dump_file, "'\n");
 	}
 
@@ -605,9 +605,9 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
       if (dump_file && tmp)
 	{
 	  fprintf (dump_file, "  Replaced '");
-	  print_generic_expr (dump_file, cond, 0);
+	  print_generic_expr (dump_file, cond);
 	  fprintf (dump_file, "' with '");
-	  print_generic_expr (dump_file, tmp, 0);
+	  print_generic_expr (dump_file, tmp);
 	  fprintf (dump_file, "'\n");
 	}
 
@@ -1529,7 +1529,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
   /* Only create rotates in complete modes.  Other cases are not
      expanded properly.  */
   if (!INTEGRAL_TYPE_P (rtype)
-      || TYPE_PRECISION (rtype) != GET_MODE_PRECISION (TYPE_MODE (rtype)))
+      || !type_has_mode_precision_p (rtype))
     return false;
 
   for (i = 0; i < 2; i++)
@@ -1609,8 +1609,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (cdef_arg1[i]))
 	      && TYPE_PRECISION (TREE_TYPE (cdef_arg1[i]))
 		 > floor_log2 (TYPE_PRECISION (rtype))
-	      && TYPE_PRECISION (TREE_TYPE (cdef_arg1[i]))
-		 == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (cdef_arg1[i]))))
+	      && type_has_mode_precision_p (TREE_TYPE (cdef_arg1[i])))
 	    {
 	      def_arg2_alt[i] = cdef_arg1[i];
 	      defcodefor_name (def_arg2_alt[i], &cdef_code[i],
@@ -1639,8 +1638,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 		&& INTEGRAL_TYPE_P (TREE_TYPE (tem))
 		&& TYPE_PRECISION (TREE_TYPE (tem))
 		 > floor_log2 (TYPE_PRECISION (rtype))
-		&& TYPE_PRECISION (TREE_TYPE (tem))
-		 == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (tem)))
+		&& type_has_mode_precision_p (TREE_TYPE (tem))
 		&& (tem == def_arg2[1 - i]
 		    || tem == def_arg2_alt[1 - i]))
 	      {
@@ -1667,8 +1665,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 		&& INTEGRAL_TYPE_P (TREE_TYPE (tem))
 		&& TYPE_PRECISION (TREE_TYPE (tem))
 		 > floor_log2 (TYPE_PRECISION (rtype))
-		&& TYPE_PRECISION (TREE_TYPE (tem))
-		 == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (tem))))
+		&& type_has_mode_precision_p (TREE_TYPE (tem)))
 	      defcodefor_name (tem, &code, &tem, NULL);
 
 	    if (code == NEGATE_EXPR)
@@ -1683,8 +1680,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 		    && INTEGRAL_TYPE_P (TREE_TYPE (tem))
 		    && TYPE_PRECISION (TREE_TYPE (tem))
 		       > floor_log2 (TYPE_PRECISION (rtype))
-		    && TYPE_PRECISION (TREE_TYPE (tem))
-		       == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (tem)))
+		    && type_has_mode_precision_p (TREE_TYPE (tem))
 		    && (tem == def_arg2[1 - i]
 			|| tem == def_arg2_alt[1 - i]))
 		  {
@@ -2527,7 +2523,7 @@ pass_forwprop::execute (function *fun)
       if (dump_file && dump_flags & TDF_DETAILS)
 	{
 	  fprintf (dump_file, "Fixing up noreturn call ");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  print_gimple_stmt (dump_file, stmt, 0);
 	  fprintf (dump_file, "\n");
 	}
       cfg_changed |= fixup_noreturn_call (stmt);

@@ -1,5 +1,5 @@
 /* Compiler arithmetic
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -874,8 +874,12 @@ arith_power (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 		  {
 		    /* if op2 < 0, op1**op2 == 0  because abs(op1) > 1.  */
 		    mpz_set_si (result->value.integer, 0);
+		    if (warn_integer_division)
+		      gfc_warning_now (OPT_Winteger_division, "Negative "
+				       "exponent of integer has zero "
+				       "result at %L", &result->where);
 		  }
-		else if (gfc_extract_int (op2, &power) != NULL)
+		else if (gfc_extract_int (op2, &power))
 		  {
 		    /* If op2 doesn't fit in an int, the exponentiation will
 		       overflow, because op2 > 0 and abs(op1) > 1.  */
@@ -1997,13 +2001,14 @@ wprecision_real_real (mpfr_t r, int from_kind, int to_kind)
 static bool
 wprecision_int_real (mpz_t n, mpfr_t r)
 {
+  bool ret;
   mpz_t i;
   mpz_init (i);
   mpfr_get_z (i, r, GFC_RND_MODE);
   mpz_sub (i, i, n);
-  return mpz_cmp_si (i, 0) != 0;
+  ret = mpz_cmp_si (i, 0) != 0;
   mpz_clear (i);
-
+  return ret;
 }
 
 /* Convert integers to integers.  */

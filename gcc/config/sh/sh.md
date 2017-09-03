@@ -1,5 +1,5 @@
 ;;- Machine description for Renesas / SuperH SH.
-;;  Copyright (C) 1993-2016 Free Software Foundation, Inc.
+;;  Copyright (C) 1993-2017 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -561,8 +561,12 @@
   gcc_assert (CONST_INT_P (operands[1]));
 
   HOST_WIDE_INT op1val = INTVAL (operands[1]);
+  rtx reg = operands[0];
+  if (SUBREG_P (reg))
+    reg = SUBREG_REG (reg);
+  gcc_assert (REG_P (reg));
   bool op0_dead_after_this =
-	sh_reg_dead_or_unused_after_insn (curr_insn, REGNO (operands[0]));
+	sh_reg_dead_or_unused_after_insn (curr_insn, REGNO (reg));
 
   if (optimize)
     {
@@ -834,7 +838,11 @@
   /* If the tested reg is not dead after this insn, it's probably used by
      something else after the comparison.  It's probably better to leave
      it as it is.  */
-  if (find_regno_note (curr_insn, REG_DEAD, REGNO (operands[0])) == NULL_RTX)
+  rtx reg = operands[0];
+  if (SUBREG_P (reg))
+    reg = SUBREG_REG (reg);
+  gcc_assert (REG_P (reg));
+  if (find_regno_note (curr_insn, REG_DEAD, REGNO (reg)) != NULL_RTX)
     FAIL;
 
   /* FIXME: Maybe also search the predecessor basic blocks to catch
@@ -858,7 +866,8 @@
 	 operands of the tstsi_t insn, which is generally the case.  */
       if (dump_file)
 	fprintf (dump_file, "cmpeqsi_t: replacing with tstsi_t\n");
-      emit_insn (gen_tstsi_t (XEXP (op.set_src, 0), XEXP (op.set_src, 1)));
+      emit_insn (gen_tstsi_t (copy_rtx (XEXP (op.set_src, 0)),
+			      copy_rtx (XEXP (op.set_src, 1))));
       DONE;
     }
 
@@ -1179,7 +1188,7 @@
    (clobber (reg:SI T_REG))]
   "can_create_pseudo_p ()"
 {
-  expand_cbranchsi4 (operands, LAST_AND_UNUSED_RTX_CODE, -1);
+  expand_cbranchsi4 (operands, LAST_AND_UNUSED_RTX_CODE);
   DONE;
 })
 
@@ -7967,13 +7976,13 @@
 
   switch (GET_MODE (diff_vec))
     {
-    case SImode:
+    case E_SImode:
       return   "shll2	%1"	"\n"
 	     "	mov.l	@(r0,%1),%0";
-    case HImode:
+    case E_HImode:
       return   "add	%1,%1"	"\n"
 	     "	mov.w	@(r0,%1),%0";
-    case QImode:
+    case E_QImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	return         "mov.b	@(r0,%1),%0"	"\n"
 	       "	extu.b	%0,%0";
@@ -8002,17 +8011,17 @@
 
   switch (GET_MODE (diff_vec))
     {
-    case SImode:
+    case E_SImode:
       return   "shll2	%1"		"\n"
 	     "	add	r0,%1"		"\n"
 	     "	mova	%O3,r0"		"\n"
 	     "  mov.l	@(r0,%1),%0";
-    case HImode:
+    case E_HImode:
       return   "add	%1,%1"		"\n"
 	     "	add	r0,%1"		"\n"
 	     "	mova	%O3,r0"		"\n"
 	     "	mov.w	@(r0,%1),%0";
-    case QImode:
+    case E_QImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	return	       "add	r0,%1"		"\n"
 		"	mova	%O3,r0"		"\n"

@@ -265,7 +265,7 @@ package body Comperr is
 
             --  If we get a Src file, we use it
 
-            if Src /= null then
+            if not Null_Source_Buffer_Ptr (Src) then
                Lo := 0;
 
                Outer : while Lo < Hi loop
@@ -294,7 +294,7 @@ package body Comperr is
                if Is_FSF_Version then
                   Write_Str
                     ("| Please submit a bug report; see" &
-                     " http://gcc.gnu.org/bugs.html.");
+                     " https://gcc.gnu.org/bugs/ .");
                   End_Line;
 
                elsif Is_GPL_Version then
@@ -467,9 +467,10 @@ package body Comperr is
       Main := Unit (Cunit (Main_Unit));
 
       case Nkind (Main) is
-         when N_Package_Declaration    |
-              N_Subprogram_Body        |
-              N_Subprogram_Declaration =>
+         when N_Package_Declaration
+            | N_Subprogram_Body
+            | N_Subprogram_Declaration
+         =>
             Unit_Name := Defining_Unit_Name (Specification (Main));
 
          when N_Package_Body =>

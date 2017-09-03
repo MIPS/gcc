@@ -1,5 +1,5 @@
 /* Generic dominator tree walker
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -70,7 +70,7 @@ private:
      and possibly incoming edges for the block.  Typically called after
      determining a block is unreachable in the before_dom_children
      callback.  */
-  void propagate_unreachable_to_edges (basic_block, FILE *, int);
+  void propagate_unreachable_to_edges (basic_block, FILE *, dump_flags_t);
 
 };
 

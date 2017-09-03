@@ -126,6 +126,9 @@ package math
 func libc_expm1(float64) float64
 
 func Expm1(x float64) float64 {
+	if x == 0 {
+		return x
+	}
 	return libc_expm1(x)
 }
 
@@ -235,7 +238,7 @@ func expm1(x float64) float64 {
 		}
 		t := Float64frombits(uint64(0x3ff-k) << 52) // 2**-k
 		y := x - (e + t)
-		y += 1
+		y++
 		y = Float64frombits(Float64bits(y) + uint64(k)<<52) // add k to y's exponent
 		return y
 	}

@@ -1,5 +1,5 @@
 /* Definitions and declarations for stor-layout.c.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -113,8 +113,5 @@ extern void relayout_decl (tree);
    to compute the value at the right time when the data type
    belongs to a function parameter.  */
 extern tree variable_size (tree);
-
-/* Vector types need to check target flags to determine type.  */
-extern machine_mode vector_type_mode (const_tree);
 
 #endif  // GCC_STOR_LAYOUT_H

@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2218,8 +2218,8 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 
 	  if (spill_stack_slot[from_reg])
 	    {
-	      if (GET_MODE_SIZE (GET_MODE (spill_stack_slot[from_reg]))
-		  > inherent_size)
+	      if (partial_subreg_p (mode,
+				    GET_MODE (spill_stack_slot[from_reg])))
 		mode = GET_MODE (spill_stack_slot[from_reg]);
 	      if (spill_stack_slot_width[from_reg] > total_size)
 		total_size = spill_stack_slot_width[from_reg];
@@ -2817,7 +2817,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 	  int new_size = GET_MODE_SIZE (GET_MODE (new_rtx));
 
 	  if (MEM_P (new_rtx)
-	      && ((x_size < new_size
+	      && ((partial_subreg_p (GET_MODE (x), GET_MODE (new_rtx))
 		   /* On RISC machines, combine can create rtl of the form
 		      (set (subreg:m1 (reg:m2 R) 0) ...)
 		      where m1 < m2, and expects something interesting to
@@ -2831,6 +2831,8 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 		  || x_size == new_size)
 	      )
 	    return adjust_address_nv (new_rtx, GET_MODE (x), SUBREG_BYTE (x));
+	  else if (insn && GET_CODE (insn) == DEBUG_INSN)
+	    return gen_rtx_raw_SUBREG (GET_MODE (x), new_rtx, SUBREG_BYTE (x));
 	  else
 	    return gen_rtx_SUBREG (GET_MODE (x), new_rtx, SUBREG_BYTE (x));
 	}
@@ -3040,8 +3042,7 @@ elimination_effects (rtx x, machine_mode mem_mode)
 
     case SUBREG:
       if (REG_P (SUBREG_REG (x))
-	  && (GET_MODE_SIZE (GET_MODE (x))
-	      <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+	  && !paradoxical_subreg_p (x)
 	  && reg_equivs
 	  && reg_equiv_memory_loc (REGNO (SUBREG_REG (x))) != 0)
 	return;
@@ -3819,6 +3820,7 @@ verify_initial_elim_offsets (void)
   if (!num_eliminable)
     return true;
 
+  targetm.compute_frame_layout ();
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
@@ -3836,6 +3838,7 @@ set_initial_elim_offsets (void)
 {
   struct elim_table *ep = reg_eliminate;
 
+  targetm.compute_frame_layout ();
   for (; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, ep->initial_offset);
@@ -6369,8 +6372,7 @@ compute_reload_subreg_offset (machine_mode outermode,
   /* If SUBREG is paradoxical then return the normal lowpart offset
      for OUTERMODE and INNERMODE.  Our caller has already checked
      that OUTERMODE fits in INNERMODE.  */
-  if (outer_offset == 0
-      && GET_MODE_SIZE (outermode) > GET_MODE_SIZE (middlemode))
+  if (paradoxical_subreg_p (outermode, middlemode))
     return subreg_lowpart_offset (outermode, innermode);
 
   /* SUBREG is normal, but may not be lowpart; return OUTER_OFFSET
@@ -6660,8 +6662,7 @@ choose_reload_regs (struct insn_chain *chain)
 				  && rld[r].out)
 			      /* Don't really use the inherited spill reg
 				 if we need it wider than we've got it.  */
-			      || (GET_MODE_SIZE (rld[r].mode)
-				  > GET_MODE_SIZE (mode))
+			      || paradoxical_subreg_p (rld[r].mode, mode)
 			      || bad_for_class
 
 			      /* If find_reloads chose reload_out as reload

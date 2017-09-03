@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package runtime
 
@@ -42,6 +42,10 @@ const (
 const pollBlockSize = 4 * 1024
 
 // Network poller descriptor.
+//
+// No heap pointers.
+//
+//go:notinheap
 type pollDesc struct {
 	link *pollDesc // in pollcache, protected by pollcache.lock
 

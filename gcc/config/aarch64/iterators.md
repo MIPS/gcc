@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -43,6 +43,9 @@
 
 ;; Iterator for all scalar floating point modes (HF, SF, DF)
 (define_mode_iterator GPF_F16 [(HF "AARCH64_ISA_F16") SF DF])
+
+;; Iterator for all scalar floating point modes (HF, SF, DF)
+(define_mode_iterator GPF_HF [HF SF DF])
 
 ;; Iterator for all scalar floating point modes (HF, SF, DF and TF)
 (define_mode_iterator GPF_TF_F16 [HF SF DF TF])
@@ -101,7 +104,6 @@
 			     V2SF V4SF V2DF])
 
 ;; Vector Float modes, and DF.
-(define_mode_iterator VDQF_DF [V2SF V4SF V2DF DF])
 (define_mode_iterator VHSDF_DF [(V4HF "TARGET_SIMD_F16INST")
 				(V8HF "TARGET_SIMD_F16INST")
 				V2SF V4SF V2DF DF])
@@ -132,6 +134,10 @@
 ;; All vector modes suitable for moving, loading, and storing.
 (define_mode_iterator VALL_F16 [V8QI V16QI V4HI V8HI V2SI V4SI V2DI
 				V4HF V8HF V2SF V4SF V2DF])
+
+;; The VALL_F16 modes except the 128-bit 2-element ones.
+(define_mode_iterator VALL_F16_NO_V2Q [V8QI V16QI V4HI V8HI V2SI V4SI
+				V4HF V8HF V2SF V4SF])
 
 ;; All vector modes barring HF modes, plus DI.
 (define_mode_iterator VALLDI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI V2SF V4SF V2DF DI])
@@ -440,6 +446,9 @@
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
 
+;; Attribute to describe constants acceptable in logical and operations
+(define_mode_attr lconst2 [(SI "UsO") (DI "UsP")])
+
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
 
@@ -513,6 +522,17 @@
                         (V2DF "DF") (DF "DF")
 			(SI   "SI") (HI   "HI")
 			(QI   "QI")])
+
+;; Define element mode for each vector mode (lower case).
+(define_mode_attr Vel [(V8QI "qi") (V16QI "qi")
+			(V4HI "hi") (V8HI "hi")
+			(V2SI "si") (V4SI "si")
+			(DI "di")   (V2DI "di")
+			(V4HF "hf") (V8HF "hf")
+			(V2SF "sf") (V4SF "sf")
+			(V2DF "df") (DF "df")
+			(SI   "si") (HI   "hi")
+			(QI   "qi")])
 
 ;; 64-bit container modes the inner or scalar source mode.
 (define_mode_attr VCOND [(HI "V4HI") (SI "V2SI")
@@ -642,25 +662,25 @@
 ;; Double vector types for ALLX.
 (define_mode_attr Vallxd [(QI "8b") (HI "4h") (SI "2s")])
 
-;; Mode of result of comparison operations.
-(define_mode_attr V_cmp_result [(V8QI "V8QI") (V16QI "V16QI")
-				(V4HI "V4HI") (V8HI  "V8HI")
-				(V2SI "V2SI") (V4SI  "V4SI")
-				(DI   "DI")   (V2DI  "V2DI")
-				(V4HF "V4HI") (V8HF  "V8HI")
-				(V2SF "V2SI") (V4SF  "V4SI")
-				(V2DF "V2DI") (DF    "DI")
-				(SF   "SI")   (HF    "HI")])
+;; Mode with floating-point values replaced by like-sized integers.
+(define_mode_attr V_INT_EQUIV [(V8QI "V8QI") (V16QI "V16QI")
+			       (V4HI "V4HI") (V8HI  "V8HI")
+			       (V2SI "V2SI") (V4SI  "V4SI")
+			       (DI   "DI")   (V2DI  "V2DI")
+			       (V4HF "V4HI") (V8HF  "V8HI")
+			       (V2SF "V2SI") (V4SF  "V4SI")
+			       (V2DF "V2DI") (DF    "DI")
+			       (SF   "SI")   (HF    "HI")])
 
-;; Lower case mode of results of comparison operations.
-(define_mode_attr v_cmp_result [(V8QI "v8qi") (V16QI "v16qi")
-				(V4HI "v4hi") (V8HI  "v8hi")
-				(V2SI "v2si") (V4SI  "v4si")
-				(DI   "di")   (V2DI  "v2di")
-				(V4HF "v4hi") (V8HF  "v8hi")
-				(V2SF "v2si") (V4SF  "v4si")
-				(V2DF "v2di") (DF    "di")
-				(SF   "si")])
+;; Lower case mode with floating-point values replaced by like-sized integers.
+(define_mode_attr v_int_equiv [(V8QI "v8qi") (V16QI "v16qi")
+			       (V4HI "v4hi") (V8HI  "v8hi")
+			       (V2SI "v2si") (V4SI  "v4si")
+			       (DI   "di")   (V2DI  "v2di")
+			       (V4HF "v4hi") (V8HF  "v8hi")
+			       (V2SF "v2si") (V4SF  "v4si")
+			       (V2DF "v2di") (DF    "di")
+			       (SF   "si")])
 
 ;; Mode for vector conditional operations where the comparison has
 ;; different type from the lhs.
@@ -690,21 +710,6 @@
 ;; opaque large integer mode, and the number of elements touched by the
 ;; ld..._lane and st..._lane operations.
 (define_mode_attr nregs [(OI "2") (CI "3") (XI "4")])
-
-(define_mode_attr VRL2 [(V8QI "V32QI") (V4HI "V16HI")
-			(V4HF "V16HF")
-			(V2SI "V8SI")  (V2SF "V8SF")
-			(DI   "V4DI")  (DF   "V4DF")])
-
-(define_mode_attr VRL3 [(V8QI "V48QI") (V4HI "V24HI")
-			(V4HF "V24HF")
-			(V2SI "V12SI")  (V2SF "V12SF")
-			(DI   "V6DI")  (DF   "V6DF")])
-
-(define_mode_attr VRL4 [(V8QI "V64QI") (V4HI "V32HI")
-			(V4HF "V32HF")
-			(V2SI "V16SI")  (V2SF "V16SF")
-			(DI   "V8DI")  (DF   "V8DF")])
 
 ;; Mode for atomic operation suffixes
 (define_mode_attr atomic_sfx
@@ -743,11 +748,11 @@
 				    (DF   "to_128") (V2DF  "to_64")])
 
 ;; For certain vector-by-element multiplication instructions we must
-;; constrain the HI cases to use only V0-V15.  This is covered by
+;; constrain the 16-bit cases to use only V0-V15.  This is covered by
 ;; the 'x' constraint.  All other modes may use the 'w' constraint.
 (define_mode_attr h_con [(V2SI "w") (V4SI "w")
 			 (V4HI "x") (V8HI "x")
-			 (V4HF "w") (V8HF "w")
+			 (V4HF "x") (V8HF "x")
 			 (V2SF "w") (V4SF "w")
 			 (V2DF "w") (DF "w")])
 
@@ -1029,6 +1034,10 @@
 (define_int_iterator FMAXMIN_UNS [UNSPEC_FMAX UNSPEC_FMIN
 				  UNSPEC_FMAXNM UNSPEC_FMINNM])
 
+(define_int_iterator PAUTH_LR_SP [UNSPEC_PACISP UNSPEC_AUTISP])
+
+(define_int_iterator PAUTH_17_16 [UNSPEC_PACI1716 UNSPEC_AUTI1716])
+
 (define_int_iterator VQDMULH [UNSPEC_SQDMULH UNSPEC_SQRDMULH])
 
 (define_int_iterator USSUQADD [UNSPEC_SUQADD UNSPEC_USQADD])
@@ -1214,6 +1223,18 @@
 				  (UNSPEC_UCVTF "ucvtf")
 				  (UNSPEC_FCVTZS "fcvtzs")
 				  (UNSPEC_FCVTZU "fcvtzu")])
+
+;; Pointer authentication mnemonic prefix.
+(define_int_attr pauth_mnem_prefix [(UNSPEC_PACISP "paci")
+				    (UNSPEC_AUTISP "auti")
+				    (UNSPEC_PACI1716 "paci")
+				    (UNSPEC_AUTI1716 "auti")])
+
+;; Pointer authentication HINT number for NOP space instructions using A Key.
+(define_int_attr pauth_hint_num_a [(UNSPEC_PACISP "25")
+				    (UNSPEC_AUTISP "29")
+				    (UNSPEC_PACI1716 "8")
+				    (UNSPEC_AUTI1716 "12")])
 
 (define_int_attr perm_insn [(UNSPEC_ZIP1 "zip") (UNSPEC_ZIP2 "zip")
 			    (UNSPEC_TRN1 "trn") (UNSPEC_TRN2 "trn")

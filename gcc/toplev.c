@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -63,6 +63,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hosthooks.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 #include "tsan.h"
 #include "plugin.h"
@@ -76,9 +78,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "tree-chkp.h"
-#include "omp-low.h"
-#include "hsa.h"
+#include "omp-offload.h"
+#include "hsa-common.h"
 #include "edit-context.h"
+#include "tree-pass.h"
+#include "dumpfile.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -91,6 +95,10 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #include "selftest.h"
+
+#ifdef HAVE_isl
+#include <isl/version.h>
+#endif
 
 static void general_init (const char *, bool);
 static void do_compile ();
@@ -678,10 +686,8 @@ print_version (FILE *file, const char *indent, bool show_global_state)
 	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING,
 #ifndef HAVE_isl
 	   "none"
-#elif HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
-	   "0.15"
 #else
-	   "0.14 or 0.13"
+	   isl_version ()
 #endif
 	   );
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
@@ -1061,6 +1067,26 @@ open_auxiliary_file (const char *ext)
   return file;
 }
 
+/* Alternative diagnostics callback for reentered ICE reporting.  */
+
+static void
+internal_error_reentered (diagnostic_context *, const char *, va_list *)
+{
+  /* Flush the dump file if emergency_dump_function itself caused an ICE.  */
+  if (dump_file)
+    fflush (dump_file);
+}
+
+/* Auxiliary callback for the diagnostics code.  */
+
+static void
+internal_error_function (diagnostic_context *, const char *, va_list *)
+{
+  global_dc->internal_error = internal_error_reentered;
+  warn_if_plugins ();
+  emergency_dump_function ();
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1099,7 +1125,7 @@ general_init (const char *argv0, bool init_signals)
     = global_options_init.x_flag_diagnostics_show_option;
   global_dc->show_column
     = global_options_init.x_flag_show_column;
-  global_dc->internal_error = plugins_internal_error_function;
+  global_dc->internal_error = internal_error_function;
   global_dc->option_enabled = option_enabled;
   global_dc->option_state = &global_options;
   global_dc->option_name = option_name;
@@ -1152,9 +1178,17 @@ general_init (const char *argv0, bool init_signals)
      processing.  */
   init_ggc_heuristics ();
 
-  /* Create the singleton holder for global state.
-     Doing so also creates the pass manager and with it the passes.  */
+  /* Create the singleton holder for global state.  This creates the
+     dump manager.  */
   g = new gcc::context ();
+
+  /* Allow languages and middle-end to register their dumps before the
+     optimization passes.  */
+  g->get_dumps ()->register_dumps ();
+
+  /* Create the passes.  */
+  g->set_passes (new gcc::pass_manager (g));
+
   symtab = new (ggc_cleared_alloc <symbol_table> ()) symbol_table ();
 
   statistics_early_init ();
@@ -1258,10 +1292,9 @@ process_options (void)
       || flag_loop_nest_optimize
       || flag_graphite_identity
       || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (isl is not available)"
-	   "(-fgraphite, -fgraphite-identity, -floop-block, "
-	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
-	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
+    sorry ("Graphite loop optimizations cannot be used (isl is not available) "
+	   "(-fgraphite, -fgraphite-identity, -floop-nest-optimize, "
+	   "-floop-parallelize-all)");
 #endif
 
   if (flag_check_pointer_bounds)
@@ -1269,26 +1302,42 @@ process_options (void)
       if (targetm.chkp_bound_mode () == VOIDmode)
 	{
 	  error_at (UNKNOWN_LOCATION,
-		    "-fcheck-pointer-bounds is not supported for this target");
+		    "%<-fcheck-pointer-bounds%> is not supported for this "
+		    "target");
+	  flag_check_pointer_bounds = 0;
+	}
+
+      if (flag_sanitize & SANITIZE_BOUNDS_STRICT)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "%<-fsanitize=bounds-strict%>");
+	  flag_check_pointer_bounds = 0;
+	}
+      else if (flag_sanitize & SANITIZE_BOUNDS)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "%<-fsanitize=bounds%>");
 	  flag_check_pointer_bounds = 0;
 	}
 
       if (flag_sanitize & SANITIZE_ADDRESS)
 	{
 	  error_at (UNKNOWN_LOCATION,
-		    "-fcheck-pointer-bounds is not supported with "
+		    "%<-fcheck-pointer-bounds%> is not supported with "
 		    "Address Sanitizer");
 	  flag_check_pointer_bounds = 0;
 	}
 
-      if (flag_sanitize & SANITIZE_BOUNDS)
+      if (flag_sanitize & SANITIZE_THREAD)
 	{
 	  error_at (UNKNOWN_LOCATION,
-		    "-fcheck-pointer-bounds is not supported with "
-		    "-fsanitize=bounds");
+		    "%<-fcheck-pointer-bounds%> is not supported with "
+		    "Thread Sanitizer");
+
 	  flag_check_pointer_bounds = 0;
 	}
-
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1595,8 +1644,10 @@ process_options (void)
     }
 
  /* Do not use IPA optimizations for register allocation if profiler is active
+    or patchable function entries are inserted for run-time instrumentation
     or port does not emit prologue and epilogue as RTL.  */
-  if (profile_flag || !targetm.have_prologue () || !targetm.have_epilogue ())
+  if (profile_flag || function_entry_patch_area_size
+      || !targetm.have_prologue () || !targetm.have_epilogue ())
     flag_ipa_ra = 0;
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
@@ -1680,41 +1731,17 @@ backend_init (void)
   init_regs ();
 }
 
-/* Initialize excess precision settings.  */
+/* Initialize excess precision settings.
+
+   We have no need to modify anything here, just keep track of what the
+   user requested.  We'll figure out any appropriate relaxations
+   later.  */
+
 static void
 init_excess_precision (void)
 {
-  /* Adjust excess precision handling based on the target options.  If
-     the front end cannot handle it, flag_excess_precision_cmdline
-     will already have been set accordingly in the post_options
-     hook.  */
   gcc_assert (flag_excess_precision_cmdline != EXCESS_PRECISION_DEFAULT);
   flag_excess_precision = flag_excess_precision_cmdline;
-  if (flag_unsafe_math_optimizations)
-    flag_excess_precision = EXCESS_PRECISION_FAST;
-  if (flag_excess_precision == EXCESS_PRECISION_STANDARD)
-    {
-      int flt_eval_method = TARGET_FLT_EVAL_METHOD;
-      switch (flt_eval_method)
-	{
-	case -1:
-	case 0:
-	  /* Either the target acts unpredictably (-1) or has all the
-	     operations required not to have excess precision (0).  */
-	  flag_excess_precision = EXCESS_PRECISION_FAST;
-	  break;
-	case 1:
-	case 2:
-	  /* In these cases, predictable excess precision makes
-	     sense.  */
-	  break;
-	default:
-	  /* Any other implementation-defined FLT_EVAL_METHOD values
-	     require the compiler to handle the associated excess
-	     precision rules in excess_precision_type.  */
-	  gcc_unreachable ();
-	}
-    }
 }
 
 /* Initialize things that are both lang-dependent and target-dependent.
@@ -1922,6 +1949,9 @@ finalize (bool no_backend)
       stack_usage_file = NULL;
     }
 
+  if (seen_error ())
+    coverage_remove_note_file ();
+
   if (!no_backend)
     {
       statistics_fini ();
@@ -2119,7 +2149,8 @@ toplev::main (int argc, char **argv)
      enough to default flags appropriately.  */
   decode_options (&global_options, &global_options_set,
 		  save_decoded_options, save_decoded_options_count,
-		  UNKNOWN_LOCATION, global_dc);
+		  UNKNOWN_LOCATION, global_dc,
+		  targetm.target_option.override);
 
   handle_common_deferred_options ();
 

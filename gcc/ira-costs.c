@@ -1,5 +1,5 @@
 /* IRA hard register and memory cost calculation for allocnos or pseudos.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -74,7 +74,7 @@ static struct costs *costs;
 static struct costs *total_allocno_costs;
 
 /* It is the current size of struct costs.  */
-static int struct_costs_size;
+static size_t struct_costs_size;
 
 /* Return pointer to structure containing costs of allocno or pseudo
    with given NUM in array ARR.  */
@@ -820,6 +820,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 	  constraints[i] = p;
 
+	  if (alt_fail)
+	    break;
+
 	  /* How we account for this operand now depends on whether it
 	     is a pseudo register or not.  If it is, we first check if
 	     any register classes are valid.  If not, we ignore this
@@ -999,10 +1002,21 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	    alt_cost += ira_memory_move_cost[mode][classes[i]][1];
 	  else
 	    alt_fail = 1;
+
+	  if (alt_fail)
+	    break;
 	}
 
       if (alt_fail)
-	continue;
+	{
+	  /* The loop above might have exited early once the failure
+	     was seen.  Skip over the constraints for the remaining
+	     operands.  */
+	  i += 1;
+	  for (; i < n_ops; ++i)
+	    constraints[i] = skip_alternative (constraints[i]);
+	  continue;
+	}
 
       op_cost_add = alt_cost * frequency;
       /* Finally, update the costs with the information we've
@@ -1124,17 +1138,12 @@ record_address_regs (machine_mode mode, addr_space_t as, rtx x,
 	if (code1 == SUBREG)
 	  arg1 = SUBREG_REG (arg1), code1 = GET_CODE (arg1);
 
-	/* If this machine only allows one register per address, it
-	   must be in the first operand.  */
-	if (MAX_REGS_PER_ADDRESS == 1)
-	  record_address_regs (mode, as, arg0, 0, PLUS, code1, scale);
-
-	/* If index and base registers are the same on this machine,
+	/* If index registers do not appear, or coincide with base registers,
 	   just record registers in any non-constant operands.  We
 	   assume here, as well as in the tests below, that all
 	   addresses are in canonical form.  */
-	else if (INDEX_REG_CLASS
-		 == base_reg_class (VOIDmode, as, PLUS, SCRATCH))
+	if (MAX_REGS_PER_ADDRESS == 1
+	    || INDEX_REG_CLASS == base_reg_class (VOIDmode, as, PLUS, SCRATCH))
 	  {
 	    record_address_regs (mode, as, arg0, context, PLUS, code1, scale);
 	    if (! CONSTANT_P (arg1))
@@ -1424,8 +1433,25 @@ scan_one_insn (rtx_insn *insn)
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
-  if (pat_code == USE || pat_code == CLOBBER || pat_code == ASM_INPUT)
+  if (pat_code == ASM_INPUT)
     return insn;
+
+  /* If INSN is a USE/CLOBBER of a pseudo in a mode M then go ahead
+     and initialize the register move costs of mode M.
+
+     The pseudo may be related to another pseudo via a copy (implicit or
+     explicit) and if there are no mode M uses/sets of the original
+     pseudo, then we may leave the register move costs uninitialized for
+     mode M. */
+  if (pat_code == USE || pat_code == CLOBBER)
+    {
+      rtx x = XEXP (PATTERN (insn), 0);
+      if (GET_CODE (x) == REG
+	  && REGNO (x) >= FIRST_PSEUDO_REGISTER
+	  && have_regs_of_mode[GET_MODE (x)])
+        ira_init_register_move_cost_if_necessary (GET_MODE (x));
+      return insn;
+    }
 
   counted_mem = false;
   set = single_set (insn);
@@ -1713,7 +1739,7 @@ find_costs_and_classes (FILE *dump_file)
 	  int best_cost, allocno_cost;
 	  enum reg_class best, alt_class;
 	  cost_classes_t cost_classes_ptr = regno_cost_classes[i];
-	  enum reg_class *cost_classes = cost_classes_ptr->classes;
+	  enum reg_class *cost_classes;
 	  int *i_costs = temp_costs->cost;
 	  int i_mem_cost;
 	  int equiv_savings = regno_equiv_gains[i];
@@ -1724,6 +1750,7 @@ find_costs_and_classes (FILE *dump_file)
 		continue;
 	      memcpy (temp_costs, COSTS (costs, i), struct_costs_size);
 	      i_mem_cost = temp_costs->mem_cost;
+	      cost_classes = cost_classes_ptr->classes;
 	    }
 	  else
 	    {
@@ -1731,6 +1758,7 @@ find_costs_and_classes (FILE *dump_file)
 		continue;
 	      memset (temp_costs, 0, struct_costs_size);
 	      i_mem_cost = 0;
+	      cost_classes = cost_classes_ptr->classes;
 	      /* Find cost of all allocnos with the same regno.  */
 	      for (a = ira_regno_allocno_map[i];
 		   a != NULL;
@@ -1846,14 +1874,19 @@ find_costs_and_classes (FILE *dump_file)
 	       short in -O0 code and so register pressure tends to be low.
 
 	       Avoid that by ignoring the alternative class if the best
-	       class has plenty of registers.  */
-	    regno_aclass[i] = best;
+	       class has plenty of registers.
+
+	       The union class arrays give important classes and only
+	       part of it are allocno classes.  So translate them into
+	       allocno classes.  */
+	    regno_aclass[i] = ira_allocno_class_translate[best];
 	  else
 	    {
 	      /* Make the common class the biggest class of best and
-		 alt_class.  */
-	      regno_aclass[i]
-		= ira_reg_class_superunion[best][alt_class];
+		 alt_class.  Translate the common class into an
+		 allocno class too.  */
+	      regno_aclass[i] = (ira_allocno_class_translate
+				 [ira_reg_class_superunion[best][alt_class]]);
 	      ira_assert (regno_aclass[i] != NO_REGS
 			  && ira_reg_allocno_class_p[regno_aclass[i]]);
 	    }

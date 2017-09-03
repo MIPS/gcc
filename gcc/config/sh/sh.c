@@ -1,5 +1,5 @@
 /* Output routines for GCC for Renesas / SuperH SH.
-   Copyright (C) 1993-2016 Free Software Foundation, Inc.
+   Copyright (C) 1993-2017 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"
@@ -210,7 +211,7 @@ static void sh_print_operand (FILE *, rtx, int);
 static void sh_print_operand_address (FILE *, machine_mode, rtx);
 static bool sh_print_operand_punct_valid_p (unsigned char code);
 static bool sh_asm_output_addr_const_extra (FILE *file, rtx x);
-static void sh_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static void sh_output_function_epilogue (FILE *);
 static void sh_insert_attributes (tree, tree *);
 static const char *sh_check_pch_target_flags (int);
 static int sh_register_move_cost (machine_mode, reg_class_t, reg_class_t);
@@ -1139,7 +1140,9 @@ sh_print_operand (FILE *stream, rtx x, int code)
       {
 	rtx note = find_reg_note (current_output_insn, REG_BR_PROB, 0);
 
-	if (note && XINT (note, 0) * 2 < REG_BR_PROB_BASE)
+	if (note
+	    && profile_probability::from_reg_br_prob_note (XINT (note, 0))
+	       < profile_probability::even ())
 	  fputs ("/u", stream);
 	break;
       }
@@ -1269,11 +1272,11 @@ sh_print_operand (FILE *stream, rtx x, int code)
 	{
 	  switch (GET_MODE (x))
 	    {
-	    case QImode: fputs (".b", stream); break;
-	    case HImode: fputs (".w", stream); break;
-	    case SImode: fputs (".l", stream); break;
-	    case SFmode: fputs (".s", stream); break;
-	    case DFmode: fputs (".d", stream); break;
+	    case E_QImode: fputs (".b", stream); break;
+	    case E_HImode: fputs (".w", stream); break;
+	    case E_SImode: fputs (".l", stream); break;
+	    case E_SFmode: fputs (".s", stream); break;
+	    case E_DFmode: fputs (".d", stream); break;
 	    default: gcc_unreachable ();
 	    }
 	}
@@ -1999,8 +2002,9 @@ prepare_cbranch_operands (rtx *operands, machine_mode mode,
   return comparison;
 }
 
-void
-expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
+static void
+expand_cbranchsi4 (rtx *operands, enum rtx_code comparison,
+		   profile_probability probability)
 {
   rtx (*branch_expander) (rtx) = gen_branch_true;
   comparison = prepare_cbranch_operands (operands, SImode, comparison);
@@ -2015,8 +2019,15 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
 			  gen_rtx_fmt_ee (comparison, SImode,
 					  operands[1], operands[2])));
   rtx_insn *jump = emit_jump_insn (branch_expander (operands[3]));
-  if (probability >= 0)
-    add_int_reg_note (jump, REG_BR_PROB, probability);
+  if (probability.initialized_p ())
+    add_reg_br_prob_note (jump, probability);
+}
+
+void
+expand_cbranchsi4 (rtx *operands, enum rtx_code comparison)
+{
+  expand_cbranchsi4 (operands, comparison,
+		     profile_probability::uninitialized ());
 }
 
 /* ??? How should we distribute probabilities when more than one branch
@@ -2043,8 +2054,10 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   rtx_code_label *skip_label = NULL;
   rtx op1h, op1l, op2h, op2l;
   int num_branches;
-  int prob, rev_prob;
-  int msw_taken_prob = -1, msw_skip_prob = -1, lsw_taken_prob = -1;
+  profile_probability prob, rev_prob;
+  profile_probability msw_taken_prob = profile_probability::uninitialized (),
+		      msw_skip_prob = profile_probability::uninitialized (),
+		      lsw_taken_prob = profile_probability::uninitialized ();
 
   comparison = prepare_cbranch_operands (operands, DImode, comparison);
   op1h = gen_highpart_mode (SImode, DImode, operands[1]);
@@ -2053,34 +2066,28 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   op2l = gen_lowpart (SImode, operands[2]);
   msw_taken = msw_skip = lsw_taken = LAST_AND_UNUSED_RTX_CODE;
   prob = split_branch_probability;
-  rev_prob = REG_BR_PROB_BASE - prob;
+  rev_prob = prob.invert ();
   switch (comparison)
     {
     case EQ:
       msw_skip = NE;
       lsw_taken = EQ;
-      if (prob >= 0)
+      if (prob.initialized_p ())
 	{
-	  // If we had more precision, we'd use rev_prob - (rev_prob >> 32) .
+	  /* FIXME: This is not optimal.  We do not really know the probablity
+	     that values differ by MCW only, but we should probably distribute
+	     probabilities more evenly.  */
 	  msw_skip_prob = rev_prob;
-	  if (REG_BR_PROB_BASE <= 65535)
-	    lsw_taken_prob = prob ? REG_BR_PROB_BASE : 0;
-	  else
-	    {
-	      lsw_taken_prob
-		= (prob
-		   ? (REG_BR_PROB_BASE
-		      - ((gcov_type) REG_BR_PROB_BASE * rev_prob
-			 / ((gcov_type) prob << 32)))
-		   : 0);
-	    }
+	  lsw_taken_prob = prob > profile_probability::never ()
+			   ? profile_probability::guessed_always ()
+			   : profile_probability::guessed_never ();
 	}
       break;
     case NE:
       msw_taken = NE;
       msw_taken_prob = prob;
       lsw_taken = NE;
-      lsw_taken_prob = 0;
+      lsw_taken_prob = profile_probability::guessed_never ();
       break;
     case GTU: case GT:
       msw_taken = comparison;
@@ -2133,18 +2140,20 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   if (comparison != EQ && comparison != NE && num_branches > 1)
     {
       if (!CONSTANT_P (operands[2])
-	  && prob >= (int) (REG_BR_PROB_BASE * 3 / 8U)
-	  && prob <= (int) (REG_BR_PROB_BASE * 5 / 8U))
+	  && prob.initialized_p ()
+	  && prob.to_reg_br_prob_base () >= (int) (REG_BR_PROB_BASE * 3 / 8U)
+	  && prob.to_reg_br_prob_base () <= (int) (REG_BR_PROB_BASE * 5 / 8U))
 	{
-	  msw_taken_prob = prob / 2U;
-	  msw_skip_prob
-	    = REG_BR_PROB_BASE * rev_prob / (REG_BR_PROB_BASE + rev_prob);
+	  msw_taken_prob = prob.apply_scale (1, 2);
+	  msw_skip_prob = rev_prob.apply_scale (REG_BR_PROB_BASE,
+						rev_prob.to_reg_br_prob_base ()
+						+ REG_BR_PROB_BASE);
 	  lsw_taken_prob = prob;
 	}
       else
 	{
 	  msw_taken_prob = prob;
-	  msw_skip_prob = REG_BR_PROB_BASE;
+	  msw_skip_prob = profile_probability::guessed_always ();
 	  /* ??? If we have a constant op2h, should we use that when
 	     calculating lsw_taken_prob?  */
 	  lsw_taken_prob = prob;
@@ -2152,7 +2161,6 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
     }
   operands[1] = op1h;
   operands[2] = op2h;
-  operands[4] = NULL_RTX;
 
   if (msw_taken != LAST_AND_UNUSED_RTX_CODE)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
@@ -3260,7 +3268,7 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
       return false;
 
     /* The cost of a sign or zero extend depends on whether the source is a
-       reg or a mem.  In case of a mem take the address into acount.  */
+       reg or a mem.  In case of a mem take the address into account.  */
     case SIGN_EXTEND:
       if (arith_reg_operand (XEXP (x, 0), GET_MODE (XEXP (x, 0))))
 	{
@@ -4614,10 +4622,10 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 
 	  switch (p->mode)
 	    {
-	    case HImode:
+	    case E_HImode:
 	      break;
-	    case SImode:
-	    case SFmode:
+	    case E_SImode:
+	    case E_SFmode:
 	      if (align_insn && !p->part_of_sequence_p)
 		{
 		  for (lab = p->label; lab; lab = LABEL_REFS (lab))
@@ -4643,7 +4651,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 		  need_align = ! need_align;
 		}
 	      break;
-	    case DFmode:
+	    case E_DFmode:
 	      if (need_align)
 		{
 		  scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
@@ -4651,7 +4659,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 		  need_align = false;
 		}
 	      /* FALLTHRU */
-	    case DImode:
+	    case E_DImode:
 	      for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		scan = emit_label_after (lab, scan);
 	      scan = emit_insn_after (gen_consttable_8 (p->value, const0_rtx),
@@ -4681,10 +4689,10 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 
       switch (p->mode)
 	{
-	case HImode:
+	case E_HImode:
 	  break;
-	case SImode:
-	case SFmode:
+	case E_SImode:
+	case E_SFmode:
 	  if (need_align)
 	    {
 	      need_align = false;
@@ -4696,8 +4704,8 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 	  scan = emit_insn_after (gen_consttable_4 (p->value, const0_rtx),
 				  scan);
 	  break;
-	case DFmode:
-	case DImode:
+	case E_DFmode:
+	case E_DImode:
 	  if (need_align)
 	    {
 	      need_align = false;
@@ -7342,8 +7350,7 @@ sh_set_return_address (rtx ra, rtx tmp)
 
 /* Clear variables at function end.  */
 static void
-sh_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
-			     HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+sh_output_function_epilogue (FILE *)
 {
 }
 
@@ -11232,13 +11239,13 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	  && ! ((fp_zero_operand (x) || fp_one_operand (x)) && mode == SFmode))
 	switch (mode)
 	  {
-	  case SFmode:
+	  case E_SFmode:
 	    sri->icode = CODE_FOR_reload_insf__frn;
 	    return NO_REGS;
-	  case DFmode:
+	  case E_DFmode:
 	    sri->icode = CODE_FOR_reload_indf__frn;
 	    return NO_REGS;
-	  case SImode:
+	  case E_SImode:
 	    /* ??? If we knew that we are in the appropriate mode -
 	       single precision - we could use a reload pattern directly.  */
 	    return FPUL_REGS;

@@ -19,6 +19,7 @@ class Typed_identifier;
 class Typed_identifier_list;
 class Function_type;
 class Expression;
+class Expression_list;
 class Statement;
 class Temporary_statement;
 class Block;
@@ -201,6 +202,27 @@ class Gogo
   }
 
   // Given a name which may or may not have been hidden, return the
+  // name to use within a mangled symbol name.
+  static std::string
+  mangle_possibly_hidden_name(const std::string& name)
+  { 
+    // FIXME: This adds in pkgpath twice for hidden symbols, which is
+    // less than ideal.
+    std::string n;
+    if (!Gogo::is_hidden_name(name))
+      n = name;
+    else
+      {
+        n = ".";
+        std::string pkgpath = Gogo::hidden_name_pkgpath(name);
+        n.append(Gogo::pkgpath_for_symbol(pkgpath));
+        n.append(1, '.');
+        n.append(Gogo::unpack_hidden_name(name));
+      }
+    return n;
+  }
+
+  // Given a name which may or may not have been hidden, return the
   // name to use in an error message.
   static std::string
   message_name(const std::string& name);
@@ -339,6 +361,10 @@ class Gogo
   Package*
   register_package(const std::string& pkgpath,
 		   const std::string& pkgpath_symbol, Location);
+
+  // Look up a package by pkgpath, and return its pkgpath_symbol.
+  std::string
+  pkgpath_symbol_for_package(const std::string&);
 
   // Start compiling a function.  ADD_METHOD_TO_TYPE is true if a
   // method function should be added to the type of its receiver.
@@ -541,7 +567,7 @@ class Gogo
   // used when a type-specific function is needed when not at the top
   // level.
   void
-  queue_specific_type_function(Type* type, Named_type* name,
+  queue_specific_type_function(Type* type, Named_type* name, int64_t size,
 			       const std::string& hash_name,
 			       Function_type* hash_fntype,
 			       const std::string& equal_name,
@@ -555,6 +581,18 @@ class Gogo
   bool
   specific_type_functions_are_written() const
   { return this->specific_type_functions_are_written_; }
+
+  // Add a pointer that needs to be added to the list of objects
+  // traversed by the garbage collector.  This should be an expression
+  // of pointer type that points to static storage.  It's not
+  // necessary to add global variables to this list, just global
+  // variable initializers that would otherwise not be seen.
+  void
+  add_gc_root(Expression* expr)
+  {
+    this->set_need_init_fn();
+    this->gc_roots_.push_back(expr);
+  }
 
   // Traverse the tree.  See the Traverse class.
   void
@@ -662,6 +700,23 @@ class Gogo
   void
   order_evaluations();
 
+  // Add write barriers as needed.
+  void
+  add_write_barriers();
+
+  // Return whether an assignment that sets LHS to RHS needs a write
+  // barrier.
+  bool
+  assign_needs_write_barrier(Expression* lhs);
+
+  // Return an assignment that sets LHS to RHS using a write barrier.
+  // This returns an if statement that checks whether write barriers
+  // are enabled.  If not, it does LHS = RHS, otherwise it calls the
+  // appropriate write barrier function.
+  Statement*
+  assign_with_write_barrier(Function*, Block*, Statement_inserter*,
+			    Expression* lhs, Expression* rhs, Location);
+
   // Flatten parse tree.
   void
   flatten();
@@ -705,6 +760,10 @@ class Gogo
   bool
   named_types_are_converted() const
   { return this->named_types_are_converted_; }
+
+  // Give an error if the initialization of VAR depends on itself.
+  void
+  check_self_dep(Named_object*);
 
   // Write out the global values.
   void
@@ -763,14 +822,22 @@ class Gogo
   Named_object*
   create_initialization_function(Named_object* fndecl, Bstatement* code_stmt);
 
-  // Initialize imported packages.
+  // Initialize imported packages. BFUNCTION is the function
+  // into which the package init calls will be placed.
   void
-  init_imports(std::vector<Bstatement*>&);
+  init_imports(std::vector<Bstatement*>&, Bfunction* bfunction);
 
   // Register variables with the garbage collector.
   void
   register_gc_vars(const std::vector<Named_object*>&,
-                   std::vector<Bstatement*>&);
+                   std::vector<Bstatement*>&,
+                   Bfunction* init_bfunction);
+
+  Named_object*
+  write_barrier_variable();
+
+  Statement*
+  check_write_barrier(Block*, Statement*, Statement*);
 
   // Type used to map import names to packages.
   typedef std::map<std::string, Package*> Imports;
@@ -791,17 +858,18 @@ class Gogo
   {
     Type* type;
     Named_type* name;
+    int64_t size;
     std::string hash_name;
     Function_type* hash_fntype;
     std::string equal_name;
     Function_type* equal_fntype;
 
-    Specific_type_function(Type* atype, Named_type* aname,
+    Specific_type_function(Type* atype, Named_type* aname, int64_t asize,
 			   const std::string& ahash_name,
 			   Function_type* ahash_fntype,
 			   const std::string& aequal_name,
 			   Function_type* aequal_fntype)
-      : type(atype), name(aname), hash_name(ahash_name),
+      : type(atype), name(aname), size(asize), hash_name(ahash_name),
 	hash_fntype(ahash_fntype), equal_name(aequal_name),
 	equal_fntype(aequal_fntype)
     { }
@@ -892,6 +960,8 @@ class Gogo
   // A list containing groups of possibly mutually recursive functions to be
   // considered during escape analysis.
   std::vector<Analysis_set> analysis_sets_;
+  // A list of objects to add to the GC roots.
+  std::vector<Expression*> gc_roots_;
 };
 
 // A block of statements.
@@ -1059,6 +1129,11 @@ class Function
   void
   set_asm_name(const std::string& asm_name)
   { this->asm_name_ = asm_name; }
+
+  // Return the pragmas for this function.
+  unsigned int
+  pragmas() const
+  { return this->pragmas_; }
 
   // Set the pragmas for this function.
   void
@@ -1612,7 +1687,7 @@ class Variable
   set_is_used()
   { this->is_used_ = true; }
 
-  // Clear the initial value; used for error handling.
+  // Clear the initial value; used for error handling and write barriers.
   void
   clear_init()
   { this->init_ = NULL; }
@@ -2042,6 +2117,11 @@ class Type_declaration
   Named_object*
   add_method_declaration(const std::string& name, Package*,
 			 Function_type* type, Location location);
+
+  // Add an already created object as a method.
+  void
+  add_existing_method(Named_object* no)
+  { this->methods_.push_back(no); }
 
   // Return whether any methods were defined.
   bool
@@ -3298,6 +3378,9 @@ static const int RUNTIME_ERROR_MAKE_CHAN_OUT_OF_BOUNDS = 9;
 
 // Division by zero.
 static const int RUNTIME_ERROR_DIVISION_BY_ZERO = 10;
+
+// Go statement with nil function.
+static const int RUNTIME_ERROR_GO_NIL = 11;
 
 // This is used by some of the langhooks.
 extern Gogo* go_get_gogo();

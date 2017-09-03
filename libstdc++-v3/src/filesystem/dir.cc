@@ -1,6 +1,6 @@
 // Class filesystem::directory_entry etc. -*- C++ -*-
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -146,7 +146,8 @@ fs::_Dir::advance(error_code* ec, directory_options options)
 
   int err = std::exchange(errno, 0);
   const auto entp = readdir(dirp);
-  std::swap(errno, err);
+  // std::swap cannot be used with Bionic's errno
+  err = std::exchange(errno, err);
 
   if (entp)
     {

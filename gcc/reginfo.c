@@ -1,5 +1,5 @@
 /* Compute different info about registers.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -468,19 +468,29 @@ init_reg_sets_1 (void)
   memset (contains_reg_of_mode, 0, sizeof (contains_reg_of_mode));
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
     {
-      HARD_REG_SET ok_regs;
+      HARD_REG_SET ok_regs, ok_regs2;
       CLEAR_HARD_REG_SET (ok_regs);
+      CLEAR_HARD_REG_SET (ok_regs2);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	if (!fixed_regs [j] && HARD_REGNO_MODE_OK (j, (machine_mode) m))
-	  SET_HARD_REG_BIT (ok_regs, j);
+	if (!TEST_HARD_REG_BIT (fixed_nonglobal_reg_set, j)
+	    && HARD_REGNO_MODE_OK (j, (machine_mode) m))
+	  {
+	    SET_HARD_REG_BIT (ok_regs, j);
+	    if (!fixed_regs[j])
+	      SET_HARD_REG_BIT (ok_regs2, j);
+	  }
 
       for (i = 0; i < N_REG_CLASSES; i++)
 	if ((targetm.class_max_nregs ((reg_class_t) i, (machine_mode) m)
 	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
-	     contains_reg_of_mode [i][m] = 1;
-	     have_regs_of_mode [m] = 1;
+	     contains_reg_of_mode[i][m] = 1;
+	     if (hard_reg_set_intersect_p (ok_regs2, reg_class_contents[i]))
+	       {
+		 have_regs_of_mode[m] = 1;
+		 contains_allocatable_reg_of_mode[i][m] = 1;
+	       }
 	  }
      }
 }
@@ -622,36 +632,28 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
      held in REGNO.  If none, we look for the largest floating-point mode.
      If we still didn't find a valid mode, try CCmode.  */
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-       mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-       mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_IN_CLASS (mode, MODE_FLOAT)
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
-       mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_FLOAT)
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
 	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
       found_mode = mode;
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
-       mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+  FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_INT)
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
@@ -1346,7 +1348,7 @@ init_subregs_of_mode (void)
 	  df_ref def;
 	  FOR_EACH_INSN_DEF (def, insn)
 	    if (DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL)
-		&& df_read_modify_subreg_p (DF_REF_REG (def)))
+		&& read_modify_subreg_p (DF_REF_REG (def)))
 	      record_subregs_of_mode (DF_REF_REG (def), true);
 	}
 }

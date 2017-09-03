@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RL78 processors.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -29,6 +29,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"
@@ -86,12 +87,12 @@ struct mduc_reg_type
 
 struct mduc_reg_type  mduc_regs[] =
 {
-  {0xf00e8, QImode},
-  {0xffff0, HImode},
-  {0xffff2, HImode},
-  {0xf2224, HImode},
-  {0xf00e0, HImode},
-  {0xf00e2, HImode}
+  {0xf00e8, E_QImode},
+  {0xffff0, E_HImode},
+  {0xffff2, E_HImode},
+  {0xf2224, E_HImode},
+  {0xf00e0, E_HImode},
+  {0xf00e2, E_HImode}
 };
 
 struct GTY(()) machine_function
@@ -539,7 +540,7 @@ rl78_expand_movsi (rtx *operands)
 
 /* Generate code to move an SImode value.  */
 void
-rl78_split_movsi (rtx *operands, enum machine_mode omode)
+rl78_split_movsi (rtx *operands, machine_mode omode)
 {
   rtx op00, op02, op10, op12;
 
@@ -997,7 +998,7 @@ rl78_hl_b_c_addr_p (rtx op)
 #undef  TARGET_ADDR_SPACE_ADDRESS_MODE
 #define TARGET_ADDR_SPACE_ADDRESS_MODE rl78_addr_space_address_mode
 
-static enum machine_mode
+static scalar_int_mode
 rl78_addr_space_address_mode (addr_space_t addrspace)
 {
   switch (addrspace)
@@ -1037,7 +1038,7 @@ rl78_far_p (rtx x)
 #undef  TARGET_ADDR_SPACE_POINTER_MODE
 #define TARGET_ADDR_SPACE_POINTER_MODE rl78_addr_space_pointer_mode
 
-static machine_mode
+static scalar_int_mode
 rl78_addr_space_pointer_mode (addr_space_t addrspace)
 {
   switch (addrspace)
@@ -1058,7 +1059,7 @@ rl78_addr_space_pointer_mode (addr_space_t addrspace)
 #define TARGET_VALID_POINTER_MODE rl78_valid_pointer_mode
 
 static bool
-rl78_valid_pointer_mode (machine_mode m)
+rl78_valid_pointer_mode (scalar_int_mode m)
 {
   return (m == HImode || m == SImode);
 }
@@ -1552,7 +1553,7 @@ rl78_expand_eh_epilogue (rtx x ATTRIBUTE_UNUSED)
    this to insert a comment in the asm file describing the
    function.  */
 static void
-rl78_start_function (FILE *file, HOST_WIDE_INT hwi_local ATTRIBUTE_UNUSED)
+rl78_start_function (FILE *file)
 {
   int i;
 
@@ -4637,7 +4638,7 @@ rl78_asm_out_integer (rtx x, unsigned int size, int aligned_p)
 #undef  TARGET_UNWIND_WORD_MODE
 #define TARGET_UNWIND_WORD_MODE rl78_unwind_word_mode
 
-static machine_mode
+static scalar_int_mode
 rl78_unwind_word_mode (void)
 {
   return HImode;

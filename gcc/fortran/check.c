@@ -1,5 +1,5 @@
 /* Check functions
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -177,7 +177,7 @@ kind_check (gfc_expr *k, int n, bt type)
       return false;
     }
 
-  if (gfc_extract_int (k, &kind) != NULL
+  if (gfc_extract_int (k, &kind)
       || gfc_validate_kind (type, kind, true) < 0)
     {
       gfc_error ("Invalid kind for %s at %L", gfc_basic_typename (type),
@@ -287,6 +287,29 @@ nonnegative_check (const char *arg, gfc_expr *expr)
       if (i < 0)
 	{
 	  gfc_error ("%qs at %L must be nonnegative", arg, &expr->where);
+	  return false;
+	}
+    }
+
+  return true;
+}
+
+
+/* If expr is a constant, then check to ensure that it is greater than zero.  */
+
+static bool
+positive_check (int n, gfc_expr *expr)
+{
+  int i;
+
+  if (expr->expr_type == EXPR_CONSTANT)
+    {
+      gfc_extract_int (expr, &i);
+      if (i <= 0)
+	{
+	  gfc_error ("%qs argument of %qs intrinsic at %L must be positive",
+		     gfc_current_intrinsic_arg[n]->name, gfc_current_intrinsic,
+		     &expr->where);
 	  return false;
 	}
     }
@@ -851,6 +874,17 @@ gfc_check_all_any (gfc_expr *mask, gfc_expr *dim)
 bool
 gfc_check_allocated (gfc_expr *array)
 {
+  /* Tests on allocated components of coarrays need to detour the check to
+     argument of the _caf_get.  */
+  if (flag_coarray == GFC_FCOARRAY_LIB && array->expr_type == EXPR_FUNCTION
+      && array->value.function.isym
+      && array->value.function.isym->id == GFC_ISYM_CAF_GET)
+    {
+      array = array->value.function.actual->expr;
+      if (!array->ref)
+	return false;
+    }
+
   if (!variable_check (array, 0, false))
     return false;
   if (!allocatable_check (array, 0))
@@ -1123,6 +1157,60 @@ gfc_check_atomic_ref (gfc_expr *value, gfc_expr *atom, gfc_expr *stat)
     }
 
   return gfc_check_atomic (atom, 1, value, 0, stat, 2);
+}
+
+
+bool
+gfc_check_image_status (gfc_expr *image, gfc_expr *team)
+{
+  /* IMAGE has to be a positive, scalar integer.  */
+  if (!type_check (image, 0, BT_INTEGER) || !scalar_check (image, 0)
+      || !positive_check (0, image))
+    return false;
+
+  if (team)
+    {
+      gfc_error ("%qs argument of %qs intrinsic at %L not yet supported",
+		 gfc_current_intrinsic_arg[1]->name, gfc_current_intrinsic,
+		 &team->where);
+      return false;
+    }
+  return true;
+}
+
+
+bool
+gfc_check_failed_or_stopped_images (gfc_expr *team, gfc_expr *kind)
+{
+  if (team)
+    {
+      gfc_error ("%qs argument of %qs intrinsic at %L not yet supported",
+		 gfc_current_intrinsic_arg[0]->name, gfc_current_intrinsic,
+		 &team->where);
+      return false;
+    }
+
+  if (kind)
+    {
+      int k;
+
+      if (!type_check (kind, 1, BT_INTEGER) || !scalar_check (kind, 1)
+	  || !positive_check (1, kind))
+	return false;
+
+      /* Get the kind, reporting error on non-constant or overflow.  */
+      gfc_current_locus = kind->where;
+      if (gfc_extract_int (kind, &k, 1))
+	return false;
+      if (gfc_validate_kind (BT_INTEGER, k, true) == -1)
+	{
+	  gfc_error ("%qs argument of %qs intrinsic at %L shall specify a "
+		     "valid integer kind", gfc_current_intrinsic_arg[1]->name,
+		     gfc_current_intrinsic, &kind->where);
+	  return false;
+	}
+    }
+  return true;
 }
 
 
@@ -3656,7 +3744,7 @@ gfc_check_range (gfc_expr *x)
 
 
 bool
-gfc_check_rank (gfc_expr *a ATTRIBUTE_UNUSED)
+gfc_check_rank (gfc_expr *a)
 {
   /* Any data object is allowed; a "data object" is a "constant (4.1.3),
      variable (6), or subobject of a constant (2.4.3.2.3)" (F2008, 1.3.45).  */
@@ -5061,7 +5149,7 @@ gfc_check_num_images (gfc_expr *distance, gfc_expr *failed)
 	return false;
 
       if (!gfc_notify_std (GFC_STD_F2008_TS, "FAILED= argument to "
-			   "NUM_IMAGES at %L", &distance->where))
+			   "NUM_IMAGES at %L", &failed->where))
 	return false;
     }
 

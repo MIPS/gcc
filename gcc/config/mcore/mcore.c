@@ -1,5 +1,5 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993-2016 Free Software Foundation, Inc.
+   Copyright (C) 1993-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -28,6 +28,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
 #include "stor-layout.h"
@@ -98,7 +99,7 @@ static const char *     output_inline_const     (machine_mode, rtx *);
 static void       layout_mcore_frame            (struct mcore_frame *);
 static void       mcore_setup_incoming_varargs	(cumulative_args_t, machine_mode, tree, int *, int);
 static cond_type  is_cond_candidate             (rtx);
-static rtx_insn  *emit_new_cond_insn            (rtx, int);
+static rtx_insn  *emit_new_cond_insn            (rtx_insn *, int);
 static rtx_insn  *conditionalize_block          (rtx_insn *);
 static void       conditionalize_optimization   (void);
 static void       mcore_reorg                   (void);
@@ -1281,11 +1282,11 @@ mcore_output_move (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
 	  else
 	    switch (GET_MODE (src))		/* r-m */
 	      {
-	      case SImode:
+	      case E_SImode:
 		return "ldw\t%0,%1";
-	      case HImode:
+	      case E_HImode:
 		return "ld.h\t%0,%1";
-	      case QImode:
+	      case E_QImode:
 		return "ld.b\t%0,%1";
 	      default:
 		gcc_unreachable ();
@@ -1312,11 +1313,11 @@ mcore_output_move (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
   else if (GET_CODE (dst) == MEM)               /* m-r */
     switch (GET_MODE (dst))
       {
-      case SImode:
+      case E_SImode:
 	return "stw\t%1,%0";
-      case HImode:
+      case E_HImode:
 	return "st.h\t%1,%0";
-      case QImode:
+      case E_QImode:
 	return "st.b\t%1,%0";
       default:
 	gcc_unreachable ();

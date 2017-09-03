@@ -77,7 +77,11 @@ func traceback(skip int32) {
 func printtrace(locbuf []location, gp *g) {
 	for i := range locbuf {
 		if showframe(locbuf[i].function, gp) {
-			print(locbuf[i].function, "\n\t", locbuf[i].filename, ":", locbuf[i].lineno, "\n")
+			name := locbuf[i].function
+			if name == "runtime.gopanic" {
+				name = "panic"
+			}
+			print(name, "\n\t", locbuf[i].filename, ":", locbuf[i].lineno, "\n")
 		}
 	}
 }
@@ -89,6 +93,15 @@ func showframe(name string, gp *g) bool {
 	if g.m.throwing > 0 && gp != nil && (gp == g.m.curg || gp == g.m.caughtsig.ptr()) {
 		return true
 	}
+
+	// Gccgo can trace back through C functions called via cgo.
+	// We want to print those in the traceback.
+	// But unless GOTRACEBACK > 1 (checked below), still skip
+	// internal C functions and cgo-generated functions.
+	if name != "" && !contains(name, ".") && !hasprefix(name, "__go_") && !hasprefix(name, "_cgo_") {
+		return true
+	}
+
 	level, _, _ := gotraceback()
 
 	// Special case: always show runtime.gopanic frame, so that we can
@@ -159,6 +172,68 @@ func goroutineheader(gp *g) {
 // isSystemGoroutine reports whether the goroutine g must be omitted in
 // stack dumps and deadlock detector.
 func isSystemGoroutine(gp *g) bool {
-	// FIXME.
-	return false
+	return gp.isSystemGoroutine
+}
+
+func tracebackothers(me *g) {
+	var tb tracebackg
+	tb.gp = me
+
+	// The getTraceback function will modify me's stack context.
+	// Preserve it in case we have been called via systemstack.
+	context := me.context
+	stackcontext := me.stackcontext
+
+	level, _, _ := gotraceback()
+
+	// Show the current goroutine first, if we haven't already.
+	g := getg()
+	gp := g.m.curg
+	if gp != nil && gp != me {
+		print("\n")
+		goroutineheader(gp)
+		gp.traceback = &tb
+		getTraceback(me, gp)
+		printtrace(tb.locbuf[:tb.c], nil)
+		printcreatedby(gp)
+	}
+
+	lock(&allglock)
+	for _, gp := range allgs {
+		if gp == me || gp == g.m.curg || readgstatus(gp) == _Gdead || isSystemGoroutine(gp) && level < 2 {
+			continue
+		}
+		print("\n")
+		goroutineheader(gp)
+
+		// gccgo's only mechanism for doing a stack trace is
+		// _Unwind_Backtrace.  And that only works for the
+		// current thread, not for other random goroutines.
+		// So we need to switch context to the goroutine, get
+		// the backtrace, and then switch back.
+		//
+		// This means that if g is running or in a syscall, we
+		// can't reliably print a stack trace.  FIXME.
+
+		// Note: gp.m == g.m occurs when tracebackothers is
+		// called from a signal handler initiated during a
+		// systemstack call. The original G is still in the
+		// running state, and we want to print its stack.
+		if gp.m != g.m && readgstatus(gp)&^_Gscan == _Grunning {
+			print("\tgoroutine running on other thread; stack unavailable\n")
+			printcreatedby(gp)
+		} else if readgstatus(gp)&^_Gscan == _Gsyscall {
+			print("\tgoroutine in C code; stack unavailable\n")
+			printcreatedby(gp)
+		} else {
+			gp.traceback = &tb
+			getTraceback(me, gp)
+			printtrace(tb.locbuf[:tb.c], nil)
+			printcreatedby(gp)
+		}
+	}
+	unlock(&allglock)
+
+	me.context = context
+	me.stackcontext = stackcontext
 }

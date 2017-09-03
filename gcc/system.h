@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998-2016 Free Software Foundation, Inc.
+   Copyright (C) 1998-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -577,15 +577,21 @@ extern int vsnprintf (char *, size_t, const char *, va_list);
 
 /* 1 if we have C99 designated initializers.  */
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
+#ifdef __cplusplus
+#define HAVE_DESIGNATED_INITIALIZERS 0
+#else
 #define HAVE_DESIGNATED_INITIALIZERS \
-  (((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L)) \
-   && !defined(__cplusplus))
+  ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+#endif
 #endif
 
 #if !defined(HAVE_DESIGNATED_UNION_INITIALIZERS)
+#ifdef __cplusplus
+#define HAVE_DESIGNATED_UNION_INITIALIZERS (GCC_VERSION >= 4007)
+#else
 #define HAVE_DESIGNATED_UNION_INITIALIZERS \
-  (((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L)) \
-   && (!defined(__cplusplus) || (GCC_VERSION >= 4007)))
+  ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+#endif
 #endif
 
 #if HAVE_SYS_STAT_H
@@ -716,7 +722,8 @@ extern int vsnprintf (char *, size_t, const char *, va_list);
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  */
-extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
+extern void fancy_abort (const char *, int, const char *)
+					 ATTRIBUTE_NORETURN ATTRIBUTE_COLD;
 #define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
 
 /* Use gcc_assert(EXPR) to test invariants.  */
@@ -736,6 +743,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #else
 /* N.B.: in release build EXPR is not evaluated.  */
 #define gcc_checking_assert(EXPR) ((void)(0 && (EXPR)))
+#endif
+
+#if GCC_VERSION >= 4000
+#define ALWAYS_INLINE inline __attribute__ ((always_inline))
+#else
+#define ALWAYS_INLINE inline
 #endif
 
 /* Use gcc_unreachable() to mark unreachable locations (like an
@@ -834,7 +847,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #ifndef USES_ISL
 #undef calloc
 #undef strdup
- #pragma GCC poison calloc strdup
+#undef strndup
+ #pragma GCC poison calloc strdup strndup
 #endif
 
 #if !defined(FLEX_SCANNER) && !defined(YYBISON)
@@ -896,7 +910,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	ASM_BYTE_OP MEMBER_TYPE_FORCES_BLK LIBGCC2_HAS_SF_MODE		\
 	LIBGCC2_HAS_DF_MODE LIBGCC2_HAS_XF_MODE LIBGCC2_HAS_TF_MODE	\
 	CLEAR_BY_PIECES_P MOVE_BY_PIECES_P SET_BY_PIECES_P		\
-	STORE_BY_PIECES_P
+	STORE_BY_PIECES_P TARGET_FLT_EVAL_METHOD
 
 /* Target macros only used for code built for the target, that have
    moved to libgcc-tm.h or have never been present elsewhere.  */
@@ -1132,6 +1146,18 @@ helper_const_non_const_cast (const char *p)
 #define VALGRIND_DISCARD(x)
 #define VALGRIND_MALLOCLIKE_BLOCK(w,x,y,z)
 #define VALGRIND_FREELIKE_BLOCK(x,y)
+#endif
+
+/* Macros to temporarily ignore some warnings.  */
+#if GCC_VERSION >= 6000
+#define GCC_DIAGNOSTIC_STRINGIFY(x) #x
+#define GCC_DIAGNOSTIC_PUSH_IGNORED(x) \
+  _Pragma ("GCC diagnostic push") \
+  _Pragma (GCC_DIAGNOSTIC_STRINGIFY (GCC diagnostic ignored #x))
+#define GCC_DIAGNOSTIC_POP _Pragma ("GCC diagnostic pop")
+#else
+#define GCC_DIAGNOSTIC_PUSH_IGNORED(x)
+#define GCC_DIAGNOSTIC_POP
 #endif
 
 /* In LTO -fwhole-program build we still want to keep the debug functions available

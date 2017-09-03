@@ -1,5 +1,5 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -127,6 +127,9 @@ enum rid
   /* "__PHI", for parsing PHI function in GIMPLE FE.  */
   RID_PHI,
 
+  /* "__RTL", for the RTL-parsing extension to the C frontend.  */
+  RID_RTL,
+
   /* C11 */
   RID_ALIGNAS, RID_GENERIC,
 
@@ -162,8 +165,8 @@ enum rid
   RID_HAS_TRIVIAL_CONSTRUCTOR, RID_HAS_TRIVIAL_COPY,
   RID_HAS_TRIVIAL_DESTRUCTOR,  RID_HAS_UNIQUE_OBJ_REPRESENTATIONS,
   RID_HAS_VIRTUAL_DESTRUCTOR,
-  RID_IS_ABSTRACT,             RID_IS_BASE_OF,
-  RID_IS_CLASS,
+  RID_IS_ABSTRACT,             RID_IS_AGGREGATE,
+  RID_IS_BASE_OF,              RID_IS_CLASS,
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
@@ -172,6 +175,7 @@ enum rid
   RID_IS_TRIVIALLY_ASSIGNABLE, RID_IS_TRIVIALLY_CONSTRUCTIBLE,
   RID_IS_TRIVIALLY_COPYABLE,
   RID_IS_UNION,                RID_UNDERLYING_TYPE,
+  RID_IS_ASSIGNABLE,           RID_IS_CONSTRUCTIBLE,
 
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
@@ -605,8 +609,7 @@ extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
-extern tree pushdecl_top_level (tree);
-extern tree pushdecl (tree);
+
 extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
 			       location_t, tree, tree);
 extern tree build_array_notation_expr (location_t, tree, tree, enum tree_code,
@@ -843,7 +846,8 @@ extern const char *fname_as_string (int);
 extern tree fname_decl (location_t, unsigned, tree);
 
 extern int check_user_alignment (const_tree, bool);
-extern void check_function_arguments (location_t loc, const_tree, int, tree *);
+extern bool check_function_arguments (location_t loc, const_tree, const_tree,
+				      int, tree *, vec<location_t> *);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
@@ -851,7 +855,7 @@ extern void check_function_arguments_recurse (void (*)
 					      unsigned HOST_WIDE_INT);
 extern bool check_builtin_function_arguments (location_t, vec<location_t>,
 					      tree, int, tree *);
-extern void check_function_format (tree, int, tree *);
+extern void check_function_format (tree, int, tree *, vec<location_t> *);
 extern bool attribute_fallthrough_p (tree);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
@@ -867,12 +871,11 @@ extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
-extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree,
+extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree, tree,
 						   bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
 extern tree c_wrap_maybe_const (tree, bool);
-extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
 extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
@@ -941,11 +944,11 @@ extern bool c_common_post_options (const char **);
 extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (void);
-extern FILE *get_dump_info (int, int *);
+extern FILE *get_dump_info (int, dump_flags_t *);
 extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (const_tree);
-extern int self_promoting_args_p (const_tree);
+extern bool self_promoting_args_p (const_tree);
 extern tree strip_pointer_operator (tree);
 extern tree strip_pointer_or_array_types (tree);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
@@ -998,7 +1001,7 @@ extern tree build_real_imag_expr (location_t, enum tree_code, tree);
    a variant of the C language.  They are used in c-common.c.  */
 
 extern tree build_unary_op (location_t, enum tree_code, tree, bool);
-extern tree build_binary_op (location_t, enum tree_code, tree, tree, int);
+extern tree build_binary_op (location_t, enum tree_code, tree, tree, bool);
 extern tree perform_integral_promotions (tree);
 
 /* These functions must be defined by each front-end which implements
@@ -1162,7 +1165,8 @@ extern void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
 extern void builtin_define_type_sizeof (const char *, tree);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const line_map_ordinary *);
-extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
+extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char,
+			   rich_location *richloc);
 
 /* In c-lex.c  */
 extern int c_header_level;	/* In system header, if > 0.  */
@@ -1522,7 +1526,6 @@ extern bool is_cilkplus_vector_p (tree);
 extern tree insert_cilk_frame (tree);
 extern void cilk_init_builtins (void);
 extern int gimplify_cilk_spawn (tree *);
-extern void cilk_gimplify_call_params_in_spawned_fn (tree *, gimple_seq *);
 extern void cilk_install_body_with_frame_cleanup (tree, tree, void *);
 extern bool cilk_detect_spawn_and_unwrap (tree *);
 extern bool cilk_set_spawn_marker (location_t, tree);
@@ -1530,7 +1533,6 @@ extern tree build_cilk_sync (void);
 extern tree build_cilk_spawn (location_t, tree);
 extern tree make_cilk_frame (tree);
 extern tree create_cilk_function_exit (tree, bool, bool);
-extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
 extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
@@ -1545,7 +1547,7 @@ extern bool cilk_recognize_spawn (tree, tree *);
 /* In c-warn.c.  */
 extern void constant_expression_warning (tree);
 extern void constant_expression_error (tree);
-extern void overflow_warning (location_t, tree);
+extern void overflow_warning (location_t, tree, tree = NULL_TREE);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
 extern void warn_tautological_cmp (location_t, enum tree_code, tree, tree);
@@ -1561,7 +1563,7 @@ extern void warnings_for_convert_and_check (location_t, tree, tree, tree);
 extern void c_do_switch_warnings (splay_tree, location_t, tree, tree, bool,
 				  bool);
 extern void warn_for_omitted_condop (location_t, tree);
-extern void warn_for_restrict (unsigned, vec<tree, va_gc> *);
+extern void warn_for_restrict (unsigned, tree *, unsigned);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
    Used to select diagnostic messages in lvalue_error and
@@ -1600,6 +1602,9 @@ extern void maybe_warn_bool_compare (location_t, enum tree_code, tree, tree);
 extern bool maybe_warn_shift_overflow (location_t, tree, tree);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 extern bool diagnose_mismatched_attributes (tree, tree);
+extern tree do_warn_duplicated_branches_r (tree *, int *, void *);
+extern void warn_for_multistatement_macros (location_t, location_t,
+					    location_t, enum rid);
 
 /* In c-attribs.c.  */
 extern bool attribute_takes_identifier_p (const_tree);
@@ -1609,10 +1614,22 @@ extern int tm_attr_to_mask (tree);
 extern tree tm_mask_to_attr (int);
 extern tree find_tm_attribute (tree);
 
+extern enum flt_eval_method
+excess_precision_mode_join (enum flt_eval_method, enum flt_eval_method);
+
+extern int c_flt_eval_method (bool ts18661_p);
+extern void add_no_sanitize_value (tree node, unsigned int flags);
+
+extern void maybe_add_include_fixit (rich_location *, const char *);
+
 #if CHECKING_P
 namespace selftest {
+  /* Declarations for specific families of tests within c-family,
+     by source file, in alphabetical order.  */
   extern void c_format_c_tests (void);
-  extern void run_c_tests (void);
+
+  /* The entrypoint for running all of the above tests.  */
+  extern void c_family_tests (void);
 } // namespace selftest
 #endif /* #if CHECKING_P */
 

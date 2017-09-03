@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,11 +39,8 @@ with System;               use System;
 with System.CRTL;
 with System.File_Control_Block;
 with System.File_IO;
-with System.Direct_IO;
 with System.Storage_Elements;
 with Ada.Unchecked_Conversion;
-
-use type System.Direct_IO.Count;
 
 package body Ada.Direct_IO is
 
@@ -107,6 +104,15 @@ package body Ada.Direct_IO is
    begin
       return DIO.End_Of_File (FP (File));
    end End_Of_File;
+
+   -----------
+   -- Flush --
+   -----------
+
+   procedure Flush (File : File_Type) is
+   begin
+      FIO.Flush (AP (File));
+   end Flush;
 
    ----------
    -- Form --

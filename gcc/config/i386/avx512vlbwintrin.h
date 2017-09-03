@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -69,7 +69,7 @@ _mm_maskz_mov_epi8 (__mmask16 __U, __m128i __A)
 {
   return (__m128i) __builtin_ia32_movdquqi128_mask ((__v16qi) __A,
 						    (__v16qi)
-						    _mm_setzero_hi (),
+						    _mm_setzero_si128 (),
 						    (__mmask16) __U);
 }
 
@@ -125,7 +125,7 @@ _mm_maskz_loadu_epi16 (__mmask8 __U, void const *__P)
 {
   return (__m128i) __builtin_ia32_loaddquhi128_mask ((const short *) __P,
 						     (__v8hi)
-						     _mm_setzero_hi (),
+						     _mm_setzero_si128 (),
 						     (__mmask8) __U);
 }
 
@@ -164,7 +164,7 @@ _mm_maskz_mov_epi16 (__mmask8 __U, __m128i __A)
 {
   return (__m128i) __builtin_ia32_movdquhi128_mask ((__v8hi) __A,
 						    (__v8hi)
-						    _mm_setzero_hi (),
+						    _mm_setzero_si128 (),
 						    (__mmask8) __U);
 }
 
@@ -202,7 +202,7 @@ _mm_maskz_loadu_epi8 (__mmask16 __U, void const *__P)
 {
   return (__m128i) __builtin_ia32_loaddquqi128_mask ((const char *) __P,
 						     (__v16qi)
-						     _mm_setzero_hi (),
+						     _mm_setzero_si128 (),
 						     (__mmask16) __U);
 }
 
@@ -214,6 +214,13 @@ _mm256_cvtepi16_epi8 (__m256i __A)
   return (__m128i) __builtin_ia32_pmovwb256_mask ((__v16hi) __A,
 						  (__v16qi)_mm_undefined_si128(),
 						  (__mmask16) -1);
+}
+
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cvtepi16_storeu_epi8 (void * __P, __mmask16 __M,__m256i __A)
+{
+  __builtin_ia32_pmovwb256mem_mask ((__v16qi *) __P , (__v16hi) __A, __M);
 }
 
 extern __inline __m128i
@@ -244,6 +251,13 @@ _mm_cvtsepi16_epi8 (__m128i __A)
 						   (__mmask8) -1);
 }
 
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cvtsepi16_storeu_epi8 (void * __P, __mmask8 __M,__m128i __A)
+{
+  __builtin_ia32_pmovswb128mem_mask ((__v8qi *) __P , (__v8hi) __A, __M);
+}
+
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_cvtsepi16_epi8 (__m128i __O, __mmask8 __M, __m128i __A)
@@ -270,6 +284,13 @@ _mm256_cvtsepi16_epi8 (__m256i __A)
   return (__m128i) __builtin_ia32_pmovswb256_mask ((__v16hi) __A,
 						   (__v16qi)_mm_undefined_si128(),
 						   (__mmask16) -1);
+}
+
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cvtsepi16_storeu_epi8 (void * __P, __mmask16 __M,__m256i __A)
+{
+  __builtin_ia32_pmovswb256mem_mask ((__v16qi *) __P , (__v16hi) __A, __M);
 }
 
 extern __inline __m128i
@@ -300,6 +321,13 @@ _mm_cvtusepi16_epi8 (__m128i __A)
 						    (__mmask8) -1);
 }
 
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cvtusepi16_storeu_epi8 (void * __P, __mmask8 __M,__m128i __A)
+{
+  __builtin_ia32_pmovuswb128mem_mask ((__v8qi *) __P , (__v8hi) __A, __M);
+}
+
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_cvtusepi16_epi8 (__m128i __O, __mmask8 __M, __m128i __A)
@@ -327,6 +355,13 @@ _mm256_cvtusepi16_epi8 (__m256i __A)
   return (__m128i) __builtin_ia32_pmovuswb256_mask ((__v16hi) __A,
 						    (__v16qi)_mm_undefined_si128(),
 						    (__mmask16) -1);
+}
+
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_mask_cvtusepi16_storeu_epi8 (void * __P, __mmask16 __M,__m256i __A)
+{
+  __builtin_ia32_pmovuswb256mem_mask ((__v16qi *) __P , (__v16hi) __A, __M);
 }
 
 extern __inline __m128i
@@ -541,7 +576,7 @@ _mm_permutexvar_epi16 (__m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_permvarhi128_mask ((__v8hi) __B,
 						     (__v8hi) __A,
 						     (__v8hi)
-						     _mm_setzero_hi (),
+						     _mm_setzero_si128 (),
 						     (__mmask8) -1);
 }
 
@@ -707,7 +742,7 @@ _mm_maskz_maddubs_epi16 (__mmask8 __U, __m128i __X, __m128i __Y)
   return (__m128i) __builtin_ia32_pmaddubsw128_mask ((__v16qi) __X,
 						     (__v16qi) __Y,
 						     (__v8hi)
-						     _mm_setzero_hi (),
+						     _mm_setzero_si128 (),
 						     (__mmask8) __U);
 }
 
@@ -908,7 +943,7 @@ _mm_maskz_min_epu16 (__mmask8 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pminuw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __M);
 }
 
@@ -974,7 +1009,7 @@ _mm_maskz_max_epu8 (__mmask16 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmaxub128_mask ((__v16qi) __A,
 						  (__v16qi) __B,
 						  (__v16qi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask16) __M);
 }
 
@@ -1018,7 +1053,7 @@ _mm_maskz_max_epi8 (__mmask16 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmaxsb128_mask ((__v16qi) __A,
 						  (__v16qi) __B,
 						  (__v16qi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask16) __M);
 }
 
@@ -1062,7 +1097,7 @@ _mm_maskz_min_epu8 (__mmask16 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pminub128_mask ((__v16qi) __A,
 						  (__v16qi) __B,
 						  (__v16qi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask16) __M);
 }
 
@@ -1106,7 +1141,7 @@ _mm_maskz_min_epi8 (__mmask16 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pminsb128_mask ((__v16qi) __A,
 						  (__v16qi) __B,
 						  (__v16qi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask16) __M);
 }
 
@@ -1150,7 +1185,7 @@ _mm_maskz_max_epi16 (__mmask8 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmaxsw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __M);
 }
 
@@ -1194,7 +1229,7 @@ _mm_maskz_max_epu16 (__mmask8 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmaxuw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __M);
 }
 
@@ -1216,7 +1251,7 @@ _mm_maskz_min_epi16 (__mmask8 __M, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pminsw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_di (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __M);
 }
 
@@ -1327,7 +1362,7 @@ _mm_dbsad_epu8 (__m128i __A, __m128i __B, const int __imm)
 						    (__v16qi) __B,
 						    __imm,
 						    (__v8hi)
-						    _mm_setzero_hi (),
+						    _mm_setzero_si128 (),
 						    (__mmask8) -1);
 }
 
@@ -1623,7 +1658,7 @@ _mm_maskz_shufflehi_epi16 (__mmask8 __U, __m128i __A, const int __imm)
 {
   return (__m128i) __builtin_ia32_pshufhw128_mask ((__v8hi) __A, __imm,
 						   (__v8hi)
-						   _mm_setzero_hi (),
+						   _mm_setzero_si128 (),
 						   (__mmask8) __U);
 }
 
@@ -1666,7 +1701,7 @@ _mm_maskz_shufflelo_epi16 (__mmask8 __U, __m128i __A, const int __imm)
 {
   return (__m128i) __builtin_ia32_pshuflw128_mask ((__v8hi) __A, __imm,
 						   (__v8hi)
-						   _mm_setzero_hi (),
+						   _mm_setzero_si128 (),
 						   (__mmask8) __U);
 }
 
@@ -1804,7 +1839,7 @@ _mm_maskz_slli_epi16 (__mmask8 __U, __m128i __A, int __B)
 
 #define _mm_maskz_shufflehi_epi16(U, A, B)                                          \
   ((__m128i) __builtin_ia32_pshufhw128_mask ((__v8hi)(__m128i)(A), (int)(B),        \
-                                             (__v8hi)(__m128i)_mm_setzero_hi(),     \
+					     (__v8hi)(__m128i)_mm_setzero_si128 (), \
                                              (__mmask8)(U)))
 
 #define _mm256_mask_shufflelo_epi16(W, U, A, B)                                     \
@@ -1824,7 +1859,7 @@ _mm_maskz_slli_epi16 (__mmask8 __U, __m128i __A, int __B)
 
 #define _mm_maskz_shufflelo_epi16(U, A, B)                                          \
   ((__m128i) __builtin_ia32_pshuflw128_mask ((__v8hi)(__m128i)(A), (int)(B),        \
-                                             (__v8hi)(__m128i)_mm_setzero_hi(),     \
+					     (__v8hi)(__m128i)_mm_setzero_si128 (), \
                                              (__mmask8)(U)))
 
 #define _mm256_maskz_alignr_epi8(U, X, Y, N)					    \
@@ -1841,7 +1876,7 @@ _mm_maskz_slli_epi16 (__mmask8 __U, __m128i __A, int __B)
 #define _mm_maskz_alignr_epi8(U, X, Y, N)					    \
   ((__m128i) __builtin_ia32_palignr128_mask ((__v2di)(__m128i)(X),		    \
 					    (__v2di)(__m128i)(Y), (int)(N * 8),	    \
-					    (__v2di)(__m128i)_mm_setzero_di(),	    \
+					    (__v2di)(__m128i)_mm_setzero_si128 (),  \
 					    (__mmask16)(U)))
 
 #define _mm_mask_slli_epi16(W, U, X, C)					  \
@@ -1851,7 +1886,7 @@ _mm_maskz_slli_epi16 (__mmask8 __U, __m128i __A, int __B)
 
 #define _mm_maskz_slli_epi16(U, X, C)					  \
   ((__m128i)__builtin_ia32_psllwi128_mask ((__v8hi)(__m128i)(X), (int)(C),\
-    (__v8hi)(__m128i)_mm_setzero_hi(),\
+    (__v8hi)(__m128i)_mm_setzero_si128 (),\
     (__mmask8)(U)))
 
 #define _mm256_dbsad_epu8(X, Y, C)                                                  \
@@ -2301,7 +2336,7 @@ _mm_maskz_mulhi_epi16 (__mmask8 __U, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmulhw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_hi (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __U);
 }
 
@@ -2323,7 +2358,7 @@ _mm_maskz_mulhi_epu16 (__mmask8 __U, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmulhuw128_mask ((__v8hi) __A,
 						   (__v8hi) __B,
 						   (__v8hi)
-						   _mm_setzero_hi (),
+						   _mm_setzero_si128 (),
 						   (__mmask8) __U);
 }
 
@@ -2345,7 +2380,7 @@ _mm_maskz_mulhrs_epi16 (__mmask8 __U, __m128i __X, __m128i __Y)
   return (__m128i) __builtin_ia32_pmulhrsw128_mask ((__v8hi) __X,
 						    (__v8hi) __Y,
 						    (__v8hi)
-						    _mm_setzero_hi (),
+						    _mm_setzero_si128 (),
 						    (__mmask8) __U);
 }
 
@@ -2389,7 +2424,7 @@ _mm_maskz_mullo_epi16 (__mmask8 __U, __m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_pmullw128_mask ((__v8hi) __A,
 						  (__v8hi) __B,
 						  (__v8hi)
-						  _mm_setzero_hi (),
+						  _mm_setzero_si128 (),
 						  (__mmask8) __U);
 }
 
@@ -4009,6 +4044,13 @@ _mm_cvtepi16_epi8 (__m128i __A)
 						  (__mmask8) -1);
 }
 
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm_mask_cvtepi16_storeu_epi8 (void * __P, __mmask8 __M,__m128i __A)
+{
+  __builtin_ia32_pmovwb128mem_mask ((__v8qi *) __P , (__v8hi) __A, __M);
+}
+
 extern __inline __m128i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm_mask_cvtepi16_epi8 (__m128i __O, __mmask8 __M, __m128i __A)
@@ -4067,7 +4109,7 @@ _mm_srav_epi16 (__m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_psrav8hi_mask ((__v8hi) __A,
 						 (__v8hi) __B,
 						 (__v8hi)
-						 _mm_setzero_hi (),
+						 _mm_setzero_si128 (),
 						 (__mmask8) -1);
 }
 
@@ -4133,7 +4175,7 @@ _mm_srlv_epi16 (__m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_psrlv8hi_mask ((__v8hi) __A,
 						 (__v8hi) __B,
 						 (__v8hi)
-						 _mm_setzero_hi (),
+						 _mm_setzero_si128 (),
 						 (__mmask8) -1);
 }
 
@@ -4199,7 +4241,7 @@ _mm_sllv_epi16 (__m128i __A, __m128i __B)
   return (__m128i) __builtin_ia32_psllv8hi_mask ((__v8hi) __A,
 						 (__v8hi) __B,
 						 (__v8hi)
-						 _mm_setzero_hi (),
+						 _mm_setzero_si128 (),
 						 (__mmask8) -1);
 }
 

@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,6 +59,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
+#include "insn-addr.h" /* for INSN_ADDRESSES_ALLOC.  */
+#include "diagnostic-core.h" /* for fnotice */
+#include "stringpool.h"
+#include "attribs.h"
 
 using namespace gcc;
 
@@ -260,17 +264,18 @@ rest_of_decl_compilation (tree decl,
      finalize_compilation_unit (and by consequence, locally scoped
      symbols), or by rest_of_type_compilation below.
 
-     Also, pick up function prototypes, which will be mostly ignored
-     by the different early_global_decl() hooks, but will at least be
-     used by Go's hijack of the debug_hooks to implement
-     -fdump-go-spec.  */
+     For Go's hijack of the debug_hooks to implement -fdump-go-spec, pick up
+     function prototypes.  Go's debug_hooks will not forward them to the
+     wrapped hooks.  */
   if (!in_lto_p
       && (TREE_CODE (decl) != FUNCTION_DECL
 	  /* This will pick up function prototypes with no bodies,
 	     which are not visible in finalize_compilation_unit()
 	     while iterating with FOR_EACH_*_FUNCTION through the
 	     symbol table.  */
-	  || !DECL_SAVED_TREE (decl))
+	  || (flag_dump_go_spec != NULL
+	      && !DECL_SAVED_TREE (decl)
+	      && DECL_STRUCT_FUNCTION (decl) == NULL))
 
       /* We need to check both decl_function_context and
 	 current_function_decl here to make sure local extern
@@ -775,7 +780,8 @@ pass_manager::register_one_dump_file (opt_pass *pass)
 
   /* Buffer big enough to format a 32-bit UINT_MAX into.  */
   char num[11];
-  int flags, id;
+  dump_kind dkind;
+  int id;
   int optgroup_flags = OPTGROUP_NONE;
   gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
@@ -796,18 +802,18 @@ pass_manager::register_one_dump_file (opt_pass *pass)
   if (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS)
     {
       prefix = "ipa-";
-      flags = TDF_IPA;
+      dkind = DK_ipa;
       optgroup_flags |= OPTGROUP_IPA;
     }
   else if (pass->type == GIMPLE_PASS)
     {
       prefix = "tree-";
-      flags = TDF_TREE;
+      dkind = DK_tree;
     }
   else
     {
       prefix = "rtl-";
-      flags = TDF_RTL;
+      dkind = DK_rtl;
     }
 
   flag_name = concat (prefix, name, num, NULL);
@@ -818,7 +824,7 @@ pass_manager::register_one_dump_file (opt_pass *pass)
      any dump messages are emitted properly under -fopt-info(-optall).  */
   if (optgroup_flags == OPTGROUP_NONE)
     optgroup_flags = OPTGROUP_OTHER;
-  id = dumps->dump_register (dot_name, flag_name, glob_name, flags,
+  id = dumps->dump_register (dot_name, flag_name, glob_name, dkind,
 			     optgroup_flags,
 			     true);
   set_pass_for_id (id, pass);
@@ -1527,26 +1533,28 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
 				        -> all_passes
 */
 
-void *
-pass_manager::operator new (size_t sz)
-{
-  /* Ensure that all fields of the pass manager are zero-initialized.  */
-  return xcalloc (1, sz);
-}
-
-void
-pass_manager::operator delete (void *ptr)
-{
-  free (ptr);
-}
-
 pass_manager::pass_manager (context *ctxt)
 : all_passes (NULL), all_small_ipa_passes (NULL), all_lowering_passes (NULL),
   all_regular_ipa_passes (NULL),
   all_late_ipa_passes (NULL), passes_by_id (NULL), passes_by_id_size (0),
-  m_ctxt (ctxt)
+  m_ctxt (ctxt), m_name_to_pass_map (NULL)
 {
   opt_pass **p;
+
+  /* Zero-initialize pass members.  */
+#define INSERT_PASSES_AFTER(PASS)
+#define PUSH_INSERT_PASSES_WITHIN(PASS)
+#define POP_INSERT_PASSES()
+#define NEXT_PASS(PASS, NUM) PASS ## _ ## NUM = NULL
+#define NEXT_PASS_WITH_ARG(PASS, NUM, ARG) NEXT_PASS (PASS, NUM)
+#define TERMINATE_PASS_LIST(PASS)
+#include "pass-instances.def"
+#undef INSERT_PASSES_AFTER
+#undef PUSH_INSERT_PASSES_WITHIN
+#undef POP_INSERT_PASSES
+#undef NEXT_PASS
+#undef NEXT_PASS_WITH_ARG
+#undef TERMINATE_PASS_LIST
 
   /* Initialize the pass_lists array.  */
 #define DEF_PASS_LIST(LIST) pass_lists[PASS_LIST_NO_##LIST] = &LIST;
@@ -1775,6 +1783,25 @@ execute_function_dump (function *fn, void *data)
     }
 }
 
+/* This function is called when an internal compiler error is encountered.
+   Ensure that function dump is made available before compiler is aborted.  */
+
+void
+emergency_dump_function ()
+{
+  if (!current_pass)
+    return;
+  enum opt_pass_type pt = current_pass->type;
+  fnotice (stderr, "during %s pass: %s\n",
+	   pt == GIMPLE_PASS ? "GIMPLE" : pt == RTL_PASS ? "RTL" : "IPA",
+	   current_pass->name);
+  if (!dump_file || !cfun)
+    return;
+  fnotice (stderr, "dump file: %s\n", dump_file_name);
+  fprintf (dump_file, "\n\n\nEMERGENCY DUMP:\n\n");
+  execute_function_dump (cfun, current_pass);
+}
+
 static struct profile_record *profile_record;
 
 /* Do profile consistency book-keeping for the pass with static number INDEX.
@@ -1976,8 +2003,12 @@ execute_function_todo (function *fn, void *data)
 	      && !from_ipa_pass)
 	    verify_flow_info ();
 	  if (current_loops
-	      && loops_state_satisfies_p (LOOP_CLOSED_SSA))
-	    verify_loop_closed_ssa (false);
+	      && ! loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	    {
+	      verify_loop_structure ();
+	      if (loops_state_satisfies_p (LOOP_CLOSED_SSA))
+		verify_loop_closed_ssa (false);
+	    }
 	  if (cfun->curr_properties & PROP_rtl)
 	    verify_rtl_sharing ();
 	}
@@ -2032,7 +2063,7 @@ execute_todo (unsigned int flags)
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
     {
       gcc_assert (!cfun);
-      symtab_node::dump_table (dump_file);
+      symtab->dump (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
@@ -2273,6 +2304,123 @@ override_gate_status (opt_pass *pass, tree func, bool gate_status)
   return gate_status;
 }
 
+/* Determine if PASS_NAME matches CRITERION.
+   Not a pure predicate, since it can update CRITERION, to support
+   matching the Nth invocation of a pass.
+   Subroutine of should_skip_pass_p.  */
+
+static bool
+determine_pass_name_match (const char *pass_name, char *criterion)
+{
+  size_t namelen = strlen (pass_name);
+  if (! strncmp (pass_name, criterion, namelen))
+    {
+      /* The following supports starting with the Nth invocation
+	 of a pass (where N does not necessarily is equal to the
+	 dump file suffix).  */
+      if (criterion[namelen] == '\0'
+	  || (criterion[namelen] == '1'
+	      && criterion[namelen + 1] == '\0'))
+	return true;
+      else
+	{
+	  if (criterion[namelen + 1] == '\0')
+	    --criterion[namelen];
+	  return false;
+	}
+    }
+  else
+    return false;
+}
+
+/* For skipping passes until "startwith" pass.
+   Return true iff PASS should be skipped.
+   Clear cfun->pass_startwith when encountering the "startwith" pass,
+   so that all subsequent passes are run.  */
+
+static bool
+should_skip_pass_p (opt_pass *pass)
+{
+  if (!cfun)
+    return false;
+  if (!cfun->pass_startwith)
+    return false;
+
+  /* For __GIMPLE functions, we have to at least start when we leave
+     SSA.  Hence, we need to detect the "expand" pass, and stop skipping
+     when we encounter it.  A cheap way to identify "expand" is it to
+     detect the destruction of PROP_ssa.
+     For __RTL functions, we invoke "rest_of_compilation" directly, which
+     is after "expand", and hence we don't reach this conditional.  */
+  if (pass->properties_destroyed & PROP_ssa)
+    {
+      if (!quiet_flag)
+	fprintf (stderr, "starting anyway when leaving SSA: %s\n", pass->name);
+      cfun->pass_startwith = NULL;
+      return false;
+    }
+
+  if (determine_pass_name_match (pass->name, cfun->pass_startwith))
+    {
+      if (!quiet_flag)
+	fprintf (stderr, "found starting pass: %s\n", pass->name);
+      cfun->pass_startwith = NULL;
+      return false;
+    }
+
+  /* For GIMPLE passes, run any property provider (but continue skipping
+     afterwards).
+     We don't want to force running RTL passes that are property providers:
+     "expand" is covered above, and the only pass other than "expand" that
+     provides a property is "into_cfglayout" (PROP_cfglayout), which does
+     too much for a dumped __RTL function.  */
+  if (pass->type == GIMPLE_PASS
+      && pass->properties_provided != 0)
+    return false;
+
+  /* Don't skip df init; later RTL passes need it.  */
+  if (strstr (pass->name, "dfinit") != NULL)
+    return false;
+
+  if (!quiet_flag)
+    fprintf (stderr, "skipping pass: %s\n", pass->name);
+
+  /* If we get here, then we have a "startwith" that we haven't seen yet;
+     skip the pass.  */
+  return true;
+}
+
+/* Skip the given pass, for handling passes before "startwith"
+   in __GIMPLE and__RTL-marked functions.
+   In theory, this ought to be a no-op, but some of the RTL passes
+   need additional processing here.  */
+
+static void
+skip_pass (opt_pass *pass)
+{
+  /* Pass "reload" sets the global "reload_completed", and many
+     things depend on this (e.g. instructions in .md files).  */
+  if (strcmp (pass->name, "reload") == 0)
+    reload_completed = 1;
+
+  /* The INSN_ADDRESSES vec is normally set up by
+     shorten_branches; set it up for the benefit of passes that
+     run after this.  */
+  if (strcmp (pass->name, "shorten") == 0)
+    INSN_ADDRESSES_ALLOC (get_max_uid ());
+
+  /* Update the cfg hooks as appropriate.  */
+  if (strcmp (pass->name, "into_cfglayout") == 0)
+    {
+      cfg_layout_rtl_register_cfg_hooks ();
+      cfun->curr_properties |= PROP_cfglayout;
+    }
+  if (strcmp (pass->name, "outof_cfglayout") == 0)
+    {
+      rtl_register_cfg_hooks ();
+      cfun->curr_properties &= ~PROP_cfglayout;
+    }
+}
 
 /* Execute PASS. */
 
@@ -2313,33 +2461,10 @@ execute_one_pass (opt_pass *pass)
       return false;
     }
 
-  /* For skipping passes until startwith pass */
-  if (cfun
-      && cfun->pass_startwith
-      /* But we can't skip the lowering phase yet -- ideally we'd
-         drive that phase fully via properties.  */
-      && (cfun->curr_properties & PROP_ssa))
+  if (should_skip_pass_p (pass))
     {
-      size_t namelen = strlen (pass->name);
-      if (! strncmp (pass->name, cfun->pass_startwith, namelen))
-	{
-	  /* The following supports starting with the Nth invocation
-	     of a pass (where N does not necessarily is equal to the
-	     dump file suffix).  */
-	  if (cfun->pass_startwith[namelen] == '\0'
-	      || (cfun->pass_startwith[namelen] == '1'
-		  && cfun->pass_startwith[namelen + 1] == '\0'))
-	    cfun->pass_startwith = NULL;
-	  else
-	    {
-	      if (cfun->pass_startwith[namelen + 1] != '\0')
-		return true;
-	      --cfun->pass_startwith[namelen];
-	      return true;
-	    }
-	}
-      else
-	return true;
+      skip_pass (pass);
+      return true;
     }
 
   /* Pass execution event trigger: useful to identify passes being
@@ -2894,6 +3019,8 @@ dump_properties (FILE *dump, unsigned int props)
     fprintf (dump, "PROP_rtl\n");
   if (props & PROP_gimple_lomp)
     fprintf (dump, "PROP_gimple_lomp\n");
+  if (props & PROP_gimple_lomp_dev)
+    fprintf (dump, "PROP_gimple_lomp_dev\n");
   if (props & PROP_gimple_lcx)
     fprintf (dump, "PROP_gimple_lcx\n");
   if (props & PROP_gimple_lvec)

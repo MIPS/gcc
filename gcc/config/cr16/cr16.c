@@ -1,5 +1,5 @@
 /* Output routines for CR16 processor.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by KPIT Cummins Infosystems Limited.
   
    This file is part of GCC.
@@ -25,6 +25,8 @@
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "df.h"
 #include "memmodel.h"
 #include "tm_p.h"
@@ -2090,7 +2092,7 @@ notice_update_cc (rtx exp)
   return;
 }
 
-static machine_mode
+static scalar_int_mode
 cr16_unwind_word_mode (void)
 {
   return SImode;

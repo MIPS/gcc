@@ -1,5 +1,5 @@
 /* Operations with very long integers.  -*- C++ -*-
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1019,6 +1019,9 @@ public:
   HOST_WIDE_INT *write_val ();
   void set_len (unsigned int, bool = false);
 
+  template <typename T>
+  wide_int_storage &operator = (const T &);
+
   static wide_int from (const wide_int_ref &, unsigned int, signop);
   static wide_int from_array (const HOST_WIDE_INT *, unsigned int,
 			      unsigned int, bool = true);
@@ -1056,6 +1059,18 @@ inline wide_int_storage::wide_int_storage (const T &x)
   WIDE_INT_REF_FOR (T) xi (x);
   precision = xi.precision;
   wi::copy (*this, xi);
+}
+
+template <typename T>
+inline wide_int_storage&
+wide_int_storage::operator = (const T &x)
+{
+  { STATIC_ASSERT (!wi::int_traits<T>::host_dependent_precision); }
+  { STATIC_ASSERT (wi::int_traits<T>::precision_type != wi::CONST_PRECISION); }
+  WIDE_INT_REF_FOR (T) xi (x);
+  precision = xi.precision;
+  wi::copy (*this, xi);
+  return *this;
 }
 
 inline unsigned int
@@ -1453,6 +1468,14 @@ wi::primitive_int_traits <T, signed_p>::decompose (HOST_WIDE_INT *scratch,
 namespace wi
 {
   template <>
+  struct int_traits <unsigned char>
+    : public primitive_int_traits <unsigned char, false> {};
+
+  template <>
+  struct int_traits <unsigned short>
+    : public primitive_int_traits <unsigned short, false> {};
+
+  template <>
   struct int_traits <int>
     : public primitive_int_traits <int, true> {};
 
@@ -1502,8 +1525,12 @@ namespace wi
 
 inline wi::hwi_with_prec::hwi_with_prec (HOST_WIDE_INT v, unsigned int p,
 					 signop s)
-  : val (v), precision (p), sgn (s)
+  : precision (p), sgn (s)
 {
+  if (precision < HOST_BITS_PER_WIDE_INT)
+    val = sext_hwi (v, precision);
+  else
+    val = v;
 }
 
 /* Return a signed integer that has value VAL and precision PRECISION.  */

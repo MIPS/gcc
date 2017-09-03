@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -64,6 +64,13 @@ with Uintp;    use Uintp;
 
 package body Sem_Ch5 is
 
+   Current_Assignment : Node_Id := Empty;
+   --  This variable holds the node for an assignment that contains target
+   --  names. The corresponding flag has been set by the parser, and when
+   --  set the analysis of the RHS must be done with all expansion disabled,
+   --  because the assignment is reanalyzed after expansion has replaced all
+   --  occurrences of the target name appropriately.
+
    Unblocked_Exit_Count : Nat := 0;
    --  This variable is used when processing if statements, case statements,
    --  and block statements. It counts the number of exit points that are not
@@ -88,12 +95,19 @@ package body Sem_Ch5 is
    -- Analyze_Assignment --
    ------------------------
 
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  Ghost mode.
+
    procedure Analyze_Assignment (N : Node_Id) is
-      Lhs  : constant Node_Id := Name (N);
-      Rhs  : constant Node_Id := Expression (N);
+      Lhs : constant Node_Id := Name (N);
+      Rhs : constant Node_Id := Expression (N);
+
+      Decl : Node_Id;
       T1   : Entity_Id;
       T2   : Entity_Id;
-      Decl : Node_Id;
+
+      Save_Full_Analysis : Boolean := False;  -- initialize to prevent warning
 
       procedure Diagnose_Non_Variable_Lhs (N : Node_Id);
       --  N is the node for the left hand side of an assignment, and it is not
@@ -270,7 +284,8 @@ package body Sem_Ch5 is
 
       --  Local variables
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+      Saved_GM : constant Ghost_Mode_Type := Ghost_Mode;
+      --  Save the Ghost mode to restore on exit
 
    --  Start of processing for Analyze_Assignment
 
@@ -287,15 +302,25 @@ package body Sem_Ch5 is
       --  Ghost entity. Set the mode now to ensure that any nodes generated
       --  during analysis and expansion are properly marked as Ghost.
 
-      Set_Ghost_Mode (N);
+      if Has_Target_Names (N) then
+         Current_Assignment := N;
+         Expander_Mode_Save_And_Set (False);
+         Save_Full_Analysis := Full_Analysis;
+         Full_Analysis      := False;
+      else
+         Current_Assignment := Empty;
+      end if;
+
+      Mark_And_Set_Ghost_Assignment (N);
       Analyze (Rhs);
 
       --  Ensure that we never do an assignment on a variable marked as
-      --  as Safe_To_Reevaluate.
+      --  Is_Safe_To_Reevaluate.
 
-      pragma Assert (not Is_Entity_Name (Lhs)
-        or else Ekind (Entity (Lhs)) /= E_Variable
-        or else not Is_Safe_To_Reevaluate (Entity (Lhs)));
+      pragma Assert
+        (not Is_Entity_Name (Lhs)
+          or else Ekind (Entity (Lhs)) /= E_Variable
+          or else not Is_Safe_To_Reevaluate (Entity (Lhs)));
 
       --  Start type analysis for assignment
 
@@ -322,6 +347,14 @@ package body Sem_Ch5 is
 
                if Nkind (Lhs) = N_Indexed_Component
                  and then Present (Generalized_Indexing (Lhs))
+                 and then Has_Implicit_Dereference (It.Typ)
+               then
+                  null;
+
+               --  This may be a call to a parameterless function through an
+               --  implicit dereference, so discard interpretation as well.
+
+               elsif Is_Entity_Name (Lhs)
                  and then Has_Implicit_Dereference (It.Typ)
                then
                   null;
@@ -356,8 +389,8 @@ package body Sem_Ch5 is
 
                                     if PIt = No_Interp then
                                        Error_Msg_N
-                                         ("ambiguous left-hand side"
-                                            & " in assignment", Lhs);
+                                         ("ambiguous left-hand side in "
+                                          & "assignment", Lhs);
                                        exit;
                                     else
                                        Resolve (Prefix (Lhs), PIt.Typ);
@@ -392,8 +425,7 @@ package body Sem_Ch5 is
             Error_Msg_N
               ("no valid types for left-hand side for assignment", Lhs);
             Kill_Lhs;
-            Ghost_Mode := Save_Ghost_Mode;
-            return;
+            goto Leave;
          end if;
       end if;
 
@@ -464,21 +496,20 @@ package body Sem_Ch5 is
                   --  effect (AARM D.5.2 (5/2)).
 
                   if Locking_Policy /= 'C' then
-                     Error_Msg_N ("assignment to the attribute PRIORITY has " &
-                                  "no effect??", Lhs);
-                     Error_Msg_N ("\since no Locking_Policy has been " &
-                                  "specified??", Lhs);
+                     Error_Msg_N
+                       ("assignment to the attribute PRIORITY has no effect??",
+                        Lhs);
+                     Error_Msg_N
+                       ("\since no Locking_Policy has been specified??", Lhs);
                   end if;
 
-                  Ghost_Mode := Save_Ghost_Mode;
-                  return;
+                  goto Leave;
                end if;
             end if;
          end;
 
          Diagnose_Non_Variable_Lhs (Lhs);
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
 
       --  Error of assigning to limited type. We do however allow this in
       --  certain cases where the front end generates the assignments.
@@ -497,17 +528,14 @@ package body Sem_Ch5 is
             Explain_Limited_Type (T1, Lhs);
          end if;
 
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
 
       --  A class-wide type may be a limited view. This illegal case is not
       --  caught by previous checks.
 
-      elsif Ekind (T1) = E_Class_Wide_Type
-        and then From_Limited_With (T1)
-      then
+      elsif Ekind (T1) = E_Class_Wide_Type and then From_Limited_With (T1) then
          Error_Msg_NE ("invalid use of limited view of&", Lhs, T1);
-         return;
+         goto Leave;
 
       --  Enforce RM 3.9.3 (8): the target of an assignment operation cannot be
       --  abstract. This is only checked when the assignment Comes_From_Source,
@@ -545,13 +573,13 @@ package body Sem_Ch5 is
       then
          Error_Msg_N ("invalid use of incomplete type", Lhs);
          Kill_Lhs;
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
       end if;
 
       --  Now we can complete the resolution of the right hand side
 
       Set_Assignment_Type (Lhs, T1);
+
       Resolve (Rhs, T1);
 
       --  This is the point at which we check for an unset reference
@@ -563,8 +591,7 @@ package body Sem_Ch5 is
 
       if Rhs = Error then
          Kill_Lhs;
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
       end if;
 
       T2 := Etype (Rhs);
@@ -572,8 +599,7 @@ package body Sem_Ch5 is
       if not Covers (T1, T2) then
          Wrong_Type (Rhs, Etype (Lhs));
          Kill_Lhs;
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
       end if;
 
       --  Ada 2005 (AI-326): In case of explicit dereference of incomplete
@@ -600,8 +626,7 @@ package body Sem_Ch5 is
 
       if T1 = Any_Type or else T2 = Any_Type then
          Kill_Lhs;
-         Ghost_Mode := Save_Ghost_Mode;
-         return;
+         goto Leave;
       end if;
 
       --  If the rhs is class-wide or dynamically tagged, then require the lhs
@@ -693,8 +718,7 @@ package body Sem_Ch5 is
             --  to reset Is_True_Constant, and desirable for xref purposes.
 
             Note_Possible_Modification (Lhs, Sure => True);
-            Ghost_Mode := Save_Ghost_Mode;
-            return;
+            goto Leave;
 
          --  If we know the right hand side is non-null, then we convert to the
          --  target type, since we don't need a run time check in that case.
@@ -914,7 +938,19 @@ package body Sem_Ch5 is
       end;
 
       Analyze_Dimension (N);
-      Ghost_Mode := Save_Ghost_Mode;
+
+   <<Leave>>
+      Restore_Ghost_Mode (Saved_GM);
+
+      --  If the right-hand side contains target names, expansion has been
+      --  disabled to prevent expansion that might move target names out of
+      --  the context of the assignment statement. Restore the expander mode
+      --  now so that assignment statement can be properly expanded.
+
+      if Nkind (N) = N_Assignment_Statement and then Has_Target_Names (N) then
+         Expander_Mode_Restore;
+         Full_Analysis := Save_Full_Analysis;
+      end if;
    end Analyze_Assignment;
 
    -----------------------------
@@ -1351,7 +1387,7 @@ package body Sem_Ch5 is
    procedure Analyze_Exit_Statement (N : Node_Id) is
       Target   : constant Node_Id := Name (N);
       Cond     : constant Node_Id := Condition (N);
-      Scope_Id : Entity_Id;
+      Scope_Id : Entity_Id := Empty;  -- initialize to prevent warning
       U_Name   : Entity_Id;
       Kind     : Entity_Kind;
 
@@ -1828,7 +1864,7 @@ package body Sem_Ch5 is
       Loc       : constant Source_Ptr := Sloc (N);
       Subt      : constant Node_Id    := Subtype_Indication (N);
 
-      Bas : Entity_Id;
+      Bas : Entity_Id := Empty;  -- initialize to prevent warning
       Typ : Entity_Id;
 
    --   Start of processing for Analyze_Iterator_Specification
@@ -3273,6 +3309,19 @@ package body Sem_Ch5 is
          Set_Has_Created_Identifier (N);
       end if;
 
+      --  If the iterator specification has a syntactic error, transform
+      --  construct into an infinite loop to prevent a crash and perform
+      --  some analysis.
+
+      if Present (Iter)
+        and then Present (Iterator_Specification (Iter))
+        and then Error_Posted (Iterator_Specification (Iter))
+      then
+         Set_Iteration_Scheme (N, Empty);
+         Analyze (N);
+         return;
+      end if;
+
       --  Iteration over a container in Ada 2012 involves the creation of a
       --  controlled iterator object. Wrap the loop in a block to ensure the
       --  timely finalization of the iterator and release of container locks.
@@ -3402,13 +3451,16 @@ package body Sem_Ch5 is
       --  expanded).
 
       --  In other cases in GNATprove mode then we want to analyze the loop
-      --  body now, since no rewriting will occur.
+      --  body now, since no rewriting will occur. Within a generic the
+      --  GNATprove mode is irrelevant, we must analyze the generic for
+      --  non-local name capture.
 
       if Present (Iter)
         and then Present (Iterator_Specification (Iter))
       then
          if GNATprove_Mode
            and then Is_Iterator_Over_Array (Iterator_Specification (Iter))
+           and then not Inside_A_Generic
          then
             null;
 
@@ -3493,13 +3545,25 @@ package body Sem_Ch5 is
       null;
    end Analyze_Null_Statement;
 
+   -------------------------
+   -- Analyze_Target_Name --
+   -------------------------
+
+   procedure Analyze_Target_Name (N : Node_Id) is
+   begin
+      --  A target name has the type of the left-hand side of the enclosing
+      --  assignment.
+
+      Set_Etype (N, Etype (Name (Current_Assignment)));
+   end Analyze_Target_Name;
+
    ------------------------
    -- Analyze_Statements --
    ------------------------
 
    procedure Analyze_Statements (L : List_Id) is
-      S   : Node_Id;
       Lab : Entity_Id;
+      S   : Node_Id;
 
    begin
       --  The labels declared in the statement list are reachable from
@@ -3748,6 +3812,7 @@ package body Sem_Ch5 is
       if Nkind (R_Copy) in N_Subexpr and then Is_Overloaded (R_Copy) then
 
          --  Apply preference rules for range of predefined integer types, or
+         --  check for array or iterable construct for "of" iterator, or
          --  diagnose true ambiguity.
 
          declare
@@ -3777,6 +3842,23 @@ package body Sem_Ch5 is
                         Error_Msg_NE ("\\} ", R_Copy, Found);
                         Error_Msg_NE ("\\} ", R_Copy, It.Typ);
                         exit;
+                     end if;
+                  end if;
+
+               elsif Nkind (Parent (R_Copy)) = N_Iterator_Specification
+                 and then Of_Present (Parent (R_Copy))
+               then
+                  if Is_Array_Type (It.Typ)
+                    or else Has_Aspect (It.Typ, Aspect_Iterator_Element)
+                    or else Has_Aspect (It.Typ, Aspect_Constant_Indexing)
+                    or else Has_Aspect (It.Typ, Aspect_Variable_Indexing)
+                  then
+                     if No (Found) then
+                        Found := It.Typ;
+                        Set_Etype (R_Copy, It.Typ);
+
+                     else
+                        Error_Msg_N ("ambiguous domain of iteration", R_Copy);
                      end if;
                   end if;
                end if;

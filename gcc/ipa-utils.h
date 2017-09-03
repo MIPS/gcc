@@ -1,5 +1,5 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -169,9 +169,6 @@ possible_polymorphic_call_target_p (struct cgraph_edge *e,
 inline bool
 polymorphic_type_binfo_p (const_tree binfo)
 {
-  /* See if BINFO's type has an virtual table associtated with it.
-     Check is defensive because of Java FE produces BINFOs
-     without BINFO_TYPE set.   */
   return (BINFO_TYPE (binfo) && TYPE_BINFO (BINFO_TYPE (binfo))
 	  && BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (binfo))));
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2007-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -77,6 +77,14 @@ arm_cpu_builtins (struct cpp_reader* pfile)
 
   def_or_undef_macro (pfile, "__ARM_32BIT_STATE", TARGET_32BIT);
 
+  if (arm_arch8 && !arm_arch_notm)
+    {
+      if (arm_arch_cmse && use_cmse)
+	builtin_define_with_int_value ("__ARM_FEATURE_CMSE", 3);
+      else
+	builtin_define ("__ARM_FEATURE_CMSE");
+    }
+
   if (TARGET_ARM_FEATURE_LDREX)
     builtin_define_with_int_value ("__ARM_FEATURE_LDREX",
 				   TARGET_ARM_FEATURE_LDREX);
@@ -88,7 +96,7 @@ arm_cpu_builtins (struct cpp_reader* pfile)
 		       || TARGET_ARM_ARCH_ISA_THUMB >=2));
 
   def_or_undef_macro (pfile, "__ARM_FEATURE_NUMERIC_MAXMIN",
-		      TARGET_ARM_ARCH >= 8 && TARGET_NEON && TARGET_FPU_ARMV8);
+		      TARGET_ARM_ARCH >= 8 && TARGET_NEON && TARGET_VFP5);
 
   def_or_undef_macro (pfile, "__ARM_FEATURE_SIMD32", TARGET_INT_SIMD);
 
@@ -192,6 +200,22 @@ arm_cpu_builtins (struct cpp_reader* pfile)
   def_or_undef_macro (pfile, "__ARM_FEATURE_IDIV", TARGET_IDIV);
 
   def_or_undef_macro (pfile, "__ARM_ASM_SYNTAX_UNIFIED__", inline_asm_unified);
+
+  if (TARGET_32BIT && arm_arch4 && !(arm_arch8 && arm_arch_notm))
+    {
+      int coproc_level = 0x1;
+
+      if (arm_arch5)
+	coproc_level |= 0x2;
+      if (arm_arch5e)
+	coproc_level |= 0x4;
+      if (arm_arch6)
+	coproc_level |= 0x8;
+
+      builtin_define_with_int_value ("__ARM_FEATURE_COPROC", coproc_level);
+    }
+  else
+      cpp_undef (pfile, "__ARM_FEATURE_COPROC");
 }
 
 void
@@ -235,6 +259,9 @@ arm_pragma_target_parse (tree args, tree pop_target)
       /* handle_pragma_pop_options and handle_pragma_reset_options will set
        target_option_current_node, but not handle_pragma_target.  */
       target_option_current_node = cur_tree;
+      arm_configure_build_target (&arm_active_target,
+				  TREE_TARGET_OPTION (cur_tree),
+				  &global_options_set, false);
     }
 
   /* Update macros if target_node changes. The global state will be restored

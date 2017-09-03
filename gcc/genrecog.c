@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -737,6 +737,32 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
 		  GET_MODE_NAME (GET_MODE (XEXP (pattern, 0))));
       break;
 
+    case VEC_SELECT:
+      if (GET_MODE (pattern) != VOIDmode)
+	{
+	  machine_mode mode = GET_MODE (pattern);
+	  machine_mode imode = GET_MODE (XEXP (pattern, 0));
+	  machine_mode emode
+	    = VECTOR_MODE_P (mode) ? GET_MODE_INNER (mode) : mode;
+	  if (GET_CODE (XEXP (pattern, 1)) == PARALLEL)
+	    {
+	      int expected = VECTOR_MODE_P (mode) ? GET_MODE_NUNITS (mode) : 1;
+	      if (XVECLEN (XEXP (pattern, 1), 0) != expected)
+		error_at (info->loc,
+			  "vec_select parallel with %d elements, expected %d",
+			  XVECLEN (XEXP (pattern, 1), 0), expected);
+	    }
+	  if (imode != VOIDmode && !VECTOR_MODE_P (imode))
+	    error_at (info->loc, "%smode of first vec_select operand is not a "
+				 "vector mode", GET_MODE_NAME (imode));
+	  else if (imode != VOIDmode && GET_MODE_INNER (imode) != emode)
+	    error_at (info->loc, "element mode mismatch between vec_select "
+				 "%smode and its operand %smode",
+		      GET_MODE_NAME (emode),
+		      GET_MODE_NAME (GET_MODE_INNER (imode)));
+	}
+      break;
+
     default:
       break;
     }
@@ -1381,14 +1407,16 @@ struct int_set : public auto_vec <uint64_t, 1>
   iterator end ();
 };
 
-int_set::int_set () {}
+int_set::int_set () : auto_vec<uint64_t, 1> () {}
 
-int_set::int_set (uint64_t label)
+int_set::int_set (uint64_t label) :
+  auto_vec<uint64_t, 1> ()
 {
   safe_push (label);
 }
 
-int_set::int_set (const int_set &other)
+int_set::int_set (const int_set &other) :
+  auto_vec<uint64_t, 1> ()
 {
   safe_splice (other);
 }
@@ -4461,7 +4489,7 @@ print_parameter_value (const parameter &param)
 	break;
 
       case parameter::MODE:
-	printf ("%smode", GET_MODE_NAME ((machine_mode) param.value));
+	printf ("E_%smode", GET_MODE_NAME ((machine_mode) param.value));
 	break;
 
       case parameter::INT:

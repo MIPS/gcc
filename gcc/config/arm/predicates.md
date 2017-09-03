@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -350,9 +350,9 @@
 
 (define_special_predicate "arm_cond_move_operator"
   (if_then_else (match_test "arm_restrict_it")
-                (and (match_test "TARGET_FPU_ARMV8")
-                     (match_operand 0 "arm_vsel_comparison_operator"))
-                (match_operand 0 "expandable_comparison_operator")))
+		(and (match_test "TARGET_VFP5")
+		     (match_operand 0 "arm_vsel_comparison_operator"))
+		(match_operand 0 "expandable_comparison_operator")))
 
 (define_special_predicate "noov_comparison_operator"
   (match_code "lt,ge,eq,ne"))

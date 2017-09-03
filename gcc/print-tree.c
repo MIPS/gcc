@@ -1,5 +1,5 @@
 /* Prints out tree in human readable form - GCC
-   Copyright (C) 1990-2016 Free Software Foundation, Inc.
+   Copyright (C) 1990-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,20 +32,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "gimple-pretty-print.h" /* FIXME */
 #include "tree-cfg.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
+#include "print-tree.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
 
 #define HASH_SIZE 37
 
-struct bucket
-{
-  tree node;
-  struct bucket *next;
-};
-
-static struct bucket **table;
+static hash_set<tree> *table = NULL;
 
 /* Print PREFIX and ADDR to FILE.  */
 void
@@ -176,10 +171,9 @@ indent_to (FILE *file, int column)
    starting in column INDENT.  */
 
 void
-print_node (FILE *file, const char *prefix, tree node, int indent)
+print_node (FILE *file, const char *prefix, tree node, int indent,
+	    bool brief_for_visited)
 {
-  int hash;
-  struct bucket *b;
   machine_mode mode;
   enum tree_code_class tclass;
   int len;
@@ -219,21 +213,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   /* Allow this function to be called if the table is not there.  */
   if (table)
     {
-      hash = ((uintptr_t) node) % HASH_SIZE;
-
       /* If node is in the table, just mention its address.  */
-      for (b = table[hash]; b; b = b->next)
-	if (b->node == node)
-	  {
-	    print_node_brief (file, prefix, node, indent);
-	    return;
-	  }
+      if (table->contains (node) && brief_for_visited)
+	{
+	  print_node_brief (file, prefix, node, indent);
+	  return;
+	}
 
-      /* Add this node to the table.  */
-      b = XNEW (struct bucket);
-      b->node = node;
-      b->next = table[hash];
-      table[hash] = b;
+      table->add (node);
     }
 
   /* Indent to the specified column, since this is the long form.  */
@@ -415,6 +402,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" in-constant-pool", file);
       if (code == VAR_DECL && DECL_COMMON (node))
 	fputs (" common", file);
+      if ((code == VAR_DECL || code == PARM_DECL) && DECL_READ_P (node))
+	fputs (" read", file);
       if (code == VAR_DECL && DECL_THREAD_LOCAL_P (node))
 	{
 	  fputs (" ", file);
@@ -457,13 +446,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      fprintf (file, " file %s line %d col %d", xloc.file, xloc.line,
+      fprintf (file, " %s:%d:%d", xloc.file, xloc.line,
 	       xloc.column);
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{
 	  print_node (file, "size", DECL_SIZE (node), indent + 4);
-	  print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
+	  print_node (file, "unit-size", DECL_SIZE_UNIT (node), indent + 4);
 
 	  if (code != FUNCTION_DECL || DECL_BUILT_IN (node))
 	    indent_to (file, indent + 3);
@@ -471,7 +460,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  if (DECL_USER_ALIGN (node))
 	    fprintf (file, " user");
 
-	  fprintf (file, " align %d", DECL_ALIGN (node));
+	  fprintf (file, " align:%d warn_if_not_align:%d",
+		   DECL_ALIGN (node), DECL_WARN_IF_NOT_ALIGN (node));
 	  if (code == FIELD_DECL)
 	    fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
 		     DECL_OFFSET_ALIGN (node));
@@ -479,9 +469,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  if (code == FUNCTION_DECL && DECL_BUILT_IN (node))
 	    {
 	      if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
-		fprintf (file, " built-in BUILT_IN_MD %d", DECL_FUNCTION_CODE (node));
+		fprintf (file, " built-in: BUILT_IN_MD:%d", DECL_FUNCTION_CODE (node));
 	      else
-		fprintf (file, " built-in %s:%s",
+		fprintf (file, " built-in: %s:%s",
 			 built_in_class_names[(int) DECL_BUILT_IN_CLASS (node)],
 			 built_in_names[(int) DECL_FUNCTION_CODE (node)]);
 	    }
@@ -489,7 +479,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (code == FIELD_DECL)
 	{
 	  print_node (file, "offset", DECL_FIELD_OFFSET (node), indent + 4);
-	  print_node (file, "bit offset", DECL_FIELD_BIT_OFFSET (node),
+	  print_node (file, "bit-offset", DECL_FIELD_BIT_OFFSET (node),
 		      indent + 4);
 	  if (DECL_BIT_FIELD_TYPE (node))
 	    print_node (file, "bit_field_type", DECL_BIT_FIELD_TYPE (node),
@@ -500,7 +490,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{
-	  print_node_brief (file, "attributes",
+	  print_node (file, "attributes",
 			    DECL_ATTRIBUTES (node), indent + 4);
 	  if (code != PARM_DECL)
 	    print_node_brief (file, "initial", DECL_INITIAL (node),
@@ -610,7 +600,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       fprintf (file, " %s", GET_MODE_NAME (mode));
 
       print_node (file, "size", TYPE_SIZE (node), indent + 4);
-      print_node (file, "unit size", TYPE_SIZE_UNIT (node), indent + 4);
+      print_node (file, "unit-size", TYPE_SIZE_UNIT (node), indent + 4);
       if (TYPE_SHARED (node))
         {
           if (TYPE_HAS_THREADS_FACTOR(node))
@@ -624,21 +614,23 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TYPE_USER_ALIGN (node))
 	fprintf (file, " user");
 
-      fprintf (file, " align %d symtab %d alias set " HOST_WIDE_INT_PRINT_DEC,
-	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
+      fprintf (file, " align:%d warn_if_not_align:%d symtab:%d alias-set "
+	       HOST_WIDE_INT_PRINT_DEC,
+	       TYPE_ALIGN (node), TYPE_WARN_IF_NOT_ALIGN (node),
+	       TYPE_SYMTAB_ADDRESS (node),
 	       (HOST_WIDE_INT) TYPE_ALIAS_SET (node));
 
       if (TYPE_STRUCTURAL_EQUALITY_P (node))
-	fprintf (file, " structural equality");
+	fprintf (file, " structural-equality");
       else
-	dump_addr (file, " canonical type ", TYPE_CANONICAL (node));
+	dump_addr (file, " canonical-type ", TYPE_CANONICAL (node));
 
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 
       if (INTEGRAL_TYPE_P (node) || code == REAL_TYPE
 	  || code == FIXED_POINT_TYPE)
 	{
-	  fprintf (file, " precision %d", TYPE_PRECISION (node));
+	  fprintf (file, " precision:%d", TYPE_PRECISION (node));
 	  print_node_brief (file, "min", TYPE_MIN_VALUE (node), indent + 4);
 	  print_node_brief (file, "max", TYPE_MAX_VALUE (node), indent + 4);
 	}
@@ -648,7 +640,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       else if (code == ARRAY_TYPE)
 	print_node (file, "domain", TYPE_DOMAIN (node), indent + 4);
       else if (code == VECTOR_TYPE)
-	fprintf (file, " nunits %d", (int) TYPE_VECTOR_SUBPARTS (node));
+	fprintf (file, " nunits:%d", (int) TYPE_VECTOR_SUBPARTS (node));
       else if (code == RECORD_TYPE
 	       || code == UNION_TYPE
 	       || code == QUAL_UNION_TYPE)
@@ -707,7 +699,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
 		 the text.  */
 	      char temp[15];
-	      sprintf (temp, "arg %u", i);
+	      sprintf (temp, "arg:%u", i);
 	      print_node (file, temp, arg, indent + 4);
 	      i++;
 	    }
@@ -722,7 +714,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		 the text.  */
 	      char temp[15];
 
-	      sprintf (temp, "arg %d", i);
+	      sprintf (temp, "arg:%d", i);
 	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
 	    }
 	}
@@ -792,9 +784,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		    break;
 		j--;
 		if (i == j)
-		  sprintf (buf, "elt%u: ", i);
+		  sprintf (buf, "elt:%u: ", i);
 		else
-		  sprintf (buf, "elt%u...elt%u: ", i, j);
+		  sprintf (buf, "elt:%u...%u: ", i, j);
 		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
 		i = j;
 	      }
@@ -835,14 +827,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case TREE_VEC:
 	  len = TREE_VEC_LENGTH (node);
-	  fprintf (file, " length %d", len);
+	  fprintf (file, " length:%d", len);
 	  for (i = 0; i < len; i++)
 	    if (TREE_VEC_ELT (node, i))
 	      {
 	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
 		 the text.  */
 		char temp[15];
-		sprintf (temp, "elt %d", i);
+		sprintf (temp, "elt:%d", i);
 		print_node (file, temp, TREE_VEC_ELT (node, i), indent + 4);
 	      }
 	  break;
@@ -852,12 +844,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    unsigned HOST_WIDE_INT cnt;
 	    tree index, value;
 	    len = CONSTRUCTOR_NELTS (node);
-	    fprintf (file, " lngt %d", len);
+	    fprintf (file, " length:%d", len);
 	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
 				      cnt, index, value)
 	      {
-		print_node (file, "idx", index, indent + 4);
-		print_node (file, "val", value, indent + 4);
+		print_node (file, "idx", index, indent + 4, false);
+		print_node (file, "val", value, indent + 4, false);
 	      }
 	  }
 	  break;
@@ -906,7 +898,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  }
 
 	  indent_to (file, indent + 4);
-	  fprintf (file, "version %u", SSA_NAME_VERSION (node));
+	  fprintf (file, "version:%u", SSA_NAME_VERSION (node));
 	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
 	    fprintf (file, " in-abnormal-phi");
 	  if (SSA_NAME_IN_FREE_LIST (node))
@@ -928,7 +920,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (node)]; i++)
 		{
 		  indent_to (file, indent + 4);
-		  fprintf (file, "op %d:", i);
+		  fprintf (file, "op-%d:", i);
 		  print_node_brief (file, "", OMP_CLAUSE_OPERAND (node, i), 0);
 		}
 	    }
@@ -942,19 +934,19 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  cl_target_option_print (file, indent + 4, TREE_TARGET_OPTION (node));
 	  break;
 	case IMPORTED_DECL:
-	  fprintf (file, " imported declaration");
-	  print_node_brief (file, "associated declaration",
+	  fprintf (file, " imported-declaration");
+	  print_node_brief (file, "associated-declaration",
 			    IMPORTED_DECL_ASSOCIATED_DECL (node),
 			    indent + 4);
 	  break;
 
 	case TREE_BINFO:
-	  fprintf (file, " bases %d",
+	  fprintf (file, " bases:%d",
 		   vec_safe_length (BINFO_BASE_BINFOS (node)));
 	  print_node_brief (file, "offset", BINFO_OFFSET (node), indent + 4);
 	  print_node_brief (file, "virtuals", BINFO_VIRTUALS (node),
 			    indent + 4);
-	  print_node_brief (file, "inheritance chain",
+	  print_node_brief (file, "inheritance-chain",
 			    BINFO_INHERITANCE_CHAIN (node),
 			    indent + 4);
 	  break;
@@ -1007,10 +999,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 DEBUG_FUNCTION void
 debug_tree (tree node)
 {
-  table = XCNEWVEC (struct bucket *, HASH_SIZE);
+  table = new hash_set<tree> (HASH_SIZE);
   print_node (stderr, "", node, 0);
-  free (table);
-  table = 0;
+  delete table;
+  table = NULL;
   putc ('\n', stderr);
 }
 
@@ -1030,7 +1022,7 @@ debug_raw (const tree_node *ptr)
 }
 
 static void
-dump_tree_via_hooks (const tree_node *ptr, int options)
+dump_tree_via_hooks (const tree_node *ptr, dump_flags_t options)
 {
   if (DECL_P (ptr))
     lang_hooks.print_decl (stderr, const_cast <tree_node*> (ptr), 0);
@@ -1054,21 +1046,6 @@ debug (const tree_node *ptr)
 {
   if (ptr)
     debug (*ptr);
-  else
-    fprintf (stderr, "<nil>\n");
-}
-
-DEBUG_FUNCTION void
-debug_verbose (const tree_node &ref)
-{
-  dump_tree_via_hooks (&ref, TDF_VERBOSE);
-}
-
-DEBUG_FUNCTION void
-debug_verbose (const tree_node *ptr)
-{
-  if (ptr)
-    debug_verbose (*ptr);
   else
     fprintf (stderr, "<nil>\n");
 }
@@ -1122,7 +1099,7 @@ debug_raw (vec<tree, va_gc> &ref)
 
   FOR_EACH_VEC_ELT (ref, ix, elt)
     {
-      fprintf (stderr, "elt %d ", ix);
+      fprintf (stderr, "elt:%d ", ix);
       debug_raw (elt);
     }
 }
@@ -1139,7 +1116,7 @@ debug (vec<tree, va_gc> &ref)
 
   FOR_EACH_VEC_ELT (ref, ix, elt)
     {
-      fprintf (stderr, "elt %d ", ix);
+      fprintf (stderr, "elt:%d ", ix);
       debug (elt);
     }
 }

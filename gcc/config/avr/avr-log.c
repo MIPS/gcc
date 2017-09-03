@@ -1,5 +1,5 @@
 /* Subroutines for log output for Atmel AVR back end.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Georg-Johann Lay (avr@gjlay.de)
 
    This file is part of GCC.
@@ -146,7 +146,13 @@ avr_log_vadump (FILE *file, const char *caller, va_list ap)
               }
 
             case 'T':
-              print_node_brief (file, "", va_arg (ap, tree), 3);
+              {
+                tree t = va_arg (ap, tree);
+                if (NULL_TREE == t)
+                  fprintf (file, "<NULL-TREE>");
+                else
+                  print_node_brief (file, "", t, 3);
+              }
               break;
 
             case 'd':
@@ -302,6 +308,7 @@ avr_log_set_avr_log (void)
       SET_DUMP_DETAIL (address_cost);
       SET_DUMP_DETAIL (builtin);
       SET_DUMP_DETAIL (constraints);
+      SET_DUMP_DETAIL (insn_addresses);
       SET_DUMP_DETAIL (legitimate_address_p);
       SET_DUMP_DETAIL (legitimize_address);
       SET_DUMP_DETAIL (legitimize_reload_address);

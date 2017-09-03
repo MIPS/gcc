@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -69,6 +69,16 @@
  (and (match_code "const_int")
       (match_test "aarch64_move_imm (ival, DImode)")))
 
+(define_constraint "UsO"
+ "A constant that can be used with a 32-bit and operation."
+ (and (match_code "const_int")
+      (match_test "aarch64_and_bitmask_imm (ival, SImode)")))
+
+(define_constraint "UsP"
+ "A constant that can be used with a 64-bit and operation."
+ (and (match_code "const_int")
+      (match_test "aarch64_and_bitmask_imm (ival, DImode)")))
+
 (define_constraint "S"
   "A constraint that matches an absolute symbolic address."
   (and (match_code "const,symbol_ref,label_ref")
@@ -87,6 +97,14 @@
   "A constraint that matches an absolute symbolic address high part."
   (and (match_code "high")
        (match_test "aarch64_valid_symref (XEXP (op, 0), GET_MODE (XEXP (op, 0)))")))
+
+(define_constraint "Usa"
+  "@internal
+   A constraint that matches an absolute symbolic address that can be
+   loaded by a single ADR."
+  (and (match_code "const,symbol_ref,label_ref")
+       (match_test "aarch64_symbolic_address_p (op)")
+       (match_test "aarch64_mov_operand_p (op, GET_MODE (op))")))
 
 (define_constraint "Uss"
   "@internal
@@ -108,7 +126,8 @@
 (define_constraint "Usf"
   "@internal Usf is a symbol reference under the context where plt stub allowed."
   (and (match_code "symbol_ref")
-       (match_test "!aarch64_is_noplt_call_p (op)")))
+       (match_test "!(aarch64_is_noplt_call_p (op)
+		      || aarch64_is_long_call_p (op))")))
 
 (define_constraint "UsM"
   "@internal
@@ -157,6 +176,12 @@
   (and (match_code "const_double")
        (match_test "aarch64_float_const_representable_p (op)")))
 
+(define_constraint "Uvi"
+  "A floating point constant which can be used with a\
+   MOVI immediate operation."
+  (and (match_code "const_double")
+       (match_test "aarch64_can_const_movi_rtx_p (op, GET_MODE (op))")))
+
 (define_constraint "Dn"
   "@internal
  A constraint that matches vector of immediates."
@@ -201,6 +226,19 @@
 
 (define_constraint "Dd"
   "@internal
- A constraint that matches an immediate operand valid for AdvSIMD scalar."
+ A constraint that matches an integer immediate operand valid\
+ for AdvSIMD scalar operations in DImode."
  (and (match_code "const_int")
-      (match_test "aarch64_simd_imm_scalar_p (op, GET_MODE (op))")))
+      (match_test "aarch64_can_const_movi_rtx_p (op, DImode)")))
+
+(define_constraint "Ds"
+  "@internal
+ A constraint that matches an integer immediate operand valid\
+ for AdvSIMD scalar operations in SImode."
+ (and (match_code "const_int")
+      (match_test "aarch64_can_const_movi_rtx_p (op, SImode)")))
+
+(define_address_constraint "Dp"
+  "@internal
+ An address valid for a prefetch instruction."
+ (match_test "aarch64_address_valid_for_prefetch_p (op, true)"))

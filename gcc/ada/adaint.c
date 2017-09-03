@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -128,8 +128,8 @@ extern "C" {
 #include "mingw32.h"
 
 /* Current code page and CCS encoding to use, set in initialize.c.  */
-UINT CurrentCodePage;
-UINT CurrentCCSEncoding;
+UINT __gnat_current_codepage;
+UINT __gnat_current_ccs_encoding;
 
 #include <sys/utime.h>
 
@@ -613,7 +613,16 @@ __gnat_get_current_dir (char *dir, int *length)
   WS2SC (dir, wdir, GNAT_MAX_PATH_LEN);
 
 #else
-   getcwd (dir, *length);
+   char* result = getcwd (dir, *length);
+   /* If the current directory does not exist, set length = 0
+      to indicate error. That can't happen on windows, where
+      you can't delete a directory if it is the current
+      directory of some process. */
+   if (!result)
+     {
+       *length = 0;
+       return;
+     }
 #endif
 
    *length = strlen (dir);
@@ -2315,7 +2324,7 @@ __gnat_dup2 (int oldfd ATTRIBUTE_UNUSED, int newfd ATTRIBUTE_UNUSED)
      RTPs.  */
   return -1;
 #elif defined (__PikeOS__)
-  /* Not supported.  */
+  /* Not supported. */
   return -1;
 #elif defined (_WIN32)
   /* Special case when oldfd and newfd are identical and are the standard
@@ -2672,6 +2681,26 @@ __gnat_portable_wait (int *process_status)
 #else
 
   pid = waitpid (-1, &status, 0);
+  status = status & 0xffff;
+#endif
+
+  *process_status = status;
+  return pid;
+}
+
+int
+__gnat_portable_no_block_wait (int *process_status)
+{
+  int status = 0;
+  int pid = 0;
+
+#if defined (__vxworks) || defined (__PikeOS__) || defined (_WIN32)
+  /* Not supported. */
+  status = -1;
+
+#else
+
+  pid = waitpid (-1, &status, WNOHANG);
   status = status & 0xffff;
 #endif
 
@@ -3396,14 +3425,16 @@ void __gnat_killprocesstree (int pid, int sig_num)
     {
       if ((d->d_type & DT_DIR) == DT_DIR)
         {
-          char statfile[64] = { 0 };
+          char statfile[64];
           int _pid, _ppid;
 
           /* read /proc/<PID>/stat */
 
-          strncpy (statfile, "/proc/", sizeof(statfile));
-          strncat (statfile, d->d_name, sizeof(statfile));
-          strncat (statfile, "/stat", sizeof(statfile));
+          if (strlen (d->d_name) >= sizeof (statfile) - strlen ("/proc//stat"))
+            continue;
+          strcpy (statfile, "/proc/");
+          strcat (statfile, d->d_name);
+          strcat (statfile, "/stat");
 
           FILE *fd = fopen (statfile, "r");
 

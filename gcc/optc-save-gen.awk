@@ -1,4 +1,4 @@
-#  Copyright (C) 2003-2016 Free Software Foundation, Inc.
+#  Copyright (C) 2003-2017 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -41,13 +41,10 @@ print "#include " quote "flags.h" quote
 print "#include " quote "target.h" quote
 print "#include " quote "inchash.h" quote
 print "#include " quote "hash-set.h" quote
-print "#include " quote "machmode.h" quote
 print "#include " quote "vec.h" quote
-print "#include " quote "double-int.h" quote
 print "#include " quote "input.h" quote
 print "#include " quote "alias.h" quote
 print "#include " quote "symtab.h" quote
-print "#include " quote "wide-int.h" quote
 print "#include " quote "inchash.h" quote
 print "#include " quote "tree.h" quote
 print "#include " quote "fold-const.h" quote
@@ -100,7 +97,7 @@ var_opt_range["optimize_debug"] = "0, 1";
 # cache.
 
 for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Optimization", flags[i])) {
+	if (flag_set_p("(Optimization|PerFunction)", flags[i])) {
 		name = var_name(flags[i])
 		if(name == "")
 			continue;
@@ -743,7 +740,7 @@ var_opt_val[2] = "x_optimize_debug"
 var_opt_val_type[1] = "char "
 var_opt_val_type[2] = "char "
 for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Optimization", flags[i])) {
+	if (flag_set_p("(Optimization|PerFunction)", flags[i])) {
 		name = var_name(flags[i])
 		if(name == "")
 			continue;
@@ -756,6 +753,7 @@ for (i = 0; i < n_opts; i++) {
 		otype = var_type_struct(flags[i])
 		var_opt_val_type[n_opt_val] = otype;
 		var_opt_val[n_opt_val++] = "x_" name;
+		var_opt_hash[n_opt_val] = flag_set_p("Optimization", flags[i]);
 	}
 }
 print "";
@@ -765,6 +763,8 @@ print "cl_optimization_hash (struct cl_optimization const *ptr ATTRIBUTE_UNUSED)
 print "{";
 print "  inchash::hash hstate;";
 for (i = 0; i < n_opt_val; i++) {
+	if (!var_opt_hash[i])
+		continue;
 	name = var_opt_val[i]
 	print "  hstate.add_wide_int (ptr->" name");";
 }

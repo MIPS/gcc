@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -30,6 +30,9 @@ type sockaddr interface {
 	// interface. It returns a nil interface when the address is
 	// nil.
 	sockaddr(family int) (syscall.Sockaddr, error)
+
+	// toLocal maps the zero address to a local system address (127.0.0.1 or ::1)
+	toLocal(net string) sockaddr
 }
 
 // socket returns a network file descriptor that is ready for

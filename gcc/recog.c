@@ -1,5 +1,5 @@
 /* Subroutines used by or related to instruction recognition.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -182,9 +182,9 @@ struct change_t
 {
   rtx object;
   int old_code;
+  bool unshare;
   rtx *loc;
   rtx old;
-  bool unshare;
 };
 
 static change_t *changes;
@@ -560,6 +560,7 @@ simplify_while_replacing (rtx *loc, rtx to, rtx_insn *object,
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
   rtx new_rtx = NULL_RTX;
+  scalar_int_mode is_mode;
 
   if (SWAPPABLE_OPERANDS_P (x)
       && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
@@ -655,32 +656,25 @@ simplify_while_replacing (rtx *loc, rtx to, rtx_insn *object,
          happen, we might just fail in some cases).  */
 
       if (MEM_P (XEXP (x, 0))
+	  && is_a <scalar_int_mode> (GET_MODE (XEXP (x, 0)), &is_mode)
 	  && CONST_INT_P (XEXP (x, 1))
 	  && CONST_INT_P (XEXP (x, 2))
 	  && !mode_dependent_address_p (XEXP (XEXP (x, 0), 0),
 					MEM_ADDR_SPACE (XEXP (x, 0)))
 	  && !MEM_VOLATILE_P (XEXP (x, 0)))
 	{
-	  machine_mode wanted_mode = VOIDmode;
-	  machine_mode is_mode = GET_MODE (XEXP (x, 0));
 	  int pos = INTVAL (XEXP (x, 2));
-
+	  machine_mode new_mode = is_mode;
 	  if (GET_CODE (x) == ZERO_EXTRACT && targetm.have_extzv ())
-	    {
-	      wanted_mode = insn_data[targetm.code_for_extzv].operand[1].mode;
-	      if (wanted_mode == VOIDmode)
-		wanted_mode = word_mode;
-	    }
+	    new_mode = insn_data[targetm.code_for_extzv].operand[1].mode;
 	  else if (GET_CODE (x) == SIGN_EXTRACT && targetm.have_extv ())
-	    {
-	      wanted_mode = insn_data[targetm.code_for_extv].operand[1].mode;
-	      if (wanted_mode == VOIDmode)
-		wanted_mode = word_mode;
-	    }
+	    new_mode = insn_data[targetm.code_for_extv].operand[1].mode;
+	  scalar_int_mode wanted_mode = (new_mode == VOIDmode
+					 ? word_mode
+					 : as_a <scalar_int_mode> (new_mode));
 
 	  /* If we have a narrower mode, we can do something.  */
-	  if (wanted_mode != VOIDmode
-	      && GET_MODE_SIZE (wanted_mode) < GET_MODE_SIZE (is_mode))
+	  if (GET_MODE_SIZE (wanted_mode) < GET_MODE_SIZE (is_mode))
 	    {
 	      int offset = pos / BITS_PER_UNIT;
 	      rtx newmem;
@@ -1002,7 +996,7 @@ general_operand (rtx op, machine_mode mode)
 	 However, we must allow them after reload so that they can
 	 get cleaned up by cleanup_subreg_operands.  */
       if (!reload_completed && MEM_P (sub)
-	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
+	  && paradoxical_subreg_p (op))
 	return 0;
 #endif
       /* Avoid memories with nonzero SUBREG_BYTE, as offsetting the memory
@@ -1037,7 +1031,7 @@ general_operand (rtx op, machine_mode mode)
 	     size of floating point mode can be less than the integer
 	     mode.  */
 	  && ! lra_in_progress 
-	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
+	  && paradoxical_subreg_p (op))
 	return 0;
 
       op = sub;
@@ -1188,8 +1182,9 @@ const_scalar_int_operand (rtx op, machine_mode mode)
 
   if (mode != VOIDmode)
     {
-      int prec = GET_MODE_PRECISION (mode);
-      int bitsize = GET_MODE_BITSIZE (mode);
+      scalar_int_mode int_mode = as_a <scalar_int_mode> (mode);
+      int prec = GET_MODE_PRECISION (int_mode);
+      int bitsize = GET_MODE_BITSIZE (int_mode);
 
       if (CONST_WIDE_INT_NUNITS (op) * HOST_BITS_PER_WIDE_INT > bitsize)
 	return 0;
@@ -3460,8 +3455,7 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
 				flags);
 
 	      nehe->probability = eh_edge->probability;
-	      nfte->probability
-		= REG_BR_PROB_BASE - nehe->probability;
+	      nfte->probability = nehe->probability.invert ();
 
 	      peep2_do_cleanup_cfg |= purge_dead_edges (nfte->dest);
 	      bb = nfte->src;

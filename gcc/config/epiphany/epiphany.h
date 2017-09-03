@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Argonaut EPIPHANY cpu.
-   Copyright (C) 1994-2016 Free Software Foundation, Inc.
+   Copyright (C) 1994-2017 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -187,8 +187,8 @@ along with GCC; see the file COPYING3.  If not see
 				       (SPECIFIED_ALIGN)) \
   : MAX ((MANGLED_ALIGN), (SPECIFIED_ALIGN)))
 
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  epiphany_adjust_field_align((FIELD), (COMPUTED))
+#define ADJUST_FIELD_ALIGN(FIELD, TYPE, COMPUTED) \
+  epiphany_adjust_field_align((TYPE), (COMPUTED))
 
 /* Layout of source language data types.  */
 
@@ -641,7 +641,8 @@ typedef struct GTY (()) machine_function
 
 #define RTX_OK_FOR_OFFSET_P(MODE, X) \
   RTX_OK_FOR_OFFSET_1 (GET_MODE_CLASS (MODE) == MODE_VECTOR_INT \
-		       && epiphany_vect_align == 4 ? SImode : (MODE), X)
+		       && epiphany_vect_align == 4 \
+		       ? (machine_mode) SImode : (machine_mode) (MODE), X)
 #define RTX_OK_FOR_OFFSET_1(MODE, X) \
   (GET_CODE (X) == CONST_INT \
    && !(INTVAL (X) & (GET_MODE_SIZE (MODE) - 1)) \

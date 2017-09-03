@@ -1,6 +1,6 @@
 /* Gimple IR support functions.
 
-   Copyright (C) 2007-2016 Free Software Foundation, Inc.
+   Copyright (C) 2007-2017 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -41,6 +41,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "selftest.h"
 #include "gimple-pretty-print.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 
 
@@ -117,7 +119,7 @@ gimple_size (enum gimple_code code)
    operands.  */
 
 gimple *
-gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
+gimple_alloc (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
 {
   size_t size;
   gimple *stmt;
@@ -169,7 +171,7 @@ static gimple *
 gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 		            unsigned num_ops MEM_STAT_DECL)
 {
-  gimple *s = gimple_alloc_stat (code, num_ops PASS_MEM_STAT);
+  gimple *s = gimple_alloc (code, num_ops PASS_MEM_STAT);
   gimple_set_subcode (s, subcode);
 
   return s;
@@ -796,7 +798,7 @@ gimple_build_eh_dispatch (int region)
    VAR is bound to VALUE; block and location are taken from STMT.  */
 
 gdebug *
-gimple_build_debug_bind_stat (tree var, tree value, gimple *stmt MEM_STAT_DECL)
+gimple_build_debug_bind (tree var, tree value, gimple *stmt MEM_STAT_DECL)
 {
   gdebug *p
     = as_a <gdebug *> (gimple_build_with_ops_stat (GIMPLE_DEBUG,
@@ -816,7 +818,7 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple *stmt MEM_STAT_DECL)
    VAR is bound to VALUE; block and location are taken from STMT.  */
 
 gdebug *
-gimple_build_debug_source_bind_stat (tree var, tree value,
+gimple_build_debug_source_bind (tree var, tree value,
 				     gimple *stmt MEM_STAT_DECL)
 {
   gdebug *p
@@ -1613,7 +1615,7 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
       gimple *new_stmt = gimple_alloc (gimple_code (stmt), new_rhs_ops + 1);
       memcpy (new_stmt, stmt, gimple_size (gimple_code (stmt)));
       gimple_init_singleton (new_stmt);
-      gsi_replace (gsi, new_stmt, true);
+      gsi_replace (gsi, new_stmt, false);
       stmt = new_stmt;
 
       /* The LHS needs to be reset as this also changes the SSA name
@@ -2631,7 +2633,7 @@ nonfreeing_call_p (gimple *call)
       case IFN_ABNORMAL_DISPATCHER:
         return true;
       case IFN_ASAN_MARK:
-	return tree_to_uhwi (gimple_call_arg (call, 0)) == ASAN_MARK_UNCLOBBER;
+	return tree_to_uhwi (gimple_call_arg (call, 0)) == ASAN_MARK_UNPOISON;
       default:
 	if (gimple_call_flags (call) & ECF_LEAF)
 	  return true;

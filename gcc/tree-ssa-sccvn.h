@@ -1,5 +1,5 @@
 /* Tree SCC value numbering
-   Copyright (C) 2007-2016 Free Software Foundation, Inc.
+   Copyright (C) 2007-2017 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -67,6 +67,9 @@ typedef struct vn_phi_s
   hashval_t hashcode;
   vec<tree> phiargs;
   basic_block block;
+  /* Controlling condition lhs/rhs.  */
+  tree cclhs;
+  tree ccrhs;
   tree type;
   tree result;
 } *vn_phi_t;
@@ -206,10 +209,11 @@ typedef struct vn_ssa_aux
 enum vn_lookup_kind { VN_NOWALK, VN_WALK, VN_WALKREWRITE };
 
 /* Return the value numbering info for an SSA_NAME.  */
+bool has_VN_INFO (tree);
 extern vn_ssa_aux_t VN_INFO (tree);
 extern vn_ssa_aux_t VN_INFO_GET (tree);
 tree vn_get_expr_for (tree);
-bool run_scc_vn (vn_lookup_kind);
+void run_scc_vn (vn_lookup_kind);
 void free_scc_vn (void);
 void scc_vn_restore_ssa_info (void);
 tree vn_nary_op_lookup (tree, vn_nary_op_t *);

@@ -1,5 +1,5 @@
 /* Save and restore call-clobbered registers which are live across a call.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -837,8 +837,7 @@ save_call_clobbered_regs (void)
 		  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
 		  mode = HARD_REGNO_CALLER_SAVE_MODE
 		    (r, nregs, PSEUDO_REGNO_MODE (regno));
-		  if (GET_MODE_BITSIZE (mode)
-		      > GET_MODE_BITSIZE (save_mode[r]))
+		  if (partial_subreg_p (save_mode[r], mode))
 		    save_mode[r] = mode;
 		  while (nregs-- > 0)
 		    SET_HARD_REG_BIT (hard_regs_to_save, r + nregs);

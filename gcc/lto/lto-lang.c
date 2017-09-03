@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -35,8 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-tree.h"
 #include "lto.h"
 #include "cilk.h"
-
-static tree lto_type_for_size (unsigned, int);
+#include "stringpool.h"
+#include "attribs.h"
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
@@ -50,6 +50,8 @@ static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_transaction_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
+static tree handle_patchable_function_entry_attribute (tree *, tree, tree,
+						       int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 
 static tree handle_format_attribute (tree *, tree, tree, int, bool *);
@@ -78,6 +80,9 @@ const struct attribute_spec lto_attribute_table[] =
 			      handle_nonnull_attribute, false },
   { "nothrow",                0, 0, true,  false, false,
 			      handle_nothrow_attribute, false },
+  { "patchable_function_entry", 1, 2, true, false, false,
+			      handle_patchable_function_entry_attribute,
+			      false },
   { "returns_twice",          0, 0, true,  false, false,
 			      handle_returns_twice_attribute, false },
   { "sentinel",               0, 1, false, true, true,
@@ -475,6 +480,13 @@ handle_returns_twice_attribute (tree *node, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
+static tree
+handle_patchable_function_entry_attribute (tree *, tree, tree, int, bool *)
+{
+  /* Nothing to be done here.  */
+  return NULL_TREE;
+}
+
 /* Ignore the given attribute.  Used when this attribute may be usefully
    overridden by the target, but is not used generically.  */
 
@@ -570,7 +582,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 static tree
 builtin_type_for_size (int size, bool unsignedp)
 {
-  tree type = lto_type_for_size (size, unsignedp);
+  tree type = lang_hooks.types.type_for_size (size, unsignedp);
   return type ? type : error_mark_node;
 }
 
@@ -857,59 +869,15 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
      support.  */
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
+  /* When partitioning, we can tear appart STRING_CSTs uses from the same
+     TU into multiple partitions.  Without constant merging the constants
+     might not be equal at runtime.  See PR50199.  */
+  if (!flag_merge_constants)
+    flag_merge_constants = 1;
+
   /* Initialize the compiler back end.  */
   return false;
 }
-
-/* Return an integer type with PRECISION bits of precision,
-   that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
-
-static tree
-lto_type_for_size (unsigned precision, int unsignedp)
-{
-  int i;
-
-  if (precision == TYPE_PRECISION (integer_type_node))
-    return unsignedp ? unsigned_type_node : integer_type_node;
-
-  if (precision == TYPE_PRECISION (signed_char_type_node))
-    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
-
-  if (precision == TYPE_PRECISION (short_integer_type_node))
-    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
-
-  if (precision == TYPE_PRECISION (long_integer_type_node))
-    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
-
-  if (precision == TYPE_PRECISION (long_long_integer_type_node))
-    return unsignedp
-	   ? long_long_unsigned_type_node
-	   : long_long_integer_type_node;
-
-  for (i = 0; i < NUM_INT_N_ENTS; i ++)
-    if (int_n_enabled_p[i]
-	&& precision == int_n_data[i].bitsize)
-      return (unsignedp ? int_n_trees[i].unsigned_type
-	      : int_n_trees[i].signed_type);
-
-  if (precision <= TYPE_PRECISION (intQI_type_node))
-    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
-
-  if (precision <= TYPE_PRECISION (intHI_type_node))
-    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
-
-  if (precision <= TYPE_PRECISION (intSI_type_node))
-    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
-
-  if (precision <= TYPE_PRECISION (intDI_type_node))
-    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
-
-  if (precision <= TYPE_PRECISION (intTI_type_node))
-    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
-
-  return NULL_TREE;
-}
-
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
@@ -973,15 +941,15 @@ lto_type_for_mode (machine_mode mode, int unsigned_p)
   if (mode == TYPE_MODE (void_type_node))
     return void_type_node;
 
-  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return (unsigned_p
-	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
-	    : make_signed_type (GET_MODE_PRECISION (mode)));
-
-  if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return (unsigned_p
-	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
-	    : make_signed_type (GET_MODE_PRECISION (mode)));
+  if (mode == TYPE_MODE (build_pointer_type (char_type_node))
+      || mode == TYPE_MODE (build_pointer_type (integer_type_node)))
+    {
+      unsigned int precision
+	= GET_MODE_PRECISION (as_a <scalar_int_mode> (mode));
+      return (unsigned_p
+	      ? make_unsigned_type (precision)
+	      : make_signed_type (precision));
+    }
 
   if (COMPLEX_MODE_P (mode))
     {
@@ -1247,6 +1215,9 @@ lto_init (void)
 {
   int i;
 
+  /* Initialize LTO-specific data structures.  */
+  in_lto_p = true;
+
   /* We need to generate LTO if running in WPA mode.  */
   flag_generate_lto = (flag_wpa != NULL);
 
@@ -1263,15 +1234,17 @@ lto_init (void)
   /* In the C++ front-end, fileptr_type_node is defined as a variant
      copy of ptr_type_node, rather than ptr_node itself.  The
      distinction should only be relevant to the front-end, so we
-     always use the C definition here in lto1.  */
-  gcc_assert (fileptr_type_node == ptr_type_node);
-  gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
-  /* Likewise for const struct tm*.  */
-  gcc_assert (const_tm_ptr_type_node == const_ptr_type_node);
-  gcc_assert (TYPE_MAIN_VARIANT (const_tm_ptr_type_node)
-	      == const_ptr_type_node);
-
-  ptrdiff_type_node = integer_type_node;
+     always use the C definition here in lto1.
+     Likewise for const struct tm*.  */
+  for (unsigned i = 0;
+       i < sizeof (builtin_structptr_types) / sizeof (builtin_structptr_type);
+       ++i)
+    {
+      gcc_assert (builtin_structptr_types[i].node
+		  == builtin_structptr_types[i].base);
+      gcc_assert (TYPE_MAIN_VARIANT (builtin_structptr_types[i].node)
+		  == builtin_structptr_types[i].base);
+    }
 
   lto_build_c_type_nodes ();
   gcc_assert (va_list_type_node);
@@ -1331,9 +1304,6 @@ lto_init (void)
       }
 #undef NAME_TYPE
 
-  /* Initialize LTO-specific data structures.  */
-  in_lto_p = true;
-
   return true;
 }
 
@@ -1360,8 +1330,6 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_GET_ALIAS_SET gimple_get_alias_set
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
-#undef LANG_HOOKS_TYPE_FOR_SIZE
-#define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lto_set_decl_assembler_name
 #undef LANG_HOOKS_GLOBAL_BINDINGS_P

@@ -1,6 +1,6 @@
 // Components for manipulating non-owning sequences of characters -*- C++ -*-
 
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,12 +42,12 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
 namespace experimental
 {
 inline namespace fundamentals_v1
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
   template<typename _CharT, typename _Traits>
     typename basic_string_view<_CharT, _Traits>::size_type
     basic_string_view<_CharT, _Traits>::
@@ -222,10 +222,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       return npos;
     }
-
-_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace fundamentals_v1
 } // namespace experimental
+
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // __cplusplus <= 201103L

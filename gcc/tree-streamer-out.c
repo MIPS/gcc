@@ -1,6 +1,6 @@
 /* Routines for emitting trees to a file stream.
 
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -328,6 +328,8 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     bp_pack_value (bp, TYPE_NONALIASED_COMPONENT (expr), 1);
+  if (AGGREGATE_TYPE_P (expr))
+    bp_pack_value (bp, TYPE_TYPELESS_STORAGE (expr), 1);
   bp_pack_var_len_unsigned (bp, TYPE_PRECISION (expr));
   bp_pack_var_len_unsigned (bp, TYPE_ALIGN (expr));
 }
@@ -564,7 +566,11 @@ write_ts_decl_minimal_tree_pointers (struct output_block *ob, tree expr,
     stream_write_tree (ob, NULL_TREE, ref_p);
   else
     stream_write_tree (ob, DECL_NAME (expr), ref_p);
-  stream_write_tree (ob, DECL_CONTEXT (expr), ref_p);
+  if (TREE_CODE (expr) != TRANSLATION_UNIT_DECL
+      && ! DECL_CONTEXT (expr))
+    stream_write_tree (ob, (*all_translation_units)[0], ref_p);
+  else
+    stream_write_tree (ob, DECL_CONTEXT (expr), ref_p);
 }
 
 
@@ -583,10 +589,7 @@ write_ts_decl_common_tree_pointers (struct output_block *ob, tree expr,
      special handling in LTO, it must be handled by streamer hooks.  */
 
   stream_write_tree (ob, DECL_ATTRIBUTES (expr), ref_p);
-
-  /* Do not stream DECL_ABSTRACT_ORIGIN.  We cannot handle debug information
-     for early inlining so drop it on the floor instead of ICEing in
-     dwarf2out.c.  */
+  stream_write_tree (ob, DECL_ABSTRACT_ORIGIN (expr), ref_p);
 
   if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
@@ -702,10 +705,8 @@ write_ts_type_non_common_tree_pointers (struct output_block *ob, tree expr,
     stream_write_tree (ob, TYPE_ARG_TYPES (expr), ref_p);
 
   if (!POINTER_TYPE_P (expr))
-    stream_write_tree (ob, TYPE_MINVAL (expr), ref_p);
-  stream_write_tree (ob, TYPE_MAXVAL (expr), ref_p);
-  if (RECORD_OR_UNION_TYPE_P (expr))
-    stream_write_tree (ob, TYPE_BINFO (expr), ref_p);
+    stream_write_tree (ob, TYPE_MIN_VALUE_RAW (expr), ref_p);
+  stream_write_tree (ob, TYPE_MAX_VALUE_RAW (expr), ref_p);
 }
 
 
@@ -949,16 +950,6 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
      variable sized nodes).  */
   tag = lto_tree_code_to_tag (code);
   streamer_write_record_start (ob, tag);
-
-  /* The following will cause bootstrap miscomparisons.  Enable with care.  */
-#ifdef LTO_STREAMER_DEBUG
-  /* This is used mainly for debugging purposes.  When the reader
-     and the writer do not agree on a streamed node, the pointer
-     value for EXPR can be used to track down the differences in
-     the debugger.  */
-  gcc_assert ((HOST_WIDE_INT) (intptr_t) expr == (intptr_t) expr);
-  streamer_write_hwi (ob, (HOST_WIDE_INT) (intptr_t) expr);
-#endif
 
   /* The text in strings and identifiers are completely emitted in
      the header.  */

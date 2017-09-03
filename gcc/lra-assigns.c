@@ -1,5 +1,5 @@
 /* Assign reload pseudos.
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -253,10 +253,9 @@ pseudo_compare_func (const void *v1p, const void *v2p)
 
   /* Assign hard reg to static chain pointer first pseudo when
      non-local goto is used.  */
-  if (non_spilled_static_chain_regno_p (r1))
-    return -1;
-  else if (non_spilled_static_chain_regno_p (r2))
-    return 1;
+  if ((diff = (non_spilled_static_chain_regno_p (r2)
+	       - non_spilled_static_chain_regno_p (r1))) != 0)
+    return diff;
 
   /* Prefer to assign more frequently used registers first.  */
   if ((diff = lra_reg_info[r2].freq - lra_reg_info[r1].freq) != 0)
@@ -564,32 +563,45 @@ find_hard_regno_for_1 (int regno, int *cost, int try_only_hard_regno,
   offset = lra_reg_info[regno].offset;
   CLEAR_HARD_REG_SET (impossible_start_hard_regs);
   EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
-    if (lra_reg_val_equal_p (conflict_regno, val, offset))
-      {
-	conflict_hr = live_pseudos_reg_renumber[conflict_regno];
-	nregs = (hard_regno_nregs[conflict_hr]
-		 [lra_reg_info[conflict_regno].biggest_mode]);
-	/* Remember about multi-register pseudos.  For example, 2 hard
-	   register pseudos can start on the same hard register but can
-	   not start on HR and HR+1/HR-1.  */
-	for (hr = conflict_hr + 1;
-	     hr < FIRST_PSEUDO_REGISTER && hr < conflict_hr + nregs;
-	     hr++)
-	  SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
-	for (hr = conflict_hr - 1;
-	     hr >= 0 && hr + hard_regno_nregs[hr][biggest_mode] > conflict_hr;
-	     hr--)
-	  SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
-      }
-    else
-      {
-	add_to_hard_reg_set (&conflict_set,
-			     lra_reg_info[conflict_regno].biggest_mode,
-			     live_pseudos_reg_renumber[conflict_regno]);
-	if (hard_reg_set_subset_p (reg_class_contents[rclass],
-				   conflict_set))
-	  return -1;
-      }
+    {
+      conflict_hr = live_pseudos_reg_renumber[conflict_regno];
+      if (lra_reg_val_equal_p (conflict_regno, val, offset))
+	{
+	  conflict_hr = live_pseudos_reg_renumber[conflict_regno];
+	  nregs = (hard_regno_nregs[conflict_hr]
+		   [lra_reg_info[conflict_regno].biggest_mode]);
+	  /* Remember about multi-register pseudos.  For example, 2
+	     hard register pseudos can start on the same hard register
+	     but can not start on HR and HR+1/HR-1.  */
+	  for (hr = conflict_hr + 1;
+	       hr < FIRST_PSEUDO_REGISTER && hr < conflict_hr + nregs;
+	       hr++)
+	    SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
+	  for (hr = conflict_hr - 1;
+	       hr >= 0 && hr + hard_regno_nregs[hr][biggest_mode] > conflict_hr;
+	       hr--)
+	    SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
+	}
+      else
+	{
+	  machine_mode biggest_conflict_mode
+	    = lra_reg_info[conflict_regno].biggest_mode;
+	  int biggest_conflict_nregs
+	    = hard_regno_nregs[conflict_hr][biggest_conflict_mode];
+	  
+	  nregs_diff = (biggest_conflict_nregs
+			- (hard_regno_nregs
+			   [conflict_hr]
+			   [PSEUDO_REGNO_MODE (conflict_regno)]));
+	  add_to_hard_reg_set (&conflict_set,
+			       biggest_conflict_mode,
+			       conflict_hr
+			       - (WORDS_BIG_ENDIAN ? nregs_diff : 0));
+	  if (hard_reg_set_subset_p (reg_class_contents[rclass],
+				     conflict_set))
+	    return -1;
+	}
+    }
   EXECUTE_IF_SET_IN_SPARSESET (conflict_reload_and_inheritance_pseudos,
 			       conflict_regno)
     if (!lra_reg_val_equal_p (conflict_regno, val, offset))
@@ -628,9 +640,13 @@ find_hard_regno_for_1 (int regno, int *cost, int try_only_hard_regno,
 	hard_regno = ira_class_hard_regs[rclass][i];
       if (! overlaps_hard_reg_set_p (conflict_set,
 				     PSEUDO_REGNO_MODE (regno), hard_regno)
-	  /* We can not use prohibited_class_mode_regs because it is
-	     not defined for all classes.  */
 	  && HARD_REGNO_MODE_OK (hard_regno, PSEUDO_REGNO_MODE (regno))
+	  /* We can not use prohibited_class_mode_regs for all classes
+	     because it is not defined for all classes.  */
+	  && (ira_allocno_class_translate[rclass] != rclass
+	      || ! TEST_HARD_REG_BIT (ira_prohibited_class_mode_regs
+				      [rclass][PSEUDO_REGNO_MODE (regno)],
+				      hard_regno))
 	  && ! TEST_HARD_REG_BIT (impossible_start_hard_regs, hard_regno)
 	  && (nregs_diff == 0
 	      || (WORDS_BIG_ENDIAN
@@ -872,6 +888,31 @@ assign_temporarily (int regno, int hard_regno)
   live_pseudos_reg_renumber[regno] = hard_regno;
 }
 
+/* Return true iff there is a reason why pseudo SPILL_REGNO should not
+   be spilled.  */
+static bool
+must_not_spill_p (unsigned spill_regno)
+{
+  if ((pic_offset_table_rtx != NULL
+       && spill_regno == REGNO (pic_offset_table_rtx))
+      || ((int) spill_regno >= lra_constraint_new_regno_start
+	  && ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
+	  && ! bitmap_bit_p (&lra_split_regs, spill_regno)
+	  && ! bitmap_bit_p (&lra_subreg_reload_pseudos, spill_regno)
+	  && ! bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno)))
+    return true;
+  /* A reload pseudo that requires a singleton register class should
+     not be spilled.
+     FIXME: this mitigates the issue on certain i386 patterns, but
+     does not solve the general case where existing reloads fully
+     cover a limited register class.  */
+  if (!bitmap_bit_p (&non_reload_pseudos, spill_regno)
+      && reg_class_size [reg_preferred_class (spill_regno)] == 1
+      && reg_alternate_class (spill_regno) == NO_REGS)
+    return true;
+  return false;
+}
+
 /* Array used for sorting reload pseudos for subsequent allocation
    after spilling some pseudo.	*/
 static int *sorted_reload_pseudos;
@@ -943,13 +984,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap, bool first_p)
       /* Spill pseudos.	 */
       static_p = false;
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
-	if ((pic_offset_table_rtx != NULL
-	     && spill_regno == REGNO (pic_offset_table_rtx))
-	    || ((int) spill_regno >= lra_constraint_new_regno_start
-		&& ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
-		&& ! bitmap_bit_p (&lra_split_regs, spill_regno)
-		&& ! bitmap_bit_p (&lra_subreg_reload_pseudos, spill_regno)
-		&& ! bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno)))
+	if (must_not_spill_p (spill_regno))
 	  goto fail;
 	else if (non_spilled_static_chain_regno_p (spill_regno))
 	  static_p = true;
@@ -1175,9 +1210,19 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 	    /* If it is multi-register pseudos they should start on
 	       the same hard register.	*/
 	    || hard_regno != reg_renumber[conflict_regno])
-	  add_to_hard_reg_set (&conflict_set,
-			       lra_reg_info[conflict_regno].biggest_mode,
-			       reg_renumber[conflict_regno]);
+	  {
+	    int conflict_hard_regno = reg_renumber[conflict_regno];
+	    machine_mode biggest_mode = lra_reg_info[conflict_regno].biggest_mode;
+	    int biggest_nregs = hard_regno_nregs[conflict_hard_regno][biggest_mode];
+	    int nregs_diff = (biggest_nregs
+			      - (hard_regno_nregs
+				 [conflict_hard_regno]
+				 [PSEUDO_REGNO_MODE (conflict_regno)]));
+	    add_to_hard_reg_set (&conflict_set,
+				 biggest_mode,
+				 conflict_hard_regno
+				 - (WORDS_BIG_ENDIAN ? nregs_diff : 0));
+	  }
       if (! overlaps_hard_reg_set_p (conflict_set, mode, hard_regno))
 	{
 	  update_lives (regno, false);
@@ -1462,6 +1507,14 @@ assign_by_spills (void)
 	      sorted_pseudos[nfails++] = conflict_regno;
 	      former_reload_pseudo_spill_p = true;
 	    }
+	  else
+	    /* It is better to do reloads before spilling as after the
+	       spill-subpass we will reload memory instead of pseudos
+	       and this will make reusing reload pseudos more
+	       complicated.  Going directly to the spill pass in such
+	       case might result in worse code performance or even LRA
+	       cycling if we have few registers.  */
+	    bitmap_set_bit (&all_spilled_pseudos, conflict_regno);
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file, "	  Spill %s r%d(hr=%d, freq=%d)\n",
 		     pseudo_prefix_title (conflict_regno), conflict_regno,

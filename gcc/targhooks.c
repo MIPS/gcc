@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
+#include "profile-count.h"
 #include "optabs.h"
 #include "regs.h"
 #include "recog.h"
@@ -72,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "expr.h"
 #include "output.h"
+#include "common/common-target.h"
 #include "reload.h"
 #include "intl.h"
 #include "opts.h"
@@ -214,25 +216,25 @@ default_pretend_outgoing_varargs_named (cumulative_args_t ca ATTRIBUTE_UNUSED)
 	  != default_setup_incoming_varargs);
 }
 
-machine_mode
+scalar_int_mode
 default_eh_return_filter_mode (void)
 {
   return targetm.unwind_word_mode ();
 }
 
-machine_mode
+scalar_int_mode
 default_libgcc_cmp_return_mode (void)
 {
   return word_mode;
 }
 
-machine_mode
+scalar_int_mode
 default_libgcc_shift_count_mode (void)
 {
   return word_mode;
 }
 
-machine_mode
+scalar_int_mode
 default_unwind_word_mode (void)
 {
   return word_mode;
@@ -257,8 +259,7 @@ default_min_divisions_for_recip_mul (machine_mode mode ATTRIBUTE_UNUSED)
 /* The default implementation of TARGET_MODE_REP_EXTENDED.  */
 
 int
-default_mode_rep_extended (machine_mode mode ATTRIBUTE_UNUSED,
-			   machine_mode mode_rep ATTRIBUTE_UNUSED)
+default_mode_rep_extended (scalar_int_mode, scalar_int_mode)
 {
   return UNKNOWN;
 }
@@ -394,7 +395,7 @@ default_mangle_assembler_name (const char *name ATTRIBUTE_UNUSED)
    supported by optabs.c.  */
 
 bool
-default_scalar_mode_supported_p (machine_mode mode)
+default_scalar_mode_supported_p (scalar_mode mode)
 {
   int precision = GET_MODE_PRECISION (mode);
 
@@ -441,21 +442,21 @@ default_scalar_mode_supported_p (machine_mode mode)
    be supported as a scalar mode).  */
 
 bool
-default_libgcc_floating_mode_supported_p (machine_mode mode)
+default_libgcc_floating_mode_supported_p (scalar_float_mode mode)
 {
   switch (mode)
     {
 #ifdef HAVE_SFmode
-    case SFmode:
+    case E_SFmode:
 #endif
 #ifdef HAVE_DFmode
-    case DFmode:
+    case E_DFmode:
 #endif
 #ifdef HAVE_XFmode
-    case XFmode:
+    case E_XFmode:
 #endif
 #ifdef HAVE_TFmode
-    case TFmode:
+    case E_TFmode:
 #endif
       return true;
 
@@ -467,12 +468,13 @@ default_libgcc_floating_mode_supported_p (machine_mode mode)
 /* Return the machine mode to use for the type _FloatN, if EXTENDED is
    false, or _FloatNx, if EXTENDED is true, or VOIDmode if not
    supported.  */
-machine_mode
+opt_scalar_float_mode
 default_floatn_mode (int n, bool extended)
 {
   if (extended)
     {
-      machine_mode cand1 = VOIDmode, cand2 = VOIDmode;
+      opt_scalar_float_mode cand1, cand2;
+      scalar_float_mode mode;
       switch (n)
 	{
 	case 32:
@@ -497,27 +499,30 @@ default_floatn_mode (int n, bool extended)
 	  /* Those are the only valid _FloatNx types.  */
 	  gcc_unreachable ();
 	}
-      if (cand1 != VOIDmode
-	  && REAL_MODE_FORMAT (cand1)->ieee_bits > n
-	  && targetm.scalar_mode_supported_p (cand1)
-	  && targetm.libgcc_floating_mode_supported_p (cand1))
+      if (cand1.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits > n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand1;
-      if (cand2 != VOIDmode
-	  && REAL_MODE_FORMAT (cand2)->ieee_bits > n
-	  && targetm.scalar_mode_supported_p (cand2)
-	  && targetm.libgcc_floating_mode_supported_p (cand2))
+      if (cand2.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits > n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand2;
     }
   else
     {
-      machine_mode cand = VOIDmode;
+      opt_scalar_float_mode cand;
+      scalar_float_mode mode;
       switch (n)
 	{
 	case 16:
-	  /* We do not use HFmode for _Float16 by default because the
-	     required excess precision support is not present and the
-	     interactions with promotion of the older __fp16 need to
-	     be worked out.  */
+	  /* Always enable _Float16 if we have basic support for the mode.
+	     Targets can control the range and precision of operations on
+	     the _Float16 type using TARGET_C_EXCESS_PRECISION.  */
+#ifdef HAVE_HFmode
+	  cand = HFmode;
+#endif
 	  break;
 
 	case 32:
@@ -541,13 +546,13 @@ default_floatn_mode (int n, bool extended)
 	default:
 	  break;
 	}
-      if (cand != VOIDmode
-	  && REAL_MODE_FORMAT (cand)->ieee_bits == n
-	  && targetm.scalar_mode_supported_p (cand)
-	  && targetm.libgcc_floating_mode_supported_p (cand))
+      if (cand.exists (&mode)
+	  && REAL_MODE_FORMAT (mode)->ieee_bits == n
+	  && targetm.scalar_mode_supported_p (mode)
+	  && targetm.libgcc_floating_mode_supported_p (mode))
 	return cand;
     }
-  return VOIDmode;
+  return opt_scalar_float_mode ();
 }
 
 /* Make some target macros useable by target-independent code.  */
@@ -1125,20 +1130,12 @@ default_vector_alignment (const_tree type)
   return align;
 }
 
+/* By default assume vectors of element TYPE require a multiple of the natural
+   alignment of TYPE.  TYPE is naturally aligned if IS_PACKED is false.  */
 bool
-default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
+default_builtin_vector_alignment_reachable (const_tree /*type*/, bool is_packed)
 {
-  if (is_packed)
-    return false;
-
-  /* Assuming that types whose size is > pointer-size are not guaranteed to be
-     naturally aligned.  */
-  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
-    return false;
-
-  /* Assuming that types whose size is <= pointer-size
-     are naturally aligned.  */
-  return true;
+  return ! is_packed;
 }
 
 /* By default, assume that a target supports any factor of misalignment
@@ -1162,7 +1159,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
    possibly adds/subtracts using bit-twiddling.  */
 
 machine_mode
-default_preferred_simd_mode (machine_mode mode ATTRIBUTE_UNUSED)
+default_preferred_simd_mode (scalar_mode)
 {
   return word_mode;
 }
@@ -1182,8 +1179,8 @@ machine_mode
 default_get_mask_mode (unsigned nunits, unsigned vector_size)
 {
   unsigned elem_size = vector_size / nunits;
-  machine_mode elem_mode
-    = smallest_mode_for_size (elem_size * BITS_PER_UNIT, MODE_INT);
+  scalar_int_mode elem_mode
+    = smallest_int_mode_for_size (elem_size * BITS_PER_UNIT);
   machine_mode vector_mode;
 
   gcc_assert (elem_size * nunits == vector_size);
@@ -1258,7 +1255,7 @@ default_destroy_cost_data (void *data)
 /* Determine whether or not a pointer mode is valid. Assume defaults
    of ptr_mode or Pmode - can be overridden.  */
 bool
-default_valid_pointer_mode (machine_mode mode)
+default_valid_pointer_mode (scalar_int_mode mode)
 {
   return (mode == ptr_mode || mode == Pmode);
 }
@@ -1293,7 +1290,7 @@ default_ref_may_alias_errno (ao_ref *ref)
 /* Return the mode for a pointer to a given ADDRSPACE,
    defaulting to ptr_mode for all address spaces.  */
 
-machine_mode
+scalar_int_mode
 default_addr_space_pointer_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
   return ptr_mode;
@@ -1302,7 +1299,7 @@ default_addr_space_pointer_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 /* Return the mode for an address in a given ADDRSPACE,
    defaulting to Pmode for all address spaces.  */
 
-machine_mode
+scalar_int_mode
 default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
   return Pmode;
@@ -1312,7 +1309,7 @@ default_addr_space_address_mode (addr_space_t addrspace ATTRIBUTE_UNUSED)
    To match the above, the same modes apply to all address spaces.  */
 
 bool
-default_addr_space_valid_pointer_mode (machine_mode mode,
+default_addr_space_valid_pointer_mode (scalar_int_mode mode,
 				       addr_space_t as ATTRIBUTE_UNUSED)
 {
   return targetm.valid_pointer_mode (mode);
@@ -1446,27 +1443,18 @@ default_target_option_pragma_parse (tree ARG_UNUSED (args),
 bool
 default_target_can_inline_p (tree caller, tree callee)
 {
-  bool ret = false;
   tree callee_opts = DECL_FUNCTION_SPECIFIC_TARGET (callee);
   tree caller_opts = DECL_FUNCTION_SPECIFIC_TARGET (caller);
-
-  /* If callee has no option attributes, then it is ok to inline */
-  if (!callee_opts)
-    ret = true;
-
-  /* If caller has no option attributes, but callee does then it is not ok to
-     inline */
-  else if (!caller_opts)
-    ret = false;
+  if (! callee_opts)
+    callee_opts = target_option_default_node;
+  if (! caller_opts)
+    caller_opts = target_option_default_node;
 
   /* If both caller and callee have attributes, assume that if the
      pointer is different, the two functions have different target
      options since build_target_option_node uses a hash table for the
      options.  */
-  else
-    ret = (callee_opts == caller_opts);
-
-  return ret;
+  return callee_opts == caller_opts;
 }
 
 /* If the machine does not have a case insn that compares the bounds,
@@ -1508,36 +1496,6 @@ bool
 no_c99_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
 {
   return false;
-}
-
-/* Return the format string to which "%p" corresponds.  By default,
-   assume it corresponds to the C99 "%zx" format and set *FLAGS to
-   the empty string to indicate that format flags have no effect.
-   An example of an implementation that matches this description
-   is AIX.  */
-
-const char*
-default_printf_pointer_format (tree, const char **flags)
-{
-  *flags = "";
-
-  return "%zx";
-}
-
-/* For Glibc and uClibc targets also define the hook here because
-   otherwise it would have to be duplicated in each target's .c file
-   (such as in bfin/bfin.c and c6x/c6x.c, etc.)
-   Glibc and uClibc format pointers as if by "%zx" except for the null
-   pointer which outputs "(nil)".  It ignores the pound ('#') format
-   flag but interprets the space and plus flags the same as in the integer
-   directive.  */
-
-const char*
-linux_printf_pointer_format (tree arg, const char **flags)
-{
-  *flags = " +";
-
-  return arg && integer_zerop (arg) ? "(nil)" : "%#zx";
 }
 
 tree
@@ -1643,6 +1601,51 @@ int
 default_compare_by_pieces_branch_ratio (machine_mode)
 {
   return 1;
+}
+
+/* Write PATCH_AREA_SIZE NOPs into the asm outfile FILE around a function
+   entry.  If RECORD_P is true and the target supports named sections,
+   the location of the NOPs will be recorded in a special object section
+   called "__patchable_function_entries".  This routine may be called
+   twice per function to put NOPs before and after the function
+   entry.  */
+
+void
+default_print_patchable_function_entry (FILE *file,
+					unsigned HOST_WIDE_INT patch_area_size,
+					bool record_p)
+{
+  const char *nop_templ = 0;
+  int code_num;
+  rtx_insn *my_nop = make_insn_raw (gen_nop ());
+
+  /* We use the template alone, relying on the (currently sane) assumption
+     that the NOP template does not have variable operands.  */
+  code_num = recog_memoized (my_nop);
+  nop_templ = get_insn_template (code_num, my_nop);
+
+  if (record_p && targetm_common.have_named_sections)
+    {
+      char buf[256];
+      static int patch_area_number;
+      section *previous_section = in_section;
+
+      patch_area_number++;
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LPFE", patch_area_number);
+
+      switch_to_section (get_section ("__patchable_function_entries",
+				      0, NULL));
+      fputs (integer_asm_op (POINTER_SIZE_UNITS, false), file);
+      assemble_name_raw (file, buf);
+      fputc ('\n', file);
+
+      switch_to_section (previous_section);
+      ASM_OUTPUT_LABEL (file, buf);
+    }
+
+  unsigned i;
+  for (i = 0; i < patch_area_size; ++i)
+    fprintf (file, "\t%s\n", nop_templ);
 }
 
 bool
@@ -1866,10 +1869,10 @@ default_pch_valid_p (const void *data_p, size_t len)
 
 /* Default version of cstore_mode.  */
 
-machine_mode
+scalar_int_mode
 default_cstore_mode (enum insn_code icode)
 {
-  return insn_data[(int) icode].operand[0].mode;
+  return as_a <scalar_int_mode> (insn_data[(int) icode].operand[0].mode);
 }
 
 /* Default version of member_type_forces_blk.  */
@@ -2044,7 +2047,7 @@ default_chkp_bound_type (void)
   return res;
 }
 
-enum machine_mode
+machine_mode
 default_chkp_bound_mode (void)
 {
   return VOIDmode;
@@ -2082,7 +2085,7 @@ default_chkp_initialize_bounds (tree var ATTRIBUTE_UNUSED,
 
 void
 default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
-				      enum machine_mode mode ATTRIBUTE_UNUSED,
+				      machine_mode mode ATTRIBUTE_UNUSED,
 				      tree type ATTRIBUTE_UNUSED,
 				      int *pretend_arg_size ATTRIBUTE_UNUSED,
 				      int second_time ATTRIBUTE_UNUSED)
@@ -2133,6 +2136,14 @@ unsigned int
 default_min_arithmetic_precision (void)
 {
   return WORD_REGISTER_OPERATIONS ? BITS_PER_WORD : BITS_PER_UNIT;
+}
+
+/* Default implementation of TARGET_C_EXCESS_PRECISION.  */
+
+enum flt_eval_method
+default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
+{
+  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
 }
 
 /* Default implementation of the UPC-specific target hook,

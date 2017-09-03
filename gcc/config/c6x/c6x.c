@@ -1,5 +1,5 @@
 /* Target Code for TI C6X
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
@@ -32,6 +32,7 @@
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -3799,6 +3800,7 @@ predicate_insn (rtx_insn *insn, rtx cond, bool doit)
     {
       if (doit)
 	{
+	  cond = copy_rtx (cond);
 	  rtx newpat = gen_rtx_COND_EXEC (VOIDmode, cond, PATTERN (insn));
 	  PATTERN (insn) = newpat;
 	  INSN_CODE (insn) = -1;
@@ -5788,8 +5790,9 @@ hwloop_optimize (hwloop_info loop)
   start_sequence ();
 
   insn = emit_insn (gen_mvilc (loop->iter_reg));
+  if (loop->iter_reg_used_outside)
+    insn = emit_move_insn (loop->iter_reg, const0_rtx);
   insn = emit_insn (gen_sploop (GEN_INT (sp_ii)));
-
   seq = get_insns ();
 
   if (!single_succ_p (entry_bb) || vec_safe_length (loop->incoming) > 1)
@@ -6063,7 +6066,7 @@ c6x_rtx_costs (rtx x, machine_mode mode, int outer_code, int opno, int *total,
       /* Recognize a mult_highpart operation.  */
       if ((mode == HImode || mode == SImode)
 	  && GET_CODE (XEXP (x, 0)) == LSHIFTRT
-	  && GET_MODE (XEXP (x, 0)) == GET_MODE_2XWIDER_MODE (mode)
+	  && GET_MODE (XEXP (x, 0)) == GET_MODE_2XWIDER_MODE (mode).require ()
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) == GET_MODE_BITSIZE (mode))
@@ -6223,11 +6226,11 @@ c6x_vector_mode_supported_p (machine_mode mode)
 {
   switch (mode)
     {
-    case V2HImode:
-    case V4QImode:
-    case V2SImode:
-    case V4HImode:
-    case V8QImode:
+    case E_V2HImode:
+    case E_V4QImode:
+    case E_V2SImode:
+    case E_V4HImode:
+    case E_V8QImode:
       return true;
     default:
       return false;
@@ -6236,13 +6239,13 @@ c6x_vector_mode_supported_p (machine_mode mode)
 
 /* Implements TARGET_VECTORIZE_PREFERRED_SIMD_MODE.  */
 static machine_mode
-c6x_preferred_simd_mode (machine_mode mode)
+c6x_preferred_simd_mode (scalar_mode mode)
 {
   switch (mode)
     {
-    case HImode:
+    case E_HImode:
       return V2HImode;
-    case QImode:
+    case E_QImode:
       return V4QImode;
 
     default:
@@ -6253,7 +6256,7 @@ c6x_preferred_simd_mode (machine_mode mode)
 /* Implement TARGET_SCALAR_MODE_SUPPORTED_P.  */
 
 static bool
-c6x_scalar_mode_supported_p (machine_mode mode)
+c6x_scalar_mode_supported_p (scalar_mode mode)
 {
   if (ALL_FIXED_POINT_MODE_P (mode)
       && GET_MODE_PRECISION (mode) <= 2 * BITS_PER_WORD)

@@ -637,6 +637,7 @@ package Rtsfind is
      RE_Interface_Data,                  -- Ada.Tags
      RE_Interface_Data_Element,          -- Ada.Tags
      RE_Interface_Tag,                   -- Ada.Tags
+     RE_Is_Abstract,                     -- Ada.Tags
      RE_IW_Membership,                   -- Ada.Tags
      RE_Max_Predef_Prims,                -- Ada.Tags
      RE_Needs_Finalization,              -- Ada.Tags
@@ -668,7 +669,6 @@ package Rtsfind is
      RE_Signature,                       -- Ada.Tags
      RE_SSD,                             -- Ada.Tags
      RE_TSD,                             -- Ada.Tags
-     RE_Type_Is_Abstract,                -- Ada.Tags
      RE_Type_Specific_Data,              -- Ada.Tags
      RE_Register_Interface_Offset,       -- Ada.Tags
      RE_Register_Tag,                    -- Ada.Tags
@@ -704,6 +704,7 @@ package Rtsfind is
      RE_Abort_Task,                      -- Ada.Task_Identification
      RE_Current_Task,                    -- Ada.Task_Identification
      RO_AT_Task_Id,                      -- Ada.Task_Identification
+     RE_Tasking_State,                   -- Ada.Task_Identification
 
      RE_Decimal_IO,                      -- Ada.Text_IO
      RE_Fixed_IO,                        -- Ada.Text_IO
@@ -1547,9 +1548,7 @@ package Rtsfind is
      RE_Unspecified_Task_Info,           -- System.Task_Info
 
      RE_Task_Procedure_Access,           -- System.Tasking
-     RE_Task_Entry_Names_Array,          -- System.Tasking
      RO_ST_Number_Of_Entries,            -- System.Tasking
-     RO_ST_Set_Entry_Names,              -- System.Tasking
 
      RO_ST_Task_Id,                      -- System.Tasking
      RO_ST_Null_Task,                    -- System.Tasking
@@ -1683,7 +1682,7 @@ package Rtsfind is
      RE_Dispatching_Domain,              -- Multiprocessors.Dispatching_Domains
 
      RE_Protected_Entry_Body_Array,      -- Tasking.Protected_Objects.Entries
-     RE_Protected_Entry_Names_Array,     -- Tasking.Protected_Objects.Entries
+     RE_Protected_Entry_Queue_Max_Array, -- Tasking.Protected_Objects.Entries
      RE_Protection_Entries,              -- Tasking.Protected_Objects.Entries
      RE_Protection_Entries_Access,       -- Tasking.Protected_Objects.Entries
      RE_Initialize_Protection_Entries,   -- Tasking.Protected_Objects.Entries
@@ -1692,7 +1691,6 @@ package Rtsfind is
      RO_PE_Get_Ceiling,                  -- Tasking.Protected_Objects.Entries
      RO_PE_Number_Of_Entries,            -- Tasking.Protected_Objects.Entries
      RO_PE_Set_Ceiling,                  -- Tasking.Protected_Objects.Entries
-     RO_PE_Set_Entry_Names,              -- Tasking.Protected_Objects.Entries
 
      RE_Communication_Block,             -- Protected_Objects.Operations
      RE_Protected_Entry_Call,            -- Protected_Objects.Operations
@@ -1872,6 +1870,7 @@ package Rtsfind is
      RE_Interface_Data                   => Ada_Tags,
      RE_Interface_Data_Element           => Ada_Tags,
      RE_Interface_Tag                    => Ada_Tags,
+     RE_Is_Abstract                      => Ada_Tags,
      RE_IW_Membership                    => Ada_Tags,
      RE_Max_Predef_Prims                 => Ada_Tags,
      RE_Needs_Finalization               => Ada_Tags,
@@ -1903,7 +1902,6 @@ package Rtsfind is
      RE_Signature                        => Ada_Tags,
      RE_SSD                              => Ada_Tags,
      RE_TSD                              => Ada_Tags,
-     RE_Type_Is_Abstract                 => Ada_Tags,
      RE_Type_Specific_Data               => Ada_Tags,
      RE_Register_Interface_Offset        => Ada_Tags,
      RE_Register_Tag                     => Ada_Tags,
@@ -1939,6 +1937,7 @@ package Rtsfind is
      RE_Abort_Task                       => Ada_Task_Identification,
      RE_Current_Task                     => Ada_Task_Identification,
      RO_AT_Task_Id                       => Ada_Task_Identification,
+     RE_Tasking_State                    => Ada_Task_Identification,
 
      RE_Decimal_IO                       => Ada_Text_IO,
      RE_Fixed_IO                         => Ada_Text_IO,
@@ -2786,9 +2785,7 @@ package Rtsfind is
      RE_Unspecified_Task_Info            => System_Task_Info,
 
      RE_Task_Procedure_Access            => System_Tasking,
-     RE_Task_Entry_Names_Array           => System_Tasking,
      RO_ST_Number_Of_Entries             => System_Tasking,
-     RO_ST_Set_Entry_Names               => System_Tasking,
 
      RO_ST_Task_Id                       => System_Tasking,
      RO_ST_Null_Task                     => System_Tasking,
@@ -2925,7 +2922,7 @@ package Rtsfind is
 
      RE_Protected_Entry_Body_Array       =>
        System_Tasking_Protected_Objects_Entries,
-     RE_Protected_Entry_Names_Array      =>
+     RE_Protected_Entry_Queue_Max_Array  =>
        System_Tasking_Protected_Objects_Entries,
      RE_Protection_Entries               =>
        System_Tasking_Protected_Objects_Entries,
@@ -2942,8 +2939,6 @@ package Rtsfind is
      RO_PE_Number_Of_Entries             =>
        System_Tasking_Protected_Objects_Entries,
      RO_PE_Set_Ceiling                   =>
-       System_Tasking_Protected_Objects_Entries,
-     RO_PE_Set_Entry_Names               =>
        System_Tasking_Protected_Objects_Entries,
 
      RE_Communication_Block              =>
@@ -3227,5 +3222,10 @@ package Rtsfind is
 
    procedure Set_RTU_Loaded (N : Node_Id);
    --  Register the predefined unit N as already loaded
+
+   procedure SPARK_Implicit_Load (E : RE_Id);
+   --  Force loading of the unit containing the entity E; only needed in
+   --  GNATprove mode when processing code that implicitly references a
+   --  given entity.
 
 end Rtsfind;

@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    It contains routines to handle Array Notation expression
    handling routines in the C++ Compiler.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation
 
@@ -1198,6 +1198,10 @@ expand_array_notation_exprs (tree t)
       }
 
     case OMP_PARALLEL:
+      OMP_PARALLEL_BODY (t)
+	= expand_array_notation_exprs (OMP_PARALLEL_BODY (t));
+      return t;
+
     case OMP_TASK:
     case OMP_FOR:
     case OMP_SINGLE:
@@ -1371,8 +1375,8 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
 		    "using array notation with array of unknown bound");
 	  return error_mark_node;
 	}
-      start = cp_fold_convert (ptrdiff_type_node, TYPE_MINVAL (domain));
-      length = size_binop (PLUS_EXPR, TYPE_MAXVAL (domain), size_one_node);
+      start = cp_fold_convert (ptrdiff_type_node, TYPE_MIN_VALUE (domain));
+      length = size_binop (PLUS_EXPR, TYPE_MAX_VALUE (domain), size_one_node);
       length = cp_fold_convert (ptrdiff_type_node, length);
     }
     

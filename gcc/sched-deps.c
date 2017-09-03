@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -2419,7 +2419,7 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx_insn *insn)
     {
       if (GET_CODE (dest) == STRICT_LOW_PART
 	 || GET_CODE (dest) == ZERO_EXTRACT
-	 || df_read_modify_subreg_p (dest))
+	 || read_modify_subreg_p (dest))
         {
 	  /* These both read and modify the result.  We must handle
              them as writes to get proper dependencies for following
@@ -2834,34 +2834,30 @@ static void
 sched_macro_fuse_insns (rtx_insn *insn)
 {
   rtx_insn *prev;
-
+  prev = prev_nonnote_nondebug_insn (insn);
+  if (!prev)
+    return;
+ 
   if (any_condjump_p (insn))
     {
       unsigned int condreg1, condreg2;
       rtx cc_reg_1;
       targetm.fixed_condition_code_regs (&condreg1, &condreg2);
       cc_reg_1 = gen_rtx_REG (CCmode, condreg1);
-      prev = prev_nonnote_nondebug_insn (insn);
-      if (!reg_referenced_p (cc_reg_1, PATTERN (insn))
-          || !prev
-          || !modified_in_p (cc_reg_1, prev))
-        return;
+      if (reg_referenced_p (cc_reg_1, PATTERN (insn))
+	  && modified_in_p (cc_reg_1, prev))
+	{
+	  if (targetm.sched.macro_fusion_pair_p (prev, insn))
+	    SCHED_GROUP_P (insn) = 1;
+	  return;
+	}
     }
-  else
+
+  if (single_set (insn) && single_set (prev))
     {
-      rtx insn_set = single_set (insn);
-
-      prev = prev_nonnote_nondebug_insn (insn);
-      if (!prev
-          || !insn_set
-          || !single_set (prev))
-        return;
-
+      if (targetm.sched.macro_fusion_pair_p (prev, insn))
+	SCHED_GROUP_P (insn) = 1;
     }
-
-  if (targetm.sched.macro_fusion_pair_p (prev, insn))
-    SCHED_GROUP_P (insn) = 1;
-
 }
 
 /* Get the implicit reg pending clobbers for INSN and save them in TEMP.  */

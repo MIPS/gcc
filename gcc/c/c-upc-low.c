@@ -1339,7 +1339,6 @@ upc_create_static_var (tree type, const char *name)
   DECL_EXTERNAL (decl) = 0;
   DECL_IGNORED_P (decl) = 1;
   DECL_CONTEXT (decl) = NULL;
-  pushdecl_top_level (decl);
   return decl;
 }
 
@@ -1375,24 +1374,28 @@ upc_build_init_func (tree stmt_list)
   gcc_assert (decl_ok);
   store_parm_decls ();
   init_func = current_function_decl;
-  DECL_SOURCE_LOCATION (current_function_decl) = loc;
-  TREE_PUBLIC (current_function_decl) = 0;
-  TREE_USED (current_function_decl) = 1;
+  DECL_SOURCE_LOCATION (init_func) = loc;
+  TREE_PUBLIC (init_func) = 0;
+  TREE_USED (init_func) = 1;
+  DECL_PRESERVE_P (init_func) = 1;
+  mark_decl_referenced (init_func);
   fn_body = c_begin_compound_stmt (true);
   append_to_statement_list_force (stmt_list, &fn_body);
   fn_body = c_end_compound_stmt (loc, fn_body, true);
   add_stmt (fn_body);
   finish_function ();
   gcc_assert (DECL_RTL (init_func));
-  mark_decl_referenced (init_func);
-  DECL_PRESERVE_P (init_func) = 1;
   init_func_ptr_type = build_pointer_type (TREE_TYPE (init_func));
   init_func_addr = upc_create_static_var (init_func_ptr_type,
                                           "__upc_init_func_addr");
   DECL_INITIAL (init_func_addr) = build_unary_op (loc, ADDR_EXPR,
                                                   init_func, 0);
+  mark_decl_referenced (init_func_addr);
+  DECL_PRESERVE_P (init_func_addr) = 1;
   set_decl_section_name (init_func_addr,
                          targetm.upc.init_array_section_name ());
+  finish_decl (init_func_addr, loc, DECL_INITIAL (init_func_addr),
+               NULL, NULL);
 }
 
 /* If the accumulated UPC initialization statement list is

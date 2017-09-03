@@ -1,5 +1,5 @@
 /* Output dbx-format symbol table information from GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -332,8 +332,9 @@ static void debug_free_queue (void);
 /* The debug hooks structure.  */
 #if defined (DBX_DEBUGGING_INFO)
 
-static void dbxout_source_line (unsigned int, const char *, int, bool);
-static void dbxout_begin_prologue (unsigned int, const char *);
+static void dbxout_source_line (unsigned int, unsigned int, const char *,
+				int, bool);
+static void dbxout_begin_prologue (unsigned int, unsigned int, const char *);
 static void dbxout_source_file (const char *);
 static void dbxout_function_end (tree);
 static void dbxout_begin_function (tree);
@@ -370,7 +371,9 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_early_global_decl,		 /* early_global_decl */
   dbxout_late_global_decl,		 /* late_global_decl */
   dbxout_type_decl,			 /* type_decl */
-  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+  debug_nothing_tree_tree_tree_bool_bool,/* imported_module_or_decl */
+  debug_false_tree_charstarstar_uhwistar,/* die_ref_for_decl */
+  debug_nothing_tree_charstar_uhwi,      /* register_external_die */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx_code_label,	         /* label */
@@ -410,7 +413,9 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   dbxout_early_global_decl,		 /* early_global_decl */
   dbxout_late_global_decl,		 /* late_global_decl */
   dbxout_type_decl,			 /* type_decl */
-  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+  debug_nothing_tree_tree_tree_bool_bool,/* imported_module_or_decl */
+  debug_false_tree_charstarstar_uhwistar,/* die_ref_for_decl */
+  debug_nothing_tree_charstar_uhwi,      /* register_external_die */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx_code_label,	         /* label */
@@ -915,7 +920,7 @@ dbxout_function_end (tree decl ATTRIBUTE_UNUSED)
 
   /* By convention, GCC will mark the end of a function with an N_FUN
      symbol and an empty string.  */
-  if (flag_reorder_blocks_and_partition)
+  if (crtl->has_bb_partition)
     {
       dbxout_begin_empty_stabs (N_FUN);
       dbxout_stab_value_label_diff (crtl->subsections.hot_section_end_label,
@@ -951,8 +956,6 @@ get_lang_number (void)
     return N_SO_FORTRAN;
   else if (lang_GNU_Fortran ())
     return N_SO_FORTRAN90; /* CHECKME */
-  else if (strcmp (language_string, "GNU Pascal") == 0)
-    return N_SO_PASCAL;
   else if (strcmp (language_string, "GNU Objective-C") == 0)
     return N_SO_OBJC;
   else if (strcmp (language_string, "GNU Objective-C++") == 0)
@@ -1241,7 +1244,9 @@ dbxout_source_file (const char *filename)
    function scope  */
 
 static void
-dbxout_begin_prologue (unsigned int lineno, const char *filename)
+dbxout_begin_prologue (unsigned int lineno,
+		       unsigned int column ATTRIBUTE_UNUSED,
+		       const char *filename)
 {
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
@@ -1252,7 +1257,7 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
   /* pre-increment the scope counter */
   scope_labelno++;
 
-  dbxout_source_line (lineno, filename, 0, true);
+  dbxout_source_line (lineno, 0, filename, 0, true);
   /* Output function begin block at function scope, referenced
      by dbxout_block, dbxout_source_line and dbxout_function_end.  */
   emit_pending_bincls_if_required ();
@@ -1263,8 +1268,8 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
    number LINENO.  */
 
 static void
-dbxout_source_line (unsigned int lineno, const char *filename,
-                    int discriminator ATTRIBUTE_UNUSED,
+dbxout_source_line (unsigned int lineno, unsigned int column ATTRIBUTE_UNUSED,
+		    const char *filename, int discriminator ATTRIBUTE_UNUSED,
                     bool is_stmt ATTRIBUTE_UNUSED)
 {
   dbxout_source_file (filename);
@@ -1479,6 +1484,9 @@ dbxout_type_fields (tree type)
 
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
+	  || TREE_CODE (tem) == TEMPLATE_DECL
+	  /* Member functions emitted after fields.  */
+	  || TREE_CODE (tem) == FUNCTION_DECL
 	  /* Omit here the nameless fields that are used to skip bits.  */
 	  || DECL_IGNORED_P (tem)
 	  /* Omit fields whose position or size are variable or too large to
@@ -1584,54 +1592,37 @@ dbxout_type_method_1 (tree decl)
     }
 }
 
-/* Subroutine of `dbxout_type'.  Output debug info about the methods defined
-   in TYPE.  */
+/* Subroutine of `dbxout_type'.  Output debug info about the member
+   functions defined in TYPE.  */
 
 static void
 dbxout_type_methods (tree type)
 {
-  /* C++: put out the method names and their parameter lists */
-  tree methods = TYPE_METHODS (type);
-  tree fndecl;
-  tree last;
-
-  if (methods == NULL_TREE)
-    return;
-
-  if (TREE_CODE (methods) != TREE_VEC)
-    fndecl = methods;
-  else if (TREE_VEC_ELT (methods, 0) != NULL_TREE)
-    fndecl = TREE_VEC_ELT (methods, 0);
-  else
-    fndecl = TREE_VEC_ELT (methods, 1);
-
-  while (fndecl)
+  for (tree fndecl = TYPE_FIELDS (type); fndecl;)
     {
       int need_prefix = 1;
 
       /* Group together all the methods for the same operation.
 	 These differ in the types of the arguments.  */
-      for (last = NULL_TREE;
+      for (tree last = NULL_TREE;
 	   fndecl && (last == NULL_TREE || DECL_NAME (fndecl) == DECL_NAME (last));
 	   fndecl = DECL_CHAIN (fndecl))
 	/* Output the name of the field (after overloading), as
 	   well as the name of the field before overloading, along
 	   with its parameter list */
 	{
-	  /* Skip methods that aren't FUNCTION_DECLs.  (In C++, these
-	     include TEMPLATE_DECLs.)  The debugger doesn't know what
-	     to do with such entities anyhow.  */
+	  /* Skip non-functions.  */
 	  if (TREE_CODE (fndecl) != FUNCTION_DECL)
 	    continue;
-
-	  CONTIN;
-
-	  last = fndecl;
 
 	  /* Also ignore abstract methods; those are only interesting to
 	     the DWARF backends.  */
 	  if (DECL_IGNORED_P (fndecl) || DECL_ABSTRACT_P (fndecl))
 	    continue;
+
+	  CONTIN;
+
+	  last = fndecl;
 
 	  /* Redundantly output the plain name, since that's what gdb
 	     expects.  */
@@ -2207,10 +2198,8 @@ dbxout_type (tree type, int full)
 
       /* Write out the field declarations.  */
       dbxout_type_fields (type);
-      if (use_gnu_debug_info_extensions && TYPE_METHODS (type) != NULL_TREE)
-	{
-	  dbxout_type_methods (type);
-	}
+      if (use_gnu_debug_info_extensions)
+	dbxout_type_methods (type);
 
       stabstr_C (';');
 

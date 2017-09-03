@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -68,6 +68,7 @@ DEFTIMEVAR (TV_PCH_CPP_RESTORE       , "PCH preprocessor state restore")
 
 DEFTIMEVAR (TV_CGRAPH                , "callgraph construction")
 DEFTIMEVAR (TV_CGRAPHOPT             , "callgraph optimization")
+DEFTIMEVAR (TV_IPA_FNSUMMARY         , "ipa function summary")
 DEFTIMEVAR (TV_IPA_UNREACHABLE       , "ipa dead code removal")
 DEFTIMEVAR (TV_IPA_INHERITANCE       , "ipa inheritance graph")
 DEFTIMEVAR (TV_IPA_VIRTUAL_CALL      , "ipa virtual call target")
@@ -137,6 +138,7 @@ DEFTIMEVAR (TV_PARSE_FUNC            , "parser function body")
 DEFTIMEVAR (TV_PARSE_INLINE          , "parser inl. func. body")
 DEFTIMEVAR (TV_PARSE_INMETH          , "parser inl. meth. body")
 DEFTIMEVAR (TV_TEMPLATE_INST         , "template instantiation")
+DEFTIMEVAR (TV_CONSTEXPR	     , "constant expression evaluation")
 DEFTIMEVAR (TV_CONSTRAINT_SAT        , "constraint satisfaction")
 DEFTIMEVAR (TV_CONSTRAINT_SUB        , "constraint subsumption")
 DEFTIMEVAR (TV_FLATTEN_INLINING      , "flatten inlining")
@@ -207,6 +209,7 @@ DEFTIMEVAR (TV_TREE_COPY_RENAME	     , "tree rename SSA copies")
 DEFTIMEVAR (TV_TREE_SSA_VERIFY       , "tree SSA verifier")
 DEFTIMEVAR (TV_TREE_STMT_VERIFY      , "tree STMT verifier")
 DEFTIMEVAR (TV_TREE_SWITCH_CONVERSION, "tree switch conversion")
+DEFTIMEVAR (TV_TREE_SWITCH_LOWERING,   "tree switch lowering")
 DEFTIMEVAR (TV_TRANS_MEM             , "transactional memory")
 DEFTIMEVAR (TV_TREE_STRLEN           , "tree strlen optimization")
 DEFTIMEVAR (TV_CGRAPH_VERIFY         , "callgraph verifier")

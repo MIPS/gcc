@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -177,7 +177,7 @@ package body GNAT.Command_Line is
    --  these.
 
    procedure Sort_Sections
-     (Line     : GNAT.OS_Lib.Argument_List_Access;
+     (Line     : not null GNAT.OS_Lib.Argument_List_Access;
       Sections : GNAT.OS_Lib.Argument_List_Access;
       Params   : GNAT.OS_Lib.Argument_List_Access);
    --  Reorder the command line switches so that the switches belonging to a
@@ -483,18 +483,22 @@ package body GNAT.Command_Line is
       end if;
 
       case Switch (Switch'Last) is
-         when ':'    =>
+         when ':' =>
             Parameter_Type := Parameter_With_Optional_Space;
             Switch_Last    := Switch'Last - 1;
-         when '='    =>
+
+         when '=' =>
             Parameter_Type := Parameter_With_Space_Or_Equal;
             Switch_Last    := Switch'Last - 1;
-         when '!'    =>
+
+         when '!' =>
             Parameter_Type := Parameter_No_Space;
             Switch_Last    := Switch'Last - 1;
-         when '?'    =>
+
+         when '?' =>
             Parameter_Type := Parameter_Optional;
             Switch_Last    := Switch'Last - 1;
+
          when others =>
             Parameter_Type := Parameter_None;
             Switch_Last    := Switch'Last;
@@ -1998,12 +2002,9 @@ package body GNAT.Command_Line is
                   Found_In_Config := True;
                   return False;
 
-               when Parameter_No_Space =>
-                  Callback (Switch, "", Parameter, Index);
-                  Found_In_Config := True;
-                  return False;
-
-               when Parameter_Optional =>
+               when Parameter_No_Space
+                  | Parameter_Optional
+               =>
                   Callback (Switch, "", Parameter, Index);
                   Found_In_Config := True;
                   return False;
@@ -2068,7 +2069,9 @@ package body GNAT.Command_Line is
                   Found_In_Config := True;
                   return False;
 
-               when Parameter_No_Space | Parameter_Optional =>
+               when Parameter_No_Space
+                  | Parameter_Optional
+               =>
                   Callback (Switch (Switch'First .. Last),
                             "", Switch (Param .. Switch'Last), Index);
                   Found_In_Config := True;
@@ -2789,7 +2792,7 @@ package body GNAT.Command_Line is
    -------------------
 
    procedure Sort_Sections
-     (Line     : GNAT.OS_Lib.Argument_List_Access;
+     (Line     : not null GNAT.OS_Lib.Argument_List_Access;
       Sections : GNAT.OS_Lib.Argument_List_Access;
       Params   : GNAT.OS_Lib.Argument_List_Access)
    is
@@ -2802,10 +2805,6 @@ package body GNAT.Command_Line is
       Index         : Natural;
 
    begin
-      if Line = null then
-         return;
-      end if;
-
       --  First construct a list of all sections
 
       for E in Line'Range loop
@@ -3407,7 +3406,6 @@ package body GNAT.Command_Line is
                   Config.Switches (Index).String_Output.all :=
                     new String'(Parameter);
                   return;
-
             end case;
          end if;
 

@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1050,30 +1050,28 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
      register class.  But if it is inside a STRICT_LOW_PART, we have
      no choice, so we hope we do get the right register class there.  */
 
+  scalar_int_mode inner_mode;
   if (in != 0 && GET_CODE (in) == SUBREG
       && (subreg_lowpart_p (in) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
       && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (in)), inmode, rclass)
 #endif
-      && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (in))]
+      && contains_allocatable_reg_of_mode[rclass][GET_MODE (SUBREG_REG (in))]
       && (CONSTANT_P (SUBREG_REG (in))
 	  || GET_CODE (SUBREG_REG (in)) == PLUS
 	  || strict_low
 	  || (((REG_P (SUBREG_REG (in))
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (in)))
-	      && ((GET_MODE_PRECISION (inmode)
-		   > GET_MODE_PRECISION (GET_MODE (SUBREG_REG (in))))
+	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 		  || (GET_MODE_SIZE (inmode) <= UNITS_PER_WORD
-		      && (GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))
-			  <= UNITS_PER_WORD)
-		      && (GET_MODE_PRECISION (inmode)
-			  > GET_MODE_PRECISION (GET_MODE (SUBREG_REG (in))))
-		      && INTEGRAL_MODE_P (GET_MODE (SUBREG_REG (in)))
-		      && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (in))) != UNKNOWN)
+		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
+						 &inner_mode)
+		      && GET_MODE_SIZE (inner_mode) <= UNITS_PER_WORD
+		      && paradoxical_subreg_p (inmode, inner_mode)
+		      && LOAD_EXTEND_OP (inner_mode) != UNKNOWN)
 		  || (WORD_REGISTER_OPERATIONS
-		      && (GET_MODE_PRECISION (inmode)
-			  < GET_MODE_PRECISION (GET_MODE (SUBREG_REG (in))))
+		      && partial_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 		      && ((GET_MODE_SIZE (inmode) - 1) / UNITS_PER_WORD ==
 			  ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))) - 1)
 			   / UNITS_PER_WORD)))))
@@ -1164,17 +1162,15 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 #ifdef CANNOT_CHANGE_MODE_CLASS
       && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (out)), outmode, rclass)
 #endif
-      && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (out))]
+      && contains_allocatable_reg_of_mode[rclass][GET_MODE (SUBREG_REG (out))]
       && (CONSTANT_P (SUBREG_REG (out))
 	  || strict_low
 	  || (((REG_P (SUBREG_REG (out))
 		&& REGNO (SUBREG_REG (out)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (out)))
-	      && ((GET_MODE_PRECISION (outmode)
-		   > GET_MODE_PRECISION (GET_MODE (SUBREG_REG (out))))
+	      && (paradoxical_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
 		  || (WORD_REGISTER_OPERATIONS
-		      && (GET_MODE_PRECISION (outmode)
-			  < GET_MODE_PRECISION (GET_MODE (SUBREG_REG (out))))
+		      && partial_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
 		      && ((GET_MODE_SIZE (outmode) - 1) / UNITS_PER_WORD ==
 			  ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))) - 1)
 			   / UNITS_PER_WORD)))))
@@ -1299,7 +1295,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (this_insn_is_asm)
     {
       machine_mode mode;
-      if (GET_MODE_SIZE (inmode) > GET_MODE_SIZE (outmode))
+      if (paradoxical_subreg_p (inmode, outmode))
 	mode = inmode;
       else
 	mode = outmode;
@@ -1419,10 +1415,10 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       /* The modes can be different.  If they are, we want to reload in
 	 the larger mode, so that the value is valid for both modes.  */
       if (inmode != VOIDmode
-	  && GET_MODE_SIZE (inmode) > GET_MODE_SIZE (rld[i].inmode))
+	  && partial_subreg_p (rld[i].inmode, inmode))
 	rld[i].inmode = inmode;
       if (outmode != VOIDmode
-	  && GET_MODE_SIZE (outmode) > GET_MODE_SIZE (rld[i].outmode))
+	  && partial_subreg_p (rld[i].outmode, outmode))
 	rld[i].outmode = outmode;
       if (in != 0)
 	{
@@ -1464,26 +1460,25 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	     overwrite the operands only when the new mode is larger.
 	     See also PR33613.  */
 	  if (!rld[i].in
-	      || GET_MODE_SIZE (GET_MODE (in))
-	           > GET_MODE_SIZE (GET_MODE (rld[i].in)))
+	      || partial_subreg_p (GET_MODE (rld[i].in), GET_MODE (in)))
 	    rld[i].in = in;
 	  if (!rld[i].in_reg
 	      || (in_reg
-		  && GET_MODE_SIZE (GET_MODE (in_reg))
-	             > GET_MODE_SIZE (GET_MODE (rld[i].in_reg))))
+		  && partial_subreg_p (GET_MODE (rld[i].in_reg),
+				       GET_MODE (in_reg))))
 	    rld[i].in_reg = in_reg;
 	}
       if (out != 0)
 	{
 	  if (!rld[i].out
 	      || (out
-		  && GET_MODE_SIZE (GET_MODE (out))
-	             > GET_MODE_SIZE (GET_MODE (rld[i].out))))
+		  && partial_subreg_p (GET_MODE (rld[i].out),
+				       GET_MODE (out))))
 	    rld[i].out = out;
 	  if (outloc
 	      && (!rld[i].out_reg
-		  || GET_MODE_SIZE (GET_MODE (*outloc))
-		     > GET_MODE_SIZE (GET_MODE (rld[i].out_reg))))
+		  || partial_subreg_p (GET_MODE (rld[i].out_reg),
+				       GET_MODE (*outloc))))
 	    rld[i].out_reg = *outloc;
 	}
       if (reg_class_subset_p (rclass, rld[i].rclass))
@@ -1589,7 +1584,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       int regno;
       machine_mode rel_mode = inmode;
 
-      if (out && GET_MODE_SIZE (outmode) > GET_MODE_SIZE (inmode))
+      if (out && partial_subreg_p (rel_mode, outmode))
 	rel_mode = outmode;
 
       for (note = REG_NOTES (this_insn); note; note = XEXP (note, 1))
@@ -2264,14 +2259,18 @@ operands_match_p (rtx x, rtx y)
 	 multiple hard register group of scalar integer registers, so that
 	 for example (reg:DI 0) and (reg:SI 1) will be considered the same
 	 register.  */
-      if (REG_WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
-	  && SCALAR_INT_MODE_P (GET_MODE (x))
+      scalar_int_mode xmode;
+      if (REG_WORDS_BIG_ENDIAN
+	  && is_a <scalar_int_mode> (GET_MODE (x), &xmode)
+	  && GET_MODE_SIZE (xmode) > UNITS_PER_WORD
 	  && i < FIRST_PSEUDO_REGISTER)
-	i += hard_regno_nregs[i][GET_MODE (x)] - 1;
-      if (REG_WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (y)) > UNITS_PER_WORD
-	  && SCALAR_INT_MODE_P (GET_MODE (y))
+	i += hard_regno_nregs[i][xmode] - 1;
+      scalar_int_mode ymode;
+      if (REG_WORDS_BIG_ENDIAN
+	  && is_a <scalar_int_mode> (GET_MODE (y), &ymode)
+	  && GET_MODE_SIZE (ymode) > UNITS_PER_WORD
 	  && j < FIRST_PSEUDO_REGISTER)
-	j += hard_regno_nregs[j][GET_MODE (y)] - 1;
+	j += hard_regno_nregs[j][ymode] - 1;
 
       return i == j;
     }
@@ -3105,6 +3104,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		  operand = SUBREG_REG (operand);
 		  /* Force reload if this is a constant or PLUS or if there may
 		     be a problem accessing OPERAND in the outer mode.  */
+		  scalar_int_mode inner_mode;
 		  if (CONSTANT_P (operand)
 		      || GET_CODE (operand) == PLUS
 		      /* We must force a reload of paradoxical SUBREGs
@@ -3137,18 +3137,18 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			  && (WORD_REGISTER_OPERATIONS
 			      || ((GET_MODE_BITSIZE (GET_MODE (operand))
 				   < BIGGEST_ALIGNMENT)
-				 && (GET_MODE_SIZE (operand_mode[i])
-				     > GET_MODE_SIZE (GET_MODE (operand))))
+				  && paradoxical_subreg_p (operand_mode[i],
+							   GET_MODE (operand)))
 			      || BYTES_BIG_ENDIAN
 			      || ((GET_MODE_SIZE (operand_mode[i])
 				   <= UNITS_PER_WORD)
-				  && (GET_MODE_SIZE (GET_MODE (operand))
+				  && (is_a <scalar_int_mode>
+				      (GET_MODE (operand), &inner_mode))
+				  && (GET_MODE_SIZE (inner_mode)
 				      <= UNITS_PER_WORD)
-				  && (GET_MODE_SIZE (operand_mode[i])
-				      > GET_MODE_SIZE (GET_MODE (operand)))
-				  && INTEGRAL_MODE_P (GET_MODE (operand))
-				  && LOAD_EXTEND_OP (GET_MODE (operand))
-				     != UNKNOWN)))
+				  && paradoxical_subreg_p (operand_mode[i],
+							   inner_mode)
+				  && LOAD_EXTEND_OP (inner_mode) != UNKNOWN)))
 		      )
 		    force_reload = 1;
 		}
@@ -3997,14 +3997,14 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     base_reg_class (VOIDmode, as, MEM, SCRATCH),
 			     address_mode,
-			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
+			     VOIDmode, 0, 0, i, RELOAD_OTHER);
 	    rld[operand_reloadnum[i]].inc
 	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
 
 	    /* If this operand is an output, we will have made any
 	       reloads for its address as RELOAD_FOR_OUTPUT_ADDRESS, but
 	       now we are treating part of the operand as an input, so
-	       we must change these to RELOAD_FOR_INPUT_ADDRESS.  */
+	       we must change these to RELOAD_FOR_OTHER_ADDRESS.  */
 
 	    if (modified[i] == RELOAD_WRITE)
 	      {
@@ -4013,10 +4013,10 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		    if (rld[j].opnum == i)
 		      {
 			if (rld[j].when_needed == RELOAD_FOR_OUTPUT_ADDRESS)
-			  rld[j].when_needed = RELOAD_FOR_INPUT_ADDRESS;
+			  rld[j].when_needed = RELOAD_FOR_OTHER_ADDRESS;
 			else if (rld[j].when_needed
 				 == RELOAD_FOR_OUTADDR_ADDRESS)
-			  rld[j].when_needed = RELOAD_FOR_INPADDR_ADDRESS;
+			  rld[j].when_needed = RELOAD_FOR_OTHER_ADDRESS;
 		      }
 		  }
 	      }
@@ -4551,11 +4551,10 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
   /* Compute reload_mode and reload_nregs.  */
   for (i = 0; i < n_reloads; i++)
     {
-      rld[i].mode
-	= (rld[i].inmode == VOIDmode
-	   || (GET_MODE_SIZE (rld[i].outmode)
-	       > GET_MODE_SIZE (rld[i].inmode)))
-	  ? rld[i].outmode : rld[i].inmode;
+      rld[i].mode = rld[i].inmode;
+      if (rld[i].mode == VOIDmode
+	  || partial_subreg_p (rld[i].mode, rld[i].outmode))
+	rld[i].mode = rld[i].outmode;
 
       rld[i].nregs = ira_reg_class_max_nregs [rld[i].rclass][rld[i].mode];
     }
@@ -6159,7 +6158,7 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
     return NULL;
 
   if (WORD_REGISTER_OPERATIONS
-      && GET_MODE_SIZE (outer_mode) < GET_MODE_SIZE (inner_mode)
+      && partial_subreg_p (outer_mode, inner_mode)
       && ((GET_MODE_SIZE (outer_mode) - 1) / UNITS_PER_WORD
           == (GET_MODE_SIZE (inner_mode) - 1) / UNITS_PER_WORD))
     return NULL;

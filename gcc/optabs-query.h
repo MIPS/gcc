@@ -1,5 +1,5 @@
 /* IR-agnostic target query functions relating to optabs
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -141,16 +141,17 @@ struct extraction_insn
   enum insn_code icode;
 
   /* The mode that the structure operand should have.  This is byte_mode
-     when using the legacy insv, extv and extzv patterns to access memory.  */
-  machine_mode struct_mode;
+     when using the legacy insv, extv and extzv patterns to access memory.
+     If no mode is given, the structure is a BLKmode memory.  */
+  opt_scalar_int_mode struct_mode;
 
   /* The mode of the field to be inserted or extracted, and by extension
      the mode of the insertion or extraction itself.  */
-  machine_mode field_mode;
+  scalar_int_mode field_mode;
 
   /* The mode of the field's bit position.  This is only important
      when the position is variable rather than constant.  */
-  machine_mode pos_mode;
+  scalar_int_mode pos_mode;
 };
 
 bool get_best_reg_extraction_insn (extraction_insn *,
@@ -176,6 +177,7 @@ int can_mult_highpart_p (machine_mode, bool);
 bool can_vec_mask_load_store_p (machine_mode, machine_mode, bool);
 bool can_compare_and_swap_p (machine_mode, bool);
 bool can_atomic_exchange_p (machine_mode, bool);
+bool can_atomic_load_p (machine_mode);
 bool lshift_cheap_p (bool);
 
 #endif

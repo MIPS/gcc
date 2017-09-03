@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for CR16.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by KPIT Cummins Infosystems Limited.
 
    This file is part of GCC.
@@ -114,7 +114,7 @@ while (0)
      && ((ALIGN) < BITS_PER_WORD))               \
      ? (BITS_PER_WORD) : (ALIGN))
 
-/* In CR16 strings are word-aligne; strcpy from constants will be faster.  */
+/* In CR16 strings are word-aligned; strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(CONSTANT, ALIGN)                            \
   (((TREE_CODE (CONSTANT) == STRING_CST) && ((ALIGN) < BITS_PER_WORD)) \
      ? (BITS_PER_WORD) : (ALIGN))
@@ -197,9 +197,7 @@ while (0)
 
 /* Returns 1 if the register is longer than word size, 0 otherwise.  */
 #define LONG_REG_P(REGNO)                                                    \
-  (HARD_REGNO_NREGS (REGNO,                                                  \
-		     GET_MODE_WIDER_MODE (smallest_mode_for_size	     \
-					 (BITS_PER_WORD, MODE_INT))) == 1)
+  (HARD_REGNO_NREGS (REGNO, GET_MODE_WIDER_MODE (word_mode).require ()) == 1)
 
 #define HARD_REGNO_NREGS(REGNO, MODE)                                         \
  ((REGNO >= CR16_FIRST_DWORD_REGISTER)                                        \

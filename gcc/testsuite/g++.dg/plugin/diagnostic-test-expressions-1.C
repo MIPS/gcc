@@ -101,6 +101,72 @@ int test_postfix_incdec (int i)
 
 /* Unary operators.  ****************************************************/
 
+int test_sizeof (int i)
+{
+  __emit_expression_range (0, sizeof(int) + i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, sizeof(int) + i);
+                               ~~~~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, i + sizeof(int)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, i + sizeof(int));
+                               ~~^~~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, sizeof i + i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, sizeof i + i);
+                               ~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, i + sizeof i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, i + sizeof i);
+                               ~~^~~~~~~~~~
+   { dg-end-multiline-output "" } */
+}
+
+int test_alignof (int i)
+{
+  __emit_expression_range (0, alignof(int) + i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, alignof(int) + i);
+                               ~~~~~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, i + alignof(int)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, i + alignof(int));
+                               ~~^~~~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, __alignof__(int) + i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, __alignof__(int) + i);
+                               ~~~~~~~~~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, i + __alignof__(int)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, i + __alignof__(int));
+                               ~~^~~~~~~~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, __alignof__ i + i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, __alignof__ i + i);
+                               ~~~~~~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, i + __alignof__ i); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, i + __alignof__ i);
+                               ~~^~~~~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+}
+
 int test_prefix_incdec (int i)
 {
   __emit_expression_range (0, ++i ); /* { dg-warning "range" } */
@@ -781,4 +847,114 @@ tests::test_method_calls ()
    __emit_expression_range (0, this->some_method () );
                                ~~~~~~~~~~~~~~~~~~^~
    { dg-end-multiline-output "" } */
+}
+
+namespace std
+{
+  class type_info { public: int foo; };
+}
+
+void test_typeid (int i)
+{
+  __emit_expression_range (0, &typeid(i)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, &typeid(i));
+                               ^~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, &typeid(int)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, &typeid(int));
+                               ^~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, &typeid(i * 2)); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, &typeid(i * 2));
+                               ^~~~~~~~~~~~~~
+   { dg-end-multiline-output "" } */
+
+  __emit_expression_range (0, typeid(int).foo); /* { dg-warning "range" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, typeid(int).foo);
+                               ~~~~~~~~~~~~^~~
+   { dg-end-multiline-output "" } */
+}
+
+/* Various tests of locations involving macros.  */
+
+void test_within_macro_1 (int lhs, int rhs)
+{
+#define MACRO_1(EXPR) EXPR
+
+  __emit_expression_range (0, MACRO_1 (lhs == rhs));
+
+/* { dg-warning "range" "" { target *-*-* } .-2 } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, MACRO_1 (lhs == rhs));
+                                        ~~~~^~~~~~
+   { dg-end-multiline-output "" } */
+/* { dg-begin-multiline-output "" }
+ #define MACRO_1(EXPR) EXPR
+                       ^~~~
+   { dg-end-multiline-output "" } */
+
+#undef MACRO_1
+}
+
+void test_within_macro_2 (int lhs, int rhs)
+{
+#define MACRO_2(EXPR) EXPR
+
+  __emit_expression_range (0, MACRO_2 (MACRO_2 (lhs == rhs)));
+
+/* { dg-warning "range" "" { target *-*-* } .-2 } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, MACRO_2 (MACRO_2 (lhs == rhs)));
+                                                 ~~~~^~~~~~
+   { dg-end-multiline-output "" } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, MACRO_2 (MACRO_2 (lhs == rhs)));
+                                        ^~~~~~~
+   { dg-end-multiline-output "" } */
+/* { dg-begin-multiline-output "" }
+ #define MACRO_2(EXPR) EXPR
+                       ^~~~
+   { dg-end-multiline-output "" } */
+
+#undef MACRO_2
+}
+
+void test_within_macro_3 (int lhs, int rhs)
+{
+#define MACRO_3(EXPR) EXPR
+
+  __emit_expression_range (0, MACRO_3 (lhs) == MACRO_3 (rhs));
+
+/* { dg-warning "range" "" { target *-*-* } .-2 } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, MACRO_3 (lhs) == MACRO_3 (rhs));
+                                             ^
+   { dg-end-multiline-output "" } */
+
+#undef MACRO_3
+}
+
+void test_within_macro_4 (int lhs, int rhs)
+{
+#define MACRO_4(EXPR) EXPR
+
+  __emit_expression_range (0, MACRO_4 (MACRO_4 (lhs) == MACRO_4 (rhs)));
+
+/* { dg-warning "range" "" { target *-*-* } .-2 } */
+/* { dg-begin-multiline-output "" }
+   __emit_expression_range (0, MACRO_4 (MACRO_4 (lhs) == MACRO_4 (rhs)));
+                                                      ^
+   { dg-end-multiline-output "" } */
+/* { dg-begin-multiline-output "" }
+ #define MACRO_4(EXPR) EXPR
+                       ^~~~
+   { dg-end-multiline-output "" } */
+
+#undef MACRO_4
 }

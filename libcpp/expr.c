@@ -1,5 +1,5 @@
 /* Parse C expressions for cpplib.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -1031,9 +1031,11 @@ parse_defined (cpp_reader *pfile)
 
   if (node)
     {
-      if (pfile->context != initial_context && CPP_PEDANTIC (pfile))
-	cpp_error (pfile, CPP_DL_WARNING,
-		   "this use of \"defined\" may not be portable");
+      if ((pfile->context != initial_context
+	   || initial_context != &pfile->base_context)
+	  && CPP_OPTION (pfile, warn_expansion_to_defined))
+        cpp_pedwarning (pfile, CPP_W_EXPANSION_TO_DEFINED,
+		        "this use of \"defined\" may not be portable");
 
       _cpp_mark_macro_used (node);
       if (!(node->flags & NODE_USED))

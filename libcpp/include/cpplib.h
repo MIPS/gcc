@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2016 Free Software Foundation, Inc.
+   Copyright (C) 1995-2017 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -415,6 +415,10 @@ struct cpp_options
   /* Nonzero means warn if undefined identifiers are evaluated in an #if.  */
   unsigned char warn_undef;
 
+  /* Nonzero means warn if "defined" is encountered in a place other than
+     an #if.  */
+  unsigned char warn_expansion_to_defined;
+
   /* Nonzero means warn of unused macros from the main file.  */
   unsigned char warn_unused_macros;
 
@@ -605,6 +609,15 @@ struct cpp_callbacks
 
   /* Callback for providing suggestions for misspelled directives.  */
   const char *(*get_suggestion) (cpp_reader *, const char *, const char *const *);
+
+  /* Callback for when a comment is encountered, giving the location
+     of the opening slash, a pointer to the content (which is not
+     necessarily 0-terminated), and the length of the content.
+     The content contains the opening slash-star (or slash-slash),
+     and for C-style comments contains the closing star-slash.  For
+     C++-style comments it does not include the terminating newline.  */
+  void (*comment) (cpp_reader *, source_location, const unsigned char *,
+		   size_t);
 };
 
 #ifdef VMS
@@ -1040,7 +1053,8 @@ enum {
   CPP_W_DATE_TIME,
   CPP_W_PEDANTIC,
   CPP_W_C90_C99_COMPAT,
-  CPP_W_CXX11_COMPAT
+  CPP_W_CXX11_COMPAT,
+  CPP_W_EXPANSION_TO_DEFINED
 };
 
 /* Output a diagnostic of some kind.  */

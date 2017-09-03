@@ -1,5 +1,5 @@
 /* Pipeline hazard description translator.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
 
    Written by Vladimir Makarov <vmakarov@redhat.com>
 
@@ -248,7 +248,7 @@ static int ndfa_flag;
 
 /* When making an NDFA, produce additional transitions that collapse
    NDFA state into a deterministic one suitable for querying CPU units.
-   Provide avance-state transitions only for deterministic states.  */
+   Provide advance-state transitions only for deterministic states.  */
 static int collapse_flag;
 
 /* Do not make minimization of DFA (`-no-minimization').  */

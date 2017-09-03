@@ -1,5 +1,5 @@
 ;; Machine description for AppliedMicro xgene1 core.
-;; Copyright (C) 2012-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2017 Free Software Foundation, Inc.
 ;; Contributed by Theobroma Systems Design und Consulting GmbH.
 ;;
 ;; This file is part of GCC.
@@ -527,5 +527,6 @@
 (define_insn_reservation "xgene1_neon_pmull" 5
   (and (eq_attr "tune" "xgene1")
        (eq_attr "type" "neon_mul_d_long,\
-                       "))
+			crypto_pmull,\
+		       "))
   "xgene1_decode2op")

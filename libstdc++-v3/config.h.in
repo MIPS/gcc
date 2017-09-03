@@ -123,6 +123,9 @@
 /* Define if EWOULDBLOCK exists. */
 #undef HAVE_EWOULDBLOCK
 
+/* Define to 1 if GCC 4.6 supported std::exception_ptr for the target */
+#undef HAVE_EXCEPTION_PTR_SINCE_GCC46
+
 /* Define to 1 if you have the <execinfo.h> header file. */
 #undef HAVE_EXECINFO_H
 
@@ -263,6 +266,9 @@
 
 /* Define if futex syscall is available. */
 #undef HAVE_LINUX_FUTEX
+
+/* Define to 1 if you have the <linux/random.h> header file. */
+#undef HAVE_LINUX_RANDOM_H
 
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
@@ -451,7 +457,7 @@
 /* Define if S_IFREG is available in <sys/stat.h>. */
 #undef HAVE_S_IFREG
 
-/* Define if S_IFREG is available in <sys/stat.h>. */
+/* Define if S_ISREG is available in <sys/stat.h>. */
 #undef HAVE_S_ISREG
 
 /* Define to 1 if you have the `tanf' function. */
@@ -697,6 +703,9 @@
 /* Define to 1 if you have the `_tanl' function. */
 #undef HAVE__TANL
 
+/* Define to 1 if you have the `__cxa_thread_atexit' function. */
+#undef HAVE___CXA_THREAD_ATEXIT
+
 /* Define to 1 if you have the `__cxa_thread_atexit_impl' function. */
 #undef HAVE___CXA_THREAD_ATEXIT_IMPL
 
@@ -812,6 +821,9 @@
 
 /* Define to the letter to which size_t is mangled. */
 #undef _GLIBCXX_MANGLE_SIZE_T
+
+/* Define if C99 llrint and llround functions are missing from <math.h>. */
+#undef _GLIBCXX_NO_C99_ROUNDING_FUNCS
 
 /* Define if ptrdiff_t is int. */
 #undef _GLIBCXX_PTRDIFF_T_IS_INT
@@ -977,9 +989,14 @@
 /* Define to 1 if mutex_timedlock is available. */
 #undef _GTHREAD_USE_MUTEX_TIMEDLOCK
 
-/* Define if all C++11 overloads are available in <math.h>.  */
+/* Define if all C++11 floating point overloads are available in <math.h>.  */
 #if __cplusplus >= 201103L
-#undef __CORRECT_ISO_CPP11_MATH_H_PROTO
+#undef __CORRECT_ISO_CPP11_MATH_H_PROTO_FP
+#endif
+
+/* Define if all C++11 integral type overloads are available in <math.h>.  */
+#if __cplusplus >= 201103L
+#undef __CORRECT_ISO_CPP11_MATH_H_PROTO_INT
 #endif
 
 #if defined (HAVE__ACOSF) && ! defined (HAVE_ACOSF)

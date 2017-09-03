@@ -1,6 +1,6 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -384,7 +384,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
       FOR_EACH_VEC_ELT (*pure, ix, fn)
 	if (! DECL_CLONED_FUNCTION_P (fn)
 	    || DECL_COMPLETE_DESTRUCTOR_P (fn))
-	  inform (DECL_SOURCE_LOCATION (fn), "\t%#D", fn);
+	  inform (DECL_SOURCE_LOCATION (fn), "\t%#qD", fn);
 
       /* Now truncate the vector.  This leaves it non-null, so we know
 	 there are pure virtuals, but empty so we don't list them out
@@ -509,6 +509,7 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
 	tree member = TREE_OPERAND (value, 1);
 	if (is_overloaded_fn (member))
 	  member = get_first_fn (member);
+
 	if (DECL_FUNCTION_MEMBER_P (member)
 	    && ! flag_ms_extensions)
 	  emit_diagnostic (diag_kind, loc, 0,
@@ -523,8 +524,14 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
 
     case TEMPLATE_TYPE_PARM:
       if (is_auto (type))
-	emit_diagnostic (diag_kind, loc, 0,
-			 "invalid use of %<auto%>");
+	{
+	  if (CLASS_PLACEHOLDER_TEMPLATE (type))
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of placeholder %qT", type);
+	  else
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of %qT", type);
+	}
       else
 	emit_diagnostic (diag_kind, loc, 0,
 			 "invalid use of template type parameter %qT", type);
@@ -743,6 +750,10 @@ split_nonconstant_init (tree dest, tree init)
       DECL_INITIAL (dest) = init;
       TREE_READONLY (dest) = 0;
     }
+  else if (TREE_CODE (init) == STRING_CST
+	   && array_of_runtime_bound_p (TREE_TYPE (dest)))
+    code = build_vec_init (dest, NULL_TREE, init, /*value-init*/false,
+			   /*from array*/1, tf_warning_or_error);
   else
     code = build2 (INIT_EXPR, TREE_TYPE (dest), dest, init);
 
@@ -810,8 +821,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	  || (DECL_IN_AGGR_P (decl) && !DECL_VAR_DECLARED_INLINE_P (decl)))
 	{
 	  /* Diagnose a non-constant initializer for constexpr.  */
-	  if (processing_template_decl
-	      && !require_potential_constant_expression (value))
+	  if (!require_constant_expression (value))
 	    value = error_mark_node;
 	  else
 	    value = cxx_constant_value (value, decl);
@@ -830,9 +840,8 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
     }
   value = cp_fully_fold (value);
 
-  if (cxx_dialect >= cxx14 && CLASS_TYPE_P (strip_array_types (type)))
-    /* Handle aggregate NSDMI in non-constant initializers, too.  */
-    value = replace_placeholders (value, decl);
+  /* Handle aggregate NSDMI in non-constant initializers, too.  */
+  value = replace_placeholders (value, decl);
 
   /* DECL may change value; purge caches.  */
   clear_cv_and_fold_caches ();
@@ -945,7 +954,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	{
 	  if (complain & tf_warning)
 	    warning_at (loc, OPT_Wnarrowing, "narrowing conversion of %qE "
-			"from %qT to %qT inside { } is ill-formed in C++11",
+			"from %qH to %qI inside { } is ill-formed in C++11",
 			init, ftype, type);
 	  ok = true;
 	}
@@ -956,7 +965,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	      if ((!almost_ok || pedantic)
 		  && pedwarn (loc, OPT_Wnarrowing,
 			      "narrowing conversion of %qE "
-			      "from %qT to %qT inside { }",
+			      "from %qH to %qI inside { }",
 			      init, ftype, type)
 		  && almost_ok)
 		inform (loc, " the expression has a constant value but is not "
@@ -969,7 +978,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	  int savederrorcount = errorcount;
 	  global_dc->pedantic_errors = 1;
 	  pedwarn (loc, OPT_Wnarrowing,
-		   "narrowing conversion of %qE from %qT to %qT "
+		   "narrowing conversion of %qE from %qH to %qI "
 		   "inside { }", init, ftype, type);
 	  if (errorcount == savederrorcount)
 	    ok = true;
@@ -1060,7 +1069,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 		}
 	    }
 
-	  if (type != TREE_TYPE (init))
+	  if (type != TREE_TYPE (init)
+	      && !variably_modified_type_p (type, NULL_TREE))
 	    {
 	      init = copy_node (init);
 	      TREE_TYPE (init) = type;
@@ -1172,7 +1182,7 @@ digest_init_flags (tree type, tree init, int flags, tsubst_flags_t complain)
 
 /* Process the initializer INIT for an NSDMI DECL (a FIELD_DECL).  */
 tree
-digest_nsdmi_init (tree decl, tree init)
+digest_nsdmi_init (tree decl, tree init, tsubst_flags_t complain)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
@@ -1182,8 +1192,8 @@ digest_nsdmi_init (tree decl, tree init)
     flags = LOOKUP_NORMAL;
   if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && CP_AGGREGATE_TYPE_P (type))
-    init = reshape_init (type, init, tf_warning_or_error);
-  init = digest_init_flags (type, init, flags, tf_warning_or_error);
+    init = reshape_init (type, init, complain);
+  init = digest_init_flags (type, init, flags, complain);
   if (TREE_CODE (init) == TARGET_EXPR)
     /* This represents the whole initialization.  */
     TARGET_EXPR_DIRECT_INIT_P (init) = true;
@@ -1417,7 +1427,7 @@ process_init_constructor_record (tree type, tree init,
 	      goto restart;
 	    }
 	  /* C++14 aggregate NSDMI.  */
-	  next = get_nsdmi (field, /*ctor*/false);
+	  next = get_nsdmi (field, /*ctor*/false, complain);
 	}
       else if (type_build_ctor_call (TREE_TYPE (field)))
 	{
@@ -1510,11 +1520,13 @@ process_init_constructor_union (tree type, tree init,
     {
       for (tree field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	{
-	  if (DECL_INITIAL (field))
+	  if (TREE_CODE (field) == FIELD_DECL
+	      && DECL_INITIAL (field) != NULL_TREE)
 	    {
 	      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (init),
 				      field,
-				      get_nsdmi (field, /*in_ctor=*/false));
+				      get_nsdmi (field, /*in_ctor=*/false,
+						 complain));
 	      break;
 	    }
 	}

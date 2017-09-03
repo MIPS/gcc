@@ -1,5 +1,5 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -74,22 +74,22 @@ mode_has_fma (machine_mode mode)
   switch (mode)
     {
 #ifdef HAVE_fmasf4
-    case SFmode:
+    case E_SFmode:
       return !!HAVE_fmasf4;
 #endif
 
 #ifdef HAVE_fmadf4
-    case DFmode:
+    case E_DFmode:
       return !!HAVE_fmadf4;
 #endif
 
 #ifdef HAVE_fmaxf4
-    case XFmode:
+    case E_XFmode:
       return !!HAVE_fmaxf4;
 #endif
 
 #ifdef HAVE_fmatf4
-    case TFmode:
+    case E_TFmode:
       return !!HAVE_fmatf4;
 #endif
 
@@ -246,11 +246,10 @@ builtin_define_float_constants (const char *name_prefix,
     if (type_decimal_dig < type_d_decimal_dig)
       type_decimal_dig++;
   }
-  /* Arbitrarily, define __DECIMAL_DIG__ when defining macros for long
-     double, although it may be greater than the value for long
-     double.  */
+  /* Define __DECIMAL_DIG__ to the value for long double to be
+     compatible with C99 and C11; see DR#501 and N2108.  */
   if (type == long_double_type_node)
-    builtin_define_with_int_value ("__DECIMAL_DIG__", decimal_dig);
+    builtin_define_with_int_value ("__DECIMAL_DIG__", type_decimal_dig);
   sprintf (name, "__%s_DECIMAL_DIG__", name_prefix);
   builtin_define_with_int_value (name, type_decimal_dig);
 
@@ -729,6 +728,31 @@ cpp_atomic_builtins (cpp_reader *pfile)
 			(have_swap[psize]? 2 : 1));
 }
 
+/* Return TRUE if the implicit excess precision in which the back-end will
+   compute floating-point calculations is not more than the explicit
+   excess precision that the front-end will apply under
+   -fexcess-precision=[standard|fast].
+
+   More intuitively, return TRUE if the excess precision proposed by the
+   front-end is the excess precision that will actually be used.  */
+
+static bool
+c_cpp_flt_eval_method_iec_559 (void)
+{
+  enum excess_precision_type front_end_ept
+    = (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+       ? EXCESS_PRECISION_TYPE_STANDARD
+       : EXCESS_PRECISION_TYPE_FAST);
+
+  enum flt_eval_method back_end
+    = targetm.c.excess_precision (EXCESS_PRECISION_TYPE_IMPLICIT);
+
+  enum flt_eval_method front_end
+    = targetm.c.excess_precision (front_end_ept);
+
+  return excess_precision_mode_join (front_end, back_end) == front_end;
+}
+
 /* Return the value for __GCC_IEC_559.  */
 static int
 cpp_iec_559_value (void)
@@ -771,16 +795,17 @@ cpp_iec_559_value (void)
       || !dfmt->has_signed_zero)
     ret = 0;
 
-  /* In strict C standards conformance mode, consider unpredictable
-     excess precision to mean lack of IEEE 754 support.  The same
-     applies to unpredictable contraction.  For C++, and outside
-     strict conformance mode, do not consider these options to mean
-     lack of IEEE 754 support.  */
+  /* In strict C standards conformance mode, consider a back-end providing
+     more implicit excess precision than the explicit excess precision
+     the front-end options would require to mean a lack of IEEE 754
+     support.  For C++, and outside strict conformance mode, do not consider
+     this to mean a lack of IEEE 754 support.  */
+
   if (flag_iso
       && !c_dialect_cxx ()
-      && TARGET_FLT_EVAL_METHOD != 0
-      && flag_excess_precision_cmdline != EXCESS_PRECISION_STANDARD)
+      && !c_cpp_flt_eval_method_iec_559 ())
     ret = 0;
+
   if (flag_iso
       && !c_dialect_cxx ()
       && flag_fp_contract_mode == FP_CONTRACT_FAST)
@@ -1031,6 +1056,7 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_noexcept_function_type=201510");
 	  cpp_define (pfile, "__cpp_template_auto=201606");
 	  cpp_define (pfile, "__cpp_structured_bindings=201606");
+	  cpp_define (pfile, "__cpp_variadic_using=201611");
 	}
       if (flag_concepts)
 	cpp_define (pfile, "__cpp_concepts=201507");
@@ -1046,6 +1072,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define_formatted (pfile, "__STDCPP_DEFAULT_NEW_ALIGNMENT__=%d",
 				aligned_new_threshold);
 	}
+      if (flag_new_ttp)
+	cpp_define (pfile, "__cpp_template_template_args=201611");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */
@@ -1132,9 +1160,22 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_with_int_value ("__GCC_IEC_559_COMPLEX",
 				 cpp_iec_559_complex_value ());
 
-  /* float.h needs to know this.  */
+  /* float.h needs these to correctly set FLT_EVAL_METHOD
+
+     We define two values:
+
+     __FLT_EVAL_METHOD__
+       Which, depending on the value given for
+       -fpermitted-flt-eval-methods, may be limited to only those values
+       for FLT_EVAL_METHOD defined in C99/C11.
+
+     __FLT_EVAL_METHOD_TS_18661_3__
+       Which always permits the values for FLT_EVAL_METHOD defined in
+       ISO/IEC TS 18661-3.  */
   builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
-				 TARGET_FLT_EVAL_METHOD);
+				 c_flt_eval_method (true));
+  builtin_define_with_int_value ("__FLT_EVAL_METHOD_TS_18661_3__",
+				 c_flt_eval_method (false));
 
   /* And decfloat.h needs this.  */
   builtin_define_with_int_value ("__DEC_EVAL_METHOD__",
@@ -1232,10 +1273,10 @@ c_cpp_builtins (cpp_reader *pfile)
   if (flag_building_libgcc)
     {
       /* Properties of floating-point modes for libgcc2.c.  */
-      for (machine_mode mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+      opt_scalar_float_mode mode_iter;
+      FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_FLOAT)
 	{
+	  scalar_float_mode mode = mode_iter.require ();
 	  const char *name = GET_MODE_NAME (mode);
 	  char *macro_name
 	    = (char *) alloca (strlen (name)
@@ -1275,25 +1316,38 @@ c_cpp_builtins (cpp_reader *pfile)
 	      gcc_assert (found_suffix);
 	    }
 	  builtin_define_with_value (macro_name, suffix, 0);
+
+	  /* The way __LIBGCC_*_EXCESS_PRECISION__ is used is about
+	     eliminating excess precision from results assigned to
+	     variables - meaning it should be about the implicit excess
+	     precision only.  */
 	  bool excess_precision = false;
-	  if (TARGET_FLT_EVAL_METHOD != 0
-	      && mode != TYPE_MODE (long_double_type_node)
-	      && (mode == TYPE_MODE (float_type_node)
-		  || mode == TYPE_MODE (double_type_node)))
-	    switch (TARGET_FLT_EVAL_METHOD)
-	      {
-	      case -1:
-	      case 2:
-		excess_precision = true;
-		break;
+	  machine_mode float16_type_mode = (float16_type_node
+					    ? TYPE_MODE (float16_type_node)
+					    : VOIDmode);
+	  switch (targetm.c.excess_precision
+		    (EXCESS_PRECISION_TYPE_IMPLICIT))
+	    {
+	    case FLT_EVAL_METHOD_UNPREDICTABLE:
+	    case FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE:
+	      excess_precision = (mode == float16_type_mode
+				  || mode == TYPE_MODE (float_type_node)
+				  || mode == TYPE_MODE (double_type_node));
+	      break;
 
-	      case 1:
-		excess_precision = mode == TYPE_MODE (float_type_node);
-		break;
-
-	      default:
-		gcc_unreachable ();
-	      }
+	    case FLT_EVAL_METHOD_PROMOTE_TO_DOUBLE:
+	      excess_precision = (mode == float16_type_mode
+				  || mode == TYPE_MODE (float_type_node));
+	      break;
+	    case FLT_EVAL_METHOD_PROMOTE_TO_FLOAT:
+	      excess_precision = mode == float16_type_mode;
+	      break;
+	    case FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16:
+	      excess_precision = false;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
 	  macro_name = (char *) alloca (strlen (name)
 					+ sizeof ("__LIBGCC__EXCESS_"
 						  "PRECISION__"));

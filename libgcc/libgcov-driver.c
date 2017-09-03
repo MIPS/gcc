@@ -1,6 +1,6 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989-2016 Free Software Foundation, Inc.
+/* Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -851,6 +851,15 @@ gcov_do_dump (struct gcov_info *list, int run_counted)
 
   free (gf.filename);
 }
+
+#if IN_GCOV_TOOL
+const char *
+__attribute__ ((unused))
+gcov_get_filename (struct gcov_info *list)
+{
+  return list->filename;
+}
+#endif
 
 #if !IN_GCOV_TOOL
 void

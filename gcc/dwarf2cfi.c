@@ -1,5 +1,5 @@
 /* Dwarf2 Call Frame Information helper routines.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 
 #include "except.h"		/* expand_builtin_dwarf_sp_column */
+#include "profile-count.h"	/* For expr.h */
 #include "expr.h"		/* init_return_column_size */
 #include "output.h"		/* asm_out_file */
 #include "debug.h"		/* dwarf2out_do_frame, dwarf2out_do_cfi_asm */
@@ -51,9 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef INCOMING_RETURN_ADDR_RTX
 #define INCOMING_RETURN_ADDR_RTX  (gcc_unreachable (), NULL_RTX)
 #endif
-
-/* Maximum size (in bytes) of an artificially generated label.  */
-#define MAX_ARTIFICIAL_LABEL_BYTES	30
 
 /* A collected description of an entire row of the abstract CFI table.  */
 struct GTY(()) dw_cfi_row
@@ -234,7 +232,7 @@ expand_builtin_dwarf_sp_column (void)
    which has mode MODE.  Initialize column C as a return address column.  */
 
 static void
-init_return_column_size (machine_mode mode, rtx mem, unsigned int c)
+init_return_column_size (scalar_int_mode mode, rtx mem, unsigned int c)
 {
   HOST_WIDE_INT offset = c * GET_MODE_SIZE (mode);
   HOST_WIDE_INT size = GET_MODE_SIZE (Pmode);
@@ -301,7 +299,7 @@ void
 expand_builtin_init_dwarf_reg_sizes (tree address)
 {
   unsigned int i;
-  machine_mode mode = TYPE_MODE (char_type_node);
+  scalar_int_mode mode = SCALAR_INT_TYPE_MODE (char_type_node);
   rtx addr = expand_normal (address);
   rtx mem = gen_rtx_MEM (BLKmode, addr);
 
@@ -2098,7 +2096,9 @@ dwarf2out_frame_debug (rtx_insn *insn)
 	handled_one = true;
 	break;
 
+      case REG_CFA_TOGGLE_RA_MANGLE:
       case REG_CFA_WINDOW_SAVE:
+	/* We overload both of these operations onto the same DWARF opcode.  */
 	dwarf2out_frame_debug_cfa_window_save ();
 	handled_one = true;
 	break;

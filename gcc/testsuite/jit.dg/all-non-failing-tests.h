@@ -22,6 +22,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-alignment.c */
+#define create_code create_code_alignment
+#define verify_code verify_code_alignment
+#include "test-alignment.c"
+#undef create_code
+#undef verify_code
+
 /* test-arith-overflow.c */
 #define create_code create_code_arith_overflow
 #define verify_code verify_code_arith_overflow
@@ -40,6 +47,13 @@
 #define create_code create_code_arrays
 #define verify_code verify_code_arrays
 #include "test-arrays.c"
+#undef create_code
+#undef verify_code
+
+/* test-autovectorize.c */
+#define create_code create_code_autovectorize
+#define verify_code verify_code_autovectorize
+#include "test-autovectorize.c"
 #undef create_code
 #undef verify_code
 
@@ -221,6 +235,8 @@
    of gcc_jit_context_set_bool_allow_unreachable_blocks affects the whole
    context.  */
 
+/* test-vector-types.cc: We don't use this, since it's C++.  */
+
 /* test-volatile.c */
 #define create_code create_code_volatile
 #define verify_code verify_code_volatile
@@ -246,6 +262,9 @@ const struct testcase testcases[] = {
   {"accessing_union",
    create_code_accessing_union,
    verify_code_accessing_union},
+  {"alignment",
+   create_code_alignment,
+   verify_code_alignment},
   {"arith_overflow",
    create_code_arith_overflow,
    verify_code_arith_overflow},
@@ -255,6 +274,9 @@ const struct testcase testcases[] = {
   {"arrays",
    create_code_arrays,
    verify_code_arrays},
+  {"autovectorize",
+   create_code_autovectorize,
+   verify_code_autovectorize},
   {"calling_external_function",
    create_code_calling_external_function,
    verify_code_calling_external_function},

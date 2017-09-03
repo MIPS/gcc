@@ -1,5 +1,5 @@
 /* Header file for High-level loop manipulation functions.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,6 +48,7 @@ extern bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
 						  int);
 extern bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 			       struct tree_niter_desc *niter);
+extern gcov_type niter_for_unrolled_loop (struct loop *, unsigned);
 extern void tree_transform_and_unroll_loop (struct loop *, unsigned,
 					    edge, struct tree_niter_desc *,
 					    transform_callback, void *);

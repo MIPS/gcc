@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } "*" "" } */
+/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } } */
 
 #include <stdarg.h>
 #include "check.h"
@@ -28,7 +28,10 @@ struct A : virtual public Base
 struct B {};
 
 void
-foo (const char *fmt, ...) throw (B,A)
+foo (const char *fmt, ...)
+#if __cplusplus <= 201402L
+throw (B,A)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++1z } } } }
+#endif
 {
   va_list arg;
   char *p;

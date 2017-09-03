@@ -1,6 +1,6 @@
 /* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "gimple-iterator.h"
 #include "gimple-low.h"
+#include "predict.h"
+#include "gimple-predict.h"
 
 /* The differences between High GIMPLE and Low GIMPLE are the
    following:

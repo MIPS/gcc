@@ -82,6 +82,25 @@ Import::open_package(const std::string& filename, Location location,
 	  // A special case.
 	  fn = relative_import_path;
 	}
+      else if (fn[0] == '.' && fn[1] == '.'
+	       && (fn[2] == '\0' || IS_DIR_SEPARATOR(fn[2])))
+	{
+	  // We are going to join relative_import_path and fn, and it
+	  // will look like DIR/../PATH.  But DIR does not necessarily
+	  // exist in this case, and if it doesn't the use of .. will
+	  // fail although it shouldn't.  The gc compiler uses
+	  // path.Join here, which cleans up the .., so we need to do
+	  // the same.
+	  size_t index;
+	  for (index = relative_import_path.length() - 1;
+	       index > 0 && !IS_DIR_SEPARATOR(relative_import_path[index]);
+	       index--)
+	    ;
+	  if (index > 0)
+	    fn = relative_import_path.substr(0, index) + fn.substr(2);
+	  else
+	    fn = relative_import_path + '/' + fn;
+	}
       else
 	fn = relative_import_path + '/' + fn;
       is_local = false;
@@ -737,6 +756,13 @@ Import::read_type()
 
   this->require_c_string(" ");
 
+  bool is_alias = false;
+  if (this->match_c_string("= "))
+    {
+      stream->advance(2);
+      is_alias = true;
+    }
+
   // The package name may follow.  This is the name of the package in
   // the package clause of that package.  The type name will include
   // the pkgpath, which may be different.
@@ -809,6 +835,9 @@ Import::read_type()
 
 	  // This type has not yet been imported.
 	  ntype->clear_is_visible();
+
+	  if (is_alias)
+	    ntype->set_is_alias();
 
 	  if (!type->is_undefined() && type->interface_type() != NULL)
 	    this->gogo_->record_interface_type(type->interface_type());

@@ -1,5 +1,5 @@
 /* Generate code from machine description to compute values of attributes.
-   Copyright (C) 1991-2016 Free Software Foundation, Inc.
+   Copyright (C) 1991-2017 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -4416,6 +4416,9 @@ write_eligible_delay (FILE *outf, const char *kind)
   fprintf (outf, "{\n");
   fprintf (outf, "  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
   fprintf (outf, "\n");
+  fprintf (outf, "  if (num_delay_slots (delay_insn) == 0)\n");
+  fprintf (outf, "    return 0;");
+  fprintf (outf, "\n");
   fprintf (outf, "  gcc_assert (slot < %d);\n", max_slots);
   fprintf (outf, "\n");
   /* Allow dbr_schedule to pass labels, etc.  This can happen if try_split
@@ -4700,8 +4703,8 @@ gen_insn_reserv (md_rtx_info *info)
   struct insn_reserv *decl = oballoc (struct insn_reserv);
   rtx def = info->def;
 
-  struct attr_desc attr;
-  memset (&attr, 0, sizeof (attr));
+  struct attr_desc attr = { };
+
   attr.name = DEF_ATTR_STRING (XSTR (def, 0));
   attr.loc = info->loc;
 

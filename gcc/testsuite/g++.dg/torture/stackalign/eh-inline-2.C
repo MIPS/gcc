@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } "*" "" } */
+/* { dg-skip-if "Stack alignment is too small" { hppa*-*-hpux* } } */
 
 #include "check.h"
 
@@ -28,7 +28,10 @@ struct B {};
 
 static void
 inline __attribute__((always_inline))
-foo (int size) throw (B,A)
+foo (int size)
+#if __cplusplus <= 201402L
+throw (B,A)			// { dg-warning "deprecated" "" { target { c++11 && { ! c++1z } } } }
+#endif
 {
   char *p = (char *) __builtin_alloca (size + 1);
   aligned i;

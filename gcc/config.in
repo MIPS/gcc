@@ -37,13 +37,6 @@
 #endif
 
 
-/* Define to 0/1 if you want also extra run-time checking that might affect
-   code generation. */
-#ifndef USED_FOR_TARGET
-#undef ENABLE_EXTRA_CHECKING
-#endif
-
-
 /* Define 0/1 to force the choice for exception handling model. */
 #ifndef USED_FOR_TARGET
 #undef CONFIG_SJLJ_EXCEPTIONS
@@ -112,6 +105,13 @@
 /* Define if you want more run-time sanity checks for dataflow. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_DF_CHECKING
+#endif
+
+
+/* Define to 0/1 if you want extra run-time checking that might affect code
+   generation. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_EXTRA_CHECKING
 #endif
 
 
@@ -281,6 +281,12 @@
 /* Define if your assembler supports architecture modifiers. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_ARCHITECTURE_MODIFIERS
+#endif
+
+
+/* Define if your avr assembler supports -mgcc-isr option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MGCCISR_OPTION
 #endif
 
 
@@ -564,6 +570,13 @@
 #endif
 
 
+/* Define if your Mac OS X assembler supports the -mmacos-version-min option.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_MMACOSX_VERSION_MIN_OPTION
+#endif
+
+
 /* Define if the assembler understands -mnan=. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_NAN
@@ -651,6 +664,12 @@
 /* Define if your assembler supports SPARC5 and VIS 4.0 instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_SPARC5_VIS4
+#endif
+
+
+/* Define if your assembler supports SPARC6 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SPARC6
 #endif
 
 
@@ -1416,12 +1435,6 @@
 #endif
 
 
-/* Define if isl_options_set_schedule_serialize_sccs exists. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
-#endif
-
-
 /* Define to 1 if you have the `kill' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_KILL
@@ -1456,6 +1469,13 @@
    options. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_AS_NEEDED
+#endif
+
+
+/* Define if your default avr linker script for avrxmega3 leaves .rodata in
+   flash. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_AVR_AVRXMEGA3_RODATA_IN_FLASH
 #endif
 
 
@@ -1952,6 +1972,18 @@
 #endif
 
 
+/* Define to 1 if ld64 supports '-export_dynamic'. */
+#ifndef USED_FOR_TARGET
+#undef LD64_HAS_EXPORT_DYNAMIC
+#endif
+
+
+/* Define to ld64 version. */
+#ifndef USED_FOR_TARGET
+#undef LD64_VERSION
+#endif
+
+
 /* Define to the linker option to ignore unused dependencies. */
 #ifndef USED_FOR_TARGET
 #undef LD_AS_NEEDED_OPTION
@@ -1999,6 +2031,12 @@
    */
 #ifndef USED_FOR_TARGET
 #undef LT_OBJDIR
+#endif
+
+
+/* Value to set mingw's _dowildcard to. */
+#ifndef USED_FOR_TARGET
+#undef MINGW_DOWILDCARD
 #endif
 
 

@@ -1,3 +1,11 @@
+2017-09-01  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 251608 into gupc branch.
+	* DEV-PHASE: bump version to GNU UPC 8.0.0-1.
+	* c/c-upc-low.c: call finish_decl() to complete
+	declaration of 'init_func_addr'.  Without this
+	call, 'init_func_addr' was not marked as used.
+
 2016-11-21  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 242665 into gupc branch.

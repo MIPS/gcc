@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -32,8 +32,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
-#include <assert.h>
-#include <stdlib.h>
 #include <errno.h>
 
 
@@ -225,10 +223,10 @@ current_mode (st_parameter_dt *dtp)
 /* Read sequential file - internal unit  */
 
 static char *
-read_sf_internal (st_parameter_dt *dtp, int * length)
+read_sf_internal (st_parameter_dt *dtp, int *length)
 {
   static char *empty_string[0];
-  char *base;
+  char *base = NULL;
   int lorig;
 
   /* Zero size array gives internal unit len of 0.  Nothing to read. */
@@ -244,6 +242,15 @@ read_sf_internal (st_parameter_dt *dtp, int * length)
       /* Just return something that isn't a NULL pointer, otherwise the
          caller thinks an error occurred.  */
       return (char*) empty_string;
+    }
+
+  /* There are some cases with mixed DTIO where we have read a character
+     and saved it in the last character buffer, so we need to backup.  */
+  if (unlikely (dtp->u.p.current_unit->child_dtio > 0 &&
+		dtp->u.p.current_unit->last_char != EOF - 1))
+    {
+      dtp->u.p.current_unit->last_char = EOF - 1;
+      sseek (dtp->u.p.current_unit->s, -1, SEEK_CUR);
     }
 
   lorig = *length;
@@ -290,7 +297,7 @@ read_sf_internal (st_parameter_dt *dtp, int * length)
 /* Read sequential file - external unit */
 
 static char *
-read_sf (st_parameter_dt *dtp, int * length)
+read_sf (st_parameter_dt *dtp, int *length)
 {
   static char *empty_string[0];
   int q, q2;
@@ -304,6 +311,15 @@ read_sf (st_parameter_dt *dtp, int * length)
       /* Just return something that isn't a NULL pointer, otherwise the
          caller thinks an error occurred.  */
       return (char*) empty_string;
+    }
+
+  /* There are some cases with mixed DTIO where we have read a character
+     and saved it in the last character buffer, so we need to backup.  */
+  if (unlikely (dtp->u.p.current_unit->child_dtio > 0 &&
+		dtp->u.p.current_unit->last_char != EOF - 1))
+    {
+      dtp->u.p.current_unit->last_char = EOF - 1;
+      fbuf_seek (dtp->u.p.current_unit, -1, SEEK_CUR);
     }
 
   n = seen_comma = 0;
@@ -423,7 +439,7 @@ read_sf (st_parameter_dt *dtp, int * length)
    short reads.  */
 
 void *
-read_block_form (st_parameter_dt *dtp, int * nbytes)
+read_block_form (st_parameter_dt *dtp, int *nbytes)
 {
   char *source;
   int norig;
@@ -448,11 +464,24 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
 		}
 	    }
 
-	  if (unlikely (dtp->u.p.current_unit->bytes_left == 0
-	      && !is_internal_unit(dtp)))
+	  if (is_internal_unit(dtp))
 	    {
-	      hit_eof (dtp);
-	      return NULL;
+	      if (*nbytes > 0 && dtp->u.p.current_unit->bytes_left == 0)
+	        {
+		  if (dtp->u.p.advance_status == ADVANCE_NO)
+		    {
+		      generate_error (&dtp->common, LIBERROR_EOR, NULL);
+		      return NULL;
+		    }
+		}
+	    }
+	  else
+	    {
+	      if (unlikely (dtp->u.p.current_unit->bytes_left == 0))
+		{
+		  hit_eof (dtp);
+		  return NULL;
+		}
 	    }
 
 	  *nbytes = dtp->u.p.current_unit->bytes_left;
@@ -505,7 +534,7 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
    a character(kind=4) variable.  Note: Portions of this code borrowed from
    read_sf_internal.  */
 void *
-read_block_form4 (st_parameter_dt *dtp, int * nbytes)
+read_block_form4 (st_parameter_dt *dtp, int *nbytes)
 {
   static gfc_char4_t *empty_string[0];
   gfc_char4_t *source;
@@ -1246,6 +1275,26 @@ require_type (st_parameter_dt *dtp, bt expected, bt actual, const fnode *f)
 }
 
 
+/* Check that the dtio procedure required for formatted IO is present.  */
+
+static int
+check_dtio_proc (st_parameter_dt *dtp, const fnode *f)
+{
+  char buffer[BUFLEN];
+
+  if (dtp->u.p.fdtio_ptr != NULL)
+    return 0;
+
+  snprintf (buffer, BUFLEN,
+	    "Missing DTIO procedure or intrinsic type passed for item %d "
+	    "in formatted transfer",
+	    dtp->u.p.item_count - 1);
+
+  format_error (dtp, f, buffer);
+  return 1;
+}
+
+
 static int
 require_numeric_type (st_parameter_dt *dtp, bt actual, const fnode *f)
 {
@@ -1262,6 +1311,33 @@ require_numeric_type (st_parameter_dt *dtp, bt actual, const fnode *f)
 
   format_error (dtp, f, buffer);
   return 1;
+}
+
+static char *
+get_dt_format (char *p, gfc_charlen_type *length)
+{
+  char delim = p[-1];  /* The delimiter is always the first character back.  */
+  char c, *q, *res;
+  gfc_charlen_type len = *length; /* This length already correct, less 'DT'.  */
+
+  res = q = xmalloc (len + 2);
+
+  /* Set the beginning of the string to 'DT', length adjusted below.  */
+  *q++ = 'D';
+  *q++ = 'T';
+
+  /* The string may contain doubled quotes so scan and skip as needed.  */
+  for (; len > 0; len--)
+    {
+      c = *q++ = *p++;
+      if (c == delim)
+	p++;  /* Skip the doubled delimiter.  */
+    }
+
+  /* Adjust the string length by two now that we are done.  */
+  *length += 2;
+
+  return res;
 }
 
 
@@ -1411,6 +1487,9 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	case FMT_DT:
 	  if (n == 0)
 	    goto need_read_data;
+
+	  if (check_dtio_proc (dtp, f))
+	    return;
 	  if (require_type (dtp, BT_CLASS, type, f))
 	    return;
 	  int unit = dtp->u.p.current_unit->unit_number;
@@ -1420,7 +1499,7 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	  gfc_charlen_type child_iomsg_len;
 	  int noiostat;
 	  int *child_iostat = NULL;
-	  char *iotype = f->u.udf.string;
+	  char *iotype;
 	  gfc_charlen_type iotype_len = f->u.udf.string_len;
 
 	  /* Build the iotype string.  */
@@ -1430,13 +1509,7 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	      iotype = dt;
 	    }
 	  else
-	    {
-	      iotype_len += 2;
-	      iotype = xmalloc (iotype_len);
-	      iotype[0] = dt[0];
-	      iotype[1] = dt[1];
-	      memcpy (iotype + 2, f->u.udf.string, f->u.udf.string_len);
-	    }
+	    iotype = get_dt_format (f->u.udf.string, &iotype_len);
 
 	  /* Set iostat, intent(out).  */
 	  noiostat = 0;
@@ -1457,6 +1530,7 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 
 	  /* Call the user defined formatted READ procedure.  */
 	  dtp->u.p.current_unit->child_dtio++;
+	  dtp->u.p.current_unit->last_char = EOF - 1;
 	  dtp->u.p.fdtio_ptr (p, &unit, iotype, f->u.udf.vlist,
 			      child_iostat, child_iomsg,
 			      iotype_len, child_iomsg_len);
@@ -1890,7 +1964,7 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	  gfc_charlen_type child_iomsg_len;
 	  int noiostat;
 	  int *child_iostat = NULL;
-	  char *iotype = f->u.udf.string;
+	  char *iotype;
 	  gfc_charlen_type iotype_len = f->u.udf.string_len;
 
 	  /* Build the iotype string.  */
@@ -1900,13 +1974,7 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	      iotype = dt;
 	    }
 	  else
-	    {
-	      iotype_len += 2;
-	      iotype = xmalloc (iotype_len);
-	      iotype[0] = dt[0];
-	      iotype[1] = dt[1];
-	      memcpy (iotype + 2, f->u.udf.string, f->u.udf.string_len);
-	    }
+	    iotype = get_dt_format (f->u.udf.string, &iotype_len);
 
 	  /* Set iostat, intent(out).  */
 	  noiostat = 0;
@@ -1925,8 +1993,12 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	      child_iomsg_len = IOMSG_LEN;
 	    }
 
+	  if (check_dtio_proc (dtp, f))
+	    return;
+
 	  /* Call the user defined formatted WRITE procedure.  */
 	  dtp->u.p.current_unit->child_dtio++;
+
 	  dtp->u.p.fdtio_ptr (p, &unit, iotype, f->u.udf.vlist,
 			      child_iostat, child_iomsg,
 			      iotype_len, child_iomsg_len);
@@ -2782,6 +2854,7 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	  return;
 	}
     }
+
   /* Process the ADVANCE option.  */
 
   dtp->u.p.advance_status
@@ -2814,6 +2887,11 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	  return;
 	}
     }
+
+  /* Child IO is non-advancing and any ADVANCE= specifier is ignored.
+     F2008 9.6.2.4  */
+  if (dtp->u.p.current_unit->child_dtio  > 0)
+    dtp->u.p.advance_status = ADVANCE_NO;
 
   if (read_flag)
     {
@@ -3513,7 +3591,7 @@ next_record_w_unf (st_parameter_dt *dtp, int next_subrecord)
    value is same as for POSIX write().  */
 
 static ssize_t
-sset (stream * s, int c, ssize_t nbyte)
+sset (stream *s, int c, ssize_t nbyte)
 {
 #define WRITE_CHUNK 256
   char p[WRITE_CHUNK];
@@ -3551,7 +3629,7 @@ next_record_cc (st_parameter_dt *dtp)
   fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
   if (dtp->u.p.cc.len > 0)
     {
-      char * p = fbuf_alloc (dtp->u.p.current_unit, dtp->u.p.cc.len);
+      char *p = fbuf_alloc (dtp->u.p.current_unit, dtp->u.p.cc.len);
       if (!p)
 	generate_error (&dtp->common, LIBERROR_OS, NULL);
 
@@ -3724,7 +3802,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 	  fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
 	  if (dtp->u.p.current_unit->flags.cc != CC_NONE)
 	    {
-	      char * p = fbuf_alloc (dtp->u.p.current_unit, len);
+	      char *p = fbuf_alloc (dtp->u.p.current_unit, len);
 	      if (!p)
 		goto io_error;
 #ifdef HAVE_CRLF
@@ -3815,6 +3893,15 @@ finalize_transfer (st_parameter_dt *dtp)
 	 namelist_write (dtp);
     }
 
+  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
+    *dtp->size = dtp->u.p.current_unit->size_used;
+
+  if (dtp->u.p.eor_condition)
+    {
+      generate_error (&dtp->common, LIBERROR_EOR, NULL);
+      goto done;
+    }
+
   if (dtp->u.p.current_unit && (dtp->u.p.current_unit->child_dtio  > 0))
     {
       if (cf & IOPARM_DT_HAS_FORMAT)
@@ -3823,15 +3910,6 @@ finalize_transfer (st_parameter_dt *dtp)
 	  free (dtp->format);
 	}
       return;
-    }
-
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    *dtp->size = dtp->u.p.current_unit->size_used;
-
-  if (dtp->u.p.eor_condition)
-    {
-      generate_error (&dtp->common, LIBERROR_EOR, NULL);
-      goto done;
     }
 
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
@@ -3899,7 +3977,7 @@ finalize_transfer (st_parameter_dt *dtp)
       fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
 
   dtp->u.p.current_unit->saved_pos = 0;
-
+  dtp->u.p.current_unit->last_char = EOF - 1;
   next_record (dtp, 1);
 
  done:
@@ -4002,8 +4080,7 @@ st_read_done (st_parameter_dt *dtp)
   free_ionml (dtp);
 
   /* If this is a parent READ statement we do not need to retain the
-     internal unit structure for child use.  Free it and stash the unit
-     number for reuse.  */
+     internal unit structure for child use.  */
   if (dtp->u.p.current_unit != NULL
       && dtp->u.p.current_unit->child_dtio == 0)
     {
@@ -4017,7 +4094,6 @@ st_read_done (st_parameter_dt *dtp)
 	  if (dtp->u.p.current_unit->ls)
 	    free (dtp->u.p.current_unit->ls);
 	  dtp->u.p.current_unit->ls = NULL;
-	  stash_internal_unit (dtp);
 	}
       if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
 	{
@@ -4075,8 +4151,7 @@ st_write_done (st_parameter_dt *dtp)
       free_ionml (dtp);
 
       /* If this is a parent WRITE statement we do not need to retain the
-	 internal unit structure for child use.  Free it and stash the
-	 unit number for reuse.  */
+	 internal unit structure for child use.  */
       if (is_internal_unit (dtp) &&
 	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
 	{
@@ -4087,7 +4162,6 @@ st_write_done (st_parameter_dt *dtp)
 	  if (dtp->u.p.current_unit->ls)
 	    free (dtp->u.p.current_unit->ls);
 	  dtp->u.p.current_unit->ls = NULL;
-	  stash_internal_unit (dtp);
 	}
       if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
 	{
@@ -4111,7 +4185,7 @@ st_wait (st_parameter_wait *wtp __attribute__((unused)))
    in a linked list of namelist_info types.  */
 
 static void
-set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
+set_nml_var (st_parameter_dt *dtp, void *var_addr, char *var_name,
 	     GFC_INTEGER_4 len, gfc_charlen_type string_length,
 	     GFC_INTEGER_4 dtype, void *dtio_sub, void *vtable)
 {
@@ -4168,7 +4242,7 @@ extern void st_set_nml_var (st_parameter_dt *dtp, void *, char *,
 export_proto(st_set_nml_var);
 
 void
-st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
+st_set_nml_var (st_parameter_dt *dtp, void *var_addr, char *var_name,
 		GFC_INTEGER_4 len, gfc_charlen_type string_length,
 		GFC_INTEGER_4 dtype)
 {
@@ -4186,7 +4260,7 @@ export_proto(st_set_nml_dtio_var);
 
 
 void
-st_set_nml_dtio_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
+st_set_nml_dtio_var (st_parameter_dt *dtp, void *var_addr, char *var_name,
 		     GFC_INTEGER_4 len, gfc_charlen_type string_length,
 		     GFC_INTEGER_4 dtype, void *dtio_sub, void *vtable)
 {
@@ -4205,7 +4279,7 @@ st_set_nml_var_dim (st_parameter_dt *dtp, GFC_INTEGER_4 n_dim,
 		    index_type stride, index_type lbound,
 		    index_type ubound)
 {
-  namelist_info * nml;
+  namelist_info *nml;
   int n;
 
   n = (int)n_dim;
@@ -4224,7 +4298,7 @@ st_set_nml_var_dim (st_parameter_dt *dtp, GFC_INTEGER_4 n_dim,
    9.10.2 in F2003.  */
 
 void
-hit_eof (st_parameter_dt * dtp)
+hit_eof (st_parameter_dt *dtp)
 {
   dtp->u.p.current_unit->flags.position = POSITION_APPEND;
 

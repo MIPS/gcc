@@ -1,5 +1,5 @@
 /* Target Code for R8C/M16C/M32C
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -25,6 +25,8 @@
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "df.h"
 #include "memmodel.h"
 #include "tm_p.h"
@@ -664,7 +666,7 @@ m32c_preferred_reload_class (rtx x, reg_class_t rclass)
     {
       switch (GET_MODE (x))
 	{
-	case QImode:
+	case E_QImode:
 	  newclass = HL_REGS;
 	  break;
 	default:
@@ -1435,7 +1437,7 @@ m32c_function_arg_regno_p (int r)
 #undef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE m32c_valid_pointer_mode
 static bool
-m32c_valid_pointer_mode (machine_mode mode)
+m32c_valid_pointer_mode (scalar_int_mode mode)
 {
   if (mode == HImode
       || mode == PSImode
@@ -1928,7 +1930,7 @@ m32c_legitimize_reload_address (rtx * x,
 /* Return the appropriate mode for a named address pointer.  */
 #undef TARGET_ADDR_SPACE_POINTER_MODE
 #define TARGET_ADDR_SPACE_POINTER_MODE m32c_addr_space_pointer_mode
-static machine_mode
+static scalar_int_mode
 m32c_addr_space_pointer_mode (addr_space_t addrspace)
 {
   switch (addrspace)
@@ -1945,7 +1947,7 @@ m32c_addr_space_pointer_mode (addr_space_t addrspace)
 /* Return the appropriate mode for a named address address.  */
 #undef TARGET_ADDR_SPACE_ADDRESS_MODE
 #define TARGET_ADDR_SPACE_ADDRESS_MODE m32c_addr_space_address_mode
-static machine_mode
+static scalar_int_mode
 m32c_addr_space_address_mode (addr_space_t addrspace)
 {
   switch (addrspace)

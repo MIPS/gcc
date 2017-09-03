@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -583,6 +583,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   _Predicate __pred)
     {
       __first = std::find_if_not(__first, __last, __pred);
+      if (__first == __last)
+	return true;
+      ++__first;
       return std::none_of(__first, __last, __pred);
     }
 
@@ -3854,8 +3857,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #endif // C++11
 
-_GLIBCXX_END_NAMESPACE_VERSION
-
 _GLIBCXX_BEGIN_NAMESPACE_ALGO
 
   /**
@@ -4255,6 +4256,20 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 		__gnu_cxx::__ops::__iter_comp_val(__binary_pred, __val));
     }
 
+#if __cplusplus > 201402L
+  /** @brief Search a sequence using a Searcher object.
+   *
+   *  @param  __first        A forward iterator.
+   *  @param  __last         A forward iterator.
+   *  @param  __searcher     A callable object.
+   *  @return @p __searcher(__first,__last).first
+  */
+  template<typename _ForwardIterator, typename _Searcher>
+    inline _ForwardIterator
+    search(_ForwardIterator __first, _ForwardIterator __last,
+	   const _Searcher& __searcher)
+    { return __searcher(__first, __last).first; }
+#endif
 
   /**
    *  @brief Perform an operation on a sequence.
@@ -5100,6 +5115,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
    *
@@ -5148,6 +5164,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @param  __comp    The comparison functor.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
@@ -5220,6 +5237,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
    *
@@ -5266,6 +5284,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @param  __comp    The comparison functor.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
@@ -5338,6 +5357,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
    *
@@ -5386,6 +5406,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @param  __comp    The comparison functor.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
@@ -5468,6 +5489,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
    *
@@ -5516,6 +5538,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @param  __last1   End of first range.
    *  @param  __first2  Start of second range.
    *  @param  __last2   End of second range.
+   *  @param  __result  Start of output range.
    *  @param  __comp    The comparison functor.
    *  @return  End of the output range.
    *  @ingroup set_algorithms
@@ -5745,11 +5768,11 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
         {
 	  while (__n != 0 && __unsampled_sz >= 2)
 	    {
-	      const pair<_Size, _Size> p =
+	      const pair<_Size, _Size> __p =
 		__gen_two_uniform_ints(__unsampled_sz, __unsampled_sz - 1, __g);
 
 	      --__unsampled_sz;
-	      if (p.first < __n)
+	      if (__p.first < __n)
 		{
 		  *__out++ = *__first;
 		  --__n;
@@ -5760,7 +5783,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 	      if (__n == 0) break;
 
 	      --__unsampled_sz;
-	      if (p.second < __n)
+	      if (__p.second < __n)
 		{
 		  *__out++ = *__first;
 		  --__n;
@@ -5806,13 +5829,15 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 		    "sample size must be an integer type");
 
       typename iterator_traits<_PopulationIterator>::difference_type __d = __n;
-      return std::__sample(__first, __last, __pop_cat{}, __out, __samp_cat{},
-			   __d, std::forward<_UniformRandomBitGenerator>(__g));
+      return _GLIBCXX_STD_A::
+	__sample(__first, __last, __pop_cat{}, __out, __samp_cat{}, __d,
+		 std::forward<_UniformRandomBitGenerator>(__g));
     }
 #endif // C++17
 #endif // C++14
 
 _GLIBCXX_END_NAMESPACE_ALGO
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif /* _STL_ALGO_H */

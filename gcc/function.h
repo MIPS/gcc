@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,6 +34,8 @@ struct GTY(()) sequence_stack {
 };
 
 struct GTY(()) emit_status {
+  void ensure_regno_capacity ();
+
   /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
      After rtl generation, it is 1 plus the largest register number used.  */
   int x_reg_rtx_no;
@@ -234,7 +236,7 @@ struct GTY(()) function {
   /* The loops in this function.  */
   struct loops *x_current_loops;
 
-  /* Filled by the GIMPLE FE, pass to start compilation with.  */
+  /* Filled by the GIMPLE and RTL FEs, pass to start compilation with.  */
   char *pass_startwith;
 
   /* The stack usage of this function.  */
@@ -570,6 +572,8 @@ extern HOST_WIDE_INT get_frame_size (void);
    return FALSE.  */
 extern bool frame_offset_overflow (HOST_WIDE_INT, tree);
 
+extern unsigned int spill_slot_alignment (machine_mode);
+
 extern rtx assign_stack_local_1 (machine_mode, HOST_WIDE_INT, int, int);
 extern rtx assign_stack_local (machine_mode, HOST_WIDE_INT, int);
 extern rtx assign_stack_temp_for_type (machine_mode, HOST_WIDE_INT, tree);
@@ -609,7 +613,7 @@ extern tree block_chainon (tree, tree);
 extern void number_blocks (tree);
 
 /* cfun shouldn't be set directly; use one of these functions instead.  */
-extern void set_cfun (struct function *new_cfun);
+extern void set_cfun (struct function *new_cfun, bool force = false);
 extern void push_cfun (struct function *new_cfun);
 extern void pop_cfun (void);
 

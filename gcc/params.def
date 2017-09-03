@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -51,8 +51,8 @@ DEFPARAM (PARAM_PREDICTABLE_BRANCH_OUTCOME,
 
 DEFPARAM (PARAM_INLINE_MIN_SPEEDUP,
 	  "inline-min-speedup",
-	  "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-isnsns-auto.",
-	  10, 0, 0)
+	  "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-insns-auto.",
+	  8, 0, 0)
 
 /* The single function inlining limit. This is the maximum size
    of a function counted in internal gcc instructions (not in
@@ -126,7 +126,7 @@ DEFPARAM (PARAM_COMDAT_SHARING_PROBABILITY,
 DEFPARAM (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY,
 	  "partial-inlining-entry-probability",
 	  "Maximum probability of the entry BB of split region (in percent relative to entry BB of the function) to make partial inlining happen.",
-	  70, 0, 0)
+	  70, 0, 100)
 
 /* Limit the number of expansions created by the variable expansion
    optimization to avoid register pressure.  */
@@ -532,6 +532,11 @@ DEFPARAM(PARAM_AVG_LOOP_NITER,
 	 "Average number of iterations of a loop.",
 	 10, 1, 0)
 
+DEFPARAM(PARAM_DSE_MAX_OBJECT_SIZE,
+	 "dse-max-object-size",
+	 "Maximum size (in bytes) of objects tracked bytewise by dead store elimination.",
+	 256, 0, 0)
+
 DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
  	 "scev-max-expr-size",
 	 "Bound on size of expressions used in the scalar evolutions analyzer.",
@@ -560,7 +565,7 @@ DEFPARAM(PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
 
 DEFPARAM(PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
          "vect-max-peeling-for-alignment",
-         "Max number of loop peels to enhancement alignment of data references in a loop.",
+         "Maximum number of loop peels to enhance alignment of data references in a loop.",
          -1, -1, 64)
 
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
@@ -652,7 +657,7 @@ DEFPARAM(PARAM_SELSCHED_MAX_LOOKAHEAD,
 DEFPARAM(PARAM_SELSCHED_MAX_SCHED_TIMES,
          "selsched-max-sched-times",
          "Maximum number of times that an insn could be scheduled.",
-         2, 0, 0)
+         2, 1, 0)
 
 DEFPARAM(PARAM_SELSCHED_INSNS_TO_RENAME,
          "selsched-insns-to-rename",
@@ -960,7 +965,7 @@ DEFPARAM (PARAM_MAX_VARTRACK_REVERSE_OP_SIZE,
 DEFPARAM (PARAM_MIN_NONDEBUG_INSN_UID,
 	  "min-nondebug-insn-uid",
 	  "The minimum UID to be used for a nondebug insn.",
-	  0, 1, 0)
+	  0, 0, 0)
 
 DEFPARAM (PARAM_IPA_SRA_PTR_GROWTH_FACTOR,
 	  "ipa-sra-ptr-growth-factor",
@@ -1007,7 +1012,7 @@ DEFPARAM (PARAM_IPA_CP_RECURSION_PENALTY,
 
 DEFPARAM (PARAM_IPA_CP_SINGLE_CALL_PENALTY,
 	  "ipa-cp-single-call-penalty",
-	  "Percentage penalty functions containg a single call to another "
+	  "Percentage penalty functions containing a single call to another "
 	  "function will receive when they are evaluated for cloning..",
 	  15, 0, 100)
 
@@ -1097,13 +1102,13 @@ DEFPARAM (PARAM_MAX_TAIL_MERGE_COMPARISONS,
 DEFPARAM (PARAM_STORE_MERGING_ALLOW_UNALIGNED,
 	  "store-merging-allow-unaligned",
 	  "Allow the store merging pass to introduce unaligned stores "
-	  "if it is legal to do so",
+	  "if it is legal to do so.",
 	  1, 0, 1)
 
 DEFPARAM (PARAM_MAX_STORES_TO_MERGE,
 	  "max-stores-to-merge",
-	  "Maximum number of constant stores to merge in the"
-	  "store merging pass",
+	  "Maximum number of constant stores to merge in the "
+	  "store merging pass.",
 	  64, 2, 0)
 
 DEFPARAM (PARAM_MAX_TAIL_MERGE_ITERATIONS,
@@ -1136,6 +1141,11 @@ DEFPARAM (PARAM_ASAN_STACK,
          "asan-stack",
          "Enable asan stack protection.",
          1, 0, 1)
+
+DEFPARAM (PARAM_ASAN_PROTECT_ALLOCAS,
+	"asan-instrument-allocas",
+	"Enable asan allocas/VLAs protection.",
+	1, 0, 1)
 
 DEFPARAM (PARAM_ASAN_GLOBALS,
          "asan-globals",
@@ -1170,7 +1180,7 @@ DEFPARAM (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD,
 
 DEFPARAM (PARAM_USE_AFTER_SCOPE_DIRECT_EMISSION_THRESHOLD,
 	 "use-after-scope-direct-emission-threshold",
-	 "Use direct poisoning/unpoisoning intructions for variables "
+	 "Use direct poisoning/unpoisoning instructions for variables "
 	 "smaller or equal to this number.",
 	 256, 0, INT_MAX)
 
@@ -1232,7 +1242,7 @@ DEFPARAM (PARAM_MAX_SSA_NAME_QUERY_DEPTH,
 	  "max-ssa-name-query-depth",
 	  "Maximum recursion depth allowed when querying a property of an"
 	  " SSA name.",
-	  3, 1, 0)
+	  3, 1, 10)
 
 DEFPARAM (PARAM_MAX_RTL_IF_CONVERSION_INSNS,
 	  "max-rtl-if-conversion-insns",

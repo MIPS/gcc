@@ -1,6 +1,6 @@
 // Wrapper of C-language FILE struct -*- C++ -*-
 
-// Copyright (C) 2000-2016 Free Software Foundation, Inc.
+// Copyright (C) 2000-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -195,11 +195,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __basic_file* __ret = NULL;
     if (!this->is_open() && __file)
       {
-	int __err;
+	int __err, __save_errno = errno;
+	// POSIX guarantees that fflush sets errno on error, but C doesn't.
 	errno = 0;
 	do
-	  __err = this->sync();
+	  __err = fflush(__file);
 	while (__err && errno == EINTR);
+	errno = __save_errno;
 	if (!__err)
 	  {
 	    _M_cfile = __file;
@@ -267,16 +269,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 	int __err = 0;
 	if (_M_cfile_created)
-	  {
-	    // In general, no need to zero errno in advance if checking
-	    // for error first. However, C89/C99 (at variance with IEEE
-	    // 1003.1, f.i.) do not mandate that fclose must set errno
-	    // upon error.
-	    errno = 0;
-	    do
-	      __err = fclose(_M_cfile);
-	    while (__err && errno == EINTR);
-	  }
+	  __err = fclose(_M_cfile);
 	_M_cfile = 0;
 	if (!__err)
 	  __ret = this;

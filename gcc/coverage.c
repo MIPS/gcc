@@ -1,5 +1,5 @@
 /* Read and write coverage files, and associated functionality.
-   Copyright (C) 1990-2016 Free Software Foundation, Inc.
+   Copyright (C) 1990-2017 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -143,8 +143,8 @@ static void coverage_obj_finish (vec<constructor_elt, va_gc> *);
 tree
 get_gcov_type (void)
 {
-  machine_mode mode
-    = smallest_mode_for_size (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32, MODE_INT);
+  scalar_int_mode mode
+    = smallest_int_mode_for_size (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32);
   return lang_hooks.types.type_for_mode (mode, false);
 }
 
@@ -153,7 +153,7 @@ get_gcov_type (void)
 static tree
 get_gcov_unsigned_t (void)
 {
-  machine_mode mode = smallest_mode_for_size (32, MODE_INT);
+  scalar_int_mode mode = smallest_int_mode_for_size (32);
   return lang_hooks.types.type_for_mode (mode, true);
 }
 
@@ -327,7 +327,9 @@ read_counts_file (void)
       gcov_sync (offset, length);
       if ((is_error = gcov_is_error ()))
 	{
-	  error (is_error < 0 ? "%qs has overflowed" : "%qs is corrupted",
+	  error (is_error < 0
+		 ? G_("%qs has overflowed")
+		 : G_("%qs is corrupted"),
 		 da_file_name);
 	  delete counts_hash;
 	  counts_hash = NULL;
@@ -661,7 +663,7 @@ coverage_begin_function (unsigned lineno_checksum, unsigned cfg_checksum)
   gcov_write_unsigned (cfg_checksum);
   gcov_write_string (IDENTIFIER_POINTER
 		     (DECL_ASSEMBLER_NAME (current_function_decl)));
-  gcov_write_string (xloc.file);
+  gcov_write_filename (xloc.file);
   gcov_write_unsigned (xloc.line);
   gcov_write_length (offset);
 
@@ -726,6 +728,18 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	}
       prg_ctr_mask |= fn_ctr_mask;
       fn_ctr_mask = 0;
+    }
+}
+
+/* Remove coverage file if opened.  */
+
+void
+coverage_remove_note_file (void)
+{
+  if (bbg_file_name)
+    {
+      gcov_close ();
+      unlink (bbg_file_name);
     }
 }
 
@@ -1056,8 +1070,10 @@ build_init_ctor (tree gcov_info_type)
   stmt = build_call_expr (init_fn, 1, stmt);
   append_to_statement_list (stmt, &ctor);
 
-  /* Generate a constructor to run it (with priority 99).  */
-  cgraph_build_static_cdtor ('I', ctor, DEFAULT_INIT_PRIORITY - 1);
+  /* Generate a constructor to run it.  */
+  int priority = SUPPORTS_INIT_PRIORITY
+    ? MAX_RESERVED_INIT_PRIORITY: DEFAULT_INIT_PRIORITY;
+  cgraph_build_static_cdtor ('I', ctor, priority);
 }
 
 /* Generate the destructor function to call __gcov_exit.  */
@@ -1078,8 +1094,11 @@ build_gcov_exit_decl (void)
   tree stmt = build_call_expr (init_fn, 0);
   append_to_statement_list (stmt, &dtor);
 
-  /* Generate a destructor to run it (with priority 99).  */
-  cgraph_build_static_cdtor ('D', dtor, MAX_RESERVED_INIT_PRIORITY - 1);
+  /* Generate a destructor to run it.  */
+  int priority = SUPPORTS_INIT_PRIORITY
+    ? MAX_RESERVED_INIT_PRIORITY: DEFAULT_INIT_PRIORITY;
+
+  cgraph_build_static_cdtor ('D', dtor, priority);
 }
 
 /* Create the gcov_info types and object.  Generate the constructor

@@ -1,5 +1,5 @@
 /* Array things
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2201,9 +2201,16 @@ gfc_ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result, mpz_t *end)
   mpz_t upper, lower, stride;
   mpz_t diff;
   bool t;
+  gfc_expr *stride_expr = NULL;
 
-  if (dimen < 0 || ar == NULL || dimen > ar->dimen - 1)
+  if (dimen < 0 || ar == NULL)
     gfc_internal_error ("gfc_ref_dimen_size(): Bad dimension");
+
+  if (dimen > ar->dimen - 1)
+    {
+      gfc_error ("Bad array dimension at %L", &ar->c_where[dimen]);
+      return false;
+    }
 
   switch (ar->dimen_type[dimen])
     {
@@ -2225,12 +2232,16 @@ gfc_ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result, mpz_t *end)
 	mpz_set_ui (stride, 1);
       else
 	{
-	  if (ar->stride[dimen]->expr_type != EXPR_CONSTANT)
+	  stride_expr = gfc_copy_expr(ar->stride[dimen]); 
+	  if(!gfc_simplify_expr(stride_expr, 1))
+	    gfc_internal_error("Simplification error");
+	  if (stride_expr->expr_type != EXPR_CONSTANT)
 	    {
 	      mpz_clear (stride);
 	      return false;
 	    }
-	  mpz_set (stride, ar->stride[dimen]->value.integer);
+	  mpz_set (stride, stride_expr->value.integer);
+	  gfc_free_expr(stride_expr);
 	}
 
       /* Calculate the number of elements via gfc_dep_differce, but only if
@@ -2563,7 +2574,7 @@ cleanup:
    characterizes the reference.  */
 
 gfc_array_ref *
-gfc_find_array_ref (gfc_expr *e)
+gfc_find_array_ref (gfc_expr *e, bool allow_null)
 {
   gfc_ref *ref;
 
@@ -2573,7 +2584,12 @@ gfc_find_array_ref (gfc_expr *e)
       break;
 
   if (ref == NULL)
-    gfc_internal_error ("gfc_find_array_ref(): No ref found");
+    {
+      if (allow_null)
+	return NULL;
+      else
+	gfc_internal_error ("gfc_find_array_ref(): No ref found");
+    }
 
   return &ref->u.ar;
 }
@@ -2581,18 +2597,16 @@ gfc_find_array_ref (gfc_expr *e)
 
 /* Find out if an array shape is known at compile time.  */
 
-int
+bool
 gfc_is_compile_time_shape (gfc_array_spec *as)
 {
-  int i;
-
   if (as->type != AS_EXPLICIT)
-    return 0;
+    return false;
 
-  for (i = 0; i < as->rank; i++)
+  for (int i = 0; i < as->rank; i++)
     if (!gfc_is_constant_expr (as->lower[i])
 	|| !gfc_is_constant_expr (as->upper[i]))
-      return 0;
+      return false;
 
-  return 1;
+  return true;
 }

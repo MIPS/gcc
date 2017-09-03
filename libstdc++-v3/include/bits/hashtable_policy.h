@@ -1,6 +1,6 @@
 // Internal policy header for unordered_set and unordered_map -*- C++ -*-
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,12 +43,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   typename _RehashPolicy, typename _Traits>
     class _Hashtable;
 
-_GLIBCXX_END_NAMESPACE_VERSION
-
 namespace __detail
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
   /**
    *  @defgroup hashtable-detail Base and Implementation Classes
    *  @ingroup unordered_associative_containers
@@ -115,9 +111,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     private:
       using __node_alloc_type = _NodeAlloc;
       using __hashtable_alloc = _Hashtable_alloc<__node_alloc_type>;
-      using __value_alloc_type = typename __hashtable_alloc::__value_alloc_type;
-      using __value_alloc_traits =
-	typename __hashtable_alloc::__value_alloc_traits;
       using __node_alloc_traits =
 	typename __hashtable_alloc::__node_alloc_traits;
       using __node_type = typename __hashtable_alloc::__node_type;
@@ -139,18 +132,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      __node_type* __node = _M_nodes;
 	      _M_nodes = _M_nodes->_M_next();
 	      __node->_M_nxt = nullptr;
-	      __value_alloc_type __a(_M_h._M_node_allocator());
-	      __value_alloc_traits::destroy(__a, __node->_M_valptr());
+	      auto& __a = _M_h._M_node_allocator();
+	      __node_alloc_traits::destroy(__a, __node->_M_valptr());
 	      __try
 		{
-		  __value_alloc_traits::construct(__a, __node->_M_valptr(),
-						  std::forward<_Arg>(__arg));
+		  __node_alloc_traits::construct(__a, __node->_M_valptr(),
+						 std::forward<_Arg>(__arg));
 		}
 	      __catch(...)
 		{
 		  __node->~__node_type();
-		  __node_alloc_traits::deallocate(_M_h._M_node_allocator(),
-						  __node, 1);
+		  __node_alloc_traits::deallocate(__a, __node, 1);
 		  __throw_exception_again;
 		}
 	      return __node;
@@ -521,24 +513,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// Compute closest power of 2.
   _GLIBCXX14_CONSTEXPR
   inline std::size_t
-  __clp2(std::size_t n) noexcept
+  __clp2(std::size_t __n) noexcept
   {
 #if __SIZEOF_SIZE_T__ >= 8
-    std::uint_fast64_t x = n;
+    std::uint_fast64_t __x = __n;
 #else
-    std::uint_fast32_t x = n;
+    std::uint_fast32_t __x = __n;
 #endif
     // Algorithm from Hacker's Delight, Figure 3-3.
-    x = x - 1;
-    x = x | (x >> 1);
-    x = x | (x >> 2);
-    x = x | (x >> 4);
-    x = x | (x >> 8);
-    x = x | (x >>16);
+    __x = __x - 1;
+    __x = __x | (__x >> 1);
+    __x = __x | (__x >> 2);
+    __x = __x | (__x >> 4);
+    __x = __x | (__x >> 8);
+    __x = __x | (__x >>16);
 #if __SIZEOF_SIZE_T__ >= 8
-    x = x | (x >>32);
+    __x = __x | (__x >>32);
 #endif
-    return x + 1;
+    return __x + 1;
   }
 
   /// Rehash policy providing power of 2 bucket numbers. Avoids modulo
@@ -2004,10 +1996,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Use __gnu_cxx to benefit from _S_always_equal and al.
       using __node_alloc_traits = __gnu_cxx::__alloc_traits<__node_alloc_type>;
 
-      using __value_type = typename __node_type::value_type;
-      using __value_alloc_type =
-	__alloc_rebind<__node_alloc_type, __value_type>;
-      using __value_alloc_traits = std::allocator_traits<__value_alloc_type>;
+      using __value_alloc_traits = typename __node_alloc_traits::template
+	rebind_traits<typename __node_type::value_type>;
 
       using __node_base = __detail::_Hash_node_base;
       using __bucket_type = __node_base*;      
@@ -2061,10 +2051,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__node_type* __n = std::__addressof(*__nptr);
 	__try
 	  {
-	    __value_alloc_type __a(_M_node_allocator());
 	    ::new ((void*)__n) __node_type;
-	    __value_alloc_traits::construct(__a, __n->_M_valptr(),
-					    std::forward<_Args>(__args)...);
+	    __node_alloc_traits::construct(_M_node_allocator(),
+					   __n->_M_valptr(),
+					   std::forward<_Args>(__args)...);
 	    return __n;
 	  }
 	__catch(...)
@@ -2080,8 +2070,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       typedef typename __node_alloc_traits::pointer _Ptr;
       auto __ptr = std::pointer_traits<_Ptr>::pointer_to(*__n);
-      __value_alloc_type __a(_M_node_allocator());
-      __value_alloc_traits::destroy(__a, __n->_M_valptr());
+      __node_alloc_traits::destroy(_M_node_allocator(), __n->_M_valptr());
       __n->~__node_type();
       __node_alloc_traits::deallocate(_M_node_allocator(), __ptr, 1);
     }
@@ -2122,8 +2111,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
  //@} hashtable-detail
-_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __detail
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // _HASHTABLE_POLICY_H

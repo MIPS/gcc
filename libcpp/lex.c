@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -821,7 +821,7 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
       v = vorrq_u8 (t, vceqq_u8 (data, repl_bs));
       w = vorrq_u8 (u, vceqq_u8 (data, repl_qm));
       t = vorrq_u8 (v, w);
-      if (__builtin_expect (vpaddd_u64 ((uint64x2_t)t), 0))
+      if (__builtin_expect (vpaddd_u64 ((uint64x2_t)t) != 0, 0))
 	goto done;
     }
 
@@ -912,7 +912,7 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 
 #else
 
-/* We only have one accellerated alternative.  Use a direct call so that
+/* We only have one accelerated alternative.  Use a direct call so that
    we encourage inlining.  */
 
 #define search_line_fast  search_line_acc_char
@@ -2889,6 +2889,13 @@ _cpp_lex_direct (cpp_reader *pfile)
       if (fallthrough_comment_p (pfile, comment_start))
 	fallthrough_comment = true;
 
+      if (pfile->cb.comment)
+	{
+	  size_t len = pfile->buffer->cur - comment_start;
+	  pfile->cb.comment (pfile, result->src_loc, comment_start - 1,
+			     len + 1);
+	}
+
       if (!pfile->state.save_comments)
 	{
 	  result->flags |= PREV_WHITE;
@@ -3089,18 +3096,27 @@ _cpp_lex_direct (cpp_reader *pfile)
       break;
     }
 
-  source_range tok_range;
-  tok_range.m_start = result->src_loc;
-  if (result->src_loc >= RESERVED_LOCATION_COUNT)
-    tok_range.m_finish
-      = linemap_position_for_column (pfile->line_table,
-				     CPP_BUF_COLUMN (buffer, buffer->cur));
-  else
-    tok_range.m_finish = tok_range.m_start;
+  /* Potentially convert the location of the token to a range.  */
+  if (result->src_loc >= RESERVED_LOCATION_COUNT
+      && result->type != CPP_EOF)
+    {
+      /* Ensure that any line notes are processed, so that we have the
+	 correct physical line/column for the end-point of the token even
+	 when a logical line is split via one or more backslashes.  */
+      if (buffer->cur >= buffer->notes[buffer->cur_note].pos
+	  && !pfile->overlaid_buffer)
+	_cpp_process_line_notes (pfile, false);
 
-  result->src_loc = COMBINE_LOCATION_DATA (pfile->line_table,
-					   result->src_loc,
-					   tok_range, NULL);
+      source_range tok_range;
+      tok_range.m_start = result->src_loc;
+      tok_range.m_finish
+	= linemap_position_for_column (pfile->line_table,
+				       CPP_BUF_COLUMN (buffer, buffer->cur));
+
+      result->src_loc = COMBINE_LOCATION_DATA (pfile->line_table,
+					       result->src_loc,
+					       tok_range, NULL);
+    }
 
   return result;
 }

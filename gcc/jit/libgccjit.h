@@ -1,5 +1,5 @@
 /* A pure C API to enable client code to embed GCC as a JIT-compiler.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1386,6 +1386,37 @@ gcc_jit_timer_print (gcc_jit_timer *timer,
 extern void
 gcc_jit_rvalue_set_bool_require_tail_call (gcc_jit_rvalue *call,
 					   int require_tail_call);
+
+#define LIBGCCJIT_HAVE_gcc_jit_type_get_aligned
+
+/* Given type "T", get type:
+
+     T __attribute__ ((aligned (ALIGNMENT_IN_BYTES)))
+
+   The alignment must be a power of two.
+
+   This API entrypoint was added in LIBGCCJIT_ABI_7; you can test for its
+   presence using
+     #ifdef LIBGCCJIT_HAVE_gcc_jit_type_get_aligned
+*/
+extern gcc_jit_type *
+gcc_jit_type_get_aligned (gcc_jit_type *type,
+			  size_t alignment_in_bytes);
+
+#define LIBGCCJIT_HAVE_gcc_jit_type_get_vector
+
+/* Given type "T", get type:
+
+     T  __attribute__ ((vector_size (sizeof(T) * num_units))
+
+   T must be integral/floating point; num_units must be a power of two.
+
+   This API entrypoint was added in LIBGCCJIT_ABI_8; you can test for its
+   presence using
+     #ifdef LIBGCCJIT_HAVE_gcc_jit_type_get_vector
+*/
+extern gcc_jit_type *
+gcc_jit_type_get_vector (gcc_jit_type *type, size_t num_units);
 
 #ifdef __cplusplus
 }

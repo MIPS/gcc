@@ -1,5 +1,5 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,7 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gphi *, tree, tree);
-static gphi *factor_out_conditional_conversion (edge, edge, gphi *, tree, tree);
+static gphi *factor_out_conditional_conversion (edge, edge, gphi *, tree, tree,
+						gimple *);
 static int value_replacement (basic_block, basic_block,
 			      edge, edge, gimple *, tree, tree);
 static bool minmax_replacement (basic_block, basic_block,
@@ -233,7 +234,7 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 	  continue;
 	}
       else if (do_hoist_loads
-		 && EDGE_SUCC (bb1, 0)->dest == EDGE_SUCC (bb2, 0)->dest)
+	       && EDGE_SUCC (bb1, 0)->dest == EDGE_SUCC (bb2, 0)->dest)
 	{
 	  basic_block bb3 = EDGE_SUCC (bb1, 0)->dest;
 
@@ -313,7 +314,8 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 	  gcc_assert (arg0 != NULL_TREE && arg1 != NULL_TREE);
 
 	  gphi *newphi = factor_out_conditional_conversion (e1, e2, phi,
-							    arg0, arg1);
+							    arg0, arg1,
+							    cond_stmt);
 	  if (newphi != NULL)
 	    {
 	      phi = newphi;
@@ -372,7 +374,7 @@ replace_phi_edge_with_variable (basic_block cond_block,
     {
       EDGE_SUCC (cond_block, 0)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-      EDGE_SUCC (cond_block, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 0)->probability = profile_probability::always ();
       EDGE_SUCC (cond_block, 0)->count += EDGE_SUCC (cond_block, 1)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 1)->dest;
@@ -382,7 +384,7 @@ replace_phi_edge_with_variable (basic_block cond_block,
       EDGE_SUCC (cond_block, 1)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 1)->flags
 	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-      EDGE_SUCC (cond_block, 1)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 1)->probability = profile_probability::always ();
       EDGE_SUCC (cond_block, 1)->count += EDGE_SUCC (cond_block, 0)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 0)->dest;
@@ -402,11 +404,12 @@ replace_phi_edge_with_variable (basic_block cond_block,
 
 /* PR66726: Factor conversion out of COND_EXPR.  If the arguments of the PHI
    stmt are CONVERT_STMT, factor out the conversion and perform the conversion
-   to the result of PHI stmt.  Return the newly-created PHI, if any.  */
+   to the result of PHI stmt.  COND_STMT is the controlling predicate.
+   Return the newly-created PHI, if any.  */
 
 static gphi *
 factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
-				   tree arg0, tree arg1)
+				   tree arg0, tree arg1, gimple *cond_stmt)
 {
   gimple *arg0_def_stmt = NULL, *arg1_def_stmt = NULL, *new_stmt;
   tree new_arg0 = NULL_TREE, new_arg1 = NULL_TREE;
@@ -472,7 +475,31 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
 	  && int_fits_type_p (arg1, TREE_TYPE (new_arg0)))
 	{
 	  if (gimple_assign_cast_p (arg0_def_stmt))
-	    new_arg1 = fold_convert (TREE_TYPE (new_arg0), arg1);
+	    {
+	      /* For the INTEGER_CST case, we are just moving the
+		 conversion from one place to another, which can often
+		 hurt as the conversion moves further away from the
+		 statement that computes the value.  So, perform this
+		 only if new_arg0 is an operand of COND_STMT, or
+		 if arg0_def_stmt is the only non-debug stmt in
+		 its basic block, because then it is possible this
+		 could enable further optimizations (minmax replacement
+		 etc.).  See PR71016.  */
+	      if (new_arg0 != gimple_cond_lhs (cond_stmt)
+		  && new_arg0 != gimple_cond_rhs (cond_stmt)
+		  && gimple_bb (arg0_def_stmt) == e0->src)
+		{
+		  gsi = gsi_for_stmt (arg0_def_stmt);
+		  gsi_prev_nondebug (&gsi);
+		  if (!gsi_end_p (gsi))
+		    return NULL;
+		  gsi = gsi_for_stmt (arg0_def_stmt);
+		  gsi_next_nondebug (&gsi);
+		  if (!gsi_end_p (gsi))
+		    return NULL;
+		}
+	      new_arg1 = fold_convert (TREE_TYPE (new_arg0), arg1);
+	    }
 	  else
 	    return NULL;
 	}
@@ -498,11 +525,11 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "PHI ");
-      print_generic_expr (dump_file, gimple_phi_result (phi), 0);
+      print_generic_expr (dump_file, gimple_phi_result (phi));
       fprintf (dump_file,
 	       " changed to factor conversion out from COND_EXPR.\n");
       fprintf (dump_file, "New stmt with CAST that defines ");
-      print_generic_expr (dump_file, result, 0);
+      print_generic_expr (dump_file, result);
       fprintf (dump_file, ".\n");
     }
 
@@ -524,7 +551,7 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   /* Create the conversion stmt and insert it.  */
   if (convert_code == VIEW_CONVERT_EXPR)
     temp = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (result), temp);
-  new_stmt = gimple_build_assign (result,  convert_code, temp);
+  new_stmt = gimple_build_assign (result, convert_code, temp);
   gsi = gsi_after_labels (gimple_bb (phi));
   gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
 
@@ -957,10 +984,10 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "PHI ");
-	      print_generic_expr (dump_file, gimple_phi_result (phi), 0);
+	      print_generic_expr (dump_file, gimple_phi_result (phi));
 	      fprintf (dump_file, " reduced for COND_EXPR in block %d to ",
 		       cond_bb->index);
-	      print_generic_expr (dump_file, arg, 0);
+	      print_generic_expr (dump_file, arg);
 	      fprintf (dump_file, ".\n");
             }
           return 1;
@@ -990,7 +1017,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   if (optimize_bb_for_speed_p (cond_bb)
       /* The special case is useless if it has a low probability.  */
       && profile_status_for_fn (cfun) != PROFILE_ABSENT
-      && EDGE_PRED (middle_bb, 0)->probability < PROB_EVEN
+      && EDGE_PRED (middle_bb, 0)->probability < profile_probability::even ()
       /* If assign is cheap, there is no point avoiding it.  */
       && estimate_num_insns (assign, &eni_time_weights)
 	 >= 3 * estimate_num_insns (cond, &eni_time_weights))

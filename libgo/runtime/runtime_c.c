@@ -6,38 +6,15 @@
 #include <signal.h>
 #include <unistd.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <cpuid.h>
+#endif
+
 #include "config.h"
 
 #include "runtime.h"
 #include "arch.h"
 #include "array.h"
-
-enum {
-	maxround = sizeof(uintptr),
-};
-
-extern volatile intgo runtime_MemProfileRate
-  __asm__ (GOSYM_PREFIX "runtime.MemProfileRate");
-
-struct gotraceback_ret {
-	int32 level;
-	bool crash;
-};
-
-extern struct gotraceback_ret gotraceback(void)
-  __asm__ (GOSYM_PREFIX "runtime.gotraceback");
-
-// runtime_gotraceback is the C interface to runtime.gotraceback.
-int32
-runtime_gotraceback(bool *crash)
-{
-	struct gotraceback_ret r;
-
-	r = gotraceback();
-	if(crash != nil)
-		*crash = r.crash;
-	return r.level;
-}
 
 int32
 runtime_atoi(const byte *p, intgo len)
@@ -53,7 +30,7 @@ runtime_atoi(const byte *p, intgo len)
 }
 
 uint32
-runtime_fastrand1(void)
+runtime_fastrand(void)
 {
 	M *m;
 	uint32 x;
@@ -83,55 +60,15 @@ runtime_cputicks(void)
   asm volatile(".insn s,0xb27c0000,%0" /* stckf */ : "+Q" (clock) : : "cc" );
   return (int64)clock;
 #else
-  // Currently cputicks() is used in blocking profiler and to seed runtime·fastrand1().
+  // Currently cputicks() is used in blocking profiler and to seed runtime·fastrand().
   // runtime·nanotime() is a poor approximation of CPU ticks that is enough for the profiler.
-  // TODO: need more entropy to better seed fastrand1.
+  // TODO: need more entropy to better seed fastrand.
   return runtime_nanotime();
 #endif
 }
 
-// Called to initialize a new m (including the bootstrap m).
-// Called on the parent thread (main thread in case of bootstrap), can allocate memory.
 void
-runtime_mpreinit(M *mp)
-{
-	int32 stacksize = 32 * 1024;	// OS X wants >=8K, Linux >=2K
-
-#ifdef SIGSTKSZ
-	if(stacksize < SIGSTKSZ)
-		stacksize = SIGSTKSZ;
-#endif
-
-	mp->gsignal = runtime_malg(stacksize, (byte**)&mp->gsignalstack, &mp->gsignalstacksize);
-	mp->gsignal->m = mp;
-}
-
-// Called to initialize a new m (including the bootstrap m).
-// Called on the new thread, can not allocate memory.
-void
-runtime_minit(void)
-{
-	M* m;
-	sigset_t sigs;
-
-	// Initialize signal handling.
-	m = runtime_m();
-	runtime_signalstack(m->gsignalstack, m->gsignalstacksize);
-	if (sigemptyset(&sigs) != 0)
-		runtime_throw("sigemptyset");
-	pthread_sigmask(SIG_SETMASK, &sigs, nil);
-}
-
-// Called from dropm to undo the effect of an minit.
-void
-runtime_unminit(void)
-{
-	runtime_signalstack(nil, 0);
-}
-
-
-void
-runtime_signalstack(byte *p, int32 n)
+runtime_signalstack(byte *p, uintptr n)
 {
 	stack_t st;
 
@@ -149,15 +86,6 @@ struct debugVars	runtime_debug;
 void
 runtime_setdebug(struct debugVars* d) {
   runtime_debug = *d;
-}
-
-void memclrBytes(Slice)
-     __asm__ (GOSYM_PREFIX "runtime.memclrBytes");
-
-void
-memclrBytes(Slice s)
-{
-	runtime_memclr(s.__values, s.__count);
 }
 
 int32 go_open(char *, int32, int32)
@@ -203,4 +131,56 @@ intgo
 go_errno()
 {
   return (intgo)errno;
+}
+
+uintptr getEnd(void)
+  __asm__ (GOSYM_PREFIX "runtime.getEnd");
+
+uintptr
+getEnd()
+{
+#ifdef _AIX
+  // mmap adresses range start at 0x30000000 on AIX for 32 bits processes
+  uintptr end = 0x30000000U;
+#else
+  uintptr end = 0;
+  uintptr *pend;
+
+  pend = &__go_end;
+  if (pend != nil) {
+    end = *pend;
+  }
+#endif
+
+  return end;
+}
+
+// CPU-specific initialization.
+// Fetch CPUID info on x86.
+
+void
+runtime_cpuinit()
+{
+#if defined(__i386__) || defined(__x86_64__)
+	unsigned int eax, ebx, ecx, edx;
+
+	if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+		setCpuidECX(ecx);
+	}
+
+#if defined(HAVE_AS_X86_AES)
+	setSupportAES(true);
+#endif
+#endif
+}
+
+// A publication barrier: a store/store barrier.
+
+void publicationBarrier(void)
+  __asm__ (GOSYM_PREFIX "runtime.publicationBarrier");
+
+void
+publicationBarrier()
+{
+  __atomic_thread_fence(__ATOMIC_RELEASE);
 }

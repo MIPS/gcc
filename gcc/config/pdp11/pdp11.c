@@ -1,5 +1,5 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994-2016 Free Software Foundation, Inc.
+   Copyright (C) 1994-2017 Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
 This file is part of GCC.
@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "df.h"
 #include "memmodel.h"
 #include "tm_p.h"
@@ -160,7 +162,7 @@ static void pdp11_function_arg_advance (cumulative_args_t,
 static void pdp11_conditional_register_usage (void);
 static bool pdp11_legitimate_constant_p (machine_mode, rtx);
 
-static bool pdp11_scalar_mode_supported_p (machine_mode);
+static bool pdp11_scalar_mode_supported_p (scalar_mode);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -1909,7 +1911,7 @@ pdp11_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 /* Implement TARGET_SCALAR_MODE_SUPPORTED_P.  */
 
 static bool
-pdp11_scalar_mode_supported_p (machine_mode mode)
+pdp11_scalar_mode_supported_p (scalar_mode mode)
 {
   /* Support SFmode even with -mfloat64.  */
   if (mode == SFmode)

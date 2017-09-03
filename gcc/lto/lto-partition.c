@@ -1,5 +1,5 @@
 /* LTO partitioning logic routines.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,7 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "symbol-summary.h"
 #include "tree-vrp.h"
 #include "ipa-prop.h"
-#include "ipa-inline.h"
+#include "ipa-fnsummary.h"
 #include "lto-partition.h"
 
 vec<ltrans_partition> ltrans_partitions;
@@ -153,7 +153,7 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
     {
       struct cgraph_edge *e;
       if (!node->alias)
-        part->insns += inline_summaries->get (cnode)->self_size;
+        part->insns += ipa_fn_summaries->get (cnode)->self_size;
 
       /* Add all inline clones and callees that are duplicated.  */
       for (e = cnode->callees; e; e = e->next_callee)
@@ -277,7 +277,7 @@ undo_partition (ltrans_partition partition, unsigned int n_nodes)
       partition->initializers_visited = NULL;
 
       if (!node->alias && (cnode = dyn_cast <cgraph_node *> (node)))
-        partition->insns -= inline_summaries->get (cnode)->self_size;
+        partition->insns -= ipa_fn_summaries->get (cnode)->self_size;
       lto_symtab_encoder_delete_node (partition->encoder, node);
       node->aux = (void *)((size_t)node->aux - 1);
     }
@@ -480,7 +480,7 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
 	else
 	  order[n_nodes++] = node;
 	if (!node->alias)
-	  total_size += inline_summaries->get (node)->size;
+	  total_size += ipa_fn_summaries->get (node)->size;
       }
 
   original_total_size = total_size;
@@ -506,7 +506,7 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
   /* Collect all variables that should not be reordered.  */
   FOR_EACH_VARIABLE (vnode)
     if (vnode->get_partitioning_class () == SYMBOL_PARTITION
-	&& (!flag_toplevel_reorder || vnode->no_reorder))
+	&& vnode->no_reorder)
       varpool_order.safe_push (vnode);
   n_varpool_nodes = varpool_order.length ();
   varpool_order.qsort (varpool_node_cmp);
@@ -542,14 +542,15 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
 	     && noreorder[noreorder_pos]->order < current_order)
 	{
 	  if (!noreorder[noreorder_pos]->alias)
-	    total_size -= inline_summaries->get (noreorder[noreorder_pos])->size;
+	    total_size -= ipa_fn_summaries->get (noreorder[noreorder_pos])->size;
 	  next_nodes.safe_push (noreorder[noreorder_pos++]);
 	}
       add_sorted_nodes (next_nodes, partition);
 
-      add_symbol_to_partition (partition, order[i]);
+      if (!symbol_partitioned_p (order[i]))
+        add_symbol_to_partition (partition, order[i]);
       if (!order[i]->alias)
-        total_size -= inline_summaries->get (order[i])->size;
+        total_size -= ipa_fn_summaries->get (order[i])->size;
 	  
 
       /* Once we added a new node to the partition, we also want to add
@@ -634,7 +635,7 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
 		vnode = dyn_cast <varpool_node *> (ref->referred);
 		if (!vnode->definition)
 		  continue;
-		if (!symbol_partitioned_p (vnode) && flag_toplevel_reorder
+		if (!symbol_partitioned_p (vnode)
 		    && !vnode->no_reorder
 		    && vnode->get_partitioning_class () == SYMBOL_PARTITION)
 		  add_symbol_to_partition (partition, vnode);
@@ -668,10 +669,11 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
 
 		vnode = dyn_cast <varpool_node *> (ref->referring);
 		gcc_assert (vnode->definition);
-		/* It is better to couple variables with their users, because it allows them
-		   to be removed.  Coupling with objects they refer to only helps to reduce
+		/* It is better to couple variables with their users,
+		   because it allows them to be removed.  Coupling
+		   with objects they refer to only helps to reduce
 		   number of symbols promoted to hidden.  */
-		if (!symbol_partitioned_p (vnode) && flag_toplevel_reorder
+		if (!symbol_partitioned_p (vnode)
 		    && !vnode->no_reorder
 		    && !vnode->can_remove_if_no_refs_p ()
 		    && vnode->get_partitioning_class () == SYMBOL_PARTITION)
@@ -766,14 +768,10 @@ lto_balanced_map (int n_lto_partitions, int max_partition_size)
   next_nodes.truncate (0);
 
   /* Varables that are not reachable from the code go into last partition.  */
-  if (flag_toplevel_reorder)
-    {
-      FOR_EACH_VARIABLE (vnode)
-	if (vnode->get_partitioning_class () == SYMBOL_PARTITION
-	    && !symbol_partitioned_p (vnode)
-	    && !vnode->no_reorder)
-	  next_nodes.safe_push (vnode);
-    }
+  FOR_EACH_VARIABLE (vnode)
+    if (vnode->get_partitioning_class () == SYMBOL_PARTITION
+	&& !symbol_partitioned_p (vnode))
+      next_nodes.safe_push (vnode);
 
   /* Output remaining ordered symbols.  */
   while (varpool_pos < n_varpool_nodes)
@@ -986,11 +984,15 @@ promote_symbol (symtab_node *node)
   TREE_PUBLIC (node->decl) = 1;
   DECL_VISIBILITY (node->decl) = VISIBILITY_HIDDEN;
   DECL_VISIBILITY_SPECIFIED (node->decl) = true;
-  ipa_ref *ref;
+  if (symtab->dump_file)
+    fprintf (symtab->dump_file,
+	     "Promoting as hidden: %s (%s)\n", node->name (),
+	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl)));
 
-  /* Promoting a symbol also promotes all trasparent aliases with exception
+  /* Promoting a symbol also promotes all transparent aliases with exception
      of weakref where the visibility flags are always wrong and set to 
      !PUBLIC.  */
+  ipa_ref *ref;
   for (unsigned i = 0; node->iterate_direct_aliases (i, ref); i++)
     {
       struct symtab_node *alias = ref->referring;
@@ -999,19 +1001,20 @@ promote_symbol (symtab_node *node)
 	  TREE_PUBLIC (alias->decl) = 1;
 	  DECL_VISIBILITY (alias->decl) = VISIBILITY_HIDDEN;
 	  DECL_VISIBILITY_SPECIFIED (alias->decl) = true;
+	  if (symtab->dump_file)
+	    fprintf (symtab->dump_file,
+		     "Promoting alias as hidden: %s\n",
+		     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl)));
 	}
       gcc_assert (!alias->weakref || TREE_PUBLIC (alias->decl));
     }
-
-  if (symtab->dump_file)
-    fprintf (symtab->dump_file,
-	    "Promoting as hidden: %s\n", node->name ());
 }
 
-/* Return true if NODE needs named section even if it won't land in the partition
-   symbol table.
-   FIXME: we should really not use named sections for inline clones and master
-   clones.  */
+/* Return true if NODE needs named section even if it won't land in
+   the partition symbol table.
+
+   FIXME: we should really not use named sections for inline clones
+   and master clones.  */
 
 static bool
 may_need_named_section_p (lto_symtab_encoder_t encoder, symtab_node *node)
@@ -1089,7 +1092,8 @@ rename_statics (lto_symtab_encoder_t encoder, symtab_node *node)
 	    || lto_symtab_encoder_lookup (encoder, s) != LCC_NOT_FOUND))
       {
         if (privatize_symbol_name (s))
-	  /* Re-start from beginning since we do not know how many symbols changed a name.  */
+	  /* Re-start from beginning since we do not know how many
+	     symbols changed a name.  */
 	  s = symtab_node::get_for_asmname (name);
         else s = s->next_sharing_asm_name;
       }
@@ -1130,8 +1134,8 @@ lto_promote_cross_file_statics (void)
         {
           symtab_node *node = lsei_node (lsei);
 
-	  /* If symbol is static, rename it if its assembler name clash with
-	     anything else in this unit.  */
+	  /* If symbol is static, rename it if its assembler name
+	     clashes with anything else in this unit.  */
 	  rename_statics (encoder, node);
 
 	  /* No need to promote if symbol already is externally visible ... */
@@ -1139,7 +1143,7 @@ lto_promote_cross_file_statics (void)
  	      /* ... or if it is part of current partition ... */
 	      || lto_symtab_encoder_in_partition_p (encoder, node)
 	      /* ... or if we do not partition it. This mean that it will
-		 appear in every partition refernecing it.  */
+		 appear in every partition referencing it.  */
 	      || node->get_partitioning_class () != SYMBOL_PARTITION)
 	    {
 	      validize_symbol_for_target (node);

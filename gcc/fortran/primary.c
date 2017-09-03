@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -41,7 +41,6 @@ match_kind_param (int *kind, int *is_iso_c)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
-  const char *p;
   match m;
 
   *is_iso_c = 0;
@@ -68,8 +67,7 @@ match_kind_param (int *kind, int *is_iso_c)
   if (sym->value == NULL)
     return MATCH_NO;
 
-  p = gfc_extract_int (sym->value, kind);
-  if (p != NULL)
+  if (gfc_extract_int (sym->value, kind))
     return MATCH_NO;
 
   gfc_set_sym_referenced (sym);
@@ -257,7 +255,6 @@ match_hollerith_constant (gfc_expr **result)
 {
   locus old_loc;
   gfc_expr *e = NULL;
-  const char *msg;
   int num, pad;
   int i;
 
@@ -270,12 +267,8 @@ match_hollerith_constant (gfc_expr **result)
       if (!gfc_notify_std (GFC_STD_LEGACY, "Hollerith constant at %C"))
 	goto cleanup;
 
-      msg = gfc_extract_int (e, &num);
-      if (msg != NULL)
-	{
-	  gfc_error (msg);
-	  goto cleanup;
-	}
+      if (gfc_extract_int (e, &num, 1))
+	goto cleanup;
       if (num == 0)
 	{
 	  gfc_error ("Invalid Hollerith constant: %L must contain at least "
@@ -1017,7 +1010,6 @@ match_string_constant (gfc_expr **result)
   locus old_locus, start_locus;
   gfc_symbol *sym;
   gfc_expr *e;
-  const char *q;
   match m;
   gfc_char_t c, delimiter, *p;
 
@@ -1082,12 +1074,8 @@ match_string_constant (gfc_expr **result)
 
   if (kind == -1)
     {
-      q = gfc_extract_int (sym->value, &kind);
-      if (q != NULL)
-	{
-	  gfc_error (q);
-	  return MATCH_ERROR;
-	}
+      if (gfc_extract_int (sym->value, &kind, 1))
+	return MATCH_ERROR;
       gfc_set_sym_referenced (sym);
     }
 
@@ -1567,7 +1555,7 @@ match_actual_arg (gfc_expr **result)
 	  gfc_set_sym_referenced (sym);
 	  if (sym->attr.flavor == FL_NAMELIST)
 	    {
-	      gfc_error ("Namelist '%s' can not be an argument at %L",
+	      gfc_error ("Namelist %qs can not be an argument at %L",
 	      sym->name, &where);
 	      break;
 	    }
@@ -1659,7 +1647,7 @@ match_keyword_arg (gfc_actual_arglist *actual, gfc_actual_arglist *base)
 	  }
     }
 
-  actual->name = gfc_get_string (name);
+  actual->name = gfc_get_string ("%s", name);
   return MATCH_YES;
 
 cleanup:
@@ -2050,7 +2038,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (sym->f2k_derived)
+      if (sym && sym->f2k_derived)
 	tbp = gfc_find_typebound_proc (sym, &t, name, false, &gfc_current_locus);
       else
 	tbp = NULL;
@@ -2222,7 +2210,15 @@ check_substring:
 	}
     }
 
-  /* F2008, C727.  */
+  /* F08:C611.  */
+  if (primary->ts.type == BT_DERIVED && primary->ref
+      && primary->ts.u.derived && primary->ts.u.derived->attr.abstract)
+    {
+      gfc_error ("Nonpolymorphic reference to abstract type at %C");
+      return MATCH_ERROR;
+    }
+
+  /* F08:C727.  */
   if (primary->expr_type == EXPR_PPC && gfc_is_coindexed (primary))
     {
       gfc_error ("Coindexed procedure-pointer component at %C");
@@ -2418,13 +2414,17 @@ gfc_expr_attr (gfc_expr *e)
    attribute is.  This routine is similar to gfc_variable_attr with
    parts of gfc_expr_attr, but focuses more on the needs of
    coarrays.  For coarrays a codimension attribute is kind of
-   "infectious" being propagated once set and never cleared.  */
+   "infectious" being propagated once set and never cleared.
+   The coarray_comp is only set, when the expression refs a coarray
+   component.  REFS_COMP is set when present to true only, when this EXPR
+   refs a (non-_data) component.  To check whether EXPR refs an allocatable
+   component in a derived type coarray *refs_comp needs to be set and
+   coarray_comp has to false.  */
 
 static symbol_attribute
-caf_variable_attr (gfc_expr *expr, bool in_allocate)
+caf_variable_attr (gfc_expr *expr, bool in_allocate, bool *refs_comp)
 {
-  int dimension, codimension, pointer, allocatable, target, coarray_comp,
-      alloc_comp;
+  int dimension, codimension, pointer, allocatable, target, coarray_comp;
   symbol_attribute attr;
   gfc_ref *ref;
   gfc_symbol *sym;
@@ -2436,14 +2436,17 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
   sym = expr->symtree->n.sym;
   gfc_clear_attr (&attr);
 
+  if (refs_comp)
+    *refs_comp = false;
+
   if (sym->ts.type == BT_CLASS && sym->attr.class_ok)
     {
       dimension = CLASS_DATA (sym)->attr.dimension;
       codimension = CLASS_DATA (sym)->attr.codimension;
       pointer = CLASS_DATA (sym)->attr.class_pointer;
       allocatable = CLASS_DATA (sym)->attr.allocatable;
-      coarray_comp = CLASS_DATA (sym)->attr.coarray_comp;
-      alloc_comp = CLASS_DATA (sym)->ts.u.derived->attr.alloc_comp;
+      attr.alloc_comp = CLASS_DATA (sym)->ts.u.derived->attr.alloc_comp;
+      attr.pointer_comp = CLASS_DATA (sym)->ts.u.derived->attr.pointer_comp;
     }
   else
     {
@@ -2451,12 +2454,13 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
       codimension = sym->attr.codimension;
       pointer = sym->attr.pointer;
       allocatable = sym->attr.allocatable;
-      coarray_comp = sym->attr.coarray_comp;
-      alloc_comp = sym->ts.type == BT_DERIVED
+      attr.alloc_comp = sym->ts.type == BT_DERIVED
 	  ? sym->ts.u.derived->attr.alloc_comp : 0;
+      attr.pointer_comp = sym->ts.type == BT_DERIVED
+	  ? sym->ts.u.derived->attr.pointer_comp : 0;
     }
 
-  target = attr.target;
+  target = coarray_comp = 0;
   if (pointer || attr.proc_pointer)
     target = 1;
 
@@ -2494,18 +2498,27 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
 
 	if (comp->ts.type == BT_CLASS)
 	  {
+	    /* Set coarray_comp only, when this component introduces the
+	       coarray.  */
+	    coarray_comp = !codimension && CLASS_DATA (comp)->attr.codimension;
 	    codimension |= CLASS_DATA (comp)->attr.codimension;
 	    pointer = CLASS_DATA (comp)->attr.class_pointer;
 	    allocatable = CLASS_DATA (comp)->attr.allocatable;
-	    coarray_comp |= CLASS_DATA (comp)->attr.coarray_comp;
 	  }
 	else
 	  {
+	    /* Set coarray_comp only, when this component introduces the
+	       coarray.  */
+	    coarray_comp = !codimension && comp->attr.codimension;
 	    codimension |= comp->attr.codimension;
 	    pointer = comp->attr.pointer;
 	    allocatable = comp->attr.allocatable;
-	    coarray_comp |= comp->attr.coarray_comp;
 	  }
+
+	if (refs_comp && strcmp (comp->name, "_data") != 0
+	    && (ref->next == NULL
+		|| (ref->next->type == REF_ARRAY && ref->next->next == NULL)))
+	  *refs_comp = true;
 
 	if (pointer || attr.proc_pointer)
 	  target = 1;
@@ -2524,21 +2537,20 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
   attr.target = target;
   attr.save = sym->attr.save;
   attr.coarray_comp = coarray_comp;
-  attr.alloc_comp = alloc_comp;
 
   return attr;
 }
 
 
 symbol_attribute
-gfc_caf_attr (gfc_expr *e, bool in_allocate)
+gfc_caf_attr (gfc_expr *e, bool in_allocate, bool *refs_comp)
 {
   symbol_attribute attr;
 
   switch (e->expr_type)
     {
     case EXPR_VARIABLE:
-      attr = caf_variable_attr (e, in_allocate);
+      attr = caf_variable_attr (e, in_allocate, refs_comp);
       break;
 
     case EXPR_FUNCTION:
@@ -2554,10 +2566,12 @@ gfc_caf_attr (gfc_expr *e, bool in_allocate)
 	      attr.pointer = CLASS_DATA (sym)->attr.class_pointer;
 	      attr.allocatable = CLASS_DATA (sym)->attr.allocatable;
 	      attr.alloc_comp = CLASS_DATA (sym)->ts.u.derived->attr.alloc_comp;
+	      attr.pointer_comp = CLASS_DATA (sym)->ts.u.derived
+		  ->attr.pointer_comp;
 	    }
 	}
       else if (e->symtree)
-	attr = caf_variable_attr (e, in_allocate);
+	attr = caf_variable_attr (e, in_allocate, refs_comp);
       else
 	gfc_clear_attr (&attr);
       break;
@@ -2656,14 +2670,14 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 		       && CLASS_DATA (comp)->attr.allocatable))
 	    {
 	      if (!gfc_notify_std (GFC_STD_F2008, "No initializer for "
-				   "allocatable component '%qs' given in the "
+				   "allocatable component %qs given in the "
 				   "structure constructor at %C", comp->name))
 		return false;
 	    }
 	  else if (!comp->attr.artificial)
 	    {
 	      gfc_error ("No initializer for component %qs given in the"
-			 " structure constructor at %C!", comp->name);
+			 " structure constructor at %C", comp->name);
 	      return false;
 	    }
 	}
@@ -2746,13 +2760,13 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	    {
 	      if (last_name)
 		gfc_error ("Component initializer without name after component"
-			   " named %s at %L!", last_name,
+			   " named %s at %L", last_name,
 			   actual->expr ? &actual->expr->where
 					: &gfc_current_locus);
 	      else
 		gfc_error ("Too many components in structure constructor at "
-			   "%L!", actual->expr ? &actual->expr->where
-					       : &gfc_current_locus);
+			   "%L", actual->expr ? &actual->expr->where
+					      : &gfc_current_locus);
 	      goto cleanup;
 	    }
 
@@ -2788,7 +2802,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	  if (!strcmp (comp_iter->name, comp_tail->name))
 	    {
 	      gfc_error ("Component %qs is initialized twice in the structure"
-			 " constructor at %L!", comp_tail->name,
+			 " constructor at %L", comp_tail->name,
 			 comp_tail->val ? &comp_tail->where
 					: &gfc_current_locus);
 	      goto cleanup;
@@ -2800,7 +2814,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	  && gfc_is_coindexed (comp_tail->val))
      	{
 	  gfc_error ("Coindexed expression to pointer component %qs in "
-		     "structure constructor at %L!", comp_tail->name,
+		     "structure constructor at %L", comp_tail->name,
 		     &comp_tail->where);
 	  goto cleanup;
 	}
@@ -3285,6 +3299,15 @@ gfc_match_rvalue (gfc_expr **result)
       if (sym->result == NULL)
 	sym->result = sym;
 
+      gfc_gobble_whitespace ();
+      /* F08:C612.  */
+      if (gfc_peek_ascii_char() == '%')
+	{
+	  gfc_error ("The leftmost part-ref in a data-ref can not be a "
+		     "function reference at %C");
+	  m = MATCH_ERROR;
+	}
+
       m = MATCH_YES;
       break;
 
@@ -3548,7 +3571,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       && (dt_sym = gfc_find_dt_in_generic (sym)))
     {
       if (dt_sym->attr.flavor == FL_DERIVED)
-        gfc_error ("Derived type '%s' cannot be used as a variable at %C",
+        gfc_error ("Derived type %qs cannot be used as a variable at %C",
                    sym->name);
       return MATCH_ERROR;
     }

@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,10 +30,10 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-namespace __detail
-{
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
+namespace __detail
+{
   template<typename _BiIter, typename _Alloc, typename _TraitsT,
 	   bool __dfs_mode>
     bool _Executor<_BiIter, _Alloc, _TraitsT, __dfs_mode>::
@@ -513,7 +513,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       return __left_is_word != __right_is_word;
     }
+} // namespace __detail
 
 _GLIBCXX_END_NAMESPACE_VERSION
-} // namespace __detail
 } // namespace

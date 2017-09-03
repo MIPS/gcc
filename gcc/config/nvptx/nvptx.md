@@ -1,5 +1,5 @@
 ;; Machine description for NVPTX.
-;; Copyright (C) 2014-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2014-2017 Free Software Foundation, Inc.
 ;; Contributed by Bernd Schmidt <bernds@codesourcery.com>
 ;;
 ;; This file is part of GCC.
@@ -63,6 +63,9 @@
    UNSPECV_JOIN
 
    UNSPECV_NOUNROLL
+
+   UNSPECV_SIMT_ENTER
+   UNSPECV_SIMT_EXIT
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -181,6 +184,7 @@
 (define_mode_iterator SDCM [SC DC])
 (define_mode_iterator BITS [SI SF])
 (define_mode_iterator BITD [DI DF])
+(define_mode_iterator VECIM [V2SI V2DI])
 
 ;; This mode iterator allows :P to be used for patterns that operate on
 ;; pointer-sized quantities.  Exactly one of the two alternatives will match.
@@ -196,6 +200,20 @@
    %.\\tmov%t0\\t%0, %1;
    %.\\tsetp.eq.u32\\t%0, 1, 0;
    %.\\tsetp.eq.u32\\t%0, 1, 1;")
+
+(define_insn "*mov<mode>_insn"
+  [(set (match_operand:VECIM 0 "nonimmediate_operand" "=R,R,m")
+	(match_operand:VECIM 1 "general_operand" "Ri,m,R"))]
+  "!MEM_P (operands[0]) || REG_P (operands[1])"
+{
+  if (which_alternative == 1)
+    return "%.\\tld%A1%u1\\t%0, %1;";
+  if (which_alternative == 2)
+    return "%.\\tst%A0%u0\\t%0, %1;";
+
+  return nvptx_output_mov_insn (operands[0], operands[1]);
+}
+  [(set_attr "subregs_ok" "true")])
 
 (define_insn "*mov<mode>_insn"
   [(set (match_operand:QHSDIM 0 "nonimmediate_operand" "=R,R,m")
@@ -239,6 +257,20 @@
   ""
   "%.\\tmov%t0\\t%0, %%ar%1;")
 
+ (define_expand "mov<mode>"
+  [(set (match_operand:VECIM 0 "nonimmediate_operand" "")
+	(match_operand:VECIM 1 "general_operand" ""))]
+  ""
+{
+  if (MEM_P (operands[0]) && !REG_P (operands[1]))
+    {
+      rtx tmp = gen_reg_rtx (<MODE>mode);
+      emit_move_insn (tmp, operands[1]);
+      emit_move_insn (operands[0], tmp);
+      DONE;
+    }
+})
+
 (define_expand "mov<mode>"
   [(set (match_operand:QHSDISDFM 0 "nonimmediate_operand" "")
 	(match_operand:QHSDISDFM 1 "general_operand" ""))]
@@ -251,6 +283,9 @@
       emit_move_insn (operands[0], tmp);
       DONE;
     }
+
+  if (GET_CODE (operands[1]) == LABEL_REF)
+    sorry ("target cannot support label values");
 })
 
 (define_insn "zero_extendqihi2"
@@ -1183,6 +1218,42 @@
   "%.\\tvote.ballot.b32\\t%0, %1;")
 
 ;; Patterns for OpenMP SIMD-via-SIMT lowering
+
+(define_insn "omp_simt_enter_insn"
+  [(set (match_operand 0 "nvptx_register_operand" "=R")
+	(unspec_volatile [(match_operand 1 "nvptx_nonmemory_operand" "Ri")
+			    (match_operand 2 "nvptx_nonmemory_operand" "Ri")]
+			   UNSPECV_SIMT_ENTER))]
+  ""
+{
+  return nvptx_output_simt_enter (operands[0], operands[1], operands[2]);
+})
+
+(define_expand "omp_simt_enter"
+  [(match_operand 0 "nvptx_register_operand" "=R")
+   (match_operand 1 "nvptx_nonmemory_operand" "Ri")
+   (match_operand 2 "const_int_operand" "n")]
+  ""
+{
+  if (!CONST_INT_P (operands[1]))
+    cfun->machine->simt_stack_size = HOST_WIDE_INT_M1U;
+  else
+    cfun->machine->simt_stack_size = MAX (UINTVAL (operands[1]),
+					  cfun->machine->simt_stack_size);
+  cfun->machine->simt_stack_align = MAX (UINTVAL (operands[2]),
+					 cfun->machine->simt_stack_align);
+  cfun->machine->has_simtreg = true;
+  emit_insn (gen_omp_simt_enter_insn (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_insn "omp_simt_exit"
+  [(unspec_volatile [(match_operand 0 "nvptx_register_operand" "R")]
+		    UNSPECV_SIMT_EXIT)]
+  ""
+{
+  return nvptx_output_simt_exit (operands[0]);
+})
 
 ;; Implement IFN_GOMP_SIMT_LANE: set operand 0 to lane index
 (define_insn "omp_simt_lane"

@@ -1,6 +1,6 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU compiler.
-   Copyright (C) 1988-2016 Free Software Foundation, Inc.
+   Copyright (C) 1988-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,6 +133,9 @@ mark_exp_read (tree exp)
   switch (TREE_CODE (exp))
     {
     case VAR_DECL:
+      if (DECL_DECOMPOSITION_P (exp))
+	mark_exp_read (DECL_DECOMP_BASE (exp));
+      gcc_fallthrough ();
     case PARM_DECL:
       DECL_READ_P (exp) = 1;
       break;

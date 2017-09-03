@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -102,9 +102,7 @@ static size_t include_cursor;
 
 /* Dump files/flags to use during parsing.  */
 static FILE *original_dump_file = NULL;
-static int original_dump_flags;
-static FILE *class_dump_file = NULL;
-static int class_dump_flags;
+static dump_flags_t original_dump_flags;
 
 /* Whether any standard preincluded header has been preincluded.  */
 static bool done_preinclude;
@@ -227,7 +225,7 @@ upc_init_options ()
      are compilation errors.  Enable this warning-as-error
      mode by default.  */
   warn_pointer_arith = 1;
-  set_default_handlers (&handlers);
+  set_default_handlers (&handlers, NULL);
   control_warning_option (OPT_Wpointer_arith, (int) DK_ERROR, NULL, true,
 			  UNKNOWN_LOCATION, CL_C,
 			  &handlers, &global_options, &global_options_set,
@@ -870,7 +868,12 @@ c_common_post_options (const char **pfilename)
       in_fnames[0] = "";
     }
   else if (strcmp (in_fnames[0], "-") == 0)
-    in_fnames[0] = "";
+    {
+      if (pch_file)
+	error ("cannot use %<-%> as input filename for a precompiled header");
+
+      in_fnames[0] = "";
+    }
 
   if (out_fname == NULL || !strcmp (out_fname, "-"))
     out_fname = "";
@@ -913,6 +916,18 @@ c_common_post_options (const char **pfilename)
 	  == (enum fp_contract_mode) 0)
       && flag_unsafe_math_optimizations == 0)
     flag_fp_contract_mode = FP_CONTRACT_OFF;
+
+  /* If we are compiling C, and we are outside of a standards mode,
+     we can permit the new values from ISO/IEC TS 18661-3 for
+     FLT_EVAL_METHOD.  Otherwise, we must restrict the possible values to
+     the set specified in ISO C99/C11.  */
+  if (!flag_iso
+      && !c_dialect_cxx ()
+      && (global_options_set.x_flag_permitted_flt_eval_methods
+	  == PERMITTED_FLT_EVAL_METHODS_DEFAULT))
+    flag_permitted_flt_eval_methods = PERMITTED_FLT_EVAL_METHODS_TS_18661;
+  else
+    flag_permitted_flt_eval_methods = PERMITTED_FLT_EVAL_METHODS_C11;
 
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
      inline semantics are not supported in GNU89 or C89 mode.  */
@@ -1018,21 +1033,25 @@ c_common_post_options (const char **pfilename)
     }
   else if (flag_abi_compat_version == -1)
     {
-      /* Generate compatibility aliases for ABI v10 (6.1) by default. */
+      /* Generate compatibility aliases for ABI v11 (7.1) by default. */
       flag_abi_compat_version
-	= (flag_abi_version == 0 ? 10 : 0);
+	= (flag_abi_version == 0 ? 11 : 0);
     }
 
   /* Change flag_abi_version to be the actual current ABI level for the
      benefit of c_cpp_builtins.  */
   if (flag_abi_version == 0)
-    flag_abi_version = 11;
+    flag_abi_version = 12;
 
   /* By default, enable the new inheriting constructor semantics along with ABI
      11.  New and old should coexist fine, but it is a change in what
      artificial symbols are generated.  */
   if (!global_options_set.x_flag_new_inheriting_ctors)
     flag_new_inheriting_ctors = abi_version_at_least (11);
+
+  /* For GCC 7, only enable DR150 resolution by default if -std=c++1z.  */
+  if (!global_options_set.x_flag_new_ttp)
+    flag_new_ttp = (cxx_dialect >= cxx1z);
 
   if (cxx_dialect >= cxx11)
     {
@@ -1064,17 +1083,23 @@ c_common_post_options (const char **pfilename)
 
   if (flag_extern_tls_init)
     {
-#if !defined (ASM_OUTPUT_DEF) || !SUPPORTS_WEAK
-      /* Lazy TLS initialization for a variable in another TU requires
-	 alias and weak reference support. */
-      if (flag_extern_tls_init > 0)
-	sorry ("external TLS initialization functions not supported "
-	       "on this target");
-      flag_extern_tls_init = 0;
-#else
-      flag_extern_tls_init = 1;
-#endif
+      if (!TARGET_SUPPORTS_ALIASES || !SUPPORTS_WEAK)
+	{
+	  /* Lazy TLS initialization for a variable in another TU requires
+	     alias and weak reference support.  */
+	  if (flag_extern_tls_init > 0)
+	    sorry ("external TLS initialization functions not supported "
+		   "on this target");
+
+	  flag_extern_tls_init = 0;
+	}
+      else
+	flag_extern_tls_init = 1;
     }
+
+  if (num_in_fnames > 1)
+    error ("too many filenames given.  Type %s --help for usage",
+	   progname);
 
   if (flag_preprocess_only)
     {
@@ -1091,10 +1116,6 @@ c_common_post_options (const char **pfilename)
 	  fatal_error (input_location, "opening output file %s: %m", out_fname);
 	  return false;
 	}
-
-      if (num_in_fnames > 1)
-	error ("too many filenames given.  Type %s --help for usage",
-	       progname);
 
       init_pp_output (out_stream);
     }
@@ -1203,10 +1224,9 @@ c_common_parse_file (void)
   for (;;)
     {
       c_finish_options ();
-      /* Open the dump files to use for the original and class dump output
+      /* Open the dump file to use for the original dump output
          here, to be used during parsing for the current file.  */
       original_dump_file = dump_begin (TDI_original, &original_dump_flags);
-      class_dump_file = dump_begin (TDI_class, &class_dump_flags);
       pch_init ();
       push_file_scope ();
       c_parse_file ();
@@ -1228,11 +1248,6 @@ c_common_parse_file (void)
           dump_end (TDI_original, original_dump_file);
           original_dump_file = NULL;
         }
-      if (class_dump_file)
-        {
-          dump_end (TDI_class, class_dump_file);
-          class_dump_file = NULL;
-        }
       /* If an input file is missing, abandon further compilation.
 	 cpplib has issued a diagnostic.  */
       if (!this_input_filename)
@@ -1243,20 +1258,14 @@ c_common_parse_file (void)
 }
 
 /* Returns the appropriate dump file for PHASE to dump with FLAGS.  */
+
 FILE *
-get_dump_info (int phase, int *flags)
+get_dump_info (int phase, dump_flags_t *flags)
 {
-  gcc_assert (phase == TDI_original || phase == TDI_class);
-  if (phase == TDI_original)
-    {
-      *flags = original_dump_flags;
-      return original_dump_file;
-    }
-  else
-    {
-      *flags = class_dump_flags;
-      return class_dump_file;
-    }
+  gcc_assert (phase == TDI_original);
+
+  *flags = original_dump_flags;
+  return original_dump_file;
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1265,13 +1274,18 @@ c_common_finish (void)
 {
   FILE *deps_stream = NULL;
 
-  /* Don't write the deps file if there are errors.  */
-  if (cpp_opts->deps.style != DEPS_NONE && !seen_error ())
+  /* Note that we write the dependencies even if there are errors. This is
+     useful for handling outdated generated headers that now trigger errors
+     (for example, with #error) which would be resolved by re-generating
+     them. In a sense, this complements -MG.  */
+  if (cpp_opts->deps.style != DEPS_NONE)
     {
       /* If -M or -MM was seen without -MF, default output to the
 	 output stream.  */
       if (!deps_file)
 	deps_stream = out_stream;
+      else if (deps_file[0] == '-' && deps_file[1] == '\0')
+	deps_stream = stdout;
       else
 	{
 	  deps_stream = fopen (deps_file, deps_append ? "a": "w");
@@ -1285,7 +1299,7 @@ c_common_finish (void)
      with cpp_destroy ().  */
   cpp_finish (parse_in, deps_stream);
 
-  if (deps_stream && deps_stream != out_stream
+  if (deps_stream && deps_stream != out_stream && deps_stream != stdout
       && (ferror (deps_stream) || fclose (deps_stream)))
     fatal_error (input_location, "closing dependency file %s: %m", deps_file);
 

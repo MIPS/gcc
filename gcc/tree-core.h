@@ -1,5 +1,5 @@
 /* Core data structures for the 'tree' type.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -92,6 +92,9 @@ struct die_struct;
 
 /* Nonzero if this is an indirect call by descriptor.  */
 #define ECF_BY_DESCRIPTOR	  (1 << 14)
+
+/* Nonzero if this is a cold function.  */
+#define ECF_COLD		  (1 << 15)
 
 /* Call argument flags.  */
 /* Nonzero if the argument is not dereferenced recursively, thus only
@@ -357,7 +360,7 @@ enum omp_clause_code {
   /* OpenMP clause: ordered [(constant-integer-expression)].  */
   OMP_CLAUSE_ORDERED,
 
-  /* OpenMP clause: default.  */
+  /* OpenACC/OpenMP clause: default.  */
   OMP_CLAUSE_DEFAULT,
 
   /* OpenACC/OpenMP clause: collapse (constant-integer-expression).  */
@@ -438,6 +441,10 @@ enum omp_clause_code {
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
 
+  /* Internally used only clause, flag whether this is SIMT simd
+     loop or not.  */
+  OMP_CLAUSE__SIMT_,
+
   /* Internally used only clause, holding _Cilk_for # of iterations
      on OMP_PARALLEL.  */
   OMP_CLAUSE__CILK_FOR_COUNT_,
@@ -495,6 +502,7 @@ enum omp_clause_default_kind {
   OMP_CLAUSE_DEFAULT_NONE,
   OMP_CLAUSE_DEFAULT_PRIVATE,
   OMP_CLAUSE_DEFAULT_FIRSTPRIVATE,
+  OMP_CLAUSE_DEFAULT_PRESENT,
   OMP_CLAUSE_DEFAULT_LAST
 };
 
@@ -623,6 +631,10 @@ enum tree_index {
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
   TI_CONST_TM_PTR_TYPE,
+  TI_FENV_T_PTR_TYPE,
+  TI_CONST_FENV_T_PTR_TYPE,
+  TI_FEXCEPT_T_PTR_TYPE,
+  TI_CONST_FEXCEPT_T_PTR_TYPE,
   TI_POINTER_SIZED_TYPE,
 
   TI_UPC_PTS_TYPE,
@@ -822,7 +834,9 @@ enum operand_equal_flag {
   /* Internal within operand_equal_p:  */
   OEP_NO_HASH_CHECK = 16,
   /* Internal within inchash::add_expr:  */
-  OEP_HASH_CHECK = 32
+  OEP_HASH_CHECK = 32,
+  /* Makes operand_equal_p handle more expressions:  */
+  OEP_LEXICOGRAPHIC = 64
 };
 
 /* Enum and arrays used for tree allocation stats.
@@ -1104,6 +1118,9 @@ struct GTY(()) tree_base {
        FALLTHROUGH_LABEL_P in
 	   LABEL_DECL
 
+       SSA_NAME_IS_VIRTUAL_OPERAND in
+	   SSA_NAME
+
    private_flag:
 
        TREE_PRIVATE in
@@ -1201,6 +1218,10 @@ struct GTY(()) tree_base {
 
        SSA_NAME_OCCURS_IN_ABNORMAL_PHI in
            SSA_NAME
+
+       EXPR_CILK_SPAWN in
+           CALL_EXPR
+           AGGR_INIT_EXPR
 
    used_flag:
 
@@ -1519,7 +1540,10 @@ struct GTY(()) tree_type_common {
      so we need to store the value 32 (not 31, as we need the zero
      as well), hence six bits.  */
   unsigned align : 6;
-  unsigned spare : 25;
+  unsigned warn_if_not_align : 6;
+  unsigned typeless_storage : 1;
+  unsigned spare : 18;
+
   alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
@@ -1546,7 +1570,7 @@ struct GTY(()) tree_type_non_common {
   tree values;
   tree minval;
   tree maxval;
-  tree binfo;
+  tree lang_1;
 };
 
 struct GTY (()) tree_binfo {
@@ -1625,7 +1649,11 @@ struct GTY(()) tree_decl_common {
   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
   unsigned int align : 6;
 
-  /* 20 bits unused.  */
+  /* DECL_WARN_IF_NOT_ALIGN.  It should have the same size as
+     TYPE_WARN_IF_NOT_ALIGN.  */
+  unsigned int warn_if_not_align : 6;
+
+  /* 14 bits unused.  */
 
   /* UID for points-to sets, stable over copying from inlining.  */
   unsigned int pt_uid;
@@ -1804,7 +1832,7 @@ struct GTY(()) tree_statement_list
 /* Optimization options used by a function.  */
 
 struct GTY(()) tree_optimization_option {
-  struct tree_common common;
+  struct tree_base base;
 
   /* The optimization options used by the user.  */
   struct cl_optimization *opts;
@@ -1825,7 +1853,7 @@ struct GTY(()) target_globals;
 /* Target options used by a function.  */
 
 struct GTY(()) tree_target_option {
-  struct tree_common common;
+  struct tree_base base;
 
   /* Target globals for the corresponding target option.  */
   struct target_globals *globals;

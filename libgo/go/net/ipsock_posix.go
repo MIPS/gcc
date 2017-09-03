@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -11,13 +11,6 @@ import (
 	"runtime"
 	"syscall"
 )
-
-// BUG(rsc,mikio): On DragonFly BSD and OpenBSD, listening on the
-// "tcp" and "udp" networks does not listen for both IPv4 and IPv6
-// connections. This is due to the fact that IPv4 traffic will not be
-// routed to an IPv6 socket - two separate sockets are required if
-// both address families are to be supported.
-// See inet6(4) for details.
 
 func probeIPv4Stack() bool {
 	s, err := socketFunc(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
@@ -154,6 +147,9 @@ func favoriteAddrFamily(net string, laddr, raddr sockaddr, mode string) (family 
 
 // Internet sockets (TCP, UDP, IP)
 func internetSocket(ctx context.Context, net string, laddr, raddr sockaddr, sotype, proto int, mode string) (fd *netFD, err error) {
+	if (runtime.GOOS == "windows" || runtime.GOOS == "openbsd" || runtime.GOOS == "nacl") && mode == "dial" && raddr.isWildcard() {
+		raddr = raddr.toLocal(net)
+	}
 	family, ipv6only := favoriteAddrFamily(net, laddr, raddr, mode)
 	return socket(ctx, net, family, sotype, proto, ipv6only, laddr, raddr)
 }

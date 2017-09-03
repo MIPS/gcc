@@ -45,6 +45,13 @@ name`'rtype_qual`_'atype_code (rtype * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in u_name intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
+
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
     len = 0;
@@ -157,9 +164,9 @@ define(FINISH_ARRAY_FUNCTION,
 	  base -= sstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    {
-	      /* Break out of the look.  */
+	      /* Break out of the loop.  */
 	      continue_loop = 0;
 	      break;
 	    }
@@ -193,8 +200,8 @@ void
   rtype_name * restrict dest;
   const atype_name * restrict base;
   const GFC_LOGICAL_1 * restrict mbase;
-  int rank;
-  int dim;
+  index_type rank;
+  index_type dim;
   index_type n;
   index_type len;
   index_type delta;
@@ -203,6 +210,14 @@ void
 
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in u_name intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len <= 0)
@@ -333,9 +348,9 @@ define(FINISH_MASKED_ARRAY_FUNCTION,
 	  mbase -= mstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    {
-	      /* Break out of the look.  */
+	      /* Break out of the loop.  */
 	      base = NULL;
 	      break;
 	    }
@@ -379,6 +394,13 @@ void
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in u_name intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   for (n = 0; n < dim; n++)
     {
@@ -473,7 +495,7 @@ void
 	     frequently used path so probably not worth it.  */
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    return;
 	  else
 	    {

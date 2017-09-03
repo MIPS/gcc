@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -166,6 +166,10 @@ struct lang_hooks_for_types
   /* Returns -1 if dwarf ATTR shouldn't be added for TYPE, or the attribute
      value otherwise.  */
   int (*type_dwarf_attribute) (const_tree, int);
+
+  /* Returns a tree for the unit size of T excluding tail padding that
+     might be used by objects inheriting from T.  */
+  tree (*unit_size_without_reusable_padding) (tree);
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -308,7 +312,7 @@ struct lang_hooks_for_upc
 struct lang_hooks
 {
   /* String identifying the front end and optionally language standard
-     version, e.g. "GNU C++98" or "GNU Java".  */
+     version, e.g. "GNU C++98".  */
   const char *name;
 
   /* sizeof (struct lang_identifier), so make_node () creates
@@ -340,6 +344,9 @@ struct lang_hooks
   /* Callback used to perform language-specific initialization for the
      global diagnostic context structure.  */
   void (*initialize_diagnostics) (diagnostic_context *);
+
+  /* Register language-specific dumps.  */
+  void (*register_dumps) (gcc::dump_manager *);
 
   /* Return true if a warning should be given about option OPTION,
      which is for the wrong language, false if it should be quietly

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -280,11 +280,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #define LONG_DOUBLE_TYPE_SIZE			\
   ((TARGET_COLDFIRE || TARGET_FIDOA) ? 64 : 80)
-
-/* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
-   instructions, we get proper intermediate rounding, otherwise we
-   get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD ((TARGET_68040 || ! TARGET_68881) ? 0 : 2)
 
 #define BITS_BIG_ENDIAN 1
 #define BYTES_BIG_ENDIAN 1
@@ -680,7 +675,7 @@ __transfer_from_trampoline ()					\
 
 /* This address is OK as it stands.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
-#define CASE_VECTOR_MODE HImode
+#define CASE_VECTOR_MODE (TARGET_LONG_JUMP_TABLE_OFFSETS ? SImode : HImode)
 #define CASE_VECTOR_PC_RELATIVE 1
 
 #define DEFAULT_SIGNED_CHAR 1
@@ -862,7 +857,11 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
   asm_fprintf (FILE, "\t.long %LL%d\n", VALUE)
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
-  asm_fprintf (FILE, "\t.word %LL%d-%LL%d\n", VALUE, REL)
+  asm_fprintf (FILE,						\
+	       TARGET_LONG_JUMP_TABLE_OFFSETS			\
+	       ? "\t.long %LL%d-%LL%d\n"			\
+	       : "\t.word %LL%d-%LL%d\n",			\
+	       VALUE, REL)
 
 /* We don't have a way to align to more than a two-byte boundary, so do the
    best we can and don't complain.  */

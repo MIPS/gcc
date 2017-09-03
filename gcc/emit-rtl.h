@@ -1,5 +1,5 @@
 /* Exported functions from emit-rtl.c
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,8 @@ struct GTY(()) incoming_args {
 
 /* Datastructures maintained for currently processed function in RTL form.  */
 struct GTY(()) rtl_data {
+  void init_stack_alignment ();
+
   struct expr_status expr;
   struct emit_status emit;
   struct varasm_status varasm;
@@ -265,7 +267,7 @@ struct GTY(()) rtl_data {
 
   /* Nonzero if function being compiled doesn't contain any calls
      (ignoring the prologue and epilogue).  This is set prior to
-     local register allocation and is valid for the remaining
+     register allocation in IRA and is valid for the remaining
      compiler passes.  */
   bool is_leaf;
 
@@ -288,6 +290,9 @@ struct GTY(()) rtl_data {
      to eliminable regs (like the frame pointer) are set if an asm
      sets them.  */
   HARD_REG_SET asm_clobbers;
+
+  /* The highest address seen during shorten_branches.  */
+  int max_insn_address;
 };
 
 #define return_label (crtl->x_return_label)
@@ -504,5 +509,7 @@ extern int get_mem_align_offset (rtx, unsigned int);
 /* Return a memory reference like MEMREF, but with its mode widened to
    MODE and adjusted by OFFSET.  */
 extern rtx widen_memory_access (rtx, machine_mode, HOST_WIDE_INT);
+
+extern void maybe_set_max_label_num (rtx_code_label *x);
 
 #endif /* GCC_EMIT_RTL_H */

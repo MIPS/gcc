@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
 This file is part of GCC.
@@ -863,6 +863,15 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 #endif
 
+/* Decide whether target supports aliases.  */
+#ifndef TARGET_SUPPORTS_ALIASES
+#ifdef ASM_OUTPUT_DEF
+#define TARGET_SUPPORTS_ALIASES 1
+#else
+#define TARGET_SUPPORTS_ALIASES 0
+#endif
+#endif
+
 /* Select a format to encode pointers in exception handling data.  We
    prefer those that result in fewer dynamic relocations.  Assume no
    special support here and encode direct references.  */
@@ -942,9 +951,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define REG_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
-#ifndef TARGET_FLT_EVAL_METHOD
-#define TARGET_FLT_EVAL_METHOD 0
-#endif
 
 #ifndef TARGET_DEC_EVAL_METHOD
 #define TARGET_DEC_EVAL_METHOD 2

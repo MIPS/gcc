@@ -535,20 +535,20 @@ The following switches are available for *gnatxref*:
 
 .. index:: --version (gnatxref)
 
-:samp:`-version`
+:samp:`--version`
   Display Copyright and version, then exit disregarding all other options.
 
 
 .. index:: --help (gnatxref)
 
-:samp:`-help`
+:samp:`--help`
   If *--version* was not used, display usage, then exit disregarding
   all other options.
 
 
 .. index:: -a (gnatxref)
 
-:samp:`a`
+:samp:`-a`
   If this switch is present, `gnatfind` and `gnatxref` will parse
   the read-only files found in the library search path. Otherwise, these files
   will be ignored. This option can be used to protect Gnat sources or your own
@@ -559,7 +559,7 @@ The following switches are available for *gnatxref*:
 
 .. index:: -aIDIR (gnatxref)
 
-:samp:`aI{DIR}`
+:samp:`-aI{DIR}`
   When looking for source files also look in directory DIR. The order in which
   source file search is undertaken is the same as for *gnatmake*.
 
@@ -567,26 +567,26 @@ The following switches are available for *gnatxref*:
 .. index:: -aODIR (gnatxref)
 
 :samp:`aO{DIR}`
-  When searching for library and object files, look in directory
+  When -searching for library and object files, look in directory
   DIR. The order in which library files are searched is the same as for
   *gnatmake*.
 
 
 .. index:: -nostdinc (gnatxref)
 
-:samp:`nostdinc`
+:samp:`-nostdinc`
   Do not look for sources in the system default directory.
 
 
 .. index:: -nostdlib (gnatxref)
 
-:samp:`nostdlib`
+:samp:`-nostdlib`
   Do not look for library files in the system default directory.
 
 
 .. index:: --ext (gnatxref)
 
-:samp:`-ext={extension}`
+:samp:`--ext={extension}`
   Specify an alternate ali file extension. The default is `ali` and other
   extensions (e.g. `gli` for C/C++ sources when using *-fdump-xref*)
   may be specified via this switch. Note that if this switch overrides the
@@ -595,21 +595,21 @@ The following switches are available for *gnatxref*:
 
 .. index:: --RTS (gnatxref)
 
-:samp:`-RTS={rts-path}`
+:samp:`--RTS={rts-path}`
   Specifies the default location of the runtime library. Same meaning as the
   equivalent *gnatmake* flag (:ref:`Switches_for_gnatmake`).
 
 
 .. index:: -d (gnatxref)
 
-:samp:`d`
+:samp:`-d`
   If this switch is set `gnatxref` will output the parent type
   reference for each matching derived types.
 
 
 .. index:: -f (gnatxref)
 
-:samp:`f`
+:samp:`-f`
   If this switch is set, the output file names will be preceded by their
   directory (if the file was found in the search path). If this switch is
   not set, the directory will not be printed.
@@ -617,7 +617,7 @@ The following switches are available for *gnatxref*:
 
 .. index:: -g (gnatxref)
 
-:samp:`g`
+:samp:`-g`
   If this switch is set, information is output only for library-level
   entities, ignoring local entities. The use of this switch may accelerate
   `gnatfind` and `gnatxref`.
@@ -625,34 +625,28 @@ The following switches are available for *gnatxref*:
 
 .. index:: -IDIR (gnatxref)
 
-:samp:`I{DIR}`
+:samp:`-I{DIR}`
   Equivalent to :samp:`-aODIR -aIDIR`.
 
 
 .. index:: -pFILE (gnatxref)
 
-:samp:`p{FILE}`
-  Specify a project file to use (see the *GNAT_Project_Manager*
-  chapter in the *GPRbuild User's Guide*).
-  If you need to use the :file:`.gpr`
-  project files, you should use gnatxref through the GNAT driver
-  (*gnat xref -Pproject*).
+:samp:`-p{FILE}`
+  Specify a configuration file to use to list the source and object directories.
 
-  By default, `gnatxref` and `gnatfind` will try to locate a
-  project file in the current directory.
+  If a file is specified, then the content of the source directory and object
+  directory lines are added as if they had been specified respectively
+  by :samp:`-aI` and :samp:`-aO`.
 
-  If a project file is either specified or found by the tools, then the content
-  of the source directory and object directory lines are added as if they
-  had been specified respectively by :samp:`-aI`
-  and :samp:`-aO`.
+  See :ref:`Configuration_Files_for_gnatxref_and_gnatfind` for the syntax
+  of this configuration file.
 
-:samp:`u`
+:samp:`-u`
   Output only unused symbols. This may be really useful if you give your
   main compilation unit on the command line, as `gnatxref` will then
   display every unused entity and 'with'ed package.
 
-
-:samp:`v`
+:samp:`-v`
   Instead of producing the default output, `gnatxref` will generate a
   :file:`tags` file that can be used by vi. For examples how to use this
   feature, see :ref:`Examples_of_gnatxref_Usage`. The tags file is output
@@ -723,7 +717,6 @@ with the following iterpretation of the command arguments:
   Note that if you specify at least one file in this part, `gnatfind` may
   sometimes not be able to find the body of the subprograms.
 
-
 At least one of 'sourcefile' or 'pattern' has to be present on
 the command line.
 
@@ -737,14 +730,14 @@ The following switches are available:
 
 .. index:: --help (gnatfind)
 
-:samp:`-help`
+:samp:`--help`
   If *--version* was not used, display usage, then exit disregarding
   all other options.
 
 
 .. index:: -a (gnatfind)
 
-:samp:`a`
+:samp:`-a`
   If this switch is present, `gnatfind` and `gnatxref` will parse
   the read-only files found in the library search path. Otherwise, these files
   will be ignored. This option can be used to protect Gnat sources or your own
@@ -755,14 +748,14 @@ The following switches are available:
 
 .. index:: -aIDIR (gnatfind)
 
-:samp:`aI{DIR}`
+:samp:`-aI{DIR}`
   When looking for source files also look in directory DIR. The order in which
   source file search is undertaken is the same as for *gnatmake*.
 
 
 .. index:: -aODIR (gnatfind)
 
-:samp:`aO{DIR}`
+:samp:`-aO{DIR}`
   When searching for library and object files, look in directory
   DIR. The order in which library files are searched is the same as for
   *gnatmake*.
@@ -770,19 +763,19 @@ The following switches are available:
 
 .. index:: -nostdinc (gnatfind)
 
-:samp:`nostdinc`
+:samp:`-nostdinc`
   Do not look for sources in the system default directory.
 
 
 .. index:: -nostdlib (gnatfind)
 
-:samp:`nostdlib`
+:samp:`-nostdlib`
   Do not look for library files in the system default directory.
 
 
 .. index:: --ext (gnatfind)
 
-:samp:`-ext={extension}`
+:samp:`--ext={extension}`
   Specify an alternate ali file extension. The default is `ali` and other
   extensions (e.g. `gli` for C/C++ sources when using *-fdump-xref*)
   may be specified via this switch. Note that if this switch overrides the
@@ -791,21 +784,21 @@ The following switches are available:
 
 .. index:: --RTS (gnatfind)
 
-:samp:`-RTS={rts-path}`
+:samp:`--RTS={rts-path}`
   Specifies the default location of the runtime library. Same meaning as the
   equivalent *gnatmake* flag (:ref:`Switches_for_gnatmake`).
 
 
 .. index:: -d (gnatfind)
 
-:samp:`d`
+:samp:`-d`
   If this switch is set, then `gnatfind` will output the parent type
   reference for each matching derived types.
 
 
 .. index:: -e (gnatfind)
 
-:samp:`e`
+:samp:`-e`
   By default, `gnatfind` accept the simple regular expression set for
   `pattern`. If this switch is set, then the pattern will be
   considered as full Unix-style regular expression.
@@ -813,7 +806,7 @@ The following switches are available:
 
 .. index:: -f (gnatfind)
 
-:samp:`f`
+:samp:`-f`
   If this switch is set, the output file names will be preceded by their
   directory (if the file was found in the search path). If this switch is
   not set, the directory will not be printed.
@@ -821,7 +814,7 @@ The following switches are available:
 
 .. index:: -g (gnatfind)
 
-:samp:`g`
+:samp:`-g`
   If this switch is set, information is output only for library-level
   entities, ignoring local entities. The use of this switch may accelerate
   `gnatfind` and `gnatxref`.
@@ -829,27 +822,25 @@ The following switches are available:
 
 .. index:: -IDIR (gnatfind)
 
-:samp:`I{DIR}`
+:samp:`-I{DIR}`
   Equivalent to :samp:`-aODIR -aIDIR`.
 
 
 .. index:: -pFILE (gnatfind)
 
-:samp:`p{FILE}`
-  Specify a project file (see the *GNAT_Project_Manager* chapter in the
-  *GPRbuild User's Guide*).
-  By default, `gnatxref` and `gnatfind` will try to locate a
-  project file in the current directory.
+:samp:`-p{FILE}`
+  Specify a configuration file to use to list the source and object directories.
 
-  If a project file is either specified or found by the tools, then the content
-  of the source directory and object directory lines are added as if they
-  had been specified respectively by :samp:`-aI` and
-  :samp:`-aO`.
+  If a file is specified, then the content of the source directory and object
+  directory lines are added as if they had been specified respectively
+  by :samp:`-aI` and :samp:`-aO`.
 
+  See :ref:`Configuration_Files_for_gnatxref_and_gnatfind` for the syntax
+  of this configuration file.
 
 .. index:: -r (gnatfind)
 
-:samp:`r`
+:samp:`-r`
   By default, `gnatfind` will output only the information about the
   declaration, body or type completion of the entities. If this switch is
   set, the `gnatfind` will locate every reference to the entities in
@@ -859,14 +850,14 @@ The following switches are available:
 
 .. index:: -s (gnatfind)
 
-:samp:`s`
+:samp:`-s`
   If this switch is set, then `gnatfind` will output the content
   of the Ada source file lines were the entity was found.
 
 
 .. index:: -t (gnatfind)
 
-:samp:`t`
+:samp:`-t`
   If this switch is set, then `gnatfind` will output the type hierarchy for
   the specified type. It act like -d option but recursively from parent
   type to parent type. When this switch is set it is not possible to
@@ -882,28 +873,16 @@ As stated previously, gnatfind will search in every directory in the
 search path. You can force it to look only in the current directory if
 you specify `*` at the end of the command line.
 
-.. _Project_Files_for_gnatxref_and_gnatfind:
+.. _Configuration_Files_for_gnatxref_and_gnatfind:
 
-Project Files for *gnatxref* and *gnatfind*
--------------------------------------------
+Configuration Files for *gnatxref* and *gnatfind*
+-------------------------------------------------
 
-Project files allow a programmer to specify how to compile its
-application, where to find sources, etc.  These files are used
-primarily by GPS, but they can also be used
-by the two tools `gnatxref` and `gnatfind`.
+Configuration files are used by `gnatxref` and `gnatfind` to specify
+the list of source and object directories to consider. They can be
+specified via the :samp:`-p` switch.
 
-A project file name must end with :file:`.gpr`. If a single one is
-present in the current directory, then `gnatxref` and `gnatfind` will
-extract the information from it. If multiple project files are found, none of
-them is read, and you have to use the :samp:`-p` switch to specify the one
-you want to use.
-
-The following lines can be included, even though most of them have default
-values which can be used in most cases.
-The lines can be entered in any order in the file.
-Except for :file:`src_dir` and :file:`obj_dir`, you can only have one instance of
-each line. If you have multiple instances, only the last one is taken into
-account.
+The following lines can be included, in any order in the file:
 
 * *src_dir=DIR*
     [default: `"./"`].
@@ -911,66 +890,13 @@ account.
     lines can be specified and they will be searched in the order they
     are specified.
 
-
 * *obj_dir=DIR*
     [default: `"./"`].
     Specifies a directory where to look for object and library files. Multiple
     `obj_dir` lines can be specified, and they will be searched in the order
     they are specified
 
-
-* *comp_opt=SWITCHES*
-    [default: `""`].
-    Creates a variable which can be referred to subsequently by using
-    the `${comp_opt}` notation. This is intended to store the default
-    switches given to *gnatmake* and *gcc*.
-
-
-* *bind_opt=SWITCHES*
-    [default: `""`].
-    Creates a variable which can be referred to subsequently by using
-    the :samp:`${bind_opt}` notation. This is intended to store the default
-    switches given to *gnatbind*.
-
-
-* *link_opt=SWITCHES*
-    [default: `""`].
-    Creates a variable which can be referred to subsequently by using
-    the :samp:`${link_opt}` notation. This is intended to store the default
-    switches given to *gnatlink*.
-
-
-* *main=EXECUTABLE*
-    [default: `""`].
-    Specifies the name of the executable for the application. This variable can
-    be referred to in the following lines by using the :samp:`{${main}` notation.
-
-
-* *comp_cmd=COMMAND*
-    [default: `"gcc -c -I${src_dir} -g -gnatq"`].
-    Specifies the command used to compile a single file in the application.
-
-
-* *make_cmd=COMMAND*
-    [default: `"gnatmake ${main} -aI${src_dir}
-    -aO${obj_dir} -g -gnatq -cargs ${comp_opt}
-    -bargs ${bind_opt} -largs ${link_opt}"`].
-    Specifies the command used to recompile the whole application.
-
-
-* *run_cmd=COMMAND*
-    [default: `"${main}"`].
-    Specifies the command used to run the application.
-
-
-* *debug_cmd=COMMAND*
-    [default: `"gdb ${main}"`].
-    Specifies the command used to debug the application
-
-
-*gnatxref* and *gnatfind* only take into account the
-`src_dir` and `obj_dir` lines, and ignore the others.
-
+Any other line will be silently ignored.
 
 .. _Regular_Expressions_in_gnatfind_and_gnatxref:
 
@@ -3060,7 +2986,7 @@ Alternatively, you may run the script using the following command line:
    .. index:: -nt (gnatpp)
 
 
-   :samp:`-neD`
+   :samp:`-ntD`
      Names introduced by type and subtype declarations are always
      cased as they appear in the declaration in the source file.
      Overrides -n casing setting.
@@ -3321,7 +3247,8 @@ Alternatively, you may run the script using the following command line:
    :samp:`--par_threshold={nnn}`
      If the number of parameter specifications is greater than `nnn`
      (or equal to `nnn` in case of a function), start each specification from
-     a new line. This feature is disabled by default.
+     a new line. If `nnn` is 0, and `--no-separate-is` was not specified, then
+     the "is" is placed on a separate line. This feature is disabled by default.
 
 
    .. _Setting_the_Source_Search_Path:
@@ -4206,6 +4133,14 @@ Alternatively, you may run the script using the following command line:
   a skeleton for each visible subprogram in the packages under consideration when
   they do not exist already.
 
+  *gnattest* is a project-aware tool.
+  (See :ref:`Using_Project_Files_with_GNAT_Tools` for a description of
+  the project-related switches but note that *gnattest* does not support
+  the :samp:`-U`, :samp:`-eL`, :samp:`--subdirs={dir}`, or
+  :samp:`--no_objects_dir` switches.)
+  The project file package that can specify
+  *gnattest* switches is named ``gnattest``.
+
   The user can choose to generate a single test driver
   that will run all individual tests, or separate test drivers for each test. The
   second option allows much greater flexibility in test execution environment,
@@ -4353,12 +4288,10 @@ Alternatively, you may run the script using the following command line:
   :samp:`-r`
     Recursively considers all sources from all projects.
 
+    .. index:: -files (gnattest)
 
-    .. index:: -X (gnattest)
-
-  :samp:`-X{name}={value}`
-    Indicate that external variable `name` has the value `value`.
-
+  :samp:`-files={filename}`
+    The name of a text file containing a list of Ada source files to process.
 
     .. index:: --RTS (gnattest)
 
@@ -4628,7 +4561,7 @@ Alternatively, you may run the script using the following command line:
     ::
 
        $ cd obj/driver
-       $ gnatmake -Ptest_driver
+       $ gprbuild -Ptest_driver
        $ test_runner
 
   One failed test with the diagnosis "test not implemented" is reported.
@@ -4855,7 +4788,7 @@ Alternatively, you may run the script using the following command line:
   Testing with Contracts
   ----------------------
 
-  *gnattest* supports pragmas *Precondition*, *Postcondition*, and *Test_Case*,
+  *gnattest* supports pragmas *Pre*, *Post*, and *Test_Case*,
   as well as the corresponding Ada 2012 aspects.
   Test routines are generated, one per each *Test_Case* associated with a tested
   subprogram. Those test routines have special wrappers for tested functions
@@ -5005,6 +4938,29 @@ Alternatively, you may run the script using the following command line:
      attempting to use this powerful feature.
 
 
+  .. _Gnatcov_Integration:
+
+  Integration with GNATcoverage
+  -----------------------------
+
+  In addition to the harness, *gnattest* generates a Makefile. This Makefile
+  provides targets for building the test drivers and also the targets for
+  computing the coverage information using GNATcoverage framework when this
+  coverage analysis tool is available. The target ``coverage`` fully automates
+  the process: it will first build all test drivers, then run them under
+  GNATcoverage, analyze individual trace files, and finally aggregate them:
+
+    ::
+
+        make coverage
+
+  GNATcoverage options, such as coverage criteria and generated report format,
+  can be adjusted using Makefile variables provided for this purpose.
+
+  Note that coverage targets are not generated in the Makefile when
+  --separate-drivers=test is passed to gnattest.
+
+
   .. _Putting_Tests_under_Version_Control:
 
   Putting Tests under Version Control
@@ -5050,7 +5006,7 @@ Alternatively, you may run the script using the following command line:
    with a number of GNAT tools.
    For a comprehensive description of project files and the overall
    GNAT Project Manager facility, please refer to the
-   *GNAT Project Manager* chapter in the 
+   *GNAT Project Manager* chapter in the
    *GPRbuild and GPR Companion Tools User's Guide*.
 
    .. index:: Project-aware tool
@@ -5072,16 +5028,18 @@ Alternatively, you may run the script using the following command line:
 
    :samp:`-U`
       If a project file is supplied, say for project ``proj``,
-      but no sources are specified for ``proj`` (either by a 
+      but no sources are specified for ``proj`` (either by a
       project attribute or through a tool option that provides a list
       of the files to be used), process all the source files
       from projects imported either directly or indirectly by ``proj``.
       Otherwise this option has no effect.
 
-   :samp:`-U {main_unit}`
+   :samp:`-U {source_file}`
       Similar to :samp:`-U`, but if no sources are specified then
       process only those source files for units in the closure of
-      `main_unit`.
+      the Ada source contained in `source_file`. Note that this option
+      expects the source file name but not the Ada unit name as its
+      parameter.
 
    :samp:`-X{name}={val}`
       Indicates that the external variable ``name`` in the project has the
@@ -5108,7 +5066,7 @@ Alternatively, you may run the script using the following command line:
    defined by that project, either implicitly by residing in the project
    source directories, or explicitly through any of the source-related
    attributes).
-  
+
    .. _Tool-specific_packages_in_project files:
 
    Tool-specific packages in project files
@@ -5121,4 +5079,4 @@ Alternatively, you may run the script using the following command line:
    A tool-specific package in a project file may define the ``Default_Switches``
    attribute indexed by "ada" (as language name). The value of this attribute
    is a list of switches that will be supplied at tool invocation.
-   Project-specific switches cannot be specified through this attribute. 
+   Project-specific switches cannot be specified through this attribute.

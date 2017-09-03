@@ -1,6 +1,6 @@
 // <experimental/bits/erase_if.h> -*- C++ -*-
 
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2015-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,11 +39,12 @@
 
 namespace std
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
 namespace experimental
 {
 inline namespace fundamentals_v2
 {
-
   namespace __detail
   {
     template<typename _Container, typename _Predicate>
@@ -59,11 +60,11 @@ inline namespace fundamentals_v2
 	    ++__iter;
 	}
       }
-  }
-
-
+  } // namespace __detail
 } // inline namespace fundamentals_v2
 } // namespace experimental
+
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // C++14

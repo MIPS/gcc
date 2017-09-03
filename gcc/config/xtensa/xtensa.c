@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -590,7 +591,7 @@ xtensa_mem_offset (unsigned v, machine_mode mode)
 {
   switch (mode)
     {
-    case BLKmode:
+    case E_BLKmode:
       /* Handle the worst case for block moves.  See xtensa_expand_block_move
 	 where we emit an optimized block move operation if the block can be
 	 moved in < "move_ratio" pieces.  The worst case is when the block is
@@ -599,13 +600,13 @@ xtensa_mem_offset (unsigned v, machine_mode mode)
       return (xtensa_uimm8 (v)
 	      && xtensa_uimm8 (v + MOVE_MAX * LARGEST_MOVE_RATIO));
 
-    case QImode:
+    case E_QImode:
       return xtensa_uimm8 (v);
 
-    case HImode:
+    case E_HImode:
       return xtensa_uimm8x2 (v);
 
-    case DFmode:
+    case E_DFmode:
       return (xtensa_uimm8x4 (v) && xtensa_uimm8x4 (v + 4));
 
     default:
@@ -801,16 +802,16 @@ xtensa_expand_conditional_branch (rtx *operands, machine_mode mode)
 
   switch (mode)
     {
-    case DFmode:
+    case E_DFmode:
     default:
       fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
 
-    case SImode:
+    case E_SImode:
       invert = FALSE;
       cmp = gen_int_relational (test_code, cmp0, cmp1, &invert);
       break;
 
-    case SFmode:
+    case E_SFmode:
       if (!TARGET_HARD_FLOAT)
 	fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode,
 						cmp0, cmp1));
@@ -1160,8 +1161,8 @@ xtensa_copy_incoming_a7 (rtx opnd)
 
   switch (mode)
     {
-    case DFmode:
-    case DImode:
+    case E_DFmode:
+    case E_DImode:
       /* Copy the value out of A7 here but keep the first word in A6 until
 	 after the set_frame_ptr insn.  Otherwise, the register allocator
 	 may decide to put "subreg (tmp, 0)" in A7 and clobber the incoming
@@ -1169,16 +1170,16 @@ xtensa_copy_incoming_a7 (rtx opnd)
       emit_insn (gen_movsi_internal (gen_rtx_SUBREG (SImode, tmp, 4),
 				     gen_raw_REG (SImode, A7_REG)));
       break;
-    case SFmode:
+    case E_SFmode:
       emit_insn (gen_movsf_internal (tmp, gen_raw_REG (mode, A7_REG)));
       break;
-    case SImode:
+    case E_SImode:
       emit_insn (gen_movsi_internal (tmp, gen_raw_REG (mode, A7_REG)));
       break;
-    case HImode:
+    case E_HImode:
       emit_insn (gen_movhi_internal (tmp, gen_raw_REG (mode, A7_REG)));
       break;
-    case QImode:
+    case E_QImode:
       emit_insn (gen_movqi_internal (tmp, gen_raw_REG (mode, A7_REG)));
       break;
     default:
@@ -1780,7 +1781,8 @@ xtensa_emit_call (int callop, rtx *operands)
   rtx tgt = operands[callop];
 
   if (GET_CODE (tgt) == CONST_INT)
-    sprintf (result, "call%d\t0x%lx", WINDOW_SIZE, INTVAL (tgt));
+    sprintf (result, "call%d\t" HOST_WIDE_INT_PRINT_HEX,
+	     WINDOW_SIZE, INTVAL (tgt));
   else if (register_operand (tgt, VOIDmode))
     sprintf (result, "callx%d\t%%%d", WINDOW_SIZE, callop);
   else
@@ -2181,6 +2183,13 @@ xtensa_option_override (void)
   int regno;
   machine_mode mode;
 
+  /* Use CONST16 in the absence of L32R.
+     Set it in the TARGET_OPTION_OVERRIDE to avoid dependency on xtensa
+     configuration in the xtensa-common.c  */
+
+  if (!TARGET_L32R)
+    target_flags |= MASK_CONST16;
+
   if (!TARGET_BOOLEANS && TARGET_HARD_FLOAT)
     error ("boolean registers required for the floating-point option");
 
@@ -2323,7 +2332,8 @@ print_operand (FILE *file, rtx x, int letter)
       if (GET_CODE (x) == MEM
 	  && (GET_MODE (x) == DFmode || GET_MODE (x) == DImode))
 	{
-	  x = adjust_address (x, GET_MODE (x) == DFmode ? SFmode : SImode, 4);
+	  x = adjust_address (x, GET_MODE (x) == DFmode ? E_SFmode : E_SImode,
+			      4);
 	  output_address (GET_MODE (x), XEXP (x, 0));
 	}
       else
@@ -2351,14 +2361,14 @@ print_operand (FILE *file, rtx x, int letter)
 
     case 'L':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", (32 - INTVAL (x)) & 0x1f);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, (32 - INTVAL (x)) & 0x1f);
       else
 	output_operand_lossage ("invalid %%L value");
       break;
 
     case 'R':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x) & 0x1f);
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x) & 0x1f);
       else
 	output_operand_lossage ("invalid %%R value");
       break;
@@ -2372,7 +2382,7 @@ print_operand (FILE *file, rtx x, int letter)
 
     case 'd':
       if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x));
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       else
 	output_operand_lossage ("invalid %%d value");
       break;
@@ -2437,7 +2447,7 @@ print_operand (FILE *file, rtx x, int letter)
       else if (GET_CODE (x) == MEM)
 	output_address (GET_MODE (x), XEXP (x, 0));
       else if (GET_CODE (x) == CONST_INT)
-	fprintf (file, "%ld", INTVAL (x));
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       else
 	output_addr_const (file, x);
     }
@@ -2571,7 +2581,7 @@ xtensa_output_literal (FILE *file, rtx x, machine_mode mode, int labelno)
 
       switch (mode)
 	{
-	case SFmode:
+	case E_SFmode:
 	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x),
 				       value_long[0]);
 	  if (HOST_BITS_PER_LONG > 32)
@@ -2579,7 +2589,7 @@ xtensa_output_literal (FILE *file, rtx x, machine_mode mode, int labelno)
 	  fprintf (file, "0x%08lx\n", value_long[0]);
 	  break;
 
-	case DFmode:
+	case E_DFmode:
 	  REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x),
 				       value_long);
 	  if (HOST_BITS_PER_LONG > 32)
@@ -2676,6 +2686,30 @@ xtensa_frame_pointer_required (void)
   return false;
 }
 
+HOST_WIDE_INT
+xtensa_initial_elimination_offset (int from, int to ATTRIBUTE_UNUSED)
+{
+  long frame_size = compute_frame_size (get_frame_size ());
+  HOST_WIDE_INT offset;
+
+  switch (from)
+    {
+    case FRAME_POINTER_REGNUM:
+      if (FRAME_GROWS_DOWNWARD)
+	offset = frame_size - (WINDOW_SIZE * UNITS_PER_WORD)
+	  - cfun->machine->callee_save_size;
+      else
+	offset = 0;
+      break;
+    case ARG_POINTER_REGNUM:
+      offset = frame_size;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  return offset;
+}
 
 /* minimum frame = reg save area (4 words) plus static chain (1 word)
    and the total number of words must be a multiple of 128 bits.  */
@@ -4053,8 +4087,6 @@ xtensa_invalid_within_doloop (const rtx_insn *insn)
 
 /* Optimize LOOP.  */
 
-#if TARGET_LOOPS
-
 static bool
 hwloop_optimize (hwloop_info loop)
 {
@@ -4167,7 +4199,10 @@ hwloop_optimize (hwloop_info loop)
       entry_after = BB_END (entry_bb);
       while (DEBUG_INSN_P (entry_after)
              || (NOTE_P (entry_after)
-                 && NOTE_KIND (entry_after) != NOTE_INSN_BASIC_BLOCK))
+                 && NOTE_KIND (entry_after) != NOTE_INSN_BASIC_BLOCK
+		 /* Make sure we don't split a call and its corresponding
+		    CALL_ARG_LOCATION note.  */
+                 && NOTE_KIND (entry_after) != NOTE_INSN_CALL_ARG_LOCATION))
         entry_after = PREV_INSN (entry_after);
 
       emit_insn_after (seq, entry_after);
@@ -4238,14 +4273,9 @@ static struct hw_doloop_hooks xtensa_doloop_hooks =
 static void
 xtensa_reorg_loops (void)
 {
-  reorg_loops (false, &xtensa_doloop_hooks);
+  if (TARGET_LOOPS)
+    reorg_loops (false, &xtensa_doloop_hooks);
 }
-#else
-static inline void
-xtensa_reorg_loops (void)
-{
-}
-#endif
 
 /* Implement the TARGET_MACHINE_DEPENDENT_REORG pass.  */
 

@@ -1,5 +1,5 @@
 /* Implementation of the NORM2 intrinsic
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Tobias Burnus  <burnus@net-b.de>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,9 +24,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
-#include <stdlib.h>
-#include <math.h>
-#include <assert.h>
 
 
 
@@ -62,8 +59,15 @@ norm2_r16 (gfc_array_r16 * const restrict retarray,
   int continue_loop;
 
   /* Make dim zero based to avoid confusion.  */
-  dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  dim = (*pdim) - 1;
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in NORM intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
@@ -194,9 +198,9 @@ norm2_r16 (gfc_array_r16 * const restrict retarray,
 	  base -= sstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    {
-	      /* Break out of the look.  */
+	      /* Break out of the loop.  */
 	      continue_loop = 0;
 	      break;
 	    }

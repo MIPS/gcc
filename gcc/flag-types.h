@@ -1,5 +1,5 @@
 /* Compilation switch flag type definitions for GCC.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -158,6 +158,14 @@ enum excess_precision
   EXCESS_PRECISION_STANDARD
 };
 
+/* The options for which values of FLT_EVAL_METHOD are permissible.  */
+enum permitted_flt_eval_methods
+{
+  PERMITTED_FLT_EVAL_METHODS_DEFAULT,
+  PERMITTED_FLT_EVAL_METHODS_TS_18661,
+  PERMITTED_FLT_EVAL_METHODS_C11
+};
+
 /* Type of stack check.  */
 enum stack_check_type
 {
@@ -230,6 +238,7 @@ enum sanitize_code {
   SANITIZE_OBJECT_SIZE = 1UL << 21,
   SANITIZE_VPTR = 1UL << 22,
   SANITIZE_BOUNDS_STRICT = 1UL << 23,
+  SANITIZE_POINTER_OVERFLOW = 1UL << 24,
   SANITIZE_SHIFT = SANITIZE_SHIFT_BASE | SANITIZE_SHIFT_EXPONENT,
   SANITIZE_UNDEFINED = SANITIZE_SHIFT | SANITIZE_DIVIDE | SANITIZE_UNREACHABLE
 		       | SANITIZE_VLA | SANITIZE_NULL | SANITIZE_RETURN
@@ -237,9 +246,10 @@ enum sanitize_code {
 		       | SANITIZE_BOUNDS | SANITIZE_ALIGNMENT
 		       | SANITIZE_NONNULL_ATTRIBUTE
 		       | SANITIZE_RETURNS_NONNULL_ATTRIBUTE
-		       | SANITIZE_OBJECT_SIZE | SANITIZE_VPTR,
-  SANITIZE_NONDEFAULT = SANITIZE_FLOAT_DIVIDE | SANITIZE_FLOAT_CAST
-			| SANITIZE_BOUNDS_STRICT
+		       | SANITIZE_OBJECT_SIZE | SANITIZE_VPTR
+		       | SANITIZE_POINTER_OVERFLOW,
+  SANITIZE_UNDEFINED_NONDEFAULT = SANITIZE_FLOAT_DIVIDE | SANITIZE_FLOAT_CAST
+				  | SANITIZE_BOUNDS_STRICT
 };
 
 /* flag_vtable_verify initialization levels. */

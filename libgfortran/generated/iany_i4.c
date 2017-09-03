@@ -1,5 +1,5 @@
 /* Implementation of the IANY intrinsic
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Tobias Burnus <burnus@net-b.de>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -24,8 +24,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
-#include <stdlib.h>
-#include <assert.h>
 
 
 #if defined (HAVE_GFC_INTEGER_4) && defined (HAVE_GFC_INTEGER_4)
@@ -54,8 +52,15 @@ iany_i4 (gfc_array_i4 * const restrict retarray,
   int continue_loop;
 
   /* Make dim zero based to avoid confusion.  */
-  dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+  dim = (*pdim) - 1;
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in IANY intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
@@ -169,9 +174,9 @@ iany_i4 (gfc_array_i4 * const restrict retarray,
 	  base -= sstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    {
-	      /* Break out of the look.  */
+	      /* Break out of the loop.  */
 	      continue_loop = 0;
 	      break;
 	    }
@@ -205,8 +210,8 @@ miany_i4 (gfc_array_i4 * const restrict retarray,
   GFC_INTEGER_4 * restrict dest;
   const GFC_INTEGER_4 * restrict base;
   const GFC_LOGICAL_1 * restrict mbase;
-  int rank;
-  int dim;
+  index_type rank;
+  index_type dim;
   index_type n;
   index_type len;
   index_type delta;
@@ -215,6 +220,14 @@ miany_i4 (gfc_array_i4 * const restrict retarray,
 
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in IANY intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len <= 0)
@@ -346,9 +359,9 @@ miany_i4 (gfc_array_i4 * const restrict retarray,
 	  mbase -= mstride[n] * extent[n];
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    {
-	      /* Break out of the look.  */
+	      /* Break out of the loop.  */
 	      base = NULL;
 	      break;
 	    }
@@ -392,6 +405,13 @@ siany_i4 (gfc_array_i4 * const restrict retarray,
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
+
+  if (unlikely (dim < 0 || dim > rank))
+    {
+      runtime_error ("Dim argument incorrect in IANY intrinsic: "
+ 		     "is %ld, should be between 1 and %ld",
+		     (long int) dim + 1, (long int) rank + 1);
+    }
 
   for (n = 0; n < dim; n++)
     {
@@ -486,7 +506,7 @@ siany_i4 (gfc_array_i4 * const restrict retarray,
 	     frequently used path so probably not worth it.  */
 	  dest -= dstride[n] * extent[n];
 	  n++;
-	  if (n == rank)
+	  if (n >= rank)
 	    return;
 	  else
 	    {

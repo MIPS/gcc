@@ -1,5 +1,5 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -212,6 +212,13 @@ cp_decl_dwarf_attribute (const_tree decl, int attr)
 	}
       break;
 
+    case DW_AT_export_symbols:
+      if (TREE_CODE (decl) == NAMESPACE_DECL
+	  && (DECL_NAMESPACE_INLINE_P (decl)
+	      || (DECL_NAME (decl) == NULL_TREE && dwarf_version >= 5)))
+	return 1;
+      break;
+
     default:
       break;
     }
@@ -250,6 +257,16 @@ cp_type_dwarf_attribute (const_tree type, int attr)
     }
 
   return -1;
+}
+
+/* Return the unit size of TYPE without reusable tail padding.  */
+
+tree
+cp_unit_size_without_reusable_padding (tree type)
+{
+  if (CLASS_TYPE_P (type))
+    return CLASSTYPE_SIZE_UNIT (type);
+  return TYPE_SIZE_UNIT (type);
 }
 
 /* Stubs to keep c-opts.c happy.  */
@@ -324,6 +341,34 @@ cxx_block_may_fallthru (const_tree stmt)
     default:
       return true;
     }
+}
+
+/* Return the list of decls in the global namespace.  */
+
+tree
+cp_get_global_decls ()
+{
+  return NAMESPACE_LEVEL (global_namespace)->names;
+}
+
+/* Push DECL into the current scope.  */
+
+tree
+cp_pushdecl (tree decl)
+{
+  return pushdecl (decl);
+}
+
+/* Register c++-specific dumps.  */
+
+void
+cp_register_dumps (gcc::dump_manager *dumps)
+{
+  class_dump_id = dumps->dump_register
+    (".class", "lang-class", "lang-class", DK_lang, OPTGROUP_NONE, false);
+
+  raw_dump_id = dumps->dump_register
+    (".raw", "lang-raw", "lang-raw", DK_lang, OPTGROUP_NONE, false);
 }
 
 void

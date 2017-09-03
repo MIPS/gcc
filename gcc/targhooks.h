@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,14 +43,14 @@ extern void default_setup_incoming_varargs (cumulative_args_t, machine_mode, tre
 extern rtx default_builtin_setjmp_frame_value (void);
 extern bool default_pretend_outgoing_varargs_named (cumulative_args_t);
 
-extern machine_mode default_eh_return_filter_mode (void);
-extern machine_mode default_libgcc_cmp_return_mode (void);
-extern machine_mode default_libgcc_shift_count_mode (void);
-extern machine_mode default_unwind_word_mode (void);
+extern scalar_int_mode default_eh_return_filter_mode (void);
+extern scalar_int_mode default_libgcc_cmp_return_mode (void);
+extern scalar_int_mode default_libgcc_shift_count_mode (void);
+extern scalar_int_mode default_unwind_word_mode (void);
 extern unsigned HOST_WIDE_INT default_shift_truncation_mask
   (machine_mode);
 extern unsigned int default_min_divisions_for_recip_mul (machine_mode);
-extern int default_mode_rep_extended (machine_mode, machine_mode);
+extern int default_mode_rep_extended (scalar_int_mode, scalar_int_mode);
 
 extern tree default_stack_protect_guard (void);
 extern tree default_external_stack_protect_fail (void);
@@ -71,9 +71,9 @@ extern void default_print_operand_address (FILE *, machine_mode, rtx);
 extern bool default_print_operand_punct_valid_p (unsigned char);
 extern tree default_mangle_assembler_name (const char *);
 
-extern bool default_scalar_mode_supported_p (machine_mode);
-extern bool default_libgcc_floating_mode_supported_p (machine_mode);
-extern machine_mode default_floatn_mode (int, bool);
+extern bool default_scalar_mode_supported_p (scalar_mode);
+extern bool default_libgcc_floating_mode_supported_p (scalar_float_mode);
+extern opt_scalar_float_mode default_floatn_mode (int, bool);
 extern bool targhook_words_big_endian (void);
 extern bool targhook_float_words_big_endian (void);
 extern bool default_float_exceptions_rounding_supported_p (void);
@@ -100,7 +100,7 @@ extern bool
 default_builtin_support_vector_misalignment (machine_mode mode,
 					     const_tree,
 					     int, bool);
-extern machine_mode default_preferred_simd_mode (machine_mode mode);
+extern machine_mode default_preferred_simd_mode (scalar_mode mode);
 extern unsigned int default_autovectorize_vector_sizes (void);
 extern machine_mode default_get_mask_mode (unsigned, unsigned);
 extern void *default_init_cost (struct loop *);
@@ -169,11 +169,11 @@ extern bool default_mode_dependent_address_p (const_rtx, addr_space_t);
 extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
 extern bool default_target_can_inline_p (tree, tree);
-extern bool default_valid_pointer_mode (machine_mode);
+extern bool default_valid_pointer_mode (scalar_int_mode);
 extern bool default_ref_may_alias_errno (struct ao_ref *);
-extern machine_mode default_addr_space_pointer_mode (addr_space_t);
-extern machine_mode default_addr_space_address_mode (addr_space_t);
-extern bool default_addr_space_valid_pointer_mode (machine_mode,
+extern scalar_int_mode default_addr_space_pointer_mode (addr_space_t);
+extern scalar_int_mode default_addr_space_address_mode (addr_space_t);
+extern bool default_addr_space_valid_pointer_mode (scalar_int_mode,
 						   addr_space_t);
 extern bool default_addr_space_legitimate_address_p (machine_mode, rtx,
 						     bool, addr_space_t);
@@ -191,10 +191,6 @@ extern bool default_libc_has_function (enum function_class);
 extern bool no_c99_libc_has_function (enum function_class);
 extern bool gnu_libc_has_function (enum function_class);
 
-extern const char* default_printf_pointer_format (tree, const char **);
-extern const char* linux_printf_pointer_format (tree, const char **);
-extern const char* solaris_printf_pointer_format (tree, const char **);
-
 extern tree default_builtin_tm_load_store (tree);
 
 extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
@@ -207,6 +203,9 @@ extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
 						    bool);
 extern int default_compare_by_pieces_branch_ratio (machine_mode);
 
+extern void default_print_patchable_function_entry (FILE *,
+						    unsigned HOST_WIDE_INT,
+						    bool);
 extern bool default_profile_before_prologue (void);
 extern reg_class_t default_preferred_reload_class (rtx, reg_class_t);
 extern reg_class_t default_preferred_output_reload_class (rtx, reg_class_t);
@@ -233,7 +232,7 @@ extern const char *default_pch_valid_p (const void *, size_t);
 
 extern void default_asm_output_ident_directive (const char*);
 
-extern machine_mode default_cstore_mode (enum insn_code);
+extern scalar_int_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, machine_mode);
 extern void default_atomic_assign_expand_fenv (tree *, tree *, tree *);
 extern tree build_va_arg_indirect_ref (tree);
@@ -247,14 +246,14 @@ extern void default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
 extern rtx default_load_returned_bounds (rtx);
 extern void default_store_returned_bounds (rtx,rtx);
 extern tree default_chkp_bound_type (void);
-extern enum machine_mode default_chkp_bound_mode (void);
+extern machine_mode default_chkp_bound_mode (void);
 extern tree default_builtin_chkp_function (unsigned int);
 extern rtx default_chkp_function_value_bounds (const_tree, const_tree, bool);
 extern tree default_chkp_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub);
 extern int default_chkp_initialize_bounds (tree var, tree lb, tree ub,
 					   tree *stmts);
 extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
-						  enum machine_mode mode ATTRIBUTE_UNUSED,
+						  machine_mode mode ATTRIBUTE_UNUSED,
 						  tree type ATTRIBUTE_UNUSED,
 						  int *pretend_arg_size ATTRIBUTE_UNUSED,
 						  int second_time ATTRIBUTE_UNUSED);
@@ -262,7 +261,12 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 extern bool default_optab_supported_p (int, machine_mode, machine_mode,
 				       optimization_type);
 extern unsigned int default_max_noce_ifcvt_seq_cost (edge);
+extern bool default_noce_conversion_profitable_p (rtx_insn *,
+						  struct noce_if_info *);
 extern unsigned int default_min_arithmetic_precision (void);
+
+extern enum flt_eval_method
+default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED);
 
 extern bool default_upc_link_script_p (void);
 extern const char *default_upc_shared_section_name (void);

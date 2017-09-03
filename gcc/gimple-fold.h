@@ -1,6 +1,6 @@
 /* Gimple folding definitions.
 
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Richard Guenther <rguenther@suse.de>
 
 This file is part of GCC.
@@ -22,9 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLE_FOLD_H
 #define GCC_GIMPLE_FOLD_H
 
+extern tree create_tmp_reg_or_ssa_name (tree, gimple *stmt = NULL);
 extern tree canonicalize_constructor_val (tree, tree);
 extern tree get_symbol_constant_value (tree);
-extern void get_range_strlen (tree, tree[2]);
+extern bool get_range_strlen (tree, tree[2]);
 extern tree get_maxval_strlen (tree, int);
 extern void gimplify_and_update_call_from_tree (gimple_stmt_iterator *, tree);
 extern bool fold_stmt (gimple_stmt_iterator *);
@@ -53,8 +54,11 @@ extern tree gimple_get_virt_method_for_vtable (HOST_WIDE_INT, tree,
 					       unsigned HOST_WIDE_INT,
 					       bool *can_refer = NULL);
 extern tree gimple_fold_indirect_ref (tree);
+extern bool gimple_fold_builtin_sprintf (gimple_stmt_iterator *);
+extern bool gimple_fold_builtin_snprintf (gimple_stmt_iterator *);
 extern bool arith_code_with_undefined_signed_overflow (tree_code);
 extern gimple_seq rewrite_to_defined_overflow (gimple *);
+extern void replace_call_with_value (gimple_stmt_iterator *, tree);
 
 /* gimple_build, functionally matching fold_buildN, outputs stmts
    int the provided sequence, matching and simplifying them on-the-fly.

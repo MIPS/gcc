@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++17" }
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,6 +29,10 @@ template<class T>
 auto f(...) -> decltype(std::false_type());
 
 static_assert(!decltype(f<S>(0))::value, "");
+static_assert(!std::is_invocable_v<
+    std::hash<std::optional<S>>&, std::optional<S> const&> );
+static_assert(std::is_invocable_v<
+    std::hash<std::optional<int>>&, std::optional<int> const&> );
 
 int main()
 {

@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -33,6 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "intl.h"
 #include "convert.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 static tree convert_to_pointer_force (tree, tree, tsubst_flags_t);
 static tree build_type_conversion (tree, tree);
@@ -86,7 +88,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
       if (!COMPLETE_TYPE_P (intype))
 	{
 	  if (complain & tf_error)
-	    error_at (loc, "can%'t convert from incomplete type %qT to %qT",
+	    error_at (loc, "can%'t convert from incomplete type %qH to %qI",
 		      intype, type);
 	  return error_mark_node;
 	}
@@ -96,7 +98,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
 	{
 	  if ((complain & tf_error)
 	      && rval == error_mark_node)
-	    error_at (loc, "conversion of %qE from %qT to %qT is ambiguous",
+	    error_at (loc, "conversion of %qE from %qH to %qI is ambiguous",
 		      expr, intype, type);
 	  return rval;
 	}
@@ -168,7 +170,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
       if (TYPE_PTRMEMFUNC_P (type))
 	{
 	  if (complain & tf_error)
-	    error_at (loc, "cannot convert %qE from type %qT to type %qT",
+	    error_at (loc, "cannot convert %qE from type %qH to type %qI",
 		      expr, intype, type);
 	  return error_mark_node;
 	}
@@ -195,7 +197,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
 	    }
 	}
       if (complain & tf_error)
-	error_at (loc, "cannot convert %qE from type %qT to type %qT",
+	error_at (loc, "cannot convert %qE from type %qH to type %qI",
 		  expr, intype, type);
       return error_mark_node;
     }
@@ -221,7 +223,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
   else if (TYPE_PTRMEM_P (type) && INTEGRAL_CODE_P (form))
     {
       if (complain & tf_error)
-	error_at (loc, "invalid conversion from %qT to %qT", intype, type);
+	error_at (loc, "invalid conversion from %qH to %qI", intype, type);
       return error_mark_node;
     }
 
@@ -234,8 +236,8 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
       /* Modes may be different but sizes should be the same.  There
 	 is supposed to be some integral type that is the same width
 	 as a pointer.  */
-      gcc_assert (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr)))
-		  == GET_MODE_SIZE (TYPE_MODE (type)));
+      gcc_assert (GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (TREE_TYPE (expr)))
+		  == GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (type)));
 
       return convert_to_pointer_maybe_fold (type, expr, dofold);
     }
@@ -244,7 +246,7 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
     return instantiate_type (type, expr, complain);
 
   if (complain & tf_error)
-    error_at (loc, "cannot convert %qE from type %qT to type %qT",
+    error_at (loc, "cannot convert %qE from type %qH to type %qI",
 	      expr, intype, type);
   return error_mark_node;
 }
@@ -464,7 +466,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 	    && !at_least_as_qualified_p (ttl, ttr))
 	  {
 	    if (complain & tf_error)
-	      permerror (loc, "conversion from %qT to %qT discards qualifiers",
+	      permerror (loc, "conversion from %qH to %qI discards qualifiers",
 			 ttr, reftype);
 	    else
 	      return error_mark_node;
@@ -514,7 +516,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
     }
 
   if (complain & tf_error)
-    error_at (loc, "cannot convert type %qT to type %qT", intype, reftype);
+    error_at (loc, "cannot convert type %qH to type %qI", intype, reftype);
 
   return error_mark_node;
 }
@@ -798,7 +800,15 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	     to the underlying type first.  */
 	  if (SCOPED_ENUM_P (intype) && (convtype & CONV_STATIC))
 	    e = build_nop (ENUM_UNDERLYING_TYPE (intype), e);
-	  return cp_truthvalue_conversion (e);
+	  if (complain & tf_warning)
+	    return cp_truthvalue_conversion (e);
+	  else
+	    {
+	      /* Prevent bogus -Wint-in-bool-context warnings coming
+		 from c_common_truthvalue_conversion down the line.  */
+	      warning_sentinel w (warn_int_in_bool_context);
+	      return cp_truthvalue_conversion (e);
+	    }
 	}
 
       converted = convert_to_integer_maybe_fold (type, e, dofold);
@@ -899,7 +909,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       if (invalid_nonstatic_memfn_p (loc, expr, complain))
 	/* We displayed the error message.  */;
       else
-	error_at (loc, "conversion from %qT to non-scalar type %qT requested",
+	error_at (loc, "conversion from %qH to non-scalar type %qI requested",
 		  TREE_TYPE (expr), type);
     }
   return error_mark_node;
@@ -1288,6 +1298,8 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
                 && !is_reference)
               warning_at (loc, OPT_Wunused_value, "value computed is not used");
             expr = TREE_OPERAND (expr, 0);
+	    if (TREE_CODE (expr) == CALL_EXPR)
+	      maybe_warn_nodiscard (expr, implicit);
           }
 
 	break;
@@ -1714,7 +1726,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
       int win = 0;
       tree candidate;
       tree cand = TREE_VALUE (conv);
-      cand = OVL_CURRENT (cand);
+      cand = OVL_FIRST (cand);
 
       if (winner && winner == cand)
 	continue;
@@ -1880,6 +1892,26 @@ type_promotes_to (tree type)
    closely.  Although they are used only in pt.c at the moment, they
    should presumably be used everywhere in the future.  */
 
+/* True iff EXPR can be converted to TYPE via a qualification conversion.
+   Callers should check for identical types before calling this function.  */
+
+bool
+can_convert_qual (tree type, tree expr)
+{
+  tree expr_type = TREE_TYPE (expr);
+  gcc_assert (!same_type_p (type, expr_type));
+
+  if (TYPE_PTR_P (type) && TYPE_PTR_P (expr_type))
+    return comp_ptr_ttypes (TREE_TYPE (type), TREE_TYPE (expr_type));
+  else if (TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (expr_type))
+    return (same_type_p (TYPE_PTRMEM_CLASS_TYPE (type),
+			 TYPE_PTRMEM_CLASS_TYPE (expr_type))
+	    && comp_ptr_ttypes (TYPE_PTRMEM_POINTED_TO_TYPE (type),
+				TYPE_PTRMEM_POINTED_TO_TYPE (expr_type)));
+  else
+    return false;
+}
+
 /* Attempt to perform qualification conversions on EXPR to convert it
    to TYPE.  Return the resulting expression, or error_mark_node if
    the conversion was impossible.  */
@@ -1893,14 +1925,7 @@ perform_qualification_conversions (tree type, tree expr)
 
   if (same_type_p (type, expr_type))
     return expr;
-  else if (TYPE_PTR_P (type) && TYPE_PTR_P (expr_type)
-	   && comp_ptr_ttypes (TREE_TYPE (type), TREE_TYPE (expr_type)))
-    return build_nop (type, expr);
-  else if (TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (expr_type)
-	   && same_type_p (TYPE_PTRMEM_CLASS_TYPE (type),
-			   TYPE_PTRMEM_CLASS_TYPE (expr_type))
-	   && comp_ptr_ttypes (TYPE_PTRMEM_POINTED_TO_TYPE (type),
-			       TYPE_PTRMEM_POINTED_TO_TYPE (expr_type)))
+  else if (can_convert_qual (type, expr))
     return build_nop (type, expr);
   else
     return error_mark_node;
@@ -1997,8 +2022,8 @@ fnptr_conv_p (tree to, tree from)
 	  || can_convert_tx_safety (t, f));
 }
 
-/* Return FN with any NOP_EXPRs that represent function pointer
-   conversions stripped.  */
+/* Return FN with any NOP_EXPRs stripped that represent function pointer
+   conversions or conversions to the same type.  */
 
 tree
 strip_fnptr_conv (tree fn)
@@ -2006,7 +2031,10 @@ strip_fnptr_conv (tree fn)
   while (TREE_CODE (fn) == NOP_EXPR)
     {
       tree op = TREE_OPERAND (fn, 0);
-      if (fnptr_conv_p (TREE_TYPE (fn), TREE_TYPE (op)))
+      tree ft = TREE_TYPE (fn);
+      tree ot = TREE_TYPE (op);
+      if (same_type_p (ft, ot)
+	  || fnptr_conv_p (ft, ot))
 	fn = op;
       else
 	break;

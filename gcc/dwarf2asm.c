@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -345,7 +345,9 @@ dw2_asm_output_nstring (const char *str, size_t orig_len,
       for (i = 0; i < len; i++)
 	{
 	  int c = str[i];
-	  if (c == '\"' || c == '\\')
+	  if (c == '\"')
+	    fputc (XCOFF_DEBUGGING_INFO ? '\"' : '\\', asm_out_file);
+	  else if (c == '\\')
 	    fputc ('\\', asm_out_file);
 	  if (ISPRINT (c))
 	    fputc (c, asm_out_file);

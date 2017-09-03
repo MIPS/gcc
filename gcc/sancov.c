@@ -1,5 +1,5 @@
 /* Code coverage instrumentation for fuzzing.
-   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Copyright (C) 2015-2017 Free Software Foundation, Inc.
    Contributed by Dmitry Vyukov <dvyukov@google.com>
 
 This file is part of GCC.
@@ -32,6 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-pass.h"
 #include "tree-iterator.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 
 namespace {
@@ -46,7 +48,7 @@ sancov_pass (function *fun)
   basic_block bb;
   FOR_EACH_BB_FN (bb, fun)
     {
-      gimple_stmt_iterator gsi = gsi_after_labels (bb);
+      gimple_stmt_iterator gsi = gsi_start_nondebug_after_labels_bb (bb);
       if (gsi_end_p (gsi))
 	continue;
       gimple *stmt = gsi_stmt (gsi);

@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -661,6 +661,11 @@ decode_cmdline_option (const char **argv, unsigned int lang_mask,
       value = integral_argument (arg);
       if (value == -1)
 	errors |= CL_ERR_UINT_ARG;
+
+      /* Reject value out of a range.  */
+      if (option->range_max != -1
+	  && (value < option->range_min || value > option->range_max))
+	errors |= CL_ERR_INT_RANGE_ARG;
     }
 
   /* If the switch takes an enumerated argument, convert it.  */
@@ -959,9 +964,10 @@ keep:
    option for options from the source file, UNKNOWN_LOCATION
    otherwise.  GENERATED_P is true for an option generated as part of
    processing another option or otherwise generated internally, false
-   for one explicitly passed by the user.  Returns false if the switch
-   was invalid.  DC is the diagnostic context for options affecting
-   diagnostics state, or NULL.  */
+   for one explicitly passed by the user.  control_warning_option
+   generated options are considered explicitly passed by the user.
+   Returns false if the switch was invalid.  DC is the diagnostic
+   context for options affecting diagnostics state, or NULL.  */
 
 static bool
 handle_option (struct gcc_options *opts,
@@ -987,7 +993,8 @@ handle_option (struct gcc_options *opts,
       {
 	if (!handlers->handlers[i].handler (opts, opts_set, decoded,
 					    lang_mask, kind, loc,
-					    handlers, dc))
+					    handlers, dc,
+					    handlers->target_option_override_hook))
 	  return false;
       }
   
@@ -1005,13 +1012,13 @@ handle_generated_option (struct gcc_options *opts,
 			 size_t opt_index, const char *arg, int value,
 			 unsigned int lang_mask, int kind, location_t loc,
 			 const struct cl_option_handlers *handlers,
-			 diagnostic_context *dc)
+			 bool generated_p, diagnostic_context *dc)
 {
   struct cl_decoded_option decoded;
 
   generate_option (opt_index, arg, value, lang_mask, &decoded);
   return handle_option (opts, opts_set, &decoded, lang_mask, kind, loc,
-			handlers, true, dc);
+			handlers, generated_p, dc);
 }
 
 /* Fill in *DECODED with an option described by OPT_INDEX, ARG and
@@ -1133,6 +1140,13 @@ cmdline_handle_error (location_t loc, const struct cl_option *option,
     {
       error_at (loc, "argument to %qs should be a non-negative integer",
 		option->opt_text);
+      return true;
+    }
+
+  if (errors & CL_ERR_INT_RANGE_ARG)
+    {
+      error_at (loc, "argument to %qs is not between %d and %d",
+		option->opt_text, option->range_min, option->range_max);
       return true;
     }
 
@@ -1503,7 +1517,7 @@ control_warning_option (unsigned int opt_index, int kind, const char *arg,
 
 	  handle_generated_option (opts, opts_set,
 				   opt_index, arg, value, lang_mask,
-				   kind, loc, handlers, dc);
+				   kind, loc, handlers, false, dc);
 	}
     }
 }

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -36,6 +36,10 @@ func (a *UDPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
 		return nil, nil
 	}
 	return ipToSockaddr(family, a.IP, a.Port, a.Zone)
+}
+
+func (a *UDPAddr) toLocal(net string) sockaddr {
+	return &UDPAddr{loopbackIP(net), a.Port, a.Zone}
 }
 
 func (c *UDPConn) readFrom(b []byte) (int, *UDPAddr, error) {

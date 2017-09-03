@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris
 
 package runtime
 
@@ -29,12 +29,12 @@ func sighandler(sig uint32, info *_siginfo_t, ctxt unsafe.Pointer, gp *g) {
 	_g_ := getg()
 	c := sigctxt{info, ctxt}
 
+	sigfault, sigpc := getSiginfo(info, ctxt)
+
 	if sig == _SIGPROF {
-		sigprof()
+		sigprof(sigpc, gp, _g_.m)
 		return
 	}
-
-	sigfault, sigpc := getSiginfo(info, ctxt)
 
 	flags := int32(_SigThrow)
 	if sig < uint32(len(sigtable)) {
@@ -52,8 +52,8 @@ func sighandler(sig uint32, info *_siginfo_t, ctxt unsafe.Pointer, gp *g) {
 
 		// All signals were blocked due to the sigaction mask;
 		// unblock them.
-		var set _sigset_t
-		sigfillset(unsafe.Pointer(&set))
+		var set sigset
+		sigfillset(&set)
 		sigprocmask(_SIG_UNBLOCK, &set, nil)
 
 		sigpanic()
@@ -71,7 +71,7 @@ func sighandler(sig uint32, info *_siginfo_t, ctxt unsafe.Pointer, gp *g) {
 	}
 
 	if flags&_SigKill != 0 {
-		dieFromSignal(int32(sig))
+		dieFromSignal(sig)
 	}
 
 	if flags&_SigThrow == 0 {
@@ -91,10 +91,7 @@ func sighandler(sig uint32, info *_siginfo_t, ctxt unsafe.Pointer, gp *g) {
 		print("Signal ", sig, "\n")
 	}
 
-	if sigpc != 0 {
-		print("PC=", hex(sigpc), " ")
-	}
-	print("m=", _g_.m.id, " sigcode=", c.sigcode(), "\n")
+	print("PC=", hex(sigpc), " m=", _g_.m.id, " sigcode=", c.sigcode(), "\n")
 	if _g_.m.lockedg != nil && _g_.m.ncgo > 0 && gp == _g_.m.g0 {
 		print("signal arrived during cgo execution\n")
 		gp = _g_.m.lockedg
@@ -114,7 +111,7 @@ func sighandler(sig uint32, info *_siginfo_t, ctxt unsafe.Pointer, gp *g) {
 
 	if docrash {
 		crashing++
-		if crashing < mcount() {
+		if crashing < sched.mcount {
 			// There are other m's that need to dump their stacks.
 			// Relay SIGQUIT to the next m by sending it to the current process.
 			// All m's that have already received SIGQUIT have signal masks blocking

@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Paul Brook.
 
 This file is part of GCC.
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gfortran.h"
 #include "trans.h"
+#include "stringpool.h"
 #include "diagnostic.h" /* For errorcount/warningcount */
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -190,7 +191,8 @@ gfc_create_decls (void)
   gfc_init_constants ();
 
   /* Build our translation-unit decl.  */
-  current_translation_unit = build_translation_unit_decl (NULL_TREE);
+  current_translation_unit
+    = build_translation_unit_decl (get_identifier (main_input_filename));
   debug_hooks->register_main_translation_unit (current_translation_unit);
 }
 
@@ -1223,6 +1225,17 @@ gfc_init_builtin_functions (void)
 #undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }
+
+#ifdef ENABLE_HSA
+  if (!flag_disable_hsa)
+    {
+#undef DEF_HSA_BUILTIN
+#define DEF_HSA_BUILTIN(code, name, type, attr) \
+      gfc_define_builtin ("__builtin_" name, builtin_types[type], \
+			  code, name, attr);
+#include "../hsa-builtins.def"
+    }
+#endif
 
   gfc_define_builtin ("__builtin_trap", builtin_types[BT_FN_VOID],
 		      BUILT_IN_TRAP, NULL, ATTR_NOTHROW_LEAF_LIST);

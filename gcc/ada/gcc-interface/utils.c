@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -238,6 +238,7 @@ static GTY ((cache))
   hash_table<pad_type_hasher> *pad_type_hash_table;
 
 static tree merge_sizes (tree, tree, tree, bool, bool);
+static tree fold_bit_position (const_tree);
 static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
 static tree float_type_for_precision (int, machine_mode);
@@ -358,7 +359,7 @@ tree
 make_dummy_type (Entity_Id gnat_type)
 {
   Entity_Id gnat_equiv = Gigi_Equivalent_Type (Underlying_Type (gnat_type));
-  tree gnu_type;
+  tree gnu_type, debug_type;
 
   /* If there was no equivalent type (can only happen when just annotating
      types) or underlying type, go back to the original type.  */
@@ -382,6 +383,17 @@ make_dummy_type (Entity_Id gnat_type)
     TYPE_BY_REFERENCE_P (gnu_type) = 1;
 
   SET_DUMMY_NODE (gnat_equiv, gnu_type);
+
+  /* Create a debug type so that debug info consumers only see an unspecified
+     type.  */
+  if (Needs_Debug_Info (gnat_type))
+    {
+      debug_type = make_node (LANG_TYPE);
+      SET_TYPE_DEBUG_TYPE (gnu_type, debug_type);
+
+      TYPE_NAME (debug_type) = TYPE_NAME (gnu_type);
+      TYPE_ARTIFICIAL (debug_type) = TYPE_ARTIFICIAL (gnu_type);
+    }
 
   return gnu_type;
 }
@@ -666,7 +678,8 @@ get_global_context (void)
 {
   if (!global_context)
     {
-      global_context = build_translation_unit_decl (NULL_TREE);
+      global_context
+	= build_translation_unit_decl (get_identifier (main_input_filename));
       debug_hooks->register_main_translation_unit (global_context);
     }
 
@@ -750,11 +763,13 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
   if (!(TREE_CODE (decl) == TYPE_DECL
         && TREE_CODE (TREE_TYPE (decl)) == UNCONSTRAINED_ARRAY_TYPE))
     {
-      if (DECL_EXTERNAL (decl))
-	{
-	  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
-	    vec_safe_push (builtin_decls, decl);
-	}
+      /* External declarations must go to the binding level they belong to.
+	 This will make corresponding imported entities are available in the
+	 debugger at the proper time.  */
+      if (DECL_EXTERNAL (decl)
+	  && TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_BUILT_IN (decl))
+	vec_safe_push (builtin_decls, decl);
       else if (global_bindings_p ())
 	vec_safe_push (global_decls, decl);
       else
@@ -1151,8 +1166,9 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 	 may need to return the thin pointer.  */
       if (TYPE_FAT_POINTER_P (type) && size < POINTER_SIZE * 2)
 	{
-	  machine_mode p_mode = mode_for_size (size, MODE_INT, 0);
-	  if (!targetm.valid_pointer_mode (p_mode))
+	  scalar_int_mode p_mode;
+	  if (!int_mode_for_size (size, 0).exists (&p_mode)
+	      || !targetm.valid_pointer_mode (p_mode))
 	    p_mode = ptr_mode;
 	  return
 	    build_pointer_type_for_mode
@@ -1641,10 +1657,7 @@ record_builtin_type (const char *name, tree type, bool artificial_p)
   character subtypes with RM_Size = Esize = CHAR_TYPE_SIZE into signed
   types.  The idea is to ensure that the bit pattern contained in the
   Esize'd objects is not changed, even though the numerical value will
-  be interpreted differently depending on the signedness.
-
-  For character types, the bounds are implicit and, therefore, need to
-  be adjusted.  Morever, the debug info needs the unsigned version.  */
+  be interpreted differently depending on the signedness.  */
 
 void
 finish_character_type (tree char_type)
@@ -1658,11 +1671,32 @@ finish_character_type (tree char_type)
        ? unsigned_char_type_node
        : copy_type (gnat_unsigned_type_for (char_type)));
 
+  /* Create an unsigned version of the type and set it as debug type.  */
   TYPE_NAME (unsigned_char_type) = TYPE_NAME (char_type);
   TYPE_STRING_FLAG (unsigned_char_type) = TYPE_STRING_FLAG (char_type);
   TYPE_ARTIFICIAL (unsigned_char_type) = TYPE_ARTIFICIAL (char_type);
-
   SET_TYPE_DEBUG_TYPE (char_type, unsigned_char_type);
+
+  /* If this is a subtype, make the debug type a subtype of the debug type
+     of the base type and convert literal RM bounds to unsigned.  */
+  if (TREE_TYPE (char_type))
+    {
+      tree base_unsigned_char_type = TYPE_DEBUG_TYPE (TREE_TYPE (char_type));
+      tree min_value = TYPE_RM_MIN_VALUE (char_type);
+      tree max_value = TYPE_RM_MAX_VALUE (char_type);
+
+      if (TREE_CODE (min_value) == INTEGER_CST)
+	min_value = fold_convert (base_unsigned_char_type, min_value);
+      if (TREE_CODE (max_value) == INTEGER_CST)
+	max_value = fold_convert (base_unsigned_char_type, max_value);
+
+      TREE_TYPE (unsigned_char_type) = base_unsigned_char_type;
+      SET_TYPE_RM_MIN_VALUE (unsigned_char_type, min_value);
+      SET_TYPE_RM_MAX_VALUE (unsigned_char_type, max_value);
+    }
+
+  /* Adjust the RM bounds of the original type to unsigned; that's especially
+     important for types since they are implicit in this case.  */
   SET_TYPE_RM_MIN_VALUE (char_type, TYPE_MIN_VALUE (unsigned_char_type));
   SET_TYPE_RM_MAX_VALUE (char_type, TYPE_MAX_VALUE (unsigned_char_type));
 }
@@ -2022,14 +2056,10 @@ rest_of_record_type_compilation (tree record_type)
 	{
 	  tree field_type = TREE_TYPE (old_field);
 	  tree field_name = DECL_NAME (old_field);
-	  tree curpos = bit_position (old_field);
+	  tree curpos = fold_bit_position (old_field);
 	  tree pos, new_field;
 	  bool var = false;
 	  unsigned int align = 0;
-
-	  /* We're going to do some pattern matching below so remove as many
-	     conversions as possible.  */
-	  curpos = remove_conversions (curpos, true);
 
 	  /* See how the position was modified from the last position.
 
@@ -2127,7 +2157,7 @@ rest_of_record_type_compilation (tree record_type)
 	     is when there are other components at fixed positions after
 	     it (meaning there was a rep clause for every field) and we
 	     want to be able to encode them.  */
-	  last_pos = size_binop (PLUS_EXPR, bit_position (old_field),
+	  last_pos = size_binop (PLUS_EXPR, curpos,
 				 (TREE_CODE (TREE_TYPE (old_field))
 				  == QUAL_UNION_TYPE)
 				 ? bitsize_zero_node
@@ -2182,23 +2212,51 @@ merge_sizes (tree last_size, tree first_bit, tree size, bool special,
   return new_size;
 }
 
+/* Return the bit position of FIELD, in bits from the start of the record,
+   and fold it as much as possible.  This is a tree of type bitsizetype.  */
+
+static tree
+fold_bit_position (const_tree field)
+{
+  tree offset = DECL_FIELD_OFFSET (field);
+  if (TREE_CODE (offset) == MULT_EXPR || TREE_CODE (offset) == PLUS_EXPR)
+    offset = size_binop (TREE_CODE (offset),
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 0)),
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 1)));
+  else
+    offset = fold_convert (bitsizetype, offset);
+  return size_binop (PLUS_EXPR, DECL_FIELD_BIT_OFFSET (field),
+ 		     size_binop (MULT_EXPR, offset, bitsize_unit_node));
+}
+
 /* Utility function of above to see if OP0 and OP1, both of SIZETYPE, are
    related by the addition of a constant.  Return that constant if so.  */
 
 static tree
 compute_related_constant (tree op0, tree op1)
 {
-  tree op0_var, op1_var;
-  tree op0_con = split_plus (op0, &op0_var);
-  tree op1_con = split_plus (op1, &op1_var);
-  tree result = size_binop (MINUS_EXPR, op0_con, op1_con);
+  tree factor, op0_var, op1_var, op0_cst, op1_cst, result;
+
+  if (TREE_CODE (op0) == MULT_EXPR
+      && TREE_CODE (op1) == MULT_EXPR
+      && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST
+      && TREE_OPERAND (op1, 1) == TREE_OPERAND (op0, 1))
+    {
+      factor = TREE_OPERAND (op0, 1);
+      op0 = TREE_OPERAND (op0, 0);
+      op1 = TREE_OPERAND (op1, 0);
+    }
+  else
+    factor = NULL_TREE;
+
+  op0_cst = split_plus (op0, &op0_var);
+  op1_cst = split_plus (op1, &op1_var);
+  result = size_binop (MINUS_EXPR, op0_cst, op1_cst);
 
   if (operand_equal_p (op0_var, op1_var, 0))
-    return result;
-  else if (operand_equal_p (op0, size_binop (PLUS_EXPR, op1_var, result), 0))
-    return result;
-  else
-    return 0;
+    return factor ? size_binop (MULT_EXPR, factor, result) : result;
+
+  return NULL_TREE;
 }
 
 /* Utility function of above to split a tree OP which may be a sum, into a
@@ -2937,7 +2995,7 @@ process_deferred_decl_context (bool force)
   struct deferred_decl_context_node **it = &deferred_decl_context_queue;
   struct deferred_decl_context_node *node;
 
-  while (*it != NULL)
+  while (*it)
     {
       bool processed = false;
       tree context = NULL_TREE;
@@ -2945,7 +3003,7 @@ process_deferred_decl_context (bool force)
 
       node = *it;
 
-      /* If FORCE, get the innermost elaborated scope. Otherwise, just try to
+      /* If FORCE, get the innermost elaborated scope.  Otherwise, just try to
 	 get the first scope.  */
       gnat_scope = node->gnat_scope;
       while (Present (gnat_scope))
@@ -3002,7 +3060,6 @@ process_deferred_decl_context (bool force)
 	it = &node->next;
     }
 }
-
 
 /* Return VALUE scaled by the biggest power-of-2 factor of EXPR.  */
 
@@ -3135,6 +3192,8 @@ create_label_decl (tree name, Node_Id gnat_node)
 
    DEBUG_INFO_P is true if we need to write debug information for it.
 
+   DEFINITION is true if the subprogram is to be considered as a definition.
+
    ATTR_LIST is the list of attributes to be attached to the subprogram.
 
    GNAT_NODE is used for the position of the decl.  */
@@ -3143,7 +3202,8 @@ tree
 create_subprog_decl (tree name, tree asm_name, tree type, tree param_decl_list,
 		     enum inline_status_t inline_status, bool public_flag,
 		     bool extern_flag, bool artificial_p, bool debug_info_p,
-		     struct attrib *attr_list, Node_Id gnat_node)
+		     bool definition, struct attrib *attr_list,
+		     Node_Id gnat_node)
 {
   tree subprog_decl = build_decl (input_location, FUNCTION_DECL, name, type);
   DECL_ARGUMENTS (subprog_decl) = param_decl_list;
@@ -3154,6 +3214,8 @@ create_subprog_decl (tree name, tree asm_name, tree type, tree param_decl_list,
 
   if (!debug_info_p)
     DECL_IGNORED_P (subprog_decl) = 1;
+  if (definition)
+    DECL_FUNCTION_IS_DEF (subprog_decl) = 1;
 
   switch (inline_status)
     {
@@ -3166,10 +3228,19 @@ create_subprog_decl (tree name, tree asm_name, tree type, tree param_decl_list,
 
     case is_required:
       if (Back_End_Inlining)
-	decl_attributes (&subprog_decl,
-			 tree_cons (get_identifier ("always_inline"),
-				    NULL_TREE, NULL_TREE),
-			 ATTR_FLAG_TYPE_IN_PLACE);
+	{
+	  decl_attributes (&subprog_decl,
+			   tree_cons (get_identifier ("always_inline"),
+				      NULL_TREE, NULL_TREE),
+			   ATTR_FLAG_TYPE_IN_PLACE);
+
+	  /* Inline_Always guarantees that every direct call is inlined and
+	     that there is no indirect reference to the subprogram, so the
+	     instance in the original package (as well as its clones in the
+	     client packages created for inter-unit inlining) can be made
+	     private, which causes the out-of-line body to be eliminated.  */
+	  TREE_PUBLIC (subprog_decl) = 0;
+	}
 
       /* ... fall through ... */
 
@@ -3340,6 +3411,7 @@ gnat_type_for_size (unsigned precision, int unsignedp)
     t = make_unsigned_type (precision);
   else
     t = make_signed_type (precision);
+  TYPE_ARTIFICIAL (t) = 1;
 
   if (precision <= 2 * MAX_BITS_PER_WORD)
     signed_and_unsigned_types[precision][unsignedp] = t;
@@ -3393,11 +3465,14 @@ gnat_type_for_mode (machine_mode mode, int unsignedp)
   if (COMPLEX_MODE_P (mode))
     return NULL_TREE;
 
-  if (SCALAR_FLOAT_MODE_P (mode))
-    return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
+  scalar_float_mode float_mode;
+  if (is_a <scalar_float_mode> (mode, &float_mode))
+    return float_type_for_precision (GET_MODE_PRECISION (float_mode),
+				     float_mode);
 
-  if (SCALAR_INT_MODE_P (mode))
-    return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
+  scalar_int_mode int_mode;
+  if (is_a <scalar_int_mode> (mode, &int_mode))
+    return gnat_type_for_size (GET_MODE_BITSIZE (int_mode), unsignedp);
 
   if (VECTOR_MODE_P (mode))
     {
@@ -3515,6 +3590,7 @@ max_size (tree exp, bool max_p)
 {
   enum tree_code code = TREE_CODE (exp);
   tree type = TREE_TYPE (exp);
+  tree op0, op1, op2;
 
   switch (TREE_CODE_CLASS (code))
     {
@@ -3548,21 +3624,27 @@ max_size (tree exp, bool max_p)
 	{
 	  tree val_type = TREE_TYPE (TREE_OPERAND (exp, 1));
 	  tree val = (max_p ? TYPE_MAX_VALUE (type) : TYPE_MIN_VALUE (type));
-	  return max_size (convert (get_base_type (val_type), val), true);
+	  return
+	    convert (type,
+		     max_size (convert (get_base_type (val_type), val), true));
 	}
 
       return exp;
 
     case tcc_comparison:
-      return max_p ? size_one_node : size_zero_node;
+      return build_int_cst (type, max_p ? 1 : 0);
 
     case tcc_unary:
       if (code == NON_LVALUE_EXPR)
 	return max_size (TREE_OPERAND (exp, 0), max_p);
 
-      return fold_build1 (code, type,
-			  max_size (TREE_OPERAND (exp, 0),
-				    code == NEGATE_EXPR ? !max_p : max_p));
+      op0 = max_size (TREE_OPERAND (exp, 0),
+		      code == NEGATE_EXPR ? !max_p : max_p);
+
+      if (op0 == TREE_OPERAND (exp, 0))
+	return exp;
+
+      return fold_build1 (code, type, op0);
 
     case tcc_binary:
       {
@@ -3602,6 +3684,9 @@ max_size (tree exp, bool max_p)
 	    code = PLUS_EXPR;
 	  }
 
+	if (lhs == TREE_OPERAND (exp, 0) && rhs == TREE_OPERAND (exp, 1))
+	  return exp;
+
 	/* We need to detect overflows so we call size_binop here.  */
 	return size_binop (code, lhs, rhs);
       }
@@ -3613,22 +3698,40 @@ max_size (tree exp, bool max_p)
 	  if (code == SAVE_EXPR)
 	    return exp;
 
-	  return fold_build1 (code, type,
-			      max_size (TREE_OPERAND (exp, 0), max_p));
+	  op0 = max_size (TREE_OPERAND (exp, 0),
+			  code == TRUTH_NOT_EXPR ? !max_p : max_p);
+
+	  if (op0 == TREE_OPERAND (exp, 0))
+	    return exp;
+
+	  return fold_build1 (code, type, op0);
 
 	case 2:
 	  if (code == COMPOUND_EXPR)
 	    return max_size (TREE_OPERAND (exp, 1), max_p);
 
-	  return fold_build2 (code, type,
-			      max_size (TREE_OPERAND (exp, 0), max_p),
-			      max_size (TREE_OPERAND (exp, 1), max_p));
+	  op0 = max_size (TREE_OPERAND (exp, 0), max_p);
+	  op1 = max_size (TREE_OPERAND (exp, 1), max_p);
+
+	  if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
+	    return exp;
+
+	  return fold_build2 (code, type, op0, op1);
 
 	case 3:
 	  if (code == COND_EXPR)
-	    return fold_build2 (max_p ? MAX_EXPR : MIN_EXPR, type,
-				max_size (TREE_OPERAND (exp, 1), max_p),
-				max_size (TREE_OPERAND (exp, 2), max_p));
+	    {
+	      op1 = TREE_OPERAND (exp, 1);
+	      op2 = TREE_OPERAND (exp, 2);
+
+	      if (!op1 || !op2)
+		return exp;
+
+	      return
+		fold_build2 (max_p ? MAX_EXPR : MIN_EXPR, type,
+			     max_size (op1, max_p), max_size (op2, max_p));
+	    }
+	  break;
 
 	default:
 	  break;
@@ -5339,11 +5442,16 @@ can_materialize_object_renaming_p (Node_Id expr)
 {
   while (true)
     {
+      expr = Original_Node (expr);
+
       switch Nkind (expr)
 	{
 	case N_Identifier:
 	case N_Expanded_Name:
-	  return true;
+	  if (!Present (Renamed_Object (Entity (expr))))
+	    return true;
+	  expr = Renamed_Object (Entity (expr));
+	  break;
 
 	case N_Selected_Component:
 	  {
@@ -5426,10 +5534,22 @@ gnat_write_global_declarations (void)
     if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
       debug_hooks->type_decl (iter, false);
 
-  /* Then output the global variables.  We need to do that after the debug
-     information for global types is emitted so that they are finalized.  */
+  /* Output imported functions.  */
   FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
-    if (TREE_CODE (iter) == VAR_DECL)
+    if (TREE_CODE (iter) == FUNCTION_DECL
+	&& DECL_EXTERNAL (iter)
+	&& DECL_INITIAL (iter) == NULL
+	&& !DECL_IGNORED_P (iter)
+	&& DECL_FUNCTION_IS_DEF (iter))
+      debug_hooks->early_global_decl (iter);
+
+  /* Then output the global variables.  We need to do that after the debug
+     information for global types is emitted so that they are finalized.  Skip
+     external global variables, unless we need to emit debug info for them:
+     this is useful for imported variables, for instance.  */
+  FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
+    if (TREE_CODE (iter) == VAR_DECL
+	&& (!DECL_EXTERNAL (iter) || !DECL_IGNORED_P (iter)))
       rest_of_decl_compilation (iter, true, 0);
 
   /* Output the imported modules/declarations.  In GNAT, these are only
@@ -5437,7 +5557,7 @@ gnat_write_global_declarations (void)
   FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
    if (TREE_CODE (iter) == IMPORTED_DECL && !DECL_IGNORED_P (iter))
      debug_hooks->imported_module_or_decl (iter, DECL_NAME (iter),
-					   DECL_CONTEXT (iter), 0);
+					   DECL_CONTEXT (iter), false, false);
 }
 
 /* ************************************************************************

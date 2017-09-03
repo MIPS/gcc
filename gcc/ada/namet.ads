@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,9 +30,8 @@
 ------------------------------------------------------------------------------
 
 with Alloc;
-with Table;
 with Hostparm; use Hostparm;
-with System;   use System;
+with Table;
 with Types;    use Types;
 
 package Namet is
@@ -149,9 +148,9 @@ package Namet is
 --  and the Boolean field is initialized to False, when a new Name table entry
 --  is created.
 
-   type Bounded_String (Max_Length : Natural := 4 * Max_Line_Length) is limited
-   --  The default here is intended to be an infinite value that ensures that
-   --  we never overflow the buffer (names this long are too absurd to worry).
+   type Bounded_String (Max_Length : Natural := 2**12) is limited
+   --  It's unlikely to have names longer than this. But we don't want to make
+   --  it too big, because we declare these on the stack in recursive routines.
    record
       Length : Natural := 0;
       Chars  : String (1 .. Max_Length);
@@ -166,7 +165,7 @@ package Namet is
    --  which is used by most of the code via the renamings. New code ought
    --  to avoid the global.
 
-   Global_Name_Buffer : Bounded_String;
+   Global_Name_Buffer : Bounded_String (Max_Length => 4 * Max_Line_Length);
    Name_Buffer        : String renames Global_Name_Buffer.Chars;
    Name_Len           : Natural renames Global_Name_Buffer.Length;
 
@@ -311,6 +310,21 @@ package Namet is
       V10 : Name_Id;
       V11 : Name_Id) return Boolean;
 
+   function Nam_In
+     (T   : Name_Id;
+      V1  : Name_Id;
+      V2  : Name_Id;
+      V3  : Name_Id;
+      V4  : Name_Id;
+      V5  : Name_Id;
+      V6  : Name_Id;
+      V7  : Name_Id;
+      V8  : Name_Id;
+      V9  : Name_Id;
+      V10 : Name_Id;
+      V11 : Name_Id;
+      V12 : Name_Id) return Boolean;
+
    pragma Inline (Nam_In);
    --  Inline all above functions
 
@@ -333,6 +347,7 @@ package Namet is
 
    function Name_Enter
      (Buf : Bounded_String := Global_Name_Buffer) return Name_Id;
+   function Name_Enter (S : String) return Name_Id;
    --  Name_Enter is similar to Name_Find. The difference is that it does not
    --  search the table for an existing match, and also subsequent Name_Find
    --  calls using the same name will not locate the entry created by this
@@ -547,13 +562,6 @@ package Namet is
    procedure Write_Name_Decoded (Id : Name_Id);
    --  Like Write_Name, except that the name written is the decoded name, as
    --  described for Append_Decoded.
-
-   function Name_Chars_Address return System.Address;
-   --  Return starting address of name characters table (used in Back_End call
-   --  to Gigi).
-
-   function Name_Entries_Address return System.Address;
-   --  Return starting address of Names table (used in Back_End call to Gigi)
 
    function Name_Entries_Count return Nat;
    --  Return current number of entries in the names table

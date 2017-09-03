@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,6 +77,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-chkp.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* So we can assign to cfun in this file.  */
 #undef cfun
@@ -244,6 +246,14 @@ frame_offset_overflow (HOST_WIDE_INT offset, tree func)
     }
 
   return FALSE;
+}
+
+/* Return the minimum spill slot alignment for a register of mode MODE.  */
+
+unsigned int
+spill_slot_alignment (machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return STACK_SLOT_ALIGNMENT (NULL_TREE, mode, GET_MODE_ALIGNMENT (mode));
 }
 
 /* Return stack slot alignment in bits for TYPE and MODE.  */
@@ -1901,7 +1911,8 @@ instantiate_decls (tree fndecl)
     instantiate_decl_rtl (DECL_RTL (DECL_VALUE_EXPR (decl)));
 
   /* Now process all variables defined in the function or its subblocks.  */
-  instantiate_decls_1 (DECL_INITIAL (fndecl));
+  if (DECL_INITIAL (fndecl))
+    instantiate_decls_1 (DECL_INITIAL (fndecl));
 
   FOR_EACH_LOCAL_DECL (cfun, ix, decl)
     if (DECL_RTL_SET_P (decl))
@@ -2220,20 +2231,11 @@ use_register_for_decl (const_tree decl)
   if (!DECL_REGISTER (decl))
     return false;
 
-  switch (TREE_CODE (TREE_TYPE (decl)))
-    {
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      /* When not optimizing, disregard register keyword for variables with
-	 types containing methods, otherwise the methods won't be callable
-	 from the debugger.  */
-      if (TYPE_METHODS (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
-	return false;
-      break;
-    default:
-      break;
-    }
+  /* When not optimizing, disregard register keyword for types that
+     could have methods, otherwise the methods won't be callable from
+     the debugger.  */
+  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl)))
+    return false;
 
   return true;
 }
@@ -3271,13 +3273,11 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
       tempreg = convert_to_mode (data->nominal_mode, tempreg, unsignedp);
 
-      if (GET_CODE (tempreg) == SUBREG
+      if (partial_subreg_p (tempreg)
 	  && GET_MODE (tempreg) == data->nominal_mode
 	  && REG_P (SUBREG_REG (tempreg))
 	  && data->nominal_mode == data->passed_mode
-	  && GET_MODE (SUBREG_REG (tempreg)) == GET_MODE (data->entry_parm)
-	  && GET_MODE_SIZE (GET_MODE (tempreg))
-	     < GET_MODE_SIZE (GET_MODE (data->entry_parm)))
+	  && GET_MODE (SUBREG_REG (tempreg)) == GET_MODE (data->entry_parm))
 	{
 	  /* The argument is already sign/zero extended, so note it
 	     into the subreg.  */
@@ -3374,8 +3374,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       /* Mark complex types separately.  */
       if (GET_CODE (parmreg) == CONCAT)
 	{
-	  machine_mode submode
-	    = GET_MODE_INNER (GET_MODE (parmreg));
+	  scalar_mode submode = GET_MODE_INNER (GET_MODE (parmreg));
 	  int regnor = REGNO (XEXP (parmreg, 0));
 	  int regnoi = REGNO (XEXP (parmreg, 1));
 	  rtx stackr = adjust_address_nv (data->stack_parm, submode, 0);
@@ -3519,7 +3518,7 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	  && targetm.calls.split_complex_arg (TREE_TYPE (parm)))
 	{
 	  rtx tmp, real, imag;
-	  machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
+	  scalar_mode inner = GET_MODE_INNER (DECL_MODE (parm));
 
 	  real = DECL_RTL (fnargs[i]);
 	  imag = DECL_RTL (fnargs[i + 1]);
@@ -4338,21 +4337,16 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 static void
 pad_below (struct args_size *offset_ptr, machine_mode passed_mode, tree sizetree)
 {
+  unsigned int align = PARM_BOUNDARY / BITS_PER_UNIT;
   if (passed_mode != BLKmode)
-    {
-      if (GET_MODE_BITSIZE (passed_mode) % PARM_BOUNDARY)
-	offset_ptr->constant
-	  += (((GET_MODE_BITSIZE (passed_mode) + PARM_BOUNDARY - 1)
-	       / PARM_BOUNDARY * PARM_BOUNDARY / BITS_PER_UNIT)
-	      - GET_MODE_SIZE (passed_mode));
-    }
+    offset_ptr->constant += -GET_MODE_SIZE (passed_mode) & (align - 1);
   else
     {
       if (TREE_CODE (sizetree) != INTEGER_CST
-	  || (TREE_INT_CST_LOW (sizetree) * BITS_PER_UNIT) % PARM_BOUNDARY)
+	  || (TREE_INT_CST_LOW (sizetree) & (align - 1)) != 0)
 	{
 	  /* Round the size up to multiple of PARM_BOUNDARY bits.  */
-	  tree s2 = round_up (sizetree, PARM_BOUNDARY / BITS_PER_UNIT);
+	  tree s2 = round_up (sizetree, align);
 	  /* Add it in.  */
 	  ADD_PARM_SIZE (*offset_ptr, s2);
 	  SUB_PARM_SIZE (*offset_ptr, sizetree);
@@ -4820,9 +4814,9 @@ invoke_set_current_function_hook (tree fndecl)
 /* cfun should never be set directly; use this function.  */
 
 void
-set_cfun (struct function *new_cfun)
+set_cfun (struct function *new_cfun, bool force)
 {
-  if (cfun != new_cfun)
+  if (cfun != new_cfun || force)
     {
       cfun = new_cfun;
       invoke_set_current_function_hook (new_cfun ? new_cfun->decl : NULL_TREE);
@@ -5272,6 +5266,16 @@ expand_function_start (tree subr)
 	}
     }
 
+  /* The following was moved from init_function_start.
+     The move is supposed to make sdb output more accurate.  */
+  /* Indicate the beginning of the function body,
+     as opposed to parm setup.  */
+  emit_note (NOTE_INSN_FUNCTION_BEG);
+
+  gcc_assert (NOTE_P (get_last_insn ()));
+
+  parm_birth_insn = get_last_insn ();
+
   /* If the function receives a non-local goto, then store the
      bits we need to restore the frame pointer.  */
   if (cfun->nonlocal_goto_save_area)
@@ -5292,16 +5296,6 @@ expand_function_start (tree subr)
       emit_move_insn (r_save, targetm.builtin_setjmp_frame_value ());
       update_nonlocal_goto_save_area ();
     }
-
-  /* The following was moved from init_function_start.
-     The move is supposed to make sdb output more accurate.  */
-  /* Indicate the beginning of the function body,
-     as opposed to parm setup.  */
-  emit_note (NOTE_INSN_FUNCTION_BEG);
-
-  gcc_assert (NOTE_P (get_last_insn ()));
-
-  parm_birth_insn = get_last_insn ();
 
   if (crtl->profile)
     {
@@ -5513,6 +5507,7 @@ expand_function_end (void)
 	  : DECL_REGISTER (decl_result))
 	{
 	  rtx real_decl_rtl = crtl->return_rtx;
+	  complex_mode cmode;
 
 	  /* This should be set in assign_parms.  */
 	  gcc_assert (REG_FUNCTION_VALUE_P (real_decl_rtl));
@@ -5553,8 +5548,8 @@ expand_function_end (void)
 	     need to generate some non-trivial bitfield insertions.  Do that
 	     on a pseudo and not the hard register.  */
 	  else if (GET_CODE (decl_rtl) == CONCAT
-		   && GET_MODE_CLASS (GET_MODE (decl_rtl)) == MODE_COMPLEX_INT
-		   && GET_MODE_BITSIZE (GET_MODE (decl_rtl)) <= BITS_PER_WORD)
+		   && is_complex_int_mode (GET_MODE (decl_rtl), &cmode)
+		   && GET_MODE_BITSIZE (cmode) <= BITS_PER_WORD)
 	    {
 	      int old_generating_concat_p;
 	      rtx tmp;
@@ -5610,8 +5605,8 @@ expand_function_end (void)
       REG_FUNCTION_VALUE_P (outgoing) = 1;
 
       /* The address may be ptr_mode and OUTGOING may be Pmode.  */
-      value_address = convert_memory_address (GET_MODE (outgoing),
-					      value_address);
+      scalar_int_mode mode = as_a <scalar_int_mode> (GET_MODE (outgoing));
+      value_address = convert_memory_address (mode, value_address);
 
       emit_move_insn (outgoing, value_address);
 
@@ -5645,7 +5640,7 @@ expand_function_end (void)
     emit_insn (gen_blockage ());
 
   /* If stack protection is enabled for this function, check the guard.  */
-  if (crtl->stack_protect_guard)
+  if (crtl->stack_protect_guard && targetm.stack_protect_runtime_enabled_p ())
     stack_protect_epilogue ();
 
   /* If we had calls to alloca, and this machine needs
@@ -6066,20 +6061,42 @@ thread_prologue_and_epilogue_insns (void)
 
   if (split_prologue_seq || prologue_seq)
     {
+      rtx_insn *split_prologue_insn = split_prologue_seq;
       if (split_prologue_seq)
-	insert_insn_on_edge (split_prologue_seq, orig_entry_edge);
+	{
+	  while (split_prologue_insn && !NONDEBUG_INSN_P (split_prologue_insn))
+	    split_prologue_insn = NEXT_INSN (split_prologue_insn);
+	  insert_insn_on_edge (split_prologue_seq, orig_entry_edge);
+	}
 
+      rtx_insn *prologue_insn = prologue_seq;
       if (prologue_seq)
-	insert_insn_on_edge (prologue_seq, entry_edge);
+	{
+	  while (prologue_insn && !NONDEBUG_INSN_P (prologue_insn))
+	    prologue_insn = NEXT_INSN (prologue_insn);
+	  insert_insn_on_edge (prologue_seq, entry_edge);
+	}
 
       commit_edge_insertions ();
 
       /* Look for basic blocks within the prologue insns.  */
-      auto_sbitmap blocks (last_basic_block_for_fn (cfun));
-      bitmap_clear (blocks);
-      bitmap_set_bit (blocks, entry_edge->dest->index);
-      bitmap_set_bit (blocks, orig_entry_edge->dest->index);
-      find_many_sub_basic_blocks (blocks);
+      if (split_prologue_insn
+	  && BLOCK_FOR_INSN (split_prologue_insn) == NULL)
+	split_prologue_insn = NULL;
+      if (prologue_insn
+	  && BLOCK_FOR_INSN (prologue_insn) == NULL)
+	prologue_insn = NULL;
+      if (split_prologue_insn || prologue_insn)
+	{
+	  auto_sbitmap blocks (last_basic_block_for_fn (cfun));
+	  bitmap_clear (blocks);
+	  if (split_prologue_insn)
+	    bitmap_set_bit (blocks,
+			    BLOCK_FOR_INSN (split_prologue_insn)->index);
+	  if (prologue_insn)
+	    bitmap_set_bit (blocks, BLOCK_FOR_INSN (prologue_insn)->index);
+	  find_many_sub_basic_blocks (blocks);
+	}
     }
 
   default_rtl_profile ();
@@ -6258,7 +6275,7 @@ fndecl_name (tree fndecl)
 {
   if (fndecl == NULL)
     return "(nofn)";
-  return lang_hooks.decl_printable_name (fndecl, 2);
+  return lang_hooks.decl_printable_name (fndecl, 1);
 }
 
 /* Returns the name of function FN.  */

@@ -1,5 +1,5 @@
 /* Build executable statement trees.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -120,6 +120,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_UNLOCK:
     case EXEC_EVENT_POST:
     case EXEC_EVENT_WAIT:
+    case EXEC_FAIL_IMAGE:
       break;
 
     case EXEC_BLOCK:

@@ -1,6 +1,6 @@
 // hashtable.h header -*- C++ -*-
 
-// Copyright (C) 2007-2016 Free Software Foundation, Inc.
+// Copyright (C) 2007-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -973,17 +973,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _M_bucket_count = __bkt_count;
 	  }
 
-	__try
-	  {
-	    for (; __f != __l; ++__f)
-	      this->insert(*__f);
-	  }
-	__catch(...)
-	  {
-	    clear();
-	    _M_deallocate_buckets();
-	    __throw_exception_again;
-	  }
+	for (; __f != __l; ++__f)
+	  this->insert(*__f);
       }
 
   template<typename _Key, typename _Value,

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1286,7 +1286,118 @@ package body Exp_Ch3 is
       With_Default_Init : Boolean := False;
       Constructor_Ref   : Node_Id := Empty) return List_Id
    is
-      Res            : constant List_Id := New_List;
+      Res : constant List_Id := New_List;
+
+      Full_Type : Entity_Id;
+
+      procedure Check_Predicated_Discriminant
+        (Val   : Node_Id;
+         Discr : Entity_Id);
+      --  Discriminants whose subtypes have predicates are checked in two
+      --  cases:
+      --    a) When an object is default-initialized and assertions are enabled
+      --       we check that the value of the discriminant obeys the predicate.
+
+      --    b) In all cases, if the discriminant controls a variant and the
+      --       variant has no others_choice, Constraint_Error must be raised if
+      --       the predicate is violated, because there is no variant covered
+      --       by the illegal discriminant value.
+
+      -----------------------------------
+      -- Check_Predicated_Discriminant --
+      -----------------------------------
+
+      procedure Check_Predicated_Discriminant
+        (Val   : Node_Id;
+         Discr : Entity_Id)
+      is
+         Typ : constant Entity_Id := Etype (Discr);
+
+         procedure Check_Missing_Others (V : Node_Id);
+         --  ???
+
+         --------------------------
+         -- Check_Missing_Others --
+         --------------------------
+
+         procedure Check_Missing_Others (V : Node_Id) is
+            Alt      : Node_Id;
+            Choice   : Node_Id;
+            Last_Var : Node_Id;
+
+         begin
+            Last_Var := Last_Non_Pragma (Variants (V));
+            Choice   := First (Discrete_Choices (Last_Var));
+
+            --  An others_choice is added during expansion for gcc use, but
+            --  does not cover the illegality.
+
+            if Entity (Name (V)) = Discr then
+               if Present (Choice)
+                 and then (Nkind (Choice) /= N_Others_Choice
+                            or else not Comes_From_Source (Choice))
+               then
+                  Check_Expression_Against_Static_Predicate (Val, Typ);
+
+                  if not Is_Static_Expression (Val) then
+                     Prepend_To (Res,
+                        Make_Raise_Constraint_Error (Loc,
+                          Condition =>
+                            Make_Op_Not (Loc,
+                              Right_Opnd => Make_Predicate_Call (Typ, Val)),
+                          Reason    => CE_Invalid_Data));
+                  end if;
+               end if;
+            end if;
+
+            --  Check whether some nested variant is ruled by the predicated
+            --  discriminant.
+
+            Alt := First (Variants (V));
+            while Present (Alt) loop
+               if Nkind (Alt) = N_Variant
+                 and then Present (Variant_Part (Component_List (Alt)))
+               then
+                  Check_Missing_Others
+                    (Variant_Part (Component_List (Alt)));
+               end if;
+
+               Next (Alt);
+            end loop;
+         end Check_Missing_Others;
+
+         --  Local variables
+
+         Def : Node_Id;
+
+      --  Start of processing for Check_Predicated_Discriminant
+
+      begin
+         if Ekind (Base_Type (Full_Type)) = E_Record_Type then
+            Def := Type_Definition (Parent (Base_Type (Full_Type)));
+         else
+            return;
+         end if;
+
+         if Policy_In_Effect (Name_Assert) = Name_Check
+           and then not Predicates_Ignored (Etype (Discr))
+         then
+            Prepend_To (Res, Make_Predicate_Check (Typ, Val));
+         end if;
+
+         --  If discriminant controls a variant, verify that predicate is
+         --  obeyed or else an Others_Choice is present.
+
+         if Nkind (Def) = N_Record_Definition
+           and then Present (Variant_Part (Component_List (Def)))
+           and then Policy_In_Effect (Name_Assert) = Name_Ignore
+         then
+            Check_Missing_Others (Variant_Part (Component_List (Def)));
+         end if;
+      end Check_Predicated_Discriminant;
+
+      --  Local variables
+
       Arg            : Node_Id;
       Args           : List_Id;
       Decls          : List_Id;
@@ -1294,9 +1405,11 @@ package body Exp_Ch3 is
       Discr          : Entity_Id;
       First_Arg      : Node_Id;
       Full_Init_Type : Entity_Id;
-      Full_Type      : Entity_Id;
+      Init_Call      : Node_Id;
       Init_Type      : Entity_Id;
       Proc           : Entity_Id;
+
+   --  Start of processing for Build_Initialization_Call
 
    begin
       pragma Assert (Constructor_Ref = Empty
@@ -1318,6 +1431,15 @@ package body Exp_Ch3 is
 
       if Is_Null_Init_Proc (Proc) and then not Init_Or_Norm_Scalars then
          return Empty_List;
+
+      --  Nothing to do for an array of controlled components that have only
+      --  the inherited Initialize primitive. This is a useful optimization
+      --  for CodePeer.
+
+      elsif Is_Trivial_Subprogram (Proc)
+        and then Is_Array_Type (Full_Init_Type)
+      then
+         return New_List (Make_Null_Statement (Loc));
       end if;
 
       --  Use the [underlying] full view when dealing with a private type. This
@@ -1337,6 +1459,12 @@ package body Exp_Ch3 is
 
             elsif Is_Generic_Actual_Type (Full_Type) then
                Full_Type := Base_Type (Full_Type);
+
+            elsif Ekind (Full_Type) = E_Private_Subtype
+              and then (not Has_Discriminants (Full_Type)
+                         or else No (Discriminant_Constraint (Full_Type)))
+            then
+               Full_Type := Etype (Full_Type);
 
             --  The loop has recovered the [underlying] full view, stop the
             --  traversal.
@@ -1485,8 +1613,14 @@ package body Exp_Ch3 is
                   --  The constraints come from the discriminant default exps,
                   --  they must be reevaluated, so we use New_Copy_Tree but we
                   --  ensure the proper Sloc (for any embedded calls).
+                  --  In addition, if a predicate check is needed on the value
+                  --  of the discriminant, insert it ahead of the call.
 
                   Arg := New_Copy_Tree (Arg, New_Sloc => Loc);
+               end if;
+
+               if Has_Predicates (Etype (Discr)) then
+                  Check_Predicated_Discriminant (Arg, Discr);
                end if;
             end if;
 
@@ -1505,7 +1639,7 @@ package body Exp_Ch3 is
             then
                Append_To (Args,
                  Make_Selected_Component (Loc,
-                   Prefix => New_Copy_Tree (Prefix (Id_Ref)),
+                   Prefix        => New_Copy_Tree (Prefix (Id_Ref)),
                    Selector_Name => Arg));
             else
                Append_To (Args, Arg);
@@ -1532,17 +1666,24 @@ package body Exp_Ch3 is
 
       Append_To (Res,
         Make_Procedure_Call_Statement (Loc,
-          Name => New_Occurrence_Of (Proc, Loc),
+          Name                   => New_Occurrence_Of (Proc, Loc),
           Parameter_Associations => Args));
 
       if Needs_Finalization (Typ)
         and then Nkind (Id_Ref) = N_Selected_Component
       then
          if Chars (Selector_Name (Id_Ref)) /= Name_uParent then
-            Append_To (Res,
+            Init_Call :=
               Make_Init_Call
                 (Obj_Ref => New_Copy_Tree (First_Arg),
-                 Typ     => Typ));
+                 Typ     => Typ);
+
+            --  Guard against a missing [Deep_]Initialize when the type was not
+            --  properly frozen.
+
+            if Present (Init_Call) then
+               Append_To (Res, Init_Call);
+            end if;
          end if;
       end if;
 
@@ -1641,10 +1782,12 @@ package body Exp_Ch3 is
       function Build_Assignment (Id : Entity_Id; N : Node_Id) return List_Id is
          N_Loc : constant Source_Ptr := Sloc (N);
          Typ   : constant Entity_Id := Underlying_Type (Etype (Id));
-         Exp   : Node_Id := N;
-         Kind  : Node_Kind := Nkind (N);
-         Lhs   : Node_Id;
-         Res   : List_Id;
+
+         Adj_Call : Node_Id;
+         Exp      : Node_Id   := N;
+         Kind     : Node_Kind := Nkind (N);
+         Lhs      : Node_Id;
+         Res      : List_Id;
 
       begin
          Lhs :=
@@ -1724,10 +1867,29 @@ package body Exp_Ch3 is
            and then not (Nkind_In (Kind, N_Aggregate, N_Extension_Aggregate))
            and then not Is_Limited_View (Typ)
          then
-            Append_To (Res,
+            Adj_Call :=
               Make_Adjust_Call
                 (Obj_Ref => New_Copy_Tree (Lhs),
-                 Typ     => Etype (Id)));
+                 Typ     => Etype (Id));
+
+            --  Guard against a missing [Deep_]Adjust when the component type
+            --  was not properly frozen.
+
+            if Present (Adj_Call) then
+               Append_To (Res, Adj_Call);
+            end if;
+         end if;
+
+         --  If a component type has a predicate, add check to the component
+         --  assignment. Discriminants are handled at the point of the call,
+         --  which provides for a better error message.
+
+         if Comes_From_Source (Exp)
+           and then Has_Predicates (Typ)
+           and then not Predicate_Checks_Suppressed (Empty)
+           and then not Predicates_Ignored (Typ)
+         then
+            Append (Make_Predicate_Check (Typ, Exp), Res);
          end if;
 
          return Res;
@@ -2708,19 +2870,21 @@ package body Exp_Ch3 is
                      Actions := Build_Assignment (Id, Expression (Decl));
                   end if;
 
-               --  CPU, Dispatching_Domain, Priority and Size components are
-               --  filled with the corresponding rep item expression of the
-               --  concurrent type (if any).
+               --  CPU, Dispatching_Domain, Priority, and Secondary_Stack_Size
+               --  components are filled in with the corresponding rep-item
+               --  expression of the concurrent type (if any).
 
                elsif Ekind (Scope (Id)) = E_Record_Type
                  and then Present (Corresponding_Concurrent_Type (Scope (Id)))
                  and then Nam_In (Chars (Id), Name_uCPU,
                                               Name_uDispatching_Domain,
-                                              Name_uPriority)
+                                              Name_uPriority,
+                                              Name_uSecondary_Stack_Size)
                then
                   declare
                      Exp   : Node_Id;
                      Nam   : Name_Id;
+                     pragma Warnings (Off, Nam);
                      Ritem : Node_Id;
 
                   begin
@@ -2732,6 +2896,9 @@ package body Exp_Ch3 is
 
                      elsif Chars (Id) = Name_uPriority then
                         Nam := Name_Priority;
+
+                     elsif Chars (Id) = Name_uSecondary_Stack_Size then
+                        Nam := Name_Secondary_Stack_Size;
                      end if;
 
                      --  Get the Rep Item (aspect specification, attribute
@@ -2793,6 +2960,11 @@ package body Exp_Ch3 is
                            Exp :=
                              Unchecked_Convert_To
                                (RTE (RE_Dispatching_Domain_Access), Exp);
+
+                        --  Conversion for Secondary_Stack_Size value
+
+                        elsif Nam = Name_Secondary_Stack_Size then
+                           Exp := Convert_To (RTE (RE_Size_Type), Exp);
                         end if;
 
                         Actions := Build_Assignment (Id, Exp);
@@ -3012,7 +3184,7 @@ package body Exp_Ch3 is
          if Present (Variant_Part (Comp_List)) then
             declare
                Variant_Alts : constant List_Id := New_List;
-               Var_Loc      : Source_Ptr;
+               Var_Loc      : Source_Ptr := No_Location;
                Variant      : Node_Id;
 
             begin
@@ -3154,7 +3326,6 @@ package body Exp_Ch3 is
             --  Remaining processing depends on type
 
             case Ekind (Subtype_Mark_Id) is
-
                when Array_Kind =>
                   Constrain_Array (S, Check_List);
 
@@ -3176,7 +3347,7 @@ package body Exp_Ch3 is
            Needs_Simple_Initialization (T)
              and then not Is_RTE (T, RE_Tag)
 
-               --  Ada 2005 (AI-251): Check also the tag of abstract interfaces
+             --  Ada 2005 (AI-251): Check also the tag of abstract interfaces
 
              and then not Is_RTE (T, RE_Interface_Tag);
       end Component_Needs_Simple_Initialization;
@@ -4210,13 +4381,7 @@ package body Exp_Ch3 is
       Base     : constant Entity_Id := Base_Type (Typ);
       Comp_Typ : constant Entity_Id := Component_Type (Typ);
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
-
    begin
-      --  Ensure that all freezing activities are properly flagged as Ghost
-
-      Set_Ghost_Mode_From_Entity (Typ);
-
       if not Is_Bit_Packed_Array (Typ) then
 
          --  If the component contains tasks, so does the array type. This may
@@ -4284,8 +4449,6 @@ package body Exp_Ch3 is
       then
          Build_Array_Init_Proc (Base, N);
       end if;
-
-      Ghost_Mode := Save_Ghost_Mode;
    end Expand_Freeze_Array_Type;
 
    -----------------------------------
@@ -4326,8 +4489,6 @@ package body Exp_Ch3 is
       Typ  : constant Entity_Id := Entity (N);
       Root : constant Entity_Id := Root_Type (Typ);
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
-
    --  Start of processing for Expand_Freeze_Class_Wide_Type
 
    begin
@@ -4360,15 +4521,10 @@ package body Exp_Ch3 is
          return;
       end if;
 
-      --  Ensure that all freezing activities are properly flagged as Ghost
-
-      Set_Ghost_Mode_From_Entity (Typ);
-
       --  Create the body of TSS primitive Finalize_Address. This automatically
       --  sets the TSS entry for the class-wide type.
 
       Make_Finalize_Address_Body (Typ);
-      Ghost_Mode := Save_Ghost_Mode;
    end Expand_Freeze_Class_Wide_Type;
 
    ------------------------------------
@@ -4378,8 +4534,6 @@ package body Exp_Ch3 is
    procedure Expand_Freeze_Enumeration_Type (N : Node_Id) is
       Typ : constant Entity_Id  := Entity (N);
       Loc : constant Source_Ptr := Sloc (Typ);
-
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
       Arr           : Entity_Id;
       Ent           : Entity_Id;
@@ -4395,10 +4549,6 @@ package body Exp_Ch3 is
       pragma Warnings (Off, Func);
 
    begin
-      --  Ensure that all freezing activities are properly flagged as Ghost
-
-      Set_Ghost_Mode_From_Entity (Typ);
-
       --  Various optimizations possible if given representation is contiguous
 
       Is_Contiguous := True;
@@ -4461,7 +4611,7 @@ package body Exp_Ch3 is
               Discrete_Subtype_Definitions => New_List (
                 Make_Subtype_Indication (Loc,
                   Subtype_Mark => New_Occurrence_Of (Standard_Natural, Loc),
-                  Constraint =>
+                  Constraint   =>
                     Make_Range_Constraint (Loc,
                       Range_Expression =>
                         Make_Range (Loc,
@@ -4681,11 +4831,10 @@ package body Exp_Ch3 is
          Set_Debug_Info_Off (Fent);
       end if;
 
-      Ghost_Mode := Save_Ghost_Mode;
+      Set_Is_Inlined (Fent);
 
    exception
       when RE_Not_Available =>
-         Ghost_Mode := Save_Ghost_Mode;
          return;
    end Expand_Freeze_Enumeration_Type;
 
@@ -4696,8 +4845,6 @@ package body Exp_Ch3 is
    procedure Expand_Freeze_Record_Type (N : Node_Id) is
       Typ      : constant Node_Id := Entity (N);
       Typ_Decl : constant Node_Id := Parent (Typ);
-
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
       Comp        : Entity_Id;
       Comp_Typ    : Entity_Id;
@@ -4716,10 +4863,6 @@ package body Exp_Ch3 is
    --  Start of processing for Expand_Freeze_Record_Type
 
    begin
-      --  Ensure that all freezing activities are properly flagged as Ghost
-
-      Set_Ghost_Mode_From_Entity (Typ);
-
       --  Build discriminant checking functions if not a derived type (for
       --  derived types that are not tagged types, always use the discriminant
       --  checking functions of the parent type). However, for untagged types
@@ -5140,8 +5283,6 @@ package body Exp_Ch3 is
             end loop;
          end;
       end if;
-
-      Ghost_Mode := Save_Ghost_Mode;
    end Expand_Freeze_Record_Type;
 
    ------------------------------------
@@ -5345,6 +5486,13 @@ package body Exp_Ch3 is
       --  value, it may be possible to build an equivalent aggregate instead,
       --  and prevent an actual call to the initialization procedure.
 
+      procedure Check_Large_Modular_Array;
+      --  Check that the size of the array can be computed without overflow,
+      --  and generate a Storage_Error otherwise. This is only relevant for
+      --  array types whose index in a (mod 2**64) type, where wrap-around
+      --  arithmetic might yield a meaningless value for the length of the
+      --  array, or its corresponding attribute.
+
       procedure Default_Initialize_Object (After : Node_Id);
       --  Generate all default initialization actions for object Def_Id. Any
       --  new code is inserted after node After.
@@ -5483,6 +5631,61 @@ package body Exp_Ch3 is
       end Build_Equivalent_Aggregate;
 
       -------------------------------
+      -- Check_Large_Modular_Array --
+      -------------------------------
+
+      procedure Check_Large_Modular_Array is
+         Index_Typ : Entity_Id;
+
+      begin
+         if Is_Array_Type (Typ)
+           and then Is_Modular_Integer_Type (Etype (First_Index (Typ)))
+         then
+            --  To prevent arithmetic overflow with large values, we raise
+            --  Storage_Error under the following guard:
+
+            --    (Arr'Last / 2 - Arr'First / 2) > (2 ** 30)
+
+            --  This takes care of the boundary case, but it is preferable to
+            --  use a smaller limit, because even on 64-bit architectures an
+            --  array of more than 2 ** 30 bytes is likely to raise
+            --  Storage_Error.
+
+            Index_Typ := Etype (First_Index (Typ));
+
+            if RM_Size (Index_Typ) = RM_Size (Standard_Long_Long_Integer) then
+               Insert_Action (N,
+                 Make_Raise_Storage_Error (Loc,
+                   Condition =>
+                     Make_Op_Ge (Loc,
+                       Left_Opnd  =>
+                         Make_Op_Subtract (Loc,
+                           Left_Opnd  =>
+                             Make_Op_Divide (Loc,
+                               Left_Opnd  =>
+                                 Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                     New_Occurrence_Of (Typ, Loc),
+                                   Attribute_Name => Name_Last),
+                               Right_Opnd =>
+                                 Make_Integer_Literal (Loc, Uint_2)),
+                           Right_Opnd =>
+                             Make_Op_Divide (Loc,
+                               Left_Opnd =>
+                                 Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                     New_Occurrence_Of (Typ, Loc),
+                                   Attribute_Name => Name_First),
+                               Right_Opnd =>
+                                 Make_Integer_Literal (Loc, Uint_2))),
+                       Right_Opnd =>
+                         Make_Integer_Literal (Loc, (Uint_2 ** 30))),
+                   Reason    => SE_Object_Too_Large));
+            end if;
+         end if;
+      end Check_Large_Modular_Array;
+
+      -------------------------------
       -- Default_Initialize_Object --
       -------------------------------
 
@@ -5535,6 +5738,15 @@ package body Exp_Ch3 is
          --  Suppress_Initialization has been explicitly given
 
          if Is_Imported (Def_Id) or else Suppress_Initialization (Def_Id) then
+            return;
+
+         --  Nothing to do if the object being initialized is of a task type
+         --  and restriction No_Tasking is in effect, because this is a direct
+         --  violation of the restriction.
+
+         elsif Is_Task_Type (Base_Typ)
+           and then Restriction_Active (No_Tasking)
+         then
             return;
          end if;
 
@@ -5804,7 +6016,9 @@ package body Exp_Ch3 is
 
       --  Local variables
 
-      Next_N     : constant Node_Id := Next (N);
+      Next_N : constant Node_Id := Next (N);
+
+      Adj_Call   : Node_Id;
       Id_Ref     : Node_Id;
       Tag_Assign : Node_Id;
 
@@ -5880,6 +6094,8 @@ package body Exp_Ch3 is
          Build_Activation_Chain_Entity (N);
          Build_Master_Entity (Def_Id);
       end if;
+
+      Check_Large_Modular_Array;
 
       --  Default initialization required, and no expression present
 
@@ -6306,10 +6522,17 @@ package body Exp_Ch3 is
               and then not Is_Limited_View (Typ)
               and then not Rewrite_As_Renaming
             then
-               Insert_Action_After (Init_After,
+               Adj_Call :=
                  Make_Adjust_Call (
                    Obj_Ref => New_Occurrence_Of (Def_Id, Loc),
-                   Typ     => Base_Typ));
+                   Typ     => Base_Typ);
+
+               --  Guard against a missing [Deep_]Adjust when the base type
+               --  was not properly frozen.
+
+               if Present (Adj_Call) then
+                  Insert_Action_After (Init_After, Adj_Call);
+               end if;
             end if;
 
             --  For tagged types, when an init value is given, the tag has to
@@ -6506,19 +6729,18 @@ package body Exp_Ch3 is
       --  pragma Default_Initial_Condition, add a runtime check to verify
       --  the assumption of the pragma (SPARK RM 7.3.3). Generate:
 
-      --    <Base_Typ>Default_Init_Cond (<Base_Typ> (Def_Id));
+      --    <Base_Typ>DIC (<Base_Typ> (Def_Id));
 
       --  Note that the check is generated for source objects only
 
       if Comes_From_Source (Def_Id)
-        and then (Has_Default_Init_Cond (Typ)
-                   or else Has_Inherited_Default_Init_Cond (Typ))
+        and then Has_DIC (Typ)
+        and then Present (DIC_Procedure (Typ))
         and then not Has_Init_Expression (N)
-        and then Present (Default_Init_Cond_Procedure (Typ))
       then
          declare
-            DIC_Call : constant Node_Id :=
-                         Build_Default_Init_Cond_Call (Loc, Def_Id, Typ);
+            DIC_Call : constant Node_Id := Build_DIC_Call (Loc, Def_Id, Typ);
+
          begin
             if Present (Next_N) then
                Insert_Before_And_Analyze (Next_N, DIC_Call);
@@ -6884,6 +7106,10 @@ package body Exp_Ch3 is
    --  for initialization) are chained in the Actions field list of the freeze
    --  node using Append_Freeze_Actions.
 
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  Ghost mode.
+
    function Freeze_Type (N : Node_Id) return Boolean is
       procedure Process_RACW_Types (Typ : Entity_Id);
       --  Validate and generate stubs for all RACW types associated with type
@@ -6976,9 +7202,11 @@ package body Exp_Ch3 is
       --  Local variables
 
       Def_Id : constant Entity_Id := Entity (N);
-      Result : Boolean := False;
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+      Saved_GM : constant Ghost_Mode_Type := Ghost_Mode;
+      --  Save the Ghost mode to restore on exit
+
+      Result : Boolean := False;
 
    --  Start of processing for Freeze_Type
 
@@ -6987,7 +7215,7 @@ package body Exp_Ch3 is
       --  now to ensure that any nodes generated during freezing are properly
       --  marked as Ghost.
 
-      Set_Ghost_Mode (N, Def_Id);
+      Set_Ghost_Mode (Def_Id);
 
       --  Process any remote access-to-class-wide types designating the type
       --  being frozen.
@@ -7298,22 +7526,57 @@ package body Exp_Ch3 is
       Process_Pending_Access_Types (Def_Id);
       Freeze_Stream_Operations (N, Def_Id);
 
+      --  Generate the [spec and] body of the procedure tasked with the runtime
+      --  verification of pragma Default_Initial_Condition's expression.
+
+      if Has_DIC (Def_Id) then
+         Build_DIC_Procedure_Body (Def_Id, For_Freeze => True);
+      end if;
+
       --  Generate the [spec and] body of the invariant procedure tasked with
       --  the runtime verification of all invariants that pertain to the type.
       --  This includes invariants on the partial and full view, inherited
       --  class-wide invariants from parent types or interfaces, and invariants
       --  on array elements or record components.
 
-      if Has_Invariants (Def_Id) then
-         Build_Invariant_Procedure_Body (Def_Id);
+      if Is_Interface (Def_Id) then
+
+         --  Interfaces are treated as the partial view of a private type in
+         --  order to achieve uniformity with the general case. As a result, an
+         --  interface receives only a "partial" invariant procedure which is
+         --  never called.
+
+         if Has_Own_Invariants (Def_Id) then
+            Build_Invariant_Procedure_Body
+              (Typ               => Def_Id,
+               Partial_Invariant => Is_Interface (Def_Id));
+         end if;
+
+      --  Non-interface types
+
+      --  Do not generate invariant procedure within other assertion
+      --  subprograms, which may involve local declarations of local
+      --  subtypes to which these checks don't apply.
+
+      elsif Has_Invariants (Def_Id) then
+         if Within_Internal_Subprogram
+          or else (Ekind (Current_Scope) = E_Function
+                    and then Is_Predicate_Function (Current_Scope))
+         then
+            null;
+         else
+            Build_Invariant_Procedure_Body (Def_Id);
+         end if;
       end if;
 
-      Ghost_Mode := Save_Ghost_Mode;
+      Restore_Ghost_Mode (Saved_GM);
+
       return Result;
 
    exception
       when RE_Not_Available =>
-         Ghost_Mode := Save_Ghost_Mode;
+         Restore_Ghost_Mode (Saved_GM);
+
          return False;
    end Freeze_Type;
 
@@ -8953,7 +9216,7 @@ package body Exp_Ch3 is
 
       declare
          Stream_Op_TSS_Names :
-           constant array (Integer range <>) of TSS_Name_Type :=
+           constant array (Positive range <>) of TSS_Name_Type :=
              (TSS_Stream_Read,
               TSS_Stream_Write,
               TSS_Stream_Input,
@@ -9498,7 +9761,9 @@ package body Exp_Ch3 is
    is
       Loc       : constant Source_Ptr := Sloc (Tag_Typ);
       Res       : constant List_Id    := New_List;
+      Adj_Call  : Node_Id;
       Decl      : Node_Id;
+      Fin_Call  : Node_Id;
       Prim      : Elmt_Id;
       Eq_Needed : Boolean;
       Eq_Name   : Name_Id;
@@ -9724,41 +9989,44 @@ package body Exp_Ch3 is
 
       elsif not Has_Controlled_Component (Tag_Typ) then
          if not Is_Limited_Type (Tag_Typ) then
-            Decl := Predef_Deep_Spec (Loc, Tag_Typ, TSS_Deep_Adjust, True);
+            Adj_Call := Empty;
+            Decl     := Predef_Deep_Spec (Loc, Tag_Typ, TSS_Deep_Adjust, True);
 
             if Is_Controlled (Tag_Typ) then
-               Set_Handled_Statement_Sequence (Decl,
-                 Make_Handled_Sequence_Of_Statements (Loc,
-                   Statements => New_List (
-                     Make_Adjust_Call (
-                       Obj_Ref => Make_Identifier (Loc, Name_V),
-                       Typ     => Tag_Typ))));
-
-            else
-               Set_Handled_Statement_Sequence (Decl,
-                 Make_Handled_Sequence_Of_Statements (Loc,
-                   Statements => New_List (
-                     Make_Null_Statement (Loc))));
+               Adj_Call :=
+                 Make_Adjust_Call (
+                   Obj_Ref => Make_Identifier (Loc, Name_V),
+                   Typ     => Tag_Typ);
             end if;
+
+            if No (Adj_Call) then
+               Adj_Call := Make_Null_Statement (Loc);
+            end if;
+
+            Set_Handled_Statement_Sequence (Decl,
+              Make_Handled_Sequence_Of_Statements (Loc,
+                Statements => New_List (Adj_Call)));
 
             Append_To (Res, Decl);
          end if;
 
-         Decl := Predef_Deep_Spec (Loc, Tag_Typ, TSS_Deep_Finalize, True);
+         Fin_Call := Empty;
+         Decl     := Predef_Deep_Spec (Loc, Tag_Typ, TSS_Deep_Finalize, True);
 
          if Is_Controlled (Tag_Typ) then
-            Set_Handled_Statement_Sequence (Decl,
-              Make_Handled_Sequence_Of_Statements (Loc,
-                Statements => New_List (
-                  Make_Final_Call
-                    (Obj_Ref => Make_Identifier (Loc, Name_V),
-                     Typ     => Tag_Typ))));
-
-         else
-            Set_Handled_Statement_Sequence (Decl,
-              Make_Handled_Sequence_Of_Statements (Loc,
-                Statements => New_List (Make_Null_Statement (Loc))));
+            Fin_Call :=
+              Make_Final_Call
+                (Obj_Ref => Make_Identifier (Loc, Name_V),
+                 Typ     => Tag_Typ);
          end if;
+
+         if No (Fin_Call) then
+            Fin_Call := Make_Null_Statement (Loc);
+         end if;
+
+         Set_Handled_Statement_Sequence (Decl,
+           Make_Handled_Sequence_Of_Statements (Loc,
+             Statements => New_List (Fin_Call)));
 
          Append_To (Res, Decl);
       end if;

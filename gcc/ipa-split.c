@@ -1,5 +1,5 @@
 /* Function splitting pass
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka  <jh@suse.cz>
 
 This file is part of GCC.
@@ -102,7 +102,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "params.h"
 #include "gimple-pretty-print.h"
-#include "ipa-inline.h"
+#include "ipa-fnsummary.h"
 #include "cfgloop.h"
 #include "tree-chkp.h"
 
@@ -1278,6 +1278,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
       basic_block new_return_bb = create_basic_block (NULL, 0, return_bb);
       gimple_stmt_iterator gsi = gsi_start_bb (new_return_bb);
       gsi_insert_after (&gsi, gimple_build_return (NULL), GSI_NEW_STMT);
+      new_return_bb->count = profile_count::zero ();
       while (redirected)
 	{
 	  redirected = false;
@@ -1291,9 +1292,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 		break;
 	      }
 	}
-      e = make_edge (new_return_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
-      e->probability = REG_BR_PROB_BASE;
-      e->count = new_return_bb->count;
+      e = make_single_succ_edge (new_return_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
       add_bb_to_loop (new_return_bb, current_loops->tree_root);
       bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
       retbnd = find_retbnd (return_bb);
@@ -1359,6 +1358,15 @@ split_function (basic_block return_bb, struct split_point *split_point,
      split_point->split_bbs, split_point->entry_bb, "part");
 
   node->split_part = true;
+
+  if (cur_node->same_comdat_group)
+    {
+      /* TODO: call is versionable if we make sure that all
+	 callers are inside of a comdat group.  */
+      cur_node->calls_comdat_local = 1;
+      node->add_to_same_comdat_group (cur_node);
+    }
+
 
   /* Let's take a time profile for splitted function.  */
   node->tp_first_run = cur_node->tp_first_run + 1;
@@ -1517,11 +1525,9 @@ split_function (basic_block return_bb, struct split_point *split_point,
     }
   else
     {
-      e = make_edge (call_bb, return_bb,
-		     return_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
-		     ? 0 : EDGE_FALLTHRU);
-      e->count = call_bb->count;
-      e->probability = REG_BR_PROB_BASE;
+      e = make_single_succ_edge (call_bb, return_bb,
+				 return_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
+				 ? 0 : EDGE_FALLTHRU);
 
       /* If there is return basic block, see what value we need to store
          return value into and put call just before it.  */
@@ -1704,7 +1710,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
     }
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
-  compute_inline_parameters (node, true);
+  compute_fn_summary (node, true);
 }
 
 /* Execute function splitting pass.  */
@@ -1733,8 +1739,8 @@ execute_split_functions (void)
     }
   /* This can be relaxed; function might become inlinable after splitting
      away the uninlinable part.  */
-  if (inline_edge_summary_vec.exists ()
-      && !inline_summaries->get (node)->inlinable)
+  if (ipa_fn_summaries
+      && !ipa_fn_summaries->get (node)->inlinable)
     {
       if (dump_file)
 	fprintf (dump_file, "Not splitting: not inlinable.\n");
@@ -1832,7 +1838,7 @@ execute_split_functions (void)
 	    {
 	      fprintf (dump_file, "  freq:%6i size:%3i time:%3i ",
 		       freq, this_size, this_time);
-	      print_gimple_stmt (dump_file, stmt, 0, 0);
+	      print_gimple_stmt (dump_file, stmt, 0);
 	    }
 
 	  if ((flag_sanitize & SANITIZE_THREAD)

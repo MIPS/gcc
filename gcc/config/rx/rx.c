@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RX processors.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -29,6 +29,8 @@
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "cfghooks.h"
 #include "df.h"
 #include "memmodel.h"
@@ -267,7 +269,7 @@ rx_is_legitimate_address (machine_mode mode, rtx x,
   return rx_small_data_operand (x);
 }
 
-/* Returns TRUE for simple memory addreses, ie ones
+/* Returns TRUE for simple memory addresses, ie ones
    that do not involve register indirect addressing
    or pre/post increment/decrement.  */
 
@@ -964,25 +966,25 @@ rx_gen_move_template (rtx * operands, bool is_movu)
   /* Decide which extension, if any, should be given to the move instruction.  */
   switch (CONST_INT_P (src) ? GET_MODE (dest) : GET_MODE (src))
     {
-    case QImode:
+    case E_QImode:
       /* The .B extension is not valid when
 	 loading an immediate into a register.  */
       if (! REG_P (dest) || ! CONST_INT_P (src))
 	extension = ".B";
       break;
-    case HImode:
+    case E_HImode:
       if (! REG_P (dest) || ! CONST_INT_P (src))
 	/* The .W extension is not valid when
 	   loading an immediate into a register.  */
 	extension = ".W";
       break;
-    case DFmode:
-    case DImode:
-    case SFmode:
-    case SImode:
+    case E_DFmode:
+    case E_DImode:
+    case E_SFmode:
+    case E_SImode:
       extension = ".L";
       break;
-    case VOIDmode:
+    case E_VOIDmode:
       /* This mode is used by constants.  */
       break;
     default:
@@ -1886,8 +1888,7 @@ add_vector_labels (FILE *file, const char *aname)
 }
 
 static void
-rx_output_function_prologue (FILE * file,
-			     HOST_WIDE_INT frame_size ATTRIBUTE_UNUSED)
+rx_output_function_prologue (FILE * file)
 {
   add_vector_labels (file, "interrupt");
   add_vector_labels (file, "vector");
@@ -3078,15 +3079,15 @@ flags_from_mode (machine_mode mode)
 {
   switch (mode)
     {
-    case CC_ZSmode:
+    case E_CC_ZSmode:
       return CC_FLAG_S | CC_FLAG_Z;
-    case CC_ZSOmode:
+    case E_CC_ZSOmode:
       return CC_FLAG_S | CC_FLAG_Z | CC_FLAG_O;
-    case CC_ZSCmode:
+    case E_CC_ZSCmode:
       return CC_FLAG_S | CC_FLAG_Z | CC_FLAG_C;
-    case CCmode:
+    case E_CCmode:
       return CC_FLAG_S | CC_FLAG_Z | CC_FLAG_O | CC_FLAG_C;
-    case CC_Fmode:
+    case E_CC_Fmode:
       return CC_FLAG_FP;
     default:
       gcc_unreachable ();
@@ -3205,7 +3206,7 @@ rx_match_ccmode (rtx insn, machine_mode cc_mode)
 
   gcc_checking_assert (XVECLEN (PATTERN (insn), 0) == 2);
 
-  op1 = XVECEXP (PATTERN (insn), 0, 1);
+  op1 = XVECEXP (PATTERN (insn), 0, 0);
   gcc_checking_assert (GET_CODE (SET_SRC (op1)) == COMPARE);
 
   flags = SET_DEST (op1);

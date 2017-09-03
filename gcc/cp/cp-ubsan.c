@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "cp-tree.h"
 #include "ubsan.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "asan.h"
 
 /* Test if we should instrument vptr access.  */
 
@@ -32,7 +35,10 @@ cp_ubsan_instrument_vptr_p (tree type)
   if (!flag_rtti || flag_sanitize_undefined_trap_on_error)
     return false;
 
-  if (!do_ubsan_in_current_function ())
+  if (!sanitize_flags_p (SANITIZE_VPTR))
+    return false;
+
+  if (current_function_decl == NULL_TREE)
     return false;
 
   if (type)

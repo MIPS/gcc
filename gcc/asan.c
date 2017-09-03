@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -32,8 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "memmodel.h"
 #include "tm_p.h"
+#include "ssa.h"
 #include "stringpool.h"
-#include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "optabs.h"
 #include "emit-rtl.h"
@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tree-iterator.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 #include "dojump.h"
 #include "explow.h"
@@ -55,10 +57,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "gimple-builder.h"
+#include "gimple-fold.h"
 #include "ubsan.h"
 #include "params.h"
 #include "builtins.h"
 #include "fnmatch.h"
+#include "tree-inline.h"
 
 /* AddressSanitizer finds out-of-bounds and use-after-free bugs
    with <2x slowdown on average.
@@ -244,15 +248,7 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned HOST_WIDE_INT asan_shadow_offset_value;
 static bool asan_shadow_offset_computed;
 static vec<char *> sanitized_sections;
-
-/* Return true if STMT is ASAN_MARK poisoning internal function call.  */
-static inline bool
-asan_mark_poison_p (gimple *stmt)
-{
-  return (gimple_call_internal_p (stmt, IFN_ASAN_MARK)
-	  && tree_to_uhwi (gimple_call_arg (stmt, 0)) == ASAN_MARK_CLOBBER);
-
-}
+static tree last_alloca_addr;
 
 /* Set of variable declarations that are going to be guarded by
    use-after-scope sanitizer.  */
@@ -304,11 +300,22 @@ set_sanitized_sections (const char *sections)
 }
 
 bool
+asan_mark_p (gimple *stmt, enum asan_mark_flags flag)
+{
+  return (gimple_call_internal_p (stmt, IFN_ASAN_MARK)
+	  && tree_to_uhwi (gimple_call_arg (stmt, 0)) == flag);
+}
+
+bool
 asan_sanitize_stack_p (void)
 {
-  return ((flag_sanitize & SANITIZE_ADDRESS)
-	  && ASAN_STACK
-	  && !asan_no_sanitize_address_p ());
+  return (sanitize_flags_p (SANITIZE_ADDRESS) && ASAN_STACK);
+}
+
+bool
+asan_sanitize_allocas_p (void)
+{
+  return (asan_sanitize_stack_p () && ASAN_PROTECT_ALLOCAS);
 }
 
 /* Checks whether section SEC should be sanitized.  */
@@ -532,11 +539,186 @@ get_mem_ref_of_assignment (const gassign *assignment,
   return true;
 }
 
+/* Return address of last allocated dynamic alloca.  */
+
+static tree
+get_last_alloca_addr ()
+{
+  if (last_alloca_addr)
+    return last_alloca_addr;
+
+  last_alloca_addr = create_tmp_reg (ptr_type_node, "last_alloca_addr");
+  gassign *g = gimple_build_assign (last_alloca_addr, null_pointer_node);
+  edge e = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  gsi_insert_on_edge_immediate (e, g);
+  return last_alloca_addr;
+}
+
+/* Insert __asan_allocas_unpoison (top, bottom) call after
+   __builtin_stack_restore (new_sp) call.
+   The pseudocode of this routine should look like this:
+     __builtin_stack_restore (new_sp);
+     top = last_alloca_addr;
+     bot = new_sp;
+     __asan_allocas_unpoison (top, bot);
+     last_alloca_addr = new_sp;
+   In general, we can't use new_sp as bot parameter because on some
+   architectures SP has non zero offset from dynamic stack area.  Moreover, on
+   some architectures this offset (STACK_DYNAMIC_OFFSET) becomes known for each
+   particular function only after all callees were expanded to rtl.
+   The most noticeable example is PowerPC{,64}, see
+   http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi.html#DYNAM-STACK.
+   To overcome the issue we use following trick: pass new_sp as a second
+   parameter to __asan_allocas_unpoison and rewrite it during expansion with
+   virtual_dynamic_stack_rtx later in expand_asan_emit_allocas_unpoison
+   function.
+*/
+
+static void
+handle_builtin_stack_restore (gcall *call, gimple_stmt_iterator *iter)
+{
+  if (!iter || !asan_sanitize_allocas_p ())
+    return;
+
+  tree last_alloca = get_last_alloca_addr ();
+  tree restored_stack = gimple_call_arg (call, 0);
+  tree fn = builtin_decl_implicit (BUILT_IN_ASAN_ALLOCAS_UNPOISON);
+  gimple *g = gimple_build_call (fn, 2, last_alloca, restored_stack);
+  gsi_insert_after (iter, g, GSI_NEW_STMT);
+  g = gimple_build_assign (last_alloca, restored_stack);
+  gsi_insert_after (iter, g, GSI_NEW_STMT);
+}
+
+/* Deploy and poison redzones around __builtin_alloca call.  To do this, we
+   should replace this call with another one with changed parameters and
+   replace all its uses with new address, so
+       addr = __builtin_alloca (old_size, align);
+   is replaced by
+       left_redzone_size = max (align, ASAN_RED_ZONE_SIZE);
+   Following two statements are optimized out if we know that
+   old_size & (ASAN_RED_ZONE_SIZE - 1) == 0, i.e. alloca doesn't need partial
+   redzone.
+       misalign = old_size & (ASAN_RED_ZONE_SIZE - 1);
+       partial_redzone_size = ASAN_RED_ZONE_SIZE - misalign;
+       right_redzone_size = ASAN_RED_ZONE_SIZE;
+       additional_size = left_redzone_size + partial_redzone_size +
+                         right_redzone_size;
+       new_size = old_size + additional_size;
+       new_alloca = __builtin_alloca (new_size, max (align, 32))
+       __asan_alloca_poison (new_alloca, old_size)
+       addr = new_alloca + max (align, ASAN_RED_ZONE_SIZE);
+       last_alloca_addr = new_alloca;
+   ADDITIONAL_SIZE is added to make new memory allocation contain not only
+   requested memory, but also left, partial and right redzones as well as some
+   additional space, required by alignment.  */
+
+static void
+handle_builtin_alloca (gcall *call, gimple_stmt_iterator *iter)
+{
+  if (!iter || !asan_sanitize_allocas_p ())
+    return;
+
+  gassign *g;
+  gcall *gg;
+  const HOST_WIDE_INT redzone_mask = ASAN_RED_ZONE_SIZE - 1;
+
+  tree last_alloca = get_last_alloca_addr ();
+  tree callee = gimple_call_fndecl (call);
+  tree old_size = gimple_call_arg (call, 0);
+  tree ptr_type = gimple_call_lhs (call) ? TREE_TYPE (gimple_call_lhs (call))
+					 : ptr_type_node;
+  tree partial_size = NULL_TREE;
+  bool alloca_with_align
+    = DECL_FUNCTION_CODE (callee) == BUILT_IN_ALLOCA_WITH_ALIGN;
+  unsigned int align
+    = alloca_with_align ? tree_to_uhwi (gimple_call_arg (call, 1)) : 0;
+
+  /* If ALIGN > ASAN_RED_ZONE_SIZE, we embed left redzone into first ALIGN
+     bytes of allocated space.  Otherwise, align alloca to ASAN_RED_ZONE_SIZE
+     manually.  */
+  align = MAX (align, ASAN_RED_ZONE_SIZE * BITS_PER_UNIT);
+
+  tree alloca_rz_mask = build_int_cst (size_type_node, redzone_mask);
+  tree redzone_size = build_int_cst (size_type_node, ASAN_RED_ZONE_SIZE);
+
+  /* Extract lower bits from old_size.  */
+  wide_int size_nonzero_bits = get_nonzero_bits (old_size);
+  wide_int rz_mask
+    = wi::uhwi (redzone_mask, wi::get_precision (size_nonzero_bits));
+  wide_int old_size_lower_bits = wi::bit_and (size_nonzero_bits, rz_mask);
+
+  /* If alloca size is aligned to ASAN_RED_ZONE_SIZE, we don't need partial
+     redzone.  Otherwise, compute its size here.  */
+  if (wi::ne_p (old_size_lower_bits, 0))
+    {
+      /* misalign = size & (ASAN_RED_ZONE_SIZE - 1)
+         partial_size = ASAN_RED_ZONE_SIZE - misalign.  */
+      g = gimple_build_assign (make_ssa_name (size_type_node, NULL),
+			       BIT_AND_EXPR, old_size, alloca_rz_mask);
+      gsi_insert_before (iter, g, GSI_SAME_STMT);
+      tree misalign = gimple_assign_lhs (g);
+      g = gimple_build_assign (make_ssa_name (size_type_node, NULL), MINUS_EXPR,
+			       redzone_size, misalign);
+      gsi_insert_before (iter, g, GSI_SAME_STMT);
+      partial_size = gimple_assign_lhs (g);
+    }
+
+  /* additional_size = align + ASAN_RED_ZONE_SIZE.  */
+  tree additional_size = build_int_cst (size_type_node, align / BITS_PER_UNIT
+							+ ASAN_RED_ZONE_SIZE);
+  /* If alloca has partial redzone, include it to additional_size too.  */
+  if (partial_size)
+    {
+      /* additional_size += partial_size.  */
+      g = gimple_build_assign (make_ssa_name (size_type_node), PLUS_EXPR,
+			       partial_size, additional_size);
+      gsi_insert_before (iter, g, GSI_SAME_STMT);
+      additional_size = gimple_assign_lhs (g);
+    }
+
+  /* new_size = old_size + additional_size.  */
+  g = gimple_build_assign (make_ssa_name (size_type_node), PLUS_EXPR, old_size,
+			   additional_size);
+  gsi_insert_before (iter, g, GSI_SAME_STMT);
+  tree new_size = gimple_assign_lhs (g);
+
+  /* Build new __builtin_alloca call:
+       new_alloca_with_rz = __builtin_alloca (new_size, align).  */
+  tree fn = builtin_decl_implicit (BUILT_IN_ALLOCA_WITH_ALIGN);
+  gg = gimple_build_call (fn, 2, new_size,
+			  build_int_cst (size_type_node, align));
+  tree new_alloca_with_rz = make_ssa_name (ptr_type, gg);
+  gimple_call_set_lhs (gg, new_alloca_with_rz);
+  gsi_insert_before (iter, gg, GSI_SAME_STMT);
+
+  /* new_alloca = new_alloca_with_rz + align.  */
+  g = gimple_build_assign (make_ssa_name (ptr_type), POINTER_PLUS_EXPR,
+			   new_alloca_with_rz,
+			   build_int_cst (size_type_node,
+					  align / BITS_PER_UNIT));
+  gsi_insert_before (iter, g, GSI_SAME_STMT);
+  tree new_alloca = gimple_assign_lhs (g);
+
+  /* Poison newly created alloca redzones:
+      __asan_alloca_poison (new_alloca, old_size).  */
+  fn = builtin_decl_implicit (BUILT_IN_ASAN_ALLOCA_POISON);
+  gg = gimple_build_call (fn, 2, new_alloca, old_size);
+  gsi_insert_before (iter, gg, GSI_SAME_STMT);
+
+  /* Save new_alloca_with_rz value into last_alloca to use it during
+     allocas unpoisoning.  */
+  g = gimple_build_assign (last_alloca, new_alloca_with_rz);
+  gsi_insert_before (iter, g, GSI_SAME_STMT);
+
+  /* Finally, replace old alloca ptr with NEW_ALLOCA.  */
+  replace_call_with_value (iter, new_alloca);
+}
+
 /* Return the memory references contained in a gimple statement
    representing a builtin call that has to do with memory access.  */
 
 static bool
-get_mem_refs_of_builtin_call (const gcall *call,
+get_mem_refs_of_builtin_call (gcall *call,
 			      asan_mem_ref *src0,
 			      tree *src0_len,
 			      bool *src0_is_store,
@@ -547,7 +729,8 @@ get_mem_refs_of_builtin_call (const gcall *call,
 			      tree *dst_len,
 			      bool *dst_is_store,
 			      bool *dest_is_deref,
-			      bool *intercepted_p)
+			      bool *intercepted_p,
+			      gimple_stmt_iterator *iter = NULL)
 {
   gcc_checking_assert (gimple_call_builtin_p (call, BUILT_IN_NORMAL));
 
@@ -604,218 +787,216 @@ get_mem_refs_of_builtin_call (const gcall *call,
     case BUILT_IN_STRLEN:
       source0 = gimple_call_arg (call, 0);
       len = gimple_call_lhs (call);
-      break ;
+      break;
 
+    case BUILT_IN_STACK_RESTORE:
+      handle_builtin_stack_restore (call, iter);
+      break;
+
+    case BUILT_IN_ALLOCA_WITH_ALIGN:
+    case BUILT_IN_ALLOCA:
+      handle_builtin_alloca (call, iter);
+      break;
     /* And now the __atomic* and __sync builtins.
        These are handled differently from the classical memory memory
        access builtins above.  */
 
     case BUILT_IN_ATOMIC_LOAD_1:
+      is_store = false;
+      /* FALLTHRU */
+    case BUILT_IN_SYNC_FETCH_AND_ADD_1:
+    case BUILT_IN_SYNC_FETCH_AND_SUB_1:
+    case BUILT_IN_SYNC_FETCH_AND_OR_1:
+    case BUILT_IN_SYNC_FETCH_AND_AND_1:
+    case BUILT_IN_SYNC_FETCH_AND_XOR_1:
+    case BUILT_IN_SYNC_FETCH_AND_NAND_1:
+    case BUILT_IN_SYNC_ADD_AND_FETCH_1:
+    case BUILT_IN_SYNC_SUB_AND_FETCH_1:
+    case BUILT_IN_SYNC_OR_AND_FETCH_1:
+    case BUILT_IN_SYNC_AND_AND_FETCH_1:
+    case BUILT_IN_SYNC_XOR_AND_FETCH_1:
+    case BUILT_IN_SYNC_NAND_AND_FETCH_1:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_1:
+    case BUILT_IN_SYNC_LOCK_RELEASE_1:
+    case BUILT_IN_ATOMIC_EXCHANGE_1:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
+    case BUILT_IN_ATOMIC_STORE_1:
+    case BUILT_IN_ATOMIC_ADD_FETCH_1:
+    case BUILT_IN_ATOMIC_SUB_FETCH_1:
+    case BUILT_IN_ATOMIC_AND_FETCH_1:
+    case BUILT_IN_ATOMIC_NAND_FETCH_1:
+    case BUILT_IN_ATOMIC_XOR_FETCH_1:
+    case BUILT_IN_ATOMIC_OR_FETCH_1:
+    case BUILT_IN_ATOMIC_FETCH_ADD_1:
+    case BUILT_IN_ATOMIC_FETCH_SUB_1:
+    case BUILT_IN_ATOMIC_FETCH_AND_1:
+    case BUILT_IN_ATOMIC_FETCH_NAND_1:
+    case BUILT_IN_ATOMIC_FETCH_XOR_1:
+    case BUILT_IN_ATOMIC_FETCH_OR_1:
+      access_size = 1;
+      goto do_atomic;
+
     case BUILT_IN_ATOMIC_LOAD_2:
+      is_store = false;
+      /* FALLTHRU */
+    case BUILT_IN_SYNC_FETCH_AND_ADD_2:
+    case BUILT_IN_SYNC_FETCH_AND_SUB_2:
+    case BUILT_IN_SYNC_FETCH_AND_OR_2:
+    case BUILT_IN_SYNC_FETCH_AND_AND_2:
+    case BUILT_IN_SYNC_FETCH_AND_XOR_2:
+    case BUILT_IN_SYNC_FETCH_AND_NAND_2:
+    case BUILT_IN_SYNC_ADD_AND_FETCH_2:
+    case BUILT_IN_SYNC_SUB_AND_FETCH_2:
+    case BUILT_IN_SYNC_OR_AND_FETCH_2:
+    case BUILT_IN_SYNC_AND_AND_FETCH_2:
+    case BUILT_IN_SYNC_XOR_AND_FETCH_2:
+    case BUILT_IN_SYNC_NAND_AND_FETCH_2:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_2:
+    case BUILT_IN_SYNC_LOCK_RELEASE_2:
+    case BUILT_IN_ATOMIC_EXCHANGE_2:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
+    case BUILT_IN_ATOMIC_STORE_2:
+    case BUILT_IN_ATOMIC_ADD_FETCH_2:
+    case BUILT_IN_ATOMIC_SUB_FETCH_2:
+    case BUILT_IN_ATOMIC_AND_FETCH_2:
+    case BUILT_IN_ATOMIC_NAND_FETCH_2:
+    case BUILT_IN_ATOMIC_XOR_FETCH_2:
+    case BUILT_IN_ATOMIC_OR_FETCH_2:
+    case BUILT_IN_ATOMIC_FETCH_ADD_2:
+    case BUILT_IN_ATOMIC_FETCH_SUB_2:
+    case BUILT_IN_ATOMIC_FETCH_AND_2:
+    case BUILT_IN_ATOMIC_FETCH_NAND_2:
+    case BUILT_IN_ATOMIC_FETCH_XOR_2:
+    case BUILT_IN_ATOMIC_FETCH_OR_2:
+      access_size = 2;
+      goto do_atomic;
+
     case BUILT_IN_ATOMIC_LOAD_4:
+      is_store = false;
+      /* FALLTHRU */
+    case BUILT_IN_SYNC_FETCH_AND_ADD_4:
+    case BUILT_IN_SYNC_FETCH_AND_SUB_4:
+    case BUILT_IN_SYNC_FETCH_AND_OR_4:
+    case BUILT_IN_SYNC_FETCH_AND_AND_4:
+    case BUILT_IN_SYNC_FETCH_AND_XOR_4:
+    case BUILT_IN_SYNC_FETCH_AND_NAND_4:
+    case BUILT_IN_SYNC_ADD_AND_FETCH_4:
+    case BUILT_IN_SYNC_SUB_AND_FETCH_4:
+    case BUILT_IN_SYNC_OR_AND_FETCH_4:
+    case BUILT_IN_SYNC_AND_AND_FETCH_4:
+    case BUILT_IN_SYNC_XOR_AND_FETCH_4:
+    case BUILT_IN_SYNC_NAND_AND_FETCH_4:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_4:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_4:
+    case BUILT_IN_SYNC_LOCK_RELEASE_4:
+    case BUILT_IN_ATOMIC_EXCHANGE_4:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_4:
+    case BUILT_IN_ATOMIC_STORE_4:
+    case BUILT_IN_ATOMIC_ADD_FETCH_4:
+    case BUILT_IN_ATOMIC_SUB_FETCH_4:
+    case BUILT_IN_ATOMIC_AND_FETCH_4:
+    case BUILT_IN_ATOMIC_NAND_FETCH_4:
+    case BUILT_IN_ATOMIC_XOR_FETCH_4:
+    case BUILT_IN_ATOMIC_OR_FETCH_4:
+    case BUILT_IN_ATOMIC_FETCH_ADD_4:
+    case BUILT_IN_ATOMIC_FETCH_SUB_4:
+    case BUILT_IN_ATOMIC_FETCH_AND_4:
+    case BUILT_IN_ATOMIC_FETCH_NAND_4:
+    case BUILT_IN_ATOMIC_FETCH_XOR_4:
+    case BUILT_IN_ATOMIC_FETCH_OR_4:
+      access_size = 4;
+      goto do_atomic;
+
     case BUILT_IN_ATOMIC_LOAD_8:
+      is_store = false;
+      /* FALLTHRU */
+    case BUILT_IN_SYNC_FETCH_AND_ADD_8:
+    case BUILT_IN_SYNC_FETCH_AND_SUB_8:
+    case BUILT_IN_SYNC_FETCH_AND_OR_8:
+    case BUILT_IN_SYNC_FETCH_AND_AND_8:
+    case BUILT_IN_SYNC_FETCH_AND_XOR_8:
+    case BUILT_IN_SYNC_FETCH_AND_NAND_8:
+    case BUILT_IN_SYNC_ADD_AND_FETCH_8:
+    case BUILT_IN_SYNC_SUB_AND_FETCH_8:
+    case BUILT_IN_SYNC_OR_AND_FETCH_8:
+    case BUILT_IN_SYNC_AND_AND_FETCH_8:
+    case BUILT_IN_SYNC_XOR_AND_FETCH_8:
+    case BUILT_IN_SYNC_NAND_AND_FETCH_8:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_8:
+    case BUILT_IN_SYNC_LOCK_RELEASE_8:
+    case BUILT_IN_ATOMIC_EXCHANGE_8:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_8:
+    case BUILT_IN_ATOMIC_STORE_8:
+    case BUILT_IN_ATOMIC_ADD_FETCH_8:
+    case BUILT_IN_ATOMIC_SUB_FETCH_8:
+    case BUILT_IN_ATOMIC_AND_FETCH_8:
+    case BUILT_IN_ATOMIC_NAND_FETCH_8:
+    case BUILT_IN_ATOMIC_XOR_FETCH_8:
+    case BUILT_IN_ATOMIC_OR_FETCH_8:
+    case BUILT_IN_ATOMIC_FETCH_ADD_8:
+    case BUILT_IN_ATOMIC_FETCH_SUB_8:
+    case BUILT_IN_ATOMIC_FETCH_AND_8:
+    case BUILT_IN_ATOMIC_FETCH_NAND_8:
+    case BUILT_IN_ATOMIC_FETCH_XOR_8:
+    case BUILT_IN_ATOMIC_FETCH_OR_8:
+      access_size = 8;
+      goto do_atomic;
+
     case BUILT_IN_ATOMIC_LOAD_16:
       is_store = false;
-      /* fall through.  */
-
-    case BUILT_IN_SYNC_FETCH_AND_ADD_1:
-    case BUILT_IN_SYNC_FETCH_AND_ADD_2:
-    case BUILT_IN_SYNC_FETCH_AND_ADD_4:
-    case BUILT_IN_SYNC_FETCH_AND_ADD_8:
+      /* FALLTHRU */
     case BUILT_IN_SYNC_FETCH_AND_ADD_16:
-
-    case BUILT_IN_SYNC_FETCH_AND_SUB_1:
-    case BUILT_IN_SYNC_FETCH_AND_SUB_2:
-    case BUILT_IN_SYNC_FETCH_AND_SUB_4:
-    case BUILT_IN_SYNC_FETCH_AND_SUB_8:
     case BUILT_IN_SYNC_FETCH_AND_SUB_16:
-
-    case BUILT_IN_SYNC_FETCH_AND_OR_1:
-    case BUILT_IN_SYNC_FETCH_AND_OR_2:
-    case BUILT_IN_SYNC_FETCH_AND_OR_4:
-    case BUILT_IN_SYNC_FETCH_AND_OR_8:
     case BUILT_IN_SYNC_FETCH_AND_OR_16:
-
-    case BUILT_IN_SYNC_FETCH_AND_AND_1:
-    case BUILT_IN_SYNC_FETCH_AND_AND_2:
-    case BUILT_IN_SYNC_FETCH_AND_AND_4:
-    case BUILT_IN_SYNC_FETCH_AND_AND_8:
     case BUILT_IN_SYNC_FETCH_AND_AND_16:
-
-    case BUILT_IN_SYNC_FETCH_AND_XOR_1:
-    case BUILT_IN_SYNC_FETCH_AND_XOR_2:
-    case BUILT_IN_SYNC_FETCH_AND_XOR_4:
-    case BUILT_IN_SYNC_FETCH_AND_XOR_8:
     case BUILT_IN_SYNC_FETCH_AND_XOR_16:
-
-    case BUILT_IN_SYNC_FETCH_AND_NAND_1:
-    case BUILT_IN_SYNC_FETCH_AND_NAND_2:
-    case BUILT_IN_SYNC_FETCH_AND_NAND_4:
-    case BUILT_IN_SYNC_FETCH_AND_NAND_8:
-
-    case BUILT_IN_SYNC_ADD_AND_FETCH_1:
-    case BUILT_IN_SYNC_ADD_AND_FETCH_2:
-    case BUILT_IN_SYNC_ADD_AND_FETCH_4:
-    case BUILT_IN_SYNC_ADD_AND_FETCH_8:
+    case BUILT_IN_SYNC_FETCH_AND_NAND_16:
     case BUILT_IN_SYNC_ADD_AND_FETCH_16:
-
-    case BUILT_IN_SYNC_SUB_AND_FETCH_1:
-    case BUILT_IN_SYNC_SUB_AND_FETCH_2:
-    case BUILT_IN_SYNC_SUB_AND_FETCH_4:
-    case BUILT_IN_SYNC_SUB_AND_FETCH_8:
     case BUILT_IN_SYNC_SUB_AND_FETCH_16:
-
-    case BUILT_IN_SYNC_OR_AND_FETCH_1:
-    case BUILT_IN_SYNC_OR_AND_FETCH_2:
-    case BUILT_IN_SYNC_OR_AND_FETCH_4:
-    case BUILT_IN_SYNC_OR_AND_FETCH_8:
     case BUILT_IN_SYNC_OR_AND_FETCH_16:
-
-    case BUILT_IN_SYNC_AND_AND_FETCH_1:
-    case BUILT_IN_SYNC_AND_AND_FETCH_2:
-    case BUILT_IN_SYNC_AND_AND_FETCH_4:
-    case BUILT_IN_SYNC_AND_AND_FETCH_8:
     case BUILT_IN_SYNC_AND_AND_FETCH_16:
-
-    case BUILT_IN_SYNC_XOR_AND_FETCH_1:
-    case BUILT_IN_SYNC_XOR_AND_FETCH_2:
-    case BUILT_IN_SYNC_XOR_AND_FETCH_4:
-    case BUILT_IN_SYNC_XOR_AND_FETCH_8:
     case BUILT_IN_SYNC_XOR_AND_FETCH_16:
-
-    case BUILT_IN_SYNC_NAND_AND_FETCH_1:
-    case BUILT_IN_SYNC_NAND_AND_FETCH_2:
-    case BUILT_IN_SYNC_NAND_AND_FETCH_4:
-    case BUILT_IN_SYNC_NAND_AND_FETCH_8:
-
-    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
-    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
-    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
-    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_NAND_AND_FETCH_16:
     case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
-
-    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
-    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:
-    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_4:
-    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
-
-    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_1:
-    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_2:
-    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_4:
-    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_8:
     case BUILT_IN_SYNC_LOCK_TEST_AND_SET_16:
-
-    case BUILT_IN_SYNC_LOCK_RELEASE_1:
-    case BUILT_IN_SYNC_LOCK_RELEASE_2:
-    case BUILT_IN_SYNC_LOCK_RELEASE_4:
-    case BUILT_IN_SYNC_LOCK_RELEASE_8:
     case BUILT_IN_SYNC_LOCK_RELEASE_16:
-
-    case BUILT_IN_ATOMIC_EXCHANGE_1:
-    case BUILT_IN_ATOMIC_EXCHANGE_2:
-    case BUILT_IN_ATOMIC_EXCHANGE_4:
-    case BUILT_IN_ATOMIC_EXCHANGE_8:
     case BUILT_IN_ATOMIC_EXCHANGE_16:
-
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_4:
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_8:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
-
-    case BUILT_IN_ATOMIC_STORE_1:
-    case BUILT_IN_ATOMIC_STORE_2:
-    case BUILT_IN_ATOMIC_STORE_4:
-    case BUILT_IN_ATOMIC_STORE_8:
     case BUILT_IN_ATOMIC_STORE_16:
-
-    case BUILT_IN_ATOMIC_ADD_FETCH_1:
-    case BUILT_IN_ATOMIC_ADD_FETCH_2:
-    case BUILT_IN_ATOMIC_ADD_FETCH_4:
-    case BUILT_IN_ATOMIC_ADD_FETCH_8:
     case BUILT_IN_ATOMIC_ADD_FETCH_16:
-
-    case BUILT_IN_ATOMIC_SUB_FETCH_1:
-    case BUILT_IN_ATOMIC_SUB_FETCH_2:
-    case BUILT_IN_ATOMIC_SUB_FETCH_4:
-    case BUILT_IN_ATOMIC_SUB_FETCH_8:
     case BUILT_IN_ATOMIC_SUB_FETCH_16:
-
-    case BUILT_IN_ATOMIC_AND_FETCH_1:
-    case BUILT_IN_ATOMIC_AND_FETCH_2:
-    case BUILT_IN_ATOMIC_AND_FETCH_4:
-    case BUILT_IN_ATOMIC_AND_FETCH_8:
     case BUILT_IN_ATOMIC_AND_FETCH_16:
-
-    case BUILT_IN_ATOMIC_NAND_FETCH_1:
-    case BUILT_IN_ATOMIC_NAND_FETCH_2:
-    case BUILT_IN_ATOMIC_NAND_FETCH_4:
-    case BUILT_IN_ATOMIC_NAND_FETCH_8:
     case BUILT_IN_ATOMIC_NAND_FETCH_16:
-
-    case BUILT_IN_ATOMIC_XOR_FETCH_1:
-    case BUILT_IN_ATOMIC_XOR_FETCH_2:
-    case BUILT_IN_ATOMIC_XOR_FETCH_4:
-    case BUILT_IN_ATOMIC_XOR_FETCH_8:
     case BUILT_IN_ATOMIC_XOR_FETCH_16:
-
-    case BUILT_IN_ATOMIC_OR_FETCH_1:
-    case BUILT_IN_ATOMIC_OR_FETCH_2:
-    case BUILT_IN_ATOMIC_OR_FETCH_4:
-    case BUILT_IN_ATOMIC_OR_FETCH_8:
     case BUILT_IN_ATOMIC_OR_FETCH_16:
-
-    case BUILT_IN_ATOMIC_FETCH_ADD_1:
-    case BUILT_IN_ATOMIC_FETCH_ADD_2:
-    case BUILT_IN_ATOMIC_FETCH_ADD_4:
-    case BUILT_IN_ATOMIC_FETCH_ADD_8:
     case BUILT_IN_ATOMIC_FETCH_ADD_16:
-
-    case BUILT_IN_ATOMIC_FETCH_SUB_1:
-    case BUILT_IN_ATOMIC_FETCH_SUB_2:
-    case BUILT_IN_ATOMIC_FETCH_SUB_4:
-    case BUILT_IN_ATOMIC_FETCH_SUB_8:
     case BUILT_IN_ATOMIC_FETCH_SUB_16:
-
-    case BUILT_IN_ATOMIC_FETCH_AND_1:
-    case BUILT_IN_ATOMIC_FETCH_AND_2:
-    case BUILT_IN_ATOMIC_FETCH_AND_4:
-    case BUILT_IN_ATOMIC_FETCH_AND_8:
     case BUILT_IN_ATOMIC_FETCH_AND_16:
-
-    case BUILT_IN_ATOMIC_FETCH_NAND_1:
-    case BUILT_IN_ATOMIC_FETCH_NAND_2:
-    case BUILT_IN_ATOMIC_FETCH_NAND_4:
-    case BUILT_IN_ATOMIC_FETCH_NAND_8:
     case BUILT_IN_ATOMIC_FETCH_NAND_16:
-
-    case BUILT_IN_ATOMIC_FETCH_XOR_1:
-    case BUILT_IN_ATOMIC_FETCH_XOR_2:
-    case BUILT_IN_ATOMIC_FETCH_XOR_4:
-    case BUILT_IN_ATOMIC_FETCH_XOR_8:
     case BUILT_IN_ATOMIC_FETCH_XOR_16:
-
-    case BUILT_IN_ATOMIC_FETCH_OR_1:
-    case BUILT_IN_ATOMIC_FETCH_OR_2:
-    case BUILT_IN_ATOMIC_FETCH_OR_4:
-    case BUILT_IN_ATOMIC_FETCH_OR_8:
     case BUILT_IN_ATOMIC_FETCH_OR_16:
+      access_size = 16;
+      /* FALLTHRU */
+    do_atomic:
       {
 	dest = gimple_call_arg (call, 0);
 	/* DEST represents the address of a memory location.
 	   instrument_derefs wants the memory location, so lets
 	   dereference the address DEST before handing it to
 	   instrument_derefs.  */
-	if (TREE_CODE (dest) == ADDR_EXPR)
-	  dest = TREE_OPERAND (dest, 0);
-	else if (TREE_CODE (dest) == SSA_NAME || TREE_CODE (dest) == INTEGER_CST)
-	  dest = build2 (MEM_REF, TREE_TYPE (TREE_TYPE (dest)),
-			 dest, build_int_cst (TREE_TYPE (dest), 0));
-	else
-	  gcc_unreachable ();
-
-	access_size = int_size_in_bytes (TREE_TYPE (dest));
+	tree type = build_nonstandard_integer_type (access_size
+						    * BITS_PER_UNIT, 1);
+	dest = build2 (MEM_REF, type, dest,
+		       build_int_cst (build_pointer_type (char_type_node), 0));
+	break;
       }
 
     default:
@@ -1029,7 +1210,9 @@ asan_clear_shadow (rtx shadow_mem, HOST_WIDE_INT len)
   emit_cmp_and_jump_insns (addr, end, LT, NULL_RTX, Pmode, true, top_label);
   jump = get_last_insn ();
   gcc_assert (JUMP_P (jump));
-  add_int_reg_note (jump, REG_BR_PROB, REG_BR_PROB_BASE * 80 / 100);
+  add_reg_br_prob_note (jump,
+			profile_probability::guessed_always ()
+			   .apply_scale (80, 100));
 }
 
 void
@@ -1070,12 +1253,12 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
   rtx shadow_base, shadow_mem, ret, mem, orig_base;
   rtx_code_label *lab;
   rtx_insn *insns;
-  char buf[30];
+  char buf[32];
   unsigned char shadow_bytes[4];
   HOST_WIDE_INT base_offset = offsets[length - 1];
   HOST_WIDE_INT base_align_bias = 0, offset, prev_offset;
   HOST_WIDE_INT asan_frame_size = offsets[0] - base_offset;
-  HOST_WIDE_INT last_offset;
+  HOST_WIDE_INT last_offset, last_size;
   int l;
   unsigned char cur_shadow_byte = ASAN_STACK_MAGIC_LEFT;
   tree str_cst, decl, id;
@@ -1158,9 +1341,9 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
       emit_move_insn (orig_base, base);
       ret = expand_normal (asan_detect_stack_use_after_return);
       lab = gen_label_rtx ();
-      int very_likely = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / 2000 - 1);
       emit_cmp_and_jump_insns (ret, const0_rtx, EQ, NULL_RTX,
-			       VOIDmode, 0, lab, very_likely);
+			       VOIDmode, 0, lab,
+			       profile_probability::very_likely ());
       snprintf (buf, sizeof buf, "__asan_stack_malloc_%d",
 		use_after_return_class);
       ret = init_one_libfunc (buf);
@@ -1171,9 +1354,9 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
       /* __asan_stack_malloc_[n] returns a pointer to fake stack if succeeded
 	 and NULL otherwise.  Check RET value is NULL here and jump over the
 	 BASE reassignment in this case.  Otherwise, reassign BASE to RET.  */
-      int very_unlikely = REG_BR_PROB_BASE / 2000 - 1;
       emit_cmp_and_jump_insns (ret, const0_rtx, EQ, NULL_RTX,
-			       VOIDmode, 0, lab, very_unlikely);
+			       VOIDmode, 0, lab,
+			       profile_probability:: very_unlikely ());
       ret = convert_memory_address (Pmode, ret);
       emit_move_insn (base, ret);
       emit_label (lab);
@@ -1268,9 +1451,9 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
     {
       rtx_code_label *lab2 = gen_label_rtx ();
       char c = (char) ASAN_STACK_MAGIC_USE_AFTER_RET;
-      int very_likely = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / 2000 - 1);
       emit_cmp_and_jump_insns (orig_base, base, EQ, NULL_RTX,
-			       VOIDmode, 0, lab2, very_likely);
+			       VOIDmode, 0, lab2,
+			       profile_probability::very_likely ());
       shadow_mem = gen_rtx_MEM (BLKmode, shadow_base);
       set_mem_alias_set (shadow_mem, asan_shadow_set);
       mem = gen_rtx_MEM (ptr_mode, base);
@@ -1310,58 +1493,55 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
   if (STRICT_ALIGNMENT)
     set_mem_align (shadow_mem, (GET_MODE_ALIGNMENT (SImode)));
 
-  /* Unpoison shadow memory of a stack at the very end of a function.
-     As we're poisoning stack variables at the end of their scope,
-     shadow memory must be properly unpoisoned here.  The easiest approach
-     would be to collect all variables that should not be unpoisoned and
-     we unpoison shadow memory of the whole stack except ranges
-     occupied by these variables.  */
+  prev_offset = base_offset;
   last_offset = base_offset;
-  HOST_WIDE_INT current_offset = last_offset;
-  if (length)
+  last_size = 0;
+  for (l = length; l; l -= 2)
     {
-      HOST_WIDE_INT var_end_offset = 0;
-      HOST_WIDE_INT stack_start = offsets[length - 1];
-      gcc_assert (last_offset == stack_start);
-
-      for (int l = length - 2; l > 0; l -= 2)
+      offset = base_offset + ((offsets[l - 1] - base_offset)
+			     & ~(ASAN_RED_ZONE_SIZE - HOST_WIDE_INT_1));
+      if (last_offset + last_size != offset)
 	{
-	  HOST_WIDE_INT var_offset = offsets[l];
-	  current_offset = var_offset;
-	  var_end_offset = offsets[l - 1];
-	  HOST_WIDE_INT rounded_size = ROUND_UP (var_end_offset - var_offset,
-					     BITS_PER_UNIT);
+	  shadow_mem = adjust_address (shadow_mem, VOIDmode,
+				       (last_offset - prev_offset)
+				       >> ASAN_SHADOW_SHIFT);
+	  prev_offset = last_offset;
+	  asan_clear_shadow (shadow_mem, last_size >> ASAN_SHADOW_SHIFT);
+	  last_offset = offset;
+	  last_size = 0;
+	}
+      last_size += base_offset + ((offsets[l - 2] - base_offset)
+				  & ~(ASAN_RED_ZONE_SIZE - HOST_WIDE_INT_1))
+		   - offset;
 
-	  /* Should we unpoison the variable?  */
+      /* Unpoison shadow memory that corresponds to a variable that is 
+	 is subject of use-after-return sanitization.  */
+      if (l > 2)
+	{
+	  decl = decls[l / 2 - 2];
 	  if (asan_handled_variables != NULL
 	      && asan_handled_variables->contains (decl))
 	    {
+	      HOST_WIDE_INT size = offsets[l - 3] - offsets[l - 2];
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  const char *n = (DECL_NAME (decl)
 				   ? IDENTIFIER_POINTER (DECL_NAME (decl))
 				   : "<unknown>");
 		  fprintf (dump_file, "Unpoisoning shadow stack for variable: "
-			   "%s (%" PRId64 "B)\n", n,
-			   var_end_offset - var_offset);
+			   "%s (%" PRId64 " B)\n", n, size);
 		}
 
-	      unsigned HOST_WIDE_INT s
-		= shadow_mem_size (current_offset - last_offset);
-	      asan_clear_shadow (shadow_mem, s);
-	      HOST_WIDE_INT shift
-		= shadow_mem_size (current_offset - last_offset + rounded_size);
-	      shadow_mem = adjust_address (shadow_mem, VOIDmode, shift);
-	      last_offset = var_offset + rounded_size;
-	      current_offset = last_offset;
+		last_size += size & ~(ASAN_RED_ZONE_SIZE - HOST_WIDE_INT_1);
 	    }
-
 	}
-
-      /* Handle last redzone.  */
-      current_offset = offsets[0];
-      asan_clear_shadow (shadow_mem,
-			 shadow_mem_size (current_offset - last_offset));
+    }
+  if (last_size)
+    {
+      shadow_mem = adjust_address (shadow_mem, VOIDmode,
+				   (last_offset - prev_offset)
+				   >> ASAN_SHADOW_SHIFT);
+      asan_clear_shadow (shadow_mem, last_size >> ASAN_SHADOW_SHIFT);
     }
 
   /* Clean-up set with instrumented stack variables.  */
@@ -1379,6 +1559,29 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
   return insns;
 }
 
+/* Emit __asan_allocas_unpoison (top, bot) call.  The BASE parameter corresponds
+   to BOT argument, for TOP virtual_stack_dynamic_rtx is used.  NEW_SEQUENCE
+   indicates whether we're emitting new instructions sequence or not.  */
+
+rtx_insn *
+asan_emit_allocas_unpoison (rtx top, rtx bot, rtx_insn *before)
+{
+  if (before)
+    push_to_sequence (before);
+  else
+    start_sequence ();
+  rtx ret = init_one_libfunc ("__asan_allocas_unpoison");
+  top = convert_memory_address (ptr_mode, top);
+  bot = convert_memory_address (ptr_mode, bot);
+  ret = emit_library_call_value (ret, NULL_RTX, LCT_NORMAL, ptr_mode, 2, top,
+				 ptr_mode, bot, ptr_mode);
+
+  do_pending_stack_adjust ();
+  rtx_insn *insns = get_insns ();
+  end_sequence ();
+  return insns;
+}
+
 /* Return true if DECL, a global var, might be overridden and needs
    therefore a local alias.  */
 
@@ -1386,6 +1589,16 @@ static bool
 asan_needs_local_alias (tree decl)
 {
   return DECL_WEAK (decl) || !targetm.binds_local_p (decl);
+}
+
+/* Return true if DECL, a global var, is an artificial ODR indicator symbol
+   therefore doesn't need protection.  */
+
+static bool
+is_odr_indicator (tree decl)
+{
+  return (DECL_ARTIFICIAL (decl)
+	  && lookup_attribute ("asan odr indicator", DECL_ATTRIBUTES (decl)));
 }
 
 /* Return true if DECL is a VAR_DECL that should be protected
@@ -1436,7 +1649,8 @@ asan_protect_global (tree decl)
       || ASAN_RED_ZONE_SIZE * BITS_PER_UNIT > MAX_OFILE_ALIGNMENT
       || !valid_constant_size_p (DECL_SIZE_UNIT (decl))
       || DECL_ALIGN_UNIT (decl) > 2 * ASAN_RED_ZONE_SIZE
-      || TREE_TYPE (decl) == ubsan_get_source_location_type ())
+      || TREE_TYPE (decl) == ubsan_get_source_location_type ()
+      || is_odr_indicator (decl))
     return false;
 
   rtl = DECL_RTL (decl);
@@ -1451,10 +1665,8 @@ asan_protect_global (tree decl)
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     return false;
 
-#ifndef ASM_OUTPUT_DEF
-  if (asan_needs_local_alias (decl))
+  if (!TARGET_SUPPORTS_ALIASES && asan_needs_local_alias (decl))
     return false;
-#endif
 
   return true;
 }
@@ -1586,11 +1798,11 @@ create_cond_insert_point (gimple_stmt_iterator *iter,
 
   /* Set up the newly created 'then block'.  */
   e = make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
-  int fallthrough_probability
+  profile_probability fallthrough_probability
     = then_more_likely_p
-    ? PROB_VERY_UNLIKELY
-    : PROB_ALWAYS - PROB_VERY_UNLIKELY;
-  e->probability = PROB_ALWAYS - fallthrough_probability;
+    ? profile_probability::very_unlikely ()
+    : profile_probability::very_likely ();
+  e->probability = fallthrough_probability.invert ();
   if (create_then_fallthru_edge)
     make_single_succ_edge (then_bb, fallthru_bb, EDGE_FALLTHRU);
 
@@ -1868,12 +2080,16 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       tree repr = DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1));
       instrument_derefs (iter, build3 (COMPONENT_REF, TREE_TYPE (repr),
 				       TREE_OPERAND (t, 0), repr,
-				       NULL_TREE), location, is_store);
+				       TREE_OPERAND (t, 2)),
+			 location, is_store);
       return;
     }
 
   if (bitpos % BITS_PER_UNIT
       || bitsize != size_in_bytes * BITS_PER_UNIT)
+    return;
+
+  if (VAR_P (inner) && DECL_HARD_REGISTER (inner))
     return;
 
   if (VAR_P (inner)
@@ -2001,7 +2217,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
 				    &src0, &src0_len, &src0_is_store,
 				    &src1, &src1_len, &src1_is_store,
 				    &dest, &dest_len, &dest_is_store,
-				    &dest_is_deref, &intercepted_p))
+				    &dest_is_deref, &intercepted_p, iter))
     {
       if (dest_is_deref)
 	{
@@ -2211,7 +2427,8 @@ transform_statements (void)
 		 miss some instrumentation opportunities.  Do the same
 		 for a ASAN_MARK poisoning internal function.  */
 	      if (is_gimple_call (s)
-		  && (!nonfreeing_call_p (s) || asan_mark_poison_p (s)))
+		  && (!nonfreeing_call_p (s)
+		      || asan_mark_p (s, ASAN_MARK_POISON)))
 		empty_mem_ref_hash_table ();
 
 	      gsi_next (&i);
@@ -2266,14 +2483,15 @@ asan_dynamic_init_call (bool after_p)
 static tree
 asan_global_struct (void)
 {
-  static const char *field_names[8]
+  static const char *field_names[]
     = { "__beg", "__size", "__size_with_redzone",
-	"__name", "__module_name", "__has_dynamic_init", "__location", "__odr_indicator"};
-  tree fields[8], ret;
-  int i;
+	"__name", "__module_name", "__has_dynamic_init", "__location",
+	"__odr_indicator" };
+  tree fields[ARRAY_SIZE (field_names)], ret;
+  unsigned i;
 
   ret = make_node (RECORD_TYPE);
-  for (i = 0; i < 8; i++)
+  for (i = 0; i < ARRAY_SIZE (field_names); i++)
     {
       fields[i]
 	= build_decl (UNKNOWN_LOCATION, FIELD_DECL,
@@ -2293,6 +2511,75 @@ asan_global_struct (void)
   TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
   return ret;
+}
+
+/* Create and return odr indicator symbol for DECL.
+   TYPE is __asan_global struct type as returned by asan_global_struct.  */
+
+static tree
+create_odr_indicator (tree decl, tree type)
+{
+  char *name;
+  tree uptr = TREE_TYPE (DECL_CHAIN (TYPE_FIELDS (type)));
+  tree decl_name
+    = (HAS_DECL_ASSEMBLER_NAME_P (decl) ? DECL_ASSEMBLER_NAME (decl)
+					: DECL_NAME (decl));
+  /* DECL_NAME theoretically might be NULL.  Bail out with 0 in this case.  */
+  if (decl_name == NULL_TREE)
+    return build_int_cst (uptr, 0);
+  const char *dname = IDENTIFIER_POINTER (decl_name);
+  if (HAS_DECL_ASSEMBLER_NAME_P (decl))
+    dname = targetm.strip_name_encoding (dname);
+  size_t len = strlen (dname) + sizeof ("__odr_asan_");
+  name = XALLOCAVEC (char, len);
+  snprintf (name, len, "__odr_asan_%s", dname);
+#ifndef NO_DOT_IN_LABEL
+  name[sizeof ("__odr_asan") - 1] = '.';
+#elif !defined(NO_DOLLAR_IN_LABEL)
+  name[sizeof ("__odr_asan") - 1] = '$';
+#endif
+  tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (name),
+			 char_type_node);
+  TREE_ADDRESSABLE (var) = 1;
+  TREE_READONLY (var) = 0;
+  TREE_THIS_VOLATILE (var) = 1;
+  DECL_GIMPLE_REG_P (var) = 0;
+  DECL_ARTIFICIAL (var) = 1;
+  DECL_IGNORED_P (var) = 1;
+  TREE_STATIC (var) = 1;
+  TREE_PUBLIC (var) = 1;
+  DECL_VISIBILITY (var) = DECL_VISIBILITY (decl);
+  DECL_VISIBILITY_SPECIFIED (var) = DECL_VISIBILITY_SPECIFIED (decl);
+
+  TREE_USED (var) = 1;
+  tree ctor = build_constructor_va (TREE_TYPE (var), 1, NULL_TREE,
+				    build_int_cst (unsigned_type_node, 0));
+  TREE_CONSTANT (ctor) = 1;
+  TREE_STATIC (ctor) = 1;
+  DECL_INITIAL (var) = ctor;
+  DECL_ATTRIBUTES (var) = tree_cons (get_identifier ("asan odr indicator"),
+				     NULL, DECL_ATTRIBUTES (var));
+  make_decl_rtl (var);
+  varpool_node::finalize_decl (var);
+  return fold_convert (uptr, build_fold_addr_expr (var));
+}
+
+/* Return true if DECL, a global var, might be overridden and needs
+   an additional odr indicator symbol.  */
+
+static bool
+asan_needs_odr_indicator_p (tree decl)
+{
+  /* Don't emit ODR indicators for kernel because:
+     a) Kernel is written in C thus doesn't need ODR indicators.
+     b) Some kernel code may have assumptions about symbols containing specific
+        patterns in their names.  Since ODR indicators contain original names
+        of symbols they are emitted for, these assumptions would be broken for
+        ODR indicator symbols.  */
+  return (!(flag_sanitize & SANITIZE_KERNEL_ADDRESS)
+	  && !DECL_ARTIFICIAL (decl)
+	  && !DECL_WEAK (decl)
+	  && TREE_PUBLIC (decl));
 }
 
 /* Append description of a single global DECL into vector V.
@@ -2335,6 +2622,9 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
       assemble_alias (refdecl, DECL_ASSEMBLER_NAME (decl));
     }
 
+  tree odr_indicator_ptr
+    = (asan_needs_odr_indicator_p (decl) ? create_odr_indicator (decl, type)
+					 : build_int_cst (uptr, 0));
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node,
 					build_fold_addr_expr (refdecl)));
@@ -2347,7 +2637,11 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node, module_name_cst));
   varpool_node *vnode = varpool_node::get (decl);
-  int has_dynamic_init = vnode ? vnode->dynamically_initialized : 0;
+  int has_dynamic_init = 0;
+  /* FIXME: Enable initialization order fiasco detection in LTO mode once
+     proper fix for PR 79061 will be applied.  */
+  if (!in_lto_p)
+    has_dynamic_init = vnode ? vnode->dynamically_initialized : 0;
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  build_int_cst (uptr, has_dynamic_init));
   tree locptr = NULL_TREE;
@@ -2382,8 +2676,7 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
   else
     locptr = build_int_cst (uptr, 0);
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, locptr);
-  /* TODO: support ODR indicators.  */
-  CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, 0));
+  CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, odr_indicator_ptr);
   init = build_constructor (type, vinner);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
 }
@@ -2493,10 +2786,12 @@ initialize_sanitizer_builtins (void)
 #define DEF_BUILTIN_STUB(ENUM, NAME)
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
-  decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
-			       BUILT_IN_NORMAL, NAME, NULL_TREE);	\
-  set_call_expr_flags (decl, ATTRS);					\
-  set_builtin_decl (ENUM, decl, true);
+  do {									\
+    decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
+				 BUILT_IN_NORMAL, NAME, NULL_TREE);	\
+    set_call_expr_flags (decl, ATTRS);					\
+    set_builtin_decl (ENUM, decl, true);				\
+  } while (0);
 
 #include "sanitizer.def"
 
@@ -2680,10 +2975,13 @@ asan_store_shadow_bytes (gimple_stmt_iterator *iter, location_t loc,
 
   unsigned char c = (char) is_clobber ? ASAN_STACK_MAGIC_USE_AFTER_SCOPE : 0;
   unsigned HOST_WIDE_INT val = 0;
+  unsigned last_pos = size;
+  if (last_chunk_size && !is_clobber)
+    last_pos = BYTES_BIG_ENDIAN ? 0 : size - 1;
   for (unsigned i = 0; i < size; ++i)
     {
       unsigned char shadow_c = c;
-      if (i == size - 1 && last_chunk_size && !is_clobber)
+      if (i == last_pos)
 	shadow_c = last_chunk_size;
       val |= (unsigned HOST_WIDE_INT) shadow_c << (BITS_PER_UNIT * i);
     }
@@ -2706,17 +3004,26 @@ asan_expand_mark_ifn (gimple_stmt_iterator *iter)
 {
   gimple *g = gsi_stmt (*iter);
   location_t loc = gimple_location (g);
-  HOST_WIDE_INT flags = tree_to_shwi (gimple_call_arg (g, 0));
-  gcc_assert (flags < ASAN_MARK_LAST);
-  bool is_clobber = (flags & ASAN_MARK_CLOBBER) != 0;
+  HOST_WIDE_INT flag = tree_to_shwi (gimple_call_arg (g, 0));
+  bool is_poison = ((asan_mark_flags)flag) == ASAN_MARK_POISON;
 
   tree base = gimple_call_arg (g, 1);
   gcc_checking_assert (TREE_CODE (base) == ADDR_EXPR);
   tree decl = TREE_OPERAND (base, 0);
+
+  /* For a nested function, we can have: ASAN_MARK (2, &FRAME.2.fp_input, 4) */
+  if (TREE_CODE (decl) == COMPONENT_REF
+      && DECL_NONLOCAL_FRAME (TREE_OPERAND (decl, 0)))
+    decl = TREE_OPERAND (decl, 0);
+
   gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
-  if (asan_handled_variables == NULL)
-    asan_handled_variables = new hash_set<tree> (16);
-  asan_handled_variables->add (decl);
+
+  if (is_poison)
+    {
+      if (asan_handled_variables == NULL)
+	asan_handled_variables = new hash_set<tree> (16);
+      asan_handled_variables->add (decl);
+    }
   tree len = gimple_call_arg (g, 2);
 
   gcc_assert (tree_fits_shwi_p (len));
@@ -2750,7 +3057,7 @@ asan_expand_mark_ifn (gimple_stmt_iterator *iter)
 	  if (s > size_in_bytes)
 	    last_chunk_size = ASAN_SHADOW_GRANULARITY - (s - size_in_bytes);
 
-	  asan_store_shadow_bytes (iter, loc, shadow, offset, is_clobber,
+	  asan_store_shadow_bytes (iter, loc, shadow, offset, is_poison,
 				   size, last_chunk_size);
 	  offset += size;
 	}
@@ -2763,8 +3070,9 @@ asan_expand_mark_ifn (gimple_stmt_iterator *iter)
       gsi_insert_before (iter, g, GSI_SAME_STMT);
       tree sz_arg = gimple_assign_lhs (g);
 
-      tree fun = builtin_decl_implicit (is_clobber ? BUILT_IN_ASAN_CLOBBER_N
-					: BUILT_IN_ASAN_UNCLOBBER_N);
+      tree fun
+	= builtin_decl_implicit (is_poison ? BUILT_IN_ASAN_POISON_STACK_MEMORY
+				 : BUILT_IN_ASAN_UNPOISON_STACK_MEMORY);
       g = gimple_build_call (fun, 2, base_addr, sz_arg);
       gimple_set_location (g, loc);
       gsi_insert_after (iter, g, GSI_NEW_STMT);
@@ -2979,6 +3287,121 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
   return true;
 }
 
+/* Create ASAN shadow variable for a VAR_DECL which has been rewritten
+   into SSA.  Already seen VAR_DECLs are stored in SHADOW_VARS_MAPPING.  */
+
+static tree
+create_asan_shadow_var (tree var_decl,
+			hash_map<tree, tree> &shadow_vars_mapping)
+{
+  tree *slot = shadow_vars_mapping.get (var_decl);
+  if (slot == NULL)
+    {
+      tree shadow_var = copy_node (var_decl);
+
+      copy_body_data id;
+      memset (&id, 0, sizeof (copy_body_data));
+      id.src_fn = id.dst_fn = current_function_decl;
+      copy_decl_for_dup_finish (&id, var_decl, shadow_var);
+
+      DECL_ARTIFICIAL (shadow_var) = 1;
+      DECL_IGNORED_P (shadow_var) = 1;
+      DECL_SEEN_IN_BIND_EXPR_P (shadow_var) = 0;
+      gimple_add_tmp_var (shadow_var);
+
+      shadow_vars_mapping.put (var_decl, shadow_var);
+      return shadow_var;
+    }
+  else
+    return *slot;
+}
+
+/* Expand ASAN_POISON ifn.  */
+
+bool
+asan_expand_poison_ifn (gimple_stmt_iterator *iter,
+			bool *need_commit_edge_insert,
+			hash_map<tree, tree> &shadow_vars_mapping)
+{
+  gimple *g = gsi_stmt (*iter);
+  tree poisoned_var = gimple_call_lhs (g);
+  if (!poisoned_var || has_zero_uses (poisoned_var))
+    {
+      gsi_remove (iter, true);
+      return true;
+    }
+
+  if (SSA_NAME_VAR (poisoned_var) == NULL_TREE)
+    SET_SSA_NAME_VAR_OR_IDENTIFIER (poisoned_var,
+				    create_tmp_var (TREE_TYPE (poisoned_var)));
+
+  tree shadow_var = create_asan_shadow_var (SSA_NAME_VAR (poisoned_var),
+					    shadow_vars_mapping);
+
+  bool recover_p;
+  if (flag_sanitize & SANITIZE_USER_ADDRESS)
+    recover_p = (flag_sanitize_recover & SANITIZE_USER_ADDRESS) != 0;
+  else
+    recover_p = (flag_sanitize_recover & SANITIZE_KERNEL_ADDRESS) != 0;
+  tree size = DECL_SIZE_UNIT (shadow_var);
+  gimple *poison_call
+    = gimple_build_call_internal (IFN_ASAN_MARK, 3,
+				  build_int_cst (integer_type_node,
+						 ASAN_MARK_POISON),
+				  build_fold_addr_expr (shadow_var), size);
+
+  gimple *use;
+  imm_use_iterator imm_iter;
+  FOR_EACH_IMM_USE_STMT (use, imm_iter, poisoned_var)
+    {
+      if (is_gimple_debug (use))
+	continue;
+
+      int nargs;
+      bool store_p = gimple_call_internal_p (use, IFN_ASAN_POISON_USE);
+      tree fun = report_error_func (store_p, recover_p, tree_to_uhwi (size),
+				    &nargs);
+
+      gcall *call = gimple_build_call (fun, 1,
+				       build_fold_addr_expr (shadow_var));
+      gimple_set_location (call, gimple_location (use));
+      gimple *call_to_insert = call;
+
+      /* The USE can be a gimple PHI node.  If so, insert the call on
+	 all edges leading to the PHI node.  */
+      if (is_a <gphi *> (use))
+	{
+	  gphi *phi = dyn_cast<gphi *> (use);
+	  for (unsigned i = 0; i < gimple_phi_num_args (phi); ++i)
+	    if (gimple_phi_arg_def (phi, i) == poisoned_var)
+	      {
+		edge e = gimple_phi_arg_edge (phi, i);
+
+		if (call_to_insert == NULL)
+		  call_to_insert = gimple_copy (call);
+
+		gsi_insert_seq_on_edge (e, call_to_insert);
+		*need_commit_edge_insert = true;
+		call_to_insert = NULL;
+	      }
+	}
+      else
+	{
+	  gimple_stmt_iterator gsi = gsi_for_stmt (use);
+	  if (store_p)
+	    gsi_replace (&gsi, call, true);
+	  else
+	    gsi_insert_before (&gsi, call, GSI_NEW_STMT);
+	}
+    }
+
+  SSA_NAME_IS_DEFAULT_DEF (poisoned_var) = true;
+  SSA_NAME_DEF_STMT (poisoned_var) = gimple_build_nop ();
+  gsi_replace (iter, poison_call, false);
+
+  return true;
+}
+
 /* Instrument the current function.  */
 
 static unsigned int
@@ -2987,15 +3410,14 @@ asan_instrument (void)
   if (shadow_ptr_types[0] == NULL_TREE)
     asan_init_shadow_ptr_types ();
   transform_statements ();
+  last_alloca_addr = NULL_TREE;
   return 0;
 }
 
 static bool
 gate_asan (void)
 {
-  return (flag_sanitize & SANITIZE_ADDRESS) != 0
-	  && !lookup_attribute ("no_sanitize_address",
-				DECL_ATTRIBUTES (current_function_decl));
+  return sanitize_flags_p (SANITIZE_ADDRESS);
 }
 
 namespace {

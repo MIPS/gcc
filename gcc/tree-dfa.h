@@ -1,5 +1,5 @@
 /* Header file for tree data flow functions.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,7 +36,7 @@ extern tree get_addr_base_and_unit_offset_1 (tree, HOST_WIDE_INT *,
 extern tree get_addr_base_and_unit_offset (tree, HOST_WIDE_INT *);
 extern bool stmt_references_abnormal_ssa_name (gimple *);
 extern void replace_abnormal_ssa_names (gimple *);
-extern void dump_enumerated_decls (FILE *, int);
+extern void dump_enumerated_decls (FILE *, dump_flags_t);
 
 
 #endif /* GCC_TREE_DFA_H */

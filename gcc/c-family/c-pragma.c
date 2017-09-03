@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -515,7 +515,7 @@ handle_pragma_redefine_extname (cpp_reader * ARG_UNUSED (dummy))
 	      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	      name = targetm.strip_name_encoding (name);
 
-	      if (strcmp (name, IDENTIFIER_POINTER (newname)))
+	      if (!id_equal (newname, name))
 		warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 			 "conflict with previous rename");
 	    }
@@ -822,14 +822,14 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 	if (DECL_NAME (decl) == p->oldname)
 	  {
 	    /* Only warn if there is a conflict.  */
-	    if (strcmp (IDENTIFIER_POINTER (p->newname), oldname))
+	    if (!id_equal (p->newname, oldname))
 	      warning (OPT_Wpragmas, "#pragma redefine_extname ignored due to "
 		       "conflict with previous rename");
 
 	    pending_redefine_extname->unordered_remove (ix);
 	    break;
 	  }
-      return 0;
+      return NULL_TREE;
     }
 
   /* Find out if we have a pending #pragma redefine_extname.  */
@@ -878,7 +878,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
     }
 
   /* Nada.  */
-  return 0;
+  return NULL_TREE;
 }
 
 
@@ -1050,7 +1050,7 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
     }
 
   struct cl_option_handlers handlers;
-  set_default_handlers (&handlers);
+  set_default_handlers (&handlers, NULL);
   const char *arg = NULL;
   if (cl_options[option_index].flags & CL_JOINED)
     arg = option_string + 1 + cl_options[option_index].opt_len;
@@ -1128,7 +1128,7 @@ handle_pragma_target(cpp_reader *ARG_UNUSED(dummy))
       args = nreverse (args);
 
       if (targetm.target_option.pragma_parse (args, NULL_TREE))
-	current_target_pragma = args;
+	current_target_pragma = chainon (current_target_pragma, args);
     }
 }
 
@@ -1512,7 +1512,6 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "end", PRAGMA_OMP_END_DECLARE_TARGET },
   { "flush", PRAGMA_OMP_FLUSH },
   { "master", PRAGMA_OMP_MASTER },
-  { "ordered", PRAGMA_OMP_ORDERED },
   { "section", PRAGMA_OMP_SECTION },
   { "sections", PRAGMA_OMP_SECTIONS },
   { "single", PRAGMA_OMP_SINGLE },
@@ -1526,6 +1525,7 @@ static const struct omp_pragma_def omp_pragmas_simd[] = {
   { "declare", PRAGMA_OMP_DECLARE },
   { "distribute", PRAGMA_OMP_DISTRIBUTE },
   { "for", PRAGMA_OMP_FOR },
+  { "ordered", PRAGMA_OMP_ORDERED },
   { "parallel", PRAGMA_OMP_PARALLEL },
   { "simd", PRAGMA_OMP_SIMD },
   { "target", PRAGMA_OMP_TARGET },

@@ -1,5 +1,5 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -47,15 +47,27 @@ const char *
 gfc_get_string (const char *format, ...)
 {
   char temp_name[128];
+  const char *str;
   va_list ap;
   tree ident;
 
-  va_start (ap, format);
-  vsnprintf (temp_name, sizeof (temp_name), format, ap);
-  va_end (ap);
-  temp_name[sizeof (temp_name) - 1] = 0;
+  /* Handle common case without vsnprintf and temporary buffer.  */
+  if (format[0] == '%' && format[1] == 's' && format[2] == '\0')
+    {
+      va_start (ap, format);
+      str = va_arg (ap, const char *);
+      va_end (ap);
+    }
+  else
+    {
+      va_start (ap, format);
+      vsnprintf (temp_name, sizeof (temp_name), format, ap);
+      va_end (ap);
+      temp_name[sizeof (temp_name) - 1] = 0;
+      str = temp_name;
+    }
 
-  ident = get_identifier (temp_name);
+  ident = get_identifier (str);
   return IDENTIFIER_POINTER (ident);
 }
 
@@ -141,7 +153,7 @@ resolve_bound (gfc_expr *f, gfc_expr *array, gfc_expr *dim, gfc_expr *kind,
 	}
     }
 
-  f->value.function.name = gfc_get_string (name);
+  f->value.function.name = gfc_get_string ("%s", name);
 }
 
 
@@ -174,7 +186,7 @@ resolve_transformational (const char *name, gfc_expr *f, gfc_expr *array,
 
   f->value.function.name
     = gfc_get_string (PREFIX ("%s%s_%c%d"), prefix, name,
-		    gfc_type_letter (array->ts.type), array->ts.kind);
+		      gfc_type_letter (array->ts.type), array->ts.kind);
 }
 
 
@@ -229,7 +241,7 @@ gfc_resolve_adjustr (gfc_expr *f, gfc_expr *string)
 
 static void
 gfc_resolve_char_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind,
-			const char *name)
+			bool is_achar)
 {
   f->ts.type = BT_CHARACTER;
   f->ts.kind = (kind == NULL)
@@ -237,16 +249,16 @@ gfc_resolve_char_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind,
   f->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
   f->ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
 
-  f->value.function.name = gfc_get_string (name, f->ts.kind,
-					   gfc_type_letter (x->ts.type),
-					   x->ts.kind);
+  f->value.function.name
+    = gfc_get_string ("__%schar_%d_%c%d", is_achar ? "a" : "", f->ts.kind,
+		      gfc_type_letter (x->ts.type), x->ts.kind);
 }
 
 
 void
 gfc_resolve_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind)
 {
-  gfc_resolve_char_achar (f, x, kind, "__achar_%d_%c%d");
+  gfc_resolve_char_achar (f, x, kind, true);
 }
 
 
@@ -536,7 +548,7 @@ gfc_resolve_ceiling (gfc_expr *f, gfc_expr *a, gfc_expr *kind)
 void
 gfc_resolve_char (gfc_expr *f, gfc_expr *a, gfc_expr *kind)
 {
-  gfc_resolve_char_achar (f, a, kind, "__char_%d_%c%d");
+  gfc_resolve_char_achar (f, a, kind, false);
 }
 
 
@@ -2604,7 +2616,7 @@ gfc_resolve_ftell (gfc_expr *f, gfc_expr *u)
       gfc_convert_type (u, &ts, 2);
     }
 
-  f->value.function.name = gfc_get_string (PREFIX ("ftell2"));
+  f->value.function.name = gfc_get_string (PREFIX ("ftell"));
 }
 
 
@@ -2818,6 +2830,38 @@ gfc_resolve_atan2d (gfc_expr *f, gfc_expr *x, gfc_expr *y ATTRIBUTE_UNUSED)
 }
 
 
+/* Resolve failed_images (team, kind).  */
+
+void
+gfc_resolve_failed_images (gfc_expr *f, gfc_expr *team ATTRIBUTE_UNUSED,
+			   gfc_expr *kind)
+{
+  static char failed_images[] = "_gfortran_caf_failed_images";
+  f->rank = 1;
+  f->ts.type = BT_INTEGER;
+  if (kind == NULL)
+    f->ts.kind = gfc_default_integer_kind;
+  else
+    gfc_extract_int (kind, &f->ts.kind);
+  f->value.function.name = failed_images;
+}
+
+
+/* Resolve image_status (image, team).  */
+
+void
+gfc_resolve_image_status (gfc_expr *f, gfc_expr *image ATTRIBUTE_UNUSED,
+			  gfc_expr *team ATTRIBUTE_UNUSED)
+{
+  static char image_status[] = "_gfortran_caf_image_status";
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  f->value.function.name = image_status;
+}
+
+
+/* Resolve image_index (...).  */
+
 void
 gfc_resolve_image_index (gfc_expr *f, gfc_expr *array ATTRIBUTE_UNUSED,
 			 gfc_expr *sub ATTRIBUTE_UNUSED)
@@ -2826,6 +2870,23 @@ gfc_resolve_image_index (gfc_expr *f, gfc_expr *array ATTRIBUTE_UNUSED,
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
   f->value.function.name = image_index;
+}
+
+
+/* Resolve stopped_images (team, kind).  */
+
+void
+gfc_resolve_stopped_images (gfc_expr *f, gfc_expr *team ATTRIBUTE_UNUSED,
+			    gfc_expr *kind)
+{
+  static char stopped_images[] = "_gfortran_caf_stopped_images";
+  f->rank = 1;
+  f->ts.type = BT_INTEGER;
+  if (kind == NULL)
+    f->ts.kind = gfc_default_integer_kind;
+  else
+    gfc_extract_int (kind, &f->ts.kind);
+  f->value.function.name = stopped_images;
 }
 
 

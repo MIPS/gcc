@@ -311,10 +311,10 @@ x)
 	    "") ;;
 	    $goarch) ;;
 	    $goos) ;;
-	    android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
+	    aix | android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
 		tag1=nonmatchingtag
 		;;
-	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | mipso32 | mipsn32 | mipsn64 | mipso64 | ppc | s390 | s390x | sparc | sparc64)
+	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | ppc | s390 | s390x | sparc | sparc64)
 		tag1=nonmatchingtag
 		;;
 	    esac
@@ -323,10 +323,10 @@ x)
 	    "") ;;
 	    $goarch) ;;
 	    $goos) ;;
-	    android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
+	    aix | android | darwin | dragonfly | freebsd | linux | nacl | netbsd | openbsd | plan9 | solaris | windows)
 		tag2=nonmatchingtag
 		;;
-	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | mipso32 | mipsn32 | mipsn64 | mipso64 | ppc | s390 | s390x | sparc | sparc64)
+	    386 | amd64 | amd64p32 | arm | armbe | arm64 | arm64be | alpha | ia64 | m68k | ppc64 | ppc64le | mips | mipsle | mips64 | mips64le | mips64p32 | mips64p32le | ppc | s390 | s390x | sparc | sparc64)
 		tag2=nonmatchingtag
 		;;
 	    esac
@@ -542,7 +542,7 @@ localname() {
 		echo 'import "./_xtest_"'
 	fi
 	echo 'import "testing"'
-	echo 'import __regexp__ "regexp"' # rename in case tested package is called regexp
+	echo 'import "testing/internal/testdeps"'
 	if ! test -n "$testmain"; then
 		echo 'import __os__ "os"'
 	fi
@@ -585,22 +585,8 @@ localname() {
 	# body
 	echo \
 '
-var matchPat string
-var matchRe *__regexp__.Regexp
-
-func matchString(pat, str string) (result bool, err error) {
-	if matchRe == nil || matchPat != pat {
-		matchPat = pat
-		matchRe, err = __regexp__.Compile(matchPat)
-		if err != nil {
-			return
-		}
-	}
-	return matchRe.MatchString(str), nil
-}
-
 func main() {
-	m := testing.MainStart(matchString, tests, benchmarks, examples)
+	m := testing.MainStart(testdeps.TestDeps{}, tests, benchmarks, examples)
 '
 	if test -n "$testmain"; then
 		echo "	${testmain}(m)"

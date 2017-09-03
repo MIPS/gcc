@@ -1,5 +1,5 @@
 ;;- Machine description for ARM for GNU compiler
-;;  Copyright (C) 1991-2016 Free Software Foundation, Inc.
+;;  Copyright (C) 1991-2017 Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -231,10 +231,6 @@
 
 	  (and (eq_attr "enabled_for_depr_it" "no")
 	       (match_test "arm_restrict_it"))
-	  (const_string "no")
-
-	  (and (eq_attr "use_literal_pool" "yes")
-	       (match_test "arm_disable_literal_pool"))
 	  (const_string "no")
 
 	  (eq_attr "arch_enabled" "no")
@@ -1129,19 +1125,20 @@
 )
 
 (define_insn "*subsi3_carryin"
-  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-        (minus:SI (minus:SI (match_operand:SI 1 "reg_or_int_operand" "r,I")
-                            (match_operand:SI 2 "s_register_operand" "r,r"))
-                  (ltu:SI (reg:CC_C CC_REGNUM) (const_int 0))))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
+	(minus:SI (minus:SI (match_operand:SI 1 "reg_or_int_operand" "r,I,Pz")
+			    (match_operand:SI 2 "s_register_operand" "r,r,r"))
+		  (ltu:SI (reg:CC_C CC_REGNUM) (const_int 0))))]
   "TARGET_32BIT"
   "@
    sbc%?\\t%0, %1, %2
-   rsc%?\\t%0, %2, %1"
+   rsc%?\\t%0, %2, %1
+   sbc%?\\t%0, %2, %2, lsl #1"
   [(set_attr "conds" "use")
-   (set_attr "arch" "*,a")
+   (set_attr "arch" "*,a,t2")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "adc_reg,adc_imm")]
+   (set_attr "type" "adc_reg,adc_imm,alu_shift_imm")]
 )
 
 (define_insn "*subsi3_carryin_const"
@@ -3312,7 +3309,14 @@
 	(xor:DI (match_operand:DI 1 "s_register_operand" "")
 		(match_operand:DI 2 "arm_xordi_operand" "")))]
   "TARGET_32BIT"
-  ""
+  {
+    /* The iWMMXt pattern for xordi3 accepts only register operands but we want
+       to reuse this expander for all TARGET_32BIT targets so just force the
+       constants into a register.  Unlike for the anddi3 and iordi3 there are
+       no NEON instructions that take an immediate.  */
+    if (TARGET_IWMMXT && !REG_P (operands[2]))
+      operands[2] = force_reg (DImode, operands[2]);
+  }
 )
 
 (define_insn_and_split "*xordi3_insn"
@@ -4681,12 +4685,13 @@
 
 ;; The constraints here are to prevent a *partial* overlap (where %Q0 == %R1).
 ;; The first alternative allows the common case of a *full* overlap.
-(define_insn_and_split "*arm_negdi2"
+(define_insn_and_split "*negdi2_insn"
   [(set (match_operand:DI         0 "s_register_operand" "=r,&r")
 	(neg:DI (match_operand:DI 1 "s_register_operand"  "0,r")))
    (clobber (reg:CC CC_REGNUM))]
-  "TARGET_ARM"
-  "#"   ; "rsbs\\t%Q0, %Q1, #0\;rsc\\t%R0, %R1, #0"
+  "TARGET_32BIT"
+  "#"	; rsbs %Q0, %Q1, #0; rsc %R0, %R1, #0	       (ARM)
+	; negs %Q0, %Q1    ; sbc %R0, %R1, %R1, lsl #1 (Thumb-2)
   "&& reload_completed"
   [(parallel [(set (reg:CC CC_REGNUM)
 		   (compare:CC (const_int 0) (match_dup 1)))
@@ -5182,20 +5187,34 @@
   ""
 )
 
-;; DFmode to HFmode conversions have to go through SFmode.
+;; DFmode to HFmode conversions on targets without a single-step hardware
+;; instruction for it would have to go through SFmode.  This is dangerous
+;; as it introduces double rounding.
+;;
+;; Disable this pattern unless we are in an unsafe math mode, or we have
+;; a single-step instruction.
+
 (define_expand "truncdfhf2"
-  [(set (match_operand:HF  0 "general_operand" "")
+  [(set (match_operand:HF  0 "s_register_operand" "")
 	(float_truncate:HF
- 	 (match_operand:DF 1 "general_operand" "")))]
-  "TARGET_EITHER"
-  "
-  {
-    rtx op1;
-    op1 = convert_to_mode (SFmode, operands[1], 0);
-    op1 = convert_to_mode (HFmode, op1, 0);
-    emit_move_insn (operands[0], op1);
-    DONE;
-  }"
+	 (match_operand:DF 1 "s_register_operand" "")))]
+  "(TARGET_EITHER && flag_unsafe_math_optimizations)
+   || (TARGET_32BIT && TARGET_FP16_TO_DOUBLE)"
+{
+  /* We don't have a direct instruction for this, so we must be in
+     an unsafe math mode, and going via SFmode.  */
+
+  if (!(TARGET_32BIT && TARGET_FP16_TO_DOUBLE))
+    {
+      rtx op1;
+      op1 = convert_to_mode (SFmode, operands[1], 0);
+      op1 = convert_to_mode (HFmode, op1, 0);
+      emit_move_insn (operands[0], op1);
+      DONE;
+    }
+  /* Otherwise, we will pick this up as a single instruction with
+     no intermediary rounding.  */
+}
 )
 
 ;; Zero and sign extension instructions.
@@ -5689,19 +5708,28 @@
   ""
 )
 
-;; HFmode -> DFmode conversions have to go through SFmode.
+;; HFmode -> DFmode conversions where we don't have an instruction for it
+;; must go through SFmode.
+;;
+;; This is always safe for an extend.
+
 (define_expand "extendhfdf2"
-  [(set (match_operand:DF                  0 "general_operand" "")
-	(float_extend:DF (match_operand:HF 1 "general_operand"  "")))]
+  [(set (match_operand:DF		   0 "s_register_operand" "")
+	(float_extend:DF (match_operand:HF 1 "s_register_operand" "")))]
   "TARGET_EITHER"
-  "
-  {
-    rtx op1;
-    op1 = convert_to_mode (SFmode, operands[1], 0);
-    op1 = convert_to_mode (DFmode, op1, 0);
-    emit_insn (gen_movdf (operands[0], op1));
-    DONE;
-  }"
+{
+  /* We don't have a direct instruction for this, so go via SFmode.  */
+  if (!(TARGET_32BIT && TARGET_FP16_TO_DOUBLE))
+    {
+      rtx op1;
+      op1 = convert_to_mode (SFmode, operands[1], 0);
+      op1 = convert_to_mode (DFmode, op1, 0);
+      emit_insn (gen_movdf (operands[0], op1));
+      DONE;
+    }
+  /* Otherwise, we're done producing RTL and will pick up the correct
+     pattern to do this with one rounding-step in a single instruction.  */
+}
 )
 
 ;; Move insns (including loads and stores)
@@ -5846,8 +5874,9 @@
 	(match_operand:ANY64 1 "immediate_operand" ""))]
   "TARGET_32BIT
    && reload_completed
-   && (arm_const_double_inline_cost (operands[1])
-       <= arm_max_const_double_inline_cost ())"
+   && (arm_disable_literal_pool
+       || (arm_const_double_inline_cost (operands[1])
+	   <= arm_max_const_double_inline_cost ()))"
   [(const_int 0)]
   "
   arm_split_constant (SET, SImode, curr_insn,
@@ -5940,7 +5969,7 @@
   {
   rtx base, offset, tmp;
 
-  if (TARGET_32BIT)
+  if (TARGET_32BIT || TARGET_HAVE_MOVT)
     {
       /* Everything except mem = const or mem = mem can be done easily.  */
       if (MEM_P (operands[0]))
@@ -5964,7 +5993,7 @@
 	     }
         }
     }
-  else /* TARGET_THUMB1...  */
+  else /* Target doesn't have MOVT...  */
     {
       if (can_create_pseudo_p ())
         {
@@ -6064,7 +6093,7 @@
 (define_split
   [(set (match_operand:SI 0 "arm_general_register_operand" "")
 	(match_operand:SI 1 "const_int_operand" ""))]
-  "TARGET_32BIT
+  "(TARGET_32BIT || TARGET_HAVE_MOVT)
   && (!(const_ok_for_arm (INTVAL (operands[1]))
         || const_ok_for_arm (~INTVAL (operands[1]))))"
   [(clobber (const_int 0))]
@@ -7850,7 +7879,7 @@
 			                      "<F_constraint>")
 			  (match_operand:SDF 4 "s_register_operand"
 			                      "<F_constraint>")))]
-  "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
+  "TARGET_HARD_FLOAT && TARGET_VFP5 <vfp_double_cond>"
   "*
   {
     enum arm_cond_code code = maybe_get_arm_condition_code (operands[1]);
@@ -8029,6 +8058,7 @@
   "
   {
     rtx callee, pat;
+    tree addr = MEM_EXPR (operands[0]);
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[2] == NULL_RTX)
@@ -8043,8 +8073,17 @@
 	: !REG_P (callee))
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
 
-    pat = gen_call_internal (operands[0], operands[1], operands[2]);
-    arm_emit_call_insn (pat, XEXP (operands[0], 0), false);
+    if (detect_cmse_nonsecure_call (addr))
+      {
+	pat = gen_nonsecure_call_internal (operands[0], operands[1],
+					   operands[2]);
+	emit_call_insn (pat);
+      }
+    else
+      {
+	pat = gen_call_internal (operands[0], operands[1], operands[2]);
+	arm_emit_call_insn (pat, XEXP (operands[0], 0), false);
+      }
     DONE;
   }"
 )
@@ -8054,6 +8093,24 @@
 	            (match_operand 1 "general_operand" ""))
 	      (use (match_operand 2 "" ""))
 	      (clobber (reg:SI LR_REGNUM))])])
+
+(define_expand "nonsecure_call_internal"
+  [(parallel [(call (unspec:SI [(match_operand 0 "memory_operand" "")]
+			       UNSPEC_NONSECURE_MEM)
+		    (match_operand 1 "general_operand" ""))
+	      (use (match_operand 2 "" ""))
+	      (clobber (reg:SI LR_REGNUM))
+	      (clobber (reg:SI 4))])]
+  "use_cmse"
+  "
+  {
+    rtx tmp;
+    tmp = copy_to_suggested_reg (XEXP (operands[0], 0),
+				 gen_rtx_REG (SImode, 4),
+				 SImode);
+
+    operands[0] = replace_equiv_address (operands[0], tmp);
+  }")
 
 (define_insn "*call_reg_armv5"
   [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
@@ -8090,6 +8147,7 @@
   "
   {
     rtx pat, callee;
+    tree addr = MEM_EXPR (operands[1]);
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[3] == 0)
@@ -8104,9 +8162,18 @@
 	: !REG_P (callee))
       XEXP (operands[1], 0) = force_reg (Pmode, callee);
 
-    pat = gen_call_value_internal (operands[0], operands[1],
-				   operands[2], operands[3]);
-    arm_emit_call_insn (pat, XEXP (operands[1], 0), false);
+    if (detect_cmse_nonsecure_call (addr))
+      {
+	pat = gen_nonsecure_call_value_internal (operands[0], operands[1],
+						 operands[2], operands[3]);
+	emit_call_insn (pat);
+      }
+    else
+      {
+	pat = gen_call_value_internal (operands[0], operands[1],
+				       operands[2], operands[3]);
+	arm_emit_call_insn (pat, XEXP (operands[1], 0), false);
+      }
     DONE;
   }"
 )
@@ -8117,6 +8184,25 @@
 		         (match_operand 2 "general_operand" "")))
 	      (use (match_operand 3 "" ""))
 	      (clobber (reg:SI LR_REGNUM))])])
+
+(define_expand "nonsecure_call_value_internal"
+  [(parallel [(set (match_operand       0 "" "")
+		   (call (unspec:SI [(match_operand 1 "memory_operand" "")]
+				    UNSPEC_NONSECURE_MEM)
+			 (match_operand 2 "general_operand" "")))
+	      (use (match_operand 3 "" ""))
+	      (clobber (reg:SI LR_REGNUM))
+	      (clobber (reg:SI 4))])]
+  "use_cmse"
+  "
+  {
+    rtx tmp;
+    tmp = copy_to_suggested_reg (XEXP (operands[1], 0),
+				 gen_rtx_REG (SImode, 4),
+				 SImode);
+
+    operands[1] = replace_equiv_address (operands[1], tmp);
+  }")
 
 (define_insn "*call_value_reg_armv5"
   [(set (match_operand 0 "" "")
@@ -11146,13 +11232,11 @@
   {
     rtx x = operands[0];
     making_const_table = TRUE;
-    switch (GET_MODE_CLASS (GET_MODE (x)))
+    scalar_float_mode float_mode;
+    if (is_a <scalar_float_mode> (GET_MODE (x), &float_mode))
+      assemble_real (*CONST_DOUBLE_REAL_VALUE (x), float_mode, BITS_PER_WORD);
+    else
       {
-      case MODE_FLOAT:
-	assemble_real (*CONST_DOUBLE_REAL_VALUE (x), GET_MODE (x),
-		       BITS_PER_WORD);
-	break;
-      default:
 	/* XXX: Sometimes gcc does something really dumb and ends up with
 	   a HIGH in a constant pool entry, usually because it's trying to
 	   load into a VFP register.  We know this will always be used in
@@ -11162,7 +11246,6 @@
 	  x = XEXP (x, 0);
         assemble_integer (x, 4, BITS_PER_WORD, 1);
 	mark_symbol_refs_as_used (x);
-        break;
       }
     return \"\";
   }"
@@ -11176,16 +11259,12 @@
   "*
   {
     making_const_table = TRUE;
-    switch (GET_MODE_CLASS (GET_MODE (operands[0])))
-      {
-      case MODE_FLOAT:
-	assemble_real (*CONST_DOUBLE_REAL_VALUE (operands[0]),
-		       GET_MODE (operands[0]), BITS_PER_WORD);
-	break;
-      default:
-        assemble_integer (operands[0], 8, BITS_PER_WORD, 1);
-        break;
-      }
+    scalar_float_mode float_mode;
+    if (is_a <scalar_float_mode> (GET_MODE (operands[0]), &float_mode))
+      assemble_real (*CONST_DOUBLE_REAL_VALUE (operands[0]),
+		     float_mode, BITS_PER_WORD);
+    else
+      assemble_integer (operands[0], 8, BITS_PER_WORD, 1);
     return \"\";
   }"
   [(set_attr "length" "8")
@@ -11198,16 +11277,12 @@
   "*
   {
     making_const_table = TRUE;
-    switch (GET_MODE_CLASS (GET_MODE (operands[0])))
-      {
-      case MODE_FLOAT:
-	assemble_real (*CONST_DOUBLE_REAL_VALUE (operands[0]),
-		       GET_MODE (operands[0]), BITS_PER_WORD);
-	break;
-      default:
-        assemble_integer (operands[0], 16, BITS_PER_WORD, 1);
-        break;
-      }
+    scalar_float_mode float_mode;
+    if (is_a <scalar_float_mode> (GET_MODE (operands[0]), &float_mode))
+      assemble_real (*CONST_DOUBLE_REAL_VALUE (operands[0]),
+		     float_mode, BITS_PER_WORD);
+    else
+      assemble_integer (operands[0], 16, BITS_PER_WORD, 1);
     return \"\";
   }"
   [(set_attr "length" "16")
@@ -11743,12 +11818,15 @@
 
 ;; Patterns in ldmstm.md don't cover more than 4 registers. This pattern covers
 ;; large lists without explicit writeback generated for APCS_FRAME epilogue.
+;; The operands are validated through the load_multiple_operation
+;; match_parallel predicate rather than through constraints so enable it only
+;; after reload.
 (define_insn "*load_multiple"
   [(match_parallel 0 "load_multiple_operation"
     [(set (match_operand:SI 2 "s_register_operand" "=rk")
           (mem:SI (match_operand:SI 1 "s_register_operand" "rk")))
         ])]
-  "TARGET_32BIT"
+  "TARGET_32BIT && reload_completed"
   "*
   {
     arm_output_multireg_pop (operands, /*return_pc=*/false,
@@ -11836,6 +11914,134 @@
 
   DONE;
 })
+
+(define_insn "<cdp>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "immediate_operand" "n")
+		     (match_operand:SI 3 "immediate_operand" "n")
+		     (match_operand:SI 4 "immediate_operand" "n")
+		     (match_operand:SI 5 "immediate_operand" "n")] CDPI)]
+  "arm_coproc_builtin_available (VUNSPEC_<CDP>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, 16);
+  arm_const_bounds (operands[2], 0, (1 << 5));
+  arm_const_bounds (operands[3], 0, (1 << 5));
+  arm_const_bounds (operands[4], 0, (1 << 5));
+  arm_const_bounds (operands[5], 0, 8);
+  return "<cdp>\\tp%c0, %1, CR%c2, CR%c3, CR%c4, %5";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_insn "*ldc"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "memory_operand" "Uz")] LDCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDC>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, (1 << 5));
+  return "<ldc>\\tp%c0, CR%c1, %2";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_insn "*stc"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "memory_operand" "=Uz")] STCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<STC>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, (1 << 5));
+  return "<stc>\\tp%c0, CR%c1, %2";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_expand "<ldc>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
+		     (match_operand:SI 1 "immediate_operand")
+		     (mem:SI (match_operand:SI 2 "s_register_operand"))] LDCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDC>)")
+
+(define_expand "<stc>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
+		     (match_operand:SI 1 "immediate_operand")
+		     (mem:SI (match_operand:SI 2 "s_register_operand"))] STCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<STC>)")
+
+(define_insn "<mcr>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "s_register_operand" "r")
+		     (match_operand:SI 3 "immediate_operand" "n")
+		     (match_operand:SI 4 "immediate_operand" "n")
+		     (match_operand:SI 5 "immediate_operand" "n")] MCRI)
+   (use (match_dup 2))]
+  "arm_coproc_builtin_available (VUNSPEC_<MCR>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, 8);
+  arm_const_bounds (operands[3], 0, (1 << 5));
+  arm_const_bounds (operands[4], 0, (1 << 5));
+  arm_const_bounds (operands[5], 0, 8);
+  return "<mcr>\\tp%c0, %1, %2, CR%c3, CR%c4, %5";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_insn "<mrc>"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(unspec_volatile:SI [(match_operand:SI 1 "immediate_operand" "n")
+			  (match_operand:SI 2 "immediate_operand" "n")
+			  (match_operand:SI 3 "immediate_operand" "n")
+			  (match_operand:SI 4 "immediate_operand" "n")
+			  (match_operand:SI 5 "immediate_operand" "n")] MRCI))]
+  "arm_coproc_builtin_available (VUNSPEC_<MRC>)"
+{
+  arm_const_bounds (operands[1], 0, 16);
+  arm_const_bounds (operands[2], 0, 8);
+  arm_const_bounds (operands[3], 0, (1 << 5));
+  arm_const_bounds (operands[4], 0, (1 << 5));
+  arm_const_bounds (operands[5], 0, 8);
+  return "<mrc>\\tp%c1, %2, %0, CR%c3, CR%c4, %5";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_insn "<mcrr>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:DI 2 "s_register_operand" "r")
+		     (match_operand:SI 3 "immediate_operand" "n")] MCRRI)
+   (use (match_dup 2))]
+  "arm_coproc_builtin_available (VUNSPEC_<MCRR>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, 8);
+  arm_const_bounds (operands[3], 0, (1 << 5));
+  return "<mcrr>\\tp%c0, %1, %Q2, %R2, CR%c3";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_insn "<mrrc>"
+  [(set (match_operand:DI 0 "s_register_operand" "=r")
+	(unspec_volatile:DI [(match_operand:SI 1 "immediate_operand" "n")
+			  (match_operand:SI 2 "immediate_operand" "n")
+			  (match_operand:SI 3 "immediate_operand" "n")] MRRCI))]
+  "arm_coproc_builtin_available (VUNSPEC_<MRRC>)"
+{
+  arm_const_bounds (operands[1], 0, 16);
+  arm_const_bounds (operands[2], 0, 8);
+  arm_const_bounds (operands[3], 0, (1 << 5));
+  return "<mrrc>\\tp%c1, %2, %Q0, %R0, CR%c3";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
 
 ;; Vector bits common to IWMMXT and Neon
 (include "vec-common.md")

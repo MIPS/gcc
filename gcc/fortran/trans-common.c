@@ -1,5 +1,5 @@
 /* Common block and equivalence list handling
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Canqun Yang <canqun@nudt.edu.cn>
 
 This file is part of GCC.
@@ -342,7 +342,7 @@ static tree
 build_equiv_decl (tree union_type, bool is_init, bool is_saved)
 {
   tree decl;
-  char name[15];
+  char name[18];
   static int serial = 0;
 
   if (is_init)
@@ -1246,8 +1246,12 @@ finish_equivalences (gfc_namespace *ns)
 	  {
 	    c = gfc_get_common_head ();
 	    /* We've lost the real location, so use the location of the
-	       enclosing procedure.  */
-	    c->where = ns->proc_name->declared_at;
+	       enclosing procedure.  If we're in a BLOCK DATA block, then
+	       use the location in the sym_root.  */
+	    if (ns->proc_name)
+	      c->where = ns->proc_name->declared_at;
+	    else if (ns->is_block_data)
+	      c->where = ns->sym_root->n.sym->declared_at;
 	    strcpy (c->name, z->module);
 	  }
 	else

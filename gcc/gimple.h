@@ -1,6 +1,6 @@
 /* Gimple IR definitions.
 
-   Copyright (C) 2007-2016 Free Software Foundation, Inc.
+   Copyright (C) 2007-2017 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -46,7 +46,8 @@ template<typename T> struct remove_pointer<T *> { typedef T type; };
 #define gcc_gimple_checking_assert(EXPR) gcc_assert (EXPR)
 extern void gimple_check_failed (const gimple *, const char *, int,        \
                                  const char *, enum gimple_code,           \
-				 enum tree_code) ATTRIBUTE_NORETURN;
+				 enum tree_code) ATTRIBUTE_NORETURN 	   \
+						 ATTRIBUTE_COLD;
 
 #define GIMPLE_CHECK(GS, CODE)						\
   do {									\
@@ -163,7 +164,13 @@ enum gf_mask {
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
     GF_OMP_FOR_COMBINED		= 1 << 4,
     GF_OMP_FOR_COMBINED_INTO	= 1 << 5,
+    /* The following flag must not be used on GF_OMP_FOR_KIND_GRID_LOOP loop
+       statements.  */
     GF_OMP_FOR_GRID_PHONY	= 1 << 6,
+    /* The following two flags should only be set on GF_OMP_FOR_KIND_GRID_LOOP
+       loop statements.  */
+    GF_OMP_FOR_GRID_INTRA_GROUP	= 1 << 6,
+    GF_OMP_FOR_GRID_GROUP_ITER  = 1 << 7,
     GF_OMP_TARGET_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -1410,8 +1417,7 @@ extern enum gimple_statement_structure_enum const gss_for_code_[];
    of comminucating the profile info to the builtin expanders.  */
 extern gimple *currently_expanding_gimple_stmt;
 
-#define gimple_alloc(c, n) gimple_alloc_stat (c, n MEM_STAT_INFO)
-gimple *gimple_alloc_stat (enum gimple_code, unsigned MEM_STAT_DECL);
+gimple *gimple_alloc (enum gimple_code, unsigned CXX_MEM_STAT_INFO);
 greturn *gimple_build_return (tree);
 void gimple_call_reset_alias_info (gcall *);
 gcall *gimple_build_call_vec (tree, vec<tree> );
@@ -1447,12 +1453,8 @@ gresx *gimple_build_resx (int);
 gswitch *gimple_build_switch_nlabels (unsigned, tree, tree);
 gswitch *gimple_build_switch (tree, tree, vec<tree> );
 geh_dispatch *gimple_build_eh_dispatch (int);
-gdebug *gimple_build_debug_bind_stat (tree, tree, gimple * MEM_STAT_DECL);
-#define gimple_build_debug_bind(var,val,stmt)			\
-  gimple_build_debug_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
-gdebug *gimple_build_debug_source_bind_stat (tree, tree, gimple * MEM_STAT_DECL);
-#define gimple_build_debug_source_bind(var,val,stmt)			\
-  gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
+gdebug *gimple_build_debug_bind (tree, tree, gimple * CXX_MEM_STAT_INFO);
+gdebug *gimple_build_debug_source_bind (tree, tree, gimple * CXX_MEM_STAT_INFO);
 gomp_critical *gimple_build_omp_critical (gimple_seq, tree, tree);
 gomp_for *gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
 gomp_parallel *gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
@@ -4301,19 +4303,31 @@ gimple_phi_num_args (const gimple *gs)
 /* Return the SSA name created by GIMPLE_PHI GS.  */
 
 static inline tree
+gimple_phi_result (const gphi *gs)
+{
+  return gs->result;
+}
+
+static inline tree
 gimple_phi_result (const gimple *gs)
 {
   const gphi *phi_stmt = as_a <const gphi *> (gs);
-  return phi_stmt->result;
+  return gimple_phi_result (phi_stmt);
 }
 
 /* Return a pointer to the SSA name created by GIMPLE_PHI GS.  */
 
 static inline tree *
+gimple_phi_result_ptr (gphi *gs)
+{
+  return &gs->result;
+}
+
+static inline tree *
 gimple_phi_result_ptr (gimple *gs)
 {
   gphi *phi_stmt = as_a <gphi *> (gs);
-  return &phi_stmt->result;
+  return gimple_phi_result_ptr (phi_stmt);
 }
 
 /* Set RESULT to be the SSA name created by GIMPLE_PHI PHI.  */
@@ -4331,11 +4345,17 @@ gimple_phi_set_result (gphi *phi, tree result)
    GIMPLE_PHI GS.  */
 
 static inline struct phi_arg_d *
+gimple_phi_arg (gphi *gs, unsigned index)
+{
+  gcc_gimple_checking_assert (index < gs->nargs);
+  return &(gs->args[index]);
+}
+
+static inline struct phi_arg_d *
 gimple_phi_arg (gimple *gs, unsigned index)
 {
   gphi *phi_stmt = as_a <gphi *> (gs);
-  gcc_gimple_checking_assert (index <= phi_stmt->capacity);
-  return &(phi_stmt->args[index]);
+  return gimple_phi_arg (phi_stmt, index);
 }
 
 /* Set PHIARG to be the argument corresponding to incoming edge INDEX
@@ -4344,7 +4364,7 @@ gimple_phi_arg (gimple *gs, unsigned index)
 static inline void
 gimple_phi_set_arg (gphi *phi, unsigned index, struct phi_arg_d * phiarg)
 {
-  gcc_gimple_checking_assert (index <= phi->nargs);
+  gcc_gimple_checking_assert (index < phi->nargs);
   phi->args[index] = *phiarg;
 }
 
@@ -4368,6 +4388,12 @@ phi_nodes_ptr (basic_block bb)
 }
 
 /* Return the tree operand for argument I of PHI node GS.  */
+
+static inline tree
+gimple_phi_arg_def (gphi *gs, size_t index)
+{
+  return gimple_phi_arg (gs, index)->def;
+}
 
 static inline tree
 gimple_phi_arg_def (gimple *gs, size_t index)
@@ -5143,6 +5169,8 @@ gimple_omp_for_set_pre_body (gimple *gs, gimple_seq pre_body)
 static inline bool
 gimple_omp_for_grid_phony (const gomp_for *omp_for)
 {
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       != GF_OMP_FOR_KIND_GRID_LOOP);
   return (gimple_omp_subcode (omp_for) & GF_OMP_FOR_GRID_PHONY) != 0;
 }
 
@@ -5151,10 +5179,59 @@ gimple_omp_for_grid_phony (const gomp_for *omp_for)
 static inline void
 gimple_omp_for_set_grid_phony (gomp_for *omp_for, bool value)
 {
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       != GF_OMP_FOR_KIND_GRID_LOOP);
   if (value)
     omp_for->subcode |= GF_OMP_FOR_GRID_PHONY;
   else
     omp_for->subcode &= ~GF_OMP_FOR_GRID_PHONY;
+}
+
+/* Return the kernel_intra_group of a GRID_LOOP OMP_FOR statement.  */
+
+static inline bool
+gimple_omp_for_grid_intra_group (const gomp_for *omp_for)
+{
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       == GF_OMP_FOR_KIND_GRID_LOOP);
+  return (gimple_omp_subcode (omp_for) & GF_OMP_FOR_GRID_INTRA_GROUP) != 0;
+}
+
+/* Set kernel_intra_group flag of OMP_FOR to VALUE.  */
+
+static inline void
+gimple_omp_for_set_grid_intra_group (gomp_for *omp_for, bool value)
+{
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       == GF_OMP_FOR_KIND_GRID_LOOP);
+  if (value)
+    omp_for->subcode |= GF_OMP_FOR_GRID_INTRA_GROUP;
+  else
+    omp_for->subcode &= ~GF_OMP_FOR_GRID_INTRA_GROUP;
+}
+
+/* Return true if iterations of a grid OMP_FOR statement correspond to HSA
+   groups.  */
+
+static inline bool
+gimple_omp_for_grid_group_iter (const gomp_for *omp_for)
+{
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       == GF_OMP_FOR_KIND_GRID_LOOP);
+  return (gimple_omp_subcode (omp_for) & GF_OMP_FOR_GRID_GROUP_ITER) != 0;
+}
+
+/* Set group_iter flag of OMP_FOR to VALUE.  */
+
+static inline void
+gimple_omp_for_set_grid_group_iter (gomp_for *omp_for, bool value)
+{
+  gcc_checking_assert (gimple_omp_for_kind (omp_for)
+		       == GF_OMP_FOR_KIND_GRID_LOOP);
+  if (value)
+    omp_for->subcode |= GF_OMP_FOR_GRID_GROUP_ITER;
+  else
+    omp_for->subcode &= ~GF_OMP_FOR_GRID_GROUP_ITER;
 }
 
 /* Return the clauses associated with OMP_PARALLEL GS.  */

@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997-2016 Free Software Foundation, Inc.
+# Copyright (C) 1997-2017 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -274,6 +274,11 @@ AC_ARG_WITH(gnu-ld,
 gnu_ld_flag="$with_gnu_ld",
 gnu_ld_flag=no)
 
+case $target in
+    *darwin*) ld64_flag=yes;; # Darwin can only use a ld64-compatible linker.
+    *) ld64_flag=no;;
+esac
+
 # With pre-defined ld
 AC_ARG_WITH(ld,
 [AS_HELP_STRING([--with-ld], [arrange to use the specified ld (full pathname)])],
@@ -283,6 +288,8 @@ if test x"${DEFAULT_LINKER+set}" = x"set"; then
     AC_MSG_ERROR([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
   elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gnu_ld_flag=yes
+  elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep ld64- > /dev/null; then
+    ld64_flag=yes
   fi
   AC_DEFINE_UNQUOTED(DEFAULT_LINKER,"$DEFAULT_LINKER",
 	[Define to enable the use of a default linker.])
@@ -923,7 +930,7 @@ AC_ARG_WITH(specs,
 AC_SUBST(CONFIGURE_SPECS)
 
 ACX_PKGVERSION([GCC])
-ACX_BUGURL([http://gcc.gnu.org/bugs.html])
+ACX_BUGURL([https://gcc.gnu.org/bugs/])
 
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
@@ -1435,15 +1442,15 @@ fi
 # --------------------------------------------------------
 
 # Collect build-machine-specific information.
-. ${srcdir}/config.build
+. ${srcdir}/config.build || exit 1
 
 # Collect host-machine-specific information.
-. ${srcdir}/config.host
+. ${srcdir}/config.host || exit 1
 
 target_gtfiles=
 
 # Collect target-machine-specific information.
-. ${srcdir}/config.gcc
+. ${srcdir}/config.gcc || exit 1
 
 extra_objs="${host_extra_objs} ${extra_objs}"
 extra_gcc_objs="${host_extra_gcc_objs} ${extra_gcc_objs}"
@@ -1859,6 +1866,9 @@ static struct plugin_gcc_version gcc_version = {basever, datestamp,
 EOF
 changequote([,])dnl
 
+# Determine what GCC version number to use in filesystem paths.
+GCC_BASE_VER
+
 # Internationalization
 ZW_GNU_GETTEXT_SISTER_DIR
 
@@ -1872,6 +1882,16 @@ AC_ARG_ENABLE(secureplt,
 [AS_HELP_STRING([--enable-secureplt],
 		[enable -msecure-plt by default for PowerPC])],
 [], [])
+
+AC_ARG_ENABLE(mingw-wildcard,
+[AS_HELP_STRING([--enable-mingw-wildcard],
+		[Set whether to expand wildcard on command-line.
+		 Default to platform configuration])],
+[],[enable_mingw_wildcard=platform])
+AS_IF([test x"$enable_mingw_wildcard" != xplatform ],
+      [AC_DEFINE_UNQUOTED(MINGW_DOWILDCARD,
+		 $(test x"$enable_mingw_wildcard" = xno; echo $?),
+		 [Value to set mingw's _dowildcard to.])])
 
 AC_ARG_ENABLE(leading-mingw64-underscores,
   AS_HELP_STRING([--enable-leading-mingw64-underscores],
@@ -2060,62 +2080,29 @@ done
 CROSS=						AC_SUBST(CROSS)
 ALL=all.internal				AC_SUBST(ALL)
 SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'	AC_SUBST(SYSTEM_HEADER_DIR)
+BUILD_SYSTEM_HEADER_DIR=$SYSTEM_HEADER_DIR	AC_SUBST(BUILD_SYSTEM_HEADER_DIR)
 
-if test "x$with_build_sysroot" != x; then
-  build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
-else
-  # This value is used, even on a native system, because 
-  # CROSS_SYSTEM_HEADER_DIR is just 
-  # $(TARGET_SYSTEM_ROOT)$(NATIVE_SYSTEM_HEADER_DIR).
-  build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
-fi
+if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x ||
+   test x$build != x$host || test "x$with_build_sysroot" != x; then
+  if test "x$with_build_sysroot" != x; then
+    BUILD_SYSTEM_HEADER_DIR=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
+  else
+    BUILD_SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
+  fi
 
-if test x$host != x$target
-then
-	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
-	ALL=all.cross
-	SYSTEM_HEADER_DIR=$build_system_header_dir
-	case "$host","$target" in
-	# Darwin crosses can use the host system's libraries and headers,
-	# because of the fat library support.  Of course, it must be the
-	# same version of Darwin on both sides.  Allow the user to
-	# just say --target=foo-darwin without a version number to mean
-	# "the version on this system".
-	    *-*-darwin*,*-*-darwin*)
-		hostos=`echo $host | sed 's/.*-darwin/darwin/'`
-		targetos=`echo $target | sed 's/.*-darwin/darwin/'`
-		if test $hostos = $targetos -o $targetos = darwin ; then
-		    CROSS=
-		    SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
-		    with_headers=yes
-		fi
-		;;
+  if test x$host != x$target
+  then
+    CROSS="-DCROSS_DIRECTORY_STRUCTURE"
+    ALL=all.cross
+    SYSTEM_HEADER_DIR=$BUILD_SYSTEM_HEADER_DIR
+  elif test "x$TARGET_SYSTEM_ROOT" != x; then
+    SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
+  fi
 
-	    i?86-*-*,x86_64-*-* \
-	    | powerpc*-*-*,powerpc64*-*-*)
-		CROSS="$CROSS -DNATIVE_CROSS" ;;
-	esac
-
-	case $target in
-		*-*-mingw*)
-			if test "x$with_headers" = x; then
-				with_headers=yes
-			fi
-			;;
-		*)
-			;;
-	esac
-elif test "x$TARGET_SYSTEM_ROOT" != x; then
-        SYSTEM_HEADER_DIR=$build_system_header_dir 
-fi
-
-if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-  if test "x$with_headers" != x && test "x$with_headers" != xyes; then
-    target_header_dir=$with_headers
+  if test "x$with_build_sysroot" != "x"; then
+    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
   elif test "x$with_sysroot" = x; then
     target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
-  elif test "x$with_build_sysroot" != "x"; then
-    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
   elif test "x$with_sysroot" = xyes; then
     target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
   else
@@ -3476,6 +3463,17 @@ x3:	.space 4
 	tls_first_minor=14
 	tls_as_opt="-a32 --fatal-warnings"
 	;;
+  riscv*-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:	.word 2
+	.text
+	la.tls.gd a0,x
+        call __tls_get_addr'
+	tls_first_major=2
+	tls_first_minor=21
+	tls_as_opt='--fatal-warnings'
+	;;
   s390-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -3643,8 +3641,8 @@ if test $in_tree_ld = yes ; then
   fi
 elif test x$gcc_cv_ld != x; then
   # Check if linker supports -Bstatic/-Bdynamic option
-  if $gcc_cv_ld --help 2>/dev/null | grep -- -Bstatic > /dev/null \
-     && $gcc_cv_ld --help 2>/dev/null | grep -- -Bdynamic > /dev/null; then
+  if $gcc_cv_ld --help 2>&1 | grep -- -Bstatic > /dev/null \
+     && $gcc_cv_ld --help 2>&1 | grep -- -Bdynamic > /dev/null; then
       gcc_cv_ld_static_dynamic=yes
   else
     case "$target" in
@@ -3688,7 +3686,7 @@ if test x"$demangler_in_ld" = xyes; then
     fi
   elif test x$gcc_cv_ld != x -a x"$gnu_ld" = xyes; then
     # Check if the GNU linker supports --demangle option
-    if $gcc_cv_ld --help 2>/dev/null | grep no-demangle > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep no-demangle > /dev/null; then
       gcc_cv_ld_demangle=yes
     fi
   fi
@@ -3753,6 +3751,20 @@ fi
 AC_DEFINE_UNQUOTED(HAVE_LTO_PLUGIN, $gcc_cv_lto_plugin,
   [Define to the level of your linker's plugin support.])
 AC_MSG_RESULT($gcc_cv_lto_plugin)
+
+# Target OS-specific assembler checks.
+
+case "$target_os" in
+  darwin*)
+    gcc_GAS_CHECK_FEATURE([-mmacosx-version-min option],
+      gcc_cv_as_mmacosx_version_min,,
+      [-mmacosx-version-min=10.1], [.text],,
+      [AC_DEFINE(HAVE_AS_MMACOSX_VERSION_MIN_OPTION, 1,
+	[Define if your Mac OS X assembler supports the -mmacos-version-min option.])])
+    ;;
+esac
+
+# Target CPU-specific assembler checks.
 
 case "$target" in
   aarch64*-*-*)
@@ -3876,6 +3888,52 @@ AS_HELP_STRING([--disable-fix-cortex-a53-843419],
       [-mrmw], [.text],,
       [AC_DEFINE(HAVE_AS_AVR_MRMW_OPTION, 1,
 		[Define if your avr assembler supports -mrmw option.])])
+
+    gcc_GAS_CHECK_FEATURE([__gcc_isr pseudo instruction],
+      gcc_cv_as_avr_mgccisr,,
+      [-mgcc-isr], [.text
+      		    __gcc_isr 1
+      		    __gcc_isr 2
+      		    __gcc_isr 0,r24
+      		   ],,
+      [AC_DEFINE(HAVE_AS_AVR_MGCCISR_OPTION, 1,
+		[Define if your avr assembler supports -mgcc-isr option.])])
+
+    # Check how default linker description file implements .rodata for
+    # avrxmega3 (PR21472).  avr-gcc assumes .rodata is *not* loaded to
+    # RAM so avr-gcc skips __do_copy_data for .rodata objects.
+    AC_MSG_CHECKING(binutils for avrxmega3 .rodata support)
+    cat > conftest.s <<EOF
+        .section .rodata,"a",@progbits
+        .global xxvaryy
+    ;; avr-nm should print "... R xxvaryy", not "... D xxvaryy".
+    xxvaryy:
+        .word 1
+EOF
+    rm -f conftest.nm
+    AC_TRY_COMMAND([$gcc_cv_as -mmcu=avrxmega3 conftest.s -o conftest.o])
+    AC_TRY_COMMAND([$gcc_cv_ld -mavrxmega3 conftest.o -o conftest.elf])
+    AC_TRY_COMMAND([$gcc_cv_nm conftest.elf > conftest.nm])
+    if test -s conftest.nm
+    then
+	if grep ' R xxvaryy' conftest.nm > /dev/null; then
+	    AC_MSG_RESULT(yes)
+	    AC_DEFINE(HAVE_LD_AVR_AVRXMEGA3_RODATA_IN_FLASH, 1,
+		[Define if your default avr linker script for avrxmega3 leaves .rodata in flash.])
+	else
+	    AC_MSG_RESULT(no: avrxmega3 .rodata located in RAM)
+	    echo "$as_me: nm output was" >&AS_MESSAGE_LOG_FD
+	    cat conftest.nm >&AS_MESSAGE_LOG_FD
+	    avr_ld_ver="`$gcc_cv_ld -v | sed -e 's:^.* ::'`"
+	    AC_MSG_WARN([[support for avrxmega3 .rodata in flash needs Binutils 2.29 or higher (have $avr_ld_ver)]])
+	fi
+    else
+	AC_MSG_RESULT(test failed)
+	echo "$as_me: failed program was" >&AS_MESSAGE_LOG_FD
+	cat conftest.s >&AS_MESSAGE_LOG_FD
+	AC_MSG_WARN([[see `config.log' for details]])
+    fi
+    rm -f conftest.s conftest.o conftest.elf conftest.nm
     ;;
 
   cris-*-*)
@@ -4026,6 +4084,18 @@ foo:
        fpadd8 %f0, %f2, %f4],,
       [AC_DEFINE(HAVE_AS_SPARC5_VIS4, 1,
                 [Define if your assembler supports SPARC5 and VIS 4.0 instructions.])])
+
+    gcc_GAS_CHECK_FEATURE([SPARC6 instructions],
+      gcc_cv_as_sparc_sparc6,,
+      [-xarch=sparc6],
+      [.text
+       .register %g2, #scratch
+       .register %g3, #scratch
+       .align 4
+       rd %entropy, %g1
+       fpsll64x %f0, %f2, %f4],,
+      [AC_DEFINE(HAVE_AS_SPARC6, 1,
+                [Define if your assembler supports SPARC6 instructions.])])
 
     gcc_GAS_CHECK_FEATURE([LEON instructions],
       gcc_cv_as_sparc_leon,,
@@ -4813,8 +4883,8 @@ esac
 # version to the per-target configury.
 case "$cpu_type" in
   aarch64 | alpha | arm | avr | bfin | cris | i386 | m32c | m68k | microblaze \
-  | mips | nios2 | pa | rs6000 | score | sparc | spu | tilegx | tilepro \
-  | visium | xstormy16 | xtensa)
+  | mips | nios2 | pa | riscv | rs6000 | score | sparc | spu | tilegx \
+  | tilepro | visium | xstormy16 | xtensa)
     insn="nop"
     ;;
   ia64 | s390)
@@ -5009,7 +5079,7 @@ if test $in_tree_ld = yes ; then
 elif test x$gcc_cv_ld != x; then
   if echo "$ld_ver" | grep GNU > /dev/null; then
     # Check if linker supports --eh-frame-hdr option
-    if $gcc_cv_ld --help 2>/dev/null | grep eh-frame-hdr > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep eh-frame-hdr > /dev/null; then
       gcc_cv_ld_eh_frame_hdr=yes
     fi
   else
@@ -5080,7 +5150,7 @@ if test $in_tree_ld = yes ; then
   fi
 elif test x$gcc_cv_ld != x; then
   # Check if linker supports -pie option
-  if $gcc_cv_ld --help 2>/dev/null | grep -- -pie > /dev/null; then
+  if $gcc_cv_ld --help 2>&1 | grep -- -pie > /dev/null; then
     gcc_cv_ld_pie=yes
     case "$target" in
       *-*-solaris2*)
@@ -5338,6 +5408,59 @@ AC_DEFINE_UNQUOTED(LD_COMPRESS_DEBUG_OPTION, "$gcc_cv_ld_compress_debug_option",
 [Define to the linker option to enable compressed debug sections.])
 AC_MSG_RESULT($gcc_cv_ld_compress_debug)
 
+if test x"$ld64_flag" = x"yes"; then
+
+  # Set defaults for possibly untestable items.
+  gcc_cv_ld64_export_dynamic=0
+
+  if test "$build" = "$host"; then
+    darwin_try_test=1
+  else
+    darwin_try_test=0
+  fi
+
+  # On Darwin, because of FAT library support, it is often possible to execute
+  # exes from compatible archs even when the host differs from the build system.
+  case "$build","$host" in
+    x86_64-*-darwin*,i?86-*-darwin* | powerpc64*-*-darwin*,powerpc*-*-darwin*)
+	darwin_try_test=1;;
+    *) ;;
+  esac
+
+  # If the configurer specified a minimum ld64 version to be supported, then use
+  # that to determine feature support.
+  if test x"${gcc_cv_ld64_version}" != x; then
+    AC_MSG_CHECKING(ld64 specified version)
+    gcc_cv_ld64_major=`echo "$gcc_cv_ld64_version" | sed -e 's/\..*//'`
+    AC_MSG_RESULT($gcc_cv_ld64_major)
+   if test "$gcc_cv_ld64_major" -ge 236; then
+      gcc_cv_ld64_export_dynamic=1
+    fi
+  elif test -x "$gcc_cv_ld" -a "$darwin_try_test" -eq 1; then
+    # If the version was not specified, try to find it.
+    AC_MSG_CHECKING(linker version)
+    if test x"${gcc_cv_ld64_version}" = x; then
+      gcc_cv_ld64_version=`$gcc_cv_ld -v 2>&1 | grep ld64 | sed s/.*ld64-// | awk '{print $1}'`
+    fi
+    AC_MSG_RESULT($gcc_cv_ld64_version)
+
+    AC_MSG_CHECKING(linker for -export_dynamic support)
+    gcc_cv_ld64_export_dynamic=1
+    if $gcc_cv_ld -export_dynamic < /dev/null 2>&1 | grep 'unknown option' > /dev/null; then
+      gcc_cv_ld64_export_dynamic=0
+    fi
+    AC_MSG_RESULT($gcc_cv_ld64_export_dynamic)
+  fi
+
+  if test x"${gcc_cv_ld64_version}" != x; then
+    AC_DEFINE_UNQUOTED(LD64_VERSION, "${gcc_cv_ld64_version}",
+      [Define to ld64 version.])
+  fi
+
+  AC_DEFINE_UNQUOTED(LD64_HAS_EXPORT_DYNAMIC, $gcc_cv_ld64_export_dynamic,
+  [Define to 1 if ld64 supports '-export_dynamic'.])
+fi
+
 # --------
 # UNSORTED
 # --------
@@ -5353,19 +5476,19 @@ if test $in_tree_ld = yes ; then
     gcc_cv_ld_as_needed=yes
   fi
 elif test x$gcc_cv_ld != x; then
-	# Check if linker supports --as-needed and --no-as-needed options
-	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
-		gcc_cv_ld_as_needed=yes
-	else
-	  case "$target" in
-	    # Solaris 2 ld always supports -z ignore/-z record.
-	    *-*-solaris2*)
-	      gcc_cv_ld_as_needed=yes
-	      gcc_cv_ld_as_needed_option="-z ignore"
-	      gcc_cv_ld_no_as_needed_option="-z record"
-	      ;;
-	  esac
-	fi
+  # Check if linker supports --as-needed and --no-as-needed options
+  if $gcc_cv_ld --help 2>&1 | grep as-needed > /dev/null; then
+    gcc_cv_ld_as_needed=yes
+  fi
+  case "$target:$gnu_ld" in
+    *-*-solaris2*:no)
+      # Solaris 2 ld always supports -z ignore/-z record.  Prefer the native
+      # forms.
+      gcc_cv_ld_as_needed=yes
+      gcc_cv_ld_as_needed_option="-z ignore"
+      gcc_cv_ld_no_as_needed_option="-z record"
+      ;;
+  esac
 fi
 # --as-needed/-z ignore can only be used if libgcc_s.so.1 uses
 # dl_iterate_phdr, i.e. since Solaris 11.
@@ -5605,7 +5728,7 @@ AC_CACHE_CHECK(linker --build-id support,
       gcc_cv_ld_buildid=yes
     fi
   elif test x$gcc_cv_ld != x; then
-    if $gcc_cv_ld --help 2>/dev/null | grep build-id > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep build-id > /dev/null; then
       gcc_cv_ld_buildid=yes
     fi
   fi])
@@ -5660,7 +5783,7 @@ AC_CACHE_CHECK(linker --sysroot support,
         gcc_cv_ld_sysroot=yes
       fi
   elif test x$gcc_cv_ld != x; then 
-    if $gcc_cv_ld --help 2>/dev/null | grep sysroot > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep sysroot > /dev/null; then
       gcc_cv_ld_sysroot=yes
     fi
   fi])
@@ -6198,30 +6321,6 @@ if test "x${ISLLIBS}" != "x" ; then
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-# Check whether isl_options_set_schedule_serialize_sccs is available;
-# it's new in isl 0.15.
-if test "x${ISLLIBS}" != "x" ; then
-  saved_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS $ISLINC $GMPINC"
-  saved_LIBS="$LIBS"
-  LIBS="$LIBS $ISLLIBS $GMPLIBS"
-
-  AC_MSG_CHECKING([Checking for isl_options_set_schedule_serialize_sccs])
-  AC_TRY_LINK([#include <isl/schedule.h>],
-              [isl_options_set_schedule_serialize_sccs (NULL, 0);],
-              [ac_has_isl_options_set_schedule_serialize_sccs=yes],
-              [ac_has_isl_options_set_schedule_serialize_sccs=no])
-  AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
-
-  LIBS="$saved_LIBS"
-  CXXFLAGS="$saved_CXXFLAGS"
-
-  if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
-     AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
-               [Define if isl_options_set_schedule_serialize_sccs exists.])
-  fi
-fi
-
 GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
@@ -6358,7 +6457,7 @@ if test x"$ld_is_gold" = xno; then
     fi
   elif test x$gcc_cv_ld != x; then
     # Check if linker supports -a bndplt option
-    if $gcc_cv_ld --help 2>/dev/null | grep -- '-z bndplt' > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep -- '-z bndplt' > /dev/null; then
       ld_bndplt_support=yes
     fi
   fi
@@ -6379,7 +6478,7 @@ if test x"$ld_is_gold" = xno; then
     fi
   elif test x$gcc_cv_ld != x; then
     # Check if linker supports --push-state/--pop-state options
-    if $gcc_cv_ld --help 2>/dev/null | grep -- '--push-state' > /dev/null; then
+    if $gcc_cv_ld --help 2>&1 | grep -- '--push-state' > /dev/null; then
       ld_pushpopstate_support=yes
     fi
   fi

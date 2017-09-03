@@ -1,6 +1,6 @@
 /* Build up a list of intrinsic subroutines and functions for the
    name-resolution stage.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -333,11 +333,11 @@ add_sym (const char *name, gfc_isym_id id, enum klass cl, int actual_ok, bt type
       break;
 
     case SZ_NOTHING:
-      next_sym->name = gfc_get_string (name);
+      next_sym->name = gfc_get_string ("%s", name);
 
       strcpy (buf, "_gfortran_");
       strcat (buf, name);
-      next_sym->lib_name = gfc_get_string (buf);
+      next_sym->lib_name = gfc_get_string ("%s", buf);
 
       next_sym->pure = (cl != CLASS_IMPURE);
       next_sym->elemental = (cl == CLASS_ELEMENTAL);
@@ -884,7 +884,7 @@ find_sym (gfc_intrinsic_sym *start, int n, const char *name)
   /* name may be a user-supplied string, so we must first make sure
      that we're comparing against a pointer into the global string
      table.  */
-  const char *p = gfc_get_string (name);
+  const char *p = gfc_get_string ("%s", name);
 
   while (n > 0)
     {
@@ -1153,7 +1153,7 @@ make_alias (const char *name, int standard)
 
     case SZ_NOTHING:
       next_sym[0] = next_sym[-1];
-      next_sym->name = gfc_get_string (name);
+      next_sym->name = gfc_get_string ("%s", name);
       next_sym->standard = standard;
       next_sym++;
       break;
@@ -1840,6 +1840,13 @@ add_functions (void)
 	     a, BT_UNKNOWN, 0, REQUIRED,
 	     mo, BT_UNKNOWN, 0, REQUIRED);
 
+  add_sym_2 ("failed_images", GFC_ISYM_FAILED_IMAGES, CLASS_TRANSFORMATIONAL,
+	     ACTUAL_NO, BT_INTEGER, dd, GFC_STD_F2008_TS,
+	     gfc_check_failed_or_stopped_images,
+	     gfc_simplify_failed_or_stopped_images,
+	     gfc_resolve_failed_images, "team", BT_VOID, di, OPTIONAL,
+	     "kind", BT_INTEGER, di, OPTIONAL);
+
   add_sym_0 ("fdate",  GFC_ISYM_FDATE, CLASS_IMPURE, ACTUAL_NO, BT_CHARACTER,
 	     dc, GFC_STD_GNU, NULL, NULL, gfc_resolve_fdate);
 
@@ -2080,6 +2087,11 @@ add_functions (void)
   add_sym_2 ("image_index", GFC_ISYM_IMAGE_INDEX, CLASS_INQUIRY, ACTUAL_NO, BT_INTEGER, di, GFC_STD_F2008,
 	     gfc_check_image_index, gfc_simplify_image_index, gfc_resolve_image_index,
 	     ca, BT_REAL, dr, REQUIRED, sub, BT_INTEGER, ii, REQUIRED);
+
+  add_sym_2 ("image_status", GFC_ISYM_IMAGE_STATUS, CLASS_ELEMENTAL, ACTUAL_NO,
+	     BT_INTEGER, di, GFC_STD_F2008_TS, gfc_check_image_status,
+	     gfc_simplify_image_status, gfc_resolve_image_status, "image",
+	     BT_INTEGER, di, REQUIRED, "team", BT_VOID, di, OPTIONAL);
 
   /* The resolution function for INDEX is called gfc_resolve_index_func
      because the name gfc_resolve_index is already used in resolve.c.  */
@@ -2988,6 +3000,13 @@ add_functions (void)
 		    vl, BT_INTEGER, di, REQUIRED, INTENT_OUT);
 
   make_generic ("stat", GFC_ISYM_STAT, GFC_STD_GNU);
+
+  add_sym_2 ("stopped_images", GFC_ISYM_STOPPED_IMAGES, CLASS_TRANSFORMATIONAL,
+	     ACTUAL_NO, BT_INTEGER, dd, GFC_STD_F2008_TS,
+	     gfc_check_failed_or_stopped_images,
+	     gfc_simplify_failed_or_stopped_images,
+	     gfc_resolve_stopped_images, "team", BT_VOID, di, OPTIONAL,
+	     "kind", BT_INTEGER, di, OPTIONAL);
 
   add_sym_2 ("storage_size", GFC_ISYM_STORAGE_SIZE, CLASS_INQUIRY, ACTUAL_NO,
 	     BT_INTEGER, di, GFC_STD_F2008,
@@ -4680,6 +4699,27 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
       return MATCH_ERROR;
     }
 
+  /* F95, 7.1.6.1: Only transformational functions REPEAT, RESHAPE,
+     SELECTED_INT_KIND, SELECTED_REAL_KIND, TRANSFER, and TRIM are allowed in
+     initialization expressions.  */
+
+  if (gfc_init_expr_flag && isym->transformational)
+    {
+      gfc_isym_id id = isym->id;
+      if (id != GFC_ISYM_REPEAT && id != GFC_ISYM_RESHAPE
+	  && id != GFC_ISYM_SI_KIND && id != GFC_ISYM_SR_KIND
+	  && id != GFC_ISYM_TRANSFER && id != GFC_ISYM_TRIM
+	  && !gfc_notify_std (GFC_STD_F2003, "Transformational function %qs "
+			      "at %L is invalid in an initialization "
+			      "expression", name, &expr->where))
+	{
+	  if (!error_flag)
+	    gfc_pop_suppress_errors ();
+
+	  return MATCH_ERROR;
+	}
+    }
+
   gfc_current_intrinsic_where = &expr->where;
 
   /* Bypass the generic list for min, max and ISO_C_Binding's c_loc.  */
@@ -4879,9 +4919,11 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
   if (ts->type == BT_UNKNOWN)
     goto bad;
 
-  /* NULL and zero size arrays get their type here.  */
-  if (expr->expr_type == EXPR_NULL
-      || (expr->expr_type == EXPR_ARRAY && expr->value.constructor == NULL))
+  /* NULL and zero size arrays get their type here, unless they already have a
+     typespec.  */
+  if ((expr->expr_type == EXPR_NULL
+       || (expr->expr_type == EXPR_ARRAY && expr->value.constructor == NULL))
+      && expr->ts.type == BT_UNKNOWN)
     {
       /* Sometimes the RHS acquire the type.  */
       expr->ts = *ts;
@@ -4984,12 +5026,14 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
   new_expr->value.function.name = sym->lib_name;
   new_expr->value.function.isym = sym;
   new_expr->where = old_where;
+  new_expr->ts = *ts;
   new_expr->rank = rank;
   new_expr->shape = gfc_copy_shape (shape, rank);
 
   gfc_get_ha_sym_tree (sym->name, &new_expr->symtree);
   new_expr->symtree->n.sym->result = new_expr->symtree->n.sym;
-  new_expr->symtree->n.sym->ts = *ts;
+  new_expr->symtree->n.sym->ts.type = ts->type;
+  new_expr->symtree->n.sym->ts.kind = ts->kind;
   new_expr->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   new_expr->symtree->n.sym->attr.function = 1;
   new_expr->symtree->n.sym->attr.elemental = 1;
@@ -5055,11 +5099,13 @@ gfc_convert_chartype (gfc_expr *expr, gfc_typespec *ts)
   new_expr->value.function.name = sym->lib_name;
   new_expr->value.function.isym = sym;
   new_expr->where = old_where;
+  new_expr->ts = *ts;
   new_expr->rank = rank;
   new_expr->shape = gfc_copy_shape (shape, rank);
 
   gfc_get_ha_sym_tree (sym->name, &new_expr->symtree);
-  new_expr->symtree->n.sym->ts = *ts;
+  new_expr->symtree->n.sym->ts.type = ts->type;
+  new_expr->symtree->n.sym->ts.kind = ts->kind;
   new_expr->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   new_expr->symtree->n.sym->attr.function = 1;
   new_expr->symtree->n.sym->attr.elemental = 1;

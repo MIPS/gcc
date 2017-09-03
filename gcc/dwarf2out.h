@@ -1,5 +1,5 @@
 /* dwarf2out.h - Various declarations for functions found in dwarf2out.c
-   Copyright (C) 1998-2016 Free Software Foundation, Inc.
+   Copyright (C) 1998-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -163,7 +163,7 @@ enum dw_val_class
 /* Describe a floating point constant value, or a vector constant value.  */
 
 struct GTY(()) dw_vec_const {
-  unsigned char * GTY((atomic)) array;
+  void * GTY((atomic)) array;
   unsigned length;
   unsigned elt_size;
 };

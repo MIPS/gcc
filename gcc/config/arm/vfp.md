@@ -1,5 +1,5 @@
 ;; ARM VFP instruction patterns
-;; Copyright (C) 2003-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2017 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -355,8 +355,8 @@
 )
 
 (define_insn "*movdi_vfp_cortexa8"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,r,r,m,w,!r,w,w, Uv")
-       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,r,r,w,w,Uvi,w"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,q,q,m,w,!r,w,w, Uv")
+	(match_operand:DI 1 "di_operand"		"r,rDa,Db,Dc,mi,mi,q,r,w,w,Uvi,w"))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && arm_tune == TARGET_CPU_cortexa8
     && (   register_operand (operands[0], DImode)
         || register_operand (operands[1], DImode))
@@ -1507,6 +1507,26 @@
    (set_attr "type" "f_cvt")]
 )
 
+(define_insn "*truncdfhf2"
+  [(set (match_operand:HF		   0 "s_register_operand" "=t")
+	(float_truncate:HF (match_operand:DF 1 "s_register_operand" "w")))]
+  "TARGET_32BIT && TARGET_FP16_TO_DOUBLE"
+  "vcvtb%?.f16.f64\\t%0, %P1"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "f_cvt")]
+)
+
+(define_insn "*extendhfdf2"
+  [(set (match_operand:DF		   0 "s_register_operand" "=w")
+	(float_extend:DF (match_operand:HF 1 "s_register_operand" "t")))]
+  "TARGET_32BIT && TARGET_FP16_TO_DOUBLE"
+  "vcvtb%?.f64.f16\\t%P0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "f_cvt")]
+)
+
 (define_insn "truncsfhf2"
   [(set (match_operand:HF		   0 "s_register_operand" "=t")
 	(float_truncate:HF (match_operand:SF 1 "s_register_operand" "t")))]
@@ -1866,7 +1886,7 @@
   (float_truncate:HF (float:SF (match_dup 0))))]
  "TARGET_VFP_FP16INST"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.f16.<sup>32\t%0, %0, %2\;vmov.f32\t%3, %0";
 }
   [(set_attr "conds" "unconditional")
@@ -1883,7 +1903,7 @@
 {
   rtx op1 = gen_reg_rtx (SImode);
 
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
 
   emit_move_insn (op1, operands[1]);
   emit_insn (gen_neon_vcvth<sup>_nhf_unspec (op1, op1, operands[2],
@@ -1907,7 +1927,7 @@
     VCVT_SI_US_N))]
  "TARGET_VFP_FP16INST"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vmov.f32\t%0, %1\;vcvt.<sup>%#32.f16\t%0, %0, %2";
 }
   [(set_attr "conds" "unconditional")
@@ -1925,7 +1945,7 @@
 {
   rtx op1 = gen_reg_rtx (SImode);
 
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   emit_insn (gen_neon_vcvth<sup>_nsi_unspec (op1, operands[1], operands[2]));
   emit_move_insn (operands[0], op1);
   DONE;
@@ -1977,7 +1997,7 @@
         (FIXUORS:SI (unspec:SDF
                         [(match_operand:SDF 1
                            "register_operand" "<F_constraint>")] VCVT)))]
-  "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
+  "TARGET_HARD_FLOAT && TARGET_VFP5 <vfp_double_cond>"
   "vcvt<vrint_variant>.<su>32.<V_if_elem>\\t%0, %<V_reg>1"
   [(set_attr "predicable" "no")
    (set_attr "conds" "unconditional")
@@ -2059,3 +2079,40 @@
 ;; fmdhr et al (VFPv1)
 ;; Support for xD (single precision only) variants.
 ;; fmrrs, fmsrr
+
+;; Split an immediate DF move to two immediate SI moves.
+(define_insn_and_split "no_literal_pool_df_immediate"
+  [(set (match_operand:DF 0 "s_register_operand" "")
+	(match_operand:DF 1 "const_double_operand" ""))]
+  "TARGET_THUMB2 && arm_disable_literal_pool
+  && !(TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE
+       && vfp3_const_double_rtx (operands[1]))"
+  "#"
+  "&& !reload_completed"
+  [(set (subreg:SI (match_dup 1) 0) (match_dup 2))
+   (set (subreg:SI (match_dup 1) 4) (match_dup 3))
+   (set (match_dup 0) (match_dup 1))]
+  "
+  long buf[2];
+  real_to_target (buf, CONST_DOUBLE_REAL_VALUE (operands[1]), DFmode);
+  operands[2] = GEN_INT ((int) buf[0]);
+  operands[3] = GEN_INT ((int) buf[1]);
+  operands[1] = gen_reg_rtx (DFmode);
+  ")
+
+;; Split an immediate SF move to one immediate SI move.
+(define_insn_and_split "no_literal_pool_sf_immediate"
+  [(set (match_operand:SF 0 "s_register_operand" "")
+	(match_operand:SF 1 "const_double_operand" ""))]
+  "TARGET_THUMB2 && arm_disable_literal_pool
+  && !(TARGET_HARD_FLOAT && vfp3_const_double_rtx (operands[1]))"
+  "#"
+  "&& !reload_completed"
+  [(set (subreg:SI (match_dup 1) 0) (match_dup 2))
+   (set (match_dup 0) (match_dup 1))]
+  "
+  long buf;
+  real_to_target (&buf, CONST_DOUBLE_REAL_VALUE (operands[1]), SFmode);
+  operands[2] = GEN_INT ((int) buf);
+  operands[1] = gen_reg_rtx (SFmode);
+  ")

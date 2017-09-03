@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    Address Sanitizer and Thread Sanitizer builtins used in the GNU compiler.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -165,9 +165,15 @@ DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_BEFORE_DYNAMIC_INIT,
 DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_AFTER_DYNAMIC_INIT,
 		      "__asan_after_dynamic_init",
 		      BT_FN_VOID, ATTR_NOTHROW_LEAF_LIST)
-DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_CLOBBER_N, "__asan_poison_stack_memory",
+DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_POISON_STACK_MEMORY,
+		      "__asan_poison_stack_memory",
 		      BT_FN_VOID_PTR_PTRMODE, ATTR_NOTHROW_LEAF_LIST)
-DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_UNCLOBBER_N, "__asan_unpoison_stack_memory",
+DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_UNPOISON_STACK_MEMORY,
+		      "__asan_unpoison_stack_memory",
+		      BT_FN_VOID_PTR_PTRMODE, ATTR_NOTHROW_LEAF_LIST)
+DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_ALLOCA_POISON, "__asan_alloca_poison",
+		      BT_FN_VOID_PTR_PTRMODE, ATTR_NOTHROW_LEAF_LIST)
+DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_ALLOCAS_UNPOISON, "__asan_allocas_unpoison",
 		      BT_FN_VOID_PTR_PTRMODE, ATTR_NOTHROW_LEAF_LIST)
 
 /* Thread Sanitizer */
@@ -442,6 +448,10 @@ DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE,
 		      "__ubsan_handle_load_invalid_value",
 		      BT_FN_VOID_PTR_PTR,
 		      ATTR_COLD_NOTHROW_LEAF_LIST)
+DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_POINTER_OVERFLOW,
+		      "__ubsan_handle_pointer_overflow",
+		      BT_FN_VOID_PTR_PTR_PTR,
+		      ATTR_COLD_NOTHROW_LEAF_LIST)
 DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW_ABORT,
 		      "__ubsan_handle_divrem_overflow_abort",
 		      BT_FN_VOID_PTR_PTR_PTR,
@@ -477,6 +487,10 @@ DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW_ABORT,
 DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE_ABORT,
 		      "__ubsan_handle_load_invalid_value_abort",
 		      BT_FN_VOID_PTR_PTR,
+		      ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST)
+DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_POINTER_OVERFLOW_ABORT,
+		      "__ubsan_handle_pointer_overflow_abort",
+		      BT_FN_VOID_PTR_PTR_PTR,
 		      ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST)
 DEF_SANITIZER_BUILTIN(BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW,
 		      "__ubsan_handle_float_cast_overflow",

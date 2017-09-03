@@ -226,7 +226,6 @@ HOST_EXPORTS = \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
 	ISLLIBS="$(HOST_ISLLIBS)"; export ISLLIBS; \
 	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
-	ISLVER="$(HOST_ISLVER)"; export ISLVER; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)"; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)"; export LIBELFINC; \
 	XGCC_FLAGS_FOR_TARGET="$(XGCC_FLAGS_FOR_TARGET)"; export XGCC_FLAGS_FOR_TARGET; \
@@ -320,7 +319,6 @@ HOST_GMPINC = @gmpinc@
 # Where to find isl
 HOST_ISLLIBS = @isllibs@
 HOST_ISLINC = @islinc@
-HOST_ISLVER = @islver@
 
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@
@@ -463,8 +461,11 @@ STAGE1_CONFIGURE_FLAGS = --disable-intermodule $(STAGE1_CHECKING) \
 STAGEprofile_CFLAGS = $(STAGE2_CFLAGS) -fprofile-generate
 STAGEprofile_TFLAGS = $(STAGE2_TFLAGS)
 
-STAGEfeedback_CFLAGS = $(STAGE3_CFLAGS) -fprofile-use
-STAGEfeedback_TFLAGS = $(STAGE3_TFLAGS)
+STAGEtrain_CFLAGS = $(STAGE3_CFLAGS)
+STAGEtrain_TFLAGS = $(STAGE3_TFLAGS)
+
+STAGEfeedback_CFLAGS = $(STAGE4_CFLAGS) -fprofile-use
+STAGEfeedback_TFLAGS = $(STAGE4_TFLAGS)
 
 STAGEautoprofile_CFLAGS = $(STAGE2_CFLAGS) -g
 STAGEautoprofile_TFLAGS = $(STAGE2_TFLAGS)

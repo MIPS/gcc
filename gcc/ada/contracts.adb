@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2015-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2015-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,6 +25,7 @@
 
 with Aspects;  use Aspects;
 with Atree;    use Atree;
+with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
@@ -47,6 +48,7 @@ with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stringt;  use Stringt;
+with SCIL_LL;  use SCIL_LL;
 with Tbuild;   use Tbuild;
 
 package body Contracts is
@@ -60,6 +62,11 @@ package body Contracts is
    --  the list L. If Freeze_Nod is set, then the analysis stops when the node
    --  is reached. Freeze_Id is the entity of some related context which caused
    --  freezing up to node Freeze_Nod.
+
+   procedure Build_And_Analyze_Contract_Only_Subprograms (L : List_Id);
+   --  (CodePeer): Subsidiary procedure to Analyze_Contracts which builds the
+   --  contract-only subprogram body of eligible subprograms found in L, adds
+   --  them to their corresponding list of declarations, and analyzes them.
 
    procedure Expand_Subprogram_Contract (Body_Id : Entity_Id);
    --  Expand the contracts of a subprogram body and its correspoding spec (if
@@ -115,16 +122,14 @@ package body Contracts is
 
       --  Local variables
 
-      Prag_Nam : Name_Id;
+      --  A contract must contain only pragmas
+
+      pragma Assert (Nkind (Prag) = N_Pragma);
+      Prag_Nam : constant Name_Id := Pragma_Name (Prag);
 
    --  Start of processing for Add_Contract_Item
 
    begin
-      --  A contract must contain only pragmas
-
-      pragma Assert (Nkind (Prag) = N_Pragma);
-      Prag_Nam := Pragma_Name (Prag);
-
       --  Create a new contract when adding the first item
 
       if No (Items) then
@@ -347,6 +352,10 @@ package body Contracts is
 
    procedure Analyze_Contracts (L : List_Id) is
    begin
+      if CodePeer_Mode and then Debug_Flag_Dot_KK then
+         Build_And_Analyze_Contract_Only_Subprograms (L);
+      end if;
+
       Analyze_Contracts (L, Freeze_Nod => Empty, Freeze_Id => Empty);
    end Analyze_Contracts;
 
@@ -375,9 +384,23 @@ package body Contracts is
                             N_Generic_Subprogram_Declaration,
                             N_Subprogram_Declaration)
          then
-            Analyze_Entry_Or_Subprogram_Contract
-              (Subp_Id   => Defining_Entity (Decl),
-               Freeze_Id => Freeze_Id);
+            declare
+               Subp_Id : constant Entity_Id := Defining_Entity (Decl);
+
+            begin
+               Analyze_Entry_Or_Subprogram_Contract (Subp_Id, Freeze_Id);
+
+               --  If analysis of a class-wide pre/postcondition indicates
+               --  that a class-wide clone is needed, analyze its declaration
+               --  now. Its body is created when the body of the original
+               --  operation is analyzed (and rewritten).
+
+               if Is_Subprogram (Subp_Id)
+                 and then Present (Class_Wide_Clone (Subp_Id))
+               then
+                  Analyze (Unit_Declaration_Node (Class_Wide_Clone (Subp_Id)));
+               end if;
+            end;
 
          --  Entry or subprogram bodies
 
@@ -391,7 +414,7 @@ package body Contracts is
               (Obj_Id    => Defining_Entity (Decl),
                Freeze_Id => Freeze_Id);
 
-         --  Protected untis
+         --  Protected units
 
          elsif Nkind_In (Decl, N_Protected_Type_Declaration,
                                N_Single_Protected_Declaration)
@@ -435,11 +458,18 @@ package body Contracts is
    -- Analyze_Entry_Or_Subprogram_Body_Contract --
    -----------------------------------------------
 
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
+
    procedure Analyze_Entry_Or_Subprogram_Body_Contract (Body_Id : Entity_Id) is
       Body_Decl : constant Node_Id   := Unit_Declaration_Node (Body_Id);
       Items     : constant Node_Id   := Contract (Body_Id);
       Spec_Id   : constant Entity_Id := Unique_Defining_Entity (Body_Decl);
-      Mode      : SPARK_Mode_Type;
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
 
    begin
       --  When a subprogram body declaration is illegal, its defining entity is
@@ -464,7 +494,7 @@ package body Contracts is
       --  context. To remedy this, restore the original SPARK_Mode of the
       --  related subprogram body.
 
-      Save_SPARK_Mode_And_Set (Body_Id, Mode);
+      Set_SPARK_Mode (Body_Id);
 
       --  Ensure that the contract cases or postconditions mention 'Result or
       --  define a post-state.
@@ -475,10 +505,13 @@ package body Contracts is
       --  volatile formal parameter or return type (SPARK RM 7.1.3(9)). This
       --  check is relevant only when SPARK_Mode is on, as it is not a standard
       --  legality rule. The check is performed here because Volatile_Function
-      --  is processed after the analysis of the related subprogram body.
+      --  is processed after the analysis of the related subprogram body. The
+      --  check only applies to source subprograms and not to generated TSS
+      --  subprograms.
 
       if SPARK_Mode = On
         and then Ekind_In (Body_Id, E_Function, E_Generic_Function)
+        and then Comes_From_Source (Spec_Id)
         and then not Is_Volatile_Function (Body_Id)
       then
          Check_Nonvolatile_Function_Profile (Body_Id);
@@ -487,7 +520,7 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      Restore_SPARK_Mode (Mode);
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
 
       --  Capture all global references in a generic subprogram body now that
       --  the contract has been analyzed.
@@ -511,12 +544,20 @@ package body Contracts is
    -- Analyze_Entry_Or_Subprogram_Contract --
    ------------------------------------------
 
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
+
    procedure Analyze_Entry_Or_Subprogram_Contract
      (Subp_Id   : Entity_Id;
       Freeze_Id : Entity_Id := Empty)
    is
       Items     : constant Node_Id := Contract (Subp_Id);
       Subp_Decl : constant Node_Id := Unit_Declaration_Node (Subp_Id);
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
 
       Skip_Assert_Exprs : constant Boolean :=
                             Ekind_In (Subp_Id, E_Entry, E_Entry_Family)
@@ -525,7 +566,6 @@ package body Contracts is
 
       Depends  : Node_Id := Empty;
       Global   : Node_Id := Empty;
-      Mode     : SPARK_Mode_Type;
       Prag     : Node_Id;
       Prag_Nam : Name_Id;
 
@@ -545,7 +585,7 @@ package body Contracts is
       --  context. To remedy this, restore the original SPARK_Mode of the
       --  related subprogram body.
 
-      Save_SPARK_Mode_And_Set (Subp_Id, Mode);
+      Set_SPARK_Mode (Subp_Id);
 
       --  All subprograms carry a contract, but for some it is not significant
       --  and should not be processed.
@@ -646,6 +686,7 @@ package body Contracts is
 
       if SPARK_Mode = On
         and then Ekind_In (Subp_Id, E_Function, E_Generic_Function)
+        and then Comes_From_Source (Subp_Id)
         and then not Is_Volatile_Function (Subp_Id)
       then
          Check_Nonvolatile_Function_Profile (Subp_Id);
@@ -654,7 +695,7 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      Restore_SPARK_Mode (Mode);
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
 
       --  Capture all global references in a generic subprogram now that the
       --  contract has been analyzed.
@@ -670,21 +711,28 @@ package body Contracts is
    -- Analyze_Object_Contract --
    -----------------------------
 
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
+
    procedure Analyze_Object_Contract
      (Obj_Id    : Entity_Id;
       Freeze_Id : Entity_Id := Empty)
    is
-      Obj_Typ      : constant Entity_Id := Etype (Obj_Id);
-      AR_Val       : Boolean := False;
-      AW_Val       : Boolean := False;
-      ER_Val       : Boolean := False;
-      EW_Val       : Boolean := False;
-      Items        : Node_Id;
-      Mode         : SPARK_Mode_Type;
-      Prag         : Node_Id;
-      Ref_Elmt     : Elmt_Id;
-      Restore_Mode : Boolean := False;
-      Seen         : Boolean := False;
+      Obj_Typ : constant Entity_Id := Etype (Obj_Id);
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
+
+      AR_Val   : Boolean := False;
+      AW_Val   : Boolean := False;
+      ER_Val   : Boolean := False;
+      EW_Val   : Boolean := False;
+      Items    : Node_Id;
+      Prag     : Node_Id;
+      Ref_Elmt : Elmt_Id;
+      Seen     : Boolean := False;
 
    begin
       --  The loop parameter in an element iterator over a formal container
@@ -715,8 +763,7 @@ package body Contracts is
       if Is_Single_Concurrent_Object (Obj_Id)
         and then Present (SPARK_Pragma (Obj_Id))
       then
-         Restore_Mode := True;
-         Save_SPARK_Mode_And_Set (Obj_Id, Mode);
+         Set_SPARK_Mode (Obj_Id);
       end if;
 
       --  Constant-related checks
@@ -866,12 +913,6 @@ package body Contracts is
                then
                   Error_Msg_N
                     ("discriminated object & cannot be volatile", Obj_Id);
-
-               --  An object of a tagged type cannot be effectively volatile
-               --  (SPARK RM C.6(5)).
-
-               elsif Is_Tagged_Type (Obj_Typ) then
-                  Error_Msg_N ("tagged object & cannot be volatile", Obj_Id);
                end if;
 
             --  The object is not effectively volatile
@@ -922,14 +963,16 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      if Restore_Mode then
-         Restore_SPARK_Mode (Mode);
-      end if;
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
    end Analyze_Object_Contract;
 
    -----------------------------------
    -- Analyze_Package_Body_Contract --
    -----------------------------------
+
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
 
    procedure Analyze_Package_Body_Contract
      (Body_Id   : Entity_Id;
@@ -938,7 +981,11 @@ package body Contracts is
       Body_Decl : constant Node_Id   := Unit_Declaration_Node (Body_Id);
       Items     : constant Node_Id   := Contract (Body_Id);
       Spec_Id   : constant Entity_Id := Spec_Entity (Body_Id);
-      Mode      : SPARK_Mode_Type;
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
+
       Ref_State : Node_Id;
 
    begin
@@ -957,7 +1004,7 @@ package body Contracts is
       --  context. To remedy this, restore the original SPARK_Mode of the
       --  related package body.
 
-      Save_SPARK_Mode_And_Set (Body_Id, Mode);
+      Set_SPARK_Mode (Body_Id);
 
       Ref_State := Get_Pragma (Body_Id, Pragma_Refined_State);
 
@@ -971,7 +1018,7 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      Restore_SPARK_Mode (Mode);
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
 
       --  Capture all global references in a generic package body now that the
       --  contract has been analyzed.
@@ -987,12 +1034,20 @@ package body Contracts is
    -- Analyze_Package_Contract --
    ------------------------------
 
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
+
    procedure Analyze_Package_Contract (Pack_Id : Entity_Id) is
       Items     : constant Node_Id := Contract (Pack_Id);
       Pack_Decl : constant Node_Id := Unit_Declaration_Node (Pack_Id);
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
+
       Init      : Node_Id := Empty;
       Init_Cond : Node_Id := Empty;
-      Mode      : SPARK_Mode_Type;
       Prag      : Node_Id;
       Prag_Nam  : Name_Id;
 
@@ -1012,7 +1067,7 @@ package body Contracts is
       --  context. To remedy this, restore the original SPARK_Mode of the
       --  related package.
 
-      Save_SPARK_Mode_And_Set (Pack_Id, Mode);
+      Set_SPARK_Mode (Pack_Id);
 
       if Present (Items) then
 
@@ -1059,7 +1114,7 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      Restore_SPARK_Mode (Mode);
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
 
       --  Capture all global references in a generic package now that the
       --  contract has been analyzed.
@@ -1076,8 +1131,10 @@ package body Contracts is
    --------------------------------
 
    procedure Analyze_Previous_Contracts (Body_Decl : Node_Id) is
-      Body_Id : constant Entity_Id := Defining_Entity (Body_Decl);
-      Par     : Node_Id;
+      Body_Id   : constant Entity_Id := Defining_Entity (Body_Decl);
+      Orig_Decl : constant Node_Id   := Original_Node (Body_Decl);
+
+      Par : Node_Id;
 
    begin
       --  A body that is in the process of being inlined appears from source,
@@ -1099,6 +1156,29 @@ package body Contracts is
               (Body_Id   => Defining_Entity (Par),
                Freeze_Id => Defining_Entity (Body_Decl));
 
+            exit;
+
+         --  Do not look for an enclosing package body when the construct which
+         --  causes freezing is a body generated for an expression function and
+         --  it appears within a package spec. This ensures that the traversal
+         --  will not reach too far up the parent chain and attempt to freeze a
+         --  package body which should not be frozen.
+
+         --    package body Enclosing_Body
+         --      with Refined_State => (State => Var)
+         --    is
+         --       package Nested is
+         --          type Some_Type is ...;
+         --          function Cause_Freezing return ...;
+         --       private
+         --          function Cause_Freezing is (...);
+         --       end Nested;
+         --
+         --       Var : Nested.Some_Type;
+
+         elsif Nkind (Par) = N_Package_Declaration
+           and then Nkind (Orig_Decl) = N_Expression_Function
+         then
             exit;
          end if;
 
@@ -1172,10 +1252,18 @@ package body Contracts is
    -- Analyze_Task_Contract --
    ---------------------------
 
+   --  WARNING: This routine manages SPARK regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  SPARK mode.
+
    procedure Analyze_Task_Contract (Task_Id : Entity_Id) is
       Items : constant Node_Id := Contract (Task_Id);
-      Mode  : SPARK_Mode_Type;
-      Prag  : Node_Id;
+
+      Saved_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Saved_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save the SPARK_Mode-related data to restore on exit
+
+      Prag : Node_Id;
 
    begin
       --  Do not analyze a contract multiple times
@@ -1193,7 +1281,7 @@ package body Contracts is
       --  context. To remedy this, restore the original SPARK_Mode of the
       --  related task unit.
 
-      Save_SPARK_Mode_And_Set (Task_Id, Mode);
+      Set_SPARK_Mode (Task_Id);
 
       --  Analyze Global first, as Depends may mention items classified in the
       --  global categorization.
@@ -1216,8 +1304,492 @@ package body Contracts is
       --  Restore the SPARK_Mode of the enclosing context after all delayed
       --  pragmas have been analyzed.
 
-      Restore_SPARK_Mode (Mode);
+      Restore_SPARK_Mode (Saved_SM, Saved_SMP);
    end Analyze_Task_Contract;
+
+   -------------------------------------------------
+   -- Build_And_Analyze_Contract_Only_Subprograms --
+   -------------------------------------------------
+
+   procedure Build_And_Analyze_Contract_Only_Subprograms (L : List_Id) is
+      procedure Analyze_Contract_Only_Subprograms;
+      --  Analyze the contract-only subprograms of L
+
+      procedure Append_Contract_Only_Subprograms (Subp_List : List_Id);
+      --  Append the contract-only bodies of Subp_List to its declarations list
+
+      function Build_Contract_Only_Subprogram (E : Entity_Id) return Node_Id;
+      --  If E is an entity for a non-imported subprogram specification with
+      --  pre/postconditions and we are compiling with CodePeer mode, then
+      --  this procedure will create a wrapper to help Gnat2scil process its
+      --  contracts. Return Empty if the wrapper cannot be built.
+
+      function Build_Contract_Only_Subprograms (L : List_Id) return List_Id;
+      --  Build the contract-only subprograms of all eligible subprograms found
+      --  in list L.
+
+      function Has_Private_Declarations (N : Node_Id) return Boolean;
+      --  Return True for package specs, task definitions, and protected type
+      --  definitions whose list of private declarations is not empty.
+
+      ---------------------------------------
+      -- Analyze_Contract_Only_Subprograms --
+      ---------------------------------------
+
+      procedure Analyze_Contract_Only_Subprograms is
+         procedure Analyze_Contract_Only_Bodies;
+         --  Analyze all the contract-only bodies of L
+
+         ----------------------------------
+         -- Analyze_Contract_Only_Bodies --
+         ----------------------------------
+
+         procedure Analyze_Contract_Only_Bodies is
+            Decl : Node_Id;
+
+         begin
+            Decl := First (L);
+            while Present (Decl) loop
+               if Nkind (Decl) = N_Subprogram_Body
+                 and then Is_Contract_Only_Body
+                            (Defining_Unit_Name (Specification (Decl)))
+               then
+                  Analyze (Decl);
+               end if;
+
+               Next (Decl);
+            end loop;
+         end Analyze_Contract_Only_Bodies;
+
+      --  Start of processing for Analyze_Contract_Only_Subprograms
+
+      begin
+         if Ekind (Current_Scope) /= E_Package then
+            Analyze_Contract_Only_Bodies;
+
+         else
+            declare
+               Pkg_Spec : constant Node_Id :=
+                            Package_Specification (Current_Scope);
+
+            begin
+               if not Has_Private_Declarations (Pkg_Spec) then
+                  Analyze_Contract_Only_Bodies;
+
+               --  For packages with private declarations, the contract-only
+               --  bodies of subprograms defined in the visible part of the
+               --  package are added to its private declarations (to ensure
+               --  that they do not cause premature freezing of types and also
+               --  that they are analyzed with proper visibility). Hence they
+               --  will be analyzed later.
+
+               elsif Visible_Declarations (Pkg_Spec) = L then
+                  null;
+
+               elsif Private_Declarations (Pkg_Spec) = L then
+                  Analyze_Contract_Only_Bodies;
+               end if;
+            end;
+         end if;
+      end Analyze_Contract_Only_Subprograms;
+
+      --------------------------------------
+      -- Append_Contract_Only_Subprograms --
+      --------------------------------------
+
+      procedure Append_Contract_Only_Subprograms (Subp_List : List_Id) is
+      begin
+         if No (Subp_List) then
+            return;
+         end if;
+
+         if Ekind (Current_Scope) /= E_Package then
+            Append_List (Subp_List, To => L);
+
+         else
+            declare
+               Pkg_Spec : constant Node_Id :=
+                            Package_Specification (Current_Scope);
+
+            begin
+               if not Has_Private_Declarations (Pkg_Spec) then
+                  Append_List (Subp_List, To => L);
+
+               --  If the package has private declarations then append them to
+               --  its private declarations; they will be analyzed when the
+               --  contracts of its private declarations are analyzed.
+
+               else
+                  Append_List
+                    (List => Subp_List,
+                     To   => Private_Declarations (Pkg_Spec));
+               end if;
+            end;
+         end if;
+      end Append_Contract_Only_Subprograms;
+
+      ------------------------------------
+      -- Build_Contract_Only_Subprogram --
+      ------------------------------------
+
+      --  This procedure takes care of building a wrapper to generate better
+      --  analysis results in the case of a call to a subprogram whose body
+      --  is unavailable to CodePeer but whose specification includes Pre/Post
+      --  conditions. The body might be unavailable for any of a number or
+      --  reasons (it is imported, the .adb file is simply missing, or the
+      --  subprogram might be subject to an Annotate (CodePeer, Skip_Analysis)
+      --  pragma). The built subprogram has the following contents:
+      --    * check preconditions
+      --    * call the subprogram
+      --    * check postconditions
+
+      function Build_Contract_Only_Subprogram (E : Entity_Id) return Node_Id is
+         Loc : constant Source_Ptr := Sloc (E);
+
+         Missing_Body_Name : constant Name_Id :=
+                               New_External_Name (Chars (E), "__missing_body");
+
+         function Build_Missing_Body_Decls return List_Id;
+         --  Build the declaration of the missing body subprogram and its
+         --  corresponding pragma Import.
+
+         function Build_Missing_Body_Subprogram_Call return Node_Id;
+         --  Build the call to the missing body subprogram
+
+         function Skip_Contract_Only_Subprogram (E : Entity_Id) return Boolean;
+         --  Return True for cases where the wrapper is not needed or we cannot
+         --  build it.
+
+         ------------------------------
+         -- Build_Missing_Body_Decls --
+         ------------------------------
+
+         function Build_Missing_Body_Decls return List_Id is
+            Spec : constant Node_Id := Declaration_Node (E);
+            Decl : Node_Id;
+            Prag : Node_Id;
+
+         begin
+            Decl :=
+              Make_Subprogram_Declaration (Loc, Copy_Subprogram_Spec (Spec));
+            Set_Chars (Defining_Entity (Decl), Missing_Body_Name);
+
+            Prag :=
+              Make_Pragma (Loc,
+                Chars                        => Name_Import,
+                Pragma_Argument_Associations => New_List (
+                  Make_Pragma_Argument_Association (Loc,
+                    Expression => Make_Identifier (Loc, Name_Ada)),
+
+                  Make_Pragma_Argument_Association (Loc,
+                    Expression => Make_Identifier (Loc, Missing_Body_Name))));
+
+            return New_List (Decl, Prag);
+         end Build_Missing_Body_Decls;
+
+         ----------------------------------------
+         -- Build_Missing_Body_Subprogram_Call --
+         ----------------------------------------
+
+         function Build_Missing_Body_Subprogram_Call return Node_Id is
+            Forml : Entity_Id;
+            Parms : List_Id;
+
+         begin
+            Parms := New_List;
+
+            --  Build parameter list that we need
+
+            Forml := First_Formal (E);
+            while Present (Forml) loop
+               Append_To (Parms, Make_Identifier (Loc, Chars (Forml)));
+               Next_Formal (Forml);
+            end loop;
+
+            --  Build the call to the missing body subprogram
+
+            if Ekind_In (E, E_Function, E_Generic_Function) then
+               return
+                 Make_Simple_Return_Statement (Loc,
+                   Expression =>
+                     Make_Function_Call (Loc,
+                       Name                   =>
+                         Make_Identifier (Loc, Missing_Body_Name),
+                       Parameter_Associations => Parms));
+
+            else
+               return
+                 Make_Procedure_Call_Statement (Loc,
+                   Name                   =>
+                     Make_Identifier (Loc, Missing_Body_Name),
+                   Parameter_Associations => Parms);
+            end if;
+         end Build_Missing_Body_Subprogram_Call;
+
+         -----------------------------------
+         -- Skip_Contract_Only_Subprogram --
+         -----------------------------------
+
+         function Skip_Contract_Only_Subprogram
+           (E : Entity_Id) return Boolean
+         is
+            function Depends_On_Enclosing_Private_Type return Boolean;
+            --  Return True if some formal of E (or its return type) are
+            --  private types defined in an enclosing package.
+
+            function Some_Enclosing_Package_Has_Private_Decls return Boolean;
+            --  Return True if some enclosing package of the current scope has
+            --  private declarations.
+
+            ---------------------------------------
+            -- Depends_On_Enclosing_Private_Type --
+            ---------------------------------------
+
+            function Depends_On_Enclosing_Private_Type return Boolean is
+               function Defined_In_Enclosing_Package
+                 (Typ : Entity_Id) return Boolean;
+               --  Return True if Typ is an entity defined in an enclosing
+               --  package of the current scope.
+
+               ----------------------------------
+               -- Defined_In_Enclosing_Package --
+               ----------------------------------
+
+               function Defined_In_Enclosing_Package
+                 (Typ : Entity_Id) return Boolean
+               is
+                  Scop : Entity_Id := Scope (Current_Scope);
+
+               begin
+                  while Scop /= Scope (Typ)
+                    and then not Is_Compilation_Unit (Scop)
+                  loop
+                     Scop := Scope (Scop);
+                  end loop;
+
+                  return Scop = Scope (Typ);
+               end Defined_In_Enclosing_Package;
+
+               --  Local variables
+
+               Param_E : Entity_Id;
+               Typ     : Entity_Id;
+
+            --  Start of processing for Depends_On_Enclosing_Private_Type
+
+            begin
+               Param_E := First_Entity (E);
+               while Present (Param_E) loop
+                  Typ := Etype (Param_E);
+
+                  if Is_Private_Type (Typ)
+                    and then Defined_In_Enclosing_Package (Typ)
+                  then
+                     return True;
+                  end if;
+
+                  Next_Entity (Param_E);
+               end loop;
+
+               return
+                 Ekind (E) = E_Function
+                   and then Is_Private_Type (Etype (E))
+                   and then Defined_In_Enclosing_Package (Etype (E));
+            end Depends_On_Enclosing_Private_Type;
+
+            ----------------------------------------------
+            -- Some_Enclosing_Package_Has_Private_Decls --
+            ----------------------------------------------
+
+            function Some_Enclosing_Package_Has_Private_Decls return Boolean is
+               Scop     : Entity_Id := Current_Scope;
+               Pkg_Spec : Node_Id   := Package_Specification (Scop);
+
+            begin
+               loop
+                  if Ekind (Scop) = E_Package
+                    and then Has_Private_Declarations
+                               (Package_Specification (Scop))
+                  then
+                     Pkg_Spec := Package_Specification (Scop);
+                  end if;
+
+                  exit when Is_Compilation_Unit (Scop);
+                  Scop := Scope (Scop);
+               end loop;
+
+               return Pkg_Spec /= Package_Specification (Current_Scope);
+            end Some_Enclosing_Package_Has_Private_Decls;
+
+         --  Start of processing for Skip_Contract_Only_Subprogram
+
+         begin
+            if not CodePeer_Mode
+              or else Inside_A_Generic
+              or else not Is_Subprogram (E)
+              or else Is_Abstract_Subprogram (E)
+              or else Is_Imported (E)
+              or else No (Contract (E))
+              or else No (Pre_Post_Conditions (Contract (E)))
+              or else Is_Contract_Only_Body (E)
+              or else Convention (E) = Convention_Protected
+            then
+               return True;
+
+            --  We do not support building the contract-only subprogram if E
+            --  is a subprogram declared in a nested package that has some
+            --  formal or return type depending on a private type defined in
+            --  an enclosing package.
+
+            elsif Ekind (Current_Scope) = E_Package
+              and then Some_Enclosing_Package_Has_Private_Decls
+              and then Depends_On_Enclosing_Private_Type
+            then
+               if Debug_Flag_Dot_KK then
+                  declare
+                     Saved_Mode : constant Warning_Mode_Type := Warning_Mode;
+
+                  begin
+                     --  Warnings are disabled by default under CodePeer_Mode
+                     --  (see switch-c). Enable them temporarily.
+
+                     Warning_Mode := Normal;
+                     Error_Msg_N
+                       ("cannot generate contract-only subprogram?", E);
+                     Warning_Mode := Saved_Mode;
+                  end;
+               end if;
+
+               return True;
+            end if;
+
+            return False;
+         end Skip_Contract_Only_Subprogram;
+
+      --  Start of processing for Build_Contract_Only_Subprogram
+
+      begin
+         --  Test cases where the wrapper is not needed and cases where we
+         --  cannot build it.
+
+         if Skip_Contract_Only_Subprogram (E) then
+            return Empty;
+         end if;
+
+         --  Note on calls to Copy_Separate_Tree. The trees we are copying
+         --  here are fully analyzed, but we definitely want fully syntactic
+         --  unanalyzed trees in the body we construct, so that the analysis
+         --  generates the right visibility, and that is exactly what the
+         --  calls to Copy_Separate_Tree give us.
+
+         declare
+            Name : constant Name_Id :=
+                     New_External_Name (Chars (E), "__contract_only");
+            Id   : Entity_Id;
+            Bod  : Node_Id;
+
+         begin
+            Bod :=
+              Make_Subprogram_Body (Loc,
+                Specification              =>
+                  Copy_Subprogram_Spec (Declaration_Node (E)),
+                Declarations               =>
+                  Build_Missing_Body_Decls,
+                Handled_Statement_Sequence =>
+                  Make_Handled_Sequence_Of_Statements (Loc,
+                    Statements => New_List (
+                      Build_Missing_Body_Subprogram_Call),
+                    End_Label  => Make_Identifier (Loc, Name)));
+
+            Id := Defining_Unit_Name (Specification (Bod));
+
+            --  Copy only the pre/postconditions of the original contract
+            --  since it is what we need, but also because pragmas stored in
+            --  the other fields have N_Pragmas with N_Aspect_Specifications
+            --  that reference their associated pragma (thus causing an endless
+            --  loop when trying to copy the subtree).
+
+            declare
+               New_Contract : constant Node_Id := Make_Contract (Sloc (E));
+
+            begin
+               Set_Pre_Post_Conditions (New_Contract,
+                 Copy_Separate_Tree (Pre_Post_Conditions (Contract (E))));
+               Set_Contract (Id, New_Contract);
+            end;
+
+            --  Fix the name of this new subprogram and link the original
+            --  subprogram with its Contract_Only_Body subprogram.
+
+            Set_Chars (Id, Name);
+            Set_Is_Contract_Only_Body (Id);
+            Set_Contract_Only_Body (E, Id);
+
+            return Bod;
+         end;
+      end Build_Contract_Only_Subprogram;
+
+      -------------------------------------
+      -- Build_Contract_Only_Subprograms --
+      -------------------------------------
+
+      function Build_Contract_Only_Subprograms (L : List_Id) return List_Id is
+         Decl     : Node_Id;
+         New_Subp : Node_Id;
+         Result   : List_Id := No_List;
+         Subp_Id  : Entity_Id;
+
+      begin
+         Decl := First (L);
+         while Present (Decl) loop
+            if Nkind (Decl) = N_Subprogram_Declaration then
+               Subp_Id  := Defining_Unit_Name (Specification (Decl));
+               New_Subp := Build_Contract_Only_Subprogram (Subp_Id);
+
+               if Present (New_Subp) then
+                  if No (Result) then
+                     Result := New_List;
+                  end if;
+
+                  Append_To (Result, New_Subp);
+               end if;
+            end if;
+
+            Next (Decl);
+         end loop;
+
+         return Result;
+      end Build_Contract_Only_Subprograms;
+
+      ------------------------------
+      -- Has_Private_Declarations --
+      ------------------------------
+
+      function Has_Private_Declarations (N : Node_Id) return Boolean is
+      begin
+         if not Nkind_In (N, N_Package_Specification,
+                             N_Protected_Definition,
+                             N_Task_Definition)
+         then
+            return False;
+         else
+            return
+              Present (Private_Declarations (N))
+                and then Is_Non_Empty_List (Private_Declarations (N));
+         end if;
+      end Has_Private_Declarations;
+
+      --  Local variables
+
+      Subp_List : List_Id;
+
+   --  Start of processing for Build_And_Analyze_Contract_Only_Subprograms
+
+   begin
+      Subp_List := Build_Contract_Only_Subprograms (L);
+      Append_Contract_Only_Subprograms (Subp_List);
+      Analyze_Contract_Only_Subprograms;
+   end Build_And_Analyze_Contract_Only_Subprograms;
 
    -----------------------------
    -- Create_Generic_Contract --
@@ -1504,12 +2076,33 @@ package body Contracts is
                   return False;
 
                --  Determine whether the subprogram is declared in the visible
-               --  declarations of the package containing the type.
+               --  declarations of the package containing the type, or in the
+               --  visible declaration of a child unit of that package.
 
                else
-                  return List_Containing (Subp_Decl) =
-                    Visible_Declarations
-                      (Specification (Unit_Declaration_Node (Scope (Typ))));
+                  declare
+                     Decls      : constant List_Id   :=
+                                    List_Containing (Subp_Decl);
+                     Subp_Scope : constant Entity_Id :=
+                                    Scope (Defining_Entity (Subp_Decl));
+                     Typ_Scope  : constant Entity_Id := Scope (Typ);
+
+                  begin
+                     return
+                       Decls = Visible_Declarations
+                           (Specification (Unit_Declaration_Node (Typ_Scope)))
+
+                         or else
+                           (Ekind (Subp_Scope) = E_Package
+                             and then Typ_Scope /= Subp_Scope
+                             and then Is_Child_Unit (Subp_Scope)
+                             and then
+                               Is_Ancestor_Package (Typ_Scope, Subp_Scope)
+                             and then
+                               Decls = Visible_Declarations
+                                 (Specification
+                                   (Unit_Declaration_Node (Subp_Scope))));
+                  end;
                end if;
             end Has_Public_Visibility_Of_Subprogram;
 
@@ -1704,7 +2297,7 @@ package body Contracts is
          --  enclosing subprogram, which would cause problems for unnesting
          --  routines in the absence of inlining.
 
-         if Generate_C_Code then
+         if Modify_Tree_For_C then
             Set_Has_Pragma_Inline        (Proc_Id);
             Set_Has_Pragma_Inline_Always (Proc_Id);
             Set_Is_Inlined               (Proc_Id);

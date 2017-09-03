@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++17" }
 // { dg-do compile }
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,5 +29,7 @@ using check2_t = std::in_place_t;
 using check3_t = std::nullopt_t;
 using check4_t = std::bad_optional_access;
 
-static_assert(std::is_base_of<std::logic_error, check4_t>::value,
-	      "bad_optional_access must derive from logic_error");
+static_assert(!std::is_base_of<std::logic_error, check4_t>::value,
+	      "bad_optional_access must derive from exception");
+static_assert(std::is_base_of<std::exception, check4_t>::value,
+	      "bad_optional_access must derive from exception");

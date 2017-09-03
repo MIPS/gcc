@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -667,7 +667,13 @@ pp_format (pretty_printer *pp, text_info *text)
 	      }
 
 	    s = va_arg (*text->args_ptr, const char *);
-	    pp_append_text (pp, s, s + n);
+
+	    /* Append the lesser of precision and strlen (s) characters
+	       from the array (which need not be a nul-terminated string).
+	       Negative precision is treated as if it were omitted.  */
+	    size_t len = n < 0 ? strlen (s) : strnlen (s, n);
+
+	    pp_append_text (pp, s, s + len);
 	  }
 	  break;
 
@@ -677,7 +683,8 @@ pp_format (pretty_printer *pp, text_info *text)
 
 	    gcc_assert (pp_format_decoder (pp));
 	    ok = pp_format_decoder (pp) (pp, text, p,
-					 precision, wide, plus, hash);
+					 precision, wide, plus, hash, quote,
+					 formatters[argno]);
 	    gcc_assert (ok);
 	  }
 	}
@@ -695,6 +702,11 @@ pp_format (pretty_printer *pp, text_info *text)
   if (CHECKING_P)
     for (; argno < PP_NL_ARGMAX; argno++)
       gcc_assert (!formatters[argno]);
+
+  /* If the client supplied a postprocessing object, call its "handle"
+     hook here.  */
+  if (pp->m_format_postprocessor)
+    pp->m_format_postprocessor->handle (pp);
 
   /* Revert to normal obstack and wrapping mode.  */
   buffer->obstack = &buffer->formatted_obstack;
@@ -847,6 +859,7 @@ pretty_printer::pretty_printer (const char *p, int l)
     indent_skip (),
     wrapping (),
     format_decoder (),
+    m_format_postprocessor (NULL),
     emitted_prefix (),
     need_newline (),
     translate_identifiers (true),
@@ -860,6 +873,8 @@ pretty_printer::pretty_printer (const char *p, int l)
 
 pretty_printer::~pretty_printer ()
 {
+  if (m_format_postprocessor)
+    delete m_format_postprocessor;
   buffer->~output_buffer ();
   XDELETE (buffer);
 }
@@ -1419,6 +1434,13 @@ test_pp_format ()
   ASSERT_PP_FORMAT_2 ("A 12345678", "%c %x", 'A', 0x12345678);
   ASSERT_PP_FORMAT_2 ("hello world 12345678", "%s %x", "hello world",
 		      0x12345678);
+
+  /* Not nul-terminated.  */
+  char arr[5] = { '1', '2', '3', '4', '5' };
+  ASSERT_PP_FORMAT_3 ("123 12345678", "%.*s %x", 3, arr, 0x12345678);
+  ASSERT_PP_FORMAT_3 ("1234 12345678", "%.*s %x", -1, "1234", 0x12345678);
+  ASSERT_PP_FORMAT_3 ("12345 12345678", "%.*s %x", 7, "12345", 0x12345678);
+
   /* We can't test for %p; the pointer is printed in an implementation-defined
      manner.  */
   ASSERT_PP_FORMAT_2 ("normal colored normal 12345678",

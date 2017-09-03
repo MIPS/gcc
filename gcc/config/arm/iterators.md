@@ -1,5 +1,5 @@
 ;; Code and mode itertator and attribute definitions for the ARM backend
-;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -44,6 +44,9 @@
 
 ;; A list of the 32bit and 64bit integer modes
 (define_mode_iterator SIDI [SI DI])
+
+;; A list of atomic compare and swap success return modes
+(define_mode_iterator CCSI [(CC_Z "TARGET_32BIT") (SI "TARGET_THUMB1")])
 
 ;; A list of modes which the VFP unit can handle
 (define_mode_iterator SDF [(SF "") (DF "TARGET_VFP_DOUBLE")])
@@ -411,6 +414,10 @@
 ;; Mode attributes
 ;;----------------------------------------------------------------------------
 
+;; Determine name of atomic compare and swap from success result mode.  This
+;; distinguishes between 16-bit Thumb and 32-bit Thumb/ARM.
+(define_mode_attr arch [(CC_Z "32") (SI "t1")])
+
 ;; Determine element size suffix from vector mode.
 (define_mode_attr MMX_char [(V8QI "b") (V4HI "h") (V2SI "w") (DI "d")])
 
@@ -436,6 +443,14 @@
                           (V2SI "SI") (V4SI "SI")
                           (V2SF "SF") (V4SF "SF")
                           (DI "DI")   (V2DI "DI")])
+
+;; As above but in lower case.
+(define_mode_attr V_elem_l [(V8QI "qi") (V16QI "qi")
+			    (V4HI "hi") (V8HI "hi")
+			    (V4HF "hf") (V8HF "hf")
+			    (V2SI "si") (V4SI "si")
+			    (V2SF "sf") (V4SF "sf")
+			    (DI "di")   (V2DI "di")])
 
 ;; Element modes for vector extraction, padded up to register size.
 
@@ -943,3 +958,48 @@
 ;; Attributes for VFMA_LANE/ VFMS_LANE
 (define_int_attr neon_vfm_lane_as
  [(UNSPEC_VFMA_LANE "a") (UNSPEC_VFMS_LANE "s")])
+
+;; An iterator for the CDP coprocessor instructions
+(define_int_iterator CDPI [VUNSPEC_CDP VUNSPEC_CDP2])
+(define_int_attr cdp [(VUNSPEC_CDP "cdp") (VUNSPEC_CDP2 "cdp2")])
+(define_int_attr CDP [(VUNSPEC_CDP "CDP") (VUNSPEC_CDP2 "CDP2")])
+
+;; An iterator for the LDC coprocessor instruction
+(define_int_iterator LDCI [VUNSPEC_LDC VUNSPEC_LDC2
+			   VUNSPEC_LDCL VUNSPEC_LDC2L])
+(define_int_attr ldc [(VUNSPEC_LDC "ldc") (VUNSPEC_LDC2 "ldc2")
+		      (VUNSPEC_LDCL "ldcl") (VUNSPEC_LDC2L "ldc2l")])
+(define_int_attr LDC [(VUNSPEC_LDC "LDC") (VUNSPEC_LDC2 "LDC2")
+		      (VUNSPEC_LDCL "LDCL") (VUNSPEC_LDC2L "LDC2L")])
+
+;; An iterator for the STC coprocessor instructions
+(define_int_iterator STCI [VUNSPEC_STC VUNSPEC_STC2
+			   VUNSPEC_STCL VUNSPEC_STC2L])
+(define_int_attr stc [(VUNSPEC_STC "stc") (VUNSPEC_STC2 "stc2")
+		      (VUNSPEC_STCL "stcl") (VUNSPEC_STC2L "stc2l")])
+(define_int_attr STC [(VUNSPEC_STC "STC") (VUNSPEC_STC2 "STC2")
+		      (VUNSPEC_STCL "STCL") (VUNSPEC_STC2L "STC2L")])
+
+;; An iterator for the MCR coprocessor instructions
+(define_int_iterator MCRI [VUNSPEC_MCR VUNSPEC_MCR2])
+
+(define_int_attr mcr [(VUNSPEC_MCR "mcr") (VUNSPEC_MCR2 "mcr2")])
+(define_int_attr MCR [(VUNSPEC_MCR "MCR") (VUNSPEC_MCR2 "MCR2")])
+
+;; An iterator for the MRC coprocessor instructions
+(define_int_iterator MRCI [VUNSPEC_MRC VUNSPEC_MRC2])
+
+(define_int_attr mrc [(VUNSPEC_MRC "mrc") (VUNSPEC_MRC2 "mrc2")])
+(define_int_attr MRC [(VUNSPEC_MRC "MRC") (VUNSPEC_MRC2 "MRC2")])
+
+;; An iterator for the MCRR coprocessor instructions
+(define_int_iterator MCRRI [VUNSPEC_MCRR VUNSPEC_MCRR2])
+
+(define_int_attr mcrr [(VUNSPEC_MCRR "mcrr") (VUNSPEC_MCRR2 "mcrr2")])
+(define_int_attr MCRR [(VUNSPEC_MCRR "MCRR") (VUNSPEC_MCRR2 "MCRR2")])
+
+;; An iterator for the MRRC coprocessor instructions
+(define_int_iterator MRRCI [VUNSPEC_MRRC VUNSPEC_MRRC2])
+
+(define_int_attr mrrc [(VUNSPEC_MRRC "mrrc") (VUNSPEC_MRRC2 "mrrc2")])
+(define_int_attr MRRC [(VUNSPEC_MRRC "MRRC") (VUNSPEC_MRRC2 "MRRC2")])

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,7 +35,6 @@ with Csets;    use Csets;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Erroutc;  use Erroutc;
-with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
 with Lib;      use Lib;
 with Opt;      use Opt;
@@ -59,6 +58,13 @@ package body Errout is
 
    Finalize_Called : Boolean := False;
    --  Set True if the Finalize routine has been called
+
+   Record_Compilation_Errors : Boolean := False;
+   --  Record that a compilation error was witnessed during a given phase of
+   --  analysis for gnat2why. This is needed as Warning_Mode is modified twice
+   --  in gnat2why, hence Erroutc.Compilation_Errors can only return a suitable
+   --  value for each phase of analysis separately. This is updated at each
+   --  call to Compilation_Errors.
 
    Warn_On_Instance : Boolean;
    --  Flag set true for warning message to be posted on instance
@@ -236,8 +242,17 @@ package body Errout is
    begin
       if not Finalize_Called then
          raise Program_Error;
+
+      --  Record that a compilation error was witnessed during a given phase of
+      --  analysis for gnat2why. This is needed as Warning_Mode is modified
+      --  twice in gnat2why, hence Erroutc.Compilation_Errors can only return a
+      --  suitable value for each phase of analysis separately.
+
       else
-         return Erroutc.Compilation_Errors;
+         Record_Compilation_Errors :=
+           Record_Compilation_Errors or else Erroutc.Compilation_Errors;
+
+         return Record_Compilation_Errors;
       end if;
    end Compilation_Errors;
 
@@ -262,7 +277,7 @@ package body Errout is
                Warnings_Detected := Warnings_Detected - 1;
 
                if M.Info then
-                  Info_Messages := Info_Messages - 1;
+                  Warning_Info_Messages := Warning_Info_Messages - 1;
                end if;
 
                if M.Warn_Err then
@@ -296,11 +311,6 @@ package body Errout is
       --  template in instantiation case, otherwise unchanged).
 
    begin
-      --  It is a fatal error to issue an error message when scanning from the
-      --  internal source buffer (see Sinput for further documentation)
-
-      pragma Assert (Sinput.Source /= Internal_Source_Ptr);
-
       --  Return if all errors are to be ignored
 
       if Errors_Must_Be_Ignored then
@@ -407,8 +417,13 @@ package body Errout is
 
       --  or
 
-      --     warning: in instantiation at
+      --     warning: in instantiation at ...
       --     warning: original warning message
+
+      --  or
+
+      --     info: in instantiation at ...
+      --     info: original info message
 
       --  All these messages are posted at the location of the top level
       --  instantiation. If there are nested instantiations, then the
@@ -424,8 +439,13 @@ package body Errout is
 
       --  or
 
-      --     warning: in inlined body at
+      --     warning: in inlined body at ...
       --     warning: original warning message
+
+      --  or
+
+      --     info: in inlined body at ...
+      --     info: original info message
 
       --  OK, here we have an instantiation error, and we need to generate the
       --  error on the instantiation, rather than on the template.
@@ -478,10 +498,16 @@ package body Errout is
                --  Case of inlined body
 
                if Inlined_Body (X) then
-                  if Is_Warning_Msg or Is_Style_Msg then
+                  if Is_Info_Msg then
+                     Error_Msg_Internal
+                       ("info: in inlined body #",
+                        Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
+
+                  elsif Is_Warning_Msg or Is_Style_Msg then
                      Error_Msg_Internal
                        (Warn_Insertion & "in inlined body #",
                         Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
+
                   else
                      Error_Msg_Internal
                        ("error in inlined body #",
@@ -491,10 +517,16 @@ package body Errout is
                --  Case of generic instantiation
 
                else
-                  if Is_Warning_Msg or else Is_Style_Msg then
+                  if Is_Info_Msg then
+                     Error_Msg_Internal
+                       ("info: in instantiation #",
+                        Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
+
+                  elsif Is_Warning_Msg or else Is_Style_Msg then
                      Error_Msg_Internal
                        (Warn_Insertion & "in instantiation #",
                         Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
+
                   else
                      Error_Msg_Internal
                        ("instantiation error #",
@@ -1154,12 +1186,14 @@ package body Errout is
       --  Bump appropriate statistics counts
 
       if Errors.Table (Cur_Msg).Info then
-         Info_Messages := Info_Messages + 1;
 
          --  Could be (usually is) both "info" and "warning"
 
          if Errors.Table (Cur_Msg).Warn then
-            Warnings_Detected := Warnings_Detected + 1;
+            Warning_Info_Messages := Warning_Info_Messages + 1;
+            Warnings_Detected     := Warnings_Detected + 1;
+         else
+            Report_Info_Messages := Report_Info_Messages + 1;
          end if;
 
       elsif Errors.Table (Cur_Msg).Warn
@@ -1388,7 +1422,7 @@ package body Errout is
             Warnings_Detected := Warnings_Detected - 1;
 
             if Errors.Table (E).Info then
-               Info_Messages := Info_Messages - 1;
+               Warning_Info_Messages := Warning_Info_Messages - 1;
             end if;
 
             if Errors.Table (E).Warn_Err then
@@ -1615,12 +1649,12 @@ package body Errout is
       Last_Error_Msg := No_Error_Msg;
       Serious_Errors_Detected := 0;
       Total_Errors_Detected := 0;
-      Warnings_Treated_As_Errors := 0;
-      Warnings_Detected := 0;
-      Info_Messages := 0;
-      Warnings_As_Errors_Count := 0;
       Cur_Msg := No_Error_Msg;
       List_Pragmas.Init;
+
+      --  Reset counts for warnings
+
+      Reset_Warnings;
 
       --  Initialize warnings tables
 
@@ -1753,12 +1787,12 @@ package body Errout is
             Write_Str (" errors");
          end if;
 
-         if Warnings_Detected - Info_Messages /= 0 then
+         if Warnings_Detected - Warning_Info_Messages /= 0 then
             Write_Str (", ");
             Write_Int (Warnings_Detected);
             Write_Str (" warning");
 
-            if Warnings_Detected - Info_Messages /= 1 then
+            if Warnings_Detected - Warning_Info_Messages /= 1 then
                Write_Char ('s');
             end if;
 
@@ -1778,12 +1812,12 @@ package body Errout is
             end if;
          end if;
 
-         if Info_Messages /= 0 then
+         if Warning_Info_Messages + Report_Info_Messages /= 0 then
             Write_Str (", ");
-            Write_Int (Info_Messages);
+            Write_Int (Warning_Info_Messages + Report_Info_Messages);
             Write_Str (" info message");
 
-            if Info_Messages > 1 then
+            if Warning_Info_Messages + Report_Info_Messages > 1 then
                Write_Char ('s');
             end if;
          end if;
@@ -2087,10 +2121,13 @@ package body Errout is
 
       Write_Max_Errors;
 
+      --  Even though Warning_Info_Messages are a subclass of warnings, they
+      --  must not be treated as errors when -gnatwe is in effect.
+
       if Warning_Mode = Treat_As_Error then
          Total_Errors_Detected :=
-           Total_Errors_Detected + Warnings_Detected - Info_Messages;
-         Warnings_Detected := Info_Messages;
+           Total_Errors_Detected + Warnings_Detected - Warning_Info_Messages;
+         Warnings_Detected := Warning_Info_Messages;
       end if;
    end Output_Messages;
 
@@ -2264,7 +2301,7 @@ package body Errout is
                Warnings_Detected := Warnings_Detected - 1;
 
                if Errors.Table (E).Info then
-                  Info_Messages := Info_Messages - 1;
+                  Warning_Info_Messages := Warning_Info_Messages - 1;
                end if;
 
                return True;
@@ -2356,6 +2393,18 @@ package body Errout is
          end loop;
       end if;
    end Remove_Warning_Messages;
+
+   --------------------
+   -- Reset_Warnings --
+   --------------------
+
+   procedure Reset_Warnings is
+   begin
+      Warnings_Treated_As_Errors := 0;
+      Warnings_Detected := 0;
+      Warning_Info_Messages := 0;
+      Warnings_As_Errors_Count := 0;
+   end Reset_Warnings;
 
    ----------------------
    -- Adjust_Name_Case --
@@ -2663,9 +2712,7 @@ package body Errout is
       --  Types in other language defined units are displayed as
       --  "package-name.type-name"
 
-      elsif
-        Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (Ent)))
-      then
+      elsif Is_Predefined_Unit (Get_Source_Unit (Ent)) then
          Get_Unqualified_Decoded_Name_String
            (Unit_Name (Get_Source_Unit (Ent)));
          Name_Len := Name_Len - 2;
@@ -2703,9 +2750,9 @@ package body Errout is
 
       if Sloc (Error_Msg_Node_1) > Standard_Location
         and then
-          not Is_Predefined_File_Name
-                (Unit_File_Name (Get_Source_Unit (Error_Msg_Node_1)))
+          not Is_Predefined_Unit (Get_Source_Unit (Error_Msg_Node_1))
       then
+         Get_Name_String (Unit_File_Name (Get_Source_Unit (Error_Msg_Node_1)));
          Set_Msg_Str (" defined");
          Set_Msg_Insertion_Line_Number (Sloc (Error_Msg_Node_1), Flag);
 
@@ -2786,7 +2833,9 @@ package body Errout is
             Set_Msg_Node (Defining_Identifier (Node));
             return;
 
-         when N_Selected_Component | N_Expanded_Name =>
+         when N_Expanded_Name
+            | N_Selected_Component
+         =>
             Set_Msg_Node (Prefix (Node));
             Set_Msg_Char ('.');
             Set_Msg_Node (Selector_Name (Node));
@@ -2992,7 +3041,7 @@ package body Errout is
             when '\' =>
                Continuation := True;
 
-               if Text (P) = '\' then
+               if P <= Text'Last and then Text (P) = '\' then
                   Continuation_New_Line := True;
                   P := P + 1;
                end if;
@@ -3048,6 +3097,17 @@ package body Errout is
             --  '[' (will be/would have been raised at run time)
 
             when '[' =>
+
+               --  Switch the message from a warning to an error if the flag
+               --  -gnatwE is specified to treat run-time exception warnings
+               --  as errors.
+
+               if Is_Warning_Msg
+                 and then Warning_Mode = Treat_Run_Time_Warnings_As_Errors
+               then
+                  Is_Warning_Msg := False;
+               end if;
+
                if Is_Warning_Msg then
                   Set_Msg_Str ("will be raised at run time");
                else
@@ -3398,10 +3458,13 @@ package body Errout is
       case Warning_Msg_Char is
          when '?' =>
             return "??";
+
          when 'a' .. 'z' | 'A' .. 'Z' | '*' | '$' =>
             return '?' & Warning_Msg_Char & '?';
+
          when ' ' =>
             return "?";
+
          when others =>
             raise Program_Error;
       end case;

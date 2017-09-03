@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin nacl netbsd openbsd plan9 solaris windows
+// +build aix darwin nacl netbsd openbsd plan9 solaris windows
 
 package runtime
 
@@ -162,13 +162,9 @@ func notewakeup(n *note) {
 
 func notesleep(n *note) {
 	gp := getg()
-
-	// Currently OK to sleep in non-g0 for gccgo.  It happens in
-	// stoptheworld because we have not implemented preemption.
-	// if gp != gp.m.g0 {
-	//	throw("notesleep not on g0")
-	// }
-
+	if gp != gp.m.g0 {
+		throw("notesleep not on g0")
+	}
 	semacreate(gp.m)
 	if !atomic.Casuintptr(&n.key, 0, uintptr(unsafe.Pointer(gp.m))) {
 		// Must be locked (got wakeup).
@@ -255,13 +251,9 @@ func notetsleep_internal(n *note, ns int64, gp *g, deadline int64) bool {
 
 func notetsleep(n *note, ns int64) bool {
 	gp := getg()
-
-	// Currently OK to sleep in non-g0 for gccgo.  It happens in
-	// stoptheworld because we have not implemented preemption.
-	// if gp != gp.m.g0 && gp.m.preemptoff != "" {
-	//	throw("notetsleep not on g0")
-	// }
-
+	if gp != gp.m.g0 && gp.m.preemptoff != "" {
+		throw("notetsleep not on g0")
+	}
 	semacreate(gp.m)
 	return notetsleep_internal(n, ns, nil, 0)
 }

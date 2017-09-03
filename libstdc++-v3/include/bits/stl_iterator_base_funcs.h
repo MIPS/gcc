@@ -1,6 +1,6 @@
 // Functions used by iterators -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -66,13 +66,13 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
 _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
   // Forward declaration for the overloads of __distance.
   template <typename> struct _List_iterator;
   template <typename> struct _List_const_iterator;
 _GLIBCXX_END_NAMESPACE_CONTAINER
-
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _InputIterator>
     inline _GLIBCXX14_CONSTEXPR
@@ -177,7 +177,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // concept requirements
       __glibcxx_function_requires(_RandomAccessIteratorConcept<
 				  _RandomAccessIterator>)
-      __i += __n;
+      if (__builtin_constant_p(__n) && __n == 1)
+	++__i;
+      else if (__builtin_constant_p(__n) && __n == -1)
+	--__i;
+      else
+	__i += __n;
     }
 
   /**

@@ -1,5 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -116,7 +116,6 @@ use_modules (void)
   gfc_pop_error (&old_error);
   gfc_commit_symbols ();
   gfc_warning_check ();
-  gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
   gfc_current_ns->old_equiv = gfc_current_ns->equiv;
   gfc_current_ns->old_data = gfc_current_ns->data;
   last_was_use_stmt = false;
@@ -489,6 +488,7 @@ decode_statement (void)
       break;
 
     case 'f':
+      match ("fail image", gfc_match_fail_image, ST_FAIL_IMAGE);
       match ("final", gfc_match_final_decl, ST_FINAL);
       match ("flush", gfc_match_flush, ST_FLUSH);
       match ("format", gfc_match_format, ST_FORMAT);
@@ -722,7 +722,10 @@ decode_oacc_directive (void)
 	goto do_spec_only;					\
       if (match_word_omp_simd (keyword, subr, &old_locus,	\
 			       &simd_matched) == MATCH_YES)	\
-	return st;						\
+	{							\
+	  ret = st;						\
+	  goto finish;						\
+	}							\
       else							\
 	undo_new_statement ();				  	\
     } while (0);
@@ -737,7 +740,10 @@ decode_oacc_directive (void)
 	goto do_spec_only;					\
       else if (match_word (keyword, subr, &old_locus)		\
 	       == MATCH_YES)					\
-	return st;						\
+	{							\
+	  ret = st;						\
+	  goto finish;						\
+	}							\
       else							\
 	undo_new_statement ();				  	\
     } while (0);
@@ -747,7 +753,10 @@ decode_oacc_directive (void)
     do {							\
       if (match_word_omp_simd (keyword, subr, &old_locus,	\
 			       &simd_matched) == MATCH_YES)	\
-	return st;						\
+	{							\
+	  ret = st;						\
+	  goto finish;						\
+	}							\
       else							\
 	undo_new_statement ();				  	\
     } while (0);
@@ -759,7 +768,10 @@ decode_oacc_directive (void)
 	;							\
       else if (match_word (keyword, subr, &old_locus)		\
 	       == MATCH_YES)					\
-	return st;						\
+	{							\
+	  ret = st;						\
+	  goto finish;						\
+	}							\
       else							\
 	undo_new_statement ();				  	\
     } while (0);
@@ -771,25 +783,17 @@ decode_omp_directive (void)
   char c;
   bool simd_matched = false;
   bool spec_only = false;
+  gfc_statement ret = ST_NONE;
+  bool pure_ok = true;
 
   gfc_enforce_clean_symbol_state ();
 
   gfc_clear_error ();	/* Clear any pending errors.  */
   gfc_clear_warning ();	/* Clear any pending warnings.  */
 
-  if (gfc_pure (NULL))
-    {
-      gfc_error_now ("OpenMP directives at %C may not appear in PURE "
-		     "or ELEMENTAL procedures");
-      gfc_error_recovery ();
-      return ST_NONE;
-    }
-
   if (gfc_current_state () == COMP_FUNCTION
       && gfc_current_block ()->result->ts.kind == -1)
     spec_only = true;
-
-  gfc_unset_implicit_pure (NULL);
 
   old_locus = gfc_current_locus;
 
@@ -798,6 +802,33 @@ decode_omp_directive (void)
      first character.  */
 
   c = gfc_peek_ascii_char ();
+
+  /* match is for directives that should be recognized only if
+     -fopenmp, matchs for directives that should be recognized
+     if either -fopenmp or -fopenmp-simd.
+     Handle only the directives allowed in PURE/ELEMENTAL procedures
+     first (those also shall not turn off implicit pure).  */
+  switch (c)
+    {
+    case 'd':
+      matchds ("declare simd", gfc_match_omp_declare_simd,
+	       ST_OMP_DECLARE_SIMD);
+      matchdo ("declare target", gfc_match_omp_declare_target,
+	       ST_OMP_DECLARE_TARGET);
+      break;
+    case 's':
+      matchs ("simd", gfc_match_omp_simd, ST_OMP_SIMD);
+      break;
+    }
+
+  pure_ok = false;
+  if (flag_openmp && gfc_pure (NULL))
+    {
+      gfc_error_now ("OpenMP directives other than SIMD or DECLARE TARGET "
+		     "at %C may not appear in PURE or ELEMENTAL procedures");
+      gfc_error_recovery ();
+      return ST_NONE;
+    }
 
   /* match is for directives that should be recognized only if
      -fopenmp, matchs for directives that should be recognized
@@ -819,10 +850,6 @@ decode_omp_directive (void)
     case 'd':
       matchds ("declare reduction", gfc_match_omp_declare_reduction,
 	       ST_OMP_DECLARE_REDUCTION);
-      matchds ("declare simd", gfc_match_omp_declare_simd,
-	       ST_OMP_DECLARE_SIMD);
-      matchdo ("declare target", gfc_match_omp_declare_target,
-	       ST_OMP_DECLARE_TARGET);
       matchs ("distribute parallel do simd",
 	      gfc_match_omp_distribute_parallel_do_simd,
 	      ST_OMP_DISTRIBUTE_PARALLEL_DO_SIMD);
@@ -848,7 +875,7 @@ decode_omp_directive (void)
       matcho ("end do", gfc_match_omp_end_nowait, ST_OMP_END_DO);
       matchs ("end simd", gfc_match_omp_eos, ST_OMP_END_SIMD);
       matcho ("end master", gfc_match_omp_eos, ST_OMP_END_MASTER);
-      matcho ("end ordered", gfc_match_omp_eos, ST_OMP_END_ORDERED);
+      matchs ("end ordered", gfc_match_omp_eos, ST_OMP_END_ORDERED);
       matchs ("end parallel do simd", gfc_match_omp_eos,
 	      ST_OMP_END_PARALLEL_DO_SIMD);
       matcho ("end parallel do", gfc_match_omp_eos, ST_OMP_END_PARALLEL_DO);
@@ -902,14 +929,16 @@ decode_omp_directive (void)
       matcho ("master", gfc_match_omp_master, ST_OMP_MASTER);
       break;
     case 'o':
-      if (flag_openmp && gfc_match ("ordered depend (") == MATCH_YES)
+      if (gfc_match ("ordered depend (") == MATCH_YES)
 	{
 	  gfc_current_locus = old_locus;
+	  if (!flag_openmp)
+	    break;
 	  matcho ("ordered", gfc_match_omp_ordered_depend,
 		  ST_OMP_ORDERED_DEPEND);
 	}
       else
-	matcho ("ordered", gfc_match_omp_ordered, ST_OMP_ORDERED);
+	matchs ("ordered", gfc_match_omp_ordered, ST_OMP_ORDERED);
       break;
     case 'p':
       matchs ("parallel do simd", gfc_match_omp_parallel_do_simd,
@@ -924,7 +953,6 @@ decode_omp_directive (void)
     case 's':
       matcho ("sections", gfc_match_omp_sections, ST_OMP_SECTIONS);
       matcho ("section", gfc_match_omp_eos, ST_OMP_SECTION);
-      matchs ("simd", gfc_match_omp_simd, ST_OMP_SIMD);
       matcho ("single", gfc_match_omp_single, ST_OMP_SINGLE);
       break;
     case 't':
@@ -997,6 +1025,23 @@ decode_omp_directive (void)
   gfc_error_recovery ();
 
   return ST_NONE;
+
+ finish:
+  if (!pure_ok)
+    {
+      gfc_unset_implicit_pure (NULL);
+
+      if (!flag_openmp && gfc_pure (NULL))
+	{
+	  gfc_error_now ("OpenMP directives other than SIMD or DECLARE TARGET "
+			 "at %C may not appear in PURE or ELEMENTAL "
+			 "procedures");
+	  reject_statement ();
+	  gfc_error_recovery ();
+	  return ST_NONE;
+	}
+    }
+  return ret;
 
  do_spec_only:
   reject_statement ();
@@ -1386,7 +1431,6 @@ next_statement (void)
 
   gfc_new_block = NULL;
 
-  gfc_current_ns->old_cl_list = gfc_current_ns->cl_list;
   gfc_current_ns->old_equiv = gfc_current_ns->equiv;
   gfc_current_ns->old_data = gfc_current_ns->data;
   for (;;)
@@ -1458,7 +1502,7 @@ next_statement (void)
   case ST_OMP_TARGET_EXIT_DATA: case ST_OMP_ORDERED_DEPEND: \
   case ST_ERROR_STOP: case ST_SYNC_ALL: \
   case ST_SYNC_IMAGES: case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: \
-  case ST_EVENT_POST: case ST_EVENT_WAIT: \
+  case ST_EVENT_POST: case ST_EVENT_WAIT: case ST_FAIL_IMAGE: \
   case ST_OACC_UPDATE: case ST_OACC_WAIT: case ST_OACC_CACHE: \
   case ST_OACC_ENTER_DATA: case ST_OACC_EXIT_DATA
 
@@ -1786,6 +1830,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_EVENT_WAIT:
       p = "EVENT WAIT";
       break;
+    case ST_FAIL_IMAGE:
+      p = "FAIL IMAGE";
+      break;
     case ST_END_ASSOCIATE:
       p = "END ASSOCIATE";
       break;
@@ -2083,10 +2130,10 @@ gfc_ascii_statement (gfc_statement st)
       p = "!$ACC ROUTINE";
       break;
     case ST_OACC_ATOMIC:
-      p = "!ACC ATOMIC";
+      p = "!$ACC ATOMIC";
       break;
     case ST_OACC_END_ATOMIC:
-      p = "!ACC END ATOMIC";
+      p = "!$ACC END ATOMIC";
       break;
     case ST_OMP_ATOMIC:
       p = "!$OMP ATOMIC";
@@ -2483,41 +2530,13 @@ accept_statement (gfc_statement st)
 }
 
 
-/* Clear default character types with charlen pointers that are about
-   to become invalid.  */
-
-static void
-clear_default_charlen (gfc_namespace *ns, const gfc_charlen *cl,
-		       const gfc_charlen *end)
-{
-  gfc_typespec *ts;
-
-  for (ts = &ns->default_type[0]; ts < &ns->default_type[GFC_LETTERS]; ts++)
-      if (ts->type == BT_CHARACTER)
-	{
-	  const gfc_charlen *cl2;
-	  for (cl2 = cl; cl2 != end; cl2 = cl2->next)
-	    if (ts->u.cl == cl2)
-	      {
-		ts->u.cl = NULL;
-		ts->type = BT_UNKNOWN;
-		break;
-	      }
-	 }
-}
-
-/* Undo anything tentative that has been built for the current
-   statement.  */
+/* Undo anything tentative that has been built for the current statement,
+   except if a gfc_charlen structure has been added to current namespace's
+   list of gfc_charlen structure.  */
 
 static void
 reject_statement (void)
 {
-  /* Revert to the previous charlen chain.  */
-  clear_default_charlen (gfc_current_ns,
-			 gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
-  gfc_free_charlen (gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
-  gfc_current_ns->cl_list = gfc_current_ns->old_cl_list;
-
   gfc_free_equiv_until (gfc_current_ns->equiv, gfc_current_ns->old_equiv);
   gfc_current_ns->equiv = gfc_current_ns->old_equiv;
 
@@ -2904,7 +2923,7 @@ check_component (gfc_symbol *sym, gfc_component *c, gfc_component **lockp,
       coarray = true;
       sym->attr.coarray_comp = 1;
     }
- 
+
   if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.coarray_comp
       && !c->attr.pointer)
     {
@@ -3068,7 +3087,7 @@ parse_union (void)
           /* Add a component to the union for each map. */
           if (!gfc_add_component (un, gfc_new_block->name, &c))
             {
-              gfc_internal_error ("failed to create map component '%s'", 
+              gfc_internal_error ("failed to create map component '%s'",
                   gfc_new_block->name);
               reject_statement ();
               return;
@@ -4327,8 +4346,8 @@ parse_critical_block (void)
   for (sd = gfc_state_stack; sd; sd = sd->previous)
     if (sd->state == COMP_OMP_STRUCTURED_BLOCK)
       gfc_error_now (is_oacc (sd)
-		     ? "CRITICAL block inside of OpenACC region at %C"
-		     : "CRITICAL block inside of OpenMP region at %C");
+		     ? G_("CRITICAL block inside of OpenACC region at %C")
+		     : G_("CRITICAL block inside of OpenMP region at %C"));
 
   s.ext.end_do_label = new_st.label1;
 
@@ -5586,11 +5605,11 @@ get_modproc_result (void)
       proc = gfc_current_ns->proc_name ? gfc_current_ns->proc_name : NULL;
       if (proc != NULL
 	  && proc->attr.function
-	  && proc->ts.interface
-	  && proc->ts.interface->result
-	  && proc->ts.interface->result != proc->ts.interface)
+	  && proc->tlink
+	  && proc->tlink->result
+	  && proc->tlink->result != proc->tlink)
 	{
-	  gfc_copy_dummy_sym (&proc->result, proc->ts.interface->result, 1);
+	  gfc_copy_dummy_sym (&proc->result, proc->tlink->result, 1);
 	  gfc_set_sym_referenced (proc->result);
 	  proc->result->attr.if_source = IFSRC_DECL;
 	  gfc_commit_symbol (proc->result);
@@ -5796,6 +5815,9 @@ static void
 set_syms_host_assoc (gfc_symbol *sym)
 {
   gfc_component *c;
+  const char dot[2] = ".";
+  char parent1[GFC_MAX_SYMBOL_LEN + 1];
+  char parent2[GFC_MAX_SYMBOL_LEN + 1];
 
   if (sym == NULL)
     return;
@@ -5803,16 +5825,32 @@ set_syms_host_assoc (gfc_symbol *sym)
   if (sym->attr.module_procedure)
     sym->attr.external = 0;
 
-/*  sym->attr.access = ACCESS_PUBLIC;  */
-
   sym->attr.use_assoc = 0;
   sym->attr.host_assoc = 1;
   sym->attr.used_in_submodule =1;
 
   if (sym->attr.flavor == FL_DERIVED)
     {
-      for (c = sym->components; c; c = c->next)
-	c->attr.access = ACCESS_PUBLIC;
+      /* Derived types with PRIVATE components that are declared in
+	 modules other than the parent module must not be changed to be
+	 PUBLIC. The 'use-assoc' attribute must be reset so that the
+	 test in symbol.c(gfc_find_component) works correctly. This is
+	 not necessary for PRIVATE symbols since they are not read from
+	 the module.  */
+      memset(parent1, '\0', sizeof(parent1));
+      memset(parent2, '\0', sizeof(parent2));
+      strcpy (parent1, gfc_new_block->name);
+      strcpy (parent2, sym->module);
+      if (strcmp (strtok (parent1, dot), strtok (parent2, dot)) == 0)
+	{
+	  for (c = sym->components; c; c = c->next)
+	    c->attr.access = ACCESS_PUBLIC;
+	}
+      else
+	{
+	  sym->attr.use_assoc = 1;
+	  sym->attr.host_assoc = 0;
+	}
     }
 }
 
@@ -6181,6 +6219,9 @@ loop:
   /* Dump the parse tree if requested.  */
   if (flag_dump_fortran_original)
     gfc_dump_parse_tree (gfc_current_ns, stdout);
+
+  if (flag_c_prototypes)
+    gfc_dump_c_prototypes (gfc_current_ns, stdout);
 
   gfc_get_errors (NULL, &errors);
   if (s.state == COMP_MODULE || s.state == COMP_SUBMODULE)

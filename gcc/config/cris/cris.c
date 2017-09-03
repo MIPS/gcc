@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998-2016 Free Software Foundation, Inc.
+   Copyright (C) 1998-2017 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "cfghooks.h"
 #include "df.h"
 #include "memmodel.h"
@@ -1597,7 +1599,7 @@ cris_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, reg_class_t rclass)
       && rclass != SRP_REGS
       && rclass != CC0_REGS
       && rclass != SPECIAL_REGS)
-    return GENERAL_REGS;
+    return GENNONACR_REGS;
 
   return rclass;
 }

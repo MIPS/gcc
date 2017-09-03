@@ -1,5 +1,5 @@
 /* Mainly the interface between cpplib and the C front ends.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -316,6 +316,7 @@ c_common_has_attribute (cpp_reader *pfile)
     {
       attr_name = get_identifier ((const char *)
 				  cpp_token_as_text (pfile, token));
+      attr_name = canonicalize_attr_name (attr_name);
       if (c_dialect_cxx ())
 	{
 	  int idx = 0;
@@ -987,7 +988,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
     }
 
   if (type != const_type)
-    value = build1 (EXCESS_PRECISION_EXPR, type, value);
+    value = build1_loc (token->src_loc, EXCESS_PRECISION_EXPR, type, value);
 
   return value;
 }
@@ -1109,7 +1110,7 @@ interpret_fixed (const cpp_token *token, unsigned int flags)
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
-  fixed_from_string (&fixed, copy, TYPE_MODE (type));
+  fixed_from_string (&fixed, copy, SCALAR_TYPE_MODE (type));
 
   /* Create a node with determined type and value.  */
   value = build_fixed (type, fixed);

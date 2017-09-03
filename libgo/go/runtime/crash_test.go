@@ -6,6 +6,7 @@ package runtime_test
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"internal/testenv"
 	"io/ioutil"
@@ -136,11 +137,10 @@ func buildTestProg(t *testing.T, binary string, flags ...string) (string, error)
 	}
 
 	exe := filepath.Join(testprog.dir, name+".exe")
-	cmd := exec.Command("go", append([]string{"build", "-o", exe}, flags...)...)
+	cmd := exec.Command(testenv.GoToolPath(t), append([]string{"build", "-o", exe}, flags...)...)
 	cmd.Dir = "testdata/" + binary
 	out, err := testEnv(cmd).CombinedOutput()
 	if err != nil {
-		exe = ""
 		target.err = fmt.Errorf("building %s %v: %v\n%s", binary, flags, err, out)
 		testprog.target[name] = target
 		return "", target.err
@@ -158,7 +158,7 @@ var (
 func checkStaleRuntime(t *testing.T) {
 	staleRuntimeOnce.Do(func() {
 		// 'go run' uses the installed copy of runtime.a, which may be out of date.
-		out, err := testEnv(exec.Command("go", "list", "-f", "{{.Stale}}", "runtime")).CombinedOutput()
+		out, err := testEnv(exec.Command(testenv.GoToolPath(t), "list", "-f", "{{.Stale}}", "runtime")).CombinedOutput()
 		if err != nil {
 			staleRuntimeErr = fmt.Errorf("failed to execute 'go list': %v\n%v", err, string(out))
 			return
@@ -225,6 +225,9 @@ func TestGoexitDeadlock(t *testing.T) {
 }
 
 func TestStackOverflow(t *testing.T) {
+	if runtime.Compiler == "gccgo" {
+		t.Skip("gccgo does not do stack overflow checking")
+	}
 	output := runTestProg(t, "testprog", "StackOverflow")
 	want := "runtime: goroutine stack exceeds 1474560-byte limit\nfatal error: stack overflow"
 	if !strings.HasPrefix(output, want) {
@@ -302,7 +305,7 @@ func TestNoHelperGoroutines(t *testing.T) {
 
 func TestBreakpoint(t *testing.T) {
 	output := runTestProg(t, "testprog", "Breakpoint")
-	want := "runtime.Breakpoint()"
+	want := "runtime.Breakpoint"
 	if !strings.Contains(output, want) {
 		t.Fatalf("output:\n%s\n\nwant output containing: %s", output, want)
 	}
@@ -401,6 +404,7 @@ func TestRecoverBeforePanicAfterGoexit(t *testing.T) {
 }
 
 func TestNetpollDeadlock(t *testing.T) {
+	t.Parallel()
 	output := runTestProg(t, "testprognet", "NetpollDeadlock")
 	want := "done\n"
 	if !strings.HasSuffix(output, want) {
@@ -409,6 +413,7 @@ func TestNetpollDeadlock(t *testing.T) {
 }
 
 func TestPanicTraceback(t *testing.T) {
+	t.Parallel()
 	output := runTestProg(t, "testprog", "PanicTraceback")
 	want := "panic: hello"
 	if !strings.HasPrefix(output, want) {
@@ -416,9 +421,17 @@ func TestPanicTraceback(t *testing.T) {
 	}
 
 	// Check functions in the traceback.
-	fns := []string{"panic", "main.pt1.func1", "panic", "main.pt2.func1", "panic", "main.pt2", "main.pt1"}
+	fns := []string{"main.pt1.func1", "panic", "main.pt2.func1", "panic", "main.pt2", "main.pt1"}
+	if runtime.Compiler == "gccgo" {
+		fns = []string{"main.$nested", "panic", "main.$nested", "panic", "main.pt2", "main.pt1"}
+	}
 	for _, fn := range fns {
-		re := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(fn) + `\(.*\n`)
+		var re *regexp.Regexp
+		if runtime.Compiler != "gccgo" {
+			re = regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(fn) + `\(.*\n`)
+		} else {
+			re = regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(fn) + `.*\n`)
+		}
 		idx := re.FindStringIndex(output)
 		if idx == nil {
 			t.Fatalf("expected %q function in traceback:\n%s", fn, output)
@@ -443,8 +456,18 @@ func TestPanicDeadlockSyscall(t *testing.T) {
 	testPanicDeadlock(t, "SyscallInPanic", "1\n2\npanic: 3\n\n")
 }
 
+func TestPanicLoop(t *testing.T) {
+	output := runTestProg(t, "testprog", "PanicLoop")
+	if want := "panic while printing panic value"; !strings.Contains(output, want) {
+		t.Errorf("output does not contain %q:\n%s", want, output)
+	}
+}
+
 func TestMemPprof(t *testing.T) {
 	testenv.MustHaveGoRun(t)
+	if runtime.Compiler == "gccgo" {
+		t.Skip("gccgo may not have the pprof tool")
+	}
 
 	exe, err := buildTestProg(t, "testprog")
 	if err != nil {
@@ -458,7 +481,7 @@ func TestMemPprof(t *testing.T) {
 	fn := strings.TrimSpace(string(got))
 	defer os.Remove(fn)
 
-	cmd := testEnv(exec.Command("go", "tool", "pprof", "-alloc_space", "-top", exe, fn))
+	cmd := testEnv(exec.Command(testenv.GoToolPath(t), "tool", "pprof", "-alloc_space", "-top", exe, fn))
 
 	found := false
 	for i, e := range cmd.Env {
@@ -480,5 +503,41 @@ func TestMemPprof(t *testing.T) {
 
 	if !bytes.Contains(top, []byte("MemProf")) {
 		t.Error("missing MemProf in pprof output")
+	}
+}
+
+var concurrentMapTest = flag.Bool("run_concurrent_map_tests", false, "also run flaky concurrent map tests")
+
+func TestConcurrentMapWrites(t *testing.T) {
+	if !*concurrentMapTest {
+		t.Skip("skipping without -run_concurrent_map_tests")
+	}
+	testenv.MustHaveGoRun(t)
+	output := runTestProg(t, "testprog", "concurrentMapWrites")
+	want := "fatal error: concurrent map writes"
+	if !strings.HasPrefix(output, want) {
+		t.Fatalf("output does not start with %q:\n%s", want, output)
+	}
+}
+func TestConcurrentMapReadWrite(t *testing.T) {
+	if !*concurrentMapTest {
+		t.Skip("skipping without -run_concurrent_map_tests")
+	}
+	testenv.MustHaveGoRun(t)
+	output := runTestProg(t, "testprog", "concurrentMapReadWrite")
+	want := "fatal error: concurrent map read and map write"
+	if !strings.HasPrefix(output, want) {
+		t.Fatalf("output does not start with %q:\n%s", want, output)
+	}
+}
+func TestConcurrentMapIterateWrite(t *testing.T) {
+	if !*concurrentMapTest {
+		t.Skip("skipping without -run_concurrent_map_tests")
+	}
+	testenv.MustHaveGoRun(t)
+	output := runTestProg(t, "testprog", "concurrentMapIterateWrite")
+	want := "fatal error: concurrent map iteration and map write"
+	if !strings.HasPrefix(output, want) {
+		t.Fatalf("output does not start with %q:\n%s", want, output)
 	}
 }

@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1872,7 +1872,7 @@ expression is called @dfn{paradoxical}.  The canonical test for this
 class of @code{subreg} is:
 
 @smallexample
-GET_MODE_SIZE (@var{m1}) > GET_MODE_SIZE (@var{m2})
+paradoxical_subreg_p (@var{m1}, @var{m2})
 @end smallexample
 
 Paradoxical @code{subreg}s can be used as both lvalues and rvalues.
@@ -2225,7 +2225,7 @@ Represents the result of subtracting @var{y} from @var{x} for purposes
 of comparison.  The result is computed without overflow, as if with
 infinite precision.
 
-Of course, machines can't really subtract with infinite precision.
+Of course, machines cannot really subtract with infinite precision.
 However, they can pretend to do so when only the sign of the result will
 be used, which is the case when the result is stored in the condition
 code.  And that is the @emph{only} way this kind of expression may
@@ -4022,9 +4022,10 @@ are stored in the @code{REG_NOTES} field of an insn.
 @item REG_BR_PROB
 This is used to specify the ratio of branches to non-branches of a
 branch insn according to the profile data.  The note is represented
-as an @code{int_list} expression whose integer value is between 0 and
-REG_BR_PROB_BASE.  Larger values indicate a higher probability that
-the branch will be taken.
+as an @code{int_list} expression whose integer value is an encoding
+of @code{profile_probability} type.  @code{profile_probability} provide
+member function @code{from_reg_br_prob_note} and @code{to_reg_br_prob_note}
+to extract and store the probability into the RTL encoding.
 
 @findex REG_BR_PRED
 @item REG_BR_PRED

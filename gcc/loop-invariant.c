@@ -1,5 +1,5 @@
 /* RTL-level loop invariant motion.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,13 +108,13 @@ struct invariant
   /* The number of invariants which eqto this.  */
   unsigned eqno;
 
-  /* If we moved the invariant out of the loop, the register that contains its
-     value.  */
-  rtx reg;
-
   /* If we moved the invariant out of the loop, the original regno
      that contained its value.  */
   int orig_regno;
+
+  /* If we moved the invariant out of the loop, the register that contains its
+     value.  */
+  rtx reg;
 
   /* The definition of the invariant.  */
   struct def *def;
@@ -134,12 +134,12 @@ struct invariant
   /* Cost of the invariant.  */
   unsigned cost;
 
-  /* The invariants it depends on.  */
-  bitmap depends_on;
-
   /* Used for detecting already visited invariants during determining
      costs of movements.  */
   unsigned stamp;
+
+  /* The invariants it depends on.  */
+  bitmap depends_on;
 };
 
 /* Currently processed loop.  */
@@ -774,16 +774,16 @@ canonicalize_address_mult (rtx x)
   FOR_EACH_SUBRTX_VAR (iter, array, x, NONCONST)
     {
       rtx sub = *iter;
-
-      if (GET_CODE (sub) == ASHIFT
+      scalar_int_mode sub_mode;
+      if (is_a <scalar_int_mode> (GET_MODE (sub), &sub_mode)
+	  && GET_CODE (sub) == ASHIFT
 	  && CONST_INT_P (XEXP (sub, 1))
-	  && INTVAL (XEXP (sub, 1)) < GET_MODE_BITSIZE (GET_MODE (sub))
+	  && INTVAL (XEXP (sub, 1)) < GET_MODE_BITSIZE (sub_mode)
 	  && INTVAL (XEXP (sub, 1)) >= 0)
 	{
 	  HOST_WIDE_INT shift = INTVAL (XEXP (sub, 1));
 	  PUT_CODE (sub, MULT);
-	  XEXP (sub, 1) = gen_int_mode (HOST_WIDE_INT_1 << shift,
-					GET_MODE (sub));
+	  XEXP (sub, 1) = gen_int_mode (HOST_WIDE_INT_1 << shift, sub_mode);
 	  iter.skip_subrtxes ();
 	}
     }
@@ -1219,10 +1219,10 @@ find_invariants_body (struct loop *loop, basic_block *body,
 static void
 find_invariants (struct loop *loop)
 {
-  bitmap may_exit = BITMAP_ALLOC (NULL);
-  bitmap always_reached = BITMAP_ALLOC (NULL);
-  bitmap has_exit = BITMAP_ALLOC (NULL);
-  bitmap always_executed = BITMAP_ALLOC (NULL);
+  auto_bitmap may_exit;
+  auto_bitmap always_reached;
+  auto_bitmap has_exit;
+  auto_bitmap always_executed;
   basic_block *body = get_loop_body_in_dom_order (loop);
 
   find_exits (loop, body, may_exit, has_exit);
@@ -1233,10 +1233,6 @@ find_invariants (struct loop *loop)
   find_invariants_body (loop, body, always_reached, always_executed);
   merge_identical_invariants ();
 
-  BITMAP_FREE (always_reached);
-  BITMAP_FREE (always_executed);
-  BITMAP_FREE (may_exit);
-  BITMAP_FREE (has_exit);
   free (body);
 }
 

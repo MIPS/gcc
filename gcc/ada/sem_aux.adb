@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -438,42 +438,24 @@ package body Sem_Aux is
    function Get_Binary_Nkind (Op : Entity_Id) return Node_Kind is
    begin
       case Chars (Op) is
-         when Name_Op_Add =>
-            return N_Op_Add;
-         when Name_Op_Concat =>
-            return N_Op_Concat;
-         when Name_Op_Expon =>
-            return N_Op_Expon;
-         when Name_Op_Subtract =>
-            return N_Op_Subtract;
-         when Name_Op_Mod =>
-            return N_Op_Mod;
-         when Name_Op_Multiply =>
-            return N_Op_Multiply;
-         when Name_Op_Divide =>
-            return N_Op_Divide;
-         when Name_Op_Rem =>
-            return N_Op_Rem;
-         when Name_Op_And =>
-            return N_Op_And;
-         when Name_Op_Eq =>
-            return N_Op_Eq;
-         when Name_Op_Ge =>
-            return N_Op_Ge;
-         when Name_Op_Gt =>
-            return N_Op_Gt;
-         when Name_Op_Le =>
-            return N_Op_Le;
-         when Name_Op_Lt =>
-            return N_Op_Lt;
-         when Name_Op_Ne =>
-            return N_Op_Ne;
-         when Name_Op_Or =>
-            return N_Op_Or;
-         when Name_Op_Xor =>
-            return N_Op_Xor;
-         when others =>
-            raise Program_Error;
+         when Name_Op_Add      => return N_Op_Add;
+         when Name_Op_Concat   => return N_Op_Concat;
+         when Name_Op_Expon    => return N_Op_Expon;
+         when Name_Op_Subtract => return N_Op_Subtract;
+         when Name_Op_Mod      => return N_Op_Mod;
+         when Name_Op_Multiply => return N_Op_Multiply;
+         when Name_Op_Divide   => return N_Op_Divide;
+         when Name_Op_Rem      => return N_Op_Rem;
+         when Name_Op_And      => return N_Op_And;
+         when Name_Op_Eq       => return N_Op_Eq;
+         when Name_Op_Ge       => return N_Op_Ge;
+         when Name_Op_Gt       => return N_Op_Gt;
+         when Name_Op_Le       => return N_Op_Le;
+         when Name_Op_Lt       => return N_Op_Lt;
+         when Name_Op_Ne       => return N_Op_Ne;
+         when Name_Op_Or       => return N_Op_Or;
+         when Name_Op_Xor      => return N_Op_Xor;
+         when others           => raise Program_Error;
       end case;
    end Get_Binary_Nkind;
 
@@ -510,9 +492,10 @@ package body Sem_Aux is
 
          if Nkind (N) = N_Pragma
            and then
-             (Pragma_Name (N) = Nam
+             (Pragma_Name_Unmapped (N) = Nam
                or else (Nam = Name_Priority
-                         and then Pragma_Name (N) = Name_Interrupt_Priority)
+                         and then Pragma_Name (N) =
+                           Name_Interrupt_Priority)
                or else (Nam = Name_Interrupt_Priority
                          and then Pragma_Name (N) = Name_Priority))
          then
@@ -662,16 +645,11 @@ package body Sem_Aux is
    function Get_Unary_Nkind (Op : Entity_Id) return Node_Kind is
    begin
       case Chars (Op) is
-         when Name_Op_Abs =>
-            return N_Op_Abs;
-         when Name_Op_Subtract =>
-            return N_Op_Minus;
-         when Name_Op_Not =>
-            return N_Op_Not;
-         when Name_Op_Add =>
-            return N_Op_Plus;
-         when others =>
-            raise Program_Error;
+         when Name_Op_Abs      => return N_Op_Abs;
+         when Name_Op_Subtract => return N_Op_Minus;
+         when Name_Op_Not      => return N_Op_Not;
+         when Name_Op_Add      => return N_Op_Plus;
+         when others           => raise Program_Error;
       end case;
    end Get_Unary_Nkind;
 
@@ -1063,11 +1041,16 @@ package body Sem_Aux is
 
    function Is_Generic_Formal (E : Entity_Id) return Boolean is
       Kind : Node_Kind;
+
    begin
       if No (E) then
          return False;
       else
-         Kind := Nkind (Parent (E));
+         --  Formal derived types are rewritten as private extensions, so
+         --  examine original node.
+
+         Kind := Nkind (Original_Node (Parent (E)));
+
          return
            Nkind_In (Kind, N_Formal_Object_Declaration,
                            N_Formal_Package_Declaration,
@@ -1317,7 +1300,10 @@ package body Sem_Aux is
    ----------------------
 
    function Nearest_Ancestor (Typ : Entity_Id) return Entity_Id is
-      D : constant Node_Id := Declaration_Node (Typ);
+      D : constant Node_Id := Original_Node (Declaration_Node (Typ));
+      --  We use the original node of the declaration, because derived
+      --  types from record subtypes are rewritten as record declarations,
+      --  and it is the original declaration that carries the ancestor.
 
    begin
       --  If we have a subtype declaration, get the ancestor subtype
@@ -1555,7 +1541,9 @@ package body Sem_Aux is
          when N_Subprogram_Body =>
             return E;
 
-         when N_Subprogram_Declaration | N_Subprogram_Body_Stub =>
+         when N_Subprogram_Body_Stub
+            | N_Subprogram_Declaration
+         =>
             return Corresponding_Body (N);
 
          when others =>

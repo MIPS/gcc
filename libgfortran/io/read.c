@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -28,9 +28,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
-#include <errno.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include <assert.h>
 
 typedef unsigned char uchar;
@@ -567,7 +565,7 @@ read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, int length)
 }
 
 /* eat_leading_spaces()-- Given a character pointer and a width,
- * ignore the leading spaces.  */
+   ignore the leading spaces.  */
 
 static char *
 eat_leading_spaces (int *width, char *p)
@@ -619,7 +617,7 @@ next_char (st_parameter_dt *dtp, char **p, int *w)
 
 
 /* read_decimal()-- Read a decimal integer value.  The values here are
- * signed values. */
+   signed values. */
 
 void
 read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
@@ -724,9 +722,9 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 
 
 /* read_radix()-- This function reads values for non-decimal radixes.
- * The difference here is that we treat the values here as unsigned
- * values for the purposes of overflow.  If minus sign is present and
- * the top bit is set, the value will be incorrect. */
+   The difference here is that we treat the values here as unsigned
+   values for the purposes of overflow.  If minus sign is present and
+   the top bit is set, the value will be incorrect. */
 
 void
 read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
@@ -1229,7 +1227,7 @@ bad_float:
 
 
 /* read_x()-- Deal with the X/TR descriptor.  We just read some data
- * and never look at it. */
+   and never look at it. */
 
 void
 read_x (st_parameter_dt *dtp, int n)

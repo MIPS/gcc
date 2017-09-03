@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "ipa-utils.h"
 #include "calls.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 static const char *ipa_ref_use_name[] = {"read","write","addr","alias","chkp"};
 
@@ -296,7 +298,7 @@ symbol_table::change_decl_assembler_name (tree decl, tree name)
       const char *old_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 	  && DECL_RTL_SET_P (decl))
-	warning (0, "%D renamed after being referenced in assembly", decl);
+	warning (0, "%qD renamed after being referenced in assembly", decl);
 
       SET_DECL_ASSEMBLER_NAME (decl, name);
       if (alias)
@@ -522,6 +524,31 @@ symtab_node::name () const
   return lang_hooks.decl_printable_name (decl, 2);
 }
 
+const char *
+symtab_node::get_dump_name (bool asm_name_p) const
+{
+#define EXTRA 16
+  const char *fname = asm_name_p ? asm_name () : name ();
+  unsigned l = strlen (fname);
+
+  char *s = (char *)ggc_internal_cleared_alloc (l + EXTRA);
+  snprintf (s, l + EXTRA, "%s/%d", fname, order);
+
+  return s;
+}
+
+const char *
+symtab_node::dump_name () const
+{
+  return get_dump_name (false);
+}
+
+const char *
+symtab_node::dump_asm_name () const
+{
+  return get_dump_name (true);
+}
+
 /* Return ipa reference from this symtab_node to
    REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
    of the use.  */
@@ -588,18 +615,25 @@ symtab_node::create_reference (symtab_node *referred_node,
   return ref;
 }
 
-/* If VAL is a reference to a function or a variable, add a reference from
-   this symtab_node to the corresponding symbol table node.  USE_TYPE specify
-   type of the use and STMT the statement (if it exists).  Return the new
-   reference or NULL if none was created.  */
-
 ipa_ref *
-symtab_node::maybe_create_reference (tree val, enum ipa_ref_use use_type,
-				     gimple *stmt)
+symtab_node::maybe_create_reference (tree val, gimple *stmt)
 {
   STRIP_NOPS (val);
-  if (TREE_CODE (val) != ADDR_EXPR)
-    return NULL;
+  ipa_ref_use use_type;
+
+  switch (TREE_CODE (val))
+    {
+    case VAR_DECL:
+      use_type = IPA_REF_LOAD;
+      break;
+    case ADDR_EXPR:
+      use_type = IPA_REF_ADDR;
+      break;
+    default:
+      gcc_assert (!handled_component_p (val));
+      return NULL;
+    }
+
   val = get_base_var (val);
   if (val && VAR_OR_FUNCTION_DECL_P (val))
     {
@@ -744,9 +778,8 @@ symtab_node::dump_references (FILE *file)
   int i;
   for (i = 0; iterate_reference (i, ref); i++)
     {
-      fprintf (file, "%s/%i (%s)",
-               ref->referred->asm_name (),
-               ref->referred->order,
+      fprintf (file, "%s (%s)",
+	       ref->referred->dump_asm_name (),
 	       ipa_ref_use_name [ref->use]);
       if (ref->speculative)
 	fprintf (file, " (speculative)");
@@ -763,9 +796,8 @@ symtab_node::dump_referring (FILE *file)
   int i;
   for (i = 0; iterate_referring(i, ref); i++)
     {
-      fprintf (file, "%s/%i (%s)",
-               ref->referring->asm_name (),
-               ref->referring->order,
+      fprintf (file, "%s (%s)",
+	       ref->referring->dump_asm_name (),
 	       ipa_ref_use_name [ref->use]);
       if (ref->speculative)
 	fprintf (file, " (speculative)");
@@ -784,7 +816,7 @@ symtab_node::dump_base (FILE *f)
     "default", "protected", "hidden", "internal"
   };
 
-  fprintf (f, "%s/%i (%s)", asm_name (), order, name ());
+  fprintf (f, "%s (%s)", dump_asm_name (), name ());
   dump_addr (f, " @", (void *)this);
   fprintf (f, "\n  Type: %s", symtab_type_names[type]);
 
@@ -867,9 +899,8 @@ symtab_node::dump_base (FILE *f)
   fprintf (f, "\n");
   
   if (same_comdat_group)
-    fprintf (f, "  Same comdat group as: %s/%i\n",
-	     same_comdat_group->asm_name (),
-	     same_comdat_group->order);
+    fprintf (f, "  Same comdat group as: %s\n",
+	     same_comdat_group->dump_asm_name ());
   if (next_sharing_asm_name)
     fprintf (f, "  next sharing asm name: %i\n",
 	     next_sharing_asm_name->order);
@@ -883,6 +914,7 @@ symtab_node::dump_base (FILE *f)
     {
       fprintf (f, "  Aux:");
       dump_addr (f, " @", (void *)aux);
+      fprintf (f, "\n");
     }
 
   fprintf (f, "  References: ");
@@ -905,17 +937,14 @@ symtab_node::dump (FILE *f)
     vnode->dump (f);
 }
 
-/* Dump symbol table to F.  */
-
 void
-symtab_node::dump_table (FILE *f)
+symbol_table::dump (FILE *f)
 {
   symtab_node *node;
   fprintf (f, "Symbol table:\n\n");
   FOR_EACH_SYMBOL (node)
     node->dump (f);
 }
-
 
 /* Return the cgraph node that has ASMNAME for its DECL_ASSEMBLER_NAME.
    Return NULL if there's no such node.  */
@@ -1029,7 +1058,7 @@ symtab_node::verify_base (void)
     }
   if (analyzed && !definition)
     {
-      error ("node is analyzed byt it is not a definition");
+      error ("node is analyzed but it is not a definition");
       error_found = true;
     }
   if (cpp_implicit_alias && !alias)
@@ -1259,7 +1288,8 @@ symtab_node::make_decl_local (void)
       TREE_ADDRESSABLE (decl) = 1;
       TREE_STATIC (decl) = 1;
     }
-  else gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+  else
+    gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
 
   DECL_COMDAT (decl) = 0;
   DECL_WEAK (decl) = 0;
@@ -1439,7 +1469,7 @@ symtab_node::fixup_same_cpp_alias_visibility (symtab_node *target)
 }
 
 /* Set section, do not recurse into aliases.
-   When one wants to change section of symbol and its aliases,
+   When one wants to change section of a symbol and its aliases,
    use set_section.  */
 
 void
@@ -1735,10 +1765,10 @@ symtab_node::noninterposable_alias (void)
 				   (void *)&new_node, true);
   if (new_node)
     return new_node;
-#ifndef ASM_OUTPUT_DEF
+
   /* If aliases aren't supported by the assembler, fail.  */
-  return NULL;
-#endif
+  if (!TARGET_SUPPORTS_ALIASES)
+    return NULL;
 
   /* Otherwise create a new one.  */
   new_decl = copy_node (node->decl);
@@ -1988,13 +2018,12 @@ symtab_node::equal_address_to (symtab_node *s2, bool memory_accessed)
   if (rs1 != rs2 && avail1 >= AVAIL_AVAILABLE && avail2 >= AVAIL_AVAILABLE)
     binds_local1 = binds_local2 = true;
 
-  if ((binds_local1 ? rs1 : this)
-       == (binds_local2 ? rs2 : s2))
+  if (binds_local1 && binds_local2 && rs1 == rs2)
     {
       /* We made use of the fact that alias is not weak.  */
-      if (binds_local1 && rs1 != this)
+      if (rs1 != this)
         refuse_visibility_changes = true;
-      if (binds_local2 && rs2 != s2)
+      if (rs2 != s2)
         s2->refuse_visibility_changes = true;
       return 1;
     }
@@ -2214,6 +2243,11 @@ symtab_node::binds_to_current_def_p (symtab_node *ref)
 {
   if (!definition)
     return false;
+  if (transparent_alias)
+    return definition
+	   && get_alias_target()->binds_to_current_def_p (ref);
+  if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
+    return false;
   if (decl_binds_to_current_def_p (decl))
     return true;
 
@@ -2225,8 +2259,6 @@ symtab_node::binds_to_current_def_p (symtab_node *ref)
   if (DECL_EXTERNAL (decl))
     return false;
 
-  if (!externally_visible)
-    debug ();
   gcc_assert (externally_visible);
 
   if (ref)

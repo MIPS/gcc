@@ -1,5 +1,5 @@
 /* Part of CPP library.  (Precompiled header reading/writing.)
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -630,7 +630,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
 	     attempting to use it without -g.  Restoring the PCH file
 	     is supposed to bring in this definition *and* enable the
 	     generation of call frame information, so that precompiled
-	     definitions that take this macro into accout, to decide
+	     definitions that take this macro into account, to decide
 	     what asm to emit, won't issue .cfi directives when the
 	     compiler doesn't.  */
 	  if (!(h->flags & NODE_USED)

@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -404,7 +404,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_pclmul = 0, has_abm = 0, has_lwp = 0;
   unsigned int has_fma = 0, has_fma4 = 0, has_xop = 0;
   unsigned int has_bmi = 0, has_bmi2 = 0, has_tbm = 0, has_lzcnt = 0;
-  unsigned int has_hle = 0, has_rtm = 0;
+  unsigned int has_hle = 0, has_rtm = 0, has_sgx = 0;
   unsigned int has_rdrnd = 0, has_f16c = 0, has_fsgsbase = 0;
   unsigned int has_rdseed = 0, has_prfchw = 0, has_adx = 0;
   unsigned int has_osxsave = 0, has_fxsr = 0, has_xsave = 0, has_xsaveopt = 0;
@@ -413,7 +413,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_clflushopt = 0, has_xsavec = 0, has_xsaves = 0;
   unsigned int has_avx512dq = 0, has_avx512bw = 0, has_avx512vl = 0;
   unsigned int has_avx512vbmi = 0, has_avx512ifma = 0, has_clwb = 0;
-  unsigned int has_mwaitx = 0, has_clzero = 0, has_pku = 0;
+  unsigned int has_mwaitx = 0, has_clzero = 0, has_pku = 0, has_rdpid = 0;
   unsigned int has_avx5124fmaps = 0, has_avx5124vnniw = 0;
 
   bool arch;
@@ -480,6 +480,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       __cpuid_count (7, 0, eax, ebx, ecx, edx);
 
       has_bmi = ebx & bit_BMI;
+      has_sgx = ebx & bit_SGX;
       has_hle = ebx & bit_HLE;
       has_rtm = ebx & bit_RTM;
       has_avx2 = ebx & bit_AVX2;
@@ -502,6 +503,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_prefetchwt1 = ecx & bit_PREFETCHWT1;
       has_avx512vbmi = ecx & bit_AVX512VBMI;
       has_pku = ecx & bit_OSPKE;
+      has_rdpid = ecx & bit_RDPID;
+
       has_avx5124vnniw = edx & bit_AVX5124VNNIW;
       has_avx5124fmaps = edx & bit_AVX5124FMAPS;
     }
@@ -778,6 +781,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	case 0x4e:
 	case 0x5e:
 	  /* Skylake.  */
+	case 0x8e:
+	case 0x9e:
+	  /* Kaby Lake.  */
 	  cpu = "skylake";
 	  break;
 	case 0x57:
@@ -791,6 +797,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	      /* Assume Knights Landing.  */
 	      if (has_avx512f)
 		cpu = "knl";
+	      /* Assume Skylake.  */
+	      else if (has_clflushopt)
+		cpu = "skylake";
 	      /* Assume Broadwell.  */
 	      else if (has_adx)
 		cpu = "broadwell";
@@ -993,6 +1002,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *fma4 = has_fma4 ? " -mfma4" : " -mno-fma4";
       const char *xop = has_xop ? " -mxop" : " -mno-xop";
       const char *bmi = has_bmi ? " -mbmi" : " -mno-bmi";
+      const char *sgx = has_sgx ? " -msgx" : " -mno-sgx";
       const char *bmi2 = has_bmi2 ? " -mbmi2" : " -mno-bmi2";
       const char *tbm = has_tbm ? " -mtbm" : " -mno-tbm";
       const char *avx = has_avx ? " -mavx" : " -mno-avx";
@@ -1030,16 +1040,17 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *mwaitx  = has_mwaitx  ? " -mmwaitx"  : " -mno-mwaitx"; 
       const char *clzero  = has_clzero  ? " -mclzero"  : " -mno-clzero";
       const char *pku = has_pku ? " -mpku" : " -mno-pku";
+      const char *rdpid = has_rdpid ? " -mrdpid" : " -mno-rdpid";
       options = concat (options, mmx, mmx3dnow, sse, sse2, sse3, ssse3,
 			sse4a, cx16, sahf, movbe, aes, sha, pclmul,
-			popcnt, abm, lwp, fma, fma4, xop, bmi, bmi2,
+			popcnt, abm, lwp, fma, fma4, xop, bmi, sgx, bmi2,
 			tbm, avx, avx2, sse4_2, sse4_1, lzcnt, rtm,
 			hle, rdrnd, f16c, fsgsbase, rdseed, prfchw, adx,
 			fxsr, xsave, xsaveopt, avx512f, avx512er,
 			avx512cd, avx512pf, prefetchwt1, clflushopt,
 			xsavec, xsaves, avx512dq, avx512bw, avx512vl,
 			avx512ifma, avx512vbmi, avx5124fmaps, avx5124vnniw,
-			clwb, mwaitx, clzero, pku, NULL);
+			clwb, mwaitx, clzero, pku, rdpid, NULL);
     }
 
 done:

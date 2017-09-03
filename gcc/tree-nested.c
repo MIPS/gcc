@@ -1,5 +1,5 @@
 /* Nested function decomposition for GIMPLE.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -31,7 +31,7 @@
 #include "cgraph.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "tree-inline.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -496,6 +496,8 @@ static GTY(()) tree descriptor_type;
 static tree
 get_descriptor_type (struct nesting_info *info)
 {
+  /* The base alignment is that of a function.  */
+  const unsigned align = FUNCTION_ALIGNMENT (FUNCTION_BOUNDARY);
   tree t;
 
   if (descriptor_type)
@@ -505,6 +507,8 @@ get_descriptor_type (struct nesting_info *info)
   t = build_array_type (ptr_type_node, t);
   t = build_decl (DECL_SOURCE_LOCATION (info->context),
 		  FIELD_DECL, get_identifier ("__data"), t);
+  SET_DECL_ALIGN (t, MAX (TYPE_ALIGN (ptr_type_node), align));
+  DECL_USER_ALIGN (t) = 1;
 
   descriptor_type = make_node (RECORD_TYPE);
   TYPE_NAME (descriptor_type) = get_identifier ("__builtin_descriptor");
@@ -621,7 +625,9 @@ get_nl_goto_field (struct nesting_info *info)
       else
 	type = lang_hooks.types.type_for_mode (Pmode, 1);
 
-      size = GET_MODE_SIZE (STACK_SAVEAREA_MODE (SAVE_NONLOCAL));
+      scalar_int_mode mode
+	= as_a <scalar_int_mode> (STACK_SAVEAREA_MODE (SAVE_NONLOCAL));
+      size = GET_MODE_SIZE (mode);
       size = size / GET_MODE_SIZE (Pmode);
       size = size + 1;
 
@@ -1274,6 +1280,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
@@ -1286,8 +1293,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	  break;
 
-	  /* OpenACC tile clauses are discarded during gimplification.  */
-	case OMP_CLAUSE_TILE:
 	  /* The following clause belongs to the OpenACC cache directive, which
 	     is discarded during gimplification.  */
 	case OMP_CLAUSE__CACHE_:
@@ -1982,6 +1987,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
@@ -1994,8 +2000,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	  break;
 
-	  /* OpenACC tile clauses are discarded during gimplification.  */
-	case OMP_CLAUSE_TILE:
 	  /* The following clause belongs to the OpenACC cache directive, which
 	     is discarded during gimplification.  */
 	case OMP_CLAUSE__CACHE_:
@@ -2083,6 +2087,8 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *info = (struct nesting_info *) wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
+  char save_static_chain_added;
+  bool frame_decl_added;
   gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
@@ -2090,29 +2096,44 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       save_suppress = info->suppress_expansion;
+      frame_decl_added = false;
       if (convert_local_omp_clauses (gimple_omp_taskreg_clauses_ptr (stmt),
 	                             wi))
 	{
-	  tree c;
+	  tree c = build_omp_clause (gimple_location (stmt),
+				     OMP_CLAUSE_SHARED);
 	  (void) get_frame_type (info);
-	  c = build_omp_clause (gimple_location (stmt),
-				OMP_CLAUSE_SHARED);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
 	  gimple_omp_taskreg_set_clauses (stmt, c);
+	  info->static_chain_added |= 4;
+	  frame_decl_added = true;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
+      save_static_chain_added = info->static_chain_added;
       info->new_local_var_chain = NULL;
+      info->static_chain_added = 0;
 
       walk_body (convert_local_reference_stmt, convert_local_reference_op, info,
 	         gimple_omp_body_ptr (stmt));
 
+      if ((info->static_chain_added & 4) != 0 && !frame_decl_added)
+	{
+	  tree c = build_omp_clause (gimple_location (stmt),
+				     OMP_CLAUSE_SHARED);
+	  (void) get_frame_type (info);
+	  OMP_CLAUSE_DECL (c) = info->frame_decl;
+	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
+	  info->static_chain_added |= 4;
+	  gimple_omp_taskreg_set_clauses (stmt, c);
+	}
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
 		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
+      info->static_chain_added |= save_static_chain_added;
       break;
 
     case GIMPLE_OMP_FOR:
@@ -2153,29 +2174,46 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  break;
 	}
       save_suppress = info->suppress_expansion;
+      frame_decl_added = false;
       if (convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi))
 	{
-	  tree c;
+	  tree c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  (void) get_frame_type (info);
-	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
 	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
 	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
+	  info->static_chain_added |= 4;
+	  frame_decl_added = true;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
+      save_static_chain_added = info->static_chain_added;
       info->new_local_var_chain = NULL;
+      info->static_chain_added = 0;
 
       walk_body (convert_local_reference_stmt, convert_local_reference_op, info,
 		 gimple_omp_body_ptr (stmt));
+
+      if ((info->static_chain_added & 4) != 0 && !frame_decl_added)
+	{
+	  tree c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
+	  (void) get_frame_type (info);
+	  OMP_CLAUSE_DECL (c) = info->frame_decl;
+	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
+	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
+	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
+	  info->static_chain_added |= 4;
+	}
 
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
 		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
+      info->static_chain_added |= save_static_chain_added;
       break;
 
     case GIMPLE_OMP_TEAMS:

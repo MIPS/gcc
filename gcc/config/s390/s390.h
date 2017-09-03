@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999-2016 Free Software Foundation, Inc.
+   Copyright (C) 1999-2017 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
@@ -37,12 +37,14 @@ enum processor_flags
   PF_ZEC12 = 128,
   PF_TX = 256,
   PF_Z13 = 512,
-  PF_VX = 1024
+  PF_VX = 1024,
+  PF_ARCH12 = 2048,
+  PF_VXE = 4096
 };
 
 /* This is necessary to avoid a warning about comparing different enum
    types.  */
-#define s390_tune_attr ((enum attr_cpu)s390_tune)
+#define s390_tune_attr ((enum attr_cpu)(s390_tune > PROCESSOR_2964_Z13 ? PROCESSOR_2964_Z13 : s390_tune ))
 
 /* These flags indicate that the generated code should run on a cpu
    providing the respective hardware facility regardless of the
@@ -87,11 +89,19 @@ enum processor_flags
 #define TARGET_CPU_Z13 \
 	(s390_arch_flags & PF_Z13)
 #define TARGET_CPU_Z13_P(opts) \
-        (opts->x_s390_arch_flags & PF_Z13)
+	(opts->x_s390_arch_flags & PF_Z13)
 #define TARGET_CPU_VX \
-        (s390_arch_flags & PF_VX)
+	(s390_arch_flags & PF_VX)
 #define TARGET_CPU_VX_P(opts) \
 	(opts->x_s390_arch_flags & PF_VX)
+#define TARGET_CPU_ARCH12 \
+	(s390_arch_flags & PF_ARCH12)
+#define TARGET_CPU_ARCH12_P(opts) \
+	(opts->x_s390_arch_flags & PF_ARCH12)
+#define TARGET_CPU_VXE \
+	(s390_arch_flags & PF_VXE)
+#define TARGET_CPU_VXE_P(opts) \
+	(opts->x_s390_arch_flags & PF_VXE)
 
 #define TARGET_HARD_FLOAT_P(opts) (!TARGET_SOFT_FLOAT_P(opts))
 
@@ -137,6 +147,13 @@ enum processor_flags
 	(TARGET_ZARCH_P (opts->x_target_flags) && TARGET_CPU_VX_P (opts) \
 	 && TARGET_OPT_VX_P (opts->x_target_flags) \
 	 && TARGET_HARD_FLOAT_P (opts->x_target_flags))
+#define TARGET_ARCH12 (TARGET_ZARCH && TARGET_CPU_ARCH12)
+#define TARGET_ARCH12_P(opts)						\
+	(TARGET_ZARCH_P (opts->x_target_flags) && TARGET_CPU_ARCH12_P (opts))
+#define TARGET_VXE				\
+	(TARGET_VX && TARGET_CPU_VXE)
+#define TARGET_VXE_P(opts)						\
+	(TARGET_VX_P (opts) && TARGET_CPU_VXE_P (opts))
 
 #ifdef HAVE_AS_MACHINE_MACHINEMODE
 #define S390_USE_TARGET_ATTRIBUTE 1
@@ -246,11 +263,6 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
 
 #define S390_TDC_INFINITY (S390_TDC_POSITIVE_INFINITY \
 			  | S390_TDC_NEGATIVE_INFINITY )
-
-/* This is used by float.h to define the float_t and double_t data
-   types.  For historical reasons both are double on s390 what cannot
-   be changed anymore.  */
-#define TARGET_FLT_EVAL_METHOD 1
 
 /* Target machine storage layout.  */
 
@@ -517,6 +529,18 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		        \
   s390_cannot_change_mode_class ((FROM), (TO), (CLASS))
+
+/* We can reverse a CC mode safely if we know whether it comes from a
+   floating point compare or not.  With the vector modes it is encoded
+   as part of the mode.
+   FIXME: It might make sense to do this for other cc modes as well.  */
+#define REVERSIBLE_CC_MODE(MODE)				\
+  ((MODE) == CCVIALLmode || (MODE) == CCVIANYmode		\
+   || (MODE) == CCVFALLmode || (MODE) == CCVFANYmode)
+
+/* Given a condition code and a mode, return the inverse condition.  */
+#define REVERSE_CONDITION(CODE, MODE) s390_reverse_condition (MODE, CODE)
+
 
 /* Register classes.  */
 
@@ -922,6 +946,10 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_PIC_OPERAND_P(X)  legitimate_pic_operand_p (X)
 
+#ifndef TARGET_DEFAULT_PIC_DATA_IS_TEXT_RELATIVE
+#define TARGET_DEFAULT_PIC_DATA_IS_TEXT_RELATIVE 1
+#endif
+
 
 /* Assembler file format.  */
 
@@ -1025,7 +1053,7 @@ do {									\
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
-#define Pmode ((machine_mode) (TARGET_64BIT ? DImode : SImode))
+#define Pmode (TARGET_64BIT ? DImode : SImode)
 
 /* This is -1 for "pointer mode" extend.  See ptr_extend in s390.md.  */
 #define POINTERS_EXTEND_UNSIGNED -1

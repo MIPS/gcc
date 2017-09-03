@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -34,6 +34,10 @@
 (define_predicate "const0_operand"
   (and (match_code "const_int")
        (match_test "op == CONST0_RTX (mode)")))
+
+(define_special_predicate "subreg_lowpart_operator"
+  (and (match_code "subreg")
+       (match_test "subreg_lowpart_p (op)")))
 
 (define_predicate "aarch64_ccmp_immediate"
   (and (match_code "const_int")
@@ -77,6 +81,10 @@
 (define_predicate "aarch64_fp_vec_pow2"
   (match_test "aarch64_vec_fpconst_pow_of_2 (op) > 0"))
 
+(define_predicate "aarch64_sub_immediate"
+  (and (match_code "const_int")
+       (match_test "aarch64_uimm12_shift (-INTVAL (op))")))
+
 (define_predicate "aarch64_plus_immediate"
   (and (match_code "const_int")
        (ior (match_test "aarch64_uimm12_shift (INTVAL (op))")
@@ -105,6 +113,14 @@
 (define_predicate "aarch64_logical_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_logical_immediate")))
+
+(define_predicate "aarch64_mov_imm_operand"
+  (and (match_code "const_int")
+       (match_test "aarch64_move_imm (INTVAL (op), mode)")))
+
+(define_predicate "aarch64_logical_and_immediate"
+  (and (match_code "const_int")
+       (match_test "aarch64_and_bitmask_imm (INTVAL (op), mode)")))
 
 (define_predicate "aarch64_shift_imm_si"
   (and (match_code "const_int")
@@ -160,6 +176,9 @@
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), PARALLEL,
 					       0)")))
+
+(define_predicate "aarch64_prefetch_operand"
+  (match_test "aarch64_address_valid_for_prefetch_p (op, false)"))
 
 (define_predicate "aarch64_valid_symref"
   (match_code "const, symbol_ref, label_ref")

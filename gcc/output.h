@@ -1,6 +1,6 @@
 /* Declarations for insn-output.c and other code to write to asm_out_file.
    These functions are defined in final.c, and varasm.c.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -281,14 +281,16 @@ extern section *get_named_text_section (tree, const char *, const char *);
 /* Assemble the floating-point constant D into an object of size MODE.  ALIGN
    is the alignment of the constant in bits.  If REVERSE is true, D is output
    in reverse storage order.  */
-extern void assemble_real (REAL_VALUE_TYPE, machine_mode, unsigned,
+extern void assemble_real (REAL_VALUE_TYPE, scalar_float_mode, unsigned,
 			   bool = false);
 
 /* Write the address of the entity given by SYMBOL to SEC.  */
 extern void assemble_addr_to_section (rtx, section *);
 
-/* Return the size of the constant pool.  */
-extern int get_pool_size (void);
+/* Return TRUE if and only if the constant pool has no entries.  Note
+   that even entries we might end up choosing not to emit are counted
+   here, so there is the potential for missed optimizations.  */
+extern bool constant_pool_empty_p (void);
 
 extern rtx_insn *peephole (rtx_insn *);
 
@@ -353,7 +355,7 @@ extern int compute_reloc_for_constant (tree);
 extern const char *user_label_prefix;
 
 /* Default target function prologue and epilogue assembler output.  */
-extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
+extern void default_function_pro_epilogue (FILE *);
 
 /* Default target function switched text sections.  */
 extern void default_function_switched_text_sections (FILE *, tree, bool);

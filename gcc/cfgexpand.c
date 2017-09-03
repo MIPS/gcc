@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,6 +68,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-outof-ssa.h"
 #include "cfgloop.h"
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
+#include "stringpool.h"
+#include "attribs.h"
 #include "asan.h"
 #include "tree-ssa-address.h"
 #include "output.h"
@@ -2241,6 +2243,11 @@ expand_used_vars (void)
       expand_stack_vars (NULL, &data);
     }
 
+  if (asan_sanitize_allocas_p () && cfun->calls_alloca)
+    var_end_seq = asan_emit_allocas_unpoison (virtual_stack_dynamic_rtx,
+					      virtual_stack_vars_rtx,
+					      var_end_seq);
+
   fini_vars_expansion ();
 
   /* If there were any artificial non-ignored vars without rtl
@@ -2389,7 +2396,6 @@ static basic_block
 expand_gimple_cond (basic_block bb, gcond *stmt)
 {
   basic_block new_bb, dest;
-  edge new_edge;
   edge true_edge;
   edge false_edge;
   rtx_insn *last2, *last;
@@ -2503,10 +2509,12 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
   false_edge->flags |= EDGE_FALLTHRU;
   new_bb->count = false_edge->count;
   new_bb->frequency = EDGE_FREQUENCY (false_edge);
-  add_bb_to_loop (new_bb, bb->loop_father);
-  new_edge = make_edge (new_bb, dest, 0);
-  new_edge->probability = REG_BR_PROB_BASE;
-  new_edge->count = new_bb->count;
+  loop_p loop = find_common_loop (bb->loop_father, dest->loop_father);
+  add_bb_to_loop (new_bb, loop);
+  if (loop->latch == bb
+      && loop->header == dest)
+    loop->latch = new_bb;
+  make_single_succ_edge (new_bb, dest, 0);
   if (BARRIER_P (BB_END (new_bb)))
     BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
@@ -3164,7 +3172,7 @@ expand_asm_stmt (gasm *stmt)
   rtx body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				    : GET_MODE (output_rvec[0])),
 				   ggc_strdup (gimple_asm_string (stmt)),
-				   empty_string, 0, argvec, constraintvec,
+				   "", 0, argvec, constraintvec,
 				   labelvec, locus);
   MEM_VOLATILE_P (body) = gimple_asm_volatile_p (stmt);
 
@@ -3562,7 +3570,13 @@ expand_gimple_stmt_1 (gimple *stmt)
     case GIMPLE_PREDICT:
       break;
     case GIMPLE_SWITCH:
-      expand_case (as_a <gswitch *> (stmt));
+      {
+	gswitch *swtch = as_a <gswitch *> (stmt);
+	if (gimple_switch_num_labels (swtch) == 1)
+	  expand_goto (CASE_LABEL (gimple_switch_default_label (swtch)));
+	else
+	  expand_case (swtch);
+      }
       break;
     case GIMPLE_ASM:
       expand_asm_stmt (as_a <gasm *> (stmt));
@@ -3778,8 +3792,7 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
   rtx_insn *last2, *last;
   edge e;
   edge_iterator ei;
-  int probability;
-  gcov_type count;
+  profile_probability probability;
 
   last2 = last = expand_gimple_stmt (stmt);
 
@@ -3804,8 +3817,8 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
      all edges here, or redirecting the existing fallthru edge to
      the exit block.  */
 
-  probability = 0;
-  count = 0;
+  probability = profile_probability::never ();
+  profile_count count = profile_count::zero ();
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
@@ -3815,8 +3828,6 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 	    {
 	      e->dest->count -= e->count;
 	      e->dest->frequency -= EDGE_FREQUENCY (e);
-	      if (e->dest->count < 0)
-		e->dest->count = 0;
 	      if (e->dest->frequency < 0)
 		e->dest->frequency = 0;
 	    }
@@ -3849,8 +3860,8 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 
   e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_ABNORMAL
 		 | EDGE_SIBCALL);
-  e->probability += probability;
-  e->count += count;
+  e->probability = probability;
+  e->count = count;
   BB_END (bb) = last;
   update_bb_for_insn (bb);
 
@@ -3951,15 +3962,13 @@ round_udiv_adjust (machine_mode mode, rtx mod, rtx op1)
    any rtl.  */
 
 static rtx
-convert_debug_memory_address (machine_mode mode, rtx x,
+convert_debug_memory_address (scalar_int_mode mode, rtx x,
 			      addr_space_t as)
 {
-  machine_mode xmode = GET_MODE (x);
-
 #ifndef POINTERS_EXTEND_UNSIGNED
   gcc_assert (mode == Pmode
 	      || mode == targetm.addr_space.address_mode (as));
-  gcc_assert (xmode == mode || xmode == VOIDmode);
+  gcc_assert (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode);
 #else
   rtx temp;
 
@@ -3968,6 +3977,8 @@ convert_debug_memory_address (machine_mode mode, rtx x,
   if (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode)
     return x;
 
+  /* X must have some form of address mode already.  */
+  scalar_int_mode xmode = as_a <scalar_int_mode> (GET_MODE (x));
   if (GET_MODE_PRECISION (mode) < GET_MODE_PRECISION (xmode))
     x = lowpart_subreg (mode, x, xmode);
   else if (POINTERS_EXTEND_UNSIGNED > 0)
@@ -4128,6 +4139,7 @@ expand_debug_expr (tree exp)
   machine_mode inner_mode = VOIDmode;
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
   addr_space_t as;
+  scalar_int_mode op0_mode, op1_mode, addr_mode;
 
   switch (TREE_CODE_CLASS (TREE_CODE (exp)))
     {
@@ -4177,16 +4189,10 @@ expand_debug_expr (tree exp)
 	case WIDEN_LSHIFT_EXPR:
 	  /* Ensure second operand isn't wider than the first one.  */
 	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
-	  if (SCALAR_INT_MODE_P (inner_mode))
-	    {
-	      machine_mode opmode = mode;
-	      if (VECTOR_MODE_P (mode))
-		opmode = GET_MODE_INNER (mode);
-	      if (SCALAR_INT_MODE_P (opmode)
-		  && (GET_MODE_PRECISION (opmode)
-		      < GET_MODE_PRECISION (inner_mode)))
-		op1 = lowpart_subreg (opmode, op1, inner_mode);
-	    }
+	  if (is_a <scalar_int_mode> (inner_mode, &op1_mode)
+	      && (GET_MODE_UNIT_PRECISION (mode)
+		  < GET_MODE_PRECISION (op1_mode)))
+	    op1 = lowpart_subreg (GET_MODE_INNER (mode), op1, op1_mode);
 	  break;
 	default:
 	  break;
@@ -4486,7 +4492,7 @@ expand_debug_expr (tree exp)
 	  {
 	    if (mode1 == VOIDmode)
 	      /* Bitfield.  */
-	      mode1 = smallest_mode_for_size (bitsize, MODE_INT);
+	      mode1 = smallest_int_mode_for_size (bitsize);
 	    if (bitpos >= BITS_PER_UNIT)
 	      {
 		op0 = adjust_address_nv (op0, mode1, bitpos / BITS_PER_UNIT);
@@ -4575,23 +4581,23 @@ expand_debug_expr (tree exp)
 	 size_t, we need to check for mis-matched modes and correct
 	 the addend.  */
       if (op0 && op1
-	  && GET_MODE (op0) != VOIDmode && GET_MODE (op1) != VOIDmode
-	  && GET_MODE (op0) != GET_MODE (op1))
+	  && is_a <scalar_int_mode> (GET_MODE (op0), &op0_mode)
+	  && is_a <scalar_int_mode> (GET_MODE (op1), &op1_mode)
+	  && op0_mode != op1_mode)
 	{
-	  if (GET_MODE_BITSIZE (GET_MODE (op0)) < GET_MODE_BITSIZE (GET_MODE (op1))
-	      /* If OP0 is a partial mode, then we must truncate, even if it has
-		 the same bitsize as OP1 as GCC's representation of partial modes
-		 is opaque.  */
-	      || (GET_MODE_CLASS (GET_MODE (op0)) == MODE_PARTIAL_INT
-		  && GET_MODE_BITSIZE (GET_MODE (op0)) == GET_MODE_BITSIZE (GET_MODE (op1))))
-	    op1 = simplify_gen_unary (TRUNCATE, GET_MODE (op0), op1,
-				      GET_MODE (op1));
+	  if (GET_MODE_BITSIZE (op0_mode) < GET_MODE_BITSIZE (op1_mode)
+	      /* If OP0 is a partial mode, then we must truncate, even
+		 if it has the same bitsize as OP1 as GCC's
+		 representation of partial modes is opaque.  */
+	      || (GET_MODE_CLASS (op0_mode) == MODE_PARTIAL_INT
+		  && (GET_MODE_BITSIZE (op0_mode)
+		      == GET_MODE_BITSIZE (op1_mode))))
+	    op1 = simplify_gen_unary (TRUNCATE, op0_mode, op1, op1_mode);
 	  else
 	    /* We always sign-extend, regardless of the signedness of
 	       the operand, because the operand is always unsigned
 	       here even if the original C expression is signed.  */
-	    op1 = simplify_gen_unary (SIGN_EXTEND, GET_MODE (op0), op1,
-				      GET_MODE (op1));
+	    op1 = simplify_gen_unary (SIGN_EXTEND, op0_mode, op1, op1_mode);
 	}
       /* Fall through.  */
     case PLUS_EXPR:
@@ -4817,7 +4823,7 @@ expand_debug_expr (tree exp)
 						   GET_MODE_INNER (mode)));
       else
 	{
-	  machine_mode imode = GET_MODE_INNER (mode);
+	  scalar_mode imode = GET_MODE_INNER (mode);
 	  rtx re, im;
 
 	  if (MEM_P (op0))
@@ -4827,10 +4833,11 @@ expand_debug_expr (tree exp)
 	    }
 	  else
 	    {
-	      machine_mode ifmode = int_mode_for_mode (mode);
-	      machine_mode ihmode = int_mode_for_mode (imode);
+	      scalar_int_mode ifmode;
+	      scalar_int_mode ihmode;
 	      rtx halfsize;
-	      if (ifmode == BLKmode || ihmode == BLKmode)
+	      if (!int_mode_for_mode (mode).exists (&ifmode)
+		  || !int_mode_for_mode (imode).exists (&ihmode))
 		return NULL;
 	      halfsize = GEN_INT (GET_MODE_BITSIZE (ihmode));
 	      re = op0;
@@ -4907,7 +4914,8 @@ expand_debug_expr (tree exp)
 	}
 
       as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (exp)));
-      op0 = convert_debug_memory_address (mode, XEXP (op0, 0), as);
+      addr_mode = SCALAR_INT_TYPE_MODE (TREE_TYPE (exp));
+      op0 = convert_debug_memory_address (addr_mode, XEXP (op0, 0), as);
 
       return op0;
 
@@ -5488,8 +5496,6 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
       if (elt)
 	emit_label (*elt);
 
-      /* Java emits line number notes in the top of labels.
-	 ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
@@ -5767,7 +5773,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_FALLTHRU)
       && (last = get_last_insn ())
-      && JUMP_P (last))
+      && (JUMP_P (last)
+	  || (DEBUG_INSN_P (last)
+	      && JUMP_P (prev_nondebug_insn (last)))))
     {
       rtx dummy = gen_reg_rtx (SImode);
       emit_insn_after_noloc (gen_move_insn (dummy, dummy), last, NULL);
@@ -5830,12 +5838,11 @@ construct_init_block (void)
     {
       first_block = e->dest;
       redirect_edge_succ (e, init_block);
-      e = make_edge (init_block, first_block, flags);
+      e = make_single_succ_edge (init_block, first_block, flags);
     }
   else
-    e = make_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
-  e->probability = REG_BR_PROB_BASE;
-  e->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
+    e = make_single_succ_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
+			       EDGE_FALLTHRU);
 
   update_bb_for_insn (init_block);
   return init_block;
@@ -5915,9 +5922,8 @@ construct_exit_block (void)
 	ix++;
     }
 
-  e = make_edge (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
-  e->probability = REG_BR_PROB_BASE;
-  e->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
+  e = make_single_succ_edge (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun),
+			     EDGE_FALLTHRU);
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e2 != e)
       {
@@ -5925,10 +5931,6 @@ construct_exit_block (void)
 	exit_block->count -= e2->count;
 	exit_block->frequency -= EDGE_FREQUENCY (e2);
       }
-  if (e->count < 0)
-    e->count = 0;
-  if (exit_block->count < 0)
-    exit_block->count = 0;
   if (exit_block->frequency < 0)
     exit_block->frequency = 0;
   update_bb_for_insn (exit_block);
@@ -6213,10 +6215,7 @@ pass_expand::execute (function *fun)
   discover_nonconstant_array_refs ();
 
   targetm.expand_to_rtl_hook ();
-  crtl->stack_alignment_needed = STACK_BOUNDARY;
-  crtl->max_used_stack_slot_alignment = STACK_BOUNDARY;
-  crtl->stack_alignment_estimated = 0;
-  crtl->preferred_stack_boundary = STACK_BOUNDARY;
+  crtl->init_stack_alignment ();
   fun->cfg->max_jumptable_ents = 0;
 
   /* Resovle the function section.  Some targets, like ARM EABI rely on knowledge
@@ -6334,7 +6333,7 @@ pass_expand::execute (function *fun)
 
   /* Initialize the stack_protect_guard field.  This must happen after the
      call to __main (if any) so that the external decl is initialized.  */
-  if (crtl->stack_protect_guard)
+  if (crtl->stack_protect_guard && targetm.stack_protect_runtime_enabled_p ())
     stack_protect_prologue ();
 
   expand_phi_nodes (&SA);
@@ -6480,6 +6479,11 @@ pass_expand::execute (function *fun)
   if (fun->eh->region_tree != NULL)
     finish_eh_generation ();
 
+  /* BB subdivision may have created basic blocks that are are only reachable
+     from unlikely bbs but not marked as such in the profile.  */
+  if (optimize)
+    propagate_unlikely_bbs_forward ();
+
   /* Remove unreachable blocks, otherwise we cannot compute dominators
      which are needed for loop state verification.  As a side-effect
      this also compacts blocks.
@@ -6522,12 +6526,6 @@ pass_expand::execute (function *fun)
 	  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
     }
 
-  /* We are now committed to emitting code for this function.  Do any
-     preparation, such as emitting abstract debug info for the inline
-     before it gets mangled by optimization.  */
-  if (cgraph_function_possibly_inlined_p (current_function_decl))
-    (*debug_hooks->outlining_inline_function) (current_function_decl);
-
   TREE_ASM_WRITTEN (current_function_decl) = 1;
 
   /* After expanding, the return labels are no longer needed. */
@@ -6542,6 +6540,14 @@ pass_expand::execute (function *fun)
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (fun->decl), 0);
   default_rtl_profile ();
+
+  /* For -dx discard loops now, otherwise IL verify in clean_state will
+     ICE.  */
+  if (rtl_dump_and_exit)
+    {
+      cfun->curr_properties &= ~PROP_loops;
+      loop_optimizer_finalize ();
+    }
 
   timevar_pop (TV_POST_EXPAND);
 

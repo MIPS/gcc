@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for playing back recorded API calls.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -390,6 +390,9 @@ public:
   {
     return new type (build_qualified_type (m_inner, TYPE_QUAL_VOLATILE));
   }
+
+  type *get_aligned (size_t alignment_in_bytes) const;
+  type *get_vector (size_t num_units) const;
 
 private:
   tree m_inner;

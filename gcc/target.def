@@ -1,5 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -288,6 +288,17 @@ hidden, protected or internal visibility as specified by @var{visibility}.",
  void, (tree decl, int visibility),
  default_assemble_visibility)
 
+DEFHOOK
+(print_patchable_function_entry,
+ "Generate a patchable area at the function start, consisting of\n\
+@var{patch_area_size} NOP instructions.  If the target supports named\n\
+sections and if @var{record_p} is true, insert a pointer to the current\n\
+location in the table of patchable functions.  The default implementation\n\
+of the hook places the table of pointers in the special section named\n\
+@code{__patchable_function_entries}.",
+ void, (FILE *file, unsigned HOST_WIDE_INT patch_area_size, bool record_p),
+ default_print_patchable_function_entry)
+
 /* Output the assembler code for entry to a function.  */
 DEFHOOK
 (function_prologue,
@@ -295,8 +306,8 @@ DEFHOOK
 function.  The prologue is responsible for setting up the stack frame,\n\
 initializing the frame pointer register, saving registers that must be\n\
 saved, and allocating @var{size} additional bytes of storage for the\n\
-local variables.  @var{size} is an integer.  @var{file} is a stdio\n\
-stream to which the assembler code should be output.\n\
+local variables.  @var{file} is a stdio stream to which the assembler\n\
+code should be output.\n\
 \n\
 The label for the beginning of the function need not be output by this\n\
 macro.  That has already been done when the macro is run.\n\
@@ -333,7 +344,7 @@ for a machine if doing so is more convenient or required for\n\
 compatibility reasons.  Except in cases where required by standard\n\
 or by a debugger, there is no reason why the stack layout used by GCC\n\
 need agree with that used by other compilers for a machine.",
- void, (FILE *file, HOST_WIDE_INT size),
+ void, (FILE *file),
  default_function_pro_epilogue)
 
 /* Output the assembler code for end of prologue.  */
@@ -363,7 +374,7 @@ DEFHOOK
 function.  The epilogue is responsible for restoring the saved\n\
 registers and stack pointer to their values when the function was\n\
 called, and returning control to the caller.  This macro takes the\n\
-same arguments as the macro @code{TARGET_ASM_FUNCTION_PROLOGUE}, and the\n\
+same argument as the macro @code{TARGET_ASM_FUNCTION_PROLOGUE}, and the\n\
 registers to restore are determined from @code{regs_ever_live} and\n\
 @code{CALL_USED_REGISTERS} in the same way.\n\
 \n\
@@ -403,7 +414,7 @@ functions pop their own arguments.  @code{TARGET_ASM_FUNCTION_EPILOGUE}\n\
 needs to know what was decided.  The number of bytes of the current\n\
 function's arguments that this function should pop is available in\n\
 @code{crtl->args.pops_args}.  @xref{Scalar Return}.",
- void, (FILE *file, HOST_WIDE_INT size),
+ void, (FILE *file),
  default_function_pro_epilogue)
 
 /* Initialize target-specific sections.  */
@@ -1480,6 +1491,15 @@ DEFHOOK_UNDOC
  "Return speculation types that are checked for instruction @var{insn}",
  unsigned int, (rtx_insn *insn), NULL)
 
+DEFHOOK
+(can_speculate_insn,
+ "Some instructions should never be speculated by the schedulers, usually\n\
+ because the instruction is too expensive to get this wrong.  Often such\n\
+ instructions have long latency, and often they are not fully modeled in the\n\
+ pipeline descriptions.  This hook should return @code{false} if @var{insn}\n\
+ should not be speculated.",
+ bool, (rtx_insn *insn), hook_bool_rtx_insn_true)
+
 DEFHOOK_UNDOC
 (skip_rtx_p,
  "Return bool if rtx scanning should just skip current layer and\
@@ -1801,10 +1821,10 @@ misalignment value (@var{misalign}).",
  default_builtin_vectorization_cost)
 
 /* Return true if vector alignment is reachable (by peeling N
-   iterations) for the given type.  */
+   iterations) for the given scalar type.  */
 DEFHOOK
 (vector_alignment_reachable,
- "Return true if vector alignment is reachable (by peeling N iterations) for the given type.",
+ "Return true if vector alignment is reachable (by peeling N iterations) for the given scalar type @var{type}.  @var{is_packed} is false if the scalar access using @var{type} is known to be naturally aligned.",
  bool, (const_tree type, bool is_packed),
  default_builtin_vector_alignment_reachable)
 
@@ -1839,7 +1859,7 @@ mode @var{mode}.  The default is\n\
 equal to @code{word_mode}, because the vectorizer can do some\n\
 transformations even in absence of specialized @acronym{SIMD} hardware.",
  machine_mode,
- (machine_mode mode),
+ (scalar_mode mode),
  default_preferred_simd_mode)
 
 /* Returns a mask of vector sizes to iterate over when auto-vectorizing
@@ -1989,7 +2009,7 @@ char *, (void), hook_charptr_void_null)
 DEFHOOK_UNDOC
 (eh_return_filter_mode,
  "Return machine mode for filter value.",
- machine_mode, (void),
+ scalar_int_mode, (void),
  default_eh_return_filter_mode)
 
 /* Return machine mode for libgcc expanded cmp instructions.  */
@@ -1999,7 +2019,7 @@ DEFHOOK
 of compare instructions expanded to libgcc calls.  If not defined\n\
 @code{word_mode} is returned which is the right choice for a majority of\n\
 targets.",
- machine_mode, (void),
+ scalar_int_mode, (void),
  default_libgcc_cmp_return_mode)
 
 /* Return machine mode for libgcc expanded shift instructions.  */
@@ -2009,7 +2029,7 @@ DEFHOOK
 of shift instructions expanded to libgcc calls.  If not defined\n\
 @code{word_mode} is returned which is the right choice for a majority of\n\
 targets.",
- machine_mode, (void),
+ scalar_int_mode, (void),
  default_libgcc_shift_count_mode)
 
 /* Return machine mode to be used for _Unwind_Word type.  */
@@ -2017,7 +2037,7 @@ DEFHOOK
 (unwind_word_mode,
  "Return machine mode to be used for @code{_Unwind_Word} type.\n\
 The default is to use @code{word_mode}.",
- machine_mode, (void),
+ scalar_int_mode, (void),
  default_unwind_word_mode)
 
 /* Given two decls, merge their attributes and return the result.  */
@@ -2360,7 +2380,7 @@ DEFHOOK
 DEFHOOK
 (chkp_bound_mode,
  "Return mode to be used for bounds.",
- enum machine_mode, (void),
+ machine_mode, (void),
  default_chkp_bound_mode)
 
 DEFHOOK
@@ -3136,7 +3156,7 @@ extension.\n\
 In order to enforce the representation of @code{mode},\n\
 @code{TRULY_NOOP_TRUNCATION} should return false when truncating to\n\
 @code{mode}.",
- int, (machine_mode mode, machine_mode rep_mode),
+ int, (scalar_int_mode mode, scalar_int_mode rep_mode),
  default_mode_rep_extended)
 
 /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
@@ -3145,7 +3165,7 @@ DEFHOOK
  "Define this to return nonzero if the port can handle pointers\n\
 with machine mode @var{mode}.  The default version of this\n\
 hook returns true for both @code{ptr_mode} and @code{Pmode}.",
- bool, (machine_mode mode),
+ bool, (scalar_int_mode mode),
  default_valid_pointer_mode)
 
 /* Disambiguate with errno.  */
@@ -3170,7 +3190,7 @@ DEFHOOK
  "Define this to return the machine mode to use for pointers to\n\
 @var{address_space} if the target supports named address spaces.\n\
 The default version of this hook returns @code{ptr_mode}.",
- machine_mode, (addr_space_t address_space),
+ scalar_int_mode, (addr_space_t address_space),
  default_addr_space_pointer_mode)
 
 /* MODE to use for an address in another address space.  */
@@ -3179,7 +3199,7 @@ DEFHOOK
  "Define this to return the machine mode to use for addresses in\n\
 @var{address_space} if the target supports named address spaces.\n\
 The default version of this hook returns @code{Pmode}.",
- machine_mode, (addr_space_t address_space),
+ scalar_int_mode, (addr_space_t address_space),
  default_addr_space_address_mode)
 
 /* True if MODE is valid for a pointer in __attribute__((mode("MODE")))
@@ -3193,7 +3213,7 @@ except that it includes explicit named address space support.  The default\n\
 version of this hook returns true for the modes returned by either the\n\
 @code{TARGET_ADDR_SPACE_POINTER_MODE} or @code{TARGET_ADDR_SPACE_ADDRESS_MODE}\n\
 target hooks for the given address space.",
- bool, (machine_mode mode, addr_space_t as),
+ bool, (scalar_int_mode mode, addr_space_t as),
  default_addr_space_valid_pointer_mode)
 
 /* True if an address is a valid memory address to a given named address
@@ -3295,7 +3315,7 @@ The default version of this hook returns true for any mode\n\
 required to handle the basic C types (as defined by the port).\n\
 Included here are the double-word arithmetic supported by the\n\
 code in @file{optabs.c}.",
- bool, (machine_mode mode),
+ bool, (scalar_mode mode),
  default_scalar_mode_supported_p)
 
 /* Similarly for vector modes.  "Supported" here is less strict.  At
@@ -3358,34 +3378,28 @@ floating-point mode @var{mode}, which is known to pass \n\
 @code{TARGET_SCALAR_MODE_SUPPORTED_P}.  The default version of this \n\
 hook returns true for all of @code{SFmode}, @code{DFmode}, \n\
 @code{XFmode} and @code{TFmode}, if such modes exist.",
- bool, (machine_mode mode),
+ bool, (scalar_float_mode mode),
  default_libgcc_floating_mode_supported_p)
 
 DEFHOOK
 (floatn_mode,
  "Define this to return the machine mode to use for the type \n\
 @code{_Float@var{n}}, if @var{extended} is false, or the type \n\
-@code{_Float@var{n}x}, if @var{extended} is true.  If such a type \n\
-is not supported, return @code{VOIDmode}.  The default version of this \n\
-hook returns @code{SFmode} for @code{_Float32}, @code{DFmode} for \n\
+@code{_Float@var{n}x}, if @var{extended} is true.  If such a type is not\n\
+supported, return @code{opt_scalar_float_mode ()}.  The default version of\n\
+this hook returns @code{SFmode} for @code{_Float32}, @code{DFmode} for\n\
 @code{_Float64} and @code{_Float32x} and @code{TFmode} for \n\
 @code{_Float128}, if those modes exist and satisfy the requirements for \n\
 those types and pass @code{TARGET_SCALAR_MODE_SUPPORTED_P} and \n\
 @code{TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P}; for @code{_Float64x}, it \n\
 returns the first of @code{XFmode} and @code{TFmode} that exists and \n\
 satisfies the same requirements; for other types, it returns \n\
-@code{VOIDmode}.  The hook is only called for values of @var{n} and \n\
-@var{extended} that are valid according to ISO/IEC TS 18661-3:2015; that \n\
-is, @var{n} is one of 32, 64, 128, or, if @var{extended} is false, 16 or \n\
-greater than 128 and a multiple of 32.",
- machine_mode, (int n, bool extended),
+@code{opt_scalar_float_mode ()}.  The hook is only called for values\n\
+of @var{n} and @var{extended} that are valid according to\n\
+ISO/IEC TS 18661-3:2015; that is, @var{n} is one of 32, 64, 128, or,\n\
+if @var{extended} is false, 16 or greater than 128 and a multiple of 32.",
+ opt_scalar_float_mode, (int n, bool extended),
  default_floatn_mode)
-
-DEFHOOK
-(printf_pointer_format,
- "Determine the target @code{printf} implementation format string that the most closely corresponds to the @code{%p} format directive.  The object pointed to by the @var{flags} is set to a string consisting of recognized format flags such as the @code{'#'} character.",
- const char*, (tree, const char **flags),
- default_printf_pointer_format)
 
 /* Compute cost of moving data from a register of class FROM to one of
    TO, using MODE.  */
@@ -3656,6 +3670,16 @@ The default implementation of this hook uses the\n\
 and uses a multiple of @code{BRANCH_COST} otherwise.",
 unsigned int, (edge e),
 default_max_noce_ifcvt_seq_cost)
+
+/* Return true if the given instruction sequence is a good candidate
+   as a replacement for the if-convertible sequence.  */
+DEFHOOK
+(noce_conversion_profitable_p,
+ "This hook returns true if the instruction sequence @code{seq} is a good\n\
+candidate as a replacement for the if-convertible sequence described in\n\
+@code{if_info}.",
+bool, (rtx_insn *seq, struct noce_if_info *if_info),
+default_noce_conversion_profitable_p)
 
 /* Permit speculative instructions in delay slots during delayed-branch 
    scheduling.  */
@@ -4039,6 +4063,15 @@ normally defined in @file{libgcc2.c}.",
  tree, (void),
  default_external_stack_protect_fail)
 
+/* This target hook allows the operating system to disable the default stack
+   protector runtime support.  */
+DEFHOOK
+(stack_protect_runtime_enabled_p,
+ "Returns true if the target wants GCC's default stack protect runtime support,\
+ otherwise return false.  The default implementation always returns true.",
+ bool, (void),
+ hook_bool_void_true)
+
 DEFHOOK
 (can_use_doloop_p,
  "Return true if it is possible to use low-overhead loops (@code{doloop_end}\n\
@@ -4348,7 +4381,7 @@ DEFHOOK
  "Use it to store bounds for anonymous register arguments stored\n\
 into the stack.  Arguments meaning is similar to\n\
 @code{TARGET_SETUP_INCOMING_VARARGS}.",
- void, (cumulative_args_t args_so_far, enum machine_mode mode, tree type,
+ void, (cumulative_args_t args_so_far, machine_mode mode, tree type,
 	int *pretend_args_size, int second_time),
  default_setup_incoming_vararg_bounds)
 
@@ -5060,7 +5093,7 @@ DEFHOOK
   for the cstore being performed.  Not definiting this hook is the same\
   as accepting the mode encoded into operand 0 of the cstore expander\
   patterns.",
-  machine_mode, (enum insn_code icode),
+  scalar_int_mode, (enum insn_code icode),
   default_cstore_mode)
 
 /* This target hook allows the backend to compute the register pressure
@@ -5373,6 +5406,18 @@ five otherwise.  This is best for most machines.",
  unsigned int, (void),
  default_case_values_threshold)
 
+/* Optional callback to advise the target to compute the frame layout.  */
+DEFHOOK
+(compute_frame_layout,
+ "This target hook is called once each time the frame layout needs to be\n\
+recalculated.  The calculations can be cached by the target and can then\n\
+be used by @code{INITIAL_ELIMINATION_OFFSET} instead of re-computing the\n\
+layout on every invocation of that hook.  This is particularly useful\n\
+for targets that have an expensive frame layout function.  Implementing\n\
+this callback is optional.",
+ void, (void),
+ hook_void_void)
+
 /* Return true if a function must have and use a frame pointer.  */
 DEFHOOK
 (frame_pointer_required,
@@ -5463,6 +5508,27 @@ DEFHOOK_UNDOC
  or VOIDmode if non-standard suffixes are unsupported.",
  machine_mode, (char c),
  default_mode_for_suffix)
+
+DEFHOOK
+(excess_precision,
+ "Return a value, with the same meaning as the C99 macro\
+ @code{FLT_EVAL_METHOD} that describes which excess precision should be\
+ applied.  @var{type} is either @code{EXCESS_PRECISION_TYPE_IMPLICIT},\
+ @code{EXCESS_PRECISION_TYPE_FAST}, or\
+ @code{EXCESS_PRECISION_TYPE_STANDARD}.  For\
+ @code{EXCESS_PRECISION_TYPE_IMPLICIT}, the target should return which\
+ precision and range operations will be implictly evaluated in regardless\
+ of the excess precision explicitly added.  For\
+ @code{EXCESS_PRECISION_TYPE_STANDARD} and\
+ @code{EXCESS_PRECISION_TYPE_FAST}, the target should return the\
+ explicit excess precision that should be added depending on the\
+ value set for @option{-fexcess-precision=@r{[}standard@r{|}fast@r{]}}.\
+ Note that unpredictable explicit excess precision does not make sense,\
+ so a target should never return @code{FLT_EVAL_METHOD_UNPREDICTABLE}\
+ when @var{type} is @code{EXCESS_PRECISION_TYPE_STANDARD} or\
+ @code{EXCESS_PRECISION_TYPE_FAST}.",
+ enum flt_eval_method, (enum excess_precision_type type),
+ default_excess_precision)
 
 HOOK_VECTOR_END (c)
 

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd windows solaris
+// +build aix darwin dragonfly freebsd linux netbsd openbsd windows solaris
 
 package net
 
 import (
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -33,6 +34,7 @@ var serverInit sync.Once
 func (pd *pollDesc) init(fd *netFD) error {
 	serverInit.Do(runtime_pollServerInit)
 	ctx, errno := runtime_pollOpen(uintptr(fd.sysfd))
+	runtime.KeepAlive(fd)
 	if errno != 0 {
 		return syscall.Errno(errno)
 	}
@@ -120,7 +122,7 @@ func (fd *netFD) setWriteDeadline(t time.Time) error {
 }
 
 func setDeadlineImpl(fd *netFD, t time.Time, mode int) error {
-	diff := int64(t.Sub(time.Now()))
+	diff := int64(time.Until(t))
 	d := runtimeNano() + diff
 	if d <= 0 && diff > 0 {
 		// If the user has a deadline in the future, but the delay calculation

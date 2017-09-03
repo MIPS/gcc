@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2016 Free Software Foundation, Inc.
+# Copyright (C) 2005-2017 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -165,8 +165,13 @@ configure_deps = \
 	$(srcdir)/../config/tls.m4 \
 	$(srcdir)/../config/acx.m4 \
 	$(srcdir)/../config/no-executables.m4 \
+	$(srcdir)/../config/lib-ld.m4 \
 	$(srcdir)/../config/override.m4 \
+	$(srcdir)/../config/picflag.m4 \
 	$(srcdir)/../config/dfp.m4 \
+	$(srcdir)/../config/unwind_ipinfo.m4 \
+	$(srcdir)/../config/gthr.m4 \
+	$(srcdir)/../config/sjlj.m4
 
 $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
@@ -219,7 +224,7 @@ export slibdir
 export toolexecdir
 export toolexeclibdir
 
-version := $(shell cat $(srcdir)/../gcc/BASE-VER)
+version := $(shell @get_gcc_base_ver@ $(srcdir)/../gcc/BASE-VER)
 
 ifeq ($(decimal_float),yes)
 ifeq ($(enable_decimal_float),bid)
@@ -343,8 +348,6 @@ LIBUNWIND =
 SHLIBUNWIND_LINK =
 SHLIBUNWIND_INSTALL =
 
-tmake_file = @tmake_file@
-include $(srcdir)/empty.mk $(tmake_file)
 
 # Create links to files specified in config.host.
 LIBGCC_LINKS = enable-execute-stack.c unwind.h md-unwind-support.h \
@@ -360,6 +363,9 @@ sfp-machine.h: $(srcdir)/config/$(sfp_machine_header)
 	-$(LN_S) $< $@
 gthr-default.h: $(srcdir)/$(thread_header)
 	-$(LN_S) $< $@
+
+tmake_file = @tmake_file@
+include $(srcdir)/empty.mk $(tmake_file)
 
 # Collect target defines and headers from config.host.
 libgcc_tm_defines = @tm_defines@
@@ -901,14 +907,14 @@ libgcov-driver-objects = $(patsubst %,%$(objext),$(LIBGCOV_DRIVER))
 libgcov-objects = $(libgcov-merge-objects) $(libgcov-profiler-objects) \
                  $(libgcov-interface-objects) $(libgcov-driver-objects)
 
-$(libgcov-merge-objects): %$(objext): $(srcdir)/libgcov-merge.c $(srcdir)/libgcov.h
+$(libgcov-merge-objects): %$(objext): $(srcdir)/libgcov-merge.c $(srcdir)/gcov.h $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-merge.c
-$(libgcov-profiler-objects): %$(objext): $(srcdir)/libgcov-profiler.c $(srcdir)/libgcov.h
+$(libgcov-profiler-objects): %$(objext): $(srcdir)/libgcov-profiler.c $(srcdir)/gcov.h $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-profiler.c
-$(libgcov-interface-objects): %$(objext): $(srcdir)/libgcov-interface.c $(srcdir)/libgcov.h
+$(libgcov-interface-objects): %$(objext): $(srcdir)/libgcov-interface.c $(srcdir)/gcov.h $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-interface.c
 $(libgcov-driver-objects): %$(objext): $(srcdir)/libgcov-driver.c \
-  $(srcdir)/libgcov-driver-system.c $(srcdir)/libgcov.h
+  $(srcdir)/libgcov-driver-system.c $(srcdir)/gcov.h $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-driver.c
 
 
@@ -1108,6 +1114,10 @@ install-unwind_h:
 
 all: install-unwind_h-forbuild
 
+install-gcov_h:
+	$(mkinstalldirs) $(DESTDIR)$(libsubdir)/include
+	$(INSTALL_DATA) $(srcdir)/gcov.h $(DESTDIR)$(libsubdir)/include
+
 # Documentation targets (empty).
 .PHONY: info html dvi pdf install-info install-html install-pdf
 
@@ -1165,13 +1175,14 @@ install-leaf: $(install-shared) $(install-libunwind)
 	  esac;							\
 	done
 
-install: install-leaf install-unwind_h
+install: install-leaf install-unwind_h install-gcov_h
 	@: $(MAKE) ; $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 install-strip: install
 
 .PHONY: install install-shared install-libunwind install-strip
 .PHONY: install-unwind_h install-unwind_h-forbuild
+.PHONY: install-gcov_h
 
 # Don't export variables to the environment, in order to not confuse
 # configure.

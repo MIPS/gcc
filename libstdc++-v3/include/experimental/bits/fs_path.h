@@ -1,6 +1,6 @@
 // Class filesystem::path -*- C++ -*-
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -55,13 +55,14 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
 namespace experimental
 {
 namespace filesystem
 {
 inline namespace v1
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
 #if __cplusplus == 201402L
@@ -418,7 +419,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       _S_convert(_Iter __first, _Iter __last)
       {
 	using __value_type = typename std::iterator_traits<_Iter>::value_type;
-	return _Cvt<remove_cv_t<__value_type>>::_S_convert(__first, __last);
+	return _Cvt<typename remove_cv<__value_type>::type>::
+	  _S_convert(__first, __last);
       }
 
     template<typename _InputIterator>
@@ -426,7 +428,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       _S_convert(_InputIterator __src, __null_terminated)
       {
 	using _Tp = typename std::iterator_traits<_InputIterator>::value_type;
-	std::basic_string<remove_cv_t<_Tp>> __tmp;
+	std::basic_string<typename remove_cv<_Tp>::type> __tmp;
 	for (; *__src != _Tp{}; ++__src)
 	  __tmp.push_back(*__src);
 	return _S_convert(__tmp.c_str(), __tmp.c_str() + __tmp.size());
@@ -1079,10 +1081,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   // @} group filesystem
 _GLIBCXX_END_NAMESPACE_CXX11
-_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace v1
 } // namespace filesystem
 } // namespace experimental
+
+_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // C++11

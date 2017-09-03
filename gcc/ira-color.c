@@ -1,5 +1,5 @@
 /* IRA allocation based on graph coloring.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1367,6 +1367,16 @@ update_costs_from_allocno (ira_allocno_t allocno, int hard_regno,
 	      || ALLOCNO_ASSIGNED_P (another_allocno))
 	    continue;
 
+	  if (GET_MODE_SIZE (ALLOCNO_MODE (cp->second)) < GET_MODE_SIZE (mode))
+	    /* If we have different modes use the smallest one.  It is
+	       a sub-register move.  It is hard to predict what LRA
+	       will reload (the pseudo or its sub-register) but LRA
+	       will try to minimize the data movement.  Also for some
+	       register classes bigger modes might be invalid,
+	       e.g. DImode for AREG on x86.  For such cases the
+	       register move cost will be maximal. */
+	    mode = ALLOCNO_MODE (cp->second);
+	  
 	  cost = (cp->second == allocno
 		  ? ira_register_move_cost[mode][rclass][aclass]
 		  : ira_register_move_cost[mode][aclass][rclass]);
@@ -1512,7 +1522,7 @@ update_conflict_hard_regno_costs (int *costs, enum reg_class aclass,
 		index = ira_class_hard_reg_index[aclass][hard_regno];
 		if (index < 0)
 		  continue;
-		cost = (int) ((unsigned) conflict_costs [i] * mult) / div;
+		cost = (int) (((int64_t) conflict_costs [i] * mult) / div);
 		if (cost == 0)
 		  continue;
 		cont_p = true;
@@ -2735,7 +2745,7 @@ static int
 allocno_copy_cost_saving (ira_allocno_t allocno, int hard_regno)
 {
   int cost = 0;
-  enum machine_mode allocno_mode = ALLOCNO_MODE (allocno);
+  machine_mode allocno_mode = ALLOCNO_MODE (allocno);
   enum reg_class rclass;
   ira_copy_t cp, next_cp;
 

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "optabs.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -115,9 +116,9 @@ static void set_reg_plus_d (int, int, HOST_WIDE_INT, int);
 static rtx pa_function_value (const_tree, const_tree, bool);
 static rtx pa_libcall_value (machine_mode, const_rtx);
 static bool pa_function_value_regno_p (const unsigned int);
-static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void pa_output_function_prologue (FILE *);
 static void update_total_code_bytes (unsigned int);
-static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static void pa_output_function_epilogue (FILE *);
 static int pa_adjust_cost (rtx_insn *, int, rtx_insn *, int, unsigned int);
 static int pa_adjust_priority (rtx_insn *, int);
 static int pa_issue_rate (void);
@@ -142,7 +143,7 @@ static rtx pa_expand_builtin (tree, rtx, rtx, machine_mode mode, int);
 static rtx hppa_builtin_saveregs (void);
 static void hppa_va_start (tree, rtx);
 static tree hppa_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
-static bool pa_scalar_mode_supported_p (machine_mode);
+static bool pa_scalar_mode_supported_p (scalar_mode);
 static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx_insn *) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx_insn *) ATTRIBUTE_UNUSED;
@@ -195,6 +196,8 @@ static bool pa_cannot_force_const_mem (machine_mode, rtx);
 static bool pa_legitimate_constant_p (machine_mode, rtx);
 static unsigned int pa_section_type_flags (tree, const char *, int);
 static bool pa_legitimate_address_p (machine_mode, rtx, bool);
+static bool pa_callee_copies (cumulative_args_t, machine_mode,
+			      const_tree, bool);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
@@ -343,7 +346,7 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
 #undef TARGET_CALLEE_COPIES
-#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
+#define TARGET_CALLEE_COPIES pa_callee_copies
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES pa_arg_partial_bytes
 #undef TARGET_FUNCTION_ARG
@@ -3297,6 +3300,24 @@ pa_output_64bit_ior (rtx *operands)
 static bool
 pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
+  bool result;
+  tree decl = NULL;
+
+  /* When we have a SYMBOL_REF with a SYMBOL_REF_DECL, we need to call
+     call assemble_external and set the SYMBOL_REF_DECL to NULL before
+     calling output_addr_const.  Otherwise, it may call assemble_external
+     in the midst of outputing the assembler code for the SYMBOL_REF.
+     We restore the SYMBOL_REF_DECL after the output is done.  */
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      decl = SYMBOL_REF_DECL (x);
+      if (decl)
+	{
+	  assemble_external (decl);
+	  SET_SYMBOL_REF_DECL (x, NULL);
+	}
+    }
+
   if (size == UNITS_PER_WORD
       && aligned_p
       && function_label_operand (x, VOIDmode))
@@ -3309,9 +3330,15 @@ pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
 
       output_addr_const (asm_out_file, x);
       fputc ('\n', asm_out_file);
-      return true;
+      result = true;
     }
-  return default_assemble_integer (x, size, aligned_p);
+  else
+    result = default_assemble_integer (x, size, aligned_p);
+
+  if (decl)
+    SET_SYMBOL_REF_DECL (x, decl);
+
+  return result;
 }
 
 /* Output an ascii string.  */
@@ -3795,15 +3822,6 @@ pa_compute_frame_size (HOST_WIDE_INT size, int *fregs_live)
 	  & ~(PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1));
 }
 
-/* Generate the assembly code for function entry.  FILE is a stdio
-   stream to output the code to.  SIZE is an int: how many units of
-   temporary storage to allocate.
-
-   Refer to the array `regs_ever_live' to determine which registers to
-   save; `regs_ever_live[I]' is nonzero if register number I is ever
-   used in the function.  This function is responsible for knowing
-   which registers should not be saved even if used.  */
-
 /* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
    of memory.  If any fpu reg is used in the function, we allocate
    such a block here, at the bottom of the frame, just in case it's needed.
@@ -3813,7 +3831,7 @@ pa_compute_frame_size (HOST_WIDE_INT size, int *fregs_live)
    to do this is made in regclass.c.  */
 
 static void
-pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+pa_output_function_prologue (FILE *file)
 {
   /* The function's label and associated .PROC must never be
      separated and must be output *after* any profiling declarations
@@ -4227,7 +4245,7 @@ update_total_code_bytes (unsigned int nbytes)
    adjustments before returning.  */
 
 static void
-pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+pa_output_function_epilogue (FILE *file)
 {
   rtx_insn *insn = get_last_insn ();
   bool extra_nop;
@@ -6049,19 +6067,19 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
     {
       switch (mode)
 	{
-	case SImode:
+	case E_SImode:
 	  sri->icode = CODE_FOR_reload_insi_r1;
 	  break;
 
-	case DImode:
+	case E_DImode:
 	  sri->icode = CODE_FOR_reload_indi_r1;
 	  break;
 
-	case SFmode:
+	case E_SFmode:
 	  sri->icode = CODE_FOR_reload_insf_r1;
 	  break;
 
-	case DFmode:
+	case E_DFmode:
 	  sri->icode = CODE_FOR_reload_indf_r1;
 	  break;
 
@@ -6083,11 +6101,11 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	{
 	  switch (mode)
 	    {
-	    case SImode:
+	    case E_SImode:
 	      sri->icode = CODE_FOR_reload_insi_r1;
 	      break;
 
-	    case DImode:
+	    case E_DImode:
 	      sri->icode = CODE_FOR_reload_indi_r1;
 	      break;
 
@@ -6398,7 +6416,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
    2 * BITS_PER_WORD isn't equal LONG_LONG_TYPE_SIZE.  */
 
 static bool
-pa_scalar_mode_supported_p (machine_mode mode)
+pa_scalar_mode_supported_p (scalar_mode mode)
 {
   int precision = GET_MODE_PRECISION (mode);
 
@@ -9176,17 +9194,17 @@ pa_combine_instructions (void)
 		  || anchor_attr == PA_COMBINE_TYPE_FMPY))
 	    {
 	      /* Emit the new instruction and delete the old anchor.  */
-	      emit_insn_before (gen_rtx_PARALLEL
-				(VOIDmode,
-				 gen_rtvec (2, PATTERN (anchor),
-					    PATTERN (floater))),
-				anchor);
+	      rtvec vtemp = gen_rtvec (2, copy_rtx (PATTERN (anchor)),
+				       copy_rtx (PATTERN (floater)));
+	      rtx temp = gen_rtx_PARALLEL (VOIDmode, vtemp);
+	      emit_insn_before (temp, anchor);
 
 	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
-	      emit_insn_before (gen_rtx_USE (VOIDmode, floater), floater);
+	      temp = copy_rtx (PATTERN (floater));
+	      emit_insn_before (gen_rtx_USE (VOIDmode, temp), floater);
 	      delete_insn (floater);
 
 	      continue;
@@ -9194,21 +9212,19 @@ pa_combine_instructions (void)
 	  else if (floater
 		   && anchor_attr == PA_COMBINE_TYPE_UNCOND_BRANCH)
 	    {
-	      rtx temp;
 	      /* Emit the new_jump instruction and delete the old anchor.  */
-	      temp
-		= emit_jump_insn_before (gen_rtx_PARALLEL
-					 (VOIDmode,
-					  gen_rtvec (2, PATTERN (anchor),
-						     PATTERN (floater))),
-					 anchor);
+	      rtvec vtemp = gen_rtvec (2, copy_rtx (PATTERN (anchor)),
+				       copy_rtx (PATTERN (floater)));
+	      rtx temp = gen_rtx_PARALLEL (VOIDmode, vtemp);
+	      temp = emit_jump_insn_before (temp, anchor);
 
 	      JUMP_LABEL (temp) = JUMP_LABEL (anchor);
 	      SET_INSN_DELETED (anchor);
 
 	      /* Emit a special USE insn for FLOATER, then delete
 		 the floating insn.  */
-	      emit_insn_before (gen_rtx_USE (VOIDmode, floater), floater);
+	      temp = copy_rtx (PATTERN (floater));
+	      emit_insn_before (gen_rtx_USE (VOIDmode, temp), floater);
 	      delete_insn (floater);
 	      continue;
 	    }
@@ -9962,19 +9978,23 @@ pa_cannot_change_mode_class (machine_mode from, machine_mode to,
   if (from == to)
     return false;
 
+  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to))
+    return false;
+
+  /* Reject changes to/from modes with zero size.  */
+  if (!GET_MODE_SIZE (from) || !GET_MODE_SIZE (to))
+    return true;
+
   /* Reject changes to/from complex and vector modes.  */
   if (COMPLEX_MODE_P (from) || VECTOR_MODE_P (from)
       || COMPLEX_MODE_P (to) || VECTOR_MODE_P (to))
     return true;
       
-  if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to))
-    return false;
-
-  /* There is no way to load QImode or HImode values directly from
-     memory.  SImode loads to the FP registers are not zero extended.
-     On the 64-bit target, this conflicts with the definition of
-     LOAD_EXTEND_OP.  Thus, we can't allow changing between modes
-     with different sizes in the floating-point registers.  */
+  /* There is no way to load QImode or HImode values directly from memory
+     to a FP register.  SImode loads to the FP registers are not zero
+     extended.  On the 64-bit target, this conflicts with the definition
+     of LOAD_EXTEND_OP.  Thus, we can't allow changing between modes with
+     different sizes in the floating-point registers.  */
   if (MAYBE_FP_REG_CLASS_P (rclass))
     return true;
 
@@ -10695,7 +10715,8 @@ pa_expand_compare_and_swap_loop (rtx mem, rtx old_reg, rtx new_reg, rtx seq)
 
   /* Mark this jump predicted not taken.  */
   emit_cmp_and_jump_insns (success, const0_rtx, EQ, const0_rtx,
-                           GET_MODE (success), 1, label, 0);
+                           GET_MODE (success), 1, label,
+			   profile_probability::guessed_never ());
   return true;
 }
 
@@ -10718,6 +10739,21 @@ pa_maybe_emit_compare_and_swap_exchange_loop (rtx target, rtx mem, rtx val)
     }
 
   return NULL_RTX;
+}
+
+/* Implement TARGET_CALLEE_COPIES.  The callee is responsible for copying
+   arguments passed by hidden reference in the 32-bit HP runtime.  Users
+   can override this behavior for better compatibility with openmp at the
+   risk of library incompatibilities.  Arguments are always passed by value
+   in the 64-bit HP runtime.  */
+
+static bool
+pa_callee_copies (cumulative_args_t cum ATTRIBUTE_UNUSED,
+		  machine_mode mode ATTRIBUTE_UNUSED,
+		  const_tree type ATTRIBUTE_UNUSED,
+		  bool named ATTRIBUTE_UNUSED)
+{
+  return !TARGET_CALLER_COPIES;
 }
 
 #include "gt-pa.h"
