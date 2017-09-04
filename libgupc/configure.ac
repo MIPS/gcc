@@ -665,21 +665,22 @@ AC_SUBST(enable_upc_runtime_debug)
 AC_MSG_CHECKING([for UPC link script support])
 if test -n "$GUPCR_LINK_SCRIPT" \
    && test "$GUPCR_LINK_SCRIPT" -eq 1; then
-  upc_link_script=yes
+  use_upc_link_script=yes
 else
-  upc_link_script=no
+  use_upc_link_script=no
 fi
-if test x"$upc_link_script" = xyes; then
+if test x"$use_upc_link_script" = xyes; then
   gen_ld_script=${srcdir}/gen-upc-ld-script.pl
   if ! ${LD} --verbose | ${PERL} $gen_ld_script 1>/dev/null ; then
     # if gen-upc-ld-script did not accept the output of the linker
     # then disable UPC link script support.
+    use_upc_link_script=no
     AC_MSG_ERROR([selected linker does not support linker scripts])
   fi
 fi
-AC_MSG_RESULT($upc_link_script)
-if test x"$upc_link_script" = xyes; then
-  AC_DEFINE(use_upc_link_script, 1,
+AC_MSG_RESULT($use_upc_link_script)
+if test x"$use_upc_link_script" = xyes; then
+  AC_DEFINE(USE_UPC_LINK_SCRIPT, 1,
     [Define to 1 if UPC link script is supported.])
 fi
 

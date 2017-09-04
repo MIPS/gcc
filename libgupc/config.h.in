@@ -437,7 +437,7 @@
 #undef size_t
 
 /* Define to 1 if UPC link script is supported. */
-#undef use_upc_link_script
+#undef USE_UPC_LINK_SCRIPT
 
 /* Define as `fork' if `vfork' does not work. */
 #undef vfork

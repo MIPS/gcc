@@ -15158,23 +15158,24 @@ fi
 $as_echo_n "checking for UPC link script support... " >&6; }
 if test -n "$GUPCR_LINK_SCRIPT" \
    && test "$GUPCR_LINK_SCRIPT" -eq 1; then
-  upc_link_script=yes
+  use_upc_link_script=yes
 else
-  upc_link_script=no
+  use_upc_link_script=no
 fi
-if test x"$upc_link_script" = xyes; then
+if test x"$use_upc_link_script" = xyes; then
   gen_ld_script=${srcdir}/gen-upc-ld-script.pl
   if ! ${LD} --verbose | ${PERL} $gen_ld_script 1>/dev/null ; then
     # if gen-upc-ld-script did not accept the output of the linker
     # then disable UPC link script support.
+    use_upc_link_script=no
     as_fn_error "selected linker does not support linker scripts" "$LINENO" 5
   fi
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $upc_link_script" >&5
-$as_echo "$upc_link_script" >&6; }
-if test x"$upc_link_script" = xyes; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $use_upc_link_script" >&5
+$as_echo "$use_upc_link_script" >&6; }
+if test x"$use_upc_link_script" = xyes; then
 
-$as_echo "#define use_upc_link_script 1" >>confdefs.h
+$as_echo "#define USE_UPC_LINK_SCRIPT 1" >>confdefs.h
 
 fi
 
@@ -21385,7 +21386,6 @@ CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 CC="$CC"
 CXX="$CXX"
 GFORTRAN="$GFORTRAN"
-GCJ="$GCJ"
 AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"
 
 

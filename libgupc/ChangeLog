@@ -1,5 +1,13 @@
 2017-09-03  Gary Funck  <gary@intrepid.com>
 
+	Fix logic that detects and enables support
+	for UPC linker scripts.
+	* configure.ac: Fix the test for UPC linker script support.
+	* configure: Re-generate.
+	* config.h.in: Use full caps for USE_UPC_LINK_SCRIPT.
+
+2017-09-03  Gary Funck  <gary@intrepid.com>
+
 	Update copyright notices.
 
 2016-07-04  Gary Funck  <gary@intrepid.com>
