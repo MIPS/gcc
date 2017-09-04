@@ -7073,9 +7073,16 @@ type_cache_hasher::equal (type_hash *a, type_hash *b)
         break;
       return 0;
     case ARRAY_TYPE:
-      return (TYPE_TYPELESS_STORAGE (a->type)
-	      == TYPE_TYPELESS_STORAGE (b->type)
-	      && TYPE_DOMAIN (a->type) == TYPE_DOMAIN (b->type));
+      /* Don't compare TYPE_TYPELESS_STORAGE flag on aggregates,
+	 where the flag should be inherited from the element type
+	 and can change after ARRAY_TYPEs are created; on non-aggregates
+	 compare it and hash it, scalars will never have that flag set
+	 and we need to differentiate between arrays created by different
+	 front-ends or middle-end created arrays.  */
+      return (TYPE_DOMAIN (a->type) == TYPE_DOMAIN (b->type)
+	      && (AGGREGATE_TYPE_P (TREE_TYPE (a->type))
+		  || (TYPE_TYPELESS_STORAGE (a->type)
+		      == TYPE_TYPELESS_STORAGE (b->type))));
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -8386,7 +8393,8 @@ build_array_type_1 (tree elt_type, tree index_type, bool typeless_storage,
       hstate.add_object (TYPE_HASH (elt_type));
       if (index_type)
 	hstate.add_object (TYPE_HASH (index_type));
-      hstate.add_flag (typeless_storage);
+      if (!AGGREGATE_TYPE_P (elt_type))
+	hstate.add_flag (TYPE_TYPELESS_STORAGE (t));
       t = type_hash_canon (hstate.end (), t);
     }
 
@@ -13211,18 +13219,26 @@ array_ref_up_bound (tree exp)
   return NULL_TREE;
 }
 
-/* Returns true if REF is an array reference to an array at the end of
-   a structure.  If this is the case, the array may be allocated larger
-   than its upper bound implies.  When ALLOW_COMPREF is true considers
-   REF when it's a COMPONENT_REF in addition ARRAY_REF and
-   ARRAY_RANGE_REF.  */
+/* Returns true if REF is an array reference or a component reference
+   to an array at the end of a structure.
+   If this is the case, the array may be allocated larger
+   than its upper bound implies.  */
 
 bool
-array_at_struct_end_p (tree ref, bool allow_compref)
+array_at_struct_end_p (tree ref)
 {
-  if (TREE_CODE (ref) != ARRAY_REF
-      && TREE_CODE (ref) != ARRAY_RANGE_REF
-      && (!allow_compref || TREE_CODE (ref) != COMPONENT_REF))
+  tree atype;
+
+  if (TREE_CODE (ref) == ARRAY_REF
+      || TREE_CODE (ref) == ARRAY_RANGE_REF)
+    {
+      atype = TREE_TYPE (TREE_OPERAND (ref, 0));
+      ref = TREE_OPERAND (ref, 0);
+    }
+  else if (TREE_CODE (ref) == COMPONENT_REF
+	   && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 1))) == ARRAY_TYPE)
+    atype = TREE_TYPE (TREE_OPERAND (ref, 1));
+  else
     return false;
 
   while (handled_component_p (ref))
@@ -13230,18 +13246,41 @@ array_at_struct_end_p (tree ref, bool allow_compref)
       /* If the reference chain contains a component reference to a
          non-union type and there follows another field the reference
 	 is not at the end of a structure.  */
-      if (TREE_CODE (ref) == COMPONENT_REF
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0))) == RECORD_TYPE)
+      if (TREE_CODE (ref) == COMPONENT_REF)
 	{
-	  tree nextf = DECL_CHAIN (TREE_OPERAND (ref, 1));
-	  while (nextf && TREE_CODE (nextf) != FIELD_DECL)
-	    nextf = DECL_CHAIN (nextf);
-	  if (nextf)
-	    return false;
+	  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0))) == RECORD_TYPE)
+	    {
+	      tree nextf = DECL_CHAIN (TREE_OPERAND (ref, 1));
+	      while (nextf && TREE_CODE (nextf) != FIELD_DECL)
+		nextf = DECL_CHAIN (nextf);
+	      if (nextf)
+		return false;
+	    }
 	}
+      /* If we have a multi-dimensional array we do not consider
+         a non-innermost dimension as flex array if the whole
+	 multi-dimensional array is at struct end.
+	 Same for an array of aggregates with a trailing array
+	 member.  */
+      else if (TREE_CODE (ref) == ARRAY_REF)
+	return false;
+      else if (TREE_CODE (ref) == ARRAY_RANGE_REF)
+	;
+      /* If we view an underlying object as sth else then what we
+         gathered up to now is what we have to rely on.  */
+      else if (TREE_CODE (ref) == VIEW_CONVERT_EXPR)
+	break;
+      else
+	gcc_unreachable ();
 
       ref = TREE_OPERAND (ref, 0);
     }
+
+  /* The array now is at struct end.  Treat flexible arrays as
+     always subject to extend, even into just padding constrained by
+     an underlying decl.  */
+  if (! TYPE_SIZE (atype))
+    return true;
 
   tree size = NULL;
 

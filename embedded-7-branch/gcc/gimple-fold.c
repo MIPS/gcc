@@ -606,9 +606,10 @@ replace_call_with_call_and_fold (gimple_stmt_iterator *gsi, gimple *repl)
       && TREE_CODE (gimple_vdef (stmt)) == SSA_NAME)
     {
       gimple_set_vdef (repl, gimple_vdef (stmt));
-      gimple_set_vuse (repl, gimple_vuse (stmt));
       SSA_NAME_DEF_STMT (gimple_vdef (repl)) = repl;
     }
+  if (gimple_vuse (stmt))
+    gimple_set_vuse (repl, gimple_vuse (stmt));
   gsi_replace (gsi, repl, false);
   fold_stmt (gsi);
 }
@@ -1235,7 +1236,7 @@ get_range_strlen (tree arg, tree length[2], bitmap *visited, int type,
 		 the NUL.
 		 Set *FLEXP to true if the array whose bound is being
 		 used is at the end of a struct.  */
-	      if (array_at_struct_end_p (arg, true))
+	      if (array_at_struct_end_p (arg))
 		*flexp = true;
 
 	      arg = TREE_OPERAND (arg, 1);

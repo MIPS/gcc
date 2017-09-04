@@ -379,7 +379,9 @@ static const struct
   { "tar",		PPC_FEATURE2_HAS_TAR,		1 },
   { "vcrypto",		PPC_FEATURE2_HAS_VEC_CRYPTO,	1 },
   { "arch_3_00",	PPC_FEATURE2_ARCH_3_00,		1 },
-  { "ieee128",		PPC_FEATURE2_HAS_IEEE128,	1 }
+  { "ieee128",		PPC_FEATURE2_HAS_IEEE128,	1 },
+  { "darn",		PPC_FEATURE2_DARN,		1 },
+  { "scv",		PPC_FEATURE2_SCV,		1 }
 };
 
 /* Newer LIBCs explicitly export this symbol to declare that they provide
@@ -5873,6 +5875,10 @@ rs6000_density_test (rs6000_cost_data *data)
 
 /* Implement targetm.vectorize.init_cost.  */
 
+/* For each vectorized loop, this var holds TRUE iff a non-memory vector
+   instruction is needed by the vectorization.  */
+static bool rs6000_vect_nonmem;
+
 static void *
 rs6000_init_cost (struct loop *loop_info)
 {
@@ -5881,6 +5887,7 @@ rs6000_init_cost (struct loop *loop_info)
   data->cost[vect_prologue] = 0;
   data->cost[vect_body]     = 0;
   data->cost[vect_epilogue] = 0;
+  rs6000_vect_nonmem = false;
   return data;
 }
 
@@ -5907,6 +5914,15 @@ rs6000_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
 
       retval = (unsigned) (count * stmt_cost);
       cost_data->cost[where] += retval;
+
+      /* Check whether we're doing something other than just a copy loop.
+	 Not all such loops may be profitably vectorized; see
+	 rs6000_finish_cost.  */
+      if ((kind == vec_to_scalar || kind == vec_perm
+	   || kind == vec_promote_demote || kind == vec_construct
+	   || kind == scalar_to_vec)
+	  || (where == vect_body && kind == vector_stmt))
+	rs6000_vect_nonmem = true;
     }
 
   return retval;
@@ -5922,6 +5938,19 @@ rs6000_finish_cost (void *data, unsigned *prologue_cost,
 
   if (cost_data->loop_info)
     rs6000_density_test (cost_data);
+
+  /* Don't vectorize minimum-vectorization-factor, simple copy loops
+     that require versioning for any reason.  The vectorization is at
+     best a wash inside the loop, and the versioning checks make
+     profitability highly unlikely and potentially quite harmful.  */
+  if (cost_data->loop_info)
+    {
+      loop_vec_info vec_info = loop_vec_info_for_loop (cost_data->loop_info);
+      if (!rs6000_vect_nonmem
+	  && LOOP_VINFO_VECT_FACTOR (vec_info) == 2
+	  && LOOP_REQUIRES_VERSIONING (vec_info))
+	cost_data->cost[vect_body] += 10000;
+    }
 
   *prologue_cost = cost_data->cost[vect_prologue];
   *body_cost     = cost_data->cost[vect_body];
@@ -7454,6 +7483,8 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 	    insn = gen_vsx_set_v8hi_p9 (target, target, val, elt_rtx);
 	  else if (mode == V16QImode)
 	    insn = gen_vsx_set_v16qi_p9 (target, target, val, elt_rtx);
+	  else if (mode == V4SFmode)
+	    insn = gen_vsx_set_v4sf_p9 (target, target, val, elt_rtx);
 	}
 
       if (insn)
@@ -15555,6 +15586,8 @@ cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
       emit_insn (gen_eqsi3 (scratch2, scratch1, const0_rtx));
       emit_insn (gen_rtx_SET (target, gen_rtx_XOR (SImode, scratch2, const1_rtx)));
     }
+  else
+    gcc_unreachable ();
 
   /* Record that we have expanded a CPU builtin, so that we can later
      emit a reference to the special symbol exported by LIBC to ensure we
@@ -15562,6 +15595,9 @@ cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
   cpu_builtin_p = true;
 
 #else
+  warning (0, "%s needs GLIBC (2.23 and newer) that exports hardware "
+	   "capability bits", rs6000_builtin_info[(size_t) fcode].name);
+  
   /* For old LIBCs, always return FALSE.  */
   emit_move_insn (target, GEN_INT (0));
 #endif /* TARGET_LIBC_PROVIDES_HWCAP_IN_TCB */
@@ -18182,6 +18218,17 @@ altivec_init_builtins (void)
 		   void_ftype_v8hi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V8HI);
       def_builtin ("__builtin_vsx_st_elemrev_v16qi",
 		   void_ftype_v16qi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V16QI);
+    }
+  else
+    {
+      rs6000_builtin_decls[(int)VSX_BUILTIN_LD_ELEMREV_V8HI]
+	= rs6000_builtin_decls[(int)VSX_BUILTIN_LXVW4X_V8HI];
+      rs6000_builtin_decls[(int)VSX_BUILTIN_LD_ELEMREV_V16QI]
+	= rs6000_builtin_decls[(int)VSX_BUILTIN_LXVW4X_V16QI];
+      rs6000_builtin_decls[(int)VSX_BUILTIN_ST_ELEMREV_V8HI]
+	= rs6000_builtin_decls[(int)VSX_BUILTIN_STXVW4X_V8HI];
+      rs6000_builtin_decls[(int)VSX_BUILTIN_ST_ELEMREV_V16QI]
+	= rs6000_builtin_decls[(int)VSX_BUILTIN_STXVW4X_V16QI];
     }
 
   def_builtin ("__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
@@ -28096,9 +28143,11 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
 	  && REGNO (stack_limit_rtx) > 1
 	  && REGNO (stack_limit_rtx) <= 31)
 	{
-	  emit_insn (gen_add3_insn (tmp_reg, stack_limit_rtx, GEN_INT (size)));
-	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg,
-				    const0_rtx));
+	  rtx_insn *insn
+	    = gen_add3_insn (tmp_reg, stack_limit_rtx, GEN_INT (size));
+	  gcc_assert (insn);
+	  emit_insn (insn);
+	  emit_insn (gen_cond_trap (LTU, stack_reg, tmp_reg, const0_rtx));
 	}
       else if (GET_CODE (stack_limit_rtx) == SYMBOL_REF
 	       && TARGET_32BIT
@@ -39506,23 +39555,30 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
 /* Remember the last target of rs6000_set_current_function.  */
 static GTY(()) tree rs6000_previous_fndecl;
 
+/* Restore target's globals from NEW_TREE and invalidate the
+   rs6000_previous_fndecl cache.  */
+
+static void
+rs6000_activate_target_options (tree new_tree)
+{
+  cl_target_option_restore (&global_options, TREE_TARGET_OPTION (new_tree));
+  if (TREE_TARGET_GLOBALS (new_tree))
+    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+  else if (new_tree == target_option_default_node)
+    restore_target_globals (&default_target_globals);
+  else
+    TREE_TARGET_GLOBALS (new_tree) = save_target_globals_default_opts ();
+  rs6000_previous_fndecl = NULL_TREE;
+}
+
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
 static void
 rs6000_set_current_function (tree fndecl)
 {
-  tree old_tree = (rs6000_previous_fndecl
-		   ? DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl)
-		   : NULL_TREE);
-
-  tree new_tree = (fndecl
-		   ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
-		   : NULL_TREE);
-
   if (TARGET_DEBUG_TARGET)
     {
-      bool print_final = false;
       fprintf (stderr, "\n==================== rs6000_set_current_function");
 
       if (fndecl)
@@ -39535,58 +39591,60 @@ rs6000_set_current_function (tree fndecl)
 	fprintf (stderr, ", prev_fndecl (%p)", (void *)rs6000_previous_fndecl);
 
       fprintf (stderr, "\n");
+    }
+
+  /* Only change the context if the function changes.  This hook is called
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
+  if (fndecl == rs6000_previous_fndecl)
+    return;
+
+  tree old_tree;
+  if (rs6000_previous_fndecl == NULL_TREE)
+    old_tree = target_option_current_node;
+  else if (DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl))
+    old_tree = DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl);
+  else
+    old_tree = target_option_default_node;
+
+  tree new_tree;
+  if (fndecl == NULL_TREE)
+    {
+      if (old_tree != target_option_current_node)
+	new_tree = target_option_current_node;
+      else
+	new_tree = NULL_TREE;
+    }
+  else
+    {
+      new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
+      if (new_tree == NULL_TREE)
+	new_tree = target_option_default_node;
+    }
+
+  if (TARGET_DEBUG_TARGET)
+    {
       if (new_tree)
 	{
 	  fprintf (stderr, "\nnew fndecl target specific options:\n");
 	  debug_tree (new_tree);
-	  print_final = true;
 	}
 
       if (old_tree)
 	{
 	  fprintf (stderr, "\nold fndecl target specific options:\n");
 	  debug_tree (old_tree);
-	  print_final = true;
 	}
 
-      if (print_final)
+      if (old_tree != NULL_TREE || new_tree != NULL_TREE)
 	fprintf (stderr, "--------------------\n");
     }
 
-  /* Only change the context if the function changes.  This hook is called
-     several times in the course of compiling a function, and we don't want to
-     slow things down too much or call target_reinit when it isn't safe.  */
-  if (fndecl && fndecl != rs6000_previous_fndecl)
-    {
-      rs6000_previous_fndecl = fndecl;
-      if (old_tree == new_tree)
-	;
+  if (new_tree && old_tree != new_tree)
+    rs6000_activate_target_options (new_tree);
 
-      else if (new_tree && new_tree != target_option_default_node)
-	{
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-
-      else if (old_tree && old_tree != target_option_default_node)
-	{
-	  new_tree = target_option_current_node;
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else if (new_tree == target_option_default_node)
-	    restore_target_globals (&default_target_globals);
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-    }
+  if (fndecl)
+    rs6000_previous_fndecl = fndecl;
 }
 
 
@@ -42644,9 +42702,10 @@ alignment_mask (rtx_insn *insn)
 }
 
 /* Given INSN that's a load or store based at BASE_REG, look for a
-   feeding computation that aligns its address on a 16-byte boundary.  */
+   feeding computation that aligns its address on a 16-byte boundary.
+   Return the rtx and its containing AND_INSN.  */
 static rtx
-find_alignment_op (rtx_insn *insn, rtx base_reg)
+find_alignment_op (rtx_insn *insn, rtx base_reg, rtx_insn **and_insn)
 {
   df_ref base_use;
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
@@ -42667,8 +42726,8 @@ find_alignment_op (rtx_insn *insn, rtx base_reg)
       if (DF_REF_IS_ARTIFICIAL (base_def_link->ref))
 	break;
 
-      rtx_insn *and_insn = DF_REF_INSN (base_def_link->ref);
-      and_operation = alignment_mask (and_insn);
+      *and_insn = DF_REF_INSN (base_def_link->ref);
+      and_operation = alignment_mask (*and_insn);
       if (and_operation != 0)
 	break;
     }
@@ -42690,7 +42749,8 @@ recombine_lvx_pattern (rtx_insn *insn, del_info *to_delete)
   rtx mem = XEXP (SET_SRC (body), 0);
   rtx base_reg = XEXP (mem, 0);
 
-  rtx and_operation = find_alignment_op (insn, base_reg);
+  rtx_insn *and_insn;
+  rtx and_operation = find_alignment_op (insn, base_reg, &and_insn);
 
   if (and_operation != 0)
     {
@@ -42714,7 +42774,21 @@ recombine_lvx_pattern (rtx_insn *insn, del_info *to_delete)
 	  to_delete[INSN_UID (swap_insn)].replace = true;
 	  to_delete[INSN_UID (swap_insn)].replace_insn = swap_insn;
 
-	  XEXP (mem, 0) = and_operation;
+	  /* However, first we must be sure that we make the
+	     base register from the AND operation available
+	     in case the register has been overwritten.  Copy
+	     the base register to a new pseudo and use that
+	     as the base register of the AND operation in
+	     the new LVX instruction.  */
+	  rtx and_base = XEXP (and_operation, 0);
+	  rtx new_reg = gen_reg_rtx (GET_MODE (and_base));
+	  rtx copy = gen_rtx_SET (new_reg, and_base);
+	  rtx_insn *new_insn = emit_insn_after (copy, and_insn);
+	  set_block_for_insn (new_insn, BLOCK_FOR_INSN (and_insn));
+	  df_insn_rescan (new_insn);
+
+	  XEXP (mem, 0) = gen_rtx_AND (GET_MODE (and_base), new_reg,
+				       XEXP (and_operation, 1));
 	  SET_SRC (body) = mem;
 	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
 	  df_insn_rescan (insn);
@@ -42737,7 +42811,8 @@ recombine_stvx_pattern (rtx_insn *insn, del_info *to_delete)
   rtx mem = SET_DEST (body);
   rtx base_reg = XEXP (mem, 0);
 
-  rtx and_operation = find_alignment_op (insn, base_reg);
+  rtx_insn *and_insn;
+  rtx and_operation = find_alignment_op (insn, base_reg, &and_insn);
 
   if (and_operation != 0)
     {
@@ -42765,7 +42840,21 @@ recombine_stvx_pattern (rtx_insn *insn, del_info *to_delete)
 	  to_delete[INSN_UID (swap_insn)].replace = true;
 	  to_delete[INSN_UID (swap_insn)].replace_insn = swap_insn;
 
-	  XEXP (mem, 0) = and_operation;
+	  /* However, first we must be sure that we make the
+	     base register from the AND operation available
+	     in case the register has been overwritten.  Copy
+	     the base register to a new pseudo and use that
+	     as the base register of the AND operation in
+	     the new STVX instruction.  */
+	  rtx and_base = XEXP (and_operation, 0);
+	  rtx new_reg = gen_reg_rtx (GET_MODE (and_base));
+	  rtx copy = gen_rtx_SET (new_reg, and_base);
+	  rtx_insn *new_insn = emit_insn_after (copy, and_insn);
+	  set_block_for_insn (new_insn, BLOCK_FOR_INSN (and_insn));
+	  df_insn_rescan (new_insn);
+
+	  XEXP (mem, 0) = gen_rtx_AND (GET_MODE (and_base), new_reg,
+				       XEXP (and_operation, 1));
 	  SET_SRC (body) = src_reg;
 	  INSN_CODE (insn) = -1; /* Force re-recognition.  */
 	  df_insn_rescan (insn);

@@ -64,6 +64,7 @@
 #include "rtl-iter.h"
 #include "optabs-libfuncs.h"
 #include "gimplify.h"
+#include "gimple.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -81,7 +82,7 @@ struct four_ints
 
 /* Forward function declarations.  */
 static bool arm_const_not_ok_for_debug_p (rtx);
-static bool arm_needs_doubleword_align (machine_mode, const_tree);
+static int arm_needs_doubleword_align (machine_mode, const_tree);
 static int arm_compute_static_chain_stack_bytes (void);
 static arm_stack_offsets *arm_get_frame_offsets (void);
 static void arm_add_gc_roots (void);
@@ -2087,28 +2088,6 @@ const struct tune_params arm_xgene1_tune =
   tune_params::PREF_NEON_STRINGOPS_FALSE,
   tune_params::FUSE_NOTHING,
   tune_params::SCHED_AUTOPREF_OFF
-};
-
-const struct tune_params arm_qdf24xx_tune =
-{
-  &qdf24xx_extra_costs,
-  NULL,                                         /* Scheduler cost adjustment.  */
-  arm_default_branch_cost,
-  &arm_default_vec_cost,			/* Vectorizer costs.  */
-  1,						/* Constant limit.  */
-  2,						/* Max cond insns.  */
-  8,						/* Memset max inline.  */
-  4,						/* Issue rate.  */
-  ARM_PREFETCH_BENEFICIAL (0, -1, 64),
-  tune_params::PREF_CONST_POOL_FALSE,
-  tune_params::PREF_LDRD_TRUE,
-  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* Thumb.  */
-  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* ARM.  */
-  tune_params::DISPARAGE_FLAGS_ALL,
-  tune_params::PREF_NEON_64_FALSE,
-  tune_params::PREF_NEON_STRINGOPS_TRUE,
-  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
-  tune_params::SCHED_AUTOPREF_FULL
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -6357,8 +6336,20 @@ aapcs_layout_arg (CUMULATIVE_ARGS *pcum, machine_mode mode,
   /* C3 - For double-word aligned arguments, round the NCRN up to the
      next even number.  */
   ncrn = pcum->aapcs_ncrn;
-  if ((ncrn & 1) && arm_needs_doubleword_align (mode, type))
-    ncrn++;
+  if (ncrn & 1)
+    {
+      int res = arm_needs_doubleword_align (mode, type);
+      /* Only warn during RTL expansion of call stmts, otherwise we would
+	 warn e.g. during gimplification even on functions that will be
+	 always inlined, and we'd warn multiple times.  Don't warn when
+	 called in expand_function_start either, as we warn instead in
+	 arm_function_arg_boundary in that case.  */
+      if (res < 0 && warn_psabi && currently_expanding_gimple_stmt)
+	inform (input_location, "parameter passing for argument of type "
+		"%qT changed in GCC 7.1", type);
+      else if (res > 0)
+	ncrn++;
+    }
 
   nregs = ARM_NUM_REGS2(mode, type);
 
@@ -6463,12 +6454,16 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
     }
 }
 
-/* Return true if mode/type need doubleword alignment.  */
-static bool
+/* Return 1 if double word alignment is required for argument passing.
+   Return -1 if double word alignment used to be required for argument
+   passing before PR77728 ABI fix, but is not required anymore.
+   Return 0 if double word alignment is not required and wasn't requried
+   before either.  */
+static int
 arm_needs_doubleword_align (machine_mode mode, const_tree type)
 {
   if (!type)
-    return PARM_BOUNDARY < GET_MODE_ALIGNMENT (mode);
+    return GET_MODE_ALIGNMENT (mode) > PARM_BOUNDARY;
 
   /* Scalar and vector types: Use natural alignment, i.e. of base type.  */
   if (!AGGREGATE_TYPE_P (type))
@@ -6478,12 +6473,21 @@ arm_needs_doubleword_align (machine_mode mode, const_tree type)
   if (TREE_CODE (type) == ARRAY_TYPE)
     return TYPE_ALIGN (TREE_TYPE (type)) > PARM_BOUNDARY;
 
+  int ret = 0;
   /* Record/aggregate types: Use greatest member alignment of any member.  */ 
   for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
     if (DECL_ALIGN (field) > PARM_BOUNDARY)
-      return true;
+      {
+	if (TREE_CODE (field) == FIELD_DECL)
+	  return 1;
+	else
+	  /* Before PR77728 fix, we were incorrectly considering also
+	     other aggregate fields, like VAR_DECLs, TYPE_DECLs etc.
+	     Make sure we can warn about that with -Wpsabi.  */
+	  ret = -1;
+      }
 
-  return false;
+  return ret;
 }
 
 
@@ -6540,10 +6544,15 @@ arm_function_arg (cumulative_args_t pcum_v, machine_mode mode,
     }
 
   /* Put doubleword aligned quantities in even register pairs.  */
-  if (pcum->nregs & 1
-      && ARM_DOUBLEWORD_ALIGN
-      && arm_needs_doubleword_align (mode, type))
-    pcum->nregs++;
+  if ((pcum->nregs & 1) && ARM_DOUBLEWORD_ALIGN)
+    {
+      int res = arm_needs_doubleword_align (mode, type);
+      if (res < 0 && warn_psabi)
+	inform (input_location, "parameter passing for argument of type "
+		"%qT changed in GCC 7.1", type);
+      else if (res > 0)
+	pcum->nregs++;
+    }
 
   /* Only allow splitting an arg between regs and memory if all preceding
      args were allocated to regs.  For args passed by reference we only count
@@ -6562,9 +6571,15 @@ arm_function_arg (cumulative_args_t pcum_v, machine_mode mode,
 static unsigned int
 arm_function_arg_boundary (machine_mode mode, const_tree type)
 {
-  return (ARM_DOUBLEWORD_ALIGN && arm_needs_doubleword_align (mode, type)
-	  ? DOUBLEWORD_ALIGNMENT
-	  : PARM_BOUNDARY);
+  if (!ARM_DOUBLEWORD_ALIGN)
+    return PARM_BOUNDARY;
+
+  int res = arm_needs_doubleword_align (mode, type);
+  if (res < 0 && warn_psabi)
+    inform (input_location, "parameter passing for argument of type %qT "
+	    "changed in GCC 7.1", type);
+
+  return res > 0 ? DOUBLEWORD_ALIGNMENT : PARM_BOUNDARY;
 }
 
 static int
@@ -8654,7 +8669,16 @@ arm_tls_referenced_p (rtx x)
     {
       const_rtx x = *iter;
       if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0)
-	return true;
+	{
+	  /* ARM currently does not provide relocations to encode TLS variables
+	     into AArch32 instructions, only data, so there is no way to
+	     currently implement these if a literal pool is disabled.  */
+	  if (arm_disable_literal_pool)
+	    sorry ("accessing thread-local storage is not currently supported "
+		   "with -mpure-code or -mslow-flash-data");
+
+	  return true;
+	}
 
       /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
 	 TLS offsets, not real symbol references.  */
@@ -16362,6 +16386,7 @@ static void
 push_minipool_fix (rtx_insn *insn, HOST_WIDE_INT address, rtx *loc,
 		   machine_mode mode, rtx value)
 {
+  gcc_assert (!arm_disable_literal_pool);
   Mfix * fix = (Mfix *) obstack_alloc (&minipool_obstack, sizeof (* fix));
 
   fix->insn = insn;
@@ -16413,10 +16438,6 @@ push_minipool_fix (rtx_insn *insn, HOST_WIDE_INT address, rtx *loc,
 int
 arm_max_const_double_inline_cost ()
 {
-  /* Let the value get synthesized to avoid the use of literal pools.  */
-  if (arm_disable_literal_pool)
-    return 99;
-
   return ((optimize_size || arm_ld_sched) ? 3 : 4);
 }
 
@@ -17362,6 +17383,11 @@ arm_reorg (void)
      been split at this point.  */
   if (!optimize)
     split_all_insns_noflow ();
+
+  /* Make sure we do not attempt to create a literal pool even though it should
+     no longer be necessary to create any.  */
+  if (arm_disable_literal_pool)
+    return ;
 
   minipool_fix_head = minipool_fix_tail = NULL;
 
@@ -26538,8 +26564,15 @@ arm_setup_incoming_varargs (cumulative_args_t pcum_v,
   if (pcum->pcs_variant <= ARM_PCS_AAPCS_LOCAL)
     {
       nregs = pcum->aapcs_ncrn;
-      if ((nregs & 1) && arm_needs_doubleword_align (mode, type))
-	nregs++;
+      if (nregs & 1)
+	{
+	  int res = arm_needs_doubleword_align (mode, type);
+	  if (res < 0 && warn_psabi)
+	    inform (input_location, "parameter passing for argument of "
+		    "type %qT changed in GCC 7.1", type);
+	  else if (res > 0)
+	    nregs++;
+	}
     }
   else
     nregs = pcum->nregs;

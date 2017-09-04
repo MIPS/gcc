@@ -2037,10 +2037,16 @@ extern machine_mode element_mode (const_tree t);
 
 /* For an ARRAY_TYPE, a RECORD_TYPE, a UNION_TYPE or a QUAL_UNION_TYPE
    whether the array is typeless storage or the type contains a member
-   with this flag set.  Such types are excempt from type-based alias
-   analysis.  */
+   with this flag set.  Such types are exempt from type-based alias
+   analysis.  For ARRAY_TYPEs with AGGREGATE_TYPE_P element types
+   the flag should be inherited from the element type, can change
+   when type is finalized and because of that should not be used in
+   type hashing.  For ARRAY_TYPEs with non-AGGREGATE_TYPE_P element types
+   the flag should not be changed after the array is created and should
+   be used in type hashing.  */
 #define TYPE_TYPELESS_STORAGE(NODE) \
-  (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->type_common.typeless_storage)
+  (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, \
+		ARRAY_TYPE)->type_common.typeless_storage)
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
@@ -4864,12 +4870,10 @@ extern tree array_ref_up_bound (tree);
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_low_bound (tree);
 
-/* Returns true if REF is an array reference to an array at the end of
-   a structure.  If this is the case, the array may be allocated larger
-   than its upper bound implies.  When second argument is true considers
-   REF when it's a COMPONENT_REF in addition ARRAY_REF and
-   ARRAY_RANGE_REF.  */
-extern bool array_at_struct_end_p (tree, bool = false);
+/* Returns true if REF is an array reference or a component reference
+   to an array at the end of a structure.  If this is the case, the array
+   may be allocated larger than its upper bound implies.  */
+extern bool array_at_struct_end_p (tree);
 
 /* Return a tree representing the offset, in bytes, of the field referenced
    by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
