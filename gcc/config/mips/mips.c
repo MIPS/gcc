@@ -2575,7 +2575,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
   unsigned HOST_WIDE_INT high;
   unsigned int i;
 
-  high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
+  if (TARGET_NANOMIPS)
+    high = value & ~(unsigned HOST_WIDE_INT) 0xfff;
+  else
+    high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
   if (!LUI_OPERAND (high) && (value & 0x18000) == 0x18000)
     {
       /* The constant is too complex to load with a simple LUI/ORI pair,
