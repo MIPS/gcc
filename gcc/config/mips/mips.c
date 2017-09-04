@@ -3172,10 +3172,10 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		  && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_ABSOLUTE;
 	      else if (TARGET_PCREL
-		  && TARGET_NANOMIPS == NANOMIPS_NMF)
+		       && TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_LAPC48_FUNC_NANO;
 	      else if (TARGET_PCREL
-		  && TARGET_NANOMIPS == NANOMIPS_NMS)
+		       && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
 	  else if (flag_pic)
