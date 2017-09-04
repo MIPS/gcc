@@ -55,7 +55,7 @@ Target Report Mask(ABICALLS) Condition(MIPS_SUPPORT_LEGACY)
 Generate code that can be used in SVR4-style dynamic objects.
 
 mcmodel=
-Target RejectNegative Joined Enum(cmodel) Var(nano_pic_model_var) Init(NANO_PIC_AUTO)
+Target RejectNegative Joined Enum(cmodel) Var(nano_pic_model_var) Init(NANO_PIC_NONE)
 Choose a nanoMIPS PIC model.
 
 Enum

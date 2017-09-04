@@ -3083,14 +3083,28 @@ mips_get_nano_pic_model (const_rtx x)
   if (UNSPEC_ADDRESS_P (symbol))
     symbol = UNSPEC_ADDRESS (symbol);
 
-  if (SYMBOL_REF_AUTO_PIC_P (symbol))
+  /* The model overrides flag_pic for auto.  */
+  if (SYMBOL_REF_AUTO_PIC_P (symbol)
+      || nano_pic_model_var == NANO_PIC_AUTO)
     return NANO_PIC_AUTO;
+
+  bool external_p = !(mips_symbol_binds_local_p (symbol));
+
+  /* flag_pic overrides the model for medium and large.  */
+  if (external_p && flag_pic == 1)
+    return NANO_PIC_MEDIUM;
+
+  if (external_p && flag_pic == 2)
+    return NANO_PIC_LARGE;
 
   if (SYMBOL_REF_MEDIUM_PIC_P (symbol))
     return NANO_PIC_MEDIUM;
 
   if (SYMBOL_REF_LARGE_PIC_P (symbol))
     return NANO_PIC_LARGE;
+
+  if (nano_pic_model_var == NANO_PIC_NONE)
+    return NANO_PIC_AUTO;
 
   return nano_pic_model_var;
 }
@@ -3164,7 +3178,7 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    {
 	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_DISP;
-	      else if (flag_pic == 1)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
 		return SYMBOL_GOT_DISP;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
@@ -3245,12 +3259,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	    {
 	      if (symbol_pic_model == NANO_PIC_AUTO)
 		return SYMBOL_GOT_PAGE_OFST;
-	      else if (flag_pic == 1)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
 		return SYMBOL_GOT_DISP;
-	      else if (flag_pic == 2
+	      else if (symbol_pic_model == NANO_PIC_LARGE
 		       && TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      else if (flag_pic == 2
+	      else if (symbol_pic_model == NANO_PIC_LARGE
 		       && TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
