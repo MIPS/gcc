@@ -3199,7 +3199,6 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		return SYMBOL_PCREL_4K_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
-		       && TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_AUTO
@@ -3208,7 +3207,6 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		return SYMBOL_GP_RELATIVE;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
-		       && TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_AUTO
@@ -3217,7 +3215,6 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		return SYMBOL_GPREL_WORD_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
-		       && TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_LARGE
@@ -3225,7 +3222,6 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		return SYMBOL_GPREL32_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
-		       && TARGET_GPOPT
 		       && SYMBOL_REF_SMALL_P (x)
 		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_LARGE
