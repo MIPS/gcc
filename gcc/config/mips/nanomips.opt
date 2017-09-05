@@ -29,3 +29,7 @@ Generate 64-bit code.
 mpcrel
 Target Report Var(TARGET_PCREL) Init(1)
 Use PC-relative addressing to acccess symbols.
+
+mpid
+Target Report Var(TARGET_PID) Init(0)
+Always use GP-relative addressing to acccess symbols.

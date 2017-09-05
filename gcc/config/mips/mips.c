@@ -3025,7 +3025,8 @@ mips_rtx_constant_in_small_data_p (machine_mode mode)
 {
   return (!TARGET_EMBEDDED_DATA
 	  && TARGET_LOCAL_SDATA
-	  && GET_MODE_SIZE (mode) <= mips_small_data_threshold);
+	  && (GET_MODE_SIZE (mode) <= mips_small_data_threshold
+	      || TARGET_PID));
 }
 
 /* Return true if X should not be moved directly into register $25.
@@ -11645,6 +11646,8 @@ mips_in_small_data_p (const_tree decl)
   /* We have traditionally not treated zero-sized objects as small data,
      so this is now effectively part of the ABI.  */
   size = int_size_in_bytes (TREE_TYPE (decl));
+  if (TARGET_PID)
+    return size > 0;
   return size > 0 && size <= mips_small_data_threshold;
 }
 
@@ -25419,6 +25422,9 @@ mips_option_override (void)
 		     "-mabicalls");
 	}
     }
+
+  if (TARGET_PID && !TARGET_GPOPT)
+    error ("%<-mpid %> requires %<-mgpopt%>");
 
   /* Set NaN and ABS defaults.  */
   if (mips_nan == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
