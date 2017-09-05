@@ -419,6 +419,7 @@
       || INTVAL (operands[2]) > 8
       || INTVAL (operands[2]) < 2
       || GET_CODE (operands[0]) != MEM
+      || MEM_VOLATILE_P (operands[0])
       || GET_CODE (operands[1]) != REG)
     FAIL;
 
@@ -580,6 +581,7 @@
       || INTVAL (operands[2]) > 8
       || INTVAL (operands[2]) < 2
       || GET_CODE (operands[1]) != MEM
+      || MEM_VOLATILE_P (operands[0])
       || GET_CODE (operands[0]) != REG)
     FAIL;
 
