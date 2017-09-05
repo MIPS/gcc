@@ -271,6 +271,7 @@ foreach option {
     dspr3
     extern-sdata
     gpopt
+    pid
     local-sdata
     long-calls
     plt
@@ -828,6 +829,7 @@ proc mips-dg-options { args } {
     # mips_option_dependency options "-fpic" "-mshared"
     # mips_option_dependency options "-mshared" "-mno-plt"
     mips_option_dependency options "-mno-plt" "addressing=unknown"
+    mips_option_dependency options "-mpid" "-mgpopt"
 
     # Work out information about the current ABI.
     set abi_test_option_p [mips_test_option_p options abi]

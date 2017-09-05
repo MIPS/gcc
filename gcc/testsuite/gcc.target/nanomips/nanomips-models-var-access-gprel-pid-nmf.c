@@ -1,28 +1,33 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -mgpopt -G2" } */
+/* { dg-options "-m32 -march=32r6 -mgpopt -mpid" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$gp,%pcrel_hi\\(_gp\\)" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_4Kaligned\\)\\(\\\$gp\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_2aligned\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel\\(a_sta_char\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(a_sta_short\\)\\(\\\$gp\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_int" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_int\\)\\(\\\$gp\\)" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_4Kaligned\\)\\(\\\$gp\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_2aligned\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_char\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_short\\)\\(\\\$gp\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_int" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
+/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_4Kaligned\\)" } } */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 1.  */
+/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_2aligned\\)" } } */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 2.  */
 /* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_int" } } */
+/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_int\\)" } } */
+/* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 3.  */
+
+/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" 3 } } */
 
 static char a_sta_char __attribute__ ((model("auto"))) = 13;
 static short a_sta_short __attribute__ ((model("auto"))) = 14;
