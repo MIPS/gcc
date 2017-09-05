@@ -31,8 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "c-upc.h"
 #include "c-upc-low.h"
-#include "c-upc-pts-ops.h"
 #include "c-upc-rts-names.h"
+#include "c-family/c-upc-pts.h"
 #include "common/common-target.h"
 #include "varasm.h"
 #include "target.h"
@@ -163,6 +163,78 @@ upc_parse_init (void)
 {
   upc_pts_init ();
   upc_genericize_init ();
+}
+
+/*
+ * Build the internal representation of UPC's pointer-to-shared type.
+ */
+void
+upc_pts_struct_init_type (void)
+{
+  tree fields = NULL_TREE;
+  tree name = NULL_TREE;
+  tree ref;
+  machine_mode pts_mode;
+  const location_t loc = UNKNOWN_LOCATION;
+  struct c_struct_parse_info *null_struct_parse_info = NULL;
+  int save_pedantic = pedantic;
+  ref = start_struct (loc, RECORD_TYPE, name, &null_struct_parse_info);
+  /* Ensure that shared pointers have twice the alignment of a pointer.  */
+  SET_TYPE_ALIGN (ref, 2 * TYPE_ALIGN (ptr_type_node));
+  TYPE_USER_ALIGN (ref) = 1;
+  name = get_identifier ("vaddr");
+  upc_vaddr_field_node = build_decl (loc, FIELD_DECL, name,
+				     build_pointer_type (char_type_node));
+  fields = chainon (fields, upc_vaddr_field_node);
+  DECL_NONADDRESSABLE_P (upc_vaddr_field_node) = 0;
+  DECL_INITIAL (upc_vaddr_field_node) = NULL_TREE;
+  upc_thread_field_node =
+    build_decl (loc, FIELD_DECL, get_identifier ("thread"),
+		c_common_type_for_size (UPC_PTS_THREAD_SIZE, 1));
+  fields = chainon (fields, upc_thread_field_node);
+  if (!(UPC_PTS_THREAD_SIZE % 8))
+    {
+      DECL_NONADDRESSABLE_P (upc_thread_field_node) = 0;
+      DECL_INITIAL (upc_thread_field_node) = NULL_TREE;
+    }
+  else
+    {
+      DECL_NONADDRESSABLE_P (upc_thread_field_node) = 1;
+      DECL_INITIAL (upc_thread_field_node) = size_int (UPC_PTS_THREAD_SIZE);
+    }
+  upc_phase_field_node =
+    build_decl (loc, FIELD_DECL, get_identifier ("phase"),
+		c_common_type_for_size (UPC_PTS_PHASE_SIZE, 1));
+  fields = chainon (fields, upc_phase_field_node);
+  if (!(UPC_PTS_PHASE_SIZE % 8))
+    {
+      DECL_NONADDRESSABLE_P (upc_phase_field_node) = 0;
+      DECL_INITIAL (upc_phase_field_node) = NULL_TREE;
+    }
+  else
+    {
+      DECL_NONADDRESSABLE_P (upc_phase_field_node) = 1;
+      DECL_INITIAL (upc_phase_field_node) = size_int (UPC_PTS_PHASE_SIZE);
+    }
+#if !HAVE_UPC_PTS_VADDR_FIRST
+  fields = nreverse (fields);
+#endif
+  /* avoid spurious complaints regarding the definition
+   * `phase' and `thread'.  */
+  pedantic = 0;
+  upc_pts_rep_type_node = finish_struct (loc, ref, fields, NULL_TREE,
+					 null_struct_parse_info);
+  pedantic = save_pedantic;
+  gcc_assert (TYPE_SIZE (upc_pts_rep_type_node));
+  gcc_assert (tree_fits_uhwi_p (TYPE_SIZE (upc_pts_rep_type_node)));
+  gcc_assert (tree_to_uhwi (TYPE_SIZE (upc_pts_rep_type_node))
+	      == 2 * POINTER_SIZE);
+  pts_mode = mode_for_size_tree (TYPE_SIZE (upc_pts_rep_type_node),
+                                 MODE_INT, 0);
+  gcc_assert (pts_mode != BLKmode);
+  SET_TYPE_MODE(upc_pts_rep_type_node, pts_mode);
+  record_builtin_type (RID_SHARED, "upc_shared_ptr_t",
+		       upc_pts_rep_type_node);
 }
 
 /* Enable/Disable UPC keywords.

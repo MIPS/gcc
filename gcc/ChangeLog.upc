@@ -1,3 +1,16 @@
+2017-09-05  Gary Funck  <gary@intrepid.com>
+
+	Revert (2015-10-18 and subsequent) changes that removed
+	packed PTS support.
+	* c/Make-lang.in, c/c-lang.c, c/c-parser.c, c/c-upc-lang.c, 
+	c/c-upc-lang.h, c/c-upc-low.c, c/c-upc-pts-ops.h, c/c-upc.c, 
+	c/c-upc.h, c-family/c-cppbuiltin.c, c-family/c-opts.c, 
+	c-family/c-upc-pts.h, config.in, configure, configure.ac, 
+	doc/tm.texi, doc/tm.texi.in, langhooks-def.h, langhooks.h, 
+	tree-core.h, tree.h: Revert and update.
+        * c/c-upc-pts-ops.c, c/c-upc-pts-packed.c, c/c-upc-pts-struct.c:
+	Re-instate and update.
+
 2017-09-03  Gary Funck  <gary@intrepid.com>
 
 	Update copyright notices.

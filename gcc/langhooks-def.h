@@ -194,6 +194,7 @@ extern tree lhd_unit_size_without_reusable_padding (tree);
 #define LANG_HOOKS_DESCRIPTIVE_TYPE	NULL
 #define LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE reconstruct_complex_type
 #define LANG_HOOKS_UPC_TOGGLE_KEYWORDS  lhd_do_nothing_b
+#define LANG_HOOKS_UPC_PTS_STRUCT_INIT_TYPE  lhd_do_nothing
 #define LANG_HOOKS_UPC_WRITE_GLOBAL_INIT_FUNC lhd_do_nothing
 #define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE lhd_enum_underlying_base_type
 #define LANG_HOOKS_GET_DEBUG_TYPE	NULL
@@ -296,6 +297,7 @@ extern void lhd_end_section (void);
 
 #define LANG_HOOKS_UPC { \
   LANG_HOOKS_UPC_TOGGLE_KEYWORDS, \
+  LANG_HOOKS_UPC_PTS_STRUCT_INIT_TYPE, \
   LANG_HOOKS_UPC_WRITE_GLOBAL_INIT_FUNC \
 }
 

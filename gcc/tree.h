@@ -3888,6 +3888,12 @@ id_equal (const char *str, const_tree id)
 #define upc_phase_field_node	global_trees[TI_UPC_PHASE_FIELD]
 #define upc_thread_field_node	global_trees[TI_UPC_THREAD_FIELD]
 #define upc_vaddr_field_node	global_trees[TI_UPC_VADDR_FIELD]
+#define upc_phase_mask_node	global_trees[TI_UPC_PHASE_MASK]
+#define upc_thread_mask_node	global_trees[TI_UPC_THREAD_MASK]
+#define upc_vaddr_mask_node	global_trees[TI_UPC_VADDR_MASK]
+#define upc_phase_shift_node	global_trees[TI_UPC_PHASE_SHIFT]
+#define upc_thread_shift_node	global_trees[TI_UPC_THREAD_SHIFT]
+#define upc_vaddr_shift_node	global_trees[TI_UPC_VADDR_SHIFT]
 #define upc_null_pts_node	global_trees[TI_UPC_NULL_PTS]
 
 /* The decimal floating point types. */
