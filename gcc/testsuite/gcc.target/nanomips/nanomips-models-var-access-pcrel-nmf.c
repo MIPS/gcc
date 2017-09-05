@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fpic -mno-gpopt" } */
+/* { dg-options "-m32 -march=32r6 -mno-gpopt" } */
 /* { dg-skip-if "" { *-*-* } { "-O1"  "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_4Kaligned" } } */
