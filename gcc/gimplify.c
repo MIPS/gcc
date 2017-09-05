@@ -102,6 +102,9 @@ enum gimplify_omp_var_data
   /* Flag for GOVD_MAP: must be present already.  */
   GOVD_MAP_FORCE_PRESENT = 524288,
 
+  /* Flag for GOVD_MAP, copy to/from private storage inside offloaded region.  */
+  GOVD_MAP_PRIVATE = 1048576,
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -6717,6 +6720,21 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
   if (ctx->region_type == ORT_ACC && (flags & GOVD_REDUCTION))
     {
       struct gimplify_omp_ctx *outer_ctx = ctx->outer_context;
+
+      bool gang = false, worker = false, vector = false;
+      for (tree c = ctx->clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	{
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG)
+	    gang = true;
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WORKER)
+	    worker = true;
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR)
+	    vector = true;
+	}
+
+      /* Set new copy map as 'private' if sure we're not gang-partitioning.  */
+      bool map_private = !gang && (worker || vector);
+
       while (outer_ctx)
 	{
 	  n = splay_tree_lookup (outer_ctx->variables, (splay_tree_key)decl);
@@ -6738,12 +6756,21 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 		  /* Remove firstprivate and make it a copy map.  */
 		  n->value &= ~GOVD_FIRSTPRIVATE;
 		  n->value |= GOVD_MAP;
+
+		  /* If not gang-partitioned, add MAP_PRIVATE on the map
+		     clause.  */
+		  if (map_private)
+		    n->value |= GOVD_MAP_PRIVATE;
 		}
 	    }
 	  else if (outer_ctx->region_type == ORT_ACC_PARALLEL)
 	    {
-	      splay_tree_insert (outer_ctx->variables, (splay_tree_key)decl,
-				 GOVD_MAP | GOVD_SEEN);
+	      unsigned f = GOVD_MAP | GOVD_SEEN;
+
+	      /* If not gang-partitioned, add MAP_PRIVATE on the map clause.  */
+	      if (map_private)
+		f |= GOVD_MAP_PRIVATE;
+	      splay_tree_insert (outer_ctx->variables, (splay_tree_key)decl, f);
 	      break;
 	    }
 	  outer_ctx = outer_ctx->outer_context;
@@ -8867,6 +8894,9 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 	  gcc_unreachable ();
 	}
       OMP_CLAUSE_SET_MAP_KIND (clause, kind);
+      if ((flags & GOVD_MAP_PRIVATE)
+	  && TREE_CODE (OMP_CLAUSE_DECL (clause)) == VAR_DECL)
+	OMP_CLAUSE_MAP_PRIVATE (clause) = 1;
       tree c2 = gomp_needs_data_present (decl);
       /* Handle OpenACC pointers that were declared inside acc data
 	 regions.  */

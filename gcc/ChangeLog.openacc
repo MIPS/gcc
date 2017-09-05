@@ -1,3 +1,17 @@
+2017-09-05  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* tree.h (OMP_CLAUSE_MAP_PRIVATE): Define macro.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_PRIVATE enum value.
+	(omp_add_variable): Add GOVD_MAP_PRIVATE to reduction clause flags if
+	not a gang-partitioned loop directive.
+	(gimplify_adjust_omp_clauses_1): Set OMP_CLAUSE_MAP_PRIVATE of new map
+	clause to 1 if GOVD_MAP_PRIVATE flag is present.
+	* omp-low.c (lower_oacc_reductions): Handle map clauses with
+	OMP_CLAUSE_MAP_PRIVATE set in same matter as firstprivate/private.
+	(lower_omp_target): Likewise. Add copy back code for map clauses with
+	OMP_CLAUSE_MAP_PRIVATE set.
+	* tree.h (OMP_CLAUSE_MAP_PRIVATE): Define macro.
+
 2017-08-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): Delete define.

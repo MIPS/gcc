@@ -5220,7 +5220,9 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		      goto has_outer_reduction;
 		    }
 		  else if ((OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_FIRSTPRIVATE
-			    || OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_PRIVATE)
+			    || OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_PRIVATE
+			    || (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_MAP
+				&& OMP_CLAUSE_MAP_PRIVATE (cls)))
 			   && orig == OMP_CLAUSE_DECL (cls))
 		    {
 		      is_private = true;
@@ -8120,7 +8122,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		&& TREE_CODE (var_type) == ARRAY_TYPE
 		&& !oacc_firstprivate_int)
 	      x = build_simple_mem_ref (x);
-	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		|| (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		    && (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_TO)
+		    && OMP_CLAUSE_MAP_PRIVATE (c)))
 	      {
 		gcc_assert (is_gimple_omp_oacc (ctx->stmt));
 		if (oacc_firstprivate_int)
@@ -9054,7 +9059,24 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       gimple_seq_add_seq (&new_body, join_seq);
 
       if (offloaded)
-	new_body = maybe_catch_exception (new_body);
+	{
+	  /* For OMP_CLAUSE_MAP_PRIVATE maps, add a copy back from private
+	     storage to receiver ref, for copying back to host.  */
+	  for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		&& (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FROM)
+		&& OMP_CLAUSE_MAP_PRIVATE (c))
+	      {
+		tree var = OMP_CLAUSE_DECL (c);
+		tree new_var = lookup_decl (var, ctx);
+		tree x = build_receiver_ref (var, true, ctx);
+		gimple_seq seq = NULL;
+		gimplify_assign (x, new_var, &seq);
+		gimple_seq_add_seq (&new_body, seq);
+	      }
+
+	  new_body = maybe_catch_exception (new_body);
+	}
 
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);

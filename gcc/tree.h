@@ -1554,6 +1554,9 @@ extern void protected_set_expr_location (tree, location_t);
 /* Nonzero if this map clause is for an ACC parallel reduction variable.  */
 #define OMP_CLAUSE_MAP_IN_REDUCTION(NODE) \
   TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
+/* Nozero if this map is loaded to private storage inside offloaded region.  */
+#define OMP_CLAUSE_MAP_PRIVATE(NODE) \
+  TREE_NOTHROW (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
 
 #define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
