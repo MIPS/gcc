@@ -1165,7 +1165,7 @@ begin fpu fpv5-d16
 end fpu fpv5-d16
 
 begin fpu fp-armv8
- isa FP_ARMv8 FP_D32
+ isa FP_ARMv8
 end fpu fp-armv8
 
 begin fpu neon-fp-armv8

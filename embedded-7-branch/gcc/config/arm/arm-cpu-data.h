@@ -1732,7 +1732,7 @@ const struct arm_fpu_desc all_fpus[] =
   {
     "fp-armv8",
     {
-      ISA_FP_ARMv8,ISA_FP_D32,
+      ISA_FP_ARMv8,
       isa_nobit
     }
   },
