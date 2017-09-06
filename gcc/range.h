@@ -175,7 +175,8 @@ void range_positives (irange *r, tree type, unsigned int);
    class use:
 
 	irange X;
-	...
+	irange_storage *stow = irange_storage::ggc_alloc_init (X);
+   or
 	irange_storage *stow = irange_storage::ggc_alloc (precision);
 	stow->set_irange (X);
 
@@ -212,11 +213,25 @@ class GTY((variable_size)) irange_storage
       /* There is a +1 for the non-zero bits field.  */
       + trailing_wide_ints<irange::max_pairs * 2 + 1>::extra_size (precision);
   }
-  /* Allocate GC memory for an irange_storage with PRECISION.  */
+  /* Allocate GC memory for an irange_storage with PRECISION.
+
+     Note: The precision is set, but the irange_storage returned is
+     otherwise uninitialized.  The caller must still call
+     stow->set_irange().  */
   static irange_storage *ggc_alloc (unsigned precision)
   { irange_storage *stow = static_cast<irange_storage *> (ggc_internal_alloc
 							  (size (precision)));
     stow->trailing_bounds.set_precision (precision);
+    return stow;
+  }
+  /* Like irange_storage::ggc_alloc (), but initialize the storage to
+     the range in IR.  */
+  static irange_storage *ggc_alloc_init (const irange &ir)
+  {
+    unsigned precision = TYPE_PRECISION (ir.type);
+    irange_storage *stow = static_cast<irange_storage *> (ggc_internal_alloc
+							  (size (precision)));
+    stow->set_irange (ir);
     return stow;
   }
   /* Set the nonzero bit mask to WI.  */
