@@ -10700,15 +10700,15 @@ mips_init_relocs (void)
 	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
 
 	  mips_hi_relocs[SYMBOL_LAPC_NANO] = "%pcrel_hi(";
-	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "";
+	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_LAPC_NANO] = true;
 
 	  mips_hi_relocs[SYMBOL_LAPC48_NANO] = "%pcrel_hi(";
-	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "";
+	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
 
 	  mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%pcrel_hi(";
-	  mips_lo_relocs[SYMBOL_PCREL_4K_NANO] = "";
+	  mips_lo_relocs[SYMBOL_PCREL_4K_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_PCREL_4K_NANO] = true;
 
 	  mips_lo_relocs[SYMBOL_GOT_PCREL32_NANO] = "%got_pcrel32(";
