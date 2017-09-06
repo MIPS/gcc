@@ -288,7 +288,7 @@ begin arch armv8-m.main+dsp
 end arch armv8-m.main+dsp
 
 begin arch armv8-r
- tune for cortex-r4
+ tune for cortex-r52
  tune flags CO_PROC
  base 8R
  isa ARMv8r
@@ -1089,6 +1089,14 @@ begin cpu cortex-m33
  architecture armv8-m.main+dsp
  costs v7m
 end cpu cortex-m33
+
+# V8 R-profile implementations.
+begin cpu cortex-r52
+ cname cortexr52
+ tune flags LDSCHED
+ architecture armv8-r+crc
+ costs cortex
+end cpu cortex-r52
 
 # FPU entries
 # format:

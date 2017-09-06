@@ -1220,6 +1220,17 @@ static const struct processors all_cores[] =
     },
     &arm_v7m_tune
   },
+  {
+    "cortex-r52",
+    TARGET_CPU_cortexr52,
+    (TF_LDSCHED),
+    "8R", BASE_ARCH_8R,
+    {
+      ISA_ARMv8r,isa_bit_crc32,
+      isa_nobit
+    },
+    &arm_cortex_tune
+  },
   {NULL, TARGET_CPU_arm_none, 0, NULL, BASE_ARCH_0, {isa_nobit}, NULL}
 };
 
@@ -1566,7 +1577,7 @@ static const struct processors all_architectures[] =
     NULL
   },
   {
-    "armv8-r", TARGET_CPU_cortexr4,
+    "armv8-r", TARGET_CPU_cortexr52,
     (TF_CO_PROC),
     "8R", BASE_ARCH_8R,
     {

@@ -789,6 +789,13 @@ static const struct arm_arch_core_flag arm_arch_core_flags[] =
     },
   },
   {
+    "cortex-r52",
+    {
+      ISA_ARMv8r,isa_bit_crc32,
+      isa_nobit
+    },
+  },
+  {
     "armv2",
     {
       ISA_ARMv2,isa_bit_mode26,
