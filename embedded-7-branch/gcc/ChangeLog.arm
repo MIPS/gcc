@@ -1,6 +1,19 @@
 2017-09-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
+	2017-07-06  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-cpus.in (armv8-r): Add new entry.
+	(armv8-r+crc): Likewise.
+	* config/arm/arm-isa.h (ISA_ARMv8r): Define macro.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm.h (enum base_architecture): Add BASE_ARCH_8R
+	enumerator.
+	* doc/invoke.texi: Mention -march=armv8-r and its crc extension.
+
+2017-09-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
 	2017-07-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* config/arm/driver-arm.c (arm_cpu_table): Add entry for ARM

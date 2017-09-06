@@ -1566,6 +1566,26 @@ static const struct processors all_architectures[] =
     NULL
   },
   {
+    "armv8-r", TARGET_CPU_cortexr4,
+    (TF_CO_PROC),
+    "8R", BASE_ARCH_8R,
+    {
+      ISA_ARMv8r,
+      isa_nobit
+    },
+    NULL
+  },
+  {
+    "armv8-r+crc", TARGET_CPU_cortexr4,
+    (TF_CO_PROC),
+    "8R", BASE_ARCH_8R,
+    {
+      ISA_ARMv8r,isa_bit_crc32,
+      isa_nobit
+    },
+    NULL
+  },
+  {
     "iwmmxt", TARGET_CPU_iwmmxt,
     (TF_LDSCHED | TF_STRONG | TF_XSCALE),
     "5TE", BASE_ARCH_5TE,

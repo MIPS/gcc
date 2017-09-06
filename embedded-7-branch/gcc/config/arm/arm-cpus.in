@@ -287,6 +287,20 @@ begin arch armv8-m.main+dsp
  isa ARMv8m_main bit_ARMv7em
 end arch armv8-m.main+dsp
 
+begin arch armv8-r
+ tune for cortex-r4
+ tune flags CO_PROC
+ base 8R
+ isa ARMv8r
+end arch armv8-r
+
+begin arch armv8-r+crc
+ tune for cortex-r4
+ tune flags CO_PROC
+ base 8R
+ isa ARMv8r bit_crc32
+end arch armv8-r+crc
+
 begin arch iwmmxt
  tune for iwmmxt
  tune flags LDSCHED STRONG XSCALE

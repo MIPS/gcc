@@ -1,3 +1,12 @@
+2017-09-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2017-07-06  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp: Generate
+	check_effective_target_arm_arch_v8r_ok, add_options_for_arm_arch_v8r
+	and check_effective_target_arm_arch_v8r_multilib.
+
 2017-06-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline

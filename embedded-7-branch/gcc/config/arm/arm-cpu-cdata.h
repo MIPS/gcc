@@ -1027,6 +1027,20 @@ static const struct arm_arch_core_flag arm_arch_core_flags[] =
     },
   },
   {
+    "armv8-r",
+    {
+      ISA_ARMv8r,
+      isa_nobit
+    },
+  },
+  {
+    "armv8-r+crc",
+    {
+      ISA_ARMv8r,isa_bit_crc32,
+      isa_nobit
+    },
+  },
+  {
     "iwmmxt",
     {
       ISA_ARMv5te,isa_bit_xscale,isa_bit_iwmmxt,
