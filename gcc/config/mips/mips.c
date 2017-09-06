@@ -5170,8 +5170,10 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
       && symbol_type == SYMBOL_GPREL32_NANO)
     return true;
 
-  /* @tmt We intentionally don't return true for SYMBOL_GPREL_SPLIT_NANO
-     because we don't want to mess with its LO_SUM.  */
+  if (mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO]
+      && mips_symbolic_constant_p (x, context, &symbol_type)
+      && symbol_type == SYMBOL_GPREL_SPLIT_NANO)
+    return true;
 
   return false;
 }
@@ -5234,6 +5236,12 @@ mips_rewrite_small_data_1 (rtx *loc, enum mips_symbol_context context)
 	  iter.skip_subrtxes ();
 	}
       else if (GET_CODE (*loc) == LO_SUM)
+	iter.skip_subrtxes ();
+  /* Checking for HIGH is meant to guard against the accidental insertion of a
+     LO_SUM into the HIGH part of the SYMBOL_GPREL_SPLIT_NANO pattern. This
+     would have happened because mips_rewrite_small_data_p returns true for
+     SYMBOL_GPREL_SPLIT_NANO.  */
+      else if (GET_CODE (*loc) == HIGH)
 	iter.skip_subrtxes ();
     }
 }
@@ -13195,7 +13203,7 @@ mips_global_pointer (void)
   unsigned int regno;
 
   /* $gp is always available unless we're using a GOT.  */
-  if (!TARGET_USE_GOT)
+  if (!TARGET_USE_GOT && !TARGET_GPOPT)
     return GLOBAL_POINTER_REGNUM;
 
   /* If there are inflexible references to $gp, we must use the
@@ -14090,7 +14098,8 @@ mips_compute_frame_info (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if (!TARGET_USE_GOT || cfun->machine->global_pointer == INVALID_REGNUM)
+  if ((!TARGET_USE_GOT && !TARGET_GPOPT)
+      || cfun->machine->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
 
   if (TARGET_PABI)
