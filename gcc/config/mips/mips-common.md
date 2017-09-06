@@ -4781,9 +4781,11 @@
 
 (define_insn "*store_pcrel32_pic_nano<mode>"
   [(set (mem:P (match_operand:P 0 "pcrel32_mem_nano_operand"))
-	(match_operand:P 1 "register_operand" "=d"))]
+	(match_operand:P 1 "reg_or_0_operand" "d,J"))]
   "TARGET_NANOMIPS"
-  "swpc\t%1,%0"
+  "@
+    swpc\t%1,%0
+    swpc\t%z1,%0"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
