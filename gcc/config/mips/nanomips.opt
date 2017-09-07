@@ -33,3 +33,7 @@ Use PC-relative addressing to acccess symbols.
 mpid
 Target Report Var(TARGET_PID) Init(0)
 Always use GP-relative addressing to acccess symbols.
+
+mrelax
+Target Report Var(TARGET_LINKRELAX) Init(1)
+Enable linker relaxations for nanoMIPS.
