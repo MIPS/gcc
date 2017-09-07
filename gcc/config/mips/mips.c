@@ -9509,18 +9509,30 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
       HOST_WIDE_INT this_length = (MIN (length - offset,
 					delta * mips_memcpy_interleave)
 				   + offset);
+      HOST_WIDE_INT num_units = (this_length - offset) / delta;
 
       if (mips_use_multi_memcpy
 	  && MIN (MEM_ALIGN (src), MEM_ALIGN (dest)) >= BITS_PER_WORD)
 	{
-	  rtx part = adjust_address (src, BLKmode, offset);
-	  set_mem_size (part, ((this_length - offset) / delta)*delta);
-	  move_block_to_reg (GP_REG_FIRST + 12, part,
-			     (this_length - offset) / delta, BLKmode);
-	  part = adjust_address (dest, BLKmode, offset);
-	  set_mem_size (part, ((this_length - offset) / delta) * delta);
-	  move_block_from_reg (GP_REG_FIRST + 12, part,
-			       (this_length - offset) / delta);
+	  if (TARGET_NANOMIPS == NANOMIPS_NMF && IN_RANGE (num_units, 2, 8))
+	    {
+	      rtx part_src = adjust_address (src, BLKmode, offset);
+	      set_mem_size (part_src, num_units * delta);
+	      rtx part_dest = adjust_address (dest, BLKmode, offset);
+	      set_mem_size (part_dest, num_units * delta);
+	      emit_insn (gen_movmemsi_multireg (part_dest, part_src,
+						GEN_INT (num_units)));
+	    }
+	  else
+	    {
+	      rtx part = adjust_address (src, BLKmode, offset);
+	      set_mem_size (part, num_units * delta);
+	      move_block_to_reg (MIPS_FIRST_MOVE_REG, part, num_units,
+				 BLKmode);
+	      part = adjust_address (dest, BLKmode, offset);
+	      set_mem_size (part, num_units * delta);
+	      move_block_from_reg (MIPS_FIRST_MOVE_REG, part, num_units);
+	    }
 	  for (; offset + delta <= this_length; offset += delta, i++);
 	}
       else
@@ -25551,6 +25563,11 @@ nanomips_word_multiple_pattern_p (bool store_p, rtx pattern)
   rtx first_base = 0;
   unsigned int first_reg = 0;
 
+  /* We disable the patterns for safety due to register allocator not well
+     handling multiple loads/stores.  */
+  if (!reload_completed)
+    return false;
+
   for (n = 0; n < XVECLEN (pattern, 0); n++)
     {
       rtx set, reg, mem, this_base;
@@ -28709,6 +28726,49 @@ mips_adjust_costs (void *p, int func)
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating = rating;
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used
       = s_regs_used;
+}
+
+void nanomips_expand_movmemsi_multireg (rtx dest, rtx src, unsigned int count)
+{
+  rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count + 1));
+
+  XVECEXP (pat, 0, 0) = gen_rtx_SET (dest, src);
+  for (unsigned int i = 0; i < count; i++)
+    XVECEXP (pat, 0, i + 1) =
+      gen_rtx_CLOBBER (VOIDmode,
+		       gen_rtx_REG (SImode, MIPS_FIRST_MOVE_REG + i));
+  emit_insn (pat);
+}
+
+void nanomips_load_store_multiple_split (rtx dest, rtx src,
+					 unsigned int count)
+{
+  rtx dest_base, src_base;
+  HOST_WIDE_INT dest_offset, src_offset;
+
+  gcc_assert (GET_CODE (dest) == MEM);
+  gcc_assert (GET_CODE (src) == MEM);
+
+  rtx load = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  rtx store = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+
+  mips_split_plus (XEXP (dest, 0), &dest_base, &dest_offset);
+  mips_split_plus (XEXP (src, 0), &src_base, &src_offset);
+
+  for (int i = 0; i < count; i++)
+    {
+      rtx dest_plus_constant = plus_constant (SImode, dest_base,
+					     dest_offset + i * UNITS_PER_WORD);
+      rtx src_plus_constant = plus_constant (SImode, src_base,
+					     src_offset + i * UNITS_PER_WORD);
+      rtx reg = gen_rtx_REG (SImode, MIPS_FIRST_MOVE_REG + i);
+      XVECEXP (load, 0, i) =
+	gen_rtx_SET (reg, gen_rtx_MEM (SImode, src_plus_constant));
+      XVECEXP (store, 0, i) =
+	gen_rtx_SET (gen_rtx_MEM (SImode, dest_plus_constant), reg);
+    }
+  emit_insn (load);
+  emit_insn (store);
 }
 
 /* Initialize the GCC target structure.  */

@@ -420,7 +420,8 @@
       || INTVAL (operands[2]) < 2
       || GET_CODE (operands[0]) != MEM
       || MEM_VOLATILE_P (operands[0])
-      || GET_CODE (operands[1]) != REG)
+      || GET_CODE (operands[1]) != REG
+      || !reload_completed)
     FAIL;
 
   count = INTVAL (operands[2]);
@@ -582,7 +583,8 @@
       || INTVAL (operands[2]) < 2
       || GET_CODE (operands[1]) != MEM
       || MEM_VOLATILE_P (operands[0])
-      || GET_CODE (operands[0]) != REG)
+      || GET_CODE (operands[0]) != REG
+      || !reload_completed)
     FAIL;
 
   count = INTVAL (operands[2]);
@@ -597,6 +599,157 @@
       = gen_rtx_SET (gen_rtx_REG (SImode, regno + i),
 		     adjust_address_nv (op1, SImode, i * 4));
 })
+
+;; Operand 0 is the register containing the destination address
+;; Operand 1 is the register containing the source address
+;; Operand 2 is the register containing the number of words to move
+
+(define_expand "movmemsi_multireg"
+  [(parallel
+    [(set (match_operand 0 "" "")
+	  (match_operand 1 "" ""))
+     (use (match_operand 2 "" ""))])]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+{
+  gcc_assert (TARGET_NANOMIPS == NANOMIPS_NMF
+	      && IN_RANGE (INTVAL (operands[2]), 1, 8));
+  nanomips_expand_movmemsi_multireg (operands[0], operands[1],
+				     INTVAL (operands[2]));
+  DONE;
+})
+
+(define_insn_and_split "load_store_multiple8"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))
+   (clobber (reg:SI 18))
+   (clobber (reg:SI 19))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 8);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple7"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))
+   (clobber (reg:SI 18))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 7);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple6"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))
+   (clobber (reg:SI 17))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 6);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple5"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))
+   (clobber (reg:SI 16))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 5);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple4"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 4);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple3"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 3);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
+
+(define_insn_and_split "load_store_multiple2"
+  [(set (match_operand:BLK 0 "memory_operand" "=ZA")
+	(match_operand:BLK 1 "memory_operand" "ZA"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  nanomips_load_store_multiple_split (operands[0], operands[1], 2);
+  DONE;
+}
+ [(set_attr "move_type" "store")
+  (set_attr "mode" "SI")])
 
 ;; Load word pair as LWM.
 (define_peephole2
