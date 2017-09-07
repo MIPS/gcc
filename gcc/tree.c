@@ -10640,10 +10640,8 @@ build_vector_type (tree innertype, poly_int64 nunits)
 tree
 build_truth_vector_type (poly_uint64 nunits, poly_uint64 vector_size)
 {
-  machine_mode mask_mode = targetm.vectorize.get_mask_mode (nunits,
-							    vector_size);
-
-  gcc_assert (mask_mode != VOIDmode);
+  machine_mode mask_mode
+    = targetm.vectorize.get_mask_mode (nunits, vector_size).else_blk ();
 
   poly_uint64 vsize;
   if (mask_mode == BLKmode)

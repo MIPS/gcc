@@ -118,6 +118,6 @@ extern const char *hook_constcharptr_int_const_tree_null (int, const_tree);
 extern const char *hook_constcharptr_int_const_tree_const_tree_null (int, const_tree, const_tree);
 extern bool hook_bool_bool_uint_uint_false (bool, unsigned int, unsigned int);
 
-extern machine_mode hook_mode_mode_uhwi_blkmode (machine_mode,
-						 unsigned HOST_WIDE_INT);
+extern opt_machine_mode hook_optmode_mode_uhwi_none (machine_mode,
+						     unsigned HOST_WIDE_INT);
 #endif

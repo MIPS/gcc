@@ -974,16 +974,16 @@ decode_reg_name (const char *name)
 bool
 bss_initializer_p (const_tree decl)
 {
-  return (DECL_INITIAL (decl) == NULL
-	  /* In LTO we have no errors in program; error_mark_node is used
-	     to mark offlined constructors.  */
-	  || (DECL_INITIAL (decl) == error_mark_node
-	      && !in_lto_p)
-	  || (flag_zero_initialized_in_bss
-	      /* Leave constant zeroes in .rodata so they
-		 can be shared.  */
-	      && !TREE_READONLY (decl)
-	      && initializer_zerop (DECL_INITIAL (decl))));
+  /* Do not put constants into the .bss section, they belong in a readonly
+     section.  */
+  return (!TREE_READONLY (decl)
+	  && (DECL_INITIAL (decl) == NULL
+	      /* In LTO we have no errors in program; error_mark_node is used
+	         to mark offlined constructors.  */
+	      || (DECL_INITIAL (decl) == error_mark_node
+	          && !in_lto_p)
+	      || (flag_zero_initialized_in_bss
+	          && initializer_zerop (DECL_INITIAL (decl)))));
 }
 
 /* Compute the alignment of variable specified by DECL.
@@ -2778,8 +2778,8 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       else
 	mclass = MODE_INT;
 
-      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0);
-      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0);
+      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0).require ();
+      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0).require ();
 
       for (i = 0; i < size; i += subsize)
 	{
@@ -2923,6 +2923,13 @@ decode_addr_const (tree exp, struct addr_const *value)
     case CONSTRUCTOR:
     case INTEGER_CST:
       x = output_constant_def (target, 1);
+      break;
+
+    case INDIRECT_REF:
+      /* This deals with absolute addresses.  */
+      offset += tree_to_shwi (TREE_OPERAND (target, 0));
+      x = gen_rtx_MEM (QImode,
+		       gen_rtx_SYMBOL_REF (Pmode, "origin of addresses"));
       break;
 
     default:
@@ -6553,7 +6560,8 @@ categorize_decl_for_section (const_tree decl, int reloc)
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
 	       || TREE_SIDE_EFFECTS (decl)
-	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
+	       || (DECL_INITIAL (decl)
+		   && ! TREE_CONSTANT (DECL_INITIAL (decl))))
 	{
 	  /* Here the reloc_rw_mask is not testing whether the section should
 	     be read-only or not, but whether the dynamic link will have to
@@ -6573,7 +6581,8 @@ categorize_decl_for_section (const_tree decl, int reloc)
 	   location.  -fmerge-all-constants allows even that (at the
 	   expense of not conforming).  */
 	ret = SECCAT_RODATA;
-      else if (TREE_CODE (DECL_INITIAL (decl)) == STRING_CST)
+      else if (DECL_INITIAL (decl)
+	       && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST)
 	ret = SECCAT_RODATA_MERGE_STR_INIT;
       else
 	ret = SECCAT_RODATA_MERGE_CONST;
@@ -6596,8 +6605,9 @@ categorize_decl_for_section (const_tree decl, int reloc)
       /* Note that this would be *just* SECCAT_BSS, except that there's
 	 no concept of a read-only thread-local-data section.  */
       if (ret == SECCAT_BSS
-	       || (flag_zero_initialized_in_bss
-		   && initializer_zerop (DECL_INITIAL (decl))))
+	  || DECL_INITIAL (decl) == NULL
+	  || (flag_zero_initialized_in_bss
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_TBSS;
       else
 	ret = SECCAT_TDATA;

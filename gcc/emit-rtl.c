@@ -984,9 +984,12 @@ validate_subreg (machine_mode omode, machine_mode imode,
     }
 
   /* For pseudo registers, we want most of the same checks.  Namely:
-     Divide the register into REGMODE_NATURAL_SIZE-sized blocks.
-     If the subreg is smaller than a block, it must be the lowpart
-     of a block, otherwise it must be a sequence of complete blocks.
+
+     Assume that the the pseudo register will be allocated to hard registers
+     that can each hold REGSIZE bytes each.  If OSIZE is not a multiple of
+     REGSIZE, the remainder must correspond to the lowpart of the
+     containing hard register.  If BYTES_BIG_ENDIAN, the lowpart is
+     at the highest offset, otherwise it is at the lowest offset.
 
      Given that we've already checked the mode and offset alignment,
      we only have to check subblock subregs here.  */
@@ -1542,9 +1545,9 @@ gen_lowpart_common (machine_mode mode, rtx x)
   innermode = GET_MODE (x);
   if (CONST_INT_P (x)
       && must_le (msize * BITS_PER_UNIT, HOST_BITS_PER_WIDE_INT))
-    innermode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
+    innermode = int_mode_for_size (HOST_BITS_PER_WIDE_INT, 0).require ();
   else if (innermode == VOIDmode)
-    innermode = mode_for_size (HOST_BITS_PER_DOUBLE_INT, MODE_INT, 0);
+    innermode = int_mode_for_size (HOST_BITS_PER_DOUBLE_INT, 0).require ();
 
   gcc_assert (innermode != VOIDmode && innermode != BLKmode);
 

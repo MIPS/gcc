@@ -3621,7 +3621,7 @@ package body Exp_Attr is
             return;
          end if;
 
-         Exp_Imgv.Expand_Image_Attribute (N);
+         Expand_Image_Attribute (N);
 
       ---------
       -- Img --
@@ -3630,13 +3630,7 @@ package body Exp_Attr is
       --  X'Img is expanded to typ'Image (X), where typ is the type of X
 
       when Attribute_Img =>
-         Rewrite (N,
-           Make_Attribute_Reference (Loc,
-             Prefix         => New_Occurrence_Of (Ptyp, Loc),
-             Attribute_Name => Name_Image,
-             Expressions    => New_List (Relocate_Node (Pref))));
-
-         Analyze_And_Resolve (N, Standard_String);
+         Expand_Image_Attribute (N);
 
       -----------
       -- Input --
@@ -6891,14 +6885,15 @@ package body Exp_Attr is
          --  are any non-valid scalar subcomponents, and call the function.
 
          elsif Is_Record_Type (Ftyp)
-            and then Nkind (Type_Definition (Declaration_Node (Ftyp))) =
-                                                        N_Record_Definition
+           and then Present (Declaration_Node (Ftyp))
+           and then Nkind (Type_Definition (Declaration_Node (Ftyp))) =
+                      N_Record_Definition
          then
             Rewrite (N,
               Make_Function_Call (Loc,
                 Name                   =>
                   New_Occurrence_Of (Build_Record_VS_Func (Ftyp, N), Loc),
-              Parameter_Associations => New_List (Pref)));
+                Parameter_Associations => New_List (Pref)));
 
          --  Other record types or types with discriminants
 
@@ -6982,7 +6977,6 @@ package body Exp_Attr is
       --  Wide_Image attribute is handled in separate unit Exp_Imgv
 
       when Attribute_Wide_Image =>
-
          --  Leave attribute unexpanded in CodePeer mode: the gnat2scil
          --  back-end knows how to handle this attribute directly.
 
@@ -6999,7 +6993,6 @@ package body Exp_Attr is
       --  Wide_Wide_Image attribute is handled in separate unit Exp_Imgv
 
       when Attribute_Wide_Wide_Image =>
-
          --  Leave attribute unexpanded in CodePeer mode: the gnat2scil
          --  back-end knows how to handle this attribute directly.
 

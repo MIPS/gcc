@@ -180,7 +180,7 @@
   A memory address suitable for a load/store pair operation."
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (GET_MODE (op), XEXP (op, 0),
-						  ADDR_QUERY_LDP_STP, 1)")))
+						  true, ADDR_QUERY_LDP_STP)")))
 
 (define_memory_constraint "Utf"
   "@internal

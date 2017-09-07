@@ -103,7 +103,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (scalar_mode mode);
 extern void default_autovectorize_vector_sizes (vec<poly_uint64> &);
-extern machine_mode default_get_mask_mode (poly_uint64, poly_uint64);
+extern opt_machine_mode default_get_mask_mode (poly_uint64, poly_uint64);
 extern bool default_empty_mask_is_expensive (unsigned);
 extern void *default_init_cost (struct loop *);
 extern unsigned default_add_stmt_cost (void *, int, enum vect_cost_for_stmt,
@@ -199,8 +199,8 @@ extern tree default_builtin_tm_load_store (tree);
 extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
 extern int default_register_move_cost (machine_mode, reg_class_t,
 				       reg_class_t);
-extern bool default_slow_unaligned_access (machine_mode, unsigned int);
 extern HOST_WIDE_INT default_estimated_poly_value (poly_int64);
+extern bool default_slow_unaligned_access (machine_mode, unsigned int);
 
 extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
 						    unsigned int,

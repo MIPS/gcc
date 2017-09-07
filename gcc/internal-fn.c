@@ -3203,8 +3203,8 @@ vectorized_internal_fn_supported_p (internal_fn ifn, machine_mode mode)
       poly_uint64 nunits;
       if (!multiple_p (vector_sizes[i], GET_MODE_SIZE (smode), &nunits))
 	continue;
-      vmode = mode_for_vector (smode, nunits);
-      if (VECTOR_MODE_P (vmode)
+      if (mode_for_vector (smode, nunits).exists (&vmode)
+	  && VECTOR_MODE_P (vmode)
 	  && direct_optab_handler (op, vmode) != CODE_FOR_nothing)
 	return true;
     }

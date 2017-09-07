@@ -3505,8 +3505,8 @@ package body Exp_Ch6 is
                     Root_Type (Etype (Name (Ass)))
                   then
                      Error_Msg_NE
-                       ("tag-indeterminate expression "
-                         & " must have designated type& (RM 5.2 (6))",
+                       ("tag-indeterminate expression must have designated "
+                        & "type& (RM 5.2 (6))",
                          Call_Node, Root_Type (Etype (Name (Ass))));
                   else
                      Propagate_Tag (Name (Ass), Call_Node);
@@ -3514,7 +3514,7 @@ package body Exp_Ch6 is
 
                elsif Etype (Call_Node) /= Root_Type (Etype (Name (Ass))) then
                   Error_Msg_NE
-                    ("tag-indeterminate expression must have type&"
+                    ("tag-indeterminate expression must have type & "
                      & "(RM 5.2 (6))",
                      Call_Node, Root_Type (Etype (Name (Ass))));
 
@@ -3950,6 +3950,23 @@ package body Exp_Ch6 is
             Rewrite (Call_Node,
               Unchecked_Convert_To
                 (RTE (RE_Address), Relocate_Node (First_Actual (Call_Node))));
+            return;
+
+         --  A call to a null procedure is replaced by a null statement, but we
+         --  are not allowed to ignore possible side effects of the call, so we
+         --  make sure that actuals are evaluated.
+         --  We also suppress this optimization for GNATCoverage.
+
+         elsif Is_Null_Procedure (Subp)
+           and then not Opt.Suppress_Control_Flow_Optimizations
+         then
+            Actual := First_Actual (Call_Node);
+            while Present (Actual) loop
+               Remove_Side_Effects (Actual);
+               Next_Actual (Actual);
+            end loop;
+
+            Rewrite (Call_Node, Make_Null_Statement (Loc));
             return;
          end if;
 
@@ -6411,6 +6428,16 @@ package body Exp_Ch6 is
             --  optimization
 
             Rewrite (Exp, Duplicate_Subexpr_No_Checks (Exp));
+
+            --  Ada 2005 (AI-251): If the type of the returned object is
+            --  an interface then add an implicit type conversion to force
+            --  displacement of the "this" pointer.
+
+            if Is_Interface (R_Type) then
+               Rewrite (Exp, Convert_To (R_Type, Relocate_Node (Exp)));
+            end if;
+
+            Analyze_And_Resolve (Exp, R_Type);
 
          --  For controlled types, do the allocation on the secondary stack
          --  manually in order to call adjust at the right time:

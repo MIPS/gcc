@@ -98,8 +98,7 @@ brig_basic_inst_handler::build_shuffle (tree arith_type,
   vec<constructor_elt, va_gc> *mask_offset_vals = NULL;
 
   /* BRIG doesn't support variable-length vectors.  */
-  unsigned int element_count
-    = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
+  unsigned int element_count = gccbrig_type_vector_subparts (arith_type);
 
   vec<constructor_elt, va_gc> *input_mask_vals = NULL;
   size_t input_mask_element_size = exact_log2 (element_count);
@@ -161,7 +160,7 @@ brig_basic_inst_handler::build_unpack (tree_stl_vec &operands)
 
   /* BRIG doesn't support variable-length vectors.  */
   size_t element_count
-    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0])).to_constant ();
+    = gccbrig_type_vector_subparts (TREE_TYPE (operands[0]));
   tree vec_type = build_vector_type (element_type, element_count);
 
   for (size_t i = 0; i < element_count; ++i)
@@ -217,8 +216,7 @@ brig_basic_inst_handler::build_pack (tree_stl_vec &operands)
      without a builtin call.  */
 
   /* BRIG doesn't support variable-length vectors.  */
-  size_t ecount
-    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (operands[0])).to_constant ();
+  size_t ecount = gccbrig_type_vector_subparts (TREE_TYPE (operands[0]));
   size_t vecsize = (int_size_in_bytes_hwi (TREE_TYPE (operands[0]))
 		    * BITS_PER_UNIT);
   tree wide_type = build_nonstandard_integer_type (vecsize, 1);
@@ -284,7 +282,7 @@ brig_basic_inst_handler::build_unpack_lo_or_hi (BrigOpcode16_t brig_opcode,
     = build_vector_type (element_type, TYPE_VECTOR_SUBPARTS (arith_type));
 
   /* BRIG doesn't support variable-length vectors.  */
-  size_t element_count = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
+  size_t element_count = gccbrig_type_vector_subparts (arith_type);
   vec<constructor_elt, va_gc> *input_mask_vals = NULL;
 
   size_t offset = (brig_opcode == BRIG_OPCODE_UNPACKLO) ? 0 : element_count / 2;
@@ -608,7 +606,7 @@ brig_basic_inst_handler::operator () (const BrigBase *base)
 
       size_t promoted_type_size = int_size_in_bytes_hwi (promoted_type) * 8;
       /* BRIG doesn't support variable-length vectors.  */
-      size_t element_count = TYPE_VECTOR_SUBPARTS (arith_type).to_constant ();
+      size_t element_count = gccbrig_type_vector_subparts (arith_type);
       for (size_t i = 0; i < element_count; ++i)
 	{
 	  tree operand0 = convert (promoted_type, operand0_elements.at (i));
@@ -718,7 +716,7 @@ brig_basic_inst_handler::build_lower_element_broadcast (tree vec_operand)
 
   /* BRIG doesn't support variable-length vectors.  */
   size_t element_count
-    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec_operand)).to_constant ();
+    = gccbrig_type_vector_subparts (TREE_TYPE (vec_operand));
   tree mask_inner_type = build_nonstandard_integer_type (esize, 1);
   vec<constructor_elt, va_gc> *constructor_vals = NULL;
 

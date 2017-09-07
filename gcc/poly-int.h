@@ -19,439 +19,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This file provides a representation of sizes and offsets whose exact
    values depend on certain runtime properties.  The motivating example
-   is the ARM SVE ISA, in which the number of vector elements is only
-   known at runtime.
-
-   Overview
-   ========
-
-   We define indeterminates x1...xn whose values are only known at
-   runtime and use polynomials of the form:
-
-     c0 + c1 * x1 + ... + cn * xn
-
-   to represent a size or offset whose value might depend on one
-   of these indeterminates.  The coefficients c0...cn are always
-   known at compile time, with the c0 term being the "constant" part
-   that doesn't depend on any runtime value.
-
-   The number of indeterminates n is a fixed property of the target
-   and at the moment is usually 0 (since most targets don't have such
-   runtime values).  When n is 0, the class degenerates to a single
-   compile-time constant c0.
-
-   We make the simplifying requirement that each indeterminate must be a
-   nonnegative integer.  An indeterminate value of 0 should usually
-   represent the minimum possible runtime value, with c0 indicating
-   the value in that case.
-
-   E.g., for SVE, the single indeterminate represents the number of
-   128-bit blocks in a vector _beyond the minimum width of 128 bits_.
-   Thus the number of 64-bit doublewords in a vector is 2 + 2 * x1.
-   If an aggregate has a single SVE vector and 16 additional bytes,
-   its total size is 32 + 16 * x1 bytes.
-
-   Challenges
-   ==========
-
-   The two main problems with using polynomial sizes and offsets are that:
-
-   (1) there's no total ordering at compile time, and
-   (2) some operations have results that can't be expressed as a compile-time
-       polynomial.
-
-   For example, we can't tell at compile time whether:
-
-      3 + 4x <= 1 + 5x
-
-   since the condition is false for x <= 1 and true for x >= 2.
-   Similarly we can't compute:
-
-      (3 + 4x) * (1 + 5x)
-   or
-      (3 + 4x) / (1 + 5x)
-
-   and represent the result as the same kind of polynomial.  These problems
-   are addressed below.
-
-   Ordering
-   ========
-
-   In general we need to compare sizes and offsets in two situations:
-   those in which there is no definite link between the two values,
-   and those in which there is a definite link.  An example of the
-   former is bounds checking: we might want to check whether two
-   arbitrary memory references overlap.  An example of the latter is the
-   relationship between the inner and outer sizes of a subreg, where we
-   must know at compile time whether the subreg is paradoxical, partial,
-   or complete.
-
-   Referring back to the example polynomials above, it makes sense to
-   ask whether a memory reference of size 3 + 4x overlaps one of size
-   1 + 5x, but it doesn't make sense to have a subreg in which the outer
-   mode has 3 + 4x bytes and the inner mode has 1 + 5x bytes (or vice
-   versa).  Such subregs are always invalid and should trigger an ICE
-   if formed.
-
-   Ordering without a definite link
-   ================================
-
-   In the case where there is no definite link between two sizes,
-   we can usually make a conservatively-correct assumption.  E.g.
-   for alias analysis the conservative assumption is that two references
-   might alias.  For these situations the file provides routines for
-   checking whether a particular relationship "may" (= might) hold:
-
-      may_lt may_le may_eq may_ge may_gt
-                    may_ne
-
-   All relations on the first line are transitive, so for example:
-
-      may_lt (a, b) && may_lt (b, c) implies may_lt (a, c)
-
-   may_lt, may_gt and may_ne are irreflexive, so for example:
-
-      !may_lt (a, a)
-
-   is always true.  may_le, may_eq and may_ge are reflexive, so for example:
-
-      may_le (a, a)
-
-   is always true.  may_eq and may_ne are symmetric, so:
-
-      may_eq (a, b) == may_eq (b, a)
-      may_ne (a, b) == may_ne (b, a)
-
-   In addition:
-
-      may_le (a, b) == may_lt (a, b) || may_eq (a, b)
-      may_ge (a, b) == may_gt (a, b) || may_eq (a, b)
-      may_lt (a, b) == may_gt (b, a)
-      may_le (a, b) == may_ge (b, a)
-
-   However:
-
-      may_le (a, b) && may_le (b, a) does not imply !may_ne (a, b)
-      may_ge (a, b) && may_ge (b, a) does not imply !may_ne (a, b)
-
-   One example where this doesn't hold is again a == 3 + 4x and
-   b == 1 + 5x, where may_le (a, b), may_ge (a,b) and may_ne (a, b)
-   all hold.  may_le and may_ge are therefore not antisymetric and so
-   don't form a partial order.
-
-   One way of checking whether [begin1, end1) might overlap [begin2, end2)
-   using these relations is:
-
-      may_gt (end1, begin2) && may_gt (end2, begin1)
-
-   (but see the description of the range-checking predicates below).
-
-   For readability, the file also provides "must" inverses of the above:
-
-      must_lt (a, b) == !may_ge (a, b)
-      must_le (a, b) == !may_gt (a, b)
-      must_eq (a, b) == !may_ne (a, b)
-      must_ge (a, b) == !may_lt (a, b)
-      must_gt (a, b) == !may_le (a, b)
-      must_ne (a, b) == !may_eq (a, b)
-
-   An alternative way of writing the range check above is therefore:
-
-      !(must_le (end1, begin2) || must_le (end2, begin1))
-
-   All "must" relations except "must_ne" are transitive.  must_lt,
-   must_ne and must_gt are irreflexive.  must_le, must_eq and must_ge
-   are reflexive.  Also:
-
-      must_lt (a, b) == must_gt (b, a)
-      must_le (a, b) == must_ge (b, a)
-      must_lt (a, b) implies !must_lt (b, a)   [asymmetry]
-      must_gt (a, b) implies !must_gt (b, a)
-      must_le (a, b) && must_le (b, a) == must_eq (a, b) [== !may_ne (a, b)]
-      must_ge (a, b) && must_ge (b, a) == must_eq (a, b) [== !may_ne (a, b)]
-
-   must_le and must_ge are therefore antisymmetric and are partial orders.
-   However:
-
-      must_le (a, b) does not imply must_lt (a, b) || must_eq (a, b)
-      must_ge (a, b) does not imply must_gt (a, b) || must_eq (a, b)
-
-   For example, must_le (4, 4 + 4x) holds due the requirements on x,
-   but neither must_lt (4, 4 + 4x) nor must_eq (4, 4 + 4x) hold.
-
-   Ordering with a definite link
-   =============================
-
-   In cases where there is a definite link between values, such as the
-   outer and inner sizes of subregs, we usually require the sizes to be
-   ordered by the must_le partial order.  ordered_p (a, b) checks
-   whether this is true for a given a and b.
-
-   For example, if a subreg has an outer mode of size OUTER and an
-   inner mode of size INNER:
-
-   - the subreg is complete if must_eq (INNER, OUTER)
-   - otherwise, the subreg is paradoxical if must_le (INNER, OUTER)
-   - otherwise, the subreg is partial if must_le (OUTER, INNER)
-   - otherwise, the subreg is ill-formed
-
-   If the sizes are already known to be valid then:
-
-   - the subreg is complete if must_eq (INNER, OUTER)
-   - the subreg is paradoxical if may_lt (INNER, OUTER)
-   - rhe subreg is partial if may_lt (OUTER, INNER)
-
-   The file also provides the following utility functions for
-   ordered values:
-
-   ordered_min (a, b)
-      Asserts that a and b are ordered by must_le and returns the
-      minimum of the two.
-
-   ordered_max (a, b)
-      Asserts that a and b are ordered by must_le and returns the
-      maximum of the two.
-
-   These routines should only be used if there is a definite link
-   between the two values.  See the bounds routines below for routines
-   that can help with other cases.
-
-   Marker values
-   =============
-
-   Sometimes it's useful to have a special marker value that isn't
-   supposed to be taken literally.  For example, some code uses a size
-   of -1 to represent an unknown size, rather than having to carry around
-   a separate boolean to say whether the size is known.
-
-   The best way of checking whether something is a marker value
-   is must_eq.  Conversely the best way of checking whether something
-   _isn't_ a marker value is may_ne.
-
-   Thus in the size example just mentioned, must_eq (size, -1) would
-   check for an unknown size and may_ne (size, -1) would check for a
-   known size.
-
-   Range checks
-   ============
-
-   As well as the core comparisons described above, the file provides
-   utilities for various kinds of range check.  In each case the range
-   is represented by a start position and a length rather than a start
-   position and an end position.  (This is because the former is used
-   much more often than the latter in GCC.)  Also, the sizes can be
-   -1 (or all-1s for unsigned sizes) to indicate a range with a known
-   start position but an unknown size.
-
-   ranges_may_overlap_p (pos1, size1, pos2, size2)
-      Return true if the range described by pos1 and size1 might overlap
-      the range described by pos2 and size2.
-
-   ranges_must_overlap_p (pos1, size1, pos2, size2)
-      Return true if the range described by pos1 and size1 is known to
-      overlap the range described by pos2 and size2.
-
-   known_subrange_p (pos1, size1, pos2, size2)
-      Return true if the range described by pos1 and size1 is known to
-      be contained in the range described by pos2 and size2.
-
-   known_in_range_p (val, pos, size)
-      Return true if value val is known to be in the range described
-      by pos and size.
-
-   maybe_in_range_p (val, pos, size)
-      Return true if value val might be in the range described by pos
-      and size (i.e. if it isn't known to be outside that range).
-
-   Arithmetic
-   ==========
-
-   Addition, subtraction, negation and bit inverse work normally.
-   Multiplication by a constant multiplier and left shifting by
-   a constant shift amount also work normally.  General multiplication
-   of two polynomials isn't supported and isn't useful in practice.
-
-   These arithmetic operators handle integer ranks in a similar way to C.
-   The main difference is that everything narrower than HOST_WIDE_INT
-   promotes to HOST_WIDE_INT, whereas in C everything narrower than int
-   promotes to int.  For example:
-
-       poly_uint16     + int          -> poly_int64  (both narrower than HWI)
-       unsigned int    + poly_uint16  -> poly_int64  (likewise)
-       poly_int64      + int          -> poly_int64  (highest rank wins)
-       poly_int32      + poly_uint64  -> poly_uint64 (likewise)
-       uint64          + poly_int64   -> poly_uint64 (likewise)
-       poly_offset_int + int32        -> poly_offset_int (likewise)
-       offset_int      + poly_uint16  -> poly_offset_int (likewise)
-
-   If one of the operands is wide_int or poly_wide_int, the rules
-   are the same as for wide_int arithmetic.
-
-   Division of polynomials is possible for certain inputs.  The functions
-   for division return true if the operation is possible and in most cases
-   return the results by pointer.  The routines are:
-
-   multiple_p (a, b[, &quotient])
-      Return true if a is an exact multiple of b, storing the result
-      in quotient if so.  There are overloads for various combinations
-      of polynomial and constant a, b and quotient.
-
-   constant_multiple_p (a, b[, &quotient])
-      Test multiple_p and also test whether the multiple is a
-      compile-time constant.
-
-   can_div_trunc_p (a, b, &quotient[, &remainder])
-      Return true if we can calculate trunc (a / b) at compile time,
-      storing the result in quotient and remainder if so.
-
-   can_div_away_from_zero_p (a, b, &quotient)
-      Return true if we can calculate a / b at compile time,
-      rounding away from zero.  Store the result in quotient if so.
-
-      Note that this is possible iff can_div_trunc_p is possible.
-      The only difference is in the way the result is rounded.
-
-   The file also provides an asserting form of division:
-
-   exact_div (a, b)
-      Assert that a is a multiple of b and return a / b.  The result
-      is a polynomial if a is a polynomial.
-
-   The file provides similar routines for other operations:
-
-   can_ior_p (a, b, &result):
-      Return true if we can calculate a | b at compile time, storing the
-      result in the given location if so.
-
-   Please add any others that you find to be useful.
-
-   In addition, the following overflow-checking wi:: routines are also
-   supported for polynomials:
-
-   - wi::add
-   - wi::sub
-   - wi::neg
-   - wi::mul
-
-   These routines just check whether overflow occurs on any individual
-   coefficient; it isn't possible to know at compile time whether the
-   final runtime value would overflow.
-
-   The following miscellaneous wi:: routines are also supported:
-
-   - wi::sext
-
-   Alignment
-   =========
-
-   The file provides various routines for aligning values and for querying
-   misalignments.  In each case the alignment must be a power of 2.
-
-   can_align_p (value, align)
-      Return true if we can align the given value to the given alignment
-      boundary at compile time.
-
-   can_align_up (value, align, &aligned)
-      Return true if we can align the given value upwards at compile time,
-      storing the result in aligned if so.
-
-   can_align_down (value, align, &aligned)
-      Return true if we can align the given value downwards at compile time,
-      storing the result in aligned if so.
-
-   known_equal_after_align_up (a, b, align)
-      Return true if we can align a and b up at compile time and if the
-      two results are equal.
-
-   known_equal_after_align_down (a, b, align)
-      Return true if we can align a and b down at compile time and if the
-      two results are equal.
-
-   aligned_lower_bound (value, align)
-      Return a result that is no greater than value and that is aligned
-      to the given alignment boundary.  The result will the closest
-      aligned value for some indeterminate values but not necessarily
-      for all.
-
-      For example, this function can be used to calculate a new stack
-      offset for a downward-growing stack after allocating an object
-      with value bytes that needs to be aligned to align bytes.
-
-   aligned_upper_bound (value, align)
-      Likewise return a result that is no less than value and that is
-      aligned to the given alignment boundary.  This is the routine
-      that would be used for upward-growing stacks in the scenario
-      described.
-
-   known_misalignment (value, align, &misalign)
-      Return true if we can calculate the misalignment of value
-      with respect to align at compile time, storing the result in
-      misalign if so.
-
-   known_alignment (value)
-      Return the minimum alignment that the given value is known to have
-      (in other words, the largest alignment that can be guaranteed
-      whatever the values of the indeterminates turn out to be).
-      Return 0 if value is known to be 0.
-
-   force_align_up (value, align)
-      Assert that value can be aligned up at compile time and return the
-      result.  When using this routine, please add a comment explaining
-      why the assertion is known to hold.
-
-   force_align_down (value, align)
-      As above, but aligning down.
-
-   force_align_up_and_div (value, align)
-      Divide the result of force_align_up by align.  Again, please add
-      a comment explaining why the assertion in force_align_up is known
-      to hold.
-
-   force_align_down_and_div (value, align)
-      Likewise for force_align_down.
-
-   force_get_misalignment (value, align)
-      Assert that we can calculate the misalignment of value with
-      respect to align at compile time and return the misalignment.
-      When using this function, please add a comment explaining why
-      the assertion is known to hold.
-
-   Computing bounds
-   ================
-
-   The file also provides routines for calculating lower and upper bounds:
-
-   constant_lower_bound (a)
-      Assert that a is nonnegative and return the smallest value it can have.
-
-   lower_bound (a, b)
-      Return a value that must be less than or equal to both a and b.
-      It will be the greatest such value for some indeterminate values
-      but necessarily for all.
-
-   upper_bound (a, b)
-      Return a value that must be greater than or equal to both a and b.
-      It will be the least such value for some indeterminate values
-      but necessarily for all.
-
-   Other utilities
-   ===============
-
-   common_multiple (a, b)
-      Return a value that is a multiple of both a and b.  It will be
-      the least common multiple for some indeterminate values but not
-      necessarily for all.
-
-   compare_sizes_for_sort (a, b)
-      Compare a and b in reverse lexicographical order.  This can be
-      useful when sorting data structures, since it has the effect of
-      separating constant and non-constant values.  The values do not
-      necessarily end up in numerical order; for example, 1 + 1x
-      would come after 100 in the sort order, but may well be less
-      than 100 at run time.
-
-   print_dec (value, file, sgn)
-      A polynomial version of the wide-int routine.  */
+   is the Arm SVE ISA, in which the number of vector elements is only
+   known at runtime.  See doc/poly-int.texi for more details.  */
 
 #ifndef HAVE_POLY_INT_H
 #define HAVE_POLY_INT_H
@@ -517,7 +86,7 @@ struct int_traits<T, wi::CONST_PRECISION>
    - T1 should be unsigned, T2 should be signed, and T1 should be
      narrower than T2.  This allows things like uint16_t -> int32_t.
 
-   This rules out cases where T2 has less precision than T1 or where
+   This rules out cases in which T2 has less precision than T1 or where
    the conversion would reinterpret the top bit.  E.g. int16_t -> uint32_t
    can be dangerous and should have an explicit cast if deliberate.  */
 template<typename T1, typename T2,
@@ -747,12 +316,8 @@ poly_int_pod<N, C>::from (const poly_int_pod<N, Ca> &a, signop sgn)
 }
 
 /* Return true if the coefficients of this wide-int-based polynomial can
-   be represented as signed HOST_WIDE_INTs.  Store the HOST_WIDE_INT
-   representation in *R if so.
-
-   If this polynomial is conceptually wider than HOST_WIDE_INT bits,
-   the coefficients in the returned value should be sign-extended
-   to the full width.  */
+   be represented as signed HOST_WIDE_INTs without loss of precision.
+   Store the HOST_WIDE_INT representation in *R if so.  */
 
 template<unsigned int N, typename C>
 inline bool
@@ -767,12 +332,8 @@ poly_int_pod<N, C>::to_shwi (poly_int_pod<N, HOST_WIDE_INT> *r) const
 }
 
 /* Return true if the coefficients of this wide-int-based polynomial can
-   be represented as unsigned HOST_WIDE_INTs.  Store the unsigned
-   HOST_WIDE_INT representation in *R if so.
-
-   If this polynomial is conceptually wider than unsigned HOST_WIDE_INT
-   bits, the coefficients in the returned value should be zero-extended
-   to the full width.  */
+   be represented as unsigned HOST_WIDE_INTs without loss of precision.
+   Store the unsigned HOST_WIDE_INT representation in *R if so.  */
 
 template<unsigned int N, typename C>
 inline bool
@@ -968,8 +529,8 @@ struct if_nonpoly
   typedef bool bool_type;
   typedef T t;
 };
-template<unsigned int N, typename T> struct if_nonpoly<poly_int_pod<N, T> > {};
-template<unsigned int N, typename T> struct if_nonpoly<poly_int<N, T> > {};
+template<unsigned int N, typename C> struct if_nonpoly<poly_int_pod<N, C> > {};
+template<unsigned int N, typename C> struct if_nonpoly<poly_int<N, C> > {};
 
 /* Likewise for two types T1 and T2.  */
 template<typename T1, typename T2,
@@ -982,17 +543,17 @@ struct if_nonpoly2
 
 /* SFINAE class to force T to be a polynomial type.  */
 template<typename T> struct if_poly {};
-template<unsigned int N, typename T>
-struct if_poly<poly_int_pod<N, T> >
+template<unsigned int N, typename C>
+struct if_poly<poly_int_pod<N, C> >
 {
   typedef bool bool_type;
-  typedef poly_int_pod<N, T> t;
+  typedef poly_int_pod<N, C> t;
 };
-template<unsigned int N, typename T>
-struct if_poly<poly_int<N, T> >
+template<unsigned int N, typename C>
+struct if_poly<poly_int<N, C> >
 {
   typedef bool bool_type;
-  typedef poly_int<N, T> t;
+  typedef poly_int<N, C> t;
 };
 
 /* poly_result<T1, T2>::t gives the result type for T1 + T2.  The intention
@@ -1016,14 +577,14 @@ struct poly_result<N, T1, T2, 0>
   typedef poly_int<N, HOST_WIDE_INT> t;
 };
 
-/* T1 promotes to T2.  */
+/* Promote pair to unsigned HOST_WIDE_INT.  */
 template<unsigned int N, typename T1, typename T2>
 struct poly_result<N, T1, T2, 1>
 {
   typedef poly_int<N, unsigned HOST_WIDE_INT> t;
 };
 
-/* T2 promotes to T1.  */
+/* Use normal wide-int rules.  */
 template<unsigned int N, typename T1, typename T2>
 struct poly_result<N, T1, T2, 2>
 {
@@ -1486,8 +1047,11 @@ ordered_p (const T1 &a, const T2 &b)
   return must_le (a, b) || must_le (b, a);
 }
 
-/* Given that A and B are known to be ordered, return the minimum
-   of the two.  */
+/* Assert that A and B are known to be ordered and return the minimum
+   of the two.
+
+   NOTE: When using this function, please add a comment above the call
+   explaining why we know the values are ordered in that context.  */
 
 template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
@@ -1528,8 +1092,11 @@ ordered_min (const poly_int_pod<N, Ca> &a, const Cb &b)
     }
 }
 
-/* Given that A and B are known to be ordered, return the maximum
-   of the two.  */
+/* Assert that A and B are known to be ordered and return the maximum
+   of the two.
+
+   NOTE: When using this function, please add a comment above the call
+   explaining why we know the values are ordered in that context.  */
 
 template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
@@ -1599,9 +1166,12 @@ lower_bound (const poly_int_pod<N, Ca> &a, const Cb &b)
   return r;
 }
 
-/* Return a value that is known to be no greater than A and B, both of
-   which are known to be nonnegative.  This will be the greatest lower
-   bound for some indeterminate values but not necessarily for all.  */
+template<unsigned int N, typename Ca, typename Cb>
+inline SCALAR_POLY_RESULT (N, Ca, Cb)
+lower_bound (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  return lower_bound (b, a);
+}
 
 template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
@@ -1634,9 +1204,12 @@ upper_bound (const poly_int_pod<N, Ca> &a, const Cb &b)
   return r;
 }
 
-/* Return a value that is known to be no less than A and B, both of
-   which are known to be nonnegative.  This will be the least upper
-   bound for some indeterminate values but not necessarily for all.  */
+template<unsigned int N, typename Ca, typename Cb>
+inline SCALAR_POLY_RESULT (N, Ca, Cb)
+upper_bound (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  return upper_bound (b, a);
+}
 
 template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
@@ -1671,7 +1244,7 @@ coeff_gcd (const poly_int_pod<N, Ca> &a)
 }
 
 /* Return a value that is a multiple of both A and B.  This will be the
-   least common multiple for some indeterminte values but necessarily
+   least common multiple for some indeterminate values but necessarily
    for all.  */
 
 template<unsigned int N, typename Ca, typename Cb>
@@ -1682,20 +1255,34 @@ common_multiple (const poly_int_pod<N, Ca> &a, Cb b)
   return a * (least_common_multiple (xgcd, b) / xgcd);
 }
 
-/* Likewise, but for two polynomial values.  */
+template<unsigned int N, typename Ca, typename Cb>
+inline SCALAR_POLY_RESULT (N, Ca, Cb)
+common_multiple (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  return common_multiple (b, a);
+}
+
+/* Return a value that is a multiple of both A and B, asserting that
+   such a value exists.  The result will be the least common multiple
+   for some indeterminate values but necessarily for all.
+
+   NOTE: When using this function, please add a comment above the call
+   explaining why we know the values have a common multiple (which might
+   for example be because we know A / B is rational).  */
 
 template<unsigned int N, typename Ca, typename Cb>
 POLY_POLY_RESULT (N, Ca, Cb)
-common_multiple (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+force_common_multiple (const poly_int_pod<N, Ca> &a,
+		       const poly_int_pod<N, Cb> &b)
 {
   STATIC_ASSERT (N <= 2);
 
   if (b.is_constant ())
     return common_multiple (a, b.coeffs[0]);
-
   if (a.is_constant ())
-    return common_multiple (b, a.coeffs[0]);
+    return common_multiple (a.coeffs[0], b);
 
+  gcc_assert (N == 2);
   typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
 
   C lcm = least_common_multiple (a.coeffs[1], b.coeffs[1]);
@@ -1711,10 +1298,11 @@ common_multiple (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
    This is a lexicographical compare of the coefficients in reverse order.
 
    A consequence of this is that all constant sizes come before all
-   non-constant ones, regardless of magnitude.  This is what most
-   callers want.  E.g. when laying data out on the stack, it's better to
-   keep all the constant-sized data together so that it can be accessed
-   as a constant offset from a single base.  */
+   non-constant ones, regardless of magnitude (since a size is never
+   negative).  This is what most callers want.  For example, when laying
+   data out on the stack, it's better to keep all the constant-sized
+   data together so that it can be accessed as a constant offset from a
+   single base.  */
 
 template<unsigned int N, typename Ca, typename Cb>
 inline int
@@ -1801,7 +1389,8 @@ known_equal_after_align_down (const poly_int_pod<N, Ca> &a,
 	  && must_eq (aligned_a, aligned_b));
 }
 
-/* Align VALUE up to the smallest multiple of ALIGN that is >= VALUE.
+/* Assert that we can align VALUE to ALIGN at compile time and return
+   the smallest multiple of ALIGN that is >= VALUE.
 
    NOTE: When using this function, please add a comment above the call
    explaining why we know the non-constant coefficients must already
@@ -1815,7 +1404,8 @@ force_align_up (const poly_int_pod<N, Ca> &value, Cb align)
   return value + (-value.coeffs[0] & (align - 1));
 }
 
-/* Align VALUE down to the largest multiple of ALIGN that is <= VALUE.
+/* Assert that we can align VALUE to ALIGN at compile time and return
+   the largest multiple of ALIGN that is <= VALUE.
 
    NOTE: When using this function, please add a comment above the call
    explaining why we know the non-constant coefficients must already
@@ -1859,8 +1449,9 @@ aligned_upper_bound (const poly_int_pod<N, Ca> &value, Cb align)
   return r;
 }
 
-/* Align VALUE down to the largest multiple of ALIGN that is <= VALUE,
-   then divide by ALIGN.
+/* Assert that we can align VALUE to ALIGN at compile time.  Align VALUE
+   down to the largest multiple of ALIGN that is <= VALUE, then divide by
+   ALIGN.
 
    NOTE: When using this function, please add a comment above the call
    explaining why we know the non-constant coefficients must already
@@ -1878,8 +1469,9 @@ force_align_down_and_div (const poly_int_pod<N, Ca> &value, Cb align)
   return r;
 }
 
-/* Align VALUE up to the smallest multiple of ALIGN that is >= VALUE,
-   then divide by ALIGN.
+/* Assert that we can align VALUE to ALIGN at compile time.  Align VALUE
+   up to the smallest multiple of ALIGN that is >= VALUE, then divide by
+   ALIGN.
 
    NOTE: When using this function, please add a comment above the call
    explaining why we know the non-constant coefficients must already
@@ -1906,9 +1498,8 @@ inline bool
 known_misalignment (const poly_int_pod<N, Ca> &value, Cb align, Cm *misalign)
 {
   gcc_checking_assert (align != 0);
-  for (unsigned int i = 1; i < N; ++i)
-    if ((value.coeffs[i] & (align - 1)) != 0)
-      return false;
+  if (!can_align_p (value, align))
+    return false;
   *misalign = value.coeffs[0] & (align - 1);
   return true;
 }
@@ -1971,8 +1562,17 @@ constant_multiple_p (const poly_int_pod<N, Ca> &a, Cb b, Cm *multiple)
   return true;
 }
 
-/* Return true if A is a constant multiple of B, storing the multiple
-   in *MULTIPLE if so.  */
+template<unsigned int N, typename Ca, typename Cb, typename Cm>
+inline typename if_nonpoly<Ca>::bool_type
+constant_multiple_p (Ca a, const poly_int_pod<N, Cb> &b, Cm *multiple)
+{
+  /* Do the modulus before the constant check, to catch divide by
+     zero errors.  */
+  if (a % b.coeffs[0] != 0 || (a != 0 && !b.is_constant ()))
+    return false;
+  *multiple = a / b.coeffs[0];
+  return true;
+}
 
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
 inline bool
@@ -1983,17 +1583,29 @@ constant_multiple_p (const poly_int_pod<N, Ca> &a,
   if (b.is_constant ())
     return constant_multiple_p (a, b.coeffs[0], multiple);
 
+  gcc_assert (N == 2);
   typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
 
-  if (a.coeffs[1] % b.coeffs[1] != 0)
+  /* Do this first, to catch divide-by-zero errors.  */
+  if (a.coeffs[0] % b.coeffs[0] != 0
+      || a.coeffs[1] % b.coeffs[1] != 0)
     return false;
 
   C r = a.coeffs[1] / b.coeffs[1];
-  if (a.coeffs[0] % b.coeffs[0] != 0 || a.coeffs[0] / b.coeffs[0] != r)
+  if (a.coeffs[0] / b.coeffs[0] != r)
     return false;
 
   *multiple = r;
   return true;
+}
+
+/* Return true if A is a multiple of B.  */
+
+template<typename Ca, typename Cb>
+inline typename if_nonpoly2<Ca, Cb>::bool_type
+multiple_p (Ca a, Cb b)
+{
+  return a % b != 0;
 }
 
 /* Return true if A is a (polynomial) multiple of B.  */
@@ -2107,32 +1719,21 @@ exact_div (const poly_int_pod<N, Ca> &a, Cb b)
 /* Return A / B, given that A is known to be a multiple of B.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline typename if_nonpoly<Ca>::t
-exact_div (const Ca &a, const poly_int_pod<N, Cb> &b)
-{
-  gcc_checking_assert (b.is_constant () && a % b.coeffs[0] == 0);
-  return a / b.coeffs[0];
-}
-
-/* Return A / B, given that A is known to be a multiple of B.  */
-
-template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 exact_div (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  if (a.is_constant ())
-    return exact_div (a.coeffs[0], b);
-
+  STATIC_ASSERT (N <= 2);
   if (b.is_constant ())
     return exact_div (a, b.coeffs[0]);
 
+  gcc_assert (N == 2);
   typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
 
-  gcc_checking_assert (a.coeffs[0] % b.coeffs[0] == 0);
+  gcc_checking_assert (a.coeffs[0] % b.coeffs[0] == 0
+		       && a.coeffs[1] % b.coeffs[1] == 0);
+
   C r = C (a.coeffs[0]) / b.coeffs[0];
-  for (unsigned int i = 1; i < N; ++i)
-    gcc_checking_assert (a.coeffs[i] % b.coeffs[i] == 0
-			 && a.coeffs[i] / b.coeffs[i] == r);
+  gcc_checking_assert (a.coeffs[1] / b.coeffs[1] == r);
   return r;
 }
 
@@ -2156,14 +1757,6 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b, Cq *quotient)
   *quotient = q;
   return true;
 }
-
-/* Return true if there is some constant Q and polynomial r such that:
-
-     (1) a = b * Q + r
-     (2) |b * Q| <= |a|
-     (3) |r| < |b|
-
-   Store the value Q in *QUOTIENT if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq>
 inline typename if_nonpoly<Cq>::bool_type

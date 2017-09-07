@@ -191,8 +191,8 @@
 
 (define_predicate "aarch64_mem_pair_operand"
   (and (match_code "mem")
-       (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0),
-						  ADDR_QUERY_LDP_STP, 0)")))
+       (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), false,
+						  ADDR_QUERY_LDP_STP)")))
 
 (define_predicate "aarch64_prefetch_operand"
   (match_test "aarch64_address_valid_for_prefetch_p (op, false)"))

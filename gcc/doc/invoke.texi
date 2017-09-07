@@ -614,7 +614,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcrc  -mdsp-packa  -mdvbf  -mlock  -mmac-d16  -mmac-24  -mrtsc  -mswape @gol
 -mtelephony  -mxy  -misize  -mannotate-align  -marclinux  -marclinux_prof @gol
 -mlong-calls  -mmedium-calls  -msdata -mirq-ctrl-saved @gol
--mrgf-banked-regs @gol
+-mrgf-banked-regs -mlpc-width=@var{width} -G @var{num} @gol
 -mvolatile-cache  -mtp-regno=@var{regno} @gol
 -malign-call  -mauto-modify-reg  -mbbit-peephole  -mno-brcc @gol
 -mcase-vector-pcrel  -mcompact-casesi  -mno-cond-exec  -mearly-cbranchsi @gol
@@ -2039,7 +2039,7 @@ freestanding and hosted environments.
 Enable handling of OpenACC directives @code{#pragma acc} in C/C++ and
 @code{!$acc} in Fortran.  When @option{-fopenacc} is specified, the
 compiler generates accelerated code according to the OpenACC Application
-Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
+Programming Interface v2.0 @w{@uref{https://www.openacc.org}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
 
@@ -5492,6 +5492,14 @@ int i = 1;
 @dots{}
 if (i > i) @{ @dots{} @}
 @end smallexample
+
+This warning also warns about bitwise comparisons that always evaluate
+to true or false, for instance:
+@smallexample
+if ((a & 16) == 10) @{ @dots{} @}
+@end smallexample
+will always be false.
+
 This warning is enabled by @option{-Wall}.
 
 @item -Wtrampolines
@@ -11074,6 +11082,12 @@ This option enables instrumentation of C++ member function calls, member
 accesses and some conversions between pointers to base and derived classes,
 to verify the referenced object has the correct dynamic type.
 
+@item -fsanitize=pointer-overflow
+@opindex fsanitize=pointer-overflow
+
+This option enables instrumentation of pointer arithmetics.  If the pointer
+arithmetics overflows, a run-time error is issued.
+
 @end table
 
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
@@ -11154,6 +11168,20 @@ is usable even in freestanding environments.
 @opindex fsanitize-coverage=trace-pc
 Enable coverage-guided fuzzing code instrumentation.
 Inserts a call to @code{__sanitizer_cov_trace_pc} into every basic block.
+
+@item -fsanitize-coverage=trace-cmp
+@opindex fsanitize-coverage=trace-cmp
+Enable dataflow guided fuzzing code instrumentation.
+Inserts a call to @code{__sanitizer_cov_trace_cmp1},
+@code{__sanitizer_cov_trace_cmp2}, @code{__sanitizer_cov_trace_cmp4} or
+@code{__sanitizer_cov_trace_cmp8} for integral comparison with both operands
+variable or @code{__sanitizer_cov_trace_const_cmp1},
+@code{__sanitizer_cov_trace_const_cmp2},
+@code{__sanitizer_cov_trace_const_cmp4} or
+@code{__sanitizer_cov_trace_const_cmp8} for integral comparison with one
+operand constant, @code{__sanitizer_cov_trace_cmpf} or
+@code{__sanitizer_cov_trace_cmpd} for float or double comparisons and
+@code{__sanitizer_cov_trace_switch} for switch statements.
 
 @item -fbounds-check
 @opindex fbounds-check
@@ -14796,6 +14824,18 @@ registers to avoid memory transactions during interrupt entry and exit
 sequences.  Use this option when you are using fast interrupts in an
 ARC V2 family processor.  Permitted values are 4, 8, 16, and 32.
 
+@item -mlpc-width=@var{width}
+@opindex mlpc-width
+Specify the width of the @code{lp_count} register.  Valid values for
+@var{width} are 8, 16, 20, 24, 28 and 32 bits.  The default width is
+fixed to 32 bits.  If the width is less than 32, the compiler does not
+attempt to transform loops in your program to use the zero-delay loop
+mechanism unless it is known that the @code{lp_count} register can
+hold the required loop-counter value.  Depending on the width
+specified, the compiler and run-time library might continue to use the
+loop mechanism for various needs.  This option defines macro
+@code{__ARC_LPC_WIDTH__} with the value of @var{width}.
+
 @end table
 
 The following options are passed through to the assembler, and also
@@ -14912,6 +14952,13 @@ instruction.  Conditional execution of function calls is suppressed, to
 allow use of the 25-bit range, rather than the 21-bit range with
 conditional branch-and-link.  This is the default for tool chains built
 for @w{@code{arc-linux-uclibc}} and @w{@code{arceb-linux-uclibc}} targets.
+
+@item -G @var{num}
+@opindex G
+Put definitions of externally-visible data in a small data section if
+that data is no bigger than @var{num} bytes.  The default value of
+@var{num} is 4 for any ARC configuration, or 8 when we have double
+load/store operations.
 
 @item -mno-sdata
 @opindex mno-sdata

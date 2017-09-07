@@ -2875,20 +2875,12 @@ arm_option_params_internal (void)
       targetm.max_anchor_offset = TARGET_MAX_ANCHOR_OFFSET;
     }
 
-  if (optimize_size)
-    {
-      /* If optimizing for size, bump the number of instructions that we
-         are prepared to conditionally execute (even on a StrongARM).  */
-      max_insns_skipped = 6;
+  /* Increase the number of conditional instructions with -Os.  */
+  max_insns_skipped = optimize_size ? 4 : current_tune->max_insns_skipped;
 
-      /* For THUMB2, we limit the conditional sequence to one IT block.  */
-      if (TARGET_THUMB2)
-        max_insns_skipped = arm_restrict_it ? 1 : 4;
-    }
-  else
-    /* When -mrestrict-it is in use tone down the if-conversion.  */
-    max_insns_skipped = (TARGET_THUMB2 && arm_restrict_it)
-      ? 1 : current_tune->max_insns_skipped;
+  /* For THUMB2, we limit the conditional sequence to one IT block.  */
+  if (TARGET_THUMB2)
+    max_insns_skipped = MIN (max_insns_skipped, MAX_INSN_PER_IT_BLOCK);
 }
 
 /* True if -mflip-thumb should next add an attribute for the default
@@ -3371,22 +3363,22 @@ arm_option_override (void)
 
   /* Initialize boolean versions of the architectural flags, for use
      in the arm.md file.  */
-  arm_arch3m = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv3m);
-  arm_arch4 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv4);
+  arm_arch3m = bitmap_bit_p (arm_active_target.isa, isa_bit_armv3m);
+  arm_arch4 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv4);
   arm_arch4t = arm_arch4 && bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
-  arm_arch5 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv5);
-  arm_arch5e = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv5e);
+  arm_arch5 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv5);
+  arm_arch5e = bitmap_bit_p (arm_active_target.isa, isa_bit_armv5e);
   arm_arch5te = arm_arch5e
     && bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
-  arm_arch6 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv6);
-  arm_arch6k = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv6k);
+  arm_arch6 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv6);
+  arm_arch6k = bitmap_bit_p (arm_active_target.isa, isa_bit_armv6k);
   arm_arch_notm = bitmap_bit_p (arm_active_target.isa, isa_bit_notm);
   arm_arch6m = arm_arch6 && !arm_arch_notm;
-  arm_arch7 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv7);
-  arm_arch7em = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv7em);
-  arm_arch8 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8);
-  arm_arch8_1 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8_1);
-  arm_arch8_2 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8_2);
+  arm_arch7 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv7);
+  arm_arch7em = bitmap_bit_p (arm_active_target.isa, isa_bit_armv7em);
+  arm_arch8 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8);
+  arm_arch8_1 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8_1);
+  arm_arch8_2 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8_2);
   arm_arch_thumb1 = bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
   arm_arch_thumb2 = bitmap_bit_p (arm_active_target.isa, isa_bit_thumb2);
   arm_arch_xscale = bitmap_bit_p (arm_active_target.isa, isa_bit_xscale);
@@ -3416,9 +3408,9 @@ arm_option_override (void)
 
   /* And finally, set up some quirks.  */
   arm_arch_no_volatile_ce
-    = bitmap_bit_p (arm_active_target.isa, isa_quirk_no_volatile_ce);
-  arm_arch6kz
-    = arm_arch6k && bitmap_bit_p (arm_active_target.isa, isa_quirk_ARMv6kz);
+    = bitmap_bit_p (arm_active_target.isa, isa_bit_quirk_no_volatile_ce);
+  arm_arch6kz = arm_arch6k && bitmap_bit_p (arm_active_target.isa,
+					    isa_bit_quirk_armv6kz);
 
   /* V5 code we generate is completely interworking capable, so we turn off
      TARGET_INTERWORK here to avoid many tests later on.  */
@@ -3463,7 +3455,7 @@ arm_option_override (void)
       else if (TARGET_HARD_FLOAT_ABI)
 	{
 	  arm_pcs_default = ARM_PCS_AAPCS_VFP;
-	  if (!bitmap_bit_p (arm_active_target.isa, isa_bit_VFPv2))
+	  if (!bitmap_bit_p (arm_active_target.isa, isa_bit_vfpv2))
 	    error ("-mfloat-abi=hard: selected processor lacks an FPU");
 	}
       else
@@ -3566,7 +3558,7 @@ arm_option_override (void)
   /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
   if (fix_cm3_ldrd == 2)
     {
-      if (bitmap_bit_p (arm_active_target.isa, isa_quirk_cm3_ldrd))
+      if (bitmap_bit_p (arm_active_target.isa, isa_bit_quirk_cm3_ldrd))
 	fix_cm3_ldrd = 1;
       else
 	fix_cm3_ldrd = 0;
@@ -3900,7 +3892,7 @@ arm_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
-		     LCT_NORMAL, VOIDmode, 2, a_tramp, Pmode,
+		     LCT_NORMAL, VOIDmode, a_tramp, Pmode,
 		     plus_constant (Pmode, a_tramp, TRAMPOLINE_SIZE), Pmode);
 }
 
@@ -5360,7 +5352,7 @@ arm_function_value(const_tree type, const_tree func,
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
-	  mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+	  mode = int_mode_for_size (size * BITS_PER_UNIT, 0).require ();
 	}
     }
 
@@ -6317,7 +6309,7 @@ aapcs_allocate_return_reg (machine_mode mode, const_tree type,
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
-	  mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+	  mode = int_mode_for_size (size * BITS_PER_UNIT, 0).require ();
 	}
     }
 
@@ -7934,6 +7926,8 @@ arm_legitimate_index_p (machine_mode mode, rtx index, RTX_CODE outer,
 	{
 	  HOST_WIDE_INT val = INTVAL (index);
 
+	  /* Assume we emit ldrd or 2x ldr if !TARGET_LDRD.
+	     If vldr is selected it uses arm_coproc_mem_operand.  */
 	  if (TARGET_LDRD)
 	    return val > -256 && val < 256;
 	  else
@@ -8061,11 +8055,13 @@ thumb2_legitimate_index_p (machine_mode mode, rtx index, int strict_p)
       if (code == CONST_INT)
 	{
 	  HOST_WIDE_INT val = INTVAL (index);
-	  /* ??? Can we assume ldrd for thumb2?  */
-	  /* Thumb-2 ldrd only has reg+const addressing modes.  */
-	  /* ldrd supports offsets of +-1020.
-	     However the ldr fallback does not.  */
-	  return val > -256 && val < 256 && (val & 3) == 0;
+	  /* Thumb-2 ldrd only has reg+const addressing modes.
+	     Assume we emit ldrd or 2x ldr if !TARGET_LDRD.
+	     If vldr is selected it uses arm_coproc_mem_operand.  */
+	  if (TARGET_LDRD)
+	    return IN_RANGE (val, -1020, 1020) && (val & 3) == 0;
+	  else
+	    return IN_RANGE (val, -255, 4095 - 4);
 	}
       else
 	return 0;
@@ -8376,7 +8372,7 @@ arm_call_tls_get_addr (rtx x, rtx reg, rtx *valuep, int reloc)
 
   *valuep = emit_library_call_value (get_tls_get_addr (), NULL_RTX,
 				     LCT_PURE, /* LCT_CONST?  */
-				     Pmode, 1, reg, Pmode);
+				     Pmode, reg, Pmode);
 
   rtx_insn *insns = get_insns ();
   end_sequence ();
@@ -31115,7 +31111,7 @@ arm_expand_divmod_libfunc (rtx libfunc, machine_mode mode,
     = smallest_int_mode_for_size (2 * GET_MODE_BITSIZE (mode));
 
   rtx libval = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-					libval_mode, 2,
+					libval_mode,
 					op0, GET_MODE (op0),
 					op1, GET_MODE (op1));
 

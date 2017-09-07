@@ -1,5 +1,5 @@
 /* Typedefs for polynomial integers used in GCC.
-   Copyright (C) 2016 Free Software Foundation, Inc.
+   Copyright (C) 2016-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,7 +61,10 @@ typedef poly_int<NUM_POLY_INT_COEFFS, widest_int> poly_widest_int;
 
 /* Return the size of an element in a vector of size SIZE, given that
    the vector has NELTS elements.  The return value is in the same units
-   as SIZE (either bits or bytes).  */
+   as SIZE (either bits or bytes).
+
+   to_constant () is safe in this situation because vector elements are
+   always constant-sized scalars.  */
 #define vector_element_size(SIZE, NELTS) \
   (exact_div (SIZE, NELTS).to_constant ())
 

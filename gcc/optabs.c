@@ -1781,7 +1781,7 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
       /* Pass 1 for NO_QUEUE so we don't lose any increments
 	 if the libcall is cse'd or moved.  */
       value = emit_library_call_value (libfunc,
-				       NULL_RTX, LCT_CONST, mode, 2,
+				       NULL_RTX, LCT_CONST, mode,
 				       op0, mode, op1x, op1_mode);
 
       insns = get_insns ();
@@ -2117,7 +2117,7 @@ expand_twoval_binop_libfunc (optab binoptab, rtx op0, rtx op1,
   libval_mode = smallest_int_mode_for_size (2 * GET_MODE_BITSIZE (mode));
   start_sequence ();
   libval = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-				    libval_mode, 2,
+				    libval_mode,
 				    op0, mode,
 				    op1, mode);
   /* Get the part of VAL containing the value that we want.  */
@@ -2995,7 +2995,7 @@ expand_unop (machine_mode mode, optab unoptab, rtx op0, rtx target,
       /* Pass 1 for NO_QUEUE so we don't lose any increments
 	 if the libcall is cse'd or moved.  */
       value = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST, outmode,
-				       1, op0, mode);
+				       op0, mode);
       insns = get_insns ();
       end_sequence ();
 
@@ -3946,7 +3946,7 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
       ret_mode = targetm.libgcc_cmp_return_mode ();
       result = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-					ret_mode, 2, x, mode, y, mode);
+					ret_mode, x, mode, y, mode);
 
       /* There are two kinds of comparison routines. Biased routines
 	 return 0/1/2, and unbiased routines return -1/0/1. Other parts
@@ -4200,7 +4200,7 @@ prepare_float_lib_cmp (rtx x, rtx y, enum rtx_code comparison,
 
   start_sequence ();
   value = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-				   cmp_mode, 2, x, mode, y, mode);
+				   cmp_mode, x, mode, y, mode);
   insns = get_insns ();
   end_sequence ();
 
@@ -4841,8 +4841,7 @@ expand_float (rtx to, rtx from, int unsignedp)
       start_sequence ();
 
       value = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-				       GET_MODE (to), 1, from,
-				       GET_MODE (from));
+				       GET_MODE (to), from, GET_MODE (from));
       insns = get_insns ();
       end_sequence ();
 
@@ -5034,8 +5033,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
       start_sequence ();
 
       value = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-				       GET_MODE (to), 1, from,
-				       GET_MODE (from));
+				       GET_MODE (to), from, GET_MODE (from));
       insns = get_insns ();
       end_sequence ();
 
@@ -5127,7 +5125,7 @@ expand_fixed_convert (rtx to, rtx from, int uintp, int satp)
 
   start_sequence ();
   value = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST, to_mode,
-				   1, from, from_mode);
+				   from, from_mode);
   insns = get_insns ();
   end_sequence ();
 
@@ -5463,13 +5461,10 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
 
   /* Set QIMODE to a different vector mode with byte elements.
      If no such mode, or if MODE already has byte elements, use VOIDmode.  */
-  qimode = VOIDmode;
-  if (GET_MODE_INNER (mode) != QImode)
-    {
-      qimode = mode_for_vector (QImode, GET_MODE_SIZE (mode));
-      if (!VECTOR_MODE_P (qimode))
-	qimode = VOIDmode;
-    }
+  if (GET_MODE_INNER (mode) == QImode
+      || !mode_for_vector (QImode, GET_MODE_SIZE (mode)).exists (&qimode)
+      || !VECTOR_MODE_P (qimode))
+    qimode = VOIDmode;
 
   /* If the input is a constant, expand it specially.  */
   gcc_assert (GET_MODE_CLASS (GET_MODE (sel)) == MODE_VECTOR_INT);
@@ -5999,7 +5994,7 @@ maybe_emit_sync_lock_test_and_set (rtx target, rtx mem, rtx val,
 
 	  addr = convert_memory_address (ptr_mode, XEXP (mem, 0));
 	  return emit_library_call_value (libfunc, NULL_RTX, LCT_NORMAL,
-					  mode, 2, addr, ptr_mode,
+					  mode, addr, ptr_mode,
 					  val, mode);
 	}
     }
@@ -6307,7 +6302,7 @@ expand_atomic_compare_and_swap (rtx *ptarget_bool, rtx *ptarget_oval,
     {
       rtx addr = convert_memory_address (ptr_mode, XEXP (mem, 0));
       rtx target = emit_library_call_value (libfunc, NULL_RTX, LCT_NORMAL,
-					    mode, 3, addr, ptr_mode,
+					    mode, addr, ptr_mode,
 					    expected, mode, desired, mode);
       emit_move_insn (target_oval, target);
 
@@ -6368,27 +6363,20 @@ expand_mem_thread_fence (enum memmodel model)
   else if (targetm.have_memory_barrier ())
     emit_insn (targetm.gen_memory_barrier ());
   else if (synchronize_libfunc != NULL_RTX)
-    emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
+    emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode);
   else
     expand_asm_memory_barrier ();
 }
 
-/* This routine will either emit the mem_signal_fence pattern or issue a 
-   sync_synchronize to generate a fence for memory model MEMMODEL.  */
+/* Emit a signal fence with given memory model.  */
 
 void
 expand_mem_signal_fence (enum memmodel model)
 {
-  if (targetm.have_mem_signal_fence ())
-    emit_insn (targetm.gen_mem_signal_fence (GEN_INT (model)));
-  else if (!is_mm_relaxed (model))
-    {
-      /* By default targets are coherent between a thread and the signal
-	 handler running on the same thread.  Thus this really becomes a
-	 compiler barrier, in that stores must not be sunk past
-	 (or raised above) a given point.  */
-      expand_asm_memory_barrier ();
-    }
+  /* No machine barrier is required to implement a signal fence, but
+     a compiler memory barrier must be issued, except for relaxed MM.  */
+  if (!is_mm_relaxed (model))
+    expand_asm_memory_barrier ();
 }
 
 /* This function expands the atomic load operation:
@@ -6408,12 +6396,20 @@ expand_atomic_load (rtx target, rtx mem, enum memmodel model)
   if (icode != CODE_FOR_nothing)
     {
       struct expand_operand ops[3];
+      rtx_insn *last = get_last_insn ();
+      if (is_mm_seq_cst (model))
+	expand_asm_memory_barrier ();
 
       create_output_operand (&ops[0], target, mode);
       create_fixed_operand (&ops[1], mem);
       create_integer_operand (&ops[2], model);
       if (maybe_expand_insn (icode, 3, ops))
-	return ops[0].value;
+	{
+	  if (!is_mm_relaxed (model))
+	    expand_asm_memory_barrier ();
+	  return ops[0].value;
+	}
+      delete_insns_since (last);
     }
 
   /* If the size of the object is greater than word size on this target,
@@ -6458,11 +6454,19 @@ expand_atomic_store (rtx mem, rtx val, enum memmodel model, bool use_release)
   icode = direct_optab_handler (atomic_store_optab, mode);
   if (icode != CODE_FOR_nothing)
     {
+      rtx_insn *last = get_last_insn ();
+      if (!is_mm_relaxed (model))
+	expand_asm_memory_barrier ();
       create_fixed_operand (&ops[0], mem);
       create_input_operand (&ops[1], val, mode);
       create_integer_operand (&ops[2], model);
       if (maybe_expand_insn (icode, 3, ops))
-	return const0_rtx;
+	{
+	  if (is_mm_seq_cst (model))
+	    expand_asm_memory_barrier ();
+	  return const0_rtx;
+	}
+      delete_insns_since (last);
     }
 
   /* If using __sync_lock_release is a viable alternative, try it.
@@ -6875,7 +6879,7 @@ expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
 	{
 	  rtx addr = convert_memory_address (ptr_mode, XEXP (mem, 0));
 	  result = emit_library_call_value (libfunc, NULL, LCT_NORMAL, mode,
-					    2, addr, ptr_mode, val, mode);
+					    addr, ptr_mode, val, mode);
 
 	  if (!unused_result && fixup)
 	    result = expand_simple_binop (mode, code, result, val, target,

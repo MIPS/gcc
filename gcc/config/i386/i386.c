@@ -8887,7 +8887,7 @@ ix86_use_pseudo_pic_reg (void)
 
 /* Initialize large model PIC register.  */
 
-static void
+static rtx_code_label *
 ix86_init_large_pic_reg (unsigned int tmp_regno)
 {
   rtx_code_label *label;
@@ -8904,6 +8904,7 @@ ix86_init_large_pic_reg (unsigned int tmp_regno)
   emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
   emit_insn (ix86_gen_add3 (pic_offset_table_rtx,
 			    pic_offset_table_rtx, tmp_reg));
+  return label;
 }
 
 /* Create and initialize PIC register if required.  */
@@ -8912,6 +8913,7 @@ ix86_init_pic_reg (void)
 {
   edge entry_edge;
   rtx_insn *seq;
+  rtx_code_label *label = NULL;
 
   if (!ix86_use_pseudo_pic_reg ())
     return;
@@ -8921,7 +8923,7 @@ ix86_init_pic_reg (void)
   if (TARGET_64BIT)
     {
       if (ix86_cmodel == CM_LARGE_PIC)
-	ix86_init_large_pic_reg (R11_REG);
+	label = ix86_init_large_pic_reg (R11_REG);
       else
 	emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
     }
@@ -8945,6 +8947,22 @@ ix86_init_pic_reg (void)
   entry_edge = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   insert_insn_on_edge (seq, entry_edge);
   commit_one_edge_insertion (entry_edge);
+
+  if (label)
+    {
+      basic_block bb = BLOCK_FOR_INSN (label);
+      rtx_insn *bb_note = PREV_INSN (label);
+      /* If the note preceding the label starts a basic block, and the
+	 label is a member of the same basic block, interchange the two.  */
+      if (bb_note != NULL_RTX
+	  && NOTE_INSN_BASIC_BLOCK_P (bb_note)
+	  && bb != NULL
+	  && bb == BLOCK_FOR_INSN (bb_note))
+	{
+	  reorder_insns_nobb (bb_note, bb_note, label);
+	  BB_HEAD (bb) = label;
+	}
+    }
 }
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -9878,15 +9896,16 @@ construct_container (machine_mode mode, machine_mode orig_mode,
 	  case X86_64_INTEGERSI_CLASS:
 	    /* Merge TImodes on aligned occasions here too.  */
 	    if (i * 8 + 8 > bytes)
-	      tmpmode
-		= mode_for_size ((bytes - i * 8) * BITS_PER_UNIT, MODE_INT, 0);
+	      {
+		unsigned int tmpbits = (bytes - i * 8) * BITS_PER_UNIT;
+		if (!int_mode_for_size (tmpbits, 0).exists (&tmpmode))
+		  /* We've requested 24 bytes we
+		     don't have mode for.  Use DImode.  */
+		  tmpmode = DImode;
+	      }
 	    else if (regclass[i] == X86_64_INTEGERSI_CLASS)
 	      tmpmode = SImode;
 	    else
-	      tmpmode = DImode;
-	    /* We've requested 24 bytes we
-	       don't have mode for.  Use DImode.  */
-	    if (tmpmode == BLKmode)
 	      tmpmode = DImode;
 	    exp [nexps++]
 	      = gen_rtx_EXPR_LIST (VOIDmode,
@@ -11866,8 +11885,8 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	      if (prev_size + cur_size > size)
 		{
 		  cur_size = size - prev_size;
-		  mode = mode_for_size (cur_size * BITS_PER_UNIT, MODE_INT, 1);
-		  if (mode == BLKmode)
+		  unsigned int nbits = cur_size * BITS_PER_UNIT;
+		  if (!int_mode_for_size (nbits, 1).exists (&mode))
 		    mode = QImode;
 		}
 	      piece_type = lang_hooks.types.type_for_mode (mode, 1);
@@ -14289,6 +14308,11 @@ ix86_finalize_stack_frame_flags (void)
       add_to_hard_reg_set (&set_up_by_prologue, Pmode, ARG_POINTER_REGNUM);
       add_to_hard_reg_set (&set_up_by_prologue, Pmode,
 			   HARD_FRAME_POINTER_REGNUM);
+
+      /* The preferred stack alignment is the minimum stack alignment.  */
+      unsigned int stack_alignment = crtl->preferred_stack_boundary;
+      bool require_stack_frame = false;
+
       FOR_EACH_BB_FN (bb, cfun)
         {
           rtx_insn *insn;
@@ -14297,79 +14321,107 @@ ix86_finalize_stack_frame_flags (void)
 		&& requires_stack_frame_p (insn, prologue_used,
 					   set_up_by_prologue))
 	      {
-		if (crtl->stack_realign_needed != stack_realign)
-		  recompute_frame_layout_p = true;
-		crtl->stack_realign_needed = stack_realign;
-		crtl->stack_realign_finalized = true;
-		if (recompute_frame_layout_p)
-		  ix86_compute_frame_layout ();
-		return;
+		require_stack_frame = true;
+
+		if (stack_realign)
+		  {
+		    /* Find the maximum stack alignment.  */
+		    subrtx_iterator::array_type array;
+		    FOR_EACH_SUBRTX (iter, array, PATTERN (insn), ALL)
+		      if (MEM_P (*iter)
+			  && (reg_mentioned_p (stack_pointer_rtx,
+					       *iter)
+			      || reg_mentioned_p (frame_pointer_rtx,
+						  *iter)))
+			{
+			  unsigned int alignment = MEM_ALIGN (*iter);
+			  if (alignment > stack_alignment)
+			    stack_alignment = alignment;
+			}
+		  }
 	      }
 	}
 
-      /* If drap has been set, but it actually isn't live at the start
-	 of the function, there is no reason to set it up.  */
-      if (crtl->drap_reg)
+      if (require_stack_frame)
 	{
-	  basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
-	  if (! REGNO_REG_SET_P (DF_LR_IN (bb), REGNO (crtl->drap_reg)))
+	  /* Stack frame is required.  If stack alignment needed is less
+	     than incoming stack boundary, don't realign stack.  */
+	  stack_realign = incoming_stack_boundary < stack_alignment;
+	  if (!stack_realign)
 	    {
-	      crtl->drap_reg = NULL_RTX;
-	      crtl->need_drap = false;
+	      crtl->max_used_stack_slot_alignment
+		= incoming_stack_boundary;
+	      crtl->stack_alignment_needed
+		= incoming_stack_boundary;
 	    }
 	}
       else
-	cfun->machine->no_drap_save_restore = true;
-
-      frame_pointer_needed = false;
-      stack_realign = false;
-      crtl->max_used_stack_slot_alignment = incoming_stack_boundary;
-      crtl->stack_alignment_needed = incoming_stack_boundary;
-      crtl->stack_alignment_estimated = incoming_stack_boundary;
-      if (crtl->preferred_stack_boundary > incoming_stack_boundary)
-	crtl->preferred_stack_boundary = incoming_stack_boundary;
-      df_finish_pass (true);
-      df_scan_alloc (NULL);
-      df_scan_blocks ();
-      df_compute_regs_ever_live (true);
-      df_analyze ();
-
-      if (flag_var_tracking)
 	{
-	  /* Since frame pointer is no longer available, replace it with
-	     stack pointer - UNITS_PER_WORD in debug insns.  */
-	  df_ref ref, next;
-	  for (ref = DF_REG_USE_CHAIN (HARD_FRAME_POINTER_REGNUM);
-	       ref; ref = next)
+	  /* If drap has been set, but it actually isn't live at the
+	     start of the function, there is no reason to set it up.  */
+	  if (crtl->drap_reg)
 	    {
-	      rtx_insn *insn = DF_REF_INSN (ref);
-	      /* Make sure the next ref is for a different instruction,
-		 so that we're not affected by the rescan.  */
-	      next = DF_REF_NEXT_REG (ref);
-	      while (next && DF_REF_INSN (next) == insn)
-		next = DF_REF_NEXT_REG (next);
-
-	      if (DEBUG_INSN_P (insn))
+	      basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
+	      if (! REGNO_REG_SET_P (DF_LR_IN (bb),
+				     REGNO (crtl->drap_reg)))
 		{
-		  bool changed = false;
-		  for (; ref != next; ref = DF_REF_NEXT_REG (ref))
-		    {
-		      rtx *loc = DF_REF_LOC (ref);
-		      if (*loc == hard_frame_pointer_rtx)
-			{
-			  *loc = plus_constant (Pmode,
-						stack_pointer_rtx,
-						-UNITS_PER_WORD);
-			  changed = true;
-			}
-		    }
-		  if (changed)
-		    df_insn_rescan (insn);
+		  crtl->drap_reg = NULL_RTX;
+		  crtl->need_drap = false;
 		}
 	    }
-	}
+	  else
+	    cfun->machine->no_drap_save_restore = true;
 
-      recompute_frame_layout_p = true;
+	  frame_pointer_needed = false;
+	  stack_realign = false;
+	  crtl->max_used_stack_slot_alignment = incoming_stack_boundary;
+	  crtl->stack_alignment_needed = incoming_stack_boundary;
+	  crtl->stack_alignment_estimated = incoming_stack_boundary;
+	  if (crtl->preferred_stack_boundary > incoming_stack_boundary)
+	    crtl->preferred_stack_boundary = incoming_stack_boundary;
+	  df_finish_pass (true);
+	  df_scan_alloc (NULL);
+	  df_scan_blocks ();
+	  df_compute_regs_ever_live (true);
+	  df_analyze ();
+
+	  if (flag_var_tracking)
+	    {
+	      /* Since frame pointer is no longer available, replace it with
+		 stack pointer - UNITS_PER_WORD in debug insns.  */
+	      df_ref ref, next;
+	      for (ref = DF_REG_USE_CHAIN (HARD_FRAME_POINTER_REGNUM);
+		   ref; ref = next)
+		{
+		  rtx_insn *insn = DF_REF_INSN (ref);
+		  /* Make sure the next ref is for a different instruction,
+		     so that we're not affected by the rescan.  */
+		  next = DF_REF_NEXT_REG (ref);
+		  while (next && DF_REF_INSN (next) == insn)
+		    next = DF_REF_NEXT_REG (next);
+
+		  if (DEBUG_INSN_P (insn))
+		    {
+		      bool changed = false;
+		      for (; ref != next; ref = DF_REF_NEXT_REG (ref))
+			{
+			  rtx *loc = DF_REF_LOC (ref);
+			  if (*loc == hard_frame_pointer_rtx)
+			    {
+			      *loc = plus_constant (Pmode,
+						    stack_pointer_rtx,
+						    -UNITS_PER_WORD);
+			      changed = true;
+			    }
+			}
+		      if (changed)
+			df_insn_rescan (insn);
+		    }
+		}
+	    }
+
+	  recompute_frame_layout_p = true;
+	}
     }
 
   if (crtl->stack_realign_needed != stack_realign)
@@ -17633,6 +17685,89 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
     }
 
   return dest;
+}
+
+/* Return true if OP refers to a TLS address.  */
+bool
+ix86_tls_address_pattern_p (rtx op)
+{
+  subrtx_var_iterator::array_type array;
+  FOR_EACH_SUBRTX_VAR (iter, array, op, ALL)
+    {
+      rtx op = *iter;
+      if (MEM_P (op))
+	{
+	  rtx *x = &XEXP (op, 0);
+	  while (GET_CODE (*x) == PLUS)
+	    {
+	      int i;
+	      for (i = 0; i < 2; i++)
+		{
+		  rtx u = XEXP (*x, i);
+		  if (GET_CODE (u) == ZERO_EXTEND)
+		    u = XEXP (u, 0);
+		  if (GET_CODE (u) == UNSPEC
+		      && XINT (u, 1) == UNSPEC_TP)
+		    return true;
+		}
+	      x = &XEXP (*x, 0);
+	    }
+
+	  iter.skip_subrtxes ();
+	}
+    }
+
+  return false;
+}
+
+/* Rewrite *LOC so that it refers to a default TLS address space.  */
+void
+ix86_rewrite_tls_address_1 (rtx *loc)
+{
+  subrtx_ptr_iterator::array_type array;
+  FOR_EACH_SUBRTX_PTR (iter, array, loc, ALL)
+    {
+      rtx *loc = *iter;
+      if (MEM_P (*loc))
+	{
+	  rtx addr = XEXP (*loc, 0);
+	  rtx *x = &addr;
+	  while (GET_CODE (*x) == PLUS)
+	    {
+	      int i;
+	      for (i = 0; i < 2; i++)
+		{
+		  rtx u = XEXP (*x, i);
+		  if (GET_CODE (u) == ZERO_EXTEND)
+		    u = XEXP (u, 0);
+		  if (GET_CODE (u) == UNSPEC
+		      && XINT (u, 1) == UNSPEC_TP)
+		    {
+		      addr_space_t as = DEFAULT_TLS_SEG_REG;
+
+		      *x = XEXP (*x, 1 - i);
+
+		      *loc = replace_equiv_address_nv (*loc, addr, true);
+		      set_mem_addr_space (*loc, as);
+		      return;
+		    }
+		}
+	      x = &XEXP (*x, 0);
+	    }
+
+	  iter.skip_subrtxes ();
+	}
+    }
+}
+
+/* Rewrite instruction pattern involvning TLS address
+   so that it refers to a default TLS address space.  */
+rtx
+ix86_rewrite_tls_address (rtx pattern)
+{
+  pattern = copy_insn (pattern);
+  ix86_rewrite_tls_address_1 (&pattern);
+  return pattern;
 }
 
 /* Create or return the unique __imp_DECL dllimport symbol corresponding
@@ -24793,9 +24928,8 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
 
   if (GET_MODE_SIZE (cmp_ops_mode) == 64)
     {
-      cmp_mode = mode_for_size (GET_MODE_NUNITS (cmp_ops_mode), MODE_INT, 0);
-      gcc_assert (cmp_mode != BLKmode);
-
+      unsigned int nbits = GET_MODE_NUNITS (cmp_ops_mode);
+      cmp_mode = int_mode_for_size (nbits, 0).require ();
       maskcmp = true;
     }
   else
@@ -27394,13 +27528,11 @@ emit_memmov (rtx destmem, rtx *srcmem, rtx destptr, rtx srcptr,
      Start with the biggest power of 2 less than SIZE_TO_MOVE and half
      it until move of such size is supported.  */
   piece_size = 1 << floor_log2 (size_to_move);
-  move_mode = mode_for_size (piece_size * BITS_PER_UNIT, MODE_INT, 0);
-  code = optab_handler (mov_optab, move_mode);
-  while (code == CODE_FOR_nothing && piece_size > 1)
+  while (!int_mode_for_size (piece_size * BITS_PER_UNIT, 0).exists (&move_mode)
+	 || (code = optab_handler (mov_optab, move_mode)) == CODE_FOR_nothing)
     {
+      gcc_assert (piece_size > 1);
       piece_size >>= 1;
-      move_mode = mode_for_size (piece_size * BITS_PER_UNIT, MODE_INT, 0);
-      code = optab_handler (mov_optab, move_mode);
     }
 
   /* Find the corresponding vector mode with the same size as MOVE_MODE.
@@ -27408,9 +27540,8 @@ emit_memmov (rtx destmem, rtx *srcmem, rtx destptr, rtx srcptr,
   if (GET_MODE_SIZE (move_mode) > GET_MODE_SIZE (word_mode))
     {
       int nunits = GET_MODE_SIZE (move_mode) / GET_MODE_SIZE (word_mode);
-      move_mode = mode_for_vector (word_mode, nunits);
-      code = optab_handler (mov_optab, move_mode);
-      if (code == CODE_FOR_nothing)
+      if (!mode_for_vector (word_mode, nunits).exists (&move_mode)
+	  || (code = optab_handler (mov_optab, move_mode)) == CODE_FOR_nothing)
 	{
 	  move_mode = word_mode;
 	  piece_size = GET_MODE_SIZE (move_mode);
@@ -27583,7 +27714,8 @@ emit_memset (rtx destmem, rtx destptr, rtx promoted_val,
     move_mode = QImode;
   if (size_to_move < GET_MODE_SIZE (move_mode))
     {
-      move_mode = mode_for_size (size_to_move * BITS_PER_UNIT, MODE_INT, 0);
+      unsigned int move_bits = size_to_move * BITS_PER_UNIT;
+      move_mode = int_mode_for_size (move_bits, 0).require ();
       promoted_val = gen_lowpart (move_mode, promoted_val);
     }
   piece_size = GET_MODE_SIZE (move_mode);
@@ -27778,7 +27910,7 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
 			       rtx done_label, bool issetmem)
 {
   rtx_code_label *label = ix86_expand_aligntest (count, size, false);
-  machine_mode mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 1);
+  machine_mode mode = int_mode_for_size (size * BITS_PER_UNIT, 1).else_blk ();
   rtx modesize;
   int n;
 
@@ -28641,8 +28773,8 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
       if (GET_MODE_SIZE (move_mode) > GET_MODE_SIZE (word_mode))
 	{
 	  int nunits = GET_MODE_SIZE (move_mode) / GET_MODE_SIZE (word_mode);
-	  move_mode = mode_for_vector (word_mode, nunits);
-	  if (optab_handler (mov_optab, move_mode) == CODE_FOR_nothing)
+	  if (!mode_for_vector (word_mode, nunits).exists (&move_mode)
+	      || optab_handler (mov_optab, move_mode) == CODE_FOR_nothing)
 	    move_mode = word_mode;
 	}
       gcc_assert (optab_handler (mov_optab, move_mode) != CODE_FOR_nothing);
@@ -31810,7 +31942,7 @@ ix86_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
   if (CHECK_EXECUTE_STACK_ENABLED)
 #endif
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
-		     LCT_NORMAL, VOIDmode, 1, XEXP (m_tramp, 0), Pmode);
+		     LCT_NORMAL, VOIDmode, XEXP (m_tramp, 0), Pmode);
 #endif
 }
 
@@ -44484,11 +44616,9 @@ ix86_expand_vector_init (bool mmx_ok, rtx target, rtx vals)
 	  rtx ops[2] = { XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1) };
 	  if (inner_mode == QImode || inner_mode == HImode)
 	    {
-	      mode = mode_for_vector (SImode,
-				      n_elts * GET_MODE_SIZE (inner_mode) / 4);
-	      inner_mode
-		= mode_for_vector (SImode,
-				   n_elts * GET_MODE_SIZE (inner_mode) / 8);
+	      unsigned int n_bits = n_elts * GET_MODE_SIZE (inner_mode);
+	      mode = mode_for_vector (SImode, n_bits / 4).require ();
+	      inner_mode = mode_for_vector (SImode, n_bits / 8).require ();
 	      ops[0] = gen_lowpart (inner_mode, ops[0]);
 	      ops[1] = gen_lowpart (inner_mode, ops[1]);
 	      subtarget = gen_reg_rtx (mode);
@@ -50439,7 +50569,8 @@ ix86_expand_pextr (rtx *operands)
 	machine_mode srcmode, dstmode;
 	rtx d, pat;
 
-	dstmode = mode_for_size (size, MODE_INT, 0);
+	if (!int_mode_for_size (size, 0).exists (&dstmode))
+	  return false;
 
 	switch (dstmode)
 	  {
@@ -50535,7 +50666,8 @@ ix86_expand_pinsr (rtx *operands)
 	rtx (*pinsr)(rtx, rtx, rtx, rtx);
 	rtx d;
 
-	srcmode = mode_for_size (size, MODE_INT, 0);
+	if (!int_mode_for_size (size, 0).exists (&srcmode))
+	  return false;
 
 	switch (srcmode)
 	  {
@@ -51591,7 +51723,7 @@ ix86_autovectorize_vector_sizes (vec<poly_uint64> &sizes)
 
 /* Implemenation of targetm.vectorize.get_mask_mode.  */
 
-static machine_mode
+static opt_machine_mode
 ix86_get_mask_mode (poly_uint64 nunits, poly_uint64 vector_size)
 {
   unsigned elem_size = vector_size / nunits;
@@ -52435,10 +52567,10 @@ ix86_expand_divmod_libfunc (rtx libfunc, machine_mode mode,
   rtx rem = assign_386_stack_local (mode, SLOT_TEMP);
 
   rtx quot = emit_library_call_value (libfunc, NULL_RTX, LCT_NORMAL,
-				    mode, 3,
-				    op0, GET_MODE (op0),
-				    op1, GET_MODE (op1),
-				    XEXP (rem, 0), Pmode);
+				      mode,
+				      op0, GET_MODE (op0),
+				      op1, GET_MODE (op1),
+				      XEXP (rem, 0), Pmode);
   *quot_p = quot;
   *rem_p = rem;
 }

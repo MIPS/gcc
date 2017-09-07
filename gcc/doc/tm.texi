@@ -4248,7 +4248,7 @@ insns involving vector mode @var{mode}.  At the very least, it
 must have move patterns for this mode.
 @end deftypefn
 
-@deftypefn {Target Hook} machine_mode TARGET_ARRAY_MODE (machine_mode @var{mode}, unsigned HOST_WIDE_INT @var{nelems})
+@deftypefn {Target Hook} opt_machine_mode TARGET_ARRAY_MODE (machine_mode @var{mode}, unsigned HOST_WIDE_INT @var{nelems})
 Return the mode that GCC should use for an array that has
 @var{nelems} elements, with each element having mode @var{mode}.
 Return @code{BLKmode} if an integer mode of the appropriate size should
@@ -5865,10 +5865,16 @@ The hook does not need to do anything if the vector returned by
 for autovectorization.  The default implementation does nothing.
 @end deftypefn
 
-@deftypefn {Target Hook} machine_mode TARGET_VECTORIZE_GET_MASK_MODE (poly_uint64 @var{nunits}, poly_uint64 @var{length})
-This hook returns mode to be used for a mask to be used for a vector
-of specified @var{length} with @var{nunits} elements.  By default an integer
-vector mode of a proper size is returned.
+@deftypefn {Target Hook} opt_machine_mode TARGET_VECTORIZE_GET_MASK_MODE (poly_uint64 @var{nunits}, poly_uint64 @var{length})
+A vector mask is a value that holds one boolean result for every element
+in a vector.  This hook returns the machine mode that should be used to
+represent such a mask when the vector in question is @var{length} bytes
+long and contains @var{nunits} elements.  The hook returns an empty
+@code{opt_machine_mode} if no such mode exists.
+
+The default implementation returns the mode of an integer vector that
+is @var{length} bytes long and that contains @var{nunits} elements,
+if such a mode exists.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_VECTORIZE_EMPTY_MASK_IS_EXPENSIVE (unsigned @var{ifn})

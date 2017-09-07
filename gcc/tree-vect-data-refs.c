@@ -66,21 +66,19 @@ vect_lanes_optab_supported_p (const char *name, convert_optab optab,
   bool limit_p;
 
   mode = TYPE_MODE (vectype);
-  array_mode = targetm.array_mode (mode, count);
-  if (array_mode == BLKmode)
+  if (!targetm.array_mode (mode, count).exists (&array_mode))
     {
+      poly_uint64 bits = count * GET_MODE_BITSIZE (mode);
       limit_p = !targetm.array_mode_supported_p (mode, count);
-      array_mode = mode_for_size (count * GET_MODE_BITSIZE (mode),
-				  MODE_INT, limit_p);
-    }
-
-  if (array_mode == BLKmode)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                         "no array mode for %s[" HOST_WIDE_INT_PRINT_DEC "]\n",
-                         GET_MODE_NAME (mode), count);
-      return false;
+      if (!int_mode_for_size (bits, limit_p).exists (&array_mode))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "no array mode for %s["
+			     HOST_WIDE_INT_PRINT_DEC "]\n",
+			     GET_MODE_NAME (mode), count);
+	  return false;
+	}
     }
 
   if (convert_optab_handler (optab, array_mode, mode) == CODE_FOR_nothing)
@@ -4444,7 +4442,7 @@ again:
       /* Adjust the minimal vectorization factor according to the
 	 vector type.  */
       vf = TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
-      *min_vf = common_multiple (*min_vf, vf);
+      *min_vf = upper_bound (*min_vf, vf);
 
       if (gatherscatter != SG_NONE)
 	{

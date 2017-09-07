@@ -1182,7 +1182,7 @@ aarch64_sve_data_mode_p (machine_mode mode)
 }
 
 /* Implement target hook TARGET_ARRAY_MODE.  */
-static machine_mode
+static opt_machine_mode
 aarch64_array_mode (machine_mode mode, unsigned HOST_WIDE_INT nelems)
 {
   if (aarch64_classify_vector_mode (mode) == VEC_SVE_DATA
@@ -1190,7 +1190,7 @@ aarch64_array_mode (machine_mode mode, unsigned HOST_WIDE_INT nelems)
     return mode_for_vector (GET_MODE_INNER (mode),
 			    GET_MODE_NUNITS (mode) * nelems);
 
-  return BLKmode;
+  return opt_machine_mode ();
 }
 
 /* Implement target hook TARGET_ARRAY_MODE_SUPPORTED_P.  */
@@ -1209,7 +1209,7 @@ aarch64_array_mode_supported_p (machine_mode mode,
 
 /* Implement TARGET_VECTORIZE_GET_MASK_MODE.  */
 
-static machine_mode
+static opt_machine_mode
 aarch64_get_mask_mode (poly_uint64 nunits, poly_uint64 nbytes)
 {
   if (TARGET_SVE && must_eq (nbytes, BYTES_PER_SVE_VECTOR))
@@ -2970,7 +2970,7 @@ aarch64_function_value (const_tree type, const_tree func,
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
-	  mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+	  mode = int_mode_for_size (size * BITS_PER_UNIT, 0).require ();
 	}
     }
 
@@ -5238,8 +5238,8 @@ virt_or_elim_regno_p (unsigned regno)
 
 static bool
 aarch64_classify_address (struct aarch64_address_info *info,
-			  rtx x, machine_mode mode,
-			  aarch64_addr_query_type type, bool strict_p)
+			  rtx x, machine_mode mode, bool strict_p,
+			  aarch64_addr_query_type type = ADDR_QUERY_M)
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0, op1;
@@ -5519,8 +5519,7 @@ aarch64_address_valid_for_prefetch_p (rtx x, bool strict_p)
   struct aarch64_address_info addr;
 
   /* PRFM accepts the same addresses as DImode...  */
-  bool res = aarch64_classify_address (&addr, x, DImode, ADDR_QUERY_M,
-				       strict_p);
+  bool res = aarch64_classify_address (&addr, x, DImode, strict_p);
   if (!res)
     return false;
 
@@ -5556,18 +5555,18 @@ aarch64_legitimate_address_hook_p (machine_mode mode, rtx x, bool strict_p)
 {
   struct aarch64_address_info addr;
 
-  return aarch64_classify_address (&addr, x, mode, ADDR_QUERY_M, strict_p);
+  return aarch64_classify_address (&addr, x, mode, strict_p);
 }
 
 /* Return TRUE if X is a legitimate address of type TYPE for accessing
    memory in mode MODE.  STRICT_P is true if REG_OK_STRICT is in effect.  */
 bool
-aarch64_legitimate_address_p (machine_mode mode, rtx x,
-			      aarch64_addr_query_type type, bool strict_p)
+aarch64_legitimate_address_p (machine_mode mode, rtx x, bool strict_p,
+			      aarch64_addr_query_type type)
 {
   struct aarch64_address_info addr;
 
-  return aarch64_classify_address (&addr, x, mode, type, strict_p);
+  return aarch64_classify_address (&addr, x, mode, strict_p, type);
 }
 
 /* Return the binary representation of floating point constant VALUE in INTVAL.
@@ -6545,8 +6544,8 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 	struct aarch64_address_info addr;
 	int lsl_shift = exact_log2 (GET_MODE_UNIT_SIZE (GET_MODE (x)));
 
-	if (aarch64_classify_address (&addr, XEXP (x, 0), GET_MODE (x),
-				      ADDR_QUERY_ANY, true))
+	if (aarch64_classify_address (&addr, XEXP (x, 0), GET_MODE (x), true,
+				      ADDR_QUERY_ANY))
 	  switch (addr.type)
 	    {
 	    case ADDRESS_REG_IMM:
@@ -6583,7 +6582,7 @@ aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
   struct aarch64_address_info addr;
   unsigned int size;
 
-  if (aarch64_classify_address (&addr, x, mode, ADDR_QUERY_ANY, true))
+  if (aarch64_classify_address (&addr, x, mode, true, ADDR_QUERY_ANY))
     switch (addr.type)
       {
       case ADDRESS_REG_IMM:
@@ -7118,7 +7117,7 @@ aarch64_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
      gen_clear_cache().  */
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
-		     LCT_NORMAL, VOIDmode, 2, a_tramp, ptr_mode,
+		     LCT_NORMAL, VOIDmode, a_tramp, ptr_mode,
 		     plus_constant (ptr_mode, a_tramp, TRAMPOLINE_SIZE),
 		     ptr_mode);
 }
@@ -7635,7 +7634,7 @@ aarch64_address_cost (rtx x,
   int cost = 0;
   info.shift = 0;
 
-  if (!aarch64_classify_address (&info, x, mode, ADDR_QUERY_M, false))
+  if (!aarch64_classify_address (&info, x, mode, false))
     {
       if (GET_CODE (x) == CONST || GET_CODE (x) == SYMBOL_REF)
 	{
@@ -9431,9 +9430,6 @@ aarch64_emit_approx_sqrt (rtx dst, rtx src, bool recp)
       return false;
     }
 
-  machine_mode mmsk
-    = mode_for_vector (int_mode_for_mode (GET_MODE_INNER (mode)).require (),
-		       GET_MODE_NUNITS (mode));
   if (!recp)
     {
       if (!(flag_mlow_precision_sqrt
@@ -9451,7 +9447,7 @@ aarch64_emit_approx_sqrt (rtx dst, rtx src, bool recp)
     /* Caller assumes we cannot fail.  */
     gcc_assert (use_rsqrt_p (mode));
 
-
+  machine_mode mmsk = mode_for_int_vector (mode).require ();
   rtx xmsk = gen_reg_rtx (mmsk);
   if (!recp)
     /* When calculating the approximate square root, compare the
@@ -13199,8 +13195,7 @@ aarch64_sve_ld1r_operand_p (rtx op)
 
   return (MEM_P (op)
 	  && is_a <scalar_mode> (GET_MODE (op), &mode)
-	  && aarch64_classify_address (&addr, XEXP (op, 0), mode,
-				       ADDR_QUERY_M, false)
+	  && aarch64_classify_address (&addr, XEXP (op, 0), mode, false)
 	  && addr.type == ADDRESS_REG_IMM
 	  && offset_6bit_unsigned_scaled_p (mode, addr.const_offset));
 }
@@ -13214,7 +13209,7 @@ aarch64_sve_ldr_operand_p (rtx op)
 
   return (MEM_P (op)
 	  && aarch64_classify_address (&addr, XEXP (op, 0), GET_MODE (op),
-				       ADDR_QUERY_ANY, false)
+				       false, ADDR_QUERY_ANY)
 	  && addr.type == ADDRESS_REG_IMM);
 }
 
@@ -13226,8 +13221,7 @@ aarch64_sve_ldff1_operand_p (rtx op)
   machine_mode mode = GET_MODE (op);
 
   if (MEM_P (op)
-      && aarch64_classify_address (&addr, XEXP (op, 0), mode,
-				   ADDR_QUERY_M, false))
+      && aarch64_classify_address (&addr, XEXP (op, 0), mode, false))
     {
       if (addr.type == ADDRESS_REG_IMM && INTVAL (addr.offset) == 0)
 	return true;
@@ -13248,8 +13242,8 @@ aarch64_sve_struct_memory_operand_p (rtx op)
 
   machine_mode mode = GET_MODE (op);
   struct aarch64_address_info addr;
-  if (!aarch64_classify_address (&addr, XEXP (op, 0), mode,
-				 ADDR_QUERY_ANY, false)
+  if (!aarch64_classify_address (&addr, XEXP (op, 0), mode, false,
+				 ADDR_QUERY_ANY)
       || addr.type != ADDRESS_REG_IMM)
     return false;
 
@@ -15135,15 +15129,13 @@ aarch64_evpc_sve_tbl (struct expand_vec_perm_d *d)
   gcc_assert (must_eq (nelt, GET_MODE_NUNITS (d->vmode)));
 
   rtx rperm[MAX_COMPILE_TIME_VEC_BYTES];
-  scalar_int_mode sel_emode
-    = int_mode_for_mode (GET_MODE_INNER (d->vmode)).require ();
-  machine_mode sel_vmode = mode_for_vector (sel_emode, nelt);
+  machine_mode sel_mode = mode_for_int_vector (d->vmode).require ();
 
   for (unsigned int i = 0; i < nelt; ++i)
     rperm[i] = GEN_INT (d->perm[i]);
-  rtx sel = gen_rtx_CONST_VECTOR (sel_vmode, gen_rtvec_v (nelt, rperm));
-  if (!aarch64_sve_vec_perm_operand (sel, sel_vmode))
-    sel = force_reg (sel_vmode, sel);
+  rtx sel = gen_rtx_CONST_VECTOR (sel_mode, gen_rtvec_v (nelt, rperm));
+  if (!aarch64_sve_vec_perm_operand (sel, sel_mode))
+    sel = force_reg (sel_mode, sel);
 
   aarch64_expand_sve_vec_perm (d->target, d->op0, d->op1, sel);
   return true;
@@ -15562,8 +15554,9 @@ void
 aarch64_expand_sve_vcond (machine_mode data_mode, machine_mode cmp_mode,
 			  rtx *ops)
 {
-  machine_mode pred_mode = aarch64_get_mask_mode (GET_MODE_NUNITS (cmp_mode),
-						  GET_MODE_SIZE (cmp_mode));
+  machine_mode pred_mode
+    = aarch64_get_mask_mode (GET_MODE_NUNITS (cmp_mode),
+			     GET_MODE_SIZE (cmp_mode)).require ();
   rtx pred = gen_reg_rtx (pred_mode);
   if (FLOAT_MODE_P (cmp_mode))
     {

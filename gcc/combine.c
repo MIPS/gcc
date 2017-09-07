@@ -370,7 +370,7 @@ static int label_tick_ebb_start;
 /* Mode used to compute significance in reg_stat[].nonzero_bits.  It is the
    largest integer mode that can fit in HOST_BITS_PER_WIDE_INT.  */
 
-static machine_mode nonzero_bits_mode;
+static scalar_int_mode nonzero_bits_mode;
 
 /* Nonzero when reg_stat[].nonzero_bits and reg_stat[].sign_bit_copies can
    be safely used.  It is zero while computing them and after combine has
@@ -1160,7 +1160,7 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
   uid_insn_cost = XCNEWVEC (int, max_uid_known + 1);
   gcc_obstack_init (&insn_link_obstack);
 
-  nonzero_bits_mode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
+  nonzero_bits_mode = int_mode_for_size (HOST_BITS_PER_WIDE_INT, 0).require ();
 
   /* Don't use reg_stat[].nonzero_bits when computing it.  This can cause
      problems when, for example, we have j <<= 1 in a loop.  */
@@ -3774,7 +3774,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
      i3, and one from i2.  Combining then splitting the parallel results
      in the original i2 again plus an invalid insn (which we delete).
      The net effect is only to move instructions around, which makes
-     debug info less accurate.  */
+     debug info less accurate.
+
+     If the remaining SET came from I2 its destination should not be used
+     between I2 and I3.  See PR82024.  */
 
   if (!(added_sets_2 && i1 == 0)
       && is_parallel_of_n_reg_sets (newpat, 2)
@@ -3803,11 +3806,17 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	       && insn_nothrow_p (i3)
 	       && !side_effects_p (SET_SRC (set0)))
 	{
-	  newpat = set1;
-	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+	  rtx dest = SET_DEST (set1);
+	  if (GET_CODE (dest) == SUBREG)
+	    dest = SUBREG_REG (dest);
+	  if (!reg_used_between_p (dest, i2, i3))
+	    {
+	      newpat = set1;
+	      insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
 
-	  if (insn_code_number >= 0)
-	    changed_i3_dest = 1;
+	      if (insn_code_number >= 0)
+		changed_i3_dest = 1;
+	    }
 	}
 
       if (insn_code_number < 0)

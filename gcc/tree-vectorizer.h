@@ -1466,6 +1466,20 @@ vect_get_num_copies (loop_vec_info loop_vinfo, tree vectype)
   return vect_get_num_vectors (LOOP_VINFO_VECT_FACTOR (loop_vinfo), vectype);
 }
 
+/* Update maximum unit count *MAX_NUNITS so that it accounts for
+   the number of units in vector type VECTYPE.  *MAX_NUNITS can be 1
+   if we haven't yet recorded any vector types.  */
+
+static inline void
+vect_update_max_nunits (poly_uint64 *max_nunits, tree vectype)
+{
+  /* All unit counts have the form current_vector_size * X for some
+     rational X, so two unit sizes must have a common multiple.
+     Everything is a multiple of the initial value of 1.  */
+  *max_nunits = force_common_multiple (*max_nunits,
+				       TYPE_VECTOR_SUBPARTS (vectype));
+}
+
 /* Return the vectorization factor that should be used for costing
    purposes while vectorizing the loop described by LOOP_VINFO.
    Pick a reasonable estimate if the vectorization factor isn't

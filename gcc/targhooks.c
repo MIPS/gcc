@@ -1206,18 +1206,22 @@ default_autovectorize_vector_sizes (vec<poly_uint64> &)
 
 /* By default a vector of integers is used as a mask.  */
 
-machine_mode
+opt_machine_mode
 default_get_mask_mode (poly_uint64 nunits, poly_uint64 vector_size)
 {
   unsigned int elem_size = vector_element_size (vector_size, nunits);
   scalar_int_mode elem_mode
     = smallest_int_mode_for_size (elem_size * BITS_PER_UNIT);
-  machine_mode vector_mode = mode_for_vector (elem_mode, nunits);
-  if (!VECTOR_MODE_P (vector_mode)
-      || !targetm.vector_mode_supported_p (vector_mode))
-    vector_mode = BLKmode;
+  machine_mode vector_mode;
 
-  return vector_mode;
+  gcc_assert (must_eq (elem_size * nunits, vector_size));
+
+  if (mode_for_vector (elem_mode, nunits).exists (&vector_mode)
+      && VECTOR_MODE_P (vector_mode)
+      && targetm.vector_mode_supported_p (vector_mode))
+    return vector_mode;
+
+  return opt_machine_mode ();
 }
 
 /* By default consider masked stores to be expensive.  */
@@ -1569,6 +1573,14 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* The default implementation of TARGET_ESTIMATED_POLY_VALUE.  */
+
+HOST_WIDE_INT
+default_estimated_poly_value (poly_int64 x)
+{
+  return x.coeffs[0];
+}
+
 /* The default implementation of TARGET_SLOW_UNALIGNED_ACCESS.  */
 
 bool
@@ -1576,14 +1588,6 @@ default_slow_unaligned_access (machine_mode mode ATTRIBUTE_UNUSED,
 			       unsigned int align ATTRIBUTE_UNUSED)
 {
   return SLOW_UNALIGNED_ACCESS (MACRO_MODE (mode), align);
-}
-
-/* The default implementation of TARGET_ESTIMATED_POLY_VALUE.  */
-
-HOST_WIDE_INT
-default_estimated_poly_value (poly_int64 x)
-{
-  return x.coeffs[0];
 }
 
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default

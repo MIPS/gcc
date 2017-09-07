@@ -227,8 +227,8 @@ can_duplicate_and_interleave_p (unsigned int count, machine_mode elt_mode,
 	  && int_mode_for_size (elt_bytes * BITS_PER_UNIT,
 				0).exists (&int_mode))
 	{
-	  machine_mode vec_mode = mode_for_vector (int_mode, nelts);
-	  if (vec_mode != VOIDmode
+	  machine_mode vec_mode;
+	  if (mode_for_vector (int_mode, nelts).exists (&vec_mode)
 	      && targetm.vector_mode_supported_p (vec_mode))
 	    {
 	      if (nvectors_out)
@@ -609,7 +609,7 @@ vect_record_max_nunits (vec_info *vinfo, gimple *stmt, unsigned int group_size,
     }
 
   /* In case of multiple types we need to detect the smallest type.  */
-  *max_nunits = common_multiple (*max_nunits, TYPE_VECTOR_SUBPARTS (vectype));
+  vect_update_max_nunits (max_nunits, vectype);
   return true;
 }
 
@@ -2447,9 +2447,11 @@ vect_make_slp_decision (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (slp_instances, i, instance)
     {
       /* FORNOW: SLP if you can.  */
+      /* All unroll factors have the form current_vector_size * X for some
+	 rational X, so they must have a common multiple.  */
       unrolling_factor
-	= common_multiple (unrolling_factor,
-			   SLP_INSTANCE_UNROLLING_FACTOR (instance));
+	= force_common_multiple (unrolling_factor,
+				 SLP_INSTANCE_UNROLLING_FACTOR (instance));
 
       /* Mark all the stmts that belong to INSTANCE as PURE_SLP stmts.  Later we
 	 call vect_detect_hybrid_slp () to find stmts that need hybrid SLP and

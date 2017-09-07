@@ -508,8 +508,8 @@ hook_bool_bool_uint_uint_false (bool a ATTRIBUTE_UNUSED,
 /* Generic hook that takes a mode and an unsigned HOST_WIDE_INT and
    returns BLKmode.  */
 
-machine_mode
-hook_mode_mode_uhwi_blkmode (machine_mode, unsigned HOST_WIDE_INT)
+opt_machine_mode
+hook_optmode_mode_uhwi_none (machine_mode, unsigned HOST_WIDE_INT)
 {
-  return BLKmode;
+  return opt_machine_mode ();
 }

@@ -186,7 +186,7 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned nbbs = loop->num_nodes;
-  poly_uint64 vectorization_factor = 0;
+  poly_uint64 vectorization_factor = 1;
   tree scalar_type = NULL_TREE;
   gphi *phi;
   tree vectype;
@@ -259,19 +259,14 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
                   dump_printf (MSG_NOTE, "\n");
 		}
 
-	      nunits = TYPE_VECTOR_SUBPARTS (vectype);
 	      if (dump_enabled_p ())
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
-		  dump_dec (MSG_NOTE, nunits);
+		  dump_dec (MSG_NOTE, TYPE_VECTOR_SUBPARTS (vectype));
 		  dump_printf (MSG_NOTE, "\n");
 		}
 
-	      if (must_eq (vectorization_factor, 0U))
-		vectorization_factor = nunits;
-	      else
-		vectorization_factor = common_multiple (vectorization_factor,
-							nunits);
+	      vect_update_max_nunits (&vectorization_factor, vectype);
 	    }
 	}
 
@@ -568,19 +563,14 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
               dump_printf (MSG_NOTE, "\n");
 	    }
 
-	  nunits = TYPE_VECTOR_SUBPARTS (vf_vectype);
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
-	      dump_dec (MSG_NOTE, nunits);
+	      dump_dec (MSG_NOTE, TYPE_VECTOR_SUBPARTS (vf_vectype));
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 
-	  if (must_eq (vectorization_factor, 0U))
-	    vectorization_factor = nunits;
-	  else
-	    vectorization_factor = common_multiple (vectorization_factor,
-						    nunits);
+	  vect_update_max_nunits (&vectorization_factor, vf_vectype);
 
 	  if (!analyze_pattern_stmt && gsi_end_p (pattern_def_si))
 	    {
@@ -1892,9 +1882,12 @@ vect_update_vf_for_slp (loop_vec_info loop_vinfo)
     {
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "Loop contains SLP and non-SLP stmts\n");
+      /* Both the vectorization factor and unroll factor have the form
+	 current_vector_size * X for some rational X, so they must have
+	 a common multiple.  */
       vectorization_factor
-	= common_multiple (vectorization_factor,
-			   LOOP_VINFO_SLP_UNROLLING_FACTOR (loop_vinfo));
+	= force_common_multiple (vectorization_factor,
+				 LOOP_VINFO_SLP_UNROLLING_FACTOR (loop_vinfo));
     }
 
   LOOP_VINFO_VECT_FACTOR (loop_vinfo) = vectorization_factor;

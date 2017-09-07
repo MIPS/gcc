@@ -548,7 +548,7 @@ package body Einfo is
    --    Warnings_Off_Used               Flag236
    --    Warnings_Off_Used_Unmodified    Flag237
    --    Warnings_Off_Used_Unreferenced  Flag238
-   --    OK_To_Reorder_Components        Flag239
+   --    No_Reordering                   Flag239
    --    Has_Expanded_Contract           Flag240
 
    --    Optimize_Alignment_Space        Flag241
@@ -1490,7 +1490,7 @@ package body Einfo is
 
    function Has_Complex_Representation (Id : E) return B is
    begin
-      pragma Assert (Is_Type (Id));
+      pragma Assert (Is_Record_Type (Id));
       return Flag140 (Implementation_Base_Type (Id));
    end Has_Complex_Representation;
 
@@ -2756,7 +2756,7 @@ package body Einfo is
    function Linker_Section_Pragma (Id : E) return N is
    begin
       pragma Assert
-        (Is_Type (Id) or else Is_Object (Id) or else Is_Subprogram (Id));
+        (Is_Object (Id) or else Is_Subprogram (Id) or else Is_Type (Id));
       return Node33 (Id);
    end Linker_Section_Pragma;
 
@@ -2864,6 +2864,12 @@ package body Einfo is
       return Flag275 (Id);
    end No_Predicate_On_Actual;
 
+   function No_Reordering (Id : E) return B is
+   begin
+      pragma Assert (Is_Record_Type (Id));
+      return Flag239 (Implementation_Base_Type (Id));
+   end No_Reordering;
+
    function No_Return (Id : E) return B is
    begin
       return Flag113 (Id);
@@ -2927,12 +2933,6 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Variable);
       return Flag247 (Id);
    end OK_To_Rename;
-
-   function OK_To_Reorder_Components (Id : E) return B is
-   begin
-      pragma Assert (Is_Record_Type (Id));
-      return Flag239 (Base_Type (Id));
-   end OK_To_Reorder_Components;
 
    function Optimize_Alignment_Space (Id : E) return B is
    begin
@@ -3371,7 +3371,9 @@ package body Einfo is
 
    function Status_Flag_Or_Transient_Decl (Id : E) return N is
    begin
-      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
+      pragma Assert (Ekind_In (Id, E_Constant,
+                                   E_Loop_Parameter,
+                                   E_Variable));
       return Node15 (Id);
    end Status_Flag_Or_Transient_Decl;
 
@@ -3761,6 +3763,13 @@ package body Einfo is
    begin
       return Ekind (Id) in Subprogram_Kind;
    end Is_Subprogram;
+
+   function Is_Subprogram_Or_Entry              (Id : E) return B is
+   begin
+      return Ekind (Id) in Subprogram_Kind
+               or else
+             Ekind (Id) in Entry_Kind;
+   end Is_Subprogram_Or_Entry;
 
    function Is_Subprogram_Or_Generic_Subprogram (Id : E) return B is
    begin
@@ -4584,7 +4593,7 @@ package body Einfo is
 
    procedure Set_Has_Complex_Representation (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind (Id) = E_Record_Type);
+      pragma Assert (Is_Record_Type (Id) and then Is_Base_Type (Id));
       Set_Flag140 (Id, V);
    end Set_Has_Complex_Representation;
 
@@ -5909,9 +5918,8 @@ package body Einfo is
 
    procedure Set_Linker_Section_Pragma (Id : E; V : N) is
    begin
-      pragma Assert (Is_Type (Id)
-        or else Ekind_In (Id, E_Constant, E_Variable)
-        or else Is_Subprogram (Id));
+      pragma Assert
+        (Is_Object (Id) or else Is_Subprogram (Id) or else Is_Type (Id));
       Set_Node33 (Id, V);
    end Set_Linker_Section_Pragma;
 
@@ -6020,6 +6028,12 @@ package body Einfo is
       Set_Flag275 (Id, V);
    end Set_No_Predicate_On_Actual;
 
+   procedure Set_No_Reordering (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Record_Type (Id) and then Is_Base_Type (Id));
+      Set_Flag239 (Id, V);
+   end Set_No_Reordering;
+
    procedure Set_No_Return (Id : E; V : B := True) is
    begin
       pragma Assert
@@ -6084,13 +6098,6 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Variable);
       Set_Flag247 (Id, V);
    end Set_OK_To_Rename;
-
-   procedure Set_OK_To_Reorder_Components (Id : E; V : B := True) is
-   begin
-      pragma Assert
-        (Is_Record_Type (Id) and then Is_Base_Type (Id));
-      Set_Flag239 (Id, V);
-   end Set_OK_To_Reorder_Components;
 
    procedure Set_Optimize_Alignment_Space (Id : E; V : B := True) is
    begin
@@ -6547,7 +6554,9 @@ package body Einfo is
 
    procedure Set_Status_Flag_Or_Transient_Decl (Id : E; V : E) is
    begin
-      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
+      pragma Assert (Ekind_In (Id, E_Constant,
+                                   E_Loop_Parameter,
+                                   E_Variable));
       Set_Node15 (Id, V);
    end Set_Status_Flag_Or_Transient_Decl;
 
@@ -7132,7 +7141,7 @@ package body Einfo is
       loop
          if Nkind_In (P, N_Selected_Component, N_Expanded_Name)
            or else (Nkind (P) = N_Defining_Program_Unit_Name
-                    and then Is_Child_Unit (Id))
+                     and then Is_Child_Unit (Id))
          then
             P := Parent (P);
          else
@@ -7151,13 +7160,13 @@ package body Einfo is
    begin
       Desig_Type := Directly_Designated_Type (Id);
 
-      if Ekind (Desig_Type) = E_Incomplete_Type
+      if Is_Incomplete_Type (Desig_Type)
         and then Present (Full_View (Desig_Type))
       then
          return Full_View (Desig_Type);
 
       elsif Is_Class_Wide_Type (Desig_Type)
-        and then Ekind (Etype (Desig_Type)) = E_Incomplete_Type
+        and then Is_Incomplete_Type (Etype (Desig_Type))
         and then Present (Full_View (Etype (Desig_Type)))
         and then Present (Class_Wide_Type (Full_View (Etype (Desig_Type))))
       then
@@ -7358,17 +7367,50 @@ package body Einfo is
       return Empty;
    end Get_Attribute_Definition_Clause;
 
+   ---------------------------
+   -- Get_Class_Wide_Pragma --
+   ---------------------------
+
+   function Get_Class_Wide_Pragma
+     (E  : Entity_Id;
+      Id : Pragma_Id) return Node_Id
+    is
+      Item  : Node_Id;
+      Items : Node_Id;
+
+   begin
+      Items := Contract (E);
+
+      if No (Items) then
+         return Empty;
+      end if;
+
+      Item := Pre_Post_Conditions (Items);
+      while Present (Item) loop
+         if Nkind (Item) = N_Pragma
+           and then Get_Pragma_Id (Pragma_Name_Unmapped (Item)) = Id
+           and then Class_Present (Item)
+         then
+            return Item;
+         end if;
+
+         Item := Next_Pragma (Item);
+      end loop;
+
+      return Empty;
+   end Get_Class_Wide_Pragma;
+
    -------------------
    -- Get_Full_View --
    -------------------
 
    function Get_Full_View (T : Entity_Id) return Entity_Id is
    begin
-      if Ekind (T) = E_Incomplete_Type and then Present (Full_View (T)) then
+      if Is_Incomplete_Type (T) and then Present (Full_View (T)) then
          return Full_View (T);
 
       elsif Is_Class_Wide_Type (T)
-        and then Ekind (Root_Type (T)) = E_Incomplete_Type
+        and then Is_Incomplete_Type (Root_Type (T))
         and then Present (Full_View (Root_Type (T)))
       then
          return Class_Wide_Type (Full_View (Root_Type (T)));
@@ -7800,7 +7842,7 @@ package body Einfo is
 
    Entity_Is_Base_Type : constant array (Entity_Kind) of Boolean :=
      (E_Enumeration_Subtype          |
-      E_Incomplete_Type              |
+      E_Incomplete_Subtype           |
       E_Signed_Integer_Subtype       |
       E_Modular_Integer_Subtype      |
       E_Floating_Point_Subtype       |
@@ -9174,6 +9216,9 @@ package body Einfo is
          when Enumeration_Kind =>
             Kind := E_Enumeration_Subtype;
 
+         when E_Incomplete_Type =>
+            Kind := E_Incomplete_Subtype;
+
          when Float_Kind =>
             Kind := E_Floating_Point_Subtype;
 
@@ -9590,12 +9635,12 @@ package body Einfo is
       W ("No_Dynamic_Predicate_On_actual",  Flag276 (Id));
       W ("No_Pool_Assigned",                Flag131 (Id));
       W ("No_Predicate_On_actual",          Flag275 (Id));
+      W ("No_Reordering",                   Flag239 (Id));
       W ("No_Return",                       Flag113 (Id));
       W ("No_Strict_Aliasing",              Flag136 (Id));
       W ("Non_Binary_Modulus",              Flag58  (Id));
       W ("Nonzero_Is_True",                 Flag162 (Id));
       W ("OK_To_Rename",                    Flag247 (Id));
-      W ("OK_To_Reorder_Components",        Flag239 (Id));
       W ("Optimize_Alignment_Space",        Flag241 (Id));
       W ("Optimize_Alignment_Time",         Flag242 (Id));
       W ("Overlays_Constant",               Flag243 (Id));
@@ -10085,6 +10130,7 @@ package body Einfo is
             Write_Str ("Related_Instance");
 
          when E_Constant
+            | E_Loop_Parameter
             | E_Variable
          =>
             Write_Str ("Status_Flag_Or_Transient_Decl");

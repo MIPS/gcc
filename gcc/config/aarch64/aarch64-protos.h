@@ -473,8 +473,8 @@ bool aarch64_float_const_representable_p (rtx);
 
 #if defined (RTX_CODE)
 
-bool aarch64_legitimate_address_p (machine_mode, rtx,
-				   aarch64_addr_query_type, bool);
+bool aarch64_legitimate_address_p (machine_mode, rtx, bool,
+				   aarch64_addr_query_type = ADDR_QUERY_M);
 machine_mode aarch64_select_cc_mode (RTX_CODE, rtx, rtx);
 rtx aarch64_gen_compare_reg (RTX_CODE, rtx, rtx);
 rtx aarch64_load_tp (rtx);

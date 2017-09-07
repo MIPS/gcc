@@ -323,7 +323,7 @@ convert_mode_scalar (rtx to, rtx from, int unsignedp)
 
       start_sequence ();
       value = emit_library_call_value (libcall, NULL_RTX, LCT_CONST, to_mode,
-				       1, from, from_mode);
+				       from, from_mode);
       insns = get_insns ();
       end_sequence ();
       emit_libcall_block (insns, to, value,
@@ -9458,7 +9458,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  tree sel_type = TREE_TYPE (treeop2);
 	  machine_mode vmode
 	    = mode_for_vector (SCALAR_TYPE_MODE (TREE_TYPE (sel_type)),
-			       TYPE_VECTOR_SUBPARTS (sel_type));
+			       TYPE_VECTOR_SUBPARTS (sel_type)).require ();
 	  gcc_assert (GET_MODE_CLASS (vmode) == MODE_VECTOR_INT);
 	  op2 = simplify_subreg (vmode, op2, TYPE_MODE (sel_type), 0);
 	  gcc_assert (op2 && GET_CODE (op2) == CONST_VECTOR);
@@ -10702,7 +10702,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		&& ! (target != 0 && MEM_P (op0)
 		      && MEM_P (target)
 		      && multiple_p (bitpos, BITS_PER_UNIT)))
-	      ext_mode = mode_for_size (bitsize, MODE_INT, 1);
+	      ext_mode = int_mode_for_size (bitsize, 1).else_blk ();
 
 	    if (ext_mode == BLKmode)
 	      {

@@ -2533,8 +2533,11 @@ package body Sem_Res is
                  and then Ekind (Entity (Name (N))) = E_Function
                then
                   Error_Msg_NE
-                    ("cannot use function & in a procedure call",
+                    ("cannot use call to function & as a statement",
                      Name (N), Entity (Name (N)));
+                  Error_Msg_N
+                    ("\return value of a function call cannot be ignored",
+                     Name (N));
 
                --  Otherwise give general message (not clear what cases this
                --  covers, but no harm in providing for them).
@@ -5452,6 +5455,13 @@ package body Sem_Res is
             Resolve (L, B_Typ);
             Resolve (R, TR);
 
+         --  If both operands are universal and the context is a floating
+         --  point type, the operands are resolved to the type of the context.
+
+         elsif Is_Floating_Point_Type (B_Typ) then
+            Resolve (L, B_Typ);
+            Resolve (R, B_Typ);
+
          else
             Set_Mixed_Mode_Operand (L, TR);
             Set_Mixed_Mode_Operand (R, TL);
@@ -6627,11 +6637,15 @@ package body Sem_Res is
                null;
 
             --  Calls cannot be inlined inside assertions, as GNATprove treats
-            --  assertions as logic expressions.
+            --  assertions as logic expressions. Only issue a message when the
+            --  body has been seen, otherwise this leads to spurious messages
+            --  on expression functions.
 
             elsif In_Assertion_Expr /= 0 then
-               Cannot_Inline
-                 ("cannot inline & (in assertion expression)?", N, Nam_UA);
+               if Present (Body_Id) then
+                  Cannot_Inline
+                    ("cannot inline & (in assertion expression)?", N, Nam_UA);
+               end if;
 
             --  Calls cannot be inlined inside default expressions
 
@@ -6643,10 +6657,28 @@ package body Sem_Res is
 
             elsif Full_Analysis then
 
+               --  Do not inline calls inside expression functions, as this
+               --  would prevent interpreting them as logical formulas in
+               --  GNATprove. Only issue a message when the body has been seen,
+               --  otherwise this leads to spurious messages on callees that
+               --  are themselves expression functions.
+
+               if Present (Current_Subprogram)
+                 and then Is_Expression_Function_Or_Completion
+                            (Current_Subprogram)
+               then
+                  if Present (Body_Id)
+                    and then Present (Body_To_Inline (Nam_Decl))
+                  then
+                     Cannot_Inline
+                       ("cannot inline & (inside expression function)?",
+                        N, Nam_UA);
+                  end if;
+
                --  With the one-pass inlining technique, a call cannot be
                --  inlined if the corresponding body has not been seen yet.
 
-               if No (Body_Id) then
+               elsif No (Body_Id) then
                   Cannot_Inline
                     ("cannot inline & (body not seen yet)?", N, Nam_UA);
 
@@ -6656,18 +6688,6 @@ package body Sem_Res is
 
                elsif No (Body_To_Inline (Nam_Decl)) then
                   null;
-
-               --  Do not inline calls inside expression functions, as this
-               --  would prevent interpreting them as logical formulas in
-               --  GNATprove.
-
-               elsif Present (Current_Subprogram)
-                       and then
-                     Is_Expression_Function_Or_Completion (Current_Subprogram)
-               then
-                  Cannot_Inline
-                    ("cannot inline & (inside expression function)?",
-                     N, Nam_UA);
 
                --  Calls cannot be inlined inside potentially unevaluated
                --  expressions, as this would create complex actions inside
@@ -7519,10 +7539,15 @@ package body Sem_Res is
 
       if Nkind (Entry_Name) = N_Selected_Component then
 
-         --  Simple entry call
+         --  Simple entry or protected operation call
 
          Nam := Entity (Selector_Name (Entry_Name));
          Obj := Prefix (Entry_Name);
+
+         if Is_Subprogram (Nam) then
+            Check_For_Eliminated_Subprogram (Entry_Name, Nam);
+         end if;
+
          Was_Over := Is_Overloaded (Selector_Name (Entry_Name));
 
       else pragma Assert (Nkind (Entry_Name) = N_Indexed_Component);

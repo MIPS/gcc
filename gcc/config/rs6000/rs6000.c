@@ -9317,7 +9317,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	{
 	  tga = rs6000_tls_get_addr ();
 	  emit_library_call_value (tga, dest, LCT_CONST, Pmode,
-				   1, const0_rtx, Pmode);
+				   const0_rtx, Pmode);
 
 	  r3 = gen_rtx_REG (Pmode, 3);
 	  if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
@@ -9342,7 +9342,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 	  tga = rs6000_tls_get_addr ();
 	  tmp1 = gen_reg_rtx (Pmode);
 	  emit_library_call_value (tga, tmp1, LCT_CONST, Pmode,
-				   1, const0_rtx, Pmode);
+				   const0_rtx, Pmode);
 
 	  r3 = gen_rtx_REG (Pmode, 3);
 	  if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
@@ -11656,7 +11656,6 @@ rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *cum,
 {
   unsigned int startbit, endbit;
   int intregs, intoffset;
-  machine_mode mode;
 
   /* Handle the situations where a float is taking up the first half
      of the GPR, and the other half is empty (typically due to
@@ -11680,9 +11679,8 @@ rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *cum,
 
   if (intoffset % BITS_PER_WORD != 0)
     {
-      mode = mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
-			    MODE_INT, 0);
-      if (mode == BLKmode)
+      unsigned int bits = BITS_PER_WORD - intoffset % BITS_PER_WORD;
+      if (!int_mode_for_size (bits, 0).exists ())
 	{
 	  /* We couldn't find an appropriate mode, which happens,
 	     e.g., in packed structs when there are 3 bytes to load.
@@ -12051,9 +12049,8 @@ rs6000_darwin64_record_arg_flush (CUMULATIVE_ARGS *cum,
 
   if (intoffset % BITS_PER_WORD != 0)
     {
-      mode = mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
-			  MODE_INT, 0);
-      if (mode == BLKmode)
+      unsigned int bits = BITS_PER_WORD - intoffset % BITS_PER_WORD;
+      if (!int_mode_for_size (bits, 0).exists (&mode))
 	{
 	  /* We couldn't find an appropriate mode, which happens,
 	     e.g., in packed structs when there are 3 bytes to load.
@@ -21968,7 +21965,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 
       if (!check_nan)
 	dest = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-					SImode, 2, op0, mode, op1, mode);
+					SImode, op0, mode, op1, mode);
 
       /* The library signals an exception for signalling NaNs, so we need to
 	 handle isgreater, etc. by first checking isordered.  */
@@ -21984,8 +21981,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	  /* Test for either value being a NaN.  */
 	  gcc_assert (unord_func);
 	  unord_dest = emit_library_call_value (unord_func, NULL_RTX, LCT_CONST,
-						SImode, 2, op0, mode, op1,
-						mode);
+						SImode, op0, mode, op1, mode);
 
 	  /* Set value (0) if either value is a NaN, and jump to the join
 	     label.  */
@@ -22004,8 +22000,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	  /* Do the normal comparison, knowing that the values are not
 	     NaNs.  */
 	  normal_dest = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
-						 SImode, 2, op0, mode, op1,
-						 mode);
+						 SImode, op0, mode, op1, mode);
 
 	  emit_insn (gen_cstoresi4 (dest,
 				    gen_rtx_fmt_ee (code, SImode, normal_dest,
@@ -22368,8 +22363,8 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
       libfunc = convert_optab_libfunc (cvt, dest_mode, src_mode);
       gcc_assert (libfunc != NULL_RTX);
 
-      dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
-				       src_mode);
+      dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode,
+				       src, src_mode);
 
       gcc_assert (dest2 != NULL_RTX);
       if (!rtx_equal_p (dest, dest2))
@@ -26178,10 +26173,14 @@ rs6000_emit_savres_rtx (rs6000_stack_t *info,
   return insn;
 }
 
-/* Emit code to store CR fields that need to be saved into REG.  */
+/* Emit prologue code to store CR fields that need to be saved into REG.  This
+   function should only be called when moving the non-volatile CRs to REG, it
+   is not a general purpose routine to move the entire set of CRs to REG.
+   Specifically, gen_prologue_movesi_from_cr() does not contain uses of the
+   volatile CRs.  */
 
 static void
-rs6000_emit_move_from_cr (rtx reg)
+rs6000_emit_prologue_move_from_cr (rtx reg)
 {
   /* Only the ELFv2 ABI allows storing only selected fields.  */
   if (DEFAULT_ABI == ABI_ELFv2 && TARGET_MFCRF)
@@ -26212,7 +26211,7 @@ rs6000_emit_move_from_cr (rtx reg)
 	 as well, using logical operations to combine the values.  */
     }
 
-  emit_insn (gen_movesi_from_cr (reg));
+  emit_insn (gen_prologue_movesi_from_cr (reg));
 }
 
 /* Return whether the split-stack arg pointer (r12) is used.  */
@@ -26952,7 +26951,7 @@ rs6000_emit_prologue (void)
     {
       cr_save_rtx = gen_rtx_REG (SImode, cr_save_regno);
       START_USE (cr_save_regno);
-      rs6000_emit_move_from_cr (cr_save_rtx);
+      rs6000_emit_prologue_move_from_cr (cr_save_rtx);
     }
 
   /* Do any required saving of fpr's.  If only one or two to save, do
@@ -27190,7 +27189,7 @@ rs6000_emit_prologue (void)
 	{
 	  START_USE (0);
 	  cr_save_rtx = gen_rtx_REG (SImode, 0);
-	  rs6000_emit_move_from_cr (cr_save_rtx);
+	  rs6000_emit_prologue_move_from_cr (cr_save_rtx);
 	}
 
       /* Saving CR requires a two-instruction sequence: one instruction
@@ -27277,7 +27276,7 @@ rs6000_emit_prologue (void)
       /* ??? We might get better performance by using multiple mfocrf
 	 instructions.  */
       crsave = gen_rtx_REG (SImode, 0);
-      emit_insn (gen_movesi_from_cr (crsave));
+      emit_insn (gen_prologue_movesi_from_cr (crsave));
 
       for (i = 0; i < 8; i++)
 	if (!call_used_regs[CR0_REGNO + i])
@@ -30005,7 +30004,7 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 #endif
       if (NO_PROFILE_COUNTERS)
 	emit_library_call (init_one_libfunc (RS6000_MCOUNT),
-			   LCT_NORMAL, VOIDmode, 0);
+			   LCT_NORMAL, VOIDmode);
       else
 	{
 	  char buf[30];
@@ -30017,7 +30016,7 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 	  fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
 
 	  emit_library_call (init_one_libfunc (RS6000_MCOUNT),
-			     LCT_NORMAL, VOIDmode, 1, fun, Pmode);
+			     LCT_NORMAL, VOIDmode, fun, Pmode);
 	}
     }
   else if (DEFAULT_ABI == ABI_DARWIN)
@@ -30036,7 +30035,7 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 	caller_addr_regno = 0;
 #endif
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mcount_name),
-			 LCT_NORMAL, VOIDmode, 1,
+			 LCT_NORMAL, VOIDmode,
 			 gen_rtx_REG (Pmode, caller_addr_regno), Pmode);
     }
 }
@@ -32386,7 +32385,7 @@ rs6000_trampoline_init (rtx m_tramp, tree fndecl, rtx cxt)
     case ABI_DARWIN:
     case ABI_V4:
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__trampoline_setup"),
-			 LCT_NORMAL, VOIDmode, 4,
+			 LCT_NORMAL, VOIDmode,
 			 addr, Pmode,
 			 GEN_INT (rs6000_trampoline_size ()), SImode,
 			 fnaddr, Pmode,
@@ -35528,7 +35527,7 @@ rs6000_expand_vec_perm_const_1 (rtx target, rtx op0, rtx op1,
 
       vmode = GET_MODE (target);
       gcc_assert (GET_MODE_NUNITS (vmode) == 2);
-      dmode = mode_for_vector (GET_MODE_INNER (vmode), 4);
+      dmode = mode_for_vector (GET_MODE_INNER (vmode), 4).require ();
       x = gen_rtx_VEC_CONCAT (dmode, op0, op1);
       v = gen_rtvec (2, GEN_INT (perm0), GEN_INT (perm1));
       x = gen_rtx_VEC_SELECT (vmode, x, gen_rtx_PARALLEL (VOIDmode, v));
@@ -35587,8 +35586,7 @@ rs6000_do_expand_vec_perm (rtx target, rtx op0, rtx op1,
 
   imode = vmode;
   if (GET_MODE_CLASS (vmode) != MODE_VECTOR_INT)
-    imode = mode_for_vector
-      (int_mode_for_mode (GET_MODE_INNER (vmode)).require (), nelt);
+    imode = mode_for_int_vector (vmode).require ();
 
   x = gen_rtx_CONST_VECTOR (imode, gen_rtvec_v (nelt, perm));
   x = expand_vec_perm (vmode, op0, op1, x, target);
