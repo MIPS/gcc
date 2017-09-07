@@ -38,6 +38,18 @@ GCC's main representation of such runtime invariants is the
 does, lists the available operations, and gives some general
 usage guidelines.
 
+@menu
+* Overview of @code{poly_int}::
+* Consequences of using @code{poly_int}::
+* Comparisons involving @code{poly_int}::
+* Arithmetic on @code{poly_int}s::
+* Alignment of @code{poly_int}s::
+* Computing bounds on @code{poly_int}s::
+* Converting @code{poly_int}s::
+* Miscellaneous @code{poly_int} routines::
+* Guidelines for using @code{poly_int}::
+@end menu
+
 @node Overview of @code{poly_int}
 @section Overview of @code{poly_int}
 
@@ -151,8 +163,8 @@ The following sections describe how we deal with these restrictions.
 
 @cindex @code{poly_int}, use in target-independent code
 As described earlier, a @code{poly_int<1, @var{T}>} has no indeterminates
-and so degenerates to a compile-constant of type @var{T}.  It would be
-possible in that case to do all normal arithmetic on the @var{T},
+and so degenerates to a compile-time constant of type @var{T}.  It would
+be possible in that case to do all normal arithmetic on the @var{T},
 and to compare the @var{T} using the normal C++ operators.  We deliberately
 prevent target-independent code from doing this, since the compiler needs
 to support other @code{poly_int<@var{n}, @var{T}>} as well, regardless of
@@ -188,6 +200,16 @@ if formed.
 
 The underlying operators are the same in both cases, but the distinction
 affects how they are used.
+
+@menu
+* Comparison functions for @code{poly_int}::
+* Properties of the @code{poly_int} comparisons::
+* Comparing potentially-unordered @code{poly_int}s::
+* Comparing ordered @code{poly_int}s::
+* Checking for a @code{poly_int} marker value::
+* Range checks on @code{poly_int}s::
+* Sorting @code{poly_int}s::
+@end menu
 
 @node Comparison functions for @code{poly_int}
 @subsection Comparison functions for @code{poly_int}
@@ -276,8 +298,8 @@ may_le (@var{a}, @var{b}) == may_ge (@var{b}, @var{a})
 However:
 
 @smallexample
-may_le (@var{a}, @var{b}) && may_le (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq(@var{a}, @var{b})]
-may_ge (@var{a}, @var{b}) && may_ge (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq(@var{a}, @var{b})]
+may_le (@var{a}, @var{b}) && may_le (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq (@var{a}, @var{b})]
+may_ge (@var{a}, @var{b}) && may_ge (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq (@var{a}, @var{b})]
 @end smallexample
 
 One example is again @samp{@var{a} == 3 + 4@var{x}}
@@ -337,7 +359,7 @@ One way of checking whether [@var{begin1}, @var{end1}) might overlap
 may_gt (@var{end1}, @var{begin2}) && may_gt (@var{end2}, @var{begin1})
 @end smallexample
 
-and another is:
+and another (equivalent) way is:
 
 @smallexample
 !(must_le (@var{end1}, @var{begin2}) || must_le (@var{end2}, @var{begin1}))
@@ -402,7 +424,7 @@ the subreg is paradoxical if may_lt (@var{inner}, @var{outer})
 the subreg is partial if may_lt (@var{outer}, @var{inner})
 @end itemize
 
-with the three conditions being mutually-exclusive.
+with the three conditions being mutually exclusive.
 
 Code that checks whether a subreg is valid would therefore generally
 check whether @code{ordered_p} holds (in addition to whatever other
@@ -492,6 +514,13 @@ Other operations are only conditionally supported: the operation
 might succeed or might fail, depending on the inputs.
 
 This section describes both types of operation.
+
+@menu
+* Using @code{poly_int} with C++ arithmetic operators::
+* @code{wi} arithmetic on @code{poly_int}s::
+* Division of @code{poly_int}s::
+* Other @code{poly_int} arithmetic::
+@end menu
 
 @node Using @code{poly_int} with C++ arithmetic operators
 @subsection Using @code{poly_int} with C++ arithmetic operators
@@ -637,9 +666,10 @@ will be the least common multiple for some indeterminate values but
 not necessarily for all.
 
 @item force_common_multiple (@var{a}, @var{b})
-Return a value that is a multiple of both @var{a} and @var{b},
-asserting that such a value exists.  The result will be the least common
-multiple for some indeterminate values but not necessarily for all.
+Return a value that is a multiple of both @code{poly_int} @var{a} and
+@code{poly_int} @var{b}, asserting that such a value exists.  The
+result will be the least common multiple for some indeterminate values
+but not necessarily for all.
 
 When using this routine, please add a comment explaining why the
 assertion is known to hold.
@@ -899,7 +929,7 @@ else
 @code{poly_int} also provides some asserting functions like
 @code{to_constant}.  Please only use these functions if there is a
 good theoretical reason to believe that the assertion cannot fire.
-For example if some work is divided into an analysis phase and an
+For example, if some work is divided into an analysis phase and an
 implementation phase, the analysis phase might reject inputs that are
 not @code{is_constant}, in which case the implementation phase can
 reasonably use @code{to_constant} on the remaining inputs.  The assertions
@@ -927,7 +957,7 @@ only needs to be given once.  For example:
 Target-specific code in @file{config/@var{cpu}} only needs to handle
 non-constant @code{poly_int}s if @code{NUM_POLY_INT_COEFFS} is greater
 than one.  For other targets, @code{poly_int} degenerates to a compile-time
-constant and is often interchangable with a normal salar integer.
+constant and is often interchangable with a normal scalar integer.
 There are two main exceptions:
 
 @itemize
