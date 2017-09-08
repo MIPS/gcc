@@ -60,6 +60,7 @@ class gori
 
 public:
   gori ();
+  ~gori ();
 
   /* True if NAME Generates range info on one or more outgoing edges of BB.  */
   bool range_p (basic_block bb, tree name);
@@ -76,13 +77,40 @@ public:
 
 
 
+class range_cache
+{
+private:
+  vec<irange_storage *> tab;
+public:
+  range_cache ();
+  ~range_cache ();
+
+  void reset ();
+  void set_range (basic_block bb, irange_storage *r);
+  irange_storage *operator[] (const basic_block bb);
+
+  void dump(FILE *f, tree type);
+};
+
 
 /* This class utilizes the basic block GORI map and is used to query the range
    of SSA_NAMEs across multiple basic blocks and edges.  */
 class path_ranger : public gori
 {
-  public:
+private:
+  range_cache block_cache;
+  tree ssa_name;
+  basic_block def_bb;
+  gimple *def_stmt;
+  irange_storage *processing;
+  irange_storage *type_range;
+
+  bool init (tree name);
+  void range_for_bb (irange &r, basic_block bb);
+  void determine_block (basic_block bb);
+public:
   path_ranger ();
+
   /* What is the known range of name from its DEF point to edge E.  */
   bool path_range_edge (irange& r, tree name, edge e);
   bool path_range_entry (irange& r, tree name, basic_block bb);

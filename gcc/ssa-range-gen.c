@@ -45,9 +45,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "wide-int.h"
 #include "ssa-range-gen.h"
 #include "ssa-range-stmt.h"
+#include "domwalk.h"
 
-// #define trace_output dump_file
+//#define trace_output dump_file
 #define trace_output ((FILE *)0)
+
+//#define trace_path  dump_file
+#define trace_path  ((FILE *)0)
+
 
 bool
 ranger::combine_range (range_stmt& stmt, irange& r, tree name,
@@ -316,6 +321,11 @@ gori::gori () : range_generator (def_chain)
 {
   gori_map.create (0);
   gori_map.safe_grow_cleared (last_basic_block_for_fn (cfun));
+}
+
+gori::~gori ()
+{
+  gori_map.release ();
 }
 
 /* Is the last stmt in a block interesting to look at for range info.  */
@@ -608,49 +618,253 @@ gori::range_of_def (irange& r, gimple *g)
   return rn.fold (r);
 }
 
+// -------------------------------------------------------------------------
 
-/*  ---------------------------------------------------------------------  */
+range_cache::range_cache ()
+{
+  tab.create (0);
+  tab.safe_grow_cleared (last_basic_block_for_fn (cfun));
+}
+
+range_cache::~range_cache ()
+{
+  tab.release ();
+}
+
+void
+range_cache::reset ()
+{
+  memset (tab.address () , 0, tab.length () * sizeof (irange *));
+  unsigned x;
+  for (x = 0; x < tab.length (); x++)
+    gcc_assert (tab[x] == NULL);
+}
+
+void
+range_cache::set_range (basic_block bb, irange_storage *r)
+{
+  tab[bb->index] = r;
+}
+
+irange_storage *
+range_cache::operator[] (const basic_block bb)
+{
+  return tab[bb->index];
+}
+
+void
+range_cache::dump (FILE *f, tree type)
+{
+   basic_block bb;
+
+   FOR_EACH_BB_FN (bb, cfun)
+    if (tab[bb->index] != NULL)
+      {
+        irange r(tab[bb->index], type);
+	fprintf (f, "BB%d  -> ", bb->index);
+	r.dump (f);
+      }
+}
 
 
+// -------------------------------------------------------------------------
 
 path_ranger::path_ranger () 
 {
+  // Just a marker.
+  processing = irange_storage::ggc_alloc (1);
+  type_range = NULL;
 }
 
-/* Known range on an edge on the path back to the DEF of name.  */
 bool
-path_ranger::path_range_edge (irange& r, tree name, edge e)
+path_ranger::init (tree name)
 {
-  /* Until the walker is implelemted... just call the local routine.  */
-  return range_on_edge (r, name, e);
+  def_stmt = SSA_NAME_DEF_STMT (name);
+  if (!def_stmt)
+    return false;
+
+  ssa_name = name;
+  def_bb = gimple_bb (def_stmt);
+  if (!def_bb)
+    def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+
+  irange tr;
+  tr.set_range_for_type (TREE_TYPE (name));
+  type_range = irange_storage::ggc_alloc_init (tr);
+
+  block_cache.reset ();
+  block_cache.set_range (ENTRY_BLOCK_PTR_FOR_FN (cfun), type_range);
+  return true;
+
+}
+
+
+void
+path_ranger::range_for_bb (irange &r, basic_block bb)
+{
+  determine_block (bb);
+  irange tmp (block_cache[bb], TREE_TYPE (ssa_name));
+  r = tmp;
 }
 
 bool
 path_ranger::path_range_entry (irange& r, tree name, basic_block bb)
 {
+  if (!init (name))
+    return false;
+
+  if (trace_path)
+    {
+      fprintf (dump_file, "path_range_entry BB%d on path for ", bb->index);
+      print_generic_expr (dump_file, name, 0);
+      fprintf (dump_file,"\n");
+    }
+
+  /* Start with any known range.  */
+  r.set_range (name);
+
+  /* If its defined in this basic block, then there is no range on entry,
+     otherwise, go figure out what is known in predecessor blocks.  */
+  if (def_bb != bb)
+    {
+      irange block_range;
+      range_for_bb (block_range, bb);
+      r.intersect (block_range);
+    }
+
+  if (trace_path)
+    {
+      fprintf (dump_file, "range on entry query for");
+      print_generic_expr (dump_file, name, 0);
+      fprintf (dump_file, " in BB%d : returns ",bb->index);
+      r.dump (dump_file);
+      block_cache.dump (dump_file, TREE_TYPE (name));
+      fprintf(dump_file, "\n");
+    }
+
+  return true;
+}
+
+
+/* Known range on an edge on the path back to the DEF of name.  */
+bool
+path_ranger::path_range_edge (irange& r, tree name, edge e)
+{
+  basic_block bb = e->src;
+
+  /* Get the range for the def and possible basic block.  */
+  if (!path_range_entry (r, name, bb))
+    return false;
+
+  /* Now intersect it with what we know about this edge.  */
+  irange edge_range;
+  if (range_on_edge (edge_range, name, e))
+    r.intersect (edge_range);
+  return true;
+
+}
+
+void
+path_ranger::determine_block (basic_block bb)
+{
   edge_iterator ei;
   edge e;
   irange er;
+  irange block_result;
 
-  r.clear ();
-  gcc_checking_assert (TREE_CODE (name) == SSA_NAME);
-  /* Union all the ranges on the incoming edges.  */
+  if (bb == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      || bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
+    return;
+
+  if (trace_path)
+    fprintf (dump_file, "determine_block for BB%d\n", bb->index);
+
+  /* If the block cache is set, then we've already visited this block.  */
+  if (block_cache[bb] != NULL)
+    return;
+
+  /* Avoid infinite recursion by marking this block.  */
+  block_cache.set_range (bb, processing);
+
+  if (trace_path)
+    fprintf (dump_file, "Visiting preds of BB%d\n", bb->index);
+
+  /* Visit each predecessor to reseolve them.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      /* If we can't get a range on an edge, it defaults range_for_type
-         and union of that with anything will be range_for_type. 
-	 Simply report we can't get a range.  */
-      if (!range_on_edge (er, name, e))
-        return false;
-      r.union_ (er);
+      determine_block (e->src);
     }
 
-  er.set_range_for_type (TREE_TYPE (name));
-  /* If the result is range_for_type, report no range.  */
-   if (r == er)
-     return false;
+  if (trace_path)
+    fprintf (dump_file, "Re-Visiting preds of BB%d\n", bb->index);
 
-  return true;
+  block_result.clear (TREE_TYPE (ssa_name));
+  /* Now Union all the ranges on the incoming edges.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      basic_block src = e->src;
+      if (trace_path)
+        fprintf (dump_file, " processing pred BB%d ", src->index);
+      /* If a block is still unprocessed, we know nothing.  */
+      if (block_cache[src] == processing)
+        {
+	  if (trace_path)
+	    fprintf (dump_file, " Cycle visit.  range_for_type.\n");
+	  block_cache.set_range (bb, type_range);
+	  return;
+	}
+
+      if (range_on_edge (er, ssa_name, e))
+        {
+	  irange pred_bb_range (block_cache[src], TREE_TYPE (ssa_name));
+	  if (trace_path)
+	    {
+	      fprintf (dump_file, " edge has range : ");
+	      er.dump (dump_file);
+	      fprintf (dump_file, " Pred has range : ");
+	      pred_bb_range.dump (dump_file);
+
+	    }
+	  er.intersect (pred_bb_range);
+	  block_result.union_ (er);
+	  if (trace_path)
+	    {
+	      fprintf (dump_file, " result union range : ");
+	      block_result.dump (dump_file);
+	    }
+	}
+      else
+        {
+	  /* If there is no range on the edge, it is the predecessor range.  */
+	  irange pred_range (block_cache[src], TREE_TYPE (ssa_name));
+	  if (trace_path)
+	    {
+	      fprintf (dump_file, " No range on edge  pred block range is: ");
+	      pred_range.dump (dump_file);
+	    }
+	  block_result.union_ (pred_range);
+	  if (trace_path)
+	    {
+	      fprintf (dump_file, " result union range : ");
+	      block_result.dump (dump_file);
+	    }
+	}
+      if (block_result.range_for_type_p ())
+        break;
+    }
+
+  if (trace_path)
+    {
+      fprintf (dump_file, "Finished processing preds.  final result: ");
+      block_result.dump (dump_file);
+    }
+  if (block_result.range_for_type_p ())
+    block_cache.set_range (bb, type_range);
+  else
+    {
+      irange_storage *mem = irange_storage::ggc_alloc_init (block_result);
+      block_cache.set_range (bb, mem);
+    }
 }
 
 bool
@@ -667,9 +881,50 @@ path_ranger::dump(FILE *f)
 
 
 void
-path_ranger::exercise (FILE *f)
+path_ranger::exercise (FILE *output)
 {
-  gori::exercise (f);
-}
 
+  basic_block bb;
+  irange range;
+  
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      edge_iterator ei;
+      edge e;
+      bool printed = false;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        {
+	  unsigned x;
+	  for (x = 1; x < num_ssa_names; x++)
+	    {
+	      tree name = ssa_name (x);
+	      if (name && range_p (bb, name))
+		{
+		  if (path_range_edge (range, name, e))
+		    {
+		      if (output)
+			{
+			  printed = true;
+			  fprintf (output, "BB%3d: ", bb->index);
+			  if (e->flags & EDGE_TRUE_VALUE)
+			    fprintf (output, " T: ");
+			  else if (e->flags & EDGE_FALSE_VALUE)
+			    fprintf (output, " F: ");
+			  print_generic_expr (output, name, TDF_SLIM);
+			  fprintf(output, "  \t");
+			  range.dump(output);
+			}
+		    }
+		}
+	    }
+	}
+      if (printed)
+        fprintf (output, "\n");
+
+    }
+    
+  if (output)
+    dump (output);
+
+}
 
