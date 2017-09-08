@@ -101,6 +101,10 @@ range_stmt::handler () const
   return irange_op_handler (code);
 }
 
+#define ACCEPTABLE_SSA(T) (TREE_CODE (T) == SSA_NAME			\
+			   && (INTEGRAL_TYPE_P (TREE_TYPE (T))		\
+			       || POINTER_TYPE_P (TREE_TYPE (T))))
+
 /* Intialize the state based on the operands to the expression.  */
 enum range_stmt_state
 range_stmt::determine_state (tree t1, tree t2)
@@ -108,32 +112,34 @@ range_stmt::determine_state (tree t1, tree t2)
   enum range_stmt_state st = RS_INV;
   if (!t2 || TYPE_P (t2))
     {
-      /* Check for unary teration cases.  */
+      /* Check for unary cases.  */
       if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
         st = RS_I;
       else
-        if (TREE_CODE (t1) == SSA_NAME)
+        if (ACCEPTABLE_SSA (t1))
 	  st = RS_S;
     }
   else
     {
-      /* Binary teration cases.  */
-      if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
-        {
+      /* Binary cases.  */
+      bool s1 = ACCEPTABLE_SSA (t1);
+      bool s2 = ACCEPTABLE_SSA (t2);
+      if (s1)
+	{
 	  if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
-	    st = RS_II;
+	    st = RS_SI;
 	  else
-	    if (TREE_CODE (t2) == SSA_NAME)
-	      st = RS_IS;
+	    if (s2)
+	      st = RS_SS;
 	}
       else
-        if (TREE_CODE (t1) == SSA_NAME)
+	if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
 	  {
-	    if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
-	      st = RS_SI;
+	    if (s2)
+	      st = RS_IS;
 	    else
-	      if (TREE_CODE (t2) == SSA_NAME)
-		st = RS_SS;
+	      if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
+		st = RS_II;
 	  }
     }
   return st;
