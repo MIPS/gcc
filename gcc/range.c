@@ -1415,6 +1415,12 @@ irange_tests ()
   ASSERT_TRUE (wi::max_value (TYPE_PRECISION (boolean_type_node),
 			      TYPE_SIGN (boolean_type_node))
 	       == wi::uhwi (1, TYPE_PRECISION (boolean_type_node)));
+
+  /* Test irange_storage.  */
+  r0.set_range (integer_type_node, 5, 10);
+  irange_storage *stow = irange_storage::ggc_alloc_init (r0);
+  stow->extract_irange (r1, integer_type_node);
+  ASSERT_TRUE (r0 == r1);
 }
 
 } // namespace selftest

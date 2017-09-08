@@ -189,6 +189,9 @@ void range_positives (irange *r, tree type, unsigned int);
 	  irange X (ssa);
 	  ...
 	}
+   or
+	irange x;
+	stow->extract_irange (x, TYPE);
 
    To get at the nonzero bits use:
 
@@ -234,6 +237,9 @@ class GTY((variable_size)) irange_storage
     stow->set_irange (ir);
     return stow;
   }
+  /* Extract the current range onto OUTPUT with a type of TYP.
+     Returns the range.  */
+  inline irange &extract_irange (irange &output, const_tree typ);
   /* Set the nonzero bit mask to WI.  */
   void set_nonzero_bits (const wide_int &wi)
   { trailing_bounds[irange::max_pairs * 2] = wi; }
@@ -241,5 +247,15 @@ class GTY((variable_size)) irange_storage
   wide_int get_nonzero_bits (void)
   { return trailing_bounds[irange::max_pairs * 2]; }
 };
+
+/* Extract the range in THIS and store it in OUTPUT with a type of TYP.
+   Returns OUTPUT.  */
+
+inline irange &
+irange_storage::extract_irange (irange &output, const_tree typ)
+{
+  output.set_range (this, typ);
+  return output;
+}
 
 #endif // GCC_RANGE_H
