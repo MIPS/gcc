@@ -1268,10 +1268,13 @@ irange_tests ()
       r1 = irange (integer_type_node, 50, 60);
       r0.union_ (r1);
       ASSERT_TRUE (r0 == RANGE3 (10, 20, 30, 40, 50, 60));
-      /* [10,20][30,40][50,60] U [70, 80] ==> [10,20][30,40][50,80].  */
+      /* [10,20][30,40][50,60] U [70, 80] ==> [10,20][30,40][50,60][70,80].  */
       r1 = irange (integer_type_node, 70, 80);
       r0.union_ (r1);
-      ASSERT_TRUE (r0 == RANGE3 (10, 20, 30, 40, 50, 80));
+
+      r2 = RANGE3 (10, 20, 30, 40, 50, 60);
+      r2.union_ (irange (integer_type_node, 70, 80));
+      ASSERT_TRUE (r0 == r2);
     }
 
   /* Make sure NULL and non-NULL of pointer types work, and that
@@ -1379,18 +1382,40 @@ irange_tests ()
       ASSERT_TRUE (r0 == irange (integer_type_node, 20,100));
 
       /* [10,20][30,40][50,60] ^ [15,25][38,51][55,70]
-	 => [15,20][38,40][50,60].  */
+	 => [15,20][38,40][50,51][55,60].  */
       r0 = RANGE3 (10, 20, 30, 40, 50, 60);
       r1 = RANGE3 (15, 25, 38, 51, 55, 70);
       r0.intersect (r1);
-      ASSERT_TRUE (r0 == RANGE3 (15, 20, 38, 40, 50, 60));
+      if (irange::max_pairs == 3)
+	{
+	  /* When pairs==3, we don't have enough space, so
+	     conservatively handle things.  Thus, the ...[50,60].  */
+	  ASSERT_TRUE (r0 == RANGE3 (15, 20, 38, 40, 50, 60));
+	}
+      else
+	{
+	  r2 = RANGE3 (15, 20, 38, 40, 50, 51);
+	  r2.union_ (irange (integer_type_node, 55, 60));
+	  ASSERT_TRUE (r0 == r2);
+	}
 
       /* [15,20][30,40][50,60] ^ [15,35][40,90][100,200]
 	 => [15,20][30,35][40,60].  */
       r0 = RANGE3 (15, 20, 30, 40, 50, 60);
       r1 = RANGE3 (15, 35, 40, 90, 100, 200);
       r0.intersect (r1);
-      ASSERT_TRUE (r0 == RANGE3 (15, 20, 30, 35, 40, 60));
+      if (irange::max_pairs == 3)
+	{
+	  /* When pairs==3, we don't have enough space, so
+	     conservatively handle things.  */
+	  ASSERT_TRUE (r0 == RANGE3 (15, 20, 30, 35, 40, 60));
+	}
+      else
+	{
+	  r2 = RANGE3 (15, 20, 30, 35, 40, 40);
+	  r2.union_ (irange (integer_type_node, 50, 60));
+	  ASSERT_TRUE (r0 == r2);
+	}
     }
 
   /* [10,20] ^ [15,30] => [15,20].  */
