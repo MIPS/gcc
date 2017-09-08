@@ -679,6 +679,14 @@ path_ranger::path_ranger ()
 bool
 path_ranger::init (tree name)
 {
+  tree type;
+  if (TREE_CODE (name) != SSA_NAME)
+    return false;
+
+  type = TREE_TYPE (name);
+  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
+    return false;
+
   def_stmt = SSA_NAME_DEF_STMT (name);
   if (!def_stmt)
     return false;
@@ -689,7 +697,7 @@ path_ranger::init (tree name)
     def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   irange tr;
-  tr.set_range_for_type (TREE_TYPE (name));
+  tr.set_range_for_type (type);
   type_range = irange_storage::ggc_alloc_init (tr);
 
   block_cache.reset ();
@@ -895,7 +903,31 @@ path_ranger::exercise (FILE *output)
       bool printed = false;
 
       if (output)
-	dump_bb (output, bb, 2, 0);
+	fprintf (output, "----- BB%d -----\n", bb->index);
+      for (x = 1; x < num_ssa_names; x++)
+        {
+	  tree name = ssa_name (x);
+	  if (name && path_range_entry (range, name, bb))
+	    {
+	      if (output && !range.range_for_type_p ())
+	        {
+		  if (!printed)
+		    fprintf (output,"   Ranges on entry :\n");
+		  printed = true;
+		  fprintf (output, "     ");
+		  print_generic_expr (output, name, 0);
+		  fprintf (output, " : ");
+		  range.dump (output);
+		}
+	    }
+	}
+      if (output)
+        {
+	  if (printed)
+	    fprintf (output, "\n");
+	  dump_bb (output, bb, 2, 0);
+	  printed = false;
+	}
       FOR_EACH_EDGE (e, ei, bb->succs)
         {
 	  for (x = 1; x < num_ssa_names; x++)
@@ -908,10 +940,14 @@ path_ranger::exercise (FILE *output)
 		      if (output)
 			{
 			  printed = true;
+			  fprintf (output, "     %d->%d ", e->src->index,
+				   e->dest->index);
 			  if (e->flags & EDGE_TRUE_VALUE)
-			    fprintf (output, "T: ");
+			    fprintf (output, " (T) ");
 			  else if (e->flags & EDGE_FALSE_VALUE)
-			    fprintf (output, "F: ");
+			    fprintf (output, " (F) ");
+			  else
+			    fprintf (output, "     ");
 			  print_generic_expr (output, name, TDF_SLIM);
 			  fprintf(output, "  \t");
 			  range.dump(output);
