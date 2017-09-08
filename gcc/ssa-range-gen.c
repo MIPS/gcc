@@ -889,12 +889,15 @@ path_ranger::exercise (FILE *output)
   
   FOR_EACH_BB_FN (bb, cfun)
     {
+      unsigned x;
       edge_iterator ei;
       edge e;
       bool printed = false;
+
+      if (output)
+	dump_bb (output, bb, 2, 0);
       FOR_EACH_EDGE (e, ei, bb->succs)
         {
-	  unsigned x;
 	  for (x = 1; x < num_ssa_names; x++)
 	    {
 	      tree name = ssa_name (x);
@@ -905,11 +908,10 @@ path_ranger::exercise (FILE *output)
 		      if (output)
 			{
 			  printed = true;
-			  fprintf (output, "BB%3d: ", bb->index);
 			  if (e->flags & EDGE_TRUE_VALUE)
-			    fprintf (output, " T: ");
+			    fprintf (output, "T: ");
 			  else if (e->flags & EDGE_FALSE_VALUE)
-			    fprintf (output, " F: ");
+			    fprintf (output, "F: ");
 			  print_generic_expr (output, name, TDF_SLIM);
 			  fprintf(output, "  \t");
 			  range.dump(output);
