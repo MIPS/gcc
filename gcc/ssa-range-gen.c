@@ -902,32 +902,33 @@ path_ranger::exercise (FILE *output)
       edge e;
       bool printed = false;
 
+      /* THis dramatically slows down builds, so onluy when printing.  */
       if (output)
-	fprintf (output, "----- BB%d -----\n", bb->index);
-      for (x = 1; x < num_ssa_names; x++)
         {
-	  tree name = ssa_name (x);
-	  if (name && path_range_entry (range, name, bb))
+	  fprintf (output, "----- BB%d -----\n", bb->index);
+	  for (x = 1; x < num_ssa_names; x++)
 	    {
-	      if (output && !range.range_for_type_p ())
-	        {
-		  if (!printed)
-		    fprintf (output,"   Ranges on entry :\n");
-		  printed = true;
-		  fprintf (output, "     ");
-		  print_generic_expr (output, name, 0);
-		  fprintf (output, " : ");
-		  range.dump (output);
+	      tree name = ssa_name (x);
+	      if (name && path_range_entry (range, name, bb))
+		{
+		  if (output && !range.range_for_type_p ())
+		    {
+		      if (!printed)
+			fprintf (output,"   Ranges on entry :\n");
+		      printed = true;
+		      fprintf (output, "     ");
+		      print_generic_expr (output, name, 0);
+		      fprintf (output, " : ");
+		      range.dump (output);
+		    }
 		}
 	    }
-	}
-      if (output)
-        {
 	  if (printed)
 	    fprintf (output, "\n");
 	  dump_bb (output, bb, 2, 0);
 	  printed = false;
 	}
+
       FOR_EACH_EDGE (e, ei, bb->succs)
         {
 	  for (x = 1; x < num_ssa_names; x++)
