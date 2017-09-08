@@ -3417,7 +3417,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_LAPC48_FUNC_NANO:
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL_SPLIT_NANO:
-    case SYMBOL_LAPC_NANO:
     case SYMBOL_LAPC48_NANO:
     case SYMBOL_PCREL_4K_NANO:
     case SYMBOL_PCREL32_NANO:
@@ -3429,7 +3428,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 
       /* Fall through.  */
 
-    case SYMBOL_GPREL_WORD_NANO:
     case SYMBOL_GP_RELATIVE:
     case SYMBOL_GPREL32_NANO:
     case SYMBOL_GPREL_SPLIT_NANO:
@@ -3437,6 +3435,16 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
       return offset_within_block_p (x, INTVAL (offset));
+
+    case SYMBOL_LAPC_NANO:
+      if (INTVAL (offset) % 2 == 0)
+	return offset_within_block_p (x, INTVAL (offset));
+      return false;
+
+    case SYMBOL_GPREL_WORD_NANO:
+      if (INTVAL (offset) % 4 == 0)
+	return offset_within_block_p (x, INTVAL (offset));
+      return false;
 
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOTOFF_PAGE:
