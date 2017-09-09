@@ -848,7 +848,10 @@ irange::dump (pretty_printer *buffer) const
       widest_int val = widest_int::from (bounds[i], sign);
       val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
 
-      print_hex (val, pp_buffer (buffer)->digit_buffer);
+      if (val > 0xffff)
+	print_hex (val, pp_buffer (buffer)->digit_buffer);
+      else
+	print_dec (val, pp_buffer (buffer)->digit_buffer, sign);
       pp_string (buffer, pp_buffer (buffer)->digit_buffer);
       if (i % 2 == 0)
 	pp_string (buffer, ", ");
@@ -858,10 +861,8 @@ irange::dump (pretty_printer *buffer) const
   if (!nitems)
     pp_string (buffer, "[]");
 
-  pp_string (buffer, " type: ");
+  pp_character (buffer, ' ');
   dump_generic_node (buffer, const_cast <tree> (type), 0, 0, false);
-  pp_string (buffer, ", precision = ");
-  pp_decimal_int (buffer, TYPE_PRECISION (type));
   if (overflow)
     pp_string (buffer, " (overflow)");
   pp_newline_and_flush (buffer);
