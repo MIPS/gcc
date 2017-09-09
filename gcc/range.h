@@ -114,6 +114,13 @@ class irange
   bool empty_p () const { return !nitems; }
   bool range_for_type_p () const;
   bool simple_range_p () const { return nitems == 2; }
+  bool zero_p () const { return *this == irange (type, 0, 0); }
+  bool non_zero_p () const
+    {
+      irange nz;
+      nz.set_range (type, 0, 0, INVERSE);
+      return *this == nz;
+    }
 
   void dump () const;
   void dump (pretty_printer *pp) const;
@@ -123,6 +130,7 @@ class irange
   void cast (const_tree type);
   bool contains_p (const wide_int &element) const;
   bool contains_p (const_tree) const;
+  bool contains_p (int) const;
 
   const_tree get_type () const { return type; }
 

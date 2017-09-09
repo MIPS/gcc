@@ -406,6 +406,17 @@ irange::contains_p (const_tree element) const
   return contains_p (wi);
 }
 
+// Like above, but element is an int.
+
+bool
+irange::contains_p (int element) const
+{
+  if (TYPE_UNSIGNED (type))
+    return contains_p (wi::uhwi (element, TYPE_PRECISION (type)));
+  else
+    return contains_p (wi::shwi (element, TYPE_PRECISION (type)));
+}
+
 // Canonicalize the current range.
 
 void
@@ -836,28 +847,31 @@ irange::upper_bound (unsigned pair) const
 void
 irange::dump (pretty_printer *buffer) const
 {
-  for (unsigned i = 0; i < nitems; ++i)
-    {
-      if (i % 2 == 0)
-	pp_character (buffer, '[');
+  if (POINTER_TYPE_P (type) && non_zero_p ())
+    pp_string (buffer, "[ non-zero pointer ]");
+  else
+    for (unsigned i = 0; i < nitems; ++i)
+      {
+	if (i % 2 == 0)
+	  pp_character (buffer, '[');
 
-      /* Wide ints may be sign extended to the full extent of the
-	 underlying HWI storage, even if the precision we care about
-	 is smaller.  Chop off the excess bits for prettier output.  */
-      signop sign = TYPE_UNSIGNED (type) ? UNSIGNED : SIGNED;
-      widest_int val = widest_int::from (bounds[i], sign);
-      val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
+	/* Wide ints may be sign extended to the full extent of the
+	   underlying HWI storage, even if the precision we care about
+	   is smaller.  Chop off the excess bits for prettier output.  */
+	signop sign = TYPE_UNSIGNED (type) ? UNSIGNED : SIGNED;
+	widest_int val = widest_int::from (bounds[i], sign);
+	val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
 
-      if (val > 0xffff)
-	print_hex (val, pp_buffer (buffer)->digit_buffer);
-      else
-	print_dec (val, pp_buffer (buffer)->digit_buffer, sign);
-      pp_string (buffer, pp_buffer (buffer)->digit_buffer);
-      if (i % 2 == 0)
-	pp_string (buffer, ", ");
-      else
-	pp_character (buffer, ']');
-    }
+	if (val > 0xffff)
+	  print_hex (val, pp_buffer (buffer)->digit_buffer);
+	else
+	  print_dec (val, pp_buffer (buffer)->digit_buffer, sign);
+	pp_string (buffer, pp_buffer (buffer)->digit_buffer);
+	if (i % 2 == 0)
+	  pp_string (buffer, ", ");
+	else
+	  pp_character (buffer, ']');
+      }
   if (!nitems)
     pp_string (buffer, "[]");
 
@@ -1074,6 +1088,7 @@ irange_tests ()
   r1 = irange (integer_type_node, (wide_int) INT(5), (wide_int) INT(10));
   ASSERT_TRUE (r1.valid_p ());
   ASSERT_TRUE (r1.contains_p (INT (7)));
+  ASSERT_TRUE (r1.contains_p (7));
 
   r1 = irange (signed_char_type_node, 0, 20);
   ASSERT_TRUE (r1.contains_p (INT(15)));
@@ -1448,6 +1463,15 @@ irange_tests ()
   irange_storage *stow = irange_storage::ggc_alloc_init (r0);
   stow->extract_irange (r1, integer_type_node);
   ASSERT_TRUE (r0 == r1);
+
+  /* Test zero_p().  */
+  r0.set_range (integer_type_node, 0, 0);
+  ASSERT_TRUE (r0.zero_p ());
+
+  /* Test non_zero_p().  */
+  r0 = irange (integer_type_node, 0, 0);
+  r0.invert ();
+  ASSERT_TRUE (r0.non_zero_p ());
 }
 
 } // namespace selftest
