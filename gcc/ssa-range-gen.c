@@ -894,7 +894,7 @@ path_ranger::exercise (FILE *output)
 
   basic_block bb;
   irange range;
-  
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       unsigned x;
@@ -902,7 +902,7 @@ path_ranger::exercise (FILE *output)
       edge e;
       bool printed = false;
 
-      /* THis dramatically slows down builds, so onluy when printing.  */
+      /* This dramatically slows down builds, so only when printing.  */
       if (output)
         {
 	  fprintf (output, "----- BB%d -----\n", bb->index);
@@ -961,7 +961,7 @@ path_ranger::exercise (FILE *output)
         fprintf (output, "\n");
 
     }
-    
+
   if (output)
     dump (output);
 
