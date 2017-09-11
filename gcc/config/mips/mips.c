@@ -3127,6 +3127,17 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
   if (GET_CODE (x) == LABEL_REF)
     {
+      if (TARGET_NANOMIPS && TARGET_PCREL)
+	{
+	  if (nano_pic_model_var == NANO_PIC_AUTO
+	      || nano_pic_model_var == NANO_PIC_NONE)
+	    return SYMBOL_LAPC_NANO;
+	  else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+	    return SYMBOL_LAPC48_NANO;
+	  else
+	    return SYMBOL_PCREL_SPLIT_NANO;
+	}
+
       /* Only return SYMBOL_PC_RELATIVE if we are generating MIPS16
 	 code and if we know that the label is in the current function's
 	 text section.  LABEL_REFs are used for jump tables as well as
