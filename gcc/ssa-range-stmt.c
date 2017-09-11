@@ -311,12 +311,7 @@ range_stmt::fold (irange& r, FILE *trace) const
       dump (trace);
     }
 
-  if (!ssa_required (&n1, &n2))
-    {
-      if (trace)
-	fprintf (trace, "   No ssa-names present\n");
-      return false;
-    }
+  ssa_required (&n1, &n2);
 
   if (n1)
     {
@@ -423,6 +418,8 @@ range_stmt::ssa_required (tree *name1, tree *name2) const
 	return true;
 
       default:
+        *name1 = NULL_TREE;
+        *name2 = NULL_TREE;
         return false;
     }
   gcc_unreachable ();
