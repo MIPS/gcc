@@ -3242,12 +3242,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMS))
 		return SYMBOL_GPREL_SPLIT_NANO;
-	      // @tmt FIXME: Find a way to check whether it is safe to use
-	      // tree_to_uhwi.
 	      else if (TARGET_PCREL
 		       && VAR_P (SYMBOL_REF_DECL (x))
 		       && TARGET_NANOMIPS == NANOMIPS_NMF
 		       && context == SYMBOL_CONTEXT_MEM
+		       && DECL_SIZE_UNIT (SYMBOL_REF_DECL (x))
 		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
 		       == 4)
 		return SYMBOL_PCREL32_NANO;
