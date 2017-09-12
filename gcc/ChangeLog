@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2018-01-25  Release Manager
 
 	* GCC 7.3.0 released.
@@ -66,6 +67,37 @@
 	(*tablejump<mode>_internal1_nospec): New define_insn.
 	* config/rs6000/rs6000.opt (mspeculate-indirect-jumps): New
 	option.
+=======
+2017-09-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-threadbackward.c (fsm_find_thread_path): Make GC
+	vectors heap vectors.  Clean up comments.
+	Make visited_bbs a reference.
+	(profitable_jump_thread_path): Make GC
+	vectors heap vectors.  Clean up comments.
+	Misc cleanups.
+	(convert_and_register_jump_thread_path): Make GC vectors heap
+	vectors.
+	(check_subpath_and_update_thread_path): Same.  Clean up comments.
+	Make visited_bbs a reference.
+	(handle_phi): Abstract common code to to
+	register_jump_thread_path_if_profitable.
+	Rename VAR_BB to DEF_BB.
+	Update comments.
+	Make GC vectors heap vectors.
+	Make visited_bbs a reference.
+	(handle_assignment): Same.
+	(register_jump_thread_path_if_profitable): New.
+	(fsm_find_control_statement_thread_paths): Rename VAR_BB to
+	DEF_BB.
+	Make GC	vectors heap vectors.  Clean up comments.
+	Make visited_bbs a reference.
+	(find_jump_threads_backwards): Make visited_bbs live in the stack.
+	* tree-ssa-threadupdate.c (delete_jump_thread_path): Fix typo in
+	comment.
+
+2017-09-11  Max Filippov  <jcmvbkbc@gmail.com>
+>>>>>>> 73b43bd... 	* tree-ssa-threadbackward.c (fsm_find_thread_path): Make GC
 
 	Backport from mainline
 	2018-01-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
