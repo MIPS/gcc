@@ -8918,24 +8918,27 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
      possible for sibcalls when $gp is call-saved because the value
      of $gp on entry to the stub would be our caller's gp, not ours.  */
 
-  enum mips_symbol_type symbol_type =
-    mips_classify_symbol (addr, SYMBOL_CONTEXT_CALL);
+  if (TARGET_NANOMIPS
+      && GET_CODE (addr) != CONST_INT)
+    {
+      enum mips_symbol_type symbol_type =
+	mips_classify_symbol (addr, SYMBOL_CONTEXT_CALL);
+
+      if (symbol_type == SYMBOL_GOT_PCREL32_NANO)
+	emit_insn (gen_rtx_SET (dest, addr));
+      else
+	mips_emit_move (dest, addr);
+
+      return false;
+    }
 
   if (TARGET_EXPLICIT_RELOCS
       && !(type == MIPS_CALL_SIBCALL && TARGET_CALL_SAVED_GP)
-      && mips_ok_for_lazy_binding_p (addr)
-      && symbol_type != SYMBOL_GOT_PCREL32_NANO
-      && symbol_type != SYMBOL_GOT_PCREL_SPLIT_NANO)
+      && mips_ok_for_lazy_binding_p (addr))
     {
       addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_CALL);
       emit_insn (gen_rtx_SET (dest, addr));
       return true;
-    }
-  else if (TARGET_NANOMIPS
-	   && symbol_type == SYMBOL_GOT_PCREL32_NANO)
-    {
-      emit_insn (gen_rtx_SET (dest, addr));
-      return false;
     }
   else
     {
