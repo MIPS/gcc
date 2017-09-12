@@ -3118,7 +3118,8 @@ mips_get_nano_pic_model (const_rtx x)
    LABEL_REF X in context CONTEXT.  */
 
 static enum mips_symbol_type
-mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
+mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
+			HOST_WIDE_INT offset)
 {
   const_tree decl;
 
@@ -3270,7 +3271,8 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 		       && !SYMBOL_REF_WEAK (x)
 		       && symbol_pic_model == NANO_PIC_AUTO
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
-		       && context == SYMBOL_CONTEXT_LEA)
+		       && context == SYMBOL_CONTEXT_LEA
+		       && offset % 2 == 0)
 		return SYMBOL_LAPC_NANO;
 	      else if (TARGET_PCREL
 		       && TARGET_NANOMIPS == NANOMIPS_NMF
@@ -3328,6 +3330,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
     return SYMBOL_PC_RELATIVE;
 
   return SYMBOL_ABSOLUTE;
+}
+
+static enum mips_symbol_type
+mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
+{
+  return mips_classify_symbol_1 (x, context, 0);
 }
 
 /* Classify the base of symbolic expression X, given that X appears in
@@ -3398,7 +3406,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     }
   else if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
     {
-      *symbol_type = mips_classify_symbol (x, context);
+      *symbol_type = mips_classify_symbol_1 (x, context, INTVAL (offset));
       if (*symbol_type == SYMBOL_TLS)
 	return false;
     }
@@ -3429,6 +3437,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_LAPC48_FUNC_NANO:
     case SYMBOL_PC_RELATIVE:
     case SYMBOL_PCREL_SPLIT_NANO:
+    case SYMBOL_LAPC_NANO:
     case SYMBOL_LAPC48_NANO:
     case SYMBOL_PCREL_4K_NANO:
     case SYMBOL_PCREL32_NANO:
@@ -3447,11 +3456,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
       return offset_within_block_p (x, INTVAL (offset));
-
-    case SYMBOL_LAPC_NANO:
-      if (INTVAL (offset) % 2 == 0)
-	return offset_within_block_p (x, INTVAL (offset));
-      return false;
 
     case SYMBOL_GPREL_WORD_NANO:
       if (INTVAL (offset) % 4 == 0)
