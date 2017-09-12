@@ -4745,7 +4745,6 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 	  && mips_symbol_insns (symbol_type, mode) > 0
 	  && mips_split_p[symbol_type])
 	{
-	  rtx base, offset;
 	  if (low_out)
 	    switch (symbol_type)
 	      {
@@ -4783,16 +4782,6 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		    high = mips_force_temporary (temp, high);
 		    *low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		  }
-		break;
-
-	      case SYMBOL_PCREL_SPLIT_NANO:
-		split_const (addr, &base, &offset);
-		high = gen_rtx_HIGH (Pmode,
-			plus_constant (Pmode,
-				       base,
-				       ((INTVAL (offset))/ 4096) * 4096));
-		high = mips_force_temporary (temp, high);
-		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
 
 	      case SYMBOL_ABSOLUTE:
