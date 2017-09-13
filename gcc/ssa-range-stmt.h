@@ -72,6 +72,10 @@ public:
   tree operand1 () const;
   tree operand2 () const;
 
+  bool combine_range_p (tree type);
+  bool combine_range (irange& r, const irange& lhs, const irange& op1_true,
+  		      const irange& op1_false, const irange& op2_true,
+		      const irange& op2_false);
   bool fold (irange& res, FILE *trace = NULL) const;
   bool op1_irange (irange& r, const irange& lhs, const irange& op2,
 		   FILE *trace = NULL) const;
@@ -82,6 +86,7 @@ public:
   void dump (FILE *f) const;
 };
 
+bool get_operand_range (irange& r, tree op);
 
 inline gimple *
 range_stmt::get_gimple () const

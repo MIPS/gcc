@@ -27,29 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-range-stmt.h"
 
 
-class ranger
-{
-  ssa_define_chain& def_chain;
-  bool combine_range (range_stmt& stmt, irange& r, tree name, const irange& lhs,
-		      bool op1_in_chain, bool op2_in_chain);
-public:
-  ranger (ssa_define_chain & dc);
-  bool get_operand_range (irange& r, tree op);
-  bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
-  bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
-			    const irange& lhs);
-};
-
-inline
-ranger::ranger (ssa_define_chain& dc) : def_chain (dc)
-{
-}
-
 class gori
 {
   vec<bitmap> gori_map; 	/* Generates Outgoing Range Info.  */
   ssa_define_chain def_chain;
-  ranger range_generator;
   bool remove_from_gori_map (basic_block bb, tree name);
 
   bool get_derived_range_stmt (range_stmt& stmt, tree name, basic_block bb);
@@ -58,6 +39,9 @@ class gori
   void build ();
   void build (basic_block bb);
 
+  bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
+  bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
+			    const irange& lhs);
 public:
   gori ();
   ~gori ();
