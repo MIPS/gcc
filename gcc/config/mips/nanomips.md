@@ -826,7 +826,8 @@
   "TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_DEBUG_MODE"
   "bitrevw\t%0,%1\n\t<d>clz\t%0,%0"
   [(set_attr "type" "clz")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "insn_count" "2")])
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
