@@ -3180,9 +3180,11 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	{
 	  if (flag_pic && !mips_symbol_binds_local_p (x))
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO)
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_DISP;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
@@ -3204,15 +3206,15 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	{
 	  if (flag_pic && !mips_symbol_binds_local_p (x))
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO)
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_PAGE_OFST;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM)
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_DISP;
-	      else if (symbol_pic_model == NANO_PIC_LARGE
-		       && TARGET_NANOMIPS == NANOMIPS_NMF)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
-	      else if (symbol_pic_model == NANO_PIC_LARGE
-		       && TARGET_NANOMIPS == NANOMIPS_NMS)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
 	  else if (TARGET_PCREL || TARGET_GPOPT)
@@ -3221,8 +3223,7 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		  && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
 		  && context == SYMBOL_CONTEXT_LEA
 		  && !(TARGET_GPOPT
-		       && SYMBOL_REF_SMALL_P (x)
-		       && !SYMBOL_REF_WEAK (x)))
+		       && SYMBOL_REF_SMALL_P (x)))
 		return SYMBOL_PCREL_4K_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
@@ -3243,14 +3244,12 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
 		       && SYMBOL_REF_SMALL_P (x)
-		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMF))
 		return SYMBOL_GPREL32_NANO;
 	      else if (TARGET_GPOPT
 		       && VAR_P (SYMBOL_REF_DECL (x))
 		       && SYMBOL_REF_SMALL_P (x)
-		       && !SYMBOL_REF_WEAK (x)
 		       && (symbol_pic_model == NANO_PIC_LARGE
 			   && TARGET_NANOMIPS == NANOMIPS_NMS))
 		return SYMBOL_GPREL_SPLIT_NANO;
