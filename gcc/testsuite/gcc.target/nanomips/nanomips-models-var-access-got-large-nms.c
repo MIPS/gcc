@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6s -fPIC" } */
+/* { dg-options "-m32 -march=32r6s -mcmodel=medium -fPIC" } */
 /* { dg-skip-if "" { *-*-* } { "-O1"  "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%got_pcrel_hi\\(var_extern\\)" } } */
