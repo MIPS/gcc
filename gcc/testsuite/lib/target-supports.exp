@@ -1121,6 +1121,16 @@ proc check_effective_target_mips64 { } {
     }]
 }
 
+# Return true if the target is using a compressed MIPS ISA.
+
+proc check_effective_target_mips_compressed { } {
+    return [check_no_compiler_messages mips_compressed assembly {
+	#if !defined (__mips_micromips) && !defined (__mips16)
+	#error !__mips_micromips && !__mips16
+	#endif
+    }]
+}
+
 # Return true if the target is a MIPS target that does not produce
 # MIPS16 code.
 
