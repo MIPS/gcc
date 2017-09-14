@@ -820,6 +820,14 @@
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
+(define_insn "ctz<mode>2"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(ctz:GPR (match_operand:GPR 1 "register_operand" "d")))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_DEBUG_MODE"
+  "bitrevw\t%0,%1\n\t<d>clz\t%0,%0"
+  [(set_attr "type" "clz")
+   (set_attr "mode" "<MODE>")])
+
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
 ])
