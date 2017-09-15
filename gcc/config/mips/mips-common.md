@@ -3333,6 +3333,13 @@
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "3,4")
 		    (not (match_test "TARGET_NANOMIPS")))
+		  (const_string "no")
+	       ;; FIXME. We may need to revise this later.
+	       ;; This fails when generating low part with HImode being
+	       ;; rejected in mips_symbol_insns for -mno-gpopt for
+	       ;; reg=[symbol:SI]&0xffff
+	       (and (eq_attr "alternative" "0,1")
+		    (match_test "TARGET_NANOMIPS"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
