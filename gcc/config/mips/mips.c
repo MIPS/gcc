@@ -3088,19 +3088,25 @@ mips_get_nano_pic_model (const_rtx x)
   if (UNSPEC_ADDRESS_P (symbol))
     symbol = UNSPEC_ADDRESS (symbol);
 
-  /* The model overrides flag_pic for auto.  */
-  if (SYMBOL_REF_AUTO_PIC_P (symbol)
-      || nano_pic_model_var == NANO_PIC_AUTO)
+  if (flag_pic && !(mips_symbol_binds_local_p (symbol)))
+    {
+      if (SYMBOL_REF_AUTO_PIC_P (symbol))
+	return NANO_PIC_AUTO;
+
+      // @tmt FIXME: What is the override order for the model option,
+      // the model attribute, and the flag_pic option?
+      if (nano_pic_model_var == NANO_PIC_AUTO)
+	return NANO_PIC_AUTO;
+
+      if (flag_pic == 1)
+	return NANO_PIC_MEDIUM;
+
+      if (flag_pic == 2)
+	return NANO_PIC_LARGE;
+    }
+
+  if (SYMBOL_REF_AUTO_PIC_P (symbol))
     return NANO_PIC_AUTO;
-
-  bool external_p = !(mips_symbol_binds_local_p (symbol));
-
-  /* flag_pic overrides the model for medium and large.  */
-  if (external_p && flag_pic == 1)
-    return NANO_PIC_MEDIUM;
-
-  if (external_p && flag_pic == 2)
-    return NANO_PIC_LARGE;
 
   if (SYMBOL_REF_MEDIUM_PIC_P (symbol))
     return NANO_PIC_MEDIUM;
