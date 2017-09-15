@@ -3182,7 +3182,7 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	    {
 	      if (symbol_pic_model == NANO_PIC_AUTO
 		  && !SYMBOL_REF_WEAK (x))
-		return SYMBOL_GOT_DISP;
+		return SYMBOL_GOT_CALL;
 	      else if (symbol_pic_model == NANO_PIC_MEDIUM
 		       && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_DISP;
@@ -3482,6 +3482,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 offset is only valid if we know it won't lead to such a carry.  */
       return mips_offset_within_alignment_p (x, INTVAL (offset));
 
+    case SYMBOL_GOT_CALL:
     case SYMBOL_GOT_DISP:
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
@@ -3585,6 +3586,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 
       return 0;
 
+    case SYMBOL_GOT_CALL:
     case SYMBOL_GOT_DISP:
     case SYMBOL_GOT_PCREL32_NANO:
       /* The constant will have to be loaded from the GOT before it
@@ -8924,11 +8926,27 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
 	mips_classify_symbol (addr, SYMBOL_CONTEXT_CALL);
 
       if (symbol_type == SYMBOL_GOT_PCREL32_NANO)
-	emit_insn (gen_rtx_SET (dest, addr));
-      else
-	mips_emit_move (dest, addr);
+	{
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return false;
+	}
 
-      return false;
+      if (symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
+      if (!(type == MIPS_CALL_SIBCALL)
+	  && !mips_symbol_binds_local_p (addr))
+	{
+	  if (symbol_type == SYMBOL_GOT_CALL)
+	    addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_CALL);
+	  else
+	    addr = mips_got_load (dest, addr, SYMBOL_GOTOFF_DISP);
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return true;
+	}
     }
 
   if (TARGET_EXPLICIT_RELOCS
@@ -10826,18 +10844,6 @@ mips_print_operand_reloc (FILE *file, rtx op, enum mips_symbol_context context,
 
   symbol_type = mips_classify_symbolic_expression (op, context);
   gcc_assert (relocs[symbol_type]);
-
-  // @tmt FIXME: both if's are needed because mips_lo_relocs is global
-  if (TARGET_NANOMIPS
-      && symbol_type == SYMBOL_GOTOFF_CALL
-      && mips_get_nano_pic_model (op) == NANO_PIC_AUTO)
-    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
-
-  if (TARGET_NANOMIPS
-      && symbol_type == SYMBOL_GOTOFF_CALL
-      && mips_get_nano_pic_model (op) == NANO_PIC_MEDIUM)
-    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_disp(";
-
   fputs (relocs[symbol_type], file);
   output_addr_const (file, mips_strip_unspec_address (op));
   for (p = relocs[symbol_type]; *p != 0; p++)
@@ -22094,7 +22100,8 @@ mips_annotate_pic_calls (void)
       symbol = mips_find_pic_call_symbol (insn, reg, true);
       if (symbol
 	  && mips_get_nano_pic_model (symbol) == NANO_PIC_AUTO
-	  && mips_classify_symbol (symbol, SYMBOL_CONTEXT_CALL) == SYMBOL_GOT_DISP
+	  && mips_classify_symbol (symbol, SYMBOL_CONTEXT_CALL) ==
+	  SYMBOL_GOT_CALL
 	  && !mips_symbol_binds_local_p (symbol))
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
