@@ -37,4 +37,4 @@ foo (int i)
 /* { dg-final { scan-assembler "\tlw\t" } } */
 /* { dg-final { scan-assembler "\t\\.rdata" } } */
 /* { dg-final { scan-assembler-times "\t\\.word\t\\\$L" 12 } } */
-/* { dg-final { scan-assembler-times "lw\t\\\$a0,%gp_rel\\(x\[0-9\]\{1,2\}\\)\\(\\\$gp\\)" 12 } } */
+/* { dg-final { scan-assembler-times "lw\t\\\$a0,%gprel\\(x\[0-9\]\{1,2\}\\)\\(\\\$gp\\)" 12 } } */
