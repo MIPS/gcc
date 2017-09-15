@@ -1,3 +1,4 @@
+/* { dg-require-effective-target nonpic } */
 /* { dg-options "-m32 -fpeephole2 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 

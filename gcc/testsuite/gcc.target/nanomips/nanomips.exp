@@ -234,6 +234,7 @@ set mips_option_groups {
     addressing "addressing=.*"
     arch "-march=(32r6|32r6s|64r6)|isa(|_rev)(=|<=|>=).*"
     model "-mcmodel=(auto|medium|large)"
+    pcrel "-m(no-|)pcrel"
     debug "-g.*"
     dump_pattern "-dp"
     endianness "-E(L|B)|-me(l|b)"
