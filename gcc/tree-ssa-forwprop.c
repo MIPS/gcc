@@ -1952,7 +1952,6 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   unsigned HOST_WIDE_INT nelts;
   enum tree_code code, conv_code;
   constructor_elt *elt;
-  unsigned char *sel;
   bool maybe_ident;
 
   gcc_checking_assert (gimple_assign_rhs_code (stmt) == CONSTRUCTOR);
@@ -1966,7 +1965,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   elem_type = TREE_TYPE (type);
   elem_size = TREE_INT_CST_LOW (TYPE_SIZE (elem_type));
 
-  sel = XALLOCAVEC (unsigned char, nelts);
+  auto_vec_perm_indices sel (nelts);
   orig = NULL;
   conv_code = ERROR_MARK;
   maybe_ident = true;
@@ -2022,10 +2021,13 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
 	    return false;
 	  orig = ref;
 	}
+      unsigned int elt;
       if (may_ne (bit_field_size (op1), elem_size)
-	  || !constant_multiple_p (bit_field_offset (op1), elem_size, &sel[i]))
+	  || !constant_multiple_p (bit_field_offset (op1), elem_size, &elt))
 	return false;
-      if (sel[i] != i) maybe_ident = false;
+      if (elt != i)
+	maybe_ident = false;
+      sel.quick_push (elt);
     }
   if (i < nelts)
     return false;
@@ -2052,9 +2054,9 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
     }
   else
     {
-      tree mask_type, *mask_elts;
+      tree mask_type;
 
-      if (!can_vec_perm_p (TYPE_MODE (type), false, nelts, sel))
+      if (!can_vec_perm_p (TYPE_MODE (type), false, &sel))
 	return false;
       mask_type
 	= build_vector_type (build_nonstandard_integer_type (elem_size, 1),
@@ -2063,10 +2065,10 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
 	  || may_ne (GET_MODE_SIZE (TYPE_MODE (mask_type)),
 		     GET_MODE_SIZE (TYPE_MODE (type))))
 	return false;
-      mask_elts = XALLOCAVEC (tree, nelts);
+      auto_vec<tree, 32> mask_elts (nelts);
       for (i = 0; i < nelts; i++)
-	mask_elts[i] = build_int_cst (TREE_TYPE (mask_type), sel[i]);
-      op2 = build_vector (mask_type, nelts, mask_elts);
+	mask_elts.quick_push (build_int_cst (TREE_TYPE (mask_type), sel[i]));
+      op2 = build_vector (mask_type, mask_elts);
       if (conv_code == ERROR_MARK)
 	gimple_assign_set_rhs_with_ops (gsi, VEC_PERM_EXPR, orig, orig, op2);
       else

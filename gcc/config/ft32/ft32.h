@@ -171,13 +171,6 @@ enum reg_class
 #define REGNO_REG_CLASS(R) ((R < FT32_PC) ? GENERAL_REGS :                \
                             (R == FT32_CC ? CC_REGS : SPECIAL_REGS))
 
-/* A C expression for the number of consecutive hard registers,
-   starting at register number REGNO, required to hold a value of mode
-   MODE.  */
-#define HARD_REGNO_NREGS(REGNO, MODE)                      \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)             \
-   / UNITS_PER_WORD)
-
 /* The Overall Framework of an Assembler File */
 
 #undef  ASM_SPEC
@@ -456,7 +449,6 @@ do { \
    quickly between memory and registers or between two memory
    locations.  */
 #define MOVE_MAX 4
-#define TRULY_NOOP_TRUNCATION(op,ip) 1
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */

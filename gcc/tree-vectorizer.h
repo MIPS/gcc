@@ -1512,6 +1512,14 @@ vect_max_vf (loop_vec_info loop_vinfo)
   return MAX_VECTORIZATION_FACTOR;
 }
 
+/* Return the size of the scalar value accessed by DR.  */
+
+inline unsigned int
+vect_get_scalar_dr_size (struct data_reference *dr)
+{
+  return tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr))));
+}
+
 /* Source location */
 extern source_location vect_location;
 
@@ -1592,9 +1600,8 @@ extern void vect_get_load_cost (struct data_reference *, int, bool,
 extern void vect_get_store_cost (struct data_reference *, int,
 				 unsigned int *, stmt_vector_for_cost *);
 extern bool vect_supportable_shift (enum tree_code, tree);
-extern tree vect_gen_perm_mask_any (tree, unsigned int, const unsigned char *);
-extern tree vect_gen_perm_mask_checked (tree, unsigned int,
-					const unsigned char *);
+extern tree vect_gen_perm_mask_any (tree, vec_perm_indices);
+extern tree vect_gen_perm_mask_checked (tree, vec_perm_indices);
 extern void optimize_mask_stores (struct loop*);
 extern gcall *vect_gen_while (tree, tree, tree);
 extern tree vect_gen_while_not (gimple_seq *, tree, tree, tree);
@@ -1678,7 +1685,7 @@ extern bool vectorizable_reduction (gimple *, gimple_stmt_iterator *,
 extern bool vectorizable_induction (gimple *, gimple_stmt_iterator *,
 				    gimple **, slp_tree);
 extern tree get_initial_def_for_reduction (gimple *, tree, tree *);
-extern bool vect_worthwhile_without_simd_p (loop_vec_info, tree_code);
+extern bool vect_worthwhile_without_simd_p (vec_info *, tree_code);
 extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *,
@@ -1701,7 +1708,7 @@ extern bool is_simple_and_all_uses_invariant (gimple *, loop_vec_info);
 extern bool can_duplicate_and_interleave_p (unsigned int, machine_mode,
 					    unsigned int * = NULL,
 					    machine_mode * = NULL);
-extern void duplicate_and_interleave (gimple_seq *, tree, unsigned int, tree *,
+extern void duplicate_and_interleave (gimple_seq *, tree, vec<tree>,
 				      unsigned int, vec<tree> &);
 
 /* In tree-vect-patterns.c.  */

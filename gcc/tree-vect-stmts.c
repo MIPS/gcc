@@ -2216,29 +2216,30 @@ do_scatter_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     modifier = NONE;
   else if (must_eq (nunits * 2, scatter_off_nunits))
     {
-      /* Enforced when we checked the mask originally.  */
-      int count = scatter_off_nunits.to_constant ();
-      unsigned char *sel = XALLOCAVEC (unsigned char, count);
       modifier = WIDEN;
 
-      for (int i = 0; i < count; ++i)
-	sel[i] = i | (count / 2);
+      /* Currently gathers and scatters are only supported for
+	 fixed-length vectors.  */
+      unsigned int count = scatter_off_nunits.to_constant ();
+      auto_vec_perm_indices sel (count);
+      for (unsigned int i = 0; i < count; ++i)
+	sel.quick_push (i | (count / 2));
 
-      perm_mask = vect_gen_perm_mask_checked (gs_info->offset_vectype,
-					      count, sel);
+      perm_mask = vect_gen_perm_mask_checked (gs_info->offset_vectype, sel);
       gcc_assert (perm_mask != NULL_TREE);
     }
   else if (must_eq (nunits, scatter_off_nunits * 2))
     {
-      /* Enforced when we checked the mask originally.  */
-      int count = nunits.to_constant ();
-      unsigned char *sel = XALLOCAVEC (unsigned char, count);
       modifier = NARROW;
 
-      for (int i = 0; i < count; ++i)
-	sel[i] = i | (count / 2);
+      /* Currently gathers and scatters are only supported for
+	 fixed-length vectors.  */
+      unsigned int count = nunits.to_constant ();
+      auto_vec_perm_indices sel (count);
+      for (unsigned int i = 0; i < count; ++i)
+	sel.quick_push (i | (count / 2));
 
-      perm_mask = vect_gen_perm_mask_checked (vectype, count, sel);
+      perm_mask = vect_gen_perm_mask_checked (vectype, sel);
       gcc_assert (perm_mask != NULL_TREE);
       ncopies *= 2;
     }
@@ -2485,32 +2486,32 @@ do_gather_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       if (!wgather->off_vectype)
 	{
 	  /* Enforced when we checked the mask originally.  */
-	  int count = gather_off_nunits.to_constant ();
-	  unsigned char *sel = XALLOCAVEC (unsigned char, count);
-	  for (int i = 0; i < count; ++i)
-	    sel[i] = i | (count / 2);
-	  perm_mask = vect_gen_perm_mask_checked (gs_info->offset_vectype,
-						  count, sel);
+	  unsigned int count = gather_off_nunits.to_constant ();
+	  auto_vec_perm_indices sel (count);
+	  for (unsigned int i = 0; i < count; ++i)
+	    sel.quick_push (i | (count / 2));
+	  perm_mask
+	    = vect_gen_perm_mask_checked (gs_info->offset_vectype, sel);
 	}
     }
   else if (must_eq (nunits, gather_off_nunits * 2))
     {
-      /* Enforced when we checked the mask originally.  */
-      int count = nunits.to_constant ();
-      unsigned char *sel = XALLOCAVEC (unsigned char, count);
       modifier = NARROW;
 
-      for (int i = 0; i < count; ++i)
+      /* Enforced when we checked the mask originally.  */
+      unsigned int count = nunits.to_constant ();
+      auto_vec_perm_indices sel (count);
+      sel.quick_grow (count);
+      for (unsigned int i = 0; i < count; ++i)
 	sel[i] = i < count / 2 ? i : i + count / 2;
-
-      perm_mask = vect_gen_perm_mask_checked (vectype, count, sel);
+      perm_mask = vect_gen_perm_mask_checked (vectype, sel);
       ncopies *= 2;
 
       if (masked_stmt_p)
 	{
-	  for (int i = 0; i < count; ++i)
+	  for (unsigned int i = 0; i < count; ++i)
 	    sel[i] = i | (count / 2);
-	  mask_perm_mask = vect_gen_perm_mask_checked (masktype, count, sel);
+	  mask_perm_mask = vect_gen_perm_mask_checked (masktype, sel);
 	}
     }
   else
@@ -2967,19 +2968,17 @@ static tree
 perm_mask_for_reverse (tree vectype)
 {
   unsigned HOST_WIDE_INT i, nunits;
-  unsigned char *sel;
 
   if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nunits))
     return NULL_TREE;
 
-  sel = XALLOCAVEC (unsigned char, nunits);
-
+  auto_vec_perm_indices sel (nunits);
   for (i = 0; i < nunits; ++i)
-    sel[i] = nunits - 1 - i;
+    sel.quick_push (nunits - 1 - i);
 
-  if (!can_vec_perm_p (TYPE_MODE (vectype), false, nunits, sel))
+  if (!can_vec_perm_p (TYPE_MODE (vectype), false, &sel))
     return NULL_TREE;
-  return vect_gen_perm_mask_checked (vectype, nunits, sel);
+  return vect_gen_perm_mask_checked (vectype, sel);
 }
 
 /* Return true if the target can reverse the elements in a vector of
@@ -3972,14 +3971,14 @@ vectorizable_bswap (gimple *stmt, gimple_stmt_iterator *gsi,
   if (!TYPE_VECTOR_SUBPARTS (char_vectype).is_constant (&num_bytes))
     return false;
 
-  unsigned char *elts = XALLOCAVEC (unsigned char, num_bytes);
-  unsigned char *elt = elts;
   unsigned word_bytes = num_bytes / nunits;
+
+  auto_vec_perm_indices elts (num_bytes);
   for (unsigned i = 0; i < nunits; ++i)
     for (unsigned j = 0; j < word_bytes; ++j)
-      *elt++ = (i + 1) * word_bytes - j - 1;
+      elts.quick_push ((i + 1) * word_bytes - j - 1);
 
-  if (! can_vec_perm_p (TYPE_MODE (char_vectype), false, num_bytes, elts))
+  if (! can_vec_perm_p (TYPE_MODE (char_vectype), false, &elts))
     return false;
 
   if (! vec_stmt)
@@ -3998,10 +3997,10 @@ vectorizable_bswap (gimple *stmt, gimple_stmt_iterator *gsi,
       return true;
     }
 
-  tree *telts = XALLOCAVEC (tree, num_bytes);
+  auto_vec<tree, 32> telts (num_bytes);
   for (unsigned i = 0; i < num_bytes; ++i)
-    telts[i] = build_int_cst (char_type_node, elts[i]);
-  tree bswap_vconst = build_vector (char_vectype, num_bytes, telts);
+    telts.quick_push (build_int_cst (char_type_node, elts[i]));
+  tree bswap_vconst = build_vector (char_vectype, telts);
 
   /* Transform.  */
   vec<tree> vec_oprnds = vNULL;
@@ -6547,7 +6546,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
       /* Check only during analysis.  */
       if (may_ne (GET_MODE_SIZE (vec_mode), UNITS_PER_WORD)
 	  || (!vec_stmt
-	      && !vect_worthwhile_without_simd_p (loop_vinfo, code)))
+	      && !vect_worthwhile_without_simd_p (vinfo, code)))
         return false;
       if (dump_enabled_p ())
         dump_printf_loc (MSG_NOTE, vect_location,
@@ -6557,7 +6556,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Worthwhile without SIMD support?  Check only during analysis.  */
   if (!vec_stmt
       && !VECTOR_MODE_P (TYPE_MODE (vectype))
-      && !vect_worthwhile_without_simd_p (loop_vinfo, code))
+      && !vect_worthwhile_without_simd_p (vinfo, code))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6871,7 +6870,7 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
                          "op not supported by target.\n");
       /* Check only during analysis.  */
       if (may_ne (GET_MODE_SIZE (vec_mode), UNITS_PER_WORD)
-	  || (!vec_stmt && !vect_worthwhile_without_simd_p (loop_vinfo, code)))
+	  || (!vec_stmt && !vect_worthwhile_without_simd_p (vinfo, code)))
         return false;
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_NOTE, vect_location,
@@ -6881,7 +6880,7 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Worthwhile without SIMD support?  Check only during analysis.  */
   if (!VECTOR_MODE_P (vec_mode)
       && !vec_stmt
-      && !vect_worthwhile_without_simd_p (loop_vinfo, code))
+      && !vect_worthwhile_without_simd_p (vinfo, code))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -7818,29 +7817,27 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   return true;
 }
 
-/* Given a vector type VECTYPE with NUNITS elements, turns permutation
-   SEL into the equivalent VECTOR_CST mask.  No checks are made that the
-   target platform supports the mask, so callers may wish to test
-   can_vec_perm_p separately, or use vect_gen_perm_mask_checked.  */
+/* Given a vector type VECTYPE, turns permutation SEL into the equivalent
+   VECTOR_CST mask.  No checks are made that the target platform supports the
+   mask, so callers may wish to test can_vec_perm_p separately, or use
+   vect_gen_perm_mask_checked.  */
 
 tree
-vect_gen_perm_mask_any (tree vectype, unsigned int nunits,
-			const unsigned char *sel)
+vect_gen_perm_mask_any (tree vectype, vec_perm_indices sel)
 {
-  tree mask_elt_type, mask_type, mask_vec, *mask_elts;
-  int i;
+  tree mask_elt_type, mask_type, mask_vec;
 
+  unsigned int nunits = sel.length ();
   gcc_checking_assert (must_eq (nunits, TYPE_VECTOR_SUBPARTS (vectype)));
 
-  scalar_int_mode imode
-    = int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype))).require ();
-  mask_elt_type = lang_hooks.types.type_for_mode (imode, 1);
+  mask_elt_type = lang_hooks.types.type_for_mode
+    (int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype))).require (), 1);
   mask_type = get_vectype_for_scalar_type (mask_elt_type);
 
-  mask_elts = XALLOCAVEC (tree, nunits);
-  for (i = nunits - 1; i >= 0; i--)
-    mask_elts[i] = build_int_cst (mask_elt_type, sel[i]);
-  mask_vec = build_vector (mask_type, nunits, mask_elts);
+  auto_vec<tree, 32> mask_elts (nunits);
+  for (unsigned int i = 0; i < nunits; ++i)
+    mask_elts.quick_push (build_int_cst (mask_elt_type, sel[i]));
+  mask_vec = build_vector (mask_type, mask_elts);
 
   return mask_vec;
 }
@@ -7849,11 +7846,10 @@ vect_gen_perm_mask_any (tree vectype, unsigned int nunits,
    i.e. that the target supports the pattern _for arbitrary input vectors_.  */
 
 tree
-vect_gen_perm_mask_checked (tree vectype, unsigned int nunits,
-			    const unsigned char *sel)
+vect_gen_perm_mask_checked (tree vectype, vec_perm_indices sel)
 {
-  gcc_assert (can_vec_perm_p (TYPE_MODE (vectype), false, nunits, sel));
-  return vect_gen_perm_mask_any (vectype, nunits, sel);
+  gcc_assert (can_vec_perm_p (TYPE_MODE (vectype), false, &sel));
+  return vect_gen_perm_mask_any (vectype, sel);
 }
 
 /* Given a vector variable X and Y, that was generated for the scalar
@@ -9538,8 +9534,8 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
     ncopies = 1;
   else
     ncopies = vect_get_num_copies (loop_vinfo, vectype);
-  gcc_assert (ncopies >= 1);
 
+  gcc_assert (ncopies >= 1);
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_internal_def
       && !(STMT_VINFO_DEF_TYPE (stmt_info) == vect_nested_cycle
 	   && reduc_def))
@@ -9884,7 +9880,7 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
    if STMT is not live or if vectorizable_live_operation can handle it.
    GSI and VEC_STMT are as for vectorizable_live_operation.  */
 
-bool
+static bool
 can_vectorize_live_stmts (gimple *stmt, gimple_stmt_iterator *gsi,
 			  slp_tree slp_node, gimple **vec_stmt)
 {
@@ -10521,8 +10517,8 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, poly_uint64 size)
   else if (!multiple_p (size, nbytes, &nunits)
 	   || !mode_for_vector (inner_mode, nunits).exists (&simd_mode))
     return NULL_TREE;
-  if (!multiple_p (GET_MODE_SIZE (simd_mode), nbytes, &nunits)
-      || must_le (nunits, 1U))
+  /* NOTE: nunits == 1 is allowed to support single element vector types.  */
+  if (!multiple_p (GET_MODE_SIZE (simd_mode), nbytes, &nunits))
     return NULL_TREE;
 
   vectype = build_vector_type (scalar_type, nunits);

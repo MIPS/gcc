@@ -249,6 +249,7 @@ package body Einfo is
    --    BIP_Initialization_Call         Node29
    --    Subprograms_For_Type            Elist29
 
+   --    Access_Disp_Table_Elab_Flag     Node30
    --    Anonymous_Object                Node30
    --    Corresponding_Equality          Node30
    --    Last_Aggregate_Assignment       Node30
@@ -333,7 +334,7 @@ package body Einfo is
    --    Body_Needed_For_SAL             Flag40
 
    --    Treat_As_Volatile               Flag41
-   --    Is_Controlled                   Flag42
+   --    Is_Controlled_Active            Flag42
    --    Has_Controlled_Component        Flag43
    --    Is_Pure                         Flag44
    --    In_Private_Part                 Flag45
@@ -718,11 +719,19 @@ package body Einfo is
 
    function Access_Disp_Table (Id : E) return L is
    begin
-      pragma Assert (Ekind_In (Id, E_Record_Type,
-                                   E_Record_Type_With_Private,
-                                   E_Record_Subtype));
+      pragma Assert (Ekind_In (Id, E_Record_Subtype,
+                                   E_Record_Type,
+                                   E_Record_Type_With_Private));
       return Elist16 (Implementation_Base_Type (Id));
    end Access_Disp_Table;
+
+   function Access_Disp_Table_Elab_Flag (Id : E) return E is
+   begin
+      pragma Assert (Ekind_In (Id, E_Record_Subtype,
+                                   E_Record_Type,
+                                   E_Record_Type_With_Private));
+      return Node30 (Implementation_Base_Type (Id));
+   end Access_Disp_Table_Elab_Flag;
 
    function Activation_Record_Component (Id : E) return E is
    begin
@@ -2180,10 +2189,10 @@ package body Einfo is
       return Flag76 (Id);
    end Is_Constructor;
 
-   function Is_Controlled (Id : E) return B is
+   function Is_Controlled_Active (Id : E) return B is
    begin
       return Flag42 (Base_Type (Id));
-   end Is_Controlled;
+   end Is_Controlled_Active;
 
    function Is_Controlling_Formal (Id : E) return B is
    begin
@@ -3817,6 +3826,14 @@ package body Einfo is
       Set_Elist16 (Id, V);
    end Set_Access_Disp_Table;
 
+   procedure Set_Access_Disp_Table_Elab_Flag (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind (Id) = E_Record_Type
+        and then Id = Implementation_Base_Type (Id));
+      pragma Assert (Is_Tagged_Type (Id));
+      Set_Node30 (Id, V);
+   end Set_Access_Disp_Table_Elab_Flag;
+
    procedure Set_Anonymous_Designated_Type (Id : E; V : E) is
    begin
       pragma Assert (Ekind (Id) = E_Variable);
@@ -5324,11 +5341,11 @@ package body Einfo is
       Set_Flag76 (Id, V);
    end Set_Is_Constructor;
 
-   procedure Set_Is_Controlled (Id : E; V : B := True) is
+   procedure Set_Is_Controlled_Active (Id : E; V : B := True) is
    begin
       pragma Assert (Id = Base_Type (Id));
       Set_Flag42 (Id, V);
-   end Set_Is_Controlled;
+   end Set_Is_Controlled_Active;
 
    procedure Set_Is_Controlling_Formal (Id : E; V : B := True) is
    begin
@@ -7885,14 +7902,14 @@ package body Einfo is
         K = E_Constant or else K = E_In_Parameter or else K = E_Loop_Parameter;
    end Is_Constant_Object;
 
-   --------------------------
-   -- Is_Controlled_Active --
-   --------------------------
+   -------------------
+   -- Is_Controlled --
+   -------------------
 
-   function Is_Controlled_Active (Id : E) return B is
+   function Is_Controlled (Id : E) return B is
    begin
-      return Is_Controlled (Id) and then not Disable_Controlled (Id);
-   end Is_Controlled_Active;
+      return Is_Controlled_Active (Id) and then not Disable_Controlled (Id);
+   end Is_Controlled;
 
    --------------------
    -- Is_Discriminal --
@@ -9276,17 +9293,26 @@ package body Einfo is
 
    function Underlying_Type (Id : E) return E is
    begin
-      --  For record_with_private the underlying type is always the direct
-      --  full view. Never try to take the full view of the parent it
-      --  doesn't make sense.
+      --  For record_with_private the underlying type is always the direct full
+      --  view. Never try to take the full view of the parent it does not make
+      --  sense.
 
       if Ekind (Id) = E_Record_Type_With_Private then
          return Full_View (Id);
 
+      --  If we have a class-wide type that comes from the limited view then we
+      --  return the Underlying_Type of its nonlimited view.
+
+      elsif Ekind (Id) = E_Class_Wide_Type
+        and then From_Limited_With (Id)
+        and then Present (Non_Limited_View (Id))
+      then
+         return Underlying_Type (Non_Limited_View (Id));
+
       elsif Ekind (Id) in Incomplete_Or_Private_Kind then
 
-         --  If we have an incomplete or private type with a full view,
-         --  then we return the Underlying_Type of this full view.
+         --  If we have an incomplete or private type with a full view, then we
+         --  return the Underlying_Type of this full view.
 
          if Present (Full_View (Id)) then
             if Id = Full_View (Id) then
@@ -9307,9 +9333,8 @@ package body Einfo is
          then
             return Underlying_Type (Underlying_Full_View (Id));
 
-         --  If we have an incomplete entity that comes from the limited
-         --  view then we return the Underlying_Type of its non-limited
-         --  view.
+         --  If we have an incomplete entity that comes from the limited view
+         --  then we return the Underlying_Type of its nonlimited view.
 
          elsif From_Limited_With (Id)
            and then Present (Non_Limited_View (Id))
@@ -9322,10 +9347,9 @@ package body Einfo is
          elsif Etype (Id) /= Id then
             return Underlying_Type (Etype (Id));
 
-         --  Otherwise we have an incomplete or private type that has
-         --  no full view, which means that we have not encountered the
-         --  completion, so return Empty to indicate the underlying type
-         --  is not yet known.
+         --  Otherwise we have an incomplete or private type that has no full
+         --  view, which means that we have not encountered the completion, so
+         --  return Empty to indicate the underlying type is not yet known.
 
          else
             return Empty;
@@ -9525,7 +9549,7 @@ package body Einfo is
       W ("Is_Constr_Subt_For_U_Nominal",    Flag80  (Id));
       W ("Is_Constrained",                  Flag12  (Id));
       W ("Is_Constructor",                  Flag76  (Id));
-      W ("Is_Controlled",                   Flag42  (Id));
+      W ("Is_Controlled_Active",            Flag42  (Id));
       W ("Is_Controlling_Formal",           Flag97  (Id));
       W ("Is_Descendant_Of_Address",        Flag223 (Id));
       W ("Is_DIC_Procedure",                Flag132 (Id));
@@ -10855,6 +10879,11 @@ package body Einfo is
    procedure Write_Field30_Name (Id : Entity_Id) is
    begin
       case Ekind (Id) is
+         when E_Record_Type
+            | E_Record_Type_With_Private
+         =>
+            Write_Str ("Access_Disp_Table_Elab_Flag");
+
          when E_Protected_Type
             | E_Task_Type
          =>

@@ -4078,7 +4078,7 @@ extern tree build_int_cst (tree, poly_int64);
 extern tree build_int_cstu (tree type, poly_uint64);
 extern tree build_int_cst_type (tree, poly_int64);
 extern tree make_vector (unsigned CXX_MEM_STAT_INFO);
-extern tree build_vector (tree, unsigned int, tree * CXX_MEM_STAT_INFO);
+extern tree build_vector (tree, vec<tree> CXX_MEM_STAT_INFO);
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
 extern tree build_index_vector (tree, poly_uint64, poly_uint64);

@@ -5562,7 +5562,14 @@ tilegx_file_end (void)
     file_end_indicate_exec_stack ();
 }
 
+/* Implement TARGET_TRULY_NOOP_TRUNCATION.  We represent all SI values
+   as sign-extended DI values in registers.  */
 
+static bool
+tilegx_truly_noop_truncation (poly_uint64 outprec, poly_uint64 inprec)
+{
+  return inprec <= 32 || outprec > 32;
+}
 
 #undef  TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS HAVE_AS_TLS
@@ -5725,6 +5732,9 @@ tilegx_file_end (void)
 
 #undef  TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
+
+#undef  TARGET_TRULY_NOOP_TRUNCATION
+#define TARGET_TRULY_NOOP_TRUNCATION tilegx_truly_noop_truncation
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

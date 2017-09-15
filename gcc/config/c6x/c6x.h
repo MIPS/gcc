@@ -181,11 +181,6 @@ extern c6x_cpu_t c6x_arch;
     REG_A1, REG_A2, REG_B0, REG_B1, REG_B2, REG_ILC			\
   }
 
-#define HARD_REGNO_NREGS(regno, mode)		\
-  ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)  \
-   / UNITS_PER_WORD)
-
-
 /* Register Classes.  */
 
 enum reg_class
@@ -601,7 +596,6 @@ do {									\
 #define CASE_VECTOR_MODE SImode
 #define MOVE_MAX 4
 #define MOVE_RATIO(SPEED) 4
-#define TRULY_NOOP_TRUNCATION(outprec, inprec) 1
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 #define Pmode SImode
 #define FUNCTION_MODE QImode

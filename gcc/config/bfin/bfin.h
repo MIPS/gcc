@@ -683,11 +683,6 @@ enum reg_class
   ((MODE) == V2PDImode && (CLASS) == AREGS ? 2				\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-#define HARD_REGNO_NREGS(REGNO, MODE) \
-  ((MODE) == PDImode && ((REGNO) == REG_A0 || (REGNO) == REG_A1) ? 1	\
-   : (MODE) == V2PDImode && ((REGNO) == REG_A0 || (REGNO) == REG_A1) ? 2 \
-   : CLASS_MAX_NREGS (GENERAL_REGS, MODE))
-
 /* A C expression that is nonzero if hard register TO can be
    considered for use as a rename register for FROM register */
 #define HARD_REGNO_RENAME_OK(FROM, TO) bfin_hard_regno_rename_ok (FROM, TO)
@@ -803,10 +798,6 @@ typedef struct {
  || (GET_CODE (X) == CONST && symbolic_reference_mentioned_p (X)))
 
 #define NOTICE_UPDATE_CC(EXPR, INSN) 0
-
-/* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
-   is done just by pretending it is already truncated.  */
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

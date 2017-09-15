@@ -4945,7 +4945,6 @@ expand_debug_expr (tree exp)
 	unsigned i, nelts;
 
 	nelts = VECTOR_CST_NELTS (exp);
-	gcc_assert (must_eq (nelts, TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
 	op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
 
 	for (i = 0; i < nelts; ++i)

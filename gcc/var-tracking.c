@@ -5349,7 +5349,7 @@ track_loc_p (rtx loc, tree expr, poly_int64 offset, bool store_reg_p,
   if ((paradoxical_subreg_p (mode, DECL_MODE (expr))
        || (store_reg_p
 	   && !COMPLEX_MODE_P (DECL_MODE (expr))
-	   && hard_regno_nregs[REGNO (loc)][DECL_MODE (expr)] == 1))
+	   && hard_regno_nregs (REGNO (loc), DECL_MODE (expr)) == 1))
       && must_eq (offset + byte_lowpart_offset (DECL_MODE (expr), mode), 0))
     {
       mode = DECL_MODE (expr);
@@ -8768,8 +8768,8 @@ emit_note_insn_var_location (variable **varp, emit_note_data *data)
 	  poly_int64 offset;
 
 	  if (REG_P (loc[n_var_parts])
-	      && hard_regno_nregs[REGNO (loc[n_var_parts])][mode] * 2
-		 == hard_regno_nregs[REGNO (loc[n_var_parts])][wider_mode]
+	      && hard_regno_nregs (REGNO (loc[n_var_parts]), mode) * 2
+		 == hard_regno_nregs (REGNO (loc[n_var_parts]), wider_mode)
 	      && end_hard_regno (mode, REGNO (loc[n_var_parts]))
 		 == REGNO (loc2))
 	    {

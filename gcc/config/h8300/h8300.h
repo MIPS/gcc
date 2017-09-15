@@ -236,9 +236,6 @@ extern const char * const *h8_reg_names;
 /* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap  fp */	\
   { 2, 3, 0, 1, 4, 5, 6, 8,  7, 9, 10, 11 }
 
-#define HARD_REGNO_NREGS(REGNO, MODE)		\
-  h8300_hard_regno_nregs ((REGNO), (MODE))
-
 /* A C expression that is nonzero if hard register NEW_REG can be
    considered for use as a rename register for OLD_REG register */
 
@@ -563,10 +560,6 @@ struct cum_arg
    which implies one can omit a sign-extension or zero-extension
    of a shift count.  */
 /* #define SHIFT_COUNT_TRUNCATED */
-
-/* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
-   is done just by pretending it is already truncated.  */
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

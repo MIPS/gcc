@@ -601,7 +601,7 @@ vect_record_max_nunits (vec_info *vinfo, gimple *stmt, unsigned int group_size,
       && (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&const_vf)
 	  || const_vf > group_size))
     {
-      dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
+      dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 		       "Build SLP failed: unrolling required "
 		       "in basic block SLP\n");
       /* Fatal mismatch.  */
@@ -1014,8 +1014,8 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
   if (alt_stmt_code != ERROR_MARK
       && TREE_CODE_CLASS (alt_stmt_code) != tcc_reference)
     {
-      unsigned HOST_WIDE_INT nelts;
-      if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nelts))
+      unsigned HOST_WIDE_INT count;
+      if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&count))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1023,14 +1023,15 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
 			     "not allowed with variable-length SLP.\n");
 	  return false;
 	}
-      unsigned char *sel = XALLOCAVEC (unsigned char, nelts);
-      for (i = 0; i < nelts; ++i)
+      auto_vec_perm_indices sel (count);
+      for (i = 0; i < count; ++i)
 	{
-	  sel[i] = i;
+	  unsigned int elt = i;
 	  if (gimple_assign_rhs_code (stmts[i % group_size]) == alt_stmt_code)
-	    sel[i] += nelts;
+	    elt += count;
+	  sel.quick_push (elt);
 	}
-      if (!can_vec_perm_p (TYPE_MODE (vectype), false, nelts, sel))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, &sel))
 	{
 	  for (i = 0; i < group_size; ++i)
 	    if (gimple_assign_rhs_code (stmts[i]) == alt_stmt_code)
@@ -2808,7 +2809,7 @@ vect_slp_analyze_node_operations (vec_info *vinfo, slp_tree node,
 }
 
 
-/* Analyze statements in SLP instances of VINFO.  Return TRUE if the
+/* Analyze statements in SLP instances of VINFO.  Return true if the
    operations are supported. */
 
 bool
@@ -3319,7 +3320,7 @@ vect_mask_constant_operand_p (gimple *stmt, int opnum)
   return VECTOR_BOOLEAN_TYPE_P (STMT_VINFO_VECTYPE (stmt_vinfo));
 }
 
-/* Build a variable-length vector in which ELTS[0:NELTS] are repeated
+/* Build a variable-length vector in which the elements in ELTS are repeated
    to a fill NRESULTS vectors of type VECTOR_TYPE.  Store the vectors in
    RESULTS and add any new instructions to SEQ.
 
@@ -3342,10 +3343,10 @@ vect_mask_constant_operand_p (gimple *stmt, int opnum)
    to cut down on the number of interleaves.  */
 
 void
-duplicate_and_interleave (gimple_seq *seq, tree vector_type,
-			  unsigned int nelts, tree *elts,
+duplicate_and_interleave (gimple_seq *seq, tree vector_type, vec<tree> elts,
 			  unsigned int nresults, vec<tree> &results)
 {
+  unsigned int nelts = elts.length ();
   tree element_type = TREE_TYPE (vector_type);
 
   /* (1) Find a vector mode VM with integer elements of mode IM.  */
@@ -3366,14 +3367,17 @@ duplicate_and_interleave (gimple_seq *seq, tree vector_type,
   unsigned int partial_nelts = nelts / nvectors;
   tree partial_vector_type = build_vector_type (element_type, partial_nelts);
 
-  auto_vec<tree, 16> pieces;
-  pieces.safe_grow (nvectors * 2);
+  auto_vec<tree, 32> partial_elts (partial_nelts);
+  partial_elts.quick_grow (partial_nelts);
+  auto_vec<tree, 32> pieces (nvectors * 2);
+  pieces.quick_grow (nvectors * 2);
   for (unsigned int i = 0; i < nvectors; ++i)
     {
       /* (2) Replace ELTS[0:NELTS] with ELTS'[0:NELTS'], where each element of
 	     ELTS' has mode IM.  */
-      tree t = gimple_build_vector (seq, partial_vector_type,
-				    partial_nelts, elts + i * partial_nelts);
+      for (unsigned int j = 0; j < partial_nelts; ++j)
+	partial_elts[j] = elts[i * partial_nelts + j];
+      tree t = gimple_build_vector (seq, partial_vector_type, partial_elts);
       t = gimple_build (seq, VIEW_CONVERT_EXPR, new_element_type, t);
 
       /* (3) Duplicate each ELTS'[I] into a vector of mode VM.  */
@@ -3452,7 +3456,6 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   unsigned HOST_WIDE_INT nunits;
   tree vec_cst;
-  tree *elts;
   unsigned j, number_of_places_left_in_vector;
   tree vector_type;
   tree vop;
@@ -3507,7 +3510,8 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   number_of_copies = nunits * number_of_vectors / group_size;
 
   number_of_places_left_in_vector = nunits;
-  elts = XALLOCAVEC (tree, nunits);
+  auto_vec<tree, 32> elts (nunits);
+  elts.quick_grow (nunits);
   bool place_after_defs = false;
   for (j = 0; j < number_of_copies; j++)
     {
@@ -3623,8 +3627,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
             {
 	      if (must_eq (TYPE_VECTOR_SUBPARTS (vector_type), nunits))
 		/* Build the vector directly from ELTS.  */
-		vec_cst = gimple_build_vector (&ctor_seq, vector_type,
-					       nunits, elts);
+		vec_cst = gimple_build_vector (&ctor_seq, vector_type, elts);
 	      else if (neutral_op)
 		{
 		  vec_cst = gimple_build_vector_from_val (&ctor_seq,
@@ -3646,8 +3649,8 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 	      else
 		{
 		  if (vec_oprnds->is_empty ())
-		    duplicate_and_interleave (&ctor_seq, vector_type,
-					      nunits, elts, number_of_vectors,
+		    duplicate_and_interleave (&ctor_seq, vector_type, elts,
+					      number_of_vectors,
 					      permute_results);
 		  vec_cst = permute_results[number_of_vectors - j - 1];
 		}
@@ -3850,7 +3853,6 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   int group_size = SLP_INSTANCE_GROUP_SIZE (slp_node_instance);
   unsigned int mask_element;
-  unsigned char *mask;
   machine_mode mode;
   unsigned HOST_WIDE_INT nunits, const_vf;
 
@@ -3873,7 +3875,8 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
   mask_element_type = lang_hooks.types.type_for_mode
     (int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype))).require (), 1);
   mask_type = get_vectype_for_scalar_type (mask_element_type);
-  mask = XALLOCAVEC (unsigned char, nunits);
+  auto_vec_perm_indices mask (nunits);
+  mask.quick_grow (nunits);
 
   /* Initialize the vect stmts of NODE to properly insert the generated
      stmts later.  */
@@ -3947,7 +3950,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 	  if (index == nunits)
 	    {
 	      if (! noop_p
-		  && ! can_vec_perm_p (mode, false, nunits, mask))
+		  && ! can_vec_perm_p (mode, false, &mask))
 		{
 		  if (dump_enabled_p ())
 		    {
@@ -3970,11 +3973,11 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 		  
 		  if (! noop_p)
 		    {
-		      tree *mask_elts = XALLOCAVEC (tree, nunits);
+		      auto_vec<tree, 32> mask_elts (nunits);
 		      for (unsigned int l = 0; l < nunits; ++l)
-			mask_elts[l] = build_int_cst (mask_element_type,
-						      mask[l]);
-		      mask_vec = build_vector (mask_type, nunits, mask_elts);
+			mask_elts.quick_push (build_int_cst (mask_element_type,
+							     mask[l]));
+		      mask_vec = build_vector (mask_type, mask_elts);
 		    }
 
 		  if (second_vec_index == -1)
@@ -4083,15 +4086,15 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance)
       enum tree_code code0 = gimple_assign_rhs_code (stmt);
       enum tree_code ocode = ERROR_MARK;
       gimple *ostmt;
-      unsigned char *mask = XALLOCAVEC (unsigned char, group_size);
+      auto_vec_perm_indices mask (group_size);
       FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, ostmt)
 	if (gimple_assign_rhs_code (ostmt) != code0)
 	  {
-	    mask[i] = 1;
+	    mask.quick_push (1);
 	    ocode = gimple_assign_rhs_code (ostmt);
 	  }
 	else
-	  mask[i] = 0;
+	  mask.quick_push (0);
       if (ocode != ERROR_MARK)
 	{
 	  vec<gimple *> v0;
@@ -4115,15 +4118,16 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance)
 	      /* Enforced by vect_build_slp_tree, which rejects variable-length
 		 vectors for SLP_TREE_TWO_OPERATORS.  */
 	      unsigned int const_nunits = nunits.to_constant ();
-	      tree *melts = XALLOCAVEC (tree, const_nunits);
+	      auto_vec<tree, 32> melts (const_nunits);
 	      for (l = 0; l < const_nunits; ++l)
 		{
 		  if (k >= group_size)
 		    k = 0;
-		  melts[l] = build_int_cst (meltype,
-					    mask[k++] * const_nunits + l);
+		  tree t = build_int_cst (meltype,
+					  mask[k++] * const_nunits + l);
+		  melts.quick_push (t);
 		}
-	      tmask = build_vector (mvectype, const_nunits, melts);
+	      tmask = build_vector (mvectype, melts);
 
 	      /* ???  Not all targets support a VEC_PERM_EXPR with a
 	         constant mask that would translate to a vec_merge RTX

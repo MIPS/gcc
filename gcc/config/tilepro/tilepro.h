@@ -58,9 +58,6 @@
 #define FASTEST_ALIGNMENT 32
 #define BIGGEST_FIELD_ALIGNMENT 64
 
-/* Unaligned moves trap and are very slow.  */
-#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
-
 /* Make strings word-aligned so strcpy from constants will be
    faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -123,9 +120,6 @@
       61, 62, 63, 64, 65, /* or fake registers */	\
       66						\
 }
-
-#define HARD_REGNO_NREGS(REGNO, MODE)	\
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Register that holds an address into the text segment that can be
    used by pic code.  */
@@ -342,8 +336,6 @@ enum reg_class
 #define SHIFT_COUNT_TRUNCATED 1
 
 #define SHORT_IMMEDIATES_SIGN_EXTEND 1
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)

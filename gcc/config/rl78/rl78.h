@@ -151,8 +151,6 @@
 #define MOVE_MAX 			2
 #define STARTING_FRAME_OFFSET		0
 
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC)   1
-
 #define ADDR_SPACE_NEAR			1
 #define ADDR_SPACE_FAR			2
 
@@ -405,10 +403,6 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
     fprintf (FILE, "\tbsr\t__mcount\n");
-
-
-#define HARD_REGNO_NREGS(REGNO, MODE)            \
-  rl78_hard_regno_nregs (REGNO, MODE)
 
 
 #define TEXT_SECTION_ASM_OP ".text"

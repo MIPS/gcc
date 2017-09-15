@@ -625,7 +625,7 @@ func (v Value) Field(i int) Value {
 	fl := v.flag&(flagStickyRO|flagIndir|flagAddr) | flag(typ.Kind())
 	// Using an unexported field forces flagRO.
 	if field.pkgPath != nil {
-		if field.name == nil {
+		if field.anon() {
 			fl |= flagEmbedRO
 		} else {
 			fl |= flagStickyRO
@@ -636,7 +636,7 @@ func (v Value) Field(i int) Value {
 	// In the former case, we want v.ptr + offset.
 	// In the latter case, we must have field.offset = 0,
 	// so v.ptr + field.offset is still okay.
-	ptr := unsafe.Pointer(uintptr(v.ptr) + field.offset)
+	ptr := unsafe.Pointer(uintptr(v.ptr) + field.offset())
 	return Value{typ, ptr, fl}
 }
 
@@ -1160,7 +1160,7 @@ func (v Value) recv(nb bool) (val Value, ok bool) {
 	} else {
 		p = unsafe.Pointer(&val.ptr)
 	}
-	selected, ok := chanrecv(v.typ, v.pointer(), nb, p)
+	selected, ok := chanrecv(v.pointer(), nb, p)
 	if !selected {
 		val = Value{}
 	}
@@ -1191,7 +1191,7 @@ func (v Value) send(x Value, nb bool) (selected bool) {
 	} else {
 		p = unsafe.Pointer(&x.ptr)
 	}
-	return chansend(v.typ, v.pointer(), p, nb)
+	return chansend(v.pointer(), p, nb)
 }
 
 // Set assigns x to the value v.
@@ -2327,10 +2327,10 @@ func chanlen(ch unsafe.Pointer) int
 // (due to the escapes() call in ValueOf).
 
 //go:noescape
-func chanrecv(t *rtype, ch unsafe.Pointer, nb bool, val unsafe.Pointer) (selected, received bool)
+func chanrecv(ch unsafe.Pointer, nb bool, val unsafe.Pointer) (selected, received bool)
 
 //go:noescape
-func chansend(t *rtype, ch unsafe.Pointer, val unsafe.Pointer, nb bool) bool
+func chansend(ch unsafe.Pointer, val unsafe.Pointer, nb bool) bool
 
 func makechan(typ *rtype, size uint64) (ch unsafe.Pointer)
 func makemap(t *rtype) (m unsafe.Pointer)

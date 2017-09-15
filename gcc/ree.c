@@ -226,12 +226,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
+#include "regs.h"
 #include "emit-rtl.h"
 #include "recog.h"
 #include "cfgrtl.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "regs.h"
 
 /* This structure represents a candidate for elimination.  */
 
@@ -825,8 +825,7 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
 	return false;
 
       /* Ensure the number of hard registers of the copy match.  */
-      if (hard_regno_nregs[REGNO (src_reg)][dst_mode]
-	  != hard_regno_nregs[REGNO (src_reg)][GET_MODE (src_reg)])
+      if (hard_regno_nregs (REGNO (src_reg), dst_mode) != REG_NREGS (src_reg))
 	return false;
 
       /* There's only one reaching def.  */
@@ -1139,8 +1138,7 @@ add_removable_extension (const_rtx expr, rtx_insn *insn,
 
 	 We allow this when the registers are different because the
 	 code in combine_reaching_defs will handle that case correctly.  */
-      if ((hard_regno_nregs[REGNO (dest)][mode]
-	   != hard_regno_nregs[REGNO (reg)][GET_MODE (reg)])
+      if (hard_regno_nregs (REGNO (dest), mode) != REG_NREGS (reg)
 	  && reg_overlap_mentioned_p (dest, reg))
 	return;
 

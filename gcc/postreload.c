@@ -335,12 +335,8 @@ reload_cse_simplify_set (rtx set, rtx_insn *insn)
 	      && !REG_P (SET_SRC (set))))
 	{
 	  if (extend_op != UNKNOWN
-#ifdef CANNOT_CHANGE_MODE_CLASS
-	      && !(CANNOT_CHANGE_MODE_CLASS
-		   (MACRO_MODE (GET_MODE (SET_DEST (set))), word_mode,
-		    REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
-#endif
-	      )
+	      && REG_CAN_CHANGE_MODE_P (REGNO (SET_DEST (set)),
+					GET_MODE (SET_DEST (set)), word_mode))
 	    {
 	      rtx wide_dest = gen_rtx_REG (word_mode, REGNO (SET_DEST (set)));
 	      ORIGINAL_REGNO (wide_dest) = ORIGINAL_REGNO (SET_DEST (set));
@@ -434,15 +430,13 @@ reload_cse_simplify_operands (rtx_insn *insn, rtx testreg)
 		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
 		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
 	    ; /* Continue ordinary processing.  */
-#ifdef CANNOT_CHANGE_MODE_CLASS
 	  /* If the register cannot change mode to word_mode, it follows that
 	     it cannot have been used in word_mode.  */
 	  else if (REG_P (SET_DEST (set))
-		   && (CANNOT_CHANGE_MODE_CLASS
-		       (MACRO_MODE (GET_MODE (SET_DEST (set))), word_mode,
-			REGNO_REG_CLASS (REGNO (SET_DEST (set))))))
+		   && !REG_CAN_CHANGE_MODE_P (REGNO (SET_DEST (set)),
+					      GET_MODE (SET_DEST (set)),
+					      word_mode))
 	    ; /* Continue ordinary processing.  */
-#endif
 	  /* If this is a straight load, make the extension explicit.  */
 	  else if (REG_P (SET_DEST (set))
 		   && recog_data.n_operands == 2
@@ -1136,7 +1130,7 @@ reload_combine_recognize_pattern (rtx_insn *insn)
 		  && (call_used_regs[i] || df_regs_ever_live_p (i))
 		  && (!frame_pointer_needed || i != HARD_FRAME_POINTER_REGNUM)
 		  && !fixed_regs[i] && !global_regs[i]
-		  && hard_regno_nregs[i][GET_MODE (reg)] == 1
+		  && hard_regno_nregs (i, GET_MODE (reg)) == 1
 		  && targetm.hard_regno_scratch_ok (i))
 		{
 		  index_reg = gen_rtx_REG (GET_MODE (reg), i);
@@ -1453,7 +1447,7 @@ reload_combine_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (SET_DEST (set)) == ZERO_EXTRACT
       || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART)
     {
-      for (i = hard_regno_nregs[regno][mode] - 1 + regno; i >= regno; i--)
+      for (i = end_hard_regno (mode, regno) - 1; i >= regno; i--)
 	{
 	  reg_state[i].use_index = -1;
 	  reg_state[i].store_ruid = reload_combine_ruid;
@@ -1462,7 +1456,7 @@ reload_combine_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
     }
   else
     {
-      for (i = hard_regno_nregs[regno][mode] - 1 + regno; i >= regno; i--)
+      for (i = end_hard_regno (mode, regno) - 1; i >= regno; i--)
 	{
 	  reg_state[i].store_ruid = reload_combine_ruid;
 	  if (GET_CODE (set) == SET)
@@ -1717,8 +1711,8 @@ move2add_valid_value_p (int regno, scalar_int_mode mode)
 	return false;
     }
 
-  for (int i = hard_regno_nregs[regno][mode] - 1; i > 0; i--)
-    if (reg_mode[regno + i] != BLKmode)
+  for (int i = end_hard_regno (mode, regno) - 1; i > regno; i--)
+    if (reg_mode[i] != BLKmode)
       return false;
   return true;
 }

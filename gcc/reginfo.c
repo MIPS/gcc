@@ -508,8 +508,8 @@ init_reg_modes_target (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 0; j < MAX_MACHINE_MODE; j++)
-      hard_regno_nregs[i][j]
-	= HARD_REGNO_NREGS (i, MACRO_MODE ((machine_mode) j));
+      this_target_regs->x_hard_regno_nregs[i][j]
+	= targetm.hard_regno_nregs (i, (machine_mode) j);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -519,7 +519,7 @@ init_reg_modes_target (void)
 	 if it is suitable, otherwise fall back on word_mode.  */
       if (reg_raw_mode[i] == VOIDmode)
     	{
-	  if (i > 0 && hard_regno_nregs[i][reg_raw_mode[i - 1]] == 1)
+	  if (i > 0 && hard_regno_nregs (i, reg_raw_mode[i - 1]) == 1)
 	    reg_raw_mode[i] = reg_raw_mode[i - 1];
 	  else
 	    reg_raw_mode[i] = word_mode;
@@ -636,7 +636,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
      The tests use may_gt rather than must_gt because we want N V4SFs to
      win over plain V4SF even though N might be 1.  */
   FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
-    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
+    if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
@@ -644,7 +644,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_FLOAT)
-    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
+    if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
@@ -652,7 +652,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_FLOAT)
-    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
+    if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
@@ -660,7 +660,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_INT)
-    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
+    if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
@@ -674,7 +674,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (m = (unsigned int) CCmode; m < (unsigned int) NUM_MACHINE_MODES; ++m)
     {
       mode = (machine_mode) m;
-      if ((unsigned) hard_regno_nregs[regno][mode] == nregs
+      if (hard_regno_nregs (regno, mode) == nregs
 	  && targetm.hard_regno_mode_ok (regno, mode)
 	  && (!call_saved
 	      || !targetm.hard_regno_call_part_clobbered (regno, mode)))

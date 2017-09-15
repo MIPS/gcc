@@ -3406,6 +3406,12 @@ package body Exp_Util is
       if Present (Priv_Typ) then
          Typ_Decl := Declaration_Node (Priv_Typ);
 
+      --  Anonymous arrays in object declarations have no explicit declaration
+      --  so use the related object declaration as the insertion point.
+
+      elsif Is_Itype (Work_Typ) and then Is_Array_Type (Work_Typ)  then
+         Typ_Decl := Associated_Node_For_Itype (Work_Typ);
+
       --  Derived types with the full view as parent do not have a partial
       --  view. Insert the invariant procedure after the derived type.
 
@@ -8274,79 +8280,6 @@ package body Exp_Util is
           and then not Is_Build_In_Place_Function_Call (Prefix (Expr));
    end Is_Non_BIP_Func_Call;
 
-   ------------------------------------
-   -- Is_Object_Access_BIP_Func_Call --
-   ------------------------------------
-
-   function Is_Object_Access_BIP_Func_Call
-      (Expr   : Node_Id;
-       Obj_Id : Entity_Id) return Boolean
-   is
-      Access_Nam : Name_Id := No_Name;
-      Actual     : Node_Id;
-      Call       : Node_Id;
-      Formal     : Node_Id;
-      Param      : Node_Id;
-
-   begin
-      --  Build-in-place calls usually appear in 'reference format. Note that
-      --  the accessibility check machinery may add an extra 'reference due to
-      --  side effect removal.
-
-      Call := Expr;
-      while Nkind (Call) = N_Reference loop
-         Call := Prefix (Call);
-      end loop;
-
-      if Nkind_In (Call, N_Qualified_Expression,
-                         N_Unchecked_Type_Conversion)
-      then
-         Call := Expression (Call);
-      end if;
-
-      if Is_Build_In_Place_Function_Call (Call) then
-
-         --  Examine all parameter associations of the function call
-
-         Param := First (Parameter_Associations (Call));
-         while Present (Param) loop
-            if Nkind (Param) = N_Parameter_Association
-              and then Nkind (Selector_Name (Param)) = N_Identifier
-            then
-               Formal := Selector_Name (Param);
-               Actual := Explicit_Actual_Parameter (Param);
-
-               --  Construct the name of formal BIPaccess. It is much easier to
-               --  extract the name of the function using an arbitrary formal's
-               --  scope rather than the Name field of Call.
-
-               if Access_Nam = No_Name and then Present (Entity (Formal)) then
-                  Access_Nam :=
-                    New_External_Name
-                      (Chars (Scope (Entity (Formal))),
-                       BIP_Formal_Suffix (BIP_Object_Access));
-               end if;
-
-               --  A match for BIPaccess => Obj_Id'Unrestricted_Access has been
-               --  found.
-
-               if Chars (Formal) = Access_Nam
-                 and then Nkind (Actual) = N_Attribute_Reference
-                 and then Attribute_Name (Actual) = Name_Unrestricted_Access
-                 and then Nkind (Prefix (Actual)) = N_Identifier
-                 and then Entity (Prefix (Actual)) = Obj_Id
-               then
-                  return True;
-               end if;
-            end if;
-
-            Next (Param);
-         end loop;
-      end if;
-
-      return False;
-   end Is_Object_Access_BIP_Func_Call;
-
    ----------------------------------
    -- Is_Possibly_Unaligned_Object --
    ----------------------------------
@@ -8739,11 +8672,7 @@ package body Exp_Util is
          Call := Prefix (Call);
       end loop;
 
-      if Nkind_In (Call, N_Qualified_Expression,
-                         N_Unchecked_Type_Conversion)
-      then
-         Call := Expression (Call);
-      end if;
+      Call := Unqual_Conv (Call);
 
       if Is_Build_In_Place_Function_Call (Call) then
 
@@ -10367,48 +10296,48 @@ package body Exp_Util is
    -- Needs_Finalization --
    ------------------------
 
-   function Needs_Finalization (T : Entity_Id) return Boolean is
-      function Has_Some_Controlled_Component (Rec : Entity_Id) return Boolean;
-      --  If type is not frozen yet, check explicitly among its components,
-      --  because the Has_Controlled_Component flag is not necessarily set.
+   function Needs_Finalization (Typ : Entity_Id) return Boolean is
+      function Has_Some_Controlled_Component
+        (Input_Typ : Entity_Id) return Boolean;
+      --  Determine whether type Input_Typ has at least one controlled
+      --  component.
 
       -----------------------------------
       -- Has_Some_Controlled_Component --
       -----------------------------------
 
       function Has_Some_Controlled_Component
-        (Rec : Entity_Id) return Boolean
+        (Input_Typ : Entity_Id) return Boolean
       is
          Comp : Entity_Id;
 
       begin
-         if Has_Controlled_Component (Rec) then
+         --  When a type is already frozen and has at least one controlled
+         --  component, or is manually decorated, it is sufficient to inspect
+         --  flag Has_Controlled_Component.
+
+         if Has_Controlled_Component (Input_Typ) then
             return True;
 
-         elsif not Is_Frozen (Rec) then
-            if Is_Record_Type (Rec) then
-               Comp := First_Entity (Rec);
+         --  Otherwise inspect the internals of the type
 
+         elsif not Is_Frozen (Input_Typ) then
+            if Is_Array_Type (Input_Typ) then
+               return Needs_Finalization (Component_Type (Input_Typ));
+
+            elsif Is_Record_Type (Input_Typ) then
+               Comp := First_Component (Input_Typ);
                while Present (Comp) loop
-                  if not Is_Type (Comp)
-                    and then Needs_Finalization (Etype (Comp))
-                  then
+                  if Needs_Finalization (Etype (Comp)) then
                      return True;
                   end if;
 
-                  Next_Entity (Comp);
+                  Next_Component (Comp);
                end loop;
-
-               return False;
-
-            else
-               return
-                 Is_Array_Type (Rec)
-                   and then Needs_Finalization (Component_Type (Rec));
             end if;
-         else
-            return False;
          end if;
+
+         return False;
       end Has_Some_Controlled_Component;
 
    --  Start of processing for Needs_Finalization
@@ -10420,32 +10349,34 @@ package body Exp_Util is
       if Restriction_Active (No_Finalization) then
          return False;
 
-      --  C++ types are not considered controlled. It is assumed that the
-      --  non-Ada side will handle their clean up.
+      --  C++ types are not considered controlled. It is assumed that the non-
+      --  Ada side will handle their clean up.
 
-      elsif Convention (T) = Convention_CPP then
+      elsif Convention (Typ) = Convention_CPP then
          return False;
 
-      --  Never needs finalization if Disable_Controlled set
+      --  Class-wide types are treated as controlled because derivations from
+      --  the root type may introduce controlled components.
 
-      elsif Disable_Controlled (T) then
-         return False;
+      elsif Is_Class_Wide_Type (Typ) then
+         return True;
 
-      elsif Is_Class_Wide_Type (T) and then Disable_Controlled (Etype (T)) then
-         return False;
+      --  Concurrent types are controlled as long as their corresponding record
+      --  is controlled.
+
+      elsif Is_Concurrent_Type (Typ)
+        and then Present (Corresponding_Record_Type (Typ))
+        and then Needs_Finalization (Corresponding_Record_Type (Typ))
+      then
+         return True;
+
+      --  Otherwise the type is controlled when it is either derived from type
+      --  [Limited_]Controlled and not subject to aspect Disable_Controlled, or
+      --  contains at least one controlled component.
 
       else
-         --  Class-wide types are treated as controlled because derivations
-         --  from the root type can introduce controlled components.
-
          return
-           Is_Class_Wide_Type (T)
-             or else Is_Controlled (T)
-             or else Has_Some_Controlled_Component (T)
-             or else
-               (Is_Concurrent_Type (T)
-                 and then Present (Corresponding_Record_Type (T))
-                 and then Needs_Finalization (Corresponding_Record_Type (T)));
+           Is_Controlled (Typ) or else Has_Some_Controlled_Component (Typ);
       end if;
    end Needs_Finalization;
 
@@ -10458,7 +10389,6 @@ package body Exp_Util is
       Typ  : Entity_Id) return Boolean
    is
    begin
-
       --  If we have no initialization of any kind, then we don't need to place
       --  any restrictions on the address clause, because the object will be
       --  elaborated after the address clause is evaluated. This happens if the

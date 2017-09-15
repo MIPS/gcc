@@ -596,10 +596,6 @@ enum nds32_builtins
    own cost calculations.  */
 #define HONOR_REG_ALLOC_ORDER optimize_size
 
-/* The number of consecutive hard regs needed starting at
-   reg "regno" for holding a value of mode "mode".  */
-#define HARD_REGNO_NREGS(regno, mode) nds32_hard_regno_nregs (regno, mode)
-
 
 /* Register Classes.  */
 
@@ -1001,11 +997,6 @@ enum reg_class
    actually used for the count of a shift operation is equal to the number
    of bits needed to represent the size of the object being shifted.  */
 #define SHIFT_COUNT_TRUNCATED 1
-
-/* A C expression which is nonzero if on this machine it is safe to "convert"
-   an integer of 'inprec' bits to one of 'outprec' bits by merely operating
-   on it as if it had only 'outprec' bits.  */
-#define TRULY_NOOP_TRUNCATION(outprec, inprec) 1
 
 /* A C expression describing the value returned by a comparison operator with
    an integral mode and stored by a store-flag instruction ('cstoremode4')

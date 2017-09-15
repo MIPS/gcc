@@ -784,7 +784,7 @@ A @code{poly_int<@var{n}, @var{T}>} can be constructed from up to
 @var{n} individual @var{T} coefficients, with the remaining coefficients
 being implicitly zero.  In particular, this means that every
 @code{poly_int<@var{n}, @var{T}>} can be constructed from a single
-scalar @var{T}, or someting compatible with @var{T}.
+scalar @var{T}, or something compatible with @var{T}.
 
 Also, a @code{poly_int<@var{n}, @var{T}>} can be constructed from
 a @code{poly_int<@var{n}, @var{U}>} if @var{T} can be constructed

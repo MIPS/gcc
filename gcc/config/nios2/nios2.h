@@ -172,9 +172,6 @@
 /*  30 */  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,     \
   }
 
-#define HARD_REGNO_NREGS(REGNO, MODE)            \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 /* Order in which to allocate registers.  Each register must be
    listed once.  This is the default ordering for R1 and non-CDX R2
    code.  For CDX, we overwrite this in ADJUST_REG_ALLOC_ORDER.  */
@@ -517,8 +514,6 @@ do {                                                                    \
 #define FUNCTION_MODE QImode
 
 #define CASE_VECTOR_MODE Pmode
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define LOAD_EXTEND_OP(MODE) (ZERO_EXTEND)
 

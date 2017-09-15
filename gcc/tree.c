@@ -1770,11 +1770,12 @@ make_vector (unsigned len MEM_STAT_DECL)
 }
 
 /* Return a new VECTOR_CST node whose type is TYPE and whose values
-   are in a list of NELTS elements pointed to by VALS.  */
+   are given by VALS.  */
 
 tree
-build_vector (tree type, unsigned int nelts, tree *vals MEM_STAT_DECL)
+build_vector (tree type, vec<tree> vals MEM_STAT_DECL)
 {
+  unsigned int nelts = vals.length ();
   gcc_assert (must_eq (nelts, TYPE_VECTOR_SUBPARTS (type)));
   int over = 0;
   unsigned cnt = 0;
@@ -1805,25 +1806,24 @@ build_vector (tree type, unsigned int nelts, tree *vals MEM_STAT_DECL)
 tree
 build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
 {
-  unsigned HOST_WIDE_INT idx, nelts, pos = 0;
+  unsigned HOST_WIDE_INT idx, nelts;
   tree value;
 
   /* We can't construct a VECTOR_CST for a variable number of elements.  */
   nelts = TYPE_VECTOR_SUBPARTS (type).to_constant ();
-  tree *vec = XALLOCAVEC (tree, nelts);
-
+  auto_vec<tree, 32> vec (nelts);
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
     {
       if (TREE_CODE (value) == VECTOR_CST)
 	for (unsigned i = 0; i < VECTOR_CST_NELTS (value); ++i)
-	  vec[pos++] = VECTOR_CST_ELT (value, i);
+	  vec.quick_push (VECTOR_CST_ELT (value, i));
       else
-	vec[pos++] = value;
+	vec.quick_push (value);
     }
-  for (; pos < nelts; ++pos)
-    vec[pos] = build_zero_cst (TREE_TYPE (type));
+  while (vec.length () < nelts)
+    vec.quick_push (build_zero_cst (TREE_TYPE (type)));
 
-  return build_vector (type, nelts, vec);
+  return build_vector (type, vec);
 }
 
 /* Build a vector of type VECTYPE where all the elements are SCs.  */
@@ -1849,10 +1849,10 @@ build_vector_from_val (tree vectype, tree sc)
 
   if (CONSTANT_CLASS_P (sc))
     {
-      tree *v = XALLOCAVEC (tree, nunits);
+      auto_vec<tree, 32> v (nunits);
       for (i = 0; i < nunits; ++i)
-	v[i] = sc;
-      return build_vector (vectype, nunits, v);
+	v.quick_push (sc);
+      return build_vector (vectype, v);
     }
   else
     {
@@ -1884,10 +1884,10 @@ build_index_vector (tree vec_type, poly_uint64 base, poly_uint64 step)
   unsigned HOST_WIDE_INT count;
   if (TYPE_VECTOR_SUBPARTS (vec_type).is_constant (&count))
     {
-      tree *v = XALLOCAVEC (tree, count);
+      auto_vec<tree, 32> v (count);
       for (unsigned int i = 0; i < count; ++i)
-	v[i] = build_int_cstu (index_elt_type, base + i * step);
-      return build_vector (index_vec_type, count, v);
+	v.quick_push (build_int_cstu (index_elt_type, base + i * step));
+      return build_vector (index_vec_type, v);
     }
 
   return build2 (VEC_SERIES_EXPR, index_vec_type,
@@ -13623,9 +13623,7 @@ verify_type (const_tree t)
       debug_tree (ct);
       error_found = true;
     }
-  /* FIXME: this is violated by the C++ FE as discussed in PR70029, when
-     FUNCTION_*_QUALIFIED flags are set.  */
-  if (0 && TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
+  if (TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
    {
       error ("TYPE_CANONICAL of main variant is not main variant");
       debug_tree (ct);

@@ -203,6 +203,15 @@ package body Sem_Ch13 is
    --  renaming_as_body. For tagged types, the specification is one of the
    --  primitive specs.
 
+   procedure Register_Address_Clause_Check
+     (N   : Node_Id;
+      X   : Entity_Id;
+      A   : Uint;
+      Y   : Entity_Id;
+      Off : Boolean);
+   --  Register a check for the address clause N. The rest of the parameters
+   --  are in keeping with the components of Address_Clause_Check_Record below.
+
    procedure Resolve_Iterable_Operation
      (N      : Node_Id;
       Cursor : Entity_Id;
@@ -318,6 +327,11 @@ package body Sem_Ch13 is
 
       Off : Boolean;
       --  Whether the address is offset within Y in the second case
+
+      Alignment_Checks_Suppressed : Boolean;
+      --  Whether alignment checks are suppressed by an active scope suppress
+      --  setting. We need to save the value in order to be able to reuse it
+      --  after the back end has been run.
    end record;
 
    package Address_Clause_Checks is new Table.Table (
@@ -327,6 +341,26 @@ package body Sem_Ch13 is
      Table_Initial        => 20,
      Table_Increment      => 200,
      Table_Name           => "Address_Clause_Checks");
+
+   function Alignment_Checks_Suppressed
+     (ACCR : Address_Clause_Check_Record) return Boolean;
+   --  Return whether the alignment check generated for the address clause
+   --  is suppressed.
+
+   ---------------------------------
+   -- Alignment_Checks_Suppressed --
+   ---------------------------------
+
+   function Alignment_Checks_Suppressed
+     (ACCR : Address_Clause_Check_Record) return Boolean
+   is
+   begin
+      if Checks_May_Be_Suppressed (ACCR.X) then
+         return Is_Check_Suppressed (ACCR.X, Alignment_Check);
+      else
+         return ACCR.Alignment_Checks_Suppressed;
+      end if;
+   end Alignment_Checks_Suppressed;
 
    -----------------------------------------
    -- Adjust_Record_For_Reverse_Bit_Order --
@@ -627,6 +661,7 @@ package body Sem_Ch13 is
                   end if;
 
                   Set_Component_Bit_Offset (Comp, Pos * SSU + NFB);
+                  Set_Normalized_Position  (Comp, Pos + NFB / SSU);
                   Set_Normalized_First_Bit (Comp, NFB mod SSU);
                end;
             end loop;
@@ -749,6 +784,9 @@ package body Sem_Ch13 is
                     (Storage_Unit_Offset * System_Storage_Unit) +
                       (System_Storage_Unit - 1) -
                       (Start_Bit + CSZ - 1));
+
+                  Set_Normalized_Position (Comp,
+                    Component_Bit_Offset (Comp) / System_Storage_Unit);
 
                   Set_Normalized_First_Bit (Comp,
                     Component_Bit_Offset (Comp) mod System_Storage_Unit);
@@ -1591,6 +1629,9 @@ package body Sem_Ch13 is
             procedure Analyze_Aspect_Convention;
             --  Perform analysis of aspect Convention
 
+            procedure Analyze_Aspect_Disable_Controlled;
+            --  Perform analysis of aspect Disable_Controlled
+
             procedure Analyze_Aspect_Export_Import;
             --  Perform analysis of aspects Export or Import
 
@@ -1673,6 +1714,60 @@ package body Sem_Ch13 is
                   Insert_Pragma (Aitem);
                end if;
             end Analyze_Aspect_Convention;
+
+            ---------------------------------------
+            -- Analyze_Aspect_Disable_Controlled --
+            ---------------------------------------
+
+            procedure Analyze_Aspect_Disable_Controlled is
+            begin
+               --  The aspect applies only to controlled records
+
+               if not (Ekind (E) = E_Record_Type
+                        and then Is_Controlled_Active (E))
+               then
+                  Error_Msg_N
+                    ("aspect % requires controlled record type", Aspect);
+                  return;
+               end if;
+
+               --  Preanalyze the expression (if any) when the aspect resides
+               --  in a generic unit.
+
+               if Inside_A_Generic then
+                  if Present (Expr) then
+                     Preanalyze_And_Resolve (Expr, Any_Boolean);
+                  end if;
+
+               --  Otherwise the aspect resides in a nongeneric context
+
+               else
+                  --  A controlled record type loses its controlled semantics
+                  --  when the expression statically evaluates to True.
+
+                  if Present (Expr) then
+                     Analyze_And_Resolve (Expr, Any_Boolean);
+
+                     if Is_OK_Static_Expression (Expr) then
+                        if Is_True (Static_Boolean (Expr)) then
+                           Set_Disable_Controlled (E);
+                        end if;
+
+                     --  Otherwise the expression is not static
+
+                     else
+                        Error_Msg_N
+                          ("expression of aspect % must be static", Aspect);
+                     end if;
+
+                  --  Otherwise the aspect appears without an expression and
+                  --  defaults to True.
+
+                  else
+                     Set_Disable_Controlled (E);
+                  end if;
+               end if;
+            end Analyze_Aspect_Disable_Controlled;
 
             ----------------------------------
             -- Analyze_Aspect_Export_Import --
@@ -2207,6 +2302,20 @@ package body Sem_Ch13 is
                        Make_Pragma_Argument_Association (Sloc (Expr),
                          Expression => Relocate_Node (Expr))),
                      Pragma_Name                  => Chars (Id));
+
+                  --  Linker_Section does not need delaying, as its argument
+                  --  must be a static string. Furthermore, if applied to
+                  --  an object with an explicit initialization, the object
+                  --  must be frozen in order to elaborate the initialization
+                  --  code. (This is already done for types with implicit
+                  --  initialization, such as protected types.)
+
+                  if A_Id = Aspect_Linker_Section
+                    and then Nkind (N) = N_Object_Declaration
+                    and then Has_Init_Expression (N)
+                  then
+                     Delay_Required := False;
+                  end if;
 
                --  Synchronization
 
@@ -3450,34 +3559,7 @@ package body Sem_Ch13 is
                   --  Disable_Controlled
 
                   elsif A_Id = Aspect_Disable_Controlled then
-                     if Ekind (E) /= E_Record_Type
-                       or else not Is_Controlled (E)
-                     then
-                        Error_Msg_N
-                          ("aspect % requires controlled record type", Aspect);
-                        goto Continue;
-                     end if;
-
-                     --  If we're in a generic template, we don't want to try
-                     --  to disable controlled types, because typical usage is
-                     --  "Disable_Controlled => not <some_check>'Enabled", and
-                     --  the value of Enabled is not known until we see a
-                     --  particular instance. In such a context, we just need
-                     --  to preanalyze the expression for legality.
-
-                     if Expander_Active then
-                        Analyze_And_Resolve (Expr, Standard_Boolean);
-
-                        if not Present (Expr)
-                          or else Is_True (Static_Boolean (Expr))
-                        then
-                           Set_Disable_Controlled (E);
-                        end if;
-
-                     elsif Serious_Errors_Detected = 0 then
-                        Preanalyze_And_Resolve (Expr, Standard_Boolean);
-                     end if;
-
+                     Analyze_Aspect_Disable_Controlled;
                      goto Continue;
                   end if;
 
@@ -3956,7 +4038,7 @@ package body Sem_Ch13 is
 
       procedure Check_Iterator_Functions;
       --  Check that there is a single function in Default_Iterator attribute
-      --  has the proper type structure.
+      --  that has the proper type structure.
 
       function Check_Primitive_Function (Subp : Entity_Id) return Boolean;
       --  Common legality check for the previous two
@@ -4999,8 +5081,8 @@ package body Sem_Ch13 is
                        and then not Is_Generic_Type (Etype (U_Ent))
                        and then Address_Clause_Overlay_Warnings
                      then
-                        Address_Clause_Checks.Append
-                          ((N, U_Ent, No_Uint, O_Ent, Off));
+                        Register_Address_Clause_Check
+                          (N, U_Ent, No_Uint, O_Ent, Off);
                      end if;
                   else
                      --  If this is not an overlay, mark a variable as being
@@ -5025,8 +5107,8 @@ package body Sem_Ch13 is
                         if Compile_Time_Known_Value (Addr)
                           and then Address_Clause_Overlay_Warnings
                         then
-                           Address_Clause_Checks.Append
-                             ((N, U_Ent, Expr_Value (Addr), Empty, False));
+                           Register_Address_Clause_Check
+                             (N, U_Ent, Expr_Value (Addr), Empty, False);
                         end if;
                      end;
                   end if;
@@ -8700,6 +8782,9 @@ package body Sem_Ch13 is
             FBody : Node_Id;
 
          begin
+            Set_Ekind (SIdB, E_Function);
+            Set_Is_Predicate_Function (SIdB);
+
             --  The predicate function is shared between views of a type
 
             if Is_Private_Type (Typ) and then Present (Full_View (Typ)) then
@@ -9277,7 +9362,11 @@ package body Sem_Ch13 is
             T := Standard_Integer;
 
          when Aspect_Small =>
-            T := Universal_Real;
+
+            --  Note that the expression can be of any real type (not just a
+            --  real universal literal) as long as it is a static constant.
+
+            T := Any_Real;
 
          --  For a simple storage pool, we have to retrieve the type of the
          --  pool object associated with the aspect's corresponding attribute
@@ -10814,8 +10903,8 @@ package body Sem_Ch13 is
 
       E : constant Entity_Id := Entity (N);
 
-      Non_Generic_Case : constant Boolean := Nkind (N) = N_Freeze_Entity;
-      --  True in non-generic case. Some of the processing here is skipped
+      Nongeneric_Case : constant Boolean := Nkind (N) = N_Freeze_Entity;
+      --  True in nongeneric case. Some of the processing here is skipped
       --  for the generic case since it is not needed. Basically in the
       --  generic case, we only need to do stuff that might generate error
       --  messages or warnings.
@@ -10842,7 +10931,7 @@ package body Sem_Ch13 is
       --  This is not needed in the generic case
 
       if Ada_Version >= Ada_2005
-        and then Non_Generic_Case
+        and then Nongeneric_Case
         and then Ekind (E) = E_Record_Type
         and then Is_Tagged_Type (E)
         and then not Is_Interface (E)
@@ -10978,7 +11067,7 @@ package body Sem_Ch13 is
       --  predefined primitives.
 
       if Is_Type (E)
-        and then Non_Generic_Case
+        and then Nongeneric_Case
         and then not Within_Internal_Subprogram
         and then Has_Predicates (E)
       then
@@ -10994,7 +11083,7 @@ package body Sem_Ch13 is
 
       --  This is also not needed in the generic case
 
-      if Non_Generic_Case
+      if Nongeneric_Case
         and then Has_Delayed_Aspects (E)
         and then Scope (E) = Current_Scope
       then
@@ -11505,9 +11594,10 @@ package body Sem_Ch13 is
       Compile_Time_Warnings_Errors.Init;
       Unchecked_Conversions.Init;
 
-      if AAMP_On_Target then
-         Independence_Checks.Init;
-      end if;
+      --  ??? Might be needed in the future for some non GCC back-ends
+      --  if AAMP_On_Target then
+      --     Independence_Checks.Init;
+      --  end if;
    end Initialize;
 
    ---------------------------
@@ -12198,6 +12288,22 @@ package body Sem_Ch13 is
       end if;
    end Push_Scope_And_Install_Discriminants;
 
+   -----------------------------------
+   -- Register_Address_Clause_Check --
+   -----------------------------------
+
+   procedure Register_Address_Clause_Check
+     (N   : Node_Id;
+      X   : Entity_Id;
+      A   : Uint;
+      Y   : Entity_Id;
+      Off : Boolean)
+   is
+      ACS : constant Boolean := Scope_Suppress.Suppress (Alignment_Check);
+   begin
+      Address_Clause_Checks.Append ((N, X, A, Y, Off, ACS));
+   end Register_Address_Clause_Check;
+
    ------------------------
    -- Rep_Item_Too_Early --
    ------------------------
@@ -12646,7 +12752,6 @@ package body Sem_Ch13 is
    --------------------------------
 
    procedure Resolve_Aspect_Expressions (E : Entity_Id) is
-
       function Resolve_Name (N : Node_Id) return Traverse_Result;
       --  Verify that all identifiers in the expression, with the exception
       --  of references to the current entity, denote visible entities. This
@@ -12664,6 +12769,8 @@ package body Sem_Ch13 is
       ------------------
 
       function Resolve_Name (N : Node_Id) return Traverse_Result is
+         Dummy : Traverse_Result;
+
       begin
          if Nkind (N) = N_Selected_Component then
             if Nkind (Prefix (N)) = N_Identifier
@@ -12677,9 +12784,24 @@ package body Sem_Ch13 is
          elsif Nkind (N) = N_Identifier and then Chars (N) /= Chars (E) then
             Find_Direct_Name (N);
 
-            if not ASIS_Mode then
+            --  In ASIS mode we must analyze overloaded identifiers to ensure
+            --  their correct decoration because expansion is disabled (and
+            --  the expansion of freeze nodes takes care of resolving aspect
+            --  expressions).
+
+            if ASIS_Mode then
+               if Is_Overloaded (N) then
+                  Analyze (Parent (N));
+               end if;
+            else
                Set_Entity (N, Empty);
             end if;
+
+         --  The name is component association needs no resolution.
+
+         elsif Nkind (N) = N_Component_Association then
+            Dummy := Resolve_Name (Expression (N));
+            return Skip;
 
          elsif Nkind (N) = N_Quantified_Expression then
             return Skip;
@@ -12689,6 +12811,8 @@ package body Sem_Ch13 is
       end Resolve_Name;
 
       procedure Resolve_Aspect_Expression is new Traverse_Proc (Resolve_Name);
+
+      --  Local variables
 
       ASN : Node_Id := First_Rep_Item (E);
 
@@ -12722,14 +12846,19 @@ package body Sem_Ch13 is
                      | Aspect_Static_Predicate
                   =>
                      --  Build predicate function specification and preanalyze
-                     --  expression after type replacement.
+                     --  expression after type replacement. The function
+                     --  declaration must be analyzed in the scope of the
+                     --  type, but the expression must see components.
 
                      if No (Predicate_Function (E)) then
+                        Uninstall_Discriminants_And_Pop_Scope (E);
                         declare
                            FDecl : constant Node_Id :=
                                      Build_Predicate_Function_Declaration (E);
                            pragma Unreferenced (FDecl);
+
                         begin
+                           Push_Scope_And_Install_Discriminants (E);
                            Resolve_Aspect_Expression (Expr);
                         end;
                      end if;
@@ -12750,6 +12879,15 @@ package body Sem_Ch13 is
                            end loop;
                         end;
                      end if;
+
+                  --  The expression for Default_Value is a static expression
+                  --  of the type, but this expression does not freeze the
+                  --  type, so it can still appear in a representation clause
+                  --  before the actual freeze point.
+
+                  when Aspect_Default_Value =>
+                     Set_Must_Not_Freeze (Expr);
+                     Preanalyze_Spec_Expression (Expr, E);
 
                   when others =>
                      if Present (Expr) then
@@ -13377,7 +13515,7 @@ package body Sem_Ch13 is
                --  Check for known value not multiple of alignment
 
                if No (ACCR.Y) then
-                  if not Alignment_Checks_Suppressed (ACCR.X)
+                  if not Alignment_Checks_Suppressed (ACCR)
                     and then X_Alignment /= 0
                     and then ACCR.A mod X_Alignment /= 0
                   then
@@ -13422,7 +13560,7 @@ package body Sem_Ch13 is
                --  Note: we do not check the alignment if we gave a size
                --  warning, since it would likely be redundant.
 
-               elsif not Alignment_Checks_Suppressed (ACCR.X)
+               elsif not Alignment_Checks_Suppressed (ACCR)
                  and then Y_Alignment /= Uint_0
                  and then
                    (Y_Alignment < X_Alignment

@@ -294,10 +294,6 @@ extern bool mips_const_vector_bitimm_set_p (rtx, machine_mode);
 extern bool mips_const_vector_bitimm_clr_p (rtx, machine_mode);
 extern rtx mips_msa_vec_parallel_const_half (machine_mode, bool);
 extern rtx mips_gen_const_int_vector (machine_mode, HOST_WIDE_INT);
-extern bool mips_secondary_memory_needed (enum reg_class, enum reg_class,
-					  machine_mode);
-extern bool mips_cannot_change_mode_class (machine_mode,
-					   machine_mode, enum reg_class);
 extern bool mips_dangerous_for_la25_p (rtx);
 extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   machine_mode,
@@ -323,7 +319,6 @@ extern const char *mips_output_division (const char *, rtx *);
 extern const char *mips_msa_output_division (const char *, rtx *);
 extern const char *mips_output_probe_stack_range (rtx, rtx);
 extern bool mips_hard_regno_rename_ok (unsigned int, unsigned int);
-extern unsigned int mips_hard_regno_nregs (int, machine_mode);
 extern bool mips_linked_madd_p (rtx_insn *, rtx_insn *);
 extern bool mips_store_data_bypass_p (rtx_insn *, rtx_insn *);
 extern int mips_dspalu_bypass_p (rtx, rtx);

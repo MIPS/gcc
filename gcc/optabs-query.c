@@ -346,16 +346,14 @@ can_conditionally_move_p (machine_mode mode)
 }
 
 /* Return true if VEC_PERM_EXPR of arbitrary input vectors can be
-   expanded using SIMD extensions of the CPU.  MODE is the mode of the
-   vector and NUNITS is the number of elements in it.  SEL may be NULL,
-   which stands for an unknown constant.  Note that additional
-   permutations representing whole-vector shifts may also be handled via
-   the vec_shr optab, but only where the second input vector is entirely
-   constant zeroes; this case is not dealt with here.  */
+   expanded using SIMD extensions of the CPU.  SEL may be NULL, which
+   stands for an unknown constant.  Note that additional permutations
+   representing whole-vector shifts may also be handled via the vec_shr
+   optab, but only where the second input vector is entirely constant
+   zeroes; this case is not dealt with here.  */
 
 bool
-can_vec_perm_p (machine_mode mode, bool variable, unsigned int nunits,
-		const unsigned char *sel)
+can_vec_perm_p (machine_mode mode, bool variable, vec_perm_indices *sel)
 {
   machine_mode qimode;
 
@@ -364,13 +362,12 @@ can_vec_perm_p (machine_mode mode, bool variable, unsigned int nunits,
   if (!VECTOR_MODE_P (mode))
     return false;
 
-  gcc_checking_assert (must_eq (nunits, GET_MODE_NUNITS (mode)));
   if (!variable)
     {
       if (direct_optab_handler (vec_perm_const_optab, mode) != CODE_FOR_nothing
 	  && (sel == NULL
 	      || targetm.vectorize.vec_perm_const_ok == NULL
-	      || targetm.vectorize.vec_perm_const_ok (mode, sel)))
+	      || targetm.vectorize.vec_perm_const_ok (mode, &(*sel)[0])))
 	return true;
     }
 
@@ -438,7 +435,6 @@ int
 can_mult_highpart_p (machine_mode mode, bool uns_p)
 {
   optab op;
-  unsigned char *sel;
   unsigned i, nunits;
 
   op = uns_p ? umul_highpart_optab : smul_highpart_optab;
@@ -455,7 +451,6 @@ can_mult_highpart_p (machine_mode mode, bool uns_p)
      so that we can use them even for a variable number of units.  */
   if (!GET_MODE_NUNITS (mode).is_constant (&nunits))
     return 0;
-  sel = XALLOCAVEC (unsigned char, nunits);
 
   op = uns_p ? vec_widen_umult_even_optab : vec_widen_smult_even_optab;
   if (optab_handler (op, mode) != CODE_FOR_nothing)
@@ -463,9 +458,12 @@ can_mult_highpart_p (machine_mode mode, bool uns_p)
       op = uns_p ? vec_widen_umult_odd_optab : vec_widen_smult_odd_optab;
       if (optab_handler (op, mode) != CODE_FOR_nothing)
 	{
+	  auto_vec_perm_indices sel (nunits);
 	  for (i = 0; i < nunits; ++i)
-	    sel[i] = !BYTES_BIG_ENDIAN + (i & ~1) + ((i & 1) ? nunits : 0);
-	  if (can_vec_perm_p (mode, false, nunits, sel))
+	    sel.quick_push (!BYTES_BIG_ENDIAN
+			    + (i & ~1)
+			    + ((i & 1) ? nunits : 0));
+	  if (can_vec_perm_p (mode, false, &sel))
 	    return 2;
 	}
     }
@@ -476,9 +474,10 @@ can_mult_highpart_p (machine_mode mode, bool uns_p)
       op = uns_p ? vec_widen_umult_lo_optab : vec_widen_smult_lo_optab;
       if (optab_handler (op, mode) != CODE_FOR_nothing)
 	{
+	  auto_vec_perm_indices sel (nunits);
 	  for (i = 0; i < nunits; ++i)
-	    sel[i] = 2 * i + (BYTES_BIG_ENDIAN ? 0 : 1);
-	  if (can_vec_perm_p (mode, false, nunits, sel))
+	    sel.quick_push (2 * i + (BYTES_BIG_ENDIAN ? 0 : 1));
+	  if (can_vec_perm_p (mode, false, &sel))
 	    return 3;
 	}
     }

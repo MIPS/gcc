@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_OPTABS_QUERY_H
 
 #include "insn-opinit.h"
+#include "target.h"
 
 /* Return true if OP is a conversion optab.  */
 
@@ -173,7 +174,7 @@ enum insn_code can_extend_p (machine_mode, machine_mode, int);
 enum insn_code can_float_p (machine_mode, machine_mode, int);
 enum insn_code can_fix_p (machine_mode, machine_mode, int, bool *);
 bool can_conditionally_move_p (machine_mode mode);
-bool can_vec_perm_p (machine_mode, bool, unsigned int, const unsigned char *);
+bool can_vec_perm_p (machine_mode, bool, vec_perm_indices *);
 /* Find a widening optab even if it doesn't widen as much as we want.  */
 #define find_widening_optab_handler(A, B, C) \
   find_widening_optab_handler_and_mode (A, B, C, NULL)
