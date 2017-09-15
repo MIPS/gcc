@@ -1,5 +1,5 @@
 /* { dg-require-effective-target nonpic } */
-/* { dg-options "-mgopt -G4 -mno-extern-sdata" } */
+/* { dg-options "-mgpopt -G4 -mno-extern-sdata" } */
 
 /* { dg-final { scan-assembler     "%gp_?rel\\(l4a\\)" } } */
 /* { dg-final { scan-assembler     "%gp_?rel\\(l4b\\)" } } */
