@@ -1,3 +1,11 @@
+2017-09-11  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 251963 into gupc branch.
+	* c/c-upc-lang.c (upc_pts_struct_init_type): Adjust call to
+	mode_for_size_tree(), which now returns an opt_machine_mode() type.
+	The 'exists()' function is called to assert that a scalar int
+	type exists for UPC's pointer-to-shared type.
+
 2017-09-05  Gary Funck  <gary@intrepid.com>
 
 	Revert (2015-10-18 and subsequent) changes that removed

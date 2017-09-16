@@ -102,7 +102,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (scalar_mode mode);
 extern unsigned int default_autovectorize_vector_sizes (void);
-extern machine_mode default_get_mask_mode (unsigned, unsigned);
+extern opt_machine_mode default_get_mask_mode (unsigned, unsigned);
 extern void *default_init_cost (struct loop *);
 extern unsigned default_add_stmt_cost (void *, int, enum vect_cost_for_stmt,
 				       struct _stmt_vec_info *, int,
@@ -132,6 +132,7 @@ extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
 extern void default_function_arg_advance
   (cumulative_args_t, machine_mode, const_tree, bool);
+extern pad_direction default_function_arg_padding (machine_mode, const_tree);
 extern rtx default_function_arg
   (cumulative_args_t, machine_mode, const_tree, bool);
 extern rtx default_function_incoming_arg

@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "addresses.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
+#include "target.h"
 
 #define MOVE_MAX_WORDS (MOVE_MAX / UNITS_PER_WORD)
 
@@ -111,11 +112,11 @@ reg_save_code (int reg, machine_mode mode)
   bool ok;
   if (cached_reg_save_code[reg][mode])
      return cached_reg_save_code[reg][mode];
-  if (!HARD_REGNO_MODE_OK (reg, mode))
+  if (!targetm.hard_regno_mode_ok (reg, mode))
     {
-      /* Depending on how HARD_REGNO_MODE_OK is defined, range propagation
-	 might deduce here that reg >= FIRST_PSEUDO_REGISTER.  So the assert
-	 below silences a warning.  */
+      /* Depending on how targetm.hard_regno_mode_ok is defined, range
+	 propagation might deduce here that reg >= FIRST_PSEUDO_REGISTER.
+	 So the assert below silences a warning.  */
       gcc_assert (reg < FIRST_PSEUDO_REGISTER);
       cached_reg_save_code[reg][mode] = -1;
       cached_reg_restore_code[reg][mode] = -1;
@@ -1160,7 +1161,7 @@ replace_reg_with_saved_mem (rtx *loc,
 	    gcc_assert (smode != VOIDmode);
 	    if (hard_regno_nregs [regno][smode] > 1)
 	      smode = mode_for_size (GET_MODE_SIZE (mode) / nregs,
-				     GET_MODE_CLASS (mode), 0);
+				     GET_MODE_CLASS (mode), 0).require ();
 	    XVECEXP (mem, 0, i) = gen_rtx_REG (smode, regno + i);
 	  }
     }

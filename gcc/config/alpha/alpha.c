@@ -5294,17 +5294,6 @@ alpha_print_operand (FILE *file, rtx x, int code)
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x) / 8);
       break;
 
-    case 'S':
-      /* Same, except compute (64 - c) / 8 */
-
-      if (!CONST_INT_P (x)
-	  && (unsigned HOST_WIDE_INT) INTVAL (x) >= 64
-	  && (INTVAL (x) & 7) != 8)
-	output_operand_lossage ("invalid %%s value");
-
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, (64 - INTVAL (x)) / 8);
-      break;
-
     case 'C': case 'D': case 'c': case 'd':
       /* Write out comparison name.  */
       {
@@ -5562,7 +5551,7 @@ alpha_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       emit_insn (gen_imb ());
 #ifdef HAVE_ENABLE_EXECUTE_STACK
       emit_library_call (init_one_libfunc ("__enable_execute_stack"),
-			 LCT_NORMAL, VOIDmode, 1, XEXP (m_tramp, 0), Pmode);
+			 LCT_NORMAL, VOIDmode, XEXP (m_tramp, 0), Pmode);
 #endif
     }
 }
@@ -9891,6 +9880,33 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 		    build2 (COMPOUND_EXPR, void_type_node,
 			    reload_fenv, restore_fnenv), update_call);
 }
+
+/* Implement TARGET_HARD_REGNO_MODE_OK.  On Alpha, the integer registers
+   can hold any mode.  The floating-point registers can hold 64-bit
+   integers as well, but not smaller values.  */
+
+static bool
+alpha_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  if (IN_RANGE (regno, 32, 62))
+    return (mode == SFmode
+	    || mode == DFmode
+	    || mode == DImode
+	    || mode == SCmode
+	    || mode == DCmode);
+  return true;
+}
+
+/* Implement TARGET_MODES_TIEABLE_P.  This asymmetric test is true when
+   MODE1 could be put in an FP register but MODE2 could not.  */
+
+static bool
+alpha_modes_tieable_p (machine_mode mode1, machine_mode mode2)
+{
+  return (alpha_hard_regno_mode_ok (32, mode1)
+	  ? alpha_hard_regno_mode_ok (32, mode2)
+	  : true);
+}
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
@@ -10084,6 +10100,12 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV alpha_atomic_assign_expand_fenv
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK alpha_hard_regno_mode_ok
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P alpha_modes_tieable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

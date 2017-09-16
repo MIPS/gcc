@@ -5733,6 +5733,12 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 
   op = gimple_assign_rhs1 (stmt);
 
+  /* In the case this is a store from a STRING_CST make sure
+     native_encode_expr can handle it.  */
+  if (TREE_CODE (op) == STRING_CST
+      && ! can_native_encode_string_p (op))
+    return false;
+
   if (!vect_is_simple_use (op, vinfo, &def_stmt, &dt, &rhs_vectype))
     {
       if (dump_enabled_p ())
@@ -6032,8 +6038,9 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      /* First check if vec_extract optab doesn't support extraction
 		 of vector elts directly.  */
 	      scalar_mode elmode = SCALAR_TYPE_MODE (elem_type);
-	      machine_mode vmode = mode_for_vector (elmode, group_size);
-	      if (! VECTOR_MODE_P (vmode)
+	      machine_mode vmode;
+	      if (!mode_for_vector (elmode, group_size).exists (&vmode)
+		  || !VECTOR_MODE_P (vmode)
 		  || (convert_optab_handler (vec_extract_optab,
 					     TYPE_MODE (vectype), vmode)
 		      == CODE_FOR_nothing))
@@ -6046,11 +6053,12 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		  unsigned lsize
 		    = group_size * GET_MODE_BITSIZE (elmode);
 		  elmode = int_mode_for_size (lsize, 0).require ();
-		  vmode = mode_for_vector (elmode, nunits / group_size);
 		  /* If we can't construct such a vector fall back to
 		     element extracts from the original vector type and
 		     element size stores.  */
-		  if (VECTOR_MODE_P (vmode)
+		  if (mode_for_vector (elmode,
+				       nunits / group_size).exists (&vmode)
+		      && VECTOR_MODE_P (vmode)
 		      && (convert_optab_handler (vec_extract_optab,
 						 vmode, elmode)
 			  != CODE_FOR_nothing))
@@ -7070,8 +7078,9 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      /* First check if vec_init optab supports construction from
 		 vector elts directly.  */
 	      scalar_mode elmode = SCALAR_TYPE_MODE (TREE_TYPE (vectype));
-	      machine_mode vmode = mode_for_vector (elmode, group_size);
-	      if (VECTOR_MODE_P (vmode)
+	      machine_mode vmode;
+	      if (mode_for_vector (elmode, group_size).exists (&vmode)
+		  && VECTOR_MODE_P (vmode)
 		  && (convert_optab_handler (vec_init_optab,
 					     TYPE_MODE (vectype), vmode)
 		      != CODE_FOR_nothing))
@@ -7092,10 +7101,11 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		  unsigned lsize
 		    = group_size * TYPE_PRECISION (TREE_TYPE (vectype));
 		  elmode = int_mode_for_size (lsize, 0).require ();
-		  vmode = mode_for_vector (elmode, nunits / group_size);
 		  /* If we can't construct such a vector fall back to
 		     element loads of the original vector type.  */
-		  if (VECTOR_MODE_P (vmode)
+		  if (mode_for_vector (elmode,
+				       nunits / group_size).exists (&vmode)
+		      && VECTOR_MODE_P (vmode)
 		      && (convert_optab_handler (vec_init_optab, vmode, elmode)
 			  != CODE_FOR_nothing))
 		    {
@@ -7203,7 +7213,6 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     {
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
       group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
-      int group_gap = GROUP_GAP (vinfo_for_stmt (first_stmt));
       /* For SLP vectorization we directly vectorize a subchain
          without permutation.  */
       if (slp && ! SLP_TREE_LOAD_PERMUTATION (slp_node).exists ())
@@ -7246,7 +7255,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  else
 	    {
 	      vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-	      group_gap_adj = group_gap;
+	      group_gap_adj
+		= group_size - SLP_INSTANCE_GROUP_SIZE (slp_node_instance);
 	    }
     	}
       else
@@ -9098,8 +9108,8 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, unsigned size)
      lookup a vector mode of the specified size.  */
   if (size == 0)
     simd_mode = targetm.vectorize.preferred_simd_mode (inner_mode);
-  else
-    simd_mode = mode_for_vector (inner_mode, size / nbytes);
+  else if (!mode_for_vector (inner_mode, size / nbytes).exists (&simd_mode))
+    return NULL_TREE;
   nunits = GET_MODE_SIZE (simd_mode) / nbytes;
   /* NOTE: nunits == 1 is allowed to support single element vector types.  */
   if (nunits < 1)

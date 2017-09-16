@@ -1181,19 +1181,6 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   (TARGET_FMA4 && ((MODE) == V4SFmode || (MODE) == V2DFmode \
 		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
 
-/* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)	\
-   ix86_hard_regno_mode_ok ((REGNO), (MODE))
-
-/* Value is 1 if it is a good idea to tie two pseudo registers
-   when one has mode MODE1 and one has mode MODE2.
-   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output.  */
-
-#define MODES_TIEABLE_P(MODE1, MODE2) \
-  ix86_modes_tieable_p ((MODE1), (MODE2))
-
 /* It is possible to write patterns to move flags; but until someone
    does it,  */
 #define AVOID_CCMODE_COPIES
@@ -1213,12 +1200,6 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    : (MODE) == QImode && !(ANY_QI_REGNO_P (REGNO)			\
 			   || MASK_REGNO_P (REGNO)) ? SImode		\
    : (MODE))
-
-/* The only ABI that saves SSE registers across calls is Win64 (thus no
-   need to check the current ABI here), and with AVX enabled Win64 only
-   guarantees that the low 16 bytes are saved.  */
-#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)             \
-  (SSE_REGNO_P (REGNO) && GET_MODE_SIZE (MODE) > 16)
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -1567,7 +1548,7 @@ enum reg_class
    for integral modes that can be moved using 32 bit move.  */
 #define SECONDARY_MEMORY_NEEDED_MODE(MODE)			\
   (GET_MODE_BITSIZE (MODE) < 32 && INTEGRAL_MODE_P (MODE)	\
-   ? mode_for_size (32, GET_MODE_CLASS (MODE), 0)		\
+   ? mode_for_size (32, GET_MODE_CLASS (MODE), 0).require ()	\
    : MODE)
 
 /* Return a class of registers that cannot change FROM mode to TO mode.  */

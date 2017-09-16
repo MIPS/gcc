@@ -2042,7 +2042,7 @@ freestanding and hosted environments.
 Enable handling of OpenACC directives @code{#pragma acc} in C/C++ and
 @code{!$acc} in Fortran.  When @option{-fopenacc} is specified, the
 compiler generates accelerated code according to the OpenACC Application
-Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
+Programming Interface v2.0 @w{@uref{https://www.openacc.org}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
 
@@ -5560,6 +5560,14 @@ int i = 1;
 @dots{}
 if (i > i) @{ @dots{} @}
 @end smallexample
+
+This warning also warns about bitwise comparisons that always evaluate
+to true or false, for instance:
+@smallexample
+if ((a & 16) == 10) @{ @dots{} @}
+@end smallexample
+will always be false.
+
 This warning is enabled by @option{-Wall}.
 
 @item -Wtrampolines
@@ -11228,6 +11236,20 @@ is usable even in freestanding environments.
 @opindex fsanitize-coverage=trace-pc
 Enable coverage-guided fuzzing code instrumentation.
 Inserts a call to @code{__sanitizer_cov_trace_pc} into every basic block.
+
+@item -fsanitize-coverage=trace-cmp
+@opindex fsanitize-coverage=trace-cmp
+Enable dataflow guided fuzzing code instrumentation.
+Inserts a call to @code{__sanitizer_cov_trace_cmp1},
+@code{__sanitizer_cov_trace_cmp2}, @code{__sanitizer_cov_trace_cmp4} or
+@code{__sanitizer_cov_trace_cmp8} for integral comparison with both operands
+variable or @code{__sanitizer_cov_trace_const_cmp1},
+@code{__sanitizer_cov_trace_const_cmp2},
+@code{__sanitizer_cov_trace_const_cmp4} or
+@code{__sanitizer_cov_trace_const_cmp8} for integral comparison with one
+operand constant, @code{__sanitizer_cov_trace_cmpf} or
+@code{__sanitizer_cov_trace_cmpd} for float or double comparisons and
+@code{__sanitizer_cov_trace_switch} for switch statements.
 
 @item -fbounds-check
 @opindex fbounds-check
@@ -22060,15 +22082,21 @@ Enable/disable the @var{__float128} keyword for IEEE 128-bit floating point
 and use either software emulation for IEEE 128-bit floating point or
 hardware instructions.
 
-The VSX instruction set (@option{-mvsx}, @option{-mcpu=power7}, or
-@option{-mcpu=power8}) must be enabled to use the @option{-mfloat128}
-option.  The @option{-mfloat128} option only works on PowerPC 64-bit
-Linux systems.
+The VSX instruction set (@option{-mvsx}, @option{-mcpu=power7},
+@option{-mcpu=power8}), or @option{-mcpu=power9} must be enabled to
+use the IEEE 128-bit floating point support.  The IEEE 128-bit
+floating point support only works on PowerPC Linux systems.
 
-If you use the ISA 3.0 instruction set (@option{-mcpu=power9}), the
-@option{-mfloat128} option will also enable the generation of ISA 3.0
-IEEE 128-bit floating point instructions.  Otherwise, IEEE 128-bit
-floating point will be done with software emulation.
+The default for @option{-mfloat128} is enabled on PowerPC Linux
+systems using the VSX instruction set, and disabled on other systems.
+
+If you use the ISA 3.0 instruction set (@option{-mpower9-vector} or
+@option{-mcpu=power9}) on a 64-bit system, the IEEE 128-bit floating
+point support will also enable the generation of ISA 3.0 IEEE 128-bit
+floating point instructions.  Otherwise, if you do not specify to
+generate ISA 3.0 instructions or you are targeting a 32-bit big endian
+system, IEEE 128-bit floating point will be done with software
+emulation.
 
 @item -mfloat128-hardware
 @itemx -mno-float128-hardware
@@ -22077,12 +22105,9 @@ floating point will be done with software emulation.
 Enable/disable using ISA 3.0 hardware instructions to support the
 @var{__float128} data type.
 
-If you use @option{-mfloat128-hardware}, it will enable the option
-@option{-mfloat128} as well.
-
-If you select ISA 3.0 instructions with @option{-mcpu=power9}, but do
-not use either @option{-mfloat128} or @option{-mfloat128-hardware},
-the IEEE 128-bit floating point support will not be enabled.
+The default for @option{-mfloat128-hardware} is enabled on PowerPC
+Linux systems using the ISA 3.0 instruction set, and disabled on other
+systems.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

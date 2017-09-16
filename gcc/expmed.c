@@ -727,29 +727,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   while (GET_CODE (op0) == SUBREG)
     {
-      /* The following line once was done only if WORDS_BIG_ENDIAN,
-	 but I think that is a mistake.  WORDS_BIG_ENDIAN is
-	 meaningful at a much higher level; when structures are copied
-	 between memory and regs, the higher-numbered regs
-	 always get higher addresses.  */
-      int inner_mode_size = GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)));
-      int outer_mode_size = GET_MODE_SIZE (GET_MODE (op0));
-      int byte_offset = 0;
-
-      /* Paradoxical subregs need special handling on big-endian machines.  */
-      if (paradoxical_subreg_p (op0))
-	{
-	  int difference = inner_mode_size - outer_mode_size;
-
-	  if (WORDS_BIG_ENDIAN)
-	    byte_offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
-	  if (BYTES_BIG_ENDIAN)
-	    byte_offset += difference % UNITS_PER_WORD;
-	}
-      else
-	byte_offset = SUBREG_BYTE (op0);
-
-      bitnum += byte_offset * BITS_PER_UNIT;
+      bitnum += subreg_memory_offset (op0) * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
 
@@ -1600,10 +1578,11 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       machine_mode new_mode = GET_MODE (op0);
       if (GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode))
 	{
-	  new_mode = mode_for_vector (GET_MODE_INNER (tmode),
-				      GET_MODE_BITSIZE (GET_MODE (op0))
-				      / GET_MODE_UNIT_BITSIZE (tmode));
-	  if (!VECTOR_MODE_P (new_mode)
+	  scalar_mode inner_mode = GET_MODE_INNER (tmode);
+	  unsigned int nunits = (GET_MODE_BITSIZE (GET_MODE (op0))
+				 / GET_MODE_UNIT_BITSIZE (tmode));
+	  if (!mode_for_vector (inner_mode, nunits).exists (&new_mode)
+	      || !VECTOR_MODE_P (new_mode)
 	      || GET_MODE_SIZE (new_mode) != GET_MODE_SIZE (GET_MODE (op0))
 	      || GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode)
 	      || !targetm.vector_mode_supported_p (new_mode))
@@ -1733,14 +1712,9 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   /* Get the mode of the field to use for atomic access or subreg
      conversion.  */
-  mode1 = mode;
-  if (SCALAR_INT_MODE_P (tmode))
-    {
-      machine_mode try_mode = mode_for_size (bitsize,
-						  GET_MODE_CLASS (tmode), 0);
-      if (try_mode != BLKmode)
-	mode1 = try_mode;
-    }
+  if (!SCALAR_INT_MODE_P (tmode)
+      || !mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0).exists (&mode1))
+    mode1 = mode;
   gcc_assert (mode1 != BLKmode);
 
   /* Extraction of a full MODE1 value can be done with a subreg as long
@@ -2294,7 +2268,7 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
     return NULL_RTX;
 
   if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (src_mode)
-      && MODES_TIEABLE_P (mode, src_mode))
+      && targetm.modes_tieable_p (mode, src_mode))
     {
       rtx x = gen_lowpart_common (mode, src);
       if (x)
@@ -2305,9 +2279,9 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
       || !int_mode_for_mode (mode).exists (&int_mode))
     return NULL_RTX;
 
-  if (!MODES_TIEABLE_P (src_int_mode, src_mode))
+  if (!targetm.modes_tieable_p (src_int_mode, src_mode))
     return NULL_RTX;
-  if (!MODES_TIEABLE_P (int_mode, mode))
+  if (!targetm.modes_tieable_p (int_mode, mode))
     return NULL_RTX;
 
   src = gen_lowpart (src_int_mode, src);

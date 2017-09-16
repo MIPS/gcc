@@ -229,8 +229,8 @@ upc_pts_struct_init_type (void)
   gcc_assert (tree_fits_uhwi_p (TYPE_SIZE (upc_pts_rep_type_node)));
   gcc_assert (tree_to_uhwi (TYPE_SIZE (upc_pts_rep_type_node))
 	      == 2 * POINTER_SIZE);
-  pts_mode = mode_for_size_tree (TYPE_SIZE (upc_pts_rep_type_node),
-                                 MODE_INT, 0);
+  gcc_assert (mode_for_size_tree (TYPE_SIZE (upc_pts_rep_type_node),
+                          MODE_INT, 0).exists (&pts_mode));
   gcc_assert (pts_mode != BLKmode);
   SET_TYPE_MODE(upc_pts_rep_type_node, pts_mode);
   record_builtin_type (RID_SHARED, "upc_shared_ptr_t",

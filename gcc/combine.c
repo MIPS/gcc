@@ -370,7 +370,7 @@ static int label_tick_ebb_start;
 /* Mode used to compute significance in reg_stat[].nonzero_bits.  It is the
    largest integer mode that can fit in HOST_BITS_PER_WIDE_INT.  */
 
-static machine_mode nonzero_bits_mode;
+static scalar_int_mode nonzero_bits_mode;
 
 /* Nonzero when reg_stat[].nonzero_bits and reg_stat[].sign_bit_copies can
    be safely used.  It is zero while computing them and after combine has
@@ -1157,7 +1157,7 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
   uid_insn_cost = XCNEWVEC (int, max_uid_known + 1);
   gcc_obstack_init (&insn_link_obstack);
 
-  nonzero_bits_mode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
+  nonzero_bits_mode = int_mode_for_size (HOST_BITS_PER_WIDE_INT, 0).require ();
 
   /* Don't use reg_stat[].nonzero_bits when computing it.  This can cause
      problems when, for example, we have j <<= 1 in a loop.  */
@@ -2011,7 +2011,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
 
       if (REG_P (src)
 	  && ((REGNO (dest) < FIRST_PSEUDO_REGISTER
-	       && ! HARD_REGNO_MODE_OK (REGNO (dest), GET_MODE (dest)))
+	       && !targetm.hard_regno_mode_ok (REGNO (dest), GET_MODE (dest)))
 	      /* Don't extend the life of a hard register unless it is
 		 user variable (if we have few registers) or it can't
 		 fit into the desired register (meaning something special
@@ -2020,7 +2020,8 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
 		 reload can't handle a conflict with constraints of other
 		 inputs.  */
 	      || (REGNO (src) < FIRST_PSEUDO_REGISTER
-		  && ! HARD_REGNO_MODE_OK (REGNO (src), GET_MODE (src)))))
+		  && !targetm.hard_regno_mode_ok (REGNO (src),
+						  GET_MODE (src)))))
 	return 0;
     }
   else if (GET_CODE (dest) != CC0)
@@ -2210,8 +2211,8 @@ combinable_i3pat (rtx_insn *i3, rtx *loc, rtx i2dest, rtx i1dest, rtx i0dest,
 
 	  || (REG_P (inner_dest)
 	      && REGNO (inner_dest) < FIRST_PSEUDO_REGISTER
-	      && (! HARD_REGNO_MODE_OK (REGNO (inner_dest),
-					GET_MODE (inner_dest))))
+	      && !targetm.hard_regno_mode_ok (REGNO (inner_dest),
+					      GET_MODE (inner_dest)))
 	  || (i1_not_in_src && reg_overlap_mentioned_p (i1dest, src))
 	  || (i0_not_in_src && reg_overlap_mentioned_p (i0dest, src)))
 	return 0;
@@ -2454,7 +2455,7 @@ can_change_dest_mode (rtx x, int added_sets, machine_mode mode)
   /* Allow hard registers if the new mode is legal, and occupies no more
      registers than the old mode.  */
   if (regno < FIRST_PSEUDO_REGISTER)
-    return (HARD_REGNO_MODE_OK (regno, mode)
+    return (targetm.hard_regno_mode_ok (regno, mode)
 	    && REG_NREGS (x) >= hard_regno_nregs[regno][mode]);
 
   /* Or a pseudo that is only used once.  */
@@ -5446,11 +5447,11 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		     FROM to CC0.  */
 
 		  if (GET_CODE (to) == SUBREG
-		      && ! MODES_TIEABLE_P (GET_MODE (to),
-					    GET_MODE (SUBREG_REG (to)))
+		      && !targetm.modes_tieable_p (GET_MODE (to),
+						   GET_MODE (SUBREG_REG (to)))
 		      && ! (code == SUBREG
-			    && MODES_TIEABLE_P (GET_MODE (x),
-						GET_MODE (SUBREG_REG (to))))
+			    && (targetm.modes_tieable_p
+				(GET_MODE (x), GET_MODE (SUBREG_REG (to)))))
 		      && (!HAVE_cc0
 			  || (! (code == SET
 				 && i == 1

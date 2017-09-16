@@ -5394,6 +5394,7 @@ fold_range_test (location_t loc, enum tree_code code, tree type,
      short-circuited branch and the underlying object on both sides
      is the same, make a non-short-circuit operation.  */
   else if (LOGICAL_OP_NON_SHORT_CIRCUIT
+	   && !flag_sanitize_coverage
 	   && lhs != 0 && rhs != 0
 	   && (code == TRUTH_ANDIF_EXPR
 	       || code == TRUTH_ORIF_EXPR)
@@ -7184,16 +7185,10 @@ native_encode_vector (const_tree expr, unsigned char *ptr, int len, int off)
 static int
 native_encode_string (const_tree expr, unsigned char *ptr, int len, int off)
 {
-  tree type = TREE_TYPE (expr);
-  HOST_WIDE_INT total_bytes;
-
-  if (TREE_CODE (type) != ARRAY_TYPE
-      || TREE_CODE (TREE_TYPE (type)) != INTEGER_TYPE
-      || (GET_MODE_BITSIZE (SCALAR_INT_TYPE_MODE (TREE_TYPE (type)))
-	  != BITS_PER_UNIT)
-      || !tree_fits_shwi_p (TYPE_SIZE_UNIT (type)))
+  if (! can_native_encode_string_p (expr))
     return 0;
-  total_bytes = tree_to_shwi (TYPE_SIZE_UNIT (type));
+
+  HOST_WIDE_INT total_bytes = tree_to_shwi (TYPE_SIZE_UNIT (TREE_TYPE (expr)));
   if ((off == -1 && total_bytes > len)
       || off >= total_bytes)
     return 0;
@@ -7485,6 +7480,24 @@ can_native_encode_type_p (tree type)
     default:
       return false;
     }
+}
+
+/* Return true iff a STRING_CST S is accepted by
+   native_encode_expr.  */
+
+bool
+can_native_encode_string_p (const_tree expr)
+{
+  tree type = TREE_TYPE (expr);
+
+  /* Wide-char strings are encoded in target byte-order so native
+     encoding them is trivial.  */
+  if (BITS_PER_UNIT != CHAR_BIT
+      || TREE_CODE (type) != ARRAY_TYPE
+      || TREE_CODE (TREE_TYPE (type)) != INTEGER_TYPE
+      || !tree_fits_shwi_p (TYPE_SIZE_UNIT (type)))
+    return false;
+  return true;
 }
 
 /* Fold a VIEW_CONVERT_EXPR of a constant expression EXPR to type
@@ -8041,6 +8054,7 @@ fold_truth_andor (location_t loc, enum tree_code code, tree type,
     return tem;
 
   if (LOGICAL_OP_NON_SHORT_CIRCUIT
+      && !flag_sanitize_coverage
       && (code == TRUTH_AND_EXPR
           || code == TRUTH_ANDIF_EXPR
           || code == TRUTH_OR_EXPR

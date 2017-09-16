@@ -695,6 +695,16 @@ unlikely_text_section_p (section *sect)
   return sect == function_section_1 (current_function_decl, true);
 }
 
+/* Switch to the other function partition (if inside of hot section
+   into cold section, otherwise into the hot section).  */
+
+void
+switch_to_other_text_partition (void)
+{
+  in_cold_section_p = !in_cold_section_p;
+  switch_to_section (current_function_section ());
+}
+
 /* Return the read-only data section associated with function DECL.  */
 
 section *
@@ -1387,7 +1397,7 @@ make_decl_rtl (tree decl)
       else if (!in_hard_reg_set_p (operand_reg_set, mode, reg_number))
 	error ("the register specified for %q+D is not general enough"
 	       " to be used as a register variable", decl);
-      else if (!HARD_REGNO_MODE_OK (reg_number, mode))
+      else if (!targetm.hard_regno_mode_ok (reg_number, mode))
 	error ("register specified for %q+D isn%'t suitable for data type",
                decl);
       /* Now handle properly declared static register variables.  */
@@ -2780,8 +2790,8 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       else
 	mclass = MODE_INT;
 
-      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0);
-      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0);
+      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0).require ();
+      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0).require ();
 
       for (i = 0; i < size; i += subsize)
 	{
@@ -6577,8 +6587,9 @@ categorize_decl_for_section (const_tree decl, int reloc)
       /* Note that this would be *just* SECCAT_BSS, except that there's
 	 no concept of a read-only thread-local-data section.  */
       if (ret == SECCAT_BSS
-	       || (flag_zero_initialized_in_bss
-		   && initializer_zerop (DECL_INITIAL (decl))))
+	  || DECL_INITIAL (decl) == NULL
+	  || (flag_zero_initialized_in_bss
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_TBSS;
       else
 	ret = SECCAT_TDATA;

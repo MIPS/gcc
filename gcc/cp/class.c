@@ -129,10 +129,7 @@ static void handle_using_decl (tree, tree);
 static tree dfs_modify_vtables (tree, void *);
 static tree modify_all_vtables (tree, tree);
 static void determine_primary_bases (tree);
-static void finish_struct_methods (tree);
 static void maybe_warn_about_overly_private_class (tree);
-static int method_name_cmp (const void *, const void *);
-static int resort_method_name_cmp (const void *, const void *);
 static void add_implicitly_declared_members (tree, tree*, int, int);
 static tree fixed_type_or_null (tree, int *, int *);
 static tree build_simple_base_path (tree expr, tree binfo);
@@ -1014,57 +1011,12 @@ add_method (tree type, tree method, bool via_using)
   if (method == error_mark_node)
     return false;
 
-  vec<tree, va_gc> *method_vec = CLASSTYPE_METHOD_VEC (type);
-  if (!method_vec)
-    {
-      /* Make a new method vector.  We start with 8 entries.  */
-      vec_alloc (method_vec, 8);
-      CLASSTYPE_METHOD_VEC (type) = method_vec;
-    }
-
   /* Maintain TYPE_HAS_USER_CONSTRUCTOR, etc.  */
   grok_special_member_properties (method);
 
-  bool insert_p = true;
-  tree method_name = DECL_NAME (method);
-  bool complete_p = COMPLETE_TYPE_P (type);
-  bool conv_p = IDENTIFIER_CONV_OP_P (method_name);
+  tree *slot = get_method_slot (type, DECL_NAME (method));
+  tree current_fns = *slot;
 
-  if (conv_p)
-    method_name = conv_op_identifier;
-
-  /* See if we already have an entry with this name.  */
-  unsigned slot;
-  tree m;
-  for (slot = 0; vec_safe_iterate (method_vec, slot, &m); ++slot)
-    {
-      m = DECL_NAME (OVL_FIRST (m));
-      if (m == method_name)
-	{
-	  insert_p = false;
-	  break;
-	}
-      if (complete_p && m > method_name)
-	break;
-    }
-  tree current_fns = insert_p ? NULL_TREE : (*method_vec)[slot];
-
-  tree conv_marker = NULL_TREE;
-  if (conv_p)
-    {
-      /* For conversion operators, we prepend a dummy overload
-	 pointing at conv_op_marker.  That function's DECL_NAME is
-	 conv_op_identifier, so we can use identifier equality to
-	 locate it.  */
-      if (current_fns)
-	{
-	  gcc_checking_assert (OVL_FUNCTION (current_fns) == conv_op_marker);
-	  conv_marker = current_fns;
-	  current_fns = OVL_CHAIN (current_fns);
-	}
-      else
-	conv_marker = ovl_make (conv_op_marker, NULL_TREE);
-    }
   gcc_assert (!DECL_EXTERN_C_P (method));
 
   /* Check to see if we've already got this method.  */
@@ -1212,36 +1164,11 @@ add_method (tree type, tree method, bool via_using)
 
   current_fns = ovl_insert (method, current_fns, via_using);
 
-  if (conv_p)
-    {
-      TYPE_HAS_CONVERSION (type) = 1;
-      /* Prepend the marker function.  */
-      OVL_CHAIN (conv_marker) = current_fns;
-      current_fns = conv_marker;
-    }
-  else if (!complete_p && !IDENTIFIER_CDTOR_P (DECL_NAME (method)))
+  if (!DECL_CONV_FN_P (method) && !COMPLETE_TYPE_P (type))
     push_class_level_binding (DECL_NAME (method), current_fns);
 
-  if (insert_p)
-    {
-      bool reallocated;
+  *slot = current_fns;
 
-      /* We only expect to add few methods in the COMPLETE_P case, so
-	 just make room for one more method in that case.  */
-      if (complete_p)
-	reallocated = vec_safe_reserve_exact (method_vec, 1);
-      else
-	reallocated = vec_safe_reserve (method_vec, 1);
-      if (reallocated)
-	CLASSTYPE_METHOD_VEC (type) = method_vec;
-      if (slot == method_vec->length ())
-	method_vec->quick_push (current_fns);
-      else
-	method_vec->quick_insert (slot, current_fns);
-    }
-  else
-    /* Replace the current slot.  */
-    (*method_vec)[slot] = current_fns;
   return true;
 }
 
@@ -2247,76 +2174,6 @@ maybe_warn_about_overly_private_class (tree t)
     }
 }
 
-static struct {
-  gt_pointer_operator new_value;
-  void *cookie;
-} resort_data;
-
-/* Comparison function to compare two TYPE_METHOD_VEC entries by name.  */
-
-static int
-method_name_cmp (const void* m1_p, const void* m2_p)
-{
-  const tree *const m1 = (const tree *) m1_p;
-  const tree *const m2 = (const tree *) m2_p;
-
-  if (OVL_NAME (*m1) < OVL_NAME (*m2))
-    return -1;
-  return 1;
-}
-
-/* This routine compares two fields like method_name_cmp but using the
-   pointer operator in resort_field_decl_data.  */
-
-static int
-resort_method_name_cmp (const void* m1_p, const void* m2_p)
-{
-  const tree *const m1 = (const tree *) m1_p;
-  const tree *const m2 = (const tree *) m2_p;
-
-  tree n1 = OVL_NAME (*m1);
-  tree n2 = OVL_NAME (*m2);
-  resort_data.new_value (&n1, resort_data.cookie);
-  resort_data.new_value (&n2, resort_data.cookie);
-  if (n1 < n2)
-    return -1;
-  return 1;
-}
-
-/* Resort TYPE_METHOD_VEC because pointers have been reordered.  */
-
-void
-resort_type_method_vec (void* obj,
-			void* /*orig_obj*/,
-			gt_pointer_operator new_value,
-			void* cookie)
-{
-  if (vec<tree, va_gc> *method_vec = (vec<tree, va_gc> *) obj)
-    {
-      resort_data.new_value = new_value;
-      resort_data.cookie = cookie;
-      qsort (method_vec->address (), method_vec->length (), sizeof (tree),
-	     resort_method_name_cmp);
-    }
-}
-
-/* Warn about duplicate methods in fn_fields.
-
-   Sort methods that are not special (i.e., constructors, destructors,
-   and type conversion operators) so that we can find them faster in
-   search.  */
-
-static void
-finish_struct_methods (tree t)
-{
-  vec<tree, va_gc> *method_vec = CLASSTYPE_METHOD_VEC (t);
-  if (!method_vec)
-    return;
-
-  qsort (method_vec->address (), method_vec->length (),
-	 sizeof (tree), method_name_cmp);
-}
-
 /* Make BINFO's vtable have N entries, including RTTI entries,
    vbase and vcall offsets, etc.  Set its type and call the back end
    to lay it out.  */
@@ -2888,7 +2745,7 @@ get_basefndecls (tree name, tree t, vec<tree> *base_fndecls)
   bool found_decls = false;
 
   /* Find virtual functions in T with the indicated NAME.  */
-  for (ovl_iterator iter (lookup_fnfields_slot (t, name)); iter; ++iter)
+  for (ovl_iterator iter (get_class_binding (t, name)); iter; ++iter)
     {
       tree method = *iter;
 
@@ -2961,63 +2818,64 @@ check_for_override (tree decl, tree ctype)
 static void
 warn_hidden (tree t)
 {
-  vec<tree, va_gc> *method_vec = CLASSTYPE_METHOD_VEC (t);
-  tree fns;
+  if (vec<tree, va_gc> *method_vec = CLASSTYPE_METHOD_VEC (t))
+    for (unsigned ix = method_vec->length (); ix--;)
+      {
+	tree fns = (*method_vec)[ix];
 
-  /* We go through each separately named virtual function.  */
-  for (int i = 0; vec_safe_iterate (method_vec, i, &fns); ++i)
-    {
-      tree name = OVL_NAME (fns);
-      auto_vec<tree, 20> base_fndecls;
-      tree base_binfo;
-      tree binfo;
-      int j;
+	if (!OVL_P (fns))
+	  continue;
 
-      /* Iterate through all of the base classes looking for possibly
-	 hidden functions.  */
-      for (binfo = TYPE_BINFO (t), j = 0;
-	   BINFO_BASE_ITERATE (binfo, j, base_binfo); j++)
-	{
-	  tree basetype = BINFO_TYPE (base_binfo);
-	  get_basefndecls (name, basetype, &base_fndecls);
-	}
+	tree name = OVL_NAME (fns);
+	auto_vec<tree, 20> base_fndecls;
+	tree base_binfo;
+	tree binfo;
+	unsigned j;
 
-      /* If there are no functions to hide, continue.  */
-      if (base_fndecls.is_empty ())
-	continue;
-
-      /* Remove any overridden functions.  */
-      for (ovl_iterator iter (fns); iter; ++iter)
-	{
-	  tree fndecl = *iter;
-	  if (TREE_CODE (fndecl) == FUNCTION_DECL
-	      && DECL_VINDEX (fndecl))
-	    {
-	      /* If the method from the base class has the same
-		 signature as the method from the derived class, it
-		 has been overridden.  */
-	      for (size_t k = 0; k < base_fndecls.length (); k++)
-		if (base_fndecls[k]
-		    && same_signature_p (fndecl, base_fndecls[k]))
-		  base_fndecls[k] = NULL_TREE;
-	    }
-	}
-
-      /* Now give a warning for all base functions without overriders,
-	 as they are hidden.  */
-      size_t k;
-      tree base_fndecl;
-      FOR_EACH_VEC_ELT (base_fndecls, k, base_fndecl)
-	if (base_fndecl)
+	/* Iterate through all of the base classes looking for possibly
+	   hidden functions.  */
+	for (binfo = TYPE_BINFO (t), j = 0;
+	     BINFO_BASE_ITERATE (binfo, j, base_binfo); j++)
 	  {
-	    /* Here we know it is a hider, and no overrider exists.  */
-	    warning_at (location_of (base_fndecl),
-			OPT_Woverloaded_virtual,
-			"%qD was hidden", base_fndecl);
-	    warning_at (location_of (fns),
-			OPT_Woverloaded_virtual, "  by %qD", fns);
+	    tree basetype = BINFO_TYPE (base_binfo);
+	    get_basefndecls (name, basetype, &base_fndecls);
 	  }
-    }
+
+	/* If there are no functions to hide, continue.  */
+	if (base_fndecls.is_empty ())
+	  continue;
+
+	/* Remove any overridden functions.  */
+	for (ovl_iterator iter (fns); iter; ++iter)
+	  {
+	    tree fndecl = *iter;
+	    if (TREE_CODE (fndecl) == FUNCTION_DECL
+		&& DECL_VINDEX (fndecl))
+	      {
+		/* If the method from the base class has the same
+		   signature as the method from the derived class, it
+		   has been overridden.  */
+		for (size_t k = 0; k < base_fndecls.length (); k++)
+		  if (base_fndecls[k]
+		      && same_signature_p (fndecl, base_fndecls[k]))
+		    base_fndecls[k] = NULL_TREE;
+	      }
+	  }
+
+	/* Now give a warning for all base functions without overriders,
+	   as they are hidden.  */
+	tree base_fndecl;
+	FOR_EACH_VEC_ELT (base_fndecls, j, base_fndecl)
+	  if (base_fndecl)
+	    {
+	      /* Here we know it is a hider, and no overrider exists.  */
+	      warning_at (location_of (base_fndecl),
+			  OPT_Woverloaded_virtual,
+			  "%qD was hidden", base_fndecl);
+	      warning_at (location_of (fns),
+			  OPT_Woverloaded_virtual, "  by %qD", fns);
+	    }
+      }
 }
 
 /* Recursive helper for finish_struct_anon.  */
@@ -5177,14 +5035,12 @@ bool
 vbase_has_user_provided_move_assign (tree type)
 {
   /* Does the type itself have a user-provided move assignment operator?  */
-  for (ovl_iterator iter (lookup_fnfields_slot_nolazy
-			  (type, cp_assignment_operator_id (NOP_EXPR)));
-       iter; ++iter)
-    {
-      tree fn = *iter;
-      if (move_fn_p (fn) && user_provided_p (fn))
+  if (!CLASSTYPE_LAZY_MOVE_ASSIGN (type))
+    for (ovl_iterator iter (get_class_binding_direct
+			    (type, cp_assignment_operator_id (NOP_EXPR)));
+	 iter; ++iter)
+      if (!DECL_ARTIFICIAL (*iter) && move_fn_p (*iter))
 	return true;
-    }
 
   /* Do any of its bases?  */
   tree binfo = TYPE_BINFO (type);
@@ -5323,13 +5179,12 @@ classtype_has_move_assign_or_move_ctor_p (tree t, bool user_p)
 		  && !CLASSTYPE_LAZY_MOVE_ASSIGN (t)));
 
   if (!CLASSTYPE_LAZY_MOVE_CTOR (t))
-    for (ovl_iterator iter (lookup_fnfields_slot_nolazy (t, ctor_identifier));
-	 iter; ++iter)
+    for (ovl_iterator iter (CLASSTYPE_CONSTRUCTORS (t)); iter; ++iter)
       if ((!user_p || !DECL_ARTIFICIAL (*iter)) && move_fn_p (*iter))
 	return true;
 
   if (!CLASSTYPE_LAZY_MOVE_ASSIGN (t))
-    for (ovl_iterator iter (lookup_fnfields_slot_nolazy
+    for (ovl_iterator iter (get_class_binding_direct
 			    (t, cp_assignment_operator_id (NOP_EXPR)));
 	 iter; ++iter)
       if ((!user_p || !DECL_ARTIFICIAL (*iter)) && move_fn_p (*iter))
@@ -5363,8 +5218,7 @@ type_build_ctor_call (tree t)
     return false;
   /* A user-declared constructor might be private, and a constructor might
      be trivial but deleted.  */
-  for (ovl_iterator iter
-	 (lookup_fnfields_slot (inner, complete_ctor_identifier));
+  for (ovl_iterator iter (get_class_binding (inner, complete_ctor_identifier));
        iter; ++iter)
     {
       tree fn = *iter;
@@ -5391,8 +5245,7 @@ type_build_dtor_call (tree t)
     return false;
   /* A user-declared destructor might be private, and a destructor might
      be trivial but deleted.  */
-  for (ovl_iterator iter
-	 (lookup_fnfields_slot (inner, complete_dtor_identifier));
+  for (ovl_iterator iter (get_class_binding (inner, complete_dtor_identifier));
        iter; ++iter)
     {
       tree fn = *iter;
@@ -6966,8 +6819,7 @@ finish_struct_1 (tree t)
   layout_class_type (t, &virtuals);
   /* COMPLETE_TYPE_P is now true.  */
 
-  finish_struct_methods (t);
-  set_class_bindings (t, TYPE_FIELDS (t));
+  set_class_bindings (t);
 
   if (CLASSTYPE_AS_BASE (t) != t)
     /* We use the base type for trivial assignments, and hence it
@@ -7130,7 +6982,7 @@ unreverse_member_declarations (tree t)
 
   /* For the TYPE_FIELDS, only the non TYPE_DECLs are in reverse
      order, so we can't just use nreverse.  Due to stat_hack
-     chicanery in finish_member_declarations.  */
+     chicanery in finish_member_declaration.  */
   prev = NULL_TREE;
   for (x = TYPE_FIELDS (t);
        x && TREE_CODE (x) != TYPE_DECL;
@@ -7144,8 +6996,7 @@ unreverse_member_declarations (tree t)
   if (prev)
     {
       DECL_CHAIN (TYPE_FIELDS (t)) = x;
-      if (prev)
-	TYPE_FIELDS (t) = prev;
+      TYPE_FIELDS (t) = prev;
     }
 }
 
@@ -7187,8 +7038,7 @@ finish_struct (tree t, tree attributes)
       TYPE_SIZE_UNIT (t) = size_zero_node;
       /* COMPLETE_TYPE_P is now true.  */
 
-      finish_struct_methods (t);
-      set_class_bindings (t, TYPE_FIELDS (t));
+      set_class_bindings (t);
 
       /* We need to emit an error message if this type was used as a parameter
 	 and it is an abstract type, even if it is a template. We construct

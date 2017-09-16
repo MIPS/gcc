@@ -734,6 +734,31 @@ default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* Default implementation of TARGET_FUNCTION_ARG_PADDING: usually pad
+   upward, but pad short args downward on big-endian machines.  */
+
+pad_direction
+default_function_arg_padding (machine_mode mode, const_tree type)
+{
+  if (!BYTES_BIG_ENDIAN)
+    return PAD_UPWARD;
+
+  unsigned HOST_WIDE_INT size;
+  if (mode == BLKmode)
+    {
+      if (!type || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	return PAD_UPWARD;
+      size = int_size_in_bytes (type);
+    }
+  else
+    size = GET_MODE_SIZE (mode);
+
+  if (size < (PARM_BOUNDARY / BITS_PER_UNIT))
+    return PAD_DOWNWARD;
+
+  return PAD_UPWARD;
+}
+
 rtx
 default_function_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 		      machine_mode mode ATTRIBUTE_UNUSED,
@@ -1175,7 +1200,7 @@ default_autovectorize_vector_sizes (void)
 
 /* By defaults a vector of integers is used as a mask.  */
 
-machine_mode
+opt_machine_mode
 default_get_mask_mode (unsigned nunits, unsigned vector_size)
 {
   unsigned elem_size = vector_size / nunits;
@@ -1185,12 +1210,12 @@ default_get_mask_mode (unsigned nunits, unsigned vector_size)
 
   gcc_assert (elem_size * nunits == vector_size);
 
-  vector_mode = mode_for_vector (elem_mode, nunits);
-  if (!VECTOR_MODE_P (vector_mode)
-      || !targetm.vector_mode_supported_p (vector_mode))
-    vector_mode = BLKmode;
+  if (mode_for_vector (elem_mode, nunits).exists (&vector_mode)
+      && VECTOR_MODE_P (vector_mode)
+      && targetm.vector_mode_supported_p (vector_mode))
+    return vector_mode;
 
-  return vector_mode;
+  return opt_machine_mode ();
 }
 
 /* By default, the cost model accumulates three separate costs (prologue,
@@ -1737,7 +1762,7 @@ default_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = reg_raw_mode[regno];
 
-  if (HARD_REGNO_CALL_PART_CLOBBERED (regno, save_mode))
+  if (targetm.hard_regno_call_part_clobbered (regno, save_mode))
     save_mode = choose_hard_reg_mode (regno, 1, true);
   return save_mode;
 }

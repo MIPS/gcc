@@ -4073,13 +4073,6 @@ cxx_init_decl_processing (void)
   noexcept_deferred_spec = build_tree_list (make_node (DEFERRED_NOEXCEPT),
 					    NULL_TREE);
 
-  /* Create the conversion operator marker.  This operator's DECL_NAME
-     is in the identifier table, so we can use identifier equality to
-     find it.  This has no type and no context, so we can't
-     accidentally think it a real function.  */
-  conv_op_marker = build_lang_decl (FUNCTION_DECL, conv_op_identifier,
-				    NULL_TREE);
-
 #if 0
   record_builtin_type (RID_MAX, NULL, string_type_node);
 #endif
@@ -4093,6 +4086,12 @@ cxx_init_decl_processing (void)
 					     ptr_type_node, NULL_TREE);
   void_ftype_ptr
     = build_exception_variant (void_ftype_ptr, empty_except_spec);
+
+  /* Create the conversion operator marker.  This operator's DECL_NAME
+     is in the identifier table, so we can use identifier equality to
+     find it.  */
+  conv_op_marker = build_lang_decl (FUNCTION_DECL, conv_op_identifier,
+				    void_ftype);
 
   /* C++ extensions */
 
@@ -5747,7 +5746,7 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
 	    /* We already reshaped this.  */
 	    gcc_assert (d->cur->index == field);
 	  else if (TREE_CODE (d->cur->index) == IDENTIFIER_NODE)
-	    field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
+	    field = get_class_binding (type, d->cur->index, false);
 	  else
 	    {
 	      if (complain & tf_error)
@@ -7858,7 +7857,7 @@ register_dtor_fn (tree decl)
   use_dtor = ob_parm && CLASS_TYPE_P (type);
   if (use_dtor)
     {
-      cleanup = lookup_fnfields_slot (type, complete_dtor_identifier);
+      cleanup = get_class_binding (type, complete_dtor_identifier);
 
       /* Make sure it is accessible.  */
       perform_or_defer_access_check (TYPE_BINFO (type), cleanup, cleanup,
@@ -12793,7 +12792,7 @@ grok_special_member_properties (tree decl)
     return;
 
   class_type = DECL_CONTEXT (decl);
-  if (DECL_CONSTRUCTOR_P (decl))
+  if (IDENTIFIER_CTOR_P (DECL_NAME (decl)))
     {
       int ctor = copy_fn_p (decl);
 
@@ -12823,10 +12822,10 @@ grok_special_member_properties (tree decl)
 	TYPE_HAS_LIST_CTOR (class_type) = 1;
 
       if (DECL_DECLARED_CONSTEXPR_P (decl)
-	  && !copy_fn_p (decl) && !move_fn_p (decl))
+	  && !ctor && !move_fn_p (decl))
 	TYPE_HAS_CONSTEXPR_CTOR (class_type) = 1;
     }
-  else if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
+  else if (DECL_NAME (decl) == cp_assignment_operator_id (NOP_EXPR))
     {
       /* [class.copy]
 
@@ -12847,6 +12846,9 @@ grok_special_member_properties (tree decl)
       else if (move_fn_p (decl) && user_provided_p (decl))
 	TYPE_HAS_COMPLEX_MOVE_ASSIGN (class_type) = 1;
     }
+  else if (IDENTIFIER_CONV_OP_P (DECL_NAME (decl)))
+    TYPE_HAS_CONVERSION (class_type) = true;
+  
   /* Destructors are handled in check_methods.  */
 }
 
@@ -15072,7 +15074,10 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (DECL_DESTRUCTOR_P (decl1)
       || (DECL_CONSTRUCTOR_P (decl1)
 	  && targetm.cxx.cdtor_returns_this ()))
-    cdtor_label = create_artificial_label (input_location);
+    {
+      cdtor_label = create_artificial_label (input_location);
+      LABEL_DECL_CDTOR (cdtor_label) = true;
+    }
 
   start_fname_decls ();
 
