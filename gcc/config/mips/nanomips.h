@@ -159,6 +159,13 @@ along with GCC; see the file COPYING3.  If not see
   /* Configuration-independent MIPS rules.  */				\
   BASE_DRIVER_SELF_SPECS
 
+#undef SUBTARGET_ASM_DEBUGGING_SPEC
+#define SUBTARGET_ASM_DEBUGGING_SPEC "\
+%{g} %{g0} %{g1} %{g2} %{g3} \
+%{ggdb:-g} %{ggdb0:-g0} %{ggdb1:-g1} %{ggdb2:-g2} %{ggdb3:-g3} \
+%{gstabs:-g} %{gstabs0:-g0} %{gstabs1:-g1} %{gstabs2:-g2} %{gstabs3:-g3} \
+%{gstabs+:-g} %{gstabs+0:-g0} %{gstabs+1:-g1} %{gstabs+2:-g2} %{gstabs+3:-g3}"
+
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %(endian_spec) \
@@ -172,11 +179,7 @@ along with GCC; see the file COPYING3.  If not see
 %{mxpa} %{mno-xpa} \
 %{mmsa} %{mno-msa} \
 %{mmt} %{mno-mt} \
-%{mmxu} %{mno-mxu} \
 %(subtarget_asm_debugging_spec) \
-%{mgp32} %{mgp64} %{mxgot:-xgot} \
-%{mfp64}\
-%{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*}" \
 FP_ASM_SPEC "\
