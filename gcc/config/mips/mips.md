@@ -1819,6 +1819,19 @@
 		 (match_operand:SI 3 "d_operand")))
    (clobber (match_operand:SI 4 "lo_operand"))
    (clobber (match_operand:SI 5 "d_operand"))]
+  "reload_completed && ISA_HAS_R6MUL"
+  [(set (match_dup 5)
+	(mult:SI (match_dup 1) (match_dup 2)))
+   (set (match_dup 0) (plus:SI (match_dup 5) (match_dup 3)))]
+  "")
+
+(define_split
+  [(set (match_operand:SI 0 "d_operand")
+	(plus:SI (mult:SI (match_operand:SI 1 "d_operand")
+			  (match_operand:SI 2 "d_operand"))
+		 (match_operand:SI 3 "d_operand")))
+   (clobber (match_operand:SI 4 "lo_operand"))
+   (clobber (match_operand:SI 5 "d_operand"))]
   "reload_completed"
   [(parallel [(set (match_dup 5)
 		   (mult:SI (match_dup 1) (match_dup 2)))
@@ -2040,6 +2053,19 @@
 
 ;; Split *mul_sub_si if both the source and destination accumulator
 ;; values are GPRs.
+(define_split
+  [(set (match_operand:SI 0 "d_operand")
+        (minus:SI (match_operand:SI 1 "d_operand")
+                  (mult:SI (match_operand:SI 2 "d_operand")
+                           (match_operand:SI 3 "d_operand"))))
+   (clobber (match_operand:SI 4 "lo_operand"))
+   (clobber (match_operand:SI 5 "d_operand"))]
+  "reload_completed && ISA_HAS_R6MUL"
+  [(set (match_dup 5)
+	(mult:SI (match_dup 2) (match_dup 3)))
+   (set (match_dup 0) (minus:SI (match_dup 1) (match_dup 5)))]
+  "")
+
 (define_split
   [(set (match_operand:SI 0 "d_operand")
         (minus:SI (match_operand:SI 1 "d_operand")
