@@ -18371,6 +18371,24 @@ mips_adjust_cost (rtx_insn *insn ATTRIBUTE_UNUSED, rtx link,
   return cost;
 }
 
+static int
+mips_adjust_priority (rtx_insn *insn, int priority)
+{
+  tree decl_result;
+  if (INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) == CLOBBER
+      && GET_CODE (XEXP (PATTERN (insn), 0)) == REG
+      && (decl_result = DECL_RESULT (current_function_decl))
+      && DECL_RTL_SET_P (decl_result))
+    {
+      rtx decl_rtl = DECL_RTL (decl_result);
+      if (REG_P (decl_rtl) && REGNO (decl_rtl) >= FIRST_PSEUDO_REGISTER
+	  && REGNO (XEXP (PATTERN (insn), 0)) == REGNO (decl_rtl))
+	return priority - 1;
+    }
+  return priority;
+}
+
 /* Return the number of instructions that can be issued per cycle.  */
 
 static int
@@ -29747,6 +29765,8 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 #define TARGET_SCHED_VARIABLE_ISSUE mips_variable_issue
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
+#undef TARGET_SCHED_ADJUST_PRIORITY
+#define TARGET_SCHED_ADJUST_PRIORITY mips_adjust_priority
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE mips_issue_rate
 
