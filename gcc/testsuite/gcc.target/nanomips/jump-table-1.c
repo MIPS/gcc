@@ -1,4 +1,4 @@
-/* { dg-options "-mgp32 addressing=absolute" } */
+/* { dg-options "-mgp32 addressing=absolute (-mgpopt)" } */
 /* { dg-skip-if ".half requires -O" { *-*-* } { "-O0" "-Os" } { "" } } */
 int x0;
 
