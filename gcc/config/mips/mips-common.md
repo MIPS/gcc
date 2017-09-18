@@ -4796,6 +4796,24 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*load_sf_pcrel32_pic_nano<mode>"
+  [(set (match_operand:SF 0 "register_operand" "=d")
+	(mem:SF (match_operand:P 1 "pcrel32_mem_nano_operand")))]
+  "TARGET_NANOMIPS && TARGET_SOFT_FLOAT"
+  "lwpc\t%0,%1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*store_sf_pcrel32_pic_nano<mode>"
+  [(set (mem:SF (match_operand:P 0 "pcrel32_mem_nano_operand"))
+	(match_operand:SF 1 "reg_or_0_operand" "d,J"))]
+  "TARGET_NANOMIPS"
+  "@
+    swpc\t%1,%0
+    swpc\t%z1,%0"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
 (define_insn "*pcrel_split_low_pic_nano<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
