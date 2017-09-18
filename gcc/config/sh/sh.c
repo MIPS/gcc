@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+#include "regs.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -321,8 +322,10 @@ static bool sh_legitimate_combined_insn (rtx_insn* insn);
 static bool sh_fixed_condition_code_regs (unsigned int* p1, unsigned int* p2);
 
 static void sh_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
+static unsigned int sh_hard_regno_nregs (unsigned int, machine_mode);
 static bool sh_hard_regno_mode_ok (unsigned int, machine_mode);
 static bool sh_modes_tieable_p (machine_mode, machine_mode);
+static bool sh_can_change_mode_class (machine_mode, machine_mode, reg_class_t);
 
 static const struct attribute_spec sh_attribute_table[] =
 {
@@ -643,11 +646,16 @@ static const struct attribute_spec sh_attribute_table[] =
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM sh_cannot_force_const_mem_p
 
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS sh_hard_regno_nregs
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK sh_hard_regno_mode_ok
 
 #undef TARGET_MODES_TIEABLE_P
 #define TARGET_MODES_TIEABLE_P sh_modes_tieable_p
+
+#undef TARGET_CAN_CHANGE_MODE_CLASS
+#define TARGET_CAN_CHANGE_MODE_CLASS sh_can_change_mode_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1392,8 +1400,8 @@ sh_print_operand (FILE *stream, rtx x, int code)
 	    /* Floating point register pairs are always big endian;
 	       general purpose registers are 64 bit wide.  */
 	    regno = REGNO (inner);
-	    regno = (HARD_REGNO_NREGS (regno, inner_mode)
-		     - HARD_REGNO_NREGS (regno, mode))
+	    regno = (hard_regno_nregs (regno, inner_mode)
+		     - hard_regno_nregs (regno, mode))
 		     + offset;
 	    x = inner;
 	    goto reg;
@@ -5371,7 +5379,7 @@ regs_used (rtx x, int is_dest)
     {
     case REG:
       if (REGNO (x) < 16)
-	return (((1 << HARD_REGNO_NREGS (0, GET_MODE (x))) - 1)
+	return (((1 << hard_regno_nregs (0, GET_MODE (x))) - 1)
 		<< (REGNO (x) + is_dest));
       return 0;
     case SUBREG:
@@ -5381,7 +5389,7 @@ regs_used (rtx x, int is_dest)
 	if (!REG_P (y))
 	  break;
 	if (REGNO (y) < 16)
-	  return (((1 << HARD_REGNO_NREGS (0, GET_MODE (x))) - 1)
+	  return (((1 << hard_regno_nregs (0, GET_MODE (x))) - 1)
 		  << (REGNO (y) +
 		      subreg_regno_offset (REGNO (y),
 					   GET_MODE (y),
@@ -6687,7 +6695,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 		      machine_mode mode;
 		      mode = GET_MODE (crtl->return_rtx);
 		      if (BASE_RETURN_VALUE_REG (mode) == FIRST_RET_REG)
-			nreg = HARD_REGNO_NREGS (FIRST_RET_REG, mode);
+			nreg = hard_regno_nregs (FIRST_RET_REG, mode);
 		    }
 		  for (i = 0; i < nreg; i++)
 		    CLEAR_HARD_REG_BIT (temps, FIRST_RET_REG + i);
@@ -7953,7 +7961,7 @@ sh_pass_in_reg_p (const CUMULATIVE_ARGS& cum, machine_mode mode,
 	      + int_size_in_bytes (type))
 	     <= NPARM_REGS (SImode) * UNITS_PER_WORD)
 	  : ((sh_round_reg (cum, mode)
-	      + HARD_REGNO_NREGS (BASE_ARG_REG (mode), mode))
+	      + sh_hard_regno_nregs (BASE_ARG_REG (mode), mode))
 	     <= NPARM_REGS (mode)))
        : sh_round_reg (cum, mode) < NPARM_REGS (mode)));
 }
@@ -10502,6 +10510,17 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   return target;
 }
 
+/* Implement TARGET_HARD_REGNO_NREGS.  On the SH all but the XD regs are
+   UNITS_PER_WORD bits wide.  */
+
+static unsigned int
+sh_hard_regno_nregs (unsigned int regno, machine_mode mode)
+{
+  if (XD_REGISTER_P (regno))
+    return CEIL (GET_MODE_SIZE (mode), 2 * UNITS_PER_WORD);
+  return CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD);
+}
+
 /* Implement TARGET_HARD_REGNO_MODE_OK.
 
    We can allow any mode in any general register.  The special registers
@@ -10613,11 +10632,10 @@ sh_hard_regno_caller_save_mode (unsigned int regno, unsigned int nregs,
   return choose_hard_reg_mode (regno, nregs, false);
 }
 
-/* Return the class of registers for which a mode change from FROM to TO
-   is invalid.  */
-bool
-sh_cannot_change_mode_class (machine_mode from, machine_mode to,
-			     enum reg_class rclass)
+/* Implement TARGET_CAN_CHANGE_MODE_CLASS.  */
+static bool
+sh_can_change_mode_class (machine_mode from, machine_mode to,
+			  reg_class_t rclass)
 {
   /* We want to enable the use of SUBREGs as a means to
      VEC_SELECT a single element of a vector.  */
@@ -10627,22 +10645,22 @@ sh_cannot_change_mode_class (machine_mode from, machine_mode to,
      on the stack with displacement addressing, as it happens with -O0.
      Thus we disallow the mode change for -O0.  */
   if (to == SFmode && VECTOR_MODE_P (from) && GET_MODE_INNER (from) == SFmode)
-    return optimize ? (reg_classes_intersect_p (GENERAL_REGS, rclass)) : false;
+    return optimize ? !reg_classes_intersect_p (GENERAL_REGS, rclass) : true;
 
   if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
     {
       if (TARGET_LITTLE_ENDIAN)
 	{
 	  if (GET_MODE_SIZE (to) < 8 || GET_MODE_SIZE (from) < 8)
-	    return reg_classes_intersect_p (DF_REGS, rclass);
+	    return !reg_classes_intersect_p (DF_REGS, rclass);
 	}
       else
 	{
 	  if (GET_MODE_SIZE (from) < 8)
-	    return reg_classes_intersect_p (DF_REGS, rclass);
+	    return !reg_classes_intersect_p (DF_REGS, rclass);
 	}
     }
-  return false;
+  return true;
 }
 
 /* Return true if registers in machine mode MODE will likely be

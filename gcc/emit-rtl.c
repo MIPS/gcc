@@ -419,7 +419,7 @@ void
 set_mode_and_regno (rtx x, machine_mode mode, unsigned int regno)
 {
   unsigned int nregs = (HARD_REGISTER_NUM_P (regno)
-			? hard_regno_nregs[regno][mode]
+			? hard_regno_nregs (regno, mode)
 			: 1);
   PUT_MODE_RAW (x, mode);
   set_regno_raw (x, regno, nregs);
@@ -866,13 +866,11 @@ validate_subreg (machine_mode omode, machine_mode imode,
     {
       unsigned int regno = REGNO (reg);
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
       if ((COMPLEX_MODE_P (imode) || VECTOR_MODE_P (imode))
 	  && GET_MODE_INNER (imode) == omode)
 	;
-      else if (REG_CANNOT_CHANGE_MODE_P (regno, imode, omode))
+      else if (!REG_CAN_CHANGE_MODE_P (regno, imode, omode))
 	return false;
-#endif
 
       return subreg_offset_representable_p (regno, imode, offset, omode);
     }

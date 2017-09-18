@@ -734,6 +734,14 @@ default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* Default implementation of TARGET_FUNCTION_ARG_OFFSET.  */
+
+HOST_WIDE_INT
+default_function_arg_offset (machine_mode, const_tree)
+{
+  return 0;
+}
+
 /* Default implementation of TARGET_FUNCTION_ARG_PADDING: usually pad
    upward, but pad short args downward on big-endian machines.  */
 
@@ -1129,6 +1137,18 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
   return rclass;
 }
 
+/* The default implementation of TARGET_SECONDARY_MEMORY_NEEDED_MODE.  */
+
+machine_mode
+default_secondary_memory_needed_mode (machine_mode mode)
+{
+  if (!targetm.lra_p ()
+      && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+      && INTEGRAL_MODE_P (mode))
+    return mode_for_size (BITS_PER_WORD, GET_MODE_CLASS (mode), 0).require ();
+  return mode;
+}
+
 /* By default, if flag_pic is true, then neither local nor global relocs
    should be placed in readonly memory.  */
 
@@ -1424,6 +1444,14 @@ default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* The defualt implementation of TARGET_HARD_REGNO_NREGS.  */
+
+unsigned int
+default_hard_regno_nregs (unsigned int, machine_mode mode)
+{
+  return CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD);
+}
+
 bool
 default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 {
@@ -1556,6 +1584,14 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 #else
   return REGISTER_MOVE_COST (mode, (enum reg_class) from, (enum reg_class) to);
 #endif
+}
+
+/* The default implementation of TARGET_SLOW_UNALIGNED_ACCESS.  */
+
+bool
+default_slow_unaligned_access (machine_mode, unsigned int)
+{
+  return STRICT_ALIGNMENT;
 }
 
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default

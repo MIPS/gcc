@@ -2212,6 +2212,10 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI, 0 },
   { ALTIVEC_BUILTIN_VEC_VMULESH, ALTIVEC_BUILTIN_VMULESH,
     RS6000_BTI_V4SI, RS6000_BTI_V8HI, RS6000_BTI_V8HI, 0 },
+  { ALTIVEC_BUILTIN_VEC_VMULEUW, ALTIVEC_BUILTIN_VMULEUW,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_VMULESW, ALTIVEC_BUILTIN_VMULESW,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOUB,
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULO, ALTIVEC_BUILTIN_VMULOSB,
@@ -2233,6 +2237,11 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V8HI, RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0 },
   { ALTIVEC_BUILTIN_VEC_VMULOUB, ALTIVEC_BUILTIN_VMULOUB,
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
+  { ALTIVEC_BUILTIN_VEC_VMULOUW, ALTIVEC_BUILTIN_VMULOUW,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_VMULOSW, ALTIVEC_BUILTIN_VMULOSW,
+    RS6000_BTI_V2DI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
+
   { ALTIVEC_BUILTIN_VEC_NABS, ALTIVEC_BUILTIN_NABS_V16QI,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
   { ALTIVEC_BUILTIN_VEC_NABS, ALTIVEC_BUILTIN_NABS_V8HI,
@@ -6480,7 +6489,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
       /* Strip qualifiers like "const" from the pointer arg.  */
       tree arg1_type = TREE_TYPE (arg1);
-      if (!POINTER_TYPE_P (arg1_type) && TREE_CODE (arg1_type) != ARRAY_TYPE)
+      if (TREE_CODE (arg1_type) == ARRAY_TYPE && c_dialect_cxx ())
+	{
+	  /* Force array-to-pointer decay for C++.  */
+	  arg1 = default_conversion (arg1);
+	  arg1_type = TREE_TYPE (arg1);
+	}
+      if (!POINTER_TYPE_P (arg1_type))
 	goto bad;
 
       tree inner_type = TREE_TYPE (arg1_type);
@@ -6499,15 +6514,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	{
 	  if (!ptrofftype_p (TREE_TYPE (arg0)))
 	    arg0 = build1 (NOP_EXPR, sizetype, arg0);
-
-	  tree arg1_type = TREE_TYPE (arg1);
-	  if (TREE_CODE (arg1_type) == ARRAY_TYPE)
-	    {
-	      arg1_type = TYPE_POINTER_TO (TREE_TYPE (arg1_type));
-	      tree const0 = build_int_cstu (sizetype, 0);
-	      tree arg1_elt0 = build_array_ref (loc, arg1, const0);
-	      arg1 = build1 (ADDR_EXPR, arg1_type, arg1_elt0);
-	    }
 
 	  tree addr = fold_build2_loc (loc, POINTER_PLUS_EXPR, arg1_type,
 				       arg1, arg0);
@@ -6563,12 +6569,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    arg1 = build1 (NOP_EXPR, sizetype, arg1);
 
 	  tree arg2_type = TREE_TYPE (arg2);
-	  if (TREE_CODE (arg2_type) == ARRAY_TYPE)
+	  if (TREE_CODE (arg2_type) == ARRAY_TYPE && c_dialect_cxx ())
 	    {
-	      arg2_type = TYPE_POINTER_TO (TREE_TYPE (arg2_type));
-	      tree const0 = build_int_cstu (sizetype, 0);
-	      tree arg2_elt0 = build_array_ref (loc, arg2, const0);
-	      arg2 = build1 (ADDR_EXPR, arg2_type, arg2_elt0);
+	      /* Force array-to-pointer decay for C++.  */
+	      arg2 = default_conversion (arg2);
+	      arg2_type = TREE_TYPE (arg2);
 	    }
 
 	  /* Find the built-in to make sure a compatible one exists; if not

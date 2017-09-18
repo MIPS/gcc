@@ -900,11 +900,11 @@ msp430_ms_bitfield_layout_p (const_tree record_type ATTRIBUTE_UNUSED)
 
 /* Register Usage */
 
-/* Implements HARD_REGNO_NREGS.  MSP430X registers can hold a single
-   PSImode value, but not an SImode value.  */
-int
-msp430_hard_regno_nregs (int regno ATTRIBUTE_UNUSED,
-			 machine_mode mode)
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS msp430_hard_regno_nregs
+
+static unsigned int
+msp430_hard_regno_nregs (unsigned int, machine_mode mode)
 {
   if (mode == PSImode && msp430x)
     return 1;
@@ -3811,6 +3811,22 @@ msp430x_logical_shift_right (rtx amount)
      that the top bit is zero and we can use the arithmetic
      right shift instruction to perform the rest of the shift.  */
   return "rrum.w\t#1, %0 { rpt\t%Z2 { rrax.w\t%0"; /* Six bytes.  */
+}
+
+/* Stop GCC from thinking that it can eliminate (SUBREG:PSI (SI)).  */
+
+#undef TARGET_CAN_CHANGE_MODE_CLASS
+#define TARGET_CAN_CHANGE_MODE_CLASS msp430_can_change_mode_class
+
+static bool
+msp430_can_change_mode_class (machine_mode from, machine_mode to, reg_class_t)
+{
+  if ((to == PSImode && from == SImode)
+      || (to == SImode && from == PSImode)
+      || (to == DImode && from == PSImode)
+      || (to == PSImode && from == DImode))
+    return false;
+  return true;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

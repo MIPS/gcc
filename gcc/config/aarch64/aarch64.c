@@ -1067,9 +1067,9 @@ aarch64_array_mode_supported_p (machine_mode mode,
   return false;
 }
 
-/* Implement HARD_REGNO_NREGS.  */
+/* Implement TARGET_HARD_REGNO_NREGS.  */
 
-int
+static unsigned int
 aarch64_hard_regno_nregs (unsigned regno, machine_mode mode)
 {
   switch (aarch64_regno_regclass (regno))
@@ -1106,8 +1106,7 @@ aarch64_hard_regno_mode_ok (unsigned regno, machine_mode mode)
   if (FP_REGNUM_P (regno))
     {
       if (aarch64_vect_struct_mode_p (mode))
-	return
-	  (regno + aarch64_hard_regno_nregs (regno, mode) - 1) <= V31_REGNUM;
+	return end_hard_regno (mode, regno) - 1 <= V31_REGNUM;
       else
 	return true;
     }
@@ -8987,17 +8986,6 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
   if (opts->x_pcrelative_literal_loads == 1)
     aarch64_pcrelative_literal_loads = true;
 
-  /* This is PR70113. When building the Linux kernel with
-     CONFIG_ARM64_ERRATUM_843419, support for relocations
-     R_AARCH64_ADR_PREL_PG_HI21 and R_AARCH64_ADR_PREL_PG_HI21_NC is
-     removed from the kernel to avoid loading objects with possibly
-     offending sequences.  Without -mpc-relative-literal-loads we would
-     generate such relocations, preventing the kernel build from
-     succeeding.  */
-  if (opts->x_pcrelative_literal_loads == 2
-      && TARGET_FIX_ERR_A53_843419)
-    aarch64_pcrelative_literal_loads = true;
-
   /* In the tiny memory model it makes no sense to disallow PC relative
      literal pool loads.  */
   if (aarch64_cmodel == AARCH64_CMODEL_TINY
@@ -13106,7 +13094,7 @@ aarch64_split_combinev16qi (rtx operands[3])
   unsigned int src1 = REGNO (operands[1]);
   unsigned int src2 = REGNO (operands[2]);
   machine_mode halfmode = GET_MODE (operands[1]);
-  unsigned int halfregs = HARD_REGNO_NREGS (src1, halfmode);
+  unsigned int halfregs = REG_NREGS (operands[1]);
   rtx destlo, desthi;
 
   gcc_assert (halfmode == V16QImode);
@@ -15687,6 +15675,8 @@ aarch64_libgcc_floating_mode_supported_p
 #undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 #define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 4
 
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS aarch64_hard_regno_nregs
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK aarch64_hard_regno_mode_ok
 

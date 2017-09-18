@@ -137,7 +137,7 @@ along with GCC; see the file COPYING3.  If not see
    WORD_SIZE bits.  Note that SCmode values are placed in a single FPR.
    Thus, any patterns defined to operate on these values would have to
    use the 32-bit addressability of the FPR registers.  */
-#define HARD_REGNO_NREGS(REGNO, MODE)					\
+#define PA_HARD_REGNO_NREGS(REGNO, MODE)				\
   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* These are the valid FP modes.  */
@@ -229,11 +229,6 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
   {0xfffffffe, 0x2fffffff},	/* GENERAL_OR_FP_REGS */	\
   {0x00000000, 0x10000000},	/* SHIFT_REGS */		\
   {0xfffffffe, 0x3fffffff}}	/* ALL_REGS */
-
-/* Defines invalid mode changes.  */
-
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
-  pa_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression

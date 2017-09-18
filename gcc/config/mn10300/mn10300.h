@@ -224,15 +224,6 @@ extern enum processor_type mn10300_tune_cpu;
   , 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 50, 51 \
   }
 
-/* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
-
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 /* 4 data, and effectively 3 address registers is small as far as I'm
    concerned.  */
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P hook_bool_mode_true
@@ -699,10 +690,6 @@ do {									     \
    which implies one can omit a sign-extension or zero-extension
    of a shift count.  */
 #define SHIFT_COUNT_TRUNCATED 1
-
-/* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
-   is done just by pretending it is already truncated.  */
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

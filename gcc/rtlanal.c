@@ -3667,8 +3667,8 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       gcc_assert (nregs_xmode
 		  == (nunits
 		      * HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode_unit)));
-      gcc_assert (hard_regno_nregs[xregno][xmode]
-		  == hard_regno_nregs[xregno][xmode_unit] * nunits);
+      gcc_assert (hard_regno_nregs (xregno, xmode)
+		  == hard_regno_nregs (xregno, xmode_unit) * nunits);
 
       /* You can only ask for a SUBREG of a value with holes in the middle
 	 if you don't cross the holes.  (Such a SUBREG should be done by
@@ -3687,9 +3687,9 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	}
     }
   else
-    nregs_xmode = hard_regno_nregs[xregno][xmode];
+    nregs_xmode = hard_regno_nregs (xregno, xmode);
 
-  nregs_ymode = hard_regno_nregs[xregno][ymode];
+  nregs_ymode = hard_regno_nregs (xregno, ymode);
 
   /* Paradoxical subregs are otherwise valid.  */
   if (!rknown && offset == 0 && ysize > xsize)
@@ -3861,15 +3861,13 @@ simplify_subreg_regno (unsigned int xregno, machine_mode xmode,
   struct subreg_info info;
   unsigned int yregno;
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
   /* Give the backend a chance to disallow the mode change.  */
   if (GET_MODE_CLASS (xmode) != MODE_COMPLEX_INT
       && GET_MODE_CLASS (xmode) != MODE_COMPLEX_FLOAT
-      && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, ymode)
+      && !REG_CAN_CHANGE_MODE_P (xregno, xmode, ymode)
       /* We can use mode change in LRA for some transformations.  */
       && ! lra_in_progress)
     return -1;
-#endif
 
   /* We shouldn't simplify stack-related registers.  */
   if ((!reload_completed || frame_pointer_needed)

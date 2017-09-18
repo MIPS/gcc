@@ -132,6 +132,7 @@ extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
 extern void default_function_arg_advance
   (cumulative_args_t, machine_mode, const_tree, bool);
+extern HOST_WIDE_INT default_function_arg_offset (machine_mode, const_tree);
 extern pad_direction default_function_arg_padding (machine_mode, const_tree);
 extern rtx default_function_arg
   (cumulative_args_t, machine_mode, const_tree, bool);
@@ -159,12 +160,14 @@ extern bool default_different_addr_displacement_p (void);
 extern reg_class_t default_secondary_reload (bool, rtx, reg_class_t,
 					     machine_mode,
 					     secondary_reload_info *);
+extern machine_mode default_secondary_memory_needed_mode (machine_mode);
 extern void default_target_option_override (void);
 extern void hook_void_bitmap (bitmap);
 extern int default_reloc_rw_mask (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
 extern tree default_emutls_var_fields (tree, tree *);
 extern tree default_emutls_var_init (tree, tree, tree);
+extern unsigned int default_hard_regno_nregs (unsigned int, machine_mode);
 extern bool default_hard_regno_scratch_ok (unsigned int);
 extern bool default_mode_dependent_address_p (const_rtx, addr_space_t);
 extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
@@ -197,6 +200,7 @@ extern tree default_builtin_tm_load_store (tree);
 extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
 extern int default_register_move_cost (machine_mode, reg_class_t,
 				       reg_class_t);
+extern bool default_slow_unaligned_access (machine_mode, unsigned int);
 
 extern bool default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT,
 						    unsigned int,

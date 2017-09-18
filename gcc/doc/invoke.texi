@@ -269,7 +269,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes  -Wbool-compare  -Wbool-operation @gol
 -Wno-builtin-declaration-mismatch @gol
 -Wno-builtin-macro-redefined  -Wc90-c99-compat  -Wc99-c11-compat @gol
--Wc++-compat  -Wc++11-compat  -Wc++14-compat  -Wcast-align  -Wcast-qual  @gol
+-Wc++-compat  -Wc++11-compat  -Wc++14-compat  @gol
+-Wcast-align  -Wcast-align=strict  -Wcast-qual  @gol
 -Wchar-subscripts  -Wchkp  -Wcatch-value  -Wcatch-value=@var{n} @gol
 -Wclobbered  -Wcomment  -Wconditionally-supported @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-cpp  -Wdangling-else  -Wdate-time @gol
@@ -500,7 +501,7 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -fuse-ld=@var{linker}  -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib  -pie  -pthread  -rdynamic @gol
--s  -static  -static-libgcc  -static-libstdc++ @gol
+-s  -static -static-pie -static-libgcc  -static-libstdc++ @gol
 -static-libasan  -static-libtsan  -static-liblsan  -static-libubsan @gol
 -static-libmpx  -static-libmpxwrappers @gol
 -shared  -shared-libgcc  -symbolic @gol
@@ -1873,13 +1874,23 @@ GNU dialect of @option{-std=c++14}.
 This is the default for C++ code.
 The name @samp{gnu++1y} is deprecated.
 
-@item c++1z
+@item c++17
+@itemx c++1z
+The 2017 ISO C++ standard plus amendments.
+The name @samp{c++1z} is deprecated.
+
+@item gnu++17
+@itemx gnu++1z
+GNU dialect of @option{-std=c++17}.
+The name @samp{gnu++1z} is deprecated.
+
+@item c++2a
 The next revision of the ISO C++ standard, tentatively planned for
-2017.  Support is highly experimental, and will almost certainly
+2020.  Support is highly experimental, and will almost certainly
 change in incompatible ways in future releases.
 
-@item gnu++1z
-GNU dialect of @option{-std=c++1z}.  Support is highly experimental,
+@item gnu++2a
+GNU dialect of @option{-std=c++2a}.  Support is highly experimental,
 and will almost certainly change in incompatible ways in future
 releases.
 @end table
@@ -2372,7 +2383,7 @@ specify how much alignment (in bytes) is provided by that function,
 but few users will need to override the default of
 @code{alignof(std::max_align_t)}.
 
-This flag is enabled by default for @option{-std=c++1z}.
+This flag is enabled by default for @option{-std=c++17}.
 
 @item -fcheck-new
 @opindex fcheck-new
@@ -2547,7 +2558,7 @@ Enable the P0522 resolution to Core issue 150, template template
 parameters and default arguments: this allows a template with default
 template arguments as an argument for a template template parameter
 with fewer template parameters.  This flag is enabled by default for
-@option{-std=c++1z}.
+@option{-std=c++17}.
 
 @item -fno-nonansi-builtins
 @opindex fno-nonansi-builtins
@@ -2641,10 +2652,10 @@ cast to convert an arbitrary integer value to the enumerated type.
 @opindex fstrong-eval-order
 Evaluate member access, array subscripting, and shift expressions in
 left-to-right order, and evaluate assignment in right-to-left order,
-as adopted for C++17.  Enabled by default with @option{-std=c++1z}.
+as adopted for C++17.  Enabled by default with @option{-std=c++17}.
 @option{-fstrong-eval-order=some} enables just the ordering of member
 access and shift expressions, and is the default without
-@option{-std=c++1z}.
+@option{-std=c++17}.
 
 @item -ftemplate-backtrace-limit=@var{n}
 @opindex ftemplate-backtrace-limit
@@ -2981,14 +2992,14 @@ the compiler to never throw an exception.
 @item -Wnoexcept-type @r{(C++ and Objective-C++ only)}
 @opindex Wnoexcept-type
 @opindex Wno-noexcept-type
-Warn if the C++1z feature making @code{noexcept} part of a function
+Warn if the C++17 feature making @code{noexcept} part of a function
 type changes the mangled name of a symbol relative to C++14.  Enabled
-by @option{-Wabi} and @option{-Wc++1z-compat}.
+by @option{-Wabi} and @option{-Wc++17-compat}.
 
 @smallexample
 template <class T> void f(T t) @{ t(); @};
 void g() noexcept;
-void h() @{ f(g); @} // in C++14 calls f<void(*)()>, in C++1z calls f<void(*)()noexcept>
+void h() @{ f(g); @} // in C++14 calls f<void(*)()>, in C++17 calls f<void(*)()noexcept>
 @end smallexample
 
 @item -Wclass-memaccess @r{(C++ and Objective-C++ only)}
@@ -3025,7 +3036,7 @@ Warn on uses of the @code{register} storage class specifier, except
 when it is part of the GNU @ref{Explicit Register Variables} extension.
 The use of the @code{register} keyword as storage class specifier has
 been deprecated in C++11 and removed in C++17.
-Enabled by default with @option{-std=c++1z}.
+Enabled by default with @option{-std=c++17}.
 
 @item -Wreorder @r{(C++ and Objective-C++ only)}
 @opindex Wreorder
@@ -5459,7 +5470,7 @@ Warn about suspicious operations on expressions of a boolean type.  For
 instance, bitwise negation of a boolean is very likely a bug in the program.
 For C, this warning also warns about incrementing or decrementing a boolean,
 which rarely makes sense.  (In C++, decrementing a boolean is always invalid.
-Incrementing a boolean is invalid in C++1z, and deprecated otherwise.)
+Incrementing a boolean is invalid in C++17, and deprecated otherwise.)
 
 This warning is enabled by @option{-Wall}.
 
@@ -5966,10 +5977,10 @@ enabled by @option{-Wall}.
 Warn about C++ constructs whose meaning differs between ISO C++ 2011
 and ISO C++ 2014.  This warning is enabled by @option{-Wall}.
 
-@item -Wc++1z-compat @r{(C++ and Objective-C++ only)}
-@opindex Wc++1z-compat
+@item -Wc++17-compat @r{(C++ and Objective-C++ only)}
+@opindex Wc++17-compat
 Warn about C++ constructs whose meaning differs between ISO C++ 2014
-and the forthoming ISO C++ 2017(?).  This warning is enabled by @option{-Wall}.
+and ISO C++ 2017.  This warning is enabled by @option{-Wall}.
 
 @item -Wcast-qual
 @opindex Wcast-qual
@@ -5998,6 +6009,12 @@ Warn whenever a pointer is cast such that the required alignment of the
 target is increased.  For example, warn if a @code{char *} is cast to
 an @code{int *} on machines where integers can only be accessed at
 two- or four-byte boundaries.
+
+@item -Wcast-align=strict
+@opindex Wcast-align=strict
+Warn whenever a pointer is cast such that the required alignment of the
+target is increased.  For example, warn if a @code{char *} is cast to
+an @code{int *} regardless of the target machine.
 
 @item -Wwrite-strings
 @opindex Wwrite-strings
@@ -11893,14 +11910,23 @@ GNU Compiler Collection (GCC) Internals}.)
 
 @item -pie
 @opindex pie
-Produce a position independent executable on targets that support it.
-For predictable results, you must also specify the same set of options
-used for compilation (@option{-fpie}, @option{-fPIE},
+Produce a dynamically linked position independent executable on targets
+that support it.  For predictable results, you must also specify the same
+set of options used for compilation (@option{-fpie}, @option{-fPIE},
 or model suboptions) when you specify this linker option.
 
 @item -no-pie
 @opindex no-pie
-Don't produce a position independent executable.
+Don't produce a dynamically linked position independent executable.
+
+@item -static-pie
+@opindex static-pie
+Produce a static position independent executable on targets that support
+it.  A static position independent executable is similar to a static
+executable, but can be loaded at any address without a dynamic linker.
+For predictable results, you must also specify the same set of options
+used for compilation (@option{-fpie}, @option{-fPIE}, or model
+suboptions) when you specify this linker option.
 
 @item -pthread
 @opindex pthread
@@ -11924,8 +11950,9 @@ Remove all symbol table and relocation information from the executable.
 
 @item -static
 @opindex static
-On systems that support dynamic linking, this prevents linking with the shared
-libraries.  On other systems, this option has no effect.
+On systems that support dynamic linking, this overrides @option{-pie}
+and prevents linking with the shared libraries.  On other systems, this
+option has no effect.
 
 @item -shared
 @opindex shared

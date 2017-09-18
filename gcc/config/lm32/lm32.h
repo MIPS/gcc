@@ -163,9 +163,6 @@ do {                                                    \
   0, 0, 0, 0, 0, 0, 0, 0,   \
   0, 0, 1, 0, 1, 0, 1, 1}
 
-#define HARD_REGNO_NREGS(REGNO, MODE)                                   \
-    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 #define AVOID_CCMODE_COPIES
 
 /*----------------------------------*/
@@ -521,8 +518,6 @@ do {                                                            \
 #define MAX_MOVE_MAX    4
 
 #define SHIFT_COUNT_TRUNCATED 1
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define Pmode SImode
 

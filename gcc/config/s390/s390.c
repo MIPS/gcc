@@ -496,7 +496,7 @@ struct GTY(()) machine_function
         CONST_OK_FOR_CONSTRAINT_P((x), 'O', "On")
 
 #define REGNO_PAIR_OK(REGNO, MODE)                               \
-  (HARD_REGNO_NREGS ((REGNO), (MODE)) == 1 || !((REGNO) & 1))
+  (s390_hard_regno_nregs ((REGNO), (MODE)) == 1 || !((REGNO) & 1))
 
 /* That's the read ahead of the dynamic branch prediction unit in
    bytes on a z10 (or higher) CPU.  */
@@ -4407,6 +4407,48 @@ s390_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 
   /* Either scratch or no register needed.  */
   return NO_REGS;
+}
+
+/* Implement TARGET_SECONDARY_MEMORY_NEEDED.
+
+   We need secondary memory to move data between GPRs and FPRs.
+
+   - With DFP the ldgr lgdr instructions are available.  Due to the
+     different alignment we cannot use them for SFmode.  For 31 bit a
+     64 bit value in GPR would be a register pair so here we still
+     need to go via memory.
+
+   - With z13 we can do the SF/SImode moves with vlgvf.  Due to the
+     overlapping of FPRs and VRs we still disallow TF/TD modes to be
+     in full VRs so as before also on z13 we do these moves via
+     memory.
+
+     FIXME: Should we try splitting it into two vlgvg's/vlvg's instead?  */
+
+static bool
+s390_secondary_memory_needed (machine_mode mode,
+			      reg_class_t class1, reg_class_t class2)
+{
+  return (((reg_classes_intersect_p (class1, VEC_REGS)
+	    && reg_classes_intersect_p (class2, GENERAL_REGS))
+	   || (reg_classes_intersect_p (class1, GENERAL_REGS)
+	       && reg_classes_intersect_p (class2, VEC_REGS)))
+	  && (!TARGET_DFP || !TARGET_64BIT || GET_MODE_SIZE (mode) != 8)
+	  && (!TARGET_VX || (SCALAR_FLOAT_MODE_P (mode)
+			     && GET_MODE_SIZE (mode) > 8)));
+}
+
+/* Implement TARGET_SECONDARY_MEMORY_NEEDED_MODE.
+
+   get_secondary_mem widens its argument to BITS_PER_WORD which loses on 64bit
+   because the movsi and movsf patterns don't handle r/f moves.  */
+
+static machine_mode
+s390_secondary_memory_needed_mode (machine_mode mode)
+{
+  if (GET_MODE_BITSIZE (mode) < 32)
+    return mode_for_size (32, GET_MODE_CLASS (mode), 0).require ();
+  return mode;
 }
 
 /* Generate code to load SRC, which is PLUS that is not a
@@ -9630,7 +9672,7 @@ s390_reg_clobbered_rtx (rtx setreg, const_rtx set_insn ATTRIBUTE_UNUSED, void *d
     return;
 
   for (i = regno;
-       i < regno + HARD_REGNO_NREGS (regno, mode);
+       i < end_hard_regno (mode, regno);
        i++)
     regs_ever_clobbered[i] = 1;
 }
@@ -10383,7 +10425,32 @@ s390_optimize_nonescaping_tx (void)
   return;
 }
 
-/* Implement TARGET_HARD_REGNO_MODE_OK.  */
+/* Implement TARGET_HARD_REGNO_NREGS.  Because all registers in a class
+   have the same size, this is equivalent to CLASS_MAX_NREGS.  */
+
+static unsigned int
+s390_hard_regno_nregs (unsigned int regno, machine_mode mode)
+{
+  return s390_class_max_nregs (REGNO_REG_CLASS (regno), mode);
+}
+
+/* Implement TARGET_HARD_REGNO_MODE_OK.
+
+   Integer modes <= word size fit into any GPR.
+   Integer modes > word size fit into successive GPRs, starting with
+   an even-numbered register.
+   SImode and DImode fit into FPRs as well.
+
+   Floating point modes <= word size fit into any FPR or GPR.
+   Floating point modes > word size (i.e. DFmode on 32-bit) fit
+   into any FPR, or an even-odd GPR pair.
+   TFmode fits only into an even-odd FPR pair.
+
+   Complex floating point modes fit either into two FPRs, or into
+   successive GPRs (again starting with an even number).
+   TCmode fits only into two successive even-odd FPR pairs.
+
+   Condition code modes fit only into the CC register.  */
 
 static bool
 s390_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
@@ -10563,13 +10630,12 @@ s390_class_max_nregs (enum reg_class rclass, machine_mode mode)
   return (GET_MODE_SIZE (mode) + reg_size - 1) / reg_size;
 }
 
-/* Return TRUE if changing mode from FROM to TO should not be allowed
-   for register class CLASS.  */
+/* Implement TARGET_CAN_CHANGE_MODE_CLASS.  */
 
-int
-s390_cannot_change_mode_class (machine_mode from_mode,
-			       machine_mode to_mode,
-			       enum reg_class rclass)
+static bool
+s390_can_change_mode_class (machine_mode from_mode,
+			    machine_mode to_mode,
+			    reg_class_t rclass)
 {
   machine_mode small_mode;
   machine_mode big_mode;
@@ -10579,10 +10645,10 @@ s390_cannot_change_mode_class (machine_mode from_mode,
   if (reg_classes_intersect_p (VEC_REGS, rclass)
       && ((from_mode == V1TFmode && to_mode == TFmode)
 	  || (from_mode == TFmode && to_mode == V1TFmode)))
-    return 1;
+    return false;
 
   if (GET_MODE_SIZE (from_mode) == GET_MODE_SIZE (to_mode))
-    return 0;
+    return true;
 
   if (GET_MODE_SIZE (from_mode) < GET_MODE_SIZE (to_mode))
     {
@@ -10605,14 +10671,14 @@ s390_cannot_change_mode_class (machine_mode from_mode,
   if (reg_classes_intersect_p (VEC_REGS, rclass)
       && (GET_MODE_SIZE (small_mode) < 8
 	  || s390_class_max_nregs (VEC_REGS, big_mode) == 1))
-    return 1;
+    return false;
 
   /* Likewise for access registers, since they have only half the
      word size on 64-bit.  */
   if (reg_classes_intersect_p (ACCESS_REGS, rclass))
-    return 1;
+    return false;
 
-  return 0;
+  return true;
 }
 
 /* Return true if we use LRA instead of reload pass.  */
@@ -13241,9 +13307,7 @@ s390_call_saved_register_used (tree call_expr)
 
        if (REG_P (parm_rtx))
   	 {
-	   for (reg = 0;
-		reg < HARD_REGNO_NREGS (REGNO (parm_rtx), GET_MODE (parm_rtx));
-		reg++)
+	   for (reg = 0; reg < REG_NREGS (parm_rtx); reg++)
 	     if (!call_used_regs[reg + REGNO (parm_rtx)])
  	       return true;
 	 }
@@ -13258,9 +13322,7 @@ s390_call_saved_register_used (tree call_expr)
 
 	       gcc_assert (REG_P (r));
 
-	       for (reg = 0;
-		    reg < HARD_REGNO_NREGS (REGNO (r), GET_MODE (r));
-		    reg++)
+	       for (reg = 0; reg < REG_NREGS (r); reg++)
 		 if (!call_used_regs[reg + REGNO (r)])
 		   return true;
 	     }
@@ -15938,6 +16000,10 @@ s390_asan_shadow_offset (void)
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD s390_secondary_reload
+#undef TARGET_SECONDARY_MEMORY_NEEDED
+#define TARGET_SECONDARY_MEMORY_NEEDED s390_secondary_memory_needed
+#undef TARGET_SECONDARY_MEMORY_NEEDED_MODE
+#define TARGET_SECONDARY_MEMORY_NEEDED_MODE s390_secondary_memory_needed_mode
 
 #undef TARGET_LIBGCC_CMP_RETURN_MODE
 #define TARGET_LIBGCC_CMP_RETURN_MODE s390_libgcc_cmp_return_mode
@@ -15981,6 +16047,8 @@ s390_asan_shadow_offset (void)
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK s390_hard_regno_scratch_ok
 
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS s390_hard_regno_nregs
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK s390_hard_regno_mode_ok
 #undef TARGET_MODES_TIEABLE_P
@@ -16045,6 +16113,9 @@ s390_asan_shadow_offset (void)
 
 #undef TARGET_OPTION_RESTORE
 #define TARGET_OPTION_RESTORE s390_function_specific_restore
+
+#undef TARGET_CAN_CHANGE_MODE_CLASS
+#define TARGET_CAN_CHANGE_MODE_CLASS s390_can_change_mode_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

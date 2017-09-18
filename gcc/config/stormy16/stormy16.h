@@ -140,12 +140,6 @@
 #define REG_ALLOC_ORDER { 7, 6, 5, 4, 3, 2, 1, 0, 9, 8, 10, 11, 12, 13, 14, 15, 16 }
 
 
-/* How Values Fit in Registers.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE) 				\
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
-
 /* Register Classes.  */
 
 enum reg_class
@@ -483,8 +477,6 @@ enum reg_class
 #define MOVE_MAX 2
 
 #define SHIFT_COUNT_TRUNCATED 1
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define Pmode HImode
 

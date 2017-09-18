@@ -1,3 +1,249 @@
+2017-09-18  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* freeze.adb, sem_ch6.adb, sem_res.adb: Minor reformatting.
+
+2017-09-18  Piotr Trojanek  <trojanek@adacore.com>
+
+	* einfo.ads (Is_Imported): Update comment, as this
+	routine also applies to constants.
+
+2017-09-18  Yannick Moy  <moy@adacore.com>
+
+	* sem_util.adb (Find_Placement_In_State_Space): Allow generic package
+	holding state.
+
+2017-09-18  Justin Squirek  <squirek@adacore.com>
+
+	* sem_prag.adb (Is_Non_Significant_Pragma_Reference): Change the
+	constant indication for Pragma_Linker_Section.
+
+2017-09-18  Bob Duff  <duff@adacore.com>
+
+	Alternate fix for PR ada/71358
+	* libgnat/g-comlin.adb (Getopt): Remove manual null access checks.
+	Instead, make a local copy of Config, and if it's null, allocate an
+	empty Command_Line_Configuration_Record, so we won't crash on null
+	pointer dereference.
+
+2017-09-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* libgnarl/a-intnam__rtems.ads: Update copyright date.
+	* libgnarl/s-interr__hwint.adb: Likewise.
+	* libgnarl/s-osinte__kfreebsd-gnu.ads: Likewise.
+	* libgnarl/s-osinte__rtems.adb: Likewise.
+	* libgnarl/s-osinte__rtems.ads: Likewise.
+
+2017-09-13  Nicolas Roche  <roche@adacore.com>
+
+	* Make-lang.in: In the fallback mechanim, parse the associated .ali
+	file and try to guess the locations of dependencies.
+
+2017-09-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch13.adb (Register_Address_Clause_Check): New procedure to save
+	the suppression status of Alignment_Check on the current scope.
+	(Alignment_Checks_Suppressed): New function to use the saved instead of
+	the current suppression status of Alignment_Check.
+	(Address_Clause_Check_Record): Add Alignment_Checks_Suppressed field.
+	(Analyze_Attribute_Definition_Clause): Instead of manually appending to
+	the table, call Register_Address_Clause_Check.
+	(Validate_Address_Clauses): Call Alignment_Checks_Suppressed on the
+	recorded address clause instead of its entity.
+
+2017-09-13  Jerome Guitton  <guitton@adacore.com>
+
+	* libgnarl/s-tpopsp__vxworks-tls.adb,
+	libgnarl/s-tpopsp__vxworks-rtp.adb, libgnarl/s-tpopsp__vxworks.adb
+	(Self): Register thread if task id is null.
+
+2017-09-13  Arnaud Charlet  <charlet@adacore.com>
+
+	* libgnat/s-htable.adb, libgnat/s-htable.ads: Minor style tuning.
+
+2017-09-13  Arnaud Charlet  <charlet@adacore.com>
+
+	* lib-xref-spark_specific.adb (Scopes): simplify hash map; now it maps
+	from an entity to only scope index, as a mapping from an entity to the
+	same entity was useless.
+	(Get_Scope_Num): refactor as a simple renaming; rename parameter from N
+	to E.
+	(Set_Scope_Num): refactor as a simple renaming; rename parameter from N
+	to E.
+	(Is_Constant_Object_Without_Variable_Input): remove local "Result"
+	variable, just use return statements.
+
+2017-09-13  Arnaud Charlet  <charlet@adacore.com>
+
+	* libgnarl/s-vxwext__kernel-smp.adb,
+	libgnarl/s-tpopsp__vxworks-rtp.adb, libgnarl/s-vxwext__noints.adb:
+	New file.
+
+2017-09-13  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb: Flag42 is now Is_Controlled_Active.
+	(Is_Controlled): This attribute is now synthesized.
+	(Is_Controlled_Active): This attribute is now an explicit flag rather
+	than a synthesized attribute.	(Set_Is_Controlled): Removed.
+	(Set_Is_Controlled_Active): New routine.
+	(Write_Entity_Flags): Update the output for Flag42.
+	* einfo.ads: Update the documentation of the following attributes:
+	Disable_Controlled, Is_Controlled, Is_Controlled_Active, Is_Controlled
+	and Is_Controlled_Active have swapped their functionality.
+	(Is_Controlled): Renamed to Is_Controlled_Active.
+	(Is_Controlled_Active): Renamed to Is_Controlled.
+	(Set_Is_Controlled): Renamed to Set_Is_Controlled_Active.
+	* exp_ch3.adb (Expand_Freeze_Record_Type): Restore the original use of
+	Is_Controlled.
+	* exp_util.adb (Has_Some_Controlled_Component): Code clean up.
+	(Needs_Finalization): Code clean up. Remove the tests for
+	Disable_Controlled because a) they were incorrect as they would reject
+	a type which is sublect to the aspect, but may contain controlled
+	components, and b) they are no longer necessary.
+	* exp_util.ads (Needs_Finalization): Update comment on documentation.
+	* freeze.adb (Freeze_Array_Type): Restore the original use of
+	Is_Controlled.
+	(Freeze_Record_Type): Restore the original use of Is_Controlled.
+	* sem_ch3.adb (Analyze_Object_Declaration): Restore the original use of
+	Is_Controlled.
+	(Array_Type_Declaration): Restore the original use of Is_Controlled.
+	(Build_Derived_Private_Type): Restore the original use of
+	Is_Controlled.
+	(Build_Derived_Record_Type): Set the Is_Controlled_Active flag of a
+	type derived from Ada.Finalization.[Limited_]Controlled.
+	(Build_Derived_Type): Restore the original use of Is_Controlled.
+	(Record_Type_Definition): Restore the original use of Is_Controlled.
+	* sem_ch7.adb (Preserve_Full_Attributes): Restore the original use of
+	Is_Controlled.
+	* sem_ch13.adb (Analyze_Aspect_Disable_Controlled): New routine.
+	(Analyze_Aspect_Specifications): Use routine
+	Analyze_Aspect_Disable_Controlled to process aspect Disable_Controlled.
+
+2017-09-13  Vincent Celier  <celier@adacore.com>
+
+	* clean.adb (Gnatclean): Fix error when looking for target
+	of <target>-gnatclean
+
+2017-09-13  Javier Miranda  <miranda@adacore.com>
+            Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch8.adb (Find_Expanded_Name): Complete code that identifies an
+	expanded name that designates the current instance of a child unit in
+	its own body and appears as the prefix of a reference to an entity
+	local to the child unit.
+
+2017-09-12  Bob Duff  <duff@adacore.com>
+
+	* sem_warn.adb: Minor comment.
+
+2017-09-12  Bob Duff  <duff@adacore.com>
+
+	* libgnat/a-cbdlli.adb, libgnat/a-cbhama.adb,
+	libgnat/a-cbmutr.adb, libgnat/a-cborma.adb: Rename New_Item to
+	be Default_Initialized_Item, and apply pragma Unmodified to it,
+	to suppress the warning.
+
+2017-09-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* exp_aggr.adb (Aggr_Assignment_OK_For_Backend): Add early return
+	for access types.
+
+2017-09-12  Yannick Moy  <moy@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Consider Refined_Global
+	together with Global when ignoring one in CodePeer mode.
+
+2017-09-12  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch3.adb (Analyze_Declarations): In nested
+	package declarations that have a private part enable missing check
+	of the RM rule 13.1.1(11/3): usage names in aspect definitions are
+	resolved at the end of the immediately enclosing declaration list.
+
+2017-09-12  Bob Duff  <duff@adacore.com>
+
+	* sem_ch6.adb (Analyze_Expression_Function): Initialize Def_Id to
+	Empty.
+
+2017-09-12  Georges-Axel Jaloyan  <jaloyan@adacore.com>
+
+	* debug.adb: Reserving flag -gnatdF for safe pointer checking.
+	* gnat1drv.adb (gnat1drv): Adding the call to the analysis on
+	dF flag.
+	* sem_spark.adb, sem_spark.ads: Implementation of the analysis,
+	in preparation for the evolution of the SPARK language that
+	includes a pointer analysis for checking non-aliasing of access
+	types. The Check_Safe_Pointers function is the entry point, and
+	will traverse the AST and raise compile-time errors everytime
+	it detects non-begign aliasing.  Detailed comments are present
+	in the sem_spark.ads file.
+	* sem_util.adb, sem_util.ads (First_Global, Next_Global): New
+	functions to iterate over the list of globals of a subprogram.
+	* libgnat/system.ads: Add restriction No_Finalization.
+	* gcc-interface/Make-lang.in: Add new file sem_spark.adb and
+	dependency on g-dynhta.adb.
+
+2017-09-12  Bob Duff  <duff@adacore.com>
+
+	* sem_ch6.adb (Analyze_Expression_Function): Call
+	Check_Dynamically_Tagged_Expression.
+	* sem_util.adb (Check_Dynamically_Tagged_Expression): Remove
+	"and then Is_Tagged_Type (Typ)" because there is an earlier
+	"Assert (Is_Tagged_Type (Typ))".
+
+2017-09-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Makefile.in (SPARC/Solaris): Remove obsolete stuff.
+
+2017-09-11  Arnaud Charlet  <charlet@adacore.com>
+
+	* doc/gnat_ugn/the_gnat_compilation_model.rst: Fix sphinx warning.
+	* doc/gnat_ugn/platform_specific_information.rst: Remove doc
+	for no longer supported platforms.
+	* doc/gnat_ugn/gnat_and_program_execution.rst: Added detailed
+	description of the semantics for dimensionality analysis.
+	* gnat_ugn.texi: Regenerated.
+
+2017-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* freeze.adb (Has_Incomplete_Compoent): Delete.
+	(Freeze_Profile):
+	Do not inhibit the freezing of the profile of an expression
+	function here.
+	(Freeze_Subprogram): Do not re-create extra formals.
+	* sem_ch6.adb (Analyze_Expression_Function): Always
+	pre-analyze the expression if the function is not a completion.
+	(Analyze_Subprogram_Body_Helper): For the body generated
+	from an expression function that is not a completion, do
+	not freeze the profile and temporary mask the types declared
+	outside the expression that are not yet frozen.
+	* sem_res.adb (Rewrite_Renamed_Operator): Also bail out if invoked
+	during the pre-analysis of an expression function.
+
+2017-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (enum standard_datatypes): Minor tweak.
+	(gigi): Likewise.
+
+2017-09-11  Yannick Moy  <moy@adacore.com>
+
+	* lib-xref-spark_specific.adb: Minor rewrite.
+
+2017-09-11  Jerome Lambourg  <lambourg@adacore.com>
+
+        * libgnat: Rename ?-[a-z]*-* into ?-[a-z]*__*
+        * gcc-interface/Makefile.in, gcc-interface/Make-lang.in: Take this
+	renaming into account.
+
+2017-09-11  Jerome Lambourg  <lambourg@adacore.com>
+
+	* libgnarl: Rename ?-[a-z]*-* into ?-[a-z]*__*
+	* gcc-interface/Makefile.in: Take this renaming into account.
+
+2017-09-11  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-auxdec-empty.ads, s-auxdec-empty.adb, 9drpc.adb: Removed, no
+	longer used.
+
 2017-09-11  Yannick Moy  <moy@adacore.com>
 
 	* sem_util.adb (Check_Result_And_Post_State):

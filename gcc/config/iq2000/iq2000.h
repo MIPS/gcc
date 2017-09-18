@@ -160,10 +160,6 @@
 }
 
 
-/* How Values Fit in Registers.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 #define AVOID_CCMODE_COPIES
 
@@ -529,8 +525,6 @@ while (0)
 #define MAX_MOVE_MAX 8
 
 #define SHIFT_COUNT_TRUNCATED 1
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define STORE_FLAG_VALUE 1
 

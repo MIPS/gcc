@@ -2000,7 +2000,7 @@ struct GTY(()) lang_type {
   tree as_base;
   vec<tree, va_gc> *pure_virtuals;
   tree friend_classes;
-  vec<tree, va_gc> * GTY((reorder ("resort_type_method_vec"))) methods;
+  vec<tree, va_gc> * GTY((reorder ("resort_type_member_vec"))) members;
   tree key_method;
   tree decl_list;
   tree befriending_classes;
@@ -2008,10 +2008,6 @@ struct GTY(()) lang_type {
      as a list of adopted protocols or a pointer to a corresponding
      @interface.  See objc/objc-act.h for details.  */
   tree objc_info;
-  /* sorted_fields is sorted based on a pointer, so we need to be able
-     to resort it if pointers get rearranged.  */
-  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields")))
-    sorted_fields;
   /* FIXME reuse another field?  */
   tree lambda_expr;
 };
@@ -2129,19 +2125,11 @@ struct GTY(()) lang_type {
    if there is no key function or if this is a class template */
 #define CLASSTYPE_KEY_METHOD(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->key_method)
 
-/* Vector member functions defined in this class.  Each element is
-   either a FUNCTION_DECL, a TEMPLATE_DECL, or an OVERLOAD.  All
-   functions with the same name end up in the same slot.  The first
-   two elements are for constructors, and destructors, respectively.
-   All template conversion operators to innermost template dependent
-   types are overloaded on the next slot, if they exist.  Note, the
-   names for these functions will not all be the same.  The
-   non-template conversion operators & templated conversions to
-   non-innermost template types are next, followed by ordinary member
-   functions.  There may be empty entries at the end of the vector.
-   The conversion operators are unsorted. The ordinary member
-   functions are sorted, once the class is complete.  */
-#define CLASSTYPE_METHOD_VEC(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->methods)
+/* Vector of members.  During definition, it is unordered and only
+   member functions are present.  After completion it is sorted and
+   contains both member functions and non-functions.  STAT_HACK is
+   involved to preserve oneslot per name invariant.  */
+#define CLASSTYPE_MEMBER_VEC(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->members)
 
 /* For class templates, this is a TREE_LIST of all member data,
    functions, types, and friends in the order of declaration.
@@ -3229,11 +3217,6 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    && TREE_CODE (TYPE_NAME (NODE)) == TYPE_DECL	\
    && TYPE_DECL_ALIAS_P (TYPE_NAME (NODE)))
 
-/* For a class type: if this structure has many fields, we'll sort them
-   and put them into a TREE_VEC.  */
-#define CLASSTYPE_SORTED_FIELDS(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->sorted_fields)
-
 /* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
    TEMPLATE_DECL, the entity is either a template specialization (if
    DECL_USE_TEMPLATE is nonzero) or the abstract instance of the
@@ -3901,7 +3884,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    declared with constexpr specifier are implicitly inline variables.  */
 #define DECL_INLINE_VAR_P(NODE) \
   (DECL_VAR_DECLARED_INLINE_P (NODE)				\
-   || (cxx_dialect >= cxx1z					\
+   || (cxx_dialect >= cxx17					\
        && DECL_DECLARED_CONSTEXPR_P (NODE)			\
        && DECL_CLASS_SCOPE_P (NODE)))
 

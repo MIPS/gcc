@@ -292,9 +292,6 @@ extern enum pipeline_type microblaze_pipe;
 #define GP_REG_P(REGNO) ((unsigned) ((REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define ST_REG_P(REGNO) ((REGNO) == ST_REG)
 
-#define HARD_REGNO_NREGS(REGNO, MODE)					\
-	((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 #define STACK_POINTER_REGNUM   (GP_REG_FIRST + MB_ABI_STACK_POINTER_REGNUM)
 
 #define STACK_POINTER_OFFSET   FIRST_PARM_OFFSET(FNDECL)
@@ -556,11 +553,6 @@ typedef struct microblaze_args
 #define STORE_FLAG_VALUE			1
 
 #define SHIFT_COUNT_TRUNCATED			1
-
-/* This results in inefficient code for 64 bit to 32 conversions.
-   Something needs to be done about this.  Perhaps not use any 32 bit
-   instructions?  Perhaps use PROMOTE_MODE?  */
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC)  1
 
 #define Pmode SImode
 

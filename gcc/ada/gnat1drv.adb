@@ -61,11 +61,12 @@ with Sem_Ch12;
 with Sem_Ch13;
 with Sem_Elim;
 with Sem_Eval;
+with Sem_SPARK; use Sem_SPARK;
 with Sem_Type;
 with Set_Targ;
 with Sinfo;    use Sinfo;
 with Sinput.L; use Sinput.L;
-with Snames;
+with Snames;   use Snames;
 with Sprint;   use Sprint;
 with Stringt;
 with Stylesw;  use Stylesw;
@@ -271,9 +272,13 @@ procedure Gnat1drv is
          Restrict.Restrictions.Set   (Max_Asynchronous_Select_Nesting) := True;
          Restrict.Restrictions.Value (Max_Asynchronous_Select_Nesting) := 0;
 
-         --  Enable pragma Ignore_Pragma (Global) to support legacy code
+         --  Enable pragma Ignore_Pragma (Global) to support legacy code. As a
+         --  consequence, Refined_Global pragma should be ignored as well, as
+         --  it is only allowed on a body when pragma Global is given for the
+         --  spec.
 
-         Set_Name_Table_Boolean3 (Name_Id'(Name_Find ("global")), True);
+         Set_Name_Table_Boolean3 (Name_Global, True);
+         Set_Name_Table_Boolean3 (Name_Refined_Global, True);
 
          --  Suppress division by zero checks since they are handled
          --  implicitly by CodePeer.
@@ -1449,11 +1454,18 @@ begin
 
       Prepcomp.Add_Dependencies;
 
-      --  In gnatprove mode we're writing the ALI much earlier than usual
-      --  as flow analysis needs the file present in order to append its
-      --  own globals to it.
-
       if GNATprove_Mode then
+
+         --  Perform the new SPARK checking rules for pointer aliasing. This is
+         --  only activated in GNATprove mode and on SPARK code.
+
+         if Debug_Flag_FF then
+            Check_Safe_Pointers (Main_Unit_Node);
+         end if;
+
+         --  In GNATprove mode we're writing the ALI much earlier than usual
+         --  as flow analysis needs the file present in order to append its
+         --  own globals to it.
 
          --  Note: In GNATprove mode, an "object" file is always generated as
          --  the result of calling gnat1 or gnat2why, although this is not the

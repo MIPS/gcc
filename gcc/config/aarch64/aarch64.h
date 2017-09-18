@@ -401,8 +401,6 @@ extern unsigned aarch64_architecture_version;
 
 #define DWARF_FRAME_RETURN_COLUMN	DWARF_FRAME_REGNUM (LR_REGNUM)
 
-#define HARD_REGNO_NREGS(REGNO, MODE)	aarch64_hard_regno_nregs (REGNO, MODE)
-
 #define DWARF2_UNWIND_INFO 1
 
 /* Use R0 through R3 to pass exception handling information.  */
@@ -774,8 +772,6 @@ typedef struct
    in AArch64 we don't want to expand to a sub-word to a 64-bit access
    if we don't have to, for power-saving reasons.  */
 #define SLOW_BYTE_ACCESS		0
-
-#define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
 #define NO_FUNCTION_CSE	1
 

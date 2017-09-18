@@ -228,9 +228,14 @@ static void visium_init_libfuncs (void);
 
 static unsigned int visium_reorg (void);
 
+static unsigned int visium_hard_regno_nregs (unsigned int, machine_mode);
+
 static bool visium_hard_regno_mode_ok (unsigned int, machine_mode);
 
 static bool visium_modes_tieable_p (machine_mode, machine_mode);
+
+static bool visium_can_change_mode_class (machine_mode, machine_mode,
+					  reg_class_t);
 
 /* Setup the global target hooks structure.  */
 
@@ -343,11 +348,17 @@ static bool visium_modes_tieable_p (machine_mode, machine_mode);
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM FLAGS_REGNUM
 
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS visium_hard_regno_nregs
+
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK visium_hard_regno_mode_ok
 
 #undef TARGET_MODES_TIEABLE_P
 #define TARGET_MODES_TIEABLE_P visium_modes_tieable_p
+
+#undef TARGET_CAN_CHANGE_MODE_CLASS
+#define TARGET_CAN_CHANGE_MODE_CLASS visium_can_change_mode_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -846,6 +857,16 @@ visium_hard_regno_rename_ok (unsigned int from ATTRIBUTE_UNUSED,
   return 1;
 }
 
+/* Implement TARGET_HARD_REGNO_NREGS.  */
+
+static unsigned int
+visium_hard_regno_nregs (unsigned int regno, machine_mode mode)
+{
+  if (regno == MDB_REGNUM)
+    return CEIL (GET_MODE_SIZE (mode), 2 * UNITS_PER_WORD);
+  return CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD);
+}
+
 /* Implement TARGET_HARD_REGNO_MODE_OK.
 
    Modes with sizes which cross from the one register class to the
@@ -857,13 +878,13 @@ static bool
 visium_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
   if (GP_REGISTER_P (regno))
-    return GP_REGISTER_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
+    return GP_REGISTER_P (end_hard_regno (mode, regno) - 1);
 
   if (FP_REGISTER_P (regno))
     return mode == SFmode || (mode == SImode && TARGET_FPU_IEEE);
 
   return (GET_MODE_CLASS (mode) == MODE_INT
-	  && HARD_REGNO_NREGS (regno, mode) == 1);
+	  && visium_hard_regno_nregs (regno, mode) == 1);
 }
 
 /* Implement TARGET_MODES_TIEABLE_P.  */
@@ -4276,6 +4297,26 @@ reg_or_subreg_regno (rtx op)
     regno = INVALID_REGNUM;
 
   return regno;
+}
+
+/* Implement TARGET_CAN_CHANGE_MODE_CLASS.
+
+   It's not obvious from the documentation of the hook that MDB cannot
+   change mode.  However difficulties arise from expressions of the form
+
+   (subreg:SI (reg:DI R_MDB) 0)
+
+   There is no way to convert that reference to a single machine
+   register and, without the following definition, reload will quietly
+   convert it to
+
+   (reg:SI R_MDB).  */
+
+static bool
+visium_can_change_mode_class (machine_mode from, machine_mode to,
+			      reg_class_t rclass)
+{
+  return (rclass != MDB || GET_MODE_SIZE (from) == GET_MODE_SIZE (to));
 }
 
 #include "gt-visium.h"
