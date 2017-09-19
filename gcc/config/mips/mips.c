@@ -13237,7 +13237,10 @@ mips_global_pointer (void)
   unsigned int regno;
 
   /* $gp is always available unless we're using a GOT.  */
-  if (!TARGET_USE_GOT && !TARGET_GPOPT)
+
+  // @tmt should we keep this, even though we don't set up $gp for -mgpopt?
+  /* if (!TARGET_USE_GOT && !TARGET_GPOPT) */
+  if (!TARGET_USE_GOT)
     return GLOBAL_POINTER_REGNUM;
 
   /* If there are inflexible references to $gp, we must use the
@@ -14132,7 +14135,7 @@ mips_compute_frame_info (void)
 enum mips_loadgp_style
 mips_current_loadgp_style (void)
 {
-  if ((!TARGET_USE_GOT && !TARGET_GPOPT)
+  if (!TARGET_USE_GOT
       || cfun->machine->global_pointer == INVALID_REGNUM)
     return LOADGP_NONE;
 
