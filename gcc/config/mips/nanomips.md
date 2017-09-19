@@ -22,6 +22,13 @@
   m6001
 ])
 
+(define_c_enum "unspec" [
+  ;; Bit reverse operations
+  UNSPEC_BITREVB
+  UNSPEC_BITREVH
+  UNSPEC_BITREVW
+])
+
 (include "i6001.md")
 
 ;; FIXME: let's use 24KC scheduler temporarily for nanoMIPS32R6/nanoMIPS32R6s
@@ -820,14 +827,45 @@
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
-(define_insn "ctz<mode>2"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-	(ctz:GPR (match_operand:GPR 1 "register_operand" "d")))]
-  "TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_DEBUG_MODE"
-  "bitrevw\t%0,%1\n\t<d>clz\t%0,%0"
+(define_insn_and_split "ctzsi2"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(ctz:SI (match_operand:SI 1 "register_operand" "r")))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (unspec:SI [(match_dup 1)] UNSPEC_BITREVW))
+   (set (match_dup 0) (clz:SI (match_dup 0)))]
+  ""
   [(set_attr "type" "clz")
-   (set_attr "mode" "<MODE>")
+   (set_attr "mode" "SI")
    (set_attr "insn_count" "2")])
+
+(define_insn "nanomips_bitrevb"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVB))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevb\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "nanomips_bitrevh"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVH))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevh\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "nanomips_bitrevw"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVW))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevw\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST

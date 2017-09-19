@@ -19255,6 +19255,9 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 #ifdef MIPS_SUPPORT_MSA
 AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #endif
+#ifdef NANOMIPS_SUPPORT
+AVAIL_NON_MIPS16 (nanomips_nmf, TARGET_NANOMIPS == NANOMIPS_NMF)
+#endif
 
 /* Construct a mips_builtin_description from the given arguments.
 
@@ -19402,6 +19405,11 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
     { CODE_FOR_msa_ ## INSN, MIPS_FP_COND_f,				\
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT_NO_TARGET,		\
     FUNCTION_TYPE, mips_builtin_avail_msa }
+
+#define NANOMIPS_BUILTIN(INSN, FUNCTION_TYPE, AVAIL)			\
+    { CODE_FOR_nanomips_ ## INSN, MIPS_FP_COND_f,			\
+    "__builtin_nanomips_" #INSN,  MIPS_BUILTIN_DIRECT,			\
+    FUNCTION_TYPE, mips_builtin_avail_ ## AVAIL }
 
 #ifdef MIPS_SUPPORT_DSP
 #define CODE_FOR_mips_sqrt_ps CODE_FOR_sqrtv2sf2
@@ -20471,6 +20479,11 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_NO_TARGET_BUILTIN (ctcmsa, MIPS_VOID_FTYPE_UQI_SI),
   MSA_BUILTIN (cfcmsa, MIPS_SI_FTYPE_UQI),
   MSA_BUILTIN (move_v, MIPS_V16QI_FTYPE_V16QI),
+#endif
+#ifdef NANOMIPS_SUPPORT
+  NANOMIPS_BUILTIN (bitrevb, MIPS_SI_FTYPE_SI, nanomips_nmf),
+  NANOMIPS_BUILTIN (bitrevh, MIPS_SI_FTYPE_SI, nanomips_nmf),
+  NANOMIPS_BUILTIN (bitrevw, MIPS_SI_FTYPE_SI, nanomips_nmf),
 #endif
 };
 
