@@ -3093,9 +3093,9 @@ mips_get_nano_pic_model (const_rtx x)
       if (SYMBOL_REF_AUTO_PIC_P (symbol))
 	return NANO_PIC_AUTO;
 
-      // @tmt FIXME: What is the override order for the model option,
-      // the model attribute, and the flag_pic option?
-      if (nano_pic_model_var == NANO_PIC_AUTO)
+      if (nano_pic_model_var == NANO_PIC_AUTO
+	  && !(SYMBOL_REF_MEDIUM_PIC_P (symbol)
+	       || SYMBOL_REF_LARGE_PIC_P (symbol)))
 	return NANO_PIC_AUTO;
 
       if (flag_pic == 1)
