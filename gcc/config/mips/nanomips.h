@@ -138,7 +138,8 @@ along with GCC; see the file COPYING3.  If not see
 #undef BASE_DRIVER_SELF_SPECS
 #define BASE_DRIVER_SELF_SPECS \
   "%{march=32r6|march=32r6s|march=64r6|march=i6001|march=m6001: \
-     %{!-fuse-ld=*: -fuse-ld=gold}}"
+     %{!-fuse-ld=*: -fuse-ld=gold} \
+     %{mdsp: -mdspr3}}"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
