@@ -10,5 +10,4 @@ foo (unsigned int x)
 	  | ((x >> 24) & 0xff));
 }
 
-/* { dg-final { scan-assembler "\twsbh\t" } } */
-/* { dg-final { scan-assembler "\tror\t" } } */
+/* { dg-final { scan-assembler "byterevw" } } */

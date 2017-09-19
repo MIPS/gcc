@@ -6,5 +6,4 @@ foo (unsigned int x)
   return __builtin_bswap32 (x);
 }
 
-/* { dg-final { scan-assembler "\twsbh\t" } } */
-/* { dg-final { scan-assembler "\tror\t" } } */
+/* { dg-final { scan-assembler "byterevw" } } */
