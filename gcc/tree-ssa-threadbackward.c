@@ -567,7 +567,7 @@ ssa_path_walker::walk_helper (basic_block bb)
 class path_with_range
 {
   /* The path.  */
-  vec<basic_block, va_gc> *path;
+  vec<basic_block> path;
   /* The range for the SSA on this path.  */
   irange range;
 
@@ -576,12 +576,13 @@ class path_with_range
   path_with_range (const irange &r, const auto_vec<basic_block> &p)
   {
     range = r;
-    vec_alloc (path, p.length ());
+    path.create (p.length ());
     basic_block bb;
     for (unsigned i = 0; p.iterate (i, &bb); ++i)
-      path->quick_push (bb);
+      path.quick_push (bb);
   }
-  vec<basic_block, va_gc> *get_path () const { return path; }
+  ~path_with_range () { path.release (); }
+  vec<basic_block> &get_path () { return path; }
   irange get_range () const { return range; }
   void dump () const;
 };
@@ -590,14 +591,14 @@ void
 path_with_range::dump () const
 {
   fprintf (stderr, "path: ");
-  for (int i = path->length () - 1; i > 0; --i)
+  for (int i = path.length () - 1; i > 0; --i)
     {
-      fprintf (stderr, "bb%d", (*path)[i]->index);
-      edge e = find_edge ((*path)[i], (*path)[i - 1]);
+      fprintf (stderr, "bb%d", path[i]->index);
+      edge e = find_edge (path[i], path[i - 1]);
       gcc_assert (e);
       fprintf (stderr, " => ");
     }
-  fprintf (stderr, "bb%d\n", (*path)[0]->index);
+  fprintf (stderr, "bb%d\n", path[0]->index);
   fprintf (stderr, "\trange: ");
   range.dump ();
 
@@ -617,7 +618,7 @@ path_with_range::dump () const
 	path_with_range p;
 	for (unsigned i = 0; w.iterate (i, p); ++i)
 	  {
-	    vec<basic_block, va_gc> *path = p.get_path ();
+	    vec<basic_block> path = p.get_path ();
 	    irange range = p.get_range ();
 	    do_stuff (PATH, RANGE);
 	  }
@@ -1051,11 +1052,11 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
 	  wide_int c;
 	  if (range.one_element_p (c))
 	    {
-	      vec<basic_block, va_gc> *path = p.get_path ();
+	      vec<basic_block> path = p.get_path ();
 	      /* register_jump_thread_path_if_profitable will push the current
 		 block onto the path.  But the path will always have the current
 		 block at this point.  So we can just pop it.  */
-	      basic_block def_bb = path->pop ();
+	      basic_block def_bb = path.pop ();
 	      bool s=speed_p;
 	      speed_p=true;
 	      register_jump_thread_path_if_profitable
@@ -1066,9 +1067,6 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
 	    }
 	}
     }
-
-  delete visited_bbs;
-  vec_free (bb_path);
 }
 
 namespace {
