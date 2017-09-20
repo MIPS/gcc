@@ -50,7 +50,7 @@ class irange
   friend class irange_storage;
  public:
   /* Maximum number of pairs of ranges allowed.  */
-  static const unsigned int max_pairs = 2;
+  static const unsigned int max_pairs = 3;
 
  private:
   /* Number of items in bounds[].  */
@@ -62,6 +62,7 @@ class irange
   /* The pairs of sub-ranges in the range.  */
   wide_int bounds[max_pairs * 2];
 
+  void insert (const wide_int &x, const wide_int &y, unsigned pos);
   void prepend (const wide_int &x, const wide_int &y);
   void append (const wide_int &x, const wide_int &y);
   void remove (unsigned i, unsigned j);
@@ -114,9 +115,13 @@ class irange
   bool empty_p () const { return !nitems; }
   bool range_for_type_p () const;
   bool simple_range_p () const { return nitems == 2; }
-  /* Return TRUE if range contains exactly one element.  If so, set
-     ELEM to said element.  */
-  bool one_element_p (wide_int &elem) const;
+  bool zero_p () const { return *this == irange (type, 0, 0); }
+  bool non_zero_p () const
+    {
+      irange nz;
+      nz.set_range (type, 0, 0, INVERSE);
+      return *this == nz;
+    }
 
   void dump () const;
   void dump (pretty_printer *pp) const;
@@ -126,6 +131,7 @@ class irange
   void cast (const_tree type);
   bool contains_p (const wide_int &element) const;
   bool contains_p (const_tree) const;
+  bool contains_p (int) const;
 
   const_tree get_type () const { return type; }
 
@@ -178,7 +184,8 @@ void range_positives (irange *r, tree type, unsigned int);
    class use:
 
 	irange X;
-	...
+	irange_storage *stow = irange_storage::ggc_alloc_init (X);
+   or
 	irange_storage *stow = irange_storage::ggc_alloc (precision);
 	stow->set_irange (X);
 
@@ -191,6 +198,9 @@ void range_positives (irange *r, tree type, unsigned int);
 	  irange X (ssa);
 	  ...
 	}
+   or
+	irange x;
+	stow->extract_irange (x, TYPE);
 
    To get at the nonzero bits use:
 
@@ -215,13 +225,30 @@ class GTY((variable_size)) irange_storage
       /* There is a +1 for the non-zero bits field.  */
       + trailing_wide_ints<irange::max_pairs * 2 + 1>::extra_size (precision);
   }
-  /* Allocate GC memory for an irange_storage with PRECISION.  */
+  /* Allocate GC memory for an irange_storage with PRECISION.
+
+     Note: The precision is set, but the irange_storage returned is
+     otherwise uninitialized.  The caller must still call
+     stow->set_irange().  */
   static irange_storage *ggc_alloc (unsigned precision)
   { irange_storage *stow = static_cast<irange_storage *> (ggc_internal_alloc
 							  (size (precision)));
     stow->trailing_bounds.set_precision (precision);
     return stow;
   }
+  /* Like irange_storage::ggc_alloc (), but initialize the storage to
+     the range in IR.  */
+  static irange_storage *ggc_alloc_init (const irange &ir)
+  {
+    unsigned precision = TYPE_PRECISION (ir.type);
+    irange_storage *stow = static_cast<irange_storage *> (ggc_internal_alloc
+							  (size (precision)));
+    stow->set_irange (ir);
+    return stow;
+  }
+  /* Extract the current range onto OUTPUT with a type of TYP.
+     Returns the range.  */
+  inline irange &extract_irange (irange &output, const_tree typ);
   /* Set the nonzero bit mask to WI.  */
   void set_nonzero_bits (const wide_int &wi)
   { trailing_bounds[irange::max_pairs * 2] = wi; }
@@ -229,5 +256,15 @@ class GTY((variable_size)) irange_storage
   wide_int get_nonzero_bits (void)
   { return trailing_bounds[irange::max_pairs * 2]; }
 };
+
+/* Extract the range in THIS and store it in OUTPUT with a type of TYP.
+   Returns OUTPUT.  */
+
+inline irange &
+irange_storage::extract_irange (irange &output, const_tree typ)
+{
+  output.set_range (this, typ);
+  return output;
+}
 
 #endif // GCC_RANGE_H

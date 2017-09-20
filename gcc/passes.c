@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-addr.h" /* for INSN_ADDRESSES_ALLOC.  */
 #include "diagnostic-core.h" /* for fnotice */
 #include "ssa-range-gen.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 using namespace gcc;
 

@@ -1324,6 +1324,33 @@ operator_bitwise_not::op1_irange (irange& r, const irange& lhs,
 }
 
 
+/*  ----------------------------------------------------------------------  */
+
+
+class operator_cst : public irange_operator
+{
+public:
+  virtual void dump (FILE *f) const;
+
+  virtual bool fold_range (irange& r, const irange& op1,
+			   const irange& op2) const;
+} op_integer_cst;
+
+void 
+operator_cst::dump (FILE *f) const
+{
+  fprintf (f, " const ");
+}
+
+bool
+operator_cst::fold_range (irange& r, const irange& lh,
+				  const irange& rh ATTRIBUTE_UNUSED) const
+{
+  r = lh;
+  return true;
+}
+
+
 
 /*  ----------------------------------------------------------------------  */
 
@@ -1366,6 +1393,8 @@ irange_op_table::irange_op_table ()
   irange_tree[BIT_AND_EXPR] = &op_bitwise_and;
   irange_tree[BIT_IOR_EXPR] = &op_bitwise_or;
   irange_tree[BIT_NOT_EXPR] = &op_bitwise_not;
+
+  irange_tree[INTEGER_CST] = &op_integer_cst;
 }
 
 /* The table is hidden and accessed via a simple extern function.  */

@@ -145,7 +145,8 @@ void
 irange::set_range (const_tree ssa)
 {
   tree t = TREE_TYPE (ssa);
-  gcc_assert (TREE_CODE (ssa) == SSA_NAME && INTEGRAL_TYPE_P (t));
+  gcc_assert (TREE_CODE (ssa) == SSA_NAME && (INTEGRAL_TYPE_P (t)
+					      || POINTER_TYPE_P (t)));
   if (!SSA_NAME_RANGE_INFO (ssa))
     {
       set_range_for_type (t);
@@ -219,19 +220,6 @@ irange::range_for_type_p () const
   return (*this == tmp);
 }
 
-/* Return TRUE if range contains exactly one element.  If so, set ELEM
-   to said element.  */
-
-bool
-irange::one_element_p (wide_int &elem) const
-{
-  if (num_pairs () == 1 && bounds[0] == bounds[1])
-    {
-      elem = bounds[0];
-      return true;
-    }
-  return false;
-}
 
 bool
 irange::valid_p () const
@@ -418,6 +406,17 @@ irange::contains_p (const_tree element) const
   return contains_p (wi);
 }
 
+// Like above, but element is an int.
+
+bool
+irange::contains_p (int element) const
+{
+  if (TYPE_UNSIGNED (type))
+    return contains_p (wi::uhwi (element, TYPE_PRECISION (type)));
+  else
+    return contains_p (wi::shwi (element, TYPE_PRECISION (type)));
+}
+
 // Canonicalize the current range.
 
 void
@@ -460,6 +459,31 @@ irange::canonicalize ()
   gcc_assert (!CHECKING_P || valid_p ());
 }
 
+/* Insert [x,y] into position POS.  There must be enough space to hold
+   the new sub-range, otherwise this function will abort.  */
+
+void
+irange::insert (const wide_int &x, const wide_int &y, unsigned pos)
+{
+  /* Make sure it will fit.  */
+  gcc_assert (nitems < max_pairs * 2);
+  /* Make sure we're inserting into a sane position.  */
+  gcc_assert (pos <= nitems && pos % 2 == 0);
+
+  if (pos == nitems)
+    return append (x, y);
+
+  for (unsigned i = nitems; i > pos; i -= 2)
+    {
+      bounds[i] = bounds[i - 2];
+      bounds[i + 1] = bounds[i - 1];
+    }
+  bounds[pos] = x;
+  bounds[pos + 1] = y;
+  nitems += 2;
+  canonicalize ();
+}
+
 // Prepend [X,Y] into THIS.
 
 void
@@ -468,16 +492,7 @@ irange::prepend (const wide_int &x, const wide_int &y)
   /* If we have enough space, shift everything to the right and
      prepend.  */
   if (nitems < max_pairs * 2)
-    {
-      for (unsigned i = nitems; i; i -= 2)
-	{
-	  bounds[i] = bounds[i - 2];
-	  bounds[i + 1] = bounds[i - 1];
-	}
-      bounds[0] = x;
-      bounds[1] = y;
-      nitems += 2;
-    }
+    return insert (x, y, 0);
   /* Otherwise, merge it with the first entry.  */
   else
     bounds[0] = x;
@@ -575,7 +590,8 @@ irange::union_ (const wide_int &x, const wide_int &y)
 	      bounds[1] = y;
 	    else
 	      bounds[1] = bounds[i];
-	    remove (2, i);
+	    if (i >= 2)
+	      remove (2, i);
 	    gcc_assert (!CHECKING_P || valid_p ());
 	    return *this;
 	  }
@@ -619,6 +635,18 @@ irange::union_ (const wide_int &x, const wide_int &y)
   while (i);
   gcc_assert (xpos != ~0U);
 
+  /* Handle [X,Y] fitting between two sub-ranges:
+
+     [a,b][X,Y][b,c].  */
+  if (nitems < max_pairs * 2
+      && wi::gt_p (x, bounds[xpos + 1], TYPE_SIGN (type))
+      && wi::lt_p (y, bounds[xpos + 2], TYPE_SIGN (type)))
+    {
+      insert (x, y, xpos + 2);
+      gcc_assert (!CHECKING_P || valid_p ());
+      return *this;
+    }
+
   /* Find Y.  */
   unsigned ypos = ~0U;
   for (i = 1; i < nitems; i += 2)
@@ -636,7 +664,7 @@ irange::union_ (const wide_int &x, const wide_int &y)
       return *this;
     }
 
-  /* Merge the sub-ranges in between xpos and ypos.  */
+  /* Squash the sub-ranges in between xpos and ypos.  */
   wide_int tmp = bounds[ypos];
   remove (xpos + 2, ypos);
   bounds[xpos + 1] = tmp;
@@ -661,6 +689,12 @@ irange::union_ (const irange &r)
   else if (r.empty_p ())
     return *this;
 
+  /* FIXME: It would be nice to look at both THIS and R as a whole and
+     optimize the case where they don't overlap and be easily appended
+     or prepended.  That is, do the calculation in this function
+     instead of doing it piecemeal below.
+
+     For example: [8,10][14,14] U [135,255].  */
   for (unsigned i = 0; i < r.nitems; i += 2)
     union_ (r.bounds[i], r.bounds[i + 1]);
 
@@ -848,32 +882,36 @@ irange::upper_bound (unsigned pair) const
 void
 irange::dump (pretty_printer *buffer) const
 {
-  for (unsigned i = 0; i < nitems; ++i)
-    {
-      if (i % 2 == 0)
-	pp_character (buffer, '[');
+  if (POINTER_TYPE_P (type) && non_zero_p ())
+    pp_string (buffer, "[ non-zero pointer ]");
+  else
+    for (unsigned i = 0; i < nitems; ++i)
+      {
+	if (i % 2 == 0)
+	  pp_character (buffer, '[');
 
-      /* Wide ints may be sign extended to the full extent of the
-	 underlying HWI storage, even if the precision we care about
-	 is smaller.  Chop off the excess bits for prettier output.  */
-      signop sign = TYPE_UNSIGNED (type) ? UNSIGNED : SIGNED;
-      widest_int val = widest_int::from (bounds[i], sign);
-      val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
+	/* Wide ints may be sign extended to the full extent of the
+	   underlying HWI storage, even if the precision we care about
+	   is smaller.  Chop off the excess bits for prettier output.  */
+	signop sign = TYPE_UNSIGNED (type) ? UNSIGNED : SIGNED;
+	widest_int val = widest_int::from (bounds[i], sign);
+	val &= wi::mask<widest_int> (bounds[i].get_precision (), false);
 
-      print_hex (val, pp_buffer (buffer)->digit_buffer);
-      pp_string (buffer, pp_buffer (buffer)->digit_buffer);
-      if (i % 2 == 0)
-	pp_string (buffer, ", ");
-      else
-	pp_character (buffer, ']');
-    }
+	if (val > 0xffff)
+	  print_hex (val, pp_buffer (buffer)->digit_buffer);
+	else
+	  print_dec (val, pp_buffer (buffer)->digit_buffer, sign);
+	pp_string (buffer, pp_buffer (buffer)->digit_buffer);
+	if (i % 2 == 0)
+	  pp_string (buffer, ", ");
+	else
+	  pp_character (buffer, ']');
+      }
   if (!nitems)
     pp_string (buffer, "[]");
 
-  pp_string (buffer, " type: ");
+  pp_character (buffer, ' ');
   dump_generic_node (buffer, const_cast <tree> (type), 0, 0, false);
-  pp_string (buffer, ", precision = ");
-  pp_decimal_int (buffer, TYPE_PRECISION (type));
   if (overflow)
     pp_string (buffer, " (overflow)");
   pp_newline_and_flush (buffer);
@@ -1085,6 +1123,7 @@ irange_tests ()
   r1 = irange (integer_type_node, (wide_int) INT(5), (wide_int) INT(10));
   ASSERT_TRUE (r1.valid_p ());
   ASSERT_TRUE (r1.contains_p (INT (7)));
+  ASSERT_TRUE (r1.contains_p (7));
 
   r1 = irange (signed_char_type_node, 0, 20);
   ASSERT_TRUE (r1.contains_p (INT(15)));
@@ -1280,10 +1319,13 @@ irange_tests ()
       r1 = irange (integer_type_node, 50, 60);
       r0.union_ (r1);
       ASSERT_TRUE (r0 == RANGE3 (10, 20, 30, 40, 50, 60));
-      /* [10,20][30,40][50,60] U [70, 80] ==> [10,20][30,40][50,80].  */
+      /* [10,20][30,40][50,60] U [70, 80] ==> [10,20][30,40][50,60][70,80].  */
       r1 = irange (integer_type_node, 70, 80);
       r0.union_ (r1);
-      ASSERT_TRUE (r0 == RANGE3 (10, 20, 30, 40, 50, 80));
+
+      r2 = RANGE3 (10, 20, 30, 40, 50, 60);
+      r2.union_ (irange (integer_type_node, 70, 80));
+      ASSERT_TRUE (r0 == r2);
     }
 
   /* Make sure NULL and non-NULL of pointer types work, and that
@@ -1391,18 +1433,50 @@ irange_tests ()
       ASSERT_TRUE (r0 == irange (integer_type_node, 20,100));
 
       /* [10,20][30,40][50,60] ^ [15,25][38,51][55,70]
-	 => [15,20][38,40][50,60].  */
+	 => [15,20][38,40][50,51][55,60].  */
       r0 = RANGE3 (10, 20, 30, 40, 50, 60);
       r1 = RANGE3 (15, 25, 38, 51, 55, 70);
       r0.intersect (r1);
-      ASSERT_TRUE (r0 == RANGE3 (15, 20, 38, 40, 50, 60));
+      if (irange::max_pairs == 3)
+	{
+	  /* When pairs==3, we don't have enough space, so
+	     conservatively handle things.  Thus, the ...[50,60].  */
+	  ASSERT_TRUE (r0 == RANGE3 (15, 20, 38, 40, 50, 60));
+	}
+      else
+	{
+	  r2 = RANGE3 (15, 20, 38, 40, 50, 51);
+	  r2.union_ (irange (integer_type_node, 55, 60));
+	  ASSERT_TRUE (r0 == r2);
+	}
 
       /* [15,20][30,40][50,60] ^ [15,35][40,90][100,200]
 	 => [15,20][30,35][40,60].  */
       r0 = RANGE3 (15, 20, 30, 40, 50, 60);
       r1 = RANGE3 (15, 35, 40, 90, 100, 200);
       r0.intersect (r1);
-      ASSERT_TRUE (r0 == RANGE3 (15, 20, 30, 35, 40, 60));
+      if (irange::max_pairs == 3)
+	{
+	  /* When pairs==3, we don't have enough space, so
+	     conservatively handle things.  */
+	  ASSERT_TRUE (r0 == RANGE3 (15, 20, 30, 35, 40, 60));
+	}
+      else
+	{
+	  r2 = RANGE3 (15, 20, 30, 35, 40, 40);
+	  r2.union_ (irange (integer_type_node, 50, 60));
+	  ASSERT_TRUE (r0 == r2);
+	}
+
+      /* Test cases where a union inserts a sub-range inside a larger
+	 range.
+
+	 [8,10][135,255] U [14,14] => [8,10][14,14][135,255].  */
+      r0 = irange_union (irange (integer_type_node, 8, 10),
+			 irange (integer_type_node, 135, 255));
+      r1 = irange (integer_type_node, 14, 14);
+      r0.union_ (r1);
+      ASSERT_TRUE (r0 == RANGE3 (8, 10, 14, 14, 135, 255));
     }
 
   /* [10,20] ^ [15,30] => [15,20].  */
@@ -1428,6 +1502,21 @@ irange_tests ()
   ASSERT_TRUE (wi::max_value (TYPE_PRECISION (boolean_type_node),
 			      TYPE_SIGN (boolean_type_node))
 	       == wi::uhwi (1, TYPE_PRECISION (boolean_type_node)));
+
+  /* Test irange_storage.  */
+  r0.set_range (integer_type_node, 5, 10);
+  irange_storage *stow = irange_storage::ggc_alloc_init (r0);
+  stow->extract_irange (r1, integer_type_node);
+  ASSERT_TRUE (r0 == r1);
+
+  /* Test zero_p().  */
+  r0.set_range (integer_type_node, 0, 0);
+  ASSERT_TRUE (r0.zero_p ());
+
+  /* Test non_zero_p().  */
+  r0 = irange (integer_type_node, 0, 0);
+  r0.invert ();
+  ASSERT_TRUE (r0.non_zero_p ());
 }
 
 } // namespace selftest

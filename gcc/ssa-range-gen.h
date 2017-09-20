@@ -27,29 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-range-stmt.h"
 
 
-class ranger
-{
-  ssa_define_chain& def_chain;
-  bool combine_range (range_stmt& stmt, irange& r, tree name, const irange& lhs,
-		      bool op1_in_chain, bool op2_in_chain);
-public:
-  ranger (ssa_define_chain & dc);
-  bool get_operand_range (irange& r, tree op);
-  bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
-  bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
-			    const irange& lhs);
-};
-
-inline
-ranger::ranger (ssa_define_chain& dc) : def_chain (dc)
-{
-}
-
 class gori
 {
   vec<bitmap> gori_map; 	/* Generates Outgoing Range Info.  */
   ssa_define_chain def_chain;
-  ranger range_generator;
   bool remove_from_gori_map (basic_block bb, tree name);
 
   bool get_derived_range_stmt (range_stmt& stmt, tree name, basic_block bb);
@@ -58,8 +39,12 @@ class gori
   void build ();
   void build (basic_block bb);
 
+  bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
+  bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
+			    const irange& lhs);
 public:
   gori ();
+  ~gori ();
 
   /* True if NAME Generates range info on one or more outgoing edges of BB.  */
   bool range_p (basic_block bb, tree name);
@@ -76,13 +61,40 @@ public:
 
 
 
+class range_cache
+{
+private:
+  vec<irange_storage *> tab;
+public:
+  range_cache ();
+  ~range_cache ();
+
+  void reset ();
+  void set_range (basic_block bb, irange_storage *r);
+  irange_storage *operator[] (const basic_block bb);
+
+  void dump(FILE *f, tree type);
+};
+
 
 /* This class utilizes the basic block GORI map and is used to query the range
    of SSA_NAMEs across multiple basic blocks and edges.  */
 class path_ranger : public gori
 {
-  public:
+private:
+  range_cache block_cache;
+  tree ssa_name;
+  basic_block def_bb;
+  gimple *def_stmt;
+  irange_storage *processing;
+  irange_storage *type_range;
+
+  bool init (tree name);
+  void range_for_bb (irange &r, basic_block bb);
+  void determine_block (basic_block bb);
+public:
   path_ranger ();
+
   /* What is the known range of name from its DEF point to edge E.  */
   bool path_range_edge (irange& r, tree name, edge e);
   bool path_range_entry (irange& r, tree name, basic_block bb);

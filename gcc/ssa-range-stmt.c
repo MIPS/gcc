@@ -91,8 +91,7 @@ along with GCC; see the file COPYING3.  If not see
    branches, and this ensures we alwasy get at least that depth from each
    branch.  */
 
-
-
+#define trace_output ((FILE *)0)
 
 
 irange_operator *
@@ -101,39 +100,52 @@ range_stmt::handler () const
   return irange_op_handler (code);
 }
 
+#define ACCEPTABLE_SSA(T) ((T) && TREE_CODE (T) == SSA_NAME		\
+			   && (INTEGRAL_TYPE_P (TREE_TYPE (T))		\
+			       || POINTER_TYPE_P (TREE_TYPE (T))))
+
 /* Intialize the state based on the operands to the expression.  */
 enum range_stmt_state
 range_stmt::determine_state (tree t1, tree t2)
 {
   enum range_stmt_state st = RS_INV;
+  ssa1 = ACCEPTABLE_SSA (t1) ? t1 : NULL_TREE;
+  ssa2 = ACCEPTABLE_SSA (t2) ? t2 : NULL_TREE;
+
   if (!t2 || TYPE_P (t2))
     {
-      /* Check for unary teration cases.  */
-      if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
-        st = RS_I;
+      /* Check for unary cases.  */
+      if (ssa1)
+	st = RS_S;
       else
-        if (TREE_CODE (t1) == SSA_NAME)
-	  st = RS_S;
+	if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
+	  st = RS_I;
     }
   else
     {
-      /* Binary teration cases.  */
-      if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
-        {
-	  if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
-	    st = RS_II;
+      /* Binary cases.  */
+      if (ssa1)
+	{
+	  if (ssa2)
+	    {
+	      /* Resolving 2 SSA names is only allowed with relational and
+		 logical operations.  */
+	      if ((code >= LT_EXPR && code <= NE_EXPR)
+	          || combine_range_p (TREE_TYPE (t1)))
+		st = RS_SS;
+	    }
 	  else
-	    if (TREE_CODE (t2) == SSA_NAME)
-	      st = RS_IS;
-	}
-      else
-        if (TREE_CODE (t1) == SSA_NAME)
-	  {
 	    if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
 	      st = RS_SI;
+	}
+      else
+	if (TREE_CODE (t1) == INTEGER_CST && !TREE_OVERFLOW (t1))
+	  {
+	    if (ssa2)
+	      st = RS_IS;
 	    else
-	      if (TREE_CODE (t2) == SSA_NAME)
-		st = RS_SS;
+	      if (TREE_CODE (t2) == INTEGER_CST && !TREE_OVERFLOW (t2))
+		st = RS_II;
 	  }
     }
   return st;
@@ -184,6 +196,124 @@ range_stmt::from_stmt (gimple *s)
 }
 
 
+bool
+range_stmt::combine_range_p (tree type)
+{
+
+  /* Look for boolean and/or condition.  */
+  switch (get_code ())
+    {
+      case TRUTH_AND_EXPR:
+      case TRUTH_OR_EXPR:
+        return true;
+
+      case BIT_AND_EXPR:
+      case BIT_IOR_EXPR:
+        if (types_compatible_p (type, boolean_type_node))
+	  return true;
+	break;
+
+      default:
+        break;
+    }
+  return false;
+}
+
+bool
+range_stmt::combine_range (irange& r, const irange& lhs, const irange& op1_true,
+			   const irange& op1_false, const irange& op2_true,
+			   const irange& op2_false)
+{
+  gcc_checking_assert (combine_range_p (TREE_TYPE (op1)));
+ 
+  if (trace_output)
+    {
+      fprintf (dump_file, "\nIn Combine_range for ");
+      print_gimple_stmt (dump_file, g, 0 ,0);
+    }
+
+  /* If the LHS can be TRUE OR FALSE, then we cant really tell anything.  */
+  if (!wi::eq_p (lhs.lower_bound(), lhs.upper_bound()))
+    {
+      if (trace_output)
+	fprintf (dump_file, " : LHS can be true or false, know nothing.\n");
+      return false;
+    }
+
+  if (trace_output)
+    {
+      fprintf (dump_file, "  combining following 4 ranges:\n");
+      fprintf (dump_file, "op1_true : ");
+      op1_true.dump (dump_file);
+      fprintf (dump_file, "op1_false : ");
+      op1_false.dump (dump_file);
+      fprintf (dump_file, "op2_true : ");
+      op2_true.dump (dump_file);
+      fprintf (dump_file, "op2_false : ");
+      op2_false.dump (dump_file);
+    }
+
+  /* Now combine based on the result.  */
+  switch (code)
+    {
+
+      /* A logical AND of two ranges is executed when we are walking forward
+	 with ranges that have been determined.   x_8 is an unsigned char.
+	       b_1 = x_8 < 20
+	       b_2 = x_8 > 5
+	       c_2 = b_1 && b_2
+	 if we are looking for the range of x_8, the ranges on each side 
+	 will be:   b_1 carries x_8 = [0, 19],   b_2 carries [6, 255]
+	 the result of the AND is the intersection of the 2 ranges, [6, 255]. */
+      case TRUTH_AND_EXPR:
+      case BIT_AND_EXPR:
+        if (!lhs.zero_p ())
+	  r = irange_intersect (op1_true, op2_true);
+	else
+	  {
+	    irange ff = irange_intersect (op1_false, op2_false);
+	    irange tf = irange_intersect (op1_true, op2_false);
+	    irange ft = irange_intersect (op1_false, op2_true);
+	    r = irange_union (ff, tf);
+	    r.union_ (ft);
+	  }
+        break;
+
+      /* A logical OR of two ranges is executed when we are walking forward with
+	 ranges that have been determined.   x_8 is an unsigned char.
+	       b_1 = x_8 > 20
+	       b_2 = x_8 < 5
+	       c_2 = b_1 || b_2
+	 if we are looking for the range of x_8, the ranges on each side
+	 will be:   b_1 carries x_8 = [21, 255],   b_2 carries [0, 4]
+	 the result of the OR is the union_ of the 2 ranges, [0,4][21,255].  */
+      case TRUTH_OR_EXPR:
+      case BIT_IOR_EXPR:
+        if (lhs.zero_p ())
+	  r = irange_intersect (op1_false, op2_false);
+	else
+	  {
+	    irange tt = irange_intersect (op1_true, op2_true);
+	    irange tf = irange_intersect (op1_true, op2_false);
+	    irange ft = irange_intersect (op1_false, op2_true);
+	    r = irange_union (tt, tf);
+	    r.union_ (ft);
+	  }
+	break;
+
+      default:
+        gcc_unreachable ();
+    }
+
+  if (trace_output)
+    {
+      fprintf (dump_file, "result range is ");
+      r.dump (dump_file);
+    }
+  return true;
+}
+
+
 range_stmt::range_stmt ()
 {
   state = RS_INV;
@@ -204,18 +334,6 @@ range_stmt::operator= (gimple *s)
   return *this;
 }
 
-bool
-range_stmt::is_relational()
-{
-  if (code >= TRUTH_ANDIF_EXPR && code <= NE_EXPR)
-    return true;
-  if (code >= BIT_AND_EXPR && code <= BIT_NOT_EXPR &&
-      types_compatible_p (TREE_TYPE (op1), boolean_type_node))
-    return true;
-
-  return false;
-}
-
 /* THis function will attempt to resolve the expression to a constant. 
    If the expression can be resolved, true is returned, and the range is
    returned in RES.
@@ -227,6 +345,7 @@ bool
 range_stmt::fold (irange &res, irange* value1, irange* value2) const
 {
   bool result = false;
+  tree lhs;
   irange r1, r2;
   irange_operator *handler = irange_op_handler (code);
   
@@ -239,7 +358,6 @@ range_stmt::fold (irange &res, irange* value1, irange* value2) const
 	r1.set_range (TREE_TYPE (operand1 ()), operand1 (), operand1 ());
 	r2.clear ();
 	result = handler->fold_range (res, r1, r2);
-
 	break;
 
       case RS_II:
@@ -250,10 +368,17 @@ range_stmt::fold (irange &res, irange* value1, irange* value2) const
 	break;
 
       case RS_S:
-        gcc_assert (value1 && !value2);
-	r2.clear ();
-	result = handler->fold_range (res, *value1, r2);
+        {
+	  gcc_assert (value1 && !value2);
+	  lhs = gimple_get_lhs (g);
+	  /* Single ssa operations require the LHS type as the second range.  */
+	  if (lhs)
+	    r2.set_range_for_type (TREE_TYPE (lhs));
+	  else
+	    r2.clear ();
+	  result = handler->fold_range (res, *value1, r2);
 	break;
+      }
 
       case RS_SI:
         gcc_assert (value1 && !value2);
@@ -294,7 +419,6 @@ range_stmt::fold (irange &res, irange* value1, irange* value2) const
 bool
 range_stmt::fold (irange& r, FILE *trace) const
 {
-  tree n1, n2;
   irange r1, r2;
   irange *r1p = NULL, *r2p = NULL;
   bool res;
@@ -305,16 +429,9 @@ range_stmt::fold (irange& r, FILE *trace) const
       dump (trace);
     }
 
-  if (!ssa_required (&n1, &n2))
+  if (ssa1)
     {
-      if (trace)
-	fprintf (trace, "   No ssa-names present\n");
-      return false;
-    }
-
-  if (n1)
-    {
-      r1 = n1;
+      r1 = ssa1;
       r1p = &r1;
       if (trace)
         {
@@ -323,9 +440,9 @@ range_stmt::fold (irange& r, FILE *trace) const
 	}
     }
 
-  if (n2)
+  if (ssa2)
     {
-      r2 = n2;
+      r2 = ssa2;
       r2p = &r2;
       if (trace)
         {
@@ -391,39 +508,6 @@ range_stmt::op2_irange (irange& r, const irange& lhs, const irange& op1,
   return res;
 }
 
-
-
-/* Return the ssa operands as a list.  NAME1 will be set it there are any
-   ssa_names. NAME2 will only be set if there are 2 ssa_names.  */
-bool
-range_stmt::ssa_required (tree *name1, tree *name2) const
-{
-  switch (state)
-    {
-      case RS_S:
-      case RS_SI:
-        *name1 = op1;
-	*name2 = NULL_TREE;
-	return true;
-
-      case RS_IS:
-        *name1 = NULL_TREE;
-	*name2 = op2;
-	return true;
-
-      case RS_SS:
-        *name1 = op1;
-	*name2 = op2;
-	return true;
-
-      default:
-        return false;
-    }
-  gcc_unreachable ();
-}
-
-
-
 void
 range_stmt::dump (FILE *f) const
 {
@@ -475,6 +559,36 @@ range_stmt::dump (FILE *f) const
     }
 
 }
+
+bool
+get_operand_range (irange& r, tree op)
+{
+  /* This check allows unary operations to be handled without having to 
+     make an explicit check for the existence of a second operand.  */
+  if (!op)
+    return false;
+
+  if (TREE_CODE (op) == INTEGER_CST)
+    {
+      r.set_range (TREE_TYPE (op), op, op);
+      return true;
+    }
+  else
+    if (TREE_CODE (op) == SSA_NAME)
+      {
+	/* Eventually we may go look for an on-demand range... */
+	r = op;
+	return true;
+      }
+
+  /* Unary expressions often set the type for the operand, get that range.  */
+  if (TYPE_P (op))
+    r.set_range_for_type (op);
+  else
+    r.set_range_for_type (TREE_TYPE (op));
+  return true;
+}
+
 
 
 

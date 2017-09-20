@@ -151,34 +151,22 @@ ssa_define_chain::generate_def_chain (tree name)
   rn = stmt;
 
   /* If a valid range stmt and there are ssa names, process args.  */
-  if (rn.valid () && rn.ssa_required (&ssa1, &ssa2))
+  if (rn.valid ())
     {
       basic_block bb = gimple_bb (stmt);
-      if (rn.is_relational ())
-        {
-	  /* Can look thru both operators  */
-	  if (ssa1)
-	    ret = process_op (ssa1, index, bb);
-	  if (ssa2)
-	    tmp = process_op (ssa2, index, bb);
-	  /* If there are 2 terminal results, there is no terminal. */
-	  if (ret && tmp)
-	    ret = NULL_TREE;
-	  else
-	    if (!ret)
-	      ret = tmp;
-	}
+      ssa1 = rn.ssa_operand1 ();
+      ssa2 = rn.ssa_operand2 ();
+
+      if (ssa1)
+	ret = process_op (ssa1, index, bb);
+      if (ssa2)
+	tmp = process_op (ssa2, index, bb);
+      /* If there are 2 terminal results, there is no terminal. */
+      if (ret && tmp && ret != tmp)
+	ret = NULL_TREE;
       else
-        {
-	  /* Look back until there are 2 ssa names.  */
-	  if (ssa1 && ssa2)
-	    ret = name;
-	  else
-	    if (ssa1)
-	      ret = process_op (ssa1, index, bb);
-	    else
-	      ret = process_op (ssa2, index, bb);
-	}
+	if (!ret)
+	  ret = tmp;
     }
   terminal[index] = ret;
   return ret;

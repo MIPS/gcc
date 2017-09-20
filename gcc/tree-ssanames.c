@@ -401,7 +401,7 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
      with integral types width > 2 * HOST_BITS_PER_WIDE_INT precision.  */
   if (!SSA_NAME_RANGE_INFO (name)
       // FIXME: ?? Do we need this precision stuff ??
-      || (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (name)))
+      || (GET_MODE_PRECISION (SCALAR_INT_TYPE_MODE (TREE_TYPE (name)))
 	  > 2 * HOST_BITS_PER_WIDE_INT))
     return false;
 

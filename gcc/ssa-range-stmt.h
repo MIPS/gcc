@@ -41,8 +41,7 @@ enum range_stmt_state {
   RS_II,  /* Binary integer op, immediate resolution available.  */
   RS_SI,  /* Binary expression, op1 requires range to resolve.  */
   RS_IS,  /* Binary expression, op2 requires range to resolve. */
-  RS_SS,   /* Binary expression, op1 & op2 require range to resolve. */
-  RS_OTHER /* Multiple operands.  */
+  RS_SS   /* Binary expression, op1 & op2 require range to resolve. */
 };
 
 
@@ -52,8 +51,8 @@ private:
   enum range_stmt_state state;
   gimple *g;
   tree_code code;
-  tree op1;
-  tree op2;
+  tree op1, op2;
+  tree ssa1, ssa2;
   enum range_stmt_state determine_state (tree op1, tree op2);
   void from_stmt (gimple *s);
   bool fold (irange& res, irange* value1, irange* value2) const;
@@ -66,12 +65,17 @@ public:
   bool valid () const;
   gimple *get_gimple () const;
   tree_code get_code () const;
-  bool is_relational ();
 
-  bool ssa_required (tree *name1, tree *name2) const;
   tree operand1 () const;
   tree operand2 () const;
 
+  tree ssa_operand1 () const;
+  tree ssa_operand2 () const;
+
+  bool combine_range_p (tree type);
+  bool combine_range (irange& r, const irange& lhs, const irange& op1_true,
+  		      const irange& op1_false, const irange& op2_true,
+		      const irange& op2_false);
   bool fold (irange& res, FILE *trace = NULL) const;
   bool op1_irange (irange& r, const irange& lhs, const irange& op2,
 		   FILE *trace = NULL) const;
@@ -82,6 +86,7 @@ public:
   void dump (FILE *f) const;
 };
 
+bool get_operand_range (irange& r, tree op);
 
 inline gimple *
 range_stmt::get_gimple () const
@@ -112,5 +117,18 @@ range_stmt::operand2 () const
 {
   return op2;
 }
+
+inline tree
+range_stmt::ssa_operand1() const
+{
+  return ssa1;
+}
+
+inline tree
+range_stmt::ssa_operand2 () const
+{
+  return ssa2;
+}
+
 
 #endif /* GCC_SSA_RANGE_STMT_H */

@@ -62,6 +62,7 @@
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "stringpool.h"
+#include "attribs.h"
 #include "tree-vrp.h"
 #include "tree-ssa-operands.h"
 #include "tree-ssanames.h"
@@ -180,6 +181,10 @@ nvptx_option_override (void)
   if (!global_options_set.x_flag_no_common)
     flag_no_common = 1;
 
+  /* The patch area requires nops, which we don't have.  */
+  if (function_entry_patch_area_size > 0)
+    sorry ("not generating patch area, nops not supported");
+
   /* Assumes that it will see only hard registers.  */
   flag_var_tracking = 0;
 
@@ -207,17 +212,6 @@ nvptx_option_override (void)
     target_flags |= MASK_SOFT_STACK | MASK_UNIFORM_SIMT;
 }
 
-/* Implement TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE.  */
-
-static void
-nvptx_override_options_after_change (void)
-{
-  /* This is a workaround for PR81430 - nvptx acceleration compilation broken
-     because of running pass_partition_blocks.  This should be dealt with in the
-     common code, not in the target.  */
-  flag_reorder_blocks_and_partition = 0;
-}
-
 /* Return a ptx type for MODE.  If PROMOTE, then use .u32 for QImode to
    deal with ptx ideosyncracies.  */
 
@@ -226,30 +220,30 @@ nvptx_ptx_type_from_mode (machine_mode mode, bool promote)
 {
   switch (mode)
     {
-    case BLKmode:
+    case E_BLKmode:
       return ".b8";
-    case BImode:
+    case E_BImode:
       return ".pred";
-    case QImode:
+    case E_QImode:
       if (promote)
 	return ".u32";
       else
 	return ".u8";
-    case HImode:
+    case E_HImode:
       return ".u16";
-    case SImode:
+    case E_SImode:
       return ".u32";
-    case DImode:
+    case E_DImode:
       return ".u64";
 
-    case SFmode:
+    case E_SFmode:
       return ".f32";
-    case DFmode:
+    case E_DFmode:
       return ".f64";
 
-    case V2SImode:
+    case E_V2SImode:
       return ".v2.u32";
-    case V2DImode:
+    case E_V2DImode:
       return ".v2.u64";
 
     default:
@@ -1644,10 +1638,10 @@ nvptx_gen_unpack (rtx dst0, rtx dst1, rtx src)
   
   switch (GET_MODE (src))
     {
-    case DImode:
+    case E_DImode:
       res = gen_unpackdisi2 (dst0, dst1, src);
       break;
-    case DFmode:
+    case E_DFmode:
       res = gen_unpackdfsi2 (dst0, dst1, src);
       break;
     default: gcc_unreachable ();
@@ -1665,10 +1659,10 @@ nvptx_gen_pack (rtx dst, rtx src0, rtx src1)
   
   switch (GET_MODE (dst))
     {
-    case DImode:
+    case E_DImode:
       res = gen_packsidi2 (dst, src0, src1);
       break;
-    case DFmode:
+    case E_DFmode:
       res = gen_packsidf2 (dst, src0, src1);
       break;
     default: gcc_unreachable ();
@@ -1686,14 +1680,14 @@ nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 
   switch (GET_MODE (dst))
     {
-    case SImode:
+    case E_SImode:
       res = gen_nvptx_shufflesi (dst, src, idx, GEN_INT (kind));
       break;
-    case SFmode:
+    case E_SFmode:
       res = gen_nvptx_shufflesf (dst, src, idx, GEN_INT (kind));
       break;
-    case DImode:
-    case DFmode:
+    case E_DImode:
+    case E_DFmode:
       {
 	rtx tmp0 = gen_reg_rtx (SImode);
 	rtx tmp1 = gen_reg_rtx (SImode);
@@ -1707,7 +1701,7 @@ nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 	end_sequence ();
       }
       break;
-    case BImode:
+    case E_BImode:
       {
 	rtx tmp = gen_reg_rtx (SImode);
 	
@@ -1719,8 +1713,8 @@ nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 	end_sequence ();
       }
       break;
-    case QImode:
-    case HImode:
+    case E_QImode:
+    case E_HImode:
       {
 	rtx tmp = gen_reg_rtx (SImode);
 
@@ -1782,7 +1776,7 @@ nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
 
   switch (mode)
     {
-    case BImode:
+    case E_BImode:
       {
 	rtx tmp = gen_reg_rtx (SImode);
 	
@@ -5072,7 +5066,9 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
   *gsi = gsi_for_stmt (gsi_stmt (*gsi));
 
   post_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
+  post_edge->probability = profile_probability::even ();
   edge loop_edge = make_edge (loop_bb, loop_bb, EDGE_FALSE_VALUE);
+  loop_edge->probability = profile_probability::even ();
   set_immediate_dominator (CDI_DOMINATORS, loop_bb, pre_bb);
   set_immediate_dominator (CDI_DOMINATORS, post_bb, loop_bb);
 
@@ -5145,7 +5141,9 @@ nvptx_lockfull_update (location_t loc, gimple_stmt_iterator *gsi,
   
   /* Create the lock loop ... */
   locked_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
-  make_edge (lock_bb, lock_bb, EDGE_FALSE_VALUE);
+  locked_edge->probability = profile_probability::even ();
+  edge loop_edge = make_edge (lock_bb, lock_bb, EDGE_FALSE_VALUE);
+  loop_edge->probability = profile_probability::even ();
   set_immediate_dominator (CDI_DOMINATORS, lock_bb, entry_bb);
   set_immediate_dominator (CDI_DOMINATORS, update_bb, lock_bb);
 
@@ -5488,13 +5486,13 @@ nvptx_vector_mode_supported (machine_mode mode)
 /* Return the preferred mode for vectorizing scalar MODE.  */
 
 static machine_mode
-nvptx_preferred_simd_mode (machine_mode mode)
+nvptx_preferred_simd_mode (scalar_mode mode)
 {
   switch (mode)
     {
-    case DImode:
+    case E_DImode:
       return V2DImode;
-    case SImode:
+    case E_SImode:
       return V2SImode;
 
     default:
@@ -5515,11 +5513,32 @@ nvptx_data_alignment (const_tree type, unsigned int basic_align)
   return basic_align;
 }
 
+/* Implement TARGET_MODES_TIEABLE_P.  */
+
+static bool
+nvptx_modes_tieable_p (machine_mode, machine_mode)
+{
+  return false;
+}
+
+/* Implement TARGET_HARD_REGNO_NREGS.  */
+
+static unsigned int
+nvptx_hard_regno_nregs (unsigned int, machine_mode)
+{
+  return 1;
+}
+
+/* Implement TARGET_CAN_CHANGE_MODE_CLASS.  */
+
+static bool
+nvptx_can_change_mode_class (machine_mode, machine_mode, reg_class_t)
+{
+  return false;
+}
+
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
-
-#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
-#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE nvptx_override_options_after_change
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE nvptx_attribute_table
@@ -5641,6 +5660,15 @@ nvptx_data_alignment (const_tree type, unsigned int basic_align)
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE \
     nvptx_preferred_simd_mode
+
+#undef TARGET_MODES_TIEABLE_P
+#define TARGET_MODES_TIEABLE_P nvptx_modes_tieable_p
+
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS nvptx_hard_regno_nregs
+
+#undef TARGET_CAN_CHANGE_MODE_CLASS
+#define TARGET_CAN_CHANGE_MODE_CLASS nvptx_can_change_mode_class
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
