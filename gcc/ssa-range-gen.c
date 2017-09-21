@@ -53,9 +53,82 @@ along with GCC; see the file COPYING3.  If not see
 //#define trace_path  dump_file
 #define trace_path  ((FILE *)0)
 
+ /* Given a logical STMT, calculate true and false for each potential path 
+    and resolve the outcome based on the logical operator.  */
+bool
+gori::process_logical (range_stmt& stmt, irange& r, tree name,
+		       const irange& lhs)
+{
+  range_stmt op_stmt;
+  irange op1_range, op2_range;
+  tree op1, op2;
+  bool op1_in_chain, op2_in_chain;
+  bool ret;
+
+  irange bool_zero (boolean_type_node, 0, 0);
+  irange bool_one (boolean_type_node, 1, 1);
+  irange op1_true, op1_false, op2_true, op2_false;
+
+  /* If the lhs is not a true or false constant, we can't tell anything
+     about the arguments.  */
+  if (lhs.range_for_type_p ())
+    {
+      r.set_range_for_type (TREE_TYPE (name));
+      return true;
+    }
+
+  /* Reaching this point means NAME is not in this stmt, but one of the
+     names in it ought to be derived from it.  */
+  op1 = stmt.operand1 ();
+  op2 = stmt.operand2 ();
+
+  op1_in_chain = def_chain.in_chain_p (op1, name);
+  op2_in_chain = def_chain.in_chain_p (op2, name);
+
+  /* If neither operand is derived, then this stmt tells us nothing. */
+  if (!op1_in_chain && !op2_in_chain)
+    return false;
+
+  /* The false path is not always a simple inversion of the true side.
+     Calulate ranges for true and false on both sides. */
+  if (op1_in_chain)
+    {
+      ret = get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_true, name,
+				 bool_one);
+      ret &= get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_false, name,
+				  bool_zero);
+    }
+  else
+    {
+      ret = get_operand_range (op1_true, name);
+      ret &= get_operand_range (op1_false, name);
+    }
+
+  if (ret)
+    {
+      if (op2_in_chain)
+	{
+	  ret &= get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_true,
+				      name, bool_one);
+	  ret &= get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_false,
+				      name, bool_zero);
+	}
+      else
+	{
+	  ret &= get_operand_range (op2_true, name);
+	  ret &= get_operand_range (op2_false, name);
+	}
+    }
+  if (!ret || !stmt.logical_expr (r, lhs, op1_true, op1_false, op2_true,
+				 op2_false))
+    r.set_range_for_type (TREE_TYPE (name));
+  return true;
+}
+
+
 /* Given the expression in STMT, return an evaluation in R for NAME.
    Returning false means the name being looked for is NOT resolvable, and
-   can be removed from the GORI map to qavoid future searches.  */
+   can be removed from the GORI map to avoid future searches.  */
 bool
 gori::get_range (range_stmt& stmt, irange& r, tree name,
 		 const irange& lhs)
@@ -84,6 +157,10 @@ gori::get_range (range_stmt& stmt, irange& r, tree name,
         return false;
     }
 
+  /* Check for boolean cases which require developing ranges and combining.  */
+  if (stmt.logical_expr_p (TREE_TYPE (op1)))
+    return process_logical (stmt, r, name, lhs);
+
   /* Reaching this point means NAME is not in this stmt, but one of the
      names in it ought to be derived from it.  */
   op1_in_chain = def_chain.in_chain_p (op1, name);
@@ -92,61 +169,44 @@ gori::get_range (range_stmt& stmt, irange& r, tree name,
   /* If neither operand is derived, then this stmt tells us nothing. */
   if (!op1_in_chain && !op2_in_chain)
     return false;
-  
-  /* Check for boolean cases which require developing ranges and combining.  */
-  if (stmt.combine_range_p (TREE_TYPE (op1)))
-    {
-      irange bool_zero (boolean_type_node, 0, 0);
-      irange bool_one (boolean_type_node, 1, 1);
-      irange op1_true, op1_false, op2_true, op2_false;
 
-      /* The false path is not always a simple inversion of the true side.
-	 Calulate ranges for true and false on both sides. */
-
-      if (op1_in_chain)
-	{
-	  get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_true, name,
-			       bool_one);
-	  get_range_from_stmt (SSA_NAME_DEF_STMT (op1), op1_false, name,
-			       bool_zero);
-	}
-      else
-	{
-	  get_operand_range (op1_true, name);
-	  get_operand_range (op1_false, name);
-	}
-
-      if (op2_in_chain)
-	{
-	  get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_true, name,
-			       bool_one);
-	  get_range_from_stmt (SSA_NAME_DEF_STMT (op2), op2_false, name,
-			       bool_zero);
-	}
-      else
-	{
-	  get_operand_range (op2_true, name);
-	  get_operand_range (op2_false, name);
-	}
-      if (!stmt.combine_range (r, lhs, op1_true, op1_false, op2_true,
-			       op2_false))
-	r.set_range_for_type (TREE_TYPE (name));
-      return true;
-    }
-
-  /* Don't look thru expressions with more than one in_chain argument.  */
+  /* Can't resolve both sides at once, so take a guess at operand 1, calculate
+     operand 2 and check if the guess at operand 1 was good.  */
   if (op1_in_chain && op2_in_chain)
-    return false;
-
-  if (op1_in_chain)
     {
-      get_operand_range (op2_range, op2);
-      stmt.op1_irange (op1_range, lhs, op2_range, trace_output);
-      return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op1_range);
-    }
+      irange tmp_op1_range;
+      if (!get_operand_range (tmp_op1_range, op1))
+        return false;
+      if (!stmt.op2_irange (op2_range, lhs, tmp_op1_range, trace_output))
+        return false;
+      if (!get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r, name, op2_range))
+        return false;
+      if (!stmt.op1_irange (op1_range, lhs, op2_range, trace_output))
+        return false;
+      if (!get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name, op1_range))
+        return false;
 
-  get_operand_range (op1_range, op1);
-  stmt.op2_irange (op2_range, lhs, op1_range, trace_output);
+      /* If the guess is good, we're done. */
+      if (op1_range == tmp_op1_range)
+        return true;
+      /* Otherwise fall thru and calculate op2_range with this range.  */
+    }
+  else
+    if (op1_in_chain)
+      {
+	if (!get_operand_range (op2_range, op2))
+	  return false;
+	if (!stmt.op1_irange (op1_range, lhs, op2_range, trace_output))
+	  return false;
+	return get_range_from_stmt (SSA_NAME_DEF_STMT (op1), r, name,
+				    op1_range);
+      }
+    else
+      if (!get_operand_range (op1_range, op1))
+        return false;
+
+  if (!stmt.op2_irange (op2_range, lhs, op1_range, trace_output))
+    return false;
   return get_range_from_stmt (SSA_NAME_DEF_STMT (op2), r, name, op2_range);
 }
  
@@ -166,7 +226,7 @@ gori::get_range_from_stmt (gimple *stmt, irange& r, tree name,
      has no range either.  */
   if (lhs.empty_p ())
     {
-      r = lhs;
+      r.clear (TREE_TYPE (name));
       return true;
     }
 
@@ -330,7 +390,6 @@ gori::get_derived_range_stmt (range_stmt& stmt, tree name, basic_block bb)
   /* Used on both sides too complicated.  */
   if (n1 && n2)
     return false;
-
   /* Well we aren't actually DOING it yet... :-)  */
   return false;
 }
@@ -356,9 +415,7 @@ gori::range_on_edge (irange& r, tree name, edge e)
   gimple *stmt;
   basic_block bb = e->src;
 
-  gcc_checking_assert (TREE_CODE (name) == SSA_NAME);
-
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (name)) && !POINTER_TYPE_P (TREE_TYPE (name)))
+  if (!irange_ssa (name))
     return false;
 
   if (!range_p (bb, name))
@@ -442,10 +499,6 @@ gori::range_on_stmt (irange& r, tree name, gimple *g)
 
   /* If we don't understand the stmt... */
   if (!rn.valid())
-    return false;
-
-  /* If both operands are the same, we know nothing.  */
-  if (rn.operand1 () == rn.operand2 ())
     return false;
 
   /* If neither operand is what we are looking for, then return nothing.  */
@@ -535,12 +588,7 @@ path_ranger::path_ranger ()
 bool
 path_ranger::init (tree name)
 {
-  tree type;
-  if (TREE_CODE (name) != SSA_NAME)
-    return false;
-
-  type = TREE_TYPE (name);
-  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
+  if (!irange_ssa (name))
     return false;
 
   def_stmt = SSA_NAME_DEF_STMT (name);
@@ -553,7 +601,7 @@ path_ranger::init (tree name)
     def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   irange tr;
-  tr.set_range_for_type (type);
+  tr.set_range_for_type (TREE_TYPE (name));
   type_range = irange_storage::ggc_alloc_init (tr);
 
   block_cache.reset ();
@@ -561,7 +609,6 @@ path_ranger::init (tree name)
   return true;
 
 }
-
 
 void
 path_ranger::range_for_bb (irange &r, basic_block bb)
@@ -734,6 +781,42 @@ path_ranger::determine_block (basic_block bb)
 bool
 path_ranger::path_range_stmt (irange& r, tree name, gimple *g)
 {
+#if 0
+  if (is_a <gphi *> (g))
+    {
+      gphi *phi = as_a <gphi *> (g);
+      tree phi_def = gimple_phi_result (phi);
+      irange tmp;
+      unsigned x;
+
+      /* Only calculate ranges for PHI defs.  */
+      if (phi_def != name)
+        return false;
+
+      r.clear (TREE_TYPE (name));
+
+      for (x = 0; x < gimple_phi_num_args (phi); x++)
+        {
+	  bool res;
+	  tree arg = gimple_phi_arg_def (phi, x);
+	  if (TREE_CODE (arg) == SSA_NAME)
+	    res = path_range_edge (tmp, arg, gimple_phi_arg_edge (phi, x));
+	  else
+	    res = get_operand_range (tmp, arg);
+          if (res)
+	    r.union_ (tmp);
+	  else
+	    {
+	      r.set_range_for_type (name);
+	      return false;
+	    }
+	  if (r.range_for_type_p ())
+	    return true;
+	}
+      return true;
+
+    }
+#endif
   return range_on_stmt (r, name, g);
 }
 
