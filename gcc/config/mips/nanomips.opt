@@ -33,3 +33,7 @@ Use PC-relative addressing to acccess symbols.
 mpid
 Target Report Var(TARGET_PID) Init(0)
 Always use GP-relative addressing to acccess symbols.
+
+mbalc-stubs
+Target Report
+Enable/disable out-of-range call optimization through trampoline stubs.
