@@ -17394,7 +17394,8 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
       if (TARGET_NANOMIPS
 	  && reg_p && mips_get_pic_call_symbol (operands, size_opno))
 	{
-	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR,%%%d\n1:\t", size_opno);
+	  /* This will always be 16-bit, except for insn32 mode.  */
+	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR16,%%%d\n1:\t", size_opno);
 	  // @tmt should we keep short_delay ?
 	  short_delay = "";
 	}
