@@ -14119,13 +14119,15 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
      hence, the stack adjustment is deferred when restoring.  */
   if (!used_save_restore_p && !restore)
     {
-      step = -step;
-      rtx insn = gen_add3_insn (stack_pointer_rtx,
-				stack_pointer_rtx,
-				GEN_INT (step));
-      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      if (!cfun->machine->interrupt_handler_p)
+	{
+	  rtx insn = gen_add3_insn (stack_pointer_rtx,
+				    stack_pointer_rtx,
+				    GEN_INT (-step));
+	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	  mips_frame_barrier ();
+	}
       offset = cfun->machine->frame.gp_sp_offset;
-      mips_frame_barrier ();
     }
 
   /* Make sure that we save/restore to the same stack slots as SAVE/RESTORE
