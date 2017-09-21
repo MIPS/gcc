@@ -1,3 +1,10 @@
+2017-09-21  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	2017-09-21  Cesar Philippidis  <cesar@codesourcery.com>
+	* openmp.c (gfc_match_oacc_wait): Don't restrict wait directive
+	arguments to constant integers.
+
 2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses_1): Add representation of wait
