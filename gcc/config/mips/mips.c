@@ -1314,7 +1314,7 @@ static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
 /* Costs to use when optimizing for speed, indexed by processor.  */
 static const struct mips_rtx_cost_data
   mips_rtx_cost_data[NUM_PROCESSOR_VALUES] = {
-  { /* I6001 */
+  { /* I7200 */
     SOFT_FP_COSTS,
     COSTS_N_INSNS (5),            /* int_mult_si */
     COSTS_N_INSNS (5),            /* int_mult_di */
@@ -1323,7 +1323,7 @@ static const struct mips_rtx_cost_data
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
-  { /* M6001 */
+  { /* M7000 */
     SOFT_FP_COSTS,
     COSTS_N_INSNS (5),            /* int_mult_si */
     COSTS_N_INSNS (5),            /* int_mult_di */
@@ -18333,7 +18333,7 @@ mips_issue_rate (void)
 #ifdef NANOMIPS_SUPPORT
   switch (mips_tune)
     {
-    case PROCESSOR_I6001:
+    case PROCESSOR_I7200:
       return 2;
 
     default:
@@ -18523,7 +18523,7 @@ mips_multipass_dfa_lookahead (void)
   if (TUNE_P5600 || TUNE_P6600 || TUNE_I6400)
     return 4;
 
-  if (TUNE_I6001)
+  if (TUNE_I7200)
     return 4;
 
   return 0;

@@ -39,8 +39,8 @@ EnumValue
 Enum(mips_arch_opt_value) String(64r6) Value(2)
 
 EnumValue
-Enum(mips_arch_opt_value) String(i6001) Value(3)
+Enum(mips_arch_opt_value) String(i7200) Value(3)
 
 EnumValue
-Enum(mips_arch_opt_value) String(m6001) Value(4)
+Enum(mips_arch_opt_value) String(m7000) Value(4)
 

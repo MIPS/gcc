@@ -18,8 +18,8 @@
 ;; <http://www.gnu.org/licenses/>.
 
 (define_enum "processor" [
-  i6001
-  m6001
+  i7200
+  m7000
 ])
 
 (define_c_enum "unspec" [
@@ -29,7 +29,7 @@
   UNSPEC_BITREVW
 ])
 
-(include "i6001.md")
+(include "i7200.md")
 
 ;; FIXME: let's use 24KC scheduler temporarily for nanoMIPS32R6/nanoMIPS32R6s
 (define_automaton "r24k_cpu, r24k_mdu")
@@ -47,7 +47,7 @@
 
 ;; 1. Loads: lb, lbu, lh, lhu, ll, lw, lwl, lwr, lwpc, lwxs
 (define_insn_reservation "r24k_int_load" 2
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "load"))
   "r24k_iss+r24k_ixu_arith")
 
@@ -58,58 +58,58 @@
 ;; (movn/movz is not matched, we'll need to split condmov to
 ;;  differentiate between integer/float moves)
 (define_insn_reservation "r24k_int_arith" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "arith,const,logical,move,nop,shift,signext,slt"))
   "r24k_iss+r24k_ixu_arith")
 
 ;; 3. Links: bgezal, bgezall, bltzal, bltzall, jal, jalr, jalx
 ;; 3a. jr/jalr consumer
 (define_insn_reservation "r24k_int_jump" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "call,jump"))
   "r24k_iss+r24k_ixu_arith")
 
 ;; 3b. branch consumer
 (define_insn_reservation "r24k_int_branch" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "branch"))
   "r24k_iss+r24k_ixu_arith")
 
 ;; 4. MDU: fully pipelined multiplier
 ;; mult - delivers result to hi/lo in 1 cycle (pipelined)
 (define_insn_reservation "r24k_int_mult" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "imul"))
   "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
 
 ;; madd, msub - delivers result to hi/lo in 1 cycle (pipelined)
 (define_insn_reservation "r24k_int_madd" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "imadd"))
   "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
 
 ;; mul - delivers result to gpr in 5 cycles
 (define_insn_reservation "r24k_int_mul3" 5
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "imul3"))
   "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)*5")
 
 ;; mfhi, mflo, mflhxu - deliver result to gpr in 5 cycles
 (define_insn_reservation "r24k_int_mfhilo" 5
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "mfhi,mflo"))
   "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
 
 ;; mthi, mtlo, mtlhx - deliver result to hi/lo, thence madd, handled as bypass
 (define_insn_reservation "r24k_int_mthilo" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "mthi,mtlo"))
   "r24k_iss+(r24k_mul3a|r24k_mul3b|r24k_mul3c)")
 
 ;; div - default to 36 cycles for 32bit operands.  Faster for 24bit, 16bit and
 ;; 8bit, but is tricky to identify.
 (define_insn_reservation "r24k_int_div" 36
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "idiv"))
   "r24k_iss+(r24k_mul3a+r24k_mul3b+r24k_mul3c)*36")
 
@@ -117,21 +117,21 @@
 ;; 5. Cop: cfc1, di, ei, mfc0, mtc0
 ;; (Disabled until we add proper cop0 support)
 ;;(define_insn_reservation "r24k_int_cop" 3
-;;  (and (eq_attr "cpu" "m6001")
+;;  (and (eq_attr "cpu" "m7000")
 ;;       (eq_attr "type" "cop0"))
 ;;  "r24k_iss+r24k_ixu_arith")
 
 
 ;; 6. Store
 (define_insn_reservation "r24k_int_store" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "store"))
   "r24k_iss+r24k_ixu_arith")
 
 
 ;; 7. Multiple instructions
 (define_insn_reservation "r24k_int_multi" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "multi"))
   "r24k_iss+r24k_ixu_arith+(r24k_mul3a+r24k_mul3b+r24k_mul3c)")
 
@@ -139,13 +139,13 @@
 ;;    rtls. They do not really affect scheduling latency, (blockage affects
 ;;    scheduling via log links, but not used here).
 (define_insn_reservation "r24k_int_unknown" 0
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "unknown,atomic,syncloop"))
   "r24k_iss")
 
 ;; 9. Prefetch
 (define_insn_reservation "r24k_int_prefetch" 1
-  (and (eq_attr "cpu" "m6001")
+  (and (eq_attr "cpu" "m7000")
        (eq_attr "type" "prefetch,prefetchx"))
   "r24k_iss+r24k_ixu_arith")
 

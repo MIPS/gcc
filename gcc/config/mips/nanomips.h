@@ -67,9 +67,9 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_INTERAPTIV_MR2	    0
 
 #undef TARGET_NANOMIPS
-#define TARGET_NANOMIPS		    (mips_arch == PROCESSOR_M6001	\
+#define TARGET_NANOMIPS		    (mips_arch == PROCESSOR_M7000	\
 				     ? NANOMIPS_NMS			\
-				     : mips_arch == PROCESSOR_I6001	\
+				     : mips_arch == PROCESSOR_I7200	\
 				     ? NANOMIPS_NMF : 0)
 
 /* Scheduling target defines.  */
@@ -115,7 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_I6400		    0
 #undef TUNE_P6600
 #define TUNE_P6600		    0
-#define TUNE_I6001                  (mips_tune == PROCESSOR_I6001)
+#define TUNE_I7200                  (mips_tune == PROCESSOR_I7200)
 
 /* Currently, querying of DFA is only needed for Loongson.  */
 #undef CPU_UNITS_QUERY
@@ -133,13 +133,23 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef MIPS_32BIT_OPTION_SPEC
 #define MIPS_32BIT_OPTION_SPEC \
-  "march=32r6|march=32r6s|march=i6001|march=m6001"
+  "march=32r6|march=32r6s|march=i7200|march=m7000"
 
 #undef BASE_DRIVER_SELF_SPECS
 #define BASE_DRIVER_SELF_SPECS \
-  "%{march=32r6|march=32r6s|march=64r6|march=i6001|march=m6001: \
+  "%{march=32r6|march=32r6s|march=64r6|march=i7200|march=m7000: \
      %{!-fuse-ld=*: -fuse-ld=gold} \
      %{mdsp: -mdspr3}}"
+
+/* A spec that infers a -mhard-float or -msoft-float setting from an
+   -march argument.  Note that soft-float and hard-float code are not
+   link-compatible.  */
+
+#undef MIPS_ARCH_FLOAT_SPEC
+#define MIPS_ARCH_FLOAT_SPEC \
+  "%{mhard-float|msoft-float|march=32r6|march=32r6s:; \
+     march=m7000|march=i7200: -msoft-float; \
+     march=*: -mhard-float}"
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS						\
