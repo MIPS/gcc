@@ -3619,7 +3619,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	         (d)addu $at,$at,$gp
 
 	     ...and the final address will be $at + %got_lo(symbol).  */
-      return 3;
+      return TARGET_NANOMIPS ? 1 : 3;
 
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_DISP:
