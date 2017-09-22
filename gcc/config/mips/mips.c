@@ -12788,21 +12788,15 @@ mips_save_reg (rtx reg, rtx mem)
       && (!TARGET_FLOAT64
 	  || mips_abi == ABI_32))
     {
+      rtx x1, x2;
+
       mips_emit_move_or_split (mem, reg, SPLIT_IF_NECESSARY);
 
-      if (TARGET_FLOAT32)
-	{
-	  rtx x1, x2;
-
-	  x1 = mips_frame_set (mips_subword (mem, false),
-			       mips_subword (reg, false));
-	  x2 = mips_frame_set (mips_subword (mem, true),
-			       mips_subword (reg, true));
-	  mips_set_frame_expr (gen_rtx_PARALLEL (VOIDmode,
-						 gen_rtvec (2, x1, x2)));
-	}
-      else
-	mips_set_frame_expr (mips_frame_set (mem, reg));
+      x1 = mips_frame_set (mips_subword (mem, false),
+			   mips_subword (reg, false));
+      x2 = mips_frame_set (mips_subword (mem, true),
+			   mips_subword (reg, true));
+      mips_set_frame_expr (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x1, x2)));
     }
   else
     mips_emit_save_slot_move (mem, reg, MIPS_PROLOGUE_TEMP (GET_MODE (reg)));
