@@ -3037,7 +3037,6 @@ mips_rtx_constant_in_small_data_p (machine_mode mode)
    We need this because many versions of GAS will treat "la $25,foo" as
    part of a call sequence and so allow a global "foo" to be lazily bound.  */
 
-//@tmt disable ?
 bool
 mips_dangerous_for_la25_p (rtx x)
 {
@@ -11681,7 +11680,6 @@ mips_in_small_data_p (const_tree decl)
 	  && strncmp (name, ".sbss_", 6) != 0)
 	return false;
 
-      //@tmt what does this mean for nanoMIPS?
       /* If a symbol is defined externally, the assembler will use the
 	 usual -G rules when deciding how to implement macros.  */
       if (mips_lo_relocs[SYMBOL_GP_RELATIVE]
@@ -17199,7 +17197,6 @@ mips_init_libfuncs (void)
 
 /* Build up a multi-insn sequence that loads label TARGET into $AT.  */
 
-// @tmt look into this
 static void
 mips_process_load_label (rtx target)
 {

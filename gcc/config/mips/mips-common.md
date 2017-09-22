@@ -4776,8 +4776,6 @@
 
 ;; nanoMIPS PC-relative PIC expansions:
 
-;; @tmt reload_completed?
-  ;; "TARGET_NANOMIPS && flag_pic && reload_completed"
 (define_insn "*load_pcrel32_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(mem:P (match_operand:P 1 "pcrel32_mem_nano_operand")))]
@@ -4850,7 +4848,6 @@
    (set_attr "mode" "SI")])
 
 ;; @tmt what mode should this be ?
-;; @tmt why is this not a mem ?
 (define_insn "*load_got_pcrel32_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "got_pcrel32_nano_operand"))]
