@@ -2,8 +2,6 @@
 /* { dg-options "-m32 -march=32r6 -mgpopt -mpid" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
-/* { dg-final { scan-assembler "aluipc\t\\\$gp,%pcrel_hi\\(_gp\\)" } } */
-
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_4Kaligned\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(a_sta_2aligned\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel\\(a_sta_char\\)\\(\\\$gp\\)" } } */
