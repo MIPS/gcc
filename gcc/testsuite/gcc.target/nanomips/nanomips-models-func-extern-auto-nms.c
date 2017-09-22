@@ -3,7 +3,7 @@
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* lw reg, %got_call(a_extern)($gp) */
-/* .reloc 1f, R_NANOMIPS_JALR, a_extern */
+/* .reloc 1f, R_NANOMIPS_JALR16, a_extern */
 /* jalrc reg # 1 */
 
 /* lw reg, %got_disp(a_extern)($gp) # 1 */
@@ -15,7 +15,7 @@
 /* jalrc reg # 2 */
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_call\\(a_extern\\)\\(\\\$gp\\)" } } */
-/* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR,a_extern" } } */
+/* { dg-final { scan-assembler "\\\.reloc\t1f,R_NANOMIPS_JALR16,a_extern" } } */
 /* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_extern\\)\\(\\\$gp\\)" 2 } } */
 /* { dg-final { scan-assembler "balc\ta_takes_fptr" } } */
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_long_takes_fptr\\)" } } */
