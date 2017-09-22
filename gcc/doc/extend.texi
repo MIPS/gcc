@@ -11545,6 +11545,7 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS SIMD Architecture (MSA) Support::
 * Other MIPS Built-in Functions::
 * MSP430 Built-in Functions::
+* nanoMIPS Built-in Functions::
 * nanoMIPS DSP Built-in Functions::
 * NDS32 Built-in Functions::
 * picoChip Built-in Functions::
@@ -14492,11 +14493,37 @@ optimized to a constant later.  The number of cycles delayed by this
 builtin is exact.
 @end table
 
+@node nanoMIPS Built-in Functions
+@subsection nanoMIPS Built-in Functions
+*FIXME*
+nanoMIPS supports DSP Rev 3 onwards. For description of the built-ins,
+
+The following built-in functions map directly to a particular MIPS DSP
+instruction.  Please refer to the architecture specification
+for details on what each instruction does.
+
+@smallexample
+imm0_3: integer literal 0 to 3.
+typedef int i32;
+typedef unsigned int ui32;
+@end smallexample
+
+@smallexample
+i32 __builtin_mips_align (i32, i32, imm0_3)
+ui32 __builtin_mips_bitrevb (ui32)
+ui32 __builtin_mips_bitrevh (ui32)
+ui32 __builtin_mips_bitrevw (ui32)
+ui32 __builtin_mips_byterevh (ui32)
+ui32 __builtin_mips_byterevw (ui32)
+@end smallexample
+
+@pxref{nanoMIPS Built-in Functions}.
+
 @node nanoMIPS DSP Built-in Functions
 @subsection nanoMIPS DSP Built-in Functions
 *FIXME*
 nanoMIPS supports DSP Rev 3 onwards. For description of the built-ins,
-@pxref{MIPS DSP Built-in Functions}.
+@pxref{nanoMIPS DSP Built-in Functions}.
 
 @node NDS32 Built-in Functions
 @subsection NDS32 Built-in Functions
