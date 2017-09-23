@@ -93,6 +93,9 @@ extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt, tree, in
 
 extern tree default_builtin_reciprocal (tree);
 
+extern HOST_WIDE_INT default_constant_alignment (const_tree, HOST_WIDE_INT);
+extern HOST_WIDE_INT constant_alignment_word_strings (const_tree,
+						      HOST_WIDE_INT);
 extern HOST_WIDE_INT default_vector_alignment (const_tree);
 
 extern HOST_WIDE_INT default_preferred_vector_alignment (const_tree);
@@ -277,5 +280,6 @@ extern unsigned int default_min_arithmetic_precision (void);
 
 extern enum flt_eval_method
 default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED);
+extern bool default_stack_clash_protection_final_dynamic_probe (rtx);
 
 #endif /* GCC_TARGHOOKS_H */

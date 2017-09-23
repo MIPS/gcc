@@ -335,8 +335,7 @@ static fixed_size_mode ia64_get_reg_raw_mode (int regno);
 static section * ia64_hpux_function_section (tree, enum node_frequency,
 					     bool, bool);
 
-static bool ia64_vectorize_vec_perm_const_ok (machine_mode vmode,
-					      const unsigned char *sel);
+static bool ia64_vectorize_vec_perm_const_ok (machine_mode, vec_perm_indices);
 
 static unsigned int ia64_hard_regno_nregs (unsigned int, machine_mode);
 static bool ia64_hard_regno_mode_ok (unsigned int, machine_mode);
@@ -674,6 +673,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_CAN_CHANGE_MODE_CLASS
 #define TARGET_CAN_CHANGE_MODE_CLASS ia64_can_change_mode_class
+
+#undef TARGET_CONSTANT_ALIGNMENT
+#define TARGET_CONSTANT_ALIGNMENT constant_alignment_word_strings
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1938,7 +1940,7 @@ ia64_expand_vecint_compare (enum rtx_code code, machine_mode mode,
 	    /* Subtract (-(INT MAX) - 1) from both operands to make
 	       them signed.  */
 	    mask = gen_int_mode (0x80000000, SImode);
-	    mask = gen_rtx_CONST_VECTOR (V2SImode, gen_rtvec (2, mask, mask));
+	    mask = gen_const_vec_duplicate (V2SImode, mask);
 	    mask = force_reg (mode, mask);
 	    t1 = gen_reg_rtx (mode);
 	    emit_insn (gen_subv2si3 (t1, op0, mask));
@@ -2706,7 +2708,8 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
     mark_reg_gr_used_mask (cfun->machine->ia64_eh_epilogue_bsp, NULL);
 
   /* Static stack checking uses r2 and r3.  */
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+      || flag_stack_clash_protection)
     current_frame_info.gr_used_mask |= 0xc;
 
   /* Find the size of the register stack frame.  We have only 80 local
@@ -3496,7 +3499,8 @@ ia64_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = current_frame_info.total_size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+      || flag_stack_clash_protection)
     {
       HOST_WIDE_INT size = current_frame_info.total_size;
       int bs_size = BACKING_STORE_SIZE (current_frame_info.n_input_regs
@@ -3504,15 +3508,16 @@ ia64_expand_prologue (void)
 
       if (crtl->is_leaf && !cfun->calls_alloca)
 	{
-	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
-	    ia64_emit_probe_stack_range (STACK_CHECK_PROTECT,
-					 size - STACK_CHECK_PROTECT,
+	  if (size > PROBE_INTERVAL && size > get_stack_check_protect ())
+	    ia64_emit_probe_stack_range (get_stack_check_protect (),
+					 size - get_stack_check_protect (),
 					 bs_size);
-	  else if (size + bs_size > STACK_CHECK_PROTECT)
-	    ia64_emit_probe_stack_range (STACK_CHECK_PROTECT, 0, bs_size);
+	  else if (size + bs_size > get_stack_check_protect ())
+	    ia64_emit_probe_stack_range (get_stack_check_protect (),
+					 0, bs_size);
 	}
       else if (size + bs_size > 0)
-	ia64_emit_probe_stack_range (STACK_CHECK_PROTECT, size, bs_size);
+	ia64_emit_probe_stack_range (get_stack_check_protect (), size, bs_size);
     }
 
   if (dump_file) 
@@ -11824,8 +11829,7 @@ ia64_expand_vec_perm_const (rtx operands[4])
 /* Implement targetm.vectorize.vec_perm_const_ok.  */
 
 static bool
-ia64_vectorize_vec_perm_const_ok (machine_mode vmode,
-				  const unsigned char *sel)
+ia64_vectorize_vec_perm_const_ok (machine_mode vmode, vec_perm_indices sel)
 {
   struct expand_vec_perm_d d;
   unsigned int i, nelt, which;
@@ -11837,10 +11841,10 @@ ia64_vectorize_vec_perm_const_ok (machine_mode vmode,
 
   /* Extract the values from the vector CST into the permutation
      array in D.  */
-  memcpy (d.perm, sel, nelt);
   for (i = which = 0; i < nelt; ++i)
     {
-      unsigned char e = d.perm[i];
+      unsigned char e = sel[i];
+      d.perm[i] = e;
       gcc_assert (e < 2 * nelt);
       which |= (e < nelt ? 1 : 2);
     }

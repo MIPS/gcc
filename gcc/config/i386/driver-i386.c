@@ -792,6 +792,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  /* Knights Landing.  */
 	  cpu = "knl";
 	  break;
+	case 0x85:
+	  /* Knights Mill. */
+	  cpu = "knm";
+	  break;
 	default:
 	  if (arch)
 	    {
@@ -799,6 +803,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	      /* Assume Knights Landing.  */
 	      if (has_avx512f)
 		cpu = "knl";
+	      /* Assume Knights Mill */
+	      else if (has_avx5124vnniw)
+		cpu = "knm";
 	      /* Assume Skylake.  */
 	      else if (has_clflushopt)
 		cpu = "skylake";

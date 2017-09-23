@@ -402,7 +402,6 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
   vec = rtvec_alloc (n);
   for (int i = 0; i < n; ++i)
     RTVEC_ELT (vec, i) = op;
-
   rtx ret = gen_reg_rtx (vmode);
   emit_insn (GEN_FCN (icode) (ret, gen_rtx_PARALLEL (vmode, vec)));
 
@@ -5845,8 +5844,10 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
       perm = gen_rtx_CONST_VECTOR (mode, v);
     }
   else
-    perm = gen_const_vec_series
-      (mode, GEN_INT (BYTES_BIG_ENDIAN ? 0 : 1), GEN_INT (2));
+    {
+      int base = BYTES_BIG_ENDIAN ? 0 : 1;
+      perm = gen_const_vec_series (mode, GEN_INT (base), GEN_INT (2));
+    }
 
   return expand_vec_perm (mode, m1, m2, perm, target);
 }

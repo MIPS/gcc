@@ -849,8 +849,8 @@ vect_record_base_alignments (vec_info *vinfo)
    vector size multiplied by the step.  */
 
 bool
-can_get_vect_data_ref_required_alignment (struct data_reference *dr,
-					  unsigned int *alignment_p)
+vect_can_calculate_target_alignment (struct data_reference *dr,
+				     unsigned int *alignment_p)
 {
   gimple *stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -888,36 +888,15 @@ can_get_vect_data_ref_required_alignment (struct data_reference *dr,
   return true;
 }
 
-/* Function vect_data_ref_required_alignment
+/* Return the target alignment for the vectorized form of DR.  */
 
-   Return the alignment for the given data reference DR once vectorized.
-   Assert if the value cannot be computed.  */
-
-unsigned int
-vect_data_ref_required_alignment (struct data_reference *dr)
+static unsigned int
+vect_calculate_target_alignment (struct data_reference *dr)
 {
   unsigned int ret;
-  if (!can_get_vect_data_ref_required_alignment (dr, &ret))
+  if (!vect_can_calculate_target_alignment (dr, &ret))
     gcc_unreachable ();
   return ret;
-}
-
-/* Return the minimum alignment in elements of load or store statement
-   STMT.  */
-
-unsigned int
-vect_known_alignment_in_elements (gimple *stmt)
-{
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
-  tree elem_type = TREE_TYPE (STMT_VINFO_VECTYPE (stmt_info));
-  unsigned int unit_size = tree_to_uhwi (TYPE_SIZE_UNIT (elem_type));
-  unsigned int alignment = DR_MISALIGNMENT (dr);
-  if (alignment == 0)
-    alignment = DR_TARGET_ALIGNMENT (dr);
-  else
-    alignment &= -alignment;
-  return alignment / unit_size;
 }
 
 /* Function vect_compute_data_ref_alignment
@@ -957,7 +936,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   bool step_preserves_misalignment_p;
 
   unsigned HOST_WIDE_INT vector_alignment
-    = vect_data_ref_required_alignment (dr) / BITS_PER_UNIT;
+    = vect_calculate_target_alignment (dr) / BITS_PER_UNIT;
   DR_TARGET_ALIGNMENT (dr) = vector_alignment;
 
   /* No step for BB vectorization.  */
@@ -1466,6 +1445,9 @@ vect_get_peeling_costs_all_drs (vec<data_reference_p> datarefs,
     {
       gimple *stmt = DR_STMT (dr);
       stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+      if (!STMT_VINFO_RELEVANT_P (stmt_info))
+	continue;
+
       /* For interleaving, only the alignment of the first access
          matters.  */
       if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
@@ -2447,8 +2429,8 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr)
     {
       /* Get the wider of the two alignments.  */
       unsigned int align_a, align_b;
-      if (!can_get_vect_data_ref_required_alignment (dra, &align_a)
-	  || !can_get_vect_data_ref_required_alignment (drb, &align_b))
+      if (!vect_can_calculate_target_alignment (dra, &align_a)
+	  || !vect_can_calculate_target_alignment (drb, &align_b))
 	return;
       unsigned int max_align = MAX (align_a, align_b) / BITS_PER_UNIT;
 
@@ -2502,7 +2484,7 @@ vect_analyze_data_refs_alignment (loop_vec_info vinfo)
 
       if (STMT_VINFO_VECTORIZABLE (stmt_info))
 	{
-	  if (!can_get_vect_data_ref_required_alignment (dr, NULL))
+	  if (!vect_can_calculate_target_alignment (dr, NULL))
 	    {
 	      if (LOOP_VINFO_SPECULATIVE_EXECUTION (vinfo))
 		{

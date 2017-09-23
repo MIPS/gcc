@@ -2734,6 +2734,7 @@ get_full_set_src_cost (rtx x, machine_mode mode, struct full_rtx_costs *c)
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, machine_mode);
 extern poly_int64 trunc_int_for_mode (poly_int64, machine_mode);
 extern rtx plus_constant (machine_mode, rtx, poly_int64, bool = false);
+extern HOST_WIDE_INT get_stack_check_protect (void);
 
 /* In rtl.c */
 extern rtx rtx_alloc (RTX_CODE CXX_MEM_STAT_INFO);
@@ -2760,6 +2761,14 @@ extern unsigned int rtx_size (const_rtx);
 extern rtx shallow_copy_rtx (const_rtx CXX_MEM_STAT_INFO);
 extern int rtx_equal_p (const_rtx, const_rtx);
 extern bool rtvec_all_equal_p (const_rtvec);
+
+/* Return true if X is some form of vector constant.  */
+
+inline bool
+const_vec_p (const_rtx x)
+{
+  return VECTOR_MODE_P (GET_MODE (x)) && CONSTANT_P (x);
+}
 
 /* Return true if X is a vector constant with a duplicated element value.  */
 
@@ -2791,6 +2800,21 @@ const_vec_duplicate_p (T x, T *elt)
   return false;
 }
 
+/* Return true if X is a vector with a duplicated element value, either
+   constant or nonconstant.  Store the duplicated element in *ELT if so.  */
+
+template <typename T>
+inline bool
+vec_duplicate_p (T x, T *elt)
+{
+  if (GET_CODE (x) == VEC_DUPLICATE)
+    {
+      *elt = XEXP (x, 0);
+      return true;
+    }
+  return const_vec_duplicate_p (x, elt);
+}
+
 /* If X is a vector constant with a duplicated element value, return that
    element value, otherwise return X.  */
 
@@ -2803,6 +2827,51 @@ unwrap_const_vec_duplicate (T x)
   if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == VEC_DUPLICATE)
     return XEXP (XEXP (x, 0), 0);
   return x;
+}
+
+/* In emit-rtl.c.  */
+extern bool const_vec_series_p_1 (const_rtx, rtx *, rtx *);
+
+/* Return true if X is a constant vector that contains a linear series
+   of the form:
+
+   { B, B + S, B + 2 * S, B + 3 * S, ... }
+
+   for a nonzero S.  Store B and S in *BASE_OUT and *STEP_OUT on sucess.  */
+
+inline bool
+const_vec_series_p (const_rtx x, rtx *base_out, rtx *step_out)
+{
+  if (GET_CODE (x) == CONST_VECTOR
+      && GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_INT)
+    return const_vec_series_p_1 (x, base_out, step_out);
+  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == VEC_SERIES)
+    {
+      *base_out = XEXP (XEXP (x, 0), 0);
+      *step_out = XEXP (XEXP (x, 0), 1);
+      return true;
+    }
+  return false;
+}
+
+/* Return true if X is a vector that contains a linear series of the
+   form:
+
+   { B, B + S, B + 2 * S, B + 3 * S, ... }
+
+   where B and S are constant or nonconstant.  Store B and S in
+   *BASE_OUT and *STEP_OUT on sucess.  */
+
+inline bool
+vec_series_p (const_rtx x, rtx *base_out, rtx *step_out)
+{
+  if (GET_CODE (x) == VEC_SERIES)
+    {
+      *base_out = XEXP (x, 0);
+      *step_out = XEXP (x, 1);
+      return true;
+    }
+  return const_vec_series_p (x, base_out, step_out);
 }
 
 /* Return the unpromoted (outer) mode of SUBREG_PROMOTED_VAR_P subreg X.  */

@@ -5736,6 +5736,9 @@ tilegx_truly_noop_truncation (poly_uint64 outprec, poly_uint64 inprec)
 #undef  TARGET_TRULY_NOOP_TRUNCATION
 #define TARGET_TRULY_NOOP_TRUNCATION tilegx_truly_noop_truncation
 
+#undef  TARGET_CONSTANT_ALIGNMENT
+#define TARGET_CONSTANT_ALIGNMENT constant_alignment_word_strings
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-tilegx.h"

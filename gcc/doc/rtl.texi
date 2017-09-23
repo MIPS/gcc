@@ -1781,14 +1781,18 @@ Usually that is the only mode for which a label is directly valid.
 
 @findex const
 @item (const:@var{m} @var{exp})
-Represents a constant that is the result of an assembly-time
-arithmetic computation.  The operand, @var{exp}, is an expression that
-contains only constants (@code{const_int}, @code{symbol_ref} and
-@code{label_ref} expressions) combined with @code{plus} and
-@code{minus}.  However, not all combinations are valid, since the
-assembler cannot do arbitrary arithmetic on relocatable symbols.
+Wraps an rtx computation @var{exp} whose inputs and result do not
+change during the execution of a thread.  There are two valid uses.
+The first is to represent a global or thread-local address calculation.
+In this case @var{exp} should contain @code{const_int},
+@code{symbol_ref}, @code{label_ref} or @code{unspec} expressions,
+combined with @code{plus} and @code{minus}.  Any such @code{unspec}s
+are target-specific and typically represent some form of relocation
+operator.  @var{m} should be a valid address mode.
 
-@var{m} should be @code{Pmode}.
+The second use of @code{const} is to wrap a vector operation.
+In this case @var{exp} must be a @code{vec_duplicate} or
+@code{vec_series} expression.
 
 @findex high
 @item (high:@var{m} @var{exp})
@@ -2035,6 +2039,7 @@ false.
 When @var{m1} is at least as narrow as @var{m2} the @code{subreg}
 expression is called @dfn{normal}.
 
+@findex REGMODE_NATURAL_SIZE
 Normal @code{subreg}s restrict consideration to certain bits of
 @var{reg}.  For this purpose, @var{reg} is divided into
 individually-addressable blocks in which each block has:
@@ -2124,10 +2129,11 @@ number of undefined bits.  For example:
 (subreg:PSI (reg:SI 0) 0)
 @end smallexample
 
+@findex REGMODE_NATURAL_SIZE
 accesses the whole of @samp{(reg:SI 0)}, but the exact relationship
 between the @code{PSImode} value and the @code{SImode} value is not
-defined.  If we assume @samp{UNITS_PER_WORD <= 4}, then the following
-two @code{subreg}s:
+defined.  If we assume @samp{REGMODE_NATURAL_SIZE (DImode) <= 4},
+then the following two @code{subreg}s:
 
 @smallexample
 (subreg:PSI (reg:DI 0) 0)
@@ -2138,7 +2144,7 @@ represent independent 4-byte accesses to the two halves of
 @samp{(reg:DI 0)}.  Both @code{subreg}s have an unknown number
 of undefined bits.
 
-If @samp{UNITS_PER_WORD <= 2} then these two @code{subreg}s:
+If @samp{REGMODE_NATURAL_SIZE (PSImode) <= 2} then these two @code{subreg}s:
 
 @smallexample
 (subreg:HI (reg:PSI 0) 0)
@@ -2862,11 +2868,9 @@ number of output parts must be an integer multiple of the number of input
 parts.
 
 @findex vec_series
-@item (vec_series:@var{m} @var{x1} @var{x2})
+@item (vec_series:@var{m} @var{base} @var{step})
 This operation creates a vector in which element @var{i} is equal to
-@samp{@var{x1} + @var{i}*@var{x2}}.  It is not defined for vector
-floating-point modes.
-
+@samp{@var{base} + @var{i}*@var{step}}.  @var{m} must be a vector integer mode.
 @end table
 
 @node Conversions

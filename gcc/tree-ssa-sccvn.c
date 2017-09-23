@@ -3008,16 +3008,13 @@ vn_phi_eq (const_vn_phi_t const vp1, const_vn_phi_t const vp2)
 	      return false;
 
 	    /* Verify the controlling stmt is the same.  */
-	    gimple *last1 = last_stmt (idom1);
-	    gimple *last2 = last_stmt (idom2);
-	    if (gimple_code (last1) != GIMPLE_COND
-		|| gimple_code (last2) != GIMPLE_COND)
+	    gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1));
+	    gcond *last2 = safe_dyn_cast <gcond *> (last_stmt (idom2));
+	    if (! last1 || ! last2)
 	      return false;
 	    bool inverted_p;
-	    if (! cond_stmts_equal_p (as_a <gcond *> (last1),
-				      vp1->cclhs, vp1->ccrhs,
-				      as_a <gcond *> (last2),
-				      vp2->cclhs, vp2->ccrhs,
+	    if (! cond_stmts_equal_p (last1, vp1->cclhs, vp1->ccrhs,
+				      last2, vp2->cclhs, vp2->ccrhs,
 				      &inverted_p))
 	      return false;
 
@@ -3102,7 +3099,7 @@ vn_phi_lookup (gimple *phi)
   vp1.ccrhs = NULL_TREE;
   basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1.block);
   if (EDGE_COUNT (idom1->succs) == 2)
-    if (gcond *last1 = dyn_cast <gcond *> (last_stmt (idom1)))
+    if (gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1)))
       {
 	vp1.cclhs = vn_valueize (gimple_cond_lhs (last1));
 	vp1.ccrhs = vn_valueize (gimple_cond_rhs (last1));
@@ -3148,7 +3145,7 @@ vn_phi_insert (gimple *phi, tree result)
   vp1->ccrhs = NULL_TREE;
   basic_block idom1 = get_immediate_dominator (CDI_DOMINATORS, vp1->block);
   if (EDGE_COUNT (idom1->succs) == 2)
-    if (gcond *last1 = dyn_cast <gcond *> (last_stmt (idom1)))
+    if (gcond *last1 = safe_dyn_cast <gcond *> (last_stmt (idom1)))
       {
 	vp1->cclhs = vn_valueize (gimple_cond_lhs (last1));
 	vp1->ccrhs = vn_valueize (gimple_cond_rhs (last1));
@@ -3881,13 +3878,10 @@ visit_phi (gimple *phi)
      if only a single edge is exectuable use its value.  */
   if (n_executable <= 1)
     result = seen_undef ? seen_undef : sameval;
-  /* If we saw only undefined values create a new undef SSA name to
-     avoid false equivalences.  */
+  /* If we saw only undefined values and VN_TOP use one of the
+     undefined values.  */
   else if (sameval == VN_TOP)
-    {
-      gcc_assert (seen_undef);
-      result = seen_undef;
-    }
+    result = seen_undef ? seen_undef : sameval;
   /* First see if it is equivalent to a phi node in this block.  We prefer
      this as it allows IV elimination - see PRs 66502 and 67167.  */
   else if ((result = vn_phi_lookup (phi)))

@@ -1769,7 +1769,7 @@ spu_expand_prologue (void)
 
   if (total_size > 0)
     {
-      if (flag_stack_check)
+      if (flag_stack_check || flag_stack_clash_protection)
 	{
 	  /* We compare against total_size-1 because
 	     ($sp >= total_size) <=> ($sp > total_size-1) */
@@ -1905,8 +1905,6 @@ rtx
 spu_const (machine_mode mode, HOST_WIDE_INT val)
 {
   rtx inner;
-  rtvec v;
-  int units, i;
 
   gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
 	      || GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -1925,14 +1923,7 @@ spu_const (machine_mode mode, HOST_WIDE_INT val)
   else 
     inner = hwint_to_const_double (GET_MODE_INNER (mode), val);
 
-  units = GET_MODE_NUNITS (mode);
-
-  v = rtvec_alloc (units);
-
-  for (i = 0; i < units; ++i)
-    RTVEC_ELT (v, i) = inner;
-
-  return gen_rtx_CONST_VECTOR (mode, v);
+  return gen_const_vec_duplicate (mode, inner);
 }
 
 /* Create a MODE vector constant from 4 ints. */
@@ -3057,7 +3048,7 @@ spu_sched_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn,
      jump_insn.  We adjust here so higher cost insns will get scheduled
      earlier. */
   if (JUMP_P (insn) && dep_type == REG_DEP_ANTI)
-    return insn_cost (dep_insn) - 3;
+    return insn_sched_cost (dep_insn) - 3;
 
   return cost;
 }
@@ -4161,7 +4152,7 @@ spu_encode_section_info (tree decl, rtx rtl, int first)
    which is both 16-byte aligned and padded to a 16-byte boundary.  This
    would make it safe to store with a single instruction. 
    We guarantee the alignment and padding for static objects by aligning
-   all of them to 16-bytes. (DATA_ALIGNMENT and CONSTANT_ALIGNMENT.)
+   all of them to 16-bytes. (DATA_ALIGNMENT and TARGET_CONSTANT_ALIGNMENT.)
    FIXME: We currently cannot guarantee this for objects on the stack
    because assign_parm_setup_stack calls assign_stack_local with the
    alignment of the parameter mode and in that case the alignment never
@@ -5392,7 +5383,7 @@ spu_allocate_stack (rtx op0, rtx op1)
   emit_insn (gen_spu_convert (sp, stack_pointer_rtx));
   emit_insn (gen_subv4si3 (sp, sp, splatted));
 
-  if (flag_stack_check)
+  if (flag_stack_check || flag_stack_clash_protection)
     {
       rtx avail = gen_reg_rtx(SImode);
       rtx result = gen_reg_rtx(SImode);
@@ -7195,6 +7186,18 @@ spu_truly_noop_truncation (poly_uint64 outprec, poly_uint64 inprec)
 {
   return inprec <= 32 && outprec <= inprec;
 }
+
+/* Implement TARGET_CONSTANT_ALIGNMENT.
+
+   Make all static objects 16-byte aligned.  This allows us to assume
+   they are also padded to 16 bytes, which means we can use a single
+   load or store instruction to access them.  */
+
+static HOST_WIDE_INT
+spu_constant_alignment (const_tree, HOST_WIDE_INT align)
+{
+  return MAX (align, 128);
+}
 
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
@@ -7434,6 +7437,9 @@ static const struct attribute_spec spu_attribute_table[] =
 
 #undef TARGET_TRULY_NOOP_TRUNCATION
 #define TARGET_TRULY_NOOP_TRUNCATION spu_truly_noop_truncation
+
+#undef TARGET_CONSTANT_ALIGNMENT
+#define TARGET_CONSTANT_ALIGNMENT spu_constant_alignment
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

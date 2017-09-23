@@ -440,19 +440,11 @@ get_max_uid (void)
   return crtl->emit.x_cur_insn_uid;
 }
 
-/* Return true if X is some form of vector constant.  */
-
-inline bool
-is_const_vec (const_rtx x)
-{
-  return VECTOR_MODE_P (GET_MODE (x)) && CONSTANT_P (x);
-}
-
-extern bool is_const_vec_duplicate (const_rtx, rtx * = 0);
-extern bool is_const_vec_series (const_rtx, rtx * = 0, rtx * = 0);
-
 extern rtx gen_const_vec_duplicate (machine_mode, rtx);
+extern rtx gen_vec_duplicate (machine_mode, rtx);
+
 extern rtx gen_const_vec_series (machine_mode, rtx, rtx);
+extern rtx gen_vec_series (machine_mode, rtx, rtx);
 
 extern void set_decl_incoming_rtl (tree, rtx, bool);
 

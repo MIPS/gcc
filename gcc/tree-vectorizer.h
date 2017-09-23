@@ -1393,6 +1393,19 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
   return (DR_MISALIGNMENT (data_ref_info) != DR_MISALIGNMENT_UNKNOWN);
 }
 
+/* Return the minimum alignment in bytes that the vectorized version
+   of DR is guaranteed to have.  */
+
+static inline unsigned int
+vect_known_alignment_in_bytes (struct data_reference *dr)
+{
+  if (DR_MISALIGNMENT (dr) == DR_MISALIGNMENT_UNKNOWN)
+    return TYPE_ALIGN_UNIT (TREE_TYPE (DR_REF (dr)));
+  if (DR_MISALIGNMENT (dr) == 0)
+    return DR_TARGET_ALIGNMENT (dr);
+  return DR_MISALIGNMENT (dr) & -DR_MISALIGNMENT (dr);
+}
+
 /* Return the behavior of DR with respect to the vectorization context
    (which for outer loop vectorization might not be the behavior recorded
    in DR itself).  */
@@ -1512,7 +1525,12 @@ vect_max_vf (loop_vec_info loop_vinfo)
   return MAX_VECTORIZATION_FACTOR;
 }
 
-/* Return the size of the scalar value accessed by DR.  */
+/* Return the size of the value accessed by unvectorized data reference DR.
+   This is only valid once STMT_VINFO_VECTYPE has been calculated for the
+   associated gimple statement, since that guarantees that DR accesses
+   either a scalar or a scalar equivalent.  ("Scalar equivalent" here
+   includes things like V1SI, which can be vectorized in the same way
+   as a plain SI.)  */
 
 inline unsigned int
 vect_get_scalar_dr_size (struct data_reference *dr)
@@ -1650,10 +1668,6 @@ extern tree vect_get_new_ssa_name (tree, enum vect_var_kind,
 extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, tree = NULL_TREE);
 extern tree get_copy_for_caching (tree);
-extern bool can_get_vect_data_ref_required_alignment (struct data_reference *,
-						      unsigned int *);
-extern unsigned int vect_data_ref_required_alignment (struct data_reference *);
-extern unsigned int vect_known_alignment_in_elements (gimple *);
 
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */

@@ -199,8 +199,8 @@ static void aarch64_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_override_options_after_change (void);
 static bool aarch64_vector_mode_supported_p (machine_mode);
-static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
-						 const unsigned char *sel);
+static bool aarch64_vectorize_vec_perm_const_ok (machine_mode,
+						 vec_perm_indices);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
 static bool aarch64_builtin_support_vector_misalignment (machine_mode mode,
 							 const_tree type,
@@ -1346,6 +1346,17 @@ aarch64_hard_regno_caller_save_mode (unsigned regno, unsigned nregs,
     return choose_hard_reg_mode (regno, nregs, false);
 }
 
+/* Implement TARGET_CONSTANT_ALIGNMENT.  Make strings word-aligned so
+   that strcpy from constants will be faster.  */
+
+static HOST_WIDE_INT
+aarch64_constant_alignment (const_tree exp, HOST_WIDE_INT align)
+{
+  if (TREE_CODE (exp) == STRING_CST && !optimize_size)
+    return MAX (align, BITS_PER_WORD);
+  return align;
+}
+
 /* Return true if calls to DECL should be treated as
    long-calls (ie called via a register).  */
 static bool
@@ -2147,7 +2158,7 @@ aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
   rtx elt;
   poly_int64 value;
 
-  if (!is_const_vec_duplicate (x, &elt)
+  if (!const_vec_duplicate_p (x, &elt)
       || !poly_int_const_p (elt, &value))
     return false;
 
@@ -2809,9 +2820,9 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm,
       if (GET_CODE (imm) == HIGH
 	  || aarch64_simd_valid_immediate (imm, NULL))
 	emit_insn (gen_rtx_SET (dest, imm));
-      else if (is_const_vec_series (imm, &base, &step))
+      else if (const_vec_series_p (imm, &base, &step))
 	aarch64_expand_vec_series (dest, base, step);
-      else if (is_const_vec_duplicate (imm, &value))
+      else if (const_vec_duplicate_p (imm, &value))
 	{
 	  /* If the constant is out of range of an SVE vector move,
 	     load it from memory if we can, otherwise move it into
@@ -3440,7 +3451,7 @@ aarch64_libgcc_cmp_return_mode (void)
    inclusive.  These are offsets from the current stack pointer.  */
 
 static void
-aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
+aarch64_emit_probe_stack_range (HOST_WIDE_INT first, poly_int64 size)
 {
   rtx reg1 = gen_rtx_REG (Pmode, PROBE_STACK_FIRST_REG);
 
@@ -3449,19 +3460,20 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
   /* See if we have a constant small number of probes to generate.  If so,
      that's the easy case.  */
-  if (size <= PROBE_INTERVAL)
+  HOST_WIDE_INT const_size;
+  if (size.is_constant (&const_size) && const_size <= PROBE_INTERVAL)
     {
-      const HOST_WIDE_INT base = ROUND_UP (size, ARITH_FACTOR);
+      const HOST_WIDE_INT base = ROUND_UP (const_size, ARITH_FACTOR);
 
       emit_set_insn (reg1,
 		     plus_constant (Pmode,
 				    stack_pointer_rtx, -(first + base)));
-      emit_stack_probe (plus_constant (Pmode, reg1, base - size));
+      emit_stack_probe (plus_constant (Pmode, reg1, base - const_size));
     }
 
   /* The run-time loop is made up of 8 insns in the generic case while the
      compile-time loop is made up of 4+2*(n-2) insns for n # of intervals.  */
-  else if (size <= 4 * PROBE_INTERVAL)
+  else if (size.is_constant (&const_size) && const_size <= 4 * PROBE_INTERVAL)
     {
       HOST_WIDE_INT i, rem;
 
@@ -3474,14 +3486,14 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       /* Probe at FIRST + N * PROBE_INTERVAL for values of N from 2 until
 	 it exceeds SIZE.  If only two probes are needed, this will not
 	 generate any code.  Then probe at FIRST + SIZE.  */
-      for (i = 2 * PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+      for (i = 2 * PROBE_INTERVAL; i < const_size; i += PROBE_INTERVAL)
 	{
 	  emit_set_insn (reg1,
 			 plus_constant (Pmode, reg1, -PROBE_INTERVAL));
 	  emit_stack_probe (reg1);
 	}
 
-      rem = size - (i - PROBE_INTERVAL);
+      rem = const_size - (i - PROBE_INTERVAL);
       if (rem > 256)
 	{
 	  const HOST_WIDE_INT base = ROUND_UP (rem, ARITH_FACTOR);
@@ -3504,8 +3516,12 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      HOST_WIDE_INT rounded_size = size & -PROBE_INTERVAL;
-
+      rtx rounded_size;
+      if (size.is_constant (&const_size))
+	rounded_size = GEN_INT (const_size & -PROBE_INTERVAL);
+      else
+	/* Pending SVE support.  */
+	gcc_unreachable ();
 
       /* Step 2: compute initial and final value of the loop counter.  */
 
@@ -3514,18 +3530,24 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 		     plus_constant (Pmode, stack_pointer_rtx, -first));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
-      HOST_WIDE_INT adjustment = - (first + rounded_size);
-      if (! aarch64_uimm12_shift (adjustment))
+      HOST_WIDE_INT adjustment = -first;
+      if (CONST_INT_P (rounded_size))
+	adjustment -= INTVAL (rounded_size);
+      if (!aarch64_uimm12_shift (adjustment))
 	{
-	  aarch64_internal_mov_immediate (reg2, GEN_INT (adjustment),
+	  aarch64_internal_mov_immediate (reg2,
+					  gen_int_mode (adjustment, Pmode),
 					  true, Pmode);
 	  emit_set_insn (reg2, gen_rtx_PLUS (Pmode, stack_pointer_rtx, reg2));
 	}
       else
 	{
 	  emit_set_insn (reg2,
-			 plus_constant (Pmode, stack_pointer_rtx, adjustment));
+			 plus_constant (Pmode, stack_pointer_rtx,
+					adjustment));
 	}
+      if (!CONST_INT_P (rounded_size))
+	emit_set_insn (reg2, gen_rtx_MINUS (Pmode, reg2, rounded_size));
 	  	
       /* Step 3: the loop
 
@@ -3545,9 +3567,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       /* Step 4: probe at FIRST + SIZE if we cannot assert at compile-time
 	 that SIZE is equal to ROUNDED_SIZE.  */
 
-      if (size != rounded_size)
+      if (!size.is_constant (&const_size))
+	gcc_unreachable ();
+      else if (const_size != INTVAL (rounded_size))
 	{
-	  HOST_WIDE_INT rem = size - rounded_size;
+	  HOST_WIDE_INT rem = const_size - INTVAL (rounded_size);
 
 	  if (rem > 256)
 	    {
@@ -4446,17 +4470,16 @@ aarch64_expand_prologue (void)
 
   if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
     {
-      /* Can't easily probe the dynamic part of the frame.  */
-      HOST_WIDE_INT static_size = constant_lower_bound (frame_size);
       if (crtl->is_leaf && !cfun->calls_alloca)
 	{
-	  if (static_size > PROBE_INTERVAL
-	      && static_size > STACK_CHECK_PROTECT)
-	    aarch64_emit_probe_stack_range (STACK_CHECK_PROTECT,
-					    static_size - STACK_CHECK_PROTECT);
+	  if (may_gt (frame_size, PROBE_INTERVAL)
+	      && may_gt (frame_size, get_stack_check_protect ()))
+	    aarch64_emit_probe_stack_range (get_stack_check_protect (),
+					    (frame_size
+					     - get_stack_check_protect ()));
 	}
-      else if (static_size > 0)
-	aarch64_emit_probe_stack_range (STACK_CHECK_PROTECT, static_size);
+      else if (may_gt (frame_size, 0))
+	aarch64_emit_probe_stack_range (get_stack_check_protect (), frame_size);
     }
 
   rtx ip0_rtx = gen_rtx_REG (Pmode, IP0_REGNUM);
@@ -5483,7 +5506,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 		{
 		  tree exp = SYMBOL_REF_DECL (sym);
 		  align = TYPE_ALIGN (TREE_TYPE (exp));
-		  align = CONSTANT_ALIGNMENT (exp, align);
+		  align = aarch64_constant_alignment (exp, align);
 		}
 	      else if (SYMBOL_REF_DECL (sym))
 		align = DECL_ALIGN (SYMBOL_REF_DECL (sym));
@@ -5957,7 +5980,7 @@ aarch64_const_vec_all_same_in_range_p (rtx x,
 				       HOST_WIDE_INT maxval)
 {
   rtx elt;
-  return (is_const_vec_duplicate (x, &elt)
+  return (const_vec_duplicate_p (x, &elt)
 	  && CONST_INT_P (elt)
 	  && IN_RANGE (INTVAL (elt), minval, maxval));
 }
@@ -5980,7 +6003,7 @@ aarch64_const_vec_all_in_range_p (rtx vec,
     return false;
 
   rtx vec_elem;
-  if (is_const_vec_duplicate (vec, &vec_elem))
+  if (const_vec_duplicate_p (vec, &vec_elem))
     return (CONST_INT_P (vec_elem)
 	    && IN_RANGE (INTVAL (vec_elem), minval, maxval));
 
@@ -6047,13 +6070,13 @@ aarch64_simd_identity_value (enum rtx_code code, machine_mode mode, rtx x)
       return x == CONSTM1_RTX (mode);
 
     case SMIN:
-      return (is_const_vec_duplicate (x, &elt)
+      return (const_vec_duplicate_p (x, &elt)
 	      && CONST_INT_P (elt)
 	      && wi::eq_p (rtx_mode_t (elt, inner_mode),
 			   wi::max_value (inner_mode, SIGNED)));
 
     case SMAX:
-      return (is_const_vec_duplicate (x, &elt)
+      return (const_vec_duplicate_p (x, &elt)
 	      && CONST_INT_P (elt)
 	      && wi::eq_p (rtx_mode_t (elt, inner_mode),
 			   wi::min_value (inner_mode, SIGNED)));
@@ -6073,7 +6096,7 @@ aarch64_print_vector_float_operand (FILE *f, rtx x, bool negate)
 {
   rtx elt;
 
-  if (!is_const_vec_duplicate (x, &elt))
+  if (!const_vec_duplicate_p (x, &elt))
     return false;
 
   REAL_VALUE_TYPE r = *CONST_DOUBLE_REAL_VALUE (elt);
@@ -6246,7 +6269,7 @@ aarch64_print_operand (FILE *f, rtx x, int code)
       break;
 
     case 'N':
-      if (!is_const_vec_duplicate (x, &elt))
+      if (!const_vec_duplicate_p (x, &elt))
 	{
 	  output_operand_lossage ("invalid vector constant");
 	  return;
@@ -6312,7 +6335,7 @@ aarch64_print_operand (FILE *f, rtx x, int code)
     case 'C':
       {
 	/* Print a replicated constant in hex.  */
-	if (!is_const_vec_duplicate (x, &elt) || !CONST_INT_P (elt))
+	if (!const_vec_duplicate_p (x, &elt) || !CONST_INT_P (elt))
 	  {
 	    output_operand_lossage ("invalid operand for '%%%c'", code);
 	    return;
@@ -6385,7 +6408,7 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 	  /* fall through */
 
 	case CONST_VECTOR:
-	  if (!is_const_vec_duplicate (x, &elt))
+	  if (!const_vec_duplicate_p (x, &elt))
 	    {
 	      output_operand_lossage ("invalid vector constant");
 	      return;
@@ -11524,9 +11547,11 @@ aarch64_legitimate_constant_p (machine_mode mode, rtx x)
   /* For these cases we never want to use a literal load.
      As such we have to prevent the compiler from forcing these
      to memory.  */
+  rtx base, step;
   if (aarch64_simd_valid_immediate (x, NULL)
       || (vec_flags == VEC_SVE_DATA
-	  && (is_const_vec_series (x) || is_const_vec_duplicate (x)))
+	  && (const_vec_series_p (x, &base, &step)
+	      || const_vec_duplicate_p (x)))
       || CONST_INT_P (x)
       || aarch64_valid_floating_const (x)
       || aarch64_can_const_movi_rtx_p (x, mode)
@@ -12652,7 +12677,7 @@ aarch64_sve_arith_immediate_p (rtx x, bool negate_p)
 {
   rtx elt;
 
-  if (!is_const_vec_duplicate (x, &elt)
+  if (!const_vec_duplicate_p (x, &elt)
       || !CONST_INT_P (elt))
     return false;
 
@@ -12673,7 +12698,7 @@ aarch64_sve_bitmask_immediate_p (rtx x)
 {
   rtx elt;
 
-  return (is_const_vec_duplicate (x, &elt)
+  return (const_vec_duplicate_p (x, &elt)
 	  && CONST_INT_P (elt)
 	  && aarch64_bitmask_imm (INTVAL (elt),
 				  GET_MODE_INNER (GET_MODE (x))));
@@ -12687,7 +12712,7 @@ aarch64_sve_dup_immediate_p (rtx x)
 {
   rtx elt;
 
-  if (!is_const_vec_duplicate (x, &elt)
+  if (!const_vec_duplicate_p (x, &elt)
       || !CONST_INT_P (elt))
     return false;
 
@@ -12705,7 +12730,7 @@ aarch64_sve_cmp_immediate_p (rtx x, bool signed_p)
 {
   rtx elt;
 
-  return (is_const_vec_duplicate (x, &elt)
+  return (const_vec_duplicate_p (x, &elt)
 	  && CONST_INT_P (elt)
 	  && (signed_p
 	      ? IN_RANGE (INTVAL (elt), -16, 15)
@@ -12721,7 +12746,7 @@ aarch64_sve_float_arith_immediate_p (rtx x, bool negate_p)
   rtx elt;
   REAL_VALUE_TYPE r;
 
-  if (!is_const_vec_duplicate (x, &elt)
+  if (!const_vec_duplicate_p (x, &elt)
       || GET_CODE (elt) != CONST_DOUBLE)
     return false;
 
@@ -12747,7 +12772,7 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 
   /* GCC will never generate a multiply with an immediate of 2, so there is no
      point testing for it (even though it is a valid constant).  */
-  return (is_const_vec_duplicate (x, &elt)
+  return (const_vec_duplicate_p (x, &elt)
 	  && GET_CODE (elt) == CONST_DOUBLE
 	  && real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf));
 }
@@ -12898,10 +12923,10 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info)
   scalar_mode elt_mode = GET_MODE_INNER (mode);
   rtx elt = NULL, base, step;
   unsigned int n_elts;
-  if (is_const_vec_duplicate (op, &elt))
+  if (const_vec_duplicate_p (op, &elt))
     n_elts = 1;
   else if ((vec_flags & VEC_SVE_DATA)
-	   && is_const_vec_series (op, &base, &step))
+	   && const_vec_series_p (op, &base, &step))
     {
       gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_INT);
       if (!aarch64_sve_index_immediate_p (base)
@@ -12989,7 +13014,7 @@ rtx
 aarch64_check_zero_based_sve_index_immediate (rtx x)
 {
   rtx base, step;
-  if (is_const_vec_series (x, &base, &step)
+  if (const_vec_series_p (x, &base, &step)
       && base == const0_rtx
       && aarch64_sve_index_immediate_p (step))
     return step;
@@ -13048,7 +13073,8 @@ aarch64_mov_operand_p (rtx x, machine_mode mode)
 rtx
 aarch64_simd_gen_const_vector_dup (machine_mode mode, HOST_WIDE_INT val)
 {
-  return gen_const_vec_duplicate (mode, GEN_INT (val));
+  rtx c = gen_int_mode (val, GET_MODE_INNER (mode));
+  return gen_const_vec_duplicate (mode, c);
 }
 
 /* Check OP is a legal scalar immediate for the MOVI instruction.  */
@@ -13371,7 +13397,7 @@ aarch64_simd_dup_constant (rtx vals)
      single ARM register.  This will be cheaper than a vector
      load.  */
   x = copy_to_mode_reg (inner_mode, x);
-  return gen_rtx_VEC_DUPLICATE (mode, x);
+  return gen_vec_duplicate (mode, x);
 }
 
 
@@ -13470,7 +13496,7 @@ aarch64_expand_vector_init (rtx target, rtx vals)
   if (all_same)
     {
       rtx x = copy_to_mode_reg (inner_mode, v0);
-      aarch64_emit_move (target, gen_rtx_VEC_DUPLICATE (mode, x));
+      aarch64_emit_move (target, gen_vec_duplicate (mode, x));
       return;
     }
 
@@ -13511,7 +13537,7 @@ aarch64_expand_vector_init (rtx target, rtx vals)
 
       /* Create a duplicate of the most common element.  */
       rtx x = copy_to_mode_reg (inner_mode, XVECEXP (vals, 0, maxelement));
-      aarch64_emit_move (target, gen_rtx_VEC_DUPLICATE (mode, x));
+      aarch64_emit_move (target, gen_vec_duplicate (mode, x));
 
       /* Insert the rest.  */
       for (int i = 0; i < n_elts; i++)
@@ -14646,10 +14672,9 @@ aarch64_split_combinev16qi (rtx operands[3])
 struct expand_vec_perm_d
 {
   rtx target, op0, op1;
-  unsigned char perm[MAX_COMPILE_TIME_VEC_BYTES];
+  auto_vec_perm_indices perm;
   machine_mode vmode;
   unsigned int vec_flags;
-  unsigned short nelt;
   bool one_vector_p;
   bool testing_p;
 };
@@ -14756,7 +14781,7 @@ aarch64_expand_sve_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
   rtx sel_reg = force_reg (sel_mode, sel);
 
   /* Check if the sel only references the first values vector.  */
-  if (is_const_vec (sel)
+  if (const_vec_p (sel)
       && aarch64_const_vec_all_in_range_p (sel, 0, nunits - 1))
     {
       emit_unspec2 (target, UNSPEC_TBL, op0, sel_reg);
@@ -14796,7 +14821,7 @@ aarch64_expand_sve_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
 static bool
 aarch64_evpc_trn (struct expand_vec_perm_d *d)
 {
-  unsigned int i, odd, mask, nelt = d->nelt;
+  unsigned int i, odd, mask, nelt = d->perm.length ();
   rtx out, in0, in1, x;
   machine_mode vmode = d->vmode;
 
@@ -14843,7 +14868,7 @@ aarch64_evpc_trn (struct expand_vec_perm_d *d)
 static bool
 aarch64_evpc_uzp (struct expand_vec_perm_d *d)
 {
-  unsigned int i, odd, mask, nelt = d->nelt;
+  unsigned int i, odd, mask, nelt = d->perm.length ();
   rtx out, in0, in1, x;
   machine_mode vmode = d->vmode;
 
@@ -14889,7 +14914,7 @@ aarch64_evpc_uzp (struct expand_vec_perm_d *d)
 static bool
 aarch64_evpc_zip (struct expand_vec_perm_d *d)
 {
-  unsigned int i, high, mask, nelt = d->nelt;
+  unsigned int i, high, mask, nelt = d->perm.length ();
   rtx out, in0, in1, x;
   machine_mode vmode = d->vmode;
 
@@ -14941,7 +14966,7 @@ aarch64_evpc_zip (struct expand_vec_perm_d *d)
 static bool
 aarch64_evpc_ext (struct expand_vec_perm_d *d)
 {
-  unsigned int i, nelt = d->nelt;
+  unsigned int i, nelt = d->perm.length ();
   rtx offset;
 
   unsigned int location = d->perm[0]; /* Always < nelt.  */
@@ -14989,7 +15014,7 @@ aarch64_evpc_ext (struct expand_vec_perm_d *d)
 static bool
 aarch64_evpc_rev (struct expand_vec_perm_d *d)
 {
-  unsigned int i, j, diff, size, unspec, nelt = d->nelt;
+  unsigned int i, j, diff, size, unspec, nelt = d->perm.length ();
   machine_mode pred_mode;
 
   if (!d->one_vector_p)
@@ -15049,7 +15074,7 @@ aarch64_evpc_dup (struct expand_vec_perm_d *d)
   rtx out = d->target;
   rtx in0;
   machine_mode vmode = d->vmode;
-  unsigned int i, elt, nelt = d->nelt;
+  unsigned int i, elt, nelt = d->perm.length ();
   rtx lane;
 
   elt = d->perm[0];
@@ -15081,7 +15106,7 @@ aarch64_evpc_tbl (struct expand_vec_perm_d *d)
 {
   rtx rperm[MAX_COMPILE_TIME_VEC_BYTES], sel;
   machine_mode vmode = d->vmode;
-  unsigned int i, nelt = d->nelt;
+  unsigned int i, nelt = d->perm.length ();
 
   if (d->testing_p)
     return true;
@@ -15113,7 +15138,7 @@ aarch64_evpc_sve_tbl (struct expand_vec_perm_d *d)
   if (d->testing_p)
     return true;
 
-  unsigned int nelt = d->nelt;
+  unsigned int nelt = d->perm.length ();
   gcc_assert (must_eq (nelt, GET_MODE_NUNITS (d->vmode)));
 
   rtx rperm[MAX_COMPILE_TIME_VEC_BYTES];
@@ -15135,19 +15160,18 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   /* The pattern matching functions above are written to look for a small
      number to begin the sequence (0, 1, N/2).  If we begin with an index
      from the second operand, we can swap the operands.  */
-  if (d->perm[0] >= d->nelt)
+  unsigned int nelt = d->perm.length ();
+  if (d->perm[0] >= nelt)
     {
-      unsigned i, nelt = d->nelt;
-
       gcc_assert (nelt == (nelt & -nelt));
-      for (i = 0; i < nelt; ++i)
+      for (unsigned int i = 0; i < nelt; ++i)
 	d->perm[i] ^= nelt; /* Keep the same index, but in the other vector.  */
 
       std::swap (d->op0, d->op1);
     }
 
   if ((d->vec_flags == VEC_ADVSIMD || d->vec_flags == VEC_SVE_DATA)
-      && d->nelt > 1)
+      && nelt > 1)
     {
       if (aarch64_evpc_rev (d))
 	return true;
@@ -15184,16 +15208,16 @@ aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel,
 
   d.vmode = GET_MODE (target);
   gcc_assert (VECTOR_MODE_P (d.vmode));
-  d.nelt = nelt;
   d.testing_p = false;
   d.vec_flags = aarch64_classify_vector_mode (d.vmode);
 
+  d.perm.reserve (nelt);
   for (i = which = 0; i < nelt; ++i)
     {
       rtx e = XVECEXP (sel, 0, i);
       unsigned int ei = INTVAL (e) & (2 * nelt - 1);
       which |= (ei < nelt ? 1 : 2);
-      d.perm[i] = ei;
+      d.perm.quick_push (ei);
     }
 
   switch (which)
@@ -15228,26 +15252,22 @@ aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel,
 }
 
 static bool
-aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
-				     const unsigned char *sel)
+aarch64_vectorize_vec_perm_const_ok (machine_mode vmode, vec_perm_indices sel)
 {
   struct expand_vec_perm_d d;
   unsigned int i, nelt, which;
   bool ret;
 
-  if (!GET_MODE_NUNITS (vmode).is_constant (&nelt))
-    return false;
-
   d.vmode = vmode;
   d.vec_flags = aarch64_classify_vector_mode (d.vmode);
-  d.nelt = nelt;
   d.testing_p = true;
-  memcpy (d.perm, sel, nelt);
+  d.perm.safe_splice (sel);
 
   /* Calculate whether all elements are in one vector.  */
+  nelt = sel.length ();
   for (i = which = 0; i < nelt; ++i)
     {
-      unsigned char e = d.perm[i];
+      unsigned int e = d.perm[i];
       gcc_assert (e < 2 * nelt);
       which |= (e < nelt ? 1 : 2);
     }
@@ -17443,6 +17463,9 @@ aarch64_libgcc_floating_mode_supported_p
 #undef TARGET_HARD_REGNO_CALL_PART_CLOBBERED
 #define TARGET_HARD_REGNO_CALL_PART_CLOBBERED \
   aarch64_hard_regno_call_part_clobbered
+
+#undef TARGET_CONSTANT_ALIGNMENT
+#define TARGET_CONSTANT_ALIGNMENT aarch64_constant_alignment
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

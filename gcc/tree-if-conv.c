@@ -2331,7 +2331,7 @@ predicate_statements (loop_p loop)
       bool swap;
       int index;
 
-      if (is_true_predicate (cond) || is_false_predicate (cond))
+      if (is_true_predicate (cond))
 	continue;
 
       swap = false;
@@ -2344,12 +2344,19 @@ predicate_statements (loop_p loop)
       vect_sizes.truncate (0);
       vect_masks.truncate (0);
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
 	  gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
 	  if (!stmt)
-	    continue;
-	  if (gimple_plf (stmt, GF_PLF_2))
+	    ;
+	  else if (is_false_predicate (cond))
+	    {
+	      unlink_stmt_vdef (stmt);
+	      gsi_remove (&gsi, true);
+	      release_defs (stmt);
+	      continue;
+	    }
+	  else if (gimple_plf (stmt, GF_PLF_2))
 	    {
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree mask;
@@ -2413,6 +2420,7 @@ predicate_statements (loop_p loop)
 	      gimple_assign_set_rhs1 (stmt, ifc_temp_var (type, rhs, &gsi));
 	      update_stmt (stmt);
 	    }
+	  gsi_next (&gsi);
 	}
     }
 }

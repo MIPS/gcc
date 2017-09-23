@@ -3043,6 +3043,7 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = loop_vinfo ? LOOP_VINFO_LOOP (loop_vinfo) : NULL;
   gimple *first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+  data_reference *first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
   unsigned int group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
   unsigned int num_stmts = GROUP_NUM_STMTS (vinfo_for_stmt (first_stmt));
   bool single_element_p = (stmt == first_stmt
@@ -3108,8 +3109,13 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
 			       " non-consecutive accesses\n");
 	      return false;
 	    }
-	  /* If the access is aligned an overrun is fine.  */
-	  if (overrun_p && gap < vect_known_alignment_in_elements (first_stmt))
+	  /* An overrun is fine if the trailing elements are smaller
+	     than the alignment boundary B.  Every vector access will
+	     be a multiple of B and so we are guaranteed to access a
+	     non-gap element in the same B-sized block.  */
+	  if (overrun_p
+	      && gap < (vect_known_alignment_in_bytes (first_dr)
+			/ vect_get_scalar_dr_size (first_dr)))
 	    overrun_p = false;
 	  if (overrun_p && !can_overrun_p)
 	    {
@@ -3130,13 +3136,15 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
       /* If there is a gap at the end of the group then some of these
 	 optimizations would access excess elements in the last iteration.  */
       bool would_overrun_p = (gap != 0);
-      /* If the access is aligned an overrun is fine, but only if the
-         overrun is not inside an unused vector (if the gap is as large
-	 or larger than a vector).  */
+      /* An overrun is fine if the trailing elements are smaller than the
+	 alignment boundary B.  Every vector access will be a multiple of B
+	 and so we are guaranteed to access a non-gap element in the
+	 same B-sized block.  */
       if (would_overrun_p
 	  && !masked_p
 	  && vls_type == VLS_LOAD
-	  && gap < vect_known_alignment_in_elements (first_stmt))
+	  && gap < (vect_known_alignment_in_bytes (first_dr)
+		    / vect_get_scalar_dr_size (first_dr)))
 	would_overrun_p = false;
 
       /* First try using LOAD/STORE_LANES.  */

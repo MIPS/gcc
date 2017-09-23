@@ -1053,7 +1053,7 @@ align_variable (tree decl, bool dont_output_data)
 	      && (in_lto_p || DECL_INITIAL (decl) != error_mark_node))
 	    {
 	      unsigned int const_align
-		= CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+		= targetm.constant_alignment (DECL_INITIAL (decl), align);
 	      /* Don't increase alignment too much for TLS variables - TLS
 		 space is too precious.  */
 	      if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
@@ -1104,8 +1104,8 @@ get_variable_align (tree decl)
 	     to mark offlined constructors.  */
 	  && (in_lto_p || DECL_INITIAL (decl) != error_mark_node))
 	{
-	  unsigned int const_align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl),
-							 align);
+	  unsigned int const_align
+	    = targetm.constant_alignment (DECL_INITIAL (decl), align);
 	  /* Don't increase alignment too much for TLS variables - TLS space
 	     is too precious.  */
 	  if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
@@ -3327,12 +3327,10 @@ build_constant_desc (tree exp)
      Instead we set the flag that will be recognized in make_decl_rtl.  */
   DECL_IN_CONSTANT_POOL (decl) = 1;
   DECL_INITIAL (decl) = desc->value;
-  /* ??? CONSTANT_ALIGNMENT hasn't been updated for vector types on most
-     architectures so use DATA_ALIGNMENT as well, except for strings.  */
+  /* ??? targetm.constant_alignment hasn't been updated for vector types on
+     most architectures so use DATA_ALIGNMENT as well, except for strings.  */
   if (TREE_CODE (exp) == STRING_CST)
-    {
-      SET_DECL_ALIGN (decl, CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl)));
-    }
+    SET_DECL_ALIGN (decl, targetm.constant_alignment (exp, DECL_ALIGN (decl)));
   else
     align_variable (decl, 0);
 
@@ -3792,19 +3790,12 @@ force_const_mem (machine_mode in_mode, rtx x)
   desc = ggc_alloc<constant_descriptor_rtx> ();
   *slot = desc;
 
-  tree type = NULL_TREE;
-  if (mode != VOIDmode
-      /* Don't use the tree type system for vector modes that have
-	 no associated vector type.  */
-      && (!VECTOR_MODE_P (mode)
-	  || targetm.vector_mode_supported_p (mode)))
-    type = lang_hooks.types.type_for_mode (mode, 0);
-
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 
+  tree type = lang_hooks.types.type_for_mode (mode, 0);
   if (type != NULL_TREE)
-    align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
+    align = targetm.constant_alignment (make_tree (type, x), align);
 
   pool->offset += (align / BITS_PER_UNIT) - 1;
   pool->offset &= ~ ((align / BITS_PER_UNIT) - 1);
@@ -3846,8 +3837,7 @@ force_const_mem (machine_mode in_mode, rtx x)
 
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
-  if (type)
-    set_mem_attributes (def, type, 1);
+  set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
   set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we

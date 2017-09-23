@@ -4239,9 +4239,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
   if (!LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
     /* We want the vectorized loop to execute at least once.  */
     min_profitable_iters = MAX (min_profitable_iters,
-				assumed_vf
-				+ peel_iters_prologue
-				+ peel_iters_epilogue);
+				assumed_vf + peel_iters_prologue);
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -8165,11 +8163,6 @@ vectorizable_live_operation (gimple *stmt,
 
   gcc_assert (STMT_VINFO_LIVE_P (stmt_info));
 
-  if (slp_node)
-    ncopies = 1;
-  else
-    ncopies = vect_get_num_copies (loop_vinfo, vectype);
-
   if (STMT_VINFO_DEF_TYPE (stmt_info) == vect_reduction_def)
     return false;
 
@@ -8189,6 +8182,11 @@ vectorizable_live_operation (gimple *stmt,
 			 "place.\n");
       return true;
     }
+
+  if (slp_node)
+    ncopies = 1;
+  else
+    ncopies = vect_get_num_copies (loop_vinfo, vectype);
 
   if (slp_node)
     {
