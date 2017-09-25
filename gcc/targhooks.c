@@ -1175,6 +1175,15 @@ default_vector_alignment (const_tree type)
   return align;
 }
 
+/* The default implementation of
+   TARGET_VECTORIZE_PREFERRED_VECTOR_ALIGNMENT.  */
+
+HOST_WIDE_INT
+default_preferred_vector_alignment (const_tree type)
+{
+  return TYPE_ALIGN (type);
+}
+
 /* By default assume vectors of element TYPE require a multiple of the natural
    alignment of TYPE.  TYPE is naturally aligned if IS_PACKED is false.  */
 bool
@@ -2205,6 +2214,12 @@ enum flt_eval_method
 default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
 {
   return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+}
+
+HOST_WIDE_INT
+default_stack_clash_protection_final_dynamic_probe (rtx residual ATTRIBUTE_UNUSED)
+{
+  return 0;
 }
 
 /* Default implementation of the UPC-specific target hook,

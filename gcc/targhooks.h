@@ -95,6 +95,7 @@ extern tree default_builtin_reciprocal (tree);
 
 extern HOST_WIDE_INT default_vector_alignment (const_tree);
 
+extern HOST_WIDE_INT default_preferred_vector_alignment (const_tree);
 extern bool default_builtin_vector_alignment_reachable (const_tree, bool);
 extern bool
 default_builtin_support_vector_misalignment (machine_mode mode,
@@ -272,6 +273,7 @@ extern unsigned int default_min_arithmetic_precision (void);
 
 extern enum flt_eval_method
 default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED);
+extern bool default_stack_clash_protection_final_dynamic_probe (rtx);
 
 extern bool default_upc_link_script_p (void);
 extern const char *default_upc_shared_section_name (void);

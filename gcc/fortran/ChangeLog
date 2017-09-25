@@ -1,3 +1,57 @@
+2017-09-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* trans.c (gfc_unlikely): Remove unnecessary fold_convert.
+	(gfc_likely): Likewise.
+
+2017-09-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/80118
+	* expr.c (gfc_get_full_arrayspec_from_expr): If there is
+	no symtree, set array spec to NULL.
+
+2017-09-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/82143
+	* lang.opt: Add the options -fdefault-real-10 and -fdefault-real-16.
+	Rename flag_default_real to flag_default_real_8.
+	* invoke.texi: Add documentation.
+	* module.c (use_iso_fortran_env_module): flag_default_real is renamed.
+	* trans-types.c (gfc_init_kinds): Implement the flags
+	-fdefault-real-10 and -fdefault-real-16. Make -fdefault-double-8 work
+	without -fdefault-real-8.
+
+2017-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52832
+	* match.c (gfc_match_associate): Before failing the association
+	try again, allowing a proc pointer selector.
+
+	PR fortran/80120
+	PR fortran/81903
+	PR fortran/82121
+	* primary.c (gfc_match_varspec): Introduce 'tgt_expr', which
+	points to the associate selector, if any. Go through selector
+	references, after resolution for variables, to catch any full
+	or section array references. If a class associate name does
+	not have the same declared type as the selector, resolve the
+	selector and copy the declared type to the associate name.
+	Before throwing a no implicit type error, resolve all allowed
+	selector expressions, and copy the resulting typespec.
+
+	PR fortran/67543
+	* resolve.c (resolve_assoc_var): Selector must cannot be the
+	NULL expression and it must have a type.
+
+	PR fortran/78152
+	* resolve.c (resolve_symbol): Allow associate names to be
+	coarrays.
+
+2017-09-21  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_wait): Don't restrict wait directive
+	arguments to constant integers.
+
 2017-09-17  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/82173

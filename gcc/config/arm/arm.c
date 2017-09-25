@@ -3367,22 +3367,22 @@ arm_option_override (void)
 
   /* Initialize boolean versions of the architectural flags, for use
      in the arm.md file.  */
-  arm_arch3m = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv3m);
-  arm_arch4 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv4);
+  arm_arch3m = bitmap_bit_p (arm_active_target.isa, isa_bit_armv3m);
+  arm_arch4 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv4);
   arm_arch4t = arm_arch4 && bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
-  arm_arch5 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv5);
-  arm_arch5e = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv5e);
+  arm_arch5 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv5);
+  arm_arch5e = bitmap_bit_p (arm_active_target.isa, isa_bit_armv5e);
   arm_arch5te = arm_arch5e
     && bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
-  arm_arch6 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv6);
-  arm_arch6k = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv6k);
+  arm_arch6 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv6);
+  arm_arch6k = bitmap_bit_p (arm_active_target.isa, isa_bit_armv6k);
   arm_arch_notm = bitmap_bit_p (arm_active_target.isa, isa_bit_notm);
   arm_arch6m = arm_arch6 && !arm_arch_notm;
-  arm_arch7 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv7);
-  arm_arch7em = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv7em);
-  arm_arch8 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8);
-  arm_arch8_1 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8_1);
-  arm_arch8_2 = bitmap_bit_p (arm_active_target.isa, isa_bit_ARMv8_2);
+  arm_arch7 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv7);
+  arm_arch7em = bitmap_bit_p (arm_active_target.isa, isa_bit_armv7em);
+  arm_arch8 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8);
+  arm_arch8_1 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8_1);
+  arm_arch8_2 = bitmap_bit_p (arm_active_target.isa, isa_bit_armv8_2);
   arm_arch_thumb1 = bitmap_bit_p (arm_active_target.isa, isa_bit_thumb);
   arm_arch_thumb2 = bitmap_bit_p (arm_active_target.isa, isa_bit_thumb2);
   arm_arch_xscale = bitmap_bit_p (arm_active_target.isa, isa_bit_xscale);
@@ -3412,9 +3412,9 @@ arm_option_override (void)
 
   /* And finally, set up some quirks.  */
   arm_arch_no_volatile_ce
-    = bitmap_bit_p (arm_active_target.isa, isa_quirk_no_volatile_ce);
-  arm_arch6kz
-    = arm_arch6k && bitmap_bit_p (arm_active_target.isa, isa_quirk_ARMv6kz);
+    = bitmap_bit_p (arm_active_target.isa, isa_bit_quirk_no_volatile_ce);
+  arm_arch6kz = arm_arch6k && bitmap_bit_p (arm_active_target.isa,
+					    isa_bit_quirk_armv6kz);
 
   /* V5 code we generate is completely interworking capable, so we turn off
      TARGET_INTERWORK here to avoid many tests later on.  */
@@ -3459,7 +3459,7 @@ arm_option_override (void)
       else if (TARGET_HARD_FLOAT_ABI)
 	{
 	  arm_pcs_default = ARM_PCS_AAPCS_VFP;
-	  if (!bitmap_bit_p (arm_active_target.isa, isa_bit_VFPv2))
+	  if (!bitmap_bit_p (arm_active_target.isa, isa_bit_vfpv2))
 	    error ("-mfloat-abi=hard: selected processor lacks an FPU");
 	}
       else
@@ -3562,7 +3562,7 @@ arm_option_override (void)
   /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
   if (fix_cm3_ldrd == 2)
     {
-      if (bitmap_bit_p (arm_active_target.isa, isa_quirk_cm3_ldrd))
+      if (bitmap_bit_p (arm_active_target.isa, isa_bit_quirk_cm3_ldrd))
 	fix_cm3_ldrd = 1;
       else
 	fix_cm3_ldrd = 0;
@@ -19164,7 +19164,8 @@ arm_compute_static_chain_stack_bytes (void)
   /* See the defining assertion in arm_expand_prologue.  */
   if (IS_NESTED (arm_current_func_type ())
       && ((TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
-	  || (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+	  || ((flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+	       || flag_stack_clash_protection)
 	      && !df_regs_ever_live_p (LR_REGNUM)))
       && arm_r3_live_at_start_p ()
       && crtl->args.pretend_args_size == 0)
@@ -21466,7 +21467,8 @@ arm_expand_prologue (void)
      clobbered when creating the frame, we need to save and restore it.  */
   clobber_ip = IS_NESTED (func_type)
 	       && ((TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
-		   || (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+		   || ((flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+			|| flag_stack_clash_protection)
 		       && !df_regs_ever_live_p (LR_REGNUM)
 		       && arm_r3_live_at_start_p ()));
 
@@ -21680,7 +21682,8 @@ arm_expand_prologue (void)
      stack checking.  We use IP as the first scratch register, except for the
      non-APCS nested functions if LR or r3 are available (see clobber_ip).  */
   if (!IS_INTERRUPT (func_type)
-      && flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+      && (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+	  || flag_stack_clash_protection))
     {
       unsigned int regno;
 
@@ -21693,13 +21696,13 @@ arm_expand_prologue (void)
 
       if (crtl->is_leaf && !cfun->calls_alloca)
 	{
-	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
-	    arm_emit_probe_stack_range (STACK_CHECK_PROTECT,
-					size - STACK_CHECK_PROTECT,
+	  if (size > PROBE_INTERVAL && size > get_stack_check_protect ())
+	    arm_emit_probe_stack_range (get_stack_check_protect (),
+					size - get_stack_check_protect (),
 					regno, live_regs_mask);
 	}
       else if (size > 0)
-	arm_emit_probe_stack_range (STACK_CHECK_PROTECT, size,
+	arm_emit_probe_stack_range (get_stack_check_protect (), size,
 				    regno, live_regs_mask);
     }
 
@@ -24991,7 +24994,9 @@ thumb1_expand_prologue (void)
     current_function_static_stack_size = size;
 
   /* If we have a frame, then do stack checking.  FIXME: not implemented.  */
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
+  if ((flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+       || flag_stack_clash_protection)
+      && size)
     sorry ("-fstack-check=specific for Thumb-1");
 
   amount = offsets->outgoing_args - offsets->saved_regs;
@@ -27871,7 +27876,8 @@ arm_frame_pointer_required (void)
      instruction prior to the stack adjustment and this requires a frame
      pointer if we want to catch the exception using the EABI unwinder.  */
   if (!IS_INTERRUPT (arm_current_func_type ())
-      && flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+      && (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+	  || flag_stack_clash_protection)
       && arm_except_unwind_info (&global_options) == UI_TARGET
       && cfun->can_throw_non_call_exceptions)
     {
@@ -27886,7 +27892,7 @@ arm_frame_pointer_required (void)
 	{
 	  /* We don't have the final size of the frame so adjust.  */
 	  size += 32 * UNITS_PER_WORD;
-	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	  if (size > PROBE_INTERVAL && size > get_stack_check_protect ())
 	    return true;
 	}
       else

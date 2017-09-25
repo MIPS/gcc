@@ -3702,23 +3702,23 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #ifndef DEBUG_DWO_INFO_SECTION
 #define DEBUG_DWO_INFO_SECTION ".debug_info.dwo"
 #endif
-#ifndef DEBUG_LTO_DWO_INFO_SECTION
-#define DEBUG_LTO_DWO_INFO_SECTION ".gnu.debuglto_.debug_info.dwo"
-#endif
 #ifndef DEBUG_LTO_INFO_SECTION
 #define DEBUG_LTO_INFO_SECTION	".gnu.debuglto_.debug_info"
 #endif
+#ifndef DEBUG_LTO_DWO_INFO_SECTION
+#define DEBUG_LTO_DWO_INFO_SECTION ".gnu.debuglto_.debug_info.dwo"
+#endif
 #ifndef DEBUG_ABBREV_SECTION
 #define DEBUG_ABBREV_SECTION	".debug_abbrev"
+#endif
+#ifndef DEBUG_LTO_ABBREV_SECTION
+#define DEBUG_LTO_ABBREV_SECTION ".gnu.debuglto_.debug_abbrev"
 #endif
 #ifndef DEBUG_DWO_ABBREV_SECTION
 #define DEBUG_DWO_ABBREV_SECTION ".debug_abbrev.dwo"
 #endif
 #ifndef DEBUG_LTO_DWO_ABBREV_SECTION
 #define DEBUG_LTO_DWO_ABBREV_SECTION ".gnu.debuglto_.debug_abbrev.dwo"
-#endif
-#ifndef DEBUG_LTO_ABBREV_SECTION
-#define DEBUG_LTO_ABBREV_SECTION ".gnu.debuglto_.debug_abbrev"
 #endif
 #ifndef DEBUG_ARANGES_SECTION
 #define DEBUG_ARANGES_SECTION	".debug_aranges"
@@ -3729,35 +3729,38 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #ifndef DEBUG_MACINFO_SECTION
 #define DEBUG_MACINFO_SECTION     ".debug_macinfo"
 #endif
+#ifndef DEBUG_LTO_MACINFO_SECTION
+#define DEBUG_LTO_MACINFO_SECTION      ".gnu.debuglto_.debug_macinfo"
+#endif
 #ifndef DEBUG_DWO_MACINFO_SECTION
 #define DEBUG_DWO_MACINFO_SECTION      ".debug_macinfo.dwo"
 #endif
 #ifndef DEBUG_LTO_DWO_MACINFO_SECTION
 #define DEBUG_LTO_DWO_MACINFO_SECTION  ".gnu.debuglto_.debug_macinfo.dwo"
 #endif
-#ifndef DEBUG_LTO_MACINFO_SECTION
-#define DEBUG_LTO_MACINFO_SECTION      ".gnu.debuglto_.debug_macinfo"
-#endif
-#ifndef DEBUG_DWO_MACRO_SECTION
-#define DEBUG_DWO_MACRO_SECTION        ".debug_macro.dwo"
-#endif
 #ifndef DEBUG_MACRO_SECTION
 #define DEBUG_MACRO_SECTION	".debug_macro"
-#endif
-#ifndef DEBUG_LTO_DWO_MACRO_SECTION
-#define DEBUG_LTO_DWO_MACRO_SECTION    ".gnu.debuglto_.debug_macro.dwo"
 #endif
 #ifndef DEBUG_LTO_MACRO_SECTION
 #define DEBUG_LTO_MACRO_SECTION ".gnu.debuglto_.debug_macro"
 #endif
+#ifndef DEBUG_DWO_MACRO_SECTION
+#define DEBUG_DWO_MACRO_SECTION        ".debug_macro.dwo"
+#endif
+#ifndef DEBUG_LTO_DWO_MACRO_SECTION
+#define DEBUG_LTO_DWO_MACRO_SECTION    ".gnu.debuglto_.debug_macro.dwo"
+#endif
 #ifndef DEBUG_LINE_SECTION
 #define DEBUG_LINE_SECTION	".debug_line"
+#endif
+#ifndef DEBUG_LTO_LINE_SECTION
+#define DEBUG_LTO_LINE_SECTION ".gnu.debuglto_.debug_line"
 #endif
 #ifndef DEBUG_DWO_LINE_SECTION
 #define DEBUG_DWO_LINE_SECTION ".debug_line.dwo"
 #endif
-#ifndef DEBUG_LTO_LINE_SECTION
-#define DEBUG_LTO_LINE_SECTION ".gnu.debuglto_.debug_line.dwo"
+#ifndef DEBUG_LTO_DWO_LINE_SECTION
+#define DEBUG_LTO_DWO_LINE_SECTION ".gnu.debuglto_.debug_line.dwo"
 #endif
 #ifndef DEBUG_LOC_SECTION
 #define DEBUG_LOC_SECTION	".debug_loc"
@@ -3790,17 +3793,17 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #ifndef DEBUG_LTO_DWO_STR_OFFSETS_SECTION
 #define DEBUG_LTO_DWO_STR_OFFSETS_SECTION ".gnu.debuglto_.debug_str_offsets.dwo"
 #endif
-#ifndef DEBUG_STR_DWO_SECTION
-#define DEBUG_STR_DWO_SECTION   ".debug_str.dwo"
-#endif
-#ifndef DEBUG_LTO_STR_DWO_SECTION
-#define DEBUG_LTO_STR_DWO_SECTION ".gnu.debuglto_.debug_str.dwo"
-#endif
 #ifndef DEBUG_STR_SECTION
 #define DEBUG_STR_SECTION  ".debug_str"
 #endif
 #ifndef DEBUG_LTO_STR_SECTION
 #define DEBUG_LTO_STR_SECTION ".gnu.debuglto_.debug_str"
+#endif
+#ifndef DEBUG_STR_DWO_SECTION
+#define DEBUG_STR_DWO_SECTION   ".debug_str.dwo"
+#endif
+#ifndef DEBUG_LTO_STR_DWO_SECTION
+#define DEBUG_LTO_STR_DWO_SECTION ".gnu.debuglto_.debug_str.dwo"
 #endif
 #ifndef DEBUG_RANGES_SECTION
 #define DEBUG_RANGES_SECTION	".debug_ranges"
@@ -3810,6 +3813,9 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #endif
 #ifndef DEBUG_LINE_STR_SECTION
 #define DEBUG_LINE_STR_SECTION  ".debug_line_str"
+#endif
+#ifndef DEBUG_LTO_LINE_STR_SECTION
+#define DEBUG_LTO_LINE_STR_SECTION  ".gnu.debuglto_.debug_line_str"
 #endif
 
 /* Standard ELF section names for compiled code and data.  */
@@ -19487,6 +19493,19 @@ tree_add_const_value_attribute (dw_die_ref die, tree t)
   init = t;
   gcc_assert (!DECL_P (init));
 
+  if (TREE_CODE (init) == INTEGER_CST)
+    {
+      if (tree_fits_uhwi_p (init))
+	{
+	  add_AT_unsigned (die, DW_AT_const_value, tree_to_uhwi (init));
+	  return true;
+	}
+      if (tree_fits_shwi_p (init))
+	{
+	  add_AT_int (die, DW_AT_const_value, tree_to_shwi (init));
+	  return true;
+	}
+    }
   if (! early_dwarf)
     {
       rtl = rtl_for_decl_init (init, type);
@@ -21279,8 +21298,6 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
     }
   else
     add_AT_flag (type_die, DW_AT_declaration, 1);
-
-  add_alignment_attribute (type_die, type);
 
   add_pubtype (type, type_die);
 
@@ -23383,7 +23400,6 @@ gen_producer_string (void)
       case OPT_SPECIAL_program_name:
       case OPT_SPECIAL_input_file:
       case OPT_grecord_gcc_switches:
-      case OPT_gno_record_gcc_switches:
       case OPT__output_pch_:
       case OPT_fdiagnostics_show_location_:
       case OPT_fdiagnostics_show_option:
@@ -27245,7 +27261,8 @@ output_macinfo (const char *debug_line_label, bool early_lto_debug)
 static void
 init_sections_and_labels (bool early_lto_debug)
 {
-  /* As we may get called multiple times have a generation count for labels.  */
+  /* As we may get called multiple times have a generation count for
+     labels.  */
   static unsigned generation = 0;
 
   if (early_lto_debug)
@@ -27258,14 +27275,14 @@ init_sections_and_labels (bool early_lto_debug)
 	  debug_abbrev_section = get_section (DEBUG_LTO_ABBREV_SECTION,
 					      SECTION_DEBUG | SECTION_EXCLUDE,
 					      NULL);
-	  debug_macinfo_section_name = ((dwarf_strict && dwarf_version < 5)
-					? DEBUG_LTO_MACINFO_SECTION
-					: DEBUG_LTO_MACRO_SECTION);
+	  debug_macinfo_section_name
+	    = ((dwarf_strict && dwarf_version < 5)
+	       ? DEBUG_LTO_MACINFO_SECTION : DEBUG_LTO_MACRO_SECTION);
 	  debug_macinfo_section = get_section (debug_macinfo_section_name,
 					       SECTION_DEBUG
 					       | SECTION_EXCLUDE, NULL);
-	  /* For macro info we have to refer to a debug_line section, so similar
-	     to split-dwarf emit a skeleton one for early debug.  */
+	  /* For macro info we have to refer to a debug_line section, so
+	     similar to split-dwarf emit a skeleton one for early debug.  */
 	  debug_skeleton_line_section
 	    = get_section (DEBUG_LTO_LINE_SECTION,
 			   SECTION_DEBUG | SECTION_EXCLUDE, NULL);
@@ -27285,15 +27302,16 @@ init_sections_and_labels (bool early_lto_debug)
 	  debug_skeleton_info_section = get_section (DEBUG_LTO_INFO_SECTION,
 						     SECTION_DEBUG
 						     | SECTION_EXCLUDE, NULL);
-	  debug_skeleton_abbrev_section = get_section (DEBUG_LTO_ABBREV_SECTION,
-						       SECTION_DEBUG
-						       | SECTION_EXCLUDE, NULL);
+	  debug_skeleton_abbrev_section
+	    = get_section (DEBUG_LTO_ABBREV_SECTION,
+			   SECTION_DEBUG | SECTION_EXCLUDE, NULL);
 	  ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_abbrev_section_label,
 				       DEBUG_SKELETON_ABBREV_SECTION_LABEL,
 				       generation);
 
-	  /* Somewhat confusing detail: The skeleton_[abbrev|info] sections stay in
-	     the main .o, but the skeleton_line goes into the split off dwo.  */
+	  /* Somewhat confusing detail: The skeleton_[abbrev|info] sections
+	     stay in the main .o, but the skeleton_line goes into the split
+	     off dwo.  */
 	  debug_skeleton_line_section
 	    = get_section (DEBUG_LTO_LINE_SECTION,
 			   SECTION_DEBUG | SECTION_EXCLUDE, NULL);
@@ -27308,9 +27326,10 @@ init_sections_and_labels (bool early_lto_debug)
 				       DEBUG_SKELETON_INFO_SECTION_LABEL,
 				       generation);
 	  debug_str_dwo_section = get_section (DEBUG_LTO_STR_DWO_SECTION,
-					       DEBUG_STR_DWO_SECTION_FLAGS, NULL);
+					       DEBUG_STR_DWO_SECTION_FLAGS,
+					       NULL);
 	  debug_macinfo_section_name
-	    = (dwarf_strict
+	    = ((dwarf_strict && dwarf_version < 5)
 	       ? DEBUG_LTO_DWO_MACINFO_SECTION : DEBUG_LTO_DWO_MACRO_SECTION);
 	  debug_macinfo_section = get_section (debug_macinfo_section_name,
 					       SECTION_DEBUG | SECTION_EXCLUDE,
@@ -27319,6 +27338,10 @@ init_sections_and_labels (bool early_lto_debug)
       debug_str_section = get_section (DEBUG_LTO_STR_SECTION,
 				       DEBUG_STR_SECTION_FLAGS
 				       | SECTION_EXCLUDE, NULL);
+      if (!dwarf_split_debug_info && !DWARF2_ASM_LINE_DEBUG_INFO)
+	debug_line_str_section
+	  = get_section (DEBUG_LTO_LINE_STR_SECTION,
+			 DEBUG_STR_SECTION_FLAGS | SECTION_EXCLUDE, NULL);
     }
   else
     {
@@ -27328,10 +27351,13 @@ init_sections_and_labels (bool early_lto_debug)
 					    SECTION_DEBUG, NULL);
 	  debug_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
 					      SECTION_DEBUG, NULL);
-	  debug_loc_section = get_section (DEBUG_LOC_SECTION,
+	  debug_loc_section = get_section (dwarf_version >= 5
+					   ? DEBUG_LOCLISTS_SECTION
+					   : DEBUG_LOC_SECTION,
 					   SECTION_DEBUG, NULL);
 	  debug_macinfo_section_name
-	      = dwarf_strict ? DEBUG_MACINFO_SECTION : DEBUG_MACRO_SECTION;
+	    = ((dwarf_strict && dwarf_version < 5)
+	       ? DEBUG_MACINFO_SECTION : DEBUG_MACRO_SECTION);
 	  debug_macinfo_section = get_section (debug_macinfo_section_name,
 					       SECTION_DEBUG, NULL);
 	}
@@ -27368,15 +27394,17 @@ init_sections_and_labels (bool early_lto_debug)
 	  ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_info_section_label,
 				       DEBUG_SKELETON_INFO_SECTION_LABEL,
 				       generation);
-	  debug_loc_section = get_section (DEBUG_DWO_LOC_SECTION,
+	  debug_loc_section = get_section (dwarf_version >= 5
+					   ? DEBUG_DWO_LOCLISTS_SECTION
+					   : DEBUG_DWO_LOC_SECTION,
 					   SECTION_DEBUG | SECTION_EXCLUDE,
 					   NULL);
 	  debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
 					       DEBUG_STR_DWO_SECTION_FLAGS,
 					       NULL);
 	  debug_macinfo_section_name
-	    = (dwarf_strict && dwarf_version < 5)
-	      ? DEBUG_DWO_MACINFO_SECTION : DEBUG_DWO_MACRO_SECTION;
+	    = ((dwarf_strict && dwarf_version < 5)
+	       ? DEBUG_DWO_MACINFO_SECTION : DEBUG_DWO_MACRO_SECTION);
 	  debug_macinfo_section = get_section (debug_macinfo_section_name,
 					       SECTION_DEBUG | SECTION_EXCLUDE,
 					       NULL);
@@ -27391,6 +27419,9 @@ init_sections_and_labels (bool early_lto_debug)
 					    SECTION_DEBUG, NULL);
       debug_str_section = get_section (DEBUG_STR_SECTION,
 				       DEBUG_STR_SECTION_FLAGS, NULL);
+      if (!dwarf_split_debug_info && !DWARF2_ASM_LINE_DEBUG_INFO)
+	debug_line_str_section = get_section (DEBUG_LINE_STR_SECTION,
+					      DEBUG_STR_SECTION_FLAGS, NULL);
       debug_ranges_section = get_section (dwarf_version >= 5
 					  ? DEBUG_RNGLISTS_SECTION
 					  : DEBUG_RANGES_SECTION,
@@ -27412,7 +27443,7 @@ init_sections_and_labels (bool early_lto_debug)
     ASM_GENERATE_INTERNAL_LABEL (ranges_base_label,
 				 DEBUG_RANGES_SECTION_LABEL, 2 + generation);
   ASM_GENERATE_INTERNAL_LABEL (debug_addr_section_label,
-                               DEBUG_ADDR_SECTION_LABEL, generation);
+			       DEBUG_ADDR_SECTION_LABEL, generation);
   ASM_GENERATE_INTERNAL_LABEL (macinfo_section_label,
 			       (dwarf_strict && dwarf_version < 5)
 			       ? DEBUG_MACINFO_SECTION_LABEL
