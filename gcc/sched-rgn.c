@@ -3745,7 +3745,9 @@ rest_of_handle_sched_fusion (void)
 {
 #ifdef INSN_SCHEDULING
   sched_fusion = true;
+  fprintf(stderr, "start sched fusion\n");
   schedule_insns ();
+  fprintf(stderr, "end sched fusion\n");
   sched_fusion = false;
 #endif
   return 0;
