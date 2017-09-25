@@ -22893,6 +22893,9 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
     return false;
 
+  if (GET_CODE (reg1) != REG || GET_CODE (reg2) != REG)
+    return false;
+
   /* Base regs do not match.  */
   if (!REG_P (base1) || !rtx_equal_p (base1, base2))
     return false;
@@ -22980,7 +22983,7 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
   if (from == NULL || to == NULL || from == to)
     return;
 
-  for (cur = from, next = NEXT_INSN (cur);
+  for (cur = from, next = NEXT_INSN (from);
        next;
        cur = next, next = NEXT_INSN (next))
     {
@@ -23020,9 +23023,10 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
 	      && GET_CODE (base1) == REG
 	      && REGNO (base1) == STACK_POINTER_REGNUM)
 	    {
-	      rtx dwarf, dw_par[4];
+	      rtx dwarf, dwarf1 = NULL_RTX, dwarf2 = NULL_RTX;
 	      rtx set1, set2, note1, note2;
-	      int len;
+	      int len = 0;
+	      int dwarf_index = 0;
 
 	      gcc_assert (base2 != NULL_RTX && GET_CODE (base2) == REG
 			  && REGNO (base2) == STACK_POINTER_REGNUM);
@@ -23031,43 +23035,57 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
 	      set2 = copy_rtx (single_set (next));
 
 	      if ((note1 = find_reg_note (cur, REG_FRAME_RELATED_EXPR, 0)))
-		dw_par[0] = XEXP (note1, 0);
-	      else
-		dw_par[0] = set1;
+		{
+		  dwarf1 = XEXP (note1, 0);
+		  if (GET_CODE (dwarf1) == PARALLEL)
+		    len += XVECLEN (dwarf1, 0);
+		  else
+		    len += 1;
+		}
 
 	      if ((note2 = find_reg_note (next, REG_FRAME_RELATED_EXPR, 0)))
-		dw_par[1] = XEXP (note2, 0);
-	      else
-		dw_par[1] = set2;
-
-	      len = GET_CODE (dw_par[0]) == SET ? 1 : XVECLEN (dw_par[0], 0);
-	      len += GET_CODE (dw_par[1]) == SET ? 1 : XVECLEN (dw_par[1], 0);
-
-	      gcc_assert (len == 2 || len == 4);
-
-	      if (len == 4)
 		{
-		  dw_par[3] = XVECEXP (dw_par[1], 0, 1);
-		  dw_par[2] = XVECEXP (dw_par[1], 0, 0);
-		  dw_par[1] = XVECEXP (dw_par[0], 0, 1);
-		  dw_par[0] = XVECEXP (dw_par[0], 0, 0);
+		  dwarf2 = XEXP (note2, 0);
+		  if (GET_CODE (dwarf2) == PARALLEL)
+		    len += XVECLEN (dwarf2, 0);
+		  else
+		    len += 1;
 		}
 
 	      dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (len));
-	      for (int i = 0; i < len; i++)
-		{
-		  RTX_FRAME_RELATED_P (dw_par[i]) = 1;
-		  XVECEXP (dwarf, 0, i) = dw_par[i];
-		}
 
-	      RTX_FRAME_RELATED_P (dwarf) = 1;
+	      if (dwarf1 && GET_CODE (dwarf1) == PARALLEL)
+		{
+		  int i;
+		  for (i = 0 ; i < XVECLEN (dwarf1, 0) ; i++)
+		    {
+		      XVECEXP (dwarf, 0, dwarf_index++) = XVECEXP (dwarf1,
+								   0, i);
+		    }
+		}
+	      else if (dwarf1)
+		XVECEXP (dwarf, 0, dwarf_index++) = dwarf1;
+
+	      if (dwarf2 && GET_CODE (dwarf2) == PARALLEL)
+		{
+		  int i;
+		  for (i = 0 ; i < XVECLEN (dwarf2, 0) ; i++)
+		    {
+		      XVECEXP (dwarf, 0, dwarf_index++) = XVECEXP (dwarf2,
+								   0, i);
+		    }
+		}
+	      else if (dwarf2)
+		XVECEXP (dwarf, 0, dwarf_index++) = dwarf2;
+
 	      RTX_FRAME_RELATED_P (bonded) = 1;
 	      add_reg_note (bonded, REG_FRAME_RELATED_EXPR, dwarf);
+	      code = recog_memoized (bonded);
 	    }
 
 	  remove_insn (cur);
 	  remove_insn (next);
-	  cur = PREV_INSN (cur);
+	  cur = bonded;
 	  next = bonded;
 	}
     }
