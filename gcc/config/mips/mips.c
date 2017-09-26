@@ -15387,6 +15387,9 @@ mips_dfa_post_advance_cycle (void)
 static int
 mips_multipass_dfa_lookahead (void)
 {
+  if (sched_fusion)
+    return 0;
+
   /* Can schedule up to 4 of the 6 function units in any one cycle.  */
   if (TUNE_SB1)
     return 4;
