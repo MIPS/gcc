@@ -22893,6 +22893,9 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
     return false;
 
+  if (GET_CODE (reg1) != REG || GET_CODE (reg2) != REG)
+    return false;
+
   /* Base regs do not match.  */
   if (!REG_P (base1) || !rtx_equal_p (base1, base2))
     return false;
