@@ -1456,12 +1456,9 @@ dep_cost_1 (dep_t link, dw_t dw)
      This allows the computation of a function's result and parameter
      values to overlap the return and call.  We don't care about the
      dependence cost when only decreasing register pressure.  */
-  print_rtl_single(stderr, used);
   if (recog_memoized (used) < 0)
     {
       cost = 0;
-      fprintf(stderr, "used failed\n");
-  print_rtl_single(stderr, insn);
       recog_memoized (insn);
     }
   else
@@ -6194,11 +6191,6 @@ choose_ready (struct ready_list *ready, bool first_cycle_insn_p,
 	     recognized it earlier.
 	     ??? Not very clear where this is supposed to be done.
 	     See dep_cost_1.  */
-	  if (!(INSN_CODE (insn) >= 0))
-	  {
-	    fprintf(stderr, "FAIL\n");
-	    print_rtl_single(stderr, insn);
-	  }
 	  gcc_checking_assert (INSN_CODE (insn) >= 0
 			       || recog_memoized (insn) < 0);
 	  if (INSN_CODE (insn) < 0)
