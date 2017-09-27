@@ -858,6 +858,10 @@ extern UDItype __umulsidi3 (USItype, USItype);
 #define COUNT_LEADING_ZEROS_0 32
 #endif
 
+#if defined (__nanomips__) && ! defined (__nanomips_subset)
+# define count_trailing_zeros(COUNT,X)  ((COUNT) = __builtin_ctz (X))
+#endif
+
 #endif /* __mips__ or __nanomips__*/
 
 #if defined (__ns32000__) && W_TYPE_SIZE == 32
