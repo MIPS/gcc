@@ -23897,7 +23897,7 @@ static void
 nanomips_restore_jrc_opt ()
 {
   basic_block bb;
-  rtx_insn *insn, *prev, *restore_insn, *clobber_insn;
+  rtx_insn *insn, *prev, *restore_insn, *blockage_insn;
 
   if (dump_file)
     fprintf (dump_file, "restore_jrc optimization\n");
@@ -23905,7 +23905,7 @@ nanomips_restore_jrc_opt ()
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       restore_insn = NULL;
-      clobber_insn = NULL;
+      blockage_insn = NULL;
       FOR_BB_INSNS_SAFE (bb, insn, prev)
 	{
 	  rtx src = NULL_RTX;
@@ -23923,15 +23923,13 @@ nanomips_restore_jrc_opt ()
 					      NULL, NULL, false))
 	    restore_insn = insn;
 
-	  if (restore_insn != NULL && clobber_insn == NULL
-	      && GET_CODE (pattern) == CLOBBER
-	      && GET_CODE (XEXP (pattern, 0)) == MEM
-	      && GET_CODE (XEXP (XEXP (pattern, 0), 0)) == REG
-	      && REGNO (XEXP (XEXP (pattern, 0), 0)) == STACK_POINTER_REGNUM)
-	    clobber_insn = insn;
+	  if (restore_insn != NULL && blockage_insn == NULL
+	      && GET_CODE (pattern) == UNSPEC_VOLATILE
+	      && XINT (pattern, 1) == UNSPEC_BLOCKAGE)
+	    blockage_insn = insn;
 
-	  if (restore_insn != NULL && clobber_insn != NULL
-	      && restore_insn != insn && clobber_insn != insn)
+	  if (restore_insn != NULL && blockage_insn != NULL
+	      && restore_insn != insn && blockage_insn != insn)
 	    {
 	      subrtx_iterator::array_type array;
 	      FOR_EACH_SUBRTX (iter, array, pattern, NONCONST)
@@ -23945,7 +23943,7 @@ nanomips_restore_jrc_opt ()
 	    }
 
 	  if (restore_insn != NULL
-	      && clobber_insn != NULL
+	      && blockage_insn != NULL
 	      && JUMP_P (insn)
 	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
@@ -23969,11 +23967,11 @@ nanomips_restore_jrc_opt ()
 		  print_rtl_single (dump_file, new_insn);
 		}
 	      delete_insn (restore_insn);
-	      delete_insn (clobber_insn);
+	      delete_insn (blockage_insn);
 	      delete_insn (insn);
 	      insn = NULL;
 	      restore_insn = NULL;
-	      clobber_insn = NULL;
+	      blockage_insn = NULL;
 	    }
 	}
     }
