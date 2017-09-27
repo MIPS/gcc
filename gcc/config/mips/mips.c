@@ -4833,6 +4833,7 @@ static struct mips_multi_member *
 mips_multi_add (void)
 {
   mips_multi_member empty;
+  memset (&empty, 0, sizeof (empty));
   return mips_multi_members.safe_push (empty);
 }
 
@@ -10252,7 +10253,7 @@ mips_finish_declare_object (FILE *stream, tree decl, int top_level, int at_end)
 void
 mips_set_text_contents_type (FILE *file ATTRIBUTE_UNUSED,
 			     const char *prefix ATTRIBUTE_UNUSED,
-			     unsigned long num ATTRIBUTE_UNUSED,
+			     unsigned HOST_WIDE_INT num ATTRIBUTE_UNUSED,
 			     bool function_p ATTRIBUTE_UNUSED)
 {
 #ifdef ASM_OUTPUT_TYPE_DIRECTIVE
@@ -10261,7 +10262,7 @@ mips_set_text_contents_type (FILE *file ATTRIBUTE_UNUSED,
   char *sname;
   rtx symbol;
 
-  sprintf (buf, "%lu", num);
+  sprintf (buf, HOST_WIDE_INT_PRINT_UNSIGNED, num);
   symbol = XEXP (DECL_RTL (current_function_decl), 0);
   fnname = targetm.strip_name_encoding (XSTR (symbol, 0));
   sname = ACONCAT ((prefix, fnname, "_", buf, NULL));
@@ -21768,7 +21769,7 @@ mips_final_prescan_insn (rtx_insn *insn, rtx *opvec, int noperands)
       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPEC_CONSTTABLE)
     mips_set_text_contents_type (asm_out_file, "__pool_",
-				 XINT (XVECEXP (PATTERN (insn), 0, 0), 0),
+				 INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
 				 FALSE);
 
   if (mips_need_noat_wrapper_p (insn, opvec, noperands))
@@ -21792,7 +21793,7 @@ mips_final_postscan_insn (FILE *file ATTRIBUTE_UNUSED, rtx_insn *insn,
       && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPEC_CONSTTABLE_END)
     mips_set_text_contents_type (asm_out_file, "__pend_",
-				 XINT (XVECEXP (PATTERN (insn), 0, 0), 0),
+				 INTVAL (XVECEXP (PATTERN (insn), 0, 0)),
 				 TRUE);
 }
 
@@ -22998,6 +22999,7 @@ mips_expand_vec_perm_const (rtx operands[4])
   d.nelt = nelt = GET_MODE_NUNITS (d.vmode);
   d.testing_p = false;
 
+  memset (orig_perm, 0, MAX_VECT_LEN);
   for (i = which = 0; i < nelt; ++i)
     {
       rtx e = XVECEXP (sel, 0, i);
