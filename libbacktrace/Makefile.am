@@ -117,10 +117,20 @@ if HAVE_PTHREAD
 check_PROGRAMS += ttest
 
 ttest_SOURCES = ttest.c testlib.c
-ttest_CFLAGS = -pthread
+ttest_CFLAGS = $(AM_CFLAGS) -pthread
 ttest_LDADD = libbacktrace.la
 
 endif HAVE_PTHREAD
+
+if HAVE_OBJCOPY_DEBUGLINK
+
+TESTS += dtest
+
+dtest: btest
+	$(OBJCOPY) --only-keep-debug btest btest.debug
+	$(OBJCOPY) --strip-debug --add-gnu-debuglink=btest.debug btest dtest
+
+endif HAVE_OBJCOPY_DEBUGLINK
 
 endif NATIVE
 

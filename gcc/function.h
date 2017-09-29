@@ -479,8 +479,6 @@ set_loops_for_fn (struct function *fn, struct loops *loops)
    data structures.  */
 extern struct machine_function * (*init_machine_status) (void);
 
-enum direction {none, upward, downward};
-
 /* Structure to record the size of a sequence of arguments
    as the sum of a tree-expression and a constant.  This structure is
    also used to store offsets from the stack, which might be negative,
@@ -509,7 +507,7 @@ struct locate_and_pad_arg_data
      force alignment for the next argument.  */
   struct args_size alignment_pad;
   /* Which way we should pad this arg.  */
-  enum direction where_pad;
+  pad_direction where_pad;
   /* slot_offset is at least this aligned.  */
   unsigned int boundary;
 };
@@ -563,6 +561,14 @@ do {								\
   ((TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn)	     \
    ? MAX (FUNCTION_BOUNDARY, 2 * BITS_PER_UNIT) : FUNCTION_BOUNDARY)
 
+enum stack_clash_probes {
+  NO_PROBE_NO_FRAME,
+  NO_PROBE_SMALL_FRAME,
+  PROBE_INLINE,
+  PROBE_LOOP
+};
+
+extern void dump_stack_clash_frame_info (enum stack_clash_probes, bool);
 
 
 extern void push_function_context (void);
