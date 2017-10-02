@@ -13982,7 +13982,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
 
      ?!? This should be revamped to work like aarch64 and s390 where
      we track the offset from the most recent probe.  Normally that
-     offset would be zero.  For a non-return function we would reset
+     offset would be zero.  For a noreturn function we would reset
      it to PROBE_INTERVAL - (STACK_BOUNDARY / BITS_PER_UNIT).   Then
      we just probe when we cross PROBE_INTERVAL.  */
   if (TREE_THIS_VOLATILE (cfun->decl))
@@ -14062,7 +14062,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
 			plus_constant (Pmode, sr.reg,
 				       m->fs.cfa_offset + rounded_size));
 	  RTX_FRAME_RELATED_P (insn) = 1;
-        }
+	}
 
       /* Step 3: the loop.  */
       rtx size_rtx = GEN_INT (rounded_size);
@@ -14075,7 +14075,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
 			plus_constant (Pmode, stack_pointer_rtx,
 				       m->fs.cfa_offset));
 	  RTX_FRAME_RELATED_P (insn) = 1;
-        }
+	}
       m->fs.sp_offset += rounded_size;
       emit_insn (gen_blockage ());
 
@@ -19968,12 +19968,11 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
 	  code = 'k';
 	}
 
-      /* Since the upper 32 bits of RSP are always zero for x32, we can
-	 encode %esp as %rsp to avoid 0x67 prefix if there is no index or
-	 base register.  */
+      /* Since the upper 32 bits of RSP are always zero for x32,
+	 we can encode %esp as %rsp to avoid 0x67 prefix if
+	 there is no index register.  */
       if (TARGET_X32 && Pmode == SImode
-	  && ((!index && base && REGNO (base) == SP_REG)
-	      || (!base && index && REGNO (index) == SP_REG)))
+	  && !index && base && REG_P (base) && REGNO (base) == SP_REG)
 	code = 'q';
 
       if (ASSEMBLER_DIALECT == ASM_ATT)
@@ -21943,9 +21942,22 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
   switch (mode)
     {
     case E_SImode:
-      gen_divmod4_1 = signed_p ? gen_divmodsi4_1 : gen_udivmodsi4_1;
+      if (GET_MODE (operands[0]) == SImode)
+	{
+	  if (GET_MODE (operands[1]) == SImode)
+	    gen_divmod4_1 = signed_p ? gen_divmodsi4_1 : gen_udivmodsi4_1;
+	  else
+	    gen_divmod4_1
+	      = signed_p ? gen_divmodsi4_zext_2 : gen_udivmodsi4_zext_2;
+	  gen_zero_extend = gen_zero_extendqisi2;
+	}
+      else
+	{
+	  gen_divmod4_1
+	    = signed_p ? gen_divmodsi4_zext_1 : gen_udivmodsi4_zext_1;
+	  gen_zero_extend = gen_zero_extendqidi2;
+	}
       gen_test_ccno_1 = gen_testsi_ccno_1;
-      gen_zero_extend = gen_zero_extendqisi2;
       break;
     case E_DImode:
       gen_divmod4_1 = signed_p ? gen_divmoddi4_1 : gen_udivmoddi4_1;
@@ -21996,24 +22008,32 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
 
   if (signed_p)
     {
-      div = gen_rtx_DIV (SImode, operands[2], operands[3]);
-      mod = gen_rtx_MOD (SImode, operands[2], operands[3]);
+      div = gen_rtx_DIV (mode, operands[2], operands[3]);
+      mod = gen_rtx_MOD (mode, operands[2], operands[3]);
     }
   else
     {
-      div = gen_rtx_UDIV (SImode, operands[2], operands[3]);
-      mod = gen_rtx_UMOD (SImode, operands[2], operands[3]);
+      div = gen_rtx_UDIV (mode, operands[2], operands[3]);
+      mod = gen_rtx_UMOD (mode, operands[2], operands[3]);
+    }
+  if (mode == SImode)
+    {
+      if (GET_MODE (operands[0]) != SImode)
+	div = gen_rtx_ZERO_EXTEND (DImode, div);
+      if (GET_MODE (operands[1]) != SImode)
+	mod = gen_rtx_ZERO_EXTEND (DImode, mod);
     }
 
   /* Extract remainder from AH.  */
-  tmp1 = gen_rtx_ZERO_EXTRACT (mode, tmp0, GEN_INT (8), GEN_INT (8));
+  tmp1 = gen_rtx_ZERO_EXTRACT (GET_MODE (operands[1]),
+			       tmp0, GEN_INT (8), GEN_INT (8));
   if (REG_P (operands[1]))
     insn = emit_move_insn (operands[1], tmp1);
   else
     {
       /* Need a new scratch register since the old one has result
 	 of 8bit divide.  */
-      scratch = gen_reg_rtx (mode);
+      scratch = gen_reg_rtx (GET_MODE (operands[1]));
       emit_move_insn (scratch, tmp1);
       insn = emit_move_insn (operands[1], scratch);
     }
@@ -31578,14 +31598,10 @@ ix86_sched_init_global (FILE *, int, int)
 }
 
 
-/* Compute the alignment given to a constant that is being placed in memory.
-   EXP is the constant and ALIGN is the alignment that the object would
-   ordinarily have.
-   The value of this function is used instead of that alignment to align
-   the object.  */
+/* Implement TARGET_CONSTANT_ALIGNMENT.  */
 
-int
-ix86_constant_alignment (tree exp, int align)
+static HOST_WIDE_INT
+ix86_constant_alignment (const_tree exp, HOST_WIDE_INT align)
 {
   if (TREE_CODE (exp) == REAL_CST || TREE_CODE (exp) == VECTOR_CST
       || TREE_CODE (exp) == INTEGER_CST)
@@ -50047,8 +50063,7 @@ ix86_expand_vec_perm_const (rtx operands[4])
 /* Implement targetm.vectorize.vec_perm_const_ok.  */
 
 static bool
-ix86_vectorize_vec_perm_const_ok (machine_mode vmode,
-				  const unsigned char *sel)
+ix86_vectorize_vec_perm_const_ok (machine_mode vmode, vec_perm_indices sel)
 {
   struct expand_vec_perm_d d;
   unsigned int i, nelt, which;
@@ -50119,11 +50134,11 @@ ix86_vectorize_vec_perm_const_ok (machine_mode vmode,
 
   /* Extract the values from the vector CST into the permutation
      array in D.  */
-  memcpy (d.perm, sel, nelt);
   for (i = which = 0; i < nelt; ++i)
     {
-      unsigned char e = d.perm[i];
+      unsigned char e = sel[i];
       gcc_assert (e < 2 * nelt);
+      d.perm[i] = e;
       which |= (e < nelt ? 1 : 2);
     }
 
@@ -53624,6 +53639,9 @@ ix86_run_selftests (void)
 
 #undef TARGET_CAN_CHANGE_MODE_CLASS
 #define TARGET_CAN_CHANGE_MODE_CLASS ix86_can_change_mode_class
+
+#undef TARGET_CONSTANT_ALIGNMENT
+#define TARGET_CONSTANT_ALIGNMENT ix86_constant_alignment
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

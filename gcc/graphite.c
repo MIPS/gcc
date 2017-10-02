@@ -218,14 +218,9 @@ static bool
 graphite_initialize (void)
 {
   int min_loops = PARAM_VALUE (PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION);
-  int max_bbs = PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION);
-  int nbbs = n_basic_blocks_for_fn (cfun);
   int nloops = number_of_loops (cfun);
 
-  if (nloops <= min_loops
-      /* FIXME: This limit on the number of basic blocks of a function
-	 should be removed when the SCOP detection is faster.  */
-      || (nbbs > max_bbs))
+  if (nloops <= min_loops)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -233,10 +228,6 @@ graphite_initialize (void)
 	    fprintf (dump_file, "\nFunction does not have enough loops: "
 		     "PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION = %d.\n",
 		     min_loops);
-
-	  else if (nbbs > max_bbs)
-	    fprintf (dump_file, "\nFunction has too many basic blocks: "
-		     "PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION = %d.\n", max_bbs);
 
 	  fprintf (dump_file, "\nnumber of SCoPs: 0\n");
 	  print_global_statistics (dump_file);
@@ -326,7 +317,9 @@ canonicalize_loop_closed_ssa (loop_p loop)
 
 	  /* Only add close phi nodes for SSA_NAMEs defined in LOOP.  */
 	  if (TREE_CODE (arg) != SSA_NAME
-	      || loop_containing_stmt (SSA_NAME_DEF_STMT (arg)) != loop)
+	      || SSA_NAME_IS_DEFAULT_DEF (arg)
+	      || ! flow_bb_inside_loop_p (loop,
+					  gimple_bb (SSA_NAME_DEF_STMT (arg))))
 	    continue;
 
 	  tree res = copy_ssa_name (arg);
@@ -419,6 +412,7 @@ graphite_transform_loops (void)
   isl_options_set_on_error (ctx, ISL_ON_ERROR_ABORT);
   the_isl_ctx = ctx;
 
+  sort_sibling_loops (cfun);
   canonicalize_loop_closed_ssa_form ();
 
   calculate_dominance_info (CDI_POST_DOMINATORS);

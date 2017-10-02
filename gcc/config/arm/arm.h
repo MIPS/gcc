@@ -592,15 +592,6 @@ extern int arm_arch_cmse;
 #define BIGGEST_FIELD_ALIGNMENT 64
 #endif
 
-/* Make strings word-aligned so strcpy from constants will be faster.  */
-#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_tune_xscale ? 1 : 2)
-
-#define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
-   ((TREE_CODE (EXP) == STRING_CST				\
-     && !optimize_size						\
-     && (ALIGN) < BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR)	\
-    ? BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR : (ALIGN))
-
 /* Align definitions of arrays, unions and structures so that
    initializations and copies can be made more efficient.  This is not
    ABI-changing, so it only affects places where we can see the
@@ -2237,9 +2228,12 @@ const char *arm_be8_option (int argc, const char **argv);
   "                     %{mfloat-abi=*: abi %*}"	\
   "                     %<march=*) "
 
+/* Complete set of specs for the driver.  Commas separate the
+   individual rules so that any option suppression (%<opt...)is
+   completed before starting subsequent rules.  */
 #define DRIVER_SELF_SPECS			\
-  MCPU_MTUNE_NATIVE_SPECS			\
-  TARGET_MODE_SPECS				\
+  MCPU_MTUNE_NATIVE_SPECS,			\
+  TARGET_MODE_SPECS,				\
   ARCH_CANONICAL_SPECS
 
 #define TARGET_SUPPORTS_WIDE_INT 1

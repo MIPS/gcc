@@ -174,7 +174,7 @@ package body Exp_Imgv is
    -- Expand_Image_Attribute --
    ----------------------------
 
-   --  For all cases other than user defined enumeration types, the scheme
+   --  For all cases other than user-defined enumeration types, the scheme
    --  is as follows. First we insert the following code:
 
    --    Snn : String (1 .. rt'Width);
@@ -268,13 +268,13 @@ package body Exp_Imgv is
       Expr  : constant Node_Id    := Relocate_Node (First (Exprs));
       Pref  : constant Node_Id    := Prefix (N);
 
+      procedure Expand_User_Defined_Enumeration_Image;
+      --  Expand attribute 'Image in user-defined enumeration types, avoiding
+      --  string copy.
+
       function Is_User_Defined_Enumeration_Type
         (Typ : Entity_Id) return Boolean;
-      --  Return True if Typ is an user-defined enumeration type
-
-      procedure Expand_User_Defined_Enumeration_Image;
-      --  Expand attribute 'Image in user-defined enumeration types avoiding
-      --  string copy.
+      --  Return True if Typ is a user-defined enumeration type
 
       -------------------------------------------
       -- Expand_User_Defined_Enumeration_Image --
@@ -307,14 +307,14 @@ package body Exp_Imgv is
              Object_Definition   =>
                New_Occurrence_Of (Standard_Natural, Loc),
              Constant_Present    => True,
-             Expression =>
+             Expression          =>
                Convert_To (Standard_Natural,
                  Make_Attribute_Reference (Loc,
                    Attribute_Name => Name_Pos,
                    Prefix         => New_Occurrence_Of (Ptyp, Loc),
                    Expressions    => New_List (Expr)))));
 
-         --  Compute the index of the string start generating:
+         --  Compute the index of the string start, generating:
          --    P2 : constant Natural := call_put_enumN (P1);
 
          Append_To (Ins_List,
@@ -323,7 +323,7 @@ package body Exp_Imgv is
              Object_Definition   =>
                New_Occurrence_Of (Standard_Natural, Loc),
              Constant_Present    => True,
-             Expression =>
+             Expression          =>
                Convert_To (Standard_Natural,
                  Make_Indexed_Component (Loc,
                    Prefix      =>
@@ -331,7 +331,7 @@ package body Exp_Imgv is
                    Expressions =>
                      New_List (New_Occurrence_Of (P1_Id, Loc))))));
 
-         --  Compute the index of the next value generating:
+         --  Compute the index of the next value, generating:
          --    P3 : constant Natural := call_put_enumN (P1 + 1);
 
          declare
@@ -347,7 +347,7 @@ package body Exp_Imgv is
                 Object_Definition   =>
                   New_Occurrence_Of (Standard_Natural, Loc),
                 Constant_Present    => True,
-                Expression =>
+                Expression          =>
                   Convert_To (Standard_Natural,
                     Make_Indexed_Component (Loc,
                       Prefix      =>
@@ -412,8 +412,8 @@ package body Exp_Imgv is
          Insert_Actions (N, Ins_List, Suppress => All_Checks);
 
          Rewrite (N,
-           Unchecked_Convert_To (S1_Id,
-             New_Occurrence_Of (P4_Id, Loc)));
+           Unchecked_Convert_To (S1_Id, New_Occurrence_Of (P4_Id, Loc)));
+
          Analyze_And_Resolve (N, Standard_String);
       end Expand_User_Defined_Enumeration_Image;
 
@@ -455,11 +455,13 @@ package body Exp_Imgv is
          Rewrite_Object_Image (N, Pref, Name_Image, Standard_String);
          return;
 
-      --  Enable speed optimized expansion of user-defined enumeration types
-      --  if we are compiling with optimizations enabled. Otherwise the call
-      --  will be expanded into a call to the runtime library.
+      --  Enable speed-optimized expansion of user-defined enumeration types
+      --  if we are compiling with optimizations enabled and enumeration type
+      --  literals are generated. Otherwise the call will be expanded into a
+      --  call to the runtime library.
 
       elsif Optimization_Level > 0
+        and then not Global_Discard_Names
         and then Is_User_Defined_Enumeration_Type (Root_Type (Entity (Pref)))
       then
          Expand_User_Defined_Enumeration_Image;
@@ -561,7 +563,7 @@ package body Exp_Imgv is
          Imid := RE_Image_Floating_Point;
          Tent := Standard_Long_Long_Float;
 
-      --  Only other possibility is user defined enumeration type
+      --  Only other possibility is user-defined enumeration type
 
       else
          if Discard_Names (First_Subtype (Ptyp))
@@ -856,7 +858,7 @@ package body Exp_Imgv is
       elsif Is_Real_Type (Rtyp) then
          Vid := RE_Value_Real;
 
-      --  Only other possibility is user defined enumeration type
+      --  Only other possibility is user-defined enumeration type
 
       else
          pragma Assert (Is_Enumeration_Type (Rtyp));
@@ -929,7 +931,7 @@ package body Exp_Imgv is
          return;
       end if;
 
-      --  Fall through for all cases except user defined enumeration type
+      --  Fall through for all cases except user-defined enumeration type
       --  and decimal types, with Vid set to the Id of the entity for the
       --  Value routine and Args set to the list of parameters for the call.
 
@@ -1246,7 +1248,7 @@ package body Exp_Imgv is
    --  because the base type is always static, and hence the expression
    --  in the else is reduced to an integer literal.
 
-   --  For user defined enumeration types, typ'Width expands into
+   --  For user-defined enumeration types, typ'Width expands into
 
    --    Result_Type (Width_Enumeration_NN
    --                  (typS,
@@ -1371,7 +1373,7 @@ package body Exp_Imgv is
          Analyze_And_Resolve (N, Typ);
          return;
 
-      --  User defined enumeration types
+      --  User-defined enumeration types
 
       else
          pragma Assert (Is_Enumeration_Type (Rtyp));

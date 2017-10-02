@@ -1473,6 +1473,20 @@ proc check_effective_target_fortran_real_16 { } {
     }]
 }
 
+# Return 1 if the target supports Fortran real kind 10,
+# 0 otherwise. Contrary to check_effective_target_fortran_large_real
+# this checks for real(10) only.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_fortran_real_10 { } {
+    return [check_no_compiler_messages fortran_real_10 executable {
+	! Fortran
+	real(kind=10) :: x
+	x = cos (x)
+	end
+    }]
+}
 
 # Return 1 if the target supports Fortran's IEEE modules,
 # 0 otherwise.
@@ -3075,7 +3089,9 @@ proc check_effective_target_vect_int { } {
 	     || [is-effective-target arm_neon]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mips_loongson]
-		     || [et-is-effective-target mips_msa])) } {
+		     || [et-is-effective-target mips_msa]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_int_saved($et_index) 1
 	}
     }
@@ -5078,7 +5094,9 @@ proc check_effective_target_vect_shift { } {
 	     || [is-effective-target arm_neon]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mips_msa]
-		     || [et-is-effective-target mips_loongson])) } {
+		     || [et-is-effective-target mips_loongson]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_shift_saved($et_index) 1
 	}
     }
@@ -5096,7 +5114,9 @@ proc check_effective_target_whole_vector_shift { } {
 	 || ([is-effective-target arm_neon]
 	     && [check_effective_target_arm_little_endian])
 	 || ([istarget mips*-*-*]
-	     && [et-is-effective-target mips_loongson]) } {
+	     && [et-is-effective-target mips_loongson])
+	 || ([istarget s390*-*-*]
+	     && [check_effective_target_s390_vx]) } {
 	set answer 1
     } else {
 	set answer 0
@@ -5142,7 +5162,9 @@ proc check_effective_target_vect_shift_char { } {
              && ![istarget powerpc-*-linux*paired*])
 	     || [is-effective-target arm_neon]
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_shift_char_saved($et_index) 1
 	}
     }
@@ -5165,7 +5187,9 @@ proc check_effective_target_vect_long { } {
 	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32])
 	 || [istarget aarch64*-*-*]
 	 || ([istarget mips*-*-*]
-	      && [et-is-effective-target mips_msa]) } {
+	      && [et-is-effective-target mips_msa])
+	 || ([istarget s390*-*-*]
+	     && [check_effective_target_s390_vx]) } {
 	set answer 1
     } else {
 	set answer 0
@@ -5228,7 +5252,9 @@ proc check_effective_target_vect_double { } {
 	     || [istarget spu-*-*]
 	     || ([istarget powerpc*-*-*] && [check_vsx_hw_available])
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_double_saved($et_index) 1
 	}
     }
@@ -5252,7 +5278,9 @@ proc check_effective_target_vect_long_long { } {
 	set et_vect_long_long_saved($et_index) 0
 	if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_long_long_saved($et_index) 1
         }
     }
@@ -5352,7 +5380,9 @@ proc check_effective_target_vect_perm { } {
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mpaired_single]
-		     || [et-is-effective-target mips_msa])) } {
+		     || [et-is-effective-target mips_msa]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_perm_saved($et_index) 1
         }
     }
@@ -5381,7 +5411,9 @@ proc check_effective_target_vect_perm_byte { } {
 	     || [istarget powerpc*-*-*]
 	     || [istarget spu-*-*]
 	     || ([istarget mips-*.*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_perm_byte_saved($et_index) 1
         }
     }
@@ -5410,7 +5442,9 @@ proc check_effective_target_vect_perm_short { } {
 	     || [istarget powerpc*-*-*]
 	     || [istarget spu-*-*]
 	     || ([istarget mips*-*-*]
-		  && [et-is-effective-target mips_msa]) } {
+		  && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_perm_short_saved($et_index) 1
         }
     }
@@ -5569,7 +5603,9 @@ proc check_effective_target_vect_widen_mult_qi_to_hi { } {
 	}
         if { [istarget powerpc*-*-*]
               || [istarget aarch64*-*-*]
-              || [is-effective-target arm_neon] } {
+              || [is-effective-target arm_neon]
+	      || ([istarget s390*-*-*]
+		  && [check_effective_target_s390_vx]) } {
 	    set et_vect_widen_mult_qi_to_hi_saved($et_index) 1
         }
     }
@@ -5606,7 +5642,9 @@ proc check_effective_target_vect_widen_mult_hi_to_si { } {
 	     || [istarget ia64-*-*]
 	     || [istarget aarch64*-*-*]
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
-	     || [is-effective-target arm_neon] } {
+	     || [is-effective-target arm_neon]
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_widen_mult_hi_to_si_saved($et_index) 1
         }
     }
@@ -5631,7 +5669,9 @@ proc check_effective_target_vect_widen_mult_qi_to_hi_pattern { } {
 	set et_vect_widen_mult_qi_to_hi_pattern_saved($et_index) 0
         if { [istarget powerpc*-*-*]
               || ([is-effective-target arm_neon]
-		  && [check_effective_target_arm_little_endian]) } {
+		  && [check_effective_target_arm_little_endian])
+	      || ([istarget s390*-*-*]
+		  && [check_effective_target_s390_vx]) } {
 	    set et_vect_widen_mult_qi_to_hi_pattern_saved($et_index) 1
         }
     }
@@ -5659,7 +5699,9 @@ proc check_effective_target_vect_widen_mult_hi_to_si_pattern { } {
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || ([is-effective-target arm_neon]
-		 && [check_effective_target_arm_little_endian]) } {
+		 && [check_effective_target_arm_little_endian])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_widen_mult_hi_to_si_pattern_saved($et_index) 1
         }
     }
@@ -5683,7 +5725,9 @@ proc check_effective_target_vect_widen_mult_si_to_di_pattern { } {
     } else {
 	set et_vect_widen_mult_si_to_di_pattern_saved($et_index) 0
         if {[istarget ia64-*-*]
-	    || [istarget i?86-*-*] || [istarget x86_64-*-*] } {
+	    || [istarget i?86-*-*] || [istarget x86_64-*-*]
+	    || ([istarget s390*-*-*]
+		&& [check_effective_target_s390_vx]) } {
 	    set et_vect_widen_mult_si_to_di_pattern_saved($et_index) 1
         }
     }
@@ -5856,7 +5900,9 @@ proc check_effective_target_vect_pack_trunc { } {
              || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]
 		 && [check_effective_target_arm_little_endian])
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_pack_trunc_saved($et_index) 1
         }
     }
@@ -5886,7 +5932,9 @@ proc check_effective_target_vect_unpack { } {
 	     || ([istarget mips*-*-*]
 		 && [et-is-effective-target mips_msa])
              || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]
-		 && [check_effective_target_arm_little_endian]) } {
+		 && [check_effective_target_arm_little_endian])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_unpack_saved($et_index) 1
         }
     }
@@ -5956,11 +6004,13 @@ proc check_effective_target_vect_hw_misalign { } {
 	if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || ([istarget powerpc*-*-*] && [check_p8vector_hw_available])
 	     || [istarget aarch64*-*-*]
-	     || ([istarget mips*-*-*] && [et-is-effective-target mips_msa]) } {
+	     || ([istarget mips*-*-*] && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	  set et_vect_hw_misalign_saved($et_index) 1
 	}
 	if { [istarget arm*-*-*] } {
-	    set et_vect_hw_misalign_saved($et_index) ![check_effective_target_arm_vect_no_misalign]
+	    set et_vect_hw_misalign_saved($et_index) [expr ![check_effective_target_arm_vect_no_misalign]]
 	}
     }
     verbose "check_effective_target_vect_hw_misalign:\
@@ -6130,7 +6180,9 @@ proc check_effective_target_vect_condition { } {
 	     || ([istarget mips*-*-*]
 		 && [et-is-effective-target mips_msa])
 	     || ([istarget arm*-*-*]
-		 && [check_effective_target_arm_neon_ok]) } {
+		 && [check_effective_target_arm_neon_ok])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_cond_saved($et_index) 1
 	}
     }
@@ -6155,7 +6207,9 @@ proc check_effective_target_vect_cond_mixed { } {
 	     || [istarget aarch64*-*-*]
 	     || [istarget powerpc*-*-*] 
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_cond_mixed_saved($et_index) 1
 	}
     }
@@ -6181,7 +6235,9 @@ proc check_effective_target_vect_char_mult { } {
 	     || [check_effective_target_arm32]
 	     || [check_effective_target_powerpc_altivec]
 	     || ([istarget mips*-*-*]
-		 && [et-is-effective-target mips_msa]) } {
+		 && [et-is-effective-target mips_msa])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_char_mult_saved($et_index) 1
 	}
     }
@@ -6209,7 +6265,9 @@ proc check_effective_target_vect_short_mult { } {
 	     || [check_effective_target_arm32]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mips_msa]
-		     || [et-is-effective-target mips_loongson])) } {
+		     || [et-is-effective-target mips_loongson]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_short_mult_saved($et_index) 1
 	}
     }
@@ -6236,7 +6294,9 @@ proc check_effective_target_vect_int_mult { } {
 	     || [istarget aarch64*-*-*]
 	     || ([istarget mips*-*-*]
 		 && [et-is-effective-target mips_msa])
-	     || [check_effective_target_arm32] } {
+	     || [check_effective_target_arm32]
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_vect_int_mult_saved($et_index) 1
 	}
     }
@@ -6265,7 +6325,9 @@ proc check_effective_target_vect_extract_even_odd { } {
              || [istarget spu-*-*]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mips_msa]
-		     || [et-is-effective-target mpaired_single])) } {
+		     || [et-is-effective-target mpaired_single]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_extract_even_odd_saved($et_index) 1
         }
     }
@@ -6293,7 +6355,9 @@ proc check_effective_target_vect_interleave { } {
              || [istarget spu-*-*]
 	     || ([istarget mips*-*-*]
 		 && ([et-is-effective-target mpaired_single]
-		     || [et-is-effective-target mips_msa])) } {
+		     || [et-is-effective-target mips_msa]))
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_interleave_saved($et_index) 1
         }
     }
@@ -6410,7 +6474,9 @@ proc check_effective_target_sqrt_insn { } {
 	if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	     || [istarget powerpc*-*-*]
 	     || [istarget aarch64*-*-*]
-	     || ([istarget arm*-*-*] && [check_effective_target_arm_vfp_ok]) } {
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_vfp_ok])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	   set et_sqrt_insn_saved 1
 	}
     }
@@ -6431,7 +6497,9 @@ proc check_effective_target_vect_call_sqrtf { } {
 	set et_vect_call_sqrtf_saved($et_index) 0
 	if { [istarget aarch64*-*-*]
 	     || [istarget i?86-*-*] || [istarget x86_64-*-*]
-	     || ([istarget powerpc*-*-*] && [check_vsx_hw_available]) } {
+	     || ([istarget powerpc*-*-*] && [check_vsx_hw_available])
+	     || ([istarget s390*-*-*]
+		 && [check_effective_target_s390_vx]) } {
 	    set et_vect_call_sqrtf_saved($et_index) 1
 	}
     }
@@ -8063,6 +8131,25 @@ proc check_vect_support_and_set_flags { } {
         }
     } elseif [istarget "aarch64*-*-*"] {
         set dg-do-what-default run
+    } elseif [istarget s390*-*-*] {
+	# The S/390 backend set a default of 2 for that value.
+	# Override it to have the same situation as with other
+	# targets.
+	lappend DEFAULT_VECTCFLAGS "--param" "min-vect-loop-bound=1"
+	lappend DEFAULT_VECTCFLAGS "--param" "max-unrolled-insns=200"
+	lappend DEFAULT_VECTCFLAGS "--param" "max-unroll-times=8"
+	lappend DEFAULT_VECTCFLAGS "--param" "max-completely-peeled-insns=200"
+	lappend DEFAULT_VECTCFLAGS "--param" "max-completely-peel-times=16"
+        if [check_effective_target_s390_vxe] {
+	    lappend DEFAULT_VECTCFLAGS "-march=z14" "-mzarch"
+            set dg-do-what-default run
+	} elseif [check_effective_target_s390_vx] {
+	    lappend DEFAULT_VECTCFLAGS "-march=z13" "-mzarch"
+            set dg-do-what-default run
+        } else {
+	    lappend DEFAULT_VECTCFLAGS "-march=z14" "-mzarch"
+            set dg-do-what-default compile
+        }
     } else {
         return 0
     }
@@ -8489,7 +8576,7 @@ proc check_effective_target_s390_vx { } {
     } "-march=z13 -mzarch" ]
 }
 
-# Same as above but for the arch12 vector enhancement facility. Test
+# Same as above but for the z14 vector enhancement facility. Test
 # is performed with the vector nand instruction.
 proc check_effective_target_s390_vxe { } {
     if ![istarget s390*-*-*] then {
@@ -8502,7 +8589,7 @@ proc check_effective_target_s390_vxe { } {
 	    asm ("vnn %%v24, %%v26, %%v28" : : : "v24", "v26", "v28");
 	    return 0;
 	}
-    } "-march=arch12 -mzarch" ]
+    } "-march=z14 -mzarch" ]
 }
 
 #For versions of ARM architectures that have hardware div insn,
@@ -8675,12 +8762,12 @@ proc check_effective_target_autoincdec { } {
 proc check_effective_target_supports_stack_clash_protection { } {
 
    # Temporary until the target bits are fully ACK'd.
-#  if { [istarget aarch*-*-*]
-#       || [istarget powerpc*-*-*] || [istarget rs6000*-*-*] } {
+#  if { [istarget aarch*-*-*] } {
 #	return 1
 #  }
 
     if { [istarget x86_64-*-*] || [istarget i?86-*-*] 
+	  || [istarget powerpc*-*-*] || [istarget rs6000*-*-*]
 	  || [istarget s390*-*-*] } {
 	return 1
     }
