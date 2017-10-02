@@ -45,7 +45,7 @@ package System.Linux is
    -- Time --
    ----------
 
-   type time_t       is new Long_Long_Integer;
+   subtype time_t is Long_Long_Integer;
    subtype clockid_t is Interfaces.C.int;
 
    type timespec is record
