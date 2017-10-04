@@ -1005,6 +1005,9 @@ fsm_find_control_statement_thread_paths (tree name,
 static void
 find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
 {
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (name)))
+    return;
+
   bb_paths all_paths (name, bb);
   all_paths.prune_duplicate_paths ();
   for (unsigned i = 0; i < all_paths.length (); ++i)
