@@ -5440,6 +5440,7 @@
   "TARGET_MIPS16 && reload_completed
    && (ISA_HAS_MIPS16E2
        ? SMALL_OPERAND_UNSIGNED (-INTVAL (operands[1]))
+	 && INTVAL (operands[1]) != 0
        : INTVAL (operands[1]) < 0)"
   [(set (match_dup 2)
 	(match_dup 3))
