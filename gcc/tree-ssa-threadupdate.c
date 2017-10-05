@@ -2198,6 +2198,97 @@ bb_in_bbs (basic_block bb, basic_block *bbs, int n)
   return false;
 }
 
+/* FIXME: Remove me.  */
+DEBUG_FUNCTION void
+debug_path (FILE *dump_file, int pathno)
+{
+  vec<jump_thread_edge *> *p = paths[pathno];
+  fprintf (dump_file, "path backwards: ");
+  for (unsigned i = 0; i < p->length (); ++i)
+    fprintf (dump_file, "%d -> %d, ",
+	     (*p)[i]->e->src->index, (*p)[i]->e->dest->index);
+  fprintf (dump_file, "\n");
+}
+
+/* After an FSM path has been jump threaded, adjust the remaining FSM
+   paths that are subsets of this path, so these paths can be safely
+   threaded within the context of the new threaded path.
+
+   CURR_PATH_NUM is an index into the global paths table PATH.  It
+   specifies the path that has just been threaded.
+
+   For example, suppose we have just threaded:
+
+   5 -> 6 -> 7 -> 8 -> 12	=>	5 -> 6' -> 7' -> 8' -> 12'
+
+   And we have another threading candidate:
+   5 -> 6 -> 7 -> 8 -> 15
+
+   This function adjusts this last path into:
+   6' -> 7' -> 8' -> 15
+*/
+
+static void
+adjust_paths_after_duplication (unsigned curr_path_num)
+{
+  vec<jump_thread_edge *> *curr_path = paths[curr_path_num];
+  gcc_assert ((*curr_path)[0]->type == EDGE_FSM_THREAD);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "just threaded: ");
+      debug_path (dump_file, curr_path_num);
+    }
+
+  /* Iterate through all the paths that come after CURR_PATH_NUM and
+     adjust them.  */
+  for (unsigned i = curr_path_num + 1; i < paths.length (); ++i)
+    {
+      /* Make sure the candidate to adjust starts with the same path
+	 as the recently threaded path and is an FSM thread.  */
+      vec<jump_thread_edge *> *cand_path = paths[i];
+      if ((*cand_path)[0]->type != EDGE_FSM_THREAD
+	  || (*cand_path)[0]->e != (*curr_path)[0]->e)
+	continue;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "adjusting: ");
+	  debug_path (dump_file, i);
+	}
+
+      /* Chop off from the candidate path any prefix it shares with
+	 the recently threaded path.  */
+      unsigned minlength = MIN (curr_path->length (), cand_path->length ());
+      unsigned j;
+      for (j = 0; j < minlength; ++j)
+	{
+	  edge cand_edge = (*cand_path)[j]->e;
+	  edge curr_edge = (*curr_path)[j]->e;
+	  if (cand_edge != curr_edge)
+	    {
+	      /* Once the prefix no longer matches, adjust the first
+		 non-matching edge to point from an adjusted edge to
+		 wherever it was going.  */
+	      gcc_assert (cand_edge->src == curr_edge->src);
+	      edge n = find_edge (get_bb_copy (cand_edge->src),
+				  cand_edge->dest);
+	      gcc_assert (n != NULL);
+	      (*cand_path)[j]->e = n;
+	      break;
+	    }
+	}
+      if (j > 0)
+	cand_path->block_remove (0, j);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "adjusted: ");
+	  debug_path (dump_file, i);
+	}
+    }
+}
+
 /* Duplicates a jump-thread path of N_REGION basic blocks.
    The ENTRY edge is redirected to the duplicate of the region.
 
@@ -2209,7 +2300,9 @@ bb_in_bbs (basic_block bb, basic_block *bbs, int n)
 
 static bool
 duplicate_thread_path (edge entry, edge exit, basic_block *region,
-		       unsigned n_region)
+		       unsigned n_region,
+		       /* FIXME: Document.  */
+		       unsigned current_path_no)
 {
   unsigned i;
   struct loop *loop = entry->dest->loop_father;
@@ -2217,6 +2310,12 @@ duplicate_thread_path (edge entry, edge exit, basic_block *region,
   edge redirected;
   int curr_freq;
   profile_count curr_count;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nabout to thread: ");
+      debug_path (dump_file, current_path_no);
+    }
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -2368,6 +2467,8 @@ duplicate_thread_path (edge entry, edge exit, basic_block *region,
 
   free (region_copy);
 
+  adjust_paths_after_duplication (current_path_no);
+
   free_original_copy_tables ();
   return true;
 }
@@ -2491,7 +2592,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       for (unsigned int j = 0; j < len - 1; j++)
 	region[j] = (*path)[j]->e->dest;
 
-      if (duplicate_thread_path (entry, exit, region, len - 1))
+      if (duplicate_thread_path (entry, exit, region, len - 1, i))
 	{
 	  /* We do not update dominance info.  */
 	  free_dominance_info (CDI_DOMINATORS);
