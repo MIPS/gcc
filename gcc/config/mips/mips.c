@@ -14265,8 +14265,15 @@ mips_set_return_address (rtx address, rtx scratch)
   rtx slot_address;
 
   gcc_assert (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM));
+  /* nanoMIPS saves the return address below the frame pointer if the fp
+     register is being saved/restored.  */
   slot_address = mips_add_offset (scratch, stack_pointer_rtx,
-				  cfun->machine->frame.gp_sp_offset);
+				  TARGET_NANOMIPS
+				  && BITSET_P (cfun->machine->frame.mask,
+					       HARD_FRAME_POINTER_REGNUM)
+				  ? cfun->machine->frame.gp_sp_offset
+				    - UNITS_PER_WORD
+				  : cfun->machine->frame.gp_sp_offset);
   mips_emit_move (gen_frame_mem (GET_MODE (address), slot_address), address);
 }
 
@@ -14575,6 +14582,7 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
   unsigned int mask = cfun->machine->frame.mask;
   bool restore_p = (fn == mips_save_reg) ? false : true;
   bool used_save_restore_p = false;
+  rtx save_restore = NULL_RTX;
 
   /* Let's limit the use of this function to nanoMIPS for now to avoid
      accidental use for other ISAs.  */
@@ -14601,18 +14609,18 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
 
       if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
 	cfun->machine->frame.ra_fp_offset = offset + sp_offset;
-      rtx save_restore = mips_build_save_restore (restore_p, &mask, &offset,
-						  0/*nargs*/, step,
-						  false, restore_jrc_p
-							 ? *restore_jrc_p
-							 : false);
-      if (!restore_jrc_p || !*restore_jrc_p)
+      save_restore = mips_build_save_restore (restore_p, &mask, &offset,
+					      0/*nargs*/, step,
+					      false, restore_jrc_p
+						     ? *restore_jrc_p
+						     : false);
+      if (!restore_p && (!restore_jrc_p || !*restore_jrc_p))
 	{
 	  RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
 	  mips_frame_barrier ();
 	}
 
-      offset -= cfun->machine->frame.num_gp * UNITS_PER_WORD;
+      offset -= UNITS_PER_WORD;
       if (restore_p && restore)
 	*restore = save_restore;
       used_save_restore_p = true;
@@ -14676,6 +14684,13 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
 	  mips_save_restore_reg (word_mode, regno, offset, fn);
 	  offset -= UNITS_PER_WORD;
 	}
+    }
+
+  if (restore_p && used_save_restore_p && save_restore
+      && (!restore_jrc_p || !*restore_jrc_p))
+    {
+      RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
+      mips_frame_barrier ();
     }
 }
 
@@ -16453,6 +16468,7 @@ mips_can_use_return_insn (void)
   /* For optimal code size, we only consider RESTORE.JRC[16] here.
      We then catch remaining cases in the reorg pass.  */
   return !mips_can_use_simple_return_insn ()
+	 && !crtl->calls_eh_return
 	 && cfun->machine->varargs_size == 0
 	 && crtl->args.pretend_args_size == 0
 	 && cfun->machine->frame.num_fp == 0
