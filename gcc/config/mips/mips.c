@@ -15452,6 +15452,8 @@ mips_expand_return (void)
   gcc_assert (mips_save_restore_pattern_p (restore, sp_offset, NULL,
 					   false/*fp_p*/, true/*jrc_p*/));
   emit_jump_insn (restore);
+  mips_epilogue_emit_cfa_restores();
+  mips_epilogue_set_cfa (stack_pointer_rtx, 0);
 }
 
 /* Expand an "epilogue" or "sibcall_epilogue" pattern; SIBCALL_P
