@@ -22198,7 +22198,8 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
     return false;
 
-  if (GET_CODE (reg1) != REG || GET_CODE (reg2) != REG)
+  if ((!REG_P (reg1) && reg1 != const0_rtx)
+      || (!REG_P (reg2) && reg2 != const0_rtx))
     return false;
 
   /* Base regs do not match.  */
@@ -22209,25 +22210,24 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
      loads if second load clobbers base register.  However, hardware does not
      support such bonding.  */
   if (load_p
-      && (REGNO (reg1) == REGNO (base1)
-	  || (REGNO (reg2) == REGNO (base1))))
+      && (REG_P (reg1) && REGNO (reg1) == REGNO (base1)
+	  || (REG_P (reg2) && REGNO (reg2) == REGNO (base1))))
     return false;
 
   /* Loading in same registers.  */
   if (load_p
+      && REG_P (reg1) && REG_P (reg2)
       && REGNO (reg1) == REGNO (reg2))
     return false;
 
-  /* Check if the loads/stores are of the same mode.
-     Skip the mode check for stores where we have $0 as source registers.  */
-  if ((GET_MODE (reg1) != GET_MODE (reg2)
-       && !(!load_p && (reg1 == const0_rtx || reg2 == const0_rtx)))
-      || GET_MODE (mem1) != GET_MODE (mem2)
-      || GET_MODE (base1) != GET_MODE (base2))
+  /* Check if the loads/stores are of the same mode.  */
+  if (GET_MODE (mem1) != GET_MODE (mem2))
     return false;
 
   /* The loads/stores are not of same type.  */
-  if (reload_completed)
+  if (reload_completed
+      && reg1 != const0_rtx
+      && reg2 != const0_rtx)
     {
       rc1 = REGNO_REG_CLASS (REGNO (reg1));
       rc2 = REGNO_REG_CLASS (REGNO (reg2));
@@ -22385,7 +22385,6 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
 
 	      RTX_FRAME_RELATED_P (bonded) = 1;
 	      add_reg_note (bonded, REG_FRAME_RELATED_EXPR, dwarf);
-	      code = recog_memoized (bonded);
 	    }
 
 	  remove_insn (cur);
