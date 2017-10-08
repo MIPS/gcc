@@ -24724,6 +24724,15 @@ mips_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   return mode;
 }
 
+/* Implement TARGET_SET_UP_BY_PROLOGUE.  */
+
+static void
+mips_set_up_by_prologue (hard_reg_set_container *regs)
+{
+  if (!TARGET_USE_GOT && TARGET_GPOPT)
+    CLEAR_HARD_REG_BIT (regs->set, GLOBAL_POINTER_REGNUM);
+}
+
 void
 mips_bit_clear_info (unsigned HOST_WIDE_INT m, int *start_pos, int *size)
 {
@@ -24860,6 +24869,9 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p
+
+#undef TARGET_SET_UP_BY_PROLOGUE
+#define TARGET_SET_UP_BY_PROLOGUE mips_set_up_by_prologue
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG mips_reorg
