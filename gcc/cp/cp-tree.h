@@ -613,11 +613,6 @@ struct GTY(()) ptrmem_cst {
 };
 typedef struct ptrmem_cst * ptrmem_cst_t;
 
-#define IDENTIFIER_GLOBAL_VALUE(NODE) \
-  get_namespace_binding (NULL_TREE, (NODE))
-#define SET_IDENTIFIER_GLOBAL_VALUE(NODE, VAL) \
-  set_global_binding ((NODE), (VAL))
-
 #define CLEANUP_P(NODE)		TREE_LANG_FLAG_0 (TRY_BLOCK_CHECK (NODE))
 
 #define BIND_EXPR_TRY_BLOCK(NODE) \
@@ -831,6 +826,25 @@ class lkp_iterator : public ovl_iterator
 
     return *this;
   }
+};
+
+/* hash traits for declarations.  Hashes potential overload sets via
+   DECL_NAME.  */
+
+struct named_decl_hash : ggc_remove <tree>
+{
+  typedef tree value_type; /* A DECL or OVERLOAD  */
+  typedef tree compare_type; /* An identifier.  */
+
+  inline static hashval_t hash (const value_type decl);
+  inline static bool equal (const value_type existing, compare_type candidate);
+
+  static inline void mark_empty (value_type &p) {p = NULL_TREE;}
+  static inline bool is_empty (value_type p) {return !p;}
+
+  /* Nothing is deletable.  Everything is insertable.  */
+  static bool is_deleted (value_type) { return false; }
+  static void mark_deleted (value_type) { gcc_unreachable (); }
 };
 
 struct GTY(()) tree_template_decl {
@@ -2553,10 +2567,10 @@ struct GTY(()) lang_decl_ns {
   vec<tree, va_gc> *usings;
   vec<tree, va_gc> *inlinees;
 
-  /* Map from IDENTIFIER nodes to DECLS.  It'd be nice to have this
-     inline, but as the hash_map has a dtor, we can't then put this
-     struct into a union (until moving to c++11).  */
-  hash_map<lang_identifier *, tree> *bindings;
+  /* Hash table of bound decls. It'd be nice to have this inline, but
+     as the hash_map has a dtor, we can't then put this struct into a
+     union (until moving to c++11).  */
+  hash_table<named_decl_hash> *bindings;
 };
 
 /* DECL_LANG_SPECIFIC for parameters.  */
@@ -5676,6 +5690,10 @@ struct cp_declarator {
   /* Whether we parsed an ellipsis (`...') just before the declarator,
      to indicate this is a parameter pack.  */
   BOOL_BITFIELD parameter_pack_p : 1;
+  /* If this declarator is parenthesized, this the open-paren.  It is
+     UNKNOWN_LOCATION when not parenthesized.  */
+  location_t parenthesized;
+
   location_t id_loc; /* Currently only set for cdk_id, cdk_decomp and
 			cdk_function. */
   /* GNU Attributes that apply to this declarator.  If the declarator
@@ -6107,7 +6125,7 @@ extern bool start_function			(cp_decl_specifier_seq *,
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
 extern tree outer_curly_brace_block		(tree);
-extern tree finish_function			(int);
+extern tree finish_function			(bool);
 extern tree grokmethod				(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern void maybe_register_incomplete_var	(tree);
 extern void maybe_commonize_var			(tree);
@@ -6142,6 +6160,7 @@ extern tree finish_case_label			(location_t, tree, tree);
 extern tree cxx_maybe_build_cleanup		(tree, tsubst_flags_t);
 
 /* in decl2.c */
+extern void record_mangling			(tree, bool);
 extern void note_mangling_alias			(tree, tree);
 extern void generate_mangling_aliases		(void);
 extern tree build_memfn_type			(tree, tree, cp_cv_quals, cp_ref_qualifier);
@@ -7154,7 +7173,6 @@ extern tree add_exception_specifier		(tree, tree, int);
 extern tree merge_exception_specifiers		(tree, tree);
 
 /* in mangle.c */
-extern bool maybe_remove_implicit_alias		(tree);
 extern void init_mangle				(void);
 extern void mangle_decl				(tree);
 extern const char *mangle_type_string		(tree);
@@ -7369,6 +7387,20 @@ inline bool
 type_unknown_p (const_tree expr)
 {
   return TREE_TYPE (expr) == unknown_type_node;
+}
+
+inline hashval_t
+named_decl_hash::hash (const value_type decl)
+{
+  tree name = OVL_NAME (decl);
+  return name ? IDENTIFIER_HASH_VALUE (name) : 0;
+}
+
+inline bool
+named_decl_hash::equal (const value_type existing, compare_type candidate)
+{
+  tree name = OVL_NAME (existing);
+  return candidate == name;
 }
 
 /* -- end of C++ */
