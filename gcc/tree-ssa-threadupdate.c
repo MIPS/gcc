@@ -1983,7 +1983,8 @@ mark_threaded_blocks (bitmap threaded_blocks)
     {
       vec<jump_thread_edge *> *path = paths[i];
 
-      if ((*path)[1]->type != EDGE_COPY_SRC_JOINER_BLOCK)
+      if (path->length () > 1
+	  && (*path)[1]->type != EDGE_COPY_SRC_JOINER_BLOCK)
 	{
 	  edge e = (*path)[0]->e;
 	  e->aux = (void *)path;
@@ -2003,7 +2004,8 @@ mark_threaded_blocks (bitmap threaded_blocks)
     {
       vec<jump_thread_edge *> *path = paths[i];
 
-      if ((*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK)
+      if (path->length () > 1
+	  && (*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK)
 	{
 	  /* Attach the path to the starting edge if none is yet recorded.  */
 	  if ((*path)[0]->e->aux == NULL)
@@ -2032,7 +2034,8 @@ mark_threaded_blocks (bitmap threaded_blocks)
       vec<jump_thread_edge *> *path = paths[i];
       edge e = (*path)[0]->e;
 
-      if ((*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK && e->aux == path)
+      if (path->length () > 1
+	  && (*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK && e->aux == path)
 	{
 	  unsigned int j;
 	  for (j = 1; j < path->length (); j++)
@@ -2210,23 +2213,29 @@ debug_path (FILE *dump_file, int pathno)
   fprintf (dump_file, "\n");
 }
 
+DEBUG_FUNCTION void
+debug_all_paths ()
+{
+  for (unsigned i = 0; i < paths.length (); ++i)
+    debug_path (stderr, i);
+}
+
 /* After an FSM path has been jump threaded, adjust the remaining FSM
    paths that are subsets of this path, so these paths can be safely
    threaded within the context of the new threaded path.
-
-   CURR_PATH_NUM is an index into the global paths table PATH.  It
-   specifies the path that has just been threaded.
 
    For example, suppose we have just threaded:
 
    5 -> 6 -> 7 -> 8 -> 12	=>	5 -> 6' -> 7' -> 8' -> 12'
 
-   And we have another threading candidate:
+   And we have an upcoming threading candidate:
    5 -> 6 -> 7 -> 8 -> 15
 
-   This function adjusts this last path into:
+   This function adjusts the upcoming path into:
    6' -> 7' -> 8' -> 15
-*/
+
+   CURR_PATH_NUM is an index into the global paths table.  It
+   specifies the path that has just been threaded.  */
 
 static void
 adjust_paths_after_duplication (unsigned curr_path_num)
@@ -2242,14 +2251,17 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 
   /* Iterate through all the paths that come after CURR_PATH_NUM and
      adjust them.  */
-  for (unsigned i = curr_path_num + 1; i < paths.length (); ++i)
+  for (unsigned i = curr_path_num + 1; i < paths.length (); )
     {
       /* Make sure the candidate to adjust starts with the same path
 	 as the recently threaded path and is an FSM thread.  */
       vec<jump_thread_edge *> *cand_path = paths[i];
       if ((*cand_path)[0]->type != EDGE_FSM_THREAD
 	  || (*cand_path)[0]->e != (*curr_path)[0]->e)
-	continue;
+	{
+	  ++i;
+	  continue;
+	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -2273,13 +2285,33 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	      gcc_assert (cand_edge->src == curr_edge->src);
 	      edge n = find_edge (get_bb_copy (cand_edge->src),
 				  cand_edge->dest);
-	      gcc_assert (n != NULL);
+
+	      /* If curr_path was duplicated in such a way that we no
+		 longer have a compatible path, there's no way to
+		 figure out where to go.  */
+	      if (n == NULL)
+		{
+		  /* Set things up to delete the entire candidate from
+		     PATHS.  */
+		  j = cand_path->length ();
+		  break;
+		}
 	      (*cand_path)[j]->e = n;
 	      break;
 	    }
 	}
       if (j > 0)
-	cand_path->block_remove (0, j);
+	{
+	  /* If we are removing everything, delete the entire path.  */
+	  if (j == cand_path->length ())
+	    {
+	      delete_jump_thread_path (cand_path);
+	      paths.unordered_remove (i);
+	      continue;
+	    }
+	  cand_path->block_remove (0, j);
+	}
+      ++i;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
