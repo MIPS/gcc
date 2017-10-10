@@ -99,12 +99,21 @@ acc_get_cuda_stream (int async)
       prof_info.async_queue = prof_info.async;
     }
 
+  void *ret = NULL;
   if (thr && thr->dev && thr->dev->openacc.cuda.get_stream_func)
     {
       goacc_aq aq = lookup_goacc_asyncqueue (thr, false, async);
-      return aq ? thr->dev->openacc.cuda.get_stream_func (aq) : NULL;
+      if (aq)
+	ret = thr->dev->openacc.cuda.get_stream_func (aq);
     }
-  return NULL;
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
+
+  return ret;
 }
 
 int
