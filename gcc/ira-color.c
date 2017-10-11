@@ -1684,7 +1684,7 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 
   if (adjust_costs_flag)
     targetm.adjust_costs ((void*)a, 0);
-  
+
   ira_allocate_and_copy_costs (&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
 			       aclass, ALLOCNO_HARD_REG_COSTS (a));
   a_costs = ALLOCNO_UPDATED_HARD_REG_COSTS (a);
@@ -1998,6 +1998,29 @@ merge_threads (ira_allocno_t t1, ira_allocno_t t2)
   ALLOCNO_COLOR_DATA (t1)->next_thread_allocno = t2;
   ALLOCNO_COLOR_DATA (last)->next_thread_allocno = next;
   ALLOCNO_COLOR_DATA (t1)->thread_freq += ALLOCNO_COLOR_DATA (t2)->thread_freq;
+}
+
+/* Return numbers of allocnos that belong to the same thread as given
+   allocno.  */
+vec<int>
+get_copy_thread_allocnos (ira_allocno_t a)
+{
+  vec<int> copies = vNULL;
+  ira_allocno_t all;
+
+  for (all = ALLOCNO_COLOR_DATA (a)->next_thread_allocno;
+       all != a;
+       all = ALLOCNO_COLOR_DATA (all)->next_thread_allocno)
+    copies.safe_push (ALLOCNO_NUM (all));
+
+  return copies;
+}
+
+/* Returns first allocno from copy thread of given allocno.  */
+ira_allocno_t
+get_first_allocno_from_thread (ira_allocno_t a)
+{
+  return ALLOCNO_COLOR_DATA (a)->first_thread_allocno;
 }
 
 /* Create threads by processing CP_NUM copies from sorted copies.  We

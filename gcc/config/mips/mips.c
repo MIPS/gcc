@@ -28457,28 +28457,119 @@ mips_adjust_reg_alloc_order ()
 
 /* Post ira recolor data and functions.  */
 
-
 static bool
-mips_check_16b_add_imm (rtx reg_op1, rtx reg_op2, rtx const_op)
+mips_check_16b_add_imm (rtx reg_op, rtx const_op)
 {
   if (!CONST_INT_P (const_op))
     gcc_unreachable ();
 
-  if (rtx_equal_p (reg_op1, reg_op2)
-      && sb4_operand (const_op, GET_MODE (const_op)))
+  if (addiur2_operand (const_op, GET_MODE (const_op))
+      || sb4_operand (const_op, GET_MODE (const_op)))
     return true;
-  if (((REGNO (reg_op2) == STACK_POINTER_REGNUM)
-       || (REGNO (reg_op2) == ARG_POINTER_REGNUM)
-       || (REGNO (reg_op2) == FRAME_POINTER_REGNUM))
+
+  if (((REGNO (reg_op) == STACK_POINTER_REGNUM)
+       || (REGNO (reg_op) == ARG_POINTER_REGNUM)
+       || (REGNO (reg_op) == FRAME_POINTER_REGNUM))
       && addiusp_operand (const_op, GET_MODE (const_op)))
     return true;
-  if (addiur2_operand (const_op, GET_MODE (const_op)))
-    return true;
+
   return false;
 }
 
+static attr_subset_16bit
+mips_get_subset_mem (rtx mem_op, machine_mode mode, bool load)
+{
+  struct mips_address_info addr;
+
+  if (!MEM_P (mem_op))
+    gcc_unreachable ();
+
+  if (!mips_classify_address (&addr, XEXP (mem_op, 0), GET_MODE (mem_op),
+			      false))
+    return SUBSET_16BIT_NO;
+
+  if (addr.type == ADDRESS_REG_REG)
+    return SUBSET_16BIT_STD;
+
+  if (addr.type != ADDRESS_REG)
+    return SUBSET_16BIT_NO;
+
+  if (HARD_REGISTER_P (addr.reg))
+    {
+      switch (GET_MODE_SIZE (mode))
+	{
+	  case 4:
+	    if (lwsp_swsp_operand (mem_op, GET_MODE (mem_op)))
+	      return SUBSET_16BIT_NO;
+	    else if (lw4x4_sw4x4_operand (mem_op, GET_MODE (mem_op)))
+	      return SUBSET_16BIT_4X4;
+	    else if (lw16_sw16_operand (mem_op, GET_MODE (mem_op)))
+	      return SUBSET_16BIT_STD;
+	    return SUBSET_16BIT_NO;
+	  case 2:
+	    return lhu16_sh16_operand (mem_op, GET_MODE (mem_op))
+		     ? SUBSET_16BIT_STD : SUBSET_16BIT_NO;
+	  case 1:
+	    if (load)
+	      return lbu16_operand (mem_op, GET_MODE (mem_op))
+		       ? SUBSET_16BIT_STD : SUBSET_16BIT_NO;
+	    else
+	      return sb16_operand (mem_op, GET_MODE (mem_op))
+		       ? SUBSET_16BIT_STORE : SUBSET_16BIT_NO;
+	  default:
+	    return SUBSET_16BIT_NO;
+	}
+    }
+  else
+    {
+      switch (GET_MODE_SIZE (mode))
+	{
+	  case 4:
+	    if ((REGNO (addr.reg) == ARG_POINTER_REGNUM)
+		|| (REGNO (addr.reg) == FRAME_POINTER_REGNUM))
+	      return SUBSET_16BIT_NO;
+	    else if (uw2_operand (addr.offset, GET_MODE (mem_op)))
+	      return SUBSET_16BIT_4X4;
+	    else
+	      return uw4_operand (addr.offset, GET_MODE (mem_op))
+		       ? SUBSET_16BIT_STD : SUBSET_16BIT_NO;
+	  case 2:
+	      return uh2_operand (addr.offset, GET_MODE (mem_op))
+		       ? SUBSET_16BIT_STD : SUBSET_16BIT_NO;
+	  case 1:
+	      if (load)
+		return ub2_operand (addr.offset, GET_MODE (mem_op))
+			 ? SUBSET_16BIT_STD : SUBSET_16BIT_NO;
+	      else
+		return ub2_operand (addr.offset, GET_MODE (mem_op))
+			 ? SUBSET_16BIT_STORE : SUBSET_16BIT_NO;
+	  default:
+	    return SUBSET_16BIT_NO;
+	}
+    }
+  return SUBSET_16BIT_NO;
+}
+
+static attr_subset_16bit
+check_attr_subset_16bit (attr_subset_16bit attr, rtx_insn *insn)
+{
+  switch (attr)
+    {
+      case SUBSET_16BIT_SUB_LOAD:
+	extract_insn (insn);
+	return mips_get_subset_mem (recog_data.operand[1],
+				   GET_MODE (recog_data.operand[1]), true);
+      case SUBSET_16BIT_SUB_STORE:
+	extract_insn (insn);
+	return mips_get_subset_mem (recog_data.operand[0],
+				   GET_MODE (recog_data.operand[0]), false);
+      default:
+	return attr;
+    }
+}
+
 static bool
-mips_check_16b_mem (rtx mem_op, attr_mode mode, bool load)
+mips_check_16b_mem (rtx mem_op, machine_mode mode, bool load)
 {
   struct mips_address_info addr;
 
@@ -28489,20 +28580,23 @@ mips_check_16b_mem (rtx mem_op, attr_mode mode, bool load)
 			      false))
     return false;
 
+  if (addr.type == ADDRESS_REG_REG && (GET_MODE_SIZE (mode) == 4))
+    return true;
+
   if (addr.type != ADDRESS_REG)
     return false;
 
   if (HARD_REGISTER_P (addr.reg))
     {
-      switch (mode)
+      switch (GET_MODE_SIZE (mode))
 	{
-	  case MODE_SI:
+	  case 4:
 	    if (lwsp_swsp_operand (mem_op, GET_MODE (mem_op)))
 	      return false;
 	    return lw16_sw16_operand (mem_op, GET_MODE (mem_op));
-	  case MODE_HI:
+	  case 2:
 	    return lhu16_sh16_operand (mem_op, GET_MODE (mem_op));
-	  case MODE_QI:
+	  case 1:
 	    if (load)
 	      return lbu16_operand (mem_op, GET_MODE (mem_op));
 	    else
@@ -28513,17 +28607,17 @@ mips_check_16b_mem (rtx mem_op, attr_mode mode, bool load)
     }
   else
     {
-      switch (mode)
+      switch (GET_MODE_SIZE (mode))
 	{
-	  case MODE_SI:
+	  case 4:
 	    if ((REGNO (addr.reg) == ARG_POINTER_REGNUM)
 		|| (REGNO (addr.reg) == FRAME_POINTER_REGNUM))
 	      return false;
 	    else
 	      return uw4_operand (addr.offset, GET_MODE (mem_op));
-	  case MODE_HI:
+	  case 2:
 	      return uh2_operand (addr.offset, GET_MODE (mem_op));
-	  case MODE_QI:
+	  case 1:
 	      return ub2_operand (addr.offset, GET_MODE (mem_op));
 	  default:
 	    return false;
@@ -28589,10 +28683,10 @@ mips_insn_has_short_form_r7_p_attr (rtx_insn *insn)
 	return false;
       case HAS_16BIT_VER_RRI_LOAD:
 	return mips_check_16b_mem (recog_data.operand[1],
-				   get_attr_mode (insn), true);
+				   GET_MODE (recog_data.operand[1]), true);
       case HAS_16BIT_VER_RRI_STORE:
 	return mips_check_16b_mem (recog_data.operand[0],
-				   get_attr_mode (insn), false);
+				   GET_MODE (recog_data.operand[0]), false);
       case HAS_16BIT_VER_RRI_AND:
 	return andi16_operand (recog_data.operand[2],
 			       GET_MODE (recog_data.operand[2]));
@@ -28603,8 +28697,7 @@ mips_insn_has_short_form_r7_p_attr (rtx_insn *insn)
       case HAS_16BIT_VER_RRI_BEQC:
 	return true;
       case HAS_16BIT_VER_RRI_ADD:
-	return mips_check_16b_add_imm (recog_data.operand[0],
-				       recog_data.operand[1],
+	return mips_check_16b_add_imm (recog_data.operand[1],
 				       recog_data.operand[2]);
       default:
 	return false;
@@ -28630,10 +28723,10 @@ struct recolor_allocno_data {
   int type;
   /* Rating associated with allocno.  */
   int rating;
+  /* Cumulative rating associated with allocno.  */
+  int crating;
   /* Number of instructions with this allocno in every category.  */
   int categories[INSN_CATEGORIES_NUM];
-  /* True if allocno is move related with some precolored register.  */
-  bool precolored_move_related;
   /* Register class prefered by register.  */
   enum reg_class prefered_class;
   /* Mark allocno as processed to terminate recursion.  */
@@ -28642,16 +28735,25 @@ struct recolor_allocno_data {
   bool recolored;
   /* Mark allocno as checked to terminate recursion.  */
   bool checked;
+  /* Values for which register costs are modified.  */
+  int mod_vals[32];
+  /* Cumulative values from same copy thread for which register costs are
+     modified.  */
+  int cmod_vals[32];
 };
 
 /* Pointer to array containing data for all allocnos.  */
 typedef struct recolor_allocno_data *recolor_allocno_data_t;
 
+/* Used for restoring original cost values.  */
 struct static_recolor_allocno_data {
   int mod_val;
   int rating;
+  int crating;
   bool s_regs_used;
-  vec<ira_allocno_t> two_reg_insns_allocnos;
+  int mod_vals[32];
+  int cmod_vals[32];
+  int conflict_vals[32];
 };
 
 typedef struct static_recolor_allocno_data static_recolor_allocno_data_t;
@@ -28678,6 +28780,45 @@ recolor_allocno_data_t recolor_allocnos_data;
 
 static_recolor_allocno_data_t static_recolor_allocnos_data[1000];
 
+/* Registers subsets used by 16-bit instructions.  */
+
+int adjust_cost_reg_subsets_hard[6][32] = {
+				       /* Standard list of 8 GPRs used by most
+					  16 bit instructions.  */
+				       {0x7f,16,17,18,19,4,5,6,7,-1},
+				       /* Source GPR used by 16 bit store
+					  instructions.  */
+				       {0x7f,0,17,18,19,4,5,6,7,-1},
+				       /* Used for move instructions.  */
+				       {0x7f,4,5,6,7,8,9,10,16,17,18,19,20,21,
+					22,23,-1},
+				       /* 4x4 instructions.  */
+				       {0x7f,4,5,6,7,8,9,10,11,16,17,
+					18,19,20,21,22,23,-1}};
+
+int adjust_cost_reg_subsets[6][46] = {/* Standard list of 8 GPRs used by most
+					 16 bit instructions.  */
+				      {0x7f,5,1,6,1,7,1,8,1,3,1,2,1,1,1,0,1,
+				       -1},
+				      /* Source GPR used by 16 bit store
+					 instructions.  */
+				      {0x7f,6,1,7,1,8,1,3,1,2,1,1,1,0,1,-1},
+				      /* Used for move instructions to
+					 increase chances for usage of
+					 MOVE.BALC and MOVEP instructions.  */
+				      {0x7f,0,1,1,1,2,1,3,1,14,1,15,1,16,1,17,
+				       1,5,1,6,1,7,1,8,1,9,1,10,1,11,1,12,1,
+				       -1},
+				      /* 4x4 instructions.  */
+				      {0x7f,0,1,1,1,2,1,3,1,5,1,6,1,7,1,8,1,9,
+				       1,10,1,11,1,12,1,14,1,15,1,16,1,17,1,
+				       -1}};
+
+/* Vals for which corresponding register cost will be additionally
+   increased.  */
+int inrease_short_reg_costs[32] = {0,0,0,0,4,5,4,4,1,0,0,0,0,0,0,0,2,3,3,3,0,
+				    0,0,0,0,0,0,0,0,0,0,0};
+
 /* Initialization function.  */
 
 static void
@@ -28686,6 +28827,8 @@ mips_adjust_costs_init (void)
   recolor_allocnos_data
     = (recolor_allocno_data_t) ira_allocate (
 	 sizeof (struct recolor_allocno_data) * ira_allocnos_num);
+  memset (recolor_allocnos_data, 0, sizeof (struct recolor_allocno_data)
+				      * ira_allocnos_num);
 }
 
 /* Cleanup function.  */
@@ -28693,7 +28836,73 @@ mips_adjust_costs_init (void)
 static void
 mips_adjust_costs_finish ()
 {
+  if (!recolor_allocnos_data)
+    return;
   ira_free (recolor_allocnos_data);
+}
+
+/* Returns allocno numbers that are in same copy thread as given allocno.  */
+vec<int> get_copy_thread_allocnos (ira_allocno_t a);
+
+/* Calculate cumulative rating for given allocno using values for allocnos from
+   same copy thread.  */
+
+static int
+get_cumulative_rating (ira_allocno_t a)
+{
+  int i, cp_a_num;
+  int rating = 0;
+  vec<int> copies;
+
+ if (recolor_allocnos_data[ALLOCNO_NUM (a)].checked)
+    return 0;
+
+  copies = get_copy_thread_allocnos (a);
+
+  recolor_allocnos_data[ALLOCNO_NUM (a)].checked = true;
+
+  rating = recolor_allocnos_data[ALLOCNO_NUM (a)].rating;
+
+  if (copies != vNULL)
+    {
+      FOR_EACH_VEC_ELT (copies, i, cp_a_num)
+	if (! (ALLOCNO_HARD_REGNO (ira_allocnos[cp_a_num]) > 0
+	       && !N16_4X4_REG_P (ALLOCNO_HARD_REGNO (ira_allocnos[cp_a_num]))))
+	  rating += recolor_allocnos_data[cp_a_num].rating;
+
+      copies.release ();
+    }
+
+  return rating;
+}
+
+/* Calculate cumulative modification values for hw registers using values for
+   registers from same copy thread.  */
+
+static void
+mips_create_cumulative_vals (ira_allocno_t a)
+{
+
+  int i, j, cp_a_num;
+  vec<int> copies;
+
+  for (i=0; i<32; i++)
+    recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals[i]
+      = recolor_allocnos_data[ALLOCNO_NUM (a)].mod_vals[i];
+
+  copies = get_copy_thread_allocnos (a);
+
+  if (copies != vNULL)
+    {
+      FOR_EACH_VEC_ELT (copies, i, cp_a_num)
+	{
+	  if (ALLOCNO_HARD_REGNO (ira_allocnos[cp_a_num]) < 0)
+	    for (j=0; j<32; j++)
+	      recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals[j]
+		+= recolor_allocnos_data[cp_a_num].mod_vals[j];
+	}
+      copies.release ();
+    }
 }
 
 /* Returns allocno associated with given regno.  */
@@ -28730,6 +28939,9 @@ mips_get_insn_data (rtx_insn *insn, void *res)
       rtx operand = recog_data.operand[i];
 
       /* Collect registers from instruction operands.  */
+      if (GET_CODE (operand) == SUBREG)
+	operand = SUBREG_REG (operand);
+
       if (REG_P (operand))
 	{
 	  regno[0] = REGNO (operand);
@@ -28785,45 +28997,84 @@ mips_get_insn_data (rtx_insn *insn, void *res)
   return 0;
 }
 
-/* Mark allocnos that are move related with same precolored registers.  */
+/* Set cost modification values for hw registers that belong to given register
+   subset.  */
 
 static void
-mips_update_precolored_move_related (rtx insn)
+mips_set_mod_vals (int *allocnos, int allocno_num,
+		   attr_subset_16bit subset_16bit)
 {
-  rtx pattern;
-
-  if (!INSN_P (insn))
+  int op_pos;
+  int pos = 0;
+  int op_rep = 0;
+  if (subset_16bit == SUBSET_16BIT_NO)
     return;
 
-  if (GET_CODE (PATTERN (insn)) == USE)
-    return;
-
-  if (GET_CODE (PATTERN (insn)) == CLOBBER)
-    return;
-
-  pattern = PATTERN (insn);
-
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && REG_P (XEXP (pattern, 1)))
+  for (int i = 0; i < allocno_num; i++)
     {
-      int regno0 = REGNO (XEXP (pattern, 0));
-      int regno1 = REGNO (XEXP (pattern, 1));
-
-      if (regno0 < FIRST_PSEUDO_REGISTER && regno1 >= FIRST_PSEUDO_REGISTER)
+      if (!op_rep)
 	{
-	  int allocno_num = mips_get_allocno_num_for_regno (regno1);
-	  if (allocno_num >= 0)
-	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
+	  op_rep = adjust_cost_reg_subsets[subset_16bit][pos++];
+	  op_pos = pos;
+	}
+      else
+      	pos = op_pos;
+
+      while (adjust_cost_reg_subsets[subset_16bit][pos] >= 0)
+	{
+	  int val_ix = adjust_cost_reg_subsets[subset_16bit][pos];
+	  recolor_allocnos_data[allocnos[i]].mod_vals[val_ix]
+	    += adjust_cost_reg_subsets[subset_16bit][pos+1];
+	  pos += 2;
 	}
 
-      if (regno0 >= FIRST_PSEUDO_REGISTER && regno1 < FIRST_PSEUDO_REGISTER)
-	{
-	  int allocno_num = mips_get_allocno_num_for_regno (regno0);
-	  if (allocno_num >= 0)
-	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
-	}
+      op_rep--;
+      pos++;
     }
+}
+
+
+/* Return true if all already assigned hard registres sitisfy requirements for
+   given register subset.  */
+
+static bool
+mips_adjust_short_reg_p (int *allocnos, int allocno_num,
+			 attr_subset_16bit subset_16bit)
+{
+  int op_pos;
+  int pos = 0;
+  int op_rep = 0;
+  if (subset_16bit == SUBSET_16BIT_NO)
+    return false;
+
+  for (int i = 0; i < allocno_num; i++)
+    {
+      int hreg = ALLOCNO_HARD_REGNO (ira_allocnos[allocnos[i]]);
+      bool hreg_ok = false;
+      if (!op_rep)
+	{
+	  op_rep = adjust_cost_reg_subsets[subset_16bit][pos++];
+	  op_pos = pos;
+	}
+      else
+      	pos = op_pos;
+
+      while (adjust_cost_reg_subsets_hard[subset_16bit][pos] >= 0)
+	{
+	  if (hreg >= 0
+	      && hreg == adjust_cost_reg_subsets_hard[subset_16bit][pos])
+	    hreg_ok = true;
+	  pos++;
+	}
+
+      if (hreg >=0 && !hreg_ok)
+	return false;
+
+      op_rep--;
+      pos++;
+    }
+
+  return true;
 }
 
 /* Collect all recoloring data for current function.  */
@@ -28834,6 +29085,7 @@ mips_collect_recolor_data (bool &s_regs_used)
   basic_block bb;
   rtx_insn *insn;
   int i, j;
+
   memset (recolor_allocnos_data, 0,
 	  sizeof (struct recolor_allocno_data) * ira_allocnos_num);
 
@@ -28846,8 +29098,6 @@ mips_collect_recolor_data (bool &s_regs_used)
 	insn_data_t i_data;
 	memset (&i_data, 0, sizeof (insn_data_t));
 
-	mips_update_precolored_move_related (insn);
-
 	if (mips_get_insn_data (insn, &i_data) >= 0)
 	  {
 	    /* Call corresponding function and increment category counter if
@@ -28855,25 +29105,31 @@ mips_collect_recolor_data (bool &s_regs_used)
 	    if (mips_insn_has_short_form_r7_p_attr (insn))
 	      {
 	      	bool short_insn = true;
-	      /* Update corresponding data in recolor_allocnos_data.  */
-		for (j = 0; j < i_data.reg_num; j++)
-		  {
-		    unsigned int a_num = i_data.allocnos[j];
-		    if (ALLOCNO_HARD_REGNO (ira_allocnos[a_num]) > 0
-			&& !mips_short_reg_p (ALLOCNO_HARD_REGNO
-						(ira_allocnos[a_num])))
-		    short_insn = false;
-		  }
+		attr_subset_16bit subset_16bit
+		  = check_attr_subset_16bit (get_attr_subset_16bit (insn),
+					     insn);
+
+		/* Update corresponding data in recolor_allocnos_data.  */
+		if (!mips_adjust_short_reg_p (i_data.allocnos, i_data.reg_num,
+					      subset_16bit))
+		  short_insn = false;
+
 		if (short_insn)
-		  for (j = 0; j < i_data.reg_num; j++)
-		    recolor_allocnos_data[i_data.allocnos[j]]
-		      .categories[i_data.reg_num]++;
+		  {
+		    for (j = 0; j < i_data.reg_num; j++)
+		      recolor_allocnos_data[i_data.allocnos[j]]
+			.categories[i_data.reg_num]++;
+
+		    mips_set_mod_vals (i_data.allocnos, i_data.reg_num,
+				       subset_16bit);
+		  }
 	      }
 
 	    /* Push instruction into instruction list of corresponding
 	       allocnos.  */
 	    for (i = 0; i < i_data.reg_num; i++)
-	      if (mips_save_reg_p (REGNO (i_data.regs[i])))
+	      if (ALLOCNO_HARD_REGNO (ira_allocnos[i_data.allocnos[j]])
+		  &&  mips_save_reg_p (REGNO (i_data.regs[i])))
 		s_regs_used = true;
 	  }
       }
@@ -28885,6 +29141,7 @@ mips_collect_recolor_data (bool &s_regs_used)
 
       if (!ira_allocnos[i])
 	continue;
+
       /* Calculate allocno rating.  */
       for (j=0; j < INSN_CATEGORIES_NUM; j++)
 	{
@@ -28893,17 +29150,21 @@ mips_collect_recolor_data (bool &s_regs_used)
 	  recolor_allocnos_data[i].rating += tmp;
 	}
    }
-}
 
-/* Returns true if allocnos can not be coalesced (e.g. int and float
-   allocnos).  */
+  for (i=0; i<ira_allocnos_num; i++)
+    {
+      if (!ira_allocnos[i])
+	continue;
 
-static bool
-mips_recolor_needs_move (enum machine_mode mode1, enum machine_mode mode2)
-{
-  if (GET_MODE_CLASS (mode1) == MODE_INT && GET_MODE_CLASS (mode2) == MODE_INT)
-    return false;
-  return true;
+      for (int j=0; j<ira_allocnos_num; j++)
+	recolor_allocnos_data[j].checked = false;
+
+      recolor_allocnos_data[i].crating
+	= get_cumulative_rating (ira_allocnos[i]);
+      static_recolor_allocnos_data[i].crating
+	= recolor_allocnos_data[i].crating;
+      mips_create_cumulative_vals (ira_allocnos[i]);
+    }
 }
 
 /* Compares two allocnos (used for sorting with qsort).  */
@@ -28911,8 +29172,8 @@ mips_recolor_needs_move (enum machine_mode mode1, enum machine_mode mode2)
 static int
 mips_compare_allocno_data (const void *ad1, const void *ad2)
 {
-  int r1 = (*(const recolor_allocno_data_t*)ad1)->rating;
-  int r2 = (*(const recolor_allocno_data_t*)ad2)->rating;
+  int r1 = (*(const recolor_allocno_data_t*)ad1)->crating;
+  int r2 = (*(const recolor_allocno_data_t*)ad2)->crating;
 
   if ( r1 > r2)
     return 1;
@@ -28922,119 +29183,48 @@ mips_compare_allocno_data (const void *ad1, const void *ad2)
     return -1;
 }
 
-#define NO_RECOLOR (-1)
-
-/* Calculate all data needed for recoloring. (registers that can be used,
-   whether some of allocnos is alive across function calls, all allocnos that
-   should be recolored).  */
-
-static int
-mips_get_recolor_data_for_allocno (ira_allocno_t allocno,
-				   int *call_crossed_num, int old_reg,
-				   enum machine_mode mode,
-				   vec < int > *recolor_allocnos)
-{
-  ira_copy_t cp, next_cp;
-  ira_allocno_t a;
-
-  /* Check if given allocno is already processed.  */
-  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed
-      || ALLOCNO_HARD_REGNO (allocno) != old_reg)
-    return 0;
-
-  recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed = true;
-
-  if (ALLOCNO_HARD_REGNO (allocno) != old_reg
-     || mips_recolor_needs_move (ALLOCNO_MODE (allocno), mode))
-    return 0;
-
-  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].precolored_move_related)
-    return NO_RECOLOR;
-
-  /* Get call crossed data.  */
-  *call_crossed_num = ALLOCNO_CALLS_CROSSED_NUM (allocno);
-
-  /* Put allocno in list of processed allocnos.  */
-  recolor_allocnos->safe_push (ALLOCNO_NUM (allocno));
-
-  /* Estimate delta for all allocnos with same regno.  */
-  for (a = ALLOCNO_NEXT_REGNO_ALLOCNO (allocno); a;
-       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
-    {
-      int a_call_crossed_num = 0;
-      int res;
-      if ((res = mips_get_recolor_data_for_allocno
-		   (allocno, &a_call_crossed_num, old_reg, mode,
-		    recolor_allocnos)) < 0)
-	return res;
-
-      *call_crossed_num += a_call_crossed_num;
-      if (a == allocno)
-	break;
-    }
-
-  for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
-    {
-      int a_call_crossed_num = 0;
-      int res;
-
-      if (cp->first == allocno)
-	{
-	  next_cp = cp->next_first_allocno_copy;
-	  a = cp->second;
-	}
-      else if (cp->second == allocno)
-	{
-	  next_cp = cp->next_second_allocno_copy;
-	  a = cp->first;
-	}
-      else
-	gcc_unreachable ();
-
-      if ((res = mips_get_recolor_data_for_allocno
-		   (a, &a_call_crossed_num, old_reg, mode, recolor_allocnos))
-	   < 0)
-	return res;
-
-      *call_crossed_num += a_call_crossed_num;
-    }
-
-  return 0;
-}
-
 void
 mips_adjust_register_costs (ira_allocno_t a, int val, bool s_regs_used,
-			    bool revert)
+			    bool revert, int *conflict_vals)
 {
   int j;
-  int value = val;
-  reg_class_t aclass;
-    {
-      aclass = ALLOCNO_CLASS (a);
-      if (aclass == NO_REGS)
-	return;
-      ira_allocate_and_set_costs
-	(&ALLOCNO_HARD_REG_COSTS (a), aclass,
-	 ALLOCNO_CLASS_COST (a));
-      aclass = ALLOCNO_CLASS (a);
-      for (j = 0; j < ira_class_hard_regs_num[aclass]; j++)
-	if (mips_short_reg_p (ira_class_hard_regs[aclass][j]))
-	  {
-	    int cost_val = value;
-	    int s_correction_val = revert ? -1 : 1;
-	    if (!s_regs_used && (ira_class_hard_regs[aclass][j] == 16
-				  || ira_class_hard_regs[aclass][j] == 17
-				  || ira_class_hard_regs[aclass][j] == 18
-				  || ira_class_hard_regs[aclass][j] == 19))
-	      cost_val += s_correction_val;
-	    ALLOCNO_HARD_REG_COSTS (a)[j] += cost_val;
-	    if (ALLOCNO_UPDATED_HARD_REG_COSTS (a))
-	      ALLOCNO_UPDATED_HARD_REG_COSTS (a)[j] += cost_val;
+  int *cvals = revert ? static_recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals
+		       : recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals;
+  reg_class_t aclass = ALLOCNO_CLASS (a);
 
-	    if (ALLOCNO_HARD_REG_COSTS (a)[j] < ALLOCNO_CLASS_COST (a))
-	      ALLOCNO_CLASS_COST (a) = ALLOCNO_HARD_REG_COSTS (a)[j];
+  if (aclass == NO_REGS)
+    return;
+
+  ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), aclass,
+			      ALLOCNO_CLASS_COST (a));
+  for (j = 0; j < ira_class_hard_regs_num[aclass]; j++)
+    if (TEST_HARD_REG_BIT (reg_class_contents[N16_4X4_REGS],
+			     ira_class_hard_regs[aclass][j]))
+      {
+	int s_correction_val = revert ? -1 : 1;
+	int cost_val = cvals[j] * val;
+	if (cvals[j]==0)
+	  {
+	    unsigned reg = ira_class_hard_regs[aclass][j];
+	    int cost_incr = inrease_short_reg_costs[reg];
+	    cost_val = abs (val)+ cost_incr;
+
+	    if (revert)
+	      cost_val = -cost_val;
 	  }
-    }
+
+	if (!s_regs_used && (ira_class_hard_regs[aclass][j] >= 16
+			     && ira_class_hard_regs[aclass][j] <= 23))
+	  cost_val += s_correction_val;
+	cost_val = cost_val * conflict_vals[j];
+	ALLOCNO_HARD_REG_COSTS (a)[j] += cost_val;
+
+	if (ALLOCNO_UPDATED_HARD_REG_COSTS (a))
+	  ALLOCNO_UPDATED_HARD_REG_COSTS (a)[j] += cost_val;
+
+	if (ALLOCNO_HARD_REG_COSTS (a)[j] < ALLOCNO_CLASS_COST (a))
+	  ALLOCNO_CLASS_COST (a) = ALLOCNO_HARD_REG_COSTS (a)[j];
+      }
 }
 
 void
@@ -29042,35 +29232,33 @@ mips_adjust_register_costs_2 (ira_allocno_t a, int val, bool s_regs_used)
 {
   int j;
   int value = val;
-  reg_class_t aclass;
-    {
-      aclass = ALLOCNO_CLASS (a);
-      if (aclass == NO_REGS)
-	return;
-      ira_allocate_and_set_costs
-	(&ALLOCNO_HARD_REG_COSTS (a), aclass,
-	 ALLOCNO_CLASS_COST (a));
-      aclass = ALLOCNO_CLASS (a);
-      for (j = 0; j < ira_class_hard_regs_num[aclass]; j++)
-	if (mips_short_reg_p (ira_class_hard_regs[aclass][j]))
-	  {
-	    int cost_val = value;
-	    if (!s_regs_used && (ira_class_hard_regs[aclass][j] == 16
-				  || ira_class_hard_regs[aclass][j] == 17
-				  || ira_class_hard_regs[aclass][j] == 18
-				  || ira_class_hard_regs[aclass][j] == 19))
-	      cost_val = -1;
-	    else
-	      continue;
-	    ALLOCNO_HARD_REG_COSTS (a)[j] += cost_val;
+  reg_class_t aclass= ALLOCNO_CLASS (a);
+  return;
+  if (aclass == NO_REGS)
+    return;
 
-	    if (ALLOCNO_UPDATED_HARD_REG_COSTS (a))
-	      ALLOCNO_UPDATED_HARD_REG_COSTS (a)[j] += cost_val;
+  ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), aclass,
+			      ALLOCNO_CLASS_COST (a));
 
-	    if (ALLOCNO_HARD_REG_COSTS (a)[j] < ALLOCNO_CLASS_COST (a))
-	      ALLOCNO_CLASS_COST (a) = ALLOCNO_HARD_REG_COSTS (a)[j];
-	  }
-    }
+  for (j = 0; j < ira_class_hard_regs_num[aclass]; j++)
+    if (TEST_HARD_REG_BIT (reg_class_contents[N16_4X4_REGS],
+			   ira_class_hard_regs[aclass][j]))
+      {
+	int cost_val = value;
+	if (!s_regs_used && (ira_class_hard_regs[aclass][j] >= 16
+			     && ira_class_hard_regs[aclass][j] <= 23))
+	  cost_val = -1;
+	else
+	  continue;
+
+	ALLOCNO_HARD_REG_COSTS (a)[j] += cost_val;
+
+	if (ALLOCNO_UPDATED_HARD_REG_COSTS (a))
+	  ALLOCNO_UPDATED_HARD_REG_COSTS (a)[j] += cost_val;
+
+	if (ALLOCNO_HARD_REG_COSTS (a)[j] < ALLOCNO_CLASS_COST (a))
+	  ALLOCNO_CLASS_COST (a) = ALLOCNO_HARD_REG_COSTS (a)[j];
+      }
 }
 
 static void
@@ -29098,112 +29286,107 @@ mips_get_conflict_allocnos (ira_allocno_t a,
     }
 }
 
-static int
-check_for_copies (ira_allocno_t a)
+/* Change val for maximum one register if it is important for given
+   allocno.  */
+static void
+mips_reserve_reg_for_allocno (ira_allocno_t allocno, int *conflict_vals,
+			      HARD_REG_SET conflicting_hard_regs)
 {
-  int res = 0;
-  int hard_reg_no = ALLOCNO_HARD_REGNO (a);
-  int i;
-  ira_allocno_t ac;
-  for (i = 0;
-       static_recolor_allocnos_data[ALLOCNO_NUM (a)]
-	 .two_reg_insns_allocnos.iterate (i, &ac); i++)
-    if (ALLOCNO_HARD_REGNO (ac) == hard_reg_no)
-      res++;
+  int *cvals = recolor_allocnos_data[ALLOCNO_NUM (allocno)].cmod_vals;
+  reg_class_t aclass = ALLOCNO_CLASS (allocno);
+  int best_idx[2] = {0,0};
+  int best_cval[2] = {0,0};
 
-  return res;
-}
+  for (int i=0; i<32; i++)
+    {
+      if (cvals[i] && !TEST_HARD_REG_BIT (conflicting_hard_regs,
+					  ira_class_hard_regs[aclass][i]))
+	{
+      	  if (cvals[i] > best_cval[0])
+	    {
+	      best_cval[1] = best_cval[0];
+	      best_cval[0] = cvals[i];
+	      best_idx[1] = best_idx[0];
+	      best_idx[0] = i;
+	    }
+	  else if (cvals[i] > best_cval[1])
+	    {
+	      best_cval[1] = cvals[i];
+	      best_idx[1] = i;
+	    }
+	}
+    }
 
-static bool
-mips_two_reg_insn (rtx_insn *insn)
-{
-  bool result = false;
-  rtx pattern;
-
-  if (!INSN_P (insn) || DEBUG_INSN_P (insn))
-    return false;
-
-  if (GET_CODE (PATTERN (insn)) == USE)
-    return false;
-
-  if (GET_CODE (PATTERN (insn)) == CLOBBER)
-    return false;
-
-  pattern = PATTERN (insn);
-
-
-  /* and16/xor16/or16/not16 rd, rs, rt.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == XOR
-	  || GET_CODE (XEXP (pattern, 1)) == IOR
-	  || GET_CODE (XEXP (pattern, 1)) == AND
-	  || GET_CODE (XEXP (pattern, 1)) == NOT))
-    result = true;
-
-
-  /* addiur2 rd, rs, imm.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == PLUS
-      && REG_P (XEXP (XEXP (pattern, 1), 0))
-      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= -8
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 7)
-    result = true;
-
-  return result;
+  if (best_cval[1] == 0)
+    /* There is only one available register left.  */
+    conflict_vals[best_idx[0]] = -1;
+  else if (((float)(best_cval[0] * 0.67)) >= ((float)best_cval[1]))
+    /* First register is much better choice then all others available.  */
+    conflict_vals[best_idx[0]] = 0;
 }
 
 static void
-mips_get_two_reg_insns_allocnos ()
+mips_check_available_regs_for_allocno (ira_allocno_t allocno,
+				       int *conflict_vals)
 {
-  basic_block bb;
-  rtx_insn *insn;
+  int n;
+  int i;
+  HARD_REG_SET conflicting_hard_regs;
 
-  FOR_EACH_BB_FN (bb, cfun)
-    for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
-	 insn = NEXT_INSN (insn))
-      {
-	ira_allocno_t allocnos[3] = {0, 0, 0};
-	int reg_counter = 0;
+  CLEAR_HARD_REG_SET (conflicting_hard_regs);
+  n = ALLOCNO_NUM_OBJECTS (allocno);
 
-	if (!INSN_P (insn) || !mips_two_reg_insn (insn))
-	  continue;
+  for (i = 0; i < n; i++)
+    {
+      ira_object_t obj = ALLOCNO_OBJECT (allocno, i);
+      ira_object_t conflict_obj;
+      ira_object_conflict_iterator oci;
 
-	extract_insn (insn);
+      if (OBJECT_CONFLICT_ARRAY (obj) == NULL)
+	continue;
+      IOR_HARD_REG_SET (conflicting_hard_regs,
+			OBJECT_TOTAL_CONFLICT_HARD_REGS (obj));
+      AND_COMPL_HARD_REG_SET (conflicting_hard_regs, ira_no_alloc_regs);
+      AND_HARD_REG_SET (conflicting_hard_regs,
+			reg_class_contents[ALLOCNO_CLASS (allocno)]);
 
-	for (int i=0; i < recog_data.n_operands; i++)
-	  {
-	    /* Collect registers from instruction operands.  */
-	    if (REG_P (recog_data.operand[i]))
-	      {
-		int allocno_num = mips_get_allocno_num_for_regno
-				    (REGNO (recog_data.operand[i]));
-		if (allocno_num >= 0)
-		  allocnos[reg_counter++] = ira_allocnos[allocno_num];
-	      }
-	  }
-	if (allocnos[0] && allocnos[1] && allocnos[0] != allocnos[1])
-	  {
-	    static_recolor_allocnos_data[ALLOCNO_NUM (allocnos[0])]
-	      .two_reg_insns_allocnos.safe_push (allocnos[1]);
-	    static_recolor_allocnos_data[ALLOCNO_NUM (allocnos[1])]
-	      .two_reg_insns_allocnos.safe_push (allocnos[0]);
-	  }
-	if (allocnos[0] && allocnos[2] && allocnos[0] != allocnos[2])
-	  {
-	    static_recolor_allocnos_data[ALLOCNO_NUM (allocnos[0])]
-	      .two_reg_insns_allocnos.safe_push (allocnos[2]);
-	    static_recolor_allocnos_data[ALLOCNO_NUM (allocnos[2])]
-	      .two_reg_insns_allocnos.safe_push (allocnos[0]);
-	  }
-      }
+      FOR_EACH_OBJECT_CONFLICT (obj, conflict_obj, oci)
+	{
+ 	  ira_allocno_t conflict_a = OBJECT_ALLOCNO (conflict_obj);
+ 	  if (ALLOCNO_HARD_REGNO (conflict_a) > 0)
+	    SET_HARD_REG_BIT (conflicting_hard_regs,
+			      ALLOCNO_HARD_REGNO (conflict_a));
+	}
+    }
+
+  mips_reserve_reg_for_allocno (allocno, conflict_vals, conflicting_hard_regs);
 }
+
+static void
+mips_check_available_regs (ira_allocno_t allocno,
+			   vec <recolor_allocno_data_t> sorted_allocno_data,
+			   int *conflict_vals)
+{
+  for (unsigned int j = 0; j < sorted_allocno_data.length (); j++)
+    {
+      int c_allocno_num = sorted_allocno_data[j]->allocno;
+      if (ALLOCNO_NUM (allocno) == c_allocno_num)
+	break;
+      ira_allocno_t c_allocno = ira_allocnos[c_allocno_num];
+      if (ALLOCNO_HARD_REGNO (c_allocno) <= 0)
+	mips_check_available_regs_for_allocno (c_allocno, conflict_vals);
+    }
+}
+
+#include <vector>
+#include <algorithm>
+
+ira_allocno_t
+get_first_allocno_from_thread (ira_allocno_t a);
 
 /* Threshold for recoloring if not all related allocnos can be recolored.  */
 #define MAX_RECOLOR_ALLOCNO_NUM 1000
-#define SMALL_REGNO_NO 8
+#define SMALL_REGNO_THRESHOLD 16
 
 /* Entry function for post ira recoloring.  */
 
@@ -29211,7 +29394,7 @@ void
 mips_adjust_costs (void *p, int func)
 {
   int i;
-  int rating;
+  int rating, crating;
   int val = 4;
   bool s_regs_used;
   ira_allocno_t allocno = (ira_allocno_t)p;
@@ -29219,10 +29402,12 @@ mips_adjust_costs (void *p, int func)
   static ira_loop_tree_node_t current_loop_tree_node = NULL;
   ira_loop_tree_node_t allocno_loop_tree_node
     = ALLOCNO_LOOP_TREE_NODE (allocno);
-  static int prev_allocno_num;
+  int allocno_num = ALLOCNO_NUM (allocno);
+  int conflict_vals[32] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+			   1,1,1,1,1,1};
 
-  /* Do not optimize if there is no sufficient data or number of allocnos is too
-     large.  */
+  /* Do not optimize if there is no sufficient data or number of allocnos
+     too large.  */
 
   if (!TARGET_NANOMIPS || !ira_allocnos || !ira_conflicts_p
       || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM)
@@ -29231,14 +29416,15 @@ mips_adjust_costs (void *p, int func)
   if (func == 2)
     {
       s_regs_used
-	= static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used;
-      val = -static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].mod_val;
-      if (check_for_copies (allocno)
-	    * recolor_coeffs[INSN_CATEGORIES_NUM - 1]
-	  > static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating)
+	= static_recolor_allocnos_data[allocno_num].s_regs_used;
+      val = -static_recolor_allocnos_data[allocno_num].mod_val;
+      int *c_vals = static_recolor_allocnos_data[allocno_num].conflict_vals;
+
+      if (static_recolor_allocnos_data[allocno_num].crating
+	  > static_recolor_allocnos_data[allocno_num].rating)
 	mips_adjust_register_costs_2 (allocno, val, s_regs_used);
       else
-	mips_adjust_register_costs (allocno, val, s_regs_used, true);
+	mips_adjust_register_costs (allocno, val, s_regs_used, true, c_vals);
 
       return;
     }
@@ -29247,47 +29433,77 @@ mips_adjust_costs (void *p, int func)
 
   if (current_loop_tree_node != allocno_loop_tree_node)
     {
-      for (i=0; i < prev_allocno_num; i++)
-	static_recolor_allocnos_data[i].two_reg_insns_allocnos.truncate (0);
       memset (static_recolor_allocnos_data, 0,
 	sizeof (struct static_recolor_allocno_data) * ira_allocnos_num);
-      for (i=0; i < ira_allocnos_num; i++)
-	static_recolor_allocnos_data[i].two_reg_insns_allocnos.create (0);
-      mips_get_two_reg_insns_allocnos ();
       current_loop_tree_node = allocno_loop_tree_node;
     }
   /* Collect necessary data.  */
   mips_adjust_costs_init ();
   mips_collect_recolor_data (s_regs_used);
-  prev_allocno_num = ira_allocnos_num;
 
-  rating = recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating;
+  rating = recolor_allocnos_data[allocno_num].rating;
+  crating = recolor_allocnos_data[allocno_num].crating;
 
-  if (rating < 0)
+  if (crating < 0)
     {
+      int pos;
+      std::vector<int> copy_threads;
+
       sorted_allocno_data.create (0);
       mips_get_conflict_allocnos (allocno, recolor_allocnos_data,
 				  &sorted_allocno_data);
       sorted_allocno_data.qsort (mips_compare_allocno_data);
       for (unsigned int j = 0; j < sorted_allocno_data.length (); j++)
 	{
-	  if (sorted_allocno_data[j]->allocno == ALLOCNO_NUM (allocno))
+	  int c_allocno_num = sorted_allocno_data[j]->allocno;
+	  ira_allocno_t c_allocno = ira_allocnos[c_allocno_num];
+	  int thread_allocno = ALLOCNO_NUM
+				 (get_first_allocno_from_thread (c_allocno));
+	  if (std::find (copy_threads.begin (), copy_threads.end (),
+			 thread_allocno) == copy_threads.end ())
+	    copy_threads.push_back (thread_allocno);
+
+	  if (thread_allocno
+		== ALLOCNO_NUM (get_first_allocno_from_thread (allocno)))
+	    pos = copy_threads.size ();
+
+	  if (sorted_allocno_data[j]->allocno == allocno_num)
 	    {
-	      if (j < SMALL_REGNO_NO)
-		/* Decrease costs of small registers.  */
-		val = -4;
+	      if (pos < SMALL_REGNO_THRESHOLD)
+		{
+		  /* Decrease costs of small registers.  */
+		  val = -4;
+		  /* Check if higher placed allocnos need some of available
+		     registers.  */
+		  mips_check_available_regs (allocno, sorted_allocno_data,
+					     conflict_vals);
+		}
+
 	      break;
 	    }
 	}
       sorted_allocno_data.release ();
     }
 
+  if (rating)
     val *= abs (rating);
-    mips_adjust_register_costs (allocno, val, s_regs_used, false);
-    static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].mod_val = val;
-    static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating = rating;
-    static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used
-      = s_regs_used;
+
+  mips_adjust_register_costs (allocno, val, s_regs_used, false, conflict_vals);
+  static_recolor_allocnos_data[allocno_num].mod_val = val;
+  static_recolor_allocnos_data[allocno_num].rating = rating;
+  static_recolor_allocnos_data[allocno_num].crating = crating;
+  static_recolor_allocnos_data[allocno_num].s_regs_used
+    = s_regs_used;
+
+  for (i=0; i<32; i++)
+    {
+      static_recolor_allocnos_data[allocno_num].mod_vals[i]
+	= recolor_allocnos_data[allocno_num].mod_vals[i];
+      static_recolor_allocnos_data[allocno_num].cmod_vals[i]
+	= recolor_allocnos_data[allocno_num].cmod_vals[i];
+      static_recolor_allocnos_data[allocno_num].conflict_vals[i]
+	= conflict_vals[i];
+    }
 }
 
 void nanomips_expand_movmemsi_multireg (rtx dest, rtx src, unsigned int count)
