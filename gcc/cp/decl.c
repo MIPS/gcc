@@ -5579,9 +5579,10 @@ check_for_uninitialized_const_var (tree decl)
 		   "uninitialized const %qD", decl);
       else
 	{
-	  error_at (DECL_SOURCE_LOCATION (decl),
-		    "uninitialized variable %qD in %<constexpr%> function",
-		    decl);
+	  if (!is_instantiation_of_constexpr (current_function_decl))
+	    error_at (DECL_SOURCE_LOCATION (decl),
+		      "uninitialized variable %qD in %<constexpr%> function",
+		      decl);
 	  cp_function_chain->invalid_constexpr = true;
 	}
 
@@ -6099,7 +6100,10 @@ reshape_init (tree type, tree init, tsubst_flags_t complain)
     {
       tree elt = CONSTRUCTOR_ELT (init, 0)->value;
       if (check_narrowing (ENUM_UNDERLYING_TYPE (type), elt, complain))
-	return cp_build_c_cast (type, elt, tf_warning_or_error);
+	{
+	  warning_sentinel w (warn_useless_cast);
+	  return cp_build_c_cast (type, elt, tf_warning_or_error);
+	}
       else
 	return error_mark_node;
     }

@@ -1,3 +1,73 @@
+2017-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82299
+	* decl.c (reshape_init): Suppress warn_useless_cast for direct enum
+	init.
+	* typeck.c (convert_for_assignment): Likewise.
+
+2017-10-05  Jason Merrill  <jason@redhat.com>
+
+	* call.c (convert_arg_to_ellipsis): Use the result of force_rvalue.
+
+2017-10-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/82406 - C++ error with noexcept function type
+	PR c++/70029 - ICE with ref-qualifier and -flto
+	* tree.c (cxx_copy_lang_qualifiers): New.
+	* cp-tree.h: Declare it.
+	* cp-objcp-common.h: Define LANG_HOOKS_COPY_LANG_QUALIFIERS.
+
+	PR c++/81525 - broken handling of auto in generic lambda.
+	* pt.c (tsubst_decl) [VAR_DECL]: Use strip_innermost_template_args.
+
+2017-09-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/81926
+	* cp-objcp-common.c (cp_get_debug_type): Do only one lookup
+
+2017-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/81929
+	* tree.c (struct replace_placeholders_t): Add pset field.
+	(replace_placeholders_r): Call cp_walk_tree with d->pset as
+	last argument instead of NULL.  Formatting fix.
+	(replace_placeholders): Add pset variable, add its address
+	into data.  Pass &pset instead of NULL to cp_walk_tree.
+
+2017-09-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/81236 - ICE with template-id in generic lambda
+	* parser.c (parsing_default_capturing_generic_lambda): Don't check
+	for enclosing template.
+	* semantics.c (finish_qualified_id_expr): Call it.
+	* cp-tree.h: Adjust.
+
+	PR c++/80767 - unnecessary instantiation of generic lambda
+	PR c++/82030 - ICE inheriting from multiple lambdas
+	* call.c (convert_like_real): Call build_user_type_conversion_1 if
+	cand is null.
+	(add_conv_candidate): Build a ck_user conversion with no candidate.
+
+	PR c++/80935 - wrong C++17 error with lambda
+	* decl.c (check_for_uninitialized_const_var): Check
+	is_instantiation_of_constexpr.
+
+	PR c++/81671 - nullptr_t template parameter
+	* pt.c (convert_nontype_argument): Fix nullptr_t check.
+
+	PR c++/81525 - wrong constant value with generic lambda
+	* pt.c (tsubst_decl) [VAR_DECL]: Avoid clobbering auto.
+	(tsubst_copy) [VAR_DECL]: Handle auto.
+
+2017-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/81314
+	* cp-gimplify.c (omp_var_to_track): Look through references.
+	(omp_cxx_notice_variable): Likewise.
+
 2017-09-09  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR bootstrap/81926

@@ -2279,8 +2279,10 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
 
       if (i == 0)
 	{
-	  t = implicit_conversion (totype, argtype, arg, /*c_cast_p=*/false,
-				   flags, complain);
+	  t = build_identity_conv (argtype, NULL_TREE);
+	  t = build_conv (ck_user, totype, t);
+	  /* Leave the 'cand' field null; we'll figure out the conversion in
+	     convert_like_real if this candidate is chosen.  */
 	  convert_type = totype;
 	}
       else if (parmnode == void_list_node)
@@ -6665,6 +6667,13 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     case ck_user:
       {
 	struct z_candidate *cand = convs->cand;
+
+	if (cand == NULL)
+	  /* We chose the surrogate function from add_conv_candidate, now we
+	     actually need to build the conversion.  */
+	  cand = build_user_type_conversion_1 (totype, expr,
+					       LOOKUP_NO_CONVERSION, complain);
+
 	tree convfn = cand->fn;
 
 	/* When converting from an init list we consider explicit
@@ -7117,13 +7126,9 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
       /* In a template (or ill-formed code), we can have an incomplete type
 	 even after require_complete_type_sfinae, in which case we don't know
 	 whether it has trivial copy or not.  */
-      && COMPLETE_TYPE_P (arg_type))
+      && COMPLETE_TYPE_P (arg_type)
+      && !cp_unevaluated_operand)
     {
-      /* Build up a real lvalue-to-rvalue conversion in case the
-	 copy constructor is trivial but not callable.  */
-      if (!cp_unevaluated_operand && CLASS_TYPE_P (arg_type))
-	force_rvalue (arg, complain);
-
       /* [expr.call] 5.2.2/7:
 	 Passing a potentially-evaluated argument of class type (Clause 9)
 	 with a non-trivial copy constructor or a non-trivial destructor
@@ -7135,10 +7140,10 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 
 	 If the call appears in the context of a sizeof expression,
 	 it is not potentially-evaluated.  */
-      if (cp_unevaluated_operand == 0
-	  && (type_has_nontrivial_copy_init (arg_type)
-	      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (arg_type)))
+      if (type_has_nontrivial_copy_init (arg_type)
+	  || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (arg_type))
 	{
+	  arg = force_rvalue (arg, complain);
 	  if (complain & tf_warning)
 	    warning (OPT_Wconditionally_supported,
 		     "passing objects of non-trivially-copyable "
@@ -7146,6 +7151,11 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 		     arg_type);
 	  return cp_build_addr_expr (arg, complain);
 	}
+      /* Build up a real lvalue-to-rvalue conversion in case the
+	 copy constructor is trivial but not callable.  */
+      else if (CLASS_TYPE_P (arg_type))
+	force_rvalue (arg, complain);
+
     }
 
   return arg;
@@ -9128,7 +9138,9 @@ compare_ics (conversion *ics1, conversion *ics2)
 	return 0;
       else if (t1->kind == ck_user)
 	{
-	  if (t1->cand->fn != t2->cand->fn)
+	  tree f1 = t1->cand ? t1->cand->fn : t1->type;
+	  tree f2 = t2->cand ? t2->cand->fn : t2->type;
+	  if (f1 != f2)
 	    return 0;
 	}
       else

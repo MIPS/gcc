@@ -1,3 +1,185 @@
+2017-10-09  James Cowgill  <James.Cowgill@imgtec.com>
+
+	* go.test/go-test.exp (go-set-goarch): Update MIPS architecture names.
+
+2017-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82299
+	* g++.dg/cpp0x/pr82299.C: New test.
+
+2017-10-06  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	Backport from mainline r253251.
+	2017-09-27  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	PR target/71727
+	* gcc.target/aarch64/pr71727-2.c: New test.
+
+2017-10-03  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/80118
+	* gfortran.dg/zero_sized_7.f90: New test.
+
+2017-10-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-09-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/82337
+	* gcc.c-torture/compile/pr82337.c: New file.
+
+2017-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/82340
+	* gcc.dg/tree-ssa/pr82340.c: New test.
+
+	2017-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82159
+	* g++.dg/opt/pr82159.C: New test.
+
+2017-09-27  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	Backport from trunk r249639.
+	2017-06-26  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_neon_ok_nocache): Add flags with
+	-mfloat-abi=hard. Include arm_neon.h.
+	(check_effective_target_arm_neon_ok_no_float_abi_nocache): New.
+	(check_effective_target_arm_neon_ok_no_float_abi): New.
+	* gcc.target/arm/lto/pr65837_0.c: Require
+	arm_neon_ok_no_float_abi. Add -mfpu=neon to dg-lto-options.
+	* gcc.target/arm/lto/pr65837-attr_0.c: Require
+	arm_neon_ok_no_float_abi. Remove dg-suppress-ld-options.
+
+2017-09-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-09-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82244
+	* gcc.dg/torture/pr82244.c: New testcase.
+
+	2017-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82276
+	PR tree-optimization/82244
+	* gcc.dg/torture/pr82276.c: New testcase.
+
+	2017-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82264
+	* gcc.dg/torture/pr82264.c: New testcase.
+
+	2017-09-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82285
+	* gcc.dg/torture/pr82285.c: New testcase.
+
+	2017-09-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82291
+	* gcc.dg/torture/pr82291.c: New testcase.
+
+2017-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/81929
+	* g++.dg/ubsan/pr81929.C: New test.
+
+2017-09-19  Martin Liska  <mliska@suse.cz>
+
+	Revert backport:
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* g++.dg/other/pr81355.C: New test.
+
+2017-09-18  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-09-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82084
+	* g++.dg/torture/pr82084.C: New testcase.
+
+	2017-09-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82108
+	* gcc.dg/vect/pr82108.c: New testcase.
+
+2017-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-14  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR target/81325
+	* g++.dg/cpp0x/pr81325.C: New test.
+
+	2017-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82112
+	* gcc.target/powerpc/pr82112.c: New test.
+	* g++.dg/ext/altivec-18.C: New test.
+
+	PR target/82112
+	* c-c++-common/pr82112.c: New test.
+	* gcc.dg/pr82112.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-09-12  Martin Liska  <mliska@suse.cz>
+
+	PR testsuite/82114
+	* gcc.dg/gimplefe-14.c (main): Add handling of case 0.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-30  Martin Liska  <mliska@suse.cz>
+
+	PR inline-asm/82001
+	* gcc.dg/ipa/pr82001.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* g++.dg/other/pr81355.C: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-08  Martin Liska  <mliska@suse.cz>
+
+	PR tree-opt/81696
+	* gcc.dg/ipa/pr81696.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-07-19  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/63361
+	* c-c++-common/ubsan/float-cast-overflow-1.c: Add either
+	-ffloat-store or -mieee for targets that need it.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/81128
+	* gcc.target/i386/pr81128.c: New test.
+
 2017-09-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
