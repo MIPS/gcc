@@ -2141,10 +2141,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 
 
 static match
-match_acc (gfc_exec_op op, const omp_mask mask, const omp_mask dtype_mask)
+match_acc (gfc_exec_op op, const omp_mask mask, const omp_mask dtype_mask,
+	   bool derived_types=false)
 {
   gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, mask, dtype_mask, false, false, true)
+  if (gfc_match_omp_clauses (&c, mask, dtype_mask, false, false, true,
+			     derived_types)
       != MATCH_YES)
     return MATCH_ERROR;
   new_st.op = op;
@@ -2329,7 +2331,7 @@ match
 gfc_match_oacc_enter_data (void)
 {
   return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES,
-		    OMP_MASK2_LAST);
+		    OMP_MASK2_LAST, true);
 }
 
 
@@ -2337,7 +2339,7 @@ match
 gfc_match_oacc_exit_data (void)
 {
   return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES,
-		    OMP_MASK2_LAST);
+		    OMP_MASK2_LAST, true);
 }
 
 
