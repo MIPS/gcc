@@ -1,3 +1,8 @@
+2017-10-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Create implicit 0-length
+	array data clauses for pointers and reference types.
+
 2017-09-05  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* tree.h (OMP_CLAUSE_MAP_PRIVATE): Define macro.
