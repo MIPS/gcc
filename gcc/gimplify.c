@@ -6994,7 +6994,12 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
     case ORT_ACC_PARALLEL:
       rkind = "parallel";
 
-      if (is_private)
+      if (TREE_CODE (type) == REFERENCE_TYPE
+	  && TREE_CODE (TREE_TYPE (type)) == POINTER_TYPE)
+	flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
+      else if (!lang_GNU_Fortran () && TREE_CODE (type) == POINTER_TYPE)
+	flags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
+      else if (is_private)
 	flags |= GOVD_FIRSTPRIVATE;
       else if (on_device || declared)
 	flags |= GOVD_MAP;
