@@ -57,6 +57,7 @@ enum blt_kind
 };
 
 class blt_node;
+class blt_context;
 
 /* Would use a lambda.  */
 
@@ -73,6 +74,7 @@ class blt_node
 {
 public:
   blt_node (enum blt_kind kind, location_t start);
+  ~blt_node ();
 
   /* Structural manipulation.  */
   void add_child (blt_node *child);
@@ -82,7 +84,7 @@ public:
   /* Modification.  */
 
   void set_finish (location_t loc) { m_finish = ::get_finish (loc); }
-  void set_tree (tree t);
+  void set_tree (tree t, blt_context *ctxt);
   void set_kind (enum blt_kind kind) { m_kind = kind; }
 
   /* Dumping.  */
@@ -136,12 +138,34 @@ private:
   tree m_tree;
 };
 
-extern blt_node *blt_get_node_for_tree (tree);
-extern void blt_set_node_for_tree (tree, blt_node *);
-
 extern void DEBUG_FUNCTION debug (blt_node *);
 
 /* FIXME.  */
-extern blt_node *the_blt_root_node;
+
+class blt_context
+{
+ public:
+  blt_context ();
+  ~blt_context ();
+
+  blt_node *get_root_node () const { return m_root_node; }
+  void set_root_node (blt_node *n) { m_root_node = n; }
+
+  blt_node *get_node_for_tree (tree);
+  void set_node_for_tree (tree, blt_node *);
+
+ private:
+  friend class blt_node;
+
+  typedef hash_map <tree, blt_node *> tree_to_blt_map_t;
+  tree_to_blt_map_t *m_tree_to_blt_map;
+  blt_node *m_root_node;
+};
+
+extern blt_context *the_blt_ctxt;
+
+extern blt_node *blt_get_root_node ();
+extern blt_node *blt_get_node_for_tree (tree);
+extern void blt_set_node_for_tree (tree, blt_node *);
 
 #endif  /* GCC_BLT_H  */

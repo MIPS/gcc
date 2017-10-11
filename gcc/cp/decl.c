@@ -12361,7 +12361,7 @@ grokdeclarator (const cp_declarator *declarator,
   tree result = grokdeclarator_1 (declarator, declspecs, decl_context,
 				  initialized, attrlist);
   if (declarator && declarator->bltnode)
-    declarator->bltnode->set_tree (result);
+    declarator->bltnode->set_tree (result, the_blt_ctxt);
   return result;
 }
 

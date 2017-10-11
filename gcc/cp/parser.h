@@ -214,6 +214,7 @@ struct cp_oacc_routine_data : cp_omp_declare_simd_data {
 };
 
 class blt_node;
+class blt_context;
 
 /* The cp_parser structure represents the C++ parser.  */
 
@@ -413,9 +414,6 @@ struct GTY(()) cp_parser {
   /* True if a constrained-type-specifier is not allowed in this
      context e.g., because they could never be deduced.  */
   int prevent_constrained_type_specifiers;
-
-  /* The top-level node for the translation-unit.  */
-  blt_node * GTY((skip)) blt_root_node;
 
   /* The current node being parsed.  */
   blt_node * GTY((skip)) blt_current_node;

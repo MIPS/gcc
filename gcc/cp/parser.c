@@ -1470,7 +1470,7 @@ auto_blt_node::auto_blt_node (cp_parser *parser, enum blt_kind kind,
   if (m_parent)
     m_parent->add_child (node);
   else
-    parser->blt_root_node = node;
+    the_blt_ctxt->set_root_node (node);
 }
 
 /* auto_blt_node's destructor.
@@ -1504,7 +1504,7 @@ auto_blt_node::~auto_blt_node ()
     }
 
   if (m_expr_ptr)
-    node->set_tree (m_expr_ptr->get_value ());
+    node->set_tree (m_expr_ptr->get_value (), the_blt_ctxt);
 
   /* Use stashed parent, rather than the curent node's parent
      to allow for reparenting within the tree.  */
@@ -1520,7 +1520,7 @@ auto_blt_node::set_tree (tree tree_node)
     return;
 
   blt_node *node = m_parser->blt_current_node;
-  node->set_tree (tree_node);
+  node->set_tree (tree_node, the_blt_ctxt);
 }
 
 
@@ -38977,12 +38977,16 @@ c_parse_file (void)
   the_parser = cp_parser_new ();
   push_deferring_access_checks (flag_access_control
 				? dk_no_deferred : dk_no_check);
+  if (flag_blt)
+    {
+      gcc_assert (the_blt_ctxt == NULL);
+      the_blt_ctxt = new blt_context ();
+    }
+
   cp_parser_translation_unit (the_parser);
 
   if (flag_blt && flag_dump_blt)
-    the_parser->blt_root_node->dump (stderr);
-
-  the_blt_root_node = the_parser->blt_root_node;
+    the_blt_ctxt->get_root_node ()->dump (stderr);
 
   the_parser = NULL;
 }

@@ -103,9 +103,10 @@ gcc_lsp_server::do_text_document_definition (const TextDocumentPositionParams &p
   /* Convert from LSP's 0-based lines and columns to GCC's
      1-based lines and columns.  */
   blt_node *blt
-    = the_blt_root_node->get_descendant_at_location (p.textDocument.uri,
-						     p.position.line + 1,
-						     p.position.character + 1);
+    = blt_get_root_node ()->get_descendant_at_location
+       (p.textDocument.uri,
+	p.position.line + 1,
+	p.position.character + 1);
   if (!blt)
     /* No results.  */
     return;
@@ -123,12 +124,12 @@ gcc_lsp_server::do_text_document_definition (const TextDocumentPositionParams &p
 	  return;
 
 	if (1)
-	  the_blt_root_node->dump (stderr);
+	  the_blt_ctxt->get_root_node ()->dump (stderr);
 
 	/* Find a struct-contents with tree == record_type.  */
 	is_record_definition pred (record_type);
 	blt_node *blt_struct_contents
-	  = the_blt_root_node->find_descendant_satisfying (pred);
+	  = blt_get_root_node ()->find_descendant_satisfying (pred);
 	if (!blt_struct_contents)
 	  return;
 

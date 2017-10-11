@@ -27,9 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "blt.h"
 #include "selftest.h"
 
-typedef hash_map <tree, blt_node *> tree_to_blt_map_t;
-static tree_to_blt_map_t *tree_to_blt_map;
-
 static const char *blt_kind_to_name (enum blt_kind kind);
 
 /* blt_node's ctor.  */
@@ -39,6 +36,19 @@ blt_node::blt_node (enum blt_kind kind, location_t start)
   m_prev_sibling (NULL), m_next_sibling (NULL),
   m_start (start), m_finish (UNKNOWN_LOCATION), m_tree (NULL_TREE)
 {
+}
+
+/* blt_node's dtor.  */
+
+blt_node::~blt_node ()
+{
+  blt_node *iter = m_first_child;
+  while (iter)
+    {
+      blt_node *next = iter->m_next_sibling;
+      delete iter;
+      iter = next;
+    }
 }
 
 /* Add CHILD to this blt_node as its final child.
@@ -132,9 +142,10 @@ blt_node::make_orphan ()
 
 /* Set the tree associated with this blt_node to be T.  */
 // FIXME: what if it's called more than once
+// FIXME: CTXT
 
 void
-blt_node::set_tree (tree t)
+blt_node::set_tree (tree t, blt_context *ctxt)
 {
   m_tree = t;
 
@@ -142,9 +153,10 @@ blt_node::set_tree (tree t)
   if (!t)
     return;
 
-  if (!tree_to_blt_map)
-    tree_to_blt_map = new tree_to_blt_map_t ();
-  tree_to_blt_map->put (t, this);
+  gcc_assert (ctxt);
+  gcc_assert (ctxt->m_tree_to_blt_map);
+
+  ctxt->m_tree_to_blt_map->put (t, this);
 }
 
 /* Dump this blt_node and its descendants to FILE.  */
@@ -480,49 +492,6 @@ blt_node::assert_invariants () const
     }
 }
 
-/* Given tree node T, get the assocated blt_node, if any, or NULL.  */
-
-blt_node *
-blt_get_node_for_tree (tree t)
-{
-  if (!t)
-    return NULL;
-  if (!tree_to_blt_map)
-    return NULL;
-  blt_node **slot = tree_to_blt_map->get (t);
-  if (!slot)
-    return NULL;
-  return *slot;
-}
-
-/* Given tree node T, set the assocated blt_node if it has not been
-   set already.
-
-   If it has been set, don't change it; multiple tree nodes can
-   reference an blt_node *, but an blt_node * references
-   at most one tree node (e.g. C++ template instantiations
-   can lead to multiple FUNCTION_DECL tree nodes from one blt_node).  */
-
-void
-blt_set_node_for_tree (tree t, blt_node *node)
-{
-  if (!t)
-    return;
-  if (!node)
-    return;
-
-  if (node->get_tree () == NULL)
-    node->set_tree (t);
-  else
-    {
-      /* Don't attempt to change; multiple tree nodes can
-	 reference an blt_node *, but an blt_node * references
-	 at most one tree node (e.g. template instantiations).  */
-      gcc_assert (tree_to_blt_map);
-      tree_to_blt_map->get_or_insert (t) = node;
-    }
-}
-
 /* The table of names for enum blt_kind.  */
 
 static const char * const blt_kind_names[] = {
@@ -547,10 +516,97 @@ debug (blt_node *node)
   node->dump (stderr);
 }
 
-/* Global singleton.  */
-// FIXME: do we need this?  it's been useful when debugging.
+/* class blt_context.  */
 
-blt_node *the_blt_root_node;
+/* blt_context's ctor.  */
+
+blt_context::blt_context ()
+: m_tree_to_blt_map (new tree_to_blt_map_t ()),
+  m_root_node (NULL)
+{
+}
+
+/* blt_context's dtor.  */
+
+blt_context::~blt_context ()
+{
+  delete m_tree_to_blt_map;
+}
+
+/* Given tree node T, get the assocated blt_node, if any, or NULL.  */
+
+blt_node *
+blt_context::get_node_for_tree (tree t)
+{
+  if (!t)
+    return NULL;
+  blt_node **slot = m_tree_to_blt_map->get (t);
+  if (!slot)
+    return NULL;
+  return *slot;
+}
+
+/* Given tree node T, set the assocated blt_node if it has not been
+   set already.
+
+   If it has been set, don't change it; multiple tree nodes can
+   reference an blt_node *, but an blt_node * references
+   at most one tree node (e.g. C++ template instantiations
+   can lead to multiple FUNCTION_DECL tree nodes from one blt_node).  */
+
+void
+blt_context::set_node_for_tree (tree t, blt_node *node)
+{
+  if (!t)
+    return;
+  if (!node)
+    return;
+
+  if (node->get_tree () == NULL)
+    node->set_tree (t, this);
+  else
+    {
+      /* Don't attempt to change; multiple tree nodes can
+	 reference an blt_node *, but an blt_node * references
+	 at most one tree node (e.g. template instantiations).  */
+      gcc_assert (m_tree_to_blt_map);
+      m_tree_to_blt_map->get_or_insert (t) = node;
+    }
+}
+
+/* FIXME.  */
+
+blt_context *the_blt_ctxt = NULL;
+
+/* FIXME.  */
+
+blt_node *
+blt_get_root_node ()
+{
+  if (!the_blt_ctxt)
+    return NULL;
+  return the_blt_ctxt->get_root_node ();
+}
+
+/* FIXME.  */
+
+blt_node *
+blt_get_node_for_tree (tree t)
+{
+  if (!the_blt_ctxt)
+    return NULL;
+  return the_blt_ctxt->get_node_for_tree (t);
+}
+
+/* FIXME.  */
+
+void
+blt_set_node_for_tree (tree t, blt_node *n)
+{
+  if (!the_blt_ctxt)
+    return;
+  the_blt_ctxt->set_node_for_tree (t, n);
+}
 
 
 #if CHECKING_P
@@ -739,6 +795,8 @@ test_basic_ops (const line_table_case &case_)
   ASSERT_FALSE (s_contents->contains_location_p (tmp.get_filename (), 6, 2));
 
 #undef LOC
+
+  delete tu;
 }
 
 /* Verify that we can wrap cpp tokens.  */
@@ -746,11 +804,11 @@ test_basic_ops (const line_table_case &case_)
 static void
 test_cpp_tokens ()
 {
-  blt_node *plus_node = new blt_node (BLT_TOKEN_OP_PLUS, UNKNOWN_LOCATION);
-  ASSERT_STREQ ("+-token", plus_node->get_name ());
+  blt_node plus_node (BLT_TOKEN_OP_PLUS, UNKNOWN_LOCATION);
+  ASSERT_STREQ ("+-token", plus_node.get_name ());
 
-  blt_node *name_node = new blt_node (BLT_TOKEN_TK_NAME, UNKNOWN_LOCATION);
-  ASSERT_STREQ ("NAME-token", name_node->get_name ());
+  blt_node name_node (BLT_TOKEN_TK_NAME, UNKNOWN_LOCATION);
+  ASSERT_STREQ ("NAME-token", name_node.get_name ());
 }
 
 /* Run all of the selftests within this file.  */

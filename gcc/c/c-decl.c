@@ -4630,7 +4630,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   if (!decl || decl == error_mark_node)
     return NULL_TREE;
   if (declarator->bltnode)
-    declarator->bltnode->set_tree (decl);
+    declarator->bltnode->set_tree (decl, the_blt_ctxt);
 
   if (expr)
     add_stmt (fold_convert (void_type_node, expr));
@@ -8532,7 +8532,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL,
 			  &attributes, NULL, NULL, DEPRECATED_NORMAL);
   if (declarator->bltnode)
-    declarator->bltnode->set_tree (decl1);
+    declarator->bltnode->set_tree (decl1, the_blt_ctxt);
   invoke_plugin_callbacks (PLUGIN_START_PARSE_FUNCTION, decl1);
 
   /* If the declarator is not suitable for a function definition,

@@ -209,7 +209,6 @@ struct GTY(()) c_parser {
   vec <c_token, va_gc> *cilk_simd_fn_tokens;
 
   location_t last_token_location;
-  blt_node * GTY((skip)) blt_root_node;
   blt_node * GTY((skip)) blt_current_node;
 };
 
@@ -268,7 +267,7 @@ auto_blt_node::auto_blt_node (c_parser *parser, enum blt_kind kind)
   if (parent)
     parent->add_child (node);
   else
-    parser->blt_root_node = node;
+    the_blt_ctxt->set_root_node (node);
 }
 
 /* auto_blt_node's destructor.
@@ -313,7 +312,7 @@ auto_blt_node::set_tree (tree tree_node)
     return;
 
   blt_node *node = m_parser->blt_current_node;
-  node->set_tree (tree_node);
+  node->set_tree (tree_node, the_blt_ctxt);
 }
 
 /* Return a pointer to the Nth token in PARSERs tokens_buf.  */
@@ -3142,7 +3141,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
       timevar_pop (TV_PARSE_STRUCT);
 
       if (CURRENT_BLT_NODE)
-	CURRENT_BLT_NODE->set_tree (ret.spec);
+	CURRENT_BLT_NODE->set_tree (ret.spec, the_blt_ctxt);
 
       return ret;
     }
@@ -3159,7 +3158,7 @@ c_parser_struct_or_union_specifier (c_parser *parser)
   ret = parser_xref_tag (ident_loc, code, ident);
 
   if (CURRENT_BLT_NODE)
-    CURRENT_BLT_NODE->set_tree (ret.spec);
+    CURRENT_BLT_NODE->set_tree (ret.spec, the_blt_ctxt);
 
   return ret;
 }
@@ -18326,12 +18325,16 @@ c_parse_file (void)
   if (flag_exceptions)
     using_eh_for_cleanups ();
 
+  if (flag_blt)
+    {
+      gcc_assert (the_blt_ctxt == NULL);
+      the_blt_ctxt = new blt_context ();
+    }
+
   c_parser_translation_unit (the_parser);
 
   if (flag_blt && flag_dump_blt)
-    the_parser->blt_root_node->dump (stderr);
-
-  the_blt_root_node = the_parser->blt_root_node;
+    the_blt_ctxt->get_root_node ()->dump (stderr);
 
   the_parser = NULL;
 }
