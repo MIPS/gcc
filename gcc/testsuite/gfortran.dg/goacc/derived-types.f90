@@ -28,11 +28,14 @@ program derived_acc
   !$acc update self(var%a)
   
   !$acc enter data copyin(var)
-  !$acc enter data copyin(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc enter data copyin(var%a)
 
   !$acc exit data copyout(var)
-  !$acc exit data copyout(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc exit data copyout(var%a)
 
+  !$acc data copy(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc end data ! { dg-error "Unexpected ..ACC END DATA" }
+  
   !$acc data copy(var)
   !$acc end data
 
