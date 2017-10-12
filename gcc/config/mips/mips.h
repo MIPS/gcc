@@ -798,8 +798,8 @@ struct mips_cpu_info {
      %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k* \
-       |march=interaptiv*: -mips32r2} \
-     %{march=mips32r3: -mips32r3} \
+       |march=interaptiv: -mips32r2} \
+     %{march=mips32r3|march=interaptiv-mr2: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
