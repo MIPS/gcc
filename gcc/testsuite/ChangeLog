@@ -1,3 +1,167 @@
+2017-10-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+            Steven G. Kargl  <kargl@gcc.gnu.org>
+
+        Backport from trunk
+        PR fortran/80118
+        * gfortran.dg/zero_sized_7.f90: New test.
+
+2017-10-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-09-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/82337
+	* gcc.c-torture/compile/pr82337.c: New file.
+
+2017-10-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* opt55.ad[sb]: Move to...
+	* gnat.dg/opt55.ad[sb]: ...here.
+
+2017-09-19  Martin Liska  <mliska@suse.cz>
+
+	Revert backport:
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* g++.dg/other/pr81355.C: New test.
+
+2017-09-18  Richard Biener  <rguenther@suse.de>
+ 
+	Backport from mainline
+	2017-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80341
+	* gcc.dg/torture/pr80341.c: New testcase.
+
+	2017-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80281
+	* gcc.dg/torture/pr80281.c: New testcase.
+
+2017-09-18  Richard Biener  <rguenther@suse.de>
+ 
+	Backport from mainline
+	2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81977
+	* g++.dg/torture/pr81977.C: New testcase.
+
+	2017-09-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82084
+	* g++.dg/torture/pr82084.C: New testcase.
+
+	2017-07-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81505
+	* gcc.dg/ubsan/pr81505.c: New testcase.
+
+2017-09-18  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/asan/pr81224.c: Remove.
+
+2017-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82112
+	* gcc.target/powerpc/pr82112.c: New test.
+	* g++.dg/ext/altivec-18.C: New test.
+
+	PR target/82112
+	* c-c++-common/pr82112.c: New test.
+	* gcc.dg/pr82112.c: New test.
+
+	2017-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/81768
+	* gcc.dg/gomp/pr81768-2.c: New test.
+
+	PR middle-end/81768
+	* gcc.dg/gomp/pr81768-1.c: New test.
+
+	2017-08-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81766
+	* gcc.target/i386/pr81766.c: New testcase.
+
+	2017-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/81621
+	* gcc.dg/pr81621.c: New test.
+
+	PR middle-end/81052
+	* c-c++-common/pr81052.c: New test.
+
+	2017-08-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79499
+	* gcc.dg/pr79499.c: New test.
+
+	2017-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/81225
+	* gcc.target/i386/pr81225.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-11  Martin Liska  <mliska@suse.cz>
+
+	PR tree-opt/79987
+	* gcc.target/i386/mpx/pr79987.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/81224
+	* gcc.dg/asan/pr81224.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-30  Martin Liska  <mliska@suse.cz>
+
+	PR inline-asm/82001
+	* gcc.dg/ipa/pr82001.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* g++.dg/other/pr81355.C: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-08  Martin Liska  <mliska@suse.cz>
+
+	PR tree-opt/81696
+	* gcc.dg/ipa/pr81696.c: New test.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-07-19  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/63361
+	* c-c++-common/ubsan/float-cast-overflow-1.c: Add either
+	-ffloat-store or -mieee for targets that need it.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/81128
+	* gcc.target/i386/pr81128.c: New test.
+
 2017-09-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline

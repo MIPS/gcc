@@ -1,3 +1,231 @@
+2017-10-10  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config.gcc: (armv7*-*-freebsd*): New target.
+	Define TARGET_FREEBSD_ARMv7
+	* config/arm/freebsd.h: Use TARGET_FREEBSD_ARMv7 to define the
+	default cpu for armv7*-*-freebsd*.
+
+2017-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_split_idivmod): Use mode instead of
+	always SImode for DIV and MOD in REG_EQUAL notes.
+
+2017-10-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-09-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/82337
+	* gimple-ssa-strength-reduction.c (find_phi_def): Don't record a
+	phi definition if the PHI result appears in an abnormal PHI.
+	(find_basis_for_base_expr): Don't record a basis if the LHS of the
+	basis appears in an abnormal PHI.
+
+2017-09-21  Alan Modra  <amodra@gmail.com>
+
+	PR target/81996
+	* gcc/config/rs6000/rs6000.c (rs6000_return_addr): Use
+	stack_pointer_rtx for count 0.  Update comments.  Break up
+	large rtl expression.
+
+2017-09-21  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/71951
+	* config/aarch64/aarch64.h (LIBGCC2_UNWIND_ATTRIBUTE): Define.
+
+2017-09-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (fold_builtin_cpu): Add M_AMDFAM17H
+	to processor_model and "amdfam17h" to arch_names_table.
+	* doc/extend.texi (__builtin_cpu_is): Document amdfam17h CPU name.
+
+2017-09-19  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* config/i386/i386.c (sorted_attr_string): Skip empty strings.
+
+2017-09-19  Martin Liska  <mliska@suse.cz>
+
+	Revert backport:
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* c-attribs.c (handle_target_attribute):
+	Report warning for an empty string argument of target attribute.
+
+2017-09-18  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-08-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81977
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Fix look through
+	memcpy.
+
+	2017-09-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82084
+	* fold-const.h (can_native_encode_string_p): Declare.
+	* fold-const.c (can_native_encode_string_p): Factor out from ...
+	(native_encode_string): ... here.
+	* tree-vect-stmts.c (vectorizable_store): Call it to avoid
+	vectorizing stores from constants we later cannot handle.
+
+	2017-07-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81505
+	* fold-const.c (fold_negate_const): TREE_OVERFLOW should be
+	sticky.
+
+2017-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/81768
+	* omp-low.c (lower_omp_for): Recompute tree invariant if
+	gimple_omp_for_initial/final is ADDR_EXPR.
+
+	PR middle-end/81768
+	* omp-low.c (expand_omp_simd): Force second operands of COND_EXPR
+	into gimple val before gimplification fo the COND_EXPR.
+
+	2017-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* lra-remat.c (reg_overlap_for_remat_p): Fix a pasto.
+
+	2017-08-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/81687
+	* omp-low.c (omp_copy_decl): Don't remap FORCED_LABEL or DECL_NONLOCAL
+	LABEL_DECLs.
+	* tree-cfg.c (move_stmt_op): Don't adjust DECL_CONTEXT of FORCED_LABEL
+	or DECL_NONLOCAL labels.
+	(move_stmt_r) <case GIMPLE_LABEL>: Adjust DECL_CONTEXT of FORCED_LABEL
+	or DECL_NONLOCAL labels here.
+
+	2017-08-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81766
+	* function.c (thread_prologue_and_epilogue_insns): Restore
+	behavior of always calling find_many_sub_basic_blocks on
+	the inserted prologue.
+
+	2017-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/81621
+	* bb-reorder.c (pass_partition_blocks::execute): Return TODO_df_finish
+	after setting changeable df flags.
+
+	PR middle-end/81052
+	* omp-low.c (diagnose_sb_0): Handle flag_openmp_simd like flag_openmp.
+	(pass_diagnose_omp_blocks::gate): Enable also for flag_openmp_simd.
+
+	2017-08-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79499
+	* function.c (thread_prologue_and_epilogue_insns): Determine blocks
+	for find_many_sub_basic_blocks bitmap by looking up BLOCK_FOR_INSN
+	of first NONDEBUG_INSN_P in each of the split_prologue_seq and
+	prologue_seq sequences - if any.
+
+	2017-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/81225
+	* config/i386/sse.md (vec_extract_lo_<mode><mask_name>): For
+	V8FI, V16FI and VI8F_256 iterators, use <store_mask_predicate> instead
+	of nonimmediate_operand and <store_mask_constraint> instead of m for
+	the input operand.  For V8FI iterator, always split if input is a MEM.
+	For V16FI and V8SF_256 iterators, don't test if both operands are MEM
+	if <mask_applied>.  For VI4F_256 iterator, use <store_mask_predicate>
+	instead of register_operand and <store_mask_constraint> instead of v for
+	the input operand.  Make sure both operands aren't MEMs for if not
+	<mask_applied>.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-11  Martin Liska  <mliska@suse.cz>
+
+	PR tree-opt/79987
+	* tree-chkp.c (chkp_get_bounds_for_decl_addr): Do not instrument
+	variables of void type.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/81224
+	* asan.c (instrument_derefs): Bail out inner references
+	that are hard register variables.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-30  Martin Liska  <mliska@suse.cz>
+
+	PR inline-asm/82001
+	* ipa-icf-gimple.c (func_checker::compare_tree_list_operand):
+	Rename to ...
+	(func_checker::compare_asm_inputs_outputs): ... this function.
+	(func_checker::compare_gimple_asm): Use the function to compare
+	also ASM constrains.
+	* ipa-icf-gimple.h: Rename the function.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-29  Martin Liska  <mliska@suse.cz>
+
+	PR other/39851
+	* gcc.c (driver_handle_option): Add new argument.
+	* opts-common.c (handle_option): Pass
+	target_option_override_hook.
+	* opts-global.c (lang_handle_option): Add new option.
+	(set_default_handlers):  Add new argument.
+	(decode_options): Likewise.
+	* opts.c (target_handle_option): Likewise.
+	(common_handle_option): Call target_option_override_hook.
+	* opts.h (struct cl_option_handler_func): Add hook for
+	target option override.
+	(struct cl_option_handlers): Likewise.
+	(set_default_handlers): Add new argument.
+	(decode_options): Likewise.
+	(common_handle_option): Likewise.
+	(target_handle_option): Likewise.
+	* toplev.c (toplev::main): Pass targetm.target_option.override
+	hook.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR c++/81355
+	* c-attribs.c (handle_target_attribute):
+	Report warning for an empty string argument of target attribute.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-08-08  Martin Liska  <mliska@suse.cz>
+
+	PR tree-opt/81696
+	* ipa-icf-gimple.c (func_checker::compare_cst_or_decl): Consider
+	LABEL_DECLs that can be from a different function.
+
+2017-09-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-06-28  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/81128
+	* ipa-visibility.c (non_local_p): Handle visibility.
+
 2017-09-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
