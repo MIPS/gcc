@@ -5212,16 +5212,16 @@
    (set_attr "mode" "SI")])
 
 (define_insn "*mov<mode>_nanomips"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,d,d,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
-	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Uubp,L,n,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,d,d,d,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Uubp,L,n,s,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
   "TARGET_NANOMIPS
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,const,const,const,move,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
-   (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
-   (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,no,no,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
-   (set_attr "subset_16bit" "move,move,std,std,no,no,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
+  [(set_attr "move_type" "move,move,const,const,const,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
+   (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48,nanomips48,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
+   (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,no,no,no,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
+   (set_attr "subset_16bit" "move,move,std,std,no,no,no,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
    (set_attr "mode" "SI")])
 
 
