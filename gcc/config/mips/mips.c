@@ -6881,7 +6881,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
 	  if (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48
-	      && LI32_INT (src))
+	      && LI32_INT (src) && !ubp_operand (src, mode))
 	    return "li\t%0,%1 # LI48";
 
 	  if (!TARGET_MIPS16)
