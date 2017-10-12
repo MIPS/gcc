@@ -541,6 +541,7 @@ bb_paths::calculate_paths (basic_block bb)
 {
   if (!def_bb)
     return;
+  /* Discard loops.  */
   if (visited->add (bb))
     return;
   if (max_path_length && current_path.length () + 1 > max_path_length)
@@ -556,6 +557,11 @@ bb_paths::calculate_paths (basic_block bb)
 	 complete path.  */
       if (e->src == def_bb)
 	{
+	  /* If we've already seen DEF_BB, we have a complete loop
+	     back to DEF_BB.  We discard loops, so...  */
+	  if (visited->contains (def_bb))
+	    return;
+
 	  /* Push the DEF_BB for completeness sake.  */
 	  current_path.safe_push (def_bb);
 	  vec<basic_block> t = current_path.copy ();
