@@ -1,83 +1,83 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -mpcrel" } */
+/* { dg-options "-m32 -march=32r6 -mno-pcrel" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* balc a_static */
 
-/* lapc[48] reg, a_longcall # 1 */
+/* li reg, a_longcall # 1 */
 /* jalrc reg # 1 */
 
-/* lapc reg, a_static # 1 */
+/* li reg, a_static # 1 */
 /* balc a_takes_fptr # 1 */
 
-/* lapc[48] reg, a_longcall # 2 */
+/* li reg, a_longcall # 2 */
 /* balc a_takes_fptr # 2 */
 
-/* lapc reg, a_static # 2 */
-/* lapc[48] reg, a_long_takes_fptr # 1 */
+/* li reg, a_static # 2 */
+/* li reg, a_long_takes_fptr # 1 */
 /* jalrc reg # 2 */
 
-/* lapc[48] reg, a_longcall # 3 */
-/* lapc[48] reg, a_long_takes_fptr # 2 */
+/* li reg, a_longcall # 3 */
+/* li reg, a_long_takes_fptr # 2 */
 /* jalrc reg # 3 */
 
 /* { dg-final { scan-assembler "balc\ta_static" } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_longcall" 3 } } */
-/* { dg-final { scan-assembler-times "lapc\t\\\$\[ast0-9\]+,a_static" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,a_longcall" 3 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,a_static" 2 } } */
 /* { dg-final { scan-assembler-times "balc\ta_takes_fptr" 2 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,a_long_takes_fptr" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,a_long_takes_fptr" 2 } } */
 
 /* balc m_static */
 
-/* lapc[48] reg, m_longcall # 1 */
+/* li reg, m_longcall # 1 */
 /* jalrc reg # 4 */
 
-/* lapc[48] $a0, m_static # 1 */
+/* li $a0, m_static # 1 */
 /* balc m_takes_fptr # 1 */
 
-/* lapc[48] $a0, m_longcall # 2 */
+/* li $a0, m_longcall # 2 */
 /* balc m_takes_fptr # 2 */
 
-/* lapc[48] $a0, m_static # 2 */
-/* lapc[48] reg, m_long_takes_fptr # 1 */
+/* li $a0, m_static # 2 */
+/* li reg, m_long_takes_fptr # 1 */
 /* jalrc reg # 5 */
 
-/* lapc[48] $a0, m_longcall # 3 */
-/* lapc[48] reg, m_long_takes_fptr # 2 */
+/* li $a0, m_longcall # 3 */
+/* li reg, m_long_takes_fptr # 2 */
 /* jalrc reg # 6 */
 
 /* { dg-final { scan-assembler "balc\tm_static" } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,m_longcall" 3 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,m_static" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,m_longcall" 3 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,m_static" 2 } } */
 /* { dg-final { scan-assembler-times "balc\tm_takes_fptr" 2 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,m_long_takes_fptr" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,m_long_takes_fptr" 2 } } */
 
-/* lapc[48] reg, l_static # 1 */
+/* li reg, l_static # 1 */
 /* jalrc reg # 7 */
 
-/* lapc[48] reg, l_longcall # 1 */
+/* li reg, l_longcall # 1 */
 /* jalrc reg # 8 */
 
-/* lapc[48] $a0, l_static # 2 */
-/* lapc[48] reg, l_takes_fptr # 1 */
+/* li $a0, l_static # 2 */
+/* li reg, l_takes_fptr # 1 */
 /* jalrc reg # 9 */
 
-/* lapc[48] $a0, l_longcall # 2 */
-/* lapc[48] reg, l_takes_fptr # 2 */
+/* li $a0, l_longcall # 2 */
+/* li reg, l_takes_fptr # 2 */
 /* jalrc reg # 10 */
 
-/* lapc[48] $a0, l_static # 3 */
-/* lapc[48] reg, l_long_takes_fptr # 1 */
+/* li $a0, l_static # 3 */
+/* li reg, l_long_takes_fptr # 1 */
 /* jalrc reg # 11 */
 
-/* lapc[48] $a0, l_longcall # 3 */
-/* lapc[48] reg, l_long_takes_fptr # 2 */
+/* li $a0, l_longcall # 3 */
+/* li reg, l_long_takes_fptr # 2 */
 /* jalrc reg # 12 */
 
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_static" 3 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_longcall" 3 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_takes_fptr" 2 } } */
-/* { dg-final { scan-assembler-times "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_long_takes_fptr" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,l_static" 3 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,l_longcall" 3 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,l_takes_fptr" 2 } } */
+/* { dg-final { scan-assembler-times "li\t\\\$\[ast0-9\]+,l_long_takes_fptr" 2 } } */
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 12 } } */
 

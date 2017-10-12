@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6s -mcmodel=large -fpic" } */
+/* { dg-options "-m32 -march=32r6s -mcmodel=large -fpic -mpcrel" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* lw reg, %got_disp(f_extern)($gp) # 1 */

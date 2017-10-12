@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6s -mcmodel=auto -fpic" } */
+/* { dg-options "-m32 -march=32r6s -mcmodel=auto -fpic -mpcrel" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* lw reg, %got_call(a_extern)($gp) */

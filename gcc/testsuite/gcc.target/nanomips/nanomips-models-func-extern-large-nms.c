@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6s -mcmodel=medium -fPIC" } */
+/* { dg-options "-m32 -march=32r6s -mcmodel=medium -fPIC -mpcrel" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* aluipc reg, %got_pcrel_hi(f_extern) # 1 */

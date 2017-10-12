@@ -1,32 +1,41 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -mpcrel -mno-gpopt" } */
+/* { dg-options "-m32 -march=32r6s -mno-pcrel -mno-gpopt" } */
 /* { dg-skip-if "" { *-*-* } { "-O1"  "-O2" "-O3" "-Os" } { "" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_char\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_4Kaligned\\)" } } */
+/* lw reg, 0(reg) # 1 */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(a_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%lo\\(a_sta_char\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%lo\\(a_sta_short\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,a_sta_int" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_int\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(a_sta_int\\)\\(\\\$\[ast0-9\]+\\)" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_char\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(m_sta_4Kaligned\\)" } } */
+/* lw reg, 0(reg) # 2 */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(m_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(m_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(m_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%lo\\(m_sta_char\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(m_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%lo\\(m_sta_short\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,m_sta_int" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(m_sta_int\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(m_sta_int\\)\\(\\\$\[ast0-9\]+\\)" } } */
 
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_4Kaligned" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(l_sta_4Kaligned\\)" } } */
+/* lw reg, 0(reg) # 3 */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(l_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_int" } } */
+/* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(l_sta_int\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_int\\)\\(\\\$\[ast0-9\]+\\)" } } */
 
-/* { dg-final { scan-assembler "swpc\t\\\$\[ast0-9\]+,a_sta_int" } } */
+/* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" 3 } } */
 
 static char a_sta_char __attribute__ ((model("auto"))) = 13;
 static short a_sta_short __attribute__ ((model("auto"))) = 14;
@@ -66,10 +75,5 @@ foo ()
   char a13 = l_sta_char;
   short a14 = l_sta_short;
   int a15 = l_sta_int;
-
-  /* The model is irrelevant in the test case below.  */
-  register int r1 = 12;
-  a_sta_int = r1;
-
   return 0;
 }
