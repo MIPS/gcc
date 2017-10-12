@@ -3196,14 +3196,16 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
-	  else if (TARGET_PCREL)
+	  else
 	    {
 	      if (symbol_pic_model != NANO_PIC_LARGE
 		  && !SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_ABSOLUTE;
-	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
+		       && TARGET_PCREL)
 		return SYMBOL_LAPC48_FUNC_NANO;
-	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS
+		       && TARGET_PCREL)
 		return SYMBOL_PCREL_SPLIT_NANO;
 	    }
 	}
@@ -3222,9 +3224,9 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
 		return SYMBOL_GOT_PCREL_SPLIT_NANO;
 	    }
-	  else if (TARGET_PCREL || TARGET_GPOPT)
+	  else
 	    {
-	      if (TARGET_PCREL
+	      if (VAR_P (SYMBOL_REF_DECL (x))
 		  && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
 		  && context == SYMBOL_CONTEXT_LEA
 		  && !(TARGET_GPOPT
@@ -3266,12 +3268,11 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
 		       == 4)
 		return SYMBOL_PCREL32_NANO;
-	      else if (TARGET_PCREL
-		       && VAR_P (SYMBOL_REF_DECL (x))
+	      else if (VAR_P (SYMBOL_REF_DECL (x))
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
 		       && context == SYMBOL_CONTEXT_MEM)
 		return SYMBOL_PCREL_4K_NANO;
-	      else if (TARGET_PCREL
+	      else if ((TARGET_PCREL || (!TARGET_PCREL && TARGET_NANOMIPS == NANOMIPS_NMS))
 		       && !SYMBOL_REF_WEAK (x)
 		       && symbol_pic_model == NANO_PIC_AUTO
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
@@ -3381,8 +3382,15 @@ mips_string_constant_p (rtx x)
       && GET_CODE (XEXP (x, 0)) == PLUS)
     x = XEXP (XEXP (x, 0), 0);
 
+  /* Don't use LI48 for 4K-aligned symbols, as LUI is always better.  */
   if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
-      && !TARGET_PCREL)
+      && SYMBOL_REF_DECL (x)
+      && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
+    return false;
+
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
+      && !TARGET_PCREL
+      && !(flag_pic && !mips_symbol_binds_local_p (x)))
     return true;
 
   if (GET_CODE (x) == SYMBOL_REF
@@ -6911,11 +6919,21 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
 	      && (symbol_type == SYMBOL_PCREL_SPLIT_NANO
-		  || symbol_type == SYMBOL_LAPC_NANO
 		  || symbol_type == SYMBOL_LAPC48_NANO
-		  || symbol_type == SYMBOL_PCREL_4K_NANO
 		  || symbol_type == SYMBOL_GOT_PCREL_SPLIT_NANO))
 	    return "aluipc\t%0,%h1";
+
+	  if (TARGET_NANOMIPS
+	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && (symbol_type == SYMBOL_PCREL_4K_NANO
+		  || symbol_type == SYMBOL_LAPC_NANO))
+	    {
+	      if (TARGET_PCREL)
+		return "aluipc\t%0,%h1";
+	      else
+		return "lui\t%0,%h1";
+	    }
 
 	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
 	}
@@ -10744,7 +10762,10 @@ mips_init_relocs (void)
 
 	  mips_lo_relocs[SYMBOL_LAPC48_FUNC_NANO] = "";
 
-	  mips_hi_relocs[SYMBOL_LAPC_NANO] = "%pcrel_hi(";
+	  if (TARGET_PCREL)
+	    mips_hi_relocs[SYMBOL_LAPC_NANO] = "%pcrel_hi(";
+	  else
+	    mips_hi_relocs[SYMBOL_LAPC_NANO] = "%hi(";
 	  mips_lo_relocs[SYMBOL_LAPC_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_LAPC_NANO] = true;
 
@@ -10752,7 +10773,10 @@ mips_init_relocs (void)
 	  mips_lo_relocs[SYMBOL_LAPC48_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_LAPC48_NANO] = true;
 
-	  mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%pcrel_hi(";
+	  if (TARGET_PCREL)
+	    mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%pcrel_hi(";
+	  else
+	    mips_hi_relocs[SYMBOL_PCREL_4K_NANO] = "%hi(";
 	  mips_lo_relocs[SYMBOL_PCREL_4K_NANO] = "%lo(";
 	  mips_split_p[SYMBOL_PCREL_4K_NANO] = true;
 
@@ -22765,9 +22789,14 @@ mips_orphaned_high_part_p (mips_offset_table *htab, rtx_insn *insn)
     {
       /* Check for %his.  */
       x = SET_SRC (set);
+      /* @tmt Should we do this for 4K-aligned symbols too?  */
       if (GET_CODE (x) == HIGH
-	  && absolute_symbolic_operand (XEXP (x, 0), VOIDmode))
-	return !mips_lo_sum_offset_lookup (htab, XEXP (x, 0), NO_INSERT);
+	  && (absolute_symbolic_operand (XEXP (x, 0), VOIDmode)
+	      || (!TARGET_PCREL
+		  && mips_symbolic_constant_p (XEXP (x, 0),
+					       SYMBOL_CONTEXT_LEA, &type)
+		  && type == SYMBOL_LAPC_NANO)))
+	      return !mips_lo_sum_offset_lookup (htab, XEXP (x, 0), NO_INSERT);
 
       /* Check for local %gots (and %got_pages, which is redundant but OK).  */
       if (GET_CODE (x) == UNSPEC
