@@ -2311,13 +2311,12 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	    }
 	  cand_path->block_remove (0, j);
 	}
-      ++i;
-
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "adjusted: ");
 	  debug_path (dump_file, i);
 	}
+      ++i;
     }
 }
 
