@@ -539,15 +539,15 @@ write_ts_vector_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 }
 
 
-/* Write all pointer fields in the TS_POLY structure of EXPR to output
-   block OB.  If REF_P is true, write a reference to EXPR's pointer
+/* Write all pointer fields in the TS_POLY_INT_CST structure of EXPR to
+   output block OB.  If REF_P is true, write a reference to EXPR's pointer
    fields.  */
 
 static void
 write_ts_poly_tree_pointers (struct output_block *ob, tree expr, bool ref_p)
 {
   for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-    stream_write_tree (ob, POLY_CST_ELT (expr, i), ref_p);
+    stream_write_tree (ob, POLY_INT_CST_COEFF (expr, i), ref_p);
 }
 
 
@@ -892,7 +892,7 @@ streamer_write_tree_body (struct output_block *ob, tree expr, bool ref_p)
   if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
     write_ts_vector_tree_pointers (ob, expr, ref_p);
 
-  if (CODE_CONTAINS_STRUCT (code, TS_POLY))
+  if (CODE_CONTAINS_STRUCT (code, TS_POLY_INT_CST))
     write_ts_poly_tree_pointers (ob, expr, ref_p);
 
   if (CODE_CONTAINS_STRUCT (code, TS_COMPLEX))

@@ -266,7 +266,7 @@ enum reg_class
 #define FIRST_ARGUMENT_REGISTER 2
 
 #define XSTORMY16_WORD_SIZE(TYPE, MODE)				\
-  ((((TYPE) ? int_size_in_bytes_hwi (TYPE) : GET_MODE_SIZE (MODE))	\
+  ((((TYPE) ? int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))	\
     + 1) 							\
    / 2)
 

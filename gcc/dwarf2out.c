@@ -345,22 +345,6 @@ matches_main_base (const char *path)
   return last_match;
 }
 
-/* Return true if the size of type T is known and is <= DWARF2_ADDR_SIZE.
-   Store the size in *SIZE_OUT on success, if SIZE_OUT is nonnull.  */
-
-static bool
-addr_sized_p (tree t, unsigned int *size_out = 0)
-{
-  HOST_WIDE_INT size = int_size_in_bytes_hwi (t);
-  if (IN_RANGE (size, 0, DWARF2_ADDR_SIZE))
-    {
-      if (size_out)
-	*size_out = size;
-      return true;
-    }
-  return false;
-}
-
 #ifdef DEBUG_DEBUG_STRUCT
 
 static int
@@ -1505,7 +1489,7 @@ loc_descr_plus_const (dw_loc_descr_ref *list_head, poly_int64 poly_offset)
 
   gcc_assert (*list_head != NULL);
 
-  if (must_eq (poly_offset, 0))
+  if (known_zero (poly_offset))
     return;
 
   /* Find the end of the chain.  */
@@ -12219,7 +12203,7 @@ base_type_die (tree type, bool reverse)
   base_type_result = new_die (DW_TAG_base_type, comp_unit_die (), type);
 
   add_AT_unsigned (base_type_result, DW_AT_byte_size,
-		   tree_to_uhwi (TYPE_SIZE_UNIT (type)));
+		   int_size_in_bytes (type));
   add_AT_unsigned (base_type_result, DW_AT_encoding, encoding);
 
   if (need_endianity_attribute_p (reverse))
@@ -12377,14 +12361,14 @@ subrange_type_die (tree type, tree low, tree high, tree bias,
 		   dw_die_ref context_die)
 {
   dw_die_ref subrange_die;
-  unsigned HOST_WIDE_INT size_in_bytes = tree_to_uhwi (TYPE_SIZE_UNIT (type));
+  const HOST_WIDE_INT size_in_bytes = int_size_in_bytes (type);
 
   if (context_die == NULL)
     context_die = comp_unit_die ();
 
   subrange_die = new_die (DW_TAG_subrange_type, context_die, type);
 
-  if (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type))) != size_in_bytes)
+  if (int_size_in_bytes (TREE_TYPE (type)) != size_in_bytes)
     {
       /* The size of the subrange type and its base type do not match,
 	 so we need to generate a size attribute for the subrange type.  */
@@ -13776,7 +13760,7 @@ tls_mem_loc_descriptor (rtx mem)
   if (loc_result == NULL)
     return NULL;
 
-  if (may_ne (MEM_OFFSET (mem), 0))
+  if (maybe_nonzero (MEM_OFFSET (mem)))
     loc_descr_plus_const (&loc_result, MEM_OFFSET (mem));
 
   return loc_result;
@@ -13836,7 +13820,7 @@ const_ok_for_output_1 (rtx rtl)
       return false;
     }
 
-  if (GET_CODE (rtl) == CONST_PARAM)
+  if (CONST_POLY_INT_P (rtl))
     return false;
 
   if (targetm.const_not_ok_for_debug_p (rtl))
@@ -14997,7 +14981,6 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	 pool.  */
     case CONST:
     case SYMBOL_REF:
-    case CONST_PARAM:
       if (!is_a <scalar_int_mode> (mode, &int_mode)
 	  || (GET_MODE_SIZE (int_mode) > DWARF2_ADDR_SIZE
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -15005,12 +14988,6 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 #endif
 	      ))
 	break;
-      if ((GET_CODE (rtl) == CONST || GET_CODE (rtl) == CONST_PARAM)
-	  && poly_int_const_p (rtl, &offset))
-	{
-	  mem_loc_result = int_loc_descriptor (offset);
-	  break;
-	}
       if (GET_CODE (rtl) == SYMBOL_REF
 	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
 	{
@@ -15419,6 +15396,10 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  mem_loc_result->dw_loc_oprnd2.v.val_wide = ggc_alloc<wide_int> ();
 	  *mem_loc_result->dw_loc_oprnd2.v.val_wide = rtx_mode_t (rtl, mode);
 	}
+      break;
+
+    case CONST_POLY_INT:
+      mem_loc_result = int_loc_descriptor (rtx_to_poly_int64 (rtl));
       break;
 
     case EQ:
@@ -16188,7 +16169,7 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
   if (want_address == 2 && !have_address
       && (dwarf_version >= 4 || !dwarf_strict))
     {
-      if (!addr_sized_p (TREE_TYPE (loc)))
+      if (int_size_in_bytes (TREE_TYPE (loc)) > DWARF2_ADDR_SIZE)
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -16208,10 +16189,10 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
   /* If we've got an address and don't want one, dereference.  */
   if (!want_address && have_address)
     {
-      unsigned int size;
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (loc));
       enum dwarf_location_atom op;
 
-      if (!addr_sized_p (TREE_TYPE (loc), &size))
+      if (size > DWARF2_ADDR_SIZE || size == -1)
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -16687,11 +16668,11 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev,
 			NULL_RTX, "no indirect ref in inner refrence");
       return 0;
     }
-  if (!offset && must_eq (bitpos, 0))
+  if (!offset && known_zero (bitpos))
     list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), toplev ? 2 : 1,
 				   context);
   else if (toplev
-	   && addr_sized_p (TREE_TYPE (loc))
+	   && int_size_in_bytes (TREE_TYPE (loc)) <= DWARF2_ADDR_SIZE
 	   && (dwarf_version >= 4 || !dwarf_strict))
     {
       list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), 0, context);
@@ -16713,7 +16694,7 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev,
       if (bytepos.is_constant (&value) && value > 0)
 	add_loc_descr_to_each (list_ret,
 			       new_loc_descr (DW_OP_plus_uconst, value, 0));
-      else if (may_ne (bytepos, 0))
+      else if (maybe_nonzero (bytepos))
 	loc_list_plus_const (list_ret, bytepos);
       add_loc_descr_to_each (list_ret,
 			     new_loc_descr (DW_OP_stack_value, 0, 0));
@@ -16878,7 +16859,7 @@ is_handled_procedure_type (tree type)
   return ((INTEGRAL_TYPE_P (type)
 	   || TREE_CODE (type) == OFFSET_TYPE
 	   || TREE_CODE (type) == POINTER_TYPE)
-	  && addr_sized_p (type));
+	  && int_size_in_bytes (type) <= DWARF2_ADDR_SIZE);
 }
 
 /* Helper for resolve_args_picking: do the same but stop when coming across
@@ -17579,7 +17560,8 @@ loc_list_from_tree_1 (tree loc, int want_address,
 		&& (INTEGRAL_TYPE_P (TREE_TYPE (loc))
 		    || POINTER_TYPE_P (TREE_TYPE (loc)))
 		&& DECL_CONTEXT (loc) == current_function_decl
-		&& addr_sized_p (TREE_TYPE (loc)))
+		&& (GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (TREE_TYPE (loc)))
+		    <= DWARF2_ADDR_SIZE))
 	      {
 		dw_die_ref ref = lookup_decl_die (loc);
 		ret = new_loc_descr (DW_OP_GNU_variable_value, 0, 0);
@@ -17693,7 +17675,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
 
 	list_ret = loc_list_from_tree_1 (obj,
 					 want_address == 2
-					 && must_eq (bitpos, 0)
+					 && known_zero (bitpos)
 					 && !offset ? 2 : 1,
 					 context);
 	/* TODO: We can extract value of the small expression via shifting even
@@ -17724,7 +17706,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
 	if (bytepos.is_constant (&value) && value > 0)
 	  add_loc_descr_to_each (list_ret, new_loc_descr (DW_OP_plus_uconst,
 							  value, 0));
-	else if (may_ne (bytepos, 0))
+	else if (maybe_nonzero (bytepos))
 	  loc_list_plus_const (list_ret, bytepos);
 
 	have_address = 1;
@@ -17738,7 +17720,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
       else if (want_address == 2
 	       && tree_fits_shwi_p (loc)
 	       && (ret = address_of_int_loc_descriptor
-	       		   (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (loc))),
+	       		   (int_size_in_bytes (TREE_TYPE (loc)),
 	       		    tree_to_shwi (loc))))
 	have_address = 1;
       else if (tree_fits_shwi_p (loc))
@@ -17762,8 +17744,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
       else if (TREE_CODE (loc) == CONSTRUCTOR)
 	{
 	  tree type = TREE_TYPE (loc);
-	  /* DW_OP_piece doesn't support polynomial offsets.  */
-	  unsigned HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+	  unsigned HOST_WIDE_INT size = int_size_in_bytes (type);
 	  unsigned HOST_WIDE_INT offset = 0;
 	  unsigned HOST_WIDE_INT cnt;
 	  constructor_elt *ce;
@@ -18114,7 +18095,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
   if (want_address == 2 && !have_address
       && (dwarf_version >= 4 || !dwarf_strict))
     {
-      if (!addr_sized_p (TREE_TYPE (loc)))
+      if (int_size_in_bytes (TREE_TYPE (loc)) > DWARF2_ADDR_SIZE)
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -18140,8 +18121,9 @@ loc_list_from_tree_1 (tree loc, int want_address,
   /* If we've got an address and don't want one, dereference.  */
   if (!want_address && have_address)
     {
-      unsigned int size;
-      if (!addr_sized_p (TREE_TYPE (loc), &size))
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (loc));
+
+      if (size > DWARF2_ADDR_SIZE || size == -1)
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -18260,7 +18242,7 @@ type_byte_size (const_tree type, HOST_WIDE_INT *cst_size)
   struct loc_descr_context ctx;
 
   /* Return a constant integer in priority, if possible.  */
-  *cst_size = int_size_in_bytes_hwi (type);
+  *cst_size = int_size_in_bytes (type);
   if (*cst_size != -1)
     return NULL;
 
@@ -18977,6 +18959,8 @@ rtl_for_decl_init (tree init, tree type)
 	switch (TREE_CODE (init))
 	  {
 	  case VECTOR_CST:
+	  case VEC_DUPLICATE_CST:
+	  case VEC_SERIES_CST:
 	    break;
 	  case CONSTRUCTOR:
 	    if (TREE_CONSTANT (init))
@@ -19204,7 +19188,7 @@ rtl_for_decl_location (tree decl)
 	 fact we are not.  We need to adjust the offset of the
 	 storage location to reflect the actual value's bytes,
 	 else gdb will not be able to display it.  */
-      if (may_ne (offset, 0))
+      if (maybe_nonzero (offset))
 	rtl = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (decl)),
 			   plus_constant (addr_mode, XEXP (rtl, 0), offset));
     }
@@ -19427,7 +19411,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  if (!is_int_mode (TYPE_MODE (enttype), &mode)
 	      || GET_MODE_SIZE (mode) != 1)
 	    return false;
-	  if (may_ne (int_size_in_bytes (type), size))
+	  if (int_size_in_bytes (type) != size)
 	    return false;
 	  if (size > TREE_STRING_LENGTH (init))
 	    {
@@ -19443,7 +19427,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
       return false;
     case CONSTRUCTOR:
       type = TREE_TYPE (init);
-      if (may_ne (int_size_in_bytes (type), size))
+      if (int_size_in_bytes (type) != size)
 	return false;
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
@@ -19456,7 +19440,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      || !tree_fits_shwi_p (TYPE_MIN_VALUE (TYPE_DOMAIN (type))))
 	    return false;
 
-	  fieldsize = int_size_in_bytes_hwi (TREE_TYPE (type));
+	  fieldsize = int_size_in_bytes (TREE_TYPE (type));
 	  if (fieldsize <= 0)
 	    return false;
 
@@ -19502,7 +19486,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  unsigned HOST_WIDE_INT cnt;
 	  constructor_elt *ce;
 
-	  if (may_ne (int_size_in_bytes (type), size))
+	  if (int_size_in_bytes (type) != size)
 	    return false;
 
 	  if (TREE_CODE (type) == RECORD_TYPE)
@@ -19586,7 +19570,7 @@ tree_add_const_value_attribute (dw_die_ref die, tree t)
   if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
       && initializer_constant_valid_p (init, type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (init));
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (init));
       if (size > 0 && (int) size == size)
 	{
 	  unsigned char *array = ggc_cleared_vec_alloc<unsigned char> (size);
@@ -19933,7 +19917,7 @@ add_scalar_info (dw_die_ref die, enum dwarf_attribute attr, tree value,
 	   the precision of its type.  The precision and signedness
 	   of the type will be necessary to re-interpret it
 	   unambiguously.  */
-	add_AT_wide (die, attr, value);
+	add_AT_wide (die, attr, wi::to_wide (value));
       return;
     }
 
@@ -20246,7 +20230,7 @@ add_byte_size_attribute (dw_die_ref die, tree tree_node)
 	 generally given as the number of bytes normally allocated for an
 	 object of the *declared* type of the member itself.  This is true
 	 even for bit-fields.  */
-      size_expr = type_byte_size (field_type (tree_node), &size);
+      size = int_size_in_bytes (field_type (tree_node));
       break;
     default:
       gcc_unreachable ();
@@ -20978,7 +20962,7 @@ gen_array_type_die (tree type, dw_die_ref context_die)
       array_die = new_die (DW_TAG_string_type, scope_die, type);
       add_name_attribute (array_die, type_tag (type));
       equate_type_number_to_die (type, array_die);
-      size = int_size_in_bytes_hwi (type);
+      size = int_size_in_bytes (type);
       if (size >= 0)
 	add_AT_unsigned (array_die, DW_AT_byte_size, size);
       /* ???  We can't annotate types late, but for LTO we may not
@@ -20990,14 +20974,14 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 	  tree szdecl = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  tree rszdecl = szdecl;
 
-	  size = int_size_in_bytes_hwi (TREE_TYPE (szdecl));
+	  size = int_size_in_bytes (TREE_TYPE (szdecl));
 	  if (!DECL_P (szdecl))
 	    {
 	      if (TREE_CODE (szdecl) == INDIRECT_REF
 		  && DECL_P (TREE_OPERAND (szdecl, 0)))
 		{
 		  rszdecl = TREE_OPERAND (szdecl, 0);
-		  if (int_size_in_bytes_hwi (TREE_TYPE (rszdecl))
+		  if (int_size_in_bytes (TREE_TYPE (rszdecl))
 		      != DWARF2_ADDR_SIZE)
 		    size = 0;
 		}
@@ -21349,7 +21333,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	    /* Enumeration constants may be wider than HOST_WIDE_INT.  Handle
 	       that here.  TODO: This should be re-worked to use correct
 	       signed/unsigned double tags for all cases.  */
-	    add_AT_wide (enum_die, DW_AT_const_value, value);
+	    add_AT_wide (enum_die, DW_AT_const_value, wi::to_wide (value));
 	}
 
       add_gnat_descriptive_type_attribute (type_die, type, context_die);
@@ -21358,8 +21342,6 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
     }
   else
     add_AT_flag (type_die, DW_AT_declaration, 1);
-
-  add_alignment_attribute (type_die, type);
 
   add_pubtype (type, type_die);
 
@@ -25605,10 +25587,16 @@ dwarf2out_early_global_decl (tree decl)
 	     so that all nested DIEs are generated at the proper scope in the
 	     first shot.  */
 	  tree context = decl_function_context (decl);
-	  if (context != NULL && lookup_decl_die (context) == NULL)
+	  if (context != NULL)
 	    {
+	      dw_die_ref context_die = lookup_decl_die (context);
 	      current_function_decl = context;
-	      dwarf2out_decl (context);
+
+	      /* Avoid emitting DIEs multiple times, but still process CONTEXT
+		 enough so that it lands in its own context.  This avoids type
+		 pruning issues later on.  */
+	      if (context_die == NULL || is_declaration_die (context_die))
+		dwarf2out_decl (context);
 	    }
 
 	  /* Emit an abstract origin of a function first.  This happens

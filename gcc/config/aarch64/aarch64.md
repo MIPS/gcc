@@ -1067,13 +1067,10 @@
     if (GET_CODE (operands[0]) == MEM && operands[1] != const0_rtx)
       operands[1] = force_reg (TImode, operands[1]);
 
-    if (GET_CODE (operands[1]) == CONST
-	|| GET_CODE (operands[1]) == CONST_PARAM)
+    if (GET_CODE (operands[1]) == CONST_POLY_INT)
       {
-	poly_int64 offset;
-	rtx base = gen_lowpart (DImode, strip_offset (operands[1], &offset));
 	emit_move_insn (gen_lowpart (DImode, operands[0]),
-			plus_constant (DImode, base, offset));
+			gen_lowpart (DImode, operands[1]));
 	emit_move_insn (gen_highpart (DImode, operands[0]), const0_rtx);
 	DONE;
       }
@@ -4291,6 +4288,35 @@
   return "";
 }
   [(set_attr "type" "shift_reg")]
+)
+
+(define_insn_and_split "*aarch64_reg_<optab>_minus<mode>3"
+  [(set (match_operand:GPI 0 "register_operand" "=&r")
+	(ASHIFT:GPI
+	  (match_operand:GPI 1 "register_operand" "r")
+	  (minus:QI (match_operand 2 "const_int_operand" "n")
+		    (match_operand:QI 3 "register_operand" "r"))))]
+  "INTVAL (operands[2]) == GET_MODE_BITSIZE (<MODE>mode)"
+  "#"
+  "&& true"
+  [(const_int 0)]
+  {
+    rtx subreg_tmp = gen_lowpart (SImode, operands[3]);
+
+    rtx tmp = (can_create_pseudo_p () ? gen_reg_rtx (SImode)
+	       : gen_lowpart (SImode, operands[0]));
+
+    emit_insn (gen_negsi2 (tmp, subreg_tmp));
+
+    rtx and_op = gen_rtx_AND (SImode, tmp,
+			      GEN_INT (GET_MODE_BITSIZE (<MODE>mode) - 1));
+
+    rtx subreg_tmp2 = gen_lowpart_SUBREG (QImode, and_op);
+
+    emit_insn (gen_<optab><mode>3 (operands[0], operands[1], subreg_tmp2));
+    DONE;
+  }
+  [(set_attr "length" "8")]
 )
 
 ;; Logical left shift using SISD or Integer instruction

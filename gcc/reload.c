@@ -1788,7 +1788,7 @@ combine_reloads (void)
 	&& (ira_reg_class_max_nregs [(int)rld[i].rclass][(int) rld[i].inmode]
 	    == ira_reg_class_max_nregs [(int) rld[output_reload].rclass]
 				       [(int) rld[output_reload].outmode])
-	&& must_eq (rld[i].inc, 0)
+	&& known_zero (rld[i].inc)
 	&& rld[i].reg_rtx == 0
 	/* Don't combine two reloads with different secondary
 	   memory locations.  */
@@ -6173,7 +6173,7 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
 				   XEXP (tem, 0), &XEXP (tem, 0),
 				   opnum, type, ind_levels, insn);
   /* ??? Do we need to handle nonzero offsets somehow?  */
-  if (must_eq (offset, 0) && !rtx_equal_p (tem, orig))
+  if (known_zero (offset) && !rtx_equal_p (tem, orig))
     push_reg_equiv_alt_mem (regno, tem);
 
   /* For some processors an address may be valid in the original mode but
@@ -7123,7 +7123,7 @@ find_inc_amount (rtx x, rtx inced)
       if (fmt[i] == 'e')
 	{
 	  poly_int64 tem = find_inc_amount (XEXP (x, i), inced);
-	  if (may_ne (tem, 0))
+	  if (maybe_nonzero (tem))
 	    return tem;
 	}
       if (fmt[i] == 'E')
@@ -7132,7 +7132,7 @@ find_inc_amount (rtx x, rtx inced)
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    {
 	      poly_int64 tem = find_inc_amount (XVECEXP (x, i, j), inced);
-	      if (may_ne (tem, 0))
+	      if (maybe_nonzero (tem))
 		return tem;
 	    }
 	}
@@ -7293,7 +7293,7 @@ debug_reload_to_stream (FILE *f)
       if (rld[r].nongroup)
 	fprintf (f, ", nongroup");
 
-      if (may_ne (rld[r].inc, 0))
+      if (maybe_nonzero (rld[r].inc))
 	{
 	  fprintf (f, ", inc by ");
 	  print_dec (rld[r].inc, f, SIGNED);

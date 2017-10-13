@@ -1054,7 +1054,7 @@ rx_function_arg_size (machine_mode mode, const_tree type)
   unsigned int num_bytes;
 
   num_bytes = (mode == BLKmode)
-    ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode);
+    ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
   return rx_round_up (num_bytes, UNITS_PER_WORD);
 }
 
@@ -1078,9 +1078,7 @@ rx_function_arg (cumulative_args_t cum, machine_mode mode,
   unsigned int rounded_size;
 
   /* An exploded version of rx_function_arg_size.  */
-  size = (mode == BLKmode
-	  ? int_size_in_bytes_hwi (type)
-	  : GET_MODE_SIZE (mode));
+  size = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
   /* If the size is not known it cannot be passed in registers.  */
   if (size < 1)
     return NULL_RTX;
@@ -1188,7 +1186,7 @@ rx_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       && ! AGGREGATE_TYPE_P (type))
     return false;
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   /* Large structs and those whose size is not an
      exact multiple of 4 are returned in memory.  */
   return size < 1
@@ -2272,7 +2270,7 @@ rx_in_small_data (const_tree decl)
   if (section)
     return (strcmp (section, "D_2") == 0) || (strcmp (section, "B_2") == 0);
 
-  size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+  size = int_size_in_bytes (TREE_TYPE (decl));
 
   return (size > 0) && (size <= rx_small_data_limit);
 }

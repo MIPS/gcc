@@ -6930,7 +6930,7 @@ static rtx
 function_arg_record_value (const_tree type, machine_mode mode,
 			   int slotno, bool named, int regbase)
 {
-  HOST_WIDE_INT typesize = int_size_in_bytes_hwi (type);
+  HOST_WIDE_INT typesize = int_size_in_bytes (type);
   assign_data_t data;
   int nregs;
 
@@ -7099,7 +7099,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
      their mode, depending upon whether VIS instructions are enabled.  */
   if (type && TREE_CODE (type) == VECTOR_TYPE)
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       gcc_assert ((TARGET_ARCH32 && size <= 8)
 		  || (TARGET_ARCH64 && size <= 16));
 
@@ -7116,7 +7116,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
      and are promoted to registers if possible.  */
   if (type && TREE_CODE (type) == RECORD_TYPE)
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       gcc_assert (size <= 16);
 
       return function_arg_record_value (type, mode, slotno, named, regbase);
@@ -7125,7 +7125,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
   /* Unions up to 16 bytes in size are passed in integer registers.  */
   else if (type && TREE_CODE (type) == UNION_TYPE)
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       gcc_assert (size <= 16);
 
       return function_arg_union_value (size, mode, slotno, regno);
@@ -7176,7 +7176,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
      corresponding to the size of the type.  */
   else if (type && AGGREGATE_TYPE_P (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       gcc_assert (size <= 16);
 
       mode = int_mode_for_size (size * BITS_PER_UNIT, 0).else_blk ();
@@ -7241,7 +7241,7 @@ sparc_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
   if (TARGET_ARCH32)
     {
       if ((slotno + (mode == BLKmode
-		     ? CEIL_NWORDS (int_size_in_bytes_hwi (type))
+		     ? CEIL_NWORDS (int_size_in_bytes (type))
 		     : CEIL_NWORDS (GET_MODE_SIZE (mode))))
 	  > SPARC_INT_ARG_MAX)
 	return (SPARC_INT_ARG_MAX - slotno) * UNITS_PER_WORD;
@@ -7254,7 +7254,7 @@ sparc_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
 
       if (type && AGGREGATE_TYPE_P (type))
 	{
-	  int size = int_size_in_bytes_hwi (type);
+	  int size = int_size_in_bytes (type);
 
 	  if (size > UNITS_PER_WORD
 	      && (slotno == SPARC_INT_ARG_MAX - 1
@@ -7310,7 +7310,7 @@ sparc_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 	    || GET_MODE_SIZE (mode) > 8
 	    || (type
 		&& TREE_CODE (type) == VECTOR_TYPE
-		&& (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) > 8));
+		&& (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
   else
     /* Original SPARC 64-bit ABI says that structures and unions
        smaller than 16 bytes are passed in registers, as well as
@@ -7327,7 +7327,7 @@ sparc_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
        and unions.  */
     return ((type
 	     && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == VECTOR_TYPE)
-	     && (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) > 16)
+	     && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 16)
 	    /* Catch CTImode and TCmode.  */
 	    || GET_MODE_SIZE (mode) > 16);
 }
@@ -7352,13 +7352,13 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   if (TARGET_ARCH32)
     cum->words += (mode == BLKmode
-		   ? CEIL_NWORDS (int_size_in_bytes_hwi (type))
+		   ? CEIL_NWORDS (int_size_in_bytes (type))
 		   : CEIL_NWORDS (GET_MODE_SIZE (mode)));
   else
     {
       if (type && AGGREGATE_TYPE_P (type))
 	{
-	  int size = int_size_in_bytes_hwi (type);
+	  int size = int_size_in_bytes (type);
 
 	  if (size <= 8)
 	    ++cum->words;
@@ -7369,7 +7369,7 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 	}
       else
 	cum->words += (mode == BLKmode
-		       ? CEIL_NWORDS (int_size_in_bytes_hwi (type))
+		       ? CEIL_NWORDS (int_size_in_bytes (type))
 		       : CEIL_NWORDS (GET_MODE_SIZE (mode)));
     }
 }
@@ -7411,7 +7411,7 @@ sparc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     return (TYPE_MODE (type) == BLKmode
 	    || TYPE_MODE (type) == TFmode
 	    || (TREE_CODE (type) == VECTOR_TYPE
-		&& (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) > 8));
+		&& (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
   else
     /* Original SPARC 64-bit ABI says that structures and unions
        smaller than 32 bytes are returned in registers, as well as
@@ -7427,7 +7427,7 @@ sparc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
        registers.  Return all vector floats like structure and unions;
        note that they always have BLKmode like the latter.  */
     return (TYPE_MODE (type) == BLKmode
-	    && (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) > 32);
+	    && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 32);
 }
 
 /* Handle the TARGET_STRUCT_VALUE target hook.
@@ -7512,7 +7512,7 @@ sparc_function_value_1 (const_tree type, machine_mode mode,
      their mode, depending upon whether VIS instructions are enabled.  */
   if (type && TREE_CODE (type) == VECTOR_TYPE)
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       gcc_assert ((TARGET_ARCH32 && size <= 8)
 		  || (TARGET_ARCH64 && size <= 32));
 
@@ -7527,7 +7527,7 @@ sparc_function_value_1 (const_tree type, machine_mode mode,
       /* Structures up to 32 bytes in size are returned in registers.  */
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
 	  gcc_assert (size <= 32);
 
 	  return function_arg_record_value (type, mode, 0, 1, regbase);
@@ -7536,7 +7536,7 @@ sparc_function_value_1 (const_tree type, machine_mode mode,
       /* Unions up to 32 bytes in size are returned in integer registers.  */
       else if (TREE_CODE (type) == UNION_TYPE)
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
 	  gcc_assert (size <= 32);
 
 	  return function_arg_union_value (size, mode, 0, regbase);
@@ -7552,7 +7552,7 @@ sparc_function_value_1 (const_tree type, machine_mode mode,
 	{
 	  /* All other aggregate types are passed in an integer register
 	     in a mode corresponding to the size of the type.  */
-	  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
 	  gcc_assert (size <= 32);
 
 	  mode = int_mode_for_size (size * BITS_PER_UNIT, 0).else_blk ();
@@ -7683,7 +7683,7 @@ sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   else
     {
       indirect = false;
-      size = int_size_in_bytes_hwi (type);
+      size = int_size_in_bytes (type);
       rsize = ROUND_UP (size, UNITS_PER_WORD);
       align = 0;
 

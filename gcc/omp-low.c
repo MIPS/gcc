@@ -1626,6 +1626,14 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (decl)) = decl;
+  DECL_ATTRIBUTES (decl) = DECL_ATTRIBUTES (current_function_decl);
+  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl)
+    = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (current_function_decl);
+  DECL_FUNCTION_SPECIFIC_TARGET (decl)
+    = DECL_FUNCTION_SPECIFIC_TARGET (current_function_decl);
+  DECL_FUNCTION_VERSIONED (decl)
+    = DECL_FUNCTION_VERSIONED (current_function_decl);
+
   if (omp_maybe_offloaded_ctx (ctx))
     {
       cgraph_node::get_create (decl)->offloadable = 1;
@@ -3073,7 +3081,7 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
 	      if (tem != TREE_TYPE (t))
 		{
 		  if (TREE_CODE (t) == INTEGER_CST)
-		    *tp = wide_int_to_tree (tem, t);
+		    *tp = wide_int_to_tree (tem, wi::to_wide (t));
 		  else
 		    TREE_TYPE (t) = tem;
 		}
@@ -3443,8 +3451,8 @@ omp_clause_aligned_alignment (tree clause)
   /* Otherwise return implementation defined alignment.  */
   unsigned int al = 1;
   opt_scalar_mode mode_iter;
-  auto_vec<poly_uint64, 8> sizes;
-  targetm.vectorize.autovectorize_vector_sizes (sizes);
+  auto_vector_sizes sizes;
+  targetm.vectorize.autovectorize_vector_sizes (&sizes);
   poly_uint64 vs = 0;
   for (unsigned int i = 0; i < sizes.length (); ++i)
     vs = ordered_max (vs, sizes[i]);
@@ -3458,7 +3466,7 @@ omp_clause_aligned_alignment (tree clause)
 	machine_mode vmode = targetm.vectorize.preferred_simd_mode (mode);
 	if (GET_MODE_CLASS (vmode) != classes[i + 1])
 	  continue;
-	while (may_ne (vs, 0U)
+	while (maybe_nonzero (vs)
 	       && must_lt (GET_MODE_SIZE (vmode), vs)
 	       && GET_MODE_2XWIDER_MODE (vmode).exists ())
 	  vmode = GET_MODE_2XWIDER_MODE (vmode).require ();
@@ -3487,7 +3495,7 @@ struct omplow_simd_context {
   tree lane;
   vec<tree, va_heap> simt_eargs;
   gimple_seq simt_dlist;
-  poly_uint64 max_vf;
+  poly_uint64_pod max_vf;
   bool is_simt;
 };
 
@@ -3498,7 +3506,7 @@ static bool
 lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
 			      omplow_simd_context *sctx, tree &ivar, tree &lvar)
 {
-  if (must_eq (sctx->max_vf, 0U))
+  if (known_zero (sctx->max_vf))
     {
       sctx->max_vf = sctx->is_simt ? omp_max_simt_vf () : omp_max_vf ();
       if (may_gt (sctx->max_vf, 1U))
@@ -3509,7 +3517,7 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
 	    {
 	      poly_uint64 safe_len;
 	      if (!poly_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
-		  || may_eq (safe_len, 0U))
+		  || maybe_zero (safe_len))
 		sctx->max_vf = 1;
 	      else if (may_lt (safe_len, sctx->max_vf))
 		sctx->max_vf = safe_len;
@@ -4662,7 +4670,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   /* If max_vf is non-zero, then we can use only a vectorization factor
      up to the max_vf we chose.  So stick it into the safelen clause.  */
-  if (may_ne (sctx.max_vf, 0U))
+  if (maybe_nonzero (sctx.max_vf))
     {
       tree c = omp_find_clause (gimple_omp_for_clauses (ctx->stmt),
 				OMP_CLAUSE_SAFELEN);
@@ -6371,14 +6379,14 @@ lower_omp_ordered_clauses (gimple_stmt_iterator *gsi_p, gomp_ordered *ord_stmt,
 	  tree itype = TREE_TYPE (TREE_VALUE (vec));
 	  if (POINTER_TYPE_P (itype))
 	    itype = sizetype;
-	  wide_int offset = wide_int::from (TREE_PURPOSE (vec),
+	  wide_int offset = wide_int::from (wi::to_wide (TREE_PURPOSE (vec)),
 					    TYPE_PRECISION (itype),
 					    TYPE_SIGN (itype));
 
 	  /* Ignore invalid offsets that are not multiples of the step.  */
-	  if (!wi::multiple_of_p
-	      (wi::abs (offset), wi::abs ((wide_int) fd.loops[i].step),
-	       UNSIGNED))
+	  if (!wi::multiple_of_p (wi::abs (offset),
+				  wi::abs (wi::to_wide (fd.loops[i].step)),
+				  UNSIGNED))
 	    {
 	      warning_at (OMP_CLAUSE_LOCATION (c), 0,
 			  "ignoring sink clause with offset that is not "

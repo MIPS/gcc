@@ -556,8 +556,6 @@ valid_gimple_rhs_p (tree expr)
           break;
 
 	default:
-	  if (is_gimple_constant (expr))
-	    break;
 	  if (get_gimple_rhs_class (code) == GIMPLE_TERNARY_RHS)
 	    {
 	      if (((code == VEC_COND_EXPR || code == COND_EXPR)

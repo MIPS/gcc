@@ -1668,7 +1668,7 @@ visium_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       return build_va_arg_indirect_ref (t);
     }
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
   f_ovfl = TYPE_FIELDS (va_list_type_node);
   f_gbase = TREE_CHAIN (f_ovfl);

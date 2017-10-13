@@ -1379,7 +1379,7 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   /* Arguments larger than a word might need to skip over some
      registers, since arguments are either passed entirely in
      registers or entirely on the stack.  */
-  size = PUSH_ROUNDING (int_size_in_bytes_hwi (type));
+  size = PUSH_ROUNDING (int_size_in_bytes (type));
   if (size > 2 || size < 0 || must_stack)
     {
       tree r, u;
@@ -2616,7 +2616,7 @@ xstormy16_reorg (void)
 static bool
 xstormy16_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  const HOST_WIDE_INT size = int_size_in_bytes (type);
   return (size == -1 || size > UNITS_PER_WORD * NUM_ARGUMENT_REGISTERS);
 }
 

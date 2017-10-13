@@ -424,8 +424,7 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
      drop ref->ref.  */
   if (may_lt (MEM_OFFSET (mem), 0)
       || (ref->max_size_known_p ()
-	  && may_gt (poly_offset_int (MEM_OFFSET (mem) + MEM_SIZE (mem))
-		     * BITS_PER_UNIT,
+	  && may_gt ((MEM_OFFSET (mem) + MEM_SIZE (mem)) * BITS_PER_UNIT,
 		     ref->max_size)))
     ref->ref = NULL_TREE;
 
@@ -441,7 +440,7 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
     {
       if (must_lt (ref->max_size, ref->size))
 	ref->max_size = ref->size;
-      else if (may_lt (ref->max_size, ref->size))
+      else if (!ordered_p (ref->max_size, ref->size))
 	/* max_size is no longer known.  */
 	ref->max_size = -1;
     }
@@ -452,8 +451,8 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
       && (may_lt (ref->offset, 0)
 	  || (DECL_P (ref->base)
 	      && (DECL_SIZE (ref->base) == NULL_TREE
-		  || TREE_CODE (DECL_SIZE (ref->base)) != INTEGER_CST
-		  || may_lt (wi::to_offset (DECL_SIZE (ref->base)),
+		  || !poly_tree_p (DECL_SIZE (ref->base))
+		  || may_lt (wi::to_poly_offset (DECL_SIZE (ref->base)),
 			     ref->offset + ref->size)))))
     return false;
 
@@ -1573,7 +1572,7 @@ find_base_value (rtx src)
 	 address modes depending on the address space.  */
       if (!target_default_pointer_address_modes_p ())
 	break;
-      if (!is_narrower_int_mode (GET_MODE (src), Pmode))
+      if (is_narrower_int_mode (GET_MODE (src), Pmode))
 	break;
       /* Fall through.  */
     case HIGH:
@@ -1996,7 +1995,7 @@ find_base_term (rtx x)
 	 address modes depending on the address space.  */
       if (!target_default_pointer_address_modes_p ())
 	return 0;
-      if (!is_narrower_int_mode (GET_MODE (x), Pmode))
+      if (is_narrower_int_mode (GET_MODE (x), Pmode))
 	return 0;
       /* Fall through.  */
     case HIGH:

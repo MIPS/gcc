@@ -747,7 +747,7 @@ arc_return_addr_rtx(COUNT,FRAME)
 /* Round arg MODE/TYPE up to the next word boundary.  */
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
 ((MODE) == BLKmode				\
- ? ROUND_ADVANCE (int_size_in_bytes_hwi (TYPE))	\
+ ? ROUND_ADVANCE (int_size_in_bytes (TYPE))	\
  : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))
 
 #define ARC_FUNCTION_ARG_BOUNDARY(MODE,TYPE) PARM_BOUNDARY

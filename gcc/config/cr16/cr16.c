@@ -238,7 +238,7 @@ static const struct attribute_spec cr16_attribute_table[] = {
 static bool
 cr16_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  const HOST_WIDE_INT size = int_size_in_bytes (type);
   return ((size == -1) || (size > 8));
 }
 
@@ -577,7 +577,7 @@ enough_regs_for_param (CUMULATIVE_ARGS * cum, const_tree type,
   if (mode != BLKmode)
     type_size = GET_MODE_BITSIZE (mode);
   else
-    type_size = int_size_in_bytes_hwi (type) * BITS_PER_UNIT;
+    type_size = int_size_in_bytes (type) * BITS_PER_UNIT;
 
   remaining_size = BITS_PER_WORD * (MAX_REG_FOR_PASSING_ARGS
 				    - (MIN_REG_FOR_PASSING_ARGS + cum->ints) +

@@ -1889,7 +1889,7 @@ The hook does not need to do anything if the vector returned by\n\
 @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE} is the only one relevant\n\
 for autovectorization.  The default implementation does nothing.",
  void,
- (vec<poly_uint64> &sizes),
+ (vector_sizes *sizes),
  default_autovectorize_vector_sizes)
 
 /* Function to get a target mode for a vector mask.  */
@@ -3351,6 +3351,15 @@ HOOK_VECTOR_END (addr_space)
 #define HOOK_PREFIX "TARGET_"
 
 DEFHOOK
+(static_rtx_alignment,
+ "This hook returns the preferred alignment in bits for a\n\
+statically-allocated rtx, such as a constant pool entry.  @var{mode}\n\
+is the mode of the rtx.  The default implementation returns\n\
+@samp{GET_MODE_ALIGNMENT (@var{mode})}.",
+ HOST_WIDE_INT, (machine_mode mode),
+ default_static_rtx_alignment)
+
+DEFHOOK
 (constant_alignment,
  "This hook returns the alignment in bits of a constant that is being\n\
 placed in memory.  @var{constant} is the constant and @var{basic_align}\n\
@@ -3744,6 +3753,20 @@ should probably only be given to addresses with different numbers of\n\
 registers on machines with lots of registers.",
  int, (rtx address, machine_mode mode, addr_space_t as, bool speed),
  default_address_cost)
+
+/* Compute a cost for INSN.  */
+DEFHOOK
+(insn_cost,
+ "This target hook describes the relative costs of RTL instructions.\n\
+\n\
+In implementing this hook, you can use the construct\n\
+@code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast\n\
+instructions.\n\
+\n\
+When optimizing for code size, i.e.@: when @code{speed} is\n\
+false, this target hook should be used to estimate the relative\n\
+size cost of an expression, again relative to @code{COSTS_N_INSNS}.",
+ int, (rtx_insn *insn, bool speed), NULL)
 
 /* Give a cost, in RTX Costs units, for an edge.  Like BRANCH_COST, but with
    well defined units.  */

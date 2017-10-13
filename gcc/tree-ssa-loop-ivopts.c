@@ -1120,7 +1120,6 @@ determine_base_object (tree expr)
   switch (code)
     {
     case INTEGER_CST:
-    case POLY_CST:
       return NULL_TREE;
 
     case ADDR_EXPR:
@@ -1145,6 +1144,8 @@ determine_base_object (tree expr)
       gcc_unreachable ();
 
     default:
+      if (POLY_INT_CST_P (expr))
+	return NULL_TREE;
       return fold_convert (ptr_type_node, expr);
     }
 }
@@ -2183,17 +2184,12 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
       if (TREE_CODE (bot) != INTEGER_CST)
 	return false;
 
-      p0 = widest_int::from (top, SIGNED);
-      p1 = widest_int::from (bot, SIGNED);
+      p0 = widest_int::from (wi::to_wide (top), SIGNED);
+      p1 = widest_int::from (wi::to_wide (bot), SIGNED);
       if (p1 == 0)
 	return false;
       *mul = wi::sext (wi::divmod_trunc (p0, p1, SIGNED, &res), precision);
       return res == 0;
-
-    case POLY_CST:
-      return (TREE_CODE (bot) == POLY_CST
-	      && constant_multiple_p (tree_to_poly_widest_int (top),
-				      tree_to_poly_widest_int (bot), mul));
 
     case SSA_NAME:
       /* Handle one important special case: TOP is an SSA_NAME defined
@@ -2214,6 +2210,12 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
       return false;
 
     default:
+      if (POLY_INT_CST_P (top)
+	  && POLY_INT_CST_P (bot)
+	  && constant_multiple_p (wi::to_poly_widest (top),
+				  wi::to_poly_widest (bot), mul))
+	return true;
+
       return false;
     }
 }
@@ -2722,7 +2724,7 @@ split_address_groups (struct ivopts_data *data)
 	  /* Split group if aksed to, or the offset against the first
 	     use can't fit in offset part of addressing mode.  IV uses
 	     having the same offset are still kept in one group.  */
-	  if (may_ne (offset, 0)
+	  if (maybe_nonzero (offset)
 	      && (split_p || !addr_offset_valid_p (use, offset)))
 	    {
 	      if (!new_group)
@@ -2918,7 +2920,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       break;
 
     default:
-      if (ptrdiff_tree_p (expr, offset) && may_ne (*offset, 0))
+      if (ptrdiff_tree_p (expr, offset) && maybe_nonzero (*offset))
 	return build_int_cst (orig_type, 0);
       return orig_expr;
     }
@@ -3052,8 +3054,7 @@ get_loop_invariant_expr (struct ivopts_data *data, tree inv_expr)
 {
   STRIP_NOPS (inv_expr);
 
-  if (TREE_CODE (inv_expr) == INTEGER_CST
-      || TREE_CODE (inv_expr) == POLY_CST
+  if (poly_tree_p (inv_expr)
       || TREE_CODE (inv_expr) == SSA_NAME)
     return NULL;
 
@@ -3151,8 +3152,7 @@ add_candidate_1 (struct ivopts_data *data,
       cand->incremented_at = incremented_at;
       data->vcands.safe_push (cand);
 
-      if (TREE_CODE (step) != INTEGER_CST
-	  && TREE_CODE (step) != POLY_CST)
+      if (!poly_tree_p (step))
 	{
 	  find_inv_vars (data, &step, &cand->inv_vars);
 
@@ -3499,7 +3499,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
   /* Record common candidate with constant offset stripped in base.
      Like the use itself, we also add candidate directly for it.  */
   base = strip_offset (iv->base, &offset);
-  if (may_ne (offset, 0U) || base != iv->base)
+  if (maybe_nonzero (offset) || base != iv->base)
     {
       record_common_cand (data, base, iv->step, use);
       add_candidate (data, base, iv->step, false, use);
@@ -3518,7 +3518,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
       record_common_cand (data, base, step, use);
       /* Also record common candidate with offset stripped.  */
       base = strip_offset (base, &offset);
-      if (may_ne (offset, 0U))
+      if (maybe_nonzero (offset))
 	record_common_cand (data, base, step, use);
     }
 
@@ -3888,9 +3888,7 @@ get_computation_aff_1 (struct loop *loop, gimple *at, struct iv_use *use,
   if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
     {
       if (cand->orig_iv != NULL && CONVERT_EXPR_P (cbase)
-	  && (CONVERT_EXPR_P (cstep)
-	      || TREE_CODE (cstep) == INTEGER_CST
-	      || TREE_CODE (cstep) == POLY_CST))
+	  && (CONVERT_EXPR_P (cstep) || poly_tree_p (cstep)))
 	{
 	  tree inner_base, inner_step, inner_type;
 	  inner_base = TREE_OPERAND (cbase, 0);
@@ -4148,8 +4146,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 
   if (is_gimple_min_invariant (expr))
     {
-      if (TREE_CODE (expr) == INTEGER_CST
-	  || TREE_CODE (expr) == POLY_CST)
+      if (poly_tree_p (expr))
 	return comp_cost (integer_cost [speed], 0);
 
       if (TREE_CODE (expr) == ADDR_EXPR)
@@ -4388,9 +4385,9 @@ get_address_cost_ainc (poly_int64 ainc_step, poly_int64 ainc_offset,
     }
 
   poly_int64 msize = GET_MODE_SIZE (mem_mode);
-  if (must_eq (ainc_offset, 0) && must_eq (msize, ainc_step))
+  if (known_zero (ainc_offset) && must_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_POST_INC], 0);
-  if (must_eq (ainc_offset, 0) && must_eq (msize, -ainc_step))
+  if (known_zero (ainc_offset) && must_eq (msize, -ainc_step))
     return comp_cost (data->costs[AINC_POST_DEC], 0);
   if (must_eq (ainc_offset, msize) && must_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_PRE_INC], 0);
@@ -4444,10 +4441,9 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	}
       if (ok_with_ratio_p || ok_without_ratio_p)
 	{
-	  if (may_ne (aff_inv->offset, 0))
+	  if (maybe_nonzero (aff_inv->offset))
 	    {
-	      parts.offset = poly_widest_int_to_tree (sizetype,
-						      aff_inv->offset);
+	      parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
 	      /* Addressing mode "base + index [<< scale] + offset".  */
 	      if (!valid_mem_ref_p (mem_mode, as, &parts))
 		parts.offset = NULL_TREE;
@@ -4498,7 +4494,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	}
       if (!aff_combination_zero_p (aff_inv))
 	{
-	  parts.offset = poly_widest_int_to_tree (sizetype, aff_inv->offset);
+	  parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
 	  /* Addressing mode "base + offset".  */
 	  if (!valid_mem_ref_p (mem_mode, as, &parts))
 	    parts.offset = NULL_TREE;
@@ -6962,16 +6958,14 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       comp = fold_build_pointer_plus (comp_op1,
 				      fold_convert (sizetype, comp_op2));
       comp = fold_build_pointer_plus (comp,
-				      poly_widest_int_to_tree (sizetype,
-							       offset));
+				      wide_int_to_tree (sizetype, offset));
     }
   else
     {
       comp = fold_build2 (PLUS_EXPR, TREE_TYPE (comp_op1), comp_op1,
 			  fold_convert (TREE_TYPE (comp_op1), comp_op2));
       comp = fold_build2 (PLUS_EXPR, TREE_TYPE (comp_op1), comp,
-			  poly_widest_int_to_tree (TREE_TYPE (comp_op1),
-						   offset));
+			  wide_int_to_tree (TREE_TYPE (comp_op1), offset));
     }
 
   comp = fold_convert (type, comp);

@@ -9373,7 +9373,7 @@ frv_in_small_data_p (const_tree decl)
       return false;
     }
 
-  size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+  size = int_size_in_bytes (TREE_TYPE (decl));
   if (size > 0 && size <= g_switch_value)
     return true;
 

@@ -1182,7 +1182,7 @@ iq2000_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
     case E_BLKmode:
       cum->gp_reg_found = 1;
-      cum->arg_words += ((int_size_in_bytes_hwi (type) + UNITS_PER_WORD - 1)
+      cum->arg_words += ((int_size_in_bytes (type) + UNITS_PER_WORD - 1)
 			 / UNITS_PER_WORD);
       break;
 
@@ -1994,7 +1994,7 @@ iq2000_expand_prologue (void)
 
 	      /* Passed in a register, so will get homed automatically.  */
 	      if (GET_MODE (entry_parm) == BLKmode)
-		words = (int_size_in_bytes_hwi (passed_type) + 3) / 4;
+		words = (int_size_in_bytes (passed_type) + 3) / 4;
 	      else
 		words = (GET_MODE_SIZE (GET_MODE (entry_parm)) + 3) / 4;
 
@@ -2317,7 +2317,7 @@ iq2000_pass_by_reference (cumulative_args_t cum_v, machine_mode mode,
   if (type == NULL_TREE || mode == DImode || mode == DFmode)
     return 0;
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   return size == -1 || size > UNITS_PER_WORD;
 }
 
@@ -2886,8 +2886,8 @@ iq2000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 static bool
 iq2000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  return ((int_size_in_bytes_hwi (type) > (2 * UNITS_PER_WORD))
-	  || (int_size_in_bytes_hwi (type) == -1));
+  return ((int_size_in_bytes (type) > (2 * UNITS_PER_WORD))
+	  || (int_size_in_bytes (type) == -1));
 }
 
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */

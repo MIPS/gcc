@@ -48,8 +48,6 @@ gimple_simplified_result_is_gimple_val (code_helper code, tree *ops)
 {
   return (code.is_tree_code ()
 	  && (TREE_CODE_LENGTH ((tree_code) code) == 0
-	      || ((tree_code) code) == VEC_DUPLICATE_EXPR
-	      || ((tree_code) code) == VEC_SERIES_EXPR
 	      || ((tree_code) code) == ADDR_EXPR)
 	  && is_gimple_val (ops[0]));
 }

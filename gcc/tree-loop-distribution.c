@@ -593,8 +593,6 @@ struct partition
 {
   /* Statements of the partition.  */
   bitmap stmts;
-  /* Loops of the partition.  */
-  bitmap loops;
   /* True if the partition defines variable which is used outside of loop.  */
   bool reduction_p;
   /* For builtin partition, true if it executes one iteration more than
@@ -619,7 +617,6 @@ partition_alloc (void)
 {
   partition *partition = XCNEW (struct partition);
   partition->stmts = BITMAP_ALLOC (NULL);
-  partition->loops = BITMAP_ALLOC (NULL);
   partition->reduction_p = false;
   partition->kind = PKIND_NORMAL;
   partition->datarefs = BITMAP_ALLOC (NULL);
@@ -632,7 +629,6 @@ static void
 partition_free (partition *partition)
 {
   BITMAP_FREE (partition->stmts);
-  BITMAP_FREE (partition->loops);
   BITMAP_FREE (partition->datarefs);
   free (partition);
 }
@@ -834,6 +830,10 @@ generate_loops_for_partition (struct loop *loop, partition *partition,
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
+      edge inner_exit = NULL;
+
+      if (loop != bb->loop_father)
+	inner_exit = single_exit (bb->loop_father);
 
       for (gphi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);)
 	{
@@ -852,11 +852,17 @@ generate_loops_for_partition (struct loop *loop, partition *partition,
 	      && !is_gimple_debug (stmt)
 	      && !bitmap_bit_p (partition->stmts, gimple_uid (stmt)))
 	    {
-	      /* Choose an arbitrary path through the empty CFG part
-		 that this unnecessary control stmt controls.  */
+	      /* In distribution of loop nest, if bb is inner loop's exit_bb,
+		 we choose its exit edge/path in order to avoid generating
+		 infinite loop.  For all other cases, we choose an arbitrary
+		 path through the empty CFG part that this unnecessary
+		 control stmt controls.  */
 	      if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
 		{
-		  gimple_cond_make_false (cond_stmt);
+		  if (inner_exit && inner_exit->flags & EDGE_TRUE_VALUE)
+		    gimple_cond_make_true (cond_stmt);
+		  else
+		    gimple_cond_make_false (cond_stmt);
 		  update_stmt (stmt);
 		}
 	      else if (gimple_code (stmt) == GIMPLE_SWITCH)
@@ -903,7 +909,8 @@ build_addr_arg_loc (location_t loc, data_reference_p dr, tree nb_bytes)
 {
   tree addr_base;
 
-  addr_base = fold_convert_loc (loc, sizetype, DR_OFFSET (dr));
+  addr_base = size_binop_loc (loc, PLUS_EXPR, DR_OFFSET (dr), DR_INIT (dr));
+  addr_base = fold_convert_loc (loc, sizetype, addr_base);
 
   /* Test for a negative stride, iterating over every element.  */
   if (tree_int_cst_sgn (DR_STEP (dr)) == -1)
@@ -933,6 +940,9 @@ const_with_all_bytes_same (tree val)
           && !TREE_CLOBBER_P (val)
           && CONSTRUCTOR_NELTS (val) == 0))
     return 0;
+
+  if (TREE_CODE (val) == VEC_DUPLICATE_CST)
+    return const_with_all_bytes_same (VEC_DUPLICATE_CST_ELT (val));
 
   if (real_zerop (val))
     {
@@ -1278,8 +1288,6 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
   FOR_EACH_VEC_ELT (nodes, i, x)
     {
       bitmap_set_bit (partition->stmts, x);
-      bitmap_set_bit (partition->loops,
-		      loop_containing_stmt (RDG_STMT (rdg, x))->num);
 
       for (j = 0; RDG_DATAREFS (rdg, x).iterate (j, &dr); ++j)
 	{
@@ -1288,7 +1296,8 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
 
 	  /* Partition can only be executed sequentially if there is any
 	     unknown data reference.  */
-	  if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_STEP (dr))
+	  if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr)
+	      || !DR_INIT (dr) || !DR_STEP (dr))
 	    partition->type = PTYPE_SEQUENTIAL;
 
 	  bitmap_set_bit (partition->datarefs, idx);
@@ -1505,18 +1514,21 @@ share_memory_accesses (struct graph *rdg,
     {
       dr1 = datarefs_vec[i];
 
-      if (!DR_BASE_ADDRESS (dr1) || !DR_OFFSET (dr1) || !DR_STEP (dr1))
+      if (!DR_BASE_ADDRESS (dr1)
+	  || !DR_OFFSET (dr1) || !DR_INIT (dr1) || !DR_STEP (dr1))
 	continue;
 
       EXECUTE_IF_SET_IN_BITMAP (partition2->datarefs, 0, j, bj)
 	{
 	  dr2 = datarefs_vec[j];
 
-	  if (!DR_BASE_ADDRESS (dr2) || !DR_OFFSET (dr2) || !DR_STEP (dr2))
+	  if (!DR_BASE_ADDRESS (dr2)
+	      || !DR_OFFSET (dr2) || !DR_INIT (dr2) || !DR_STEP (dr2))
 	    continue;
 
 	  if (operand_equal_p (DR_BASE_ADDRESS (dr1), DR_BASE_ADDRESS (dr2), 0)
 	      && operand_equal_p (DR_OFFSET (dr1), DR_OFFSET (dr2), 0)
+	      && operand_equal_p (DR_INIT (dr1), DR_INIT (dr2), 0)
 	      && operand_equal_p (DR_STEP (dr1), DR_STEP (dr2), 0))
 	    return true;
 	}
@@ -1700,6 +1712,7 @@ pg_add_dependence_edges (struct graph *rdg, int dir,
 		 runtime alias check.  */
 	      if (!DR_BASE_ADDRESS (dr1) || !DR_BASE_ADDRESS (dr2)
 		  || !DR_OFFSET (dr1) || !DR_OFFSET (dr2)
+		  || !DR_INIT (dr1) || !DR_INIT (dr2)
 		  || !DR_STEP (dr1) || !tree_fits_uhwi_p (DR_STEP (dr1))
 		  || !DR_STEP (dr2) || !tree_fits_uhwi_p (DR_STEP (dr2))
 		  || res == 0)
@@ -2193,7 +2206,7 @@ compute_alias_check_pairs (struct loop *loop, vec<ddr_p> *alias_ddrs,
 					    DR_BASE_ADDRESS (dr_b));
 
       if (comp_res == 0)
-	comp_res = dr_var_offsets_compare (dr_a, dr_b);
+	comp_res = data_ref_compare_tree (DR_OFFSET (dr_a), DR_OFFSET (dr_b));
       gcc_assert (comp_res != 0);
 
       if (latch_dominated_by_data_ref (loop, dr_a))

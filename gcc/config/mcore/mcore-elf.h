@@ -72,7 +72,7 @@ along with GCC; see the file COPYING3.  If not see
       if (!flag_inhibit_size_directive && DECL_SIZE (DECL))	\
         {							\
           size_directive_output = 1;				\
-	  size = int_size_in_bytes_hwi (TREE_TYPE (DECL));	\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
 	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
         }							\
       ASM_OUTPUT_LABEL(FILE, NAME);				\
@@ -96,7 +96,7 @@ along with GCC; see the file COPYING3.  If not see
           && !size_directive_output)                                     \
         {                                                                \
 	  size_directive_output = 1;					 \
-	  size = int_size_in_bytes_hwi (TREE_TYPE (DECL));		 \
+	  size = int_size_in_bytes (TREE_TYPE (DECL));			 \
 	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
         }                                                                \
     }                                                                    \

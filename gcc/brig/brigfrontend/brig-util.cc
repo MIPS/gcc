@@ -27,6 +27,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "diagnostic-core.h"
 
+bool
+group_variable_offset_index::has_variable (const std::string &name) const
+{
+  varname_offset_table::const_iterator i = m_group_offsets.find (name);
+  return i != m_group_offsets.end ();
+}
+
+/* Adds a new group segment variable.  */
+
+void
+group_variable_offset_index::add (const std::string &name, size_t size,
+				  size_t alignment)
+{
+  size_t align_padding = m_next_group_offset % alignment == 0 ?
+    0 : (alignment - m_next_group_offset % alignment);
+  m_next_group_offset += align_padding;
+  m_group_offsets[name] = m_next_group_offset;
+  m_next_group_offset += size;
+}
+
+size_t
+group_variable_offset_index::segment_offset (const std::string &name) const
+{
+  varname_offset_table::const_iterator i = m_group_offsets.find (name);
+  gcc_assert (i != m_group_offsets.end ());
+  return (*i).second;
+}
+
 /* Return true if operand number OPNUM of instruction with OPCODE is an output.
    False if it is an input.  Some code reused from Martin Jambor's gcc-hsa
    tree.  */
@@ -241,7 +269,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
     {
       if (TYPE_UNSIGNED (tree_type))
 	{
-	  switch (int_size_in_bytes_hwi (tree_type))
+	  switch (int_size_in_bytes (tree_type))
 	    {
 	    case 1:
 	      return BRIG_TYPE_U8;
@@ -257,7 +285,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
 	}
       else
 	{
-	  switch (int_size_in_bytes_hwi (tree_type))
+	  switch (int_size_in_bytes (tree_type))
 	    {
 	    case 1:
 	      return BRIG_TYPE_S8;
@@ -275,7 +303,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
   else if (VECTOR_TYPE_P (tree_type))
     {
       tree element_type = TREE_TYPE (tree_type);
-      size_t element_size = int_size_in_bytes_hwi (element_type) * 8;
+      size_t element_size = int_size_in_bytes (element_type) * 8;
       BrigType16_t brig_element_type;
       switch (element_size)
 	{
@@ -300,7 +328,7 @@ gccbrig_tree_type_to_hsa_type (tree tree_type)
 	}
 
       BrigType16_t pack_type;
-      switch (int_size_in_bytes_hwi (tree_type) * 8)
+      switch (int_size_in_bytes (tree_type) * 8)
 	{
 	case 32:
 	  pack_type = BRIG_TYPE_PACK_32;

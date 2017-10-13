@@ -1423,16 +1423,17 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
 static tree
 ssa_uniform_vector_p (tree op)
 {
+  if (TREE_CODE (op) == VECTOR_CST
+      || TREE_CODE (op) == VEC_DUPLICATE_CST
+      || TREE_CODE (op) == CONSTRUCTOR)
+    return uniform_vector_p (op);
   if (TREE_CODE (op) == SSA_NAME)
     {
       gimple *def_stmt = SSA_NAME_DEF_STMT (op);
-      if (!gimple_assign_single_p (def_stmt))
-	return NULL_TREE;
-      op = gimple_assign_rhs1 (def_stmt);
+      if (gimple_assign_single_p (def_stmt))
+	return uniform_vector_p (gimple_assign_rhs1 (def_stmt));
     }
-  if (!VECTOR_TYPE_P (TREE_TYPE (op)))
-    return NULL_TREE;
-  return uniform_vector_p (op);
+  return NULL_TREE;
 }
 
 /* Return type in which CODE operation with optab OP can be
@@ -1599,7 +1600,8 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   if (rhs_class == GIMPLE_BINARY_RHS)
     rhs2 = gimple_assign_rhs2 (stmt);
 
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  if (!VECTOR_TYPE_P (type)
+      || !VECTOR_TYPE_P (TREE_TYPE (rhs1)))
     return;
 
   /* If the vector operation is operating on all same vector elements

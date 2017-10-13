@@ -152,6 +152,7 @@ innermost_loop_behavior_hash::hash (const value_type &e)
 
   hash = iterative_hash_expr (e->base_address, 0);
   hash = iterative_hash_expr (e->offset, hash);
+  hash = iterative_hash_expr (e->init, hash);
   return iterative_hash_expr (e->step, hash);
 }
 
@@ -163,6 +164,8 @@ innermost_loop_behavior_hash::equal (const value_type &e1,
       || (!e1->base_address && e2->base_address)
       || (!e1->offset && e2->offset)
       || (e1->offset && !e2->offset)
+      || (!e1->init && e2->init)
+      || (e1->init && !e2->init)
       || (!e1->step && e2->step)
       || (e1->step && !e2->step))
     return false;
@@ -172,6 +175,9 @@ innermost_loop_behavior_hash::equal (const value_type &e1,
     return false;
   if (e1->offset && e2->offset
       && !operand_equal_p (e1->offset, e2->offset, 0))
+    return false;
+  if (e1->init && e2->init
+      && !operand_equal_p (e1->init, e2->init, 0))
     return false;
   if (e1->step && e2->step
       && !operand_equal_p (e1->step, e2->step, 0))
@@ -856,7 +862,8 @@ ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
   innermost_loop_behavior *innermost = &DR_INNERMOST (a);
 
   gcc_assert (DR_STMT (a) == stmt);
-  gcc_assert (DR_BASE_ADDRESS (a) || DR_OFFSET (a) || DR_STEP (a));
+  gcc_assert (DR_BASE_ADDRESS (a) || DR_OFFSET (a)
+              || DR_INIT (a) || DR_STEP (a));
 
   master_dr = innermost_DR_map->get (innermost);
   gcc_assert (master_dr != NULL);
@@ -1447,7 +1454,8 @@ if_convertible_loop_p_1 (struct loop *loop, vec<data_reference_p> *refs)
       if (TREE_CODE (ref) == COMPONENT_REF
           || TREE_CODE (ref) == IMAGPART_EXPR
           || TREE_CODE (ref) == REALPART_EXPR
-          || !(DR_BASE_ADDRESS (dr) || DR_OFFSET (dr) || DR_STEP (dr)))
+          || !(DR_BASE_ADDRESS (dr) || DR_OFFSET (dr)
+	       || DR_INIT (dr) || DR_STEP (dr)))
         {
           while (TREE_CODE (ref) == COMPONENT_REF
 	         || TREE_CODE (ref) == IMAGPART_EXPR

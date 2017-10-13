@@ -2658,13 +2658,14 @@ tree_could_trap_p (tree expr)
 	{
 	  tree base = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
 	  poly_offset_int off = mem_ref_offset (expr);
-	  poly_offset_int size;
 	  if (may_lt (off, 0))
 	    return true;
 	  if (TREE_CODE (base) == STRING_CST)
 	    return may_le (TREE_STRING_LENGTH (base), off);
-	  else if (!poly_tree_p (DECL_SIZE_UNIT (base), &size)
-		   || may_le (size, off))
+	  tree size = DECL_SIZE_UNIT (base);
+	  if (size == NULL_TREE
+	      || !poly_tree_p (size)
+	      || may_le (wi::to_poly_offset (size), off))
 	    return true;
 	  /* Now we are sure the first byte of the access is inside
 	     the object.  */

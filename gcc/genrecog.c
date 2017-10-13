@@ -3461,6 +3461,7 @@ safe_predicate_mode (const struct pred_data *pred, machine_mode mode)
       && (pred->codes[CONST_INT]
 	  || pred->codes[CONST_DOUBLE]
 	  || pred->codes[CONST_WIDE_INT]
+	  || pred->codes[CONST_POLY_INT]
 	  || pred->codes[LABEL_REF]))
     return false;
 

@@ -2695,7 +2695,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm,
   if ((GET_CODE (imm) == SYMBOL_REF
        || GET_CODE (imm) == LABEL_REF
        || GET_CODE (imm) == CONST
-       || GET_CODE (imm) == CONST_PARAM)
+       || GET_CODE (imm) == CONST_POLY_INT)
       && is_a <scalar_int_mode> (mode, &int_mode))
     {
       rtx mem;
@@ -2901,7 +2901,7 @@ aarch64_pass_by_reference (cumulative_args_t pcum ATTRIBUTE_UNUSED,
 
   /* GET_MODE_SIZE (BLKmode) is useless since it is 0.  */
   if (mode == BLKmode && type)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     /* We don't support passing and returning SVE types.  */
     size = GET_MODE_SIZE (mode).to_constant ();
@@ -2909,7 +2909,7 @@ aarch64_pass_by_reference (cumulative_args_t pcum ATTRIBUTE_UNUSED,
   /* Aggregates are passed by reference based on their size.  */
   if (type && AGGREGATE_TYPE_P (type))
     {
-      size = int_size_in_bytes_hwi (type);
+      size = int_size_in_bytes (type);
     }
 
   /* Variable sized arguments are always returned by reference.  */
@@ -2942,8 +2942,8 @@ aarch64_return_in_msb (const_tree valtype)
   /* Only composite types smaller than or equal to 16 bytes can
      be potentially returned in registers.  */
   if (!aarch64_composite_type_p (valtype, TYPE_MODE (valtype))
-      || int_size_in_bytes_hwi (valtype) <= 0
-      || int_size_in_bytes_hwi (valtype) > 16)
+      || int_size_in_bytes (valtype) <= 0
+      || int_size_in_bytes (valtype) > 16)
     return false;
 
   /* But not a composite that is an HFA (Homogeneous Floating-point Aggregate)
@@ -2975,7 +2975,7 @@ aarch64_function_value (const_tree type, const_tree func,
 
   if (aarch64_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
 
       if (size % UNITS_PER_WORD != 0)
 	{
@@ -3063,7 +3063,7 @@ aarch64_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
     return false;
 
   /* Types larger than 2 registers returned in memory.  */
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   return (size < 0 || size > 2 * UNITS_PER_WORD);
 }
 
@@ -3130,7 +3130,7 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 
   /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
   if (type)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     /* We don't support passing and returning SVE types.  */
     size = GET_MODE_SIZE (mode).to_constant ();
@@ -3415,7 +3415,7 @@ aarch64_pad_reg_upward (machine_mode mode, const_tree type,
     {
       HOST_WIDE_INT size;
       if (type)
-	size = int_size_in_bytes_hwi (type);
+	size = int_size_in_bytes (type);
       else
 	/* We don't support passing and returning SVE types.  */
 	size = GET_MODE_SIZE (mode).to_constant ();
@@ -4962,7 +4962,7 @@ aarch64_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
   /* There's no way to calculate VL-based values using relocations.  */
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, x, ALL)
-    if (GET_CODE (*iter) == CONST_PARAM)
+    if (GET_CODE (*iter) == CONST_POLY_INT)
       return true;
 
   split_const (x, &base, &offset);
@@ -7235,7 +7235,7 @@ aarch64_elf_asm_constructor (rtx symbol, int priority)
          -Wformat-truncation false positive, use a larger size.  */
       char buf[23];
       snprintf (buf, sizeof (buf), ".init_array.%.5u", priority);
-      s = get_section (buf, SECTION_WRITE, NULL);
+      s = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
       assemble_aligned_integer (POINTER_BYTES, symbol);
@@ -7255,7 +7255,7 @@ aarch64_elf_asm_destructor (rtx symbol, int priority)
          -Wformat-truncation false positive, use a larger size.  */
       char buf[23];
       snprintf (buf, sizeof (buf), ".fini_array.%.5u", priority);
-      s = get_section (buf, SECTION_WRITE, NULL);
+      s = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
       assemble_aligned_integer (POINTER_BYTES, symbol);
@@ -11792,7 +11792,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
   stack = build3 (COMPONENT_REF, TREE_TYPE (f_stack), unshare_expr (valist),
 		  f_stack, NULL_TREE);
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   align = aarch64_function_arg_alignment (mode, type) / BITS_PER_UNIT;
 
   dw_align = false;
@@ -11996,9 +11996,9 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  u = fold_convert (field_ptr_t, addr);
 	  u = build2 (MODIFY_EXPR, field_t,
 		      build2 (MEM_REF, field_t, tmp_ha,
-			      (build_int_cst
-			       (field_ptr_t,
-				i * int_size_in_bytes_hwi (field_t)))),
+			      build_int_cst (field_ptr_t,
+					     (i *
+					      int_size_in_bytes (field_t)))),
 		      build1 (INDIRECT_REF, field_t, u));
 	  t = build2 (COMPOUND_EXPR, TREE_TYPE (t), t, u);
 	}
@@ -12165,7 +12165,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
     case VECTOR_TYPE:
       /* Use V2SImode and V4SImode as representatives of all 64-bit
 	 and 128-bit vector types.  */
-      size = int_size_in_bytes_hwi (type);
+      size = int_size_in_bytes (type);
       switch (size)
 	{
 	case 8:
@@ -12214,8 +12214,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 		      - tree_to_uhwi (TYPE_MIN_VALUE (index)));
 
 	/* There must be no padding.  */
-	if (!equal_tree_size (TYPE_SIZE (type),
-			      count * GET_MODE_BITSIZE (*modep)))
+	if (may_ne (wi::to_poly_wide (TYPE_SIZE (type)),
+		    count * GET_MODE_BITSIZE (*modep)))
 	  return -1;
 
 	return count;
@@ -12245,8 +12245,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 	  }
 
 	/* There must be no padding.  */
-	if (!equal_tree_size (TYPE_SIZE (type),
-			      count * GET_MODE_BITSIZE (*modep)))
+	if (may_ne (wi::to_poly_wide (TYPE_SIZE (type)),
+		    count * GET_MODE_BITSIZE (*modep)))
 	  return -1;
 
 	return count;
@@ -12278,8 +12278,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 	  }
 
 	/* There must be no padding.  */
-	if (!equal_tree_size (TYPE_SIZE (type),
-			      count * GET_MODE_BITSIZE (*modep)))
+	if (may_ne (wi::to_poly_wide (TYPE_SIZE (type)),
+		    count * GET_MODE_BITSIZE (*modep)))
 	  return -1;
 
 	return count;
@@ -12304,7 +12304,7 @@ aarch64_short_vector_p (const_tree type,
   poly_int64 size = -1;
 
   if (type && TREE_CODE (type) == VECTOR_TYPE)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 	    || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
     size = GET_MODE_SIZE (mode);
@@ -12494,12 +12494,12 @@ aarch64_preferred_simd_mode (scalar_mode mode)
 /* Return a list of possible vector sizes for the vectorizer
    to iterate over.  */
 static void
-aarch64_autovectorize_vector_sizes (vec<poly_uint64> &sizes)
+aarch64_autovectorize_vector_sizes (vector_sizes *sizes)
 {
   if (TARGET_SVE)
-    sizes.safe_push (BYTES_PER_SVE_VECTOR);
-  sizes.safe_push (16);
-  sizes.safe_push (8);
+    sizes->safe_push (BYTES_PER_SVE_VECTOR);
+  sizes->safe_push (16);
+  sizes->safe_push (8);
 }
 
 /* Implement TARGET_MANGLE_TYPE.  */
@@ -12777,12 +12777,59 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 	  && real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf));
 }
 
+static bool
+aarch64_advsimd_valid_immediate_hs (unsigned int val32,
+				    simd_immediate_info *info,
+				    enum simd_immediate_check which,
+				    simd_immediate_info::insn_type insn)
+{
+  /* Try a 4-byte immediate with LSL.  */
+  for (unsigned int shift = 0; shift < 32; shift += 8)
+    if ((val32 & (0xff << shift)) == val32)
+      {
+	if (info)
+	  *info = simd_immediate_info (SImode, val32 >> shift, insn,
+				       simd_immediate_info::LSL, shift);
+	return true;
+      }
+
+  /* Try a 2-byte immediate with LSL.  */
+  unsigned int imm16 = val32 & 0xffff;
+  if (imm16 == (val32 >> 16))
+    for (unsigned int shift = 0; shift < 16; shift += 8)
+      if ((imm16 & (0xff << shift)) == imm16)
+	{
+	  if (info)
+	    *info = simd_immediate_info (HImode, imm16 >> shift, insn,
+					 simd_immediate_info::LSL, shift);
+	  return true;
+	}
+
+  /* Try a 4-byte immediate with MSL, except for cases that MVN
+     can handle.  */
+  if (which == AARCH64_CHECK_MOV)
+    for (unsigned int shift = 8; shift < 24; shift += 8)
+      {
+	unsigned int low = (1 << shift) - 1;
+	if (((val32 & (0xff << shift)) | low) == val32)
+	  {
+	    if (info)
+	      *info = simd_immediate_info (SImode, val32 >> shift, insn,
+					   simd_immediate_info::MSL, shift);
+	    return true;
+	  }
+      }
+
+  return false;
+}
+
 /* Return true if replicating VAL64 is a valid immediate for an AdvSIMD
    MOVI or MVNI instruction.  If INFO is nonnull, use it to describe valid
    immediates.  */
 static bool
 aarch64_advsimd_valid_immediate (unsigned HOST_WIDE_INT val64,
-				 simd_immediate_info *info)
+				 simd_immediate_info *info,
+				 enum simd_immediate_check which)
 {
   unsigned int val32 = val64 & 0xffffffff;
   unsigned int val16 = val64 & 0xffff;
@@ -12790,77 +12837,42 @@ aarch64_advsimd_valid_immediate (unsigned HOST_WIDE_INT val64,
 
   if (val32 == (val64 >> 32))
     {
-      static const simd_immediate_info::insn_type insns[2] = {
-	simd_immediate_info::MOV,
-	simd_immediate_info::MVN
-      };
-      for (unsigned int i = 0; i < ARRAY_SIZE (insns); ++i)
-	{
-	  simd_immediate_info::insn_type insn = insns[i];
-	  unsigned int imm32 = val32;
-	  if (insn == simd_immediate_info::MVN)
-	    imm32 = ~imm32;
+      if ((which & AARCH64_CHECK_ORR) != 0
+	  && aarch64_advsimd_valid_immediate_hs (val32, info, which,
+						 simd_immediate_info::MOV))
+	return true;
 
-	  /* Try a 4-byte immediate with LSL.  */
-	  for (unsigned int shift = 0; shift < 32; shift += 8)
-	    if ((imm32 & (0xff << shift)) == imm32)
-	      {
-		if (info)
-		  *info = simd_immediate_info (SImode, imm32 >> shift, insn,
-					       simd_immediate_info::LSL,
-					       shift);
-		return true;
-	      }
-
-	  /* Try a 2-byte immediate with LSL.  */
-	  unsigned int imm16 = imm32 & 0xffff;
-	  if (imm16 == (imm32 >> 16))
-	    for (unsigned int shift = 0; shift < 16; shift += 8)
-	      if ((imm16 & (0xff << shift)) == imm16)
-		{
-		  if (info)
-		    *info = simd_immediate_info (HImode, imm16 >> shift, insn,
-						 simd_immediate_info::LSL,
-						 shift);
-		  return true;
-		}
-
-	  /* Try a 4-byte immediate with MSL, except for cases that MVN
-	     can handle.  */
-	  for (unsigned int shift = 8; shift < 24; shift += 8)
-	    {
-	      unsigned int low = (1 << shift) - 1;
-	      if (((imm32 & (0xff << shift)) | low) == imm32)
-		{
-		  if (info)
-		    *info = simd_immediate_info (SImode, imm32 >> shift, insn,
-						 simd_immediate_info::MSL,
-						 shift);
-		  return true;
-		}
-	    }
-	}
+      if ((which & AARCH64_CHECK_BIC) != 0
+	  && aarch64_advsimd_valid_immediate_hs (~val32, info, which,
+						 simd_immediate_info::MVN))
+	return true;
 
       /* Try using a replicated byte.  */
-      if (val16 == (val32 >> 16) && val8 == (val16 >> 8))
+      if (which == AARCH64_CHECK_MOV
+	  && val16 == (val32 >> 16)
+	  && val8 == (val16 >> 8))
 	{
 	  if (info)
 	    *info = simd_immediate_info (QImode, val8);
 	  return true;
 	}
     }
-  unsigned int i;
-  for (i = 0; i < 64; i += 8)
+  /* Try using a bit-to-bytemask.  */
+  if (which == AARCH64_CHECK_MOV)
     {
-      unsigned char byte = (val64 >> i) & 0xff;
-      if (byte != 0 && byte != 0xff)
-	break;
-    }
-  if (i == 64)
-    {
-      if (info)
-	*info = simd_immediate_info (DImode, val64);
-      return true;
+      unsigned int i;
+      for (i = 0; i < 64; i += 8)
+	{
+	  unsigned char byte = (val64 >> i) & 0xff;
+	  if (byte != 0 && byte != 0xff)
+	    break;
+	}
+      if (i == 64)
+	{
+	  if (info)
+	    *info = simd_immediate_info (DImode, val64);
+	  return true;
+	}
     }
   return false;
 }
@@ -12913,7 +12925,8 @@ aarch64_sve_valid_immediate (unsigned HOST_WIDE_INT val64,
 /* Return true if OP is a valid SIMD immediate.  If INFO is nonnull,
    use it to describe valid immediates.  */
 bool
-aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info)
+aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
+			      enum simd_immediate_check which)
 {
   machine_mode mode = GET_MODE (op);
   unsigned int vec_flags = aarch64_classify_vector_mode (mode);
@@ -13004,7 +13017,7 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info)
   if (vec_flags & VEC_SVE_DATA)
     return aarch64_sve_valid_immediate (val64, info);
   else
-    return aarch64_advsimd_valid_immediate (val64, info);
+    return aarch64_advsimd_valid_immediate (val64, info, which);
 }
 
 /* Check whether X is a VEC_SERIES-like constant that starts at 0 and
@@ -13362,19 +13375,9 @@ aarch64_builtin_support_vector_misalignment (machine_mode mode,
       if (optab_handler (movmisalign_optab, mode) == CODE_FOR_nothing)
         return false;
 
+      /* Misalignment factor is unknown at compile time.  */
       if (misalignment == -1)
-	{
-	  /* Misalignment factor is unknown at compile time but we know
-	     it's word aligned.  */
-	  if (aarch64_simd_vector_alignment_reachable (type, is_packed))
-            {
-              int element_size = TREE_INT_CST_LOW (TYPE_SIZE (type));
-
-              if (element_size != 64)
-                return true;
-            }
-	  return false;
-	}
+	return false;
     }
   return default_builtin_support_vector_misalignment (mode, type, misalignment,
 						      is_packed);
@@ -14468,8 +14471,12 @@ aarch64_float_const_representable_p (rtx x)
   return (exponent >= 0 && exponent <= 7);
 }
 
+/* Returns the string with the instruction for AdvSIMD MOVI, MVNI, ORR or BIC
+   immediate with a CONST_VECTOR of MODE and WIDTH.  WHICH selects whether to
+   output MOVI/MVNI, ORR or BIC immediate.  */
 char*
-aarch64_output_simd_mov_immediate (rtx const_vector, unsigned width)
+aarch64_output_simd_mov_immediate (rtx const_vector, unsigned width,
+				   enum simd_immediate_check which)
 {
   bool is_valid;
   static char templ[40];
@@ -14481,9 +14488,10 @@ aarch64_output_simd_mov_immediate (rtx const_vector, unsigned width)
   struct simd_immediate_info info;
 
   /* This will return true to show const_vector is legal for use as either
-     a AdvSIMD MOVI instruction (or, implicitly, MVNI) immediate.  It will
-     also update INFO to show how the immediate should be generated.  */
-  is_valid = aarch64_simd_valid_immediate (const_vector, &info);
+     a AdvSIMD MOVI instruction (or, implicitly, MVNI), ORR or BIC immediate.
+     It will also update INFO to show how the immediate should be generated.
+     WHICH selects whether to check for MOVI/MVNI, ORR or BIC.  */
+  is_valid = aarch64_simd_valid_immediate (const_vector, &info, which);
   gcc_assert (is_valid);
 
   element_char = sizetochar (GET_MODE_BITSIZE (info.elt_mode));
@@ -14513,20 +14521,37 @@ aarch64_output_simd_mov_immediate (rtx const_vector, unsigned width)
 	}
     }
 
-  mnemonic = info.insn == simd_immediate_info::MVN ? "mvni" : "movi";
-  shift_op = info.modifier == simd_immediate_info::MSL ? "msl" : "lsl";
-
   gcc_assert (CONST_INT_P (info.value));
-  if (lane_count == 1)
-    snprintf (templ, sizeof (templ), "%s\t%%d0, " HOST_WIDE_INT_PRINT_HEX,
-	      mnemonic, UINTVAL (info.value));
-  else if (info.shift)
-    snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX
-	      ", %s %d", mnemonic, lane_count, element_char,
-	      UINTVAL (info.value), shift_op, info.shift);
+
+  if (which == AARCH64_CHECK_MOV)
+    {
+      mnemonic = info.insn == simd_immediate_info::MVN ? "mvni" : "movi";
+      shift_op = info.modifier == simd_immediate_info::MSL ? "msl" : "lsl";
+      if (lane_count == 1)
+	snprintf (templ, sizeof (templ), "%s\t%%d0, " HOST_WIDE_INT_PRINT_HEX,
+		  mnemonic, UINTVAL (info.value));
+      else if (info.shift)
+	snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, "
+		  HOST_WIDE_INT_PRINT_HEX ", %s %d", mnemonic, lane_count,
+		  element_char, UINTVAL (info.value), shift_op, info.shift);
+      else
+	snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, "
+		  HOST_WIDE_INT_PRINT_HEX, mnemonic, lane_count,
+		  element_char, UINTVAL (info.value));
+    }
   else
-    snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX,
-	      mnemonic, lane_count, element_char, UINTVAL (info.value));
+    {
+      /* For AARCH64_CHECK_BIC and AARCH64_CHECK_ORR.  */
+      mnemonic = info.insn == simd_immediate_info::MVN ? "bic" : "orr";
+      if (info.shift)
+	snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, #"
+		  HOST_WIDE_INT_PRINT_DEC ", %s #%d", mnemonic, lane_count,
+		  element_char, UINTVAL (info.value), "lsl", info.shift);
+      else
+	snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, #"
+		  HOST_WIDE_INT_PRINT_DEC, mnemonic, lane_count,
+		  element_char, UINTVAL (info.value));
+    }
   return templ;
 }
 

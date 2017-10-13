@@ -131,16 +131,15 @@ is_gimple_constant (const_tree t)
   switch (TREE_CODE (t))
     {
     case INTEGER_CST:
+    case POLY_INT_CST:
     case REAL_CST:
     case FIXED_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
+    case VEC_DUPLICATE_CST:
+    case VEC_SERIES_CST:
     case STRING_CST:
       return true;
-
-    case VEC_SERIES_EXPR:
-    case VEC_DUPLICATE_EXPR:
-      return TREE_CONSTANT (t);
 
     default:
       return false;

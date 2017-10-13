@@ -3168,7 +3168,7 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 			      convert (TREE_TYPE (intop), size_exp));
     intop = convert (sizetype, t);
     if (TREE_OVERFLOW_P (intop) && !TREE_OVERFLOW (t))
-      intop = wide_int_to_tree (TREE_TYPE (intop), intop);
+      intop = wide_int_to_tree (TREE_TYPE (intop), wi::to_wide (intop));
   }
 
   /* Create the sum or difference.  */
@@ -6242,7 +6242,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
       if (TREE_CODE (initial_value) == STRING_CST)
 	{
 	  int eltsize
-	    = int_size_in_bytes_hwi (TREE_TYPE (TREE_TYPE (initial_value)));
+	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
 	  maxindex = size_int (TREE_STRING_LENGTH (initial_value)/eltsize - 1);
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)

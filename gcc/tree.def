@@ -291,6 +291,8 @@ DEFTREECODE (VOID_CST, "void_cst", tcc_constant, 0)
    some circumstances.  */
 DEFTREECODE (INTEGER_CST, "integer_cst", tcc_constant, 0)
 
+DEFTREECODE (POLY_INT_CST, "poly_int_cst", tcc_constant, 0)
+
 /* Contents are in TREE_REAL_CST field.  */
 DEFTREECODE (REAL_CST, "real_cst", tcc_constant, 0)
 
@@ -304,10 +306,14 @@ DEFTREECODE (COMPLEX_CST, "complex_cst", tcc_constant, 0)
 /* Contents are in VECTOR_CST_ELTS field.  */
 DEFTREECODE (VECTOR_CST, "vector_cst", tcc_constant, 0)
 
+/* Represents a vector constant in which every element is equal to
+   VEC_DUPLICATE_CST_ELT.  */
+DEFTREECODE (VEC_DUPLICATE_CST, "vec_duplicate_cst", tcc_constant, 0)
+
+DEFTREECODE (VEC_SERIES_CST, "vec_series_cst", tcc_constant, 0)
+
 /* Contents are TREE_STRING_LENGTH and the actual contents of the string.  */
 DEFTREECODE (STRING_CST, "string_cst", tcc_constant, 0)
-
-DEFTREECODE (POLY_CST, "poly_cst", tcc_constant, 0)
 
 /* Declarations.  All references to names are represented as ..._DECL
    nodes.  The decls in one binding context are chained through the
@@ -537,7 +543,7 @@ DEFTREECODE (TARGET_EXPR, "target_expr", tcc_expression, 4)
 DEFTREECODE (COND_EXPR, "cond_expr", tcc_expression, 3)
 
 /* Represents a vector in which every element is equal to operand 0.  */
-DEFTREECODE (VEC_DUPLICATE_EXPR, "vec_duplicate_expr", tcc_expression, 1)
+DEFTREECODE (VEC_DUPLICATE_EXPR, "vec_duplicate_expr", tcc_unary, 1)
 
 /* Vector series created from a start (base) value and a step.
 
@@ -547,7 +553,7 @@ DEFTREECODE (VEC_DUPLICATE_EXPR, "vec_duplicate_expr", tcc_expression, 1)
 
    for (i = 0; i < N; i++)
      A[i] = B + C * i;  */
-DEFTREECODE (VEC_SERIES_EXPR, "vec_series_expr", tcc_expression, 2)
+DEFTREECODE (VEC_SERIES_EXPR, "vec_series_expr", tcc_binary, 2)
 
 /* Vector conditional expression. It is like COND_EXPR, but with
    vector operands.

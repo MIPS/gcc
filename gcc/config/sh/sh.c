@@ -7643,7 +7643,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (pass_by_ref)
     type = build_pointer_type (type);
 
-  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  HOST_WIDE_INT size = int_size_in_bytes (type);
   HOST_WIDE_INT rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
   tree pptr_type_node = build_pointer_type (ptr_type_node);
 
@@ -7964,7 +7964,7 @@ sh_pass_in_reg_p (const CUMULATIVE_ARGS& cum, machine_mode mode,
    && (TARGET_SH2E
        ? ((mode) == BLKmode
 	  ? ((cum.arg_count[(int) SH_ARG_INT] * UNITS_PER_WORD
-	      + int_size_in_bytes_hwi (type))
+	      + int_size_in_bytes (type))
 	     <= NPARM_REGS (SImode) * UNITS_PER_WORD)
 	  : ((sh_round_reg (cum, mode)
 	      + sh_hard_regno_nregs (BASE_ARG_REG (mode), mode))
@@ -7984,7 +7984,7 @@ sh_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
       && (sh_round_reg (*cum, mode)
 	  + (mode != BLKmode
 	     ? CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD)
-	     : CEIL (int_size_in_bytes_hwi (type), UNITS_PER_WORD))
+	     : CEIL (int_size_in_bytes (type), UNITS_PER_WORD))
 	  > NPARM_REGS (mode)))
     words = NPARM_REGS (mode) - sh_round_reg (*cum, mode);
 
@@ -8096,7 +8096,7 @@ sh_function_arg_advance (cumulative_args_t ca_v, machine_mode mode,
     (ca->arg_count[(int) get_sh_arg_class (mode)]
      = (sh_round_reg (*ca, mode)
 	+ (mode == BLKmode
-	   ? CEIL (int_size_in_bytes_hwi (type), UNITS_PER_WORD)
+	   ? CEIL (int_size_in_bytes (type), UNITS_PER_WORD)
 	   : CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD))));
 }
 
@@ -8182,8 +8182,7 @@ sh_setup_incoming_varargs (cumulative_args_t ca,
 
       named_parm_regs = (sh_round_reg (*get_cumulative_args (ca), mode)
 			 + (mode == BLKmode
-			    ? CEIL (int_size_in_bytes_hwi (type),
-				    UNITS_PER_WORD)
+			    ? CEIL (int_size_in_bytes (type), UNITS_PER_WORD)
 			    : CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD)));
       anon_parm_regs = NPARM_REGS (SImode) - named_parm_regs;
       if (anon_parm_regs > 0)

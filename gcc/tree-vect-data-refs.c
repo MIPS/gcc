@@ -996,7 +996,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       base_misalignment = (*entry)->base_misalignment;
     }
 
-  if (drb->var_offset_alignment < vector_alignment
+  if (drb->offset_alignment < vector_alignment
       || !step_preserves_misalignment_p
       /* We need to know whether the step wrt the vectorized loop is
 	 negative when computing the starting misalignment below.  */
@@ -1044,8 +1044,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       DR_VECT_AUX (dr)->base_misaligned = true;
       base_misalignment = 0;
     }
-  poly_int64 misalignment = (base_misalignment
-			     + TREE_INT_CST_LOW (drb->const_offset));
+  poly_int64 misalignment
+    = base_misalignment + wi::to_poly_wide (drb->init).force_shwi ();
 
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
@@ -2418,13 +2418,13 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr)
     return;
 
   if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0)
-      || !dr_var_offsets_equal_p (dra, drb)
+      || !operand_equal_p (DR_OFFSET (dra), DR_OFFSET (drb), 0)
       || !operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
     return;
 
   /* Two references with distance zero have the same alignment.  */
-  offset_int diff = (wi::to_offset (DR_CONST_OFFSET (dra))
-		     - wi::to_offset (DR_CONST_OFFSET (drb)));
+  offset_int diff = (wi::to_offset (DR_INIT (dra))
+		     - wi::to_offset (DR_INIT (drb)));
   if (diff != 0)
     {
       /* Get the wider of the two alignments.  */
@@ -2696,7 +2696,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       gimple *next = GROUP_NEXT_ELEMENT (stmt_info);
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
-      tree prev_init = DR_CONST_OFFSET (data_ref);
+      tree prev_init = DR_INIT (data_ref);
       gimple *prev = stmt;
       HOST_WIDE_INT diff, gaps = 0;
 
@@ -2712,10 +2712,9 @@ vect_analyze_group_access_1 (struct data_reference *dr)
              data-ref (supported only for loads), we vectorize only the first
              stmt, and the rest get their vectorized loads from the first
              one.  */
-	  data_reference *next_ref
-	    = STMT_VINFO_DATA_REF (vinfo_for_stmt (next));
-	  if (!tree_int_cst_compare (DR_CONST_OFFSET (data_ref),
-				     DR_CONST_OFFSET (next_ref)))
+          if (!tree_int_cst_compare (DR_INIT (data_ref),
+                                     DR_INIT (STMT_VINFO_DATA_REF (
+						   vinfo_for_stmt (next)))))
             {
               if (DR_IS_WRITE (data_ref))
                 {
@@ -2738,14 +2737,14 @@ vect_analyze_group_access_1 (struct data_reference *dr)
             }
 
           prev = next;
-          data_ref = next_ref;
+          data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (next));
 
 	  /* All group members have the same STEP by construction.  */
 	  gcc_checking_assert (operand_equal_p (DR_STEP (data_ref), step, 0));
 
           /* Check that the distance between two accesses is equal to the type
              size. Otherwise, we have gaps.  */
-          diff = (TREE_INT_CST_LOW (DR_CONST_OFFSET (data_ref))
+          diff = (TREE_INT_CST_LOW (DR_INIT (data_ref))
                   - TREE_INT_CST_LOW (prev_init)) / type_size;
 	  if (diff != 1)
 	    {
@@ -2763,7 +2762,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
              gap in the access, GROUP_GAP is always 1.  */
           GROUP_GAP (vinfo_for_stmt (next)) = diff;
 
-          prev_init = DR_CONST_OFFSET (data_ref);
+          prev_init = DR_INIT (data_ref);
           next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (next));
           /* Count the number of data-refs in the chain.  */
           count++;
@@ -2965,16 +2964,13 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
     return loopa->num < loopb->num ? -1 : 1;
 
   /* Ordering of DRs according to base.  */
-  if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0))
-    {
-      cmp = data_ref_compare_tree (DR_BASE_ADDRESS (dra),
-				   DR_BASE_ADDRESS (drb));
-      if (cmp != 0)
-        return cmp;
-    }
+  cmp = data_ref_compare_tree (DR_BASE_ADDRESS (dra),
+			       DR_BASE_ADDRESS (drb));
+  if (cmp != 0)
+    return cmp;
 
-  /* And according to DR_VAR_OFFSET.  */
-  cmp = dr_var_offsets_compare (dra, drb);
+  /* And according to DR_OFFSET.  */
+  cmp = data_ref_compare_tree (DR_OFFSET (dra), DR_OFFSET (drb));
   if (cmp != 0)
     return cmp;
 
@@ -2983,26 +2979,18 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
     return DR_IS_READ (dra) ? -1 : 1;
 
   /* Then sort after access size.  */
-  if (!operand_equal_p (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
-			TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))), 0))
-    {
-      cmp = data_ref_compare_tree (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
-				   TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
-      if (cmp != 0)
-        return cmp;
-    }
+  cmp = data_ref_compare_tree (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
+			       TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
+  if (cmp != 0)
+    return cmp;
 
   /* And after step.  */
-  if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
-    {
-      cmp = data_ref_compare_tree (DR_STEP (dra), DR_STEP (drb));
-      if (cmp != 0)
-        return cmp;
-    }
+  cmp = data_ref_compare_tree (DR_STEP (dra), DR_STEP (drb));
+  if (cmp != 0)
+    return cmp;
 
-  /* Then sort after DR_CONST_OFFSET.  In case of identical DRs sort after
-     stmt UID.  */
-  cmp = data_ref_compare_tree (DR_CONST_OFFSET (dra), DR_CONST_OFFSET (drb));
+  /* Then sort after DR_INIT.  In case of identical DRs sort after stmt UID.  */
+  cmp = data_ref_compare_tree (DR_INIT (dra), DR_INIT (drb));
   if (cmp == 0)
     return gimple_uid (DR_STMT (dra)) < gimple_uid (DR_STMT (drb)) ? -1 : 1;
   return cmp;
@@ -3127,9 +3115,9 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	     and they are both either store or load (not load and store,
 	     not masked loads or stores).  */
 	  if (DR_IS_READ (dra) != DR_IS_READ (drb)
-	      || !operand_equal_p (DR_BASE_ADDRESS (dra),
-				   DR_BASE_ADDRESS (drb), 0)
-	      || !dr_var_offsets_equal_p (dra, drb)
+	      || data_ref_compare_tree (DR_BASE_ADDRESS (dra),
+					DR_BASE_ADDRESS (drb)) != 0
+	      || data_ref_compare_tree (DR_OFFSET (dra), DR_OFFSET (drb)) != 0
 	      || !can_group_stmts_p (DR_STMT (dra), DR_STMT (drb)))
 	    break;
 
@@ -3142,12 +3130,11 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	    break;
 
 	  /* Check that the data-refs have the same step.  */
-	  if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
+	  if (data_ref_compare_tree (DR_STEP (dra), DR_STEP (drb)) != 0)
 	    break;
 
 	  /* Do not place the same access in the interleaving chain twice.  */
-	  if (tree_int_cst_compare (DR_CONST_OFFSET (dra),
-				    DR_CONST_OFFSET (drb)) == 0)
+	  if (tree_int_cst_compare (DR_INIT (dra), DR_INIT (drb)) == 0)
 	    break;
 
 	  /* Check the types are compatible.
@@ -3156,10 +3143,9 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 				   TREE_TYPE (DR_REF (drb))))
 	    break;
 
-	  /* Sorting has ensured that
-	     DR_CONST_OFFSET (dra) <= DR_CONST_OFFSET (drb).  */
-	  HOST_WIDE_INT init_a = TREE_INT_CST_LOW (DR_CONST_OFFSET (dra));
-	  HOST_WIDE_INT init_b = TREE_INT_CST_LOW (DR_CONST_OFFSET (drb));
+	  /* Sorting has ensured that DR_INIT (dra) <= DR_INIT (drb).  */
+	  HOST_WIDE_INT init_a = TREE_INT_CST_LOW (DR_INIT (dra));
+	  HOST_WIDE_INT init_b = TREE_INT_CST_LOW (DR_INIT (drb));
 	  gcc_assert (init_a <= init_b);
 
 	  /* If init_b == init_a + the size of the type * k, we have an
@@ -3172,10 +3158,10 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	  /* If we have a store, the accesses are adjacent.  This splits
 	     groups into chunks we support (we don't support vectorization
 	     of stores with gaps).  */
-	  HOST_WIDE_INT prev_init
-	    = TREE_INT_CST_LOW (DR_CONST_OFFSET (datarefs_copy[i - 1]));
 	  if (!DR_IS_READ (dra)
-	      && (init_b - prev_init) != type_size_a)
+	      && (init_b - (HOST_WIDE_INT) TREE_INT_CST_LOW
+					     (DR_INIT (datarefs_copy[i-1]))
+		  != type_size_a))
 	    break;
 
 	  /* If the step (if not zero or non-constant) is greater than the
@@ -3293,9 +3279,10 @@ vect_vfa_align (const data_reference *dr)
 
 /* Function vect_no_alias_p.
 
-   Given data references A and B with equal base and offset, the alias
-   relation can be decided at compilation time, return TRUE if they do
-   not alias to each other; return FALSE otherwise.  SEGMENT_LENGTH_A,
+   Given data references A and B with equal base and offset, see whether
+   the alias relation can be decided at compilation time.  Return 1 if
+   it can and the references alias, 0 if it can and the references do
+   not alias, and -1 if we cannot decide at compile time.  SEGMENT_LENGTH_A,
    SEGMENT_LENGTH_B, ACCESS_SIZE_A and ACCESS_SIZE_B are the equivalent
    of dr_with_seg_len::{seg_len,access_size} for A and B.  */
 
@@ -3306,20 +3293,24 @@ vect_compile_time_alias (struct data_reference *a, struct data_reference *b,
 			 unsigned HOST_WIDE_INT access_size_a,
 			 unsigned HOST_WIDE_INT access_size_b)
 {
-  poly_offset_int offset_a, offset_b;
-  if (!poly_tree_p (DR_CONST_OFFSET (a), &offset_a)
-      || !poly_tree_p (DR_CONST_OFFSET (b), &offset_b))
-    return -1;
+  poly_offset_int offset_a = wi::to_poly_offset (DR_INIT (a));
+  poly_offset_int offset_b = wi::to_poly_offset (DR_INIT (b));
 
   /* For negative step, we need to adjust address range by TYPE_SIZE_UNIT
      bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
      [a, a+12) */
   if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
-    offset_a += access_size_a;
-  segment_length_a += access_size_a;
-
+    {
+      segment_length_a = -segment_length_a;
+      offset_a = (offset_a + access_size_a) - segment_length_a;
+    }
   if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
-    offset_b += vect_get_scalar_dr_size (b);
+    {
+      segment_length_b = -segment_length_b;
+      offset_b = (offset_b + access_size_b) - segment_length_b;
+    }
+
+  segment_length_a += access_size_a;
   segment_length_b += access_size_b;
 
   if (ranges_must_overlap_p (offset_a, segment_length_a,
@@ -3354,7 +3345,7 @@ dependence_distance_ge_vf (data_dependence_relation *ddr,
       HOST_WIDE_INT dist = dist_v[loop_depth];
       if (dist != 0
 	  && !(dist > 0 && DDR_REVERSED_P (ddr))
-	  && must_lt ((unsigned HOST_WIDE_INT) abs_hwi (dist), vf))
+	  && may_lt ((unsigned HOST_WIDE_INT) abs_hwi (dist), vf))
 	return false;
     }
 
@@ -3447,10 +3438,10 @@ vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
      and DR_B.  */
   poly_int64 init_a, init_b;
   if (!operand_equal_p (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b), 0)
-      || !dr_var_offsets_equal_p (dr_a, dr_b)
+      || !operand_equal_p (DR_OFFSET (dr_a), DR_OFFSET (dr_b), 0)
       || !operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0)
-      || !poly_tree_p (DR_CONST_OFFSET (dr_a), &init_a)
-      || !poly_tree_p (DR_CONST_OFFSET (dr_b), &init_b)
+      || !poly_tree_p (DR_INIT (dr_a), &init_a)
+      || !poly_tree_p (DR_INIT (dr_b), &init_b)
       || !ordered_p (init_a, init_b))
     return false;
 
@@ -3664,9 +3655,15 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
       comp_res = data_ref_compare_tree (DR_BASE_ADDRESS (dr_a),
 					DR_BASE_ADDRESS (dr_b));
       if (comp_res == 0)
-	comp_res = dr_var_offsets_compare (dr_a, dr_b);
+	comp_res = data_ref_compare_tree (DR_OFFSET (dr_a),
+					  DR_OFFSET (dr_b));
 
-      /* Alias is known at compilation time.  */
+      /* See whether the alias is known at compilation time.
+
+	 Note that the segment lengths have sizetype and so are always
+	 represented as unsigned values, even for negative steps.
+	 The sign of the DR_STEP indicates whether they are logically
+	 positive or negative.  */
       poly_uint64 const_segment_length_a, const_segment_length_b;
       if (comp_res == 0
 	  && TREE_CODE (DR_STEP (dr_a)) == INTEGER_CST
@@ -3797,10 +3794,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
       if (!integer_zerop (TREE_OPERAND (base, 1)))
 	{
 	  if (off == NULL_TREE)
-	    {
-	      poly_offset_int moff = mem_ref_offset (base);
-	      off = poly_offset_int_to_tree (sizetype, moff);
-	    }
+	    off = wide_int_to_tree (sizetype, mem_ref_offset (base));
 	  else
 	    off = size_binop (PLUS_EXPR, off,
 			      fold_convert (sizetype, TREE_OPERAND (base, 1)));
@@ -4027,7 +4021,7 @@ vect_analyze_data_refs (vec_info *vinfo, poly_uint64 *min_vf)
     {
       gimple *stmt;
       stmt_vec_info stmt_info;
-      tree base, offset;
+      tree base, offset, init;
       enum { SG_NONE, GATHER, SCATTER } gatherscatter = SG_NONE;
       bool simd_lane_access = false;
       poly_uint64 vf;
@@ -4060,7 +4054,8 @@ again:
 	}
 
       /* Check that analysis of the data-ref succeeded.  */
-      if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_STEP (dr))
+      if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_INIT (dr)
+	  || !DR_STEP (dr))
         {
 	  bool maybe_gather
 	    = DR_IS_READ (dr)
@@ -4088,6 +4083,7 @@ again:
 	      gcc_assert (newdr != NULL && DR_REF (newdr));
 	      if (DR_BASE_ADDRESS (newdr)
 		  && DR_OFFSET (newdr)
+		  && DR_INIT (newdr)
 		  && DR_STEP (newdr)
 		  && integer_zerop (DR_STEP (newdr)))
 		{
@@ -4095,7 +4091,8 @@ again:
 		    {
 		      tree off = DR_OFFSET (newdr);
 		      STRIP_NOPS (off);
-		      if (TREE_CODE (off) == MULT_EXPR
+		      if (TREE_CODE (DR_INIT (newdr)) == INTEGER_CST
+			  && TREE_CODE (off) == MULT_EXPR
 			  && tree_fits_uhwi_p (TREE_OPERAND (off, 1)))
 			{
 			  tree step = TREE_OPERAND (off, 1);
@@ -4125,10 +4122,8 @@ again:
 					    step))
 				    {
 				      DR_OFFSET (newdr) = ssize_int (0);
-				      DR_VAR_OFFSET (newdr) = ssize_int (0);
-				      DR_CONST_OFFSET (newdr) = ssize_int (0);
 				      DR_STEP (newdr) = step;
-				      DR_VAR_OFFSET_ALIGNMENT (newdr)
+				      DR_OFFSET_ALIGNMENT (newdr)
 					= BIGGEST_ALIGNMENT;
 				      DR_STEP_ALIGNMENT (newdr)
 					= highest_pow2_factor (step);
@@ -4238,6 +4233,7 @@ again:
 
       base = unshare_expr (DR_BASE_ADDRESS (dr));
       offset = unshare_expr (DR_OFFSET (dr));
+      init = unshare_expr (DR_INIT (dr));
 
       if (is_gimple_call (stmt)
 	  && (!gimple_call_internal_p (stmt)
@@ -4273,7 +4269,9 @@ again:
 	     inner loop: *(BASE + INIT + OFFSET).  By construction,
 	     this address must be invariant in the inner loop, so we
 	     can consider it as being used in the outer loop.  */
-	  tree init_addr = fold_build_pointer_plus (base, offset);
+	  tree init_offset = fold_build2 (PLUS_EXPR, TREE_TYPE (offset),
+					  init, offset);
+	  tree init_addr = fold_build_pointer_plus (base, init_offset);
 	  tree init_ref = build_fold_indirect_ref (init_addr);
 
 	  if (dump_enabled_p ())
@@ -4285,7 +4283,7 @@ again:
 	    }
 
 	  if (!dr_analyze_innermost (&STMT_VINFO_DR_WRT_VEC_LOOP (stmt_info),
-				     init_ref, stmt, loop))
+				     init_ref, loop))
 	    /* dr_analyze_innermost already explained the failure.  */
 	    return false;
 
@@ -4298,14 +4296,10 @@ again:
 	      dump_printf (MSG_NOTE, "\n\touter offset from base address: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
                                  STMT_VINFO_DR_OFFSET (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\tvariable part of outer offset"
-			   " from base address: ");
+	      dump_printf (MSG_NOTE,
+                           "\n\touter constant offset from base address: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
-                                 STMT_VINFO_DR_VAR_OFFSET (stmt_info));
-	      dump_printf (MSG_NOTE, "\n\tconstart part of outer offset"
-			   " from base address: ");
-	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
-                                 STMT_VINFO_DR_CONST_OFFSET (stmt_info));
+                                 STMT_VINFO_DR_INIT (stmt_info));
 	      dump_printf (MSG_NOTE, "\n\touter step: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM,
                                  STMT_VINFO_DR_STEP (stmt_info));
@@ -4313,9 +4307,8 @@ again:
 			   STMT_VINFO_DR_BASE_ALIGNMENT (stmt_info));
 	      dump_printf (MSG_NOTE, "\n\touter base misalignment: %d\n",
 			   STMT_VINFO_DR_BASE_MISALIGNMENT (stmt_info));
-	      dump_printf (MSG_NOTE,
-			   "\n\touter variable offset alignment: %d\n",
-			   STMT_VINFO_DR_VAR_OFFSET_ALIGNMENT (stmt_info));
+	      dump_printf (MSG_NOTE, "\n\touter offset alignment: %d\n",
+			   STMT_VINFO_DR_OFFSET_ALIGNMENT (stmt_info));
 	      dump_printf (MSG_NOTE, "\n\touter step alignment: %d\n",
 			   STMT_VINFO_DR_STEP_ALIGNMENT (stmt_info));
 	    }
@@ -4616,7 +4609,9 @@ vect_create_addr_base_for_vector_ref_1 (gimple *stmt,
   base_name = get_name (loop_vinfo ? addr_info->dr_base : DR_REF (dr));
 
   /* Create base_offset */
-  tree base_offset = fold_convert (sizetype, addr_info->dr_offset);
+  tree base_offset = size_binop (PLUS_EXPR,
+				 fold_convert (sizetype, addr_info->dr_offset),
+				 fold_convert (sizetype, addr_info->dr_init));
   tree offset = addr_info->arg_offset;
   if (offset)
     {
@@ -4674,6 +4669,7 @@ vect_addr_base_hasher::hash (const vect_addr_base_info *x)
   inchash::hash h;
   inchash::add_expr (x->dr_base, h);
   inchash::add_expr (x->dr_offset, h);
+  inchash::add_expr (x->dr_init, h);
   /* TODO: Do we really need to hash offset2 and byte_offset2 as these are
      rarely non-NULL?  */
   return h.end ();
@@ -4694,8 +4690,9 @@ vect_addr_base_hasher::equal (const vect_addr_base_info *x,
       && !operand_equal_p (x->arg_byte_offset, y->arg_byte_offset, 0))
     return false;
 
-  return operand_equal_p (x->dr_base, y->dr_base, 0)
-	 && operand_equal_p (x->dr_offset, y->dr_offset, 0);
+  return (operand_equal_p (x->dr_base, y->dr_base, 0)
+	  && operand_equal_p (x->dr_offset, y->dr_offset, 0)
+	  && operand_equal_p (x->dr_init, y->dr_init, 0));
 }
 
 /* Function fill_vect_addr_base_info.
@@ -4737,9 +4734,10 @@ fill_vect_addr_base_info (gimple *stmt, tree offset,
 
   info->dr_base = unshare_expr (drb->base_address);
   info->dr_offset = unshare_expr (drb->offset);
+  info->dr_init = unshare_expr (drb->init);
 
   if (!loop_vinfo)
-    info->dr_offset = ssize_int (0);
+    info->dr_offset = info->dr_init = ssize_int (0);
 
   info->arg_offset = offset;
   info->arg_byte_offset = byte_offset;
@@ -4774,6 +4772,7 @@ copy_vect_addr_base_info (vect_addr_base_info *dest, vect_addr_base_info *src)
 {
   dest->dr_base = get_copy_for_caching (src->dr_base);
   dest->dr_offset = get_copy_for_caching (src->dr_offset);
+  dest->dr_init = get_copy_for_caching (src->dr_init);
   dest->arg_offset = get_copy_for_caching (src->arg_offset);
   dest->arg_byte_offset = get_copy_for_caching (src->arg_byte_offset);
 }

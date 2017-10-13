@@ -760,7 +760,7 @@ fr30_num_arg_regs (machine_mode mode, const_tree type)
     return 0;
 
   if (type && mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 

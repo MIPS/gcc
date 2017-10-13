@@ -1209,7 +1209,7 @@ inline hashval_t
 simplifiable_subregs_hasher::hash (const simplifiable_subreg *value)
 {
   inchash::hash h;
-  h.add_wide_int (value->shape.unique_id ());
+  h.add_hwi (value->shape.unique_id ());
   return h.end ();
 }
 
@@ -1236,7 +1236,7 @@ simplifiable_subregs (const subreg_shape &shape)
     this_target_hard_regs->x_simplifiable_subregs
       = new hash_table <simplifiable_subregs_hasher> (30);
   inchash::hash h;
-  h.add_wide_int (shape.unique_id ());
+  h.add_hwi (shape.unique_id ());
   simplifiable_subreg **slot
     = (this_target_hard_regs->x_simplifiable_subregs
        ->find_slot_with_hash (&shape, h.end (), INSERT));
@@ -1296,9 +1296,13 @@ record_subregs_of_mode (rtx subreg, bool partial_def)
 	 subregs will be invalid.
 
 	 This relies on the fact that we've already been passed
-	 SUBREG with PARTIAL_DEF set to false.  */
-      poly_int64 size = ordered_max (REGMODE_NATURAL_SIZE (shape.inner_mode),
-				     GET_MODE_SIZE (shape.outer_mode));
+	 SUBREG with PARTIAL_DEF set to false.
+
+	 The size of the outer mode must ordered wrt the size of the
+	 inner mode's registers, since otherwise we wouldn't know at
+	 compile time how many registers the outer mode occupies.  */
+      poly_uint64 size = ordered_max (REGMODE_NATURAL_SIZE (shape.inner_mode),
+				      GET_MODE_SIZE (shape.outer_mode));
       gcc_checking_assert (must_lt (size, GET_MODE_SIZE (shape.inner_mode)));
       if (must_ge (shape.offset, size))
 	shape.offset -= size;

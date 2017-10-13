@@ -152,8 +152,8 @@ brig_mem_inst_handler::operator () (const BrigBase *base)
 
 	  if (is_store && TREE_TYPE (data) != instr_type)
 	    {
-	      if (int_size_in_bytes_hwi (TREE_TYPE (data))
-		    == int_size_in_bytes_hwi (instr_type)
+	      if (int_size_in_bytes (TREE_TYPE (data))
+		    == int_size_in_bytes (instr_type)
 		  && !INTEGRAL_TYPE_P (instr_type))
 		data = build1 (VIEW_CONVERT_EXPR, instr_type, data);
 	      else
@@ -162,7 +162,7 @@ brig_mem_inst_handler::operator () (const BrigBase *base)
 
 	  build_mem_access (brig_inst, address, data);
 
-	  address_offset += int_size_in_bytes_hwi (instr_type);
+	  address_offset += int_size_in_bytes (instr_type);
 	  ++operand_ptr;
 	  bytes -= 4;
 	}

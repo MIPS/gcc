@@ -937,7 +937,7 @@ notice_args_size (rtx_insn *insn)
 
   args_size = get_args_size (note);
   delta = args_size - cur_trace->end_true_args_size;
-  if (must_eq (delta, 0))
+  if (known_zero (delta))
     return;
 
   cur_trace->end_true_args_size = args_size;
@@ -1777,7 +1777,6 @@ dwarf2out_frame_debug_expr (rtx expr)
 		      && dwf_regno (XEXP (src, 0)) == cur_trace->cfa_temp.reg
 		      && CONST_INT_P (XEXP (src, 1)));
 
-	  /* Targets with polynomial offsets.  */
 	  cur_trace->cfa_temp.reg = dwf_regno (dest);
 	  if (!can_ior_p (cur_trace->cfa_temp.offset, INTVAL (XEXP (src, 1)),
 			  &cur_trace->cfa_temp.offset))
@@ -1956,7 +1955,7 @@ dwarf2out_frame_debug_expr (rtx expr)
 	{
 	  /* We're storing the current CFA reg into the stack.  */
 
-	  if (must_eq (cur_cfa->offset, 0))
+	  if (known_zero (cur_cfa->offset))
 	    {
               /* Rule 19 */
               /* If stack is aligned, putting CFA reg into stack means
@@ -2368,7 +2367,7 @@ maybe_record_trace_start_abnormal (rtx_insn *start, rtx_insn *origin)
   dw_cfa_location save_cfa;
 
   save_args_size = cur_trace->end_true_args_size;
-  if (must_eq (save_args_size, 0))
+  if (known_zero (save_args_size))
     {
       maybe_record_trace_start (start, origin);
       return;

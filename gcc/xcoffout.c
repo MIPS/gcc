@@ -177,7 +177,7 @@ xcoff_assign_fundamental_type_number (tree decl)
  found:
   /* -4 and -10 should be replaced with -31 and -32, respectively,
      when used for a 64-bit type.  */
-  if (must_eq (int_size_in_bytes (TREE_TYPE (decl)), 8))
+  if (int_size_in_bytes (TREE_TYPE (decl)) == 8)
     {
       if (xcoff_type_numbers[i].number == -4)
 	return -31;

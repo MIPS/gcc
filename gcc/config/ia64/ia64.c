@@ -4702,7 +4702,7 @@ ia64_function_arg_words (const_tree type, machine_mode mode)
   int words;
 
   if (mode == BLKmode)
-    words = int_size_in_bytes_hwi (type);
+    words = int_size_in_bytes (type);
   else
     words = GET_MODE_SIZE (mode);
 
@@ -4812,7 +4812,7 @@ ia64_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
 	 of the argument, the last FP register, or the last argument slot.  */
 
       byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
       args_byte_size = int_regs * UNITS_PER_WORD;
       offset = 0;
       for (; (offset < byte_size && fp_regs < MAX_ARGUMENT_SLOTS
@@ -4878,7 +4878,7 @@ ia64_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
 	   || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
     {
       int byte_size = ((mode == BLKmode)
-		       ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+                       ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
       if (BYTES_BIG_ENDIAN
 	&& (mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
 	&& byte_size < UNITS_PER_WORD
@@ -5055,7 +5055,7 @@ ia64_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 	 of the argument, the last FP register, or the last argument slot.  */
 
       byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
       args_byte_size = int_regs * UNITS_PER_WORD;
       offset = 0;
       for (; (offset < byte_size && fp_regs < MAX_ARGUMENT_SLOTS
@@ -5158,8 +5158,7 @@ ia64_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
      do so if they are larger than 8 bytes, whether or not they are
      also aligned larger than 8 bytes.  */
   if ((TREE_CODE (type) == REAL_TYPE || TREE_CODE (type) == INTEGER_TYPE)
-      ? int_size_in_bytes_hwi (type) > 8
-      : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
+      ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
       tree t = fold_build_pointer_plus_hwi (valist, 2 * UNITS_PER_WORD - 1);
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
@@ -5184,7 +5183,7 @@ ia64_return_in_memory (const_tree valtype, const_tree fntype ATTRIBUTE_UNUSED)
   byte_size = GET_MODE_SIZE (mode);
   if (mode == BLKmode)
     {
-      byte_size = int_size_in_bytes_hwi (valtype);
+      byte_size = int_size_in_bytes (valtype);
       if (byte_size < 0)
 	return true;
     }
@@ -5236,7 +5235,7 @@ ia64_function_value (const_tree valtype,
 
       hfa_size = GET_MODE_SIZE (hfa_mode);
       byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (valtype) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (valtype) : GET_MODE_SIZE (mode));
       offset = 0;
       for (i = 0; offset < byte_size; i++)
 	{
@@ -5276,7 +5275,7 @@ ia64_function_value (const_tree valtype,
 	  int i;
 
 	  offset = 0;
-	  bytesize = int_size_in_bytes_hwi (valtype);
+	  bytesize = int_size_in_bytes (valtype);
 	  /* An empty PARALLEL is invalid here, but the return value
 	     doesn't matter for empty structs.  */
 	  if (bytesize == 0)
@@ -10014,7 +10013,7 @@ ia64_in_small_data_p (const_tree exp)
     }
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
 	 in sdata because it might be too big when completed.  */
@@ -10663,7 +10662,7 @@ ia64_function_arg_padding (machine_mode mode, const_tree type)
   if (TARGET_HPUX
       && type
       && AGGREGATE_TYPE_P (type)
-      && int_size_in_bytes_hwi (type) < UNITS_PER_WORD)
+      && int_size_in_bytes (type) < UNITS_PER_WORD)
     return PAD_UPWARD;
 
   /* Fall back to the default.  */

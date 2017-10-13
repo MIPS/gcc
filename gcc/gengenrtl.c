@@ -55,7 +55,7 @@ type_from_format (int c)
       return "HOST_WIDE_INT ";
 
     case 'p':
-      return "poly_int64 ";
+      return "poly_uint16 ";
 
     case 's':
       return "const char *";
@@ -160,6 +160,7 @@ excluded_rtx (int idx)
   return (strcmp (defs[idx].enumname, "VAR_LOCATION") == 0
 	  || strcmp (defs[idx].enumname, "CONST_DOUBLE") == 0
 	  || strcmp (defs[idx].enumname, "CONST_WIDE_INT") == 0
+	  || strcmp (defs[idx].enumname, "CONST_POLY_INT") == 0
 	  || strcmp (defs[idx].enumname, "CONST_FIXED") == 0);
 }
 

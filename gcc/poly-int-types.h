@@ -33,6 +33,7 @@ typedef poly_int<NUM_POLY_INT_COEFFS, HOST_WIDE_INT> poly_int64;
 typedef poly_int<NUM_POLY_INT_COEFFS, unsigned HOST_WIDE_INT> poly_uint64;
 typedef poly_int<NUM_POLY_INT_COEFFS, offset_int> poly_offset_int;
 typedef poly_int<NUM_POLY_INT_COEFFS, wide_int> poly_wide_int;
+typedef poly_int<NUM_POLY_INT_COEFFS, wide_int_ref> poly_wide_int_ref;
 typedef poly_int<NUM_POLY_INT_COEFFS, widest_int> poly_widest_int;
 
 /* Divide bit quantity X by BITS_PER_UNIT and round down (towards -Inf).

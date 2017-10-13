@@ -123,9 +123,9 @@ print_elim_table (FILE *f)
     {
       fprintf (f, "%s eliminate %d to %d (offset=",
 	       ep->can_eliminate ? "Can" : "Can't", ep->from, ep->to);
-      print_dec (ep->offset, f, SIGNED);
+      print_dec (ep->offset, f);
       fprintf (f, ", prev_offset=");
-      print_dec (ep->previous_offset, f, SIGNED);
+      print_dec (ep->previous_offset, f);
       fprintf (f, ")\n");
     }
 }
@@ -165,7 +165,7 @@ static struct lra_elim_table self_elim_table;
 /* Offsets should be used to restore original offsets for eliminable
    hard register which just became not eliminable.  Zero,
    otherwise.  */
-static poly_int64 self_elim_offsets[FIRST_PSEUDO_REGISTER];
+static poly_int64_pod self_elim_offsets[FIRST_PSEUDO_REGISTER];
 
 /* Map: hard regno -> RTL presentation.	 RTL presentations of all
    potentially eliminable hard registers are stored in the map.	 */
@@ -257,15 +257,14 @@ get_elimination (rtx reg)
 {
   int hard_regno;
   struct lra_elim_table *ep;
-  poly_int64 offset;
 
   lra_assert (REG_P (reg));
   if ((hard_regno = REGNO (reg)) < 0 || hard_regno >= FIRST_PSEUDO_REGISTER)
     return NULL;
   if ((ep = elimination_map[hard_regno]) != NULL)
     return ep->from_rtx != reg ? NULL : ep;
-  offset = self_elim_offsets[hard_regno];
-  if (must_eq (offset, 0))
+  poly_int64 offset = self_elim_offsets[hard_regno];
+  if (known_zero (offset))
     return NULL;
   /* This is an iteration to restore offsets just after HARD_REGNO
      stopped to be eliminable.	*/
@@ -341,7 +340,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
   int copied = 0;
 
   lra_assert (!update_p || !full_p);
-  lra_assert (must_eq (update_sp_offset, 0)
+  lra_assert (known_zero (update_sp_offset)
 	      || (!subst_p && update_p && !full_p));
   if (! current_function_decl)
     return x;
@@ -367,7 +366,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	{
 	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
 
-	  if (may_ne (update_sp_offset, 0))
+	  if (maybe_nonzero (update_sp_offset))
 	    {
 	      if (ep->to_rtx == stack_pointer_rtx)
 		return plus_constant (Pmode, to, update_sp_offset);
@@ -400,7 +399,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	      if (! update_p && ! full_p)
 		return gen_rtx_PLUS (Pmode, to, XEXP (x, 1));
 	      
-	      if (may_ne (update_sp_offset, 0))
+	      if (maybe_nonzero (update_sp_offset))
 		offset = ep->to_rtx == stack_pointer_rtx ? update_sp_offset : 0;
 	      else
 		offset = (update_p
@@ -457,7 +456,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	{
 	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
 
-	  if (may_ne (update_sp_offset, 0))
+	  if (maybe_nonzero (update_sp_offset))
 	    {
 	      if (ep->to_rtx == stack_pointer_rtx)
 		return plus_constant (Pmode,
@@ -953,13 +952,10 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 
 		/* We should never process such insn with non-zero
 		   UPDATE_SP_OFFSET.  */
-		lra_assert (must_eq (update_sp_offset, 0));
+		lra_assert (known_zero (update_sp_offset));
 		
 		if (remove_reg_equal_offset_note (insn, ep->to_rtx, &offset)
-		    || src == ep->to_rtx
-		    || (GET_CODE (src) == PLUS
-			&& XEXP (src, 0) == ep->to_rtx
-			&& poly_int_const_p (XEXP (src, 1), &offset)))
+		    || strip_offset (src, &offset) == ep->to_rtx)
 		  {
 		    if (replace_p)
 		      {
@@ -1036,7 +1032,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 
 	  if (! replace_p)
 	    {
-	      if (must_eq (update_sp_offset, 0))
+	      if (known_zero (update_sp_offset))
 		offset += (ep->offset - ep->previous_offset);
 	      if (ep->to_rtx == stack_pointer_rtx)
 		{
@@ -1055,7 +1051,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 	     the cost of the insn by replacing a simple REG with (plus
 	     (reg sp) CST).  So try only when we already had a PLUS
 	     before.  */
-	  if (must_eq (offset, 0) || plus_src)
+	  if (known_zero (offset) || plus_src)
 	    {
 	      rtx new_src = plus_constant (GET_MODE (to_rtx), to_rtx, offset);
 
@@ -1243,7 +1239,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file, "    Using elimination %d to %d now\n",
 			 ep1->from, ep1->to);
-	      lra_assert (must_eq (ep1->previous_offset, 0));
+	      lra_assert (known_zero (ep1->previous_offset));
 	      ep1->previous_offset = ep->offset;
 	    }
 	  else
@@ -1255,7 +1251,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 		fprintf (lra_dump_file, "    %d is not eliminable at all\n",
 			 ep->from);
 	      self_elim_offsets[ep->from] = -ep->offset;
-	      if (may_ne (ep->offset, 0))
+	      if (maybe_nonzero (ep->offset))
 		bitmap_ior_into (insns_with_changed_offsets,
 				 &lra_reg_info[ep->from].insn_bitmap);
 	    }

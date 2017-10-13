@@ -83,9 +83,9 @@ brig_cvt_inst_handler::generate (const BrigBase *base)
   tree &input = operands.at (1);
   tree &output = operands.at (0);
 
-  size_t conv_src_size = int_size_in_bytes_hwi (src_type);
-  size_t conv_dst_size = int_size_in_bytes_hwi (dest_type);
-  size_t src_reg_size = int_size_in_bytes_hwi (TREE_TYPE (input));
+  size_t conv_src_size = int_size_in_bytes (src_type);
+  size_t conv_dst_size = int_size_in_bytes (dest_type);
+  size_t src_reg_size = int_size_in_bytes (TREE_TYPE (input));
 
   /* The input register can be of different type&size than the
      conversion input size.  First cast the input to the conversion
@@ -237,7 +237,7 @@ brig_cvt_inst_handler::generate (const BrigBase *base)
       conversion_result = build1 (CONVERT_EXPR, dest_type, casted_input);
     }
 
-  size_t dst_reg_size = int_size_in_bytes_hwi (TREE_TYPE (output));
+  size_t dst_reg_size = int_size_in_bytes (TREE_TYPE (output));
 
   tree assign = NULL_TREE;
   /* The output register can be of different type&size than the

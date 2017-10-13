@@ -397,9 +397,9 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
 	  fprintf (f, "         VR  ");
 	  fprintf (f, "%s[",
 		   (jump_func->m_vr->type == VR_ANTI_RANGE) ? "~" : "");
-	  print_decs (jump_func->m_vr->min, f);
+	  print_decs (wi::to_wide (jump_func->m_vr->min), f);
 	  fprintf (f, ", ");
-	  print_decs (jump_func->m_vr->max, f);
+	  print_decs (wi::to_wide (jump_func->m_vr->max), f);
 	  fprintf (f, "]\n");
 	}
       else
@@ -1922,9 +1922,9 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	  unsigned align;
 
 	  get_pointer_alignment_1 (arg, &align, &bitpos);
-	  widest_int mask
-	    = wi::mask<widest_int>(TYPE_PRECISION (TREE_TYPE (arg)), false)
-	    .and_not (align / BITS_PER_UNIT - 1);
+	  widest_int mask = wi::bit_and_not
+	    (wi::mask<widest_int> (TYPE_PRECISION (TREE_TYPE (arg)), false),
+	     align / BITS_PER_UNIT - 1);
 	  widest_int value = bitpos / BITS_PER_UNIT;
 	  ipa_set_jfunc_bits (jfunc, value, mask);
 	}
@@ -4360,7 +4360,8 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gcall *stmt,
 		  if (TYPE_ALIGN (type) > align)
 		    align = TYPE_ALIGN (type);
 		}
-	      misalign += (offset_int::from (off, SIGNED).to_short_addr ()
+	      misalign += (offset_int::from (wi::to_wide (off),
+					     SIGNED).to_short_addr ()
 			   * BITS_PER_UNIT);
 	      misalign = misalign & (align - 1);
 	      if (misalign != 0)
@@ -4568,7 +4569,7 @@ ipa_get_adjustment_candidate (tree **expr, bool *convert,
   bool reverse;
   tree base
     = get_ref_base_and_extent (**expr, &offset, &size, &max_size, &reverse);
-  if (!base || must_eq (size, -1) || must_eq (max_size, -1))
+  if (!base || !known_size_p (size) || !known_size_p (max_size))
     return NULL;
 
   if (TREE_CODE (base) == MEM_REF)
@@ -4754,7 +4755,7 @@ ipa_dump_param_adjustments (FILE *file, ipa_parm_adjustment_vec adjustments,
       else
 	{
 	  fprintf (file, ", offset ");
-	  print_dec (adj->offset, file, SIGNED);
+	  print_dec (adj->offset, file);
 	}
       if (adj->by_ref)
 	fprintf (file, ", by_ref");

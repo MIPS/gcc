@@ -183,7 +183,7 @@ tilegx_return_in_msb (const_tree valtype)
 static bool
 tilegx_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
-  return !IN_RANGE (int_size_in_bytes_hwi (type),
+  return !IN_RANGE (int_size_in_bytes (type),
 		    0, TILEGX_NUM_RETURN_REGS * UNITS_PER_WORD);
 }
 
@@ -223,7 +223,7 @@ tilegx_function_arg (cumulative_args_t cum_v,
 {
   CUMULATIVE_ARGS cum = *get_cumulative_args (cum_v);
   int byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
   bool doubleword_aligned_p;
 
   if (cum >= TILEGX_NUM_ARG_REGS)
@@ -255,7 +255,7 @@ tilegx_function_arg_advance (cumulative_args_t cum_v,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
   int byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
   int word_size = (byte_size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
   bool doubleword_aligned_p;
 
@@ -477,7 +477,7 @@ tilegx_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   if (pass_by_reference_p)
     type = build_pointer_type (type);
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   rsize = ((size + UNITS_PER_WORD - 1) / UNITS_PER_WORD) * UNITS_PER_WORD;
 
   /* If the alignment of the type is greater than the default for a

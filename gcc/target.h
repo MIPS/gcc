@@ -199,6 +199,13 @@ typedef vec<unsigned short> vec_perm_indices;
    automatically freed.  */
 typedef auto_vec<unsigned short, 32> auto_vec_perm_indices;
 
+/* The type to use for lists of vector sizes.  */
+typedef vec<poly_uint64> vector_sizes;
+
+/* Same, but can be used to construct local lists that are
+   automatically freed.  */
+typedef auto_vec<poly_uint64, 8> auto_vector_sizes;
+
 /* The target structure.  This holds all the backend hooks.  */
 #define DEFHOOKPOD(NAME, DOC, TYPE, INIT) TYPE NAME;
 #define DEFHOOK(NAME, DOC, TYPE, PARAMS, INIT) TYPE (* NAME) PARAMS;
@@ -222,6 +229,17 @@ estimated_poly_value (poly_int64 x)
     return x.coeffs[0];
   else
     return targetm.estimated_poly_value (x);
+}
+
+/* Return the mode that should be used to hold a scalar shift amount
+   when shifting values of the given mode.  */
+/* ??? This could in principle be generated automatically from the .md
+   shift patterns, but for now word_mode should be universally OK.  */
+
+inline scalar_int_mode
+get_shift_amount_mode (machine_mode)
+{
+  return word_mode;
 }
 
 #ifdef GCC_TM_H

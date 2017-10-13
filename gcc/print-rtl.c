@@ -516,7 +516,7 @@ rtx_writer::print_rtx_operand_code_r (const_rtx in_rtx)
       if (REG_EXPR (in_rtx))
 	print_mem_expr (m_outfile, REG_EXPR (in_rtx));
 
-      if (may_ne (REG_OFFSET (in_rtx), 0))
+      if (maybe_nonzero (REG_OFFSET (in_rtx)))
 	{
 	  fprintf (m_outfile, "+");
 	  print_poly_int (m_outfile, REG_OFFSET (in_rtx));
@@ -927,6 +927,17 @@ rtx_writer::print_rtx (const_rtx in_rtx)
     case CONST_WIDE_INT:
       fprintf (m_outfile, " ");
       cwi_output_hex (m_outfile, in_rtx);
+      break;
+
+    case CONST_POLY_INT:
+      fprintf (m_outfile, " [");
+      print_dec (CONST_POLY_INT_COEFFS (in_rtx)[0], m_outfile, SIGNED);
+      for (unsigned int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
+	{
+	  fprintf (m_outfile, ", ");
+	  print_dec (CONST_POLY_INT_COEFFS (in_rtx)[i], m_outfile, SIGNED);
+	}
+      fprintf (m_outfile, "]");
       break;
 #endif
 
@@ -1596,6 +1607,17 @@ print_value (pretty_printer *pp, const_rtx x, int verbose)
 	  }
         pp_greater (pp);
       }
+      break;
+
+    case CONST_POLY_INT:
+      pp_left_bracket (pp);
+      pp_wide_int (pp, CONST_POLY_INT_COEFFS (x)[0], SIGNED);
+      for (unsigned int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
+	{
+	  pp_comma (pp);
+	  pp_wide_int (pp, CONST_POLY_INT_COEFFS (x)[i], SIGNED);
+	}
+      pp_right_bracket (pp);
       break;
 
     case CONST_DOUBLE:

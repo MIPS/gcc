@@ -1278,7 +1278,7 @@ darwin_mergeable_string_section (tree exp,
       && TREE_CODE (exp) == STRING_CST
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
       && align <= 256
-      && (int_size_in_bytes_hwi (TREE_TYPE (exp))
+      && (int_size_in_bytes (TREE_TYPE (exp))
 	  == TREE_STRING_LENGTH (exp))
       && ((size_t) TREE_STRING_LENGTH (exp)
 	  == strlen (TREE_STRING_POINTER (exp)) + 1))
@@ -1321,13 +1321,13 @@ darwin_mergeable_constant_section (tree exp,
 
       if (TREE_CODE (size) == INTEGER_CST)
 	{
-	  if (wi::eq_p (size, 4))
+	  if (wi::to_wide (size) == 4)
 	    return darwin_sections[literal4_section];
-	  else if (wi::eq_p (size, 8))
+	  else if (wi::to_wide (size) == 8)
 	    return darwin_sections[literal8_section];
 	  else if (HAVE_GAS_LITERAL16
 		   && TARGET_64BIT
-		   && wi::eq_p (size, 16))
+		   && wi::to_wide (size) == 16)
 	    return darwin_sections[literal16_section];
 	}
     }

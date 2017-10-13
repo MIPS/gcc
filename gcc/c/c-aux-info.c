@@ -273,7 +273,6 @@ static const char *
 gen_type (const char *ret_val, tree t, formals_style style)
 {
   tree chain_p;
-  HOST_WIDE_INT size, elt_size;
 
   /* If there is a typedef name for this type, use it.  */
   if (TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL)
@@ -300,18 +299,18 @@ gen_type (const char *ret_val, tree t, formals_style style)
 	  return ret_val;
 
 	case ARRAY_TYPE:
-	  if (!COMPLETE_TYPE_P (t)
-	      || !int_size_in_bytes (t).is_constant (&size)
-	      || !int_size_in_bytes (TREE_TYPE (t)).is_constant (&elt_size))
+	  if (!COMPLETE_TYPE_P (t) || TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
 	    ret_val = gen_type (concat (ret_val, "[]", NULL),
 				TREE_TYPE (t), style);
-	  else if (size == 0)
+	  else if (int_size_in_bytes (t) == 0)
 	    ret_val = gen_type (concat (ret_val, "[0]", NULL),
 				TREE_TYPE (t), style);
 	  else
 	    {
 	      char buff[23];
-	      sprintf (buff, "[" HOST_WIDE_INT_PRINT_DEC "]", size / elt_size);
+	      sprintf (buff, "[" HOST_WIDE_INT_PRINT_DEC"]",
+		       int_size_in_bytes (t)
+		       / int_size_in_bytes (TREE_TYPE (t)));
 	      ret_val = gen_type (concat (ret_val, buff, NULL),
 				  TREE_TYPE (t), style);
 	    }

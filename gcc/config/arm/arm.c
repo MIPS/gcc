@@ -283,7 +283,7 @@ static bool arm_builtin_support_vector_misalignment (machine_mode mode,
 static void arm_conditional_register_usage (void);
 static enum flt_eval_method arm_excess_precision (enum excess_precision_type);
 static reg_class_t arm_preferred_rename_class (reg_class_t rclass);
-static void arm_autovectorize_vector_sizes (vec<poly_uint64> &);
+static void arm_autovectorize_vector_sizes (vector_sizes *);
 static int arm_default_branch_cost (bool, bool);
 static int arm_cortex_a5_branch_cost (bool, bool);
 static int arm_cortex_m_branch_cost (bool, bool);
@@ -3671,6 +3671,11 @@ arm_option_override (void)
   if (use_cmse && !arm_arch_cmse)
     error ("target CPU does not support ARMv8-M Security Extensions");
 
+  /* We don't clear D16-D31 VFP registers for cmse_nonsecure_call functions
+     and ARMv8-M Baseline and Mainline do not allow such configuration.  */
+  if (use_cmse && LAST_VFP_REGNUM > LAST_LO_VFP_REGNUM)
+    error ("ARMv8-M Security Extensions incompatible with selected FPU");
+
   /* Disable scheduling fusion by default if it's not armv7 processor
      or doesn't prefer ldrd/strd.  */
   if (flag_schedule_fusion == 2
@@ -5357,7 +5362,7 @@ arm_function_value(const_tree type, const_tree func,
      for big-endian AAPCS.  */
   if (arm_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
@@ -5545,7 +5550,7 @@ arm_return_in_memory (const_tree type, const_tree fntype)
 {
   HOST_WIDE_INT size;
 
-  size = int_size_in_bytes_hwi (type);  /* Negative if not fixed size.  */
+  size = int_size_in_bytes (type);  /* Negative if not fixed size.  */
 
   if (TARGET_AAPCS_BASED)
     {
@@ -5599,7 +5604,7 @@ arm_return_in_memory (const_tree type, const_tree fntype)
      ARM and Thumb compilers, which always return aggregates in memory.  */
 #ifndef ARM_WINCE
   /* All structures/unions bigger than one word are returned in memory.
-     Also catch the case where int_size_in_bytes_hwi returns -1.  In this case
+     Also catch the case where int_size_in_bytes returns -1.  In this case
      the aggregate is either huge or of variable size, and in either case
      we will want to return it via memory and not in a register.  */
   if (size < 0 || size > UNITS_PER_WORD)
@@ -5831,7 +5836,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
       /* Use V2SImode and V4SImode as representatives of all 64-bit
 	 and 128-bit vector types, whether or not those modes are
 	 supported with the present options.  */
-      size = int_size_in_bytes_hwi (type);
+      size = int_size_in_bytes (type);
       switch (size)
 	{
 	case 8:
@@ -5880,7 +5885,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 		      - tree_to_uhwi (TYPE_MIN_VALUE (index)));
 
 	/* There must be no padding.  */
-	if (wi::ne_p (TYPE_SIZE (type), count * GET_MODE_BITSIZE (*modep)))
+	if (wi::to_wide (TYPE_SIZE (type))
+	    != count * GET_MODE_BITSIZE (*modep))
 	  return -1;
 
 	return count;
@@ -5910,7 +5916,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 	  }
 
 	/* There must be no padding.  */
-	if (wi::ne_p (TYPE_SIZE (type), count * GET_MODE_BITSIZE (*modep)))
+	if (wi::to_wide (TYPE_SIZE (type))
+	    != count * GET_MODE_BITSIZE (*modep))
 	  return -1;
 
 	return count;
@@ -5942,7 +5949,8 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
 	  }
 
 	/* There must be no padding.  */
-	if (wi::ne_p (TYPE_SIZE (type), count * GET_MODE_BITSIZE (*modep)))
+	if (wi::to_wide (TYPE_SIZE (type))
+	    != count * GET_MODE_BITSIZE (*modep))
 	  return -1;
 
 	return count;
@@ -6314,7 +6322,7 @@ aapcs_allocate_return_reg (machine_mode mode, const_tree type,
      for big-endian AAPCS.  */
   if (type && arm_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
@@ -15201,7 +15209,7 @@ arm_pad_reg_upward (machine_mode mode,
 	  if ((AGGREGATE_TYPE_P (type)
 	       || TREE_CODE (type) == COMPLEX_TYPE
 	       || FIXED_POINT_TYPE_P (type))
-	      && int_size_in_bytes_hwi (type) <= 4)
+	      && int_size_in_bytes (type) <= 4)
 	    return true;
 	}
       else
@@ -25077,42 +25085,37 @@ thumb1_expand_prologue (void)
 void
 cmse_nonsecure_entry_clear_before_return (void)
 {
-  uint64_t to_clear_mask[2];
+  int regno, maxregno = TARGET_HARD_FLOAT ? LAST_VFP_REGNUM : IP_REGNUM;
   uint32_t padding_bits_to_clear = 0;
   uint32_t * padding_bits_to_clear_ptr = &padding_bits_to_clear;
-  int regno, maxregno = IP_REGNUM;
+  auto_sbitmap to_clear_bitmap (maxregno + 1);
   tree result_type;
   rtx result_rtl;
 
-  to_clear_mask[0] = (1ULL << (NUM_ARG_REGS)) - 1;
-  to_clear_mask[0] |= (1ULL << IP_REGNUM);
+  bitmap_clear (to_clear_bitmap);
+  bitmap_set_range (to_clear_bitmap, R0_REGNUM, NUM_ARG_REGS);
+  bitmap_set_bit (to_clear_bitmap, IP_REGNUM);
 
   /* If we are not dealing with -mfloat-abi=soft we will need to clear VFP
-     registers.  We also check that TARGET_HARD_FLOAT and !TARGET_THUMB1 hold
-     to make sure the instructions used to clear them are present.  */
-  if (TARGET_HARD_FLOAT && !TARGET_THUMB1)
+     registers.  */
+  if (TARGET_HARD_FLOAT)
     {
-      uint64_t float_mask = (1ULL << (D7_VFP_REGNUM + 1)) - 1;
-      maxregno = LAST_VFP_REGNUM;
+      int float_bits = D7_VFP_REGNUM - FIRST_VFP_REGNUM + 1;
 
-      float_mask &= ~((1ULL << FIRST_VFP_REGNUM) - 1);
-      to_clear_mask[0] |= float_mask;
-
-      float_mask = (1ULL << (maxregno - 63)) - 1;
-      to_clear_mask[1] = float_mask;
+      bitmap_set_range (to_clear_bitmap, FIRST_VFP_REGNUM, float_bits);
 
       /* Make sure we don't clear the two scratch registers used to clear the
 	 relevant FPSCR bits in output_return_instruction.  */
       emit_use (gen_rtx_REG (SImode, IP_REGNUM));
-      to_clear_mask[0] &= ~(1ULL << IP_REGNUM);
+      bitmap_clear_bit (to_clear_bitmap, IP_REGNUM);
       emit_use (gen_rtx_REG (SImode, 4));
-      to_clear_mask[0] &= ~(1ULL << 4);
+      bitmap_clear_bit (to_clear_bitmap, 4);
     }
 
   /* If the user has defined registers to be caller saved, these are no longer
      restored by the function before returning and must thus be cleared for
      security purposes.  */
-  for (regno = NUM_ARG_REGS; regno < LAST_VFP_REGNUM; regno++)
+  for (regno = NUM_ARG_REGS; regno <= maxregno; regno++)
     {
       /* We do not touch registers that can be used to pass arguments as per
 	 the AAPCS, since these should never be made callee-saved by user
@@ -25122,29 +25125,45 @@ cmse_nonsecure_entry_clear_before_return (void)
       if (IN_RANGE (regno, IP_REGNUM, PC_REGNUM))
 	continue;
       if (call_used_regs[regno])
-	to_clear_mask[regno / 64] |= (1ULL << (regno % 64));
+	bitmap_set_bit (to_clear_bitmap, regno);
     }
 
   /* Make sure we do not clear the registers used to return the result in.  */
   result_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   if (!VOID_TYPE_P (result_type))
     {
+      uint64_t to_clear_return_mask;
       result_rtl = arm_function_value (result_type, current_function_decl, 0);
 
       /* No need to check that we return in registers, because we don't
 	 support returning on stack yet.  */
-      to_clear_mask[0]
-	&= ~compute_not_to_clear_mask (result_type, result_rtl, 0,
-				       padding_bits_to_clear_ptr);
+      gcc_assert (REG_P (result_rtl));
+      to_clear_return_mask
+	= compute_not_to_clear_mask (result_type, result_rtl, 0,
+				     padding_bits_to_clear_ptr);
+      if (to_clear_return_mask)
+	{
+	  gcc_assert ((unsigned) maxregno < sizeof (long long) * __CHAR_BIT__);
+	  for (regno = R0_REGNUM; regno <= maxregno; regno++)
+	    {
+	      if (to_clear_return_mask & (1ULL << regno))
+		bitmap_clear_bit (to_clear_bitmap, regno);
+	    }
+	}
     }
 
   if (padding_bits_to_clear != 0)
     {
       rtx reg_rtx;
+      auto_sbitmap to_clear_arg_regs_bitmap (R0_REGNUM + NUM_ARG_REGS);
+
       /* Padding bits to clear is not 0 so we know we are dealing with
 	 returning a composite type, which only uses r0.  Let's make sure that
 	 r1-r3 is cleared too, we will use r1 as a scratch register.  */
-      gcc_assert ((to_clear_mask[0] & 0xe) == 0xe);
+      bitmap_clear (to_clear_arg_regs_bitmap);
+      bitmap_set_range (to_clear_arg_regs_bitmap, R0_REGNUM + 1,
+			NUM_ARG_REGS - 1);
+      gcc_assert (bitmap_subset_p (to_clear_arg_regs_bitmap, to_clear_bitmap));
 
       reg_rtx = gen_rtx_REG (SImode, R1_REGNUM);
 
@@ -25166,7 +25185,7 @@ cmse_nonsecure_entry_clear_before_return (void)
 
   for (regno = R0_REGNUM; regno <= maxregno; regno++)
     {
-      if (!(to_clear_mask[regno / 64] & (1ULL << (regno % 64))))
+      if (!bitmap_bit_p (to_clear_bitmap, regno))
 	continue;
 
       if (IS_VFP_REGNUM (regno))
@@ -25175,7 +25194,7 @@ cmse_nonsecure_entry_clear_before_return (void)
 	     be cleared, use vmov.  */
 	  if (TARGET_VFP_DOUBLE
 	      && VFP_REGNO_OK_FOR_DOUBLE (regno)
-	      && to_clear_mask[regno / 64] & (1ULL << ((regno % 64) + 1)))
+	      && bitmap_bit_p (to_clear_bitmap, regno + 1))
 	    {
 	      emit_move_insn (gen_rtx_REG (DFmode, regno),
 			      CONST1_RTX (DFmode));
@@ -26845,7 +26864,7 @@ arm_set_return_address (rtx source, rtx scratch)
 {
   arm_stack_offsets *offsets;
   HOST_WIDE_INT delta;
-  rtx addr;
+  rtx addr, mem;
   unsigned long saved_regs;
 
   offsets = arm_get_frame_offsets ();
@@ -26875,11 +26894,12 @@ arm_set_return_address (rtx source, rtx scratch)
 
 	  addr = plus_constant (Pmode, addr, delta);
 	}
-      /* The store needs to be marked as frame related in order to prevent
-	 DSE from deleting it as dead if it is based on fp.  */
-      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
-      RTX_FRAME_RELATED_P (insn) = 1;
-      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
+
+      /* The store needs to be marked to prevent DSE from deleting
+	 it as dead if it is based on fp.  */
+      mem = gen_frame_mem (Pmode, addr);
+      MEM_VOLATILE_P (mem) = true;
+      emit_move_insn (mem, source);
     }
 }
 
@@ -26891,7 +26911,7 @@ thumb_set_return_address (rtx source, rtx scratch)
   HOST_WIDE_INT delta;
   HOST_WIDE_INT limit;
   int reg;
-  rtx addr;
+  rtx addr, mem;
   unsigned long mask;
 
   emit_use (source);
@@ -26931,11 +26951,11 @@ thumb_set_return_address (rtx source, rtx scratch)
       else
 	addr = plus_constant (Pmode, addr, delta);
 
-      /* The store needs to be marked as frame related in order to prevent
-	 DSE from deleting it as dead if it is based on fp.  */
-      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
-      RTX_FRAME_RELATED_P (insn) = 1;
-      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
+      /* The store needs to be marked to prevent DSE from deleting
+	 it as dead if it is based on fp.  */
+      mem = gen_frame_mem (Pmode, addr);
+      MEM_VOLATILE_P (mem) = true;
+      emit_move_insn (mem, source);
     }
   else
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNUM), source);
@@ -27928,12 +27948,12 @@ arm_vector_alignment (const_tree type)
 }
 
 static void
-arm_autovectorize_vector_sizes (vec<poly_uint64> &sizes)
+arm_autovectorize_vector_sizes (vector_sizes *sizes)
 {
   if (!TARGET_NEON_VECTORIZE_DOUBLE)
     {
-      sizes.safe_push (16);
-      sizes.safe_push (8);
+      sizes->safe_push (16);
+      sizes->safe_push (8);
     }
 }
 
@@ -31373,10 +31393,43 @@ arm_test_cpu_arch_data (void)
     }
 }
 
+/* Scan the static data tables generated by parsecpu.awk looking for
+   potential issues with the data.  Here we check for consistency between the
+   fpu bits, in particular we check that ISA_ALL_FPU_INTERNAL does not contain
+   a feature bit that is not defined by any FPU flag.  */
+static void
+arm_test_fpu_data (void)
+{
+  auto_sbitmap isa_all_fpubits (isa_num_bits);
+  auto_sbitmap fpubits (isa_num_bits);
+  auto_sbitmap tmpset (isa_num_bits);
+
+  static const enum isa_feature fpu_bitlist[]
+    = { ISA_ALL_FPU_INTERNAL, isa_nobit };
+  arm_initialize_isa (isa_all_fpubits, fpu_bitlist);
+
+  for (unsigned int i = 0; i < TARGET_FPU_auto; i++)
+  {
+    arm_initialize_isa (fpubits, all_fpus[i].isa_bits);
+    bitmap_and_compl (tmpset, isa_all_fpubits, fpubits);
+    bitmap_clear (isa_all_fpubits);
+    bitmap_copy (isa_all_fpubits, tmpset);
+  }
+
+  if (!bitmap_empty_p (isa_all_fpubits))
+    {
+	fprintf (stderr, "Error: found feature bits in the ALL_FPU_INTERAL"
+			 " group that are not defined by any FPU.\n"
+			 "       Check your arm-cpus.in.\n");
+	ASSERT_TRUE (bitmap_empty_p (isa_all_fpubits));
+    }
+}
+
 static void
 arm_run_selftests (void)
 {
   arm_test_cpu_arch_data ();
+  arm_test_fpu_data ();
 }
 } /* Namespace selftest.  */
 

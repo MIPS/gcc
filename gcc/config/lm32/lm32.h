@@ -284,7 +284,7 @@ enum reg_class
    TYPE MODE.  */
 #define LM32_NUM_REGS2(MODE, TYPE)                       \
   LM32_NUM_INTS ((MODE) == BLKmode ?                     \
-  int_size_in_bytes_hwi (TYPE) : GET_MODE_SIZE (MODE))
+  int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))
 
 /*---------------------------*/
 /* Function entry and exit.  */

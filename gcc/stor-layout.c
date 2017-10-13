@@ -852,18 +852,17 @@ start_record_layout (tree t)
 static tree
 bits_from_bytes (tree x)
 {
-  if (TREE_CODE (x) == POLY_CST)
-    {
-      /* The runtime calculation isn't allowed to overflow sizetype;
-	 increasing the runtime values must always increase the size
-	 or offset of the object.  This means that the object imposes
-	 a maximum value on the runtime parameters, but we don't record
-	 what that is.  */
-      tree res[NUM_POLY_INT_COEFFS];
-      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-	res[i] = bits_from_bytes (POLY_CST_ELT (x, i));
-      return build_poly_cst (bitsizetype, res);
-    }
+  if (POLY_INT_CST_P (x))
+    /* The runtime calculation isn't allowed to overflow sizetype;
+       increasing the runtime values must always increase the size
+       or offset of the object.  This means that the object imposes
+       a maximum value on the runtime parameters, but we don't record
+       what that is.  */
+    return build_poly_int_cst
+      (bitsizetype,
+       poly_wide_int::from (poly_int_cst_value (x),
+			    TYPE_PRECISION (bitsizetype),
+			    TYPE_SIGN (TREE_TYPE (x))));
   x = fold_convert (bitsizetype, x);
   gcc_checking_assert (x);
   return x;
@@ -2390,9 +2389,11 @@ layout_type (tree type)
 		    && tree_int_cst_lt (ub, lb))
 		  {
 		    lb = wide_int_to_tree (ssizetype,
-					   offset_int::from (lb, SIGNED));
+					   offset_int::from (wi::to_wide (lb),
+							     SIGNED));
 		    ub = wide_int_to_tree (ssizetype,
-					   offset_int::from (ub, SIGNED));
+					   offset_int::from (wi::to_wide (ub),
+							     SIGNED));
 		  }
 		length
 		  = fold_convert (sizetype,
@@ -2760,7 +2761,7 @@ bit_field_mode_iterator
   m_bitregion_end (bitregion_end), m_align (align),
   m_volatilep (volatilep), m_count (0)
 {
-  if (must_eq (m_bitregion_end, 0))
+  if (known_zero (m_bitregion_end))
     {
       /* We can assume that any aligned chunk of ALIGN bits that overlaps
 	 the bitfield is mapped and won't trap, provided that ALIGN isn't
@@ -2808,7 +2809,7 @@ bit_field_mode_iterator::next_mode (scalar_int_mode *out_mode)
 
       /* Stop if the mode goes outside the bitregion.  */
       HOST_WIDE_INT start = m_bitpos - substart;
-      if (may_ne (m_bitregion_start, 0)
+      if (maybe_nonzero (m_bitregion_start)
 	  && may_lt (start, m_bitregion_start))
 	break;
       HOST_WIDE_INT end = start + unit;

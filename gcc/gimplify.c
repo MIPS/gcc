@@ -677,13 +677,13 @@ force_constant_size (tree var)
   /* The only attempt we make is by querying the maximum size of objects
      of the variable's type.  */
 
-  poly_int64 max_size;
+  HOST_WIDE_INT max_size;
 
   gcc_assert (VAR_P (var));
 
   max_size = max_int_size_in_bytes (TREE_TYPE (var));
 
-  gcc_assert (may_ge (max_size, 0));
+  gcc_assert (max_size >= 0);
 
   DECL_SIZE_UNIT (var)
     = build_int_cst (TREE_TYPE (DECL_SIZE_UNIT (var)), max_size);
@@ -3030,9 +3030,7 @@ maybe_with_size_expr (tree *expr_p)
 
   /* If the size isn't known or is a constant, we have nothing to do.  */
   size = TYPE_SIZE_UNIT (type);
-  if (!size
-      || TREE_CODE (size) == INTEGER_CST
-      || TREE_CODE (size) == POLY_CST)
+  if (!size || poly_tree_p (size))
     return;
 
   /* Otherwise, make a WITH_SIZE_EXPR.  */
@@ -4726,7 +4724,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   parts in, then generate code for the non-constant parts.  */
 	/* TODO.  There's code in cp/typeck.c to do this.  */
 
-	if (must_eq (int_size_in_bytes (TREE_TYPE (ctor)), -1))
+	if (int_size_in_bytes (TREE_TYPE (ctor)) < 0)
 	  /* store_constructor will ignore the clearing of variable-sized
 	     objects.  Initializers for such objects must explicitly set
 	     every field that needs to be set.  */
@@ -4772,17 +4770,16 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		|| !lookup_attribute ("chkp ctor",
 				      DECL_ATTRIBUTES (current_function_decl))))
 	  {
-	    poly_int64 size = int_size_in_bytes (type);
+	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
-	    HOST_WIDE_INT const_size;
 
 	    /* ??? We can still get unbounded array types, at least
 	       from the C++ front end.  This seems wrong, but attempt
 	       to work around it for now.  */
-	    if (must_eq (size, -1))
+	    if (size < 0)
 	      {
 		size = int_size_in_bytes (TREE_TYPE (object));
-		if (may_ne (size, -1))
+		if (size >= 0)
 		  TREE_TYPE (ctor) = type = TREE_TYPE (object);
 	      }
 
@@ -4796,11 +4793,10 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    /* Do a block move either if the size is so small as to make
 	       each individual move a sub-unit move on average, or if it
 	       is so large as to make individual moves inefficient.  */
-	    if (may_gt (size, 0)
+	    if (size > 0
 		&& num_nonzero_elements > 1
-		&& (!size.is_constant (&const_size)
-		    || const_size < num_nonzero_elements
-		    || !can_move_by_pieces (const_size, align)))
+		&& (size < num_nonzero_elements
+		    || !can_move_by_pieces (size, align)))
 	      {
 		if (notify_temp_creation)
 		  return GS_ERROR;
@@ -5485,7 +5481,12 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      side as statements and throw away the assignment.  Do this after
      gimplify_modify_expr_rhs so we handle TARGET_EXPRs of addressable
      types properly.  */
-  if (zero_sized_type (TREE_TYPE (*from_p)) && !want_value)
+  if (zero_sized_type (TREE_TYPE (*from_p))
+      && !want_value
+      /* Don't do this for calls that return addressable types, expand_call
+	 relies on those having a lhs.  */
+      && !(TREE_ADDRESSABLE (TREE_TYPE (*from_p))
+	   && TREE_CODE (*from_p) == CALL_EXPR))
     {
       gimplify_stmt (from_p, pre_p);
       gimplify_stmt (to_p, pre_p);
@@ -7971,7 +7972,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			o1 = wi::to_offset (offset);
 		      else
 			o1 = 0;
-		      if (may_ne (bitpos, 0))
+		      if (maybe_nonzero (bitpos))
 			o1 += bits_to_bytes_round_down (bitpos);
 		      sc = &OMP_CLAUSE_CHAIN (*osc);
 		      if (*sc != c
@@ -8524,7 +8525,7 @@ omp_shared_to_firstprivate_optimizable_decl_p (tree decl)
     return false;
   /* Don't optimize too large decls, as each thread/task will have
      its own.  */
-  HOST_WIDE_INT len = int_size_in_bytes_hwi (type);
+  HOST_WIDE_INT len = int_size_in_bytes (type);
   if (len == -1 || len > 4 * POINTER_SIZE / BITS_PER_UNIT)
     return false;
   if (lang_hooks.decls.omp_privatize_by_reference (decl))
@@ -11509,30 +11510,14 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case STRING_CST:
 	case COMPLEX_CST:
 	case VECTOR_CST:
+	case VEC_DUPLICATE_CST:
+	case VEC_SERIES_CST:
 	  /* Drop the overflow flag on constants, we do not want
 	     that in the GIMPLE IL.  */
 	  if (TREE_OVERFLOW_P (*expr_p))
 	    *expr_p = drop_tree_overflow (*expr_p);
 	  ret = GS_ALL_DONE;
 	  break;
-
-	case VEC_DUPLICATE_EXPR:
-	  if (TREE_CONSTANT (*expr_p))
-	    {
-	      ret = GS_ALL_DONE;
-	      break;
-	    }
-	  else
-	    goto expr_1;
-
-	case VEC_SERIES_EXPR:
-	  if (TREE_CONSTANT (*expr_p))
-	    {
-	      ret = GS_ALL_DONE;
-	      break;
-	    }
-	  else
-	    goto expr_2;
 
 	case CONST_DECL:
 	  /* If we require an lvalue, such as for ADDR_EXPR, retain the
@@ -12072,7 +12057,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */
 	    case tcc_unary:
-	    expr_1:
 	      ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
 				   post_p, is_gimple_val, fb_rvalue);
 	      break;

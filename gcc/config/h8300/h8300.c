@@ -1146,7 +1146,7 @@ h8300_function_arg (cumulative_args_t cum_v, machine_mode mode,
       int size;
 
       if (mode == BLKmode)
-	size = int_size_in_bytes_hwi (type);
+	size = int_size_in_bytes (type);
       else
 	size = GET_MODE_SIZE (mode);
 
@@ -1170,8 +1170,7 @@ h8300_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   cum->nbytes += (mode != BLKmode
 		  ? (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD
-		  : ((int_size_in_bytes_hwi (type) + UNITS_PER_WORD - 1)
-		     & -UNITS_PER_WORD));
+		  : (int_size_in_bytes (type) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD);
 }
 
 

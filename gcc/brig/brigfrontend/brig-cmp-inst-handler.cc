@@ -158,7 +158,7 @@ brig_cmp_inst_handler::operator () (const BrigBase *base)
       tree signed_type = signed_type_for (dest_type);
       tree signed_result = convert_to_integer (signed_type, expr);
 
-      size_t result_width = int_size_in_bytes_hwi (dest_type) * BITS_PER_UNIT;
+      size_t result_width = int_size_in_bytes (dest_type) * BITS_PER_UNIT;
 
       tree shift_amount_cst
 	= build_int_cstu (signed_type, result_width - 1);

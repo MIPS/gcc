@@ -1870,7 +1870,7 @@ pdp11_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   *cum += (mode != BLKmode
 	   ? GET_MODE_SIZE (mode)
-	   : int_size_in_bytes_hwi (type));
+	   : int_size_in_bytes (type));
 }
 
 /* Make sure everything's fine if we *don't* have an FPU.

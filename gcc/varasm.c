@@ -792,7 +792,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
       && TREE_CODE (decl) == STRING_CST
       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
       && align <= 256
-      && (len = int_size_in_bytes_hwi (TREE_TYPE (decl))) > 0
+      && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
       && TREE_STRING_LENGTH (decl) >= len)
     {
       scalar_int_mode mode;
@@ -2871,38 +2871,36 @@ assemble_real (REAL_VALUE_TYPE d, scalar_float_mode mode, unsigned int align,
 
 struct addr_const {
   rtx base;
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
 };
 
 static void
 decode_addr_const (tree exp, struct addr_const *value)
 {
   tree target = TREE_OPERAND (exp, 0);
-  int offset = 0;
+  poly_int64 offset = 0;
   rtx x;
 
   while (1)
     {
+      poly_int64 bytepos;
       if (TREE_CODE (target) == COMPONENT_REF
-	  && tree_fits_shwi_p (byte_position (TREE_OPERAND (target, 1))))
+	  && poly_tree_p (byte_position (TREE_OPERAND (target, 1)), &bytepos))
 	{
-	  offset += int_byte_position (TREE_OPERAND (target, 1));
+	  offset += bytepos;
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
 	  offset += (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (target)))
-		     * tree_to_shwi (TREE_OPERAND (target, 1)));
+		     * tree_to_poly_int64 (TREE_OPERAND (target, 1)));
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF
 	       && TREE_CODE (TREE_OPERAND (target, 0)) == ADDR_EXPR)
 	{
-	  offset_int mem_offset;
-	  if (!mem_ref_offset (target).is_constant (&mem_offset))
-	    break;
-	  offset += mem_offset.to_shwi ();
+	  offset += mem_ref_offset (target).force_shwi ();
 	  target = TREE_OPERAND (TREE_OPERAND (target, 0), 0);
 	}
       else if (TREE_CODE (target) == INDIRECT_REF
@@ -3023,7 +3021,7 @@ const_hash_1 (const tree exp)
 	unsigned HOST_WIDE_INT idx;
 	tree value;
 
-	hi = 5 + int_size_in_bytes_hwi (TREE_TYPE (exp));
+	hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
 
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
 	  if (value)
@@ -3043,14 +3041,14 @@ const_hash_1 (const tree exp)
 	  case SYMBOL_REF:
 	    /* Don't hash the address of the SYMBOL_REF;
 	       only use the offset and the symbol name.  */
-	    hi = value.offset;
+	    hi = value.offset.coeffs[0];
 	    p = XSTR (value.base, 0);
 	    for (i = 0; p[i] != 0; i++)
 	      hi = ((hi * 613) + (unsigned) (p[i]));
 	    break;
 
 	  case LABEL_REF:
-	    hi = (value.offset
+	    hi = (value.offset.coeffs[0]
 		  + CODE_LABEL_NUMBER (label_ref_label (value.base)) * 13);
 	    break;
 
@@ -3066,8 +3064,15 @@ const_hash_1 (const tree exp)
       return (const_hash_1 (TREE_OPERAND (exp, 0)) * 9
 	      + const_hash_1 (TREE_OPERAND (exp, 1)));
 
+    case VEC_SERIES_CST:
+      return (const_hash_1 (VEC_SERIES_CST_BASE (exp)) * 11
+	      + const_hash_1 (VEC_SERIES_CST_STEP (exp)));
+
     CASE_CONVERT:
       return const_hash_1 (TREE_OPERAND (exp, 0)) * 7 + 2;
+
+    case VEC_DUPLICATE_CST:
+      return const_hash_1 (VEC_DUPLICATE_CST_ELT (exp)) * 7 + 3;
 
     default:
       /* A language specific constant. Just hash the code.  */
@@ -3159,6 +3164,16 @@ compare_constant (const tree t1, const tree t2)
 	return 1;
       }
 
+    case VEC_DUPLICATE_CST:
+      return compare_constant (VEC_DUPLICATE_CST_ELT (t1),
+			       VEC_DUPLICATE_CST_ELT (t2));
+
+    case VEC_SERIES_CST:
+      return (compare_constant (VEC_SERIES_CST_BASE (t1),
+				VEC_SERIES_CST_BASE (t2))
+	      && compare_constant (VEC_SERIES_CST_STEP (t1),
+				   VEC_SERIES_CST_STEP (t2)));
+
     case CONSTRUCTOR:
       {
 	vec<constructor_elt, va_gc> *v1, *v2;
@@ -3170,11 +3185,11 @@ compare_constant (const tree t1, const tree t2)
 
 	if (typecode == ARRAY_TYPE)
 	  {
-	    HOST_WIDE_INT size_1 = int_size_in_bytes_hwi (TREE_TYPE (t1));
+	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
 	    /* For arrays, check that mode, size and storage order match.  */
 	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
 		|| size_1 == -1
-		|| size_1 != int_size_in_bytes_hwi (TREE_TYPE (t2))
+		|| size_1 != int_size_in_bytes (TREE_TYPE (t2))
 		|| TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t1))
 		   != TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t2)))
 	      return 0;
@@ -3226,7 +3241,7 @@ compare_constant (const tree t1, const tree t2)
 	decode_addr_const (t1, &value1);
 	decode_addr_const (t2, &value2);
 
-	if (value1.offset != value2.offset)
+	if (may_ne (value1.offset, value2.offset))
 	  return 0;
 
 	code = GET_CODE (value1.base);
@@ -3285,7 +3300,7 @@ get_constant_size (tree exp)
 {
   HOST_WIDE_INT size;
 
-  size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+  size = int_size_in_bytes (TREE_TYPE (exp));
   if (TREE_CODE (exp) == STRING_CST)
     size = MAX (TREE_STRING_LENGTH (exp), size);
   return size;
@@ -3791,11 +3806,8 @@ force_const_mem (machine_mode in_mode, rtx x)
   *slot = desc;
 
   /* Align the location counter as required by EXP's data type.  */
-  align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
-
-  tree type = lang_hooks.types.type_for_mode (mode, 0);
-  if (type != NULL_TREE)
-    align = targetm.constant_alignment (make_tree (type, x), align);
+  machine_mode align_mode = (mode == VOIDmode ? word_mode : mode);
+  align = targetm.static_rtx_alignment (align_mode);
 
   pool->offset += (align / BITS_PER_UNIT) - 1;
   pool->offset &= ~ ((align / BITS_PER_UNIT) - 1);
@@ -3837,7 +3849,6 @@ force_const_mem (machine_mode in_mode, rtx x)
 
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
-  set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
   set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we
@@ -4846,9 +4857,8 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR
 	 || TREE_CODE (exp) == VIEW_CONVERT_EXPR)
     {
-      HOST_WIDE_INT type_size = int_size_in_bytes_hwi (TREE_TYPE (exp));
-      HOST_WIDE_INT op_size
-	= int_size_in_bytes_hwi (TREE_TYPE (TREE_OPERAND (exp, 0)));
+      HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
+      HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
 
       /* Make sure eliminating the conversion is really a no-op, except with
 	 VIEW_CONVERT_EXPRs to allow for wild Ada unchecked conversions and
@@ -4863,7 +4873,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
     }
 
   code = TREE_CODE (TREE_TYPE (exp));
-  thissize = int_size_in_bytes_hwi (TREE_TYPE (exp));
+  thissize = int_size_in_bytes (TREE_TYPE (exp));
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
@@ -5048,7 +5058,7 @@ static void
 output_constructor_array_range (oc_local_state *local)
 {
   unsigned HOST_WIDE_INT fieldsize
-    = int_size_in_bytes_hwi (TREE_TYPE (local->type));
+    = int_size_in_bytes (TREE_TYPE (local->type));
 
   HOST_WIDE_INT lo_index
     = tree_to_shwi (TREE_OPERAND (local->index, 0));
@@ -5153,7 +5163,7 @@ output_constructor_regular_field (oc_local_state *local)
 	fieldsize = tree_to_uhwi (DECL_SIZE_UNIT (local->field));
     }
   else
-    fieldsize = int_size_in_bytes_hwi (TREE_TYPE (local->type));
+    fieldsize = int_size_in_bytes (TREE_TYPE (local->type));
 
   /* Output the element's initial value.  */
   if (local->val == NULL_TREE)

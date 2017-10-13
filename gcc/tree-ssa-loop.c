@@ -616,16 +616,16 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case STRING_CST:
 	case RESULT_DECL:
 	case VECTOR_CST:
+	case VEC_DUPLICATE_CST:
+	case VEC_SERIES_CST:
 	case COMPLEX_CST:
 	case INTEGER_CST:
+	case POLY_INT_CST:
 	case REAL_CST:
 	case FIXED_CST:
-	case POLY_CST:
 	case CONSTRUCTOR:
 	  return true;
 
-	case VEC_DUPLICATE_EXPR:
-	case VEC_SERIES_EXPR:
 	case ADDR_EXPR:
 	  gcc_assert (is_gimple_min_invariant (*addr_p));
 	  return true;

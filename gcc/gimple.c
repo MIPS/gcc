@@ -2056,8 +2056,6 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == VEC_PERM_EXPR                                             \
       || (SYM) == BIT_INSERT_EXPR) ? GIMPLE_TERNARY_RHS			    \
    : ((SYM) == CONSTRUCTOR						    \
-      || (SYM) == VEC_DUPLICATE_EXPR					    \
-      || (SYM) == VEC_SERIES_EXPR					    \
       || (SYM) == OBJ_TYPE_REF						    \
       || (SYM) == ASSERT_EXPR						    \
       || (SYM) == ADDR_EXPR						    \
@@ -2966,13 +2964,14 @@ preprocess_case_label_vec_for_gimple (vec<tree> labels,
 
 		  if (CASE_HIGH (labels[i]) != NULL_TREE
 		      && (CASE_HIGH (widest_label) == NULL_TREE
-			  || wi::gtu_p (wi::sub (CASE_HIGH (labels[i]),
-						 CASE_LOW (labels[i])),
-					wi::sub (CASE_HIGH (widest_label),
-						 CASE_LOW (widest_label)))))
+			  || (wi::gtu_p
+			      (wi::to_wide (CASE_HIGH (labels[i]))
+			       - wi::to_wide (CASE_LOW (labels[i])),
+			       wi::to_wide (CASE_HIGH (widest_label))
+			       - wi::to_wide (CASE_LOW (widest_label))))))
 		    widest_label = labels[i];
 
-		  if (wi::add (low, 1) != high)
+		  if (wi::to_wide (low) + 1 != wi::to_wide (high))
 		    break;
 		}
 	      if (i == len)

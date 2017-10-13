@@ -143,7 +143,7 @@ get_segment_info (gfc_symbol * sym, HOST_WIDE_INT offset)
   s->sym = sym;
   /* We will use this type when building the segment aggregate type.  */
   s->field = gfc_sym_type (sym);
-  s->length = int_size_in_bytes_hwi (s->field);
+  s->length = int_size_in_bytes (s->field);
   s->offset = offset;
 
   return s;
@@ -871,8 +871,8 @@ calculate_offset (gfc_expr *e)
 	    n = element_number (&reference->u.ar);
 	    if (element_type->type == BT_CHARACTER)
 	      gfc_conv_const_charlen (element_type->u.cl);
-	    element_size
-	      = int_size_in_bytes_hwi (gfc_typenode_for_spec (element_type));
+	    element_size =
+              int_size_in_bytes (gfc_typenode_for_spec (element_type));
 	    offset += n * element_size;
 	    break;
 

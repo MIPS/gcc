@@ -1710,7 +1710,7 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
 	pp_unsigned_wide_integer (pp, tree_to_uhwi (node));
       else
 	{
-	  wide_int val = node;
+	  wide_int val = wi::to_wide (node);
 
 	  if (wi::neg_p (val, TYPE_SIGN (TREE_TYPE (node))))
 	    {
@@ -1740,6 +1740,18 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
 	}
       if (TREE_OVERFLOW (node))
 	pp_string (pp, "(OVF)");
+      break;
+
+    case POLY_INT_CST:
+      pp_string (pp, "POLY_INT_CST [");
+      dump_generic_node (pp, POLY_INT_CST_COEFF (node, 0), spc, flags, false);
+      for (unsigned int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
+	{
+	  pp_string (pp, ", ");
+	  dump_generic_node (pp, POLY_INT_CST_COEFF (node, i),
+			     spc, flags, false);
+	}
+      pp_string (pp, "]");
       break;
 
     case REAL_CST:
@@ -1800,15 +1812,18 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
       }
       break;
 
-    case POLY_CST:
-      pp_string (pp, "POLY_CST [");
-      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-	{
-	  if (i != 0)
-	    pp_string (pp, ", ");
-	  dump_generic_node (pp, POLY_CST_ELT (node, i), spc, flags, false);
-	}
-      pp_string (pp, "]");
+    case VEC_DUPLICATE_CST:
+      pp_string (pp, "{ ");
+      dump_generic_node (pp, VEC_DUPLICATE_CST_ELT (node), spc, flags, false);
+      pp_string (pp, ", ... }");
+      break;
+
+    case VEC_SERIES_CST:
+      pp_string (pp, "{ ");
+      dump_generic_node (pp, VEC_SERIES_CST_BASE (node), spc, flags, false);
+      pp_string (pp, ", +, ");
+      dump_generic_node (pp, VEC_SERIES_CST_STEP (node), spc, flags, false);
+      pp_string (pp, "}");
       break;
 
     case FUNCTION_TYPE:

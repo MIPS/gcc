@@ -4497,8 +4497,8 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
    TOTAL_SIZE.  In the case of failure to find a slot which can be
    used for REGNO, the function returns NULL.  */
 rtx
-ira_reuse_stack_slot (int regno, poly_int64 inherent_size,
-		      poly_int64 total_size)
+ira_reuse_stack_slot (int regno, poly_uint64 inherent_size,
+		      poly_uint64 total_size)
 {
   unsigned int i;
   int slot_num, best_slot_num;
@@ -4617,7 +4617,7 @@ ira_reuse_stack_slot (int regno, poly_int64 inherent_size,
    TOTAL_SIZE was allocated for REGNO.  We store this info for
    subsequent ira_reuse_stack_slot calls.  */
 void
-ira_mark_new_stack_slot (rtx x, int regno, poly_int64 total_size)
+ira_mark_new_stack_slot (rtx x, int regno, poly_uint64 total_size)
 {
   struct ira_spilled_reg_stack_slot *slot;
   int slot_num;

@@ -730,8 +730,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
-   there was an overflow in folding.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST or VEC_DUPLICATE_CST,
+   this means there was an overflow in folding.  */
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
 
@@ -1008,6 +1008,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_INT_CST_LOW(NODE) \
   ((unsigned HOST_WIDE_INT) TREE_INT_CST_ELT (NODE, 0))
 
+/* In a POLY_INT_CST node.  */
+#define POLY_INT_CST_COEFF(NODE, I) \
+  (POLY_INT_CST_CHECK (NODE)->poly_int_cst.coeffs[I])
+#define POLY_INT_CST_P(NODE) \
+  (NUM_POLY_INT_COEFFS > 1 && TREE_CODE (NODE) == POLY_INT_CST)
+
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
@@ -1030,8 +1036,15 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elts)
 #define VECTOR_CST_ELT(NODE,IDX) (VECTOR_CST_CHECK (NODE)->vector.elts[IDX])
 
-/* In a POLY_CST node.  */
-#define POLY_CST_ELT(NODE, IDX) (POLY_CST_CHECK (NODE)->poly.elts[IDX])
+/* In a VEC_DUPLICATE_CST node.  */
+#define VEC_DUPLICATE_CST_ELT(NODE) \
+  (VEC_DUPLICATE_CST_CHECK (NODE)->vector.elts[0])
+
+/* In a VEC_SERIES_CST node.  */
+#define VEC_SERIES_CST_BASE(NODE) \
+  (VEC_SERIES_CST_CHECK (NODE)->vector.elts[0])
+#define VEC_SERIES_CST_STEP(NODE) \
+  (VEC_SERIES_CST_CHECK (NODE)->vector.elts[1])
 
 /* Define fields and accessors for some special-purpose tree nodes.  */
 
@@ -4065,11 +4078,8 @@ build5_loc (location_t loc, enum tree_code code, tree type, tree arg0,
 
 extern tree double_int_to_tree (tree, double_int);
 
-extern tree poly_wide_int_to_tree (tree, const poly_wide_int &);
-extern tree poly_offset_int_to_tree (tree type, const poly_offset_int &cst);
-extern tree poly_widest_int_to_tree (tree, const poly_widest_int &);
-extern tree wide_int_to_tree (tree type, const wide_int_ref &cst);
-extern tree force_fit_type (tree, const wide_int_ref &, int, bool);
+extern tree wide_int_to_tree (tree type, const poly_wide_int_ref &cst);
+extern tree force_fit_type (tree, const poly_wide_int_ref &, int, bool);
 
 /* Create an INT_CST node with a CST value zero extended.  */
 
@@ -4078,9 +4088,12 @@ extern tree build_int_cst (tree, poly_int64);
 extern tree build_int_cstu (tree type, poly_uint64);
 extern tree build_int_cst_type (tree, poly_int64);
 extern tree make_vector (unsigned CXX_MEM_STAT_INFO);
+extern tree build_vec_duplicate_cst (tree, tree CXX_MEM_STAT_INFO);
+extern tree build_vec_series_cst (tree, tree, tree CXX_MEM_STAT_INFO);
 extern tree build_vector (tree, vec<tree> CXX_MEM_STAT_INFO);
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
+extern tree build_vec_series (tree, tree, tree);
 extern tree build_index_vector (tree, poly_uint64, poly_uint64);
 extern void recompute_constructor_flags (tree);
 extern void verify_constructor_flags (tree);
@@ -4097,7 +4110,7 @@ extern tree build_minus_one_cst (tree);
 extern tree build_all_ones_cst (tree);
 extern tree build_zero_cst (tree);
 extern tree build_string (int, const char *);
-extern tree build_poly_cst (tree, const tree (&)[NUM_POLY_INT_COEFFS]);
+extern tree build_poly_int_cst (tree, const poly_wide_int_ref &);
 extern tree build_tree_list (tree, tree CXX_MEM_STAT_INFO);
 extern tree build_tree_list_vec (const vec<tree, va_gc> * CXX_MEM_STAT_INFO);
 extern tree build_decl (location_t, enum tree_code,
@@ -4170,12 +4183,14 @@ extern tree chain_index (int, tree);
 
 extern int tree_int_cst_equal (const_tree, const_tree);
 
-extern bool tree_fits_shwi_p (const_tree)
-  ATTRIBUTE_PURE;
-extern bool tree_fits_uhwi_p (const_tree)
-  ATTRIBUTE_PURE;
+extern bool tree_fits_shwi_p (const_tree) ATTRIBUTE_PURE;
+extern bool tree_fits_poly_int64_p (const_tree) ATTRIBUTE_PURE;
+extern bool tree_fits_uhwi_p (const_tree) ATTRIBUTE_PURE;
+extern bool tree_fits_poly_uint64_p (const_tree) ATTRIBUTE_PURE;
 extern HOST_WIDE_INT tree_to_shwi (const_tree);
+extern poly_int64 tree_to_poly_int64 (const_tree);
 extern unsigned HOST_WIDE_INT tree_to_uhwi (const_tree);
+extern poly_uint64 tree_to_poly_uint64 (const_tree);
 #if !defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 4003)
 extern inline __attribute__ ((__gnu_inline__)) HOST_WIDE_INT
 tree_to_shwi (const_tree t)
@@ -4190,6 +4205,21 @@ tree_to_uhwi (const_tree t)
   gcc_assert (tree_fits_uhwi_p (t));
   return TREE_INT_CST_LOW (t);
 }
+#if NUM_POLY_INT_COEFFS == 1
+extern inline __attribute__ ((__gnu_inline__)) poly_int64
+tree_to_poly_int64 (const_tree t)
+{
+  gcc_assert (tree_fits_poly_int64_p (t));
+  return TREE_INT_CST_LOW (t);
+}
+
+extern inline __attribute__ ((__gnu_inline__)) poly_uint64
+tree_to_poly_uint64 (const_tree t)
+{
+  gcc_assert (tree_fits_poly_uint64_p (t));
+  return TREE_INT_CST_LOW (t);
+}
+#endif
 #endif
 extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
@@ -4198,6 +4228,33 @@ extern tree strip_array_types (tree);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
 
+/* Return true if T holds a value that can be represented as a poly_int64
+   without loss of precision.  Store the value in *VALUE if so.  */
+
+inline bool
+poly_tree_p (const_tree t, poly_int64 *value)
+{
+  if (tree_fits_poly_int64_p (t))
+    {
+      *value = tree_to_poly_int64 (t);
+      return true;
+    }
+  return false;
+}
+
+/* Return true if T holds a value that can be represented as a poly_uint64
+   without loss of precision.  Store the value in *VALUE if so.  */
+
+inline bool
+poly_tree_p (const_tree t, poly_uint64 *value)
+{
+  if (tree_fits_poly_uint64_p (t))
+    {
+      *value = tree_to_poly_uint64 (t);
+      return true;
+    }
+  return false;
+}
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
@@ -4266,9 +4323,8 @@ size_in_bytes (const_tree t)
   return size_in_bytes_loc (input_location, t);
 }
 
-extern poly_int64 int_size_in_bytes (const_tree);
-extern HOST_WIDE_INT int_size_in_bytes_hwi (const_tree);
-extern poly_int64 max_int_size_in_bytes (const_tree);
+extern HOST_WIDE_INT int_size_in_bytes (const_tree);
+extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
 extern tree bit_position (const_tree);
 extern tree byte_position (const_tree);
 extern HOST_WIDE_INT int_byte_position (const_tree);
@@ -4745,21 +4801,37 @@ complete_or_array_type_p (const_tree type)
 	     && COMPLETE_TYPE_P (TREE_TYPE (type)));
 }
 
+/* Return true if the value of T could be represented as a poly_widest_int.  */
+
+inline bool
+poly_tree_p (const_tree t)
+{
+  return (TREE_CODE (t) == INTEGER_CST || POLY_INT_CST_P (t));
+}
+
+/* Return the bit size of BIT_FIELD_REF T, in cases where it is known
+   to be a poly_uint64.  (This is always true at the gimple level.)  */
+
+inline poly_uint64
+bit_field_size (const_tree t)
+{
+  return tree_to_poly_uint64 (TREE_OPERAND (t, 1));
+}
+
+/* Return the starting bit offset of BIT_FIELD_REF T, in cases where it is
+   known to be a poly_uint64.  (This is always true at the gimple level.)  */
+
+inline poly_uint64
+bit_field_offset (const_tree t)
+{
+  return tree_to_poly_uint64 (TREE_OPERAND (t, 2));
+}
+
 extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
-extern poly_uint64 bit_field_size (const_tree);
-extern poly_uint64 bit_field_offset (const_tree);
 extern bool ptrdiff_tree_p (const_tree, poly_int64 *);
 extern bool poly_tree_p (const_tree, poly_int64 *);
 extern bool poly_tree_p (const_tree, poly_uint64 *);
-extern bool poly_tree_p (const_tree, poly_offset_int *);
-extern bool poly_tree_p (const_tree, poly_wide_int *);
-extern bool poly_tree_p (const_tree, poly_widest_int *);
-extern poly_int64 tree_to_poly_int64 (const_tree);
-extern poly_uint64 tree_to_poly_uint64 (const_tree);
-extern poly_offset_int tree_to_poly_offset_int (const_tree);
-extern poly_wide_int tree_to_poly_wide_int (const_tree);
-extern poly_widest_int tree_to_poly_widest_int (const_tree);
 extern bool decl_address_invariant_p (const_tree);
 extern bool decl_address_ip_invariant_p (const_tree);
 extern bool int_fits_type_p (const_tree, const_tree);
@@ -5189,19 +5261,28 @@ extern bool anon_aggrname_p (const_tree);
 /* The tree and const_tree overload templates.   */
 namespace wi
 {
+  class unextended_tree
+  {
+  private:
+    const_tree m_t;
+
+  public:
+    unextended_tree () {}
+    unextended_tree (const_tree t) : m_t (t) {}
+
+    unsigned int get_precision () const;
+    const HOST_WIDE_INT *get_val () const;
+    unsigned int get_len () const;
+    const_tree get_tree () const { return m_t; }
+  };
+
   template <>
-  struct int_traits <const_tree>
+  struct int_traits <unextended_tree>
   {
     static const enum precision_type precision_type = VAR_PRECISION;
     static const bool host_dependent_precision = false;
     static const bool is_sign_extended = false;
-    static unsigned int get_precision (const_tree);
-    static wi::storage_ref decompose (HOST_WIDE_INT *, unsigned int,
-				      const_tree);
   };
-
-  template <>
-  struct int_traits <tree> : public int_traits <const_tree> {};
 
   template <int N>
   class extended_tree
@@ -5210,11 +5291,13 @@ namespace wi
     const_tree m_t;
 
   public:
+    extended_tree () {}
     extended_tree (const_tree);
 
     unsigned int get_precision () const;
     const HOST_WIDE_INT *get_val () const;
     unsigned int get_len () const;
+    const_tree get_tree () const { return m_t; }
   };
 
   template <int N>
@@ -5226,37 +5309,138 @@ namespace wi
     static const unsigned int precision = N;
   };
 
-  generic_wide_int <extended_tree <WIDE_INT_MAX_PRECISION> >
-  to_widest (const_tree);
+  typedef extended_tree <WIDE_INT_MAX_PRECISION> widest_extended_tree;
+  typedef extended_tree <ADDR_MAX_PRECISION> offset_extended_tree;
 
-  generic_wide_int <extended_tree <ADDR_MAX_PRECISION> > to_offset (const_tree);
+  typedef const generic_wide_int <widest_extended_tree> tree_to_widest_ref;
+  typedef const generic_wide_int <offset_extended_tree> tree_to_offset_ref;
+  typedef const generic_wide_int <unextended_tree> tree_to_wide_ref;
 
+  tree_to_widest_ref to_widest (const_tree);
+  tree_to_offset_ref to_offset (const_tree);
+  tree_to_wide_ref to_wide (const_tree);
   wide_int to_wide (const_tree, unsigned int);
+
+  typedef const poly_int <NUM_POLY_INT_COEFFS,
+			  generic_wide_int <widest_extended_tree> >
+    tree_to_poly_widest_ref;
+  typedef const poly_int <NUM_POLY_INT_COEFFS,
+			  generic_wide_int <offset_extended_tree> >
+    tree_to_poly_offset_ref;
+  typedef const poly_int <NUM_POLY_INT_COEFFS,
+			  generic_wide_int <unextended_tree> >
+    tree_to_poly_wide_ref;
+
+  tree_to_poly_widest_ref to_poly_widest (const_tree);
+  tree_to_poly_offset_ref to_poly_offset (const_tree);
+  tree_to_poly_wide_ref to_poly_wide (const_tree);
+
+  template <int N>
+  struct ints_for <generic_wide_int <extended_tree <N> >, CONST_PRECISION>
+  {
+    typedef generic_wide_int <extended_tree <N> > extended;
+    static extended zero (const extended &);
+  };
+
+  template <>
+  struct ints_for <generic_wide_int <unextended_tree>, VAR_PRECISION>
+  {
+    typedef generic_wide_int <unextended_tree> unextended;
+    static unextended zero (const unextended &);
+  };
 }
 
-inline unsigned int
-wi::int_traits <const_tree>::get_precision (const_tree tcst)
-{
-  return TYPE_PRECISION (TREE_TYPE (tcst));
-}
+/* Refer to INTEGER_CST T as though it were a widest_int.
 
-/* Convert the tree_cst X into a wide_int of PRECISION.  */
-inline wi::storage_ref
-wi::int_traits <const_tree>::decompose (HOST_WIDE_INT *,
-					unsigned int precision, const_tree x)
-{
-  return wi::storage_ref (&TREE_INT_CST_ELT (x, 0), TREE_INT_CST_NUNITS (x),
-			  precision);
-}
+   This function gives T's actual numerical value, influenced by the
+   signedness of its type.  For example, a signed byte with just the
+   top bit set would be -128 while an unsigned byte with the same
+   bit pattern would be 128.
 
-inline generic_wide_int <wi::extended_tree <WIDE_INT_MAX_PRECISION> >
+   This is the right choice when operating on groups of INTEGER_CSTs
+   that might have different signedness or precision.  It is also the
+   right choice in code that specifically needs an approximation of
+   infinite-precision arithmetic instead of normal modulo arithmetic.
+
+   The approximation of infinite precision is good enough for realistic
+   numbers of additions and subtractions of INTEGER_CSTs (where
+   "realistic" includes any number less than 1 << 31) but it cannot
+   represent the result of multiplying the two largest supported
+   INTEGER_CSTs.  The overflow-checking form of wi::mul provides a way
+   of multiplying two arbitrary INTEGER_CSTs and checking that the
+   result is representable as a widest_int.
+
+   Note that any overflow checking done on these values is relative to
+   the range of widest_int rather than the range of a TREE_TYPE.
+
+   Calling this function should have no overhead in release builds,
+   so it is OK to call it several times for the same tree.  If it is
+   useful for readability reasons to reduce the number of calls,
+   it is more efficient to use:
+
+     wi::tree_to_widest_ref wt = wi::to_widest (t);
+
+   instead of:
+
+     widest_int wt = wi::to_widest (t).  */
+
+inline wi::tree_to_widest_ref
 wi::to_widest (const_tree t)
 {
   return t;
 }
 
-inline generic_wide_int <wi::extended_tree <ADDR_MAX_PRECISION> >
+/* Refer to INTEGER_CST T as though it were an offset_int.
+
+   This function is an optimisation of wi::to_widest for cases
+   in which T is known to be a bit or byte count in the range
+   (-(2 ^ (N + BITS_PER_UNIT)), 2 ^ (N + BITS_PER_UNIT)), where N is
+   the target's address size in bits.
+
+   This is the right choice when operating on bit or byte counts as
+   untyped numbers rather than M-bit values.  The wi::to_widest comments
+   about addition, subtraction and multiplication apply here: sequences
+   of 1 << 31 additions and subtractions do not induce overflow, but
+   multiplying the largest sizes might.  Again,
+
+     wi::tree_to_offset_ref wt = wi::to_offset (t);
+
+   is more efficient than:
+
+     offset_int wt = wi::to_offset (t).  */
+
+inline wi::tree_to_offset_ref
 wi::to_offset (const_tree t)
+{
+  return t;
+}
+
+/* Refer to INTEGER_CST T as though it were a wide_int.
+
+   In contrast to the approximation of infinite-precision numbers given
+   by wi::to_widest and wi::to_offset, this function treats T as a
+   signless collection of N bits, where N is the precision of T's type.
+   As with machine registers, signedness is determined by the operation
+   rather than the operands; for example, there is a distinction between
+   signed and unsigned division.
+
+   This is the right choice when operating on values with the same type
+   using normal modulo arithmetic.  The overflow-checking forms of things
+   like wi::add check whether the result can be represented in T's type.
+
+   Calling this function should have no overhead in release builds,
+   so it is OK to call it several times for the same tree.  If it is
+   useful for readability reasons to reduce the number of calls,
+   it is more efficient to use:
+
+     wi::tree_to_wide_ref wt = wi::to_wide (t);
+
+   instead of:
+
+     wide_int wt = wi::to_wide (t).  */
+
+inline wi::tree_to_wide_ref
+wi::to_wide (const_tree t)
 {
   return t;
 }
@@ -5268,7 +5452,7 @@ wi::to_offset (const_tree t)
 inline wide_int
 wi::to_wide (const_tree t, unsigned int prec)
 {
-  return wide_int::from (t, prec, TYPE_SIGN (TREE_TYPE (t)));
+  return wide_int::from (wi::to_wide (t), prec, TYPE_SIGN (TREE_TYPE (t)));
 }
 
 template <int N>
@@ -5307,6 +5491,86 @@ wi::extended_tree <N>::get_len () const
     gcc_unreachable ();
 }
 
+inline unsigned int
+wi::unextended_tree::get_precision () const
+{
+  return TYPE_PRECISION (TREE_TYPE (m_t));
+}
+
+inline const HOST_WIDE_INT *
+wi::unextended_tree::get_val () const
+{
+  return &TREE_INT_CST_ELT (m_t, 0);
+}
+
+inline unsigned int
+wi::unextended_tree::get_len () const
+{
+  return TREE_INT_CST_NUNITS (m_t);
+}
+
+/* Return the value of a POLY_INT_CST in its native precision.  */
+
+inline wi::tree_to_poly_wide_ref
+poly_int_cst_value (const_tree x)
+{
+  poly_int <NUM_POLY_INT_COEFFS, generic_wide_int <wi::unextended_tree> > res;
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    res.coeffs[i] = POLY_INT_CST_COEFF (x, i);
+  return res;
+}
+
+inline wi::tree_to_poly_widest_ref
+wi::to_poly_widest (const_tree t)
+{
+  if (POLY_INT_CST_P (t))
+    {
+      poly_int <NUM_POLY_INT_COEFFS,
+		generic_wide_int <widest_extended_tree> > res;
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	res.coeffs[i] = POLY_INT_CST_COEFF (t, i);
+      return res;
+    }
+  return wi::to_widest (t);
+}
+
+inline wi::tree_to_poly_offset_ref
+wi::to_poly_offset (const_tree t)
+{
+  if (POLY_INT_CST_P (t))
+    {
+      poly_int <NUM_POLY_INT_COEFFS,
+		generic_wide_int <offset_extended_tree> > res;
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	res.coeffs[i] = POLY_INT_CST_COEFF (t, i);
+      return res;
+    }
+  return wi::to_offset (t);
+}
+
+inline wi::tree_to_poly_wide_ref
+wi::to_poly_wide (const_tree t)
+{
+  if (POLY_INT_CST_P (t))
+    return poly_int_cst_value (t);
+  return wi::to_wide (t);
+}
+
+template <int N>
+inline generic_wide_int <wi::extended_tree <N> >
+wi::ints_for <generic_wide_int <wi::extended_tree <N> >,
+	      wi::CONST_PRECISION>::zero (const extended &x)
+{
+  return build_zero_cst (TREE_TYPE (x.get_tree ()));
+}
+
+inline generic_wide_int <wi::unextended_tree>
+wi::ints_for <generic_wide_int <wi::unextended_tree>,
+	      wi::VAR_PRECISION>::zero (const unextended &x)
+{
+  return build_zero_cst (TREE_TYPE (x.get_tree ()));
+}
+
 namespace wi
 {
   template <typename T>
@@ -5324,7 +5588,8 @@ template <typename T>
 bool
 wi::fits_to_boolean_p (const T &x, const_tree type)
 {
-  return eq_p (x, 0) || eq_p (x, TYPE_UNSIGNED (type) ? 1 : -1);
+  return (known_zero (x)
+	  || (TYPE_UNSIGNED (type) ? known_one (x) : known_all_ones (x)));
 }
 
 template <typename T>
@@ -5337,9 +5602,9 @@ wi::fits_to_tree_p (const T &x, const_tree type)
     return fits_to_boolean_p (x, type);
 
   if (TYPE_UNSIGNED (type))
-    return eq_p (x, zext (x, TYPE_PRECISION (type)));
+    return must_eq (x, zext (x, TYPE_PRECISION (type)));
   else
-    return eq_p (x, sext (x, TYPE_PRECISION (type)));
+    return must_eq (x, sext (x, TYPE_PRECISION (type)));
 }
 
 /* Produce the smallest number that is represented in TYPE.  The precision
@@ -5496,18 +5761,6 @@ inline bool
 type_has_mode_precision_p (const_tree t)
 {
   return must_eq (TYPE_PRECISION (t), GET_MODE_PRECISION (TYPE_MODE (t)));
-}
-
-/* Return true if OP is either an explicit tree constant (tcc_constant),
-   or a tree that acts like one.  */
-
-inline bool
-constant_tree_p (const_tree op)
-{
-  return (CONSTANT_CLASS_P (op)
-	  || (TREE_CONSTANT (op)
-	      && (TREE_CODE (op) == VEC_DUPLICATE_EXPR
-		  || TREE_CODE (op) == VEC_SERIES_EXPR)));
 }
 
 #endif  /* GCC_TREE_H  */

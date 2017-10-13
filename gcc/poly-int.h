@@ -25,86 +25,302 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef HAVE_POLY_INT_H
 #define HAVE_POLY_INT_H
 
-/* int_traits<T1>::rank is less than int_traits<T2>::rank if T1 can
-   promote to T2.
+template<unsigned int N, typename T> class poly_int_pod;
+template<unsigned int N, typename T> class poly_int;
 
-   For C-like types the rank is:
+/* poly_coeff_traiits<T> describes the properties of a poly_int
+   coefficient type T:
 
-     (2 * number of bytes) + (unsigned ? 1 : 0)
+   - poly_coeff_traits<T1>::rank is less than poly_coeff_traits<T2>::rank
+     if T1 can promote to T2.  For C-like types the rank is:
 
-   wide_ints don't have a normal rank and so use a value of INT_MAX.
-   Any fixed-width integer should be promoted to wide_int if possible
-   and lead to an error otherwise.
+       (2 * number of bytes) + (unsigned ? 1 : 0)
 
-   int_traits<T>::precision is the number of bits that T can hold.
+     wide_ints don't have a normal rank and so use a value of INT_MAX.
+     Any fixed-width integer should be promoted to wide_int if possible
+     and lead to an error otherwise.
 
-   int_traits<T>::signedness is:
-      0 if T1 is unsigned
-      1 if T1 is signed
-     -1 if T1 has no inherent sign (as for wide_int).
+   - poly_Coeff_traits<T>::int_type is the type to which an integer
+     literal should be cast before comparing it with T.
 
-   int_traits<T>::result is a type that can hold results of operations
-   on T.  This is different from T itself in cases where T is the result
-   of an accessor like wi::to_offset.  */
+   - poly_coeff_traits<T>::precision is the number of bits that T can hold.
+
+   - poly_coeff_traits<T>::signedness is:
+	0 if T1 is unsigned
+	1 if T1 is signed
+       -1 if T1 has no inherent sign (as for wide_int).
+
+   - poly_coeff_traits<T>::max_value, if defined, is the maximum value of T.
+
+   - poly_coeff_traits<T>::result is a type that can hold results of
+     operations on T.  This is different from T itself in cases where T
+     is the result of an accessor like wi::to_offset.  */
 template<typename T, wi::precision_type = wi::int_traits<T>::precision_type>
-struct int_traits;
+struct poly_coeff_traits;
 
 template<typename T>
-struct int_traits<T, wi::FLEXIBLE_PRECISION>
+struct poly_coeff_traits<T, wi::FLEXIBLE_PRECISION>
 {
   typedef T result;
+  typedef T int_type;
   static const int signedness = (T (0) >= T (-1));
   static const int precision = sizeof (T) * CHAR_BIT;
+  static const T max_value = (signedness
+			      ? ((T (1) << (precision - 2))
+				 + ((T (1) << (precision - 2)) - 1))
+			      : T (-1));
   static const int rank = sizeof (T) * 2 + !signedness;
 };
 
 template<typename T>
-struct int_traits<T, wi::VAR_PRECISION>
+struct poly_coeff_traits<T, wi::VAR_PRECISION>
 {
   typedef T result;
+  typedef int int_type;
   static const int signedness = -1;
   static const int precision = WIDE_INT_MAX_PRECISION;
   static const int rank = INT_MAX;
 };
 
 template<typename T>
-struct int_traits<T, wi::CONST_PRECISION>
+struct poly_coeff_traits<T, wi::CONST_PRECISION>
 {
   typedef WI_UNARY_RESULT (T) result;
+  typedef int int_type;
   static const int signedness = 1;
   static const int precision = wi::int_traits<T>::precision;
   /* These types are always signed.  */
   static const int rank = precision * 2 / CHAR_BIT;
 };
 
-/* SFINAE class that leads to substitution failure if T2 can't represent
-   all the values in T1.  Either:
-
-   - T2 should be a type with the same signedness as T1 and no less precision.
-     This allows things like int16_t -> int16_t and uint32_t -> uint64_t.
-
-   - T1 should be unsigned, T2 should be signed, and T1 should be
-     narrower than T2.  This allows things like uint16_t -> int32_t.
-
-   This rules out cases in which T2 has less precision than T1 or where
-   the conversion would reinterpret the top bit.  E.g. int16_t -> uint32_t
-   can be dangerous and should have an explicit cast if deliberate.  */
-template<typename T1, typename T2,
-	  bool good = (int_traits<T1>::signedness
-		       == int_traits<T2>::signedness
-		       ? (int_traits<T1>::precision
-			  <= int_traits<T2>::precision)
-		       : (int_traits<T1>::signedness == 0
-			  && int_traits<T2>::signedness == 1
-			  && (int_traits<T1>::precision
-			      < int_traits<T2>::precision)))>
-struct if_lossless;
-
+/* Information about a pair of coefficient types.  */
 template<typename T1, typename T2>
-struct if_lossless<T1, T2, true>
+struct poly_coeff_pair_traits
 {
-  typedef bool bool_type;
+  /* True if T1 can represent all the values of T2.
+
+     Either:
+
+     - T1 should be a type with the same signedness as T2 and no less
+       precision.  This allows things like int16_t -> int16_t and
+       uint32_t -> uint64_t.
+
+     - T1 should be signed, T2 should be unsigned, and T1 should be
+       wider than T2.  This allows things like uint16_t -> int32_t.
+
+     This rules out cases in which T1 has less precision than T2 or where
+     the conversion would reinterpret the top bit.  E.g. int16_t -> uint32_t
+     can be dangerous and should have an explicit cast if deliberate.  */
+  static const bool lossless_p = (poly_coeff_traits<T1>::signedness
+				  == poly_coeff_traits<T2>::signedness
+				  ? (poly_coeff_traits<T1>::precision
+				     >= poly_coeff_traits<T2>::precision)
+				  : (poly_coeff_traits<T1>::signedness == 1
+				     && poly_coeff_traits<T2>::signedness == 0
+				     && (poly_coeff_traits<T1>::precision
+					 > poly_coeff_traits<T2>::precision)));
+
+  /* 0 if T1 op T2 should promote to HOST_WIDE_INT,
+     1 if T1 op T2 should promote to unsigned HOST_WIDE_INT,
+     2 if T1 op T2 should use wide-int rules.  */
+#define RANK(X) poly_coeff_traits<X>::rank
+  static const int result_kind
+    = ((RANK (T1) <= RANK (HOST_WIDE_INT)
+	&& RANK (T2) <= RANK (HOST_WIDE_INT))
+       ? 0
+       : (RANK (T1) <= RANK (unsigned HOST_WIDE_INT)
+	  && RANK (T2) <= RANK (unsigned HOST_WIDE_INT))
+       ? 1 : 2);
+#undef RANK
 };
+
+/* SFINAE class that makes T3 available as t if T2 can represent all the
+   values in T1.  */
+template<typename T1, typename T2, typename T3,
+	 bool lossless_p = poly_coeff_pair_traits<T1, T2>::lossless_p>
+struct if_lossless;
+template<typename T1, typename T2, typename T3>
+struct if_lossless<T1, T2, T3, true>
+{
+  typedef T3 t;
+};
+
+/* poly_int_traits<T> describes an integer type T that might be polynomial
+   or non-polynomial:
+
+   - poly_int_coeffs<T>::is_poly is true if T is a poly_int-based type
+     and false otherwise.
+
+   - poly_int_coeffs<T>::num_coeffs gives the number of coefficients in T
+     if T is a poly_int and 1 otherwise.
+
+   - poly_int_coeffs<T>::coeff_type gives the coefficent type of T if T
+     is a poly_int and T itself otherwise.  */
+template<typename T>
+struct poly_int_traits
+{
+  static const bool is_poly = false;
+  static const unsigned int num_coeffs = 1;
+  typedef T coeff_type;
+};
+template<unsigned int N, typename C>
+struct poly_int_traits<poly_int_pod<N, C> >
+{
+  static const bool is_poly = true;
+  static const unsigned int num_coeffs = N;
+  typedef C coeff_type;
+};
+template<unsigned int N, typename C>
+struct poly_int_traits<poly_int<N, C> > : poly_int_traits<poly_int_pod<N, C> >
+{
+};
+
+/* SFINAE class that makes T2 available as t if T1 is a non-polynomial
+   type.  */
+template<typename T1, typename T2 = T1,
+	 bool is_poly = poly_int_traits<T1>::is_poly>
+struct if_nonpoly {};
+template<typename T1, typename T2>
+struct if_nonpoly<T1, T2, false>
+{
+  typedef T2 t;
+};
+
+/* SFINAE class that makes T3 available as t if both T1 and T2 are
+   non-polynomial types.  */
+template<typename T1, typename T2, typename T3,
+	 bool is_poly1 = poly_int_traits<T1>::is_poly,
+	 bool is_poly2 = poly_int_traits<T2>::is_poly>
+struct if_nonpoly2 {};
+template<typename T1, typename T2, typename T3>
+struct if_nonpoly2<T1, T2, T3, false, false>
+{
+  typedef T3 t;
+};
+
+/* SFINAE class that makes T2 available as t if T1 is a polynomial type.  */
+template<typename T1, typename T2 = T1,
+	 bool is_poly = poly_int_traits<T1>::is_poly>
+struct if_poly {};
+template<typename T1, typename T2>
+struct if_poly<T1, T2, true>
+{
+  typedef T2 t;
+};
+
+/* poly_result<T1, T2> describes the result of an operation on two
+   types T1 and T2, where at least one of the types is polynomial:
+
+   - poly_result<T1, T2>::t gives the result type for the operation.
+     The intention is to provide normal C-like rules for integer ranks,
+     except that everything smaller than HOST_WIDE_INT promotes to
+     HOST_WIDE_INT.
+
+   - poly_result<T1, T2>::cast is the type to which an operand of type
+     T1 should be cast before doing the operation, to ensure that
+     the operation is done at the right precision.  Casting to
+     poly_result<T1, T2>::t would also work, but casting to this
+     type is more efficient.  */
+template<typename T1, typename T2 = T1,
+	 int result_kind = poly_coeff_pair_traits<T1, T2>::result_kind>
+struct poly_result;
+
+/* Promote pair to HOST_WIDE_INT.  */
+template<typename T1, typename T2>
+struct poly_result<T1, T2, 0>
+{
+  typedef HOST_WIDE_INT t;
+  /* T1 and T2 are primitive types, so cast values to T before operating
+     on them.  */
+  typedef t cast;
+};
+
+/* Promote pair to unsigned HOST_WIDE_INT.  */
+template<typename T1, typename T2>
+struct poly_result<T1, T2, 1>
+{
+  typedef unsigned HOST_WIDE_INT t;
+  /* T1 and T2 are primitive types, so cast values to T before operating
+     on them.  */
+  typedef t cast;
+};
+
+/* Use normal wide-int rules.  */
+template<typename T1, typename T2>
+struct poly_result<T1, T2, 2>
+{
+  typedef WI_BINARY_RESULT (T1, T2) t;
+  /* Don't cast values before operating on them; leave the wi:: routines
+     to handle promotion as necessary.  */
+  typedef const T1 &cast;
+};
+
+/* The coefficient type for the result of a binary operation on two
+   poly_ints, the first of which has coefficients of type C1 and the
+   second of which has coefficients of type C2.  */
+#define POLY_POLY_COEFF(C1, C2) typename poly_result<C1, C2>::t
+
+/* Enforce that T2 is non-polynomial and provide the cofficient type of
+   the result of a binary operation in which the first operand is a
+   poly_int with coefficients of type C1 and the second operand is
+   a constant of type T2.  */
+#define POLY_CONST_COEFF(C1, T2) \
+  POLY_POLY_COEFF (C1, typename if_nonpoly<T2>::t)
+
+/* Likewise in reverse.  */
+#define CONST_POLY_COEFF(T1, C2) \
+  POLY_POLY_COEFF (typename if_nonpoly<T1>::t, C2)
+
+/* The result type for a binary operation on poly_int<N, C1> and
+   poly_int<N, C2>.  */
+#define POLY_POLY_RESULT(N, C1, C2) poly_int<N, POLY_POLY_COEFF (C1, C2)>
+
+/* Enforce that T2 is non-polynomial and provide the result type
+   for a binary operation on poly_int<N, C1> and T2.  */
+#define POLY_CONST_RESULT(N, C1, T2) poly_int<N, POLY_CONST_COEFF (C1, T2)>
+
+/* Enforce that T1 is non-polynomial and provide the result type
+   for a binary operation on T1 and poly_int<N, C2>.  */
+#define CONST_POLY_RESULT(N, C1, C2) poly_int<N, CONST_POLY_COEFF (C1, C2)>
+
+/* Enforce that T1 and T2 are non-polynomial and provide the result type
+   for a binary operation on T1 and T2.  */
+#define CONST_CONST_RESULT(N, C1, C2) \
+  POLY_POLY_COEFF (typename if_nonpoly<C1>::t, typename if_nonpoly<C2>::t)
+
+/* The type to which a coefficient of type C1 should be cast before
+   using it in a binary operation with a coefficient of type C2.  */
+#define POLY_CAST(C1, C2) typename poly_result<C1, C2>::cast
+
+/* Provide the coefficient type for the result of T1 op T2, where T1
+   and T2 can be polynomial or non-polynomial.  */
+#define POLY_BINARY_COEFF(T1, T2) \
+  typename poly_result<typename poly_int_traits<T1>::coeff_type, \
+		       typename poly_int_traits<T2>::coeff_type>::t
+
+/* The type to which an integer constant should be cast before
+   comparing it with T.  */
+#define POLY_INT_TYPE(T) \
+  typename poly_coeff_traits<typename poly_int_traits<T>::coeff_type>::int_type
+
+/* RES is a poly_int result that has coefficients of type C and that
+   is being built up a coefficient at a time.  Set coefficient number I
+   to VALUE in the most efficient way possible.
+
+   For primitive C it is better to assign directly, since it avoids
+   any further calls and so is more efficient when the compiler is
+   built at -O0.  But for wide-int based C it is better to construct
+   the value in-place.  This means that calls out to a wide-int.cc
+   routine can take the address of RES rather than the address of
+   a temporary.
+
+   The dummy comparison against a null C * is just a way of checking
+   that C gives the right type.  */
+#define POLY_SET_COEFF(C, RES, I, VALUE) \
+  ((void) (&(RES).coeffs[0] == (C *) 0), \
+   wi::int_traits<C>::precision_type == wi::FLEXIBLE_PRECISION \
+   ? (void) ((RES).coeffs[I] = VALUE) \
+   : (void) ((RES).coeffs[I].~C (), new (&(RES).coeffs[I]) C (VALUE)))
 
 /* A base POD class for polynomial integers.  The polynomial has N
    coefficients of type C.
@@ -116,40 +332,43 @@ template<unsigned int N, typename C>
 class poly_int_pod
 {
 public:
-  typedef C t;
-
   template<typename Ca>
   poly_int_pod &operator = (const poly_int_pod<N, Ca> &);
-  poly_int_pod &operator = (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int_pod>::t &operator = (const Ca &);
 
   template<typename Ca>
   poly_int_pod &operator += (const poly_int_pod<N, Ca> &);
-  poly_int_pod &operator += (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int_pod>::t &operator += (const Ca &);
 
   template<typename Ca>
   poly_int_pod &operator -= (const poly_int_pod<N, Ca> &);
-  poly_int_pod &operator -= (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int_pod>::t &operator -= (const Ca &);
 
-  poly_int_pod &operator *= (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int_pod>::t &operator *= (const Ca &);
 
   poly_int_pod &operator <<= (unsigned int);
 
   bool is_constant () const;
 
   template<typename T>
-  typename if_lossless<C, T>::bool_type is_constant (T *) const;
+  typename if_lossless<T, C, bool>::t is_constant (T *) const;
 
   C to_constant () const;
 
   template<typename Ca>
-  static poly_int_pod from (const poly_int_pod<N, Ca> &,
-			    unsigned int, signop);
+  static poly_int<N, C> from (const poly_int_pod<N, Ca> &, unsigned int,
+			      signop);
   template<typename Ca>
-  static poly_int_pod from (const poly_int_pod<N, Ca> &, signop);
+  static poly_int<N, C> from (const poly_int_pod<N, Ca> &, signop);
+
   bool to_shwi (poly_int_pod<N, HOST_WIDE_INT> *) const;
   bool to_uhwi (poly_int_pod<N, unsigned HOST_WIDE_INT> *) const;
-  poly_int_pod<N, HOST_WIDE_INT> force_shwi () const;
-  poly_int_pod<N, unsigned HOST_WIDE_INT> force_uhwi () const;
+  poly_int<N, HOST_WIDE_INT> force_shwi () const;
+  poly_int<N, unsigned HOST_WIDE_INT> force_uhwi () const;
 
 #if POLY_INT_CONVERSION
   operator C () const;
@@ -163,23 +382,22 @@ template<typename Ca>
 ALWAYS_INLINE poly_int_pod<N, C>&
 poly_int_pod<N, C>::operator = (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] = a.coeffs[1];
+  POLY_SET_COEFF (C, *this, 0, a.coeffs[0]);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, *this, i, a.coeffs[i]);
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int_pod<N, C>&
-poly_int_pod<N, C>::operator = (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int_pod<N, C> >::t &
+poly_int_pod<N, C>::operator = (const Ca &a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = a;
-  if (N == 2)
-    /* Easy way of propagating the precision of a wide_int to the
-       second coefficient.  */
-    this->coeffs[1] = this->coeffs[0] & 0;
+  POLY_SET_COEFF (C, *this, 0, a);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, *this, i, wi::ints_for<C>::zero (this->coeffs[0]));
   return *this;
 }
 
@@ -188,16 +406,17 @@ template<typename Ca>
 ALWAYS_INLINE poly_int_pod<N, C>&
 poly_int_pod<N, C>::operator += (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] += a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] += a.coeffs[1];
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] += a.coeffs[i];
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int_pod<N, C>&
-poly_int_pod<N, C>::operator += (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int_pod<N, C> >::t &
+poly_int_pod<N, C>::operator += (const Ca &a)
 {
   this->coeffs[0] += a;
   return *this;
@@ -208,29 +427,31 @@ template<typename Ca>
 ALWAYS_INLINE poly_int_pod<N, C>&
 poly_int_pod<N, C>::operator -= (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] -= a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] -= a.coeffs[1];
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] -= a.coeffs[i];
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int_pod<N, C>&
-poly_int_pod<N, C>::operator -= (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int_pod<N, C> >::t &
+poly_int_pod<N, C>::operator -= (const Ca &a)
 {
   this->coeffs[0] -= a;
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int_pod<N, C>&
-poly_int_pod<N, C>::operator *= (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int_pod<N, C> >::t &
+poly_int_pod<N, C>::operator *= (const Ca &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] *= a;
-  if (N == 2)
-    this->coeffs[1] *= a;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] *= a;
   return *this;
 }
 
@@ -238,10 +459,10 @@ template<unsigned int N, typename C>
 ALWAYS_INLINE poly_int_pod<N, C>&
 poly_int_pod<N, C>::operator <<= (unsigned int a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = wi::lshift (this->coeffs[0], a);
-  if (N == 2)
-    this->coeffs[1] = wi::lshift (this->coeffs[1], a);
+  POLY_SET_COEFF (C, *this, 0, this->coeffs[0] << a);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, *this, i, this->coeffs[i] << a);
   return *this;
 }
 
@@ -251,8 +472,11 @@ template<unsigned int N, typename C>
 ALWAYS_INLINE bool
 poly_int_pod<N, C>::is_constant () const
 {
-  STATIC_ASSERT (N <= 2);
-  return N == 1 || this->coeffs[1] == 0;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (this->coeffs[i] != 0)
+	return false;
+  return true;
 }
 
 /* Return true if the polynomial value is a compile-time constant,
@@ -260,7 +484,7 @@ poly_int_pod<N, C>::is_constant () const
 
 template<unsigned int N, typename C>
 template<typename T>
-ALWAYS_INLINE typename if_lossless<C, T>::bool_type
+ALWAYS_INLINE typename if_lossless<T, C, bool>::t
 poly_int_pod<N, C>::is_constant (T *const_value) const
 {
   if (is_constant ())
@@ -291,13 +515,13 @@ poly_int_pod<N, C>::to_constant () const
 
 template<unsigned int N, typename C>
 template<typename Ca>
-inline poly_int_pod<N, C>
+inline poly_int<N, C>
 poly_int_pod<N, C>::from (const poly_int_pod<N, Ca> &a,
 			  unsigned int bitsize, signop sgn)
 {
-  poly_int_pod<N, C> r;
+  poly_int<N, C> r;
   for (unsigned int i = 0; i < N; i++)
-    r.coeffs[i] = C::from (a.coeffs[i], bitsize, sgn);
+    POLY_SET_COEFF (C, r, i, C::from (a.coeffs[i], bitsize, sgn));
   return r;
 }
 
@@ -306,12 +530,12 @@ poly_int_pod<N, C>::from (const poly_int_pod<N, Ca> &a,
 
 template<unsigned int N, typename C>
 template<typename Ca>
-inline poly_int_pod<N, C>
+inline poly_int<N, C>
 poly_int_pod<N, C>::from (const poly_int_pod<N, Ca> &a, signop sgn)
 {
-  poly_int_pod<N, C> r;
+  poly_int<N, C> r;
   for (unsigned int i = 0; i < N; i++)
-    r.coeffs[i] = C::from (a.coeffs[i], sgn);
+    POLY_SET_COEFF (C, r, i, C::from (a.coeffs[i], sgn));
   return r;
 }
 
@@ -351,7 +575,7 @@ poly_int_pod<N, C>::to_uhwi (poly_int_pod<N, unsigned HOST_WIDE_INT> *r) const
    truncating if necessary.  */
 
 template<unsigned int N, typename C>
-poly_int_pod<N, HOST_WIDE_INT>
+inline poly_int<N, HOST_WIDE_INT>
 poly_int_pod<N, C>::force_shwi () const
 {
   poly_int_pod<N, HOST_WIDE_INT> r;
@@ -364,7 +588,7 @@ poly_int_pod<N, C>::force_shwi () const
    truncating if necessary.  */
 
 template<unsigned int N, typename C>
-poly_int_pod<N, unsigned HOST_WIDE_INT>
+inline poly_int<N, unsigned HOST_WIDE_INT>
 poly_int_pod<N, C>::force_uhwi () const
 {
   poly_int_pod<N, unsigned HOST_WIDE_INT> r;
@@ -403,61 +627,88 @@ public:
   poly_int (const C0 &, const C1 &);
 
   template<typename Ca>
+  poly_int &operator = (const poly_int_pod<N, Ca> &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int>::t &operator = (const Ca &);
+
+  template<typename Ca>
   poly_int &operator += (const poly_int_pod<N, Ca> &);
-  poly_int &operator += (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int>::t &operator += (const Ca &);
 
   template<typename Ca>
   poly_int &operator -= (const poly_int_pod<N, Ca> &);
-  poly_int &operator -= (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int>::t &operator -= (const Ca &);
 
-  poly_int &operator *= (const C &);
+  template<typename Ca>
+  typename if_nonpoly<Ca, poly_int>::t &operator *= (const Ca &);
 
   poly_int &operator <<= (unsigned int);
 };
 
 template<unsigned int N, typename C>
 template<typename Ca>
-ALWAYS_INLINE
+inline
 poly_int<N, C>::poly_int (const poly_int<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] = a.coeffs[1];
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, *this, i, a.coeffs[i]);
 }
 
 template<unsigned int N, typename C>
 template<typename Ca>
-ALWAYS_INLINE
+inline
 poly_int<N, C>::poly_int (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] = a.coeffs[1];
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, *this, i, a.coeffs[i]);
 }
 
 template<unsigned int N, typename C>
 template<typename C0>
-ALWAYS_INLINE
+inline
 poly_int<N, C>::poly_int (const C0 &c0)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = c0;
-  if (N == 2)
-    /* Easy way of propagating the precision of a wide_int to the
-       second coefficient.  */
-    this->coeffs[1] = this->coeffs[0] & 0;
+  POLY_SET_COEFF (C, *this, 0, c0);
+  for (unsigned int i = 1; i < N; i++)
+    POLY_SET_COEFF (C, *this, i, wi::ints_for<C>::zero (this->coeffs[0]));
 }
 
 template<unsigned int N, typename C>
 template<typename C0, typename C1>
-ALWAYS_INLINE
+inline
 poly_int<N, C>::poly_int (const C0 &c0, const C1 &c1)
 {
-  STATIC_ASSERT (N == 2);
-  this->coeffs[0] = c0;
-  this->coeffs[1] = c1;
+  STATIC_ASSERT (N >= 2);
+  POLY_SET_COEFF (C, *this, 0, c0);
+  POLY_SET_COEFF (C, *this, 1, c1);
+  for (unsigned int i = 2; i < N; i++)
+    POLY_SET_COEFF (C, *this, i, wi::ints_for<C>::zero (this->coeffs[0]));
+}
+
+template<unsigned int N, typename C>
+template<typename Ca>
+ALWAYS_INLINE poly_int<N, C>&
+poly_int<N, C>::operator = (const poly_int_pod<N, Ca> &a)
+{
+  this->coeffs[0] = a.coeffs[0];
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] = a.coeffs[i];
+  return *this;
+}
+
+template<unsigned int N, typename C>
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int<N, C> >::t &
+poly_int<N, C>::operator = (const Ca &a)
+{
+  this->coeffs[0] = a;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] = wi::ints_for<C>::zero (this->coeffs[0]);
+  return *this;
 }
 
 template<unsigned int N, typename C>
@@ -465,16 +716,17 @@ template<typename Ca>
 ALWAYS_INLINE poly_int<N, C>&
 poly_int<N, C>::operator += (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] += a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] += a.coeffs[1];
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] += a.coeffs[i];
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int<N, C>&
-poly_int<N, C>::operator += (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int<N, C> >::t &
+poly_int<N, C>::operator += (const Ca &a)
 {
   this->coeffs[0] += a;
   return *this;
@@ -485,29 +737,31 @@ template<typename Ca>
 ALWAYS_INLINE poly_int<N, C>&
 poly_int<N, C>::operator -= (const poly_int_pod<N, Ca> &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] -= a.coeffs[0];
-  if (N == 2)
-    this->coeffs[1] -= a.coeffs[1];
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] -= a.coeffs[i];
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int<N, C>&
-poly_int<N, C>::operator -= (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int<N, C> >::t &
+poly_int<N, C>::operator -= (const Ca &a)
 {
   this->coeffs[0] -= a;
   return *this;
 }
 
 template<unsigned int N, typename C>
-ALWAYS_INLINE poly_int<N, C>&
-poly_int<N, C>::operator *= (const C &a)
+template<typename Ca>
+ALWAYS_INLINE typename if_nonpoly<Ca, poly_int<N, C> >::t &
+poly_int<N, C>::operator *= (const Ca &a)
 {
-  STATIC_ASSERT (N <= 2);
   this->coeffs[0] *= a;
-  if (N == 2)
-    this->coeffs[1] *= a;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] *= a;
   return *this;
 }
 
@@ -515,141 +769,156 @@ template<unsigned int N, typename C>
 ALWAYS_INLINE poly_int<N, C>&
 poly_int<N, C>::operator <<= (unsigned int a)
 {
-  STATIC_ASSERT (N <= 2);
-  this->coeffs[0] = wi::lshift (this->coeffs[0], a);
-  if (N == 2)
-    this->coeffs[1] = wi::lshift (this->coeffs[1], a);
+  this->coeffs[0] = this->coeffs[0] << a;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      this->coeffs[i] = this->coeffs[i] << a;
   return *this;
 }
 
-/* SFINAE class to force T to be a non-polynomial arithmetic type.  */
-template<typename T>
-struct if_nonpoly
+namespace wi {
+template<unsigned int N>
+inline poly_int<N, hwi_with_prec>
+shwi (const poly_int<N, HOST_WIDE_INT> &a, unsigned int precision)
 {
-  typedef bool bool_type;
-  typedef T t;
-};
-template<unsigned int N, typename C> struct if_nonpoly<poly_int_pod<N, C> > {};
-template<unsigned int N, typename C> struct if_nonpoly<poly_int<N, C> > {};
+  poly_int<N, hwi_with_prec> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (hwi_with_prec, r, i, wi::shwi (a.coeffs[i], precision));
+  return r;
+}
 
-/* Likewise for two types T1 and T2.  */
-template<typename T1, typename T2,
-	 typename T3 = typename if_nonpoly<T1>::t,
-	 typename T4 = typename if_nonpoly<T2>::t>
-struct if_nonpoly2
+template<unsigned int N>
+inline poly_int<N, hwi_with_prec>
+uhwi (const poly_int<N, unsigned HOST_WIDE_INT> &a, unsigned int precision)
 {
-  typedef bool bool_type;
-};
+  poly_int<N, hwi_with_prec> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (hwi_with_prec, r, i, wi::uhwi (a.coeffs[i], precision));
+  return r;
+}
 
-/* SFINAE class to force T to be a polynomial type.  */
-template<typename T> struct if_poly {};
-template<unsigned int N, typename C>
-struct if_poly<poly_int_pod<N, C> >
+/* Poly version of wi::sext, with the same interface.  */
+
+template<unsigned int N, typename Ca>
+inline POLY_POLY_RESULT (N, Ca, Ca)
+sext (const poly_int_pod<N, Ca> &a, unsigned int precision)
 {
-  typedef bool bool_type;
-  typedef poly_int_pod<N, C> t;
-};
-template<unsigned int N, typename C>
-struct if_poly<poly_int<N, C> >
+  typedef POLY_POLY_COEFF (Ca, Ca) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::sext (a.coeffs[i], precision));
+  return r;
+}
+
+/* Poly version of wi::uext, with the same interface.  */
+
+template<unsigned int N, typename Ca>
+inline POLY_POLY_RESULT (N, Ca, Ca)
+zext (const poly_int_pod<N, Ca> &a, unsigned int precision)
 {
-  typedef bool bool_type;
-  typedef poly_int<N, C> t;
-};
-
-/* poly_result<T1, T2>::t gives the result type for T1 + T2.  The intention
-   is to provide normal C-like rules for integer ranks, except that
-   everything smaller than HOST_WIDE_INT promotes to HOST_WIDE_INT.  */
-#define RANK(X) int_traits<X>::rank
-template<unsigned int N, typename T1, typename T2 = T1,
-	 int sel = ((RANK (T1) <= RANK (HOST_WIDE_INT)
-		     && RANK (T2) <= RANK (HOST_WIDE_INT))
-		    ? 0
-		    : (RANK (T1) <= RANK (unsigned HOST_WIDE_INT)
-		       && RANK (T2) <= RANK (unsigned HOST_WIDE_INT))
-		    ? 1 : 2)>
-struct poly_result;
-#undef RANK
-
-/* Promote pair to HOST_WIDE_INT.  */
-template<unsigned int N, typename T1, typename T2>
-struct poly_result<N, T1, T2, 0>
-{
-  typedef poly_int<N, HOST_WIDE_INT> t;
-};
-
-/* Promote pair to unsigned HOST_WIDE_INT.  */
-template<unsigned int N, typename T1, typename T2>
-struct poly_result<N, T1, T2, 1>
-{
-  typedef poly_int<N, unsigned HOST_WIDE_INT> t;
-};
-
-/* Use normal wide-int rules.  */
-template<unsigned int N, typename T1, typename T2>
-struct poly_result<N, T1, T2, 2>
-{
-  typedef poly_int<N, WI_BINARY_RESULT (T1, T2)> t;
-};
-
-#define POLY_POLY_RESULT(N, T1, T2) typename poly_result<N, T1, T2>::t
-#define POLY_SCALAR_RESULT(N, T1, T2) \
-  typename poly_result<N, T1, typename if_nonpoly<T2>::t>::t
-#define SCALAR_POLY_RESULT(N, T1, T2) \
-  typename poly_result<N, typename if_nonpoly<T1>::t, T2>::t
+  typedef POLY_POLY_COEFF (Ca, Ca) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::zext (a.coeffs[i], precision));
+  return r;
+}
+}
 
 template<unsigned int N, typename Ca, typename Cb>
 ALWAYS_INLINE POLY_POLY_RESULT (N, Ca, Cb)
 operator + (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_POLY_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a.coeffs[0]) + b.coeffs[0];
-  if (N == 2)
-    r.coeffs[1] = C (a.coeffs[1]) + b.coeffs[1];
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) + b.coeffs[0]);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]) + b.coeffs[i]);
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE POLY_SCALAR_RESULT (N, Ca, Cb)
+ALWAYS_INLINE POLY_CONST_RESULT (N, Ca, Cb)
 operator + (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a.coeffs[0]) + b;
-  if (N == 2)
-    r.coeffs[1] = C (a.coeffs[1]);
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) + b);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]));
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE SCALAR_POLY_RESULT (N, Ca, Cb)
+ALWAYS_INLINE CONST_POLY_RESULT (N, Ca, Cb)
 operator + (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef SCALAR_POLY_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef CONST_POLY_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a) + b.coeffs[0];
-  if (N == 2)
-    r.coeffs[1] = C (b.coeffs[1]);
+  POLY_SET_COEFF (C, r, 0, a + NCb (b.coeffs[0]));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCb (b.coeffs[i]));
   return r;
 }
 
 namespace wi {
-/* Poly version of wi::add, with the same interface.  */
+/* Poly versions of wi::add, with the same interface.  */
 
-template<unsigned int N, typename C>
-poly_int<N, C>
-add (const poly_int_pod<N, C> &a, const poly_int_pod<N, C> &b,
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+add (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::add (a.coeffs[i], b.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+add (const poly_int_pod<N, Ca> &a, const Cb &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::add (a.coeffs[0], b));
+  for (unsigned int i = 1; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::add (a.coeffs[i],
+				      wi::ints_for<Cb>::zero (b)));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+add (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::add (a, b.coeffs[0]));
+  for (unsigned int i = 1; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::add (wi::ints_for<Ca>::zero (a),
+				      b.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+add (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b,
      signop sgn, bool *overflow)
 {
-  poly_int_pod<N, C> r;
-  *overflow = false;
-  bool suboverflow;
-  for (unsigned int i = 0; i < N; ++i)
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::add (a.coeffs[0], b.coeffs[0], sgn, overflow));
+  for (unsigned int i = 1; i < N; i++)
     {
-      r.coeffs[i] = wi::add (a.coeffs[i], b.coeffs[i], sgn, &suboverflow);
+      bool suboverflow;
+      POLY_SET_COEFF (C, r, i, wi::add (a.coeffs[i], b.coeffs[i], sgn,
+					&suboverflow));
       *overflow |= suboverflow;
     }
   return r;
@@ -660,55 +929,97 @@ template<unsigned int N, typename Ca, typename Cb>
 ALWAYS_INLINE POLY_POLY_RESULT (N, Ca, Cb)
 operator - (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_POLY_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a.coeffs[0]) - b.coeffs[0];
-  if (N == 2)
-    r.coeffs[1] = C (a.coeffs[1]) - b.coeffs[1];
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) - b.coeffs[0]);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]) - b.coeffs[i]);
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE POLY_SCALAR_RESULT (N, Ca, Cb)
+ALWAYS_INLINE POLY_CONST_RESULT (N, Ca, Cb)
 operator - (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a.coeffs[0]) - b;
-  if (N == 2)
-    r.coeffs[1] = C (a.coeffs[1]);
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) - b);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]));
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE SCALAR_POLY_RESULT (N, Ca, Cb)
+ALWAYS_INLINE CONST_POLY_RESULT (N, Ca, Cb)
 operator - (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef SCALAR_POLY_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef CONST_POLY_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a) - b.coeffs[0];
-  if (N == 2)
-    r.coeffs[1] = -C (b.coeffs[1]);
+  POLY_SET_COEFF (C, r, 0, a - NCb (b.coeffs[0]));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, -NCb (b.coeffs[i]));
   return r;
 }
 
 namespace wi {
-/* Poly version of wi::sub, with the same interface.  */
+/* Poly versions of wi::sub, with the same interface.  */
 
-template<unsigned int N, typename C>
-poly_int<N, C>
-sub (const poly_int_pod<N, C> &a, const poly_int_pod<N, C> &b,
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+sub (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::sub (a.coeffs[i], b.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+ALWAYS_INLINE poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+sub (const poly_int_pod<N, Ca> &a, const Cb &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::sub (a.coeffs[0], b));
+  for (unsigned int i = 1; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::sub (a.coeffs[i],
+				      wi::ints_for<Cb>::zero (b)));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+ALWAYS_INLINE poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+sub (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::sub (a, b.coeffs[0]));
+  for (unsigned int i = 1; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::sub (wi::ints_for<Ca>::zero (a),
+				      b.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+sub (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b,
      signop sgn, bool *overflow)
 {
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
   poly_int<N, C> r;
-  *overflow = false;
-  bool suboverflow;
-  for (unsigned int i = 0; i < N; ++i)
+  POLY_SET_COEFF (C, r, 0, wi::sub (a.coeffs[0], b.coeffs[0], sgn, overflow));
+  for (unsigned int i = 1; i < N; i++)
     {
-      r.coeffs[i] = wi::sub (a.coeffs[i], b.coeffs[i], sgn, &suboverflow);
+      bool suboverflow;
+      POLY_SET_COEFF (C, r, i, wi::sub (a.coeffs[i], b.coeffs[i], sgn,
+					&suboverflow));
       *overflow |= suboverflow;
     }
   return r;
@@ -719,84 +1030,112 @@ template<unsigned int N, typename Ca>
 ALWAYS_INLINE POLY_POLY_RESULT (N, Ca, Ca)
 operator - (const poly_int_pod<N, Ca> &a)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Ca)::t C;
+  typedef POLY_CAST (Ca, Ca) NCa;
+  typedef POLY_POLY_COEFF (Ca, Ca) C;
   poly_int<N, C> r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = -C (a.coeffs[i]);
+  POLY_SET_COEFF (C, r, 0, -NCa (a.coeffs[0]));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, -NCa (a.coeffs[i]));
   return r;
 }
 
 namespace wi {
 /* Poly version of wi::neg, with the same interface.  */
 
-template<unsigned int N, typename C>
-poly_int<N, C>
-neg (const poly_int_pod<N, C> &a, bool *overflow)
+template<unsigned int N, typename Ca>
+inline poly_int<N, WI_UNARY_RESULT (Ca)>
+neg (const poly_int_pod<N, Ca> &a)
 {
+  typedef WI_UNARY_RESULT (Ca) C;
   poly_int<N, C> r;
-  *overflow = false;
-  bool suboverflow;
-  for (unsigned int i = 0; i < N; ++i)
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::neg (a.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca>
+inline poly_int<N, WI_UNARY_RESULT (Ca)>
+neg (const poly_int_pod<N, Ca> &a, bool *overflow)
+{
+  typedef WI_UNARY_RESULT (Ca) C;
+  poly_int<N, C> r;
+  POLY_SET_COEFF (C, r, 0, wi::neg (a.coeffs[0], overflow));
+  for (unsigned int i = 1; i < N; i++)
     {
-      r.coeffs[i] = wi::neg (a.coeffs[i], &suboverflow);
+      bool suboverflow;
+      POLY_SET_COEFF (C, r, i, wi::neg (a.coeffs[i], &suboverflow));
       *overflow |= suboverflow;
     }
   return r;
 }
-
-/* Poly version of wi::sext, with the same interface.  */
-
-template<unsigned int N, typename C>
-inline POLY_POLY_RESULT (N, C, C)
-sext (const poly_int_pod<N, C> &a, unsigned int precision)
-{
-  POLY_POLY_RESULT (N, C, C) r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = wi::sext (a.coeffs[i], precision);
-  return r;
-}
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE POLY_SCALAR_RESULT (N, Ca, Cb)
+ALWAYS_INLINE POLY_CONST_RESULT (N, Ca, Cb)
 operator * (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a.coeffs[0]) * b;
-  if (N == 2)
-    r.coeffs[1] = C (a.coeffs[1]) * b;
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) * b);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]) * b);
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE SCALAR_POLY_RESULT (N, Ca, Cb)
+ALWAYS_INLINE CONST_POLY_RESULT (N, Ca, Cb)
 operator * (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef SCALAR_POLY_RESULT (N, Ca, Cb)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef CONST_POLY_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  r.coeffs[0] = C (a) * b.coeffs[0];
-  if (N == 2)
-    r.coeffs[1] = C (a) * b.coeffs[1];
+  POLY_SET_COEFF (C, r, 0, NCa (a) * b.coeffs[0]);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a) * b.coeffs[i]);
   return r;
 }
 
 namespace wi {
-/* Poly version of wi::mul, with the same interface.  */
+/* Poly versions of wi::mul, with the same interface.  */
 
-template<unsigned int N, typename C>
-poly_int<N, C>
-mul (const poly_int_pod<N, C> &a, const C &b,
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+mul (const poly_int_pod<N, Ca> &a, const Cb &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::mul (a.coeffs[i], b));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+ALWAYS_INLINE poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+mul (const Ca &a, const poly_int_pod<N, Cb> &b)
+{
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
+  poly_int<N, C> r;
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, wi::mul (a, b.coeffs[i]));
+  return r;
+}
+
+template<unsigned int N, typename Ca, typename Cb>
+inline poly_int<N, WI_BINARY_RESULT (Ca, Cb)>
+mul (const poly_int_pod<N, Ca> &a, const Cb &b,
      signop sgn, bool *overflow)
 {
+  typedef WI_BINARY_RESULT (Ca, Cb) C;
   poly_int<N, C> r;
-  *overflow = false;
-  bool suboverflow;
-  for (unsigned int i = 0; i < N; ++i)
+  POLY_SET_COEFF (C, r, 0, wi::mul (a.coeffs[0], b, sgn, overflow));
+  for (unsigned int i = 1; i < N; i++)
     {
-      r.coeffs[i] = wi::mul (a.coeffs[i], b, sgn, &suboverflow);
+      bool suboverflow;
+      POLY_SET_COEFF (C, r, i, wi::mul (a.coeffs[i], b, sgn, &suboverflow));
       *overflow |= suboverflow;
     }
   return r;
@@ -807,12 +1146,13 @@ template<unsigned int N, typename Ca>
 ALWAYS_INLINE POLY_POLY_RESULT (N, Ca, Ca)
 operator << (const poly_int_pod<N, Ca> &a, unsigned int b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Ca)::t C;
-  STATIC_ASSERT (N <= 2);
+  typedef POLY_CAST (Ca, Ca) NCa;
+  typedef POLY_POLY_COEFF (Ca, Ca) C;
   poly_int<N, C> r;
-  r.coeffs[0] = wi::lshift (C (a.coeffs[0]), b);
-  if (N == 2)
-    r.coeffs[1] = wi::lshift (C (a.coeffs[1]), b);
+  POLY_SET_COEFF (C, r, 0, NCa (a.coeffs[0]) << b);
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, NCa (a.coeffs[i]) << b);
   return r;
 }
 
@@ -870,7 +1210,7 @@ may_eq (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Cb, bool>::t
 may_eq (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   STATIC_ASSERT (N <= 2);
@@ -880,7 +1220,7 @@ may_eq (const poly_int_pod<N, Ca> &a, const Cb &b)
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Ca>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Ca, bool>::t
 may_eq (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   STATIC_ASSERT (N <= 2);
@@ -890,7 +1230,7 @@ may_eq (const Ca &a, const poly_int_pod<N, Cb> &b)
 }
 
 template<typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly2<Ca, Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly2<Ca, Cb, bool>::t
 may_eq (const Ca &a, const Cb &b)
 {
   return a == b;
@@ -902,34 +1242,37 @@ template<unsigned int N, typename Ca, typename Cb>
 ALWAYS_INLINE bool
 may_ne (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] != b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] != b.coeffs[i])
+	return true;
   return a.coeffs[0] != b.coeffs[0];
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Cb, bool>::t
 may_ne (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] != 0)
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] != 0)
+	return true;
   return a.coeffs[0] != b;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Ca>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Ca, bool>::t
 may_ne (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && 0 != b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (0 != b.coeffs[i])
+	return true;
   return a != b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly2<Ca, Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly2<Ca, Cb, bool>::t
 may_ne (const Ca &a, const Cb &b)
 {
   return a != b;
@@ -941,6 +1284,52 @@ may_ne (const Ca &a, const Cb &b)
 /* Return true if A must be unequal to B.  */
 #define must_ne(A, B) (!may_eq (A, B))
 
+/* Return true if A is known to be zero.  */
+
+template<typename T>
+ALWAYS_INLINE bool
+known_zero (const T &a)
+{
+  typedef POLY_INT_TYPE (T) int_type;
+  return must_eq (a, int_type (0));
+}
+
+/* Return true if A is known to be nonzero.  */
+
+template<typename T>
+ALWAYS_INLINE bool
+known_nonzero (const T &a)
+{
+  typedef POLY_INT_TYPE (T) int_type;
+  return must_ne (a, int_type (0));
+}
+
+/* Return true if A might be equal to zero.  */
+#define maybe_zero(A) (!known_nonzero (A))
+
+/* Return true if A might not be equal to zero.  */
+#define maybe_nonzero(A) (!known_zero (A))
+
+/* Return true if A is known to be equal to 1.  */
+
+template<typename T>
+ALWAYS_INLINE bool
+known_one (const T &a)
+{
+  typedef POLY_INT_TYPE (T) int_type;
+  return must_eq (a, int_type (1));
+}
+
+/* Return true if A is known to be all ones.  */
+
+template<typename T>
+ALWAYS_INLINE bool
+known_all_ones (const T &a)
+{
+  typedef POLY_INT_TYPE (T) int_type;
+  return must_eq (a, int_type (-1));
+}
+
 /* Return true if A might be less than or equal to B for some
    indeterminate values.  */
 
@@ -948,34 +1337,37 @@ template<unsigned int N, typename Ca, typename Cb>
 ALWAYS_INLINE bool
 may_le (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] < b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] < b.coeffs[i])
+	return true;
   return a.coeffs[0] <= b.coeffs[0];
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Cb, bool>::t
 may_le (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] < 0)
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] < 0)
+	return true;
   return a.coeffs[0] <= b;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Ca>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Ca, bool>::t
 may_le (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && 0 < b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (0 < b.coeffs[i])
+	return true;
   return a <= b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly2<Ca, Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly2<Ca, Cb, bool>::t
 may_le (const Ca &a, const Cb &b)
 {
   return a <= b;
@@ -987,34 +1379,37 @@ template<unsigned int N, typename Ca, typename Cb>
 ALWAYS_INLINE bool
 may_lt (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] < b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] < b.coeffs[i])
+	return true;
   return a.coeffs[0] < b.coeffs[0];
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Cb, bool>::t
 may_lt (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && a.coeffs[1] < 0)
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (a.coeffs[i] < 0)
+	return true;
   return a.coeffs[0] < b;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly<Ca>::bool_type
+ALWAYS_INLINE typename if_nonpoly<Ca, bool>::t
 may_lt (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-  if (N == 2 && 0 < b.coeffs[1])
-    return true;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if (0 < b.coeffs[i])
+	return true;
   return a < b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
-ALWAYS_INLINE typename if_nonpoly2<Ca, Cb>::bool_type
+ALWAYS_INLINE typename if_nonpoly2<Ca, Cb, bool>::t
 may_lt (const Ca &a, const Cb &b)
 {
   return a < b;
@@ -1044,7 +1439,10 @@ template<typename T1, typename T2>
 inline bool
 ordered_p (const T1 &a, const T2 &b)
 {
-  return must_le (a, b) || must_le (b, a);
+  return ((poly_int_traits<T1>::num_coeffs == 1
+	   && poly_int_traits<T2>::num_coeffs == 1)
+	  || must_le (a, b)
+	  || must_le (b, a));
 }
 
 /* Assert that A and B are known to be ordered and return the minimum
@@ -1061,33 +1459,36 @@ ordered_min (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
     return a;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return b;
     }
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline SCALAR_POLY_RESULT (N, Ca, Cb)
+inline CONST_POLY_RESULT (N, Ca, Cb)
 ordered_min (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   if (must_le (a, b))
     return a;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return b;
     }
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline POLY_SCALAR_RESULT (N, Ca, Cb)
+inline POLY_CONST_RESULT (N, Ca, Cb)
 ordered_min (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   if (must_le (a, b))
     return a;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return b;
     }
 }
@@ -1106,33 +1507,36 @@ ordered_max (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
     return b;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return a;
     }
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline SCALAR_POLY_RESULT (N, Ca, Cb)
+inline CONST_POLY_RESULT (N, Ca, Cb)
 ordered_max (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   if (must_le (a, b))
     return b;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return a;
     }
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline POLY_SCALAR_RESULT (N, Ca, Cb)
+inline POLY_CONST_RESULT (N, Ca, Cb)
 ordered_max (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   if (must_le (a, b))
     return b;
   else
     {
-      gcc_checking_assert (must_le (b, a));
+      if (N > 1)
+	gcc_checking_assert (must_le (b, a));
       return a;
     }
 }
@@ -1144,30 +1548,34 @@ template<unsigned int N, typename Ca>
 inline Ca
 constant_lower_bound (const poly_int_pod<N, Ca> &a)
 {
-  gcc_checking_assert (must_ge (a, Ca (0)));
+  typedef POLY_INT_TYPE (Ca) ICa;
+  gcc_checking_assert (must_ge (a, ICa (0)));
   return a.coeffs[0];
 }
 
-/* Return a value that is known to be no greater than A and B, both of
-   which are known to be nonnegative.  This will be the greatest lower
-   bound for some indeterminate values but not necessarily for all.  */
+/* Return a value that is known to be no greater than A and B.  This
+   will be the greatest lower bound for some indeterminate values but
+   not necessarily for all.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline POLY_SCALAR_RESULT (N, Ca, Cb)
+inline POLY_CONST_RESULT (N, Ca, Cb)
 lower_bound (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
-  gcc_checking_assert (must_ge (a, Ca (0)));
-  gcc_checking_assert (b >= Cb (0));
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_INT_TYPE (Cb) ICb;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
+
   poly_int<N, C> r;
-  r.coeffs[0] = MIN (C (a.coeffs[0]), C (b));
-  for (unsigned int i = 1; i < N; ++i)
-    r.coeffs[1] = C (a.coeffs[i]);
+  POLY_SET_COEFF (C, r, 0, MIN (NCa (a.coeffs[0]), NCb (b)));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, MIN (NCa (a.coeffs[i]), ICb (0)));
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline SCALAR_POLY_RESULT (N, Ca, Cb)
+inline CONST_POLY_RESULT (N, Ca, Cb)
 lower_bound (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   return lower_bound (b, a);
@@ -1177,13 +1585,21 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 lower_bound (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-  gcc_checking_assert (must_ge (a, Ca (0)));
-  gcc_checking_assert (must_ge (b, Cb (0)));
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_POLY_COEFF (Ca, Cb) C;
+
   poly_int<N, C> r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = MIN (C (a.coeffs[i]), C (b.coeffs[i]));
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, MIN (NCa (a.coeffs[i]), NCb (b.coeffs[i])));
   return r;
+}
+
+template<typename Ca, typename Cb>
+inline CONST_CONST_RESULT (N, Ca, Cb)
+lower_bound (const Ca &a, const Cb &b)
+{
+  return a < b ? a : b;
 }
 
 /* Return a value that is known to be no less than A and B, both of
@@ -1191,21 +1607,24 @@ lower_bound (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
    bound for some indeterminate values but not necessarily for all.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline POLY_SCALAR_RESULT (N, Ca, Cb)
+inline POLY_CONST_RESULT (N, Ca, Cb)
 upper_bound (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  typedef POLY_SCALAR_RESULT (N, Ca, Cb)::t C;
-  gcc_checking_assert (must_ge (a, Ca (0)));
-  gcc_checking_assert (b >= Cb (0));
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_INT_TYPE (Cb) ICb;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
+
   poly_int<N, C> r;
-  r.coeffs[0] = MAX (C (a.coeffs[0]), C (b));
-  for (unsigned int i = 1; i < N; ++i)
-    r.coeffs[1] = C (a.coeffs[i]);
+  POLY_SET_COEFF (C, r, 0, MAX (NCa (a.coeffs[0]), NCb (b)));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (C, r, i, MAX (NCa (a.coeffs[i]), ICb (0)));
   return r;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline SCALAR_POLY_RESULT (N, Ca, Cb)
+inline CONST_POLY_RESULT (N, Ca, Cb)
 upper_bound (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   return upper_bound (b, a);
@@ -1215,12 +1634,13 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 upper_bound (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-  gcc_checking_assert (must_ge (a, Ca (0)));
-  gcc_checking_assert (must_ge (b, Cb (0)));
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_POLY_COEFF (Ca, Cb) C;
+
   poly_int<N, C> r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = MAX (C (a.coeffs[i]), C (b.coeffs[i]));
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (C, r, i, MAX (NCa (a.coeffs[i]), NCb (b.coeffs[i])));
   return r;
 }
 
@@ -1228,7 +1648,7 @@ upper_bound (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
    if all coefficients are zero.  */
 
 template<unsigned int N, typename Ca>
-inline Ca
+inline POLY_BINARY_COEFF (Ca, Ca)
 coeff_gcd (const poly_int_pod<N, Ca> &a)
 {
   /* Find the first nonzero coefficient, stopping at 0 whatever happens.  */
@@ -1236,10 +1656,11 @@ coeff_gcd (const poly_int_pod<N, Ca> &a)
   for (i = N - 1; i > 0; --i)
     if (a.coeffs[i] != 0)
       break;
-  Ca r = a.coeffs[i];
+  typedef POLY_BINARY_COEFF (Ca, Ca) C;
+  C r = a.coeffs[i];
   for (unsigned int j = 0; j < i; ++j)
     if (a.coeffs[j] != 0)
-      r = gcd (r, a.coeffs[j]);
+      r = gcd (r, C (a.coeffs[j]));
   return r;
 }
 
@@ -1248,15 +1669,15 @@ coeff_gcd (const poly_int_pod<N, Ca> &a)
    for all.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-POLY_SCALAR_RESULT (N, Ca, Cb)
+POLY_CONST_RESULT (N, Ca, Cb)
 common_multiple (const poly_int_pod<N, Ca> &a, Cb b)
 {
-  Ca xgcd = coeff_gcd (a);
+  POLY_BINARY_COEFF (Ca, Ca) xgcd = coeff_gcd (a);
   return a * (least_common_multiple (xgcd, b) / xgcd);
 }
 
 template<unsigned int N, typename Ca, typename Cb>
-inline SCALAR_POLY_RESULT (N, Ca, Cb)
+inline CONST_POLY_RESULT (N, Ca, Cb)
 common_multiple (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   return common_multiple (b, a);
@@ -1275,22 +1696,27 @@ POLY_POLY_RESULT (N, Ca, Cb)
 force_common_multiple (const poly_int_pod<N, Ca> &a,
 		       const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
-
   if (b.is_constant ())
     return common_multiple (a, b.coeffs[0]);
   if (a.is_constant ())
     return common_multiple (a.coeffs[0], b);
 
-  gcc_assert (N == 2);
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_BINARY_COEFF (Ca, Cb) C;
+  typedef POLY_INT_TYPE (Ca) ICa;
 
-  C lcm = least_common_multiple (a.coeffs[1], b.coeffs[1]);
-  C amul = lcm / a.coeffs[1];
-  C bmul = lcm / b.coeffs[1];
-  gcc_checking_assert (a.coeffs[0] * amul == b.coeffs[0] * bmul);
-
-  return a * amul;
+  for (unsigned int i = 1; i < N; ++i)
+    if (a.coeffs[i] != ICa (0))
+      {
+	C lcm = least_common_multiple (NCa (a.coeffs[i]), NCb (b.coeffs[i]));
+	C amul = lcm / a.coeffs[i];
+	C bmul = lcm / b.coeffs[i];
+	for (unsigned int j = 0; j < N; ++j)
+	  gcc_checking_assert (a.coeffs[j] * amul == b.coeffs[j] * bmul);
+	return a * amul;
+      }
+  gcc_unreachable ();
 }
 
 /* Compare A and B for sorting purposes, returning -1 if A should come
@@ -1333,7 +1759,7 @@ can_align_p (const poly_int_pod<N, Ca> &value, Cb align)
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
 can_align_up (const poly_int_pod<N, Ca> &value, Cb align,
-	      poly_int<N, Ca> *aligned)
+	      poly_int_pod<N, Ca> *aligned)
 {
   if (!can_align_p (value, align))
     return false;
@@ -1347,7 +1773,7 @@ can_align_up (const poly_int_pod<N, Ca> &value, Cb align,
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
 can_align_down (const poly_int_pod<N, Ca> &value, Cb align,
-		poly_int<N, Ca> *aligned)
+		poly_int_pod<N, Ca> *aligned)
 {
   if (!can_align_p (value, align))
     return false;
@@ -1427,10 +1853,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline poly_int<N, Ca>
 aligned_lower_bound (const poly_int_pod<N, Ca> &value, Cb align)
 {
-  gcc_checking_assert (ordered_p (value, Ca (0)));
   poly_int<N, Ca> r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = value.coeffs[i] & -Ca (align);
+  for (unsigned int i = 0; i < N; i++)
+    /* This form copes correctly with more type combinations than
+       value.coeffs[i] & -align would.  */
+    POLY_SET_COEFF (Ca, r, i, (value.coeffs[i]
+			       - (value.coeffs[i] & (align - 1))));
   return r;
 }
 
@@ -1442,10 +1870,10 @@ template<unsigned int N, typename Ca, typename Cb>
 inline poly_int<N, Ca>
 aligned_upper_bound (const poly_int_pod<N, Ca> &value, Cb align)
 {
-  gcc_checking_assert (ordered_p (value, Ca (0)));
   poly_int<N, Ca> r;
-  for (unsigned int i = 0; i < N; ++i)
-    r.coeffs[i] = value.coeffs[i] + (-value.coeffs[i] & Ca (align - 1));
+  for (unsigned int i = 0; i < N; i++)
+    POLY_SET_COEFF (Ca, r, i, (value.coeffs[i]
+			       + (-value.coeffs[i] & (align - 1))));
   return r;
 }
 
@@ -1462,10 +1890,14 @@ inline poly_int<N, Ca>
 force_align_down_and_div (const poly_int_pod<N, Ca> &value, Cb align)
 {
   gcc_checking_assert (can_align_p (value, align));
+
   poly_int<N, Ca> r;
-  r.coeffs[0] = (value.coeffs[0] - (value.coeffs[0] & (align - 1))) / align;
-  for (unsigned int i = 1; i < N; ++i)
-    r.coeffs[i] = value.coeffs[i] / align;
+  POLY_SET_COEFF (Ca, r, 0, ((value.coeffs[0]
+			      - (value.coeffs[0] & (align - 1)))
+			     / align));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (Ca, r, i, value.coeffs[i] / align);
   return r;
 }
 
@@ -1482,10 +1914,14 @@ inline poly_int<N, Ca>
 force_align_up_and_div (const poly_int_pod<N, Ca> &value, Cb align)
 {
   gcc_checking_assert (can_align_p (value, align));
+
   poly_int<N, Ca> r;
-  r.coeffs[0] = (value.coeffs[0] + (-value.coeffs[0] & (align - 1))) / align;
-  for (unsigned int i = 1; i < N; ++i)
-    r.coeffs[i] = value.coeffs[i] / align;
+  POLY_SET_COEFF (Ca, r, 0, ((value.coeffs[0]
+			      + (-value.coeffs[0] & (align - 1)))
+			     / align));
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      POLY_SET_COEFF (Ca, r, i, value.coeffs[i] / align);
   return r;
 }
 
@@ -1509,7 +1945,7 @@ known_misalignment (const poly_int_pod<N, Ca> &value, Cb align, Cm *misalign)
    is known to hold.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline Ca
+inline POLY_BINARY_COEFF (Ca, Ca)
 force_get_misalignment (const poly_int_pod<N, Ca> &a, Cb align)
 {
   gcc_checking_assert (can_align_p (a, align));
@@ -1520,12 +1956,13 @@ force_get_misalignment (const poly_int_pod<N, Ca> &a, Cb align)
    if A is known to be zero.  */
 
 template<unsigned int N, typename Ca>
-inline Ca
+inline POLY_BINARY_COEFF (Ca, Ca)
 known_alignment (const poly_int_pod<N, Ca> &a)
 {
-  Ca r = a.coeffs[0];
+  typedef POLY_BINARY_COEFF (Ca, Ca) C;
+  C r = a.coeffs[0];
   for (unsigned int i = 1; i < N; ++i)
-    r |= a.coeffs[1];
+    r |= a.coeffs[i];
   return r & -r;
 }
 
@@ -1533,15 +1970,16 @@ known_alignment (const poly_int_pod<N, Ca> &a)
    result in RES if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cr>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 can_ior_p (const poly_int_pod<N, Ca> &a, Cb b, Cr *result)
 {
-  STATIC_ASSERT (N <= 2);
-  /* Coefficient 1 must be a multiple of something greater than B.  */
-  if (N == 2
-      && a.coeffs[1] != 0
-      && (a.coeffs[1] & -a.coeffs[1]) < b)
-    return false;
+  /* Coefficients 1 and above must be a multiple of something greater
+     than B.  */
+  typedef POLY_INT_TYPE (Ca) int_type;
+  if (N >= 2)
+    for (unsigned int i = 1; i < N; i++)
+      if ((-(a.coeffs[i] & -a.coeffs[i]) & b) != int_type (0))
+	return false;
   *result = a;
   result->coeffs[0] |= b;
   return true;
@@ -1551,26 +1989,34 @@ can_ior_p (const poly_int_pod<N, Ca> &a, Cb b, Cr *result)
    multiple in *MULTIPLE if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 constant_multiple_p (const poly_int_pod<N, Ca> &a, Cb b, Cm *multiple)
 {
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+
   /* Do the modulus before the constant check, to catch divide by
      zero errors.  */
-  if (a.coeffs[0] % b != 0 || !a.is_constant ())
+  if (NCa (a.coeffs[0]) % NCb (b) != 0 || !a.is_constant ())
     return false;
-  *multiple = a.coeffs[0] / b;
+  *multiple = NCa (a.coeffs[0]) / NCb (b);
   return true;
 }
 
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
-inline typename if_nonpoly<Ca>::bool_type
+inline typename if_nonpoly<Ca, bool>::t
 constant_multiple_p (Ca a, const poly_int_pod<N, Cb> &b, Cm *multiple)
 {
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_INT_TYPE (Ca) int_type;
+
   /* Do the modulus before the constant check, to catch divide by
      zero errors.  */
-  if (a % b.coeffs[0] != 0 || (a != 0 && !b.is_constant ()))
+  if (NCa (a) % NCb (b.coeffs[0]) != 0
+      || (a != int_type (0) && !b.is_constant ()))
     return false;
-  *multiple = a / b.coeffs[0];
+  *multiple = NCa (a) / NCb (b.coeffs[0]);
   return true;
 }
 
@@ -1579,21 +2025,22 @@ inline bool
 constant_multiple_p (const poly_int_pod<N, Ca> &a,
 		     const poly_int_pod<N, Cb> &b, Cm *multiple)
 {
-  STATIC_ASSERT (N <= 2);
-  if (b.is_constant ())
-    return constant_multiple_p (a, b.coeffs[0], multiple);
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_INT_TYPE (Ca) ICa;
+  typedef POLY_INT_TYPE (Cb) ICb;
+  typedef POLY_BINARY_COEFF (Ca, Cb) C;
 
-  gcc_assert (N == 2);
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-
-  /* Do this first, to catch divide-by-zero errors.  */
-  if (a.coeffs[0] % b.coeffs[0] != 0
-      || a.coeffs[1] % b.coeffs[1] != 0)
+  if (NCa (a.coeffs[0]) % NCb (b.coeffs[0]) != 0)
     return false;
 
-  C r = a.coeffs[1] / b.coeffs[1];
-  if (a.coeffs[0] / b.coeffs[0] != r)
-    return false;
+  C r = NCa (a.coeffs[0]) / NCb (b.coeffs[0]);
+  for (unsigned int i = 1; i < N; ++i)
+    if (b.coeffs[i] == ICb (0)
+	? a.coeffs[i] != ICa (0)
+	: (NCa (a.coeffs[i]) % NCb (b.coeffs[i]) != 0
+	   || NCa (a.coeffs[i]) / NCb (b.coeffs[i]) != r))
+      return false;
 
   *multiple = r;
   return true;
@@ -1602,7 +2049,7 @@ constant_multiple_p (const poly_int_pod<N, Ca> &a,
 /* Return true if A is a multiple of B.  */
 
 template<typename Ca, typename Cb>
-inline typename if_nonpoly2<Ca, Cb>::bool_type
+inline typename if_nonpoly2<Ca, Cb, bool>::t
 multiple_p (Ca a, Cb b)
 {
   return a % b != 0;
@@ -1611,7 +2058,7 @@ multiple_p (Ca a, Cb b)
 /* Return true if A is a (polynomial) multiple of B.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 multiple_p (const poly_int_pod<N, Ca> &a, Cb b)
 {
   for (unsigned int i = 0; i < N; ++i)
@@ -1620,15 +2067,17 @@ multiple_p (const poly_int_pod<N, Ca> &a, Cb b)
   return true;
 }
 
-/* Return true if B is a constant and A is a (constant) multiple of B.  */
+/* Return true if A is a (constant) multiple of B.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline typename if_nonpoly<Ca>::bool_type
+inline typename if_nonpoly<Ca, bool>::t
 multiple_p (Ca a, const poly_int_pod<N, Cb> &b)
 {
+  typedef POLY_INT_TYPE (Ca) int_type;
+
   /* Do the modulus before the constant check, to catch divide by
      potential zeros.  */
-  return a % b.coeffs[0] == 0 && b.is_constant ();
+  return a % b.coeffs[0] == 0 && (a == int_type (0) || b.is_constant ());
 }
 
 /* Return true if A is a (polynomial) multiple of B.  This handles cases
@@ -1640,7 +2089,7 @@ multiple_p (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
   if (b.is_constant ())
     return multiple_p (a, b.coeffs[0]);
-  Ca tmp;
+  POLY_BINARY_COEFF (Ca, Ca) tmp;
   return constant_multiple_p (a, b, &tmp);
 }
 
@@ -1648,7 +2097,7 @@ multiple_p (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
    multiple in *MULTIPLE if so.  */
 
 template<typename Ca, typename Cb, typename Cm>
-inline typename if_nonpoly2<Ca, Cb>::bool_type
+inline typename if_nonpoly2<Ca, Cb, bool>::t
 multiple_p (Ca a, Cb b, Cm *multiple)
 {
   if (a % b != 0)
@@ -1661,7 +2110,7 @@ multiple_p (Ca a, Cb b, Cm *multiple)
    multiple in *MULTIPLE if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 multiple_p (const poly_int_pod<N, Ca> &a, Cb b, poly_int_pod<N, Cm> *multiple)
 {
   if (!multiple_p (a, b))
@@ -1675,12 +2124,14 @@ multiple_p (const poly_int_pod<N, Ca> &a, Cb b, poly_int_pod<N, Cm> *multiple)
    storing the multiple in *MULTIPLE if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
-inline typename if_nonpoly<Ca>::bool_type
+inline typename if_nonpoly<Ca, bool>::t
 multiple_p (Ca a, const poly_int_pod<N, Cb> &b, Cm *multiple)
 {
+  typedef POLY_CAST (Ca, Cb) NCa;
+
   /* Do the modulus before the constant check, to catch divide by
      potential zeros.  */
-  if (a % b.coeffs[0] != 0 || !b.is_constant ())
+  if (a % b.coeffs[0] != 0 || (NCa (a) != 0 && !b.is_constant ()))
     return false;
   *multiple = a / b.coeffs[0];
   return true;
@@ -1693,7 +2144,7 @@ multiple_p (Ca a, const poly_int_pod<N, Cb> &b, Cm *multiple)
 template<unsigned int N, typename Ca, typename Cb, typename Cm>
 inline bool
 multiple_p (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b,
-	    poly_int<N, Cm> *multiple)
+	    poly_int_pod<N, Cm> *multiple)
 {
   if (b.is_constant ())
     return multiple_p (a, b.coeffs[0], multiple);
@@ -1703,15 +2154,15 @@ multiple_p (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b,
 /* Return A / B, given that A is known to be a multiple of B.  */
 
 template<unsigned int N, typename Ca, typename Cb>
-inline POLY_SCALAR_RESULT (N, Ca, Cb)
+inline POLY_CONST_RESULT (N, Ca, Cb)
 exact_div (const poly_int_pod<N, Ca> &a, Cb b)
 {
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
+  typedef POLY_CONST_COEFF (Ca, Cb) C;
   poly_int<N, C> r;
-  for (unsigned int i = 0; i < N; ++i)
+  for (unsigned int i = 0; i < N; i++)
     {
       gcc_checking_assert (a.coeffs[i] % b == 0);
-      r.coeffs[i] = a.coeffs[i] / b;
+      POLY_SET_COEFF (C, r, i, a.coeffs[i] / b);
     }
   return r;
 }
@@ -1722,18 +2173,21 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 exact_div (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  STATIC_ASSERT (N <= 2);
   if (b.is_constant ())
     return exact_div (a, b.coeffs[0]);
 
-  gcc_assert (N == 2);
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_BINARY_COEFF (Ca, Cb) C;
+  typedef POLY_INT_TYPE (Cb) int_type;
 
-  gcc_checking_assert (a.coeffs[0] % b.coeffs[0] == 0
-		       && a.coeffs[1] % b.coeffs[1] == 0);
+  gcc_checking_assert (a.coeffs[0] % b.coeffs[0] == 0);
+  C r = NCa (a.coeffs[0]) / NCb (b.coeffs[0]);
+  for (unsigned int i = 1; i < N; ++i)
+    gcc_checking_assert (b.coeffs[i] == int_type (0)
+			 || (a.coeffs[i] % b.coeffs[i] == 0
+			     && NCa (a.coeffs[i]) / NCb (b.coeffs[i]) == r));
 
-  C r = C (a.coeffs[0]) / b.coeffs[0];
-  gcc_checking_assert (a.coeffs[1] / b.coeffs[1] == r);
   return r;
 }
 
@@ -1746,12 +2200,15 @@ exact_div (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
    Store the value Q in *QUOTIENT if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq>
-inline typename if_nonpoly2<Cb, Cq>::bool_type
+inline typename if_nonpoly2<Cb, Cq, bool>::t
 can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b, Cq *quotient)
 {
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+
   /* Do the division before the constant check, to catch divide by
      zero errors.  */
-  Cq q = a.coeffs[0] / b;
+  Cq q = NCa (a.coeffs[0]) / NCb (b);
   if (!a.is_constant ())
     return false;
   *quotient = q;
@@ -1759,49 +2216,105 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b, Cq *quotient)
 }
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq>
-inline typename if_nonpoly<Cq>::bool_type
+inline typename if_nonpoly<Cq, bool>::t
 can_div_trunc_p (const poly_int_pod<N, Ca> &a,
 		 const poly_int_pod<N, Cb> &b,
 		 Cq *quotient)
 {
-  STATIC_ASSERT (N <= 2);
-  if (b.is_constant ())
-    return can_div_trunc_p (a, b.coeffs[0], quotient);
+  /* We can calculate Q from the case in which the indeterminates
+     are zero.  */
+  typedef POLY_CAST (Ca, Cb) NCa;
+  typedef POLY_CAST (Cb, Ca) NCb;
+  typedef POLY_INT_TYPE (Ca) ICa;
+  typedef POLY_INT_TYPE (Cb) ICb;
+  typedef POLY_BINARY_COEFF (Ca, Cb) C;
+  C q = NCa (a.coeffs[0]) / NCb (b.coeffs[0]);
 
-  /* For simplicity we only handle A and B that are ordered wrt 0.  This
-     means that both coefficients are >= 0 or both coefficients are <= 0.  */
-  if (!ordered_p (a, Ca (0)) || !ordered_p (b, Cb (0)))
-    return false;
+  /* Check the other coefficients and record whether the division is exact.
+     The only difficult case is when it isn't.  If we require a and b to
+     ordered wrt zero, there can be no two coefficients of the same value
+     that have opposite signs.  This means that:
 
-  /* We can calculate Q from the case in which the indeterminate is zero.  */
-  typedef POLY_POLY_RESULT (N, Ca, Cb)::t C;
-  C q = a.coeffs[0] / b.coeffs[0];
+        |a| = |a0| + |a1 * x1| + |a2 * x2| + ...
+        |b| = |b0| + |b1 * x1| + |b2 * x2| + ...
 
-  /* Calculate b1 * Q.  */
-  C bq1 = b.coeffs[1] * q;
+      The Q we've just calculated guarantees:
 
-  /* Check that:
+         |b0 * Q| <= |a0|
+	 |a0 - b0 * Q| < |b0|
 
-       (2) |b * Q| <= |a|.
+      and so:
 
-     We already know that this is true when the indeterminate is zero,
-     and we also know that |b * Q| and |a| are linear, so it can only
-     be false if |b * Q| has a higher gradient than |a|.  */
-  C a1 = a.coeffs[1];
-  if ((bq1 < 0 ? -bq1 : bq1) > (a1 < 0 ? -a1 : a1))
-    return false;
+         (2) |b * Q| <= |a|
 
-  /* Calculate r1 from this Q.  */
-  C r1 = a1 - bq1;
+      is satisfied if:
 
-  /* Check that:
+         |bi * xi * Q| <= |ai * xi|
 
-       (3) |r| < |b|
+      for each i in [1, N].  This is trivially true when xi is zero.
+      When it isn't we need:
 
-     as above.  Note that since that this holds when the indeterminate
-     is zero, it also holds if the gradients are the same.  */
-  C b1 = b.coeffs[1];
-  if ((r1 < 0 ? -r1 : r1) > (b1 < 0 ? -b1 : b1))
+         (2') |bi * Q| <= |ai|
+
+      r is calculated as:
+
+         r = r0 + r1 * x1 + r2 * x2 + ...
+	 where ri = ai - bi * Q
+
+      Restricting to ordered a and b also guarantees that no two ris
+      have opposite signs, so we have:
+
+         |r| = |r0| + |r1 * x1| + |r2 * x2| + ...
+
+      We know from the calculation of Q that |r0| < |b0|, so:
+
+         (3) |r| < |b|
+
+      is satisfied if:
+
+         (3') |ai - bi * Q| <= |bi|
+
+      for each i in [1, N].  */
+  bool rem_p = NCa (a.coeffs[0]) % NCb (b.coeffs[0]) != 0;
+  for (unsigned int i = 1; i < N; ++i)
+    {
+      if (b.coeffs[i] == ICb (0))
+	{
+	  /* For bi == 0 we simply need: (3') |ai| == 0.  */
+	  if (a.coeffs[i] != ICa (0))
+	    return false;
+	}
+      else
+	{
+	  if (q == 0)
+	    {
+	      /* For Q == 0 we simply need: (3') |ai| <= |bi|.  */
+	      if (a.coeffs[i] != ICa (0))
+		{
+		  /* Use negative absolute to avoid overflow, i.e.
+		     -|ai| >= -|bi|.  */
+		  C neg_abs_a = (a.coeffs[i] < 0 ? a.coeffs[i] : -a.coeffs[i]);
+		  C neg_abs_b = (b.coeffs[i] < 0 ? b.coeffs[i] : -b.coeffs[i]);
+		  if (neg_abs_a < neg_abs_b)
+		    return false;
+		  rem_p = true;
+		}
+	    }
+	  else
+	    {
+	      /* Otherwise just check for the case in which ai / bi == Q.  */
+	      if (NCa (a.coeffs[i]) / NCb (b.coeffs[i]) != q)
+		return false;
+	      if (NCa (a.coeffs[i]) % NCb (b.coeffs[i]) != 0)
+		rem_p = true;
+	    }
+	}
+    }
+
+  /* If the division isn't exact, require both values to be ordered wrt 0,
+     so that we can guarantee conditions (2) and (3) for all indeterminate
+     values.  */
+  if (rem_p && (!ordered_p (a, ICa (0)) || !ordered_p (b, ICb (0))))
     return false;
 
   *quotient = q;
@@ -1811,7 +2324,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a,
 /* Likewise, but also store r in *REMAINDER.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq, typename Cr>
-inline typename if_nonpoly<Cq>::bool_type
+inline typename if_nonpoly<Cq, bool>::t
 can_div_trunc_p (const poly_int_pod<N, Ca> &a,
 		 const poly_int_pod<N, Cb> &b,
 		 Cq *quotient, Cr *remainder)
@@ -1831,7 +2344,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a,
    Store the value q in *QUOTIENT if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b,
 		 poly_int_pod<N, Cq> *quotient)
 {
@@ -1847,7 +2360,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b,
 /* Likewise, but also store R in *REMAINDER.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq, typename Cr>
-inline typename if_nonpoly<Cb>::bool_type
+inline typename if_nonpoly<Cb, bool>::t
 can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b,
 		 poly_int_pod<N, Cq> *quotient, Cr *remainder)
 {
@@ -1866,7 +2379,7 @@ can_div_trunc_p (const poly_int_pod<N, Ca> &a, Cb b,
    Store the value Q in *QUOTIENT if so.  */
 
 template<unsigned int N, typename Ca, typename Cb, typename Cq>
-inline typename if_nonpoly<Cq>::bool_type
+inline typename if_nonpoly<Cq, bool>::t
 can_div_away_from_zero_p (const poly_int_pod<N, Ca> &a,
 			  const poly_int_pod<N, Cb> &b,
 			  Cq *quotient)
@@ -1898,9 +2411,92 @@ print_dec (const poly_int_pod<N, C> &value, FILE *file, signop sgn)
     }
 }
 
-#undef POLY_SCALAR_RESULT
-#undef SCALAR_POLY_RESULT
-#undef POLY_POLY_RESULT
+/* Likewise without the signop argument, for coefficients that have an
+   inherent signedness.  */
+
+template<unsigned int N, typename C>
+void
+print_dec (const poly_int_pod<N, C> &value, FILE *file)
+{
+  STATIC_ASSERT (poly_coeff_traits<C>::signedness >= 0);
+  print_dec (value, file,
+	     poly_coeff_traits<C>::signedness ? SIGNED : UNSIGNED);
+}
+
+/* Helper for correctly comparing Pos - Start with Size in cases where
+   must_ge (Pos, Start), Pos and Start are potentially signed, and Size is
+   potentially unsigned.  Applying the cast function to the result of
+   Pos - Start gives the value that should be compared with the size.
+
+   Try to avoid doing any unnecessary arithmetic or copying.  */
+template<typename Pos, typename Start, typename Size,
+	 typename Diff = POLY_BINARY_COEFF (Start, Pos),
+	 typename Res = POLY_BINARY_COEFF (Size, Diff)>
+struct poly_span_traits
+{
+  /* Assume no cast is needed.  We'll get a warning about signed vs.
+     unsigned comparisons if the assumption is wrong.  */
+  template<typename T>
+  static const T &cast (const T &x) { return x; }
+};
+
+/* The only case a change in type is needed is this one, in which the
+   subtraction would give a HOST_WIDE_INT-based result if done on poly_ints
+   and adding a zero size would give an unsigned HOST_WIDE_INT-based
+   result.  Since we know must_ge (Pos, Start), it is safe to base
+   Pos - Start on unsigned HOST_WIDE_INT.  */
+template<typename T1, typename T2, typename T3>
+struct poly_span_traits<T1, T2, T3, HOST_WIDE_INT, unsigned HOST_WIDE_INT>
+{
+  template<typename T>
+  static typename if_nonpoly<T, unsigned HOST_WIDE_INT>::t
+  cast (const T &x) { return x; }
+
+  template<unsigned int N, typename T>
+  static poly_int<N, unsigned HOST_WIDE_INT>
+  cast (const poly_int_pod<N, T> &x) { return x; }
+};
+
+/* Return true if SIZE represents a known size, assuming that all-ones
+   indicates an unknown size.  */
+
+#define known_size_p(X) (!known_all_ones (X))
+
+/* Return true if range [POS, POS + SIZE) might include VAL.
+   SIZE can be the special value -1, in which case the range is
+   open-ended.  */
+
+template<typename T1, typename T2, typename T3>
+static inline bool
+maybe_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
+{
+  typedef poly_span_traits<T1, T2, T3> span;
+  if (must_lt (val, pos))
+    return false;
+  if (!known_size_p (size))
+    return true;
+  if ((poly_int_traits<T1>::num_coeffs > 1
+       || poly_int_traits<T2>::num_coeffs > 1)
+      && may_lt (val, pos))
+    /* In this case we don't know whether VAL >= POS is true at compile
+       time, so we can't prove that VAL >= POS + SIZE.  */
+    return true;
+  return may_lt (span::cast (val - pos), size);
+}
+
+/* Return true if range [POS, POS + SIZE) is known to include VAL.
+   SIZE can be the special value -1, in which case the range is
+   open-ended.  */
+
+template<typename T1, typename T2, typename T3>
+static inline bool
+known_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
+{
+  typedef poly_span_traits<T1, T2, T3> span;
+  return (known_size_p (size)
+	  && must_ge (val, pos)
+	  && must_lt (span::cast (val - pos), size));
+}
 
 /* Return true if the two ranges [POS1, POS1 + SIZE1) and [POS2, POS2 + SIZE2)
    might overlap.  SIZE1 and/or SIZE2 can be the special value -1, in which
@@ -1911,18 +2507,10 @@ static inline bool
 ranges_may_overlap_p (const T1 &pos1, const T2 &size1,
 		      const T3 &pos2, const T4 &size2)
 {
-  /* The checks are written this way so that we can cope with signed
-     offsets and unsigned sizes.  The "+ (x - x)"s avoid warnings about
-     comparisons between signed and unsigned in that case.  */
-  if (may_ge (pos1, pos2)
-      && (must_eq (size2, (size2 - size2) - 1)
-	  || may_lt (pos1 - pos2 + (size2 - size2), size2)))
-    return true;
-  if (may_ge (pos2, pos1)
-      && (must_eq (size1, (size1 - size1) - 1)
-	  || may_lt (pos2 - pos1 + (size1 - size1), size1)))
-    return true;
-
+  if (maybe_in_range_p (pos2, pos1, size1))
+    return maybe_nonzero (size2);
+  if (maybe_in_range_p (pos1, pos2, size2))
+    return maybe_nonzero (size1);
   return false;
 }
 
@@ -1935,19 +2523,24 @@ static inline bool
 ranges_must_overlap_p (const T1 &pos1, const T2 &size1,
 		       const T3 &pos2, const T4 &size2)
 {
-  /* The checks are written this way so that we can cope with signed
-     offsets and unsigned sizes.  The "+ (x - x)"s avoid warnings about
-     comparisons between signed and unsigned in that case.  */
-  if (may_ne (size2, (size2 - size2) - 1)
-      && must_ge (pos1, pos2)
-      && must_lt (pos1 - pos2 + (size2 - size2), size2))
-    return true;
-  if (may_ne (size1, (size1 - size1) - 1)
-      && must_ge (pos2, pos1)
-      && must_lt (pos2 - pos1 + (size1 - size1), size1))
-    return true;
+  typedef poly_span_traits<T1, T3, T2> span1;
+  typedef poly_span_traits<T1, T3, T4> span2;
+  /* must_gt (POS1 + SIZE1, POS2)                         [infinite precision]
+     --> must_gt (SIZE1, POS2 - POS1)                     [infinite precision]
+     --> must_gt (SIZE1, POS2 - lower_bound (POS1, POS2)) [infinite precision]
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ always nonnegative
+     --> must_gt (SIZE1, span1::cast (POS2 - lower_bound (POS1, POS2))).
 
-  return false;
+     Using the saturating subtraction enforces that SIZE1 must be
+     nonzero, since must_gt (0, x) is false for all nonnegative x.
+     If POS2.coeff[I] < POS1.coeff[I] for some I > 0, increasing
+     indeterminate number I makes the unsaturated condition easier to
+     satisfy, so using a saturated coefficient of zero tests the case in
+     which the indeterminate is zero (the minimum value).  */
+  return (known_size_p (size1)
+	  && known_size_p (size2)
+	  && must_lt (span1::cast (pos2 - lower_bound (pos1, pos2)), size1)
+	  && must_lt (span2::cast (pos1 - lower_bound (pos1, pos2)), size2));
 }
 
 /* Return true if range [POS1, POS1 + SIZE1) is known to be a subrange of
@@ -1959,35 +2552,41 @@ static inline bool
 known_subrange_p (const T1 &pos1, const T2 &size1,
 		  const T3 &pos2, const T4 &size2)
 {
-  return (may_ne (size1, (size1 - size1) - 1)
-	  && may_ne (size2, (size2 - size2) - 1)
+  typedef typename poly_int_traits<T2>::coeff_type C2;
+  typedef POLY_INT_TYPE (C2) IC2;
+  typedef POLY_BINARY_COEFF (T2, T4) size_diff_type;
+  typedef poly_span_traits<T1, T3, size_diff_type> span;
+  return (must_gt (size1, IC2 (0))
+	  && (poly_coeff_traits<C2>::signedness > 0
+	      || known_size_p (size1))
+	  && known_size_p (size2)
 	  && must_ge (pos1, pos2)
-	  && must_le (pos1 - pos2 + size1 + (size2 - size2), size2));
+	  && must_le (size1, size2)
+	  && must_le (span::cast (pos1 - pos2), size2 - size1));
 }
 
-/* Return true if range [POS, POS + SIZE) is known to include VAL.
-   SIZE can be the special value -1, in which case the range is
-   open-ended.  */
+/* Return true if the endpoint of the range [POS, POS + SIZE) can be
+   stored in a T, or if SIZE is the special value -1, which makes the
+   range open-ended.  */
 
-template<typename T1, typename T2, typename T3>
-static inline bool
-known_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
+template<typename T>
+static inline typename if_nonpoly<T, bool>::t
+endpoint_representable_p (const T &pos, const T &size)
 {
-  return (may_ne (size, (size - size) - 1)
-	  && must_ge (val, pos)
-	  && must_lt (val - pos + (size - size), size));
+  return (!known_size_p (size)
+	  || pos <= poly_coeff_traits<T>::max_value - size);
 }
 
-/* Return true if range [POS, POS + SIZE) might include VAL.
-   SIZE can be the special value -1, in which case the range is
-   open-ended.  */
-
-template<typename T1, typename T2, typename T3>
+template<unsigned int N, typename C>
 static inline bool
-maybe_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
+endpoint_representable_p (const poly_int_pod<N, C> &pos,
+			  const poly_int_pod<N, C> &size)
 {
-  return (must_eq (size, (size - size) - 1)
-	  || (may_ge (val, pos) && may_lt (val, pos + size)));
+  if (known_size_p (size))
+    for (unsigned int i = 0; i < N; ++i)
+      if (pos.coeffs[i] > poly_coeff_traits<C>::max_value - size.coeffs[i])
+	return false;
+  return true;
 }
 
 template<unsigned int N, typename C>
@@ -2007,5 +2606,16 @@ void
 gt_pch_nx (poly_int_pod<N, C> *, void (*) (void *, void *), void *)
 {
 }
+
+#undef POLY_SET_COEFF
+#undef POLY_INT_TYPE
+#undef POLY_BINARY_COEFF
+#undef CONST_CONST_RESULT
+#undef POLY_CONST_RESULT
+#undef CONST_POLY_RESULT
+#undef POLY_POLY_RESULT
+#undef POLY_CONST_COEFF
+#undef CONST_POLY_COEFF
+#undef POLY_POLY_COEFF
 
 #endif

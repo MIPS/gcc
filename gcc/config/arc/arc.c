@@ -405,12 +405,12 @@ arc_preferred_simd_mode (scalar_mode mode)
    TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES.  */
 
 static void
-arc_autovectorize_vector_sizes (vec<poly_uint64> &sizes)
+arc_autovectorize_vector_sizes (vector_sizes *sizes)
 {
   if (TARGET_PLUS_QMACW)
     {
-      sizes.quick_push (8);
-      sizes.quick_push (4);
+      sizes->quick_push (8);
+      sizes->quick_push (4);
     }
 }
 
@@ -5727,7 +5727,7 @@ arc_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = (mode == BLKmode
-	       ? int_size_in_bytes_hwi (type) : (int) GET_MODE_SIZE (mode));
+	       ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode));
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
   int arg_num = *cum;
   int ret;
@@ -5834,7 +5834,7 @@ arc_function_arg_advance (cumulative_args_t cum_v,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = (mode == BLKmode
-	       ? int_size_in_bytes_hwi (type) : (int) GET_MODE_SIZE (mode));
+	       ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode));
   int words = (bytes + UNITS_PER_WORD  - 1) / UNITS_PER_WORD;
   int i;
 
@@ -6865,7 +6865,7 @@ arc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     return true;
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       return (size == -1 || size > (TARGET_V2 ? 16 : 8));
     }
 }
@@ -7773,7 +7773,7 @@ arc_in_small_data_p (const_tree decl)
      section.  */
   else if (TREE_PUBLIC (decl))
     {
-      size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+      size = int_size_in_bytes (TREE_TYPE (decl));
       return (size > 0 && size <= g_switch_value);
     }
   return false;

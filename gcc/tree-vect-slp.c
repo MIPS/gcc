@@ -596,10 +596,11 @@ vect_record_max_nunits (vec_info *vinfo, gimple *stmt, unsigned int group_size,
 
   /* If populating the vector type requires unrolling then fail
      before adjusting *max_nunits for basic-block vectorization.  */
-  unsigned HOST_WIDE_INT const_vf;
+  poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  unsigned HOST_WIDE_INT const_nunits;
   if (is_a <bb_vec_info> (vinfo)
-      && (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&const_vf)
-	  || const_vf > group_size))
+      && (!nunits.is_constant (&const_nunits)
+	  || const_nunits > group_size))
     {
       dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 		       "Build SLP failed: unrolling required "
@@ -1011,11 +1012,12 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
 
   /* If we allowed a two-operation SLP node verify the target can cope
      with the permute we are going to use.  */
+  poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (vectype);
   if (alt_stmt_code != ERROR_MARK
       && TREE_CODE_CLASS (alt_stmt_code) != tcc_reference)
     {
       unsigned HOST_WIDE_INT count;
-      if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&count))
+      if (!nunits.is_constant (&count))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1760,14 +1762,20 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
       return true;
     }
 
-  /* For loop vectorization verify we can generate the permutation.  */
+  /* For loop vectorization verify we can generate the permutation.  Be
+     conservative about the vectorization factor, there are permutations
+     that will use three vector inputs only starting from a specific factor
+     and the vectorization factor is not yet final.
+     ???  The SLP instance unrolling factor might not be the maximum one.  */
   unsigned n_perms;
+  poly_uint64 test_vf
+    = force_common_multiple (SLP_INSTANCE_UNROLLING_FACTOR (slp_instn),
+			     LOOP_VINFO_VECT_FACTOR
+			     (STMT_VINFO_LOOP_VINFO (vinfo_for_stmt (stmt))));
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
     if (node->load_permutation.exists ()
-	&& !vect_transform_slp_perm_load
-	      (node, vNULL, NULL,
-	       SLP_INSTANCE_UNROLLING_FACTOR (slp_instn), slp_instn, true,
-	       &n_perms))
+	&& !vect_transform_slp_perm_load (node, vNULL, NULL, test_vf,
+					  slp_instn, true, &n_perms))
       return false;
 
   return true;
@@ -3158,14 +3166,14 @@ vect_slp_bb (basic_block bb)
   bb_vec_info bb_vinfo;
   gimple_stmt_iterator gsi;
   bool any_vectorized = false;
-  auto_vec<poly_uint64, 8> vector_sizes;
+  auto_vector_sizes vector_sizes;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location, "===vect_slp_analyze_bb===\n");
 
   /* Autodetect first vector size we try.  */
   current_vector_size = 0;
-  targetm.vectorize.autovectorize_vector_sizes (vector_sizes);
+  targetm.vectorize.autovectorize_vector_sizes (&vector_sizes);
   unsigned int next_size = 0;
 
   gsi = gsi_start_bb (bb);
@@ -3234,7 +3242,7 @@ vect_slp_bb (basic_block bb)
 
       if (vectorized
 	  || next_size == vector_sizes.length ()
-	  || must_eq (current_vector_size, 0U)
+	  || known_zero (current_vector_size)
 	  /* If vect_slp_analyze_bb_1 signaled that analysis for all
 	     vector sizes will fail do not bother iterating.  */
 	  || fatal)
@@ -3939,6 +3947,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 				    stmt, 0);
 		}
+	      gcc_assert (analyze_only);
 	      return false;
 	    }
 
@@ -3961,6 +3970,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 			dump_printf (MSG_MISSED_OPTIMIZATION, "%d ", mask[i]);
 		      dump_printf (MSG_MISSED_OPTIMIZATION, "}\n");
 		    }
+		  gcc_assert (analyze_only);
 		  return false;
 		}
 

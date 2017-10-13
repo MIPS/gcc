@@ -1078,6 +1078,13 @@ On 32-bit ELF the largest supported section alignment in bits is
 @samp{(0x80000000 * 8)}, but this is not representable on 32-bit hosts.
 @end defmac
 
+@deftypefn {Target Hook} HOST_WIDE_INT TARGET_STATIC_RTX_ALIGNMENT (machine_mode @var{mode})
+This hook returns the preferred alignment in bits for a
+statically-allocated rtx, such as a constant pool entry.  @var{mode}
+is the mode of the rtx.  The default implementation returns
+@samp{GET_MODE_ALIGNMENT (@var{mode})}.
+@end deftypefn
+
 @defmac DATA_ALIGNMENT (@var{type}, @var{basic-align})
 If defined, a C expression to compute the alignment for a variable in
 the static store.  @var{type} is the data type, and @var{basic-align} is
@@ -5848,7 +5855,7 @@ equal to @code{word_mode}, because the vectorizer can do some
 transformations even in absence of specialized @acronym{SIMD} hardware.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES (vec<poly_uint64> @var{&sizes})
+@deftypefn {Target Hook} void TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES (vector_sizes *@var{sizes})
 If the mode returned by @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE} isn't
 the only one that's worth considering, this hook should add all suitable
 vector sizes to @var{sizes}, in order of decreasing preference.  The first
@@ -6689,6 +6696,18 @@ be live over a region of code where only one would have been if
 should be considered in the definition of this macro.  Equivalent costs
 should probably only be given to addresses with different numbers of
 registers on machines with lots of registers.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_INSN_COST (rtx_insn *@var{insn}, bool @var{speed})
+This target hook describes the relative costs of RTL instructions.
+
+In implementing this hook, you can use the construct
+@code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast
+instructions.
+
+When optimizing for code size, i.e.@: when @code{speed} is
+false, this target hook should be used to estimate the relative
+size cost of an expression, again relative to @code{COSTS_N_INSNS}.
 @end deftypefn
 
 @deftypefn {Target Hook} {unsigned int} TARGET_MAX_NOCE_IFCVT_SEQ_COST (edge @var{e})

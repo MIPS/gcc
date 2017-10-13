@@ -2032,7 +2032,7 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
     /* Neither vector nor complex types can contain the other.  */
     type = TREE_TYPE (type);
 
-  unsigned elt_size = int_size_in_bytes_hwi (type);
+  unsigned elt_size = int_size_in_bytes (type);
 
   /* Largest mode we're prepared to accept.  For BLKmode types we
      don't know if it'll contain pointer constants, so have to choose
@@ -2306,11 +2306,14 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   fprintf (asm_out_file, ";\n");
 
   if (find_reg_note (insn, REG_NORETURN, NULL))
-    /* No return functions confuse the PTX JIT, as it doesn't realize
-       the flow control barrier they imply.  It can seg fault if it
-       encounters what looks like an unexitable loop.  Emit a trailing
-       trap, which it does grok.  */
-    fprintf (asm_out_file, "\t\ttrap; // (noreturn)\n");
+    {
+      /* No return functions confuse the PTX JIT, as it doesn't realize
+	 the flow control barrier they imply.  It can seg fault if it
+	 encounters what looks like an unexitable loop.  Emit a trailing
+	 trap and exit, which it does grok.  */
+      fprintf (asm_out_file, "\t\ttrap; // (noreturn)\n");
+      fprintf (asm_out_file, "\t\texit; // (noreturn)\n");
+    }
 
   if (result)
     {

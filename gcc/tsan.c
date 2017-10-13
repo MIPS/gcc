@@ -106,7 +106,7 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   location_t loc;
   unsigned int align;
 
-  size = int_size_in_bytes_hwi (TREE_TYPE (expr));
+  size = int_size_in_bytes (TREE_TYPE (expr));
   if (size <= 0)
     return false;
 

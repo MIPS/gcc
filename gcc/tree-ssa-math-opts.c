@@ -2135,10 +2135,9 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
       base_addr = TREE_OPERAND (base_addr, 0);
 
       /* Avoid returning a negative bitpos as this may wreak havoc later.  */
-      gcc_checking_assert (ordered_p (bit_offset, 0));
       if (may_lt (bit_offset, 0))
 	{
-	  tree byte_offset = poly_offset_int_to_tree
+	  tree byte_offset = wide_int_to_tree
 	    (sizetype, bits_to_bytes_round_down (bit_offset));
 	  bit_offset = num_trailing_bits (bit_offset);
 	  if (offset)

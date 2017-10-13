@@ -72,7 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #define MMIX_EH_RETURN_STACKADJ_REGNUM MMIX_STATIC_CHAIN_REGNUM
 
 #define MMIX_FUNCTION_ARG_SIZE(MODE, TYPE) \
- ((MODE) != BLKmode ? GET_MODE_SIZE (MODE) : int_size_in_bytes_hwi (TYPE))
+ ((MODE) != BLKmode ? GET_MODE_SIZE (MODE) : int_size_in_bytes (TYPE))
 
 /* Per-function machine data.  This is normally an opaque type just
    defined and used in the tm.c file, but we need to see the definition in

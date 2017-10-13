@@ -256,6 +256,20 @@ must_gt (@var{a}, @var{b}) == !may_le (@var{a}, @var{b})
 must_ne (@var{a}, @var{b}) == !may_eq (@var{a}, @var{b})
 @end example
 
+There are also helper functions for certain common operations:
+
+@example
+known_zero (@var{a}) == must_eq (@var{a}, 0)
+maybe_zero (@var{a}) == may_eq (@var{a}, 0)
+known_nonzero (@var{a}) == must_ne (@var{a}, 0)
+maybe_nonzero (@var{a}) == may_ne (@var{a}, 0)
+known_one (@var{a}) == must_eq (@var{a}, 1)
+known_all_ones (@var{a}) == must_eq (@var{a}, -1)
+@end example
+
+Using these helper functions removes the need to distinguish between
+signed and unsigned constants, such as @samp{0} and @samp{0U}.
+
 @node Properties of the @code{poly_int} comparisons
 @subsection Properties of the @code{poly_int} comparisons
 
@@ -461,9 +475,14 @@ much more often than the latter in GCC@.  Also, the sizes can be
 start position but an unknown size.
 
 @table @samp
+@item known_size_p (@var{size})
+Return true if @var{size} represents a known range size, false if it
+is -1 or all ones (for signed and unsigned types respectively).
+
 @item ranges_may_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
 Return true if the range described by @var{pos1} and @var{size1} @emph{might}
-overlap the range described by @var{pos2} and @var{size2}.
+overlap the range described by @var{pos2} and @var{size2} (in other words,
+return true if we cannot prove that the ranges are disjoint).
 
 @item ranges_must_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
 Return true if the range described by @var{pos1} and @var{size1} is known to
@@ -475,12 +494,18 @@ be contained in the range described by @var{pos2} and @var{size2}.
 
 @item maybe_in_range_p (@var{value}, @var{pos}, @var{size})
 Return true if @var{value} @emph{might} be in the range described by
-@var{pos} and @var{size} (in other words, return true if @var{value}
-is not known to be outside that range).
+@var{pos} and @var{size} (in other words, return true if we cannot
+prove that @var{value} is outside that range).
 
 @item known_in_range_p (@var{value}, @var{pos}, @var{size})
 Return true if @var{value} is known to be in the range described
 by @var{pos} and @var{size}.
+
+@item endpoint_representable_p (@var{pos}, @var{size})
+Return true if the range described by @var{pos} and @var{size} is
+open-ended or if the endpoint (@var{pos} + @var{size}) is representable
+in the same type as @var{pos} and @var{size}.  The function returns false
+if adding @var{size} to @var{pos} makes conceptual sense but could overflow.
 @end table
 
 @node Sorting @code{poly_int}s
@@ -583,13 +608,23 @@ the rules are the same as for @code{wide_int} arithmetic.
 @subsection @code{wi} arithmetic on @code{poly_int}s
 
 As well as the C++ operators, @code{poly_int} supports the following
-overflow-checking @code{wi} routines:
+@code{wi} routines:
 
 @smallexample
 wi::neg (@var{p1}, &@var{overflow})
 
+wi::add (@var{p1}, @var{p2})
+wi::add (@var{p1}, @var{c2})
+wi::add (@var{c1}, @var{p1})
 wi::add (@var{p1}, @var{p2}, @var{sign}, &@var{overflow})
+
+wi::sub (@var{p1}, @var{p2})
+wi::sub (@var{p1}, @var{c2})
+wi::sub (@var{c1}, @var{p1})
 wi::sub (@var{p1}, @var{p2}, @var{sign}, &@var{overflow})
+
+wi::mul (@var{p1}, @var{c2})
+wi::mul (@var{c1}, @var{p1})
 wi::mul (@var{p1}, @var{c2}, @var{sign}, &@var{overflow})
 @end smallexample
 
@@ -836,6 +871,9 @@ Return a @code{poly_int} of the same type as @var{value}, sign-extending
 every coefficient from the low @var{precision} bits.  This in effect
 applies @code{wi::sext} to each coefficient individually.
 
+@item wi::zext (@var{value}, @var{precision})
+Like @code{wi::sext}, but for zero extension.
+
 @item poly_wide_int::from (@var{value}, @var{precision}, @var{sign})
 Convert @var{value} to a @code{poly_wide_int} in which each coefficient
 has @var{precision} bits.  Extend the coefficients according to
@@ -855,9 +893,14 @@ according to @var{sign} if they have fewer bits than @code{widest_int}.
 
 @table @samp
 @item print_dec (@var{value}, @var{file}, @var{sign})
+@itemx print_dec (@var{value}, @var{file})
 Print @var{value} to @var{file} as a decimal value, interpreting
-the coefficients according to @var{sign}.  This is a simply a
-@code{poly_int} version of a wide-int routine.
+the coefficients according to @var{sign}.  The final argument is
+optional if @var{value} has an inherent sign; for example,
+@code{poly_int64} values print as signed by default and
+@code{poly_uint64} values print as unsigned by default.
+
+This is a simply a @code{poly_int} version of a wide-int routine.
 @end table
 
 @node Guidelines for using @code{poly_int}

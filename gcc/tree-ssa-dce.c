@@ -488,13 +488,9 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef, void *data)
 	{
 	  /* For a must-alias check we need to be able to constrain
 	     the accesses properly.  */
-	  if (may_ne (size, -1)
-	      && must_eq (size, max_size)
-	      && ref->max_size_known_p ())
-	    {
-	      if (known_subrange_p (ref->offset, ref->max_size, offset, size))
-		return true;
-	    }
+	  if (must_eq (size, max_size)
+	      && known_subrange_p (ref->offset, ref->max_size, offset, size))
+	    return true;
 	  /* Or they need to be exactly the same.  */
 	  else if (ref->ref
 		   /* Make sure there is no induction variable involved

@@ -958,7 +958,7 @@ output_stack_usage (void)
   stack_usage_kind = STATIC;
 
   /* Add the maximum amount of space pushed onto the stack.  */
-  if (may_ne (current_function_pushed_stack_size, 0))
+  if (maybe_nonzero (current_function_pushed_stack_size))
     {
       HOST_WIDE_INT extra;
       if (current_function_pushed_stack_size.is_constant (&extra))
@@ -2199,7 +2199,7 @@ toplev::main (int argc, char **argv)
     {
       gcc_assert (global_dc->edit_context_ptr);
 
-      pretty_printer (pp);
+      pretty_printer pp;
       pp_show_color (&pp) = pp_show_color (global_dc->printer);
       global_dc->edit_context_ptr->print_diff (&pp, true);
       pp_flush (&pp);

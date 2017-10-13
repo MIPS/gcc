@@ -136,7 +136,7 @@ lm32_return_in_memory (tree type)
       return 0;
     }
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   if (size >= 0 && size <= UNITS_PER_WORD)
     {
       /* If it can fit in one register.  */
@@ -701,7 +701,7 @@ lm32_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
       int size;
 
       if (mode == BLKmode)
-	size = int_size_in_bytes_hwi (type);
+	size = int_size_in_bytes (type);
       else
 	size = GET_MODE_SIZE (mode);
 
@@ -803,7 +803,7 @@ lm32_in_small_data_p (const_tree exp)
     }
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
          in sdata because it might be too big when completed.  */

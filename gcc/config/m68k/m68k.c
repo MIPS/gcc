@@ -1467,7 +1467,7 @@ m68k_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   *cum += (mode != BLKmode
 	   ? (GET_MODE_SIZE (mode) + 3) & ~3
-	   : (int_size_in_bytes_hwi (type) + 3) & ~3);
+	   : (int_size_in_bytes (type) + 3) & ~3);
 }
 
 /* Convert X to a legitimate function call memory reference and return the

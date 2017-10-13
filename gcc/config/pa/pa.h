@@ -610,7 +610,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
 #define FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((((MODE) != BLKmode \
      ? (HOST_WIDE_INT) GET_MODE_SIZE (MODE) \
-     : int_size_in_bytes_hwi (TYPE)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+     : int_size_in_bytes (TYPE)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -702,8 +702,8 @@ void hppa_profile_hook (int label_no);
 extern int may_call_alloca;
 
 #define EXIT_IGNORE_STACK	\
- (may_ne (get_frame_size (), 0)	\
-  || cfun->calls_alloca || may_ne (crtl->outgoing_args_size, 0))
+ (maybe_nonzero (get_frame_size ())	\
+  || cfun->calls_alloca || maybe_nonzero (crtl->outgoing_args_size))
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -1306,3 +1306,5 @@ do {									     \
    seven and four instructions, respectively.  */  
 #define MAX_PCREL17F_OFFSET \
   (flag_pic ? (TARGET_HPUX ? 198164 : 221312) : 240000)
+
+#define NEED_INDICATE_EXEC_STACK 0

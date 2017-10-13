@@ -479,8 +479,8 @@ template<unsigned int N, typename C>
 void
 dump_dec (int dump_kind, const poly_int<N, C> &value)
 {
-  STATIC_ASSERT (int_traits<C>::signedness >= 0);
-  signop sgn = int_traits<C>::signedness ? SIGNED : UNSIGNED;
+  STATIC_ASSERT (poly_coeff_traits<C>::signedness >= 0);
+  signop sgn = poly_coeff_traits<C>::signedness ? SIGNED : UNSIGNED;
   if (dump_file && (dump_kind & pflags))
     print_dec (value, dump_file, sgn);
 

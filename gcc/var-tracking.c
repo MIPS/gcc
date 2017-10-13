@@ -390,12 +390,12 @@ struct variable
 /* Pointer to the BB's information specific to variable tracking pass.  */
 #define VTI(BB) ((variable_tracking_info *) (BB)->aux)
 
-/* Return MEM_OFFSET (MEM) as a HOST_WIDE_INT.  */
+/* Return MEM_OFFSET (MEM) as a HOST_WIDE_INT, or 0 if we can't.  */
 
 static inline HOST_WIDE_INT
 int_mem_offset (const_rtx mem)
 {
-  int64_t offset;
+  HOST_WIDE_INT offset;
   if (MEM_OFFSET_KNOWN_P (mem) && MEM_OFFSET (mem).is_constant (&offset))
     return offset;
   return 0;
@@ -5350,7 +5350,7 @@ track_loc_p (rtx loc, tree expr, poly_int64 offset, bool store_reg_p,
        || (store_reg_p
 	   && !COMPLEX_MODE_P (DECL_MODE (expr))
 	   && hard_regno_nregs (REGNO (loc), DECL_MODE (expr)) == 1))
-      && must_eq (offset + byte_lowpart_offset (DECL_MODE (expr), mode), 0))
+      && known_zero (offset + byte_lowpart_offset (DECL_MODE (expr), mode)))
     {
       mode = DECL_MODE (expr);
       offset = 0;

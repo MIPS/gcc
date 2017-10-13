@@ -118,7 +118,7 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 	fprintf (file, " overflow");
 
       fprintf (file, " ");
-      print_dec (node, file, TYPE_SIGN (TREE_TYPE (node)));
+      print_dec (wi::to_wide (node), file, TYPE_SIGN (TREE_TYPE (node)));
     }
   if (TREE_CODE (node) == REAL_CST)
     {
@@ -632,7 +632,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
       else if (code == VECTOR_TYPE)
 	{
 	  fprintf (file, " nunits:");
-	  print_dec (TYPE_VECTOR_SUBPARTS (node), file, SIGNED);
+	  print_dec (TYPE_VECTOR_SUBPARTS (node), file);
 	}
       else if (code == RECORD_TYPE
 	       || code == UNION_TYPE
@@ -724,7 +724,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	    fprintf (file, " overflow");
 
 	  fprintf (file, " ");
-	  print_dec (node, file, TYPE_SIGN (TREE_TYPE (node)));
+	  print_dec (wi::to_wide (node), file, TYPE_SIGN (TREE_TYPE (node)));
 	  break;
 
 	case REAL_CST:
@@ -786,6 +786,15 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	  }
 	  break;
 
+	case VEC_DUPLICATE_CST:
+	  print_node (file, "elt", VEC_DUPLICATE_CST_ELT (node), indent + 4);
+	  break;
+
+	case VEC_SERIES_CST:
+	  print_node (file, "base", VEC_SERIES_CST_BASE (node), indent + 4);
+	  print_node (file, "step", VEC_SERIES_CST_STEP (node), indent + 4);
+	  break;
+
 	case COMPLEX_CST:
 	  print_node (file, "real", TREE_REALPART (node), indent + 4);
 	  print_node (file, "imag", TREE_IMAGPART (node), indent + 4);
@@ -808,13 +817,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	  }
 	  break;
 
-	case POLY_CST:
+	case POLY_INT_CST:
 	  {
 	    char buf[10];
 	    for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
 	      {
 		snprintf (buf, sizeof (buf), "elt%u: ", i);
-		print_node (file, buf, POLY_CST_ELT (node, i), indent + 4);
+		print_node (file, buf, POLY_INT_CST_COEFF (node, i),
+			    indent + 4);
 	      }
 	  }
 	  break;

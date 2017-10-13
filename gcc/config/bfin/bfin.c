@@ -1659,9 +1659,7 @@ bfin_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int count, bytes, words;
 
-  bytes = (mode == BLKmode
-	   ? int_size_in_bytes_hwi (type)
-	   : GET_MODE_SIZE (mode));
+  bytes = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
   words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   cum->words += words;
@@ -1699,9 +1697,8 @@ bfin_function_arg (cumulative_args_t cum_v, machine_mode mode,
 		   const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  int bytes = (mode == BLKmode
-	       ? int_size_in_bytes_hwi (type)
-	       : GET_MODE_SIZE (mode));
+  int bytes
+    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
 
   if (mode == VOIDmode)
     /* Compute operand 2 of the call insn.  */
@@ -1731,7 +1728,7 @@ bfin_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
 			bool named ATTRIBUTE_UNUSED)
 {
   int bytes
-    = (mode == BLKmode) ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode);
+    = (mode == BLKmode) ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
   int bytes_left = get_cumulative_args (cum)->nregs * UNITS_PER_WORD;
   
   if (bytes == -1)
@@ -1761,7 +1758,7 @@ bfin_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 static bool
 bfin_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  int size = int_size_in_bytes_hwi (type);
+  int size = int_size_in_bytes (type);
   return size > 2 * UNITS_PER_WORD || size == -1;
 }
 
@@ -2809,7 +2806,7 @@ bfin_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
   if (SYMBOL_REF_DECL (sym) == 0)
     return true;
   if (offset < 0
-      || offset >= int_size_in_bytes_hwi (TREE_TYPE (SYMBOL_REF_DECL (sym))))
+      || offset >= int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (sym))))
     return false;
 
   return true;
@@ -3323,7 +3320,7 @@ bfin_local_alignment (tree type, unsigned align)
      memcpy can use 32 bit loads/stores.  */
   if (TYPE_SIZE (type)
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && wi::gtu_p (TYPE_SIZE (type), 8)
+      && wi::gtu_p (wi::to_wide (TYPE_SIZE (type)), 8)
       && align < 32)
     return 32;
   return align;

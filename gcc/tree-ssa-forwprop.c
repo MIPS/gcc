@@ -775,7 +775,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	    new_ptr = build_fold_addr_expr (def_rhs_base);
 	  TREE_OPERAND (lhs, 0) = new_ptr;
 	  TREE_OPERAND (lhs, 1)
-	    = poly_offset_int_to_tree (TREE_TYPE (TREE_OPERAND (lhs, 1)), off);
+	    = wide_int_to_tree (TREE_TYPE (TREE_OPERAND (lhs, 1)), off);
 	  tidy_after_forward_propagate_addr (use_stmt);
 	  /* Continue propagating into the RHS if this was not the only use.  */
 	  if (single_use_p)
@@ -866,7 +866,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	    new_ptr = build_fold_addr_expr (def_rhs_base);
 	  TREE_OPERAND (rhs, 0) = new_ptr;
 	  TREE_OPERAND (rhs, 1)
-	    = poly_offset_int_to_tree (TREE_TYPE (TREE_OPERAND (rhs, 1)), off);
+	    = wide_int_to_tree (TREE_TYPE (TREE_OPERAND (rhs, 1)), off);
 	  fold_stmt_inplace (use_stmt_gsi);
 	  tidy_after_forward_propagate_addr (use_stmt);
 	  return res;
@@ -1174,16 +1174,16 @@ constant_pointer_difference (tree p1, tree p2)
 	      if (base)
 		{
 		  q = base;
-		  if (may_ne (offset, 0))
+		  if (maybe_nonzero (offset))
 		    off = size_binop (PLUS_EXPR, off, size_int (offset));
 		}
 	      if (TREE_CODE (q) == MEM_REF
 		  && TREE_CODE (TREE_OPERAND (q, 0)) == SSA_NAME)
 		{
 		  p = TREE_OPERAND (q, 0);
-		  tree q_offset = poly_offset_int_to_tree
-		    (sizetype, mem_ref_offset (q));
-		  off = size_binop (PLUS_EXPR, off, q_offset);
+		  off = size_binop (PLUS_EXPR, off,
+				    wide_int_to_tree (sizetype,
+						      mem_ref_offset (q)));
 		}
 	      else
 		{

@@ -104,7 +104,7 @@ struct ao_ref
 inline bool
 ao_ref::max_size_known_p () const
 {
-  return may_ne (max_size, -1);
+  return known_size_p (max_size);
 }
 
 /* In tree-ssa-alias.c  */

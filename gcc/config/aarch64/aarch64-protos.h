@@ -328,6 +328,16 @@ enum aarch64_parse_opt_result
   AARCH64_PARSE_INVALID_ARG		/* Invalid arch, tune, cpu arg.  */
 };
 
+/* Enum to distinguish which type of check is to be done in
+   aarch64_simd_valid_immediate.  This is used as a bitmask where
+   AARCH64_CHECK_MOV has both bits set.  Thus AARCH64_CHECK_MOV will
+   perform all checks.  Adding new types would require changes accordingly.  */
+enum simd_immediate_check {
+  AARCH64_CHECK_ORR  = 1 << 0,
+  AARCH64_CHECK_BIC  = 1 << 1,
+  AARCH64_CHECK_MOV  = AARCH64_CHECK_ORR | AARCH64_CHECK_BIC
+};
+
 extern struct tune_params aarch64_tune_params;
 
 poly_int64 aarch64_initial_elimination_offset (unsigned, unsigned);
@@ -375,7 +385,8 @@ char *aarch64_output_sve_cnt_immediate (const char *, const char *, rtx);
 char *aarch64_output_sve_addvl_addpl (rtx, rtx, rtx);
 char *aarch64_output_sve_inc_dec_immediate (const char *, rtx);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
-char *aarch64_output_simd_mov_immediate (rtx, unsigned);
+char *aarch64_output_simd_mov_immediate (rtx, unsigned,
+			enum simd_immediate_check w = AARCH64_CHECK_MOV);
 char *aarch64_output_sve_mov_immediate (rtx);
 char *aarch64_output_ptrue (machine_mode, char);
 bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
@@ -386,7 +397,8 @@ bool aarch64_simd_check_vect_par_cnst_half (rtx op, machine_mode mode,
 					    bool high);
 bool aarch64_simd_scalar_immediate_valid_for_move (rtx, scalar_int_mode);
 bool aarch64_simd_shift_imm_p (rtx, machine_mode, bool);
-bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *);
+bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *,
+			enum simd_immediate_check w = AARCH64_CHECK_MOV);
 rtx aarch64_check_zero_based_sve_index_immediate (rtx);
 bool aarch64_sve_index_immediate_p (rtx);
 bool aarch64_sve_arith_immediate_p (rtx, bool);

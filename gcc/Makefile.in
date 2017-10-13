@@ -1413,6 +1413,7 @@ OBJS = \
 	opts-global.o \
 	passes.o \
 	plugin.o \
+	poly-int.o \
 	postreload-gcse.o \
 	postreload.o \
 	predict.o \

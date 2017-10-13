@@ -89,7 +89,7 @@ do_pending_stack_adjust (void)
 {
   if (inhibit_defer_pop == 0)
     {
-      if (may_ne (pending_stack_adjust, 0))
+      if (maybe_nonzero (pending_stack_adjust))
 	adjust_stack (gen_int_mode (pending_stack_adjust, Pmode));
       pending_stack_adjust = 0;
     }

@@ -513,12 +513,14 @@ static bool
 lowpart_bit_field_p (poly_uint64 bitnum, poly_uint64 bitsize,
 		     machine_mode struct_mode)
 {
+  poly_uint64 regsize = REGMODE_NATURAL_SIZE (struct_mode);
   if (BYTES_BIG_ENDIAN)
     return (multiple_p (bitnum, BITS_PER_UNIT)
 	    && (must_eq (bitnum + bitsize, GET_MODE_BITSIZE (struct_mode))
-		|| multiple_p (bitnum + bitsize, BITS_PER_WORD)));
+		|| multiple_p (bitnum + bitsize,
+			       regsize * BITS_PER_UNIT)));
   else
-    return multiple_p (bitnum, BITS_PER_WORD);
+    return multiple_p (bitnum, regsize * BITS_PER_UNIT);
 }
 
 /* Return true if -fstrict-volatile-bitfields applies to an access of OP0
@@ -559,10 +561,10 @@ strict_volatile_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
     return false;
 
   /* Check for cases where the C++ memory model applies.  */
-  if (may_ne (bitregion_end, 0U)
-      && !known_subrange_p (bitnum - bitnum % modesize, modesize,
-			    bitregion_start,
-			    bitregion_end + 1 - bitregion_start))
+  if (maybe_nonzero (bitregion_end)
+      && (may_lt (bitnum - bitnum % modesize, bitregion_start)
+	  || may_gt (bitnum - bitnum % modesize + modesize - 1,
+		     bitregion_end)))
     return false;
 
   return true;
@@ -571,6 +573,7 @@ strict_volatile_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
 /* Return true if OP is a memory and if a bitfield of size BITSIZE at
    bit number BITNUM can be treated as a simple value of mode MODE.
    Store the byte offset in *BYTENUM if so.  */
+
 static bool
 simple_mem_bitfield_p (rtx op0, poly_uint64 bitsize, poly_uint64 bitnum,
 		       machine_mode mode, poly_uint64 *bytenum)
@@ -774,10 +777,10 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	 words or to cope with mode punning between equal-sized modes.
 	 In the latter case, use subreg on the rhs side, not lhs.  */
       rtx sub;
-      poly_uint64 wordnum;
-
-      if (must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0)))
-	  && must_eq (bitnum, 0U))
+      HOST_WIDE_INT regnum;
+      poly_uint64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (op0));
+      if (known_zero (bitnum)
+	  && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
 	{
 	  sub = simplify_gen_subreg (GET_MODE (op0), value, fieldmode, 0);
 	  if (sub)
@@ -788,11 +791,11 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	      return true;
 	    }
 	}
-      else if (multiple_p (bitsize, BITS_PER_WORD)
-	       && multiple_p (bitnum, BITS_PER_WORD, &wordnum))
+      else if (constant_multiple_p (bitnum, regsize * BITS_PER_UNIT, &regnum)
+	       && multiple_p (bitsize, regsize * BITS_PER_UNIT))
 	{
 	  sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
-				     wordnum * UNITS_PER_WORD);
+				     regnum * regsize);
 	  if (sub)
 	    {
 	      if (reverse)
@@ -1126,7 +1129,7 @@ store_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* Under the C++0x memory model, we must not touch bits outside the
      bit region.  Adjust the address to start at the beginning of the
      bit region.  */
-  if (MEM_P (str_rtx) && may_gt (bitregion_start, 0U))
+  if (MEM_P (str_rtx) && maybe_nonzero (bitregion_start))
     {
       scalar_int_mode best_mode;
       machine_mode addr_mode = VOIDmode;
@@ -1367,7 +1370,7 @@ store_split_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	 UNIT close to the end of the region as needed.  If op0 is a REG
 	 or SUBREG of REG, don't do this, as there can't be data races
 	 on a register and we can expand shorter code in some cases.  */
-      if (may_ne (bitregion_end, 0U)
+      if (maybe_nonzero (bitregion_end)
 	  && unit > BITS_PER_UNIT
 	  && may_gt (bitpos + bitsdone - thispos + unit, bitregion_end + 1)
 	  && !REG_P (op0)
@@ -1614,7 +1617,7 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 
   if (REG_P (op0)
       && mode == GET_MODE (op0)
-      && must_eq (bitnum, 0U)
+      && known_zero (bitnum)
       && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
     {
       if (reverse)
@@ -5274,6 +5277,10 @@ make_tree (tree type, rtx x)
 
       return t;
 
+    case CONST_POLY_INT:
+      /* FIXME */
+      gcc_unreachable ();
+
     case CONST_VECTOR:
       {
 	int units = CONST_VECTOR_NUNITS (x);
@@ -5356,7 +5363,7 @@ make_tree (tree type, rtx x)
 	    tree itype = TREE_TYPE (type);
 	    tree base_tree = make_tree (itype, XEXP (op, 0));
 	    tree step_tree = make_tree (itype, XEXP (op, 1));
-	    return build2 (VEC_SERIES_EXPR, type, base_tree, step_tree);
+	    return build_vec_series (type, base_tree, step_tree);
 	  }
 	return make_tree (type, op);
       }

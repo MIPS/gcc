@@ -544,7 +544,7 @@ s390_check_type_for_vector_abi (const_tree type, bool arg_p, bool in_struct_p)
 
   if (VECTOR_TYPE_P (type))
     {
-      int type_size = int_size_in_bytes_hwi (type);
+      int type_size = int_size_in_bytes (type);
 
       /* Outside arguments only the alignment is changing and this
 	 only happens for vector types >= 16 bytes.  */
@@ -1104,11 +1104,11 @@ s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
     err = 1;
   else if (TREE_CODE (expr) != INTEGER_CST
 	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr))
-	   || wi::gtu_p (expr, s390_hotpatch_hw_max))
+	   || wi::gtu_p (wi::to_wide (expr), s390_hotpatch_hw_max))
     err = 1;
   else if (TREE_CODE (expr2) != INTEGER_CST
 	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr2))
-	   || wi::gtu_p (expr2, s390_hotpatch_hw_max))
+	   || wi::gtu_p (wi::to_wide (expr2), s390_hotpatch_hw_max))
     err = 1;
   else
     err = 0;
@@ -6398,16 +6398,16 @@ s390_expand_vec_compare (rtx target, enum rtx_code cond,
 	  /* UNLT: a u< b -> !(a >= b) */
 	case UNLT: cond = GE; neg_p = true;                break;
 	case UNEQ:
-	  emit_insn (gen_vec_cmpuneqv2df (target, cmp_op1, cmp_op2));
+	  emit_insn (gen_vec_cmpuneq (target, cmp_op1, cmp_op2));
 	  return;
 	case LTGT:
-	  emit_insn (gen_vec_cmpltgtv2df (target, cmp_op1, cmp_op2));
+	  emit_insn (gen_vec_cmpltgt (target, cmp_op1, cmp_op2));
 	  return;
 	case ORDERED:
-	  emit_insn (gen_vec_orderedv2df (target, cmp_op1, cmp_op2));
+	  emit_insn (gen_vec_ordered (target, cmp_op1, cmp_op2));
 	  return;
 	case UNORDERED:
-	  emit_insn (gen_vec_unorderedv2df (target, cmp_op1, cmp_op2));
+	  emit_insn (gen_vec_unordered (target, cmp_op1, cmp_op2));
 	  return;
 	default: break;
 	}
@@ -11361,7 +11361,7 @@ s390_emit_prologue (void)
   /* When probing for stack-clash mitigation, we have to track the distance
      between the stack pointer and closest known reference.
 
-     Most of the time we have to make a worst cast assumption.  The
+     Most of the time we have to make a worst case assumption.  The
      only exception is when TARGET_BACKCHAIN is active, in which case
      we know *sp (offset 0) was written.  */
   HOST_WIDE_INT probe_interval
@@ -12113,7 +12113,7 @@ static int
 s390_function_arg_size (machine_mode mode, const_tree type)
 {
   if (type)
-    return int_size_in_bytes_hwi (type);
+    return int_size_in_bytes (type);
 
   /* No type info available for some library calls ...  */
   if (mode != BLKmode)
@@ -12162,8 +12162,8 @@ s390_function_arg_vector (machine_mode mode, const_tree type)
 	{
 	  /* If the field declaration adds extra byte due to
 	     e.g. padding this is not accepted as vector type.  */
-	  if (int_size_in_bytes_hwi (single) <= 0
-	      || int_size_in_bytes_hwi (single) != int_size_in_bytes_hwi (type))
+	  if (int_size_in_bytes (single) <= 0
+	      || int_size_in_bytes (single) != int_size_in_bytes (type))
 	    return false;
 	  type = single;
 	}
@@ -12419,12 +12419,12 @@ s390_return_in_memory (const_tree type, const_tree fundecl ATTRIBUTE_UNUSED)
       || POINTER_TYPE_P (type)
       || TREE_CODE (type) == OFFSET_TYPE
       || TREE_CODE (type) == REAL_TYPE)
-    return int_size_in_bytes_hwi (type) > 8;
+    return int_size_in_bytes (type) > 8;
 
   /* vector types which fit into a VR.  */
   if (TARGET_VX_ABI
       && VECTOR_TYPE_P (type)
-      && int_size_in_bytes_hwi (type) <= 16)
+      && int_size_in_bytes (type) <= 16)
     return false;
 
   /* Aggregates and similar constructs are always returned
@@ -12768,7 +12768,7 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   valist = unshare_expr (valist);
   ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
 
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
 
   s390_check_type_for_vector_abi (type, true, false);
 
@@ -15861,6 +15861,14 @@ s390_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 static machine_mode
 s390_preferred_simd_mode (scalar_mode mode)
 {
+  if (TARGET_VXE)
+    switch (mode)
+      {
+      case E_SFmode:
+	return V4SFmode;
+      default:;
+      }
+
   if (TARGET_VX)
     switch (mode)
       {

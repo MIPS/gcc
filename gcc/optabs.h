@@ -146,20 +146,7 @@ create_address_operand (struct expand_operand *op, rtx value)
   create_expand_operand (op, EXPAND_ADDRESS, value, Pmode, false);
 }
 
-/* Make OP describe an input operand that has value INTVAL and that has
-   no inherent mode.  This function should only be used for operands that
-   are always expand-time constants.  The backend may request that INTVAL
-   be copied into a different kind of rtx, but it must specify the mode
-   of that rtx if so.  */
-
-static inline void
-create_integer_operand (struct expand_operand *op, poly_int64 intval)
-{
-  create_expand_operand (op, EXPAND_INTEGER,
-			 immed_poly_int_const (intval, MAX_MODE_INT),
-			 VOIDmode, false, intval);
-}
-
+extern void create_integer_operand (struct expand_operand *, poly_int64);
 
 /* Passed to expand_simple_binop and expand_binop to say which options
    to try to use if the requested operation can't be open-coded on the

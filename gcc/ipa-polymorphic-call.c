@@ -772,7 +772,7 @@ ipa_polymorphic_call_context::set_by_invariant (tree cst,
 
   cst = TREE_OPERAND (cst, 0);
   base = get_ref_base_and_extent (cst, &offset2, &size, &max_size, &reverse);
-  if (!DECL_P (base) || must_eq (max_size, -1) || may_ne (max_size, size))
+  if (!DECL_P (base) || !known_size_p (max_size) || may_ne (max_size, size))
     return false;
 
   /* Only type inconsistent programs can have otr_type that is
@@ -967,8 +967,9 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
       else if (TREE_CODE (base_pointer) == POINTER_PLUS_EXPR
 	       && TREE_CODE (TREE_OPERAND (base_pointer, 1)) == INTEGER_CST)
 	{
-	  offset_int o = offset_int::from (TREE_OPERAND (base_pointer, 1),
-					   SIGNED);
+	  offset_int o
+	    = offset_int::from (wi::to_wide (TREE_OPERAND (base_pointer, 1)),
+				SIGNED);
 	  o *= BITS_PER_UNIT;
 	  o += offset;
 	  if (!wi::fits_shwi_p (o))
@@ -1269,13 +1270,13 @@ extr_type_from_vtbl_ptr_store (gimple *stmt, struct type_change_info *tci,
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "    wrong offset ");
-	      print_dec (offset, dump_file, SIGNED);
+	      print_dec (offset, dump_file);
 	      fprintf (dump_file, "!=%i or size ", (int) tci->offset);
-	      print_dec (size, dump_file, SIGNED);
+	      print_dec (size, dump_file);
 	      fprintf (dump_file, "\n");
 	    }
 	  return (must_le (offset + POINTER_SIZE, tci->offset)
-		  || (may_ne (max_size, -1)
+		  || (known_size_p (max_size)
 		      && must_gt (tci->offset + POINTER_SIZE,
 				  offset + max_size))
 		  ? error_mark_node : NULL);

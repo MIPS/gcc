@@ -2047,7 +2047,7 @@ nios2_in_small_data_p (const_tree exp)
 	}
       else
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
 	  /* If this is an incomplete type with size 0, then we can't put it
 	     in sdata because it might be too big when completed.  */
@@ -2940,7 +2940,7 @@ nios2_arg_partial_bytes (cumulative_args_t cum_v,
 
   if (mode == BLKmode)
     {
-      param_size = int_size_in_bytes_hwi (type);
+      param_size = int_size_in_bytes (type);
       gcc_assert (param_size >= 0);
     }
   else
@@ -2970,7 +2970,7 @@ nios2_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   if (mode == BLKmode)
     {
-      param_size = int_size_in_bytes_hwi (type);
+      param_size = int_size_in_bytes (type);
       gcc_assert (param_size >= 0);
     }
   else
@@ -3005,7 +3005,7 @@ nios2_function_arg_padding (machine_mode mode, const_tree type)
     return (GET_MODE_BITSIZE (mode) >= PARM_BOUNDARY
 	    ? PAD_UPWARD : PAD_DOWNWARD);
 
-  return ((int_size_in_bytes_hwi (type) >= (PARM_BOUNDARY / BITS_PER_UNIT))
+  return ((int_size_in_bytes (type) >= (PARM_BOUNDARY / BITS_PER_UNIT))
 	  ? PAD_UPWARD : PAD_DOWNWARD);
 }
 
@@ -3058,8 +3058,8 @@ nios2_function_value_regno_p (const unsigned int regno)
 static bool
 nios2_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  return (int_size_in_bytes_hwi (type) > (2 * UNITS_PER_WORD)
-	  || int_size_in_bytes_hwi (type) == -1);
+  return (int_size_in_bytes (type) > (2 * UNITS_PER_WORD)
+	  || int_size_in_bytes (type) == -1);
 }
 
 /* TODO: It may be possible to eliminate the copyback and implement

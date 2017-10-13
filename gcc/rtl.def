@@ -348,6 +348,8 @@ DEF_RTL_EXPR(CONST_INT, "const_int", "w", RTX_CONST_OBJ)
 /* numeric integer constant */
 DEF_RTL_EXPR(CONST_WIDE_INT, "const_wide_int", "", RTX_CONST_OBJ)
 
+DEF_RTL_EXPR(CONST_POLY_INT, "const_poly_int", "", RTX_CONST_OBJ)
+
 /* fixed-point constant */
 DEF_RTL_EXPR(CONST_FIXED, "const_fixed", "www", RTX_CONST_OBJ)
 
@@ -432,15 +434,6 @@ DEF_RTL_EXPR(LABEL_REF, "label_ref", "u", RTX_CONST_OBJ)
    Operand 1: tree from which this symbol is derived, or null.
    This is either a DECL node, or some kind of constant.  */
 DEF_RTL_EXPR(SYMBOL_REF, "symbol_ref", "s0", RTX_CONST_OBJ)
-
-/* Represents a target-specific parameter whose value is a runtime invariant
-   but whose value is not known at compile time.  Operand 0 is a 0-based
-   identifier ("N") for the parameter, accessed via CONST_PARAM_ID.  If N + 1
-   is less than NUM_POLY_INT_COEFFS, the parameter is a nonnegative integer
-   that is multiplied by coefficient N + 1 in a poly_int value.  Other
-   identifiers have no defined meaning; the target can use them for any
-   purpose and with any mode.  */
-DEF_RTL_EXPR(CONST_PARAM, "const_param", "i", RTX_CONST_OBJ)
 
 /* The condition code register is represented, in our imagination,
    as a register holding a value that can be compared to zero.

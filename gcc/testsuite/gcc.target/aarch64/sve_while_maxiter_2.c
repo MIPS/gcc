@@ -13,6 +13,4 @@ l1:
 return c;
 }
 
-/* { dg-final { scan-assembler-times {\tmov\tx[0-9], 65536\n} 1 } } */
-/* { dg-final { scan-assembler-times {\tands\tx[0-9], x[0-9], 65535\n} 1 } } */
-/* { dg-final { scan-assembler-times {\tcsel\tx[0-9], x[0-9], x[0-9], ne\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tadd\tx[0-9], x[0-9], 1\n} 1 } } */

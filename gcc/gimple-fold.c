@@ -3668,10 +3668,8 @@ fold_builtin_atomic_compare_exchange (gimple_stmt_iterator *gsi)
 				       gimple_assign_lhs (g)));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
-  /* The valid sizes are enumerated by the N in __atomic_compare_exchange_N,
-     so are known to be small constants.  */
-  int flag = ((integer_onep (gimple_call_arg (stmt, 3)) ? 256 : 0)
-	      + int_size_in_bytes_hwi (itype));
+  int flag = (integer_onep (gimple_call_arg (stmt, 3)) ? 256 : 0)
+	     + int_size_in_bytes (itype);
   g = gimple_build_call_internal (IFN_ATOMIC_COMPARE_EXCHANGE, 6,
 				  gimple_call_arg (stmt, 0),
 				  gimple_assign_lhs (g),
@@ -6221,7 +6219,7 @@ get_base_constructor (tree base, poly_int64 *bit_offset,
     case COMPONENT_REF:
       base = get_ref_base_and_extent (base, &bit_offset2, &size, &max_size,
 				      &reverse);
-      if (must_eq (max_size, -1) || may_ne (size, max_size))
+      if (!known_size_p (max_size) || may_ne (size, max_size))
 	return NULL_TREE;
       *bit_offset +=  bit_offset2;
       return get_base_constructor (base, bit_offset, valueize);
@@ -6371,13 +6369,13 @@ fold_ctor_reference (tree type, tree ctor, poly_uint64 offset,
 
   /* We found the field with exact match.  */
   if (useless_type_conversion_p (type, TREE_TYPE (ctor))
-      && must_eq (offset, 0U))
+      && known_zero (offset))
     return canonicalize_constructor_val (unshare_expr (ctor), from_decl);
 
   /* We are at the end of walk, see if we can view convert the
      result.  */
   if (!AGGREGATE_TYPE_P (TREE_TYPE (ctor))
-      && must_eq (offset, 0U)
+      && known_zero (offset)
       /* VIEW_CONVERT_EXPR is defined only for matching sizes.  */
       && equal_tree_size (TYPE_SIZE (type), size)
       && equal_tree_size (TYPE_SIZE (TREE_TYPE (ctor)), size))
@@ -6510,7 +6508,7 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
       if (ctor == error_mark_node)
 	return build_zero_cst (TREE_TYPE (t));
       /* We do not know precise address.  */
-      if (must_eq (max_size, -1) || may_ne (max_size, size))
+      if (!known_size_p (max_size) || may_ne (max_size, size))
 	return NULL_TREE;
       /* We can not determine ctor.  */
       if (!ctor)
@@ -6782,7 +6780,7 @@ gimple_fold_indirect_ref (tree t)
 	  || DECL_P (TREE_OPERAND (addr, 0)))
 	return fold_build2 (MEM_REF, type,
 			    addr,
-			    wide_int_to_tree (ptype, off));
+			    wide_int_to_tree (ptype, wi::to_wide (off)));
     }
 
   /* *(foo *)fooarrptr => (*fooarrptr)[0] */
@@ -6892,8 +6890,7 @@ gimple_build (gimple_seq *seq, location_t loc,
       gimple *stmt;
       if (code == REALPART_EXPR
 	  || code == IMAGPART_EXPR
-	  || code == VIEW_CONVERT_EXPR
-	  || code == VEC_DUPLICATE_EXPR)
+	  || code == VIEW_CONVERT_EXPR)
 	stmt = gimple_build_assign (res, code, build1 (code, type, op0));
       else
 	stmt = gimple_build_assign (res, code, op0);
@@ -6916,11 +6913,7 @@ gimple_build (gimple_seq *seq, location_t loc,
   if (!res)
     {
       res = create_tmp_reg_or_ssa_name (type);
-      gimple *stmt;
-      if (code == VEC_SERIES_EXPR)
-	stmt = gimple_build_assign (res, code, build2 (code, type, op0, op1));
-      else
-	stmt = gimple_build_assign (res, code, op0, op1);
+      gimple *stmt = gimple_build_assign (res, code, op0, op1);
       gimple_set_location (stmt, loc);
       gimple_seq_add_stmt_without_update (seq, stmt);
     }
@@ -7069,6 +7062,10 @@ tree
 gimple_build_vector_from_val (gimple_seq *seq, location_t loc, tree type,
 			      tree op)
 {
+  if (!TYPE_VECTOR_SUBPARTS (type).is_constant ()
+      && CONSTANT_CLASS_P (op))
+    return gimple_build (seq, loc, VEC_DUPLICATE_EXPR, type, op);
+
   tree res, vec = build_vector_from_val (type, op);
   if (is_gimple_val (vec))
     return vec;

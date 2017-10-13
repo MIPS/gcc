@@ -148,6 +148,16 @@ struct const_wide_int_hasher : ggc_cache_ptr_hash<rtx_def>
 
 static GTY ((cache)) hash_table<const_wide_int_hasher> *const_wide_int_htab;
 
+struct const_poly_int_hasher : ggc_cache_ptr_hash<rtx_def>
+{
+  typedef poly_wide_int_ref compare_type;
+
+  static hashval_t hash (rtx x);
+  static bool equal (rtx x, const compare_type &y);
+};
+
+static GTY ((cache)) hash_table<const_poly_int_hasher> *const_poly_int_htab;
+
 /* A hash table storing register attribute structures.  */
 struct reg_attr_hasher : ggc_cache_ptr_hash<reg_attrs>
 {
@@ -255,6 +265,33 @@ const_wide_int_hasher::equal (rtx x, rtx y)
   return true;
 }
 #endif
+
+/* Returns a hash code for X (which is a really a CONST_INT).  */
+
+hashval_t
+const_poly_int_hasher::hash (rtx x)
+{
+  inchash::hash h;
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    h.add_wide_int (CONST_POLY_INT_COEFFS (x)[i]);
+  return h.end ();
+}
+
+/* Returns nonzero if the value represented by X (which is really a
+   CONST_INT) is the same as that given by Y (which is really a
+   HOST_WIDE_INT *).  */
+
+bool
+const_poly_int_hasher::equal (rtx x, const compare_type &y)
+{
+  if (CONST_POLY_INT_COEFFS (x).get_precision ()
+      != y.coeffs[0].get_precision ())
+    return false;
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    if (CONST_POLY_INT_COEFFS (x)[i] != y.coeffs[i])
+      return false;
+  return true;
+}
 
 /* Returns a hash code for X (which is really a CONST_DOUBLE).  */
 hashval_t
@@ -390,7 +427,7 @@ reg_attr_hasher::hash (reg_attrs *x)
 
   inchash::hash h;
   h.add_ptr (p->decl);
-  h.add_poly_wide_int (p->offset);
+  h.add_poly_hwi (p->offset);
   return h.end ();
 }
 
@@ -415,7 +452,7 @@ get_reg_attrs (tree decl, poly_int64 offset)
   reg_attrs attrs;
 
   /* If everything is the default, we can just return zero.  */
-  if (decl == 0 && must_eq (offset, 0))
+  if (decl == 0 && known_zero (offset))
     return 0;
 
   attrs.decl = decl;
@@ -524,7 +561,11 @@ gen_rtx_CONST_INT (machine_mode mode ATTRIBUTE_UNUSED, HOST_WIDE_INT arg)
 rtx
 gen_int_mode (poly_int64 c, machine_mode mode)
 {
-  return immed_poly_int_const (c, mode);
+  c = trunc_int_for_mode (c, mode);
+  if (c.is_constant ())
+    return GEN_INT (c.coeffs[0]);
+  unsigned int prec = GET_MODE_PRECISION (as_a <scalar_mode> (mode));
+  return immed_wide_int_const (poly_wide_int::from (c, prec, SIGNED), mode);
 }
 
 /* CONST_DOUBLEs might be created from pairs of integers, or from
@@ -628,8 +669,8 @@ lookup_const_wide_int (rtx wint)
    a CONST_DOUBLE (if !TARGET_SUPPORTS_WIDE_INT) or a CONST_WIDE_INT
    (if TARGET_SUPPORTS_WIDE_INT).  */
 
-rtx
-immed_wide_int_const (const wide_int_ref &v, machine_mode mode)
+static rtx
+immed_wide_int_const_1 (const wide_int_ref &v, machine_mode mode)
 {
   unsigned int len = v.get_len ();
   /* Not scalar_int_mode because we also allow pointer bound modes.  */
@@ -716,72 +757,43 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, machine_mode mode)
 }
 #endif
 
-/* Generate an appropriate constant for polynomial coefficient C,
-   in mode MODE.  */
-
-static rtx
-immed_poly_int_coeff (HOST_WIDE_INT c, machine_mode mode)
-{
-  return GEN_INT (trunc_int_for_mode (c, mode));
-}
-
-static rtx
-immed_poly_int_coeff (const wide_int_ref &c, machine_mode mode)
-{
-  return immed_wide_int_const (c, mode);
-}
-
 /* Return an rtx representation of C in mode MODE.  */
 
-template<unsigned int N, typename T>
 rtx
-immed_poly_int_const (const poly_int_pod<N, T> &c, machine_mode mode)
+immed_wide_int_const (const poly_wide_int_ref &c, machine_mode mode)
 {
-  rtx base = const0_rtx;
-  /* The value is equivalent to the constant-folded form of:
+  if (c.is_constant ())
+    return immed_wide_int_const_1 (c.coeffs[0], mode);
 
-	(const_scalar_int coeff0)
-      + (mult (const_param 0) (const_scalar_int coeff1))
-      + ...
-      + (mult (const_param n-1) (const_scalar_int coeffn))
+  /* Not scalar_int_mode because we also allow pointer bound modes.  */
+  unsigned int prec = GET_MODE_PRECISION (as_a <scalar_mode> (mode));
 
-     The normal canonicalization rules for PLUSes require the first term
-     (the plain const_scalar_int for coeff0) to be the second operand of
-     the outermost PLUS.  They also require the nesting to be on the first
-     operand.  It's then a question of which order the parameters should
-     be summed.  If coeff0 has to be the outermost, it makes sense for
-     (mult (const_param n-1) (const_scalar_int coeffn)) to be the
-     innermost.  Build the sum in that order.  */
-  for (unsigned int i = N; i-- > 0; )
-    if (c.coeffs[i] != 0)
-      {
-	rtx term;
-	if (i == 0)
-	  term = immed_poly_int_coeff (c.coeffs[0], mode);
-	else
-	  {
-	    term = gen_rtx_CONST_PARAM (mode, i - 1);
-	    if (c.coeffs[i] != 1)
-	      {
-		rtx coeff = immed_poly_int_coeff (c.coeffs[i], mode);
-		term = gen_rtx_MULT (mode, term, coeff);
-	      }
-	  }
-	if (base == const0_rtx)
-	  base = term;
-	else if (swap_commutative_operands_p (base, term))
-	  base = gen_rtx_PLUS (mode, term, base);
-	else
-	  base = gen_rtx_PLUS (mode, base, term);
-      }
-  if (!CONST_SCALAR_INT_P (base))
-    base = gen_rtx_CONST (mode, base);
-  return base;
+  /* Allow truncation but not extension since we do not know if the
+     number is signed or unsigned.  */
+  gcc_assert (prec <= c.coeffs[0].get_precision ());
+  poly_wide_int newc = poly_wide_int::from (c, prec, SIGNED);
+
+  inchash::hash h;
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    h.add_wide_int (newc.coeffs[i]);
+  rtx *slot = const_poly_int_htab->find_slot_with_hash (newc, h.end (),
+							INSERT);
+  rtx x = *slot;
+  if (x)
+    return x;
+
+  typedef trailing_wide_ints<NUM_POLY_INT_COEFFS> twi;
+  size_t extra_size = twi::extra_size (prec);
+  x = rtx_alloc_v (CONST_POLY_INT,
+		   sizeof (struct const_poly_int_def) + extra_size);
+  PUT_MODE (x, mode);
+  CONST_POLY_INT_COEFFS (x).set_precision (prec);
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    CONST_POLY_INT_COEFFS (x)[i] = newc.coeffs[i];
+
+  *slot = x;
+  return x;
 }
-
-template rtx immed_poly_int_const (const poly_int64_pod &, machine_mode);
-template rtx immed_poly_int_const (const poly_wide_int_pod &, machine_mode);
-template rtx immed_poly_int_const (const poly_offset_int_pod &, machine_mode);
 
 rtx
 gen_rtx_REG (machine_mode mode, unsigned int regno)
@@ -903,10 +915,15 @@ gen_tmp_stack_mem (machine_mode mode, rtx addr)
 
 bool
 validate_subreg (machine_mode omode, machine_mode imode,
-		 const_rtx reg, poly_int64 offset)
+		 const_rtx reg, poly_uint64 offset)
 {
-  poly_int64 isize = GET_MODE_SIZE (imode);
-  poly_int64 osize = GET_MODE_SIZE (omode);
+  poly_uint64 isize = GET_MODE_SIZE (imode);
+  poly_uint64 osize = GET_MODE_SIZE (omode);
+
+  /* The sizes must be ordered, so that we know whether the subreg
+     is partial, paradoxical or complete.  */
+  if (!ordered_p (isize, osize))
+    return false;
 
   /* All subregs must be aligned.  */
   if (!multiple_p (offset, osize))
@@ -916,11 +933,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
   if (may_ge (offset, isize))
     return false;
 
-  /* The relationship between the mode sizes must be known.  */
-  if (!ordered_p (isize, osize))
-    return false;
-
-  poly_int64 regsize = REGMODE_NATURAL_SIZE (imode);
+  poly_uint64 regsize = REGMODE_NATURAL_SIZE (imode);
 
   /* ??? This should not be here.  Temporarily continue to allow word_mode
      subregs of anything.  The most common offender is (subreg:SI (reg:DF)).
@@ -962,7 +975,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
 
   /* Paradoxical subregs must have offset zero.  */
   if (may_gt (osize, isize))
-    return must_eq (offset, 0);
+    return known_zero (offset);
 
   /* This is a normal subreg.  Verify that the offset is representable.  */
 
@@ -981,6 +994,12 @@ validate_subreg (machine_mode omode, machine_mode imode,
       return subreg_offset_representable_p (regno, imode, offset, omode);
     }
 
+  /* The outer size must be ordered wrt the register size, otherwise
+     we wouldn't know at compile time how many registers the outer
+     mode occupies.  */
+  if (!ordered_p (osize, regsize))
+    return false;
+
   /* For pseudo registers, we want most of the same checks.  Namely:
 
      Assume that the pseudo register will be allocated to hard registers
@@ -991,18 +1010,18 @@ validate_subreg (machine_mode omode, machine_mode imode,
 
      Given that we've already checked the mode and offset alignment,
      we only have to check subblock subregs here.  */
-  if (!ordered_p (osize, regsize))
-    return false;
   if (may_lt (osize, regsize)
       && ! (lra_in_progress && (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))))
     {
-      poly_int64 block_size = ordered_min (isize, regsize);
-      HOST_WIDE_INT start_reg;
-      poly_int64 offset_within_reg;
+      /* It is invalid for the target to pick a register size for a mode
+	 that isn't ordered wrt to the size of that mode.  */
+      poly_uint64 block_size = ordered_max (isize, regsize);
+      unsigned int start_reg;
+      poly_uint64 offset_within_reg;
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
 	  || (BYTES_BIG_ENDIAN
 	      ? may_ne (offset_within_reg, block_size - osize)
-	      : may_ne (offset_within_reg, 0)))
+	      : maybe_nonzero (offset_within_reg)))
 	return false;
     }
   return true;
@@ -1130,7 +1149,7 @@ subreg_memory_offset (machine_mode outer_mode, machine_mode inner_mode,
 {
   if (paradoxical_subreg_p (outer_mode, inner_mode))
     {
-      gcc_assert (must_eq (offset, 0));
+      gcc_assert (known_zero (offset));
       return -subreg_lowpart_offset (inner_mode, outer_mode);
     }
   return offset;
@@ -1535,14 +1554,15 @@ maybe_set_max_label_num (rtx_code_label *x)
 rtx
 gen_lowpart_common (machine_mode mode, rtx x)
 {
-  poly_int64 msize = GET_MODE_SIZE (mode);
+  poly_uint64 msize = GET_MODE_SIZE (mode);
   machine_mode innermode;
 
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
      so we have to make one up.  Yuk.  */
   innermode = GET_MODE (x);
   if (CONST_INT_P (x)
-      && must_le (msize * BITS_PER_UNIT, HOST_BITS_PER_WIDE_INT))
+      && must_le (msize * BITS_PER_UNIT,
+		  (unsigned HOST_WIDE_INT) HOST_BITS_PER_WIDE_INT))
     innermode = int_mode_for_size (HOST_BITS_PER_WIDE_INT, 0).require ();
   else if (innermode == VOIDmode)
     innermode = int_mode_for_size (HOST_BITS_PER_DOUBLE_INT, 0).require ();
@@ -1552,8 +1572,10 @@ gen_lowpart_common (machine_mode mode, rtx x)
   if (innermode == mode)
     return x;
 
-  poly_int64 xsize = GET_MODE_SIZE (innermode);
-  gcc_checking_assert (ordered_p (msize, xsize));
+  /* The size of the outer and inner modes must be ordered.  */
+  poly_uint64 xsize = GET_MODE_SIZE (innermode);
+  if (!ordered_p (msize, xsize))
+    return 0;
 
   if (SCALAR_FLOAT_MODE_P (mode))
     {
@@ -1564,7 +1586,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
   else
     {
       /* MODE must occupy no more of the underlying registers than X.  */
-      poly_int64 regsize = REGMODE_NATURAL_SIZE (innermode);
+      poly_uint64 regsize = REGMODE_NATURAL_SIZE (innermode);
       unsigned int mregs, xregs;
       if (!can_div_away_from_zero_p (msize, regsize, &mregs)
 	  || !can_div_away_from_zero_p (xsize, regsize, &xregs)
@@ -1595,7 +1617,8 @@ gen_lowpart_common (machine_mode mode, rtx x)
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || const_vec_p (x)
-	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x))
+	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x)
+	   || CONST_POLY_INT_P (x))
     return lowpart_subreg (mode, x, innermode);
 
   /* Otherwise, we can't do this.  */
@@ -2157,7 +2180,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
   /* If we modified OFFSET based on T, then subtract the outstanding
      bit position offset.  Similarly, increase the size of the accessed
      object to contain the negative offset.  */
-  if (may_ne (apply_bitpos, 0))
+  if (maybe_nonzero (apply_bitpos))
     {
       gcc_assert (attrs.offset_known_p);
       poly_int64 bytepos = bits_to_bytes_round_down (apply_bitpos);
@@ -2182,11 +2205,9 @@ set_mem_attributes (rtx ref, tree t, int objectp)
 void
 set_mem_alias_set (rtx mem, alias_set_type set)
 {
-  struct mem_attrs attrs;
-
   /* If the new and old alias sets don't conflict, something is wrong.  */
   gcc_checking_assert (alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)));
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.alias = set;
   set_mem_attrs (mem, &attrs);
 }
@@ -2196,9 +2217,7 @@ set_mem_alias_set (rtx mem, alias_set_type set)
 void
 set_mem_addr_space (rtx mem, addr_space_t addrspace)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.addrspace = addrspace;
   set_mem_attrs (mem, &attrs);
 }
@@ -2208,9 +2227,7 @@ set_mem_addr_space (rtx mem, addr_space_t addrspace)
 void
 set_mem_align (rtx mem, unsigned int align)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.align = align;
   set_mem_attrs (mem, &attrs);
 }
@@ -2220,9 +2237,7 @@ set_mem_align (rtx mem, unsigned int align)
 void
 set_mem_expr (rtx mem, tree expr)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.expr = expr;
   set_mem_attrs (mem, &attrs);
 }
@@ -2232,9 +2247,7 @@ set_mem_expr (rtx mem, tree expr)
 void
 set_mem_offset (rtx mem, poly_int64 offset)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.offset_known_p = true;
   attrs.offset = offset;
   set_mem_attrs (mem, &attrs);
@@ -2245,9 +2258,7 @@ set_mem_offset (rtx mem, poly_int64 offset)
 void
 clear_mem_offset (rtx mem)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.offset_known_p = false;
   set_mem_attrs (mem, &attrs);
 }
@@ -2257,9 +2268,7 @@ clear_mem_offset (rtx mem)
 void
 set_mem_size (rtx mem, poly_int64 size)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.size_known_p = true;
   attrs.size = size;
   set_mem_attrs (mem, &attrs);
@@ -2270,9 +2279,7 @@ set_mem_size (rtx mem, poly_int64 size)
 void
 clear_mem_size (rtx mem)
 {
-  struct mem_attrs attrs;
-
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.size_known_p = false;
   set_mem_attrs (mem, &attrs);
 }
@@ -2335,9 +2342,9 @@ change_address (rtx memref, machine_mode mode, rtx addr)
 {
   rtx new_rtx = change_address_1 (memref, mode, addr, 1, false);
   machine_mode mmode = GET_MODE (new_rtx);
-  struct mem_attrs attrs, *defattrs;
+  struct mem_attrs *defattrs;
 
-  attrs = *get_mem_attrs (memref);
+  mem_attrs attrs (*get_mem_attrs (memref));
   defattrs = mode_mem_attrs[(int) mmode];
   attrs.expr = NULL_TREE;
   attrs.offset_known_p = false;
@@ -2379,7 +2386,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
   rtx addr = XEXP (memref, 0);
   rtx new_rtx;
   scalar_int_mode address_mode;
-  struct mem_attrs attrs = *get_mem_attrs (memref), *defattrs;
+  struct mem_attrs attrs (*get_mem_attrs (memref)), *defattrs;
   unsigned HOST_WIDE_INT max_align;
 #ifdef POINTERS_EXTEND_UNSIGNED
   scalar_int_mode pointer_mode
@@ -2397,8 +2404,8 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If there are no changes, just return the original memory reference.  */
   if (mode == GET_MODE (memref)
-      && must_eq (offset, 0)
-      && (must_eq (size, 0)
+      && known_zero (offset)
+      && (known_zero (size)
 	  || (attrs.size_known_p && must_eq (attrs.size, size)))
       && (!validate || memory_address_addr_space_p (mode, addr,
 						    attrs.addrspace)))
@@ -2420,9 +2427,9 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 	 object, we can merge it into the LO_SUM.  */
       if (GET_MODE (memref) != BLKmode
 	  && GET_CODE (addr) == LO_SUM
-	  && known_in_range_p (offset, 0,
-			       GET_MODE_ALIGNMENT (GET_MODE (memref))
-			       / BITS_PER_UNIT))
+	  && known_in_range_p (offset,
+			       0, (GET_MODE_ALIGNMENT (GET_MODE (memref))
+				   / BITS_PER_UNIT)))
 	addr = gen_rtx_LO_SUM (address_mode, XEXP (addr, 0),
 			       plus_constant (address_mode,
 					      XEXP (addr, 1), offset));
@@ -2446,7 +2453,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If the address is a REG, change_address_1 rightfully returns memref,
      but this would destroy memref's MEM_ATTRS.  */
-  if (new_rtx == memref && may_ne (offset, 0))
+  if (new_rtx == memref && maybe_nonzero (offset))
     new_rtx = copy_rtx (new_rtx);
 
   /* Conservatively drop the object if we don't know where we start from.  */
@@ -2473,13 +2480,13 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
   /* Compute the new alignment by taking the MIN of the alignment and the
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
-  if (may_ne (offset, 0))
+  if (maybe_nonzero (offset))
     {
       max_align = known_alignment (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
-  if (may_ne (size, 0))
+  if (maybe_nonzero (size))
     {
       /* Drop the object if the new right end is not within its bounds.  */
       if (adjust_object && may_gt (offset + size, attrs.size))
@@ -2525,9 +2532,9 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
 {
   rtx new_rtx, addr = XEXP (memref, 0);
   machine_mode address_mode;
-  struct mem_attrs attrs, *defattrs;
+  struct mem_attrs *defattrs;
 
-  attrs = *get_mem_attrs (memref);
+  mem_attrs attrs (*get_mem_attrs (memref));
   address_mode = get_address_mode (memref);
   new_rtx = simplify_gen_binary (PLUS, address_mode, addr, offset);
 
@@ -2598,14 +2605,13 @@ rtx
 widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 {
   rtx new_rtx = adjust_address_1 (memref, mode, offset, 1, 1, 0, 0);
-  struct mem_attrs attrs;
   poly_uint64 size = GET_MODE_SIZE (mode);
 
   /* If there are no changes, just return the original memory reference.  */
   if (new_rtx == memref)
     return new_rtx;
 
-  attrs = *get_mem_attrs (new_rtx);
+  mem_attrs attrs (*get_mem_attrs (new_rtx));
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
@@ -2682,7 +2688,6 @@ get_spill_slot_decl (bool force_build_p)
 {
   tree d = spill_slot_decl;
   rtx rd;
-  struct mem_attrs attrs;
 
   if (d || !force_build_p)
     return d;
@@ -2696,7 +2701,7 @@ get_spill_slot_decl (bool force_build_p)
 
   rd = gen_rtx_MEM (BLKmode, frame_pointer_rtx);
   MEM_NOTRAP_P (rd) = 1;
-  attrs = *mode_mem_attrs[(int) BLKmode];
+  mem_attrs attrs (*mode_mem_attrs[(int) BLKmode]);
   attrs.alias = new_alias_set ();
   attrs.expr = d;
   set_mem_attrs (rd, &attrs);
@@ -2714,10 +2719,9 @@ get_spill_slot_decl (bool force_build_p)
 void
 set_mem_attrs_for_spill (rtx mem)
 {
-  struct mem_attrs attrs;
   rtx addr;
 
-  attrs = *get_mem_attrs (mem);
+  mem_attrs attrs (*get_mem_attrs (mem));
   attrs.expr = get_spill_slot_decl (true);
   attrs.alias = MEM_ALIAS_SET (DECL_RTL (attrs.expr));
   attrs.addrspace = ADDR_SPACE_GENERIC;
@@ -6217,6 +6221,9 @@ init_emit_once (void)
 #endif
   const_double_htab = hash_table<const_double_hasher>::create_ggc (37);
 
+  if (NUM_POLY_INT_COEFFS > 1)
+    const_poly_int_htab = hash_table<const_poly_int_hasher>::create_ggc (37);
+
   const_fixed_htab = hash_table<const_fixed_hasher>::create_ggc (37);
 
   reg_attrs_htab = hash_table<reg_attr_hasher>::create_ggc (37);
@@ -6615,17 +6622,6 @@ need_atomic_barrier_p (enum memmodel model, bool pre)
     default:
       gcc_unreachable ();
     }
-}
-
-/* Return the mode that should be used to hold a scalar shift amount
-   when shifting values of the given mode.  */
-/* ??? This could in principle be generated automatically from the .md
-   shift patterns, but for now word_mode should be universally OK.  */
-
-scalar_int_mode
-get_shift_amount_mode (machine_mode)
-{
-  return word_mode;
 }
 
 /* Return a constant shift amount for shifting a value of mode MODE

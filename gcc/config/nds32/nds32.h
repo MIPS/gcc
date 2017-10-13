@@ -153,7 +153,7 @@ enum nds32_16bit_address_type
    So we use UNITS_PER_WORD to do the calculation.  */
 #define NDS32_NEED_N_REGS_FOR_ARG(mode, type)                            \
   ((mode == BLKmode)                                                     \
-   ? ((int_size_in_bytes_hwi (type) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)  \
+   ? ((int_size_in_bytes (type) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)  \
    : ((GET_MODE_SIZE (mode)     + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* This macro is used to return the register number for passing argument.

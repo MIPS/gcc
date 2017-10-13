@@ -1706,7 +1706,7 @@ move2add_valid_value_p (int regno, scalar_int_mode mode)
 	 regno of the lowpart might be different.  */
       poly_int64 s_off = subreg_lowpart_offset (mode, old_mode);
       s_off = subreg_regno_offset (regno, old_mode, s_off, mode);
-      if (may_ne (s_off, 0))
+      if (maybe_nonzero (s_off))
 	/* We could in principle adjust regno, check reg_mode[regno] to be
 	   BLKmode, and return s_off to the caller (vs. -1 for failure),
 	   but we currently have no callers that could make use of this

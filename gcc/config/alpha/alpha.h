@@ -578,7 +578,7 @@ enum reg_class {
 #define ALPHA_ARG_SIZE(MODE, TYPE)					\
   ((MODE) == TFmode || (MODE) == TCmode ? 1				\
    : CEIL (((MODE) == BLKmode						\
-	    ? int_size_in_bytes_hwi (TYPE)				\
+	    ? int_size_in_bytes (TYPE)					\
 	    : GET_MODE_SIZE (MODE)),					\
 	   UNITS_PER_WORD))
 

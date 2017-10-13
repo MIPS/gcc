@@ -240,7 +240,7 @@ while (0)
 	  && (DECL) && DECL_SIZE (DECL))			\
 	{							\
 	  size_directive_output = 1;				\
-	  size = int_size_in_bytes_hwi (TREE_TYPE (DECL));	\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
 	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
 	}							\
       ASM_OUTPUT_LABEL (FILE, NAME);				\
@@ -262,7 +262,7 @@ do {									 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 size = int_size_in_bytes_hwi (TREE_TYPE (DECL));		 \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
 	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)

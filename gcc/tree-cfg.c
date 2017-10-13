@@ -1721,12 +1721,12 @@ group_case_labels_stmt (gswitch *stmt)
 	{
 	  tree merge_case = gimple_switch_label (stmt, next_index);
 	  basic_block merge_bb = label_to_block (CASE_LABEL (merge_case));
-	  wide_int bhp1 = wi::add (base_high, 1);
+	  wide_int bhp1 = wi::to_wide (base_high) + 1;
 
 	  /* Merge the cases if they jump to the same place,
 	     and their ranges are consecutive.  */
 	  if (merge_bb == base_bb
-	      && wi::eq_p (CASE_LOW (merge_case), bhp1))
+	      && wi::to_wide (CASE_LOW (merge_case)) == bhp1)
 	    {
 	      base_high = CASE_HIGH (merge_case) ?
 		  CASE_HIGH (merge_case) : CASE_LOW (merge_case);
@@ -2952,8 +2952,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  error ("invalid first operand of MEM_REF");
 	  return x;
 	}
-      if ((TREE_CODE (TREE_OPERAND (t, 1)) != INTEGER_CST
-	   && TREE_CODE (TREE_OPERAND (t, 1)) != POLY_CST)
+      if (!poly_tree_p (TREE_OPERAND (t, 1))
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 1))))
 	{
 	  error ("invalid offset operand of MEM_REF");
@@ -3055,7 +3054,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  tree t0 = TREE_OPERAND (t, 0);
 	  tree t1 = TREE_OPERAND (t, 1);
 	  tree t2 = TREE_OPERAND (t, 2);
-	  poly_uint64 container_size, size, bitpos;
+	  poly_uint64 size, bitpos;
 	  if (!poly_tree_p (t1, &size)
 	      || !poly_tree_p (t2, &bitpos)
 	      || !types_compatible_p (bitsizetype, TREE_TYPE (t1))
@@ -3081,8 +3080,8 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      return t;
 	    }
 	  if (!AGGREGATE_TYPE_P (TREE_TYPE (t0))
-	      && poly_tree_p (TYPE_SIZE (TREE_TYPE (t0)), &container_size)
-	      && may_gt (size + bitpos, container_size))
+	      && may_gt (size + bitpos,
+			 tree_to_poly_uint64 (TYPE_SIZE (TREE_TYPE (t0)))))
 	    {
 	      error ("position plus size exceeds size of referenced object in "
 		     "BIT_FIELD_REF");
@@ -3359,8 +3358,7 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  debug_generic_stmt (expr);
 	  return true;
 	}
-      if ((TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
-	   && TREE_CODE (TREE_OPERAND (expr, 1)) != POLY_CST)
+      if (!poly_tree_p (TREE_OPERAND (expr, 1))
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
 	{
 	  error ("invalid offset operand in MEM_REF");
@@ -3377,8 +3375,7 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  return true;
 	}
       if (!TMR_OFFSET (expr)
-	  || (TREE_CODE (TMR_OFFSET (expr)) != INTEGER_CST
-	      && TREE_CODE (TMR_OFFSET (expr)) != POLY_CST)
+	  || !poly_tree_p (TMR_OFFSET (expr))
 	  || !POINTER_TYPE_P (TREE_TYPE (TMR_OFFSET (expr))))
 	{
 	  error ("invalid offset operand in TARGET_MEM_REF");
@@ -4508,6 +4505,8 @@ verify_gimple_assign_single (gassign *stmt)
     case FIXED_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
+    case VEC_DUPLICATE_CST:
+    case VEC_SERIES_CST:
     case STRING_CST:
       return res;
 

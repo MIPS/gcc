@@ -711,9 +711,6 @@ is_gimple_min_invariant (const_tree t)
   if (TREE_CODE (t) == ADDR_EXPR)
     return is_gimple_invariant_address (t);
 
-  if (TREE_CODE (t) == POLY_CST)
-    return true;
-
   return is_gimple_constant (t);
 }
 

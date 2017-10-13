@@ -191,12 +191,12 @@ brig_basic_inst_handler::build_unpack (tree_stl_vec &operands)
 
   tree cleared = build2 (BIT_AND_EXPR, vec_type, perm, and_mask_vec);
 
-  size_t s = int_size_in_bytes_hwi (TREE_TYPE (cleared)) * BITS_PER_UNIT;
+  size_t s = int_size_in_bytes (TREE_TYPE (cleared)) * BITS_PER_UNIT;
   tree raw_type = build_nonstandard_integer_type (s, true);
 
   tree as_int = build_reinterpret_cast (raw_type, cleared);
 
-  if (int_size_in_bytes_hwi (src_element_type) < 4)
+  if (int_size_in_bytes (src_element_type) < 4)
     {
       if (INTEGRAL_TYPE_P (src_element_type))
 	return extend_int (as_int, uint32_type_node, src_element_type);
@@ -217,8 +217,7 @@ brig_basic_inst_handler::build_pack (tree_stl_vec &operands)
 
   /* BRIG doesn't support variable-length vectors.  */
   size_t ecount = gccbrig_type_vector_subparts (TREE_TYPE (operands[0]));
-  size_t vecsize = (int_size_in_bytes_hwi (TREE_TYPE (operands[0]))
-		    * BITS_PER_UNIT);
+  size_t vecsize = int_size_in_bytes (TREE_TYPE (operands[0])) * BITS_PER_UNIT;
   tree wide_type = build_nonstandard_integer_type (vecsize, 1);
 
   tree src_vect = build_reinterpret_cast (wide_type, operands[0]);
@@ -236,7 +235,7 @@ brig_basic_inst_handler::build_pack (tree_stl_vec &operands)
   pos = add_temp_var ("pos", convert (wide_type, t));
 
   tree element_type = TREE_TYPE (TREE_TYPE (operands[0]));
-  size_t element_width = int_size_in_bytes_hwi (element_type) * BITS_PER_UNIT;
+  size_t element_width = int_size_in_bytes (element_type) * BITS_PER_UNIT;
   tree ewidth = build_int_cstu (wide_type, element_width);
 
   tree bitoffset = build2 (MULT_EXPR, wide_type, ewidth, pos);
@@ -604,7 +603,7 @@ brig_basic_inst_handler::operator () (const BrigBase *base)
 	  gcc_unreachable ();
 	}
 
-      size_t promoted_type_size = int_size_in_bytes_hwi (promoted_type) * 8;
+      size_t promoted_type_size = int_size_in_bytes (promoted_type) * 8;
       /* BRIG doesn't support variable-length vectors.  */
       size_t element_count = gccbrig_type_vector_subparts (arith_type);
       for (size_t i = 0; i < element_count; ++i)
@@ -712,7 +711,7 @@ brig_basic_inst_handler::build_lower_element_broadcast (tree vec_operand)
      direct broadcast in GENERIC and this way there's no need for
      a separate extract of the lowest element.  */
   tree element_type = TREE_TYPE (TREE_TYPE (vec_operand));
-  size_t esize = 8 * int_size_in_bytes_hwi (element_type);
+  size_t esize = 8 * int_size_in_bytes (element_type);
 
   /* BRIG doesn't support variable-length vectors.  */
   size_t element_count

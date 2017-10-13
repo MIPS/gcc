@@ -82,16 +82,16 @@ objc_method_parm_type (tree type)
 static int
 objc_encoded_type_size (tree type)
 {
-  int sz = int_size_in_bytes_hwi (type);
+  int sz = int_size_in_bytes (type);
 
   /* Make all integer and enum types at least as large
      as an int.  */
   if (sz > 0 && INTEGRAL_TYPE_P (type))
-    sz = MAX (sz, int_size_in_bytes_hwi (integer_type_node));
+    sz = MAX (sz, int_size_in_bytes (integer_type_node));
   /* Treat arrays as pointers, since that's how they're
      passed in.  */
   else if (TREE_CODE (type) == ARRAY_TYPE)
-    sz = int_size_in_bytes_hwi (ptr_type_node);
+    sz = int_size_in_bytes (ptr_type_node);
   return sz;
 }
 
@@ -115,7 +115,7 @@ encode_method_prototype (tree method_decl)
   /* Stack size.  */
   /* The first two arguments (self and _cmd) are pointers; account for
      their size.  */
-  i = int_size_in_bytes_hwi (ptr_type_node);
+  i = int_size_in_bytes (ptr_type_node);
   parm_offset = 2 * i;
   for (parms = METHOD_SEL_ARGS (method_decl); parms;
        parms = DECL_CHAIN (parms))

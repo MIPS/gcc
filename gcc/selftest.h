@@ -183,6 +183,7 @@ extern void ggc_tests_c_tests ();
 extern void hash_map_tests_c_tests ();
 extern void hash_set_tests_c_tests ();
 extern void input_c_tests ();
+extern void poly_int_cc_tests ();
 extern void pretty_print_c_tests ();
 extern void read_rtl_function_c_tests ();
 extern void rtl_tests_c_tests ();
@@ -294,6 +295,25 @@ extern int num_passes;
     ::selftest::pass (SELFTEST_LOCATION, desc);			       \
   else							       \
     ::selftest::fail (SELFTEST_LOCATION, desc);			       \
+  SELFTEST_END_STMT
+
+/* Evaluate EXPECTED and ACTUAL and compare them with may_ne, calling
+   ::selftest::pass if they might be non-equal,
+   ::selftest::fail if they must be equal.  */
+
+#define ASSERT_MAY_NE(EXPECTED, ACTUAL) \
+  ASSERT_MAY_NE_AT ((SELFTEST_LOCATION), (EXPECTED), (ACTUAL))
+
+/* Like ASSERT_MAY_NE, but treat LOC as the effective location of the
+   selftest.  */
+
+#define ASSERT_MAY_NE_AT(LOC, EXPECTED, ACTUAL)			\
+  SELFTEST_BEGIN_STMT							\
+  const char *desc = "ASSERT_MAY_NE (" #EXPECTED ", " #ACTUAL ")";	\
+  if (may_ne (EXPECTED, ACTUAL))					\
+    ::selftest::pass ((LOC), desc);					\
+  else									\
+    ::selftest::fail ((LOC), desc);					\
   SELFTEST_END_STMT
 
 /* Evaluate EXPECTED and ACTUAL and compare them with strcmp, calling

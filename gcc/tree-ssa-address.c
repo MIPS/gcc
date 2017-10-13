@@ -197,14 +197,15 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
   struct mem_addr_template *templ;
 
   if (addr->step && !integer_onep (addr->step))
-    st = immed_wide_int_const (addr->step, pointer_mode);
+    st = immed_wide_int_const (wi::to_wide (addr->step), pointer_mode);
   else
     st = NULL_RTX;
 
-  if (addr->offset && !integer_zerop (addr->offset))
+  if (addr->offset && maybe_nonzero (wi::to_poly_wide (addr->offset)))
     {
-      poly_offset_int dc = tree_to_poly_offset_int (addr->offset);
-      off = immed_poly_int_const (dc, pointer_mode);
+      poly_offset_int dc
+	= poly_offset_int::from (wi::to_poly_wide (addr->offset), SIGNED);
+      off = immed_wide_int_const (dc, pointer_mode);
     }
   else
     off = NULL_RTX;
@@ -692,8 +693,8 @@ addr_to_parts (tree type, aff_tree *addr, tree iv_cand, tree base_hint,
   parts->index = NULL_TREE;
   parts->step = NULL_TREE;
 
-  if (may_ne (addr->offset, 0))
-    parts->offset = poly_widest_int_to_tree (sizetype, addr->offset);
+  if (maybe_nonzero (addr->offset))
+    parts->offset = wide_int_to_tree (sizetype, addr->offset);
   else
     parts->offset = NULL_TREE;
 
@@ -1030,11 +1031,7 @@ copy_ref_info (tree new_ref, tree old_ref)
 	    {
 	      poly_int64 inc = (mem_ref_offset (old_ref)
 				- mem_ref_offset (new_ref)).force_shwi ();
-	      HOST_WIDE_INT const_inc;
-	      if (inc.is_constant (&const_inc))
-		adjust_ptr_info_misalignment (new_pi, const_inc);
-	      else
-		mark_ptr_info_alignment_unknown (new_pi);
+	      adjust_ptr_info_misalignment (new_pi, inc);
 	    }
 	  else
 	    mark_ptr_info_alignment_unknown (new_pi);

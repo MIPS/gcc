@@ -129,9 +129,9 @@ static char *stack_usage_map;
 /* Size of STACK_USAGE_MAP.  */
 static unsigned int highest_outgoing_arg_in_use;
 
-/* Assume that any stack location beyond this byte index is used,
+/* Assume that any stack location at this byte index is used,
    without checking the contents of stack_usage_map.  */
-static unsigned HOST_WIDE_INT stack_usage_watermark = HOST_WIDE_INT_MAX;
+static unsigned HOST_WIDE_INT stack_usage_watermark = HOST_WIDE_INT_M1U;
 
 /* A bitmap of virtual-incoming stack space.  Bit is set if the corresponding
    stack location's tail call argument has been already stored into the stack.
@@ -140,7 +140,7 @@ static unsigned HOST_WIDE_INT stack_usage_watermark = HOST_WIDE_INT_MAX;
    overwritten with tail call arguments.  */
 static sbitmap stored_args_map;
 
-/* Assume that any virtual-incoming location beyond this byte index has been
+/* Assume that any virtual-incoming location at this byte index has been
    stored, without checking the contents of stored_args_map.  */
 static unsigned HOST_WIDE_INT stored_args_watermark;
 
@@ -177,13 +177,13 @@ static void restore_fixed_argument_area (rtx, rtx, int, int);
    stack region might already be in use.  */
 
 static bool
-stack_region_used_p (poly_uint64 lower_bound, poly_uint64 upper_bound,
-		     unsigned int reg_parm_stack_space)
+stack_region_maybe_used_p (poly_uint64 lower_bound, poly_uint64 upper_bound,
+			   unsigned int reg_parm_stack_space)
 {
   unsigned HOST_WIDE_INT const_lower, const_upper;
   const_lower = constant_lower_bound (lower_bound);
   if (!upper_bound.is_constant (&const_upper))
-    const_upper = HOST_WIDE_INT_MAX;
+    const_upper = HOST_WIDE_INT_M1U;
 
   if (const_upper > stack_usage_watermark)
     return true;
@@ -444,7 +444,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if no arguments are actually popped.  If the target does not have
      "call" or "call_value" insns, then we must use the popping versions
      even if the call has no arguments to pop.  */
-  else if (may_ne (n_popped, 0)
+  else if (maybe_nonzero (n_popped)
 	   || !(valreg
 		? targetm.have_call_value ()
 		: targetm.have_call ()))
@@ -523,7 +523,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
 
-  if (may_ne (n_popped, 0))
+  if (maybe_nonzero (n_popped))
     {
       if (!already_popped)
 	CALL_INSN_FUNCTION_USAGE (call_insn)
@@ -555,7 +555,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 If returning from the subroutine does pop the args, indicate that the
 	 stack pointer will be changed.  */
 
-      if (may_ne (rounded_stack_size, 0))
+      if (maybe_nonzero (rounded_stack_size))
 	{
 	  if (ecf_flags & ECF_NORETURN)
 	    /* Just pretend we did the pop.  */
@@ -578,7 +578,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 
      ??? It will be worthwhile to enable combine_stack_adjustments even for
      such machines.  */
-  else if (may_ne (n_popped, 0))
+  else if (maybe_nonzero (n_popped))
     anti_adjust_stack (gen_int_mode (n_popped, Pmode));
 }
 
@@ -1167,10 +1167,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	&& (MEM_ALIGN (args[i].value)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
-	/* ABIs that pass variable-sized BLKmode values in registers
-	   should use PARALLELs instead of a single REG, so that we don't
-	   need to second-guess how the value is partitioned up.  */
-	int bytes = int_size_in_bytes_hwi (TREE_TYPE (args[i].tree_value));
+	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
 	int endian_correction = 0;
 
 	if (args[i].partial)
@@ -1292,9 +1289,8 @@ alloc_max_size (void)
 
 	      if (unit)
 		{
-		  wide_int w = wi::uhwi (limit, HOST_BITS_PER_WIDE_INT + 64);
-		  w *= unit;
-		  if (wi::ltu_p (w, alloc_object_size_limit))
+		  widest_int w = wi::mul (limit, unit);
+		  if (w < wi::to_widest (alloc_object_size_limit))
 		    alloc_object_size_limit = wide_int_to_tree (ssizetype, w);
 		}
 	    }
@@ -1334,8 +1330,6 @@ get_size_range (tree exp, tree range[2])
 
   tree exptype = TREE_TYPE (exp);
   unsigned expprec = TYPE_PRECISION (exptype);
-  wide_int wzero = wi::zero (expprec);
-  wide_int wmaxval = wide_int (TYPE_MAX_VALUE (exptype));
 
   bool signed_p = !TYPE_UNSIGNED (exptype);
 
@@ -1343,7 +1337,7 @@ get_size_range (tree exp, tree range[2])
     {
       if (signed_p)
 	{
-	  if (wi::les_p (max, wzero))
+	  if (wi::les_p (max, 0))
 	    {
 	      /* EXP is not in a strictly negative range.  That means
 		 it must be in some (not necessarily strictly) positive
@@ -1351,24 +1345,24 @@ get_size_range (tree exp, tree range[2])
 		 conversions negative values end up converted to large
 		 positive values, and otherwise they are not valid sizes,
 		 the resulting range is in both cases [0, TYPE_MAX].  */
-	      min = wzero;
-	      max = wmaxval;
+	      min = wi::zero (expprec);
+	      max = wi::to_wide (TYPE_MAX_VALUE (exptype));
 	    }
-	  else if (wi::les_p (min - 1, wzero))
+	  else if (wi::les_p (min - 1, 0))
 	    {
 	      /* EXP is not in a negative-positive range.  That means EXP
 		 is either negative, or greater than max.  Since negative
 		 sizes are invalid make the range [MAX + 1, TYPE_MAX].  */
 	      min = max + 1;
-	      max = wmaxval;
+	      max = wi::to_wide (TYPE_MAX_VALUE (exptype));
 	    }
 	  else
 	    {
 	      max = min - 1;
-	      min = wzero;
+	      min = wi::zero (expprec);
 	    }
 	}
-      else if (wi::eq_p (wzero, min - 1))
+      else if (wi::eq_p (0, min - 1))
 	{
 	  /* EXP is unsigned and not in the range [1, MAX].  That means
 	     it's either zero or greater than MAX.  Even though 0 would
@@ -1376,12 +1370,12 @@ get_size_range (tree exp, tree range[2])
 	     [MAX, TYPE_MAX] so that when MAX is greater than the limit
 	     the whole range is diagnosed.  */
 	  min = max + 1;
-	  max = wmaxval;
+	  max = wi::to_wide (TYPE_MAX_VALUE (exptype));
 	}
       else
 	{
 	  max = min - 1;
-	  min = wzero;
+	  min = wi::zero (expprec);
 	}
     }
 
@@ -1965,8 +1959,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	   end it should be padded.  */
 	args[i].locate.where_pad =
 	  BLOCK_REG_PADDING (mode, type,
-			     must_le (int_size_in_bytes (type),
-				      UNITS_PER_WORD));
+			     int_size_in_bytes (type) <= UNITS_PER_WORD);
 #endif
 
       /* Update ARGS_SIZE, the total stack space for args so far.  */
@@ -2193,7 +2186,7 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
 	      += int_size_in_bytes (TREE_TYPE (args[i].tree_value));
 	}
 
-      if (may_ne (args_size->constant, 0)
+      if (maybe_nonzero (args_size->constant)
 	  && may_ge (copy_to_evaluate_size * 2, args_size->constant))
 	must_preallocate = 1;
     }
@@ -2225,7 +2218,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
 	  unsigned int align, boundary;
-	  poly_int64 units_on_stack = 0;
+	  poly_uint64 units_on_stack = 0;
 	  machine_mode partial_mode = VOIDmode;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
@@ -2449,14 +2442,14 @@ internal_arg_pointer_based_exp (const_rtx rtl, bool toplevel)
    if we should give up a sibcall.  */
 
 static bool
-mem_overlaps_already_clobbered_arg_p (rtx addr, poly_uint64 size)
+mem_might_overlap_already_clobbered_arg_p (rtx addr, poly_uint64 size)
 {
   poly_int64 i;
   unsigned HOST_WIDE_INT start, end;
   rtx val;
 
   if (bitmap_empty_p (stored_args_map)
-      && stored_args_watermark == HOST_WIDE_INT_MAX)
+      && stored_args_watermark == HOST_WIDE_INT_M1U)
     return false;
   val = internal_arg_pointer_based_exp (addr, true);
   if (val == NULL_RTX)
@@ -2464,7 +2457,7 @@ mem_overlaps_already_clobbered_arg_p (rtx addr, poly_uint64 size)
   else if (!poly_int_const_p (val, &i))
     return true;
 
-  if (must_eq (size, 0U))
+  if (known_zero (size))
     return false;
 
   if (STACK_GROWS_DOWNWARD)
@@ -2475,11 +2468,14 @@ mem_overlaps_already_clobbered_arg_p (rtx addr, poly_uint64 size)
   if (ARGS_GROW_DOWNWARD)
     i = -i - size;
 
-  /* We can ignore any references to the function's own pretend args,
+  /* We can ignore any references to the function's pretend args,
      which at this point would manifest as negative values of I.  */
-  start = constant_lower_bound (ordered_max (i, 0));
+  if (must_le (i, 0) && must_le (size, poly_uint64 (-i)))
+    return false;
+
+  start = may_lt (i, 0) ? 0 : constant_lower_bound (i);
   if (!(i + size).is_constant (&end))
-    end = HOST_WIDE_INT_MAX;
+    end = HOST_WIDE_INT_M1U;
 
   if (end > stored_args_watermark)
     return true;
@@ -2518,6 +2514,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	  int partial = args[i].partial;
 	  int nregs;
 	  poly_int64 size = 0;
+	  HOST_WIDE_INT const_size = 0;
 	  rtx_insn *before_arg = get_last_insn ();
 	  /* Set non-negative if we must move a word at a time, even if
 	     just one word (e.g, partial == 4 && mode == DFmode).  Set
@@ -2533,12 +2530,9 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    }
 	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
 	    {
-	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	      /* ABIs that pass variable-sized BLKmode values in
-		 registers should use PARALLELs instead of a single REG,
-		 so that we don't need to second-guess how the value is
-		 partitioned up.  */
-	      nregs = CEIL (size.to_constant (), UNITS_PER_WORD);
+	      const_size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
+	      nregs = (const_size + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+	      size = const_size;
 	    }
 	  else
 	    size = GET_MODE_SIZE (args[i].mode);
@@ -2560,21 +2554,27 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	      /* Handle case where we have a value that needs shifting
 		 up to the msb.  eg. a QImode value and we're padding
 		 upward on a BYTES_BIG_ENDIAN machine.  */
-	      if (must_lt (size, UNITS_PER_WORD)
-		  && (args[i].locate.where_pad
-		      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
+	      if (args[i].locate.where_pad
+		  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD))
 		{
-		  rtx x;
-		  poly_int64 shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+		  gcc_checking_assert (ordered_p (size, UNITS_PER_WORD));
+		  if (may_lt (size, UNITS_PER_WORD))
+		    {
+		      rtx x;
+		      poly_int64 shift
+			= (UNITS_PER_WORD - size) * BITS_PER_UNIT;
 
-		  /* Assigning REG here rather than a temp makes CALL_FUSAGE
-		     report the whole reg as used.  Strictly speaking, the
-		     call only uses SIZE bytes at the msb end, but it doesn't
-		     seem worth generating rtl to say that.  */
-		  reg = gen_rtx_REG (word_mode, REGNO (reg));
-		  x = expand_shift (LSHIFT_EXPR, word_mode, reg, shift, reg, 1);
-		  if (x != reg)
-		    emit_move_insn (reg, x);
+		      /* Assigning REG here rather than a temp makes
+			 CALL_FUSAGE report the whole reg as used.
+			 Strictly speaking, the call only uses SIZE
+			 bytes at the msb end, but it doesn't seem worth
+			 generating rtl to say that.  */
+		      reg = gen_rtx_REG (word_mode, REGNO (reg));
+		      x = expand_shift (LSHIFT_EXPR, word_mode,
+					reg, shift, reg, 1);
+		      if (x != reg)
+			emit_move_insn (reg, x);
+		    }
 		}
 #endif
 	    }
@@ -2589,15 +2589,16 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  else if (partial == 0 || args[i].pass_on_stack)
 	    {
-	      /* We only get nregs != -1 if the size is constant.  */
-	      HOST_WIDE_INT const_size = size.to_constant ();
+	      /* SIZE and CONST_SIZE are 0 for partial arguments and
+		 the size of a BLKmode type otherwise.  */
+	      gcc_checking_assert (must_eq (size, const_size));
 	      rtx mem = validize_mem (copy_rtx (args[i].value));
 
 	      /* Check for overlap with already clobbered argument area,
 	         providing that this has non-zero size.  */
 	      if (is_sibcall
 		  && const_size != 0
-		  && (mem_overlaps_already_clobbered_arg_p
+		  && (mem_might_overlap_already_clobbered_arg_p
 		      (XEXP (args[i].value, 0), const_size)))
 		*sibcall_failure = 1;
 
@@ -2666,14 +2667,18 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 /* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
    wouldn't fill up an even multiple of PREFERRED_UNIT_STACK_BOUNDARY
    bytes, then we would need to push some additional bytes to pad the
-   arguments.  So, we compute an adjust to the stack pointer for an
+   arguments.  So, we try to compute an adjust to the stack pointer for an
    amount that will leave the stack under-aligned by UNADJUSTED_ARGS_SIZE
    bytes.  Then, when the arguments are pushed the stack will be perfectly
-   aligned.  ARGS_SIZE->CONSTANT is set to the number of bytes that should
-   be popped after the call.  Returns the adjustment.  */
+   aligned.
 
-static poly_int64
-combine_pending_stack_adjustment_and_call (poly_int64 unadjusted_args_size,
+   Return true if this optimization is possible, storing the adjustment
+   in ADJUSTMENT_OUT and setting ARGS_SIZE->CONSTANT to the number of
+   bytes that should be popped after the call.  */
+
+static bool
+combine_pending_stack_adjustment_and_call (poly_int64_pod *adjustment_out,
+					   poly_int64 unadjusted_args_size,
 					   struct args_size *args_size,
 					   unsigned int preferred_unit_stack_boundary)
 {
@@ -2687,7 +2692,7 @@ combine_pending_stack_adjustment_and_call (poly_int64 unadjusted_args_size,
   if (!known_misalignment (stack_pointer_delta + unadjusted_args_size,
 			   preferred_unit_stack_boundary,
 			   &unadjusted_alignment))
-    gcc_unreachable ();
+    return false;
 
   /* We want to get rid of as many of the PENDING_STACK_ADJUST bytes
      as possible -- leaving just enough left to cancel out the
@@ -2700,13 +2705,19 @@ combine_pending_stack_adjustment_and_call (poly_int64 unadjusted_args_size,
   if (!known_misalignment (pending_stack_adjust,
 			   preferred_unit_stack_boundary,
 			   &tmp_alignment))
-    gcc_unreachable ();
+    return false;
   unadjusted_alignment -= tmp_alignment;
   adjustment = pending_stack_adjust;
   /* Push enough additional bytes that the stack will be aligned
      after the arguments are pushed.  */
   if (preferred_unit_stack_boundary > 1 && unadjusted_alignment)
     adjustment -= preferred_unit_stack_boundary - unadjusted_alignment;
+
+  /* We need to know whether the adjusted argument size
+     (UNADJUSTED_ARGS_SIZE - ADJUSTMENT) constitutes an allocation
+     or a deallocation.  */
+  if (!ordered_p (adjustment, unadjusted_args_size))
+    return false;
 
   /* Now, sets ARGS_SIZE->CONSTANT so that we pop the right number of
      bytes after the call.  The right number is the entire
@@ -2715,7 +2726,8 @@ combine_pending_stack_adjustment_and_call (poly_int64 unadjusted_args_size,
   args_size->constant
     = pending_stack_adjust - adjustment + unadjusted_args_size;
 
-  return adjustment;
+  *adjustment_out = adjustment;
+  return true;
 }
 
 /* Scan X expression if it does not dereference any argument slots
@@ -2741,8 +2753,8 @@ check_sibcall_argument_overlap_1 (rtx x)
     return 0;
 
   if (code == MEM)
-    return mem_overlaps_already_clobbered_arg_p (XEXP (x, 0),
-						 GET_MODE_SIZE (GET_MODE (x)));
+    return (mem_might_overlap_already_clobbered_arg_p
+	    (XEXP (x, 0), GET_MODE_SIZE (GET_MODE (x))));
 
   /* Scan all subexpressions.  */
   fmt = GET_RTX_FORMAT (code);
@@ -3187,7 +3199,8 @@ expand_call (tree exp, rtx target, int ignore)
       }
 #else /* not PCC_STATIC_STRUCT_RETURN */
       {
-	struct_value_size = int_size_in_bytes (rettype);
+	if (!poly_tree_p (TYPE_SIZE_UNIT (rettype), &struct_value_size))
+	  struct_value_size = -1;
 
 	/* Even if it is semantically safe to use the target as the return
 	   slot, it may be not sufficiently aligned for the return type.  */
@@ -3361,7 +3374,8 @@ expand_call (tree exp, rtx target, int ignore)
 	  || reg_mentioned_p (virtual_outgoing_args_rtx,
 			      structure_value_addr))
       && (args_size.var
-	  || (!ACCUMULATE_OUTGOING_ARGS && may_ne (args_size.constant, 0))))
+	  || (!ACCUMULATE_OUTGOING_ARGS
+	      && maybe_nonzero (args_size.constant))))
     structure_value_addr = copy_to_reg (structure_value_addr);
 
   /* Tail calls can make things harder to debug, and we've traditionally
@@ -3478,9 +3492,9 @@ expand_call (tree exp, rtx target, int ignore)
 	 Also do the adjustments before a throwing call, otherwise
 	 exception handling can fail; PR 19225. */
       if (may_ge (pending_stack_adjust, 32)
-	  || (may_ne (pending_stack_adjust, 0)
+	  || (maybe_nonzero (pending_stack_adjust)
 	      && (flags & ECF_MAY_BE_ALLOCA))
-	  || (may_ne (pending_stack_adjust, 0)
+	  || (maybe_nonzero (pending_stack_adjust)
 	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
@@ -3529,7 +3543,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  HOST_WIDE_INT map_size = constant_lower_bound (args_size.constant);
 	  stored_args_map = sbitmap_alloc (map_size);
 	  bitmap_clear (stored_args_map);
-	  stored_args_watermark = HOST_WIDE_INT_MAX;
+	  stored_args_watermark = HOST_WIDE_INT_M1U;
 	}
 
       /* If we have no actual push instructions, or shouldn't use them,
@@ -3626,22 +3640,23 @@ expand_call (tree exp, rtx target, int ignore)
 		}
 	      else
 		{
-		  if (inhibit_defer_pop == 0)
+		  /* Try to reuse some or all of the pending_stack_adjust
+		     to get this space.  */
+		  if (inhibit_defer_pop == 0
+		      && (combine_pending_stack_adjustment_and_call
+			  (&needed,
+			   unadjusted_args_size,
+			   &adjusted_args_size,
+			   preferred_unit_stack_boundary)))
 		    {
-		      /* Try to reuse some or all of the pending_stack_adjust
-			 to get this space.  */
-		      needed
-			= (combine_pending_stack_adjustment_and_call
-			   (unadjusted_args_size,
-			    &adjusted_args_size,
-			    preferred_unit_stack_boundary));
-
 		      /* combine_pending_stack_adjustment_and_call computes
 			 an adjustment before the arguments are allocated.
 			 Account for them and see whether or not the stack
 			 needs to go up or down.  */
 		      needed = unadjusted_args_size - needed;
 
+		      /* Checked by
+			 combine_pending_stack_adjustment_and_call.  */
 		      gcc_checking_assert (ordered_p (needed, 0));
 		      if (may_lt (needed, 0))
 			{
@@ -3660,7 +3675,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 		  /* Special case this because overhead of `push_block' in
 		     this case is non-trivial.  */
-		  if (must_eq (needed, 0))
+		  if (known_zero (needed))
 		    argblock = virtual_outgoing_args_rtx;
 		  else
 		    {
@@ -3714,7 +3729,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  stack_usage_map_buf = XCNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
 		  highest_outgoing_arg_in_use = 0;
-		  stack_usage_watermark = HOST_WIDE_INT_MAX;
+		  stack_usage_watermark = HOST_WIDE_INT_M1U;
 		}
 	      /* We can pass TRUE as the 4th argument because we just
 		 saved the stack pointer and will restore it right after
@@ -3755,16 +3770,14 @@ expand_call (tree exp, rtx target, int ignore)
 	{
 	  /* When the stack adjustment is pending, we get better code
 	     by combining the adjustments.  */
-	  if (may_ne (pending_stack_adjust, 0)
-	      && ! inhibit_defer_pop)
-	    {
-	      pending_stack_adjust
-		= (combine_pending_stack_adjustment_and_call
-		   (unadjusted_args_size,
-		    &adjusted_args_size,
-		    preferred_unit_stack_boundary));
-	      do_pending_stack_adjust ();
-	    }
+	  if (maybe_nonzero (pending_stack_adjust)
+	      && ! inhibit_defer_pop
+	      && (combine_pending_stack_adjustment_and_call
+		  (&pending_stack_adjust,
+		   unadjusted_args_size,
+		   &adjusted_args_size,
+		   preferred_unit_stack_boundary)))
+	    do_pending_stack_adjust ();
 	  else if (argblock == 0)
 	    anti_adjust_stack (gen_int_mode (adjusted_args_size.constant
 					     - unadjusted_args_size,
@@ -4873,11 +4886,11 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		  upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 		}
 
-	      if (stack_region_used_p (lower_bound, upper_bound,
-				       reg_parm_stack_space))
+	      if (stack_region_maybe_used_p (lower_bound, upper_bound,
+					     reg_parm_stack_space))
 		{
 		  /* We need to make a save area.  */
-		  poly_int64 size
+		  poly_uint64 size
 		    = argvec[argnum].locate.size.constant * BITS_PER_UNIT;
 		  machine_mode save_mode
 		    = int_mode_for_size (size, 1).else_blk ();
@@ -5322,11 +5335,11 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      upper_bound = lower_bound + arg->locate.size.constant;
 	    }
 
-	  if (stack_region_used_p (lower_bound, upper_bound,
-				   reg_parm_stack_space))
+	  if (stack_region_maybe_used_p (lower_bound, upper_bound,
+					 reg_parm_stack_space))
 	    {
 	      /* We need to make a save area.  */
-	      poly_int64 size = arg->locate.size.constant * BITS_PER_UNIT;
+	      poly_uint64 size = arg->locate.size.constant * BITS_PER_UNIT;
 	      machine_mode save_mode
 		= int_mode_for_size (size, 1).else_blk ();
 	      rtx adr = memory_address (save_mode, XEXP (arg->stack_slot, 0));
@@ -5417,8 +5430,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   /* Check for overlap with already clobbered argument area.  */
   if ((flags & ECF_SIBCALL)
       && MEM_P (arg->value)
-      && mem_overlaps_already_clobbered_arg_p (XEXP (arg->value, 0),
-					       arg->locate.size.constant))
+      && mem_might_overlap_already_clobbered_arg_p (XEXP (arg->value, 0),
+						    arg->locate.size.constant))
     sibcall_failure = 1;
 
   /* Don't allow anything left on stack from computation
@@ -5610,7 +5623,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
   /* Mark all slots this store used.  */
   if (ACCUMULATE_OUTGOING_ARGS && !(flags & ECF_SIBCALL)
-      && argblock && !variable_size && arg->stack)
+      && argblock && ! variable_size && arg->stack)
     mark_stack_region_used (lower_bound, upper_bound);
 
   /* Once we have pushed something, pops can't safely
@@ -5666,7 +5679,7 @@ must_pass_in_stack_var_size_or_pad (machine_mode mode, const_tree type)
   /* If the padding and mode of the type is such that a copy into
      a register would put it into the wrong part of the register.  */
   if (mode == BLKmode
-      && !multiple_p (int_size_in_bytes (type), PARM_BOUNDARY / BITS_PER_UNIT)
+      && int_size_in_bytes (type) % (PARM_BOUNDARY / BITS_PER_UNIT)
       && (targetm.calls.function_arg_padding (mode, type)
 	  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
     return true;

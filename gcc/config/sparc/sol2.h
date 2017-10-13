@@ -371,7 +371,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  && (DECL) && DECL_SIZE (DECL))			\
 	{							\
 	  size_directive_output = 1;				\
-	  size = int_size_in_bytes_hwi (TREE_TYPE (DECL));	\
+	  size = int_size_in_bytes (TREE_TYPE (DECL));		\
 	  ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
 	}							\
 								\

@@ -1006,7 +1006,7 @@ general_operand (rtx op, machine_mode mode)
 
 	 ??? This is a kludge.  */
       if (!reload_completed
-	  && may_ne (SUBREG_BYTE (op), 0)
+	  && maybe_nonzero (SUBREG_BYTE (op))
 	  && MEM_P (sub))
 	return 0;
 

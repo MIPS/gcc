@@ -63,7 +63,7 @@ instrument_comparison (gimple_stmt_iterator *gsi, tree lhs, tree rhs)
     {
       c = (is_gimple_min_invariant (lhs)
 	   ^ is_gimple_min_invariant (rhs));
-      switch (int_size_in_bytes_hwi (type))
+      switch (int_size_in_bytes (type))
 	{
 	case 1:
       	  fncode = c ? BUILT_IN_SANITIZER_COV_TRACE_CONST_CMP1
@@ -145,7 +145,7 @@ instrument_switch (gimple_stmt_iterator *gsi, gimple *stmt, function *fun)
 {
   gswitch *switch_stmt = as_a<gswitch *> (stmt);
   tree index = gimple_switch_index (switch_stmt);
-  HOST_WIDE_INT size_in_bytes = int_size_in_bytes_hwi (TREE_TYPE (index));
+  HOST_WIDE_INT size_in_bytes = int_size_in_bytes (TREE_TYPE (index));
   if (size_in_bytes == -1 || size_in_bytes > 8)
     return;
 

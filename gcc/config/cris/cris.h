@@ -75,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #define CRIS_FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((MODE) != BLKmode ? GET_MODE_SIZE (MODE)	\
-   : (unsigned) int_size_in_bytes_hwi (TYPE))
+   : (unsigned) int_size_in_bytes (TYPE))
 
 /* Which CPU version this is.  The parsed and adjusted cris_cpu_str.  */
 extern int cris_cpu_version;

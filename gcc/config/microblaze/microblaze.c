@@ -1497,7 +1497,7 @@ microblaze_function_arg_advance (cumulative_args_t cum_v,
 
     case E_BLKmode:
       cum->gp_reg_found = 1;
-      cum->arg_words += ((int_size_in_bytes_hwi (type) + UNITS_PER_WORD - 1)
+      cum->arg_words += ((int_size_in_bytes (type) + UNITS_PER_WORD - 1)
 			 / UNITS_PER_WORD);
       break;
 
@@ -1597,7 +1597,7 @@ function_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
     {
       int words;
       if (mode == BLKmode)
-	words = ((int_size_in_bytes_hwi (type) + UNITS_PER_WORD - 1)
+	words = ((int_size_in_bytes (type) + UNITS_PER_WORD - 1)
 		 / UNITS_PER_WORD);
       else
 	words = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -2847,7 +2847,7 @@ microblaze_expand_prologue (void)
 
 	  /* passed in a register, so will get homed automatically.  */
 	  if (GET_MODE (entry_parm) == BLKmode)
-	    words = (int_size_in_bytes_hwi (passed_type) + 3) / 4;
+	    words = (int_size_in_bytes (passed_type) + 3) / 4;
 	  else
 	    words = (GET_MODE_SIZE (GET_MODE (entry_parm)) + 3) / 4;
 
@@ -3154,7 +3154,7 @@ microblaze_elf_in_small_data_p (const_tree decl)
 	return true;
     }
 
-  size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+  size = int_size_in_bytes (TREE_TYPE (decl));
 
   return (size > 0 && size <= microblaze_section_threshold);
 }

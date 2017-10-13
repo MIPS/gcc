@@ -3403,7 +3403,7 @@ avr_num_arg_regs (machine_mode mode, const_tree type)
   int size;
 
   if (mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -12062,7 +12062,7 @@ avr_function_value (const_tree type,
   if (TYPE_MODE (type) != BLKmode)
     return avr_libcall_value (TYPE_MODE (type), NULL_RTX);
 
-  offs = int_size_in_bytes_hwi (type);
+  offs = int_size_in_bytes (type);
   if (offs < 2)
     offs = 2;
   if (offs > 2 && offs < GET_MODE_SIZE (SImode))
@@ -12894,7 +12894,7 @@ avr_asm_out_dtor (rtx symbol, int priority)
 static bool
 avr_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  HOST_WIDE_INT size = int_size_in_bytes (type);
   HOST_WIDE_INT ret_size_limit = AVR_TINY ? 4 : 8;
 
   /* In avr, there are 8 return registers. But, for Tiny Core
@@ -14498,7 +14498,7 @@ avr_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *arg,
             break;
           }
 
-        tmap = wide_int_to_tree (map_type, arg[0]);
+        tmap = wide_int_to_tree (map_type, wi::to_wide (arg[0]));
         map = TREE_INT_CST_LOW (tmap);
 
         if (TREE_CODE (tval) != INTEGER_CST

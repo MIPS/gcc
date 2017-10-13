@@ -446,7 +446,7 @@ add_stack_var (tree decl)
   v->size = tree_to_poly_uint64 (size);
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
-  if (must_eq (v->size, 0U))
+  if (known_zero (v->size))
     v->size = 1;
   v->alignb = align_local_variable (decl);
   /* An alignment of zero can mightily confuse us later.  */
@@ -964,7 +964,7 @@ dump_stack_var_partition (void)
 	continue;
 
       fprintf (dump_file, "Partition %lu: size ", (unsigned long) i);
-      print_dec (stack_vars[i].size, dump_file, SIGNED);
+      print_dec (stack_vars[i].size, dump_file);
       fprintf (dump_file, " align %u\n", stack_vars[i].alignb);
 
       for (j = i; j != EOC; j = stack_vars[j].next)
@@ -1182,7 +1182,7 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 
 	  /* If there were any variables requiring "large" alignment, allocate
 	     space.  */
-	  if (may_ne (large_size, 0U) && ! large_allocation_done)
+	  if (maybe_nonzero (large_size) && ! large_allocation_done)
 	    {
 	      poly_int64 loffset;
 	      rtx large_allocsize;
@@ -4259,14 +4259,14 @@ expand_debug_expr (tree exp)
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
       return op0;
 
+    case POLY_INT_CST:
+      return immed_wide_int_const (poly_int_cst_value (exp), mode);
+
     case COMPLEX_CST:
       gcc_assert (COMPLEX_MODE_P (mode));
       op0 = expand_debug_expr (TREE_REALPART (exp));
       op1 = expand_debug_expr (TREE_IMAGPART (exp));
       return gen_rtx_CONCAT (mode, op0, op1);
-
-    case POLY_CST:
-      return immed_poly_int_const (tree_to_poly_wide_int (exp), mode);
 
     case DEBUG_EXPR_DECL:
       op0 = DECL_RTL_IF_SET (exp);
@@ -4474,7 +4474,7 @@ expand_debug_expr (tree exp)
 				 &unsignedp, &reversep, &volatilep);
 	rtx orig_op0;
 
-	if (must_eq (bitsize, 0))
+	if (known_zero (bitsize))
 	  return NULL;
 
 	orig_op0 = op0 = expand_debug_expr (tem);
@@ -4523,7 +4523,7 @@ expand_debug_expr (tree exp)
 		op0 = adjust_address_nv (op0, mode1, bytepos);
 		bitpos = num_trailing_bits (bitpos);
 	      }
-	    else if (must_eq (bitpos, 0)
+	    else if (known_zero (bitpos)
 		     && must_eq (bitsize, GET_MODE_BITSIZE (mode)))
 	      op0 = adjust_address_nv (op0, mode, 0);
 	    else if (GET_MODE (op0) != mode1)
@@ -4535,7 +4535,7 @@ expand_debug_expr (tree exp)
 	    set_mem_attributes (op0, exp, 0);
 	  }
 
-	if (must_eq (bitpos, 0) && mode == GET_MODE (op0))
+	if (known_zero (bitpos) && mode == GET_MODE (op0))
 	  return op0;
 
 	if (may_lt (bitpos, 0))
@@ -5077,7 +5077,10 @@ expand_debug_expr (tree exp)
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
     case VEC_PERM_EXPR:
+    case VEC_DUPLICATE_CST:
     case VEC_DUPLICATE_EXPR:
+    case VEC_SERIES_CST:
+    case VEC_SERIES_EXPR:
       return NULL;
 
     /* Misc codes.  */

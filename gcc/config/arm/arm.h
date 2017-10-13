@@ -812,7 +812,7 @@ extern int arm_arch_cmse;
 /* The number of (integer) registers required to hold a quantity of TYPE MODE.  */
 #define ARM_NUM_REGS2(MODE, TYPE)                   \
   ARM_NUM_INTS ((MODE) == BLKmode ? 		\
-  int_size_in_bytes_hwi (TYPE) : GET_MODE_SIZE (MODE))
+  int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))
 
 /* The number of (integer) argument register available.  */
 #define NUM_ARG_REGS		4
@@ -2228,9 +2228,12 @@ const char *arm_be8_option (int argc, const char **argv);
   "                     %{mfloat-abi=*: abi %*}"	\
   "                     %<march=*) "
 
+/* Complete set of specs for the driver.  Commas separate the
+   individual rules so that any option suppression (%<opt...)is
+   completed before starting subsequent rules.  */
 #define DRIVER_SELF_SPECS			\
-  MCPU_MTUNE_NATIVE_SPECS			\
-  TARGET_MODE_SPECS				\
+  MCPU_MTUNE_NATIVE_SPECS,			\
+  TARGET_MODE_SPECS,				\
   ARCH_CANONICAL_SPECS
 
 #define TARGET_SUPPORTS_WIDE_INT 1

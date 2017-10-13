@@ -2714,7 +2714,7 @@ mcore_num_arg_regs (machine_mode mode, const_tree type)
     return 0;
 
   if (type && mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -2736,7 +2736,7 @@ handle_structs_in_regs (machine_mode mode, const_tree type, int reg)
   if (type
       && TYPE_MODE (type) == BLKmode
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-      && (size = int_size_in_bytes_hwi (type)) > UNITS_PER_WORD
+      && (size = int_size_in_bytes (type)) > UNITS_PER_WORD
       && (size % UNITS_PER_WORD != 0)
       && (reg + mcore_num_arg_regs (mode, type) <= (FIRST_PARM_REG + NPARM_REGS)))
     {
@@ -3150,7 +3150,7 @@ mcore_external_libcall (rtx fun)
 static bool
 mcore_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  const HOST_WIDE_INT size = int_size_in_bytes (type);
   return (size == -1 || size > 2 * UNITS_PER_WORD);
 }
 

@@ -1159,7 +1159,7 @@ go_output_typedef (struct godump_container *container, tree decl)
 	    snprintf (buf, sizeof buf, HOST_WIDE_INT_PRINT_UNSIGNED,
 		      tree_to_uhwi (TREE_VALUE (element)));
 	  else
-	    print_hex (element, buf);
+	    print_hex (wi::to_wide (element), buf);
 
 	  mhval->value = xstrdup (buf);
 	  *slot = mhval;
@@ -1194,7 +1194,7 @@ go_output_typedef (struct godump_container *container, tree decl)
 
       if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl)))
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
 
 	  if (size > 0)
 	    fprintf (go_dump_file,
@@ -1229,7 +1229,7 @@ go_output_typedef (struct godump_container *container, tree decl)
 	       IDENTIFIER_POINTER (TYPE_NAME (TREE_TYPE (decl))));
        go_output_type (container);
 
-       size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+       size = int_size_in_bytes (TREE_TYPE (decl));
        if (size > 0)
 	 fprintf (go_dump_file,
 		  "\nconst _sizeof_%s = " HOST_WIDE_INT_PRINT_DEC,

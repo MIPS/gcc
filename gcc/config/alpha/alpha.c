@@ -808,7 +808,7 @@ alpha_in_small_data_p (const_tree exp)
     }
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
 	 in sdata because it might be too big when completed.  */

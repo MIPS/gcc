@@ -200,8 +200,8 @@ extern void ira_mark_allocation_change (int);
 extern void ira_mark_memory_move_deletion (int, int);
 extern bool ira_reassign_pseudos (int *, int, HARD_REG_SET, HARD_REG_SET *,
 				  HARD_REG_SET *, bitmap);
-extern rtx ira_reuse_stack_slot (int, poly_int64, poly_int64);
-extern void ira_mark_new_stack_slot (rtx, int, poly_int64);
+extern rtx ira_reuse_stack_slot (int, poly_uint64, poly_uint64);
+extern void ira_mark_new_stack_slot (rtx, int, poly_uint64);
 extern bool ira_better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx_insn *);
 extern bool ira_bad_reload_regno (int, rtx, rtx);
 

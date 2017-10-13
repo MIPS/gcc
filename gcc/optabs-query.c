@@ -517,8 +517,8 @@ can_vec_mask_load_store_p (machine_mode mode,
       && convert_optab_handler (op, vmode, mask_mode) != CODE_FOR_nothing)
     return true;
 
-  auto_vec<poly_uint64, 8> vector_sizes;
-  targetm.vectorize.autovectorize_vector_sizes (vector_sizes);
+  auto_vector_sizes vector_sizes;
+  targetm.vectorize.autovectorize_vector_sizes (&vector_sizes);
   for (unsigned int i = 0; i < vector_sizes.length (); ++i)
     {
       poly_uint64 cur = vector_sizes[i];

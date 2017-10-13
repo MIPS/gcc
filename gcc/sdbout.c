@@ -375,7 +375,7 @@ plain_type (tree type)
       PUT_SDB_LAST_DIM (sdb_dims[0]);
       sdb_n_dims = 0;
 
-      sdb_type_size = int_size_in_bytes_hwi (type);
+      sdb_type_size = int_size_in_bytes (type);
       /* Don't kill sdb if type is not laid out or has variable size.  */
       if (sdb_type_size < 0)
 	sdb_type_size = 0;
@@ -468,7 +468,7 @@ plain_type_1 (tree type, int level)
     case BOOLEAN_TYPE:
     case INTEGER_TYPE:
       {
-	int size = int_size_in_bytes_hwi (type) * BITS_PER_UNIT;
+	int size = int_size_in_bytes (type) * BITS_PER_UNIT;
 
 	/* Carefully distinguish all the standard types of C,
 	   without messing up if the language is not C.
@@ -577,7 +577,7 @@ plain_type_1 (tree type, int level)
 	    /* These 3 lines used to follow the close brace.
 	       However, a size of 0 without a tag implies a tag of 0,
 	       so if we don't know a tag, we can't mention the size.  */
-	    sdb_type_size = int_size_in_bytes_hwi (type);
+	    sdb_type_size = int_size_in_bytes (type);
 	    if (sdb_type_size < 0)
 	      sdb_type_size = 0;
 	  }
@@ -1074,7 +1074,7 @@ sdbout_one_type (tree type)
 
       /* Output a structure type.  */
       {
-	int size = int_size_in_bytes_hwi (type);
+	int size = int_size_in_bytes (type);
 	int member_scl = 0;
 	tree tem;
 

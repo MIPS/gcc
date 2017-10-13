@@ -1480,8 +1480,8 @@ static bool
 mn10300_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* Return values > 8 bytes in length in memory.  */
-  return (int_size_in_bytes_hwi (type) > 8
-	  || int_size_in_bytes_hwi (type) == 0
+  return (int_size_in_bytes (type) > 8
+	  || int_size_in_bytes (type) == 0
 	  || TYPE_MODE (type) == BLKmode);
 }
 
@@ -1533,7 +1533,7 @@ mn10300_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
   unsigned HOST_WIDE_INT size;
 
   if (type)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -1556,7 +1556,7 @@ mn10300_function_arg (cumulative_args_t cum_v, machine_mode mode,
 
   /* Figure out the size of the object to be passed.  */
   if (mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -1600,7 +1600,7 @@ mn10300_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 
   cum->nbytes += (mode != BLKmode
 		  ? (GET_MODE_SIZE (mode) + 3) & ~3
-		  : (int_size_in_bytes_hwi (type) + 3) & ~3);
+		  : (int_size_in_bytes (type) + 3) & ~3);
 }
 
 /* Return the number of bytes of registers to use for an argument passed
@@ -1618,7 +1618,7 @@ mn10300_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
 
   /* Figure out the size of the object to be passed.  */
   if (mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 

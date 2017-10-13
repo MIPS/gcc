@@ -125,6 +125,7 @@ struct GTY(()) dw_cfa_location {
   BOOL_BITFIELD in_use : 1;    /* 1 if a saved cfa is stored here.  */
 };
 
+
 /* Each DIE may have a series of attribute/value pairs.  Values
    can take on several forms.  The forms that are used in this
    implementation are listed below.  */

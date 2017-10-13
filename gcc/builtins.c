@@ -377,18 +377,17 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 	}
     }
 
-  *alignp = align;
-  *bitposp = bitpos.coeffs[0] & (align - 1);
-
-  /* Account for the alignment of other coefficients, so that the constant
+  /* Account for the alignment of runtime coefficients, so that the constant
      bitpos is guaranteed to be accurate.  */
   unsigned int alt_align = ::known_alignment (bitpos - bitpos.coeffs[0]);
   if (alt_align != 0 && alt_align < align)
     {
-      *alignp = alt_align;
-      *bitposp = bitpos.coeffs[0] & (alt_align - 1);
+      align = alt_align;
       known_alignment = false;
     }
+
+  *alignp = align;
+  *bitposp = bitpos.coeffs[0] & (align - 1);
 
   return known_alignment;
 }

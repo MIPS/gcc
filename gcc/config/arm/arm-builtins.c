@@ -2141,7 +2141,7 @@ neon_dereference_pointer (tree exp, tree type, machine_mode mem_mode,
      MEM_MODE == REG_MODE implies a one-to-one mapping between register
      and memory elements; anything else implies a lane load or store.  */
   if (mem_mode == reg_mode)
-    nelems = vector_size * nvectors / int_size_in_bytes_hwi (elem_type);
+    nelems = vector_size * nvectors / int_size_in_bytes (elem_type);
   else
     nelems = nvectors;
 

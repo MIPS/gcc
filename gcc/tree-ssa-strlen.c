@@ -2374,8 +2374,8 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	   && TREE_CODE (TREE_TYPE (lhs)) == ARRAY_TYPE)
     {
       size_t l = strlen (TREE_STRING_POINTER (gimple_assign_rhs1 (stmt)));
-      poly_int64 a = int_size_in_bytes (TREE_TYPE (lhs));
-      if (may_ne (a, -1) && must_gt (poly_uint64 (a), l))
+      HOST_WIDE_INT a = int_size_in_bytes (TREE_TYPE (lhs));
+      if (a > 0 && (unsigned HOST_WIDE_INT) a > l)
 	{
 	  int idx = new_addr_stridx (lhs);
 	  if (idx != 0)

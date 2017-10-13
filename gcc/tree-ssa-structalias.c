@@ -3098,7 +3098,7 @@ get_constraint_for_ptr_offset (tree ptr, tree offset,
   else
     {
       /* Sign-extend the offset.  */
-      offset_int soffset = offset_int::from (offset, SIGNED);
+      offset_int soffset = offset_int::from (wi::to_wide (offset), SIGNED);
       if (!wi::fits_shwi_p (soffset))
 	rhsoffset = UNKNOWN_OFFSET;
       else
@@ -3263,7 +3263,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	 ignore this constraint. When we handle pointer subtraction,
 	 we may have to do something cute here.  */
 
-      if (must_lt (poly_uint64 (bitpos), get_varinfo (result.var)->fullsize)
+      if (may_lt (poly_uint64 (bitpos), get_varinfo (result.var)->fullsize)
 	  && may_ne (bitmaxsize, 0))
 	{
 	  /* It's also not true that the constraint will actually start at the
@@ -3310,7 +3310,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	      results->safe_push (cexpr);
 	    }
 	}
-      else if (must_eq (bitmaxsize, 0))
+      else if (known_zero (bitmaxsize))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Access to zero-sized part of variable, "

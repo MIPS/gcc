@@ -202,7 +202,7 @@ gen_stdcall_or_fastcall_suffix (tree decl, tree id, bool fastcall)
 	  if (! COMPLETE_TYPE_P (arg))
 	    break;
 
-	  parm_size = int_size_in_bytes_hwi (arg);
+	  parm_size = int_size_in_bytes (arg);
 	  if (parm_size < 0)
 	    break;
 

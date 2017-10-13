@@ -419,7 +419,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 		     requested size is 0 or the estimated stack
 		     alignment >= mode alignment.  */
 		  gcc_assert ((kind & ASLK_REDUCE_ALIGN)
-			      || must_eq (size, 0)
+			      || known_zero (size)
 			      || (crtl->stack_alignment_estimated
 				  >= GET_MODE_ALIGNMENT (mode)));
 		  alignment_in_bits = crtl->stack_alignment_estimated;
@@ -434,7 +434,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
   if (crtl->max_used_stack_slot_alignment < alignment_in_bits)
     crtl->max_used_stack_slot_alignment = alignment_in_bits;
 
-  if (mode != BLKmode || may_ne (size, 0))
+  if (mode != BLKmode || maybe_nonzero (size))
     {
       if (kind & ASLK_RECORD_PAD)
 	{
@@ -494,10 +494,12 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
  found_space:
   /* On a big-endian machine, if we are allocating more space than we will use,
      use the least significant bytes of those that are allocated.  */
-  if (BYTES_BIG_ENDIAN
-      && mode != BLKmode
-      && may_lt (GET_MODE_SIZE (mode), size))
-    bigend_correction = size - GET_MODE_SIZE (mode);
+  if (mode != BLKmode)
+    {
+      gcc_checking_assert (must_le (GET_MODE_SIZE (mode), size));
+      if (BYTES_BIG_ENDIAN && may_lt (GET_MODE_SIZE (mode), size))
+	bigend_correction = size - GET_MODE_SIZE (mode);
+    }
 
   /* If we have already instantiated virtual registers, return the actual
      address relative to the frame pointer.  */
@@ -749,15 +751,13 @@ find_temp_slot_from_address (rtx x)
     return p;
 
   /* Last resort: Address is a virtual stack var address.  */
-  if (GET_CODE (x) == PLUS
-      && XEXP (x, 0) == virtual_stack_vars_rtx
-      && CONST_INT_P (XEXP (x, 1)))
+  poly_int64 offset;
+  if (strip_offset (x, &offset) == virtual_stack_vars_rtx)
     {
       int i;
       for (i = max_slot_level (); i >= 0; i--)
 	for (p = *temp_slots_at_level (i); p; p = p->next)
-	  if (known_in_range_p (INTVAL (XEXP (x, 1)),
-				p->base_offset, p->full_size))
+	  if (known_in_range_p (offset, p->base_offset, p->full_size))
 	    return p;
     }
 
@@ -781,9 +781,7 @@ assign_stack_temp_for_type (machine_mode mode, poly_int64 size, tree type)
   struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
   rtx slot;
 
-  /* If SIZE is -1 it means that somebody tried to allocate a temporary
-     of a variable size.  */
-  gcc_assert (may_ne (size, -1));
+  gcc_assert (known_size_p (size));
 
   align = get_stack_local_alignment (type, mode);
 
@@ -977,26 +975,25 @@ assign_temp (tree type_or_decl, int memory_required,
 
   if (mode == BLKmode || memory_required)
     {
-      poly_int64 size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
       rtx tmp;
 
       /* Zero sized arrays are GNU C extension.  Set size to 1 to avoid
 	 problems with allocating the stack space.  */
-      if (must_eq (size, 0))
+      if (size == 0)
 	size = 1;
 
       /* Unfortunately, we don't yet know how to allocate variable-sized
 	 temporaries.  However, sometimes we can find a fixed upper limit on
 	 the size, so try that instead.  */
-      else if (must_eq (size, -1))
+      else if (size == -1)
 	size = max_int_size_in_bytes (type);
 
       /* The size of the temporary may be too large to fit into an integer.  */
       /* ??? Not sure this should happen except for user silliness, so limit
 	 this to things that aren't compiler-generated temporaries.  The
 	 rest of the time we'll die in assign_stack_temp_for_type.  */
-      if (decl
-	  && must_eq (size, -1)
+      if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
 	  error ("size of variable %q+D is too large", decl);
@@ -1575,7 +1572,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	 move insn in the initial rtl stream.  */
       new_rtx = instantiate_new_reg (SET_SRC (set), &offset);
       if (new_rtx
-	  && may_ne (offset, 0)
+	  && maybe_nonzero (offset)
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	{
@@ -1611,7 +1608,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  offset += INTVAL (recog_data.operand[2]);
 
 	  /* If the sum is zero, then replace with a plain move.  */
-	  if (must_eq (offset, 0)
+	  if (known_zero (offset)
 	      && REG_P (SET_DEST (set))
 	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
@@ -1689,7 +1686,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (x, &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (must_eq (offset, 0))
+	  if (known_zero (offset))
 	    x = new_rtx;
 	  else
 	    {
@@ -1714,7 +1711,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (SUBREG_REG (x), &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (may_ne (offset, 0))
+	  if (maybe_nonzero (offset))
 	    {
 	      start_sequence ();
 	      new_rtx = expand_simple_binop
@@ -2708,7 +2705,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
 	    {
 	      poly_int64 offset = subreg_lowpart_offset (DECL_MODE (parm),
 							 data->promoted_mode);
-	      if (may_ne (offset, 0))
+	      if (maybe_nonzero (offset))
 		set_mem_offset (stack_parm, MEM_OFFSET (stack_parm) - offset);
 	    }
 	}
@@ -2893,7 +2890,8 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
   rtx stack_parm = data->stack_parm;
   rtx target_reg = NULL_RTX;
   bool in_conversion_seq = false;
-  poly_int64 size;
+  HOST_WIDE_INT size;
+  HOST_WIDE_INT size_stored;
 
   if (GET_CODE (entry_parm) == PARALLEL)
     entry_parm = emit_group_move_into_temps (entry_parm);
@@ -2929,19 +2927,12 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
     }
 
   size = int_size_in_bytes (data->passed_type);
+  size_stored = CEIL_ROUND (size, UNITS_PER_WORD);
   if (stack_parm == 0)
     {
-      HOST_WIDE_INT const_size;
-      if (size.is_constant (&const_size))
-	{
-	  HOST_WIDE_INT size_stored = CEIL_ROUND (const_size, UNITS_PER_WORD);
-	  SET_DECL_ALIGN (parm, MAX (DECL_ALIGN (parm), BITS_PER_WORD));
-	  stack_parm = assign_stack_local (BLKmode, size_stored,
-					   DECL_ALIGN (parm));
-	}
-      else
-	/* Keep the original alignment and size.  */
-	stack_parm = assign_stack_local (BLKmode, size, DECL_ALIGN (parm));
+      SET_DECL_ALIGN (parm, MAX (DECL_ALIGN (parm), BITS_PER_WORD));
+      stack_parm = assign_stack_local (BLKmode, size_stored,
+				       DECL_ALIGN (parm));
       if (must_eq (GET_MODE_SIZE (GET_MODE (entry_parm)), size))
 	PUT_MODE (stack_parm, GET_MODE (entry_parm));
       set_mem_attributes (stack_parm, parm, 1);
@@ -2949,30 +2940,9 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 
   /* If a BLKmode arrives in registers, copy it to a stack slot.  Handle
      calls that pass values in multiple non-contiguous locations.  */
-  if (GET_CODE (entry_parm) == PARALLEL)
-    {
-      /* Handle values in multiple non-contiguous locations.  */
-      rtx mem = validize_mem (copy_rtx (stack_parm));
-      if (!MEM_P (mem))
-	emit_group_store (mem, entry_parm, data->passed_type, size);
-      else
-	{
-	  push_to_sequence2 (all->first_conversion_insn,
-			     all->last_conversion_insn);
-	  emit_group_store (mem, entry_parm, data->passed_type, size);
-	  all->first_conversion_insn = get_insns ();
-	  all->last_conversion_insn = get_last_insn ();
-	  end_sequence ();
-	  in_conversion_seq = true;
-	}
-    }
-  else if (REG_P (entry_parm))
+  if (REG_P (entry_parm) || GET_CODE (entry_parm) == PARALLEL)
     {
       rtx mem;
-      /* ABIs that pass variable-sized BLKmode values in registers
-	 should use PARALLELs instead of a single REG, so that we don't
-	 need to second-guess how the value is partitioned up.  */
-      HOST_WIDE_INT const_size = size.to_constant ();
 
       /* Note that we will be storing an integral number of words.
 	 So we have to be careful to ensure that we allocate an
@@ -2983,24 +2953,42 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	 if it becomes a problem.  Exception is when BLKmode arrives
 	 with arguments not conforming to word_mode.  */
 
-      if (data->stack_parm != 0)
-	gcc_assert (!const_size || !(PARM_BOUNDARY % BITS_PER_WORD));
+      if (data->stack_parm == 0)
+	;
+      else if (GET_CODE (entry_parm) == PARALLEL)
+	;
+      else
+	gcc_assert (!size || !(PARM_BOUNDARY % BITS_PER_WORD));
 
       mem = validize_mem (copy_rtx (stack_parm));
 
-      if (const_size == 0)
+      /* Handle values in multiple non-contiguous locations.  */
+      if (GET_CODE (entry_parm) == PARALLEL && !MEM_P (mem))
+	emit_group_store (mem, entry_parm, data->passed_type, size);
+      else if (GET_CODE (entry_parm) == PARALLEL)
+	{
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
+	  emit_group_store (mem, entry_parm, data->passed_type, size);
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
+	  end_sequence ();
+	  in_conversion_seq = true;
+	}
+
+      else if (size == 0)
 	;
 
       /* If SIZE is that of a mode no bigger than a word, just use
 	 that mode's store operation.  */
-      else if (const_size <= UNITS_PER_WORD)
+      else if (size <= UNITS_PER_WORD)
 	{
-	  unsigned int bits = const_size * BITS_PER_UNIT;
+	  unsigned int bits = size * BITS_PER_UNIT;
 	  machine_mode mode = int_mode_for_size (bits, 0).else_blk ();
 
 	  if (mode != BLKmode
 #ifdef BLOCK_REG_PADDING
-	      && (const_size == UNITS_PER_WORD
+	      && (size == UNITS_PER_WORD
 		  || (BLOCK_REG_PADDING (mode, data->passed_type, 1)
 		      != (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
 #endif
@@ -3014,7 +3002,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 		 to the value directly in mode MODE, otherwise we must
 		 start with the register in word_mode and explicitly
 		 convert it.  */
-	      if (targetm.truly_noop_truncation (const_size * BITS_PER_UNIT,
+	      if (targetm.truly_noop_truncation (size * BITS_PER_UNIT,
 						 BITS_PER_WORD))
 		reg = gen_rtx_REG (mode, REGNO (entry_parm));
 	      else
@@ -3045,7 +3033,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 							  data->passed_type, 1)
 				       == PAD_UPWARD));
 
-	      int by = (UNITS_PER_WORD - const_size) * BITS_PER_UNIT;
+	      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
 
 	      x = gen_rtx_REG (word_mode, REGNO (entry_parm));
 	      x = expand_shift (RSHIFT_EXPR, word_mode, x, by,
@@ -3061,7 +3049,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	     machine must be aligned to the left before storing
 	     to memory.  Note that the previous test doesn't
 	     handle all cases (e.g. SIZE == 3).  */
-	  else if (const_size != UNITS_PER_WORD
+	  else if (size != UNITS_PER_WORD
 #ifdef BLOCK_REG_PADDING
 		   && (BLOCK_REG_PADDING (mode, data->passed_type, 1)
 		       == PAD_DOWNWARD)
@@ -3071,7 +3059,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 		   )
 	    {
 	      rtx tem, x;
-	      int by = (UNITS_PER_WORD - const_size) * BITS_PER_UNIT;
+	      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
 	      rtx reg = gen_rtx_REG (word_mode, REGNO (entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg, by, NULL_RTX, 1);
@@ -3079,12 +3067,12 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	      emit_move_insn (tem, x);
 	    }
 	  else
-	    /* Exactly one word to move.  */
-	    move_block_from_reg (REGNO (entry_parm), mem, 1);
+	    move_block_from_reg (REGNO (entry_parm), mem,
+				 size_stored / UNITS_PER_WORD);
 	}
       else if (!MEM_P (mem))
 	{
-	  gcc_checking_assert (const_size > UNITS_PER_WORD);
+	  gcc_checking_assert (size > UNITS_PER_WORD);
 #ifdef BLOCK_REG_PADDING
 	  gcc_checking_assert (BLOCK_REG_PADDING (GET_MODE (mem),
 						  data->passed_type, 0)
@@ -3094,13 +3082,13 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	}
       else
 	move_block_from_reg (REGNO (entry_parm), mem,
-			     CEIL (const_size, UNITS_PER_WORD));
+			     size_stored / UNITS_PER_WORD);
     }
   else if (data->stack_parm == 0)
     {
       push_to_sequence2 (all->first_conversion_insn, all->last_conversion_insn);
-      emit_block_move (stack_parm, data->entry_parm,
-		       gen_int_mode (size, Pmode), BLOCK_OP_NORMAL);
+      emit_block_move (stack_parm, data->entry_parm, GEN_INT (size),
+		       BLOCK_OP_NORMAL);
       all->first_conversion_insn = get_insns ();
       all->last_conversion_insn = get_last_insn ();
       end_sequence ();
@@ -3447,7 +3435,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	  /* ??? This may need a big-endian conversion on sparc64.  */
 	  data->stack_parm
 	    = adjust_address (data->stack_parm, data->nominal_mode, 0);
-	  if (may_ne (offset, 0) && MEM_OFFSET_KNOWN_P (data->stack_parm))
+	  if (maybe_nonzero (offset) && MEM_OFFSET_KNOWN_P (data->stack_parm))
 	    set_mem_offset (data->stack_parm,
 			    MEM_OFFSET (data->stack_parm) + offset);
 	}
@@ -3481,8 +3469,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	  to_conversion = true;
 
 	  emit_block_move (dest, src,
-			   gen_int_mode (int_size_in_bytes (data->passed_type),
-					 Pmode),
+			   GEN_INT (int_size_in_bytes (data->passed_type)),
 			   BLOCK_OP_NORMAL);
 	}
       else
@@ -3533,7 +3520,7 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	  if (TREE_ADDRESSABLE (parm))
 	    {
 	      rtx rmem, imem;
-	      poly_int64 size = int_size_in_bytes (TREE_TYPE (parm));
+	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (parm));
 	      int align = STACK_SLOT_ALIGNMENT (TREE_TYPE (parm),
 						DECL_MODE (parm),
 						TYPE_ALIGN (TREE_TYPE (parm)));
@@ -5148,7 +5135,7 @@ expand_function_start (tree subr)
 #ifdef PCC_STATIC_STRUCT_RETURN
       if (cfun->returns_pcc_struct)
 	{
-	  poly_int64 size = int_size_in_bytes (TREE_TYPE (res));
+	  int size = int_size_in_bytes (TREE_TYPE (res));
 	  value_address = assemble_static_space (size);
 	}
       else

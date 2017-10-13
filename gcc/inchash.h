@@ -66,17 +66,26 @@ class hash
   }
 
   /* Add HOST_WIDE_INT value V.  */
-  void add_wide_int (HOST_WIDE_INT v)
+  void add_hwi (HOST_WIDE_INT v)
   {
     val = iterative_hash_host_wide_int (v, val);
   }
 
   /* Add polynomial value V, treating each element as a HOST_WIDE_INT.  */
   template<unsigned int N, typename T>
-  void add_poly_wide_int (const poly_int_pod<N, T> &v)
+  void add_poly_hwi (const poly_int_pod<N, T> &v)
   {
     for (unsigned int i = 0; i < N; ++i)
-      add_wide_int (v.coeffs[i]);
+      add_hwi (v.coeffs[i]);
+  }
+
+  /* Add wide_int-based value V.  */
+  template<typename T>
+  void add_wide_int (const generic_wide_int<T> &x)
+  {
+    add_int (x.get_len ());
+    for (unsigned i = 0; i < x.get_len (); i++)
+      add_hwi (x.elt (i));
   }
 
   /* Hash in pointer PTR.  */

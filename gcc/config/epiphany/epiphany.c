@@ -685,7 +685,7 @@ gen_compare_reg (machine_mode cmode, enum rtx_code code,
 /* Round arg MODE/TYPE up to the next word boundary.  */
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
   ((MODE) == BLKmode \
-   ? ROUND_ADVANCE (int_size_in_bytes_hwi (TYPE)) \
+   ? ROUND_ADVANCE (int_size_in_bytes (TYPE)) \
    : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))
 
 /* Round CUM up to the necessary point for argument MODE/TYPE.  */
@@ -1467,7 +1467,7 @@ epiphany_final_prescan_insn (rtx_insn *insn ATTRIBUTE_UNUSED,
 static bool
 epiphany_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
+  HOST_WIDE_INT size = int_size_in_bytes (type);
 
   if (AGGREGATE_TYPE_P (type)
       && (TYPE_MODE (type) == BLKmode || TYPE_NEEDS_CONSTRUCTING (type)))

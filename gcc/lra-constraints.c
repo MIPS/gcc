@@ -4011,10 +4011,10 @@ curr_insn_transform (bool check_only_p)
       if (INSN_CODE (curr_insn) >= 0
           && (p = get_insn_name (INSN_CODE (curr_insn))) != NULL)
         fprintf (lra_dump_file, " {%s}", p);
-      if (may_ne (curr_id->sp_offset, 0))
+      if (maybe_nonzero (curr_id->sp_offset))
 	{
 	  fprintf (lra_dump_file, " (sp_off=");
-	  print_dec (curr_id->sp_offset, lra_dump_file, SIGNED);
+	  print_dec (curr_id->sp_offset, lra_dump_file);
 	  fprintf (lra_dump_file, ")");
 	}
       fprintf (lra_dump_file, "\n");
@@ -6228,6 +6228,7 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 		  && ((cheap = XEXP (cheap, 0)), true)
 		  && (regno = REGNO (cheap)) >= FIRST_PSEUDO_REGISTER
 		  && (hard_regno = reg_renumber[regno]) >= 0
+		  && usage_insns[regno].check == curr_usage_insns_check
 		  /* If there are pending saves/restores, the
 		     optimization is not worth.	 */
 		  && usage_insns[regno].calls_num == calls_num - 1

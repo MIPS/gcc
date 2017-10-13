@@ -69,6 +69,18 @@
 		 (ior (match_test "op == constm1_rtx")
 		      (match_test "op == const1_rtx"))))))
 
+(define_predicate "aarch64_reg_or_orr_imm"
+   (ior (match_operand 0 "register_operand")
+	(and (match_code "const_vector")
+	     (match_test "aarch64_simd_valid_immediate (op, NULL,
+							AARCH64_CHECK_ORR)"))))
+
+(define_predicate "aarch64_reg_or_bic_imm"
+   (ior (match_operand 0 "register_operand")
+	(and (match_code "const_vector")
+	     (match_test "aarch64_simd_valid_immediate (op, NULL,
+							AARCH64_CHECK_BIC)"))))
+
 (define_predicate "aarch64_fp_compare_operand"
   (ior (match_operand 0 "register_operand")
        (and (match_code "const_double")
@@ -82,7 +94,7 @@
   (match_test "aarch64_vec_fpconst_pow_of_2 (op) > 0"))
 
 (define_predicate "aarch64_sve_cnt_immediate"
-  (and (match_code "const, const_param")
+  (and (match_code "const_poly_int")
        (match_test "aarch64_sve_cnt_immediate_p (op)")))
 
 (define_predicate "aarch64_sub_immediate"
@@ -107,11 +119,11 @@
        (not (match_operand 0 "aarch64_plus_immediate"))))
 
 (define_predicate "aarch64_sve_addvl_addpl_immediate"
-  (and (match_code "const,const_param")
+  (and (match_code "const_poly_int")
        (match_test "aarch64_sve_addvl_addpl_immediate_p (op)")))
 
 (define_predicate "aarch64_split_add_offset_immediate"
-  (and (match_code "const, const_param")
+  (and (match_code "const_poly_int")
        (match_test "aarch64_add_offset_temporaries (op) == 1")))
 
 (define_predicate "aarch64_pluslong_operand"
@@ -250,7 +262,7 @@
 
 (define_predicate "aarch64_mov_operand"
   (and (match_code "reg,subreg,mem,const,const_int,symbol_ref,label_ref,high,
-		    const_param,const_vector")
+		    const_poly_int,const_vector")
        (ior (match_operand 0 "register_operand")
 	    (ior (match_operand 0 "memory_operand")
 		 (match_test "aarch64_mov_operand_p (op, mode)")))))

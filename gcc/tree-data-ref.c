@@ -86,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop-niter.h"
-#include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
@@ -672,7 +671,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	     }  */
 	while (POINTER_TYPE_P (type))
 	  type = TREE_TYPE (type);
-	if (must_eq (int_size_in_bytes (type), -1))
+	if (int_size_in_bytes (type) < 0)
 	  return false;
 
 	*var = var0;
@@ -734,19 +733,7 @@ split_constant_offset (tree exp, tree *var, tree *off)
   *off = ssize_int (0);
   STRIP_NOPS (exp);
 
-  if (TREE_CODE (exp) == POLYNOMIAL_CHREC)
-    {
-      split_constant_offset (CHREC_LEFT (exp), &op0, &op1);
-      if (op0 != CHREC_LEFT (exp))
-	{
-	  *var = build3 (POLYNOMIAL_CHREC, type, CHREC_VAR (exp),
-			 op0, CHREC_RIGHT (exp));
-	  *off = op1;
-	}
-      return;
-    }
-
-  if (automatically_generated_chrec_p (exp)
+  if (tree_is_chrec (exp)
       || get_gimple_rhs_class (TREE_CODE (exp)) == GIMPLE_TERNARY_RHS)
     return;
 
@@ -781,28 +768,7 @@ canonicalize_base_object_address (tree addr)
   return build_fold_addr_expr (TREE_OPERAND (addr, 0));
 }
 
-/* Analyze the scalar evolution of OFFSET in the innermost parent of
-   LOOP for which it isn't invariant.  Return OFFSET itself if the
-   value is invariant or if it's too complex to analyze.  */
-
-static tree
-analyze_offset_scev (struct loop *loop, tree offset)
-{
-  struct loop *inv_loop = outermost_invariant_loop_for_expr (loop, offset);
-  if (inv_loop != NULL)
-    {
-      if (loop_depth (inv_loop) == 0)
-	return offset;
-      loop = loop_outer (inv_loop);
-    }
-  tree res = analyze_scalar_evolution (loop, offset);
-  if (chrec_contains_undetermined (res))
-    return offset;
-  return res;
-}
-
-/* Analyze the behavior of memory reference REF, which occurs in STMT.
-   There are two modes:
+/* Analyze the behavior of memory reference REF.  There are two modes:
 
    - BB analysis.  In this case we simply split the address into base,
      init and offset components, without reference to any containing loop.
@@ -824,14 +790,14 @@ analyze_offset_scev (struct loop *loop, tree offset)
 
 bool
 dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
-		      gimple *stmt, struct loop *loop)
+		      struct loop *loop)
 {
   poly_int64 pbitsize, pbitpos;
   tree base, poffset;
   machine_mode pmode;
   int punsignedp, preversep, pvolatilep;
   affine_iv base_iv, offset_iv;
-  tree dinit;
+  tree init, dinit, step;
   bool in_loop = (loop && loop->num);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -876,7 +842,7 @@ dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
 	     Adjust the misalignment to reflect the amount we subtracted.  */
 	  poly_offset_int moff = mem_ref_offset (base);
 	  base_misalignment -= moff.force_shwi ();
-	  tree mofft = poly_offset_int_to_tree (sizetype, moff);
+	  tree mofft = wide_int_to_tree (sizetype, moff);
 	  if (!poffset)
 	    poffset = mofft;
 	  else
@@ -923,7 +889,7 @@ dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
         }
     }
 
-  tree init = ssize_int (pbytepos);
+  init = ssize_int (pbytepos);
 
   /* Subtract any constant component from the base and add it to INIT instead.
      Adjust the misalignment to reflect the amount we subtracted.  */
@@ -931,14 +897,14 @@ dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
   init = size_binop (PLUS_EXPR, init, dinit);
   base_misalignment -= TREE_INT_CST_LOW (dinit);
 
+  split_constant_offset (offset_iv.base, &offset_iv.base, &dinit);
+  init = size_binop (PLUS_EXPR, init, dinit);
+
+  step = size_binop (PLUS_EXPR,
+		     fold_convert (ssizetype, base_iv.step),
+		     fold_convert (ssizetype, offset_iv.step));
+
   base = canonicalize_base_object_address (base_iv.base);
-  tree offset = size_binop (PLUS_EXPR,
-			    fold_convert (ssizetype, offset_iv.base),
-			    init);
-  tree step = size_binop (PLUS_EXPR,
-			  fold_convert (ssizetype, base_iv.step),
-			  fold_convert (ssizetype, offset_iv.step));
-  tree scev = analyze_offset_scev (loop_containing_stmt (stmt), offset);
 
   /* See if get_pointer_alignment can guarantee a higher alignment than
      the one we calculated above.  */
@@ -958,11 +924,10 @@ dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
       base_misalignment = alt_misalignment;
     }
 
-
   drb->base_address = base;
-  drb->offset = offset;
+  drb->offset = fold_convert (ssizetype, offset_iv.base);
+  drb->init = init;
   drb->step = step;
-  split_constant_offset (scev, &drb->var_offset, &drb->const_offset);
   if (known_misalignment (base_misalignment, base_alignment,
 			  &drb->base_misalignment))
     drb->base_alignment = base_alignment;
@@ -971,7 +936,7 @@ dr_analyze_innermost (innermost_loop_behavior *drb, tree ref,
       drb->base_alignment = known_alignment (base_misalignment);
       drb->base_misalignment = 0;
     }
-  drb->var_offset_alignment = highest_pow2_factor (drb->var_offset);
+  drb->offset_alignment = highest_pow2_factor (offset_iv.base);
   drb->step_alignment = highest_pow2_factor (step);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1105,12 +1070,15 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
 	  if (TYPE_SIZE_UNIT (TREE_TYPE (ref))
 	      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (ref))) == INTEGER_CST
 	      && !integer_zerop (TYPE_SIZE_UNIT (TREE_TYPE (ref))))
-	    rem = wi::mod_trunc (off, TYPE_SIZE_UNIT (TREE_TYPE (ref)), SIGNED);
+	    rem = wi::mod_trunc
+	      (wi::to_wide (off),
+	       wi::to_wide (TYPE_SIZE_UNIT (TREE_TYPE (ref))),
+	       SIGNED);
 	  else
 	    /* If we can't compute the remainder simply force the initial
 	       condition to zero.  */
-	    rem = off;
-	  off = wide_int_to_tree (ssizetype, wi::sub (off, rem));
+	    rem = wi::to_wide (off);
+	  off = wide_int_to_tree (ssizetype, wi::to_wide (off) - rem);
 	  memoff = wide_int_to_tree (TREE_TYPE (memoff), rem);
 	  /* And finally replace the initial condition.  */
 	  access_fn = chrec_replace_initial_condition
@@ -1199,7 +1167,7 @@ create_data_ref (loop_p nest, loop_p loop, tree memref, gimple *stmt,
   DR_IS_READ (dr) = is_read;
   DR_IS_CONDITIONAL_IN_STMT (dr) = is_conditional_in_stmt;
 
-  dr_analyze_innermost (&DR_INNERMOST (dr), memref, stmt,
+  dr_analyze_innermost (&DR_INNERMOST (dr), memref,
 			nest != NULL ? loop : NULL);
   dr_analyze_indices (dr, nest, loop);
   dr_analyze_alias (dr);
@@ -1211,17 +1179,15 @@ create_data_ref (loop_p nest, loop_p loop, tree memref, gimple *stmt,
       print_generic_expr (dump_file, DR_BASE_ADDRESS (dr), TDF_SLIM);
       fprintf (dump_file, "\n\toffset from base address: ");
       print_generic_expr (dump_file, DR_OFFSET (dr), TDF_SLIM);
-      fprintf (dump_file, "\n\tvariable part of offset: ");
-      print_generic_expr (dump_file, DR_VAR_OFFSET (dr), TDF_SLIM);
-      fprintf (dump_file, "\n\tconstant part of offset: ");
-      print_generic_expr (dump_file, DR_CONST_OFFSET (dr), TDF_SLIM);
+      fprintf (dump_file, "\n\tconstant offset from base address: ");
+      print_generic_expr (dump_file, DR_INIT (dr), TDF_SLIM);
       fprintf (dump_file, "\n\tstep: ");
       print_generic_expr (dump_file, DR_STEP (dr), TDF_SLIM);
       fprintf (dump_file, "\n\tbase alignment: %d", DR_BASE_ALIGNMENT (dr));
       fprintf (dump_file, "\n\tbase misalignment: %d",
 	       DR_BASE_MISALIGNMENT (dr));
-      fprintf (dump_file, "\n\tvariable offset alignment: %d",
-	       DR_VAR_OFFSET_ALIGNMENT (dr));
+      fprintf (dump_file, "\n\toffset alignment: %d",
+	       DR_OFFSET_ALIGNMENT (dr));
       fprintf (dump_file, "\n\tstep alignment: %d", DR_STEP_ALIGNMENT (dr));
       fprintf (dump_file, "\n\tbase_object: ");
       print_generic_expr (dump_file, DR_BASE_OBJECT (dr), TDF_SLIM);
@@ -1254,10 +1220,13 @@ data_ref_compare_tree (tree t1, tree t2)
   if (t2 == NULL)
     return 1;
 
-  STRIP_NOPS (t1);
-  STRIP_NOPS (t2);
+  STRIP_USELESS_TYPE_CONVERSION (t1);
+  STRIP_USELESS_TYPE_CONVERSION (t2);
+  if (t1 == t2)
+    return 0;
 
-  if (TREE_CODE (t1) != TREE_CODE (t2))
+  if (TREE_CODE (t1) != TREE_CODE (t2)
+      && ! (CONVERT_EXPR_P (t1) && CONVERT_EXPR_P (t2)))
     return TREE_CODE (t1) < TREE_CODE (t2) ? -1 : 1;
 
   code = TREE_CODE (t1);
@@ -1266,48 +1235,44 @@ data_ref_compare_tree (tree t1, tree t2)
     case INTEGER_CST:
       return tree_int_cst_compare (t1, t2);
 
-    /* For const values, we can just use hash values for comparisons.  */
-    case REAL_CST:
-    case FIXED_CST:
     case STRING_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
-      {
-	hashval_t h1 = iterative_hash_expr (t1, 0);
-	hashval_t h2 = iterative_hash_expr (t2, 0);
-	if (h1 != h2)
-	  return h1 < h2 ? -1 : 1;
-	break;
-      }
+      if (TREE_STRING_LENGTH (t1) != TREE_STRING_LENGTH (t2))
+	return TREE_STRING_LENGTH (t1) < TREE_STRING_LENGTH (t2) ? -1 : 1;
+      return memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
+		     TREE_STRING_LENGTH (t1));
 
     case SSA_NAME:
-      cmp = data_ref_compare_tree (SSA_NAME_VAR (t1), SSA_NAME_VAR (t2));
-      if (cmp != 0)
-	return cmp;
-
       if (SSA_NAME_VERSION (t1) != SSA_NAME_VERSION (t2))
 	return SSA_NAME_VERSION (t1) < SSA_NAME_VERSION (t2) ? -1 : 1;
       break;
 
     default:
+      if (POLY_INT_CST_P (t1))
+	return compare_sizes_for_sort (wi::to_poly_widest (t1),
+				       wi::to_poly_widest (t2));
+
       tclass = TREE_CODE_CLASS (code);
 
-      /* For var-decl, we could compare their UIDs.  */
+      /* For decls, compare their UIDs.  */
       if (tclass == tcc_declaration)
 	{
 	  if (DECL_UID (t1) != DECL_UID (t2))
 	    return DECL_UID (t1) < DECL_UID (t2) ? -1 : 1;
 	  break;
 	}
-
-      /* For expressions with operands, compare their operands recursively.  */
-      for (i = TREE_OPERAND_LENGTH (t1) - 1; i >= 0; --i)
+      /* For expressions, compare their operands recursively.  */
+      else if (IS_EXPR_CODE_CLASS (tclass))
 	{
-	  cmp = data_ref_compare_tree (TREE_OPERAND (t1, i),
-				       TREE_OPERAND (t2, i));
-	  if (cmp != 0)
-	    return cmp;
+	  for (i = TREE_OPERAND_LENGTH (t1) - 1; i >= 0; --i)
+	    {
+	      cmp = data_ref_compare_tree (TREE_OPERAND (t1, i),
+					   TREE_OPERAND (t2, i));
+	      if (cmp != 0)
+		return cmp;
+	    }
 	}
+      else
+	gcc_unreachable ();
     }
 
   return 0;
@@ -1363,11 +1328,10 @@ operator == (const dr_with_seg_len& d1,
 {
   return (operand_equal_p (DR_BASE_ADDRESS (d1.dr),
 			   DR_BASE_ADDRESS (d2.dr), 0)
-	  && dr_var_offsets_equal_p (d1.dr, d2.dr)
-	  && data_ref_compare_tree (DR_CONST_OFFSET (d1.dr),
-				    DR_CONST_OFFSET (d2.dr)) == 0
+	  && data_ref_compare_tree (DR_OFFSET (d1.dr), DR_OFFSET (d2.dr)) == 0
+	  && data_ref_compare_tree (DR_INIT (d1.dr), DR_INIT (d2.dr)) == 0
 	  && data_ref_compare_tree (d1.seg_len, d2.seg_len) == 0
-	  && d1.access_size == d2.access_size
+	  && must_eq (d1.access_size, d2.access_size)
 	  && d1.align == d2.align);
 }
 
@@ -1400,15 +1364,17 @@ comp_dr_with_seg_len_pair (const void *pa_, const void *pb_)
   if ((comp_res = data_ref_compare_tree (DR_STEP (a2.dr),
 					 DR_STEP (b2.dr))) != 0)
     return comp_res;
-  if ((comp_res = dr_var_offsets_compare (a1.dr, b1.dr)) != 0)
+  if ((comp_res = data_ref_compare_tree (DR_OFFSET (a1.dr),
+					 DR_OFFSET (b1.dr))) != 0)
     return comp_res;
-  if ((comp_res = data_ref_compare_tree (DR_CONST_OFFSET (a1.dr),
-					 DR_CONST_OFFSET (b1.dr))) != 0)
+  if ((comp_res = data_ref_compare_tree (DR_INIT (a1.dr),
+					 DR_INIT (b1.dr))) != 0)
     return comp_res;
-  if ((comp_res = dr_var_offsets_compare (a2.dr, b2.dr)) != 0)
+  if ((comp_res = data_ref_compare_tree (DR_OFFSET (a2.dr),
+					 DR_OFFSET (b2.dr))) != 0)
     return comp_res;
-  if ((comp_res = data_ref_compare_tree (DR_CONST_OFFSET (a2.dr),
-					 DR_CONST_OFFSET (b2.dr))) != 0)
+  if ((comp_res = data_ref_compare_tree (DR_INIT (a2.dr),
+					 DR_INIT (b2.dr))) != 0)
     return comp_res;
 
   return 0;
@@ -1491,14 +1457,27 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 	      std::swap (dr_a2, dr_b2);
 	    }
 
+	  poly_int64 init_a1, init_a2;
 	  /* Only consider cases in which the distance between the initial
 	     DR_A1 and the initial DR_A2 is known at compile time.  */
 	  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a1->dr),
 				DR_BASE_ADDRESS (dr_a2->dr), 0)
-	      || !dr_var_offsets_equal_p (dr_a1->dr, dr_a2->dr)
-	      || !tree_fits_shwi_p (DR_CONST_OFFSET (dr_a1->dr))
-	      || !tree_fits_shwi_p (DR_CONST_OFFSET (dr_a2->dr)))
+	      || !operand_equal_p (DR_OFFSET (dr_a1->dr),
+				   DR_OFFSET (dr_a2->dr), 0)
+	      || !poly_tree_p (DR_INIT (dr_a1->dr), &init_a1)
+	      || !poly_tree_p (DR_INIT (dr_a2->dr), &init_a2))
 	    continue;
+
+	  /* Don't combine if we can't tell which one comes first.  */
+	  if (!ordered_p (init_a1, init_a2))
+	    continue;
+
+	  /* Make sure dr_a1 starts left of dr_a2.  */
+	  if (may_gt (init_a1, init_a2))
+	    {
+	      std::swap (*dr_a1, *dr_a2);
+	      std::swap (init_a1, init_a2);
+	    }
 
 	  /* Work out what the segment length would be if we did combine
 	     DR_A1 and DR_A2:
@@ -1512,20 +1491,33 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 	     - If DR_A1 and DR_A2 both have positive lengths, the combined
 	       length is the upper bound on those lengths.
 
-	     Other cases are unlikely to give a useful combination.  */
+	     Other cases are unlikely to give a useful combination.
+
+	     The lengths both have sizetype, so the sign is taken from
+	     the step instead.  */
 	  if (!operand_equal_p (dr_a1->seg_len, dr_a2->seg_len, 0))
 	    {
-	      poly_int64 seg_len_a1, seg_len_a2;
+	      poly_uint64 seg_len_a1, seg_len_a2;
 	      if (!poly_tree_p (dr_a1->seg_len, &seg_len_a1)
-		  || !poly_tree_p (dr_a2->seg_len, &seg_len_a2)
-		  || !ordered_p (seg_len_a1, seg_len_a2))
+		  || !poly_tree_p (dr_a2->seg_len, &seg_len_a2))
 		continue;
 
-	      poly_int64 new_seg_len;
-	      if (must_le (seg_len_a1, 0) && must_le (seg_len_a2, 0))
-		new_seg_len = ordered_min (seg_len_a1, seg_len_a2);
-	      else if (must_ge (seg_len_a1, 0) && must_ge (seg_len_a2, 0))
-		new_seg_len = ordered_max (seg_len_a1, seg_len_a2);
+	      tree indicator_a = dr_direction_indicator (dr_a1->dr);
+	      if (TREE_CODE (indicator_a) != INTEGER_CST)
+		continue;
+
+	      tree indicator_b = dr_direction_indicator (dr_a2->dr);
+	      if (TREE_CODE (indicator_b) != INTEGER_CST)
+		continue;
+
+	      int sign_a = tree_int_cst_sgn (indicator_a);
+	      int sign_b = tree_int_cst_sgn (indicator_b);
+
+	      poly_uint64 new_seg_len;
+	      if (sign_a <= 0 && sign_b <= 0)
+		new_seg_len = lower_bound (seg_len_a1, seg_len_a2);
+	      else if (sign_a >= 0 && sign_b >= 0)
+		new_seg_len = upper_bound (seg_len_a1, seg_len_a2);
 	      else
 		continue;
 
@@ -1534,18 +1526,17 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 	      dr_a1->align = MIN (dr_a1->align, known_alignment (new_seg_len));
 	    }
 
-	  /* This is always positive due to the sort order.  */
- 	  unsigned HOST_WIDE_INT diff
-	    = (tree_to_shwi (DR_CONST_OFFSET (dr_a2->dr))
-	       - tree_to_shwi (DR_CONST_OFFSET (dr_a1->dr)));
+	  /* This is always positive due to the swap above.  */
+	  poly_uint64 diff = init_a2 - init_a1;
 
 	  /* The new check will start at DR_A1.  Make sure that its access
 	     size encompasses the initial DR_A2.  */
-	  if (dr_a1->access_size < diff + dr_a2->access_size)
+	  if (may_lt (dr_a1->access_size, diff + dr_a2->access_size))
 	    {
-	      dr_a1->access_size = diff + dr_a2->access_size;
-	      dr_a1->align = MIN (dr_a1->align,
-				  dr_a1->access_size & -dr_a1->access_size);
+	      dr_a1->access_size = upper_bound (dr_a1->access_size,
+						diff + dr_a2->access_size);
+	      unsigned int new_align = known_alignment (dr_a1->access_size);
+	      dr_a1->align = MIN (dr_a1->align, new_align);
 	    }
 	  if (dump_enabled_p ())
 	    {
@@ -1600,7 +1591,9 @@ create_intersect_range_checks_index (struct loop *loop, tree *cond_expr,
       || DR_NUM_DIMENSIONS (dr_a.dr) != DR_NUM_DIMENSIONS (dr_b.dr))
     return false;
 
-  if (!tree_fits_uhwi_p (dr_a.seg_len) || !tree_fits_uhwi_p (dr_b.seg_len))
+  poly_uint64 seg_len1, seg_len2;
+  if (!poly_tree_p (dr_a.seg_len, &seg_len1)
+      || !poly_tree_p (dr_b.seg_len, &seg_len2))
     return false;
 
   if (!tree_fits_shwi_p (DR_STEP (dr_a.dr)))
@@ -1615,13 +1608,20 @@ create_intersect_range_checks_index (struct loop *loop, tree *cond_expr,
   gcc_assert (TREE_CODE (DR_STEP (dr_a.dr)) == INTEGER_CST);
 
   bool neg_step = tree_int_cst_compare (DR_STEP (dr_a.dr), size_zero_node) < 0;
-  unsigned HOST_WIDE_INT abs_step
-    = absu_hwi (tree_to_shwi (DR_STEP (dr_a.dr)));
-
-  unsigned HOST_WIDE_INT seg_len1 = (tree_to_uhwi (dr_a.seg_len)
-				     + dr_a.access_size);
-  unsigned HOST_WIDE_INT seg_len2 = (tree_to_uhwi (dr_b.seg_len)
-				     + dr_b.access_size);
+  unsigned HOST_WIDE_INT abs_step = tree_to_shwi (DR_STEP (dr_a.dr));
+  if (neg_step)
+    {
+      abs_step = -abs_step;
+      seg_len1 = -seg_len1;
+      seg_len2 = -seg_len2;
+    }
+  else
+    {
+      /* Include the access size in the length, so that we only have one
+	 tree addition below.  */
+      seg_len1 += dr_a.access_size;
+      seg_len2 += dr_b.access_size;
+    }
 
   /* Infer the number of iterations with which the memory segment is accessed
      by DR.  In other words, alias is checked if memory segment accessed by
@@ -1629,8 +1629,21 @@ create_intersect_range_checks_index (struct loop *loop, tree *cond_expr,
      in the same amount iterations.
      Note segnment length is a linear function of number of iterations with
      DR_STEP as the coefficient.  */
-  unsigned HOST_WIDE_INT niter_len1 = (seg_len1 + abs_step - 1) / abs_step;
-  unsigned HOST_WIDE_INT niter_len2 = (seg_len2 + abs_step - 1) / abs_step;
+  poly_uint64 niter_len1, niter_len2;
+  if (!can_div_trunc_p (seg_len1 + abs_step - 1, abs_step, &niter_len1)
+      || !can_div_trunc_p (seg_len2 + abs_step - 1, abs_step, &niter_len2))
+    return false;
+
+  poly_uint64 niter_access1 = 0, niter_access2 = 0;
+  if (neg_step)
+    {
+      /* Divide each access size by the byte step, rounding up.  */
+      if (!can_div_trunc_p (dr_a.access_size - abs_step - 1,
+			    abs_step, &niter_access1)
+	  || !can_div_trunc_p (dr_b.access_size + abs_step - 1,
+			       abs_step, &niter_access2))
+	return false;
+    }
 
   unsigned int i;
   for (i = 0; i < DR_NUM_DIMENSIONS (dr_a.dr); i++)
@@ -1681,12 +1694,22 @@ create_intersect_range_checks_index (struct loop *loop, tree *cond_expr,
       /* Adjust ranges for negative step.  */
       if (neg_step)
 	{
-	  min1 = fold_build2 (MINUS_EXPR, TREE_TYPE (min1), max1, idx_step);
-	  max1 = fold_build2 (MINUS_EXPR, TREE_TYPE (min1),
-			      CHREC_LEFT (access1), idx_step);
-	  min2 = fold_build2 (MINUS_EXPR, TREE_TYPE (min2), max2, idx_step);
-	  max2 = fold_build2 (MINUS_EXPR, TREE_TYPE (min2),
-			      CHREC_LEFT (access2), idx_step);
+	  /* IDX_LEN1 and IDX_LEN2 are negative in this case.  */
+	  std::swap (min1, max1);
+	  std::swap (min2, max2);
+
+	  /* As with the lengths just calculated, we've measured the access
+	     sizes in iterations, so multiply them by the index step.  */
+	  tree idx_access1
+	    = fold_build2 (MULT_EXPR, TREE_TYPE (min1), idx_step,
+			   build_int_cst (TREE_TYPE (min1), niter_access1));
+	  tree idx_access2
+	    = fold_build2 (MULT_EXPR, TREE_TYPE (min2), idx_step,
+			   build_int_cst (TREE_TYPE (min2), niter_access2));
+
+	  /* MINUS_EXPR because the above values are negative.  */
+	  max1 = fold_build2 (MINUS_EXPR, TREE_TYPE (max1), max1, idx_access1);
+	  max2 = fold_build2 (MINUS_EXPR, TREE_TYPE (max2), max2, idx_access2);
 	}
       tree part_cond_expr
 	= fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
@@ -1770,6 +1793,7 @@ get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
 			       ssize_int (0));
   tree addr_base = fold_build_pointer_plus (DR_BASE_ADDRESS (d.dr),
 					    DR_OFFSET (d.dr));
+  addr_base = fold_build_pointer_plus (addr_base, DR_INIT (d.dr));
   tree seg_len = fold_convert (sizetype, d.seg_len);
 
   tree min_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
@@ -1878,6 +1902,48 @@ create_runtime_alias_checks (struct loop *loop,
       else
 	*cond_expr = part_cond_expr;
     }
+}
+
+/* Check if OFFSET1 and OFFSET2 (DR_OFFSETs of some data-refs) are identical
+   expressions.  */
+static bool
+dr_equal_offsets_p1 (tree offset1, tree offset2)
+{
+  bool res;
+
+  STRIP_NOPS (offset1);
+  STRIP_NOPS (offset2);
+
+  if (offset1 == offset2)
+    return true;
+
+  if (TREE_CODE (offset1) != TREE_CODE (offset2)
+      || (!BINARY_CLASS_P (offset1) && !UNARY_CLASS_P (offset1)))
+    return false;
+
+  res = dr_equal_offsets_p1 (TREE_OPERAND (offset1, 0),
+                             TREE_OPERAND (offset2, 0));
+
+  if (!res || !BINARY_CLASS_P (offset1))
+    return res;
+
+  res = dr_equal_offsets_p1 (TREE_OPERAND (offset1, 1),
+                             TREE_OPERAND (offset2, 1));
+
+  return res;
+}
+
+/* Check if DRA and DRB have equal offsets.  */
+bool
+dr_equal_offsets_p (struct data_reference *dra,
+                    struct data_reference *drb)
+{
+  tree offset1, offset2;
+
+  offset1 = DR_OFFSET (dra);
+  offset2 = DR_OFFSET (drb);
+
+  return dr_equal_offsets_p1 (offset1, offset2);
 }
 
 /* Returns true if FNA == FNB.  */
@@ -4956,17 +5022,6 @@ loop_nest_has_data_refs (loop_p loop)
 	}
     }
   free (bbs);
-
-  if (loop->inner)
-    {
-      loop = loop->inner;
-      while (loop)
-	{
-	  if (loop_nest_has_data_refs (loop))
-	    return true;
-	  loop = loop->next;
-	}
-    }
   return false;
 }
 
@@ -5095,13 +5150,13 @@ dr_alignment (innermost_loop_behavior *drb)
   /* Get the alignment of BASE_ADDRESS + INIT.  */
   unsigned int alignment = drb->base_alignment;
   unsigned int misalignment = (drb->base_misalignment
-			       + TREE_INT_CST_LOW (drb->const_offset));
+			       + TREE_INT_CST_LOW (drb->init));
   if (misalignment != 0)
     alignment = MIN (alignment, misalignment & -misalignment);
 
   /* Cap it to the alignment of OFFSET.  */
-  if (!integer_zerop (drb->var_offset))
-    alignment = MIN (alignment, drb->var_offset_alignment);
+  if (!integer_zerop (drb->offset))
+    alignment = MIN (alignment, drb->offset_alignment);
 
   /* Cap it to the alignment of STEP.  */
   if (!integer_zerop (drb->step))
@@ -5314,8 +5369,8 @@ dr_step_indicator (struct data_reference *dr, int useful_min)
       if (TREE_CODE (step) != SSA_NAME
 	  || get_range_info (step, &step_min, &step_max) != VR_RANGE)
 	{
-	  step_min = TYPE_MIN_VALUE (type);
-	  step_max = TYPE_MAX_VALUE (type);
+	  step_min = wi::to_wide (TYPE_MIN_VALUE (type));
+	  step_max = wi::to_wide (TYPE_MAX_VALUE (type));
 	}
 
       /* Check whether the unconverted step has an acceptable range.  */

@@ -122,7 +122,7 @@ v850_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
     return 0;
 
   if (type)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -145,7 +145,7 @@ v850_function_arg (cumulative_args_t cum_v, machine_mode mode,
     return NULL_RTX;
 
   if (mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -208,7 +208,7 @@ v850_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
     return 0;
 
   if (mode == BLKmode)
-    size = int_size_in_bytes_hwi (type);
+    size = int_size_in_bytes (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -250,14 +250,14 @@ v850_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   if (!TARGET_GCC_ABI)
     cum->nbytes += (((mode != BLKmode
 		      ? GET_MODE_SIZE (mode)
-		      : int_size_in_bytes_hwi (type)) + UNITS_PER_WORD - 1)
+		      : int_size_in_bytes (type)) + UNITS_PER_WORD - 1)
 		    & -UNITS_PER_WORD);
   else
-    cum->nbytes += (((type && int_size_in_bytes_hwi (type) > 8
+    cum->nbytes += (((type && int_size_in_bytes (type) > 8
 		      ? GET_MODE_SIZE (Pmode)
 		      : (mode != BLKmode
 			 ? GET_MODE_SIZE (mode)
-			 : int_size_in_bytes_hwi (type))) + UNITS_PER_WORD - 1)
+			 : int_size_in_bytes (type))) + UNITS_PER_WORD - 1)
 		    & -UNITS_PER_WORD);
 }
 
@@ -2203,7 +2203,7 @@ v850_encode_data_area (tree decl, rtx symbol)
       /* If no attribute, support -m{zda,sda,tda}=n */
       else
 	{
-	  int size = int_size_in_bytes_hwi (TREE_TYPE (decl));
+	  int size = int_size_in_bytes (TREE_TYPE (decl));
 	  if (size <= 0)
 	    ;
 
@@ -2981,7 +2981,7 @@ static bool
 v850_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* Return values > 8 bytes in length in memory.  */
-  return int_size_in_bytes_hwi (type) > 8
+  return int_size_in_bytes (type) > 8
     || TYPE_MODE (type) == BLKmode
     /* With the rh850 ABI return all aggregates in memory.  */
     || ((! TARGET_GCC_ABI) && AGGREGATE_TYPE_P (type))

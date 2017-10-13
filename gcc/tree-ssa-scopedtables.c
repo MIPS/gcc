@@ -485,7 +485,7 @@ avail_expr_hash (class expr_hash_elt *p)
 					       &reverse);
 	  /* Strictly, we could try to normalize variable-sized accesses too,
 	    but here we just deal with the common case.  */
-	  if (may_ne (size, -1)
+	  if (known_size_p (max_size)
 	      && must_eq (size, max_size))
 	    {
 	      enum tree_code code = MEM_REF;
@@ -522,14 +522,14 @@ equal_mem_array_ref_p (tree t0, tree t1)
   bool rev0;
   poly_int64 off0, sz0, max0;
   tree base0 = get_ref_base_and_extent (t0, &off0, &sz0, &max0, &rev0);
-  if (must_eq (sz0, -1)
+  if (!known_size_p (max0)
       || may_ne (sz0, max0))
     return false;
 
   bool rev1;
   poly_int64 off1, sz1, max1;
   tree base1 = get_ref_base_and_extent (t1, &off1, &sz1, &max1, &rev1);
-  if (must_eq (sz1, -1)
+  if (!known_size_p (max1)
       || may_ne (sz1, max1))
     return false;
 

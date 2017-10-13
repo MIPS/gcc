@@ -507,7 +507,7 @@ analyze_ref (struct loop *loop, tree *ref_p, tree *base,
           && DECL_NONADDRESSABLE_P (TREE_OPERAND (ref, 1))))
     {
       if (TREE_CODE (ref) == IMAGPART_EXPR)
-	*delta += tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (ref)));
+        *delta += int_size_in_bytes (TREE_TYPE (ref));
       ref = TREE_OPERAND (ref, 0);
     }
 

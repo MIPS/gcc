@@ -1391,9 +1391,9 @@ maybe_rewrite_mem_ref_base (tree *tp, bitmap suitable_for_renaming)
 	{
 	  *tp = build3 (BIT_FIELD_REF, TREE_TYPE (*tp), sym,
 			TYPE_SIZE (TREE_TYPE (*tp)),
-			poly_offset_int_to_tree (bitsizetype,
-						 mem_ref_offset (*tp)
-						 << LOG2_BITS_PER_UNIT));
+			wide_int_to_tree (bitsizetype,
+					  mem_ref_offset (*tp)
+					  << LOG2_BITS_PER_UNIT));
 	}
     }
 }
@@ -1874,8 +1874,9 @@ execute_update_addresses_taken (void)
 			gsi_insert_before (&gsi, pun, GSI_SAME_STMT);
 			val = tem;
 		      }
-		    tree bitpos = poly_offset_int_to_tree
-		      (bitsizetype, mem_ref_offset (lhs) * BITS_PER_UNIT);
+		    tree bitpos
+		      = wide_int_to_tree (bitsizetype,
+					  mem_ref_offset (lhs) * BITS_PER_UNIT);
 		    gimple_assign_set_lhs (stmt, sym);
 		    gimple_assign_set_rhs_with_ops
 		      (&gsi, BIT_INSERT_EXPR, sym, val, bitpos);

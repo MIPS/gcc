@@ -333,6 +333,8 @@ func_checker::compare_cst_or_decl (tree t1, tree t2)
     case INTEGER_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
+    case VEC_DUPLICATE_CST:
+    case VEC_SERIES_CST:
     case STRING_CST:
     case REAL_CST:
       {
@@ -528,6 +530,8 @@ func_checker::compare_operand (tree t1, tree t2)
     case INTEGER_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
+    case VEC_DUPLICATE_CST:
+    case VEC_SERIES_CST:
     case STRING_CST:
     case REAL_CST:
     case FUNCTION_DECL:

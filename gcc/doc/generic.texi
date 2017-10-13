@@ -1036,8 +1036,9 @@ As this example indicates, the operands are zero-indexed.
 @tindex FIXED_CST
 @tindex COMPLEX_CST
 @tindex VECTOR_CST
+@tindex VEC_DUPLICATE_CST
 @tindex STRING_CST
-@tindex POLY_CST
+@tindex POLY_INT_CST
 @findex TREE_STRING_LENGTH
 @findex TREE_STRING_POINTER
 
@@ -1090,6 +1091,14 @@ constant nodes.  Each individual constant node is either an integer or a
 double constant node.  The first operand is a @code{TREE_LIST} of the
 constant nodes and is accessed through @code{TREE_VECTOR_CST_ELTS}.
 
+@item VEC_DUPLICATE_CST
+These nodes represent a vector constant in which every element has the
+same scalar value.  At present only variable-length vectors use
+@code{VEC_DUPLICATE_CST}; constant-length vectors use @code{VECTOR_CST}
+instead.  The scalar element value is given by
+@code{VEC_DUPLICATE_CST_ELT} and has the same restrictions as the
+element of a @code{VECTOR_CST}.
+
 @item STRING_CST
 These nodes represent string-constants.  The @code{TREE_STRING_LENGTH}
 returns the length of the string, as an @code{int}.  The
@@ -1109,14 +1118,14 @@ of the @code{STRING_CST}.
 FIXME: The formats of string constants are not well-defined when the
 target system bytes are not the same width as host system bytes.
 
-@item POLY_CST
+@item POLY_INT_CST
 These nodes represent invariants that depend on some target-specific
 runtime parameters.  They consist of @code{NUM_POLY_INT_COEFFS}
 coefficients, with the first coefficient being the constant term and
 the others being multipliers that are applied to the runtime parameters.
 
-@code{POLY_CST_ELT (@var{x}, @var{i})} references coefficient number
-@var{i} of @code{POLY_CST} node @var{x}.
+@code{POLY_INT_CST_ELT (@var{x}, @var{i})} references coefficient number
+@var{i} of @code{POLY_INT_CST} node @var{x}.
 
 @end table
 

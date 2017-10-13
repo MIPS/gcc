@@ -3785,7 +3785,7 @@ spu_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED)
 {
   machine_mode mode = TYPE_MODE (type);
   int byte_size = ((mode == BLKmode)
-		   ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+		   ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
 
   /* Make sure small structs are left justified in a register. */
   if ((mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
@@ -3834,7 +3834,7 @@ spu_function_arg (cumulative_args_t cum_v,
     return 0;
 
   byte_size = ((mode == BLKmode)
-	       ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
+	       ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
 
   /* The ABI does not allow parameters to be passed partially in
      reg and partially in stack. */
@@ -3868,7 +3868,7 @@ spu_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   *cum += (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
 	   ? 1
 	   : mode == BLKmode
-	   ? ((int_size_in_bytes_hwi (type) + 15) / 16)
+	   ? ((int_size_in_bytes (type) + 15) / 16)
 	   : mode == VOIDmode
 	   ? 1
 	   : spu_hard_regno_nregs (FIRST_ARG_REGNUM, mode));
@@ -4051,7 +4051,7 @@ spu_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
 					   false);
   if (pass_by_reference_p)
     type = build_pointer_type (type);
-  size = int_size_in_bytes_hwi (type);
+  size = int_size_in_bytes (type);
   rsize = ((size + UNITS_PER_WORD - 1) / UNITS_PER_WORD) * UNITS_PER_WORD;
 
   /* build conditional expression to calculate addr. The expression
@@ -5488,7 +5488,7 @@ spu_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   return (TYPE_MODE (type) == BLKmode
 	  && ((type) == 0
 	      || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
-	      || int_size_in_bytes_hwi (type) >
+	      || int_size_in_bytes (type) >
 	      (MAX_REGISTER_RETURN * UNITS_PER_WORD)));
 }
 
@@ -7187,6 +7187,18 @@ spu_truly_noop_truncation (poly_uint64 outprec, poly_uint64 inprec)
   return inprec <= 32 && outprec <= inprec;
 }
 
+/* Implement TARGET_STATIC_RTX_ALIGNMENT.
+
+   Make all static objects 16-byte aligned.  This allows us to assume
+   they are also padded to 16 bytes, which means we can use a single
+   load or store instruction to access them.  */
+
+static HOST_WIDE_INT
+spu_static_rtx_alignment (machine_mode mode)
+{
+  return MAX (GET_MODE_ALIGNMENT (mode), 128);
+}
+
 /* Implement TARGET_CONSTANT_ALIGNMENT.
 
    Make all static objects 16-byte aligned.  This allows us to assume
@@ -7438,6 +7450,8 @@ static const struct attribute_spec spu_attribute_table[] =
 #undef TARGET_TRULY_NOOP_TRUNCATION
 #define TARGET_TRULY_NOOP_TRUNCATION spu_truly_noop_truncation
 
+#undef TARGET_STATIC_RTX_ALIGNMENT
+#define TARGET_STATIC_RTX_ALIGNMENT spu_static_rtx_alignment
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT spu_constant_alignment
 

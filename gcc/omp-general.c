@@ -433,8 +433,8 @@ omp_max_vf (void)
 	  && global_options_set.x_flag_tree_loop_vectorize))
     return 1;
 
-  auto_vec<poly_uint64, 8> sizes;
-  targetm.vectorize.autovectorize_vector_sizes (sizes);
+  auto_vector_sizes sizes;
+  targetm.vectorize.autovectorize_vector_sizes (&sizes);
   if (!sizes.is_empty ())
     {
       poly_uint64 vs = 0;

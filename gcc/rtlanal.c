@@ -461,8 +461,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 		       machine_mode mode, bool unaligned_mems)
 {
   enum rtx_code code = GET_CODE (x);
-  bool known_size_p = may_ne (size, 0);
-  gcc_checking_assert (mode == BLKmode || known_size_p);
+  gcc_checking_assert (mode == BLKmode || known_size_p (size));
 
   /* The offset must be a multiple of the mode size if we are considering
      unaligned memory references on strict alignment machines.  */
@@ -495,8 +494,8 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 
 	  if (may_lt (offset, 0))
 	    return 1;
-	  if (!known_size_p)
-	    return may_ne (offset, 0);
+	  if (!known_size_p (size))
+	    return maybe_nonzero (offset);
 
 	  /* If the size of the access or of the symbol is unknown,
 	     assume the worst.  */
@@ -519,7 +518,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 	    decl_size = -1;
 
 	  return (may_le (decl_size, 0)
-		  ? may_ne (offset, 0)
+		  ? maybe_nonzero (offset)
 		  : may_gt (offset + size, decl_size));
         }
 
@@ -544,7 +543,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 	  poly_int64 stack_boundary = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
 	  poly_int64 low_bound, high_bound;
 
-	  if (!known_size_p)
+	  if (!known_size_p (size))
 	    return 1;
 
 	  if (x == frame_pointer_rtx)
@@ -650,7 +649,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
       if (XEXP (x, 0) == pic_offset_table_rtx
 	  && GET_CODE (XEXP (x, 1)) == CONST
 	  && GET_CODE (XEXP (XEXP (x, 1), 0)) == UNSPEC
-	  && must_eq (offset, 0))
+	  && known_zero (offset))
 	return 0;
 
       /* - or it is an address that can't trap plus a constant integer.  */
@@ -883,7 +882,7 @@ offset_within_block_p (const_rtx symbol, HOST_WIDE_INT offset)
 	return true;
 
       decl = SYMBOL_REF_DECL (symbol);
-      if (decl && must_lt (offset, int_size_in_bytes (TREE_TYPE (decl))))
+      if (decl && offset < int_size_in_bytes (TREE_TYPE (decl)))
 	return true;
     }
 
@@ -917,116 +916,6 @@ split_const (rtx x, rtx *base_out, rtx *offset_out)
   *offset_out = const0_rtx;
 }
 
-/* If PAIR_P, express integer value X as some value Y plus a polynomial offset,
-   where Y is either const0_rtx, X or something within X (as opposed to a
-   new rtx).  Return the value Y and store the offset in *OFFSET_OUT.
-
-   If !PAIR_P, return const0_rtx if integer value X is a polynomial constant.
-   Store the value in *OFFSET_OUT if so, otherwise return X and leave
-   *OFFSET_OUT unchanged.
-
-   In both cases MODE is the mode of X.  */
-
-static rtx
-strip_offset (scalar_int_mode mode, rtx x, poly_wide_int *offset_out,
-	      bool pair_p)
-{
-  unsigned int precision = GET_MODE_PRECISION (mode);
-  rtx orig_x = x;
-  if (GET_CODE (x) == CONST)
-    x = XEXP (x, 0);
-  switch (GET_CODE (x))
-    {
-    CASE_CONST_SCALAR_INT:
-      *offset_out = rtx_mode_t (x, mode);
-      return const0_rtx;
-
-    case PLUS:
-      {
-	poly_wide_int offset0, offset1;
-	rtx x0 = strip_offset (mode, XEXP (x, 0), &offset0, pair_p);
-	rtx x1 = strip_offset (mode, XEXP (x, 1), &offset1, pair_p);
-	if (pair_p
-	    /* Can't express this case without generating new rtl.  */
-	    ? (x0 != const0_rtx && x1 != const0_rtx)
-	    /* Don't change *OFFSET_OUT unless X is fully constant.  */
-	    : (x0 != const0_rtx || x1 != const0_rtx))
-	  break;
-	*offset_out = offset0 + offset1;
-	return x0 == const0_rtx ? x1 : x0;
-      }
-
-    case MULT:
-      {
-	poly_wide_int offset0;
-	if (CONST_SCALAR_INT_P (XEXP (x, 1))
-	    && strip_offset (mode, XEXP (x, 0), &offset0, false) == const0_rtx)
-	  {
-	    *offset_out = offset0 * rtx_mode_t (XEXP (x, 1), mode);
-	    return const0_rtx;
-	  }
-	break;
-      }
-
-    case ASHIFT:
-      {
-	poly_wide_int offset0;
-	if (CONST_INT_P (XEXP (x, 1))
-	    && strip_offset (mode, XEXP (x, 0), &offset0, false) == const0_rtx)
-	  {
-	    *offset_out = offset0 << INTVAL (XEXP (x, 1));
-	    return const0_rtx;
-	  }
-	break;
-      }
-
-    case CONST_PARAM:
-      if (CONST_PARAM_ID (x) + 1 >= NUM_POLY_INT_COEFFS)
-	break;
-
-      *offset_out = wi::shwi (0, precision);
-      offset_out->coeffs[CONST_PARAM_ID (x) + 1] = wi::shwi (1, precision);
-      return const0_rtx;
-
-    default:
-      break;
-    }
-  /* This represents failure if !PAIR_P.  */
-  if (pair_p)
-    *offset_out = wi::shwi (0, GET_MODE_PRECISION (mode));
-  return orig_x;
-}
-
-/* Return true if X, an integer of mode MODE, is a constant that can
-   be represented as a poly_wide_int.  Store the value in *RES if so,
-   otherwise leave *RES unmodified.  */
-
-bool
-poly_int_const_p (scalar_int_mode mode, const_rtx x, poly_wide_int *res)
-{
-  return strip_offset (mode, const_cast <rtx> (x), res, false) == const0_rtx;
-}
-
-/* Return true if arbitrary value X is an integer constant that can
-   be represented as a poly_int64.  Store the value in *RES if so,
-   otherwise leave it unmodified.  */
-
-bool
-poly_int_const_p (const_rtx x, poly_int64 *res)
-{
-  if (CONST_INT_P (x))
-    {
-      *res = INTVAL (x);
-      return true;
-    }
-  scalar_int_mode mode;
-  poly_wide_int tmp;
-  return (is_a <scalar_int_mode> (GET_MODE (x), &mode)
-	  && strip_offset (mode, const_cast <rtx> (x),
-			   &tmp, false) == const0_rtx
-	  && tmp.to_shwi (res));
-}
-
 /* Express integer value X as some value Y plus a polynomial offset,
    where Y is either const0_rtx, X or something within X (as opposed
    to a new rtx).  Return the Y and store the offset in *OFFSET_OUT.  */
@@ -1034,28 +923,19 @@ poly_int_const_p (const_rtx x, poly_int64 *res)
 rtx
 strip_offset (rtx x, poly_int64 *offset_out)
 {
-  if (CONST_INT_P (x))
+  rtx base = const0_rtx;
+  rtx test = x;
+  if (GET_CODE (test) == CONST)
+    test = XEXP (test, 0);
+  if (GET_CODE (test) == PLUS)
     {
-      *offset_out = INTVAL (x);
-      return const0_rtx;
+      base = XEXP (test, 0);
+      test = XEXP (test, 1);
     }
-  scalar_int_mode mode = as_a <scalar_int_mode> (GET_MODE (x));
-  poly_wide_int tmp;
-  rtx subx = strip_offset (mode, x, &tmp, true);
-  if (!tmp.to_shwi (offset_out))
-    gcc_unreachable ();
-  return subx;
-}
-
-/* Return the value of X as a poly_int64.  */
-
-poly_int64
-rtx_to_poly_int64 (const_rtx x)
-{
-  poly_int64 value;
-  if (!poly_int_const_p (x, &value))
-    gcc_unreachable ();
-  return value;
+  if (poly_int_const_p (test, offset_out))
+    return base;
+  *offset_out = 0;
+  return x;
 }
 
 /* Return the argument size in REG_ARGS_SIZE note X.  */
@@ -1517,15 +1397,13 @@ read_modify_subreg_p (const_rtx x)
 {
   if (GET_CODE (x) != SUBREG)
     return false;
-
-  poly_int64 isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
-  poly_int64 osize = GET_MODE_SIZE (GET_MODE (x));
-  poly_int64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  poly_uint64 isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
+  poly_uint64 osize = GET_MODE_SIZE (GET_MODE (x));
+  poly_uint64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  /* The inner and outer modes of a subreg must be ordered, so that we
+     can tell whether they're paradoxical or partial.  */
   gcc_checking_assert (ordered_p (isize, osize));
-  /* It doesn't make sense for REGMODE_NATURAL_SIZE to pick a size
-     that isn't ordered wrt the mode passed to it.  */
-  gcc_checking_assert (ordered_p (isize, regsize));
-  return may_gt (isize, osize) && may_gt (isize, regsize);
+  return (may_gt (isize, osize) && may_gt (isize, regsize));
 }
 
 /* Helper function for set_of.  */
@@ -3570,13 +3448,15 @@ commutative_operand_precedence (rtx op)
 
   /* Constants always become the second operand.  Prefer "nice" constants.  */
   if (code == CONST_INT)
-    return -8;
+    return -10;
   if (code == CONST_WIDE_INT)
-    return -7;
+    return -9;
+  if (code == CONST_POLY_INT)
+    return -8;
   if (code == CONST_DOUBLE)
-    return -7;
+    return -8;
   if (code == CONST_FIXED)
-    return -7;
+    return -8;
   op = avoid_constant_pool_reference (op);
   code = GET_CODE (op);
 
@@ -3584,13 +3464,15 @@ commutative_operand_precedence (rtx op)
     {
     case RTX_CONST_OBJ:
       if (code == CONST_INT)
-        return -6;
+	return -7;
       if (code == CONST_WIDE_INT)
-        return -6;
+	return -6;
+      if (code == CONST_POLY_INT)
+	return -5;
       if (code == CONST_DOUBLE)
-        return -5;
+	return -5;
       if (code == CONST_FIXED)
-        return -5;
+	return -5;
       return -4;
 
     case RTX_EXTRA:
@@ -3859,7 +3741,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   /* Paradoxical subregs are otherwise valid.  */
   gcc_checking_assert (ordered_p (xsize, ysize));
-  if (!rknown && must_eq (offset, 0) && may_gt (ysize, xsize))
+  if (!rknown && known_zero (offset) && may_gt (ysize, xsize))
     {
       info->representable_p = true;
       /* If this is a big endian paradoxical subreg, which uses more
@@ -3932,7 +3814,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       info->representable_p = true;
       rknown = true;
 
-      if (must_eq (offset, 0) || nregs_xmode == nregs_ymode)
+      if (known_zero (offset) || nregs_xmode == nregs_ymode)
 	{
 	  info->offset = 0;
 	  info->nregs = nregs_ymode;
@@ -5443,11 +5325,11 @@ num_sign_bit_copies1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	 ? 1 : bitwidth - floor_log2 (nonzero) - 1;
 }
 
-/* Calculate the rtx_cost of a single instruction.  A return value of
+/* Calculate the rtx_cost of a single instruction pattern.  A return value of
    zero indicates an instruction pattern without a known cost.  */
 
 int
-insn_rtx_cost (rtx pat, bool speed)
+pattern_cost (rtx pat, bool speed)
 {
   int i, cost;
   rtx set;
@@ -5495,6 +5377,18 @@ insn_rtx_cost (rtx pat, bool speed)
 
   cost = set_src_cost (SET_SRC (set), GET_MODE (SET_DEST (set)), speed);
   return cost > 0 ? cost : COSTS_N_INSNS (1);
+}
+
+/* Calculate the cost of a single instruction.  A return value of zero
+   indicates an instruction pattern without a known cost.  */
+
+int
+insn_cost (rtx_insn *insn, bool speed)
+{
+  if (targetm.insn_cost)
+    return targetm.insn_cost (insn, speed);
+
+  return pattern_cost (PATTERN (insn), speed);
 }
 
 /* Returns estimate on cost of computing SEQ.  */

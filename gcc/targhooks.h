@@ -93,6 +93,7 @@ extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt, tree, in
 
 extern tree default_builtin_reciprocal (tree);
 
+extern HOST_WIDE_INT default_static_rtx_alignment (machine_mode);
 extern HOST_WIDE_INT default_constant_alignment (const_tree, HOST_WIDE_INT);
 extern HOST_WIDE_INT constant_alignment_word_strings (const_tree,
 						      HOST_WIDE_INT);
@@ -105,7 +106,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     const_tree,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (scalar_mode mode);
-extern void default_autovectorize_vector_sizes (vec<poly_uint64> &);
+extern void default_autovectorize_vector_sizes (vector_sizes *);
 extern opt_machine_mode default_get_mask_mode (poly_uint64, poly_uint64);
 extern bool default_empty_mask_is_expensive (unsigned);
 extern void *default_init_cost (struct loop *);

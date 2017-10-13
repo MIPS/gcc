@@ -750,7 +750,7 @@ default_function_arg_padding (machine_mode mode, const_tree type)
   if (!BYTES_BIG_ENDIAN)
     return PAD_UPWARD;
 
-  poly_uint64 size;
+  unsigned HOST_WIDE_INT size;
   if (mode == BLKmode)
     {
       if (!type || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
@@ -758,9 +758,11 @@ default_function_arg_padding (machine_mode mode, const_tree type)
       size = int_size_in_bytes (type);
     }
   else
-    size = GET_MODE_SIZE (mode);
+    /* Targets with variable-sized modes must override this hook
+       and handle variable-sized modes explicitly.  */
+    size = GET_MODE_SIZE (mode).to_constant ();
 
-  if (must_lt (size, (unsigned int) PARM_BOUNDARY / BITS_PER_UNIT))
+  if (size < (PARM_BOUNDARY / BITS_PER_UNIT))
     return PAD_DOWNWARD;
 
   return PAD_UPWARD;
@@ -1164,6 +1166,14 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
    return id;
 }
 
+/* The default implementation of TARGET_STATIC_RTX_ALIGNMENT.  */
+
+HOST_WIDE_INT
+default_static_rtx_alignment (machine_mode mode)
+{
+  return GET_MODE_ALIGNMENT (mode);
+}
+
 /* The default implementation of TARGET_CONSTANT_ALIGNMENT.  */
 
 HOST_WIDE_INT
@@ -1240,7 +1250,7 @@ default_preferred_simd_mode (scalar_mode)
    is tried.  */
 
 void
-default_autovectorize_vector_sizes (vec<poly_uint64> &)
+default_autovectorize_vector_sizes (vector_sizes *)
 {
 }
 
@@ -2266,7 +2276,7 @@ default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
   return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
 }
 
-HOST_WIDE_INT
+bool
 default_stack_clash_protection_final_dynamic_probe (rtx residual ATTRIBUTE_UNUSED)
 {
   return 0;

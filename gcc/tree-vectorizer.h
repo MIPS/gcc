@@ -238,6 +238,7 @@ struct vect_addr_base_info
   /* Map from.  */
   tree dr_base;
   tree dr_offset;
+  tree dr_init;
   tree arg_offset;
   tree arg_byte_offset;
 
@@ -1041,15 +1042,14 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 
 #define STMT_VINFO_DR_WRT_VEC_LOOP(S)      (S)->dr_wrt_vec_loop
 #define STMT_VINFO_DR_BASE_ADDRESS(S)      (S)->dr_wrt_vec_loop.base_address
+#define STMT_VINFO_DR_INIT(S)              (S)->dr_wrt_vec_loop.init
 #define STMT_VINFO_DR_OFFSET(S)            (S)->dr_wrt_vec_loop.offset
-#define STMT_VINFO_DR_VAR_OFFSET(S)        (S)->dr_wrt_vec_loop.var_offset
-#define STMT_VINFO_DR_CONST_OFFSET(S)      (S)->dr_wrt_vec_loop.const_offset
 #define STMT_VINFO_DR_STEP(S)              (S)->dr_wrt_vec_loop.step
 #define STMT_VINFO_DR_BASE_ALIGNMENT(S)    (S)->dr_wrt_vec_loop.base_alignment
 #define STMT_VINFO_DR_BASE_MISALIGNMENT(S) \
   (S)->dr_wrt_vec_loop.base_misalignment
-#define STMT_VINFO_DR_VAR_OFFSET_ALIGNMENT(S) \
-  (S)->dr_wrt_vec_loop.var_offset_alignment
+#define STMT_VINFO_DR_OFFSET_ALIGNMENT(S) \
+  (S)->dr_wrt_vec_loop.offset_alignment
 #define STMT_VINFO_DR_STEP_ALIGNMENT(S) \
   (S)->dr_wrt_vec_loop.step_alignment
 
@@ -1489,8 +1489,8 @@ vect_update_max_nunits (poly_uint64 *max_nunits, tree vectype)
   /* All unit counts have the form current_vector_size * X for some
      rational X, so two unit sizes must have a common multiple.
      Everything is a multiple of the initial value of 1.  */
-  *max_nunits = force_common_multiple (*max_nunits,
-				       TYPE_VECTOR_SUBPARTS (vectype));
+  poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  *max_nunits = force_common_multiple (*max_nunits, nunits);
 }
 
 /* Return the vectorization factor that should be used for costing
@@ -1547,15 +1547,15 @@ extern source_location vect_location;
 
 /* Simple loop peeling and versioning utilities for vectorizer's purposes -
    in tree-vect-loop-manip.c.  */
-extern void slpeel_finalize_loop_iterations (struct loop *, loop_vec_info,
-					     tree, tree);
+extern void vect_set_loop_condition (struct loop *, loop_vec_info,
+				     tree, tree, tree, bool);
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *,
 						     struct loop *, edge);
 extern void vect_loop_versioning (loop_vec_info, unsigned int, bool,
 				  poly_uint64);
 extern struct loop *vect_do_peeling (loop_vec_info, tree, tree,
-				     tree *, tree *, int, bool, bool);
+				     tree *, tree *, tree *, int, bool, bool);
 extern void vect_prepare_for_masked_peels (loop_vec_info);
 extern source_location find_loop_location (struct loop *);
 extern bool vect_can_advance_ivs_p (loop_vec_info);

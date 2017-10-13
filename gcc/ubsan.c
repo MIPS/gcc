@@ -1164,8 +1164,8 @@ ubsan_expand_ptr_ifn (gimple_stmt_iterator *gsip)
   unlink_stmt_vdef (stmt);
 
   if (TREE_CODE (off) == INTEGER_CST)
-    g = gimple_build_cond (wi::neg_p (off) ? LT_EXPR : GE_EXPR, ptri,
-			   fold_build1 (NEGATE_EXPR, sizetype, off),
+    g = gimple_build_cond (wi::neg_p (wi::to_wide (off)) ? LT_EXPR : GE_EXPR,
+			   ptri, fold_build1 (NEGATE_EXPR, sizetype, off),
 			   NULL_TREE, NULL_TREE);
   else if (pos_neg != 3)
     g = gimple_build_cond (pos_neg == 1 ? LT_EXPR : GT_EXPR,
@@ -1449,7 +1449,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
 	 fits, don't instrument anything.  */
       poly_int64 base_size;
       if (offset == NULL_TREE
-	  && may_ne (bitpos, 0)
+	  && maybe_nonzero (bitpos)
 	  && (VAR_P (base)
 	      || TREE_CODE (base) == PARM_DECL
 	      || TREE_CODE (base) == RESULT_DECL)
@@ -1476,7 +1476,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
   if (!POINTER_TYPE_P (TREE_TYPE (base)) && !DECL_P (base))
     return;
   bytepos = bits_to_bytes_round_down (bitpos);
-  if (offset == NULL_TREE && must_eq (bytepos, 0) && moff == NULL_TREE)
+  if (offset == NULL_TREE && known_zero (bytepos) && moff == NULL_TREE)
     return;
 
   tree base_addr = base;
@@ -1484,7 +1484,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
     base_addr = build1 (ADDR_EXPR,
 			build_pointer_type (TREE_TYPE (base)), base);
   t = offset;
-  if (may_ne (bytepos, 0))
+  if (maybe_nonzero (bytepos))
     {
       if (t)
 	t = fold_build2 (PLUS_EXPR, TREE_TYPE (t), t,
@@ -2053,7 +2053,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, tree t, bool is_lhs)
   location_t loc = gimple_location (stmt);
   tree type;
   tree index = NULL_TREE;
-  poly_int64 size_in_bytes;
+  HOST_WIDE_INT size_in_bytes;
 
   type = TREE_TYPE (t);
   if (VOID_TYPE_P (type))
@@ -2084,7 +2084,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, tree t, bool is_lhs)
     }
 
   size_in_bytes = int_size_in_bytes (type);
-  if (must_le (size_in_bytes, 0))
+  if (size_in_bytes <= 0)
     return;
 
   poly_int64 bitsize, bitpos;

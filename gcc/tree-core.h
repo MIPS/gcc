@@ -975,7 +975,8 @@ struct GTY(()) tree_base {
     /* VEC length.  This field is only used with TREE_VEC.  */
     int length;
 
-    /* Number of elements.  This field is only used with VECTOR_CST.  */
+    /* Number of elements.  This field is only used with VECTOR_CST
+       and VEC_DUPLICATE_CST.  It is always 1 for VEC_DUPLICATE_CST.  */
     unsigned int nelts;
 
     /* SSA version number.  This field is only used with SSA_NAME.  */
@@ -1062,7 +1063,7 @@ struct GTY(()) tree_base {
    public_flag:
 
        TREE_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
+           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST, VEC_DUPLICATE_CST
 
        TREE_PUBLIC in
            VAR_DECL, FUNCTION_DECL
@@ -1329,12 +1330,12 @@ struct GTY(()) tree_complex {
 
 struct GTY(()) tree_vector {
   struct tree_typed typed;
-  tree GTY ((length ("VECTOR_CST_NELTS ((tree) &%h)"))) elts[1];
+  tree GTY ((length ("((tree) &%h)->base.u.nelts"))) elts[1];
 };
 
-struct GTY(()) tree_poly {
+struct GTY(()) tree_poly_int_cst {
   struct tree_typed typed;
-  tree elts[NUM_POLY_INT_COEFFS];
+  tree coeffs[NUM_POLY_INT_COEFFS];
 };
 
 struct GTY(()) tree_identifier {
@@ -1862,10 +1863,10 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_typed GTY ((tag ("TS_TYPED"))) typed;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
+  struct tree_poly_int_cst GTY ((tag ("TS_POLY_INT_CST"))) poly_int_cst;
   struct tree_real_cst GTY ((tag ("TS_REAL_CST"))) real_cst;
   struct tree_fixed_cst GTY ((tag ("TS_FIXED_CST"))) fixed_cst;
   struct tree_vector GTY ((tag ("TS_VECTOR"))) vector;
-  struct tree_poly GTY ((tag ("TS_POLY"))) poly;
   struct tree_string GTY ((tag ("TS_STRING"))) string;
   struct tree_complex GTY ((tag ("TS_COMPLEX"))) complex;
   struct tree_identifier GTY ((tag ("TS_IDENTIFIER"))) identifier;

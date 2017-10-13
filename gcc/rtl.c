@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 # include "errors.h"
 #else
 # include "rtlhash.h"
-# include "rtl-iter.h"
 # include "diagnostic-core.h"
 #endif
 
@@ -191,6 +190,10 @@ rtx_size (const_rtx x)
 	    + sizeof (struct hwivec_def)
 	    + ((CONST_WIDE_INT_NUNITS (x) - 1)
 	       * sizeof (HOST_WIDE_INT)));
+  if (CONST_POLY_INT_P (x))
+    return (RTX_HDR_SIZE
+	    + sizeof (struct const_poly_int_def)
+	    + CONST_POLY_INT_COEFFS (x).extra_size ());
   if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_HAS_BLOCK_INFO_P (x))
     return RTX_HDR_SIZE + sizeof (struct block_symbol);
   return RTX_CODE_SIZE (GET_CODE (x));
@@ -246,33 +249,6 @@ cwi_output_hex (FILE *outfile, const_rtx x)
     fprintf (outfile, HOST_WIDE_INT_PRINT_PADDED_HEX, CWI_ELT (x, i));
 }
 
-/* Return true if (const X) should be unique, or if X itself is
-   such a const.  */
-
-bool
-unique_const_p (const_rtx x ATTRIBUTE_UNUSED)
-{
-#ifdef GENERATOR_FILE
-  return false;
-#else
-  subrtx_iterator::array_type array;
-
-  FOR_EACH_SUBRTX (iter, array, x, ALL)
-    {
-      enum rtx_code code = GET_CODE (*iter);
-      if (leaf_code_p (code))
-	switch (code)
-	  {
-	  CASE_CONST_UNIQUE:
-	    break;
-	  default:
-	    return false;
-	  }
-    }
-  return true;
-#endif
-}
-
 
 /* Return true if ORIG is a sharable CONST.  */
 
@@ -281,14 +257,15 @@ shared_const_p (const_rtx orig)
 {
   gcc_assert (GET_CODE (orig) == CONST);
 
-  if (unique_const_p (orig))
+  if (unique_const_p (XEXP (orig, 0)))
     return true;
 
   /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
      a LABEL_REF, it isn't sharable.  */
+  poly_int64 offset;
   return (GET_CODE (XEXP (orig, 0)) == PLUS
 	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && CONST_INT_P (XEXP (XEXP (orig, 0), 1)));
+	  && poly_int_const_p (XEXP (XEXP (orig, 0), 1), &offset));
 }
 
 

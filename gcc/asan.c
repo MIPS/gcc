@@ -535,7 +535,7 @@ get_mem_ref_of_assignment (const gassign *assignment,
   else
     return false;
 
-  ref->access_size = int_size_in_bytes_hwi (TREE_TYPE (ref->start));
+  ref->access_size = int_size_in_bytes (TREE_TYPE (ref->start));
   return true;
 }
 
@@ -1101,7 +1101,7 @@ has_stmt_been_instrumented_p (gimple *stmt)
       asan_mem_ref_init (&r, NULL, 1);
 
       r.start = gimple_call_lhs (stmt);
-      r.access_size = int_size_in_bytes_hwi (TREE_TYPE (r.start));
+      r.access_size = int_size_in_bytes (TREE_TYPE (r.start));
       return has_mem_ref_been_instrumented (&r);
     }
 
@@ -2064,7 +2064,7 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       return;
     }
 
-  size_in_bytes = int_size_in_bytes_hwi (type);
+  size_in_bytes = int_size_in_bytes (type);
   if (size_in_bytes <= 0)
     return;
 
@@ -2093,7 +2093,7 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
   if (VAR_P (inner) && DECL_HARD_REGISTER (inner))
     return;
 
-  poly_uint64 size;
+  poly_int64 size;
   if (VAR_P (inner)
       && offset == NULL_TREE
       && DECL_SIZE (inner)

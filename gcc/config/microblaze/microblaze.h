@@ -805,7 +805,7 @@ extern int save_volatiles;
 	fprintf (FILE, "%s", SIZE_ASM_OP);				\
 	assemble_name (FILE, NAME);					\
 	fprintf (FILE, "," HOST_WIDE_INT_PRINT_DEC "\n",		\
-	int_size_in_bytes_hwi (TREE_TYPE (DECL)));			\
+	int_size_in_bytes (TREE_TYPE (DECL)));				\
       }									\
     microblaze_declare_object (FILE, NAME, "", ":\n", 0);			\
   } while (0)
@@ -823,7 +823,7 @@ do {									 \
 	 fprintf (FILE, "%s", SIZE_ASM_OP);			         \
 	 assemble_name (FILE, name);					 \
 	 fprintf (FILE, "," HOST_WIDE_INT_PRINT_DEC "\n",		 \
-		  int_size_in_bytes_hwi (TREE_TYPE (DECL)));		 \
+		  int_size_in_bytes (TREE_TYPE (DECL)));		 \
        }								 \
    } while (0)
 
