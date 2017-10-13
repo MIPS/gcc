@@ -84,7 +84,6 @@ debug_gimple_stmt (gimple *gs)
 static const char *
 dump_profile (int frequency, profile_count &count)
 {
-  return ""; // FIXME
   float minimum = 0.01f;
 
   gcc_assert (0 <= frequency && frequency <= REG_BR_PROB_BASE);
@@ -112,7 +111,6 @@ dump_profile (int frequency, profile_count &count)
 static const char *
 dump_probability (profile_probability probability, profile_count &count)
 {
-  return ""; // FIXME
   float minimum = 0.01f;
   float fvalue = -1;
 
