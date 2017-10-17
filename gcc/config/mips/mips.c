@@ -6938,6 +6938,19 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
 	}
 
+      if (src_code == LABEL_REF)
+	{
+	  if (TARGET_NANOMIPS
+	      && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+					   &symbol_type))
+	    {
+	      if (symbol_type == SYMBOL_LAPC_NANO)
+		return "lapc\t%0,%1";
+	      if (symbol_type == SYMBOL_LAPC48_NANO)
+		return "lapc[48]\t%0,%1";
+	    }
+	}
+
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
 
