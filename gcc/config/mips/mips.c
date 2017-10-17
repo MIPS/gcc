@@ -3133,15 +3133,20 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 
   if (GET_CODE (x) == LABEL_REF)
     {
-      if (TARGET_NANOMIPS && TARGET_PCREL)
+      if (TARGET_NANOMIPS)
 	{
-	  if (nano_pic_model_var == NANO_PIC_AUTO
-	      || nano_pic_model_var == NANO_PIC_NONE)
+	  if ((TARGET_PCREL
+	       || (!TARGET_PCREL && TARGET_NANOMIPS == NANOMIPS_NMS))
+	      && (nano_pic_model_var == NANO_PIC_AUTO
+		  || nano_pic_model_var == NANO_PIC_NONE))
 	    return SYMBOL_LAPC_NANO;
-	  else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+	  else if (TARGET_PCREL
+		   && TARGET_NANOMIPS == NANOMIPS_NMF)
 	    return SYMBOL_LAPC48_NANO;
-	  else
+	  else if (TARGET_PCREL)
 	    return SYMBOL_PCREL_SPLIT_NANO;
+	  else
+	    return SYMBOL_ABSOLUTE;
 	}
 
       /* Only return SYMBOL_PC_RELATIVE if we are generating MIPS16
@@ -3387,6 +3392,10 @@ mips_string_constant_p (rtx x)
       && SYMBOL_REF_DECL (x)
       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096)
     return false;
+
+  if (GET_CODE (x) == LABEL_REF
+      && !TARGET_PCREL)
+    return true;
 
   if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF
       && !TARGET_PCREL
