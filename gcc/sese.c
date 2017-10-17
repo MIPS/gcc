@@ -444,14 +444,13 @@ scev_analyzable_p (tree def, sese_l &region)
   loop = loop_containing_stmt (SSA_NAME_DEF_STMT (def));
   scev = scalar_evolution_in_region (region, loop, def);
 
-  return !chrec_contains_undetermined (scev)
-    && (TREE_CODE (scev) != SSA_NAME
-	|| !defined_in_sese_p (scev, region))
-    && (tree_does_not_contain_chrecs (scev)
-	|| evolution_function_is_affine_p (scev))
-    && (! loop
-	|| ! loop_in_sese_p (loop, region)
-	|| ! chrec_contains_symbols_defined_in_loop (scev, loop->num));
+  return (!chrec_contains_undetermined (scev)
+	  && (TREE_CODE (scev) != SSA_NAME
+	      || !defined_in_sese_p (scev, region))
+	  && scev_is_linear_expression (scev)
+	  && (! loop
+	      || ! loop_in_sese_p (loop, region)
+	      || ! chrec_contains_symbols_defined_in_loop (scev, loop->num)));
 }
 
 /* Returns the scalar evolution of T in REGION.  Every variable that
@@ -462,7 +461,6 @@ scalar_evolution_in_region (const sese_l &region, loop_p loop, tree t)
 {
   gimple *def;
   struct loop *def_loop;
-  basic_block before = region.entry->src;
 
   /* SCOP parameters.  */
   if (TREE_CODE (t) == SSA_NAME
@@ -473,7 +471,7 @@ scalar_evolution_in_region (const sese_l &region, loop_p loop, tree t)
       || loop_in_sese_p (loop, region))
     /* FIXME: we would need instantiate SCEV to work on a region, and be more
        flexible wrt. memory loads that may be invariant in the region.  */
-    return instantiate_scev (before, loop,
+    return instantiate_scev (region.entry, loop,
 			     analyze_scalar_evolution (loop, t));
 
   def = SSA_NAME_DEF_STMT (t);
@@ -495,7 +493,7 @@ scalar_evolution_in_region (const sese_l &region, loop_p loop, tree t)
   if (has_vdefs)
     return chrec_dont_know;
 
-  return instantiate_scev (before, loop, t);
+  return instantiate_scev (region.entry, loop, t);
 }
 
 /* Return true if BB is empty, contains only DEBUG_INSNs.  */

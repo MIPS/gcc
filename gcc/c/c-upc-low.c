@@ -1157,7 +1157,7 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
       if (type && SHARED_TYPE_P (type))
 	{
 	  const tree u_type = build_unshared_type (type);
-	  *expr_p = wide_int_to_tree (u_type, expr);
+	  *expr_p = wide_int_to_tree (u_type, wi::to_wide (expr));
 	}
       gcc_assert (!TREE_SHARED (expr));
       break;

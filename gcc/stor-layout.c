@@ -2366,9 +2366,11 @@ layout_type (tree type)
 		    && tree_int_cst_lt (ub, lb))
 		  {
 		    lb = wide_int_to_tree (ssizetype,
-					   offset_int::from (lb, SIGNED));
+					   offset_int::from (wi::to_wide (lb),
+							     SIGNED));
 		    ub = wide_int_to_tree (ssizetype,
-					   offset_int::from (ub, SIGNED));
+					   offset_int::from (wi::to_wide (ub),
+							     SIGNED));
 		  }
 		length
 		  = fold_convert (sizetype,

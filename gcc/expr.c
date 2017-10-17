@@ -6748,8 +6748,11 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
     return const0_rtx;
 
   /* If we have nothing to store, do nothing unless the expression has
-     side-effects.  */
-  if (bitsize == 0)
+     side-effects.  Don't do that for zero sized addressable lhs of
+     calls.  */
+  if (bitsize == 0
+      && (!TREE_ADDRESSABLE (TREE_TYPE (exp))
+	  || TREE_CODE (exp) != CALL_EXPR))
     return expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   if (GET_CODE (target) == CONCAT)
@@ -7152,7 +7155,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       if (wi::neg_p (bit_offset) || !wi::fits_shwi_p (bit_offset))
         {
 	  offset_int mask = wi::mask <offset_int> (LOG2_BITS_PER_UNIT, false);
-	  offset_int tem = bit_offset.and_not (mask);
+	  offset_int tem = wi::bit_and_not (bit_offset, mask);
 	  /* TEM is the bitpos rounded to BITS_PER_UNIT towards -Inf.
 	     Subtract it to BIT_OFFSET and add it (scaled) to OFFSET.  */
 	  bit_offset -= tem;
@@ -11787,7 +11790,7 @@ const_vector_from_tree (tree exp)
 	RTVEC_ELT (v, i) = CONST_FIXED_FROM_FIXED_VALUE (TREE_FIXED_CST (elt),
 							 inner);
       else
-	RTVEC_ELT (v, i) = immed_wide_int_const (elt, inner);
+	RTVEC_ELT (v, i) = immed_wide_int_const (wi::to_wide (elt), inner);
     }
 
   return gen_rtx_CONST_VECTOR (mode, v);
