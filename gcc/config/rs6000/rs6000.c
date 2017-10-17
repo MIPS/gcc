@@ -11525,6 +11525,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   size = int_size_in_bytes (type);
   rsize = (size + 3) / 4;
+  int pad = 4 * rsize - size;
   align = 1;
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS
@@ -11612,6 +11613,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	  && TYPE_MODE (type) == SDmode)
 	t = fold_build_pointer_plus_hwi (t, size);
 
+      /* Args are right-aligned.  */
+      if (BYTES_BIG_ENDIAN)
+	t = fold_build_pointer_plus_hwi (t, pad);
+
       gimplify_assign (addr, t, pre_p);
 
       gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_over));
@@ -11637,6 +11642,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
 		  build_int_cst (TREE_TYPE (t), -align));
     }
+
+  /* Args are right-aligned.  */
+  if (BYTES_BIG_ENDIAN)
+    t = fold_build_pointer_plus_hwi (t, pad);
+
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   gimplify_assign (unshare_expr (addr), t, pre_p);
@@ -22304,24 +22314,23 @@ debug_stack_info (rs6000_stack_t *info)
 rtx
 rs6000_return_addr (int count, rtx frame)
 {
-  /* Currently we don't optimize very well between prolog and body
-     code and for PIC code the code can be actually quite bad, so
-     don't try to be too clever here.  */
+  /* We can't use get_hard_reg_initial_val for LR when count == 0 if LR
+     is trashed by the prologue, as it is for PIC on ABI_V4 and Darwin.  */
   if (count != 0
       || ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN) && flag_pic))
     {
       cfun->machine->ra_needs_full_frame = 1;
 
-      return
-	gen_rtx_MEM
-	  (Pmode,
-	   memory_address
-	   (Pmode,
-	    plus_constant (Pmode,
-			   copy_to_reg
-			   (gen_rtx_MEM (Pmode,
-					 memory_address (Pmode, frame))),
-			   RETURN_ADDRESS_OFFSET)));
+      if (count == 0)
+	/* FRAME is set to frame_pointer_rtx by the generic code, but that
+	   is good for loading 0(r1) only when !FRAME_GROWS_DOWNWARD.  */
+	frame = stack_pointer_rtx;
+      rtx prev_frame_addr = memory_address (Pmode, frame);
+      rtx prev_frame = copy_to_reg (gen_rtx_MEM (Pmode, prev_frame_addr));
+      rtx lr_save_off = plus_constant (Pmode,
+				       prev_frame, RETURN_ADDRESS_OFFSET);
+      rtx lr_save_addr = memory_address (Pmode, lr_save_off);
+      return gen_rtx_MEM (Pmode, lr_save_addr);
     }
 
   cfun->machine->ra_need_lr = 1;
@@ -29195,8 +29204,8 @@ rs6000_elf_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
     {
       if (!toc_initialized)
 	{
-	  toc_initialized = 1;
 	  fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  (*targetm.asm_out.internal_label) (asm_out_file, "LCTOC", 0);
 	  fprintf (asm_out_file, "\t.tc ");
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1[TC],");
@@ -29204,20 +29213,30 @@ rs6000_elf_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
 	  fprintf (asm_out_file, "\n");
 
 	  fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1");
 	  fprintf (asm_out_file, " = .+32768\n");
+	  toc_initialized = 1;
 	}
       else
 	fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
     }
   else if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
 	   && !TARGET_RELOCATABLE)
-    fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+    {
+      fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+      if (!toc_initialized)
+	{
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
+	  toc_initialized = 1;
+	}
+    }
   else
     {
       fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
       if (!toc_initialized)
 	{
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1");
 	  fprintf (asm_out_file, " = .+32768\n");
 	  toc_initialized = 1;
@@ -32859,23 +32878,30 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
 /* Remember the last target of rs6000_set_current_function.  */
 static GTY(()) tree rs6000_previous_fndecl;
 
+/* Restore target's globals from NEW_TREE and invalidate the
+   rs6000_previous_fndecl cache.  */
+
+static void
+rs6000_activate_target_options (tree new_tree)
+{
+  cl_target_option_restore (&global_options, TREE_TARGET_OPTION (new_tree));
+  if (TREE_TARGET_GLOBALS (new_tree))
+    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+  else if (new_tree == target_option_default_node)
+    restore_target_globals (&default_target_globals);
+  else
+    TREE_TARGET_GLOBALS (new_tree) = save_target_globals_default_opts ();
+  rs6000_previous_fndecl = NULL_TREE;
+}
+
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
 static void
 rs6000_set_current_function (tree fndecl)
 {
-  tree old_tree = (rs6000_previous_fndecl
-		   ? DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl)
-		   : NULL_TREE);
-
-  tree new_tree = (fndecl
-		   ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
-		   : NULL_TREE);
-
   if (TARGET_DEBUG_TARGET)
     {
-      bool print_final = false;
       fprintf (stderr, "\n==================== rs6000_set_current_function");
 
       if (fndecl)
@@ -32888,58 +32914,60 @@ rs6000_set_current_function (tree fndecl)
 	fprintf (stderr, ", prev_fndecl (%p)", (void *)rs6000_previous_fndecl);
 
       fprintf (stderr, "\n");
+    }
+
+  /* Only change the context if the function changes.  This hook is called
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
+  if (fndecl == rs6000_previous_fndecl)
+    return;
+
+  tree old_tree;
+  if (rs6000_previous_fndecl == NULL_TREE)
+    old_tree = target_option_current_node;
+  else if (DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl))
+    old_tree = DECL_FUNCTION_SPECIFIC_TARGET (rs6000_previous_fndecl);
+  else
+    old_tree = target_option_default_node;
+
+  tree new_tree;
+  if (fndecl == NULL_TREE)
+    {
+      if (old_tree != target_option_current_node)
+	new_tree = target_option_current_node;
+      else
+	new_tree = NULL_TREE;
+    }
+  else
+    {
+      new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
+      if (new_tree == NULL_TREE)
+	new_tree = target_option_default_node;
+    }
+
+  if (TARGET_DEBUG_TARGET)
+    {
       if (new_tree)
 	{
 	  fprintf (stderr, "\nnew fndecl target specific options:\n");
 	  debug_tree (new_tree);
-	  print_final = true;
 	}
 
       if (old_tree)
 	{
 	  fprintf (stderr, "\nold fndecl target specific options:\n");
 	  debug_tree (old_tree);
-	  print_final = true;
 	}
 
-      if (print_final)
+      if (old_tree != NULL_TREE || new_tree != NULL_TREE)
 	fprintf (stderr, "--------------------\n");
     }
 
-  /* Only change the context if the function changes.  This hook is called
-     several times in the course of compiling a function, and we don't want to
-     slow things down too much or call target_reinit when it isn't safe.  */
-  if (fndecl && fndecl != rs6000_previous_fndecl)
-    {
-      rs6000_previous_fndecl = fndecl;
-      if (old_tree == new_tree)
-	;
+  if (new_tree && old_tree != new_tree)
+    rs6000_activate_target_options (new_tree);
 
-      else if (new_tree && new_tree != target_option_default_node)
-	{
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-
-      else if (old_tree && old_tree != target_option_default_node)
-	{
-	  new_tree = target_option_current_node;
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else if (new_tree == target_option_default_node)
-	    restore_target_globals (&default_target_globals);
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-    }
+  if (fndecl)
+    rs6000_previous_fndecl = fndecl;
 }
 
 

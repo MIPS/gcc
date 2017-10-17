@@ -6349,6 +6349,9 @@ type_dependent_init_p (tree init)
   else if (TREE_CODE (init) == CONSTRUCTOR)
   /* A brace-enclosed initializer, e.g.: int i = { 3 }; ? */
     {
+      if (dependent_type_p (TREE_TYPE (init)))
+	return true;
+
       vec<constructor_elt, va_gc> *elts;
       size_t nelts;
       size_t i;
@@ -13077,9 +13080,12 @@ finish_enum_value_list (tree enumtype)
       input_location = saved_location;
 
       /* Do not clobber shared ints.  */
-      value = copy_node (value);
+      if (value != error_mark_node)
+	{
+	  value = copy_node (value);
 
-      TREE_TYPE (value) = enumtype;
+	  TREE_TYPE (value) = enumtype;
+	}
       DECL_INITIAL (decl) = value;
     }
 
