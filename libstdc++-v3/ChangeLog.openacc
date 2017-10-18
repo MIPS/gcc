@@ -1,19 +1,9 @@
 2017-12-19  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR other/79543
-	* acinclude.m4 (LIBITM_CHECK_LINKER_FEATURES): Fix GNU ld
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Fix GNU ld
 	--version scanning to conform to the GNU Coding Standards.
 	* configure: Regenerate.
-
-2018-05-02  Tom de Vries  <tom@codesourcery.com>
-
-	PR testsuite/85106
-	* testsuite/lib/libitm.exp: Include scanltranstree.exp.
-
-2018-05-02  Tom de Vries  <tom@codesourcery.com>
-
-	PR testsuite/85106
-	* testsuite/lib/libitm.exp: Include scanwpaipa.exp.
 
 Copyright (C) 2017-2018 Free Software Foundation, Inc.
 
