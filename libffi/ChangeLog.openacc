@@ -1,0 +1,17 @@
+2017-12-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR other/79543
+	* acinclude.m4 (LIBAT_CHECK_LINKER_FEATURES): Fix GNU ld --version
+	scanning to conform to the GNU Coding Standards.
+	* configure: Regenerate.
+
+Copyright (C) 2017 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.openacc"
+End:

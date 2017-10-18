@@ -1,3 +1,10 @@
+2017-12-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR other/79543
+	* acinclude.m4 (LIBGOMP_CHECK_LINKER_FEATURES): Fix GNU ld
+	--version scanning to conform to the GNU Coding Standards.
+	* configure: Regenerate.
+
 2017-12-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
