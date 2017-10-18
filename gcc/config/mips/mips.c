@@ -4800,21 +4800,6 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		*low_out = addr;
 		break;
 
-	      case SYMBOL_GOT_PAGE_OFST:
-		if (TARGET_NANOMIPS
-		    && mips_get_nano_pic_model (addr) == NANO_PIC_AUTO
-		    && context == SYMBOL_CONTEXT_LEA)
-		  {
-		    *low_out = mips_got_load (temp, addr, SYMBOL_GOTOFF_DISP);
-		  }
-		else
-		  {
-		    high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
-		    high = mips_force_temporary (temp, high);
-		    *low_out = gen_rtx_LO_SUM (Pmode, high, addr);
-		  }
-		break;
-
 	      case SYMBOL_ABSOLUTE:
 		if (mips_string_constant_p (addr))
 		  {

@@ -4782,6 +4782,19 @@
   [(set_attr "got" "load")
    (set_attr "mode" "<MODE>")])
 
+(define_insn_and_split "*got_disp_auto_nano<mode>"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "got_page_ofst_operand" "")))]
+  "TARGET_NANOMIPS"
+  "#"
+  ""
+  [(set (match_dup 0)
+	(unspec:P [(reg:SI GLOBAL_POINTER_REGNUM) (match_dup 3)] UNSPEC_LOAD_GOT))]
+  { operands[3] = mips_unspec_address (operands[2], SYMBOL_GOTOFF_DISP); }
+  [(set_attr "got" "load")
+   (set_attr "mode" "<MODE>")])
+
 ;; Convenience expander that generates the rhs of a load_got<mode> insn.
 (define_expand "unspec_got_<mode>"
   [(unspec:P [(match_operand:P 0)
