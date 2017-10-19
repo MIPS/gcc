@@ -299,6 +299,7 @@ foreach option {
     odd-spreg
     msa
     mips16e2
+    use-copyw-ucopyw
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -1074,6 +1075,10 @@ proc mips-dg-options { args } {
 	} elseif { [string equal $spec "isa=p5600"] } {
 	    if { ![regexp {^-march=p5600} $arch] } {
 		set arch "-march=p5600"
+	    }
+	} elseif { [string equal $spec "isa=interaptiv-mr2"] } {
+	    if { ![regexp {^-march=interaptiv-mr2} $arch] } {
+		set arch "-march=interaptiv-mr2"
 	    }
 	} else {
 	    if { ![regexp {^(isa(?:|_rev))(=|<=|>=)([0-9]*)$} \

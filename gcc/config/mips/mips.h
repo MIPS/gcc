@@ -1265,7 +1265,8 @@ struct mips_cpu_info {
 				 && !TARGET_64BIT)
 
 /* The interAptiv MR2 COPYW/UCOPYW instructions are available.  */
-#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2)
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2 \
+				 && TARGET_USE_COPYW_UCOPYW)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
