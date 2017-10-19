@@ -1,7 +1,7 @@
 /* { dg-require-effective-target nonpic } */
 /* { dg-options "-G4 -mno-gpopt" } */
 
-/* { dg-final { scan-assembler-not "%gprel" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|)" } } */
 /* { dg-final { scan-assembler-not "\\\$gp" } } */
 
 static volatile int l4a;
