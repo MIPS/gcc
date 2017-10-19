@@ -12241,7 +12241,8 @@ mips_file_start (void)
      produce the resultant binary.  */
 
 #ifdef NANOMIPS_SUPPORT
-  fprintf (asm_out_file, "\t.linkrelax\n");
+  if (TARGET_LINKRELAX)
+    fprintf (asm_out_file, "\t.linkrelax\n");
 #else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
@@ -25227,6 +25228,11 @@ mips_option_override (void)
       if (optimize_size
 	  && (target_flags_explicit & MASK_CHECK_ZERO_DIV) == 0)
 	target_flags &= ~MASK_CHECK_ZERO_DIV;
+
+      if (!TARGET_LINKRELAX
+	  && (nano_pic_model_var == NANO_PIC_AUTO
+	      || nano_pic_model_var == NANO_PIC_NONE))
+	error ("-mno-relax cannot be used with the automatic model");
     }
 #endif
 
