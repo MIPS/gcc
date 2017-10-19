@@ -220,6 +220,7 @@ extern int mips_load_store_insns (rtx, rtx_insn *);
 extern int mips_idiv_insns (machine_mode);
 extern rtx_insn *mips_emit_move (rtx, rtx);
 #ifdef RTX_CODE
+extern void nanomips_expand_64bit_shift (enum rtx_code, rtx, rtx, rtx);
 extern void mips_emit_binary (enum rtx_code, rtx, rtx, rtx);
 #endif
 extern rtx mips_pic_base_register (rtx);

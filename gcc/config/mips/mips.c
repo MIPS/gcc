@@ -29606,6 +29606,81 @@ void nanomips_load_store_multiple_split (rtx dest, rtx src,
   emit_insn (load);
   emit_insn (store);
 }
+
+void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
+				  rtx shift)
+{
+  rtx out_high = code == ASHIFT ? gen_highpart (SImode, out)
+				: gen_lowpart (SImode, out);
+  rtx out_low = code == ASHIFT ? gen_lowpart (SImode, out)
+			       : gen_highpart (SImode, out);
+  rtx in_high = code == ASHIFT ? gen_highpart (SImode, in)
+			       : gen_lowpart (SImode, in);
+  rtx in_low = code == ASHIFT ? gen_lowpart (SImode, in)
+			      : gen_highpart (SImode, in);
+
+  rtx tmp0 = gen_reg_rtx (SImode);
+  rtx tmp1 = gen_reg_rtx (SImode);
+  rtx tmp2 = gen_reg_rtx (SImode);
+  rtx tmp3 = gen_reg_rtx (SImode);
+
+  gcc_assert (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
+
+  /* FIXME. Do we really need this? The middle end should be able to
+     optimize it well.  */
+  if (CONSTANT_P (shift))
+    {
+      rtx tmp4 = gen_reg_rtx (SImode);
+      mips_emit_move (tmp4, shift);
+      shift = tmp4;
+    }
+
+  emit_insn (gen_negsi2 (tmp0, shift));
+
+  switch (code)
+    {
+    case ASHIFT:
+      mips_emit_binary (ASHIFT, out_high, in_high, shift);
+      mips_emit_binary (LSHIFTRT, tmp0, in_low, tmp0);
+      mips_emit_binary (ASHIFT, out_low, in_low, shift);
+      break;
+
+    case ASHIFTRT:
+      mips_emit_move (tmp3, GEN_INT (-1));
+      mips_emit_binary (LSHIFTRT, out_high, in_high, shift);
+      mips_emit_binary (ASHIFT, tmp0, in_low, tmp0);
+      mips_emit_binary (ASHIFTRT, out_low, in_low, shift);
+      emit (gen_extzvsi (tmp2, out_low, GEN_INT (1), GEN_INT (31)));
+      emit (gen_movsicc (tmp2,
+			 gen_rtx_fmt_ee (EQ, SImode, tmp2, const0_rtx),
+			 const0_rtx, tmp3));
+      break;
+
+    case LSHIFTRT:
+      mips_emit_binary (LSHIFTRT, out_high, in_high, shift);
+      mips_emit_binary (ASHIFT, tmp0, in_low, tmp0);
+      mips_emit_binary (LSHIFTRT, out_low, in_low, shift);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  emit (gen_movsicc (tmp0,
+		     gen_rtx_fmt_ee (EQ, SImode, shift, const0_rtx),
+		     const0_rtx, tmp0));
+  mips_emit_binary (IOR, out_high, out_high, tmp0);
+
+  emit_insn (gen_cstoresi4 (tmp1,
+			    gen_rtx_fmt_ee (LT, SImode, shift, GEN_INT (32)),
+					    shift, GEN_INT (32)));
+  emit (gen_movsicc (out_high,
+		     gen_rtx_fmt_ee (EQ, SImode, tmp1, const0_rtx),
+		     out_low, out_high));
+  emit (gen_movsicc (out_low,
+		     gen_rtx_fmt_ee (EQ, SImode, tmp1, const0_rtx),
+		     code == ASHIFTRT ? tmp2 : const0_rtx, out_low));
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
