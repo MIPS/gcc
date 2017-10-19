@@ -21317,6 +21317,19 @@ mips_option_override (void)
     error ("unsupported combination: %qs %s",
 	   mips_arch_info->name, "-muse-save-restore");
 
+  /* Enable the use of interAptiv MIPS16 COPYW/UCOPYW instructions.  */
+  if (TARGET_USE_COPYW_UCOPYW == -1)
+    {
+      if (TARGET_INTERAPTIV_MR2)
+	TARGET_USE_COPYW_UCOPYW = 1;
+      else
+	TARGET_USE_COPYW_UCOPYW = 0;
+    }
+  else if (TARGET_USE_COPYW_UCOPYW
+	   && !TARGET_INTERAPTIV_MR2)
+    error ("unsupported combination: %qs %s",
+	   mips_arch_info->name, "-muse-copyw_ucopyw");
+
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
      of the compact branch and jump support through the backend.  */
   if (!TARGET_EXPLICIT_RELOCS && mips_isa_rev >= 6)
