@@ -2249,24 +2249,29 @@ adjust_paths_after_duplication (unsigned curr_path_num)
       debug_path (dump_file, curr_path_num);
     }
 
-  /* Iterate through all the paths that come after CURR_PATH_NUM and
-     adjust them.  */
-  for (unsigned i = curr_path_num + 1; i < paths.length (); )
+  /* Iterate through all the other paths and adjust them.  */
+  for (unsigned cand_path_num = 0; cand_path_num < paths.length (); )
     {
+      if (cand_path_num == curr_path_num)
+	{
+	  ++cand_path_num;
+	  continue;
+	}
+
       /* Make sure the candidate to adjust starts with the same path
 	 as the recently threaded path and is an FSM thread.  */
-      vec<jump_thread_edge *> *cand_path = paths[i];
+      vec<jump_thread_edge *> *cand_path = paths[cand_path_num];
       if ((*cand_path)[0]->type != EDGE_FSM_THREAD
 	  || (*cand_path)[0]->e != (*curr_path)[0]->e)
 	{
-	  ++i;
+	  ++cand_path_num;
 	  continue;
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "adjusting: ");
-	  debug_path (dump_file, i);
+	  fprintf (dump_file, "adjusting candidate: ");
+	  debug_path (dump_file, cand_path_num);
 	}
 
       /* Chop off from the candidate path any prefix it shares with
@@ -2305,18 +2310,20 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	  /* If we are removing everything, delete the entire path.  */
 	  if (j == cand_path->length ())
 	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "adjusted candidate: [EMPTY]\n");
 	      delete_jump_thread_path (cand_path);
-	      paths.unordered_remove (i);
+	      paths.unordered_remove (cand_path_num);
 	      continue;
 	    }
 	  cand_path->block_remove (0, j);
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "adjusted: ");
-	  debug_path (dump_file, i);
+	  fprintf (dump_file, "adjusted candidate: ");
+	  debug_path (dump_file, cand_path_num);
 	}
-      ++i;
+      ++cand_path_num;
     }
 }
 
@@ -2342,14 +2349,14 @@ duplicate_thread_path (edge entry, edge exit, basic_block *region,
   int curr_freq;
   profile_count curr_count;
 
+  if (!can_copy_bbs_p (region, n_region))
+    return false;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nabout to thread: ");
       debug_path (dump_file, current_path_no);
     }
-
-  if (!can_copy_bbs_p (region, n_region))
-    return false;
 
   /* Some sanity checking.  Note that we do not check for all possible
      missuses of the functions.  I.e. if you ask to copy something weird,
