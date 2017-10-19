@@ -804,6 +804,7 @@
 ;; This mode iterator allows 32-bit and 64-bit GPR patterns to be generated
 ;; from the same template.
 (define_mode_iterator GPR [SI (DI "TARGET_64BIT")])
+(define_mode_iterator GPR_N32 [SI (DI "TARGET_64BIT || TARGET_NANOMIPS")])
 
 ;; A copy of GPR that can be used when a pattern has two independent
 ;; modes.
@@ -986,6 +987,9 @@
 ;; from the same template.
 (define_code_iterator any_shift [ashift ashiftrt lshiftrt])
 
+(define_code_attr SHIFT [(ashift "ASHIFT")
+			 (ashiftrt "ASHIFTRT")
+			 (lshiftrt "LSHIFTRT")])
 ;; This code iterator allows unsigned and signed division to be generated
 ;; from the same template.
 (define_code_iterator any_div [div udiv])
@@ -6102,9 +6106,9 @@
 ;;  ....................
 
 (define_expand "<optab><mode>3"
-  [(set (match_operand:GPR 0 "register_operand")
-	(any_shift:GPR (match_operand:GPR 1 "register_operand")
-		       (match_operand:SI 2 "arith_operand")))]
+  [(set (match_operand:GPR_N32 0 "register_operand")
+	(any_shift:GPR_N32 (match_operand:GPR_N32 1 "register_operand")
+			   (match_operand:SI 2 "arith_operand")))]
   ""
 {
   /* On the mips16, a shift of more than 8 is a four byte instruction,
@@ -6130,6 +6134,16 @@
 				     GEN_INT (INTVAL (operands[2]) - 8)));
       DONE;
     }
+
+  if (!TARGET_64BIT && TARGET_NANOMIPS && <MODE>mode == DImode
+      && optimize >= 3)
+    {
+      nanomips_expand_64bit_shift (<SHIFT>, operands[0], operands[1],
+				   operands[2]);
+      DONE;
+    }
+  else if (!TARGET_64BIT && <MODE>mode == DImode)
+    FAIL;
 })
 
 (define_insn "*<optab><mode>3"
