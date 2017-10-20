@@ -3008,6 +3008,16 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define DECL_FUNCTION_VERSIONED(NODE)\
    (FUNCTION_DECL_CHECK (NODE)->function_decl.versioned_function)
 
+/* In FUNCTION_DECL, this is set if this function is only a partial
+   clone/version/copy of its DECL_ABSTRACT_ORIGIN.  It should be used
+   for the non-inlined portion of a partial inline, for openmp blocks
+   turned into separate functions, and for any other cases in which we
+   clone only select parts of a function, presumably omitting its
+   entry point, that is presumed to remain in a separate, controlling
+   version of the function.  */
+#define DECL_FUNCTION_PARTIAL_COPY(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.partial_copy_flag)
+
 /* In FUNCTION_DECL, this is set if this function is a C++ constructor.
    Devirtualization machinery uses this knowledge for determing type of the
    object constructed.  Also we assume that constructor address is not

@@ -6939,6 +6939,7 @@ struct checksum_attributes
   dw_attr_node *at_virtuality;
   dw_attr_node *at_visibility;
   dw_attr_node *at_vtable_elem_location;
+  dw_attr_node *at_partial_noentry;
 };
 
 /* Collect the attributes that we will want to use for the checksum.  */
@@ -7103,6 +7104,9 @@ collect_checksum_attributes (struct checksum_attributes *attrs, dw_die_ref die)
         case DW_AT_vtable_elem_location:
           attrs->at_vtable_elem_location = a;
           break;
+	case DW_AT_GNU_partial_noentry:
+	  attrs->at_partial_noentry = a;
+	  break;
         default:
           break;
         }
@@ -7178,6 +7182,7 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   CHECKSUM_ATTR (attrs.at_type);
   CHECKSUM_ATTR (attrs.at_friend);
   CHECKSUM_ATTR (attrs.at_alignment);
+  CHECKSUM_ATTR (attrs.at_partial_noentry);
 
   /* Checksum the child DIEs.  */
   c = die->die_child;
@@ -21899,7 +21904,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (old_die && old_die->die_parent == NULL)
 	add_child_die (context_die, old_die);
 
-      if (old_die && get_AT_ref (old_die, DW_AT_abstract_origin))
+      if (old_die && get_AT_ref (old_die, DW_AT_abstract_origin)
+	  && (DECL_FUNCTION_PARTIAL_COPY (decl)
+	      == get_AT_flag (old_die, DW_AT_GNU_partial_noentry)))
 	{
 	  /* If we have a DW_AT_abstract_origin we have a working
 	     cached version.  */
@@ -21909,6 +21916,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  subr_die = new_die (DW_TAG_subprogram, context_die, decl);
 	  add_abstract_origin_attribute (subr_die, origin);
+	  if (DECL_FUNCTION_PARTIAL_COPY (decl))
+	    add_AT_flag (subr_die, DW_AT_GNU_partial_noentry, true);
 	  /*  This is where the actual code for a cloned function is.
 	      Let's emit linkage name attribute for it.  This helps
 	      debuggers to e.g, set breakpoints into

@@ -433,6 +433,9 @@ DW_AT (DW_AT_GNU_all_source_call_sites, 0x2118)
 DW_AT (DW_AT_GNU_macros, 0x2119)
 /* Attribute for C++ deleted special member functions (= delete;).  */
 DW_AT (DW_AT_GNU_deleted, 0x211a)
+/* This flag indicates a partial copy of a function, whose entry point
+   does not correspond to that of the abstract origin.  */
+DW_AT (DW_AT_GNU_partial_noentry, 0x211b)
 /* Extensions for Fission.  See http://gcc.gnu.org/wiki/DebugFission.  */
 DW_AT (DW_AT_GNU_dwo_name, 0x2130)
 DW_AT (DW_AT_GNU_dwo_id, 0x2131)
