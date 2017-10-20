@@ -5915,6 +5915,9 @@ tree_function_versioning (tree old_decl, tree new_decl,
     old_version_node->used_as_abstract_origin = true;
   DECL_FUNCTION_PERSONALITY (new_decl) = DECL_FUNCTION_PERSONALITY (old_decl);
 
+  DECL_FUNCTION_PARTIAL_COPY (new_decl) = new_entry
+    ? true : DECL_FUNCTION_PARTIAL_COPY (old_decl);
+
   /* Prepare the data structures for the tree copy.  */
   memset (&id, 0, sizeof (id));
 
