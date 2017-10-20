@@ -11035,7 +11035,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   emit_all_insn_group_barriers (NULL);
   insn = get_insns ();
   shorten_branches (insn);
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 

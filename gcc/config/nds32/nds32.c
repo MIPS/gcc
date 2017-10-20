@@ -1633,8 +1633,7 @@ nds32_asm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   int this_regno;
 
   /* Make sure unwind info is emitted for the thunk if needed.  */
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, file, 1);
+  final_start_function (emit_barrier (), file, 1);
 
   this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function)
 		? 1

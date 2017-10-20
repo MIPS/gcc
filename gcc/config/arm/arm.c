@@ -26435,8 +26435,7 @@ arm_thumb1_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
   if (mi_delta < 0)
     mi_delta = - mi_delta;
 
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, file, 1);
+  final_start_function (emit_barrier (), file, 1);
 
   if (TARGET_THUMB1)
     {
@@ -26613,7 +26612,7 @@ arm32_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
 
   insn = get_insns ();
   shorten_branches (insn);
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 

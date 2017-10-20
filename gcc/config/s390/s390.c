@@ -13217,8 +13217,7 @@ s390_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   int nonlocal = 0;
 
   /* Make sure unwind info is emitted for the thunk if needed.  */
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, file, 1);
+  final_start_function (emit_barrier (), file, 1);
 
   /* Operand 0 is the target function.  */
   op[0] = XEXP (DECL_RTL (function), 0);

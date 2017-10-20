@@ -1793,6 +1793,28 @@ maybe_output_next_view (int *seen)
     }
 }
 
+/* We want to emit param bindings (before the first begin_stmt) in the
+   initial view, if we are emitting views.  To that end, we may
+   consume initial notes in the function, processing them in
+   final_start_function, before signaling the beginning of the
+   prologue, rather than in final.
+
+   We don't test whether the DECLs are PARM_DECLs: the assumption is
+   that there will be a NOTE_INSN_BEGIN_STMT marker before any
+   non-parameter NOTE_INSN_VAR_LOCATION.  It's ok if the marker is not
+   there, we'll just have more variable locations bound in the initial
+   view, which is consistent with their being bound without any code
+   that would give them a value.  */
+
+static inline bool
+in_initial_view_p (rtx_insn *insn)
+{
+  return !DECL_IGNORED_P (current_function_decl)
+    && debug_variable_location_views
+    && insn && GET_CODE (insn) == NOTE
+    && NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION;
+}
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
@@ -1810,8 +1832,6 @@ static void
 final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
 			int optimize_p ATTRIBUTE_UNUSED)
 {
-  rtx_insn *first = *firstp;
-
   block_depth = 0;
 
   this_is_asm_operands = 0;
@@ -1828,29 +1848,21 @@ final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
   if (flag_sanitize & SANITIZE_ADDRESS)
     asan_function_start ();
 
-  if (!DECL_IGNORED_P (current_function_decl))
+  rtx_insn *first = *firstp;
+  if (in_initial_view_p (first))
     {
-      /* Emit param bindings (before the first begin_stmt) in the
-	 initial view.  We don't test whether the DECLs are
-	 PARM_DECLs: the assumption is that there will be a
-	 NOTE_INSN_BEGIN_STMT marker before any non-parameter
-	 NOTE_INSN_VAR_LOCATION.  It's ok if the marker is not there,
-	 we'll just have more variable locations bound in the initial
-	 view, which is consistent with their being bound without any
-	 code that would give them a value.  */
-      if (debug_variable_location_views)
+      do
 	{
-	  rtx_insn *insn;
-	  for (insn = first;
-	       insn && GET_CODE (insn) == NOTE
-		 && NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION;
-	       insn = NEXT_INSN (insn))
-	    final_scan_insn (insn, file, 0, 0, seen);
-	  *firstp = insn;
+	  final_scan_insn (first, file, 0, 0, seen);
+	  first = NEXT_INSN (first);
 	}
-      debug_hooks->begin_prologue (last_linenum, last_columnnum,
-				   last_filename);
+      while (in_initial_view_p (first));
+      *firstp = first;
     }
+
+  if (!DECL_IGNORED_P (current_function_decl))
+    debug_hooks->begin_prologue (last_linenum, last_columnnum,
+				 last_filename);
 
   if (!dwarf2_debug_info_emitted_p (current_function_decl))
     dwarf2out_begin_prologue (0, 0, NULL);
@@ -1928,11 +1940,11 @@ final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
 /* This is an exported final_start_function_1, callable without SEEN.  */
 
 void
-final_start_function (rtx_insn **firstp, FILE *file,
+final_start_function (rtx_insn *first, FILE *file,
 		      int optimize_p ATTRIBUTE_UNUSED)
 {
   int seen = 0;
-  final_start_function_1 (firstp, file, &seen, optimize_p);
+  final_start_function_1 (&first, file, &seen, optimize_p);
   gcc_assert (seen == 0);
 }
 
@@ -2161,6 +2173,15 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
 void
 final (rtx_insn *first, FILE *file, int optimize_p)
 {
+  /* Those that use the internal final_start_function_1/final_1 API
+     skip initial debug bind notes in final_start_function_1, and pass
+     the modified FIRST to final_1.  But those that use the public
+     final_start_function/final APIs, final_start_function can't move
+     FIRST because it's not passed by reference, so if they were
+     skipped there, skip them again here.  */
+  while (in_initial_view_p (first))
+    first = NEXT_INSN (first);
+
   final_1 (first, file, 0, optimize_p);
 }
 

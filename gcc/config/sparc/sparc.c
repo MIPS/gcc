@@ -12140,7 +12140,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
   shorten_branches (insn);
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 

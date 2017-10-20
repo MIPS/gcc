@@ -8404,8 +8404,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   xoperands[1] = XEXP (DECL_RTL (thunk_fndecl), 0);
   xoperands[2] = GEN_INT (delta);
 
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, file, 1);
+  final_start_function (emit_barrier (), file, 1);
 
   /* Output the thunk.  We know that the function is in the same
      translation unit (i.e., the same space) as the thunk, and that

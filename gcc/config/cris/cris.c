@@ -2755,8 +2755,7 @@ cris_asm_output_mi_thunk (FILE *stream,
 			  tree funcdecl)
 {
   /* Make sure unwind info is emitted for the thunk if needed.  */
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, stream, 1);
+  final_start_function (emit_barrier (), stream, 1);
 
   if (delta > 0)
     fprintf (stream, "\tadd%s " HOST_WIDE_INT_PRINT_DEC ",$%s\n",

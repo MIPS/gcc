@@ -5142,7 +5142,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   /* Run just enough of rest_of_compilation.  */
   insn = get_insns ();
   split_all_insns_noflow ();
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 

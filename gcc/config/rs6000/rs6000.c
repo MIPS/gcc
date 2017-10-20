@@ -29628,7 +29628,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
   shorten_branches (insn);
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 
@@ -38178,8 +38178,7 @@ rs6000_code_end (void)
   init_function_start (decl);
   first_function_block_is_cold = false;
   /* Make sure unwind info is emitted for the thunk if needed.  */
-  rtx_insn *first = emit_barrier ();
-  final_start_function (&first, asm_out_file, 1);
+  final_start_function (emit_barrier (), asm_out_file, 1);
 
   fputs ("\tblr\n", asm_out_file);
 

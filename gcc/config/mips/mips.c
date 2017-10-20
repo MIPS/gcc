@@ -19394,7 +19394,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   split_all_insns_noflow ();
   mips16_lay_out_constants (true);
   shorten_branches (insn);
-  final_start_function (&insn, file, 1);
+  final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 
