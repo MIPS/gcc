@@ -4948,6 +4948,15 @@
 ;; Operand 2 is the address: mips_print_operand works out which relocation
 ;; should be applied.
 
+(define_insn "*low_symbol_nano<mode>"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "symbolic_operand" "")))]
+  "TARGET_NANOMIPS"
+  "ori\t%0,%1,%R2"
+  [(set_attr "alu_type" "or")
+   (set_attr "mode" "<MODE>")])
+
 (define_insn "*low<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
