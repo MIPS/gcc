@@ -20,9 +20,9 @@
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_short\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_int\\)" } } */
 /* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_int\\)" } } */
 

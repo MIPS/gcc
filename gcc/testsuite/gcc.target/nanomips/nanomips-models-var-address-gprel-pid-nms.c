@@ -15,15 +15,15 @@
 /* { dg-final { scan-assembler "addiu\\\[gp\\.w\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_int\\)" } } */
 
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_4Kaligned\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_2aligned\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_short\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_int\\)" } } */
-/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_int\\)" } } */
+/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(l_sta_int\\)" } } */
 
 /* { dg-final { scan-assembler-times "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" 5 } } */
 

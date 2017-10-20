@@ -4944,6 +4944,17 @@
 }
   [(set_attr "insn_count" "2")])
 
+;; @tmt Keep using ADDIU instead of ORI here until we can make the ADDU in
+;; the pattern above be the last instruction in the sequence.
+(define_insn "*gprel_low_nanosi"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "gprel_split_nano_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu\t%0,%1,%R2"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "SI")])
+
 ;; Instructions for adding the low 16 bits of an address to a register.
 ;; Operand 2 is the address: mips_print_operand works out which relocation
 ;; should be applied.
