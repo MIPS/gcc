@@ -29622,7 +29622,6 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
   rtx tmp0 = gen_reg_rtx (SImode);
   rtx tmp1 = gen_reg_rtx (SImode);
   rtx tmp2 = gen_reg_rtx (SImode);
-  rtx tmp3 = gen_reg_rtx (SImode);
 
   gcc_assert (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
 
@@ -29646,14 +29645,10 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
       break;
 
     case ASHIFTRT:
-      mips_emit_move (tmp3, GEN_INT (-1));
       mips_emit_binary (LSHIFTRT, out_high, in_high, shift);
       mips_emit_binary (ASHIFT, tmp0, in_low, tmp0);
       mips_emit_binary (ASHIFTRT, out_low, in_low, shift);
-      emit (gen_extzvsi (tmp2, out_low, GEN_INT (1), GEN_INT (31)));
-      emit (gen_movsicc (tmp2,
-			 gen_rtx_fmt_ee (EQ, SImode, tmp2, const0_rtx),
-			 const0_rtx, tmp3));
+      mips_emit_binary (ASHIFTRT, tmp2, in_low, GEN_INT (31));
       break;
 
     case LSHIFTRT:
