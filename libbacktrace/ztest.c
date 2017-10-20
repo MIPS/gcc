@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
 
 #include "config.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,31 @@ POSSIBILITY OF SUCH DAMAGE.  */
 
 #include "internal.h"
 #include "testlib.h"
+
+#ifndef HAVE_CLOCK_GETTIME
+
+typedef int xclockid_t;
+
+static int
+xclock_gettime (xclockid_t id ATTRIBUTE_UNUSED,
+		struct timespec *ts ATTRIBUTE_UNUSED)
+{
+  errno = EINVAL;
+  return -1;
+}
+
+#define clockid_t xclockid_t
+#define clock_gettime xclock_gettime
+#undef CLOCK_REALTIME
+#define CLOCK_REALTIME 0
+
+#endif /* !defined(HAVE_CLOCK_GETTIME) */
+
+#ifdef CLOCK_PROCESS_CPUTIME_ID
+#define ZLIB_CLOCK_GETTIME_ARG CLOCK_PROCESS_CPUTIME_ID
+#else
+#define ZLIB_CLOCK_GETTIME_ARG CLOCK_REALTIME
+#endif
 
 /* Some tests for the local zlib inflation code.  */
 
@@ -343,12 +369,13 @@ test_large (struct backtrace_state *state)
 
   for (i = 0; i < trials; ++i)
     {
-      cid = CLOCK_REALTIME;
-#ifdef CLOCK_PROCESS_CPUTIME_ID
-      cid = CLOCK_PROCESS_CPUTIME_ID;
-#endif
+      unsigned long uncompress_sizearg;
+
+      cid = ZLIB_CLOCK_GETTIME_ARG;
       if (clock_gettime (cid, &ts1) < 0)
 	{
+	  if (errno == EINVAL)
+	    return;
 	  perror ("clock_gettime");
 	  return;
 	}
@@ -381,7 +408,8 @@ test_large (struct backtrace_state *state)
 	  return;
 	}
 
-      r = uncompress (uncompressed_buf, &uncompressed_bufsize,
+      uncompress_sizearg = uncompressed_bufsize;
+      r = uncompress (uncompressed_buf, &uncompress_sizearg,
 		      compressed_buf + 12, compressed_bufsize - 12);
 
       if (clock_gettime (cid, &ts2) < 0)
@@ -407,9 +435,9 @@ test_large (struct backtrace_state *state)
   ctime = average_time (ctimes, trials);
   ztime = average_time (ztimes, trials);
 
-  printf ("backtrace time: %zu ns\n", ctime);
-  printf ("zlib time:    : %zu ns\n", ztime);
-  printf ("percentage    : %g\n", (double) ztime / (double) ctime);
+  printf ("backtrace: %zu ns\n", ctime);
+  printf ("zlib     : %zu ns\n", ztime);
+  printf ("ratio    : %g\n", (double) ztime / (double) ctime);
 
   return;
 

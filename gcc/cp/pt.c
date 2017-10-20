@@ -1895,6 +1895,7 @@ reregister_specialization (tree spec, tree tinfo, tree new_spec)
 void
 register_local_specialization (tree spec, tree tmpl)
 {
+  gcc_assert (tmpl != spec);
   local_specializations->put (tmpl, spec);
 }
 
@@ -9494,30 +9495,14 @@ in_template_function (void)
   return ret;
 }
 
-/* Returns true iff we are currently within a template other than a generic
-   lambda.  We test this by finding the outermost closure type and checking
-   whether it is dependent.  */
+/* Returns true iff we are currently within a template other than a
+   default-capturing generic lambda, so we don't need to worry about semantic
+   processing.  */
 
 bool
 processing_nonlambda_template (void)
 {
-  if (!processing_template_decl)
-    return false;
-
-  tree outer_closure = NULL_TREE;
-  for (tree t = current_class_type; t;
-       t = decl_type_context (TYPE_MAIN_DECL (t)))
-    {
-      if (LAMBDA_TYPE_P (t))
-	outer_closure = t;
-      else
-	break;
-    }
-
-  if (outer_closure)
-    return dependent_type_p (outer_closure);
-  else
-    return true;
+  return processing_template_decl && !need_generic_capture ();
 }
 
 /* Returns true if T depends on any template parameter with level LEVEL.  */
@@ -13042,15 +13027,20 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		&& VAR_HAD_UNKNOWN_BOUND (t)
 		&& type != error_mark_node)
 	      type = strip_array_domain (type);
-	    tree auto_node = type_uses_auto (type);
-	    int len = TREE_VEC_LENGTH (args);
-	    if (auto_node)
-	      /* Mask off any template args past the variable's context so we
-		 don't replace the auto with an unrelated argument.  */
-	      TREE_VEC_LENGTH (args) = TEMPLATE_TYPE_LEVEL (auto_node) - 1;
-	    type = tsubst (type, args, complain, in_decl);
-	    if (auto_node)
-	      TREE_VEC_LENGTH (args) = len;
+	    tree sub_args = args;
+	    if (tree auto_node = type_uses_auto (type))
+	      {
+		/* Mask off any template args past the variable's context so we
+		   don't replace the auto with an unrelated argument.  */
+		int nouter = TEMPLATE_TYPE_LEVEL (auto_node) - 1;
+		int extra = TMPL_ARGS_DEPTH (args) - nouter;
+		if (extra > 0)
+		  /* This should never happen with the new lambda instantiation
+		     model, but keep the handling just in case.  */
+		  gcc_assert (!CHECKING_P),
+		  sub_args = strip_innermost_template_args (args, extra);
+	      }
+	    type = tsubst (type, sub_args, complain, in_decl);
 	  }
 	if (VAR_P (r))
 	  {
@@ -23225,15 +23215,9 @@ instantiate_decl (tree d, bool defer_ok, bool expl_inst_class_mem_p)
     synthesize_method (d);
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
-      hash_map<tree, tree> *saved_local_specializations;
-      tree block = NULL_TREE;
-
-      /* Save away the current list, in case we are instantiating one
-	 template from within the body of another.  */
-      saved_local_specializations = local_specializations;
-
       /* Set up the list of local specializations.  */
-      local_specializations = new hash_map<tree, tree>;
+      local_specialization_stack lss (push_to_top ? lss_blank : lss_copy);
+      tree block = NULL_TREE;
 
       /* Set up context.  */
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
@@ -23272,17 +23256,13 @@ instantiate_decl (tree d, bool defer_ok, bool expl_inst_class_mem_p)
 	    = DECL_STRUCT_FUNCTION (code_pattern)->language->infinite_loop;
 	}
 
-      /* We don't need the local specializations any more.  */
-      delete local_specializations;
-      local_specializations = saved_local_specializations;
-
       /* Finish the function.  */
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
 	  && TREE_CODE (DECL_CONTEXT (code_pattern)) == FUNCTION_DECL)
 	DECL_SAVED_TREE (d) = pop_stmt_list (block);
       else
 	{
-	  d = finish_function (0);
+	  d = finish_function (/*inline_p=*/false);
 	  expand_or_defer_fn (d);
 	}
 
@@ -24308,21 +24288,22 @@ type_dependent_expression_p (tree expression)
 	  && (any_dependent_template_arguments_p
 	      (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
 	return true;
+    }
 
-      /* Otherwise, if the decl isn't from a dependent scope, it can't be
-	 type-dependent.  Checking this is important for functions with auto
-	 return type, which looks like a dependent type.  */
-      if (TREE_CODE (expression) == FUNCTION_DECL
-	  && (!DECL_CLASS_SCOPE_P (expression)
-	      || !dependent_type_p (DECL_CONTEXT (expression)))
-	  && (!DECL_FRIEND_CONTEXT (expression)
-	      || !dependent_type_p (DECL_FRIEND_CONTEXT (expression)))
-	  && !DECL_LOCAL_FUNCTION_P (expression))
-	{
-	  gcc_assert (!dependent_type_p (TREE_TYPE (expression))
-		      || undeduced_auto_decl (expression));
-	  return false;
-	}
+  /* Otherwise, if the function decl isn't from a dependent scope, it can't be
+     type-dependent.  Checking this is important for functions with auto return
+     type, which looks like a dependent type.  */
+  if (TREE_CODE (expression) == FUNCTION_DECL
+      && !(DECL_CLASS_SCOPE_P (expression)
+	   && dependent_type_p (DECL_CONTEXT (expression)))
+      && !(DECL_FRIEND_P (expression)
+	   && (!DECL_FRIEND_CONTEXT (expression)
+	       || dependent_type_p (DECL_FRIEND_CONTEXT (expression))))
+      && !DECL_LOCAL_FUNCTION_P (expression))
+    {
+      gcc_assert (!dependent_type_p (TREE_TYPE (expression))
+		  || undeduced_auto_decl (expression));
+      return false;
     }
 
   /* Always dependent, on the number of arguments if nothing else.  */

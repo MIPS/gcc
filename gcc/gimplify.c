@@ -1616,9 +1616,8 @@ gimplify_vla_decl (tree decl, gimple_seq *seq_p)
   SET_DECL_VALUE_EXPR (decl, t);
   DECL_HAS_VALUE_EXPR_P (decl) = 1;
 
-  t = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
-  t = build_call_expr (t, 2, DECL_SIZE_UNIT (decl),
-		       size_int (DECL_ALIGN (decl)));
+  t = build_alloca_call_expr (DECL_SIZE_UNIT (decl), DECL_ALIGN (decl),
+			      max_int_size_in_bytes (TREE_TYPE (decl)));
   /* The call has been built for a variable-sized object.  */
   CALL_ALLOCA_FOR_VAR_P (t) = 1;
   t = fold_convert (ptr_type, t);
@@ -1698,6 +1697,7 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 	  && TREE_ADDRESSABLE (decl)
 	  && !TREE_STATIC (decl)
 	  && !DECL_HAS_VALUE_EXPR_P (decl)
+	  && DECL_ALIGN (decl) <= MAX_SUPPORTED_STACK_ALIGNMENT
 	  && dbg_cnt (asan_use_after_scope))
 	{
 	  asan_poisoned_variables->add (decl);
@@ -3225,8 +3225,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (fndecl))
       {
-      case BUILT_IN_ALLOCA:
-      case BUILT_IN_ALLOCA_WITH_ALIGN:
+      CASE_BUILT_IN_ALLOCA:
 	/* If the call has been built for a variable-sized object, then we
 	   want to restore the stack level when the enclosing BIND_EXPR is
 	   exited to reclaim the allocated space; otherwise, we precisely
@@ -6588,7 +6587,9 @@ gimplify_target_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	      clobber = build2 (MODIFY_EXPR, TREE_TYPE (temp), temp, clobber);
 	      gimple_push_cleanup (temp, clobber, false, pre_p, true);
 	    }
-	  if (asan_poisoned_variables && dbg_cnt (asan_use_after_scope))
+	  if (asan_poisoned_variables
+	      && DECL_ALIGN (temp) <= MAX_SUPPORTED_STACK_ALIGNMENT
+	      && dbg_cnt (asan_use_after_scope))
 	    {
 	      tree asan_cleanup = build_asan_poison_call_expr (temp);
 	      if (asan_cleanup)

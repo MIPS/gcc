@@ -577,10 +577,8 @@ compute_outgoing_frequencies (basic_block b)
 	  e = BRANCH_EDGE (b);
 	  e->probability
 		 = profile_probability::from_reg_br_prob_note (probability);
-	  e->count = b->count.apply_probability (e->probability);
 	  f = FALLTHRU_EDGE (b);
 	  f->probability = e->probability.invert ();
-	  f->count = b->count - e->count;
 	  return;
 	}
       else
@@ -592,7 +590,6 @@ compute_outgoing_frequencies (basic_block b)
     {
       e = single_succ_edge (b);
       e->probability = profile_probability::always ();
-      e->count = b->count;
       return;
     }
   else
@@ -611,10 +608,6 @@ compute_outgoing_frequencies (basic_block b)
       if (complex_edge)
         guess_outgoing_edge_probabilities (b);
     }
-
-  if (b->count.initialized_p ())
-    FOR_EACH_EDGE (e, ei, b->succs)
-      e->count = b->count.apply_probability (e->probability);
 }
 
 /* Assume that some pass has inserted labels or control flow
@@ -680,9 +673,9 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	    bb->frequency = 0;
 	    FOR_EACH_EDGE (e, ei, bb->preds)
 	      {
-		if (e->count.initialized_p ())
+		if (e->count ().initialized_p ())
 		  {
-		    bb->count += e->count;
+		    bb->count += e->count ();
 		    initialized_src = true;
 		  }
 		else

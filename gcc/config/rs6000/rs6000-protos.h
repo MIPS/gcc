@@ -209,7 +209,6 @@ extern void rs6000_emit_epilogue (int);
 extern void rs6000_expand_split_stack_prologue (void);
 extern void rs6000_split_stack_space_check (rtx, rtx);
 extern void rs6000_emit_eh_reg_restore (rtx, rtx);
-extern const char * output_isel (rtx *);
 extern void rs6000_call_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_sibcall_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
@@ -230,6 +229,7 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 #ifdef TREE_CODE
 extern bool rs6000_pragma_target_parse (tree, tree);
 #endif
+extern void rs6000_activate_target_options (tree new_tree);
 extern void rs6000_target_modify_macros (bool, HOST_WIDE_INT, HOST_WIDE_INT);
 extern void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT,
 						HOST_WIDE_INT);

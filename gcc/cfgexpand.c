@@ -2510,7 +2510,7 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
   dest = false_edge->dest;
   redirect_edge_succ (false_edge, new_bb);
   false_edge->flags |= EDGE_FALLTHRU;
-  new_bb->count = false_edge->count;
+  new_bb->count = false_edge->count ();
   new_bb->frequency = EDGE_FREQUENCY (false_edge);
   loop_p loop = find_common_loop (bb->loop_father, dest->loop_father);
   add_bb_to_loop (new_bb, loop);
@@ -2637,8 +2637,7 @@ expand_call_stmt (gcall *stmt)
   CALL_EXPR_RETURN_SLOT_OPT (exp) = gimple_call_return_slot_opt_p (stmt);
   if (decl
       && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-      && (DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA
-	  || DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA_WITH_ALIGN))
+      && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (decl)))
     CALL_ALLOCA_FOR_VAR_P (exp) = gimple_call_alloca_for_var_p (stmt);
   else
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
@@ -3821,7 +3820,6 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
      the exit block.  */
 
   probability = profile_probability::never ();
-  profile_count count = profile_count::zero ();
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
@@ -3829,12 +3827,10 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
 	{
 	  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
-	      e->dest->count -= e->count;
 	      e->dest->frequency -= EDGE_FREQUENCY (e);
 	      if (e->dest->frequency < 0)
 		e->dest->frequency = 0;
 	    }
-	  count += e->count;
 	  probability += e->probability;
 	  remove_edge (e);
 	}
@@ -3864,7 +3860,6 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
   e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_ABNORMAL
 		 | EDGE_SIBCALL);
   e->probability = probability;
-  e->count = count;
   BB_END (bb) = last;
   update_bb_for_insn (bb);
 
@@ -4329,9 +4324,11 @@ expand_debug_expr (tree exp)
 
 	if (FLOAT_MODE_P (mode) && FLOAT_MODE_P (inner_mode))
 	  {
-	    if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (inner_mode))
+	    if (GET_MODE_UNIT_BITSIZE (mode)
+		== GET_MODE_UNIT_BITSIZE (inner_mode))
 	      op0 = simplify_gen_subreg (mode, op0, inner_mode, 0);
-	    else if (GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (inner_mode))
+	    else if (GET_MODE_UNIT_BITSIZE (mode)
+		     < GET_MODE_UNIT_BITSIZE (inner_mode))
 	      op0 = simplify_gen_unary (FLOAT_TRUNCATE, mode, op0, inner_mode);
 	    else
 	      op0 = simplify_gen_unary (FLOAT_EXTEND, mode, op0, inner_mode);
@@ -5194,9 +5191,11 @@ expand_debug_source_expr (tree exp)
 
   if (FLOAT_MODE_P (mode) && FLOAT_MODE_P (inner_mode))
     {
-      if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (inner_mode))
+      if (GET_MODE_UNIT_BITSIZE (mode)
+	  == GET_MODE_UNIT_BITSIZE (inner_mode))
 	op0 = simplify_gen_subreg (mode, op0, inner_mode, 0);
-      else if (GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (inner_mode))
+      else if (GET_MODE_UNIT_BITSIZE (mode)
+	       < GET_MODE_UNIT_BITSIZE (inner_mode))
 	op0 = simplify_gen_unary (FLOAT_TRUNCATE, mode, op0, inner_mode);
       else
 	op0 = simplify_gen_unary (FLOAT_EXTEND, mode, op0, inner_mode);
@@ -5956,8 +5955,7 @@ construct_exit_block (void)
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e2 != e)
       {
-	e->count -= e2->count;
-	exit_block->count -= e2->count;
+	exit_block->count -= e2->count ();
 	exit_block->frequency -= EDGE_FREQUENCY (e2);
       }
   if (exit_block->frequency < 0)
