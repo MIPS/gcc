@@ -13,7 +13,7 @@
 /* aluipc reg, %got_pcrel_hi(f_extern) # 3 */
 /* lw reg, %got_lo(f_extern)(reg) # 3 */
 /* aluipc reg, %pcrel_hi(f_long_takes_fptr) */
-/* addiu reg, reg, %lo(f_long_takes_fptr) */
+/* ori reg, reg, %lo(f_long_takes_fptr) */
 /* jalrc reg # 2 */
 
 /* { dg-final { scan-assembler-times "aluipc\t\\\$\[ast0-9\]+,%got_pcrel_hi\\(f_extern\\)" 3 } } */
@@ -22,7 +22,7 @@
 /* { dg-final { scan-assembler "balc\tf_takes_fptr" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(f_long_takes_fptr\\)" } } */
-/* { dg-final { scan-assembler "addiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(f_long_takes_fptr\\)" } } */
+/* { dg-final { scan-assembler "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(f_long_takes_fptr\\)" } } */
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 2 } } */
 
