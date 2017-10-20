@@ -1633,6 +1633,8 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
     = DECL_FUNCTION_SPECIFIC_TARGET (current_function_decl);
   DECL_FUNCTION_VERSIONED (decl)
     = DECL_FUNCTION_VERSIONED (current_function_decl);
+  DECL_FUNCTION_PARTIAL_COPY (decl) = 1;
+  DECL_ABSTRACT_ORIGIN (decl) = current_function_decl;
 
   if (omp_maybe_offloaded_ctx (ctx))
     {
