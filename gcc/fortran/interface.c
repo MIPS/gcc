@@ -160,7 +160,8 @@ gfc_match_generic_spec (interface_type *type,
   *op = INTRINSIC_NONE;
   if (gfc_match (" operator ( ") == MATCH_YES)
     {
-      m = gfc_match_defined_op_name (buffer, 1);
+      const char *oper = NULL;
+      m = gfc_match_defined_op_name (oper, 1, 0);
       if (m == MATCH_NO)
 	goto syntax;
       if (m != MATCH_YES)
@@ -172,7 +173,7 @@ gfc_match_generic_spec (interface_type *type,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      strcpy (name, buffer);
+      strcpy (name, oper);
       *type = INTERFACE_USER_OP;
       return MATCH_YES;
     }

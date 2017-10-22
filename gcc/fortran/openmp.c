@@ -1581,6 +1581,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	    {
 	      gfc_omp_reduction_op rop = OMP_REDUCTION_NONE;
 	      char buffer[GFC_MAX_SYMBOL_LEN + 3];
+	      const char *op = NULL;
 	      if (gfc_match_char ('+') == MATCH_YES)
 		rop = OMP_REDUCTION_PLUS;
 	      else if (gfc_match_char ('*') == MATCH_YES)
@@ -1596,13 +1597,10 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      else if (gfc_match (".neqv.") == MATCH_YES)
 		rop = OMP_REDUCTION_NEQV;
 	      if (rop != OMP_REDUCTION_NONE)
-		snprintf (buffer, sizeof buffer, "operator %s",
+		op = gfc_get_string ("operator %s",
 			  gfc_op2string ((gfc_intrinsic_op) rop));
-	      else if (gfc_match_defined_op_name (buffer + 1, 1) == MATCH_YES)
-		{
-		  buffer[0] = '.';
-		  strcat (buffer, ".");
-		}
+	      else if (gfc_match_defined_op_name (op, 1, 1) == MATCH_YES)
+		;
 	      else if (gfc_match_name (buffer) == MATCH_YES)
 		{
 		  gfc_symbol *sym;
@@ -1660,9 +1658,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		}
 	      else
 		buffer[0] = '\0';
-	      gfc_omp_udr *udr
-		= (buffer[0]
-		   ? gfc_find_omp_udr (gfc_current_ns, buffer, NULL) : NULL);
+	      gfc_omp_udr *udr;
+	      if (op != NULL)
+		udr = gfc_find_omp_udr (gfc_current_ns, op, NULL);
+	      else if (buffer[0])
+		udr = gfc_find_omp_udr (gfc_current_ns, buffer, NULL);
+	      else
+		udr = NULL;
 	      gfc_omp_namelist **head = NULL;
 	      if (rop == OMP_REDUCTION_NONE && udr)
 		rop = OMP_REDUCTION_USER;
@@ -1678,7 +1680,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		      n = *head;
 		      *head = NULL;
 		      gfc_error_now ("!$OMP DECLARE REDUCTION %s not found "
-				     "at %L", buffer, &old_loc);
+				     "at %L", op ? op : buffer, &old_loc);
 		      gfc_free_omp_namelist (n);
 		    }
 		  else
@@ -2801,6 +2803,7 @@ gfc_match_omp_declare_reduction (void)
   match m;
   gfc_intrinsic_op op;
   char name[GFC_MAX_SYMBOL_LEN + 3];
+  const char *oper = NULL;
   auto_vec<gfc_typespec, 5> tss;
   gfc_typespec ts;
   unsigned int i;
@@ -2818,20 +2821,20 @@ gfc_match_omp_declare_reduction (void)
     return MATCH_ERROR;
   if (m == MATCH_YES)
     {
-      snprintf (name, sizeof name, "operator %s", gfc_op2string (op));
+      oper = gfc_get_string ("operator %s", gfc_op2string (op));
+      strcpy (name, oper);
       rop = (gfc_omp_reduction_op) op;
     }
   else
     {
-      m = gfc_match_defined_op_name (name + 1, 1);
+      m = gfc_match_defined_op_name (oper, 1, 1);
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m == MATCH_YES)
 	{
-	  name[0] = '.';
-	  strcat (name, ".");
 	  if (gfc_match (" : ") != MATCH_YES)
 	    return MATCH_ERROR;
+	  strcpy (name, oper);
 	}
       else
 	{

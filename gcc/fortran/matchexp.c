@@ -30,10 +30,14 @@ static const char expression_syntax[] = N_("Syntax error in expression at %C");
 
 /* Match a user-defined operator name.  This is a normal name with a
    few restrictions.  The error_flag controls whether an error is
-   raised if 'true' or 'false' are used or not.  */
+   raised if 'true' or 'false' are used or not.
+   If USER_OPERATOR is true, a user operator is returned in RESULT
+   upon success.
+ */
 
 match
-gfc_match_defined_op_name (char *result, int error_flag)
+gfc_match_defined_op_name (const char *&result, int error_flag,
+    bool user_operator)
 {
   static const char * const badops[] = {
     "and", "or", "not", "eqv", "neqv", "eq", "ne", "ge", "le", "lt", "gt",
@@ -72,8 +76,10 @@ gfc_match_defined_op_name (char *result, int error_flag)
 	gfc_error ("Bad character %qc in OPERATOR name at %C", name[i]);
 	return MATCH_ERROR;
       }
-
-  strcpy (result, name);
+  if (user_operator)
+    result = gfc_get_string (".%s.", name);
+  else
+    result = gfc_get_string ("%s", name);
   return MATCH_YES;
 
 error:
@@ -91,10 +97,10 @@ error:
 static match
 match_defined_operator (gfc_user_op **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   match m;
 
-  m = gfc_match_defined_op_name (name, 0);
+  m = gfc_match_defined_op_name (name, 0, 0);
   if (m != MATCH_YES)
     return m;
 

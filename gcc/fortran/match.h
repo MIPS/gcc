@@ -315,7 +315,7 @@ match gfc_match_write (void);
 match gfc_match_print (void);
 
 /* matchexp.c.  */
-match gfc_match_defined_op_name (char *, int);
+match gfc_match_defined_op_name (const char *&, int, bool);
 match gfc_match_expr (gfc_expr **);
 
 /* module.c.  */
