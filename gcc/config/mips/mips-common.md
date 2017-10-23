@@ -6350,7 +6350,8 @@
       DONE;
     }
 
-  if (!TARGET_64BIT && TARGET_NANOMIPS && <MODE>mode == DImode)
+  if (!TARGET_64BIT && TARGET_NANOMIPS && <MODE>mode == DImode
+      && optimize >= 3)
     {
       nanomips_expand_64bit_shift (<SHIFT>, operands[0], operands[1],
 				   operands[2]);
