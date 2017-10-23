@@ -8582,7 +8582,7 @@ gfc_match_target (void)
 static match
 access_attr_decl (gfc_statement st)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   interface_type type;
   gfc_user_op *uop;
   gfc_symbol *sym, *dt_sym;
@@ -10769,7 +10769,7 @@ syntax:
 match
 gfc_match_generic (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   char bind_name[GFC_MAX_SYMBOL_LEN + 16]; /* Allow space for OPERATOR(...).  */
   gfc_symbol* block;
   gfc_typebound_proc tbattr; /* Used for match_binding_attributes.  */
@@ -10932,9 +10932,8 @@ gfc_match_generic (void)
     {
       gfc_symtree* target_st;
       gfc_tbp_generic* target;
-      const char *name2 = NULL;
 
-      m = gfc_match_name (&name2);
+      m = gfc_match_name (&name);
       if (m == MATCH_ERROR)
 	goto error;
       if (m == MATCH_NO)
@@ -10943,14 +10942,14 @@ gfc_match_generic (void)
 	  goto error;
 	}
 
-      target_st = gfc_get_tbp_symtree (&ns->tb_sym_root, name2);
+      target_st = gfc_get_tbp_symtree (&ns->tb_sym_root, name);
 
       /* See if this is a duplicate specification.  */
       for (target = tb->u.generic; target; target = target->next)
 	if (target_st == target->specific_st)
 	  {
 	    gfc_error ("%qs already defined as specific binding for the"
-		       " generic %qs at %C", name2, bind_name);
+		       " generic %qs at %C", name, bind_name);
 	    goto error;
 	  }
 

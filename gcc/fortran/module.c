@@ -68,9 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "options.h"
+#include "stringpool.h"
 #include "tree.h"
 #include "gfortran.h"
-#include "stringpool.h"
 #include "arith.h"
 #include "match.h"
 #include "parse.h" /* FIXME */
@@ -519,8 +519,8 @@ free_rename (gfc_use_rename *list)
 match
 gfc_match_use (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
-  const char *name2 = NULL;
+  char module_nature[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_use_rename *tail = NULL, *new_use;
   interface_type type, type2;
   gfc_intrinsic_op op;
@@ -584,14 +584,14 @@ gfc_match_use (void)
 
   use_list->where = gfc_current_locus;
 
-  m = gfc_match_name (&name2);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     {
       free (use_list);
       return m;
     }
 
-  use_list->module_name = name2;
+  use_list->module_name = name;
 
   if (gfc_match_eos () == MATCH_YES)
     goto done;
@@ -650,13 +650,14 @@ gfc_match_use (void)
 	      else
 		{
 		  strcpy (new_use->local_name, name);
-		  m = gfc_match_generic_spec (&type2, new_use->use_name, &op);
+		  m = gfc_match_generic_spec (&type2, name, &op);
 		  if (type != type2)
 		    goto syntax;
 		  if (m == MATCH_NO)
 		    goto syntax;
 		  if (m == MATCH_ERROR)
 		    goto cleanup;
+		  strcpy (new_use->use_name, name);
 		}
 	    }
 	  else
@@ -665,13 +666,14 @@ gfc_match_use (void)
 		goto syntax;
 	      strcpy (new_use->local_name, name);
 
-	      m = gfc_match_generic_spec (&type2, new_use->use_name, &op);
+	      m = gfc_match_generic_spec (&type2, name, &op);
 	      if (type != type2)
 		goto syntax;
 	      if (m == MATCH_NO)
 		goto syntax;
 	      if (m == MATCH_ERROR)
 		goto cleanup;
+	      strcpy (new_use->use_name, name);
 	    }
 
 	  if (strcmp (new_use->use_name, use_list->module_name) == 0

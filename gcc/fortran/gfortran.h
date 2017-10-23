@@ -95,6 +95,11 @@ not after.
 
 /* Macro to initialize an mstring structure.  */
 #define minit(s, t) { s, NULL, t }
+/* Ideally we would want that to be
+   { IDENTIFIER_POINTER (get_identifier_with_length (s, sizeof(s)-1)), NULL, t }
+   but stringpool's hash table is not allocated yet and we would have to do
+   tricks to have a ctor to initialize it. And even that wouldn't work too
+   well as toplevel would later on wipe ident_hash.  */
 
 /* Structure for storing strings to be matched by gfc_match_string.  */
 typedef struct

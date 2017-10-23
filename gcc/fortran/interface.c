@@ -136,11 +136,10 @@ dtio_op (char* mode)
 
 match
 gfc_match_generic_spec (interface_type *type,
-			char *name,
+			const char *&name,
 			gfc_intrinsic_op *op)
 {
   char buffer[GFC_MAX_SYMBOL_LEN + 1];
-  const char *name2 = NULL;
   match m;
   gfc_intrinsic_op i;
 
@@ -174,7 +173,7 @@ gfc_match_generic_spec (interface_type *type,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      strcpy (name, oper);
+      name = oper;
       *type = INTERFACE_USER_OP;
       return MATCH_YES;
     }
@@ -184,12 +183,12 @@ gfc_match_generic_spec (interface_type *type,
       *op = dtio_op (buffer);
       if (*op == INTRINSIC_FORMATTED)
 	{
-	  strcpy (name, gfc_code2string (dtio_procs, DTIO_RF));
+	  name = gfc_code2string (dtio_procs, DTIO_RF);
 	  *type = INTERFACE_DTIO;
 	}
       if (*op == INTRINSIC_UNFORMATTED)
 	{
-	  strcpy (name, gfc_code2string (dtio_procs, DTIO_RUF));
+	  name = gfc_code2string (dtio_procs, DTIO_RUF);
 	  *type = INTERFACE_DTIO;
 	}
       if (*op != INTRINSIC_NONE)
@@ -201,21 +200,20 @@ gfc_match_generic_spec (interface_type *type,
       *op = dtio_op (buffer);
       if (*op == INTRINSIC_FORMATTED)
 	{
-	  strcpy (name, gfc_code2string (dtio_procs, DTIO_WF));
+	  name = gfc_code2string (dtio_procs, DTIO_WF);
 	  *type = INTERFACE_DTIO;
 	}
       if (*op == INTRINSIC_UNFORMATTED)
 	{
-	  strcpy (name, gfc_code2string (dtio_procs, DTIO_WUF));
+	  name = gfc_code2string (dtio_procs, DTIO_WUF);
 	  *type = INTERFACE_DTIO;
 	}
       if (*op != INTRINSIC_NONE)
 	return MATCH_YES;
     }
 
-  if (gfc_match_name (&name2) == MATCH_YES)
+  if (gfc_match_name (&name) == MATCH_YES)
     {
-      strcpy (name, name2);
       *type = INTERFACE_GENERIC;
       return MATCH_YES;
     }
@@ -235,7 +233,7 @@ syntax:
 match
 gfc_match_interface (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   interface_type type;
   gfc_symbol *sym;
   gfc_intrinsic_op op;
@@ -327,7 +325,7 @@ gfc_match_abstract_interface (void)
 match
 gfc_match_end_interface (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   interface_type type;
   gfc_intrinsic_op op;
   match m;
