@@ -2220,6 +2220,45 @@ debug_all_paths ()
     debug_path (stderr, i);
 }
 
+/* Rewire a jump_thread_edge so that the source block is now a
+   threaded source block.
+
+   PATH_NUM is an index into the global path table PATHS.
+   EDGE_NUM is the jump thread edge number into said path.
+
+   Returns TRUE if we were able to successfully rewire the edge.  */
+
+static bool
+rewire_first_differing_edge (unsigned path_num, unsigned edge_num)
+{
+  vec<jump_thread_edge *> *path = paths[path_num];
+  edge &e = (*path)[edge_num]->e;
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "rewiring edge candidate: %d -> %d\n",
+	     e->src->index, e->dest->index);
+  basic_block src_copy = get_bb_copy (e->src);
+  if (src_copy == NULL)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "ignoring candidate: there is no src COPY\n");
+      return false;
+    }
+  edge new_edge = find_edge (src_copy, e->dest);
+
+  /* If the previously threaded paths created a flow graph where we
+     can no longer figure out where to go, give up.  */
+  if (new_edge == NULL)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "ignoring candidate: we lost our way\n");
+      return false;
+    }
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "rewrited first differing edge\n");
+  e = new_edge;
+  return true;
+}
+
 /* After an FSM path has been jump threaded, adjust the remaining FSM
    paths that are subsets of this path, so these paths can be safely
    threaded within the context of the new threaded path.
@@ -2229,13 +2268,13 @@ debug_all_paths ()
    5 -> 6 -> 7 -> 8 -> 12	=>	5 -> 6' -> 7' -> 8' -> 12'
 
    And we have an upcoming threading candidate:
-   5 -> 6 -> 7 -> 8 -> 15
+   5 -> 6 -> 7 -> 8 -> 15 -> 20
 
    This function adjusts the upcoming path into:
-   6' -> 7' -> 8' -> 15
+   8' -> 15 -> 20
 
    CURR_PATH_NUM is an index into the global paths table.  It
-   specifies the path that has just been threaded.  */
+   specifies the path that was just threaded.  */
 
 static void
 adjust_paths_after_duplication (unsigned curr_path_num)
@@ -2257,7 +2296,6 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	  ++cand_path_num;
 	  continue;
 	}
-
       /* Make sure the candidate to adjust starts with the same path
 	 as the recently threaded path and is an FSM thread.  */
       vec<jump_thread_edge *> *cand_path = paths[cand_path_num];
@@ -2267,7 +2305,6 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	  ++cand_path_num;
 	  continue;
 	}
-
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "adjusting candidate: ");
@@ -2282,40 +2319,44 @@ adjust_paths_after_duplication (unsigned curr_path_num)
 	{
 	  edge cand_edge = (*cand_path)[j]->e;
 	  edge curr_edge = (*curr_path)[j]->e;
+
+	  /* Once the prefix no longer matches, adjust the first
+	     non-matching edge to point from an adjusted edge to
+	     wherever it was going.  */
 	  if (cand_edge != curr_edge)
 	    {
-	      /* Once the prefix no longer matches, adjust the first
-		 non-matching edge to point from an adjusted edge to
-		 wherever it was going.  */
 	      gcc_assert (cand_edge->src == curr_edge->src);
-	      edge n = find_edge (get_bb_copy (cand_edge->src),
-				  cand_edge->dest);
-
-	      /* If curr_path was duplicated in such a way that we no
-		 longer have a compatible path, there's no way to
-		 figure out where to go.  */
-	      if (n == NULL)
-		{
-		  /* Set things up to delete the entire candidate from
-		     PATHS.  */
-		  j = cand_path->length ();
-		  break;
-		}
-	      (*cand_path)[j]->e = n;
+	      if (!rewire_first_differing_edge (cand_path_num, j))
+		goto remove_candidate_from_list;
 	      break;
 	    }
 	}
+      if (j == minlength)
+	{
+	  /* If we consumed the max subgraph we could look at, and
+	     still didn't find any different edges, it's the
+	     last edge after MINLENGTH.  */
+	  if (cand_path->length () > minlength)
+	    {
+	      if (!rewire_first_differing_edge (cand_path_num, j))
+		goto remove_candidate_from_list;
+	    }
+	  else if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "adjusting first edge after MINLENGTH.\n");
+	}
       if (j > 0)
 	{
-	  /* If we are removing everything, delete the entire path.  */
+	  /* If we are removing everything, delete the entire candidate.  */
 	  if (j == cand_path->length ())
 	    {
+	    remove_candidate_from_list:
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "adjusted candidate: [EMPTY]\n");
 	      delete_jump_thread_path (cand_path);
 	      paths.unordered_remove (cand_path_num);
 	      continue;
 	    }
+	  /* Otherwise, just remove the redundant sub-path.  */
 	  cand_path->block_remove (0, j);
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2566,6 +2607,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   bitmap_iterator bi;
   struct loop *loop;
   auto_bitmap threaded_blocks;
+  hash_set<edge> visited_starting_edges;
 
   if (!paths.exists ())
     {
@@ -2611,10 +2653,17 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 	  continue;
 	}
 
-      /* Do not jump-thread twice from the same block.  */
-      if (bitmap_bit_p (threaded_blocks, entry->src->index)
-	  /* We may not want to realize this jump thread path
-	     for various reasons.  So check it first.  */
+      /**********************************************
+       FIXME: I am not convinced we need this here.
+
+	 Can we go back to the old behavior ??  Do we catch anything
+	 here that isn't now caught with the previous test. ??
+      **********************************************/
+
+      /* Do not jump-thread twice the same starting edge.  */
+      if (visited_starting_edges.contains (entry)
+	  /* We may not want to realize this jump thread path for
+	     various reasons.  So check it first.  */
 	  || !valid_jump_thread_path (path))
 	{
 	  /* Remove invalid FSM jump-thread paths.  */
@@ -2634,7 +2683,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 	{
 	  /* We do not update dominance info.  */
 	  free_dominance_info (CDI_DOMINATORS);
-	  bitmap_set_bit (threaded_blocks, entry->src->index);
+	  visited_starting_edges.add (entry);
 	  retval = true;
 	  thread_stats.num_threaded_edges++;
 	}
@@ -2652,7 +2701,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       edge entry = (*path)[0]->e;
 
       /* Do not jump-thread twice from the same block.  */
-      if (bitmap_bit_p (threaded_blocks, entry->src->index))
+      if (visited_starting_edges.contains (entry))
 	{
 	  delete_jump_thread_path (path);
 	  paths.unordered_remove (i);
@@ -2660,8 +2709,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       else
 	i++;
     }
-
-  bitmap_clear (threaded_blocks);
 
   mark_threaded_blocks (threaded_blocks);
 
