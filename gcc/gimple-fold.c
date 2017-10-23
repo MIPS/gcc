@@ -850,7 +850,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 							 &dest_offset);
 	      if (dest_base == NULL)
 		dest_base = destvar;
-	      if (!poly_tree_p (len, &maxsize))
+	      if (!poly_int_tree_p (len, &maxsize))
 		maxsize = -1;
 	      if (SSA_VAR_P (src_base)
 		  && SSA_VAR_P (dest_base))
@@ -6164,7 +6164,7 @@ gimple_fold_stmt_to_constant (gimple *stmt, tree (*valueize) (tree))
    is not explicitly available, but it is known to be zero
    such as 'static const int a;'.  */
 static tree
-get_base_constructor (tree base, poly_int64 *bit_offset,
+get_base_constructor (tree base, poly_int64_pod *bit_offset,
 		      tree (*valueize)(tree))
 {
   poly_int64 bit_offset2, size, max_size;
@@ -6358,27 +6358,31 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
   return build_zero_cst (type);
 }
 
-/* CTOR is value initializing memory, fold reference of type TYPE and size SIZE
-   to the memory at bit OFFSET.  */
+/* CTOR is value initializing memory, fold reference of type TYPE and
+   size POLY_SIZE to the memory at bit POLY_OFFSET.  */
 
 tree
-fold_ctor_reference (tree type, tree ctor, poly_uint64 offset,
-		     poly_uint64 size, tree from_decl)
+fold_ctor_reference (tree type, tree ctor, poly_uint64 poly_offset,
+		     poly_uint64 poly_size, tree from_decl)
 {
   tree ret;
 
   /* We found the field with exact match.  */
   if (useless_type_conversion_p (type, TREE_TYPE (ctor))
-      && known_zero (offset))
+      && known_zero (poly_offset))
     return canonicalize_constructor_val (unshare_expr (ctor), from_decl);
+
+  /* The remaining optimizations need a constant size and offset.  */
+  unsigned HOST_WIDE_INT size, offset;
+  if (!poly_size.is_constant (&size) || !poly_offset.is_constant (&offset))
+    return NULL_TREE;
 
   /* We are at the end of walk, see if we can view convert the
      result.  */
-  if (!AGGREGATE_TYPE_P (TREE_TYPE (ctor))
-      && known_zero (offset)
+  if (!AGGREGATE_TYPE_P (TREE_TYPE (ctor)) && !offset
       /* VIEW_CONVERT_EXPR is defined only for matching sizes.  */
-      && equal_tree_size (TYPE_SIZE (type), size)
-      && equal_tree_size (TYPE_SIZE (TREE_TYPE (ctor)), size))
+      && !compare_tree_int (TYPE_SIZE (type), size)
+      && !compare_tree_int (TYPE_SIZE (TREE_TYPE (ctor)), size))
     {
       ret = canonicalize_constructor_val (unshare_expr (ctor), from_decl);
       if (ret)
@@ -6391,30 +6395,28 @@ fold_ctor_reference (tree type, tree ctor, poly_uint64 offset,
     }
   /* For constants and byte-aligned/sized reads try to go through
      native_encode/interpret.  */
-  HOST_WIDE_INT byte_offset, byte_size;
   if (CONSTANT_CLASS_P (ctor)
       && BITS_PER_UNIT == 8
-      && constant_multiple_p (offset, BITS_PER_UNIT, &byte_offset)
-      && constant_multiple_p (size, BITS_PER_UNIT, &byte_size)
-      && byte_size * BITS_PER_UNIT <= MAX_BITSIZE_MODE_ANY_MODE)
+      && offset % BITS_PER_UNIT == 0
+      && size % BITS_PER_UNIT == 0
+      && size <= MAX_BITSIZE_MODE_ANY_MODE)
     {
       unsigned char buf[MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT];
-      int len = native_encode_expr (ctor, buf, byte_size, byte_offset);
+      int len = native_encode_expr (ctor, buf, size / BITS_PER_UNIT,
+				    offset / BITS_PER_UNIT);
       if (len > 0)
 	return native_interpret_expr (type, buf, len);
     }
-  unsigned HOST_WIDE_INT const_offset, const_size;
-  if (TREE_CODE (ctor) == CONSTRUCTOR
-      && offset.is_constant (&const_offset)
-      && size.is_constant (&const_size))
+  if (TREE_CODE (ctor) == CONSTRUCTOR)
     {
+
       if (TREE_CODE (TREE_TYPE (ctor)) == ARRAY_TYPE
 	  || TREE_CODE (TREE_TYPE (ctor)) == VECTOR_TYPE)
-	return fold_array_ctor_reference (type, ctor, const_offset,
-					  const_size, from_decl);
+	return fold_array_ctor_reference (type, ctor, offset, size,
+					  from_decl);
       else
-	return fold_nonarray_ctor_reference (type, ctor, const_offset,
-					     const_size, from_decl);
+	return fold_nonarray_ctor_reference (type, ctor, offset, size,
+					     from_decl);
     }
 
   return NULL_TREE;
@@ -6454,23 +6456,23 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
       if (TREE_CODE (TREE_OPERAND (t, 1)) == SSA_NAME
 	  && valueize
 	  && (idx = (*valueize) (TREE_OPERAND (t, 1)))
-	  && TREE_CODE (idx) == INTEGER_CST)
+	  && poly_int_tree_p (idx))
 	{
 	  tree low_bound, unit_size;
 
 	  /* If the resulting bit-offset is constant, track it.  */
 	  if ((low_bound = array_ref_low_bound (t),
-	       TREE_CODE (low_bound) == INTEGER_CST)
+	       poly_int_tree_p (low_bound))
 	      && (unit_size = array_ref_element_size (t),
 		  tree_fits_uhwi_p (unit_size)))
 	    {
-	      offset_int woffset
-		= wi::sext (wi::to_offset (idx) - wi::to_offset (low_bound),
+	      poly_offset_int woffset
+		= wi::sext (wi::to_poly_offset (idx)
+			    - wi::to_poly_offset (low_bound),
 			    TYPE_PRECISION (TREE_TYPE (idx)));
 
-	      if (wi::fits_shwi_p (woffset))
+	      if (woffset.to_shwi (&offset))
 		{
-		  offset = woffset.to_shwi ();
 		  /* TODO: This code seems wrong, multiply then check
 		     to see if it fits.  */
 		  offset *= tree_to_uhwi (unit_size);
@@ -7063,7 +7065,7 @@ gimple_build_vector_from_val (gimple_seq *seq, location_t loc, tree type,
 			      tree op)
 {
   if (!TYPE_VECTOR_SUBPARTS (type).is_constant ()
-      && CONSTANT_CLASS_P (op))
+      && !CONSTANT_CLASS_P (op))
     return gimple_build (seq, loc, VEC_DUPLICATE_EXPR, type, op);
 
   tree res, vec = build_vector_from_val (type, op);

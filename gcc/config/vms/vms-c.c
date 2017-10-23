@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -420,7 +420,7 @@ vms_c_register_includes (const char *sysroot,
   if (!stdinc)
     return;
 
-  for (dir = get_added_cpp_dirs (SYSTEM); dir != NULL; dir = dir->next)
+  for (dir = get_added_cpp_dirs (INC_SYSTEM); dir != NULL; dir = dir->next)
     {
       const char * const *lib;
       for (lib = vms_std_modules; *lib != NULL; lib++)
@@ -443,7 +443,7 @@ vms_c_register_includes (const char *sysroot,
               p->sysp = 1;
               p->construct = vms_construct_include_filename;
               p->user_supplied_p = 0;
-              add_cpp_dir_path (p, SYSTEM);
+              add_cpp_dir_path (p, INC_SYSTEM);
             }
           else
             free (path);

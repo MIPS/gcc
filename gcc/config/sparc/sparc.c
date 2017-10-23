@@ -20,7 +20,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -5278,8 +5278,9 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function)
     frame_size = apparent_frame_size = 0;
   else
     {
-      /* We subtract STARTING_FRAME_OFFSET, remember it's negative.  */
-      apparent_frame_size = ROUND_UP (size - STARTING_FRAME_OFFSET, 8);
+      /* We subtract TARGET_STARTING_FRAME_OFFSET, remember it's negative.  */
+      apparent_frame_size
+	= ROUND_UP (size - targetm.starting_frame_offset (), 8);
       apparent_frame_size += n_global_fp_regs * 4;
 
       /* We need to add the size of the outgoing argument area.  */

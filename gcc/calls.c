@@ -1593,7 +1593,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 cumulative_args_t args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level,
-				 poly_int64 *old_pending_adj,
+				 poly_int64_pod *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
 				 bool *may_tailcall, bool call_from_thunk_p)
 {
@@ -2207,10 +2207,14 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
   if (argblock)
     {
       rtx arg_reg = argblock;
-      int i, arg_offset = 0;
+      int i;
+      poly_int64 arg_offset = 0;
 
       if (GET_CODE (argblock) == PLUS)
-	arg_reg = XEXP (argblock, 0), arg_offset = INTVAL (XEXP (argblock, 1));
+	{
+	  arg_reg = XEXP (argblock, 0);
+	  arg_offset = rtx_to_poly_int64 (XEXP (argblock, 1));
+	}
 
       for (i = 0; i < num_actuals; i++)
 	{
@@ -2252,12 +2256,16 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	    }
 	  align = BITS_PER_UNIT;
 	  boundary = args[i].locate.boundary;
+	  poly_int64 offset_val;
 	  if (args[i].locate.where_pad != PAD_DOWNWARD)
 	    align = boundary;
-	  else if (CONST_INT_P (offset))
+	  else if (poly_int_rtx_p (offset, &offset_val))
 	    {
-	      align = INTVAL (offset) * BITS_PER_UNIT | boundary;
-	      align = least_bit_hwi (align);
+	      align = least_bit_hwi (boundary);
+	      unsigned int offset_align
+		= known_alignment (offset_val) * BITS_PER_UNIT;
+	      if (offset_align != 0)
+		align = MIN (align, offset_align);
 	    }
 	  set_mem_align (args[i].stack, align);
 
@@ -2401,7 +2409,7 @@ internal_arg_pointer_based_exp (const_rtx rtl, bool toplevel)
     return NULL_RTX;
 
   poly_int64 offset;
-  if (GET_CODE (rtl) == PLUS && poly_int_const_p (XEXP (rtl, 1), &offset))
+  if (GET_CODE (rtl) == PLUS && poly_int_rtx_p (XEXP (rtl, 1), &offset))
     {
       rtx val = internal_arg_pointer_based_exp (XEXP (rtl, 0), toplevel);
       if (val == NULL_RTX || val == pc_rtx)
@@ -2454,7 +2462,7 @@ mem_might_overlap_already_clobbered_arg_p (rtx addr, poly_uint64 size)
   val = internal_arg_pointer_based_exp (addr, true);
   if (val == NULL_RTX)
     return false;
-  else if (!poly_int_const_p (val, &i))
+  else if (!poly_int_rtx_p (val, &i))
     return true;
 
   if (known_zero (size))
@@ -2530,7 +2538,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    }
 	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
 	    {
+	      /* Variable-sized parameters should be described by a
+		 PARALLEL instead.  */
 	      const_size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
+	      gcc_assert (const_size >= 0);
 	      nregs = (const_size + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
 	      size = const_size;
 	    }
@@ -2701,12 +2712,12 @@ combine_pending_stack_adjustment_and_call (poly_int64_pod *adjustment_out,
      -UNADJUSTED_ALIGNMENT modulo the PREFERRED_UNIT_STACK_BOUNDARY.  */
 
   /* Begin by trying to pop all the bytes.  */
-  unsigned HOST_WIDE_INT tmp_alignment;
+  unsigned HOST_WIDE_INT tmp_misalignment;
   if (!known_misalignment (pending_stack_adjust,
 			   preferred_unit_stack_boundary,
-			   &tmp_alignment))
+			   &tmp_misalignment))
     return false;
-  unadjusted_alignment -= tmp_alignment;
+  unadjusted_alignment -= tmp_misalignment;
   adjustment = pending_stack_adjust;
   /* Push enough additional bytes that the stack will be aligned
      after the arguments are pushed.  */
@@ -2828,7 +2839,7 @@ shift_return_value (machine_mode mode, bool left_p, rtx value)
   machine_mode value_mode = GET_MODE (value);
   poly_int64 shift = GET_MODE_BITSIZE (value_mode) - GET_MODE_BITSIZE (mode);
 
-  if (must_eq (shift, 0))
+  if (known_zero (shift))
     return false;
 
   /* Use ashr rather than lshr for right shifts.  This is for the benefit
@@ -3199,7 +3210,7 @@ expand_call (tree exp, rtx target, int ignore)
       }
 #else /* not PCC_STATIC_STRUCT_RETURN */
       {
-	if (!poly_tree_p (TYPE_SIZE_UNIT (rettype), &struct_value_size))
+	if (!poly_int_tree_p (TYPE_SIZE_UNIT (rettype), &struct_value_size))
 	  struct_value_size = -1;
 
 	/* Even if it is semantically safe to use the target as the return
@@ -4221,8 +4232,8 @@ expand_call (tree exp, rtx target, int ignore)
 					 funtype, 1);
 	  gcc_assert (GET_MODE (target) == pmode);
 
-	  poly_int64 offset = subreg_lowpart_offset (TYPE_MODE (type),
-						     GET_MODE (target));
+	  poly_uint64 offset = subreg_lowpart_offset (TYPE_MODE (type),
+						      GET_MODE (target));
 	  target = gen_rtx_SUBREG (TYPE_MODE (type), target, offset);
 	  SUBREG_PROMOTED_VAR_P (target) = 1;
 	  SUBREG_PROMOTED_SET (target, unsignedp);
@@ -5319,7 +5330,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      /* stack_slot is negative, but we want to index stack_usage_map
 		 with positive values.  */
 	      if (GET_CODE (XEXP (arg->stack_slot, 0)) == PLUS)
-		upper_bound = -INTVAL (XEXP (XEXP (arg->stack_slot, 0), 1)) + 1;
+		{
+		  rtx offset = XEXP (XEXP (arg->stack_slot, 0), 1);
+		  upper_bound = -rtx_to_poly_int64 (offset) + 1;
+		}
 	      else
 		upper_bound = 0;
 
@@ -5328,7 +5342,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	  else
 	    {
 	      if (GET_CODE (XEXP (arg->stack_slot, 0)) == PLUS)
-		lower_bound = INTVAL (XEXP (XEXP (arg->stack_slot, 0), 1));
+		{
+		  rtx offset = XEXP (XEXP (arg->stack_slot, 0), 1);
+		  lower_bound = rtx_to_poly_int64 (offset);
+		}
 	      else
 		lower_bound = 0;
 
@@ -5444,7 +5461,6 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
     ;
   else if (arg->mode != BLKmode)
     {
-      poly_int64 size;
       unsigned int parm_align;
 
       /* Argument is a scalar, not entirely passed in registers.
@@ -5457,12 +5473,12 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 Note that in C the default argument promotions
 	 will prevent such mismatches.  */
 
-      size = GET_MODE_SIZE (arg->mode);
+      poly_int64 size = GET_MODE_SIZE (arg->mode);
       /* Compute how much space the push instruction will push.
 	 On many machines, pushing a byte will advance the stack
 	 pointer by a halfword.  */
 #ifdef PUSH_ROUNDING
-      size = PUSH_ROUNDING (MACRO_INT (size));
+      size = PUSH_ROUNDING (size);
 #endif
       used = size;
 
@@ -5470,9 +5486,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 round up to a multiple of the alignment for arguments.  */
       if (targetm.calls.function_arg_padding (arg->mode, TREE_TYPE (pval))
 	  != PAD_NONE)
-	/* At the moment we don't support ABIs for which the padding isn't
-	   known at compile time.  In principle it should be easy to add
-	   though.  */
+	/* At the moment we don't (need to) support ABIs for which the
+	   padding isn't known at compile time.  In principle it should
+	   be easy to add though.  */
 	used = force_align_up (size, PARM_BOUNDARY / BITS_PER_UNIT);
 
       /* Compute the alignment of the pushed argument.  */
@@ -5481,9 +5497,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	  == PAD_DOWNWARD)
 	{
 	  poly_int64 pad = used - size;
-	  unsigned int pad_align_bytes = known_alignment (pad);
-	  if (pad_align_bytes != 0)
-	    parm_align = MIN (parm_align, pad_align_bytes * BITS_PER_UNIT);
+	  unsigned int pad_align = known_alignment (pad) * BITS_PER_UNIT;
+	  if (pad_align != 0)
+	    parm_align = MIN (parm_align, pad_align);
 	}
 
       /* This isn't already where we want it on the stack, so put it there.
@@ -5542,10 +5558,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    parm_align = BITS_PER_UNIT;
 	  else
 	    {
-	      unsigned int excess_align_bytes = known_alignment (excess);
-	      if (excess_align_bytes)
-		parm_align = MIN (parm_align,
-				  excess_align_bytes * BITS_PER_UNIT);
+	      unsigned int excess_align
+		= known_alignment (excess) * BITS_PER_UNIT;
+	      if (excess_align != 0)
+		parm_align = MIN (parm_align, excess_align);
 	    }
 	}
 
@@ -5560,7 +5576,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      || (GET_CODE (XEXP (x, 0)) == PLUS
 		  && XEXP (XEXP (x, 0), 0) ==
 		     crtl->args.internal_arg_pointer
-		  && poly_int_const_p (XEXP (XEXP (x, 0), 1), &i)))
+		  && poly_int_rtx_p (XEXP (XEXP (x, 0), 1), &i)))
 	    {
 	      /* arg.locate doesn't contain the pretend_args_size offset,
 		 it's part of argblock.  Ensure we don't count it in I.  */
@@ -5572,7 +5588,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      /* expand_call should ensure this.  */
 	      gcc_assert (!arg->locate.offset.var
 			  && arg->locate.size.var == 0);
-	      poly_int64 const_size = rtx_to_poly_int64 (size_rtx);
+	      poly_int64 size_val = rtx_to_poly_int64 (size_rtx);
 
 	      if (must_eq (arg->locate.offset.constant, i))
 		{
@@ -5581,11 +5597,11 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		     they aren't really at the same location.  Check for
 		     this by making sure that the incoming size is the
 		     same as the outgoing size.  */
-		  if (may_ne (arg->locate.size.constant, const_size))
+		  if (may_ne (arg->locate.size.constant, size_val))
 		    sibcall_failure = 1;
 		}
 	      else if (maybe_in_range_p (arg->locate.offset.constant,
-					 i, const_size))
+					 i, size_val))
 		sibcall_failure = 1;
 	      /* Use arg->locate.size.constant instead of const_size
 		 because we only care about the part of the argument

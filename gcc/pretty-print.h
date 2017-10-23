@@ -368,9 +368,6 @@ extern void pp_separate_with (pretty_printer *, char);
 extern void pp_printf (pretty_printer *, const char *, ...)
      ATTRIBUTE_GCC_PPDIAG(2,3);
 
-template<unsigned int N, typename T>
-extern void pp_poly_int (pretty_printer *, const poly_int_pod<N, T> &);
-
 extern void pp_verbatim (pretty_printer *, const char *, ...)
      ATTRIBUTE_GCC_PPDIAG(2,3);
 extern void pp_flush (pretty_printer *);
@@ -402,6 +399,8 @@ extern const char *identifier_to_locale (const char *);
 extern void *(*identifier_to_locale_alloc) (size_t);
 extern void (*identifier_to_locale_free) (void *);
 
+/* Print I to PP in decimal.  */
+
 inline void
 pp_wide_integer (pretty_printer *pp, HOST_WIDE_INT i)
 {
@@ -409,23 +408,6 @@ pp_wide_integer (pretty_printer *pp, HOST_WIDE_INT i)
 }
 
 template<unsigned int N, typename T>
-void
-pp_wide_integer (pretty_printer *pp, poly_int_pod<N, T> x)
-{
-  T const_x;
-  if (x.is_constant (&const_x))
-    pp_wide_integer (pp, const_x);
-  else
-    {
-      pp_left_bracket (pp);
-      for (unsigned int i = 0; i < N; ++i)
-	{
-	  if (i != 0)
-	    pp_comma (pp);
-	  pp_wide_integer (pp, x.coeffs[i]);
-	}
-      pp_right_bracket (pp);
-    }
-}
+void pp_wide_integer (pretty_printer *pp, const poly_int_pod<N, T> &);
 
 #endif /* GCC_PRETTY_PRINT_H */

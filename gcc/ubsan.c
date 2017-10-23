@@ -1453,7 +1453,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
 	  && (VAR_P (base)
 	      || TREE_CODE (base) == PARM_DECL
 	      || TREE_CODE (base) == RESULT_DECL)
-	  && poly_tree_p (DECL_SIZE (base), &base_size)
+	  && poly_int_tree_p (DECL_SIZE (base), &base_size)
 	  && must_ge (base_size, bitpos)
 	  && (!is_global_var (base) || decl_binds_to_current_def_p (base)))
 	return;

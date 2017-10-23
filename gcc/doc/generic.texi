@@ -1037,6 +1037,7 @@ As this example indicates, the operands are zero-indexed.
 @tindex COMPLEX_CST
 @tindex VECTOR_CST
 @tindex VEC_DUPLICATE_CST
+@tindex VEC_SERIES_CST
 @tindex STRING_CST
 @tindex POLY_INT_CST
 @findex TREE_STRING_LENGTH
@@ -1099,6 +1100,16 @@ instead.  The scalar element value is given by
 @code{VEC_DUPLICATE_CST_ELT} and has the same restrictions as the
 element of a @code{VECTOR_CST}.
 
+@item VEC_SERIES_CST
+These nodes represent a vector constant in which element @var{i}
+has the value @samp{@var{base} + @var{i} * @var{step}}, for some
+constant @var{base} and @var{step}.  The value of @var{base} is
+given by @code{VEC_SERIES_CST_BASE} and the value of @var{step} is
+given by @code{VEC_SERIES_CST_STEP}.
+
+These nodes are restricted to integral types, in order to avoid
+specifying the rounding behavior for floating-point types.
+
 @item STRING_CST
 These nodes represent string-constants.  The @code{TREE_STRING_LENGTH}
 returns the length of the string, as an @code{int}.  The
@@ -1125,7 +1136,8 @@ coefficients, with the first coefficient being the constant term and
 the others being multipliers that are applied to the runtime parameters.
 
 @code{POLY_INT_CST_ELT (@var{x}, @var{i})} references coefficient number
-@var{i} of @code{POLY_INT_CST} node @var{x}.
+@var{i} of @code{POLY_INT_CST} node @var{x}.  Each coefficient is an
+@code{INTEGER_CST}.
 
 @end table
 
@@ -1736,7 +1748,9 @@ element is equal to that operand.
 This node represents a vector formed from a scalar base and step,
 given as the first and second operands respectively.  Element @var{i}
 of the result is equal to @samp{@var{base} + @var{i}*@var{step}}.
-The elements must not have floating-point type.
+
+This node is restricted to integral types, in order to avoid
+specifying the rounding behavior for floating-point types.
 
 @item VEC_LSHIFT_EXPR
 @itemx VEC_RSHIFT_EXPR

@@ -13,4 +13,4 @@ unsigned char foo(const unsigned char *buffer, unsigned int length)
   return sum;
 }
 
-/* { dg-final { scan-assembler-times {and\t[wx][0-9]+, [wx][0-9]+, 15} 1 } } */
+/* { dg-final { scan-assembler-times "and\tw\[0-9\]+, w\[0-9\]+, 15" 1 } } */

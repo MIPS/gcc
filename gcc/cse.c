@@ -561,7 +561,7 @@ static struct table_elt *insert (rtx, struct table_elt *, unsigned,
 static void merge_equiv_classes (struct table_elt *, struct table_elt *);
 static void invalidate (rtx, machine_mode);
 static void remove_invalid_refs (unsigned int);
-static void remove_invalid_subreg_refs (unsigned int, poly_int64,
+static void remove_invalid_subreg_refs (unsigned int, poly_uint64,
 					machine_mode);
 static void rehash_using_reg (rtx);
 static void invalidate_memory (void);
@@ -1994,7 +1994,7 @@ remove_invalid_refs (unsigned int regno)
 /* Likewise for a subreg with subreg_reg REGNO, subreg_byte OFFSET,
    and mode MODE.  */
 static void
-remove_invalid_subreg_refs (unsigned int regno, poly_int64 offset,
+remove_invalid_subreg_refs (unsigned int regno, poly_uint64 offset,
 			    machine_mode mode)
 {
   unsigned int i;
@@ -3593,10 +3593,10 @@ fold_rtx (rtx x, rtx_insn *insn)
 	case MINUS:
 	  /* If we have (MINUS Y C), see if Y is known to be (PLUS Z C2).
 	     If so, produce (PLUS Z C2-C).  */
-	  if (const_arg1 != 0 && poly_int_const_p (const_arg1, &xval))
+	  if (const_arg1 != 0 && poly_int_rtx_p (const_arg1, &xval))
 	    {
 	      rtx y = lookup_as_function (XEXP (x, 0), PLUS);
-	      if (y && poly_int_const_p (XEXP (y, 1), &yval))
+	      if (y && poly_int_rtx_p (XEXP (y, 1), &yval))
 		return fold_rtx (plus_constant (mode, copy_rtx (XEXP (y, 0)),
 						yval - xval),
 				 NULL);
@@ -3809,7 +3809,7 @@ equiv_constant (rtx x)
       /* If we didn't and if doing so makes sense, see if we previously
 	 assigned a constant value to the enclosing word mode SUBREG.  */
       if (must_lt (GET_MODE_SIZE (mode), UNITS_PER_WORD)
-	  && must_gt (GET_MODE_SIZE (imode), UNITS_PER_WORD))
+	  && must_lt (UNITS_PER_WORD, GET_MODE_SIZE (imode)))
 	{
 	  poly_int64 byte = (SUBREG_BYTE (x)
 			     - subreg_lowpart_offset (mode, word_mode));
@@ -6015,7 +6015,7 @@ cse_insn (rtx_insn *insn)
 		  new_src = elt->exp;
 		else
 		  {
-		    poly_int64 byte
+		    poly_uint64 byte
 		      = subreg_lowpart_offset (new_mode, GET_MODE (dest));
 		    new_src = simplify_gen_subreg (new_mode, elt->exp,
 					           GET_MODE (dest), byte);

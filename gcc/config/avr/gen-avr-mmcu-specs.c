@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 

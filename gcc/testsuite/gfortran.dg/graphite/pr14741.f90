@@ -24,4 +24,4 @@ SUBROUTINE mult(A,B,C,N)
   ENDDO
 END SUBROUTINE mult
 
-! { dg-final { scan-tree-dump "tiled by" "graphite" { xfail aarch64*-*-* } } }
+! { dg-final { scan-tree-dump "tiled by" "graphite" } }

@@ -56,13 +56,13 @@ selftest::run_tests ()
 
   /* Low-level data structures.  */
   bitmap_c_tests ();
+  sbitmap_c_tests ();
   et_forest_c_tests ();
   hash_map_tests_c_tests ();
   hash_set_tests_c_tests ();
   vec_c_tests ();
   pretty_print_c_tests ();
   wide_int_cc_tests ();
-  poly_int_cc_tests ();
   ggc_tests_c_tests ();
   sreal_c_tests ();
   fibonacci_heap_c_tests ();

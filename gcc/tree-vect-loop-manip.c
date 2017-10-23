@@ -786,7 +786,7 @@ vect_set_loop_masks_directly (struct loop *loop, loop_vec_info loop_vinfo,
 	 to have a full mask.  */
       poly_uint64 const_limit;
       bool first_iteration_full
-	= (poly_tree_p (first_limit, &const_limit)
+	= (poly_int_tree_p (first_limit, &const_limit)
 	   && must_ge (const_limit, (i + 1) * nscalars_per_mask));
 
       /* Rather than have a new IV that starts at BIAS and goes up to
@@ -836,7 +836,7 @@ vect_set_loop_masks_directly (struct loop *loop, loop_vec_info loop_vinfo,
 	 scalars.  */
       poly_uint64 const_skip;
       if (nscalars_skip
-	  && !(poly_tree_p (nscalars_skip, &const_skip)
+	  && !(poly_int_tree_p (nscalars_skip, &const_skip)
 	       && must_le (const_skip, bias)))
 	{
 	  tree unskipped_mask = vect_gen_while_not (preheader_seq, mask_type,
@@ -1837,7 +1837,7 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo,
    to SEQ.  */
 
 static tree
-get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
+get_misalign_in_elems (gimple **seq, loop_vec_info loop_vinfo)
 {
   struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
   gimple *dr_stmt = DR_STMT (dr);
@@ -1861,14 +1861,13 @@ get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
   tree elem_size_log = build_int_cst (type, exact_log2 (elem_size));
 
   /* Create:  misalign_in_bytes = addr & (target_align - 1).  */
-  tree int_start_addr = gimple_convert (seq, type, start_addr);
-  tree misalign_in_bytes = gimple_build (seq, BIT_AND_EXPR, type,
-					 int_start_addr,
-					 target_align_minus_1);
+  tree int_start_addr = fold_convert (type, start_addr);
+  tree misalign_in_bytes = fold_build2 (BIT_AND_EXPR, type, int_start_addr,
+					target_align_minus_1);
 
   /* Create:  misalign_in_elems = misalign_in_bytes / element_size.  */
-  tree misalign_in_elems = gimple_build (seq, RSHIFT_EXPR, type,
-					 misalign_in_bytes, elem_size_log);
+  tree misalign_in_elems = fold_build2 (RSHIFT_EXPR, type, misalign_in_bytes,
+					elem_size_log);
 
   return misalign_in_elems;
 }
@@ -1946,14 +1945,13 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
 				 & (align_in_elems - 1)).  */
       bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
       if (negative)
-	iters = gimple_build (&stmts, MINUS_EXPR, type,
-			      misalign_in_elems, align_in_elems_tree);
+	iters = fold_build2 (MINUS_EXPR, type, misalign_in_elems,
+			     align_in_elems_tree);
       else
-	iters = gimple_build (&stmts, MINUS_EXPR, type,
-			      align_in_elems_tree, misalign_in_elems);
-      iters = gimple_build (&stmts, BIT_AND_EXPR, type, iters,
-			    align_in_elems_minus_1);
-      iters = gimple_convert (&stmts, niters_type, iters);
+	iters = fold_build2 (MINUS_EXPR, type, align_in_elems_tree,
+			     misalign_in_elems);
+      iters = fold_build2 (BIT_AND_EXPR, type, iters, align_in_elems_minus_1);
+      iters = fold_convert (niters_type, iters);
       *bound = align_in_elems - 1;
     }
 
@@ -2068,13 +2066,16 @@ vect_prepare_for_masked_peels (loop_vec_info loop_vinfo)
     }
   else
     {
-      gimple_seq seq = NULL;
-      misalign_in_elems = get_misalign_in_elems (&seq, loop_vinfo);
-      misalign_in_elems = gimple_convert (&seq, type, misalign_in_elems);
-      if (seq)
+      gimple_seq seq1 = NULL, seq2 = NULL;
+      misalign_in_elems = get_misalign_in_elems (&seq1, loop_vinfo);
+      misalign_in_elems = fold_convert (type, misalign_in_elems);
+      misalign_in_elems = force_gimple_operand (misalign_in_elems,
+						&seq2, true, NULL_TREE);
+      gimple_seq_add_seq (&seq1, seq2);
+      if (seq1)
 	{
 	  edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
-	  basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq);
+	  basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq1);
 	  gcc_assert (!new_bb);
 	}
     }
@@ -2286,11 +2287,10 @@ vect_gen_vector_loop_niters_mult_vf (loop_vec_info loop_vinfo,
 				     tree niters_vector,
 				     tree *niters_vector_mult_vf_ptr)
 {
-  tree type = TREE_TYPE (niters_vector);
-  /* FIXME!!!! */
   /* We should be using a step_vector of VF if VF is variable.  */
   int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo).to_constant ();
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  tree type = TREE_TYPE (niters_vector);
   tree log_vf = build_int_cst (type, exact_log2 (vf));
   basic_block exit_bb = single_exit (loop)->dest;
 
@@ -2725,7 +2725,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 
   type = TREE_TYPE (niters);
   prob_vector = profile_probability::guessed_always ().apply_scale (9, 10);
-  estimated_vf = estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+  estimated_vf = vect_vf_for_cost (loop_vinfo);
   if (estimated_vf == 2)
     estimated_vf = 3;
   prob_prolog = prob_epilog = profile_probability::guessed_always ()
@@ -2856,7 +2856,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
       /* It's guaranteed that vector loop bound before vectorization is at
 	 least VF, so set range information for newly generated var.  */
       poly_uint64 const_vf;
-      if (new_var_p && poly_tree_p (vf, &const_vf))
+      if (new_var_p && poly_int_tree_p (vf, &const_vf))
 	set_range_info (niters, VR_RANGE,
 			wi::to_wide (build_int_cstu
 				     (type, constant_lower_bound (const_vf))),

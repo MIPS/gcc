@@ -18,7 +18,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -1290,8 +1290,8 @@ m32c_initial_elimination_offset (int from, int to)
 
 /* Implements PUSH_ROUNDING.  The R8C and M16C have byte stacks, the
    M32C has word stacks.  */
-unsigned int
-m32c_push_rounding (int n)
+poly_int64
+m32c_push_rounding (poly_int64 n)
 {
   if (TARGET_R8C || TARGET_M16C)
     return n;

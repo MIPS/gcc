@@ -24,4 +24,4 @@ Program FOO
 
 end Program FOO
 
-! { dg-final { scan-tree-dump "tiled" "graphite" { xfail *-*-* } } }
+! { dg-final { scan-tree-dump "tiled" "graphite" } }

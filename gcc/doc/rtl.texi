@@ -343,16 +343,13 @@ stored in the operand.  You would do this based on the expression code of
 the containing expression.  That is also how you would know how many
 operands there are.
 
-For example, if @var{x} is an @code{unspec} expression, you know that it has
-two operands which can be correctly accessed as @code{XVEC (@var{x}, 0)}
-and @code{XINT (@var{x}, 1)}.  If you did @code{XINT (@var{x}, 0)}, you
-would get the address of the vector operand but cast as an integer;
-that might occasionally be useful, but it would be cleaner to write
-@code{(int) XVEC (@var{x}, 0)}.  @code{XEXP (@var{x}, 1)} would also
-compile without error, and would return the second, integer operand cast as
-an expression pointer, which would probably result in a crash when
-accessed.  Nothing stops you from writing @code{XEXP (@var{x}, 28)} either,
-but this will access memory past the end of the expression with
+For example, if @var{x} is an @code{int_list} expression, you know that it has
+two operands which can be correctly accessed as @code{XINT (@var{x}, 0)}
+and @code{XEXP (@var{x}, 1)}.  Incorrect accesses like
+@code{XEXP (@var{x}, 0)} and @code{XINT (@var{x}, 1)} would compile,
+but would trigger an internal compiler error when rtl checking is enabled.
+Nothing stops you from writing @code{XEXP (@var{x}, 28)} either, but
+this will access memory past the end of the expression with
 unpredictable results.
 
 Access to operands which are vectors is more complicated.  You can use the
@@ -1726,6 +1723,15 @@ is accessed with the macro @code{CONST_FIXED_VALUE}.  The high part of
 data is accessed with @code{CONST_FIXED_VALUE_HIGH}; the low part is
 accessed with @code{CONST_FIXED_VALUE_LOW}.
 
+@findex const_poly_int
+@item (const_poly_int:@var{m} [@var{c0} @var{c1} @dots{}])
+Represents a @code{poly_int}-style polynomial integer with coefficients
+@var{c0}, @var{c1}, @dots{}.  The coefficients are @code{wide_int}-based
+integers rather than rtxes.  @code{CONST_POLY_INT_COEFFS} gives the
+values of individual coefficients (which is mostly only useful in
+low-level routines) and @code{const_poly_int_value} gives the full
+@code{poly_int} value.
+
 @findex const_vector
 @item (const_vector:@var{m} [@var{x0} @var{x1} @dots{}])
 Represents a vector constant.  The square brackets stand for the vector
@@ -1739,15 +1745,6 @@ Individual elements in a vector constant are accessed with the macro
 @code{CONST_VECTOR_ELT} as in @code{CONST_VECTOR_ELT (@var{v}, @var{n})}
 where @var{v} is the vector constant and @var{n} is the element
 desired.
-
-@findex const_param
-@item (const_param:@var{m} @var{n})
-Represents a target-specific parameter whose value is a runtime invariant
-but whose value is not known at compile time.  @var{n} is a 0-based identifier
-for the parameter.  If @var{n} + 1 is less than @code{NUM_POLY_INT_COEFFS},
-the parameter is a nonnegative integer that is multiplied by coefficient
-@var{n} + 1 in a @code{poly_int} value.  Other identifiers have no defined
-meaning; the target can use them for any purpose and with any mode.
 
 @findex const_string
 @item (const_string @var{str})
@@ -1904,11 +1901,11 @@ If @code{FRAME_GROWS_DOWNWARD} is defined to a nonzero value, this points
 to immediately above the first variable on the stack.  Otherwise, it points
 to the first variable on the stack.
 
-@cindex @code{STARTING_FRAME_OFFSET} and virtual registers
+@cindex @code{TARGET_STARTING_FRAME_OFFSET} and virtual registers
 @cindex @code{FRAME_POINTER_REGNUM} and virtual registers
 @code{VIRTUAL_STACK_VARS_REGNUM} is replaced with the sum of the
 register given by @code{FRAME_POINTER_REGNUM} and the value
-@code{STARTING_FRAME_OFFSET}.
+@code{TARGET_STARTING_FRAME_OFFSET}.
 
 @findex VIRTUAL_STACK_DYNAMIC_REGNUM
 @item VIRTUAL_STACK_DYNAMIC_REGNUM

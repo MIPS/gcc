@@ -1134,6 +1134,7 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 		= alloc_stack_frame_space (stack_vars[i].size
 					   + ASAN_RED_ZONE_SIZE,
 					   MAX (alignb, ASAN_RED_ZONE_SIZE));
+
 	      data->asan_vec.safe_push (prev_offset);
 	      /* Allocating a constant amount of space from a constant
 		 starting offset must give a constant result.  */
@@ -1507,7 +1508,7 @@ defer_stack_allocation (tree var, bool toplevel)
   /* Whether the variable is small enough for immediate allocation not to be
      a problem with regard to the frame size.  */
   bool smallish
-    = (poly_tree_p (size_unit, &size)
+    = (poly_int_tree_p (size_unit, &size)
        && (estimated_poly_value (size)
 	   < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING)));
 
@@ -1647,7 +1648,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (!poly_tree_p (DECL_SIZE_UNIT (var), &size)
+  else if (!poly_int_tree_p (DECL_SIZE_UNIT (var), &size)
 	   || !valid_constant_size_p (DECL_SIZE_UNIT (var)))
     {
       /* Reject variables which cover more than half of the address-space.  */
@@ -2032,10 +2033,7 @@ expand_used_vars (void)
   /* Compute the phase of the stack frame for this function.  */
   {
     int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-    /* At present we only support frame layouts in which the misalignment
-       of STARTING_FRAME_OFFSET is known at compile time.  */
-    int off = force_get_misalignment (poly_int64 (STARTING_FRAME_OFFSET),
-				      align);
+    int off = targetm.starting_frame_offset () % align;
     frame_phase = off ? align - off : 0;
   }
 
@@ -4411,7 +4409,7 @@ expand_debug_expr (tree exp)
 
 	  op1 = expand_debug_expr (TREE_OPERAND (exp, 1));
 	  poly_int64 offset;
-	  if (!op1 || !poly_int_const_p (op1, &offset))
+	  if (!op1 || !poly_int_rtx_p (op1, &offset))
 	    return NULL;
 
 	  op0 = plus_constant (inner_mode, op0, offset);
@@ -4518,7 +4516,7 @@ expand_debug_expr (tree exp)
 	      /* Bitfield.  */
 	      mode1 = smallest_int_mode_for_size (bitsize);
 	    poly_int64 bytepos = bits_to_bytes_round_down (bitpos);
-	    if (may_ne (bytepos, 0))
+	    if (maybe_nonzero (bytepos))
 	      {
 		op0 = adjust_address_nv (op0, mode1, bytepos);
 		bitpos = num_trailing_bits (bitpos);
@@ -4924,7 +4922,7 @@ expand_debug_expr (tree exp)
 		  op1 = expand_debug_expr (TREE_OPERAND (TREE_OPERAND (exp, 0),
 							 1));
 		  poly_int64 offset;
-		  if (!op1 || !poly_int_const_p (op1, &offset))
+		  if (!op1 || !poly_int_rtx_p (op1, &offset))
 		    return NULL;
 
 		  return plus_constant (mode, op0, offset);

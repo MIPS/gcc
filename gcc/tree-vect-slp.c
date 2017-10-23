@@ -1633,14 +1633,14 @@ vect_attempt_slp_rearrange_stmts (slp_instance slp_instn)
 			    node->load_permutation);
 
   /* We are done, no actual permutations need to be generated.  */
-  poly_int64 unrolling_factor = SLP_INSTANCE_UNROLLING_FACTOR (slp_instn);
+  poly_uint64 unrolling_factor = SLP_INSTANCE_UNROLLING_FACTOR (slp_instn);
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
     {
       gimple *first_stmt = SLP_TREE_SCALAR_STMTS (node)[0];
       first_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (first_stmt));
       /* But we have to keep those permutations that are required because
          of handling of gaps.  */
-      if (must_eq (unrolling_factor, 1)
+      if (must_eq (unrolling_factor, 1U)
 	  || (group_size == GROUP_SIZE (vinfo_for_stmt (first_stmt))
 	      && GROUP_GAP (vinfo_for_stmt (first_stmt)) == 0))
 	SLP_TREE_LOAD_PERMUTATION (node).release ();
@@ -1729,16 +1729,16 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
 	      stmt_vec_info group_info
 		= vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (node)[0]);
 	      group_info = vinfo_for_stmt (GROUP_FIRST_ELEMENT (group_info));
-	      unsigned int lowest_nunits
-		= (constant_lower_bound
-		   (TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (group_info))));
+	      unsigned HOST_WIDE_INT nunits;
 	      unsigned k, maxk = 0;
 	      FOR_EACH_VEC_ELT (SLP_TREE_LOAD_PERMUTATION (node), j, k)
 		if (k > maxk)
 		  maxk = k;
 	      /* In BB vectorization we may not actually use a loaded vector
 		 accessing elements in excess of GROUP_SIZE.  */
-	      if (maxk >= (GROUP_SIZE (group_info) & ~(lowest_nunits - 1)))
+	      tree vectype = STMT_VINFO_VECTYPE (group_info);
+	      if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nunits)
+		  || maxk >= (GROUP_SIZE (group_info) & ~(nunits - 1)))
 		{
 		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 				   "BB vectorization with gaps at the end of "
@@ -2004,7 +2004,7 @@ vect_analyze_slp_cost (slp_instance instance, void *data)
 	default:;
 	}
     }
-  unsigned assumed_nunits = vect_nunits_for_cost (vectype_for_cost);
+  unsigned int assumed_nunits = vect_nunits_for_cost (vectype_for_cost);
   ncopies_for_cost = (least_common_multiple (assumed_nunits,
 					     group_size * assumed_vf)
 		      / assumed_nunits);

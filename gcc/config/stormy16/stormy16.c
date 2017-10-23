@@ -18,7 +18,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -2634,6 +2634,14 @@ static bool
 xstormy16_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 {
   return mode1 != BImode && mode2 != BImode;
+}
+
+/* Implement PUSH_ROUNDING.  */
+
+poly_int64
+xstormy16_push_rounding (poly_int64 bytes)
+{
+  return (bytes + 1) & ~1;
 }
 
 #undef  TARGET_ASM_ALIGNED_HI_OP

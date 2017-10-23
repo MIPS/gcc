@@ -77,7 +77,7 @@ bool gccbrig_might_be_host_defined_var_p (const BrigDirectiveVariable *brigVar);
 bool hsa_type_packed_p (BrigType16_t type);
 
 /* Return the number of elements in a VECTOR_TYPE.  BRIG does not support
-   variable-sized vectors.  */
+   variable-length vectors.  */
 inline unsigned HOST_WIDE_INT
 gccbrig_type_vector_subparts (const_tree type)
 {

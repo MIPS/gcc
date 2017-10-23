@@ -777,24 +777,23 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	  {
 	    tree this_offset = component_ref_field_offset (ref);
 	    if (this_offset
-		&& TREE_CODE (this_offset) == INTEGER_CST)
+		&& poly_int_tree_p (this_offset))
 	      {
 		tree bit_offset = DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1));
 		if (TREE_INT_CST_LOW (bit_offset) % BITS_PER_UNIT == 0)
 		  {
-		    offset_int off
-		      = (wi::to_offset (this_offset)
+		    poly_offset_int off
+		      = (wi::to_poly_offset (this_offset)
 			 + (wi::to_offset (bit_offset) >> LOG2_BITS_PER_UNIT));
-		    if (wi::fits_shwi_p (off)
-			/* Probibit value-numbering zero offset components
-			   of addresses the same before the pass folding
-			   __builtin_object_size had a chance to run
-			   (checking cfun->after_inlining does the
-			   trick here).  */
-			&& (TREE_CODE (orig) != ADDR_EXPR
-			    || off != 0
-			    || cfun->after_inlining))
-		      temp.off = off.to_shwi ();
+		    /* Probibit value-numbering zero offset components
+		       of addresses the same before the pass folding
+		       __builtin_object_size had a chance to run
+		       (checking cfun->after_inlining does the
+		       trick here).  */
+		    if (TREE_CODE (orig) != ADDR_EXPR
+			|| maybe_nonzero (off)
+			|| cfun->after_inlining)
+		      off.to_shwi (&temp.off);
 		  }
 	      }
 	  }
@@ -813,16 +812,15 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	    if (! temp.op2)
 	      temp.op2 = size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (eltype),
 				     size_int (TYPE_ALIGN_UNIT (eltype)));
-	    if (TREE_CODE (temp.op0) == INTEGER_CST
-		&& TREE_CODE (temp.op1) == INTEGER_CST
+	    if (poly_int_tree_p (temp.op0)
+		&& poly_int_tree_p (temp.op1)
 		&& TREE_CODE (temp.op2) == INTEGER_CST)
 	      {
-		offset_int off = ((wi::to_offset (temp.op0)
-				   - wi::to_offset (temp.op1))
-				  * wi::to_offset (temp.op2)
-				  * vn_ref_op_align_unit (&temp));
-		if (wi::fits_shwi_p (off))
-		  temp.off = off.to_shwi();
+		poly_offset_int off = ((wi::to_poly_offset (temp.op0)
+					- wi::to_poly_offset (temp.op1))
+				       * wi::to_offset (temp.op2)
+				       * vn_ref_op_align_unit (&temp));
+		off.to_shwi (&temp.off);
 	      }
 	  }
 	  break;
@@ -931,7 +929,8 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
       else
 	size = GET_MODE_BITSIZE (mode);
     }
-  if (size_tree && poly_tree_p (size_tree))
+  if (size_tree != NULL_TREE
+      && poly_int_tree_p (size_tree))
     size = wi::to_poly_offset (size_tree);
 
   /* Initially, maxsize is the same as the accessed element size.
@@ -1000,12 +999,12 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	       parts manually.  */
 	    tree this_offset = DECL_FIELD_OFFSET (field);
 
-	    if (op->op1 || TREE_CODE (this_offset) != INTEGER_CST)
+	    if (op->op1 || !poly_int_tree_p (this_offset))
 	      max_size = -1;
 	    else
 	      {
-		offset_int woffset = (wi::to_offset (this_offset)
-				      << LOG2_BITS_PER_UNIT);
+		poly_offset_int woffset = (wi::to_poly_offset (this_offset)
+					   << LOG2_BITS_PER_UNIT);
 		woffset += wi::to_offset (DECL_FIELD_BIT_OFFSET (field));
 		offset += woffset;
 	      }
@@ -1015,14 +1014,15 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	case ARRAY_RANGE_REF:
 	case ARRAY_REF:
 	  /* We recorded the lower bound and the element size.  */
-	  if (TREE_CODE (op->op0) != INTEGER_CST
-	      || TREE_CODE (op->op1) != INTEGER_CST
+	  if (!poly_int_tree_p (op->op0)
+	      || !poly_int_tree_p (op->op1)
 	      || TREE_CODE (op->op2) != INTEGER_CST)
 	    max_size = -1;
 	  else
 	    {
-	      offset_int woffset
-		= wi::sext (wi::to_offset (op->op0) - wi::to_offset (op->op1),
+	      poly_offset_int woffset
+		= wi::sext (wi::to_poly_offset (op->op0)
+			    - wi::to_poly_offset (op->op1),
 			    TYPE_PRECISION (TREE_TYPE (op->op0)));
 	      woffset *= wi::to_offset (op->op2) * vn_ref_op_align_unit (op);
 	      woffset <<= LOG2_BITS_PER_UNIT;
@@ -1194,7 +1194,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
       && code != POINTER_PLUS_EXPR)
     return false;
 
-  off = offset_int::from (wi::to_wide (mem_op->op0), SIGNED);
+  off = poly_offset_int::from (wi::to_poly_wide (mem_op->op0), SIGNED);
 
   /* The only thing we have to do is from &OBJ.foo.bar add the offset
      from .foo.bar to the preceding MEM_REF offset and replace the
@@ -1229,7 +1229,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	      vn_reference_op_t new_mem_op = &tem[tem.length () - 2];
 	      new_mem_op->op0
 		= wide_int_to_tree (TREE_TYPE (mem_op->op0),
-				    wi::to_wide (new_mem_op->op0));
+				    wi::to_poly_wide (new_mem_op->op0));
 	    }
 	  else
 	    gcc_assert (tem.last ().opcode == STRING_CST);
@@ -1485,16 +1485,15 @@ valueize_refs_1 (vec<vn_reference_op_s> orig, bool *valueized_anything)
 	 one, adjust the constant offset.  */
       else if (vro->opcode == ARRAY_REF
 	       && must_eq (vro->off, -1)
-	       && TREE_CODE (vro->op0) == INTEGER_CST
-	       && TREE_CODE (vro->op1) == INTEGER_CST
+	       && poly_int_tree_p (vro->op0)
+	       && poly_int_tree_p (vro->op1)
 	       && TREE_CODE (vro->op2) == INTEGER_CST)
 	{
-	  offset_int off = ((wi::to_offset (vro->op0)
-			     - wi::to_offset (vro->op1))
-			    * wi::to_offset (vro->op2)
-			    * vn_ref_op_align_unit (vro));
-	  if (wi::fits_shwi_p (off))
-	    vro->off = off.to_shwi ();
+	  poly_offset_int off = ((wi::to_poly_offset (vro->op0)
+				  - wi::to_poly_offset (vro->op1))
+				 * wi::to_offset (vro->op2)
+				 * vn_ref_op_align_unit (vro));
+	  off.to_shwi (&vro->off);
 	}
     }
 
@@ -1911,7 +1910,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
   if (is_gimple_reg_type (vr->type)
       && gimple_call_builtin_p (def_stmt, BUILT_IN_MEMSET)
       && integer_zerop (gimple_call_arg (def_stmt, 1))
-      && poly_tree_p (gimple_call_arg (def_stmt, 2), &copy_size)
+      && poly_int_tree_p (gimple_call_arg (def_stmt, 2))
       && TREE_CODE (gimple_call_arg (def_stmt, 0)) == ADDR_EXPR)
     {
       tree ref2 = TREE_OPERAND (gimple_call_arg (def_stmt, 0), 0);
@@ -1920,10 +1919,11 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       bool reverse;
       base2 = get_ref_base_and_extent (ref2, &offset2, &size2, &maxsize2,
 				       &reverse);
-      poly_offset_int arg2 = poly_offset_int (copy_size) << LOG2_BITS_PER_UNIT;
+      tree len = gimple_call_arg (def_stmt, 2);
       if (known_size_p (maxsize2)
 	  && operand_equal_p (base, base2, 0)
-	  && known_subrange_p (offset, maxsize, offset2, arg2))
+	  && known_subrange_p (offset, maxsize, offset2,
+			       wi::to_poly_offset (len) << LOG2_BITS_PER_UNIT))
 	{
 	  tree val = build_zero_cst (vr->type);
 	  return vn_reference_lookup_or_insert_for_pieces
@@ -2148,7 +2148,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       copy_reference_ops_from_ref (gimple_assign_rhs1 (def_stmt), &rhs);
 
       /* Apply an extra offset to the inner MEM_REF of the RHS.  */
-      if (may_ne (extra_off, 0))
+      if (maybe_nonzero (extra_off))
 	{
 	  if (rhs.length () < 2
 	      || rhs[0].opcode != MEM_REF
@@ -2206,7 +2206,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	       || TREE_CODE (gimple_call_arg (def_stmt, 0)) == SSA_NAME)
 	   && (TREE_CODE (gimple_call_arg (def_stmt, 1)) == ADDR_EXPR
 	       || TREE_CODE (gimple_call_arg (def_stmt, 1)) == SSA_NAME)
-	   && poly_tree_p (gimple_call_arg (def_stmt, 2), &copy_size))
+	   && poly_int_tree_p (gimple_call_arg (def_stmt, 2), &copy_size))
     {
       tree lhs, rhs;
       ao_ref r;
@@ -2242,7 +2242,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
-	      && poly_tree_p (TREE_OPERAND (tem, 1), &mem_offset))
+	      && poly_int_tree_p (TREE_OPERAND (tem, 1), &mem_offset))
 	    {
 	      lhs = TREE_OPERAND (tem, 0);
 	      if (TREE_CODE (lhs) == SSA_NAME)
@@ -2270,7 +2270,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
-	      && poly_tree_p (TREE_OPERAND (tem, 1), &mem_offset))
+	      && poly_int_tree_p (TREE_OPERAND (tem, 1), &mem_offset))
 	    {
 	      rhs = TREE_OPERAND (tem, 0);
 	      rhs_offset += mem_offset;
@@ -2288,7 +2288,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       if (TREE_CODE (base) == MEM_REF)
 	{
 	  if (TREE_OPERAND (base, 0) != lhs
-	      || !poly_tree_p (TREE_OPERAND (base, 1), &mem_offset))
+	      || !poly_int_tree_p (TREE_OPERAND (base, 1), &mem_offset))
 	    return (void *) -1;
 	  at += mem_offset;
 	}

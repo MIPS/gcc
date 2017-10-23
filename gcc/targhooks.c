@@ -1821,7 +1821,8 @@ default_class_max_nregs (reg_class_t rclass ATTRIBUTE_UNUSED,
   return (unsigned char) CLASS_MAX_NREGS ((enum reg_class) rclass,
 					  MACRO_MODE (mode));
 #else
-  /* The target must override this if some modes have nonconstant size.  */
+  /* Targets with variable-sized modes must provide their own definition
+     of this hook.  */
   unsigned int size = GET_MODE_SIZE (mode).to_constant ();
   return (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 #endif

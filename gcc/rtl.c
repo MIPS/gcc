@@ -265,7 +265,7 @@ shared_const_p (const_rtx orig)
   poly_int64 offset;
   return (GET_CODE (XEXP (orig, 0)) == PLUS
 	  && GET_CODE (XEXP (XEXP (orig, 0), 0)) == SYMBOL_REF
-	  && poly_int_const_p (XEXP (XEXP (orig, 0), 1), &offset));
+	  && poly_int_rtx_p (XEXP (XEXP (orig, 0), 1), &offset));
 }
 
 

@@ -1672,9 +1672,7 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
     {
       enum reg_class rclass;
 
-      subreg_shape shape (innermode, SUBREG_BYTE (operand), mode);
-      if (REG_P (reg)
-	  || hard_reg_set_empty_p (simplifiable_subregs (shape)))
+      if (REG_P (reg))
 	/* There is a big probability that we will get the same class
 	   for the new pseudo and we will get the same insn which
 	   means infinite looping.  So spill the new pseudo.  */
@@ -3103,7 +3101,8 @@ static bool
 equiv_address_substitution (struct address_info *ad)
 {
   rtx base_reg, new_base_reg, index_reg, new_index_reg, *base_term, *index_term;
-  HOST_WIDE_INT disp, scale;
+  poly_int64 disp;
+  HOST_WIDE_INT scale;
   bool change_p;
 
   base_term = strip_subreg (ad->base_term);
@@ -3134,6 +3133,7 @@ equiv_address_substitution (struct address_info *ad)
     }
   if (base_reg != new_base_reg)
     {
+      poly_int64 offset;
       if (REG_P (new_base_reg))
 	{
 	  *base_term = new_base_reg;
@@ -3141,10 +3141,10 @@ equiv_address_substitution (struct address_info *ad)
 	}
       else if (GET_CODE (new_base_reg) == PLUS
 	       && REG_P (XEXP (new_base_reg, 0))
-	       && CONST_INT_P (XEXP (new_base_reg, 1))
+	       && poly_int_rtx_p (XEXP (new_base_reg, 1), &offset)
 	       && can_add_disp_p (ad))
 	{
-	  disp += INTVAL (XEXP (new_base_reg, 1));
+	  disp += offset;
 	  *base_term = XEXP (new_base_reg, 0);
 	  change_p = true;
 	}
@@ -3153,6 +3153,7 @@ equiv_address_substitution (struct address_info *ad)
     }
   if (index_reg != new_index_reg)
     {
+      poly_int64 offset;
       if (REG_P (new_index_reg))
 	{
 	  *index_term = new_index_reg;
@@ -3160,16 +3161,16 @@ equiv_address_substitution (struct address_info *ad)
 	}
       else if (GET_CODE (new_index_reg) == PLUS
 	       && REG_P (XEXP (new_index_reg, 0))
-	       && CONST_INT_P (XEXP (new_index_reg, 1))
+	       && poly_int_rtx_p (XEXP (new_index_reg, 1), &offset)
 	       && can_add_disp_p (ad)
 	       && (scale = get_index_scale (ad)))
 	{
-	  disp += INTVAL (XEXP (new_index_reg, 1)) * scale;
+	  disp += offset * scale;
 	  *index_term = XEXP (new_index_reg, 0);
 	  change_p = true;
 	}
     }
-  if (disp != 0)
+  if (maybe_nonzero (disp))
     {
       if (ad->disp != NULL)
 	*ad->disp = plus_constant (GET_MODE (*ad->inner), *ad->disp, disp);
@@ -3420,7 +3421,7 @@ process_address_1 (int nop, bool check_only_p,
 	  gcc_assert (ad.disp == ad.disp_term);
 	  poly_int64 orig_offset;
 	  rtx offset1, offset2;
-	  if (poly_int_const_p (*ad.disp, &orig_offset)
+	  if (poly_int_rtx_p (*ad.disp, &orig_offset)
 	      && targetm.legitimize_address_displacement (&offset1, &offset2,
 							  orig_offset,
 							  ad.mode))
@@ -3641,9 +3642,10 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, poly_int64 inc_amount)
 	 register.  */
       if (plus_p)
 	{
-	  if (CONST_INT_P (inc))
+	  poly_int64 offset;
+	  if (poly_int_rtx_p (inc, &offset))
 	    emit_insn (gen_add2_insn (result,
-				      gen_int_mode (-INTVAL (inc),
+				      gen_int_mode (-offset,
 						    GET_MODE (result))));
 	  else
 	    emit_insn (gen_sub2_insn (result, inc));

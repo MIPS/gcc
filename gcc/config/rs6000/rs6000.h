@@ -565,8 +565,6 @@ extern int rs6000_vector_align[];
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 #define TARGET_LDBRX (TARGET_POPCNTD || rs6000_cpu == PROCESSOR_CELL)
 
-#define TARGET_ISEL64 (TARGET_ISEL && TARGET_POWERPC64)
-
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or
    XILINX.  */
@@ -1552,16 +1550,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    sizes of the fixed area and the parameter area must be a multiple of
    STACK_BOUNDARY.  */
 
-#define STARTING_FRAME_OFFSET						\
-  (FRAME_GROWS_DOWNWARD							\
-   ? 0									\
-   : (cfun->calls_alloca						\
-      ? (RS6000_ALIGN (MACRO_INT (crtl->outgoing_args_size)		\
-		       + RS6000_SAVE_AREA,				\
-		       (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8 ))	\
-      : (RS6000_ALIGN (MACRO_INT (crtl->outgoing_args_size),		\
-		       (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
-	 + RS6000_SAVE_AREA)))
+#define RS6000_STARTING_FRAME_OFFSET					\
+  (cfun->calls_alloca							\
+   ? (RS6000_ALIGN (crtl->outgoing_args_size + RS6000_SAVE_AREA,	\
+		    (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8 ))		\
+   : (RS6000_ALIGN (crtl->outgoing_args_size,				\
+		    (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
+      + RS6000_SAVE_AREA))
 
 /* Offset from the stack pointer register to an item dynamically
    allocated on the stack, e.g., by `alloca'.
@@ -1573,7 +1568,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    This value must be a multiple of STACK_BOUNDARY (hard coded in
    `emit-rtl.c').  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  RS6000_ALIGN (MACRO_INT (crtl->outgoing_args_size)			\
+  RS6000_ALIGN (crtl->outgoing_args_size.to_constant ()			\
 		+ STACK_POINTER_OFFSET,					\
 		(TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)
 

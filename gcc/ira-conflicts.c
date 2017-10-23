@@ -228,6 +228,8 @@ go_through_subreg (rtx x, int *offset)
 				   SUBREG_BYTE (x), GET_MODE (x));
   else if (!can_div_trunc_p (SUBREG_BYTE (x),
 			     REGMODE_NATURAL_SIZE (GET_MODE (x)), offset))
+    /* Checked by validate_subreg.  We must know at compile time which
+       inner hard registers are being accessed.  */
     gcc_unreachable ();
   return reg;
 }

@@ -190,10 +190,10 @@ print_poly_int (FILE *file, poly_int64 x)
     fprintf (file, HOST_WIDE_INT_PRINT_DEC, const_x);
   else
     {
-      fprintf (file, "[");
-      for (int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC "%c",
-		 x.coeffs[i], i == NUM_POLY_INT_COEFFS - 1 ? ']' : ',');
+      fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC, x.coeffs[0]);
+      for (int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
+	fprintf (file, ", " HOST_WIDE_INT_PRINT_DEC, x.coeffs[i]);
+      fprintf (file, "]");
     }
 }
 
@@ -1614,7 +1614,7 @@ print_value (pretty_printer *pp, const_rtx x, int verbose)
       pp_wide_int (pp, CONST_POLY_INT_COEFFS (x)[0], SIGNED);
       for (unsigned int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
 	{
-	  pp_comma (pp);
+	  pp_string (pp, ", ");
 	  pp_wide_int (pp, CONST_POLY_INT_COEFFS (x)[i], SIGNED);
 	}
       pp_right_bracket (pp);
@@ -1667,7 +1667,7 @@ print_value (pretty_printer *pp, const_rtx x, int verbose)
     case SUBREG:
       print_value (pp, SUBREG_REG (x), verbose);
       pp_printf (pp, "#");
-      pp_poly_int (pp, SUBREG_BYTE (x));
+      pp_wide_integer (pp, SUBREG_BYTE (x));
       break;
     case SCRATCH:
     case CC0:
@@ -1845,11 +1845,11 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
     case DEBUG_INSN:
       {
 	const char *name = "?";
+	char idbuf[32];
 
 	if (DECL_P (INSN_VAR_LOCATION_DECL (x)))
 	  {
 	    tree id = DECL_NAME (INSN_VAR_LOCATION_DECL (x));
-	    char idbuf[32];
 	    if (id)
 	      name = IDENTIFIER_POINTER (id);
 	    else if (TREE_CODE (INSN_VAR_LOCATION_DECL (x))

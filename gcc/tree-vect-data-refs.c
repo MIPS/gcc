@@ -1045,7 +1045,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       base_misalignment = 0;
     }
   poly_int64 misalignment
-    = base_misalignment + wi::to_poly_wide (drb->init).force_shwi ();
+    = base_misalignment + wi::to_poly_offset (drb->init).force_shwi ();
 
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
@@ -2001,7 +2001,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       unsigned int load_outside_cost = 0;
       unsigned int store_inside_cost = 0;
       unsigned int store_outside_cost = 0;
-      unsigned int estimated_npeels = estimated_poly_value (vf) / 2;
+      unsigned int estimated_npeels = vect_vf_for_cost (loop_vinfo) / 2;
 
       stmt_vector_for_cost dummy;
       dummy.create (2);
@@ -3288,37 +3288,42 @@ vect_vfa_align (const data_reference *dr)
 
 static int
 vect_compile_time_alias (struct data_reference *a, struct data_reference *b,
-			 poly_uint64 segment_length_a,
-			 poly_uint64 segment_length_b,
+			 tree segment_length_a, tree segment_length_b,
 			 unsigned HOST_WIDE_INT access_size_a,
 			 unsigned HOST_WIDE_INT access_size_b)
 {
   poly_offset_int offset_a = wi::to_poly_offset (DR_INIT (a));
   poly_offset_int offset_b = wi::to_poly_offset (DR_INIT (b));
+  poly_uint64 const_length_a;
+  poly_uint64 const_length_b;
 
   /* For negative step, we need to adjust address range by TYPE_SIZE_UNIT
      bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
      [a, a+12) */
   if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
     {
-      segment_length_a = -segment_length_a;
-      offset_a = (offset_a + access_size_a) - segment_length_a;
+      const_length_a = (-wi::to_poly_wide (segment_length_a)).force_uhwi ();
+      offset_a = (offset_a + access_size_a) - const_length_a;
     }
+  else
+    const_length_a = tree_to_poly_uint64 (segment_length_a);
   if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
     {
-      segment_length_b = -segment_length_b;
-      offset_b = (offset_b + access_size_b) - segment_length_b;
+      const_length_b = (-wi::to_poly_wide (segment_length_b)).force_uhwi ();
+      offset_b = (offset_b + access_size_b) - const_length_b;
     }
+  else
+    const_length_b = tree_to_poly_uint64 (segment_length_b);
 
   segment_length_a += access_size_a;
   segment_length_b += access_size_b;
 
-  if (ranges_must_overlap_p (offset_a, segment_length_a,
-			     offset_b, segment_length_b))
+  if (ranges_must_overlap_p (offset_a, const_length_a,
+			     offset_b, const_length_b))
     return 1;
 
-  if (!ranges_may_overlap_p (offset_a, segment_length_a,
-			     offset_b, segment_length_b))
+  if (!ranges_may_overlap_p (offset_a, const_length_a,
+			     offset_b, const_length_b))
     return 0;
 
   return -1;
@@ -3440,8 +3445,8 @@ vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
   if (!operand_equal_p (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b), 0)
       || !operand_equal_p (DR_OFFSET (dr_a), DR_OFFSET (dr_b), 0)
       || !operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0)
-      || !poly_tree_p (DR_INIT (dr_a), &init_a)
-      || !poly_tree_p (DR_INIT (dr_b), &init_b)
+      || !poly_int_tree_p (DR_INIT (dr_a), &init_a)
+      || !poly_int_tree_p (DR_INIT (dr_b), &init_b)
       || !ordered_p (init_a, init_b))
     return false;
 
@@ -3658,22 +3663,16 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	comp_res = data_ref_compare_tree (DR_OFFSET (dr_a),
 					  DR_OFFSET (dr_b));
 
-      /* See whether the alias is known at compilation time.
-
-	 Note that the segment lengths have sizetype and so are always
-	 represented as unsigned values, even for negative steps.
-	 The sign of the DR_STEP indicates whether they are logically
-	 positive or negative.  */
-      poly_uint64 const_segment_length_a, const_segment_length_b;
+      /* See whether the alias is known at compilation time.  */
       if (comp_res == 0
 	  && TREE_CODE (DR_STEP (dr_a)) == INTEGER_CST
 	  && TREE_CODE (DR_STEP (dr_b)) == INTEGER_CST
-	  && poly_tree_p (segment_length_a, &const_segment_length_a)
-	  && poly_tree_p (segment_length_b, &const_segment_length_b))
+	  && poly_int_tree_p (segment_length_a)
+	  && poly_int_tree_p (segment_length_b))
 	{
 	  int res = vect_compile_time_alias (dr_a, dr_b,
-					     const_segment_length_a,
-					     const_segment_length_b,
+					     segment_length_a,
+					     segment_length_b,
 					     access_size_a,
 					     access_size_b);
 	  if (res >= 0 && dump_enabled_p ())
@@ -5515,7 +5514,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
-      /* Enforced by vect_grouped_store_supported.  */
+      /* vect_grouped_store_supported ensures that this is constant.  */
       unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
       unsigned int j0 = 0, j1 = 0, j2 = 0;
 
@@ -5591,7 +5590,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
 	}
       else
 	{
-	  /* Enforced by vect_grouped_store_supported.  */
+	  /* vect_grouped_store_supported ensures that this is constant.  */
 	  unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
 	  auto_vec_perm_indices sel (nelt);
 	  sel.quick_grow (nelt);
@@ -6149,7 +6148,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
-      /* Enforced by vect_grouped_load_supported.  */
+      /* vect_grouped_load_supported ensures that this is constant.  */
       unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
       unsigned int k;
 
@@ -6212,7 +6211,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
 	}
       else
 	{
-	  /* Enforced by vect_grouped_load_supported.  */
+	  /* vect_grouped_load_supported ensures that this is constant.  */
 	  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
 	  auto_vec_perm_indices sel (nelt);
 	  sel.quick_grow (nelt);
@@ -6375,7 +6374,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   unsigned HOST_WIDE_INT nelt, vf;
   if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nelt)
       || !LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
-    /* Not supported for variable-width vectors.  */
+    /* Not supported for variable-length vectors.  */
     return false;
 
   auto_vec_perm_indices sel (nelt);

@@ -950,7 +950,7 @@ static void
 set_usage_bits (group_info *group, poly_int64 offset, poly_int64 width,
                 tree expr)
 {
-  /* Non-constant starts and ends act as global kills, so there's no point
+  /* Non-constant offsets and widths act as global kills, so there's no point
      trying to use them to derive global DSE candidates.  */
   HOST_WIDE_INT i, const_offset, const_width;
   bool expr_escapes = can_escape (expr);
@@ -1092,7 +1092,7 @@ const_or_frame_p (rtx x)
 static bool
 canon_address (rtx mem,
 	       int *group_id,
-	       HOST_WIDE_INT *offset,
+	       poly_int64 *offset,
 	       cselib_val **base)
 {
   machine_mode address_mode = get_address_mode (mem);
@@ -1159,12 +1159,7 @@ canon_address (rtx mem,
       if (GET_CODE (address) == CONST)
 	address = XEXP (address, 0);
 
-      if (GET_CODE (address) == PLUS
-	  && CONST_INT_P (XEXP (address, 1)))
-	{
-	  *offset = INTVAL (XEXP (address, 1));
-	  address = XEXP (address, 0);
-	}
+      address = strip_offset_and_add (address, offset);
 
       if (ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (mem))
 	  && const_or_frame_p (address))
@@ -1172,8 +1167,11 @@ canon_address (rtx mem,
 	  group_info *group = get_group_info (address);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "  gid=%d offset=%d \n",
-		     group->id, (int)*offset);
+	    {
+	      fprintf (dump_file, "  gid=%d offset=", group->id);
+	      print_dec (*offset, dump_file);
+	      fprintf (dump_file, "\n");
+	    }
 	  *base = NULL;
 	  *group_id = group->id;
 	  return true;
@@ -1190,8 +1188,12 @@ canon_address (rtx mem,
       return false;
     }
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "  varying cselib base=%u:%u offset = %d\n",
-	     (*base)->uid, (*base)->hash, (int)*offset);
+    {
+      fprintf (dump_file, "  varying cselib base=%u:%u offset = ",
+	       (*base)->uid, (*base)->hash);
+      print_dec (*offset, dump_file);
+      fprintf (dump_file, "\n");
+    }
   return true;
 }
 
@@ -1294,6 +1296,9 @@ all_positions_needed_p (store_info *s_info, poly_int64 start,
       return s_info->positions_needed.large.count == 0;
     }
 
+  /* Otherwise, if START and WIDTH are non-constant, we're asking about
+     a non-constant region of a constant-sized store.  We can't say for
+     sure that all positions are needed.  */
   HOST_WIDE_INT const_start, const_width;
   if (!start.is_constant (&const_start)
       || !width.is_constant (&const_width))
@@ -1395,7 +1400,7 @@ record_store (rtx body, bb_info_t bb_info)
   if (MEM_VOLATILE_P (mem))
     insn_info->cannot_delete = true;
 
-  if (!canon_address (mem, &group_id, &offset.coeffs[0], &base))
+  if (!canon_address (mem, &group_id, &offset, &base))
     {
       clear_rhs_from_active_local_stores ();
       return 0;
@@ -1698,7 +1703,7 @@ find_shift_sequence (poly_int64 access_size,
 	 e.g. at -Os, even when no actual shift will be needed.  */
       if (store_info->const_rhs)
 	{
-	  poly_int64 byte = subreg_lowpart_offset (new_mode, store_mode);
+	  poly_uint64 byte = subreg_lowpart_offset (new_mode, store_mode);
 	  rtx ret = simplify_subreg (new_mode, store_info->const_rhs,
 				     store_mode, byte);
 	  if (ret && CONSTANT_P (ret))
@@ -2067,7 +2072,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
   if (MEM_READONLY_P (mem))
     return;
 
-  if (!canon_address (mem, &group_id, &offset.coeffs[0], &base))
+  if (!canon_address (mem, &group_id, &offset, &base))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, " adding wild read, canon_address failure.\n");

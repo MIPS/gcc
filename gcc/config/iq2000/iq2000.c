@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -183,6 +183,7 @@ static bool iq2000_print_operand_punct_valid_p (unsigned char code);
 static bool iq2000_hard_regno_mode_ok (unsigned int, machine_mode);
 static bool iq2000_modes_tieable_p (machine_mode, machine_mode);
 static HOST_WIDE_INT iq2000_constant_alignment (const_tree, HOST_WIDE_INT);
+static HOST_WIDE_INT iq2000_starting_frame_offset (void);
 
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS 		iq2000_init_builtins
@@ -269,6 +270,9 @@ static HOST_WIDE_INT iq2000_constant_alignment (const_tree, HOST_WIDE_INT);
 
 #undef  TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT	iq2000_constant_alignment
+
+#undef  TARGET_STARTING_FRAME_OFFSET
+#define TARGET_STARTING_FRAME_OFFSET	iq2000_starting_frame_offset
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3546,6 +3550,14 @@ iq2000_constant_alignment (const_tree exp, HOST_WIDE_INT align)
   if (TREE_CODE (exp) == STRING_CST || TREE_CODE (exp) == CONSTRUCTOR)
     return MAX (align, BITS_PER_WORD);
   return align;
+}
+
+/* Implement TARGET_STARTING_FRAME_OFFSET.  */
+
+static HOST_WIDE_INT
+iq2000_starting_frame_offset (void)
+{
+  return crtl->outgoing_args_size;
 }
 
 #include "gt-iq2000.h"

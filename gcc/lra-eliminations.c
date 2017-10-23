@@ -197,6 +197,7 @@ static rtx
 form_sum (rtx x, rtx y)
 {
   machine_mode mode = GET_MODE (x);
+  poly_int64 offset;
 
   if (mode == VOIDmode)
     mode = GET_MODE (y);
@@ -204,11 +205,10 @@ form_sum (rtx x, rtx y)
   if (mode == VOIDmode)
     mode = Pmode;
 
-  poly_int64 c;
-  if (poly_int_const_p (x, &c))
-    return plus_constant (mode, y, c);
-  else if (poly_int_const_p (y, &c))
-    return plus_constant (mode, x, c);
+  if (poly_int_rtx_p (x, &offset))
+    return plus_constant (mode, y, offset);
+  else if (poly_int_rtx_p (y, &offset))
+    return plus_constant (mode, x, offset);
   else if (CONSTANT_P (x))
     std::swap (x, y);
 
@@ -406,7 +406,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 			  ? ep->offset - ep->previous_offset : ep->offset);
 	      if (full_p && insn != NULL_RTX && ep->to_rtx == stack_pointer_rtx)
 		offset -= lra_get_insn_recog_data (insn)->sp_offset;
-	      if (poly_int_const_p (XEXP (x, 1), &curr_offset)
+	      if (poly_int_rtx_p (XEXP (x, 1), &curr_offset)
 		  && must_eq (curr_offset, -offset))
 		return to;
 	      else
@@ -732,7 +732,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
   struct lra_elim_table *ep;
   int i, j;
   const char *fmt;
-  poly_int64 offset;
+  poly_int64 offset = 0;
 
   switch (code)
     {
@@ -746,21 +746,21 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
 	  && ((code != PRE_MODIFY && code != POST_MODIFY)
 	      || (GET_CODE (XEXP (x, 1)) == PLUS
 		  && XEXP (x, 0) == XEXP (XEXP (x, 1), 0)
-		  && CONST_INT_P (XEXP (XEXP (x, 1), 1)))))
+		  && poly_int_rtx_p (XEXP (XEXP (x, 1), 1), &offset))))
 	{
 	  poly_int64 size = GET_MODE_SIZE (mem_mode);
 	  
 #ifdef PUSH_ROUNDING
 	  /* If more bytes than MEM_MODE are pushed, account for
 	     them.  */
-	  size = PUSH_ROUNDING (MACRO_INT (size));
+	  size = PUSH_ROUNDING (size);
 #endif
 	  if (code == PRE_DEC || code == POST_DEC)
 	    curr_sp_change -= size;
 	  else if (code == PRE_INC || code == POST_INC)
 	    curr_sp_change += size;
 	  else if (code == PRE_MODIFY || code == POST_MODIFY)
-	    curr_sp_change += INTVAL (XEXP (XEXP (x, 1), 1));
+	    curr_sp_change += offset;
 	}
       else if (REG_P (XEXP (x, 0))
 	       && REGNO (XEXP (x, 0)) >= FIRST_PSEUDO_REGISTER)
@@ -810,7 +810,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
       if (SET_DEST (x) == stack_pointer_rtx
 	  && GET_CODE (SET_SRC (x)) == PLUS
 	  && XEXP (SET_SRC (x), 0) == SET_DEST (x)
-	  && poly_int_const_p (XEXP (SET_SRC (x), 1), &offset))
+	  && poly_int_rtx_p (XEXP (SET_SRC (x), 1), &offset))
 	{
 	  curr_sp_change += offset;
 	  return;
@@ -881,7 +881,7 @@ remove_reg_equal_offset_note (rtx_insn *insn, rtx what, poly_int64 *offset_out)
     if (REG_NOTE_KIND (link) == REG_EQUAL
 	&& GET_CODE (XEXP (link, 0)) == PLUS
 	&& XEXP (XEXP (link, 0), 0) == what
-	&& poly_int_const_p (XEXP (XEXP (link, 0), 1), offset_out))
+	&& poly_int_rtx_p (XEXP (XEXP (link, 0), 1), offset_out))
       {
 	*link_loc = XEXP (link, 1);
 	return true;
@@ -1004,7 +1004,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
       if (GET_CODE (SET_SRC (old_set)) == PLUS)
 	plus_src = SET_SRC (old_set);
       /* First see if the source is of the form (plus (...) CST).  */
-      if (plus_src && poly_int_const_p (XEXP (plus_src, 1), &offset))
+      if (plus_src && poly_int_rtx_p (XEXP (plus_src, 1), &offset))
 	plus_cst_src = plus_src;
       /* Check that the first operand of the PLUS is a hard reg or
 	 the lowpart subreg of one.  */
@@ -1357,13 +1357,13 @@ init_elimination (void)
 	    if (NONDEBUG_INSN_P (insn))
 	      {
 		mark_not_eliminable (PATTERN (insn), VOIDmode);
-		if (may_ne (curr_sp_change, 0)
+		if (maybe_nonzero (curr_sp_change)
 		    && find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX))
 		  stop_to_sp_elimination_p = true;
 	      }
 	  }
       if (! frame_pointer_needed
-	  && (may_ne (curr_sp_change, 0) || stop_to_sp_elimination_p)
+	  && (maybe_nonzero (curr_sp_change) || stop_to_sp_elimination_p)
 	  && bb->succs && bb->succs->length () != 0)
 	for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	  if (ep->to == STACK_POINTER_REGNUM)

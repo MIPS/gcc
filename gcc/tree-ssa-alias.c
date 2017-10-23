@@ -683,8 +683,7 @@ ao_ref_alias_set (ao_ref *ref)
 void
 ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
 {
-  poly_int64 t;
-  HOST_WIDE_INT size_hwi, extra_offset = 0;
+  poly_int64 t, size_hwi, extra_offset = 0;
   ref->ref = NULL_TREE;
   if (TREE_CODE (ptr) == SSA_NAME)
     {
@@ -694,11 +693,10 @@ ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
 	ptr = gimple_assign_rhs1 (stmt);
       else if (is_gimple_assign (stmt)
 	       && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
-	       && TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST)
+	       && ptrdiff_tree_p (gimple_assign_rhs2 (stmt), &extra_offset))
 	{
 	  ptr = gimple_assign_rhs1 (stmt);
-	  extra_offset = BITS_PER_UNIT
-			 * int_cst_value (gimple_assign_rhs2 (stmt));
+	  extra_offset *= BITS_PER_UNIT;
 	}
     }
 
@@ -722,8 +720,8 @@ ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
     }
   ref->offset += extra_offset;
   if (size
-      && tree_fits_shwi_p (size)
-      && (size_hwi = tree_to_shwi (size)) <= HOST_WIDE_INT_MAX / BITS_PER_UNIT)
+      && poly_int_tree_p (size, &size_hwi)
+      && coeffs_in_range_p (size_hwi, 0, HOST_WIDE_INT_MAX / BITS_PER_UNIT))
     ref->max_size = ref->size = size_hwi * BITS_PER_UNIT;
   else
     ref->max_size = ref->size = -1;
@@ -1139,16 +1137,12 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 {
   tree ptr1;
   tree ptrtype1, dbase2;
-  poly_int64 doffset1, doffset2;
 
   gcc_checking_assert ((TREE_CODE (base1) == MEM_REF
 			|| TREE_CODE (base1) == TARGET_MEM_REF)
 		       && DECL_P (base2));
 
   ptr1 = TREE_OPERAND (base1, 0);
-
-  /* The offset embedded in MEM_REFs can be negative.  Bias them
-     so that the resulting offset adjustment is positive.  */
   poly_offset_int moff = mem_ref_offset (base1) << LOG2_BITS_PER_UNIT;
 
   /* If only one reference is based on a variable, they cannot alias if
@@ -1158,8 +1152,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
      ???  IVOPTs creates bases that do not honor this restriction,
      so do not apply this optimization for TARGET_MEM_REFs.  */
   if (TREE_CODE (base1) != TARGET_MEM_REF
-      && !ranges_may_overlap_p (offset1 + moff.force_shwi (), -1,
-				offset2, max_size2))
+      && !ranges_may_overlap_p (offset1 + moff, -1, offset2, max_size2))
     return false;
   /* They also cannot alias if the pointer may not point to the decl.  */
   if (!ptr_deref_may_alias_decl_p (ptr1, base2))
@@ -1194,14 +1187,15 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
      is bigger than the size of the decl we can't possibly access the
      decl via that pointer.  */
   if (DECL_SIZE (base2) && COMPLETE_TYPE_P (TREE_TYPE (ptrtype1))
-      && TREE_CODE (DECL_SIZE (base2)) == INTEGER_CST
-      && TREE_CODE (TYPE_SIZE (TREE_TYPE (ptrtype1))) == INTEGER_CST
+      && poly_int_tree_p (DECL_SIZE (base2))
+      && poly_int_tree_p (TYPE_SIZE (TREE_TYPE (ptrtype1)))
       /* ???  This in turn may run afoul when a decl of type T which is
 	 a member of union type U is accessed through a pointer to
 	 type U and sizeof T is smaller than sizeof U.  */
       && TREE_CODE (TREE_TYPE (ptrtype1)) != UNION_TYPE
       && TREE_CODE (TREE_TYPE (ptrtype1)) != QUAL_UNION_TYPE
-      && tree_int_cst_lt (DECL_SIZE (base2), TYPE_SIZE (TREE_TYPE (ptrtype1))))
+      && must_lt (wi::to_poly_widest (DECL_SIZE (base2)),
+		  wi::to_poly_widest (TYPE_SIZE (TREE_TYPE (ptrtype1)))))
     return false;
 
   if (!ref2)
@@ -1212,14 +1206,11 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
   dbase2 = ref2;
   while (handled_component_p (dbase2))
     dbase2 = TREE_OPERAND (dbase2, 0);
-  doffset1 = offset1;
-  doffset2 = offset2;
+  poly_int64 doffset1 = offset1;
+  poly_offset_int doffset2 = offset2;
   if (TREE_CODE (dbase2) == MEM_REF
       || TREE_CODE (dbase2) == TARGET_MEM_REF)
-    {
-      poly_offset_int moff = mem_ref_offset (dbase2) << LOG2_BITS_PER_UNIT;
-      doffset2 += moff.force_shwi ();
-    }
+    doffset2 -= mem_ref_offset (dbase2) << LOG2_BITS_PER_UNIT;
 
   /* If either reference is view-converted, give up now.  */
   if (same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (ptrtype1)) != 1
@@ -1309,10 +1300,9 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 					  TMR_INDEX2 (base2), 0))))))
     {
       poly_offset_int moff1 = mem_ref_offset (base1) << LOG2_BITS_PER_UNIT;
-      offset1 += moff1.force_shwi ();
       poly_offset_int moff2 = mem_ref_offset (base2) << LOG2_BITS_PER_UNIT;
-      offset2 += moff2.force_shwi ();
-      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_may_overlap_p (offset1 + moff1, max_size1,
+				   offset2 + moff2, max_size2);
     }
   if (!ptr_derefs_may_alias_p (ptr1, ptr2))
     return false;
@@ -2373,8 +2363,8 @@ same_addr_size_stores_p (tree base1, poly_int64 offset1, poly_int64 size1,
   /* Check that the object size is the same as the store size.  That ensures us
      that ptr points to the start of obj.  */
   return (DECL_SIZE (obj)
-	  && poly_tree_p (DECL_SIZE (obj))
-	  && must_eq (wi::to_poly_wide (DECL_SIZE (obj)), size1));
+	  && poly_int_tree_p (DECL_SIZE (obj))
+	  && must_eq (wi::to_poly_offset (DECL_SIZE (obj)), size1));
 }
 
 /* If STMT kills the memory reference REF return true, otherwise
@@ -2535,7 +2525,7 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 		return false;
 	      tree dest = gimple_call_arg (stmt, 0);
 	      tree len = gimple_call_arg (stmt, 2);
-	      if (!tree_fits_shwi_p (len))
+	      if (!poly_int_tree_p (len))
 		return false;
 	      tree rbase = ref->base;
 	      poly_offset_int roffset = ref->offset;
@@ -2557,7 +2547,7 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 		}
 	      if (base == rbase
 		  && known_subrange_p (roffset, ref->max_size, offset,
-				       wi::to_offset (len)
+				       wi::to_poly_offset (len)
 				       << LOG2_BITS_PER_UNIT))
 		return true;
 	      break;

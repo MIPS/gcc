@@ -1724,8 +1724,8 @@ noce_emit_cmove (struct noce_if_info *if_info, rtx x, enum rtx_code code,
     {
       rtx reg_vtrue = SUBREG_REG (vtrue);
       rtx reg_vfalse = SUBREG_REG (vfalse);
-      poly_int64 byte_vtrue = SUBREG_BYTE (vtrue);
-      poly_int64 byte_vfalse = SUBREG_BYTE (vfalse);
+      poly_uint64 byte_vtrue = SUBREG_BYTE (vtrue);
+      poly_uint64 byte_vfalse = SUBREG_BYTE (vfalse);
       rtx promoted_target;
 
       if (GET_MODE (reg_vtrue) != GET_MODE (reg_vfalse)

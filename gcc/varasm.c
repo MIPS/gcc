@@ -2885,7 +2885,8 @@ decode_addr_const (tree exp, struct addr_const *value)
     {
       poly_int64 bytepos;
       if (TREE_CODE (target) == COMPONENT_REF
-	  && poly_tree_p (byte_position (TREE_OPERAND (target, 1)), &bytepos))
+	  && poly_int_tree_p (byte_position (TREE_OPERAND (target, 1)),
+			      &bytepos))
 	{
 	  offset += bytepos;
 	  target = TREE_OPERAND (target, 0);

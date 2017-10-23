@@ -404,7 +404,7 @@ typedef unsigned char uchar;
    conversion operator going from the former to the latter.  We also
    allow this for gencondmd.c for all targets, so that we can treat
    machine_modes as enums without causing build failures.  */
-#if (defined (TARGET_C_FILE) \
+#if (defined (IN_TARGET_CODE) \
      && (defined (USE_ENUM_MODES) || NUM_POLY_INT_COEFFS == 1))
 #define POLY_INT_CONVERSION 1
 #else

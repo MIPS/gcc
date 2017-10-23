@@ -129,8 +129,9 @@ valid_ao_ref_for_dse (ao_ref *ref)
 {
   return (ao_ref_base (ref)
 	  && known_size_p (ref->max_size)
-	  && known_nonzero (ref->size)
+	  && maybe_nonzero (ref->size)
 	  && must_eq (ref->max_size, ref->size)
+	  && must_ge (ref->offset, 0)
 	  && multiple_p (ref->offset, BITS_PER_UNIT)
 	  && multiple_p (ref->size, BITS_PER_UNIT));
 }
@@ -151,16 +152,17 @@ normalize_ref (ao_ref *copy, ao_ref *ref)
   if (may_lt (copy->offset, ref->offset))
     {
       poly_int64 diff = ref->offset - copy->offset;
-      if (may_lt (copy->size, diff))
+      if (may_le (copy->size, diff))
 	return false;
       copy->size -= diff;
       copy->offset = ref->offset;
     }
 
   poly_int64 diff = copy->offset - ref->offset;
-  if (may_lt (ref->size, diff))
+  if (may_le (ref->size, diff))
     return false;
 
+  /* If COPY extends beyond REF, chop off its size appropriately.  */
   poly_int64 limit = ref->size - diff;
   if (!ordered_p (limit, copy->size))
     return false;
@@ -508,7 +510,7 @@ live_bytes_read (ao_ref use_ref, ao_ref *ref, sbitmap live)
 
       /* Now check if any of the remaining bits in use_ref are set in LIVE.  */
       return bitmap_bit_in_range_p (live, start / BITS_PER_UNIT,
-				    (start + size) / BITS_PER_UNIT);
+				    (start + size - 1) / BITS_PER_UNIT);
     }
   return true;
 }

@@ -469,6 +469,7 @@ enum reg_class
   FP_REGS,
   POINTER_AND_FP_REGS,
   PR_LO_REGS,
+  PR_HI_REGS,
   PR_REGS,
   ALL_REGS,
   LIM_REG_CLASSES		/* Last */
@@ -487,6 +488,7 @@ enum reg_class
   "FP_REGS",					\
   "POINTER_AND_FP_REGS",			\
   "PR_LO_REGS",					\
+  "PR_HI_REGS",					\
   "PR_REGS",					\
   "ALL_REGS"					\
 }
@@ -502,6 +504,7 @@ enum reg_class
   { 0x00000000, 0xffffffff, 0x00000000 },       /* FP_REGS  */		\
   { 0xffffffff, 0xffffffff, 0x00000003 },	/* POINTER_AND_FP_REGS */\
   { 0x00000000, 0x00000000, 0x000007f8 },	/* PR_LO_REGS */	\
+  { 0x00000000, 0x00000000, 0x0007f800 },	/* PR_HI_REGS */	\
   { 0x00000000, 0x00000000, 0x0007fff8 },	/* PR_REGS */		\
   { 0xffffffff, 0xffffffff, 0x000fffff }	/* ALL_REGS */		\
 }
@@ -564,8 +567,6 @@ extern enum aarch64_processor aarch64_tune;
 #define STACK_GROWS_DOWNWARD	1
 
 #define FRAME_GROWS_DOWNWARD	1
-
-#define STARTING_FRAME_OFFSET	0
 
 #define ACCUMULATE_OUTGOING_ARGS	1
 

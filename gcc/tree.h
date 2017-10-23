@@ -730,8 +730,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST or VEC_DUPLICATE_CST,
-   this means there was an overflow in folding.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST, VEC_DUPLICATE_CST
+   or VEC_SERES_CST, this means there was an overflow in folding.  */
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
 
@@ -1008,11 +1008,14 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_INT_CST_LOW(NODE) \
   ((unsigned HOST_WIDE_INT) TREE_INT_CST_ELT (NODE, 0))
 
+/* Return true if NODE is a POLY_INT_CST.  This is only ever true on
+   targets with variable-sized modes.  */
+#define POLY_INT_CST_P(NODE) \
+  (NUM_POLY_INT_COEFFS > 1 && TREE_CODE (NODE) == POLY_INT_CST)
+
 /* In a POLY_INT_CST node.  */
 #define POLY_INT_CST_COEFF(NODE, I) \
   (POLY_INT_CST_CHECK (NODE)->poly_int_cst.coeffs[I])
-#define POLY_INT_CST_P(NODE) \
-  (NUM_POLY_INT_COEFFS > 1 && TREE_CODE (NODE) == POLY_INT_CST)
 
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
@@ -1257,10 +1260,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define COND_EXPR_ELSE(NODE)	(TREE_OPERAND (COND_EXPR_CHECK (NODE), 2))
 
 /* Accessors for the chains of recurrences.  */
-#define CHREC_VAR(NODE)           TREE_OPERAND (POLYNOMIAL_CHREC_CHECK (NODE), 0)
-#define CHREC_LEFT(NODE)          TREE_OPERAND (POLYNOMIAL_CHREC_CHECK (NODE), 1)
-#define CHREC_RIGHT(NODE)         TREE_OPERAND (POLYNOMIAL_CHREC_CHECK (NODE), 2)
-#define CHREC_VARIABLE(NODE)      TREE_INT_CST_LOW (CHREC_VAR (NODE))
+#define CHREC_LEFT(NODE)          TREE_OPERAND (POLYNOMIAL_CHREC_CHECK (NODE), 0)
+#define CHREC_RIGHT(NODE)         TREE_OPERAND (POLYNOMIAL_CHREC_CHECK (NODE), 1)
+#define CHREC_VARIABLE(NODE)      POLYNOMIAL_CHREC_CHECK (NODE)->base.u.chrec_var
 
 /* LABEL_EXPR accessor. This gives access to the label associated with
    the given label expression.  */
@@ -2729,6 +2731,10 @@ extern void decl_value_expr_insert (tree, tree);
    LTO compilation and C++.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
+/* Raw accessor for DECL_ASSEMBLE_NAME.  */
+#define DECL_ASSEMBLER_NAME_RAW(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name)
+
 /* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
    This is true of all DECL nodes except FIELD_DECL.  */
 #define HAS_DECL_ASSEMBLER_NAME_P(NODE) \
@@ -2738,12 +2744,11 @@ extern void decl_value_expr_insert (tree, tree);
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
-  (HAS_DECL_ASSEMBLER_NAME_P (NODE) \
-   && DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name != NULL_TREE)
+  (DECL_ASSEMBLER_NAME_RAW (NODE) != NULL_TREE)
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name = (NAME))
+  (DECL_ASSEMBLER_NAME_RAW (NODE) = (NAME))
 
 /* Copy the DECL_ASSEMBLER_NAME from DECL1 to DECL2.  Note that if DECL1's
    DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
@@ -2755,10 +2760,7 @@ extern void decl_value_expr_insert (tree, tree);
    which will try to set the DECL_ASSEMBLER_NAME for DECL1.  */
 
 #define COPY_DECL_ASSEMBLER_NAME(DECL1, DECL2)				\
-  (DECL_ASSEMBLER_NAME_SET_P (DECL1)					\
-   ? (void) SET_DECL_ASSEMBLER_NAME (DECL2,				\
-				     DECL_ASSEMBLER_NAME (DECL1))	\
-   : (void) 0)
+  SET_DECL_ASSEMBLER_NAME (DECL2, DECL_ASSEMBLER_NAME_RAW (DECL1))
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
@@ -3661,6 +3663,7 @@ id_equal (const char *str, const_tree id)
 }
 
 /* Return the number of elements in the VECTOR_TYPE given by NODE.  */
+
 inline poly_uint64
 TYPE_VECTOR_SUBPARTS (const_tree node)
 {
@@ -3680,6 +3683,7 @@ TYPE_VECTOR_SUBPARTS (const_tree node)
 
 /* Set the number of elements in VECTOR_TYPE NODE to SUBPARTS, which must
    satisfy valid_vector_subparts_p.  */
+
 inline void
 SET_TYPE_VECTOR_SUBPARTS (tree node, poly_uint64 subparts)
 {
@@ -3700,6 +3704,7 @@ SET_TYPE_VECTOR_SUBPARTS (tree node, poly_uint64 subparts)
 
 /* Return true if we can construct vector types with the given number
    of subparts.  */
+
 static inline bool
 valid_vector_subparts_p (poly_uint64 subparts)
 {
@@ -4232,7 +4237,7 @@ extern bool valid_constant_size_p (const_tree);
    without loss of precision.  Store the value in *VALUE if so.  */
 
 inline bool
-poly_tree_p (const_tree t, poly_int64 *value)
+poly_int_tree_p (const_tree t, poly_int64_pod *value)
 {
   if (tree_fits_poly_int64_p (t))
     {
@@ -4246,7 +4251,7 @@ poly_tree_p (const_tree t, poly_int64 *value)
    without loss of precision.  Store the value in *VALUE if so.  */
 
 inline bool
-poly_tree_p (const_tree t, poly_uint64 *value)
+poly_int_tree_p (const_tree t, poly_uint64_pod *value)
 {
   if (tree_fits_poly_uint64_p (t))
     {
@@ -4804,7 +4809,7 @@ complete_or_array_type_p (const_tree type)
 /* Return true if the value of T could be represented as a poly_widest_int.  */
 
 inline bool
-poly_tree_p (const_tree t)
+poly_int_tree_p (const_tree t)
 {
   return (TREE_CODE (t) == INTEGER_CST || POLY_INT_CST_P (t));
 }
@@ -4829,9 +4834,7 @@ bit_field_offset (const_tree t)
 
 extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
-extern bool ptrdiff_tree_p (const_tree, poly_int64 *);
-extern bool poly_tree_p (const_tree, poly_int64 *);
-extern bool poly_tree_p (const_tree, poly_uint64 *);
+extern bool ptrdiff_tree_p (const_tree, poly_int64_pod *);
 extern bool decl_address_invariant_p (const_tree);
 extern bool decl_address_ip_invariant_p (const_tree);
 extern bool int_fits_type_p (const_tree, const_tree);
@@ -4861,7 +4864,6 @@ static inline hashval_t iterative_hash_expr(const_tree tree, hashval_t seed)
 }
 
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
-extern bool equal_tree_size (const_tree, poly_uint64);
 extern int type_list_equal (const_tree, const_tree);
 extern int chain_member (const_tree, const_tree);
 extern void dump_tree_statistics (void);
@@ -5314,7 +5316,8 @@ namespace wi
 
   typedef const generic_wide_int <widest_extended_tree> tree_to_widest_ref;
   typedef const generic_wide_int <offset_extended_tree> tree_to_offset_ref;
-  typedef const generic_wide_int <unextended_tree> tree_to_wide_ref;
+  typedef const generic_wide_int<wide_int_ref_storage<false, false> >
+    tree_to_wide_ref;
 
   tree_to_widest_ref to_widest (const_tree);
   tree_to_offset_ref to_offset (const_tree);
@@ -5442,7 +5445,8 @@ wi::to_offset (const_tree t)
 inline wi::tree_to_wide_ref
 wi::to_wide (const_tree t)
 {
-  return t;
+  return wi::storage_ref (&TREE_INT_CST_ELT (t, 0), TREE_INT_CST_NUNITS (t),
+			  TYPE_PRECISION (TREE_TYPE (t)));
 }
 
 /* Convert INTEGER_CST T to a wide_int of precision PREC, extending or
@@ -5520,6 +5524,9 @@ poly_int_cst_value (const_tree x)
   return res;
 }
 
+/* Access INTEGER_CST or POLY_INT_CST tree T as if it were a
+   poly_widest_int.  See wi::to_widest for more details.  */
+
 inline wi::tree_to_poly_widest_ref
 wi::to_poly_widest (const_tree t)
 {
@@ -5531,8 +5538,11 @@ wi::to_poly_widest (const_tree t)
 	res.coeffs[i] = POLY_INT_CST_COEFF (t, i);
       return res;
     }
-  return wi::to_widest (t);
+  return t;
 }
+
+/* Access INTEGER_CST or POLY_INT_CST tree T as if it were a
+   poly_offset_int.  See wi::to_offset for more details.  */
 
 inline wi::tree_to_poly_offset_ref
 wi::to_poly_offset (const_tree t)
@@ -5545,15 +5555,18 @@ wi::to_poly_offset (const_tree t)
 	res.coeffs[i] = POLY_INT_CST_COEFF (t, i);
       return res;
     }
-  return wi::to_offset (t);
+  return t;
 }
+
+/* Access INTEGER_CST or POLY_INT_CST tree T as if it were a
+   poly_wide_int.  See wi::to_wide for more details.  */
 
 inline wi::tree_to_poly_wide_ref
 wi::to_poly_wide (const_tree t)
 {
   if (POLY_INT_CST_P (t))
     return poly_int_cst_value (t);
-  return wi::to_wide (t);
+  return t;
 }
 
 template <int N>
@@ -5663,7 +5676,7 @@ extern bool complete_ctor_at_level_p (const_tree, HOST_WIDE_INT, const_tree);
 /* Given an expression EXP that is a handled_component_p,
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
-extern tree get_inner_reference (tree, poly_int64 *, poly_int64 *,
+extern tree get_inner_reference (tree, poly_int64_pod *, poly_int64_pod *,
 				 tree *, machine_mode *, int *, int *, int *);
 
 extern tree build_personality_function (const char *);

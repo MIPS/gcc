@@ -493,7 +493,7 @@ maybe_optimize_ubsan_ptr_ifn (sanopt_ctx *ctx, gimple *stmt)
 	  gcc_assert (!DECL_REGISTER (base));
 	  offset_int expr_offset = bitpos / BITS_PER_UNIT;
 	  offset_int total_offset = expr_offset + cur_offset;
-	  if (may_ne (total_offset, wi::sext (total_offset, POINTER_SIZE)))
+	  if (total_offset != wi::sext (total_offset, POINTER_SIZE))
 	    {
 	      record_ubsan_ptr_check_stmt (ctx, stmt, ptr, cur_offset);
 	      return false;

@@ -50,7 +50,7 @@ write_header (void)
 /* Generated automatically by the program `genconditions' from the target\n\
    machine description file.  */\n\
 \n\
-#define TARGET_C_FILE 1\n\
+#define IN_TARGET_CODE 1\n\
 #include \"bconfig.h\"\n\
 #define INCLUDE_STRING\n\
 #include \"system.h\"\n\

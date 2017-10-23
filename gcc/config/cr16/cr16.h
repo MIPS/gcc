@@ -349,8 +349,6 @@ enum reg_class
 /* Stack layout and calling conventions.  */
 #define STACK_GROWS_DOWNWARD 1
 
-#define STARTING_FRAME_OFFSET   0
-
 #define STACK_POINTER_REGNUM    15
 
 #define FRAME_POINTER_REGNUM    13
@@ -383,7 +381,7 @@ enum reg_class
 
 #define PUSH_ARGS 1
 
-#define PUSH_ROUNDING(BYTES) (((BYTES) + 1) & ~1)
+#define PUSH_ROUNDING(BYTES) cr16_push_rounding (BYTES)
 
 #ifndef CUMULATIVE_ARGS
 struct cumulative_args

@@ -494,8 +494,10 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 
 	  if (may_lt (offset, 0))
 	    return 1;
+	  if (known_zero (offset))
+	    return 0;
 	  if (!known_size_p (size))
-	    return maybe_nonzero (offset);
+	    return 1;
 
 	  /* If the size of the access or of the symbol is unknown,
 	     assume the worst.  */
@@ -507,7 +509,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 	    decl_size = -1;
 	  else if (DECL_P (decl) && DECL_SIZE_UNIT (decl))
 	    {
-	      if (!poly_tree_p (DECL_SIZE_UNIT (decl), &decl_size))
+	      if (!poly_int_tree_p (DECL_SIZE_UNIT (decl), &decl_size))
 		decl_size = -1;
 	    }
 	  else if (TREE_CODE (decl) == STRING_CST)
@@ -517,9 +519,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 	  else
 	    decl_size = -1;
 
-	  return (may_le (decl_size, 0)
-		  ? maybe_nonzero (offset)
-		  : may_gt (offset + size, decl_size));
+	  return !known_subrange_p (offset, size, 0, decl_size);
         }
 
       return 0;
@@ -550,12 +550,12 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 	    {
 	      if (FRAME_GROWS_DOWNWARD)
 		{
-		  high_bound = STARTING_FRAME_OFFSET;
+		  high_bound = targetm.starting_frame_offset ();
 		  low_bound  = high_bound - get_frame_size ();
 		}
 	      else
 		{
-		  low_bound  = STARTING_FRAME_OFFSET;
+		  low_bound  = targetm.starting_frame_offset ();
 		  high_bound = low_bound + get_frame_size ();
 		}
 	    }
@@ -686,7 +686,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 int
 rtx_addr_can_trap_p (const_rtx x)
 {
-  return rtx_addr_can_trap_p_1 (x, 0, 0, BLKmode, false);
+  return rtx_addr_can_trap_p_1 (x, 0, -1, BLKmode, false);
 }
 
 /* Return true if X contains a MEM subrtx.  */
@@ -921,7 +921,7 @@ split_const (rtx x, rtx *base_out, rtx *offset_out)
    to a new rtx).  Return the Y and store the offset in *OFFSET_OUT.  */
 
 rtx
-strip_offset (rtx x, poly_int64 *offset_out)
+strip_offset (rtx x, poly_int64_pod *offset_out)
 {
   rtx base = const0_rtx;
   rtx test = x;
@@ -932,7 +932,7 @@ strip_offset (rtx x, poly_int64 *offset_out)
       base = XEXP (test, 0);
       test = XEXP (test, 1);
     }
-  if (poly_int_const_p (test, offset_out))
+  if (poly_int_rtx_p (test, offset_out))
     return base;
   *offset_out = 0;
   return x;
@@ -2816,7 +2816,7 @@ may_trap_p_1 (const_rtx x, unsigned flags)
 	  code_changed
 	  || !MEM_NOTRAP_P (x))
 	{
-	  poly_int64 size = MEM_SIZE_KNOWN_P (x) ? MEM_SIZE (x) : 0;
+	  poly_int64 size = MEM_SIZE_KNOWN_P (x) ? MEM_SIZE (x) : -1;
 	  return rtx_addr_can_trap_p_1 (XEXP (x, 0), 0, size,
 					GET_MODE (x), code_changed);
 	}
@@ -3577,12 +3577,12 @@ loc_mentioned_in_p (rtx *loc, const_rtx in)
    and SUBREG_BYTE, return the bit offset where the subreg begins
    (counting from the least significant bit of the operand).  */
 
-poly_int64
+poly_uint64
 subreg_lsb_1 (machine_mode outer_mode,
 	      machine_mode inner_mode,
-	      poly_int64 subreg_byte)
+	      poly_uint64 subreg_byte)
 {
-  poly_int64 subreg_end, trailing_bytes, byte_pos;
+  poly_uint64 subreg_end, trailing_bytes, byte_pos;
 
   /* A paradoxical subreg begins at bit position 0.  */
   if (paradoxical_subreg_p (outer_mode, inner_mode))
@@ -3598,13 +3598,14 @@ subreg_lsb_1 (machine_mode outer_mode,
     {
       /* When bytes and words have oppposite endianness, we must be able
 	 to split offsets into words and bytes at compile time.  */
-      poly_int64 leading_word_part
+      poly_uint64 leading_word_part
 	= force_align_down (subreg_byte, UNITS_PER_WORD);
-      poly_int64 trailing_word_part
+      poly_uint64 trailing_word_part
 	= force_align_down (trailing_bytes, UNITS_PER_WORD);
       /* If the subreg crosses a word boundary ensure that
 	 it also begins and ends on a word boundary.  */
-      gcc_assert (must_le (subreg_end - leading_word_part, UNITS_PER_WORD)
+      gcc_assert (must_le (subreg_end - leading_word_part,
+			   (unsigned int) UNITS_PER_WORD)
 		  || (must_eq (leading_word_part, subreg_byte)
 		      && must_eq (trailing_word_part, trailing_bytes)));
       if (WORDS_BIG_ENDIAN)
@@ -3619,7 +3620,7 @@ subreg_lsb_1 (machine_mode outer_mode,
 /* Given a subreg X, return the bit offset where the subreg begins
    (counting from the least significant bit of the reg).  */
 
-poly_int64
+poly_uint64
 subreg_lsb (const_rtx x)
 {
   return subreg_lsb_1 (GET_MODE (x), GET_MODE (SUBREG_REG (x)),
@@ -3632,20 +3633,20 @@ subreg_lsb (const_rtx x)
    lsb of the inner value.  This is the inverse of the calculation
    performed by subreg_lsb_1 (which converts byte offsets to bit shifts).  */
 
-poly_int64
-subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
-			     poly_int64 lsb_shift)
+poly_uint64
+subreg_size_offset_from_lsb (poly_uint64 outer_bytes, poly_uint64 inner_bytes,
+			     poly_uint64 lsb_shift)
 {
   /* A paradoxical subreg begins at bit position 0.  */
   gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
   if (may_gt (outer_bytes, inner_bytes))
     {
-      gcc_checking_assert (must_eq (lsb_shift, 0));
+      gcc_checking_assert (known_zero (lsb_shift));
       return 0;
     }
 
-  poly_int64 lower_bytes = exact_div (lsb_shift, BITS_PER_UNIT);
-  poly_int64 upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
+  poly_uint64 lower_bytes = exact_div (lsb_shift, BITS_PER_UNIT);
+  poly_uint64 upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
   if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
     return upper_bytes;
   else if (!WORDS_BIG_ENDIAN && !BYTES_BIG_ENDIAN)
@@ -3654,10 +3655,10 @@ subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
     {
       /* When bytes and words have oppposite endianness, we must be able
 	 to split offsets into words and bytes at compile time.  */
-      poly_int64 lower_word_part = force_align_down (lower_bytes,
-						     UNITS_PER_WORD);
-      poly_int64 upper_word_part = force_align_down (upper_bytes,
-						     UNITS_PER_WORD);
+      poly_uint64 lower_word_part = force_align_down (lower_bytes,
+						      UNITS_PER_WORD);
+      poly_uint64 upper_word_part = force_align_down (upper_bytes,
+						      UNITS_PER_WORD);
       if (WORDS_BIG_ENDIAN)
 	return upper_word_part + (lower_bytes - lower_word_part);
       else
@@ -3686,15 +3687,15 @@ subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
 
 void
 subreg_get_info (unsigned int xregno, machine_mode xmode,
-		 poly_int64 offset, machine_mode ymode,
+		 poly_uint64 offset, machine_mode ymode,
 		 struct subreg_info *info)
 {
   unsigned int nregs_xmode, nregs_ymode;
 
   gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
 
-  poly_int64 xsize = GET_MODE_SIZE (xmode);
-  poly_int64 ysize = GET_MODE_SIZE (ymode);
+  poly_uint64 xsize = GET_MODE_SIZE (xmode);
+  poly_uint64 ysize = GET_MODE_SIZE (ymode);
 
   bool rknown = false;
 
@@ -3705,7 +3706,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
   if (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode))
     {
       /* As a consequence, we must be dealing with a constant number of
-	 scalars, and thus a constant offset.  */
+	 scalars, and thus a constant offset and number of units.  */
       HOST_WIDE_INT coffset = offset.to_constant ();
       HOST_WIDE_INT cysize = ysize.to_constant ();
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
@@ -3739,8 +3740,11 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   nregs_ymode = hard_regno_nregs (xregno, ymode);
 
-  /* Paradoxical subregs are otherwise valid.  */
+  /* Subreg sizes must be ordered, so that we can tell whether they are
+     partial, paradoxical or complete.  */
   gcc_checking_assert (ordered_p (xsize, ysize));
+
+  /* Paradoxical subregs are otherwise valid.  */
   if (!rknown && known_zero (offset) && may_gt (ysize, xsize))
     {
       info->representable_p = true;
@@ -3763,7 +3767,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   /* If registers store different numbers of bits in the different
      modes, we cannot generally form this subreg.  */
-  poly_int64 regsize_xmode, regsize_ymode;
+  poly_uint64 regsize_xmode, regsize_ymode;
   if (!HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode)
       && !HARD_REGNO_NREGS_HAS_PADDING (xregno, ymode)
       && multiple_p (xsize, nregs_xmode, &regsize_xmode)
@@ -3776,6 +3780,8 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	  info->representable_p = false;
 	  if (!can_div_away_from_zero_p (ysize, regsize_xmode, &info->nregs)
 	      || !can_div_trunc_p (offset, regsize_xmode, &info->offset))
+	    /* Checked by validate_subreg.  We must know at compile time
+	       which inner registers are being accessed.  */
 	    gcc_unreachable ();
 	  return;
 	}
@@ -3786,6 +3792,8 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	  info->representable_p = false;
 	  info->nregs = nregs_ymode;
 	  if (!can_div_trunc_p (offset, regsize_xmode, &info->offset))
+	    /* Checked by validate_subreg.  We must know at compile time
+	       which inner registers are being accessed.  */
 	    gcc_unreachable ();
 	  return;
 	}
@@ -3834,14 +3842,16 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
      be exact, otherwise we don't know how to verify the constraint.
      These conditions may be relaxed but subreg_regno_offset would
      need to be redesigned.  */
-  poly_int64 bytes_per_block = exact_div (xsize, num_blocks);
+  poly_uint64 bytes_per_block = exact_div (xsize, num_blocks);
 
   /* Get the number of the first block that contains the subreg and the byte
      offset of the subreg from the start of that block.  */
   unsigned int block_number;
-  poly_int64 subblock_offset;
+  poly_uint64 subblock_offset;
   if (!can_div_trunc_p (offset, bytes_per_block, &block_number,
 			&subblock_offset))
+    /* Checked by validate_subreg.  We must know at compile time which
+       inner registers are being accessed.  */
     gcc_unreachable ();
 
   if (!rknown)
@@ -3876,7 +3886,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
    RETURN - The regno offset which would be used.  */
 unsigned int
 subreg_regno_offset (unsigned int xregno, machine_mode xmode,
-		     poly_int64 offset, machine_mode ymode)
+		     poly_uint64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3892,7 +3902,7 @@ subreg_regno_offset (unsigned int xregno, machine_mode xmode,
    RETURN - Whether the offset is representable.  */
 bool
 subreg_offset_representable_p (unsigned int xregno, machine_mode xmode,
-			       poly_int64 offset, machine_mode ymode)
+			       poly_uint64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3909,7 +3919,7 @@ subreg_offset_representable_p (unsigned int xregno, machine_mode xmode,
 
 int
 simplify_subreg_regno (unsigned int xregno, machine_mode xmode,
-		       poly_int64 offset, machine_mode ymode)
+		       poly_uint64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   unsigned int yregno;
@@ -4509,8 +4519,10 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	     stack to be momentarily aligned only to that amount,
 	     so we pick the least alignment.  */
 	  if (x == stack_pointer_rtx && PUSH_ARGS)
-	    alignment = MIN ((unsigned HOST_WIDE_INT) PUSH_ROUNDING (1),
-			     alignment);
+	    {
+	      poly_uint64 rounded_1 = PUSH_ROUNDING (poly_int64 (1));
+	      alignment = MIN (known_alignment (rounded_1), alignment);
+	    }
 #endif
 
 	  nonzero &= ~(alignment - 1);

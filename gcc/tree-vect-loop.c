@@ -190,7 +190,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   tree scalar_type = NULL_TREE;
   gphi *phi;
   tree vectype;
-  poly_uint64 nunits;
   stmt_vec_info stmt_info;
   unsigned i;
   HOST_WIDE_INT dummy;
@@ -7559,7 +7558,6 @@ vect_worthwhile_without_simd_p (vec_info *vinfo, tree_code code)
 	  && LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&value)
 	  && value >= vect_min_worthwhile_factor (code));
 }
-
 
 /* Function vectorizable_induction
 

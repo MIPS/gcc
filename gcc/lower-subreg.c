@@ -610,13 +610,13 @@ decompose_register (unsigned int regno)
 /* Get a SUBREG of a CONCATN.  */
 
 static rtx
-simplify_subreg_concatn (machine_mode outermode, rtx op, poly_int64 orig_byte)
+simplify_subreg_concatn (machine_mode outermode, rtx op, poly_uint64 orig_byte)
 {
   unsigned int outer_size, outer_words, inner_size, inner_words;
   machine_mode innermode, partmode;
   rtx part;
   unsigned int final_offset;
-  HOST_WIDE_INT byte;
+  unsigned int byte;
 
   innermode = GET_MODE (op);
   if (!interesting_mode_p (outermode, &outer_size, &outer_words)

@@ -4137,9 +4137,15 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     return false;
 
   combined_fn cfn = gimple_call_combined_fn (stmt);
-  if (cfn == CFN_MASK_LOAD || cfn == CFN_MASK_STORE)
-    return vectorizable_mask_load_store (stmt, gsi, vec_stmt,
-					 slp_node);
+  switch (cfn)
+    {
+    case CFN_MASK_LOAD:
+    case CFN_MASK_STORE:
+      return vectorizable_mask_load_store (stmt, gsi, vec_stmt, slp_node);
+
+    default:
+      break;
+    }
 
   if (gimple_call_lhs (stmt) == NULL_TREE
       || TREE_CODE (gimple_call_lhs (stmt)) != SSA_NAME)
@@ -4710,7 +4716,8 @@ vect_simd_lane_linear (tree op, struct loop *loop,
 }
 
 /* Return the number of elements in vector type VECTYPE, which is associated
-   with a SIMD clone.  At present these are always constant-width.  */
+   with a SIMD clone.  At present these vectors always have a constant
+   length.  */
 
 static unsigned HOST_WIDE_INT
 simd_clone_subparts (tree vectype)
@@ -8153,14 +8160,6 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			    &memory_access_type, &gs_info))
     return false;
 
-  if (firstfaulting_p && memory_access_type != VMAT_CONTIGUOUS)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			"Non-contiguous not supported for first faulting\n");
-      return false;
-    }
-
   wgather_info wgather = DEFAULT_WGATHER_INFO;
   if (memory_access_type == VMAT_GATHER_SCATTER)
     {
@@ -8168,6 +8167,14 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  && may_ne (nunits, TYPE_VECTOR_SUBPARTS (gs_info.offset_vectype))
 	  && !widened_gather_support_p (vectype, &gs_info, stmt, &wgather))
 	return false;
+    }
+
+  if (firstfaulting_p && memory_access_type != VMAT_CONTIGUOUS)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			"Non-contiguous not supported for first faulting\n");
+      return false;
     }
 
   if (firstfaulting_p)

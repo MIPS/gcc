@@ -633,8 +633,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
      held in REGNO.  If none, we look for the largest floating-point mode.
      If we still didn't find a valid mode, try CCmode.
 
-     The tests use may_gt rather than must_gt because we want N V4SFs to
-     win over plain V4SF even though N might be 1.  */
+     The tests use may_gt rather than must_gt because we want (for example)
+     N V4SFs to win over plain V4SF even though N might be 1.  */
   FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
     if (hard_regno_nregs (regno, mode) == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)

@@ -702,7 +702,7 @@ gimple_add_tmp_var_fn (struct function *fn, tree tmp)
      not be true at this point.  Force the use of a constant upper bound in
      this case.  */
   poly_uint64 size;
-  if (!poly_tree_p (DECL_SIZE_UNIT (tmp), &size))
+  if (!poly_int_tree_p (DECL_SIZE_UNIT (tmp), &size))
     force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = fn->decl;
@@ -722,7 +722,7 @@ gimple_add_tmp_var (tree tmp)
      not be true at this point.  Force the use of a constant upper bound in
      this case.  */
   poly_uint64 size;
-  if (!poly_tree_p (DECL_SIZE_UNIT (tmp), &size))
+  if (!poly_int_tree_p (DECL_SIZE_UNIT (tmp), &size))
     force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = current_function_decl;
@@ -3030,7 +3030,7 @@ maybe_with_size_expr (tree *expr_p)
 
   /* If the size isn't known or is a constant, we have nothing to do.  */
   size = TYPE_SIZE_UNIT (type);
-  if (!size || poly_tree_p (size))
+  if (!size || poly_int_tree_p (size))
     return;
 
   /* Otherwise, make a WITH_SIZE_EXPR.  */
@@ -7888,7 +7888,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    base = TREE_OPERAND (base, 0);
 		  gcc_assert (base == decl
 			      && (offset == NULL_TREE
-				  || TREE_CODE (offset) == INTEGER_CST));
+				  || poly_int_tree_p (offset)));
 
 		  splay_tree_node n
 		    = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
@@ -7969,7 +7969,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			n->value |= GOVD_SEEN;
 		      poly_offset_int o1, o2;
 		      if (offset)
-			o1 = wi::to_offset (offset);
+			o1 = wi::to_poly_offset (offset);
 		      else
 			o1 = 0;
 		      if (maybe_nonzero (bitpos))
@@ -8028,7 +8028,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			    if (scp)
 			      continue;
 			    gcc_assert (offset == NULL_TREE
-					|| TREE_CODE (offset) == INTEGER_CST);
+					|| poly_int_tree_p (offset));
 			    tree d1 = OMP_CLAUSE_DECL (*sc);
 			    tree d2 = OMP_CLAUSE_DECL (c);
 			    while (TREE_CODE (d1) == ARRAY_REF)
@@ -8058,15 +8058,13 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 				break;
 			      }
 			    if (offset2)
-			      o2 = wi::to_offset (offset2);
+			      o2 = wi::to_poly_offset (offset2);
 			    else
 			      o2 = 0;
 			    o2 += bits_to_bytes_round_down (bitpos2);
-			    int order = compare_sizes_for_sort (o1, o2);
-			    if (order < 0
-				|| (order == 0
-				    && compare_sizes_for_sort (bitpos,
-							       bitpos2) < 0))
+			    if (may_lt (o1, o2)
+				|| (must_eq (o1, 2)
+				    && may_lt (bitpos, bitpos2)))
 			      {
 				if (ptr)
 				  scp = sc;

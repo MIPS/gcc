@@ -468,11 +468,12 @@ known size.
 As well as the core comparisons
 (@pxref{Comparison functions for @code{poly_int}}), @code{poly_int} provides
 utilities for various kinds of range check.  In each case the range
-is represented by a start position and a length rather than a start
+is represented by a start position and a size rather than a start
 position and an end position; this is because the former is used
 much more often than the latter in GCC@.  Also, the sizes can be
 -1 (or all ones for unsigned sizes) to indicate a range with a known
-start position but an unknown size.
+start position but an unknown size.  All other sizes must be nonnegative.
+A range of size 0 does not contain anything or overlap anything.
 
 @table @samp
 @item known_size_p (@var{size})
@@ -506,6 +507,19 @@ Return true if the range described by @var{pos} and @var{size} is
 open-ended or if the endpoint (@var{pos} + @var{size}) is representable
 in the same type as @var{pos} and @var{size}.  The function returns false
 if adding @var{size} to @var{pos} makes conceptual sense but could overflow.
+@end table
+
+There is also a @code{poly_int} version of the @code{IN_RANGE_P} macro:
+
+@table @samp
+@item coeffs_in_range_p (@var{x}, @var{lower}, @var{upper})
+Return true if every coefficient of @var{x} is in the inclusive range
+[@var{lower}, @var{upper}].  This function can be useful when testing
+whether an operation would cause the values of coefficients to
+overflow.
+
+Note that the function does not indicate whether @var{x} itself is in the
+given range.  @var{x} can be either a constant or a @code{poly_int}.
 @end table
 
 @node Sorting @code{poly_int}s
@@ -626,6 +640,8 @@ wi::sub (@var{p1}, @var{p2}, @var{sign}, &@var{overflow})
 wi::mul (@var{p1}, @var{c2})
 wi::mul (@var{c1}, @var{p1})
 wi::mul (@var{p1}, @var{c2}, @var{sign}, &@var{overflow})
+
+wi::lshift (@var{p1}, @var{c2})
 @end smallexample
 
 These routines just check whether overflow occurs on any individual
@@ -865,6 +881,19 @@ Forcibly convert each coefficient of @samp{poly_int<@var{N}, @var{T}>}
 @var{value} to @code{unsigned HOST_WIDE_INT}, truncating any that are
 out of range.  Return the result as a
 @samp{poly_int<@var{N}, @code{unsigned HOST_WIDE_INT}>}.
+
+@item wi::shwi (@var{value}, @var{precision})
+Return a @code{poly_int} with the same value as @var{value}, but with
+the coefficients converted from @code{HOST_WIDE_INT} to @code{wide_int}.
+@var{precision} specifies the precision of the @code{wide_int} cofficients;
+if this is wider than a @code{HOST_WIDE_INT}, the coefficients of
+@var{value} will be sign-extended to fit.
+
+@item wi::uhwi (@var{value}, @var{precision})
+Like @code{wi::shwi}, except that @var{value} has coefficients of
+type @code{unsigned HOST_WIDE_INT}.  If @var{precision} is wider than
+a @code{HOST_WIDE_INT}, the coefficients of @var{value} will be
+zero-extended to fit.
 
 @item wi::sext (@var{value}, @var{precision})
 Return a @code{poly_int} of the same type as @var{value}, sign-extending

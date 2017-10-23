@@ -2952,7 +2952,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  error ("invalid first operand of MEM_REF");
 	  return x;
 	}
-      if (!poly_tree_p (TREE_OPERAND (t, 1))
+      if (!poly_int_tree_p (TREE_OPERAND (t, 1))
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 1))))
 	{
 	  error ("invalid offset operand of MEM_REF");
@@ -3055,8 +3055,8 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  tree t1 = TREE_OPERAND (t, 1);
 	  tree t2 = TREE_OPERAND (t, 2);
 	  poly_uint64 size, bitpos;
-	  if (!poly_tree_p (t1, &size)
-	      || !poly_tree_p (t2, &bitpos)
+	  if (!poly_int_tree_p (t1, &size)
+	      || !poly_int_tree_p (t2, &bitpos)
 	      || !types_compatible_p (bitsizetype, TREE_TYPE (t1))
 	      || !types_compatible_p (bitsizetype, TREE_TYPE (t2)))
 	    {
@@ -3358,7 +3358,7 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  debug_generic_stmt (expr);
 	  return true;
 	}
-      if (!poly_tree_p (TREE_OPERAND (expr, 1))
+      if (!poly_int_tree_p (TREE_OPERAND (expr, 1))
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
 	{
 	  error ("invalid offset operand in MEM_REF");
@@ -3375,7 +3375,7 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  return true;
 	}
       if (!TMR_OFFSET (expr)
-	  || !poly_tree_p (TMR_OFFSET (expr))
+	  || !poly_int_tree_p (TMR_OFFSET (expr))
 	  || !POINTER_TYPE_P (TREE_TYPE (TMR_OFFSET (expr))))
 	{
 	  error ("invalid offset operand in TARGET_MEM_REF");

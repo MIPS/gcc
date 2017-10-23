@@ -200,7 +200,7 @@ static int last_spill_reg;
 static rtx spill_stack_slot[FIRST_PSEUDO_REGISTER];
 
 /* Width allocated so far for that stack slot.  */
-static poly_int64 spill_stack_slot_width[FIRST_PSEUDO_REGISTER];
+static poly_uint64_pod spill_stack_slot_width[FIRST_PSEUDO_REGISTER];
 
 /* Record which pseudos needed to be spilled.  */
 static regset_head spilled_pseudos;
@@ -261,13 +261,13 @@ struct elim_table
 {
   int from;			/* Register number to be eliminated.  */
   int to;			/* Register number used as replacement.  */
-  poly_int64 initial_offset;	/* Initial difference between values.  */
+  poly_int64_pod initial_offset; /* Initial difference between values.  */
   int can_eliminate;		/* Nonzero if this elimination can be done.  */
   int can_eliminate_previous;	/* Value returned by TARGET_CAN_ELIMINATE
 				   target hook in previous scan over insns
 				   made by reload.  */
-  poly_int64 offset;		/* Current offset between the two regs.  */
-  poly_int64 previous_offset;	/* Offset at end of previous insn.  */
+  poly_int64_pod offset;	/* Current offset between the two regs.  */
+  poly_int64_pod previous_offset; /* Offset at end of previous insn.  */
   int ref_outside_mem;		/* "to" has been referenced outside a MEM.  */
   rtx from_rtx;			/* REG rtx for the register to be eliminated.
 				   We cannot simply compare the number since
@@ -313,7 +313,7 @@ static int num_eliminable_invariants;
 
 static int first_label_num;
 static char *offsets_known_at;
-static poly_int64 (*offsets_at)[NUM_ELIMINABLE_REGS];
+static poly_int64_pod (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 vec<reg_equivs_t, va_gc> *reg_equivs;
 
@@ -963,7 +963,7 @@ reload (rtx_insn *first, int global)
 	     then repeat the elimination bookkeeping.  We don't
 	     realign when there is no stack, as that will cause a
 	     stack frame when none is needed should
-	     STARTING_FRAME_OFFSET not be already aligned to
+	     TARGET_STARTING_FRAME_OFFSET not be already aligned to
 	     STACK_BOUNDARY.  */
 	  assign_stack_local (BLKmode, 0, crtl->stack_alignment_needed);
 	}
@@ -2142,10 +2142,10 @@ alter_reg (int i, int from_reg, bool dont_share_p)
     {
       rtx x = NULL_RTX;
       machine_mode mode = GET_MODE (regno_reg_rtx[i]);
-      poly_int64 inherent_size = GET_MODE_SIZE (mode);
+      poly_uint64 inherent_size = GET_MODE_SIZE (mode);
       unsigned int inherent_align = GET_MODE_ALIGNMENT (mode);
       machine_mode wider_mode = wider_subreg_mode (mode, reg_max_ref_mode[i]);
-      poly_int64 total_size = GET_MODE_SIZE (wider_mode);
+      poly_uint64 total_size = GET_MODE_SIZE (wider_mode);
       /* ??? Seems strange to derive the minimum alignment from the size,
 	 but that's the traditional behavior.  For polynomial-size modes,
 	 the natural extension is to use the minimum possible size.  */
@@ -2178,8 +2178,11 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	{
 	  rtx stack_slot;
 
-	  /* No known place to spill from => no slot to reuse.  */
+	  /* The sizes are taken from a subreg operation, which guarantees
+	     that they're ordered.  */
 	  gcc_checking_assert (ordered_p (total_size, inherent_size));
+
+	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
 				  || may_gt (total_size, inherent_size)
@@ -2234,8 +2237,11 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 		min_align = MEM_ALIGN (spill_stack_slot[from_reg]);
 	    }
 
-	  /* Make a slot with that size.  */
+	  /* The sizes are taken from a subreg operation, which guarantees
+	     that they're ordered.  */
 	  gcc_checking_assert (ordered_p (total_size, inherent_size));
+
+	  /* Make a slot with that size.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
 				  || may_gt (total_size, inherent_size)
@@ -3011,7 +3017,7 @@ elimination_effects (rtx x, machine_mode mem_mode)
 	    /* If more bytes than MEM_MODE are pushed, account for them.  */
 #ifdef PUSH_ROUNDING
 	    if (ep->to_rtx == stack_pointer_rtx)
-	      size = PUSH_ROUNDING (MACRO_INT (size));
+	      size = PUSH_ROUNDING (size);
 #endif
 	    if (code == PRE_DEC || code == POST_DEC)
 	      ep->offset += size;
@@ -4108,7 +4114,7 @@ init_eliminable_invariants (rtx_insn *first, bool do_subregs)
 
   /* Allocate the tables used to store offset information at labels.  */
   offsets_known_at = XNEWVEC (char, num_labels);
-  offsets_at = (poly_int64 (*)[NUM_ELIMINABLE_REGS])
+  offsets_at = (poly_int64_pod (*)[NUM_ELIMINABLE_REGS])
     xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (poly_int64));
 
 /* Look for REG_EQUIV notes; record what each pseudo is equivalent

@@ -408,6 +408,7 @@ verify_changes (int num)
 	       && REG_P (changes[i].old)
 	       && asm_noperands (PATTERN (object)) > 0
 	       && REG_EXPR (changes[i].old) != NULL_TREE
+	       && HAS_DECL_ASSEMBLER_NAME_P (REG_EXPR (changes[i].old))
 	       && DECL_ASSEMBLER_NAME_SET_P (REG_EXPR (changes[i].old))
 	       && DECL_REGISTER (REG_EXPR (changes[i].old)))
 	{
@@ -1282,7 +1283,7 @@ push_operand (rtx op, machine_mode mode)
       if (GET_CODE (op) != PRE_MODIFY
 	  || GET_CODE (XEXP (op, 1)) != PLUS
 	  || XEXP (XEXP (op, 1), 0) != XEXP (op, 0)
-	  || !poly_int_const_p (XEXP (XEXP (op, 1), 1), &offset)
+	  || !poly_int_rtx_p (XEXP (XEXP (op, 1), 1), &offset)
 	  || (STACK_GROWS_DOWNWARD
 	      ? may_ne (offset, -rounded_size)
 	      : may_ne (offset, rounded_size)))
@@ -1377,10 +1378,9 @@ indirect_operand (rtx op, machine_mode mode)
 	 address is if OFFSET is zero and the address already is an operand
 	 or if the address is (plus Y (const_int -OFFSET)) and Y is an
 	 operand.  */
-      rtx addr = XEXP (SUBREG_REG (op), 0);
       poly_int64 offset;
-      addr = strip_offset (addr, &offset);
-      return (must_eq (offset + SUBREG_BYTE (op), 0)
+      rtx addr = strip_offset (XEXP (SUBREG_REG (op), 0), &offset);
+      return (known_zero (offset + SUBREG_BYTE (op))
 	      && general_operand (addr, Pmode));
     }
 
@@ -1967,7 +1967,7 @@ offsettable_address_addr_space_p (int strictp, machine_mode mode, rtx y,
      Clearly that depends on the situation in which it's being used.
      However, the current situation in which we test 0xffffffff is
      less than ideal.  Caveat user.  */
-  if (must_eq (mode_sz, 0))
+  if (known_zero (mode_sz))
     mode_sz = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
 
   /* If the expression contains a constant term,

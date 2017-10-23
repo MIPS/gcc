@@ -2664,7 +2664,7 @@ tree_could_trap_p (tree expr)
 	    return may_le (TREE_STRING_LENGTH (base), off);
 	  tree size = DECL_SIZE_UNIT (base);
 	  if (size == NULL_TREE
-	      || !poly_tree_p (size)
+	      || !poly_int_tree_p (size)
 	      || may_le (wi::to_poly_offset (size), off))
 	    return true;
 	  /* Now we are sure the first byte of the access is inside

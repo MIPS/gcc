@@ -27,7 +27,7 @@
    This is not a complete assembler.  We presume the source is well
    formed from the compiler and can die horribly if it is not.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"

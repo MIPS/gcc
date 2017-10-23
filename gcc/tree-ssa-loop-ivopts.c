@@ -3054,7 +3054,7 @@ get_loop_invariant_expr (struct ivopts_data *data, tree inv_expr)
 {
   STRIP_NOPS (inv_expr);
 
-  if (poly_tree_p (inv_expr)
+  if (poly_int_tree_p (inv_expr)
       || TREE_CODE (inv_expr) == SSA_NAME)
     return NULL;
 
@@ -3152,7 +3152,7 @@ add_candidate_1 (struct ivopts_data *data,
       cand->incremented_at = incremented_at;
       data->vcands.safe_push (cand);
 
-      if (!poly_tree_p (step))
+      if (!poly_int_tree_p (step))
 	{
 	  find_inv_vars (data, &step, &cand->inv_vars);
 
@@ -3888,7 +3888,7 @@ get_computation_aff_1 (struct loop *loop, gimple *at, struct iv_use *use,
   if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
     {
       if (cand->orig_iv != NULL && CONVERT_EXPR_P (cbase)
-	  && (CONVERT_EXPR_P (cstep) || poly_tree_p (cstep)))
+	  && (CONVERT_EXPR_P (cstep) || poly_int_tree_p (cstep)))
 	{
 	  tree inner_base, inner_step, inner_type;
 	  inner_base = TREE_OPERAND (cbase, 0);
@@ -4146,7 +4146,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 
   if (is_gimple_min_invariant (expr))
     {
-      if (poly_tree_p (expr))
+      if (poly_int_tree_p (expr))
 	return comp_cost (integer_cost [speed], 0);
 
       if (TREE_CODE (expr) == ADDR_EXPR)
@@ -4477,7 +4477,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
       poly_int64 ainc_step;
       if (can_autoinc
 	  && ratio == 1
-	  && poly_tree_p (cand->iv->step, &ainc_step))
+	  && ptrdiff_tree_p (cand->iv->step, &ainc_step))
 	{
 	  poly_int64 ainc_offset = (aff_inv->offset).force_shwi ();
 

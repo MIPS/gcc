@@ -920,7 +920,7 @@ store_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	 is not allowed.
 
 	 The mode must be fixed-size, since insertions into variable-sized
-	 objects must be handled before calling this function.  */
+	 objects are meant to be handled before calling this function.  */
       fixed_size_mode value_mode = as_a <fixed_size_mode> (GET_MODE (value));
       if (value_mode == VOIDmode)
 	value_mode = smallest_int_mode_for_size (nwords * BITS_PER_WORD);
@@ -1861,8 +1861,9 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
       /* Indicate for flow that the entire target reg is being set.  */
       emit_clobber (target);
 
-      /* The mode must be fixed-size, since extractions from variable-sized
-	 objects must be handled before calling this function.  */
+      /* The mode must be fixed-size, since extract_bit_field_1 handles
+	 extractions from variable-sized objects before calling this
+	 function.  */
       unsigned int target_size
 	= GET_MODE_SIZE (GET_MODE (target)).to_constant ();
       last = get_last_insn ();
@@ -2050,9 +2051,9 @@ extract_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   machine_mode mode1;
 
   /* Handle -fstrict-volatile-bitfields in the cases where it applies.  */
-  if (may_ne (GET_MODE_BITSIZE (GET_MODE (str_rtx)), 0))
+  if (maybe_nonzero (GET_MODE_BITSIZE (GET_MODE (str_rtx))))
     mode1 = GET_MODE (str_rtx);
-  else if (target && may_ne (GET_MODE_BITSIZE (GET_MODE (target)), 0))
+  else if (target && maybe_nonzero (GET_MODE_BITSIZE (GET_MODE (target))))
     mode1 = GET_MODE (target);
   else
     mode1 = tmode;
@@ -2352,7 +2353,7 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
       /* simplify_gen_subreg can't be used here, as if simplify_subreg
 	 fails, it will happily create (subreg (symbol_ref)) or similar
 	 invalid SUBREGs.  */
-      poly_int64 byte = subreg_lowpart_offset (mode, src_mode);
+      poly_uint64 byte = subreg_lowpart_offset (mode, src_mode);
       rtx ret = simplify_subreg (mode, src, src_mode, byte);
       if (ret)
 	return ret;
@@ -5277,10 +5278,6 @@ make_tree (tree type, rtx x)
 
       return t;
 
-    case CONST_POLY_INT:
-      /* FIXME */
-      gcc_unreachable ();
-
     case CONST_VECTOR:
       {
 	int units = CONST_VECTOR_NUNITS (x);
@@ -5375,6 +5372,9 @@ make_tree (tree type, rtx x)
       /* fall through.  */
 
     default:
+      if (CONST_POLY_INT_P (x))
+	return wide_int_to_tree (t, const_poly_int_value (x));
+
       t = build_decl (RTL_LOCATION (x), VAR_DECL, NULL_TREE, type);
 
       /* If TYPE is a POINTER_TYPE, we might need to convert X from

@@ -329,7 +329,8 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
       aff_combination_const (comb, type, bytepos);
       if (TREE_CODE (core) == MEM_REF)
 	{
-	  aff_combination_add_cst (comb, wi::to_widest (TREE_OPERAND (core, 1)));
+	  tree mem_offset = TREE_OPERAND (core, 1);
+	  aff_combination_add_cst (comb, wi::to_poly_widest (mem_offset));
 	  core = TREE_OPERAND (core, 0);
 	}
       else
@@ -428,7 +429,7 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
 
     default:
       {
-	if (poly_tree_p (expr))
+	if (poly_int_tree_p (expr))
 	  {
 	    aff_combination_const (comb, type, wi::to_poly_widest (expr));
 	    return;
@@ -816,7 +817,7 @@ wide_int_constant_multiple_p (const poly_widest_int &val,
 
   if (known_zero (val))
     {
-      if (*mult_set && may_ne (*mult, 0))
+      if (*mult_set && maybe_nonzero (*mult))
 	return false;
       *mult_set = true;
       *mult = 0;

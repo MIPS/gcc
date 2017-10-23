@@ -1887,6 +1887,8 @@ set_regno_raw (rtx x, unsigned int regno, unsigned int nregs)
 #define CONST_WIDE_INT_NUNITS(RTX) CWI_GET_NUM_ELEM (RTX)
 #define CONST_WIDE_INT_ELT(RTX, N) CWI_ELT (RTX, N)
 
+/* For a CONST_POLY_INT, CONST_POLY_INT_COEFFS gives access to the
+   individual coefficients, in the form of a trailing_wide_ints structure.  */
 #define CONST_POLY_INT_COEFFS(RTX) \
   (RTL_FLAG_CHECK1("CONST_POLY_INT_COEFFS", (RTX), \
 		   CONST_POLY_INT)->u.cpi.coeffs)
@@ -1921,9 +1923,6 @@ set_regno_raw (rtx x, unsigned int regno, unsigned int nregs)
 
 #define SUBREG_REG(RTX) XCEXP (RTX, 0, SUBREG)
 #define SUBREG_BYTE(RTX) XCSUBREG (RTX, 1, SUBREG)
-
-/* The number of the parameter in a CONST_PARAM.  */
-#define CONST_PARAM_ID(RTX) XCUINT (RTX, 0, CONST_PARAM)
 
 /* in rtlanal.c */
 /* Return the right cost to give to an operation
@@ -1999,7 +1998,7 @@ struct subreg_shape {
   subreg_shape (machine_mode, poly_uint16, machine_mode);
   bool operator == (const subreg_shape &) const;
   bool operator != (const subreg_shape &) const;
-  HOST_WIDE_INT unique_id () const;
+  unsigned HOST_WIDE_INT unique_id () const;
 
   machine_mode inner_mode;
   poly_uint16 offset;
@@ -2032,7 +2031,7 @@ subreg_shape::operator != (const subreg_shape &other) const
    current mode is anywhere near being 65536 bytes in size, so the
    id comfortably fits in an int.  */
 
-inline HOST_WIDE_INT
+inline unsigned HOST_WIDE_INT
 subreg_shape::unique_id () const
 {
   { STATIC_ASSERT (MAX_MACHINE_MODE <= 256); }
@@ -2212,15 +2211,43 @@ wi::max_value (machine_mode mode, signop sgn)
   return max_value (GET_MODE_PRECISION (as_a <scalar_mode> (mode)), sgn);
 }
 
+namespace wi
+{
+  typedef poly_int<NUM_POLY_INT_COEFFS,
+		   generic_wide_int <wide_int_ref_storage <false, false> > >
+    rtx_to_poly_wide_ref;
+  rtx_to_poly_wide_ref to_poly_wide (const_rtx, machine_mode);
+}
+
 /* Return the value of a CONST_POLY_INT in its native precision.  */
 
-inline poly_int<NUM_POLY_INT_COEFFS, WIDE_INT_REF_FOR (wide_int)>
+inline wi::rtx_to_poly_wide_ref
 const_poly_int_value (const_rtx x)
 {
   poly_int<NUM_POLY_INT_COEFFS, WIDE_INT_REF_FOR (wide_int)> res;
   for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
     res.coeffs[i] = CONST_POLY_INT_COEFFS (x)[i];
   return res;
+}
+
+/* Return true if X is a scalar integer or a CONST_POLY_INT.  The value
+   can then be extracted using wi::to_poly_wide.  */
+
+inline bool
+poly_int_rtx_p (const_rtx x)
+{
+  return CONST_SCALAR_INT_P (x) || CONST_POLY_INT_P (x);
+}
+
+/* Access X (which satisfies poly_int_rtx_p) as a poly_wide_int.
+   MODE is the mode of X.  */
+
+inline wi::rtx_to_poly_wide_ref
+wi::to_poly_wide (const_rtx x, machine_mode mode)
+{
+  if (CONST_POLY_INT_P (x))
+    return const_poly_int_value (x);
+  return rtx_mode_t (const_cast<rtx> (x), mode);
 }
 
 /* Return the value of X as a poly_int64.  */
@@ -2243,7 +2270,7 @@ rtx_to_poly_int64 (const_rtx x)
    otherwise leave it unmodified.  */
 
 inline bool
-poly_int_const_p (const_rtx x, poly_int64 *res)
+poly_int_rtx_p (const_rtx x, poly_int64_pod *res)
 {
   if (CONST_INT_P (x))
     {
@@ -2253,11 +2280,10 @@ poly_int_const_p (const_rtx x, poly_int64 *res)
   if (CONST_POLY_INT_P (x))
     {
       for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-	{
-	  if (!wi::fits_shwi_p (CONST_POLY_INT_COEFFS (x)[i]))
-	    return false;
-	  res->coeffs[i] = CONST_POLY_INT_COEFFS (x)[i].to_shwi ();
-	}
+	if (!wi::fits_shwi_p (CONST_POLY_INT_COEFFS (x)[i]))
+	  return false;
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	res->coeffs[i] = CONST_POLY_INT_COEFFS (x)[i].to_shwi ();
       return true;
     }
   return false;
@@ -2268,10 +2294,10 @@ extern int rtx_cost (rtx, machine_mode, enum rtx_code, int, bool);
 extern int address_cost (rtx, machine_mode, addr_space_t, bool);
 extern void get_full_rtx_cost (rtx, machine_mode, enum rtx_code, int,
 			       struct full_rtx_costs *);
-extern poly_int64 subreg_lsb (const_rtx);
-extern poly_int64 subreg_lsb_1 (machine_mode, machine_mode, poly_int64);
-extern poly_int64 subreg_size_offset_from_lsb (poly_int64, poly_int64,
-					       poly_int64);
+extern poly_uint64 subreg_lsb (const_rtx);
+extern poly_uint64 subreg_lsb_1 (machine_mode, machine_mode, poly_uint64);
+extern poly_uint64 subreg_size_offset_from_lsb (poly_uint64, poly_uint64,
+						poly_uint64);
 extern bool read_modify_subreg_p (const_rtx);
 
 /* Return the subreg byte offset for a subreg whose outer mode is
@@ -2280,22 +2306,22 @@ extern bool read_modify_subreg_p (const_rtx);
    the inner value.  This is the inverse of subreg_lsb_1 (which converts
    byte offsets to bit shifts).  */
 
-inline poly_int64
+inline poly_uint64
 subreg_offset_from_lsb (machine_mode outer_mode,
 			machine_mode inner_mode,
-			poly_int64 lsb_shift)
+			poly_uint64 lsb_shift)
 {
   return subreg_size_offset_from_lsb (GET_MODE_SIZE (outer_mode),
 				      GET_MODE_SIZE (inner_mode), lsb_shift);
 }
 
-extern unsigned int subreg_regno_offset	(unsigned int, machine_mode,
-					 poly_int64, machine_mode);
+extern unsigned int subreg_regno_offset (unsigned int, machine_mode,
+					 poly_uint64, machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, machine_mode,
-					   poly_int64, machine_mode);
+					   poly_uint64, machine_mode);
 extern unsigned int subreg_regno (const_rtx);
 extern int simplify_subreg_regno (unsigned int, machine_mode,
-				  poly_int64, machine_mode);
+				  poly_uint64, machine_mode);
 extern unsigned int subreg_nregs (const_rtx);
 extern unsigned int subreg_nregs_with_regno (unsigned int, const_rtx);
 extern unsigned HOST_WIDE_INT nonzero_bits (const_rtx, machine_mode);
@@ -2991,13 +3017,12 @@ extern rtx gen_lowpart_if_possible (machine_mode, rtx);
 /* In emit-rtl.c */
 extern rtx gen_highpart (machine_mode, rtx);
 extern rtx gen_highpart_mode (machine_mode, machine_mode, rtx);
-extern rtx operand_subword (rtx, poly_int64, int, machine_mode);
+extern rtx operand_subword (rtx, poly_uint64, int, machine_mode);
 
 /* In emit-rtl.c */
-extern rtx operand_subword_force (rtx, poly_int64, machine_mode);
-extern machine_mode narrower_subreg_mode (machine_mode, machine_mode);
+extern rtx operand_subword_force (rtx, poly_uint64, machine_mode);
 extern int subreg_lowpart_p (const_rtx);
-extern poly_int64 subreg_size_lowpart_offset (poly_int64, poly_int64);
+extern poly_uint64 subreg_size_lowpart_offset (poly_uint64, poly_uint64);
 
 /* Return true if a subreg of mode OUTERMODE would only access part of
    an inner register with mode INNERMODE.  The other bits of the inner
@@ -3054,11 +3079,21 @@ paradoxical_subreg_p (const_rtx x)
 
 /* Return the SUBREG_BYTE for an OUTERMODE lowpart of an INNERMODE value.  */
 
-inline poly_int64
+inline poly_uint64
 subreg_lowpart_offset (machine_mode outermode, machine_mode innermode)
 {
   return subreg_size_lowpart_offset (GET_MODE_SIZE (outermode),
 				     GET_MODE_SIZE (innermode));
+}
+
+/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
+   return the smaller of the two modes if they are different sizes,
+   otherwise return the outer mode.  */
+
+inline machine_mode
+narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
+{
+  return paradoxical_subreg_p (outermode, innermode) ? innermode : outermode;
 }
 
 /* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
@@ -3079,11 +3114,11 @@ wider_subreg_mode (const_rtx x)
   return wider_subreg_mode (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
 }
 
-extern poly_int64 subreg_size_highpart_offset (poly_int64, poly_int64);
+extern poly_uint64 subreg_size_highpart_offset (poly_uint64, poly_uint64);
 
 /* Return the SUBREG_BYTE for an OUTERMODE highpart of an INNERMODE value.  */
 
-inline poly_int64
+inline poly_uint64
 subreg_highpart_offset (machine_mode outermode, machine_mode innermode)
 {
   return subreg_size_highpart_offset (GET_MODE_SIZE (outermode),
@@ -3092,7 +3127,7 @@ subreg_highpart_offset (machine_mode outermode, machine_mode innermode)
 
 extern poly_int64 byte_lowpart_offset (machine_mode, machine_mode);
 extern poly_int64 subreg_memory_offset (machine_mode, machine_mode,
-					poly_int64);
+					poly_uint64);
 extern poly_int64 subreg_memory_offset (const_rtx);
 extern rtx make_safe_from (rtx, rtx);
 extern rtx convert_memory_address_addr_space_1 (scalar_int_mode, rtx,
@@ -3245,8 +3280,8 @@ extern rtx simplify_gen_ternary (enum rtx_code, machine_mode,
 				 machine_mode, rtx, rtx, rtx);
 extern rtx simplify_gen_relational (enum rtx_code, machine_mode,
 				    machine_mode, rtx, rtx);
-extern rtx simplify_subreg (machine_mode, rtx, machine_mode, poly_int64);
-extern rtx simplify_gen_subreg (machine_mode, rtx, machine_mode, poly_int64);
+extern rtx simplify_subreg (machine_mode, rtx, machine_mode, poly_uint64);
+extern rtx simplify_gen_subreg (machine_mode, rtx, machine_mode, poly_uint64);
 extern rtx lowpart_subreg (machine_mode, rtx, machine_mode);
 extern rtx simplify_replace_fn_rtx (rtx, const_rtx,
 				    rtx (*fn) (rtx, const_rtx, void *), void *);
@@ -3303,7 +3338,7 @@ extern HOST_WIDE_INT get_integer_term (const_rtx);
 extern rtx get_related_value (const_rtx);
 extern bool offset_within_block_p (const_rtx, HOST_WIDE_INT);
 extern void split_const (rtx, rtx *, rtx *);
-extern rtx strip_offset (rtx, poly_int64 *);
+extern rtx strip_offset (rtx, poly_int64_pod *);
 extern poly_int64 get_args_size (const_rtx);
 extern bool unsigned_reg_p (rtx);
 extern int reg_mentioned_p (const_rtx, const_rtx);
@@ -3434,7 +3469,7 @@ struct subreg_info
 };
 
 extern void subreg_get_info (unsigned int, machine_mode,
-			     poly_int64, machine_mode,
+			     poly_uint64, machine_mode,
 			     struct subreg_info *);
 
 /* lists.c */
@@ -3673,7 +3708,7 @@ extern rtx gen_rtx_CONST_VECTOR (machine_mode, rtvec);
 extern void set_mode_and_regno (rtx, machine_mode, unsigned int);
 extern rtx gen_raw_REG (machine_mode, unsigned int);
 extern rtx gen_rtx_REG (machine_mode, unsigned int);
-extern rtx gen_rtx_SUBREG (machine_mode, rtx, poly_int64);
+extern rtx gen_rtx_SUBREG (machine_mode, rtx, poly_uint64);
 extern rtx gen_rtx_MEM (machine_mode, rtx);
 extern rtx gen_rtx_VAR_LOCATION (machine_mode, tree, rtx,
 				 enum var_init_status);
@@ -4244,7 +4279,7 @@ load_extend_op (machine_mode mode)
    and return the base.  Return X otherwise.  */
 
 inline rtx
-strip_offset_and_add (rtx x, poly_int64 *offset)
+strip_offset_and_add (rtx x, poly_int64_pod *offset)
 {
   if (GET_CODE (x) == PLUS)
     {

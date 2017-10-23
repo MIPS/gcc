@@ -1,3 +1,615 @@
+2017-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82524
+	* config/i386/i386.md (addqi_ext_1, andqi_ext_1,
+	*andqi_ext_1_cc, *<code>qi_ext_1, *xorqi_ext_1_cc): Change
+	=Q constraints to +Q and into insn condition add check
+	that operands[0] and operands[1] are equal.
+	(*addqi_ext_2, *andqi_ext_2, *<code>qi_ext_2): Change
+	=Q constraints to +Q and into insn condition add check
+	that operands[0] is equal to either operands[1] or operands[2].
+
+	PR target/82498
+	* fold-const.c (fold_binary_loc) <bit_rotate>: Code cleanups,
+	instead of handling MINUS_EXPR twice (once for each argument),
+	canonicalize operand order and handle just once, use rtype where
+	possible.  Handle (A << B) | (A >> (-B & (Z - 1))).
+
+	PR target/82498
+	* config/i386/ia32intrin.h (__rold, __rord, __rolq, __rorq): Allow
+	any values of __C while still being pattern recognizable as a simple
+	rotate instruction.
+
+2017-10-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82451
+	Revert
+	2017-10-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82355
+	* graphite-isl-ast-to-gimple.c (build_iv_mapping): Also build
+	a mapping for the enclosing loop but avoid generating one for
+	the loop tree root.
+	(copy_bb_and_scalar_dependences): Remove premature codegen
+	error on PHIs in blocks duplicated into multiple places.
+	* graphite-scop-detection.c
+	(scop_detection::stmt_has_simple_data_refs_p): For a loop not
+	in the region use it as loop and nest to analyze the DR in.
+	(try_generate_gimple_bb): Likewise.
+	* graphite-sese-to-poly.c (extract_affine_chrec): Adjust.
+	(add_loop_constraints): For blocks in a loop not in the region
+	create a dimension with a single iteration.
+	* sese.h (gbb_loop_at_index): Remove assert.
+
+	* cfgloop.c (loop_preheader_edge): For the loop tree root
+	return the single successor of the entry block.
+	* graphite-isl-ast-to-gimple.c (graphite_regenerate_ast_isl):
+	Reset the SCEV hashtable and niters.
+	* graphite-scop-detection.c
+	(scop_detection::graphite_can_represent_scev): Add SCOP parameter,
+	assert that we only have POLYNOMIAL_CHREC that vary in loops
+	contained in the region.
+	(scop_detection::graphite_can_represent_expr): Adjust.
+	(scop_detection::stmt_has_simple_data_refs_p): For loops
+	not in the region set loop to NULL.  The nest is now the
+	entry edge to the region.
+	(try_generate_gimple_bb): Likewise.
+	* sese.c (scalar_evolution_in_region): Adjust for
+	instantiate_scev change.
+	* tree-data-ref.h (graphite_find_data_references_in_stmt):
+	Make nest parameter the edge into the region.
+	(create_data_ref): Likewise.
+	* tree-data-ref.c (dr_analyze_indices): Make nest parameter an
+	entry edge into a region and adjust instantiate_scev calls.
+	(create_data_ref): Likewise.
+	(graphite_find_data_references_in_stmt): Likewise.
+	(find_data_references_in_stmt): Pass the loop preheader edge
+	from the nest argument.
+	* tree-scalar-evolution.h (instantiate_scev): Make instantiate_below
+	parameter the edge into the region.
+	(instantiate_parameters): Use the loop preheader edge as entry.
+	* tree-scalar-evolution.c (analyze_scalar_evolution): Handle
+	NULL loop.
+	(get_instantiated_value_entry): Make instantiate_below parameter
+	the edge into the region.
+	(instantiate_scev_name): Likewise.  Adjust dominance checks,
+	when we cannot use loop-based instantiation instantiate by
+	walking use-def chains.
+	(instantiate_scev_poly): Adjust.
+	(instantiate_scev_binary): Likewise.
+	(instantiate_scev_convert): Likewise.
+	(instantiate_scev_not): Likewise.
+	(instantiate_array_ref): Remove.
+	(instantiate_scev_3): Likewise.
+	(instantiate_scev_2): Likewise.
+	(instantiate_scev_1): Likewise.
+	(instantiate_scev_r): Do not blindly handle N-operand trees.
+	Do not instantiate array-refs.  Handle all constants and invariants.
+	(instantiate_scev): Make instantiate_below parameter
+	the edge into the region.
+	(resolve_mixers): Use the loop preheader edge for the region
+	parameter to instantiate_scev_r.
+	* tree-ssa-loop-prefetch.c (determine_loop_nest_reuse): Adjust.
+
+2017-10-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82525
+	* graphite-isl-ast-to-gimple.c
+	(translate_isl_ast_to_gimple::widest_int_from_isl_expr_int): Split
+	out from ...
+	(translate_isl_ast_to_gimple::gcc_expression_from_isl_expr_int): Here.
+	Fail code generation when we cannot represent the isl integer.
+	(binary_op_to_tree): Elide modulo operations that are no-ops
+	in the type we code generate.  Remove now superfluous code
+	generation errors.
+
+2017-10-13  Richard Biener  <rguenther@suse.de>
+
+	* graphite-scop-detection.c (loop_ivs_can_be_represented): Remove.
+	(scop_detection::harmful_loop_in_region): Remove premature
+	IV type restriction.
+	(scop_detection::graphite_can_represent_scev): We can handle
+	pointer IVs just fine.
+
+2017-10-13  Alan Modra  <amodra@gmail.com>
+
+	* doc/extend.texi (Extended Asm <Clobbers>): Rename to
+	"Clobbers and Scratch Registers".  Add paragraph on
+	alternative to clobbers for scratch registers and OpenBLAS
+	example.
+
+2017-10-13  Alan Modra  <amodra@gmail.com>
+
+	* doc/extend.texi (Clobbers): Correct vax example.  Delete old
+	example of a memory input for a string of known length.  Move
+	commentary out of table.  Add a number of new examples
+	covering array memory inputs.
+
+2017-10-12  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/82493
+	* sbitmap.c (bitmap_bit_in_range_p): Fix the implementation.
+	(test_range_functions): New function.
+	(sbitmap_c_tests): Likewise.
+	* selftest-run-tests.c (selftest::run_tests): Run new tests.
+	* selftest.h (sbitmap_c_tests): New function.
+
+	* tree-ssa-dse.c (live_bytes_read): Fix thinko.
+
+2017-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/amo.h: Fix spacing issue.
+
+2017-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82498
+	* config/i386/i386.md (*ashl<mode>3_mask_1,
+	*<shift_insn><mode>3_mask_1, *<rotate_insn><mode>3_mask_1,
+	*<btsc><mode>_mask_1, *btr<mode>_mask_1): New define_insn_and_split
+	patterns.
+
+2017-10-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (safe_scale_64bit): Fix GCC4.x path.
+	(profile_probability): Set max_probability
+	to (uint32_t) 1 << (n_bits - 2) and update accessors to avoid overlfows
+	in temporaries.
+	* profile-count.c (profile_probability::differs_from_p): Do not
+	rely on max_probaiblity == 10000
+
+2017-10-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dse.c (valid_ao_ref_for_dse): Reject ao_refs with
+	negative offsets.
+
+2017-10-12  Martin Sebor  <msebor@redhat.com>
+
+	PR other/82301
+	PR c/82435
+	* cgraphunit.c (maybe_diag_incompatible_alias): New function.
+	(handle_alias_pairs): Call it.
+	* common.opt (-Wattribute-alias): New option.
+	* doc/extend.texi (ifunc attribute): Discuss C++ specifics.
+	* doc/invoke.texi (-Wattribute-alias): Document.
+
+2017-10-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Revert
+	2017-10-11  Vladimir Makarov  <vmakarov@redhat.com>
+	PR sanitizer/82353
+	* lra.c (collect_non_operand_hard_regs): Don't ignore operator
+	locations.
+	* lra-lives.c (bb_killed_pseudos, bb_gen_pseudos): Move up.
+	(make_hard_regno_born, make_hard_regno_dead): Update
+	bb_killed_pseudos and bb_gen_pseudos.
+
+2017-10-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* x86-tune-sched.c (ix86_adjust_cost): Fix Zen support.
+
+2017-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_split_conditional_move):
+	Use std::swap instead of manually swapping.
+	(alpha_stdarg_optimize_hook): Ditto.
+	(alpha_canonicalize_comparison): Ditto.
+
+2017-10-12  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-loop-distribution.c (struct builtin_info): New struct.
+	(struct partition): Refactor fields into struct builtin_info.
+	(partition_free): Free struct builtin_info.
+	(build_size_arg_loc, build_addr_arg_loc): Delete.
+	(generate_memset_builtin, generate_memcpy_builtin): Get memory range
+	information from struct builtin_info.
+	(find_single_drs): New function refactored from classify_partition.
+	Also moved builtin validity checks to this function.
+	(compute_access_range, alloc_builtin): New functions.
+	(classify_builtin_st, classify_builtin_ldst): New functions.
+	(classify_partition): Refactor code into functions find_single_drs,
+	classify_builtin_st and classify_builtin_ldst.
+	(distribute_loop): Don't do runtime alias check when distributing
+	loop nest.
+	(find_seed_stmts_for_distribution): New function.
+	(pass_loop_distribution::execute): Refactor code finding seed
+	stmts into above function.  Support distribution for the innermost
+	two-level loop nest.  Adjust dump information.
+
+2017-10-12  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-loop-distribution.c: Adjust the general comment.
+	(NUM_PARTITION_THRESHOLD): New macro.
+	(ssa_name_has_uses_outside_loop_p): Support loop nest distribution.
+	(classify_partition): Skip builtin pattern of loop nest's inner loop.
+	(merge_dep_scc_partitions): New parameter ignore_alias_p and use it
+	in call to build_partition_graph.
+	(finalize_partitions): New parameter.  Make loop distribution more
+	conservative by fusing more partitions.
+	(distribute_loop): Don't do runtime alias check in case of loop nest
+	distribution.
+	(find_seed_stmts_for_distribution): New function.
+	(prepare_perfect_loop_nest): New function.
+	(pass_loop_distribution::execute): Refactor code finding seed stmts
+	and loop nest into above functions.  Support loop nest distribution.
+	Adjust dump information accordingly.
+
+2017-10-12  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-loop-distribution.c (break_alias_scc_partitions): Add comment
+	and set PTYPE_SEQUENTIAL for merged partition.
+
+2017-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69728
+	Revert
+	2017-09-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69728
+	* graphite-sese-to-poly.c (schedule_error): New global.
+	(add_loop_schedule): Handle empty domain by failing the
+	schedule.
+	(build_original_schedule): Handle schedule_error.
+
+	* graphite-sese-to-poly.c (add_loop_schedule): Handle empty
+	domain by returning an unchanged schedule.
+
+2017-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* genrecog.c (validate_pattern): For VEC_SELECT verify that
+	CONST_INT selectors are 0 to GET_MODE_NUNITS (imode) - 1.
+
+2017-10-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (TAGS): Merge all the *.def files into one pattern.
+	Handle params.def.
+
+2017-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82159
+	* expr.c (store_field): Don't optimize away bitsize == 0 store
+	from CALL_EXPR with addressable return type.
+
+2017-10-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.h (TARGET_ISEL64): Delete.
+	* config/rs6000/rs6000.md (sel): Delete mode attribute.
+	(mov<mode>cc, isel_signed_<mode>, isel_unsigned_<mode>,
+	*isel_reversed_signed_<mode>, *isel_reversed_unsigned_<mode>): Use
+	TARGET_ISEL instead of TARGET_ISEL<sel>.
+
+2017-10-11  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c
+	(rs6000_xcoff_asm_output_aligned_decl_common): Test for NULL decl.
+
+2017-10-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/predicates.md (zero_constant, all_ones_constant):
+	Move up in file.
+	(reg_or_cint_operand): Fix comment.
+	(reg_or_zero_operand): New predicate.
+	* config/rs6000/rs6000-protos.h (output_isel): Delete.
+	* config/rs6000/rs6000.c (output_isel): Delete.
+	* config/rs6000/rs6000.md (isel_signed_<mode>): Use reg_or_zero_operand
+	instead of reg_or_cint_operand.  Output instruction directly (not via
+	output_isel).
+	(isel_unsigned_<mode>): Ditto.
+	(*isel_reversed_signed_<mode>): Use reg_or_zero_operand instead of
+	gpc_reg_operand.  Add an instruction alternative for this.  Output
+	instruction directly.
+	(*isel_reversed_unsigned_<mode>): Ditto.
+
+2017-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_canonicalize_comparison): New function.
+	(TARGET_CANONICALIZE_COMPARISON): Define.
+
+2017-10-11  Qing Zhao  <qing.zhao@oracle.com>
+
+	PR target/81422
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately):
+	Check whether the dest is REG before adding REG_EQUIV note.
+
+2017-10-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR sanitizer/82353
+	* lra.c (collect_non_operand_hard_regs): Don't ignore operator
+	locations.
+	* lra-lives.c (bb_killed_pseudos, bb_gen_pseudos): Move up.
+	(make_hard_regno_born, make_hard_regno_dead): Update
+	bb_killed_pseudos and bb_gen_pseudos.
+
+2017-10-11  Nathan Sidwell  <nathan@acm.org>
+
+	* incpath.h (enum incpath_kind): Name enum, prefix values.
+	(add_path, add_cpp_dir_path, get_added_cpp_dirs): Use incpath_kind.
+	* incpath.c (heads, tails): Use INC_MAX.
+	(add_env_var_paths, add_standard_paths): Use incpath_kind.
+	(merge_include_chains, split_quote_chain,
+	register_include_chains): Update incpath_kind names.
+	(add_cpp_dir_path, add_path, get_added_cpp_dirs): Use incpath_kind.
+	* config/darwin-c.c (add_system_framework_path): Update incpath_kind
+	names.
+	(add_framework_path, darwin_register_objc_includes): Likewise.
+	* config/vms/vms-c.c (vms_c_register_includes): Likewise.
+
+2017-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*cmp<X87MODEF:mode>_<SWI24:mode>_i387):
+	Do not use float_operator operator predicate.
+	(*cmp<X87MODEF:mode>_<SWI24:mode>_cc_i387): Ditto.
+	* config/i386/predicates.md (float_operator): Remove predicate.
+
+2017-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*jcc<mode>_0_i387): Remove insn pattern.
+	(*jccxf_i387): Ditto.
+	(*jcc<mode>_i387): Ditto.
+	(*jccu<mode>_i387): Ditto.
+	(*jcc<X87MODEF:mode>_<SWI24:mode>_i387): Ditto.
+	(*jcc_*_i387 splitters): Remove.
+	* config/i386/i386-protos.h (ix86_split_fp_branch): Remove prototype.
+	* config/i386/i386.c (ix86_split_fp_branch): Remove.
+	* config/i386/predicates.md (ix86_swapped_fp_comparison_operator):
+	Remove predicate.
+
+2017-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile-count.h (slow_safe_scale_64bit): New function.
+	(safe_scale_64bit): New inline.
+	(profile_count::max_safe_multiplier): Remove; use safe_scale_64bit.
+	* profile-count.c: Include wide-int.h
+	(slow_safe_scale_64bit): New.
+
+2017-10-11  Nathan Sidwell  <nathan@acm.org>
+
+	* tree.h (DECL_ASSEMBLER_NAME_SET_P): Don't check
+	HAS_DECL_ASSEMBLER_NAME_P.
+	* gimple-expr.c (gimple_decl_printable_name: Check
+	HAS_DECL_ASSEMBLER_NAME_P too.
+	* ipa-utils.h (type_in_anonymous_namespace_p): Check
+	DECL_ASSEMBLER_NAME_SET_P of TYPE_NAME.
+	(odr_type_p): No need to assert TYPE_NAME is a TYPE_DECL.
+	* passes.c (rest_of_decl_compilation): Check
+	HAS_DECL_ASSEMBLER_NAME_P too.
+	* recog.c (verify_changes): Likewise.
+	* tree-pretty-print.c (dump_decl_name): Likewise.
+	* tree-ssa-structalias.c (alias_get_name): Likewise.  Reimplement.
+
+	* tree.h (DECL_ASSEMBLER_NAME_RAW): New.
+	(SET_DECL_ASSEMBLER_NAME): Use it.
+	(DECL_ASSEMBLER_NAME_SET_P): Likewise.
+	(COPY_DECL_ASSEMBLER_NAME): Likewise.
+	* tree.c (decl_assembler_name): Use DECL_ASSEMBLER_NAME_RAW.
+
+2017-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* config.gcc (i386, x86_64): Add extra objects.
+	* i386/i386-protos.h (ix86_rip_relative_addr_p): Declare.
+	(ix86_min_insn_size): Declare.
+	(ix86_issue_rate): Declare.
+	(ix86_adjust_cost): Declare.
+	(ia32_multipass_dfa_lookahead): Declare.
+	(ix86_macro_fusion_p): Declare.
+	(ix86_macro_fusion_pair_p): Declare.
+	(ix86_bd_has_dispatch): Declare.
+	(ix86_bd_do_dispatch): Declare.
+	(ix86_core2i7_init_hooks): Declare.
+	(ix86_atom_sched_reorder): Declare.
+	* i386/i386.c Move all CPU cost tables to x86-tune-costs.h.
+	(COSTS_N_BYTES): Move to x86-tune-costs.h.
+	(DUMMY_STRINGOP_ALGS):Move to x86-tune-costs.h.
+	(rip_relative_addr_p): Rename to ...
+	(ix86_rip_relative_addr_p): ... this one; export.
+	(memory_address_length): Update.
+	(ix86_issue_rate): Move to x86-tune-sched.c.
+	(ix86_flags_dependent): Move to x86-tune-sched.c.
+	(ix86_agi_dependent): Move to x86-tune-sched.c.
+	(exact_dependency_1): Move to x86-tune-sched.c.
+	(exact_store_load_dependency): Move to x86-tune-sched.c.
+	(ix86_adjust_cost): Move to x86-tune-sched.c.
+	(ia32_multipass_dfa_lookahead): Move to x86-tune-sched.c.
+	(ix86_macro_fusion_p): Move to x86-tune-sched.c.
+	(ix86_macro_fusion_pair_p): Move to x86-tune-sched.c.
+	(do_reorder_for_imul): Move to x86-tune-sched-atom.c.
+	(swap_top_of_ready_list): Move to x86-tune-sched-atom.c.
+	(ix86_sched_reorder): Move to x86-tune-sched-atom.c.
+	(core2i7_first_cycle_multipass_init): Move to x86-tune-sched-core.c.
+	(core2i7_dfa_post_advance_cycle): Move to x86-tune-sched-core.c.
+	(min_insn_size): Rename to ...
+	(ix86_min_insn_size): ... this one; export.
+	(core2i7_first_cycle_multipass_begin): Move to x86-tune-sched-core.c.
+	(core2i7_first_cycle_multipass_issue): Move to x86-tune-sched-core.c.
+	(core2i7_first_cycle_multipass_backtrack): Move to
+	x86-tune-sched-core.c.
+	(core2i7_first_cycle_multipass_end): Move to x86-tune-sched-core.c.
+	(core2i7_first_cycle_multipass_fini): Move to x86-tune-sched-core.c.
+	(ix86_sched_init_global): Break up logic to ix86_core2i7_init_hooks.
+	(ix86_avoid_jump_mispredicts): Update.
+	(TARGET_SCHED_DISPATCH): Move to ix86-tune-sched-bd.c.
+	(TARGET_SCHED_DISPATCH_DO): Move to ix86-tune-sched-bd.c.
+	(TARGET_SCHED_REORDER): Move to ix86-tune-sched-bd.c.
+	(DISPATCH_WINDOW_SIZE): Move to ix86-tune-sched-bd.c.
+	(MAX_DISPATCH_WINDOWS): Move to ix86-tune-sched-bd.c.
+	(MAX_INSN): Move to ix86-tune-sched-bd.c.
+	(MAX_IMM): Move to ix86-tune-sched-bd.c.
+	(MAX_IMM_SIZE): Move to ix86-tune-sched-bd.c.
+	(MAX_IMM_32): Move to ix86-tune-sched-bd.c.
+	(MAX_IMM_64): Move to ix86-tune-sched-bd.c.
+	(MAX_LOAD): Move to ix86-tune-sched-bd.c.
+	(MAX_STORE): Move to ix86-tune-sched-bd.c.
+	(BIG): Move to ix86-tune-sched-bd.c.
+	(enum dispatch_group): Move to ix86-tune-sched-bd.c.
+	(enum insn_path): Move to ix86-tune-sched-bd.c.
+	(get_mem_group): Move to ix86-tune-sched-bd.c.
+	(is_cmp): Move to ix86-tune-sched-bd.c.
+	(dispatch_violation): Move to ix86-tune-sched-bd.c.
+	(is_branch): Move to ix86-tune-sched-bd.c.
+	(is_prefetch): Move to ix86-tune-sched-bd.c.
+	(init_window): Move to ix86-tune-sched-bd.c.
+	(allocate_window): Move to ix86-tune-sched-bd.c.
+	(init_dispatch_sched): Move to ix86-tune-sched-bd.c.
+	(is_end_basic_block): Move to ix86-tune-sched-bd.c.
+	(process_end_window): Move to ix86-tune-sched-bd.c.
+	(allocate_next_window): Move to ix86-tune-sched-bd.c.
+	(find_constant): Move to ix86-tune-sched-bd.c.
+	(get_num_immediates): Move to ix86-tune-sched-bd.c.
+	(has_immediate): Move to ix86-tune-sched-bd.c.
+	(get_insn_path): Move to ix86-tune-sched-bd.c.
+	(get_insn_group): Move to ix86-tune-sched-bd.c.
+	(count_num_restricted): Move to ix86-tune-sched-bd.c.
+	(fits_dispatch_window): Move to ix86-tune-sched-bd.c.
+	(add_insn_window): Move to ix86-tune-sched-bd.c.
+	(add_to_dispatch_window): Move to ix86-tune-sched-bd.c.
+	(debug_dispatch_window_file): Move to ix86-tune-sched-bd.c.
+	(debug_dispatch_window): Move to ix86-tune-sched-bd.c.
+	(debug_insn_dispatch_info_file): Move to ix86-tune-sched-bd.c.
+	(debug_ready_dispatch): Move to ix86-tune-sched-bd.c.
+	(do_dispatch): Move to ix86-tune-sched-bd.c.
+	(has_dispatch): Move to ix86-tune-sched-bd.c.
+	* i386/t-i386: Add new object files.
+	* i386/x86-tune-costs.h: New file.
+	* i386/x86-tune-sched-atom.c: New file.
+	* i386/x86-tune-sched-bd.c: New file.
+	* i386/x86-tune-sched-core.c: New file.
+	* i386/x86-tune-sched.c: New file.
+
+2017-10-11  Liu Hao  <lh_mouse@126.com>
+
+	* pretty-print.c [_WIN32] (colorize_init): Remove.  Use
+	the generic version below instead.
+	(should_colorize): Recognize Windows consoles as terminals
+	for MinGW targets.
+	* pretty-print.c [__MINGW32__] (write_all): New function.
+	[__MINGW32__] (find_esc_head): Likewise.
+	[__MINGW32__] (find_esc_terminator): Likewise.
+	[__MINGW32__] (eat_esc_sequence): Likewise.
+	[__MINGW32__] (mingw_ansi_fputs): New function that handles
+	ANSI escape codes.
+	(pp_write_text_to_stream): Use mingw_ansi_fputs instead of fputs
+	for MinGW targets.
+
+2017-10-11  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_pointer_arith):
+	Properly call analyze_scalar_evolution with the loop of the stmt.
+
+2017-10-11  Richard Biener  <rguenther@suse.de>
+
+	* tree.def (POLYNOMIAL_CHREC): Remove CHREC_VARIABLE tree operand.
+	* tree-core.h (tree_base): Add chrec_var union member.
+	* tree.h (CHREC_VAR): Remove.
+	(CHREC_LEFT, CHREC_RIGHT, CHREC_VARIABLE): Adjust.
+	* tree-chrec.h (build_polynomial_chrec): Adjust.
+	* tree-chrec.c (reset_evolution_in_loop): Use build_polynomial_chrec.
+	* tree-pretty-print.c (dump_generic_node): Use CHREC_VARIABLE.
+
+2017-10-11  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (fold_binary_loc) [X +- Y CMP X]: Move ...
+	* match.pd: ... here.
+	((T) X == (T) Y): Relax condition.
+
+2017-10-11  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/82472
+	* tree-loop-distribution.c (sort_partitions_by_post_order): Refine
+	comment.
+	(break_alias_scc_partitions): Update postorder number.
+
+2017-10-11  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/82490
+	* opts.c (parse_no_sanitize_attribute): Do not use error_value
+	variable.
+	* opts.h (parse_no_sanitize_attribute): Remove last argument.
+
+2017-10-11  Martin Liska  <mliska@suse.cz>
+
+	* print-rtl.c (print_insn): Move declaration of idbuf
+	to same scope as name.
+
+2017-10-11  Martin Liska  <mliska@suse.cz>
+
+	Revert r253637:
+
+	PR sanitizer/82484
+	* sanopt.c (sanitize_rewrite_addressable_params): Do not handle
+	volatile arguments.
+
+2017-10-11  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/82484
+	* sanopt.c (sanitize_rewrite_addressable_params): Do not handle
+	volatile arguments.
+
+2017-10-11  Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+	* config.gcc (default_gnu_indirect_function): Default to yes for
+	arm*-*-linux* with glibc.
+
+2017-10-11  Richard Biener  <rguenther@suse.de>
+
+	* tree-scalar-evolution.c (get_scalar_evolution): Handle
+	default-defs and types we do not want to analyze.
+	(interpret_loop_phi): Replace unreachable code with an assert.
+	(compute_scalar_evolution_in_loop): Remove and inline ...
+	(analyze_scalar_evolution_1): ... here, replacing condition with
+	what makes the intent clearer.  Remove handling of cases
+	get_scalar_evolution now handles.
+
+2017-10-10  Jim Wilson  <wilson@tuliptree.org>
+
+	PR rtl-optimization/81434
+	* haifa-sched.c (prune_ready_list): Init min_cost_group to 0.  Update
+	comment for main loop.  In sched_group_found if, also add checks for
+	pass and min_cost_group.
+
+2017-10-10  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (TARGET_INSN_COST): New.
+	(rs6000_insn_cost): New function.
+	* config/rs6000/rs6000.md (cost): New attribute.
+
+2017-10-10  Jakub Jelinek  <jakub@redhat.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/79565
+	PR target/82483
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Add
+	OPTION_MASK_ISA_MMX for __builtin_ia32_maskmovq,
+	__builtin_ia32_vec_ext_v4hi and __builtin_ia32_vec_set_v4hi.
+	(ix86_expand_builtin): Treat OPTION_MASK_ISA_MMX similarly
+	to OPTION_MASK_ISA_AVX512VL - builtins that have both
+	OPTION_MASK_ISA_MMX and some other bit set require both
+	mmx and the ISAs without the mmx bit.
+	* config/i386/i386-builtin.def (__builtin_ia32_cvtps2pi,
+	__builtin_ia32_cvttps2pi, __builtin_ia32_cvtpi2ps,
+	__builtin_ia32_pavgb, __builtin_ia32_pavgw, __builtin_ia32_pmulhuw,
+	__builtin_ia32_pmaxub, __builtin_ia32_pmaxsw, __builtin_ia32_pminub,
+	__builtin_ia32_pminsw, __builtin_ia32_psadbw, __builtin_ia32_pmovmskb,
+	__builtin_ia32_pshufw, __builtin_ia32_cvtpd2pi,
+	__builtin_ia32_cvttpd2pi, __builtin_ia32_cvtpi2pd,
+	__builtin_ia32_pmuludq, __builtin_ia32_pabsb, __builtin_ia32_pabsw,
+	__builtin_ia32_pabsd, __builtin_ia32_phaddw, __builtin_ia32_phaddd,
+	__builtin_ia32_phaddsw, __builtin_ia32_phsubw, __builtin_ia32_phsubd,
+	__builtin_ia32_phsubsw, __builtin_ia32_pmaddubsw,
+	__builtin_ia32_pmulhrsw, __builtin_ia32_pshufb, __builtin_ia32_psignb,
+	__builtin_ia32_psignw, __builtin_ia32_psignd, __builtin_ia32_movntq,
+	__builtin_ia32_paddq, __builtin_ia32_psubq, __builtin_ia32_palignr):
+	Add OPTION_MASK_ISA_MMX.
+
+2017-10-10  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config.gcc (armv7*-*-freebsd*): New target.
+	(armv6*-*-freebsd*): Remove obsolete TARGET_FREEBSD_ARMv6 define.
+
+2017-10-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* x86-tune.def (X86_TUNE_AVOID_FALSE_DEP_FOR_BMI,
+	X86_TUNE_ADJUST_UNROLL, X86_TUNE_ONE_IF_CONV_INSN): Move to right
+	spot in the file.
+
 2017-10-10  Richard Sandiford  <richard.sandiford@linaro.org>
 
 	* wide-int.h (wide_int_ref_storage): Make host_dependent_precision
@@ -586,7 +1198,8 @@
 	(znver1_cost): Set scalar reassoc width to 4 and vector to 3 and 6
 	for int and fp.
 	(atom_cost): Set reassociation width to 2.
-	(slm_cost, generic_cost): Set fp reassociation width to 2 and 1 otherwise.
+	(slm_cost, generic_cost): Set fp reassociation width
+	to 2 and 1 otherwise.
 	(intel_cost): Set fp reassociation width to 4 and 1 otherwise.
 	(core_cost): Set fp reassociation width to 4 and vector to 2.
 	(ix86_reassociation_width): Rewrite using cost table; special case
@@ -852,7 +1465,7 @@
 	(class dom_opt_dom_walker): Initialize m_dummy_cond member in the
 	class ctor.
 	(pass_dominator:execute): Build the dummy_cond here and pass it
-	to the dom_opt_dom_walker ctor. 
+	to the dom_opt_dom_walker ctor.
 	(test_for_singularity): New function.
 
 2017-09-30  Krister Walfridsson  <krister.walfridsson@gmail.com>
@@ -1297,7 +1910,7 @@
 	* rs6000.md (allocate_stack): Handle -fstack-clash-protection.
 	(probe_stack_range<P:mode>): Operand 0 is now early-clobbered.
 	Add additional operand and pass it to output_probe_stack_range.
-    
+
 2017-09-25  Bin Cheng  <bin.cheng@arm.com>
 
 	PR tree-optimization/82163
@@ -1729,7 +2342,7 @@
 
 2017-09-22  Sergey Shalnov  <sergey.shalnov@intel.com>
 
-        * config/i386/sse.md ("mov<mode>_internal"): Use <sseinsnmode>
+	* config/i386/sse.md ("mov<mode>_internal"): Use <sseinsnmode>
 	mode attribute for TARGET_AVX512VL.
 
 2017-09-21  Sergey Shalnov  <sergey.shalnov@intel.com>
@@ -2008,9 +2621,9 @@
 	(ix86_expand_prologue): Dump stack clash info as needed.
 	Call ix86_adjust_stack_and_probe_stack_clash as needed.
 
-        * function.c (dump_stack_clash_frame_info): New function.
-        * function.h (dump_stack_clash_frame_info): Prototype.
-        (enum stack_clash_probes): New enum.
+	* function.c (dump_stack_clash_frame_info): New function.
+	* function.h (dump_stack_clash_frame_info): Prototype.
+	(enum stack_clash_probes): New enum.
 
 	* config/alpha/alpha.c (alpha_expand_prologue): Also check
 	flag_stack_clash_protection.

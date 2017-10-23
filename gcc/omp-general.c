@@ -437,10 +437,10 @@ omp_max_vf (void)
   targetm.vectorize.autovectorize_vector_sizes (&sizes);
   if (!sizes.is_empty ())
     {
-      poly_uint64 vs = 0;
+      poly_uint64 vf = 0;
       for (unsigned int i = 0; i < sizes.length (); ++i)
-	vs = ordered_max (vs, sizes[i]);
-      return vs;
+	vf = ordered_max (vf, sizes[i]);
+      return vf;
     }
 
   machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);

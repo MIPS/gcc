@@ -20,7 +20,7 @@
 
 /*{{{  Includes */ 
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"

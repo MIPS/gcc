@@ -3035,9 +3035,9 @@ optimize_memcpy (gimple_stmt_iterator *gsip, tree dest, tree src, tree len)
 	    ? DECL_SIZE_UNIT (TREE_OPERAND (src2, 1))
 	    : TYPE_SIZE_UNIT (TREE_TYPE (src2)));
   if (len == NULL_TREE
-      || !poly_tree_p (len)
+      || !poly_int_tree_p (len)
       || len2 == NULL_TREE
-      || !poly_tree_p (len2))
+      || !poly_int_tree_p (len2))
     return;
 
   src = get_addr_base_and_unit_offset (src, &offset);

@@ -4048,16 +4048,10 @@ static bool
 get_subreg_tracking_sizes (rtx x, HOST_WIDE_INT *outer_size,
 			   HOST_WIDE_INT *inner_size, HOST_WIDE_INT *start)
 {
-  HOST_WIDE_INT tmp_outer_size, tmp_inner_size, tmp_start;
   rtx reg = regno_reg_rtx[REGNO (SUBREG_REG (x))];
-  if (!GET_MODE_SIZE (GET_MODE (reg)).is_constant (&tmp_inner_size)
-      || !GET_MODE_SIZE (GET_MODE (x)).is_constant (&tmp_outer_size)
-      || !SUBREG_BYTE (x).is_constant (&tmp_start))
-    return false;
-  *outer_size = tmp_outer_size;
-  *inner_size = tmp_inner_size;
-  *start = tmp_start;
-  return true;
+  return (GET_MODE_SIZE (GET_MODE (x)).is_constant (outer_size)
+	  && GET_MODE_SIZE (GET_MODE (reg)).is_constant (inner_size)
+	  && SUBREG_BYTE (x).is_constant (start));
 }
 
 /* Init LIVE_SUBREGS[ALLOCNUM] and LIVE_SUBREGS_USED[ALLOCNUM] for
@@ -4182,12 +4176,7 @@ build_insn_chain (void)
 			   size is not known; in those cases we need to be
 			   conservative and treat the definition as a partial
 			   definition of the full register rather than a full
-			   definition of a specific part of the register.
-
-			   ??? We might be able to do better for polynomial
-			   sizes, e.g. for pairs of variable-length vectors
-			   where only one half of the pair is being
-			   accessed.  */
+			   definition of a specific part of the register.  */
 			if (GET_CODE (reg) == SUBREG
 			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_ZERO_EXTRACT)
 			    && get_subreg_tracking_sizes (reg, &outer_size,

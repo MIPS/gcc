@@ -2165,7 +2165,7 @@ vt_canonicalize_addr (dataflow_set *set, rtx oloc)
   while (retry)
     {
       while (GET_CODE (loc) == PLUS
-	     && poly_int_const_p (XEXP (loc, 1), &term))
+	     && poly_int_rtx_p (XEXP (loc, 1), &term))
 	{
 	  ofst += term;
 	  loc = XEXP (loc, 0);
@@ -2194,7 +2194,7 @@ vt_canonicalize_addr (dataflow_set *set, rtx oloc)
 	  /* Consolidate plus_constants.  */
 	  while (may_ne (ofst, 0)
 		 && GET_CODE (loc) == PLUS
-		 && poly_int_const_p (XEXP (loc, 1), &term))
+		 && poly_int_rtx_p (XEXP (loc, 1), &term))
 	    {
 	      ofst += term;
 	      loc = XEXP (loc, 0);
@@ -2217,7 +2217,7 @@ vt_canonicalize_addr (dataflow_set *set, rtx oloc)
       /* Don't build new RTL if we can help it.  */
       if (GET_CODE (oloc) == PLUS
 	  && XEXP (oloc, 0) == loc
-	  && poly_int_const_p (XEXP (oloc, 1), &term)
+	  && poly_int_rtx_p (XEXP (oloc, 1), &term)
 	  && must_eq (term, ofst))
 	return oloc;
 
@@ -5382,12 +5382,12 @@ var_lowpart (machine_mode mode, rtx loc)
   if (!REG_P (loc) && !MEM_P (loc))
     return NULL;
 
-  poly_int64 offset = byte_lowpart_offset (mode, GET_MODE (loc));
+  poly_uint64 offset = byte_lowpart_offset (mode, GET_MODE (loc));
 
   if (MEM_P (loc))
     return adjust_address_nv (loc, mode, offset);
 
-  poly_int64 reg_offset = subreg_lowpart_offset (mode, GET_MODE (loc));
+  poly_uint64 reg_offset = subreg_lowpart_offset (mode, GET_MODE (loc));
   regno = REGNO (loc) + subreg_regno_offset (REGNO (loc), GET_MODE (loc),
 					     reg_offset, mode);
   return gen_rtx_REG_offset (loc, mode, regno, offset);
@@ -8790,7 +8790,7 @@ emit_note_insn_var_location (variable **varp, emit_note_data *data)
 	  else if (MEM_P (loc[n_var_parts])
 		   && GET_CODE (XEXP (loc2, 0)) == PLUS
 		   && REG_P (XEXP (XEXP (loc2, 0), 0))
-		   && poly_int_const_p (XEXP (XEXP (loc2, 0), 1), &offset))
+		   && poly_int_rtx_p (XEXP (XEXP (loc2, 0), 1), &offset))
 	    {
 	      poly_int64 offset2;
 	      if ((REG_P (XEXP (loc[n_var_parts], 0))
@@ -8798,7 +8798,7 @@ emit_note_insn_var_location (variable **varp, emit_note_data *data)
 				   XEXP (XEXP (loc2, 0), 0))
 		   && must_eq (offset, GET_MODE_SIZE (mode)))
 		  || (GET_CODE (XEXP (loc[n_var_parts], 0)) == PLUS
-		      && (poly_int_const_p
+		      && (poly_int_rtx_p
 			  (XEXP (XEXP (loc[n_var_parts], 0), 1), &offset2))
 		      && rtx_equal_p (XEXP (XEXP (loc[n_var_parts], 0), 0),
 				      XEXP (XEXP (loc2, 0), 0))
@@ -9679,7 +9679,7 @@ vt_add_function_parameter (tree parm)
 	  || (GET_CODE (XEXP (incoming, 0)) == PLUS
 	      && XEXP (XEXP (incoming, 0), 0)
 		 == crtl->args.internal_arg_pointer
-	      && poly_int_const_p (XEXP (XEXP (incoming, 0), 1), &offset2))))
+	      && poly_int_rtx_p (XEXP (XEXP (incoming, 0), 1), &offset2))))
     {
       HOST_WIDE_INT off = -FIRST_PARM_OFFSET (current_function_decl);
       incoming

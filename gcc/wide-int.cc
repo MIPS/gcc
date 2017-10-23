@@ -2141,10 +2141,8 @@ void gt_pch_nx (widest_int *, void (*) (void *, void *), void *) { }
 void gt_pch_nx (widest_int *) { }
 
 template void wide_int::dump () const;
-template void generic_wide_int <wide_int_ref_storage <false, false> >::dump () const;
-template void generic_wide_int <wide_int_ref_storage <false, true> >::dump () const;
-template void generic_wide_int <wide_int_ref_storage <true, false> >::dump () const;
-template void generic_wide_int <wide_int_ref_storage <true, true> >::dump () const;
+template void generic_wide_int <wide_int_ref_storage <false> >::dump () const;
+template void generic_wide_int <wide_int_ref_storage <true> >::dump () const;
 template void offset_int::dump () const;
 template void widest_int::dump () const;
 
@@ -2222,6 +2220,17 @@ test_printing ()
   VALUE_TYPE a = from_int<VALUE_TYPE> (42);
   assert_deceq ("42", a, SIGNED);
   assert_hexeq ("0x2a", a);
+  assert_hexeq ("0x1fffffffffffffffff", wi::shwi (-1, 69));
+  assert_hexeq ("0xffffffffffffffff", wi::mask (64, false, 69));
+  assert_hexeq ("0xffffffffffffffff", wi::mask <widest_int> (64, false));
+  if (WIDE_INT_MAX_PRECISION > 128)
+    {
+      assert_hexeq ("0x20000000000000000fffffffffffffffe",
+		    wi::lshift (1, 129) + wi::lshift (1, 64) - 2);
+      assert_hexeq ("0x200000000000004000123456789abcdef",
+		    wi::lshift (1, 129) + wi::lshift (1, 74)
+		    + wi::lshift (0x1234567, 32) + 0x89abcdef);
+    }
 }
 
 /* Verify that various operations work correctly for VALUE_TYPE,
@@ -2296,32 +2305,11 @@ test_comparisons ()
 /* Run all of the selftests, using the given VALUE_TYPE.  */
 
 template <class VALUE_TYPE>
-static void run_wide_int_tests_for_type ()
+static void run_all_wide_int_tests ()
 {
   test_printing <VALUE_TYPE> ();
   test_ops <VALUE_TYPE> ();
   test_comparisons <VALUE_TYPE> ();
-}
-
-/* Test that storage references copy correctly.  */
-
-static void
-test_wide_int_ref ()
-{
-  wi::hwi_with_prec s10 = wi::shwi (10, 20);
-  wi::hwi_with_prec s12 = wi::shwi (12, 22);
-  wi::hwi_with_prec s14 = wi::shwi (14, 29);
-
-  wide_int_ref x = s10;
-  wide_int_ref y = x;
-  x = s12;
-  ASSERT_EQ (y, 10);
-  ASSERT_EQ (y.get_precision (), 20);
-
-  y = x;
-  x = s14;
-  ASSERT_EQ (y, 12);
-  ASSERT_EQ (y.get_precision (), 22);
 }
 
 /* Run all of the selftests within this file, for all value types.  */
@@ -2329,17 +2317,10 @@ test_wide_int_ref ()
 void
 wide_int_cc_tests ()
 {
-  run_wide_int_tests_for_type <wide_int> ();
-  run_wide_int_tests_for_type <offset_int> ();
-  run_wide_int_tests_for_type <widest_int> ();
-  test_wide_int_ref ();
+ run_all_wide_int_tests <wide_int> ();
+ run_all_wide_int_tests <offset_int> ();
+ run_all_wide_int_tests <widest_int> ();
 }
 
 } // namespace selftest
 #endif /* CHECKING_P */
-
-void
-foo (wide_int_ref *x, const wide_int &y)
-{
-  *x = y;
-}

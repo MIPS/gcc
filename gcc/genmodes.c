@@ -1762,7 +1762,7 @@ emit_mode_adjustments (void)
 	    {
 	    case MODE_COMPLEX_INT:
 	    case MODE_COMPLEX_FLOAT:
-	      printf ("  mode_size[E_%smode] = 2 * ps;\n", m->name);
+	      printf ("  mode_size[E_%smode] = 2*s;\n", m->name);
 	      printf ("  mode_unit_size[E_%smode] = s;\n", m->name);
 	      printf ("  mode_base_align[E_%smode] = s & (~s + 1);\n",
 		      m->name);

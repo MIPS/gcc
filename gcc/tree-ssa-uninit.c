@@ -301,7 +301,7 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
 		  && (must_le (ref.offset + ref.size, 0)
 		      || (must_ge (ref.offset, 0)
 			  && DECL_SIZE (base)
-			  && poly_tree_p (DECL_SIZE (base), &decl_size)
+			  && poly_int_tree_p (DECL_SIZE (base), &decl_size)
 			  && must_le (decl_size, ref.offset))))
 		continue;
 

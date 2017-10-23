@@ -308,7 +308,7 @@ delegitimize_mem_from_attrs (rtx x)
 	case IMAGPART_EXPR:
 	case VIEW_CONVERT_EXPR:
 	  {
-	    poly_int64 bitsize, bitpos, bytepos;
+	    poly_int64 bitsize, bitpos, bytepos, toffset_val = 0;
 	    tree toffset;
 	    int unsignedp, reversep, volatilep = 0;
 
@@ -317,14 +317,10 @@ delegitimize_mem_from_attrs (rtx x)
 				     &unsignedp, &reversep, &volatilep);
 	    if (may_ne (bitsize, GET_MODE_BITSIZE (mode))
 		|| !multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
-		|| (toffset && !tree_fits_shwi_p (toffset)))
+		|| (toffset && !poly_int_tree_p (toffset, &toffset_val)))
 	      decl = NULL;
 	    else
-	      {
-		offset += bytepos;
-		if (toffset)
-		  offset += tree_to_shwi (toffset);
-	      }
+	      offset += bytepos + toffset_val;
 	    break;
 	  }
 	}
@@ -2032,6 +2028,26 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 	}
     }
 
+  /* Handle polynomial integers.  */
+  else if (CONST_POLY_INT_P (op))
+    {
+      poly_wide_int result;
+      switch (code)
+	{
+	case NEG:
+	  result = -const_poly_int_value (op);
+	  break;
+
+	case NOT:
+	  result = ~const_poly_int_value (op);
+	  break;
+
+	default:
+	  return NULL_RTX;
+	}
+      return immed_wide_int_const (result, mode);
+    }
+
   return NULL_RTX;
 }
 
@@ -2249,12 +2265,12 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       if ((GET_CODE (op0) == CONST
 	   || GET_CODE (op0) == SYMBOL_REF
 	   || GET_CODE (op0) == LABEL_REF)
-	  && poly_int_const_p (op1, &offset))
+	  && poly_int_rtx_p (op1, &offset))
 	return plus_constant (mode, op0, offset);
       else if ((GET_CODE (op1) == CONST
 		|| GET_CODE (op1) == SYMBOL_REF
 		|| GET_CODE (op1) == LABEL_REF)
-	       && poly_int_const_p (op0, &offset))
+	       && poly_int_rtx_p (op0, &offset))
 	return plus_constant (mode, op1, offset);
 
       /* See if this is something like X * C - X or vice versa or
@@ -2528,7 +2544,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       if ((GET_CODE (op0) == CONST
 	   || GET_CODE (op0) == SYMBOL_REF
 	   || GET_CODE (op0) == LABEL_REF)
-	  && poly_int_const_p (op1, &offset))
+	  && poly_int_rtx_p (op1, &offset))
 	return plus_constant (mode, op0, trunc_int_for_mode (-offset, mode));
 
       /* Don't let a relocatable value get a negative coeff.  */
@@ -4337,6 +4353,57 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       return immed_wide_int_const (result, int_mode);
     }
 
+  /* Handle polynomial integers.  */
+  if (NUM_POLY_INT_COEFFS > 1
+      && is_a <scalar_int_mode> (mode, &int_mode)
+      && poly_int_rtx_p (op0)
+      && poly_int_rtx_p (op1))
+    {
+      poly_wide_int result;
+      switch (code)
+	{
+	case PLUS:
+	  result = wi::to_poly_wide (op0, mode) + wi::to_poly_wide (op1, mode);
+	  break;
+
+	case MINUS:
+	  result = wi::to_poly_wide (op0, mode) - wi::to_poly_wide (op1, mode);
+	  break;
+
+	case MULT:
+	  if (CONST_SCALAR_INT_P (op1))
+	    result = wi::to_poly_wide (op0, mode) * rtx_mode_t (op1, mode);
+	  else
+	    return NULL_RTX;
+	  break;
+
+	case ASHIFT:
+	  if (CONST_SCALAR_INT_P (op1))
+	    {
+	      wide_int shift = rtx_mode_t (op1, mode);
+	      if (SHIFT_COUNT_TRUNCATED)
+		shift = wi::umod_trunc (shift, GET_MODE_PRECISION (int_mode));
+	      else if (wi::geu_p (shift, GET_MODE_PRECISION (int_mode)))
+		return NULL_RTX;
+	      result = wi::to_poly_wide (op0, mode) << shift;
+	    }
+	  else
+	    return NULL_RTX;
+	  break;
+
+	case IOR:
+	  if (!CONST_SCALAR_INT_P (op1)
+	      || !can_ior_p (wi::to_poly_wide (op0, mode),
+			     rtx_mode_t (op1, mode), &result))
+	    return NULL_RTX;
+	  break;
+
+	default:
+	  return NULL_RTX;
+	}
+      return immed_wide_int_const (result, int_mode);
+    }
+
   return NULL_RTX;
 }
 
@@ -4592,8 +4659,8 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 		       trivial CONST expressions we handle later.  */
 		    if (GET_CODE (tem) == CONST
 			&& GET_CODE (XEXP (tem, 0)) == ncode
-			&& rtx_equal_p (XEXP (XEXP (tem, 0), 0), lhs)
-			&& rtx_equal_p (XEXP (XEXP (tem, 0), 1), rhs))
+			&& XEXP (XEXP (tem, 0), 0) == lhs
+			&& XEXP (XEXP (tem, 0), 1) == rhs)
 		      break;
 		    lneg &= rneg;
 		    if (GET_CODE (tem) == NEG)
@@ -6124,7 +6191,7 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
    Return 0 if no simplifications are possible.  */
 rtx
 simplify_subreg (machine_mode outermode, rtx op,
-		 machine_mode innermode, poly_int64 byte)
+		 machine_mode innermode, poly_uint64 byte)
 {
   /* Little bit of sanity checking.  */
   gcc_assert (innermode != VOIDmode);
@@ -6135,15 +6202,15 @@ simplify_subreg (machine_mode outermode, rtx op,
   gcc_assert (GET_MODE (op) == innermode
 	      || GET_MODE (op) == VOIDmode);
 
-  poly_int64 outersize = GET_MODE_SIZE (outermode);
+  poly_uint64 outersize = GET_MODE_SIZE (outermode);
   if (!multiple_p (byte, outersize))
     return NULL_RTX;
 
-  poly_int64 innersize = GET_MODE_SIZE (innermode);
+  poly_uint64 innersize = GET_MODE_SIZE (innermode);
   if (may_ge (byte, innersize))
     return NULL_RTX;
 
-  if (outermode == innermode && must_eq (byte, 0))
+  if (outermode == innermode && known_zero (byte))
     return op;
 
   if (multiple_p (byte, GET_MODE_UNIT_SIZE (innermode)))
@@ -6171,7 +6238,7 @@ simplify_subreg (machine_mode outermode, rtx op,
 	 that apply to general modes and offsets should be handled here
 	 before calling simplify_immed_subreg.  */
       fixed_size_mode fs_outermode, fs_innermode;
-      HOST_WIDE_INT cbyte;
+      unsigned HOST_WIDE_INT cbyte;
       if (is_a <fixed_size_mode> (outermode, &fs_outermode)
 	  && is_a <fixed_size_mode> (innermode, &fs_innermode)
 	  && byte.is_constant (&cbyte))
@@ -6185,7 +6252,7 @@ simplify_subreg (machine_mode outermode, rtx op,
   if (GET_CODE (op) == SUBREG)
     {
       machine_mode innermostmode = GET_MODE (SUBREG_REG (op));
-      poly_int64 innermostsize = GET_MODE_SIZE (innermostmode);
+      poly_uint64 innermostsize = GET_MODE_SIZE (innermostmode);
       rtx newx;
 
       if (outermode == innermostmode
@@ -6205,7 +6272,7 @@ simplify_subreg (machine_mode outermode, rtx op,
 	{
 	  /* Bail out in case resulting subreg would be incorrect.  */
 	  if (may_lt (final_offset, 0)
-	      || may_ge (final_offset, innermostsize)
+	      || may_ge (poly_uint64 (final_offset), innermostsize)
 	      || !multiple_p (final_offset, outersize))
 	    return NULL_RTX;
 	}
@@ -6290,13 +6357,13 @@ simplify_subreg (machine_mode outermode, rtx op,
   if (GET_CODE (op) == CONCAT
       || GET_CODE (op) == VEC_CONCAT)
     {
-      poly_int64 final_offset;
+      poly_uint64 final_offset;
       rtx part, res;
 
       machine_mode part_mode = GET_MODE (XEXP (op, 0));
       if (part_mode == VOIDmode)
 	part_mode = GET_MODE_INNER (GET_MODE (op));
-      poly_int64 part_size = GET_MODE_SIZE (part_mode);
+      poly_uint64 part_size = GET_MODE_SIZE (part_mode);
       if (must_lt (byte, part_size))
 	{
 	  part = XEXP (op, 0);
@@ -6328,7 +6395,7 @@ simplify_subreg (machine_mode outermode, rtx op,
      it extracts higher bits that the ZERO_EXTEND's source bits.  */
   if (GET_CODE (op) == ZERO_EXTEND && SCALAR_INT_MODE_P (innermode))
     {
-      poly_int64 bitpos = subreg_lsb_1 (outermode, innermode, byte);
+      poly_uint64 bitpos = subreg_lsb_1 (outermode, innermode, byte);
       if (must_ge (bitpos, GET_MODE_PRECISION (GET_MODE (XEXP (op, 0)))))
 	return CONST0_RTX (outermode);
     }
@@ -6366,7 +6433,7 @@ simplify_subreg (machine_mode outermode, rtx op,
 
 rtx
 simplify_gen_subreg (machine_mode outermode, rtx op,
-		     machine_mode innermode, poly_int64 byte)
+		     machine_mode innermode, poly_uint64 byte)
 {
   rtx newx;
 
@@ -6566,7 +6633,7 @@ test_vector_ops_duplicate (machine_mode mode, rtx scalar_reg)
     }
 
   /* Test a scalar subreg of a VEC_DUPLICATE.  */
-  poly_int64 offset = subreg_lowpart_offset (inner_mode, mode);
+  poly_uint64 offset = subreg_lowpart_offset (inner_mode, mode);
   ASSERT_RTX_EQ (scalar_reg,
 		 simplify_gen_subreg (inner_mode, duplicate,
 				      mode, offset));
@@ -6586,7 +6653,7 @@ test_vector_ops_duplicate (machine_mode mode, rtx scalar_reg)
 						duplicate, vec_par));
 
       /* Test a vector subreg of a VEC_DUPLICATE.  */
-      poly_int64 offset = subreg_lowpart_offset (narrower_mode, mode);
+      poly_uint64 offset = subreg_lowpart_offset (narrower_mode, mode);
       ASSERT_RTX_EQ (narrower_duplicate,
 		     simplify_gen_subreg (narrower_mode, duplicate,
 					  mode, offset));
@@ -6666,12 +6733,60 @@ test_vector_ops ()
     }
 }
 
+template<unsigned int N>
+struct simplify_const_poly_int_tests
+{
+  static void run ();
+};
+
+template<>
+struct simplify_const_poly_int_tests<1>
+{
+  static void run () {}
+};
+
+/* Test various CONST_POLY_INT properties.  */
+
+template<unsigned int N>
+void
+simplify_const_poly_int_tests<N>::run ()
+{
+  rtx x1 = gen_int_mode (poly_int64 (1, 1), QImode);
+  rtx x2 = gen_int_mode (poly_int64 (-80, 127), QImode);
+  rtx x3 = gen_int_mode (poly_int64 (-79, -128), QImode);
+  rtx x4 = gen_int_mode (poly_int64 (5, 4), QImode);
+  rtx x5 = gen_int_mode (poly_int64 (30, 24), QImode);
+  rtx x6 = gen_int_mode (poly_int64 (20, 16), QImode);
+  rtx x7 = gen_int_mode (poly_int64 (7, 4), QImode);
+  rtx x8 = gen_int_mode (poly_int64 (30, 24), HImode);
+  rtx x9 = gen_int_mode (poly_int64 (-30, -24), HImode);
+  rtx x10 = gen_int_mode (poly_int64 (-31, -24), HImode);
+  rtx two = GEN_INT (2);
+  rtx six = GEN_INT (6);
+  poly_uint64 offset = subreg_lowpart_offset (QImode, HImode);
+
+  /* These tests only try limited operation combinations.  Fuller arithmetic
+     testing is done directly on poly_ints.  */
+  ASSERT_EQ (simplify_unary_operation (NEG, HImode, x8, HImode), x9);
+  ASSERT_EQ (simplify_unary_operation (NOT, HImode, x8, HImode), x10);
+  ASSERT_EQ (simplify_unary_operation (TRUNCATE, QImode, x8, HImode), x5);
+  ASSERT_EQ (simplify_binary_operation (PLUS, QImode, x1, x2), x3);
+  ASSERT_EQ (simplify_binary_operation (MINUS, QImode, x3, x1), x2);
+  ASSERT_EQ (simplify_binary_operation (MULT, QImode, x4, six), x5);
+  ASSERT_EQ (simplify_binary_operation (MULT, QImode, six, x4), x5);
+  ASSERT_EQ (simplify_binary_operation (ASHIFT, QImode, x4, two), x6);
+  ASSERT_EQ (simplify_binary_operation (IOR, QImode, x4, two), x7);
+  ASSERT_EQ (simplify_subreg (HImode, x5, QImode, 0), x8);
+  ASSERT_EQ (simplify_subreg (QImode, x8, HImode, offset), x5);
+}
+
 /* Run all of the selftests within this file.  */
 
 void
 simplify_rtx_c_tests ()
 {
   test_vector_ops ();
+  simplify_const_poly_int_tests<NUM_POLY_INT_COEFFS>::run ();
 }
 
 } // namespace selftest

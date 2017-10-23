@@ -230,7 +230,8 @@ extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
 extern void expand_PHI (internal_fn, gcall *);
 
-extern bool vectorized_internal_fn_supported_p (internal_fn, machine_mode);
 extern internal_fn get_gather_scatter_internal_fn (bool, tree, tree, bool);
+
+extern bool vectorized_internal_fn_supported_p (internal_fn, machine_mode);
 
 #endif

@@ -2093,12 +2093,12 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
   if (VAR_P (inner) && DECL_HARD_REGISTER (inner))
     return;
 
-  poly_int64 size;
+  poly_int64 decl_size;
   if (VAR_P (inner)
       && offset == NULL_TREE
       && DECL_SIZE (inner)
-      && poly_tree_p (DECL_SIZE (inner), &size)
-      && known_subrange_p (bitpos, bitsize, 0, size))
+      && poly_int_tree_p (DECL_SIZE (inner), &decl_size)
+      && known_subrange_p (bitpos, bitsize, 0, decl_size))
     {
       if (DECL_THREAD_LOCAL_P (inner))
 	return;

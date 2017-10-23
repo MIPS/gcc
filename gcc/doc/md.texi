@@ -4917,7 +4917,7 @@ This pattern is not allowed to @code{FAIL}.
 @cindex @code{vec_series@var{m}} instruction pattern
 @item @samp{vec_series@var{m}}
 Initialize vector output operand 0 so that element @var{i} is equal to
-operand 1 plus @var{i} times operand 2.  In other words, return a linear
+operand 1 plus @var{i} times operand 2.  In other words, create a linear
 series whose base value is operand 1 and whose step is operand 2.
 
 The vector output has mode @var{m} and the scalar inputs have the mode

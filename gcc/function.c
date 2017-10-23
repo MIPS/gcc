@@ -240,13 +240,12 @@ frame_offset_overflow (poly_int64 offset, tree func)
        /* Leave room for the fixed part of the frame.  */
        - 64 * UNITS_PER_WORD);
 
-  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-    if (size.coeffs[i] > limit)
-      {
-	error_at (DECL_SOURCE_LOCATION (func),
-		  "total size of local objects too large");
-	return true;
-      }
+  if (!coeffs_in_range_p (size, 0U, limit))
+    {
+      error_at (DECL_SOURCE_LOCATION (func),
+		"total size of local objects too large");
+      return true;
+    }
 
   return false;
 }
@@ -289,7 +288,7 @@ get_stack_local_alignment (tree type, machine_mode mode)
 static bool
 try_fit_stack_local (poly_int64 start, poly_int64 length,
 		     poly_int64 size, unsigned int alignment,
-		     poly_int64 *poffset)
+		     poly_int64_pod *poffset)
 {
   poly_int64 this_frame_offset;
   int frame_off, frame_alignment, frame_phase;
@@ -297,10 +296,7 @@ try_fit_stack_local (poly_int64 start, poly_int64 length,
   /* Calculate how many bytes the start of local variables is off from
      stack alignment.  */
   frame_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-  /* At present we only support frame layouts in which the misalignment
-     of STARTING_FRAME_OFFSET is known at compile time.  */
-  frame_off = force_get_misalignment (poly_int64 (STARTING_FRAME_OFFSET),
-				      frame_alignment);
+  frame_off = targetm.starting_frame_offset () % frame_alignment;
   frame_phase = frame_off ? frame_alignment - frame_off : 0;
 
   /* Round the frame offset to the specified alignment.  */
@@ -496,7 +492,12 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
      use the least significant bytes of those that are allocated.  */
   if (mode != BLKmode)
     {
-      gcc_checking_assert (must_le (GET_MODE_SIZE (mode), size));
+      /* The slot size can sometimes be smaller than the mode size;
+	 e.g. the rs6000 port allocates slots with a vector mode
+	 that have the size of only one element.  However, the slot
+	 size must always be ordered wrt to the mode size, in the
+	 same way as for a subreg.  */
+      gcc_checking_assert (ordered_p (GET_MODE_SIZE (mode), size));
       if (BYTES_BIG_ENDIAN && may_lt (GET_MODE_SIZE (mode), size))
 	bigend_correction = size - GET_MODE_SIZE (mode);
     }
@@ -507,7 +508,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
     addr = plus_constant (Pmode, frame_pointer_rtx,
 			  trunc_int_for_mode
 			  (slot_offset + bigend_correction
-			   + STARTING_FRAME_OFFSET, Pmode));
+			   + targetm.starting_frame_offset (), Pmode));
   else
     addr = plus_constant (Pmode, virtual_stack_vars_rtx,
 			  trunc_int_for_mode
@@ -1366,11 +1367,11 @@ initial_value_entry (int i, rtx *hreg, rtx *preg)
    routines.  They contain the offsets of the virtual registers from their
    respective hard registers.  */
 
-static int in_arg_offset;
+static poly_int64 in_arg_offset;
 static poly_int64 var_offset;
 static poly_int64 dynamic_offset;
 static poly_int64 out_arg_offset;
-static int cfa_offset;
+static poly_int64 cfa_offset;
 
 /* In most machines, the stack pointer register is equivalent to the bottom
    of the stack.  */
@@ -1406,7 +1407,7 @@ static int cfa_offset;
   : 0) + (STACK_POINTER_OFFSET))
 #else
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
-  ((ACCUMULATE_OUTGOING_ARGS ? poly_int64 (crtl->outgoing_args_size) : 0) \
+  ((ACCUMULATE_OUTGOING_ARGS ? crtl->outgoing_args_size : poly_int64 (0)) \
  + (STACK_POINTER_OFFSET))
 #endif
 #endif
@@ -1417,7 +1418,7 @@ static int cfa_offset;
    offset indirectly through the pointer.  Otherwise, return 0.  */
 
 static rtx
-instantiate_new_reg (rtx x, poly_int64 *poffset)
+instantiate_new_reg (rtx x, poly_int64_pod *poffset)
 {
   rtx new_rtx;
   poly_int64 offset;
@@ -1598,14 +1599,15 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 
       /* Handle a plus involving a virtual register by determining if the
 	 operands remain valid if they're modified in place.  */
+      poly_int64 delta;
       if (GET_CODE (SET_SRC (set)) == PLUS
 	  && recog_data.n_operands >= 3
 	  && recog_data.operand_loc[1] == &XEXP (SET_SRC (set), 0)
 	  && recog_data.operand_loc[2] == &XEXP (SET_SRC (set), 1)
-	  && CONST_INT_P (recog_data.operand[2])
+	  && poly_int_rtx_p (recog_data.operand[2], &delta)
 	  && (new_rtx = instantiate_new_reg (recog_data.operand[1], &offset)))
 	{
-	  offset += INTVAL (recog_data.operand[2]);
+	  offset += delta;
 
 	  /* If the sum is zero, then replace with a plain move.  */
 	  if (known_zero (offset)
@@ -1935,7 +1937,7 @@ instantiate_virtual_regs (void)
 
   /* Compute the offsets to use for this function.  */
   in_arg_offset = FIRST_PARM_OFFSET (current_function_decl);
-  var_offset = STARTING_FRAME_OFFSET;
+  var_offset = targetm.starting_frame_offset ();
   dynamic_offset = STACK_DYNAMIC_OFFSET (current_function_decl);
   out_arg_offset = STACK_POINTER_OFFSET;
 #ifdef FRAME_POINTER_CFA_OFFSET
@@ -2718,12 +2720,15 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
      is TARGET_FUNCTION_ARG_BOUNDARY.  If we're using slot_offset, we're
      intentionally forcing upward padding.  Otherwise we have to come
      up with a guess at the alignment based on OFFSET_RTX.  */
+  poly_int64 offset;
   if (data->locate.where_pad != PAD_DOWNWARD || data->entry_parm)
     align = boundary;
-  else if (CONST_INT_P (offset_rtx))
+  else if (poly_int_rtx_p (offset_rtx, &offset))
     {
-      align = INTVAL (offset_rtx) * BITS_PER_UNIT | boundary;
-      align = least_bit_hwi (align);
+      align = least_bit_hwi (boundary);
+      unsigned int offset_align = known_alignment (offset) * BITS_PER_UNIT;
+      if (offset_align != 0)
+	align = MIN (align, offset_align);
     }
   set_mem_align (stack_parm, align);
 

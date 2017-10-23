@@ -150,7 +150,7 @@ static GTY ((cache)) hash_table<const_wide_int_hasher> *const_wide_int_htab;
 
 struct const_poly_int_hasher : ggc_cache_ptr_hash<rtx_def>
 {
-  typedef poly_wide_int_ref compare_type;
+  typedef std::pair<machine_mode, poly_wide_int_ref> compare_type;
 
   static hashval_t hash (rtx x);
   static bool equal (rtx x, const compare_type &y);
@@ -266,29 +266,27 @@ const_wide_int_hasher::equal (rtx x, rtx y)
 }
 #endif
 
-/* Returns a hash code for X (which is a really a CONST_INT).  */
+/* Returns a hash code for CONST_POLY_INT X.  */
 
 hashval_t
 const_poly_int_hasher::hash (rtx x)
 {
   inchash::hash h;
+  h.add_int (GET_MODE (x));
   for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
     h.add_wide_int (CONST_POLY_INT_COEFFS (x)[i]);
   return h.end ();
 }
 
-/* Returns nonzero if the value represented by X (which is really a
-   CONST_INT) is the same as that given by Y (which is really a
-   HOST_WIDE_INT *).  */
+/* Returns nonzero if CONST_POLY_INT X is an rtx representation of Y.  */
 
 bool
 const_poly_int_hasher::equal (rtx x, const compare_type &y)
 {
-  if (CONST_POLY_INT_COEFFS (x).get_precision ()
-      != y.coeffs[0].get_precision ())
+  if (GET_MODE (x) != y.first)
     return false;
   for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
-    if (CONST_POLY_INT_COEFFS (x)[i] != y.coeffs[i])
+    if (CONST_POLY_INT_COEFFS (x)[i] != y.second.coeffs[i])
       return false;
   return true;
 }
@@ -773,15 +771,24 @@ immed_wide_int_const (const poly_wide_int_ref &c, machine_mode mode)
   gcc_assert (prec <= c.coeffs[0].get_precision ());
   poly_wide_int newc = poly_wide_int::from (c, prec, SIGNED);
 
+  /* See whether we already have an rtx for this constant.  */
   inchash::hash h;
+  h.add_int (mode);
   for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
     h.add_wide_int (newc.coeffs[i]);
-  rtx *slot = const_poly_int_htab->find_slot_with_hash (newc, h.end (),
-							INSERT);
+  const_poly_int_hasher::compare_type typed_value (mode, newc);
+  rtx *slot = const_poly_int_htab->find_slot_with_hash (typed_value,
+							h.end (), INSERT);
   rtx x = *slot;
   if (x)
     return x;
 
+  /* Create a new rtx.  There's a choice to be made here between installing
+     the actual mode of the rtx or leaving it as VOIDmode (for consistency
+     with CONST_INT).  In practice the handling of the codes is different
+     enough that we get no benefit from using VOIDmode, and various places
+     assume that VOIDmode implies CONST_INT.  Using the real mode seems like
+     the right long-term direction anyway.  */
   typedef trailing_wide_ints<NUM_POLY_INT_COEFFS> twi;
   size_t extra_size = twi::extra_size (prec);
   x = rtx_alloc_v (CONST_POLY_INT,
@@ -1015,7 +1022,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     {
       /* It is invalid for the target to pick a register size for a mode
 	 that isn't ordered wrt to the size of that mode.  */
-      poly_uint64 block_size = ordered_max (isize, regsize);
+      poly_uint64 block_size = ordered_min (isize, regsize);
       unsigned int start_reg;
       poly_uint64 offset_within_reg;
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
@@ -1028,7 +1035,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
 }
 
 rtx
-gen_rtx_SUBREG (machine_mode mode, rtx reg, poly_int64 offset)
+gen_rtx_SUBREG (machine_mode mode, rtx reg, poly_uint64 offset)
 {
   gcc_assert (validate_subreg (mode, GET_MODE (reg), reg, offset));
   return gen_rtx_raw_SUBREG (mode, reg, offset);
@@ -1145,7 +1152,7 @@ byte_lowpart_offset (machine_mode outer_mode,
 
 poly_int64
 subreg_memory_offset (machine_mode outer_mode, machine_mode inner_mode,
-		      poly_int64 offset)
+		      poly_uint64 offset)
 {
   if (paradoxical_subreg_p (outer_mode, inner_mode))
     {
@@ -1628,12 +1635,12 @@ gen_lowpart_common (machine_mode mode, rtx x)
 rtx
 gen_highpart (machine_mode mode, rtx x)
 {
-  poly_int64 msize = GET_MODE_SIZE (mode);
+  poly_uint64 msize = GET_MODE_SIZE (mode);
   rtx result;
 
   /* This case loses if X is a subreg.  To catch bugs early,
      complain if an invalid MODE is used even in other cases.  */
-  gcc_assert (must_le (msize, UNITS_PER_WORD)
+  gcc_assert (must_le (msize, (unsigned int) UNITS_PER_WORD)
 	      || must_eq (msize, GET_MODE_UNIT_SIZE (GET_MODE (x))));
 
   result = simplify_gen_subreg (mode, x, GET_MODE (x),
@@ -1669,8 +1676,8 @@ gen_highpart_mode (machine_mode outermode, machine_mode innermode, rtx exp)
 /* Return the SUBREG_BYTE for a lowpart subreg whose outer mode has
    OUTER_BYTES bytes and whose inner mode has INNER_BYTES bytes.  */
 
-poly_int64
-subreg_size_lowpart_offset (poly_int64 outer_bytes, poly_int64 inner_bytes)
+poly_uint64
+subreg_size_lowpart_offset (poly_uint64 outer_bytes, poly_uint64 inner_bytes)
 {
   gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
   if (may_gt (outer_bytes, inner_bytes))
@@ -1688,8 +1695,8 @@ subreg_size_lowpart_offset (poly_int64 outer_bytes, poly_int64 inner_bytes)
 /* Return the SUBREG_BYTE for a highpart subreg whose outer mode has
    OUTER_BYTES bytes and whose inner mode has INNER_BYTES bytes.  */
 
-poly_int64
-subreg_size_highpart_offset (poly_int64 outer_bytes, poly_int64 inner_bytes)
+poly_uint64
+subreg_size_highpart_offset (poly_uint64 outer_bytes, poly_uint64 inner_bytes)
 {
   gcc_assert (must_ge (inner_bytes, outer_bytes));
 
@@ -1719,15 +1726,6 @@ subreg_lowpart_p (const_rtx x)
 					 GET_MODE (SUBREG_REG (x))),
 		  SUBREG_BYTE (x));
 }
-
-/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
-   return the smaller of the two modes if they are different sizes,
-   otherwise return the outer mode.  */
-machine_mode
-narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
-{
-  return paradoxical_subreg_p (outermode, innermode) ? innermode : outermode;
-}
 
 /* Return subword OFFSET of operand OP.
    The word number, OFFSET, is interpreted as the word number starting
@@ -1755,7 +1753,7 @@ narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
  */
 
 rtx
-operand_subword (rtx op, poly_int64 offset, int validate_address,
+operand_subword (rtx op, poly_uint64 offset, int validate_address,
 		 machine_mode mode)
 {
   if (mode == VOIDmode)
@@ -1804,7 +1802,7 @@ operand_subword (rtx op, poly_int64 offset, int validate_address,
    MODE is the mode of OP, in case it is CONST_INT.  */
 
 rtx
-operand_subword_force (rtx op, poly_int64 offset, machine_mode mode)
+operand_subword_force (rtx op, poly_uint64 offset, machine_mode mode)
 {
   rtx result = operand_subword (op, offset, 1, mode);
 
@@ -1906,12 +1904,13 @@ get_mem_align_offset (rtx mem, unsigned int align)
 	  tree byte_offset = component_ref_field_offset (expr);
 	  tree bit_offset = DECL_FIELD_BIT_OFFSET (field);
 
+	  poly_uint64 suboffset;
 	  if (!byte_offset
-	      || !tree_fits_uhwi_p (byte_offset)
+	      || !poly_int_tree_p (byte_offset, &suboffset)
 	      || !tree_fits_uhwi_p (bit_offset))
 	    return -1;
 
-	  offset += tree_to_uhwi (byte_offset);
+	  offset += suboffset;
 	  offset += tree_to_uhwi (bit_offset) / BITS_PER_UNIT;
 
 	  if (inner == NULL_TREE)
@@ -2140,10 +2139,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	    {
 	      attrs.expr = t2;
 	      attrs.offset_known_p = false;
-	      if (tree_fits_uhwi_p (off_tree))
+	      if (poly_int_tree_p (off_tree, &attrs.offset))
 		{
 		  attrs.offset_known_p = true;
-		  attrs.offset = tree_to_uhwi (off_tree);
 		  apply_bitpos = bitpos;
 		}
 	    }
@@ -2171,7 +2169,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
     }
 
   poly_uint64 const_size;
-  if (poly_tree_p (new_size, &const_size))
+  if (poly_int_tree_p (new_size, &const_size))
     {
       attrs.size_known_p = true;
       attrs.size = const_size;
@@ -2620,7 +2618,6 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 
   while (attrs.expr)
     {
-      poly_uint64 decl_size;
       if (TREE_CODE (attrs.expr) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (attrs.expr, 1);
@@ -2634,29 +2631,29 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 
 	  /* Is the field at least as large as the access?  If so, ok,
 	     otherwise strip back to the containing structure.  */
-	  poly_uint64 field_size;
-	  if (poly_tree_p (DECL_SIZE_UNIT (field), &field_size)
-	      && must_ge (field_size, size)
+	  if (poly_int_tree_p (DECL_SIZE_UNIT (field))
+	      && must_ge (wi::to_poly_offset (DECL_SIZE_UNIT (field)), size)
 	      && must_ge (attrs.offset, 0))
 	    break;
 
-	  poly_uint64 offset_val;
-	  if (!poly_tree_p (offset, &offset_val))
+	  poly_uint64 suboffset;
+	  if (!poly_int_tree_p (offset, &suboffset))
 	    {
 	      attrs.expr = NULL_TREE;
 	      break;
 	    }
 
 	  attrs.expr = TREE_OPERAND (attrs.expr, 0);
-	  attrs.offset += offset_val;
+	  attrs.offset += suboffset;
 	  attrs.offset += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
 			   / BITS_PER_UNIT);
 	}
       /* Similarly for the decl.  */
       else if (DECL_P (attrs.expr)
 	       && DECL_SIZE_UNIT (attrs.expr)
-	       && poly_tree_p (DECL_SIZE_UNIT (attrs.expr), &decl_size)
-	       && must_ge (decl_size, size)
+	       && poly_int_tree_p (DECL_SIZE_UNIT (attrs.expr))
+	       && must_ge (wi::to_poly_offset (DECL_SIZE_UNIT (attrs.expr)),
+			   size)
 	       && must_ge (attrs.offset, 0))
 	break;
       else
@@ -2731,10 +2728,7 @@ set_mem_attrs_for_spill (rtx mem)
      with perhaps the plus missing for offset = 0.  */
   addr = XEXP (mem, 0);
   attrs.offset_known_p = true;
-  attrs.offset = 0;
-  if (GET_CODE (addr) == PLUS
-      && CONST_INT_P (XEXP (addr, 1)))
-    attrs.offset = INTVAL (XEXP (addr, 1));
+  strip_offset (addr, &attrs.offset);
 
   set_mem_attrs (mem, &attrs);
   MEM_NOTRAP_P (mem) = 1;
@@ -6643,5 +6637,6 @@ rtl_data::init_stack_alignment ()
   stack_alignment_estimated = 0;
   preferred_stack_boundary = STACK_BOUNDARY;
 }
+
 
 #include "gt-emit-rtl.h"

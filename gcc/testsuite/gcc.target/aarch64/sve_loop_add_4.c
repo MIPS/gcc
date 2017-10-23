@@ -40,7 +40,9 @@ TEST_ALL (LOOP)
 /* { dg-final { scan-assembler-times {\tincb\tx[0-9]+\n} 8 } } */
 
 /* { dg-final { scan-assembler-not {\tdecb\tz[0-9]+\.b} } } */
-/* { dg-final { scan-assembler-times {\tadd\tz[0-9]+\.b, z[0-9]+\.b, z[0-9]+\.b\n} 16 } } */
+/* We don't need to increment the vector IV for steps -16 and 16, since the
+   increment is always a multiple of 256.  */
+/* { dg-final { scan-assembler-times {\tadd\tz[0-9]+\.b, z[0-9]+\.b, z[0-9]+\.b\n} 14 } } */
 
 /* { dg-final { scan-assembler-times {\tindex\tz[0-9]+\.h, w[0-9]+, #-16\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tindex\tz[0-9]+\.h, w[0-9]+, #-15\n} 1 } } */

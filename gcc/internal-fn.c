@@ -76,6 +76,7 @@ init_internal_fns ()
 
 /* Create static initializers for the information returned by
    direct_internal_fn.  */
+
 #define NOT_VECTORIZABLE false, false, 0
 #define VECTORIZABLE true, false, 0
 #define VECTORIZABLE_COND true, true, 0
@@ -91,8 +92,8 @@ init_internal_fns ()
 #define scatter_store_direct { 3, 3, NOT_VECTORIZABLE }
 #define unary_direct { 0, 0, VECTORIZABLE }
 #define binary_direct { 0, 0, VECTORIZABLE }
-#define ternary_direct { 0, 0, VECTORIZABLE }
 #define cond_binary_direct { 1, 1, VECTORIZABLE_COND }
+#define ternary_direct { 0, 0, VECTORIZABLE }
 #define cond_ternary_direct { 1, 1, VECTORIZABLE_COND }
 #define while_direct { 0, 2, NOT_VECTORIZABLE }
 #define clastb_direct { 2, 2, NOT_VECTORIZABLE }

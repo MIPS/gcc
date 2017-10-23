@@ -18,7 +18,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -1730,6 +1730,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_mode_as_bool_0
+#undef TARGET_INSN_COST
+#define TARGET_INSN_COST rs6000_insn_cost
 
 #undef TARGET_INIT_DWARF_REG_SIZES_EXTRA
 #define TARGET_INIT_DWARF_REG_SIZES_EXTRA rs6000_init_dwarf_reg_sizes_extra
@@ -1958,6 +1960,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT rs6000_constant_alignment
+
+#undef TARGET_STARTING_FRAME_OFFSET
+#define TARGET_STARTING_FRAME_OFFSET rs6000_starting_frame_offset
 
 
 /* Processor table.  */
@@ -23255,24 +23260,6 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   return 1;
 }
 
-const char *
-output_isel (rtx *operands)
-{
-  enum rtx_code code;
-
-  code = GET_CODE (operands[1]);
-
-  if (code == GE || code == GEU || code == LE || code == LEU || code == NE)
-    {
-      gcc_assert (GET_CODE (operands[2]) == REG
-		  && GET_CODE (operands[3]) == REG);
-      PUT_CODE (operands[1], reverse_condition (code));
-      return "isel %0,%3,%2,%j1";
-    }
-
-  return "isel %0,%2,%3,%j1";
-}
-
 void
 rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
 {
@@ -34393,7 +34380,8 @@ rs6000_xcoff_asm_output_aligned_decl_common (FILE *stream,
 	   size, align2);
 
 #ifdef HAVE_GAS_HIDDEN
-  fputs (rs6000_xcoff_visibility (decl), stream);
+  if (decl != NULL)
+    fputs (rs6000_xcoff_visibility (decl), stream);
 #endif
   putc ('\n', stream);
 }
@@ -34936,6 +34924,88 @@ rs6000_debug_rtx_costs (rtx x, machine_mode mode, int outer_code,
   debug_rtx (x);
 
   return ret;
+}
+
+static int
+rs6000_insn_cost (rtx_insn *insn, bool speed)
+{
+  if (recog_memoized (insn) < 0)
+    return 0;
+
+  if (!speed)
+    return get_attr_length (insn);
+
+  int cost = get_attr_cost (insn);
+  if (cost > 0)
+    return cost;
+
+  int n = get_attr_length (insn) / 4;
+  enum attr_type type = get_attr_type (insn);
+
+  switch (type)
+    {
+    case TYPE_LOAD:
+    case TYPE_FPLOAD:
+    case TYPE_VECLOAD:
+      cost = COSTS_N_INSNS (n + 1);
+      break;
+
+    case TYPE_MUL:
+      switch (get_attr_size (insn))
+	{
+	case SIZE_8:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->mulsi_const9;
+	  break;
+	case SIZE_16:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->mulsi_const;
+	  break;
+	case SIZE_32:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->mulsi;
+	  break;
+	case SIZE_64:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->muldi;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      break;
+    case TYPE_DIV:
+      switch (get_attr_size (insn))
+	{
+	case SIZE_32:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->divsi;
+	  break;
+	case SIZE_64:
+	  cost = COSTS_N_INSNS (n - 1) + rs6000_cost->divdi;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      break;
+
+    case TYPE_FP:
+      cost = n * rs6000_cost->fp;
+      break;
+    case TYPE_DMUL:
+      cost = n * rs6000_cost->dmul;
+      break;
+    case TYPE_SDIV:
+      cost = n * rs6000_cost->sdiv;
+      break;
+    case TYPE_DDIV:
+      cost = n * rs6000_cost->ddiv;
+      break;
+
+    case TYPE_SYNC:
+    case TYPE_LOAD_L:
+      cost = COSTS_N_INSNS (n + 2);
+      break;
+
+    default:
+      cost = COSTS_N_INSNS (n);
+    }
+
+  return cost;
 }
 
 /* Debug form of ADDRESS_COST that is selected if -mdebug=cost.  */
@@ -39432,6 +39502,16 @@ rs6000_constant_alignment (const_tree exp, HOST_WIDE_INT align)
       && (STRICT_ALIGNMENT || !optimize_size))
     return MAX (align, BITS_PER_WORD);
   return align;
+}
+
+/* Implement TARGET_STARTING_FRAME_OFFSET.  */
+
+static HOST_WIDE_INT
+rs6000_starting_frame_offset (void)
+{
+  if (FRAME_GROWS_DOWNWARD)
+    return 0;
+  return RS6000_STARTING_FRAME_OFFSET;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

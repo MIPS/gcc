@@ -4611,7 +4611,7 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
     {
       poly_uint64 val;
       safelen = OMP_CLAUSE_SAFELEN_EXPR (safelen);
-      if (!poly_tree_p (safelen, &val))
+      if (!poly_int_tree_p (safelen, &val))
 	safelen_int = 0;
       else
 	safelen_int = MIN (constant_lower_bound (val), INT_MAX);

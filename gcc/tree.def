@@ -291,6 +291,7 @@ DEFTREECODE (VOID_CST, "void_cst", tcc_constant, 0)
    some circumstances.  */
 DEFTREECODE (INTEGER_CST, "integer_cst", tcc_constant, 0)
 
+/* Contents are given by POLY_INT_CST_COEFF.  */
 DEFTREECODE (POLY_INT_CST, "poly_int_cst", tcc_constant, 0)
 
 /* Contents are in TREE_REAL_CST field.  */
@@ -310,6 +311,8 @@ DEFTREECODE (VECTOR_CST, "vector_cst", tcc_constant, 0)
    VEC_DUPLICATE_CST_ELT.  */
 DEFTREECODE (VEC_DUPLICATE_CST, "vec_duplicate_cst", tcc_constant, 0)
 
+/* Represents a vector constant in which element i is equal to
+   VEC_SERIES_CST_BASE + i * VEC_SERIES_CST_STEP.  */
 DEFTREECODE (VEC_SERIES_CST, "vec_series_cst", tcc_constant, 0)
 
 /* Contents are TREE_STRING_LENGTH and the actual contents of the string.  */
@@ -1003,8 +1006,8 @@ DEFTREECODE (SCEV_KNOWN, "scev_known", tcc_expression, 0)
 DEFTREECODE (SCEV_NOT_KNOWN, "scev_not_known", tcc_expression, 0)
 
 /* Polynomial chains of recurrences.
-   Under the form: cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}.  */
-DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", tcc_expression, 3)
+   cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}_CHREC_VARIABLE (cr).  */
+DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", tcc_expression, 2)
 
 /* Used to chain children of container statements together.
    Use the interface in tree-iterator.h to access this node.  */

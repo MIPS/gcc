@@ -3516,11 +3516,11 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
 	  if (c)
 	    {
 	      poly_uint64 safe_len;
-	      if (!poly_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
-		  || maybe_zero (safe_len))
+	      if (!poly_int_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+		  || may_lt (safe_len, 1U))
 		sctx->max_vf = 1;
-	      else if (may_lt (safe_len, sctx->max_vf))
-		sctx->max_vf = safe_len;
+	      else
+		sctx->max_vf = lower_bound (sctx->max_vf, safe_len);
 	    }
 	}
       if (may_gt (sctx->max_vf, 1U))
@@ -4676,7 +4676,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 				OMP_CLAUSE_SAFELEN);
       poly_uint64 safe_len;
       if (c == NULL_TREE
-	  || (poly_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+	  || (poly_int_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
 	      && may_gt (safe_len, sctx.max_vf)))
 	{
 	  c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_SAFELEN);
@@ -4934,7 +4934,7 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
   gimple_seq after_join = NULL;
   tree init_code = NULL_TREE, fini_code = NULL_TREE,
     setup_code = NULL_TREE, teardown_code = NULL_TREE;
-  HOST_WIDE_INT offset = 0;
+  unsigned offset = 0;
 
   for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
@@ -5073,13 +5073,14 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	  v1 = v2 = v3 = var;
 
 	/* Determine position in reduction buffer, which may be used
-	   by target.  */
-	machine_mode mode = TYPE_MODE (TREE_TYPE (var));
+	   by target.  The parser has ensured that this is not a
+	   variable-sized type.  */
+	fixed_size_mode mode
+	  = as_a <fixed_size_mode> (TYPE_MODE (TREE_TYPE (var)));
 	unsigned align = GET_MODE_ALIGNMENT (mode) /  BITS_PER_UNIT;
 	offset = (offset + align - 1) & ~(align - 1);
 	tree off = build_int_cst (sizetype, offset);
-	/* The offset must be a compile-time constant.  */
-	offset += GET_MODE_SIZE (mode).to_constant ();
+	offset += GET_MODE_SIZE (mode);
 
 	if (!init_code)
 	  {

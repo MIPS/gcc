@@ -1,50 +1,14 @@
-/* Polynomial integer classes.
-   Copyright (C) 2017 Free Software Foundation, Inc.
+/* This file contains templated tests that are then instantiated in
+   multiple plugin tests, in order to reduce the size of each test.  */
 
-This file is part of GCC.
-
-GCC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 3, or (at your option) any
-later version.
-
-GCC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
-
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
-
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "selftest.h"
-
-#if CHECKING_P
-
-#if 1
-#undef ASSERT_FALSE
 #define ASSERT_FALSE(X) gcc_assert (!(X))
-
-#undef ASSERT_TRUE
 #define ASSERT_TRUE(X) gcc_assert (X)
-
-#undef ASSERT_EQ
 #define ASSERT_EQ(X, Y) gcc_assert ((X) == (Y))
-
-#undef ASSERT_MUST_EQ
 #define ASSERT_MUST_EQ(X, Y) gcc_assert (must_eq (X, Y))
-
-#undef ASSERT_MAY_NE
 #define ASSERT_MAY_NE(X, Y) gcc_assert (may_ne (X, Y))
-#endif
 
-namespace selftest {
-
-/* make (X) converts int X into T, using an arbitrary precision for
-   wide_int.  It passes other types of X through as-is.  */
+/* make (X) converts an X of type int into T, using an arbitrary
+   precision for wide_int.  It passes other types of X through as-is.  */
 template<typename T>
 struct coeff_helper
 {
@@ -72,7 +36,7 @@ struct poly_helper
 template<typename T>
 template<typename T1, typename T2, typename T3>
 inline T
-poly_helper <T>::make (const T1 &a, const T2 &b, const T3 &c)
+poly_helper<T>::make (const T1 &a, const T2 &b, const T3 &c)
 {
   T res;
   res = coeff_helper<C>::make (a);
@@ -128,6 +92,10 @@ test_poly_coeff_traits ()
   ASSERT_EQ (poly_coeff_traits<unsigned HOST_WIDE_INT>::signedness, 0);
   ASSERT_EQ (poly_coeff_traits<unsigned HOST_WIDE_INT>::max_value,
 	     HOST_WIDE_INT_M1U);
+
+  ASSERT_EQ (poly_coeff_traits<wide_int>::signedness, -1);
+  ASSERT_EQ (poly_coeff_traits<offset_int>::signedness, 1);
+  ASSERT_EQ (poly_coeff_traits<widest_int>::signedness, 1);
 }
 
 /* Test poly_int_traits.  */
@@ -138,16 +106,16 @@ test_poly_int_traits ()
 {
   /* Check the properties of poly_int_traits<C>.  */
   ASSERT_FALSE (poly_int_traits<C>::is_poly);
-  ASSERT_EQ (1, poly_int_traits<C>::num_coeffs);
+  ASSERT_EQ (poly_int_traits<C>::num_coeffs, 1);
   ASSERT_EQ ((C *) 0 - (typename poly_int_traits<C>::coeff_type *) 0, 0);
 
   /* Check the properties of poly_int_traits<T>.  */
   ASSERT_TRUE (poly_int_traits<T>::is_poly);
-  ASSERT_EQ (N, poly_int_traits<T>::num_coeffs);
+  ASSERT_EQ (poly_int_traits<T>::num_coeffs, N);
   ASSERT_EQ ((C *) 0 - (typename poly_int_traits<T>::coeff_type *) 0, 0);
 }
 
-/* Test handling of constants.  */
+/* Test the handling of constants.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -157,7 +125,7 @@ test_constants ()
   T zero, one, two;
   poly_int<N, unsigned char> two_uc = 2;
 
-  /* Test operator= on C.  */
+  /* Test operator = on C.  */
   zero = ch::make (0);
   one = ch::make (1);
   two = ch::make (2);
@@ -298,7 +266,6 @@ test_to_constant ()
 {
   typedef poly_helper<T> ph;
 
-  /* Test to_constant.  */
   ASSERT_TRUE (ph::make (1, 0, 0).to_constant () == 1);
   ASSERT_TRUE (ph::make (111, 0, 0).to_constant () == 111);
 }
@@ -397,7 +364,7 @@ test_multiplication ()
 		  ph::make (777, 666, 555));
 }
 
-/* Test shift left.  */
+/* Test shift left, both via operators and wi::.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -405,8 +372,13 @@ test_shift_left ()
 {
   typedef poly_helper<T> ph;
 
+  /* Test <<.  */
   ASSERT_MUST_EQ (ph::make (1, 20, 300) << 4,
 		  ph::make (16, 320, 4800));
+
+  /* Test wi::lshift.  */
+  ASSERT_MUST_EQ (wi::lshift (ph::make (9, 15, 50), 3),
+		  ph::make (72, 120, 400));
 }
 
 /* Test may_ne.  */
@@ -554,7 +526,7 @@ test_can_align_up ()
   typedef coeff_helper<C> ch;
   typedef poly_helper<T> ph;
 
-  T aligned;  
+  T aligned;
   ASSERT_TRUE (can_align_up (ph::make (41, 32, 16), 16, &aligned));
   ASSERT_MUST_EQ (aligned, ph::make (48, 32, 16));
   ASSERT_EQ (can_align_up (ph::make (15, 64, 8), 16, &aligned), N <= 2);
@@ -859,6 +831,114 @@ test_can_ior_p ()
   ASSERT_EQ (can_ior_p (ph::make (0x81, 0x20, 0), 0x44, &ior), N == 1);
   if (N == 1)
     ASSERT_MUST_EQ (ior, ch::make (0xc5));
+}
+
+/* Test may_eq for poly_int<2, C>.  */
+
+template<typename C>
+static void
+test_may_eq_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  /* Test may_eq (T, C).  */
+  ASSERT_TRUE (may_eq (T (1, 4), 41));
+  ASSERT_FALSE (may_eq (T (1, 4), 42));
+  ASSERT_FALSE (may_eq (T (1, 4), 40));
+  ASSERT_TRUE (may_eq (T (1, 4), 1));
+  ASSERT_FALSE (may_eq (T (1, 4), 0));
+  ASSERT_FALSE (may_eq (T (1, 4), 2));
+
+  /* Test may_eq (C, T).  */
+  ASSERT_TRUE (may_eq (20, T (5, 3)));
+  ASSERT_FALSE (may_eq (21, T (5, 3)));
+  ASSERT_FALSE (may_eq (19, T (5, 3)));
+  ASSERT_TRUE (may_eq (5, T (5, 3)));
+  ASSERT_FALSE (may_eq (2, T (5, 3)));
+  ASSERT_FALSE (may_eq (6, T (5, 3)));
+
+  /* Test may_eq (T, T).  */
+  ASSERT_TRUE (may_eq (T (2, 5), T (22, 3)));
+  ASSERT_FALSE (may_eq (T (3, 5), T (22, 3)));
+  ASSERT_FALSE (may_eq (T (2, 5), T (23, 3)));
+  ASSERT_FALSE (may_eq (T (2, 5), T (3, 5)));
+  ASSERT_TRUE (may_eq (T (10, 3), T (19, 0)));
+  ASSERT_FALSE (may_eq (T (10, 3), T (20, 0)));
+  ASSERT_TRUE (may_eq (T (10, 0), T (4, 2)));
+  ASSERT_FALSE (may_eq (T (11, 0), T (4, 2)));
+}
+
+/* Test must_ne for poly_int<2, C>.  */
+
+template<typename C>
+static void
+test_must_ne_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  /* Test must_ne (T, C).  */
+  ASSERT_FALSE (must_ne (T (1, 4), 41));
+  ASSERT_TRUE (must_ne (T (1, 4), 42));
+  ASSERT_TRUE (must_ne (T (1, 4), 40));
+  ASSERT_FALSE (must_ne (T (1, 4), 1));
+  ASSERT_TRUE (must_ne (T (1, 4), 0));
+  ASSERT_TRUE (must_ne (T (1, 4), 2));
+
+  /* Test must_ne (C, T).  */
+  ASSERT_FALSE (must_ne (20, T (5, 3)));
+  ASSERT_TRUE (must_ne (21, T (5, 3)));
+  ASSERT_TRUE (must_ne (19, T (5, 3)));
+  ASSERT_FALSE (must_ne (5, T (5, 3)));
+  ASSERT_TRUE (must_ne (2, T (5, 3)));
+  ASSERT_TRUE (must_ne (6, T (5, 3)));
+
+  /* Test must_ne (T, T).  */
+  ASSERT_FALSE (must_ne (T (2, 5), T (22, 3)));
+  ASSERT_TRUE (must_ne (T (3, 5), T (22, 3)));
+  ASSERT_TRUE (must_ne (T (2, 5), T (23, 3)));
+  ASSERT_TRUE (must_ne (T (2, 5), T (3, 5)));
+  ASSERT_FALSE (must_ne (T (10, 3), T (19, 0)));
+  ASSERT_TRUE (must_ne (T (10, 3), T (20, 0)));
+  ASSERT_FALSE (must_ne (T (10, 0), T (4, 2)));
+  ASSERT_TRUE (must_ne (T (11, 0), T (4, 2)));
+}
+
+/* Test maybe_zero for poly_int<2, C>.  */
+
+template<typename C>
+static void
+test_maybe_zero_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  ASSERT_TRUE (maybe_zero (T (0, 0)));
+  ASSERT_TRUE (maybe_zero (T (0, 1)));
+  ASSERT_TRUE (maybe_zero (T (0, -1)));
+  ASSERT_FALSE (maybe_zero (T (1, 0)));
+  ASSERT_FALSE (maybe_zero (T (1, 2)));
+  ASSERT_FALSE (maybe_zero (T (1, -2)));
+  ASSERT_FALSE (maybe_zero (T (-1, 0)));
+  ASSERT_FALSE (maybe_zero (T (-1, 2)));
+  ASSERT_FALSE (maybe_zero (T (-1, -2)));
+}
+
+/* Test known_nonzero for poly_int<2, C>.  */
+
+template<typename C>
+static void
+test_known_nonzero_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  ASSERT_FALSE (known_nonzero (T (0, 0)));
+  ASSERT_FALSE (known_nonzero (T (0, 1)));
+  ASSERT_FALSE (known_nonzero (T (0, -1)));
+  ASSERT_TRUE (known_nonzero (T (1, 0)));
+  ASSERT_TRUE (known_nonzero (T (1, 2)));
+  ASSERT_TRUE (known_nonzero (T (1, -2)));
+  ASSERT_TRUE (known_nonzero (T (-1, 0)));
+  ASSERT_TRUE (known_nonzero (T (-1, 2)));
+  ASSERT_TRUE (known_nonzero (T (-1, -2)));
 }
 
 /* Test may_le for both signed and unsigned C.  */
@@ -1338,14 +1418,13 @@ test_constant_lower_bound ()
 {
   typedef poly_helper<T> ph;
 
-  /* Test constant_lower_bound.  */
   ASSERT_EQ (constant_lower_bound (ph::make (4, 1, 2)), 4);
   ASSERT_EQ (constant_lower_bound (ph::make (5, 0, 1)), 5);
   ASSERT_EQ (constant_lower_bound (ph::make (6, 1, 0)), 6);
   ASSERT_EQ (constant_lower_bound (ph::make (7, 0, 0)), 7);
 }
 
-/* Test ordered_p for both signed and unsigned C.  */
+/* Test lower_bound for both signed and unsigned C.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -1409,7 +1488,6 @@ test_compare_sizes_for_sort ()
 {
   typedef poly_helper<T> ph;
 
-  /* Test compare_sizes_for_sort.  */
   ASSERT_EQ (compare_sizes_for_sort (ph::make (5, 10, 8),
 				     ph::make (7, 9, 11)),
 	     N == 2 ? 1 : -1);
@@ -1439,7 +1517,6 @@ test_force_align_up_and_div ()
   typedef coeff_helper<C> ch;
   typedef poly_helper<T> ph;
 
-  /* Test force_align_up_and_div.  */
   ASSERT_MUST_EQ (force_align_up_and_div (ph::make (41, 32, 16), 16),
 		  ph::make (3, 2, 1));
   ASSERT_MUST_EQ (force_align_up_and_div (ph::make (-39, -64, -32), 32),
@@ -1468,7 +1545,6 @@ test_force_align_down_and_div ()
   typedef coeff_helper<C> ch;
   typedef poly_helper<T> ph;
 
-  /* Test force_align_down_and_div.  */
   ASSERT_MUST_EQ (force_align_down_and_div (ph::make (41, 32, 16), 16),
 		  ph::make (2, 2, 1));
   ASSERT_MUST_EQ (force_align_down_and_div (ph::make (-39, -64, -32), 32),
@@ -2159,6 +2235,8 @@ test_can_div_away_from_zero_p ()
   ASSERT_EQ (const_quot, C (0));
 }
 
+/* Test maybe_in_range_p for both signed and unsigned C.  */
+
 template<unsigned int N, typename C, typename T>
 static void
 test_maybe_in_range_p ()
@@ -2211,7 +2289,15 @@ test_maybe_in_range_p ()
   ASSERT_TRUE (maybe_in_range_p (ph::make (6, 100, 1000),
 				 ph::make (5, 10, 11),
 				 ph::make (2, 1, 2)));
+  ASSERT_FALSE (maybe_in_range_p (ph::make (6, 8, 2),
+				  ph::make (6, 8, 2),
+				  ch::make (0)));
+  ASSERT_EQ (maybe_in_range_p (ph::make (6, 8, 1),
+			       ph::make (6, 7, 2),
+			       ph::make (0, 1, 2)), N == 3);
 }
+
+/* Test known_in_range_p for both signed and unsigned C.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -2250,7 +2336,15 @@ test_known_in_range_p ()
   ASSERT_EQ (known_in_range_p (ph::make (6, 5, 5),
 			       ph::make (5, 1, 2),
 			       ph::make (2, 3, 3)), N == 1);
+  ASSERT_FALSE (known_in_range_p (ph::make (6, 8, 2),
+				  ph::make (6, 8, 2),
+				  ch::make (0)));
+  ASSERT_FALSE (known_in_range_p (ph::make (6, 8, 1),
+				  ph::make (6, 7, 2),
+				  ph::make (0, 1, 2)));
 }
+
+/* Test ranges_may_overlap_p for both signed and unsigned C.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -2329,6 +2423,8 @@ test_ranges_may_overlap_p ()
 				   ph::make (20, 1, 2)), N >= 2);
 }
 
+/* Test ranges_must_overlap_p for both signed and unsigned C.  */
+
 template<unsigned int N, typename C, typename T>
 static void
 test_ranges_must_overlap_p ()
@@ -2406,6 +2502,8 @@ test_ranges_must_overlap_p ()
 				      ph::make (4, 4, 4)));
 }
 
+/* Test known_subrange_p for both signed and unsigned C.  */
+
 template<unsigned int N, typename C, typename T>
 static void
 test_known_subrange_p ()
@@ -2455,6 +2553,126 @@ test_known_subrange_p ()
 			       ph::make (6, 6, 8)), N == 1);
 }
 
+/* Test coeffs_in_range_p for both signed and unsigned C.  */
+
+template<unsigned int N, typename C, typename T>
+static void
+test_coeffs_in_range_p (void)
+{
+  typedef coeff_helper<C> ch;
+  typedef poly_helper<T> ph;
+
+  ASSERT_TRUE (coeffs_in_range_p (ph::make (10, 20, 30), 10, 30));
+  ASSERT_EQ (coeffs_in_range_p (ph::make (1, 10, 19), 0, 11), N <= 2);
+  ASSERT_EQ (coeffs_in_range_p (ph::make (100, 1, 102), 10, 100), N == 1);
+  ASSERT_FALSE (coeffs_in_range_p (ph::make (10, 11, 12), 7, 9));
+  ASSERT_FALSE (coeffs_in_range_p (ph::make (10, 11, 12), 13, 15));
+}
+
+/* Test may_eq for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_signed_may_eq_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  /* Test may_eq (T, C).  */
+  ASSERT_TRUE (may_eq (T (4, -4), 0));
+  ASSERT_FALSE (may_eq (T (4, -4), 1));
+  ASSERT_TRUE (may_eq (T (4, -4), 4));
+  ASSERT_FALSE (may_eq (T (4, -4), 8));
+  ASSERT_TRUE (may_eq (T (4, -4), -4));
+  ASSERT_FALSE (may_eq (T (4, -4), -3));
+
+  /* Test may_eq (C, T).  */
+  ASSERT_FALSE (may_eq (0, T (4, -3)));
+  ASSERT_TRUE (may_eq (1, T (4, -3)));
+  ASSERT_TRUE (may_eq (4, T (4, -3)));
+  ASSERT_FALSE (may_eq (7, T (4, -3)));
+  ASSERT_FALSE (may_eq (T (4, -3), -3));
+  ASSERT_TRUE (may_eq (T (4, -3), -2));
+
+  /* Test may_eq (T, T).  */
+  ASSERT_TRUE (may_eq (T (0, 3), T (6, 1)));
+  ASSERT_FALSE (may_eq (T (0, -3), T (6, 1)));
+  ASSERT_FALSE (may_eq (T (0, 3), T (7, 1)));
+  ASSERT_TRUE (may_eq (T (-3, 4), T (7, -1)));
+  ASSERT_FALSE (may_eq (T (-3, 4), T (6, -1)));
+}
+
+/* Test must_ne for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_signed_must_ne_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  /* Test must_ne (T, C).  */
+  ASSERT_FALSE (must_ne (T (4, -4), 0));
+  ASSERT_TRUE (must_ne (T (4, -4), 1));
+  ASSERT_FALSE (must_ne (T (4, -4), 4));
+  ASSERT_TRUE (must_ne (T (4, -4), 8));
+  ASSERT_FALSE (must_ne (T (4, -4), -4));
+  ASSERT_TRUE (must_ne (T (4, -4), -3));
+
+  /* Test must_ne (C, T).  */
+  ASSERT_TRUE (must_ne (0, T (4, -3)));
+  ASSERT_FALSE (must_ne (1, T (4, -3)));
+  ASSERT_FALSE (must_ne (4, T (4, -3)));
+  ASSERT_TRUE (must_ne (7, T (4, -3)));
+  ASSERT_TRUE (must_ne (T (4, -3), -3));
+  ASSERT_FALSE (must_ne (T (4, -3), -2));
+
+  /* Test must_ne (T, T).  */
+  ASSERT_FALSE (must_ne (T (0, 3), T (6, 1)));
+  ASSERT_TRUE (must_ne (T (0, -3), T (6, 1)));
+  ASSERT_TRUE (must_ne (T (0, 3), T (7, 1)));
+  ASSERT_FALSE (must_ne (T (-3, 4), T (7, -1)));
+  ASSERT_TRUE (must_ne (T (-3, 4), T (6, -1)));
+}
+
+/* Test maybe_zero for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_signed_maybe_zero_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  ASSERT_TRUE (maybe_zero (T (3, -3)));
+  ASSERT_TRUE (maybe_zero (T (16, -4)));
+  ASSERT_TRUE (maybe_zero (T (-15, 5)));
+  ASSERT_FALSE (maybe_zero (T (3, -4)));
+  ASSERT_FALSE (maybe_zero (T (3, -6)));
+  ASSERT_FALSE (maybe_zero (T (15, -4)));
+  ASSERT_FALSE (maybe_zero (T (17, -4)));
+  ASSERT_FALSE (maybe_zero (T (-14, 5)));
+  ASSERT_FALSE (maybe_zero (T (-16, 5)));
+}
+
+/* Test known_nonzero for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_signed_known_nonzero_2 ()
+{
+  typedef poly_int<2, C> T;
+
+  ASSERT_FALSE (known_nonzero (T (3, -3)));
+  ASSERT_FALSE (known_nonzero (T (16, -4)));
+  ASSERT_FALSE (known_nonzero (T (-15, 5)));
+  ASSERT_TRUE (known_nonzero (T (3, -4)));
+  ASSERT_TRUE (known_nonzero (T (3, -6)));
+  ASSERT_TRUE (known_nonzero (T (15, -4)));
+  ASSERT_TRUE (known_nonzero (T (17, -4)));
+  ASSERT_TRUE (known_nonzero (T (-14, 5)));
+  ASSERT_TRUE (known_nonzero (T (-16, 5)));
+}
+
+/* Test negation for signed C, both via operators and wi::.  */
+
 template<unsigned int N, typename C, typename RC, typename T>
 static void
 test_signed_negation ()
@@ -2485,12 +2703,12 @@ test_signed_may_le ()
   ASSERT_EQ (may_le (ph::make (3, 5, -1), ch::make (2)), N == 3);
   ASSERT_EQ (may_le (ph::make (40, -10, 60), ch::make (15)), N >= 2);
   ASSERT_TRUE (may_le (ph::make (-14, 0, 0), ch::make (13)));
-  
+
   /* Test may_le (C, T).  */
   ASSERT_EQ (may_le (ch::make (4), ph::make (3, 5, -1)), N >= 2);
   ASSERT_EQ (may_le (ch::make (41), ph::make (40, -10, 60)), N == 3);
   ASSERT_TRUE (may_le (ch::make (-15), ph::make (11, 0, 0)));
-  
+
   /* Test may_le (T, T).  */
   ASSERT_EQ (may_le (ph::make (-2, 4, -2),
 		     ph::make (-3, -5, -1)), N == 3);
@@ -2520,7 +2738,7 @@ test_signed_may_lt ()
   ASSERT_EQ (may_lt (ch::make (41), ph::make (40, -10, 60)), N == 3);
   ASSERT_TRUE (may_lt (ch::make (-45), ph::make (40, 0, 0)));
   ASSERT_FALSE (may_lt (ch::make (-2), ph::make (-2, -2, -2)));
-  
+
   /* Test may_lt (T, T).  */
   ASSERT_EQ (may_lt (ph::make (-3, 4, -2),
 		     ph::make (-3, -5, -1)), N == 3);
@@ -2548,7 +2766,7 @@ test_signed_may_ge ()
   ASSERT_EQ (may_ge (ch::make (2), ph::make (3, 5, -1)), N == 3);
   ASSERT_EQ (may_ge (ch::make (15), ph::make (40, -10, 60)), N >= 2);
   ASSERT_TRUE (may_ge (ch::make (13), ph::make (-14, 0, 0)));
-  
+
   /* Test may_ge (T, T).  */
   ASSERT_EQ (may_ge (ph::make (-3, -5, -1),
 		     ph::make (-2, 4, -2)), N == 3);
@@ -2572,7 +2790,7 @@ test_signed_may_gt ()
   ASSERT_EQ (may_gt (ph::make (40, -10, 60), ch::make (41)), N == 3);
   ASSERT_TRUE (may_gt (ph::make (40, 0, 0), ch::make (-45)));
   ASSERT_FALSE (may_gt (ph::make (-2, -2, -2), ch::make (-2)));
-  
+
   /* Test may_gt (C, T).  */
   ASSERT_EQ (may_gt (ch::make (2), ph::make (3, 5, -1)), N == 3);
   ASSERT_EQ (may_gt (ch::make (15), ph::make (40, -10, 60)), N >= 2);
@@ -2601,12 +2819,12 @@ test_signed_must_gt ()
   ASSERT_EQ (must_gt (ph::make (3, 5, -1), ch::make (2)), N <= 2);
   ASSERT_EQ (must_gt (ph::make (40, -10, 60), ch::make (15)), N == 1);
   ASSERT_FALSE (must_gt (ph::make (-14, 0, 0), ch::make (13)));
-  
+
   /* Test must_gt (C, T).  */
   ASSERT_EQ (must_gt (ch::make (4), ph::make (3, 5, -1)), N == 1);
   ASSERT_EQ (must_gt (ch::make (41), ph::make (40, -10, 60)), N <= 2);
   ASSERT_FALSE (must_gt (ch::make (-15), ph::make (11, 0, 0)));
-  
+
   /* Test must_gt (T, T).  */
   ASSERT_EQ (must_gt (ph::make (-2, 4, -2),
 		      ph::make (-3, -5, -1)), N <= 2);
@@ -2636,7 +2854,7 @@ test_signed_must_ge ()
   ASSERT_EQ (must_ge (ch::make (41), ph::make (40, -10, 60)), N <= 2);
   ASSERT_FALSE (must_ge (ch::make (-45), ph::make (40, 0, 0)));
   ASSERT_TRUE (must_ge (ch::make (-2), ph::make (-2, -2, -2)));
-  
+
   /* Test must_ge (T, T).  */
   ASSERT_EQ (must_ge (ph::make (-3, 4, -2),
 		      ph::make (-3, -5, -1)), N <= 2);
@@ -2664,7 +2882,7 @@ test_signed_must_lt ()
   ASSERT_EQ (must_lt (ch::make (2), ph::make (3, 5, -1)), N <= 2);
   ASSERT_EQ (must_lt (ch::make (15), ph::make (40, -10, 60)), N == 1);
   ASSERT_FALSE (must_lt (ch::make (13), ph::make (-14, 0, 0)));
-  
+
   /* Test must_lt (T, T).  */
   ASSERT_EQ (must_lt (ph::make (-3, -5, -1),
 		      ph::make (-2, 4, -2)), N <= 2);
@@ -2688,7 +2906,7 @@ test_signed_must_le ()
   ASSERT_EQ (must_le (ph::make (40, -10, 60), ch::make (41)), N <= 2);
   ASSERT_FALSE (must_le (ph::make (40, 0, 0), ch::make (-45)));
   ASSERT_TRUE (must_le (ph::make (-2, -2, -2), ch::make (-2)));
-  
+
   /* Test must_le (C, T).  */
   ASSERT_EQ (must_le (ch::make (2), ph::make (3, 5, -1)), N <= 2);
   ASSERT_EQ (must_le (ch::make (15), ph::make (40, -10, 60)), N == 1);
@@ -2704,7 +2922,7 @@ test_signed_must_le ()
 			ph::make (-3, 5, 1)));
 }
 
-/* Test may_le for signed C.  */
+/* Test ordered_p for signed C.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -3227,6 +3445,8 @@ test_signed_can_div_away_from_zero_p ()
   ASSERT_EQ (const_quot, -3);
 }
 
+/* Test maybe_in_range_p for signed C.  */
+
 template<unsigned int N, typename C, typename T>
 static void
 test_signed_maybe_in_range_p ()
@@ -3255,12 +3475,12 @@ test_unsigned_may_le ()
   ASSERT_FALSE (may_le (ph::make (3, 5, -1), ch::make (2)));
   ASSERT_FALSE (may_le (ph::make (40, -10, 60), ch::make (15)));
   ASSERT_FALSE (may_le (ph::make (-14, 0, 0), ch::make (13)));
-  
+
   /* Test may_le (C, T).  */
   ASSERT_EQ (may_le (ch::make (4), ph::make (3, 5, -1)), N >= 2);
   ASSERT_EQ (may_le (ch::make (41), ph::make (40, -10, 60)), N >= 2);
   ASSERT_FALSE (may_le (ch::make (-15), ph::make (11, 0, 0)));
-  
+
   /* Test may_le (T, T).  */
   ASSERT_EQ (may_le (ph::make (-2, 4, -2),
 		     ph::make (-3, -5, -1)), N >= 2);
@@ -3290,7 +3510,7 @@ test_unsigned_may_lt ()
   ASSERT_EQ (may_lt (ch::make (41), ph::make (40, -10, 60)), N >= 2);
   ASSERT_FALSE (may_lt (ch::make (-45), ph::make (40, 0, 0)));
   ASSERT_EQ (may_lt (ch::make (-2), ph::make (-2, -2, -2)), N >= 2);
-  
+
   /* Test may_lt (T, T).  */
   ASSERT_EQ (may_lt (ph::make (-3, 4, -2),
 		     ph::make (-3, -5, -1)), N >= 2);
@@ -3318,7 +3538,7 @@ test_unsigned_may_ge ()
   ASSERT_FALSE (may_ge (ch::make (2), ph::make (3, 5, -1)));
   ASSERT_FALSE (may_ge (ch::make (15), ph::make (40, -10, 60)));
   ASSERT_FALSE (may_ge (ch::make (13), ph::make (-14, 0, 0)));
-  
+
   /* Test may_ge (T, T).  */
   ASSERT_EQ (may_ge (ph::make (-3, -5, -1),
 		     ph::make (-2, 4, -2)), N >= 2);
@@ -3342,7 +3562,7 @@ test_unsigned_may_gt ()
   ASSERT_EQ (may_gt (ph::make (40, -10, 60), ch::make (41)), N >= 2);
   ASSERT_FALSE (may_gt (ph::make (40, 0, 0), ch::make (-45)));
   ASSERT_EQ (may_gt (ph::make (-2, -2, -2), ch::make (-2)), N >= 2);
-  
+
   /* Test may_gt (C, T).  */
   ASSERT_FALSE (may_gt (ch::make (2), ph::make (3, 5, -1)));
   ASSERT_FALSE (may_gt (ch::make (15), ph::make (40, -10, 60)));
@@ -3371,12 +3591,12 @@ test_unsigned_must_gt ()
   ASSERT_TRUE (must_gt (ph::make (3, 5, -1), ch::make (2)));
   ASSERT_TRUE (must_gt (ph::make (40, -10, 60), ch::make (15)));
   ASSERT_TRUE (must_gt (ph::make (-14, 0, 0), ch::make (13)));
-  
+
   /* Test must_gt (C, T).  */
   ASSERT_EQ (must_gt (ch::make (4), ph::make (3, 5, -1)), N == 1);
   ASSERT_EQ (must_gt (ch::make (41), ph::make (40, -10, 60)), N == 1);
   ASSERT_TRUE (must_gt (ch::make (-15), ph::make (11, 0, 0)));
-  
+
   /* Test must_gt (T, T).  */
   ASSERT_EQ (must_gt (ph::make (-2, 4, -2),
 		      ph::make (-3, -5, -1)), N == 1);
@@ -3406,7 +3626,7 @@ test_unsigned_must_ge ()
   ASSERT_EQ (must_ge (ch::make (41), ph::make (40, -10, 60)), N == 1);
   ASSERT_TRUE (must_ge (ch::make (-45), ph::make (40, 0, 0)));
   ASSERT_EQ (must_ge (ch::make (-2), ph::make (-2, -2, -2)), N == 1);
-  
+
   /* Test must_ge (T, T).  */
   ASSERT_EQ (must_ge (ph::make (-3, 4, -2),
 		      ph::make (-3, -5, -1)), N == 1);
@@ -3434,7 +3654,7 @@ test_unsigned_must_lt ()
   ASSERT_TRUE (must_lt (ch::make (2), ph::make (3, 5, -1)));
   ASSERT_TRUE (must_lt (ch::make (15), ph::make (40, -10, 60)));
   ASSERT_TRUE (must_lt (ch::make (13), ph::make (-14, 0, 0)));
-  
+
   /* Test must_lt (T, T).  */
   ASSERT_EQ (must_lt (ph::make (-3, -5, -1),
 		      ph::make (-2, 4, -2)), N == 1);
@@ -3458,7 +3678,7 @@ test_unsigned_must_le ()
   ASSERT_EQ (must_le (ph::make (40, -10, 60), ch::make (41)), N == 1);
   ASSERT_TRUE (must_le (ph::make (40, 0, 0), ch::make (-45)));
   ASSERT_EQ (must_le (ph::make (-2, -2, -2), ch::make (-2)), N == 1);
-  
+
   /* Test must_le (C, T).  */
   ASSERT_TRUE (must_le (ch::make (2), ph::make (3, 5, -1)));
   ASSERT_TRUE (must_le (ch::make (15), ph::make (40, -10, 60)));
@@ -3612,6 +3832,8 @@ test_unsigned_upper_bound ()
 		  ph::make (-11, 5, -14));
 }
 
+/* Test maybe_in_range_p for unsigned C.  */
+
 template<unsigned int N, typename C, typename T>
 static void
 test_unsigned_maybe_in_range_p ()
@@ -3647,6 +3869,8 @@ test_unsigned_maybe_in_range_p ()
 				 ch::make (1),
 				 ch::make (-2)));
 }
+
+/* Test known_in_range_p for unsigned C.  */
 
 template<unsigned int N, typename C, typename T>
 static void
@@ -3764,7 +3988,7 @@ test_to_shwi (const C &srcv, int delta, HOST_WIDE_INT destv)
   typedef poly_helper<T> ph;
   poly_int<N, HOST_WIDE_INT> shwi;
 
-  /* Test in-range T::to_shwi (low end).  */
+  /* Test in-range T::to_shwi.  */
   ASSERT_TRUE (ph::make (srcv,
 			 srcv - delta,
 			 srcv - delta * 2).to_shwi (&shwi));
@@ -3772,7 +3996,7 @@ test_to_shwi (const C &srcv, int delta, HOST_WIDE_INT destv)
 				     destv - delta,
 				     destv - delta * 2));
 
-  /* Test partially in-range T::to_shwi (low end).  */
+  /* Test partially in-range T::to_shwi.  */
   ASSERT_EQ (ph::make (srcv,
 		       srcv + delta,
 		       srcv + delta * 2).to_shwi (&shwi), N == 1);
@@ -3786,7 +4010,7 @@ test_to_shwi (const C &srcv, int delta, HOST_WIDE_INT destv)
 				       destv,
 				       destv /* ignored */));
 
-  /* Test fully out-of-range T::to_shwi (low end).  */
+  /* Test fully out-of-range T::to_shwi.  */
   ASSERT_FALSE (ph::make (srcv + delta, srcv, srcv).to_shwi (&shwi));
 }
 
@@ -3802,7 +4026,7 @@ test_to_uhwi (const C &srcv, int delta, unsigned HOST_WIDE_INT destv)
   typedef poly_helper<T> ph;
   poly_int<N, unsigned HOST_WIDE_INT> uhwi;
 
-  /* Test in-range T::to_uhwi (low end).  */
+  /* Test in-range T::to_uhwi.  */
   ASSERT_TRUE (ph::make (srcv,
 			 srcv - delta,
 			 srcv - delta * 2).to_uhwi (&uhwi));
@@ -3810,7 +4034,7 @@ test_to_uhwi (const C &srcv, int delta, unsigned HOST_WIDE_INT destv)
 				     destv - delta,
 				     destv - delta * 2));
 
-  /* Test partially in-range T::to_uhwi (low end).  */
+  /* Test partially in-range T::to_uhwi.  */
   ASSERT_EQ (ph::make (srcv,
 		       srcv + delta,
 		       srcv + delta * 2).to_uhwi (&uhwi), N == 1);
@@ -3824,7 +4048,7 @@ test_to_uhwi (const C &srcv, int delta, unsigned HOST_WIDE_INT destv)
 				       destv,
 				       destv /* ignored */));
 
-  /* Test fully out-of-range T::to_uhwi (low end).  */
+  /* Test fully out-of-range T::to_uhwi.  */
   ASSERT_FALSE (ph::make (srcv + delta, srcv, srcv).to_uhwi (&uhwi));
 }
 
@@ -3884,7 +4108,7 @@ test_force_hwi (const C &mask66)
 			       HOST_WIDE_INT_M1U >> 2,
 			       HOST_WIDE_INT_M1U >> 3));
 }
-  
+
 /* Test poly_int<N, wide_int>::from.  */
 
 template<unsigned int N>
@@ -3925,7 +4149,7 @@ test_wide_int_from ()
   ASSERT_MUST_EQ (T::from (pu8h::make (0xf8,0x23,0x81), 16, UNSIGNED),
 		  p_00f8_0023_0081);
 }
-  
+
 /* Test wi::sext for poly_int<N, wide_int>.  */
 
 template<unsigned int N>
@@ -4050,7 +4274,7 @@ test_wide_int_add ()
 			    wi::shwi (31, 6)));
   ASSERT_EQ (overflow, N == 3);
 }
-  
+
 /* Test wi::sub for poly_int<N, wide_int>.  */
 
 template<unsigned int N>
@@ -4129,7 +4353,7 @@ test_wide_int_sub ()
 			    wi::shwi (-32, 6)));
   ASSERT_EQ (overflow, N == 3);
 }
-  
+
 /* Test wi::mul for poly_int<N, wide_int>.  */
 
 template<unsigned int N>
@@ -4190,7 +4414,7 @@ test_wide_int_mul ()
 			    wi::shwi (29, 6)));
   ASSERT_EQ (overflow, N == 3);
 }
-  
+
 /* Test wi::neg for poly_int<N, wide_int>.  */
 
 template<unsigned int N>
@@ -4223,8 +4447,9 @@ test_wide_int_neg ()
 			    wi::shwi (-32, 6)));
   ASSERT_EQ (overflow, N == 3);
 }
-  
-/* Test poly_int<N, C>, where C is offset_int or widest_int.  */
+
+/* Test poly_int<N, C> for things that only make sense when C is an
+   offset_int or widest_int.  */
 
 template<unsigned int N, typename C>
 static void
@@ -4266,7 +4491,7 @@ test_type_promotions ()
   typedef poly_helper< poly_int<N, HOST_WIDE_INT> > ps64h;
   HOST_WIDE_INT mask32 = ~0U;
 
-  /* Test that + on unsigned short promote to HOST_WIDE_INT.  */
+  /* Test that + on unsigned short promotes to HOST_WIDE_INT.  */
   ASSERT_MUST_EQ (pu16h::make (0xffff, 0xfffe, 0xfffd) + 16,
 		  ps64h::make (0x1000f, 0xfffe, 0xfffd));
   ASSERT_MUST_EQ (32 + pu16h::make (0xffff, 0xfffe, 0xfffd),
@@ -4275,7 +4500,7 @@ test_type_promotions ()
 		  + pu16h::make (4, 10, 17),
 		  ps64h::make (0x10003, 0x10008, 0x1000e));
 
-  /* Test that - on unsigned short promote to HOST_WIDE_INT.  */
+  /* Test that - on unsigned short promotes to HOST_WIDE_INT.  */
   ASSERT_MUST_EQ (pu16h::make (1, 2, 3) - ~0U,
 		  ps64h::make (-mask32 + 1, 2, 3));
   ASSERT_MUST_EQ (INT_MIN - pu16h::make (4, 5, 6),
@@ -4289,13 +4514,13 @@ test_type_promotions ()
   ASSERT_MAY_NE (-pu16h::make (0x8000, 0x9000, 0xa000),
 		 ps64h::make (0x8000, 0x9000, 0xa000));
 
-  /* Test that * on unsigned short promote to HOST_WIDE_INT.  */
+  /* Test that * on unsigned short promotes to HOST_WIDE_INT.  */
   ASSERT_MUST_EQ (pu16h::make (10, 14, 17) * ~0U,
 		  ps64h::make (10 * mask32, 14 * mask32, 17 * mask32));
   ASSERT_MUST_EQ (-400000 * pu16h::make (10, 14, 17),
 		  ps64h::make (-4000000, -5600000, -6800000));
 
-  /* Test that << on unsigned short promote to HOST_WIDE_INT.  */
+  /* Test that << on unsigned short promotes to HOST_WIDE_INT.  */
   ASSERT_MUST_EQ (pu16h::make (4, 5, 6) << 50,
 		  ps64h::make ((HOST_WIDE_INT) 4 << 50,
 			       (HOST_WIDE_INT) 5 << 50,
@@ -4328,10 +4553,12 @@ test_type_promotions ()
 		  ps64h::make (a - 32, b - 48, c - 64));
 }
 
+/* Test endpoint_representable_p.  */
+
 static void
 test_endpoint_representable (void)
 {
-  /* Unknown size.  */
+  /* True because the size is unknown.  */
   ASSERT_TRUE (endpoint_representable_p ((unsigned char) 0x80,
 					 (unsigned char) 0xff));
   ASSERT_FALSE (endpoint_representable_p ((unsigned char) 0x80,
@@ -4345,7 +4572,7 @@ test_endpoint_representable (void)
   ASSERT_TRUE (endpoint_representable_p ((unsigned char) 0x11,
 					 (unsigned char) 0xee));
 
-  /* Unknown size.  */
+  /* True because the size is unknown.  */
   ASSERT_TRUE (endpoint_representable_p (INT_MAX, -1));
   ASSERT_FALSE (endpoint_representable_p (INT_MAX - 100, INT_MAX));
   ASSERT_FALSE (endpoint_representable_p (INT_MAX - 100, 101));
@@ -4353,12 +4580,14 @@ test_endpoint_representable (void)
   ASSERT_TRUE (endpoint_representable_p (0, INT_MAX));
   ASSERT_TRUE (endpoint_representable_p (INT_MIN, INT_MAX));
 
-  /* Unknown size.  */
+  /* True because the size is unknown.  */
   ASSERT_TRUE (endpoint_representable_p (UINT_MAX, -1U));
   ASSERT_FALSE (endpoint_representable_p (UINT_MAX - 400, UINT_MAX - 1));
   ASSERT_FALSE (endpoint_representable_p (UINT_MAX - 400, 401U));
   ASSERT_TRUE (endpoint_representable_p (UINT_MAX - 400, 400U));
 }
+
+/* Test wi::shwi with N coefficients.  */
 
 template<unsigned int N>
 static void
@@ -4376,6 +4605,8 @@ test_shwi ()
 				  wi::shwi (210, 16)));
 }
 
+/* Test wi::uhwi with N coefficients.  */
+
 template<unsigned int N>
 static void
 test_uhwi ()
@@ -4392,6 +4623,8 @@ test_uhwi ()
 				  wi::uhwi (210, 16)));
 }
 
+/* Test known_zero for non-polynomial T.  */
+
 template<typename T>
 static void
 test_nonpoly_known_zero ()
@@ -4401,6 +4634,8 @@ test_nonpoly_known_zero ()
   ASSERT_FALSE (known_zero (T (2)));
   ASSERT_FALSE (known_zero (T (-1)));
 }
+
+/* Test maybe_zero for non-polynomial T.  */
 
 template<typename T>
 static void
@@ -4412,6 +4647,8 @@ test_nonpoly_maybe_zero ()
   ASSERT_FALSE (maybe_zero (T (-1)));
 }
 
+/* Test known_nonzero for non-polynomial T.  */
+
 template<typename T>
 static void
 test_nonpoly_known_nonzero ()
@@ -4421,6 +4658,8 @@ test_nonpoly_known_nonzero ()
   ASSERT_TRUE (known_nonzero (T (2)));
   ASSERT_TRUE (known_nonzero (T (-1)));
 }
+
+/* Test maybe_nonzero for non-polynomial T.  */
 
 template<typename T>
 static void
@@ -4432,6 +4671,8 @@ test_nonpoly_maybe_nonzero ()
   ASSERT_TRUE (maybe_nonzero (T (-1)));
 }
 
+/* Test known_one for non-polynomial T.  */
+
 template<typename T>
 static void
 test_nonpoly_known_one ()
@@ -4442,6 +4683,8 @@ test_nonpoly_known_one ()
   ASSERT_FALSE (known_one (T (-1)));
 }
 
+/* Test known_all_ones for non-polynomial T.  */
+
 template<typename T>
 static void
 test_nonpoly_known_all_ones ()
@@ -4451,6 +4694,8 @@ test_nonpoly_known_all_ones ()
   ASSERT_FALSE (known_all_ones (T (2)));
   ASSERT_TRUE (known_all_ones (T (-1)));
 }
+
+/* Test poly-int.h operations on non-polynomial type T.  */
 
 template<typename T>
 static void
@@ -4521,6 +4766,18 @@ test_general ()
   test_can_ior_p<N, C, T> ();
 }
 
+/* Test things that work for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_ordered_2 ()
+{
+  test_may_eq_2<C> ();
+  test_must_ne_2<C> ();
+  test_maybe_zero_2<C> ();
+  test_known_nonzero_2<C> ();
+}
+
 /* Test things that work for poly_int-based types T, given that the
    coefficient type C supports all the normal C operators.  N is the
    number of coefficients in C and RC is the type to which C promotes
@@ -4560,7 +4817,25 @@ test_ordered ()
   test_ranges_may_overlap_p<N, C, T> ();
   test_ranges_must_overlap_p<N, C, T> ();
   test_known_subrange_p<N, C, T> ();
+  test_coeffs_in_range_p<N, C, T> ();
 }
+
+/* Test things that work for poly_int<2, C>, given that C is signed.  */
+
+template<typename C>
+static void
+test_signed_2 ()
+{
+  test_ordered_2<C> ();
+  test_signed_may_eq_2<C> ();
+  test_signed_must_ne_2<C> ();
+  test_signed_maybe_zero_2<C> ();
+  test_signed_known_nonzero_2<C> ();
+}
+
+/* Test things that work for poly_int-based types T, given that the
+   coefficient type C is signed.  N is the number of coefficients in C
+   and RC is the type to which C promotes after an operator.  */
 
 template<unsigned int N, typename C, typename RC, typename T>
 static void
@@ -4591,6 +4866,10 @@ test_signed ()
   test_signed_maybe_in_range_p<N, C, T> ();
 }
 
+/* Test things that work for poly_int-based types T, given that the
+   coefficient type C is unsigned.  N is the number of coefficients in C
+   and RC is the type to which C promotes after an operator.  */
+
 template<unsigned int N, typename C, typename RC, typename T>
 static void
 test_unsigned ()
@@ -4612,6 +4891,9 @@ test_unsigned ()
   test_unsigned_maybe_in_range_p<N, C, T> ();
   test_unsigned_known_in_range_p<N, C, T> ();
 }
+
+/* Test things that are specific to coefficients of type wide_int,
+   using a poly_int with N coefficients.  */
 
 template<unsigned int N>
 static void
@@ -4684,22 +4966,3 @@ test_num_coeffs_extra ()
   test_signed<N, widest_int, widest_int,
 	      poly_int<N, widest_int> > ();
 }
-
-void
-poly_int_cc_tests ()
-{
-  test_helper ();
-  test_poly_coeff_traits ();
-  test_nonpoly ();
-  test_num_coeffs_core<1> ();
-  test_num_coeffs_extra<1> ();
-  test_num_coeffs_core<2> ();
-  test_num_coeffs_extra<2> ();
-  test_num_coeffs_core<3> ();
-  test_endpoint_representable ();
-}
-
-  /* FIXME: may_eq, must_ne, maybe_zero, known_nonzero, constant range ops, mixed constructors.  */
-
-}
-#endif

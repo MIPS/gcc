@@ -302,7 +302,7 @@ mode_for_size (poly_uint64 size, enum mode_class mclass, int limit)
   machine_mode mode;
   int i;
 
-  if (limit && may_gt (size, MAX_FIXED_MODE_SIZE))
+  if (limit && may_gt (size, (unsigned int) MAX_FIXED_MODE_SIZE))
     return opt_machine_mode ();
 
   /* Get the first mode which has this size, in the specified class.  */
@@ -555,8 +555,8 @@ mode_for_array (tree elem_type, tree size)
     return TYPE_MODE (elem_type);
 
   limit_p = true;
-  if (poly_tree_p (size, &int_size)
-      && poly_tree_p (elem_size, &int_elem_size)
+  if (poly_int_tree_p (size, &int_size)
+      && poly_int_tree_p (elem_size, &int_elem_size)
       && may_ne (int_elem_size, 0U)
       && constant_multiple_p (int_size, int_elem_size, &num_elems))
     {
@@ -1778,7 +1778,7 @@ compute_record_mode (tree type)
   poly_uint64 type_size;
   if (TREE_CODE (type) == RECORD_TYPE
       && mode != VOIDmode
-      && poly_tree_p (TYPE_SIZE (type), &type_size)
+      && poly_int_tree_p (TYPE_SIZE (type), &type_size)
       && must_eq (GET_MODE_BITSIZE (mode), type_size))
     ;
   else

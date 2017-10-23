@@ -18,7 +18,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #define INCLUDE_STRING
@@ -1249,6 +1249,7 @@ aarch64_hard_regno_nregs (unsigned regno, machine_mode mode)
       return CEIL (size, UNITS_PER_VREG);
     case PR_REGS:
     case PR_LO_REGS:
+    case PR_HI_REGS:
       return 1;
     default:
       size = constant_lower_bound (GET_MODE_SIZE (mode));
@@ -1693,7 +1694,8 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	  tp = gen_lowpart (mode, tp);
 
 	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, x0)));
-	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
+	if (REG_P (dest))
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
@@ -1727,7 +1729,8 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	  }
 
 	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, tmp_reg)));
-	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
+	if (REG_P (dest))
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
@@ -1768,7 +1771,8 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    gcc_unreachable ();
 	  }
 
-	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
+	if (REG_P (dest))
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
@@ -1797,7 +1801,8 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    emit_insn (gen_tlsie_tiny_sidi (dest, imm, tp));
 	  }
 
-	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
+	if (REG_P (dest))
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
@@ -2041,7 +2046,7 @@ bool
 aarch64_sve_cnt_immediate_p (rtx x)
 {
   poly_int64 value;
-  return poly_int_const_p (x, &value) && aarch64_sve_cnt_immediate_p (value);
+  return poly_int_rtx_p (x, &value) && aarch64_sve_cnt_immediate_p (value);
 }
 
 /* Return the asm string for an instruction with a CNT-like vector size
@@ -2118,7 +2123,7 @@ bool
 aarch64_sve_addvl_addpl_immediate_p (rtx x)
 {
   poly_int64 value;
-  return (poly_int_const_p (x, &value)
+  return (poly_int_rtx_p (x, &value)
 	  && aarch64_sve_addvl_addpl_immediate_p (value));
 }
 
@@ -2159,7 +2164,7 @@ aarch64_sve_inc_dec_immediate_p (rtx x, int *factor_out,
   poly_int64 value;
 
   if (!const_vec_duplicate_p (x, &elt)
-      || !poly_int_const_p (elt, &value))
+      || !poly_int_rtx_p (elt, &value))
     return false;
 
   unsigned int nelts_per_vq = 128 / GET_MODE_UNIT_BITSIZE (GET_MODE (x));
@@ -2643,7 +2648,7 @@ int
 aarch64_add_offset_temporaries (rtx x)
 {
   poly_int64 offset;
-  if (!poly_int_const_p (x, &offset))
+  if (!poly_int_rtx_p (x, &offset))
     return -1;
   return aarch64_offset_temporaries (true, offset);
 }
@@ -5316,7 +5321,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
       if (! strict_p
 	  && REG_P (op0)
 	  && virt_or_elim_regno_p (REGNO (op0))
-	  && poly_int_const_p (op1, &offset))
+	  && poly_int_rtx_p (op1, &offset))
 	{
 	  info->type = ADDRESS_REG_IMM;
 	  info->base = op0;
@@ -5328,7 +5333,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 
       if (may_ne (GET_MODE_SIZE (mode), 0)
 	  && aarch64_base_register_rtx_p (op0, strict_p)
-	  && poly_int_const_p (op1, &offset))
+	  && poly_int_rtx_p (op1, &offset))
 	{
 	  info->type = ADDRESS_REG_IMM;
 	  info->base = op0;
@@ -5436,7 +5441,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
       info->type = ADDRESS_REG_WB;
       info->base = XEXP (x, 0);
       if (GET_CODE (XEXP (x, 1)) == PLUS
-	  && poly_int_const_p (XEXP (XEXP (x, 1), 1), &offset)
+	  && poly_int_rtx_p (XEXP (XEXP (x, 1), 1), &offset)
 	  && rtx_equal_p (XEXP (XEXP (x, 1), 0), info->base)
 	  && aarch64_base_register_rtx_p (info->base, strict_p))
 	{
@@ -6753,7 +6758,7 @@ aarch64_regno_regclass (unsigned regno)
     return FP_LO_REGNUM_P (regno) ?  FP_LO_REGS : FP_REGS;
 
   if (PR_REGNUM_P (regno))
-    return PR_LO_REGNUM_P (regno) ? PR_LO_REGS : PR_REGS;
+    return PR_LO_REGNUM_P (regno) ? PR_LO_REGS : PR_HI_REGS;
 
   return NO_REGS;
 }
@@ -7169,6 +7174,7 @@ aarch64_class_max_nregs (reg_class_t regclass, machine_mode mode)
     case STACK_REG:
     case PR_REGS:
     case PR_LO_REGS:
+    case PR_HI_REGS:
       return 1;
 
     case NO_REGS:
@@ -11567,7 +11573,7 @@ aarch64_legitimate_constant_p (machine_mode mode, rtx x)
      temporary cannot be rematerialized (they can't be forced to memory
      and also aren't legitimate constants).  */
   poly_int64 offset;
-  if (poly_int_const_p (x, &offset))
+  if (poly_int_rtx_p (x, &offset))
     return aarch64_offset_temporaries (false, offset) <= 1;
 
   /* Treat symbols as constants.  Avoid TLS symbols as they are complex,
@@ -13200,7 +13206,7 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high,
    of mode MODE, and return the result as an SImode rtx.  */
 
 rtx
-endian_lane_rtx (machine_mode mode, poly_uint64 n)
+endian_lane_rtx (machine_mode mode, unsigned int n)
 {
   return gen_int_mode (ENDIAN_LANE_N (GET_MODE_NUNITS (mode), n), SImode);
 }
@@ -17018,6 +17024,25 @@ aarch64_sched_can_speculate_insn (rtx_insn *insn)
     }
 }
 
+/* Implement TARGET_COMPUTE_PRESSURE_CLASSES.  */
+
+static int
+aarch64_compute_pressure_classes (reg_class *classes)
+{
+  int i = 0;
+  classes[i++] = GENERAL_REGS;
+  classes[i++] = FP_REGS;
+  /* PR_REGS isn't a useful pressure class because many predicate pseudo
+     registers need to go in PR_LO_REGS at some point during their
+     lifetime.  Splitting it into two halves has the effect of making
+     all predicates count against PR_LO_REGS, so that we try whenever
+     possible to restrict the number of live predicates to 8.  This
+     greatly reduces the amount of spilling in certain loops.  */
+  classes[i++] = PR_LO_REGS;
+  classes[i++] = PR_HI_REGS;
+  return i;
+}
+
 /* Target-specific selftests.  */
 
 #if CHECKING_P
@@ -17491,6 +17516,9 @@ aarch64_libgcc_floating_mode_supported_p
 
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT aarch64_constant_alignment
+
+#undef TARGET_COMPUTE_PRESSURE_CLASSES
+#define TARGET_COMPUTE_PRESSURE_CLASSES aarch64_compute_pressure_classes
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

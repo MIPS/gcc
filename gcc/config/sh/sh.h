@@ -469,7 +469,8 @@ extern const sh_atomic_model& selected_atomic_model (void);
   ((GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_INT \
     || GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_FLOAT) \
    ? (unsigned) MIN (BIGGEST_ALIGNMENT, \
-		     GET_MODE_BITSIZE (MACRO_MODE (TYPE_MODE (TYPE)))) \
+		     GET_MODE_BITSIZE (as_a <fixed_size_mode> \
+				       (TYPE_MODE (TYPE)))) \
    : (unsigned) DATA_ALIGNMENT(TYPE, ALIGN))
 
 /* Make arrays of chars word-aligned for the same reasons.  */
@@ -1109,10 +1110,6 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 /*  Define this macro to nonzero if the addresses of local variable slots
     are at negative offsets from the frame pointer.  */
 #define FRAME_GROWS_DOWNWARD 1
-
-/* Offset from the frame pointer to the first local variable slot to
-   be allocated.  */
-#define STARTING_FRAME_OFFSET  0
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.  */

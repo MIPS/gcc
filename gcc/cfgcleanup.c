@@ -904,6 +904,7 @@ merge_memattrs (rtx x, rtx y)
 	    set_mem_size (y, MEM_SIZE (x));
 	  else
 	    {
+	      /* The sizes aren't ordered, so we can't merge them.  */
 	      clear_mem_size (x);
 	      clear_mem_size (y);
 	    }

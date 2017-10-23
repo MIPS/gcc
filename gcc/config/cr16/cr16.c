@@ -18,7 +18,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -2213,6 +2213,14 @@ cr16_emit_logical_di (rtx *operands, enum rtx_code code)
   }
 
   return "";
+}
+
+/* Implement PUSH_ROUNDING.  */
+
+poly_int64
+cr16_push_rounding (poly_int64 bytes)
+{
+  return (bytes + 1) & ~1;
 }
 
 /* Initialize 'targetm' variable which contains pointers to functions 

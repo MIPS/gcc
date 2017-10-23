@@ -641,7 +641,6 @@ brig_code_entry_handler::get_tree_cst_for_hsa_operand
 	{
 	  /* In case of vector type elements (or sole vectors),
 	     create a vector ctor.  */
-	  /* BRIG doesn't support variable-length vectors.  */
 	  size_t element_count
 	    = gccbrig_type_vector_subparts (tree_element_type);
 	  if (bytes_left < scalar_element_size * element_count)
@@ -847,7 +846,7 @@ brig_code_entry_handler::get_comparison_result_type (tree source_type)
       size_t element_size = int_size_in_bytes (TREE_TYPE (source_type));
       return build_vector_type
 	(build_nonstandard_boolean_type (element_size * BITS_PER_UNIT),
-	 TYPE_VECTOR_SUBPARTS (source_type));
+	 gccbrig_type_vector_subparts (source_type));
     }
   else
     return gccbrig_tree_type_for_hsa_type (BRIG_TYPE_B1);
@@ -952,7 +951,6 @@ brig_code_entry_handler::expand_or_call_builtin (BrigOpcode16_t brig_opcode,
 
       tree_stl_vec result_elements;
 
-      /* BRIG doesn't support variable-length vectors.  */
       size_t element_count = gccbrig_type_vector_subparts (arith_type);
       for (size_t i = 0; i < element_count; ++i)
 	{

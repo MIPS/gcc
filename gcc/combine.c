@@ -7903,7 +7903,7 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 		 return a new hard register.  */
 	      if (pos || in_dest)
 		{
-		  poly_int64 offset
+		  poly_uint64 offset
 		    = subreg_offset_from_lsb (tmode, inner_mode, pos);
 
 		  /* Avoid creating invalid subregs, for example when
@@ -9857,13 +9857,9 @@ rtx_equal_for_field_assignment_p (rtx x, rtx y, bool widen_x)
 	return 0;
       if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
 	return 0;
-      /* For big endian, adjust the memory offset.  */
-      if (BYTES_BIG_ENDIAN)
-	x = adjust_address_nv (x, GET_MODE (y),
-			       -subreg_lowpart_offset (GET_MODE (x),
-						       GET_MODE (y)));
-      else
-	x = adjust_address_nv (x, GET_MODE (y), 0);
+      x = adjust_address_nv (x, GET_MODE (y),
+			     byte_lowpart_offset (GET_MODE (y),
+						  GET_MODE (x)));
     }
 
   if (x == y || rtx_equal_p (x, y))
@@ -11768,8 +11764,11 @@ change_zero_ext (rtx pat)
 	  if (BITS_BIG_ENDIAN)
 	    start = GET_MODE_PRECISION (inner_mode) - size - start;
 
-	  x = simplify_gen_binary (LSHIFTRT, inner_mode, XEXP (x, 0),
-				   gen_int_shift_amount (inner_mode, start));
+	  if (start != 0)
+	    x = gen_rtx_LSHIFTRT (inner_mode, XEXP (x, 0),
+				  gen_int_shift_amount (inner_mode, start));
+	  else
+	    x = XEXP (x, 0);
 	  if (mode != inner_mode)
 	    x = gen_lowpart_SUBREG (mode, x);
 	}

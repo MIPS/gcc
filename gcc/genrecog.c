@@ -747,6 +747,7 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
 	  if (GET_CODE (XEXP (pattern, 1)) == PARALLEL)
 	    {
 	      int expected = 1;
+	      unsigned int nelems;
 	      if (VECTOR_MODE_P (mode)
 		  && !GET_MODE_NUNITS (mode).is_constant (&expected))
 		error_at (info->loc,
@@ -756,6 +757,21 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
 		error_at (info->loc,
 			  "vec_select parallel with %d elements, expected %d",
 			  XVECLEN (XEXP (pattern, 1), 0), expected);
+	      else if (VECTOR_MODE_P (imode)
+		       && GET_MODE_NUNITS (imode).is_constant (&nelems))
+		{
+		  int i;
+		  for (i = 0; i < expected; ++i)
+		    if (CONST_INT_P (XVECEXP (XEXP (pattern, 1), 0, i))
+			&& (UINTVAL (XVECEXP (XEXP (pattern, 1), 0, i))
+			    >= nelems))
+		      error_at (info->loc,
+				"out of bounds selector %u in vec_select, "
+				"expected at most %u",
+				(unsigned)
+				UINTVAL (XVECEXP (XEXP (pattern, 1), 0, i)),
+				nelems - 1);
+		}
 	    }
 	  if (imode != VOIDmode && !VECTOR_MODE_P (imode))
 	    error_at (info->loc, "%smode of first vec_select operand is not a "
@@ -3461,7 +3477,6 @@ safe_predicate_mode (const struct pred_data *pred, machine_mode mode)
       && (pred->codes[CONST_INT]
 	  || pred->codes[CONST_DOUBLE]
 	  || pred->codes[CONST_WIDE_INT]
-	  || pred->codes[CONST_POLY_INT]
 	  || pred->codes[LABEL_REF]))
     return false;
 
@@ -4231,7 +4246,7 @@ write_header (void)
 /* Generated automatically by the program `genrecog' from the target\n\
    machine description file.  */\n\
 \n\
-#define TARGET_C_FILE 1\n\
+#define IN_TARGET_CODE 1\n\
 \n\
 #include \"config.h\"\n\
 #include \"system.h\"\n\

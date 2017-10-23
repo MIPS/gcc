@@ -967,15 +967,14 @@ access_fn_component_p (tree op)
 }
 
 /* Determines the base object and the list of indices of memory reference
-   DR, analyzed in LOOP and instantiated in loop nest NEST.  */
+   DR, analyzed in LOOP and instantiated before NEST.  */
 
 static void
-dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
+dr_analyze_indices (struct data_reference *dr, edge nest, loop_p loop)
 {
   vec<tree> access_fns = vNULL;
   tree ref, op;
   tree base, off, access_fn;
-  basic_block before_loop;
 
   /* If analyzing a basic-block there are no indices to analyze
      and thus no access functions.  */
@@ -987,7 +986,6 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
     }
 
   ref = DR_REF (dr);
-  before_loop = block_before_loop (nest);
 
   /* REALPART_EXPR and IMAGPART_EXPR can be handled like accesses
      into a two element array with a constant index.  The base is
@@ -1012,7 +1010,7 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
 	{
 	  op = TREE_OPERAND (ref, 1);
 	  access_fn = analyze_scalar_evolution (loop, op);
-	  access_fn = instantiate_scev (before_loop, loop, access_fn);
+	  access_fn = instantiate_scev (nest, loop, access_fn);
 	  access_fns.safe_push (access_fn);
 	}
       else if (TREE_CODE (ref) == COMPONENT_REF
@@ -1044,7 +1042,7 @@ dr_analyze_indices (struct data_reference *dr, loop_p nest, loop_p loop)
     {
       op = TREE_OPERAND (ref, 0);
       access_fn = analyze_scalar_evolution (loop, op);
-      access_fn = instantiate_scev (before_loop, loop, access_fn);
+      access_fn = instantiate_scev (nest, loop, access_fn);
       if (TREE_CODE (access_fn) == POLYNOMIAL_CHREC)
 	{
 	  tree orig_type;
@@ -1149,7 +1147,7 @@ free_data_ref (data_reference_p dr)
    in which the data reference should be analyzed.  */
 
 struct data_reference *
-create_data_ref (loop_p nest, loop_p loop, tree memref, gimple *stmt,
+create_data_ref (edge nest, loop_p loop, tree memref, gimple *stmt,
 		 bool is_read, bool is_conditional_in_stmt)
 {
   struct data_reference *dr;
@@ -1464,8 +1462,8 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 				DR_BASE_ADDRESS (dr_a2->dr), 0)
 	      || !operand_equal_p (DR_OFFSET (dr_a1->dr),
 				   DR_OFFSET (dr_a2->dr), 0)
-	      || !poly_tree_p (DR_INIT (dr_a1->dr), &init_a1)
-	      || !poly_tree_p (DR_INIT (dr_a2->dr), &init_a2))
+	      || !poly_int_tree_p (DR_INIT (dr_a1->dr), &init_a1)
+	      || !poly_int_tree_p (DR_INIT (dr_a2->dr), &init_a2))
 	    continue;
 
 	  /* Don't combine if we can't tell which one comes first.  */
@@ -1498,8 +1496,8 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 	  if (!operand_equal_p (dr_a1->seg_len, dr_a2->seg_len, 0))
 	    {
 	      poly_uint64 seg_len_a1, seg_len_a2;
-	      if (!poly_tree_p (dr_a1->seg_len, &seg_len_a1)
-		  || !poly_tree_p (dr_a2->seg_len, &seg_len_a2))
+	      if (!poly_int_tree_p (dr_a1->seg_len, &seg_len_a1)
+		  || !poly_int_tree_p (dr_a2->seg_len, &seg_len_a2))
 		continue;
 
 	      tree indicator_a = dr_direction_indicator (dr_a1->dr);
@@ -1592,8 +1590,8 @@ create_intersect_range_checks_index (struct loop *loop, tree *cond_expr,
     return false;
 
   poly_uint64 seg_len1, seg_len2;
-  if (!poly_tree_p (dr_a.seg_len, &seg_len1)
-      || !poly_tree_p (dr_b.seg_len, &seg_len2))
+  if (!poly_int_tree_p (dr_a.seg_len, &seg_len1)
+      || !poly_int_tree_p (dr_b.seg_len, &seg_len2))
     return false;
 
   if (!tree_fits_shwi_p (DR_STEP (dr_a.dr)))
@@ -3864,7 +3862,9 @@ analyze_siv_subscript (tree chrec_a,
 				      overlaps_b, overlaps_a, last_conflicts);
 
   else if (evolution_function_is_affine_in_loop (chrec_a, loop_nest_num)
-	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num))
+	   && evolution_function_right_is_integer_cst (chrec_a)
+	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num)
+	   && evolution_function_right_is_integer_cst (chrec_b))
     {
       if (!chrec_contains_symbols (chrec_a)
 	  && !chrec_contains_symbols (chrec_b))
@@ -3998,8 +3998,10 @@ analyze_miv_subscript (tree chrec_a,
 
   else if (evolution_function_is_affine_multivariate_p (chrec_a, loop_nest->num)
 	   && !chrec_contains_symbols (chrec_a)
+	   && evolution_function_right_is_integer_cst (chrec_a)
 	   && evolution_function_is_affine_multivariate_p (chrec_b, loop_nest->num)
-	   && !chrec_contains_symbols (chrec_b))
+	   && !chrec_contains_symbols (chrec_b)
+	   && evolution_function_right_is_integer_cst (chrec_b))
     {
       /* testsuite/.../ssa-chrec-35.c
 	 {0, +, 1}_2  vs.  {0, +, 1}_3
@@ -5044,7 +5046,8 @@ find_data_references_in_stmt (struct loop *nest, gimple *stmt,
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
-      dr = create_data_ref (nest, loop_containing_stmt (stmt), ref->ref,
+      dr = create_data_ref (nest ? loop_preheader_edge (nest) : NULL,
+			    loop_containing_stmt (stmt), ref->ref,
 			    stmt, ref->is_read, ref->is_conditional_in_stmt);
       gcc_assert (dr != NULL);
       datarefs->safe_push (dr);
@@ -5060,7 +5063,7 @@ find_data_references_in_stmt (struct loop *nest, gimple *stmt,
    should be analyzed.  */
 
 bool
-graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple *stmt,
+graphite_find_data_references_in_stmt (edge nest, loop_p loop, gimple *stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;

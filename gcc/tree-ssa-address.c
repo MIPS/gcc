@@ -201,7 +201,7 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
   else
     st = NULL_RTX;
 
-  if (addr->offset && maybe_nonzero (wi::to_poly_wide (addr->offset)))
+  if (addr->offset && !integer_zerop (addr->offset))
     {
       poly_offset_int dc
 	= poly_offset_int::from (wi::to_poly_wide (addr->offset), SIGNED);
@@ -1029,8 +1029,8 @@ copy_ref_info (tree new_ref, tree old_ref)
 			   && (TREE_INT_CST_LOW (TMR_STEP (new_ref))
 			       < align)))))
 	    {
-	      poly_int64 inc = (mem_ref_offset (old_ref)
-				- mem_ref_offset (new_ref)).force_shwi ();
+	      poly_uint64 inc = (mem_ref_offset (old_ref)
+				 - mem_ref_offset (new_ref)).force_uhwi ();
 	      adjust_ptr_info_misalignment (new_pi, inc);
 	    }
 	  else

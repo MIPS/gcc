@@ -19,7 +19,7 @@
 
 /* Not included in avr.c since this requires C front end.  */
 
-#define TARGET_C_FILE 1
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
