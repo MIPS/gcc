@@ -1580,8 +1580,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("reduction ( ") == MATCH_YES)
 	    {
 	      gfc_omp_reduction_op rop = OMP_REDUCTION_NONE;
-	      char buffer[GFC_MAX_SYMBOL_LEN + 3];
-	      const char *op = NULL;
+	      const char *buffer = NULL;
 	      if (gfc_match_char ('+') == MATCH_YES)
 		rop = OMP_REDUCTION_PLUS;
 	      else if (gfc_match_char ('*') == MATCH_YES)
@@ -1597,11 +1596,11 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      else if (gfc_match (".neqv.") == MATCH_YES)
 		rop = OMP_REDUCTION_NEQV;
 	      if (rop != OMP_REDUCTION_NONE)
-		op = gfc_get_string ("operator %s",
+		buffer = gfc_get_string ("operator %s",
 			  gfc_op2string ((gfc_intrinsic_op) rop));
-	      else if (gfc_match_defined_op_name (op, 1, 1) == MATCH_YES)
+	      else if (gfc_match_defined_op_name (buffer, 1, 1) == MATCH_YES)
 		;
-	      else if (gfc_match_name (buffer) == MATCH_YES)
+	      else if (gfc_match_name (&buffer) == MATCH_YES)
 		{
 		  gfc_symbol *sym;
 		  const char *n = buffer;
@@ -1657,11 +1656,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		    rop = OMP_REDUCTION_NONE;
 		}
 	      else
-		buffer[0] = '\0';
+		buffer = NULL;
 	      gfc_omp_udr *udr;
-	      if (op != NULL)
-		udr = gfc_find_omp_udr (gfc_current_ns, op, NULL);
-	      else if (buffer[0])
+	      if (buffer != NULL)
 		udr = gfc_find_omp_udr (gfc_current_ns, buffer, NULL);
 	      else
 		udr = NULL;
@@ -1680,7 +1677,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		      n = *head;
 		      *head = NULL;
 		      gfc_error_now ("!$OMP DECLARE REDUCTION %s not found "
-				     "at %L", op ? op : buffer, &old_loc);
+				     "at %L", buffer, &old_loc);
 		      gfc_free_omp_namelist (n);
 		    }
 		  else
@@ -2290,13 +2287,13 @@ gfc_match_oacc_routine (void)
 
   if (m == MATCH_YES)
     {
-      char buffer[GFC_MAX_SYMBOL_LEN + 1];
+      const char *name = NULL;
       gfc_symtree *st;
 
-      m = gfc_match_name (buffer);
+      m = gfc_match_name (&name);
       if (m == MATCH_YES)
 	{
-	  st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	  st = gfc_find_symtree (gfc_current_ns->sym_root, name);
 	  if (st)
 	    {
 	      sym = st->n.sym;
@@ -2313,7 +2310,7 @@ gfc_match_oacc_routine (void)
 	    {
 	      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, "
 			 "invalid function name %s",
-			 (sym) ? sym->name : buffer);
+			 (sym) ? sym->name : name);
 	      gfc_current_locus = old_loc;
 	      return MATCH_ERROR;
 	    }

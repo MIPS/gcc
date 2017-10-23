@@ -352,7 +352,7 @@ syntax:
 static match
 match_data_constant (gfc_expr **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym, *dt_sym = NULL;
   gfc_expr *expr;
   match m;
@@ -404,7 +404,7 @@ match_data_constant (gfc_expr **result)
 
   gfc_current_locus = old_loc;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -2261,7 +2261,7 @@ match_pointer_init (gfc_expr **init, int procptr)
 
 
 static bool
-check_function_name (char *name)
+check_function_name (const char *name)
 {
   /* In functions that have a RESULT variable defined, the function name always
      refers to function calls.  Therefore, the name is not allowed to appear in
@@ -2294,7 +2294,7 @@ check_function_name (char *name)
 static match
 variable_decl (int elem)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   static unsigned int fill_id = 0;
   gfc_expr *initializer, *char_len;
   gfc_array_spec *as;
@@ -2326,7 +2326,7 @@ variable_decl (int elem)
 
   if (m != MATCH_YES)
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m != MATCH_YES)
 	goto cleanup;
     }
@@ -2351,7 +2351,7 @@ variable_decl (int elem)
 	}
 
       /* %FILL components are given invalid fortran names.  */
-      snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "%%FILL%u", fill_id++);
+      name = gfc_get_string ("%%FILL%u", fill_id++);
       m = MATCH_YES;
     }
 
@@ -2584,13 +2584,13 @@ variable_decl (int elem)
   if (gfc_current_state () == COMP_FUNCTION
       && strcmp ("ppr@", gfc_current_block ()->name) == 0
       && strcmp (name, gfc_current_block ()->ns->proc_name->name) == 0)
-    strcpy (name, "ppr@");
+    name = gfc_get_string ("%s", "ppr@");
 
   if (gfc_current_state () == COMP_FUNCTION
       && strcmp (name, gfc_current_block ()->name) == 0
       && gfc_current_block ()->result
       && strcmp ("ppr@", gfc_current_block ()->result->name) == 0)
-    strcpy (name, "ppr@");
+    name = gfc_get_string ("%s", "ppr@");
 
   /* OK, we've successfully matched the declaration.  Now put the
      symbol in the current namespace, because it might be used in the
@@ -5694,13 +5694,13 @@ set_verify_bind_c_com_block (gfc_common_head *com_block, int num_idents)
 bool
 get_bind_c_idents (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   int num_idents = 0;
   gfc_symbol *tmp_sym = NULL;
   match found_id;
   gfc_common_head *com_block = NULL;
 
-  if (gfc_match_name (name) == MATCH_YES)
+  if (gfc_match_name (&name) == MATCH_YES)
     {
       found_id = MATCH_YES;
       gfc_get_ha_symbol (name, &tmp_sym);
@@ -5745,7 +5745,7 @@ get_bind_c_idents (void)
 	    found_id = MATCH_NO;
 	  else if (gfc_match_char (',') != MATCH_YES)
 	    found_id = MATCH_NO;
-	  else if (gfc_match_name (name) == MATCH_YES)
+	  else if (gfc_match_name (&name) == MATCH_YES)
 	    {
 	      found_id = MATCH_YES;
 	      gfc_get_ha_symbol (name, &tmp_sym);
@@ -6126,7 +6126,7 @@ gfc_match_formal_arglist (gfc_symbol *progname, int st_flag,
 			  int null_flag, bool typeparam)
 {
   gfc_formal_arglist *head, *tail, *p, *q;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   gfc_formal_arglist *formal = NULL;
@@ -6173,7 +6173,7 @@ gfc_match_formal_arglist (gfc_symbol *progname, int st_flag,
 	}
       else
 	{
-	  m = gfc_match_name (name);
+	  m = gfc_match_name (&name);
 	  if (m != MATCH_YES)
 	    {
 	      if(typeparam)
@@ -6317,14 +6317,14 @@ cleanup:
 static match
 match_result (gfc_symbol *function, gfc_symbol **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *r;
   match m;
 
   if (gfc_match (" result (") != MATCH_YES)
     return MATCH_NO;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -6515,7 +6515,7 @@ match_procedure_interface (gfc_symbol **proc_if)
   gfc_symtree *st;
   locus old_loc, entry_loc;
   gfc_namespace *old_ns = gfc_current_ns;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
 
   old_loc = entry_loc = gfc_current_locus;
   gfc_clear_ts (&current_ts);
@@ -6538,7 +6538,7 @@ match_procedure_interface (gfc_symbol **proc_if)
 
   /* Procedure interface is itself a procedure.  */
   gfc_current_locus = old_loc;
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
 
   /* First look to see if it is already accessible in the current
      namespace because it is use associated or contained.  */
@@ -6737,7 +6737,7 @@ match_ppc_decl (void)
   gfc_component *c;
   gfc_expr *initializer = NULL;
   gfc_typebound_proc* tb;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
 
   /* Parse interface (with brackets).  */
   m = match_procedure_interface (&proc_if);
@@ -6778,7 +6778,7 @@ match_ppc_decl (void)
   ts = current_ts;
   for(num=1;;num++)
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	goto syntax;
       else if (m == MATCH_ERROR)
@@ -6855,7 +6855,7 @@ match_procedure_in_interface (void)
 {
   match m;
   gfc_symbol *sym;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   locus old_locus;
 
   if (current_interface.type == INTERFACE_NAMELESS
@@ -6879,7 +6879,7 @@ match_procedure_in_interface (void)
 
   for(;;)
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	goto syntax;
       else if (m == MATCH_ERROR)
@@ -7180,7 +7180,7 @@ gfc_match_entry (void)
   gfc_symbol *proc;
   gfc_symbol *result;
   gfc_symbol *entry;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_compile_state state;
   match m;
   gfc_entry_list *el;
@@ -7189,7 +7189,7 @@ gfc_match_entry (void)
   char peek_char;
   match is_bind_c;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -7787,7 +7787,7 @@ set_enum_kind(void)
 match
 gfc_match_end (gfc_statement *st)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_compile_state state;
   locus old_loc;
   const char *block_name;
@@ -8031,7 +8031,7 @@ gfc_match_end (gfc_statement *st)
      end-name.  */
   m = gfc_match_space ();
   if (m == MATCH_YES)
-    m = gfc_match_name (name);
+    m = gfc_match_name (&name);
 
   if (m == MATCH_NO)
     gfc_error ("Expected terminating name at %C");
@@ -8113,7 +8113,7 @@ cleanup:
 static match
 attr_decl1 (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_array_spec *as;
 
   /* Workaround -Wmaybe-uninitialized false positive during
@@ -8124,7 +8124,7 @@ attr_decl1 (void)
 
   as = NULL;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     goto cleanup;
 
@@ -9384,7 +9384,7 @@ cleanup:
 match
 gfc_match_modproc (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   locus old_locus;
@@ -9433,7 +9433,7 @@ gfc_match_modproc (void)
       bool last = false;
       old_locus = gfc_current_locus;
 
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	goto syntax;
       if (m != MATCH_YES)
@@ -9818,7 +9818,7 @@ gfc_match_structure_decl (void)
 match
 gfc_match_type (gfc_statement *st)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   match m;
   locus old_loc;
 
@@ -9844,7 +9844,7 @@ gfc_match_type (gfc_statement *st)
 
   /* By now "TYPE" has already been matched. If we do not see a name, this may
    * be something like "TYPE *" or "TYPE <fmt>".  */
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     {
       /* Let print match if it can, otherwise throw an error from
@@ -10236,7 +10236,7 @@ enum_initializer (gfc_expr *last_initializer, locus where)
 static match
 enumerator_decl (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_expr *initializer;
   gfc_array_spec *as = NULL;
   gfc_symbol *sym;
@@ -10251,7 +10251,7 @@ enumerator_decl (void)
   /* When we get here, we've just matched a list of attributes and
      maybe a type and a double colon.  The next thing we expect to see
      is the name of the symbol.  */
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     goto cleanup;
 
@@ -10592,9 +10592,9 @@ error:
 static match
 match_procedure_in_type (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  char target_buf[GFC_MAX_SYMBOL_LEN + 1];
-  char* target = NULL, *ifc = NULL;
+  const char *name = NULL;
+  const char *target_buf = NULL;
+  const char *target = NULL, *ifc = NULL;
   gfc_typebound_proc tb;
   bool seen_colons;
   bool seen_attrs;
@@ -10612,7 +10612,7 @@ match_procedure_in_type (void)
   /* Try to match PROCEDURE(interface).  */
   if (gfc_match (" (") == MATCH_YES)
     {
-      m = gfc_match_name (target_buf);
+      m = gfc_match_name (&target_buf);
       if (m == MATCH_ERROR)
 	return m;
       if (m != MATCH_YES)
@@ -10666,7 +10666,7 @@ match_procedure_in_type (void)
   /* Match the binding names.  */
   for(num=1;;num++)
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_ERROR)
 	return m;
       if (m == MATCH_NO)
@@ -10698,7 +10698,7 @@ match_procedure_in_type (void)
 	      return MATCH_ERROR;
 	    }
 
-	  m = gfc_match_name (target_buf);
+	  m = gfc_match_name (&target_buf);
 	  if (m == MATCH_ERROR)
 	    return m;
 	  if (m == MATCH_NO)
@@ -10932,8 +10932,9 @@ gfc_match_generic (void)
     {
       gfc_symtree* target_st;
       gfc_tbp_generic* target;
+      const char *name2 = NULL;
 
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name2);
       if (m == MATCH_ERROR)
 	goto error;
       if (m == MATCH_NO)
@@ -10942,14 +10943,14 @@ gfc_match_generic (void)
 	  goto error;
 	}
 
-      target_st = gfc_get_tbp_symtree (&ns->tb_sym_root, name);
+      target_st = gfc_get_tbp_symtree (&ns->tb_sym_root, name2);
 
       /* See if this is a duplicate specification.  */
       for (target = tb->u.generic; target; target = target->next)
 	if (target_st == target->specific_st)
 	  {
 	    gfc_error ("%qs already defined as specific binding for the"
-		       " generic %qs at %C", name, bind_name);
+		       " generic %qs at %C", name2, bind_name);
 	    goto error;
 	  }
 
@@ -10982,7 +10983,7 @@ error:
 match
 gfc_match_final_decl (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol* sym;
   match m;
   gfc_namespace* module_ns;
@@ -11038,7 +11039,7 @@ gfc_match_final_decl (void)
 	  return MATCH_ERROR;
 	}
 
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	{
 	  gfc_error ("Expected module procedure name at %C");
@@ -11121,7 +11122,7 @@ match
 gfc_match_gcc_attributes (void)
 {
   symbol_attribute attr;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   unsigned id;
   gfc_symbol *sym;
   match m;
@@ -11131,7 +11132,7 @@ gfc_match_gcc_attributes (void)
     {
       char ch;
 
-      if (gfc_match_name (name) != MATCH_YES)
+      if (gfc_match_name (&name) != MATCH_YES)
 	return MATCH_ERROR;
 
       for (id = 0; id < EXT_ATTR_LAST; id++)
@@ -11167,7 +11168,7 @@ gfc_match_gcc_attributes (void)
 
   for(;;)
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m != MATCH_YES)
 	return m;
 

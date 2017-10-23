@@ -50,7 +50,7 @@ match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
 match gfc_match_small_int_expr (int *, gfc_expr **);
-match gfc_match_name (char *);
+match gfc_match_name (const char **);
 match gfc_match_name_C (const char **buffer);
 match gfc_match_symbol (gfc_symbol **, int);
 match gfc_match_sym_tree (gfc_symtree **, int);
@@ -107,7 +107,7 @@ match gfc_match_call (void);
  
    TODO: should probably rename this now that it'll be globally seen to
    gfc_match_common_name.  */
-match match_common_name (char *name);
+match match_common_name (const char *&name);
 
 match gfc_match_common (void);
 match gfc_match_block_data (void);

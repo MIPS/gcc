@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "stringpool.h"
+#include "tree.h"
 
 int gfc_matching_ptr_assignment = 0;
 int gfc_matching_procptr_assignment = 0;
@@ -150,7 +152,7 @@ gfc_op2string (gfc_intrinsic_op op)
 match
 gfc_match_member_sep(gfc_symbol *sym)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   locus dot_loc, start_loc;
   gfc_intrinsic_op iop;
   match m;
@@ -176,7 +178,6 @@ gfc_match_member_sep(gfc_symbol *sym)
     tsym = sym->ts.u.derived;
 
   iop = INTRINSIC_NONE;
-  name[0] = '\0';
   m = MATCH_NO;
 
   /* If we have to reject come back here later.  */
@@ -190,7 +191,7 @@ gfc_match_member_sep(gfc_symbol *sym)
   dot_loc = gfc_current_locus;
 
   /* Try to match a symbol name following the dot.  */
-  if (gfc_match_name (name) != MATCH_YES)
+  if (gfc_match_name (&name) != MATCH_YES)
     {
       gfc_error ("Expected structure component or operator name "
                  "after '.' at %C");
@@ -634,17 +635,18 @@ gfc_match_label (void)
 }
 
 
-/* See if the current input looks like a name of some sort.  Modifies
-   the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.
+/* See if the current input looks like a name of some sort.
+   Upon success RESULT is set to the matched name and MATCH_YES is returned.
    Note that options.c restricts max_identifier_length to not more
    than GFC_MAX_SYMBOL_LEN.  */
 
 match
-gfc_match_name (char *buffer)
+gfc_match_name (const char **result)
 {
   locus old_loc;
   int i;
   char c;
+  char buffer[GFC_MAX_SYMBOL_LEN + 1];
 
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
@@ -685,7 +687,7 @@ gfc_match_name (char *buffer)
       return MATCH_ERROR;
     }
 
-  buffer[i] = '\0';
+  *result = IDENTIFIER_POINTER (get_identifier_with_length (buffer, i));
   gfc_current_locus = old_loc;
 
   return MATCH_YES;
@@ -698,10 +700,10 @@ gfc_match_name (char *buffer)
 match
 gfc_match_sym_tree (gfc_symtree **matched_symbol, int host_assoc)
 {
-  char buffer[GFC_MAX_SYMBOL_LEN + 1];
+  const char *buffer = NULL;
   match m;
 
-  m = gfc_match_name (buffer);
+  m = gfc_match_name (&buffer);
   if (m != MATCH_YES)
     return m;
 
@@ -1123,6 +1125,7 @@ gfc_match (const char *target, ...)
   locus old_loc;
   va_list argp;
   char c, *np;
+  const char *name2_hack = NULL;
   match m, n;
   void **vp;
   const char *p;
@@ -1186,12 +1189,13 @@ loop:
 
 	case 'n':
 	  np = va_arg (argp, char *);
-	  n = gfc_match_name (np);
+	  n = gfc_match_name (&name2_hack);
 	  if (n != MATCH_YES)
 	    {
 	      m = n;
 	      goto not_yes;
 	    }
+	  strcpy (np, name2_hack);
 
 	  matches++;
 	  goto loop;
@@ -1697,12 +1701,12 @@ got_match:
 match
 gfc_match_else (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
 
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
 
-  if (gfc_match_name (name) != MATCH_YES
+  if (gfc_match_name (&name) != MATCH_YES
       || gfc_current_block () == NULL
       || gfc_match_eos () != MATCH_YES)
     {
@@ -1726,7 +1730,7 @@ gfc_match_else (void)
 match
 gfc_match_elseif (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_expr *expr;
   match m;
 
@@ -1737,7 +1741,7 @@ gfc_match_elseif (void)
   if (gfc_match_eos () == MATCH_YES)
     goto done;
 
-  if (gfc_match_name (name) != MATCH_YES
+  if (gfc_match_name (&name) != MATCH_YES
       || gfc_current_block () == NULL
       || gfc_match_eos () != MATCH_YES)
     {
@@ -5032,23 +5036,23 @@ gfc_get_common (const char *name, int from_module)
 
 /* Match a common block name.  */
 
-match match_common_name (char *name)
+match match_common_name (const char *&name)
 {
   match m;
 
   if (gfc_match_char ('/') == MATCH_NO)
     {
-      name[0] = '\0';
+      name = NULL;
       return MATCH_YES;
     }
 
   if (gfc_match_char ('/') == MATCH_YES)
     {
-      name[0] = '\0';
+      name = NULL;
       return MATCH_YES;
     }
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
 
   if (m == MATCH_ERROR)
     return MATCH_ERROR;
@@ -5066,7 +5070,7 @@ match
 gfc_match_common (void)
 {
   gfc_symbol *sym, **head, *tail, *other;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_common_head *t;
   gfc_array_spec *as;
   gfc_equiv *e1, *e2;
@@ -5080,7 +5084,7 @@ gfc_match_common (void)
       if (m == MATCH_ERROR)
 	goto cleanup;
 
-      if (name[0] == '\0')
+      if (name == NULL)
 	{
 	  t = &gfc_current_ns->blank_common;
 	  if (t->head == NULL)
@@ -5739,10 +5743,10 @@ gfc_match_ptr_fcn_assign (void)
   gfc_symbol *sym;
   gfc_expr *expr;
   match m;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
 
   old_loc = gfc_current_locus;
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -5891,7 +5895,7 @@ cleanup:
 static match
 match_case_eos (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   match m;
 
   if (gfc_match_eos () == MATCH_YES)
@@ -5904,7 +5908,7 @@ match_case_eos (void)
 
   gfc_gobble_whitespace ();
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -6592,7 +6596,7 @@ gfc_match_where (gfc_statement *st)
 match
 gfc_match_elsewhere (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_expr *expr;
   match m;
 
@@ -6625,7 +6629,7 @@ gfc_match_elsewhere (void)
 	  goto cleanup;
 	}
       /* Better be a name at this point.  */
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	goto syntax;
       if (m == MATCH_ERROR)

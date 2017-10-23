@@ -140,6 +140,7 @@ gfc_match_generic_spec (interface_type *type,
 			gfc_intrinsic_op *op)
 {
   char buffer[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name2 = NULL;
   match m;
   gfc_intrinsic_op i;
 
@@ -212,9 +213,9 @@ gfc_match_generic_spec (interface_type *type,
 	return MATCH_YES;
     }
 
-  if (gfc_match_name (buffer) == MATCH_YES)
+  if (gfc_match_name (&name2) == MATCH_YES)
     {
-      strcpy (name, buffer);
+      strcpy (name, name2);
       *type = INTERFACE_GENERIC;
       return MATCH_YES;
     }

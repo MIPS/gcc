@@ -39,7 +39,7 @@ int matching_actual_arglist = 0;
 static match
 match_kind_param (int *kind, int *is_iso_c)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
 
@@ -49,7 +49,7 @@ match_kind_param (int *kind, int *is_iso_c)
   if (m != MATCH_NO)
     return m;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -1234,12 +1234,12 @@ match_logical_constant (gfc_expr **result)
 static match
 match_sym_complex_part (gfc_expr **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   gfc_expr *e;
   match m;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m != MATCH_YES)
     return m;
 
@@ -1525,7 +1525,7 @@ gfc_is_function_return_value (gfc_symbol *sym, gfc_namespace *ns)
 static match
 match_actual_arg (gfc_expr **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symtree *symtree;
   locus where, w;
   gfc_expr *e;
@@ -1534,7 +1534,7 @@ match_actual_arg (gfc_expr **result)
   gfc_gobble_whitespace ();
   where = gfc_current_locus;
 
-  switch (gfc_match_name (name))
+  switch (gfc_match_name (&name))
     {
     case MATCH_ERROR:
       return MATCH_ERROR;
@@ -1629,13 +1629,13 @@ match_actual_arg (gfc_expr **result)
 static match
 match_keyword_arg (gfc_actual_arglist *actual, gfc_actual_arglist *base, bool pdt)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_actual_arglist *a;
   locus name_locus;
   match m;
 
   name_locus = gfc_current_locus;
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
 
   if (m != MATCH_YES)
     goto cleanup;
@@ -1667,7 +1667,7 @@ match_keyword_arg (gfc_actual_arglist *actual, gfc_actual_arglist *base, bool pd
 
   /* Make sure this name has not appeared yet.  */
 add_name:
-  if (name[0] != '\0')
+  if (name != NULL)
     {
       for (a = base; a; a = a->next)
 	if (a->name != NULL && strcmp (a->name, name) == 0)
@@ -1678,7 +1678,7 @@ add_name:
 	  }
     }
 
-  actual->name = gfc_get_string ("%s", name);
+  actual->name = name;
   return MATCH_YES;
 
 cleanup:
@@ -1948,7 +1948,7 @@ match
 gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 		   bool ppc_arg)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_ref *substring, *tail, *tmp;
   gfc_component *component;
   gfc_symbol *sym = primary->symtree->n.sym;
@@ -2136,7 +2136,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       bool t;
       gfc_symtree *tbp;
 
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m == MATCH_NO)
 	gfc_error ("Expected structure component name at %C");
       if (m != MATCH_YES)
@@ -3144,7 +3144,8 @@ match
 gfc_match_rvalue (gfc_expr **result)
 {
   gfc_actual_arglist *actual_arglist;
-  char name[GFC_MAX_SYMBOL_LEN + 1], argname[GFC_MAX_SYMBOL_LEN + 1];
+  char argname[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_state_data *st;
   gfc_symbol *sym;
   gfc_symtree *symtree;
@@ -3161,12 +3162,12 @@ gfc_match_rvalue (gfc_expr **result)
     {
       if (!gfc_notify_std (GFC_STD_LEGACY, "%%LOC() as an rvalue at %C"))
         return MATCH_ERROR;
-      strncpy (name, "loc", 4);
+      name = gfc_get_string ("%s", "loc");
     }
 
   else
     {
-      m = gfc_match_name (name);
+      m = gfc_match_name (&name);
       if (m != MATCH_YES)
         return m;
     }

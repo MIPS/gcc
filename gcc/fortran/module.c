@@ -520,6 +520,7 @@ match
 gfc_match_use (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name2 = NULL;
   gfc_use_rename *tail = NULL, *new_use;
   interface_type type, type2;
   gfc_intrinsic_op op;
@@ -583,14 +584,14 @@ gfc_match_use (void)
 
   use_list->where = gfc_current_locus;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name2);
   if (m != MATCH_YES)
     {
       free (use_list);
       return m;
     }
 
-  use_list->module_name = gfc_get_string ("%s", name);
+  use_list->module_name = name2;
 
   if (gfc_match_eos () == MATCH_YES)
     goto done;

@@ -4071,7 +4071,7 @@ if (condition) \
 static match
 match_io (io_kind k)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_code *io_code;
   gfc_symbol *sym;
   int comma_flag;
@@ -4093,7 +4093,7 @@ match_io (io_kind k)
 	{
 	  /* Treat the non-standard case of PRINT namelist.  */
 	  if ((gfc_current_form == FORM_FIXED || gfc_peek_ascii_char () == ' ')
-	      && gfc_match_name (name) == MATCH_YES)
+	      && gfc_match_name (&name) == MATCH_YES)
 	    {
 	      gfc_find_symbol (name, NULL, 1, &sym);
 	      if (sym && sym->attr.flavor == FL_NAMELIST)
@@ -4219,7 +4219,7 @@ match_io (io_kind k)
 
   where = gfc_current_locus;
 
-  m = gfc_match_name (name);
+  m = gfc_match_name (&name);
   if (m == MATCH_YES)
     {
       gfc_find_symbol (name, NULL, 1, &sym);
