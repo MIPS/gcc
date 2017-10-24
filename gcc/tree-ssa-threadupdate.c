@@ -2244,7 +2244,6 @@ rewire_first_differing_edge (unsigned path_num, unsigned edge_num)
       return false;
     }
   edge new_edge = find_edge (src_copy, e->dest);
-
   /* If the previously threaded paths created a flow graph where we
      can no longer figure out where to go, give up.  */
   if (new_edge == NULL)
@@ -2253,8 +2252,6 @@ rewire_first_differing_edge (unsigned path_num, unsigned edge_num)
 	fprintf (dump_file, "ignoring candidate: we lost our way\n");
       return false;
     }
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "rewrited first differing edge\n");
   e = new_edge;
   return true;
 }
