@@ -2375,13 +2375,14 @@ adjust_paths_after_duplication (unsigned curr_path_num)
    and create a single fallthru edge pointing to the same destination as the
    EXIT edge.
 
+   CURRENT_PATH_NO is an index into the global paths[] table
+   specifying the jump-thread path.
+
    Returns false if it is unable to copy the region, true otherwise.  */
 
 static bool
 duplicate_thread_path (edge entry, edge exit, basic_block *region,
-		       unsigned n_region,
-		       /* FIXME: Document.  */
-		       unsigned current_path_no)
+		       unsigned n_region, unsigned current_path_no)
 {
   unsigned i;
   struct loop *loop = entry->dest->loop_father;
