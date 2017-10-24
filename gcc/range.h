@@ -122,7 +122,7 @@ class irange
       nz.set_range (type, 0, 0, INVERSE);
       return *this == nz;
     }
-  inline bool one_element_p (wide_int &) const;
+  inline bool singleton_p (wide_int &) const;
 
   void dump () const;
   void dump (pretty_printer *pp) const;
@@ -153,7 +153,7 @@ class irange
    to said element.  */
 
 inline bool
-irange::one_element_p (wide_int &elem) const
+irange::singleton_p (wide_int &elem) const
 {
   if (num_pairs () == 1 && bounds[0] == bounds[1])
     {

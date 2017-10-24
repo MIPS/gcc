@@ -1026,7 +1026,7 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
       if (ranger.path_range (range, name, path))
 	{
 	  wide_int c;
-	  if (!range.one_element_p (c))
+	  if (!range.singleton_p (c))
 	    continue;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
