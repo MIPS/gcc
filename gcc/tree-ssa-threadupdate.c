@@ -2201,12 +2201,11 @@ bb_in_bbs (basic_block bb, basic_block *bbs, int n)
   return false;
 }
 
-/* FIXME: Remove me.  */
 DEBUG_FUNCTION void
 debug_path (FILE *dump_file, int pathno)
 {
   vec<jump_thread_edge *> *p = paths[pathno];
-  fprintf (dump_file, "path backwards: ");
+  fprintf (dump_file, "path: ");
   for (unsigned i = 0; i < p->length (); ++i)
     fprintf (dump_file, "%d -> %d, ",
 	     (*p)[i]->e->src->index, (*p)[i]->e->dest->index);
