@@ -2581,6 +2581,9 @@ struct GTY(()) machine_function {
   /* Nonzero if the function places outgoing arguments on stack.  */
   BOOL_BITFIELD outgoing_args_on_stack : 1;
 
+  /* If true, ENDBR is queued at function entrance.  */
+  BOOL_BITFIELD endbr_queued_at_entrance : 1;
+
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */
   struct machine_frame_state fs;
