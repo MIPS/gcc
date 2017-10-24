@@ -102,6 +102,7 @@ static bool ix86_save_reg (unsigned int, bool, bool);
 static bool ix86_function_naked (const_tree);
 static bool ix86_notrack_prefixed_insn_p (rtx);
 static void ix86_emit_restore_reg_using_pop (rtx);
+static bool ix86_noplt_attribute_p (rtx);
 
 
 #ifndef CHECK_STACK_LIMIT
@@ -27880,10 +27881,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	  && GET_CODE (addr) == SYMBOL_REF
 	  && !SYMBOL_REF_LOCAL_P (addr))
 	{
-	  if (flag_plt
-	      && (SYMBOL_REF_DECL (addr) == NULL_TREE
-		  || !lookup_attribute ("noplt",
-					DECL_ATTRIBUTES (SYMBOL_REF_DECL (addr)))))
+	  if (!ix86_noplt_attribute_p (addr))
 	    {
 	      if (!TARGET_64BIT
 		  || (ix86_cmodel == CM_LARGE_PIC
@@ -28061,6 +28059,29 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 }
 
 /* Return true if the function being called was marked with attribute
+   "noplt" or using -fno-plt.  PLT should be avoided with shadow stack
+   if more than 2 parameters are passed in registers since only 2
+   parameters can be passed in registers for external function calls
+   via PLT with shadow stack enabled.  */
+
+static bool
+ix86_noplt_attribute_p (rtx call_op)
+{
+  if (!flag_plt)
+    return true;
+
+  tree decl = SYMBOL_REF_DECL (call_op);
+  if (!decl)
+    return false;
+
+  return (lookup_attribute ("noplt", DECL_ATTRIBUTES (decl))
+	  || (!TARGET_64BIT
+	      && (flag_cf_protection & CF_RETURN)
+	      && TARGET_SHSTK
+	      && ix86_function_regparm (TREE_TYPE (decl), decl) > 2));
+}
+
+/* Return true if the function being called was marked with attribute
    "noplt" or using -fno-plt and we are compiling for non-PIC.  We need
    to handle the non-PIC case in the backend because there is no easy
    interface for the front-end to force non-PLT calls to use the GOT.
@@ -28076,14 +28097,7 @@ ix86_nopic_noplt_attribute_p (rtx call_op)
       || SYMBOL_REF_LOCAL_P (call_op))
     return false;
 
-  tree symbol_decl = SYMBOL_REF_DECL (call_op);
-
-  if (!flag_plt
-      || (symbol_decl != NULL_TREE
-          && lookup_attribute ("noplt", DECL_ATTRIBUTES (symbol_decl))))
-    return true;
-
-  return false;
+  return ix86_noplt_attribute_p (call_op);
 }
 
 /* Output the assembly for a call instruction.  */
