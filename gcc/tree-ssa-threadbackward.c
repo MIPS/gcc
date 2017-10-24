@@ -515,9 +515,10 @@ bb_paths::bb_paths (tree name_, basic_block use_bb_)
 {
   name = name_;
   use_bb = use_bb_;
-  gimple *def_stmt = SSA_NAME_DEF_STMT (name);
-  gcc_assert (def_stmt != NULL);
-  def_bb = gimple_bb (def_stmt);
+  if (SSA_NAME_IS_DEFAULT_DEF (name))
+    def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  else
+    def_bb = gimple_bb (SSA_NAME_DEF_STMT (name));
   visited = new hash_set<basic_block>;
   max_path_length = PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH);
   current_path = vNULL;
