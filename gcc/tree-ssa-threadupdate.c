@@ -2607,7 +2607,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   bitmap_iterator bi;
   struct loop *loop;
   auto_bitmap threaded_blocks;
-  hash_set<edge> visited_starting_edges;
 
   if (!paths.exists ())
     {
@@ -2653,17 +2652,10 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 	  continue;
 	}
 
-      /**********************************************
-       FIXME: I am not convinced we need this here.
-
-	 Can we go back to the old behavior ??  Do we catch anything
-	 here that isn't now caught with the previous test. ??
-      **********************************************/
-
-      /* Do not jump-thread twice the same starting edge.  */
-      if (visited_starting_edges.contains (entry)
-	  /* We may not want to realize this jump thread path for
-	     various reasons.  So check it first.  */
+      /* Do not jump-thread twice from the same block.  */
+      if (bitmap_bit_p (threaded_blocks, entry->src->index)
+	  /* We may not want to realize this jump thread path
+	     for various reasons.  So check it first.  */
 	  || !valid_jump_thread_path (path))
 	{
 	  /* Remove invalid FSM jump-thread paths.  */
@@ -2683,7 +2675,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 	{
 	  /* We do not update dominance info.  */
 	  free_dominance_info (CDI_DOMINATORS);
-	  visited_starting_edges.add (entry);
+	  bitmap_set_bit (threaded_blocks, entry->src->index);
 	  retval = true;
 	  thread_stats.num_threaded_edges++;
 	}
@@ -2701,7 +2693,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       edge entry = (*path)[0]->e;
 
       /* Do not jump-thread twice from the same block.  */
-      if (visited_starting_edges.contains (entry))
+      if (bitmap_bit_p (threaded_blocks, entry->src->index))
 	{
 	  delete_jump_thread_path (path);
 	  paths.unordered_remove (i);
@@ -2709,6 +2701,8 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       else
 	i++;
     }
+
+  bitmap_clear (threaded_blocks);
 
   mark_threaded_blocks (threaded_blocks);
 
