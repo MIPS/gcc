@@ -2007,11 +2007,11 @@ get_copy_thread_allocnos (ira_allocno_t a)
 {
   vec<int> copies = vNULL;
   ira_allocno_t all;
-
-  for (all = ALLOCNO_COLOR_DATA (a)->next_thread_allocno;
-       all != a;
-       all = ALLOCNO_COLOR_DATA (all)->next_thread_allocno)
-    copies.safe_push (ALLOCNO_NUM (all));
+  if (bitmap_bit_p (consideration_allocno_bitmap, ALLOCNO_NUM (a)))
+    for (all = ALLOCNO_COLOR_DATA (a)->next_thread_allocno;
+         all != a;
+         all = ALLOCNO_COLOR_DATA (all)->next_thread_allocno)
+      copies.safe_push (ALLOCNO_NUM (all));
 
   return copies;
 }

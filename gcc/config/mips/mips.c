@@ -29186,7 +29186,7 @@ mips_collect_recolor_data (bool &s_regs_used)
 	    /* Push instruction into instruction list of corresponding
 	       allocnos.  */
 	    for (i = 0; i < i_data.reg_num; i++)
-	      if (ALLOCNO_HARD_REGNO (ira_allocnos[i_data.allocnos[j]])
+	      if (ALLOCNO_HARD_REGNO (ira_allocnos[i_data.allocnos[i]])
 		  &&  mips_save_reg_p (REGNO (i_data.regs[i])))
 		s_regs_used = true;
 	  }
@@ -29211,7 +29211,7 @@ mips_collect_recolor_data (bool &s_regs_used)
 
   for (i=0; i<ira_allocnos_num; i++)
     {
-      if (!ira_allocnos[i])
+      if (!ira_allocnos[i] || ALLOCNO_ASSIGNED_P (ira_allocnos[i]))
 	continue;
 
       for (int j=0; j<ira_allocnos_num; j++)
