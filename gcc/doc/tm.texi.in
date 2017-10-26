@@ -5792,6 +5792,8 @@ systems.  This macro is used in @code{assemble_name}.
 
 @hook TARGET_MANGLE_ASSEMBLER_NAME
 
+@hook TARGET_OUTPUT_CFI_ENDPROC
+
 @defmac ASM_OUTPUT_SYMBOL_REF (@var{stream}, @var{sym})
 A C statement (sans semicolon) to output a reference to
 @code{SYMBOL_REF} @var{sym}.  If not defined, @code{assemble_name}

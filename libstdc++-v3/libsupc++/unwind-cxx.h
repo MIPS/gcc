@@ -363,6 +363,11 @@ extern "C" _Unwind_Reason_Code __gxx_personality_v0
      (int, _Unwind_Action, _Unwind_Exception_Class,
       struct _Unwind_Exception *, struct _Unwind_Context *);
 
+// GNU C++ compact eh personality routine.
+extern "C" _Unwind_Reason_Code __gnu_compact_pr2
+     (int, _Unwind_Action, _Unwind_Exception_Class,
+      struct _Unwind_Exception *, struct _Unwind_Context *);
+
 // GNU C++ sjlj personality routine, Version 0.
 extern "C" _Unwind_Reason_Code __gxx_personality_sj0
      (int, _Unwind_Action, _Unwind_Exception_Class,
