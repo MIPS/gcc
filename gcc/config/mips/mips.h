@@ -1041,13 +1041,16 @@ enum compact_eh_opcode {
   COMPEH_SP_ADJUST_LONG = 0x58,         // VR[29] = (uleb128 + 129)*ALIGN
   COMPEH_SAVE_GPRS_LONG = 0x59,         // save VR[xxxxx]..VR[xxxxx+yyy]
   COMPEH_SAVE_FPRS_LONG = 0x5a,         // save VRF[xxxxx]..VRF[xxxxx+yyy]
+					// TODO: optimized version of above two
   COMPEH_RESTORE_SP_FROM_CFA = 0x5b,    // restore stack pointer
   COMPEH_FINISH = 0x5c,                 // finish unwinding
   COMPEH_NO_UNWIND = 0x5d,              // no unwind done
   COMPEH_RESTORE_SP_FROM_FP = 0x5e,     // cursor = VR[29] = VR[30]
   // COMPEH_SPARE = 0x5f,               // currently unused
   COMPEH_SAVE_FPR1 = 0x60,              // save VRF[20]..VRF[20+xxx]
+					// TODO: now save VRF[16]..VRF[16+xxx]
   COMPEH_SAVE_FPR2 = 0x68,              // save VRF[20]..VRF[28+xx]
+					// TODO: now spare opcodes
   COMPEH_SAVE_TEMPS_MIPS16 = 0x6c,      // save VR[16], VR[17], VR[18+xx]..VR[23], VR[31]
   COMPEH_SAVE_TEMPS_GP_RA = 0x70,       // save VR[16]..VR[16+xxx], VR[28], VR[31]
   COMPEH_SAVE_TEMPS_GP_FP_RA = 0x78     // save VR[16]..VR[16+xxx], VR[28], VR[30], VR[31]

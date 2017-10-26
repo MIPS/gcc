@@ -25,13 +25,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifdef MD_HAVE_COMPACT_EH
 
 #define DWARF_SP_REGNO 29
-#define VRF_0 32
 
 #if defined(_MIPS_SIM) && _MIPS_SIM == _ABIO32
 #define MIPS_EH_STACK_ALIGN 8
 #else
 #define MIPS_EH_STACK_ALIGN 16
 #endif
+
+#define VRF_0 32
 
 /* Record the push of a register in FrameState FS.  */
 
@@ -110,6 +111,7 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Restore stack pointer from frame pointer */
 	  fs->regs.cfa_reg = (op & 7) + 16;
 	  fs->regs.cfa_offset = 0;
+	  record_cfa_adjustment (fs, 4096);
 	  break;
 
 	case 0x58:
@@ -153,6 +155,7 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Restore SP from VR[30] */
 	  fs->regs.cfa_reg = 30;
 	  fs->regs.cfa_offset = 0;
+	  record_cfa_adjustment (fs, 4096);
 	  break;
 
 	case 0x5f:
