@@ -26140,10 +26140,10 @@ mips_option_override (void)
           mips_dwarf_regno[i] = INVALID_REGNUM;
         }
 
-      for (i = FP_REG_FIRST + 16; i <= FP_REG_FIRST + 23; i++)
-        mips_dwarf_regno[i] = 2 * (i - (FP_REG_FIRST + 16));
+      for (i = FP_REG_FIRST + 8; i <= FP_REG_FIRST + 23; i++)
+        mips_dwarf_regno[i] = 2 * (i - (FP_REG_FIRST + 8));
 
-      start = 16;
+      start = 32;
 
       mips_dwarf_regno[GP_REG_FIRST + 6]  = start;
       mips_dwarf_regno[GP_REG_FIRST + 7]  = start + 1;
