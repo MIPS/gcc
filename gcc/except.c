@@ -212,7 +212,6 @@ static void dw2_build_landing_pads (void);
 static int collect_one_action_chain (action_hash_type *, eh_region);
 static int add_call_site (rtx, int, int);
 
-static void push_uleb128 (vec<uchar, va_gc> **, unsigned int);
 static void push_sleb128 (vec<uchar, va_gc> **, int);
 #ifndef HAVE_AS_LEB128
 static int dw2_size_of_call_site_table (int);
@@ -220,7 +219,37 @@ static int sjlj_size_of_call_site_table (void);
 #endif
 static void dw2_output_call_site_table (int, int);
 static void sjlj_output_call_site_table (void);
+static const unsigned char *read_sleb128 (const unsigned char *p,
+                                          HOST_WIDE_INT *val);
 
+
+/* Emit the compact LSDA tables if using a compact personality
+   routine.  We avoid a language-specific check to cover the LTO
+   case where the language is "GNU GIMPLE".  */
+static bool
+using_compact_pr (void)
+{
+  rtx personality = get_personality_function (current_function_decl);
+
+  if (personality
+      && strncmp (XSTR (personality, 0), "__gnu_compact", 13) == 0)
+    return true;
+
+  return false;
+}
+
+/* Return the id to be used with .cfi_personality_id, or 0 to use
+   .cfi_personality.  */
+int
+compact_pr_id (rtx personality)
+{
+  if (!flag_asynchronous_unwind_tables
+      && personality
+      && strncmp (XSTR (personality, 0), "__gnu_compact_pr", 16) == 0)
+    return XSTR (personality, 0)[16] - '0';
+
+  return 0;
+}
 
 void
 init_eh (void)
@@ -2662,7 +2691,7 @@ make_pass_convert_to_eh_region_ranges (gcc::context *ctxt)
   return new pass_convert_to_eh_region_ranges (ctxt);
 }
 
-static void
+void
 push_uleb128 (vec<uchar, va_gc> **data_area, unsigned int value)
 {
   do
@@ -2694,6 +2723,7 @@ push_sleb128 (vec<uchar, va_gc> **data_area, int value)
     }
   while (more);
 }
+
 
 
 #ifndef HAVE_AS_LEB128
@@ -2917,6 +2947,784 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     dw2_asm_output_encoded_addr_rtx (tt_format, value, is_public, NULL);
 }
 
+static const unsigned char *
+read_sleb128 (const unsigned char *p, HOST_WIDE_INT *val)
+{
+  unsigned int shift = 0;
+  unsigned char byte;
+  HOST_WIDE_INT result;
+
+  result = 0;
+  do
+    {
+      byte = *p++;
+      result |= ((HOST_WIDE_INT) byte & 0x7f) << shift;
+      shift += 7;
+    }
+  while (byte & 0x80);
+
+  /* Sign-extend a negative value.  */
+  if (shift < 8 * sizeof(result) && (byte & 0x40) != 0)
+    result |= -(((unsigned HOST_WIDE_INT)1L) << shift);
+
+  *val = (HOST_WIDE_INT) result;
+  return p;
+}
+
+static const char func_begin_lab[] = "LFB";
+static const char switch_begin_lab[] = "LFCB";
+static const char region_begin_lab[] = "LEHB";
+static const char region_end_lab[] = "LEHE";
+
+/* Structure to track the action chain for each region.  */
+struct GTY (()) chain_d
+{
+  int dwarf_regno;
+  int action_ndx;
+  struct chain_d *next;
+};
+
+typedef struct chain_d *chain_ref;
+static GTY (()) vec<chain_ref, va_gc> *chains;
+
+/* Structure used to store information about each region.  */
+struct GTY (()) compact_info_d
+{
+  /*  Region type.  */
+  enum eh_compact_header_type region_type;
+
+  /* Corresponding dwarf region number, if any.  */
+  int dwarf_region_no;
+
+  /* If not a dwarf region, the previous dwarf region number.  */
+  int prev_dwarf_region_no;
+
+  /* If not a dwarf region, the next dwarf region number.  */
+  int next_dwarf_region_no;
+
+  /* For action entries, the index into the action table.  */
+  int first_action_ndx;
+
+  /* For action entries, the next index into the action table.  */
+  int next_action_ndx;
+
+  /* The landing pad.  */
+  rtx landing_pad;
+
+  /* The entry in the action table, pointed to by the action index.  */
+  int action_value;
+
+  /* Non-zero, if this entry chains.  The chain-value is relative to
+     the current entry and excludes nothrow regions.  */
+  int chain_value;
+
+  /* True if this entry terminates a chain.  */
+  bool end_of_chain;
+
+  /* The label prefix to used to mark the beginning of this region.   */
+  const char *begin_lab_prefix;
+
+  /* The label prefix used to mark the end of this region.   */
+  const char *end_lab_prefix;
+
+  /* The label number denoting the beginning of the region.  */
+  int begin_lab_no;
+
+  /* The label number denoting the end of the region.  */
+  int end_lab_no;
+
+  /* True if the next item in the chain is a dummy action region.  */
+  bool use_dummy;
+
+  /* The region number of the dummy action.  */
+  int dummy_index;
+};
+
+typedef struct compact_info_d *compact_info_ref;
+static GTY (()) vec<compact_info_ref, va_gc> *compact_info;
+
+/* Struct used to track dummy action regions.  */
+
+struct GTY (()) dummy_info_d
+{
+  /* The dwarf region number that caused this dummy to be created.  */
+  int dwarf_region_no;
+
+  /* Index into the action table.  */
+  int action_ndx;
+
+  /* The next index into the action table.  */
+  int next_action_ndx;
+
+  /* The entry in the action table, pointed to by the action index.  */
+  int action_value;
+
+  /* Non-zero, if this entry chains.  The chain-value is relative to
+     the current entry and excludes nothrow regions.  */
+  int chain_value;
+
+  /* True if this entry terminates a chain.  */
+  bool end_of_chain;
+};
+
+typedef struct dummy_info_d *dummy_info_ref;
+static GTY (()) vec<dummy_info_ref, va_gc> *dummy_info;
+
+/* Create the region start label.  */
+
+static void
+compact_create_region_start_label (compact_info_d *ci, char *region_start)
+{
+  switch (ci->region_type)
+    {
+    case ECHT_DUMMY_ACTION_CHAIN:
+      break;
+
+    default:
+      ASM_GENERATE_INTERNAL_LABEL (region_start, ci->begin_lab_prefix,
+				   ci->begin_lab_no);
+    }
+}
+
+/* Create the region end label.  */
+
+static void
+compact_create_region_end_label (compact_info_d *ci, char *region_end)
+{
+  switch (ci->region_type)
+    {
+    case ECHT_DUMMY_ACTION_CHAIN:
+      break;
+
+    default:
+      ASM_GENERATE_INTERNAL_LABEL (region_end,
+				   ci->end_lab_prefix, ci->end_lab_no);
+      break;
+    }
+}
+
+/* Emit the region header for this entry.  */
+static void
+compact_emit_region_header (int regno, compact_info_d *ci)
+{
+  char region_start[32];
+  char region_end[32];
+  char landing_pad[32];
+
+  compact_create_region_start_label (ci, &region_start[0]);
+  compact_create_region_end_label (ci, &region_end[0]);
+
+  if (ci->landing_pad != NULL_RTX
+      && ci->landing_pad != constm1_rtx)
+    ASM_GENERATE_INTERNAL_LABEL (landing_pad, "L",
+                                 CODE_LABEL_NUMBER (ci->landing_pad));
+
+  switch (ci->region_type)
+    {
+    case ECHT_ACTION_CHAIN:
+      dw2_asm_output_comment ("Region %d -- Action Chain", regno);
+      break;
+
+    case ECHT_CLEANUP:
+      dw2_asm_output_comment ("Region %d -- Cleanup", regno);
+      break;
+
+    case ECHT_DUMMY_ACTION_CHAIN:
+      dw2_asm_output_comment ("Region %d -- Dummy Action Chain", regno);
+      break;
+	
+    case ECHT_CONTINUE_UNWINDING:
+      dw2_asm_output_comment ("Region %d -- Continue Unwinding", regno);
+      break;
+    case ECHT_NOTHROW:
+      dw2_asm_output_comment ("Region %d -- NoThrow", regno);
+      break;
+    }
+
+  if (ci->region_type == ECHT_DUMMY_ACTION_CHAIN)
+    dw2_asm_output_data_uleb128 (0, "Zero length region");
+
+  else if (ci->region_type != ECHT_NOTHROW)
+    dw2_asm_output_compact_region_length (region_end,
+					  region_start, false, "Length");
+  else
+    dw2_asm_output_compact_region_length (region_end,
+					  region_start, true, "Length");
+
+  if (ci->landing_pad == constm1_rtx)
+    dw2_asm_output_data_sleb128 (-1, "landing pad");
+  else if (ci->landing_pad != NULL_RTX)
+    dw2_asm_output_compact_landing_pad (landing_pad,
+					region_end, "Landing Pad Offset");
+}
+
+/* Build a region table entry for a dummy nothrow.  */
+
+static void
+compact_insert_nothrow (int section, int prev_dwarf_region_no)
+{
+  compact_info_d *ci = ggc_cleared_alloc<compact_info_d> ();
+
+  ci->region_type = ECHT_NOTHROW;
+  ci->prev_dwarf_region_no = prev_dwarf_region_no;
+  ci->next_dwarf_region_no = prev_dwarf_region_no + 1;
+  ci->end_of_chain = true;
+
+  /* The beginning label of a dummy nothrow region is either
+     the beginning of the function or the end label of the
+     previous dwarf region.  */
+  if (vec_safe_length (compact_info) == 0)
+    {
+      ci->begin_lab_prefix = section == 0 ? func_begin_lab : switch_begin_lab;
+      ci->begin_lab_no = current_function_funcdef_no;
+    }
+  else
+    {
+      ci->begin_lab_prefix = region_end_lab;
+      ci->begin_lab_no = call_site_base + prev_dwarf_region_no;
+    }
+
+  /* The end label of a dummy nothrow region is the
+     beginning of the next dwarf region.  */
+  ci->end_lab_prefix = region_begin_lab;
+  ci->end_lab_no = call_site_base + prev_dwarf_region_no + 1;
+
+  vec_safe_push (compact_info, ci);
+}
+
+/* Build a region table entry for a dwarf-based continue-unwind region.  */
+static void
+compact_insert_continue (int dwarf_regno)
+{
+  compact_info_d *ci = ggc_cleared_alloc<compact_info_d> ();
+
+  ci->region_type = ECHT_CONTINUE_UNWINDING;
+  ci->dwarf_region_no = dwarf_regno;
+  ci->landing_pad = constm1_rtx;
+  ci->prev_dwarf_region_no = dwarf_regno - 1;
+  ci->next_dwarf_region_no = dwarf_regno + 1;
+  ci->end_of_chain = true;
+  ci->begin_lab_prefix = region_begin_lab;
+  ci->end_lab_prefix = region_end_lab;
+  ci->begin_lab_no = call_site_base + dwarf_regno;
+  ci->end_lab_no = call_site_base + dwarf_regno;
+  vec_safe_push (compact_info, ci);
+}
+
+/* Build a region table entry for a dwarf-based cleanup region.  */
+static void
+compact_insert_cleanup (int dwarf_regno, rtx lp)
+{
+  compact_info_d *ci = ggc_cleared_alloc<compact_info_d> ();
+
+  ci->region_type = ECHT_CLEANUP;
+  ci->dwarf_region_no = dwarf_regno;
+  ci->landing_pad = lp;
+  ci->end_of_chain = true;
+  ci->begin_lab_prefix = region_begin_lab;
+  ci->end_lab_prefix = region_end_lab;
+  ci->begin_lab_no = call_site_base + dwarf_regno;
+  ci->end_lab_no = call_site_base + dwarf_regno;
+
+  vec_safe_push (compact_info, ci);
+}
+
+/* Set up the chain values for the dummies.  */
+
+static void
+compact_link_to_dummy (int dummy_index)
+{
+  int i;
+  compact_info_d *ci;
+  for (i = 0; vec_safe_iterate (compact_info, i, &ci); ++i)
+    {
+      if (ci->use_dummy
+          && ci->dummy_index == dummy_index)
+	ci->chain_value = vec_safe_length (compact_info) - i;
+    }
+}
+
+/* Emit the dummy action chain region entries.  */
+
+static void
+compact_emit_dummies (void)
+{
+  int i;
+  dummy_info_ref di;
+
+  
+  for (i = 0; vec_safe_iterate (dummy_info, i, &di); ++i)
+    {
+      compact_info_d *ci = ggc_cleared_alloc<compact_info_d> ();
+      compact_link_to_dummy (i);
+      ci->region_type = ECHT_DUMMY_ACTION_CHAIN;
+      ci->action_value = di->action_value;
+      ci->chain_value = di->chain_value;
+      vec_safe_push (compact_info, ci);
+    }
+}
+
+/* Given an offset into the dwarf action table, return the region
+   number of a dummy action record that matches it.  */
+
+static bool
+compact_find_dummy (int looking_for, int *goto_dummy)
+{
+  int i;
+  dummy_info_ref di;
+
+  for (i = 0; vec_safe_iterate (dummy_info, i, &di); ++i)
+    {
+      if (looking_for == di->action_ndx)
+	{
+	  *goto_dummy = i;
+	  return true;
+	}
+    }
+  return false;
+}
+
+/* Traverse the base chain and a chain entry until the 
+   chains match or the end of one or both chains is reached.  */
+
+static bool
+compact_chains_match (chain_d *base_ce, chain_d *goto_ce)
+{
+
+  /* No match if the action indices are different.  */
+  if (base_ce->action_ndx != goto_ce->action_ndx)
+    return false;
+
+  /* Match if we reach the end of both chains at the same time.  */
+  if (base_ce->next == NULL
+      && goto_ce->next == NULL)
+    return true;
+
+  /* No match if we reach the end of one entry.  */
+  if (base_ce->next == NULL
+      || goto_ce->next == NULL)
+    return false;
+
+  return compact_chains_match (base_ce->next, goto_ce->next);
+
+}
+
+/* Given a dwarf region (base), search the chain entries to
+   determine if an existing entry matches the base chain.  */ 
+
+static bool
+compact_find_chain (int dwarf_regno, int *goto_regno)
+{
+  int i;
+  chain_ref ce;
+  chain_ref base_ce = (*chains)[dwarf_regno];
+
+  for (i = 0; vec_safe_iterate (chains, i, &ce); ++i)
+    {
+      /* Don't match self.  */
+      if (base_ce->dwarf_regno == ce->dwarf_regno)
+	continue;
+
+      /* Don't match if the next action index of the base is different than this
+	 entry's initial action index. */
+      if (base_ce->next->action_ndx != ce->action_ndx)
+	continue;
+
+      /* Match subsequent chain entries.  */
+      if (compact_chains_match (base_ce->next, ce))
+	{
+	  *goto_regno = i;
+	  return true;
+	}
+    }
+  return false;
+}
+
+/* Insert a dummy action chain in the regions list.  */
+
+static void
+compact_insert_dummy (int filter, int index, bool first, compact_info_d *ci)
+{
+  dummy_info_d *di = ggc_cleared_alloc<dummy_info_d> ();
+
+  /* If this is not the first dummy in this chain, then
+     the last dummy entry chains here.  */
+  if (!first)
+    {
+      int i;
+      dummy_info_ref di_prev;
+      
+      i = dummy_info->length () - 1;
+      di_prev = (*dummy_info)[i];
+      di_prev->chain_value = 1;
+    }
+
+  di->action_value = filter;
+  di->action_ndx = index;
+  
+  vec_safe_push (dummy_info, di);
+
+  /* If this is the first dummy in this chain, record the
+     chain-to-this-dummy info in the main region.  */
+  if (first)
+    {
+      ci->use_dummy = true;
+      ci->dummy_index = dummy_info->length( ) - 1;
+    }
+}
+
+/* Return the number of nothrow or continue-unwind regions between
+   two region region entries.  */
+static int
+compact_count_intervening_nocount (int lower, int higher)
+{
+  int i;
+  int ignore = 0;
+
+  if (vec_safe_is_empty (compact_info))
+    return ignore;
+
+  for (i = lower; i <= higher; i++)
+    {
+      compact_info_ref ci = (*compact_info)[i];
+  
+      if (ci->region_type == ECHT_NOTHROW
+	  || ci->region_type == ECHT_CONTINUE_UNWINDING)
+	ignore++;
+    }
+
+  return ignore;
+}
+
+/* Walk the DWARF2 exception-handling tables and emit a compact-encoding
+   of the information partitioned like so:
+
+   1.  A uleb128 offset to the end of the region data
+   2.  The region data
+   3.  Exception specification tables, if present
+   4.  Alignment padding
+   5.  Array of type data
+*/
+
+#define USE_ACTION_EXTENSION 2
+
+static void
+output_one_function_compact_eh_table (int section)
+{
+  int i;
+  unsigned int k;
+  uchar uc;
+  char cs_begin[32];
+  char cs_end[32];
+  char ehspec_begin[32];
+  char ehspec_end[32];
+  bool empty_exception_spec = false;
+  compact_info_d *ci, *ci2;
+
+  unsigned int action_value;
+  int action_extension = 0;
+  int no_ehspecs, regno;
+  int tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
+  int tt_format_size = size_of_encoded_value (tt_format);
+  const unsigned char *ar_start =
+    vec_safe_address (crtl->eh.action_record_data);
+  
+  int nregions = vec_safe_length ((&x_rtl)->eh.call_site_record_v[section]);
+
+  targetm.asm_out.internal_label (asm_out_file, section ? "LLSDAC" : "LLSDA",
+                                  current_function_funcdef_no);
+
+  ASM_GENERATE_INTERNAL_LABEL (cs_begin, section ? "LLSDACSBC" : "LLSDACSB",
+                               current_function_funcdef_no);
+
+  ASM_GENERATE_INTERNAL_LABEL (cs_end, section ? "LLSDACSEC" : "LLSDACSE",
+                               current_function_funcdef_no);
+
+  no_ehspecs = cfun->eh->ehspec_data.other->length ();
+
+  if (no_ehspecs > 0)
+    dw2_asm_output_data (1, 0x42, "PR 2, EHspecs present");
+  else
+    dw2_asm_output_data (1, 0x2, "PR 2");
+  
+  if (nregions == 0)
+    {
+      dw2_asm_output_data_uleb128 (0, "Call-site length");
+      return;
+    }
+  else
+    dw2_asm_output_delta_uleb128 (cs_end, cs_begin, "Call-site length");
+
+  assemble_name (asm_out_file, cs_begin);
+  fputs (":\n", asm_out_file);
+
+  /* Build an action chain for each dwarf region.  */
+  for (i = 0; i < nregions; i++)
+    {
+      const unsigned char *p;
+      HOST_WIDE_INT ar_filter, ar_disp;
+      struct call_site_record_d *cs =
+	(*(&x_rtl)->eh.call_site_record_v[section])[i];
+      chain_d *ce = ggc_cleared_alloc<chain_d> ();
+      ce->dwarf_regno = i;
+
+      if (cs->action == 0)
+	vec_safe_push (chains, ce);
+      else
+	{
+	  p = ar_start + cs->action -1;
+	  p = read_sleb128 (p, &ar_filter);
+	  p = read_sleb128 (p, &ar_disp);
+	  ce->action_ndx = cs->action;
+	  vec_safe_push (chains, ce);
+	
+	  while (ar_disp != 0)
+	    {
+	      chain_d *next_ce = ggc_cleared_alloc<chain_d> ();
+	      ce->next = next_ce;
+	      next_ce->dwarf_regno = i;
+
+	      p = ar_start + (p - ar_start) + ar_disp - 1;
+	      p = read_sleb128 (p, &ar_filter);
+	      p = read_sleb128 (p, &ar_disp);
+
+	      next_ce->action_ndx = (p - 1) - ar_start;
+	      ce = next_ce;
+	    }
+	}
+    }
+
+  /* Walk the regions again, this time building compact region entries.  */
+  for (i = 0, regno = 0; i < nregions; ++i)
+    {
+      /* i counts the dwarf regions.  regno counts compact regions.  */
+      const unsigned char *p;
+      HOST_WIDE_INT ar_filter, ar_disp;
+
+      const unsigned char *ar_start =
+	vec_safe_address (crtl->eh.action_record_data);
+
+      struct call_site_record_d *cs =
+	(*(&x_rtl)->eh.call_site_record_v[section])[i];
+
+      /* Create a dummy nothrow region prior to each dwarf region.  The
+	 dummy nothrow region spans the addresses between
+         the dwarf regions.  */
+      compact_insert_nothrow (section, i - 1);
+      regno++;
+
+      if (cs->action == 0 && cs->landing_pad == 0)
+	{
+	  compact_insert_continue (i);
+	}
+      else if (cs->action == 0)
+	{
+	  compact_insert_cleanup (i, cs->landing_pad);
+	}
+      else
+	{
+	  compact_info_d *ci = ggc_cleared_alloc<compact_info_d> ();
+
+	  p = vec_safe_address (crtl->eh.action_record_data)
+			   + cs->action - 1;
+
+	  p = read_sleb128 (p, &ar_filter);
+	  p = read_sleb128 (p, &ar_disp);
+
+	  
+	  if (ar_filter == 0)
+	    ci->region_type = ECHT_CLEANUP;
+	  else
+	    ci->region_type = ECHT_ACTION_CHAIN;
+
+	  ci->dwarf_region_no = i;
+	  ci->first_action_ndx = cs->action;
+	  ci->action_value = ar_filter;
+	  ci->next_action_ndx = cs->action + 1 + ar_disp;
+	  ci->landing_pad = cs->landing_pad;
+	  ci->begin_lab_prefix = region_begin_lab;
+	  ci->end_lab_prefix = region_end_lab;
+	  ci->begin_lab_no = call_site_base + ci->dwarf_region_no;
+	  ci->end_lab_no = call_site_base + ci->dwarf_region_no;
+	  vec_safe_push (compact_info, ci);
+
+	  /* A non-zero action record displacement denotes a chain.  If 
+	     the chain is already present in the compact region records,
+	     re-use the existing chain.  If not, dummy action region
+	     entries are created.  Re-use existing dummy action region
+	     entries if possible.  */
+
+	  if (ar_disp != 0)
+	    {
+	      int goto_regno, goto_dummy;
+
+	      if (compact_find_chain (ci->dwarf_region_no, &goto_regno))
+		ci->chain_value = goto_regno;
+	      else if (compact_find_dummy (ci->next_action_ndx, &goto_dummy))
+		{
+		  ci->use_dummy = true;
+		  ci->dummy_index = goto_dummy;
+		}
+	      else
+		{
+		  bool first_dummy = true;
+
+		  while (ar_disp != 0)
+		    {
+		      int ar_index;
+		      p = ar_start + (p - ar_start) + ar_disp - 1;
+		      ar_index = p - ar_start + 1;
+		      p = read_sleb128 (p, &ar_filter);
+		      p = read_sleb128 (p, &ar_disp);
+		      compact_insert_dummy (ar_filter, ar_index, first_dummy, ci);
+		      first_dummy = false;
+		    }
+		}
+	    }
+
+	  if (ar_disp == 0)
+	    ci->end_of_chain = true;
+	}
+    }
+
+
+  for (i = 0; vec_safe_iterate (compact_info, i, &ci); ++i)
+    {
+      int j;
+      if (ci->end_of_chain == true
+	  || ci->region_type == ECHT_DUMMY_ACTION_CHAIN)
+	continue;
+
+      for (j = 0; vec_safe_iterate (compact_info, j, &ci2); ++j)
+	{
+	  if (ci2->first_action_ndx == ci->next_action_ndx)
+	    {
+	      ci->chain_value = j - i;
+	      break;
+	    }
+	}     
+    }
+
+  /* The dummy action record entries are emitted last.  */
+  compact_emit_dummies ();
+
+  /* no-throw and continue-unwind regions are excluded in the chain values.  */
+  for (i = 0; vec_safe_iterate (compact_info, i, &ci); ++i)
+    {
+      int goto_regno;
+      int nocount = 0;
+      compact_info_ref ci_next = NULL;
+
+      if (i < (int) vec_safe_length (compact_info) - 1)
+	ci_next = (*compact_info)[i + 1];
+
+      if (ci->chain_value == 1
+	  && ci_next != NULL
+	  && ci_next->region_type == ECHT_DUMMY_ACTION_CHAIN)
+	continue;
+
+      if (ci->chain_value == 0)
+	continue;
+
+      goto_regno = i + ci->chain_value;
+      if (goto_regno > i)
+	{
+	  nocount = compact_count_intervening_nocount (i, goto_regno);
+	  ci->chain_value = ci->chain_value - nocount;
+	}
+      else
+	{
+	  nocount = compact_count_intervening_nocount (goto_regno, i);
+	  ci->chain_value = ci->chain_value + nocount;
+	}
+    }
+
+  /* Emit the region entries.  */
+
+  for (i = 0; vec_safe_iterate (compact_info, i, &ci); ++i)
+    {
+      compact_emit_region_header (i, ci);
+
+      if (ci->region_type == ECHT_ACTION_CHAIN
+	  || ci->region_type == ECHT_DUMMY_ACTION_CHAIN
+	  || ci->region_type == ECHT_CLEANUP)
+	{
+	  if (!IN_RANGE (ci->action_value, -1, 1))
+	    {
+	      action_value = USE_ACTION_EXTENSION;
+	      action_extension = ci->action_value;
+	    }
+	  else
+	    {
+	      if (ci->action_value == -1)
+		action_value = 3;
+	      else
+		action_value = ci->action_value;
+	    }
+	  dw2_asm_output_compact_ac_pair_sleb128 (action_value,
+						  ci->chain_value,
+						  "Action/Chain Pair");
+
+	  if (action_value == USE_ACTION_EXTENSION)
+	    dw2_asm_output_data_sleb128 (action_extension, "Action extension");
+	}
+
+    }
+  assemble_name (asm_out_file, cs_end);
+  fputs (":\n", asm_out_file);
+
+  /* Emit the exception specification indices.  */
+  if (no_ehspecs == 1)
+    { 
+      uchar ehspec = (*cfun->eh->ehspec_data.other)[0];
+      if (ehspec == 0)
+	empty_exception_spec = true;
+    }
+
+  if (no_ehspecs != 0)
+    {
+      if (empty_exception_spec)
+	{
+	  dw2_asm_output_data (1, 0x0, "Length of EH Specs");
+    	}
+      else
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (ehspec_begin, section ? "LLSDATTDC" : "LLSDATTD",
+				       current_function_funcdef_no);
+
+	  ASM_GENERATE_INTERNAL_LABEL (ehspec_end, section ? "LLSDATTC" : "LLSDATT",
+				       current_function_funcdef_no);
+
+	  dw2_asm_output_delta_uleb128 (ehspec_end, ehspec_begin, "Length of EH Specs");
+
+	  assemble_name (asm_out_file, ehspec_begin);
+	  fputs (":\n", asm_out_file);
+
+	  k = no_ehspecs;
+	  for (k = 0;
+	       vec_safe_iterate (cfun->eh->ehspec_data.other, k, &uc); ++k)
+	    dw2_asm_output_data (1, uc, k ? NULL : "Exception specification table");
+
+	  assemble_name (asm_out_file, ehspec_end);
+	  fputs (":\n", asm_out_file);
+        }
+    }
+
+  fputs (".align 2\n", asm_out_file);
+
+  /* Emit the type table entries.  */
+  for (k = 0; k < cfun->eh->ttype_data->length (); k++)
+    {
+      tree type = (*cfun->eh->ttype_data)[k];
+      output_ttype (type, tt_format, tt_format_size);
+    }
+
+  call_site_base += nregions;
+  vec_free (chains);
+  vec_free (dummy_info);
+  vec_free (compact_info);
+}
+
 static void
 output_one_function_exception_table (int section)
 {
@@ -3094,12 +3902,15 @@ output_one_function_exception_table (int section)
 }
 
 void
-output_function_exception_table (const char *fnname)
+output_function_exception_table (const char *fnname, bool after_switch_section)
 {
   rtx personality = get_personality_function (current_function_decl);
 
   /* Not all functions need anything.  */
   if (! crtl->uses_eh_lsda)
+    return;
+
+  if (after_switch_section && !using_compact_pr ())
     return;
 
   if (personality)
@@ -3115,9 +3926,19 @@ output_function_exception_table (const char *fnname)
   /* If the target wants a label to begin the table, emit it here.  */
   targetm.asm_out.emit_except_table_label (asm_out_file);
 
-  output_one_function_exception_table (0);
-  if (crtl->eh.call_site_record_v[1])
-    output_one_function_exception_table (1);
+  if (using_compact_pr ())
+    {
+      if (after_switch_section || crtl->eh.call_site_record_v[1] == NULL)
+	output_one_function_compact_eh_table (0);
+      else
+	output_one_function_compact_eh_table (1);
+    }
+  else
+    {
+      output_one_function_exception_table (0);
+      if (crtl->eh.call_site_record_v[1])
+	output_one_function_exception_table (1);
+    }
 
   switch_to_section (current_function_section ());
 }

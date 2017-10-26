@@ -11572,7 +11572,6 @@ const_vector_from_tree (tree exp)
 tree
 build_personality_function (const char *lang)
 {
-  const char *unwind_and_version;
   tree decl, type;
   char *name;
 
@@ -11581,20 +11580,22 @@ build_personality_function (const char *lang)
     case UI_NONE:
       return NULL;
     case UI_SJLJ:
-      unwind_and_version = "_sj0";
+      name = ACONCAT (("__", lang, "_personality_sj0", NULL));
       break;
     case UI_DWARF2:
     case UI_TARGET:
-      unwind_and_version = "_v0";
+      if (TARGET_COMPACT_EH
+	  && (strncmp (lang_hooks.name, "GNU C++", 7) == 0))
+	name = ACONCAT (("__gnu_compact_pr2", NULL));
+      else
+	name = ACONCAT (("__", lang, "_personality_v0", NULL));
       break;
     case UI_SEH:
-      unwind_and_version = "_seh0";
+      name = ACONCAT (("__", lang, "_personality_seh0", NULL));
       break;
     default:
       gcc_unreachable ();
     }
-
-  name = ACONCAT (("__", lang, "_personality", unwind_and_version, NULL));
 
   type = build_function_type_list (integer_type_node, integer_type_node,
 				   long_long_unsigned_type_node,
