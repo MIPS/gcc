@@ -120,7 +120,7 @@ fold_unary_intrinsic (gfc_intrinsic_op op)
    beyond GFC_INTRINSIC_END in gfortran.h:enum gfc_intrinsic_op.  */
 
 static gfc_intrinsic_op
-dtio_op (char* mode)
+dtio_op (const char* mode)
 {
   if (strcmp (mode, "formatted") == 0)
     return INTRINSIC_FORMATTED;
@@ -139,7 +139,6 @@ gfc_match_generic_spec (interface_type *type,
 			const char *&name,
 			gfc_intrinsic_op *op)
 {
-  char buffer[GFC_MAX_SYMBOL_LEN + 1];
   match m;
   gfc_intrinsic_op i;
 
@@ -178,9 +177,9 @@ gfc_match_generic_spec (interface_type *type,
       return MATCH_YES;
     }
 
-  if (gfc_match (" read ( %n )", buffer) == MATCH_YES)
+  if (gfc_match (" read ( %n )", &name) == MATCH_YES)
     {
-      *op = dtio_op (buffer);
+      *op = dtio_op (name);
       if (*op == INTRINSIC_FORMATTED)
 	{
 	  name = gfc_code2string (dtio_procs, DTIO_RF);
@@ -195,9 +194,9 @@ gfc_match_generic_spec (interface_type *type,
 	return MATCH_YES;
     }
 
-  if (gfc_match (" write ( %n )", buffer) == MATCH_YES)
+  if (gfc_match (" write ( %n )", &name) == MATCH_YES)
     {
-      *op = dtio_op (buffer);
+      *op = dtio_op (name);
       if (*op == INTRINSIC_FORMATTED)
 	{
 	  name = gfc_code2string (dtio_procs, DTIO_WF);

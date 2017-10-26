@@ -2169,16 +2169,16 @@ gfc_match_null (gfc_expr **result)
   if (m == MATCH_NO)
     {
       locus old_loc;
-      char name[GFC_MAX_SYMBOL_LEN + 1];
+      const char *name = NULL;
 
       if ((m2 = gfc_match (" null (")) != MATCH_YES)
 	return m2;
 
       old_loc = gfc_current_locus;
-      if ((m2 = gfc_match (" %n ) ", name)) == MATCH_ERROR)
+      if ((m2 = gfc_match (" %n ) ", &name)) == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m2 != MATCH_YES
-	  && ((m2 = gfc_match (" mold = %n )", name)) == MATCH_ERROR))
+	  && ((m2 = gfc_match (" mold = %n )", &name)) == MATCH_ERROR))
 	return MATCH_ERROR;
       if (m2 == MATCH_NO)
 	{
@@ -3307,7 +3307,7 @@ done:
 /* Matches a RECORD declaration. */
 
 static match
-match_record_decl (char *name)
+match_record_decl (const char **name)
 {
     locus old_loc;
     old_loc = gfc_current_locus;
@@ -3824,7 +3824,7 @@ error_return:
 match
 gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym, *dt_sym;
   match m;
   char c;
@@ -3883,7 +3883,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	  return MATCH_YES;
 	}
 
-      m = gfc_match ("%n", name);
+      m = gfc_match ("%n", &name);
       matched_type = (m == MATCH_YES);
     }
 
@@ -3989,7 +3989,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
     }
 
   if (m != MATCH_YES)
-    m = match_record_decl (name);
+    m = match_record_decl (&name);
 
   if (matched_type || m == MATCH_YES)
     {
@@ -4011,7 +4011,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	    return m;
 	  gcc_assert (!sym->attr.pdt_template && sym->attr.pdt_type);
 	  ts->u.derived = sym;
-	  strcpy (name, gfc_dt_lower_string (sym->name));
+	  name = gfc_dt_lower_string (sym->name);
 	}
 
       if (sym && sym->attr.flavor == FL_STRUCT)
@@ -4085,7 +4085,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
       m = gfc_match (" class (");
 
       if (m == MATCH_YES)
-	m = gfc_match ("%n", name);
+	m = gfc_match ("%n", &name);
       else
 	return m;
 
@@ -4190,7 +4190,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	return m;
       gcc_assert (!sym->attr.pdt_template && sym->attr.pdt_type);
       ts->u.derived = sym;
-      strcpy (name, gfc_dt_lower_string (sym->name));
+      name = gfc_dt_lower_string (sym->name);
     }
 
   gfc_save_symbol_data (sym);
@@ -4306,7 +4306,7 @@ gfc_match_implicit_none (void)
 {
   char c;
   match m;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   bool type = false;
   bool external = false;
   locus cur_loc = gfc_current_locus;
@@ -4335,7 +4335,7 @@ gfc_match_implicit_none (void)
       else
 	for(;;)
 	  {
-	    m = gfc_match (" %n", name);
+	    m = gfc_match (" %n", &name);
 	    if (m != MATCH_YES)
 	      return MATCH_ERROR;
 
@@ -4589,7 +4589,7 @@ error:
 match
 gfc_match_import (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   match m;
   gfc_symbol *sym;
   gfc_symtree *st;
@@ -4631,7 +4631,7 @@ gfc_match_import (void)
   for(;;)
     {
       sym = NULL;
-      m = gfc_match (" %n", name);
+      m = gfc_match (" %n", &name);
       switch (m)
 	{
 	case MATCH_YES:
@@ -6969,7 +6969,7 @@ do_warn_intrinsic_shadow (const gfc_symbol* sym, bool func)
 match
 gfc_match_function_decl (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym, *result;
   locus old_loc;
   match m;
@@ -6992,7 +6992,7 @@ gfc_match_function_decl (void)
       return m;
     }
 
-  if (gfc_match ("function% %n", name) != MATCH_YES)
+  if (gfc_match ("function% %n", &name) != MATCH_YES)
     {
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -7438,7 +7438,7 @@ gfc_match_entry (void)
 match
 gfc_match_subroutine (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   match is_bind_c;
@@ -7454,7 +7454,7 @@ gfc_match_subroutine (void)
   if (m != MATCH_YES)
     return m;
 
-  m = gfc_match ("subroutine% %n", name);
+  m = gfc_match ("subroutine% %n", &name);
   if (m != MATCH_YES)
     return m;
 
@@ -9036,7 +9036,7 @@ syntax:
 match
 gfc_match_save (void)
 {
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_common_head *c;
   gfc_symbol *sym;
   match m;
@@ -9081,13 +9081,13 @@ gfc_match_save (void)
 	  return MATCH_ERROR;
 	}
 
-      m = gfc_match (" / %n /", &n);
+      m = gfc_match (" / %n /", &name);
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m == MATCH_NO)
 	goto syntax;
 
-      c = gfc_get_common (n, 0);
+      c = gfc_get_common (name, 0);
       c->saved = 1;
 
       gfc_current_ns->seen_save = 1;
@@ -9288,7 +9288,7 @@ syntax:
 match
 gfc_match_submod_proc (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym, *fsym;
   match m;
   gfc_formal_arglist *formal, *head, *tail;
@@ -9299,7 +9299,7 @@ gfc_match_submod_proc (void)
 	       || gfc_state_stack->previous->state == COMP_MODULE)))
     return MATCH_NO;
 
-  m = gfc_match (" module% procedure% %n", name);
+  m = gfc_match (" module% procedure% %n", &name);
   if (m != MATCH_YES)
     return m;
 
@@ -9497,7 +9497,7 @@ syntax:
 /* Check a derived type that is being extended.  */
 
 static gfc_symbol*
-check_extended_derived_type (char *name)
+check_extended_derived_type (const char * const name)
 {
   gfc_symbol *extended;
 
@@ -9548,7 +9548,7 @@ check_extended_derived_type (char *name)
    checking on attribute conflicts needs to be done.  */
 
 match
-gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
+gfc_get_type_attr_spec (symbol_attribute *attr, const char **name)
 {
   /* See if the derived type is marked as private.  */
   if (gfc_match (" , private") == MATCH_YES)
@@ -9594,7 +9594,7 @@ gfc_get_type_attr_spec (symbol_attribute *attr, char *name)
       if (!gfc_add_abstract (attr, &gfc_current_locus))
 	return MATCH_ERROR;
     }
-  else if (name && gfc_match (" , extends ( %n )", name) == MATCH_YES)
+  else if (gfc_match (" , extends ( %n )", name) == MATCH_YES)
     {
       if (!gfc_add_extension (attr, &gfc_current_locus))
 	return MATCH_ERROR;
@@ -9748,7 +9748,7 @@ gfc_match_structure_decl (void)
 {
   /* Counter used to give unique internal names to anonymous structures.  */
   static unsigned int gfc_structure_id = 0;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   locus where;
@@ -9761,9 +9761,7 @@ gfc_match_structure_decl (void)
       return MATCH_ERROR;
     }
 
-  name[0] = '\0';
-
-  m = gfc_match (" /%n/", name);
+  m = gfc_match (" /%n/", &name);
   if (m != MATCH_YES)
     {
       /* Non-nested structure declarations require a structure name.  */
@@ -9779,8 +9777,9 @@ gfc_match_structure_decl (void)
 	 and setting gfc_new_symbol, which is immediately used by
 	 parse_structure () and variable_decl () to add components of
 	 this type.  */
-      snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "SS$%u", gfc_structure_id++);
+      name = gfc_get_string ("SS$%u", gfc_structure_id++);
     }
+  /* FIXME: should move gfc_is_intrinsic_typename to else branch here! */
 
   where = gfc_current_locus;
   /* No field list allowed after non-nested structure declaration.  */
@@ -9912,8 +9911,8 @@ typeis:
 match
 gfc_match_derived_decl (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  char parent[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
+  const char *parent = NULL;
   symbol_attribute attr;
   gfc_symbol *sym, *gensym;
   gfc_symbol *extended;
@@ -9927,14 +9926,12 @@ gfc_match_derived_decl (void)
   if (gfc_comp_struct (gfc_current_state ()))
     return MATCH_NO;
 
-  name[0] = '\0';
-  parent[0] = '\0';
   gfc_clear_attr (&attr);
   extended = NULL;
 
   do
     {
-      is_type_attr_spec = gfc_get_type_attr_spec (&attr, parent);
+      is_type_attr_spec = gfc_get_type_attr_spec (&attr, &parent);
       if (is_type_attr_spec == MATCH_ERROR)
 	return MATCH_ERROR;
       if (is_type_attr_spec == MATCH_YES)
@@ -9944,10 +9941,10 @@ gfc_match_derived_decl (void)
   /* Deal with derived type extensions.  The extension attribute has
      been added to 'attr' but now the parent type must be found and
      checked.  */
-  if (parent[0])
+  if (parent != NULL)
     extended = check_extended_derived_type (parent);
 
-  if (parent[0] && !extended)
+  if (parent != NULL && !extended)
     return MATCH_ERROR;
 
   m = gfc_match (" ::");
@@ -9961,7 +9958,7 @@ gfc_match_derived_decl (void)
       return MATCH_ERROR;
     }
 
-  m = gfc_match (" %n ", name);
+  m = gfc_match (" %n ", &name);
   if (m != MATCH_YES)
     return m;
 
@@ -10474,7 +10471,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 	    goto error;
 	  if (m == MATCH_YES)
 	    {
-	      char arg[GFC_MAX_SYMBOL_LEN + 1];
+	      const char *arg = NULL;
 
 	      if (found_passing)
 		{
@@ -10483,11 +10480,11 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 		  goto error;
 		}
 
-	      m = gfc_match (" ( %n )", arg);
+	      m = gfc_match (" ( %n )", &arg);
 	      if (m == MATCH_ERROR)
 		goto error;
 	      if (m == MATCH_YES)
-		ba->pass_arg = gfc_get_string ("%s", arg);
+		ba->pass_arg = arg;
 	      gcc_assert ((m == MATCH_YES) == (ba->pass_arg != NULL));
 
 	      found_passing = true;

@@ -94,7 +94,6 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
     gfc_free_omp_namelist (c->lists[i]);
   gfc_free_expr_list (c->wait_list);
   gfc_free_expr_list (c->tile_list);
-  free (CONST_CAST (char *, c->critical_name));
   free (c);
 }
 
@@ -226,7 +225,7 @@ gfc_match_omp_variable_list (const char *str, gfc_omp_namelist **list,
 {
   gfc_omp_namelist *head, *tail, *p;
   locus old_loc, cur_loc;
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   gfc_symtree *st;
@@ -284,16 +283,16 @@ gfc_match_omp_variable_list (const char *str, gfc_omp_namelist **list,
       if (!allow_common)
 	goto syntax;
 
-      m = gfc_match (" / %n /", n);
+      m = gfc_match (" / %n /", &name);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
 	goto syntax;
 
-      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      st = gfc_find_symtree (gfc_current_ns->common_root, name);
       if (st == NULL)
 	{
-	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  gfc_error ("COMMON block /%s/ not found at %C", name);
 	  goto cleanup;
 	}
       for (sym = st->n.common->head; sym; sym = sym->common_next)
@@ -348,7 +347,7 @@ gfc_match_omp_to_link (const char *str, gfc_omp_namelist **list)
 {
   gfc_omp_namelist *head, *tail, *p;
   locus old_loc, cur_loc;
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   gfc_symtree *st;
@@ -385,16 +384,16 @@ gfc_match_omp_to_link (const char *str, gfc_omp_namelist **list)
 	  goto cleanup;
 	}
 
-      m = gfc_match (" / %n /", n);
+      m = gfc_match (" / %n /", &name);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
 	goto syntax;
 
-      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      st = gfc_find_symtree (gfc_current_ns->common_root, name);
       if (st == NULL)
 	{
-	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  gfc_error ("COMMON block /%s/ not found at %C", name);
 	  goto cleanup;
 	}
       p = gfc_get_omp_namelist ();
@@ -636,7 +635,7 @@ gfc_match_oacc_clause_link (const char *str, gfc_omp_namelist **list)
   gfc_omp_namelist *head = NULL;
   gfc_omp_namelist *tail, *p;
   locus old_loc;
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   gfc_symtree *st;
@@ -680,16 +679,16 @@ gfc_match_oacc_clause_link (const char *str, gfc_omp_namelist **list)
 	  goto cleanup;
 	}
 
-      m = gfc_match (" / %n /", n);
+      m = gfc_match (" / %n /", &name);
       if (m == MATCH_ERROR)
 	goto cleanup;
-      if (m == MATCH_NO || n[0] == '\0')
+      if (m == MATCH_NO)
 	goto syntax;
 
-      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      st = gfc_find_symtree (gfc_current_ns->common_root, name);
       if (st == NULL)
 	{
-	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  gfc_error ("COMMON block /%s/ not found at %C", name);
 	  goto cleanup;
 	}
 
@@ -2451,12 +2450,11 @@ match_omp (gfc_exec_op op, const omp_mask mask)
 match
 gfc_match_omp_critical (void)
 {
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_omp_clauses *c = NULL;
 
-  if (gfc_match (" ( %n )", n) != MATCH_YES)
+  if (gfc_match (" ( %n )", &name) != MATCH_YES)
     {
-      n[0] = '\0';
       if (gfc_match_omp_eos () != MATCH_YES)
 	{
 	  gfc_error ("Unexpected junk after $OMP CRITICAL statement at %C");
@@ -2468,8 +2466,8 @@ gfc_match_omp_critical (void)
 
   new_st.op = EXEC_OMP_CRITICAL;
   new_st.ext.omp_clauses = c;
-  if (n[0])
-    c->critical_name = xstrdup (n);
+  if (name != NULL)
+    c->critical_name = name;
   return MATCH_YES;
 }
 
@@ -2477,10 +2475,9 @@ gfc_match_omp_critical (void)
 match
 gfc_match_omp_end_critical (void)
 {
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
 
-  if (gfc_match (" ( %n )", n) != MATCH_YES)
-    n[0] = '\0';
+  gfc_match (" ( %n )", &name);
   if (gfc_match_omp_eos () != MATCH_YES)
     {
       gfc_error ("Unexpected junk after $OMP CRITICAL statement at %C");
@@ -2488,7 +2485,7 @@ gfc_match_omp_end_critical (void)
     }
 
   new_st.op = EXEC_OMP_END_CRITICAL;
-  new_st.ext.omp_name = n[0] ? xstrdup (n) : NULL;
+  new_st.ext.omp_name = name;
   return MATCH_YES;
 }
 
@@ -2601,7 +2598,7 @@ match_udr_expr (gfc_symtree *omp_sym1, gfc_symtree *omp_sym2)
 {
   match m;
   locus old_loc = gfc_current_locus;
-  char sname[GFC_MAX_SYMBOL_LEN + 1];
+  const char *sname = NULL;
   gfc_symbol *sym;
   gfc_namespace *ns = gfc_current_ns;
   gfc_expr *lvalue = NULL, *rvalue = NULL;
@@ -2627,7 +2624,7 @@ match_udr_expr (gfc_symtree *omp_sym1, gfc_symtree *omp_sym2)
       gfc_free_expr (lvalue);
     }
 
-  m = gfc_match (" %n", sname);
+  m = gfc_match (" %n", &sname);
   if (m != MATCH_YES)
     return false;
 
@@ -2799,8 +2796,7 @@ gfc_match_omp_declare_reduction (void)
 {
   match m;
   gfc_intrinsic_op op;
-  char name[GFC_MAX_SYMBOL_LEN + 3];
-  const char *oper = NULL;
+  const char *name = NULL;
   auto_vec<gfc_typespec, 5> tss;
   gfc_typespec ts;
   unsigned int i;
@@ -2818,24 +2814,22 @@ gfc_match_omp_declare_reduction (void)
     return MATCH_ERROR;
   if (m == MATCH_YES)
     {
-      oper = gfc_get_string ("operator %s", gfc_op2string (op));
-      strcpy (name, oper);
+      name = gfc_get_string ("operator %s", gfc_op2string (op));
       rop = (gfc_omp_reduction_op) op;
     }
   else
     {
-      m = gfc_match_defined_op_name (oper, 1, 1);
+      m = gfc_match_defined_op_name (name, 1, 1);
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m == MATCH_YES)
 	{
 	  if (gfc_match (" : ") != MATCH_YES)
 	    return MATCH_ERROR;
-	  strcpy (name, oper);
 	}
       else
 	{
-	  if (gfc_match (" %n : ", name) != MATCH_YES)
+	  if (gfc_match (" %n : ", &name) != MATCH_YES)
 	    return MATCH_ERROR;
 	}
       rop = OMP_REDUCTION_USER;
@@ -2869,7 +2863,7 @@ gfc_match_omp_declare_reduction (void)
       const char *predef_name = NULL;
 
       omp_udr = gfc_get_omp_udr ();
-      omp_udr->name = gfc_get_string ("%s", name);
+      omp_udr->name = name;
       omp_udr->rop = rop;
       omp_udr->ts = tss[i];
       omp_udr->where = where;
@@ -3132,7 +3126,7 @@ match
 gfc_match_omp_threadprivate (void)
 {
   locus old_loc;
-  char n[GFC_MAX_SYMBOL_LEN+1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
   gfc_symtree *st;
@@ -3161,16 +3155,16 @@ gfc_match_omp_threadprivate (void)
 	  goto cleanup;
 	}
 
-      m = gfc_match (" / %n /", n);
+      m = gfc_match (" / %n /", &name);
       if (m == MATCH_ERROR)
 	goto cleanup;
-      if (m == MATCH_NO || n[0] == '\0')
+      if (m == MATCH_NO)
 	goto syntax;
 
-      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      st = gfc_find_symtree (gfc_current_ns->common_root, name);
       if (st == NULL)
 	{
-	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  gfc_error ("COMMON block /%s/ not found at %C", name);
 	  goto cleanup;
 	}
       st->n.common->threadprivate = 1;

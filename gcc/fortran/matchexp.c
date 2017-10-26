@@ -44,14 +44,14 @@ gfc_match_defined_op_name (const char *&result, int error_flag,
       NULL
   };
 
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   locus old_loc;
   match m;
   int i;
 
   old_loc = gfc_current_locus;
 
-  m = gfc_match (" . %n .", name);
+  m = gfc_match (" . %n .", &name);
   if (m != MATCH_YES)
     return m;
 

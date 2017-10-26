@@ -3590,7 +3590,7 @@ match_deferred_characteristics (gfc_typespec * ts)
 {
   locus loc;
   match m = MATCH_ERROR;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
 
   loc = gfc_current_locus;
 
@@ -3616,7 +3616,7 @@ match_deferred_characteristics (gfc_typespec * ts)
   /* Set the function locus correctly.  If we have not found the
      function name, there is an error.  */
   if (m == MATCH_YES
-      && gfc_match ("function% %n", name) == MATCH_YES
+      && gfc_match ("function% %n", &name) == MATCH_YES
       && strcmp (name, gfc_current_block ()->name) == 0)
     {
       gfc_current_block ()->declared_at = gfc_current_locus;
@@ -5228,7 +5228,6 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 			 new_st.ext.omp_name) != 0))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
-      free (CONST_CAST (char *, new_st.ext.omp_name));
       new_st.ext.omp_name = NULL;
       break;
     case EXEC_OMP_END_SINGLE:

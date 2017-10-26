@@ -3077,7 +3077,7 @@ check_namelist (gfc_symbol *sym)
 static match
 match_dt_element (io_kind k, gfc_dt *dt)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
 
@@ -3095,7 +3095,7 @@ match_dt_element (io_kind k, gfc_dt *dt)
 	return m;
     }
 
-  if (gfc_match (" nml = %n", name) == MATCH_YES)
+  if (gfc_match (" nml = %n", &name) == MATCH_YES)
     {
       if (dt->namelist != NULL)
 	{

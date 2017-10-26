@@ -519,7 +519,7 @@ free_rename (gfc_use_rename *list)
 match
 gfc_match_use (void)
 {
-  char module_nature[GFC_MAX_SYMBOL_LEN + 1];
+  const char *module_nature = NULL;
   const char *name = NULL;
   gfc_use_rename *tail = NULL, *new_use;
   interface_type type, type2;
@@ -531,7 +531,7 @@ gfc_match_use (void)
 
   if (gfc_match (" , ") == MATCH_YES)
     {
-      if ((m = gfc_match (" %n ::", module_nature)) == MATCH_YES)
+      if ((m = gfc_match (" %n ::", &module_nature)) == MATCH_YES)
 	{
 	  if (!gfc_notify_std (GFC_STD_F2003, "module "
 			       "nature in USE statement at %C"))
@@ -555,7 +555,7 @@ gfc_match_use (void)
 	{
 	  /* Help output a better error message than "Unclassifiable
 	     statement".  */
-	  gfc_match (" %n", module_nature);
+	  gfc_match (" %n", &module_nature);
 	  if (strcmp (module_nature, "intrinsic") == 0
 	      || strcmp (module_nature, "non_intrinsic") == 0)
 	    gfc_error ("\"::\" was expected after module nature at %C "
@@ -738,7 +738,7 @@ match
 gfc_match_submodule (void)
 {
   match m;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_use_list *use_list;
   bool seen_colon = false;
 
@@ -760,7 +760,7 @@ gfc_match_submodule (void)
 
   while (1)
     {
-      m = gfc_match (" %n", name);
+      m = gfc_match (" %n", &name);
       if (m != MATCH_YES)
 	goto syntax;
 
@@ -781,7 +781,7 @@ gfc_match_submodule (void)
       else
 	{
 	  module_list = use_list;
-	  use_list->module_name = gfc_get_string ("%s", name);
+	  use_list->module_name = name;
 	  use_list->submodule_name = use_list->module_name;
 	}
 

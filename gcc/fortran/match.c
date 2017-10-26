@@ -606,12 +606,12 @@ cleanup:
 match
 gfc_match_label (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   match m;
 
   gfc_new_block = NULL;
 
-  m = gfc_match (" %n :", name);
+  m = gfc_match (" %n :", &name);
   if (m != MATCH_YES)
     return m;
 
@@ -991,7 +991,7 @@ gfc_match_intrinsic_op (gfc_intrinsic_op *result)
 match
 gfc_match_iterator (gfc_iterator *iter, int init_flag)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_expr *var, *e1, *e2, *e3;
   locus start;
   match m;
@@ -1001,7 +1001,7 @@ gfc_match_iterator (gfc_iterator *iter, int init_flag)
   /* Match the start of an iterator without affecting the symbol table.  */
 
   start = gfc_current_locus;
-  m = gfc_match (" %n =", name);
+  m = gfc_match (" %n =", &name);
   gfc_current_locus = start;
 
   if (m != MATCH_YES)
@@ -1110,7 +1110,7 @@ gfc_match_char (char c)
    %%  Literal percent sign
    %e  Expression, pointer to a pointer is set
    %s  Symbol, pointer to the symbol is set
-   %n  Name, character buffer is set to name
+   %n  Name, pointer to pointer is set
    %t  Matches end of statement.
    %o  Matches an intrinsic operator, returned as an INTRINSIC enum.
    %l  Matches a statement label
@@ -1124,8 +1124,7 @@ gfc_match (const char *target, ...)
   int matches, *ip;
   locus old_loc;
   va_list argp;
-  char c, *np;
-  const char *name2_hack = NULL;
+  char c;
   match m, n;
   void **vp;
   const char *p;
@@ -1188,14 +1187,13 @@ loop:
 	  goto loop;
 
 	case 'n':
-	  np = va_arg (argp, char *);
-	  n = gfc_match_name (&name2_hack);
+	  vp = va_arg (argp, void **);
+	  n = gfc_match_name ((const char **) vp);
 	  if (n != MATCH_YES)
 	    {
 	      m = n;
 	      goto not_yes;
 	    }
-	  strcpy (np, name2_hack);
 
 	  matches++;
 	  goto loop;
@@ -1896,7 +1894,8 @@ gfc_match_associate (void)
       gfc_association_list* a;
 
       /* Match the next association.  */
-      if (gfc_match (" %n =>", newAssoc->name) != MATCH_YES)
+      const char *name_hack = NULL;
+      if (gfc_match (" %n =>", &name_hack) != MATCH_YES)
 	{
 	  gfc_error ("Expected association at %C");
 	  goto assocListError;
@@ -1913,6 +1912,7 @@ gfc_match_associate (void)
 	    }
 	  gfc_matching_procptr_assignment = 0;
 	}
+      strcpy (newAssoc->name, name_hack);
       newAssoc->where = gfc_current_locus;
 
       /* Check that the current name is not yet in the list.  */
@@ -1981,7 +1981,7 @@ error:
 static match
 match_derived_type_spec (gfc_typespec *ts)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   locus old_locus;
   gfc_symbol *derived, *der_type;
   match m = MATCH_YES;
@@ -1990,7 +1990,7 @@ match_derived_type_spec (gfc_typespec *ts)
 
   old_locus = gfc_current_locus;
 
-  if (gfc_match ("%n", name) != MATCH_YES)
+  if (gfc_match ("%n", &name) != MATCH_YES)
     {
        gfc_current_locus = old_locus;
        return MATCH_NO;
@@ -2067,7 +2067,8 @@ gfc_match_type_spec (gfc_typespec *ts)
 {
   match m;
   locus old_locus;
-  char c, name[GFC_MAX_SYMBOL_LEN + 1];
+  char c;
+  const char *name = NULL;
 
   gfc_clear_ts (ts);
   gfc_gobble_whitespace ();
@@ -2134,7 +2135,7 @@ gfc_match_type_spec (gfc_typespec *ts)
      written the use of LOGICAL as a type-spec or intrinsic subprogram
      was overlooked.  */
 
-  m = gfc_match (" %n", name);
+  m = gfc_match (" %n", &name);
   if (m == MATCH_YES
       && (strcmp (name, "real") == 0 || strcmp (name, "logical") == 0))
     {
@@ -2176,7 +2177,7 @@ gfc_match_type_spec (gfc_typespec *ts)
 
       /* Look for the optional KIND=. */
       where = gfc_current_locus;
-      m = gfc_match ("%n", name);
+      m = gfc_match ("%n", &name); /* ??? maybe don't hash into identifier ?*/
       if (m == MATCH_YES)
 	{
 	  gfc_gobble_whitespace ();
@@ -2713,10 +2714,10 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
     sym = NULL;
   else
     {
-      char name[GFC_MAX_SYMBOL_LEN + 1];
+      const char *name = NULL;
       gfc_symtree* stree;
 
-      m = gfc_match ("% %n%t", name);
+      m = gfc_match ("% %n%t", &name);
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m == MATCH_NO)
@@ -4133,9 +4134,9 @@ gfc_match_allocate (void)
     goto cleanup;
   else if (m == MATCH_NO)
     {
-      char name[GFC_MAX_SYMBOL_LEN + 3];
+      const char *name = NULL;
 
-      if (gfc_match ("%n :: ", name) == MATCH_YES)
+      if (gfc_match ("%n :: ", &name) == MATCH_YES)
 	{
 	  gfc_error ("Error in type-spec at %L", &old_locus);
 	  goto cleanup;
@@ -4859,7 +4860,7 @@ match_typebound_call (gfc_symtree* varst)
 match
 gfc_match_call (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_actual_arglist *a, *arglist;
   gfc_case *new_case;
   gfc_symbol *sym;
@@ -4870,7 +4871,7 @@ gfc_match_call (void)
 
   arglist = NULL;
 
-  m = gfc_match ("% %n", name);
+  m = gfc_match ("% %n", &name);
   if (m == MATCH_NO)
     goto syntax;
   if (m != MATCH_YES)
@@ -4940,10 +4941,9 @@ gfc_match_call (void)
     {
       gfc_symtree *select_st;
       gfc_symbol *select_sym;
-      char name[GFC_MAX_SYMBOL_LEN + 1];
 
       new_st.next = c = gfc_get_code (EXEC_SELECT);
-      sprintf (name, "_result_%s", sym->name);
+      name = gfc_get_string ("_result_%s", sym->name);
       gfc_get_ha_sym_tree (name, &select_st);   /* Can't fail.  */
 
       select_sym = select_st->n.sym;
@@ -5266,7 +5266,7 @@ cleanup:
 match
 gfc_match_block_data (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_symbol *sym;
   match m;
 
@@ -5280,7 +5280,7 @@ gfc_match_block_data (void)
       return MATCH_YES;
     }
 
-  m = gfc_match ("% %n%t", name);
+  m = gfc_match ("% %n%t", &name);
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
@@ -6098,7 +6098,7 @@ select_intrinsic_set_tmp (gfc_typespec *ts)
 static void
 select_type_set_tmp (gfc_typespec *ts)
 {
-  char name[GFC_MAX_SYMBOL_LEN];
+  const char *name = NULL;
   gfc_symtree *tmp = NULL;
 
   if (!ts)
@@ -6115,9 +6115,9 @@ select_type_set_tmp (gfc_typespec *ts)
 	return;
 
       if (ts->type == BT_CLASS)
-	sprintf (name, "__tmp_class_%s", ts->u.derived->name);
+	name = gfc_get_string ("__tmp_class_%s", ts->u.derived->name);
       else
-	sprintf (name, "__tmp_type_%s", ts->u.derived->name);
+	name = gfc_get_string ("__tmp_type_%s", ts->u.derived->name);
       gfc_get_sym_tree (name, gfc_current_ns, &tmp, false);
       gfc_add_type (tmp->n.sym, ts, NULL);
 
@@ -6166,7 +6166,7 @@ gfc_match_select_type (void)
 {
   gfc_expr *expr1, *expr2 = NULL;
   match m;
-  char name[GFC_MAX_SYMBOL_LEN];
+  const char *name = NULL;
   bool class_array;
   gfc_symbol *sym;
   gfc_namespace *ns = gfc_current_ns;
@@ -6180,7 +6180,7 @@ gfc_match_select_type (void)
     return m;
 
   gfc_current_ns = gfc_build_block_ns (ns);
-  m = gfc_match (" %n => %e", name, &expr2);
+  m = gfc_match (" %n => %e", &name, &expr2);
   if (m == MATCH_YES)
     {
       expr1 = gfc_get_expr ();

@@ -1692,7 +1692,7 @@ cleanup:
 static match
 match_arg_list_function (gfc_actual_arglist *result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   locus old_locus;
   match m;
 
@@ -1704,7 +1704,7 @@ match_arg_list_function (gfc_actual_arglist *result)
       goto cleanup;
     }
 
-  m = gfc_match ("%n (", name);
+  m = gfc_match ("%n (", &name);
   if (m != MATCH_YES)
     goto cleanup;
 
@@ -3144,7 +3144,7 @@ match
 gfc_match_rvalue (gfc_expr **result)
 {
   gfc_actual_arglist *actual_arglist;
-  char argname[GFC_MAX_SYMBOL_LEN + 1];
+  const char *argname = NULL;
   const char *name = NULL;
   gfc_state_data *st;
   gfc_symbol *sym;
@@ -3526,7 +3526,7 @@ gfc_match_rvalue (gfc_expr **result)
 	 symbol would end up in the symbol table.  */
 
       old_loc = gfc_current_locus;
-      m2 = gfc_match (" ( %n =", argname);
+      m2 = gfc_match (" ( %n =", &argname);
       gfc_current_locus = old_loc;
 
       e = gfc_get_expr ();
