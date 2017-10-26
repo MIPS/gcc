@@ -117,7 +117,7 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
    final taken edge from the path, NULL otherwise.
 
    NAME is the SSA_NAME of the variable we found to have a constant
-   value on PATH.  ARG is the constant value of NAME on that path.
+   value on PATH.  RANGE_FOR_NAME is the range of NAME on that path.
 
    BBI will be appended to PATH when we have a profitable jump threading
    path.  Callers are responsible for removing BBI from PATH in that case.
@@ -127,7 +127,8 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
 
 static edge
 profitable_jump_thread_path (vec<basic_block> &path,
-			     basic_block bbi, tree name, tree arg,
+			     basic_block bbi,
+			     tree name, const irange &range_for_name,
 			     bool speed_p, bool *creates_irreducible_loop)
 {
   /* Note BBI is not in the path yet, hence the +1 in the test below
@@ -161,6 +162,52 @@ profitable_jump_thread_path (vec<basic_block> &path,
 		 "the number of previously recorded FSM paths to "
 		 "thread exceeds PARAM_MAX_FSM_THREAD_PATHS.\n");
       return NULL;
+    }
+
+  if (range_for_name.empty_p ())
+    return NULL;
+
+  /* Try to evaluate the control statement and see if we get a
+     constant value.  If we do, set ARG to it, otherwise leave.
+
+     For GIMPLE_COND we evaluate the control statement and set the
+     substituted true/false value in ARG.  For GIMPLE_SWITCH and
+     GIMPLE_GOTO we just use the argument as is, but only if it is a
+     simple constant.  */
+  gimple *stmt = get_gimple_control_stmt (path[0]);
+  tree arg;
+  wide_int singleton;
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_COND:
+      {
+	/* It looks like NAME is not necessarily the same SSA
+	   name as the LHS conditional.  Look at the LHS to make
+	   sure gori::range_of_def() gets the right range.  */
+	tree var = gimple_cond_lhs (stmt);
+
+	gori g;
+	irange result;
+	if (!g.range_of_def (result, stmt, var, range_for_name)
+	    || !result.singleton_p (singleton))
+	  return NULL;
+	arg = wide_int_to_tree (TREE_TYPE (name), singleton);
+	break;
+      }
+    case GIMPLE_SWITCH:
+      /* FIXME: If we have a range of [10..20] and the switch cases
+	 are 1, 2, 3 and 4, we should be able to determine that the
+	 default case will always be taken.
+
+	 Also a range of [10..20] and a case of 10..20 is an exact
+	 match and should be handled as well.  */
+    case GIMPLE_GOTO:
+      if (!range_for_name.singleton_p (singleton))
+	return NULL;
+      arg = wide_int_to_tree (TREE_TYPE (name), singleton);
+      break;
+    default:
+      gcc_unreachable ();
     }
 
   /* Add BBI to the path.
@@ -284,9 +331,6 @@ profitable_jump_thread_path (vec<basic_block> &path,
 	threaded_through_latch = true;
     }
 
-  gimple *stmt = get_gimple_control_stmt (path[0]);
-  gcc_assert (stmt);
-
   /* We are going to remove the control statement at the end of the
      last block in the threading path.  So don't count it against our
      statement count.  */
@@ -298,19 +342,6 @@ profitable_jump_thread_path (vec<basic_block> &path,
     fprintf (dump_file, "\n  Control statement insns: %i\n"
 	     "  Overall: %i insns\n",
 	     stmt_insns, n_insns);
-
-  /* We have found a constant value for ARG.  For GIMPLE_SWITCH
-     and GIMPLE_GOTO, we use it as-is.  However, for a GIMPLE_COND
-     we need to substitute, fold and simplify so we can determine
-     the edge taken out of the last block.  */
-  if (gimple_code (stmt) == GIMPLE_COND)
-    {
-      enum tree_code cond_code = gimple_cond_code (stmt);
-
-      /* We know the underyling format of the condition.  */
-      arg = fold_binary (cond_code, boolean_type_node,
-			 arg, gimple_cond_rhs (stmt));
-    }
 
   /* If this path threaded through the loop latch back into the
      same loop and the destination does not dominate the loop
@@ -766,7 +797,7 @@ check_subpath_and_update_thread_path (basic_block last_bb, basic_block new_bb,
 
 /* If this is a profitable jump thread path, register it.
 
-   NAME is an SSA NAME with a possible constant value of ARG on PATH.
+   NAME is an SSA NAME with a possible RANGE on PATH.
 
    DEF_BB is the basic block that ultimately defines the constant.
 
@@ -777,15 +808,15 @@ check_subpath_and_update_thread_path (basic_block last_bb, basic_block new_bb,
 static void
 register_jump_thread_path_if_profitable (vec<basic_block> &path,
 					 tree name,
-					 tree arg,
+					 const irange &range,
 					 basic_block def_bb,
 					 bool speed_p)
 {
-  if (TREE_CODE_CLASS (TREE_CODE (arg)) != tcc_constant)
+  if (range.empty_p ())
     return;
 
   bool irreducible = false;
-  edge taken_edge = profitable_jump_thread_path (path, def_bb, name, arg,
+  edge taken_edge = profitable_jump_thread_path (path, def_bb, name, range,
 						 speed_p, &irreducible);
   if (taken_edge)
     {
@@ -843,7 +874,12 @@ handle_phi (gphi *phi, tree name, basic_block def_bb,
 	  continue;
 	}
 
-      register_jump_thread_path_if_profitable (path, name, arg, bbi, speed_p);
+      if (TREE_CODE_CLASS (TREE_CODE (arg)) == tcc_constant)
+	{
+	  irange range (TREE_TYPE (name), arg, arg);
+	  register_jump_thread_path_if_profitable (path, name, range,
+						   bbi, speed_p);
+	}
     }
 }
 
@@ -909,8 +945,12 @@ handle_assignment (gimple *stmt, tree name, basic_block def_bb,
 	 block at this point.  So we can just pop it.  */
       path.pop ();
 
-      register_jump_thread_path_if_profitable (path, name, arg, def_bb,
-					       speed_p);
+      if (TREE_CODE_CLASS (TREE_CODE (arg)) == tcc_constant)
+	{
+	  irange range (TREE_TYPE (name), arg, arg);
+	  register_jump_thread_path_if_profitable (path, name, range, def_bb,
+						   speed_p);
+	}
 
       /* And put the current block back onto the path so that the
 	 state of the stack is unchanged when we leave.  */
@@ -1025,10 +1065,6 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
 
       if (ranger.path_range (range, name, path))
 	{
-	  wide_int c;
-	  if (!range.singleton_p (c))
-	    continue;
-
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file,
@@ -1044,8 +1080,7 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
 	     So we can just pop it.  */
 	  basic_block def_bb = path.pop ();
 	  register_jump_thread_path_if_profitable
-	    (path, name, wide_int_to_tree (TREE_TYPE (name), c),
-	     def_bb, speed_p);
+	    (path, name, range, def_bb, speed_p);
 	}
     }
 }
