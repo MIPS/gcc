@@ -24,6 +24,9 @@ extern void dw2_assemble_integer (int, rtx);
 
 extern void dw2_asm_output_data_raw (int, unsigned HOST_WIDE_INT);
 
+extern void dw2_asm_output_comment (const char *, ...)
+     ATTRIBUTE_NULL_PRINTF_1;
+
 extern void dw2_asm_output_data (int, unsigned HOST_WIDE_INT,
 				 const char *, ...)
      ATTRIBUTE_NULL_PRINTF_3;
@@ -68,6 +71,17 @@ extern void dw2_asm_output_data_sleb128	(HOST_WIDE_INT,
 
 extern void dw2_asm_output_delta_uleb128 (const char *, const char *,
 					  const char *, ...)
+     ATTRIBUTE_NULL_PRINTF_3;
+
+extern void dw2_asm_output_compact_region_length (const char *, const char *,
+					          bool, const char *, ...)
+     ATTRIBUTE_NULL_PRINTF_4;
+
+extern void dw2_asm_output_compact_landing_pad (const char *, const char *,
+						const char *, ...)
+     ATTRIBUTE_NULL_PRINTF_3;
+
+extern void dw2_asm_output_compact_ac_pair_sleb128 (int, int, const char *, ...)
      ATTRIBUTE_NULL_PRINTF_3;
 
 extern int size_of_uleb128 (unsigned HOST_WIDE_INT);
