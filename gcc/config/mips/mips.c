@@ -15242,7 +15242,7 @@ mips_fdedata_cfaadjust (vec <uchar, va_gc> **fde,
    directive, and when emitting unwind information, also emit the
    .cfi_fde_data directive.  */
 static void
-mips_cfi_endproc (void)
+mips_cfi_endproc_oabi_nabi (void)
 {
   int align = TARGET_NEWABI ? 16 : 8;
   vec<uchar, va_gc> *fde = NULL;
@@ -15369,6 +15369,143 @@ mips_cfi_endproc (void)
 	     i + 1 == len ? "" : ",");
   fputc ('\n', asm_out_file);
   fprintf (asm_out_file, "\t.cfi_endproc\n");
+}
+
+static void
+mips_cfi_endproc_p32 (void)
+{
+  int align = TARGET_NEWABI ? 16 : 8;
+  vec<uchar, va_gc> *fde = NULL;
+  int i, len, n;
+  HOST_WIDE_INT total, push_base;
+  bool any_saved = false;
+
+  /* If not generating opcodes, simply end here. */
+  if (!TARGET_COMPACT_EH
+      || (!flag_unwind_tables && !flag_exceptions)
+      || flag_asynchronous_unwind_tables)
+    {
+      fprintf (asm_out_file, ".cfi_endproc\n");
+      return;
+    }
+
+  fprintf (asm_out_file, "\t.cfi_fde_data ");
+
+  /* Determine the frame size and the position to push from. */
+  total = cfun->machine->frame.total_size;
+  if (cfun->machine->frame.num_fp > 0)
+    push_base = cfun->machine->frame.fp_sp_offset + UNITS_PER_HWFPVALUE;
+  else if (cfun->machine->frame.num_gp > 0)
+    push_base = cfun->machine->frame.gp_sp_offset + UNITS_PER_WORD;
+  else
+    push_base = total;
+
+  if (frame_pointer_needed)
+    {
+      if (HARD_FRAME_POINTER_REGNUM == 30)
+	vec_safe_push (fde, (uchar) COMPEH_RESTORE_SP_FROM_FP);
+      else
+	{
+	  int t = HARD_FRAME_POINTER_REGNUM - 16;
+	  gcc_assert (t < 8);
+	  vec_safe_push (fde, (uchar) (COMPEH_RESTORE_SP_FROM_TEMP + t));
+	}
+      total -= cfun->machine->frame.hard_frame_pointer_offset;
+      push_base -= cfun->machine->frame.hard_frame_pointer_offset;
+    }
+
+  if (HARD_FRAME_POINTER_REGNUM == 30 && frame_pointer_needed)
+    gcc_assert (BITSET_P (cfun->machine->frame.mask, 30));
+
+  mips_fdedata_cfaadjust (&fde, push_base, align);
+  total -= push_base;
+
+  n = 0;
+  for (i = 23; i > 15; i--)
+    {
+      bool isset = BITSET_P (cfun->machine->frame.fmask, i);
+      if (isset)
+	n++;
+      if ((i == 16 || !isset) && n > 0)
+	{
+	  int first = i + (isset ? 0 : 1);
+	  if (first == 16)
+	    vec_safe_push (fde, (uchar) (COMPEH_SAVE_FPR1 + n - 1));
+	  else
+	    {
+	      vec_safe_push (fde, (uchar) COMPEH_SAVE_FPRS_LONG);
+	      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (first, n - 1));
+	    }
+	  n = 0;
+	}
+    }
+  gcc_assert (n == 0);
+
+  for (i = 23; i > 15; i--)
+    {
+      bool isset = BITSET_P (cfun->machine->frame.mask, i);
+      if (isset)
+	n++;
+      if ((i == 16 || !isset) && n > 0)
+	{
+	  int first = i + (isset ? 0 : 1);
+	  if (first == 16 && !any_saved
+	      && BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+	    {
+	      if (BITSET_P (cfun->machine->frame.mask, 30))
+		vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + n - 1));
+	      else
+		vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + n - 1));
+	    }
+	  else
+	    {
+	      if (!any_saved)
+		add_fp_ra_push (&fde);
+	      vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+	      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (first, n - 1));
+	    }
+	  any_saved = true;
+	  n = 0;
+	}
+    }
+  gcc_assert (n == 0);
+
+  /* Check to save temps 2 and 3 as well; compactEH uses them.  */
+  bool t3set = BITSET_P (cfun->machine->frame.mask, 7),
+       t2set = BITSET_P (cfun->machine->frame.mask, 6);
+
+  if (t2set || t3set)
+    {
+      vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (7 - t2set, t3set + t2set - 1));
+    }
+  gcc_assert (n == 0);
+
+  /* save FP and RA if nothing else was saved (ie. they aren't saved yet) */
+  if (!any_saved)
+    add_fp_ra_push (&fde);
+
+  /* Skip varargs save area and suchlike.  */
+  mips_fdedata_cfaadjust (&fde, total, align);
+
+  /* The assembler appends a "Finish" opcode for out-of-line entries;
+     the unwind code (uw_frame_state_compact) for inline entries.  */
+
+  len = vec_safe_length (fde);
+  for (i = 0; i < len; i++)
+    fprintf (asm_out_file, "0x%x%s", (*fde)[i],
+	     i + 1 == len ? "" : ",");
+  fputc ('\n', asm_out_file);
+  fprintf (asm_out_file, "\t.cfi_endproc\n");
+}
+
+static void
+mips_cfi_endproc (void)
+{
+  if (mips_abi == ABI_P32)
+    mips_cfi_endproc_p32 ();
+  else
+    mips_cfi_endproc_oabi_nabi ();
 }
 
 static void
@@ -26024,13 +26161,62 @@ mips_option_override (void)
   /* Set up array to map GCC register number to debug register number.
      Ignore the special purpose register numbers.  */
 
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+  /* For nanoMIPS compactEH virtual registers:
+     VRF[16-23]     = 0-15  (we can assume FP64 for P32)
+     a2             = 16
+     a3             = 17
+     VR[30]         = 18
+     VR[31]         = 19
+     VR[16]-VR[23]  = 20-27
+     VR[28]         = 28
+     VR[29]         = 29  */
+
+  if (TARGET_COMPACT_EH && (mips_abi == ABI_P32))
     {
-      mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
-      if (GP_REG_P (i) || FP_REG_P (i) || ALL_COP_REG_P (i))
-	mips_dwarf_regno[i] = i;
-      else
-	mips_dwarf_regno[i] = INVALID_REGNUM;
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+        {
+          mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
+          mips_dwarf_regno[i] = INVALID_REGNUM;
+        }
+
+      for (i = FP_REG_FIRST + 8; i <= FP_REG_FIRST + 23; i++)
+        mips_dwarf_regno[i] = 2 * (i - (FP_REG_FIRST + 8));
+
+      start = 32;
+
+      mips_dwarf_regno[GP_REG_FIRST + 6]  = start;
+      mips_dwarf_regno[GP_REG_FIRST + 7]  = start + 1;
+      mips_dwarf_regno[GP_REG_FIRST + 30] = start + 2;
+      mips_dwarf_regno[GP_REG_FIRST + 31] = start + 3;
+
+      for (i = GP_REG_FIRST + 16; i < GP_REG_FIRST + 24; i++)
+        mips_dwarf_regno[i] = start + 4 + (i - (GP_REG_FIRST + 16));
+
+      mips_dwarf_regno[GP_REG_FIRST + 28] = start + 12;
+      mips_dwarf_regno[GP_REG_FIRST + 29] = start + 13;
+    }
+  else
+    {
+
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+        {
+          mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
+          if (GP_REG_P (i) || FP_REG_P (i) || ALL_COP_REG_P (i))
+            mips_dwarf_regno[i] = i;
+          else
+            mips_dwarf_regno[i] = INVALID_REGNUM;
+        }
+
+      /* Accumulator debug registers use big-endian ordering.  */
+      mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;
+      mips_dbx_regno[LO_REGNUM] = MD_DBX_FIRST + 1;
+      mips_dwarf_regno[HI_REGNUM] = MD_REG_FIRST + 0;
+      mips_dwarf_regno[LO_REGNUM] = MD_REG_FIRST + 1;
+      for (i = DSP_ACC_REG_FIRST; i <= DSP_ACC_REG_LAST; i += 2)
+        {
+          mips_dwarf_regno[i + TARGET_LITTLE_ENDIAN] = i;
+          mips_dwarf_regno[i + TARGET_BIG_ENDIAN] = i + 1;
+        }
     }
 
   start = GP_DBX_FIRST - GP_REG_FIRST;
@@ -26040,17 +26226,6 @@ mips_option_override (void)
   start = FP_DBX_FIRST - FP_REG_FIRST;
   for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
     mips_dbx_regno[i] = i + start;
-
-  /* Accumulator debug registers use big-endian ordering.  */
-  mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;
-  mips_dbx_regno[LO_REGNUM] = MD_DBX_FIRST + 1;
-  mips_dwarf_regno[HI_REGNUM] = MD_REG_FIRST + 0;
-  mips_dwarf_regno[LO_REGNUM] = MD_REG_FIRST + 1;
-  for (i = DSP_ACC_REG_FIRST; i <= DSP_ACC_REG_LAST; i += 2)
-    {
-      mips_dwarf_regno[i + TARGET_LITTLE_ENDIAN] = i;
-      mips_dwarf_regno[i + TARGET_BIG_ENDIAN] = i + 1;
-    }
 
   /* Set up mips_hard_regno_mode_ok.  */
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
