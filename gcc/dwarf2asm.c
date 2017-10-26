@@ -85,6 +85,22 @@ dw2_asm_output_data_raw (int size, unsigned HOST_WIDE_INT value)
     }
 }
 
+/* Output a comment.  */
+void
+dw2_asm_output_comment (const char *comment, ...)
+{
+  va_list ap;
+
+  va_start (ap, comment);
+
+  if (flag_debug_asm && comment)
+    {
+      fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
+      vfprintf (asm_out_file, comment, ap);
+    }
+  fputc ('\n', asm_out_file);
+}
+
 /* Output an immediate constant in a given SIZE in bytes.  */
 
 void
@@ -416,7 +432,7 @@ eh_data_format_name (int format)
 #if HAVE_DESIGNATED_INITIALIZERS
   __extension__ static const char * const format_names[256] = {
 #else
-  switch (format) {
+  switch (format & ~GCC_DW_EH_PE_special) {
 #endif
 
   S(DW_EH_PE_absptr, "absolute")
@@ -553,6 +569,7 @@ eh_data_format_name (int format)
 #if HAVE_DESIGNATED_INITIALIZERS
   };
 
+  format &= ~GCC_DW_EH_PE_special;
   gcc_assert (format >= 0 && format < 0x100 && format_names[format]);
 
   return format_names[format];
@@ -759,6 +776,99 @@ dw2_asm_output_delta_uleb128 (const char *lab1 ATTRIBUTE_UNUSED,
   va_end (ap);
 }
 
+/* Output a compact EH region length entry. */
+void
+dw2_asm_output_compact_region_length (const char *lab1 ATTRIBUTE_UNUSED,
+				      const char *lab2 ATTRIBUTE_UNUSED,
+				      bool setbit0,
+				      const char *comment, ...)
+{
+  va_list ap;
+
+  va_start (ap, comment);
+
+#ifdef HAVE_AS_LEB128
+  fputs ("\t.uleb128 (", asm_out_file);
+  assemble_name (asm_out_file, lab1);
+  fputs ("-", asm_out_file);
+  assemble_name (asm_out_file, lab2);
+  fputs (")", asm_out_file);
+  if (setbit0)
+    fputs ("|1", asm_out_file);
+#else
+  gcc_unreachable ();
+#endif
+
+  if (flag_debug_asm && comment)
+    {
+      fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
+      vfprintf (asm_out_file, comment, ap);
+    }
+  fputc ('\n', asm_out_file);
+
+  va_end (ap);
+}
+
+/* Output a compact EH landing pad entry.  */
+
+void
+dw2_asm_output_compact_landing_pad (const char *lab1 ATTRIBUTE_UNUSED,
+				    const char *lab2 ATTRIBUTE_UNUSED,
+				    const char *comment, ...)
+{
+  va_list ap;
+
+  va_start (ap, comment);
+
+#ifdef HAVE_AS_LEB128
+  fputs ("\t.sleb128 (", asm_out_file);
+  assemble_name (asm_out_file, lab1);
+  fputs ("-(", asm_out_file);
+  assemble_name (asm_out_file, lab2);
+  fputs ("))", asm_out_file);
+#else
+  gcc_unreachable ();
+#endif
+
+  if (flag_debug_asm && comment)
+    {
+      fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
+      vfprintf (asm_out_file, comment, ap);
+    }
+  fputc ('\n', asm_out_file);
+
+  va_end (ap);
+}
+
+/* Output a compact EH action/chain pair.  */
+
+void
+dw2_asm_output_compact_ac_pair_sleb128 (int action, int chain_value,
+					const char *comment, ...)
+{
+  va_list ap;
+
+  va_start (ap, comment);
+
+#ifdef HAVE_AS_LEB128
+  fputs ("\t.sleb128 ", asm_out_file);
+  fputc ('(', asm_out_file);
+  fprintf (asm_out_file, "%#x", chain_value);
+  fputs ("<<2)|", asm_out_file);
+  fprintf (asm_out_file, "%#x", action);
+#else
+  gcc_unreachable ();
+#endif
+
+  if (flag_debug_asm && comment)
+    {
+      fprintf (asm_out_file, "\t%s ", ASM_COMMENT_START);
+      vfprintf (asm_out_file, comment, ap);
+    }
+  fputc ('\n', asm_out_file);
+
+  va_end (ap);
+}
 #if 0
 
 void
