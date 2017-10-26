@@ -726,6 +726,8 @@ struct mips_cpu_info {
 									\
       if (TARGET_CACHE_BUILTIN)						\
 	builtin_define ("__GCC_HAVE_BUILTIN_MIPS_CACHE");		\
+      if (TARGET_COMPACT_EH)                                            \
+        builtin_define ("__GNU_COMPACT_EH__");                          \
       if (!ISA_HAS_LXC1_SXC1)						\
 	builtin_define ("__mips_no_lxc1_sxc1");				\
       if (!ISA_HAS_UNFUSED_MADD4 && !ISA_HAS_FUSED_MADD4)		\
@@ -1014,6 +1016,46 @@ struct mips_cpu_info {
 #define ABI_HAS_64BIT_SYMBOLS	(FILE_HAS_64BIT_SYMBOLS \
 				 && Pmode == DImode	\
 				 && !TARGET_SYM32)
+
+/* True if Compact EH supports the ABI.  */
+#define ABI_HAS_COMPACT_EH_SUPPORT (mips_abi == ABI_32 || TARGET_NEWABI \
+                                    || mips_abi == ABI_P32)
+
+
+/* Compact EH opcode headers. If an opcode has a variable set of bits,
+   they can be simply added to the opcode enum here.
+
+   If a name ends in LONG, the variable section is extra data
+   after the opcode, rather than an addend to it directly.
+
+   VR[x] refers to the xth virtual GPR; VRF[x] is the same,
+   but for a virtual FPR. Multiple x's or y's indicate the number of bits,
+   which are added onto the opcode in the order they appear in the
+   description (unless LONG is present in the opcode name, as above.) */
+
+enum compact_eh_opcode {
+  COMPEH_SP_INCREMENT = 0x00,           // cursor = VR[29] += xxxxxx*ALIGN + ALIGN
+  COMPEH_SAVE_TEMPS_RA = 0x40,          // save VR[16]..VR[16+xxx], VR[31]
+  COMPEH_SAVE_TEMPS_FP_RA = 0x48,       // save VR[16]..VR[16+xxx], VR[30], VR[31]
+  COMPEH_RESTORE_SP_FROM_TEMP = 0x50,   // cursor = VR[29] = VR[16+xxx]
+  COMPEH_SP_ADJUST_LONG = 0x58,         // VR[29] = (uleb128 + 129)*ALIGN
+  COMPEH_SAVE_GPRS_LONG = 0x59,         // save VR[xxxxx]..VR[xxxxx+yyy]
+  COMPEH_SAVE_FPRS_LONG = 0x5a,         // save VRF[xxxxx]..VRF[xxxxx+yyy]
+  COMPEH_RESTORE_SP_FROM_CFA = 0x5b,    // restore stack pointer
+  COMPEH_FINISH = 0x5c,                 // finish unwinding
+  COMPEH_NO_UNWIND = 0x5d,              // no unwind done
+  COMPEH_RESTORE_SP_FROM_FP = 0x5e,     // cursor = VR[29] = VR[30]
+  // COMPEH_SPARE = 0x5f,               // currently unused
+  COMPEH_SAVE_FPR1 = 0x60,              // save VRF[20]..VRF[20+xxx]
+  COMPEH_SAVE_FPR2 = 0x68,              // save VRF[20]..VRF[28+xx]
+  COMPEH_SAVE_TEMPS_MIPS16 = 0x6c,      // save VR[16], VR[17], VR[18+xx]..VR[23], VR[31]
+  COMPEH_SAVE_TEMPS_GP_RA = 0x70,       // save VR[16]..VR[16+xxx], VR[28], VR[31]
+  COMPEH_SAVE_TEMPS_GP_FP_RA = 0x78     // save VR[16]..VR[16+xxx], VR[28], VR[30], VR[31]
+};
+
+/* Create a CompactEH SAVE_GPRS/FPRS_LONG suffix byte,
+ *    describing what VRs/VRFs to save.  */
+#define COMPEH_SAVE_LONG_SUFFIX(x, y) (((x) << 3) | (y))
 
 /* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
@@ -3200,11 +3242,12 @@ while (0)
 /* This is how to declare a function name.  The actual work of
    emitting the label is moved to function_prologue, so that we can
    get the line number correctly emitted before the .ent directive,
-   and after any .file directives.  Define as empty so that the function
-   is not declared before the .ent directive elsewhere.  */
+   and after any .file directives.  Define as mostly empty so that the
+   function is not declared before the .ent directive elsewhere.  */
 
 #undef ASM_DECLARE_FUNCTION_NAME
-#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)
+#define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL) \
+  mips_fixup_cfi_sections ();
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -3749,9 +3792,41 @@ struct GTY(())  machine_function {
    versions of the linker know how to do this for indirect pointers,
    and for personality data.  We must fall back on using writable
    .eh_frame sections for shared libraries if the linker does not
-   support this feature.  */
+   support this feature.
+   
+   For compact EH frames we have a special relocation we can use.  */
+
+#define MIPS_COMPACT_EH_PCREL 1
+
+#define MIPS_COMPACT_EH_ENCODING (DW_EH_PE_pcrel | DW_EH_PE_sdata4)
+
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
-  (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_absptr)
+  (TARGET_COMPACT_EH \
+   ? MIPS_COMPACT_EH_ENCODING \
+   : (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_absptr))
+
+/* Handle special EH pointer encodings.  */
+
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do {									\
+    if ((SIZE) == 4 && (ENCODING) == MIPS_EH_ENCODING)			\
+      {									\
+        fputs ("\t.ehword\t", FILE);					\
+        assemble_name (FILE, XSTR (ADDR, 0));				\
+        goto DONE;							\
+      }									\
+  } while (0)
+
+#define MIPS_EH_ENCODING \
+  (DW_EH_PE_datarel | DW_EH_PE_sdata4 | DW_EH_PE_indirect)
+
+#define md_unwind_compact_opcode_finish 0x5c
+
+#define CRT_GET_RFIB_DATA(BASE)			\
+  {						\
+    extern char _gp[];				\
+    BASE = &_gp[0];				\
+  }
 
 /* For switching between MIPS16 and non-MIPS16 modes.  */
 #define SWITCHABLE_TARGET 1

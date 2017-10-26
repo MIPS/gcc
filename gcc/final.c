@@ -4446,7 +4446,7 @@ rest_of_handle_final (void)
   /* The IA-64 ".handlerdata" directive must be issued before the ".endp"
      directive that closes the procedure descriptor.  Similarly, for x64 SEH.
      Otherwise it's not strictly necessary, but it doesn't hurt either.  */
-  output_function_exception_table (fnname);
+  output_function_exception_table (fnname, false);
 
   assemble_end_function (current_function_decl, fnname);
 

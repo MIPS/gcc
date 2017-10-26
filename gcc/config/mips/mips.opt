@@ -116,6 +116,10 @@ Enum(mips_code_readable_setting) String(pcrel) Value(CODE_READABLE_PCREL)
 EnumValue
 Enum(mips_code_readable_setting) String(no) Value(CODE_READABLE_NO)
 
+mcompact-eh
+Target Var(TARGET_COMPACT_EH) Init(1)
+Use compact exception unwinding tables.
+
 mdivide-breaks
 Target Report RejectNegative Mask(DIVIDE_BREAKS) Condition(MIPS_SUPPORT_LEGACY)
 Use branch-and-break sequences to check for integer divide by zero.
