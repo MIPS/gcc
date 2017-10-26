@@ -222,7 +222,7 @@ struct mips_cpu_info {
 
 /* True if the output must have a writable .eh_frame.
    See ASM_PREFERRED_EH_DATA_FORMAT for details.  */
-#ifdef HAVE_LD_PERSONALITY_RELAXATION
+#if defined (NANOMIPS_SUPPORT) || defined (HAVE_LD_PERSONALITY_RELAXATION)
 #define TARGET_WRITABLE_EH_FRAME 0
 #else
 #define TARGET_WRITABLE_EH_FRAME (flag_pic && TARGET_SHARED)
@@ -1022,40 +1022,38 @@ struct mips_cpu_info {
                                     || mips_abi == ABI_P32)
 
 
-/* Compact EH opcode headers. If an opcode has a variable set of bits,
+/* Compact EH opcode headers.  If an opcode has a variable set of bits,
    they can be simply added to the opcode enum here.
 
    If a name ends in LONG, the variable section is extra data
    after the opcode, rather than an addend to it directly.
 
    VR[x] refers to the xth virtual GPR; VRF[x] is the same,
-   but for a virtual FPR. Multiple x's or y's indicate the number of bits,
-   which are added onto the opcode in the order they appear in the
-   description (unless LONG is present in the opcode name, as above.) */
+   but for a virtual FPR.  Multiple x's or y's indicate the number of
+   bits, which are added onto the opcode in the order they appear in the
+   description (unless LONG is present in the opcode name, as above.)
+   */
 
-enum compact_eh_opcode {
-  COMPEH_SP_INCREMENT = 0x00,           // cursor = VR[29] += xxxxxx*ALIGN + ALIGN
-  COMPEH_SAVE_TEMPS_RA = 0x40,          // save VR[16]..VR[16+xxx], VR[31]
-  COMPEH_SAVE_TEMPS_FP_RA = 0x48,       // save VR[16]..VR[16+xxx], VR[30], VR[31]
-  COMPEH_RESTORE_SP_FROM_TEMP = 0x50,   // cursor = VR[29] = VR[16+xxx]
-  COMPEH_SP_ADJUST_LONG = 0x58,         // VR[29] = (uleb128 + 129)*ALIGN
-  COMPEH_SAVE_GPRS_LONG = 0x59,         // save VR[xxxxx]..VR[xxxxx+yyy]
-  COMPEH_SAVE_FPRS_LONG = 0x5a,         // save VRF[xxxxx]..VRF[xxxxx+yyy]
-  COMPEH_RESTORE_SP_FROM_CFA = 0x5b,    // restore stack pointer
-  COMPEH_FINISH = 0x5c,                 // finish unwinding
-  COMPEH_NO_UNWIND = 0x5d,              // no unwind done
-  COMPEH_RESTORE_SP_FROM_FP = 0x5e,     // cursor = VR[29] = VR[30]
-  // COMPEH_SPARE = 0x5f,               // currently unused
-  COMPEH_SAVE_FPR1 = 0x60,              // save VRF[20]..VRF[20+xxx]
-  COMPEH_SAVE_FPR2 = 0x68,              // save VRF[20]..VRF[28+xx]
-  COMPEH_SAVE_TEMPS_MIPS16 = 0x6c,      // save VR[16], VR[17], VR[18+xx]..VR[23], VR[31]
-  COMPEH_SAVE_TEMPS_GP_RA = 0x70,       // save VR[16]..VR[16+xxx], VR[28], VR[31]
-  COMPEH_SAVE_TEMPS_GP_FP_RA = 0x78     // save VR[16]..VR[16+xxx], VR[28], VR[30], VR[31]
+enum pabi_compact_eh_opcode {
+  PABI_EH_SP_INC = 0x00,  /* cursor = VR[29] += xxxxxx*ALIGN + ALIGN */
+  PABI_EH_RA_GPR = 0x40,  /* save VR[16]..VR[16+xxx], VR[31] */
+  PABI_EH_FP_RA_GPR = 0x48,  /* save VR[16]..VR[16+xxx], VR[30], VR[31] */
+  PABI_EH_FPRS = 0x50,  /* save VRF[16]..VRF[16+xxx] */
+  PABI_EH_SP_INC_LONG = 0x58,  /* VR[29] += (uleb128 + 129)*ALIGN */
+  PABI_EH_GPRS_LONG = 0x59,  /* save VR[xxxxx]..VR[xxxxx+yyy] */
+  PABI_EH_FPRS_LONG = 0x5a,  /* save VRF[xxxxx]..VRF[xxxxx+yyy] */
+  PABI_EH_SP_FROM_CFA = 0x5b,  /* restore stack pointer */
+  PABI_EH_FINISH = 0x5c,  /* finish unwinding */
+  PABI_EH_NO_UNWIND = 0x5d,  /* no unwind done */
+  PABI_EH_SP_FROM_FP = 0x5e,  /* cursor = VR[29] = VR[30] + FRAME_BIAS */
+  PABI_EH_SPARE = 0x5f,  /* for padding */
+  PABI_EH_RA_GPR_GP = 0x60,  /* save VR[31], VR[16..16+xxx], VR[28] */
+  PABI_EH_FP_RA_GPR_GP = 0x68  /* save VR[16]..VR[16+xxx], VR[28], VR[30], VR[31] */
 };
 
 /* Create a CompactEH SAVE_GPRS/FPRS_LONG suffix byte,
  *    describing what VRs/VRFs to save.  */
-#define COMPEH_SAVE_LONG_SUFFIX(x, y) (((x) << 3) | (y))
+#define PABI_EH_REG_SUFFIX(x, y) (((x) << 3) | (y))
 
 /* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
@@ -1731,6 +1729,11 @@ FP_ASM_SPEC "\
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
 #define DWARF_FRAME_REGNUM(REGNO) mips_dwarf_regno[REGNO]
+
+/* The number of frame registers to store in the runtime register table.  */
+#if (defined _ABIP32 && _MIPS_SIM == _ABIP32)
+  #define DWARF_FRAME_REGISTERS 64
+#endif
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN RETURN_ADDR_REGNUM

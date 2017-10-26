@@ -1227,8 +1227,6 @@ execute_cfa_program (const unsigned char *insn_ptr,
 
 #ifdef MD_HAVE_COMPACT_EH
 
-#include "config/mips/mips-unwind.h"
-
 static _Unwind_Reason_Code
 __gnu_compact_pr1 (int version ATTRIBUTE_UNUSED,
 		  _Unwind_Action actions ATTRIBUTE_UNUSED,
