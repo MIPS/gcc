@@ -182,12 +182,12 @@ gfc_match_generic_spec (interface_type *type,
       *op = dtio_op (name);
       if (*op == INTRINSIC_FORMATTED)
 	{
-	  name = gfc_code2string (dtio_procs, DTIO_RF);
+	  name = gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RF));
 	  *type = INTERFACE_DTIO;
 	}
       if (*op == INTRINSIC_UNFORMATTED)
 	{
-	  name = gfc_code2string (dtio_procs, DTIO_RUF);
+	  name = gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RUF));
 	  *type = INTERFACE_DTIO;
 	}
       if (*op != INTRINSIC_NONE)
@@ -199,12 +199,12 @@ gfc_match_generic_spec (interface_type *type,
       *op = dtio_op (name);
       if (*op == INTRINSIC_FORMATTED)
 	{
-	  name = gfc_code2string (dtio_procs, DTIO_WF);
+	  name = gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WF));
 	  *type = INTERFACE_DTIO;
 	}
       if (*op == INTRINSIC_UNFORMATTED)
 	{
-	  name = gfc_code2string (dtio_procs, DTIO_WUF);
+	  name = gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WUF));
 	  *type = INTERFACE_DTIO;
 	}
       if (*op != INTRINSIC_NONE)
@@ -4927,8 +4927,8 @@ gfc_check_dtio_interfaces (gfc_symbol *derived)
 		   || ((dtio_codes)code == DTIO_WF);
 
       tb_io_st = gfc_find_typebound_proc (derived, &t,
-					  gfc_code2string (dtio_procs, code),
-					  true, &derived->declared_at);
+	  gfc_get_string ("%s", gfc_code2string (dtio_procs, code)),
+	  true, &derived->declared_at);
       if (tb_io_st != NULL)
 	check_dtio_interface1 (derived, tb_io_st, true, formatted, code);
     }
@@ -4940,7 +4940,7 @@ gfc_check_dtio_interfaces (gfc_symbol *derived)
 		   || ((dtio_codes)code == DTIO_WF);
 
       tb_io_st = gfc_find_symtree (derived->ns->sym_root,
-				   gfc_code2string (dtio_procs, code));
+	  gfc_get_string ("%s", gfc_code2string (dtio_procs, code)));
       if (tb_io_st != NULL)
 	check_dtio_interface1 (derived, tb_io_st, false, formatted, code);
     }
@@ -4961,31 +4961,23 @@ gfc_find_typebound_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
     {
       if (write == true)
         tb_io_st = gfc_find_typebound_proc (derived, &t,
-					    gfc_code2string (dtio_procs,
-							     DTIO_WF),
-					    true,
-					    &derived->declared_at);
+	    gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WF)),
+	    true, &derived->declared_at);
       else
         tb_io_st = gfc_find_typebound_proc (derived, &t,
-					    gfc_code2string (dtio_procs,
-							     DTIO_RF),
-					    true,
-					    &derived->declared_at);
+	    gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RF)),
+	    true, &derived->declared_at);
     }
   else
     {
       if (write == true)
         tb_io_st = gfc_find_typebound_proc (derived, &t,
-					    gfc_code2string (dtio_procs,
-							     DTIO_WUF),
-					    true,
-					    &derived->declared_at);
+	    gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WUF)),
+	    true, &derived->declared_at);
       else
         tb_io_st = gfc_find_typebound_proc (derived, &t,
-					    gfc_code2string (dtio_procs,
-							     DTIO_RUF),
-					    true,
-					    &derived->declared_at);
+	    gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RUF)),
+	    true, &derived->declared_at);
     }
   return tb_io_st;
 }
@@ -5041,23 +5033,19 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
 	{
 	  if (write == true)
 	    tb_io_st = gfc_find_symtree (extended->ns->sym_root,
-					 gfc_code2string (dtio_procs,
-							  DTIO_WF));
+		gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WF)));
 	  else
 	    tb_io_st = gfc_find_symtree (extended->ns->sym_root,
-					 gfc_code2string (dtio_procs,
-							  DTIO_RF));
+		gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RF)));
 	}
       else
 	{
 	  if (write == true)
 	    tb_io_st = gfc_find_symtree (extended->ns->sym_root,
-					 gfc_code2string (dtio_procs,
-							  DTIO_WUF));
+		gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_WUF)));
 	  else
 	    tb_io_st = gfc_find_symtree (extended->ns->sym_root,
-					 gfc_code2string (dtio_procs,
-							  DTIO_RUF));
+		gfc_get_string ("%s", gfc_code2string (dtio_procs, DTIO_RUF)));
 	}
 
       if (tb_io_st != NULL
