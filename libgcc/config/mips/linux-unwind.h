@@ -26,6 +26,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
+#include "config/mips/mips-unwind.h"
+
 #include <signal.h>
 #include <asm/unistd.h>
 
