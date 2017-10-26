@@ -1226,6 +1226,13 @@
 #endif
 
 
+/* Define if your assembler supports generation of .eh_frame_entry from CFI
+   directives. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_EH_FRAME_ENTRY
+#endif
+
+
 /* Define if your assembler supports @gnu_unique_object. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_GNU_UNIQUE_OBJECT

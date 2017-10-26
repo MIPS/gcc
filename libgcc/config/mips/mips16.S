@@ -624,6 +624,18 @@ CALL_STUB_NO_RET (__mips16_call_stub_10, 10)
    being called is 16 bits, in which case the copy is unnecessary;
    however, it's faster to always do the copy.  */
 
+#ifdef __GNU_COMPACT_EH__
+#define CALL_STUB_RET(NAME, CODE, MODE)	\
+STARTFN (NAME);				\
+	move    $18,$31;		\
+	STUB_ARGS_##CODE;		\
+	.set    noreorder;		\
+	jalr    $2;			\
+	move    $25,$2;			\
+	.set    reorder;		\
+	MOVE_##MODE##_RET (f, $18);	\
+	ENDFN (NAME)
+#else
 #define CALL_STUB_RET(NAME, CODE, MODE)					\
 CE_STARTFN (NAME);							\
 	.cfi_startproc;							\
@@ -642,6 +654,7 @@ CE_STARTFN (NAME);							\
 	MOVE_##MODE##_RET (f, $18);					\
 	.cfi_endproc;							\
 	CE_ENDFN (NAME)
+#endif
 
 /* First, instantiate the single-float set.  */
 

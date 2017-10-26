@@ -201,6 +201,7 @@ CXXABI_2.0 {
     __cxa_vec_new;
     __gxx_personality_v0;
     __gxx_personality_sj0;
+    __gnu_compact_pr2;
     __dynamic_cast;
 
     # std::exception_ptr

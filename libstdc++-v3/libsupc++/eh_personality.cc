@@ -234,6 +234,63 @@ get_adjusted_ptr (const std::type_info *catch_type,
   return false;
 }
 
+// Return an element from a type table.
+
+static const std::type_info *
+compact_get_ttype_entry (_Unwind_Ptr base,
+			 unsigned char eh_encoding,
+			 _Unwind_Ptr ttab_start,
+			 int aval)
+{
+  _Unwind_Ptr ptr;
+
+  aval = (aval -  1) * size_of_encoded_value (eh_encoding);
+  read_encoded_value_with_base (eh_encoding, base,
+				(const unsigned char *) ttab_start + aval,
+				&ptr);
+
+  return reinterpret_cast<const std::type_info *>(ptr);
+}
+
+// Return true if THROW_TYPE matches one of the exception spec entries.
+static bool
+check_compact_exception_spec (_throw_typet* throw_type, void* thrown_ptr,
+			      const unsigned char *xh_lsda,
+			      _Unwind_Sword xh_switch_value,
+			      _Unwind_Ptr base)
+
+{
+  _Unwind_Ptr padding_start, ttable_start;
+  const std::type_info* catch_type;
+  unsigned char encoding = xh_switch_value & 0xff;
+  unsigned char eh_offset = abs (xh_switch_value >> 8);
+  const unsigned char *p, *cs_start, *cs_end, *ehtable_start;
+  _Unwind_Ptr lsda_header;
+  _uleb128_t ehval, call_site_len, ehspecs_len;
+  
+
+  p = read_encoded_value (0, DW_EH_PE_udata1, xh_lsda, &lsda_header);
+  cs_start = read_uleb128 (p, &call_site_len);
+  cs_end = cs_start + call_site_len;
+  ehtable_start  = read_uleb128 (cs_end, &ehspecs_len);
+  padding_start = (_Unwind_Ptr) ehtable_start + ehspecs_len;
+  ttable_start = (padding_start + 4 - 1) & ~(4 - 1);
+
+  p = read_uleb128 (ehtable_start + eh_offset - 1, &ehval);
+
+  while (ehval != 0)
+    {
+      catch_type =
+	compact_get_ttype_entry (base, encoding, ttable_start, ehval);
+
+      if (get_adjusted_ptr (catch_type, throw_type, &thrown_ptr))
+	return true;
+
+      p = read_uleb128 (p, &ehval);
+    }
+  return false;
+}
+
 // Return true if THROW_TYPE matches one if the filter types.
 
 static bool
@@ -765,21 +822,38 @@ __cxa_call_unexpected (void *exc_obj_in)
       __cxa_exception *new_xh = globals->caughtExceptions;
       void *new_ptr = __get_object_from_ambiguous_exception (new_xh);
 
-      // We don't quite have enough stuff cached; re-parse the LSDA.
-      parse_lsda_header (0, xh_lsda, &info);
+      if (xh_switch_value > 0)
+	{
+	  _throw_typet *new_type = __get_exception_header_from_obj
+	    (new_ptr)->exceptionType;
+	  if (check_compact_exception_spec (new_type, new_ptr, xh_lsda,
+					    xh_switch_value, info.ttype_base))
+	    __throw_exception_again;
+	}
+      else
+	{
+	  // We don't quite have enough stuff cached; re-parse the LSDA.
+	  parse_lsda_header (0, xh_lsda, &info);
 
-      // If this new exception meets the exception spec, allow it.
-      if (check_exception_spec (&info, __get_exception_header_from_obj
-                                  (new_ptr)->exceptionType,
-				new_ptr, xh_switch_value))
-	{ __throw_exception_again; }
+	  // If this new exception meets the exception spec, allow it.
+	  if (check_exception_spec (&info, __get_exception_header_from_obj
+				    (new_ptr)->exceptionType, new_ptr,
+				    xh_switch_value))
+	     __throw_exception_again;
 
+	}
       // If the exception spec allows std::bad_exception, throw that.
       // We don't have a thrown object to compare against, but since
       // bad_exception doesn't have virtual bases, that's OK; just pass 0.
 #if __cpp_exceptions && __cpp_rtti
       const std::type_info &bad_exc = typeid (std::bad_exception);
-      if (check_exception_spec (&info, &bad_exc, 0, xh_switch_value))
+      if (xh_switch_value > 0)
+	{
+	  if (check_compact_exception_spec (&bad_exc, 0, xh_lsda,
+					    xh_switch_value, info.ttype_base))
+	    throw std::bad_exception();
+	}
+      else if (check_exception_spec (&info, &bad_exc, 0, xh_switch_value))
 	throw std::bad_exception();
 #endif   
 

@@ -3409,10 +3409,12 @@ dwarf2out_do_cfi_asm (void)
   /* Make sure the personality encoding is one the assembler can support.
      In particular, aligned addresses can't be handled.  */
   enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2,/*global=*/1);
-  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel)
+  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel
+      && (enc & GCC_DW_EH_PE_special) == 0)
     return false;
   enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0,/*global=*/0);
-  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel)
+  if ((enc & 0x70) != 0 && (enc & 0x70) != DW_EH_PE_pcrel
+      && (enc & GCC_DW_EH_PE_special) == 0)
     return false;
 
   /* If we can't get the assembler to emit only .debug_frame, and we don't need

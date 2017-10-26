@@ -44,6 +44,8 @@
 #define DW_EH_PE_udata2         0x02
 #define DW_EH_PE_udata4         0x03
 #define DW_EH_PE_udata8         0x04
+#define DW_EH_PE_udata1         0x05
+#define DW_EH_PE_sdata1         0x06
 #define DW_EH_PE_sleb128        0x09
 #define DW_EH_PE_sdata2         0x0A
 #define DW_EH_PE_sdata4         0x0B
@@ -78,6 +80,8 @@ size_of_encoded_value (unsigned char encoding)
     {
     case DW_EH_PE_absptr:
       return sizeof (void *);
+    case DW_EH_PE_udata1:
+      return 1;
     case DW_EH_PE_udata2:
       return 2;
     case DW_EH_PE_udata4:
@@ -227,6 +231,10 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
 	  }
 	  break;
 
+	case DW_EH_PE_udata1:
+	  result = *p;
+	  p += 1;
+	  break;
 	case DW_EH_PE_udata2:
 	  result = u->u2;
 	  p += 2;
