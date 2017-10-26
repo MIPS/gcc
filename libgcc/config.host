@@ -885,11 +885,6 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	esac
 	md_unwind_header=mips/linux-unwind.h
 	;;
-nanomips*-*-linux*)				# Linux nanoMIPS, either endian.
-	extra_parts="$extra_parts crtfastmath.o"
-	tmake_file="${tmake_file} t-crtfm"
-	md_unwind_header=mips/linux-unwind.h
-	;;
 mips*-sde-elf*)
 	tmake_file="$tmake_file mips/t-crtstuff mips/t-mips16"
 	md_unwind_header=mips/mips-unwind.h
@@ -969,9 +964,15 @@ msp430*-*-elf)
 	tmake_file="$tm_file t-crtstuff t-fdpbit msp430/t-msp430"
         extra_parts="$extra_parts libmul_none.a libmul_16.a libmul_32.a libmul_f5.a"
 	;;
+nanomips*-*-linux*)
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} t-crtfm"
+	md_unwind_header=mips/nanomips-linux-unwind.h
+	;;
 nanomips*-img-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff"
 	extra_parts="$extra_parts crti.o crtn.o"
+	md_unwind_header=mips/nanomips-unwind.h
 	;;
 nds32*-elf*)
 	# Basic makefile fragment and extra_parts for crt stuff.

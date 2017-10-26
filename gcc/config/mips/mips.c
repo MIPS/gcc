@@ -15391,15 +15391,16 @@ add_fp_ra_push (vec<uchar, va_gc> **fde)
       && !fp_needed)
     return;
 
-  vec_safe_push (*fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+  vec_safe_push (*fde, (uchar) PABI_EH_GPRS_LONG);
   if (fp_needed)
-    vec_safe_push (*fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (30, 1));
+    vec_safe_push (*fde, (uchar) PABI_EH_REG_SUFFIX (30, 1));
   else
-    vec_safe_push (*fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (31, 0));
+    vec_safe_push (*fde, (uchar) PABI_EH_REG_SUFFIX (31, 0));
 }
 
 /* Add an opcode to *FDE to describe an adjustment of the CFA register by
    AMOUNT, given an assumed alignment ALIGN.  */
+
 static void
 mips_fdedata_cfaadjust (vec <uchar, va_gc> **fde,
 			HOST_WIDE_INT amount, int align)
@@ -15411,23 +15412,23 @@ mips_fdedata_cfaadjust (vec <uchar, va_gc> **fde,
 
   if (amount >= align * 129)
     {
-      vec_safe_push (*fde, (uchar) COMPEH_SP_ADJUST_LONG);
+      vec_safe_push (*fde, (uchar) PABI_EH_SP_INC_LONG);
       push_uleb128 (fde, amount / align - 129);
     }
   else if (amount >= align * 65)
     {
-      vec_safe_push (*fde, (uchar) (COMPEH_SP_INCREMENT + 0x3f));
-      vec_safe_push (*fde, (uchar) (COMPEH_SP_INCREMENT + (amount / align - 64)));
+      vec_safe_push (*fde, (uchar) (PABI_EH_SP_INC + 0x3f));
+      vec_safe_push (*fde, (uchar) (PABI_EH_SP_INC + (amount / align - 64)));
     }
   else
-    vec_safe_push (*fde, (uchar) (COMPEH_SP_INCREMENT + (amount / align - 1)));
+    vec_safe_push (*fde, (uchar) (PABI_EH_SP_INC + (amount / align - 1)));
 }
 
 /* Implements TARGET_ASM_OUTPUT_CFI_ENDPROC.  Emit the .cfi_endproc
    directive, and when emitting unwind information, also emit the
    .cfi_fde_data directive.  */
 static void
-mips_cfi_endproc (void)
+mips_cfi_endproc_oabi_nabi (void)
 {
   int align = TARGET_NEWABI ? 16 : 8;
   vec<uchar, va_gc> *fde = NULL;
@@ -15554,6 +15555,203 @@ mips_cfi_endproc (void)
 	     i + 1 == len ? "" : ",");
   fputc ('\n', asm_out_file);
   fprintf (asm_out_file, "\t.cfi_endproc\n");
+}
+
+/* Implements TARGET_ASM_OUTPUT_CFI_ENDPROC for nanoMIPS.  Emit the
+   .cfi_endproc directive, and when emitting unwind information,
+   also emit the .cfi_fde_data directive.  */
+
+static void
+mips_cfi_endproc_p32 (void)
+{
+  int align = 16;
+  vec<uchar, va_gc> *fde = NULL;
+  int i, len, n;
+  HOST_WIDE_INT total, push_base;
+  bool any_saved = false;
+
+  /* If not generating opcodes, simply end here.  */
+  if (!TARGET_COMPACT_EH
+      || (!flag_unwind_tables && !flag_exceptions)
+      || flag_asynchronous_unwind_tables)
+    {
+      fprintf (asm_out_file, ".cfi_endproc\n");
+      return;
+    }
+
+  fprintf (asm_out_file, "\t.cfi_fde_data ");
+
+  /* Determine the frame size and the position to push from.  */
+  total = cfun->machine->frame.total_size;
+  push_base = total - cfun->machine->varargs_size;
+
+  /* If we must use the frame pointer for these calculations:  */
+  if (frame_pointer_needed)
+    {
+      gcc_assert(HARD_FRAME_POINTER_REGNUM == 30);
+      vec_safe_push (fde, (uchar) PABI_EH_SP_FROM_FP);
+      total = cfun->machine->varargs_size;
+      push_base = 0;
+    }
+  else
+    {
+      /* Don't need to do the stack adjust if we use $fp,
+         runtime knows frame bias.  */
+      mips_fdedata_cfaadjust (&fde, push_base, align);
+      total -= push_base;
+    }
+
+  n = 0;
+  /* If we use SAVE/RESTORE, then only save one contiguous block.  */
+  if (cfun->machine->safe_to_use_save_restore)
+    {
+      unsigned int masked_regs = cfun->machine->frame.mask & 0x00ff0000;
+      int reg_count = popcount_hwi (masked_regs);
+      if (reg_count > 0)
+	{
+	  /* Assert is only 1 contiguous region,
+             ie. of form 000...00111...11.  */
+	  gcc_assert(((masked_regs >> 16) + 1) == (1 << reg_count));
+	  if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+	    {
+	      if (BITSET_P (cfun->machine->frame.mask, 30))
+		{
+	          if (BITSET_P (cfun->machine->frame.mask, 28))
+		    vec_safe_push (fde,
+			(uchar) (PABI_EH_FP_RA_GPR_GP + reg_count - 1));
+		  else
+		    vec_safe_push (fde,
+			(uchar) (PABI_EH_FP_RA_GPR + reg_count - 1));
+		}
+	      else
+		{
+	          if (BITSET_P (cfun->machine->frame.mask, 28))
+		    vec_safe_push (fde,
+			(uchar) (PABI_EH_RA_GPR_GP + reg_count - 1));
+		  else
+		    vec_safe_push (fde,
+			(uchar) (PABI_EH_RA_GPR + reg_count - 1));
+		}
+	    }
+	  else
+	    {
+	      add_fp_ra_push (&fde);
+	      vec_safe_push (fde, (uchar) PABI_EH_GPRS_LONG);
+	      vec_safe_push (fde,
+		  (uchar) PABI_EH_REG_SUFFIX (16, reg_count - 1));
+	    }
+	}
+      else
+	add_fp_ra_push (&fde);
+    }
+  else  /* Need to do iterative method instead.  */
+    {
+      bool use_save_temps = (BITSET_P (cfun->machine->frame.mask, 16)
+			     && BITSET_P (cfun->machine->frame.mask,
+					  RETURN_ADDR_REGNUM));
+      bool any_saved = false;
+
+      for (i = 16; i <= 23; i++)
+	{
+	  bool isset = BITSET_P (cfun->machine->frame.mask, i);
+	  if (isset)
+	    n++;
+	  if ((i == 23 || !isset) && n > 0)
+	    {
+	      int first = i - n + (isset ? 1 : 0);
+	      if (use_save_temps && (first == 16))
+		{
+	          if (BITSET_P (cfun->machine->frame.mask, 30))
+		    {
+	              if (BITSET_P (cfun->machine->frame.mask, 28))
+	                vec_safe_push (fde,
+			    (uchar) (PABI_EH_FP_RA_GPR_GP + n - 1));
+		      else
+	                vec_safe_push (fde,
+			    (uchar) (PABI_EH_FP_RA_GPR + n - 1));
+		    }
+	          else
+		    {
+	              if (BITSET_P (cfun->machine->frame.mask, 28))
+	                vec_safe_push (fde,
+			    (uchar) (PABI_EH_RA_GPR_GP + n - 1));
+		      else
+	                vec_safe_push (fde,
+			    (uchar) (PABI_EH_RA_GPR + n - 1));
+		    }
+		}
+	      else
+		{
+		  add_fp_ra_push (&fde);
+		  vec_safe_push (fde, (uchar) PABI_EH_FPRS_LONG);
+		  vec_safe_push (fde,
+		      (uchar) PABI_EH_REG_SUFFIX (first, n - 1));
+		}
+	      n = 0;
+	      any_saved = true;
+	    }
+	}
+      if (!any_saved)
+	add_fp_ra_push (&fde);
+    }
+
+  /* Check to save temps 2 and 3 as well; compactEH uses them.  */
+  bool t3set = BITSET_P (cfun->machine->frame.mask, 7);
+  bool t2set = BITSET_P (cfun->machine->frame.mask, 6);
+
+  if (t2set || t3set)
+    {
+      vec_safe_push (fde, (uchar) PABI_EH_GPRS_LONG);
+      vec_safe_push (fde,
+	  (uchar) PABI_EH_REG_SUFFIX (7 - t2set, t3set + t2set - 1));
+    }
+
+  bool first_region = true;
+  for (i = 16; i <= 23; i++)
+    {
+      bool isset = BITSET_P (cfun->machine->frame.fmask, i);
+      if (isset)
+	n++;
+      if ((i == 23 || !isset) && n > 0)
+	{
+	  int first = i - n + (isset ? 1 : 0);
+	  if (first_region)
+	    {
+	      vec_safe_push (fde, (uchar) (PABI_EH_FPRS + n - 1));
+	      first_region = false;
+	    }
+	  else
+	    {
+	      vec_safe_push (fde, (uchar) PABI_EH_FPRS_LONG);
+	      vec_safe_push (fde, (uchar) PABI_EH_REG_SUFFIX (first, n - 1));
+	    }
+	  n = 0;
+	}
+      if (first_region && !isset)
+	first_region = false;
+    }
+  gcc_assert (n == 0);
+  /* Skip varargs save area and suchlike.  */
+  mips_fdedata_cfaadjust (&fde, total, align);
+
+  /* The assembler appends a "Finish" opcode for out-of-line entries;
+     the unwind code (uw_frame_state_compact) for inline entries.  */
+
+  len = vec_safe_length (fde);
+  for (i = 0; i < len; i++)
+    fprintf (asm_out_file, "0x%x%s", (*fde)[i],
+	     i + 1 == len ? "" : ",");
+  fputc ('\n', asm_out_file);
+  fprintf (asm_out_file, "\t.cfi_endproc\n");
+}
+
+static void
+mips_cfi_endproc (void)
+{
+  if (mips_abi == ABI_P32)
+    mips_cfi_endproc_p32 ();
+  else
+    mips_cfi_endproc_oabi_nabi ();
 }
 
 static void
@@ -26273,7 +26471,6 @@ mips_option_override (void)
 
   /* Set up array to map GCC register number to debug register number.
      Ignore the special purpose register numbers.  */
-
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
@@ -26282,14 +26479,6 @@ mips_option_override (void)
       else
 	mips_dwarf_regno[i] = INVALID_REGNUM;
     }
-
-  start = GP_DBX_FIRST - GP_REG_FIRST;
-  for (i = GP_REG_FIRST; i <= GP_REG_LAST; i++)
-    mips_dbx_regno[i] = i + start;
-
-  start = FP_DBX_FIRST - FP_REG_FIRST;
-  for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
-    mips_dbx_regno[i] = i + start;
 
   /* Accumulator debug registers use big-endian ordering.  */
   mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;
@@ -26301,6 +26490,14 @@ mips_option_override (void)
       mips_dwarf_regno[i + TARGET_LITTLE_ENDIAN] = i;
       mips_dwarf_regno[i + TARGET_BIG_ENDIAN] = i + 1;
     }
+
+  start = GP_DBX_FIRST - GP_REG_FIRST;
+  for (i = GP_REG_FIRST; i <= GP_REG_LAST; i++)
+    mips_dbx_regno[i] = i + start;
+
+  start = FP_DBX_FIRST - FP_REG_FIRST;
+  for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
+    mips_dbx_regno[i] = i + start;
 
   /* Set up mips_hard_regno_mode_ok.  */
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
