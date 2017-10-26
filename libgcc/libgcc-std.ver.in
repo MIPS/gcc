@@ -1938,3 +1938,9 @@ GCC_4.7.0 {
 %inherit GCC_4.8.0 GCC_4.7.0
 GCC_4.8.0 {
 }
+
+%inherit GCC_6.0 GCC_4.7.0
+GCC_6.0 {
+  _Unwind_GetEhEncoding
+  __register_frame_info_header_bases
+}
