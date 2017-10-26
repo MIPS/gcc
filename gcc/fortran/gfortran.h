@@ -2487,7 +2487,7 @@ typedef struct gfc_association_list
   /* True when the rank of the target expression is guessed during parsing.  */
   unsigned rankguessed:1;
 
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   gfc_symtree *st; /* Symtree corresponding to name.  */
   locus where;
 

@@ -1894,8 +1894,7 @@ gfc_match_associate (void)
       gfc_association_list* a;
 
       /* Match the next association.  */
-      const char *name_hack = NULL;
-      if (gfc_match (" %n =>", &name_hack) != MATCH_YES)
+      if (gfc_match (" %n =>", &newAssoc->name) != MATCH_YES)
 	{
 	  gfc_error ("Expected association at %C");
 	  goto assocListError;
@@ -1912,12 +1911,11 @@ gfc_match_associate (void)
 	    }
 	  gfc_matching_procptr_assignment = 0;
 	}
-      strcpy (newAssoc->name, name_hack);
       newAssoc->where = gfc_current_locus;
 
       /* Check that the current name is not yet in the list.  */
       for (a = new_st.ext.block.assoc; a; a = a->next)
-	if (!strcmp (a->name, newAssoc->name))
+	if (a->name == newAssoc->name)
 	  {
 	    gfc_error ("Duplicate name %qs in association at %C",
 		       newAssoc->name);
