@@ -580,6 +580,13 @@ bb_paths::calculate_paths (basic_block bb)
   if (max_path_length && current_path.length () + 1 > max_path_length)
     return;
 
+  /* As an optimization, we disregard paths that cross loops.  Since
+     profitable_jump_thread_path() will ignore them, we can avoid
+     putting them in the queue altogether.  */
+  if (!current_path.is_empty ()
+      && current_path[0]->loop_father != bb->loop_father)
+    return;
+
   current_path.safe_push (bb);
 
   edge e;
@@ -594,6 +601,15 @@ bb_paths::calculate_paths (basic_block bb)
 	     back to DEF_BB.  We discard loops, so...  */
 	  if (visited->contains (def_bb))
 	    return;
+
+	  /* As mentioned in profitable_jump_thread_path(), the last
+	     entry in a path (DEF_BB in our case) represents the block
+	     with an outgoing edge that will redirect to the jump
+	     threading path.  Thus, we don't care if DEF_BB lives in a
+	     loop different than the rest of the path we are
+	     accumulating.  This is why we don't perform the
+	     loop_father optimization at the beginning of this
+	     function.  */
 
 	  /* Push the DEF_BB for completeness sake.  */
 	  current_path.safe_push (def_bb);
