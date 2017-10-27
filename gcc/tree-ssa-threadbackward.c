@@ -493,11 +493,12 @@ convert_and_register_jump_thread_path (vec<basic_block> &path, edge taken_edge)
 }
 
 /* Class to generate all paths from an SSA name to a use of NAME.
+   Note: we discard any paths greater than PARAM_MAX_FSM_THREAD_LENGTH.
 
    Use it like this:
 
 	bb_paths p (x_99, some_bb);
-        for (unsigned i = 0; i < p.length (); i++)
+	for (unsigned i = 0; i < p.length (); i++)
 	  {
 	    vec<basic_block> one_path = p[i];
 	    do_funky_things (one_path);
