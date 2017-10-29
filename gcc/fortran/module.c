@@ -646,10 +646,10 @@ gfc_match_use (void)
 	  if (use_list->only_flag)
 	    {
 	      if (m != MATCH_YES)
-		strcpy (new_use->use_name, name);
+		new_use->use_name = name;
 	      else
 		{
-		  strcpy (new_use->local_name, name);
+		  new_use->local_name = name;
 		  m = gfc_match_generic_spec (&type2, name, &op);
 		  if (type != type2)
 		    goto syntax;
@@ -657,15 +657,14 @@ gfc_match_use (void)
 		    goto syntax;
 		  if (m == MATCH_ERROR)
 		    goto cleanup;
-		  strcpy (new_use->use_name, name);
+		  new_use->use_name = name;
 		}
 	    }
 	  else
 	    {
 	      if (m != MATCH_YES)
 		goto syntax;
-	      strcpy (new_use->local_name, name);
-
+	      new_use->local_name = name;
 	      m = gfc_match_generic_spec (&type2, name, &op);
 	      if (type != type2)
 		goto syntax;
@@ -673,11 +672,11 @@ gfc_match_use (void)
 		goto syntax;
 	      if (m == MATCH_ERROR)
 		goto cleanup;
-	      strcpy (new_use->use_name, name);
+	      new_use->use_name = name;
 	    }
 
-	  if (strcmp (new_use->use_name, use_list->module_name) == 0
-	      || strcmp (new_use->local_name, use_list->module_name) == 0)
+	  if (new_use->use_name == use_list->module_name
+	      || new_use->local_name == use_list->module_name)
 	    {
 	      gfc_error ("The name %qs at %C has already been used as "
 			 "an external module name", use_list->module_name);
@@ -848,8 +847,8 @@ find_use_name_n (const char *name, int *inst, bool interface)
   i = 0;
   for (u = gfc_rename_list; u; u = u->next)
     {
-      if ((!low_name && strcmp (u->use_name, name) != 0)
-	  || (low_name && strcmp (u->use_name, low_name) != 0)
+      if ((!low_name && u->use_name != name)
+	  || (low_name && u->use_name != low_name)
 	  || (u->op == INTRINSIC_USER && !interface)
 	  || (u->op != INTRINSIC_USER &&  interface))
 	continue;
@@ -870,12 +869,11 @@ find_use_name_n (const char *name, int *inst, bool interface)
 
   if (low_name)
     {
-      if (u->local_name[0] == '\0')
+      if (u->local_name == NULL)
 	return name;
       return gfc_dt_upper_string (u->local_name);
     }
-
-  return (u->local_name[0] != '\0') ? u->local_name : name;
+  return u->local_name != NULL ? u->local_name : name;
 }
 
 
@@ -1979,24 +1977,6 @@ mio_pool_string (const char **stringp)
       free (atom_string);
     }
 }
-
-
-/* Read or write a string that is inside of some already-allocated
-   structure.  */
-
-static void
-mio_internal_string (char *string)
-{
-  if (iomode == IO_OUTPUT)
-    write_atom (ATOM_STRING, string);
-  else
-    {
-      require_atom (ATOM_STRING);
-      strcpy (string, atom_string);
-      free (atom_string);
-    }
-}
-
 
 enum ab_attribute
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
@@ -3536,20 +3516,12 @@ mio_expr (gfc_expr **ep)
 	    write_atom (ATOM_STRING, e->value.op.uop->name);
 	  else
 	    {
-	      char *name = read_string ();
+	      const char *name;
+	      mio_pool_string (&name);
 	      const char *uop_name = find_use_name (name, true);
 	      if (uop_name == NULL)
-		{
-		  size_t len = strlen (name);
-		  char *name2 = XCNEWVEC (char, len + 2);
-		  memcpy (name2, name, len);
-		  name2[len] = ' ';
-		  name2[len + 1] = '\0';
-		  free (name);
-		  uop_name = name = name2;
-		}
+		uop_name = name = gfc_get_string ("%s ", name);
 	      e->value.op.uop = gfc_get_uop (uop_name);
-	      free (name);
 	    }
 	  mio_expr (&e->value.op.op1);
 	  mio_expr (&e->value.op.op2);
@@ -4481,7 +4453,7 @@ static void
 load_operator_interfaces (void)
 {
   const char *p;
-  char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL, *module = NULL;
   gfc_user_op *uop;
   pointer_info *pi = NULL;
   int n, i;
@@ -4492,8 +4464,8 @@ load_operator_interfaces (void)
     {
       mio_lparen ();
 
-      mio_internal_string (name);
-      mio_internal_string (module);
+      mio_pool_string (&name);
+      mio_pool_string (&module);
 
       n = number_use_names (name, true);
       n = n ? n : 1;
@@ -4537,7 +4509,7 @@ static void
 load_generic_interfaces (void)
 {
   const char *p;
-  char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL, *module = NULL;
   gfc_symbol *sym;
   gfc_interface *generic = NULL, *gen = NULL;
   int n, i, renamed;
@@ -4549,8 +4521,8 @@ load_generic_interfaces (void)
     {
       mio_lparen ();
 
-      mio_internal_string (name);
-      mio_internal_string (module);
+      mio_pool_string (&name);
+      mio_pool_string (&module);
 
       n = number_use_names (name, false);
       renamed = n ? 1 : 0;
@@ -4667,7 +4639,7 @@ load_generic_interfaces (void)
 static void
 load_commons (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   gfc_common_head *p;
 
   mio_lparen ();
@@ -4677,7 +4649,7 @@ load_commons (void)
       int flags;
       char* label;
       mio_lparen ();
-      mio_internal_string (name);
+      mio_pool_string (&name);
 
       p = gfc_get_common (name, 1);
 
@@ -4955,7 +4927,7 @@ load_needed (pointer_info *p)
 	 found, mark it.  */
       for (u = gfc_rename_list; u; u = u->next)
 	{
-	  if (strcmp (u->use_name, sym->name) == 0)
+	  if (u->use_name == sym->name)
 	    {
 	      sym->attr.use_only = 1;
 	      break;
@@ -5073,7 +5045,7 @@ read_module (void)
 {
   module_locus operator_interfaces, user_operators, omp_udrs;
   const char *p;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name = NULL;
   int i;
   /* Workaround -Wmaybe-uninitialized false positive during
      profiledbootstrap by initializing them.  */
@@ -5197,7 +5169,7 @@ read_module (void)
 
   while (peek_atom () != ATOM_RPAREN)
     {
-      mio_internal_string (name);
+      mio_pool_string (&name);
       mio_integer (&ambiguous);
       mio_integer (&symbol);
 
@@ -5216,7 +5188,7 @@ read_module (void)
 	  /* Get the jth local name for this symbol.  */
 	  p = find_use_name_n (name, &j, false);
 
-	  if (p == NULL && strcmp (name, module_name) == 0)
+	  if (p == NULL && name == module_name)
 	    p = name;
 
 	  /* Exception: Always import vtabs & vtypes.  */
@@ -5246,7 +5218,7 @@ read_module (void)
 	     added to the namespace(11.3.2).  Note that find_symbol
 	     only returns the first occurrence that it finds.  */
 	  if (!only_flag && !info->u.rsym.renamed
-		&& strcmp (name, module_name) != 0
+		&& name != module_name
 		&& find_symbol (gfc_current_ns->sym_root, name,
 				module_name, 0))
 	    continue;
@@ -5303,7 +5275,7 @@ read_module (void)
 	      st->n.sym = sym;
 	      st->n.sym->refs++;
 
-	      if (strcmp (name, p) != 0)
+	      if (name != p)
 		sym->attr.use_rename = 1;
 
 	      if (name[0] != '_'
@@ -6349,22 +6321,15 @@ import_iso_c_binding_module (void)
                        u->use_name) == 0)
 	{
 	  c_ptr = generate_isocbinding_symbol (iso_c_module_name,
-                                               (iso_c_binding_symbol)
-							ISOCBINDING_PTR,
-                                               u->local_name[0] ? u->local_name
-                                                                : u->use_name,
-                                               NULL, false);
+	      (iso_c_binding_symbol) ISOCBINDING_PTR,
+	      u->local_name ? u->local_name : u->use_name, NULL, false);
 	}
       else if (strcmp (c_interop_kinds_table[ISOCBINDING_FUNPTR].name,
                        u->use_name) == 0)
 	{
-	  c_funptr
-	     = generate_isocbinding_symbol (iso_c_module_name,
-					    (iso_c_binding_symbol)
-							ISOCBINDING_FUNPTR,
-					     u->local_name[0] ? u->local_name
-							      : u->use_name,
-					     NULL, false);
+	  c_funptr = generate_isocbinding_symbol (iso_c_module_name,
+	      (iso_c_binding_symbol) ISOCBINDING_FUNPTR,
+	       u->local_name ? u->local_name : u->use_name, NULL, false);
 	}
     }
 
@@ -6442,7 +6407,7 @@ import_iso_c_binding_module (void)
 		    return_type = c_funptr->n.sym; \
 		  else \
 		    return_type = NULL; \
-		  create_intrinsic_function (u->local_name[0] \
+		  create_intrinsic_function (u->local_name \
 					     ? u->local_name : u->use_name, \
 					     a, iso_c_module_name, \
 					     INTMOD_ISO_C_BINDING, false, \
@@ -6450,7 +6415,7 @@ import_iso_c_binding_module (void)
 		  break;
 #define NAMED_SUBROUTINE(a,b,c,d) \
 	        case a: \
-		  create_intrinsic_function (u->local_name[0] ? u->local_name \
+		  create_intrinsic_function (u->local_name ? u->local_name \
 							      : u->use_name, \
                                              a, iso_c_module_name, \
                                              INTMOD_ISO_C_BINDING, true, NULL); \
@@ -6470,7 +6435,7 @@ import_iso_c_binding_module (void)
 		    tmp_symtree = NULL;
 		  generate_isocbinding_symbol (iso_c_module_name,
 					       (iso_c_binding_symbol) i,
-					       u->local_name[0]
+					       u->local_name
 					       ? u->local_name : u->use_name,
 					       tmp_symtree, false);
 	      }
@@ -6790,7 +6755,7 @@ use_iso_fortran_env_module (void)
 #define NAMED_INTCST(a,b,c,d) \
 		case a:
 #include "iso-fortran-env.def"
-		  create_int_parameter (u->local_name[0] ? u->local_name
+		  create_int_parameter (u->local_name ? u->local_name
 							 : u->use_name,
 					symbol[i].value, mod,
 					INTMOD_ISO_FORTRAN_ENV, symbol[i].id);
@@ -6805,7 +6770,7 @@ use_iso_fortran_env_module (void)
 		    gfc_constructor_append_expr (&expr->value.constructor, \
 			gfc_get_int_expr (gfc_default_integer_kind, NULL, \
 					  KINDS[j].kind), NULL); \
-		  create_int_parameter_array (u->local_name[0] ? u->local_name \
+		  create_int_parameter_array (u->local_name ? u->local_name \
 							 : u->use_name, \
 					      j, expr, mod, \
 					      INTMOD_ISO_FORTRAN_ENV, \
@@ -6816,7 +6781,7 @@ use_iso_fortran_env_module (void)
 #define NAMED_DERIVED_TYPE(a,b,TYPE,STD) \
 		case a:
 #include "iso-fortran-env.def"
-                  create_derived_type (u->local_name[0] ? u->local_name
+                  create_derived_type (u->local_name ? u->local_name
 							: u->use_name,
 				       mod, INTMOD_ISO_FORTRAN_ENV,
 				       symbol[i].id);
@@ -6825,7 +6790,7 @@ use_iso_fortran_env_module (void)
 #define NAMED_FUNCTION(a,b,c,d) \
 		case a:
 #include "iso-fortran-env.def"
-		  create_intrinsic_function (u->local_name[0] ? u->local_name
+		  create_intrinsic_function (u->local_name ? u->local_name
 							      : u->use_name,
 					     symbol[i].id, mod,
 					     INTMOD_ISO_FORTRAN_ENV, false,

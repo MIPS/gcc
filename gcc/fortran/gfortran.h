@@ -1673,7 +1673,8 @@ gfc_entry_list;
 
 typedef struct gfc_use_rename
 {
-  char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *local_name;
+  const char *use_name;
   struct gfc_use_rename *next;
   int found;
   gfc_intrinsic_op op;

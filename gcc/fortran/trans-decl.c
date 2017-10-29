@@ -5071,7 +5071,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	  if (rent->op != INTRINSIC_NONE)
 	    continue;
 
-						 hashval_t hash = htab_hash_string (rent->use_name);
+	  hashval_t hash = htab_hash_string (rent->use_name);
 	  tree *slot = entry->decls->find_slot_with_hash (rent->use_name, hash,
 							  INSERT);
 	  if (*slot == NULL)
@@ -5079,14 +5079,14 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      gfc_symtree *st;
 
 	      st = gfc_find_symtree (ns->sym_root,
-				     rent->local_name[0]
+				     rent->local_name
 				     ? rent->local_name : rent->use_name);
 
 	      /* The following can happen if a derived type is renamed.  */
 	      if (!st)
 		{
 		  char *name;
-		  name = xstrdup (rent->local_name[0]
+		  name = xstrdup (rent->local_name
 				  ? rent->local_name : rent->use_name);
 		  name[0] = (char) TOUPPER ((unsigned char) name[0]);
 		  st = gfc_find_symtree (ns->sym_root, name);
@@ -5133,7 +5133,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      *slot = decl;
 	    }
 	  decl = (tree) *slot;
-	  if (rent->local_name[0])
+	  if (rent->local_name)
 	    local_name = get_identifier (rent->local_name);
 	  else
 	    local_name = NULL_TREE;

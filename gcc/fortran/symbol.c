@@ -4761,7 +4761,7 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 			     const char *local_name, gfc_symtree *dt_symtree,
 			     bool hidden)
 {
-  const char *const name = (local_name && local_name[0])
+  const char *const name = local_name
 			   ? local_name : c_interop_kinds_table[s].name;
   gfc_symtree *tmp_symtree;
   gfc_symbol *tmp_sym = NULL;

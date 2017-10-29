@@ -1274,15 +1274,22 @@ not_yes:
 	    case '%':
 	      matches++;
 	      break;		/* Skip.  */
+#if 0
+	    /* If everybody is disciplined we do not need to reset this.  */
+	    case 'n':
+	      vp = va_arg (argp, void **); /* FORNOW: NULL shouldn't be */
+	      *vp = NULL;
+	      break;
+#else
+	    case 'n':
+#endif
 
 	    /* Matches that don't have to be undone */
 	    case 'o':
 	    case 'l':
-	    case 'n':
 	    case 's':
 	      (void) va_arg (argp, void **);
 	      break;
-
 	    case 'e':
 	    case 'v':
 	      vp = va_arg (argp, void **);
