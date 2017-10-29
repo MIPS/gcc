@@ -3024,6 +3024,8 @@ void gfc_delete_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_get_unique_symtree (gfc_namespace *);
 gfc_user_op *gfc_get_uop (const char *);
 gfc_user_op *gfc_find_uop (const char *, gfc_namespace *);
+const char *gfc_get_uop_from_name (const char*);
+const char *gfc_get_name_from_uop (const char*);
 void gfc_free_symbol (gfc_symbol *);
 void gfc_release_symbol (gfc_symbol *);
 gfc_symbol *gfc_new_symbol (const char *, gfc_namespace *);

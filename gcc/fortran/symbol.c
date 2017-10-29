@@ -3026,6 +3026,27 @@ gfc_find_uop (const char *name, gfc_namespace *ns)
   return (st == NULL) ? NULL : st->n.uop;
 }
 
+/* Given a name return a string usable as user operator name.  */
+const char *
+gfc_get_uop_from_name (const char* name) {
+  gcc_assert (name[0] != '.');
+  return gfc_get_string (".%s.", name);
+}
+
+/* Given a user operator name return a string usable as name.  */
+const char *
+gfc_get_name_from_uop (const char* name) {
+  gcc_assert (name[0] == '.');
+  const size_t len = strlen (name) - 1;
+  gcc_assert (len > 1);
+  gcc_assert (name[len] == '.');
+  char *buffer = XNEWVEC (char, len);
+  memcpy (buffer, name + 1, len - 1);
+  buffer[len - 1] = '\0';
+  const char *ret = gfc_get_string ("%s", buffer);
+  XDELETEVEC (buffer);
+  return ret;
+}
 
 /* Update a symbol's common_block field, and take care of the associated
    memory management.  */

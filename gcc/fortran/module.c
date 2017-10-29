@@ -4785,7 +4785,7 @@ load_omp_udrs (void)
   while (peek_atom () != ATOM_RPAREN)
     {
       const char *name = NULL, *newname;
-      char *altname;
+      const char *altname = NULL;
       gfc_typespec ts;
       gfc_symtree *st;
       gfc_omp_reduction_op rop = OMP_REDUCTION_USER;
@@ -4812,15 +4812,8 @@ load_omp_udrs (void)
 	  else if (strcmp (p, ".neqv.") == 0)
 	    rop = OMP_REDUCTION_NEQV;
 	}
-      altname = NULL;
       if (rop == OMP_REDUCTION_USER && name[0] == '.')
-	{
-	  size_t len = strlen (name + 1);
-	  altname = XALLOCAVEC (char, len);
-	  gcc_assert (name[len] == '.');
-	  memcpy (altname, name + 1, len - 1);
-	  altname[len - 1] = '\0';
-	}
+	altname = gfc_get_name_from_uop (name);
       newname = name;
       if (rop == OMP_REDUCTION_USER)
 	newname = find_use_name (altname ? altname : name, !!altname);
@@ -4832,15 +4825,7 @@ load_omp_udrs (void)
 	  continue;
 	}
       if (altname && newname != altname)
-	{
-	  size_t len = strlen (newname);
-	  altname = XALLOCAVEC (char, len + 3);
-	  altname[0] = '.';
-	  memcpy (altname + 1, newname, len);
-	  altname[len + 1] = '.';
-	  altname[len + 2] = '\0';
-	  name = gfc_get_string ("%s", altname);
-	}
+	name = altname = gfc_get_uop_from_name (newname);
       st = gfc_find_symtree (gfc_current_ns->omp_udr_root, name);
       gfc_omp_udr *udr = gfc_omp_udr_find (st, &ts);
       if (udr)
