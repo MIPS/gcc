@@ -111,6 +111,88 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
   return false;
 }
 
+/* Try to evaluate the control statement and see if we can fold to a
+   constant.  If we do, set RESULT to it and return TRUE.
+   Otherwise, return FALSE.
+
+   For GIMPLE_COND we evaluate the control statement and set the
+   substituted true/false value in RESULT.  For GIMPLE_SWITCH we set
+   RESULT to NULL if evaluating the switch will yield the default
+   case.  */
+static bool
+resolve_control_statement (gimple *stmt, tree name,
+			   const irange &range_for_name, tree &result)
+{
+  wide_int singleton;
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_COND:
+      {
+	/* It looks like NAME is not necessarily the same SSA name as
+	   the LHS conditional here.  Look at the LHS to make sure
+	   gori::range_of_def() gets the right range.  */
+	tree var = gimple_cond_lhs (stmt);
+
+	gori g;
+	irange folded;
+	if (!g.range_of_def (folded, stmt, var, range_for_name)
+	    || !folded.singleton_p (singleton))
+	  return false;
+	result = wide_int_to_tree (TREE_TYPE (name), singleton);
+	return true;
+      }
+    case GIMPLE_SWITCH:
+      {
+	/* Handle the simple case fast.  */
+	if (range_for_name.singleton_p (singleton))
+	  {
+	    result = wide_int_to_tree (TREE_TYPE (name), singleton);
+	    return true;
+	  }
+	gswitch *gs = as_a <gswitch *> (stmt);
+	for (unsigned i = 1; i < gimple_switch_num_labels (gs); ++i)
+	  {
+	    tree label = gimple_switch_label (gs, i);
+	    tree case_low = CASE_LOW (label);
+	    tree case_high = CASE_HIGH (label);
+	    if (!case_high)
+	      case_high = case_low;
+	    irange label_range (TREE_TYPE (name), case_low, case_high);
+	    /* If NAME can fall into one of the switch cases, we can't
+	       be sure where the switch will land.  */
+	    if (!irange_intersect (range_for_name, label_range).empty_p ())
+	      return false;
+	    /* If we have an exact match, for example, a case of 3..10
+	       with a known range of [3,10], then we know we will
+	       always select this case.  Set RESULT to any number
+	       within the range so find_taken_edge() can find the
+	       right case.
+
+	       ?? Is this even worth the effort?  */
+	    if (range_for_name == label_range)
+	      {
+		wide_int any_number_in_range = range_for_name.lower_bound ();
+		result = wide_int_to_tree (TREE_TYPE (name),
+					   any_number_in_range);
+		return true;
+	      }
+	  }
+	/* If we couldn't find anything, the only alternative is that
+	   we will always select the default case.  */
+        result = NULL;
+	return true;
+      }
+    case GIMPLE_GOTO:
+      if (!range_for_name.singleton_p (singleton))
+	return false;
+      result = wide_int_to_tree (TREE_TYPE (name), singleton);
+      return true;
+    default:
+      gcc_unreachable ();
+      return false;
+    }
+}
+
 /* Examine jump threading path PATH to which we want to add BBI.
 
    If the resulting path is profitable to thread, then return the
@@ -167,48 +249,10 @@ profitable_jump_thread_path (vec<basic_block> &path,
   if (range_for_name.empty_p ())
     return NULL;
 
-  /* Try to evaluate the control statement and see if we get a
-     constant value.  If we do, set ARG to it, otherwise leave.
-
-     For GIMPLE_COND we evaluate the control statement and set the
-     substituted true/false value in ARG.  For GIMPLE_SWITCH and
-     GIMPLE_GOTO we just use the argument as is, but only if it is a
-     simple constant.  */
   gimple *stmt = get_gimple_control_stmt (path[0]);
   tree arg;
-  wide_int singleton;
-  switch (gimple_code (stmt))
-    {
-    case GIMPLE_COND:
-      {
-	/* It looks like NAME is not necessarily the same SSA
-	   name as the LHS conditional.  Look at the LHS to make
-	   sure gori::range_of_def() gets the right range.  */
-	tree var = gimple_cond_lhs (stmt);
-
-	gori g;
-	irange result;
-	if (!g.range_of_def (result, stmt, var, range_for_name)
-	    || !result.singleton_p (singleton))
-	  return NULL;
-	arg = wide_int_to_tree (TREE_TYPE (name), singleton);
-	break;
-      }
-    case GIMPLE_SWITCH:
-      /* FIXME: If we have a range of [10..20] and the switch cases
-	 are 1, 2, 3 and 4, we should be able to determine that the
-	 default case will always be taken.
-
-	 Also a range of [10..20] and a case of 10..20 is an exact
-	 match and should be handled as well.  */
-    case GIMPLE_GOTO:
-      if (!range_for_name.singleton_p (singleton))
-	return NULL;
-      arg = wide_int_to_tree (TREE_TYPE (name), singleton);
-      break;
-    default:
-      gcc_unreachable ();
-    }
+  if (!resolve_control_statement (stmt, name, range_for_name, arg))
+    return NULL;
 
   /* Add BBI to the path.
      From this point onward, if we decide we the path is not profitable
@@ -640,6 +684,10 @@ prune_irrelevant_range_blocks (tree ssa, vec <basic_block> &path)
       edge e;
 
       gcc_assert (e = find_edge (path[i], path[i - 1]));
+      /* ?? When the path ranger can understand copies, we should look
+	 into using it instead of gori.  For instance, we may not have
+	 a range here, but the path ranger may realize that earlier
+	 than E we have a range because of a copy??.  */
       if (g.range_on_edge (r, ssa, e))
 	{
 	  /* Remove anything that came before here.  */

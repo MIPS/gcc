@@ -2314,7 +2314,11 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
 
 /* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
    statement, determine which edge will be taken out of the block.  Return
-   NULL if any edge may be taken.  */
+   NULL if any edge may be taken.
+
+   Note: As a special case, an empty VAL means the taken edge should
+   be the default case.  It doesn't look like we ever get an empty VAL
+   for anything else, so it *SHOULD* be safe to use (??).  */
 
 static edge
 find_taken_edge_switch_expr (gswitch *switch_stmt, basic_block bb,
@@ -2324,9 +2328,11 @@ find_taken_edge_switch_expr (gswitch *switch_stmt, basic_block bb,
   edge e;
   tree taken_case;
 
-  if (gimple_switch_num_labels (switch_stmt) == 1)
+  if (gimple_switch_num_labels (switch_stmt) == 1
+      /* An empty VAL means take the default case.  */
+      || !val)
     taken_case = gimple_switch_default_label (switch_stmt);
-  else if (! val || TREE_CODE (val) != INTEGER_CST)
+  else if (TREE_CODE (val) != INTEGER_CST)
     return NULL;
   else
     taken_case = find_case_label_for_value (switch_stmt, val);
