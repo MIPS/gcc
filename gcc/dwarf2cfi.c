@@ -2959,7 +2959,8 @@ create_cie_data (void)
   /* On entry, the Canonical Frame Address is at SP.  */
   memset (&loc, 0, sizeof (loc));
   loc.reg = dw_stack_pointer_regnum;
-  loc.offset = INCOMING_FRAME_SP_OFFSET;
+  /* Use a huge number which will be overriden in create_pseudo_cfg.  */
+  loc.offset = HOST_WIDE_INT_C (0x7fffffff);
   def_cfa_1 (&loc);
 
   if (targetm.debug_unwind_info () == UI_DWARF2
