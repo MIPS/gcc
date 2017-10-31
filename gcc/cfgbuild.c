@@ -448,6 +448,23 @@ find_bb_boundaries (basic_block bb)
   if (insn == end)
     return;
 
+  if (DEBUG_INSN_P (insn) || DEBUG_INSN_P (end))
+    {
+      /* Check whether, without debug insns, the insn==end test above
+	 would have caused us to return immediately, and behave the
+	 same way even with debug insns.  If we don't do this, debug
+	 insns could cause us to purge dead edges at different times,
+	 which could in turn change the cfg and affect codegen
+	 decisions in subtle but undesirable ways.  */
+      rtx_insn *i = insn, *e = end;
+      while (DEBUG_INSN_P (i) && i != e)
+	i = NEXT_INSN (i);
+      while (DEBUG_INSN_P (e) && i != e)
+	e = PREV_INSN (e);
+      if (i == e)
+	return;
+    }
+
   if (LABEL_P (insn))
     insn = NEXT_INSN (insn);
 
