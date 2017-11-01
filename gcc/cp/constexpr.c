@@ -4573,7 +4573,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 			     non_constant_p, overflow_p);
       break;
 
-    case FMA_EXPR:
     case VEC_PERM_EXPR:
       r = cxx_eval_trinary_expression (ctx, t, lval,
 				       non_constant_p, overflow_p);
@@ -5998,7 +5997,6 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict, bool now,
 	  return false;
       return true;
 
-    case FMA_EXPR:
     case VEC_PERM_EXPR:
      for (i = 0; i < 3; ++i)
       if (!RECUR (TREE_OPERAND (t, i), true))
