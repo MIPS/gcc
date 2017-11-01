@@ -24,7 +24,6 @@ enum debug_info_type
 {
   NO_DEBUG,	    /* Write no debug info.  */
   DBX_DEBUG,	    /* Write BSD .stabs for DBX (using dbxout.c).  */
-  SDB_DEBUG,	    /* Write COFF for (old) SDB (using sdbout.c).  */
   DWARF2_DEBUG,	    /* Write Dwarf v2 debug info (using dwarf2out.c).  */
   XCOFF_DEBUG,	    /* Write IBM/Xcoff debug info (using dbxout.c).  */
   VMS_DEBUG,        /* Write VMS debug info (using vmsdbgout.c).  */
@@ -326,4 +325,13 @@ enum gfc_convert
 };
 
 
+/* Control-Flow Protection values.  */
+enum cf_protection_level
+{
+  CF_NONE = 0,
+  CF_BRANCH = 1 << 0,
+  CF_RETURN = 1 << 1,
+  CF_FULL = CF_BRANCH | CF_RETURN,
+  CF_SET = 1 << 2
+};
 #endif /* ! GCC_FLAG_TYPES_H */

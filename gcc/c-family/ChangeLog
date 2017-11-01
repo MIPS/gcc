@@ -1,3 +1,32 @@
+2017-10-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (binary_op_error): Update for renaming of
+	error_at_rich_loc.
+	(c_parse_error): Likewise.
+	* c-warn.c (warn_logical_not_parentheses): Likewise for
+	renaming of inform_at_rich_loc.
+	(warn_for_restrict): Likewise for renaming of
+	warning_at_rich_loc_n.
+
+2017-10-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* c.opt (std=c17, std=gnu17, std=iso9899:2017): New options.
+	* c-opts.c (set_std_c17): New function.
+	(c_common_init_options): Use gnu17 as default C version.
+	(c_common_handle_option): Handle -std=c17 and -std=gnu17.
+
+2017-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-cppbuiltin.c (mode_has_fma): Add support for PowerPC KFmode.
+	(c_cpp_builtins): If a machine has a fast fma _Float<N> and
+	_Float<N>X variant, define __FP_FAST_FMA<N> and/or
+	__FP_FAST_FMA<N>X.
+
+2017-10-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/82681
+	* c-warn.c (warnings_for_convert_and_check): Fix typos.
+
 2017-10-19  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* c-common.c (check_builtin_function_arguments): Also check arguments

@@ -27,6 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
+#include "tm_p.h"
 #include "gimple.h"
 #include "gimple-predict.h"
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
@@ -3430,8 +3432,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       /* The CALL_EXPR in *EXPR_P is already in GIMPLE form, so all we
 	 have to do is replicate it as a GIMPLE_CALL tuple.  */
       gimple_stmt_iterator gsi;
-      call = gimple_build_call_from_tree (*expr_p);
-      gimple_call_set_fntype (call, TREE_TYPE (fnptrtype));
+      call = gimple_build_call_from_tree (*expr_p, fnptrtype);
       notice_special_calls (call);
       if (EXPR_CILK_SPAWN (*expr_p))
         gimplify_cilk_detach (pre_p);
@@ -5743,8 +5744,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 						    CALL_EXPR_ARG (*from_p, 2));
 	  else
 	    {
-	      call_stmt = gimple_build_call_from_tree (*from_p);
-	      gimple_call_set_fntype (call_stmt, TREE_TYPE (fnptrtype));
+	      call_stmt = gimple_build_call_from_tree (*from_p, fnptrtype);
 	    }
 	}
       notice_special_calls (call_stmt);

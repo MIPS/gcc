@@ -14132,9 +14132,17 @@ expansion_failed (tree expr, rtx rtl, char const *reason)
 static bool
 const_ok_for_output_1 (rtx rtl)
 {
-  if (GET_CODE (rtl) == UNSPEC)
+  if (targetm.const_not_ok_for_debug_p (rtl))
     {
-      /* If delegitimize_address couldn't do anything with the UNSPEC, assume
+      if (GET_CODE (rtl) != UNSPEC)
+	{
+	  expansion_failed (NULL_TREE, rtl,
+			    "Expression rejected for debug by the backend.\n");
+	  return false;
+	}
+
+      /* If delegitimize_address couldn't do anything with the UNSPEC, and
+	 the target hook doesn't explicitly allow it in debug info, assume
 	 we can't express it in the debug info.  */
       /* Don't complain about TLS UNSPECs, those are just too hard to
 	 delegitimize.  Note this could be a non-decl SYMBOL_REF such as
@@ -14158,13 +14166,6 @@ const_ok_for_output_1 (rtx rtl)
 #endif
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
-      return false;
-    }
-
-  if (targetm.const_not_ok_for_debug_p (rtl))
-    {
-      expansion_failed (NULL_TREE, rtl,
-			"Expression rejected for debug by the backend.\n");
       return false;
     }
 
@@ -17877,7 +17878,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
 		&& (INTEGRAL_TYPE_P (TREE_TYPE (loc))
 		    || POINTER_TYPE_P (TREE_TYPE (loc)))
 		&& DECL_CONTEXT (loc) == current_function_decl
-		&& (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (loc)))
+		&& (GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (TREE_TYPE (loc)))
 		    <= DWARF2_ADDR_SIZE))
 	      {
 		dw_die_ref ref = lookup_decl_die (loc);
@@ -21345,10 +21346,10 @@ gen_array_type_die (tree type, dw_die_ref context_die)
     add_AT_unsigned (array_die, DW_AT_ordering, DW_ORD_col_major);
 
 #if 0
-  /* We default the array ordering.  SDB will probably do
-     the right things even if DW_AT_ordering is not present.  It's not even
-     an issue until we start to get into multidimensional arrays anyway.  If
-     SDB is ever caught doing the Wrong Thing for multi-dimensional arrays,
+  /* We default the array ordering.  Debuggers will probably do the right
+     things even if DW_AT_ordering is not present.  It's not even an issue
+     until we start to get into multidimensional arrays anyway.  If a debugger
+     is ever caught doing the Wrong Thing for multi-dimensional arrays,
      then we'll have to put the DW_AT_ordering attribute back in.  (But if
      and when we find out that we need to put these in, we will only do so
      for multidimensional arrays.  */
@@ -23918,6 +23919,8 @@ highest_c_language (const char *lang1, const char *lang2)
   if (strcmp ("GNU C++98", lang1) == 0 || strcmp ("GNU C++98", lang2) == 0)
     return "GNU C++98";
 
+  if (strcmp ("GNU C17", lang1) == 0 || strcmp ("GNU C17", lang2) == 0)
+    return "GNU C17";
   if (strcmp ("GNU C11", lang1) == 0 || strcmp ("GNU C11", lang2) == 0)
     return "GNU C11";
   if (strcmp ("GNU C99", lang1) == 0 || strcmp ("GNU C99", lang2) == 0)
@@ -23994,7 +23997,8 @@ gen_compile_unit_die (const char *filename)
 	    language = DW_LANG_C99;
 
 	  if (dwarf_version >= 5 /* || !dwarf_strict */)
-	    if (strcmp (language_string, "GNU C11") == 0)
+	    if (strcmp (language_string, "GNU C11") == 0
+		|| strcmp (language_string, "GNU C17") == 0)
 	      language = DW_LANG_C11;
 	}
     }

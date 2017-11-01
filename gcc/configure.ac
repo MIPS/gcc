@@ -362,7 +362,7 @@ rm -f a.out a.exe b.out
 # Find the native compiler
 AC_PROG_CC
 AC_PROG_CXX
-ACX_PROG_GNAT([-I"$srcdir"/ada])
+ACX_PROG_GNAT([-I"$srcdir"/ada/libgnat])
 
 # Do configure tests with the C++ compiler, since that's what we build with.
 AC_LANG(C++)
@@ -728,10 +728,10 @@ AC_ARG_ENABLE(coverage,
 		 default is noopt])],
 [case "${enableval}" in
   yes|noopt)
-    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0"
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0 -fkeep-inline-functions -fkeep-static-functions"
     ;;
   opt)
-    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2"
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2 -fkeep-inline-functions -fkeep-static-functions"
     ;;
   no)
     # a.k.a. --disable-coverage
@@ -4103,6 +4103,11 @@ foo:	nop
 	;;
     esac
 
+    gcc_GAS_CHECK_FEATURE([-xbrace_comment], gcc_cv_as_ix86_xbrace_comment,,
+      [-xbrace_comment=no], [.text],,
+      [AC_DEFINE(HAVE_AS_XBRACE_COMMENT_OPTION, 1,
+		[Define if your assembler supports -xbrace_comment option.])])
+
     # Test if the assembler supports the section flag 'e' for specifying
     # an excluded section.
     gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
@@ -5767,10 +5772,25 @@ if test x$gcc_cv_solaris_crts = xyes; then
   	    [Define if the system-provided CRTs are present on Solaris.])
 fi
 
+AC_ARG_ENABLE(libssp,
+[AS_HELP_STRING([--enable-libssp], [enable linking against libssp])],
+[case "${enableval}" in
+  yes|no)
+    ;;
+  *)
+    AC_MSG_ERROR([unknown libssp setting $enableval])
+    ;;
+esac], [])
+
 # Test for stack protector support in target C library.
 AC_CACHE_CHECK(__stack_chk_fail in target C library,
-      gcc_cv_libc_provides_ssp,
-      [gcc_cv_libc_provides_ssp=no
+  gcc_cv_libc_provides_ssp,
+  [gcc_cv_libc_provides_ssp=no
+  if test "x$enable_libssp" = "xno"; then
+    gcc_cv_libc_provides_ssp=yes
+  elif test "x$enable_libssp" = "xyes"; then
+    gcc_cv_libc_provides_ssp=no
+  else
     case "$target" in
        *-*-musl*)
 	 # All versions of musl provide stack protector
@@ -5807,8 +5827,9 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
 	 AC_CHECK_FUNC(__stack_chk_fail,[gcc_cv_libc_provides_ssp=yes],
            [echo "no __stack_chk_fail on this target"])
         ;;
-  *) gcc_cv_libc_provides_ssp=no ;;
-    esac])
+       *) gcc_cv_libc_provides_ssp=no ;;
+    esac
+  fi])
 
 if test x$gcc_cv_libc_provides_ssp = xyes; then
   AC_DEFINE(TARGET_LIBC_PROVIDES_SSP, 1,

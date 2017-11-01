@@ -203,7 +203,7 @@ static void tsubst_default_arguments (tree, tsubst_flags_t);
 static tree for_each_template_parm_r (tree *, int *, void *);
 static tree copy_default_args_to_explicit_spec_1 (tree, tree);
 static void copy_default_args_to_explicit_spec (tree);
-static int invalid_nontype_parm_type_p (tree, tsubst_flags_t);
+static bool invalid_nontype_parm_type_p (tree, tsubst_flags_t);
 static bool dependent_template_arg_p (tree);
 static bool any_template_arguments_need_structural_equality_p (tree);
 static bool dependent_type_p_r (tree);
@@ -5564,7 +5564,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	  (TI_ARGS (tinfo),
 	   TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (tmpl)))))
 	{
-	  error ("template arguments to %qD do not match original"
+	  error ("template arguments to %qD do not match original "
 		 "template %qD", decl, DECL_TEMPLATE_RESULT (tmpl));
 	  if (!uses_template_parms (TI_ARGS (tinfo)))
 	    inform (input_location, "use %<template<>%> for"
@@ -12195,7 +12195,7 @@ tsubst_function_decl (tree t, tree args, tsubst_flags_t complain,
 	 We also deal with the peculiar case:
 
 	 template <class T> struct S {
-	 template <class U> friend void f();
+	   template <class U> friend void f();
 	 };
 	 template <class U> void f() {}
 	 template S<int>;
@@ -17085,8 +17085,7 @@ tsubst_copy_and_build (tree t,
 	    /* A type conversion to reference type will be enclosed in
 	       such an indirect ref, but the substitution of the cast
 	       will have also added such an indirect ref.  */
-	    if (TREE_CODE (TREE_TYPE (r)) == REFERENCE_TYPE)
-	      r = convert_from_reference (r);
+	    r = convert_from_reference (r);
 	  }
 	else
 	  r = build_x_indirect_ref (input_location, r, RO_UNARY_STAR,
@@ -23624,31 +23623,31 @@ instantiating_current_function_p (void)
 }
 
 /* [temp.param] Check that template non-type parm TYPE is of an allowable
-   type. Return zero for ok, nonzero for disallowed. Issue error and
-   warning messages under control of COMPLAIN.  */
+   type.  Return false for ok, true for disallowed.  Issue error and
+   inform messages under control of COMPLAIN.  */
 
-static int
+static bool
 invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
 {
   if (INTEGRAL_OR_ENUMERATION_TYPE_P (type))
-    return 0;
+    return false;
   else if (POINTER_TYPE_P (type))
-    return 0;
+    return false;
   else if (TYPE_PTRMEM_P (type))
-    return 0;
+    return false;
   else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
-    return 0;
+    return false;
   else if (TREE_CODE (type) == TYPENAME_TYPE)
-    return 0;
+    return false;
   else if (TREE_CODE (type) == DECLTYPE_TYPE)
-    return 0;
+    return false;
   else if (TREE_CODE (type) == NULLPTR_TYPE)
-    return 0;
+    return false;
   /* A bound template template parm could later be instantiated to have a valid
      nontype parm type via an alias template.  */
   else if (cxx_dialect >= cxx11
 	   && TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
-    return 0;
+    return false;
 
   if (complain & tf_error)
     {
@@ -23658,7 +23657,7 @@ invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
 	error ("%q#T is not a valid type for a template non-type parameter",
 	       type);
     }
-  return 1;
+  return true;
 }
 
 /* Returns TRUE if TYPE is dependent, in the sense of [temp.dep.type].
@@ -24025,8 +24024,21 @@ value_dependent_expression_p (tree expression)
     case TRAIT_EXPR:
       {
 	tree type2 = TRAIT_EXPR_TYPE2 (expression);
-	return (dependent_type_p (TRAIT_EXPR_TYPE1 (expression))
-		|| (type2 ? dependent_type_p (type2) : false));
+
+	if (dependent_type_p (TRAIT_EXPR_TYPE1 (expression)))
+	  return true;
+
+	if (!type2)
+	  return false;
+
+	if (TREE_CODE (type2) != TREE_LIST)
+	  return dependent_type_p (type2);
+
+	for (; type2; type2 = TREE_CHAIN (type2))
+	  if (dependent_type_p (TREE_VALUE (type2)))
+	    return true;
+
+	return false;
       }
 
     case MODOP_EXPR:
@@ -25124,9 +25136,9 @@ listify (tree arg)
     {    
       gcc_rich_location richloc (input_location);
       maybe_add_include_fixit (&richloc, "<initializer_list>");
-      error_at_rich_loc (&richloc,
-                         "deducing from brace-enclosed initializer list"
-                         " requires #include <initializer_list>");
+      error_at (&richloc,
+		"deducing from brace-enclosed initializer list"
+		" requires %<#include <initializer_list>%>");
 
       return error_mark_node;
     }

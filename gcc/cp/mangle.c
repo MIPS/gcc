@@ -1265,32 +1265,29 @@ write_unqualified_id (tree identifier)
     write_conversion_operator_name (TREE_TYPE (identifier));
   else if (IDENTIFIER_ANY_OP_P (identifier))
     {
-      int i;
       const char *mangled_name = NULL;
+      bool assop = IDENTIFIER_ASSIGN_OP_P (identifier);
 
       /* Unfortunately, there is no easy way to go from the
 	 name of the operator back to the corresponding tree
 	 code.  */
-      for (i = 0; i < MAX_TREE_CODES; ++i)
-	if (operator_name_info[i].identifier == identifier)
-	  {
-	    /* The ABI says that we prefer binary operator
-	       names to unary operator names.  */
-	    if (operator_name_info[i].arity == 2)
-	      {
-		mangled_name = operator_name_info[i].mangled_name;
-		break;
-	      }
-	    else if (!mangled_name)
-	      mangled_name = operator_name_info[i].mangled_name;
-	  }
-	else if (assignment_operator_name_info[i].identifier
-		 == identifier)
-	  {
-	    mangled_name
-	      = assignment_operator_name_info[i].mangled_name;
-	    break;
-	  }
+      for (unsigned i = 0; i < MAX_TREE_CODES; ++i)
+	{
+	  const ovl_op_info_t *ovl_op = OVL_OP_INFO (assop, i);
+
+	  if (ovl_op->identifier == identifier)
+	    {
+	      /* The ABI says that we prefer binary operator
+		 names to unary operator names.  */
+	      if (ovl_op->flags == OVL_OP_FLAG_BINARY)
+		{
+		  mangled_name = ovl_op->mangled_name;
+		  break;
+		}
+	      else if (!mangled_name)
+		mangled_name = ovl_op->mangled_name;
+	    }
+	}
       write_string (mangled_name);
     }
   else if (UDLIT_OPER_P (identifier))
@@ -1345,13 +1342,10 @@ write_unqualified_name (tree decl)
 	}
       else if (DECL_OVERLOADED_OPERATOR_P (decl))
 	{
-	  operator_name_info_t *oni;
-	  if (DECL_ASSIGNMENT_OPERATOR_P (decl))
-	    oni = assignment_operator_name_info;
-	  else
-	    oni = operator_name_info;
-
-	  write_string (oni[DECL_OVERLOADED_OPERATOR_P (decl)].mangled_name);
+	  const char *mangled_name
+	    = (OVL_OP_INFO (DECL_ASSIGNMENT_OPERATOR_P (decl),
+	       DECL_OVERLOADED_OPERATOR_CODE (decl))->mangled_name);
+	  write_string (mangled_name);
 	}
       else if (UDLIT_OPER_P (DECL_NAME (decl)))
 	write_literal_operator_name (DECL_NAME (decl));
@@ -3064,8 +3058,8 @@ write_expression (tree expr)
   else if (TREE_CODE (expr) == MODOP_EXPR)
     {
       enum tree_code subop = TREE_CODE (TREE_OPERAND (expr, 1));
-      const char *name = (assignment_operator_name_info[(int) subop]
-			  .mangled_name);
+      const char *name = OVL_OP_INFO (true, subop)->mangled_name;
+
       write_string (name);
       write_expression (TREE_OPERAND (expr, 0));
       write_expression (TREE_OPERAND (expr, 2));
@@ -3090,7 +3084,7 @@ write_expression (tree expr)
       if (NEW_EXPR_USE_GLOBAL (expr))
 	write_string ("gs");
 
-      write_string (operator_name_info[(int) code].mangled_name);
+      write_string (OVL_OP_INFO (false, code)->mangled_name);
 
       for (t = placement; t; t = TREE_CHAIN (t))
 	write_expression (TREE_VALUE (t));
@@ -3130,7 +3124,7 @@ write_expression (tree expr)
       if (DELETE_EXPR_USE_GLOBAL (expr))
 	write_string ("gs");
 
-      write_string (operator_name_info[(int) code].mangled_name);
+      write_string (OVL_OP_INFO (false, code)->mangled_name);
 
       write_expression (TREE_OPERAND (expr, 0));
     }
@@ -3195,7 +3189,7 @@ write_expression (tree expr)
 
 	  if (TREE_CODE (ob) == ARROW_EXPR)
 	    {
-	      write_string (operator_name_info[(int)code].mangled_name);
+	      write_string (OVL_OP_INFO (false, code)->mangled_name);
 	      ob = TREE_OPERAND (ob, 0);
 	      write_expression (ob);
 	    }
@@ -3212,7 +3206,7 @@ write_expression (tree expr)
 	}
 
       /* If it wasn't any of those, recursively expand the expression.  */
-      name = operator_name_info[(int) code].mangled_name;
+      name = OVL_OP_INFO (false, code)->mangled_name;
 
       /* We used to mangle const_cast and static_cast like a C cast.  */
       if (code == CONST_CAST_EXPR
@@ -3221,7 +3215,7 @@ write_expression (tree expr)
 	  if (abi_warn_or_compat_version_crosses (6))
 	    G.need_abi_warning = 1;
 	  if (!abi_version_at_least (6))
-	    name = operator_name_info[CAST_EXPR].mangled_name;
+	    name = OVL_OP_INFO (false, CAST_EXPR)->mangled_name;
 	}
 
       if (name == NULL)
@@ -3322,7 +3316,7 @@ write_expression (tree expr)
 		  if (i == 0)
 		    {
 		      int fcode = TREE_INT_CST_LOW (operand);
-		      write_string (operator_name_info[fcode].mangled_name);
+		      write_string (OVL_OP_INFO (false, fcode)->mangled_name);
 		      continue;
 		    }
 		  else if (code == BINARY_LEFT_FOLD_EXPR)

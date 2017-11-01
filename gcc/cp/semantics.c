@@ -2711,8 +2711,12 @@ finish_compound_literal (tree type, tree compound_literal,
 
   if (tree anode = type_uses_auto (type))
     if (CLASS_PLACEHOLDER_TEMPLATE (anode))
-      type = do_auto_deduction (type, compound_literal, anode, complain,
-				adc_variable_type);
+      {
+	type = do_auto_deduction (type, compound_literal, anode, complain,
+				  adc_variable_type);
+	if (type == error_mark_node)
+	  return error_mark_node;
+      }
 
   if (processing_template_decl)
     {
@@ -3395,7 +3399,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain, bool force_use)
 	    inform (location_of (closure),
 		    "the lambda has no capture-default");
 	  else if (TYPE_CLASS_SCOPE_P (closure))
-	    inform (0, "lambda in local class %q+T cannot "
+	    inform (UNKNOWN_LOCATION, "lambda in local class %q+T cannot "
 		    "capture variables from the enclosing context",
 		    TYPE_CONTEXT (closure));
 	  inform (DECL_SOURCE_LOCATION (decl), "%q#D declared here", decl);
@@ -5095,7 +5099,7 @@ omp_reduction_id (enum tree_code reduction_code, tree reduction_id, tree type)
     case BIT_IOR_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      reduction_id = cp_operator_id (reduction_code);
+      reduction_id = ovl_op_identifier (false, reduction_code);
       break;
     case MIN_EXPR:
       p = "min";
@@ -9016,8 +9020,7 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
   tree fns = NULL_TREE;
 
   if (assign_p || TYPE_HAS_COPY_CTOR (type))
-    fns = get_class_binding (type,
-			     assign_p ? cp_assignment_operator_id (NOP_EXPR)
+    fns = get_class_binding (type, assign_p ? assign_op_identifier
 			     : ctor_identifier);
 
   bool saw_copy = false;

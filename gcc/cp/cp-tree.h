@@ -217,7 +217,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    things) to iterate over their overloads defined by/for a type.  For
    example:
 
-     tree ovlid = cp_assignment_operator_id (NOP_EXPR);
+     tree ovlid = assign_op_identifier;
      tree overloads = get_class_binding (type, ovlid);
      for (ovl_iterator it (overloads); it; ++it) { ... }
 
@@ -244,21 +244,14 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* The name of a destructor that destroys virtual base classes, and
    then deletes the entire object.  */
 #define deleting_dtor_identifier	cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
+
+#define ovl_op_identifier(ISASS, CODE)  (OVL_OP_INFO(ISASS, CODE)->identifier)
+#define assign_op_identifier (ovl_op_identifier (true, NOP_EXPR))
+#define call_op_identifier (ovl_op_identifier (false, CALL_EXPR))
 /* The name used for conversion operators -- but note that actual
    conversion functions use special identifiers outside the identifier
    table.  */
 #define conv_op_identifier		cp_global_trees[CPTI_CONV_OP_IDENTIFIER]
-
-/* The name of the identifier used internally to represent operator CODE.  */
-#define cp_operator_id(CODE) \
-  (operator_name_info[(int) (CODE)].identifier)
-
-/* The name of the identifier used to represent assignment operator CODE,
-   both simple (i.e., operator= with CODE == NOP_EXPR) and compound (e.g.,
-   operator+= with CODE == PLUS_EXPR).  Includes copy and move assignment.
-   Use copy_fn_p() to test specifically for copy assignment.  */
-#define cp_assignment_operator_id(CODE)				\
-  (assignment_operator_name_info[(int) (CODE)].identifier)
 
 #define delta_identifier		cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier		cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
@@ -561,7 +554,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 struct GTY(()) lang_identifier {
   struct c_common_identifier c_common;
   cxx_binding *bindings;
-  tree label_value;
 };
 
 /* Return a typed pointer version of T if it designates a
@@ -996,11 +988,6 @@ enum GTY(()) abstract_class_use {
 #define SET_IDENTIFIER_TYPE_VALUE(NODE,TYPE) (TREE_TYPE (NODE) = (TYPE))
 #define IDENTIFIER_HAS_TYPE_VALUE(NODE) (IDENTIFIER_TYPE_VALUE (NODE) ? 1 : 0)
 
-#define IDENTIFIER_LABEL_VALUE(NODE) \
-  (LANG_IDENTIFIER_CAST (NODE)->label_value)
-#define SET_IDENTIFIER_LABEL_VALUE(NODE, VALUE)   \
-  IDENTIFIER_LABEL_VALUE (NODE) = (VALUE)
-
 /* Kinds of identifiers.  Values are carefully chosen.  */
 enum cp_identifier_kind {
   cik_normal = 0,	/* Not a special identifier.  */
@@ -1209,9 +1196,10 @@ struct GTY (()) tree_trait_expr {
   (CLASS_TYPE_P (NODE) && CLASSTYPE_LAMBDA_EXPR (NODE))
 
 /* Test if FUNCTION_DECL is a lambda function.  */
-#define LAMBDA_FUNCTION_P(FNDECL)			\
-  (DECL_DECLARES_FUNCTION_P (FNDECL)			\
-   && DECL_OVERLOADED_OPERATOR_P (FNDECL) == CALL_EXPR	\
+#define LAMBDA_FUNCTION_P(FNDECL)				\
+  (DECL_DECLARES_FUNCTION_P (FNDECL)				\
+   && DECL_OVERLOADED_OPERATOR_P (FNDECL)			\
+   && DECL_OVERLOADED_OPERATOR_IS (FNDECL, CALL_EXPR)		\
    && LAMBDA_TYPE_P (CP_DECL_CONTEXT (FNDECL)))
 
 enum cp_lambda_default_capture_mode_type {
@@ -1662,12 +1650,22 @@ struct cxx_int_tree_map_hasher : ggc_ptr_hash<cxx_int_tree_map>
   static bool equal (cxx_int_tree_map *, cxx_int_tree_map *);
 };
 
-struct named_label_entry;
+struct named_label_entry; /* Defined in decl.c.  */
 
-struct named_label_hasher : ggc_ptr_hash<named_label_entry>
+struct named_label_hash : ggc_remove <named_label_entry *>
 {
-  static hashval_t hash (named_label_entry *);
-  static bool equal (named_label_entry *, named_label_entry *);
+  typedef named_label_entry *value_type;
+  typedef tree compare_type; /* An identifier.  */
+
+  inline static hashval_t hash (value_type);
+  inline static bool equal (const value_type, compare_type);
+
+  inline static void mark_empty (value_type &p) {p = NULL;}
+  inline static bool is_empty (value_type p) {return !p;}
+
+  /* Nothing is deletable.  Everything is insertable.  */
+  inline static bool is_deleted (value_type) { return false; }
+  inline static void mark_deleted (value_type) { gcc_unreachable (); }
 };
 
 /* Global state pertinent to the current function.  */
@@ -1696,7 +1694,8 @@ struct GTY(()) language_function {
 
   BOOL_BITFIELD invalid_constexpr : 1;
 
-  hash_table<named_label_hasher> *x_named_labels;
+  hash_table<named_label_hash> *x_named_labels;
+
   cp_binding_level *bindings;
   vec<tree, va_gc> *x_local_names;
   /* Tracking possibly infinite loops.  This is a vec<tree> only because
@@ -2801,22 +2800,23 @@ struct GTY(()) lang_decl {
 #define SET_VAR_HAD_UNKNOWN_BOUND(NODE) \
   (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (NODE))->u.base.unknown_bound_p = true)
 
-/* Set the overloaded operator code for NODE to CODE.  */
-#define SET_OVERLOADED_OPERATOR_CODE(NODE, CODE) \
-  (LANG_DECL_FN_CHECK (NODE)->operator_code = (CODE))
-
-/* If NODE is an overloaded operator, then this returns the TREE_CODE
-   associated with the overloaded operator.  If NODE is not an
-   overloaded operator, ERROR_MARK is returned.  Since the numerical
-   value of ERROR_MARK is zero, this macro can be used as a predicate
-   to test whether or not NODE is an overloaded operator.  */
+/* True iff decl NODE is for an overloaded operator.  */
 #define DECL_OVERLOADED_OPERATOR_P(NODE)		\
-  (IDENTIFIER_ANY_OP_P (DECL_NAME (NODE))		\
-   ? LANG_DECL_FN_CHECK (NODE)->operator_code : ERROR_MARK)
+  IDENTIFIER_ANY_OP_P (DECL_NAME (NODE))
 
 /* Nonzero if NODE is an assignment operator (including += and such).  */
-#define DECL_ASSIGNMENT_OPERATOR_P(NODE) \
+#define DECL_ASSIGNMENT_OPERATOR_P(NODE)		 \
   IDENTIFIER_ASSIGN_OP_P (DECL_NAME (NODE))
+
+/* NODE is a function_decl for an overloaded operator.  Return its
+   operator code.   */
+#define DECL_OVERLOADED_OPERATOR_CODE(NODE)			\
+  (LANG_DECL_FN_CHECK (NODE)->operator_code)
+
+/* DECL is an overloaded operator.  Test whether it is for TREE_CODE
+   (a literal constant).  */
+#define DECL_OVERLOADED_OPERATOR_IS(DECL, CODE)			\
+  (DECL_OVERLOADED_OPERATOR_CODE (DECL) == CODE)
 
 /* For FUNCTION_DECLs: nonzero means that this function is a
    constructor or a destructor with an extra in-charge parameter to
@@ -3455,7 +3455,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* Extracts the type or expression pattern from a TYPE_PACK_EXPANSION or
    EXPR_PACK_EXPANSION.  */
 #define PACK_EXPANSION_PATTERN(NODE)                            \
-  (TREE_CODE (NODE) == TYPE_PACK_EXPANSION? TREE_TYPE (NODE)    \
+  (TREE_CODE (NODE) == TYPE_PACK_EXPANSION ? TREE_TYPE (NODE)    \
    : TREE_OPERAND (NODE, 0))
 
 /* Sets the type or expression pattern for a TYPE_PACK_EXPANSION or
@@ -5474,23 +5474,37 @@ enum auto_deduction_context
 
 extern void init_reswords (void);
 
-typedef struct GTY(()) operator_name_info_t {
+/* Various flags for the overloaded operator information.  */
+enum ovl_op_flags
+  {
+    OVL_OP_FLAG_NONE = 0,
+    OVL_OP_FLAG_UNARY = 1,
+    OVL_OP_FLAG_BINARY = 2,
+    OVL_OP_FLAG_ALLOC = 4,  	/* operator new or delete  */
+    OVL_OP_FLAG_DELETE = 1,	/* operator delete  */
+    OVL_OP_FLAG_VEC = 2		/* vector new or delete  */
+  };
+
+struct GTY(()) ovl_op_info_t {
   /* The IDENTIFIER_NODE for the operator.  */
   tree identifier;
   /* The name of the operator.  */
   const char *name;
   /* The mangled name of the operator.  */
   const char *mangled_name;
-  /* The arity of the operator.  */
-  int arity;
-} operator_name_info_t;
+  /* The tree code.  */
+  enum tree_code tree_code : 16;
+  /* The ovl_op_flags of the operator */
+  unsigned flags : 8;
+};
 
-/* A mapping from tree codes to operator name information.  */
-extern GTY(()) operator_name_info_t operator_name_info
-  [(int) MAX_TREE_CODES];
-/* Similar, but for assignment operators.  */
-extern GTY(()) operator_name_info_t assignment_operator_name_info
-  [(int) MAX_TREE_CODES];
+/* Overloaded operator info indexed by ass_op_p & tree_code.  */
+extern GTY(()) ovl_op_info_t ovl_op_info[2][MAX_TREE_CODES];
+
+/* Given an ass_op_p boolean and a tree code, return a pointer to its
+   overloaded operator info.  */
+#define OVL_OP_INFO(IS_ASS_P, TREE_CODE)			\
+  (&ovl_op_info[(IS_ASS_P) != 0][(TREE_CODE)])
 
 /* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
    constants.  */

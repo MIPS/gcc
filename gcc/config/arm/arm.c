@@ -9430,6 +9430,9 @@ arm_rtx_costs_internal (rtx x, enum rtx_code code, enum rtx_code outer_code,
 		   + rtx_cost (XEXP (x, 0), mode, code, 0, speed_p));
 	  if (speed_p)
 	    *cost += 2 * extra_cost->alu.shift;
+	  /* Slightly disparage left shift by 1 at so we prefer adddi3.  */
+	  if (code == ASHIFT && XEXP (x, 1) == CONST1_RTX (SImode))
+	    *cost += 1;
 	  return true;
 	}
       else if (mode == SImode)
@@ -30391,6 +30394,8 @@ arm_const_not_ok_for_debug_p (rtx p)
   tree decl_op0 = NULL;
   tree decl_op1 = NULL;
 
+  if (GET_CODE (p) == UNSPEC)
+    return true;
   if (GET_CODE (p) == MINUS)
     {
       if (GET_CODE (XEXP (p, 1)) == SYMBOL_REF)
