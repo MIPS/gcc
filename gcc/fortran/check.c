@@ -3566,7 +3566,7 @@ gfc_check_move_alloc (gfc_expr *from, gfc_expr *to)
       of reflection reveals that this can only occur for derived types
       with recursive allocatable components.  */
   if (to->expr_type == EXPR_VARIABLE && from->expr_type == EXPR_VARIABLE
-      && !strcmp (to->symtree->n.sym->name, from->symtree->n.sym->name))
+      && to->symtree->n.sym->name == from->symtree->n.sym->name)
     {
       gfc_ref *to_ref, *from_ref;
       to_ref = to->ref;

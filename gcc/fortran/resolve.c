@@ -149,7 +149,7 @@ check_proc_interface (gfc_symbol *ifc, locus *where)
       /* For generic interfaces, check if there is
 	 a specific procedure with the same name.  */
       gfc_interface *gen = ifc->generic;
-      while (gen && strcmp (gen->sym->name, ifc->name) != 0)
+      while (gen && gen->sym->name != ifc->name)
 	gen = gen->next;
       if (!gen)
 	{
@@ -310,7 +310,7 @@ resolve_formal_arglist (gfc_symbol *proc)
 	       && !resolve_procedure_interface (sym))
 	return;
 
-      if (strcmp (proc->name, sym->name) == 0)
+      if (proc->name == sym->name)
         {
           gfc_error ("Self-referential argument "
                      "%qs at %L is not allowed", sym->name,
@@ -573,7 +573,7 @@ resolve_contained_fntype (gfc_symbol *sym, gfc_namespace *ns)
       && sym->ns->parent
       && sym->ns->parent->proc_name
       && sym->ns->parent->proc_name->attr.flavor == FL_PROCEDURE
-      && !strcmp (sym->name, sym->ns->parent->proc_name->name))
+      && sym->name == sym->ns->parent->proc_name->name)
     gfc_error ("Contained procedure %qs at %L has the same name as its "
 	       "encompassing procedure", sym->name, &sym->declared_at);
 
@@ -1015,8 +1015,8 @@ resolve_common_blocks (gfc_symtree *common_root)
 	  && gsym->type == GSYM_COMMON
 	  && ((common_root->n.common->binding_label
 	       && (!gsym->binding_label
-		   || strcmp (common_root->n.common->binding_label,
-			      gsym->binding_label) != 0))
+		   || common_root->n.common->binding_label !=
+			      gsym->binding_label))
 	      || (!common_root->n.common->binding_label
 		  && gsym->binding_label)))
 	{
@@ -1650,7 +1650,7 @@ count_specific_procs (gfc_expr *e)
   sym = e->symtree->n.sym;
 
   for (p = sym->generic; p; p = p->next)
-    if (strcmp (sym->name, p->sym->name) == 0)
+    if (sym->name == p->sym->name)
       {
 	e->symtree = gfc_find_symtree (p->sym->ns->sym_root,
 				       sym->name);
@@ -2337,15 +2337,14 @@ not_entry_self_reference  (gfc_symbol *sym, gfc_namespace *gsym_ns)
 
       for (; entry; entry = entry->next)
 	{
-	  if (strcmp (sym->name, entry->sym->name) == 0)
+	  if (sym->name == entry->sym->name)
 	    {
-	      if (strcmp (gsym_ns->proc_name->name,
-			  sym->ns->proc_name->name) == 0)
+	      if (gsym_ns->proc_name->name == sym->ns->proc_name->name)
 		return false;
 
 	      if (sym->ns->parent
-		  && strcmp (gsym_ns->proc_name->name,
-			     sym->ns->parent->proc_name->name) == 0)
+		  && gsym_ns->proc_name->name ==
+			     sym->ns->parent->proc_name->name)
 		return false;
 	    }
 	}
@@ -2550,7 +2549,7 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
 	{
 	  gfc_entry_list *entry;
 	  for (entry = gsym->ns->entries; entry; entry = entry->next)
-	    if (strcmp (entry->sym->name, sym->name) == 0)
+	    if (entry->sym->name == sym->name)
 	      {
 		def_sym = entry->sym;
 		break;
@@ -8920,8 +8919,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	      if (c->ts.type == d->ts.type
 		  && ((c->ts.type == BT_DERIVED
 		       && c->ts.u.derived && d->ts.u.derived
-		       && !strcmp (c->ts.u.derived->name,
-				   d->ts.u.derived->name))
+		       && c->ts.u.derived->name == d->ts.u.derived->name)
 		      || c->ts.type == BT_UNKNOWN
 		      || (!(c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
 			  && c->ts.kind == d->ts.kind)))
@@ -11741,7 +11739,7 @@ gfc_verify_binding_labels (gfc_symbol *sym)
     }
   else if (sym->attr.flavor == FL_VARIABLE && module
 	   && (strcmp (module, gsym->mod_name) != 0
-	       || strcmp (sym->name, gsym->sym_name) != 0))
+	       || sym->name != gsym->sym_name))
     {
       /* This can only happen if the variable is defined in a module - if it
 	 isn't the same module, reject it.  */
@@ -11756,7 +11754,7 @@ gfc_verify_binding_labels (gfc_symbol *sym)
 	       || (gsym->defined && sym->attr.if_source != IFSRC_IFBODY))
 	   && sym != gsym->ns->proc_name
 	   && (module != gsym->mod_name
-	       || strcmp (gsym->sym_name, sym->name) != 0
+	       || gsym->sym_name != sym->name
 	       || (module && strcmp (module, gsym->mod_name) != 0)))
     {
       /* Print an error if the procedure is defined multiple times; we have to
@@ -11903,7 +11901,7 @@ build_init_assign (gfc_symbol *sym, gfc_expr *init)
     {
       ns = ns->contained;
       for (;ns; ns = ns->sibling)
-	if (strcmp (ns->proc_name->name, sym->name) == 0)
+	if (ns->proc_name->name == sym->name)
 	  break;
     }
 
@@ -12396,7 +12394,7 @@ compare_fsyms (gfc_symbol *sym)
   if (sym == fsym)
     return;
 
-  if (strcmp (sym->name, fsym->name) == 0)
+  if (sym->name == fsym->name)
     {
       if (!gfc_check_dummy_characteristics (fsym, sym, true, errmsg, 200))
 	gfc_error ("%s at %L", errmsg, &fsym->declared_at);
@@ -13390,7 +13388,7 @@ resolve_typebound_procedure (gfc_symtree* stree)
 	  stree->n.tb->pass_arg_num = 1;
 	  for (i = dummy_args; i; i = i->next)
 	    {
-	      if (!strcmp (i->sym->name, stree->n.tb->pass_arg))
+	      if (i->sym->name == stree->n.tb->pass_arg)
 		{
 		  me_arg = i->sym;
 		  break;
@@ -13820,7 +13818,7 @@ resolve_component (gfc_component *c, gfc_symbol *sym)
           c->tb->pass_arg_num = 1;
           for (i = c->ts.interface->formal; i; i = i->next)
             {
-              if (!strcmp (i->sym->name, c->tb->pass_arg))
+              if (i->sym->name == c->tb->pass_arg)
                 {
                   me_arg = i->sym;
                   break;
@@ -13922,7 +13920,7 @@ resolve_component (gfc_component *c, gfc_symbol *sym)
       && ((sym->attr.is_class
            && c == sym->components->ts.u.derived->components)
           || (!sym->attr.is_class && c == sym->components))
-      && strcmp (super_type->name, c->name) == 0)
+      && super_type->name == c->name)
     c->attr.access = super_type->attr.access;
 
   /* If this type is an extension, see if this component has the same name

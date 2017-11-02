@@ -2297,7 +2297,7 @@ gfc_match_oacc_routine (void)
 	    {
 	      sym = st->n.sym;
 	      if (gfc_current_ns->proc_name != NULL
-		  && strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
+		  && sym->name == gfc_current_ns->proc_name->name)
 	        sym = NULL;
 	    }
 
@@ -2628,8 +2628,7 @@ match_udr_expr (gfc_symtree *omp_sym1, gfc_symtree *omp_sym2)
   if (m != MATCH_YES)
     return false;
 
-  if (strcmp (sname, omp_sym1->name) == 0
-      || strcmp (sname, omp_sym2->name) == 0)
+  if (sname == omp_sym1->name || sname == omp_sym2->name)
     return false;
 
   gfc_current_ns = ns->parent;
@@ -2763,7 +2762,7 @@ gfc_omp_udr_find (gfc_symtree *st, gfc_typespec *ts)
       {
 	if (omp_udr->ts.type == BT_DERIVED || omp_udr->ts.type == BT_CLASS)
 	  {
-	    if (strcmp (omp_udr->ts.u.derived->name, ts->u.derived->name) == 0)
+	    if (omp_udr->ts.u.derived->name == ts->u.derived->name)
 	      return omp_udr;
 	  }
 	else if (omp_udr->ts.kind == ts->kind)

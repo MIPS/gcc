@@ -3689,7 +3689,7 @@ mio_namelist (gfc_symbol *sym)
       if (sym->attr.flavor == FL_NAMELIST)
 	{
 	  check_name = find_use_name (sym->name, false);
-	  if (check_name && strcmp (check_name, sym->name) != 0)
+	  if (check_name && check_name != sym->name)
 	    gfc_error ("Namelist %s cannot be renamed by USE "
 		       "association to %s", sym->name, check_name);
 	}
@@ -4379,16 +4379,15 @@ static gfc_symtree *
 find_symbol (gfc_symtree *st, const char *name,
 	     const char *module, int generic)
 {
-  int c;
   gfc_symtree *retval, *s;
 
   if (st == NULL || st->n.sym == NULL)
     return NULL;
 
-  c = strcmp (name, st->n.sym->name);
-  if (c == 0 && st->n.sym->module
-	     && strcmp (module, st->n.sym->module) == 0
-	     && !check_unique_name (st->name))
+  if (name == st->n.sym->name
+      && st->n.sym->module
+      && module == st->n.sym->module
+      && !check_unique_name (st->name))
     {
       s = gfc_find_symtree (gfc_current_ns->sym_root, name);
 
@@ -4804,7 +4803,7 @@ load_omp_udrs (void)
 	{
 	  require_atom (ATOM_INTEGER);
 	  pointer_info *p = get_integer (atom_int);
-	  if (strcmp (p->u.rsym.module, udr->omp_out->module))
+	  if (p->u.rsym.module != udr->omp_out->module)
 	    {
 	      gfc_error ("Ambiguous !$OMP DECLARE REDUCTION from "
 			 "module %s at %L",
@@ -5203,9 +5202,9 @@ read_module (void)
 	    {
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
 	      if (st != NULL
-		  && strcmp (st->n.sym->name, info->u.rsym.true_name) == 0
+		  && st->n.sym->name == info->u.rsym.true_name
 		  && st->n.sym->module != NULL
-		  && strcmp (st->n.sym->module, info->u.rsym.module) == 0)
+		  && st->n.sym->module == info->u.rsym.module)
 		{
 		  info->u.rsym.symtree = st;
 		  info->u.rsym.sym = st->n.sym;

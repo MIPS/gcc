@@ -411,7 +411,7 @@ gfc_match_end_interface (void)
       /* Comparing the symbol node names is OK because only use-associated
 	 symbols can be renamed.  */
       if (type != current_interface.type
-	  || strcmp (current_interface.uop->name, name) != 0)
+	  || current_interface.uop->name != name)
 	{
 	  gfc_error ("Expecting %<END INTERFACE OPERATOR (.%s.)%> at %C",
 		     current_interface.uop->name);
@@ -423,7 +423,7 @@ gfc_match_end_interface (void)
     case INTERFACE_DTIO:
     case INTERFACE_GENERIC:
       if (type != current_interface.type
-	  || strcmp (current_interface.sym->name, name) != 0)
+	  || current_interface.sym->name != name)
 	{
 	  gfc_error ("Expecting %<END INTERFACE %s%> at %C",
 		     current_interface.sym->name);
@@ -476,7 +476,7 @@ compare_components (gfc_component *cmp1, gfc_component *cmp2,
 {
   /* Compare names, but not for anonymous components such as UNION or MAP.  */
   if (!is_anonymous_component (cmp1) && !is_anonymous_component (cmp2)
-      && strcmp (cmp1->name, cmp2->name) != 0)
+      && cmp1->name != cmp2->name)
     return false;
 
   if (cmp1->attr.access != cmp2->attr.access)
@@ -624,9 +624,9 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
      nonnull, then they are equal.  */
-  if (strcmp (derived1->name, derived2->name) == 0
+  if (derived1->name == derived2->name
       && derived1->module != NULL && derived2->module != NULL
-      && strcmp (derived1->module, derived2->module) == 0)
+      && derived1->module == derived2->module)
     return true;
 
   /* Compare type via the rules of the standard.  Both types must have
@@ -636,7 +636,7 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
 
   /* Compare names, but not for anonymous types such as UNION or MAP.  */
   if (!is_anonymous_dt (derived1) && !is_anonymous_dt (derived2)
-      && strcmp (derived1->name, derived2->name) != 0)
+      && derived1->name != derived2->name)
     return false;
 
   if (derived1->component_access == ACCESS_PRIVATE
@@ -839,7 +839,7 @@ static gfc_symbol *
 find_keyword_arg (const char *name, gfc_formal_arglist *f)
 {
   for (; f; f = f->next)
-    if (strcmp (f->sym->name, name) == 0)
+    if (f->sym->name == name)
       return f->sym;
 
   return NULL;
@@ -1140,7 +1140,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
 	continue;
 
       if (arg[i].sym && (arg[i].sym->attr.optional
-			 || (p1 && strcmp (arg[i].sym->name, p1) == 0)))
+			 || (p1 && arg[i].sym->name == p1)))
 	continue;		/* Skip OPTIONAL and PASS arguments.  */
 
       arg[i].flag = k;
@@ -1149,7 +1149,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
       for (j = i + 1; j < n1; j++)
 	if ((arg[j].sym == NULL
 	     || !(arg[j].sym->attr.optional
-		  || (p1 && strcmp (arg[j].sym->name, p1) == 0)))
+		  || (p1 && arg[j].sym->name == p1)))
 	    && (compare_type_rank_if (arg[i].sym, arg[j].sym)
 	        || compare_type_rank_if (arg[j].sym, arg[i].sym)))
 	  arg[j].flag = k;
@@ -1176,7 +1176,7 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
       ac2 = 0;
 
       for (f = f2; f; f = f->next)
-	if ((!p2 || strcmp (f->sym->name, p2) != 0)
+	if ((!p2 || f->sym->name != p2)
 	    && (compare_type_rank_if (arg[i].sym, f->sym)
 		|| compare_type_rank_if (f->sym, arg[i].sym)))
 	  ac2++;
@@ -1249,9 +1249,9 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
       if (f1->sym->attr.optional)
 	goto next;
 
-      if (p1 && strcmp (f1->sym->name, p1) == 0)
+      if (p1 && f1->sym->name == p1)
 	f1 = f1->next;
-      if (f2 && p2 && strcmp (f2->sym->name, p2) == 0)
+      if (f2 && p2 && f2->sym->name == p2)
 	f2 = f2->next;
 
       if (f2 != NULL && (compare_type_rank (f1->sym, f2->sym)
@@ -1265,7 +1265,7 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
 	 the current non-match.  */
       for (g = f1; g; g = g->next)
 	{
-	  if (g->sym->attr.optional || (p1 && strcmp (g->sym->name, p1) == 0))
+	  if (g->sym->attr.optional || (p1 && g->sym->name == p1))
 	    continue;
 
 	  sym = find_keyword_arg (g->sym->name, f2_save);
@@ -2914,7 +2914,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	    {
 	      if (f->sym == NULL)
 		continue;
-	      if (strcmp (f->sym->name, a->name) == 0)
+	      if (f->sym->name == a->name)
 		break;
 	    }
 
@@ -4644,14 +4644,14 @@ gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
        proc_formal = proc_formal->next, old_formal = old_formal->next)
     {
       if (proc->n.tb->pass_arg
-	  && !strcmp (proc->n.tb->pass_arg, proc_formal->sym->name))
+	  && proc->n.tb->pass_arg == proc_formal->sym->name)
 	proc_pass_arg = argpos;
       if (old->n.tb->pass_arg
-	  && !strcmp (old->n.tb->pass_arg, old_formal->sym->name))
+	  && old->n.tb->pass_arg == old_formal->sym->name)
 	old_pass_arg = argpos;
 
       /* Check that the names correspond.  */
-      if (strcmp (proc_formal->sym->name, old_formal->sym->name))
+      if (proc_formal->sym->name != old_formal->sym->name)
 	{
 	  gfc_error ("Dummy argument %qs of %qs at %L should be named %qs as"
 		     " to match the corresponding argument of the overridden"

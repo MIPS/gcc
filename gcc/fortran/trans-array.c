@@ -9098,7 +9098,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      gfc_actual_arglist *param = pdt_param_list;
 	      gfc_init_se (&tse, NULL);
 	      for (; param; param = param->next)
-		if (param->name && !strcmp (c->name, param->name))
+		if (param->name && c->name == param->name)
 		  c_expr = param->expr;
 
 	      if (!c_expr)
@@ -9340,7 +9340,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
 	      gfc_init_se (&tse, NULL);
 	      for (; param; param = param->next)
-		if (!strcmp (c->name, param->name)
+		if (c->name == param->name
 		    && param->spec_type == SPEC_EXPLICIT)
 		  c_expr = param->expr;
 

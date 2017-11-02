@@ -2018,7 +2018,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 
 	  for (; entry; entry = entry->next)
 	    {
-	      if (strcmp (gsym->name, entry->sym->name) == 0)
+	      if (gsym->name == entry->sym->name)
 		{
 	          sym->backend_decl = entry->sym->backend_decl;
 		  break;
@@ -2811,9 +2811,10 @@ build_entry_thunks (gfc_namespace * ns, bool global)
 
 	  for (field = TYPE_FIELDS (TREE_TYPE (union_decl));
 	       field; field = DECL_CHAIN (field))
-	    if (strcmp (IDENTIFIER_POINTER (DECL_NAME (field)),
-		thunk_sym->result->name) == 0)
+	    if (IDENTIFIER_POINTER (DECL_NAME (field)) ==
+		thunk_sym->result->name)
 	      break;
+
 	  gcc_assert (field != NULL_TREE);
 	  tmp = fold_build3_loc (input_location, COMPONENT_REF,
 				 TREE_TYPE (field), union_decl, field,
@@ -2936,7 +2937,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       tree t = NULL, var;
       if (this_fake_result_decl != NULL)
 	for (t = TREE_CHAIN (this_fake_result_decl); t; t = TREE_CHAIN (t))
-	  if (strcmp (IDENTIFIER_POINTER (TREE_PURPOSE (t)), sym->name) == 0)
+	  if (IDENTIFIER_POINTER (TREE_PURPOSE (t)) == sym->name)
 	    break;
       if (t)
 	return TREE_VALUE (t);
@@ -2953,10 +2954,8 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
 
 	  for (field = TYPE_FIELDS (TREE_TYPE (decl));
 	       field; field = DECL_CHAIN (field))
-	    if (strcmp (IDENTIFIER_POINTER (DECL_NAME (field)),
-		sym->name) == 0)
+	    if (IDENTIFIER_POINTER (DECL_NAME (field)) == sym->name)
 	      break;
-
 	  gcc_assert (field != NULL_TREE);
 	  decl = fold_build3_loc (input_location, COMPONENT_REF,
 				  TREE_TYPE (field), decl, field, NULL_TREE);
@@ -4825,7 +4824,7 @@ struct module_hasher : ggc_ptr_hash<module_htab_entry>
   static bool
   equal (module_htab_entry *a, const char *b)
   {
-    return !strcmp (a->name, b);
+    return a->name == b;
   }
 };
 
@@ -4848,7 +4847,7 @@ module_decl_hasher::equal (tree t1, const char *x2)
   const_tree n1 = DECL_NAME (t1);
   if (n1 == NULL_TREE)
     n1 = TYPE_NAME (TREE_TYPE (t1));
-  return strcmp (IDENTIFIER_POINTER (n1), x2) == 0;
+  return IDENTIFIER_POINTER (n1) == x2;
 }
 
 struct module_htab_entry *
@@ -5102,7 +5101,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      if (st->n.sym->backend_decl
 		  && DECL_P (st->n.sym->backend_decl)
 		  && st->n.sym->module
-		  && strcmp (st->n.sym->module, use_stmt->module_name) == 0)
+		  && st->n.sym->module == use_stmt->module_name)
 		{
 		  gcc_assert (DECL_EXTERNAL (entry->namespace_decl)
 			      || !VAR_P (st->n.sym->backend_decl));
@@ -5115,8 +5114,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      else if (st->n.sym->attr.flavor == FL_NAMELIST
 		       && st->n.sym->attr.use_only
 		       && st->n.sym->module
-		       && strcmp (st->n.sym->module, use_stmt->module_name)
-			  == 0)
+		       && st->n.sym->module == use_stmt->module_name)
 		{
 		  decl = generate_namelist_decl (st->n.sym);
 		  DECL_CONTEXT (decl) = entry->namespace_decl;
@@ -5644,7 +5642,7 @@ generate_local_decl (gfc_symbol * sym)
 	      gfc_entry_list *el;
 
 	      for (el = sym->ns->entries; el; el=el->next)
-		if (strcmp(sym->name, el->sym->name) == 0)
+		if (sym->name == el->sym->name)
 		  enter = true;
 
 	      if (!enter)

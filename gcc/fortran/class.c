@@ -2736,7 +2736,7 @@ find_intrinsic_vtab (gfc_typespec *ts)
 		  contained = ns->contained;
 		  for (; contained; contained = contained->sibling)
 		    if (contained->proc_name
-			&& strcmp (name, contained->proc_name->name) == 0)
+			&& name == contained->proc_name->name)
 		      {
 			copy = contained->proc_name;
 			goto got_char_copy;

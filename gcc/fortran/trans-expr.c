@@ -2490,7 +2490,7 @@ conv_parent_component_references (gfc_se * se, gfc_ref * ref)
 
   /* Return if the component is in the parent type.  */
   for (cmp = dt->components; cmp; cmp = cmp->next)
-    if (strcmp (c->name, cmp->name) == 0)
+    if (c->name == cmp->name)
       return;
 
   /* Build a gfc_ref to recursively call gfc_conv_component_ref.  */
@@ -5199,8 +5199,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			   && fsym->ts.type == BT_CLASS
 			   && !CLASS_DATA (fsym)->as
 			   && !CLASS_DATA (e)->as
-			   && strcmp (fsym->ts.u.derived->name,
-				      e->ts.u.derived->name))
+			   && fsym->ts.u.derived->name != e->ts.u.derived->name)
 		    {
 		      type = gfc_typenode_for_spec (&fsym->ts);
 		      var = gfc_create_var (type, fsym->name);
@@ -6015,7 +6014,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    {
 	      formal = gfc_sym_get_dummy_args (sym->ns->proc_name);
 	      for (; formal; formal = formal->next)
-		if (strcmp (formal->sym->name, sym->name) == 0)
+		if (formal->sym->name == sym->name)
 		  cl.backend_decl = formal->sym->ts.u.cl->backend_decl;
 	    }
 	  len = cl.backend_decl;

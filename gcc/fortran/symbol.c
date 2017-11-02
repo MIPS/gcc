@@ -2239,7 +2239,7 @@ gfc_add_component (gfc_symbol *sym, const char *name,
 
   for (p = sym->components; p; p = p->next)
     {
-      if (strcmp (p->name, name) == 0)
+      if (p->name == name)
 	{
 	  gfc_error ("Component %qs at %C already declared at %L",
 		     name, &p->loc);
@@ -2504,7 +2504,8 @@ gfc_find_component (gfc_symbol *sym, const char *name,
               return check;
             }
         }
-      else if (strcmp (p->name, name) == 0)
+      else if (p->name == name || strcmp (p->name, name) == 0)
+	/* FORNOW: name could be "_data" et al so fallback to strcmp.  */
         break;
 
       continue;
@@ -2902,7 +2903,6 @@ compare_symtree (void *_st1, void *_st2)
 
   st1 = (gfc_symtree *) _st1;
   st2 = (gfc_symtree *) _st2;
-
   return strcmp (st1->name, st2->name);
 }
 

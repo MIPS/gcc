@@ -1118,7 +1118,7 @@ find_special (const char *name, gfc_symbol **result, bool allow_subroutine)
   if (s->sym == NULL)
     goto end;		  /* Nameless interface.  */
 
-  if (strcmp (name, s->sym->name) == 0)
+  if (name == s->sym->name)
     {
       *result = s->sym;
       return 0;
@@ -2273,7 +2273,7 @@ check_function_name (const char *name)
       gfc_symbol *block = gfc_current_block ();
       if (block && block->result && block->result != block
 	  && strcmp (block->result->name, "ppr@") != 0
-	  && strcmp (block->name, name) == 0)
+	  && block->name == name)
 	{
 	  gfc_error ("RESULT variable %qs at %L prohibits FUNCTION name %qs at %C "
 		     "from appearing in a specification statement",
@@ -2583,11 +2583,11 @@ variable_decl (int elem)
   /* Procedure pointer as function result.  */
   if (gfc_current_state () == COMP_FUNCTION
       && strcmp ("ppr@", gfc_current_block ()->name) == 0
-      && strcmp (name, gfc_current_block ()->ns->proc_name->name) == 0)
+      && name == gfc_current_block ()->ns->proc_name->name)
     name = gfc_get_string ("%s", "ppr@");
 
   if (gfc_current_state () == COMP_FUNCTION
-      && strcmp (name, gfc_current_block ()->name) == 0
+      && name == gfc_current_block ()->name
       && gfc_current_block ()->result
       && strcmp ("ppr@", gfc_current_block ()->result->name) == 0)
     name = gfc_get_string ("%s", "ppr@");
@@ -3359,7 +3359,7 @@ insert_parameter_exprs (gfc_expr* e, gfc_symbol* sym ATTRIBUTE_UNUSED,
       || (*f != 0 && e->symtree->n.sym->attr.pdt_len))
     {
       for (param = type_param_spec_list; param; param = param->next)
-	if (strcmp (e->symtree->n.sym->name, param->name) == 0)
+	if (e->symtree->n.sym->name == param->name)
 	  break;
 
       if (param)
@@ -3483,7 +3483,7 @@ gfc_get_pdt_instance (gfc_actual_arglist *param_list, gfc_symbol **sym,
 	  actual_param = param_list;
 	  for (;actual_param; actual_param = actual_param->next)
 	    if (actual_param->name
-	        && strcmp (actual_param->name, param->name) == 0)
+	        && actual_param->name == param->name)
 	      break;
 	  if (actual_param && actual_param->spec_type == SPEC_EXPLICIT)
 	    kind_expr = gfc_copy_expr (actual_param->expr);
@@ -6215,7 +6215,7 @@ gfc_match_formal_arglist (gfc_symbol *progname, int st_flag,
 	 so check for it explicitly.  After the statement is accepted,
 	 the name is checked for especially in gfc_get_symbol().  */
       if (gfc_new_block != NULL && sym != NULL && !typeparam
-	  && strcmp (sym->name, gfc_new_block->name) == 0)
+	  && sym->name == gfc_new_block->name)
 	{
 	  gfc_error ("Name %qs at %C is the name of the procedure",
 		     sym->name);
@@ -6290,7 +6290,7 @@ ok:
 	      || (p->next == NULL && q->next != NULL))
 	    arg_count_mismatch = true;
 	  else if ((p->sym == NULL && q->sym == NULL)
-		    || strcmp (p->sym->name, q->sym->name) == 0)
+		    || p->sym->name == q->sym->name)
 	    continue;
 	  else
 	    gfc_error_now ("Mismatch in MODULE PROCEDURE formal "
@@ -6336,7 +6336,7 @@ match_result (gfc_symbol *function, gfc_symbol **result)
       return MATCH_ERROR;
     }
 
-  if (strcmp (function->name, name) == 0)
+  if (function->name == name)
     {
       gfc_error ("RESULT variable at %C must be different than function name");
       return MATCH_ERROR;
@@ -6451,12 +6451,12 @@ add_hidden_procptr_result (gfc_symbol *sym)
 
   /* First usage case: PROCEDURE and EXTERNAL statements.  */
   case1 = gfc_current_state () == COMP_FUNCTION && gfc_current_block ()
-	  && strcmp (gfc_current_block ()->name, sym->name) == 0
+	  && gfc_current_block ()->name == sym->name
 	  && sym->attr.external;
   /* Second usage case: INTERFACE statements.  */
   case2 = gfc_current_state () == COMP_INTERFACE && gfc_state_stack->previous
 	  && gfc_state_stack->previous->state == COMP_FUNCTION
-	  && strcmp (gfc_state_stack->previous->sym->name, sym->name) == 0;
+	  && gfc_state_stack->previous->sym->name == sym->name;
 
   if (case1 || case2)
     {
@@ -7148,7 +7148,7 @@ add_global_entry (const char *name, const char *binding_label, bool sub,
   /* Don't add the symbol multiple times.  */
   if (binding_label
       && (!gfc_notification_std (GFC_STD_F2008)
-	  || strcmp (name, binding_label) != 0))
+	  || name != binding_label))
     {
       s = gfc_get_gsymbol (binding_label);
 
@@ -8044,9 +8044,8 @@ gfc_match_end (gfc_statement *st)
   /* We have to pick out the declared submodule name from the composite
      required by F2008:11.2.3 para 2, which ends in the declared name.  */
   if (state == COMP_SUBMODULE)
-    block_name = strchr (block_name, '.') + 1;
-
-  if (strcmp (name, block_name) != 0 && strcmp (block_name, "ppr@") != 0)
+    block_name = gfc_get_string ("%s", strchr (block_name, '.') + 1);
+  if (name != block_name && strcmp (block_name, "ppr@") != 0)
     {
       gfc_error ("Expected label %qs for %s statement at %C", block_name,
 		 gfc_ascii_statement (*st));
@@ -8054,7 +8053,7 @@ gfc_match_end (gfc_statement *st)
     }
   /* Procedure pointer as function result.  */
   else if (strcmp (block_name, "ppr@") == 0
-	   && strcmp (name, gfc_current_block ()->ns->proc_name->name) != 0)
+	   && name != gfc_current_block ()->ns->proc_name->name)
     {
       gfc_error ("Expected label %qs for %s statement at %C",
 		 gfc_current_block ()->ns->proc_name->name,

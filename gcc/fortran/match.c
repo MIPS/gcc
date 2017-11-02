@@ -1719,7 +1719,7 @@ gfc_match_else (void)
       return MATCH_ERROR;
     }
 
-  if (strcmp (name, gfc_current_block ()->name) != 0)
+  if (name != gfc_current_block ()->name)
     {
       gfc_error ("Label %qs at %C doesn't match IF label %qs",
 		 name, gfc_current_block ()->name);
@@ -1754,7 +1754,7 @@ gfc_match_elseif (void)
       goto cleanup;
     }
 
-  if (strcmp (name, gfc_current_block ()->name) != 0)
+  if (name != gfc_current_block ()->name)
     {
       gfc_error ("Label %qs at %C doesn't match IF label %qs",
 		 name, gfc_current_block ()->name);
@@ -5917,7 +5917,7 @@ match_case_eos (void)
   if (m != MATCH_YES)
     return m;
 
-  if (strcmp (name, gfc_current_block ()->name) != 0)
+  if (name != gfc_current_block ()->name)
     {
       gfc_error ("Expected block name %qs of SELECT construct at %C",
 		 gfc_current_block ()->name);
@@ -6643,7 +6643,7 @@ gfc_match_elsewhere (void)
       if (gfc_match_eos () != MATCH_YES)
 	goto syntax;
 
-      if (strcmp (name, gfc_current_block ()->name) != 0)
+      if (name != gfc_current_block ()->name)
 	{
 	  gfc_error ("Label %qs at %C doesn't match WHERE label %qs",
 		     name, gfc_current_block ()->name);

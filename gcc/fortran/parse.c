@@ -3569,8 +3569,7 @@ decl:
 
   if (current_interface.ns
 	&& current_interface.ns->proc_name
-	&& strcmp (current_interface.ns->proc_name->name,
-		   prog_unit->name) == 0)
+	&& current_interface.ns->proc_name->name == prog_unit->name)
     gfc_error ("INTERFACE procedure %qs at %L has the same name as the "
 	       "enclosing procedure", prog_unit->name,
 	       &current_interface.ns->proc_name->declared_at);
@@ -3617,7 +3616,7 @@ match_deferred_characteristics (gfc_typespec * ts)
      function name, there is an error.  */
   if (m == MATCH_YES
       && gfc_match ("function% %n", &name) == MATCH_YES
-      && strcmp (name, gfc_current_block ()->name) == 0)
+      && name == gfc_current_block ()->name)
     {
       gfc_current_block ()->declared_at = gfc_current_locus;
       gfc_commit_symbols ();
@@ -5224,8 +5223,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
     case EXEC_OMP_END_CRITICAL:
       if (((cp->ext.omp_clauses == NULL) ^ (new_st.ext.omp_name == NULL))
 	  || (new_st.ext.omp_name != NULL
-	      && strcmp (cp->ext.omp_clauses->critical_name,
-			 new_st.ext.omp_name) != 0))
+	      && cp->ext.omp_clauses->critical_name != new_st.ext.omp_name))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
       new_st.ext.omp_name = NULL;
@@ -5998,7 +5996,7 @@ add_global_procedure (bool sub)
   /* Don't add the symbol multiple times.  */
   if (gfc_new_block->binding_label
       && (!gfc_notification_std (GFC_STD_F2008)
-          || strcmp (gfc_new_block->name, gfc_new_block->binding_label) != 0))
+          || gfc_new_block->name != gfc_new_block->binding_label))
     {
       s = gfc_get_gsymbol (gfc_new_block->binding_label);
 
