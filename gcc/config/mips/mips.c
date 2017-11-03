@@ -9008,6 +9008,24 @@ mips_load_call_address (enum mips_call_type type, rtx dest, rtx addr)
 	  return false;
 	}
 
+      if (symbol_type == SYMBOL_LAPC48_FUNC_NANO)
+	{
+	  emit_insn (gen_rtx_SET (dest, addr));
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_PCREL_SPLIT_NANO)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
+      if (symbol_type == SYMBOL_ABSOLUTE)
+	{
+	  mips_emit_move (dest, addr);
+	  return false;
+	}
+
       if (!(type == MIPS_CALL_SIBCALL)
 	  && !mips_symbol_binds_local_p (addr))
 	{
