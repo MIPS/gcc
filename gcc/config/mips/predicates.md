@@ -476,14 +476,6 @@
       if (mips_use_pic_fn_addr_reg_p (op))
 	return false;
 
-      /* Prevent generation of balc for the large model with -mno-pcrel.  */
-      if (GET_CODE (op) == SYMBOL_REF
-	  && (SYMBOL_REF_LARGE_PIC_P (op)
-	      || (nano_pic_model_var == NANO_PIC_LARGE
-		  && !(SYMBOL_REF_AUTO_PIC_P (op))
-	          && !(SYMBOL_REF_MEDIUM_PIC_P (op)))))
-	return false;
-
       /* If -mlong-calls or if this function has an explicit long_call
 	 attribute, we must use register addressing.  The
 	 SYMBOL_FLAG_LONG_CALL bit is set by mips_encode_section_info.  */

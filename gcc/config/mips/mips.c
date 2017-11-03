@@ -3208,8 +3208,7 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	    }
 	  else
 	    {
-	      if (symbol_pic_model != NANO_PIC_LARGE
-		  && !SYMBOL_REF_LONG_CALL_P (x))
+	      if (!SYMBOL_REF_LONG_CALL_P (x))
 		return SYMBOL_ABSOLUTE;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF
 		       && TARGET_PCREL)
@@ -11570,6 +11569,13 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
       /* Encode whether the symbol is short or long.  */
       if ((TARGET_LONG_CALLS && !mips_near_type_p (type))
 	  || mips_far_type_p (type))
+	SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
+
+      if (!mips_near_type_p (type)
+	  && ((nano_pic_model_var == NANO_PIC_LARGE
+	       && !(SYMBOL_REF_AUTO_PIC_P (symbol)
+		    || SYMBOL_REF_MEDIUM_PIC_P (symbol)))
+	      || SYMBOL_REF_LARGE_PIC_P (symbol)))
 	SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
