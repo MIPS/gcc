@@ -160,14 +160,14 @@
 ;; "ad" for "(A)DDVL/ADDPL (D)irect".
 (define_constraint "Uad"
   "@internal
- A constraint that matches a VG-based constant that can be added by
- a single ADDVL or ADDPL."
+   A constraint that matches a VG-based constant that can be added by
+   a single ADDVL or ADDPL."
  (match_operand 0 "aarch64_sve_addvl_addpl_immediate"))
 
 (define_constraint "Ua1"
   "@internal
- A constraint that matches a VG-based constant that can be added by
- using multiple instructions, with one temporary register."
+   A constraint that matches a VG-based constant that can be added by
+   using multiple instructions, with one temporary register."
  (match_operand 0 "aarch64_split_add_offset_immediate"))
 
 (define_memory_constraint "Q"
@@ -297,7 +297,7 @@
 
 (define_constraint "Dm"
   "@internal
- A constraint that matches a vector of immediate minus one."
+   A constraint that matches a vector of immediate minus one."
  (and (match_code "const,const_vector")
       (match_test "op == CONST1_RTX (GET_MODE (op))")))
 
@@ -322,65 +322,65 @@
 
 (define_constraint "Dv"
   "@internal
- A constraint that matches a VG-based constant that can be loaded by
- a single CNT[BHWD]."
+   A constraint that matches a VG-based constant that can be loaded by
+   a single CNT[BHWD]."
  (match_operand 0 "aarch64_sve_cnt_immediate"))
 
 (define_constraint "vsa"
   "@internal
- A constraint that matches a signed immediate operand valid for SVE
- arithmetic instructions."
+   A constraint that matches an immediate operand valid for SVE
+   arithmetic instructions."
  (match_operand 0 "aarch64_sve_arith_immediate"))
 
 (define_constraint "vsc"
   "@internal
- A constraint that matches a signed immediate operand valid for SVE
- CMP instructions."
+   A constraint that matches a signed immediate operand valid for SVE
+   CMP instructions."
  (match_operand 0 "aarch64_sve_cmp_vsc_immediate"))
 
 (define_constraint "vsd"
   "@internal
- A constraint that matches an unsigned immediate operand valid for SVE
- CMP instructions."
+   A constraint that matches an unsigned immediate operand valid for SVE
+   CMP instructions."
  (match_operand 0 "aarch64_sve_cmp_vsd_immediate"))
 
 (define_constraint "vsi"
   "@internal
- A constraint that matches a vector count operand valid for SVE INC and
- DEC instructions."
+   A constraint that matches a vector count operand valid for SVE INC and
+   DEC instructions."
  (match_operand 0 "aarch64_sve_inc_dec_immediate"))
 
 (define_constraint "vsn"
   "@internal
- A constraint that matches a signed immediate operand whose negative
- is valid for SVE SUB instructions."
+   A constraint that matches an immediate operand whose negative
+   is valid for SVE SUB instructions."
  (match_operand 0 "aarch64_sve_sub_arith_immediate"))
 
 (define_constraint "vsl"
   "@internal
- A constraint that matches an immediate operand valid for SVE logical
- operations."
+   A constraint that matches an immediate operand valid for SVE logical
+   operations."
  (match_operand 0 "aarch64_sve_logical_immediate"))
 
 (define_constraint "vsm"
   "@internal
- A constraint that matches an immediate operand valid for SVE MUL
- operations."
+   A constraint that matches an immediate operand valid for SVE MUL
+   operations."
  (match_operand 0 "aarch64_sve_mul_immediate"))
 
 (define_constraint "vfa"
   "@internal
- A constraint that matches an immediate operand valid for SVE FADD
- and FSUB operations."
+   A constraint that matches an immediate operand valid for SVE FADD
+   and FSUB operations."
  (match_operand 0 "aarch64_sve_float_arith_immediate"))
 
 (define_constraint "vfm"
   "@internal
- A constraint that matches an imediate operand valid for SVE FMUL
- operations."
+   A constraint that matches an imediate operand valid for SVE FMUL
+   operations."
  (match_operand 0 "aarch64_sve_float_mul_immediate"))
 
 (define_constraint "vfn"
   "@internal
- A constraint that matches the negative of vfa"
+   A constraint that matches the negative of vfa"
  (match_operand 0 "aarch64_sve_float_arith_with_sub_immediate"))

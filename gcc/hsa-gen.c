@@ -4231,12 +4231,11 @@ gen_hsa_alloca (gcall *call, hsa_bb *hbb)
 
   built_in_function fn = DECL_FUNCTION_CODE (gimple_call_fndecl (call));
 
-  gcc_checking_assert (fn == BUILT_IN_ALLOCA
-		       || fn == BUILT_IN_ALLOCA_WITH_ALIGN);
+  gcc_checking_assert (ALLOCA_FUNCTION_CODE_P (fn));
 
   unsigned bit_alignment = 0;
 
-  if (fn == BUILT_IN_ALLOCA_WITH_ALIGN)
+  if (fn != BUILT_IN_ALLOCA)
     {
       tree alignment_tree = gimple_call_arg (call, 1);
       if (TREE_CODE (alignment_tree) != INTEGER_CST)
@@ -5716,8 +5715,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
 	break;
       }
-    case BUILT_IN_ALLOCA:
-    case BUILT_IN_ALLOCA_WITH_ALIGN:
+    CASE_BUILT_IN_ALLOCA:
       {
 	gen_hsa_alloca (call, hbb);
 	break;
@@ -6331,7 +6329,7 @@ convert_switch_statements (void)
 	    tree label = gimple_switch_label (s, i);
 	    basic_block label_bb = label_to_block_fn (func, CASE_LABEL (label));
 	    edge e = find_edge (bb, label_bb);
-	    edge_counts.safe_push (e->count);
+	    edge_counts.safe_push (e->count ());
 	    edge_probabilities.safe_push (e->probability);
 	    gphi_iterator phi_gsi;
 
@@ -6421,7 +6419,6 @@ convert_switch_statements (void)
 	    if (prob_sum.initialized_p ())
 	      new_edge->probability = edge_probabilities[i] / prob_sum;
 
-	    new_edge->count = edge_counts[i];
 	    new_edges.safe_push (new_edge);
 
 	    if (i < labels - 1)
@@ -6437,10 +6434,7 @@ convert_switch_statements (void)
 
 		edge next_edge = make_edge (cur_bb, next_bb, EDGE_FALSE_VALUE);
 		next_edge->probability = new_edge->probability.invert ();
-		next_edge->count = edge_counts[0]
-		  + sum_slice <profile_count> (edge_counts, i, labels,
-					       profile_count::zero ());
-		next_bb->frequency = EDGE_FREQUENCY (next_edge);
+		next_bb->count = next_edge->count ();
 		cur_bb = next_bb;
 	      }
 	    else /* Link last IF statement and default label
@@ -6448,7 +6442,6 @@ convert_switch_statements (void)
 	      {
 		edge e = make_edge (cur_bb, default_label_bb, EDGE_FALSE_VALUE);
 		e->probability = new_edge->probability.invert ();
-		e->count = edge_counts[0];
 		new_edges.safe_insert (0, e);
 	      }
 	  }

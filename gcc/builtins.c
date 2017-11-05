@@ -1208,6 +1208,7 @@ void
 expand_builtin_update_setjmp_buf (rtx buf_addr)
 {
   machine_mode sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
+  buf_addr = convert_memory_address (Pmode, buf_addr);
   rtx stack_save
     = gen_rtx_MEM (sa_mode,
 		   memory_address
@@ -1615,7 +1616,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
      arguments to the outgoing arguments address.  We can pass TRUE
      as the 4th argument because we just saved the stack pointer
      and will restore it right after the call.  */
-  allocate_dynamic_stack_space (argsize, 0, BIGGEST_ALIGNMENT, true);
+  allocate_dynamic_stack_space (argsize, 0, BIGGEST_ALIGNMENT, -1, true);
 
   /* Set DRAP flag to true, even though allocate_dynamic_stack_space
      may have already set current_function_calls_alloca to true.
@@ -1822,14 +1823,26 @@ expand_builtin_classify_type (tree exp)
   return GEN_INT (no_type_class);
 }
 
-/* This helper macro, meant to be used in mathfn_built_in below,
-   determines which among a set of three builtin math functions is
-   appropriate for a given type mode.  The `F' and `L' cases are
-   automatically generated from the `double' case.  */
+/* This helper macro, meant to be used in mathfn_built_in below, determines
+   which among a set of builtin math functions is appropriate for a given type
+   mode.  The `F' (float) and `L' (long double) are automatically generated
+   from the 'double' case.  If a function supports the _Float<N> and _Float<N>X
+   types, there are additional types that are considered with 'F32', 'F64',
+   'F128', etc. suffixes.  */
 #define CASE_MATHFN(MATHFN) \
   CASE_CFN_##MATHFN: \
   fcode = BUILT_IN_##MATHFN; fcodef = BUILT_IN_##MATHFN##F ; \
   fcodel = BUILT_IN_##MATHFN##L ; break;
+/* Similar to the above, but also add support for the _Float<N> and _Float<N>X
+   types.  */
+#define CASE_MATHFN_FLOATN(MATHFN) \
+  CASE_CFN_##MATHFN: \
+  fcode = BUILT_IN_##MATHFN; fcodef = BUILT_IN_##MATHFN##F ; \
+  fcodel = BUILT_IN_##MATHFN##L ; fcodef16 = BUILT_IN_##MATHFN##F16 ; \
+  fcodef32 = BUILT_IN_##MATHFN##F32; fcodef64 = BUILT_IN_##MATHFN##F64 ; \
+  fcodef128 = BUILT_IN_##MATHFN##F128 ; fcodef32x = BUILT_IN_##MATHFN##F32X ; \
+  fcodef64x = BUILT_IN_##MATHFN##F64X ; fcodef128x = BUILT_IN_##MATHFN##F128X ;\
+  break;
 /* Similar to above, but appends _R after any F/L suffix.  */
 #define CASE_MATHFN_REENT(MATHFN) \
   case CFN_BUILT_IN_##MATHFN##_R: \
@@ -1846,7 +1859,15 @@ expand_builtin_classify_type (tree exp)
 static built_in_function
 mathfn_built_in_2 (tree type, combined_fn fn)
 {
+  tree mtype;
   built_in_function fcode, fcodef, fcodel;
+  built_in_function fcodef16 = END_BUILTINS;
+  built_in_function fcodef32 = END_BUILTINS;
+  built_in_function fcodef64 = END_BUILTINS;
+  built_in_function fcodef128 = END_BUILTINS;
+  built_in_function fcodef32x = END_BUILTINS;
+  built_in_function fcodef64x = END_BUILTINS;
+  built_in_function fcodef128x = END_BUILTINS;
 
   switch (fn)
     {
@@ -1860,7 +1881,7 @@ mathfn_built_in_2 (tree type, combined_fn fn)
     CASE_MATHFN (CBRT)
     CASE_MATHFN (CEIL)
     CASE_MATHFN (CEXPI)
-    CASE_MATHFN (COPYSIGN)
+    CASE_MATHFN_FLOATN (COPYSIGN)
     CASE_MATHFN (COS)
     CASE_MATHFN (COSH)
     CASE_MATHFN (DREM)
@@ -1873,9 +1894,9 @@ mathfn_built_in_2 (tree type, combined_fn fn)
     CASE_MATHFN (FABS)
     CASE_MATHFN (FDIM)
     CASE_MATHFN (FLOOR)
-    CASE_MATHFN (FMA)
-    CASE_MATHFN (FMAX)
-    CASE_MATHFN (FMIN)
+    CASE_MATHFN_FLOATN (FMA)
+    CASE_MATHFN_FLOATN (FMAX)
+    CASE_MATHFN_FLOATN (FMIN)
     CASE_MATHFN (FMOD)
     CASE_MATHFN (FREXP)
     CASE_MATHFN (GAMMA)
@@ -1929,7 +1950,7 @@ mathfn_built_in_2 (tree type, combined_fn fn)
     CASE_MATHFN (SIN)
     CASE_MATHFN (SINCOS)
     CASE_MATHFN (SINH)
-    CASE_MATHFN (SQRT)
+    CASE_MATHFN_FLOATN (SQRT)
     CASE_MATHFN (TAN)
     CASE_MATHFN (TANH)
     CASE_MATHFN (TGAMMA)
@@ -1942,12 +1963,27 @@ mathfn_built_in_2 (tree type, combined_fn fn)
       return END_BUILTINS;
     }
 
-  if (TYPE_MAIN_VARIANT (type) == double_type_node)
+  mtype = TYPE_MAIN_VARIANT (type);
+  if (mtype == double_type_node)
     return fcode;
-  else if (TYPE_MAIN_VARIANT (type) == float_type_node)
+  else if (mtype == float_type_node)
     return fcodef;
-  else if (TYPE_MAIN_VARIANT (type) == long_double_type_node)
+  else if (mtype == long_double_type_node)
     return fcodel;
+  else if (mtype == float16_type_node)
+    return fcodef16;
+  else if (mtype == float32_type_node)
+    return fcodef32;
+  else if (mtype == float64_type_node)
+    return fcodef64;
+  else if (mtype == float128_type_node)
+    return fcodef128;
+  else if (mtype == float32x_type_node)
+    return fcodef32x;
+  else if (mtype == float64x_type_node)
+    return fcodef64x;
+  else if (mtype == float128x_type_node)
+    return fcodef128x;
   else
     return END_BUILTINS;
 }
@@ -2001,6 +2037,9 @@ associated_internal_fn (tree fndecl)
     {
 #define DEF_INTERNAL_FLT_FN(NAME, FLAGS, OPTAB, TYPE) \
     CASE_FLT_FN (BUILT_IN_##NAME): return IFN_##NAME;
+#define DEF_INTERNAL_FLT_FLOATN_FN(NAME, FLAGS, OPTAB, TYPE) \
+    CASE_FLT_FN (BUILT_IN_##NAME): return IFN_##NAME; \
+    CASE_FLT_FN_FLOATN_NX (BUILT_IN_##NAME): return IFN_##NAME;
 #define DEF_INTERNAL_INT_FN(NAME, FLAGS, OPTAB, TYPE) \
     CASE_INT_FN (BUILT_IN_##NAME): return IFN_##NAME;
 #include "internal-fn.def"
@@ -2074,6 +2113,7 @@ expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
   switch (DECL_FUNCTION_CODE (fndecl))
     {
     CASE_FLT_FN (BUILT_IN_FMA):
+    CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMA):
       builtin_optab = fma_optab; break;
     default:
       gcc_unreachable ();
@@ -4864,19 +4904,22 @@ expand_builtin_alloca (tree exp)
   rtx result;
   unsigned int align;
   tree fndecl = get_callee_fndecl (exp);
-  bool alloca_with_align = (DECL_FUNCTION_CODE (fndecl)
-			    == BUILT_IN_ALLOCA_WITH_ALIGN);
+  HOST_WIDE_INT max_size;
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   bool alloca_for_var = CALL_ALLOCA_FOR_VAR_P (exp);
   bool valid_arglist
-    = (alloca_with_align
-       ? validate_arglist (exp, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE)
-       : validate_arglist (exp, INTEGER_TYPE, VOID_TYPE));
+    = (fcode == BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX
+       ? validate_arglist (exp, INTEGER_TYPE, INTEGER_TYPE, INTEGER_TYPE,
+			   VOID_TYPE)
+       : fcode == BUILT_IN_ALLOCA_WITH_ALIGN
+	 ? validate_arglist (exp, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE)
+	 : validate_arglist (exp, INTEGER_TYPE, VOID_TYPE));
 
   if (!valid_arglist)
     return NULL_RTX;
 
-  if ((alloca_with_align && !warn_vla_limit)
-      || (!alloca_with_align && !warn_alloca_limit))
+  if ((alloca_for_var && !warn_vla_limit)
+      || (!alloca_for_var && !warn_alloca_limit))
     {
       /* -Walloca-larger-than and -Wvla-larger-than settings override
 	 the more general -Walloc-size-larger-than so unless either of
@@ -4891,13 +4934,19 @@ expand_builtin_alloca (tree exp)
   op0 = expand_normal (CALL_EXPR_ARG (exp, 0));
 
   /* Compute the alignment.  */
-  align = (alloca_with_align
-	   ? TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 1))
-	   : BIGGEST_ALIGNMENT);
+  align = (fcode == BUILT_IN_ALLOCA
+	   ? BIGGEST_ALIGNMENT
+	   : TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 1)));
+
+  /* Compute the maximum size.  */
+  max_size = (fcode == BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX
+              ? TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 2))
+              : -1);
 
   /* Allocate the desired space.  If the allocation stems from the declaration
      of a variable-sized object, it cannot accumulate.  */
-  result = allocate_dynamic_stack_space (op0, 0, align, alloca_for_var);
+  result
+    = allocate_dynamic_stack_space (op0, 0, align, max_size, alloca_for_var);
   result = convert_memory_address (ptr_mode, result);
 
   return result;
@@ -6491,8 +6540,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       && fcode != BUILT_IN_EXECLE
       && fcode != BUILT_IN_EXECVP
       && fcode != BUILT_IN_EXECVE
-      && fcode != BUILT_IN_ALLOCA
-      && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
+      && !ALLOCA_FUNCTION_CODE_P (fcode)
       && fcode != BUILT_IN_FREE
       && fcode != BUILT_IN_CHKP_SET_PTR_BOUNDS
       && fcode != BUILT_IN_CHKP_INIT_PTR_BOUNDS
@@ -6568,6 +6616,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       break;
 
     CASE_FLT_FN (BUILT_IN_FMA):
+    CASE_FLT_FN_FLOATN_NX (BUILT_IN_FMA):
       target = expand_builtin_mathfn_ternary (exp, target, subtarget);
       if (target)
 	return target;
@@ -6721,8 +6770,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       else
 	return XEXP (DECL_RTL (DECL_RESULT (current_function_decl)), 0);
 
-    case BUILT_IN_ALLOCA:
-    case BUILT_IN_ALLOCA_WITH_ALIGN:
+    CASE_BUILT_IN_ALLOCA:
       target = expand_builtin_alloca (exp);
       if (target)
 	return target;
@@ -10416,8 +10464,7 @@ is_inexpensive_builtin (tree decl)
     switch (DECL_FUNCTION_CODE (decl))
       {
       case BUILT_IN_ABS:
-      case BUILT_IN_ALLOCA:
-      case BUILT_IN_ALLOCA_WITH_ALIGN:
+      CASE_BUILT_IN_ALLOCA:
       case BUILT_IN_BSWAP16:
       case BUILT_IN_BSWAP32:
       case BUILT_IN_BSWAP64:

@@ -1443,6 +1443,7 @@ ssa_uniform_vector_p (tree op)
 {
   if (TREE_CODE (op) == VECTOR_CST
       || TREE_CODE (op) == VEC_DUPLICATE_CST
+      || TREE_CODE (op) == VEC_DUPLICATE_EXPR
       || TREE_CODE (op) == CONSTRUCTOR)
     return uniform_vector_p (op);
   if (TREE_CODE (op) == SSA_NAME)

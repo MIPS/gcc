@@ -444,7 +444,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if no arguments are actually popped.  If the target does not have
      "call" or "call_value" insns, then we must use the popping versions
      even if the call has no arguments to pop.  */
-  else if (maybe_nonzero (n_popped)
+  else if (may_ne (n_popped, 0)
 	   || !(valreg
 		? targetm.have_call_value ()
 		: targetm.have_call ()))
@@ -523,7 +523,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
 
-  if (maybe_nonzero (n_popped))
+  if (may_ne (n_popped, 0))
     {
       if (!already_popped)
 	CALL_INSN_FUNCTION_USAGE (call_insn)
@@ -555,7 +555,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 If returning from the subroutine does pop the args, indicate that the
 	 stack pointer will be changed.  */
 
-      if (maybe_nonzero (rounded_stack_size))
+      if (may_ne (rounded_stack_size, 0))
 	{
 	  if (ecf_flags & ECF_NORETURN)
 	    /* Just pretend we did the pop.  */
@@ -578,7 +578,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 
      ??? It will be worthwhile to enable combine_stack_adjustments even for
      such machines.  */
-  else if (maybe_nonzero (n_popped))
+  else if (may_ne (n_popped, 0))
     anti_adjust_stack (gen_int_mode (n_popped, Pmode));
 }
 
@@ -644,16 +644,9 @@ special_function_p (const_tree fndecl, int flags)
 	flags |= ECF_RETURNS_TWICE;
     }
 
-  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-    switch (DECL_FUNCTION_CODE (fndecl))
-      {
-      case BUILT_IN_ALLOCA:
-      case BUILT_IN_ALLOCA_WITH_ALIGN:
-	flags |= ECF_MAY_BE_ALLOCA;
-	break;
-      default:
-	break;
-      }
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (fndecl)))
+    flags |= ECF_MAY_BE_ALLOCA;
 
   return flags;
 }
@@ -735,8 +728,7 @@ gimple_alloca_call_p (const gimple *stmt)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (fndecl))
       {
-      case BUILT_IN_ALLOCA:
-      case BUILT_IN_ALLOCA_WITH_ALIGN:
+      CASE_BUILT_IN_ALLOCA:
         return true;
       default:
 	break;
@@ -756,8 +748,7 @@ alloca_call_p (const_tree exp)
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (fndecl))
       {
-      case BUILT_IN_ALLOCA:
-      case BUILT_IN_ALLOCA_WITH_ALIGN:
+      CASE_BUILT_IN_ALLOCA:
         return true;
       default:
 	break;
@@ -1857,6 +1848,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  copy = allocate_dynamic_stack_space (size_rtx,
 						       TYPE_ALIGN (type),
 						       TYPE_ALIGN (type),
+						       max_int_size_in_bytes
+						       (type),
 						       true);
 		  copy = gen_rtx_MEM (BLKmode, copy);
 		  set_mem_attributes (copy, type, 1);
@@ -2186,7 +2179,7 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
 	      += int_size_in_bytes (TREE_TYPE (args[i].tree_value));
 	}
 
-      if (maybe_nonzero (args_size->constant)
+      if (may_ne (args_size->constant, 0)
 	  && may_ge (copy_to_evaluate_size * 2, args_size->constant))
 	must_preallocate = 1;
     }
@@ -2465,7 +2458,7 @@ mem_might_overlap_already_clobbered_arg_p (rtx addr, poly_uint64 size)
   else if (!poly_int_rtx_p (val, &i))
     return true;
 
-  if (known_zero (size))
+  if (must_eq (size, 0U))
     return false;
 
   if (STACK_GROWS_DOWNWARD)
@@ -2839,7 +2832,7 @@ shift_return_value (machine_mode mode, bool left_p, rtx value)
   machine_mode value_mode = GET_MODE (value);
   poly_int64 shift = GET_MODE_BITSIZE (value_mode) - GET_MODE_BITSIZE (mode);
 
-  if (known_zero (shift))
+  if (must_eq (shift, 0))
     return false;
 
   /* Use ashr rather than lshr for right shifts.  This is for the benefit
@@ -3386,7 +3379,7 @@ expand_call (tree exp, rtx target, int ignore)
 			      structure_value_addr))
       && (args_size.var
 	  || (!ACCUMULATE_OUTGOING_ARGS
-	      && maybe_nonzero (args_size.constant))))
+	      && may_ne (args_size.constant, 0))))
     structure_value_addr = copy_to_reg (structure_value_addr);
 
   /* Tail calls can make things harder to debug, and we've traditionally
@@ -3503,9 +3496,9 @@ expand_call (tree exp, rtx target, int ignore)
 	 Also do the adjustments before a throwing call, otherwise
 	 exception handling can fail; PR 19225. */
       if (may_ge (pending_stack_adjust, 32)
-	  || (maybe_nonzero (pending_stack_adjust)
+	  || (may_ne (pending_stack_adjust, 0)
 	      && (flags & ECF_MAY_BE_ALLOCA))
-	  || (maybe_nonzero (pending_stack_adjust)
+	  || (may_ne (pending_stack_adjust, 0)
 	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
@@ -3686,7 +3679,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 		  /* Special case this because overhead of `push_block' in
 		     this case is non-trivial.  */
-		  if (known_zero (needed))
+		  if (must_eq (needed, 0))
 		    argblock = virtual_outgoing_args_rtx;
 		  else
 		    {
@@ -3745,8 +3738,8 @@ expand_call (tree exp, rtx target, int ignore)
 	      /* We can pass TRUE as the 4th argument because we just
 		 saved the stack pointer and will restore it right after
 		 the call.  */
-	      allocate_dynamic_stack_space (push_size, 0,
-					    BIGGEST_ALIGNMENT, true);
+	      allocate_dynamic_stack_space (push_size, 0, BIGGEST_ALIGNMENT,
+					    -1, true);
 	    }
 
 	  /* If argument evaluation might modify the stack pointer,
@@ -3781,7 +3774,7 @@ expand_call (tree exp, rtx target, int ignore)
 	{
 	  /* When the stack adjustment is pending, we get better code
 	     by combining the adjustments.  */
-	  if (maybe_nonzero (pending_stack_adjust)
+	  if (may_ne (pending_stack_adjust, 0)
 	      && ! inhibit_defer_pop
 	      && (combine_pending_stack_adjustment_and_call
 		  (&pending_stack_adjust,

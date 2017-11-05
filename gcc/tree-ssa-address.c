@@ -693,7 +693,7 @@ addr_to_parts (tree type, aff_tree *addr, tree iv_cand, tree base_hint,
   parts->index = NULL_TREE;
   parts->step = NULL_TREE;
 
-  if (maybe_nonzero (addr->offset))
+  if (may_ne (addr->offset, 0))
     parts->offset = wide_int_to_tree (sizetype, addr->offset);
   else
     parts->offset = NULL_TREE;
@@ -747,18 +747,15 @@ gimplify_mem_ref_parts (gimple_stmt_iterator *gsi, struct mem_address *parts)
 }
 
 /* Return true if the STEP in PARTS gives a valid BASE + INDEX * STEP
-   address for type TYPE and if some other component (the symbol or
-   offset) is making it appear invalid.  */
+   address for type TYPE and if the offset is making it appear invalid.  */
 
 static bool
 keep_index_p (tree type, mem_address parts)
 {
   if (!parts.base)
-    parts.base = parts.symbol;
-  if (!parts.base)
     return false;
 
-  parts.symbol = NULL_TREE;
+  gcc_assert (!parts.symbol);
   parts.offset = NULL_TREE;
   return valid_mem_ref_p (TYPE_MODE (type), TYPE_ADDR_SPACE (type), &parts);
 }
@@ -826,9 +823,8 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
      into:
        index' = index << step;
        [... + index' + ,,,].  */
-  if (parts.step
-      && !integer_onep (parts.step)
-      && !keep_index_p (type, parts))
+  bool scaled_p = (parts.step && !integer_onep (parts.step));
+  if (scaled_p && !keep_index_p (type, parts))
     {
       gcc_assert (parts.index);
       parts.index = force_gimple_operand_gsi (gsi,
@@ -840,6 +836,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
       mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
+      scaled_p = false;
     }
 
   /* Add offset to invariant part by transforming address expression:
@@ -853,7 +850,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
      depending on which one is invariant.  */
   if (parts.offset
       && !integer_zerop (parts.offset)
-      && (!var_in_base || !parts.step || integer_onep (parts.step)))
+      && (!var_in_base || !scaled_p))
     {
       tree old_base = unshare_expr (parts.base);
       tree old_index = unshare_expr (parts.index);
@@ -903,7 +900,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
   /* Transform [base + index + ...] into:
        base' = base + index;
        [base' + ...].  */
-  if (parts.index && (!parts.step || integer_onep (parts.step)))
+  if (parts.index && !scaled_p)
     {
       tmp = parts.index;
       parts.index = NULL_TREE;

@@ -1785,26 +1785,26 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	{
 	  /* This is not C++ with its implicit typedef.  */
 	  richloc.add_fixit_insert_before ("struct ");
-	  error_at_rich_loc (&richloc,
-			     "unknown type name %qE;"
-			     " use %<struct%> keyword to refer to the type",
-			     name);
+	  error_at (&richloc,
+		    "unknown type name %qE;"
+		    " use %<struct%> keyword to refer to the type",
+		    name);
 	}
       else if (tag_exists_p (UNION_TYPE, name))
 	{
 	  richloc.add_fixit_insert_before ("union ");
-	  error_at_rich_loc (&richloc,
-			     "unknown type name %qE;"
-			     " use %<union%> keyword to refer to the type",
-			     name);
+	  error_at (&richloc,
+		    "unknown type name %qE;"
+		    " use %<union%> keyword to refer to the type",
+		    name);
 	}
       else if (tag_exists_p (ENUMERAL_TYPE, name))
 	{
 	  richloc.add_fixit_insert_before ("enum ");
-	  error_at_rich_loc (&richloc,
-			     "unknown type name %qE;"
-			     " use %<enum%> keyword to refer to the type",
-			     name);
+	  error_at (&richloc,
+		    "unknown type name %qE;"
+		    " use %<enum%> keyword to refer to the type",
+		    name);
 	}
       else
 	{
@@ -1812,9 +1812,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  if (hint)
 	    {
 	      richloc.add_fixit_replace (hint);
-	      error_at_rich_loc (&richloc,
-				 "unknown type name %qE; did you mean %qs?",
-				 name, hint);
+	      error_at (&richloc,
+			"unknown type name %qE; did you mean %qs?",
+			name, hint);
 	    }
 	  else
 	    error_at (here, "unknown type name %qE", name);
@@ -2241,11 +2241,37 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	}
       if (!start_function (specs, declarator, all_prefix_attrs))
 	{
-	  /* This can appear in many cases looking nothing like a
-	     function definition, so we don't give a more specific
-	     error suggesting there was one.  */
-	  c_parser_error (parser, "expected %<=%>, %<,%>, %<;%>, %<asm%> "
-			  "or %<__attribute__%>");
+	  /* At this point we've consumed:
+	       declaration-specifiers declarator
+	     and the next token isn't CPP_EQ, CPP_COMMA, CPP_SEMICOLON,
+	     RID_ASM, RID_ATTRIBUTE, or RID_IN,
+	     but the
+	       declaration-specifiers declarator
+	     aren't grokkable as a function definition, so we have
+	     an error.  */
+	  gcc_assert (!c_parser_next_token_is (parser, CPP_SEMICOLON));
+	  if (c_parser_next_token_starts_declspecs (parser))
+	    {
+	      /* If we have
+		   declaration-specifiers declarator decl-specs
+		 then assume we have a missing semicolon, which would
+		 give us:
+		   declaration-specifiers declarator  decl-specs
+						    ^
+						    ;
+		   <~~~~~~~~~ declaration ~~~~~~~~~~>
+		 Use c_parser_require to get an error with a fix-it hint.  */
+	      c_parser_require (parser, CPP_SEMICOLON, "expected %<;%>");
+	      parser->error = false;
+	    }
+	  else
+	    {
+	      /* This can appear in many cases looking nothing like a
+		 function definition, so we don't give a more specific
+		 error suggesting there was one.  */
+	      c_parser_error (parser, "expected %<=%>, %<,%>, %<;%>, %<asm%> "
+			      "or %<__attribute__%>");
+	    }
 	  if (nested)
 	    c_pop_function_context ();
 	  break;
@@ -3142,9 +3168,8 @@ c_parser_struct_or_union_specifier (c_parser *parser)
 		= c_parser_peek_token (parser)->location;
 	      gcc_rich_location richloc (semicolon_loc);
 	      richloc.add_fixit_remove ();
-	      pedwarn_at_rich_loc
-		(&richloc, OPT_Wpedantic,
-		 "extra semicolon in struct or union specified");
+	      pedwarn (&richloc, OPT_Wpedantic,
+		       "extra semicolon in struct or union specified");
 	      c_parser_consume_token (parser);
 	      continue;
 	    }
@@ -4047,9 +4072,9 @@ c_parser_parameter_declaration (c_parser *parser, tree attrs)
 	    {
 	      gcc_rich_location richloc (token->location);
 	      richloc.add_fixit_replace (hint);
-	      error_at_rich_loc (&richloc,
-				 "unknown type name %qE; did you mean %qs?",
-				 token->value, hint);
+	      error_at (&richloc,
+			"unknown type name %qE; did you mean %qs?",
+			token->value, hint);
 	    }
 	  else
 	    error_at (token->location, "unknown type name %qE", token->value);

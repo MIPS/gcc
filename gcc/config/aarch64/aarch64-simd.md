@@ -80,7 +80,7 @@
           )))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "dup\\t%0.<Vtype>, %1.<Vetype>[%2]";
   }
   [(set_attr "type" "neon_dup<q>")]
@@ -95,13 +95,13 @@
           )))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "dup\\t%0.<Vtype>, %1.<Vetype>[%2]";
   }
   [(set_attr "type" "neon_dup<q>")]
 )
 
-(define_insn "*aarch64_simd_mov<mode>"
+(define_insn "*aarch64_simd_mov<VD:mode>"
   [(set (match_operand:VD 0 "nonimmediate_operand"
 		"=w, m,  m,  w, ?r, ?w, ?r, w")
 	(match_operand:VD 1 "general_operand"
@@ -124,12 +124,12 @@
      default: gcc_unreachable ();
      }
 }
-  [(set_attr "type" "neon_load1_1reg<q>, neon_stp, neon_store1_1reg<q>,\
+  [(set_attr "type" "neon_load1_1reg<q>, store_8, neon_store1_1reg<q>,\
 		     neon_logic<q>, neon_to_gp<q>, f_mcr,\
 		     mov_reg, neon_move<q>")]
 )
 
-(define_insn "*aarch64_simd_mov<mode>"
+(define_insn "*aarch64_simd_mov<VQ:mode>"
   [(set (match_operand:VQ 0 "nonimmediate_operand"
 		"=w, Umq,  m,  w, ?r, ?w, ?r, w")
 	(match_operand:VQ 1 "general_operand"
@@ -158,8 +158,8 @@
 	gcc_unreachable ();
     }
 }
-  [(set_attr "type" "neon_load1_1reg<q>, neon_store1_1reg<q>,\
-		     neon_stp, neon_logic<q>, multiple, multiple,\
+  [(set_attr "type" "neon_load1_1reg<q>, store_16, neon_store1_1reg<q>,\
+		     neon_logic<q>, multiple, multiple,\
 		     multiple, neon_move<q>")
    (set_attr "length" "4,4,4,4,8,8,8,4")]
 )
@@ -391,6 +391,87 @@
 }
 )
 
+;; These instructions map to the __builtins for the Dot Product operations.
+(define_insn "aarch64_<sur>dot<vsi2qi>"
+  [(set (match_operand:VS 0 "register_operand" "=w")
+	(plus:VS (match_operand:VS 1 "register_operand" "0")
+		(unspec:VS [(match_operand:<VSI2QI> 2 "register_operand" "w")
+			    (match_operand:<VSI2QI> 3 "register_operand" "w")]
+		DOTPROD)))]
+  "TARGET_DOTPROD"
+  "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.<Vdottype>"
+  [(set_attr "type" "neon_dot")]
+)
+
+;; These expands map to the Dot Product optab the vectorizer checks for.
+;; The auto-vectorizer expects a dot product builtin that also does an
+;; accumulation into the provided register.
+;; Given the following pattern
+;;
+;; for (i=0; i<len; i++) {
+;;     c = a[i] * b[i];
+;;     r += c;
+;; }
+;; return result;
+;;
+;; This can be auto-vectorized to
+;; r  = a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
+;;
+;; given enough iterations.  However the vectorizer can keep unrolling the loop
+;; r += a[4]*b[4] + a[5]*b[5] + a[6]*b[6] + a[7]*b[7];
+;; r += a[8]*b[8] + a[9]*b[9] + a[10]*b[10] + a[11]*b[11];
+;; ...
+;;
+;; and so the vectorizer provides r, in which the result has to be accumulated.
+(define_expand "<sur>dot_prod<vsi2qi>"
+  [(set (match_operand:VS 0 "register_operand")
+	(plus:VS (unspec:VS [(match_operand:<VSI2QI> 1 "register_operand")
+			    (match_operand:<VSI2QI> 2 "register_operand")]
+		 DOTPROD)
+		(match_operand:VS 3 "register_operand")))]
+  "TARGET_DOTPROD"
+{
+  emit_insn (
+    gen_aarch64_<sur>dot<vsi2qi> (operands[3], operands[3], operands[1],
+				    operands[2]));
+  emit_insn (gen_rtx_SET (operands[0], operands[3]));
+  DONE;
+})
+
+;; These instructions map to the __builtins for the Dot Product
+;; indexed operations.
+(define_insn "aarch64_<sur>dot_lane<vsi2qi>"
+  [(set (match_operand:VS 0 "register_operand" "=w")
+	(plus:VS (match_operand:VS 1 "register_operand" "0")
+		(unspec:VS [(match_operand:<VSI2QI> 2 "register_operand" "w")
+			    (match_operand:V8QI 3 "register_operand" "<h_con>")
+			    (match_operand:SI 4 "immediate_operand" "i")]
+		DOTPROD)))]
+  "TARGET_DOTPROD"
+  {
+    operands[4]
+      = GEN_INT (ENDIAN_LANE_N (V8QImode, INTVAL (operands[4])));
+    return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
+  }
+  [(set_attr "type" "neon_dot")]
+)
+
+(define_insn "aarch64_<sur>dot_laneq<vsi2qi>"
+  [(set (match_operand:VS 0 "register_operand" "=w")
+	(plus:VS (match_operand:VS 1 "register_operand" "0")
+		(unspec:VS [(match_operand:<VSI2QI> 2 "register_operand" "w")
+			    (match_operand:V16QI 3 "register_operand" "<h_con>")
+			    (match_operand:SI 4 "immediate_operand" "i")]
+		DOTPROD)))]
+  "TARGET_DOTPROD"
+  {
+    operands[4]
+      = GEN_INT (ENDIAN_LANE_N (V16QImode, INTVAL (operands[4])));
+    return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
+  }
+  [(set_attr "type" "neon_dot")]
+)
+
 (define_expand "copysign<mode>3"
   [(match_operand:VHSDF 0 "register_operand")
    (match_operand:VHSDF 1 "register_operand")
@@ -419,7 +500,7 @@
       (match_operand:VMUL 3 "register_operand" "w")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "<f>mul\\t%0.<Vtype>, %3.<Vtype>, %1.<Vetype>[%2]";
   }
   [(set_attr "type" "neon<fp>_mul_<stype>_scalar<q>")]
@@ -435,7 +516,7 @@
       (match_operand:VMUL_CHANGE_NLANES 3 "register_operand" "w")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "<f>mul\\t%0.<Vtype>, %3.<Vtype>, %1.<Vetype>[%2]";
   }
   [(set_attr "type" "neon<fp>_mul_<Vetype>_scalar<q>")]
@@ -488,7 +569,7 @@
        (match_operand:DF 3 "register_operand" "w")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
     return "fmul\\t%0.2d, %3.2d, %1.d[%2]";
   }
   [(set_attr "type" "neon_fp_mul_d_scalar_q")]
@@ -567,9 +648,8 @@
       case 0:
 	return "and\t%0.<Vbtype>, %1.<Vbtype>, %2.<Vbtype>";
       case 1:
-	return (aarch64_output_simd_mov_immediate
-		(operands[2], GET_MODE_BITSIZE (<MODE>mode).to_constant (),
-		 AARCH64_CHECK_BIC));
+	return aarch64_output_simd_mov_immediate (operands[2], <bitsize>,
+						  AARCH64_CHECK_BIC);
       default:
 	gcc_unreachable ();
       }
@@ -589,9 +669,8 @@
       case 0:
 	return "orr\t%0.<Vbtype>, %1.<Vbtype>, %2.<Vbtype>";
       case 1:
-	return (aarch64_output_simd_mov_immediate
-		(operands[2], GET_MODE_BITSIZE (<MODE>mode).to_constant (),
-		 AARCH64_CHECK_ORR));
+	return aarch64_output_simd_mov_immediate (operands[2], <bitsize>,
+						  AARCH64_CHECK_ORR);
       default:
 	gcc_unreachable ();
       }
@@ -1073,7 +1152,7 @@
 	 (match_operand:VDQHS 4 "register_operand" "0")))]
  "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "mla\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
@@ -1091,7 +1170,7 @@
 	 (match_operand:VDQHS 4 "register_operand" "0")))]
  "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "mla\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
@@ -1131,7 +1210,7 @@
 	   (match_operand:VDQHS 3 "register_operand" "w"))))]
  "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "mls\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
@@ -1149,7 +1228,7 @@
 	   (match_operand:VDQHS 3 "register_operand" "w"))))]
  "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "mls\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_mla_<Vetype>_scalar<q>")]
@@ -1719,7 +1798,7 @@
       (match_operand:VDQF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "fmla\\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_fp_mla_<Vetype>_scalar<q>")]
@@ -1736,7 +1815,7 @@
       (match_operand:VDQSF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "fmla\\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_fp_mla_<Vetype>_scalar<q>")]
@@ -1764,7 +1843,7 @@
       (match_operand:DF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
     return "fmla\\t%0.2d, %3.2d, %1.2d[%2]";
   }
   [(set_attr "type" "neon_fp_mla_d_scalar_q")]
@@ -1794,7 +1873,7 @@
       (match_operand:VDQF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "fmls\\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_fp_mla_<Vetype>_scalar<q>")]
@@ -1812,7 +1891,7 @@
       (match_operand:VDQSF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[2]));
     return "fmls\\t%0.<Vtype>, %3.<Vtype>, %1.<Vtype>[%2]";
   }
   [(set_attr "type" "neon_fp_mla_<Vetype>_scalar<q>")]
@@ -1842,7 +1921,7 @@
       (match_operand:DF 4 "register_operand" "0")))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (V2DFmode, INTVAL (operands[2]));
     return "fmls\\t%0.2d, %3.2d, %1.2d[%2]";
   }
   [(set_attr "type" "neon_fp_mla_d_scalar_q")]
@@ -2175,7 +2254,7 @@
 	       UNSPEC_ADDV)]
   "TARGET_SIMD"
   {
-    rtx elt = endian_lane_rtx (<MODE>mode, 0);
+    rtx elt = aarch64_endian_lane_rtx (<MODE>mode, 0);
     rtx scratch = gen_reg_rtx (<MODE>mode);
     emit_insn (gen_aarch64_reduc_plus_internal<mode> (scratch, operands[1]));
     emit_insn (gen_aarch64_get_lane<mode> (operands[0], scratch, elt));
@@ -2226,7 +2305,7 @@
 		    UNSPEC_FADDV))]
  "TARGET_SIMD"
 {
-  rtx elt = endian_lane_rtx (V4SFmode, 0);
+  rtx elt = aarch64_endian_lane_rtx (V4SFmode, 0);
   rtx scratch = gen_reg_rtx (V4SFmode);
   emit_insn (gen_aarch64_faddpv4sf (scratch, operands[1], operands[1]));
   emit_insn (gen_aarch64_faddpv4sf (scratch, scratch, scratch));
@@ -2268,7 +2347,7 @@
 		  FMAXMINV)]
   "TARGET_SIMD"
   {
-    rtx elt = endian_lane_rtx (<MODE>mode, 0);
+    rtx elt = aarch64_endian_lane_rtx (<MODE>mode, 0);
     rtx scratch = gen_reg_rtx (<MODE>mode);
     emit_insn (gen_aarch64_reduc_<maxmin_uns>_internal<mode> (scratch,
 							      operands[1]));
@@ -2284,7 +2363,7 @@
 		    MAXMINV)]
   "TARGET_SIMD"
   {
-    rtx elt = endian_lane_rtx (<MODE>mode, 0);
+    rtx elt = aarch64_endian_lane_rtx (<MODE>mode, 0);
     rtx scratch = gen_reg_rtx (<MODE>mode);
     emit_insn (gen_aarch64_reduc_<maxmin_uns>_internal<mode> (scratch,
 							      operands[1]));
@@ -2809,7 +2888,7 @@
 	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "smov\\t%<GPI:w>0, %1.<VDQQH:Vetype>[%2]";
   }
   [(set_attr "type" "neon_to_gp<q>")]
@@ -2823,7 +2902,7 @@
 	    (parallel [(match_operand:SI 2 "immediate_operand" "i")]))))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "umov\\t%w0, %1.<Vetype>[%2]";
   }
   [(set_attr "type" "neon_to_gp<q>")]
@@ -2839,7 +2918,7 @@
 	  (parallel [(match_operand:SI 2 "immediate_operand" "i, i, i")])))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     switch (which_alternative)
       {
 	case 0:
@@ -3215,7 +3294,7 @@
 	 UNSPEC_FMULX))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode, INTVAL (operands[3]));
     return "fmulx\t%<v>0<Vmtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_fp_mul_<Vetype>_scalar<q>")]
@@ -3234,7 +3313,7 @@
 	 UNSPEC_FMULX))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
     return "fmulx\t%<v>0<Vmtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_fp_mul_<Vetype><q>")]
@@ -3268,7 +3347,7 @@
 	 UNSPEC_FMULX))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
     return "fmulx\t%<Vetype>0, %<Vetype>1, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "fmul<Vetype>")]
@@ -3354,7 +3433,7 @@
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   operands[3] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
+   operands[3] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
    return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar<q>")]
 )
@@ -3369,7 +3448,7 @@
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   operands[3] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
+   operands[3] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
    return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar<q>")]
 )
@@ -3384,7 +3463,7 @@
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   operands[3] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
+   operands[3] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
    return \"sq<r>dmulh\\t%<v>0, %<v>1, %2.<v>[%3]\";"
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar<q>")]
 )
@@ -3399,7 +3478,7 @@
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   operands[3] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
+   operands[3] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
    return \"sq<r>dmulh\\t%<v>0, %<v>1, %2.<v>[%3]\";"
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar<q>")]
 )
@@ -3431,7 +3510,7 @@
 	  SQRDMLH_AS))]
    "TARGET_SIMD_RDMA"
    {
-     operands[4] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
+     operands[4] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
      return
       "sqrdml<SQRDMLH_AS:rdma_as>h\\t%0.<Vtype>, %2.<Vtype>, %3.<Vetype>[%4]";
    }
@@ -3449,7 +3528,7 @@
 	  SQRDMLH_AS))]
    "TARGET_SIMD_RDMA"
    {
-     operands[4] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
+     operands[4] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
      return
       "sqrdml<SQRDMLH_AS:rdma_as>h\\t%<v>0, %<v>2, %3.<Vetype>[%4]";
    }
@@ -3469,7 +3548,7 @@
 	  SQRDMLH_AS))]
    "TARGET_SIMD_RDMA"
    {
-     operands[4] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
+     operands[4] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
      return
       "sqrdml<SQRDMLH_AS:rdma_as>h\\t%0.<Vtype>, %2.<Vtype>, %3.<Vetype>[%4]";
    }
@@ -3487,7 +3566,7 @@
 	  SQRDMLH_AS))]
    "TARGET_SIMD_RDMA"
    {
-     operands[4] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
+     operands[4] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
      return
       "sqrdml<SQRDMLH_AS:rdma_as>h\\t%<v>0, %<v>2, %3.<v>[%4]";
    }
@@ -3531,7 +3610,7 @@
 	    (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
     return
       "sqdml<SBINQOPS:as>l\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3555,7 +3634,7 @@
 	    (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
     return
       "sqdml<SBINQOPS:as>l\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3578,7 +3657,7 @@
 	    (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
     return
       "sqdml<SBINQOPS:as>l\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3601,7 +3680,7 @@
 	    (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
     return
       "sqdml<SBINQOPS:as>l\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3696,7 +3775,7 @@
 	      (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[4]));
     return
      "sqdml<SBINQOPS:as>l2\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3722,7 +3801,7 @@
 	      (const_int 1))))]
   "TARGET_SIMD"
   {
-    operands[4] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
+    operands[4] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[4]));
     return
      "sqdml<SBINQOPS:as>l2\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[%4]";
   }
@@ -3869,7 +3948,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
     return "sqdmull\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -3890,7 +3969,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
     return "sqdmull\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -3910,7 +3989,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
     return "sqdmull\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -3930,7 +4009,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
     return "sqdmull\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -4008,7 +4087,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCOND>mode, INTVAL (operands[3]));
     return "sqdmull2\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -4031,7 +4110,7 @@
 	     (const_int 1)))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<VCONQ>mode, INTVAL (operands[3]));
     return "sqdmull2\\t%<vw2>0<Vmwtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]";
   }
   [(set_attr "type" "neon_sat_mul_<Vetype>_scalar_long")]
@@ -4537,7 +4616,7 @@
 		   UNSPEC_LD2_LANE))]
   "TARGET_SIMD"
   {
-    operands[3] = endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
     return "ld2\\t{%S0.<Vetype> - %T0.<Vetype>}[%3], %1";
   }
   [(set_attr "type" "neon_load2_one_lane")]
@@ -4581,7 +4660,7 @@
 		   UNSPEC_ST2_LANE))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "st2\\t{%S1.<Vetype> - %T1.<Vetype>}[%2], %0";
   }
   [(set_attr "type" "neon_store2_one_lane<q>")]
@@ -4635,7 +4714,7 @@
 		   UNSPEC_LD3_LANE))]
   "TARGET_SIMD"
 {
-    operands[3] = endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
     return "ld3\\t{%S0.<Vetype> - %U0.<Vetype>}[%3], %1";
 }
   [(set_attr "type" "neon_load3_one_lane")]
@@ -4679,7 +4758,7 @@
 		    UNSPEC_ST3_LANE))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "st3\\t{%S1.<Vetype> - %U1.<Vetype>}[%2], %0";
   }
   [(set_attr "type" "neon_store3_one_lane<q>")]
@@ -4733,7 +4812,7 @@
 		   UNSPEC_LD4_LANE))]
   "TARGET_SIMD"
 {
-    operands[3] = endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
+    operands[3] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[3]));
     return "ld4\\t{%S0.<Vetype> - %V0.<Vetype>}[%3], %1";
 }
   [(set_attr "type" "neon_load4_one_lane")]
@@ -4777,7 +4856,7 @@
 		    UNSPEC_ST4_LANE))]
   "TARGET_SIMD"
   {
-    operands[2] = endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
+    operands[2] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[2]));
     return "st4\\t{%S1.<Vetype> - %V1.<Vetype>}[%2], %0";
   }
   [(set_attr "type" "neon_store4_one_lane<q>")]
@@ -5280,6 +5359,9 @@
 [(set_attr "type" "multiple")]
 )
 
+;; This instruction's pattern is generated directly by
+;; aarch64_expand_vec_perm_const, so any changes to the pattern would
+;; need corresponding changes there.
 (define_insn "aarch64_<PERMUTE:perm_insn><PERMUTE:perm_hilo><mode>"
   [(set (match_operand:VALL_F16 0 "register_operand" "=w")
 	(unspec:VALL_F16 [(match_operand:VALL_F16 1 "register_operand" "w")
@@ -5290,7 +5372,10 @@
   [(set_attr "type" "neon_permute<q>")]
 )
 
-;; Note immediate (third) operand is lane index not byte index.
+;; This instruction's pattern is generated directly by
+;; aarch64_expand_vec_perm_const, so any changes to the pattern would
+;; need corresponding changes there.  Note that the immediate (third)
+;; operand is a lane index not a byte index.
 (define_insn "aarch64_ext<mode>"
   [(set (match_operand:VALL_F16 0 "register_operand" "=w")
         (unspec:VALL_F16 [(match_operand:VALL_F16 1 "register_operand" "w")
@@ -5306,6 +5391,9 @@
   [(set_attr "type" "neon_ext<q>")]
 )
 
+;; This instruction's pattern is generated directly by
+;; aarch64_expand_vec_perm_const, so any changes to the pattern would
+;; need corresponding changes there.
 (define_insn "aarch64_rev<REVERSE:rev_op><mode>"
   [(set (match_operand:VALL_F16 0 "register_operand" "=w")
 	(unspec:VALL_F16 [(match_operand:VALL_F16 1 "register_operand" "w")]

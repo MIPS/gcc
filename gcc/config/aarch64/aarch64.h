@@ -111,6 +111,9 @@
 
 #define STRUCTURE_SIZE_BOUNDARY		8
 
+/* Heap alignment (same as BIGGEST_ALIGNMENT and STACK_BOUNDARY).  */
+#define MALLOC_ABI_ALIGNMENT  128
+
 /* Defined by the ABI */
 #define WCHAR_TYPE "unsigned int"
 #define WCHAR_TYPE_SIZE			32
@@ -136,15 +139,16 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_FL_CRC        (1 << 3)	/* Has CRC.  */
 /* ARMv8.1-A architecture extensions.  */
 #define AARCH64_FL_LSE	      (1 << 4)  /* Has Large System Extensions.  */
-#define AARCH64_FL_RDMA	      (1 << 5)  /* Has Round Double Multiply Add.  */
-#define AARCH64_FL_V8_1	      (1 << 6)  /* Has ARMv8.1-A extensions.  */
+#define AARCH64_FL_RDMA       (1 << 5)  /* Has Round Double Multiply Add.  */
+#define AARCH64_FL_V8_1       (1 << 6)  /* Has ARMv8.1-A extensions.  */
 /* ARMv8.2-A architecture extensions.  */
-#define AARCH64_FL_V8_2	      (1 << 8)  /* Has ARMv8.2-A features.  */
+#define AARCH64_FL_V8_2       (1 << 8)  /* Has ARMv8.2-A features.  */
 #define AARCH64_FL_F16	      (1 << 9)  /* Has ARMv8.2-A FP16 extensions.  */
 #define AARCH64_FL_SVE        (1 << 10) /* Has Scalable Vector Extensions.  */
 /* ARMv8.3-A architecture extensions.  */
-#define AARCH64_FL_V8_3	      (1 << 11)  /* Has ARMv8.3-A features.  */
-#define AARCH64_FL_RCPC	      (1 << 12)  /* Has support for RCpc model.  */
+#define AARCH64_FL_V8_3       (1 << 11)  /* Has ARMv8.3-A features.  */
+#define AARCH64_FL_RCPC       (1 << 12)  /* Has support for RCpc model.  */
+#define AARCH64_FL_DOTPROD    (1 << 13)  /* Has ARMv8.2-A Dot Product ins.  */
 
 /* Has FP and SIMD.  */
 #define AARCH64_FL_FPSIMD     (AARCH64_FL_FP | AARCH64_FL_SIMD)
@@ -174,6 +178,7 @@ extern unsigned aarch64_architecture_version;
 #define AARCH64_ISA_F16		   (aarch64_isa_flags & AARCH64_FL_F16)
 #define AARCH64_ISA_SVE            (aarch64_isa_flags & AARCH64_FL_SVE)
 #define AARCH64_ISA_V8_3	   (aarch64_isa_flags & AARCH64_FL_V8_3)
+#define AARCH64_ISA_DOTPROD	   (aarch64_isa_flags & AARCH64_FL_DOTPROD)
 
 /* Crypto is an optional extension to AdvSIMD.  */
 #define TARGET_CRYPTO (TARGET_SIMD && AARCH64_ISA_CRYPTO)
@@ -187,6 +192,9 @@ extern unsigned aarch64_architecture_version;
 /* ARMv8.2-A FP16 support that can be enabled through the +fp16 extension.  */
 #define TARGET_FP_F16INST (TARGET_FLOAT && AARCH64_ISA_F16)
 #define TARGET_SIMD_F16INST (TARGET_SIMD && AARCH64_ISA_F16)
+
+/* Dot Product is an optional extension to AdvSIMD enabled through +dotprod.  */
+#define TARGET_DOTPROD (TARGET_SIMD && AARCH64_ISA_DOTPROD)
 
 /* SVE instructions, enabled through +sve.  */
 #define TARGET_SVE (AARCH64_ISA_SVE)
@@ -273,7 +281,7 @@ extern unsigned aarch64_architecture_version;
     0, 0, 0, 0,   0, 0, 0, 0,   /* V8 - V15 */		\
     0, 0, 0, 0,   0, 0, 0, 0,   /* V16 - V23 */         \
     0, 0, 0, 0,   0, 0, 0, 0,   /* V24 - V31 */         \
-    1, 1, 1,			/* SFP, AP, CC */	\
+    1, 1, 1, 1,			/* SFP, AP, CC, VG */	\
     0, 0, 0, 0,   0, 0, 0, 0,   /* P0 - P7 */           \
     0, 0, 0, 0,   0, 0, 0, 0,   /* P8 - P15 */          \
     1,				/* FFRT */		\
@@ -289,7 +297,7 @@ extern unsigned aarch64_architecture_version;
     0, 0, 0, 0,   0, 0, 0, 0,	/* V8 - V15 */		\
     1, 1, 1, 1,   1, 1, 1, 1,   /* V16 - V23 */         \
     1, 1, 1, 1,   1, 1, 1, 1,   /* V24 - V31 */         \
-    1, 1, 1,			/* SFP, AP, CC */	\
+    1, 1, 1, 1,			/* SFP, AP, CC, VG */	\
     1, 1, 1, 1,   1, 1, 1, 1,	/* P0 - P7 */		\
     1, 1, 1, 1,   1, 1, 1, 1,	/* P8 - P15 */		\
     1,				/* FFRT */		\
@@ -305,7 +313,7 @@ extern unsigned aarch64_architecture_version;
     "v8",  "v9",  "v10", "v11", "v12", "v13", "v14", "v15",	\
     "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",	\
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",	\
-    "sfp", "ap",  "cc",						\
+    "sfp", "ap",  "cc",  "vg",					\
     "p0",  "p1",  "p2",  "p3",  "p4",  "p5",  "p6",  "p7",	\
     "p8",  "p9",  "p10", "p11", "p12", "p13", "p14", "p15",	\
     "ffrt",							\
@@ -353,9 +361,9 @@ extern unsigned aarch64_architecture_version;
   (epilogue_completed && (REGNO) == LR_REGNUM)
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
-   the stack pointer does not matter.  The value is tested only in
-   functions that have frame pointers.  */
-#define EXIT_IGNORE_STACK	1
+   the stack pointer does not matter.  This is only true if the function
+   uses alloca.  */
+#define EXIT_IGNORE_STACK	(cfun->calls_alloca)
 
 #define STATIC_CHAIN_REGNUM		R18_REGNUM
 #define HARD_FRAME_POINTER_REGNUM	R29_REGNUM
@@ -503,10 +511,10 @@ enum reg_class
   { 0x00000000, 0x0000ffff, 0x00000000 },       /* FP_LO_REGS  */	\
   { 0x00000000, 0xffffffff, 0x00000000 },       /* FP_REGS  */		\
   { 0xffffffff, 0xffffffff, 0x00000003 },	/* POINTER_AND_FP_REGS */\
-  { 0x00000000, 0x00000000, 0x000007f8 },	/* PR_LO_REGS */	\
-  { 0x00000000, 0x00000000, 0x0007f800 },	/* PR_HI_REGS */	\
-  { 0x00000000, 0x00000000, 0x0007fff8 },	/* PR_REGS */		\
-  { 0xffffffff, 0xffffffff, 0x000fffff }	/* ALL_REGS */		\
+  { 0x00000000, 0x00000000, 0x00000ff0 },	/* PR_LO_REGS */	\
+  { 0x00000000, 0x00000000, 0x000ff000 },	/* PR_HI_REGS */	\
+  { 0x00000000, 0x00000000, 0x000ffff0 },	/* PR_REGS */		\
+  { 0xffffffff, 0xffffffff, 0x001fffff }	/* ALL_REGS */		\
 }
 
 #define REGNO_REG_CLASS(REGNO)	aarch64_regno_regclass (REGNO)
@@ -621,6 +629,9 @@ struct GTY (()) aarch64_frame
 
   /* The size of the stack adjustment after saving callee-saves.  */
   poly_int64 final_adjust;
+
+  /* Store FP,LR and setup a frame pointer.  */
+  bool emit_frame_chain;
 
   unsigned wb_candidate1;
   unsigned wb_candidate2;
@@ -989,12 +1000,18 @@ extern tree aarch64_fp16_ptr_type_node;
 
 #ifndef USED_FOR_TARGET
 extern poly_uint16 aarch64_sve_vg;
+
+/* The number of bits and bytes in an SVE vector.  */
 #define BITS_PER_SVE_VECTOR (poly_uint16 (aarch64_sve_vg * 64))
 #define BYTES_PER_SVE_VECTOR (poly_uint16 (aarch64_sve_vg * 8))
+
+/* The number of bytes in an SVE predicate.  */
 #define BYTES_PER_SVE_PRED aarch64_sve_vg
+
+/* The SVE mode for a vector of bytes.  */
 #define SVE_BYTE_MODE V32QImode
 
-/* Maximum number of bytes in a fixed-size vector.  This is 256 bytes
+/* The maximum number of bytes in a fixed-size vector.  This is 256 bytes
    (for -msve-vector-bits=2048) multiplied by the maximum number of
    vectors in a structure mode (4).
 

@@ -152,20 +152,24 @@ struct if_lossless<T1, T2, T3, true>
 /* poly_int_traits<T> describes an integer type T that might be polynomial
    or non-polynomial:
 
-   - poly_int_coeffs<T>::is_poly is true if T is a poly_int-based type
+   - poly_int_traits<T>::is_poly is true if T is a poly_int-based type
      and false otherwise.
 
-   - poly_int_coeffs<T>::num_coeffs gives the number of coefficients in T
+   - poly_int_traits<T>::num_coeffs gives the number of coefficients in T
      if T is a poly_int and 1 otherwise.
 
-   - poly_int_coeffs<T>::coeff_type gives the coefficent type of T if T
-     is a poly_int and T itself otherwise.  */
+   - poly_int_traits<T>::coeff_type gives the coefficent type of T if T
+     is a poly_int and T itself otherwise
+
+   - poly_int_traits<T>::int_type is a shorthand for
+     typename poly_coeff_traits<coeff_type>::int_type.  */
 template<typename T>
 struct poly_int_traits
 {
   static const bool is_poly = false;
   static const unsigned int num_coeffs = 1;
   typedef T coeff_type;
+  typedef typename poly_coeff_traits<T>::int_type int_type;
 };
 template<unsigned int N, typename C>
 struct poly_int_traits<poly_int_pod<N, C> >
@@ -173,6 +177,7 @@ struct poly_int_traits<poly_int_pod<N, C> >
   static const bool is_poly = true;
   static const unsigned int num_coeffs = N;
   typedef C coeff_type;
+  typedef typename poly_coeff_traits<C>::int_type int_type;
 };
 template<unsigned int N, typename C>
 struct poly_int_traits<poly_int<N, C> > : poly_int_traits<poly_int_pod<N, C> >
@@ -304,8 +309,7 @@ struct poly_result<T1, T2, 2>
 
 /* The type to which an integer constant should be cast before
    comparing it with T.  */
-#define POLY_INT_TYPE(T) \
-  typename poly_coeff_traits<typename poly_int_traits<T>::coeff_type>::int_type
+#define POLY_INT_TYPE(T) typename poly_int_traits<T>::int_type
 
 /* RES is a poly_int result that has coefficients of type C and that
    is being built up a coefficient at a time.  Set coefficient number I
@@ -1332,52 +1336,6 @@ may_ne (const Ca &a, const Cb &b)
 /* Return true if A must be unequal to B.  */
 #define must_ne(A, B) (!may_eq (A, B))
 
-/* Return true if A is known to be zero.  */
-
-template<typename T>
-inline bool
-known_zero (const T &a)
-{
-  typedef POLY_INT_TYPE (T) int_type;
-  return must_eq (a, int_type (0));
-}
-
-/* Return true if A is known to be nonzero.  */
-
-template<typename T>
-inline bool
-known_nonzero (const T &a)
-{
-  typedef POLY_INT_TYPE (T) int_type;
-  return must_ne (a, int_type (0));
-}
-
-/* Return true if A might be equal to zero.  */
-#define maybe_zero(A) (!known_nonzero (A))
-
-/* Return true if A might not be equal to zero.  */
-#define maybe_nonzero(A) (!known_zero (A))
-
-/* Return true if A is known to be equal to 1.  */
-
-template<typename T>
-inline bool
-known_one (const T &a)
-{
-  typedef POLY_INT_TYPE (T) int_type;
-  return must_eq (a, int_type (1));
-}
-
-/* Return true if A is known to be all ones.  */
-
-template<typename T>
-inline bool
-known_all_ones (const T &a)
-{
-  typedef POLY_INT_TYPE (T) int_type;
-  return must_eq (a, int_type (-1));
-}
-
 /* Return true if A might be less than or equal to B for some
    indeterminate values.  */
 
@@ -1596,8 +1554,7 @@ template<unsigned int N, typename Ca>
 inline Ca
 constant_lower_bound (const poly_int_pod<N, Ca> &a)
 {
-  typedef POLY_INT_TYPE (Ca) ICa;
-  gcc_checking_assert (must_ge (a, ICa (0)));
+  gcc_checking_assert (must_ge (a, POLY_INT_TYPE (Ca) (0)));
   return a.coeffs[0];
 }
 
@@ -2509,7 +2466,12 @@ struct poly_span_traits<T1, T2, T3, HOST_WIDE_INT, unsigned HOST_WIDE_INT>
 /* Return true if SIZE represents a known size, assuming that all-ones
    indicates an unknown size.  */
 
-#define known_size_p(X) (!known_all_ones (X))
+template<typename T>
+inline bool
+known_size_p (const T &a)
+{
+  return may_ne (a, POLY_INT_TYPE (T) (-1));
+}
 
 /* Return true if range [POS, POS + SIZE) might include VAL.
    SIZE can be the special value -1, in which case the range is
@@ -2557,9 +2519,9 @@ ranges_may_overlap_p (const T1 &pos1, const T2 &size1,
 		      const T3 &pos2, const T4 &size2)
 {
   if (maybe_in_range_p (pos2, pos1, size1))
-    return maybe_nonzero (size2);
+    return may_ne (size2, POLY_INT_TYPE (T4) (0));
   if (maybe_in_range_p (pos1, pos2, size2))
-    return maybe_nonzero (size1);
+    return may_ne (size1, POLY_INT_TYPE (T2) (0));
   return false;
 }
 
@@ -2602,10 +2564,9 @@ known_subrange_p (const T1 &pos1, const T2 &size1,
 		  const T3 &pos2, const T4 &size2)
 {
   typedef typename poly_int_traits<T2>::coeff_type C2;
-  typedef POLY_INT_TYPE (C2) IC2;
   typedef POLY_BINARY_COEFF (T2, T4) size_diff_type;
   typedef poly_span_traits<T1, T3, size_diff_type> span;
-  return (must_gt (size1, IC2 (0))
+  return (must_gt (size1, POLY_INT_TYPE (T2) (0))
 	  && (poly_coeff_traits<C2>::signedness > 0
 	      || known_size_p (size1))
 	  && known_size_p (size2)

@@ -1481,13 +1481,10 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond,
   /* Add new edge to connect guard block to the merge/loop-exit block.  */
   new_e = make_edge (guard_bb, guard_to, EDGE_TRUE_VALUE);
 
-  new_e->count = guard_bb->count;
   new_e->probability = probability;
-  new_e->count = enter_e->count.apply_probability (probability);
   if (irreducible_p)
     new_e->flags |= EDGE_IRREDUCIBLE_LOOP;
 
-  enter_e->count -= new_e->count;
   enter_e->probability = probability.invert ();
   set_immediate_dominator (CDI_DOMINATORS, guard_to, dom_bb);
 
@@ -2914,9 +2911,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 
 	  /* Simply propagate profile info from guard_bb to guard_to which is
 	     a merge point of control flow.  */
-	  guard_to->frequency = guard_bb->frequency;
 	  guard_to->count = guard_bb->count;
-	  single_succ_edge (guard_to)->count = guard_to->count;
 	  /* Scale probability of epilog loop back.
 	     FIXME: We should avoid scaling down and back up.  Profile may
 	     get lost if we scale down to 0.  */
@@ -3288,7 +3283,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
     cond_expr = fold_build2 (GE_EXPR, boolean_type_node, scalar_loop_iters,
 			     build_int_cst (TREE_TYPE (scalar_loop_iters),
 					    th - 1));
-  if (maybe_nonzero (versioning_threshold))
+  if (may_ne (versioning_threshold, 0U))
     {
       tree expr = fold_build2 (GE_EXPR, boolean_type_node, scalar_loop_iters,
 			       build_int_cst (TREE_TYPE (scalar_loop_iters),

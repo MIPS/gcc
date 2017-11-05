@@ -45,6 +45,6 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 1 "vect" { target vect_1_size } } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 2 "vect" { target vect_2_sizes } } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 3 "vect" { target vect_3_sizes } } } */
+/* { dg-final { scan-tree-dump-times "can't determine dependence" 1 "vect" { target { ! vect_multiple_sizes } } } } */
+/* { dg-final { scan-tree-dump "can't determine dependence" "vect" { target vect_multiple_sizes } } } */
+

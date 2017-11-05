@@ -862,7 +862,7 @@ symbol_table::create_edge (cgraph_node *caller, cgraph_node *callee,
   edge->next_callee = NULL;
   edge->lto_stmt_uid = 0;
 
-  edge->count = count;
+  edge->count = count.ipa ();
   edge->frequency = freq;
   gcc_checking_assert (freq >= 0);
   gcc_checking_assert (freq <= CGRAPH_FREQ_MAX);
@@ -1308,7 +1308,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	  /* We are producing the final function body and will throw away the
 	     callgraph edges really soon.  Reset the counts/frequencies to
 	     keep verifier happy in the case of roundoff errors.  */
-	  e->count = gimple_bb (e->call_stmt)->count;
+	  e->count = gimple_bb (e->call_stmt)->count.ipa ();
 	  e->frequency = compute_call_stmt_bb_frequency
 			  (e->caller->decl, gimple_bb (e->call_stmt));
 	}
@@ -1338,7 +1338,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	    prob = profile_probability::even ();
 	  new_stmt = gimple_ic (e->call_stmt,
 				dyn_cast<cgraph_node *> (ref->referred),
-				prob, e->count, e->count + e2->count);
+				prob);
 	  e->speculative = false;
 	  e->caller->set_call_stmt_including_clones (e->call_stmt, new_stmt,
 						     false);
@@ -1644,7 +1644,7 @@ cgraph_update_edges_for_call_stmt_node (cgraph_node *node,
 	  /* Otherwise remove edge and create new one; we can't simply redirect
 	     since function has changed, so inline plan and other information
 	     attached to edge is invalid.  */
-	  count = e->count;
+	  count = e->count.ipa ();
 	  frequency = e->frequency;
  	  if (e->indirect_unknown_callee || e->inline_failed)
 	    e->remove ();
@@ -1655,7 +1655,7 @@ cgraph_update_edges_for_call_stmt_node (cgraph_node *node,
 	{
 	  /* We are seeing new direct call; compute profile info based on BB.  */
 	  basic_block bb = gimple_bb (new_stmt);
-	  count = bb->count;
+	  count = bb->count.ipa ();
 	  frequency = compute_call_stmt_bb_frequency (current_function_decl,
 						      bb);
 	}
@@ -2530,6 +2530,53 @@ cgraph_node::set_nothrow_flag (bool nothrow)
   return changed;
 }
 
+/* Worker to set malloc flag.  */
+static void
+set_malloc_flag_1 (cgraph_node *node, bool malloc_p, bool *changed)
+{
+  if (malloc_p && !DECL_IS_MALLOC (node->decl))
+    {
+      DECL_IS_MALLOC (node->decl) = true;
+      *changed = true;
+    }
+
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (node, ref)
+    {
+      cgraph_node *alias = dyn_cast<cgraph_node *> (ref->referring);
+      if (!malloc_p || alias->get_availability () > AVAIL_INTERPOSABLE)
+	set_malloc_flag_1 (alias, malloc_p, changed);
+    }
+
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    if (e->caller->thunk.thunk_p
+	&& (!malloc_p || e->caller->get_availability () > AVAIL_INTERPOSABLE))
+      set_malloc_flag_1 (e->caller, malloc_p, changed);
+}
+
+/* Set DECL_IS_MALLOC on NODE's decl and on NODE's aliases if any.  */
+
+bool
+cgraph_node::set_malloc_flag (bool malloc_p)
+{
+  bool changed = false;
+
+  if (!malloc_p || get_availability () > AVAIL_INTERPOSABLE)
+    set_malloc_flag_1 (this, malloc_p, &changed);
+  else
+    {
+      ipa_ref *ref;
+
+      FOR_EACH_ALIAS (this, ref)
+	{
+	  cgraph_node *alias = dyn_cast<cgraph_node *> (ref->referring);
+	  if (!malloc_p || alias->get_availability () > AVAIL_INTERPOSABLE)
+	    set_malloc_flag_1 (alias, malloc_p, &changed);
+	}
+    }
+  return changed;
+}
+
 /* Worker to set_const_flag.  */
 
 static void
@@ -3035,9 +3082,14 @@ bool
 cgraph_edge::verify_count_and_frequency ()
 {
   bool error_found = false;
-  if (count < 0)
+  if (!count.verify ())
     {
-      error ("caller edge count is negative");
+      error ("caller edge count invalid");
+      error_found = true;
+    }
+  if (count.initialized_p () && !(count.ipa () == count))
+    {
+      error ("caller edge count is local");
       error_found = true;
     }
   if (frequency < 0)
@@ -3136,9 +3188,14 @@ cgraph_node::verify_node (void)
 	       identifier_to_locale (e->callee->name ()));
 	error_found = true;
       }
-  if (count < 0)
+  if (!count.verify ())
     {
-      error ("execution count is negative");
+      error ("cgraph count invalid");
+      error_found = true;
+    }
+  if (count.initialized_p () && !(count.ipa () == count))
+    {
+      error ("cgraph count is local");
       error_found = true;
     }
   if (global.inlined_to && same_comdat_group)
@@ -3222,7 +3279,9 @@ cgraph_node::verify_node (void)
     {
       if (e->verify_count_and_frequency ())
 	error_found = true;
+      /* FIXME: re-enable once cgraph is converted to counts.  */
       if (gimple_has_body_p (e->caller->decl)
+	  && 0
 	  && !e->caller->global.inlined_to
 	  && !e->speculative
 	  /* Optimized out calls are redirected to __builtin_unreachable.  */
@@ -3245,9 +3304,11 @@ cgraph_node::verify_node (void)
     {
       if (e->verify_count_and_frequency ())
 	error_found = true;
+      /* FIXME: re-enable once cgraph is converted to counts.  */
       if (gimple_has_body_p (e->caller->decl)
 	  && !e->caller->global.inlined_to
 	  && !e->speculative
+	  && 0
 	  && (e->frequency
 	      != compute_call_stmt_bb_frequency (e->caller->decl,
 						 gimple_bb (e->call_stmt))))

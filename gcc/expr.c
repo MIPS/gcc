@@ -2210,7 +2210,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
 		 can be used to determine the object and the bit field
 		 to be extracted.  */
 	      tmps[i] = XEXP (src, elt);
-	      if (maybe_nonzero (subpos)
+	      if (may_ne (subpos, 0)
 		  || may_ne (subpos + bytelen, slen0)
 		  || (!CONSTANT_P (tmps[i])
 		      && (!REG_P (tmps[i]) || GET_MODE (tmps[i]) != mode)))
@@ -2223,7 +2223,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
 	    {
 	      rtx mem;
 
-	      gcc_assert (known_zero (bytepos));
+	      gcc_assert (must_eq (bytepos, 0));
 	      mem = assign_stack_temp (GET_MODE (src), slen);
 	      emit_move_insn (mem, src);
 	      tmps[i] = extract_bit_field (mem, bytelen * BITS_PER_UNIT,
@@ -2271,7 +2271,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
 				     mode, mode, false, NULL);
 
-      if (maybe_nonzero (shift))
+      if (may_ne (shift, 0))
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
 				shift, tmps[i], 0);
     }
@@ -2540,7 +2540,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED,
 	      machine_mode dest_mode = GET_MODE (dest);
 	      machine_mode tmp_mode = GET_MODE (tmps[i]);
 
-	      gcc_assert (known_zero (bytepos) && XVECLEN (src, 0));
+	      gcc_assert (must_eq (bytepos, 0) && XVECLEN (src, 0));
 
 	      if (GET_MODE_ALIGNMENT (dest_mode)
 		  >= GET_MODE_ALIGNMENT (tmp_mode))
@@ -3884,12 +3884,12 @@ push_block (rtx size, poly_int64 extra, int below)
   size = convert_modes (Pmode, ptr_mode, size, 1);
   if (CONSTANT_P (size))
     anti_adjust_stack (plus_constant (Pmode, size, extra));
-  else if (REG_P (size) && known_zero (extra))
+  else if (REG_P (size) && must_eq (extra, 0))
     anti_adjust_stack (size);
   else
     {
       temp = copy_to_mode_reg (Pmode, size);
-      if (maybe_nonzero (extra))
+      if (may_ne (extra, 0))
 	temp = expand_binop (Pmode, add_optab, temp,
 			     gen_int_mode (extra, Pmode),
 			     temp, 0, OPTAB_LIB_WIDEN);
@@ -3899,7 +3899,7 @@ push_block (rtx size, poly_int64 extra, int below)
   if (STACK_GROWS_DOWNWARD)
     {
       temp = virtual_outgoing_args_rtx;
-      if (maybe_nonzero (extra) && below)
+      if (may_ne (extra, 0) && below)
 	temp = plus_constant (Pmode, temp, extra);
     }
   else
@@ -3908,7 +3908,7 @@ push_block (rtx size, poly_int64 extra, int below)
       if (poly_int_rtx_p (size, &csize))
 	temp = plus_constant (Pmode, virtual_outgoing_args_rtx,
 			      -csize - (below ? 0 : extra));
-      else if (maybe_nonzero (extra) && !below)
+      else if (may_ne (extra, 0) && !below)
 	temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
 			     negate_rtx (Pmode, plus_constant (Pmode, size,
 							       extra)));
@@ -4091,7 +4091,7 @@ fixup_args_size_notes (rtx_insn *prev, rtx_insn *last,
 	continue;
 
       poly_int64 this_delta = find_args_size_adjust (insn);
-      if (known_zero (this_delta))
+      if (must_eq (this_delta, 0))
 	{
 	  if (!CALL_P (insn)
 	      || ACCUMULATE_OUTGOING_ARGS
@@ -4363,7 +4363,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	  /* Push padding now if padding above and stack grows down,
 	     or if padding below and stack grows up.
 	     But if space already allocated, this has already been done.  */
-	  if (maybe_nonzero (extra)
+	  if (may_ne (extra, 0)
 	      && args_addr == 0
 	      && where_pad != PAD_NONE
 	      && where_pad != stack_direction)
@@ -4490,7 +4490,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
       /* Push padding now if padding above and stack grows down,
 	 or if padding below and stack grows up.
 	 But if space already allocated, this has already been done.  */
-      if (maybe_nonzero (extra)
+      if (may_ne (extra, 0)
 	  && args_addr == 0
 	  && where_pad != PAD_NONE
 	  && where_pad != stack_direction)
@@ -4543,7 +4543,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
       /* Push padding now if padding above and stack grows down,
 	 or if padding below and stack grows up.
 	 But if space already allocated, this has already been done.  */
-      if (maybe_nonzero (extra)
+      if (may_ne (extra, 0)
 	  && args_addr == 0
 	  && where_pad != PAD_NONE
 	  && where_pad != stack_direction)
@@ -4592,7 +4592,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	}
     }
 
-  if (maybe_nonzero (extra) && args_addr == 0 && where_pad == stack_direction)
+  if (may_ne (extra, 0) && args_addr == 0 && where_pad == stack_direction)
     anti_adjust_stack (gen_int_mode (extra, Pmode));
 
   if (alignment_pad && args_addr == 0)
@@ -5087,7 +5087,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	     be expected to result in single move instructions.  */
 	  poly_int64 bytepos;
 	  if (mode1 != VOIDmode
-	      && maybe_nonzero (bitpos)
+	      && may_ne (bitpos, 0)
 	      && may_gt (bitsize, 0)
 	      && multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
 	      && multiple_p (bitpos, bitsize)
@@ -5124,13 +5124,13 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  poly_int64 mode_bitsize = GET_MODE_BITSIZE (to_mode);
 	  unsigned short inner_bitsize = GET_MODE_UNIT_BITSIZE (to_mode);
 	  if (COMPLEX_MODE_P (TYPE_MODE (TREE_TYPE (from)))
-	      && known_zero (bitpos)
+	      && must_eq (bitpos, 0)
 	      && must_eq (bitsize, mode_bitsize))
 	    result = store_expr (from, to_rtx, false, nontemporal, reversep);
 	  else if (must_eq (bitsize, inner_bitsize)
-		   && (known_zero (bitpos)
+		   && (must_eq (bitpos, 0)
 		       || must_eq (bitpos, inner_bitsize)))
-	    result = store_expr (from, XEXP (to_rtx, maybe_nonzero (bitpos)),
+	    result = store_expr (from, XEXP (to_rtx, may_ne (bitpos, 0)),
 				 false, nontemporal, reversep);
 	  else if (must_le (bitpos + bitsize, inner_bitsize))
 	    result = store_field (XEXP (to_rtx, 0), bitsize, bitpos,
@@ -5143,8 +5143,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 				  bitregion_start, bitregion_end,
 				  mode1, from, get_alias_set (to),
 				  nontemporal, reversep);
-	  else if (known_zero (bitpos)
-		   && must_eq (bitsize, mode_bitsize))
+	  else if (must_eq (bitpos, 0) && must_eq (bitsize, mode_bitsize))
 	    {
 	      rtx from_rtx;
 	      result = expand_normal (from);
@@ -6118,12 +6117,12 @@ store_constructor_field (rtx target, poly_uint64 bitsize, poly_int64 bitpos,
       /* We can only call store_constructor recursively if the size and
 	 bit position are on a byte boundary.  */
       && multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
-      && maybe_nonzero (bitsize)
+      && may_ne (bitsize, 0U)
       && multiple_p (bitsize, BITS_PER_UNIT, &bytesize)
       /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
-      && (known_zero (bitpos) || MEM_P (target)))
+      && (must_eq (bitpos, 0) || MEM_P (target)))
     {
       if (MEM_P (target))
 	{
@@ -6197,7 +6196,7 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	reverse = TYPE_REVERSE_STORAGE_ORDER (type);
 
 	/* If size is zero or the target is already cleared, do nothing.  */
-	if (known_zero (size) || cleared)
+	if (must_eq (size, 0) || cleared)
 	  cleared = 1;
 	/* We either clear the aggregate or indicate the value is dead.  */
 	else if ((TREE_CODE (type) == UNION_TYPE
@@ -6805,7 +6804,7 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
   /* If we have nothing to store, do nothing unless the expression has
      side-effects.  Don't do that for zero sized addressable lhs of
      calls.  */
-  if (known_zero (bitsize)
+  if (must_eq (bitsize, 0)
       && (!TREE_ADDRESSABLE (TREE_TYPE (exp))
 	  || TREE_CODE (exp) != CALL_EXPR))
     return expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6814,7 +6813,7 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
     {
       /* We're storing into a struct containing a single __complex.  */
 
-      gcc_assert (known_zero (bitpos));
+      gcc_assert (must_eq (bitpos, 0));
       return store_expr (exp, target, 0, nontemporal, reverse);
     }
 
@@ -7901,7 +7900,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, scalar_int_mode tmode,
   /* We must have made progress.  */
   gcc_assert (inner != exp);
 
-  subtarget = offset || maybe_nonzero (bitpos) ? NULL_RTX : target;
+  subtarget = offset || may_ne (bitpos, 0) ? NULL_RTX : target;
   /* For VIEW_CONVERT_EXPR, where the outer alignment is bigger than
      inner alignment, force the inner to be sufficiently aligned.  */
   if (CONSTANT_CLASS_P (inner)
@@ -7936,13 +7935,13 @@ expand_expr_addr_expr_1 (tree exp, rtx target, scalar_int_mode tmode,
 	result = simplify_gen_binary (PLUS, tmode, result, tmp);
       else
 	{
-	  subtarget = maybe_nonzero (bitpos) ? NULL_RTX : target;
+	  subtarget = may_ne (bitpos, 0) ? NULL_RTX : target;
 	  result = expand_simple_binop (tmode, PLUS, result, tmp, subtarget,
 					1, OPTAB_LIB_WIDEN);
 	}
     }
 
-  if (maybe_nonzero (bitpos))
+  if (may_ne (bitpos, 0))
     {
       /* Someone beforehand should have rejected taking the address
 	 of an object that isn't byte-aligned.  */
@@ -9969,43 +9968,24 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  && GET_MODE (decl_rtl) != dmode)
 	{
 	  machine_mode pmode;
-	  bool always_initialized_rtx;
 
 	  /* Get the signedness to be used for this variable.  Ensure we get
 	     the same mode we got when the variable was declared.  */
 	  if (code != SSA_NAME)
-	    {
-	      pmode = promote_decl_mode (exp, &unsignedp);
-	      always_initialized_rtx = true;
-	    }
+	    pmode = promote_decl_mode (exp, &unsignedp);
 	  else if ((g = SSA_NAME_DEF_STMT (ssa_name))
 		   && gimple_code (g) == GIMPLE_CALL
 		   && !gimple_call_internal_p (g))
-	    {
-	      pmode = promote_function_mode (type, mode, &unsignedp,
-					    gimple_call_fntype (g), 2);
-	      always_initialized_rtx
-		= always_initialized_rtx_for_ssa_name_p (ssa_name);
-	    }
+	    pmode = promote_function_mode (type, mode, &unsignedp,
+					   gimple_call_fntype (g),
+					   2);
 	  else
-	    {
-	      pmode = promote_ssa_mode (ssa_name, &unsignedp);
-	      always_initialized_rtx
-		= always_initialized_rtx_for_ssa_name_p (ssa_name);
-	    }
-
+	    pmode = promote_ssa_mode (ssa_name, &unsignedp);
 	  gcc_assert (GET_MODE (decl_rtl) == pmode);
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
-
-	  /* We cannot assume anything about an existing extension if the
-	     register may contain uninitialized bits.  */
-	  if (always_initialized_rtx)
-	    {
-	      SUBREG_PROMOTED_VAR_P (temp) = 1;
-	      SUBREG_PROMOTED_SET (temp, unsignedp);
-	    }
-
+	  SUBREG_PROMOTED_VAR_P (temp) = 1;
+	  SUBREG_PROMOTED_SET (temp, unsignedp);
 	  return temp;
 	}
 
@@ -10242,7 +10222,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    poly_int64 offset = mem_ref_offset (exp).force_shwi ();
 	    base = TREE_OPERAND (base, 0);
 	    poly_uint64 type_size;
-	    if (known_zero (offset)
+	    if (must_eq (offset, 0)
 	        && !reverse
 		&& poly_int_tree_p (TYPE_SIZE (type), &type_size)
 		&& must_eq (GET_MODE_BITSIZE (DECL_MODE (base)), type_size))
@@ -10582,7 +10562,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	/* Handle CONCAT first.  */
 	if (GET_CODE (op0) == CONCAT && !must_force_mem)
 	  {
-	    if (known_zero (bitpos)
+	    if (must_eq (bitpos, 0)
 		&& must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0)))
 		&& COMPLEX_MODE_P (mode1)
 		&& COMPLEX_MODE_P (GET_MODE (op0))
@@ -10615,10 +10595,10 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		  }
 		return op0;
 	      }
-	    if (known_zero (bitpos)
+	    if (must_eq (bitpos, 0)
 		&& must_eq (bitsize,
 			    GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0))))
-		&& maybe_nonzero (bitsize))
+		&& may_ne (bitsize, 0))
 	      {
 		op0 = XEXP (op0, 0);
 		mode2 = GET_MODE (op0);
@@ -10627,8 +10607,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 			      GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0))))
 		     && must_eq (bitsize,
 				 GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 1))))
-		     && maybe_nonzero (bitpos)
-		     && maybe_nonzero (bitsize))
+		     && may_ne (bitpos, 0)
+		     && may_ne (bitsize, 0))
 	      {
 		op0 = XEXP (op0, 1);
 		bitpos = 0;
@@ -10683,7 +10663,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
 	    /* See the comment in expand_assignment for the rationale.  */
 	    if (mode1 != VOIDmode
-		&& maybe_nonzero (bitpos)
+		&& may_ne (bitpos, 0)
 		&& may_gt (bitsize, 0)
 		&& multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
 		&& multiple_p (bitpos, bitsize)
@@ -10701,7 +10681,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	/* If OFFSET is making OP0 more aligned than BIGGEST_ALIGNMENT,
 	   record its alignment as BIGGEST_ALIGNMENT.  */
 	if (MEM_P (op0)
-	    && known_zero (bitpos)
+	    && must_eq (bitpos, 0)
 	    && offset != 0
 	    && is_aligning_offset (offset, tem))
 	  set_mem_align (op0, BIGGEST_ALIGNMENT);
@@ -10775,7 +10755,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
 		/* ??? Unlike the similar test a few lines below, this one is
 		   very likely obsolete.  */
-		if (known_zero (bitsize))
+		if (must_eq (bitsize, 0))
 		  return target;
 
 		/* In this case, BITPOS must start at a byte boundary and
@@ -10798,7 +10778,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	       with SHIFT_COUNT_TRUNCATED == 0 and garbage otherwise.  Always
 	       return 0 for the sake of consistency, as reading a zero-sized
 	       bitfield is valid in Ada and the value is fully specified.  */
-	    if (known_zero (bitsize))
+	    if (must_eq (bitsize, 0))
 	      return const0_rtx;
 
 	    op0 = validize_mem (op0);

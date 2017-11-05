@@ -516,7 +516,7 @@ rtx_writer::print_rtx_operand_code_r (const_rtx in_rtx)
       if (REG_EXPR (in_rtx))
 	print_mem_expr (m_outfile, REG_EXPR (in_rtx));
 
-      if (maybe_nonzero (REG_OFFSET (in_rtx)))
+      if (may_ne (REG_OFFSET (in_rtx), 0))
 	{
 	  fprintf (m_outfile, "+");
 	  print_poly_int (m_outfile, REG_OFFSET (in_rtx));

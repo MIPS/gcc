@@ -267,16 +267,20 @@
 	    (ior (match_operand 0 "memory_operand")
 		 (match_test "aarch64_mov_operand_p (op, mode)")))))
 
-(define_predicate "aarch64_movti_operand"
-  (and (match_code "reg,subreg,mem,const_int")
+(define_predicate "aarch64_nonmemory_operand"
+  (and (match_code "reg,subreg,const,const_int,symbol_ref,label_ref,high,
+		    const_poly_int,const_vector")
        (ior (match_operand 0 "register_operand")
-	    (ior (match_operand 0 "memory_operand")
-		 (match_operand 0 "const_int_operand")))))
+	    (match_test "aarch64_mov_operand_p (op, mode)"))))
+
+(define_predicate "aarch64_movti_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "memory_operand")
+       (match_operand 0 "const_scalar_int_operand")))
 
 (define_predicate "aarch64_reg_or_imm"
-  (and (match_code "reg,subreg,const_int")
-       (ior (match_operand 0 "register_operand")
-	    (match_operand 0 "const_int_operand"))))
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_scalar_int_operand")))
 
 ;; True for integer comparisons and for FP comparisons other than LTGT or UNEQ.
 (define_special_predicate "aarch64_comparison_operator"
@@ -366,8 +370,8 @@
 (define_predicate "aarch64_simd_reg_or_zero"
   (and (match_code "reg,subreg,const_int,const_double,const,const_vector")
        (ior (match_operand 0 "register_operand")
-	    (match_operand 0 "aarch64_simd_imm_zero")
-	    (match_test "op == const0_rtx"))))
+	    (match_test "op == const0_rtx")
+	    (match_operand 0 "aarch64_simd_imm_zero"))))
 
 (define_predicate "aarch64_simd_struct_operand"
   (and (match_code "mem")

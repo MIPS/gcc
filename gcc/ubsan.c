@@ -804,6 +804,7 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
      this edge is unlikely taken, so set up the probability accordingly.  */
   e = make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
   e->probability = profile_probability::very_unlikely ();
+  then_bb->count = e->count ();
 
   /* Connect 'then block' with the 'else block'.  This is needed
      as the ubsan routines we call in the 'then block' are not noreturn.
@@ -813,7 +814,6 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
   /* Set up the fallthrough basic block.  */
   e = find_edge (cond_bb, fallthru_bb);
   e->flags = EDGE_FALSE_VALUE;
-  e->count = cond_bb->count;
   e->probability = profile_probability::very_likely ();
 
   /* Update dominance info for the newly created then_bb; note that
@@ -830,15 +830,17 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
       enum built_in_function bcode
 	= (flag_sanitize_recover & ((check_align ? SANITIZE_ALIGNMENT : 0)
 				    | (check_null ? SANITIZE_NULL : 0)))
-	  ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
-	  : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
+	  ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_V1
+	  : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_V1_ABORT;
       tree fn = builtin_decl_implicit (bcode);
+      int align_log = tree_log2 (align);
       tree data
 	= ubsan_create_data ("__ubsan_null_data", 1, &loc,
 			     ubsan_type_descriptor (TREE_TYPE (ckind),
 						    UBSAN_PRINT_POINTER),
 			     NULL_TREE,
-			     align,
+			     build_int_cst (unsigned_char_type_node,
+					    MAX (align_log, 0)),
 			     fold_convert (unsigned_char_type_node, ckind),
 			     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
@@ -882,7 +884,6 @@ ubsan_expand_null_ifn (gimple_stmt_iterator *gsip)
 	  /* Set up the fallthrough basic block.  */
 	  e = find_edge (cond1_bb, cond2_bb);
 	  e->flags = EDGE_FALSE_VALUE;
-	  e->count = cond1_bb->count;
 	  e->probability = profile_probability::very_likely ();
 
 	  /* Update dominance info.  */
@@ -1001,14 +1002,14 @@ ubsan_expand_objsize_ifn (gimple_stmt_iterator *gsi)
 				 ubsan_type_descriptor (TREE_TYPE (ptr),
 							UBSAN_PRINT_POINTER),
 				 NULL_TREE,
-				 build_zero_cst (pointer_sized_int_node),
+				 build_zero_cst (unsigned_char_type_node),
 				 ckind,
 				 NULL_TREE);
 	  data = build_fold_addr_expr_loc (loc, data);
 	  enum built_in_function bcode
 	    = (flag_sanitize_recover & SANITIZE_OBJECT_SIZE)
-	      ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
-	      : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
+	      ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_V1
+	      : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_V1_ABORT;
 	  tree p = make_ssa_name (pointer_sized_int_node);
 	  g = gimple_build_assign (p, NOP_EXPR, ptr);
 	  gimple_set_location (g, loc);
@@ -1073,7 +1074,6 @@ ubsan_expand_ptr_ifn (gimple_stmt_iterator *gsip)
   e->flags = EDGE_FALSE_VALUE;
   if (pos_neg != 3)
     {
-      e->count = cond_bb->count;
       e->probability = profile_probability::very_likely ();
 
       /* Connect 'then block' with the 'else block'.  This is needed
@@ -1086,35 +1086,33 @@ ubsan_expand_ptr_ifn (gimple_stmt_iterator *gsip)
 	 accordingly.  */
       e = make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
       e->probability = profile_probability::very_unlikely ();
+      then_bb->count = e->count ();
     }
   else
     {
-      profile_count count = cond_bb->count.apply_probability (PROB_EVEN);
-      e->count = count;
       e->probability = profile_probability::even ();
 
       e = split_block (fallthru_bb, (gimple *) NULL);
       cond_neg_bb = e->src;
       fallthru_bb = e->dest;
-      e->count = count;
       e->probability = profile_probability::very_likely ();
       e->flags = EDGE_FALSE_VALUE;
 
       e = make_edge (cond_neg_bb, then_bb, EDGE_TRUE_VALUE);
       e->probability = profile_probability::very_unlikely ();
+      then_bb->count = e->count ();
 
       cond_pos_bb = create_empty_bb (cond_bb);
       add_bb_to_loop (cond_pos_bb, cond_bb->loop_father);
 
       e = make_edge (cond_bb, cond_pos_bb, EDGE_TRUE_VALUE);
-      e->count = count;
       e->probability = profile_probability::even ();
+      cond_pos_bb->count = e->count ();
 
       e = make_edge (cond_pos_bb, then_bb, EDGE_TRUE_VALUE);
       e->probability = profile_probability::very_unlikely ();
 
       e = make_edge (cond_pos_bb, fallthru_bb, EDGE_FALSE_VALUE);
-      e->count = count;
       e->probability = profile_probability::very_likely ();
 
       make_single_succ_edge (then_bb, fallthru_bb, EDGE_FALLTHRU);
@@ -1449,7 +1447,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
 	 fits, don't instrument anything.  */
       poly_int64 base_size;
       if (offset == NULL_TREE
-	  && maybe_nonzero (bitpos)
+	  && may_ne (bitpos, 0)
 	  && (VAR_P (base)
 	      || TREE_CODE (base) == PARM_DECL
 	      || TREE_CODE (base) == RESULT_DECL)
@@ -1476,7 +1474,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
   if (!POINTER_TYPE_P (TREE_TYPE (base)) && !DECL_P (base))
     return;
   bytepos = bits_to_bytes_round_down (bitpos);
-  if (offset == NULL_TREE && known_zero (bytepos) && moff == NULL_TREE)
+  if (offset == NULL_TREE && must_eq (bytepos, 0) && moff == NULL_TREE)
     return;
 
   tree base_addr = base;
@@ -1484,7 +1482,7 @@ maybe_instrument_pointer_overflow (gimple_stmt_iterator *gsi, tree t)
     base_addr = build1 (ADDR_EXPR,
 			build_pointer_type (TREE_TYPE (base)), base);
   t = offset;
-  if (maybe_nonzero (bytepos))
+  if (may_ne (bytepos, 0))
     {
       if (t)
 	t = fold_build2 (PLUS_EXPR, TREE_TYPE (t), t,
@@ -2025,15 +2023,18 @@ instrument_nonnull_return (gimple_stmt_iterator *gsi)
       else
 	{
 	  tree data = ubsan_create_data ("__ubsan_nonnull_return_data",
-					 2, loc, NULL_TREE, NULL_TREE);
+					 1, &loc[1], NULL_TREE, NULL_TREE);
 	  data = build_fold_addr_expr_loc (loc[0], data);
+	  tree data2 = ubsan_create_data ("__ubsan_nonnull_return_data",
+					  1, &loc[0], NULL_TREE, NULL_TREE);
+	  data2 = build_fold_addr_expr_loc (loc[0], data2);
 	  enum built_in_function bcode
 	    = (flag_sanitize_recover & SANITIZE_RETURNS_NONNULL_ATTRIBUTE)
-	      ? BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN
-	      : BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN_ABORT;
+	      ? BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN_V1
+	      : BUILT_IN_UBSAN_HANDLE_NONNULL_RETURN_V1_ABORT;
 	  tree fn = builtin_decl_explicit (bcode);
 
-	  g = gimple_build_call (fn, 1, data);
+	  g = gimple_build_call (fn, 2, data, data2);
 	}
       gimple_set_location (g, loc[0]);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
@@ -2217,6 +2218,72 @@ instrument_object_size (gimple_stmt_iterator *gsi, tree t, bool is_lhs)
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 }
 
+/* Instrument values passed to builtin functions.  */
+
+static void
+instrument_builtin (gimple_stmt_iterator *gsi)
+{
+  gimple *stmt = gsi_stmt (*gsi);
+  location_t loc = gimple_location (stmt);
+  tree arg;
+  enum built_in_function fcode
+    = DECL_FUNCTION_CODE (gimple_call_fndecl (stmt));
+  int kind = 0;
+  switch (fcode)
+    {
+    CASE_INT_FN (BUILT_IN_CLZ):
+      kind = 1;
+      gcc_fallthrough ();
+    CASE_INT_FN (BUILT_IN_CTZ):
+      arg = gimple_call_arg (stmt, 0);
+      if (!integer_nonzerop (arg))
+	{
+	  gimple *g;
+	  if (!is_gimple_val (arg))
+	    {
+	      g = gimple_build_assign (make_ssa_name (TREE_TYPE (arg)), arg);
+	      gimple_set_location (g, loc);
+	      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	      arg = gimple_assign_lhs (g);
+	    }
+
+	  basic_block then_bb, fallthru_bb;
+	  *gsi = create_cond_insert_point (gsi, true, false, true,
+					   &then_bb, &fallthru_bb);
+	  g = gimple_build_cond (EQ_EXPR, arg,
+				 build_zero_cst (TREE_TYPE (arg)),
+				 NULL_TREE, NULL_TREE);
+	  gimple_set_location (g, loc);
+	  gsi_insert_after (gsi, g, GSI_NEW_STMT);
+
+	  *gsi = gsi_after_labels (then_bb);
+	  if (flag_sanitize_undefined_trap_on_error)
+	    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+	  else
+	    {
+	      tree t = build_int_cst (unsigned_char_type_node, kind);
+	      tree data = ubsan_create_data ("__ubsan_builtin_data",
+					     1, &loc, NULL_TREE, t, NULL_TREE);
+	      data = build_fold_addr_expr_loc (loc, data);
+	      enum built_in_function bcode
+		= (flag_sanitize_recover & SANITIZE_BUILTIN)
+		  ? BUILT_IN_UBSAN_HANDLE_INVALID_BUILTIN
+		  : BUILT_IN_UBSAN_HANDLE_INVALID_BUILTIN_ABORT;
+	      tree fn = builtin_decl_explicit (bcode);
+
+	      g = gimple_build_call (fn, 1, data);
+	    }
+	  gimple_set_location (g, loc);
+	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	  ubsan_create_edge (g);
+	}
+      *gsi = gsi_for_stmt (stmt);
+      break;
+    default:
+      break;
+    }
+}
+
 namespace {
 
 const pass_data pass_data_ubsan =
@@ -2248,7 +2315,8 @@ public:
 				| SANITIZE_NONNULL_ATTRIBUTE
 				| SANITIZE_RETURNS_NONNULL_ATTRIBUTE
 				| SANITIZE_OBJECT_SIZE
-				| SANITIZE_POINTER_OVERFLOW));
+				| SANITIZE_POINTER_OVERFLOW
+				| SANITIZE_BUILTIN));
     }
 
   virtual unsigned int execute (function *);
@@ -2310,6 +2378,13 @@ pass_ubsan::execute (function *fun)
 	      && !gimple_call_internal_p (stmt))
 	    {
 	      instrument_nonnull_arg (&gsi);
+	      bb = gimple_bb (stmt);
+	    }
+
+	  if (sanitize_flags_p (SANITIZE_BUILTIN, fun->decl)
+	      && gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
+	    {
+	      instrument_builtin (&gsi);
 	      bb = gimple_bb (stmt);
 	    }
 

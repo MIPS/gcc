@@ -1,7 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
-void pack_float_plus_1point1 (float *d, double *s, int size)
+void __attribute__ ((noinline, noclone))
+pack_float_plus_1point1 (float *d, double *s, int size)
 {
   for (int i = 0; i < size; i++)
     d[i] = s[i] + 1.1;

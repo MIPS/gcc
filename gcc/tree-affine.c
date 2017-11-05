@@ -815,16 +815,16 @@ wide_int_constant_multiple_p (const poly_widest_int &val,
 {
   poly_widest_int rem, cst;
 
-  if (known_zero (val))
+  if (must_eq (val, 0))
     {
-      if (*mult_set && maybe_nonzero (*mult))
+      if (*mult_set && may_ne (*mult, 0))
 	return false;
       *mult_set = true;
       *mult = 0;
       return true;
     }
 
-  if (maybe_zero (div))
+  if (may_eq (div, 0))
     return false;
 
   if (!multiple_p (val, div, &cst))
@@ -848,7 +848,7 @@ aff_combination_constant_multiple_p (aff_tree *val, aff_tree *div,
   bool mult_set = false;
   unsigned i;
 
-  if (val->n == 0 && known_zero (val->offset))
+  if (val->n == 0 && must_eq (val->offset, 0))
     {
       *mult = 0;
       return true;

@@ -676,9 +676,9 @@ inline_transform (struct cgraph_node *node)
     {
       profile_count num = node->count;
       profile_count den = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
-      bool scale = num.initialized_p ()
-		   && (den > 0 || num == profile_count::zero ())
-		   && !(num == den);
+      bool scale = num.initialized_p () && den.ipa_p ()
+		   && (den.nonzero_p () || num == profile_count::zero ())
+		   && !(num == den.ipa ());
       if (scale)
 	{
 	  if (dump_file)
@@ -692,14 +692,7 @@ inline_transform (struct cgraph_node *node)
 
 	  basic_block bb;
 	  FOR_ALL_BB_FN (bb, cfun)
-	    {
-	      bb->count = bb->count.apply_scale (num, den);
-	
-	      edge e;
-	      edge_iterator ei;
-	      FOR_EACH_EDGE (e, ei, bb->succs)
-		e->count = e->count.apply_scale (num, den);
-	    }
+	    bb->count = bb->count.apply_scale (num, den);
 	  ENTRY_BLOCK_PTR_FOR_FN (cfun)->count = node->count;
 	}
       todo = optimize_inline_calls (current_function_decl);

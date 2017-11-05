@@ -129,7 +129,7 @@ valid_ao_ref_for_dse (ao_ref *ref)
 {
   return (ao_ref_base (ref)
 	  && known_size_p (ref->max_size)
-	  && maybe_nonzero (ref->size)
+	  && may_ne (ref->size, 0)
 	  && must_eq (ref->max_size, ref->size)
 	  && must_ge (ref->offset, 0)
 	  && multiple_p (ref->offset, BITS_PER_UNIT)
@@ -606,7 +606,7 @@ dse_classify_store (ao_ref *ref, gimple *stmt, gimple **use_stmt,
 		      ao_ref use_ref;
 		      ao_ref_init (&use_ref, gimple_assign_rhs1 (use_stmt));
 		      if (valid_ao_ref_for_dse (&use_ref)
-			  && must_eq (use_ref.base, ref->base)
+			  && use_ref.base == ref->base
 			  && must_eq (use_ref.size, use_ref.max_size)
 			  && !live_bytes_read (use_ref, ref, live_bytes))
 			{

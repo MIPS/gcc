@@ -820,7 +820,8 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
   const char *fmt = GET_RTX_FORMAT (code);
 
   for (i = 0; i < data->insn_static_data->n_operands; i++)
-    if (x == data->operand_loc[i])
+    if (! data->insn_static_data->operand[i].is_operator
+	&& x == data->operand_loc[i])
       /* It is an operand loc. Stop here.  */
       return list;
   for (i = 0; i < data->insn_static_data->n_dups; i++)
@@ -2371,7 +2372,7 @@ lra (FILE *f)
   bitmap_initialize (&lra_optional_reload_pseudos, &reg_obstack);
   bitmap_initialize (&lra_subreg_reload_pseudos, &reg_obstack);
   live_p = false;
-  if (maybe_nonzero (get_frame_size ()) && crtl->stack_alignment_needed)
+  if (may_ne (get_frame_size (), 0) && crtl->stack_alignment_needed)
     /* If we have a stack frame, we must align it now.  The stack size
        may be a part of the offset computation for register
        elimination.  */

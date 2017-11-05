@@ -5860,6 +5860,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 3;
 
       case unaligned_load:
+      case vector_gather_load:
 	if (TARGET_P9_VECTOR)
 	  return 3;
 
@@ -5901,6 +5902,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 2;
 
       case unaligned_store:
+      case vector_scatter_store:
 	if (TARGET_EFFICIENT_UNALIGNED_VSX)
 	  return 1;
 
@@ -9539,6 +9541,8 @@ rs6000_delegitimize_address (rtx orig_x)
 static bool
 rs6000_const_not_ok_for_debug_p (rtx x)
 {
+  if (GET_CODE (x) == UNSPEC)
+    return true;
   if (GET_CODE (x) == SYMBOL_REF
       && CONSTANT_POOL_ADDRESS_P (x))
     {

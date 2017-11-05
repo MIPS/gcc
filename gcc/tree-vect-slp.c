@@ -3242,7 +3242,7 @@ vect_slp_bb (basic_block bb)
 
       if (vectorized
 	  || next_size == vector_sizes.length ()
-	  || known_zero (current_vector_size)
+	  || must_eq (current_vector_size, 0U)
 	  /* If vect_slp_analyze_bb_1 signaled that analysis for all
 	     vector sizes will fail do not bother iterating.  */
 	  || fatal)

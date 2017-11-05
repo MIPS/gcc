@@ -120,4 +120,4 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect" { target vect_int } } } */
 /* Alignment forced using versioning until the pass that increases alignment
   is extended to handle structs.  */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 4 "vect" { target { vect_int && { ! vector_alignment_reachable } } xfail { vect_element_align_preferred } } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning" 4 "vect" { target {vect_int && {! vector_alignment_reachable} } } } } */

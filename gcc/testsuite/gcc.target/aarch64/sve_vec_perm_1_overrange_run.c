@@ -1,8 +1,8 @@
 /* { dg-do run { target aarch64_sve_hw } } */
 /* { dg-options "-O -march=armv8-a+sve" } */
+/* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256" { target aarch64_sve256_hw } } */
 
 #include "sve_vec_perm_1.c"
-extern void abort (void);
 
 #define TEST_VEC_PERM(TYPE, MASK_TYPE, EXPECTED_RESULT,			\
 		      VALUES1, VALUES2, MASK)				\
@@ -14,7 +14,7 @@ extern void abort (void);
   TYPE dest;								\
   dest = vec_perm_##TYPE (values1, values2, mask);			\
   if (__builtin_memcmp (&dest, &expected_result, sizeof (TYPE)) != 0)	\
-    abort ();								\
+    __builtin_abort ();							\
 }
 
 int main (void)
@@ -92,5 +92,20 @@ int main (void)
 			   15 + (16 * 4), 7 + (16 * 4),
 			   6 + (16 * 3), 5 + (16 * 2),
 			   4 + (16 * 1), 10 + (16 * 0) }));
+  TEST_VEC_PERM (v16hf, v16hi,
+		 ((v16hf) { 12.0, 16.0, 18.0, 10.0, 42.0, 43.0, 44.0, 34.0,
+			    7.0, 48.0, 3.0, 35.0, 9.0, 8.0, 7.0, 13.0 }),
+		 ((v16hf) { 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
+			    11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0 }),
+		 ((v16hf) { 33.0, 34.0, 35.0, 36.0, 37.0, 38.0, 39.0, 40.0,
+			    41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0 }),
+		 ((v16hi) { 9 + (32 * 2), 13 + (32 * 2),
+			    15 + (32 * 8), 7 + (32 * 9),
+			    25 + (32 * 4), 26 + (32 * 3),
+			    27 + (32 * 1), 17 + (32 * 2),
+			    4 + (32 * 6), 31 + (32 * 7),
+			    0 + (32 * 8), 18 + (32 * 9),
+			    6 + (32 * 6), 5 + (32 * 7),
+			    4 + (32 * 2), 10 + (32 * 2) }));
   return 0;
 }

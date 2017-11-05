@@ -1,7 +1,10 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
-void pack_int_double_plus_7 (unsigned int *d, double *s, int size)
+#include <stdint.h>
+
+void __attribute__ ((noinline, noclone))
+pack_int_double_plus_7 (uint32_t *d, double *s, int size)
 {
   for (int i = 0; i < size; i++)
     d[i] = s[i] + 7;

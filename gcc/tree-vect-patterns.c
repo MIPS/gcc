@@ -3979,6 +3979,20 @@ vect_recog_mask_conversion_pattern (vec<gimple *> *stmts, tree *type_in,
 	}
       else if (COMPARISON_CLASS_P (rhs1))
 	{
+	  /* Check whether we're comparing scalar booleans and (if so)
+	     whether a better mask type exists than the mask associated
+	     with boolean-sized elements.  This avoids unnecessary packs
+	     and unpacks if the booleans are set from comparisons of
+	     wider types.  E.g. in:
+
+	       int x1, x2, x3, x4, y1, y1;
+	       ...
+	       bool b1 = (x1 == x2);
+	       bool b2 = (x3 == x4);
+	       ... = b1 == b2 ? y1 : y2;
+
+	     it is better for b1 and b2 to use the mask type associated
+	     with int elements rather bool (byte) elements.  */
 	  rhs1_type = search_type_for_mask (TREE_OPERAND (rhs1, 0), vinfo);
 	  if (!rhs1_type)
 	    rhs1_type = TREE_TYPE (TREE_OPERAND (rhs1, 0));
@@ -3992,9 +4006,11 @@ vect_recog_mask_conversion_pattern (vec<gimple *> *stmts, tree *type_in,
 	return NULL;
 
       /* Continue if a conversion is needed.  Also continue if we have
-	 a comparison whose natural vector type is different from VECTYPE2;
-	 in that case we'll replace the comparison with an SSA name and
-	 behave as though the comparison was an SSA name from the outset.  */
+	 a comparison whose vector type would normally be different from
+	 VECTYPE2 when considered in isolation.  In that case we'll
+	 replace the comparison with an SSA name (so that we can record
+	 its vector type) and behave as though the comparison was an SSA
+	 name from the outset.  */
       if (must_eq (TYPE_VECTOR_SUBPARTS (vectype1),
 		   TYPE_VECTOR_SUBPARTS (vectype2))
 	  && (TREE_CODE (rhs1) == SSA_NAME

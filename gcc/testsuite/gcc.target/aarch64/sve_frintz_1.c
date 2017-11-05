@@ -9,7 +9,6 @@ vsqrt_##TYPE (TYPE *dst, TYPE *src, int count)	\
     dst[i] = __builtin_##OP (src[i]);		\
 }
 
-
 DO_OPS (float, truncf)
 DO_OPS (double, trunc)
 

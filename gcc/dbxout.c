@@ -2486,7 +2486,7 @@ dbxout_expand_expr (tree expr)
 	      return NULL;
 	    x = adjust_address_nv (x, mode, tree_to_shwi (offset));
 	  }
-	if (maybe_nonzero (bitpos))
+	if (may_ne (bitpos, 0))
 	  x = adjust_address_nv (x, mode, bits_to_bytes_round_down (bitpos));
 
 	return x;

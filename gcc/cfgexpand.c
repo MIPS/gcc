@@ -446,7 +446,7 @@ add_stack_var (tree decl)
   v->size = tree_to_poly_uint64 (size);
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
-  if (known_zero (v->size))
+  if (must_eq (v->size, 0U))
     v->size = 1;
   v->alignb = align_local_variable (decl);
   /* An alignment of zero can mightily confuse us later.  */
@@ -1183,7 +1183,7 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 
 	  /* If there were any variables requiring "large" alignment, allocate
 	     space.  */
-	  if (maybe_nonzero (large_size) && ! large_allocation_done)
+	  if (may_ne (large_size, 0U) && ! large_allocation_done)
 	    {
 	      poly_int64 loffset;
 	      rtx large_allocsize;
@@ -1397,10 +1397,18 @@ expand_one_ssa_partition (tree var)
     }
 
   machine_mode reg_mode = promote_ssa_mode (var, NULL);
-
   rtx x = gen_reg_rtx (reg_mode);
 
   set_rtl (var, x);
+
+  /* For a promoted variable, X will not be used directly but wrapped in a
+     SUBREG with SUBREG_PROMOTED_VAR_P set, which means that the RTL land
+     will assume that its upper bits can be inferred from its lower bits.
+     Therefore, if X isn't initialized on every path from the entry, then
+     we must do it manually in order to fulfill the above assumption.  */
+  if (reg_mode != TYPE_MODE (TREE_TYPE (var))
+      && bitmap_bit_p (SA.partitions_for_undefined_values, part))
+    emit_move_insn (x, CONST0_RTX (reg_mode));
 }
 
 /* Record the association between the RTL generated for partition PART
@@ -2521,8 +2529,7 @@ expand_gimple_cond (basic_block bb, gcond *stmt)
   dest = false_edge->dest;
   redirect_edge_succ (false_edge, new_bb);
   false_edge->flags |= EDGE_FALLTHRU;
-  new_bb->count = false_edge->count;
-  new_bb->frequency = EDGE_FREQUENCY (false_edge);
+  new_bb->count = false_edge->count ();
   loop_p loop = find_common_loop (bb->loop_father, dest->loop_father);
   add_bb_to_loop (new_bb, loop);
   if (loop->latch == bb
@@ -2648,8 +2655,7 @@ expand_call_stmt (gcall *stmt)
   CALL_EXPR_RETURN_SLOT_OPT (exp) = gimple_call_return_slot_opt_p (stmt);
   if (decl
       && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-      && (DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA
-	  || DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA_WITH_ALIGN))
+      && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (decl)))
     CALL_ALLOCA_FOR_VAR_P (exp) = gimple_call_alloca_for_var_p (stmt);
   else
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
@@ -2673,11 +2679,27 @@ expand_call_stmt (gcall *stmt)
 	  }
     }
 
+  rtx_insn *before_call = get_last_insn ();
   lhs = gimple_call_lhs (stmt);
   if (lhs)
     expand_assignment (lhs, exp, false);
   else
     expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+  /* If the gimple call is an indirect call and has 'nocf_check'
+     attribute find a generated CALL insn to mark it as no
+     control-flow verification is needed.  */
+  if (gimple_call_nocf_check_p (stmt)
+      && !gimple_call_fndecl (stmt))
+    {
+      rtx_insn *last = get_last_insn ();
+      while (!CALL_P (last)
+	     && last != before_call)
+	last = PREV_INSN (last);
+
+      if (last != before_call)
+	add_reg_note (last, REG_CALL_NOCF_CHECK, const0_rtx);
+    }
 
   mark_transaction_restart_calls (stmt);
 }
@@ -3832,20 +3854,13 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
      the exit block.  */
 
   probability = profile_probability::never ();
-  profile_count count = profile_count::zero ();
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
 	  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-	    {
-	      e->dest->count -= e->count;
-	      e->dest->frequency -= EDGE_FREQUENCY (e);
-	      if (e->dest->frequency < 0)
-		e->dest->frequency = 0;
-	    }
-	  count += e->count;
+	    e->dest->count -= e->count ();
 	  probability += e->probability;
 	  remove_edge (e);
 	}
@@ -3875,7 +3890,6 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
   e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_ABNORMAL
 		 | EDGE_SIBCALL);
   e->probability = probability;
-  e->count = count;
   BB_END (bb) = last;
   update_bb_for_insn (bb);
 
@@ -4472,7 +4486,7 @@ expand_debug_expr (tree exp)
 				 &unsignedp, &reversep, &volatilep);
 	rtx orig_op0;
 
-	if (known_zero (bitsize))
+	if (must_eq (bitsize, 0))
 	  return NULL;
 
 	orig_op0 = op0 = expand_debug_expr (tem);
@@ -4516,12 +4530,12 @@ expand_debug_expr (tree exp)
 	      /* Bitfield.  */
 	      mode1 = smallest_int_mode_for_size (bitsize);
 	    poly_int64 bytepos = bits_to_bytes_round_down (bitpos);
-	    if (maybe_nonzero (bytepos))
+	    if (may_ne (bytepos, 0))
 	      {
 		op0 = adjust_address_nv (op0, mode1, bytepos);
 		bitpos = num_trailing_bits (bitpos);
 	      }
-	    else if (known_zero (bitpos)
+	    else if (must_eq (bitpos, 0)
 		     && must_eq (bitsize, GET_MODE_BITSIZE (mode)))
 	      op0 = adjust_address_nv (op0, mode, 0);
 	    else if (GET_MODE (op0) != mode1)
@@ -4533,7 +4547,7 @@ expand_debug_expr (tree exp)
 	    set_mem_attributes (op0, exp, 0);
 	  }
 
-	if (known_zero (bitpos) && mode == GET_MODE (op0))
+	if (must_eq (bitpos, 0) && mode == GET_MODE (op0))
 	  return op0;
 
 	if (may_lt (bitpos, 0))
@@ -5863,7 +5877,6 @@ construct_init_block (void)
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
 				   ENTRY_BLOCK_PTR_FOR_FN (cfun));
-  init_block->frequency = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
   init_block->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
   add_bb_to_loop (init_block, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
   if (e)
@@ -5927,7 +5940,7 @@ construct_exit_block (void)
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
   /* But make sure exit_block starts with RETURN_LABEL, otherwise the
-     bb frequency counting will be confused.  Any instructions before that
+     bb count counting will be confused.  Any instructions before that
      label are emitted for the case where PREV_BB falls through into the
      exit block, so append those instructions to prev_bb in that case.  */
   if (NEXT_INSN (head) != return_label)
@@ -5940,7 +5953,6 @@ construct_exit_block (void)
 	}
     }
   exit_block = create_basic_block (NEXT_INSN (head), end, prev_bb);
-  exit_block->frequency = EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency;
   exit_block->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
   add_bb_to_loop (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father);
 
@@ -5959,12 +5971,8 @@ construct_exit_block (void)
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e2 != e)
       {
-	e->count -= e2->count;
-	exit_block->count -= e2->count;
-	exit_block->frequency -= EDGE_FREQUENCY (e2);
+	exit_block->count -= e2->count ();
       }
-  if (exit_block->frequency < 0)
-    exit_block->frequency = 0;
   update_bb_for_insn (exit_block);
 }
 

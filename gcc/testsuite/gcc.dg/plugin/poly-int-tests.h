@@ -437,64 +437,6 @@ test_must_eq ()
 			 ph::make (0, 3, 5)));
 }
 
-/* Test known_zero.  */
-
-template<unsigned int N, typename C, typename T>
-static void
-test_known_zero ()
-{
-  typedef poly_helper<T> ph;
-
-  ASSERT_EQ (known_zero (ph::make (0, 0, 1)), N <= 2);
-  ASSERT_EQ (known_zero (ph::make (0, 1, 0)), N == 1);
-  ASSERT_TRUE (known_zero (ph::make (0, 0, 0)));
-  ASSERT_FALSE (known_zero (ph::make (1, 0, 0)));
-}
-
-/* Test maybe_nonzero.  */
-
-template<unsigned int N, typename C, typename T>
-static void
-test_maybe_nonzero ()
-{
-  typedef poly_helper<T> ph;
-
-  ASSERT_EQ (maybe_nonzero (ph::make (0, 0, 1)), N == 3);
-  ASSERT_EQ (maybe_nonzero (ph::make (0, 1, 0)), N >= 2);
-  ASSERT_FALSE (maybe_nonzero (ph::make (0, 0, 0)));
-  ASSERT_TRUE (maybe_nonzero (ph::make (1, 0, 0)));
-}
-
-/* Test known_one.  */
-
-template<unsigned int N, typename C, typename T>
-static void
-test_known_one ()
-{
-  typedef poly_helper<T> ph;
-
-  ASSERT_EQ (known_one (ph::make (1, 0, 1)), N <= 2);
-  ASSERT_EQ (known_one (ph::make (1, 1, 0)), N == 1);
-  ASSERT_TRUE (known_one (ph::make (1, 0, 0)));
-  ASSERT_FALSE (known_one (ph::make (0, 0, 0)));
-}
-
-/* Test known_all_ones.  */
-
-template<unsigned int N, typename C, typename T>
-static void
-test_known_all_ones ()
-{
-  typedef poly_helper<T> ph;
-
-  ASSERT_EQ (known_all_ones (ph::make (-1, 0, -1)), N <= 2);
-  ASSERT_EQ (known_all_ones (ph::make (-1, -1, 0)), N == 1);
-  ASSERT_EQ (known_all_ones (ph::make (-1, -1, -1)), N == 1);
-  ASSERT_TRUE (known_all_ones (ph::make (-1, 0, 0)));
-  ASSERT_FALSE (known_all_ones (ph::make (0, 0, 0)));
-  ASSERT_FALSE (known_all_ones (ph::make (1, 0, 0)));
-}
-
 /* Test can_align_p.  */
 
 template<unsigned int N, typename C, typename T>
@@ -901,44 +843,6 @@ test_must_ne_2 ()
   ASSERT_TRUE (must_ne (T (10, 3), T (20, 0)));
   ASSERT_FALSE (must_ne (T (10, 0), T (4, 2)));
   ASSERT_TRUE (must_ne (T (11, 0), T (4, 2)));
-}
-
-/* Test maybe_zero for poly_int<2, C>.  */
-
-template<typename C>
-static void
-test_maybe_zero_2 ()
-{
-  typedef poly_int<2, C> T;
-
-  ASSERT_TRUE (maybe_zero (T (0, 0)));
-  ASSERT_TRUE (maybe_zero (T (0, 1)));
-  ASSERT_TRUE (maybe_zero (T (0, -1)));
-  ASSERT_FALSE (maybe_zero (T (1, 0)));
-  ASSERT_FALSE (maybe_zero (T (1, 2)));
-  ASSERT_FALSE (maybe_zero (T (1, -2)));
-  ASSERT_FALSE (maybe_zero (T (-1, 0)));
-  ASSERT_FALSE (maybe_zero (T (-1, 2)));
-  ASSERT_FALSE (maybe_zero (T (-1, -2)));
-}
-
-/* Test known_nonzero for poly_int<2, C>.  */
-
-template<typename C>
-static void
-test_known_nonzero_2 ()
-{
-  typedef poly_int<2, C> T;
-
-  ASSERT_FALSE (known_nonzero (T (0, 0)));
-  ASSERT_FALSE (known_nonzero (T (0, 1)));
-  ASSERT_FALSE (known_nonzero (T (0, -1)));
-  ASSERT_TRUE (known_nonzero (T (1, 0)));
-  ASSERT_TRUE (known_nonzero (T (1, 2)));
-  ASSERT_TRUE (known_nonzero (T (1, -2)));
-  ASSERT_TRUE (known_nonzero (T (-1, 0)));
-  ASSERT_TRUE (known_nonzero (T (-1, 2)));
-  ASSERT_TRUE (known_nonzero (T (-1, -2)));
 }
 
 /* Test may_le for both signed and unsigned C.  */
@@ -2235,6 +2139,22 @@ test_can_div_away_from_zero_p ()
   ASSERT_EQ (const_quot, C (0));
 }
 
+/* Test known_size_p.  */
+
+template<unsigned int N, typename C, typename T>
+static void
+test_known_size_p ()
+{
+  typedef poly_helper<T> ph;
+
+  ASSERT_EQ (known_size_p (ph::make (-1, 0, -1)), N == 3);
+  ASSERT_EQ (known_size_p (ph::make (-1, -1, 0)), N >= 2);
+  ASSERT_EQ (known_size_p (ph::make (-1, -1, -1)), N >= 2);
+  ASSERT_FALSE (known_size_p (ph::make (-1, 0, 0)));
+  ASSERT_TRUE (known_size_p (ph::make (0, 0, 0)));
+  ASSERT_TRUE (known_size_p (ph::make (1, 0, 0)));
+}
+
 /* Test maybe_in_range_p for both signed and unsigned C.  */
 
 template<unsigned int N, typename C, typename T>
@@ -2631,44 +2551,6 @@ test_signed_must_ne_2 ()
   ASSERT_TRUE (must_ne (T (0, 3), T (7, 1)));
   ASSERT_FALSE (must_ne (T (-3, 4), T (7, -1)));
   ASSERT_TRUE (must_ne (T (-3, 4), T (6, -1)));
-}
-
-/* Test maybe_zero for poly_int<2, C>, given that C is signed.  */
-
-template<typename C>
-static void
-test_signed_maybe_zero_2 ()
-{
-  typedef poly_int<2, C> T;
-
-  ASSERT_TRUE (maybe_zero (T (3, -3)));
-  ASSERT_TRUE (maybe_zero (T (16, -4)));
-  ASSERT_TRUE (maybe_zero (T (-15, 5)));
-  ASSERT_FALSE (maybe_zero (T (3, -4)));
-  ASSERT_FALSE (maybe_zero (T (3, -6)));
-  ASSERT_FALSE (maybe_zero (T (15, -4)));
-  ASSERT_FALSE (maybe_zero (T (17, -4)));
-  ASSERT_FALSE (maybe_zero (T (-14, 5)));
-  ASSERT_FALSE (maybe_zero (T (-16, 5)));
-}
-
-/* Test known_nonzero for poly_int<2, C>, given that C is signed.  */
-
-template<typename C>
-static void
-test_signed_known_nonzero_2 ()
-{
-  typedef poly_int<2, C> T;
-
-  ASSERT_FALSE (known_nonzero (T (3, -3)));
-  ASSERT_FALSE (known_nonzero (T (16, -4)));
-  ASSERT_FALSE (known_nonzero (T (-15, 5)));
-  ASSERT_TRUE (known_nonzero (T (3, -4)));
-  ASSERT_TRUE (known_nonzero (T (3, -6)));
-  ASSERT_TRUE (known_nonzero (T (15, -4)));
-  ASSERT_TRUE (known_nonzero (T (17, -4)));
-  ASSERT_TRUE (known_nonzero (T (-14, 5)));
-  ASSERT_TRUE (known_nonzero (T (-16, 5)));
 }
 
 /* Test negation for signed C, both via operators and wi::.  */
@@ -4623,76 +4505,16 @@ test_uhwi ()
 				  wi::uhwi (210, 16)));
 }
 
-/* Test known_zero for non-polynomial T.  */
+/* Test known_size_p for non-polynomial T.  */
 
 template<typename T>
 static void
-test_nonpoly_known_zero ()
+test_nonpoly_known_size_p ()
 {
-  ASSERT_TRUE (known_zero (T (0)));
-  ASSERT_FALSE (known_zero (T (1)));
-  ASSERT_FALSE (known_zero (T (2)));
-  ASSERT_FALSE (known_zero (T (-1)));
-}
-
-/* Test maybe_zero for non-polynomial T.  */
-
-template<typename T>
-static void
-test_nonpoly_maybe_zero ()
-{
-  ASSERT_TRUE (maybe_zero (T (0)));
-  ASSERT_FALSE (maybe_zero (T (1)));
-  ASSERT_FALSE (maybe_zero (T (2)));
-  ASSERT_FALSE (maybe_zero (T (-1)));
-}
-
-/* Test known_nonzero for non-polynomial T.  */
-
-template<typename T>
-static void
-test_nonpoly_known_nonzero ()
-{
-  ASSERT_FALSE (known_nonzero (T (0)));
-  ASSERT_TRUE (known_nonzero (T (1)));
-  ASSERT_TRUE (known_nonzero (T (2)));
-  ASSERT_TRUE (known_nonzero (T (-1)));
-}
-
-/* Test maybe_nonzero for non-polynomial T.  */
-
-template<typename T>
-static void
-test_nonpoly_maybe_nonzero ()
-{
-  ASSERT_FALSE (maybe_nonzero (T (0)));
-  ASSERT_TRUE (maybe_nonzero (T (1)));
-  ASSERT_TRUE (maybe_nonzero (T (2)));
-  ASSERT_TRUE (maybe_nonzero (T (-1)));
-}
-
-/* Test known_one for non-polynomial T.  */
-
-template<typename T>
-static void
-test_nonpoly_known_one ()
-{
-  ASSERT_FALSE (known_one (T (0)));
-  ASSERT_TRUE (known_one (T (1)));
-  ASSERT_FALSE (known_one (T (2)));
-  ASSERT_FALSE (known_one (T (-1)));
-}
-
-/* Test known_all_ones for non-polynomial T.  */
-
-template<typename T>
-static void
-test_nonpoly_known_all_ones ()
-{
-  ASSERT_FALSE (known_all_ones (T (0)));
-  ASSERT_FALSE (known_all_ones (T (1)));
-  ASSERT_FALSE (known_all_ones (T (2)));
-  ASSERT_TRUE (known_all_ones (T (-1)));
+  ASSERT_TRUE (known_size_p (T (0)));
+  ASSERT_TRUE (known_size_p (T (1)));
+  ASSERT_TRUE (known_size_p (T (2)));
+  ASSERT_FALSE (known_size_p (T (-1)));
 }
 
 /* Test poly-int.h operations on non-polynomial type T.  */
@@ -4701,12 +4523,7 @@ template<typename T>
 static void
 test_nonpoly_type ()
 {
-  test_nonpoly_known_zero<T> ();
-  test_nonpoly_maybe_zero<T> ();
-  test_nonpoly_known_nonzero<T> ();
-  test_nonpoly_maybe_nonzero<T> ();
-  test_nonpoly_known_one<T> ();
-  test_nonpoly_known_all_ones<T> ();
+  test_nonpoly_known_size_p<T> ();
 }
 
 /* Test poly-int.h operations on non-polynomial values.  */
@@ -4747,10 +4564,6 @@ test_general ()
   test_shift_left<N, C, T> ();
   test_may_ne<N, C, T> ();
   test_must_eq<N, C, T> ();
-  test_known_zero<N, C, T> ();
-  test_maybe_nonzero<N, C, T> ();
-  test_known_one<N, C, T> ();
-  test_known_all_ones<N, C, T> ();
   test_can_align_p<N, C, T> ();
   test_can_align_up<N, C, T> ();
   test_can_align_down<N, C, T> ();
@@ -4764,6 +4577,7 @@ test_general ()
   test_force_get_misalignment<N, C, T> ();
   test_known_alignment<N, C, T> ();
   test_can_ior_p<N, C, T> ();
+  test_known_size_p<N, C, T> ();
 }
 
 /* Test things that work for poly_int<2, C>, given that C is signed.  */
@@ -4774,8 +4588,6 @@ test_ordered_2 ()
 {
   test_may_eq_2<C> ();
   test_must_ne_2<C> ();
-  test_maybe_zero_2<C> ();
-  test_known_nonzero_2<C> ();
 }
 
 /* Test things that work for poly_int-based types T, given that the
@@ -4829,8 +4641,6 @@ test_signed_2 ()
   test_ordered_2<C> ();
   test_signed_may_eq_2<C> ();
   test_signed_must_ne_2<C> ();
-  test_signed_maybe_zero_2<C> ();
-  test_signed_known_nonzero_2<C> ();
 }
 
 /* Test things that work for poly_int-based types T, given that the

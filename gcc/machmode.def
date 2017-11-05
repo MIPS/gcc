@@ -142,6 +142,12 @@ along with GCC; see the file COPYING3.  If not see
 	than two bytes (if CLASS is FLOAT).  CLASS must be INT or
 	FLOAT.  The names follow the same rule as VECTOR_MODE uses.
 
+     VECTOR_BOOL_MODE (COUNT, BYTESIZE)
+	Create a vector of booleans with COUNT elements and BYTESIZE bytes.
+	Each boolean occupies (COUNT * BITS_PER_UNIT) / BYTESIZE bits,
+	with the element at index 0 occupying the lsb of the first byte
+	in memory.  Only the lowest bit of each element is significant.
+
      COMPLEX_MODES (CLASS);
         For all modes presently declared in class CLASS, construct
 	corresponding complex modes.  Modes smaller than one byte
@@ -162,6 +168,12 @@ along with GCC; see the file COPYING3.  If not see
 
 	Unlike a FORMAT argument, if you are adjusting a float format
 	you must put an & in front of the name of each format structure.
+
+     ADJUST_NUNITS (MODE, EXPR);
+	Like the above, but set the number of nunits of MODE to EXPR.
+	This changes the size and precision of the mode in proportion
+	to the change in the number of units; for example, doubling
+	the number of units doubles the size and precision as well.
 
    Note: If a mode is ever made which is more than 255 bytes wide,
    machmode.h and genmodes.c will have to be changed to allocate

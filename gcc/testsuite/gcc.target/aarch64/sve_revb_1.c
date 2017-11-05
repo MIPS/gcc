@@ -1,7 +1,9 @@
 /* { dg-do assemble } */
 /* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256 --save-temps" } */
 
-typedef char v32qi __attribute__((vector_size (32)));
+#include <stdint.h>
+
+typedef int8_t v32qi __attribute__((vector_size (32)));
 
 #define MASK_2(X, Y) (X) ^ (Y), (X + 1) ^ (Y)
 #define MASK_4(X, Y) MASK_2 (X, Y), MASK_2 (X + 2, Y)

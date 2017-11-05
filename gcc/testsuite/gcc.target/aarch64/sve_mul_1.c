@@ -1,34 +1,36 @@
 /* { dg-do assemble } */
-/* { dg-options {-std=c99 -O3 -march=armv8-a+sve --save-temps} } */
+/* { dg-options "-O3 -march=armv8-a+sve --save-temps" } */
+
+#include <stdint.h>
 
 #define DO_REGREG_OPS(TYPE, OP, NAME)				\
-void varith_##TYPE##_##NAME (TYPE* dst, TYPE* src, int count)	\
+void varith_##TYPE##_##NAME (TYPE *dst, TYPE *src, int count)	\
 {								\
   for (int i = 0; i < count; ++i)				\
     dst[i] = dst[i] OP src[i];					\
 }
 
 #define DO_IMMEDIATE_OPS(VALUE, TYPE, OP, NAME)		\
-void varithimm_##NAME##_##TYPE (TYPE* dst, int count)	\
+void varithimm_##NAME##_##TYPE (TYPE *dst, int count)	\
 {							\
   for (int i = 0; i < count; ++i)			\
     dst[i] = dst[i] OP VALUE;				\
 }
 
 #define DO_ARITH_OPS(TYPE, OP, NAME)			\
-DO_REGREG_OPS (TYPE, OP, NAME);				\
-DO_IMMEDIATE_OPS (0, TYPE, OP, NAME ## 0);		\
-DO_IMMEDIATE_OPS (86, TYPE, OP, NAME ## 86);		\
-DO_IMMEDIATE_OPS (109, TYPE, OP, NAME ## 109);		\
-DO_IMMEDIATE_OPS (141, TYPE, OP, NAME ## 141);		\
-DO_IMMEDIATE_OPS (-1, TYPE, OP, NAME ## minus1);	\
-DO_IMMEDIATE_OPS (-110, TYPE, OP, NAME ## minus110);	\
-DO_IMMEDIATE_OPS (-141, TYPE, OP, NAME ## minus141);
+  DO_REGREG_OPS (TYPE, OP, NAME);			\
+  DO_IMMEDIATE_OPS (0, TYPE, OP, NAME ## 0);		\
+  DO_IMMEDIATE_OPS (86, TYPE, OP, NAME ## 86);		\
+  DO_IMMEDIATE_OPS (109, TYPE, OP, NAME ## 109);	\
+  DO_IMMEDIATE_OPS (141, TYPE, OP, NAME ## 141);	\
+  DO_IMMEDIATE_OPS (-1, TYPE, OP, NAME ## minus1);	\
+  DO_IMMEDIATE_OPS (-110, TYPE, OP, NAME ## minus110);	\
+  DO_IMMEDIATE_OPS (-141, TYPE, OP, NAME ## minus141);
 
-DO_ARITH_OPS (char, *, mul)
-DO_ARITH_OPS (short, *, mul)
-DO_ARITH_OPS (int, *, mul)
-DO_ARITH_OPS (long, *, mul)
+DO_ARITH_OPS (int8_t, *, mul)
+DO_ARITH_OPS (int16_t, *, mul)
+DO_ARITH_OPS (int32_t, *, mul)
+DO_ARITH_OPS (int64_t, *, mul)
 
 /* { dg-final { scan-assembler-times {\tmul\tz[0-9]+\.b, p[0-7]/m, z[0-9]+\.b, z[0-9]+\.b\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tmul\tz[0-9]+\.b, z[0-9]+\.b, #86\n} 1 } } */

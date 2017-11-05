@@ -102,7 +102,7 @@ plus_constant (machine_mode mode, rtx x, poly_int64 c, bool inplace)
 
   gcc_assert (GET_MODE (x) == VOIDmode || GET_MODE (x) == mode);
 
-  if (known_zero (c))
+  if (must_eq (c, 0))
     return x;
 
  restart:
@@ -195,7 +195,7 @@ plus_constant (machine_mode mode, rtx x, poly_int64 c, bool inplace)
       break;
     }
 
-  if (maybe_nonzero (c))
+  if (may_ne (c, 0))
     x = gen_rtx_PLUS (mode, x, gen_int_mode (c, mode));
 
   if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
@@ -1334,6 +1334,9 @@ get_stack_check_protect (void)
    REQUIRED_ALIGN is the alignment (in bits) required for the region
    of memory.
 
+   MAX_SIZE is an upper bound for SIZE, if SIZE is not constant, or -1 if
+   no such upper bound is known.
+
    If CANNOT_ACCUMULATE is set to TRUE, the caller guarantees that the
    stack space allocated by the generated code cannot be added with itself
    in the course of the execution of the function.  It is always safe to
@@ -1343,7 +1346,9 @@ get_stack_check_protect (void)
 
 rtx
 allocate_dynamic_stack_space (rtx size, unsigned size_align,
-			      unsigned required_align, bool cannot_accumulate)
+			      unsigned required_align,
+			      HOST_WIDE_INT max_size,
+			      bool cannot_accumulate)
 {
   HOST_WIDE_INT stack_usage_size = -1;
   rtx_code_label *final_label;
@@ -1382,8 +1387,12 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 	    }
 	}
 
-      /* If the size is not constant, we can't say anything.  */
-      if (stack_usage_size == -1)
+      /* If the size is not constant, try the maximum size.  */
+      if (stack_usage_size < 0)
+	stack_usage_size = max_size;
+
+      /* If the size is still not constant, we can't say anything.  */
+      if (stack_usage_size < 0)
 	{
 	  current_function_has_unbounded_dynamic_stack_size = 1;
 	  stack_usage_size = 0;

@@ -71,8 +71,8 @@ int main (int argc, const char* argv[])
   int check_results2[N] = { 0, 112, 810, 336, 1620, 560, 2430, 784, 3240, 1008,
 			    0, 0, 0, 0, 0, 0 };
 #else
-  int check_results[N] = {};
-  int check_results2[N] = {};
+  volatile int check_results[N] = {};
+  volatile int check_results2[N] = {};
 
   for (int i = 0; i < N / 3; i++)
     {

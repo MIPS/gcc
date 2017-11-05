@@ -415,7 +415,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 		     requested size is 0 or the estimated stack
 		     alignment >= mode alignment.  */
 		  gcc_assert ((kind & ASLK_REDUCE_ALIGN)
-			      || known_zero (size)
+			      || must_eq (size, 0)
 			      || (crtl->stack_alignment_estimated
 				  >= GET_MODE_ALIGNMENT (mode)));
 		  alignment_in_bits = crtl->stack_alignment_estimated;
@@ -430,7 +430,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
   if (crtl->max_used_stack_slot_alignment < alignment_in_bits)
     crtl->max_used_stack_slot_alignment = alignment_in_bits;
 
-  if (mode != BLKmode || maybe_nonzero (size))
+  if (mode != BLKmode || may_ne (size, 0))
     {
       if (kind & ASLK_RECORD_PAD)
 	{
@@ -976,25 +976,26 @@ assign_temp (tree type_or_decl, int memory_required,
 
   if (mode == BLKmode || memory_required)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      poly_int64 size;
       rtx tmp;
-
-      /* Zero sized arrays are GNU C extension.  Set size to 1 to avoid
-	 problems with allocating the stack space.  */
-      if (size == 0)
-	size = 1;
 
       /* Unfortunately, we don't yet know how to allocate variable-sized
 	 temporaries.  However, sometimes we can find a fixed upper limit on
 	 the size, so try that instead.  */
-      else if (size == -1)
+      if (!poly_int_tree_p (TYPE_SIZE_UNIT (type), &size))
 	size = max_int_size_in_bytes (type);
+
+      /* Zero sized arrays are GNU C extension.  Set size to 1 to avoid
+	 problems with allocating the stack space.  */
+      if (must_eq (size, 0))
+	size = 1;
 
       /* The size of the temporary may be too large to fit into an integer.  */
       /* ??? Not sure this should happen except for user silliness, so limit
 	 this to things that aren't compiler-generated temporaries.  The
 	 rest of the time we'll die in assign_stack_temp_for_type.  */
-      if (decl && size == -1
+      if (decl
+	  && !known_size_p (size)
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
 	  error ("size of variable %q+D is too large", decl);
@@ -1573,7 +1574,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	 move insn in the initial rtl stream.  */
       new_rtx = instantiate_new_reg (SET_SRC (set), &offset);
       if (new_rtx
-	  && maybe_nonzero (offset)
+	  && may_ne (offset, 0)
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	{
@@ -1610,7 +1611,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  offset += delta;
 
 	  /* If the sum is zero, then replace with a plain move.  */
-	  if (known_zero (offset)
+	  if (must_eq (offset, 0)
 	      && REG_P (SET_DEST (set))
 	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
@@ -1688,7 +1689,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (x, &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (known_zero (offset))
+	  if (must_eq (offset, 0))
 	    x = new_rtx;
 	  else
 	    {
@@ -1713,7 +1714,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (SUBREG_REG (x), &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (maybe_nonzero (offset))
+	  if (may_ne (offset, 0))
 	    {
 	      start_sequence ();
 	      new_rtx = expand_simple_binop
@@ -2707,7 +2708,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
 	    {
 	      poly_int64 offset = subreg_lowpart_offset (DECL_MODE (parm),
 							 data->promoted_mode);
-	      if (maybe_nonzero (offset))
+	      if (may_ne (offset, 0))
 		set_mem_offset (stack_parm, MEM_OFFSET (stack_parm) - offset);
 	    }
 	}
@@ -3440,7 +3441,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	  /* ??? This may need a big-endian conversion on sparc64.  */
 	  data->stack_parm
 	    = adjust_address (data->stack_parm, data->nominal_mode, 0);
-	  if (maybe_nonzero (offset) && MEM_OFFSET_KNOWN_P (data->stack_parm))
+	  if (may_ne (offset, 0) && MEM_OFFSET_KNOWN_P (data->stack_parm))
 	    set_mem_offset (data->stack_parm,
 			    MEM_OFFSET (data->stack_parm) + offset);
 	}
@@ -4061,10 +4062,9 @@ gimplify_parameters (void)
 		  DECL_IGNORED_P (addr) = 0;
 		  local = build_fold_indirect_ref (addr);
 
-		  t = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
-		  t = build_call_expr (t, 2, DECL_SIZE_UNIT (parm),
-				       size_int (DECL_ALIGN (parm)));
-
+		  t = build_alloca_call_expr (DECL_SIZE_UNIT (parm),
+					      DECL_ALIGN (parm),
+					      max_int_size_in_bytes (type));
 		  /* The call has been built for a variable-sized object.  */
 		  CALL_ALLOCA_FOR_VAR_P (t) = 1;
 		  t = fold_convert (ptr_type, t);
@@ -4731,11 +4731,11 @@ number_blocks (tree fn)
   int n_blocks;
   tree *block_vector;
 
-  /* For SDB and XCOFF debugging output, we start numbering the blocks
+  /* For XCOFF debugging output, we start numbering the blocks
      from 1 within each function, rather than keeping a running
      count.  */
-#if SDB_DEBUGGING_INFO || defined (XCOFF_DEBUGGING_INFO)
-  if (write_symbols == SDB_DEBUG || write_symbols == XCOFF_DEBUG)
+#if defined (XCOFF_DEBUGGING_INFO)
+  if (write_symbols == XCOFF_DEBUG)
     next_block_index = 1;
 #endif
 
@@ -5270,7 +5270,7 @@ expand_function_start (tree subr)
     }
 
   /* The following was moved from init_function_start.
-     The move is supposed to make sdb output more accurate.  */
+     The move was supposed to make sdb output more accurate.  */
   /* Indicate the beginning of the function body,
      as opposed to parm setup.  */
   emit_note (NOTE_INSN_FUNCTION_BEG);
@@ -5461,7 +5461,7 @@ expand_function_end (void)
   do_pending_stack_adjust ();
 
   /* Output a linenumber for the end of the function.
-     SDB depends on this.  */
+     SDB depended on this.  */
   set_curr_insn_location (input_location);
 
   /* Before the return label (if any), clobber the return

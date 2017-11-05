@@ -672,10 +672,11 @@ early_remat::dump_block_info (basic_block bb)
   fprintf (dump_file, "\n;;%*s:", width, "successors");
   dump_edge_list (bb, true);
 
-  fprintf (dump_file, "\n;;%*s: %d", width, "Frequency", bb->frequency);
+  fprintf (dump_file, "\n;;%*s: %d", width, "frequency",
+	   bb->count.to_frequency (m_fn));
 
   if (info->last_call)
-    fprintf (dump_file, "\n;;%*s: %d", width, "Last call",
+    fprintf (dump_file, "\n;;%*s: %d", width, "last call",
 	     INSN_UID (info->last_call));
 
   if (!empty_p (info->rd_in))
@@ -2218,7 +2219,7 @@ early_remat::local_remat_cheaper_p (unsigned int query_bb_index)
 	  }
 	else if (m_block_info[e->src->index].last_call)
 	  /* We'll rematerialize after the call.  */
-	  frequency += e->src->frequency;
+	  frequency += e->src->count.to_frequency (m_fn);
 	else if (m_block_info[e->src->index].remat_frequency_valid_p)
 	  /* Add the cost of rematerializing at the head of E->src
 	     or in its predecessors (whichever is cheaper).  */
@@ -2234,10 +2235,11 @@ early_remat::local_remat_cheaper_p (unsigned int query_bb_index)
 
       /* If rematerializing in and before the block have equal cost, prefer
 	 rematerializing in the block.  This should shorten the live range.  */
-      if (!can_move_p || frequency >= bb->frequency)
+      int bb_frequency = bb->count.to_frequency (m_fn);
+      if (!can_move_p || frequency >= bb_frequency)
 	{
 	  info->local_remat_cheaper_p = true;
-	  info->remat_frequency = bb->frequency;
+	  info->remat_frequency = bb_frequency;
 	}
       else
 	info->remat_frequency = frequency;
@@ -2252,7 +2254,7 @@ early_remat::local_remat_cheaper_p (unsigned int query_bb_index)
 	    {
 	      fprintf (dump_file, ";; Block %d has frequency %d,"
 		       " rematerializing in predecessors has frequency %d",
-		       bb->index, bb->frequency, frequency);
+		       bb->index, bb_frequency, frequency);
 	      if (info->local_remat_cheaper_p)
 		fprintf (dump_file, "; prefer to rematerialize"
 			 " in the block\n");

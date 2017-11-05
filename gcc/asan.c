@@ -628,10 +628,9 @@ handle_builtin_alloca (gcall *call, gimple_stmt_iterator *iter)
   tree ptr_type = gimple_call_lhs (call) ? TREE_TYPE (gimple_call_lhs (call))
 					 : ptr_type_node;
   tree partial_size = NULL_TREE;
-  bool alloca_with_align
-    = DECL_FUNCTION_CODE (callee) == BUILT_IN_ALLOCA_WITH_ALIGN;
   unsigned int align
-    = alloca_with_align ? tree_to_uhwi (gimple_call_arg (call, 1)) : 0;
+    = DECL_FUNCTION_CODE (callee) == BUILT_IN_ALLOCA
+      ? 0 : tree_to_uhwi (gimple_call_arg (call, 1));
 
   /* If ALIGN > ASAN_RED_ZONE_SIZE, we embed left redzone into first ALIGN
      bytes of allocated space.  Otherwise, align alloca to ASAN_RED_ZONE_SIZE
@@ -793,8 +792,7 @@ get_mem_refs_of_builtin_call (gcall *call,
       handle_builtin_stack_restore (call, iter);
       break;
 
-    case BUILT_IN_ALLOCA_WITH_ALIGN:
-    case BUILT_IN_ALLOCA:
+    CASE_BUILT_IN_ALLOCA:
       handle_builtin_alloca (call, iter);
       break;
     /* And now the __atomic* and __sync builtins.
@@ -1804,13 +1802,13 @@ create_cond_insert_point (gimple_stmt_iterator *iter,
     ? profile_probability::very_unlikely ()
     : profile_probability::very_likely ();
   e->probability = fallthrough_probability.invert ();
+  then_bb->count = e->count ();
   if (create_then_fallthru_edge)
     make_single_succ_edge (then_bb, fallthru_bb, EDGE_FALLTHRU);
 
   /* Set up the fallthrough basic block.  */
   e = find_edge (cond_bb, fallthru_bb);
   e->flags = EDGE_FALSE_VALUE;
-  e->count = cond_bb->count;
   e->probability = fallthrough_probability;
 
   /* Update dominance info for the newly created then_bb; note that
@@ -2946,6 +2944,9 @@ asan_finish_file (void)
       TREE_CONSTANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
       DECL_INITIAL (var) = ctor;
+      SET_DECL_ALIGN (var, MAX (DECL_ALIGN (var),
+				ASAN_SHADOW_GRANULARITY * BITS_PER_UNIT));
+
       varpool_node::finalize_decl (var);
 
       tree fn = builtin_decl_implicit (BUILT_IN_ASAN_REGISTER_GLOBALS);
@@ -3400,6 +3401,10 @@ asan_expand_poison_ifn (gimple_stmt_iterator *iter,
 	    if (gimple_phi_arg_def (phi, i) == poisoned_var)
 	      {
 		edge e = gimple_phi_arg_edge (phi, i);
+
+		/* Do not insert on an edge we can't split.  */
+		if (e->flags & EDGE_ABNORMAL)
+		  continue;
 
 		if (call_to_insert == NULL)
 		  call_to_insert = gimple_copy (call);

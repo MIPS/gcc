@@ -1,7 +1,10 @@
 /* { dg-do assemble } */
 /* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256 --save-temps" } */
 
-typedef unsigned short v16hi __attribute__((vector_size (32)));
+#include <stdint.h>
+
+typedef uint16_t v16hi __attribute__((vector_size (32)));
+typedef _Float16 v16hf __attribute__((vector_size (32)));
 
 #define MASK_2(X, Y) (X) ^ (Y), (X + 1) ^ (Y)
 #define MASK_4(X, Y) MASK_2 (X, Y), MASK_2 (X + 2, Y)
@@ -21,11 +24,13 @@ typedef unsigned short v16hi __attribute__((vector_size (32)));
 
 #define TEST_ALL(T)				\
   T (v16hi, 16, 2)				\
-  T (v16hi, 16, 4)
+  T (v16hi, 16, 4)				\
+  T (v16hf, 16, 2)				\
+  T (v16hf, 16, 4)
 
 TEST_ALL (PERMUTE)
 
 /* { dg-final { scan-assembler-not {\ttbl\t} } } */
 
-/* { dg-final { scan-assembler-times {\trevh\tz[0-9]+\.d, p[0-7]/m, z[0-9]+\.d} 1 } } */
-/* { dg-final { scan-assembler-times {\trevh\tz[0-9]+\.s, p[0-7]/m, z[0-9]+\.s} 1 } } */
+/* { dg-final { scan-assembler-times {\trevh\tz[0-9]+\.d, p[0-7]/m, z[0-9]+\.d} 2 } } */
+/* { dg-final { scan-assembler-times {\trevh\tz[0-9]+\.s, p[0-7]/m, z[0-9]+\.s} 2 } } */

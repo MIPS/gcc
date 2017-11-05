@@ -1841,7 +1841,7 @@ vect_update_vf_for_slp (loop_vec_info loop_vinfo)
 		     "=== vect_update_vf_for_slp ===\n");
 
   vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  gcc_assert (known_nonzero (vectorization_factor));
+  gcc_assert (must_ne (vectorization_factor, 0U));
 
   /* If all the stmts in the loop can be SLPed, we perform only SLP, and
      vectorization factor of the loop is the unrolling factor required by
@@ -2366,7 +2366,7 @@ start_over:
 
   /* Now the vectorization factor is final.  */
   poly_uint64 vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  gcc_assert (known_nonzero (vectorization_factor));
+  gcc_assert (must_ne (vectorization_factor, 0U));
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) && dump_enabled_p ())
     {
@@ -2814,7 +2814,7 @@ vect_analyze_loop (struct loop *loop, loop_vec_info orig_loop_vinfo)
 
       if (fatal
 	  || next_size == vector_sizes.length ()
-	  || known_zero (current_vector_size))
+	  || must_eq (current_vector_size, 0U))
 	return NULL;
 
       /* Try the next biggest vector size.  */
@@ -6666,9 +6666,13 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  reduc_index = i;
 	  continue;
 	}
-      else
+      else if (tem)
 	{
-	  if (!vectype_in)
+	  /* To properly compute ncopies we are interested in the widest
+	     input type in case we're looking at a widening accumulation.  */
+	  if (!vectype_in
+	      || (GET_MODE_SIZE (SCALAR_TYPE_MODE (TREE_TYPE (vectype_in)))
+		  < GET_MODE_SIZE (SCALAR_TYPE_MODE (TREE_TYPE (tem)))))
 	    vectype_in = tem;
 	}
 
@@ -8642,36 +8646,27 @@ scale_profile_for_vect_loop (struct loop *loop, unsigned vf)
   edge preheader = loop_preheader_edge (loop);
   /* Reduce loop iterations by the vectorization factor.  */
   gcov_type new_est_niter = niter_for_unrolled_loop (loop, vf);
-  profile_count freq_h = loop->header->count, freq_e = preheader->count;
+  profile_count freq_h = loop->header->count, freq_e = preheader->count ();
 
-  /* Use frequency only if counts are zero.  */
-  if (!(freq_h > 0) && !(freq_e > 0))
-    {
-      freq_h = profile_count::from_gcov_type (loop->header->frequency);
-      freq_e = profile_count::from_gcov_type (EDGE_FREQUENCY (preheader));
-    }
-  if (freq_h > 0)
+  if (freq_h.nonzero_p ())
     {
       profile_probability p;
 
       /* Avoid dropping loop body profile counter to 0 because of zero count
 	 in loop's preheader.  */
-      if (!(freq_e > profile_count::from_gcov_type (1)))
-       freq_e = profile_count::from_gcov_type (1);
+      if (!(freq_e == profile_count::zero ()))
+        freq_e = freq_e.force_nonzero ();
       p = freq_e.apply_scale (new_est_niter + 1, 1).probability_in (freq_h);
       scale_loop_frequencies (loop, p);
     }
 
-  basic_block exit_bb = single_pred (loop->latch);
   edge exit_e = single_exit (loop);
-  exit_e->count = loop_preheader_edge (loop)->count;
   exit_e->probability = profile_probability::always ()
 				 .apply_scale (1, new_est_niter + 1);
 
   edge exit_l = single_pred_edge (loop->latch);
   profile_probability prob = exit_l->probability;
   exit_l->probability = exit_e->probability.invert ();
-  exit_l->count = exit_bb->count - exit_e->count;
   if (prob.initialized_p () && exit_l->probability.initialized_p ())
     scale_bbs_frequencies (&loop->latch, 1, exit_l->probability / prob);
 }
@@ -9327,7 +9322,7 @@ optimize_mask_stores (struct loop *loop)
       efalse = make_edge (bb, store_bb, EDGE_FALSE_VALUE);
       /* Put STORE_BB to likely part.  */
       efalse->probability = profile_probability::unlikely ();
-      store_bb->frequency = PROB_ALWAYS - EDGE_FREQUENCY (efalse);
+      store_bb->count = efalse->count ();
       make_single_succ_edge (store_bb, join_bb, EDGE_FALLTHRU);
       if (dom_info_available_p (CDI_DOMINATORS))
 	set_immediate_dominator (CDI_DOMINATORS, store_bb, bb);

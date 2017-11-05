@@ -270,7 +270,7 @@ tree integer_types[itk_none];
 bool int_n_enabled_p[NUM_INT_N_ENTS];
 struct int_n_trees_t int_n_trees [NUM_INT_N_ENTS];
 
-unsigned char tree_contains_struct[MAX_TREE_CODES][64];
+bool tree_contains_struct[MAX_TREE_CODES][64];
 
 /* Number of operands for each OpenMP clause.  */
 unsigned const char omp_clause_num_ops[] =
@@ -780,40 +780,53 @@ tree_code_size (enum tree_code code)
   switch (TREE_CODE_CLASS (code))
     {
     case tcc_declaration:  /* A decl node */
-      {
-	switch (code)
-	  {
-	  case FIELD_DECL:
-	    return sizeof (struct tree_field_decl);
-	  case PARM_DECL:
-	    return sizeof (struct tree_parm_decl);
-	  case VAR_DECL:
-	    return sizeof (struct tree_var_decl);
-	  case LABEL_DECL:
-	    return sizeof (struct tree_label_decl);
-	  case RESULT_DECL:
-	    return sizeof (struct tree_result_decl);
-	  case CONST_DECL:
-	    return sizeof (struct tree_const_decl);
-	  case TYPE_DECL:
-	    return sizeof (struct tree_type_decl);
-	  case FUNCTION_DECL:
-	    return sizeof (struct tree_function_decl);
-	  case DEBUG_EXPR_DECL:
-	    return sizeof (struct tree_decl_with_rtl);
-	  case TRANSLATION_UNIT_DECL:
-	    return sizeof (struct tree_translation_unit_decl);
-	  case NAMESPACE_DECL:
-	  case IMPORTED_DECL:
-	  case NAMELIST_DECL:
-	    return sizeof (struct tree_decl_non_common);
-	  default:
-	    return lang_hooks.tree_size (code);
-	  }
-      }
+      switch (code)
+	{
+	case FIELD_DECL:	return sizeof (tree_field_decl);
+	case PARM_DECL:		return sizeof (tree_parm_decl);
+	case VAR_DECL:		return sizeof (tree_var_decl);
+	case LABEL_DECL:	return sizeof (tree_label_decl);
+	case RESULT_DECL:	return sizeof (tree_result_decl);
+	case CONST_DECL:	return sizeof (tree_const_decl);
+	case TYPE_DECL:		return sizeof (tree_type_decl);
+	case FUNCTION_DECL:	return sizeof (tree_function_decl);
+	case DEBUG_EXPR_DECL:	return sizeof (tree_decl_with_rtl);
+	case TRANSLATION_UNIT_DECL: return sizeof (tree_translation_unit_decl);
+	case NAMESPACE_DECL:
+	case IMPORTED_DECL:
+	case NAMELIST_DECL:	return sizeof (tree_decl_non_common);
+	default:
+	  gcc_checking_assert (code >= NUM_TREE_CODES);
+	  return lang_hooks.tree_size (code);
+	}
 
     case tcc_type:  /* a type node */
-      return sizeof (struct tree_type_non_common);
+      switch (code)
+	{
+	case OFFSET_TYPE:
+	case ENUMERAL_TYPE:
+	case BOOLEAN_TYPE:
+	case INTEGER_TYPE:
+	case REAL_TYPE:
+	case POINTER_TYPE:
+	case REFERENCE_TYPE:
+	case NULLPTR_TYPE:
+	case FIXED_POINT_TYPE:
+	case COMPLEX_TYPE:
+	case VECTOR_TYPE:
+	case ARRAY_TYPE:
+	case RECORD_TYPE:
+	case UNION_TYPE:
+	case QUAL_UNION_TYPE:
+	case VOID_TYPE:
+	case POINTER_BOUNDS_TYPE:
+	case FUNCTION_TYPE:
+	case METHOD_TYPE:
+	case LANG_TYPE:		return sizeof (tree_type_non_common);
+	default:
+	  gcc_checking_assert (code >= NUM_TREE_CODES);
+	  return lang_hooks.tree_size (code);
+	}
 
     case tcc_reference:   /* a reference */
     case tcc_expression:  /* an expression */
@@ -827,18 +840,18 @@ tree_code_size (enum tree_code code)
     case tcc_constant:  /* a constant */
       switch (code)
 	{
-	case VOID_CST:		return sizeof (struct tree_typed);
+	case VOID_CST:		return sizeof (tree_typed);
 	case INTEGER_CST:	gcc_unreachable ();
-	case POLY_INT_CST:	return sizeof (struct tree_poly_int_cst);
-	case REAL_CST:		return sizeof (struct tree_real_cst);
-	case FIXED_CST:		return sizeof (struct tree_fixed_cst);
-	case COMPLEX_CST:	return sizeof (struct tree_complex);
-	case VECTOR_CST:	return sizeof (struct tree_vector);
-	case VEC_DUPLICATE_CST:	return sizeof (struct tree_vector);
-	case VEC_SERIES_CST:
-	  return sizeof (struct tree_vector) + sizeof (tree);
+	case POLY_INT_CST:	return sizeof (tree_poly_int_cst);
+	case REAL_CST:		return sizeof (tree_real_cst);
+	case FIXED_CST:		return sizeof (tree_fixed_cst);
+	case COMPLEX_CST:	return sizeof (tree_complex);
+	case VECTOR_CST:	return sizeof (tree_vector);
+	case VEC_DUPLICATE_CST:	return sizeof (tree_vector);
+	case VEC_SERIES_CST:	return sizeof (tree_vector) + sizeof (tree);
 	case STRING_CST:	gcc_unreachable ();
 	default:
+	  gcc_checking_assert (code >= NUM_TREE_CODES);
 	  return lang_hooks.tree_size (code);
 	}
 
@@ -846,23 +859,24 @@ tree_code_size (enum tree_code code)
       switch (code)
 	{
 	case IDENTIFIER_NODE:	return lang_hooks.identifier_size;
-	case TREE_LIST:		return sizeof (struct tree_list);
+	case TREE_LIST:		return sizeof (tree_list);
 
 	case ERROR_MARK:
-	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
+	case PLACEHOLDER_EXPR:	return sizeof (tree_common);
 
-	case TREE_VEC:
+	case TREE_VEC:		gcc_unreachable ();
 	case OMP_CLAUSE:	gcc_unreachable ();
 
-	case SSA_NAME:		return sizeof (struct tree_ssa_name);
+	case SSA_NAME:		return sizeof (tree_ssa_name);
 
-	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
+	case STATEMENT_LIST:	return sizeof (tree_statement_list);
 	case BLOCK:		return sizeof (struct tree_block);
-	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
-	case OPTIMIZATION_NODE: return sizeof (struct tree_optimization_option);
-	case TARGET_OPTION_NODE: return sizeof (struct tree_target_option);
+	case CONSTRUCTOR:	return sizeof (tree_constructor);
+	case OPTIMIZATION_NODE: return sizeof (tree_optimization_option);
+	case TARGET_OPTION_NODE: return sizeof (tree_target_option);
 
 	default:
+	  gcc_checking_assert (code >= NUM_TREE_CODES);
 	  return lang_hooks.tree_size (code);
 	}
 
@@ -1218,8 +1232,8 @@ copy_node (tree node MEM_STAT_DECL)
 	 The two statements usually duplicate each other
 	 (because they clear fields of the same union),
 	 but the optimizer should catch that.  */
-      TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
+      TYPE_SYMTAB_DIE (t) = 0;
 
       /* Do not copy the values cache.  */
       if (TYPE_CACHED_VALUES_P (t))
@@ -1804,13 +1818,16 @@ cst_and_fits_in_hwi (const_tree x)
 
 /* Build a new VEC_DUPLICATE_CST with type TYPE and operand EXP.
 
-   Note that this function is only suitable for callers that specifically
-   need a VEC_DUPLICATE_CST node.  Use build_vector_from_val to duplicate
-   a general scalar into a general vector type.  */
+   This function is only suitable for callers that know TYPE is a
+   variable-length vector and specifically need a VEC_DUPLICATE_CST node.
+   Use build_vector_from_val to duplicate a general scalar into a general
+   vector type.  */
 
-tree
+static tree
 build_vec_duplicate_cst (tree type, tree exp MEM_STAT_DECL)
 {
+  gcc_assert (!TYPE_VECTOR_SUBPARTS (type).is_constant ());
+
   int length = sizeof (struct tree_vector);
 
   record_node_allocation_statistics (VEC_DUPLICATE_CST, length);
@@ -1832,9 +1849,11 @@ build_vec_duplicate_cst (tree type, tree exp MEM_STAT_DECL)
    need a VEC_SERIES_CST node.  Use build_vec_series to build a general
    series vector from a general base and step.  */
 
-tree
+static tree
 build_vec_series_cst (tree type, tree base, tree step MEM_STAT_DECL)
 {
+  gcc_assert (!TYPE_VECTOR_SUBPARTS (type).is_constant ());
+
   int length = sizeof (struct tree_vector) + sizeof (tree);
 
   record_node_allocation_statistics (VEC_SERIES_CST, length);
@@ -1970,7 +1989,8 @@ build_vector_from_val (tree vectype, tree sc)
 }
 
 /* Build a vector series of type TYPE in which element I has the value
-   BASE + I * STEP.  */
+   BASE + I * STEP.  The result is a constant if BASE and STEP are constant
+   and a VEC_SERIES_EXPR otherwise.  */
 
 tree
 build_vec_series (tree type, tree base, tree step)
@@ -1978,7 +1998,20 @@ build_vec_series (tree type, tree base, tree step)
   if (integer_zerop (step))
     return build_vector_from_val (type, base);
   if (CONSTANT_CLASS_P (base) && CONSTANT_CLASS_P (step))
-    return build_vec_series_cst (type, base, step);
+    {
+      unsigned HOST_WIDE_INT nunits;
+      if (!TYPE_VECTOR_SUBPARTS (type).is_constant (&nunits))
+	return build_vec_series_cst (type, base, step);
+
+      auto_vec<tree, 32> v (nunits);
+      v.quick_push (base);
+      for (unsigned int i = 1; i < nunits; ++i)
+	{
+	  base = const_binop (PLUS_EXPR, TREE_TYPE (base), base, step);
+	  v.quick_push (base);
+	}
+      return build_vector (type, v);
+    }
   return build2 (VEC_SERIES_EXPR, type, base, step);
 }
 
@@ -10309,6 +10342,13 @@ build_common_builtin_nodes (void)
 			"__builtin_alloca_with_align",
 			alloca_flags);
 
+  ftype = build_function_type_list (ptr_type_node, size_type_node,
+				    size_type_node, size_type_node, NULL_TREE);
+  local_define_builtin ("__builtin_alloca_with_align_and_max", ftype,
+			BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX,
+			"__builtin_alloca_with_align_and_max",
+			alloca_flags);
+
   ftype = build_function_type_list (void_type_node,
 				    ptr_type_node, ptr_type_node,
 				    ptr_type_node, NULL_TREE);
@@ -10623,7 +10663,7 @@ build_same_sized_truth_vector_type (tree vectype)
 
   poly_uint64 size = GET_MODE_SIZE (TYPE_MODE (vectype));
 
-  if (known_zero (size))
+  if (must_eq (size, 0U))
     size = tree_to_uhwi (TYPE_SIZE_UNIT (vectype));
 
   return build_truth_vector_type (TYPE_VECTOR_SUBPARTS (vectype), size);
@@ -11057,6 +11097,33 @@ maybe_build_call_expr_loc (location_t loc, combined_fn fn, tree type,
       if (!fndecl)
 	return NULL_TREE;
       return build_call_expr_loc_array (loc, fndecl, n, argarray);
+    }
+}
+
+/* Return a function call to the appropriate builtin alloca variant.
+
+   SIZE is the size to be allocated.  ALIGN, if non-zero, is the requested
+   alignment of the allocated area.  MAX_SIZE, if non-negative, is an upper
+   bound for SIZE in case it is not a fixed value.  */
+
+tree
+build_alloca_call_expr (tree size, unsigned int align, HOST_WIDE_INT max_size)
+{
+  if (max_size >= 0)
+    {
+      tree t = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX);
+      return
+	build_call_expr (t, 3, size, size_int (align), size_int (max_size));
+    }
+  else if (align > 0)
+    {
+      tree t = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
+      return build_call_expr (t, 2, size, size_int (align));
+    }
+  else
+    {
+      tree t = builtin_decl_explicit (BUILT_IN_ALLOCA);
+      return build_call_expr (t, 1, size);
     }
 }
 
@@ -12394,7 +12461,7 @@ get_binfo_at_offset (tree binfo, poly_int64 offset, tree expected_type)
 
       /* Offset 0 indicates the primary base, whose vtable contents are
 	 represented in the binfo for the derived class.  */
-      else if (maybe_nonzero (offset))
+      else if (may_ne (offset, 0))
 	{
 	  tree found_binfo = NULL, base_binfo;
 	  /* Offsets in BINFO are in bytes relative to the whole structure
@@ -12874,6 +12941,9 @@ array_at_struct_end_p (tree ref)
 	   && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 1))) == ARRAY_TYPE)
     atype = TREE_TYPE (TREE_OPERAND (ref, 1));
   else
+    return false;
+
+  if (TREE_CODE (ref) == STRING_CST)
     return false;
 
   while (handled_component_p (ref))
@@ -14180,10 +14250,15 @@ test_integer_constants ()
 static void
 test_vec_duplicate_predicates_int (tree type)
 {
-  tree vec_type = build_vector_type (type, 4);
+  scalar_int_mode int_mode = SCALAR_INT_TYPE_MODE (type);
+  machine_mode vec_mode = targetm.vectorize.preferred_simd_mode (int_mode);
+  /* This will be 1 if VEC_MODE isn't a vector mode.  */
+  poly_uint64 nunits = GET_MODE_NUNITS (vec_mode);
+
+  tree vec_type = build_vector_type (type, nunits);
 
   tree zero = build_zero_cst (type);
-  tree vec_zero = build_vec_duplicate_cst (vec_type, zero);
+  tree vec_zero = build_vector_from_val (vec_type, zero);
   ASSERT_TRUE (integer_zerop (vec_zero));
   ASSERT_FALSE (integer_onep (vec_zero));
   ASSERT_FALSE (integer_minus_onep (vec_zero));
@@ -14192,7 +14267,7 @@ test_vec_duplicate_predicates_int (tree type)
   ASSERT_TRUE (initializer_zerop (vec_zero));
 
   tree one = build_one_cst (type);
-  tree vec_one = build_vec_duplicate_cst (vec_type, one);
+  tree vec_one = build_vector_from_val (vec_type, one);
   ASSERT_FALSE (integer_zerop (vec_one));
   ASSERT_TRUE (integer_onep (vec_one));
   ASSERT_FALSE (integer_minus_onep (vec_one));
@@ -14201,7 +14276,7 @@ test_vec_duplicate_predicates_int (tree type)
   ASSERT_FALSE (initializer_zerop (vec_one));
 
   tree minus_one = build_minus_one_cst (type);
-  tree vec_minus_one = build_vec_duplicate_cst (vec_type, minus_one);
+  tree vec_minus_one = build_vector_from_val (vec_type, minus_one);
   ASSERT_FALSE (integer_zerop (vec_minus_one));
   ASSERT_FALSE (integer_onep (vec_minus_one));
   ASSERT_TRUE (integer_minus_onep (vec_minus_one));
@@ -14223,24 +14298,29 @@ test_vec_duplicate_predicates_int (tree type)
 static void
 test_vec_duplicate_predicates_float (tree type)
 {
-  tree vec_type = build_vector_type (type, 4);
+  scalar_float_mode float_mode = SCALAR_FLOAT_TYPE_MODE (type);
+  machine_mode vec_mode = targetm.vectorize.preferred_simd_mode (float_mode);
+  /* This will be 1 if VEC_MODE isn't a vector mode.  */
+  poly_uint64 nunits = GET_MODE_NUNITS (vec_mode);
+
+  tree vec_type = build_vector_type (type, nunits);
 
   tree zero = build_zero_cst (type);
-  tree vec_zero = build_vec_duplicate_cst (vec_type, zero);
+  tree vec_zero = build_vector_from_val (vec_type, zero);
   ASSERT_TRUE (real_zerop (vec_zero));
   ASSERT_FALSE (real_onep (vec_zero));
   ASSERT_FALSE (real_minus_onep (vec_zero));
   ASSERT_TRUE (initializer_zerop (vec_zero));
 
   tree one = build_one_cst (type);
-  tree vec_one = build_vec_duplicate_cst (vec_type, one);
+  tree vec_one = build_vector_from_val (vec_type, one);
   ASSERT_FALSE (real_zerop (vec_one));
   ASSERT_TRUE (real_onep (vec_one));
   ASSERT_FALSE (real_minus_onep (vec_one));
   ASSERT_FALSE (initializer_zerop (vec_one));
 
   tree minus_one = build_minus_one_cst (type);
-  tree vec_minus_one = build_vec_duplicate_cst (vec_type, minus_one);
+  tree vec_minus_one = build_vector_from_val (vec_type, minus_one);
   ASSERT_FALSE (real_zerop (vec_minus_one));
   ASSERT_FALSE (real_onep (vec_minus_one));
   ASSERT_TRUE (real_minus_onep (vec_minus_one));

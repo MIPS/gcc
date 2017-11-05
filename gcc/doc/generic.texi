@@ -1107,8 +1107,10 @@ constant @var{base} and @var{step}.  The value of @var{base} is
 given by @code{VEC_SERIES_CST_BASE} and the value of @var{step} is
 given by @code{VEC_SERIES_CST_STEP}.
 
-These nodes are restricted to integral types, in order to avoid
-specifying the rounding behavior for floating-point types.
+At present only variable-length vectors use @code{VEC_SERIES_CST};
+constant-length vectors use @code{VECTOR_CST} instead.  The nodes
+are also restricted to integral types, in order to avoid specifying
+the rounding behavior for floating-point types.
 
 @item STRING_CST
 These nodes represent string-constants.  The @code{TREE_STRING_LENGTH}

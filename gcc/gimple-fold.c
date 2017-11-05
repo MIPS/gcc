@@ -6369,7 +6369,7 @@ fold_ctor_reference (tree type, tree ctor, poly_uint64 poly_offset,
 
   /* We found the field with exact match.  */
   if (useless_type_conversion_p (type, TREE_TYPE (ctor))
-      && known_zero (poly_offset))
+      && must_eq (poly_offset, 0U))
     return canonicalize_constructor_val (unshare_expr (ctor), from_decl);
 
   /* The remaining optimizations need a constant size and offset.  */
@@ -6584,7 +6584,6 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
   gcc_assert (init);
   if (init == error_mark_node)
     {
-      gcc_assert (in_lto_p);
       /* Pass down that we lost track of the target.  */
       if (can_refer)
 	*can_refer = false;

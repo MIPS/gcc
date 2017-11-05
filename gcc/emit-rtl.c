@@ -450,7 +450,7 @@ get_reg_attrs (tree decl, poly_int64 offset)
   reg_attrs attrs;
 
   /* If everything is the default, we can just return zero.  */
-  if (decl == 0 && known_zero (offset))
+  if (decl == 0 && must_eq (offset, 0))
     return 0;
 
   attrs.decl = decl;
@@ -982,7 +982,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
 
   /* Paradoxical subregs must have offset zero.  */
   if (may_gt (osize, isize))
-    return known_zero (offset);
+    return must_eq (offset, 0U);
 
   /* This is a normal subreg.  Verify that the offset is representable.  */
 
@@ -1028,7 +1028,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
 	  || (BYTES_BIG_ENDIAN
 	      ? may_ne (offset_within_reg, block_size - osize)
-	      : maybe_nonzero (offset_within_reg)))
+	      : may_ne (offset_within_reg, 0U)))
 	return false;
     }
   return true;
@@ -1156,7 +1156,7 @@ subreg_memory_offset (machine_mode outer_mode, machine_mode inner_mode,
 {
   if (paradoxical_subreg_p (outer_mode, inner_mode))
     {
-      gcc_assert (known_zero (offset));
+      gcc_assert (must_eq (offset, 0U));
       return -subreg_lowpart_offset (inner_mode, outer_mode);
     }
   return offset;
@@ -2178,7 +2178,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
   /* If we modified OFFSET based on T, then subtract the outstanding
      bit position offset.  Similarly, increase the size of the accessed
      object to contain the negative offset.  */
-  if (maybe_nonzero (apply_bitpos))
+  if (may_ne (apply_bitpos, 0))
     {
       gcc_assert (attrs.offset_known_p);
       poly_int64 bytepos = bits_to_bytes_round_down (apply_bitpos);
@@ -2402,8 +2402,8 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If there are no changes, just return the original memory reference.  */
   if (mode == GET_MODE (memref)
-      && known_zero (offset)
-      && (known_zero (size)
+      && must_eq (offset, 0)
+      && (must_eq (size, 0)
 	  || (attrs.size_known_p && must_eq (attrs.size, size)))
       && (!validate || memory_address_addr_space_p (mode, addr,
 						    attrs.addrspace)))
@@ -2451,7 +2451,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If the address is a REG, change_address_1 rightfully returns memref,
      but this would destroy memref's MEM_ATTRS.  */
-  if (new_rtx == memref && maybe_nonzero (offset))
+  if (new_rtx == memref && may_ne (offset, 0))
     new_rtx = copy_rtx (new_rtx);
 
   /* Conservatively drop the object if we don't know where we start from.  */
@@ -2478,13 +2478,13 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
   /* Compute the new alignment by taking the MIN of the alignment and the
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
-  if (maybe_nonzero (offset))
+  if (may_ne (offset, 0))
     {
       max_align = known_alignment (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
-  if (maybe_nonzero (size))
+  if (may_ne (size, 0))
     {
       /* Drop the object if the new right end is not within its bounds.  */
       if (adjust_object && may_gt (offset + size, attrs.size))
@@ -3935,6 +3935,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	case REG_NORETURN:
 	case REG_SETJMP:
 	case REG_TM:
+	case REG_CALL_NOCF_CHECK:
 	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      if (CALL_P (insn))

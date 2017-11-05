@@ -2054,13 +2054,15 @@ compare_base_decls (tree base1, tree base2)
     return 1;
 
   /* If we have two register decls with register specification we
-     cannot decide unless their assembler name is the same.  */
+     cannot decide unless their assembler names are the same.  */
   if (DECL_REGISTER (base1)
       && DECL_REGISTER (base2)
+      && HAS_DECL_ASSEMBLER_NAME_P (base1)
+      && HAS_DECL_ASSEMBLER_NAME_P (base2)
       && DECL_ASSEMBLER_NAME_SET_P (base1)
       && DECL_ASSEMBLER_NAME_SET_P (base2))
     {
-      if (DECL_ASSEMBLER_NAME (base1) == DECL_ASSEMBLER_NAME (base2))
+      if (DECL_ASSEMBLER_NAME_RAW (base1) == DECL_ASSEMBLER_NAME_RAW (base2))
 	return 1;
       return -1;
     }
@@ -2331,7 +2333,7 @@ addr_side_effect_eval (rtx addr, poly_int64 size, int n_refs)
 static inline bool
 offset_overlap_p (poly_int64 c, poly_int64 xsize, poly_int64 ysize)
 {
-  if (known_zero (xsize) || known_zero (ysize))
+  if (must_eq (xsize, 0) || must_eq (ysize, 0))
     return true;
 
   if (may_ge (c, 0))
@@ -2561,7 +2563,7 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
 	{
 	  if (may_gt (xsize, 0))
 	    xsize = -xsize;
-	  if (maybe_nonzero (xsize))
+	  if (may_ne (xsize, 0))
 	    xsize += sc + 1;
 	  c -= sc + 1;
 	  return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
@@ -2576,7 +2578,7 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
 	{
 	  if (may_gt (ysize, 0))
 	    ysize = -ysize;
-	  if (maybe_nonzero (ysize))
+	  if (may_ne (ysize, 0))
 	    ysize += sc + 1;
 	  c += sc + 1;
 	  return memrefs_conflict_p (xsize, x,

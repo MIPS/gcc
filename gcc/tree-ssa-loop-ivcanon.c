@@ -530,7 +530,6 @@ remove_exits_and_undefined_stmts (struct loop *loop, unsigned int npeeled)
 	  if (!loop_exit_edge_p (loop, exit_edge))
 	    exit_edge = EDGE_SUCC (bb, 1);
 	  exit_edge->probability = profile_probability::always ();
-	  exit_edge->count = exit_edge->src->count;
 	  gcc_checking_assert (loop_exit_edge_p (loop, exit_edge));
 	  gcond *cond_stmt = as_a <gcond *> (elt->stmt);
 	  if (exit_edge->flags & EDGE_TRUE_VALUE)
@@ -643,13 +642,11 @@ unloop_loops (bitmap loop_closed_ssa_invalidated,
       stmt = gimple_build_call (builtin_decl_implicit (BUILT_IN_UNREACHABLE), 0);
       latch_edge = make_edge (latch, create_basic_block (NULL, NULL, latch), flags);
       latch_edge->probability = profile_probability::never ();
-      latch_edge->count = profile_count::zero ();
       latch_edge->flags |= flags;
       latch_edge->goto_locus = locus;
 
       add_bb_to_loop (latch_edge->dest, current_loops->tree_root);
       latch_edge->dest->count = profile_count::zero ();
-      latch_edge->dest->frequency = 0;
       set_immediate_dominator (CDI_DOMINATORS, latch_edge->dest, latch_edge->src);
 
       gsi = gsi_start_bb (latch_edge->dest);
@@ -1092,7 +1089,6 @@ try_peel_loop (struct loop *loop,
 	}
     }
   profile_count entry_count = profile_count::zero ();
-  int entry_freq = 0;
 
   edge e;
   edge_iterator ei;
@@ -1101,15 +1097,10 @@ try_peel_loop (struct loop *loop,
       {
 	if (e->src->count.initialized_p ())
 	  entry_count = e->src->count + e->src->count;
-	entry_freq += e->src->frequency;
 	gcc_assert (!flow_bb_inside_loop_p (loop, e->src));
       }
   profile_probability p = profile_probability::very_unlikely ();
-  if (loop->header->count > 0)
-    p = entry_count.probability_in (loop->header->count);
-  else if (loop->header->frequency)
-    p = profile_probability::probability_in_gcov_type
-		 (entry_freq, loop->header->frequency);
+  p = entry_count.probability_in (loop->header->count);
   scale_loop_profile (loop, p, 0);
   bitmap_set_bit (peeled_loops, loop->num);
   return true;

@@ -12,16 +12,17 @@
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.s, #6\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #7\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #8\n} 1 } } */
-/* { dg-final { scan-assembler-times {\tfmov\tz[0-9]+\.s, #1\.0e\+0\n} 1 } } */
-/* { dg-final { scan-assembler-times {\tfmov\tz[0-9]+\.d, #2\.0e\+0\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.h, #15360\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tfmov\tz[0-9]+\.s, #2\.0e\+0\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tfmov\tz[0-9]+\.d, #3\.0e\+0\n} 1 } } */
 
 /* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.b, vl64\n} 2 } } */
-/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.h, vl32\n} 2 } } */
+/* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.h, vl32\n} 3 } } */
 /* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.s, vl16\n} 3 } } */
 /* { dg-final { scan-assembler-times {\tptrue\tp[0-7]\.d, vl8\n} 3 } } */
 
 /* { dg-final { scan-assembler-times {\tst1b\tz[0-9]+\.b,} 2 } } */
-/* { dg-final { scan-assembler-times {\tst1h\tz[0-9]+\.h,} 2 } } */
+/* { dg-final { scan-assembler-times {\tst1h\tz[0-9]+\.h,} 3 } } */
 /* { dg-final { scan-assembler-times {\tst1w\tz[0-9]+\.s,} 3 } } */
 /* { dg-final { scan-assembler-times {\tst1d\tz[0-9]+\.d,} 3 } } */
 

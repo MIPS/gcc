@@ -3256,7 +3256,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	 we may have to do something cute here.  */
 
       if (may_lt (poly_uint64 (bitpos), get_varinfo (result.var)->fullsize)
-	  && maybe_nonzero (bitmaxsize))
+	  && may_ne (bitmaxsize, 0))
 	{
 	  /* It's also not true that the constraint will actually start at the
 	     right offset, it may start in some padding.  We only care about
@@ -3302,7 +3302,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	      results->safe_push (cexpr);
 	    }
 	}
-      else if (known_zero (bitmaxsize))
+      else if (must_eq (bitmaxsize, 0))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Access to zero-sized part of variable, "

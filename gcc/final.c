@@ -92,8 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbxout.h"
 #endif
 
-#include "sdbout.h"
-
 /* Most ports that aren't using cc0 don't need to define CC_STATUS_INIT.
    So define a null default for it to save conditionalization later.  */
 #ifndef CC_STATUS_INIT
@@ -696,8 +694,8 @@ compute_alignments (void)
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
   FOR_EACH_BB_FN (bb, cfun)
-    if (bb->frequency > freq_max)
-      freq_max = bb->frequency;
+    if (bb->count.to_frequency (cfun) > freq_max)
+      freq_max = bb->count.to_frequency (cfun);
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
@@ -715,7 +713,8 @@ compute_alignments (void)
 	  if (dump_file)
 	    fprintf (dump_file,
 		     "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		     bb->index, bb->frequency, bb->loop_father->num,
+		     bb->index, bb->count.to_frequency (cfun),
+		     bb->loop_father->num,
 		     bb_loop_depth (bb));
 	  continue;
 	}
@@ -733,7 +732,7 @@ compute_alignments (void)
 	{
 	  fprintf (dump_file, "BB %4i freq %4i loop %2i loop_depth"
 		   " %2i fall %4i branch %4i",
-		   bb->index, bb->frequency, bb->loop_father->num,
+		   bb->index, bb->count.to_frequency (cfun), bb->loop_father->num,
 		   bb_loop_depth (bb),
 		   fallthru_frequency, branch_frequency);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
@@ -755,9 +754,10 @@ compute_alignments (void)
 
       if (!has_fallthru
 	  && (branch_frequency > freq_threshold
-	      || (bb->frequency > bb->prev_bb->frequency * 10
-		  && (bb->prev_bb->frequency
-		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency / 2))))
+	      || (bb->count.to_frequency (cfun) 
+			> bb->prev_bb->count.to_frequency (cfun) * 10
+		  && (bb->prev_bb->count.to_frequency (cfun)
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun) / 2))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
@@ -1945,8 +1945,6 @@ dump_basic_block_info (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
       edge_iterator ei;
 
       fprintf (file, "%s BLOCK %d", ASM_COMMENT_START, bb->index);
-      if (bb->frequency)
-        fprintf (file, " freq:%d", bb->frequency);
       if (bb->count.initialized_p ())
 	{
           fprintf (file, ", count:");
@@ -2329,8 +2327,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
 	      BLOCK_IN_COLD_SECTION_P (NOTE_BLOCK (insn)) = in_cold_section_p;
 	    }
-	  if (write_symbols == DBX_DEBUG
-	      || write_symbols == SDB_DEBUG)
+	  if (write_symbols == DBX_DEBUG)
 	    {
 	      location_t *locus_ptr
 		= block_nonartificial_location (NOTE_BLOCK (insn));
@@ -2364,8 +2361,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	      gcc_assert (BLOCK_IN_COLD_SECTION_P (NOTE_BLOCK (insn))
 			  == in_cold_section_p);
 	    }
-	  if (write_symbols == DBX_DEBUG
-	      || write_symbols == SDB_DEBUG)
+	  if (write_symbols == DBX_DEBUG)
 	    {
 	      tree outer_block = BLOCK_SUPERCONTEXT (NOTE_BLOCK (insn));
 	      location_t *locus_ptr
@@ -4685,12 +4681,6 @@ rest_of_clean_state (void)
 	  flag_dump_final_insns = NULL;
 	}
     }
-
-  /* In case the function was not output,
-     don't leave any temporary anonymous types
-     queued up for sdb output.  */
-  if (SDB_DEBUGGING_INFO && write_symbols == SDB_DEBUG)
-    sdbout_types (NULL_TREE);
 
   flag_rerun_cse_after_global_opts = 0;
   reload_completed = 0;

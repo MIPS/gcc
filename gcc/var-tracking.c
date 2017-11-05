@@ -5350,7 +5350,7 @@ track_loc_p (rtx loc, tree expr, poly_int64 offset, bool store_reg_p,
        || (store_reg_p
 	   && !COMPLEX_MODE_P (DECL_MODE (expr))
 	   && hard_regno_nregs (REGNO (loc), DECL_MODE (expr)) == 1))
-      && known_zero (offset + byte_lowpart_offset (DECL_MODE (expr), mode)))
+      && must_eq (offset + byte_lowpart_offset (DECL_MODE (expr), mode), 0))
     {
       mode = DECL_MODE (expr);
       offset = 0;

@@ -1492,7 +1492,7 @@ record_store (rtx body, bb_info_t bb_info)
       group_info *group = rtx_group_vec[group_id];
       mem_addr = group->canon_base_addr;
     }
-  if (maybe_nonzero (offset))
+  if (may_ne (offset, 0))
     mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
 
   while (ptr)
@@ -1827,7 +1827,7 @@ get_stored_val (store_info *store_info, machine_mode read_mode,
   else
     gap = read_offset - store_info->offset;
 
-  if (maybe_nonzero (gap))
+  if (may_ne (gap, 0))
     {
       poly_int64 shift = gap * BITS_PER_UNIT;
       poly_int64 access_size = GET_MODE_SIZE (read_mode) + gap;
@@ -2099,7 +2099,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
       group_info *group = rtx_group_vec[group_id];
       mem_addr = group->canon_base_addr;
     }
-  if (maybe_nonzero (offset))
+  if (may_ne (offset, 0))
     mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
 
   if (group_id >= 0)

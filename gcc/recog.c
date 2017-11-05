@@ -1007,7 +1007,7 @@ general_operand (rtx op, machine_mode mode)
 
 	 ??? This is a kludge.  */
       if (!reload_completed
-	  && maybe_nonzero (SUBREG_BYTE (op))
+	  && may_ne (SUBREG_BYTE (op), 0)
 	  && MEM_P (sub))
 	return 0;
 
@@ -1380,7 +1380,7 @@ indirect_operand (rtx op, machine_mode mode)
 	 operand.  */
       poly_int64 offset;
       rtx addr = strip_offset (XEXP (SUBREG_REG (op), 0), &offset);
-      return (known_zero (offset + SUBREG_BYTE (op))
+      return (must_eq (offset + SUBREG_BYTE (op), 0)
 	      && general_operand (addr, Pmode));
     }
 
@@ -1967,7 +1967,7 @@ offsettable_address_addr_space_p (int strictp, machine_mode mode, rtx y,
      Clearly that depends on the situation in which it's being used.
      However, the current situation in which we test 0xffffffff is
      less than ideal.  Caveat user.  */
-  if (known_zero (mode_sz))
+  if (must_eq (mode_sz, 0))
     mode_sz = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
 
   /* If the expression contains a constant term,
@@ -3379,6 +3379,7 @@ peep2_attempt (basic_block bb, rtx_insn *insn, int match_len, rtx_insn *attempt)
 	  case REG_NORETURN:
 	  case REG_SETJMP:
 	  case REG_TM:
+	  case REG_CALL_NOCF_CHECK:
 	    add_reg_note (new_insn, REG_NOTE_KIND (note),
 			  XEXP (note, 0));
 	    break;
@@ -3860,7 +3861,7 @@ const pass_data pass_data_split_all_insns =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   0, /* properties_required */
-  0, /* properties_provided */
+  PROP_rtl_split_insns, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   0, /* todo_flags_finish */

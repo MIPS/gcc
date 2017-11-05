@@ -103,8 +103,8 @@ int main (int argc, const char* argv[])
 	26776, 9542, 363804, 169059, 25853, 36596, 12962, 503404, 224634,
 	35463 };
 #else
-  unsigned int check_results[N];
-  unsigned int check_results2[N];
+  volatile unsigned int check_results[N];
+  volatile unsigned int check_results2[N];
 
   for (i = 0; i < N / 5; i++)
     {
@@ -140,7 +140,7 @@ int main (int argc, const char* argv[])
       check_results2[i * 5 + 4] = (M40 * a + M41 * b + M42 * c
 				   + M43 * d + M44 * e);
 
-      asm volatile ("");
+      asm volatile ("" ::: "memory");
     }
 #endif
 

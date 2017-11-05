@@ -308,11 +308,14 @@ DEFTREECODE (COMPLEX_CST, "complex_cst", tcc_constant, 0)
 DEFTREECODE (VECTOR_CST, "vector_cst", tcc_constant, 0)
 
 /* Represents a vector constant in which every element is equal to
-   VEC_DUPLICATE_CST_ELT.  */
+   VEC_DUPLICATE_CST_ELT.  This is only ever used for variable-length
+   vectors; fixed-length vectors must use VECTOR_CST instead.  */
 DEFTREECODE (VEC_DUPLICATE_CST, "vec_duplicate_cst", tcc_constant, 0)
 
 /* Represents a vector constant in which element i is equal to
-   VEC_SERIES_CST_BASE + i * VEC_SERIES_CST_STEP.  */
+   VEC_SERIES_CST_BASE + i * VEC_SERIES_CST_STEP.  This is only ever
+   used for variable-length vectors; fixed-length vectors must use
+   VECTOR_CST instead.  */
 DEFTREECODE (VEC_SERIES_CST, "vec_series_cst", tcc_constant, 0)
 
 /* Contents are TREE_STRING_LENGTH and the actual contents of the string.  */

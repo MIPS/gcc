@@ -2761,7 +2761,7 @@ bit_field_mode_iterator
   m_bitregion_end (bitregion_end), m_align (align),
   m_volatilep (volatilep), m_count (0)
 {
-  if (known_zero (m_bitregion_end))
+  if (must_eq (m_bitregion_end, 0))
     {
       /* We can assume that any aligned chunk of ALIGN bits that overlaps
 	 the bitfield is mapped and won't trap, provided that ALIGN isn't
@@ -2809,7 +2809,7 @@ bit_field_mode_iterator::next_mode (scalar_int_mode *out_mode)
 
       /* Stop if the mode goes outside the bitregion.  */
       HOST_WIDE_INT start = m_bitpos - substart;
-      if (maybe_nonzero (m_bitregion_start)
+      if (may_ne (m_bitregion_start, 0)
 	  && may_lt (start, m_bitregion_start))
 	break;
       HOST_WIDE_INT end = start + unit;

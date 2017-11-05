@@ -1802,7 +1802,7 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag,
   for (hash_set<basic_block>::iterator it = flag_bbs->begin ();
        it != flag_bbs->end (); ++it)
     {
-       freq_sum += (*it)->frequency;
+       freq_sum += (*it)->count.to_frequency (cfun);
        if ((*it)->count.initialized_p ())
          count_sum += (*it)->count, ncount ++;
        if (dominated_by_p (CDI_DOMINATORS, ex->src, *it))
@@ -1814,20 +1814,15 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag,
 
   if (flag_probability.initialized_p ())
     ;
-  else if (ncount == nbbs && count_sum > 0 && preheader->count >= count_sum)
+  else if (ncount == nbbs
+	   && preheader->count () >= count_sum && preheader->count ().nonzero_p ())
     {
-      flag_probability = count_sum.probability_in (preheader->count);
+      flag_probability = count_sum.probability_in (preheader->count ());
       if (flag_probability > cap)
 	flag_probability = cap;
     }
-  else if (freq_sum > 0 && EDGE_FREQUENCY (preheader) >= freq_sum)
-    {
-      flag_probability = profile_probability::from_reg_br_prob_base
-		(GCOV_COMPUTE_SCALE (freq_sum, EDGE_FREQUENCY (preheader)));
-      if (flag_probability > cap)
-	flag_probability = cap;
-    }
-  else
+
+  if (!flag_probability.initialized_p ())
     flag_probability = cap;
 
   /* ?? Insert store after previous store if applicable.  See note
@@ -1860,7 +1855,6 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag,
   old_dest = ex->dest;
   new_bb = split_edge (ex);
   then_bb = create_empty_bb (new_bb);
-  then_bb->frequency = flag_probability.apply (new_bb->frequency);
   then_bb->count = new_bb->count.apply_probability (flag_probability);
   if (irr)
     then_bb->flags = BB_IRREDUCIBLE_LOOP;
@@ -1880,13 +1874,11 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag,
   edge e2 = make_edge (new_bb, then_bb,
 	               EDGE_TRUE_VALUE | (irr ? EDGE_IRREDUCIBLE_LOOP : 0));
   e2->probability = flag_probability;
-  e2->count = then_bb->count;
 
   e1->flags |= EDGE_FALSE_VALUE | (irr ? EDGE_IRREDUCIBLE_LOOP : 0);
   e1->flags &= ~EDGE_FALLTHRU;
 
   e1->probability = flag_probability.invert ();
-  e1->count = new_bb->count - then_bb->count;
 
   then_old_edge = make_single_succ_edge (then_bb, old_dest,
 			     EDGE_FALLTHRU | (irr ? EDGE_IRREDUCIBLE_LOOP : 0));

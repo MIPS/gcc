@@ -57,7 +57,8 @@ main1 ()
         abort ();
     }
   
-  /* Vectorizable with a fully-masked loop or if VF==8.  */
+  /* Not vectorizable because of data dependencies: distance 3 is greater than 
+     the actual VF with SLP (2), but the analysis fail to detect that for now.  */
   for (i = 3; i < N/4; i++)
     {
       in3[i*4] = in3[(i-3)*4] + 5;

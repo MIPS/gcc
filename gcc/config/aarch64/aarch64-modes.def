@@ -31,15 +31,10 @@ ADJUST_FLOAT_FORMAT (HF, &ieee_half_format);
 
 /* Vector modes.  */
 
-VECTOR_BOOL_MODE (32);
-VECTOR_BOOL_MODE (16);
-VECTOR_BOOL_MODE (8);
-VECTOR_BOOL_MODE (4);
-
-ADJUST_BYTESIZE (V32BI, aarch64_sve_vg);
-ADJUST_BYTESIZE (V16BI, aarch64_sve_vg);
-ADJUST_BYTESIZE (V8BI, aarch64_sve_vg);
-ADJUST_BYTESIZE (V4BI, aarch64_sve_vg);
+VECTOR_BOOL_MODE (32, 4);
+VECTOR_BOOL_MODE (16, 4);
+VECTOR_BOOL_MODE (8, 4);
+VECTOR_BOOL_MODE (4, 4);
 
 ADJUST_NUNITS (V32BI, aarch64_sve_vg * 8);
 ADJUST_NUNITS (V16BI, aarch64_sve_vg * 4);
@@ -65,6 +60,10 @@ INT_MODE (OI, 32);
 INT_MODE (CI, 48);
 INT_MODE (XI, 64);
 
+/* Define SVE modes for NVECS vectors.  VB, VH, VS and VD are the prefixes
+   for 8-bit, 16-bit, 32-bit and 64-bit elements respectively.  It isn't
+   strictly necessary to set the alignment here, since the default would
+   be clamped to BIGGEST_ALIGNMENT anyhow, but it seems clearer.  */
 #define SVE_MODES(NVECS, VB, VH, VS, VD) \
   VECTOR_MODES (INT, 32 * NVECS); \
   VECTOR_MODES (FLOAT, 32 * NVECS); \
@@ -73,9 +72,20 @@ INT_MODE (XI, 64);
   ADJUST_NUNITS (VH##HI, aarch64_sve_vg * NVECS * 4); \
   ADJUST_NUNITS (VS##SI, aarch64_sve_vg * NVECS * 2); \
   ADJUST_NUNITS (VD##DI, aarch64_sve_vg * NVECS); \
+  ADJUST_NUNITS (VH##HF, aarch64_sve_vg * NVECS * 4); \
   ADJUST_NUNITS (VS##SF, aarch64_sve_vg * NVECS * 2); \
-  ADJUST_NUNITS (VD##DF, aarch64_sve_vg * NVECS);
+  ADJUST_NUNITS (VD##DF, aarch64_sve_vg * NVECS); \
+  \
+  ADJUST_ALIGNMENT (VB##QI, 16); \
+  ADJUST_ALIGNMENT (VH##HI, 16); \
+  ADJUST_ALIGNMENT (VS##SI, 16); \
+  ADJUST_ALIGNMENT (VD##DI, 16); \
+  ADJUST_ALIGNMENT (VH##HF, 16); \
+  ADJUST_ALIGNMENT (VS##SF, 16); \
+  ADJUST_ALIGNMENT (VD##DF, 16);
 
+/* Give SVE vectors the names normally used for 256-bit vectors.
+   The actual number depends on command-line flags.  */
 SVE_MODES (1, V32, V16, V8, V4)
 SVE_MODES (2, V64, V32, V16, V8)
 SVE_MODES (3, V96, V48, V24, V12)

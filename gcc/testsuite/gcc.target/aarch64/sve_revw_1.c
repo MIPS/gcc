@@ -1,7 +1,9 @@
 /* { dg-do assemble } */
 /* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256 --save-temps" } */
 
-typedef unsigned int v8si __attribute__((vector_size (32)));
+#include <stdint.h>
+
+typedef uint32_t v8si __attribute__((vector_size (32)));
 typedef float v8sf __attribute__((vector_size (32)));
 
 #define MASK_2(X, Y) (X) ^ (Y), (X + 1) ^ (Y)

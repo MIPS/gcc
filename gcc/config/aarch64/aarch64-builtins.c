@@ -170,6 +170,11 @@ aarch64_types_quadop_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_none,
       qualifier_none, qualifier_lane_index };
 #define TYPES_QUADOP_LANE (aarch64_types_quadop_lane_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_quadopu_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_unsigned, qualifier_unsigned, qualifier_unsigned,
+      qualifier_unsigned, qualifier_lane_index };
+#define TYPES_QUADOPU_LANE (aarch64_types_quadopu_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
 aarch64_types_binop_imm_p_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -1064,7 +1069,8 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 		    = GET_MODE_NUNITS (builtin_mode).to_constant ();
 		  aarch64_simd_lane_bounds (op[opc], 0, nunits, exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
-		  op[opc] = endian_lane_rtx (builtin_mode, INTVAL (op[opc]));
+		  op[opc] = aarch64_endian_lane_rtx (builtin_mode,
+						     INTVAL (op[opc]));
 		}
 	      goto constant_arg;
 
@@ -1078,7 +1084,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 		    = GET_MODE_NUNITS (vmode).to_constant ();
 		  aarch64_simd_lane_bounds (op[opc], 0, nunits, exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
-		  op[opc] = endian_lane_rtx (vmode, INTVAL (op[opc]));
+		  op[opc] = aarch64_endian_lane_rtx (vmode, INTVAL (op[opc]));
 		}
 	      /* Fall through - if the lane index isn't a constant then
 		 the next case will error.  */

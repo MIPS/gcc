@@ -1242,7 +1242,7 @@ do_remat (void)
 	  if (remat_insn != NULL)
 	    {
 	      poly_int64 sp_offset_change = cand_sp_offset - id->sp_offset;
-	      if (maybe_nonzero (sp_offset_change))
+	      if (may_ne (sp_offset_change, 0))
 		change_sp_offset (remat_insn, sp_offset_change);
 	      update_scratch_ops (remat_insn);
 	      lra_process_new_insns (insn, remat_insn, NULL,

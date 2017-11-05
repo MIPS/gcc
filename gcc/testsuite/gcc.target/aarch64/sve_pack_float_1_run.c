@@ -1,9 +1,5 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
-
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
 #include "sve_pack_float_1.c"
 
@@ -18,16 +14,15 @@ main (void)
   double array_source[ARRAY_SIZE];
 
   for (int i = 0; i < ARRAY_SIZE; i++)
-    array_source[i] = VAL1;
+    {
+      array_source[i] = VAL1;
+      asm volatile ("" ::: "memory");
+    }
 
   pack_float_plus_1point1 (array_dest, array_source, ARRAY_SIZE);
   for (int i = 0; i < ARRAY_SIZE; i++)
     if (array_dest[i] != (float) (VAL1 + 1.1))
-      {
-	fprintf (stderr, "%d: %f != %f\n", i, array_dest[i],
-		 (float) (VAL1 + 1.1));
-	exit (1);
-      }
+      __builtin_abort ();
 
   return 0;
 }

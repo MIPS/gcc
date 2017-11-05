@@ -25,6 +25,7 @@
   }
 
 #define TEST_BINOP(T, BINOP) \
+  T (_Float16, BINOP) \
   T (float, BINOP) \
   T (double, BINOP)
 
@@ -40,11 +41,11 @@
 TEST_ALL (LOOP)
 
 /* Currently we don't manage to remove ANDs from the other loops.  */
-/* { dg-final { scan-assembler-times {\tand\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 { xfail *-*-* } } } */
+/* { dg-final { scan-assembler-times {\tand\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 { xfail *-*-* } } } */
 /* { dg-final { scan-assembler {\tand\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} } } */
-/* { dg-final { scan-assembler-times {\torr\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
-/* { dg-final { scan-assembler-times {\teor\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
-/* { dg-final { scan-assembler-times {\tnand\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
-/* { dg-final { scan-assembler-times {\tnor\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
-/* { dg-final { scan-assembler-times {\tbic\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
-/* { dg-final { scan-assembler-times {\torn\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 2 } } */
+/* { dg-final { scan-assembler-times {\torr\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */
+/* { dg-final { scan-assembler-times {\teor\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */
+/* { dg-final { scan-assembler-times {\tnand\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */
+/* { dg-final { scan-assembler-times {\tnor\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */
+/* { dg-final { scan-assembler-times {\tbic\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */
+/* { dg-final { scan-assembler-times {\torn\tp[0-9]+\.b, p[0-9]+/z, p[0-9]+\.b, p[0-9]+\.b} 3 } } */

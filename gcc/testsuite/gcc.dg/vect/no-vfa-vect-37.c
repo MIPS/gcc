@@ -58,6 +58,5 @@ int main (void)
    If/when the aliasing problems are resolved, unalignment may
    prevent vectorization on some targets.  */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 2 "vect" { target vect_1_size } } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 4 "vect" { target vect_2_sizes } } } */
-/* { dg-final { scan-tree-dump-times "can't determine dependence" 6 "vect" { target vect_3_sizes } } } */
+/* { dg-final { scan-tree-dump-times "can't determine dependence" 2 "vect" { target { ! vect_multiple_sizes } } } } */
+/* { dg-final { scan-tree-dump "can't determine dependence" "vect" { target vect_multiple_sizes } } } */

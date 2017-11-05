@@ -1,7 +1,10 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
 
-void unpack_double_int_plus8 (double *d, signed int *s, int size)
+#include <stdint.h>
+
+void __attribute__ ((noinline, noclone))
+unpack_double_int_plus8 (double *d, int32_t *s, int size)
 {
   for (int i = 0; i < size; i++)
     d[i] = s[i] + 8;

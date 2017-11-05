@@ -111,7 +111,7 @@ pass_laddress::execute (function *fun)
 	  poly_int64 bytepos = exact_div (bitpos, BITS_PER_UNIT);
 	  if (offset != NULL_TREE)
 	    {
-	      if (maybe_nonzero (bytepos))
+	      if (may_ne (bytepos, 0))
 		offset = size_binop (PLUS_EXPR, offset, size_int (bytepos));
 	      offset = force_gimple_operand_gsi (&gsi, offset, true, NULL,
 						 true, GSI_SAME_STMT);

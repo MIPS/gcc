@@ -37,7 +37,7 @@ int main (int argc, const char* argv[])
     {
       input[i] = i;
       output[i] = 0;
-      asm volatile ("");
+      asm volatile ("" ::: "memory");
     }
 
   for (i = 0; i < N / 3; i++)

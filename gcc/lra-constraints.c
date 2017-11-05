@@ -3170,7 +3170,7 @@ equiv_address_substitution (struct address_info *ad)
 	  change_p = true;
 	}
     }
-  if (maybe_nonzero (disp))
+  if (may_ne (disp, 0))
     {
       if (ad->disp != NULL)
 	*ad->disp = plus_constant (GET_MODE (*ad->inner), *ad->disp, disp);
@@ -4013,7 +4013,7 @@ curr_insn_transform (bool check_only_p)
       if (INSN_CODE (curr_insn) >= 0
           && (p = get_insn_name (INSN_CODE (curr_insn))) != NULL)
         fprintf (lra_dump_file, " {%s}", p);
-      if (maybe_nonzero (curr_id->sp_offset))
+      if (may_ne (curr_id->sp_offset, 0))
 	{
 	  fprintf (lra_dump_file, " (sp_off=");
 	  print_dec (curr_id->sp_offset, lra_dump_file);
@@ -4224,8 +4224,9 @@ curr_insn_transform (bool check_only_p)
 	      reg = SUBREG_REG (*loc);
 	      poly_int64 byte = SUBREG_BYTE (*loc);
 	      if (REG_P (reg)
-		  /* Strict_low_part requires reload the register not
-		     the sub-register.	*/
+		  /* Strict_low_part requires reloading the register and not
+		     just the subreg.  Likewise for a strict subreg no wider
+		     than a word for WORD_REGISTER_OPERATIONS targets.  */
 		  && (curr_static_id->operand[i].strict_low
 		      || (!paradoxical_subreg_p (mode, GET_MODE (reg))
 			  && (hard_regno
@@ -4236,7 +4237,11 @@ curr_insn_transform (bool check_only_p)
 			  && (goal_alt[i] == NO_REGS
 			      || (simplify_subreg_regno
 				  (ira_class_hard_regs[goal_alt[i]][0],
-				   GET_MODE (reg), byte, mode) >= 0)))))
+				   GET_MODE (reg), byte, mode) >= 0)))
+		      || (partial_subreg_p (mode, GET_MODE (reg))
+			  && must_le (GET_MODE_SIZE (GET_MODE (reg)),
+				      UNITS_PER_WORD)
+			  && WORD_REGISTER_OPERATIONS)))
 		{
 		  /* An OP_INOUT is required when reloading a subreg of a
 		     mode wider than a word to ensure that data beyond the
@@ -4283,7 +4288,13 @@ curr_insn_transform (bool check_only_p)
 	}
       else if (curr_static_id->operand[i].type == OP_IN
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
-		   == OP_OUT))
+		   == OP_OUT
+		   || (curr_static_id->operand[goal_alt_matched[i][0]].type
+		       == OP_INOUT
+		       && (operands_match_p
+			   (*curr_id->operand_loc[i],
+			    *curr_id->operand_loc[goal_alt_matched[i][0]],
+			    -1)))))
 	{
 	  /* generate reloads for input and matched outputs.  */
 	  match_inputs[0] = i;
@@ -4294,9 +4305,14 @@ curr_insn_transform (bool check_only_p)
 			[goal_alt_number * n_operands + goal_alt_matched[i][0]]
 			.earlyclobber);
 	}
-      else if (curr_static_id->operand[i].type == OP_OUT
+      else if ((curr_static_id->operand[i].type == OP_OUT
+		|| (curr_static_id->operand[i].type == OP_INOUT
+		    && (operands_match_p
+			(*curr_id->operand_loc[i],
+			 *curr_id->operand_loc[goal_alt_matched[i][0]],
+			 -1))))
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
-		   == OP_IN))
+		    == OP_IN))
 	/* Generate reloads for output and matched inputs.  */
 	match_reload (i, goal_alt_matched[i], outputs, goal_alt[i], &before,
 		      &after, curr_static_id->operand_alternative

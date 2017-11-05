@@ -21,7 +21,7 @@ main1 ()
   for (unsigned int i = 0; i < N * 8; ++i)
     {
       in[i] = i & 63;
-      asm volatile ("");
+      asm volatile ("" ::: "memory");
     }
 #endif
   unsigned int ia[N*2], a0, a1, a2, a3;

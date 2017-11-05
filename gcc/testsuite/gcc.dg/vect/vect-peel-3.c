@@ -6,7 +6,7 @@
 
 #if VECTOR_BITS > 128
 #define NINTS (VECTOR_BITS / 32)
-#define EXTRA NINTS * 2
+#define EXTRA (NINTS * 2)
 #else
 #define NINTS 4
 #define EXTRA 10

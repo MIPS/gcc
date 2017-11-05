@@ -7,13 +7,14 @@
 
 #define N 256
 
+/* Pick a value greater than the vector length.  */
 #if VECTOR_BITS > 128
 #define OFF (VECTOR_BITS * 5 / 32)
 #else
 #define OFF 20
 #endif
 
-extern int a[N+OFF];
+extern int a[N + OFF];
 
 /* The alignment of 'pa' is unknown. 
    Yet we do know that both the read access and write access have 
@@ -58,7 +59,7 @@ main3 ()
 
   for (i = 0; i < N; i++)
     {
-      a[i] = a[i+OFF];
+      a[i] = a[i + OFF];
     }
 
   return 0;

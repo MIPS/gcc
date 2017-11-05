@@ -45,10 +45,6 @@ static const char *const mode_class_names[MAX_MODE_CLASS] =
 # define EXTRA_MODES_FILE ""
 #endif
 
-static int bits_per_unit;
-static int max_bitsize_mode_any_int;
-static int max_bitsize_mode_any_mode;
-
 /* Data structure for building up what we know about a mode.
    They're clustered by mode class.  */
 struct mode_data
@@ -383,9 +379,7 @@ complete_mode (struct mode_data *m)
       break;
 
     case MODE_VECTOR_BOOL:
-      validate_mode (m, UNSET, UNSET, SET, SET, UNSET);
-      m->precision = m->ncomponents;
-      m->bytesize = (m->ncomponents + bits_per_unit - 1) / bits_per_unit;
+      validate_mode (m, UNSET, SET, SET, SET, UNSET);
       break;
 
     case MODE_VECTOR_INT:
@@ -539,14 +533,12 @@ make_vector_modes (enum mode_class cl, unsigned int width,
     }
 }
 
-/* Create a vector of booleans with the given number of elements.
-   Each element has BImode and by default the vector is packed,
-   with element 0 being the lsb of the first byte in memory.
-   The target can create an upacked representation by changing
-   the size of the vector.  */
-#define VECTOR_BOOL_MODE(BITS) make_vector_bool_mode (BITS, __FILE__, __LINE__)
+/* Create a vector of booleans with COUNT elements and BYTESIZE bytes
+   in total.  */
+#define VECTOR_BOOL_MODE(COUNT, BYTESIZE) \
+  make_vector_bool_mode (COUNT, BYTESIZE, __FILE__, __LINE__)
 static void ATTRIBUTE_UNUSED
-make_vector_bool_mode (unsigned int bits,
+make_vector_bool_mode (unsigned int count, unsigned int bytesize,
 		       const char *file, unsigned int line)
 {
   struct mode_data *m = find_mode ("BI");
@@ -557,7 +549,7 @@ make_vector_bool_mode (unsigned int bits,
     }
 
   char buf[8];
-  if ((size_t) snprintf (buf, sizeof buf, "V%uBI", bits) >= sizeof buf)
+  if ((size_t) snprintf (buf, sizeof buf, "V%uBI", count) >= sizeof buf)
     {
       error ("%s:%d: number of vector elements is too high",
 	     file, line);
@@ -567,7 +559,8 @@ make_vector_bool_mode (unsigned int bits,
   struct mode_data *v = new_mode (MODE_VECTOR_BOOL,
 				  xstrdup (buf), file, line);
   v->component = m;
-  v->ncomponents = bits;
+  v->ncomponents = count;
+  v->bytesize = bytesize;
 }
 
 /* Input.  */
@@ -803,6 +796,10 @@ make_vector_mode (enum mode_class bclass,
 #define ADJUST_IBIT(M, X)  _ADD_ADJUST (ibit, M, X, ACCUM, UACCUM)
 #define ADJUST_FBIT(M, X)  _ADD_ADJUST (fbit, M, X, FRACT, UACCUM)
 
+static int bits_per_unit;
+static int max_bitsize_mode_any_int;
+static int max_bitsize_mode_any_mode;
+
 static void
 create_modes (void)
 {
@@ -969,9 +966,9 @@ calc_wider_mode (void)
 #define print_decl(TYPE, NAME, ASIZE) \
   puts ("\nconst " TYPE " " NAME "[" ASIZE "] =\n{");
 
-#define print_maybe_const_decl(TYPE, NAME, ASIZE, CATEGORY)	\
+#define print_maybe_const_decl(TYPE, NAME, ASIZE, NEEDS_ADJ)	\
   printf ("\n" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
-	  CATEGORY ? "" : "const ")
+	  NEEDS_ADJ ? "" : "const ")
 
 #define print_closer() puts ("};")
 
@@ -1034,6 +1031,9 @@ emit_mode_size_inline (void)
       for (m = a->mode->contained; m; m = m->next_cont)
 	m->need_bytesize_adj = true;
     }
+
+  /* Changing the number of units by a factor of X also changes the size
+     by a factor of X.  */
   for (mode_adjust *a = adj_nunits; a; a = a->next)
     a->mode->need_bytesize_adj = true;
 
@@ -1049,7 +1049,7 @@ mode_size_inline (machine_mode mode)\n\
   extern %spoly_uint16_pod mode_size[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
   switch (mode)\n\
-    {\n", adj_bytesize ? "" : "const ");
+    {\n", adj_nunits || adj_bytesize ? "" : "const ");
 
   for_all_modes (c, m)
     if (!m->need_bytesize_adj)
@@ -1305,7 +1305,8 @@ enum machine_mode\n{");
   /* I can't think of a better idea, can you?  */
   printf ("#define CONST_MODE_NUNITS%s\n", adj_nunits ? "" : " const");
   printf ("#define CONST_MODE_PRECISION%s\n", adj_nunits ? "" : " const");
-  printf ("#define CONST_MODE_SIZE%s\n", adj_bytesize ? "" : " const");
+  printf ("#define CONST_MODE_SIZE%s\n",
+	  adj_bytesize || adj_nunits ? "" : " const");
   printf ("#define CONST_MODE_UNIT_SIZE%s\n", adj_bytesize ? "" : " const");
   printf ("#define CONST_MODE_BASE_ALIGN%s\n", adj_alignment ? "" : " const");
 #if 0 /* disabled for backward compatibility, temporary */
@@ -1718,15 +1719,18 @@ emit_mode_adjustments (void)
   for (a = adj_nunits; a; a = a->next)
     {
       m = a->mode;
-      printf ("\n  /* %s:%d */\n  ps = %s;\n",
+      printf ("\n"
+	      "  {\n"
+	      "    /* %s:%d */\n  ps = %s;\n",
 	      a->file, a->line, a->adjustment);
-      printf ("  mode_nunits[E_%smode] = ps;\n", m->name);
-      printf ("  mode_size[E_%smode] = mode_unit_size[E_%smode] * ps;\n",
+      printf ("    int old_factor = vector_element_size"
+	      " (mode_precision[E_%smode], mode_nunits[E_%smode]);\n",
 	      m->name, m->name);
-      if (m->precision == (unsigned int) -1)
-	printf ("  mode_precision[E_%smode]"
-		" = poly_uint16 (mode_size[E_%smode])"
-		" * BITS_PER_UNIT;", m->name, m->name);
+      printf ("    mode_precision[E_%smode] = ps * old_factor;\n",  m->name);
+      printf ("    mode_size[E_%smode] = exact_div (mode_precision[E_%smode],"
+	      " BITS_PER_UNIT);\n", m->name, m->name);
+      printf ("    mode_nunits[E_%smode] = ps;\n", m->name);
+      printf ("  }\n");
     }
 
   /* Size adjustments must be propagated to all containing modes.

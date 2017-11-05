@@ -102,7 +102,7 @@ aff_combination_zero_p (aff_tree *aff)
   if (!aff)
     return true;
 
-  if (aff->n == 0 && known_zero (aff->offset))
+  if (aff->n == 0 && must_eq (aff->offset, 0))
     return true;
 
   return false;
@@ -121,7 +121,7 @@ inline bool
 aff_combination_singleton_var_p (aff_tree *aff)
 {
   return (aff->n == 1
-	  && known_zero (aff->offset)
+	  && must_eq (aff->offset, 0)
 	  && (aff->elts[0].coef == 1 || aff->elts[0].coef == -1));
 }
 #endif /* GCC_TREE_AFFINE_H */

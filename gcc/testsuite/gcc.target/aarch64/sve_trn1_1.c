@@ -5,12 +5,15 @@
 #define BIAS 0
 #endif
 
-typedef long v4di __attribute__((vector_size (32)));
-typedef int v8si __attribute__((vector_size (32)));
-typedef short v16hi __attribute__((vector_size (32)));
-typedef char v32qi __attribute__((vector_size (32)));
+#include <stdint.h>
+
+typedef int64_t v4di __attribute__((vector_size (32)));
+typedef int32_t v8si __attribute__((vector_size (32)));
+typedef int16_t v16hi __attribute__((vector_size (32)));
+typedef int8_t v32qi __attribute__((vector_size (32)));
 typedef double v4df __attribute__((vector_size (32)));
 typedef float v8sf __attribute__((vector_size (32)));
+typedef _Float16 v16hf __attribute__((vector_size (32)));
 
 #define MASK_2(X, Y) X, Y + X
 #define MASK_4(X, Y) MASK_2 (X, Y), MASK_2 (X + 2, Y)
@@ -37,7 +40,8 @@ typedef float v8sf __attribute__((vector_size (32)));
   T (v16hi, 16)					\
   T (v32qi, 32)					\
   T (v4df, 4)					\
-  T (v8sf, 8)
+  T (v8sf, 8)					\
+  T (v16hf, 16)
 
 TEST_ALL (PERMUTE)
 
@@ -45,5 +49,5 @@ TEST_ALL (PERMUTE)
 
 /* { dg-final { scan-assembler-times {\ttrn1\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d} 2 } } */
 /* { dg-final { scan-assembler-times {\ttrn1\tz[0-9]+\.s, z[0-9]+\.s, z[0-9]+\.s} 2 } } */
-/* { dg-final { scan-assembler-times {\ttrn1\tz[0-9]+\.h, z[0-9]+\.h, z[0-9]+\.h} 1 } } */
+/* { dg-final { scan-assembler-times {\ttrn1\tz[0-9]+\.h, z[0-9]+\.h, z[0-9]+\.h} 2 } } */
 /* { dg-final { scan-assembler-times {\ttrn1\tz[0-9]+\.b, z[0-9]+\.b, z[0-9]+\.b} 1 } } */

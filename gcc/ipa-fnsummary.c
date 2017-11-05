@@ -542,6 +542,7 @@ void
 ipa_call_summary::reset ()
 {
   call_stmt_size = call_stmt_time = 0;
+  is_return_callee_uncaptured = false;
   if (predicate)
     edge_predicate_pool.remove (predicate);
   predicate = NULL;
@@ -1607,7 +1608,7 @@ static basic_block
 get_minimal_bb (basic_block init_bb, basic_block use_bb)
 {
   struct loop *l = find_common_loop (init_bb->loop_father, use_bb->loop_father);
-  if (l && l->header->frequency < init_bb->frequency)
+  if (l && l->header->count < init_bb->count)
     return l->header;
   return init_bb;
 }
@@ -1663,20 +1664,21 @@ param_change_prob (gimple *stmt, int i)
     {
       int init_freq;
 
-      if (!bb->frequency)
+      if (!bb->count.to_frequency (cfun))
 	return REG_BR_PROB_BASE;
 
       if (SSA_NAME_IS_DEFAULT_DEF (base))
-	init_freq = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
+	init_freq = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun);
       else
 	init_freq = get_minimal_bb
 		      (gimple_bb (SSA_NAME_DEF_STMT (base)),
-		       gimple_bb (stmt))->frequency;
+		       gimple_bb (stmt))->count.to_frequency (cfun);
 
       if (!init_freq)
 	init_freq = 1;
-      if (init_freq < bb->frequency)
-	return MAX (GCOV_COMPUTE_SCALE (init_freq, bb->frequency), 1);
+      if (init_freq < bb->count.to_frequency (cfun))
+	return MAX (GCOV_COMPUTE_SCALE (init_freq,
+					bb->count.to_frequency (cfun)), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -1691,7 +1693,7 @@ param_change_prob (gimple *stmt, int i)
 
       if (init != error_mark_node)
 	return 0;
-      if (!bb->frequency)
+      if (!bb->count.to_frequency (cfun))
 	return REG_BR_PROB_BASE;
       ao_ref_init (&refd, op);
       info.stmt = stmt;
@@ -1707,17 +1709,17 @@ param_change_prob (gimple *stmt, int i)
       /* Assume that every memory is initialized at entry.
          TODO: Can we easilly determine if value is always defined
          and thus we may skip entry block?  */
-      if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency)
-	max = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
+      if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun))
+	max = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun);
       else
 	max = 1;
 
       EXECUTE_IF_SET_IN_BITMAP (info.bb_set, 0, index, bi)
-	max = MIN (max, BASIC_BLOCK_FOR_FN (cfun, index)->frequency);
+	max = MIN (max, BASIC_BLOCK_FOR_FN (cfun, index)->count.to_frequency (cfun));
 
       BITMAP_FREE (info.bb_set);
-      if (max < bb->frequency)
-	return MAX (GCOV_COMPUTE_SCALE (max, bb->frequency), 1);
+      if (max < bb->count.to_frequency (cfun))
+	return MAX (GCOV_COMPUTE_SCALE (max, bb->count.to_frequency (cfun)), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -3204,6 +3206,10 @@ read_ipa_call_summary (struct lto_input_block *ib, struct cgraph_edge *e)
   es->call_stmt_size = streamer_read_uhwi (ib);
   es->call_stmt_time = streamer_read_uhwi (ib);
   es->loop_depth = streamer_read_uhwi (ib);
+
+  bitpack_d bp = streamer_read_bitpack (ib);
+  es->is_return_callee_uncaptured = bp_unpack_value (&bp, 1);
+
   p.stream_in (ib);
   edge_set_predicate (e, &p);
   length = streamer_read_uhwi (ib);
@@ -3360,6 +3366,11 @@ write_ipa_call_summary (struct output_block *ob, struct cgraph_edge *e)
   streamer_write_uhwi (ob, es->call_stmt_size);
   streamer_write_uhwi (ob, es->call_stmt_time);
   streamer_write_uhwi (ob, es->loop_depth);
+
+  bitpack_d bp = bitpack_create (ob->main_stream);
+  bp_pack_value (&bp, es->is_return_callee_uncaptured, 1);
+  streamer_write_bitpack (&bp);
+
   if (es->predicate)
     es->predicate->stream_out (ob);
   else

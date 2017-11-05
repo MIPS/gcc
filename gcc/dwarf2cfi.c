@@ -793,14 +793,17 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
 	cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
       cfi->dw_cfi_oprnd1.dw_cfi_offset = const_offset;
     }
-  else if (must_eq (new_cfa->offset, old_cfa->offset)
+  else if (new_cfa->offset.is_constant ()
+	   && must_eq (new_cfa->offset, old_cfa->offset)
 	   && old_cfa->reg != INVALID_REGNUM
 	   && !new_cfa->indirect
 	   && !old_cfa->indirect)
     {
       /* Construct a "DW_CFA_def_cfa_register <register>" instruction,
 	 indicating the CFA register has changed to <register> but the
-	 offset has not changed.  */
+	 offset has not changed.  This requires the old CFA to have
+	 been set as a register plus offset rather than a general
+	 DW_CFA_def_cfa_expression.  */
       cfi->dw_cfi_opc = DW_CFA_def_cfa_register;
       cfi->dw_cfi_oprnd1.dw_cfi_reg_num = new_cfa->reg;
     }
@@ -937,7 +940,7 @@ notice_args_size (rtx_insn *insn)
 
   args_size = get_args_size (note);
   delta = args_size - cur_trace->end_true_args_size;
-  if (known_zero (delta))
+  if (must_eq (delta, 0))
     return;
 
   cur_trace->end_true_args_size = args_size;
@@ -1946,7 +1949,7 @@ dwarf2out_frame_debug_expr (rtx expr)
 	{
 	  /* We're storing the current CFA reg into the stack.  */
 
-	  if (known_zero (cur_cfa->offset))
+	  if (must_eq (cur_cfa->offset, 0))
 	    {
               /* Rule 19 */
               /* If stack is aligned, putting CFA reg into stack means
@@ -2358,7 +2361,7 @@ maybe_record_trace_start_abnormal (rtx_insn *start, rtx_insn *origin)
   dw_cfa_location save_cfa;
 
   save_args_size = cur_trace->end_true_args_size;
-  if (known_zero (save_args_size))
+  if (must_eq (save_args_size, 0))
     {
       maybe_record_trace_start (start, origin);
       return;

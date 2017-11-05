@@ -1,16 +1,17 @@
 /* { dg-do assemble } */
 /* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
 
-void
-popcount_32 (unsigned int *restrict dst, unsigned int *restrict src, int size)
+#include <stdint.h>
+
+void __attribute__ ((noinline, noclone))
+popcount_32 (unsigned int *restrict dst, uint32_t *restrict src, int size)
 {
   for (int i = 0; i < size; ++i)
     dst[i] = __builtin_popcount (src[i]);
 }
 
-void
-popcount_64 (unsigned int *restrict dst, unsigned long *restrict src,
-	     int size)
+void __attribute__ ((noinline, noclone))
+popcount_64 (unsigned int *restrict dst, uint64_t *restrict src, int size)
 {
   for (int i = 0; i < size; ++i)
     dst[i] = __builtin_popcountl (src[i]);

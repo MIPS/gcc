@@ -3466,7 +3466,7 @@ omp_clause_aligned_alignment (tree clause)
 	machine_mode vmode = targetm.vectorize.preferred_simd_mode (mode);
 	if (GET_MODE_CLASS (vmode) != classes[i + 1])
 	  continue;
-	while (maybe_nonzero (vs)
+	while (may_ne (vs, 0U)
 	       && must_lt (GET_MODE_SIZE (vmode), vs)
 	       && GET_MODE_2XWIDER_MODE (vmode).exists ())
 	  vmode = GET_MODE_2XWIDER_MODE (vmode).require ();
@@ -3506,7 +3506,7 @@ static bool
 lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
 			      omplow_simd_context *sctx, tree &ivar, tree &lvar)
 {
-  if (known_zero (sctx->max_vf))
+  if (must_eq (sctx->max_vf, 0U))
     {
       sctx->max_vf = sctx->is_simt ? omp_max_simt_vf () : omp_max_vf ();
       if (may_gt (sctx->max_vf, 1U))
@@ -4670,7 +4670,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   /* If max_vf is non-zero, then we can use only a vectorization factor
      up to the max_vf we chose.  So stick it into the safelen clause.  */
-  if (maybe_nonzero (sctx.max_vf))
+  if (may_ne (sctx.max_vf, 0U))
     {
       tree c = omp_find_clause (gimple_omp_for_clauses (ctx->stmt),
 				OMP_CLAUSE_SAFELEN);

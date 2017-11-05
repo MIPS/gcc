@@ -1,46 +1,28 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
-
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
 #include "sve_pack_1.c"
 
 #define ARRAY_SIZE 57
 
-#define RUN_AND_CHECK_LOOP(TYPED, TYPES, VALUED, VALUES)		\
-{									\
-  int value = 0;							\
-  TYPED arrayd[ARRAY_SIZE];						\
-  TYPES arrays[ARRAY_SIZE];						\
-  memset (arrayd, 67, ARRAY_SIZE * sizeof (TYPED));			\
-  memset (arrays, VALUES, ARRAY_SIZE * sizeof (TYPES));			\
-  pack_##TYPED##_##TYPES##_signed (arrayd, arrays, ARRAY_SIZE);		\
-  for (int i = 0; i < ARRAY_SIZE; i++)					\
-    if (arrayd[i] != VALUED)						\
-      {									\
-        fprintf (stderr,"%d: %d != %d\n", i, arrayd[i], VALUED);	\
-        exit (1);							\
-      }									\
-  memset (arrayd, 74, ARRAY_SIZE*sizeof (TYPED));			\
-  pack_##TYPED##_##TYPES##_unsigned (arrayd, arrays, ARRAY_SIZE);	\
-  for (int i = 0; i < ARRAY_SIZE; i++)					\
-    if (arrayd[i] != VALUED)						\
-      {									\
-        fprintf (stderr,"%d: %d != %d\n", i, arrayd[i], VALUED);	\
-        exit (1);							\
-      }									\
-}
+#define TEST_LOOP(TYPED, TYPES)					\
+  {								\
+    TYPED arrayd[ARRAY_SIZE];					\
+    TYPES arrays[ARRAY_SIZE];					\
+    for (int i = 0; i < ARRAY_SIZE; i++)			\
+      {								\
+	arrays[i] = (i - 10) * 3;				\
+	asm volatile ("" ::: "memory");				\
+      }								\
+    pack_##TYPED##_##TYPES (arrayd, arrays, ARRAY_SIZE);	\
+    for (int i = 0; i < ARRAY_SIZE; i++)			\
+      if (arrayd[i] != (TYPED) ((TYPES) ((i - 10) * 3) + 1))	\
+	__builtin_abort ();					\
+  }
 
-int main (void)
+int __attribute__ ((optimize (1)))
+main (void)
 {
-  int total = 5;
-  RUN_AND_CHECK_LOOP (char, short, total + 1, total);
-  total = (total << 8) + 5;
-  RUN_AND_CHECK_LOOP (short, int, total + 1, total);
-  total = (total << 8) + 5;
-  total = (total << 8) + 5;
-  RUN_AND_CHECK_LOOP (int, long, total + 1, total);
+  TEST_ALL (TEST_LOOP)
   return 0;
 }

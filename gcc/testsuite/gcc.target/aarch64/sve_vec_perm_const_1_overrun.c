@@ -1,12 +1,15 @@
 /* { dg-do compile } */
 /* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256" } */
 
-typedef long v4di __attribute__((vector_size (32)));
-typedef int v8si __attribute__((vector_size (32)));
-typedef short v16hi __attribute__((vector_size (32)));
-typedef char v32qi __attribute__((vector_size (32)));
+#include <stdint.h>
+
+typedef int64_t v4di __attribute__((vector_size (32)));
+typedef int32_t v8si __attribute__((vector_size (32)));
+typedef int16_t v16hi __attribute__((vector_size (32)));
+typedef int8_t v32qi __attribute__((vector_size (32)));
 typedef double v4df __attribute__((vector_size (32)));
 typedef float v8sf __attribute__((vector_size (32)));
+typedef _Float16 v16hf __attribute__((vector_size (32)));
 
 #define VEC_PERM_CONST_OVERRUN(TYPE, MASK)			\
 TYPE vec_perm_overrun_##TYPE (TYPE values1, TYPE values2)	\
@@ -50,8 +53,16 @@ VEC_PERM_CONST_OVERRUN (v8sf,  ((v8si) { 1 + (16 * 1), 9 + (16 * 2),
 					 13 + (16 * 2), 11 + (16 * 3),
 					 2 + (16 * 2), 5 + (16 * 2),
 					 4 + (16 * 4), 2 + (16 * 3) }));
+VEC_PERM_CONST_OVERRUN (v16hf, ((v16hi) { 8 + (32 * 3), 27 + (32 * 1),
+					  5 + (32 * 3), 4 + (32 * 3),
+					  21 + (32 * 1), 12 + (32 * 3),
+					  13 + (32 * 3), 0 + (32 * 1),
+					  22 + (32 * 2), 1 + (32 * 2),
+					  8 + (32 * 2), 9 + (32 * 1),
+					  3 + (32 * 2), 24 + (32 * 2),
+					  15 + (32 * 1), 1 + (32 * 1) }));
 
 /* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d\n} 4 } } */
 /* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.s, z[0-9]+\.s, z[0-9]+\.s\n} 4 } } */
-/* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.h, z[0-9]+\.h, z[0-9]+\.h\n} 2 } } */
+/* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.h, z[0-9]+\.h, z[0-9]+\.h\n} 4 } } */
 /* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.b, z[0-9]+\.b, z[0-9]+\.b\n} 2 } } */

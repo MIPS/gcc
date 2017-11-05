@@ -955,7 +955,7 @@ reload (rtx_insn *first, int global)
       if (caller_save_needed)
 	setup_save_areas ();
 
-      if (maybe_nonzero (starting_frame_size) && crtl->stack_alignment_needed)
+      if (may_ne (starting_frame_size, 0) && crtl->stack_alignment_needed)
 	{
 	  /* If we have a stack frame, we must align it now.  The
 	     stack size may be a part of the offset computation for
@@ -2196,7 +2196,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  if (BYTES_BIG_ENDIAN)
 	    {
 	      adjust = inherent_size - total_size;
-	      if (maybe_nonzero (adjust))
+	      if (may_ne (adjust, 0))
 		{
 		  poly_uint64 total_bits = total_size * BITS_PER_UNIT;
 		  machine_mode mem_mode
@@ -2254,7 +2254,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  if (BYTES_BIG_ENDIAN)
 	    {
 	      adjust = GET_MODE_SIZE (mode) - total_size;
-	      if (maybe_nonzero (adjust))
+	      if (may_ne (adjust, 0))
 		{
 		  poly_uint64 total_bits = total_size * BITS_PER_UNIT;
 		  machine_mode mem_mode
@@ -3383,7 +3383,7 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 	       increase the cost of the insn by replacing a simple REG
 	       with (plus (reg sp) CST).  So try only when we already
 	       had a PLUS before.  */
-	    if (known_zero (offset) || plus_src)
+	    if (must_eq (offset, 0) || plus_src)
 	      {
 		rtx new_src = plus_constant (GET_MODE (to_rtx),
 					     to_rtx, offset);

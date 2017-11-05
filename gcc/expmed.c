@@ -561,7 +561,7 @@ strict_volatile_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
     return false;
 
   /* Check for cases where the C++ memory model applies.  */
-  if (maybe_nonzero (bitregion_end)
+  if (may_ne (bitregion_end, 0U)
       && (may_lt (bitnum - bitnum % modesize, bitregion_start)
 	  || may_gt (bitnum - bitnum % modesize + modesize - 1,
 		     bitregion_end)))
@@ -779,7 +779,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       rtx sub;
       HOST_WIDE_INT regnum;
       poly_uint64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (op0));
-      if (known_zero (bitnum)
+      if (must_eq (bitnum, 0U)
 	  && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
 	{
 	  sub = simplify_gen_subreg (GET_MODE (op0), value, fieldmode, 0);
@@ -1129,7 +1129,7 @@ store_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* Under the C++0x memory model, we must not touch bits outside the
      bit region.  Adjust the address to start at the beginning of the
      bit region.  */
-  if (MEM_P (str_rtx) && maybe_nonzero (bitregion_start))
+  if (MEM_P (str_rtx) && may_ne (bitregion_start, 0U))
     {
       scalar_int_mode best_mode;
       machine_mode addr_mode = VOIDmode;
@@ -1370,7 +1370,7 @@ store_split_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	 UNIT close to the end of the region as needed.  If op0 is a REG
 	 or SUBREG of REG, don't do this, as there can't be data races
 	 on a register and we can expand shorter code in some cases.  */
-      if (maybe_nonzero (bitregion_end)
+      if (may_ne (bitregion_end, 0U)
 	  && unit > BITS_PER_UNIT
 	  && may_gt (bitpos + bitsdone - thispos + unit, bitregion_end + 1)
 	  && !REG_P (op0)
@@ -1617,7 +1617,7 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 
   if (REG_P (op0)
       && mode == GET_MODE (op0)
-      && known_zero (bitnum)
+      && must_eq (bitnum, 0U)
       && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
     {
       if (reverse)
@@ -1631,7 +1631,7 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       && !MEM_P (op0)
       && VECTOR_MODE_P (tmode)
       && must_eq (bitsize, GET_MODE_SIZE (tmode))
-      && may_gt (GET_MODE (op0), GET_MODE_SIZE (tmode)))
+      && may_gt (GET_MODE_SIZE (GET_MODE (op0)), GET_MODE_SIZE (tmode)))
     {
       machine_mode new_mode = GET_MODE (op0);
       if (GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode))
@@ -1708,13 +1708,14 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
     }
 
   /* Use vec_extract patterns for extracting parts of vectors whenever
-     available.  */
+     available.  If that fails, see whether the current modes and bitregion
+     give a natural subreg.  */
   machine_mode outermode = GET_MODE (op0);
   if (VECTOR_MODE_P (outermode) && !MEM_P (op0))
     {
       scalar_mode innermode = GET_MODE_INNER (outermode);
-      enum insn_code icode = convert_optab_handler (vec_extract_optab,
-						    outermode, innermode);
+      enum insn_code icode
+	= convert_optab_handler (vec_extract_optab, outermode, innermode);
       poly_uint64 pos;
       if (icode != CODE_FOR_nothing
 	  && must_eq (bitsize, GET_MODE_BITSIZE (innermode))
@@ -1736,6 +1737,15 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	      return target;
 	    }
 	}
+      /* Using subregs is useful if we're extracting the least-significant
+	 vector element, or if we're extracting one register vector from
+	 a multi-register vector.  extract_bit_field_as_subreg checks
+	 for valid bitsize and bitnum, so we don't need to do that here.
+
+	 The mode check makes sure that we're extracting either
+	 a single element or a subvector with the same element type.
+	 If the modes aren't such a natural fit, fall through and
+	 bitcast to integers first.  */
       if (GET_MODE_INNER (mode) == innermode)
 	{
 	  rtx sub = extract_bit_field_as_subreg (mode, op0, bitsize, bitnum);
@@ -2051,9 +2061,9 @@ extract_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   machine_mode mode1;
 
   /* Handle -fstrict-volatile-bitfields in the cases where it applies.  */
-  if (maybe_nonzero (GET_MODE_BITSIZE (GET_MODE (str_rtx))))
+  if (may_ne (GET_MODE_BITSIZE (GET_MODE (str_rtx)), 0))
     mode1 = GET_MODE (str_rtx);
-  else if (target && maybe_nonzero (GET_MODE_BITSIZE (GET_MODE (target))))
+  else if (target && may_ne (GET_MODE_BITSIZE (GET_MODE (target)), 0))
     mode1 = GET_MODE (target);
   else
     mode1 = tmode;

@@ -264,7 +264,7 @@ get_elimination (rtx reg)
   if ((ep = elimination_map[hard_regno]) != NULL)
     return ep->from_rtx != reg ? NULL : ep;
   poly_int64 offset = self_elim_offsets[hard_regno];
-  if (known_zero (offset))
+  if (must_eq (offset, 0))
     return NULL;
   /* This is an iteration to restore offsets just after HARD_REGNO
      stopped to be eliminable.	*/
@@ -340,7 +340,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
   int copied = 0;
 
   lra_assert (!update_p || !full_p);
-  lra_assert (known_zero (update_sp_offset)
+  lra_assert (must_eq (update_sp_offset, 0)
 	      || (!subst_p && update_p && !full_p));
   if (! current_function_decl)
     return x;
@@ -366,7 +366,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	{
 	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
 
-	  if (maybe_nonzero (update_sp_offset))
+	  if (may_ne (update_sp_offset, 0))
 	    {
 	      if (ep->to_rtx == stack_pointer_rtx)
 		return plus_constant (Pmode, to, update_sp_offset);
@@ -399,7 +399,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	      if (! update_p && ! full_p)
 		return gen_rtx_PLUS (Pmode, to, XEXP (x, 1));
 	      
-	      if (maybe_nonzero (update_sp_offset))
+	      if (may_ne (update_sp_offset, 0))
 		offset = ep->to_rtx == stack_pointer_rtx ? update_sp_offset : 0;
 	      else
 		offset = (update_p
@@ -456,7 +456,7 @@ lra_eliminate_regs_1 (rtx_insn *insn, rtx x, machine_mode mem_mode,
 	{
 	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
 
-	  if (maybe_nonzero (update_sp_offset))
+	  if (may_ne (update_sp_offset, 0))
 	    {
 	      if (ep->to_rtx == stack_pointer_rtx)
 		return plus_constant (Pmode,
@@ -952,7 +952,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 
 		/* We should never process such insn with non-zero
 		   UPDATE_SP_OFFSET.  */
-		lra_assert (known_zero (update_sp_offset));
+		lra_assert (must_eq (update_sp_offset, 0));
 		
 		if (remove_reg_equal_offset_note (insn, ep->to_rtx, &offset)
 		    || strip_offset (src, &offset) == ep->to_rtx)
@@ -1032,7 +1032,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 
 	  if (! replace_p)
 	    {
-	      if (known_zero (update_sp_offset))
+	      if (must_eq (update_sp_offset, 0))
 		offset += (ep->offset - ep->previous_offset);
 	      if (ep->to_rtx == stack_pointer_rtx)
 		{
@@ -1051,7 +1051,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 	     the cost of the insn by replacing a simple REG with (plus
 	     (reg sp) CST).  So try only when we already had a PLUS
 	     before.  */
-	  if (known_zero (offset) || plus_src)
+	  if (must_eq (offset, 0) || plus_src)
 	    {
 	      rtx new_src = plus_constant (GET_MODE (to_rtx), to_rtx, offset);
 
@@ -1239,7 +1239,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file, "    Using elimination %d to %d now\n",
 			 ep1->from, ep1->to);
-	      lra_assert (known_zero (ep1->previous_offset));
+	      lra_assert (must_eq (ep1->previous_offset, 0));
 	      ep1->previous_offset = ep->offset;
 	    }
 	  else
@@ -1251,7 +1251,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 		fprintf (lra_dump_file, "    %d is not eliminable at all\n",
 			 ep->from);
 	      self_elim_offsets[ep->from] = -ep->offset;
-	      if (maybe_nonzero (ep->offset))
+	      if (may_ne (ep->offset, 0))
 		bitmap_ior_into (insns_with_changed_offsets,
 				 &lra_reg_info[ep->from].insn_bitmap);
 	    }
@@ -1357,13 +1357,13 @@ init_elimination (void)
 	    if (NONDEBUG_INSN_P (insn))
 	      {
 		mark_not_eliminable (PATTERN (insn), VOIDmode);
-		if (maybe_nonzero (curr_sp_change)
+		if (may_ne (curr_sp_change, 0)
 		    && find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX))
 		  stop_to_sp_elimination_p = true;
 	      }
 	  }
       if (! frame_pointer_needed
-	  && (maybe_nonzero (curr_sp_change) || stop_to_sp_elimination_p)
+	  && (may_ne (curr_sp_change, 0) || stop_to_sp_elimination_p)
 	  && bb->succs && bb->succs->length () != 0)
 	for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	  if (ep->to == STACK_POINTER_REGNUM)

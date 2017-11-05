@@ -494,7 +494,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 
 	  if (may_lt (offset, 0))
 	    return 1;
-	  if (known_zero (offset))
+	  if (must_eq (offset, 0))
 	    return 0;
 	  if (!known_size_p (size))
 	    return 1;
@@ -649,7 +649,7 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
       if (XEXP (x, 0) == pic_offset_table_rtx
 	  && GET_CODE (XEXP (x, 1)) == CONST
 	  && GET_CODE (XEXP (XEXP (x, 1), 0)) == UNSPEC
-	  && known_zero (offset))
+	  && must_eq (offset, 0))
 	return 0;
 
       /* - or it is an address that can't trap plus a constant integer.  */
@@ -3641,7 +3641,7 @@ subreg_size_offset_from_lsb (poly_uint64 outer_bytes, poly_uint64 inner_bytes,
   gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
   if (may_gt (outer_bytes, inner_bytes))
     {
-      gcc_checking_assert (known_zero (lsb_shift));
+      gcc_checking_assert (must_eq (lsb_shift, 0U));
       return 0;
     }
 
@@ -3745,7 +3745,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
   gcc_checking_assert (ordered_p (xsize, ysize));
 
   /* Paradoxical subregs are otherwise valid.  */
-  if (!rknown && known_zero (offset) && may_gt (ysize, xsize))
+  if (!rknown && must_eq (offset, 0U) && may_gt (ysize, xsize))
     {
       info->representable_p = true;
       /* If this is a big endian paradoxical subreg, which uses more
@@ -3822,7 +3822,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       info->representable_p = true;
       rknown = true;
 
-      if (known_zero (offset) || nregs_xmode == nregs_ymode)
+      if (must_eq (offset, 0U) || nregs_xmode == nregs_ymode)
 	{
 	  info->offset = 0;
 	  info->nregs = nregs_ymode;

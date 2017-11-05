@@ -12,6 +12,7 @@
 
 #define N (NINTS * 6)
 
+/* Keep execution time down.  */
 #if N <= 24
 #define OUTERN N
 #else
@@ -30,6 +31,7 @@ struct test1{
   struct s e[N]; /* array e.n is aligned */
 };
 
+/* Avoid big local temporaries.  */
 #if NINTS > 8
 struct test1 tmp1;
 #endif

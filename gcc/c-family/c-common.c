@@ -2704,9 +2704,9 @@ binary_op_error (rich_location *richloc, enum tree_code code,
     default:
       gcc_unreachable ();
     }
-  error_at_rich_loc (richloc,
-		     "invalid operands to binary %s (have %qT and %qT)",
-		     opname, type0, type1);
+  error_at (richloc,
+	    "invalid operands to binary %s (have %qT and %qT)",
+	    opname, type0, type1);
 }
 
 /* Given an expression as a tree, return its original type.  Do this
@@ -5705,6 +5705,16 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
+    case BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX:
+      if (!tree_fits_uhwi_p (args[2]))
+	{
+	  error_at (ARG_LOCATION (2),
+		    "third argument to function %qE must be a constant integer",
+		    fndecl);
+	  return false;
+	}
+      /* fall through */
+
     case BUILT_IN_ALLOCA_WITH_ALIGN:
       {
 	/* Get the requested alignment (in bits) if it's a constant
@@ -5944,7 +5954,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
       else
 	message = catenate_messages (gmsgid, " before %s'\\x%x'");
 
-      error_at_rich_loc (richloc, message, prefix, val);
+      error_at (richloc, message, prefix, val);
       free (message);
       message = NULL;
     }
@@ -5972,7 +5982,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
   else if (token_type == CPP_NAME)
     {
       message = catenate_messages (gmsgid, " before %qE");
-      error_at_rich_loc (richloc, message, value);
+      error_at (richloc, message, value);
       free (message);
       message = NULL;
     }
@@ -5985,16 +5995,16 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
   else if (token_type < N_TTYPES)
     {
       message = catenate_messages (gmsgid, " before %qs token");
-      error_at_rich_loc (richloc, message, cpp_type2name (token_type, token_flags));
+      error_at (richloc, message, cpp_type2name (token_type, token_flags));
       free (message);
       message = NULL;
     }
   else
-    error_at_rich_loc (richloc, gmsgid);
+    error_at (richloc, gmsgid);
 
   if (message)
     {
-      error_at_rich_loc (richloc, message);
+      error_at (richloc, message);
       free (message);
     }
 #undef catenate_messages

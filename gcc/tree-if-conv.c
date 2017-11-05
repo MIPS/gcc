@@ -2357,7 +2357,8 @@ predicate_statements (loop_p loop)
 	  gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
 	  if (!stmt)
 	    ;
-	  else if (is_false_predicate (cond))
+	  else if (is_false_predicate (cond)
+		   && gimple_vdef (stmt))
 	    {
 	      unlink_stmt_vdef (stmt);
 	      gsi_remove (&gsi, true);
@@ -2386,10 +2387,7 @@ predicate_statements (loop_p loop)
 					 TREE_OPERAND (cond, 0),
 					 TREE_OPERAND (cond, 1));
 		  else
-		    {
-		      gcc_assert (TREE_CODE (cond) == SSA_NAME);
-		      mask = cond;
-		    }
+		    mask = cond;
 
 		  if (swap)
 		    {

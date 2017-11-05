@@ -7,4 +7,5 @@ t (void)
   return (__int128)1 << 80;
 }
 
-/* { dg-final { scan-assembler "adr" } } */
+/* { dg-final { scan-assembler "\tmov\tx0, 0" } } */
+/* { dg-final { scan-assembler "\tmov\tx1, 65536" } } */

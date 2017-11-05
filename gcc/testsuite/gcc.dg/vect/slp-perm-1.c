@@ -51,7 +51,7 @@ int main (int argc, const char* argv[])
 #if N == 16
   unsigned int check_results[N] = {1470, 395, 28271, 5958, 1655, 111653, 10446, 2915, 195035, 14934, 4175, 278417, 19422, 5435, 361799, 0};
 #else
-  unsigned int check_results[N] = {};
+  volatile unsigned int check_results[N] = {};
 
   for (unsigned int i = 0; i < N / 3; i++)
     {

@@ -37,7 +37,7 @@ main (void)
   for (int i = 32; i < N; ++i)
     {
       a[i] = 70 + (i & 3);
-      asm volatile ("");
+      asm volatile ("" ::: "memory");
     }
 
   check_vect ();

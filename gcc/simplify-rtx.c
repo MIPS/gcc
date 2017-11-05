@@ -357,7 +357,7 @@ delegitimize_mem_from_attrs (rtx x)
 		x = adjust_address_nv (newx, mode, offset);
 	    }
 	  else if (GET_MODE (x) == GET_MODE (newx)
-		   && known_zero (offset))
+		   && must_eq (offset, 0))
 	    x = newx;
 	}
     }
@@ -6210,7 +6210,7 @@ simplify_subreg (machine_mode outermode, rtx op,
   if (may_ge (byte, innersize))
     return NULL_RTX;
 
-  if (outermode == innermode && known_zero (byte))
+  if (outermode == innermode && must_eq (byte, 0U))
     return op;
 
   if (multiple_p (byte, GET_MODE_UNIT_SIZE (innermode)))
@@ -6256,8 +6256,8 @@ simplify_subreg (machine_mode outermode, rtx op,
       rtx newx;
 
       if (outermode == innermostmode
-	  && known_zero (byte)
-	  && known_zero (SUBREG_BYTE (op)))
+	  && must_eq (byte, 0U)
+	  && must_eq (SUBREG_BYTE (op), 0))
 	return SUBREG_REG (op);
 
       /* Work out the memory offset of the final OUTERMODE value relative
@@ -6639,7 +6639,8 @@ test_vector_ops_duplicate (machine_mode mode, rtx scalar_reg)
 				      mode, offset));
 
   machine_mode narrower_mode;
-  if (may_gt (nunits, 2U)
+  if (may_ne (nunits, 2U)
+      && multiple_p (nunits, 2)
       && mode_for_vector (inner_mode, 2).exists (&narrower_mode)
       && VECTOR_MODE_P (narrower_mode))
     {

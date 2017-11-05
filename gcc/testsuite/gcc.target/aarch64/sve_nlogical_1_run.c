@@ -9,7 +9,10 @@
   {							\
     TYPE dst[N], src[N];				\
     for (int i = 0; i < N; ++i)				\
-      dst[i] = i ^ 42;					\
+      {							\
+	dst[i] = i ^ 42;				\
+	asm volatile ("" ::: "memory");			\
+      }							\
     vnlogical_not_##TYPE (dst, N);			\
     for (int i = 0; i < N; ++i)				\
       if (dst[i] != (TYPE) ~(i ^ 42))			\
@@ -18,6 +21,7 @@
       {							\
 	dst[i] = i ^ 42;				\
 	src[i] = i % 5;					\
+	asm volatile ("" ::: "memory");			\
       }							\
     vnlogical_bic_##TYPE (dst, src, N);			\
     for (int i = 0; i < N; ++i)				\
@@ -25,12 +29,9 @@
 	__builtin_abort ();				\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
-  TEST_VNLOGICAL (char);
-  TEST_VNLOGICAL (short);
-  TEST_VNLOGICAL (int);
-  TEST_VNLOGICAL (long);
+  TEST_ALL (TEST_VNLOGICAL)
   return 0;
 }

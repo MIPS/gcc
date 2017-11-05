@@ -373,6 +373,7 @@ bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_mask_and_shift_for_ubfiz_p (scalar_int_mode, rtx, rtx);
 bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
+opt_machine_mode aarch64_sve_pred_mode (unsigned int);
 bool aarch64_sve_cnt_immediate_p (rtx);
 bool aarch64_sve_addvl_addpl_immediate_p (rtx);
 bool aarch64_sve_inc_dec_immediate_p (rtx);
@@ -445,8 +446,8 @@ const char * aarch64_output_probe_stack_range (rtx, rtx);
 void aarch64_err_no_fpadvsimd (machine_mode, const char *);
 void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx, rtx (*) (rtx, rtx) = 0);
-void aarch64_expand_sve_mem_move (rtx, rtx, machine_mode,
-				  rtx (*) (rtx, rtx, rtx));
+void aarch64_emit_sve_pred_move (rtx, rtx, rtx);
+void aarch64_expand_sve_mem_move (rtx, rtx, machine_mode);
 void aarch64_expand_prologue (void);
 void aarch64_expand_vector_init (rtx, rtx);
 void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
@@ -469,7 +470,7 @@ void aarch64_simd_emit_reg_reg_move (rtx *, machine_mode, unsigned int);
 rtx aarch64_simd_expand_builtin (int, tree, rtx);
 
 void aarch64_simd_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT, const_tree);
-rtx endian_lane_rtx (machine_mode, unsigned int);
+rtx aarch64_endian_lane_rtx (machine_mode, unsigned int);
 
 void aarch64_split_128bit_move (rtx, rtx);
 
@@ -508,7 +509,7 @@ void aarch64_expand_sve_vcond (machine_mode, machine_mode, rtx *);
 
 void aarch64_init_builtins (void);
 
-bool aarch64_process_target_attr (tree, const char*);
+bool aarch64_process_target_attr (tree);
 void aarch64_override_options_internal (struct gcc_options *);
 
 rtx aarch64_expand_builtin (tree exp,

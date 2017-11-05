@@ -2397,8 +2397,7 @@ incorporeal_function_p (tree decl)
       const char *name;
 
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-	  && (DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA
-	      || DECL_FUNCTION_CODE (decl) == BUILT_IN_ALLOCA_WITH_ALIGN))
+	  && ALLOCA_FUNCTION_CODE_P (DECL_FUNCTION_CODE (decl)))
 	return true;
 
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -2894,8 +2893,10 @@ decode_addr_const (tree exp, struct addr_const *value)
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
-	  offset += (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (target)))
-		     * tree_to_poly_int64 (TREE_OPERAND (target, 1)));
+	  /* Truncate big offset.  */
+	  offset
+	    += (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (target)))
+		* wi::to_poly_widest (TREE_OPERAND (target, 1)).force_shwi ());
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF
@@ -3931,8 +3932,8 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
 
 	/* Pick the smallest integer mode that contains at least one
-	   whole element.  Often this will be byte_mode and will contain
-	   more than one element.  */
+	   whole element.  Often this is byte_mode and contains more
+	   than one element.  */
 	unsigned int nelts = CONST_VECTOR_NUNITS (x);
 	unsigned int elt_bits = GET_MODE_BITSIZE (mode) / nelts;
 	unsigned int int_bits = MAX (elt_bits, BITS_PER_UNIT);
@@ -3947,9 +3948,8 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	    for (unsigned int j = 0; j < limit; ++j)
 	      if (INTVAL (CONST_VECTOR_ELT (x, i + j)) != 0)
 		value |= 1 << (j * elt_bits);
-	    output_constant_pool_2 (byte_mode,
-				    gen_int_mode (value, int_mode),
-				    i ? MIN (align, int_bits) : align);
+	    output_constant_pool_2 (int_mode, gen_int_mode (value, int_mode),
+				    i != 0 ? MIN (align, int_bits) : align);
 	  }
 	break;
       }

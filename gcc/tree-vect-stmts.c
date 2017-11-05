@@ -98,6 +98,12 @@ record_stmt_cost (stmt_vector_for_cost *body_cost_vec, int count,
 		  enum vect_cost_for_stmt kind, stmt_vec_info stmt_info,
 		  int misalign, enum vect_cost_model_location where)
 {
+  if ((kind == vector_load || kind == unaligned_load)
+      && STMT_VINFO_GATHER_SCATTER_P (stmt_info))
+    kind = vector_gather_load;
+  if ((kind == vector_store || kind == unaligned_store)
+      && STMT_VINFO_GATHER_SCATTER_P (stmt_info))
+    kind = vector_scatter_store;
   if (body_cost_vec)
     {
       tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
@@ -4756,7 +4762,7 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
   vec<tree> vargs = vNULL;
   size_t i, nargs;
   tree lhs, rtype, ratype;
-  vec<constructor_elt, va_gc> *ret_ctor_elts;
+  vec<constructor_elt, va_gc> *ret_ctor_elts = NULL;
 
   /* Is STMT a vectorizable call?   */
   if (!is_gimple_call (stmt))
@@ -8975,7 +8981,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	         we need to skip the gaps after we manage to fully load
 		 all elements.  group_gap_adj is GROUP_SIZE here.  */
 	      group_elt += nunits;
-	      if (maybe_nonzero (group_gap_adj)
+	      if (may_ne (group_gap_adj, 0U)
 		  && !slp_perm
 		  && must_eq (group_elt, group_size - group_gap_adj))
 		{
@@ -8990,7 +8996,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 	  /* Bump the vector pointer to account for a gap or for excess
 	     elements loaded for a permuted SLP load.  */
-	  if (maybe_nonzero (group_gap_adj) && slp_perm)
+	  if (may_ne (group_gap_adj, 0U) && slp_perm)
 	    {
 	      poly_wide_int bump_val
 		= (wi::to_wide (TYPE_SIZE_UNIT (elem_type))
@@ -10541,7 +10547,7 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, poly_uint64 size)
 
   /* If no size was supplied use the mode the target prefers.   Otherwise
      lookup a vector mode of the specified size.  */
-  if (known_zero (size))
+  if (must_eq (size, 0U))
     simd_mode = targetm.vectorize.preferred_simd_mode (inner_mode);
   else if (!multiple_p (size, nbytes, &nunits)
 	   || !mode_for_vector (inner_mode, nunits).exists (&simd_mode))
@@ -10579,7 +10585,7 @@ get_vectype_for_scalar_type (tree scalar_type)
   vectype = get_vectype_for_scalar_type_and_size (scalar_type,
 						  current_vector_size);
   if (vectype
-      && known_zero (current_vector_size))
+      && must_eq (current_vector_size, 0U))
     current_vector_size = GET_MODE_SIZE (TYPE_MODE (vectype));
   return vectype;
 }

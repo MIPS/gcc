@@ -76,64 +76,43 @@ as_internal_fn (combined_fn code)
 
 /* Macros for initializing `tree_contains_struct'.  */
 #define MARK_TS_BASE(C)					\
-  do {							\
-    tree_contains_struct[C][TS_BASE] = 1;		\
-  } while (0)
+  (tree_contains_struct[C][TS_BASE] = true)
 
 #define MARK_TS_TYPED(C)				\
-  do {							\
-    MARK_TS_BASE (C);					\
-    tree_contains_struct[C][TS_TYPED] = 1;		\
-  } while (0)
+  (MARK_TS_BASE (C),					\
+   tree_contains_struct[C][TS_TYPED] = true)
 
 #define MARK_TS_COMMON(C)				\
-  do {							\
-    MARK_TS_TYPED (C);					\
-    tree_contains_struct[C][TS_COMMON] = 1;		\
-  } while (0)
+  (MARK_TS_TYPED (C),					\
+   tree_contains_struct[C][TS_COMMON] = true)
 
 #define MARK_TS_TYPE_COMMON(C)				\
-  do {							\
-    MARK_TS_COMMON (C);					\
-    tree_contains_struct[C][TS_TYPE_COMMON] = 1;	\
-  } while (0)
+  (MARK_TS_COMMON (C),					\
+   tree_contains_struct[C][TS_TYPE_COMMON] = true)
 
 #define MARK_TS_TYPE_WITH_LANG_SPECIFIC(C)		\
-  do {							\
-    MARK_TS_TYPE_COMMON (C);				\
-    tree_contains_struct[C][TS_TYPE_WITH_LANG_SPECIFIC] = 1;	\
-  } while (0)
+  (MARK_TS_TYPE_COMMON (C),				\
+   tree_contains_struct[C][TS_TYPE_WITH_LANG_SPECIFIC] = true)
 
 #define MARK_TS_DECL_MINIMAL(C)				\
-  do {							\
-    MARK_TS_COMMON (C);					\
-    tree_contains_struct[C][TS_DECL_MINIMAL] = 1;	\
-  } while (0)
+  (MARK_TS_COMMON (C),					\
+   tree_contains_struct[C][TS_DECL_MINIMAL] = true)
 
 #define MARK_TS_DECL_COMMON(C)				\
-  do {							\
-    MARK_TS_DECL_MINIMAL (C);				\
-    tree_contains_struct[C][TS_DECL_COMMON] = 1;	\
-  } while (0)
+  (MARK_TS_DECL_MINIMAL (C),				\
+   tree_contains_struct[C][TS_DECL_COMMON] = true)
 
 #define MARK_TS_DECL_WRTL(C)				\
-  do {							\
-    MARK_TS_DECL_COMMON (C);				\
-    tree_contains_struct[C][TS_DECL_WRTL] = 1;		\
-  } while (0)
+  (MARK_TS_DECL_COMMON (C),				\
+   tree_contains_struct[C][TS_DECL_WRTL] = true)
 
 #define MARK_TS_DECL_WITH_VIS(C)			\
-  do {							\
-    MARK_TS_DECL_WRTL (C);				\
-    tree_contains_struct[C][TS_DECL_WITH_VIS] = 1;	\
-  } while (0)
+  (MARK_TS_DECL_WRTL (C),				\
+   tree_contains_struct[C][TS_DECL_WITH_VIS] = true)
 
 #define MARK_TS_DECL_NON_COMMON(C)			\
-  do {							\
-    MARK_TS_DECL_WITH_VIS (C);				\
-    tree_contains_struct[C][TS_DECL_NON_COMMON] = 1;	\
-  } while (0)
-
+  (MARK_TS_DECL_WITH_VIS (C),				\
+   tree_contains_struct[C][TS_DECL_NON_COMMON] = true)
 
 /* Returns the string representing CLASS.  */
 
@@ -2103,11 +2082,6 @@ extern machine_mode vector_type_mode (const_tree);
 #define TYPE_SYMTAB_ADDRESS(NODE) \
   (TYPE_CHECK (NODE)->type_common.symtab.address)
 
-/* Symtab field as a string.  Used by COFF generator in sdbout.c to
-   hold struct/union type tag names.  */
-#define TYPE_SYMTAB_POINTER(NODE) \
-  (TYPE_CHECK (NODE)->type_common.symtab.pointer)
-
 /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
    in dwarf2out.c to point to the DIE generated for the type.  */
 #define TYPE_SYMTAB_DIE(NODE) \
@@ -2118,8 +2092,7 @@ extern machine_mode vector_type_mode (const_tree);
    union.  */
 
 #define TYPE_SYMTAB_IS_ADDRESS (0)
-#define TYPE_SYMTAB_IS_POINTER (1)
-#define TYPE_SYMTAB_IS_DIE (2)
+#define TYPE_SYMTAB_IS_DIE (1)
 
 #define TYPE_LANG_SPECIFIC(NODE) \
   (TYPE_CHECK (NODE)->type_with_lang_specific.lang_specific)
@@ -2426,6 +2399,18 @@ extern machine_mode vector_type_mode (const_tree);
    checked before any access to the former.  */
 #define DECL_FUNCTION_CODE(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_code)
+
+/* Test if FCODE is a function code for an alloca operation.  */
+#define ALLOCA_FUNCTION_CODE_P(FCODE)				\
+  ((FCODE) == BUILT_IN_ALLOCA					\
+   || (FCODE) == BUILT_IN_ALLOCA_WITH_ALIGN			\
+   || (FCODE) == BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX)
+
+/* Generate case for an alloca operation.  */
+#define CASE_BUILT_IN_ALLOCA			\
+  case BUILT_IN_ALLOCA:				\
+  case BUILT_IN_ALLOCA_WITH_ALIGN:		\
+  case BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX
 
 #define DECL_FUNCTION_PERSONALITY(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.personality)
@@ -4093,8 +4078,6 @@ extern tree build_int_cst (tree, poly_int64);
 extern tree build_int_cstu (tree type, poly_uint64);
 extern tree build_int_cst_type (tree, poly_int64);
 extern tree make_vector (unsigned CXX_MEM_STAT_INFO);
-extern tree build_vec_duplicate_cst (tree, tree CXX_MEM_STAT_INFO);
-extern tree build_vec_series_cst (tree, tree, tree CXX_MEM_STAT_INFO);
 extern tree build_vector (tree, vec<tree> CXX_MEM_STAT_INFO);
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
@@ -4144,6 +4127,7 @@ extern tree build_call_expr_internal_loc_array (location_t, enum internal_fn,
 						tree, int, const tree *);
 extern tree maybe_build_call_expr_loc (location_t, combined_fn, tree,
 				       int, ...);
+extern tree build_alloca_call_expr (tree, unsigned int, HOST_WIDE_INT);
 extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
@@ -5601,8 +5585,9 @@ template <typename T>
 bool
 wi::fits_to_boolean_p (const T &x, const_tree type)
 {
-  return (known_zero (x)
-	  || (TYPE_UNSIGNED (type) ? known_one (x) : known_all_ones (x)));
+  typedef typename poly_int_traits<T>::int_type int_type;
+  return (must_eq (x, int_type (0))
+	  || must_eq (x, int_type (TYPE_UNSIGNED (type) ? 1 : -1)));
 }
 
 template <typename T>

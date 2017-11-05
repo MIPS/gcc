@@ -1,9 +1,5 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
-
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
 #include "sve_pack_fcvt_signed_1.c"
 
@@ -14,19 +10,19 @@
 int __attribute__ ((optimize (1)))
 main (void)
 {
-  static signed int array_dest[ARRAY_SIZE];
+  static int32_t array_dest[ARRAY_SIZE];
   double array_source[ARRAY_SIZE];
 
   for (int i = 0; i < ARRAY_SIZE; i++)
-    array_source[i] = VAL1;
+    {
+      array_source[i] = VAL1;
+      asm volatile ("" ::: "memory");
+    }
 
   pack_int_double_plus_3 (array_dest, array_source, ARRAY_SIZE);
   for (int i = 0; i < ARRAY_SIZE; i++)
-    if (array_dest[i] != (int) VAL1 + 3)
-      {
-	fprintf (stderr,"%d: %d != %d\n", i, array_dest[i], (int) VAL1 + 3);
-	exit (1);
-      }
+    if (array_dest[i] != (int32_t) VAL1 + 3)
+      __builtin_abort ();
 
   return 0;
 }

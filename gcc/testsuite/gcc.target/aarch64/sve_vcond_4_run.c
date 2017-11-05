@@ -8,8 +8,6 @@
 
 #include <fenv.h>
 
-extern void abort (void) __attribute__ ((noreturn));
-
 #include "sve_vcond_4.c"
 
 #define N 401
@@ -33,6 +31,7 @@ extern void abort (void) __attribute__ ((noreturn));
 	  b[i] = i * 0.1;						\
 	else								\
 	  b[i] = i;							\
+	asm volatile ("" ::: "memory");					\
       }									\
     feclearexcept (FE_ALL_EXCEPT);					\
     test_##TYPE1##_##TYPE2##_##CMP##_var (dest1, src, 11, a, b, N);	\
@@ -40,15 +39,15 @@ extern void abort (void) __attribute__ ((noreturn));
     test_##TYPE1##_##TYPE2##_##CMP##_sel (dest3, 33, 44, a, 9, N);	\
     if (TEST_EXCEPTIONS							\
 	&& !fetestexcept (FE_INVALID) != !(EXPECT_INVALID))		\
-      abort ();								\
+      __builtin_abort ();						\
     for (int i = 0; i < N; ++i)						\
       {									\
 	if (dest1[i] != (CMP (a[i], b[i]) ? src[i] : 11))		\
-	  abort ();							\
+	  __builtin_abort ();						\
 	if (dest2[i] != (CMP (a[i], 0) ? src[i] : 22))			\
-	  abort ();							\
+	  __builtin_abort ();						\
 	if (dest3[i] != (CMP (a[i], 9) ? 33 : 44))			\
-	  abort ();							\
+	  __builtin_abort ();						\
       }									\
   }
 
@@ -64,7 +63,7 @@ extern void abort (void) __attribute__ ((noreturn));
   RUN_LOOP (uint64_t, double, CMP, EXPECT_INVALID) \
   RUN_LOOP (double, double, CMP, EXPECT_INVALID)
 
-int __attribute__ ((optimize (1, "no-tree-vectorize")))
+int __attribute__ ((optimize (1)))
 main (void)
 {
   RUN_CMP (eq, 0)

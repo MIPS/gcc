@@ -31,11 +31,7 @@ int main (int argc, const char* argv[])
 {
   unsigned char input[N], output[N];
   unsigned char check_results[N];
-#if N < 256
-  unsigned char i;
-#else
   unsigned int i;
-#endif
 
   check_vect ();
 

@@ -11,4 +11,4 @@ void sve_copy_rr (void)
   asm volatile ("#foo" :: "w" (y));
 }
 
-/* { dg-final { scan-assembler-times {\tmov\tz[0-9]+.d, z[0-9]+.d\n} 1 } } */
+/* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, z[0-9]+\.d\n} 1 } } */

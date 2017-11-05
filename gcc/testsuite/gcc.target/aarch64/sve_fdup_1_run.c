@@ -1,28 +1,24 @@
 /* { dg-do run { target { aarch64_sve_hw } } } */
-/* { dg-options "-O3 -fno-inline -march=armv8-a+sve" } */
+/* { dg-options "-O3 -march=armv8-a+sve -fno-tree-loop-distribute-patterns" } */
 
 #include "sve_fdup_1.c"
-
-#include <stdlib.h>
 
 #define TEST_SET_IMM(TYPE,IMM,SUFFIX)		\
   {						\
     TYPE v[NUM_ELEMS (TYPE)];			\
-    set_##TYPE##SUFFIX (v);			\
+    set_##TYPE##_##SUFFIX (v);			\
     for (int i = 0; i < NUM_ELEMS (TYPE); i++ )	\
       if (v[i] != IMM)				\
-        result++;				\
+	__builtin_abort ();			\
   }
 
 #define TEST_SET_IMM_FP(IMM, SUFFIX) \
-TEST_SET_IMM (float, IMM, SUFFIX)    \
-TEST_SET_IMM (double, IMM, SUFFIX)
+  TEST_SET_IMM (float, IMM, SUFFIX)  \
+  TEST_SET_IMM (double, IMM, SUFFIX)
 
-
-int main  (int argc, char **argv)
+int __attribute__ ((optimize (1)))
+main (int argc, char **argv)
 {
-  int result = 0;
-
   TEST_SET_IMM_FP (1, imm1)
   TEST_SET_IMM_FP (0x1.1p0, imm1p0)
   TEST_SET_IMM_FP (0x1.fp0, immfp0)
@@ -37,9 +33,6 @@ int main  (int argc, char **argv)
   TEST_SET_IMM_FP (0x1.1p-4, imm1pm4)
   TEST_SET_IMM_FP (0x1.1fp5, imm1fp5)
   TEST_SET_IMM_FP (0x1.1fp-4, imm1fpm4)
-
-  if (result != 0)
-    abort ();
 
   return 0;
 }

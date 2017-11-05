@@ -1753,8 +1753,7 @@ ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 	case BUILT_IN_POSIX_MEMALIGN:
 	case BUILT_IN_ALIGNED_ALLOC:
 	case BUILT_IN_CALLOC:
-	case BUILT_IN_ALLOCA:
-	case BUILT_IN_ALLOCA_WITH_ALIGN:
+	CASE_BUILT_IN_ALLOCA:
 	case BUILT_IN_STACK_SAVE:
 	case BUILT_IN_STACK_RESTORE:
 	case BUILT_IN_MEMSET:
@@ -2092,8 +2091,7 @@ call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 	    return true;
 	  return false;
 	case BUILT_IN_STACK_SAVE:
-	case BUILT_IN_ALLOCA:
-	case BUILT_IN_ALLOCA_WITH_ALIGN:
+	CASE_BUILT_IN_ALLOCA:
 	case BUILT_IN_ASSUME_ALIGNED:
 	  return false;
 	/* But posix_memalign stores a pointer into the memory pointed to
@@ -2302,8 +2300,8 @@ same_addr_size_stores_p (tree base1, poly_int64 offset1, poly_int64 size1,
 			 poly_int64 max_size2)
 {
   /* Offsets need to be 0.  */
-  if (maybe_nonzero (offset1)
-      || maybe_nonzero (offset2))
+  if (may_ne (offset1, 0)
+      || may_ne (offset2, 0))
     return false;
 
   bool base1_obj_p = SSA_VAR_P (base1);

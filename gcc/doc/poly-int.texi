@@ -256,20 +256,6 @@ must_gt (@var{a}, @var{b}) == !may_le (@var{a}, @var{b})
 must_ne (@var{a}, @var{b}) == !may_eq (@var{a}, @var{b})
 @end example
 
-There are also helper functions for certain common operations:
-
-@example
-known_zero (@var{a}) == must_eq (@var{a}, 0)
-maybe_zero (@var{a}) == may_eq (@var{a}, 0)
-known_nonzero (@var{a}) == must_ne (@var{a}, 0)
-maybe_nonzero (@var{a}) == may_ne (@var{a}, 0)
-known_one (@var{a}) == must_eq (@var{a}, 1)
-known_all_ones (@var{a}) == must_eq (@var{a}, -1)
-@end example
-
-Using these helper functions removes the need to distinguish between
-signed and unsigned constants, such as @samp{0} and @samp{0U}.
-
 @node Properties of the @code{poly_int} comparisons
 @subsection Properties of the @code{poly_int} comparisons
 

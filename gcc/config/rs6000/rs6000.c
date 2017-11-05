@@ -88,6 +88,20 @@
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
+  /* Set -mabi=ieeelongdouble on some old targets.  In the future, power server
+     systems will also set long double to be IEEE 128-bit.  AIX and Darwin
+     explicitly redefine TARGET_IEEEQUAD and TARGET_IEEEQUAD_DEFAULT to 0, so
+     those systems will not pick up this default.  This needs to be after all
+     of the include files, so that POWERPC_LINUX and POWERPC_FREEBSD are
+     properly defined.  */
+#ifndef TARGET_IEEEQUAD_DEFAULT
+#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
+#define TARGET_IEEEQUAD_DEFAULT 1
+#else
+#define TARGET_IEEEQUAD_DEFAULT 0
+#endif
+#endif
+
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
@@ -1345,7 +1359,6 @@ static void rs6000_common_init_builtins (void);
 static void paired_init_builtins (void);
 static rtx paired_expand_predicate_builtin (enum insn_code, tree, rtx);
 static void htm_init_builtins (void);
-static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void is_altivec_return_reg (rtx, void *);
 int easy_vector_constant (rtx, machine_mode);
@@ -2880,6 +2893,13 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_D, "tls_size", rs6000_tls_size);
   fprintf (stderr, DEBUG_FMT_D, "long_double_size",
 	   rs6000_long_double_type_size);
+  if (rs6000_long_double_type_size == 128)
+    {
+      fprintf (stderr, DEBUG_FMT_S, "long double type",
+	       TARGET_IEEEQUAD ? "IEEE" : "IBM");
+      fprintf (stderr, DEBUG_FMT_S, "default long double type",
+	       TARGET_IEEEQUAD_DEFAULT ? "IEEE" : "IBM");
+    }
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
   fprintf (stderr, DEBUG_FMT_D, "Number of standard builtins",
@@ -4562,13 +4582,26 @@ rs6000_option_override_internal (bool global_init_p)
 	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
-  /* Set -mabi=ieeelongdouble on some old targets.  Note, AIX and Darwin
-     explicitly redefine TARGET_IEEEQUAD to 0, so those systems will not
-     pick up this default.  */
-#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
+  /* Set -mabi=ieeelongdouble on some old targets.  In the future, power server
+     systems will also set long double to be IEEE 128-bit.  AIX and Darwin
+     explicitly redefine TARGET_IEEEQUAD and TARGET_IEEEQUAD_DEFAULT to 0, so
+     those systems will not pick up this default.  Warn if the user changes the
+     default unless -Wno-psabi.  */
   if (!global_options_set.x_rs6000_ieeequad)
-    rs6000_ieeequad = 1;
-#endif
+    rs6000_ieeequad = TARGET_IEEEQUAD_DEFAULT;
+
+  else if (rs6000_ieeequad != TARGET_IEEEQUAD_DEFAULT && TARGET_LONG_DOUBLE_128)
+    {
+      static bool warned_change_long_double;
+      if (!warned_change_long_double)
+	{
+	  warned_change_long_double = true;
+	  if (TARGET_IEEEQUAD)
+	    warning (OPT_Wpsabi, "Using IEEE extended precision long double");
+	  else
+	    warning (OPT_Wpsabi, "Using IBM extended precision long double");
+	}
+    }
 
   /* Enable the default support for IEEE 128-bit floating point on Linux VSX
      sytems.  In GCC 7, we would enable the the IEEE 128-bit floating point
@@ -5424,9 +5457,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 3;
 
       case unaligned_load:
-	if (TARGET_P9_VECTOR)
-	  return 3;
-
+      case vector_gather_load:
 	if (TARGET_EFFICIENT_UNALIGNED_VSX)
 	  return 1;
 
@@ -5465,6 +5496,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 2;
 
       case unaligned_store:
+      case vector_scatter_store:
 	if (TARGET_EFFICIENT_UNALIGNED_VSX)
 	  return 1;
 
@@ -8991,6 +9023,8 @@ rs6000_delegitimize_address (rtx orig_x)
 static bool
 rs6000_const_not_ok_for_debug_p (rtx x)
 {
+  if (GET_CODE (x) == UNSPEC)
+    return true;
   if (GET_CODE (x) == SYMBOL_REF
       && CONSTANT_POOL_ADDRESS_P (x))
     {
@@ -16614,6 +16648,22 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	 gsi_replace (gsi, g, true);
 	 return true;
       }
+
+    /* Vector Fused multiply-add (fma).  */
+    case ALTIVEC_BUILTIN_VMADDFP:
+    case VSX_BUILTIN_XVMADDDP:
+    case ALTIVEC_BUILTIN_VMLADDUHM:
+      {
+       arg0 = gimple_call_arg (stmt, 0);
+       arg1 = gimple_call_arg (stmt, 1);
+       tree arg2 = gimple_call_arg (stmt, 2);
+       lhs = gimple_call_lhs (stmt);
+       gimple *g = gimple_build_assign (lhs, FMA_EXPR , arg0, arg1, arg2);
+       gimple_set_location (g, gimple_location (stmt));
+       gsi_replace (gsi, g, true);
+       return true;
+      }
+
     default:
 	if (TARGET_DEBUG_BUILTIN)
 	   fprintf (stderr, "gimple builtin intrinsic not matched:%d %s %s\n",
@@ -22429,14 +22479,6 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
 }
 
 
-/* Emit the RTL for an sISEL pattern.  */
-
-void
-rs6000_emit_sISEL (machine_mode mode ATTRIBUTE_UNUSED, rtx operands[])
-{
-  rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx);
-}
-
 /* Emit RTL that sets a register to zero if OP1 and OP2 are equal.  SCRATCH
    can be used as that dest register.  Return the dest register.  */
 
@@ -23212,7 +23254,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 
 /* Same as above, but for ints (isel).  */
 
-static int
+int
 rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
   rtx condition_rtx, cr;

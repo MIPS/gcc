@@ -1619,21 +1619,20 @@ extract_range_from_ssa_name (value_range *vr, tree var)
 }
 
 
-/* Wrapper around int_const_binop.  If the operation overflows and
-   overflow is undefined, then adjust the result to be
-   -INF or +INF depending on CODE, VAL1 and VAL2.  Sets *OVERFLOW_P
-   to whether the operation overflowed.  For division by zero
-   the result is indeterminate but *OVERFLOW_P is set.  */
+/* Wrapper around int_const_binop.  Return true if we can compute the
+   result; i.e. if the operation doesn't overflow or if the overflow is
+   undefined.  In the latter case (if the operation overflows and
+   overflow is undefined), then adjust the result to be -INF or +INF
+   depending on CODE, VAL1 and VAL2.  Return the value in *RES.
 
-static wide_int
-vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
-		     bool *overflow_p)
+   Return false for division by zero, for which the result is
+   indeterminate.  */
+
+static bool
+vrp_int_const_binop (enum tree_code code, tree val1, tree val2, wide_int *res)
 {
   bool overflow = false;
   signop sign = TYPE_SIGN (TREE_TYPE (val1));
-  wide_int res;
-
-  *overflow_p = false;
 
   switch (code)
     {
@@ -1654,57 +1653,45 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
 	  /* It's unclear from the C standard whether shifts can overflow.
 	     The following code ignores overflow; perhaps a C standard
 	     interpretation ruling is needed.  */
-	  res = wi::rshift (wi::to_wide (val1), wval2, sign);
+	  *res = wi::rshift (wi::to_wide (val1), wval2, sign);
 	else
-	  res = wi::lshift (wi::to_wide (val1), wval2);
+	  *res = wi::lshift (wi::to_wide (val1), wval2);
 	break;
       }
 
     case MULT_EXPR:
-      res = wi::mul (wi::to_wide (val1),
-		     wi::to_wide (val2), sign, &overflow);
+      *res = wi::mul (wi::to_wide (val1),
+		      wi::to_wide (val2), sign, &overflow);
       break;
 
     case TRUNC_DIV_EXPR:
     case EXACT_DIV_EXPR:
       if (val2 == 0)
-	{
-	  *overflow_p = true;
-	  return res;
-	}
+	return false;
       else
-	res = wi::div_trunc (wi::to_wide (val1),
-			     wi::to_wide (val2), sign, &overflow);
+	*res = wi::div_trunc (wi::to_wide (val1),
+			      wi::to_wide (val2), sign, &overflow);
       break;
 
     case FLOOR_DIV_EXPR:
       if (val2 == 0)
-	{
-	  *overflow_p = true;
-	  return res;
-	}
-      res = wi::div_floor (wi::to_wide (val1),
-			   wi::to_wide (val2), sign, &overflow);
+	return false;
+      *res = wi::div_floor (wi::to_wide (val1),
+			    wi::to_wide (val2), sign, &overflow);
       break;
 
     case CEIL_DIV_EXPR:
       if (val2 == 0)
-	{
-	  *overflow_p = true;
-	  return res;
-	}
-      res = wi::div_ceil (wi::to_wide (val1),
-			  wi::to_wide (val2), sign, &overflow);
+	return false;
+      *res = wi::div_ceil (wi::to_wide (val1),
+			   wi::to_wide (val2), sign, &overflow);
       break;
 
     case ROUND_DIV_EXPR:
       if (val2 == 0)
-	{
-	  *overflow_p = 0;
-	  return res;
-	}
-      res = wi::div_round (wi::to_wide (val1),
-			   wi::to_wide (val2), sign, &overflow);
+	return false;
+      *res = wi::div_round (wi::to_wide (val1),
+			    wi::to_wide (val2), sign, &overflow);
       break;
 
     default:
@@ -1747,16 +1734,15 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2,
 	  || code == CEIL_DIV_EXPR
 	  || code == EXACT_DIV_EXPR
 	  || code == ROUND_DIV_EXPR)
-	return wi::max_value (TYPE_PRECISION (TREE_TYPE (val1)),
+	*res = wi::max_value (TYPE_PRECISION (TREE_TYPE (val1)),
 			      TYPE_SIGN (TREE_TYPE (val1)));
       else
-	return wi::min_value (TYPE_PRECISION (TREE_TYPE (val1)),
+	*res = wi::min_value (TYPE_PRECISION (TREE_TYPE (val1)),
 			      TYPE_SIGN (TREE_TYPE (val1)));
+      return true;
     }
 
-  *overflow_p = overflow;
-
-  return res;
+  return !overflow;
 }
 
 
@@ -1852,7 +1838,6 @@ extract_range_from_multiplicative_op_1 (value_range *vr,
 {
   enum value_range_type rtype;
   wide_int val, min, max;
-  bool sop;
   tree type;
 
   /* Multiplications, divisions and shifts are a bit tricky to handle,
@@ -1883,58 +1868,50 @@ extract_range_from_multiplicative_op_1 (value_range *vr,
   signop sgn = TYPE_SIGN (type);
 
   /* Compute the 4 cross operations and their minimum and maximum value.  */
-  sop = false;
-  val = vrp_int_const_binop (code, vr0->min, vr1->min, &sop);
-  if (! sop)
-    min = max = val;
-
-  if (vr1->max == vr1->min)
-    ;
-  else if (! sop)
-    {
-      val = vrp_int_const_binop (code, vr0->min, vr1->max, &sop);
-      if (! sop)
-	{
-	  if (wi::lt_p (val, min, sgn))
-	    min = val;
-	  else if (wi::gt_p (val, max, sgn))
-	    max = val;
-	}
-    }
-
-  if (vr0->max == vr0->min)
-    ;
-  else if (! sop)
-    {
-      val = vrp_int_const_binop (code, vr0->max, vr1->min, &sop);
-      if (! sop)
-	{
-	  if (wi::lt_p (val, min, sgn))
-	    min = val;
-	  else if (wi::gt_p (val, max, sgn))
-	    max = val;
-	}
-    }
-
-  if (vr0->min == vr0->max || vr1->min == vr1->max)
-    ;
-  else if (! sop)
-    {
-      val = vrp_int_const_binop (code, vr0->max, vr1->max, &sop);
-      if (! sop)
-	{
-	  if (wi::lt_p (val, min, sgn))
-	    min = val;
-	  else if (wi::gt_p (val, max, sgn))
-	    max = val;
-	}
-    }
-
-  /* If either operation overflowed, drop to VARYING.  */
-  if (sop)
+  if (!vrp_int_const_binop (code, vr0->min, vr1->min, &val))
     {
       set_value_range_to_varying (vr);
       return;
+    }
+  min = max = val;
+
+  if (vr1->max != vr1->min)
+    {
+      if (!vrp_int_const_binop (code, vr0->min, vr1->max, &val))
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+      if (wi::lt_p (val, min, sgn))
+	min = val;
+      else if (wi::gt_p (val, max, sgn))
+	max = val;
+    }
+
+  if (vr0->max != vr0->min)
+    {
+      if (!vrp_int_const_binop (code, vr0->max, vr1->min, &val))
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+      if (wi::lt_p (val, min, sgn))
+	min = val;
+      else if (wi::gt_p (val, max, sgn))
+	max = val;
+    }
+
+  if (vr0->min != vr0->max && vr1->min != vr1->max)
+    {
+      if (!vrp_int_const_binop (code, vr0->max, vr1->max, &val))
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+      if (wi::lt_p (val, min, sgn))
+	min = val;
+      else if (wi::gt_p (val, max, sgn))
+	max = val;
     }
 
   /* If the new range has its limits swapped around (MIN > MAX),
@@ -2804,7 +2781,7 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	      return;
 	    }
 	}
-      else if (!symbolic_range_p (&vr0) && !symbolic_range_p (&vr1))
+      else if (range_int_cst_p (&vr0) && range_int_cst_p (&vr1))
 	{
 	  extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
 	  return;
@@ -6856,10 +6833,7 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
   if (EXPR_HAS_LOCATION (t))
     location = EXPR_LOCATION (t);
   else
-    {
-      location_t *locp = (location_t *) wi->info;
-      location = *locp;
-    }
+    location = gimple_location (wi->stmt);
 
   *walk_subtree = TRUE;
 
@@ -6905,9 +6879,6 @@ check_all_array_refs (void)
 	    continue;
 
 	  memset (&wi, 0, sizeof (wi));
-
-	  location_t loc = gimple_location (stmt);
-	  wi.info = &loc;
 
 	  walk_gimple_op (gsi_stmt (si),
 			  check_array_bounds,
@@ -8111,6 +8082,13 @@ extract_range_from_stmt (gimple *stmt, edge *taken_edge_p,
     vrp_visit_switch_stmt (as_a <gswitch *> (stmt), taken_edge_p);
 }
 
+class vrp_prop : public ssa_propagation_engine
+{
+ public:
+  enum ssa_prop_result visit_stmt (gimple *, edge *, tree *) FINAL OVERRIDE;
+  enum ssa_prop_result visit_phi (gphi *) FINAL OVERRIDE;
+};
+
 /* Evaluate statement STMT.  If the statement produces a useful range,
    return SSA_PROP_INTERESTING and record the SSA name with the
    interesting range into *OUTPUT_P.
@@ -8120,8 +8098,8 @@ extract_range_from_stmt (gimple *stmt, edge *taken_edge_p,
 
    If STMT produces a varying value, return SSA_PROP_VARYING.  */
 
-static enum ssa_prop_result
-vrp_visit_stmt (gimple *stmt, edge *taken_edge_p, tree *output_p)
+enum ssa_prop_result
+vrp_prop::visit_stmt (gimple *stmt, edge *taken_edge_p, tree *output_p)
 {
   value_range vr = VR_INITIALIZER;
   tree lhs = gimple_get_lhs (stmt);
@@ -9212,8 +9190,8 @@ update_range:
    edges.  If a valid value range can be derived from all the incoming
    value ranges, set a new range for the LHS of PHI.  */
 
-static enum ssa_prop_result
-vrp_visit_phi_node (gphi *phi)
+enum ssa_prop_result
+vrp_prop::visit_phi (gphi *phi)
 {
   tree lhs = PHI_RESULT (phi);
   value_range vr_result = VR_INITIALIZER;
@@ -10548,15 +10526,34 @@ fold_predicate_in (gimple_stmt_iterator *si)
   return false;
 }
 
+class vrp_folder : public substitute_and_fold_engine
+{
+ public:
+  tree get_value (tree) FINAL OVERRIDE;
+  bool fold_stmt (gimple_stmt_iterator *) FINAL OVERRIDE;
+};
+
 /* Callback for substitute_and_fold folding the stmt at *SI.  */
 
-static bool
-vrp_fold_stmt (gimple_stmt_iterator *si)
+bool
+vrp_folder::fold_stmt (gimple_stmt_iterator *si)
 {
   if (fold_predicate_in (si))
     return true;
 
   return simplify_stmt_using_ranges (si);
+}
+
+/* If OP has a value range with a single constant value return that,
+   otherwise return NULL_TREE.  This returns OP itself if OP is a
+   constant.
+
+   Implemented as a pure wrapper right now, but this will change.  */
+
+tree
+vrp_folder::get_value (tree op)
+{
+  return op_with_constant_singleton_value_range (op);
 }
 
 /* Return the LHS of any ASSERT_EXPR where OP appears as the first
@@ -10900,7 +10897,8 @@ vrp_finalize (bool warn_array_bounds_p)
 			  wi::to_wide (vr_value[i]->max));
       }
 
-  substitute_and_fold (op_with_constant_singleton_value_range, vrp_fold_stmt);
+  class vrp_folder vrp_folder;
+  vrp_folder.substitute_and_fold ();
 
   if (warn_array_bounds && warn_array_bounds_p)
     check_all_array_refs ();
@@ -10968,33 +10966,17 @@ evrp_dom_walker::try_find_new_range (tree name,
 edge
 evrp_dom_walker::before_dom_children (basic_block bb)
 {
-  tree op0 = NULL_TREE;
-  edge_iterator ei;
-  edge e;
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Visiting BB%d\n", bb->index);
 
   stack.safe_push (std::make_pair (NULL_TREE, (value_range *)NULL));
 
-  edge pred_e = NULL;
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      /* Ignore simple backedges from this to allow recording conditions
-	 in loop headers.  */
-      if (dominated_by_p (CDI_DOMINATORS, e->src, e->dest))
-	continue;
-      if (! pred_e)
-	pred_e = e;
-      else
-	{
-	  pred_e = NULL;
-	  break;
-	}
-    }
+  edge pred_e = single_pred_edge_ignoring_loop_edges (bb, false);
   if (pred_e)
     {
       gimple *stmt = last_stmt (pred_e->src);
+      tree op0 = NULL_TREE;
+
       if (stmt
 	  && gimple_code (stmt) == GIMPLE_COND
 	  && (op0 = gimple_cond_lhs (stmt))
@@ -11038,6 +11020,8 @@ evrp_dom_walker::before_dom_children (basic_block bb)
 
   /* Visit PHI stmts and discover any new VRs possible.  */
   bool has_unvisited_preds = false;
+  edge_iterator ei;
+  edge e;
   FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_EXECUTABLE
 	&& !(e->src->flags & BB_VISITED))
@@ -11237,8 +11221,8 @@ evrp_dom_walker::before_dom_children (basic_block bb)
 	}
 
       /* Try folding stmts with the VR discovered.  */
-      bool did_replace
-	= replace_uses_in (stmt, op_with_constant_singleton_value_range);
+      class vrp_folder vrp_folder;
+      bool did_replace = vrp_folder.replace_uses_in (stmt);
       if (fold_stmt (&gsi, follow_single_use_edges)
 	  || did_replace)
 	{
@@ -11488,7 +11472,8 @@ execute_vrp (bool warn_array_bounds_p)
 
   vrp_initialize_lattice ();
   vrp_initialize ();
-  ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
+  class vrp_prop vrp_prop;
+  vrp_prop.ssa_propagate ();
   vrp_finalize (warn_array_bounds_p);
 
   /* We must identify jump threading opportunities before we release

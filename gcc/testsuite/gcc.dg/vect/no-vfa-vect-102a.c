@@ -50,6 +50,6 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
-/* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 1 "vect" { target vect_1_size } } } */
-/* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 2 "vect" { target vect_2_sizes } } } */
-/* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 3 "vect" { target vect_3_sizes } } } */
+/* { dg-final { scan-tree-dump-times "possible dependence between data-refs" 1 "vect" { target { ! vect_multiple_sizes } } } } */
+/* { dg-final { scan-tree-dump "possible dependence between data-refs" "vect" { target vect_multiple_sizes } } } */
+

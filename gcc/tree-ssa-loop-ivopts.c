@@ -1571,9 +1571,6 @@ record_invariant (struct ivopts_data *data, tree op, bool nonlinear_use)
   bitmap_set_bit (data->relevant, SSA_NAME_VERSION (op));
 }
 
-static tree
-strip_offset (tree expr, poly_uint64 *offset);
-
 /* Record a group of TYPE.  */
 
 static struct iv_group *
@@ -2724,7 +2721,7 @@ split_address_groups (struct ivopts_data *data)
 	  /* Split group if aksed to, or the offset against the first
 	     use can't fit in offset part of addressing mode.  IV uses
 	     having the same offset are still kept in one group.  */
-	  if (maybe_nonzero (offset)
+	  if (may_ne (offset, 0)
 	      && (split_p || !addr_offset_valid_p (use, offset)))
 	    {
 	      if (!new_group)
@@ -2920,7 +2917,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       break;
 
     default:
-      if (ptrdiff_tree_p (expr, offset) && maybe_nonzero (*offset))
+      if (ptrdiff_tree_p (expr, offset) && may_ne (*offset, 0))
 	return build_int_cst (orig_type, 0);
       return orig_expr;
     }
@@ -2950,8 +2947,8 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
 
 /* Strips constant offsets from EXPR and stores them to OFFSET.  */
 
-static tree
-strip_offset (tree expr, poly_uint64 *offset)
+tree
+strip_offset (tree expr, poly_uint64_pod *offset)
 {
   poly_int64 off;
   tree core = strip_offset_1 (expr, false, false, &off);
@@ -3228,7 +3225,7 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
      statement.  */
   if (use_bb->loop_father != data->current_loop
       || !dominated_by_p (CDI_DOMINATORS, data->current_loop->latch, use_bb)
-      || stmt_could_throw_p (use->stmt)
+      || stmt_can_throw_internal (use->stmt)
       || !cst_and_fits_in_hwi (step))
     return;
 
@@ -3499,7 +3496,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
   /* Record common candidate with constant offset stripped in base.
      Like the use itself, we also add candidate directly for it.  */
   base = strip_offset (iv->base, &offset);
-  if (maybe_nonzero (offset) || base != iv->base)
+  if (may_ne (offset, 0U) || base != iv->base)
     {
       record_common_cand (data, base, iv->step, use);
       add_candidate (data, base, iv->step, false, use);
@@ -3518,7 +3515,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
       record_common_cand (data, base, step, use);
       /* Also record common candidate with offset stripped.  */
       base = strip_offset (base, &offset);
-      if (maybe_nonzero (offset))
+      if (may_ne (offset, 0U))
 	record_common_cand (data, base, step, use);
     }
 
@@ -4385,9 +4382,9 @@ get_address_cost_ainc (poly_int64 ainc_step, poly_int64 ainc_offset,
     }
 
   poly_int64 msize = GET_MODE_SIZE (mem_mode);
-  if (known_zero (ainc_offset) && must_eq (msize, ainc_step))
+  if (must_eq (ainc_offset, 0) && must_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_POST_INC], 0);
-  if (known_zero (ainc_offset) && must_eq (msize, -ainc_step))
+  if (must_eq (ainc_offset, 0) && must_eq (msize, -ainc_step))
     return comp_cost (data->costs[AINC_POST_DEC], 0);
   if (must_eq (ainc_offset, msize) && must_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_PRE_INC], 0);
@@ -4429,19 +4426,19 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   if (!aff_combination_const_p (aff_inv))
     {
       parts.index = integer_one_node;
-      /* Addressing mode "base + index [<< scale]".  */
-      parts.step = NULL_TREE;
+      /* Addressing mode "base + index".  */
       ok_without_ratio_p = valid_mem_ref_p (mem_mode, as, &parts);
       if (ratio != 1)
 	{
 	  parts.step = wide_int_to_tree (type, ratio);
+	  /* Addressing mode "base + index << scale".  */
 	  ok_with_ratio_p = valid_mem_ref_p (mem_mode, as, &parts);
 	  if (!ok_with_ratio_p)
 	    parts.step = NULL_TREE;
 	}
       if (ok_with_ratio_p || ok_without_ratio_p)
 	{
-	  if (maybe_nonzero (aff_inv->offset))
+	  if (may_ne (aff_inv->offset, 0))
 	    {
 	      parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
 	      /* Addressing mode "base + index [<< scale] + offset".  */
@@ -4542,7 +4539,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
     cost.complexity += 1;
   /* Don't increase the complexity of adding a scaled index if it's
      the only kind of index that the target allows.  */
-  if (ok_with_ratio_p && ok_without_ratio_p)
+  if (parts.step != NULL_TREE && ok_without_ratio_p)
     cost.complexity += 1;
   if (parts.base != NULL_TREE && parts.index != NULL_TREE)
     cost.complexity += 1;
@@ -4559,8 +4556,8 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 static comp_cost
 get_scaled_computation_cost_at (ivopts_data *data, gimple *at, comp_cost cost)
 {
-   int loop_freq = data->current_loop->header->frequency;
-   int bb_freq = gimple_bb (at)->frequency;
+   int loop_freq = data->current_loop->header->count.to_frequency (cfun);
+   int bb_freq = gimple_bb (at)->count.to_frequency (cfun);
    if (loop_freq != 0)
      {
        gcc_assert (cost.scratch <= cost.cost);
