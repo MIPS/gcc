@@ -15,15 +15,15 @@
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_4Kaligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel_lo\\(l_sta_4Kaligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_2aligned\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel_lo\\(l_sta_2aligned\\)\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%lo\\(l_sta_char\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,%gprel_lo\\(l_sta_char\\)\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_short\\)" } } */
-/* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%lo\\(l_sta_short\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel_lo\\(l_sta_short\\)\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%gprel_hi\\(l_sta_int\\)" } } */
-/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%lo\\(l_sta_int\\)\\(\\\$\[ast0-9\]+\\)" } } */
+/* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel_lo\\(l_sta_int\\)\\(\\\$\[ast0-9\]+\\)" } } */
 
 /* { dg-final { scan-assembler-times "addu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,\\\$gp" 5 } } */
 

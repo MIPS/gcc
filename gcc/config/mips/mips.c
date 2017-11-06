@@ -10806,7 +10806,7 @@ mips_init_relocs (void)
   if (TARGET_PABI)
     {
       mips_hi_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%gprel_hi(";
-      mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%lo(";
+      mips_lo_relocs[SYMBOL_GPREL_SPLIT_NANO] = "%gprel_lo(";
       mips_split_p[SYMBOL_GPREL_SPLIT_NANO] = true;
     }
 
