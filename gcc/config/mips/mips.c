@@ -19326,6 +19326,10 @@ AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 #ifdef MIPS_SUPPORT_MSA
 AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #endif
+#ifdef NANOMIPS_SUPPORT
+AVAIL_NON_MIPS16 (nanomips, TARGET_NANOMIPS)
+AVAIL_NON_MIPS16 (nanomips_nmf, TARGET_NANOMIPS == NANOMIPS_NMF)
+#endif
 
 /* Construct a mips_builtin_description from the given arguments.
 
@@ -20542,6 +20546,14 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_NO_TARGET_BUILTIN (ctcmsa, MIPS_VOID_FTYPE_UQI_SI),
   MSA_BUILTIN (cfcmsa, MIPS_SI_FTYPE_UQI),
   MSA_BUILTIN (move_v, MIPS_V16QI_FTYPE_V16QI),
+#endif
+#ifdef NANOMIPS_SUPPORT
+  DIRECT_BUILTIN (align, MIPS_SI_FTYPE_SI_SI_SI, nanomips),
+  DIRECT_BUILTIN (bitrevb, MIPS_USI_FTYPE_USI, nanomips_nmf),
+  DIRECT_BUILTIN (bitrevh, MIPS_USI_FTYPE_USI, nanomips_nmf),
+  DIRECT_BUILTIN (bitrevw, MIPS_USI_FTYPE_USI, nanomips_nmf),
+  DIRECT_BUILTIN (byterevh, MIPS_USI_FTYPE_USI, nanomips_nmf),
+  DIRECT_BUILTIN (byterevw, MIPS_USI_FTYPE_USI, nanomips_nmf),
 #endif
 };
 
