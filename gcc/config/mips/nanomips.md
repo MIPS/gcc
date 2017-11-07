@@ -22,6 +22,15 @@
   m7000
 ])
 
+(define_c_enum "unspec" [
+  ;; Bit reverse operations
+  UNSPEC_BITREVB
+  UNSPEC_BITREVH
+  UNSPEC_BITREVW
+  UNSPEC_BYTEREVH
+  UNSPEC_BYTEREVW
+])
+
 (include "i7200.md")
 
 ;; FIXME: let's use 24KC scheduler temporarily for nanoMIPS32R6/nanoMIPS32R6s
@@ -833,6 +842,62 @@
   [(set_attr "type" "clz")
    (set_attr "mode" "SI")
    (set_attr "insn_count" "2")])
+
+(define_insn "mips_align"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")
+		    (match_operand:SI 2 "register_operand" "r")
+		    (match_operand:SI 3 "const_0_to_3_operand" "")]
+		    UNSPEC_ALIGN))]
+  "TARGET_NANOMIPS"
+  "align\t%0,%1,%2,%3"
+  [(set_attr "type" "arith")
+   (set_attr "mode" "SI")])
+
+(define_insn "mips_bitrevb"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVB))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevb\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "mips_bitrevh"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVH))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevh\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "mips_bitrevw"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BITREVW))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "bitrevw\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "mips_byterevh"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BYTEREVH))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "byterevh\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "mips_byterevw"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
+		    UNSPEC_BYTEREVW))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "byterevw\t%0,%1"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
