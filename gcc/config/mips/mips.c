@@ -5134,7 +5134,8 @@ mips_sign_extend_cost (machine_mode mode, rtx op)
     /* A sign extension from SImode to DImode in 64-bit mode is free.  */
     return 0;
 
-  if (ISA_HAS_SEB_SEH || GENERATE_MIPS16E)
+  if ((ISA_HAS_SEB && mode == QImode) || (ISA_HAS_SEH && mode == HImode)
+      || GENERATE_MIPS16E)
     /* We can use SEB or SEH.  */
     return COSTS_N_INSNS (1);
 
