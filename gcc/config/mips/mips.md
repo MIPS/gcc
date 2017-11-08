@@ -160,10 +160,11 @@
 ;; into a register.
 (define_attr "jal_macro" "no,yes"
   (cond [(eq_attr "jal" "direct")
-	 (symbol_ref "(TARGET_CALL_CLOBBERED_GP || !TARGET_ABSOLUTE_JUMPS
+	 (symbol_ref "(!TARGET_NANOMIPS
+		       && (TARGET_CALL_CLOBBERED_GP || !TARGET_ABSOLUTE_JUMPS)
 		       ? JAL_MACRO_YES : JAL_MACRO_NO)")
 	 (eq_attr "jal" "indirect")
-	 (symbol_ref "(TARGET_CALL_CLOBBERED_GP
+	 (symbol_ref "(!TARGET_NANOMIPS && TARGET_CALL_CLOBBERED_GP
 		       ? JAL_MACRO_YES : JAL_MACRO_NO)")]
 	(const_string "no")))
 
@@ -396,8 +397,13 @@
 (define_attr "compact_form" "always,maybe,never"
   (cond [(eq_attr "jal" "direct")
 	 (const_string "always")
-	 (eq_attr "jal" "indirect")
-	 (const_string "maybe")
+	 (and (match_test "TARGET_NANOMIPS")
+	      (ior (eq_attr "jal" "indirect")
+		   (eq_attr "type" "jump")))
+	   (const_string "always")
+	 (and (not (match_test "TARGET_NANOMIPS"))
+	      (eq_attr "jal" "indirect"))
+	   (const_string "maybe")
 	 (eq_attr "type" "jump")
 	 (const_string "maybe")]
 	(const_string "never")))
@@ -432,7 +438,9 @@
   (cond [(and (eq_attr "compress_as" "micro_or_nano")
 	      (match_test "TARGET_MICROMIPS"))
 	 (const_string "micromips")
-	 (and (eq_attr "compress_as" "micro_or_nano")
+	 (and (ior (eq_attr "compress_as" "micro_or_nano")
+		   (eq_attr "jal" "indirect")
+		   (eq_attr "type" "jump"))
 	      (match_test "TARGET_NANOMIPS"))
 	 (const_string "nanomips")
 	 (and (eq_attr "compress_as" "micro_or_nano32")
@@ -554,7 +562,7 @@
 	       (eq_attr "dword_mode" "no")
 	       (match_test "TARGET_MICROMIPS"))
 	  (const_int 2)
-	  (and (eq_attr "compression" "nanomips")
+	  (and (eq_attr "compression" "nanomips,all")
 	       (match_test "TARGET_NANOMIPS"))
 	  (const_int 2)
 	  (and (eq_attr "compression" "nanomips32")
