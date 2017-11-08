@@ -3836,7 +3836,9 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
-  "!ISA_HAS_SEB_SEH && !GENERATE_MIPS16E"
+  "!(ISA_HAS_SEB && <SHORT:MODE>mode == QImode)
+    && !(ISA_HAS_SEH && <SHORT:MODE>mode == HImode)
+    && !GENERATE_MIPS16E"
   "@
    #
    l<SHORT:size>\t%0,%1"
@@ -3855,7 +3857,8 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
-  "ISA_HAS_SEB_SEH"
+  "(ISA_HAS_SEB && <SHORT:MODE>mode == QImode)
+   || (ISA_HAS_SEH && <SHORT:MODE>mode == HImode)"
 {
   if (which_alternative == 0)
     return "se<SHORT:size>\t%0,%1";
@@ -3885,7 +3888,7 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
-  "!ISA_HAS_SEB_SEH && !GENERATE_MIPS16E"
+  "!ISA_HAS_SEB && !GENERATE_MIPS16E"
   "@
    #
    lb\t%0,%1"
@@ -3905,7 +3908,7 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
-  "ISA_HAS_SEB_SEH"
+  "ISA_HAS_SEB"
 {
   switch (which_alternative)
     {
