@@ -5672,9 +5672,11 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	return false;
     }
 
+#ifdef MIPS_SUPPORT_MSA
   /* Check if MSA moves need splitting.  */
   if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
     return mips_split_128bit_move_p (dest, src);
+#endif
 
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
@@ -5689,9 +5691,13 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
   rtx low_dest;
 
   gcc_checking_assert (mips_split_move_p (dest, src, split_type));
+#ifdef MIPS_SUPPORT_MSA
   if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
     mips_split_128bit_move (dest, src);
   else if (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src))
+#else
+  if (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src))
+#endif
     {
       if (!TARGET_64BIT && GET_MODE (dest) == DImode)
 	emit_insn (gen_move_doubleword_fprdi (dest, src));
@@ -5764,6 +5770,7 @@ mips_insn_split_type (rtx insn)
   return SPLIT_IF_NECESSARY;
 }
 
+#ifdef MIPS_SUPPORT_MSA
 /* Return true if a 128-bit move from SRC to DEST should be split.  */
 
 bool
@@ -5956,6 +5963,7 @@ mips_split_msa_fill_d (rtx dest, rtx src)
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 1)));
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 3)));
 }
+#endif
 
 /* Return true if a move from SRC to DEST in INSN should be split.  */
 
@@ -6547,6 +6555,7 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	  *op1 = const0_rtx;
 	}
     }
+#ifdef MIPS_SUPPORT_DSP
   else if (ALL_FIXED_POINT_MODE_P (GET_MODE (cmp_op0)))
     {
       *op0 = gen_rtx_REG (CCDSPmode, CCDSP_CC_REGNUM);
@@ -6554,6 +6563,7 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       *code = NE;
       *op1 = const0_rtx;
     }
+#endif
   else
     {
       enum rtx_code cmp_code;
@@ -6636,6 +6646,7 @@ mips_expand_conditional_branch (rtx *operands)
   emit_jump_insn (gen_condjump (condition, operands[3]));
 }
 
+#ifdef MIPS_SUPPORT_PS_3D
 /* Implement:
 
    (set temp (COND:CCV2 CMP_OP0 CMP_OP1))
@@ -6659,6 +6670,7 @@ mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
     emit_insn (gen_mips_cond_move_tf_ps (dest, true_src, false_src,
 					 cmp_result));
 }
+#endif
 
 /* Perform the comparison in OPERANDS[1].  Move OPERANDS[2] into OPERANDS[0]
    if the condition holds, otherwise move OPERANDS[3] into OPERANDS[0].  */
@@ -10805,6 +10817,7 @@ mips_dwarf_frame_reg_mode (int regno)
   return mode;
 }
 
+#ifdef MIPS_SUPPORT_DSP
 /* DSP ALU can bypass data with no delays for the following pairs. */
 enum insn_code dspalu_bypass_table[][2] =
 {
@@ -10835,6 +10848,8 @@ mips_dspalu_bypass_p (rtx out_insn, rtx in_insn)
 
   return false;
 }
+#endif
+
 /* Implement ASM_OUTPUT_ASCII.  */
 
 void
@@ -11061,6 +11076,7 @@ mips_set_text_contents_type (FILE *file ATTRIBUTE_UNUSED,
 #endif
 }
 
+#ifndef NANOMIPS_SUPPORT
 /* Return the FOO in the name of the ".mdebug.FOO" section associated
    with the current ABI.  */
 
@@ -11083,6 +11099,7 @@ mips_mdebug_abi_name (void)
       gcc_unreachable ();
     }
 }
+#endif
 
 /* Implement TARGET_ASM_FILE_START.  */
 
@@ -12428,6 +12445,7 @@ mips_compute_frame_info (void)
       frame->cop0_sp_offset = offset - UNITS_PER_WORD;
     }
 
+#ifdef MIPS_SUPPORT_FRAME_HEADER_OPT
   /* Determine if we can save the callee-saved registers in the frame
      header.  Restrict this to functions where there is no other reason
      to allocate stack space so that we can eliminate the instructions
@@ -12456,6 +12474,7 @@ mips_compute_frame_info (void)
       frame->gp_sp_offset = REG_PARM_STACK_SPACE(cfun) - UNITS_PER_WORD;
       cfun->machine->use_frame_header_for_callee_saved_regs = true;
     }
+#endif
 
   /* Move above the callee-allocated varargs save area.  */
   offset += MIPS_STACK_ALIGN (cfun->machine->varargs_size);
@@ -14065,8 +14084,10 @@ mips_expand_epilogue (bool sibcall_p)
 	      rtx reg = gen_rtx_REG (Pmode, GP_REG_FIRST + 7);
 	      pat = gen_return_internal (reg);
 	    }
+#ifdef MIPS_SUPPORT_MICROMIPS
 	  else if (use_jraddiusp_p)
 	    pat = gen_jraddiusp (GEN_INT (step2));
+#endif
 	  else
 	    {
 	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
@@ -15864,7 +15885,7 @@ mips_store_data_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
   return store_data_bypass_p (out_insn, in_insn);
 }
 
-
+#ifdef MIPS_SUPPORT_LOONGSON
 /* Variables and flags used in scheduler hooks when tuning for
    Loongson 2E/2F.  */
 static struct
@@ -15898,6 +15919,7 @@ static struct
   rtx_insn *falu1_turn_enabled_insn;
   rtx_insn *falu2_turn_enabled_insn;
 } mips_ls2;
+#endif
 
 /* Implement TARGET_SCHED_ADJUST_COST.  We assume that anti and output
    dependencies have no cost, except on the 20Kc where output-dependence
@@ -15972,6 +15994,7 @@ mips_issue_rate (void)
     }
 }
 
+#ifdef MIPS_SUPPORT_LOONGSON
 /* Implement TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN hook for Loongson2.  */
 
 static void
@@ -16080,6 +16103,7 @@ mips_dfa_post_advance_cycle (void)
   if (TUNE_LOONGSON_2EF)
     mips_ls2_dfa_post_advance_cycle (curr_state);
 }
+#endif
 
 /* Implement TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD.  This should
    be as wide as the scheduling freedom in the DFA.  */
@@ -16180,6 +16204,7 @@ mips_macc_chains_reorder (rtx_insn **ready, int nready)
 	}
 }
 
+#ifdef MIPS_SUPPORT_LEGACY
 /* The last instruction to be scheduled.  */
 static rtx_insn *vr4130_last_insn;
 
@@ -16280,6 +16305,7 @@ vr4130_reorder (rtx_insn **ready, int nready)
   if (vr4130_swap_insns_p (ready[nready - 1], ready[nready - 2]))
     mips_promote_ready (ready, nready - 2, nready - 1);
 }
+#endif
 
 /* Record whether last 74k AGEN instruction was a load or store.  */
 static enum attr_type mips_last_74k_agen_insn = TYPE_UNKNOWN;
@@ -16614,14 +16640,18 @@ mips_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 		 int max_ready ATTRIBUTE_UNUSED)
 {
   mips_macc_chains_last_hilo = 0;
+#ifdef MIPS_SUPPORT_LEGACY
   vr4130_last_insn = 0;
+#endif
   mips_74k_agen_init (NULL);
 
+#ifdef MIPS_SUPPORT_LOONGSON
   /* When scheduling for Loongson2, branch instructions go to ALU1,
      therefore basic block is most likely to start with round-robin counter
      pointed to ALU2.  */
   mips_ls2.alu1_turn_p = false;
   mips_ls2.falu1_turn_p = true;
+#endif
 }
 
 /* Subroutine used by TARGET_SCHED_REORDER and TARGET_SCHED_REORDER2.  */
@@ -16635,11 +16665,13 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       && *nreadyp > 0)
     mips_macc_chains_reorder (ready, *nreadyp);
 
+#ifdef MIPS_SUPPORT_LEGACY
   if (reload_completed
       && TUNE_MIPS4130
       && !TARGET_VR4130_ALIGN
       && *nreadyp > 1)
     vr4130_reorder (ready, *nreadyp);
+#endif
 
   if (TUNE_74K)
     mips_74k_agen_reorder (ready, *nreadyp);
@@ -16670,6 +16702,7 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
   return cached_can_issue_more;
 }
 
+#ifdef MIPS_SUPPORT_LOONGSON
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void
@@ -16700,6 +16733,7 @@ mips_ls2_variable_issue (rtx_insn *insn)
   if (recog_memoized (insn) >= 0)
     mips_ls2.cycle_has_multi_p |= (get_attr_type (insn) == TYPE_MULTI);
 }
+#endif
 
 /* Implement TARGET_SCHED_VARIABLE_ISSUE.  */
 
@@ -16714,11 +16748,15 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 	more--;
       if (!reload_completed && TUNE_MACC_CHAINS)
 	mips_macc_chains_record (insn);
+#ifdef MIPS_SUPPORT_LEGACY
       vr4130_last_insn = insn;
+#endif
       if (TUNE_74K)
 	mips_74k_agen_init (insn);
+#ifdef MIPS_SUPPORT_LOONGSON
       else if (TUNE_LOONGSON_2EF)
 	mips_ls2_variable_issue (insn);
+#endif
     }
 
   /* Instructions of type 'multi' should all be split before
@@ -16802,17 +16840,25 @@ struct mips_builtin_description {
 };
 
 AVAIL_ALL (hard_float, TARGET_HARD_FLOAT_ABI)
+#ifdef MIPS_SUPPORT_PS_3D
 AVAIL_NON_MIPS16 (paired_single, TARGET_PAIRED_SINGLE_FLOAT)
 AVAIL_NON_MIPS16 (sb1_paired_single, TARGET_SB1 && TARGET_PAIRED_SINGLE_FLOAT)
 AVAIL_NON_MIPS16 (mips3d, TARGET_MIPS3D)
+#endif
+#ifdef MIPS_SUPPORT_DSP
 AVAIL_NON_MIPS16 (dsp, TARGET_DSP)
 AVAIL_NON_MIPS16 (dspr2, TARGET_DSPR2)
 AVAIL_NON_MIPS16 (dsp_32, !TARGET_64BIT && TARGET_DSP)
 AVAIL_NON_MIPS16 (dsp_64, TARGET_64BIT && TARGET_DSP)
 AVAIL_NON_MIPS16 (dspr2_32, !TARGET_64BIT && TARGET_DSPR2)
+#endif
+#ifdef MIPS_SUPPORT_LOONGSON
 AVAIL_NON_MIPS16 (loongson, TARGET_LOONGSON_VECTORS)
+#endif
 AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
+#ifdef MIPS_SUPPORT_MSA
 AVAIL_NON_MIPS16 (msa, TARGET_MSA)
+#endif
 
 /* Construct a mips_builtin_description from the given arguments.
 
@@ -16961,6 +17007,7 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT_NO_TARGET,		\
     FUNCTION_TYPE, mips_builtin_avail_msa }
 
+#ifdef MIPS_SUPPORT_DSP
 #define CODE_FOR_mips_sqrt_ps CODE_FOR_sqrtv2sf2
 #define CODE_FOR_mips_addq_ph CODE_FOR_addv2hi3
 #define CODE_FOR_mips_addu_qb CODE_FOR_addv4qi3
@@ -16969,7 +17016,8 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_mips_mul_ph CODE_FOR_mulv2hi3
 #define CODE_FOR_mips_mult CODE_FOR_mulsidi3_32bit
 #define CODE_FOR_mips_multu CODE_FOR_umulsidi3_32bit
-
+#endif
+#ifdef MIPS_SUPPORT_MSA
 #define CODE_FOR_loongson_packsswh CODE_FOR_vec_pack_ssat_v2si
 #define CODE_FOR_loongson_packsshb CODE_FOR_vec_pack_ssat_v4hi
 #define CODE_FOR_loongson_packushb CODE_FOR_vec_pack_usat_v4hi
@@ -17197,6 +17245,7 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_ldi_h CODE_FOR_msa_ldiv8hi
 #define CODE_FOR_msa_ldi_w CODE_FOR_msa_ldiv4si
 #define CODE_FOR_msa_ldi_d CODE_FOR_msa_ldiv2di
+#endif
 
 static const struct mips_builtin_description mips_builtins[] = {
 #define MIPS_GET_FCSR 0
@@ -17204,6 +17253,7 @@ static const struct mips_builtin_description mips_builtins[] = {
 #define MIPS_SET_FCSR 1
   DIRECT_NO_TARGET_BUILTIN (set_fcsr, MIPS_VOID_FTYPE_USI, hard_float),
 
+#ifdef MIPS_SUPPORT_PS_3D
   DIRECT_BUILTIN (pll_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, paired_single),
   DIRECT_BUILTIN (pul_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, paired_single),
   DIRECT_BUILTIN (plu_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, paired_single),
@@ -17237,7 +17287,9 @@ static const struct mips_builtin_description mips_builtins[] = {
 
   /* Built-in functions for the SB-1 processor.  */
   DIRECT_BUILTIN (sqrt_ps, MIPS_V2SF_FTYPE_V2SF, sb1_paired_single),
+#endif
 
+#ifdef MIPS_SUPPORT_DSP
   /* Built-in functions for the DSP ASE (32-bit and 64-bit).  */
   DIRECT_BUILTIN (addq_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, dsp),
   DIRECT_BUILTIN (addq_s_ph, MIPS_V2HI_FTYPE_V2HI_V2HI, dsp),
@@ -17383,7 +17435,9 @@ static const struct mips_builtin_description mips_builtins[] = {
   DIRECT_BUILTIN (dpaqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
   DIRECT_BUILTIN (dpsqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
   DIRECT_BUILTIN (dpsqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+#endif
 
+#ifdef MIPS_SUPPORT_LOONGSON
   /* Builtin functions for ST Microelectronics Loongson-2E/2F cores.  */
   LOONGSON_BUILTIN (packsswh, MIPS_V4HI_FTYPE_V2SI_V2SI),
   LOONGSON_BUILTIN (packsshb, MIPS_V8QI_FTYPE_V4HI_V4HI),
@@ -17484,10 +17538,12 @@ static const struct mips_builtin_description mips_builtins[] = {
   LOONGSON_BUILTIN_SUFFIX (punpcklbh, s, MIPS_V8QI_FTYPE_V8QI_V8QI),
   LOONGSON_BUILTIN_SUFFIX (punpcklhw, s, MIPS_V4HI_FTYPE_V4HI_V4HI),
   LOONGSON_BUILTIN_SUFFIX (punpcklwd, s, MIPS_V2SI_FTYPE_V2SI_V2SI),
+#endif
 
   /* Sundry other built-in functions.  */
   DIRECT_NO_TARGET_BUILTIN (cache, MIPS_VOID_FTYPE_SI_CVPOINTER, cache),
 
+#ifdef MIPS_SUPPORT_MSA
   /* Built-in functions for MSA.  */
   MSA_BUILTIN (sll_b, MIPS_V16QI_FTYPE_V16QI_V16QI),
   MSA_BUILTIN (sll_h, MIPS_V8HI_FTYPE_V8HI_V8HI),
@@ -18019,6 +18075,7 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_NO_TARGET_BUILTIN (ctcmsa, MIPS_VOID_FTYPE_UQI_SI),
   MSA_BUILTIN (cfcmsa, MIPS_SI_FTYPE_UQI),
   MSA_BUILTIN (move_v, MIPS_V16QI_FTYPE_V16QI),
+#endif
 };
 
 /* Index I is the function declaration for mips_builtins[I], or null if the
@@ -18209,6 +18266,7 @@ mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 
   switch (fn)
     {
+#ifdef MIPS_SUPPORT_MSA
     case BUILT_IN_SQRT:
       if (out_mode == DFmode && out_n == 2
 	  && in_mode == DFmode && in_n == 2)
@@ -18219,6 +18277,7 @@ mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 	  && in_mode == SFmode && in_n == 4)
 	return MIPS_GET_BUILTIN (msa_fsqrt_w);
       break;
+#endif
     default:
       break;
     }
@@ -18256,6 +18315,7 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
   int rangelo = 0, rangehi = 0, error_opno = 0;
   rtx sireg;
 
+#ifdef MIPS_SUPPORT_MSA
   switch (icode)
     {
     /* The third operand of these instructions is in SImode, so we need to
@@ -18516,6 +18576,7 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
     default:
       break;
   }
+#endif
 
   if (error_opno != 0)
     {
@@ -18584,6 +18645,7 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree exp,
   return mips_expand_builtin_insn (icode, opno, ops, has_target_p);
 }
 
+#ifdef MIPS_SUPPORT_PS_3D
 /* Expand a __builtin_mips_movt_*_ps or __builtin_mips_movf_*_ps
    function; TYPE says which.  EXP is the CALL_EXPR that calls the
    function, ICODE is the instruction that should be used to compare
@@ -18614,6 +18676,7 @@ mips_expand_builtin_movtf (enum mips_builtin_type type,
   return mips_expand_builtin_insn (CODE_FOR_mips_cond_move_tf_ps,
 				   4, ops, true);
 }
+#endif
 
 /* Expand an MSA built-in for a compare and branch instruction specified by
    ICODE, set a general-purpose register to 1 if the branch was taken,
@@ -18714,12 +18777,14 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
       return mips_builtin_branch_and_move (condition, target,
 					   const0_rtx, const1_rtx);
 
+#ifdef MIPS_SUPPORT_PS_3D
     case MIPS_BUILTIN_CMP_UPPER:
     case MIPS_BUILTIN_CMP_LOWER:
       offset = GEN_INT (builtin_type == MIPS_BUILTIN_CMP_UPPER);
       condition = gen_single_cc (cmp_result, offset);
       return mips_builtin_branch_and_move (condition, target,
 					   const1_rtx, const0_rtx);
+#endif
 
     default:
       condition = gen_rtx_NE (VOIDmode, cmp_result, const0_rtx);
@@ -18728,6 +18793,7 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
     }
 }
 
+#ifdef MIPS_SUPPORT_DSP
 /* Expand a bposge built-in function of type BUILTIN_TYPE.  TARGET,
    if nonnull, suggests a good place to put the boolean result.  */
 
@@ -18751,6 +18817,7 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
   return mips_builtin_branch_and_move (condition, target,
 				       const1_rtx, const0_rtx);
 }
+#endif
 
 /* Implement TARGET_EXPAND_BUILTIN.  */
 
@@ -18782,10 +18849,12 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case MIPS_BUILTIN_DIRECT_NO_TARGET:
       return mips_expand_builtin_direct (d->icode, target, exp, false);
 
+#ifdef MIPS_SUPPORT_PS_3D
     case MIPS_BUILTIN_MOVT:
     case MIPS_BUILTIN_MOVF:
       return mips_expand_builtin_movtf (d->builtin_type, d->icode,
 					d->cond, target, exp);
+#endif
 
     case MIPS_BUILTIN_CMP_ANY:
     case MIPS_BUILTIN_CMP_ALL:
@@ -18798,8 +18867,10 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case MIPS_BUILTIN_MSA_TEST_BRANCH:
       return mips_expand_builtin_msa_test_branch (d->icode, exp);
 
+#ifdef MIPS_SUPPORT_DSP
     case MIPS_BUILTIN_BPOSGE32:
       return mips_expand_builtin_bposge (d->builtin_type, target);
+#endif
     }
   gcc_unreachable ();
 }
@@ -22343,7 +22414,9 @@ mips_option_override (void)
   if (mips_sdata_section_num >= 1000)
     error ("Number for -msdata-num must be between 0 and 999");
 
+#ifdef MIPS_SUPPORT_FRAME_HEADER_OPT
   mips_register_frame_header_opt ();
+#endif
 
   new_pass = make_pass_shrink_mips_offsets (g);
   /* May not be the right place for this, but .....  */
@@ -22389,9 +22462,11 @@ mips_conditional_register_usage (void)
 
   if (ISA_HAS_DSP)
     {
+#ifdef MIPS_SUPPORT_DSP
       /* These DSP control register fields are global.  */
       global_regs[CCDSP_PO_REGNUM] = 1;
       global_regs[CCDSP_SC_REGNUM] = 1;
+#endif
     }
   else
     AND_COMPL_HARD_REG_SET (accessible_reg_set,
@@ -23556,6 +23631,7 @@ mips_expand_vselect_vconcat (rtx target, rtx op0, rtx op1,
   return mips_expand_vselect (target, x, perm, nelt);
 }
 
+#ifdef MIPS_SUPPORT_LOONGSON
 /* Recognize patterns for even-odd extraction.  */
 
 static bool
@@ -23706,11 +23782,12 @@ mips_expand_vpc_loongson_bcast (struct expand_vec_perm_d *d)
   emit_move_insn (d->target, gen_lowpart (V8QImode, t1));
   return true;
 }
+#endif
 
 /* Construct (set target (vec_select op0 (parallel selector))) and
    return true if that's a valid instruction in the active ISA.  */
 
-static bool
+static bool ATTRIBUTE_UNUSED
 mips_expand_msa_shuffle (struct expand_vec_perm_d *d)
 {
   rtx x, elts[MAX_VECT_LEN];
@@ -23770,14 +23847,18 @@ mips_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
 	return true;
     }
 
+#ifdef MIPS_SUPPORT_LOONGSON
   if (mips_expand_vpc_loongson_even_odd (d))
     return true;
   if (mips_expand_vpc_loongson_pshufh (d))
     return true;
   if (mips_expand_vpc_loongson_bcast (d))
     return true;
+#endif
+#ifdef MIPS_SUPPORT_MSA
   if (mips_expand_msa_shuffle (d))
     return true;
+#endif
   return false;
 }
 
@@ -23911,6 +23992,7 @@ mips_vectorize_vec_perm_const_ok (machine_mode vmode,
   return ret;
 }
 
+#ifdef MIPS_SUPPORT_MSA
 /* Expand an integral vector unpack operation.  */
 
 void
@@ -24030,6 +24112,7 @@ mips_msa_vec_parallel_const_half (machine_mode mode, bool high_p)
 
   return gen_rtx_PARALLEL (VOIDmode, v);
 }
+#endif
 
 /* A subroutine of mips_expand_vec_init, match constant vector elements.  */
 
@@ -24056,12 +24139,14 @@ mips_expand_vi_broadcast (machine_mode vmode, rtx target, rtx elt)
   t1 = gen_reg_rtx (vmode);
   switch (vmode)
     {
+#ifdef MIPS_SUPPORT_LOONGSON
     case V8QImode:
       emit_insn (gen_loongson_vec_init1_v8qi (t1, elt));
       break;
     case V4HImode:
       emit_insn (gen_loongson_vec_init1_v4hi (t1, elt));
       break;
+#endif
     default:
       gcc_unreachable ();
     }
@@ -24096,7 +24181,7 @@ mips_gen_const_int_vector (machine_mode mode, HOST_WIDE_INT val)
 /* Return a vector of repeated 4-element sets generated from
    immediate VAL in mode MODE.  */
 
-static rtx
+static rtx ATTRIBUTE_UNUSED
 mips_gen_const_int_vector_shuffle (machine_mode mode, int val)
 {
   int nunits = GET_MODE_NUNITS (mode);
@@ -24135,6 +24220,7 @@ mips_expand_vi_constant (machine_mode vmode, unsigned nelt,
 }
 
 
+#ifdef MIPS_SUPPORT_LOONGSON
 /* A subroutine of mips_expand_vec_init, expand via pinsrh.  */
 
 static void
@@ -24145,6 +24231,7 @@ mips_expand_vi_loongson_one_pinsrh (rtx target, rtx vals, unsigned one_var)
   emit_insn (gen_vec_setv4hi (target, target, XVECEXP (vals, 0, one_var),
 			      GEN_INT (one_var)));
 }
+#endif
 
 /* A subroutine of mips_expand_vec_init, expand anything via memory.  */
 
@@ -24230,6 +24317,7 @@ mips_expand_vector_init (rtx target, rtx vals)
 	      mips_emit_move (target, gen_rtx_VEC_DUPLICATE (vmode, temp));
 	      break;
 
+#ifdef MIPS_SUPPORT_MSA
 	    case V4SFmode:
 	      emit_insn (gen_msa_splati_w_f_scalar (target, temp));
 	      break;
@@ -24237,11 +24325,13 @@ mips_expand_vector_init (rtx target, rtx vals)
 	    case V2DFmode:
 	      emit_insn (gen_msa_splati_d_f_scalar (target, temp));
 	      break;
+#endif
 
 	    default:
 	      gcc_unreachable ();
 	    }
 	}
+#if defined (MIPS_SUPPORT_MSA) || defined (MIPS_SUPPORT_LOONGSON)
       else
 	{
 	  rtvec vec = shallow_copy_rtvec (XVEC (vals, 0));
@@ -24286,6 +24376,7 @@ mips_expand_vector_init (rtx target, rtx vals)
 		}
 	    }
 	}
+#endif
       return;
     }
 
@@ -24316,12 +24407,14 @@ mips_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
+#ifdef MIPS_SUPPORT_LOONGSON
   /* If we've only got one non-variable V4HImode, use PINSRH.  */
   if (nvar == 1 && vmode == V4HImode)
     {
       mips_expand_vi_loongson_one_pinsrh (target, vals, one_var);
       return;
     }
+#endif
 
   mips_expand_vi_general (vmode, imode, nelt, nvar, target, vals);
 }
@@ -24351,6 +24444,7 @@ mips_expand_vec_reduc (rtx target, rtx in, rtx (*gen)(rtx, rtx, rtx))
       gcc_assert (ok);
       break;
 
+#ifdef MIPS_SUPPORT_LOONGSON
     case V2SImode:
       /* Use interleave to produce { H, L } op { H, H }.  */
       emit_insn (gen_loongson_punpckhwd (fold, last, last));
@@ -24389,6 +24483,7 @@ mips_expand_vec_reduc (rtx target, rtx in, rtx (*gen)(rtx, rtx, rtx))
       x = force_reg (SImode, GEN_INT (8));
       emit_insn (gen_vec_shr_v8qi (fold, last, x));
       break;
+#endif
 
     default:
       gcc_unreachable ();
@@ -24497,10 +24592,12 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	case LTGT: cond = NE; break;
 	case UNGE: cond = UNLE; std::swap (op0, op1); break;
 	case UNGT: cond = UNLT; std::swap (op0, op1); break;
+#ifdef MIPS_SUPPORT_MSA
 	case LE: unspec = UNSPEC_MSA_FSLE; break;
 	case LT: unspec = UNSPEC_MSA_FSLT; break;
 	case GE: unspec = UNSPEC_MSA_FSLE; std::swap (op0, op1); break;
 	case GT: unspec = UNSPEC_MSA_FSLT; std::swap (op0, op1); break;
+#endif
 	default:
 	  gcc_unreachable ();
 	}
@@ -24840,10 +24937,14 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE mips_issue_rate
-#undef TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN
-#define TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN mips_init_dfa_post_cycle_insn
-#undef TARGET_SCHED_DFA_POST_ADVANCE_CYCLE
-#define TARGET_SCHED_DFA_POST_ADVANCE_CYCLE mips_dfa_post_advance_cycle
+
+#ifdef MIPS_SUPPORT_LOONGSON
+# undef TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN
+# define TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN mips_init_dfa_post_cycle_insn
+# undef TARGET_SCHED_DFA_POST_ADVANCE_CYCLE
+# define TARGET_SCHED_DFA_POST_ADVANCE_CYCLE mips_dfa_post_advance_cycle
+#endif
+
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   mips_multipass_dfa_lookahead
