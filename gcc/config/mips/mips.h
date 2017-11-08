@@ -1272,7 +1272,9 @@ struct mips_cpu_info {
 
 /* ISA has the WSBH (word swap bytes within halfwords) instruction.
    64-bit targets also provide DSBH and DSHD.  */
-#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16	  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
