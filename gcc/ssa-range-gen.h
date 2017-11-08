@@ -108,13 +108,15 @@ private:
   void determine_block (tree name, basic_block bb, basic_block def_bb);
   bool path_range_reverse (irange &r, tree name, const vec<basic_block> &);
 public:
+  enum path_range_direction { FORWARD, REVERSE };
   path_ranger ();
 
   /* What is the known range of name from its DEF point to edge E.  */
   bool path_range_edge (irange& r, tree name, edge e);
   bool path_range_entry (irange& r, tree name, basic_block bb);
   bool path_range_stmt (irange& r, tree name, gimple *g);
-  bool path_range (irange &r, tree name, const vec<basic_block> &bbs);
+  bool path_range (irange &r, tree name, const vec<basic_block> &bbs,
+		   enum path_range_direction);
 
   void dump (FILE *f);
   void exercise (FILE *f);   /* do a full mapping pass, dump if provided.  */

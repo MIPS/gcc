@@ -599,7 +599,17 @@ bb_paths::bb_paths (tree name_, basic_block use_bb_)
   max_path_length = PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH);
   current_path = vNULL;
   all_paths = vNULL;
-  calculate_paths (use_bb);
+  /* A path where the use and the definition are in the same block, is
+     a path of one block, and can be handled specially.  */
+  if (use_bb == def_bb)
+    {
+      vec<basic_block> v;
+      v.create (1);
+      v.quick_push (use_bb);
+      all_paths.safe_push (v);
+    }
+  else
+    calculate_paths (use_bb);
 }
 
 bb_paths::~bb_paths ()
@@ -677,6 +687,13 @@ prune_irrelevant_range_blocks (tree ssa, vec <basic_block> &path)
 {
   /* FIXME: Perhaps incorporate this function into path_ranger::path_range ()
      to avoid instantiating another gori.  */
+
+  /* If the path is just one block, we have a path where the
+     definition and the use are in the same BB.  In this case, there
+     is nothing to do.  */
+  if (path.length () == 1)
+    return;
+
   gori g;
   for (int i = path.length () - 1; i > 0; --i)
     {
@@ -791,7 +808,7 @@ bb_paths::dump () const
       vec<basic_block> path = all_paths[i];
 
       dump_one_path (stderr, path);
-      if (ranger.path_range (r, name, path))
+      if (ranger.path_range (r, name, path, path_ranger::REVERSE))
 	{
 	  fprintf (stderr, "\t  ");
 	  r.dump ();
@@ -1128,7 +1145,7 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
       path_ranger ranger;
       irange range;
 
-      if (ranger.path_range (range, name, path))
+      if (ranger.path_range (range, name, path, path_ranger::REVERSE))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
