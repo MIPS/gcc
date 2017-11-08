@@ -16666,13 +16666,13 @@ mips_adjust_insn_length (rtx_insn *insn, int length)
       length += BASE_INSN_LENGTH * mips_load_label_num_insns ();
 
       /* Add the length of an indirect jump, ignoring the delay slot.  */
-      length += TARGET_COMPRESSION ? 2 : 4;
+      length += TARGET_COMPRESSION || TARGET_NANOMIPS ? 2 : 4;
     }
 
   /* A unconditional jump has an unfilled delay slot if it is not part
      of a sequence.  A conditional jump normally has a delay slot, but
      does not on MIPS16.  */
-  if (CALL_P (insn)
+  if ((!TARGET_NANOMIPS && CALL_P (insn))
       || (TARGET_MIPS16 ? simplejump_p (insn)
 			: (TARGET_NANOMIPS ? false : JUMP_P (insn))))
     length += TARGET_MIPS16 ? 2 : 4;
