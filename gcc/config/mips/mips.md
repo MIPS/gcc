@@ -6320,12 +6320,20 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(bswap:SI (match_operand:SI 1 "register_operand" "d")))]
   "ISA_HAS_WSBH && ISA_HAS_ROR"
-  "#"
-  ""
+{
+  if (TARGET_NANOMIPS == NANOMIPS_NMF)
+    return "byterevw\t%0,%1";
+  else
+    return "#";
+}
+  "&& !(TARGET_NANOMIPS == NANOMIPS_NMF)"
   [(set (match_dup 0) (unspec:SI [(match_dup 1)] UNSPEC_WSBH))
    (set (match_dup 0) (rotatert:SI (match_dup 0) (const_int 16)))]
   ""
-  [(set_attr "insn_count" "2")])
+  [(set (attr "insn_count")
+	(cond [(match_test "TARGET_NANOMIPS == NANOMIPS_NMF")
+	       (const_int 1)]
+	      (const_int 2)))])
 
 (define_insn_and_split "bswapdi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
