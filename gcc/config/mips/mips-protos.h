@@ -222,6 +222,7 @@ extern bool mips_split_128bit_move_p (rtx, rtx);
 extern void mips_split_msa_copy_d (rtx, rtx, rtx, rtx (*)(rtx, rtx, rtx));
 extern void mips_split_msa_insert_d (rtx, rtx, rtx, rtx);
 extern void mips_split_msa_fill_d (rtx, rtx);
+extern const char *mips_output_load_store (rtx, rtx, machine_mode, bool, bool);
 extern const char *mips_output_move (rtx, rtx, rtx);
 extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);

@@ -28,7 +28,7 @@ EL
 Driver
 
 mabi=
-Target RejectNegative Joined Enum(mips_abi) Var(mips_abi) Init(MIPS_ABI_DEFAULT)
+Target RejectNegative Joined Enum(mips_abi) Var(mips_abi) Init(MIPS_ABI_DEFAULT) Condition(MIPS_SUPPORT_LEGACY)
 -mabi=ABI	Generate code that conforms to the given ABI.
 
 Enum
@@ -51,15 +51,15 @@ EnumValue
 Enum(mips_abi) String(eabi) Value(ABI_EABI)
 
 mabicalls
-Target Report Mask(ABICALLS)
+Target Report Mask(ABICALLS) Condition(MIPS_SUPPORT_LEGACY)
 Generate code that can be used in SVR4-style dynamic objects.
 
 mmad
-Target Report Var(TARGET_MAD)
+Target Report Var(TARGET_MAD) Condition(MIPS_SUPPORT_LEGACY)
 Use PMC-style 'mad' instructions.
 
 mimadd
-Target Report Mask(IMADD)
+Target Report Mask(IMADD) Condition(MIPS_SUPPORT_DSP)
 Use integer madd/msub instructions.
 
 march=
@@ -71,11 +71,11 @@ Target RejectNegative Joined UInteger Var(mips_branch_cost)
 -mbranch-cost=COST	Set the cost of branches to roughly COST instructions.
 
 mbranch-likely
-Target Report Mask(BRANCHLIKELY)
+Target Report Mask(BRANCHLIKELY) Condition(MIPS_SUPPORT_LEGACY)
 Use Branch Likely instructions, overriding the architecture default.
 
 mflip-mips16
-Target Report Var(TARGET_FLIP_MIPS16)
+Target Report Var(TARGET_FLIP_MIPS16) Condition(MIPS_SUPPORT_LEGACY)
 Switch on/off MIPS16 ASE on alternating functions for compiler testing.
 
 mcheck-zero-division
@@ -83,7 +83,7 @@ Target Report Mask(CHECK_ZERO_DIV)
 Trap on integer divide by zero.
 
 mcode-readable=
-Target RejectNegative Joined Enum(mips_code_readable_setting) Var(mips_code_readable) Init(CODE_READABLE_YES)
+Target RejectNegative Joined Enum(mips_code_readable_setting) Var(mips_code_readable) Init(CODE_READABLE_YES) Condition(MIPS_SUPPORT_LEGACY)
 -mcode-readable=SETTING	Specify when instructions are allowed to access code.
 
 Enum
@@ -100,7 +100,7 @@ EnumValue
 Enum(mips_code_readable_setting) String(no) Value(CODE_READABLE_NO)
 
 mdivide-breaks
-Target Report RejectNegative Mask(DIVIDE_BREAKS)
+Target Report RejectNegative Mask(DIVIDE_BREAKS) Condition(MIPS_SUPPORT_LEGACY)
 Use branch-and-break sequences to check for integer divide by zero.
 
 mdivide-traps
@@ -108,7 +108,7 @@ Target Report RejectNegative InverseMask(DIVIDE_BREAKS, DIVIDE_TRAPS)
 Use trap instructions to check for integer divide by zero.
 
 mdmx
-Target Report RejectNegative Var(TARGET_MDMX)
+Target Report RejectNegative Var(TARGET_MDMX) Condition(MIPS_SUPPORT_LEGACY)
 Allow the use of MDMX instructions.
 
 mdouble-float
@@ -116,22 +116,22 @@ Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations.
 
 mdsp
-Target Report Var(TARGET_DSP)
+Target Report Var(TARGET_DSP) Condition(MIPS_SUPPORT_DSP)
 Use MIPS-DSP instructions.
 
 mdspr2
-Target Report Var(TARGET_DSPR2)
+Target Report Var(TARGET_DSPR2) Condition(MIPS_SUPPORT_DSP)
 Use MIPS-DSP REV 2 instructions.
 
 mdspr3
-Target Report Var(TARGET_DSPR3)
+Target Report Var(TARGET_DSPR3) Condition(MIPS_SUPPORT_DSP)
 Use MIPS-DSP Rev 3 instructions.
 
 mdebug
-Target Var(TARGET_DEBUG_MODE) Undocumented
+Target Var(TARGET_DEBUG_MODE) Undocumented Condition(MIPS_SUPPORT_LEGACY)
 
 mdebugd
-Target Var(TARGET_DEBUG_D_MODE) Undocumented Init(1)
+Target Var(TARGET_DEBUG_D_MODE) Undocumented Init(1) Condition(MIPS_SUPPORT_LEGACY)
 
 meb
 Target Report RejectNegative Mask(BIG_ENDIAN)
@@ -150,7 +150,7 @@ Target Report Var(TARGET_EVA)
 Use Enhanced Virtual Addressing instructions.
 
 mexplicit-relocs
-Target Report Mask(EXPLICIT_RELOCS)
+Target Report Mask(EXPLICIT_RELOCS) Condition(MIPS_SUPPORT_LEGACY)
 Use NewABI-style %reloc() assembly operators.
 
 mextern-sdata
@@ -158,55 +158,55 @@ Target Report Var(TARGET_EXTERN_SDATA) Init(1)
 Use -G for data that is not defined by the current object.
 
 mfix-24k
-Target Report Var(TARGET_FIX_24K)
+Target Report Var(TARGET_FIX_24K) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain 24K errata.
 
 mfix-r4000
-Target Report Mask(FIX_R4000)
+Target Report Mask(FIX_R4000) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain R4000 errata.
 
 mfix-r4400
-Target Report Mask(FIX_R4400)
+Target Report Mask(FIX_R4400) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain R4400 errata.
 
 mfix-rm7000
-Target Report Var(TARGET_FIX_RM7000)
+Target Report Var(TARGET_FIX_RM7000) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain RM7000 errata.
 
 mfix-r10000
-Target Report Mask(FIX_R10000)
+Target Report Mask(FIX_R10000) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain R10000 errata.
 
 mfix-sb1
-Target Report Var(TARGET_FIX_SB1)
+Target Report Var(TARGET_FIX_SB1) Condition(MIPS_SUPPORT_LEGACY)
 Work around errata for early SB-1 revision 2 cores.
 
 mfix-vr4120
-Target Report Var(TARGET_FIX_VR4120)
+Target Report Var(TARGET_FIX_VR4120) Condition(MIPS_SUPPORT_LEGACY)
 Work around certain VR4120 errata.
 
 mfix-vr4130
-Target Report Var(TARGET_FIX_VR4130)
+Target Report Var(TARGET_FIX_VR4130) Condition(MIPS_SUPPORT_LEGACY)
 Work around VR4130 mflo/mfhi errata.
 
 mfix4300
-Target Report Var(TARGET_4300_MUL_FIX)
+Target Report Var(TARGET_4300_MUL_FIX) Condition(MIPS_SUPPORT_LEGACY)
 Work around an early 4300 hardware bug.
 
 mfp-exceptions
-Target Report Var(TARGET_FP_EXCEPTIONS) Init(1)
+Target Report Var(TARGET_FP_EXCEPTIONS) Init(1) Condition(MIPS_SUPPORT_LEGACY)
 FP exceptions are enabled.
 
 mfp32
-Target Report RejectNegative InverseMask(FLOAT64)
+Target Report RejectNegative InverseMask(FLOAT64) Condition(MIPS_SUPPORT_LEGACY)
 Use 32-bit floating-point registers.
 
 mfpxx
-Target Report RejectNegative Mask(FLOATXX)
+Target Report RejectNegative Mask(FLOATXX) Condition(MIPS_SUPPORT_LEGACY)
 Conform to the o32 FPXX ABI.
 
 mfp64
-Target Report RejectNegative Mask(FLOAT64)
+Target Report RejectNegative Mask(FLOAT64) Condition(MIPS_SUPPORT_LEGACY)
 Use 64-bit floating-point registers.
 
 mflush-func=
@@ -214,11 +214,11 @@ Target RejectNegative Joined Var(mips_cache_flush_func) Init(CACHE_FLUSH_FUNC)
 -mflush-func=FUNC	Use FUNC to flush the cache before calling stack trampolines.
 
 mabs=
-Target RejectNegative Joined Enum(mips_ieee_754_value) Var(mips_abs) Init(MIPS_IEEE_754_DEFAULT)
+Target RejectNegative Joined Enum(mips_ieee_754_value) Var(mips_abs) Init(MIPS_IEEE_754_DEFAULT) Condition(MIPS_SUPPORT_LEGACY)
 -mabs=MODE	Select the IEEE 754 ABS/NEG instruction execution mode.
 
 mnan=
-Target RejectNegative Joined Enum(mips_ieee_754_value) Var(mips_nan) Init(MIPS_IEEE_754_DEFAULT)
+Target RejectNegative Joined Enum(mips_ieee_754_value) Var(mips_nan) Init(MIPS_IEEE_754_DEFAULT) Condition(MIPS_SUPPORT_LEGACY)
 -mnan=ENCODING	Select the IEEE 754 NaN data encoding.
 
 Enum
@@ -244,7 +244,7 @@ Target Report Var(TARGET_GPOPT) Init(1)
 Use GP-relative addressing to access small data.
 
 mplt
-Target Report Var(TARGET_PLT)
+Target Report Var(TARGET_PLT) Condition(MIPS_SUPPORT_LEGACY)
 When generating -mabicalls code, allow executables to use PLTs and copy relocations.
 
 mhard-float
@@ -252,27 +252,27 @@ Target Report RejectNegative InverseMask(SOFT_FLOAT_ABI, HARD_FLOAT_ABI)
 Allow the use of hardware floating-point ABI and instructions.
 
 minterlink-compressed
-Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0)
+Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0) Condition(MIPS_SUPPORT_LEGACY)
 Generate code that is link-compatible with MIPS16 and microMIPS code.
 
 minterlink-mips16
-Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0)
+Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0) Condition(MIPS_SUPPORT_LEGACY)
 An alias for minterlink-compressed provided for backward-compatibility.
 
 mips
-Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_option)
+Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_option) Condition(MIPS_SUPPORT_LEGACY)
 -mipsN	Generate code for ISA level N.
 
 mips16
-Target Report RejectNegative Mask(MIPS16)
+Target Report RejectNegative Mask(MIPS16) Condition(MIPS_SUPPORT_LEGACY)
 Generate MIPS16 code.
 
 mips3d
-Target Report RejectNegative Var(TARGET_MIPS3D)
+Target Report RejectNegative Var(TARGET_MIPS3D) Condition(MIPS_SUPPORT_LEGACY)
 Use MIPS-3D instructions.
 
 mllsc
-Target Report Mask(LLSC)
+Target Report Mask(LLSC) Condition(MIPS_SUPPORT_LEGACY)
 Use ll, sc and sync instructions.
 
 mlocal-sdata
@@ -284,15 +284,15 @@ Target Report Var(TARGET_LONG_CALLS)
 Use indirect calls.
 
 mlong32
-Target Report RejectNegative InverseMask(LONG64, LONG32)
+Target Report RejectNegative InverseMask(LONG64, LONG32) Condition(MIPS_SUPPORT_LEGACY)
 Use a 32-bit long type.
 
 mlong64
-Target Report RejectNegative Mask(LONG64)
+Target Report RejectNegative Mask(LONG64) Condition(MIPS_SUPPORT_LEGACY)
 Use a 64-bit long type.
 
 mmcount-ra-address
-Target Report Var(TARGET_MCOUNT_RA_ADDRESS)
+Target Report Var(TARGET_MCOUNT_RA_ADDRESS) Condition(MIPS_SUPPORT_LEGACY)
 Pass the address of the ra save location to _mcount in $12.
 
 mmemcpy
@@ -300,11 +300,11 @@ Target Report Mask(MEMCPY)
 Don't optimize block moves.
 
 mmicromips
-Target Report Mask(MICROMIPS)
+Target Report Mask(MICROMIPS) Condition(MIPS_SUPPORT_LEGACY)
 Use microMIPS instructions.
 
 mmsa
-Target Report Var(TARGET_MSA)
+Target Report Var(TARGET_MSA) Condition(MIPS_SUPPORT_MSA)
 Use MIPS MSA Extension instructions.
 
 mmt
@@ -324,23 +324,23 @@ Target RejectNegative
 Do not use a cache-flushing function before calling stack trampolines.
 
 mno-mdmx
-Target Report RejectNegative Var(TARGET_MDMX, 0)
+Target Report RejectNegative Var(TARGET_MDMX, 0) Condition(MIPS_SUPPORT_LEGACY)
 Do not use MDMX instructions.
 
 mno-mips16
-Target Report RejectNegative InverseMask(MIPS16)
+Target Report RejectNegative InverseMask(MIPS16) Condition(MIPS_SUPPORT_LEGACY)
 Generate normal-mode code.
 
 mno-mips3d
-Target Report RejectNegative Var(TARGET_MIPS3D, 0)
+Target Report RejectNegative Var(TARGET_MIPS3D, 0) Condition(MIPS_SUPPORT_LEGACY)
 Do not use MIPS-3D instructions.
 
 mpaired-single
-Target Report Mask(PAIRED_SINGLE_FLOAT)
+Target Report Mask(PAIRED_SINGLE_FLOAT) Condition(MIPS_SUPPORT_LEGACY)
 Use paired-single floating-point instructions.
 
 mr10k-cache-barrier=
-Target Joined RejectNegative Enum(mips_r10k_cache_barrier_setting) Var(mips_r10k_cache_barrier) Init(R10K_CACHE_BARRIER_NONE)
+Target Joined RejectNegative Enum(mips_r10k_cache_barrier_setting) Var(mips_r10k_cache_barrier) Init(R10K_CACHE_BARRIER_NONE) Condition(MIPS_SUPPORT_LEGACY)
 -mr10k-cache-barrier=SETTING	Specify when r10k cache barriers should be inserted.
 
 Enum
@@ -357,7 +357,7 @@ EnumValue
 Enum(mips_r10k_cache_barrier_setting) String(none) Value(R10K_CACHE_BARRIER_NONE)
 
 mrelax-pic-calls
-Target Report Mask(RELAX_PIC_CALLS)
+Target Report Mask(RELAX_PIC_CALLS) Condition(MIPS_SUPPORT_LEGACY)
 Try to allow the linker to turn PIC calls into direct calls.
 
 mshared
@@ -369,7 +369,7 @@ Target Report RejectNegative Mask(SINGLE_FLOAT)
 Restrict the use of hardware floating-point instructions to 32-bit operations.
 
 msmartmips
-Target Report Mask(SMARTMIPS)
+Target Report Mask(SMARTMIPS) Condition(MIPS_SUPPORT_LEGACY)
 Use SmartMIPS instructions.
 
 msoft-float
@@ -377,11 +377,11 @@ Target Report RejectNegative Mask(SOFT_FLOAT_ABI)
 Prevent the use of all hardware floating-point instructions.
 
 msplit-addresses
-Target Report Mask(SPLIT_ADDRESSES)
+Target Report Mask(SPLIT_ADDRESSES) Condition(MIPS_SUPPORT_LEGACY)
 Optimize lui/addiu address loads.
 
 mmips16e2
-Target Report Var(TARGET_MIPS16E2) Init(0)
+Target Report Var(TARGET_MIPS16E2) Init(0) Condition(MIPS_SUPPORT_LEGACY)
 Enable the MIPS16e V2 instructions.
 
 msym32
@@ -389,11 +389,11 @@ Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values.
 
 msynci
-Target Report Mask(SYNCI)
+Target Report Mask(SYNCI) Condition(MIPS_SUPPORT_LEGACY)
 Use synci instruction to invalidate i-cache.
 
 mlra
-Target Report Var(mips_lra_flag) Init(1) Save
+Target Report Var(mips_lra_flag) Init(1) Save Condition(MIPS_SUPPORT_LEGACY)
 Use LRA instead of reload.
 
 mlxc1-sxc1
@@ -433,23 +433,23 @@ Target Report Var(TARGET_GINV)
 Use Global INValidate (GINV) instructions.
 
 mvr4130-align
-Target Report Mask(VR4130_ALIGN)
+Target Report Mask(VR4130_ALIGN) Condition(MIPS_SUPPORT_LEGACY)
 Perform VR4130-specific alignment optimizations.
 
 mxgot
-Target Report Var(TARGET_XGOT)
+Target Report Var(TARGET_XGOT) Condition(MIPS_SUPPORT_LEGACY)
 Lift restrictions on GOT size.
 
 modd-spreg
-Target Report Mask(ODD_SPREG)
+Target Report Mask(ODD_SPREG) Condition(MIPS_SUPPORT_LEGACY)
 Enable use of odd-numbered single-precision registers.
 
 mframe-header-opt
-Target Report Var(flag_frame_header_optimization) Optimization
+Target Report Var(flag_frame_header_optimization) Optimization Condition(MIPS_SUPPORT_FRAME_HEADER_OPT)
 Optimize frame header.
 
 mgrow-frame-downwards
-Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS) Init(1) Undocumented
+Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS) Init(1) Undocumented Condition(MIPS_SUPPORT_LEGACY)
 Change the behaviour to grow the frame downwards.
 
 mshrink-offsets
@@ -457,14 +457,14 @@ Target Report Mask(SHRINK_OFFSETS)
 Shrink offsets in MIPS16 code to avoid extended loads and stores.
 
 noasmopt
-Driver
+Driver Condition(MIPS_SUPPORT_LEGACY)
 
 mload-store-pairs
-Target Report Var(TARGET_LOAD_STORE_PAIRS) Init(1)
+Target Report Var(TARGET_LOAD_STORE_PAIRS) Init(1) Condition(MIPS_SUPPORT_LEGACY)
 Enable load/store bonding.
 
 mcompact-branches=
-Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
+Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL) Condition(MIPS_SUPPORT_LEGACY)
 Specify the compact branch usage policy.
 
 Enum
@@ -479,9 +479,6 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
-
-mforbidden-slots
-Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
 
 mclib=
 Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
@@ -500,8 +497,11 @@ Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
 EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
 
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1) Condition(MIPS_SUPPORT_LEGACY)
+
 mdead-loads
-Target Var(TARGET_DEAD_LOADS) Init(0)
+Target Var(TARGET_DEAD_LOADS) Init(0) Condition(MIPS_SUPPORT_LEGACY)
 Redirect dead loads to $0 to avoid spurious output dependencies.
 
 msdata-num=
@@ -520,13 +520,13 @@ mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
 
 muse-save-restore
-Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1) Condition(MIPS_SUPPORT_LEGACY)
 
 muse-copyw-ucopyw
 Target Undocumented Var(TARGET_USE_COPYW_UCOPYW) Init(-1)
 
 minline-intermix
-Target Report Var(TARGET_INLINE_INTERMIX)
+Target Report Var(TARGET_INLINE_INTERMIX) Condition(MIPS_SUPPORT_LEGACY)
 Allow inlining even if the compression flags differ between caller and callee.
 
 msched-weight

@@ -21,59 +21,6 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
-(define_enum "processor" [
-  r3000
-  4kc
-  4kp
-  5kc
-  5kf
-  20kc
-  24kc
-  24kf2_1
-  24kf1_1
-  74kc
-  74kf2_1
-  74kf1_1
-  74kf3_2
-  interaptiv_mr2
-  loongson_2e
-  loongson_2f
-  loongson_3a
-  m4k
-  octeon
-  octeon2
-  octeon3
-  r3900
-  r6000
-  r4000
-  r4100
-  r4111
-  r4120
-  r4130
-  r4300
-  r4600
-  r4650
-  r4700
-  r5000
-  r5400
-  r5500
-  r5900
-  r7000
-  r8000
-  r9000
-  r10000
-  sb1
-  sb1a
-  sr71000
-  xlr
-  xlp
-  p5600
-  m5100
-  i6400
-  m6200
-  p6600
-])
-
 (define_c_enum "unspec" [
   ;; Unaligned accesses.
   UNSPEC_LOAD_LEFT
@@ -1165,36 +1112,6 @@
   (eq_attr "type" "ghost")
   "nothing")
 
-(include "i6400.md")
-(include "p5600.md")
-(include "m5100.md")
-(include "m6200.md")
-(include "p6600.md")
-(include "4k.md")
-(include "5k.md")
-(include "20kc.md")
-(include "24k.md")
-(include "74k.md")
-(include "3000.md")
-(include "4000.md")
-(include "4100.md")
-(include "4130.md")
-(include "4300.md")
-(include "4600.md")
-(include "5000.md")
-(include "5400.md")
-(include "5500.md")
-(include "6000.md")
-(include "7000.md")
-(include "9000.md")
-(include "10000.md")
-(include "loongson2ef.md")
-(include "loongson3a.md")
-(include "octeon.md")
-(include "sb1.md")
-(include "sr71k.md")
-(include "xlr.md")
-(include "xlp.md")
 (include "generic.md")
 
 ;;
@@ -3670,6 +3587,18 @@
    andi\t%0,%1,<SHORT:mask>
    andi\t%0,%1,<SHORT:mask>
    l<SHORT:size>u\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0:
+    case 1: return "andi\t%0,%1,<SHORT:mask>";
+    case 2: return mips_output_load_store (operands[0], operands[1],
+					   <MODE>mode, true/*zero_extend_p*/,
+					   true/*load_p*/);
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "andi,andi,load")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<GPR:MODE>")])
@@ -3708,9 +3637,17 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "!TARGET_MIPS16"
-  "@
-   andi\t%0,%1,0x00ff
-   lbu\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "andi\t%0,%1,0x00ff";
+    case 1: return mips_output_load_store (operands[0], operands[1], QImode,
+					   true/*zero_extend_p*/,
+					   true/*load_p*/);
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "andi,load")
    (set_attr "mode" "HI")])
 
@@ -3824,9 +3761,13 @@
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   se<SHORT:size>\t%0,%1
-   l<SHORT:size>\t%0,%1"
+{
+  if (which_alternative == 0)
+    return "se<SHORT:size>\t%0,%1";
+  else
+    return mips_output_load_store (operands[0], operands[1], <MODE>mode,
+				   false/*zero_extend_p*/, true/*load_p*/);
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -3870,9 +3811,17 @@
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   seb\t%0,%1
-   lb\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "seb\t%0,%1";
+    case 1: return mips_output_load_store (operands[0], operands[1], QImode,
+					   false/*zero_extend_p*/,
+					   true/*load_p*/);
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "SI")])
 
@@ -8059,36 +8008,3 @@
 	      (set (match_dup 2)
 		   (any_extend:SI (match_dup 3)))])]
   "")
-
-
-;; Synchronization instructions.
-
-(include "sync.md")
-
-; The MIPS Paired-Single Floating Point and MIPS-3D Instructions.
-
-(include "mips-ps-3d.md")
-
-; The MIPS DSP Instructions.
-
-(include "mips-dsp.md")
-
-; The MIPS DSP REV 2 Instructions.
-
-(include "mips-dspr2.md")
-
-; MIPS fixed-point instructions.
-(include "mips-fixed.md")
-
-; microMIPS patterns.
-(include "micromips.md")
-
-; ST-Microelectronics Loongson-2E/2F-specific patterns.
-(include "loongson.md")
-
-; The MIPS MSA Instructions.
-(include "mips-msa.md")
-
-(define_c_enum "unspec" [
-  UNSPEC_ADDRESS_FIRST
-])

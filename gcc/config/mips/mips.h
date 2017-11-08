@@ -24,6 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config/vxworks-dummy.h"
 
+/* FIXME: We may well move these to the configure to avoid
+   defining/undefining macros.  */
+#define MIPS_SUPPORT_DSP 1
+#define MIPS_SUPPORT_PS_3D 1
+#define MIPS_SUPPORT_MSA 1
+#define MIPS_SUPPORT_LOONGSON 1
+#define MIPS_SUPPORT_MICROMIPS 1
+#define MIPS_SUPPORT_LEGACY 1
+#define MIPS_SUPPORT_FRAME_HEADER_OPT 1
+
 #ifdef GENERATOR_FILE
 /* This is used in some insn conditions, so needs to be declared, but
    does not need to be defined.  */
