@@ -212,6 +212,19 @@
   { return mips_output_jump (operands, 2, -1, true, true); }
   [(set_attr "jal" "direct")])
 
+(define_insn_and_split "ctzsi2"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(ctz:SI (match_operand:SI 1 "register_operand" "r")))]
+  "TARGET_NANOMIPS == NANOMIPS_NMF"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (unspec:SI [(match_dup 1)] UNSPEC_BITREVW))
+   (set (match_dup 0) (clz:SI (match_dup 0)))]
+  ""
+  [(set_attr "type" "clz")
+   (set_attr "mode" "SI")
+   (set_attr "insn_count" "2")])
+
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
 ])
