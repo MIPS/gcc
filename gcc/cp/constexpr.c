@@ -313,9 +313,6 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       tree_stmt_iterator i;
       for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
 	{
-	  if (TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
-	    /* ??? Can we retain this information somehow?  */
-	    continue;
 	  if (! build_data_member_initialization (tsi_stmt (i), vec))
 	    return false;
 	}
@@ -597,9 +594,6 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
       tree_stmt_iterator i;
       for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
 	{
-	  if (TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
-	    /* ??? Can we retain this information somehow?  */
-	    continue;
 	  ok = build_data_member_initialization (tsi_stmt (i), &vec);
 	  if (!ok)
 	    break;
@@ -3818,8 +3812,6 @@ cxx_eval_statement_list (const constexpr_ctx *ctx, tree t,
   for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
     {
       tree stmt = tsi_stmt (i);
-      if (TREE_CODE (stmt) == DEBUG_BEGIN_STMT)
-	continue;
       r = cxx_eval_constant_expression (ctx, stmt, false,
 					non_constant_p, overflow_p,
 					jump_target);
@@ -3828,6 +3820,14 @@ cxx_eval_statement_list (const constexpr_ctx *ctx, tree t,
       if (returns (jump_target) || breaks (jump_target))
 	break;
     }
+  /* Make sure we don't use the "result" of a debug-only marker.  That
+     would be wrong.  We should be using the result of the previous
+     statement, or NULL if there isn't one.  In practice, this should
+     never happen: the statement after the marker should override the
+     result of the marker, so its value shouldn't survive in R.  Now,
+     should that ever change, we'll need some fixing here to stop
+     markers from modifying the generated executable code.  */
+  gcc_checking_assert (!r || TREE_CODE (r) != DEBUG_BEGIN_STMT);
   return r;
 }
 
@@ -4052,6 +4052,11 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	  *non_constant_p = true;
 	}
       break;
+
+    case DEBUG_BEGIN_STMT:
+      /* ??? It might be nice to retain this information somehow, so
+	 as to be able to step into a constexpr function call.  */
+      /* Fall through.  */
 
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
