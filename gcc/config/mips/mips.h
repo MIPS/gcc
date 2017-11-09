@@ -2546,7 +2546,7 @@ enum reg_class
 
 #define SMALL_OPERAND(VALUE) \
   ((TARGET_NANOMIPS) \
-   ? ((unsigned HOST_WIDE_INT) (VALUE) + 0x2000 < 0x4000) \
+   ? (IN_RANGE(((unsigned HOST_WIDE_INT) (VALUE) + 0x1000), 0x1, 0x1fff)) \
    : ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000))
 
 #define SMALL_OPERAND9TO12(VALUE) \
