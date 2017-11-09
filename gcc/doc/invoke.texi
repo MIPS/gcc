@@ -745,7 +745,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-msmall-model  -mno-lsim}
 
 @emph{FT32 Options}
-@gccoptlist{-msim  -mlra  -mnodiv}
+@gccoptlist{-msim  -mlra  -mnodiv  -mft32b  -mcompress  -mnopm}
 
 @emph{FRV Options}
 @gccoptlist{-mgpr-32  -mgpr-64  -mfpr-32  -mfpr-64 @gol
@@ -991,7 +991,7 @@ See RS/6000 and PowerPC Options.
 -msmall-data-limit=@var{N-bytes} @gol
 -msave-restore  -mno-save-restore @gol
 -mstrict-align -mno-strict-align @gol
--mcmodel=@var{code-model} @gol
+-mcmodel=medlow -mcmodel=medany @gol
 -mexplicit-relocs  -mno-explicit-relocs @gol}
 
 @emph{RL78 Options}
@@ -1207,7 +1207,7 @@ See RS/6000 and PowerPC Options.
 -msse4a  -m3dnow  -m3dnowa  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop @gol
 -mlzcnt  -mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  @gol
 -mmwaitx  -mclzero  -mpku  -mthreads @gol
--mcet -mibt -mshstk @gol
+-mcet -mibt -mshstk -mforce-indirect-call @gol
 -mms-bitfields  -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically  -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy}  -mmemset-strategy=@var{strategy} @gol
@@ -14377,7 +14377,7 @@ Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a55},
 @samp{cortex-a57}, @samp{cortex-a72}, @samp{cortex-a73}, @samp{cortex-a75},
-@samp{exynos-m1}, @samp{falkor}, @samp{qdf24xx},
+@samp{exynos-m1}, @samp{falkor}, @samp{qdf24xx}, @samp{saphira},
 @samp{xgene1}, @samp{vulcan}, @samp{thunderx},
 @samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
 @samp{thunderxt83}, @samp{thunderx2t99}, @samp{cortex-a57.cortex-a53},
@@ -17805,6 +17805,18 @@ so by default the compiler uses standard reload.
 @item -mnodiv
 @opindex mnodiv
 Do not use div and mod instructions.
+
+@item -mft32b
+@opindex mft32b
+Enable use of the extended instructions of the FT32B processor.
+
+@item -mcompress
+@opindex mcompress
+Compress all code using the Ft32B code compression scheme.
+
+@item -mnopm
+@opindex  mnopm
+Do not generate code that reads program memory.
 
 @end table
 
@@ -21803,9 +21815,18 @@ Use smaller but slower prologue and epilogue code.
 @opindex mstrict-align
 Do not generate unaligned memory accesses.
 
-@item -mcmodel=@var{code-model}
-@opindex mcmodel
-Specify the code model.
+@item -mcmodel=medlow
+@opindex mcmodel=medlow
+Generate code for the medium-low code model. The program and its statically
+defined symbols must lie within a single 2 GiB address range and must lie
+between absolute addresses @minus{}2 GiB and +2 GiB. Programs can be
+statically or dynamically linked. This is the default code model.
+
+@item -mcmodel=medany
+@opindex mcmodel=medany
+Generate code for the medium-any code model. The program and its statically
+defined symbols must be within any single 2 GiB address range. Programs can be
+statically or dynamically linked.
 
 @end table
 
@@ -26191,6 +26212,12 @@ ABI when targeting Microsoft Windows and the SysV ABI on all other systems.
 You can control this behavior for specific functions by
 using the function attributes @code{ms_abi} and @code{sysv_abi}.
 @xref{Function Attributes}.
+
+@item -mforce-indirect-call
+@opindex mforce-indirect-call
+Force all calls to functions to be indirect. This is useful
+when using Intel Processor Trace where it generates more precise timing
+information for function calls.
 
 @item -mcall-ms2sysv-xlogues
 @opindex mcall-ms2sysv-xlogues

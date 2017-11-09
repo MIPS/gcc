@@ -363,12 +363,10 @@
   HOST_WIDE_INT val = const_vector_elt_as_int (op1, elt);
   rtx rtx_val = GEN_INT (val);
   int shift = vspltis_shifted (op1);
-  int nunits = GET_MODE_NUNITS (<MODE>mode);
-  int i;
 
   gcc_assert (shift != 0);
   operands[2] = gen_reg_rtx (<MODE>mode);
-  operands[3] = gen_rtx_CONST_VECTOR (<MODE>mode, rtvec_alloc (nunits));
+  operands[3] = gen_const_vec_duplicate (<MODE>mode, rtx_val);
   operands[4] = gen_reg_rtx (<MODE>mode);
 
   if (shift < 0)
@@ -381,10 +379,6 @@
       operands[5] = CONST0_RTX (<MODE>mode);
       operands[6] = GEN_INT (shift);
     }
-
-  /* Populate the constant vectors.  */
-  for (i = 0; i < nunits; i++)
-    XVECEXP (operands[3], 0, i) = rtx_val;
 })
 
 (define_insn "get_vrsave_internal"
@@ -2580,13 +2574,10 @@
     emit_insn (gen_altivec_lvsl_direct (operands[0], operands[1]));
   else
     {
-      int i;
-      rtx mask, perm[16], constv, vperm;
+      rtx mask, constv, vperm;
       mask = gen_reg_rtx (V16QImode);
       emit_insn (gen_altivec_lvsl_direct (mask, operands[1]));
-      for (i = 0; i < 16; ++i)
-        perm[i] = GEN_INT (i);
-      constv = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, perm));
+      constv = gen_const_vec_series (V16QImode, const0_rtx, const1_rtx);
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
@@ -2621,13 +2612,10 @@
     emit_insn (gen_altivec_lvsr_direct (operands[0], operands[1]));
   else
     {
-      int i;
-      rtx mask, perm[16], constv, vperm;
+      rtx mask, constv, vperm;
       mask = gen_reg_rtx (V16QImode);
       emit_insn (gen_altivec_lvsr_direct (mask, operands[1]));
-      for (i = 0; i < 16; ++i)
-        perm[i] = GEN_INT (i);
-      constv = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, perm));
+      constv = gen_const_vec_series (V16QImode, const0_rtx, const1_rtx);
       constv = force_reg (V16QImode, constv);
       vperm = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, mask, mask, constv),
                               UNSPEC_VPERM);
@@ -3238,15 +3226,8 @@
         (smax:VI2 (match_dup 1) (match_dup 4)))]
   "<VI_unit>"
 {
-  int i, n_elt = GET_MODE_NUNITS (<MODE>mode);
-  rtvec v = rtvec_alloc (n_elt);
-
-  /* Create an all 0 constant.  */
-  for (i = 0; i < n_elt; ++i)
-    RTVEC_ELT (v, i) = const0_rtx;
-
   operands[2] = gen_reg_rtx (<MODE>mode);
-  operands[3] = gen_rtx_CONST_VECTOR (<MODE>mode, v);
+  operands[3] = CONST0_RTX (<MODE>mode);
   operands[4] = gen_reg_rtx (<MODE>mode);
 })
 
@@ -3263,17 +3244,8 @@
         (smin:VI2 (match_dup 1) (match_dup 4)))]
   "<VI_unit>"
 {
-  int i;
-  int n_elt = GET_MODE_NUNITS (<MODE>mode);
-
-  rtvec v = rtvec_alloc (n_elt);
-
-  /* Create an all 0 constant.  */
-  for (i = 0; i < n_elt; ++i)
-    RTVEC_ELT (v, i) = const0_rtx;
-
   operands[2] = gen_reg_rtx (<MODE>mode);
-  operands[3] = gen_rtx_CONST_VECTOR (<MODE>mode, v);
+  operands[3] = CONST0_RTX (<MODE>mode);
   operands[4] = gen_reg_rtx (<MODE>mode);
 })
 
@@ -4048,7 +4020,7 @@
   "TARGET_P9_VECTOR")
 
 ;; Vector absolute difference unsigned
-(define_insn "*p9_vadu<mode>3"
+(define_insn "p9_vadu<mode>3"
   [(set (match_operand:VI 0 "register_operand" "=v")
         (unspec:VI [(match_operand:VI 1 "register_operand" "v")
 		    (match_operand:VI 2 "register_operand" "v")]
@@ -4211,6 +4183,49 @@
   "TARGET_P9_VECTOR"
   "vbpermd %0,%1,%2"
   [(set_attr "type" "vecsimple")])
+
+;; Support for SAD (sum of absolute differences).
+
+;; Due to saturating semantics, we can't combine the sum-across
+;; with the vector accumulate in vsum4ubs.  A vadduwm is needed.
+(define_expand "usadv16qi"
+  [(use (match_operand:V4SI 0 "register_operand"))
+   (use (match_operand:V16QI 1 "register_operand"))
+   (use (match_operand:V16QI 2 "register_operand"))
+   (use (match_operand:V4SI 3 "register_operand"))]
+  "TARGET_P9_VECTOR"
+{
+  rtx absd = gen_reg_rtx (V16QImode);
+  rtx zero = gen_reg_rtx (V4SImode);
+  rtx psum = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_p9_vaduv16qi3 (absd, operands[1], operands[2]));
+  emit_insn (gen_altivec_vspltisw (zero, const0_rtx));
+  emit_insn (gen_altivec_vsum4ubs (psum, absd, zero));
+  emit_insn (gen_addv4si3 (operands[0], psum, operands[3]));
+  DONE;
+})
+
+;; Since vsum4shs is saturating and further performs signed
+;; arithmetic, we can't combine the sum-across with the vector
+;; accumulate in vsum4shs.  A vadduwm is needed.
+(define_expand "usadv8hi"
+  [(use (match_operand:V4SI 0 "register_operand"))
+   (use (match_operand:V8HI 1 "register_operand"))
+   (use (match_operand:V8HI 2 "register_operand"))
+   (use (match_operand:V4SI 3 "register_operand"))]
+  "TARGET_P9_VECTOR"
+{
+  rtx absd = gen_reg_rtx (V8HImode);
+  rtx zero = gen_reg_rtx (V4SImode);
+  rtx psum = gen_reg_rtx (V4SImode);
+
+  emit_insn (gen_p9_vaduv8hi3 (absd, operands[1], operands[2]));
+  emit_insn (gen_altivec_vspltisw (zero, const0_rtx));
+  emit_insn (gen_altivec_vsum4shs (psum, absd, zero));
+  emit_insn (gen_addv4si3 (operands[0], psum, operands[3]));
+  DONE;
+})
 
 ;; Decimal Integer operations
 (define_int_iterator UNSPEC_BCD_ADD_SUB [UNSPEC_BCDADD UNSPEC_BCDSUB])

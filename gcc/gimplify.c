@@ -2284,8 +2284,10 @@ expand_FALLTHROUGH_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 		      break;
 		    }
 		}
+	      else if (gimple_call_internal_p (stmt, IFN_ASAN_MARK))
+		;
 	      else if (!is_gimple_debug (stmt))
-		/* Something other than a label.  That's not expected.  */
+		/* Anything else is not expected.  */
 		break;
 	      gsi_next (&gsi2);
 	    }

@@ -246,8 +246,8 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define deleting_dtor_identifier	cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
 
 #define ovl_op_identifier(ISASS, CODE)  (OVL_OP_INFO(ISASS, CODE)->identifier)
-#define assign_op_identifier (ovl_op_identifier (true, NOP_EXPR))
-#define call_op_identifier (ovl_op_identifier (false, CALL_EXPR))
+#define assign_op_identifier (ovl_op_info[true][OVL_OP_NOP_EXPR].identifier)
+#define call_op_identifier (ovl_op_info[false][OVL_OP_CALL_EXPR].identifier)
 /* The name used for conversion operators -- but note that actual
    conversion functions use special identifiers outside the identifier
    table.  */
@@ -996,9 +996,9 @@ enum cp_identifier_kind {
   cik_dtor = 3,		/* Destructor (in-chg, deleting, complete or
 			   base).  */
   cik_simple_op = 4,	/* Non-assignment operator name.  */
-  cik_newdel_op = 5,	/* New or delete operator name.  */
-  cik_assign_op = 6,	/* An assignment operator name.  */
-  cik_conv_op = 7,	/* Conversion operator name.  */
+  cik_assign_op = 5,	/* An assignment operator name.  */
+  cik_conv_op = 6,	/* Conversion operator name.  */
+  cik_reserved_for_udlit = 7,	/* Not yet in use  */
   cik_max
 };
 
@@ -1053,24 +1053,38 @@ enum cp_identifier_kind {
 #define IDENTIFIER_ANY_OP_P(NODE)		\
   (IDENTIFIER_KIND_BIT_2 (NODE))
 
-/* True if this identifier is for new or delete operator.  Value 5.  */
-#define IDENTIFIER_NEWDEL_OP_P(NODE)		\
-  (IDENTIFIER_KIND_BIT_2 (NODE)			\
-   & (!IDENTIFIER_KIND_BIT_1 (NODE))		\
-   & IDENTIFIER_KIND_BIT_0 (NODE))
+/* True if this identifier is for an overloaded operator. Values 4, 5.  */
+#define IDENTIFIER_OVL_OP_P(NODE)		\
+  (IDENTIFIER_ANY_OP_P (NODE)			\
+   & (!IDENTIFIER_KIND_BIT_1 (NODE)))
 
-/* True if this identifier is for any assignment. Values 6.  */
+/* True if this identifier is for any assignment. Values 5.  */
 #define IDENTIFIER_ASSIGN_OP_P(NODE)		\
-  (IDENTIFIER_KIND_BIT_2 (NODE)			\
-   & IDENTIFIER_KIND_BIT_1 (NODE)		\
-   & (!IDENTIFIER_KIND_BIT_0 (NODE)))
+  (IDENTIFIER_OVL_OP_P (NODE)			\
+   & IDENTIFIER_KIND_BIT_0 (NODE))
 
 /* True if this identifier is the name of a type-conversion
    operator.  Value 7.  */
 #define IDENTIFIER_CONV_OP_P(NODE)		\
-  (IDENTIFIER_KIND_BIT_2 (NODE)			\
+  (IDENTIFIER_ANY_OP_P (NODE)			\
    & IDENTIFIER_KIND_BIT_1 (NODE)		\
-   & IDENTIFIER_KIND_BIT_0 (NODE))
+   & (!IDENTIFIER_KIND_BIT_0 (NODE)))
+
+/* True if this identifier is a new or delete operator.  */
+#define IDENTIFIER_NEWDEL_OP_P(NODE)		\
+  (IDENTIFIER_OVL_OP_P (NODE)			\
+   && IDENTIFIER_OVL_OP_FLAGS (NODE) & OVL_OP_FLAG_ALLOC)
+
+/* True if this identifier is a new operator.  */
+#define IDENTIFIER_NEW_OP_P(NODE)					\
+  (IDENTIFIER_OVL_OP_P (NODE)						\
+   && (IDENTIFIER_OVL_OP_FLAGS (NODE)					\
+       & (OVL_OP_FLAG_ALLOC | OVL_OP_FLAG_DELETE)) == OVL_OP_FLAG_ALLOC)
+
+/* Access a C++-specific index for identifier NODE.
+   Used to optimize operator mappings etc.  */
+#define IDENTIFIER_CP_INDEX(NODE)		\
+  (IDENTIFIER_NODE_CHECK(NODE)->base.u.bits.address_space)
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
 #define C_TYPE_FIELDS_READONLY(TYPE) \
@@ -2474,26 +2488,24 @@ struct GTY(()) lang_decl_min {
 struct GTY(()) lang_decl_fn {
   struct lang_decl_min min;
 
-  /* In an overloaded operator, this is the value of
-     DECL_OVERLOADED_OPERATOR_P.
-     FIXME: We should really do better in compressing this.  */
-  ENUM_BITFIELD (tree_code) operator_code : 16;
-
+  /* In a overloaded operator, this is the compressed operator code.  */
+  unsigned ovl_op_code : 6;
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
+
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
   unsigned defaulted_p : 1;
   unsigned has_in_charge_parm_p : 1;
   unsigned has_vtt_parm_p : 1;
   unsigned pending_inline_p : 1;
-
   unsigned nonconverting : 1;
   unsigned thunk_p : 1;
+
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned omp_declare_reduction_p : 1;
-  /* 3 spare bits.  */
+  unsigned spare : 13;
 
   /* 32-bits padding on 64-bit host.  */
 
@@ -2809,14 +2821,14 @@ struct GTY(()) lang_decl {
   IDENTIFIER_ASSIGN_OP_P (DECL_NAME (NODE))
 
 /* NODE is a function_decl for an overloaded operator.  Return its
-   operator code.   */
-#define DECL_OVERLOADED_OPERATOR_CODE(NODE)			\
-  (LANG_DECL_FN_CHECK (NODE)->operator_code)
+   compressed (raw) operator code.  Note that this is not a TREE_CODE.  */
+#define DECL_OVERLOADED_OPERATOR_CODE_RAW(NODE)		\
+  (LANG_DECL_FN_CHECK (NODE)->ovl_op_code)
 
 /* DECL is an overloaded operator.  Test whether it is for TREE_CODE
    (a literal constant).  */
 #define DECL_OVERLOADED_OPERATOR_IS(DECL, CODE)			\
-  (DECL_OVERLOADED_OPERATOR_CODE (DECL) == CODE)
+  (DECL_OVERLOADED_OPERATOR_CODE_RAW (DECL) == OVL_OP_##CODE)
 
 /* For FUNCTION_DECLs: nonzero means that this function is a
    constructor or a destructor with an extra in-charge parameter to
@@ -5477,12 +5489,25 @@ extern void init_reswords (void);
 /* Various flags for the overloaded operator information.  */
 enum ovl_op_flags
   {
-    OVL_OP_FLAG_NONE = 0,
-    OVL_OP_FLAG_UNARY = 1,
-    OVL_OP_FLAG_BINARY = 2,
-    OVL_OP_FLAG_ALLOC = 4,  	/* operator new or delete  */
-    OVL_OP_FLAG_DELETE = 1,	/* operator delete  */
-    OVL_OP_FLAG_VEC = 2		/* vector new or delete  */
+    OVL_OP_FLAG_NONE = 0,	/* Don't care.  */
+    OVL_OP_FLAG_UNARY = 1,	/* Is unary.  */
+    OVL_OP_FLAG_BINARY = 2,	/* Is binary.  */
+    OVL_OP_FLAG_AMBIARY = 3,	/* May be unary or binary.  */
+    OVL_OP_FLAG_ALLOC = 4,  	/* operator new or delete.  */
+    OVL_OP_FLAG_DELETE = 1,	/* operator delete.  */
+    OVL_OP_FLAG_VEC = 2		/* vector new or delete.  */
+  };
+
+/* Compressed operator codes.  Order is determined by operators.def
+   and does not match that of tree_codes.  */
+enum ovl_op_code
+  {
+    OVL_OP_ERROR_MARK,
+    OVL_OP_NOP_EXPR,
+#define DEF_OPERATOR(NAME, CODE, MANGLING, FLAGS) OVL_OP_##CODE,
+#define DEF_ASSN_OPERATOR(NAME, CODE, MANGLING) /* NOTHING */
+#include "operators.def"
+    OVL_OP_MAX
   };
 
 struct GTY(()) ovl_op_info_t {
@@ -5492,19 +5517,32 @@ struct GTY(()) ovl_op_info_t {
   const char *name;
   /* The mangled name of the operator.  */
   const char *mangled_name;
-  /* The tree code.  */
+  /* The (regular) tree code.  */
   enum tree_code tree_code : 16;
+  /* The (compressed) operator code.  */
+  enum ovl_op_code ovl_op_code : 8;
   /* The ovl_op_flags of the operator */
   unsigned flags : 8;
 };
 
-/* Overloaded operator info indexed by ass_op_p & tree_code.  */
-extern GTY(()) ovl_op_info_t ovl_op_info[2][MAX_TREE_CODES];
+/* Overloaded operator info indexed by ass_op_p & ovl_op_code.  */
+extern GTY(()) ovl_op_info_t ovl_op_info[2][OVL_OP_MAX];
+/* Mapping from tree_codes to ovl_op_codes.  */
+extern GTY(()) unsigned char ovl_op_mapping[MAX_TREE_CODES];
+/* Mapping for ambi-ary operators from the binary to the unary.  */
+extern GTY(()) unsigned char ovl_op_alternate[OVL_OP_MAX];
 
 /* Given an ass_op_p boolean and a tree code, return a pointer to its
-   overloaded operator info.  */
+   overloaded operator info.  Tree codes for non-overloaded operators
+   map to the error-operator.  */
 #define OVL_OP_INFO(IS_ASS_P, TREE_CODE)			\
-  (&ovl_op_info[(IS_ASS_P) != 0][(TREE_CODE)])
+  (&ovl_op_info[(IS_ASS_P) != 0][ovl_op_mapping[(TREE_CODE)]])
+/* Overloaded operator info for an identifier for which
+   IDENTIFIER_OVL_OP_P is true.  */
+#define IDENTIFIER_OVL_OP_INFO(NODE) \
+  (&ovl_op_info[IDENTIFIER_KIND_BIT_0 (NODE)][IDENTIFIER_CP_INDEX (NODE)])
+#define IDENTIFIER_OVL_OP_FLAGS(NODE) \
+  (IDENTIFIER_OVL_OP_INFO (NODE)->flags)
 
 /* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
    constants.  */
@@ -6444,7 +6482,7 @@ extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern bool function_parameter_pack_p		(const_tree);
 extern bool function_parameter_expanded_from_pack_p (tree, tree);
-extern tree make_pack_expansion                 (tree);
+extern tree make_pack_expansion                 (tree, tsubst_flags_t = tf_warning_or_error);
 extern bool check_for_bare_parameter_packs      (tree);
 extern tree build_template_info			(tree, tree);
 extern tree get_template_info			(const_tree);

@@ -696,8 +696,8 @@ compute_alignments (void)
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
   FOR_EACH_BB_FN (bb, cfun)
-    if (bb->frequency > freq_max)
-      freq_max = bb->frequency;
+    if (bb->count.to_frequency (cfun) > freq_max)
+      freq_max = bb->count.to_frequency (cfun);
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
@@ -715,7 +715,8 @@ compute_alignments (void)
 	  if (dump_file)
 	    fprintf (dump_file,
 		     "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		     bb->index, bb->frequency, bb->loop_father->num,
+		     bb->index, bb->count.to_frequency (cfun),
+		     bb->loop_father->num,
 		     bb_loop_depth (bb));
 	  continue;
 	}
@@ -733,7 +734,7 @@ compute_alignments (void)
 	{
 	  fprintf (dump_file, "BB %4i freq %4i loop %2i loop_depth"
 		   " %2i fall %4i branch %4i",
-		   bb->index, bb->frequency, bb->loop_father->num,
+		   bb->index, bb->count.to_frequency (cfun), bb->loop_father->num,
 		   bb_loop_depth (bb),
 		   fallthru_frequency, branch_frequency);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
@@ -755,9 +756,10 @@ compute_alignments (void)
 
       if (!has_fallthru
 	  && (branch_frequency > freq_threshold
-	      || (bb->frequency > bb->prev_bb->frequency * 10
-		  && (bb->prev_bb->frequency
-		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency / 2))))
+	      || (bb->count.to_frequency (cfun) 
+			> bb->prev_bb->count.to_frequency (cfun) * 10
+		  && (bb->prev_bb->count.to_frequency (cfun)
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun) / 2))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
@@ -2044,8 +2046,6 @@ dump_basic_block_info (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
       edge_iterator ei;
 
       fprintf (file, "%s BLOCK %d", ASM_COMMENT_START, bb->index);
-      if (bb->frequency)
-        fprintf (file, " freq:%d", bb->frequency);
       if (bb->count.initialized_p ())
 	{
           fprintf (file, ", count:");

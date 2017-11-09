@@ -417,6 +417,11 @@ gfc_post_options (const char **pfilename)
   if (flag_frontend_optimize == -1)
     flag_frontend_optimize = optimize;
 
+  /* Same for front end loop interchange.  */
+
+  if (flag_frontend_loop_interchange == -1)
+    flag_frontend_loop_interchange = optimize;
+
   if (flag_max_array_constructor < 65535)
     flag_max_array_constructor = 65535;
 
@@ -429,6 +434,9 @@ gfc_post_options (const char **pfilename)
   if (flag_max_subrecord_length > MAX_SUBRECORD_LENGTH)
     gfc_fatal_error ("Maximum subrecord length cannot exceed %d",
 		     MAX_SUBRECORD_LENGTH);
+
+  if (warn_return_type == -1)
+    warn_return_type = 0;
 
   gfc_cpp_post_options ();
 

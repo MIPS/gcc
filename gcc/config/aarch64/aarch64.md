@@ -1562,7 +1562,7 @@
     (match_operand:GPI 0 "register_operand" "=rk,rk,w,rk,r")
     (plus:GPI
      (match_operand:GPI 1 "register_operand" "%rk,rk,w,rk,rk")
-     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Upl")))]
+     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Uaa")))]
   ""
   "@
   add\\t%<w>0, %<w>1, %2
@@ -1580,7 +1580,7 @@
     (match_operand:DI 0 "register_operand" "=rk,rk,rk,r")
     (zero_extend:DI
      (plus:SI (match_operand:SI 1 "register_operand" "%rk,rk,rk,rk")
-              (match_operand:SI 2 "aarch64_pluslong_operand" "I,r,J,Upl"))))]
+	      (match_operand:SI 2 "aarch64_pluslong_operand" "I,r,J,Uaa"))))]
   ""
   "@
   add\\t%w0, %w1, %2
@@ -3958,7 +3958,7 @@
 (define_expand "<optab><mode>3"
   [(set (match_operand:GPI 0 "register_operand")
 	(ASHIFT:GPI (match_operand:GPI 1 "register_operand")
-		    (match_operand:QI 2 "nonmemory_operand")))]
+		    (match_operand:QI 2 "aarch64_reg_or_imm")))]
   ""
   {
     if (CONST_INT_P (operands[2]))
@@ -3994,7 +3994,7 @@
 (define_expand "rotr<mode>3"
   [(set (match_operand:GPI 0 "register_operand")
 	(rotatert:GPI (match_operand:GPI 1 "register_operand")
-		      (match_operand:QI 2 "nonmemory_operand")))]
+		      (match_operand:QI 2 "aarch64_reg_or_imm")))]
   ""
   {
     if (CONST_INT_P (operands[2]))
@@ -4014,7 +4014,7 @@
 (define_expand "rotl<mode>3"
   [(set (match_operand:GPI 0 "register_operand")
 	(rotatert:GPI (match_operand:GPI 1 "register_operand")
-		      (match_operand:QI 2 "nonmemory_operand")))]
+		      (match_operand:QI 2 "aarch64_reg_or_imm")))]
   ""
   {
     /* (SZ - cnt) % SZ == -cnt % SZ */

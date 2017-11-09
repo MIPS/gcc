@@ -9073,10 +9073,7 @@ check_return_expr (tree retval, bool *no_warning)
     }
 
   /* Only operator new(...) throw(), can return NULL [expr.new/13].  */
-  if (DECL_OVERLOADED_OPERATOR_P (current_function_decl)
-      && (DECL_OVERLOADED_OPERATOR_CODE (current_function_decl) == NEW_EXPR
-	  || (DECL_OVERLOADED_OPERATOR_CODE (current_function_decl)
-	      == VEC_NEW_EXPR))
+  if (IDENTIFIER_NEW_OP_P (DECL_NAME (current_function_decl))
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
       && ! flag_check_new
       && retval && null_ptr_cst_p (retval))

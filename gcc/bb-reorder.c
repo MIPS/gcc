@@ -197,24 +197,16 @@ struct trace
 };
 
 /* Maximum frequency and count of one of the entry blocks.  */
-static int max_entry_frequency;
 static profile_count max_entry_count;
 
 /* Local function prototypes.  */
-static void find_traces (int *, struct trace *);
-static basic_block rotate_loop (edge, struct trace *, int);
-static void mark_bb_visited (basic_block, int);
-static void find_traces_1_round (int, int, gcov_type, struct trace *, int *,
+static void find_traces_1_round (int, profile_count, struct trace *, int *,
 				 int, bb_heap_t **, int);
 static basic_block copy_bb (basic_block, edge, basic_block, int);
 static long bb_to_key (basic_block);
 static bool better_edge_p (const_basic_block, const_edge, profile_probability,
 			   int, profile_probability, int, const_edge);
-static bool connect_better_edge_p (const_edge, bool, int, const_edge,
-				   struct trace *);
-static void connect_traces (int, struct trace *);
 static bool copy_bb_p (const_basic_block, int);
-static bool push_to_next_round_p (const_basic_block, int, int, int, gcov_type);
 
 /* Return the trace number in which BB was visited.  */
 
@@ -249,15 +241,14 @@ mark_bb_visited (basic_block bb, int trace)
 
 static bool
 push_to_next_round_p (const_basic_block bb, int round, int number_of_rounds,
-		      int exec_th, gcov_type count_th)
+		      profile_count count_th)
 {
   bool there_exists_another_round;
   bool block_not_hot_enough;
 
   there_exists_another_round = round < number_of_rounds - 1;
 
-  block_not_hot_enough = (bb->frequency < exec_th
-			  || bb->count < count_th
+  block_not_hot_enough = (bb->count < count_th
 			  || probably_never_executed_bb_p (cfun, bb));
 
   if (there_exists_another_round
@@ -287,33 +278,26 @@ find_traces (int *n_traces, struct trace *traces)
   number_of_rounds = N_ROUNDS - 1;
 
   /* Insert entry points of function into heap.  */
-  max_entry_frequency = 0;
   max_entry_count = profile_count::zero ();
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     {
       bbd[e->dest->index].heap = heap;
       bbd[e->dest->index].node = heap->insert (bb_to_key (e->dest), e->dest);
-      if (e->dest->frequency > max_entry_frequency)
-	max_entry_frequency = e->dest->frequency;
-      if (e->dest->count.initialized_p () && e->dest->count > max_entry_count)
+      if (e->dest->count > max_entry_count)
 	max_entry_count = e->dest->count;
     }
 
   /* Find the traces.  */
   for (i = 0; i < number_of_rounds; i++)
     {
-      gcov_type count_threshold;
+      profile_count count_threshold;
 
       if (dump_file)
 	fprintf (dump_file, "STC - round %d\n", i + 1);
 
-      if (max_entry_count < INT_MAX / 1000)
-	count_threshold = max_entry_count.to_gcov_type () * exec_threshold[i] / 1000;
-      else
-	count_threshold = max_entry_count.to_gcov_type () / 1000 * exec_threshold[i];
+      count_threshold = max_entry_count.apply_scale (exec_threshold[i], 1000);
 
       find_traces_1_round (REG_BR_PROB_BASE * branch_threshold[i] / 1000,
-			   max_entry_frequency * exec_threshold[i] / 1000,
 			   count_threshold, traces, n_traces, i, &heap,
 			   number_of_rounds);
     }
@@ -329,8 +313,10 @@ find_traces (int *n_traces, struct trace *traces)
 	  for (bb = traces[i].first;
 	       bb != traces[i].last;
 	       bb = (basic_block) bb->aux)
-	    fprintf (dump_file, "%d [%d] ", bb->index, bb->frequency);
-	  fprintf (dump_file, "%d [%d]\n", bb->index, bb->frequency);
+	    fprintf (dump_file, "%d [%d] ", bb->index,
+		     bb->count.to_frequency (cfun));
+	  fprintf (dump_file, "%d [%d]\n", bb->index,
+		   bb->count.to_frequency (cfun));
 	}
       fflush (dump_file);
     }
@@ -347,7 +333,6 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
   /* Information about the best end (end after rotation) of the loop.  */
   basic_block best_bb = NULL;
   edge best_edge = NULL;
-  int best_freq = -1;
   profile_count best_count = profile_count::uninitialized ();
   /* The best edge is preferred when its destination is not visited yet
      or is a start block of some trace.  */
@@ -373,12 +358,9 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 		  || bbd[e->dest->index].start_of_trace >= 0)
 		{
 		  /* The current edge E is also preferred.  */
-		  int freq = EDGE_FREQUENCY (e);
-		  if (freq > best_freq || e->count () > best_count)
+		  if (e->count () > best_count)
 		    {
-		      best_freq = freq;
-		      if (e->count ().initialized_p ())
-		        best_count = e->count ();
+		      best_count = e->count ();
 		      best_edge = e;
 		      best_bb = bb;
 		    }
@@ -391,17 +373,14 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 		{
 		  /* The current edge E is preferred.  */
 		  is_preferred = true;
-		  best_freq = EDGE_FREQUENCY (e);
 		  best_count = e->count ();
 		  best_edge = e;
 		  best_bb = bb;
 		}
 	      else
 		{
-		  int freq = EDGE_FREQUENCY (e);
-		  if (!best_edge || freq > best_freq || e->count () > best_count)
+		  if (!best_edge || e->count () > best_count)
 		    {
-		      best_freq = freq;
 		      best_count = e->count ();
 		      best_edge = e;
 		      best_bb = bb;
@@ -462,7 +441,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
    *HEAP and store starting points for the next round into new *HEAP.  */
 
 static void
-find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
+find_traces_1_round (int branch_th, profile_count count_th,
 		     struct trace *traces, int *n_traces, int round,
 		     bb_heap_t **heap, int number_of_rounds)
 {
@@ -492,7 +471,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	 round.  When optimizing for size, do not push to next round.  */
 
       if (!for_size
-	  && push_to_next_round_p (bb, round, number_of_rounds, exec_th,
+	  && push_to_next_round_p (bb, round, number_of_rounds,
 				   count_th))
 	{
 	  int key = bb_to_key (bb);
@@ -551,7 +530,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		continue;
 
 	      prob = e->probability;
-	      freq = e->dest->frequency;
+	      freq = e->dest->count.to_frequency (cfun);
 
 	      /* The only sensible preference for a call instruction is the
 		 fallthru edge.  Don't bother selecting anything else.  */
@@ -572,7 +551,6 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	      if (!(e->flags & EDGE_CAN_FALLTHRU) || (e->flags & EDGE_COMPLEX)
 		  || !prob.initialized_p ()
 		  || ((prob.to_reg_br_prob_base () < branch_th
-		       || EDGE_FREQUENCY (e) < exec_th
 		      || e->count () < count_th) && (!for_size)))
 		continue;
 
@@ -664,13 +642,11 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		  bb_heap_t *which_heap = *heap;
 
 		  prob = e->probability;
-		  freq = EDGE_FREQUENCY (e);
 
 		  if (!(e->flags & EDGE_CAN_FALLTHRU)
 		      || (e->flags & EDGE_COMPLEX)
 		      || !prob.initialized_p ()
 		      || prob.to_reg_br_prob_base () < branch_th
-		      || freq < exec_th
 		      || e->count () < count_th)
 		    {
 		      /* When partitioning hot/cold basic blocks, make sure
@@ -680,7 +656,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
 		      if (!for_size && push_to_next_round_p (e->dest, round,
 							     number_of_rounds,
-							     exec_th, count_th))
+							     count_th))
 			which_heap = new_heap;
 		    }
 
@@ -705,8 +681,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		  /* We do nothing with one basic block loops.  */
 		  if (best_edge->dest != bb)
 		    {
-		      if (EDGE_FREQUENCY (best_edge)
-			  > 4 * best_edge->dest->frequency / 5)
+		      if (best_edge->count ()
+			  > best_edge->dest->count.apply_scale (4, 5))
 			{
 			  /* The loop has at least 4 iterations.  If the loop
 			     header is not the first block of the function
@@ -757,9 +733,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		    C
 
 		  where
-		  EDGE_FREQUENCY (AB) + EDGE_FREQUENCY (BC)
-		    >= EDGE_FREQUENCY (AC).
-		  (i.e. 2 * B->frequency >= EDGE_FREQUENCY (AC) )
+		  AB->count () + BC->count () >= AC->count ().
+		  (i.e. 2 * B->count >= AC->count )
 		  Best ordering is then A B C.
 
 		  When optimizing for size, A B C is always the best order.
@@ -783,8 +758,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			    & EDGE_CAN_FALLTHRU)
 			&& !(single_succ_edge (e->dest)->flags & EDGE_COMPLEX)
 			&& single_succ (e->dest) == best_edge->dest
-			&& (2 * e->dest->frequency >= EDGE_FREQUENCY (best_edge)
-			    || for_size))
+			&& (e->dest->count.apply_scale (2, 1)
+			    >= best_edge->count () || for_size))
 		      {
 			best_edge = e;
 			if (dump_file)
@@ -945,9 +920,9 @@ bb_to_key (basic_block bb)
 
   if (priority)
     /* The block with priority should have significantly lower key.  */
-    return -(100 * BB_FREQ_MAX + 100 * priority + bb->frequency);
+    return -(100 * BB_FREQ_MAX + 100 * priority + bb->count.to_frequency (cfun));
 
-  return -bb->frequency;
+  return -bb->count.to_frequency (cfun);
 }
 
 /* Return true when the edge E from basic block BB is better than the temporary
@@ -1084,15 +1059,10 @@ connect_traces (int n_traces, struct trace *traces)
   int last_trace;
   int current_pass;
   int current_partition;
-  int freq_threshold;
-  gcov_type count_threshold;
+  profile_count count_threshold;
   bool for_size = optimize_function_for_size_p (cfun);
 
-  freq_threshold = max_entry_frequency * DUPLICATION_THRESHOLD / 1000;
-  if (max_entry_count.to_gcov_type () < INT_MAX / 1000)
-    count_threshold = max_entry_count.to_gcov_type () * DUPLICATION_THRESHOLD / 1000;
-  else
-    count_threshold = max_entry_count.to_gcov_type () / 1000 * DUPLICATION_THRESHOLD;
+  count_threshold = max_entry_count.apply_scale (DUPLICATION_THRESHOLD, 1000);
 
   connected = XCNEWVEC (bool, n_traces);
   last_trace = -1;
@@ -1289,7 +1259,6 @@ connect_traces (int n_traces, struct trace *traces)
 				&& bbd[di].start_of_trace >= 0
 				&& !connected[bbd[di].start_of_trace]
 				&& BB_PARTITION (e2->dest) == current_partition
-				&& EDGE_FREQUENCY (e2) >= freq_threshold
 				&& e2->count () >= count_threshold
 				&& (!best2
 				    || e2->probability > best2->probability
@@ -1315,7 +1284,6 @@ connect_traces (int n_traces, struct trace *traces)
 		  && BB_PARTITION (best->src) == BB_PARTITION (best->dest)
 		  && copy_bb_p (best->dest,
 				optimize_edge_for_speed_p (best)
-				&& EDGE_FREQUENCY (best) >= freq_threshold
 				&& (!best->count ().initialized_p ()
 				    || best->count () >= count_threshold)))
 		{
@@ -1375,7 +1343,7 @@ copy_bb_p (const_basic_block bb, int code_may_grow)
   int max_size = uncond_jump_length;
   rtx_insn *insn;
 
-  if (!bb->frequency)
+  if (!bb->count.to_frequency (cfun))
     return false;
   if (EDGE_COUNT (bb->preds) < 2)
     return false;
@@ -1459,7 +1427,6 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
   new_bb = create_basic_block (new_label, jump, last_bb);
   new_bb->aux = last_bb->aux;
-  new_bb->frequency = post_bb->frequency;
   new_bb->count = post_bb->count;
   last_bb->aux = new_bb;
 
@@ -1517,7 +1484,6 @@ sanitize_hot_paths (bool walk_up, unsigned int cold_bb_count,
       edge_iterator ei;
       profile_probability highest_probability
 				 = profile_probability::uninitialized ();
-      int highest_freq = 0;
       profile_count highest_count = profile_count::uninitialized ();
       bool found = false;
 
@@ -1544,11 +1510,8 @@ sanitize_hot_paths (bool walk_up, unsigned int cold_bb_count,
           /* The following loop will look for the hottest edge via
              the edge count, if it is non-zero, then fallback to the edge
              frequency and finally the edge probability.  */
-          if (!highest_count.initialized_p () || e->count () > highest_count)
+          if (!(e->count () > highest_count))
             highest_count = e->count ();
-          int edge_freq = EDGE_FREQUENCY (e);
-          if (edge_freq > highest_freq)
-            highest_freq = edge_freq;
           if (!highest_probability.initialized_p ()
 	      || e->probability > highest_probability)
             highest_probability = e->probability;
@@ -1573,17 +1536,12 @@ sanitize_hot_paths (bool walk_up, unsigned int cold_bb_count,
           /* Select the hottest edge using the edge count, if it is non-zero,
              then fallback to the edge frequency and finally the edge
              probability.  */
-          if (highest_count > 0)
+          if (highest_count.initialized_p ())
             {
-              if (e->count () < highest_count)
+              if (!(e->count () >= highest_count))
                 continue;
             }
-          else if (highest_freq)
-            {
-              if (EDGE_FREQUENCY (e) < highest_freq)
-                continue;
-            }
-          else if (e->probability < highest_probability)
+          else if (!(e->probability >= highest_probability))
             continue;
 
           basic_block reach_bb = walk_up ? e->src : e->dest;
@@ -2320,7 +2278,7 @@ reorder_basic_blocks_software_trace_cache (void)
 static bool
 edge_order (edge e1, edge e2)
 {
-  return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
+  return e1->count () > e2->count ();
 }
 
 /* Reorder basic blocks using the "simple" algorithm.  This tries to

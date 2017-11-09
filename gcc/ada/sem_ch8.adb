@@ -5358,6 +5358,8 @@ package body Sem_Ch8 is
 
       --  Local variables
 
+      Is_Assignment_LHS : constant Boolean := Is_LHS (N) = Yes;
+
       Nested_Inst : Entity_Id := Empty;
       --  The entity of a nested instance which appears within Inst (if any)
 
@@ -5895,9 +5897,20 @@ package body Sem_Ch8 is
    <<Done>>
       Check_Restriction_No_Use_Of_Entity (N);
 
-      --  Save the scenario for later examination by the ABE Processing phase
+      --  Annotate the tree by creating a variable reference marker in case the
+      --  original variable reference is folded or optimized away. The variable
+      --  reference marker is automatically saved for later examination by the
+      --  ABE Processing phase. Variable references which act as actuals in a
+      --  call require special processing and are left to Resolve_Actuals. The
+      --  reference is a write when it appears on the left hand side of an
+      --  assignment.
 
-      Record_Elaboration_Scenario (N);
+      if not Within_Subprogram_Call (N) then
+         Build_Variable_Reference_Marker
+           (N     => N,
+            Read  => not Is_Assignment_LHS,
+            Write => Is_Assignment_LHS);
+      end if;
    end Find_Direct_Name;
 
    ------------------------
@@ -5969,8 +5982,10 @@ package body Sem_Ch8 is
 
       --  Local variables
 
-      Selector  : constant Node_Id := Selector_Name (N);
-      Candidate : Entity_Id        := Empty;
+      Is_Assignment_LHS : constant Boolean := Is_LHS (N) = Yes;
+      Selector          : constant Node_Id := Selector_Name (N);
+
+      Candidate : Entity_Id := Empty;
       P_Name    : Entity_Id;
       Id        : Entity_Id;
 
@@ -6529,9 +6544,20 @@ package body Sem_Ch8 is
 
       Check_Restriction_No_Use_Of_Entity (N);
 
-      --  Save the scenario for later examination by the ABE Processing phase
+      --  Annotate the tree by creating a variable reference marker in case the
+      --  original variable reference is folded or optimized away. The variable
+      --  reference marker is automatically saved for later examination by the
+      --  ABE Processing phase. Variable references which act as actuals in a
+      --  call require special processing and are left to Resolve_Actuals. The
+      --  reference is a write when it appears on the left hand side of an
+      --  assignment.
 
-      Record_Elaboration_Scenario (N);
+      if not Within_Subprogram_Call (N) then
+         Build_Variable_Reference_Marker
+           (N     => N,
+            Read  => not Is_Assignment_LHS,
+            Write => Is_Assignment_LHS);
+      end if;
    end Find_Expanded_Name;
 
    --------------------
@@ -8294,6 +8320,7 @@ package body Sem_Ch8 is
 
       procedure Mark_Use_Type (E : Entity_Id) is
          Curr : Node_Id;
+         Base : Entity_Id;
 
       begin
          --  Ignore void types and unresolved string literals and primitives
@@ -8305,12 +8332,22 @@ package body Sem_Ch8 is
             return;
          end if;
 
+         --  Primitives with class-wide operands might additionally render
+         --  their base type's use_clauses effective - so do a recursive check
+         --  here.
+
+         Base := Base_Type (Etype (E));
+
+         if Ekind (Base) = E_Class_Wide_Type then
+            Mark_Use_Type (Base);
+         end if;
+
          --  The package containing the type or operator function being used
          --  may be in use as well, so mark any use_package_clauses for it as
          --  effective. There are also additional sanity checks performed here
          --  for ignoring previous errors.
 
-         Mark_Use_Package (Scope (Base_Type (Etype (E))));
+         Mark_Use_Package (Scope (Base));
 
          if Nkind (E) in N_Op
            and then Present (Entity (E))
@@ -8319,7 +8356,7 @@ package body Sem_Ch8 is
             Mark_Use_Package (Scope (Entity (E)));
          end if;
 
-         Curr := Current_Use_Clause (Base_Type (Etype (E)));
+         Curr := Current_Use_Clause (Base);
          while Present (Curr)
             and then not Is_Effective_Use_Clause (Curr)
          loop
@@ -8371,7 +8408,9 @@ package body Sem_Ch8 is
                  or else Ekind_In (Id, E_Generic_Function,
                                        E_Generic_Procedure))
            and then (Is_Potentially_Use_Visible (Id)
-                      or else Is_Intrinsic_Subprogram (Id))
+                      or else Is_Intrinsic_Subprogram (Id)
+                      or else (Ekind_In (Id, E_Function, E_Procedure)
+                                and then Is_Generic_Actual_Subprogram (Id)))
          then
             Mark_Parameters (Id);
          end if;
@@ -9057,6 +9096,7 @@ package body Sem_Ch8 is
               and then Comes_From_Source (Curr)
               and then not Is_Effective_Use_Clause (Curr)
               and then not In_Instance
+              and then not In_Inlined_Body
             then
                --  We are dealing with a potentially unused use_package_clause
 
@@ -9400,7 +9440,10 @@ package body Sem_Ch8 is
 
          --  Warn about detected redundant clauses
 
-         elsif In_Open_Scopes (P) and not Force then
+         elsif not Force
+           and then In_Open_Scopes (P)
+           and then not Is_Hidden_Open_Scope (P)
+         then
             if Warn_On_Redundant_Constructs and then P = Current_Scope then
                Error_Msg_NE -- CODEFIX
                  ("& is already use-visible within itself?r?",
@@ -9865,6 +9908,7 @@ package body Sem_Ch8 is
 
         and then not Spec_Reloaded_For_Body
         and then not In_Instance
+        and then not In_Inlined_Body
       then
          --  The type already has a use clause
 

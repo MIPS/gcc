@@ -1,3 +1,116 @@
+2017-11-07 Boris Kolpackov  <boris@codesynthesis.com>
+
+	* Make-lang.in (CP_PLUGIN_HEADERS): Add operators.def since included
+	in cp-tree.h.
+
+2017-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82835
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): For methods pass i - 1 to
+	convert_default_arg instead of i.
+
+2017-11-06  Jason Merrill  <jason@redhat.com>
+
+	P0704R1 - fixing const-qualified pointers to members
+	* typeck2.c (build_m_component_ref): Also accept in lower stds with
+	a pedwarn.
+
+2017-11-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65579
+	* decl2.c (finish_static_data_member_decl): If there's an initializer,
+	complete the type and re-apply the quals.
+
+2017-11-06  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/82404
+	* constexpr.c (cxx_eval_builtin_function_call): Handle
+	__builtin_unreachable call.
+	(get_function_named_in_call): Declare function earlier.
+	(constexpr_fn_retval): Skip __builtin_unreachable.
+	* cp-gimplify.c (cp_ubsan_maybe_instrument_return): Rename to
+	...
+	(cp_maybe_instrument_return): ... this.
+	(cp_genericize): Call the function unconditionally.
+
+2017-11-03  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/82710
+	* decl.c (grokdeclarator): Protect MAYBE_CLASS things from paren
+	warning too.
+
+2017-11-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/81957
+	* pt.c (make_pack_expansion): Add tsubst_flags_t parameter.
+	(expand_integer_pack, convert_template_argument, coerce_template_parms,
+	gen_elem_of_pack_expansion_instantiation, tsubst_pack_expansion,
+	unify): Adjust calls.
+	* tree.c (cp_build_qualified_type_real): Likewise.
+	* cp-tree.h (make_pack_expansion): Adjust declaration.
+
+2017-11-02  Nathan Sidwell  <nathan@acm.org>
+
+	* cp-tree.h (IDENTIFIER_NEWDEL_OP_P): Restore, adjust.
+	(IDENTIFIER_NEW_OP_P): New.
+	* decl.c (grokdeclarator): Restore IDENTIFIER_NEWDEL_OP_P use.
+	* pt.c (push_template_decl_real): Likewise.
+	* typeck.c (check_return_expr): Use IDENTIFIER_NEW_OP_P.
+
+	PR c++/82710
+	* decl.c (grokdeclarator): Don't warn when parens protect a return
+	type from a qualified name.
+
+2017-11-01  Nathan Sidwell  <nathan@acm.org>
+
+	* cp-tree.h (enum cp_identifier_kind): Delete cik_newdel_op.
+	Renumber and reserve udlit value.
+	(IDENTIFIER_NEWDEL_OP_P): Delete.
+	(IDENTIFIER_OVL_OP_P): New.
+	(IDENTIFIER_ASSIGN_OP_P): Adjust.
+	(IDENTIFIER_CONV_OP_P): Adjust.
+	(IDENTIFIER_OVL_OP_INFO): Adjust.
+	(IDENTIFIER_OVL_OP_FLAGS): New.
+	* decl.c (grokdeclarator): Use IDENTIFIER_OVL_OP_FLAGS.
+	* lex.c (get_identifier_kind_name): Adjust.
+	(init_operators): Don't special case new/delete ops.
+	* mangle.c (write_unqualified_id): Use IDENTIFIER_OVL_OP_P.
+	* pt.c (push_template_decl_real): Use IDENTIFIER_OVL_OP_FLAGS.
+	* typeck.c (check_return_expr): Likewise.
+
+	* cp-tree.h (assign_op_identifier, call_op_identifier): Use
+	compressed code.
+	(struct lang_decl_fn): Use compressed operator code.
+	(DECL_OVERLOADED_OPERATOR_CODE): Replace with ...
+	(DECL_OVERLOADED_OPERATOR_CODE_RAW): ... this.
+	(DECL_OVERLOADED_OPERATOR_CODE_IS): Use it.
+	* decl.c (duplicate_decls): Use DECL_OVERLOADED_OPERATOR_CODE_RAW.
+	(build_library_fn): Likewise.
+	(grok_op_properties): Likewise.
+	* mangle.c (write_unqualified_name): Likewise.
+	* method.c (implicitly_declare_fn): Likewise.
+	* typeck.c (check_return_expr): Use DECL_OVERLOADED_OPERATOR_IS.
+
+	* cp-tree.h (IDENTIFIER_CP_INDEX): Define.
+	(enum ovl_op_flags): Add OVL_OP_FLAG_AMBIARY.
+	(enum ovl_op_code): New.
+	(struct ovl_op_info): Add ovl_op_code field.
+	(ovl_op_info): Size by OVL_OP_MAX.
+	(ovl_op_mapping, ovl_op_alternate): Declare.
+	(OVL_OP_INFO): Adjust for mapping array.
+	(IDENTIFIER_OVL_OP_INFO): New.
+	* decl.c (ambi_op_p, unary_op_p): Delete.
+	(grok_op_properties): Use IDENTIFIER_OVL_OP_INFO and
+	ovl_op_alternate.
+	* lex.c (ovl_op_info): Adjust and static initialize.
+	(ovl_op_mappings, ovl_op_alternate): Define.
+	(init_operators): Iterate over ovl_op_info array and init mappings
+	& alternate arrays.
+	* mangle.c (write_unqualified_id): Use IDENTIFIER_OVL_OP_INFO.
+	* operators.def (DEF_OPERATOR): Remove KIND parm.
+	(DEF_SIMPLE_OPERATOR): Delete.
+	(OPERATOR_TRANSITION): Expand if defined.
+
 2017-10-31  David Malcolm  <dmalcolm@redhat.com>
 
 	* pt.c (listify): Use %< and %> for description of #include.

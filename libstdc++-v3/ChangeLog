@@ -1,3 +1,66 @@
+2017-11-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops-common.h (make_file_type) [S_ISSOCK]: Only use
+	S_ISSOCK when defined.
+
+2017-11-06  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/libstdc++-prettyprinters/tr1.cc:  Compile with -O0.
+
+2017-11-06  Martin Liska  <mliska@suse.cz>
+
+	* testsuite/27_io/basic_fstream/cons/char/path.cc (main):
+	  Return a value for functions with non-void return type,
+	  or change type to void, or add -Wno-return-type for test.
+	* testsuite/27_io/basic_ifstream/cons/char/path.cc (main):
+	Likewise.
+	* testsuite/27_io/basic_ofstream/open/char/path.cc (main):
+	Likewise.
+
+2017-11-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/optional/cons/deduction.cc: Avoid -Wreturn-type
+	warnings.
+	* testsuite/20_util/pair/cons/deduction.cc: Likewise.
+	* testsuite/20_util/pair/traits.cc: Likewise.
+	* testsuite/20_util/tuple/cons/deduction.cc: Likewise.
+	* testsuite/20_util/variant/compile.cc: Likewise.
+	* testsuite/23_containers/map/modifiers/try_emplace/1.cc: Likewise.
+	* testsuite/23_containers/unordered_map/modifiers/try_emplace.cc:
+	Likewise.
+
+2017-11-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/abi.xml: Move docs.oracle.com references to https.
+
+2017-11-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/type_traits (endian): Define new enumeration type.
+	* testsuite/20_util/endian/1.cc: New test.
+
+	* include/bits/node_handle.h (_Node_insert_return::get): Remove, as
+	per P0508R0.
+
+2017-11-01  François Dumont  <fdumont@gcc.gnu.org>
+
+	* python/libstdcxx/v6/printers.py (StdExpAnyPrinter.__init__): Strip
+	typename versioned namespace before the substitution.
+	(StdExpOptionalPrinter.__init__): Likewise.
+	(StdVariantPrinter.__init__): Likewise.
+	(Printer.add_version): Inject versioned namespace after std or
+	__gnu_cxx.
+	(build_libstdcxx_dictionary): Adapt add_version usages, always pass
+	namespace first and symbol second.
+
+2017-11-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/82777
+	* src/filesystem/std-path.cc (path::lexically_normal): Remove dot-dot
+	elements correctly.
+	* testsuite/27_io/filesystem/path/generation/normal.cc: Add testcase.
+	* testsuite/util/testsuite_fs.h (compare_paths): Improve exception
+	text.
+
 2017-10-30  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/Makefile.am (stamp-bits-sup): Do not create broken symlink

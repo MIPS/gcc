@@ -101,6 +101,8 @@ static void ix86_print_operand_address_as (FILE *, rtx, addr_space_t, bool);
 static bool ix86_save_reg (unsigned int, bool, bool);
 static bool ix86_function_naked (const_tree);
 static bool ix86_notrack_prefixed_insn_p (rtx);
+static void ix86_emit_restore_reg_using_pop (rtx);
+
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -2741,7 +2743,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
      ISAs come first.  Target string will be displayed in the same order.  */
   static struct ix86_target_opts isa2_opts[] =
   {
-    { "-mgfni",		OPTION_MASK_ISA_GFNI },
+    { "-mmpx",		OPTION_MASK_ISA_MPX },
     { "-mrdpid",	OPTION_MASK_ISA_RDPID },
     { "-msgx",		OPTION_MASK_ISA_SGX },
     { "-mavx5124vnniw", OPTION_MASK_ISA_AVX5124VNNIW },
@@ -2752,6 +2754,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
   };
   static struct ix86_target_opts isa_opts[] =
   {
+    { "-mgfni",		OPTION_MASK_ISA_GFNI },
     { "-mavx512vbmi",	OPTION_MASK_ISA_AVX512VBMI },
     { "-mavx512ifma",	OPTION_MASK_ISA_AVX512IFMA },
     { "-mavx512vl",	OPTION_MASK_ISA_AVX512VL },
@@ -2809,7 +2812,6 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
     { "-mlwp",		OPTION_MASK_ISA_LWP },
     { "-mhle",		OPTION_MASK_ISA_HLE },
     { "-mfxsr",		OPTION_MASK_ISA_FXSR },
-    { "-mmpx",		OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB }
   };
 
@@ -4077,8 +4079,8 @@ ix86_option_override_internal (bool main_args_p,
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512VL))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512VL;
         if (processor_alias_table[i].flags & PTA_MPX
-            && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MPX))
-          opts->x_ix86_isa_flags |= OPTION_MASK_ISA_MPX;
+            && !(opts->x_ix86_isa_flags2_explicit & OPTION_MASK_ISA_MPX))
+          opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_MPX;
 	if (processor_alias_table[i].flags & PTA_AVX512VBMI
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512VBMI))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512VBMI;
@@ -4121,10 +4123,10 @@ ix86_option_override_internal (bool main_args_p,
 	break;
       }
 
-  if (TARGET_X32 && (opts->x_ix86_isa_flags & OPTION_MASK_ISA_MPX))
+  if (TARGET_X32 && (opts->x_ix86_isa_flags2 & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
-  if (TARGET_X32 && (ix86_isa_flags & OPTION_MASK_ISA_MPX))
+  if (TARGET_X32 && (ix86_isa_flags2 & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
   if (i == pta_size)
@@ -10484,8 +10486,6 @@ symbolic_reference_mentioned_p (rtx op)
 bool
 ix86_can_use_return_insn_p (void)
 {
-  struct ix86_frame frame;
-
   if (ix86_function_naked (current_function_decl))
     return false;
 
@@ -10500,7 +10500,7 @@ ix86_can_use_return_insn_p (void)
   if (crtl->args.pops_args && crtl->args.size >= 32768)
     return 0;
 
-  frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
   return (frame.stack_pointer_offset == UNITS_PER_WORD
 	  && (frame.nregs + frame.nsseregs) == 0);
 }
@@ -10994,7 +10994,7 @@ ix86_can_eliminate (const int from, const int to)
 HOST_WIDE_INT
 ix86_initial_elimination_offset (int from, int to)
 {
-  struct ix86_frame frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
 
   if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     return frame.hard_frame_pointer_offset;
@@ -11515,12 +11515,15 @@ choose_basereg (HOST_WIDE_INT cfa_offset, rtx &base_reg,
    an alignment value (in bits) that is preferred or zero and will
    recieve the alignment of the base register that was selected,
    irrespective of rather or not CFA_OFFSET is a multiple of that
-   alignment value.
+   alignment value.  If it is possible for the base register offset to be
+   non-immediate then SCRATCH_REGNO should specify a scratch register to
+   use.
 
    The valid base registers are taken from CFUN->MACHINE->FS.  */
 
 static rtx
-choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align)
+choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align,
+		 unsigned int scratch_regno = INVALID_REGNUM)
 {
   rtx base_reg = NULL;
   HOST_WIDE_INT base_offset = 0;
@@ -11534,6 +11537,19 @@ choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align)
     choose_basereg (cfa_offset, base_reg, base_offset, 0, align);
 
   gcc_assert (base_reg != NULL);
+
+  rtx base_offset_rtx = GEN_INT (base_offset);
+
+  if (!x86_64_immediate_operand (base_offset_rtx, Pmode))
+    {
+      gcc_assert (scratch_regno != INVALID_REGNUM);
+
+      rtx scratch_reg = gen_rtx_REG (Pmode, scratch_regno);
+      emit_move_insn (scratch_reg, base_offset_rtx);
+
+      return gen_rtx_PLUS (Pmode, base_reg, scratch_reg);
+    }
+
   return plus_constant (Pmode, base_reg, base_offset);
 }
 
@@ -12081,7 +12097,17 @@ release_scratch_register_on_entry (struct scratch_reg *sr)
     }
 }
 
-#define PROBE_INTERVAL (1 << STACK_CHECK_PROBE_INTERVAL_EXP)
+/* Return the probing interval for -fstack-clash-protection.  */
+
+static HOST_WIDE_INT
+get_probe_interval (void)
+{
+  if (flag_stack_clash_protection)
+    return (HOST_WIDE_INT_1U
+	    << PARAM_VALUE (PARAM_STACK_CLASH_PROTECTION_PROBE_INTERVAL));
+  else
+    return (HOST_WIDE_INT_1U << STACK_CHECK_PROBE_INTERVAL_EXP);
+}
 
 /* Emit code to adjust the stack pointer by SIZE bytes while probing it.
 
@@ -12124,8 +12150,14 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
      we just probe when we cross PROBE_INTERVAL.  */
   if (TREE_THIS_VOLATILE (cfun->decl))
     {
-      emit_stack_probe (plus_constant (Pmode, stack_pointer_rtx,
-				       -GET_MODE_SIZE (word_mode)));
+      /* We can safely use any register here since we're just going to push
+	 its value and immediately pop it back.  But we do try and avoid
+	 argument passing registers so as not to introduce dependencies in
+	 the pipeline.  For 32 bit we use %esi and for 64 bit we use %rax.  */
+      rtx dummy_reg = gen_rtx_REG (word_mode, TARGET_64BIT ? AX_REG : SI_REG);
+      rtx_insn *insn = emit_insn (gen_push (dummy_reg));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      ix86_emit_restore_reg_using_pop (dummy_reg);
       emit_insn (gen_blockage ());
     }
 
@@ -12144,8 +12176,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
   /* We're allocating a large enough stack frame that we need to
      emit probes.  Either emit them inline or in a loop depending
      on the size.  */
-  HOST_WIDE_INT probe_interval
-    = 1 << PARAM_VALUE (PARAM_STACK_CLASH_PROTECTION_PROBE_INTERVAL);
+  HOST_WIDE_INT probe_interval = get_probe_interval ();
   if (size <= 4 * probe_interval)
     {
       HOST_WIDE_INT i;
@@ -12154,7 +12185,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
 	  /* Allocate PROBE_INTERVAL bytes.  */
 	  rtx insn
 	    = pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-					 GEN_INT (-PROBE_INTERVAL), -1,
+					 GEN_INT (-probe_interval), -1,
 					 m->fs.cfa_reg == stack_pointer_rtx);
 	  add_reg_note (insn, REG_STACK_CHECK, const0_rtx);
 
@@ -12247,7 +12278,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
      that's the easy case.  The run-time loop is made up of 9 insns in the
      generic case while the compile-time loop is made up of 3+2*(n-1) insns
      for n # of intervals.  */
-  if (size <= 4 * PROBE_INTERVAL)
+  if (size <= 4 * get_probe_interval ())
     {
       HOST_WIDE_INT i, adjust;
       bool first_probe = true;
@@ -12256,15 +12287,15 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 	 values of N from 1 until it exceeds SIZE.  If only one probe is
 	 needed, this will not generate any code.  Then adjust and probe
 	 to PROBE_INTERVAL + SIZE.  */
-      for (i = PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+      for (i = get_probe_interval (); i < size; i += get_probe_interval ())
 	{
 	  if (first_probe)
 	    {
-	      adjust = 2 * PROBE_INTERVAL + dope;
+	      adjust = 2 * get_probe_interval () + dope;
 	      first_probe = false;
 	    }
 	  else
-	    adjust = PROBE_INTERVAL;
+	    adjust = get_probe_interval ();
 
 	  emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				  plus_constant (Pmode, stack_pointer_rtx,
@@ -12273,9 +12304,9 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 	}
 
       if (first_probe)
-	adjust = size + PROBE_INTERVAL + dope;
+	adjust = size + get_probe_interval () + dope;
       else
-        adjust = size + PROBE_INTERVAL - i;
+        adjust = size + get_probe_interval () - i;
 
       emit_insn (gen_rtx_SET (stack_pointer_rtx,
 			      plus_constant (Pmode, stack_pointer_rtx,
@@ -12285,7 +12316,8 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* Adjust back to account for the additional first interval.  */
       last = emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				     plus_constant (Pmode, stack_pointer_rtx,
-						    PROBE_INTERVAL + dope)));
+						    (get_probe_interval ()
+						     + dope))));
     }
 
   /* Otherwise, do the same as above, but in a loop.  Note that we must be
@@ -12303,7 +12335,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
+      rounded_size = ROUND_DOWN (size, get_probe_interval ());
 
 
       /* Step 2: compute initial and final value of the loop counter.  */
@@ -12311,7 +12343,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* SP = SP_0 + PROBE_INTERVAL.  */
       emit_insn (gen_rtx_SET (stack_pointer_rtx,
 			      plus_constant (Pmode, stack_pointer_rtx,
-					     - (PROBE_INTERVAL + dope))));
+					     - (get_probe_interval () + dope))));
 
       /* LAST_ADDR = SP_0 + PROBE_INTERVAL + ROUNDED_SIZE.  */
       if (rounded_size <= (HOST_WIDE_INT_1 << 31))
@@ -12356,7 +12388,8 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* Adjust back to account for the additional first interval.  */
       last = emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				     plus_constant (Pmode, stack_pointer_rtx,
-						    PROBE_INTERVAL + dope)));
+						    (get_probe_interval ()
+						     + dope))));
 
       release_scratch_register_on_entry (&sr);
     }
@@ -12373,7 +12406,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       XVECEXP (expr, 0, 1)
 	= gen_rtx_SET (stack_pointer_rtx,
 		       plus_constant (Pmode, stack_pointer_rtx,
-				      PROBE_INTERVAL + dope + size));
+				      get_probe_interval () + dope + size));
       add_reg_note (last, REG_FRAME_RELATED_EXPR, expr);
       RTX_FRAME_RELATED_P (last) = 1;
 
@@ -12400,7 +12433,7 @@ output_adjust_stack_and_probe (rtx reg)
 
   /* SP = SP + PROBE_INTERVAL.  */
   xops[0] = stack_pointer_rtx;
-  xops[1] = GEN_INT (PROBE_INTERVAL);
+  xops[1] = GEN_INT (get_probe_interval ());
   output_asm_insn ("sub%z0\t{%1, %0|%0, %1}", xops);
 
   /* Probe at SP.  */
@@ -12430,14 +12463,14 @@ ix86_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
      that's the easy case.  The run-time loop is made up of 6 insns in the
      generic case while the compile-time loop is made up of n insns for n #
      of intervals.  */
-  if (size <= 6 * PROBE_INTERVAL)
+  if (size <= 6 * get_probe_interval ())
     {
       HOST_WIDE_INT i;
 
       /* Probe at FIRST + N * PROBE_INTERVAL for values of N from 1 until
 	 it exceeds SIZE.  If only one probe is needed, this will not
 	 generate any code.  Then probe at FIRST + SIZE.  */
-      for (i = PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+      for (i = get_probe_interval (); i < size; i += get_probe_interval ())
 	emit_stack_probe (plus_constant (Pmode, stack_pointer_rtx,
 					 -(first + i)));
 
@@ -12460,7 +12493,7 @@ ix86_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
+      rounded_size = ROUND_DOWN (size, get_probe_interval ());
 
 
       /* Step 2: compute initial and final value of the loop counter.  */
@@ -12521,7 +12554,7 @@ output_probe_stack_range (rtx reg, rtx end)
 
   /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
   xops[0] = reg;
-  xops[1] = GEN_INT (PROBE_INTERVAL);
+  xops[1] = GEN_INT (get_probe_interval ());
   output_asm_insn ("sub%z0\t{%1, %0|%0, %1}", xops);
 
   /* Probe at TEST_ADDR.  */
@@ -12793,23 +12826,19 @@ ix86_emit_outlined_ms2sysv_save (const struct ix86_frame &frame)
   rtx sym, addr;
   rtx rax = gen_rtx_REG (word_mode, AX_REG);
   const struct xlogue_layout &xlogue = xlogue_layout::get_instance ();
-  HOST_WIDE_INT allocate = frame.stack_pointer_offset - m->fs.sp_offset;
 
   /* AL should only be live with sysv_abi.  */
   gcc_assert (!ix86_eax_live_at_start_p ());
+  gcc_assert (m->fs.sp_offset >= frame.sse_reg_save_offset);
 
   /* Setup RAX as the stub's base pointer.  We use stack_realign_offset rather
      we've actually realigned the stack or not.  */
   align = GET_MODE_ALIGNMENT (V4SFmode);
   addr = choose_baseaddr (frame.stack_realign_offset
-			  + xlogue.get_stub_ptr_offset (), &align);
+			  + xlogue.get_stub_ptr_offset (), &align, AX_REG);
   gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
-  emit_insn (gen_rtx_SET (rax, addr));
 
-  /* Allocate stack if not already done.  */
-  if (allocate > 0)
-      pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-				GEN_INT (-allocate), -1, false);
+  emit_insn (gen_rtx_SET (rax, addr));
 
   /* Get the stub symbol.  */
   sym = xlogue.get_stub_rtx (frame_pointer_needed ? XLOGUE_STUB_SAVE_HFP
@@ -12841,6 +12870,7 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
   bool int_registers_saved;
   bool sse_registers_saved;
+  bool save_stub_call_needed;
   rtx static_chain = NULL_RTX;
 
   if (ix86_function_naked (current_function_decl))
@@ -13016,6 +13046,8 @@ ix86_expand_prologue (void)
 
   int_registers_saved = (frame.nregs == 0);
   sse_registers_saved = (frame.nsseregs == 0);
+  save_stub_call_needed = (m->call_ms2sysv);
+  gcc_assert (sse_registers_saved || !save_stub_call_needed);
 
   if (frame_pointer_needed && !m->fs.fp_valid)
     {
@@ -13110,10 +13142,28 @@ ix86_expand_prologue (void)
 	 target.  */
       if (TARGET_SEH)
 	m->fs.sp_valid = false;
-    }
 
-  if (m->call_ms2sysv)
-    ix86_emit_outlined_ms2sysv_save (frame);
+      /* If SP offset is non-immediate after allocation of the stack frame,
+	 then emit SSE saves or stub call prior to allocating the rest of the
+	 stack frame.  This is less efficient for the out-of-line stub because
+	 we can't combine allocations across the call barrier, but it's better
+	 than using a scratch register.  */
+      else if (!x86_64_immediate_operand (GEN_INT (frame.stack_pointer_offset
+						   - m->fs.sp_realigned_offset),
+					  Pmode))
+	{
+	  if (!sse_registers_saved)
+	    {
+	      ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
+	      sse_registers_saved = true;
+	    }
+	  else if (save_stub_call_needed)
+	    {
+	      ix86_emit_outlined_ms2sysv_save (frame);
+	      save_stub_call_needed = false;
+	    }
+	}
+    }
 
   allocate = frame.stack_pointer_offset - m->fs.sp_offset;
 
@@ -13167,8 +13217,12 @@ ix86_expand_prologue (void)
       && (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
 	  || flag_stack_clash_protection))
     {
-      /* We expect the GP registers to be saved when probes are used.  */
-      gcc_assert (int_registers_saved);
+      /* This assert wants to verify that integer registers were saved
+	 prior to probing.  This is necessary when probing may be implemented
+	 as a function call (Windows).  It is not necessary for stack clash
+	 protection probing.  */
+      if (!flag_stack_clash_protection)
+	gcc_assert (int_registers_saved);
 
       if (flag_stack_clash_protection)
 	{
@@ -13178,7 +13232,7 @@ ix86_expand_prologue (void)
       else if (STACK_CHECK_MOVING_SP)
 	{
 	  if (!(crtl->is_leaf && !cfun->calls_alloca
-		&& allocate <= PROBE_INTERVAL))
+		&& allocate <= get_probe_interval ()))
 	    {
 	      ix86_adjust_stack_and_probe (allocate);
 	      allocate = 0;
@@ -13195,7 +13249,7 @@ ix86_expand_prologue (void)
 	    {
 	      if (crtl->is_leaf && !cfun->calls_alloca)
 		{
-		  if (size > PROBE_INTERVAL)
+		  if (size > get_probe_interval ())
 		    ix86_emit_probe_stack_range (0, size);
 		}
 	      else
@@ -13206,7 +13260,7 @@ ix86_expand_prologue (void)
 	    {
 	      if (crtl->is_leaf && !cfun->calls_alloca)
 		{
-		  if (size > PROBE_INTERVAL
+		  if (size > get_probe_interval ()
 		      && size > get_stack_check_protect ())
 		    ix86_emit_probe_stack_range (get_stack_check_protect (),
 						 size - get_stack_check_protect ());
@@ -13337,6 +13391,8 @@ ix86_expand_prologue (void)
     ix86_emit_save_regs_using_mov (frame.reg_save_offset);
   if (!sse_registers_saved)
     ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
+  else if (save_stub_call_needed)
+    ix86_emit_outlined_ms2sysv_save (frame);
 
   /* For the mcount profiling on 32 bit PIC mode we need to emit SET_GOT
      in PROLOGUE.  */
@@ -13577,8 +13633,9 @@ ix86_emit_outlined_ms2sysv_restore (const struct ix86_frame &frame,
 
   /* Setup RSI as the stub's base pointer.  */
   align = GET_MODE_ALIGNMENT (V4SFmode);
-  tmp = choose_baseaddr (rsi_offset, &align);
+  tmp = choose_baseaddr (rsi_offset, &align, SI_REG);
   gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
+
   emit_insn (gen_rtx_SET (rsi, tmp));
 
   /* Get a symbol for the stub.  */
@@ -14275,7 +14332,6 @@ ix86_split_stack_guard (void)
 void
 ix86_expand_split_stack_prologue (void)
 {
-  struct ix86_frame frame;
   HOST_WIDE_INT allocate;
   unsigned HOST_WIDE_INT args_size;
   rtx_code_label *label;
@@ -14287,7 +14343,7 @@ ix86_expand_split_stack_prologue (void)
   gcc_assert (flag_split_stack && reload_completed);
 
   ix86_finalize_stack_frame_flags ();
-  frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
   allocate = frame.stack_pointer_offset - INCOMING_FRAME_SP_OFFSET;
 
   /* This is the label we will branch to if we have enough stack
@@ -19722,7 +19778,8 @@ ix86_swap_binary_operands_p (enum rtx_code code, machine_mode mode,
   rtx src2 = operands[2];
 
   /* If the operation is not commutative, we can't do anything.  */
-  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH)
+  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH
+      && GET_RTX_CLASS (code) != RTX_COMM_COMPARE)
     return false;
 
   /* Highest priority is that src1 should match dst.  */
@@ -19953,7 +20010,7 @@ ix86_binary_operator_ok (enum rtx_code code, machine_mode mode,
 
   /* If the destination is memory, we must have a matching source operand.  */
   if (MEM_P (dst) && !rtx_equal_p (dst, src1))
-      return false;
+    return false;
 
   /* Source 1 cannot be a constant.  */
   if (CONSTANT_P (src1))
@@ -24334,9 +24391,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  t2 = gen_reg_rtx (V32QImode);
 	  t3 = gen_reg_rtx (V32QImode);
 	  vt2 = GEN_INT (-128);
-	  for (i = 0; i < 32; i++)
-	    vec[i] = vt2;
-	  vt = gen_rtx_CONST_VECTOR (V32QImode, gen_rtvec_v (32, vec));
+	  vt = gen_const_vec_duplicate (V32QImode, vt2);
 	  vt = force_reg (V32QImode, vt);
 	  for (i = 0; i < 32; i++)
 	    vec[i] = i < 16 ? vt2 : const0_rtx;
@@ -24444,9 +24499,7 @@ ix86_expand_vec_perm (rtx operands[])
       vt = GEN_INT (w - 1);
     }
 
-  for (i = 0; i < w; i++)
-    vec[i] = vt;
-  vt = gen_rtx_CONST_VECTOR (maskmode, gen_rtvec_v (w, vec));
+  vt = gen_const_vec_duplicate (maskmode, vt);
   mask = expand_simple_binop (maskmode, AND, mask, vt,
 			      NULL_RTX, 0, OPTAB_DIRECT);
 
@@ -24536,9 +24589,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  e = w = 4;
 	}
 
-      for (i = 0; i < w; i++)
-	vec[i] = vt;
-      vt = gen_rtx_CONST_VECTOR (maskmode, gen_rtvec_v (w, vec));
+      vt = gen_const_vec_duplicate (maskmode, vt);
       vt = force_reg (maskmode, vt);
       mask = expand_simple_binop (maskmode, AND, mask, vt,
 				  NULL_RTX, 0, OPTAB_DIRECT);
@@ -30740,7 +30791,7 @@ ix86_init_mpx_builtins ()
 	continue;
 
       ftype = (enum ix86_builtin_func_type) d->flag;
-      decl = def_builtin (d->mask, d->name, ftype, d->code);
+      decl = def_builtin2 (d->mask, d->name, ftype, d->code);
 
       /* With no leaf and nothrow flags for MPX builtins
 	 abnormal edges may follow its call when setjmp
@@ -30773,7 +30824,7 @@ ix86_init_mpx_builtins ()
 	continue;
 
       ftype = (enum ix86_builtin_func_type) d->flag;
-      decl = def_builtin_const (d->mask, d->name, ftype, d->code);
+      decl = def_builtin_const2 (d->mask, d->name, ftype, d->code);
 
       if (decl)
 	{
@@ -35128,10 +35179,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
      at all, -m64 is a whole TU option.  */
   if (((ix86_builtins_isa[fcode].isa
 	& ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_MMX
-	    | OPTION_MASK_ISA_64BIT))
+	    | OPTION_MASK_ISA_64BIT | OPTION_MASK_ISA_GFNI))
        && !(ix86_builtins_isa[fcode].isa
 	    & ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_MMX
-		| OPTION_MASK_ISA_64BIT)
+		| OPTION_MASK_ISA_64BIT | OPTION_MASK_ISA_GFNI)
 	    & ix86_isa_flags))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_AVX512VL)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_AVX512VL))
@@ -41224,7 +41275,7 @@ ix86_vector_duplicate_value (machine_mode mode, rtx target, rtx val)
   rtx dup;
 
   /* First attempt to recognize VAL as-is.  */
-  dup = gen_rtx_VEC_DUPLICATE (mode, val);
+  dup = gen_vec_duplicate (mode, val);
   insn = emit_insn (gen_rtx_SET (target, dup));
   if (recog_memoized (insn) < 0)
     {
@@ -41238,7 +41289,7 @@ ix86_vector_duplicate_value (machine_mode mode, rtx target, rtx val)
       reg = force_reg (innermode, val);
       if (GET_MODE (reg) != innermode)
 	reg = gen_lowpart (innermode, reg);
-      XEXP (dup, 0) = reg;
+      SET_SRC (PATTERN (insn)) = gen_vec_duplicate (mode, reg);
       seq = get_insns ();
       end_sequence ();
       if (seq)
@@ -46582,7 +46633,7 @@ expand_vec_perm_vpshufb2_vpermq_even_odd (struct expand_vec_perm_d *d)
 static bool
 expand_vec_perm_even_odd_pack (struct expand_vec_perm_d *d)
 {
-  rtx op, dop0, dop1, t, rperm[16];
+  rtx op, dop0, dop1, t;
   unsigned i, odd, c, s, nelt = d->nelt;
   bool end_perm = false;
   machine_mode half_mode;
@@ -46659,9 +46710,7 @@ expand_vec_perm_even_odd_pack (struct expand_vec_perm_d *d)
   dop1 = gen_reg_rtx (half_mode);
   if (odd == 0)
     {
-      for (i = 0; i < nelt / 2; i++)
-	rperm[i] = GEN_INT (c);
-      t = gen_rtx_CONST_VECTOR (half_mode, gen_rtvec_v (nelt / 2, rperm));
+      t = gen_const_vec_duplicate (half_mode, GEN_INT (c));
       t = force_reg (half_mode, t);
       emit_insn (gen_and (dop0, t, gen_lowpart (half_mode, d->op0)));
       emit_insn (gen_and (dop1, t, gen_lowpart (half_mode, d->op1)));

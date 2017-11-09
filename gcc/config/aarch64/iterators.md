@@ -322,16 +322,21 @@
     UNSPEC_TBL		; Used in vector permute patterns.
     UNSPEC_TBX		; Used in vector permute patterns.
     UNSPEC_CONCAT	; Used in vector permute patterns.
+
+    ;; The following permute unspecs are generated directly by
+    ;; aarch64_expand_vec_perm_const, so any changes to the underlying
+    ;; instructions would need a corresponding change there.
     UNSPEC_ZIP1		; Used in vector permute patterns.
     UNSPEC_ZIP2		; Used in vector permute patterns.
     UNSPEC_UZP1		; Used in vector permute patterns.
     UNSPEC_UZP2		; Used in vector permute patterns.
     UNSPEC_TRN1		; Used in vector permute patterns.
     UNSPEC_TRN2		; Used in vector permute patterns.
-    UNSPEC_EXT		; Used in aarch64-simd.md.
+    UNSPEC_EXT		; Used in vector permute patterns.
     UNSPEC_REV64	; Used in vector reverse patterns (permute).
     UNSPEC_REV32	; Used in vector reverse patterns (permute).
     UNSPEC_REV16	; Used in vector reverse patterns (permute).
+
     UNSPEC_AESE		; Used in aarch64-simd.md.
     UNSPEC_AESD         ; Used in aarch64-simd.md.
     UNSPEC_AESMC        ; Used in aarch64-simd.md.
@@ -444,6 +449,17 @@
 ;; lane 0).
 (define_mode_attr rtn [(DI "d") (SI "")])
 (define_mode_attr vas [(DI "") (SI ".2s")])
+
+;; Map a vector to the number of units in it, if the size of the mode
+;; is constant.
+(define_mode_attr nunits [(V8QI "8") (V16QI "16")
+			  (V4HI "4") (V8HI "8")
+			  (V2SI "2") (V4SI "4")
+				     (V2DI "2")
+			  (V4HF "4") (V8HF "8")
+			  (V2SF "2") (V4SF "4")
+			  (V1DF "1") (V2DF "2")
+			  (DI "1") (DF "1")])
 
 ;; Map a floating point or integer mode to the appropriate register name prefix
 (define_mode_attr s [(HF "h") (SF "s") (DF "d") (SI "s") (DI "d")])

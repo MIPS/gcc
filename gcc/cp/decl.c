@@ -65,8 +65,6 @@ static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
 static void require_complete_types_for_parms (tree);
-static bool ambi_op_p (enum tree_code);
-static bool unary_op_p (enum tree_code);
 static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, int);
 static tree grokvardecl (tree, tree, tree, const cp_decl_specifier_seq *,
@@ -1922,8 +1920,8 @@ next_arg:;
       DECL_OVERRIDE_P (newdecl) |= DECL_OVERRIDE_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl))
-	DECL_OVERLOADED_OPERATOR_CODE (newdecl)
-	  = DECL_OVERLOADED_OPERATOR_CODE (olddecl);
+	DECL_OVERLOADED_OPERATOR_CODE_RAW (newdecl)
+	  = DECL_OVERLOADED_OPERATOR_CODE_RAW (olddecl);
       new_defines_function = DECL_INITIAL (newdecl) != NULL_TREE;
 
       /* Optionally warn about more than one declaration for the same
@@ -4446,7 +4444,8 @@ build_library_fn (tree name, enum tree_code operator_code, tree type,
   DECL_EXTERNAL (fn) = 1;
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
-  DECL_OVERLOADED_OPERATOR_CODE (fn) = operator_code;
+  DECL_OVERLOADED_OPERATOR_CODE_RAW (fn)
+    = OVL_OP_INFO (false, operator_code)->ovl_op_code;
   SET_DECL_LANGUAGE (fn, lang_c);
   /* Runtime library routines are, by definition, available in an
      external shared object.  */
@@ -10789,17 +10788,26 @@ grokdeclarator (const cp_declarator *declarator,
 					    attr_flags);
 	}
 
+      inner_declarator = declarator->declarator;
+
       /* We don't want to warn in parmeter context because we don't
 	 yet know if the parse will succeed, and this might turn out
 	 to be a constructor call.  */
       if (decl_context != PARM
-	  && declarator->parenthesized != UNKNOWN_LOCATION)
+	  && declarator->parenthesized != UNKNOWN_LOCATION
+	  /* If the type is class-like and the inner name used a
+	     global namespace qualifier, we need the parens.
+	     Unfortunately all we can tell is whether a qualified name
+	     was used or not.  */
+	  && !(inner_declarator
+	       && inner_declarator->kind == cdk_id
+	       && inner_declarator->u.id.qualifying_scope
+	       && (MAYBE_CLASS_TYPE_P (type)
+		   || TREE_CODE (type) == ENUMERAL_TYPE)))
 	warning_at (declarator->parenthesized, OPT_Wparentheses,
 		    "unnecessary parentheses in declaration of %qs", name);
       if (declarator->kind == cdk_id || declarator->kind == cdk_decomp)
 	break;
-
-      inner_declarator = declarator->declarator;
 
       switch (declarator->kind)
 	{
@@ -12874,30 +12882,6 @@ grok_ctor_properties (const_tree ctype, const_tree decl)
   return true;
 }
 
-/* An operator with this code is unary, but can also be binary.  */
-
-static bool
-ambi_op_p (enum tree_code code)
-{
-  return (code == INDIRECT_REF
-	  || code == ADDR_EXPR
-	  || code == UNARY_PLUS_EXPR
-	  || code == NEGATE_EXPR
-	  || code == PREINCREMENT_EXPR
-	  || code == PREDECREMENT_EXPR);
-}
-
-/* An operator with this name can only be unary.  */
-
-static bool
-unary_op_p (enum tree_code code)
-{
-  return (code == TRUTH_NOT_EXPR
-	  || code == BIT_NOT_EXPR
-	  || code == COMPONENT_REF
-	  || code == TYPE_EXPR);
-}
-
 /* DECL is a declaration for an overloaded or conversion operator.  If
    COMPLAIN is true, errors are issued for invalid declarations.  */
 
@@ -12905,15 +12889,15 @@ bool
 grok_op_properties (tree decl, bool complain)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
-  int methodp = (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE);
+  bool methodp = TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE;
   tree name = DECL_NAME (decl);
 
   tree class_type = DECL_CONTEXT (decl);
   if (class_type && !CLASS_TYPE_P (class_type))
     class_type = NULL_TREE;
 
-  tree_code operator_code = ERROR_MARK;
-  unsigned op_flags = OVL_OP_FLAG_NONE;
+  tree_code operator_code;
+  unsigned op_flags;
   if (IDENTIFIER_CONV_OP_P (name))
     {
       /* Conversion operators are TYPE_EXPR for the purposes of this
@@ -12923,22 +12907,12 @@ grok_op_properties (tree decl, bool complain)
     }
   else
     {
-      /* It'd be nice to hang something else of the identifier to
-	 find CODE more directly.  */
-      bool assign_op = IDENTIFIER_ASSIGN_OP_P (name);
-      const ovl_op_info_t *ovl_op = OVL_OP_INFO (assign_op, 0);
-      if (false)
-	;
-#define DEF_OPERATOR(NAME, CODE, MANGLING, FLAGS, KIND)		\
-      else if (ovl_op[CODE].identifier == name)			\
-	operator_code = (CODE);
-#include "operators.def"
-#undef DEF_OPERATOR
-      else
-	gcc_unreachable ();
-      gcc_assert (operator_code != ERROR_MARK);
-      op_flags = ovl_op[operator_code].flags;
-      DECL_OVERLOADED_OPERATOR_CODE (decl) = operator_code;
+      const ovl_op_info_t *ovl_op = IDENTIFIER_OVL_OP_INFO (name);
+
+      operator_code = ovl_op->tree_code;
+      op_flags = ovl_op->flags;
+      gcc_checking_assert (operator_code != ERROR_MARK);
+      DECL_OVERLOADED_OPERATOR_CODE_RAW (decl) = ovl_op->ovl_op_code;
     }
 
   if (op_flags & OVL_OP_FLAG_ALLOC)
@@ -13071,70 +13045,43 @@ grok_op_properties (tree decl, bool complain)
     }
 
   /* Verify correct number of arguments.  */
-  if (ambi_op_p (operator_code))
+  switch (op_flags)
     {
+    case OVL_OP_FLAG_AMBIARY:
       if (arity == 1)
-	/* We pick the one-argument operator codes by default, so
-	   we don't have to change anything.  */
-	;
-      else if (arity == 2)
 	{
-	  /* If we thought this was a unary operator, we now know
-	     it to be a binary operator.  */
-	  switch (operator_code)
-	    {
-	    case INDIRECT_REF:
-	      operator_code = MULT_EXPR;
-	      break;
-
-	    case ADDR_EXPR:
-	      operator_code = BIT_AND_EXPR;
-	      break;
-
-	    case UNARY_PLUS_EXPR:
-	      operator_code = PLUS_EXPR;
-	      break;
-
-	    case NEGATE_EXPR:
-	      operator_code = MINUS_EXPR;
-	      break;
-
-	    case PREINCREMENT_EXPR:
-	      operator_code = POSTINCREMENT_EXPR;
-	      break;
-
-	    case PREDECREMENT_EXPR:
-	      operator_code = POSTDECREMENT_EXPR;
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-
-	  DECL_OVERLOADED_OPERATOR_CODE (decl) = operator_code;
-
-	  if ((operator_code == POSTINCREMENT_EXPR
-	       || operator_code == POSTDECREMENT_EXPR)
-	      && ! processing_template_decl
-	      && ! same_type_p (TREE_VALUE (TREE_CHAIN (argtypes)), integer_type_node))
-	    {
-	      error (methodp
-		 ? G_("postfix %qD must have %<int%> as its argument")
-		 : G_("postfix %qD must have %<int%> as its second argument"),
-		 decl);
-	      return false;
-	    }
+	  /* We have a unary instance of an ambi-ary op.  Remap to the
+	     unary one.  */
+	  unsigned alt = ovl_op_alternate[ovl_op_mapping [operator_code]];
+	  const ovl_op_info_t *ovl_op = &ovl_op_info[false][alt];
+	  gcc_checking_assert (ovl_op->flags == OVL_OP_FLAG_UNARY);
+	  operator_code = ovl_op->tree_code;
+	  DECL_OVERLOADED_OPERATOR_CODE_RAW (decl) = ovl_op->ovl_op_code;
 	}
-      else
+      else if (arity != 2)
 	{
+	  /* This was an ambiguous operator but is invalid. */
 	  error (methodp
 		 ? G_("%qD must have either zero or one argument")
 		 : G_("%qD must have either one or two arguments"), decl);
 	  return false;
 	}
-    }
-  else if (unary_op_p (operator_code))
-    {
+      else if ((operator_code == POSTINCREMENT_EXPR
+		|| operator_code == POSTDECREMENT_EXPR)
+	       && ! processing_template_decl
+	       /* x++ and x--'s second argument must be an int.  */
+	       && ! same_type_p (TREE_VALUE (TREE_CHAIN (argtypes)),
+				 integer_type_node))
+	{
+	  error (methodp
+		 ? G_("postfix %qD must have %<int%> as its argument")
+		 : G_("postfix %qD must have %<int%> as its second argument"),
+		 decl);
+	  return false;
+	}
+      break;
+
+    case OVL_OP_FLAG_UNARY:
       if (arity != 1)
 	{
 	  error (methodp
@@ -13142,9 +13089,9 @@ grok_op_properties (tree decl, bool complain)
 		 : G_("%qD must have exactly one argument"), decl);
 	  return false;
 	}
-    }
-  else
-    {
+      break;
+
+    case OVL_OP_FLAG_BINARY:
       if (arity != 2)
 	{
 	  error (methodp
@@ -13152,8 +13099,12 @@ grok_op_properties (tree decl, bool complain)
 		 : G_("%qD must have exactly two arguments"), decl);
 	  return false;
 	}
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  
+
   /* There can be no default arguments.  */
   for (tree arg = argtypes; arg != void_list_node; arg = TREE_CHAIN (arg))
     if (TREE_PURPOSE (arg))
