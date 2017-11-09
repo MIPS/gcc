@@ -26973,9 +26973,12 @@ create_label:
 }
 
 /* Check whether BLOCK, a lexical block, is nested within OUTER, or is
-   OUTER itself.  */
+   OUTER itself.  If BOTHWAYS, check not only that BLOCK can reach
+   OUTER through BLOCK_SUPERCONTEXT links, but also that there is a
+   path from OUTER to BLOCK through BLOCK_SUBBLOCKs and
+   BLOCK_FRAGMENT_ORIGIN links.  */
 static bool
-block_within_block_p (tree block, tree outer)
+block_within_block_p (tree block, tree outer, bool bothways)
 {
   if (block == outer)
     return true;
@@ -26986,6 +26989,9 @@ block_within_block_p (tree block, tree outer)
        context = BLOCK_SUPERCONTEXT (context))
     if (!context || TREE_CODE (context) != BLOCK)
       return false;
+
+  if (!bothways)
+    return true;
 
   /* Now check that each block is actually referenced by its
      parent.  */
@@ -27017,9 +27023,16 @@ dwarf2out_inline_entry (tree block)
 {
   gcc_assert (DECL_P (block_ultimate_origin (block)));
 
+  /* Sanity check the block tree.  This would catch a case in which
+     BLOCK got removed from the tree reachable from the outermost
+     lexical block, but got retained in markers.  It would still link
+     back to its parents, but some ancestor would be missing a link
+     down the path to the sub BLOCK.  If the block got removed, its
+     BLOCK_NUMBER will not be a usable value.  */
   gcc_checking_assert (block_within_block_p (block,
 					     DECL_INITIAL
-					     (current_function_decl)));
+					     (current_function_decl),
+					     true));
 
   gcc_assert (inlined_function_outer_scope_p (block));
   gcc_assert (!BLOCK_DIE (block));
