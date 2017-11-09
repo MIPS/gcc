@@ -5249,7 +5249,12 @@
    (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48,nanomips48,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
    (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,no,no,no,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
    (set_attr "subset_16bit" "move,move,std,std,no,no,no,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
-   (set_attr "mode" "SI")])
+   (set_attr "mode" "SI")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "5")
+		    (match_test "TARGET_NANOMIPS == NANOMIPS_NMS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 
 (define_insn "*mov<mode>_mips16"
