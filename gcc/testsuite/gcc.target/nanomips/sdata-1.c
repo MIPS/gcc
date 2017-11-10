@@ -1,25 +1,25 @@
 /* { dg-require-effective-target nonpic } */
-/* { dg-options "-mgpopt -G4" } */
+/* { dg-options "-mgpopt -G4 -mno-pid" } */
 
-/* { dg-final { scan-assembler     "%gprel(32|)\\(l4a\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(l4b\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(l4c\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(e4a\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(e4b\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(c4\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(g4a\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(g4b\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(g4c\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(l4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(l4b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(l4c\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(e4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(e4b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(c4\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(g4a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(g4b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(g4c\\)" } } */
 
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(l8a\\)" } } */
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(l8b\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(l8c\\)" } } */
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(e8a\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(e8b\\)" } } */
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(c8\\)" } } */
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(g8a\\)" } } */
-/* { dg-final { scan-assembler-not "%gprel(32|)\\(g8b\\)" } } */
-/* { dg-final { scan-assembler     "%gprel(32|)\\(g8c\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(l8a\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(l8b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(l8c\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(e8a\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(e8b\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(c8\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(g8a\\)" } } */
+/* { dg-final { scan-assembler-not "%gprel(32|_hi|)\\(g8b\\)" } } */
+/* { dg-final { scan-assembler     "%gprel(32|_hi|)\\(g8c\\)" } } */
 
 static volatile int l4a;
 static volatile int l4b = 1;
