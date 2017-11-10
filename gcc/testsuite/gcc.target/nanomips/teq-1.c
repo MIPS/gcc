@@ -1,4 +1,4 @@
-/* { dg-options "-m32 -mdspr3" } */
+/* { dg-options "-m32 -mdspr3 -march=32r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0"} { "" } } */
 
 struct foo { int a; };
