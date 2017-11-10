@@ -3564,7 +3564,8 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48)
+	       : (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48
+		  && mode == MAX_MACHINE_MODE)
 		 ? 1
 		 : 2;
 
@@ -4805,7 +4806,8 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      case SYMBOL_ABSOLUTE:
-		if (mips_string_constant_p (addr))
+		if (mips_string_constant_p (addr)
+		    && mode == MAX_MACHINE_MODE)
 		  {
 		    *low_out = addr;
 		    break;
