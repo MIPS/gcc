@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6s -mno-pcrel -mno-gpopt" } */
+/* { dg-options "-m32 -march=32r6s -mno-pcrel -mno-gpopt -mno-pid" } */
 /* { dg-skip-if "" { *-*-* } { "-O1"  "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "lui\t\\\$\[ast0-9\]+,%hi\\(a_sta_4Kaligned\\)" } } */

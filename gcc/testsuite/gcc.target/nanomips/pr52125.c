@@ -1,5 +1,5 @@
 /* { dg-require-effective-target nonpic } */
-/* { dg-options "-mno-gpopt addressing=absolute -march=32r6s -mno-pcrel" } */
+/* { dg-options "-mno-gpopt addressing=absolute -march=32r6s -mno-pcrel -mno-pid" } */
 
 int a, b, c, d;
 
