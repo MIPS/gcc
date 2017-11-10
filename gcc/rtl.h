@@ -1668,6 +1668,15 @@ extern const char * const reg_note_name[];
       ? NOTE_INSN_INLINE_ENTRY			  \
       : (enum insn_note)-1) 			  \
    : (enum insn_note)-1)
+/* Create patterns for debug markers.  These and the above abstract
+   the representation, so that it's easier to get rid of the abuse of
+   the mode to hold the marker kind.  Other marker types are
+   envisioned, so a single bit flag won't do; maybe separate RTL codes
+   wouldn't be a problem.  */
+#define GEN_RTX_DEBUG_MARKER_BEGIN_STMT_PAT() \
+  gen_rtx_DEBUG_MARKER (VOIDmode)
+#define GEN_RTX_DEBUG_MARKER_INLINE_ENTRY_PAT() \
+  gen_rtx_DEBUG_MARKER (BLKmode)
 
 /* The VAR_LOCATION rtx in a DEBUG_INSN.  */
 #define INSN_VAR_LOCATION(INSN) \
