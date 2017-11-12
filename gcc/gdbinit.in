@@ -227,6 +227,7 @@ b fancy_abort
 
 # Put a breakpoint on internal_error to help with debugging ICEs.
 b internal_error
+b gfc_internal_error
 
 set complaints 0
 # Don't let abort actually run, as it will make
