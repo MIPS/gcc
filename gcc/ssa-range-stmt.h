@@ -55,7 +55,6 @@ private:
   tree ssa1, ssa2;
   enum range_stmt_state determine_state (tree op1, tree op2);
   void from_stmt (gimple *s);
-  bool fold (irange& res, irange* value1, irange* value2) const;
   class irange_operator *handler() const;
 public:
   range_stmt ();
@@ -76,8 +75,10 @@ public:
   bool logical_expr (irange& r, const irange& lhs, const irange& op1_true,
   		     const irange& op1_false, const irange& op2_true,
 		     const irange& op2_false);
-  bool fold (irange& res, FILE *trace = NULL) const;
+  bool fold (irange& res) const;
   bool fold (irange& res, tree name, const irange& name_range) const;
+  bool fold (irange& res, const irange& r1) const;
+  bool fold (irange& res, const irange& r1, const irange& r2) const;
   bool op1_irange (irange& r, const irange& lhs, const irange& op2,
 		   FILE *trace = NULL) const;
   bool op2_irange (irange& r, const irange& lhs, const irange& op1,
