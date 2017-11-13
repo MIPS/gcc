@@ -8058,7 +8058,7 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 	return 0;
 
       size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
-      return size == -1 || size > UNITS_PER_WORD;
+      return size == -1 || size > 2 * UNITS_PER_WORD;
     }
   else
     {
@@ -8471,10 +8471,12 @@ mips_build_builtin_va_list (void)
 			   ptr_type_node);
       f_goff = build_decl (BUILTINS_LOCATION,
 			   FIELD_DECL, get_identifier ("__gpr_offset"),
-			   unsigned_char_type_node);
+			   TARGET_PABI ? signed_char_type_node
+				       : unsigned_char_type_node);
       f_foff = build_decl (BUILTINS_LOCATION,
 			   FIELD_DECL, get_identifier ("__fpr_offset"),
-			   unsigned_char_type_node);
+			   TARGET_PABI ? signed_char_type_node
+				       : unsigned_char_type_node);
       /* Explicitly pad to the size of a pointer, so that -Wpadded won't
 	 warn on every user file.  */
       index = build_int_cst (NULL_TREE, GET_MODE_SIZE (ptr_mode) - 2 - 1);
@@ -8684,13 +8686,215 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 {
   tree addr;
   bool indirect_p;
+  HOST_WIDE_INT alignment;
+  int regsize;
+  machine_mode mode;
+
+  mode = TYPE_MODE (type);
 
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
+  alignment = mips_function_arg_alignment (mode, type) / BITS_PER_UNIT;
   if (indirect_p)
     type = build_pointer_type (type);
 
+  alignment = indirect_p
+	      ? PARM_BOUNDARY / BITS_PER_UNIT
+	      : mips_function_arg_alignment (mode, type) / BITS_PER_UNIT;
+
   if (!FLOAT_VARARGS_P && !TARGET_PABI)
     addr = mips_std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
+  else if (TARGET_PABI)
+    {
+      tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff;
+      tree ovfl, top, off, align;
+      HOST_WIDE_INT size, rsize, osize;
+      tree t, t2, u;
+      tree lab_ovfl, lab_reg, lab_done;
+
+      f_ovfl = TYPE_FIELDS (va_list_type_node);
+      f_gtop = DECL_CHAIN (f_ovfl);
+      f_ftop = DECL_CHAIN (f_gtop);
+      f_goff = DECL_CHAIN (f_ftop);
+      f_foff = DECL_CHAIN (f_goff);
+
+      /* Let:
+
+	 TOP be the top of the GPR or FPR save area;
+	 OFF be the offset from TOP of the next register;
+	 ADDR_RTX be the address of the argument;
+	 SIZE be the number of bytes in the argument type;
+	 RSIZE be the number of bytes used to store the argument
+	   when it's in the register save area; and
+	 OSIZE be the number of bytes used to store it when it's
+	   in the stack overflow area.
+
+	 The code we want is:
+
+	 1.  if (off > 0)
+	 2.    {
+	 3.      if (align > UNITS_PER_WORD)
+	 4.        off &= -align;
+	 5.      cur_off = off;
+	 6.      off -= rsize;
+	 7.      if (off >= 0)
+	 8.        {
+	 9.          addr_rtx = *(type *)(top - cur_off
+	 10.                     + (BYTES_BIG_ENDIAN ? RISZE - SIZE : 0));
+	 11.         goto done;
+	 12.       }
+	 13.     else
+	 14.       goto overflow;
+	 15.   }
+	 16. overflow:
+	 17.    if (align > UNITS_PER_WORD)
+	 18       {
+	 19.         ovlf = (ovfl + 2 * UNITS_PER_WORD - 1)
+	 20.                & -(2 * UNITS_PER_WORD);
+	 21.         addr_rtx = (void *) (ovfl + osize
+	 22.                 + (BYTES_BIG_ENDIAN ? RISZE - SIZE : 0));
+	 23.         ovfl += osize;
+	 24.      }
+	 25. done:
+	 26.   return *(type *) addr_rtx;
+      */
+
+      ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
+		     NULL_TREE);
+      size = int_size_in_bytes (type);
+
+      if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT
+	  && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_FPVALUE)
+	{
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_ftop),
+			unshare_expr (valist), f_ftop, NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_foff),
+			unshare_expr (valist), f_foff, NULL_TREE);
+
+	  /* When va_start saves FPR arguments to the stack, each slot
+	     takes up UNITS_PER_HWFPVALUE bytes, regardless of the
+	     argument's precision.  */
+	  rsize = UNITS_PER_HWFPVALUE;
+	  regsize = UNITS_PER_HWFPVALUE;
+
+	  /* Overflow arguments are padded to UNITS_PER_WORD bytes
+	     (= PARM_BOUNDARY bits).  This can be different from RSIZE
+	     in two cases:
+
+	     (1) On 32-bit targets when TYPE is a structure such as:
+
+	     struct s { float f; };
+
+	     Such structures are passed in paired FPRs, so RSIZE
+	     will be 8 bytes.  However, the structure only takes
+	     up 4 bytes of memory, so OSIZE will only be 4.
+
+	     (2) In combinations such as -mgp64 -msingle-float
+	     -fshort-double.  Doubles passed in registers will then take
+	     up 4 (UNITS_PER_HWFPVALUE) bytes, but those passed on the
+	     stack take up UNITS_PER_WORD bytes.  */
+	  osize = MAX (GET_MODE_SIZE (TYPE_MODE (type)), UNITS_PER_WORD);
+	}
+      else
+	{
+	  top = build3 (COMPONENT_REF, TREE_TYPE (f_gtop),
+			unshare_expr (valist), f_gtop, NULL_TREE);
+	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff),
+			unshare_expr (valist), f_goff, NULL_TREE);
+	  rsize = ROUND_UP (size, UNITS_PER_WORD);
+	  regsize = UNITS_PER_WORD;
+	  osize = rsize;
+	}
+
+      addr = create_tmp_var (ptr_type_node, "addr");
+
+      lab_ovfl = create_artificial_label (UNKNOWN_LOCATION);
+      lab_reg = create_artificial_label (UNKNOWN_LOCATION);
+      lab_done = create_artificial_label (UNKNOWN_LOCATION);
+
+      /* [1] Emit code to branch if off > 0.  */
+      t = build2 (GT_EXPR, boolean_type_node, unshare_expr (off),
+		  integer_zero_node);
+      t2 = build1 (GOTO_EXPR, void_type_node, lab_reg);
+      u = build1 (GOTO_EXPR, void_type_node, lab_ovfl);
+      t = build3 (COND_EXPR, void_type_node, t, t2, u);
+      gimplify_and_add (t, pre_p);
+
+      gimple_seq_add_stmt (pre_p, gimple_build_label (lab_reg));
+
+      if (alignment > regsize)
+	{
+	  /* [3] Emit code for: off &= -alignment.  */
+	  t = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
+		      build_int_cst (TREE_TYPE (off), -alignment));
+	  align = build2 (MODIFY_EXPR, TREE_TYPE (off), unshare_expr (off), t);
+	}
+      else
+	align = NULL;
+
+      if (align)
+	gimplify_and_add (align, pre_p);
+
+      /* [5] Emit code for: cur_off = off.  */
+      u = create_tmp_var (TREE_TYPE (off), "cur_off");
+      gimplify_assign (u, unshare_expr (off), pre_p);
+
+      /* [6] Emit code for: off -= rsize.  */
+      t = fold_convert (TREE_TYPE (off), build_int_cst (NULL_TREE, rsize));
+      t = build2 (POSTDECREMENT_EXPR, TREE_TYPE (off), off, t);
+	gimplify_and_add (t, pre_p);
+
+      /* [7] Emit code for: if off >= 0.  */
+      t = build2 (GE_EXPR, boolean_type_node, unshare_expr (off),
+		  build_int_cst (TREE_TYPE (off), 0));
+      t2 = build1 (GOTO_EXPR, void_type_node, lab_ovfl);
+      t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, t2);
+      gimplify_and_add (t, pre_p);
+
+      /* [9] addr_rtx = top - off + (BYTES_BIG_ENDIAN ? RSIZE - SIZE : 0).  */
+      t = fold_convert (sizetype, u);
+      t = fold_build1 (NEGATE_EXPR, sizetype, t);
+      t = fold_build_pointer_plus (top, t);
+      if (BYTES_BIG_ENDIAN && rsize > size)
+	t = fold_build_pointer_plus_hwi (u, rsize - size);
+      gimplify_assign (addr, t, pre_p);
+
+      /* [11] Emit code for: goto done.  */
+      gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_done));
+
+      /* Emit [16].  */
+      gimple_seq_add_stmt (pre_p, gimple_build_label (lab_ovfl));
+
+      if (alignment > UNITS_PER_WORD)
+	{
+	  /* [19] Emit: ovfl = ((intptr_t) ovfl + osize - 1) & -osize.  */
+	  t = fold_build_pointer_plus_hwi (ovfl,
+					   2 * UNITS_PER_WORD - 1);
+	  u = build_int_cst (TREE_TYPE (t), -(2 * UNITS_PER_WORD));
+	  t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t, u);
+	  align = build2 (MODIFY_EXPR, TREE_TYPE (ovfl), unshare_expr (ovfl),
+			  t);
+	}
+      else
+	align = NULL;
+
+      if (align)
+	gimplify_and_add (align, pre_p);
+
+      /* [21, 22] Emit code for:
+	 addr_rtx = ovfl + (BYTES_BIG_ENDIAN ? OSIZE - SIZE : 0)
+	 ovfl += osize.  */
+      u = fold_convert (TREE_TYPE (ovfl), build_int_cst (NULL_TREE, osize));
+      t = build2 (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl, u);
+      if (BYTES_BIG_ENDIAN && osize > size)
+	t = fold_build_pointer_plus_hwi (t, osize - size);
+
+      gimplify_assign (addr, t, pre_p);
+
+      gimple_seq_add_stmt (pre_p, gimple_build_label (lab_done));
+
+      addr = fold_convert (build_pointer_type (type), addr);
+      addr = build_va_arg_indirect_ref (addr);
+    }
   else
     {
       tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff;
@@ -8774,19 +8978,22 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff),
 			unshare_expr (valist), f_goff, NULL_TREE);
 	  rsize = ROUND_UP (size, UNITS_PER_WORD);
-	  if (rsize > UNITS_PER_WORD)
+	  if (alignment > UNITS_PER_WORD)
 	    {
 	      /* [1] Emit code for: off &= -rsize.	*/
 	      t = build2 (BIT_AND_EXPR, TREE_TYPE (off), unshare_expr (off),
-			  build_int_cst (TREE_TYPE (off), -rsize));
+			  build_int_cst (TREE_TYPE (off), -alignment));
 	      gimplify_assign (unshare_expr (off), t, pre_p);
 	    }
 	  osize = rsize;
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = build2 (NE_EXPR, boolean_type_node, unshare_expr (off),
-		  build_int_cst (TREE_TYPE (off), 0));
+      t = build2 (PLUS_EXPR, TREE_TYPE (off), off,
+		  build_int_cst (TREE_TYPE (off), -rsize));
+      t = build2 (LE_EXPR, boolean_type_node, unshare_expr (t),
+		  build_int_cst (TREE_TYPE (t),
+		  MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
       addr = build3 (COND_EXPR, ptr_type_node, t, NULL_TREE, NULL_TREE);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -8803,7 +9010,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	t = fold_build_pointer_plus_hwi (t, rsize - size);
       COND_EXPR_THEN (addr) = t;
 
-      if (osize > UNITS_PER_WORD)
+      if (alignment > UNITS_PER_WORD)
 	{
 	  /* [9] Emit: ovfl = ((intptr_t) ovfl + osize - 1) & -osize.  */
 	  t = fold_build_pointer_plus_hwi (unshare_expr (ovfl), osize - 1);
@@ -8826,6 +9033,16 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       /* String [9] and [10, 11] together.  */
       if (align)
 	t = build2 (COMPOUND_EXPR, TREE_TYPE (t), align, t);
+
+      if (GET_MODE_CLASS (TYPE_MODE (type)) != MODE_FLOAT)
+	{
+	  u = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
+		      build_int_cst (TREE_TYPE (off), 0));
+	  u = build2 (MODIFY_EXPR, TREE_TYPE (off),
+			 unshare_expr (off), u);
+	  t = build2 (COMPOUND_EXPR, TREE_TYPE (t), u, t);
+	}
+
       COND_EXPR_ELSE (addr) = t;
 
       addr = fold_convert (build_pointer_type (type), addr);
