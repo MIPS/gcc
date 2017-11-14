@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 
+static int max_threaded_paths;
+
 DEBUG_FUNCTION
 void graphme()
 {
@@ -55,7 +57,301 @@ void graphme()
   system("~/bin/dotview");
 }
 
-static int max_threaded_paths;
+/* Class to generate all paths from an SSA name to a use of NAME.
+   Note: we discard any paths greater than PARAM_MAX_FSM_THREAD_LENGTH.
+
+   Use it like this:
+
+	bb_paths p;
+	p.calculate (x_99, some_bb);
+	for (unsigned i = 0; i < p.length (); i++)
+	  {
+	    vec<basic_block> path = p[i];
+	    do_funky_things (path);
+	  }
+ */
+
+class bb_paths
+{
+  /* All paths from DEF_BB to USE_BB.  */
+  vec< vec<basic_block> > all_paths;
+  /* The SSA name we are interested in.  */
+  tree name;
+  /* The BB defining NAME.  */
+  basic_block def_bb;
+  /* The BB using NAME.  */
+  basic_block use_bb;
+  /* One ranger for everything so ranges get cached.  */
+  path_ranger ranger;
+
+  void calculate_1 (vec<basic_block> &path, basic_block bb,
+		    hash_set<basic_block> &visited);
+  void prune_duplicate_paths (void);
+  void prune_irrelevant_range_blocks (vec <basic_block> &path);
+  void dump_one_path (FILE *out, const vec<basic_block> &path);
+
+ public:
+  bb_paths ();
+  ~bb_paths ();
+  void calculate (tree ssa, basic_block use);
+  /* Calculate the range for path number I and store it in R.
+     Return TRUE if R is non empty.  */
+  bool range_of_path (irange &r, unsigned i)
+  {
+    return ranger.path_range (r, name, all_paths[i], path_ranger::REVERSE);
+  }
+  /* Attempt to fold STMT given VAR and its known range VAR_RANGE.
+     Store the resulting range in R and return TRUE if R is non
+     empty.  */
+  bool range_of_stmt (irange &r, gimple *stmt, tree var,
+		      const irange var_range)
+  {
+    return ranger.range_of_def (r, stmt, var, var_range);
+  }
+  const vec<basic_block> &operator[] (unsigned i) const { return all_paths[i]; }
+  vec<basic_block> &operator[] (unsigned i) { return all_paths[i]; }
+  unsigned length () const { return all_paths.length (); }
+  void dump ();
+};
+
+bb_paths::bb_paths ()
+{
+  all_paths = vNULL;
+}
+
+bb_paths::~bb_paths ()
+{
+  for (unsigned i = 0; i < all_paths.length (); ++i)
+    all_paths[i].release ();
+  all_paths.release ();
+}
+
+/* Generate all paths from the definition of SSA to its USE.
+   Accumulate the paths in ALL_PATHS.  */
+
+void
+bb_paths::calculate (tree ssa, basic_block use)
+{
+  all_paths = vNULL;
+  name = ssa;
+  use_bb = use;
+  if (SSA_NAME_IS_DEFAULT_DEF (name))
+    def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  else
+    def_bb = gimple_bb (SSA_NAME_DEF_STMT (name));
+
+  /* A path where the use and the definition are in the same block, is
+     a path of one block, and can be handled specially.  */
+  if (use_bb == def_bb)
+    {
+      vec<basic_block> v;
+      v.create (1);
+      v.quick_push (use_bb);
+      all_paths.safe_push (v);
+      return;
+    }
+
+  hash_set<basic_block> visited;
+  auto_vec<basic_block> path;
+  calculate_1 (path, use_bb, visited);
+  prune_duplicate_paths ();
+}
+
+/* Helper function for calculate().  Calculate all paths from DEF_BB
+   to BB and store them into ALL_PATHS.
+
+   PATH is the current path being accumulated.  VISITED is a hash of
+   visited blocks.  */
+
+void
+bb_paths::calculate_1 (vec<basic_block> &path, basic_block bb,
+		       hash_set<basic_block> &visited)
+{
+  if (!def_bb)
+    return;
+  /* Discard loops.  */
+  if (visited.add (bb))
+    return;
+  if ((int)path.length () + 1 > PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH))
+    return;
+
+  /* As an optimization, we disregard paths that cross loops.  Since
+     profitable_jump_thread_path() will ignore them, we can avoid
+     putting them in the queue altogether.  */
+  if (!path.is_empty () && path[0]->loop_father != bb->loop_father)
+    return;
+
+  path.safe_push (bb);
+
+  edge e;
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      /* If we reached the defining block, we're at the top, and have a
+	 complete path.  */
+      if (e->src == def_bb)
+	{
+	  /* If we've already seen DEF_BB, we have a complete loop
+	     back to DEF_BB.  We discard loops, so...  */
+	  if (visited.contains (def_bb))
+	    return;
+
+	  /* As mentioned in profitable_jump_thread_path(), the last
+	     entry in a path (DEF_BB in our case) represents the block
+	     with an outgoing edge that will redirect to the jump
+	     threading path.  Thus, we don't care if DEF_BB lives in a
+	     loop different than the rest of the path we are
+	     accumulating.  This is why we don't perform the
+	     loop_father optimization at the beginning of this
+	     function.  */
+
+	  /* Push the DEF_BB for completeness sake.  */
+	  path.safe_push (def_bb);
+	  vec<basic_block> t = path.copy ();
+	  all_paths.safe_push (t);
+	  path.pop ();
+	}
+      else
+	calculate_1 (path, e->src, visited);
+    }
+  path.pop ();
+  visited.remove (bb);
+}
+
+/* If we have a path that generates range information for SSA, any
+   blocks until the first block that contains range information is
+   irrelevant for the range.  Prune such blocks.  */
+
+void
+bb_paths::prune_irrelevant_range_blocks (vec <basic_block> &path)
+{
+  /* If the path is just one block, we have a path where the
+     definition and the use are in the same BB.  In this case, there
+     is nothing to do.  */
+  if (path.length () == 1)
+    return;
+
+  for (int i = path.length () - 1; i > 0; --i)
+    {
+      irange r;
+      edge e;
+
+      gcc_assert (e = find_edge (path[i], path[i - 1]));
+      /* ?? When the path ranger can understand copies, we should look
+	 into using it instead of gori.  For instance, we may not have
+	 a range here, but the path ranger may realize that earlier
+	 than E we have a range because of a copy??.  */
+      if (ranger.range_on_edge (r, name, e))
+	{
+	  /* Remove anything that came before here.  */
+	  path.truncate (i + 1);
+	  return;
+	}
+    }
+  path.truncate (0);
+}
+
+/* Clean-up paths by removing any irrelevant blocks in the paths
+   themselves and then removing any duplicate paths.  */
+
+void
+bb_paths::prune_duplicate_paths (void)
+{
+  if (all_paths.is_empty ())
+    return;
+
+  vec<basic_block> prev_path = vNULL;
+  vec< vec<basic_block> > new_all_paths;
+  /* If we prune any duplicates, new_all_paths will have some extra
+     memory allocated.  We dont' care, as this won't live long.  */
+  new_all_paths.create (all_paths.length ());
+
+  /* Get rid of useless blocks per path, and then accumulate all
+     non-duplicate paths into new_all_paths.  Removing duplicates is
+     easy because all_paths is already sorted.  */
+  for (unsigned i = 0; i < all_paths.length (); ++i)
+    {
+      vec<basic_block> path = all_paths[i];
+
+      prune_irrelevant_range_blocks (path);
+      if (path.is_empty ())
+	{
+	  path.release ();
+	  continue;
+	}
+
+      /* Is this a duplicate of the last known path?  */
+      bool duplicate = false;
+      if (prev_path.length () == path.length ())
+	{
+	  duplicate = true;
+	  for (unsigned i = 0; i < path.length (); ++i)
+	    if (path[i] != prev_path[i])
+	      {
+		duplicate = false;
+		break;
+	      }
+	}
+      if (duplicate)
+	path.release ();
+      else
+	{
+	  prev_path = path;
+	  new_all_paths.safe_push (path);
+	}
+    }
+  all_paths.release ();
+  all_paths = new_all_paths;
+}
+
+/* Helper function for bb_paths::dump to dump one PATH to OUT.  */
+
+void
+bb_paths::dump_one_path (FILE *out, const vec<basic_block> &path)
+{
+  fprintf (out, "\tpath: ");
+  if (path.is_empty ())
+    {
+      fprintf (out, "<empty>\n");
+      return;
+    }
+  for (int i = path.length () - 1; i > 0; --i)
+    {
+      fprintf (out, "bb%d", path[i]->index);
+      edge e = find_edge (path[i], path[i - 1]);
+      gcc_assert (e);
+      fprintf (out, " => ");
+    }
+  fprintf (out, "bb%d\n", path[0]->index);
+}
+
+/* Dump all available paths.  */
+
+void
+bb_paths::dump ()
+{
+  if (all_paths.is_empty ())
+    return;
+
+  fprintf (stderr, "range path to BB%d for SSA = ", use_bb->index);
+  print_generic_stmt (stderr, name, 0);
+
+  for (unsigned i = 0; i < length (); ++i)
+    {
+      irange r;
+      vec<basic_block> path = all_paths[i];
+
+      dump_one_path (stderr, path);
+      if (range_of_path (r, i))
+	{
+	  fprintf (stderr, "\t  ");
+	  r.dump ();
+	}
+      else
+	fprintf (stderr, "\n");
+    }
+  fprintf (stderr, "-----------------------------\n");
+}
 
 /* Simple helper to get the last statement from BB, which is assumed
    to be a control statement.   Return NULL if the last statement is
@@ -121,7 +417,8 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
    case.  */
 static bool
 resolve_control_statement (gimple *stmt, tree name,
-			   const irange &range_for_name, tree &result)
+			   const irange &range_for_name, tree &result,
+			   bb_paths &paths)
 {
   wide_int singleton;
   switch (gimple_code (stmt))
@@ -130,13 +427,11 @@ resolve_control_statement (gimple *stmt, tree name,
       {
 	/* It looks like NAME is not necessarily the same SSA name as
 	   the LHS conditional here.  Look at the LHS to make sure
-	   gori::range_of_def() gets the right range.  */
+	   the ranger gets the right range.  */
 	tree var = gimple_cond_lhs (stmt);
-
-	gori g;
-	irange folded;
-	if (!g.range_of_def (folded, stmt, var, range_for_name)
-	    || !folded.singleton_p (singleton))
+	irange r;
+	if (!paths.range_of_stmt (r, stmt, var, range_for_name)
+	    || !r.singleton_p (singleton))
 	  return false;
 	result = wide_int_to_tree (TREE_TYPE (name), singleton);
 	return true;
@@ -211,7 +506,8 @@ static edge
 profitable_jump_thread_path (vec<basic_block> &path,
 			     basic_block bbi,
 			     tree name, const irange &range_for_name,
-			     bool speed_p, bool *creates_irreducible_loop)
+			     bool speed_p, bool *creates_irreducible_loop,
+			     bb_paths &paths)
 {
   /* Note BBI is not in the path yet, hence the +1 in the test below
      to make sure BBI is accounted for in the path length test.  */
@@ -251,7 +547,7 @@ profitable_jump_thread_path (vec<basic_block> &path,
 
   gimple *stmt = get_gimple_control_stmt (path[0]);
   tree arg;
-  if (!resolve_control_statement (stmt, name, range_for_name, arg))
+  if (!resolve_control_statement (stmt, name, range_for_name, arg, paths))
     return NULL;
 
   /* Add BBI to the path.
@@ -536,289 +832,6 @@ convert_and_register_jump_thread_path (vec<basic_block> &path, edge taken_edge)
   --max_threaded_paths;
 }
 
-/* Class to generate all paths from an SSA name to a use of NAME.
-   Note: we discard any paths greater than PARAM_MAX_FSM_THREAD_LENGTH.
-
-   Use it like this:
-
-	bb_paths p (x_99, some_bb);
-	for (unsigned i = 0; i < p.length (); i++)
-	  {
-	    vec<basic_block> one_path = p[i];
-	    do_funky_things (one_path);
-	  }
- */
-
-class bb_paths
-{
-  /* All paths from DEF_BB to USE_BB.  */
-  vec< vec<basic_block> > all_paths;
-  /* The SSA name we are interested in.  */
-  tree name;
-  /* The BB defining NAME.  */
-  basic_block def_bb;
-  /* The BB using NAME.  */
-  basic_block use_bb;
-  /* Visited blocks per path.  */
-  hash_set<basic_block> *visited;
-  /* Maximum path length we care about.  Zero if we wish to consider
-     all paths regardless of length. */
-  unsigned max_path_length;
-  /* Current path being analyzed.  This is a reverse path from USE_BB
-     (current_path[0]) back to DEF_BB.  */
-  vec<basic_block> current_path;
-
-  bb_paths (); // Intentionally not defined.
-  void calculate_paths (basic_block bb);
-
- public:
-  bb_paths (tree name_, basic_block use_bb_);
-  ~bb_paths ();
-  const vec<basic_block> *begin () const { return all_paths.begin (); }
-  const vec<basic_block> *end () const { return all_paths.end (); }
-  const vec<basic_block> &operator[] (unsigned i) const { return all_paths[i]; }
-  unsigned length () const { return all_paths.length (); }
-  void prune_duplicate_paths (void);
-  void dump () const;
-};
-
-/* Constructor for bb_paths.
-
-   NAME_ is the SSA name we are interested in.  USE_BB_ is a use of
-   NAME_.  */
-
-bb_paths::bb_paths (tree name_, basic_block use_bb_)
-{
-  name = name_;
-  use_bb = use_bb_;
-  if (SSA_NAME_IS_DEFAULT_DEF (name))
-    def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
-  else
-    def_bb = gimple_bb (SSA_NAME_DEF_STMT (name));
-  visited = new hash_set<basic_block>;
-  max_path_length = PARAM_VALUE (PARAM_MAX_FSM_THREAD_LENGTH);
-  current_path = vNULL;
-  all_paths = vNULL;
-  /* A path where the use and the definition are in the same block, is
-     a path of one block, and can be handled specially.  */
-  if (use_bb == def_bb)
-    {
-      vec<basic_block> v;
-      v.create (1);
-      v.quick_push (use_bb);
-      all_paths.safe_push (v);
-    }
-  else
-    calculate_paths (use_bb);
-}
-
-bb_paths::~bb_paths ()
-{
-  delete visited;
-  current_path.release ();
-  for (unsigned i = 0; i < all_paths.length (); ++i)
-    all_paths[i].release ();
-  all_paths.release ();
-}
-
-/* Calculate all paths from DEF_BB to BB and store them into ALL_PATHS.  */
-
-void
-bb_paths::calculate_paths (basic_block bb)
-{
-  if (!def_bb)
-    return;
-  /* Discard loops.  */
-  if (visited->add (bb))
-    return;
-  if (max_path_length && current_path.length () + 1 > max_path_length)
-    return;
-
-  /* As an optimization, we disregard paths that cross loops.  Since
-     profitable_jump_thread_path() will ignore them, we can avoid
-     putting them in the queue altogether.  */
-  if (!current_path.is_empty ()
-      && current_path[0]->loop_father != bb->loop_father)
-    return;
-
-  current_path.safe_push (bb);
-
-  edge e;
-  edge_iterator ei;
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      /* If we reached the defining block, we're at the top, and have a
-	 complete path.  */
-      if (e->src == def_bb)
-	{
-	  /* If we've already seen DEF_BB, we have a complete loop
-	     back to DEF_BB.  We discard loops, so...  */
-	  if (visited->contains (def_bb))
-	    return;
-
-	  /* As mentioned in profitable_jump_thread_path(), the last
-	     entry in a path (DEF_BB in our case) represents the block
-	     with an outgoing edge that will redirect to the jump
-	     threading path.  Thus, we don't care if DEF_BB lives in a
-	     loop different than the rest of the path we are
-	     accumulating.  This is why we don't perform the
-	     loop_father optimization at the beginning of this
-	     function.  */
-
-	  /* Push the DEF_BB for completeness sake.  */
-	  current_path.safe_push (def_bb);
-	  vec<basic_block> t = current_path.copy ();
-	  all_paths.safe_push (t);
-	  current_path.pop ();
-	}
-      else
-	calculate_paths (e->src);
-    }
-  current_path.pop ();
-  visited->remove (bb);
-}
-
-/* If we have a path that generates range information for SSA, any
-   blocks until the first block that contains range information is
-   irrelevant for the range.  Prune such blocks.  */
-
-static void
-prune_irrelevant_range_blocks (tree ssa, vec <basic_block> &path)
-{
-  /* FIXME: Perhaps incorporate this function into path_ranger::path_range ()
-     to avoid instantiating another gori.  */
-
-  /* If the path is just one block, we have a path where the
-     definition and the use are in the same BB.  In this case, there
-     is nothing to do.  */
-  if (path.length () == 1)
-    return;
-
-  gori g;
-  for (int i = path.length () - 1; i > 0; --i)
-    {
-      irange r;
-      edge e;
-
-      gcc_assert (e = find_edge (path[i], path[i - 1]));
-      /* ?? When the path ranger can understand copies, we should look
-	 into using it instead of gori.  For instance, we may not have
-	 a range here, but the path ranger may realize that earlier
-	 than E we have a range because of a copy??.  */
-      if (g.range_on_edge (r, ssa, e))
-	{
-	  /* Remove anything that came before here.  */
-	  path.truncate (i + 1);
-	  return;
-	}
-    }
-  path.truncate (0);
-}
-
-/* Clean-up paths by removing any irrelevant blocks in the paths
-   themselves and then removing any duplicate paths.
-
-   FIXME: We should be able to find a better solution.  Perhaps move
-   all this into path_ranger or ::calculate_paths().  */
-
-void
-bb_paths::prune_duplicate_paths (void)
-{
-  if (all_paths.is_empty ())
-    return;
-
-  vec<basic_block> prev_path = vNULL;
-  vec< vec<basic_block> > new_all_paths;
-  /* If we prune any duplicates, new_all_paths will have some extra
-     memory allocated.  We dont' care, as this won't live long.  */
-  new_all_paths.create (all_paths.length ());
-
-  /* Get rid of useless blocks per path, and then accumulate all
-     non-duplicate paths into new_all_paths.  Removing duplicates is
-     easy because all_paths is already sorted.  */
-  for (unsigned i = 0; i < all_paths.length (); ++i)
-    {
-      vec<basic_block> path = all_paths[i];
-
-      prune_irrelevant_range_blocks (name, path);
-      if (path.is_empty ())
-	{
-	  path.release ();
-	  continue;
-	}
-
-      /* Is this a duplicate of the last known path?  */
-      bool duplicate = false;
-      if (prev_path.length () == path.length ())
-	{
-	  duplicate = true;
-	  for (unsigned i = 0; i < path.length (); ++i)
-	    if (path[i] != prev_path[i])
-	      {
-		duplicate = false;
-		break;
-	      }
-	}
-      if (duplicate)
-	path.release ();
-      else
-	{
-	  prev_path = path;
-	  new_all_paths.safe_push (path);
-	}
-    }
-  all_paths.release ();
-  all_paths = new_all_paths;
-}
-
-static void
-dump_one_path (FILE *out, const vec<basic_block> &path)
-{
-  fprintf (out, "\tpath: ");
-  if (path.is_empty ())
-    {
-      fprintf (out, "<empty>\n");
-      return;
-    }
-  for (int i = path.length () - 1; i > 0; --i)
-    {
-      fprintf (out, "bb%d", path[i]->index);
-      edge e = find_edge (path[i], path[i - 1]);
-      gcc_assert (e);
-      fprintf (out, " => ");
-    }
-  fprintf (out, "bb%d\n", path[0]->index);
-}
-
-/* Dump all available paths.  */
-
-void
-bb_paths::dump () const
-{
-  if (all_paths.is_empty ())
-    return;
-
-  fprintf (stderr, "range path to BB%d for SSA = ", use_bb->index);
-  print_generic_stmt (stderr, name, 0);
-
-  for (unsigned i = 0; i < length (); ++i)
-    {
-      path_ranger ranger;
-      irange r;
-      vec<basic_block> path = all_paths[i];
-
-      dump_one_path (stderr, path);
-      if (ranger.path_range (r, name, path, path_ranger::REVERSE))
-	{
-	  fprintf (stderr, "\t  ");
-	  r.dump ();
-	}
-      else
-	fprintf (stderr, "\n");
-    }
-  fprintf (stderr, "-----------------------------\n");
-}
-
 /* While following a chain of SSA_NAME definitions, we jumped from a definition
    in LAST_BB to a definition in NEW_BB (walking backwards).
 
@@ -892,14 +905,16 @@ register_jump_thread_path_if_profitable (vec<basic_block> &path,
 					 tree name,
 					 const irange &range,
 					 basic_block def_bb,
-					 bool speed_p)
+					 bool speed_p,
+					 bb_paths &paths)
 {
   if (range.empty_p ())
     return;
 
   bool irreducible = false;
   edge taken_edge = profitable_jump_thread_path (path, def_bb, name, range,
-						 speed_p, &irreducible);
+						 speed_p, &irreducible,
+						 paths);
   if (taken_edge)
     {
       convert_and_register_jump_thread_path (path, taken_edge);
@@ -913,7 +928,7 @@ register_jump_thread_path_if_profitable (vec<basic_block> &path,
 static void fsm_find_control_statement_thread_paths (tree,
 						     hash_set<basic_block> &,
 						     vec<basic_block> &,
-						     bool, bool);
+						     bool, bool, bb_paths &);
 
 /* Given PHI which defines NAME in block DEF_BB, recurse through the
    PHI's arguments searching for paths where NAME will ultimately have
@@ -932,7 +947,7 @@ static void
 handle_phi (gphi *phi, tree name, basic_block def_bb,
 	    hash_set<basic_block> &visited_bbs,
 	    vec<basic_block> &path,
-	    bool seen_loop_phi, bool speed_p)
+	    bool seen_loop_phi, bool speed_p, bb_paths &paths)
 {
   /* Iterate over the arguments of PHI.  */
   for (unsigned int i = 0; i < gimple_phi_num_args (phi); i++)
@@ -950,7 +965,8 @@ handle_phi (gphi *phi, tree name, basic_block def_bb,
 	  /* Recursively follow SSA_NAMEs looking for a constant
 	     definition.  */
 	  fsm_find_control_statement_thread_paths (arg, visited_bbs, path,
-						   seen_loop_phi, speed_p);
+						   seen_loop_phi, speed_p,
+						   paths);
 
 	  path.pop ();
 	  continue;
@@ -960,7 +976,7 @@ handle_phi (gphi *phi, tree name, basic_block def_bb,
 	{
 	  irange range (TREE_TYPE (name), arg, arg);
 	  register_jump_thread_path_if_profitable (path, name, range,
-						   bbi, speed_p);
+						   bbi, speed_p, paths);
 	}
     }
 }
@@ -1012,13 +1028,14 @@ static void
 handle_assignment (gimple *stmt, tree name, basic_block def_bb,
 		   hash_set<basic_block> &visited_bbs,
 		   vec<basic_block> &path,
-		   bool seen_loop_phi, bool speed_p)
+		   bool seen_loop_phi, bool speed_p, bb_paths &paths)
 {
   tree arg = gimple_assign_rhs1 (stmt);
 
   if (TREE_CODE (arg) == SSA_NAME)
     fsm_find_control_statement_thread_paths (arg, visited_bbs,
-					     path, seen_loop_phi, speed_p);
+					     path, seen_loop_phi, speed_p,
+					     paths);
 
   else
     {
@@ -1031,7 +1048,7 @@ handle_assignment (gimple *stmt, tree name, basic_block def_bb,
 	{
 	  irange range (TREE_TYPE (name), arg, arg);
 	  register_jump_thread_path_if_profitable (path, name, range, def_bb,
-						   speed_p);
+						   speed_p, paths);
 	}
 
       /* And put the current block back onto the path so that the
@@ -1051,7 +1068,8 @@ static void
 fsm_find_control_statement_thread_paths (tree name,
 					 hash_set<basic_block> &visited_bbs,
 					 vec<basic_block> &path,
-					 bool seen_loop_phi, bool speed_p)
+					 bool seen_loop_phi, bool speed_p,
+					 bb_paths &paths)
 {
   /* If NAME appears in an abnormal PHI, then don't try to trace its
      value back through PHI nodes.  */
@@ -1114,10 +1132,10 @@ fsm_find_control_statement_thread_paths (tree name,
 
   if (gimple_code (def_stmt) == GIMPLE_PHI)
     handle_phi (as_a <gphi *> (def_stmt), name, def_bb,
-		visited_bbs, path, seen_loop_phi, speed_p);
+		visited_bbs, path, seen_loop_phi, speed_p, paths);
   else if (gimple_code (def_stmt) == GIMPLE_ASSIGN)
     handle_assignment (def_stmt, name, def_bb,
-		       visited_bbs, path, seen_loop_phi, speed_p);
+		       visited_bbs, path, seen_loop_phi, speed_p, paths);
 
   /* Remove all the nodes that we added from NEXT_PATH.  */
   if (next_path_length)
@@ -1132,20 +1150,18 @@ fsm_find_control_statement_thread_paths (tree name,
    code path.  */
 
 static void
-find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
+find_range_based_jump_threads (tree name, basic_block bb, bool speed_p,
+			       bb_paths &paths)
 {
   if (!INTEGRAL_TYPE_P (TREE_TYPE (name)))
     return;
 
-  bb_paths all_paths (name, bb);
-  all_paths.prune_duplicate_paths ();
-  for (unsigned i = 0; i < all_paths.length (); ++i)
-    {
-      vec<basic_block> path = all_paths[i];
-      path_ranger ranger;
-      irange range;
+  paths.calculate (name, bb);
 
-      if (ranger.path_range (range, name, path, path_ranger::REVERSE))
+  for (unsigned i = 0; i < paths.length (); ++i)
+    {
+      irange r;
+      if (paths.range_of_path (r, i))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1154,15 +1170,15 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
 		       "SSA = ");
 	      print_generic_stmt (dump_file, name, 0);
 	      fprintf (dump_file, "\tRange is: ");
-	      range.dump (dump_file);
+	      r.dump (dump_file);
 	    }
 	  /* register_jump_thread_path_if_profitable will push
 	     the current block onto the path.  But the path
 	     will always have the current block at this point.
 	     So we can just pop it.  */
-	  basic_block def_bb = path.pop ();
+	  basic_block def_bb = paths[i].pop ();
 	  register_jump_thread_path_if_profitable
-	    (path, name, range, def_bb, speed_p);
+	    (paths[i], name, r, def_bb, speed_p, paths);
 	}
     }
 }
@@ -1176,7 +1192,7 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p)
    code path.  */
 
 static void
-find_jump_threads_backwards (basic_block bb, bool speed_p)
+find_jump_threads_backwards (basic_block bb, bool speed_p, bb_paths &paths)
 {     
   gimple *stmt = get_gimple_control_stmt (bb);
   if (!stmt)
@@ -1206,12 +1222,12 @@ find_jump_threads_backwards (basic_block bb, bool speed_p)
 
   max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
   fsm_find_control_statement_thread_paths (name, visited_bbs, path, false,
-					   speed_p);
+					   speed_p, paths);
 
   /* If we didn't thread any paths above, try threading by making use
      of available range information.  */
   if (max_threaded_paths == PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS))
-    find_range_based_jump_threads (name, bb, speed_p);
+    find_range_based_jump_threads (name, bb, speed_p, paths);
 }
 
 namespace {
@@ -1255,10 +1271,11 @@ pass_thread_jumps::execute (function *fun)
 
   /* Try to thread each block with more than one successor.  */
   basic_block bb;
+  bb_paths paths;
   FOR_EACH_BB_FN (bb, fun)
     {
       if (EDGE_COUNT (bb->succs) > 1)
-	find_jump_threads_backwards (bb, true);
+	find_jump_threads_backwards (bb, true, paths);
     }
   bool changed = thread_through_all_blocks (true);
 
@@ -1315,10 +1332,11 @@ pass_early_thread_jumps::execute (function *fun)
 
   /* Try to thread each block with more than one successor.  */
   basic_block bb;
+  bb_paths paths;
   FOR_EACH_BB_FN (bb, fun)
     {
       if (EDGE_COUNT (bb->succs) > 1)
-	find_jump_threads_backwards (bb, false);
+	find_jump_threads_backwards (bb, false, paths);
     }
   thread_through_all_blocks (true);
 
