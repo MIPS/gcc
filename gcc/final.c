@@ -81,7 +81,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "rtl-iter.h"
 #include "print-rtl.h"
-#include "langhooks.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data declarations.  */
