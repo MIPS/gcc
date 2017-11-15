@@ -33,27 +33,15 @@ along with GCC; see the file COPYING3.  If not see
    is provided.  */
 
 
-/* These are the various states a range_stmt can be in.  */
-enum range_stmt_state { 
-  RS_INV, /* Invalid rage node.  */
-  RS_I,   /* Unary integer op, immediate resolution available.  */
-  RS_S,   /* Unary ssa_name, requires a range to resolve  */
-  RS_II,  /* Binary integer op, immediate resolution available.  */
-  RS_SI,  /* Binary expression, op1 requires range to resolve.  */
-  RS_IS,  /* Binary expression, op2 requires range to resolve. */
-  RS_SS   /* Binary expression, op1 & op2 require range to resolve. */
-};
-
 
 class range_stmt
 {
 private:
-  enum range_stmt_state state;
   gimple *g;
   tree_code code;
   tree op1, op2;
   tree ssa1, ssa2;
-  enum range_stmt_state determine_state (tree op1, tree op2);
+  bool validate_operands ();
   void from_stmt (gimple *s);
   class irange_operator *handler() const;
 public:
@@ -79,10 +67,11 @@ public:
   bool fold (irange& res, tree name, const irange& name_range) const;
   bool fold (irange& res, const irange& r1) const;
   bool fold (irange& res, const irange& r1, const irange& r2) const;
-  bool op1_irange (irange& r, const irange& lhs, const irange& op2,
-		   FILE *trace = NULL) const;
-  bool op2_irange (irange& r, const irange& lhs, const irange& op1,
-		   FILE *trace = NULL) const;
+  bool op1_irange (irange& r, const irange& lhs_range) const;
+  bool op1_irange (irange& r, const irange& lhs_range,
+		   const irange& op2_range) const;
+  bool op2_irange (irange& r, const irange& lhs_range,
+		   const irange& op1_range) const;
 
 
   void dump (FILE *f) const;
@@ -99,7 +88,7 @@ range_stmt::get_gimple () const
 inline bool
 range_stmt::valid () const
 {
-  return state != RS_INV;
+  return g != NULL;
 }
 
 inline tree_code
@@ -133,7 +122,7 @@ range_stmt::ssa_operand2 () const
 }
 
 static inline
-tree irange_ssa (tree t)
+tree valid_irange_ssa (tree t)
 {
   if (t && TREE_CODE (t) == SSA_NAME)
     {
