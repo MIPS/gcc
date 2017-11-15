@@ -5032,7 +5032,7 @@ gfc_get_common (const char *name, int from_module)
     {
       st->n.common = gfc_get_common_head ();
       st->n.common->where = gfc_current_locus;
-      strcpy (st->n.common->name, name);
+      st->n.common->name = name;
     }
 
   return st->n.common;

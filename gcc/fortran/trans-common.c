@@ -243,16 +243,16 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
 {
   int has_underscore;
   char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
 
   /* Get the name out of the common block pointer.  */
-  strcpy (name, com->name);
+  name = com->name;
 
   /* If we're suppose to do a bind(c).  */
   if (com->is_bind_c == 1 && com->binding_label)
     return get_identifier (com->binding_label);
 
-  if (strcmp (name, BLANK_COMMON_NAME) == 0)
+  if (name == gfc_get_string (BLANK_COMMON_NAME))
     return get_identifier (name);
 
   if (flag_underscoring)
@@ -1252,7 +1252,7 @@ finish_equivalences (gfc_namespace *ns)
 	      c->where = ns->proc_name->declared_at;
 	    else if (ns->is_block_data)
 	      c->where = ns->sym_root->n.sym->declared_at;
-	    strcpy (c->name, z->module);
+	    c->name = z->module;
 	  }
 	else
 	  c = NULL;
@@ -1286,7 +1286,7 @@ gfc_trans_common (gfc_namespace *ns)
     {
       c = gfc_get_common_head ();
       c->where = ns->blank_common.head->common_head->where;
-      strcpy (c->name, BLANK_COMMON_NAME);
+      c->name = gfc_get_string (BLANK_COMMON_NAME);
       translate_common (c, ns->blank_common.head);
     }
 

@@ -317,7 +317,6 @@ add_sym (const char *name, gfc_isym_id id, enum klass cl, int actual_ok, bt type
 	 int standard, gfc_check_f check, gfc_simplify_f simplify,
 	 gfc_resolve_f resolve, ...)
 {
-  char buf[GFC_MAX_SYMBOL_LEN + 11]; /* 10 for '_gfortran_', 1 for '\0'  */
   int optional, first_flag;
   sym_intent intent;
   va_list argp;
@@ -334,11 +333,7 @@ add_sym (const char *name, gfc_isym_id id, enum klass cl, int actual_ok, bt type
 
     case SZ_NOTHING:
       next_sym->name = gfc_get_string ("%s", name);
-
-      strcpy (buf, "_gfortran_");
-      strcat (buf, name);
-      next_sym->lib_name = gfc_get_string ("%s", buf);
-
+      next_sym->lib_name = gfc_get_string ("_gfortran_%s", name);
       next_sym->pure = (cl != CLASS_IMPURE);
       next_sym->elemental = (cl == CLASS_ELEMENTAL);
       next_sym->inquiry = (cl == CLASS_INQUIRY);
@@ -388,7 +383,7 @@ add_sym (const char *name, gfc_isym_id id, enum klass cl, int actual_ok, bt type
 
 	  first_flag = 0;
 
-	  strcpy (next_arg->name, name);
+	  next_arg->name = gfc_get_string ("%s", name);
 	  next_arg->ts.type = type;
 	  next_arg->ts.kind = kind;
 	  next_arg->optional = optional;
@@ -4145,7 +4140,7 @@ keywords:
   for (; a; a = a->next)
     {
       for (f = formal; f; f = f->next)
-	if (strcmp (a->name, f->name) == 0)
+	if (a->name == f->name)
 	  break;
 
       if (f == NULL)

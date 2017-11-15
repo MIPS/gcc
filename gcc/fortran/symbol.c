@@ -3057,7 +3057,7 @@ set_symbol_common_block (gfc_symbol *sym, gfc_common_head *common_block)
   if (sym->common_block == common_block)
     return;
 
-  if (sym->common_block && sym->common_block->name[0] != '\0')
+  if (sym->common_block && sym->common_block->name != NULL)
     {
       sym->common_block->refs--;
       if (sym->common_block->refs == 0)

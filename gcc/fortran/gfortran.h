@@ -1641,7 +1641,7 @@ typedef struct gfc_common_head
   char use_assoc, saved, threadprivate;
   unsigned char omp_declare_target : 1;
   unsigned char omp_declare_target_link : 1;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   struct gfc_symbol *head;
   const char* binding_label;
   int is_bind_c;
@@ -1978,7 +1978,7 @@ gfc_ref;
 /* Structures representing intrinsic symbols and their arguments lists.  */
 typedef struct gfc_intrinsic_arg
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
 
   gfc_typespec ts;
   unsigned optional:1, value:1;
