@@ -3451,7 +3451,7 @@ create_do_loop (gfc_expr *start, gfc_expr *end, gfc_expr *step, locus *where,
 		gfc_namespace *ns, char *vname)
 {
 
-  char name[GFC_MAX_SYMBOL_LEN +1];
+  const char *name;
   gfc_symtree *symtree;
   gfc_symbol *symbol;
   gfc_expr *i;
@@ -3459,9 +3459,9 @@ create_do_loop (gfc_expr *start, gfc_expr *end, gfc_expr *step, locus *where,
 
   /* Create an expression for the iteration variable.  */
   if (vname)
-    sprintf (name, "__var_%d_do_%s", var_num++, vname);
+    name = gfc_get_string ("__var_%d_do_%s", var_num++, vname);
   else
-    sprintf (name, "__var_%d_do", var_num++);
+    name = gfc_get_string ("__var_%d_do", var_num++);
 
 
   if (gfc_get_sym_tree (name, ns, &symtree, false) != 0)

@@ -7321,7 +7321,7 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
 
   if (cm->ts.type == BT_CHARACTER && cm->ts.deferred)
     {
-      char name[GFC_MAX_SYMBOL_LEN+9];
+      const char *name;
       gfc_component *strlen;
       /* Use the rhs string length and the lhs element size.  */
       gcc_assert (expr2->ts.type == BT_CHARACTER);
@@ -7335,7 +7335,7 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
 
       /* Ensure that cm->ts.u.cl->backend_decl is a componentref to _%s_length
 	 component.  */
-      sprintf (name, "_%s_length", cm->name);
+      name = gfc_get_string ("_%s_length", cm->name);
       strlen = gfc_find_component (sym, name, true, true, NULL);
       lhs_cl_size = fold_build3_loc (input_location, COMPONENT_REF,
 				     gfc_charlen_type_node,

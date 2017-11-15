@@ -8850,7 +8850,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
   gfc_code *class_is = NULL, *default_case = NULL;
   gfc_case *c;
   gfc_symtree *st;
-  char name[GFC_MAX_SYMBOL_LEN];
+  const char *name;
   gfc_namespace *ns;
   int error = 0;
   int rank = 0;
@@ -9104,21 +9104,20 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	 'global' one).  */
 
       if (c->ts.type == BT_CLASS)
-	sprintf (name, "__tmp_class_%s", c->ts.u.derived->name);
+	name = gfc_get_string ("__tmp_class_%s", c->ts.u.derived->name);
       else if (c->ts.type == BT_DERIVED)
-	sprintf (name, "__tmp_type_%s", c->ts.u.derived->name);
+	name = gfc_get_string ("__tmp_type_%s", c->ts.u.derived->name);
       else if (c->ts.type == BT_CHARACTER)
 	{
 	  HOST_WIDE_INT charlen = 0;
 	  if (c->ts.u.cl && c->ts.u.cl->length
 	      && c->ts.u.cl->length->expr_type == EXPR_CONSTANT)
 	    charlen = gfc_mpz_get_hwi (c->ts.u.cl->length->value.integer);
-	  snprintf (name, sizeof (name),
-		    "__tmp_%s_" HOST_WIDE_INT_PRINT_DEC "_%d",
+	  name = gfc_get_string ("__tmp_%s_" HOST_WIDE_INT_PRINT_DEC "_%d",
 		    gfc_basic_typename (c->ts.type), charlen, c->ts.kind);
 	}
       else
-	sprintf (name, "__tmp_%s_%d", gfc_basic_typename (c->ts.type),
+	name = gfc_get_string ("__tmp_%s_%d", gfc_basic_typename (c->ts.type),
 	         c->ts.kind);
 
       st = gfc_find_symtree (ns->sym_root, name);
@@ -9561,20 +9560,19 @@ resolve_critical (gfc_code *code)
 {
   gfc_symtree *symtree;
   gfc_symbol *lock_type;
-  char name[GFC_MAX_SYMBOL_LEN];
+  const char *name;
   static int serial = 0;
 
   if (flag_coarray != GFC_FCOARRAY_LIB)
     return;
 
-  symtree = gfc_find_symtree (gfc_current_ns->sym_root,
-			      GFC_PREFIX ("lock_type"));
+  name = gfc_get_string (GFC_PREFIX ("lock_type"));
+  symtree = gfc_find_symtree (gfc_current_ns->sym_root, name);
   if (symtree)
     lock_type = symtree->n.sym;
   else
     {
-      if (gfc_get_sym_tree (GFC_PREFIX ("lock_type"), gfc_current_ns, &symtree,
-			    false) != 0)
+      if (gfc_get_sym_tree (name, gfc_current_ns, &symtree, false) != 0)
 	gcc_unreachable ();
       lock_type = symtree->n.sym;
       lock_type->attr.flavor = FL_DERIVED;
@@ -9583,7 +9581,7 @@ resolve_critical (gfc_code *code)
       lock_type->intmod_sym_id = ISOFORTRAN_LOCK_TYPE;
     }
 
-  sprintf(name, GFC_PREFIX ("lock_var") "%d",serial++);
+  name = gfc_get_string (GFC_PREFIX ("lock_var") "%d", serial++);
   if (gfc_get_sym_tree (name, gfc_current_ns, &symtree, false) != 0)
     gcc_unreachable ();
 
@@ -10577,13 +10575,13 @@ static gfc_expr*
 get_temp_from_expr (gfc_expr *e, gfc_namespace *ns)
 {
   static int serial = 0;
-  char name[GFC_MAX_SYMBOL_LEN];
+  const char *name;
   gfc_symtree *tmp;
   gfc_array_spec *as;
   gfc_array_ref *aref;
   gfc_ref *ref;
 
-  sprintf (name, GFC_PREFIX("DA%d"), serial++);
+  name = gfc_get_string (GFC_PREFIX("DA%d"), serial++);
   gfc_get_sym_tree (name, ns, &tmp, false);
   gfc_add_type (tmp->n.sym, &e->ts, NULL);
 
@@ -13964,9 +13962,9 @@ resolve_component (gfc_component *c, gfc_symbol *sym)
       && !c->attr.function
       && !sym->attr.is_class)
     {
-      char name[GFC_MAX_SYMBOL_LEN+9];
+      const char *name;
       gfc_component *strlen;
-      sprintf (name, "_%s_length", c->name);
+      name = gfc_get_string ("_%s_length", c->name);
       strlen = gfc_find_component (sym, name, true, true, NULL);
       if (strlen == NULL)
         {

@@ -2319,14 +2319,14 @@ gfc_likely (tree cond, enum br_predictor predictor)
 bool
 gfc_deferred_strlen (gfc_component *c, tree *decl)
 {
-  char name[GFC_MAX_SYMBOL_LEN+9];
+  const char *name;
   gfc_component *strlen;
   if (!(c->ts.type == BT_CHARACTER
 	&& (c->ts.deferred || c->attr.pdt_string)))
     return false;
-  sprintf (name, "_%s_length", c->name);
+  name = gfc_get_string ("_%s_length", c->name);
   for (strlen = c; strlen; strlen = strlen->next)
-    if (strcmp (strlen->name, name) == 0)
+    if (strlen->name == name)
       break;
   *decl = strlen ? strlen->backend_decl : NULL_TREE;
   return strlen != NULL;

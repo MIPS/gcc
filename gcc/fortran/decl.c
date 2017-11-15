@@ -3582,7 +3582,7 @@ gfc_get_pdt_instance (gfc_actual_arglist *param_list, gfc_symbol **sym,
 
   /* Now we search for the PDT instance 'name'. If it doesn't exist, we
      build it, using 'pdt' as a template.  */
-  if (gfc_get_symbol (name, pdt->ns, &instance))
+  if (gfc_get_symbol (gfc_get_string ("%s", name), pdt->ns, &instance))
     {
       gfc_error ("Parameterized derived type at %C is ambiguous");
       goto error_return;
