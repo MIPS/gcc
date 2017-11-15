@@ -3156,6 +3156,9 @@ static GTY(()) bitmap zero_view_p;
 			? bitmap_bit_p (zero_view_p, (N))	\
 			: (N) == 0)
 
+/* Return true iff we're to emit .loc directives for the assembler to
+   generate line number sections.  */
+
 static bool
 output_asm_line_debug_info (void)
 {
@@ -4719,6 +4722,9 @@ AT_loc_list (dw_attr_node *a)
   return a->dw_attr_val.v.val_loc_list;
 }
 
+/* Add a view list attribute to DIE.  It must have a DW_AT_location
+   attribute, because the view list complements the location list.  */
+
 static inline void
 add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
@@ -4735,6 +4741,10 @@ add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind)
   gcc_checking_assert (get_AT (die, DW_AT_location));
   gcc_assert (have_location_lists);
 }
+
+/* Return a pointer to the location list referenced by the attribute.
+   If the named attribute is a view list, look up the corresponding
+   DW_AT_location attribute and return its location list.  */
 
 static inline dw_loc_list_ref *
 AT_loc_list_ptr (dw_attr_node *a)
@@ -4757,6 +4767,9 @@ AT_loc_list_ptr (dw_attr_node *a)
       gcc_unreachable ();
     }
 }
+
+/* Return the location attribute value associated with a view list
+   attribute value.  */
 
 static inline dw_val_node *
 view_list_to_loc_list_val_node (dw_val_node *val)
