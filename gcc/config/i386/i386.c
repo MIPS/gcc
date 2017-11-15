@@ -4185,7 +4185,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_AVX && !TARGET_AVX512ER
+      return TARGET_AVX
 	     && TARGET_VZEROUPPER && flag_expensive_optimizations
 	     && !optimize_size;
     }
@@ -6203,7 +6203,8 @@ ix86_option_override_internal (bool main_args_p,
 #endif
    }
 
-  if (!(opts_set->x_target_flags & MASK_VZEROUPPER))
+  if (!(opts_set->x_target_flags & MASK_VZEROUPPER)
+      && TARGET_EMIT_VZEROUPPER)
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
