@@ -5685,12 +5685,8 @@ write_omp_udr (gfc_omp_udr *udr)
 	return;
       else
 	{
-	  gfc_symtree *st;
-	  size_t len = strlen (udr->name + 1);
-	  char *name = XALLOCAVEC (char, len);
-	  memcpy (name, udr->name, len - 1);
-	  name[len - 1] = '\0';
-	  st = gfc_find_symtree (gfc_current_ns->uop_root, name);
+	  const char *name = gfc_get_name_from_uop (udr->name);
+	  gfc_symtree *st = gfc_find_symtree (gfc_current_ns->uop_root, name);
 	  /* If corresponding user operator is private, don't write
 	     the UDR.  */
 	  if (st != NULL)
