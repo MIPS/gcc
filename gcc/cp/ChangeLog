@@ -1,3 +1,24 @@
+2017-10-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/82085
+	* pt.c (tsubst_copy_and_build, [INDIRECT_REF]): For a REFERENCE_REF_P,
+	unconditionally call convert_from_reference.
+
+2017-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82373
+	* error.c (dump_function_decl): If show_return, call dump_type_suffix
+	on the same return type dump_type_prefix has been called on.
+
+2017-10-17  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/82560
+	* call.c (build_over_call): Don't pass tf_no_cleanup to nested
+	calls.
+
 2017-10-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/82299

@@ -1,3 +1,183 @@
+2017-11-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82985
+	Backport from mainline
+	2017-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81790
+	* tree-ssa-sccvn.c (vn_lookup_simplify_result): Handle both
+	CONSTRUCTORs from simplifying and VN.
+
+2017-11-15  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	Backport from mainline
+	2017-09-25  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	PR debug/82155
+	* dwarf2out.c (dwarf2out_early_global_decl): Call dwarf2out_decl
+	on the FUNCTION_DECL function context if it has a DIE that is a
+	declaration.
+
+2017-11-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2017-10-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_as_ix86_xbrace_comment): Check if assembler
+	supports -xbrace_comment option.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/sol2.h (ASM_XBRACE_COMMENT_SPEC): Define.
+	(ASM_CPU_SPEC): Use it.
+
+2017-11-09  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2017-11-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/64682
+	PR rtl-optimization/69567
+	PR rtl-optimization/69737
+	PR rtl-optimization/82683
+	* combine.c (distribute_notes) <REG_DEAD>: If the new I2 sets the same
+	register mentioned in the note, drop the note, unless it came from I3,
+	in which case it should go to I3 again.
+
+2017-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2017-10-31  Matthew Fortune  <matthew.fortune@imgtec.com>
+                    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/81803
+	* lra-constraints.c (curr_insn_transform): Also reload the whole
+	register for a strict subreg no wider than a word if this is for
+	a WORD_REGISTER_OPERATIONS target.
+
+2017-11-03  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR middle-end/60580
+	* config/aarch64/aarch64.c (aarch64_frame_pointer_required)
+	Check special value of flag_omit_frame_pointer.
+	(aarch64_can_eliminate): Likewise.
+	(aarch64_override_options_after_change_1): Simplify handling of
+	-fomit-frame-pointer and -fomit-leaf-frame-pointer.
+
+2017-11-01  Martin Jambor  <mjambor@suse.cz>
+
+	PR c++/81702
+	* gimple-fold.c (gimple_get_virt_method_for_vtable): Remove assert.
+
+2017-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/82772
+	* config/alpha/sync.md (fetchop_constr) <and>: Change to "rINM".
+
+2017-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82159
+	* expr.c (store_field): Don't optimize away bitsize == 0 store
+	from CALL_EXPR with addressable return type.
+
+	2017-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/81715
+	* tree-inline.c (expand_call_inline): Emit clobber stmts for
+	VAR_DECLs to which addressable non-volatile parameters are mapped
+	and for id->retvar after the return value assignment, though
+	for -fsanitize=kernel-address only.  Clear id->retval and id->retbnd
+	after inlining.
+
+	2017-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/82234
+	* doc/extend.texi: Add @findex entry for __builtin_shuffle.
+
+	2017-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/82192
+	* combine.c (make_extraction): Don't look through non-paradoxical
+	SUBREGs or TRUNCATE if pos + len is or might be bigger than
+	inner's mode.
+
+2017-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82703
+	* config/i386/i386-protos.h (maybe_get_pool_constant): Removed.
+	* config/i386/i386.c (maybe_get_pool_constant): Removed.
+	(ix86_split_to_parts): Use avoid_constant_pool_reference instead of
+	maybe_get_pool_constant.
+	* config/i386/predicates.md (zero_extended_scalar_load_operand):
+	Likewise.
+
+2017-10-24  Qing Zhao <qing.zhao@oracle.com>
+	    Wilco Dijkstra  <wilco.dijkstra@arm.com>
+
+        * builtins.c (expand_builtin_update_setjmp_buf): Add a
+        converstion to Pmode from the buf_addr.
+
+2017-10-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82603
+	* tree-if-conv.c (predicate_mem_writes): Make sure to only
+	remove false predicated stores.
+
+2017-10-20  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/82436
+	* tree-vect-slp.c (vect_supported_load_permutation_p): More
+	conservatively choose the vectorization factor when checking
+	whether we can perform the required load permutation.
+	(vect_transform_slp_perm_load): Assert when we may not fail.
+
+2017-10-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/82445
+	* config/arm/arm.c (align_ok_ldrd_strd): New function.
+	(mem_ok_for_ldrd_strd): New parameter align.  Extract the alignment of
+	the mem into it.
+	(gen_operands_ldrd_strd): Validate the alignment of the accesses.
+
+2017-10-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/82602
+	* ira.c (rtx_moveable_p): Return false for volatile asm.
+
+2017-10-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/82556
+	* lra-constraints.c (curr_insn_transform): Use non-input operand
+	instead of output one for matched reload.
+
+2017-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/82549
+	* fold-const.c (optimize_bit_field_compare, fold_truth_andor_1):
+	Formatting fixes.  Instead of calling make_bit_field_ref with negative
+	bitpos return 0.
+
+2017-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82274
+	* internal-fn.c (expand_mul_overflow): If both operands have
+	the same highpart of -1 or 0 and the topmost bit of lowpart
+	is different, overflow is if res <= 0 rather than res < 0.
+
+	PR target/82524
+	* config/i386/i386.md (addqi_ext_1, andqi_ext_1,
+	*andqi_ext_1_cc, *<code>qi_ext_1, *xorqi_ext_1_cc): Change
+	=Q constraints to +Q and into insn condition add check
+	that operands[0] and operands[1] are equal.
+	(*addqi_ext_2, *andqi_ext_2, *<code>qi_ext_2): Change
+	=Q constraints to +Q and into insn condition add check
+	that operands[0] is equal to either operands[1] or operands[2].
+
 2017-10-10  Andreas Tobler  <andreast@gcc.gnu.org>
 
 	Backported from mainline r253602
@@ -6039,11 +6219,6 @@
 	* doc/invoke.texi: Replace inequality signs with square brackets
 	for -Wnormalized.
 
-2017-02-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-
-	PR tree-optimization/68644
-	* gcc.dg/tree-ssa/ivopts-lt-2.c: Skip for powerpc*-*-*.
-
 2017-02-22  Matthew Fortune  <matthew.fortune@imgtec.com>
 
 	PR target/78660
@@ -7614,8 +7789,6 @@
 	PR tree-optimization/79276
 	* tree-vrp.c (process_assert_insertions): Properly adjust common
 	when removing a duplicate.
-
-	* gcc.dg/torture/pr79276.c: New testcase.
 
 2017-01-30  Richard Biener  <rguenther@suse.de>
 
