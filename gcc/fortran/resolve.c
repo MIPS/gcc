@@ -6313,6 +6313,31 @@ gfc_is_expandable_expr (gfc_expr *e)
   return false;
 }
 
+
+/* Sometimes variables in specification expressions of the result
+   of module procedures in submodules wind up not being the 'real'
+   dummy.  Find this, if possible, in the namespace of the first
+   formal argument.  */
+
+static void
+fixup_unique_dummy (gfc_expr *e)
+{
+  gfc_symtree *st = NULL;
+  gfc_symbol *s = NULL;
+
+  if (e->symtree->n.sym->ns->proc_name
+      && e->symtree->n.sym->ns->proc_name->formal)
+    s = e->symtree->n.sym->ns->proc_name->formal->sym;
+
+  if (s != NULL)
+    st = gfc_find_symtree (s->ns->sym_root, e->symtree->n.sym->name);
+
+  if (st != NULL
+      && st->n.sym != NULL
+      && st->n.sym->attr.dummy)
+    e->symtree = st;
+}
+
 /* Resolve an expression.  That is, make sure that types of operands agree
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
@@ -6336,6 +6361,14 @@ gfc_resolve_expr (gfc_expr *e)
       inquiry_argument = false;
       actual_arg = false;
       first_actual_arg = false;
+    }
+  else if (e->symtree != NULL
+	   && *e->symtree->name == '@'
+	   && e->symtree->n.sym->attr.dummy)
+    {
+      /* Deal with submodule specification expressions that are not
+	 found to be referenced in module.c(read_cleanup).  */
+      fixup_unique_dummy (e);
     }
 
   switch (e->expr_type)
@@ -9758,7 +9791,8 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 
   /* Assign the 'data' of a class object to a derived type.  */
   if (lhs->ts.type == BT_DERIVED
-      && rhs->ts.type == BT_CLASS)
+      && rhs->ts.type == BT_CLASS
+      && rhs->expr_type != EXPR_ARRAY)
     gfc_add_data_component (rhs);
 
   /* Insert a GFC_ISYM_CAF_SEND intrinsic, when the LHS is a coindexed variable.
@@ -13932,7 +13966,23 @@ resolve_symbol (gfc_symbol *sym)
 
   if (as)
     {
-      gcc_assert (as->type != AS_IMPLIED_SHAPE);
+      /* If AS_IMPLIED_SHAPE makes it to here, it must be a bad
+	 specification expression.  */
+      if (as->type == AS_IMPLIED_SHAPE)
+	{
+	  int i;
+	  for (i=0; i<as->rank; i++)
+	    {
+	      if (as->lower[i] != NULL && as->upper[i] == NULL)
+		{
+		  gfc_error ("Bad specification for assumed size array at %L",
+			     &as->lower[i]->where);
+		  return;
+		}
+	    }
+	  gcc_unreachable();
+	}
+
       if (((as->type == AS_ASSUMED_SIZE && !as->cp_was_assumed)
 	   || as->type == AS_ASSUMED_SHAPE)
 	  && !sym->attr.dummy && !sym->attr.select_type_temporary)
@@ -14493,7 +14543,12 @@ resolve_symbol (gfc_symbol *sym)
 
       if ((!a->save && !a->dummy && !a->pointer
 	   && !a->in_common && !a->use_assoc
-	   && !a->result && !a->function)
+	   && a->referenced
+	   && !((a->function || a->result)
+		&& (!a->dimension
+		    || sym->ts.u.derived->attr.alloc_comp
+		    || sym->ts.u.derived->attr.pointer_comp))
+	   && !(a->function && sym != sym->result))
 	  || (a->dummy && a->intent == INTENT_OUT && !a->pointer))
 	apply_default_init (sym);
       else if (a->function && sym->result && a->access != ACCESS_PRIVATE
@@ -15321,9 +15376,22 @@ resolve_equivalence (gfc_equiv *eq)
 	  && sym->ns->proc_name->attr.pure
 	  && sym->attr.in_common)
 	{
-	  gfc_error ("Common block member %qs at %L cannot be an EQUIVALENCE "
-		     "object in the pure procedure %qs",
-		     sym->name, &e->where, sym->ns->proc_name->name);
+	  /* Need to check for symbols that may have entered the pure
+	     procedure via a USE statement.  */
+	  bool saw_sym = false;
+	  if (sym->ns->use_stmts)
+	    {
+	      gfc_use_rename *r;
+	      for (r = sym->ns->use_stmts->rename; r; r = r->next)
+		if (strcmp(r->use_name, sym->name) == 0) saw_sym = true; 
+	    }
+	  else
+	    saw_sym = true;
+
+	  if (saw_sym)
+	    gfc_error ("COMMON block member %qs at %L cannot be an "
+		       "EQUIVALENCE object in the pure procedure %qs",
+		       sym->name, &e->where, sym->ns->proc_name->name);
 	  break;
 	}
 

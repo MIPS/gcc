@@ -4150,9 +4150,7 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
       if (arg2 && arg2->expr_type == EXPR_CONSTANT)
 	d = mpz_get_si (arg2->value.integer) - 1;
       else
-	/* TODO: If the need arises, this could produce an array of
-	   ubound/lbounds.  */
-	gcc_unreachable ();
+	return false;
 
       if (expr->value.function.isym->id == GFC_ISYM_LBOUND)
 	{
@@ -5554,7 +5552,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
 	  tmp = gfc_deallocate_alloc_comp (e->ts.u.derived, tmp, parm_rank);
 
-	  gfc_add_expr_to_block (&se->post, tmp);
+	  gfc_prepend_expr_to_block (&post, tmp);
         }
 
       /* Add argument checking of passing an unallocated/NULL actual to

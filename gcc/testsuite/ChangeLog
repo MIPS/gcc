@@ -1,9 +1,135 @@
-2017-10-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
-            Steven G. Kargl  <kargl@gcc.gnu.org>
+2017-11-13  Paul Thomas  <pault@gcc.gnu.org>
 
-        Backport from trunk
-        PR fortran/80118
-        * gfortran.dg/zero_sized_7.f90: New test.
+	Backport from trunk
+	PR fortran/82934
+	* gfortran.dg/allocate_assumed_charlen_1.f90: New test.
+
+2017-11-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/78619
+	* gfortran.dg/pr78619.f90: New test.
+
+2017-11-11  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from mainline
+	2017-02-03  John David Anglin  <danglin@gcc.gnu.org>
+
+        * c-c++-common/Wunused-var-16.c: Add -fno-common additional option on
+	hppa*-*-hpux*
+        * c-c++-common/builtin-shuffle-1.c: Likewise.
+
+	2017-02-15  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/cpp0x/pr79296.C: Move dg-do compile directive first.
+
+	2017-02-24  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/ext/complit15.C: Require LTO.
+
+	2017-01-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/opt/declone3.C: Require LTO.
+
+	2017-03-26  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/torture/pr79732.c: Require alias support.
+
+	2017-02-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gfortran.dg/coarray_43.f90: Add "-latomic" option if
+	libatomic_available.
+
+2017-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt69.adb: New test.
+
+2017-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backported from trunk
+	PR fortran/78641
+	* gfortran.dg/class_66.f90: New test.
+
+2017-11-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backported from trunk
+	PR fortran/69739
+	* gfortran.dg/pr69739.f90: New test.
+
+2017-11-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/82796
+	* gfortran.dg/equiv_pure.f90: New test.
+
+2017-11-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from 7-branch
+	PR fortran/81735
+	* gfortran.dg/pr81735.f90: New test.
+
+2017-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/78293
+	* gfortran.dg/allocatable_function_10.f90: New test.
+	* gfortran.dg/class_array_15.f03: Increase builtin_free count
+	from 11 to 12.
+
+017-11-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/80554
+	* gfortran.dg/submodule_29.f08: New test.
+
+2017-10-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/82233
+	* gfortran.dg/execute_command_line_3.f90: New test.
+
+2017-10-20  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/79795
+	* gfortran.dg/assumed_size_2.f90: New test.
+
+2017-10-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/79402
+	* gfortran.dg/submodule_23.f90: New test.
+
+2017-10-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/82445
+	* gcc.target/arm/peep-ldrd-1.c: Tighten test scan pattern.
+	* gcc.target/arm/peep-strd-1.c: Likewise.
+	* gcc.target/arm/peep-ldrd-2.c: New test.
+	* gcc.target/arm/peep-strd-2.c: New test.
+
+2017-10-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/81048
+	* gfortran.dg/derived_init_4.f90 : New test.
+
+2017-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/82549
+	* gcc.c-torture/compile/pr82549.c: New test.
+
+2017-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82274
+	* gcc.dg/pr82274-1.c: New test.
+	* gcc.dg/pr82274-2.c: New test.
+
+2017-10-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/80118
+	* gfortran.dg/zero_sized_7.f90: New test.
 
 2017-10-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
@@ -27,7 +153,7 @@
 	* g++.dg/other/pr81355.C: New test.
 
 2017-09-18  Richard Biener  <rguenther@suse.de>
- 
+
 	Backport from mainline
 	2017-04-07  Richard Biener  <rguenther@suse.de>
 
@@ -40,7 +166,7 @@
 	* gcc.dg/torture/pr80281.c: New testcase.
 
 2017-09-18  Richard Biener  <rguenther@suse.de>
- 
+
 	Backport from mainline
 	2017-08-28  Richard Biener  <rguenther@suse.de>
 
@@ -396,7 +522,7 @@
 
 2017-07-06  Andrew Pinski  <apinski@cavium.com>
 
-	* gcc.target/aarch64/pr71112.c : New Testcase.
+	* gcc.target/aarch64/pr71112.c: New Testcase.
 
 2017-07-04  Release Manager
 
@@ -909,7 +1035,7 @@
 	2017-02-21  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/79639
-	* g++.dg/cpp1y/constexpr-79639.C: New test. 
+	* g++.dg/cpp1y/constexpr-79639.C: New test.
 
 	PR target/79570
 	* gcc.dg/pr79570.c: New test.
@@ -1012,14 +1138,14 @@
 
 	Backport from trunk
 	PR fortran/71838
-	* gfortran.dg/submodule_26.f08 : New test.
-	* gfortran.dg/submodule_27.f08 : New test.
+	* gfortran.dg/submodule_26.f08: New test.
+	* gfortran.dg/submodule_27.f08: New test.
 
 2017-04-01  Paul Thomas  <pault@gcc.gnu.org>
 
 	Backport from trunk
 	PR fortran/79676
-	* gfortran.dg/submodule_28.f08 : New test.
+	* gfortran.dg/submodule_28.f08: New test.
 
 2017-03-31  Richard Sandiford  <richard.sandiford@arm.com>
 
@@ -1089,7 +1215,7 @@
 
 	Backport from trunk
 	PR fortran/79434
-	* gfortran.dg/submodule_25.f08 : New test.
+	* gfortran.dg/submodule_25.f08: New test.
 
 2017-03-24  Tom de Vries  <tom@codesourcery.com>
 
@@ -3243,7 +3369,7 @@
 
 	Backport from trunk
 	PR fortran/71883
-	* gfortran.dg/pr71883.f90 : New test.
+	* gfortran.dg/pr71883.f90: New test.
 
 2016-07-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
@@ -6961,7 +7087,7 @@
 2016-02-20  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/69423
-	* gfortran.dg/deferred_character_15.f90 : New test.
+	* gfortran.dg/deferred_character_15.f90: New test.
 
 2016-02-20  Dominique d'Humieres  <dominiq@lps.ens.fr>
 

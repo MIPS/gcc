@@ -1,3 +1,83 @@
+2017-11-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2017-10-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_as_ix86_xbrace_comment): Check if assembler
+	supports -xbrace_comment option.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/sol2.h (ASM_XBRACE_COMMENT_SPEC): Define.
+	(ASM_CPU_SPEC): Use it.
+
+2017-11-09  Andre McCurdy  <armccurdy@gmail.com>
+
+	* config/arm/arm-cores.def: Fix missing FL_LPAE flag for armv7ve
+	compatible cores.
+
+2017-11-09  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2017-11-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/64682
+	PR rtl-optimization/69567
+	PR rtl-optimization/69737
+	PR rtl-optimization/82683
+	* combine.c (distribute_notes) <REG_DEAD>: If the new I2 sets the same
+	register mentioned in the note, drop the note, unless it came from I3,
+	in which case it should go to I3 again.
+
+2017-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/82772
+	* config/alpha/sync.md (fetchop_constr) <and>: Change to "rINM".
+
+2017-10-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-03-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): Use rotate
+	instead of vec_select for V1TImode.
+	* conifg/rs6000/vsx.md (VSX_LE): Remove mode iterator that is no
+	longer needed.
+	(VSX_LE_128): Add V1TI to this mode iterator.
+	(*vsx_le_perm_load_<mode>): Change to use VSX_D mode iterator.
+	(*vsx_le_perm_store_<mode>): Likewise.
+	(pre-reload splitter for VSX stores): Likewise.
+	(post-reload splitter for VSX stores): Likewise.
+	(*vsx_xxpermdi2_le_<mode>): Likewise.
+	(*vsx_lxvd2x2_le_<mode>): Likewise.
+	(*vsx_stxvd2x2_le_<mode>): Likewise.
+
+2017-10-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/82445
+	* config/arm/arm.c (align_ok_ldrd_strd): New function.
+	(mem_ok_for_ldrd_strd): New parameter align.  Extract the alignment of
+	the mem into it.
+	(gen_operands_ldrd_strd): Validate the alignment of the accesses.
+
+2017-10-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/82602
+	* ira.c (rtx_moveable_p): Return false for volatile asm.
+
+2017-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/82549
+	* fold-const.c (optimize_bit_field_compare, fold_truth_andor_1):
+	Formatting fixes.  Instead of calling make_bit_field_ref with negative
+	bitpos return 0.
+
+2017-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/82274
+	* internal-fn.c (expand_mul_overflow): If both operands have
+	the same highpart of -1 or 0 and the topmost bit of lowpart
+	is different, overflow is if res <= 0 rather than res < 0.
+
 2017-10-10  Andreas Tobler  <andreast@gcc.gnu.org>
 
 	* config.gcc: (armv7*-*-freebsd*): New target.
