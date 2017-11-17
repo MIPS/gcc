@@ -93,20 +93,27 @@ class bb_paths
  public:
   bb_paths ();
   ~bb_paths ();
+  tree get_name (void) { return name; }
   void calculate (tree ssa, basic_block use);
-  /* Calculate the range for path number I and store it in R.
-     Return TRUE if R is non empty.  */
-  bool range_of_path (irange &r, unsigned i)
+  /* Calculate the range for PATH and store it in R.
+     Return TRUE if R is not the entire range for type.  */
+  bool range_of_path (irange &r, vec<basic_block> &path,
+		      edge start_edge = NULL)
   {
-    return ranger.path_range (r, name, all_paths[i], path_ranger::REVERSE);
+    return ranger.path_range (r, name, path, path_ranger::REVERSE, start_edge);
   }
   /* Attempt to fold STMT given VAR and its known range VAR_RANGE.
      Store the resulting range in R and return TRUE if R is non
      empty.  */
-  bool range_of_stmt (irange &r, gimple *stmt, tree var,
-		      const irange var_range)
+  bool range_of_folded_stmt (irange &r, gimple *stmt, tree var,
+			     const irange var_range)
   {
     return ranger.range_of_def (r, stmt, var, var_range);
+  }
+  /* Return the ultimate SSA name for which NAME depends on.  */
+  tree terminal_name (void)
+  {
+    return ranger.def_chain.terminal_name (name);
   }
   const vec<basic_block> &operator[] (unsigned i) const { return all_paths[i]; }
   vec<basic_block> &operator[] (unsigned i) { return all_paths[i]; }
@@ -342,7 +349,7 @@ bb_paths::dump ()
       vec<basic_block> path = all_paths[i];
 
       dump_one_path (stderr, path);
-      if (range_of_path (r, i))
+      if (range_of_path (r, path))
 	{
 	  fprintf (stderr, "\t  ");
 	  r.dump ();
@@ -430,7 +437,7 @@ resolve_control_statement (gimple *stmt, tree name,
 	   the ranger gets the right range.  */
 	tree var = gimple_cond_lhs (stmt);
 	irange r;
-	if (!paths.range_of_stmt (r, stmt, var, range_for_name)
+	if (!paths.range_of_folded_stmt (r, stmt, var, range_for_name)
 	    || !r.singleton_p (singleton))
 	  return false;
 	result = wide_int_to_tree (TREE_TYPE (name), singleton);
@@ -779,7 +786,9 @@ profitable_jump_thread_path (vec<basic_block> &path,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file,
 		 "FSM did not thread around loop and would copy too "
-		 "many statements.\n");
+		 "many statements (%d) [max=%d].\n",
+		 n_insns * PARAM_VALUE (PARAM_FSM_SCALE_PATH_STMTS),
+		 PARAM_VALUE (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS));
       path.pop ();
       return NULL;
     }
@@ -1142,6 +1151,97 @@ fsm_find_control_statement_thread_paths (tree name,
     path.truncate (path.length () - next_path_length);
 }
 
+/* Register a range based thread.
+
+   PATH is the path to thread.  R is the known range for said
+   path.  */
+
+static void
+register_range_based_jump_thread (bb_paths &paths, vec<basic_block> &path,
+				  irange &r, bool speed_p)
+{
+  tree name = paths.get_name ();
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file,
+	       "Considering range-based path for jump threading: "
+	       "SSA = ");
+      print_generic_stmt (dump_file, name, 0);
+      fprintf (dump_file, "\tRange is: ");
+      r.dump (dump_file);
+    }
+  /* register_jump_thread_path_if_profitable will push
+     the current block onto the path.  But the path
+     will always have the current block at this point.
+     So we can just pop it.  */
+  basic_block def_bb = path.pop ();
+  register_jump_thread_path_if_profitable
+    (path, paths.get_name (), r, def_bb, speed_p, paths);
+}
+
+/* If PATH is not threadable, but taking into account the PHI that
+   feeds into it makes it threadable, thread it and return TRUE.
+
+   This is a special case we get for cheap without looking back deep
+   through PHIs.  For example:
+
+	<bb 5>
+	# v1_595 = PHI <var(3), 0(4)>
+	_14 = v1_595 * 3600;
+	_15 = (unsigned int) _14;
+	_16 = _15 / 60;
+	...
+	<bb 99>
+	if (_16 > 123)
+
+   Even though paths through bb5->bb99 are not threadable just taking
+   _16 into account, if we take into account the path coming in
+   through bb4, we can thread.  This special cases PHIs that feed into
+   and are defined in the same BB as the range variable.  */
+
+static bool
+register_range_based_phis (bb_paths &paths, vec<basic_block> &path,
+			   bool speed_p)
+{
+  tree terminal = paths.terminal_name ();
+  if (!terminal)
+    return false;
+
+  /* See if NAME depends on a PHI that is defined in the same BB as
+     NAME.  */
+  gimple *terminal_def = SSA_NAME_DEF_STMT (terminal);
+  basic_block terminal_bb = gimple_bb (terminal_def);
+  basic_block def_bb = path[path.length () - 1];
+  gcc_assert (!path.is_empty ());
+  if (gimple_code (terminal_def) != GIMPLE_PHI
+      || def_bb != terminal_bb)
+    return false;
+
+  /* If this PHI has any constant arguments, thread this range along
+     with the PHI edge that has the constant.  */
+  bool ret = false;
+  gphi *phi = as_a <gphi *> (terminal_def);
+  for (unsigned i = 0; i < gimple_phi_num_args (phi); ++i)
+    {
+      tree arg = gimple_phi_arg_def (phi, i);
+      edge e = gimple_phi_arg_edge (phi, i);
+      irange r;
+      /* If we're threading across loop boundaries, children will die.  */
+      if (e->src->loop_father != e->dest->loop_father)
+	continue;
+      if (TREE_CODE_CLASS (TREE_CODE (arg)) == tcc_constant
+	  && paths.range_of_path (r, path, e))
+	{
+	  vec<basic_block> t = path.copy ();
+	  t.safe_push (e->src);
+	  register_range_based_jump_thread (paths, t, r, speed_p);
+	  t.release ();
+	  return true;
+	}
+    }
+  return ret;
+}
+
 /* Record jump threads based on range information.
 
    It is assumed that BB ends with a control statement and that by
@@ -1160,26 +1260,15 @@ find_range_based_jump_threads (tree name, basic_block bb, bool speed_p,
 
   for (unsigned i = 0; i < paths.length (); ++i)
     {
+      vec<basic_block> path = paths[i];
       irange r;
-      if (paths.range_of_path (r, i))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file,
-		       "Considering range-based path for jump threading: "
-		       "SSA = ");
-	      print_generic_stmt (dump_file, name, 0);
-	      fprintf (dump_file, "\tRange is: ");
-	      r.dump (dump_file);
-	    }
-	  /* register_jump_thread_path_if_profitable will push
-	     the current block onto the path.  But the path
-	     will always have the current block at this point.
-	     So we can just pop it.  */
-	  basic_block def_bb = paths[i].pop ();
-	  register_jump_thread_path_if_profitable
-	    (paths[i], name, r, def_bb, speed_p, paths);
-	}
+      /* Prefer paths containing a PHI with constant arguments, as
+	 these paths, starting off with a constant, have a higher
+	 chance of degrading into a singleton range.  */
+      if (register_range_based_phis (paths, path, speed_p))
+	continue;
+      if (paths.range_of_path (r, path))
+	register_range_based_jump_thread (paths, path, r, speed_p);
     }
 }
 

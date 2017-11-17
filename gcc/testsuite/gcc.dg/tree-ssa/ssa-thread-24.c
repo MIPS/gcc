@@ -1,11 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fgimple" } */
+/* { dg-options "-O2 -fgimple -fdump-tree-thread1-details" } */
 
-/* FIXME: This test currently does nothing.  It is a placeholder for
-   when the ranger handles PHIs and the threader can determine that
-   bb4 -> bb5 -> bb7 can be threaded.
-
-   We should test that 4->5->7 has been threaded.  */
+/* Test that we can thread 4 -> 5 -> 7.  */
 
 int result;
 int shouldnt_happen_from_bb4;
@@ -50,3 +46,5 @@ void __GIMPLE (startwith ("thread1")) foo (int arg1, int arg2)
  bb_8:
   return;
 }
+
+/* { dg-final { scan-tree-dump-times "Registering FSM jump thread: \\(4, 5\\)" 1 "thread1" } } */
