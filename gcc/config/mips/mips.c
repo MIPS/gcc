@@ -3414,6 +3414,18 @@ mips_string_constant_p (rtx x)
     return true;
   return false;
 }
+
+/* See the comment for gprel_hi_split_operand in predicates.md.
+   That's the only place where this is used.
+   FIXME: Find another way to check for UNSPEC in predicates.md.  */
+bool
+mips_unspec_address_p (rtx x)
+{
+  rtx offset;
+  split_const (x, &x, &offset);
+  return UNSPEC_ADDRESS_P (x);
+}
+
 /* Return true if X is a symbolic constant that can be used in context
    CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
 

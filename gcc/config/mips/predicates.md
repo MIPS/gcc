@@ -696,10 +696,20 @@
 	  && type == SYMBOL_GPREL32_NANO);
 })
 
-;; @tmt Note the absence of const in match_code.
-;; This avoids re-matching the high part after we wrap it in a (CONST (UNSPEC.
+;; Rejecting UNSPEC prevents re-matching the %gprel_hi after we've wrapped it
+;; in a (CONST (UNSPEC.
+;; FIXME: Find an alternative to mips_unspec_address_p.
+(define_predicate "gprel_hi_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && !mips_unspec_address_p (op)
+	  && type == SYMBOL_GPREL_SPLIT_NANO);
+})
+
 (define_predicate "gprel_split_nano_operand"
-  (match_code "symbol_ref,label_ref")
+  (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)

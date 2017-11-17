@@ -4962,7 +4962,7 @@
 
 (define_insn_and_split "*gprel_hi_split_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(high:SI (match_operand:SI 1 "gprel_split_nano_operand" "")))]
+	(high:SI (match_operand:SI 1 "gprel_hi_split_nano_operand" "")))]
   "TARGET_NANOMIPS"
   "#"
   "&& epilogue_completed"
