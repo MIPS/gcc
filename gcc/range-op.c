@@ -1473,7 +1473,10 @@ bool
 operator_logical_not::fold_range (irange& r, const irange& lh,
 				  const irange& rh ATTRIBUTE_UNUSED) const
 {
-  r = lh;
+  if (lh.range_for_type_p () || lh.empty_p ())
+    r = lh;
+  else
+    r = irange_invert (lh);
   return true;
 }
 
@@ -1481,7 +1484,10 @@ bool
 operator_logical_not::op1_irange (irange& r, const irange& lhs,
 				  const irange& op2 ATTRIBUTE_UNUSED) const
 {
-  r = irange_invert (lhs);
+  if (lhs.range_for_type_p () || lhs.empty_p ())
+    r = lhs;
+  else
+    r = irange_invert (lhs);
   return true;
 }
 
