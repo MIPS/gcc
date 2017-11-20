@@ -719,7 +719,7 @@ enum intmod_id
 
 typedef struct
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   int value;  /* Used for both integer and character values.  */
   bt f90_type;
 }

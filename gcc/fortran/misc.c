@@ -278,7 +278,7 @@ get_c_kind(const char *c_kind_name, CInteropKind_t kinds_table[])
   int index = 0;
 
   for (index = 0; index < ISOCBINDING_LAST; index++)
-    if (strcmp (kinds_table[index].name, c_kind_name) == 0)
+    if (kinds_table[index].name == c_kind_name)
       return index;
 
   return ISOCBINDING_INVALID;

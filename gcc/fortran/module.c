@@ -6357,27 +6357,27 @@ import_iso_c_binding_module (void)
 #define NAMED_FUNCTION(a,b,c,d) \
 	        case a: \
 		  not_in_std = (gfc_option.allow_std & d) == 0; \
-		  name = b; \
+		  name = gfc_get_string ("%s", b); \
 		  break;
 #define NAMED_SUBROUTINE(a,b,c,d) \
 	        case a: \
 		  not_in_std = (gfc_option.allow_std & d) == 0; \
-		  name = b; \
+		  name = gfc_get_string ("%s", b); \
 		  break;
 #define NAMED_INTCST(a,b,c,d) \
 	        case a: \
 		  not_in_std = (gfc_option.allow_std & d) == 0; \
-		  name = b; \
+		  name = gfc_get_string ("%s", b); \
 		  break;
 #define NAMED_REALCST(a,b,c,d) \
 	        case a: \
 		  not_in_std = (gfc_option.allow_std & d) == 0; \
-		  name = b; \
+		  name = gfc_get_string ("%s", b); \
 		  break;
 #define NAMED_CMPXCST(a,b,c,d) \
 	        case a: \
 		  not_in_std = (gfc_option.allow_std & d) == 0; \
-		  name = b; \
+		  name = gfc_get_string ("%s", b); \
 		  break;
 #include "iso-c-binding.def"
 		default:
@@ -6481,13 +6481,15 @@ import_iso_c_binding_module (void)
 		  return_type = c_funptr->n.sym; \
 		else \
 		  return_type = NULL; \
-		create_intrinsic_function (b, a, iso_c_module_name, \
+		create_intrinsic_function (gfc_get_string ("%s", b), \
+					   a, iso_c_module_name, \
 					   INTMOD_ISO_C_BINDING, false, \
 					   return_type); \
 		break;
 #define NAMED_SUBROUTINE(a,b,c,d) \
 	      case a: \
-		create_intrinsic_function (b, a, iso_c_module_name, \
+		create_intrinsic_function (gfc_get_string ("%s", b), \
+					   a, iso_c_module_name, \
 					   INTMOD_ISO_C_BINDING, true, NULL); \
 		  break;
 #include "iso-c-binding.def"

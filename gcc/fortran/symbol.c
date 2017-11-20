@@ -4985,7 +4985,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	  tmp_comp->ts.f90_type = BT_INTEGER;
 
 	  /* The kinds for c_ptr and c_funptr are the same.  */
-	  index = get_c_kind ("c_ptr", c_interop_kinds_table);
+	  index = get_c_kind (gfc_get_string ("%s", "c_ptr"),
+	      c_interop_kinds_table);
 	  tmp_comp->ts.kind = c_interop_kinds_table[index].value;
 	  tmp_comp->attr.access = ACCESS_PRIVATE;
 

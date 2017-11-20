@@ -360,45 +360,45 @@ gfc_init_c_interop_kinds (void)
   for (i = 0; i < ISOCBINDING_NUMBER; i++)
     {
       /* Initialize the name and value fields.  */
-      c_interop_kinds_table[i].name[0] = '\0';
+      c_interop_kinds_table[i].name = NULL;
       c_interop_kinds_table[i].value = -100;
       c_interop_kinds_table[i].f90_type = BT_UNKNOWN;
     }
 
 #define NAMED_INTCST(a,b,c,d) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_INTEGER; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_REALCST(a,b,c,d) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_REAL; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_CMPXCST(a,b,c,d) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_COMPLEX; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_LOGCST(a,b,c) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_LOGICAL; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_CHARKNDCST(a,b,c) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_CHARACTER; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_CHARCST(a,b,c) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_CHARACTER; \
   c_interop_kinds_table[a].value = c;
 #define DERIVED_TYPE(a,b,c) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_DERIVED; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_FUNCTION(a,b,c,d) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_PROCEDURE; \
   c_interop_kinds_table[a].value = c;
 #define NAMED_SUBROUTINE(a,b,c,d) \
-  strncpy (c_interop_kinds_table[a].name, b, strlen(b) + 1); \
+  c_interop_kinds_table[a].name = gfc_get_string ("%s", b); \
   c_interop_kinds_table[a].f90_type = BT_PROCEDURE; \
   c_interop_kinds_table[a].value = c;
 #include "iso-c-binding.def"
