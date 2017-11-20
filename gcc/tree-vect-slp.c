@@ -210,12 +210,13 @@ vect_get_place_in_interleaving_chain (gimple *stmt, gimple *first_stmt)
 /* Check whether it is possible to load COUNT elements of type ELT_MODE
    using the method implemented by duplicate_and_interleave.  Return true
    if so, returning the number of intermediate vectors in *NVECTORS_OUT
-   and the mode of each intermediate vector in *VEC_MODE_OUT.  */
+   (if nonnull) and the type of each intermediate vector in *VECTOR_TYPE_OUT
+   (if nonnull).  */
 
 bool
 can_duplicate_and_interleave_p (unsigned int count, machine_mode elt_mode,
 				unsigned int *nvectors_out,
-				machine_mode *vec_mode_out)
+				tree *vector_type_out)
 {
   poly_int64 elt_bytes = count * GET_MODE_SIZE (elt_mode);
   poly_int64 nelts;
@@ -223,18 +224,25 @@ can_duplicate_and_interleave_p (unsigned int count, machine_mode elt_mode,
   for (;;)
     {
       scalar_int_mode int_mode;
+      poly_int64 elt_bits = elt_bytes * BITS_PER_UNIT;
       if (multiple_p (current_vector_size, elt_bytes, &nelts)
-	  && int_mode_for_size (elt_bytes * BITS_PER_UNIT,
-				0).exists (&int_mode))
+	  && int_mode_for_size (elt_bits, 0).exists (&int_mode))
 	{
-	  machine_mode vec_mode;
-	  if (mode_for_vector (int_mode, nelts).exists (&vec_mode)
-	      && targetm.vector_mode_supported_p (vec_mode))
+	  tree int_type = build_nonstandard_integer_type
+	    (GET_MODE_BITSIZE (int_mode), 1);
+	  tree vector_type = build_vector_type (int_type, nelts);
+	  if (VECTOR_MODE_P (TYPE_MODE (vector_type))
+	      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO,
+						 vector_type,
+						 OPTIMIZE_FOR_SPEED)
+	      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI,
+						 vector_type,
+						 OPTIMIZE_FOR_SPEED))
 	    {
 	      if (nvectors_out)
 		*nvectors_out = nvectors;
-	      if (vec_mode_out)
-		*vec_mode_out = vec_mode;
+	      if (vector_type_out)
+		*vector_type_out = vector_type;
 	      return true;
 	    }
 	}
@@ -1832,7 +1840,7 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
 	   : VMAT_CONTIGUOUS);
       if (DR_IS_WRITE (STMT_VINFO_DATA_REF (stmt_info)))
 	vect_model_store_cost (stmt_info, ncopies_for_cost,
-			       memory_access_type, vect_uninitialized_def,
+			       memory_access_type, VLS_STORE,
 			       node, prologue_cost_vec, body_cost_vec);
       else
 	{
@@ -2055,7 +2063,6 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
   unsigned int first_uid = gimple_uid (first_stmt);
   unsigned int last_uid = first_uid;
   GROUP_SIZE (first_vinfo) = group1_size;
-  GROUP_NUM_STMTS (first_vinfo) = group1_size;
 
   gimple *stmt = first_stmt;
   for (unsigned i = group1_size; i > 1; i--)
@@ -2074,12 +2081,10 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
 
   first_uid = last_uid = gimple_uid (group2);
   GROUP_SIZE (vinfo_for_stmt (group2)) = group2_size;
-  GROUP_NUM_STMTS (vinfo_for_stmt (group2)) = 0;
   for (stmt = group2; stmt; stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)))
     {
       first_uid = MIN (first_uid, gimple_uid (stmt));
       last_uid = MAX (last_uid, gimple_uid (stmt));
-      GROUP_NUM_STMTS (vinfo_for_stmt (group2)) += 1;
       GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = group2;
       gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
     }
@@ -3342,10 +3347,10 @@ vect_mask_constant_operand_p (gimple *stmt, int opnum)
 
    (3) Duplicate each ELTS'[I] into a vector of mode VM.
 
-   (4) Use a tree of VEC_INTERLEAVE_HI/LOs to create VMs with the
+   (4) Use a tree of VEC_INTERLEAVE_LO/HIs to create VMs with the
        correct byte contents.
 
-   (5) Use VIEW_CONVERT_EXPR to cast the final VM to the required type.
+   (5) Use VIEW_CONVERT_EXPR to cast the final VMs to the required type.
 
    We try to find the largest IM for which this sequence works, in order
    to cut down on the number of interleaves.  */
@@ -3359,17 +3364,10 @@ duplicate_and_interleave (gimple_seq *seq, tree vector_type, vec<tree> elts,
 
   /* (1) Find a vector mode VM with integer elements of mode IM.  */
   unsigned int nvectors = 1;
-  machine_mode new_vector_mode;
+  tree new_vector_type;
   if (!can_duplicate_and_interleave_p (nelts, TYPE_MODE (element_type),
-				       &nvectors, &new_vector_mode))
+				       &nvectors, &new_vector_type))
     gcc_unreachable ();
-
-  /* Get the types associated with IM and VM above.  */
-  unsigned int new_element_bits = GET_MODE_UNIT_BITSIZE (new_vector_mode);
-  tree new_element_type
-    = build_nonstandard_integer_type (new_element_bits, 1);
-  tree new_vector_type
-    = build_vector_type (new_element_type, GET_MODE_NUNITS (new_vector_mode));
 
   /* Get a vector type that holds ELTS[0:NELTS/NELTS'].  */
   unsigned int partial_nelts = nelts / nvectors;
@@ -3386,25 +3384,26 @@ duplicate_and_interleave (gimple_seq *seq, tree vector_type, vec<tree> elts,
       for (unsigned int j = 0; j < partial_nelts; ++j)
 	partial_elts[j] = elts[i * partial_nelts + j];
       tree t = gimple_build_vector (seq, partial_vector_type, partial_elts);
-      t = gimple_build (seq, VIEW_CONVERT_EXPR, new_element_type, t);
+      t = gimple_build (seq, VIEW_CONVERT_EXPR,
+			TREE_TYPE (new_vector_type), t);
 
       /* (3) Duplicate each ELTS'[I] into a vector of mode VM.  */
       pieces[i] = gimple_build_vector_from_val (seq, new_vector_type, t);
     }
 
-  /* (4) Use a tree of VEC_INTERLEAVE_HIs to create a single VM with the
+  /* (4) Use a tree of VEC_INTERLEAVE_LO/HIs to create a single VM with the
 	 correct byte contents.
 
      We need to repeat the following operation log2(nvectors) times:
 
-	out[i * 2] = VEC_INTERLEAVE_HI (in[i], in[i + lo_start]);
-	out[i * 2 + 1] = VEC_INTERLEAVE_LO (in[i], in[i + lo_start]);
+	out[i * 2] = VEC_INTERLEAVE_LO (in[i], in[i + hi_start]);
+	out[i * 2 + 1] = VEC_INTERLEAVE_HI (in[i], in[i + hi_start]);
 
      However, if each input repeats every N elements and the VF is
-     a multiple of N * 2, the LO result is the same as the HI.  */
+     a multiple of N * 2, the HI result is the same as the LO.  */
   unsigned int in_start = 0;
   unsigned int out_start = nvectors;
-  unsigned int lo_start = nvectors / 2;
+  unsigned int hi_start = nvectors / 2;
   /* A bound on the number of outputs needed to produce NRESULTS results
      in the final iteration.  */
   unsigned int noutputs_bound = nvectors * nresults;
@@ -3415,7 +3414,7 @@ duplicate_and_interleave (gimple_seq *seq, tree vector_type, vec<tree> elts,
       for (unsigned int i = 0; i < limit; ++i)
 	{
 	  if ((i & 1) != 0
-	      && multiple_p (GET_MODE_NUNITS (new_vector_mode),
+	      && multiple_p (TYPE_VECTOR_SUBPARTS (new_vector_type),
 			     2 * in_repeat))
 	    {
 	      pieces[out_start + i] = pieces[out_start + i - 1];
@@ -3424,10 +3423,10 @@ duplicate_and_interleave (gimple_seq *seq, tree vector_type, vec<tree> elts,
 
 	  tree output = make_ssa_name (new_vector_type);
 	  tree input1 = pieces[in_start + (i / 2)];
-	  tree input2 = pieces[in_start + (i / 2) + lo_start];
+	  tree input2 = pieces[in_start + (i / 2) + hi_start];
 	  internal_fn fn = ((i & 1) != 0
-			    ? IFN_VEC_INTERLEAVE_LO
-			    : IFN_VEC_INTERLEAVE_HI);
+			    ? IFN_VEC_INTERLEAVE_HI
+			    : IFN_VEC_INTERLEAVE_LO);
 	  gcall *call = gimple_build_call_internal (fn, 2, input1, input2);
 	  gimple_call_set_lhs (call, output);
 	  gimple_seq_add_stmt (seq, call);
@@ -3512,6 +3511,8 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
      (s1, s2, ..., s8).  We will create two vectors {s1, s2, s3, s4} and
      {s5, s6, s7, s8}.  */
 
+  /* When using duplicate_and_interleave, we just need one element for
+     each scalar statement.  */
   if (!TYPE_VECTOR_SUBPARTS (vector_type).is_constant (&nunits))
     nunits = group_size;
 
@@ -3638,6 +3639,8 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		vec_cst = gimple_build_vector (&ctor_seq, vector_type, elts);
 	      else if (neutral_op)
 		{
+		  /* Build a vector of the neutral value and shift the
+		     other elements into place.  */
 		  vec_cst = gimple_build_vector_from_val (&ctor_seq,
 							  vector_type,
 							  neutral_op);

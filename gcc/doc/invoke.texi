@@ -314,7 +314,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector  -Wstack-usage=@var{len}  -Wstrict-aliasing @gol
 -Wstrict-aliasing=n  -Wstrict-overflow  -Wstrict-overflow=@var{n} @gol
--Wstringop-overflow=@var{n} @gol
+-Wstringop-overflow=@var{n} -Wstringop-truncation @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{|}malloc@r{]} @gol
 -Wsuggest-final-types @gol  -Wsuggest-final-methods  -Wsuggest-override @gol
 -Wmissing-format-attribute  -Wsubobject-linkage @gol
@@ -1204,8 +1204,8 @@ See RS/6000 and PowerPC Options.
 -mprefetchwt1  -mclflushopt  -mxsavec  -mxsaves @gol
 -msse4a  -m3dnow  -m3dnowa  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop @gol
 -mlzcnt  -mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  @gol
--mmwaitx  -mclzero  -mpku  -mthreads @gol
--mcet -mibt -mshstk @gol
+-mmwaitx  -mclzero  -mpku  -mthreads -mgfni @gol
+-mcet -mibt -mshstk -mforce-indirect-call -mavx512vbmi2 @gol
 -mms-bitfields  -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically  -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy}  -mmemset-strategy=@var{strategy} @gol
@@ -5214,6 +5214,55 @@ whether to issue a warning.  Similarly to @option{-Wstringop-overflow=3} this
 setting of the option may result in warnings for benign code.
 @end table
 
+@item -Wstringop-truncation
+@opindex Wstringop-truncation
+@opindex Wno-stringop-truncation
+Warn for calls to bounded string manipulation functions such as @code{strncat},
+@code{strncpy}, and @code{stpncpy} that may either truncate the copied string
+or leave the destination unchanged.
+
+In the following example, the call to @code{strncat} specifies a bound that
+is less than the length of the source string.  As a result, the copy of
+the source will be truncated and so the call is diagnosed.  To avoid the
+warning use @code{bufsize - strlen (buf) - 1)} as the bound.
+
+@smallexample
+void append (char *buf, size_t bufsize)
+@{
+  strncat (buf, ".txt", 3);
+@}
+@end smallexample
+
+As another example, the following call to @code{strncpy} results in copying
+to @code{d} just the characters preceding the terminating NUL, without
+appending the NUL to the end.  Assuming the result of @code{strncpy} is
+necessarily a NUL-terminated string is a common mistake, and so the call
+is diagnosed.  To avoid the warning when the result is not expected to be
+NUL-terminated, call @code{memcpy} instead.
+
+@smallexample
+void copy (char *d, const char *s)
+@{
+  strncpy (d, s, strlen (s));
+@}
+@end smallexample
+
+In the following example, the call to @code{strncpy} specifies the size
+of the destination buffer as the bound.  If the length of the source
+string is equal to or greater than this size the result of the copy will
+not be NUL-terminated.  Therefore, the call is also diagnosed.  To avoid
+the warning, specify @code{sizeof buf - 1} as the bound and set the last
+element of the buffer to @code{NUL}.
+
+@smallexample
+void copy (const char *s)
+@{
+  char buf[80];
+  strncpy (buf, s, sizeof buf);
+  @dots{}
+@}
+@end smallexample
+
 @item -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{|}cold@r{|}malloc@r{]}
 @opindex Wsuggest-attribute=
 @opindex Wno-suggest-attribute=
@@ -6230,11 +6279,26 @@ not an array, but a pointer.  This warning is enabled by @option{-Wall}.
 @opindex Wsizeof-pointer-memaccess
 @opindex Wno-sizeof-pointer-memaccess
 Warn for suspicious length parameters to certain string and memory built-in
-functions if the argument uses @code{sizeof}.  This warning warns e.g.@:
-about @code{memset (ptr, 0, sizeof (ptr));} if @code{ptr} is not an array,
-but a pointer, and suggests a possible fix, or about
-@code{memcpy (&foo, ptr, sizeof (&foo));}.  This warning is enabled by
-@option{-Wall}.
+functions if the argument uses @code{sizeof}.  This warning triggers for
+example for @code{memset (ptr, 0, sizeof (ptr));} if @code{ptr} is not
+an array, but a pointer, and suggests a possible fix, or about
+@code{memcpy (&foo, ptr, sizeof (&foo));}.  @option{-Wsizeof-pointer-memaccess}
+also warns about calls to bounded string copy functions like @code{strncat}
+or @code{strncpy} that specify as the bound a @code{sizeof} expression of
+the source array.  For example, in the following function the call to
+@code{strncat} specifies the size of the source string as the bound.  That
+is almost certainly a mistake and so the call is diagnosed.
+@smallexample
+void make_file (const char *name)
+@{
+  char path[PATH_MAX];
+  strncpy (path, name, sizeof path - 1);
+  strncat (path, ".text", sizeof ".text");
+  @dots{}
+@}
+@end smallexample
+
+The @option{-Wsizeof-pointer-memaccess} option is enabled by @option{-Wall}.
 
 @item -Wsizeof-array-argument
 @opindex Wsizeof-array-argument
@@ -15493,7 +15557,7 @@ Permissible names are:
 @samp{armv6}, @samp{armv6j}, @samp{armv6k}, @samp{armv6kz}, @samp{armv6t2},
 @samp{armv6z}, @samp{armv6zk},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7ve}, 
-@samp{armv8-a}, @samp{armv8.1-a}, @samp{armv8.2-a},
+@samp{armv8-a}, @samp{armv8.1-a}, @samp{armv8.2-a}, @samp{armv8.3-a},
 @samp{armv7-r},
 @samp{armv8-r},
 @samp{armv6-m}, @samp{armv6s-m},
@@ -25968,12 +26032,18 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @need 200
 @itemx -mcet
 @opindex mcet
+@need 200
+@itemx -mavx512vbmi2
+@opindex mavx512vbmi2
+@need 200
+@itemx -mgfni
+@opindex mgfni
 These switches enable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,
-AVX512VL, AVX512BW, AVX512DQ, AVX512IFMA AVX512VBMI, BMI, BMI2, FXSR,
-XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU, IBT, SHSTK,
-3DNow!@: or enhanced 3DNow!@: extended instruction sets.  Each has a
+AVX512VL, AVX512BW, AVX512DQ, AVX512IFMA, AVX512VBMI, BMI, BMI2,
+FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU, IBT, SHSTK, AVX512VBMI2,
+GFNI, 3DNow!@: or enhanced 3DNow!@: extended instruction sets.  Each has a
 corresponding @option{-mno-} option to disable use of these instructions.
 
 These extensions are also available as built-in functions: see
@@ -26194,6 +26264,12 @@ ABI when targeting Microsoft Windows and the SysV ABI on all other systems.
 You can control this behavior for specific functions by
 using the function attributes @code{ms_abi} and @code{sysv_abi}.
 @xref{Function Attributes}.
+
+@item -mforce-indirect-call
+@opindex mforce-indirect-call
+Force all calls to functions to be indirect. This is useful
+when using Intel Processor Trace where it generates more precise timing
+information for function calls.
 
 @item -mcall-ms2sysv-xlogues
 @opindex mcall-ms2sysv-xlogues

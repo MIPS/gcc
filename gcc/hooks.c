@@ -525,18 +525,8 @@ hook_bool_mode_reg_class_t_reg_class_t_false (machine_mode, reg_class_t,
   return false;
 }
 
-/* Generic hook that takes a bool and two unsigned ints and returns false.  */
-
-bool
-hook_bool_bool_uint_uint_false (bool a ATTRIBUTE_UNUSED,
-				unsigned int b ATTRIBUTE_UNUSED,
-				unsigned int c ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
 /* Generic hook that takes a mode and an unsigned HOST_WIDE_INT and
-   returns BLKmode.  */
+   returns no mode.  */
 
 opt_machine_mode
 hook_optmode_mode_uhwi_none (machine_mode, unsigned HOST_WIDE_INT)

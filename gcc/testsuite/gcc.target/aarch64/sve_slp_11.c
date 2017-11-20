@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE1, TYPE2)					\
-void __attribute__ ((weak))					\
+void __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE1##_##TYPE2 (TYPE1 *restrict a,			\
 			   TYPE2 *restrict b, int n)		\
 {								\

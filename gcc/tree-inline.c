@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "sreal.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -1770,8 +1771,8 @@ copy_bb (copy_body_data *id, basic_block bb,
   basic_block copy_basic_block;
   tree decl;
   basic_block prev;
-  bool scale = !num.initialized_p ()
-	       || (den.nonzero_p () || num == profile_count::zero ());
+
+  profile_count::adjust_for_ipa_scaling (&num, &den);
 
   /* Search for previous copied basic block.  */
   prev = bb->prev_bb;
@@ -1781,10 +1782,7 @@ copy_bb (copy_body_data *id, basic_block bb,
   /* create_basic_block() will append every new block to
      basic_block_info automatically.  */
   copy_basic_block = create_basic_block (NULL, (basic_block) prev->aux);
-  if (scale)
-    copy_basic_block->count = bb->count.apply_scale (num, den);
-  else if (num.initialized_p ())
-    copy_basic_block->count = bb->count;
+  copy_basic_block->count = bb->count.apply_scale (num, den);
 
   copy_gsi = gsi_start_bb (copy_basic_block);
 
@@ -2004,23 +2002,16 @@ copy_bb (copy_body_data *id, basic_block bb,
 		  edge = id->src_node->get_edge (orig_stmt);
 		  if (edge)
 		    {
-		      int edge_freq = edge->frequency;
-		      int new_freq;
 		      struct cgraph_edge *old_edge = edge;
+		      profile_count old_cnt = edge->count;
 		      edge = edge->clone (id->dst_node, call_stmt,
 					  gimple_uid (stmt),
-					  profile_count::one (),
-					  profile_count::one (),
-					  CGRAPH_FREQ_BASE,
+					  num, den,
 					  true);
-		      /* We could also just rescale the frequency, but
-		         doing so would introduce roundoff errors and make
-			 verifier unhappy.  */
-		      new_freq  = compute_call_stmt_bb_frequency (id->dst_node->decl,
-								  copy_basic_block);
 
-		      /* Speculative calls consist of two edges - direct and indirect.
-			 Duplicate the whole thing and distribute frequencies accordingly.  */
+		      /* Speculative calls consist of two edges - direct and
+			 indirect.  Duplicate the whole thing and distribute
+			 frequencies accordingly.  */
 		      if (edge->speculative)
 			{
 			  struct cgraph_edge *direct, *indirect;
@@ -2028,42 +2019,22 @@ copy_bb (copy_body_data *id, basic_block bb,
 
 			  gcc_assert (!edge->indirect_unknown_callee);
 			  old_edge->speculative_call_info (direct, indirect, ref);
+
+			  profile_count indir_cnt = indirect->count;
 			  indirect = indirect->clone (id->dst_node, call_stmt,
 						      gimple_uid (stmt),
-						      profile_count::one (),
-						      profile_count::one (),
-						      CGRAPH_FREQ_BASE,
+						      num, den,
 						      true);
-			  if (old_edge->frequency + indirect->frequency)
-			    {
-			      edge->frequency = MIN (RDIV ((gcov_type)new_freq * old_edge->frequency,
-						           (old_edge->frequency + indirect->frequency)),
-						     CGRAPH_FREQ_MAX);
-			      indirect->frequency = MIN (RDIV ((gcov_type)new_freq * indirect->frequency,
-							       (old_edge->frequency + indirect->frequency)),
-							 CGRAPH_FREQ_MAX);
-			    }
+
+			  profile_probability prob
+			     = indir_cnt.probability_in (old_cnt + indir_cnt);
+			  indirect->count
+			     = copy_basic_block->count.apply_probability (prob);
+			  edge->count = copy_basic_block->count - indirect->count;
 			  id->dst_node->clone_reference (ref, stmt);
 			}
 		      else
-			{
-			  edge->frequency = new_freq;
-			  if (dump_file
-			      && profile_status_for_fn (cfun) != PROFILE_ABSENT
-			      && (edge_freq > edge->frequency + 10
-				  || edge_freq < edge->frequency - 10))
-			    {
-			      fprintf (dump_file, "Edge frequency estimated by "
-				       "cgraph %i diverge from inliner's estimate %i\n",
-				       edge_freq,
-				       edge->frequency);
-			      fprintf (dump_file,
-				       "Orig bb: %i, orig bb freq %i, new bb freq %i\n",
-				       bb->index,
-				       bb->count.to_frequency (cfun),
-				       copy_basic_block->count.to_frequency (cfun));
-			    }
-			}
+			edge->count = copy_basic_block->count;
 		    }
 		  break;
 
@@ -2106,15 +2077,10 @@ copy_bb (copy_body_data *id, basic_block bb,
 		  if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES)
 		    id->dst_node->create_edge_including_clones
 		      (dest, orig_stmt, call_stmt, bb->count,
-		       compute_call_stmt_bb_frequency (id->dst_node->decl,
-		       				       copy_basic_block),
 		       CIF_ORIGINALLY_INDIRECT_CALL);
 		  else
 		    id->dst_node->create_edge (dest, call_stmt,
-					bb->count,
-					compute_call_stmt_bb_frequency
-					  (id->dst_node->decl,
-					   copy_basic_block))->inline_failed
+					bb->count)->inline_failed
 		      = CIF_ORIGINALLY_INDIRECT_CALL;
 		  if (dump_file)
 		    {
@@ -2690,6 +2656,8 @@ copy_cfg_body (copy_body_data * id, profile_count,
   int last;
   profile_count den = ENTRY_BLOCK_PTR_FOR_FN (src_cfun)->count;
   profile_count num = entry_block_map->count;
+
+  profile_count::adjust_for_ipa_scaling (&num, &den);
 
   cfun_to_copy = id->src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
 
@@ -3912,7 +3880,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case REDUC_AND_EXPR:
     case REDUC_IOR_EXPR:
     case REDUC_XOR_EXPR:
-    case STRICT_REDUC_PLUS_EXPR:
+    case FOLD_LEFT_PLUS_EXPR:
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
@@ -4482,7 +4450,6 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
     {
       cgraph_edge *edge;
       tree virtual_offset = NULL;
-      int freq = cg_edge->frequency;
       profile_count count = cg_edge->count;
       tree op;
       gimple_stmt_iterator iter = gsi_for_stmt (stmt);
@@ -4492,9 +4459,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 		   		           gimple_uid (stmt),
 				   	   profile_count::one (),
 					   profile_count::one (),
-					   CGRAPH_FREQ_BASE,
 				           true);
-      edge->frequency = freq;
       edge->count = count;
       if (id->src_node->thunk.virtual_offset_p)
         virtual_offset = size_int (id->src_node->thunk.virtual_value);
@@ -4712,11 +4677,12 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Inlining ");
-      print_generic_expr (dump_file, id->src_fn);
-      fprintf (dump_file, " to ");
-      print_generic_expr (dump_file, id->dst_fn);
-      fprintf (dump_file, " with frequency %i\n", cg_edge->frequency);
+      fprintf (dump_file, "Inlining %s to %s with frequency %4.2f\n",
+	       xstrdup_for_dump (id->src_node->dump_name ()),
+	       xstrdup_for_dump (id->dst_node->dump_name ()),
+	       cg_edge->sreal_frequency ().to_double ());
+      id->src_node->dump (dump_file);
+      id->dst_node->dump (dump_file);
     }
 
   /* This is it.  Duplicate the callee body.  Assume callee is
@@ -5099,7 +5065,7 @@ optimize_inline_calls (tree fn)
     }
 
   /* Fold queued statements.  */
-  counts_to_freqs ();
+  update_max_bb_count ();
   fold_marked_statements (last, id.statements_to_fold);
   delete id.statements_to_fold;
 
@@ -6076,7 +6042,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
 
-  counts_to_freqs ();
+  update_max_bb_count ();
   fold_marked_statements (0, id.statements_to_fold);
   delete id.statements_to_fold;
   delete_unreachable_blocks_update_callgraph (&id);
@@ -6096,20 +6062,16 @@ tree_function_versioning (tree old_decl, tree new_decl,
       struct cgraph_edge *e;
       rebuild_frequencies ();
 
-      new_version_node->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.ipa ();
+      new_version_node->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
       for (e = new_version_node->callees; e; e = e->next_callee)
 	{
 	  basic_block bb = gimple_bb (e->call_stmt);
-	  e->frequency = compute_call_stmt_bb_frequency (current_function_decl,
-							 bb);
-	  e->count = bb->count.ipa ();
+	  e->count = bb->count;
 	}
       for (e = new_version_node->indirect_calls; e; e = e->next_callee)
 	{
 	  basic_block bb = gimple_bb (e->call_stmt);
-	  e->frequency = compute_call_stmt_bb_frequency (current_function_decl,
-							 bb);
-	  e->count = bb->count.ipa ();
+	  e->count = bb->count;
 	}
     }
 

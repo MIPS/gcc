@@ -41,4 +41,4 @@ SPEC_LOOP (uint64_t, uint16_t)
 SPEC_LOOP (uint64_t, uint32_t)
 
 /* { dg-final { scan-tree-dump-not "LOOP VECTORIZED" "vect" } } */
-/* { dg-final { scan-tree-dump "Speculative loop mask load/stores not supported" "vect" } } */
+/* { dg-final { scan-tree-dump "speculative mask loads not supported" "vect" } } */

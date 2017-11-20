@@ -1,15 +1,15 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -march=armv8-a+sve -msve-vector-bits=256" } */
 
-typedef signed char v32qi __attribute__((vector_size(32)));
+typedef signed char vnx16qi __attribute__((vector_size(32)));
 
-v32qi
-foo (v32qi x, v32qi y)
+vnx16qi
+foo (vnx16qi x, vnx16qi y)
 {
-  return (v32qi) { -1, 0, 0, -1, -1, -1, 0, 0,
-		   -1, -1, -1, -1, 0, 0, 0, 0,
-		   -1, -1, -1, -1, -1, -1, -1, -1,
-		   0, 0, 0, 0, 0, 0, 0, 0 } ? x : y;
+  return (vnx16qi) { -1, 0, 0, -1, -1, -1, 0, 0,
+		     -1, -1, -1, -1, 0, 0, 0, 0,
+		     -1, -1, -1, -1, -1, -1, -1, -1,
+		     0, 0, 0, 0, 0, 0, 0, 0 } ? x : y;
 }
 
 /* { dg-final { scan-assembler {\tldr\tp[0-9]+,} } } */

@@ -691,8 +691,7 @@ static bool
 compute_path_counts (struct redirection_data *rd,
 		     ssa_local_info_t *local_info,
 		     profile_count *path_in_count_ptr,
-		     profile_count *path_out_count_ptr,
-		     int *path_in_freq_ptr)
+		     profile_count *path_out_count_ptr)
 {
   edge e = rd->incoming_edges->e;
   vec<jump_thread_edge *> *path = THREAD_PATH (e);
@@ -700,7 +699,6 @@ compute_path_counts (struct redirection_data *rd,
   profile_count nonpath_count = profile_count::zero ();
   bool has_joiner = false;
   profile_count path_in_count = profile_count::zero ();
-  int path_in_freq = 0;
 
   /* Start by accumulating incoming edge counts to the path's first bb
      into a couple buckets:
@@ -740,7 +738,6 @@ compute_path_counts (struct redirection_data *rd,
 	     source block.  */
 	  gcc_assert (ein_path->last ()->e == elast);
 	  path_in_count += ein->count ();
-	  path_in_freq += EDGE_FREQUENCY (ein);
 	}
       else if (!ein_path)
 	{
@@ -750,10 +747,6 @@ compute_path_counts (struct redirection_data *rd,
 	    nonpath_count += ein->count ();
 	}
     }
-
-  /* This is needed due to insane incoming frequencies.  */
-  if (path_in_freq > BB_FREQ_MAX)
-    path_in_freq = BB_FREQ_MAX;
 
   /* Now compute the fraction of the total count coming into the first
      path bb that is from the current threading path.  */
@@ -843,7 +836,6 @@ compute_path_counts (struct redirection_data *rd,
 
   *path_in_count_ptr = path_in_count;
   *path_out_count_ptr = path_out_count;
-  *path_in_freq_ptr = path_in_freq;
   return has_joiner;
 }
 
@@ -954,7 +946,6 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
   edge elast = path->last ()->e;
   profile_count path_in_count = profile_count::zero ();
   profile_count path_out_count = profile_count::zero ();
-  int path_in_freq = 0;
 
   /* First determine how much profile count to move from original
      path to the duplicate path.  This is tricky in the presence of
@@ -963,8 +954,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
      non-joiner case the path_in_count and path_out_count should be the
      same.  */
   bool has_joiner = compute_path_counts (rd, local_info,
-					 &path_in_count, &path_out_count,
-					 &path_in_freq);
+					 &path_in_count, &path_out_count);
 
   for (unsigned int count = 0, i = 1; i < path->length (); i++)
     {
@@ -2184,7 +2174,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 {
   bool retval = false;
   unsigned int i;
-  bitmap_iterator bi;
   struct loop *loop;
   auto_bitmap threaded_blocks;
 
@@ -2288,14 +2277,33 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   initialize_original_copy_tables ();
 
-  /* First perform the threading requests that do not affect
-     loop structure.  */
-  EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
-    {
-      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
+  /* The order in which we process jump threads can be important.
 
-      if (EDGE_COUNT (bb->preds) > 0)
-	retval |= thread_block (bb, true);
+     Consider if we have two jump threading paths A and B.  If the
+     target edge of A is the starting edge of B and we thread path A
+     first, then we create an additional incoming edge into B->dest that
+     we can not discover as a jump threading path on this iteration.
+
+     If we instead thread B first, then the edge into B->dest will have
+     already been redirected before we process path A and path A will
+     natually, with no further work, target the redirected path for B.
+
+     An post-order is sufficient here.  Compute the ordering first, then
+     process the blocks.  */
+  if (!bitmap_empty_p (threaded_blocks))
+    {
+      int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
+      unsigned int postorder_num = post_order_compute (postorder, false, false);
+      for (unsigned int i = 0; i < postorder_num; i++)
+	{
+	  unsigned int indx = postorder[i];
+	  if (bitmap_bit_p (threaded_blocks, indx))
+	    {
+	      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, indx);
+	      retval |= thread_block (bb, true);
+	    }
+	}
+      free (postorder);
     }
 
   /* Then perform the threading through loop headers.  We start with the

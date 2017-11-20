@@ -376,6 +376,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
   { "__builtin_launder", RID_BUILTIN_LAUNDER, D_CXXONLY },
   { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, 0 },
+  { "__builtin_tgmath", RID_BUILTIN_TGMATH, D_CONLY },
   { "__builtin_offsetof", RID_OFFSETOF, 0 },
   { "__builtin_types_compatible_p", RID_TYPES_COMPATIBLE_P, D_CONLY },
   { "__builtin_va_arg",	RID_VA_ARG,	0 },
@@ -5900,10 +5901,10 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 static char *
 catenate_strings (const char *lhs, const char *rhs_start, int rhs_size)
 {
-  const int lhs_size = strlen (lhs);
+  const size_t lhs_size = strlen (lhs);
   char *result = XNEWVEC (char, lhs_size + rhs_size);
-  strncpy (result, lhs, lhs_size);
-  strncpy (result + lhs_size, rhs_start, rhs_size);
+  memcpy (result, lhs, lhs_size);
+  memcpy (result + lhs_size, rhs_start, rhs_size);
   return result;
 }
 

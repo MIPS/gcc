@@ -3,28 +3,32 @@
 
 #include "sve_struct_vect_18.c"
 
-volatile int x;
-
 #undef TEST_LOOP
 #define TEST_LOOP(NAME, TYPE)				\
   {							\
     TYPE out[N];					\
-    TYPE in[N * 4];					\
+    TYPE in[N * 3];					\
     for (int i = 0; i < N; ++i)				\
-      out[i] = i * 7 / 2;				\
-    for (int i = 0; i < N * 4; ++i)			\
-      in[i] = i * 9 / 2;				\
+      {							\
+	out[i] = i * 7 / 2;				\
+	asm volatile ("" ::: "memory");			\
+      }							\
+    for (int i = 0; i < N * 3; ++i)			\
+      {							\
+	in[i] = i * 9 / 2;				\
+	asm volatile ("" ::: "memory");			\
+      }							\
     NAME (out, in);					\
     for (int i = 0; i < N; ++i)				\
       {							\
-	TYPE expected = i * 7 / 2 + in[i * 4];		\
+	TYPE expected = i * 7 / 2 + in[i * 3];		\
 	if (out[i] != expected)				\
 	  __builtin_abort ();				\
-	x += 1;						\
+	asm volatile ("" ::: "memory");			\
       }							\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST (test);

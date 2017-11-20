@@ -347,9 +347,9 @@ vect_maybe_permute_loop_masks (gimple_seq *seq, rgroup_masks *dest_rgm,
       return true;
     }
   if (dest_masktype == src_masktype
-      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, src_masktype,
-					 OPTIMIZE_FOR_SPEED)
       && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, src_masktype,
+					 OPTIMIZE_FOR_SPEED)
+      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, src_masktype,
 					 OPTIMIZE_FOR_SPEED))
     {
       /* The destination requires twice as many mask bits as the source, so
@@ -358,8 +358,8 @@ vect_maybe_permute_loop_masks (gimple_seq *seq, rgroup_masks *dest_rgm,
 	{
 	  tree src = src_rgm->masks[i / 2];
 	  tree dest = dest_rgm->masks[i];
-	  internal_fn ifn = (i & 1 ? IFN_VEC_INTERLEAVE_LO
-			    : IFN_VEC_INTERLEAVE_HI);
+	  internal_fn ifn = (i & 1 ? IFN_VEC_INTERLEAVE_HI
+			    : IFN_VEC_INTERLEAVE_LO);
 	  gcall *stmt = gimple_build_call_internal (ifn, 2, src, src);
 	  gimple_call_set_lhs (stmt, dest);
 	  gimple_seq_add_stmt (seq, stmt);
@@ -627,11 +627,10 @@ vect_set_nonspeculative_masks (loop_vec_info loop_vinfo,
    of the vectorized loop handles CAPPED_VF iterations of the scalar loop,
    where CAPPED_VF is bounded by the compile-time vectorization factor.
 
-   If NSCALARITERS_SKIP is nonnull, the first iteration of the
-   vectorized loop starts with NSCALARITERS_SKIP dummy iterations of the
-   scalar loop before the real work starts.  The mask elements for these
-   dummy iterations must be 0, to ensure that the extra iterations do not
-   have an effect.
+   If NITERS_SKIP is nonnull, the first iteration of the vectorized loop
+   starts with NITERS_SKIP dummy iterations of the scalar loop before
+   the real work starts.  The mask elements for these dummy iterations
+   must be 0, to ensure that the extra iterations do not have an effect.
 
    It is known that:
 
@@ -658,10 +657,6 @@ vect_set_loop_masks_directly (struct loop *loop, loop_vec_info loop_vinfo,
 			      tree niters, tree niters_skip,
 			      bool might_wrap_p)
 {
-  tree index_before_incr, index_after_incr;
-  gimple_stmt_iterator incr_gsi;
-  bool insert_after;
-
   tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
   tree mask_type = rgm->mask_type;
   unsigned int nscalars_per_iter = rgm->max_nscalars_per_iter;
@@ -690,6 +685,9 @@ vect_set_loop_masks_directly (struct loop *loop, loop_vec_info loop_vinfo,
 
   /* Create an induction variable that counts the number of scalars
      processed.  */
+  tree index_before_incr, index_after_incr;
+  gimple_stmt_iterator incr_gsi;
+  bool insert_after;
   tree zero_index = build_int_cst (compare_type, 0);
   standard_iv_increment_position (loop, &incr_gsi, &insert_after);
   create_iv (zero_index, nscalars_step, NULL_TREE, loop, &incr_gsi,
@@ -875,7 +873,9 @@ vect_set_loop_masks_directly (struct loop *loop, loop_vec_info loop_vinfo,
 
 /* Make LOOP iterate NITERS times using masking and WHILE_ULT calls.
    LOOP_VINFO describes the vectorization of LOOP.  NITERS is the
-   number of scalar iterations that should be handled by the vector loop.
+   number of iterations of the original scalar loop that should be
+   handled by the vector loop.  NITERS_MAYBE_ZERO and FINAL_IV are
+   as for vect_set_loop_condition.
 
    Insert the branch-back condition before LOOP_COND_GSI and return the
    final gcond.  */
@@ -894,11 +894,11 @@ vect_set_loop_condition_masked (struct loop *loop, loop_vec_info loop_vinfo,
   unsigned HOST_WIDE_INT max_vf = vect_max_vf (loop_vinfo);
   tree orig_niters = niters;
 
-  /* Type of the initial value of niters.  */
+  /* Type of the initial value of NITERS.  */
   tree ni_actual_type = TREE_TYPE (niters);
   unsigned int ni_actual_precision = TYPE_PRECISION (ni_actual_type);
 
-  /* Convert niters to the same size as the compare.  */
+  /* Convert NITERS to the same size as the compare.  */
   if (compare_precision > ni_actual_precision
       && niters_maybe_zero)
     {
@@ -1011,8 +1011,8 @@ vect_set_loop_condition_masked (struct loop *loop, loop_vec_info loop_vinfo,
      Subtract one from this to get the latch count.  */
   tree step = build_int_cst (compare_type,
 			     LOOP_VINFO_VECT_FACTOR (loop_vinfo));
-  tree niters_minus_one = fold_build2 (MINUS_EXPR, compare_type, niters,
-				       build_one_cst (compare_type));
+  tree niters_minus_one = fold_build2 (PLUS_EXPR, compare_type, niters,
+				       build_minus_one_cst (compare_type));
   loop->nb_iterations = fold_build2 (TRUNC_DIV_EXPR, compare_type,
 				     niters_minus_one, step);
 
@@ -1159,14 +1159,22 @@ vect_set_loop_condition_unmasked (struct loop *loop, tree niters,
   return cond_stmt;
 }
 
-/* Make LOOP iterate N == (NITERS - STEP) / STEP + 1 times,
-   where NITERS is known to be outside the range [1, STEP - 1].
-   This is equivalent to making the loop execute NITERS / STEP
-   times when NITERS is nonzero and (1 << M) / STEP times otherwise,
-   where M is the precision of NITERS.
+/* If we're using fully-masked loops, make LOOP iterate:
 
-   NITERS_MAYBE_ZERO is true if NITERS can be zero, false it is known
-   to be >= STEP.  In the latter case N is always NITERS / STEP.
+      N == (NITERS - 1) / STEP + 1
+
+   times.  When NITERS is zero, this is equivalent to making the loop
+   execute (1 << M) / STEP times, where M is the precision of NITERS.
+   NITERS_MAYBE_ZERO is true if this last case might occur.
+
+   If we're not using fully-masked loops, make LOOP iterate:
+
+      N == (NITERS - STEP) / STEP + 1
+
+   times, where NITERS is known to be outside the range [1, STEP - 1].
+   This is equivalent to making the loop execute NITERS / STEP times
+   when NITERS is nonzero and (1 << M) / STEP times otherwise.
+   NITERS_MAYBE_ZERO again indicates whether this last case might occur.
 
    If FINAL_IV is nonnull, it is an SSA name that should be set to
    N * STEP on exit from the loop.
@@ -1827,7 +1835,6 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo,
     }
 }
 
-
 /* Return a gimple value containing the misalignment (measured in vector
    elements) for the loop described by LOOP_VINFO, i.e. how many elements
    it is away from a perfectly aligned address.  Add any new statements
@@ -1841,7 +1848,6 @@ get_misalign_in_elems (gimple **seq, loop_vec_info loop_vinfo)
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
 
-  /* For speculative loops we need to align to the vector size.  */
   unsigned int target_align = DR_TARGET_ALIGNMENT (dr);
   gcc_assert (target_align != 0);
 
@@ -1868,7 +1874,6 @@ get_misalign_in_elems (gimple **seq, loop_vec_info loop_vinfo)
 
   return misalign_in_elems;
 }
-
 
 /* Function vect_gen_prolog_loop_niters
 
@@ -2038,10 +2043,7 @@ vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters,
     vect_update_init_of_dr (dr, niters, code);
 }
 
-
-/* Function vect_prepare_for_masked_peels
-
-   For the information recorded in LOOP_VINFO prepare the loop for peeling
+/* For the information recorded in LOOP_VINFO prepare the loop for peeling
    by masking.  This involves calculating the number of iterations to
    be peeled and then aligning all memory references appropriately.  */
 
@@ -2054,7 +2056,7 @@ vect_prepare_for_masked_peels (loop_vec_info loop_vinfo)
   gcc_assert (vect_use_loop_mask_for_alignment_p (loop_vinfo));
 
   /* From the information recorded in LOOP_VINFO get the number of iterations
-     that need peeling from the loop via masking.  */
+     that need to be skipped via masking.  */
   if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) > 0)
     {
       poly_int64 misalign = (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
@@ -2201,7 +2203,6 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
   poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
   tree log_vf = NULL_TREE;
-  bool final_iter_may_be_partial = LOOP_VINFO_FULLY_MASKED_P (loop_vinfo);
 
   /* If epilogue loop is required because of data accesses with gaps, we
      subtract one iteration from the total number of iterations here for
@@ -2232,19 +2233,17 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
 	 (niters - vf) >> log2(vf) + 1 by using the fact that we know ratio
 	 will be at least one.  */
       log_vf = build_int_cst (type, exact_log2 (const_vf));
-      if (niters_no_overflow && !final_iter_may_be_partial)
+      if (niters_no_overflow)
 	niters_vector = fold_build2 (RSHIFT_EXPR, type, ni_minus_gap, log_vf);
       else
-	{
-	  tree sub = build_int_cst (type, final_iter_may_be_partial ? 1 : vf);
-	  niters_vector
-	    = fold_build2 (PLUS_EXPR, type,
-			   fold_build2 (RSHIFT_EXPR, type,
-					fold_build2 (MINUS_EXPR, type,
-						     ni_minus_gap, sub),
-					log_vf),
-			   build_int_cst (type, 1));
-	}
+	niters_vector
+	  = fold_build2 (PLUS_EXPR, type,
+			 fold_build2 (RSHIFT_EXPR, type,
+				      fold_build2 (MINUS_EXPR, type,
+						   ni_minus_gap,
+						   build_int_cst (type, vf)),
+				      log_vf),
+			 build_int_cst (type, 1));
       step_vector = build_one_cst (type);
     }
   else
@@ -2698,7 +2697,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 		 bool check_profitability, bool niters_no_overflow)
 {
   edge e, guard_e;
-  tree type, guard_cond;
+  tree guard_cond;
   basic_block guard_bb, guard_to;
   profile_probability prob_prolog, prob_vector, prob_epilog;
   int estimated_vf;
@@ -2720,7 +2719,6 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
   if (!prolog_peeling && !epilog_peeling)
     return NULL;
 
-  type = TREE_TYPE (niters);
   prob_vector = profile_probability::guessed_always ().apply_scale (9, 10);
   estimated_vf = vect_vf_for_cost (loop_vinfo);
   if (estimated_vf == 2)
@@ -2747,6 +2745,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 
   /* Generate the number of iterations for the prolog loop.  We do this here
      so that we can also get the upper bound on the number of iterations.  */
+  tree type = TREE_TYPE (niters);
   tree niters_prolog;
   int bound_prolog = 0;
   if (prolog_peeling)
@@ -2814,9 +2813,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
       first_loop = prolog;
       reset_original_copy_tables ();
 
-      /* Generate and update the number of iterations for prolog loop.  */
-      niters_prolog = vect_gen_prolog_loop_niters (loop_vinfo, anchor,
-						   &bound_prolog);
+      /* Update the number of iterations for prolog loop.  */
       tree step_prolog = build_one_cst (TREE_TYPE (niters_prolog));
       vect_set_loop_condition (prolog, NULL, niters_prolog,
 			       step_prolog, NULL_TREE, false);
@@ -3172,7 +3169,7 @@ vect_create_cond_for_unequal_addrs (loop_vec_info loop_vinfo, tree *cond_expr)
       chain_cond_expr (cond_expr, part_cond_expr);
     }
 }
-	
+
 /* Create an expression that is true when all lower-bound conditions for
    the vectorized loop are met.  Chain this condition with *COND_EXPR.  */
 

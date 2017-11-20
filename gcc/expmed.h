@@ -724,7 +724,7 @@ extern void store_bit_field (rtx, poly_uint64, poly_uint64,
 extern rtx extract_bit_field (rtx, poly_uint64, poly_uint64, int, rtx,
 			      machine_mode, machine_mode, bool, rtx *);
 extern rtx extract_low_bits (machine_mode, machine_mode, rtx);
-extern rtx expand_mult (machine_mode, rtx, rtx, rtx, int);
+extern rtx expand_mult (machine_mode, rtx, rtx, rtx, int, bool = false);
 extern rtx expand_mult_highpart_adjust (scalar_int_mode, rtx, rtx, rtx,
 					rtx, int);
 

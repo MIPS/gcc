@@ -1,18 +1,10 @@
 /* { dg-do assemble } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -ffast-math --save-temps" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
 
-#define TEST_LOOP(NAME, TYPE)			\
-  TYPE __attribute__ ((noinline))		\
-  NAME (TYPE **indices, int n)			\
-  {						\
-    TYPE sum = 0;				\
-    for (int i = 0; i < n; ++i)			\
-      sum += *indices[i];			\
-    return sum;					\
-  }
+#define INDEX32 uint32_t
+#define INDEX64 uint64_t
 
-TEST_LOOP (f_s64, long)
-TEST_LOOP (f_u64, unsigned long)
-TEST_LOOP (f_f64, double)
+#include "sve_gather_load_3.c"
 
-/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[z[0-9]+\.d\]} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, z[0-9]+.s, uxtw\]\n} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, z[0-9]+.d\]\n} 3 } } */

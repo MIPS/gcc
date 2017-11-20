@@ -601,6 +601,8 @@ public:
 
  */
 
+class sreal;
+
 class GTY(()) profile_count
 {
   /* Use 62bit to hold basic block counters.  Should be at least
@@ -949,9 +951,9 @@ public:
 	return num;
       if (!initialized_p () || !num.initialized_p () || !den.initialized_p ())
 	return profile_count::uninitialized ();
-      gcc_checking_assert (den.m_val);
       if (num == den)
 	return *this;
+      gcc_checking_assert (den.m_val);
 
       profile_count ret;
       uint64_t val;
@@ -1034,6 +1036,7 @@ public:
 
   int to_frequency (struct function *fun) const;
   int to_cgraph_frequency (profile_count entry_bb_count) const;
+  sreal to_sreal_scale (profile_count in, bool *known = NULL) const;
 
   /* Output THIS to F.  */
   void dump (FILE *f) const;
@@ -1043,6 +1046,11 @@ public:
 
   /* Return true if THIS is known to differ significantly from OTHER.  */
   bool differs_from_p (profile_count other) const;
+
+  /* We want to scale profile across function boundary from NUM to DEN.
+     Take care of the side case when NUM and DEN are zeros of incompatible
+     kinds.  */
+  static void adjust_for_ipa_scaling (profile_count *num, profile_count *den);
 
   /* LTO streaming support.  */
   static profile_count stream_in (struct lto_input_block *);

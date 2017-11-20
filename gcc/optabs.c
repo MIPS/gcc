@@ -375,7 +375,7 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
 
   gcc_checking_assert (VECTOR_MODE_P (vmode));
 
-  if (CONSTANT_P (op))
+  if (valid_for_const_vec_duplicate_p (vmode, op))
     return gen_const_vec_duplicate (vmode, op);
 
   insn_code icode = optab_handler (vec_duplicate_optab, vmode);
@@ -1401,7 +1401,7 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
       shift_mask = targetm.shift_truncation_mask (word_mode);
       op1_mode = (GET_MODE (op1) != VOIDmode
 		  ? as_a <scalar_int_mode> (GET_MODE (op1))
-		  : get_shift_amount_mode (word_mode));
+		  : word_mode);
 
       /* Apply the truncation to constant shifts.  */
       if (double_shift_mask > 0 && CONST_INT_P (op1))

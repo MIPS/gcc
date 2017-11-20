@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef int8_t v32qi __attribute__((vector_size (32)));
+typedef int8_t vnx16qi __attribute__((vector_size (32)));
 
 #define MASK_2(X, Y) (X) ^ (Y), (X + 1) ^ (Y)
 #define MASK_4(X, Y) MASK_2 (X, Y), MASK_2 (X + 2, Y)
@@ -11,7 +11,7 @@ typedef int8_t v32qi __attribute__((vector_size (32)));
 #define MASK_16(X, Y) MASK_8 (X, Y), MASK_8 (X + 8, Y)
 #define MASK_32(X, Y) MASK_16 (X, Y), MASK_16 (X + 16, Y)
 
-#define INDEX_32 v32qi
+#define INDEX_32 vnx16qi
 
 #define PERMUTE(TYPE, NUNITS, REV_NUNITS)				\
   TYPE permute_##TYPE##_##REV_NUNITS (TYPE values1, TYPE values2)	\
@@ -22,9 +22,9 @@ typedef int8_t v32qi __attribute__((vector_size (32)));
   }
 
 #define TEST_ALL(T)				\
-  T (v32qi, 32, 2)				\
-  T (v32qi, 32, 4)				\
-  T (v32qi, 32, 8)
+  T (vnx16qi, 32, 2)				\
+  T (vnx16qi, 32, 4)				\
+  T (vnx16qi, 32, 8)
 
 TEST_ALL (PERMUTE)
 

@@ -5,7 +5,7 @@
 
 extern void abort (void) __attribute__ ((noreturn));
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   short a[N] = {

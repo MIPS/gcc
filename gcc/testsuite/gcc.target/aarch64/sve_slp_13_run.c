@@ -1,5 +1,5 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -ffast-math" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 
 #include "sve_slp_13.c"
 
@@ -21,7 +21,7 @@
       __builtin_abort ();					\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (HARNESS)

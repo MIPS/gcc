@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)						\
-void __attribute__ ((weak))					\
+void __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE (TYPE *restrict a, TYPE *restrict b, int n)	\
 {								\
   TYPE x0 = b[0];						\
@@ -30,6 +30,7 @@ vec_slp_##TYPE (TYPE *restrict a, TYPE *restrict b, int n)	\
   T (uint32_t)					\
   T (int64_t)					\
   T (uint64_t)					\
+  T (_Float16)					\
   T (float)					\
   T (double)
 

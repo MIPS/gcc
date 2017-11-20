@@ -163,8 +163,8 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     case REDUC_XOR_EXPR:
       return reduc_xor_scal_optab;
 
-    case STRICT_REDUC_PLUS_EXPR:
-      return strict_reduc_plus_scal_optab;
+    case FOLD_LEFT_PLUS_EXPR:
+      return fold_left_plus_optab;
 
     case VEC_WIDEN_MULT_HI_EXPR:
       return TYPE_UNSIGNED (type) ?
@@ -259,25 +259,6 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     default:
       return unknown_optab;
     }
-}
-
-/* Return true if appropriate vector instructions are available to perform a
-   strict reduction operation (i.e. in order) CODE for mode MODE.  */
-bool
-strict_reduction_support (tree_code code, tree type)
-{
-  optab optab;
-
-  switch (code)
-    {
-    case STRICT_REDUC_PLUS_EXPR:
-      optab = strict_reduc_plus_scal_optab;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  return optab_handler (optab, TYPE_MODE (type)) != CODE_FOR_nothing;
 }
 
 /* Function supportable_convert_operation
@@ -393,9 +374,10 @@ init_tree_optimization_optabs (tree optnode)
   TREE_OPTIMIZATION_BASE_OPTABS (optnode) = this_target_optabs;
   struct target_optabs *tmp_optabs = (struct target_optabs *)
     TREE_OPTIMIZATION_OPTABS (optnode);
-  if (!tmp_optabs)
-    tmp_optabs = ggc_alloc<target_optabs> ();
-  memset (tmp_optabs, 0, sizeof (struct target_optabs));
+  if (tmp_optabs)
+    memset (tmp_optabs, 0, sizeof (struct target_optabs));
+  else
+    tmp_optabs = ggc_cleared_alloc<target_optabs> ();
 
   /* Generate a new set of optabs into tmp_optabs.  */
   init_all_optabs (tmp_optabs);

@@ -1,72 +1,32 @@
 /* { dg-do assemble } */
-/* { dg-options "-O3 -march=armv8-a+sve --save-temps" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
 
-void gather_load64(unsigned long * restrict dst, unsigned long * restrict src, unsigned long * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
+#include <stdint.h>
 
-void gather_load32(unsigned int * restrict dst, unsigned int * restrict src, unsigned int * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
+#ifndef INDEX32
+#define INDEX32 int32_t
+#define INDEX64 int64_t
+#endif
 
-void gather_load16(unsigned short * restrict dst, unsigned short * restrict src, unsigned short * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
+/* Invoked 18 times for each data size.  */
+#define TEST_LOOP(DATA_TYPE, BITS)					\
+  void __attribute__ ((noinline, noclone))				\
+  f_##DATA_TYPE (DATA_TYPE *restrict dest, DATA_TYPE *restrict src,	\
+		 INDEX##BITS *indices, int n)				\
+  {									\
+    for (int i = 9; i < n; ++i)						\
+      dest[i] += src[indices[i]];					\
+  }
 
-void gather_load8(unsigned char * restrict dst, unsigned char * restrict src, unsigned char * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
+#define TEST_ALL(T)				\
+  T (int32_t, 32)				\
+  T (uint32_t, 32)				\
+  T (float, 32)					\
+  T (int64_t, 64)				\
+  T (uint64_t, 64)				\
+  T (double, 64)
 
-void gather_load64s(signed long * restrict dst, signed long * restrict src, unsigned long * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
+TEST_ALL (TEST_LOOP)
 
-void gather_load32s(signed int * restrict dst, signed int * restrict src, unsigned int * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
-
-void gather_load16s(signed short * restrict dst, signed short * restrict src, unsigned short * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
-
-void gather_load8s(signed char * restrict dst, signed char * restrict src, unsigned char * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
-
-void gather_load_double(double * restrict dst, double * restrict src, unsigned long * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
-
-void gather_load_float(float * restrict dst, float * restrict src, unsigned int * restrict indices, int count)
-{
-  for (int i=0; i<count; i++)
-    dst[i] = src[indices[i]];
-}
-
-/* { dg-final { scan-assembler-times "ld1d\\tz\[0-9\]+.d, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.d, lsl 3\\\]" 3 } } */
-/* { dg-final { scan-assembler-not "ld1d\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw 3\\\]" } } */
-/* { dg-final { scan-assembler-not "ld1w\\tz\[0-9\]+.d, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.d, sxtw 2\\\]" } } */
-/* { dg-final { scan-assembler-times "ld1w\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, uxtw 2\\\]" 3 } } */
-/* { dg-final { scan-assembler-not "ld1w\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw 2\\\]" } } */
-/* { dg-final { scan-assembler-not "ld1h\\tz\[0-9\]+.d, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.d, sxtw 1\\\]" } } */
-/* { dg-final { scan-assembler-not "ld1h\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw 1\\\]" } } */
-/* { dg-final { scan-assembler-not "ld1b\\tz\[0-9\]+.d, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.d, sxtw\\\ ]" } } */
-/* { dg-final { scan-assembler-not "ld1b\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw\\\ ]" } } */
+/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, z[0-9]+.s, sxtw 2\]\n} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, z[0-9]+.d, lsl 3\]\n} 3 } } */

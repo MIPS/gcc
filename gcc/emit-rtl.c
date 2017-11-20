@@ -5919,6 +5919,17 @@ gen_rtx_CONST (machine_mode mode, rtx val)
   return gen_rtx_raw_CONST (mode, val);
 }
 
+/* Return true if X is a valid element for a duplicated vector constant
+   of the given mode.  */
+
+bool
+valid_for_const_vec_duplicate_p (machine_mode, rtx x)
+{
+  return (CONST_SCALAR_INT_P (x)
+	  || CONST_DOUBLE_AS_FLOAT_P (x)
+	  || CONST_FIXED_P (x));
+}
+
 /* Temporary rtx used by gen_const_vec_duplicate_1.  */
 static GTY((deletable)) rtx spare_vec_duplicate;
 
@@ -5988,7 +5999,7 @@ gen_const_vec_duplicate (machine_mode mode, rtx elt)
 rtx
 gen_vec_duplicate (machine_mode mode, rtx x)
 {
-  if (CONSTANT_P (x))
+  if (valid_for_const_vec_duplicate_p (mode, x))
     return gen_const_vec_duplicate (mode, x);
   return gen_rtx_VEC_DUPLICATE (mode, x);
 }
@@ -6171,6 +6182,8 @@ init_emit_regs (void)
 	}
       mode_mem_attrs[i] = attrs;
     }
+
+  split_branch_probability = profile_probability::uninitialized ();
 }
 
 /* Initialize global machine_mode variables.  */
@@ -6625,7 +6638,16 @@ need_atomic_barrier_p (enum memmodel model, bool pre)
 rtx
 gen_int_shift_amount (machine_mode mode, poly_int64 value)
 {
-  return gen_int_mode (value, get_shift_amount_mode (mode));
+  /* ??? Using the inner mode should be wide enough for all useful
+     cases (e.g. QImode usually has 8 shiftable bits, while a QImode
+     shift amount has a range of [-128, 127]).  But in principle
+     a target could require target-dependent behaviour for a
+     shift whose shift amount is wider than the shifted value.
+     Perhaps this should be automatically derived from the .md
+     files instead, or perhaps have a target hook.  */
+  scalar_int_mode shift_mode
+    = int_mode_for_mode (GET_MODE_INNER (mode)).require ();
+  return gen_int_mode (value, shift_mode);
 }
 
 /* Initialize fields of rtl_data related to stack alignment.  */

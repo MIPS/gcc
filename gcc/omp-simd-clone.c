@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "cfgloop.h"
 #include "symbol-summary.h"
-#include "ipa-prop.h"
+#include "ipa-param-manipulation.h"
 #include "tree-eh.h"
 #include "varasm.h"
 #include "stringpool.h"
@@ -1398,10 +1398,8 @@ simd_clone_adjust (struct cgraph_node *node)
 	      (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)), seq);
 
 	    entry_bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
-	    int freq = compute_call_stmt_bb_frequency (current_function_decl,
-						       entry_bb);
 	    node->create_edge (cgraph_node::get_create (fn),
-			       call, entry_bb->count, freq);
+			       call, entry_bb->count);
 
 	    imm_use_iterator iter;
 	    use_operand_p use_p;

@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-typedef int8_t v32qi __attribute__((vector_size(32)));
-typedef int16_t v16hi __attribute__((vector_size(32)));
-typedef int32_t v8si __attribute__((vector_size(32)));
-typedef int64_t v4di __attribute__((vector_size(32)));
+typedef int8_t vnx16qi __attribute__((vector_size(32)));
+typedef int16_t vnx8hi __attribute__((vector_size(32)));
+typedef int32_t vnx4si __attribute__((vector_size(32)));
+typedef int64_t vnx2di __attribute__((vector_size(32)));
 
 typedef uint8_t v32qu __attribute__((vector_size(32)));
 typedef uint16_t v16hu __attribute__((vector_size(32)));
@@ -30,10 +30,10 @@ TYPE vcond_imm_##TYPE##_##SUFFIX (TYPE x, TYPE y, TYPE a)	\
 }
 
 #define TEST_COND_VAR_SIGNED_ALL(T, COND, SUFFIX)	\
-  T (v32qi, COND, SUFFIX)				\
-  T (v16hi, COND, SUFFIX)				\
-  T (v8si, COND, SUFFIX)				\
-  T (v4di, COND, SUFFIX)
+  T (vnx16qi, COND, SUFFIX)				\
+  T (vnx8hi, COND, SUFFIX)				\
+  T (vnx4si, COND, SUFFIX)				\
+  T (vnx2di, COND, SUFFIX)
 
 #define TEST_COND_VAR_UNSIGNED_ALL(T, COND, SUFFIX)	\
   T (v32qu, COND, SUFFIX)				\
@@ -54,10 +54,10 @@ TYPE vcond_imm_##TYPE##_##SUFFIX (TYPE x, TYPE y, TYPE a)	\
   TEST_COND_VAR_ALL (T, !=, ne)
 
 #define TEST_COND_IMM_SIGNED_ALL(T, COND, IMM, SUFFIX)	\
-  T (v32qi, COND, IMM, SUFFIX)				\
-  T (v16hi, COND, IMM, SUFFIX)				\
-  T (v8si, COND, IMM, SUFFIX)				\
-  T (v4di, COND, IMM, SUFFIX)
+  T (vnx16qi, COND, IMM, SUFFIX)				\
+  T (vnx8hi, COND, IMM, SUFFIX)				\
+  T (vnx4si, COND, IMM, SUFFIX)				\
+  T (vnx2di, COND, IMM, SUFFIX)
 
 #define TEST_COND_IMM_UNSIGNED_ALL(T, COND, IMM, SUFFIX)	\
   T (v32qu, COND, IMM, SUFFIX)					\

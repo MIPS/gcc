@@ -5335,9 +5335,9 @@ free_data_refs (vec<data_reference_p> datarefs)
 }
 
 /* Common routine implementing both dr_direction_indicator and
-   dr_zero_step_indicator.  Return USEFUL_MIN if the indicator
-   is known to be >= USEFUL_MIN and -1 if the indicator is
-   known to be negative.  */
+   dr_zero_step_indicator.  Return USEFUL_MIN if the indicator is known
+   to be >= USEFUL_MIN and -1 if the indicator is known to be negative.
+   Return the step as the indicator otherwise.  */
 
 static tree
 dr_step_indicator (struct data_reference *dr, int useful_min)

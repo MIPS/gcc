@@ -10,7 +10,10 @@
   {								\
     TYPE a[N];							\
     for (int i = 0; i < N; ++i)					\
-      a[i] = i * i + i % 5;					\
+      {								\
+	a[i] = i * i + i % 5;					\
+	asm volatile ("" ::: "memory");				\
+      }								\
     test_##TYPE##_##NAME (a, BASE, N);				\
     for (int i = 0; i < N; ++i)					\
       {								\
@@ -20,7 +23,7 @@
       }								\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (TEST_LOOP)

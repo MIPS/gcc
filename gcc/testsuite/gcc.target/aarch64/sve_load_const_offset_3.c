@@ -1,12 +1,7 @@
 /* { dg-do assemble } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -save-temps" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -save-temps -msve-vector-bits=256" } */
 
-void
-f (unsigned int *restrict a, unsigned char *restrict b, int n)
-{
-  for (int i = 0; i < n; ++i)
-    a[i] += b[i];
-}
+#include "sve_load_const_offset_2.c"
 
 /* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+\]\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, #1, mul vl\]\n} 1 } } */

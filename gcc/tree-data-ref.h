@@ -475,9 +475,8 @@ dr_alignment (data_reference *dr)
 
 extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
-extern tree dr_direction_indicator (struct data_reference *);
-extern tree dr_zero_step_indicator (struct data_reference *);
-extern bool dr_known_forward_stride_p (struct data_reference *);
+extern bool dr_equal_offsets_p (struct data_reference *,
+                                struct data_reference *);
 
 extern bool runtime_alias_check_p (ddr_p, struct loop *, bool);
 extern int data_ref_compare_tree (tree, tree);

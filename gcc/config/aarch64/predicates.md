@@ -206,6 +206,13 @@
        (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), false,
 						  ADDR_QUERY_LDP_STP)")))
 
+;; Used for storing two 64-bit values in an AdvSIMD register using an STP
+;; as a 128-bit vec_concat.
+(define_predicate "aarch64_mem_pair_lanes_operand"
+  (and (match_code "mem")
+       (match_test "aarch64_legitimate_address_p (DFmode, XEXP (op, 0), 1,
+						  ADDR_QUERY_LDP_STP)")))
+
 (define_predicate "aarch64_prefetch_operand"
   (match_test "aarch64_address_valid_for_prefetch_p (op, false)"))
 
@@ -361,6 +368,10 @@
 
 (define_predicate "aarch64_simd_imm_zero"
   (and (match_code "const,const_vector")
+       (match_test "op == CONST0_RTX (GET_MODE (op))")))
+
+(define_predicate "aarch64_simd_or_scalar_imm_zero"
+  (and (match_code "const_int,const_double,const,const_vector")
        (match_test "op == CONST0_RTX (GET_MODE (op))")))
 
 (define_predicate "aarch64_simd_imm_minus_one"
@@ -592,7 +603,7 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_constant_vector_operand")))
 
-(define_predicate "aarch64_gather_scale_operand_s"
+(define_predicate "aarch64_gather_scale_operand_w"
   (and (match_code "const_int")
        (match_test "INTVAL (op) == 1 || INTVAL (op) == 4")))
 

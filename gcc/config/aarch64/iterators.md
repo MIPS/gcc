@@ -247,45 +247,55 @@
 (define_mode_iterator VMUL_CHANGE_NLANES [V4HI V8HI V2SI V4SI V2SF V4SF])
 
 ;; All SVE vector modes.
-(define_mode_iterator SVE_ALL [V32QI V16HI V8SI V4DI V16HF V8SF V4DF])
+(define_mode_iterator SVE_ALL [VNx16QI VNx8HI VNx4SI VNx2DI
+			       VNx8HF VNx4SF VNx2DF])
 
 ;; All SVE vector structure modes.
-(define_mode_iterator SVE_STRUCT [V64QI V32HI V16SI V8DI V32HF V16SF V8DF
-				  V96QI V48HI V24SI V12DI V48HF V24SF V12DF
-				  V128QI V64HI V32SI V16DI V64HF V32SF V16DF])
+(define_mode_iterator SVE_STRUCT [VNx32QI VNx16HI VNx8SI VNx4DI
+				  VNx16HF VNx8SF VNx4DF
+				  VNx48QI VNx24HI VNx12SI VNx6DI
+				  VNx24HF VNx12SF VNx6DF
+				  VNx64QI VNx32HI VNx16SI VNx8DI
+				  VNx32HF VNx16SF VNx8DF])
 
 ;; All SVE vector modes that have 8-bit or 16-bit elements.
-(define_mode_iterator SVE_BH [V32QI V16HI V16HF])
+(define_mode_iterator SVE_BH [VNx16QI VNx8HI VNx8HF])
 
 ;; All SVE vector modes that have 8-bit, 16-bit or 32-bit elements.
-(define_mode_iterator SVE_BHS [V32QI V16HI V8SI V16HF V8SF])
+(define_mode_iterator SVE_BHS [VNx16QI VNx8HI VNx4SI VNx8HF VNx4SF])
 
 ;; All SVE integer vector modes that have 8-bit, 16-bit or 32-bit elements.
-(define_mode_iterator SVE_BHSI [V32QI V16HI V8SI])
+(define_mode_iterator SVE_BHSI [VNx16QI VNx8HI VNx4SI])
 
 ;; All SVE integer vector modes that have 16-bit, 32-bit or 64-bit elements.
-(define_mode_iterator SVE_HSDI [V32QI V16HI V8SI])
+(define_mode_iterator SVE_HSDI [VNx16QI VNx8HI VNx4SI])
 
 ;; All SVE floating-point vector modes that have 16-bit or 32-bit elements.
-(define_mode_iterator SVE_HSF [V16HF V8SF])
+(define_mode_iterator SVE_HSF [VNx8HF VNx4SF])
 
 ;; All SVE vector modes that have 32-bit or 64-bit elements.
-(define_mode_iterator SVE_SD [V8SI V4DI V8SF V4DF])
+(define_mode_iterator SVE_SD [VNx4SI VNx2DI VNx4SF VNx2DF])
+
+;; All SVE vector modes that have 32-bit elements.
+(define_mode_iterator SVE_S [VNx4SI VNx4SF])
+
+;; All SVE vector modes that have 64-bit elements.
+(define_mode_iterator SVE_D [VNx2DI VNx2DF])
 
 ;; All SVE integer vector modes that have 32-bit or 64-bit elements.
-(define_mode_iterator SVE_SDI [V8SI V4DI])
+(define_mode_iterator SVE_SDI [VNx4SI VNx2DI])
 
 ;; All SVE integer vector modes.
-(define_mode_iterator SVE_I [V32QI V16HI V8SI V4DI])
+(define_mode_iterator SVE_I [VNx16QI VNx8HI VNx4SI VNx2DI])
 
 ;; All SVE floating-point vector modes.
-(define_mode_iterator SVE_F [V16HF V8SF V4DF])
+(define_mode_iterator SVE_F [VNx8HF VNx4SF VNx2DF])
 
 ;; All SVE predicate modes.
-(define_mode_iterator PRED_ALL [V32BI V16BI V8BI V4BI])
+(define_mode_iterator PRED_ALL [VNx16BI VNx8BI VNx4BI VNx2BI])
 
 ;; SVE predicate modes that control 8-bit, 16-bit or 32-bit elements.
-(define_mode_iterator PRED_BHS [V32BI V16BI V8BI])
+(define_mode_iterator PRED_BHS [VNx16BI VNx8BI VNx4BI])
 
 ;; ------------------------------------------------------------------
 ;; Unspec enumerations for Advance SIMD. These could well go into
@@ -411,7 +421,6 @@
     UNSPEC_ANDF		; Used in aarch64-sve.md.
     UNSPEC_IORF		; Used in aarch64-sve.md.
     UNSPEC_XORF		; Used in aarch64-sve.md.
-    UNSPEC_FADDA	; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
@@ -438,7 +447,6 @@
     UNSPEC_COND_HI	; Used in aarch64-sve.md.
     UNSPEC_COND_UO	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
-    UNSPEC_BRKA		; Used in aarch64-sve.md.
 ])
 
 ;; ------------------------------------------------------------------
@@ -596,23 +604,30 @@
 			   (HI   "")])
 
 ;; Mode-to-individual element type mapping.
-(define_mode_attr Vetype [(V8QI "b") (V16QI "b") (V32QI "b") (V32BI "b")
-			  (V4HI "h") (V8HI  "h") (V16HI "h") (V16BI "h")
-			  (V2SI "s") (V4SI  "s") (V8SI  "s") (V8BI "s")
-			  (V2DI "d") (V4DI  "d") (V4BI  "d")
-			  (V4HF "h") (V8HF  "h") (V16HF "h")
-			  (V2SF "s") (V4SF  "s") (V8SF  "s")
-			  (V2DF "d") (V4DF  "d")
+(define_mode_attr Vetype [(V8QI "b") (V16QI "b") (VNx16QI "b") (VNx16BI "b")
+			  (V4HI "h") (V8HI  "h") (VNx8HI  "h") (VNx8BI  "h")
+			  (V2SI "s") (V4SI  "s") (VNx4SI  "s") (VNx4BI  "s")
+			  (V2DI "d")             (VNx2DI  "d") (VNx2BI  "d")
+			  (V4HF "h") (V8HF  "h") (VNx8HF  "h")
+			  (V2SF "s") (V4SF  "s") (VNx4SF  "s")
+			  (V2DF "d")             (VNx2DF  "d")
 			  (HF   "h")
 			  (SF   "s") (DF  "d")
 			  (QI "b")   (HI "h")
 			  (SI "s")   (DI "d")])
 
 ;; Equivalent of "size" for a vector element.
-(define_mode_attr Vesize [(V32QI "b")
-			  (V16HI "h") (V16HF "h")
-			  (V8SI  "w") (V8SF  "w")
-			  (V4DI  "d") (V4DF  "d")])
+(define_mode_attr Vesize [(VNx16QI "b")
+			  (VNx8HI  "h") (VNx8HF  "h")
+			  (VNx4SI  "w") (VNx4SF  "w")
+			  (VNx2DI  "d") (VNx2DF  "d")
+			  (VNx32QI "b") (VNx48QI "b") (VNx64QI "b")
+			  (VNx16HI "h") (VNx24HI "h") (VNx32HI "h")
+			  (VNx16HF "h") (VNx24HF "h") (VNx32HF "h")
+			  (VNx8SI  "w") (VNx12SI "w") (VNx16SI "w")
+			  (VNx8SF  "w") (VNx12SF "w") (VNx16SF "w")
+			  (VNx4DI  "d") (VNx6DI  "d") (VNx8DI  "d")
+			  (VNx4DF  "d") (VNx6DF  "d") (VNx8DF  "d")])
 
 ;; Vetype is used everywhere in scheduling type and assembly output,
 ;; sometimes they are not the same, for example HF modes on some
@@ -635,44 +650,44 @@
 			  (SI   "8b")])
 
 ;; Define element mode for each vector mode.
-(define_mode_attr VEL [(V8QI  "QI") (V16QI "QI") (V32QI "QI")
-			(V4HI "HI") (V8HI  "HI") (V16HI "HI")
-			(V2SI "SI") (V4SI  "SI") (V8SI  "SI")
-			(DI   "DI") (V2DI  "DI") (V4DI  "DI")
-			(V4HF "HF") (V8HF  "HF") (V16HF "HF")
-			(V2SF "SF") (V4SF  "SF") (V8SF  "SF")
-			(DF   "DF") (V2DF  "DF") (V4DF  "DF")
+(define_mode_attr VEL [(V8QI  "QI") (V16QI "QI") (VNx16QI "QI")
+			(V4HI "HI") (V8HI  "HI") (VNx8HI  "HI")
+			(V2SI "SI") (V4SI  "SI") (VNx4SI  "SI")
+			(DI   "DI") (V2DI  "DI") (VNx2DI  "DI")
+			(V4HF "HF") (V8HF  "HF") (VNx8HF  "HF")
+			(V2SF "SF") (V4SF  "SF") (VNx4SF  "SF")
+			(DF   "DF") (V2DF  "DF") (VNx2DF  "DF")
 			(SI   "SI") (HI    "HI")
 			(QI   "QI")])
 
 ;; Define element mode for each vector mode (lower case).
-(define_mode_attr Vel [(V8QI "qi") (V16QI "qi") (V32QI "qi")
-			(V4HI "hi") (V8HI "hi") (V16HI "hi")
-			(V2SI "si") (V4SI "si") (V8SI  "si")
-			(DI "di")   (V2DI "di") (V4DI  "di")
-			(V4HF "hf") (V8HF "hf") (V16HF "hf")
-			(V2SF "sf") (V4SF "sf") (V8SF  "sf")
-			(V2DF "df") (DF "df")   (V4DF  "df")
+(define_mode_attr Vel [(V8QI "qi") (V16QI "qi") (VNx16QI "qi")
+			(V4HI "hi") (V8HI "hi") (VNx8HI  "hi")
+			(V2SI "si") (V4SI "si") (VNx4SI  "si")
+			(DI "di")   (V2DI "di") (VNx2DI  "di")
+			(V4HF "hf") (V8HF "hf") (VNx8HF  "hf")
+			(V2SF "sf") (V4SF "sf") (VNx4SF  "sf")
+			(V2DF "df") (DF "df")   (VNx2DF  "df")
 			(SI   "si") (HI   "hi")
 			(QI   "qi")])
 
 ;; Element mode with floating-point values replaced by like-sized integers.
-(define_mode_attr VEL_INT [(V32QI "QI")
-			   (V16HI "HI") (V16HF "HI")
-			   (V8SI  "SI") (V8SF  "SI")
-			   (V4DI  "DI") (V4DF  "DI")])
+(define_mode_attr VEL_INT [(VNx16QI "QI")
+			   (VNx8HI  "HI") (VNx8HF "HI")
+			   (VNx4SI  "SI") (VNx4SF "SI")
+			   (VNx2DI  "DI") (VNx2DF "DI")])
 
 ;; Gives the mode of the 128-bit lowpart of an SVE vector.
-(define_mode_attr V128 [(V32QI "V16QI")
-			(V16HI "V8HI") (V16HF "V8HF")
-			(V8SI "V4SI") (V8SF "V4SF")
-			(V4DI "V2DI") (V4DF "V2DF")])
+(define_mode_attr V128 [(VNx16QI "V16QI")
+			(VNx8HI  "V8HI") (VNx8HF "V8HF")
+			(VNx4SI  "V4SI") (VNx4SF "V4SF")
+			(VNx2DI  "V2DI") (VNx2DF "V2DF")])
 
 ;; ...and again in lower case.
-(define_mode_attr v128 [(V32QI "v16qi")
-			(V16HI "v8hi") (V16HF "v8hf")
-			(V8SI "v4si") (V8SF "v4sf")
-			(V4DI "v2di") (V4DF "v2df")])
+(define_mode_attr v128 [(VNx16QI "v16qi")
+			(VNx8HI  "v8hi") (VNx8HF "v8hf")
+			(VNx4SI  "v4si") (VNx4SF "v4sf")
+			(VNx2DI  "v2di") (VNx2DF "v2df")])
 
 ;; 64-bit container modes the inner or scalar source mode.
 (define_mode_attr VCOND [(HI "V4HI") (SI "V2SI")
@@ -758,22 +773,22 @@
 			 (HI    "SI")    (SI    "DI")
 			 (V8HF  "V4SF")  (V4SF  "V2DF")
 			 (V4HF  "V4SF")  (V2SF  "V2DF")
-			 (V16HF "V8SF")  (V8SF  "V4DF")
-			 (V32QI "V16HI") (V16HI "V8SI")
-			 (V8SI  "V4DI")
-			 (V32BI "V16BI") (V16BI "V8BI")
-			 (V8BI  "V4BI")])
+			 (VNx8HF  "VNx4SF") (VNx4SF "VNx2DF")
+			 (VNx16QI "VNx8HI") (VNx8HI "VNx4SI")
+			 (VNx4SI  "VNx2DI")
+			 (VNx16BI "VNx8BI") (VNx8BI "VNx4BI")
+			 (VNx4BI  "VNx2BI")])
 
 ;; Predicate mode associated with VWIDE.
-(define_mode_attr VWIDE_PRED [(V16HF "V8BI") (V8SF "V4BI")])
+(define_mode_attr VWIDE_PRED [(VNx8HF "VNx4BI") (VNx4SF "VNx2BI")])
 
 ;; Widened modes of vector modes, lowercase
 (define_mode_attr Vwide [(V2SF "v2df") (V4HF "v4sf")
-			 (V32QI "v16hi") (V16HI "v8si")
-			 (V8SI  "v4di")
-			 (V16HF "v8sf") (V8SF "v4df")
-			 (V32BI "v16bi") (V16BI "v8bi")
-			 (V8BI  "v4bi")])
+			 (VNx16QI "vnx8hi") (VNx8HI "vnx4si")
+			 (VNx4SI  "vnx2di")
+			 (VNx8HF  "vnx4sf") (VNx4SF "vnx2df")
+			 (VNx16BI "vnx8bi") (VNx8BI "vnx4bi")
+			 (VNx4BI  "vnx2bi")])
 
 ;; Widened mode register suffixes for VD_BHSI/VQW/VQ_HSF.
 (define_mode_attr Vwtype [(V8QI "8h") (V4HI "4s")
@@ -782,9 +797,9 @@
 			  (V8HF "4s") (V4SF "2d")])
 
 ;; SVE vector after widening
-(define_mode_attr Vewtype [(V32QI "h")
-			   (V16HI "s") (V16HF "s")
-			   (V8SI "d") (V8SF "d")])
+(define_mode_attr Vewtype [(VNx16QI "h")
+			   (VNx8HI  "s") (VNx8HF "s")
+			   (VNx4SI  "d") (VNx4SF "d")])
 
 ;; Widened mode register suffixes for VDW/VQW.
 (define_mode_attr Vmwtype [(V8QI ".8h") (V4HI ".4s")
@@ -799,52 +814,62 @@
 			     (V4SF "2s")])
 
 ;; Define corresponding core/FP element mode for each vector mode.
-(define_mode_attr vw [(V8QI "w") (V16QI "w") (V32QI "w")
-		      (V4HI "w") (V8HI "w") (V16HI "w")
-		      (V2SI "w") (V4SI "w") (V8SI "w")
-		      (DI   "x") (V2DI "x") (V4DI "x")
-		      (V16HF "h")
-		      (V2SF "s") (V4SF "s") (V8SF "s")
-		      (V2DF "d") (V4DF "d")])
+(define_mode_attr vw [(V8QI "w") (V16QI "w") (VNx16QI "w")
+		      (V4HI "w") (V8HI "w") (VNx8HI "w")
+		      (V2SI "w") (V4SI "w") (VNx4SI "w")
+		      (DI   "x") (V2DI "x") (VNx2DI "x")
+		      (VNx8HF "h")
+		      (V2SF "s") (V4SF "s") (VNx4SF "s")
+		      (V2DF "d") (VNx2DF "d")])
 
 ;; Corresponding core element mode for each vector mode.  This is a
 ;; variation on <vw> mapping FP modes to GP regs.
-(define_mode_attr vwcore [(V8QI "w") (V16QI "w") (V32QI "w")
-			  (V4HI "w") (V8HI "w") (V16HI "w")
-			  (V2SI "w") (V4SI "w") (V8SI "w")
-			  (DI   "x") (V2DI "x") (V4DI "x")
-			  (V4HF "w") (V8HF "w") (V16HF "w")
-			  (V2SF "w") (V4SF "w") (V8SF "w")
-			  (V2DF "x") (V4DF "x")])
+(define_mode_attr vwcore [(V8QI "w") (V16QI "w") (VNx16QI "w")
+			  (V4HI "w") (V8HI "w") (VNx8HI "w")
+			  (V2SI "w") (V4SI "w") (VNx4SI "w")
+			  (DI   "x") (V2DI "x") (VNx2DI "x")
+			  (V4HF "w") (V8HF "w") (VNx8HF "w")
+			  (V2SF "w") (V4SF "w") (VNx4SF "w")
+			  (V2DF "x") (VNx2DF "x")])
 
 ;; Double vector types for ALLX.
 (define_mode_attr Vallxd [(QI "8b") (HI "4h") (SI "2s")])
 
 ;; Mode with floating-point values replaced by like-sized integers.
-(define_mode_attr V_INT_EQUIV [(V8QI "V8QI") (V16QI "V16QI") (V32QI "V32QI")
-			       (V4HI "V4HI") (V8HI  "V8HI")  (V16HI "V16HI")
-			       (V2SI "V2SI") (V4SI  "V4SI")  (V8SI  "V8SI")
-			       (DI   "DI")   (V2DI  "V2DI")  (V4DI  "V4DI")
-			       (V4HF "V4HI") (V8HF  "V8HI")  (V16HF "V16HI")
-			       (V2SF "V2SI") (V4SF  "V4SI")  (V8SF  "V8SI")
-			       (DF   "DI")   (V2DF  "V2DI")  (V4DF  "V4DI")
-			       (SF   "SI")   (HF    "HI")])
+(define_mode_attr V_INT_EQUIV [(V8QI "V8QI") (V16QI "V16QI")
+			       (V4HI "V4HI") (V8HI  "V8HI")
+			       (V2SI "V2SI") (V4SI  "V4SI")
+			       (DI   "DI")   (V2DI  "V2DI")
+			       (V4HF "V4HI") (V8HF  "V8HI")
+			       (V2SF "V2SI") (V4SF  "V4SI")
+			       (DF   "DI")   (V2DF  "V2DI")
+			       (SF   "SI")   (HF    "HI")
+			       (VNx16QI "VNx16QI")
+			       (VNx8HI  "VNx8HI") (VNx8HF "VNx8HI")
+			       (VNx4SI  "VNx4SI") (VNx4SF "VNx4SI")
+			       (VNx2DI  "VNx2DI") (VNx2DF "VNx2DI")
+])
 
 ;; Lower case mode with floating-point values replaced by like-sized integers.
-(define_mode_attr v_int_equiv [(V8QI "v8qi") (V16QI "v16qi") (V32QI "v32qi")
-			       (V4HI "v4hi") (V8HI  "v8hi")  (V16HI "v16hi")
-			       (V2SI "v2si") (V4SI  "v4si")  (V8SI  "v8si")
-			       (DI   "di")   (V2DI  "v2di")  (V4DI  "v4di")
-			       (V4HF "v4hi") (V8HF  "v8hi")  (V16HF "v16hi")
-			       (V2SF "v2si") (V4SF  "v4si")  (V8SF  "v8si")
-			       (DF   "di")   (V2DF  "v2di")  (V4DF  "v4di")
-			       (SF   "si")])
+(define_mode_attr v_int_equiv [(V8QI "v8qi") (V16QI "v16qi")
+			       (V4HI "v4hi") (V8HI  "v8hi")
+			       (V2SI "v2si") (V4SI  "v4si")
+			       (DI   "di")   (V2DI  "v2di")
+			       (V4HF "v4hi") (V8HF  "v8hi")
+			       (V2SF "v2si") (V4SF  "v4si")
+			       (DF   "di")   (V2DF  "v2di")
+			       (SF   "si")
+			       (VNx16QI "vnx16qi")
+			       (VNx8HI  "vnx8hi") (VNx8HF "vnx8hi")
+			       (VNx4SI  "vnx4si") (VNx4SF "vnx4si")
+			       (VNx2DI  "vnx2di") (VNx2DF "vnx2di")
+])
 
 ;; Floating-point equivalent of selected modes.
-(define_mode_attr V_FP_EQUIV [(V8SI "V8SF") (V8SF "V8SF")
-			      (V4DI "V4DF") (V4DF "V4DF")])
-(define_mode_attr v_fp_equiv [(V8SI "v8sf") (V8SF "v8sf")
-			      (V4DI "v4df") (V4DF "v4df")])
+(define_mode_attr V_FP_EQUIV [(VNx4SI "VNx4SF") (VNx4SF "VNx4SF")
+			      (VNx2DI "VNx2DF") (VNx2DF "VNx2DF")])
+(define_mode_attr v_fp_equiv [(VNx4SI "vnx4sf") (VNx4SF "vnx4sf")
+			      (VNx2DI "vnx2df") (VNx2DF "vnx2df")])
 
 ;; Mode for vector conditional operations where the comparison has
 ;; different type from the lhs.
@@ -874,43 +899,6 @@
 ;; opaque large integer mode, and the number of elements touched by the
 ;; ld..._lane and st..._lane operations.
 (define_mode_attr nregs [(OI "2") (CI "3") (XI "4")])
-
-;; Map the mode of a single vector to a list of two vectors.
-(define_mode_attr VRL2 [(V32QI "V64QI") (V16HI "V32HI") (V16HF "V32HF")
-			(V8SI  "V16SI") (V8SF  "V16SF")
-			(V4DI  "V8DI")  (V4DF  "V8DF")])
-
-(define_mode_attr vrl2 [(V32QI "v64qi") (V16HI "v32hi") (V16HF "v32hf")
-			(V8SI  "v16si") (V8SF  "v16sf")
-			(V4DI  "v8di")  (V4DF  "v8df")])
-
-;; Map the mode of a single vector to a list of three vectors.
-(define_mode_attr VRL3 [(V32QI "V96QI") (V16HI "V48HI") (V16HF "V48HF")
-			(V8SI  "V24SI") (V8SF  "V24SF")
-			(V4DI  "V12DI") (V4DF  "V12DF")])
-
-(define_mode_attr vrl3 [(V32QI "v96qi") (V16HI "v48hi") (V16HF "v48hf")
-			(V8SI  "v24si") (V8SF  "v24sf")
-			(V4DI  "v12di") (V4DF  "v12df")])
-
-;; Map the mode of a single vector to a list of four vectors.
-(define_mode_attr VRL4 [(V32QI "V128QI") (V16HI "V64HI") (V16HF "V64HF")
-			(V8SI  "V32SI")  (V8SF  "V32SF")
-			(V4DI  "V16DI")  (V4DF  "V16DF")])
-
-(define_mode_attr vrl4 [(V32QI "v128qi") (V16HI "v64hi") (V16HF "v64hf")
-			(V8SI  "v32si")  (V8SF  "v32sf")
-			(V4DI  "v16di")  (V4DF  "v16df")])
-
-;; SVE gather
-(define_mode_attr gather_unscaled_mods [(V8SI ", sxtw") (V8SF ", sxtw")
-					(V4DI "") (V4DF "")])
-(define_mode_attr gather_scaled_mods [(V8SI ", sxtw 2") (V8SF ", sxtw 2")
-				      (V4DI ", lsl 3") (V4DF ", lsl 3")])
-(define_mode_attr gather_unscaled_modu [(V8SI ", uxtw") (V8SF ", uxtw")
-					(V4DI "") (V4DF "")])
-(define_mode_attr gather_scaled_modu [(V8SI ", uxtw 2") (V8SF ", uxtw 2")
-				      (V4DI ", lsl 3") (V4DF ", lsl 3")])
 
 ;; Mode for atomic operation suffixes
 (define_mode_attr atomic_sfx
@@ -1008,86 +996,92 @@
 (define_mode_attr got_modifier [(SI "gotpage_lo14") (DI "gotpage_lo15")])
 
 ;; The number of subvectors in an SVE_STRUCT.
-(define_mode_attr vector_count [(V64QI "2") (V32HI "2")
-				(V16SI "2") (V8DI "2")
-				(V32HF "2") (V16SF "2") (V8DF "2")
-				(V96QI "3") (V48HI "3")
-				(V24SI "3") (V12DI "3")
-				(V48HF "3") (V24SF "3") (V12DF "3")
-				(V128QI "4") (V64HI "4")
-				(V32SI "4") (V16DI "4")
-				(V64HF "4") (V32SF "4") (V16DF "4")])
+(define_mode_attr vector_count [(VNx32QI "2") (VNx16HI "2")
+				(VNx8SI  "2") (VNx4DI  "2")
+				(VNx16HF "2") (VNx8SF  "2") (VNx4DF "2")
+				(VNx48QI "3") (VNx24HI "3")
+				(VNx12SI "3") (VNx6DI  "3")
+				(VNx24HF "3") (VNx12SF "3") (VNx6DF "3")
+				(VNx64QI "4") (VNx32HI "4")
+				(VNx16SI "4") (VNx8DI  "4")
+				(VNx32HF "4") (VNx16SF "4") (VNx8DF "4")])
 
 ;; The number of instruction bytes needed for an SVE_STRUCT move.  This is
 ;; equal to vector_count * 4.
-(define_mode_attr insn_length [(V64QI "8") (V32HI "8")
-			       (V16SI "8") (V8DI "8")
-			       (V32HF "8") (V16SF "8") (V8DF "8")
-			       (V96QI "12") (V48HI "12")
-			       (V24SI "12") (V12DI "12")
-			       (V48HF "12") (V24SF "12") (V12DF "12")
-			       (V128QI "16") (V64HI "16")
-			       (V32SI "16") (V16DI "16")
-			       (V64HF "16") (V32SF "16") (V16DF "16")])
+(define_mode_attr insn_length [(VNx32QI "8")  (VNx16HI "8")
+			       (VNx8SI  "8")  (VNx4DI  "8")
+			       (VNx16HF "8")  (VNx8SF  "8")  (VNx4DF "8")
+			       (VNx48QI "12") (VNx24HI "12")
+			       (VNx12SI "12") (VNx6DI  "12")
+			       (VNx24HF "12") (VNx12SF "12") (VNx6DF "12")
+			       (VNx64QI "16") (VNx32HI "16")
+			       (VNx16SI "16") (VNx8DI  "16")
+			       (VNx32HF "16") (VNx16SF "16") (VNx8DF "16")])
 
 ;; The type of a subvector in an SVE_STRUCT.
-(define_mode_attr VSINGLE [(V64QI "V32QI") (V32HI "V16HI")
-			   (V16SI "V8SI") (V8DI "V4DI")
-			   (V32HF "V16HF") (V16SF "V8SF") (V8DF "V4DF")
-			   (V96QI "V32QI") (V48HI "V16HI")
-			   (V24SI "V8SI") (V12DI "V4DI")
-			   (V48HF "V16HF") (V24SF "V8SF") (V12DF "V4DF")
-			   (V128QI "V32QI") (V64HI "V16HI")
-			   (V32SI "V8SI") (V16DI "V4DI")
-			   (V64HF "V16HF") (V32SF "V8SF") (V16DF "V4DF")])
+(define_mode_attr VSINGLE [(VNx32QI "VNx16QI")
+			   (VNx16HI "VNx8HI") (VNx16HF "VNx8HF")
+			   (VNx8SI "VNx4SI") (VNx8SF "VNx4SF")
+			   (VNx4DI "VNx2DI") (VNx4DF "VNx2DF")
+			   (VNx48QI "VNx16QI")
+			   (VNx24HI "VNx8HI") (VNx24HF "VNx8HF")
+			   (VNx12SI "VNx4SI") (VNx12SF "VNx4SF")
+			   (VNx6DI "VNx2DI") (VNx6DF "VNx2DF")
+			   (VNx64QI "VNx16QI")
+			   (VNx32HI "VNx8HI") (VNx32HF "VNx8HF")
+			   (VNx16SI "VNx4SI") (VNx16SF "VNx4SF")
+			   (VNx8DI "VNx2DI") (VNx8DF "VNx2DF")])
 
 ;; ...and again in lower case.
-(define_mode_attr vsingle [(V64QI "v32qi") (V32HI "v16hi")
-			   (V16SI "v8si") (V8DI "v4di")
-			   (V32HF "v16hf") (V16SF "v8sf") (V8DF "v4df")
-			   (V96QI "v32qi") (V48HI "v16hi")
-			   (V24SI "v8si") (V12DI "v4di")
-			   (V48HF "v16hf") (V24SF "v8sf") (V12DF "v4df")
-			   (V128QI "v32qi") (V64HI "v16hi")
-			   (V32SI "v8si") (V16DI "v4di")
-			   (V64HF "v16hf") (V32SF "v8sf") (V16DF "v4df")])
+(define_mode_attr vsingle [(VNx32QI "vnx16qi")
+			   (VNx16HI "vnx8hi") (VNx16HF "vnx8hf")
+			   (VNx8SI "vnx4si") (VNx8SF "vnx4sf")
+			   (VNx4DI "vnx2di") (VNx4DF "vnx2df")
+			   (VNx48QI "vnx16qi")
+			   (VNx24HI "vnx8hi") (VNx24HF "vnx8hf")
+			   (VNx12SI "vnx4si") (VNx12SF "vnx4sf")
+			   (VNx6DI "vnx2di") (VNx6DF "vnx2df")
+			   (VNx64QI "vnx16qi")
+			   (VNx32HI "vnx8hi") (VNx32HF "vnx8hf")
+			   (VNx16SI "vnx4si") (VNx16SF "vnx4sf")
+			   (VNx8DI "vnx2di") (VNx8DF "vnx2df")])
 
 ;; The predicate mode associated with an SVE data mode.  For structure modes
 ;; this is equivalent to the <VPRED> of the subvector mode.
-(define_mode_attr VPRED [(V32QI "V32BI")
-			 (V16HI "V16BI") (V16HF "V16BI")
-			 (V8SI "V8BI") (V8SF "V8BI")
-			 (V4DI "V4BI") (V4DF "V4BI")
-			 (V64QI "V32BI")
-			 (V32HI "V16BI") (V32HF "V16BI")
-			 (V16SI "V8BI") (V16SF "V8BI")
-			 (V8DI "V4BI") (V8DF "V4BI")
-			 (V96QI "V32BI")
-			 (V48HI "V16BI") (V48HF "V16BI")
-			 (V24SI "V8BI") (V24SF "V8BI")
-			 (V12DI "V4BI") (V12DF "V4BI")
-			 (V128QI "V32BI")
-			 (V64HI "V16BI") (V64HF "V16BI")
-			 (V32SI "V8BI") (V32SF "V8BI")
-			 (V16DI "V4BI") (V16DF "V4BI")])
+(define_mode_attr VPRED [(VNx16QI "VNx16BI")
+			 (VNx8HI "VNx8BI") (VNx8HF "VNx8BI")
+			 (VNx4SI "VNx4BI") (VNx4SF "VNx4BI")
+			 (VNx2DI "VNx2BI") (VNx2DF "VNx2BI")
+			 (VNx32QI "VNx16BI")
+			 (VNx16HI "VNx8BI") (VNx16HF "VNx8BI")
+			 (VNx8SI "VNx4BI") (VNx8SF "VNx4BI")
+			 (VNx4DI "VNx2BI") (VNx4DF "VNx2BI")
+			 (VNx48QI "VNx16BI")
+			 (VNx24HI "VNx8BI") (VNx24HF "VNx8BI")
+			 (VNx12SI "VNx4BI") (VNx12SF "VNx4BI")
+			 (VNx6DI "VNx2BI") (VNx6DF "VNx2BI")
+			 (VNx64QI "VNx16BI")
+			 (VNx32HI "VNx8BI") (VNx32HF "VNx8BI")
+			 (VNx16SI "VNx4BI") (VNx16SF "VNx4BI")
+			 (VNx8DI "VNx2BI") (VNx8DF "VNx2BI")])
 
 ;; ...and again in lower case.
-(define_mode_attr vpred [(V32QI "v32bi")
-			 (V16HI "v16bi") (V16HF "v16bi")
-			 (V8SI "v8bi") (V8SF "v8bi")
-			 (V4DI "v4bi") (V4DF "v4bi")
-			 (V64QI "v32bi")
-			 (V32HI "v16bi") (V32HF "v16bi")
-			 (V16SI "v8bi") (V16SF "v8bi")
-			 (V8DI "v4bi") (V8DF "v4bi")
-			 (V96QI "v32bi")
-			 (V48HI "v16bi") (V48HF "v16bi")
-			 (V24SI "v8bi") (V24SF "v8bi")
-			 (V12DI "v4bi") (V12DF "v4bi")
-			 (V128QI "v32bi")
-			 (V64HI "v16bi") (V64HF "v8bi")
-			 (V32SI "v8bi") (V32SF "v8bi")
-			 (V16DI "v4bi") (V16DF "v4bi")])
+(define_mode_attr vpred [(VNx16QI "vnx16bi")
+			 (VNx8HI "vnx8bi") (VNx8HF "vnx8bi")
+			 (VNx4SI "vnx4bi") (VNx4SF "vnx4bi")
+			 (VNx2DI "vnx2bi") (VNx2DF "vnx2bi")
+			 (VNx32QI "vnx16bi")
+			 (VNx16HI "vnx8bi") (VNx16HF "vnx8bi")
+			 (VNx8SI "vnx4bi") (VNx8SF "vnx4bi")
+			 (VNx4DI "vnx2bi") (VNx4DF "vnx2bi")
+			 (VNx48QI "vnx16bi")
+			 (VNx24HI "vnx8bi") (VNx24HF "vnx8bi")
+			 (VNx12SI "vnx4bi") (VNx12SF "vnx4bi")
+			 (VNx6DI "vnx2bi") (VNx6DF "vnx2bi")
+			 (VNx64QI "vnx16bi")
+			 (VNx32HI "vnx8bi") (VNx32HF "vnx4bi")
+			 (VNx16SI "vnx4bi") (VNx16SF "vnx4bi")
+			 (VNx8DI "vnx2bi") (VNx8DF "vnx2bi")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators
@@ -1489,6 +1483,9 @@
 (define_int_attr optab [(UNSPEC_ANDF "and")
 			(UNSPEC_IORF "ior")
 			(UNSPEC_XORF "xor")
+			(UNSPEC_ANDV "and")
+			(UNSPEC_IORV "ior")
+			(UNSPEC_XORV "xor")
 			(UNSPEC_COND_ADD "add")
 			(UNSPEC_COND_SUB "sub")
 			(UNSPEC_COND_MUL "mul")
@@ -1529,10 +1526,6 @@
 				 (UNSPEC_FMINV "fmin")
 				 (UNSPEC_FMAXNM "fmaxnm")
 				 (UNSPEC_FMINNM "fminnm")])
-
-(define_int_attr bit_reduc [(UNSPEC_ANDV "and")
-			    (UNSPEC_IORV "ior")
-			    (UNSPEC_XORV "xor")])
 
 (define_int_attr bit_reduc_op [(UNSPEC_ANDV "andv")
 			       (UNSPEC_IORV "orv")
@@ -1649,8 +1642,8 @@
 				    (UNSPEC_PACI1716 "8")
 				    (UNSPEC_AUTI1716 "12")])
 
-(define_int_attr perm_optab [(UNSPEC_ZIP1 "vec_interleave_hi")
-			     (UNSPEC_ZIP2 "vec_interleave_lo")
+(define_int_attr perm_optab [(UNSPEC_ZIP1 "vec_interleave_lo")
+			     (UNSPEC_ZIP2 "vec_interleave_hi")
 			     (UNSPEC_UZP1 "vec_extract_even")
 			     (UNSPEC_UZP2 "vec_extract_odd")])
 

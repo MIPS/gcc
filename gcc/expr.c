@@ -9377,7 +9377,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
         return target;
       }
 
-    case STRICT_REDUC_PLUS_EXPR:
+    case FOLD_LEFT_PLUS_EXPR:
       {
 	op0 = expand_normal (treeop0);
 	op1 = expand_normal (treeop1);
@@ -9392,12 +9392,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    create_input_operand (&ops[1], op0, mode);
 	    create_input_operand (&ops[2], op1, vec_mode);
 	    if (maybe_expand_insn (icode, 3, ops))
-	      {
-		target = ops[0].value;
-		if (GET_MODE (target) != mode)
-		  return gen_lowpart (tmode, target);
-		return target;
-	      }
+	      return ops[0].value;
 	  }
 
 	/* Nothing to fall back to.  */

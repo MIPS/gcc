@@ -50,5 +50,5 @@ int main (void)
 
 /* need -ffast-math to vectorizer these loops.  */
 /* ARM NEON passes -ffast-math to these tests, so expect this to fail.  */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { xfail { vect_ieee_add_reduc || arm_neon_ok } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_ieee_add_reduc } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { target { ! vect_fold_left_plus } xfail arm_neon_ok } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_fold_left_plus } } } */

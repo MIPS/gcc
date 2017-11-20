@@ -218,17 +218,6 @@ typedef auto_vec<poly_uint64, 8> auto_vector_sizes;
 
 extern struct gcc_target targetm;
 
-/* Return the mode that should be used to hold a scalar shift amount
-   when shifting values of the given mode.  */
-/* ??? This could in principle be generated automatically from the .md
-   shift patterns, but for now word_mode should be universally OK.  */
-
-inline scalar_int_mode
-get_shift_amount_mode (machine_mode)
-{
-  return word_mode;
-}
-
 /* Return an estimate of the runtime value of X, for use in things
    like cost calculations or profiling frequencies.  Note that this
    function should never be used in situations where the actual

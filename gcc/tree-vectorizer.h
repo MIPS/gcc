@@ -65,20 +65,25 @@ enum vect_def_type {
 /* Define type of reduction.  */
 enum vect_reduction_type {
   TREE_CODE_REDUCTION,
-  STRICT_FP_REDUCTION,
   COND_REDUCTION,
   INTEGER_INDUC_COND_REDUCTION,
   CONST_COND_REDUCTION,
-  COND_REDUCTION_CLASTB
+
+  /* Retain a scalar phi and use a FOLD_EXTRACT_LAST within the loop
+     to implement:
+
+       for (int i = 0; i < VF; ++i)
+         res = cond[i] ? val[i] : res;  */
+  EXTRACT_LAST_REDUCTION,
+
+  /* Use a folding reduction within the loop to implement:
+
+       for (int i = 0; i < VF; ++i)
+         res = res OP val[i];
+
+     (with no reassocation).  */
+  FOLD_LEFT_REDUCTION
 };
-
-/* Any type of condition reduction.  */
-#define REDUCTION_IS_COND_REDUCTION_P(R) \
-  ((R) != TREE_CODE_REDUCTION && (R) != STRICT_FP_REDUCTION)
-
-/* Any standard condition reduction.  */
-#define REDUCTION_IS_FULL_COND_REDUCTION_P(R) (R == COND_REDUCTION	      \
-					       || R == COND_REDUCTION_CLASTB)
 
 #define VECTORIZABLE_CYCLE_DEF(D) (((D) == vect_reduction_def)           \
                                    || ((D) == vect_double_reduction_def) \
@@ -254,27 +259,6 @@ struct vect_addr_base_hasher : free_ptr_hash <vect_addr_base_info>
   typedef vect_addr_base_info *compare_type;
   static hashval_t hash (const vect_addr_base_info *);
   static bool equal (const vect_addr_base_info *, const vect_addr_base_info *);
-};
-
-struct gather_scatter_indices
-{
-  /* Map from.  */
-  tree type;
-  tree step;
-
-  /* Map to.  */
-  tree indices;
-};
-
-/* Gather/scatter hashtable helpers.  */
-
-struct gather_scatter_hasher : free_ptr_hash <gather_scatter_indices>
-{
-  typedef gather_scatter_indices *value_type;
-  typedef gather_scatter_indices *compare_type;
-  static hashval_t hash (const gather_scatter_indices *);
-  static bool equal (const gather_scatter_indices *,
-		     const gather_scatter_indices *);
 };
 
 /* In general, we can divide the vector statements in a vectorized loop
@@ -566,9 +550,6 @@ typedef struct _loop_vec_info : public vec_info {
   /* A hash table used for caching vector base addresses.  */
   hash_table<vect_addr_base_hasher> vect_addr_base_htab;
 
-  /* A hash table used for caching gather/scatter indices.  */
-  hash_table<gather_scatter_hasher> gather_scatter_htab;
-
   /* A map from X to a precomputed gimple_val containing
      CAPPED_VECTORIZATION_FACTOR * X.  */
   hash_map<tree, tree> vf_mult_map;
@@ -645,7 +626,6 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ORIG_LOOP_INFO(L)       (L)->orig_loop_info
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
-#define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 #define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
 #define LOOP_VINFO_EXIT_TEST_MASK(L)        (L)->exit_test_mask
@@ -783,6 +763,14 @@ enum slp_vect_type {
   loop_vect = 0,
   pure_slp,
   hybrid
+};
+
+/* Says whether a statement is a load, a store of a vectorized statement
+   result, or a store of an invariant value.  */
+enum vec_load_store_type {
+  VLS_LOAD,
+  VLS_STORE,
+  VLS_STORE_INVARIANT
 };
 
 /* Describes how we're going to vectorize an individual load or store,
@@ -962,9 +950,6 @@ typedef struct _stmt_vec_info {
   /* The number of scalar stmt references from active SLP instances.  */
   unsigned int num_slp_uses;
 
-  /* Number of real statements in a group.  */
-  unsigned int num_stmts;
-
   /* For GROUP_FIRST_ELEMENT statements, these fields give the UIDs of
      the first and last statements in the group, otherwise both are
      equal to the statement's UID.  */
@@ -974,30 +959,19 @@ typedef struct _stmt_vec_info {
 
 /* Information about a gather/scatter call.  */
 struct gather_scatter_info {
-  /* The FUNCTION_DECL for the built-in gather/scatter function.  */
+  /* The internal function to use for the gather/scatter operation,
+     or IFN_LAST if a built-in function should be used instead.  */
+  internal_fn ifn;
+
+  /* The FUNCTION_DECL for the built-in gather/scatter function,
+     or null if an internal function should be used instead.  */
   tree decl;
 
   /* The loop-invariant base value.  */
   tree base;
 
-  union
-  {
-    /* If the offset needs to be vectorized, this is the original
-       original scalar offset, which is a non-loop-invariant SSA_NAME.  */
-    tree offset;
-
-    /* If the offset should be [0, STEP, STEP*2, ...], then this is
-       the step value.  */
-    tree step;
-  } u;
-
-  /* The type of the scalar offset.  If OFFSET is nonnull then this
-     is TREE_TYPE (OFFSET).  */
-  tree offset_type;
-
-  /* The type to which OFFSET_TYPE must be widened, or OFFSET_TYPE
-     itself if no widening is necessary.  */
-  tree widened_offset_type;
+  /* The original scalar offset, which is a non-loop-invariant SSA_NAME.  */
+  tree offset;
 
   /* Each offset element should be multiplied by this amount before
      being added to the base.  */
@@ -1008,6 +982,12 @@ struct gather_scatter_info {
 
   /* The type of the vectorized offset.  */
   tree offset_vectype;
+
+  /* The type of the scalar elements after loading or before storing.  */
+  tree element_type;
+
+  /* The type of the scalar elements being loaded or stored.  */
+  tree memory_type;
 };
 
 /* Access Functions.  */
@@ -1065,7 +1045,6 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_GROUP_STORE_COUNT(S)    (S)->store_count
 #define STMT_VINFO_GROUP_GAP(S)            (S)->gap
 #define STMT_VINFO_GROUP_SAME_DR_STMT(S)   (S)->same_dr_stmt
-#define STMT_VINFO_GROUP_NUM_STMTS(S)      (S)->num_stmts
 #define STMT_VINFO_GROUP_FIRST_UID(S)      (S)->first_uid
 #define STMT_VINFO_GROUP_LAST_UID(S)       (S)->last_uid
 #define STMT_VINFO_GROUPED_ACCESS(S)      ((S)->first_element != NULL && (S)->data_ref_info)
@@ -1082,7 +1061,6 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define GROUP_STORE_COUNT(S)            (S)->store_count
 #define GROUP_GAP(S)                    (S)->gap
 #define GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
-#define GROUP_NUM_STMTS(S)              (S)->num_stmts
 #define GROUP_FIRST_UID(S)              (S)->first_uid
 #define GROUP_LAST_UID(S)               (S)->last_uid
 
@@ -1583,7 +1561,7 @@ extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *,
 				    int, stmt_vector_for_cost *,
 				    stmt_vector_for_cost *);
 extern void vect_model_store_cost (stmt_vec_info, int, vect_memory_access_type,
-				   enum vect_def_type, slp_tree,
+				   vec_load_store_type, slp_tree,
 				   stmt_vector_for_cost *,
 				   stmt_vector_for_cost *);
 extern void vect_model_load_cost (stmt_vec_info, int, vect_memory_access_type,
@@ -1596,6 +1574,7 @@ extern void vect_finish_replace_stmt (gimple *, gimple *);
 extern void vect_finish_stmt_generation (gimple *, gimple *,
                                          gimple_stmt_iterator *);
 extern bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
+extern tree vect_get_store_rhs (gimple *);
 extern tree vect_get_vec_def_for_operand_1 (gimple *, enum vect_def_type);
 extern tree vect_get_vec_def_for_operand (tree, gimple *, tree = NULL);
 extern void vect_get_vec_defs (tree, tree, gimple *, vec<tree> *,
@@ -1638,15 +1617,16 @@ extern bool vect_verify_datarefs_alignment (loop_vec_info);
 extern bool vect_slp_analyze_and_verify_instance_alignment (slp_instance);
 extern bool vect_analyze_data_ref_accesses (vec_info *);
 extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
+extern bool vect_gather_scatter_fn_p (bool, bool, tree, tree, unsigned int,
+				      signop, int, internal_fn *, tree *);
 extern bool vect_check_gather_scatter (gimple *, loop_vec_info,
-				       gather_scatter_info *, bool);
+				       gather_scatter_info *);
 extern bool vect_analyze_data_refs (vec_info *, poly_uint64 *);
 extern void vect_record_base_alignments (vec_info *);
-extern tree vect_create_data_ref_ptr (gimple *, tree, unsigned int,
-				      struct loop *, tree,
+extern tree vect_create_data_ref_ptr (gimple *, tree, struct loop *, tree,
 				      tree *, gimple_stmt_iterator *,
 				      gimple **, bool, bool *,
-				      tree = NULL_TREE);
+				      tree = NULL_TREE, tree = NULL_TREE);
 extern tree bump_vector_ptr (tree, gimple *, gimple_stmt_iterator *, gimple *,
 			     tree);
 extern tree vect_create_destination_var (tree, tree);
@@ -1721,7 +1701,7 @@ extern gimple *vect_find_last_scalar_stmt_in_slp (slp_tree);
 extern bool is_simple_and_all_uses_invariant (gimple *, loop_vec_info);
 extern bool can_duplicate_and_interleave_p (unsigned int, machine_mode,
 					    unsigned int * = NULL,
-					    machine_mode * = NULL);
+					    tree * = NULL);
 extern void duplicate_and_interleave (gimple_seq *, tree, vec<tree>,
 				      unsigned int, vec<tree> &);
 
@@ -1730,7 +1710,7 @@ extern void duplicate_and_interleave (gimple_seq *, tree, vec<tree>,
    Additional pattern recognition functions can (and will) be added
    in the future.  */
 typedef gimple *(* vect_recog_func_ptr) (vec<gimple *> *, tree *, tree *);
-#define NUM_PATTERNS 14
+#define NUM_PATTERNS 15
 void vect_pattern_recog (vec_info *);
 
 /* In tree-vectorizer.c.  */

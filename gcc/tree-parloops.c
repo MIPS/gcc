@@ -2541,7 +2541,7 @@ valid_reduction_p (gimple *stmt)
      allowed for in-order reductions.  */
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   vect_reduction_type reduc_type = STMT_VINFO_REDUC_TYPE (stmt_info);
-  return reduc_type != STRICT_FP_REDUCTION;
+  return reduc_type != FOLD_LEFT_REDUCTION;
 }
 
 /* Detect all reductions in the LOOP, insert them into REDUCTION_LIST.  */

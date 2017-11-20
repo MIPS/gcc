@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 
-#define VEC_PERM(TYPE)					\
-TYPE __attribute__ ((weak))				\
-vec_while_##TYPE (TYPE *restrict a, unsigned long n)	\
-{							\
-  for (unsigned long i = 0; i < n; ++i)			\
-    a[i] += 1;						\
-}
+#define ADD_LOOP(TYPE)					\
+  TYPE __attribute__ ((noinline, noclone))		\
+  vec_while_##TYPE (TYPE *restrict a, uint64_t n)	\
+  {							\
+    for (uint64_t i = 0; i < n; ++i)			\
+      a[i] += 1;					\
+  }
 
 #define TEST_ALL(T)				\
   T (int8_t)					\
@@ -23,7 +23,7 @@ vec_while_##TYPE (TYPE *restrict a, unsigned long n)	\
   T (float)					\
   T (double)
 
-TEST_ALL (VEC_PERM)
+TEST_ALL (ADD_LOOP)
 
 /* { dg-final { scan-assembler-times {\tuqdec} 2 } } */
 /* { dg-final { scan-assembler-times {\tuqdecb\tx[0-9]+} 2 } } */

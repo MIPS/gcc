@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-typedef int64_t v4di __attribute__ ((vector_size (32)));
-typedef int32_t v8si __attribute__ ((vector_size (32)));
-typedef int16_t v16hi __attribute__ ((vector_size (32)));
-typedef int8_t v32qi __attribute__ ((vector_size (32)));
+typedef int64_t vnx2di __attribute__ ((vector_size (32)));
+typedef int32_t vnx4si __attribute__ ((vector_size (32)));
+typedef int16_t vnx8hi __attribute__ ((vector_size (32)));
+typedef int8_t vnx16qi __attribute__ ((vector_size (32)));
 
 #define TEST_TYPE(TYPE)						\
   void sve_load_##TYPE##_neg9 (TYPE *a)				\
@@ -45,10 +45,10 @@ typedef int8_t v32qi __attribute__ ((vector_size (32)));
     asm volatile ("" :: "w" (x));				\
   }
 
-TEST_TYPE (v4di)
-TEST_TYPE (v8si)
-TEST_TYPE (v16hi)
-TEST_TYPE (v32qi)
+TEST_TYPE (vnx2di)
+TEST_TYPE (vnx4si)
+TEST_TYPE (vnx8hi)
+TEST_TYPE (vnx16qi)
 
 /* { dg-final { scan-assembler-times {\tsub\tx[0-9]+, x0, #288\n} 4 } } */
 /* { dg-final { scan-assembler-times {\tadd\tx[0-9]+, x0, 16\n} 4 } } */

@@ -190,6 +190,15 @@
        (match_test "aarch64_legitimate_address_p (GET_MODE (op), XEXP (op, 0),
 						  true, ADDR_QUERY_LDP_STP)")))
 
+;; Used for storing two 64-bit values in an AdvSIMD register using an STP
+;; as a 128-bit vec_concat.
+(define_memory_constraint "Uml"
+  "@internal
+  A memory address suitable for a load/store pair operation."
+  (and (match_code "mem")
+       (match_test "aarch64_legitimate_address_p (DFmode, XEXP (op, 0), 1,
+						  ADDR_QUERY_LDP_STP)")))
+
 (define_memory_constraint "Utf"
   "@internal
    An address valid for SVE LDFF1s."
@@ -210,7 +219,14 @@
   (and (match_code "mem")
        (match_test "aarch64_simd_mem_operand_p (op)")))
 
-(define_memory_constraint "Utw"
+(define_memory_constraint "Utq"
+  "@internal
+   An address valid for loading or storing a 128-bit AdvSIMD register"
+  (and (match_code "mem")
+       (match_test "aarch64_legitimate_address_p (V2DImode,
+						  XEXP (op, 0), 1)")))
+
+(define_memory_constraint "Uty"
   "@internal
    An address valid for SVE LD1Rs."
   (and (match_code "mem")

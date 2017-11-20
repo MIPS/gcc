@@ -2786,7 +2786,15 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
       pp_string (pp, "OBJ_TYPE_REF(");
       dump_generic_node (pp, OBJ_TYPE_REF_EXPR (node), spc, flags, false);
       pp_semicolon (pp);
-      if (!(flags & TDF_SLIM) && virtual_method_call_p (node))
+      /* We omit the class type for -fcompare-debug because we may
+	 drop TYPE_BINFO early depending on debug info, and then
+	 virtual_method_call_p would return false, whereas when
+	 TYPE_BINFO is preserved it may still return true and then
+	 we'd print the class type.  Compare tree and rtl dumps for
+	 libstdc++-prettyprinters/shared_ptr.cc with and without -g,
+	 for example, at occurrences of OBJ_TYPE_REF.  */
+      if (!(flags & (TDF_SLIM | TDF_COMPARE_DEBUG))
+	  && virtual_method_call_p (node))
 	{
 	  pp_string (pp, "(");
 	  dump_generic_node (pp, obj_type_ref_class (node), spc, flags, false);
@@ -3214,7 +3222,7 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, dump_flags_t flags,
       break;
 
     case VEC_SERIES_EXPR:
-    case STRICT_REDUC_PLUS_EXPR:
+    case FOLD_LEFT_PLUS_EXPR:
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_WIDEN_MULT_EVEN_EXPR:
@@ -3610,7 +3618,7 @@ op_code_prio (enum tree_code code)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
-    case STRICT_REDUC_PLUS_EXPR:
+    case FOLD_LEFT_PLUS_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
@@ -3732,8 +3740,8 @@ op_symbol_code (enum tree_code code)
     case REDUC_PLUS_EXPR:
       return "r+";
 
-    case STRICT_REDUC_PLUS_EXPR:
-      return "strictr+";
+    case FOLD_LEFT_PLUS_EXPR:
+      return "fl+";
 
     case WIDEN_SUM_EXPR:
       return "w+";

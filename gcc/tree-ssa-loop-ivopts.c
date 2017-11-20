@@ -1525,14 +1525,14 @@ find_induction_variables (struct ivopts_data *data)
 
 static struct iv_use *
 record_use (struct iv_group *group, tree *use_p, struct iv *iv,
-	    gimple *stmt, enum use_type use_type, tree mem_type,
+	    gimple *stmt, enum use_type type, tree mem_type,
 	    tree addr_base, poly_uint64 addr_offset)
 {
   struct iv_use *use = XCNEW (struct iv_use);
 
   use->id = group->vuses.length ();
   use->group_id = group->id;
-  use->type = use_type;
+  use->type = type;
   use->mem_type = mem_type;
   use->iv = iv;
   use->stmt = stmt;
@@ -1588,11 +1588,13 @@ record_group (struct ivopts_data *data, enum use_type type)
 }
 
 /* Record a use of TYPE at *USE_P in STMT whose value is IV in a group.
-   New group will be created if there is no existing group for the use.  */
+   New group will be created if there is no existing group for the use.
+   MEM_TYPE is the type of memory being addressed, or NULL if this
+   isn't an address reference.  */
 
 static struct iv_use *
 record_group_use (struct ivopts_data *data, tree *use_p,
-		  struct iv *iv, gimple *stmt, enum use_type use_type,
+		  struct iv *iv, gimple *stmt, enum use_type type,
 		  tree mem_type)
 {
   tree addr_base = NULL;
@@ -1600,7 +1602,7 @@ record_group_use (struct ivopts_data *data, tree *use_p,
   poly_uint64 addr_offset = 0;
 
   /* Record non address type use in a new group.  */
-  if (address_p (use_type) && iv->base_object)
+  if (address_p (type) && iv->base_object)
     {
       unsigned int i;
 
@@ -1625,9 +1627,9 @@ record_group_use (struct ivopts_data *data, tree *use_p,
     }
 
   if (!group)
-    group = record_group (data, use_type);
+    group = record_group (data, type);
 
-  return record_use (group, use_p, iv, stmt, use_type, mem_type,
+  return record_use (group, use_p, iv, stmt, type, mem_type,
 		     addr_base, addr_offset);
 }
 

@@ -1302,7 +1302,7 @@ DEFTREECODE (REDUC_AND_EXPR, "reduc_and_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_IOR_EXPR, "reduc_ior_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_XOR_EXPR, "reduc_xor_expr", tcc_unary, 1)
 
-DEFTREECODE (STRICT_REDUC_PLUS_EXPR, "strict_reduc_plus_expr", tcc_binary, 2)
+DEFTREECODE (FOLD_LEFT_PLUS_EXPR, "fold_left_plus_expr", tcc_binary, 2)
 
 /* Widening dot-product.
    The first two arguments are of type t1.

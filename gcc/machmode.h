@@ -608,14 +608,14 @@ GET_MODE_SIZE (machine_mode mode)
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::type
 GET_MODE_SIZE (const T &mode)
 {
   return mode_to_bytes (mode);
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::type
 GET_MODE_SIZE (const T &mode)
 {
   return mode_to_bytes (mode).coeffs[0];
@@ -634,14 +634,14 @@ GET_MODE_BITSIZE (machine_mode mode)
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::type
 GET_MODE_BITSIZE (const T &mode)
 {
   return mode_to_bits (mode);
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::type
 GET_MODE_BITSIZE (const T &mode)
 {
   return mode_to_bits (mode).coeffs[0];
@@ -661,14 +661,14 @@ GET_MODE_PRECISION (machine_mode mode)
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::type
 GET_MODE_PRECISION (const T &mode)
 {
   return mode_to_precision (mode);
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::type
 GET_MODE_PRECISION (const T &mode)
 {
   return mode_to_precision (mode).coeffs[0];
@@ -719,14 +719,14 @@ GET_MODE_NUNITS (machine_mode mode)
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::type
 GET_MODE_NUNITS (const T &mode)
 {
   return mode_to_nunits (mode);
 }
 
 template<typename T>
-ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::type
 GET_MODE_NUNITS (const T &mode)
 {
   return mode_to_nunits (mode).coeffs[0];

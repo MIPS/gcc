@@ -877,7 +877,7 @@ rest_of_handle_insert_vzeroupper (void)
   int i;
 
   /* vzeroupper instructions are inserted immediately after reload to
-     account for possible spills from 256bit registers.  The pass
+     account for possible spills from 256bit or 512bit registers.  The pass
      reuses mode switching infrastructure by re-running mode insertion
      pass, so disable entities that have already been processed.  */
   for (i = 0; i < MAX_386_ENTITIES; i++)
@@ -2499,7 +2499,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_AVX && !TARGET_AVX512F
+      return TARGET_AVX
 	     && TARGET_VZEROUPPER && flag_expensive_optimizations
 	     && !optimize_size;
     }
@@ -2745,7 +2745,8 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
      ISAs come first.  Target string will be displayed in the same order.  */
   static struct ix86_target_opts isa2_opts[] =
   {
-    { "-mgfni",		OPTION_MASK_ISA_GFNI },
+    { "-mmpx",		OPTION_MASK_ISA_MPX },
+    { "-mavx512vbmi2",	OPTION_MASK_ISA_AVX512VBMI2 },
     { "-mrdpid",	OPTION_MASK_ISA_RDPID },
     { "-msgx",		OPTION_MASK_ISA_SGX },
     { "-mavx5124vnniw", OPTION_MASK_ISA_AVX5124VNNIW },
@@ -2756,6 +2757,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
   };
   static struct ix86_target_opts isa_opts[] =
   {
+    { "-mgfni",		OPTION_MASK_ISA_GFNI },
     { "-mavx512vbmi",	OPTION_MASK_ISA_AVX512VBMI },
     { "-mavx512ifma",	OPTION_MASK_ISA_AVX512IFMA },
     { "-mavx512vl",	OPTION_MASK_ISA_AVX512VL },
@@ -2813,7 +2815,6 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
     { "-mlwp",		OPTION_MASK_ISA_LWP },
     { "-mhle",		OPTION_MASK_ISA_HLE },
     { "-mfxsr",		OPTION_MASK_ISA_FXSR },
-    { "-mmpx",		OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB }
   };
 
@@ -4081,8 +4082,8 @@ ix86_option_override_internal (bool main_args_p,
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512VL))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512VL;
         if (processor_alias_table[i].flags & PTA_MPX
-            && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MPX))
-          opts->x_ix86_isa_flags |= OPTION_MASK_ISA_MPX;
+            && !(opts->x_ix86_isa_flags2_explicit & OPTION_MASK_ISA_MPX))
+          opts->x_ix86_isa_flags2 |= OPTION_MASK_ISA_MPX;
 	if (processor_alias_table[i].flags & PTA_AVX512VBMI
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512VBMI))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512VBMI;
@@ -4125,10 +4126,10 @@ ix86_option_override_internal (bool main_args_p,
 	break;
       }
 
-  if (TARGET_X32 && (opts->x_ix86_isa_flags & OPTION_MASK_ISA_MPX))
+  if (TARGET_X32 && (opts->x_ix86_isa_flags2 & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
-  if (TARGET_X32 && (ix86_isa_flags & OPTION_MASK_ISA_MPX))
+  if (TARGET_X32 && (ix86_isa_flags2 & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
   if (i == pta_size)
@@ -4668,7 +4669,8 @@ ix86_option_override_internal (bool main_args_p,
   if (TARGET_SEH && TARGET_CALL_MS2SYSV_XLOGUES)
     sorry ("-mcall-ms2sysv-xlogues isn%'t currently supported with SEH");
 
-  if (!(opts_set->x_target_flags & MASK_VZEROUPPER))
+  if (!(opts_set->x_target_flags & MASK_VZEROUPPER)
+      && TARGET_EMIT_VZEROUPPER)
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
@@ -5244,6 +5246,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx5124fmaps", OPT_mavx5124fmaps),
     IX86_ATTR_ISA ("avx5124vnniw", OPT_mavx5124vnniw),
     IX86_ATTR_ISA ("avx512vpopcntdq", OPT_mavx512vpopcntdq),
+    IX86_ATTR_ISA ("avx512vbmi2", OPT_mavx512vbmi2),
 
     IX86_ATTR_ISA ("avx512vbmi", OPT_mavx512vbmi),
     IX86_ATTR_ISA ("avx512ifma", OPT_mavx512ifma),
@@ -10488,8 +10491,6 @@ symbolic_reference_mentioned_p (rtx op)
 bool
 ix86_can_use_return_insn_p (void)
 {
-  struct ix86_frame frame;
-
   if (ix86_function_naked (current_function_decl))
     return false;
 
@@ -10504,7 +10505,7 @@ ix86_can_use_return_insn_p (void)
   if (crtl->args.pops_args && crtl->args.size >= 32768)
     return 0;
 
-  frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
   return (frame.stack_pointer_offset == UNITS_PER_WORD
 	  && (frame.nregs + frame.nsseregs) == 0);
 }
@@ -10998,7 +10999,7 @@ ix86_can_eliminate (const int from, const int to)
 HOST_WIDE_INT
 ix86_initial_elimination_offset (int from, int to)
 {
-  struct ix86_frame frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
 
   if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
     return frame.hard_frame_pointer_offset;
@@ -11519,12 +11520,15 @@ choose_basereg (HOST_WIDE_INT cfa_offset, rtx &base_reg,
    an alignment value (in bits) that is preferred or zero and will
    recieve the alignment of the base register that was selected,
    irrespective of rather or not CFA_OFFSET is a multiple of that
-   alignment value.
+   alignment value.  If it is possible for the base register offset to be
+   non-immediate then SCRATCH_REGNO should specify a scratch register to
+   use.
 
    The valid base registers are taken from CFUN->MACHINE->FS.  */
 
 static rtx
-choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align)
+choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align,
+		 unsigned int scratch_regno = INVALID_REGNUM)
 {
   rtx base_reg = NULL;
   HOST_WIDE_INT base_offset = 0;
@@ -11538,6 +11542,19 @@ choose_baseaddr (HOST_WIDE_INT cfa_offset, unsigned int *align)
     choose_basereg (cfa_offset, base_reg, base_offset, 0, align);
 
   gcc_assert (base_reg != NULL);
+
+  rtx base_offset_rtx = GEN_INT (base_offset);
+
+  if (!x86_64_immediate_operand (base_offset_rtx, Pmode))
+    {
+      gcc_assert (scratch_regno != INVALID_REGNUM);
+
+      rtx scratch_reg = gen_rtx_REG (Pmode, scratch_regno);
+      emit_move_insn (scratch_reg, base_offset_rtx);
+
+      return gen_rtx_PLUS (Pmode, base_reg, scratch_reg);
+    }
+
   return plus_constant (Pmode, base_reg, base_offset);
 }
 
@@ -12085,7 +12102,17 @@ release_scratch_register_on_entry (struct scratch_reg *sr)
     }
 }
 
-#define PROBE_INTERVAL (1 << STACK_CHECK_PROBE_INTERVAL_EXP)
+/* Return the probing interval for -fstack-clash-protection.  */
+
+static HOST_WIDE_INT
+get_probe_interval (void)
+{
+  if (flag_stack_clash_protection)
+    return (HOST_WIDE_INT_1U
+	    << PARAM_VALUE (PARAM_STACK_CLASH_PROTECTION_PROBE_INTERVAL));
+  else
+    return (HOST_WIDE_INT_1U << STACK_CHECK_PROBE_INTERVAL_EXP);
+}
 
 /* Emit code to adjust the stack pointer by SIZE bytes while probing it.
 
@@ -12154,8 +12181,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
   /* We're allocating a large enough stack frame that we need to
      emit probes.  Either emit them inline or in a loop depending
      on the size.  */
-  HOST_WIDE_INT probe_interval
-    = 1 << PARAM_VALUE (PARAM_STACK_CLASH_PROTECTION_PROBE_INTERVAL);
+  HOST_WIDE_INT probe_interval = get_probe_interval ();
   if (size <= 4 * probe_interval)
     {
       HOST_WIDE_INT i;
@@ -12164,7 +12190,7 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
 	  /* Allocate PROBE_INTERVAL bytes.  */
 	  rtx insn
 	    = pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-					 GEN_INT (-PROBE_INTERVAL), -1,
+					 GEN_INT (-probe_interval), -1,
 					 m->fs.cfa_reg == stack_pointer_rtx);
 	  add_reg_note (insn, REG_STACK_CHECK, const0_rtx);
 
@@ -12257,7 +12283,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
      that's the easy case.  The run-time loop is made up of 9 insns in the
      generic case while the compile-time loop is made up of 3+2*(n-1) insns
      for n # of intervals.  */
-  if (size <= 4 * PROBE_INTERVAL)
+  if (size <= 4 * get_probe_interval ())
     {
       HOST_WIDE_INT i, adjust;
       bool first_probe = true;
@@ -12266,15 +12292,15 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 	 values of N from 1 until it exceeds SIZE.  If only one probe is
 	 needed, this will not generate any code.  Then adjust and probe
 	 to PROBE_INTERVAL + SIZE.  */
-      for (i = PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+      for (i = get_probe_interval (); i < size; i += get_probe_interval ())
 	{
 	  if (first_probe)
 	    {
-	      adjust = 2 * PROBE_INTERVAL + dope;
+	      adjust = 2 * get_probe_interval () + dope;
 	      first_probe = false;
 	    }
 	  else
-	    adjust = PROBE_INTERVAL;
+	    adjust = get_probe_interval ();
 
 	  emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				  plus_constant (Pmode, stack_pointer_rtx,
@@ -12283,9 +12309,9 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 	}
 
       if (first_probe)
-	adjust = size + PROBE_INTERVAL + dope;
+	adjust = size + get_probe_interval () + dope;
       else
-        adjust = size + PROBE_INTERVAL - i;
+        adjust = size + get_probe_interval () - i;
 
       emit_insn (gen_rtx_SET (stack_pointer_rtx,
 			      plus_constant (Pmode, stack_pointer_rtx,
@@ -12295,7 +12321,8 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* Adjust back to account for the additional first interval.  */
       last = emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				     plus_constant (Pmode, stack_pointer_rtx,
-						    PROBE_INTERVAL + dope)));
+						    (get_probe_interval ()
+						     + dope))));
     }
 
   /* Otherwise, do the same as above, but in a loop.  Note that we must be
@@ -12313,7 +12340,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
+      rounded_size = ROUND_DOWN (size, get_probe_interval ());
 
 
       /* Step 2: compute initial and final value of the loop counter.  */
@@ -12321,7 +12348,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* SP = SP_0 + PROBE_INTERVAL.  */
       emit_insn (gen_rtx_SET (stack_pointer_rtx,
 			      plus_constant (Pmode, stack_pointer_rtx,
-					     - (PROBE_INTERVAL + dope))));
+					     - (get_probe_interval () + dope))));
 
       /* LAST_ADDR = SP_0 + PROBE_INTERVAL + ROUNDED_SIZE.  */
       if (rounded_size <= (HOST_WIDE_INT_1 << 31))
@@ -12366,7 +12393,8 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       /* Adjust back to account for the additional first interval.  */
       last = emit_insn (gen_rtx_SET (stack_pointer_rtx,
 				     plus_constant (Pmode, stack_pointer_rtx,
-						    PROBE_INTERVAL + dope)));
+						    (get_probe_interval ()
+						     + dope))));
 
       release_scratch_register_on_entry (&sr);
     }
@@ -12383,7 +12411,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       XVECEXP (expr, 0, 1)
 	= gen_rtx_SET (stack_pointer_rtx,
 		       plus_constant (Pmode, stack_pointer_rtx,
-				      PROBE_INTERVAL + dope + size));
+				      get_probe_interval () + dope + size));
       add_reg_note (last, REG_FRAME_RELATED_EXPR, expr);
       RTX_FRAME_RELATED_P (last) = 1;
 
@@ -12410,7 +12438,7 @@ output_adjust_stack_and_probe (rtx reg)
 
   /* SP = SP + PROBE_INTERVAL.  */
   xops[0] = stack_pointer_rtx;
-  xops[1] = GEN_INT (PROBE_INTERVAL);
+  xops[1] = GEN_INT (get_probe_interval ());
   output_asm_insn ("sub%z0\t{%1, %0|%0, %1}", xops);
 
   /* Probe at SP.  */
@@ -12440,14 +12468,14 @@ ix86_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
      that's the easy case.  The run-time loop is made up of 6 insns in the
      generic case while the compile-time loop is made up of n insns for n #
      of intervals.  */
-  if (size <= 6 * PROBE_INTERVAL)
+  if (size <= 6 * get_probe_interval ())
     {
       HOST_WIDE_INT i;
 
       /* Probe at FIRST + N * PROBE_INTERVAL for values of N from 1 until
 	 it exceeds SIZE.  If only one probe is needed, this will not
 	 generate any code.  Then probe at FIRST + SIZE.  */
-      for (i = PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+      for (i = get_probe_interval (); i < size; i += get_probe_interval ())
 	emit_stack_probe (plus_constant (Pmode, stack_pointer_rtx,
 					 -(first + i)));
 
@@ -12470,7 +12498,7 @@ ix86_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
+      rounded_size = ROUND_DOWN (size, get_probe_interval ());
 
 
       /* Step 2: compute initial and final value of the loop counter.  */
@@ -12531,7 +12559,7 @@ output_probe_stack_range (rtx reg, rtx end)
 
   /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
   xops[0] = reg;
-  xops[1] = GEN_INT (PROBE_INTERVAL);
+  xops[1] = GEN_INT (get_probe_interval ());
   output_asm_insn ("sub%z0\t{%1, %0|%0, %1}", xops);
 
   /* Probe at TEST_ADDR.  */
@@ -12803,23 +12831,19 @@ ix86_emit_outlined_ms2sysv_save (const struct ix86_frame &frame)
   rtx sym, addr;
   rtx rax = gen_rtx_REG (word_mode, AX_REG);
   const struct xlogue_layout &xlogue = xlogue_layout::get_instance ();
-  HOST_WIDE_INT allocate = frame.stack_pointer_offset - m->fs.sp_offset;
 
   /* AL should only be live with sysv_abi.  */
   gcc_assert (!ix86_eax_live_at_start_p ());
+  gcc_assert (m->fs.sp_offset >= frame.sse_reg_save_offset);
 
   /* Setup RAX as the stub's base pointer.  We use stack_realign_offset rather
      we've actually realigned the stack or not.  */
   align = GET_MODE_ALIGNMENT (V4SFmode);
   addr = choose_baseaddr (frame.stack_realign_offset
-			  + xlogue.get_stub_ptr_offset (), &align);
+			  + xlogue.get_stub_ptr_offset (), &align, AX_REG);
   gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
-  emit_insn (gen_rtx_SET (rax, addr));
 
-  /* Allocate stack if not already done.  */
-  if (allocate > 0)
-      pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-				GEN_INT (-allocate), -1, false);
+  emit_insn (gen_rtx_SET (rax, addr));
 
   /* Get the stub symbol.  */
   sym = xlogue.get_stub_rtx (frame_pointer_needed ? XLOGUE_STUB_SAVE_HFP
@@ -12851,6 +12875,7 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
   bool int_registers_saved;
   bool sse_registers_saved;
+  bool save_stub_call_needed;
   rtx static_chain = NULL_RTX;
 
   if (ix86_function_naked (current_function_decl))
@@ -13026,6 +13051,8 @@ ix86_expand_prologue (void)
 
   int_registers_saved = (frame.nregs == 0);
   sse_registers_saved = (frame.nsseregs == 0);
+  save_stub_call_needed = (m->call_ms2sysv);
+  gcc_assert (sse_registers_saved || !save_stub_call_needed);
 
   if (frame_pointer_needed && !m->fs.fp_valid)
     {
@@ -13120,10 +13147,28 @@ ix86_expand_prologue (void)
 	 target.  */
       if (TARGET_SEH)
 	m->fs.sp_valid = false;
-    }
 
-  if (m->call_ms2sysv)
-    ix86_emit_outlined_ms2sysv_save (frame);
+      /* If SP offset is non-immediate after allocation of the stack frame,
+	 then emit SSE saves or stub call prior to allocating the rest of the
+	 stack frame.  This is less efficient for the out-of-line stub because
+	 we can't combine allocations across the call barrier, but it's better
+	 than using a scratch register.  */
+      else if (!x86_64_immediate_operand (GEN_INT (frame.stack_pointer_offset
+						   - m->fs.sp_realigned_offset),
+					  Pmode))
+	{
+	  if (!sse_registers_saved)
+	    {
+	      ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
+	      sse_registers_saved = true;
+	    }
+	  else if (save_stub_call_needed)
+	    {
+	      ix86_emit_outlined_ms2sysv_save (frame);
+	      save_stub_call_needed = false;
+	    }
+	}
+    }
 
   allocate = frame.stack_pointer_offset - m->fs.sp_offset;
 
@@ -13192,7 +13237,7 @@ ix86_expand_prologue (void)
       else if (STACK_CHECK_MOVING_SP)
 	{
 	  if (!(crtl->is_leaf && !cfun->calls_alloca
-		&& allocate <= PROBE_INTERVAL))
+		&& allocate <= get_probe_interval ()))
 	    {
 	      ix86_adjust_stack_and_probe (allocate);
 	      allocate = 0;
@@ -13209,7 +13254,7 @@ ix86_expand_prologue (void)
 	    {
 	      if (crtl->is_leaf && !cfun->calls_alloca)
 		{
-		  if (size > PROBE_INTERVAL)
+		  if (size > get_probe_interval ())
 		    ix86_emit_probe_stack_range (0, size);
 		}
 	      else
@@ -13220,7 +13265,7 @@ ix86_expand_prologue (void)
 	    {
 	      if (crtl->is_leaf && !cfun->calls_alloca)
 		{
-		  if (size > PROBE_INTERVAL
+		  if (size > get_probe_interval ()
 		      && size > get_stack_check_protect ())
 		    ix86_emit_probe_stack_range (get_stack_check_protect (),
 						 size - get_stack_check_protect ());
@@ -13351,6 +13396,8 @@ ix86_expand_prologue (void)
     ix86_emit_save_regs_using_mov (frame.reg_save_offset);
   if (!sse_registers_saved)
     ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
+  else if (save_stub_call_needed)
+    ix86_emit_outlined_ms2sysv_save (frame);
 
   /* For the mcount profiling on 32 bit PIC mode we need to emit SET_GOT
      in PROLOGUE.  */
@@ -13591,8 +13638,9 @@ ix86_emit_outlined_ms2sysv_restore (const struct ix86_frame &frame,
 
   /* Setup RSI as the stub's base pointer.  */
   align = GET_MODE_ALIGNMENT (V4SFmode);
-  tmp = choose_baseaddr (rsi_offset, &align);
+  tmp = choose_baseaddr (rsi_offset, &align, SI_REG);
   gcc_assert (align >= GET_MODE_ALIGNMENT (V4SFmode));
+
   emit_insn (gen_rtx_SET (rsi, tmp));
 
   /* Get a symbol for the stub.  */
@@ -14289,7 +14337,6 @@ ix86_split_stack_guard (void)
 void
 ix86_expand_split_stack_prologue (void)
 {
-  struct ix86_frame frame;
   HOST_WIDE_INT allocate;
   unsigned HOST_WIDE_INT args_size;
   rtx_code_label *label;
@@ -14301,7 +14348,7 @@ ix86_expand_split_stack_prologue (void)
   gcc_assert (flag_split_stack && reload_completed);
 
   ix86_finalize_stack_frame_flags ();
-  frame = cfun->machine->frame;
+  struct ix86_frame &frame = cfun->machine->frame;
   allocate = frame.stack_pointer_offset - INCOMING_FRAME_SP_OFFSET;
 
   /* This is the label we will branch to if we have enough stack
@@ -18598,16 +18645,17 @@ ix86_dirflag_mode_needed (rtx_insn *insn)
   return X86_DIRFLAG_ANY;
 }
 
-/* Check if a 256bit AVX register is referenced inside of EXP.   */
+/* Check if a 256bit or 512 bit AVX register is referenced inside of EXP.   */
 
 static bool
-ix86_check_avx256_register (const_rtx exp)
+ix86_check_avx_upper_register (const_rtx exp)
 {
   if (SUBREG_P (exp))
     exp = SUBREG_REG (exp);
 
   return (REG_P (exp)
-	  && VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp)));
+	&& (VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp))
+	|| VALID_AVX512F_REG_OR_XI_MODE (GET_MODE (exp))));
 }
 
 /* Return needed mode for entity in optimize_mode_switching pass.  */
@@ -18620,7 +18668,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       rtx link;
 
       /* Needed mode is set to AVX_U128_CLEAN if there are
-	 no 256bit modes used in function arguments.  */
+	 no 256bit or 512bit modes used in function arguments. */
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
 	   link;
 	   link = XEXP (link, 1))
@@ -18629,7 +18677,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
 	    {
 	      rtx arg = XEXP (XEXP (link, 0), 0);
 
-	      if (ix86_check_avx256_register (arg))
+	      if (ix86_check_avx_upper_register (arg))
 		return AVX_U128_DIRTY;
 	    }
 	}
@@ -18637,13 +18685,13 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       return AVX_U128_CLEAN;
     }
 
-  /* Require DIRTY mode if a 256bit AVX register is referenced.  Hardware
-     changes state only when a 256bit register is written to, but we need
-     to prevent the compiler from moving optimal insertion point above
-     eventual read from 256bit register.  */
+  /* Require DIRTY mode if a 256bit or 512bit AVX register is referenced.
+     Hardware changes state only when a 256bit register is written to,
+     but we need to prevent the compiler from moving optimal insertion
+     point above eventual read from 256bit or 512 bit register.  */
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
-    if (ix86_check_avx256_register (*iter))
+    if (ix86_check_avx_upper_register (*iter))
       return AVX_U128_DIRTY;
 
   return AVX_U128_ANY;
@@ -18725,12 +18773,12 @@ ix86_mode_needed (int entity, rtx_insn *insn)
   return 0;
 }
 
-/* Check if a 256bit AVX register is referenced in stores.   */
+/* Check if a 256bit or 512bit AVX register is referenced in stores.   */
  
 static void
-ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
+ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
  {
-   if (ix86_check_avx256_register (dest))
+   if (ix86_check_avx_upper_register (dest))
     {
       bool *used = (bool *) data;
       *used = true;
@@ -18749,18 +18797,18 @@ ix86_avx_u128_mode_after (int mode, rtx_insn *insn)
     return AVX_U128_CLEAN;
 
   /* We know that state is clean after CALL insn if there are no
-     256bit registers used in the function return register.  */
+     256bit or 512bit registers used in the function return register. */
   if (CALL_P (insn))
     {
-      bool avx_reg256_found = false;
-      note_stores (pat, ix86_check_avx256_stores, &avx_reg256_found);
+      bool avx_upper_reg_found = false;
+      note_stores (pat, ix86_check_avx_upper_stores, &avx_upper_reg_found);
 
-      return avx_reg256_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
+      return avx_upper_reg_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
     }
 
   /* Otherwise, return current mode.  Remember that if insn
-     references AVX 256bit registers, the mode was already changed
-     to DIRTY from MODE_NEEDED.  */
+     references AVX 256bit or 512bit registers, the mode was already
+     changed to DIRTY from MODE_NEEDED.  */
   return mode;
 }
 
@@ -18803,13 +18851,13 @@ ix86_avx_u128_mode_entry (void)
   tree arg;
 
   /* Entry mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in function arguments.  */
+     256bit or 512bit modes used in function arguments.  */
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
     {
       rtx incoming = DECL_INCOMING_RTL (arg);
 
-      if (incoming && ix86_check_avx256_register (incoming))
+      if (incoming && ix86_check_avx_upper_register (incoming))
 	return AVX_U128_DIRTY;
     }
 
@@ -18843,9 +18891,9 @@ ix86_avx_u128_mode_exit (void)
 {
   rtx reg = crtl->return_rtx;
 
-  /* Exit mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in the function return register.  */
-  if (reg && ix86_check_avx256_register (reg))
+  /* Exit mode is set to AVX_U128_DIRTY if there are 256bit
+     or 512 bit modes used in the function return register. */
+  if (reg && ix86_check_avx_upper_register (reg))
     return AVX_U128_DIRTY;
 
   return AVX_U128_CLEAN;
@@ -19736,7 +19784,8 @@ ix86_swap_binary_operands_p (enum rtx_code code, machine_mode mode,
   rtx src2 = operands[2];
 
   /* If the operation is not commutative, we can't do anything.  */
-  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH)
+  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH
+      && GET_RTX_CLASS (code) != RTX_COMM_COMPARE)
     return false;
 
   /* Highest priority is that src1 should match dst.  */
@@ -19967,7 +20016,7 @@ ix86_binary_operator_ok (enum rtx_code code, machine_mode mode,
 
   /* If the destination is memory, we must have a matching source operand.  */
   if (MEM_P (dst) && !rtx_equal_p (dst, src1))
-      return false;
+    return false;
 
   /* Source 1 cannot be a constant.  */
   if (CONSTANT_P (src1))
@@ -30748,7 +30797,7 @@ ix86_init_mpx_builtins ()
 	continue;
 
       ftype = (enum ix86_builtin_func_type) d->flag;
-      decl = def_builtin (d->mask, d->name, ftype, d->code);
+      decl = def_builtin2 (d->mask, d->name, ftype, d->code);
 
       /* With no leaf and nothrow flags for MPX builtins
 	 abnormal edges may follow its call when setjmp
@@ -30781,7 +30830,7 @@ ix86_init_mpx_builtins ()
 	continue;
 
       ftype = (enum ix86_builtin_func_type) d->flag;
-      decl = def_builtin_const (d->mask, d->name, ftype, d->code);
+      decl = def_builtin_const2 (d->mask, d->name, ftype, d->code);
 
       if (decl)
 	{
@@ -33408,6 +33457,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V1DI_FTYPE_V2SI_V2SI:
     case V32QI_FTYPE_V16HI_V16HI:
     case V16HI_FTYPE_V8SI_V8SI:
+    case V64QI_FTYPE_V64QI_V64QI:
     case V32QI_FTYPE_V32QI_V32QI:
     case V16HI_FTYPE_V32QI_V32QI:
     case V16HI_FTYPE_V16HI_V16HI:
@@ -35136,13 +35186,15 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
      at all, -m64 is a whole TU option.  */
   if (((ix86_builtins_isa[fcode].isa
 	& ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_MMX
-	    | OPTION_MASK_ISA_64BIT))
+	    | OPTION_MASK_ISA_64BIT | OPTION_MASK_ISA_GFNI))
        && !(ix86_builtins_isa[fcode].isa
 	    & ~(OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_MMX
-		| OPTION_MASK_ISA_64BIT)
+		| OPTION_MASK_ISA_64BIT | OPTION_MASK_ISA_GFNI)
 	    & ix86_isa_flags))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_AVX512VL)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_AVX512VL))
+      || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_GFNI)
+	  && !(ix86_isa_flags & OPTION_MASK_ISA_GFNI))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_MMX)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_MMX))
       || (ix86_builtins_isa[fcode].isa2
@@ -40429,7 +40481,8 @@ static void
 x86_print_call_or_nop (FILE *file, const char *target)
 {
   if (flag_nop_mcount)
-    fprintf (file, "1:\tnopl 0x00(%%eax,%%eax,1)\n"); /* 5 byte nop.  */
+    /* 5 byte nop: nopl 0(%[re]ax,%[re]ax,1) */
+    fprintf (file, "1:" ASM_BYTE "0x0f, 0x1f, 0x44, 0x00, 0x00\n");
   else
     fprintf (file, "1:\tcall\t%s\n", target);
 }

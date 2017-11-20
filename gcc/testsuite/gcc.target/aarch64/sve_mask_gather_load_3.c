@@ -1,29 +1,52 @@
 /* { dg-do assemble } */
 /* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -ffast-math --save-temps" } */
 
-#define TEST_LOOP(NAME, DATA_TYPE, INDEX_TYPE)				\
-  DATA_TYPE __attribute__ ((noinline))					\
-  NAME (char *data, INDEX_TYPE *indices, signed char n)			\
+#include <stdint.h>
+
+#ifndef INDEX32
+#define INDEX32 int32_t
+#define INDEX64 int64_t
+#endif
+
+#define TEST_LOOP(DATA_TYPE, CMP_TYPE, BITS)				\
+  void									\
+  f_##DATA_TYPE##_##CMP_TYPE						\
+    (DATA_TYPE *restrict dest, DATA_TYPE *restrict src,			\
+     CMP_TYPE *cmp1, CMP_TYPE *cmp2, INDEX##BITS *indices, int n)	\
   {									\
-    DATA_TYPE sum = 0;							\
-    for (signed char i = 0; i < n; ++i)					\
-      {									\
-        INDEX_TYPE index = indices[i];					\
-        sum += (index & 16 ? *(DATA_TYPE *) (data + index) : 1);	\
-      }									\
-    return sum;								\
+    for (int i = 0; i < n; ++i)						\
+      if (cmp1[i] == cmp2[i])						\
+	dest[i] += *(DATA_TYPE *) ((char *) src + indices[i]);		\
   }
 
-TEST_LOOP (f_s32, int, unsigned int)
-TEST_LOOP (f_u32, unsigned int, unsigned int)
-TEST_LOOP (f_f32, float, unsigned int)
+#define TEST32(T, DATA_TYPE)		\
+  T (DATA_TYPE, int32_t, 32)		\
+  T (DATA_TYPE, uint32_t, 32)		\
+  T (DATA_TYPE, float, 32)
 
-TEST_LOOP (f_s64_s64, long, long)
-TEST_LOOP (f_s64_u64, long, unsigned long)
-TEST_LOOP (f_u64_s64, unsigned long, long)
-TEST_LOOP (f_u64_u64, unsigned long, unsigned long)
-TEST_LOOP (f_f64_s64, double, long)
-TEST_LOOP (f_f64_u64, double, unsigned long)
+#define TEST64(T, DATA_TYPE)		\
+  T (DATA_TYPE, int64_t, 64)		\
+  T (DATA_TYPE, uint64_t, 64)		\
+  T (DATA_TYPE, double, 64)
 
-/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, z[0-9]+\.s, uxtw\]} 3 } } */
-/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, z[0-9]+\.d\]} 6 } } */
+#define TEST_ALL(T)			\
+  TEST32 (T, int32_t)			\
+  TEST32 (T, uint32_t)			\
+  TEST32 (T, float)			\
+  TEST64 (T, int64_t)			\
+  TEST64 (T, uint64_t)			\
+  TEST64 (T, double)
+
+TEST_ALL (TEST_LOOP)
+
+/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, x[0-9]+, lsl 2\]\n} 36 } } */
+/* { dg-final { scan-assembler-times {\tcmpeq\tp[0-7]\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 6 } } */
+/* { dg-final { scan-assembler-times {\tfcmeq\tp[0-7]\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+, z[0-9]+\.s, sxtw\]\n} 9 } } */
+/* { dg-final { scan-assembler-times {\tst1w\tz[0-9]+\.s, p[0-7], \[x[0-9]+, x[0-9]+, lsl 2\]\n} 9 } } */
+
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, x[0-9]+, lsl 3\]\n} 36 } } */
+/* { dg-final { scan-assembler-times {\tcmpeq\tp[0-7]\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 6 } } */
+/* { dg-final { scan-assembler-times {\tfcmeq\tp[0-7]\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, z[0-9]+\.d\]\n} 9 } } */
+/* { dg-final { scan-assembler-times {\tst1d\tz[0-9]+\.d, p[0-7], \[x[0-9]+, x[0-9]+, lsl 3\]\n} 9 } } */

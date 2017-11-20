@@ -52,9 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-if-conv.h"
 #include "internal-fn.h"
 
-/* For lang_hooks.types.type_for_mode.  */
-#include "langhooks.h"
-
 /* Loop Vectorization Pass.
 
    This pass tries to vectorize loops.
@@ -989,8 +986,6 @@ vect_fixup_reduc_chain (gimple *stmt)
   gcc_assert (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (firstp))
 	      && GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)));
   GROUP_SIZE (vinfo_for_stmt (firstp)) = GROUP_SIZE (vinfo_for_stmt (stmt));
-  GROUP_NUM_STMTS (vinfo_for_stmt (firstp))
-    = GROUP_NUM_STMTS (vinfo_for_stmt (stmt));
   GROUP_FIRST_UID (vinfo_for_stmt (firstp))
     = GROUP_FIRST_UID (vinfo_for_stmt (stmt));
   GROUP_LAST_UID (vinfo_for_stmt (firstp))
@@ -1172,7 +1167,6 @@ _loop_vec_info::_loop_vec_info (struct loop *loop_in)
     scalar_loop (NULL),
     orig_loop_info (NULL),
     vect_addr_base_htab (31),
-    gather_scatter_htab (31),
     exit_test_mask (NULL_TREE),
     exit_mask (NULL_TREE),
     nonspeculative_seq (NULL)
@@ -1293,7 +1287,7 @@ _loop_vec_info::~_loop_vec_info ()
 }
 
 /* Return true if we can use CMP_TYPE as the comparison type to produce
-   all masks required to fully-mask LOOP_VINFO.  */
+   all masks required to mask LOOP_VINFO.  */
 
 static bool
 can_produce_all_loop_masks_p (loop_vec_info loop_vinfo, tree cmp_type)
@@ -1372,10 +1366,11 @@ vect_verify_full_masking (loop_vec_info loop_vinfo)
   tree cmp_type = NULL_TREE;
   FOR_EACH_MODE_IN_CLASS (cmp_mode_iter, MODE_INT)
     {
-      scalar_int_mode cmp_mode = cmp_mode_iter.require ();
-      if (GET_MODE_BITSIZE (cmp_mode) >= min_ni_width)
+      unsigned int cmp_bits = GET_MODE_BITSIZE (cmp_mode_iter.require ());
+      if (cmp_bits >= min_ni_width
+	  && targetm.scalar_mode_supported_p (cmp_mode_iter.require ()))
 	{
-	  tree this_type = lang_hooks.types.type_for_mode (cmp_mode, true);
+	  tree this_type = build_nonstandard_integer_type (cmp_bits, true);
 	  if (this_type
 	      && can_produce_all_loop_masks_p (loop_vinfo, this_type))
 	    {
@@ -1384,7 +1379,7 @@ vect_verify_full_masking (loop_vec_info loop_vinfo)
 		 operands to the WHILE are more likely to be reusable in
 		 address calculations.  */
 	      cmp_type = this_type;
-	      if (GET_MODE_SIZE (cmp_mode) >= GET_MODE_SIZE (Pmode))
+	      if (cmp_bits >= GET_MODE_BITSIZE (Pmode))
 		break;
 	    }
 	}
@@ -2057,11 +2052,9 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
   return true;
 }
 
-/* Function vect_analyze_loop_costing.
-
-   Analyze cost of loop.  Decide if it is worth while to vectorize.
-   Return 1 if definitely yes, 0 if definitely no, or -1 if it's
-   worth retrying.  */
+/* Analyze the cost of the loop described by LOOP_VINFO.  Decide if it
+   is worthwhile to vectorize.  Return 1 if definitely yes, 0 if
+   definitely no, or -1 if it's worth retrying.  */
 
 static int
 vect_analyze_loop_costing (loop_vec_info loop_vinfo)
@@ -2461,10 +2454,10 @@ start_over:
     {
       if (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
 	dump_printf_loc (MSG_NOTE, vect_location,
-			 "Using a fully-masked loop.\n");
+			 "using a fully-masked loop.\n");
       else
 	dump_printf_loc (MSG_NOTE, vect_location,
-			 "Not using a fully-masked loop.\n");
+			 "not using a fully-masked loop.\n");
     }
 
   if (!LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
@@ -2830,24 +2823,24 @@ vect_analyze_loop (struct loop *loop, loop_vec_info orig_loop_vinfo)
     }
 }
 
-/* Return true if the target supports strict math reductions for operation
-   CODE and type TYPE.  If the target supports it, store the reduction operation
-   in REDUC_CODE.  */
+/* Return true if the target supports in-order reductions for operation
+   CODE and type TYPE.  If the target supports it, store the reduction
+   operation in *REDUC_CODE.  */
+
 static bool
-strict_reduction_code (tree_code code, tree type,
-		       tree_code *reduc_code)
+fold_left_reduction_code (tree_code code, tree type, tree_code *reduc_code)
 {
   switch (code)
     {
     case PLUS_EXPR:
-      code = STRICT_REDUC_PLUS_EXPR;
+      code = FOLD_LEFT_PLUS_EXPR;
       break;
 
     default:
       return false;
     }
 
-  if (!strict_reduction_support (code, type))
+  if (!target_supports_op_p (type, code, optab_vector))
     return false;
 
   *reduc_code = code;
@@ -2922,7 +2915,7 @@ neutral_op_for_slp_reduction (slp_tree slp_node, tree_code code,
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   tree vector_type = STMT_VINFO_VECTYPE (stmt_vinfo);
   tree scalar_type = TREE_TYPE (vector_type);
-  struct loop *loop = (gimple_bb (stmt))->loop_father;
+  struct loop *loop = gimple_bb (stmt)->loop_father;
   gcc_assert (loop);
 
   switch (code)
@@ -3161,17 +3154,19 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
   first = GROUP_FIRST_ELEMENT (vinfo_for_stmt (current_stmt));
   LOOP_VINFO_REDUCTION_CHAINS (loop_info).safe_push (first);
   GROUP_SIZE (vinfo_for_stmt (first)) = size;
-  GROUP_NUM_STMTS (vinfo_for_stmt (first)) = size;
   GROUP_FIRST_UID (vinfo_for_stmt (first)) = first_uid;
   GROUP_LAST_UID (vinfo_for_stmt (first)) = last_uid;
 
   return true;
 }
 
-/* Returns TRUE if we need to perform a strict math reduction for TYPE.  */
+/* Returns true if we need an in-order reduction for operation CODE
+   on type TYPE.  NEED_WRAPPING_INTEGRAL_OVERFLOW is true if integer
+   overflow must wrap.  */
+
 static bool
-needs_strict_reduction (tree type, tree_code code,
-			bool need_wrapping_integral_overflow)
+needs_fold_left_reduction_p (tree type, tree_code code,
+			     bool need_wrapping_integral_overflow)
 {
   /* CHECKME: check for !flag_finite_math_only too?  */
   if (SCALAR_FLOAT_TYPE_P (type))
@@ -3184,7 +3179,8 @@ needs_strict_reduction (tree type, tree_code code,
       default:
 	return !flag_associative_math;
       }
-  else if (INTEGRAL_TYPE_P (type))
+
+  if (INTEGRAL_TYPE_P (type))
     {
       if (!operation_no_trapping_overflow (type, code))
 	return true;
@@ -3194,10 +3190,11 @@ needs_strict_reduction (tree type, tree_code code,
 	return true;
       return false;
     }
-  else if (SAT_FIXED_POINT_TYPE_P (type))
+
+  if (SAT_FIXED_POINT_TYPE_P (type))
     return true;
-  else
-    return false;
+
+  return false;
 }
 
 /* Function vect_is_simple_reduction
@@ -3242,9 +3239,6 @@ needs_strict_reduction (tree type, tree_code code,
        if (a[i] < val)
 	ret_val = a[i];
 
-   Record in DOUBLE_REDUC whether this is a double reduction.
-   Record in STRICT_REDUC whether the reduction must be performed in order, i.e.
-   cannot be reassociated.
 */
 
 static gimple *
@@ -3529,9 +3523,9 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple *phi,
      outer-loop vectorization is safe.  */
   if (check_reduction
       && *v_reduc_type == TREE_CODE_REDUCTION
-      && needs_strict_reduction (type, code,
-				 need_wrapping_integral_overflow))
-    *v_reduc_type = STRICT_FP_REDUCTION;
+      && needs_fold_left_reduction_p (type, code,
+				      need_wrapping_integral_overflow))
+    *v_reduc_type = FOLD_LEFT_REDUCTION;
 
   /* Reduction is safe. We're dealing with one of the following:
      1) integer arithmetic and no trapv
@@ -4327,7 +4321,7 @@ static void
 vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 			   int ncopies)
 {
-  int prologue_cost = 0, epilogue_cost = 0;
+  int prologue_cost = 0, epilogue_cost = 0, inside_cost;
   enum tree_code code;
   optab optab;
   tree vectype;
@@ -4346,12 +4340,10 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
     target_cost_data = BB_VINFO_TARGET_COST_DATA (STMT_VINFO_BB_VINFO (stmt_info));
 
   /* Condition reductions generate two reductions in the loop.  */
-  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
+  vect_reduction_type reduction_type
+    = STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info);
+  if (reduction_type == COND_REDUCTION)
     ncopies *= 2;
-
-  /* Cost of reduction op inside loop.  */
-  unsigned inside_cost = add_stmt_cost (target_cost_data, ncopies, vector_stmt,
-					stmt_info, 0, vect_body);
 
   vectype = STMT_VINFO_VECTYPE (stmt_info);
   mode = TYPE_MODE (vectype);
@@ -4362,14 +4354,31 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 
   code = gimple_assign_rhs_code (orig_stmt);
 
-  /* Add in cost for initial definition.
-     For cond reduction we have four vectors: initial index, step, initial
-     result of the data reduction, initial value of the index reduction.  */
-  int prologue_stmts = STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-		       == COND_REDUCTION ? 4 : 1;
-  prologue_cost += add_stmt_cost (target_cost_data, prologue_stmts,
-				  scalar_to_vec, stmt_info, 0,
-				  vect_prologue);
+  if (reduction_type == EXTRACT_LAST_REDUCTION
+      || reduction_type == FOLD_LEFT_REDUCTION)
+    {
+      /* No extra instructions needed in the prologue.  */
+      prologue_cost = 0;
+
+      /* Count NCOPIES FOLD_EXTRACT_LAST operations.  */
+      inside_cost = add_stmt_cost (target_cost_data, ncopies, vec_to_scalar,
+				   stmt_info, 0, vect_body);
+    }
+  else
+    {
+      /* Add in cost for initial definition.
+	 For cond reduction we have four vectors: initial index, step,
+	 initial result of the data reduction, initial value of the index
+	 reduction.  */
+      int prologue_stmts = reduction_type == COND_REDUCTION ? 4 : 1;
+      prologue_cost += add_stmt_cost (target_cost_data, prologue_stmts,
+				      scalar_to_vec, stmt_info, 0,
+				      vect_prologue);
+
+      /* Cost of reduction op inside loop.  */
+      inside_cost = add_stmt_cost (target_cost_data, ncopies, vector_stmt,
+				   stmt_info, 0, vect_body);
+    }
 
   /* Determine cost of epilogue code.
 
@@ -4380,10 +4389,7 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
     {
       if (reduc_code != ERROR_MARK)
 	{
-	  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == STRICT_FP_REDUCTION)
-	    inside_cost += add_stmt_cost (target_cost_data, 1, vec_to_scalar,
-					  stmt_info, 0, vect_body);
-	  else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
+	  if (reduction_type == COND_REDUCTION)
 	    {
 	      /* An EQ stmt and an COND_EXPR stmt.  */
 	      epilogue_cost += add_stmt_cost (target_cost_data, 2,
@@ -4408,7 +4414,7 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 					      vect_epilogue);
 	    }
 	}
-      else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
+      else if (reduction_type == COND_REDUCTION)
 	{
 	  unsigned estimated_nunits = vect_nunits_for_cost (vectype);
 	  /* Extraction of scalar elements.  */
@@ -4422,10 +4428,12 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 					  scalar_stmt, stmt_info, 0,
 					  vect_epilogue);
 	}
-      else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-	       != COND_REDUCTION_CLASTB)
+      else if (reduction_type == EXTRACT_LAST_REDUCTION
+	       || reduction_type == FOLD_LEFT_REDUCTION)
+	/* No extra instructions need in the epilogue.  */
+	;
+      else
 	{
-	  /* Enforced by vectorizable_reduction.  */
 	  int vec_size_in_bits = tree_to_uhwi (TYPE_SIZE (vectype));
 	  tree bitsize =
 	    TYPE_SIZE (TREE_TYPE (gimple_assign_lhs (orig_stmt)));
@@ -4591,6 +4599,9 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
       return vect_create_destination_var (init_val, vectype);
     }
 
+  vect_reduction_type reduction_type
+    = STMT_VINFO_VEC_REDUCTION_TYPE (stmt_vinfo);
+
   /* In case of a nested reduction do not use an adjustment def as
      that case is not supported by the epilogue generation correctly
      if ncopies is not one.  */
@@ -4664,8 +4675,8 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
 	if (adjustment_def)
           {
 	    *adjustment_def = NULL_TREE;
-	    if (! REDUCTION_IS_FULL_COND_REDUCTION_P
-			(STMT_VINFO_VEC_REDUCTION_TYPE (stmt_vinfo)))
+	    if (reduction_type != COND_REDUCTION
+		&& reduction_type != EXTRACT_LAST_REDUCTION)
 	      {
 		init_def = vect_get_vec_def_for_operand (init_val, stmt);
 		break;
@@ -4772,6 +4783,8 @@ get_initial_defs_for_reduction (slp_tree slp_node,
 		init = gimple_build_vector (&ctor_seq, vector_type, elts);
 	      else if (neutral_op)
 		{
+		  /* Build a vector of the neutral value and shift the
+		     other elements into place.  */
 		  init = gimple_build_vector_from_val (&ctor_seq, vector_type,
 						       neutral_op);
 		  int k = nunits;
@@ -4789,6 +4802,9 @@ get_initial_defs_for_reduction (slp_tree slp_node,
 		}
 	      else
 		{
+		  /* First time round, duplicate ELTS to fill the
+		     required number of vectors, then cherry pick the
+		     appropriate result for each iteration.  */
 		  if (vec_oprnds->is_empty ())
 		    duplicate_and_interleave (&ctor_seq, vector_type, elts,
 					      number_of_vectors,
@@ -5403,7 +5419,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       gsi_insert_before (&exit_gsi, max_index_vec_stmt, GSI_SAME_STMT);
 
       /* Next we compare the new vector (MAX_INDEX_VEC) full of max indexes
-	 with the vector (COND_REDUC_RES) of found indexes, choosing values
+	 with the vector (INDUCTION_INDEX) of found indexes, choosing values
 	 from the data vector (NEW_PHI_RESULT) for matches, 0 (ZERO_VEC)
 	 otherwise.  Only one value should match, resulting in a vector
 	 (VEC_COND) with one data value and the rest zeros.
@@ -5592,6 +5608,10 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
     }
   else if (direct_slp_reduc)
     {
+      /* Here we create one vector for each of the GROUP_SIZE results,
+	 with the elements for other SLP statements replaced with the
+	 neutral value.  We can then do a normal reduction on each vector.  */
+
       /* Enforced by vectorizable_reduction.  */
       gcc_assert (new_phis.length () == 1);
       gcc_assert (pow2p_hwi (group_size));
@@ -5599,6 +5619,9 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       slp_tree orig_phis_slp_node = slp_node_instance->reduc_phis;
       vec<gimple *> orig_phis = SLP_TREE_SCALAR_STMTS (orig_phis_slp_node);
       gimple_seq seq = NULL;
+
+      /* Build a vector {0, 1, 2, ...}, with the same number of elements
+	 and the same element size as VECTYPE.  */
       tree index = build_index_vector (vectype, 0, 1);
       tree index_type = TREE_TYPE (index);
       tree index_elt_type = TREE_TYPE (index_type);
@@ -5611,8 +5634,8 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 			    build_vector_from_val (index_type, index_mask));
 
       /* Get a neutral vector value.  This is simply a splat of the neutral
-	 scalar value if we have one, otherwise the initial vector is itself
-	 a neutral value.  */
+	 scalar value if we have one, otherwise the initial scalar value
+	 is itself a neutral value.  */
       tree vector_identity = NULL_TREE;
       if (neutral_op)
 	vector_identity = gimple_build_vector_from_val (&seq, vectype,
@@ -5633,7 +5656,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 
 	  /* Calculate the equivalent of:
 
-	     sel = (index == i);
+	     sel[j] = (index[j] == i);
 
 	     which selects the elements of NEW_PHI_RESULT that should
 	     be included in the result.  */
@@ -6167,30 +6190,30 @@ merge_with_identity (gimple_stmt_iterator *gsi, tree mask, tree vectype,
   return cond;
 }
 
-/* Perform in-order reductions for strict FP math, as opposed to the
-   tree-based method used for fast math.  For SLP this only works for
-   chained reductions, as non chained reductions would require changing
-   the order.  */
+/* Perform an in-order reduction (FOLD_LEFT_REDUCTION).  STMT is the
+   statement that sets the live-out value.  REDUC_DEF_STMT is the phi
+   statement.  CODE is the operation performed by STMT and OPS are
+   its scalar operands.  REDUC_INDEX is the index of the operand in
+   OPS that is set by REDUC_DEF_STMT.  REDUC_CODE is the code that
+   implements in-order reduction and VECTYPE_IN is the type of its
+   vector input.  MASKS specifies the masks that should be used to
+   control the operation in a fully-masked loop.  */
 
 static bool
-vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
-			     gimple **vec_stmt, slp_tree slp_node,
-			     gimple *reduc_def_stmt,
-			     tree_code code, tree_code reduc_code,
-			     int op_type, tree ops[3], tree vectype_in,
-			     int reduc_index, vec_loop_masks *masks)
+vectorize_fold_left_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
+			       gimple **vec_stmt, slp_tree slp_node,
+			       gimple *reduc_def_stmt,
+			       tree_code code, tree_code reduc_code,
+			       tree ops[3], tree vectype_in,
+			       int reduc_index, vec_loop_masks *masks)
 {
-  int i;
-  int ncopies;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree def0, op0;
-  tree expr = NULL_TREE;
   tree vectype_out = STMT_VINFO_VECTYPE (stmt_info);
   gimple *new_stmt = NULL;
-  auto_vec<tree> vec_oprnds0;
 
+  int ncopies;
   if (slp_node)
     ncopies = 1;
   else
@@ -6198,19 +6221,20 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
   gcc_assert (!nested_in_vect_loop_p (loop, stmt));
   gcc_assert (ncopies == 1);
-  gcc_assert (op_type == binary_op);
+  gcc_assert (TREE_CODE_LENGTH (code) == binary_op);
   gcc_assert (reduc_index == (code == MINUS_EXPR ? 0 : 1));
   gcc_assert (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-	      == STRICT_FP_REDUCTION);
+	      == FOLD_LEFT_REDUCTION);
 
   if (slp_node)
     gcc_assert (must_eq (TYPE_VECTOR_SUBPARTS (vectype_out),
 			 TYPE_VECTOR_SUBPARTS (vectype_in)));
 
-  op0 = ops[1 - reduc_index];
+  tree op0 = ops[1 - reduc_index];
 
   int group_size = 1;
   gimple *scalar_dest_def;
+  auto_vec<tree> vec_oprnds0;
   if (slp_node)
     {
       vect_get_vec_defs (op0, NULL_TREE, stmt, &vec_oprnds0, NULL, slp_node);
@@ -6238,11 +6262,15 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   if (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
     vector_identity = build_zero_cst (vectype_out);
 
+  int i;
+  tree def0;
   FOR_EACH_VEC_ELT (vec_oprnds0, i, def0)
     {
       tree mask = NULL_TREE;
       if (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
 	mask = vect_get_loop_mask (gsi, masks, vec_num, vectype_in, i);
+
+      /* Handle MINUS by adding the negative.  */
       if (code == MINUS_EXPR)
 	{
 	  tree negated = make_ssa_name (vectype_out);
@@ -6255,25 +6283,27 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	def0 = merge_with_identity (gsi, mask, vectype_out, def0,
 				    vector_identity);
 
-      /* On first iteration the input is simply the scalar phi result, and for
-         subsequent iterations it is the output of the preceding operation.  */
-
-      expr = build2 (reduc_code, scalar_type, reduc_var, def0);
+      /* On the first iteration the input is simply the scalar phi
+	 result, and for subsequent iterations it is the output of
+	 the preceding operation.  */
+      tree expr = build2 (reduc_code, scalar_type, reduc_var, def0);
 
       /* For chained SLP reductions the output of the previous reduction
-         operation serves as the input of the next. For the final statement
-         the output cannot be a temporary - we reuse the original
-         scalar destination of the last statement.  */
+	 operation serves as the input of the next. For the final statement
+	 the output cannot be a temporary - we reuse the original
+	 scalar destination of the last statement.  */
       if (i == vec_num - 1)
-        reduc_var = scalar_dest;
+	reduc_var = scalar_dest;
       else
-        reduc_var = vect_create_destination_var (scalar_dest, NULL);
-
+	reduc_var = vect_create_destination_var (scalar_dest, NULL);
       new_stmt = gimple_build_assign (reduc_var, expr);
 
       if (i == vec_num - 1)
-        {
-          SSA_NAME_DEF_STMT (reduc_var) = new_stmt;
+	{
+	  SSA_NAME_DEF_STMT (reduc_var) = new_stmt;
+	  /* For chained SLP stmt is the first statement in the group and
+	     gsi points to the last statement in the group.  For non SLP stmt
+	     points to the same location as gsi.  */
 	  if (scalar_dest_def == gsi_stmt (*gsi))
 	    vect_finish_replace_stmt (scalar_dest_def, new_stmt);
 	  else
@@ -6287,14 +6317,14 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	    }
         }
       else
-        {
-          reduc_var = make_ssa_name (reduc_var, new_stmt);
-          gimple_assign_set_lhs (new_stmt, reduc_var);
-          vect_finish_stmt_generation (stmt, new_stmt, gsi);
-        }
+	{
+	  reduc_var = make_ssa_name (reduc_var, new_stmt);
+	  gimple_assign_set_lhs (new_stmt, reduc_var);
+	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	}
 
       if (slp_node)
-        SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
+	SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
     }
 
   if (!slp_node)
@@ -6481,7 +6511,10 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  return true;
 	}
 
-      if (STMT_VINFO_REDUC_TYPE (stmt_info) == STRICT_FP_REDUCTION)
+      if (STMT_VINFO_REDUC_TYPE (stmt_info) == FOLD_LEFT_REDUCTION)
+	/* Leave the scalar phi in place.  Note that checking
+	   STMT_VINFO_VEC_REDUCTION_TYPE (as below) only works
+	   for reductions involving a single statement.  */
 	return true;
 
       gimple *reduc_stmt = STMT_VINFO_REDUC_DEF (stmt_info);
@@ -6489,11 +6522,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	reduc_stmt = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (reduc_stmt));
 
       if (STMT_VINFO_VEC_REDUCTION_TYPE (vinfo_for_stmt (reduc_stmt))
-	  == COND_REDUCTION_CLASTB)
+	  == EXTRACT_LAST_REDUCTION)
+	/* Leave the scalar phi in place.  */
 	return true;
 
       gcc_assert (is_gimple_assign (reduc_stmt));
-
       for (unsigned k = 1; k < gimple_num_ops (reduc_stmt); ++k)
 	{
 	  tree op = gimple_op (reduc_stmt, k);
@@ -6711,11 +6744,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
      directy used in stmt.  */
   if (reduc_index == -1)
     {
-      if (STMT_VINFO_REDUC_TYPE (stmt_info) == STRICT_FP_REDUCTION)
+      if (STMT_VINFO_REDUC_TYPE (stmt_info) == FOLD_LEFT_REDUCTION)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "In-order reduction chain without SLP.\n");
+			     "in-order reduction chain without SLP.\n");
 	  return false;
 	}
 
@@ -6765,19 +6798,20 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  gcc_assert (cond_reduc_dt == vect_constant_def);
 	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = CONST_COND_REDUCTION;
 	}
-      else if (direct_internal_fn_supported_p (IFN_CLASTB, vectype_in,
-					       OPTIMIZE_FOR_SPEED))
+      else if (direct_internal_fn_supported_p (IFN_FOLD_EXTRACT_LAST,
+					       vectype_in, OPTIMIZE_FOR_SPEED))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Optimizing condition reduction with CLASTB.\n");
-	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = COND_REDUCTION_CLASTB;
+			     "optimizing condition reduction with"
+			     " FOLD_EXTRACT_LAST.\n");
+	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = EXTRACT_LAST_REDUCTION;
 	}
       else if (cond_reduc_dt == vect_induction_def)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "Optimizing condition reduction based on "
+			     "optimizing condition reduction based on "
 			     "integer induction.\n");
 	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
 	    = INTEGER_INDUC_COND_REDUCTION;
@@ -6935,9 +6969,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
           (and also the same tree-code) when generating the epilog code and
           when generating the code inside the loop.  */
 
+  vect_reduction_type reduction_type
+    = STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info);
   if (orig_stmt
-      && (!REDUCTION_IS_COND_REDUCTION_P
-	  (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info))))
+      && (reduction_type == TREE_CODE_REDUCTION
+	  || reduction_type == FOLD_LEFT_REDUCTION))
     {
       /* This is a reduction pattern: get the vectype from the type of the
          reduction variable, and get the tree-code from orig_stmt.  */
@@ -6956,13 +6992,12 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
       /* For simple condition reductions, replace with the actual expression
 	 we want to base our reduction around.  */
-      if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == CONST_COND_REDUCTION)
+      if (reduction_type == CONST_COND_REDUCTION)
 	{
 	  orig_code = STMT_VINFO_VEC_CONST_COND_REDUC_CODE (stmt_info);
 	  gcc_assert (orig_code == MAX_EXPR || orig_code == MIN_EXPR);
 	}
-      else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-		 == INTEGER_INDUC_COND_REDUCTION)
+      else if (reduction_type == INTEGER_INDUC_COND_REDUCTION)
 	orig_code = MAX_EXPR;
     }
 
@@ -6984,17 +7019,15 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
   epilog_reduc_code = ERROR_MARK;
 
-  vect_reduction_type reduction_type
-    = STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info);
   if (reduction_type == TREE_CODE_REDUCTION
-      || reduction_type == STRICT_FP_REDUCTION
+      || reduction_type == FOLD_LEFT_REDUCTION
       || reduction_type == INTEGER_INDUC_COND_REDUCTION
       || reduction_type == CONST_COND_REDUCTION)
     {
       bool have_reduc_support;
-      if (reduction_type == STRICT_FP_REDUCTION)
-	have_reduc_support = strict_reduction_code (orig_code, vectype_out,
-						    &epilog_reduc_code);
+      if (reduction_type == FOLD_LEFT_REDUCTION)
+	have_reduc_support = fold_left_reduction_code (orig_code, vectype_out,
+						       &epilog_reduc_code);
       else
 	have_reduc_support
 	  = reduction_code_for_scalar_code (orig_code, &epilog_reduc_code);
@@ -7047,7 +7080,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	epilog_reduc_code = REDUC_MAX_EXPR;
     }
 
-  if (reduction_type != COND_REDUCTION_CLASTB
+  if (reduction_type != EXTRACT_LAST_REDUCTION
       && epilog_reduc_code == ERROR_MARK
       && !nunits_out.is_constant ())
     {
@@ -7058,7 +7091,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
-  if ((double_reduc || REDUCTION_IS_COND_REDUCTION_P (reduction_type))
+  if ((double_reduc || reduction_type != TREE_CODE_REDUCTION)
       && ncopies > 1)
     {
       if (dump_enabled_p ())
@@ -7071,9 +7104,9 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   /* For SLP reductions, see if there is a neutral value we can use.  */
   tree neutral_op = NULL_TREE;
   if (slp_node)
-    neutral_op = neutral_op_for_slp_reduction
-      (slp_node_instance->reduc_phis, code,
-       GROUP_FIRST_ELEMENT (stmt_info) != NULL);
+    neutral_op
+      = neutral_op_for_slp_reduction (slp_node_instance->reduc_phis, code,
+				      GROUP_FIRST_ELEMENT (stmt_info) != NULL);
 
   /* For double reductions, and for SLP reductions with a neutral value,
      we construct a variable-length initial vector by loading a vector
@@ -7086,7 +7119,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "Reduction on variable-length vectors requires"
+			 "reduction on variable-length vectors requires"
 			 " target support for a vector-shift-and-insert"
 			 " operation.\n");
       return false;
@@ -7109,8 +7142,8 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Unsupported form of SLP reduction for"
-			     " variable-width vectors: cannot build"
+			     "unsupported form of SLP reduction for"
+			     " variable-length vectors: cannot build"
 			     " initial vector.\n");
 	  return false;
 	}
@@ -7121,58 +7154,45 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Unsupported form of SLP reduction for"
-			     " variable-width vectors: the vector size"
+			     "unsupported form of SLP reduction for"
+			     " variable-length vectors: the vector size"
 			     " is not a multiple of the number of results.\n");
 	  return false;
 	}
     }
 
-  if (double_reduc && reduction_type == STRICT_FP_REDUCTION)
+  if (double_reduc && reduction_type == FOLD_LEFT_REDUCTION)
     {
-      /* We can't support strict math reductions of code such as this:
+      /* We can't support in-order reductions of code such as this:
+
 	   for (int i = 0; i < n1; ++i)
 	     for (int j = 0; j < n2; ++j)
 	       l += a[j];
 
-	 since gcc effectively transforms the loop when vectorizing:
+	 since GCC effectively transforms the loop when vectorizing:
 
 	   for (int i = 0; i < n1 / VF; ++i)
 	     for (int j = 0; j < n2; ++j)
 	       for (int k = 0; k < VF; ++k)
 		 l += a[j];
 
-	 The strict code could implement the second loop above exactly. The
-	 problem is that the second loop is already wrong because it's a
-	 reassociation of the first.
-      */
+	 which is a reassociation of the original operation.  */
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "double reduction not supported for strict math\n");
+			 "in-order double reduction not supported.\n");
 
       return false;
     }
 
-  /* TODO SVE: This restriction should be relaxed once we can support
-     widening, narrowing operations.  */
-  if (reduction_type == STRICT_FP_REDUCTION && ncopies > 1)
-    {
-      if (dump_enabled_p ())
-        dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                         "strict reduction with ncopies > 1.\n");
-      return false;
-    }
-
-  if (reduction_type == STRICT_FP_REDUCTION
+  if (reduction_type == FOLD_LEFT_REDUCTION
       && slp_node
       && !GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
     {
-      /* We cannot support strict math reductions in this case because there is
+      /* We cannot in-order reductions in this case because there is
          an implicit reassociation of the operations involved.  */
       if (dump_enabled_p ())
-        dump_printf_loc
-          (MSG_MISSED_OPTIMIZATION, vect_location,
-           "non chained SLP reduction not supported for strict math.\n");
+        dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "in-order unchained SLP reductions not supported.\n");
       return false;
     }
 
@@ -7282,6 +7302,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
+  if (slp_node)
+    vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
+  else
+    vec_num = 1;
+
   internal_fn cond_fn = get_conditional_internal_fn (code, scalar_type);
 
   /* In a speculative loop, the update must be predicated on the
@@ -7291,25 +7316,20 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
     masks = &LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo);
 
-  if (slp_node)
-    vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-  else
-    vec_num = 1;
-
   if (!vec_stmt) /* transformation not required.  */
     {
       if (first_p)
 	vect_model_reduction_cost (stmt_info, epilog_reduc_code, ncopies);
       if (loop_vinfo && LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
 	{
-	  if (reduction_type != STRICT_FP_REDUCTION
+	  if (reduction_type != FOLD_LEFT_REDUCTION
 	      && (cond_fn == IFN_LAST
 		  || !direct_internal_fn_supported_p (cond_fn, vectype_in,
 						      OPTIMIZE_FOR_SPEED)))
 	    {
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "Can't use a fully-masked loop because no"
+				 "can't use a fully-masked loop because no"
 				 " conditional operation is available.\n");
 	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
 	    }
@@ -7317,7 +7337,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	    {
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "Can't use a fully-masked loop for chained"
+				 "can't use a fully-masked loop for chained"
 				 " reductions.\n");
 	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
 	    }
@@ -7346,15 +7366,15 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       && masks == &LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo))
     gsi = &nonspeculative_gsi;
 
-  if (reduction_type == STRICT_FP_REDUCTION)
-    return vectorized_strict_reduction
+  if (reduction_type == FOLD_LEFT_REDUCTION)
+    return vectorize_fold_left_reduction
       (stmt, gsi, vec_stmt, slp_node, reduc_def_stmt, code,
-       epilog_reduc_code, op_type, ops, vectype_in, reduc_index, masks);
+       epilog_reduc_code, ops, vectype_in, reduc_index, masks);
 
-  if (reduction_type == COND_REDUCTION_CLASTB)
+  if (reduction_type == EXTRACT_LAST_REDUCTION)
     {
       gcc_assert (!slp_node);
-      return vectorizable_condition (stmt, gsi, vec_stmt, 
+      return vectorizable_condition (stmt, gsi, vec_stmt,
 				     NULL, reduc_index, NULL);
     }
 
@@ -8217,42 +8237,6 @@ vectorizable_live_operation (gimple *stmt,
 	}
     }
 
-  /* Check if required operations can be supported.  */
-
-  if (!direct_internal_fn_supported_p (IFN_EXTRACT_LAST, vectype,
-				       OPTIMIZE_FOR_SPEED))
-    {
-      if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Not vectorized: "
-			     "Extract last reduction not supported.\n");
-	  return false;
-	}
-
-      if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Can't use a fully-masked loop because "
-			     "the target doesn't support extract last "
-			     "reduction.\n");
-	  LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
-	  /* Don't return - we can still vectorize without masking.  */
-	}
-    }
-
-  if (slp_node && LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "Can't use a fully-masked loop; "
-			 "SLP statement is live after the loop.\n");
-      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
-      /* Don't return - we can still vectorize without masking.  */
-    }
-
   if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
     {
       /* Need to construct the type because on the checking stage we don't
@@ -8264,30 +8248,23 @@ vectorizable_live_operation (gimple *stmt,
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Not vectorized: Break after not supported.\n");
+			     "not vectorized: break after not supported.\n");
 	  return false;
 	}
-    }
-
-  if (ncopies > 1)
-    {
-      if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+      if (!direct_internal_fn_supported_p (IFN_EXTRACT_LAST, vectype,
+					   OPTIMIZE_FOR_SPEED))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Not vectorized: "
-			     "Multiple ncopies not supported.\n");
+			     "not vectorized: extract last not supported.\n");
 	  return false;
 	}
-
-      if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
+      if (ncopies > 1)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Can't use a fully-masked loop because"
-			     " ncopies is greater than 1.\n");
-	  LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
-	  /* Don't return - we can still vectorize without masking.  */
+			     "not vectorized: ncopies is greater than 1.\n");
+	  return false;
 	}
     }
 
@@ -8296,9 +8273,39 @@ vectorizable_live_operation (gimple *stmt,
       /* No transformation required.  */
       if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
 	{
-	  gcc_assert (ncopies == 1 && !slp_node);
-	  vect_record_loop_mask (loop_vinfo, &LOOP_VINFO_MASKS (loop_vinfo),
-				 1, vectype);
+	  if (!direct_internal_fn_supported_p (IFN_EXTRACT_LAST, vectype,
+					       OPTIMIZE_FOR_SPEED))
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "can't use a fully-masked loop because "
+				 "the target doesn't support extract last "
+				 "reduction.\n");
+	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+	    }
+	  else if (slp_node)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "can't use a fully-masked loop because an "
+				 "SLP statement is live after the loop.\n");
+	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+	    }
+	  else if (ncopies > 1)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "can't use a fully-masked loop because"
+				 " ncopies is greater than 1.\n");
+	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+	    }
+	  else
+	    {
+	      gcc_assert (ncopies == 1 && !slp_node);
+	      vect_record_loop_mask (loop_vinfo,
+				     &LOOP_VINFO_MASKS (loop_vinfo),
+				     1, vectype);
+	    }
 	}
       return true;
     }
@@ -8350,19 +8357,16 @@ vectorizable_live_operation (gimple *stmt,
   if (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo)
       || LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
     {
-      tree scalar_type = TREE_TYPE (STMT_VINFO_VECTYPE (stmt_info));
-      tree scalar_res = make_ssa_name (scalar_type);
       tree mask;
-      gimple *new_stmt;
-
       if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
 	{
+	  gcc_assert (ncopies == 1);
 	  tree orig_mask = LOOP_VINFO_EXIT_MASK (loop_vinfo);
 	  tree all_ones = build_minus_one_cst (TREE_TYPE (orig_mask));
 
 	  mask = make_ssa_name (TREE_TYPE (orig_mask));
-	  new_stmt = gimple_build_call_internal (IFN_BREAK_AFTER, 2,
-						 all_ones, orig_mask);
+	  gcall *new_stmt = gimple_build_call_internal (IFN_BREAK_AFTER, 2,
+							all_ones, orig_mask);
 	  gimple_call_set_lhs (new_stmt, mask);
 	  gimple_seq_add_stmt (&stmts, new_stmt);
 	}
@@ -8373,11 +8377,20 @@ vectorizable_live_operation (gimple *stmt,
 				     1, vectype, 0);
 	}
 
-      new_stmt = gimple_build_call_internal (IFN_EXTRACT_LAST, 2, vec_lhs,
-					     mask);
+      /* Emit:
+
+	   SCALAR_RES = EXTRACT_LAST <VEC_LHS, MASK>
+
+	 where VEC_LHS is the vectorized live-out result and MASK is
+	 the loop mask for the final iteration.  */
+      tree scalar_type = TREE_TYPE (STMT_VINFO_VECTYPE (stmt_info));
+      tree scalar_res = make_ssa_name (scalar_type);
+      gcall *new_stmt = gimple_build_call_internal (IFN_EXTRACT_LAST,
+						    2, mask, vec_lhs);
       gimple_call_set_lhs (new_stmt, scalar_res);
       gimple_seq_add_stmt (&stmts, new_stmt);
 
+      /* Convert the extracted vector element to the required scalar type.  */
       new_tree = gimple_convert (&stmts, lhs_type, scalar_res);
     }
   else
@@ -8778,24 +8791,17 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 			      &step_vector, &niters_vector_mult_vf, th,
 			      check_profitability, niters_no_overflow);
 
-  bool final_iter_may_be_partial = LOOP_VINFO_FULLY_MASKED_P (loop_vinfo);
   if (niters_vector == NULL_TREE
       && !LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
     {
       gcc_assert (!LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo));
       if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-	  && must_eq (lowest_vf, vf)
-	  && !LOOP_VINFO_FULLY_MASKED_P (loop_vinfo))
+	  && !LOOP_VINFO_FULLY_MASKED_P (loop_vinfo)
+	  && must_eq (lowest_vf, vf))
 	{
-	  wide_int niters_vector_val
-	    = (final_iter_may_be_partial
-	       ? wi::udiv_ceil (wi::to_wide (LOOP_VINFO_NITERS (loop_vinfo)),
-				lowest_vf)
-	       : wi::udiv_floor (wi::to_wide (LOOP_VINFO_NITERS (loop_vinfo)),
-				 lowest_vf));
 	  niters_vector
-	    = wide_int_to_tree (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)),
-				niters_vector_val);
+	    = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)),
+			     LOOP_VINFO_INT_NITERS (loop_vinfo) / lowest_vf);
 	  step_vector = build_one_cst (TREE_TYPE (niters));
 	}
       else
@@ -9064,13 +9070,11 @@ vect_transform_loop (loop_vec_info loop_vinfo)
             {
 	      if (STMT_VINFO_GROUPED_ACCESS (stmt_info))
 		{
-		  /* Remove all the stores once we've vectorized the
-		     whole group.  */
+		  /* Interleaving. If IS_STORE is TRUE, the vectorization of the
+		     interleaving chain was completed - free all the stores in
+		     the chain.  */
 		  gsi_next (&si);
-		  gimple *first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
-		  if (GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt))
-		      == GROUP_NUM_STMTS (vinfo_for_stmt (first_stmt)))
-		    vect_remove_stores (first_stmt);
+		  vect_remove_stores (GROUP_FIRST_ELEMENT (stmt_info));
 		}
 	      else
 		{
@@ -9092,6 +9096,25 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	      gsi_next (&si);
 	    }
 	}		        /* stmts in BB */
+
+      /* Stub out scalar statements that must not survive vectorization.
+	 Doing this here helps with grouped statements, or statements that
+	 are involved in patterns.  */
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	   !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gcall *call = dyn_cast <gcall *> (gsi_stmt (gsi));
+	  if (call && gimple_call_internal_p (call, IFN_MASK_LOAD))
+	    {
+	      tree lhs = gimple_get_lhs (call);
+	      if (!VECTOR_TYPE_P (TREE_TYPE (lhs)))
+		{
+		  tree zero = build_zero_cst (TREE_TYPE (lhs));
+		  gimple *new_stmt = gimple_build_assign (lhs, zero);
+		  gsi_replace (&gsi, new_stmt, true);
+		}
+	    }
+	}
     }				/* BBs in loop */
 
   /* Provide the real definition of LOOP_VINFO_EXIT_MASK.  */
@@ -9113,6 +9136,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
   scale_profile_for_vect_loop (loop, assumed_vf);
 
+  /* True if the final iteration might not handle a full vector's
+     worth of scalar iterations.  */
+  bool final_iter_may_be_partial = LOOP_VINFO_FULLY_MASKED_P (loop_vinfo);
   /* The minimum number of iterations performed by the epilogue.  This
      is 1 when peeling for gaps because we always need a final scalar
      iteration.  */

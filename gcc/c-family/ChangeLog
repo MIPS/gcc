@@ -1,3 +1,23 @@
+2017-11-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/81156
+	* c-common.c (c_common_reswords): Add __builtin_tgmath.
+	* c-common.h (enum rid): Add RID_BUILTIN_TGMATH.
+
+2017-11-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/81117
+	* c-common.c (catenate_strings): Use memcpy instead of strncpy.
+	* c-warn.c (sizeof_pointer_memaccess_warning): Handle arrays.
+	* c.opt (-Wstringop-truncation): New option.
+
+2017-11-06  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/82404
+	* c-opts.c (c_common_post_options): Set -Wreturn-type for C++
+	FE.
+	* c.opt: Set default value of warn_return_type.
+
 2017-10-31  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-common.c (binary_op_error): Update for renaming of

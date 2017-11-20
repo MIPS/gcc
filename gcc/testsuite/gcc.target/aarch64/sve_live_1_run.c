@@ -1,29 +1,35 @@
 /* { dg-do run { target { aarch64_sve_hw } } } */
 /* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve" } */
 
-extern void abort(void);
-#include <string.h>
-
 #include "sve_live_1.c"
 
-#define MAX 62
-#define START 27
+#define N 107
+#define OP 70
 
-int main (void)
+#define TEST_LOOP(TYPE)				\
+  {						\
+    TYPE a[N];					\
+    for (int i = 0; i < N; ++i)			\
+      {						\
+	a[i] = i * 2 + (i % 3);			\
+	asm volatile ("" ::: "memory");		\
+      }						\
+    TYPE expected = a[N - 1];			\
+    TYPE res = test_##TYPE (a, N, OP);		\
+    if (res != expected)			\
+      __builtin_abort ();			\
+    for (int i = 0; i < N; ++i)			\
+      {						\
+	TYPE old = i * 2 + (i % 3);		\
+	if (a[i] != (TYPE) (old * (TYPE) OP))	\
+	  __builtin_abort ();			\
+	asm volatile ("" ::: "memory");		\
+      }						\
+  }
+
+int __attribute__ ((optimize (1)))
+main (void)
 {
-  int a[MAX];
-  int i;
-
-  memset (a, 0, MAX*sizeof (int));
-
-  int ret = liveloop (START, MAX, a);
-
-  if (ret != 89)
-    abort ();
-
-  for (i=0; i<MAX; i++)
-    {
-      if (a[i] != i+START+1)
-	abort ();
-    }
+  TEST_ALL (TEST_LOOP);
+  return 0;
 }

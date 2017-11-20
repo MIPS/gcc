@@ -6,7 +6,7 @@
 #define START 1
 #define END 505
 
-void __attribute__((weak))
+void __attribute__((noinline, noclone))
 foo (double *x)
 {
   double v = 10.0;

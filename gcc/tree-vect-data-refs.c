@@ -169,11 +169,10 @@ vect_mark_for_runtime_alias_test (ddr_p ddr, loop_vec_info loop_vinfo)
   return true;
 }
 
-/* If VALUE is not an integer, record that loop LOOP_VINFO needs to
-   check that VALUE is nonzero.  */
+/* Record that loop LOOP_VINFO needs to check that VALUE is nonzero.  */
 
 static void
-check_nonzero_value (loop_vec_info loop_vinfo, tree value)
+vect_check_nonzero_value (loop_vec_info loop_vinfo, tree value)
 {
   vec<tree> checks = LOOP_VINFO_CHECK_NONZERO (loop_vinfo);
   for (unsigned int i = 0; i < checks.length(); ++i)
@@ -199,16 +198,12 @@ vect_preserves_scalar_order_p (gimple *stmt_a, gimple *stmt_b)
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (stmt_a);
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (stmt_b);
 
-  /* Check whether all statements grouped with STMT_A come after
-     all statements grouped with STMT_B.  In this case vectorized
-     STMT_A will come after vectorized STMT_B.  */
+  /* Check whether the groups that contain the statements overlap.  */
   if (vect_group_first_uid (stmtinfo_a)
-      >= vect_group_last_uid (stmtinfo_b))
+      > vect_group_last_uid (stmtinfo_b))
     return true;
-
-  /* Likewise with the roles reversed.  */
   if (vect_group_first_uid (stmtinfo_b)
-      >= vect_group_last_uid (stmtinfo_a))
+      > vect_group_last_uid (stmtinfo_a))
     return true;
 
   /* STMT_A and STMT_B belong to overlapping groups.  All loads in a
@@ -478,7 +473,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	    {
 	      tree indicator = dr_zero_step_indicator (dra);
 	      if (TREE_CODE (indicator) != INTEGER_CST)
-		check_nonzero_value (loop_vinfo, indicator);
+		vect_check_nonzero_value (loop_vinfo, indicator);
 	      else if (integer_zerop (indicator))
 		{
 		  if (dump_enabled_p ())
@@ -2643,7 +2638,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
     groupsize = 0;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
-  if (!GROUP_FIRST_ELEMENT (stmt_info))
+  if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
     {
       /* Check if it this DR is a part of interleaving, and is a single
 	 element of the group that is accessed in the loop.  */
@@ -2654,9 +2649,8 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	  && (dr_step % type_size) == 0
 	  && groupsize > 0)
 	{
-	  GROUP_FIRST_ELEMENT (stmt_info) = stmt;
-	  GROUP_SIZE (stmt_info) = groupsize;
-	  GROUP_NUM_STMTS (stmt_info) = 1;
+	  GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = stmt;
+	  GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
 	  GROUP_GAP (stmt_info) = groupsize - 1;
 	  if (dump_enabled_p ())
 	    {
@@ -2690,10 +2684,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       return true;
     }
 
-  if (GROUP_FIRST_ELEMENT (stmt_info) == stmt)
+  if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt)
     {
       /* First stmt in the interleaving chain. Check the chain.  */
-      gimple *next = GROUP_NEXT_ELEMENT (stmt_info);
+      gimple *next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
       tree prev_init = DR_INIT (data_ref);
@@ -2750,8 +2744,13 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	    {
 	      /* FORNOW: SLP of accesses with gaps is not supported.  */
 	      slp_impossible = true;
-	      /* By construction, there can be no gap here for stores.  */
-	      gcc_assert (DR_IS_READ (data_ref));
+	      if (DR_IS_WRITE (data_ref))
+		{
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                                     "interleaved store with gaps\n");
+		  return false;
+		}
 
               gaps += diff - 1;
 	    }
@@ -2783,16 +2782,22 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 
       /* Check that the size of the interleaving is equal to count for stores,
          i.e., that there are no gaps.  */
-      if (groupsize != count && !DR_IS_READ (dr))
-	slp_impossible = true;
+      if (groupsize != count
+	  && !DR_IS_READ (dr))
+        {
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "interleaved store with gaps\n");
+	  return false;
+	}
 
       /* If there is a gap after the last load in the group it is the
 	 difference between the groupsize and the last accessed
 	 element.
 	 When there is no gap, this difference should be 0.  */
-      GROUP_GAP (stmt_info) = groupsize - last_accessed_element;
-      GROUP_NUM_STMTS (stmt_info) = count;
-      GROUP_SIZE (stmt_info) = groupsize;
+      GROUP_GAP (vinfo_for_stmt (stmt)) = groupsize - last_accessed_element;
+
+      GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
       if (dump_enabled_p ())
 	{
 	  dump_printf_loc (MSG_NOTE, vect_location,
@@ -2804,10 +2809,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	  dump_printf (MSG_NOTE, "of size %u starting with ",
 		       (unsigned)groupsize);
 	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-	  if (GROUP_GAP (stmt_info) != 0)
+	  if (GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
 	    dump_printf_loc (MSG_NOTE, vect_location,
 			     "There is a gap of %u elements after the group\n",
-			     GROUP_GAP (stmt_info));
+			     GROUP_GAP (vinfo_for_stmt (stmt)));
 	}
 
       /* SLP: create an SLP data structure for every interleaving group of
@@ -2863,6 +2868,9 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = NULL;
+
+  if (STMT_VINFO_GATHER_SCATTER_P (stmt_info))
+    return true;
 
   if (loop_vinfo)
     loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -3264,8 +3272,11 @@ vect_vfa_access_size (data_reference *dr)
   if (STMT_VINFO_VEC_STMT (stmt_vinfo)
       && (vect_supportable_dr_alignment (dr, false)
 	  == dr_explicit_realign_optimized))
-    /* We might access a full vector's worth.  */
-    access_size += tree_to_uhwi (STMT_VINFO_VECTYPE (stmt_vinfo)) - ref_size;
+    {
+      /* We might access a full vector's worth.  */
+      tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+      access_size += tree_to_uhwi (TYPE_SIZE_UNIT (vectype)) - ref_size;
+    }
   return access_size;
 }
 
@@ -3315,8 +3326,8 @@ vect_compile_time_alias (struct data_reference *a, struct data_reference *b,
   else
     const_length_b = tree_to_poly_uint64 (segment_length_b);
 
-  segment_length_a += access_size_a;
-  segment_length_b += access_size_b;
+  const_length_a += access_size_a;
+  const_length_b += access_size_b;
 
   if (ranges_must_overlap_p (offset_a, const_length_a,
 			     offset_b, const_length_b))
@@ -3382,8 +3393,8 @@ dump_lower_bound (int dump_kind, const vec_lower_bound &lower_bound)
    by EXPR, UNSIGNED_P and MIN_VALUE.  */
 
 static void
-check_lower_bound (loop_vec_info loop_vinfo, tree expr, bool unsigned_p,
-		   poly_uint64 min_value)
+vect_check_lower_bound (loop_vec_info loop_vinfo, tree expr, bool unsigned_p,
+			poly_uint64 min_value)
 {
   vec<vec_lower_bound> lower_bounds = LOOP_VINFO_LOWER_BOUNDS (loop_vinfo);
   for (unsigned int i = 0; i < lower_bounds.length (); ++i)
@@ -3463,7 +3474,8 @@ vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
       && !vect_preserves_scalar_order_p (DR_STMT (dr_a), DR_STMT (dr_b)))
     return false;
 
-  /* There is no alias if abs (DR_STEP) >= GAP.  */
+  /* There is no alias if abs (DR_STEP) is greater than or equal to
+     the bytes spanned by the combination of the two accesses.  */
   *lower_bound_out = init_b + vect_get_scalar_dr_size (dr_b) - init_a;
   return true;
 }
@@ -3507,7 +3519,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
       /* Convert the checks for nonzero steps into bound tests.  */
       tree value;
       FOR_EACH_VEC_ELT (LOOP_VINFO_CHECK_NONZERO (loop_vinfo), i, value)
-	check_lower_bound (loop_vinfo, value, true, 1);
+	vect_check_lower_bound (loop_vinfo, value, true, 1);
     }
 
   if (may_alias_ddrs.is_empty ())
@@ -3609,8 +3621,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      dump_dec (MSG_NOTE, lower_bound);
 	      dump_printf (MSG_NOTE, ")\n");
 	    }
-	  check_lower_bound (loop_vinfo, DR_STEP (dr_a), unsigned_p,
-			     lower_bound);
+	  vect_check_lower_bound (loop_vinfo, DR_STEP (dr_a), unsigned_p,
+				  lower_bound);
 	  continue;
 	}
 
@@ -3733,14 +3745,80 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
   return true;
 }
 
-/* Return true if a non-affine read or write in STMT is suitable for a
-   gather load or scatter store.  Describe the operation in *INFO if so.
+/* Check whether we can use an internal function for a gather load
+   or scatter store.  READ_P is true for loads and false for stores.
+   MASKED_P is true if the load or store is conditional.  MEMORY_TYPE is
+   the type of the memory elements being loaded or stored.  OFFSET_BITS
+   is the number of bits in each scalar offset and OFFSET_SIGN is the
+   sign of the offset.  SCALE is the amount by which the offset should
+   be multiplied *after* it has been converted to address width.
 
-   MASKED_P says whether the load or store must be masked.   */
+   Return true if the function is supported, storing the function
+   id in *IFN_OUT and the type of a vector element in *ELEMENT_TYPE_OUT.  */
+
+bool
+vect_gather_scatter_fn_p (bool read_p, bool masked_p, tree vectype,
+			  tree memory_type, unsigned int offset_bits,
+			  signop offset_sign, int scale,
+			  internal_fn *ifn_out, tree *element_type_out)
+{
+  unsigned int memory_bits = tree_to_uhwi (TYPE_SIZE (memory_type));
+  unsigned int element_bits = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (vectype)));
+  if (offset_bits > element_bits)
+    /* Internal functions require the offset to be the same width as
+       the vector elements.  We can extend narrower offsets, but it isn't
+       safe to truncate wider offsets.  */
+    return false;
+
+  if (element_bits != memory_bits)
+    /* For now the vector elements must be the same width as the
+       memory elements.  */
+    return false;
+
+  /* Work out which function we need.  */
+  internal_fn ifn;
+  if (read_p)
+    ifn = masked_p ? IFN_MASK_GATHER_LOAD : IFN_GATHER_LOAD;
+  else
+    ifn = masked_p ? IFN_MASK_SCATTER_STORE : IFN_SCATTER_STORE;
+
+  /* Test whether the target supports this combination.  */
+  if (!internal_gather_scatter_fn_supported_p (ifn, vectype, memory_type,
+					       offset_sign, scale))
+    return false;
+
+  *ifn_out = ifn;
+  *element_type_out = TREE_TYPE (vectype);
+  return true;
+}
+
+/* CALL is a call to an internal gather load or scatter store function.
+   Describe the operation in INFO.  */
+
+static void
+vect_describe_gather_scatter_call (gcall *call, gather_scatter_info *info)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (call);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+
+  info->ifn = gimple_call_internal_fn (call);
+  info->decl = NULL_TREE;
+  info->base = gimple_call_arg (call, 0);
+  info->offset = gimple_call_arg (call, 1);
+  info->offset_dt = vect_unknown_def_type;
+  info->offset_vectype = NULL_TREE;
+  info->scale = TREE_INT_CST_LOW (gimple_call_arg (call, 2));
+  info->element_type = TREE_TYPE (vectype);
+  info->memory_type = TREE_TYPE (DR_REF (dr));
+}
+
+/* Return true if a non-affine read or write in STMT is suitable for a
+   gather load or scatter store.  Describe the operation in *INFO if so.  */
 
 bool
 vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
-			   gather_scatter_info *info, bool masked_p)
+			   gather_scatter_info *info)
 {
   HOST_WIDE_INT scale = 1;
   poly_int64 pbitpos, pbitsize;
@@ -3748,18 +3826,39 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree offtype = NULL_TREE;
-  tree decl = NULL_TREE;
-  tree base, off;
+  tree decl = NULL_TREE, base, off;
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  tree memory_type = TREE_TYPE (DR_REF (dr));
   machine_mode pmode;
   int punsignedp, reversep, pvolatilep = 0;
+  internal_fn ifn;
+  tree element_type;
+  bool masked_p = false;
+
+  /* See whether this is already a call to a gather/scatter internal function.
+     If not, see whether it's a masked load or store.  */
+  gcall *call = dyn_cast <gcall *> (stmt);
+  if (call && gimple_call_internal_p (call))
+    {
+      ifn = gimple_call_internal_fn (stmt);
+      if (internal_gather_scatter_fn_p (ifn))
+	{
+	  vect_describe_gather_scatter_call (call, info);
+	  return true;
+	}
+      masked_p = (ifn == IFN_MASK_LOAD || ifn == IFN_MASK_STORE);
+    }
+
+  /* True if we should aim to use internal functions rather than
+     built-in functions.  */
+  bool use_ifn_p = (DR_IS_READ (dr)
+		    ? supports_vec_gather_load_p ()
+		    : supports_vec_scatter_store_p ());
 
   base = DR_REF (dr);
   /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
      see if we can use the def stmt of the address.  */
-  if (is_gimple_call (stmt)
-      && gimple_call_internal_p (stmt)
-      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
-	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
+  if (masked_p
       && TREE_CODE (base) == MEM_REF
       && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
       && integer_zerop (TREE_OPERAND (base, 1))
@@ -3890,7 +3989,17 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	case MULT_EXPR:
 	  if (scale == 1 && tree_fits_shwi_p (op1))
 	    {
-	      scale = tree_to_shwi (op1);
+	      int new_scale = tree_to_shwi (op1);
+	      /* Only treat this as a scaling operation if the target
+		 supports it.  */
+	      if (use_ifn_p
+		  && !vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p,
+						vectype, memory_type, 1,
+						TYPE_SIGN (TREE_TYPE (op0)),
+						new_scale, &ifn,
+						&element_type))
+		break;
+	      scale = new_scale;
 	      off = op0;
 	      continue;
 	    }
@@ -3908,6 +4017,15 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	      off = op0;
 	      continue;
 	    }
+
+	  /* The internal functions need the offset to be the same width
+	     as the elements of VECTYPE.  Don't include operations that
+	     cast the offset from that width to a different width.  */
+	  if (use_ifn_p
+	      && (int_size_in_bytes (TREE_TYPE (vectype))
+		  == int_size_in_bytes (TREE_TYPE (off))))
+	    break;
+
 	  if (TYPE_PRECISION (TREE_TYPE (op0))
 	      < TYPE_PRECISION (TREE_TYPE (off)))
 	    {
@@ -3932,53 +4050,43 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
   if (offtype == NULL_TREE)
     offtype = TREE_TYPE (off);
 
-  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  if (DR_IS_READ (dr)
-      ? targetm.vectorize.builtin_gather
-      : targetm.vectorize.builtin_scatter)
+  if (use_ifn_p)
     {
-      if (DR_IS_READ (dr))
-        decl = targetm.vectorize.builtin_gather (vectype, offtype, scale);
-      else
-	decl = targetm.vectorize.builtin_scatter (vectype, offtype, scale);
-
-      if (!decl)
+      if (!vect_gather_scatter_fn_p (DR_IS_READ (dr), masked_p, vectype,
+				     memory_type, TYPE_PRECISION (offtype),
+				     TYPE_SIGN (offtype), scale, &ifn,
+				     &element_type))
 	return false;
     }
   else
     {
-      machine_mode vecmode = TYPE_MODE (vectype);
-      bool off_unsigned = TYPE_UNSIGNED (offtype);
+      if (DR_IS_READ (dr))
+	{
+	  if (targetm.vectorize.builtin_gather)
+	    decl = targetm.vectorize.builtin_gather (vectype, offtype, scale);
+	}
+      else
+	{
+	  if (targetm.vectorize.builtin_scatter)
+	    decl = targetm.vectorize.builtin_scatter (vectype, offtype, scale);
+	}
 
-      /* The offset will eventually need to be converted into the same mode as
-	 the vector mode before it can be used in the gather/scatter.  */
-
-      scalar_int_mode offmode;
-      if (!int_mode_for_mode (GET_MODE_INNER (vecmode)).exists (&offmode))
+      if (!decl)
 	return false;
 
-      unsigned int offmode_bitsize = GET_MODE_BITSIZE (offmode);
-      if (!targetm.gather_scatter_supports_scale_p
-	     (DR_IS_READ (dr), offmode_bitsize, scale))
-	return false;
-
-      offtype = (off_unsigned
-		 ? make_unsigned_type (offmode_bitsize)
-		 : make_signed_type (offmode_bitsize));
-
-      if (get_gather_scatter_internal_fn (DR_IS_READ (dr), vectype,
-					  offtype, masked_p) == IFN_LAST)
-	return false;
+      ifn = IFN_LAST;
+      element_type = TREE_TYPE (vectype);
     }
 
+  info->ifn = ifn;
   info->decl = decl;
   info->base = base;
-  info->u.offset = off;
-  info->offset_type = TREE_TYPE (off);
-  info->widened_offset_type = offtype;
+  info->offset = off;
   info->offset_dt = vect_unknown_def_type;
   info->offset_vectype = NULL_TREE;
   info->scale = scale;
+  info->element_type = element_type;
+  info->memory_type = memory_type;
   return true;
 }
 
@@ -4060,7 +4168,7 @@ again:
 	    = DR_IS_READ (dr)
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
 	      && (targetm.vectorize.builtin_gather != NULL
-                  || supports_vec_gather_load_p ());
+		  || supports_vec_gather_load_p ());
 	  bool maybe_scatter
 	    = DR_IS_WRITE (dr)
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
@@ -4415,8 +4523,8 @@ again:
 	{
 	  gather_scatter_info gs_info;
 	  if (!vect_check_gather_scatter (stmt, as_a <loop_vec_info> (vinfo),
-					  &gs_info, false)
-	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.u.offset)))
+					  &gs_info)
+	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
 	      free_data_ref (dr);
@@ -4839,27 +4947,6 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
   return entry->final_addr;
 }
 
-/* Return a tree that represents STEP multiplied by the vectorization
-   factor.  */
-
-static tree
-vect_mult_by_vf (loop_vec_info loop_vinfo, tree step)
-{
-  hash_map<tree, tree> *map = &LOOP_VINFO_VF_MULT_MAP (loop_vinfo);
-  bool existed;
-  tree &entry = map->get_or_insert (step, &existed);
-  if (!existed)
-    {
-      gimple_seq seq = NULL;
-      tree vf = LOOP_VINFO_CAP (loop_vinfo).niters;
-      vf = gimple_convert (&seq, TREE_TYPE (step), vf);
-      entry = gimple_build (&seq, MULT_EXPR, TREE_TYPE (step), vf, step);
-      edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
-      gsi_insert_seq_on_edge_immediate (pe, seq);
-    }
-  return entry;
-}
-
 /* Function vect_create_data_ref_ptr.
 
    Create a new pointer-to-AGGR_TYPE variable (ap), that points to the first
@@ -4869,40 +4956,26 @@ vect_mult_by_vf (loop_vec_info loop_vinfo, tree step)
    the callers to this function to create a memory reference expression for
    vector load/store access.
 
-   Some loops operate on more than one consecutive instance of AGGR_TYPE.
-   There are two approaches to updating ap in this case.  The usual one
-   is to advance ap by only one AGGR_TYPE at first and leave callers
-   to use bump_vector_ptr both to access other AGGR_TYPEs and to adjust
-   the increment of ap.  See the comment above bump_vector_ptr for details.
-   The advantage of this approach is that only one pointer is live at once.
-   ivopts can later introduce multiple pointers if that's more efficient,
-   but we don't have enough information to make that decision during
-   vectorization.
-
-   However, when using a runtime-capped VF, the increment of ap
-   depends on the runtime VF and we can't easily defer parts of it to
-   bump_vector_ptr.  In this case we emit the full increment now.
-   The GROUP_SIZE parameter exists for this case.
-
    Input:
    1. STMT: a stmt that references memory. Expected to be of the form
          GIMPLE_ASSIGN <name, data-ref> or
 	 GIMPLE_ASSIGN <data-ref, name>.
    2. AGGR_TYPE: the type of the reference, which should be either a vector
         or an array.
-   3. GROUP_SIZE: how many consecutive vectors the loop accesses.
-	The loop should advance ap by GROUP_SIZE * VF elements of
-	type TREE_TYPE (AGGR_TYPE).
-   4. AT_LOOP: the loop where the vector memref is to be created.
-   5. OFFSET (optional): an offset to be added to the initial address accessed
+   3. AT_LOOP: the loop where the vector memref is to be created.
+   4. OFFSET (optional): an offset to be added to the initial address accessed
         by the data-ref in STMT.
-   6. BSI: location where the new stmts are to be placed if there is no loop
-   7. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
+   5. BSI: location where the new stmts are to be placed if there is no loop
+   6. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
         pointing to the initial address.
-   8. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
+   7. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
 	to the initial address accessed by the data-ref in STMT.  This is
 	similar to OFFSET, but OFFSET is counted in elements, while BYTE_OFFSET
 	in bytes.
+   8. IV_STEP (optional, defaults to NULL): the amount that should be added
+	to the IV during each iteration of the loop.  NULL says to move
+	by one copy of AGGR_TYPE up or down, depending on the step of the
+	data reference.
 
    Output:
    1. Declare a new ptr to vector_type, and have it point to the base of the
@@ -4932,11 +5005,11 @@ vect_mult_by_vf (loop_vec_info loop_vinfo, tree step)
    4. Return the pointer.  */
 
 tree
-vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
-			  unsigned int group_size, struct loop *at_loop,
+vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 			  tree offset, tree *initial_address,
 			  gimple_stmt_iterator *gsi, gimple **ptr_incr,
-			  bool only_init, bool *inv_p, tree byte_offset)
+			  bool only_init, bool *inv_p, tree byte_offset,
+			  tree iv_step)
 {
   const char *base_name;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -4960,9 +5033,9 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
   tree step;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
 
-  gcc_assert (TREE_CODE (aggr_type) == ARRAY_TYPE
+  gcc_assert (iv_step != NULL_TREE
+	      || TREE_CODE (aggr_type) == ARRAY_TYPE
 	      || TREE_CODE (aggr_type) == VECTOR_TYPE);
-  gcc_assert (only_init || !loop_vinfo || group_size != 0);
 
   if (loop_vinfo)
     {
@@ -5102,42 +5175,29 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
     aptr = aggr_ptr_init;
   else
     {
+      if (iv_step == NULL_TREE)
+	{
+	  /* The caller must provide an IV_STEP for capped VF and
+	     first-faulting loads.  */
+	  gcc_assert (!use_capped_vf (loop_vinfo)
+		      && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
+
+	  /* The step of the aggregate pointer is the type size.  */
+	  iv_step = TYPE_SIZE_UNIT (aggr_type);
+	  /* One exception to the above is when the scalar step of the load in
+	     LOOP is zero. In this case the step here is also zero.  */
+	  if (*inv_p)
+	    iv_step = size_zero_node;
+	  else if (tree_int_cst_sgn (step) == -1)
+	    iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
+	}
+
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
-      tree iv_step;
-      if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
-	{
-	  /* The step is the first faulting iter multiplied by the type
-	     size.  */
-	  gimple_seq seq = NULL;
-	  iv_step = gimple_build (&seq, MULT_EXPR, sizetype,
-				  LOOP_VINFO_NONFAULTING (loop_vinfo).niters,
-				  TYPE_SIZE_UNIT (TREE_TYPE (aggr_type)));
-
-	  gsi_insert_seq_before (&incr_gsi, seq, GSI_SAME_STMT);
-	}
-      else if (*inv_p)
-	iv_step = size_zero_node;
-      else
-	{
-	  if (use_capped_vf (loop_vinfo))
-	    {
-	      gcc_assert (group_size != 0);
-	      tree elt_type = TREE_TYPE (DR_REF (dr));
-	      iv_step = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (elt_type),
-				    size_int (group_size));
-	      iv_step = vect_mult_by_vf (loop_vinfo, iv_step);
-	    }
-	  else
-	    /* The step of the aggregate pointer is the type size.  */
-	    iv_step = TYPE_SIZE_UNIT (aggr_type);
-	  if (tree_int_cst_sgn (step) == -1)
-	    iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step),
-				   iv_step);
-	}
-
-      create_iv (aggr_ptr_init, iv_step, aggr_ptr, loop, &incr_gsi,
-		 insert_after, &indx_before_incr, &indx_after_incr);
+      create_iv (aggr_ptr_init,
+		 fold_convert (aggr_ptr_type, iv_step),
+		 aggr_ptr, loop, &incr_gsi, insert_after,
+		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
       set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
 
@@ -5263,7 +5323,7 @@ bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
       if (use == dataref_ptr)
         SET_USE (use_p, new_dataref_ptr);
       else
-        gcc_assert (tree_int_cst_compare (use, update) == 0);
+        gcc_assert (operand_equal_p (use, update, 0));
     }
 
   return new_dataref_ptr;
@@ -5290,15 +5350,18 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
     : vect_scalar_var;
   type = vectype ? vectype : TREE_TYPE (scalar_dest);
 
-  gcc_assert (TREE_CODE (scalar_dest) == SSA_NAME);
-
-  name = get_name (scalar_dest);
-  if (name)
-    new_name = xasprintf ("%s_%u", name, SSA_NAME_VERSION (scalar_dest));
+  if (TREE_CODE (scalar_dest) == SSA_NAME)
+    {
+      name = get_name (scalar_dest);
+      if (name)
+	new_name = xasprintf ("%s_%u", name, SSA_NAME_VERSION (scalar_dest));
+      else
+	new_name = xasprintf ("_%u", SSA_NAME_VERSION (scalar_dest));
+      vec_dest = vect_get_new_vect_var (type, kind, new_name);
+      free (new_name);
+    }
   else
-    new_name = xasprintf ("_%u", SSA_NAME_VERSION (scalar_dest));
-  vec_dest = vect_get_new_vect_var (type, kind, new_name);
-  free (new_name);
+    vec_dest = vect_get_new_vect_var (type, kind, NULL);
 
   return vec_dest;
 }
@@ -5327,9 +5390,9 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
   /* Powers of 2 use a tree of interleaving operations.  See whether the
      target supports them directly.  */
   if (count != 3
-      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
-					 OPTIMIZE_FOR_SPEED)
       && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, vectype,
+					 OPTIMIZE_FOR_SPEED)
+      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
 					 OPTIMIZE_FOR_SPEED))
     return true;
 
@@ -5415,7 +5478,7 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
 
 
 /* Return TRUE if vec_{mask_}store_lanes is available for COUNT vectors of
-   type VECTYPE.  MASKED_P says whether masked form is needed.  */
+   type VECTYPE.  MASKED_P says whether the masked form is needed.  */
 
 bool
 vect_store_lanes_supported (tree vectype, unsigned HOST_WIDE_INT count,
@@ -5578,15 +5641,15 @@ vect_permute_store_chain (vec<tree> dr_chain,
       /* If length is not equal to 3 then only power of 2 is supported.  */
       gcc_assert (pow2p_hwi (length));
 
-      if (direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
+      if (direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, vectype,
 					  OPTIMIZE_FOR_SPEED)
-	  && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, vectype,
+	  && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
 					     OPTIMIZE_FOR_SPEED))
 	{
 	  /* We could support the case where only one of the optabs is
 	     implemented, but that seems unlikely.  */
-	  perm_mask_high = NULL_TREE;
 	  perm_mask_low = NULL_TREE;
+	  perm_mask_high = NULL_TREE;
 	}
       else
 	{
@@ -5599,11 +5662,11 @@ vect_permute_store_chain (vec<tree> dr_chain,
 	      sel[i * 2] = i;
 	      sel[i * 2 + 1] = i + nelt;
 	    }
-	  perm_mask_high = vect_gen_perm_mask_checked (vectype, sel);
+	  perm_mask_low = vect_gen_perm_mask_checked (vectype, sel);
 
 	  for (i = 0; i < nelt; i++)
 	    sel[i] += nelt / 2;
-	  perm_mask_low = vect_gen_perm_mask_checked (vectype, sel);
+	  perm_mask_high = vect_gen_perm_mask_checked (vectype, sel);
 	}
 
       for (i = 0, n = log_length; i < n; i++)
@@ -5616,24 +5679,6 @@ vect_permute_store_chain (vec<tree> dr_chain,
 	      /* Create interleaving stmt:
 		 high = VEC_PERM_EXPR <vect1, vect2,
 				       {0, nelt, 1, nelt + 1, ...}>  */
-	      high = make_temp_ssa_name (vectype, NULL, "vect_inter_high");
-	      if (perm_mask_high)
-		perm_stmt = gimple_build_assign (high, VEC_PERM_EXPR, vect1,
-						 vect2, perm_mask_high);
-	      else
-		{
-		  perm_stmt = gimple_build_call_internal
-		    (IFN_VEC_INTERLEAVE_HI, 2, vect1, vect2);
-		  gimple_set_lhs (perm_stmt, high);
-		}
-	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-	      (*result_chain)[2 * j] = high;
-
-	      /* Create interleaving stmt:
-		 low = VEC_PERM_EXPR <vect1, vect2,
-				      {nelt / 2, nelt * 3 / 2,
-				       nelt / 2 + 1, nelt * 3 / 2 + 1,
-				       ...}>  */
 	      low = make_temp_ssa_name (vectype, NULL, "vect_inter_low");
 	      if (perm_mask_low)
 		perm_stmt = gimple_build_assign (low, VEC_PERM_EXPR, vect1,
@@ -5645,7 +5690,25 @@ vect_permute_store_chain (vec<tree> dr_chain,
 		  gimple_set_lhs (perm_stmt, low);
 		}
 	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-	      (*result_chain)[2 * j + 1] = low;
+	      (*result_chain)[2 * j] = low;
+
+	      /* Create interleaving stmt:
+		 high = VEC_PERM_EXPR <vect1, vect2,
+				      {nelt / 2, nelt * 3 / 2,
+				       nelt / 2 + 1, nelt * 3 / 2 + 1,
+				       ...}>  */
+	      high = make_temp_ssa_name (vectype, NULL, "vect_inter_high");
+	      if (perm_mask_high)
+		perm_stmt = gimple_build_assign (high, VEC_PERM_EXPR, vect1,
+						 vect2, perm_mask_high);
+	      else
+		{
+		  perm_stmt = gimple_build_call_internal
+		    (IFN_VEC_INTERLEAVE_HI, 2, vect1, vect2);
+		  gimple_set_lhs (perm_stmt, high);
+		}
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[2 * j + 1] = high;
 	    }
 	  memcpy (dr_chain.address (), result_chain->address (),
 		  length * sizeof (tree));
@@ -5820,8 +5883,7 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 
       gcc_assert (!compute_in_loop);
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      ptr = vect_create_data_ref_ptr (stmt, vectype, 0,
-				      loop_for_initial_load,
+      ptr = vect_create_data_ref_ptr (stmt, vectype, loop_for_initial_load,
 				      NULL_TREE, &init_addr, NULL, &inc,
 				      true, &inv_p);
       if (TREE_CODE (ptr) == SSA_NAME)

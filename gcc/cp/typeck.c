@@ -2356,7 +2356,7 @@ build_class_member_access_expr (cp_expr object, tree member,
   {
     tree temp = unary_complex_lvalue (ADDR_EXPR, object);
     if (temp)
-      object = cp_build_indirect_ref (temp, RO_NULL, complain);
+      object = cp_build_fold_indirect_ref (temp);
   }
 
   /* In [expr.ref], there is an explicit list of the valid choices for
@@ -3035,19 +3035,18 @@ build_x_indirect_ref (location_t loc, tree expr, ref_operator errorstring,
     return rval;
 }
 
-/* Helper function called from c-common.  */
-tree
-build_indirect_ref (location_t /*loc*/,
-		    tree ptr, ref_operator errorstring)
-{
-  return cp_build_indirect_ref (ptr, errorstring, tf_warning_or_error);
-}
+/* The implementation of the above, and of indirection implied by other
+   constructs.  If DO_FOLD is true, fold away INDIRECT_REF of ADDR_EXPR.  */
 
-tree
-cp_build_indirect_ref (tree ptr, ref_operator errorstring, 
-                       tsubst_flags_t complain)
+static tree
+cp_build_indirect_ref_1 (tree ptr, ref_operator errorstring,
+			 tsubst_flags_t complain, bool do_fold)
 {
   tree pointer, type;
+
+  /* RO_NULL should only be used with the folding entry points below, not
+     cp_build_indirect_ref.  */
+  gcc_checking_assert (errorstring != RO_NULL || do_fold);
 
   if (ptr == current_class_ptr
       || (TREE_CODE (ptr) == NOP_EXPR
@@ -3092,7 +3091,7 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
             error ("%qT is not a pointer-to-object type", type);
 	  return error_mark_node;
 	}
-      else if (TREE_CODE (pointer) == ADDR_EXPR
+      else if (do_fold && TREE_CODE (pointer) == ADDR_EXPR
 	       && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
 	/* The POINTER was something like `&x'.  We simplify `*&x' to
 	   `x'.  */
@@ -3139,6 +3138,34 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
     invalid_indirection_error (input_location, type, errorstring);
 
   return error_mark_node;
+}
+
+/* Entry point used by c-common, which expects folding.  */
+
+tree
+build_indirect_ref (location_t /*loc*/,
+		    tree ptr, ref_operator errorstring)
+{
+  return cp_build_indirect_ref_1 (ptr, errorstring, tf_warning_or_error, true);
+}
+
+/* Entry point used by internal indirection needs that don't correspond to any
+   syntactic construct.  */
+
+tree
+cp_build_fold_indirect_ref (tree pointer)
+{
+  return cp_build_indirect_ref_1 (pointer, RO_NULL, tf_warning_or_error, true);
+}
+
+/* Entry point used by indirection needs that correspond to some syntactic
+   construct.  */
+
+tree
+cp_build_indirect_ref (tree ptr, ref_operator errorstring,
+		       tsubst_flags_t complain)
+{
+  return cp_build_indirect_ref_1 (ptr, errorstring, complain, false);
 }
 
 /* This handles expressions of the form "a[i]", which denotes
@@ -3477,13 +3504,13 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
       /* Next extract the vtable pointer from the object.  */
       vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
 		     instance_ptr);
-      vtbl = cp_build_indirect_ref (vtbl, RO_NULL, complain);
+      vtbl = cp_build_fold_indirect_ref (vtbl);
       if (vtbl == error_mark_node)
 	return error_mark_node;
 
       /* Finally, extract the function pointer from the vtable.  */
       e2 = fold_build_pointer_plus_loc (input_location, vtbl, idx);
-      e2 = cp_build_indirect_ref (e2, RO_NULL, complain);
+      e2 = cp_build_fold_indirect_ref (e2);
       if (e2 == error_mark_node)
 	return error_mark_node;
       TREE_CONSTANT (e2) = 1;
@@ -6823,6 +6850,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
     {
       tree base;
 
+      if (processing_template_decl)
+	return expr;
+
       /* There is a standard conversion from "D*" to "B*" even if "B"
 	 is ambiguous or inaccessible.  If this is really a
 	 static_cast, then we check both for inaccessibility and
@@ -6867,6 +6897,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && reference_related_p (TREE_TYPE (type), intype)
       && (c_cast_p || at_least_as_qualified_p (TREE_TYPE (type), intype)))
     {
+      if (processing_template_decl)
+	return expr;
       if (clk == clk_ordinary)
 	{
 	  /* Handle the (non-bit-field) lvalue case here by casting to
@@ -6914,6 +6946,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 						      c_cast_p, complain);
   if (result)
     {
+      if (processing_template_decl)
+	return expr;
+
       result = convert_from_reference (result);
 
       /* [expr.static.cast]
@@ -6955,7 +6990,11 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
        || SCALAR_FLOAT_TYPE_P (type))
       && (INTEGRAL_OR_ENUMERATION_TYPE_P (intype)
 	  || SCALAR_FLOAT_TYPE_P (intype)))
-    return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL, complain);
+    {
+      if (processing_template_decl)
+	return expr;
+      return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL, complain);
+    }
 
   if (TYPE_PTR_P (type) && TYPE_PTR_P (intype)
       && CLASS_TYPE_P (TREE_TYPE (type))
@@ -6967,6 +7006,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 		      complain))
     {
       tree base;
+
+      if (processing_template_decl)
+	return expr;
 
       if (!c_cast_p
 	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
@@ -7022,6 +7064,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 						   STATIC_CAST_EXPR,
 						   complain))
 	    return error_mark_node;
+	  if (processing_template_decl)
+	    return expr;
 	  return convert_ptrmem (type, expr, /*allow_inverse_p=*/1,
 				 c_cast_p, complain);
 	}
@@ -7041,6 +7085,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
 					       complain))
 	return error_mark_node;
+      if (processing_template_decl)
+	return expr;
       return build_nop (type, expr);
     }
 
@@ -9115,7 +9161,7 @@ check_return_expr (tree retval, bool *no_warning)
     dependent:
       /* We should not have changed the return value.  */
       gcc_assert (retval == saved_retval);
-      return do_dependent_capture (retval, /*force*/true);
+      return retval;
     }
 
   /* The fabled Named Return Value optimization, as per [class.copy]/15:

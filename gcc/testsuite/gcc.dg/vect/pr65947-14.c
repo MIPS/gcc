@@ -1,4 +1,3 @@
-/* { dg-do run { xfail { ! vect_last_reduc } } } */
 /* { dg-require-effective-target vect_condition } */
 
 #include "tree-vect.h"
@@ -42,5 +41,5 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 2 "vect" } } */
-/* { dg-final { scan-tree-dump-times "Optimizing condition reduction based on integer induction" 4 "vect" { target { ! vect_last_reduc } } } }*/
-/* { dg-final { scan-tree-dump-times "Optimizing condition reduction with CLASTB" 4 "vect" { target vect_last_reduc } } } */
+/* { dg-final { scan-tree-dump-times "optimizing condition reduction based on integer induction" 4 "vect" { target { ! vect_fold_extract_last } } } }*/
+/* { dg-final { scan-tree-dump-times "optimizing condition reduction with FOLD_EXTRACT_LAST" 4 "vect" { target vect_fold_extract_last } } } */

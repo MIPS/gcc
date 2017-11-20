@@ -9,7 +9,7 @@
 
 int x[MAX_START][N] __attribute__((aligned(32)));
 
-void __attribute__((weak))
+void __attribute__((noinline, noclone))
 foo (int start)
 {
   for (int i = start; i < start + COUNT; ++i)

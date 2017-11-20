@@ -9,7 +9,10 @@
   {								\
     TYPE a[N], b[8] = { 99, 11, 17, 80, 63, 37, 24, 81 };	\
     for (unsigned int i = 0; i < N; ++i)			\
-      a[i] = i * 2 + i % 5;					\
+      {								\
+	a[i] = i * 2 + i % 5;					\
+	asm volatile ("" ::: "memory");				\
+      }								\
     vec_slp_##TYPE (a, N / 8);					\
     for (unsigned int i = 0; i < N; ++i)			\
       {								\
@@ -20,7 +23,7 @@
       }								\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (HARNESS)

@@ -1740,6 +1740,13 @@ a value from @code{enum annot_expr_kind}.
 @tindex VEC_PACK_FIX_TRUNC_EXPR
 @tindex VEC_COND_EXPR
 @tindex SAD_EXPR
+@tindex REDUC_MAX_EXPR
+@tindex REDUC_MIN_EXPR
+@tindex REDUC_PLUS_EXPR
+@tindex REDUC_AND_EXPR
+@tindex REDUC_IOR_EXPR
+@tindex REDUC_XOR_EXPR
+@tindex FOLD_LEFT_PLUS_EXPR
 
 @table @code
 @item VEC_DUPLICATE_EXPR
@@ -1841,6 +1848,26 @@ operand must be at lease twice of the size of the vector element of the
 first and second one.  The SAD is calculated between the first and second
 operands, added to the third operand, and returned.
 
+@item REDUC_MAX_EXPR
+@itemx REDUC_MIN_EXPR
+@itemx REDUC_PLUS_EXPR
+@itemx REDUC_AND_EXPR
+@itemx REDUC_IOR_EXPR
+@itemx REDUC_XOR_EXPR
+These nodes represent operations that take a vector input and repeatedly
+apply a binary operator on pairs of elements until only one scalar remains.
+For example, @samp{REDUC_PLUS_EXPR <@var{x}>} returns the sum of
+the elements in @var{x} and @samp{REDUC_MAX_EXPR <@var{x}>} returns
+the maximum element in @var{x}.  The associativity of the operation
+is unspecified; for example, @samp{REDUC_PLUS_EXPR <@var{x}>} could
+sum floating-point @var{x} in forward order, in reverse order,
+using a tree, or in some other way.
+
+@item FOLD_LEFT_PLUS_EXPR
+This node takes two arguments: a scalar of type @var{t} and a vector
+of @var{t}s.  It successively adds each element of the vector to the
+scalar and returns the result.  The operation is strictly in-order:
+there is no reassociation.
 @end table
 
 

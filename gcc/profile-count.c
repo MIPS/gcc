@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "cgraph.h"
 #include "wide-int.h"
+#include "sreal.h"
 
 /* Dump THIS to F.  */
 
@@ -254,4 +255,56 @@ profile_count::to_cgraph_frequency (profile_count entry_bb_count) const
 			 CGRAPH_FREQ_BASE, MAX (1, entry_bb_count.m_val), &scale))
     return CGRAPH_FREQ_MAX;
   return MIN (scale, CGRAPH_FREQ_MAX);
+}
+
+/* Return THIS/IN as sreal value.  */
+
+sreal
+profile_count::to_sreal_scale (profile_count in, bool *known) const
+{
+  if (!initialized_p ())
+    {
+      if (known)
+	*known = false;
+      return CGRAPH_FREQ_BASE;
+    }
+  if (known)
+    *known = true;
+  if (*this == profile_count::zero ())
+    return 0;
+  gcc_checking_assert (in.initialized_p ());
+
+  if (!in.m_val)
+    {
+      if (!m_val)
+	return 1;
+      return m_val * 4;
+    }
+  return (sreal)m_val / (sreal)in.m_val;
+}
+
+/* We want to scale profile across function boundary from NUM to DEN.
+   Take care of the side case when DEN is zeros.  We still want to behave
+   sanely here which means
+     - scale to profile_count::zero () if NUM is profile_count::zero
+     - do not affect anything if NUM == DEN
+     - preserve counter value but adjust quality in other cases.  */
+
+void
+profile_count::adjust_for_ipa_scaling (profile_count *num,
+				       profile_count *den)
+{
+  /* Scaling is no-op if NUM and DEN are the same.  */
+  if (*num == *den)
+    return;
+  /* Scaling to zero is always zeor.  */
+  if (*num == profile_count::zero ())
+    return;
+  /* If den is non-zero we are safe.  */
+  if (den->force_nonzero () == *den)
+    return;
+  /* Force both to non-zero so we do not push profiles to 0 when
+     both num == 0 and den == 0.  */
+  *den = den->force_nonzero ();
+  *num = num->force_nonzero ();
 }

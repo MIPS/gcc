@@ -1,5 +1,5 @@
-/* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
+/* { dg-do assemble } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
 
 #define TYPE unsigned long
 #define ITYPE long

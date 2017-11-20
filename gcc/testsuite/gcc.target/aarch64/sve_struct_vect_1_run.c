@@ -1,9 +1,7 @@
 /* { dg-do run { target aarch64_sve_hw } } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
 
 #include "sve_struct_vect_1.c"
-
-extern void abort() __attribute__((noreturn));
 
 TYPE a[N], b[N], c[N], d[N], e[N * 4];
 
@@ -19,10 +17,10 @@ check_array (TYPE *array, int n, TYPE base, TYPE step)
 {
   for (int i = 0; i < n; ++i)
     if (array[i] != (TYPE) (base + step * i))
-      abort ();
+      __builtin_abort ();
 }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   init_array (e, 2 * N, 11, 5);

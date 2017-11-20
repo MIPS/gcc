@@ -5836,6 +5836,59 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 		    return op1;
 		}
 	    }
+	  /* Replace (vec_merge (vec_duplicate (X)) (const_vector [A, B])
+	     (const_int N))
+	     with (vec_concat (X) (B)) if N == 1 or
+	     (vec_concat (A) (X)) if N == 2.  */
+	  if (GET_CODE (op0) == VEC_DUPLICATE
+	      && GET_CODE (op1) == CONST_VECTOR
+	      && CONST_VECTOR_NUNITS (op1) == 2
+	      && must_eq (GET_MODE_NUNITS (GET_MODE (op0)), 2)
+	      && IN_RANGE (sel, 1, 2))
+	    {
+	      rtx newop0 = XEXP (op0, 0);
+	      rtx newop1 = CONST_VECTOR_ELT (op1, 2 - sel);
+	      if (sel == 2)
+		std::swap (newop0, newop1);
+	      return simplify_gen_binary (VEC_CONCAT, mode, newop0, newop1);
+	    }
+	  /* Replace (vec_merge (vec_duplicate x) (vec_concat (y) (z)) (const_int N))
+	     with (vec_concat x z) if N == 1, or (vec_concat y x) if N == 2.
+	     Only applies for vectors of two elements.  */
+	  if (GET_CODE (op0) == VEC_DUPLICATE
+	      && GET_CODE (op1) == VEC_CONCAT
+	      && must_eq (GET_MODE_NUNITS (GET_MODE (op0)), 2)
+	      && must_eq (GET_MODE_NUNITS (GET_MODE (op1)), 2)
+	      && IN_RANGE (sel, 1, 2))
+	    {
+	      rtx newop0 = XEXP (op0, 0);
+	      rtx newop1 = XEXP (op1, 2 - sel);
+	      rtx otherop = XEXP (op1, sel - 1);
+	      if (sel == 2)
+		std::swap (newop0, newop1);
+	      /* Don't want to throw away the other part of the vec_concat if
+		 it has side-effects.  */
+	      if (!side_effects_p (otherop))
+		return simplify_gen_binary (VEC_CONCAT, mode, newop0, newop1);
+	    }
+
+	  /* Replace (vec_merge (vec_duplicate x) (vec_duplicate y)
+				 (const_int n))
+	     with (vec_concat x y) or (vec_concat y x) depending on value
+	     of N.  */
+	  if (GET_CODE (op0) == VEC_DUPLICATE
+	      && GET_CODE (op1) == VEC_DUPLICATE
+	      && must_eq (GET_MODE_NUNITS (GET_MODE (op0)), 2)
+	      && must_eq (GET_MODE_NUNITS (GET_MODE (op1)), 2)
+	      && IN_RANGE (sel, 1, 2))
+	    {
+	      rtx newop0 = XEXP (op0, 0);
+	      rtx newop1 = XEXP (op1, 0);
+	      if (sel == 2)
+		std::swap (newop0, newop1);
+
+	      return simplify_gen_binary (VEC_CONCAT, mode, newop0, newop1);
+	    }
 	}
 
       if (rtx_equal_p (op0, op1)

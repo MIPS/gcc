@@ -622,7 +622,7 @@ lshift_cheap_p (bool speed_p)
   return cheap[speed_p];
 }
 
-/* Return TRUE if at least one mode is available for optab OP.  */
+/* Return true if optab OP supports at least one mode.  */
 
 static bool
 supports_at_least_one_mode_p (optab op)
@@ -634,7 +634,7 @@ supports_at_least_one_mode_p (optab op)
   return false;
 }
 
-/* Return TRUE if vec_gather_load is available for at least one vector
+/* Return true if vec_gather_load is available for at least one vector
    mode.  */
 
 bool
@@ -646,13 +646,12 @@ supports_vec_gather_load_p ()
   this_fn_optabs->supports_vec_gather_load_cached = true;
 
   this_fn_optabs->supports_vec_gather_load
-    = supports_at_least_one_mode_p (vec_gather_loads_optab)
-      || supports_at_least_one_mode_p (vec_gather_loadu_optab);
+    = supports_at_least_one_mode_p (gather_load_optab);
 
   return this_fn_optabs->supports_vec_gather_load;
 }
 
-/* Return TRUE if vec_scatter_store is available for at least one vector
+/* Return true if vec_scatter_store is available for at least one vector
    mode.  */
 
 bool
@@ -664,8 +663,7 @@ supports_vec_scatter_store_p ()
   this_fn_optabs->supports_vec_scatter_store_cached = true;
 
   this_fn_optabs->supports_vec_scatter_store
-    = supports_at_least_one_mode_p (vec_scatter_stores_optab)
-      || supports_at_least_one_mode_p (vec_scatter_storeu_optab);
+    = supports_at_least_one_mode_p (scatter_store_optab);
 
   return this_fn_optabs->supports_vec_scatter_store;
 }

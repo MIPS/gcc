@@ -47,13 +47,15 @@ along with GCC; see the file COPYING3.  If not see
    - mask_load: currently just maskload
    - load_lanes: currently just vec_load_lanes
    - mask_load_lanes: currently just vec_mask_load_lanes
-   - gather_load: currently just vec_{,mask_}gather_load
+   - gather_load: used for {mask_,}gather_load
 
    - mask_store: currently just maskstore
    - store_lanes: currently just vec_store_lanes
    - mask_store_lanes: currently just vec_mask_store_lanes
+   - scatter_store: used for {mask_,}scatter_store
 
-   - binary: a normal binary optab, such as add<mode>3
+   - unary: a normal unary optab, such as vec_reverse_<mode>
+   - binary: a normal binary optab, such as vec_interleave_lo_<mode>
    - ternary: a normal ternary optab, such as fma<mode>4
 
    - cond_binary: a conditional binary optab, such as cond_add<mode>
@@ -111,44 +113,33 @@ DEF_INTERNAL_OPTAB_FN (MASK_LOAD, ECF_PURE, maskload, mask_load)
 DEF_INTERNAL_OPTAB_FN (FIRSTFAULT_LOAD, ECF_PURE, firstfault_load, firstfault_load)
 DEF_INTERNAL_OPTAB_FN (READ_NF, ECF_NOTHROW, read_nf, read_nf)
 DEF_INTERNAL_OPTAB_FN (WRITE_NF, ECF_NOTHROW, write_nf, write_nf)
-DEF_INTERNAL_OPTAB_FN (MASK_POPCOUNT, ECF_CONST | ECF_NOTHROW,
-		       mask_popcount, unary)
 
 DEF_INTERNAL_OPTAB_FN (LOAD_LANES, ECF_CONST, vec_load_lanes, load_lanes)
 DEF_INTERNAL_OPTAB_FN (MASK_LOAD_LANES, ECF_PURE,
 		       vec_mask_load_lanes, mask_load_lanes)
 
-DEF_INTERNAL_OPTAB_FN (GATHER_LOADS, ECF_PURE,
-		       vec_gather_loads, gather_load)
-DEF_INTERNAL_OPTAB_FN (MASK_GATHER_LOADS, ECF_PURE,
-		       vec_mask_gather_loads, gather_load)
-DEF_INTERNAL_OPTAB_FN (GATHER_LOADU, ECF_PURE,
-		       vec_gather_loadu, gather_load)
-DEF_INTERNAL_OPTAB_FN (MASK_GATHER_LOADU, ECF_PURE,
-		       vec_mask_gather_loadu, gather_load)
+DEF_INTERNAL_OPTAB_FN (GATHER_LOAD, ECF_PURE, gather_load, gather_load)
+DEF_INTERNAL_OPTAB_FN (MASK_GATHER_LOAD, ECF_PURE,
+		       mask_gather_load, gather_load)
 
-DEF_INTERNAL_OPTAB_FN (SCATTER_STORES, 0,
-		       vec_scatter_stores, scatter_store)
-DEF_INTERNAL_OPTAB_FN (MASK_SCATTER_STORES, 0,
-		       vec_mask_scatter_stores, scatter_store)
-DEF_INTERNAL_OPTAB_FN (SCATTER_STOREU, 0,
-		       vec_scatter_storeu, scatter_store)
-DEF_INTERNAL_OPTAB_FN (MASK_SCATTER_STOREU, 0,
-		       vec_mask_scatter_storeu, scatter_store)
+DEF_INTERNAL_OPTAB_FN (SCATTER_STORE, 0, scatter_store, scatter_store)
+DEF_INTERNAL_OPTAB_FN (MASK_SCATTER_STORE, 0,
+		       mask_scatter_store, scatter_store)
 
 DEF_INTERNAL_OPTAB_FN (MASK_STORE, 0, maskstore, mask_store)
 DEF_INTERNAL_OPTAB_FN (STORE_LANES, ECF_CONST, vec_store_lanes, store_lanes)
 DEF_INTERNAL_OPTAB_FN (MASK_STORE_LANES, 0,
 		       vec_mask_store_lanes, mask_store_lanes)
 
+DEF_INTERNAL_OPTAB_FN (MASK_POPCOUNT, ECF_CONST | ECF_NOTHROW,
+		       mask_popcount, unary)
+
 DEF_INTERNAL_OPTAB_FN (WHILE_ULT, ECF_CONST | ECF_NOTHROW, while_ult, while)
 
-DEF_INTERNAL_OPTAB_FN (CLASTB, ECF_CONST | ECF_NOTHROW, clastb, clastb)
-
-DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_HI, ECF_CONST | ECF_NOTHROW,
-		       vec_interleave_hi, binary)
 DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_LO, ECF_CONST | ECF_NOTHROW,
 		       vec_interleave_lo, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_HI, ECF_CONST | ECF_NOTHROW,
+		       vec_interleave_hi, binary)
 DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_EVEN, ECF_CONST | ECF_NOTHROW,
 		       vec_extract_even, binary)
 DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_ODD, ECF_CONST | ECF_NOTHROW,
@@ -194,7 +185,12 @@ DEF_INTERNAL_OPTAB_FN (BREAK_AFTER, ECF_CONST | ECF_NOTHROW,
 
 /* Extract the last active element from a vector.  */
 DEF_INTERNAL_OPTAB_FN (EXTRACT_LAST, ECF_CONST | ECF_NOTHROW,
-		       extract_last, binary)
+		       extract_last, cond_unary)
+
+/* Same, but return the first argument if no elements are active.  */
+DEF_INTERNAL_OPTAB_FN (FOLD_EXTRACT_LAST, ECF_CONST | ECF_NOTHROW,
+		       fold_extract_last, fold_extract)
+
 
 /* Unary math functions.  */
 DEF_INTERNAL_FLT_FN (ACOS, ECF_CONST, acos, unary)

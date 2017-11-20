@@ -2774,6 +2774,17 @@ details.
 With LRA, the default is to use @var{mode} unmodified.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_SELECT_EARLY_REMAT_MODES (sbitmap @var{modes})
+On some targets, certain modes cannot be held in registers around a
+standard ABI call and are relatively expensive to spill to the stack.
+The early rematerialization pass can help in such cases by aggressively
+recomputing values after calls, so that they don't need to be spilled.
+
+This hook returns the set of such modes by setting the associated bits
+in @var{modes}.  The default implementation selects no modes, which has
+the effect of disabling the early rematerialization pass.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_CLASS_LIKELY_SPILLED_P (reg_class_t @var{rclass})
 A target hook which returns @code{true} if pseudos that have been assigned
 to registers of class @var{rclass} would likely be spilled because
@@ -4249,14 +4260,15 @@ must have move patterns for this mode.
 @deftypefn {Target Hook} opt_machine_mode TARGET_ARRAY_MODE (machine_mode @var{mode}, unsigned HOST_WIDE_INT @var{nelems})
 Return the mode that GCC should use for an array that has
 @var{nelems} elements, with each element having mode @var{mode}.
-Return @code{BLKmode} if an integer mode of the appropriate size should
-be used; it is the caller's reponsibility to find such a mode.  Usually the
-search for the integer mode is limited to @code{MAX_FIXED_MODE_SIZE},
-but the @code{TARGET_ARRAY_MODE_SUPPORTED_P} hook allows a larger
-mode to be used in specific cases.
+Return no mode if the target has no special requirements.  In the
+latter case, GCC looks for an integer mode of the appropriate size
+if available and uses BLKmode otherwise.  Usually the search for the
+integer mode is limited to @code{MAX_FIXED_MODE_SIZE}, but the
+@code{TARGET_ARRAY_MODE_SUPPORTED_P} hook allows a larger mode to be
+used in specific cases.
 
 The main use of this hook is to specify that an array of vectors should
-also have a vector mode.  The default implementation returns @code{BLKmode}.
+also have a vector mode.  The default implementation returns no mode.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_ARRAY_MODE_SUPPORTED_P (machine_mode @var{mode}, unsigned HOST_WIDE_INT @var{nelems})
@@ -11859,13 +11871,6 @@ If defined, this function returns an appropriate alignment in bits for an atomic
 
 @deftypefn {Target Hook} void TARGET_ATOMIC_ASSIGN_EXPAND_FENV (tree *@var{hold}, tree *@var{clear}, tree *@var{update})
 ISO C11 requires atomic compound assignments that may raise floating-point exceptions to raise exceptions corresponding to the arithmetic operation whose result was successfully stored in a compare-and-exchange sequence.  This requires code equivalent to calls to @code{feholdexcept}, @code{feclearexcept} and @code{feupdateenv} to be generated at appropriate points in the compare-and-exchange sequence.  This hook should set @code{*@var{hold}} to an expression equivalent to the call to @code{feholdexcept}, @code{*@var{clear}} to an expression equivalent to the call to @code{feclearexcept} and @code{*@var{update}} to an expression equivalent to the call to @code{feupdateenv}.  The three expressions are @code{NULL_TREE} on entry to the hook and may be left as @code{NULL_TREE} if no code is required in a particular place.  The default implementation leaves all three expressions as @code{NULL_TREE}.  The @code{__atomic_feraiseexcept} function from @code{libatomic} may be of use as part of the code generated in @code{*@var{update}}.
-@end deftypefn
-
-@deftypefn {Target Hook} bool TARGET_GATHER_SCATTER_SUPPORTS_SCALE_P (bool @var{gather_p}, unsigned int @var{offset_bitsize}, unsigned int @var{scale})
-Return true if it is possible to plant a gather load or scatter store, with
-@var{gather_p} choosing between them.  @var{offset_bitsize} if the size in bits
-of the offset type and @var{scale} is the amount by which the offset is
-multiplied.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_RECORD_OFFLOAD_SYMBOL (tree)

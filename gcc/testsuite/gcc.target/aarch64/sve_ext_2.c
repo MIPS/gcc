@@ -1,16 +1,16 @@
 /* { dg-do compile } */
 /* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256" } */
 
-typedef int v8si __attribute__((vector_size (32)));
+typedef int vnx4si __attribute__((vector_size (32)));
 
 void
 foo (void)
 {
-  register v8si x asm ("z0");
-  register v8si y asm ("z1");
+  register vnx4si x asm ("z0");
+  register vnx4si y asm ("z1");
 
   asm volatile ("" : "=w" (y));
-  x = __builtin_shuffle (y, y, (v8si) { 1, 2, 3, 4, 5, 6, 7, 8 });
+  x = __builtin_shuffle (y, y, (vnx4si) { 1, 2, 3, 4, 5, 6, 7, 8 });
   asm volatile ("" :: "w" (x));
 }
 

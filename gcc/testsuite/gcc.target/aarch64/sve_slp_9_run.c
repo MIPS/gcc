@@ -32,7 +32,7 @@
       }								\
   }
 
-int
+int __attribute__ ((noinline, noclone))
 main (void)
 {
   TEST_ALL (HARNESS)

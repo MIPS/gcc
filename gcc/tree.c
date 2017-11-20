@@ -2976,13 +2976,9 @@ really_constant_p (const_tree exp)
 /* Return true if T holds a polynomial pointer difference, storing it in
    *VALUE if so.  A true return means that T's precision is no greater
    than 64 bits, which is the largest address space we support, so *VALUE
-   never loses precision.  However, the signedness of the result is
-   somewhat arbitrary, since if B lives near the end of a 64-bit address
-   range and A lives near the beginning, B - A is a large positive value
-   outside the range of int64_t.  A - B is likewise a large negative value
-   outside the range of int64_t.  All the pointer difference really
-   gives is a raw pointer-sized bitstring that can be added to the first
-   pointer value to get the second.  */
+   never loses precision.  However, the signedness of the result does
+   not necessarily match the signedness of T: sometimes an unsigned type
+   like sizetype is used to encode a value that is actually negative.  */
 
 bool
 ptrdiff_tree_p (const_tree t, poly_int64_pod *value)

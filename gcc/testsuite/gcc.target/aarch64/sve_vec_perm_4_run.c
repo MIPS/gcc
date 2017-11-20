@@ -9,7 +9,10 @@
   {							\
     TYPE a[N], b[N], c[N];				\
     for (unsigned int i = 0; i < N; ++i)		\
-      c[i] = i * 2 + i % 5;				\
+      {							\
+	c[i] = i * 2 + i % 5;				\
+	asm volatile ("" ::: "memory");			\
+      }							\
     vec_uzp_##TYPE (a, b, c, N / 8);			\
     for (unsigned int i = 0; i < N; ++i)		\
       {							\
@@ -19,7 +22,7 @@
       }							\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (HARNESS)

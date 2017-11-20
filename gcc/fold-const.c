@@ -435,7 +435,7 @@ negate_expr_p (tree t)
     case PLUS_EXPR:
       if (HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
 	  || HONOR_SIGNED_ZEROS (element_mode (type))
-	  || (INTEGRAL_TYPE_P (type)
+	  || (ANY_INTEGRAL_TYPE_P (type)
 	      && ! TYPE_OVERFLOW_WRAPS (type)))
 	return false;
       /* -(A + B) -> (-B) - A.  */
@@ -448,7 +448,7 @@ negate_expr_p (tree t)
       /* We can't turn -(A-B) into B-A when we honor signed zeros.  */
       return !HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
 	     && !HONOR_SIGNED_ZEROS (element_mode (type))
-	     && (! INTEGRAL_TYPE_P (type)
+	     && (! ANY_INTEGRAL_TYPE_P (type)
 		 || TYPE_OVERFLOW_WRAPS (type));
 
     case MULT_EXPR:
@@ -1604,14 +1604,14 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
       return build_vector_from_val (TREE_TYPE (arg1), sub);
     }
 
-  if ((TREE_CODE (arg1) == INTEGER_CST || TREE_CODE (arg1) == REAL_CST)
+  if (CONSTANT_CLASS_P (arg1)
       && TREE_CODE (arg2) == VECTOR_CST)
     {
       tree_code subcode;
 
       switch (code)
 	{
-	case STRICT_REDUC_PLUS_EXPR:
+	case FOLD_LEFT_PLUS_EXPR:
 	  subcode = PLUS_EXPR;
 	  break;
 	default:
@@ -9425,7 +9425,7 @@ fold_binary_loc (location_t loc,
 
   if ((code == BIT_AND_EXPR || code == BIT_IOR_EXPR
        || code == EQ_EXPR || code == NE_EXPR)
-      && TREE_CODE (TREE_TYPE (arg0)) != VECTOR_TYPE
+      && !VECTOR_TYPE_P (TREE_TYPE (arg0))
       && ((truth_value_p (TREE_CODE (arg0))
 	   && (truth_value_p (TREE_CODE (arg1))
 	       || (TREE_CODE (arg1) == BIT_AND_EXPR

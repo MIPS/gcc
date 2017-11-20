@@ -37,7 +37,7 @@
       }								\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (HARNESS)

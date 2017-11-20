@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)						\
-TYPE __attribute__ ((weak))					\
+TYPE __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE (TYPE *restrict a, int n)			\
 {								\
   for (int i = 0; i < n; ++i)					\
@@ -29,6 +29,7 @@ vec_slp_##TYPE (TYPE *restrict a, int n)			\
   T (uint32_t)					\
   T (int64_t)					\
   T (uint64_t)					\
+  T (_Float16)					\
   T (float)					\
   T (double)
 
@@ -36,7 +37,7 @@ TEST_ALL (VEC_PERM)
 
 /* 1 for each 8-bit type, 2 for each 16-bit type, 4 for each 32-bit type
    and 8 for double.  */
-/* { dg-final { scan-assembler-times {\tld1rd\tz[0-9]+\.d, } 26 } } */
+/* { dg-final { scan-assembler-times {\tld1rd\tz[0-9]+\.d, } 28 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #99\n} 2 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #11\n} 2 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #17\n} 2 } } */
@@ -55,21 +56,21 @@ TEST_ALL (VEC_PERM)
       ZIP1 ZIP1 ZIP1 ZIP1 (4 ZIP2s optimized away)
       ZIP1 ZIP2 ZIP1 ZIP2
       ZIP1 ZIP2 ZIP1 ZIP2.  */
-/* { dg-final { scan-assembler-times {\tzip1\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d\n} 35 } } */
+/* { dg-final { scan-assembler-times {\tzip1\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d\n} 36 } } */
 /* { dg-final { scan-assembler-times {\tzip2\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d\n} 15 } } */
 
 /* The loop should be fully-masked.  The 32-bit types need two loads
    and stores each and the 64-bit types need four.  */
 /* { dg-final { scan-assembler-times {\tld1b\t} 2 } } */
 /* { dg-final { scan-assembler-times {\tst1b\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tld1h\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tst1h\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tld1h\t} 3 } } */
+/* { dg-final { scan-assembler-times {\tst1h\t} 3 } } */
 /* { dg-final { scan-assembler-times {\tld1w\t} 6 } } */
 /* { dg-final { scan-assembler-times {\tst1w\t} 6 } } */
 /* { dg-final { scan-assembler-times {\tld1d\t} 12 } } */
 /* { dg-final { scan-assembler-times {\tst1d\t} 12 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.b} 4 } } */
-/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.h} 4 } } */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.h} 6 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.s} 12 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.d} 24 } } */
 /* { dg-final { scan-assembler-not {\tldr} } } */

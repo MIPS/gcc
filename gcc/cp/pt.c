@@ -9500,16 +9500,6 @@ in_template_function (void)
   return ret;
 }
 
-/* Returns true iff we are currently within a template other than a
-   default-capturing generic lambda, so we don't need to worry about semantic
-   processing.  */
-
-bool
-processing_nonlambda_template (void)
-{
-  return processing_template_decl && !need_generic_capture ();
-}
-
 /* Returns true if T depends on any template parameter with level LEVEL.  */
 
 bool
@@ -12024,7 +12014,7 @@ tsubst_aggr_type (tree t,
     }
 }
 
-static GTY(()) hash_map<tree, tree> *defarg_inst;
+static GTY((cache)) tree_cache_map *defarg_inst;
 
 /* Substitute into the default argument ARG (a default argument for
    FN), which has the indicated TYPE.  */
@@ -12111,7 +12101,7 @@ tsubst_default_argument (tree fn, int parmnum, tree type, tree arg,
   if (arg != error_mark_node && !cp_unevaluated_operand)
     {
       if (!defarg_inst)
-	defarg_inst = hash_map<tree,tree>::create_ggc (37);
+	defarg_inst = tree_cache_map::create_ggc (37);
       defarg_inst->put (parm, arg);
     }
 

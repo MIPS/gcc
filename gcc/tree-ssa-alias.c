@@ -635,15 +635,11 @@ tree
 ao_ref_base (ao_ref *ref)
 {
   bool reverse;
-  poly_int64 offset, size, max_size;
 
   if (ref->base)
     return ref->base;
-  ref->base = get_ref_base_and_extent (ref->ref, &offset, &size,
-				       &max_size, &reverse);
-  ref->offset = offset;
-  ref->size = size;
-  ref->max_size = max_size;
+  ref->base = get_ref_base_and_extent (ref->ref, &ref->offset, &ref->size,
+				       &ref->max_size, &reverse);
   return ref->base;
 }
 

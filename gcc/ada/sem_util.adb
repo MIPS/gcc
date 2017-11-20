@@ -141,7 +141,9 @@ package body Sem_Util is
 
    function Subprogram_Name (N : Node_Id) return String;
    --  Return the fully qualified name of the enclosing subprogram for the
-   --  given node N.
+   --  given node N, with file:line:col information appended, e.g.
+   --  "subp:file:line:col", corresponding to the source location of the
+   --  body of the subprogram.
 
    ------------------------------
    --  Abstract_Interface_List --
@@ -594,6 +596,8 @@ package body Sem_Util is
       -----------
 
       procedure Inner (E : Entity_Id) is
+         Scop : Node_Id;
+
       begin
          --  If entity has an internal name, skip by it, and print its scope.
          --  Note that we strip a final R from the name before the test; this
@@ -615,21 +619,23 @@ package body Sem_Util is
             end if;
          end;
 
+         Scop := Scope (E);
+
          --  Just print entity name if its scope is at the outer level
 
-         if Scope (E) = Standard_Standard then
+         if Scop = Standard_Standard then
             null;
 
          --  If scope comes from source, write scope and entity
 
-         elsif Comes_From_Source (Scope (E)) then
-            Append_Entity_Name (Temp, Scope (E));
+         elsif Comes_From_Source (Scop) then
+            Append_Entity_Name (Temp, Scop);
             Append (Temp, '.');
 
          --  If in wrapper package skip past it
 
-         elsif Is_Wrapper_Package (Scope (E)) then
-            Append_Entity_Name (Temp, Scope (Scope (E)));
+         elsif Present (Scop) and then Is_Wrapper_Package (Scop) then
+            Append_Entity_Name (Temp, Scope (Scop));
             Append (Temp, '.');
 
          --  Otherwise nothing to output (happens in unnamed block statements)
@@ -4025,7 +4031,7 @@ package body Sem_Util is
          if SPARK_Mode_Is_Off (Pack) then
             null;
 
-         --  State refinement can only occur in a completing packge body. Do
+         --  State refinement can only occur in a completing package body. Do
          --  not verify proper state refinement when the body is subject to
          --  pragma SPARK_Mode Off because this disables the requirement for
          --  state refinement.
@@ -7834,6 +7840,66 @@ package body Sem_Util is
 
       raise Program_Error;
    end Find_Corresponding_Discriminant;
+
+   -------------------
+   -- Find_DIC_Type --
+   -------------------
+
+   function Find_DIC_Type (Typ : Entity_Id) return Entity_Id is
+      Curr_Typ : Entity_Id;
+      --  The current type being examined in the parent hierarchy traversal
+
+      DIC_Typ : Entity_Id;
+      --  The type which carries the DIC pragma. This variable denotes the
+      --  partial view when private types are involved.
+
+      Par_Typ : Entity_Id;
+      --  The parent type of the current type. This variable denotes the full
+      --  view when private types are involved.
+
+   begin
+      --  The input type defines its own DIC pragma, therefore it is the owner
+
+      if Has_Own_DIC (Typ) then
+         DIC_Typ := Typ;
+
+         --  Otherwise the DIC pragma is inherited from a parent type
+
+      else
+         pragma Assert (Has_Inherited_DIC (Typ));
+
+         --  Climb the parent chain
+
+         Curr_Typ := Typ;
+         loop
+            --  Inspect the parent type. Do not consider subtypes as they
+            --  inherit the DIC attributes from their base types.
+
+            DIC_Typ := Base_Type (Etype (Curr_Typ));
+
+            --  Look at the full view of a private type because the type may
+            --  have a hidden parent introduced in the full view.
+
+            Par_Typ := DIC_Typ;
+
+            if Is_Private_Type (Par_Typ)
+              and then Present (Full_View (Par_Typ))
+            then
+               Par_Typ := Full_View (Par_Typ);
+            end if;
+
+            --  Stop the climb once the nearest parent type which defines a DIC
+            --  pragma of its own is encountered or when the root of the parent
+            --  chain is reached.
+
+            exit when Has_Own_DIC (DIC_Typ) or else Curr_Typ = Par_Typ;
+
+            Curr_Typ := Par_Typ;
+         end loop;
+      end if;
+
+      return DIC_Typ;
+   end Find_DIC_Type;
 
    ----------------------------------
    -- Find_Enclosing_Iterator_Loop --
@@ -13193,14 +13259,14 @@ package body Sem_Util is
       if Ekind (Proc_Nam) = E_Procedure
         and then Present (Parameter_Specifications (Parent (Proc_Nam)))
       then
-         Param := Parameter_Type (First (
-                    Parameter_Specifications (Parent (Proc_Nam))));
+         Param :=
+           Parameter_Type
+             (First (Parameter_Specifications (Parent (Proc_Nam))));
 
-         --  The formal may be an anonymous access type.
+         --  The formal may be an anonymous access type
 
          if Nkind (Param) = N_Access_Definition then
             Param_Typ := Entity (Subtype_Mark (Param));
-
          else
             Param_Typ := Etype (Param);
          end if;
@@ -14860,10 +14926,6 @@ package body Sem_Util is
       function Within_Check (Nod : Node_Id) return Boolean;
       --  Determine whether an arbitrary node appears in a check node
 
-      function Within_Subprogram_Call (Nod : Node_Id) return Boolean;
-      --  Determine whether an arbitrary node appears in an entry, function, or
-      --  procedure call.
-
       function Within_Volatile_Function (Id : Entity_Id) return Boolean;
       --  Determine whether an arbitrary entity appears in a volatile function
 
@@ -14925,36 +14987,6 @@ package body Sem_Util is
 
          return False;
       end Within_Check;
-
-      ----------------------------
-      -- Within_Subprogram_Call --
-      ----------------------------
-
-      function Within_Subprogram_Call (Nod : Node_Id) return Boolean is
-         Par : Node_Id;
-
-      begin
-         --  Climb the parent chain looking for a function or procedure call
-
-         Par := Nod;
-         while Present (Par) loop
-            if Nkind_In (Par, N_Entry_Call_Statement,
-                              N_Function_Call,
-                              N_Procedure_Call_Statement)
-            then
-               return True;
-
-            --  Prevent the search from going too far
-
-            elsif Is_Body_Or_Package_Declaration (Par) then
-               exit;
-            end if;
-
-            Par := Parent (Par);
-         end loop;
-
-         return False;
-      end Within_Subprogram_Call;
 
       ------------------------------
       -- Within_Volatile_Function --
@@ -15416,7 +15448,7 @@ package body Sem_Util is
       Anc_Part : Node_Id;
       Assoc    : Node_Id;
       Choice   : Node_Id;
-      Comp_Typ : Entity_Id;
+      Comp_Typ : Entity_Id := Empty; -- init to avoid warning
       Expr     : Node_Id;
 
    begin
@@ -15492,6 +15524,7 @@ package body Sem_Util is
          --  The type of the choice must have preelaborable initialization if
          --  the association carries a <>.
 
+         pragma Assert (Present (Comp_Typ));
          if Box_Present (Assoc) then
             if not Has_Preelaborable_Initialization (Comp_Typ) then
                return False;
@@ -17526,8 +17559,8 @@ package body Sem_Util is
       L_Ndims : constant Nat := Number_Dimensions (L_Typ);
       R_Ndims : constant Nat := Number_Dimensions (R_Typ);
 
-      L_Index : Node_Id;
-      R_Index : Node_Id;
+      L_Index : Node_Id := Empty; -- init to ...
+      R_Index : Node_Id := Empty; -- ...avoid warnings
       L_Low   : Node_Id;
       L_High  : Node_Id;
       L_Len   : Uint;
@@ -19504,9 +19537,9 @@ package body Sem_Util is
       N : constant Entity_Id := Make_Temporary (Sloc_Value, Id_Char);
 
    begin
-      Set_Ekind          (N, Kind);
-      Set_Is_Internal    (N, True);
-      Append_Entity      (N, Scope_Id);
+      Set_Ekind       (N, Kind);
+      Set_Is_Internal (N, True);
+      Append_Entity   (N, Scope_Id);
 
       if Kind in Type_Kind then
          Init_Size_Align (N);
@@ -23295,6 +23328,7 @@ package body Sem_Util is
    function Subprogram_Name (N : Node_Id) return String is
       Buf : Bounded_String;
       Ent : Node_Id := N;
+      Nod : Node_Id;
 
    begin
       while Present (Ent) loop
@@ -23303,17 +23337,32 @@ package body Sem_Util is
                Ent := Defining_Unit_Name (Specification (Ent));
                exit;
 
-            when N_Package_Body
+            when N_Subprogram_Declaration =>
+               Nod := Corresponding_Body (Ent);
+
+               if Present (Nod) then
+                  Ent := Nod;
+               else
+                  Ent := Defining_Unit_Name (Specification (Ent));
+               end if;
+
+               exit;
+
+            when N_Subprogram_Instantiation
+               | N_Package_Body
                | N_Package_Specification
-               | N_Subprogram_Specification
             =>
                Ent := Defining_Unit_Name (Ent);
                exit;
 
+            when N_Protected_Type_Declaration =>
+               Ent := Corresponding_Body (Ent);
+               exit;
+
             when N_Protected_Body
-               | N_Protected_Type_Declaration
                | N_Task_Body
             =>
+               Ent := Defining_Identifier (Ent);
                exit;
 
             when others =>
@@ -23324,17 +23373,54 @@ package body Sem_Util is
       end loop;
 
       if No (Ent) then
-         return "unknown subprogram";
+         return "unknown subprogram:unknown file:0:0";
       end if;
 
       --  If the subprogram is a child unit, use its simple name to start the
       --  construction of the fully qualified name.
 
       if Nkind (Ent) = N_Defining_Program_Unit_Name then
-         Append_Entity_Name (Buf, Defining_Identifier (Ent));
-      else
-         Append_Entity_Name (Buf, Ent);
+         Ent := Defining_Identifier (Ent);
       end if;
+
+      Append_Entity_Name (Buf, Ent);
+
+      --  Append homonym number if needed
+
+      if Nkind (N) in N_Entity and then Has_Homonym (N) then
+         declare
+            H  : Entity_Id := Homonym (N);
+            Nr : Nat := 1;
+
+         begin
+            while Present (H) loop
+               if Scope (H) = Scope (N) then
+                  Nr := Nr + 1;
+               end if;
+
+               H := Homonym (H);
+            end loop;
+
+            if Nr > 1 then
+               Append (Buf, '#');
+               Append (Buf, Nr);
+            end if;
+         end;
+      end if;
+
+      --  Append source location of Ent to Buf so that the string will
+      --  look like "subp:file:line:col".
+
+      declare
+         Loc : constant Source_Ptr := Sloc (Ent);
+      begin
+         Append (Buf, ':');
+         Append (Buf, Reference_Name (Get_Source_File_Index (Loc)));
+         Append (Buf, ':');
+         Append (Buf, Nat (Get_Logical_Line_Number (Loc)));
+         Append (Buf, ':');
+         Append (Buf, Nat (Get_Column_Number (Loc)));
+      end;
 
       return +Buf;
    end Subprogram_Name;
@@ -24183,6 +24269,36 @@ package body Sem_Util is
    begin
       return Scope_Within_Or_Same (Scope (E), S);
    end Within_Scope;
+
+   ----------------------------
+   -- Within_Subprogram_Call --
+   ----------------------------
+
+   function Within_Subprogram_Call (N : Node_Id) return Boolean is
+      Par : Node_Id;
+
+   begin
+      --  Climb the parent chain looking for a function or procedure call
+
+      Par := N;
+      while Present (Par) loop
+         if Nkind_In (Par, N_Entry_Call_Statement,
+                           N_Function_Call,
+                           N_Procedure_Call_Statement)
+         then
+            return True;
+
+         --  Prevent the search from going too far
+
+         elsif Is_Body_Or_Package_Declaration (Par) then
+            exit;
+         end if;
+
+         Par := Parent (Par);
+      end loop;
+
+      return False;
+   end Within_Subprogram_Call;
 
    ----------------
    -- Wrong_Type --

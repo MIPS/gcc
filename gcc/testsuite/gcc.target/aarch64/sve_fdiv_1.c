@@ -1,9 +1,9 @@
 /* { dg-do assemble } */
 /* { dg-options "-O3 -march=armv8-a+sve -msve-vector-bits=256 --save-temps" } */
 
-typedef _Float16 v16hf __attribute__((vector_size(32)));
-typedef float v8sf __attribute__((vector_size(32)));
-typedef double v4df __attribute__((vector_size(32)));
+typedef _Float16 vnx8hf __attribute__((vector_size(32)));
+typedef float vnx4sf __attribute__((vector_size(32)));
+typedef double vnx2df __attribute__((vector_size(32)));
 
 #define DO_OP(TYPE)				\
 void vdiv_##TYPE (TYPE *x, TYPE y)		\
@@ -29,9 +29,9 @@ void vdivr_##TYPE (TYPE *x, TYPE y)		\
   *x = dst;					\
 }
 
-DO_OP (v16hf)
-DO_OP (v8sf)
-DO_OP (v4df)
+DO_OP (vnx8hf)
+DO_OP (vnx4sf)
+DO_OP (vnx2df)
 
 /* { dg-final { scan-assembler-times {\tfdiv\tz[0-9]+\.h, p[0-7]/m, z[0-9]+\.h, z[0-9]+\.h\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tfdivr\tz[0-9]+\.h, p[0-7]/m, z[0-9]+\.h, z[0-9]+\.h\n} 1 } } */

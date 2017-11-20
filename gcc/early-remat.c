@@ -399,7 +399,7 @@ struct remat_candidate_hasher : nofree_ptr_hash <remat_candidate>
 /* Main class for this pass.  */
 class early_remat {
 public:
-  early_remat (function *);
+  early_remat (function *, sbitmap);
   ~early_remat ();
 
   void run (void);
@@ -460,6 +460,9 @@ private:
 
   /* The function that we're optimizing.  */
   function *m_fn;
+
+  /* The modes that we want to rematerialize.  */
+  sbitmap m_selected_modes;
 
   /* All rematerialization candidates, identified by their index into the
      vector.  */
@@ -760,15 +763,15 @@ early_remat::interesting_regno_p (unsigned int regno)
   if (!reg || DF_REG_DEF_COUNT (regno) == 0)
     return false;
 
+  /* Make sure the register has a mode that we want to rematerialize.  */
+  if (!bitmap_bit_p (m_selected_modes, GET_MODE (reg)))
+    return false;
+
   /* Ignore values that might sometimes be used uninitialized.  We could
      instead add dummy candidates for the entry block definition, and so
      handle uses that are definitely not uninitialized, but the combination
      of the two should be rare in practice.  */
   if (bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR_FOR_FN (m_fn)), regno))
-    return false;
-
-  /* At present we only rematerialize variable-sized registers.  */
-  if (GET_MODE_SIZE (GET_MODE (reg)).is_constant ())
     return false;
 
   return true;
@@ -2542,8 +2545,9 @@ early_remat::run (void)
   global_phase ();
 }
 
-early_remat::early_remat (function *fn)
+early_remat::early_remat (function *fn, sbitmap selected_modes)
   : m_fn (fn),
+    m_selected_modes (selected_modes),
     m_available (0),
     m_required (0),
     m_value_table (63)
@@ -2588,7 +2592,11 @@ public:
 
   virtual unsigned int execute (function *f)
   {
-    early_remat (f).run ();
+    auto_sbitmap selected_modes (NUM_MACHINE_MODES);
+    bitmap_clear (selected_modes);
+    targetm.select_early_remat_modes (selected_modes);
+    if (!bitmap_empty_p (selected_modes))
+      early_remat (f, selected_modes).run ();
     return 0;
   }
 }; // class pass_early_remat

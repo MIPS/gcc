@@ -172,7 +172,7 @@
 	(vec_select:<VEL> (match_operand:VALL_F16 1 "register_operand" "w")
 			(parallel [(match_operand 2 "const_int_operand" "n")])))]
   "TARGET_SIMD
-   && ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[2])) == 0"
+   && ENDIAN_LANE_N (<nunits>, INTVAL (operands[2])) == 0"
   "str\\t%<Vetype>1, %0"
   [(set_attr "type" "neon_store1_1reg<q>")]
 )
@@ -449,8 +449,7 @@
 		DOTPROD)))]
   "TARGET_DOTPROD"
   {
-    operands[4]
-      = GEN_INT (ENDIAN_LANE_N (V8QImode, INTVAL (operands[4])));
+    operands[4] = aarch64_endian_lane_rtx (V8QImode, INTVAL (operands[4]));
     return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
   }
   [(set_attr "type" "neon_dot")]
@@ -465,8 +464,7 @@
 		DOTPROD)))]
   "TARGET_DOTPROD"
   {
-    operands[4]
-      = GEN_INT (ENDIAN_LANE_N (V16QImode, INTVAL (operands[4])));
+    operands[4] = aarch64_endian_lane_rtx (V16QImode, INTVAL (operands[4]));
     return "<sur>dot\\t%0.<Vtype>, %2.<Vdottype>, %3.4b[%4]";
   }
   [(set_attr "type" "neon_dot")]
@@ -733,9 +731,9 @@
 	    (match_operand:SI 2 "immediate_operand" "i")))]
   "TARGET_SIMD"
   {
-    int elt = ENDIAN_LANE_N (<MODE>mode, exact_log2 (INTVAL (operands[2])));
+    int elt = ENDIAN_LANE_N (<nunits>, exact_log2 (INTVAL (operands[2])));
     operands[2] = GEN_INT (HOST_WIDE_INT_1 << elt);
-    operands[4] = GEN_INT (ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[4])));
+    operands[4] = aarch64_endian_lane_rtx (<MODE>mode, INTVAL (operands[4]));
 
     return "ins\t%0.<Vetype>[%p2], %3.<Vetype>[%4]";
   }
@@ -754,10 +752,10 @@
 	    (match_operand:SI 2 "immediate_operand" "i")))]
   "TARGET_SIMD"
   {
-    int elt = ENDIAN_LANE_N (<MODE>mode, exact_log2 (INTVAL (operands[2])));
+    int elt = ENDIAN_LANE_N (<nunits>, exact_log2 (INTVAL (operands[2])));
     operands[2] = GEN_INT (HOST_WIDE_INT_1 << elt);
-    operands[4] = GEN_INT (ENDIAN_LANE_N (<VSWAP_WIDTH>mode,
-			   INTVAL (operands[4])));
+    operands[4] = aarch64_endian_lane_rtx (<VSWAP_WIDTH>mode,
+					   INTVAL (operands[4]));
 
     return "ins\t%0.<Vetype>[%p2], %3.<Vetype>[%4]";
   }
@@ -2420,13 +2418,13 @@
 ;; in *aarch64_simd_bsl<mode>_alt.
 
 (define_insn "aarch64_simd_bsl<mode>_internal"
-  [(set (match_operand:VSDQ_I_DI 0 "register_operand" "=w,w,w")
-	(xor:VSDQ_I_DI
-	   (and:VSDQ_I_DI
-	     (xor:VSDQ_I_DI
+  [(set (match_operand:VDQ_I 0 "register_operand" "=w,w,w")
+	(xor:VDQ_I
+	   (and:VDQ_I
+	     (xor:VDQ_I
 	       (match_operand:<V_INT_EQUIV> 3 "register_operand" "w,0,w")
-	       (match_operand:VSDQ_I_DI 2 "register_operand" "w,w,0"))
-	     (match_operand:VSDQ_I_DI 1 "register_operand" "0,w,w"))
+	       (match_operand:VDQ_I 2 "register_operand" "w,w,0"))
+	     (match_operand:VDQ_I 1 "register_operand" "0,w,w"))
 	  (match_dup:<V_INT_EQUIV> 3)
 	))]
   "TARGET_SIMD"
@@ -2444,20 +2442,114 @@
 ;; permutations of commutative operations, we have to have a separate pattern.
 
 (define_insn "*aarch64_simd_bsl<mode>_alt"
-  [(set (match_operand:VSDQ_I_DI 0 "register_operand" "=w,w,w")
-	(xor:VSDQ_I_DI
-	   (and:VSDQ_I_DI
-	     (xor:VSDQ_I_DI
-	       (match_operand:VSDQ_I_DI 3 "register_operand" "w,w,0")
-	       (match_operand:VSDQ_I_DI 2 "register_operand" "w,0,w"))
-	      (match_operand:VSDQ_I_DI 1 "register_operand" "0,w,w"))
-	  (match_dup:VSDQ_I_DI 2)))]
+  [(set (match_operand:VDQ_I 0 "register_operand" "=w,w,w")
+	(xor:VDQ_I
+	   (and:VDQ_I
+	     (xor:VDQ_I
+	       (match_operand:VDQ_I 3 "register_operand" "w,w,0")
+	       (match_operand:<V_INT_EQUIV> 2 "register_operand" "w,0,w"))
+	      (match_operand:VDQ_I 1 "register_operand" "0,w,w"))
+	  (match_dup:<V_INT_EQUIV> 2)))]
   "TARGET_SIMD"
   "@
   bsl\\t%0.<Vbtype>, %3.<Vbtype>, %2.<Vbtype>
   bit\\t%0.<Vbtype>, %3.<Vbtype>, %1.<Vbtype>
   bif\\t%0.<Vbtype>, %2.<Vbtype>, %1.<Vbtype>"
   [(set_attr "type" "neon_bsl<q>")]
+)
+
+;; DImode is special, we want to avoid computing operations which are
+;; more naturally computed in general purpose registers in the vector
+;; registers.  If we do that, we need to move all three operands from general
+;; purpose registers to vector registers, then back again.  However, we
+;; don't want to make this pattern an UNSPEC as we'd lose scope for
+;; optimizations based on the component operations of a BSL.
+;;
+;; That means we need a splitter back to the individual operations, if they
+;; would be better calculated on the integer side.
+
+(define_insn_and_split "aarch64_simd_bsldi_internal"
+  [(set (match_operand:DI 0 "register_operand" "=w,w,w,&r")
+	(xor:DI
+	   (and:DI
+	     (xor:DI
+	       (match_operand:DI 3 "register_operand" "w,0,w,r")
+	       (match_operand:DI 2 "register_operand" "w,w,0,r"))
+	     (match_operand:DI 1 "register_operand" "0,w,w,r"))
+	  (match_dup:DI 3)
+	))]
+  "TARGET_SIMD"
+  "@
+  bsl\\t%0.8b, %2.8b, %3.8b
+  bit\\t%0.8b, %2.8b, %1.8b
+  bif\\t%0.8b, %3.8b, %1.8b
+  #"
+  "&& GP_REGNUM_P (REGNO (operands[0]))"
+  [(match_dup 1) (match_dup 1) (match_dup 2) (match_dup 3)]
+{
+  /* Split back to individual operations.  If we're before reload, and
+     able to create a temporary register, do so.  If we're after reload,
+     we've got an early-clobber destination register, so use that.
+     Otherwise, we can't create pseudos and we can't yet guarantee that
+     operands[0] is safe to write, so FAIL to split.  */
+
+  rtx scratch;
+  if (reload_completed)
+    scratch = operands[0];
+  else if (can_create_pseudo_p ())
+    scratch = gen_reg_rtx (DImode);
+  else
+    FAIL;
+
+  emit_insn (gen_xordi3 (scratch, operands[2], operands[3]));
+  emit_insn (gen_anddi3 (scratch, scratch, operands[1]));
+  emit_insn (gen_xordi3 (operands[0], scratch, operands[3]));
+  DONE;
+}
+  [(set_attr "type" "neon_bsl,neon_bsl,neon_bsl,multiple")
+   (set_attr "length" "4,4,4,12")]
+)
+
+(define_insn_and_split "aarch64_simd_bsldi_alt"
+  [(set (match_operand:DI 0 "register_operand" "=w,w,w,&r")
+	(xor:DI
+	   (and:DI
+	     (xor:DI
+	       (match_operand:DI 3 "register_operand" "w,w,0,r")
+	       (match_operand:DI 2 "register_operand" "w,0,w,r"))
+	     (match_operand:DI 1 "register_operand" "0,w,w,r"))
+	  (match_dup:DI 2)
+	))]
+  "TARGET_SIMD"
+  "@
+  bsl\\t%0.8b, %3.8b, %2.8b
+  bit\\t%0.8b, %3.8b, %1.8b
+  bif\\t%0.8b, %2.8b, %1.8b
+  #"
+  "&& GP_REGNUM_P (REGNO (operands[0]))"
+  [(match_dup 0) (match_dup 1) (match_dup 2) (match_dup 3)]
+{
+  /* Split back to individual operations.  If we're before reload, and
+     able to create a temporary register, do so.  If we're after reload,
+     we've got an early-clobber destination register, so use that.
+     Otherwise, we can't create pseudos and we can't yet guarantee that
+     operands[0] is safe to write, so FAIL to split.  */
+
+  rtx scratch;
+  if (reload_completed)
+    scratch = operands[0];
+  else if (can_create_pseudo_p ())
+    scratch = gen_reg_rtx (DImode);
+  else
+    FAIL;
+
+  emit_insn (gen_xordi3 (scratch, operands[2], operands[3]));
+  emit_insn (gen_anddi3 (scratch, scratch, operands[1]));
+  emit_insn (gen_xordi3 (operands[0], scratch, operands[2]));
+  DONE;
+}
+  [(set_attr "type" "neon_bsl,neon_bsl,neon_bsl,multiple")
+   (set_attr "length" "4,4,4,12")]
 )
 
 (define_expand "aarch64_simd_bsl<mode>"
@@ -2934,14 +3026,40 @@
   [(set_attr "type" "neon_to_gp<q>, neon_dup<q>, neon_store1_one_lane<q>")]
 )
 
+(define_insn "load_pair_lanes<mode>"
+  [(set (match_operand:<VDBL> 0 "register_operand" "=w")
+	(vec_concat:<VDBL>
+	   (match_operand:VDC 1 "memory_operand" "Utq")
+	   (match_operand:VDC 2 "memory_operand" "m")))]
+  "TARGET_SIMD && !STRICT_ALIGNMENT
+   && rtx_equal_p (XEXP (operands[2], 0),
+		   plus_constant (Pmode,
+				  XEXP (operands[1], 0),
+				  GET_MODE_SIZE (<MODE>mode)))"
+  "ldr\\t%q0, %1"
+  [(set_attr "type" "neon_load1_1reg_q")]
+)
+
+(define_insn "store_pair_lanes<mode>"
+  [(set (match_operand:<VDBL> 0 "aarch64_mem_pair_lanes_operand" "=Uml, Uml")
+	(vec_concat:<VDBL>
+	   (match_operand:VDC 1 "register_operand" "w, r")
+	   (match_operand:VDC 2 "register_operand" "w, r")))]
+  "TARGET_SIMD"
+  "@
+   stp\\t%d1, %d2, %0
+   stp\\t%x1, %x2, %0"
+  [(set_attr "type" "neon_stp, store_16")]
+)
+
 ;; In this insn, operand 1 should be low, and operand 2 the high part of the
 ;; dest vector.
 
 (define_insn "*aarch64_combinez<mode>"
   [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
-        (vec_concat:<VDBL>
-	   (match_operand:VD_BHSI 1 "general_operand" "w,?r,m")
-	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz,Dz,Dz")))]
+	(vec_concat:<VDBL>
+	  (match_operand:VDC 1 "general_operand" "w,?r,m")
+	  (match_operand:VDC 2 "aarch64_simd_or_scalar_imm_zero")))]
   "TARGET_SIMD && !BYTES_BIG_ENDIAN"
   "@
    mov\\t%0.8b, %1.8b
@@ -2955,8 +3073,8 @@
 (define_insn "*aarch64_combinez_be<mode>"
   [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
         (vec_concat:<VDBL>
-	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz,Dz,Dz")
-	   (match_operand:VD_BHSI 1 "general_operand" "w,?r,m")))]
+	  (match_operand:VDC 2 "aarch64_simd_or_scalar_imm_zero")
+	  (match_operand:VDC 1 "general_operand" "w,?r,m")))]
   "TARGET_SIMD && BYTES_BIG_ENDIAN"
   "@
    mov\\t%0.8b, %1.8b

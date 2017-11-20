@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)						\
-TYPE __attribute__ ((weak))					\
+TYPE __attribute__ ((noinline, noclone))			\
 vec_reverse_##TYPE (TYPE *restrict a, TYPE *restrict b, int n)	\
 {								\
   for (int i = 0; i < n; ++i)					\

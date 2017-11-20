@@ -1,8 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -fno-tree-dce -ffast-math -march=armv8-a+sve" } */
+/* { dg-options "-O2 -ftree-vectorize -ffast-math -march=armv8-a+sve" } */
 
 #define TEST_LOOP(NAME, OUTTYPE, INTYPE, MASKTYPE)		\
-  void								\
+  void __attribute__ ((noinline, noclone))			\
   NAME##_2 (OUTTYPE *__restrict dest, INTYPE *__restrict src,	\
 	    MASKTYPE *__restrict cond, int n)			\
   {								\
@@ -28,6 +28,7 @@
   TEST1 (NAME##_i16, unsigned short) \
   TEST1 (NAME##_i32, int) \
   TEST1 (NAME##_i64, unsigned long) \
+  TEST2 (NAME##_f16_f16, _Float16, _Float16) \
   TEST2 (NAME##_f32_f32, float, float) \
   TEST2 (NAME##_f64_f64, double, double)
 

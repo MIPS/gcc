@@ -1,12 +1,12 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -march=armv8-a+sve -msve-vector-bits=256" } */
 
-typedef int v8si __attribute__((vector_size(32)));
+typedef int vnx4si __attribute__((vector_size(32)));
 
-v8si
-foo (v8si x, v8si y)
+vnx4si
+foo (vnx4si x, vnx4si y)
 {
-  return (v8si) { -1, 0, 0, -1, -1, -1, 0, 0 } ? x : y;
+  return (vnx4si) { -1, 0, 0, -1, -1, -1, 0, 0 } ? x : y;
 }
 
 /* { dg-final { scan-assembler {\tldr\tp[0-9]+,} } } */

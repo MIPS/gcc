@@ -3,9 +3,9 @@
 
 void sve_copy_rr (void)
 {
-  typedef int v8si __attribute__((vector_size(32)));
-  register v8si x asm ("z1");
-  register v8si y asm ("z2");
+  typedef int vnx4si __attribute__((vector_size(32)));
+  register vnx4si x asm ("z1");
+  register vnx4si y asm ("z2");
   asm volatile ("#foo" : "=w" (x));
   y = x;
   asm volatile ("#foo" :: "w" (y));

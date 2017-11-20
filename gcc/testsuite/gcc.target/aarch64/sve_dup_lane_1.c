@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 
-typedef int64_t v4di __attribute__((vector_size (32)));
-typedef int32_t v8si __attribute__((vector_size (32)));
-typedef int16_t v16hi __attribute__((vector_size (32)));
-typedef int8_t v32qi __attribute__((vector_size (32)));
-typedef double v4df __attribute__((vector_size (32)));
-typedef float v8sf __attribute__((vector_size (32)));
-typedef _Float16 v16hf __attribute__((vector_size (32)));
+typedef int64_t vnx2di __attribute__((vector_size (32)));
+typedef int32_t vnx4si __attribute__((vector_size (32)));
+typedef int16_t vnx8hi __attribute__((vector_size (32)));
+typedef int8_t vnx16qi __attribute__((vector_size (32)));
+typedef double vnx2df __attribute__((vector_size (32)));
+typedef float vnx4sf __attribute__((vector_size (32)));
+typedef _Float16 vnx8hf __attribute__((vector_size (32)));
 
 #define MASK_2(X) X, X
 #define MASK_4(X) MASK_2 (X), MASK_2 (X)
@@ -17,10 +17,10 @@ typedef _Float16 v16hf __attribute__((vector_size (32)));
 #define MASK_16(X) MASK_8 (X), MASK_8 (X)
 #define MASK_32(X) MASK_16 (X), MASK_16 (X)
 
-#define INDEX_4 v4di
-#define INDEX_8 v8si
-#define INDEX_16 v16hi
-#define INDEX_32 v32qi
+#define INDEX_4 vnx2di
+#define INDEX_8 vnx4si
+#define INDEX_16 vnx8hi
+#define INDEX_32 vnx16qi
 
 #define DUP_LANE(TYPE, NUNITS, INDEX)					     \
   TYPE dup_##INDEX##_##TYPE (TYPE values1, TYPE values2)		     \
@@ -30,27 +30,27 @@ typedef _Float16 v16hf __attribute__((vector_size (32)));
   }
 
 #define TEST_ALL(T)				\
-  T (v4di, 4, 0)				\
-  T (v4di, 4, 2)				\
-  T (v4di, 4, 3)				\
-  T (v8si, 8, 0)				\
-  T (v8si, 8, 5)				\
-  T (v8si, 8, 7)				\
-  T (v16hi, 16, 0)				\
-  T (v16hi, 16, 6)				\
-  T (v16hi, 16, 15)				\
-  T (v32qi, 32, 0)				\
-  T (v32qi, 32, 19)				\
-  T (v32qi, 32, 31)				\
-  T (v4df, 4, 0)				\
-  T (v4df, 4, 2)				\
-  T (v4df, 4, 3)				\
-  T (v8sf, 8, 0)				\
-  T (v8sf, 8, 5)				\
-  T (v8sf, 8, 7)				\
-  T (v16hf, 16, 0)				\
-  T (v16hf, 16, 6)				\
-  T (v16hf, 16, 15)				\
+  T (vnx2di, 4, 0)				\
+  T (vnx2di, 4, 2)				\
+  T (vnx2di, 4, 3)				\
+  T (vnx4si, 8, 0)				\
+  T (vnx4si, 8, 5)				\
+  T (vnx4si, 8, 7)				\
+  T (vnx8hi, 16, 0)				\
+  T (vnx8hi, 16, 6)				\
+  T (vnx8hi, 16, 15)				\
+  T (vnx16qi, 32, 0)				\
+  T (vnx16qi, 32, 19)				\
+  T (vnx16qi, 32, 31)				\
+  T (vnx2df, 4, 0)				\
+  T (vnx2df, 4, 2)				\
+  T (vnx2df, 4, 3)				\
+  T (vnx4sf, 8, 0)				\
+  T (vnx4sf, 8, 5)				\
+  T (vnx4sf, 8, 7)				\
+  T (vnx8hf, 16, 0)				\
+  T (vnx8hf, 16, 6)				\
+  T (vnx8hf, 16, 15)				\
 
 TEST_ALL (DUP_LANE)
 

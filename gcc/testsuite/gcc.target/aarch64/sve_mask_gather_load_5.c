@@ -1,120 +1,38 @@
 /* { dg-do assemble } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -ffast-math --save-temps" } */
 
-#define MASK_GATHER_LOAD1(OBJTYPE,MASKTYPE,STRIDETYPE,STRIDE)\
-void mgather_load1##OBJTYPE##STRIDETYPE##STRIDE (OBJTYPE * restrict dst,\
-						 OBJTYPE * restrict src,\
-						 MASKTYPE * restrict masks,\
-						 STRIDETYPE count)\
-{\
-  for (STRIDETYPE i=0; i<count; i++)\
-    if (masks[i * STRIDE])\
-      dst[i] = src[i * STRIDE];\
-}
+#include <stdint.h>
 
-#define MASK_GATHER_LOAD2(OBJTYPE,MASKTYPE,STRIDETYPE)\
-void mgather_load2##OBJTYPE##STRIDETYPE (OBJTYPE * restrict dst,\
-					 OBJTYPE * restrict src,\
-					 MASKTYPE * restrict masks,\
-					 STRIDETYPE stride,\
-					 STRIDETYPE count)\
-{\
-  for (STRIDETYPE i=0; i<count; i++)\
-    if (masks[i * stride])\
-      dst[i] = src[i * stride];\
-}
+#ifndef INDEX32
+#define INDEX32 int32_t
+#define INDEX64 int64_t
+#endif
 
-#define MASK_GATHER_LOAD3(OBJTYPE,MASKTYPE,STRIDETYPE)\
-void mgather_load3s5##OBJTYPE##STRIDETYPE\
-  (OBJTYPE * restrict d1, OBJTYPE * restrict d2, OBJTYPE * restrict d3,\
-   OBJTYPE * restrict d4, OBJTYPE * restrict d5, OBJTYPE * restrict src,\
-   MASKTYPE * restrict masks, STRIDETYPE count)\
-{\
-  const STRIDETYPE STRIDE = 5;\
-  for (STRIDETYPE i=0; i<count; i++)\
-    if (masks[i * STRIDE])\
-      {\
-	d1[i] = src[0 + (i * STRIDE)];\
-	d2[i] = src[1 + (i * STRIDE)];\
-	d3[i] = src[2 + (i * STRIDE)];\
-	d4[i] = src[3 + (i * STRIDE)];\
-	d5[i] = src[4 + (i * STRIDE)];\
-      }\
-}
+#define TEST_LOOP(DATA_TYPE, CMP_TYPE)					\
+  void									\
+  f_##DATA_TYPE##_##CMP_TYPE						\
+    (DATA_TYPE *restrict dest, DATA_TYPE *restrict *restrict src,	\
+     CMP_TYPE *cmp1, CMP_TYPE *cmp2, int n)				\
+  {									\
+    for (int i = 0; i < n; ++i)						\
+      if (cmp1[i] == cmp2[i])						\
+	dest[i] += *src[i];						\
+  }
 
-#define MASK_GATHER_LOAD4(OBJTYPE,MASKTYPE,STRIDETYPE,STRIDE)\
-void mgather_load4##OBJTYPE##STRIDETYPE##STRIDE (OBJTYPE * restrict dst,\
-						 OBJTYPE * restrict src,\
-						 MASKTYPE * restrict masks,\
-						 STRIDETYPE count)\
-{\
-  for (STRIDETYPE i=0; i<count; i++)\
-    {\
-      if (masks[i * STRIDE])\
-	*dst = *src;\
-      dst += 1;\
-      src += STRIDE;\
-    }\
-}
+#define TEST_TYPE(T, DATA_TYPE)		\
+  T (DATA_TYPE, int64_t)		\
+  T (DATA_TYPE, uint64_t)		\
+  T (DATA_TYPE, double)
 
-#define MASK_GATHER_LOAD5(OBJTYPE,MASKTYPE,STRIDETYPE)\
-void mgather_load5##OBJTYPE##STRIDETYPE (OBJTYPE * restrict dst,\
-					 OBJTYPE * restrict src,\
-					 MASKTYPE * restrict masks,\
-					 STRIDETYPE stride,\
-					 STRIDETYPE count)\
-{\
-  for (STRIDETYPE i=0; i<count; i++)\
-    {\
-      if (masks[i * stride])\
-	*dst = *src;\
-      dst += 1;\
-      src += stride;\
-    }\
-}
+#define TEST_ALL(T)			\
+  TEST_TYPE (T, int64_t)		\
+  TEST_TYPE (T, uint64_t)		\
+  TEST_TYPE (T, double)
 
-MASK_GATHER_LOAD1 (double, long, long, 5)
-MASK_GATHER_LOAD1 (double, long, long, 8)
-MASK_GATHER_LOAD1 (double, long, long, 21)
-MASK_GATHER_LOAD1 (double, long, long, 1009)
+TEST_ALL (TEST_LOOP)
 
-MASK_GATHER_LOAD1 (float, int, int, 5)
-MASK_GATHER_LOAD1 (float, int, int, 8)
-MASK_GATHER_LOAD1 (float, int, int, 21)
-MASK_GATHER_LOAD1 (float, int, int, 1009)
-
-MASK_GATHER_LOAD2 (double, long, long)
-MASK_GATHER_LOAD2 (float, int, int)
-
-MASK_GATHER_LOAD3 (double, long, long)
-MASK_GATHER_LOAD3 (float, int, int)
-
-MASK_GATHER_LOAD4 (double, long, long, 5)
-
-/* NOTE: We can't vectorize MASK_GATHER_LOAD4 (float, int, int, 5) because we
-   can't prove that the offsets used for the gather load won't overflow.  */
-
-MASK_GATHER_LOAD5 (double, long, long)
-MASK_GATHER_LOAD5 (float, int, int)
-
-/* Widened forms.  */
-MASK_GATHER_LOAD1 (double, long, int, 5)
-MASK_GATHER_LOAD1 (double, long, int, 8)
-MASK_GATHER_LOAD1 (double, long, short, 5)
-MASK_GATHER_LOAD1 (double, long, short, 8)
-
-MASK_GATHER_LOAD1 (float, int, short, 5)
-MASK_GATHER_LOAD1 (float, int, short, 8)
-
-MASK_GATHER_LOAD2 (double, long, int)
-MASK_GATHER_LOAD2 (float, int, short)
-
-MASK_GATHER_LOAD4 (double, long, int, 5)
-MASK_GATHER_LOAD4 (float, int, short, 5)
-
-MASK_GATHER_LOAD5 (double, long, int)
-
-/* Loads including masks.  */
-/* { dg-final { scan-assembler-times "ld1d\\tz\[0-9\]+.d, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.d\\\]" 34 } } */
-/* { dg-final { scan-assembler-times "ld1w\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw 2\\\]" 20 } } */
-/* { dg-final { scan-assembler-times "ld1w\\tz\[0-9\]+.s, p\[0-9\]+/z, \\\[x\[0-9\]+, z\[0-9\]+.s, sxtw\\\]" 6 } } */
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[x[0-9]+, x[0-9]+, lsl 3\]\n} 36 } } */
+/* { dg-final { scan-assembler-times {\tcmpeq\tp[0-7]\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 6 } } */
+/* { dg-final { scan-assembler-times {\tfcmeq\tp[0-7]\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 3 } } */
+/* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z, \[z[0-9]+\.d\]\n} 9 } } */
+/* { dg-final { scan-assembler-times {\tst1d\tz[0-9]+\.d, p[0-7], \[x[0-9]+, x[0-9]+, lsl 3\]\n} 9 } } */

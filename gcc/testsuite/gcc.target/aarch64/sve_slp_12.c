@@ -6,7 +6,7 @@
 #define N1 (19 * 2)
 
 #define VEC_PERM(TYPE)						\
-void __attribute__ ((weak))					\
+void __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE (TYPE *restrict a, TYPE *restrict b)		\
 {								\
   for (int i = 0; i < N1; ++i)					\

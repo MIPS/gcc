@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)					\
-TYPE __attribute__ ((weak))				\
+TYPE __attribute__ ((noinline, noclone))		\
 vec_zip_##TYPE (TYPE *restrict a, TYPE *restrict b,	\
 		TYPE *restrict c, long n)		\
 {							\

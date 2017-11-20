@@ -150,14 +150,10 @@
     UNSPEC_RSQRTS
     UNSPEC_NZCV
     UNSPEC_XPACLRI
-    UNSPEC_GATHER_LOADS
-    UNSPEC_GATHER_LOADU
-    UNSPEC_PRED_GATHER_LOADS
-    UNSPEC_PRED_GATHER_LOADU
-    UNSPEC_SCATTER_STORES
-    UNSPEC_SCATTER_STOREU
     UNSPEC_LD1_SVE
     UNSPEC_ST1_SVE
+    UNSPEC_LD1_GATHER
+    UNSPEC_ST1_SCATTER
     UNSPEC_MERGE_PTRUE
     UNSPEC_PTEST_PTRUE
     UNSPEC_UNPACKSHI
@@ -167,12 +163,16 @@
     UNSPEC_PACK
     UNSPEC_FLOAT_CONVERT
     UNSPEC_WHILE_LO
+    UNSPEC_LDN
+    UNSPEC_STN
+    UNSPEC_INSR
     UNSPEC_CLASTB
+    UNSPEC_FADDA
+    UNSPEC_CNTP
+    UNSPEC_BRKA
     UNSPEC_LDFF1
     UNSPEC_READ_NF
     UNSPEC_WRITE_NF
-    UNSPEC_CNTP
-    UNSPEC_INSR
 ])
 
 (define_c_enum "unspecv" [
@@ -3519,8 +3519,8 @@
 ;;    A = UQDEC[BHWD] (B, X)
 ;;
 ;; We don't use match_operand predicates because the order of the operands
-;; can vary: CNT[BHWD] will come first if the other operand is a simpler
-;; constant (such as a CONST_INT), otherwise it will come second.
+;; can vary: the CNT[BHWD] constant will come first if the other operand is
+;; a simpler constant (such as a CONST_INT), otherwise it will come second.
 (define_expand "umax<mode>3"
   [(set (match_operand:GPI 0 "register_operand")
 	(umax:GPI (match_operand:GPI 1 "")
@@ -3539,6 +3539,7 @@
   }
 )
 
+;; Saturating unsigned subtraction of a CNT[BHWD] immediate.
 (define_insn "aarch64_uqdec<mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(minus:GPI

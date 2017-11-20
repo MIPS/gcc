@@ -14,9 +14,9 @@
 	arrays[i] = (i - 10) * 3;				\
 	asm volatile ("" ::: "memory");				\
       }								\
-    unpack_##TYPED##_##TYPES (arrayd, arrays, ARRAY_SIZE);	\
+    unpack_##TYPED##_##TYPES (arrayd, arrays, 7, ARRAY_SIZE);	\
     for (int i = 0; i < ARRAY_SIZE; i++)			\
-      if (arrayd[i] != (TYPED) ((TYPES) ((i - 10) * 3) + 1))	\
+      if (arrayd[i] != (TYPED) (TYPES) (((i - 10) * 3) | 7))	\
 	__builtin_abort ();					\
   }
 

@@ -1,3 +1,106 @@
+2017-11-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/81574
+	* lambda.c (lambda_capture_field_type): Function references are
+	always catured by reference.
+
+2017-11-15  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (begin_destructor_body): Use cp_build_fold_indirect_ref
+	instead of cp_build_indirect_ref.
+
+2017-11-15  Martin Liska  <mliska@suse.cz>
+
+	* decl.c (begin_destructor_body): In case of VPTR sanitization
+	(with disabled recovery), zero vptr in order to catch virtual calls
+	after lifetime of an object.
+
+2017-11-14  Jason Merrill  <jason@redhat.com>
+
+	Use GTY((cache)) on some hash tables.
+	* decl.c (decomp_type_table): Use tree_cache_map.
+	* init.c (nsdmi_inst): Likewise.
+	* pt.c (defarg_ints): Likewise.
+	* cp-objcp-common.c (cp_get_debug_type): Likewise.
+
+2017-11-13  Jason Merrill  <jason@redhat.com>
+
+	Capture adjustments for P0588R1.
+	* semantics.c (process_outer_var_ref): Capture variables when
+	they are named; complain about non-capture uses when odr-used.
+	* expr.c (mark_use): Rvalue use looks through capture proxy.
+	* constexpr.c (potential_constant_expression_1): Improve error about
+	use of captured variable.
+	* lambda.c (need_generic_capture, dependent_capture_r)
+	(do_dependent_capture, processing_nonlambda_template): Remove.
+	* call.c (build_this): Remove uses of the above.
+	* decl.c (cp_finish_decl): Likewise.
+	* semantics.c (maybe_cleanup_point_expr)
+	(maybe_cleanup_point_expr_void, finish_goto_stmt)
+	(maybe_convert_cond): Likewise.
+	* typeck.c (check_return_expr): Likewise.
+
+	Defer folding of *&.
+	* typeck.c (cp_build_fold_indirect_ref): New.
+	(cp_build_indirect_ref_1): Split out from cp_build_indirect_ref.
+	Add 'fold' parameter.
+	* cp-tree.h: Declare cp_build_fold_indirect_ref.
+	* call.c, class.c, cp-ubsan.c, decl.c, except.c, init.c, lambda.c,
+	parser.c, rtti.c, tree.c, typeck.c, typeck2.c: Use it.
+	* parser.c (do_range_for_auto_deduction): Use RO_UNARY_STAR.
+	(cp_convert_range_for): Likewise.
+	* typeck2.c (build_x_arrow): Use RO_ARROW.
+
+	* cp-ubsan.c (cp_ubsan_check_member_access_r): Fix handling of
+	INDIRECT_REF of ADDR_EXPR.
+
+	PR c++/82360 - ICE with static_cast in template.
+	* call.c (perform_direct_initialization_if_possible): Check
+	processing_template_decl.
+	* typeck.c (build_static_cast_1): Likewise.
+
+2017-11-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Remove the null check from placement new in all modes
+	* init.c (build_new_1): Don't do a null check for
+	a namespace-scope non-replaceable placement new
+	in any mode unless -fcheck-new is provided.
+
+2017-11-07 Boris Kolpackov  <boris@codesynthesis.com>
+
+	* Make-lang.in (CP_PLUGIN_HEADERS): Add operators.def since included
+	in cp-tree.h.
+
+2017-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82835
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): For methods pass i - 1 to
+	convert_default_arg instead of i.
+
+2017-11-06  Jason Merrill  <jason@redhat.com>
+
+	P0704R1 - fixing const-qualified pointers to members
+	* typeck2.c (build_m_component_ref): Also accept in lower stds with
+	a pedwarn.
+
+2017-11-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65579
+	* decl2.c (finish_static_data_member_decl): If there's an initializer,
+	complete the type and re-apply the quals.
+
+2017-11-06  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/82404
+	* constexpr.c (cxx_eval_builtin_function_call): Handle
+	__builtin_unreachable call.
+	(get_function_named_in_call): Declare function earlier.
+	(constexpr_fn_retval): Skip __builtin_unreachable.
+	* cp-gimplify.c (cp_ubsan_maybe_instrument_return): Rename to
+	...
+	(cp_maybe_instrument_return): ... this.
+	(cp_genericize): Call the function unconditionally.
+
 2017-11-03  Nathan Sidwell  <nathan@acm.org>
 
 	PR c++/82710

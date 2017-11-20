@@ -8,7 +8,7 @@ void __attribute__ ((noinline, noclone))		\
 unpack_##TYPED##_##TYPES (TYPED *d, TYPES *s, int size)	\
 {							\
   for (int i = 0; i < size; i++)			\
-    d[i] = s[i] + 1;					\
+    d[i] = (TYPES) (s[i] + 1);				\
 }
 
 #define TEST_ALL(T)			\

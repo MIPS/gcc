@@ -1009,7 +1009,7 @@ extern poly_uint16 aarch64_sve_vg;
 #define BYTES_PER_SVE_PRED aarch64_sve_vg
 
 /* The SVE mode for a vector of bytes.  */
-#define SVE_BYTE_MODE V32QImode
+#define SVE_BYTE_MODE VNx16QImode
 
 /* The maximum number of bytes in a fixed-size vector.  This is 256 bytes
    (for -msve-vector-bits=2048) multiplied by the maximum number of

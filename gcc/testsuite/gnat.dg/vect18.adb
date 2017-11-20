@@ -1,5 +1,5 @@
 -- { dg-do compile { target i?86-*-* x86_64-*-* } }
--- { dg-options "-O3 -msse2 -fdump-tree-vect-details" }
+-- { dg-options "-O3 -msse2 -fdump-tree-vect-details -fno-predictive-commoning" }
 
 package body Vect18 is
 

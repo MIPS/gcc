@@ -3365,7 +3365,7 @@ build_this (tree obj)
 {
   /* In a template, we are only concerned about the type of the
      expression, so we can take a shortcut.  */
-  if (processing_nonlambda_template ())
+  if (processing_template_decl)
     return build_address (obj);
 
   return cp_build_addr_expr (obj, tf_warning_or_error);
@@ -8063,7 +8063,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (targ)
 	arg = targ;
       else
-	arg = cp_build_indirect_ref (arg, RO_NULL, complain);
+	arg = cp_build_fold_indirect_ref (arg);
 
       /* In C++17 we shouldn't be copying a TARGET_EXPR except into a base
 	 subobject.  */
@@ -8100,9 +8100,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       else if ((trivial || TREE_CODE (arg) == TARGET_EXPR)
 	       && !unsafe_copy_elision_p (fa, arg))
 	{
-	  tree to = cp_stabilize_reference (cp_build_indirect_ref (fa,
-								   RO_NULL,
-								   complain));
+	  tree to = cp_stabilize_reference (cp_build_fold_indirect_ref (fa));
 
 	  val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
 	  return val;
@@ -8114,7 +8112,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	   && !DECL_DELETED_FN (fn))
     {
       tree to = cp_stabilize_reference
-	(cp_build_indirect_ref (argarray[0], RO_NULL, complain));
+	(cp_build_fold_indirect_ref (argarray[0]));
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
       tree arg = argarray[1];
@@ -8127,7 +8125,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	}
       else if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
 	{
-	  arg = cp_build_indirect_ref (arg, RO_NULL, complain);
+	  arg = cp_build_fold_indirect_ref (arg);
 	  val = build2 (MODIFY_EXPR, TREE_TYPE (to), to, arg);
 	  /* Handle NSDMI that refer to the object being initialized.  */
 	  replace_placeholders (arg, to);
@@ -8166,7 +8164,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	    return force_target_expr (DECL_CONTEXT (fn), void_node,
 				      no_cleanup_complain);
 	  else
-	    return cp_build_indirect_ref (argarray[0], RO_NULL, complain);
+	    return cp_build_fold_indirect_ref (argarray[0]);
 	}
     }
 
@@ -10647,6 +10645,16 @@ perform_direct_initialization_if_possible (tree type,
 			      LOOKUP_NORMAL, complain);
   if (!conv || conv->bad_p)
     expr = NULL_TREE;
+  else if (processing_template_decl && conv->kind != ck_identity)
+    {
+      /* In a template, we are only concerned about determining the
+	 type of non-dependent expressions, so we do not have to
+	 perform the actual conversion.  But for initializers, we
+	 need to be able to perform it at instantiation
+	 (or instantiate_non_dependent_expr) time.  */
+      expr = build1 (IMPLICIT_CONV_EXPR, type, expr);
+      IMPLICIT_CONV_EXPR_DIRECT_INIT (expr) = true;
+    }
   else
     expr = convert_like_real (conv, expr, NULL_TREE, 0,
 			      /*issue_conversion_warnings=*/false,

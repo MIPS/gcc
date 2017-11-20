@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)						\
-void __attribute__ ((weak))					\
+void __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE (TYPE *restrict a, TYPE *restrict b, int n)	\
 {								\
   for (int i = 0; i < n; ++i)					\

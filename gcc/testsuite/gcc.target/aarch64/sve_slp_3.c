@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define VEC_PERM(TYPE)						\
-TYPE __attribute__ ((weak))					\
+TYPE __attribute__ ((noinline, noclone))			\
 vec_slp_##TYPE (TYPE *restrict a, int n)			\
 {								\
   for (int i = 0; i < n; ++i)					\
@@ -25,6 +25,7 @@ vec_slp_##TYPE (TYPE *restrict a, int n)			\
   T (uint32_t)					\
   T (int64_t)					\
   T (uint64_t)					\
+  T (_Float16)					\
   T (float)					\
   T (double)
 
@@ -33,7 +34,7 @@ TEST_ALL (VEC_PERM)
 /* 1 for each 8-bit type.  */
 /* { dg-final { scan-assembler-times {\tld1rw\tz[0-9]+\.s, } 2 } } */
 /* 1 for each 16-bit type, 2 for each 32-bit type, and 4 for double.  */
-/* { dg-final { scan-assembler-times {\tld1rd\tz[0-9]+\.d, } 12 } } */
+/* { dg-final { scan-assembler-times {\tld1rd\tz[0-9]+\.d, } 13 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #41\n} 2 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #25\n} 2 } } */
 /* { dg-final { scan-assembler-times {\tmov\tz[0-9]+\.d, #31\n} 2 } } */
@@ -49,14 +50,14 @@ TEST_ALL (VEC_PERM)
    and stores each.  */
 /* { dg-final { scan-assembler-times {\tld1b\t} 2 } } */
 /* { dg-final { scan-assembler-times {\tst1b\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tld1h\t} 2 } } */
-/* { dg-final { scan-assembler-times {\tst1h\t} 2 } } */
+/* { dg-final { scan-assembler-times {\tld1h\t} 3 } } */
+/* { dg-final { scan-assembler-times {\tst1h\t} 3 } } */
 /* { dg-final { scan-assembler-times {\tld1w\t} 3 } } */
 /* { dg-final { scan-assembler-times {\tst1w\t} 3 } } */
 /* { dg-final { scan-assembler-times {\tld1d\t} 6 } } */
 /* { dg-final { scan-assembler-times {\tst1d\t} 6 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.b} 4 } } */
-/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.h} 4 } } */
+/* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.h} 6 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.s} 6 } } */
 /* { dg-final { scan-assembler-times {\twhilelo\tp[0-7]\.d} 12 } } */
 /* { dg-final { scan-assembler-not {\tldr} } } */

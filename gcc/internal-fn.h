@@ -203,7 +203,6 @@ direct_internal_fn (internal_fn fn)
 
 extern tree_pair direct_internal_fn_types (internal_fn, tree, tree *);
 extern tree_pair direct_internal_fn_types (internal_fn, gcall *);
-
 extern bool direct_internal_fn_supported_p (internal_fn, tree_pair,
 					    optimization_type);
 extern bool direct_internal_fn_supported_p (internal_fn, tree,
@@ -226,11 +225,17 @@ extern bool set_edom_supported_p (void);
 
 extern internal_fn get_conditional_internal_fn (tree_code, tree);
 
+extern bool internal_load_fn_p (internal_fn);
+extern bool internal_store_fn_p (internal_fn);
+extern bool internal_gather_scatter_fn_p (internal_fn);
+extern int internal_fn_mask_index (internal_fn);
+extern int internal_fn_stored_value_index (internal_fn);
+extern bool internal_gather_scatter_fn_supported_p (internal_fn, tree,
+						    tree, signop, int);
+
 extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
 extern void expand_PHI (internal_fn, gcall *);
-
-extern internal_fn get_gather_scatter_internal_fn (bool, tree, tree, bool);
 
 extern bool vectorized_internal_fn_supported_p (internal_fn, machine_mode);
 

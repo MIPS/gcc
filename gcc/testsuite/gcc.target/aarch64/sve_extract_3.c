@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 
-typedef int64_t v16di __attribute__((vector_size (128)));
-typedef int32_t v32si __attribute__((vector_size (128)));
-typedef int16_t v64hi __attribute__((vector_size (128)));
-typedef int8_t v128qi __attribute__((vector_size (128)));
-typedef double v16df __attribute__((vector_size (128)));
-typedef float v32sf __attribute__((vector_size (128)));
-typedef _Float16 v64hf __attribute__((vector_size (128)));
+typedef int64_t vnx8di __attribute__((vector_size (128)));
+typedef int32_t vnx16si __attribute__((vector_size (128)));
+typedef int16_t vnx32hi __attribute__((vector_size (128)));
+typedef int8_t vnx64qi __attribute__((vector_size (128)));
+typedef double vnx8df __attribute__((vector_size (128)));
+typedef float vnx16sf __attribute__((vector_size (128)));
+typedef _Float16 vnx32hf __attribute__((vector_size (128)));
 
 #define EXTRACT(ELT_TYPE, TYPE, INDEX)		\
   ELT_TYPE permute_##TYPE##_##INDEX (void)	\
@@ -20,60 +20,60 @@ typedef _Float16 v64hf __attribute__((vector_size (128)));
   }
 
 #define TEST_ALL(T)				\
-  T (int64_t, v16di, 0)				\
-  T (int64_t, v16di, 1)				\
-  T (int64_t, v16di, 2)				\
-  T (int64_t, v16di, 7)				\
-  T (int64_t, v16di, 8)				\
-  T (int64_t, v16di, 9)				\
-  T (int64_t, v16di, 15)			\
-  T (int32_t, v32si, 0)				\
-  T (int32_t, v32si, 1)				\
-  T (int32_t, v32si, 3)				\
-  T (int32_t, v32si, 4)				\
-  T (int32_t, v32si, 15)			\
-  T (int32_t, v32si, 16)			\
-  T (int32_t, v32si, 21)			\
-  T (int32_t, v32si, 31)			\
-  T (int16_t, v64hi, 0)				\
-  T (int16_t, v64hi, 1)				\
-  T (int16_t, v64hi, 7)				\
-  T (int16_t, v64hi, 8)				\
-  T (int16_t, v64hi, 31)			\
-  T (int16_t, v64hi, 32)			\
-  T (int16_t, v64hi, 47)			\
-  T (int16_t, v64hi, 63)			\
-  T (int8_t, v128qi, 0)				\
-  T (int8_t, v128qi, 1)				\
-  T (int8_t, v128qi, 15)			\
-  T (int8_t, v128qi, 16)			\
-  T (int8_t, v128qi, 63)			\
-  T (int8_t, v128qi, 64)			\
-  T (int8_t, v128qi, 100)			\
-  T (int8_t, v128qi, 127)			\
-  T (double, v16df, 0)				\
-  T (double, v16df, 1)				\
-  T (double, v16df, 2)				\
-  T (double, v16df, 7)				\
-  T (double, v16df, 8)				\
-  T (double, v16df, 9)				\
-  T (double, v16df, 15)				\
-  T (float, v32sf, 0)				\
-  T (float, v32sf, 1)				\
-  T (float, v32sf, 3)				\
-  T (float, v32sf, 4)				\
-  T (float, v32sf, 15)				\
-  T (float, v32sf, 16)				\
-  T (float, v32sf, 21)				\
-  T (float, v32sf, 31)				\
-  T (_Float16, v64hf, 0)			\
-  T (_Float16, v64hf, 1)			\
-  T (_Float16, v64hf, 7)			\
-  T (_Float16, v64hf, 8)			\
-  T (_Float16, v64hf, 31)			\
-  T (_Float16, v64hf, 32)			\
-  T (_Float16, v64hf, 47)			\
-  T (_Float16, v64hf, 63)
+  T (int64_t, vnx8di, 0)			\
+  T (int64_t, vnx8di, 1)			\
+  T (int64_t, vnx8di, 2)			\
+  T (int64_t, vnx8di, 7)			\
+  T (int64_t, vnx8di, 8)			\
+  T (int64_t, vnx8di, 9)			\
+  T (int64_t, vnx8di, 15)			\
+  T (int32_t, vnx16si, 0)			\
+  T (int32_t, vnx16si, 1)			\
+  T (int32_t, vnx16si, 3)			\
+  T (int32_t, vnx16si, 4)			\
+  T (int32_t, vnx16si, 15)			\
+  T (int32_t, vnx16si, 16)			\
+  T (int32_t, vnx16si, 21)			\
+  T (int32_t, vnx16si, 31)			\
+  T (int16_t, vnx32hi, 0)			\
+  T (int16_t, vnx32hi, 1)			\
+  T (int16_t, vnx32hi, 7)			\
+  T (int16_t, vnx32hi, 8)			\
+  T (int16_t, vnx32hi, 31)			\
+  T (int16_t, vnx32hi, 32)			\
+  T (int16_t, vnx32hi, 47)			\
+  T (int16_t, vnx32hi, 63)			\
+  T (int8_t, vnx64qi, 0)			\
+  T (int8_t, vnx64qi, 1)			\
+  T (int8_t, vnx64qi, 15)			\
+  T (int8_t, vnx64qi, 16)			\
+  T (int8_t, vnx64qi, 63)			\
+  T (int8_t, vnx64qi, 64)			\
+  T (int8_t, vnx64qi, 100)			\
+  T (int8_t, vnx64qi, 127)			\
+  T (double, vnx8df, 0)				\
+  T (double, vnx8df, 1)				\
+  T (double, vnx8df, 2)				\
+  T (double, vnx8df, 7)				\
+  T (double, vnx8df, 8)				\
+  T (double, vnx8df, 9)				\
+  T (double, vnx8df, 15)			\
+  T (float, vnx16sf, 0)				\
+  T (float, vnx16sf, 1)				\
+  T (float, vnx16sf, 3)				\
+  T (float, vnx16sf, 4)				\
+  T (float, vnx16sf, 15)			\
+  T (float, vnx16sf, 16)			\
+  T (float, vnx16sf, 21)			\
+  T (float, vnx16sf, 31)			\
+  T (_Float16, vnx32hf, 0)			\
+  T (_Float16, vnx32hf, 1)			\
+  T (_Float16, vnx32hf, 7)			\
+  T (_Float16, vnx32hf, 8)			\
+  T (_Float16, vnx32hf, 31)			\
+  T (_Float16, vnx32hf, 32)			\
+  T (_Float16, vnx32hf, 47)			\
+  T (_Float16, vnx32hf, 63)
 
 TEST_ALL (EXTRACT)
 

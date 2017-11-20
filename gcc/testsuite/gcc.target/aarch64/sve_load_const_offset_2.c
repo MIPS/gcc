@@ -1,11 +1,11 @@
 /* { dg-do assemble } */
-/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -save-temps -msve-vector-bits=256" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve -save-temps" } */
 
 void
-f (unsigned int *restrict a, unsigned char *restrict b, int n)
+f (unsigned int *restrict a, signed char *restrict b, signed char mask, int n)
 {
   for (int i = 0; i < n; ++i)
-    a[i] += b[i];
+    a[i] += (signed char) (b[i] | mask);
 }
 
 /* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z, \[x[0-9]+\]\n} 1 } } */

@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-typedef int8_t v32qi __attribute__((vector_size(32)));
-typedef int16_t v16hi __attribute__((vector_size(32)));
-typedef int32_t v8si __attribute__((vector_size(32)));
-typedef int64_t v4di __attribute__((vector_size(32)));
+typedef int8_t vnx16qi __attribute__((vector_size(32)));
+typedef int16_t vnx8hi __attribute__((vector_size(32)));
+typedef int32_t vnx4si __attribute__((vector_size(32)));
+typedef int64_t vnx2di __attribute__((vector_size(32)));
 
 #define DO_OP(TYPE)						\
 void vmla_##TYPE (TYPE *x, TYPE y, TYPE z)			\
@@ -23,10 +23,10 @@ void vmla_##TYPE (TYPE *x, TYPE y, TYPE z)			\
   *x = dst;							\
 }
 
-DO_OP (v32qi)
-DO_OP (v16hi)
-DO_OP (v8si)
-DO_OP (v4di)
+DO_OP (vnx16qi)
+DO_OP (vnx8hi)
+DO_OP (vnx4si)
+DO_OP (vnx2di)
 
 /* { dg-final { scan-assembler-times {\tmls\tz0\.b, p[0-7]/m, z2\.b, z4\.b\n} 1 } } */
 /* { dg-final { scan-assembler-times {\tmls\tz0\.h, p[0-7]/m, z2\.h, z4\.h\n} 1 } } */

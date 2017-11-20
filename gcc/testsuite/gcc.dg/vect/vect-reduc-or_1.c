@@ -24,16 +24,16 @@ main (unsigned char argc, char **argv)
   check_vect ();
 
   for (i = 0; i < N; i++)
-    in[i] = (i + i + 1) & 0xfd;
+    {
+      in[i] = (i + i + 1) & 0xfd;
+      asm volatile ("" ::: "memory");
+    }
 
   for (i = 0; i < N; i++)
     {
       expected |= in[i];
-      asm volatile ("");
+      asm volatile ("" ::: "memory");
     }
-
-  /* Prevent constant propagation of the entire loop below.  */
-  asm volatile ("" : : : "memory");
 
   for (i = 0; i < N; i++)
     sum |= in[i];

@@ -12,6 +12,7 @@
       {								\
 	b[i] = i * 2 + i % 5;					\
 	c[i] = i * 3;						\
+	asm volatile ("" ::: "memory");				\
       }								\
     vec_zip_##TYPE (a, b, c, N / 8);				\
     for (unsigned int i = 0; i < N / 2; ++i)			\
@@ -23,7 +24,7 @@
       }								\
   }
 
-int
+int __attribute__ ((optimize (1)))
 main (void)
 {
   TEST_ALL (HARNESS)

@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 
-typedef int64_t v4di __attribute__((vector_size (32)));
-typedef int32_t v8si __attribute__((vector_size (32)));
-typedef int16_t v16hi __attribute__((vector_size (32)));
-typedef int8_t v32qi __attribute__((vector_size (32)));
-typedef double v4df __attribute__((vector_size (32)));
-typedef float v8sf __attribute__((vector_size (32)));
-typedef _Float16 v16hf __attribute__((vector_size (32)));
+typedef int64_t vnx2di __attribute__((vector_size (32)));
+typedef int32_t vnx4si __attribute__((vector_size (32)));
+typedef int16_t vnx8hi __attribute__((vector_size (32)));
+typedef int8_t vnx16qi __attribute__((vector_size (32)));
+typedef double vnx2df __attribute__((vector_size (32)));
+typedef float vnx4sf __attribute__((vector_size (32)));
+typedef _Float16 vnx8hf __attribute__((vector_size (32)));
 
 #define VEC_PERM(TYPE, MASKTYPE)			\
 TYPE vec_perm_##TYPE (TYPE values, MASKTYPE mask)	\
@@ -17,13 +17,13 @@ TYPE vec_perm_##TYPE (TYPE values, MASKTYPE mask)	\
   return __builtin_shuffle (values, mask);		\
 }
 
-VEC_PERM (v4di, v4di)
-VEC_PERM (v8si, v8si)
-VEC_PERM (v16hi, v16hi)
-VEC_PERM (v32qi, v32qi)
-VEC_PERM (v4df, v4di)
-VEC_PERM (v8sf, v8si)
-VEC_PERM (v16hf, v16hi)
+VEC_PERM (vnx2di, vnx2di)
+VEC_PERM (vnx4si, vnx4si)
+VEC_PERM (vnx8hi, vnx8hi)
+VEC_PERM (vnx16qi, vnx16qi)
+VEC_PERM (vnx2df, vnx2di)
+VEC_PERM (vnx4sf, vnx4si)
+VEC_PERM (vnx8hf, vnx8hi)
 
 /* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.d, z[0-9]+\.d, z[0-9]+\.d\n} 2 } } */
 /* { dg-final { scan-assembler-times {\ttbl\tz[0-9]+\.s, z[0-9]+\.s, z[0-9]+\.s\n} 2 } } */

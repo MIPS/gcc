@@ -3,11 +3,9 @@
 
 #include "sve_vec_bool_cmp_1.c"
 
-extern void abort (void);
-
 #define N 103
 
-#define TEST_VEC_BOOL_CMPNE(VARTYPE,INDUCTYPE)			\
+#define TEST_VEC_BOOL(NAME, OP, VARTYPE, INDUCTYPE)		\
 {								\
   INDUCTYPE i;							\
   VARTYPE src[N];						\
@@ -16,57 +14,24 @@ extern void abort (void);
     {								\
       src[i] = i;						\
       dst[i] = i * 2;						\
+      asm volatile ("" ::: "memory");				\
     }								\
-  vec_bool_cmpne##VARTYPE##INDUCTYPE (dst, src, 13, 97, 0xFF);	\
+  vec_bool_##NAME##_##VARTYPE##_##INDUCTYPE (dst, src, 13,	\
+					     97, 0xFF);		\
   for (i = 0; i < 13; i++)					\
-    if (dst[i] != i)						\
-      abort ();							\
-  for (i = 13; i < N; i++)					\
-    if (i != 0x3D && dst[i] != (i * 2))				\
-      abort ();							\
-    else if (i == 0x3D && dst[i] != 0x3D)			\
-      abort ();							\
-}
-
-#define TEST_VEC_BOOL_CMPEQ(VARTYPE,INDUCTYPE)			\
-{								\
-  INDUCTYPE i;							\
-  VARTYPE src[N];						\
-  VARTYPE dst[N];						\
-  for (i = 0; i < N; i++)					\
-    {								\
-      src[i] = i;						\
-      dst[i] = i * 2;						\
-    }								\
-  vec_bool_cmpeq##VARTYPE##INDUCTYPE (dst, src, 13, 97, 0xFF);	\
-  for (i = 0; i < 13; i++)					\
-    if (dst[i] != (i * 2))					\
-      abort ();							\
+    if (dst[i] != (VARTYPE) (0 OP 1 ? i : i * 2))		\
+      __builtin_abort ();					\
   for (i = 13; i < 97; i++)					\
-    if (i != 0x3D && dst[i] != i)				\
-      abort ();							\
-    else if (i == 0x3D && dst[i] != (0x3D) * 2)			\
-      abort ();							\
+    if (dst[i] != (VARTYPE) (1 OP (i != 0x3D) ? i : i * 2))	\
+      __builtin_abort ();					\
   for (i = 97; i < N; i++)					\
     if (dst[i] != (i * 2))					\
-      abort ();							\
+      __builtin_abort ();					\
 }
 
-int main ()
+int __attribute__ ((optimize (1)))
+main ()
 {
-  TEST_VEC_BOOL_CMPNE (uint8_t, uint8_t);
-  TEST_VEC_BOOL_CMPNE (uint16_t, uint16_t);
-  TEST_VEC_BOOL_CMPNE (uint32_t, uint32_t);
-  TEST_VEC_BOOL_CMPNE (uint64_t, uint64_t);
-  TEST_VEC_BOOL_CMPNE (float, uint32_t);
-  TEST_VEC_BOOL_CMPNE (double, uint64_t);
-
-  TEST_VEC_BOOL_CMPEQ (uint8_t, uint8_t);
-  TEST_VEC_BOOL_CMPEQ (uint16_t, uint16_t);
-  TEST_VEC_BOOL_CMPEQ (uint32_t, uint32_t);
-  TEST_VEC_BOOL_CMPEQ (uint64_t, uint64_t);
-  TEST_VEC_BOOL_CMPEQ (float, uint32_t);
-  TEST_VEC_BOOL_CMPEQ (double, uint64_t);
-
+  TEST_ALL (TEST_VEC_BOOL)
   return 0;
 }

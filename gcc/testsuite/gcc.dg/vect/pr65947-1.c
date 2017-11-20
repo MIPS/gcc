@@ -41,4 +41,4 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 2 "vect" } } */
-/* { dg-final { scan-tree-dump-times "Optimizing condition reduction" 4 "vect" } } */
+/* { dg-final { scan-tree-dump-times "optimizing condition reduction" 4 "vect" } } */

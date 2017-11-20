@@ -9,7 +9,7 @@
 
 int x[N] __attribute__((aligned(32)));
 
-void __attribute__((weak))
+void __attribute__((noinline, noclone))
 foo (void)
 {
   for (unsigned int i = START; i < END; ++i)

@@ -1,15 +1,17 @@
 /* { dg-do assemble } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -march=armv8-a+sve --save-temps -fdump-tree-vect-details" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve --save-temps" } */
+
+#include <stdint.h>
 
 #if !defined(TYPE)
-#define TYPE unsigned int
+#define TYPE uint32_t
 #endif
 
 #define N 254
 
 /* Non-simple condition reduction.  */
 
-TYPE
+TYPE __attribute__ ((noinline, noclone))
 condition_reduction (TYPE *a, TYPE min_v)
 {
   TYPE last = 65;
@@ -21,7 +23,4 @@ condition_reduction (TYPE *a, TYPE min_v)
   return last;
 }
 
-/* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 1 "vect" } } */
-/* { dg-final { scan-tree-dump-not "condition expression based on integer induction." "vect" } } */
-/* { dg-final { scan-tree-dump-times "Optimizing condition reduction with CLASTB." 2 "vect" } } */
 /* { dg-final { scan-assembler {\tclastb\tw[0-9]+, p[0-7]+, w[0-9]+, z[0-9]+\.s} } } */
