@@ -42,11 +42,9 @@ class gori
 			const irange& lhs);
   bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
 protected:
-  ssa_define_chain def_chain;
   bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
 			    const irange& lhs);
 public:
-  ssa_define_chain def_chain;
   gori ();
   ~gori ();
 
@@ -64,6 +62,8 @@ public:
 
   void dump (FILE *f);
   void exercise (FILE *f);   /* do a full mapping pass, dump if provided.  */
+
+  ssa_define_chain def_chain;
 };
 
 
