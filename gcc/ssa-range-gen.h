@@ -41,6 +41,8 @@ class gori
   bool process_logical (range_stmt& stmt, irange& r, tree name,
 			const irange& lhs);
   bool get_range (range_stmt& stmt, irange& r, tree name, const irange& lhs);
+protected:
+  ssa_define_chain def_chain;
   bool get_range_from_stmt (gimple *stmt, irange& r, tree name,
 			    const irange& lhs);
 public:
