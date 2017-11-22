@@ -235,22 +235,22 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
         case 0x40 ... 0x47:
 	  /* Push VR[16] to VR[16+x] and VR[31] */
+	  push_offset = record_push (fs, 31, push_offset);
 	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
+	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	case 0x48 ... 0x4f:
 	  /* Push VR[16] to VR[16+x], VR[30] and VR[31] */
+	  push_offset = record_push (fs, 31, push_offset);
+	  push_offset = record_push (fs, 30, push_offset);
 	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  push_offset = record_push (fs, 18, push_offset);
+	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	case 0x50 ... 0x57:
 	  /* Restore stack pointer from frame pointer */
-	  fs->regs.cfa_reg = (op & 7) + 20;
+	  fs->regs.cfa_reg = (op & 7) + 16;
 	  fs->regs.cfa_offset = 0;
 	  break;
 
@@ -295,7 +295,7 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
 	case 0x5e:
 	  /* Restore SP from VR[30] */
-	  fs->regs.cfa_reg = 18;
+	  fs->regs.cfa_reg = 30;
 	  fs->regs.cfa_offset = 0;
 	  break;
 
@@ -324,22 +324,22 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
 	case 0x6c ... 0x6f:
 	  /* MIPS16 push VR[16], VR[17], VR[18+x]-VR[23], VR[31] */
-	  for (i = 28; i >= 22 + (op & 3); i--)
+	  push_offset = record_push (fs, 31, push_offset);
+	  for (i = 23; i >= 18 + (op & 3); i--)
 	    push_offset = record_push (fs, i, push_offset);
-	  push_offset = record_push (fs, 21, push_offset);
-	  push_offset = record_push (fs, 20, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
+	  push_offset = record_push (fs, 17, push_offset);
+	  push_offset = record_push (fs, 16, push_offset);
 	  break;
 
 	case 0x70 ... 0x7f:
 	  /* Push VR[16] to VR[16+x], VR[28], VR[31]
 	     and optionally VR[30].  */
+	  push_offset = record_push (fs, 31, push_offset);
+	  if (op & 0x08)
+	    push_offset = record_push (fs, 30, push_offset);
 	  push_offset = record_push (fs, 28, push_offset);
 	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  if (op & 0x08)
-	    push_offset = record_push (fs, 18, push_offset);
+	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	default:
@@ -353,9 +353,9 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 		   _Unwind_FrameState *fs, const unsigned char **pp)
 {
 #if defined(_MIPS_SIM) && _MIPS_SIM == _ABIP32
-  md_unwind_compact_pabi(context, fs, pp);
+  return md_unwind_compact_pabi(context, fs, pp);
 #else
-  md_unwind_compact_oabi_nabi(context, fs, pp);
+  return md_unwind_compact_oabi_nabi(context, fs, pp);
 #endif
 }
 

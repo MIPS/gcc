@@ -26132,7 +26132,7 @@ mips_option_override (void)
      VR[28]         = 28
      VR[29]         = 29  */
 
-  if (TARGET_COMPACT_EH && (mips_abi == ABI_P32))
+/*  if (TARGET_COMPACT_EH && (mips_abi == ABI_P32))
     {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
         {
@@ -26156,7 +26156,7 @@ mips_option_override (void)
       mips_dwarf_regno[GP_REG_FIRST + 28] = start + 12;
       mips_dwarf_regno[GP_REG_FIRST + 29] = start + 13;
     }
-  else
+  else */
     {
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
