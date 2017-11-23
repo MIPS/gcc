@@ -6678,7 +6678,7 @@ read_module_to_tmpbuf ()
 static void
 use_iso_fortran_env_module (void)
 {
-  static char mod[] = "iso_fortran_env";
+  const char *mod = gfc_get_string ("%s", "iso_fortran_env");
   gfc_use_rename *u;
   gfc_symbol *mod_sym;
   gfc_symtree *mod_symtree;
@@ -6686,11 +6686,11 @@ use_iso_fortran_env_module (void)
   int i, j;
 
   intmod_sym symbol[] = {
-#define NAMED_INTCST(a,b,c,d) { a, b, 0, d },
-#define NAMED_KINDARRAY(a,b,c,d) { a, b, 0, d },
-#define NAMED_DERIVED_TYPE(a,b,c,d) { a, b, 0, d },
-#define NAMED_FUNCTION(a,b,c,d) { a, b, c, d },
-#define NAMED_SUBROUTINE(a,b,c,d) { a, b, c, d },
+#define NAMED_INTCST(a,b,c,d) { a, gfc_get_string ("%s", b), 0, d },
+#define NAMED_KINDARRAY(a,b,c,d) { a, gfc_get_string ("%s", b), 0, d },
+#define NAMED_DERIVED_TYPE(a,b,c,d) { a, gfc_get_string ("%s", b), 0, d },
+#define NAMED_FUNCTION(a,b,c,d) { a, gfc_get_string ("%s", b), c, d },
+#define NAMED_SUBROUTINE(a,b,c,d) { a, gfc_get_string ("%s", b), c, d },
 #include "iso-fortran-env.def"
     { ISOFORTRANENV_INVALID, NULL, -1234, 0 } };
 
@@ -6708,7 +6708,7 @@ use_iso_fortran_env_module (void)
 
       mod_sym->attr.flavor = FL_MODULE;
       mod_sym->attr.intrinsic = 1;
-      mod_sym->module = gfc_get_string ("%s", mod);
+      mod_sym->module = mod;
       mod_sym->from_intmod = INTMOD_ISO_FORTRAN_ENV;
     }
   else
@@ -6723,7 +6723,7 @@ use_iso_fortran_env_module (void)
       bool found = false;
       for (u = gfc_rename_list; u; u = u->next)
 	{
-	  if (strcmp (symbol[i].name, u->use_name) == 0)
+	  if (symbol[i].name == u->use_name)
 	    {
 	      found = true;
 	      u->found = 1;
