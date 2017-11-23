@@ -1,3 +1,15 @@
+2017-11-23  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Cherry-pick from GCC 7
+	2017-11-09  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (output_return_instruction): Add comments to
+	indicate requirement for cmse_nonsecure_entry return to account
+	for the size of clearing instruction output here.
+	(thumb_exit): Likewise.
+	* config/arm/thumb2.md (thumb2_cmse_entry_return): Fix length for
+	return in hardfloat mode.
+
 2017-09-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
