@@ -6269,7 +6269,7 @@ import_iso_c_binding_module (void)
   gfc_symbol *mod_sym = NULL, *return_type;
   gfc_symtree *mod_symtree = NULL, *tmp_symtree;
   gfc_symtree *c_ptr = NULL, *c_funptr = NULL;
-  const char *iso_c_module_name = "__iso_c_binding";
+  const char *iso_c_module_name = gfc_get_string ("%s", "__iso_c_binding");
   gfc_use_rename *u;
   int i;
   bool want_c_ptr = false, want_c_funptr = false;
@@ -6291,7 +6291,7 @@ import_iso_c_binding_module (void)
 
       mod_sym->attr.flavor = FL_MODULE;
       mod_sym->attr.intrinsic = 1;
-      mod_sym->module = gfc_get_string ("%s", iso_c_module_name);
+      mod_sym->module = iso_c_module_name;
       mod_sym->from_intmod = INTMOD_ISO_C_BINDING;
     }
 
@@ -6300,27 +6300,22 @@ import_iso_c_binding_module (void)
      need C_(FUN)PTR.  */
   for (u = gfc_rename_list; u; u = u->next)
     {
-      if (strcmp (c_interop_kinds_table[ISOCBINDING_NULL_PTR].name,
-		  u->use_name) == 0)
+      if (c_interop_kinds_table[ISOCBINDING_NULL_PTR].name == u->use_name)
         want_c_ptr = true;
-      else if (strcmp (c_interop_kinds_table[ISOCBINDING_LOC].name,
-		       u->use_name) == 0)
+      else if (c_interop_kinds_table[ISOCBINDING_LOC].name == u->use_name)
         want_c_ptr = true;
-      else if (strcmp (c_interop_kinds_table[ISOCBINDING_NULL_FUNPTR].name,
-		       u->use_name) == 0)
+      else if (c_interop_kinds_table[ISOCBINDING_NULL_FUNPTR].name ==
+	  u->use_name)
         want_c_funptr = true;
-      else if (strcmp (c_interop_kinds_table[ISOCBINDING_FUNLOC].name,
-		       u->use_name) == 0)
+      else if (c_interop_kinds_table[ISOCBINDING_FUNLOC].name == u->use_name)
         want_c_funptr = true;
-      else if (strcmp (c_interop_kinds_table[ISOCBINDING_PTR].name,
-                       u->use_name) == 0)
+      else if (c_interop_kinds_table[ISOCBINDING_PTR].name == u->use_name)
 	{
 	  c_ptr = generate_isocbinding_symbol (iso_c_module_name,
 	      (iso_c_binding_symbol) ISOCBINDING_PTR,
 	      u->local_name ? u->local_name : u->use_name, NULL, false);
 	}
-      else if (strcmp (c_interop_kinds_table[ISOCBINDING_FUNPTR].name,
-                       u->use_name) == 0)
+      else if (c_interop_kinds_table[ISOCBINDING_FUNPTR].name == u->use_name)
 	{
 	  c_funptr = generate_isocbinding_symbol (iso_c_module_name,
 	      (iso_c_binding_symbol) ISOCBINDING_FUNPTR,
@@ -6345,7 +6340,7 @@ import_iso_c_binding_module (void)
     {
       bool found = false;
       for (u = gfc_rename_list; u; u = u->next)
-	if (strcmp (c_interop_kinds_table[i].name, u->use_name) == 0)
+	if (c_interop_kinds_table[i].name == u->use_name)
 	  {
 	    bool not_in_std;
 	    const char *name;
