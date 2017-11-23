@@ -15379,12 +15379,7 @@ mips_cfi_endproc_p32 (void)
 
   /* Determine the frame size and the position to push from. */
   total = cfun->machine->frame.total_size;
-  if (cfun->machine->frame.num_fp > 0)
-    push_base = cfun->machine->frame.fp_sp_offset + UNITS_PER_HWFPVALUE;
-  else if (cfun->machine->frame.num_gp > 0)
-    push_base = cfun->machine->frame.gp_sp_offset + UNITS_PER_WORD;
-  else
-    push_base = total;
+  push_base = total - MIPS_STACK_ALIGN (cfun->machine->varargs_size);
 
   if (frame_pointer_needed)
     {
@@ -15396,8 +15391,9 @@ mips_cfi_endproc_p32 (void)
 	  gcc_assert (t < 8);
 	  vec_safe_push (fde, (uchar) (COMPEH_RESTORE_SP_FROM_TEMP + t));
 	}
-      total -= cfun->machine->frame.hard_frame_pointer_offset;
-      push_base -= cfun->machine->frame.hard_frame_pointer_offset;
+      fprintf(stderr, "bad stuff\n");
+      total = MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+      push_base = 0;
     }
 
   if (HARD_FRAME_POINTER_REGNUM == 30 && frame_pointer_needed)

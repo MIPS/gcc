@@ -236,15 +236,15 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
         case 0x40 ... 0x47:
 	  /* Push VR[16] to VR[16+x] and VR[31] */
 	  push_offset = record_push (fs, 31, push_offset);
-	  for (i = op & 7; i >= 0; i--)
+	  for (i = 0; i <= op & 7; i++)
 	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	case 0x48 ... 0x4f:
 	  /* Push VR[16] to VR[16+x], VR[30] and VR[31] */
-	  push_offset = record_push (fs, 31, push_offset);
 	  push_offset = record_push (fs, 30, push_offset);
-	  for (i = op & 7; i >= 0; i--)
+	  push_offset = record_push (fs, 31, push_offset);
+	  for (i = 0; i <= op & 7; i++)
 	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
