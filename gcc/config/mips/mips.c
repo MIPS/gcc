@@ -15360,7 +15360,7 @@ mips_cfi_endproc_oabi_nabi (void)
 static void
 mips_cfi_endproc_p32 (void)
 {
-  int align = TARGET_NEWABI ? 16 : 8;
+  int align = 16;
   vec<uchar, va_gc> *fde = NULL;
   int i, len, n;
   HOST_WIDE_INT total, push_base;
@@ -15378,11 +15378,16 @@ mips_cfi_endproc_p32 (void)
   fprintf (asm_out_file, "\t.cfi_fde_data ");
 
   /* Determine the frame size and the position to push from. */
+  // total: The total size of the frame. Not using $fp, this is simply the frame's total size.
   total = cfun->machine->frame.total_size;
-  push_base = total - MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+  // push_base: The upper bound for addresses in the frame where registers are pushed to.
+  // This is where the COP0 register area starts.
+  push_base = total - cfun->machine->frame.cop0_save_offset;
 
+  // If we must use the frame pointer for these calculations, do the following:
   if (frame_pointer_needed)
     {
+      // Restore VR[29] from either the frame pointer or another register used for the same purpose.
       if (HARD_FRAME_POINTER_REGNUM == 30)
 	vec_safe_push (fde, (uchar) COMPEH_RESTORE_SP_FROM_FP);
       else
@@ -15392,16 +15397,29 @@ mips_cfi_endproc_p32 (void)
 	  vec_safe_push (fde, (uchar) (COMPEH_RESTORE_SP_FROM_TEMP + t));
 	}
       fprintf(stderr, "bad stuff\n");
-      total = MIPS_STACK_ALIGN (cfun->machine->varargs_size);
-      push_base = 0;
+      // Now, recompute total and push_base.
+      // Total is now the size of the hard frame pointer offset (MIPS_FRAME_BIAS) + the varargs region.
+      total = MIPS_FRAME_BIAS + MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+      // Likewise, push_base is the offset from the hard frame pointer to the end of the
+      // FPR region, ie. the start of the COP0 region.
+      push_base = total - cfun->machine->frame.cop0_save_offset;
     }
 
   if (HARD_FRAME_POINTER_REGNUM == 30 && frame_pointer_needed)
     gcc_assert (BITSET_P (cfun->machine->frame.mask, 30));
 
+  // We now adjust the canonical frame address by push_base, to move it up to where things start being pushed.
   mips_fdedata_cfaadjust (&fde, push_base, align);
+  // Thus, the total frame size decreases by push_base amount.
   total -= push_base;
+  // If we used the frame pointer or not, total is now the stack-aligned varargs region size.
+  // This is exactly what we wanted.
 
+  // We need to save the registers in DESCENDING ORDER, ie. from high pushed addresses to low.
+  // This way, when the opcodes are evaluated, the runtime can maintain a decreasing offset from
+  // the beginning of push_base (or an increasingly negative offset from the frame bias).
+
+  // save FPRS
   n = 0;
   for (i = 23; i > 15; i--)
     {
@@ -15423,6 +15441,17 @@ mips_cfi_endproc_p32 (void)
     }
   gcc_assert (n == 0);
 
+  /* Check to save temps 2 and 3 as well; compactEH uses them.  */
+  bool t3set = BITSET_P (cfun->machine->frame.mask, 7),
+       t2set = BITSET_P (cfun->machine->frame.mask, 6);
+
+  if (t2set || t3set)
+    {
+      vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (7 - t2set, t3set + t2set - 1));
+    }
+
+  // save callee saved GPRs
   for (i = 23; i > 15; i--)
     {
       bool isset = BITSET_P (cfun->machine->frame.mask, i);
@@ -15452,18 +15481,8 @@ mips_cfi_endproc_p32 (void)
     }
   gcc_assert (n == 0);
 
-  /* Check to save temps 2 and 3 as well; compactEH uses them.  */
-  bool t3set = BITSET_P (cfun->machine->frame.mask, 7),
-       t2set = BITSET_P (cfun->machine->frame.mask, 6);
-
-  if (t2set || t3set)
-    {
-      vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
-      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (7 - t2set, t3set + t2set - 1));
-    }
-  gcc_assert (n == 0);
-
   /* save FP and RA if nothing else was saved (ie. they aren't saved yet) */
+  // FIXME: make sure that RA is saved before FP!!!
   if (!any_saved)
     add_fp_ra_push (&fde);
 

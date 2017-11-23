@@ -196,16 +196,6 @@ md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
     }
 }
 
-/* For nanoMIPS compactEH virtual registers:
-   VRF[16-23]     = 0-15
-   a2             = 16
-   a3             = 17
-   VR[30]         = 18
-   VR[31]         = 19
-   VR[16]-VR[23]  = 20-27
-   VR[28]         = 28
-   VR[29]         = 29  */
-
 static _Unwind_Reason_Code
 md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 		   _Unwind_FrameState *fs, const unsigned char **pp)
@@ -235,17 +225,17 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
         case 0x40 ... 0x47:
 	  /* Push VR[16] to VR[16+x] and VR[31] */
-	  push_offset = record_push (fs, 31, push_offset);
-	  for (i = 0; i <= op & 7; i++)
+	  for (i = op & 7; i >= 0; i--)
 	    push_offset = record_push (fs, 16 + i, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
 	  break;
 
 	case 0x48 ... 0x4f:
 	  /* Push VR[16] to VR[16+x], VR[30] and VR[31] */
-	  push_offset = record_push (fs, 30, push_offset);
-	  push_offset = record_push (fs, 31, push_offset);
-	  for (i = 0; i <= op & 7; i++)
+	  for (i = op & 7; i >= 0; i--)
 	    push_offset = record_push (fs, 16 + i, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
+	  push_offset = record_push (fs, 30, push_offset);
 	  break;
 
 	case 0x50 ... 0x57:
@@ -303,43 +293,43 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* NOP */
 	  break;
 
-//	case 0x60 ... 0x6b:
-//	  /* Push VRF[20] to VRF[20 + x] */
-//	  for (i = op & 0xf; i >= 0; i--)
-//	    push_offset = record_push (fs, VRF_0 + 20 + i, push_offset);
-//	  break;
-
-        case 0x60 ... 0x67:
-	  /* Push VRF[16] to VRF[16 + x] */
+	case 0x60 ... 0x6b:
+	  /* Push VRF[20] to VRF[20 + x] */
 	  for (i = op & 0xf; i >= 0; i--)
-            {
-	      push_offset = record_push (fs, VRF_0 + 16 + (2*i)+1, push_offset);
-	      push_offset = record_push (fs, VRF_0 + 16 + (2*i), push_offset);
-            }
+	    push_offset = record_push (fs, VRF_0 + 20 + i, push_offset);
 	  break;
 
-        case 0x68 ... 0x6b:
-          /* TODO */
-          break;
+//        case 0x60 ... 0x67:
+//	  /* Push VRF[16] to VRF[16 + x] */
+//	  for (i = op & 0xf; i >= 0; i--)
+//            {
+//	      push_offset = record_push (fs, VRF_0 + 16 + (2*i)+1, push_offset);
+//	      push_offset = record_push (fs, VRF_0 + 16 + (2*i), push_offset);
+//            }
+//	  break;
+//
+//        case 0x68 ... 0x6b:
+//          /* TODO */
+//          break;
 
 	case 0x6c ... 0x6f:
 	  /* MIPS16 push VR[16], VR[17], VR[18+x]-VR[23], VR[31] */
-	  push_offset = record_push (fs, 31, push_offset);
 	  for (i = 23; i >= 18 + (op & 3); i--)
 	    push_offset = record_push (fs, i, push_offset);
 	  push_offset = record_push (fs, 17, push_offset);
 	  push_offset = record_push (fs, 16, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
 	  break;
 
 	case 0x70 ... 0x7f:
 	  /* Push VR[16] to VR[16+x], VR[28], VR[31]
 	     and optionally VR[30].  */
-	  push_offset = record_push (fs, 31, push_offset);
-	  if (op & 0x08)
-	    push_offset = record_push (fs, 30, push_offset);
 	  push_offset = record_push (fs, 28, push_offset);
 	  for (i = op & 7; i >= 0; i--)
 	    push_offset = record_push (fs, 16 + i, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
+	  if (op & 0x08)
+	    push_offset = record_push (fs, 30, push_offset);
 	  break;
 
 	default:
