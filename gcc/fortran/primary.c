@@ -950,8 +950,9 @@ next_string_char (gfc_char_t delimiter, int *ret)
    the name will be detected later.  */
 
 static match
-match_charkind_name (char *name)
+match_charkind_name (const char **result)
 {
+  char buffer [GFC_MAX_SYMBOL_LEN + 1];
   locus old_loc;
   char c, peek;
   int len;
@@ -961,8 +962,8 @@ match_charkind_name (char *name)
   if (!ISALPHA (c))
     return MATCH_NO;
 
-  *name++ = c;
-  len = 1;
+  len = 0;
+  buffer[len++] = c;
 
   for (;;)
     {
@@ -976,7 +977,8 @@ match_charkind_name (char *name)
 	  if (peek == '\'' || peek == '\"')
 	    {
 	      gfc_current_locus = old_loc;
-	      *name = '\0';
+	      buffer[len] = '\0';
+	      *result = gfc_get_string ("%s", buffer);
 	      return MATCH_YES;
 	    }
 	}
@@ -986,8 +988,8 @@ match_charkind_name (char *name)
 	  && (c != '$' || !flag_dollar_ok))
 	break;
 
-      *name++ = c;
-      if (++len > GFC_MAX_SYMBOL_LEN)
+      buffer[len++] = c;
+      if (len > GFC_MAX_SYMBOL_LEN)
 	break;
     }
 
@@ -1005,9 +1007,10 @@ match_charkind_name (char *name)
 static match
 match_string_constant (gfc_expr **result)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1], peek;
+  char peek;
+  const char *name = NULL;
   size_t length;
-  int kind,save_warn_ampersand, ret;
+  int kind, save_warn_ampersand, ret;
   locus old_locus, start_locus;
   gfc_symbol *sym;
   gfc_expr *e;
@@ -1043,7 +1046,7 @@ match_string_constant (gfc_expr **result)
     {
       gfc_current_locus = old_locus;
 
-      m = match_charkind_name (name);
+      m = match_charkind_name (&name);
       if (m != MATCH_YES)
 	goto no_match;
 
