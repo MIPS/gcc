@@ -4442,10 +4442,10 @@ gfc_build_block_ns (gfc_namespace *parent_ns)
   else
     {
       bool t;
-      char buffer[20];  /* Enough to hold "block@2147483648\n".  */
+      const char *block_name;
 
-      snprintf(buffer, sizeof(buffer), "block@%d", numblock++);
-      gfc_get_symbol (buffer, my_ns, &my_ns->proc_name);
+      block_name = gfc_get_string ("block@%d", numblock++);
+      gfc_get_symbol (block_name, my_ns, &my_ns->proc_name);
       t = gfc_add_flavor (&my_ns->proc_name->attr, FL_LABEL,
 			  my_ns->proc_name->name, NULL);
       gcc_assert (t);

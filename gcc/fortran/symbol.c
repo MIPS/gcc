@@ -2975,10 +2975,10 @@ gfc_find_symtree (gfc_symtree *st, const char *name)
 gfc_symtree *
 gfc_get_unique_symtree (gfc_namespace *ns)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
   static int serial = 0;
+  const char *name;
 
-  sprintf (name, "@%d", serial++);
+  name = gfc_get_string ("@%d", serial++);
   return gfc_new_symtree (&ns->sym_root, name);
 }
 

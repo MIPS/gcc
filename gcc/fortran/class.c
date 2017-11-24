@@ -1373,7 +1373,7 @@ finalizer_insert_packed_call (gfc_code *block, gfc_finalizer *fini,
   block->ext.block.ns = ns;
   block->ext.block.assoc = NULL;
 
-  gfc_get_symbol ("ptr2", ns, &ptr2);
+  gfc_get_symbol (gfc_get_string ("%s", "ptr2"), ns, &ptr2);
   ptr2->ts.type = BT_DERIVED;
   ptr2->ts.u.derived = array->ts.u.derived;
   ptr2->attr.flavor = FL_VARIABLE;
@@ -1382,7 +1382,7 @@ finalizer_insert_packed_call (gfc_code *block, gfc_finalizer *fini,
   gfc_set_sym_referenced (ptr2);
   gfc_commit_symbol (ptr2);
 
-  gfc_get_symbol ("tmp_array", ns, &tmp_array);
+  gfc_get_symbol (gfc_get_string ("%s", "tmp_array"), ns, &tmp_array);
   tmp_array->ts.type = BT_DERIVED;
   tmp_array->ts.u.derived = array->ts.u.derived;
   tmp_array->attr.flavor = FL_VARIABLE;
@@ -1625,7 +1625,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_commit_symbol (final);
 
   /* Set up formal argument.  */
-  gfc_get_symbol ("array", sub_ns, &array);
+  gfc_get_symbol (gfc_get_string ("%s", "array"), sub_ns, &array);
   array->ts.type = BT_DERIVED;
   array->ts.u.derived = derived;
   array->attr.flavor = FL_VARIABLE;
@@ -1643,7 +1643,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_commit_symbol (array);
 
   /* Set up formal argument.  */
-  gfc_get_symbol ("byte_stride", sub_ns, &byte_stride);
+  gfc_get_symbol (gfc_get_string ("%s", "byte_stride"), sub_ns, &byte_stride);
   byte_stride->ts.type = BT_INTEGER;
   byte_stride->ts.kind = gfc_index_integer_kind;
   byte_stride->attr.flavor = FL_VARIABLE;
@@ -1656,7 +1656,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_commit_symbol (byte_stride);
 
   /* Set up formal argument.  */
-  gfc_get_symbol ("fini_coarray", sub_ns, &fini_coarray);
+  gfc_get_symbol (gfc_get_string ("%s", "fini_coarray"), sub_ns, &fini_coarray);
   fini_coarray->ts.type = BT_LOGICAL;
   fini_coarray->ts.kind = 1;
   fini_coarray->attr.flavor = FL_VARIABLE;
@@ -1679,7 +1679,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
   /* Local variables.  */
 
-  gfc_get_symbol ("idx", sub_ns, &idx);
+  gfc_get_symbol (gfc_get_string ("%s", "idx"), sub_ns, &idx);
   idx->ts.type = BT_INTEGER;
   idx->ts.kind = gfc_index_integer_kind;
   idx->attr.flavor = FL_VARIABLE;
@@ -1687,7 +1687,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_set_sym_referenced (idx);
   gfc_commit_symbol (idx);
 
-  gfc_get_symbol ("idx2", sub_ns, &idx2);
+  gfc_get_symbol (gfc_get_string ("%s", "idx2"), sub_ns, &idx2);
   idx2->ts.type = BT_INTEGER;
   idx2->ts.kind = gfc_index_integer_kind;
   idx2->attr.flavor = FL_VARIABLE;
@@ -1695,7 +1695,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_set_sym_referenced (idx2);
   gfc_commit_symbol (idx2);
 
-  gfc_get_symbol ("offset", sub_ns, &offset);
+  gfc_get_symbol (gfc_get_string ("%s", "offset"), sub_ns, &offset);
   offset->ts.type = BT_INTEGER;
   offset->ts.kind = gfc_index_integer_kind;
   offset->attr.flavor = FL_VARIABLE;
@@ -1711,7 +1711,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
     gfc_convert_type_warn (rank, &idx->ts, 2, 0);
 
   /* Create is_contiguous variable.  */
-  gfc_get_symbol ("is_contiguous", sub_ns, &is_contiguous);
+  gfc_get_symbol (gfc_get_string ("%s", "is_contiguous"), sub_ns, &is_contiguous);
   is_contiguous->ts.type = BT_LOGICAL;
   is_contiguous->ts.kind = gfc_default_logical_kind;
   is_contiguous->attr.flavor = FL_VARIABLE;
@@ -1722,7 +1722,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   /* Create "sizes(0..rank)" variable, which contains the multiplied
      up extent of the dimensions, i.e. sizes(0) = 1, sizes(1) = extent(dim=1),
      sizes(2) = sizes(1) * extent(dim=2) etc.  */
-  gfc_get_symbol ("sizes", sub_ns, &sizes);
+  gfc_get_symbol (gfc_get_string ("%s", "sizes"), sub_ns, &sizes);
   sizes->ts.type = BT_INTEGER;
   sizes->ts.kind = gfc_index_integer_kind;
   sizes->attr.flavor = FL_VARIABLE;
@@ -1739,7 +1739,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
   /* Create "strides(1..rank)" variable, which contains the strides per
      dimension.  */
-  gfc_get_symbol ("strides", sub_ns, &strides);
+  gfc_get_symbol (gfc_get_string ("%s", "strides"), sub_ns, &strides);
   strides->ts.type = BT_INTEGER;
   strides->ts.kind = gfc_index_integer_kind;
   strides->attr.flavor = FL_VARIABLE;
@@ -1919,7 +1919,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
   /* Obtain the size (number of elements) of "array" MINUS ONE,
      which is used in the scalarization.  */
-  gfc_get_symbol ("nelem", sub_ns, &nelem);
+  gfc_get_symbol (gfc_get_string ("%s", "nelem"), sub_ns, &nelem);
   nelem->ts.type = BT_INTEGER;
   nelem->ts.kind = gfc_index_integer_kind;
   nelem->attr.flavor = FL_VARIABLE;
@@ -1972,7 +1972,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
     {
       gfc_finalizer *fini, *fini_elem = NULL;
 
-      gfc_get_symbol ("ptr1", sub_ns, &ptr);
+      gfc_get_symbol (gfc_get_string ("%s", "ptr1"), sub_ns, &ptr);
       ptr->ts.type = BT_DERIVED;
       ptr->ts.u.derived = derived;
       ptr->attr.flavor = FL_VARIABLE;
@@ -2096,7 +2096,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
       if (!ptr)
 	{
-	  gfc_get_symbol ("ptr2", sub_ns, &ptr);
+	  gfc_get_symbol (gfc_get_string ("%s", "ptr2"), sub_ns, &ptr);
 	  ptr->ts.type = BT_DERIVED;
 	  ptr->ts.u.derived = derived;
 	  ptr->attr.flavor = FL_VARIABLE;
@@ -2106,7 +2106,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 	  gfc_commit_symbol (ptr);
 	}
 
-      gfc_get_symbol ("ignore", sub_ns, &stat);
+      gfc_get_symbol (gfc_get_string ("%s", "ignore"), sub_ns, &stat);
       stat->attr.flavor = FL_VARIABLE;
       stat->attr.artificial = 1;
       stat->ts.type = BT_INTEGER;
@@ -2422,7 +2422,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		    copy->module = ns->proc_name->name;
 		  gfc_set_sym_referenced (copy);
 		  /* Set up formal arguments.  */
-		  gfc_get_symbol ("src", sub_ns, &src);
+		  gfc_get_symbol (gfc_get_string ("%s", "src"), sub_ns, &src);
 		  src->ts.type = BT_DERIVED;
 		  src->ts.u.derived = derived;
 		  src->attr.flavor = FL_VARIABLE;
@@ -2432,7 +2432,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		  gfc_set_sym_referenced (src);
 		  copy->formal = gfc_get_formal_arglist ();
 		  copy->formal->sym = src;
-		  gfc_get_symbol ("dst", sub_ns, &dst);
+		  gfc_get_symbol (gfc_get_string ("%s", "dst"), sub_ns, &dst);
 		  dst->ts.type = BT_DERIVED;
 		  dst->ts.u.derived = derived;
 		  dst->attr.flavor = FL_VARIABLE;
@@ -2497,7 +2497,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		    dealloc->module = ns->proc_name->name;
 		  gfc_set_sym_referenced (dealloc);
 		  /* Set up formal argument.  */
-		  gfc_get_symbol ("arg", sub_ns, &arg);
+		  gfc_get_symbol (gfc_get_string ("%s", "arg"), sub_ns, &arg);
 		  arg->ts.type = BT_DERIVED;
 		  arg->ts.u.derived = derived;
 		  arg->attr.flavor = FL_VARIABLE;
@@ -2759,7 +2759,7 @@ find_intrinsic_vtab (gfc_typespec *ts)
 		copy->module = ns->proc_name->name;
 		  gfc_set_sym_referenced (copy);
 	      /* Set up formal arguments.  */
-	      gfc_get_symbol ("src", sub_ns, &src);
+	      gfc_get_symbol (gfc_get_string ("%s", "src"), sub_ns, &src);
 	      src->ts.type = ts->type;
 	      src->ts.kind = ts->kind;
 	      src->attr.flavor = FL_VARIABLE;
@@ -2768,7 +2768,7 @@ find_intrinsic_vtab (gfc_typespec *ts)
 	      gfc_set_sym_referenced (src);
 	      copy->formal = gfc_get_formal_arglist ();
 	      copy->formal->sym = src;
-	      gfc_get_symbol ("dst", sub_ns, &dst);
+	      gfc_get_symbol (gfc_get_string ("%s", "dst"), sub_ns, &dst);
 	      dst->ts.type = ts->type;
 	      dst->ts.kind = ts->kind;
 	      dst->attr.flavor = FL_VARIABLE;

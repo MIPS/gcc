@@ -2183,7 +2183,7 @@ gfc_match_null (gfc_expr **result)
     }
 
   /* The NULL symbol now has to be/become an intrinsic function.  */
-  if (gfc_get_symbol ("null", NULL, &sym))
+  if (gfc_get_symbol (gfc_get_string ("%s", "null"), NULL, &sym))
     {
       gfc_error ("NULL() initialization at %C is ambiguous");
       return MATCH_ERROR;

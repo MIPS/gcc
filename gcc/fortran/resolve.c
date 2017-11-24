@@ -699,7 +699,7 @@ resolve_entries (gfc_namespace *ns)
   gfc_code *c;
   gfc_symbol *proc;
   gfc_entry_list *el;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   static int master_count = 0;
 
   if (ns->proc_name == NULL)
@@ -758,8 +758,7 @@ resolve_entries (gfc_namespace *ns)
   /* Give the internal function a unique name (within this file).
      Also include the function name so the user has some hope of figuring
      out what is going on.  */
-  snprintf (name, GFC_MAX_SYMBOL_LEN, "master.%d.%s",
-	    master_count++, ns->proc_name->name);
+  name = gfc_get_string ("master.%d.%s", master_count++, ns->proc_name->name);
   gfc_get_ha_symbol (name, &proc);
   gcc_assert (proc != NULL);
 
