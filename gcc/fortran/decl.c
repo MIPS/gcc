@@ -4049,12 +4049,13 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	{
 	  gfc_symbol *upe;
 	  gfc_symtree *st;
+	  const char *star_name = gfc_get_string ("%s", "STAR");
 	  ts->type = BT_CLASS;
-	  gfc_find_symbol ("STAR", gfc_current_ns, 1, &upe);
+	  gfc_find_symbol (star_name, gfc_current_ns, 1, &upe);
 	  if (upe == NULL)
 	    {
-	      upe = gfc_new_symbol ("STAR", gfc_current_ns);
-	      st = gfc_new_symtree (&gfc_current_ns->sym_root, "STAR");
+	      upe = gfc_new_symbol (star_name, gfc_current_ns);
+	      st = gfc_new_symtree (&gfc_current_ns->sym_root, star_name);
 	      st->n.sym = upe;
 	      gfc_set_sym_referenced (upe);
 	      upe->refs++;
@@ -4069,7 +4070,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	    }
 	  else
 	    {
-	      st = gfc_get_tbp_symtree (&gfc_current_ns->sym_root, "STAR");
+	      st = gfc_get_tbp_symtree (&gfc_current_ns->sym_root, star_name);
 	      st->n.sym = upe;
 	      upe->refs++;
 	    }

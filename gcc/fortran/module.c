@@ -3585,9 +3585,9 @@ mio_expr (gfc_expr **ep)
 	    case 3:
 	      break;
 	    default:
-	      require_atom (ATOM_STRING);
-	      e->value.function.isym = gfc_find_function (atom_string);
-	      free (atom_string);
+	      const char *name;
+	      mio_pool_string (&name);
+	      e->value.function.isym = gfc_find_function (name);
 	    }
 	}
 
@@ -3872,6 +3872,7 @@ mio_typebound_proc (gfc_typebound_proc** proc)
 	  while (peek_atom () != ATOM_RPAREN)
 	    {
 	      gfc_symtree** sym_root;
+	      const char *name;
 
 	      g = gfc_get_tbp_generic ();
 	      g->specific = NULL;
@@ -3879,10 +3880,9 @@ mio_typebound_proc (gfc_typebound_proc** proc)
 	      mio_integer (&iop);
 	      g->is_operator = (bool) iop;
 
-	      require_atom (ATOM_STRING);
+	      mio_pool_string (&name);
 	      sym_root = &current_f2k_derived->tb_sym_root;
-	      g->specific_st = gfc_get_tbp_symtree (sym_root, atom_string);
-	      free (atom_string);
+	      g->specific_st = gfc_get_tbp_symtree (sym_root, name);
 
 	      g->next = (*proc)->u.generic;
 	      (*proc)->u.generic = g;
@@ -3928,12 +3928,12 @@ mio_full_typebound_tree (gfc_symtree** root)
       while (peek_atom () == ATOM_LPAREN)
 	{
 	  gfc_symtree* st;
+	  const char *name;
 
 	  mio_lparen ();
 
-	  require_atom (ATOM_STRING);
-	  st = gfc_get_tbp_symtree (root, atom_string);
-	  free (atom_string);
+	  mio_pool_string (&name);
+	  st = gfc_get_tbp_symtree (root, name);
 
 	  mio_typebound_symtree (st);
 	}
@@ -4267,9 +4267,9 @@ mio_omp_udr_expr (gfc_omp_udr *udr, gfc_symbol **sym1, gfc_symbol **sym2,
 	  mio_integer (&flag);
 	  if (flag)
 	    {
-	      require_atom (ATOM_STRING);
-	      ns->code->resolved_isym = gfc_find_subroutine (atom_string);
-	      free (atom_string);
+	      const char *name;
+	      mio_pool_string (&name);
+	      ns->code->resolved_isym = gfc_find_subroutine (name);
 	    }
 	  else
 	    mio_symbol_ref (&ns->code->resolved_sym);
