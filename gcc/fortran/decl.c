@@ -1490,7 +1490,7 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
 {
   symbol_attribute attr;
   gfc_symbol *sym;
-  int upper;
+  const char *upper;
   gfc_symtree *st;
 
   /* Symbols in a submodule are host associated from the parent module or
@@ -1520,20 +1520,15 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
      course, this is only necessary if the upper case letter is
      actually different.  */
 
-  upper = TOUPPER(name[0]);
-  if (upper != name[0])
+  upper = gfc_dt_upper_string (name);
+  if (upper[0] != name[0])
     {
-      char u_name[GFC_MAX_SYMBOL_LEN + 1];
       gfc_symtree *st;
-
-      gcc_assert (strlen(name) <= GFC_MAX_SYMBOL_LEN);
-      strcpy (u_name, name);
-      u_name[0] = upper;
-
-      st = gfc_find_symtree (gfc_current_ns->sym_root, u_name);
+      gcc_assert (strlen (upper) <= GFC_MAX_SYMBOL_LEN);
+      st = gfc_find_symtree (gfc_current_ns->sym_root, upper);
 
       /* STRUCTURE types can alias symbol names */
-      if (st != 0 && st->n.sym->attr.flavor != FL_STRUCT)
+      if (st && st->n.sym->attr.flavor != FL_STRUCT)
 	{
 	  gfc_error ("Symbol %qs at %C also declared as a type at %L", name,
 		     &st->n.sym->declared_at);
@@ -9672,7 +9667,7 @@ gfc_match_map (void)
 {
   /* Counter used to give unique internal names to map structures. */
   static unsigned int gfc_map_id = 0;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   gfc_symbol *sym;
   locus old_loc;
 
@@ -9687,7 +9682,7 @@ gfc_match_map (void)
 
   /* Map blocks are anonymous so we make up unique names for the symbol table
      which are invalid Fortran identifiers.  */
-  snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "MM$%u", gfc_map_id++);
+  name = gfc_get_string ("MM$%u", gfc_map_id++);
 
   if (!get_struct_decl (name, FL_STRUCT, &old_loc, &sym))
     return MATCH_ERROR;
@@ -9705,7 +9700,7 @@ gfc_match_union (void)
 {
   /* Counter used to give unique internal names to union types. */
   static unsigned int gfc_union_id = 0;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *name;
   gfc_symbol *sym;
   locus old_loc;
 
@@ -9720,7 +9715,7 @@ gfc_match_union (void)
 
   /* Unions are anonymous so we make up unique names for the symbol table
      which are invalid Fortran identifiers.  */
-  snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "UU$%u", gfc_union_id++);
+  name = gfc_get_string ("UU$%u", gfc_union_id++);
 
   if (!get_struct_decl (name, FL_UNION, &old_loc, &sym))
     return MATCH_ERROR;

@@ -5084,12 +5084,10 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	      /* The following can happen if a derived type is renamed.  */
 	      if (!st)
 		{
-		  char *name;
-		  name = xstrdup (rent->local_name
+		  const char *upper;
+		  upper = gfc_dt_upper_string (rent->local_name
 				  ? rent->local_name : rent->use_name);
-		  name[0] = (char) TOUPPER ((unsigned char) name[0]);
-		  st = gfc_find_symtree (ns->sym_root, name);
-		  free (name);
+		  st = gfc_find_symtree (ns->sym_root, upper);
 		  gcc_assert (st);
 		}
 
