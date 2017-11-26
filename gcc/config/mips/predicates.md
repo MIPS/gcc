@@ -322,7 +322,7 @@
 
 (define_predicate "s32_operand"
   (and (match_code "const_int")
-       (match_test "LI32_INT (op)")))
+       (match_test "!IN_RANGE (INTVAL (op), -0xfff, 0xffff)")))
 
 (define_predicate "ub2_operand"
   (and (match_code "const_int")
