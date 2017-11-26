@@ -1851,6 +1851,7 @@ static bool mips_load_store_insn_p (rtx_insn *, rtx *,
 				    HOST_WIDE_INT *, bool *);
 static void mips_load_store_bond_insns ();
 static void mips_frame_barrier (void);
+static void mips_restore_reg (rtx, rtx);
 
 /* Used to track the mode of an address for indexed scaled load/stores.  */
 static machine_mode mips_memref_mode;
@@ -11839,6 +11840,7 @@ mips_use_anchors_for_symbol_p (const_rtx symbol)
     }
 }
 
+#ifndef NANOMIPS_SUPPORT
 /* The MIPS debug format wants all automatic variables and arguments
    to be in terms of the virtual frame pointer (stack pointer before
    any adjustment in the function), while the MIPS 3.0 linker wants
@@ -11869,6 +11871,7 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
   return offset;
 }
 
+#endif
 /* Implement ASM_OUTPUT_EXTERNAL.  */
 
 void
@@ -12700,7 +12703,7 @@ mips_save_restore_insn_reg (machine_mode mode, bool restore_p, bool reg_parm_p,
 
 static bool
 nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
-			   int *valid_regs)
+			       int *valid_regs)
 {
   int n, nregs;
 
@@ -12719,14 +12722,6 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
   if ((TARGET_NANOMIPS != NANOMIPS_NMF || compressed_p)
       && BITSET_P (mask, GLOBAL_POINTER_REGNUM))
     return false;
-
-  /* We can adjust the stack only if no registers are being saved.  */
-  if (!compressed_p && n == 0)
-    {
-      if (valid_regs)
-	*valid_regs = n == 0 ? nregs : 0;
-      return true;
-    }
 
   if (BITSET_P (mask, RETURN_ADDR_REGNUM)) n--;
   if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
@@ -12796,11 +12791,10 @@ mips_valid_savef_restoref_p (unsigned int fmask)
    that still need to be saved or restored.  The caller can save these
    registers in the memory immediately below *OFFSET_PTR, which is a
    byte offset from the bottom of the allocated stack area.  */
-
 static rtx
 mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 			 HOST_WIDE_INT *offset_ptr, unsigned int nargs,
-			 HOST_WIDE_INT size, bool fp_p, bool restore_jrc_p)
+			 HOST_WIDE_INT size)
 {
   rtx pattern, set;
   HOST_WIDE_INT offset, top_offset;
@@ -12819,37 +12813,22 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 	if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
 	  n++;
     }
-  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
-    n = mips_valid_savef_restoref_p (*mask_ptr);
-  else
-    {
-      if (nanomips_valid_save_restore_p (*mask_ptr, false, &n))
-	n++;
-      if (restore_p && restore_jrc_p)
-	n++;
-    }
 
   /* Create the final PARALLEL.  */
   pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
   n = 0;
 
-  if (restore_jrc_p)
-    XVECEXP (pattern, 0, n++) = ret_rtx;
-
   /* Add the stack pointer adjustment.  */
-  if (!fp_p)
-    {
-      set = gen_rtx_SET (stack_pointer_rtx,
-			 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				       GEN_INT (restore_p ? size : -size)));
-      RTX_FRAME_RELATED_P (set) = 1;
-      XVECEXP (pattern, 0, n++) = set;
-    }
+  set = gen_rtx_SET (stack_pointer_rtx,
+		     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				   GEN_INT (restore_p ? size : -size)));
+  RTX_FRAME_RELATED_P (set) = 1;
+  XVECEXP (pattern, 0, n++) = set;
 
   /* Stack offsets in the PARALLEL are relative to the old stack
      pointer except for save/restore of FPRs as we do not adjust
      the stack pointer.  */
-  top_offset = restore_p || fp_p ? size : 0;
+  top_offset = restore_p ? size : 0;
 
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
@@ -12878,36 +12857,120 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 	    *mask_ptr &= ~(1 << regno);
 	  }
       }
-  else
+
+  /* Tell the caller what offset it should use for the remaining registers.  */
+  *offset_ptr = size + (offset - top_offset);
+
+  gcc_assert (n == XVECLEN (pattern, 0));
+
+  return pattern;
+}
+
+/* Build the instruction pattern for the nanoMIPS SAVE or RESTORE instruction.
+   RESTORE_P is set when building a RESTORE instruction.  MASK_PTR points at
+   a GPR mask that will both control what is generated and be updated to
+   account for any registers handled.  STEP is the stack pointer adjustment 
+   required.  RESTORE_JRC_P indicates whether a RESTORE.JRC instruction is
+   needed.  */
+
+static rtx
+nanomips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
+			     HOST_WIDE_INT step, bool restore_jrc_p)
+{
+  rtx pattern, set;
+  HOST_WIDE_INT offset, top_offset;
+  unsigned int i, regno;
+  int n;
+
+  /* Calculate the number of elements in the PARALLEL.
+     First account for each register being saved.  */
+  if (!nanomips_valid_save_restore_p (*mask_ptr, false, &n))
+    gcc_unreachable ();
+
+  /* Account for the stack pointer adjustment */
+  n++;
+
+  /* Account for the return instruction.  */
+  if (restore_p && restore_jrc_p)
+    n++;
+
+  /* Create the final PARALLEL.  */
+  pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
+  n = 0;
+
+  /* Add the return instruction.  */
+  if (restore_jrc_p)
+    XVECEXP (pattern, 0, n++) = ret_rtx;
+
+  /* Add the stack pointer adjustment.  */
+  set = gen_rtx_SET (stack_pointer_rtx,
+		     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				   GEN_INT (restore_p ? step : -step)));
+  RTX_FRAME_RELATED_P (set) = 1;
+  XVECEXP (pattern, 0, n++) = set;
+
+  /* Stack offsets in the PARALLEL are relative to the stack pointer prior
+     to the adjustment emitted above.  */
+  offset = (restore_p ? step : 0) - UNITS_PER_WORD;
+
+  for (i = 0; i < ARRAY_SIZE (nanomips_save_restore_regs); i++)
     {
-      if (fp_p)
+      regno = nanomips_save_restore_regs[i];
+      if (BITSET_P (*mask_ptr, regno))
 	{
-	  for (i = 0; i < ARRAY_SIZE (nanomips_savef_restoref_regs); i++)
-	    {
-	      regno = nanomips_savef_restoref_regs[i];
-	      if (BITSET_P (*mask_ptr, regno - FP_REG_FIRST))
-		{
-		  set = mips_save_restore_insn_reg
-		    (DFmode, restore_p, false, offset, regno);
-		  XVECEXP (pattern, 0, n++) = set;
-		  *mask_ptr &= ~(1 << (regno - FP_REG_FIRST));
-		  offset -= GET_MODE_SIZE (DFmode);
-		}
-	    }
+	  /* Move down to the address of the save slot.  */
+	  set = mips_save_restore_insn_reg (Pmode, restore_p, false,
+					    offset, regno);
+	  XVECEXP (pattern, 0, n++) = set;
+	  offset -= UNITS_PER_WORD;
+	  /* Remove the register from the remaining save mask.  */
+	  *mask_ptr &= ~(1 << regno);
 	}
-      else
-	for (i = 0; i < ARRAY_SIZE (nanomips_save_restore_regs); i++)
-	  {
-	    regno = nanomips_save_restore_regs[i];
-	    if (BITSET_P (*mask_ptr, regno))
-	      {
-		offset -= UNITS_PER_WORD;
-		set = mips_save_restore_insn_reg (Pmode, restore_p, false,
-						  offset, regno);
-		XVECEXP (pattern, 0, n++) = set;
-		*mask_ptr &= ~(1 << regno);
-	      }
-	  }
+    }
+
+  gcc_assert (n == XVECLEN (pattern, 0));
+
+  return pattern;
+}
+
+static rtx
+nanomips_build_savef_restoref (bool restore_p, unsigned int *mask_ptr,
+			       HOST_WIDE_INT *offset_ptr, unsigned int nargs,
+			       HOST_WIDE_INT size)
+{
+  rtx pattern, set;
+  HOST_WIDE_INT offset, top_offset;
+  unsigned int i, regno;
+  int n;
+
+  /* Calculate the number of elements in the PARALLEL.  We need one element
+     for the stack adjustment, one for each argument register save, and one
+     for each additional register move.  */
+  if (ISA_HAS_SAVEF_RESTOREF)
+    n = mips_valid_savef_restoref_p (*mask_ptr);
+
+  /* Create the final PARALLEL.  */
+  pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
+  n = 0;
+
+  /* Stack offsets in the PARALLEL are relative to the old stack
+     pointer except for save/restore of FPRs as we do not adjust
+     the stack pointer.  */
+  top_offset = restore_p ? size : 0;
+
+  /* Then fill in the other register moves.  */
+  offset = top_offset;
+  for (i = 0; i < ARRAY_SIZE (nanomips_savef_restoref_regs); i++)
+    {
+      regno = nanomips_savef_restoref_regs[i];
+      if (BITSET_P (*mask_ptr, regno - FP_REG_FIRST))
+	{
+	  set = mips_save_restore_insn_reg
+		(DFmode, restore_p, false, offset, regno);
+	  XVECEXP (pattern, 0, n++) = set;
+	  *mask_ptr &= ~(1 << (regno - FP_REG_FIRST));
+	  offset -= GET_MODE_SIZE (DFmode);
+	}
     }
 
   /* Tell the caller what offset it should use for the remaining registers.  */
@@ -12922,11 +12985,106 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
    pointer.  Return true if PATTERN matches the kind of instruction
    generated by mips_build_save_restore.  If INFO is nonnull,
    initialize it when returning true.  */
-
 bool
 mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
-			     struct mips_save_restore_info *info,
-			     bool *savef_restoref_p, bool jrc_p)
+			     struct mips_save_restore_info *info)
+{
+  unsigned int i, nargs, mask, extra;
+  HOST_WIDE_INT top_offset, save_offset, offset;
+  rtx set, reg, mem, base;
+  int n;
+
+  /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
+  top_offset = adjust > 0 ? adjust : 0;
+
+  /* Interpret all other members of the PARALLEL.  */
+  save_offset = top_offset - UNITS_PER_WORD;
+  mask = 0;
+  nargs = 0;
+  i = 0;
+
+  for (n = 1 ; n < XVECLEN (pattern, 0); n++)
+    {
+      /* Check that we have a SET.  */
+      set = XVECEXP (pattern, 0, n);
+      if (GET_CODE (set) != SET)
+	return false;
+
+      /* Check that the SET is a load (if restoring) or a store
+	 (if saving).  */
+      mem = MEM_P (SET_SRC (set)) ? SET_SRC (set) : SET_DEST (set);
+      if (!MEM_P (mem))
+	return false;
+
+      if (!INTEGRAL_MODE_P (GET_MODE (mem)))
+	return false;
+
+      /* Check that the address is the sum of the stack pointer and a
+	 possibly-zero constant offset.  */
+      mips_split_plus (XEXP (mem, 0), &base, &offset);
+      if (!(GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM))
+	return false;
+
+      /* Check that SET's other operand is a register.  */
+      reg = REG_P (SET_DEST (set)) ? SET_DEST (set) : SET_SRC (set);
+      if (!REG_P (reg))
+	return false;
+
+      /* Check for argument saves.  */
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && offset == top_offset + nargs * UNITS_PER_WORD
+	  && REGNO (reg) == GP_ARG_FIRST + nargs)
+	nargs++;
+      else if (offset == save_offset)
+	{
+	  if (GENERATE_MIPS16E_SAVE_RESTORE)
+	    {
+	      while (mips16e_save_restore_regs[i++] != REGNO (reg))
+		if (i == ARRAY_SIZE (mips16e_save_restore_regs))
+		  return false;
+	    }
+
+	  mask |= 1 << REGNO (reg);
+	  save_offset -= UNITS_PER_WORD;
+	}
+      else
+	return false;
+    }
+
+  /* Check that the restrictions on register ranges are met.  */
+  extra = 0;
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      mips_mask_registers (&mask, mips16e_s2_s8_regs,
+			      ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
+      mips_mask_registers (&mask, mips16e_a0_a3_regs,
+			      ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
+    }
+
+  if (extra != 0)
+    return false;
+
+  /* Make sure that the topmost argument register is not saved twice.
+     The checks above ensure that the same is then true for the other
+     argument registers.  */
+  if (nargs > 0 && BITSET_P (mask, GP_ARG_FIRST + nargs - 1))
+    return false;
+
+  /* Pass back information, if requested.  */
+  if (info)
+    {
+      info->nargs = nargs;
+      info->mask = mask;
+      info->size = (adjust > 0 ? adjust : -adjust);
+    }
+
+  return true;
+}
+
+bool
+nanomips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
+				 struct mips_save_restore_info *info,
+				 bool *savef_restoref_p, bool jrc_p)
 {
   unsigned int i, nargs, mask, extra;
   HOST_WIDE_INT top_offset, save_offset, offset;
@@ -12996,19 +13154,9 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 	return false;
 
       /* Check for argument saves.  */
-      if (GENERATE_MIPS16E_SAVE_RESTORE
-	  && offset == top_offset + nargs * UNITS_PER_WORD
-	  && REGNO (reg) == GP_ARG_FIRST + nargs)
-	nargs++;
-      else if (offset == save_offset)
+      if (offset == save_offset)
 	{
-	  if (GENERATE_MIPS16E_SAVE_RESTORE)
-	    {
-	      while (mips16e_save_restore_regs[i++] != REGNO (reg))
-		if (i == ARRAY_SIZE (mips16e_save_restore_regs))
-		  return false;
-	    }
-	  else if (fp_p)
+	  if (fp_p)
 	    {
 	      while (nanomips_savef_restoref_regs[i++] != REGNO (reg))
 		if (i == ARRAY_SIZE (nanomips_savef_restoref_regs))
@@ -13024,14 +13172,7 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 
   /* Check that the restrictions on register ranges are met.  */
   extra = 0;
-  if (GENERATE_MIPS16E_SAVE_RESTORE)
-    {
-      mips_mask_registers (&mask, mips16e_s2_s8_regs,
-			      ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
-      mips_mask_registers (&mask, mips16e_a0_a3_regs,
-			      ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
-    }
-  else if (fp_p)
+  if (fp_p)
     mips_mask_registers (&mask, nanomips_savef_restoref_regs,
 			    ARRAY_SIZE (nanomips_savef_restoref_regs), &extra);
   /* Ignore the 16-bit version here.  */
@@ -13091,9 +13232,8 @@ mips_output_register_range (char *s, unsigned int mask,
 
 /* Return the assembly instruction for a MIPS16e SAVE or RESTORE instruction.
    PATTERN and ADJUST are as for mips_save_restore_pattern_p.  */
-
 const char *
-mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
+mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
 {
   static char buffer[300];
 
@@ -13107,10 +13247,9 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 		       && GET_CODE (set_src) == PLUS
 		       && INTVAL (XEXP (set_src, 1)) > 0)
 		   ? true : false;
-  bool fp_p = false;
 
   /* Parse the pattern.  */
-  if (!mips_save_restore_pattern_p (pattern, adjust, &info, &fp_p, jrc_p))
+  if (!mips_save_restore_pattern_p (pattern, adjust, &info))
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
@@ -13118,22 +13257,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
     {
       s = strcpy (buffer, restore_p ? "restore\t" : "save\t");
       s += strlen (s);
-    }
-  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
-    {
-      s = strcpy (buffer, restore_p ? "sdbbp32 13 # restoref\t"
-				    : "sdbbp32 13 # savef\t");
-      s += strlen (s);
-    }
-  else
-    {
-      s = buffer;
-      s += sprintf (s, "%s", restore_p ? "restore" : "save");
-      s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
-    }
-
-  if (GENERATE_MIPS16E_SAVE_RESTORE)
-    {
       /* Save the arguments.  */
       if (info.nargs > 1)
 	s += sprintf (s, "%s-%s,", reg_names[GP_ARG_FIRST],
@@ -13144,18 +13267,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 
   /* Emit the amount of stack space to allocate or deallocate.  */
   s += sprintf (s, "%d", (int) info.size);
-
-  /* Save or restore $fp.  */
-  if (TARGET_NANOMIPS
-      && ISA_HAS_SAVE_RESTORE
-      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
-    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
-
-  /* Save or restore $ra.  */
-  if (TARGET_NANOMIPS
-      && ISA_HAS_SAVE_RESTORE
-      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
-    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
 
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
@@ -13177,24 +13288,72 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
       s = mips_output_register_range (s, info.mask, mips16e_a0_a3_regs,
 				      ARRAY_SIZE (mips16e_a0_a3_regs));
     }
-  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
+
+  /* Save or restore $30.  */
+  if (BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
+
+  /* Save or restore $31.  */
+  if (BITSET_P (info.mask, RETURN_ADDR_REGNUM))
+    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+
+  return buffer;
+}
+
+const char *
+nanomips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
+{
+  static char buffer[300];
+
+  struct mips_save_restore_info info;
+  unsigned int i;
+  char *s;
+  rtx set_src = SET_SRC (XVECEXP (pattern, 0,
+				  XVECLEN (pattern, 0) - 1));
+  bool restore_p = MEM_P (set_src)
+		   || (XVECLEN (pattern, 0) <= 2
+		       && GET_CODE (set_src) == PLUS
+		       && INTVAL (XEXP (set_src, 1)) > 0)
+		   ? true : false;
+  bool fp_p = false;
+
+  /* Parse the pattern.  */
+  if (!nanomips_save_restore_pattern_p (pattern, adjust, &info, &fp_p, jrc_p))
+    gcc_unreachable ();
+
+  /* Add the mnemonic.  */
+  if (ISA_HAS_SAVEF_RESTOREF && fp_p)
+    {
+      s = strcpy (buffer, restore_p ? "sdbbp32 13 # restoref\t"
+				    : "sdbbp32 13 # savef\t");
+      s += strlen (s);
+    }
+  else
+    {
+      s = buffer;
+      s += sprintf (s, "%s", restore_p ? "restore" : "save");
+      s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
+    }
+
+  /* Emit the amount of stack space to allocate or deallocate.  */
+  s += sprintf (s, "%d", (int) info.size);
+
+  /* Save or restore $fp.  */
+  if (ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
+
+  /* Save or restore $ra.  */
+  if (ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
+    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+
+  if (ISA_HAS_SAVEF_RESTOREF && fp_p)
     s = mips_output_register_range (s, info.mask, nanomips_savef_restoref_regs,
 				    ARRAY_SIZE (nanomips_savef_restoref_regs));
   else
     s = mips_output_register_range (s, info.mask, nanomips_s0_s7_regs,
 				    ARRAY_SIZE (nanomips_s0_s7_regs));
-
-  /* Save or restore $30.  */
-  if (!TARGET_NANOMIPS
-      && ISA_HAS_SAVE_RESTORE
-      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
-    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
-
-  /* Save or restore $31.  */
-  if (!TARGET_NANOMIPS
-      && ISA_HAS_SAVE_RESTORE
-      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
-    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
 
   /* Save or restore $gp.  */
   if (TARGET_NANOMIPS
@@ -14035,6 +14194,8 @@ mips_compute_frame_info_oabi_nabi (void)
      |                 | $ra          |     + UNITS_PER_WORD /
      |                 |--------------|     hard_frame_pointer_rtx
      |                 | $s0-$s7, $gp |     + MIPS_FRAME_BIAS
+     +--------------------------------+ <-- stack_pointer_rtx + ogp_sp_offset
+     |  Other GPR save area           |     + UNITS_PER_WORD
      +--------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
      |  FPR save area                 |     + UNITS_PER_HWFPVALUE
      +--------------------------------+ <-- stack_pointer_rtx + cop0_sp_offset
@@ -14048,12 +14209,10 @@ mips_compute_frame_info_oabi_nabi (void)
      +--------------------------------+
    P |  optional: dynamic allocation  |
      +--------------------------------+
-     |  outgoing stack arguments      | \
-     +--------------------------------+  | args_size
-     |  caller-allocated save area    |  |
-     |  for register arguments        | /
+     |  outgoing stack arguments      | | args_size
      +--------------------------------+  <-- stack_pointer_rtx
      |             . . .              |
+     |             . . .              |  <-- hard_frame_pointer_rtx
 
    Dynamic stack allocations such as alloca insert data at point P.
    They decrease stack_pointer_rtx but leave frame_pointer_rtx and
@@ -14076,6 +14235,15 @@ mips_compute_frame_info_pabi (void)
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
 
+  /* Offsets in the frame information are relative to the stack pointer
+     after it has been adjusted by the total size of the frame but before
+     any dynamic allocation happens.  This means that offsets seen here
+     are not the same for the frame pointer.  To translate from a stack
+     pointer offset to a frame pointer offset:
+
+     xxx_sp_offset - (total_size - MIPS_STACK_ALIGN (cfun->machine->varargs_size))
+
+     */
   offset = frame->args_size = crtl->outgoing_args_size;
 
   /* Move above the local variables.  */
@@ -14134,7 +14302,7 @@ mips_compute_frame_info_pabi (void)
 	}
 
   if (ISA_HAS_SAVEF_RESTOREF
-      && cfun->machine->safe_to_use_save_restore)
+      && cfun->machine->safe_to_use_save_restore) /* BUG HERE not set yet so always false */
     {
       mips_mask_registers (&frame->fmask, nanomips_savef_restoref_regs,
 			   ARRAY_SIZE (nanomips_savef_restoref_regs),
@@ -14144,8 +14312,9 @@ mips_compute_frame_info_pabi (void)
   /* Move above the FPR save area.  */
   if (frame->num_fp > 0)
     {
-      offset += ROUND_UP (frame->num_fp * UNITS_PER_FPREG, UNITS_PER_FPREG);
+      offset += frame->num_fp * UNITS_PER_FPREG;
       frame->fp_sp_offset = offset - UNITS_PER_HWFPVALUE;
+      fprintf(stderr, "fp_sp_offset %d\n", frame->fp_sp_offset);
     }
 
   /* Find out which GPRs we need to save.  */
@@ -14187,16 +14356,32 @@ mips_compute_frame_info_pabi (void)
   /* Move above the GPR save area.  */
   if (frame->num_gp > 0)
     {
+      int num_sr;
+      /* The GPR save area must sit exactly next to the varargs area as
+	 the registers are stored implicitly via the SAVE instruction so
+	 any padding must come below the GPR save area.  Remember the
+	 gp_sp_offset is from the stack pointer after it has been adjusted
+	 within the function not the incoming or any intermediate
+	 adjustment to the stack pointer.  */
       offset += frame->num_gp * UNITS_PER_WORD;
-      /* We need the stack adjusted by multiple of 16 bytes.
-	 GPRs are saved at the top, hence, the padding is actually below
-	 GPRs.  */
-      offset += MIPS_STACK_ALIGN (offset) - offset;
+      offset = MIPS_STACK_ALIGN (offset);
       frame->gp_sp_offset = offset - UNITS_PER_WORD;
+      /* The GPR save area is split into two pieces, one that covers the
+	 registers that can be handled by SAVE and RESTORE instructions
+	 (even when those instructions are not used) and the other registers
+	 are stored separately.  */
+      num_sr = popcount_hwi (frame->mask & 0xd0ff0000);
+      frame->ogp_sp_offset = frame->gp_sp_offset - (num_sr * UNITS_PER_WORD);
     }
+  else
+    /* Align the total save area.  The padding will end up at the top now
+       but that is not currently a problem but may be one when the hard
+       float ISA is finalised.  */
+    offset = MIPS_STACK_ALIGN (offset);
 
-  /* Move above the callee-allocated varargs save area.  */
-  offset += MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+  /* Move above the callee-allocated varargs save area.  This is already
+     padded to MIPS_STACK_ALIGN in setup_incoming_args.  */
+  offset += cfun->machine->varargs_size;
   frame->arg_pointer_offset = offset;
 
   /* Move above the callee-allocated area for pretend stack arguments.  */
@@ -14206,25 +14391,17 @@ mips_compute_frame_info_pabi (void)
   frame->total_size = offset;
 
   /* Work out the offsets of the save areas from the top of the frame.  */
-  if (frame->gp_sp_offset > 0)
-    frame->gp_save_offset = frame->gp_sp_offset - offset;
-  if (frame->fp_sp_offset > 0)
-    frame->fp_save_offset = frame->fp_sp_offset - offset;
-  if (frame->acc_sp_offset > 0)
-    frame->acc_save_offset = frame->acc_sp_offset - offset;
-  if (frame->num_cop0_regs > 0)
-    frame->cop0_save_offset = frame->cop0_sp_offset - offset;
   if (frame_pointer_needed
       && BITSET_P (frame->mask, RETURN_ADDR_REGNUM)
       && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM))
     {
       frame->hard_frame_pointer_offset = frame->total_size;
-      frame->hard_frame_pointer_offset -= MIPS_FRAME_BIAS;
-      /* For now we need to do a separate stack adjustment before
+      fprintf(stderr, "total size: %d varargs %d frame bias %d\n", frame->total_size, cfun->machine->varargs_size, MIPS_FRAME_BIAS);
+      /* We need to do a separate stack adjustment before
 	 using SAVE/RESTORE for variadic functions and/or when we need to
 	 save argument registers.  */
-      frame->hard_frame_pointer_offset -=
-	MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+      frame->hard_frame_pointer_offset -= cfun->machine->varargs_size;
+      frame->hard_frame_pointer_offset -= MIPS_FRAME_BIAS;
     }
 }
 
@@ -14678,29 +14855,27 @@ umips_build_word_multiple (mips_save_restore_fn fn, unsigned *mask,
   return true;
 }
 
+/* Generate code to save or restore the GPRs normally covered by the SAVE
+   and RESTORE instructions.  SP_OFFSET is the offset of the current stack
+   pointer from the start of the frame.  STEP is the stack pointer
+   adjustment required.  FN should be called for each register to save or
+   restore if not being done via SAVE/RESTORE.  RESTORE is an optional
+   location to store a RESTORE.JRC instruction so that it can be emitted
+   at the very end of the prologue.  SIBCALL_P indicates whether the
+   function just branches to another function rather than returns.  */
+
 static void
-mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
-				      HOST_WIDE_INT step,
-				      mips_save_restore_fn fn,
-				      bool *restore_jrc_p,
-				      rtx *restore, bool sibcall_p)
+nanomips_save_restore_gprs (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
+			    mips_save_restore_fn fn)
 {
   int regno;
-  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset = 0;
   unsigned int mask = cfun->machine->frame.mask;
-  bool restore_p = (fn == mips_save_reg) ? false : true;
-  bool used_save_restore_p = false;
-  rtx save_restore = NULL_RTX;
+  bool restore = (fn == mips_restore_reg);
 
   /* Let's limit the use of this function to nanoMIPS for now to avoid
      accidental use for other ISAs.  */
   gcc_assert (TARGET_NANOMIPS);
-
-  /* Save registers starting from high to low.  The debuggers prefer at least
-     the return register be stored at func+4, and also it allows us not to
-     need a nop in the epilogue if at least one register is reloaded in
-     addition to return address.  */
-  offset = cfun->machine->frame.gp_sp_offset - sp_offset;
 
   if (ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore
@@ -14708,97 +14883,99 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
       && step != 0
       && nanomips_valid_save_restore_p (mask, false, NULL))
     {
-      if (restore_jrc_p)
-	{
-	  if (!sibcall_p
-	      && mips_can_use_return_insn ())
-	    *restore_jrc_p = true;
-	}
+      rtx save_restore;
 
-      if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
-	cfun->machine->frame.ra_fp_offset = offset + sp_offset;
-      save_restore = mips_build_save_restore (restore_p, &mask, &offset,
-					      0/*nargs*/, step,
-					      false, restore_jrc_p
-						     ? *restore_jrc_p
-						     : false);
-      if (!restore_p && (!restore_jrc_p || !*restore_jrc_p))
-	{
-	  RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
-	  mips_frame_barrier ();
-	}
+      /* If the frame pointer is being saved the RA must be saved as well.  */
+      if (BITSET_P (cfun->machine->frame.mask, HARD_FRAME_POINTER_REGNUM))
+	cfun->machine->frame.ra_fp_offset = (cfun->machine->frame.gp_sp_offset
+					     - UNITS_PER_WORD);
+      else if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+	cfun->machine->frame.ra_fp_offset = cfun->machine->frame.gp_sp_offset;
 
-      offset -= UNITS_PER_WORD;
-      if (restore_p && restore)
-	*restore = save_restore;
-      used_save_restore_p = true;
+      /* Create the actual SAVE or RESTORE instruction.  */
+      fprintf(stderr, "step in save/restore: %d\n", step);
+      save_restore = nanomips_build_save_restore (restore, &mask, step, false);
+
+      RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
+      /* WORK NEEDED;
+       * Need to mips_add_cfa_restore for each register restored (if restoring)
+       * and also mips_epilogue_set_cfa to update the stack pointer */
+      mips_frame_barrier ();
     }
-  else if (restore_jrc_p)
-    *restore_jrc_p = false;
-
-  /* We want to use mostly the positive offsets when saving/restoring,
-     hence, the stack adjustment is deferred when restoring.  */
-  if (!used_save_restore_p && !restore)
+  else
     {
-      if (!cfun->machine->interrupt_handler_p)
+      offset = cfun->machine->frame.gp_sp_offset - sp_offset;
+      /* Emit the stack pointer adjustment here for the prologue so the
+	 space is allocated before use but leave it until later for the
+	 epilogue so that it is no deallocated before last use.  */
+      if (!restore && step != 0)
 	{
 	  rtx insn = gen_add3_insn (stack_pointer_rtx,
 				    stack_pointer_rtx,
 				    GEN_INT (-step));
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
+	  offset += step;
 	}
-      offset = cfun->machine->frame.gp_sp_offset;
+
+      /* Make sure that we save/restore to the same stack slots as
+	 SAVE/RESTORE would as we can potentially have a mix of
+	 SAVE/RESTORE and expanded SAVE/RESTORE.  */
+      if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM))
+	{
+	  mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM,
+				 offset, fn);
+	  offset -= UNITS_PER_WORD;
+	}
+
+      if (BITSET_P (mask, RETURN_ADDR_REGNUM))
+	{
+	  /* Record the ra offset for use by mips_function_profiler.  */
+	  cfun->machine->frame.ra_fp_offset = offset + sp_offset;
+	  mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, offset, fn);
+	  offset -= UNITS_PER_WORD;
+	}
+
+      for (regno = GP_REG_FIRST + 16; regno <= GP_REG_FIRST + 23; regno++)
+	if (BITSET_P (mask, regno - GP_REG_FIRST))
+	  {
+	    mips_save_restore_reg (word_mode, regno, offset, fn);
+	    offset -= UNITS_PER_WORD;
+	  }
+
+      if (BITSET_P (mask, GLOBAL_POINTER_REGNUM))
+	{
+	  mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
+	  offset -= UNITS_PER_WORD;
+	}
     }
+}
 
-  /* Make sure that we save/restore to the same stack slots as SAVE/RESTORE
-     would as we can potentially have a mix of SAVE/RESTORE and expanded
-     SAVE/RESTORE for whatever reason.  */
+/* Call FN for each GPR that is saved by the current function but is not
+   normally saved by the SAVE/RESTORE instructions.  SP_OFFSET is the
+   offset of the current stack pointer from the start of the frame.  */
+static void
+nanomips_for_each_saved_other_gpr (HOST_WIDE_INT sp_offset,
+				   mips_save_restore_fn fn)
+{
+  HOST_WIDE_INT offset;
 
-  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM))
-    {
-      mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM, offset, fn);
-      offset -= UNITS_PER_WORD;
-    }
+  /* Let's limit the use of this function to nanoMIPS for now to avoid
+     accidental use for other ISAs.  */
+  gcc_assert (TARGET_NANOMIPS);
 
-  if (BITSET_P (mask, RETURN_ADDR_REGNUM))
-    {
-      /* Record the ra offset for use by mips_function_profiler.  */
-      cfun->machine->frame.ra_fp_offset = offset + sp_offset;
-      mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, offset, fn);
-      offset -= UNITS_PER_WORD;
-    }
-
-  for (regno = GP_REG_FIRST + 16; regno <= GP_REG_FIRST + 23; regno++)
-    if (BITSET_P (mask, regno - GP_REG_FIRST))
-      {
-	mips_save_restore_reg (word_mode, regno, offset, fn);
-	offset -= UNITS_PER_WORD;
-      }
-
-  if (BITSET_P (mask, GLOBAL_POINTER_REGNUM))
-    {
-      mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
-      offset -= UNITS_PER_WORD;
-    }
+  offset = cfun->machine->frame.ogp_sp_offset - sp_offset;
 
   /* Save/restore the remaining registers, if needed.  This may happen in
      e.g. an interrupt handler.  */
   for (unsigned int i = 0; i < ARRAY_SIZE (nanomips_gp_caller_saved_regs); i++)
     {
-      regno = nanomips_gp_caller_saved_regs[i];
-      if (BITSET_P (mask, regno))
+      int regno = nanomips_gp_caller_saved_regs[i];
+      if (BITSET_P (cfun->machine->frame.mask, regno))
 	{
 	  mips_save_restore_reg (word_mode, regno, offset, fn);
 	  offset -= UNITS_PER_WORD;
 	}
-    }
-
-  if (restore_p && used_save_restore_p && save_restore
-      && (!restore_jrc_p || !*restore_jrc_p))
-    {
-      RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
-      mips_frame_barrier ();
     }
 }
 
@@ -14827,9 +15004,8 @@ mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
       && ISA_HAS_SAVEF_RESTOREF
       && mips_valid_savef_restoref_p (fmask))
     {
-      rtx save_restore = mips_build_save_restore (restore_p, &fmask, &offset,
-						  0/*nargs*/, offset/*step*/,
-						  true/*fp_p*/, false/*jrc_p*/);
+      rtx save_restore = nanomips_build_savef_restoref (restore_p, &fmask, &offset,
+							0/*nargs*/, offset/*step*/);
       if (!restore_p)
 	RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
       else
@@ -15071,7 +15247,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   mips_start_function_definition (fnname, TARGET_MIPS16);
 
   /* Output MIPS-specific frame information.  */
-  if (!flag_inhibit_size_directive)
+  if (!TARGET_NANOMIPS && !flag_inhibit_size_directive)
     {
       const struct mips_frame_info *frame;
 
@@ -15381,8 +15557,7 @@ mips_cfi_endproc_p32 (void)
   // total: The total size of the frame. Not using $fp, this is simply the frame's total size.
   total = cfun->machine->frame.total_size;
   // push_base: The upper bound for addresses in the frame where registers are pushed to.
-  // This is where the COP0 register area starts.
-  push_base = total - cfun->machine->frame.cop0_save_offset;
+  push_base = total - cfun->machine->varargs_size;
 
   // If we must use the frame pointer for these calculations, do the following:
   if (frame_pointer_needed)
@@ -15399,7 +15574,7 @@ mips_cfi_endproc_p32 (void)
       fprintf(stderr, "bad stuff\n");
       // Now, recompute total and push_base.
       // Total is now the size of the hard frame pointer offset (MIPS_FRAME_BIAS) + the varargs region.
-      total = MIPS_FRAME_BIAS + MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+      total = MIPS_FRAME_BIAS + cfun->machine->varargs_size;
       // Likewise, push_base is the offset from the hard frame pointer to the end of the
       // FPR region, ie. the start of the COP0 region.
       push_base = total - cfun->machine->frame.cop0_save_offset;
@@ -15788,7 +15963,7 @@ mips_expand_prologue_oabi_nabi (void)
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
 	  rtx insn = mips_build_save_restore (false, &mask, &offset,
-					      nargs, step1, false, false);
+					      nargs, step1);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -16039,7 +16214,7 @@ static void
 mips_expand_prologue_pabi (void)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT size, reg_parm_area_size = 0;
+  HOST_WIDE_INT size;
 
   if (cfun->machine->global_pointer != INVALID_REGNUM)
     {
@@ -16074,18 +16249,33 @@ mips_expand_prologue_pabi (void)
 	mips_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
     }
 
+  if (cfun->machine->varargs_size != 0)
+    {
+      rtx insn = gen_add3_insn (stack_pointer_rtx,
+				stack_pointer_rtx,
+				GEN_INT (-cfun->machine->varargs_size));
+
+      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      size -= cfun->machine->varargs_size;
+    }
+
   /* Save the registers.  Allocate up to MIPS_MAX_FIRST_STACK_STEP
      bytes beforehand; this is enough to cover the register save area
      without going out of range.  */
   if (((frame->mask | frame->fmask | frame->acc_mask) != 0)
       || frame->num_cop0_regs > 0)
     {
-      HOST_WIDE_INT step;
+      HOST_WIDE_INT step, reg_area_size;
 
-      reg_parm_area_size = cfun->machine->varargs_size;
-      size -= reg_parm_area_size;
+      /* Calculate the total size of the register save area using the
+	 sizes of known blocks.  */
+      reg_area_size = (frame->total_size - cfun->machine->varargs_size
+		       - frame->args_size - frame->var_size);
 
-      step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
+      if (size > MIPS_MAX_FIRST_STACK_STEP && reg_area_size > 0)
+	step = reg_area_size;
+      else
+	step = size;
 
       if (cfun->machine->interrupt_handler_p)
 	{
@@ -16115,7 +16305,11 @@ mips_expand_prologue_pabi (void)
 				    GEN_INT (-step));
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
+
+	  /* Adjust the remaining size and prevent the step being applied
+	     again.  */
 	  size -= step;
+	  step = 0;
 
 	  /* Start at the uppermost location for saving.  */
           // TODO
@@ -16189,17 +16383,11 @@ mips_expand_prologue_pabi (void)
 				   gen_rtx_REG (SImode, GP_REG_FIRST)));
 	}
 
-      if (TARGET_PABI && reg_parm_area_size != 0)
-	RTX_FRAME_RELATED_P (
-	  emit_insn (gen_add3_insn (stack_pointer_rtx,
-				    stack_pointer_rtx,
-				    GEN_INT (-reg_parm_area_size)))) = 1;
-
-      mips_save_restore_gprs_and_adjust_sp (size, step, mips_save_reg,
-					    false, NULL, false);
+      nanomips_save_restore_gprs (size, step, mips_save_reg);
       /* We ensure that the above does adjust the stack pointer, thus, take
 	 into account the remaining size.  */
       size -= step;
+      nanomips_for_each_saved_other_gpr (size, mips_save_reg);
       mips_for_each_saved_fpr (size, mips_save_reg);
       mips_for_each_saved_acc (size, mips_save_reg);
     }
@@ -16207,9 +16395,7 @@ mips_expand_prologue_pabi (void)
   /* Set up the frame pointer, if we're using one.  */
   if (frame_pointer_needed)
     {
-      rtx offset = GEN_INT (-(MIPS_FRAME_BIAS
-			      - MIN (frame->total_size - reg_parm_area_size,
-				     MIPS_MAX_FIRST_STACK_STEP)));
+      rtx offset = GEN_INT (frame->hard_frame_pointer_offset - size);
       rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
 				stack_pointer_rtx, offset);
       RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
@@ -16218,11 +16404,18 @@ mips_expand_prologue_pabi (void)
   /* Allocate the rest of the frame.  */
   if (size > 0)
     {
-      /* FIXME, use macro.  */
-      if (IN_RANGE (-size, -0xfff, 0))
+      if (IN_RANGE (-size, -0xfff, 0xffff))
 	RTX_FRAME_RELATED_P (emit_insn (gen_add3_insn (stack_pointer_rtx,
 						       stack_pointer_rtx,
 						       GEN_INT (-size)))) = 1;
+      else if (ISA_HAS_ADDIU48)
+	{
+	  /* WORK NEEDED: It should not be necessary to split this from above.  */
+	  rtx insn = gen_mips_addsi3_48 (stack_pointer_rtx,
+					 stack_pointer_rtx,
+					 GEN_INT (-size));
+	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	}
       else
 	{
 	  mips_emit_move (MIPS_PROLOGUE_TEMP (Pmode), GEN_INT (size));
@@ -16259,9 +16452,6 @@ mips_expand_prologue_pabi (void)
      the call to mcount.  */
   if (crtl->profile)
     emit_insn (gen_blockage ());
-
-  if (ENABLE_LD_ST_PAIRS)
-    mips_load_store_bond_insns ();
 }
 
 /* Expand the "prologue" pattern.  */
@@ -16365,6 +16555,14 @@ mips_deallocate_stack (rtx base, rtx offset, HOST_WIDE_INT new_frame_size)
       mips_epilogue_set_cfa (base, new_frame_size);
       emit_move_insn (stack_pointer_rtx, base);
     }
+  else if (TARGET_NANOMIPS && CONST_INT_P (offset)
+	   && !IN_RANGE (INTVAL (offset), -0xfff, 0xffff))
+    {
+      /* WORK NEEDED: This should not be necessary addsi3 should allow
+         this expansion automatically.  */
+      emit_insn (gen_mips_addsi3_48 (stack_pointer_rtx, base, offset));
+      mips_epilogue_set_cfa (stack_pointer_rtx, new_frame_size);
+    }
   else
     {
       emit_insn (gen_add3_insn (stack_pointer_rtx, base, offset));
@@ -16393,19 +16591,30 @@ mips_expand_before_return (void)
 void
 mips_expand_return (void)
 {
-  HOST_WIDE_INT offset, sp_offset;
+  HOST_WIDE_INT offset = 0, sp_offset = 0;
   HOST_WIDE_INT step;
   rtx base;
   const struct mips_frame_info *frame = &cfun->machine->frame;
   unsigned int mask = frame->mask;
 
   step = MIN (frame->total_size, MIPS_MAX_FIRST_STACK_STEP);
-  rtx restore = mips_build_save_restore (true, &mask, &offset, 0, step,
-					 false/*fp_p*/, true/*jrc_p*/);
-  mips_split_plus (SET_SRC (XVECEXP (restore, 0, 1)), &base, &sp_offset);
-  gcc_assert (REGNO (base) == STACK_POINTER_REGNUM);
-  gcc_assert (mips_save_restore_pattern_p (restore, sp_offset, NULL,
-					   false/*fp_p*/, true/*jrc_p*/));
+  rtx restore;
+  if (TARGET_NANOMIPS)
+    {
+      restore = nanomips_build_save_restore (true, &mask, step,
+					     true/*jrc_p*/);
+      mips_split_plus (SET_SRC (XVECEXP (restore, 0, 1)), &base, &sp_offset);
+      gcc_assert (REGNO (base) == STACK_POINTER_REGNUM);
+      gcc_assert (nanomips_save_restore_pattern_p (restore, sp_offset, NULL,
+						   false/*fp_p*/, true/*jrc_p*/));
+    }
+  else
+    {
+      restore = mips_build_save_restore (true, &mask, &offset, 0, step);
+      mips_split_plus (SET_SRC (XVECEXP (restore, 0, 1)), &base, &sp_offset);
+      gcc_assert (REGNO (base) == STACK_POINTER_REGNUM);
+      gcc_assert (mips_save_restore_pattern_p (restore, sp_offset, NULL));
+    }
   emit_jump_insn (restore);
 }
 
@@ -16488,8 +16697,7 @@ mips_expand_epilogue_oabi_nabi (bool sibcall_p)
 
       /* Generate the restore instruction.  */
       mask = frame->mask;
-      restore = mips_build_save_restore (true, &mask, &offset, 0, step2,
-					 false/*fp_p*/, false/*jrc_p*/);
+      restore = mips_build_save_restore (true, &mask, &offset, 0, step2);
 
       /* Restore any other registers manually.  */
       for (regno = GP_REG_FIRST; regno < GP_REG_LAST; regno++)
@@ -16651,16 +16859,18 @@ mips_expand_epilogue_oabi_nabi (bool sibcall_p)
     mips_load_store_bond_insns ();
 }
 
+/* Generate the whole epilogue for nanoMIPS P32 ABI.  SIBCALL_P is set when
+   the function will directly jump to another function rather than returning,
+   this is also known as a tail call.  */
+
 static void
 mips_expand_epilogue_pabi (bool sibcall_p)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT step1 = 0, step2 = 0, reg_area_size = 0, reg_parm_area_size;
+  HOST_WIDE_INT step1 = 0, step2 = 0, reg_area_size = 0, sp_offset = 0;
   rtx base, adjust;
   rtx_insn *insn;
-  rtx restore;
   bool use_restore_p = false;
-  bool use_restore_jrc_p = false;
   bool use_restoref_p = false;
 
   if (!sibcall_p && mips_can_use_simple_return_insn ())
@@ -16681,80 +16891,99 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       && mips_valid_savef_restoref_p (frame->fmask))
     use_restoref_p = true;
 
-  reg_area_size = MIPS_STACK_ALIGN (frame->num_gp * UNITS_PER_WORD
-				    + frame->num_fp * UNITS_PER_HWFPVALUE
-				    + frame->num_acc * 2 * UNITS_PER_WORD);
+  /* Calculate the total size of the register save area using the
+     sizes of known blocks.  */
+  reg_area_size = (frame->total_size - cfun->machine->varargs_size
+		   - frame->args_size - frame->var_size);
 
-  /* Work out which register holds the frame address.  */
-  if (!frame_pointer_needed)
+  /* Work out which register holds the frame address.  Initialise
+     step1 to be the total adjustment required to reach the frame
+     pointer, this will be adjusted to ensure the stack space
+     used for saving registers is not deallocated before they
+     are restored.  */
+  if (frame_pointer_needed)
     {
-      base = stack_pointer_rtx;
-      step1 = frame->total_size
-              - cfun->machine->varargs_size;
+      fprintf(stderr, "frame pointer needed\n");
+      base = hard_frame_pointer_rtx;
+      step1 = MIPS_FRAME_BIAS;
     }
   else
     {
-      base = hard_frame_pointer_rtx;
-      step1 = frame->hard_frame_pointer_offset - reg_area_size;
+      base = stack_pointer_rtx;
+      step1 = frame->total_size - cfun->machine->varargs_size;
     }
-
-  reg_parm_area_size = cfun->machine->varargs_size;
 
   mips_epilogue.cfa_reg = base;
   mips_epilogue.cfa_offset = step1;
   mips_epilogue.cfa_restores = NULL_RTX;
 
-  /* If we need to restore registers, deallocate as much stack as
-     possible in the second step without going out of range.  */
-  if ((frame->mask | frame->fmask | frame->acc_mask) != 0
-      || frame->num_cop0_regs > 0)
+  /* If we need to restore registers then defer deallocating at
+     least the size of the register save area until the registers
+     have been restored.  Defer allocating as much as possible to
+     give the best chance of eliminating the step1 stack
+     adjustment.  */
+  if (reg_area_size > 0)
     {
       if (frame_pointer_needed
-	  || (!frame_pointer_needed
-	      && frame->total_size > MIPS_MAX_FIRST_STACK_STEP))
-	step2 = reg_area_size;
+	  || (frame->total_size - cfun->machine->varargs_size
+	      > MIPS_MAX_FIRST_STACK_STEP))
+	{
+	  /* If we have to split the stack deallocation then we
+	     may as well just defer deallocating the size of the
+	     register save area.  This split can safely be improved
+	     to get the smallest overall codesize as future work.  */
+	  step2 = MIPS_STACK_ALIGN (reg_area_size);
+	  step1 -= step2;
+	  /* The following calculation is NOT equal to step1 when
+	     using the hard_frame_pointer_rtx as the base.  */
+	  sp_offset = frame->total_size - cfun->machine->varargs_size - step2;
+	}
       else
-	step2 = step1;
-      step1 -= step2;
+	{
+	  /* The entire stack can be deallocated when restoring
+	     registers.  */
+	  step2 = step1;
+	  step1 = 0;
+	  sp_offset = 0;
+	}
     }
 
-  /* Get an rtx for STEP that we can add to BASE.  */
-  adjust = GEN_INT (frame_pointer_needed ? (MIPS_FRAME_BIAS
-					    - reg_area_size)
-					 : step1);
-  if (!IN_RANGE (INTVAL (adjust), -0xfff, 0xffff))
+  if (step1 != 0 || base == hard_frame_pointer_rtx)
     {
-      mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
-      adjust = MIPS_EPILOGUE_TEMP (Pmode);
+      /* Get an rtx for STEP1 that we can add to BASE.  */
+      adjust = GEN_INT (step1);
+      /* LI48 can be used here if available and src/dest registers
+         match, otherwise check the overall ADDIU32 range.  */
+      if ((!(TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48)
+	   || base == hard_frame_pointer_rtx)
+	  && !IN_RANGE (INTVAL (adjust), -0xfff, 0xffff))
+	{
+	  mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
+	  adjust = MIPS_EPILOGUE_TEMP (Pmode);
+	}
+      mips_deallocate_stack (base, adjust, step2);
     }
-  mips_deallocate_stack (base, adjust, step2);
 
-  /* If we're using addressing macros, $gp is implicitly used by all
-     SYMBOL_REFs.  We must emit a blockage insn before restoring $gp
-     from the stack.  */
-  if (TARGET_CALL_SAVED_GP && !TARGET_EXPLICIT_RELOCS)
-    emit_insn (gen_blockage ());
+  /* nanoMIPS requires explicit relocs avoiding the need to worry about
+     macro instructions.  */
+  gcc_assert (TARGET_EXPLICIT_RELOCS);
 
+  /* There is now STEP2 bytes left to deallocate up to the frame pointer.  */
   mips_epilogue.cfa_restore_sp_offset = step2;
 
-  mips_for_each_saved_acc (frame->total_size - step2 - reg_parm_area_size,
-			   mips_restore_reg);
-
-  mips_for_each_saved_fpr (frame->total_size - step2 - reg_parm_area_size,
-			   mips_restore_reg);
+  mips_for_each_saved_acc (sp_offset, mips_restore_reg);
+  mips_for_each_saved_fpr (sp_offset, mips_restore_reg);
+  nanomips_for_each_saved_other_gpr (sp_offset, mips_restore_reg);
 
   /* Restore the registers.  */
-  mips_save_restore_gprs_and_adjust_sp (frame->total_size - step2
-					- reg_parm_area_size, step2,
-					mips_restore_reg, &use_restore_jrc_p,
-					&restore, sibcall_p);
+  nanomips_save_restore_gprs (sp_offset, step2, mips_restore_reg);
 
   if (cfun->machine->interrupt_handler_p)
     {
       HOST_WIDE_INT offset;
       rtx mem;
 
-      offset = frame->cop0_sp_offset - (frame->total_size - step2);
+      offset = frame->cop0_sp_offset - sp_offset;
 
       /* Restore the original EPC.  */
       mem = gen_frame_mem (word_mode,
@@ -16785,22 +17014,18 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_STATUS_REG_NUM),
 				gen_rtx_REG (SImode, K1_REG_NUM)));
     }
-  else if (use_restore_p || use_restore_jrc_p)
-    /* Nothing to do here.  We will deallocate and return. See below.  */
-    ;
-  else
+  else if (!use_restore_p)
     /* Deallocate the final bit of the frame.  */
     mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
-
-  if (reg_parm_area_size > 0)
-    mips_deallocate_stack (stack_pointer_rtx,
-			   GEN_INT (reg_parm_area_size), 0);
-
-  if (cfun->machine->use_frame_header_for_callee_saved_regs)
+  else
+    /* For the RESTORE case.  */
     mips_epilogue_emit_cfa_restores ();
 
-  /* Add in the __builtin_eh_return stack adjustment.  We need to
-     use a temporary in MIPS16 code.  */
+  if (cfun->machine->varargs_size > 0)
+    mips_deallocate_stack (stack_pointer_rtx,
+			   GEN_INT (cfun->machine->varargs_size), 0);
+
+  /* Add in the __builtin_eh_return stack adjustment.  */
   if (crtl->calls_eh_return)
     emit_insn (gen_add3_insn (stack_pointer_rtx,
 			      stack_pointer_rtx,
@@ -16819,21 +17044,8 @@ mips_expand_epilogue_pabi (bool sibcall_p)
 	}
       else
 	{
-	  rtx pat;
-
-	  if (use_restore_jrc_p)
-	    {
-	      mips_frame_barrier ();
-	      pat = restore;
-	    }
-	  else
-	    {
-	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
-	      pat = gen_simple_return_internal (reg);
-	    }
-	  emit_jump_insn (pat);
-	  if (use_restore_jrc_p)
-	    mips_epilogue_set_cfa (stack_pointer_rtx, step2);
+	  rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+	  emit_jump_insn (gen_simple_return_internal (reg));
 	}
     }
 
@@ -16850,9 +17062,6 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       emit_insn_before (gen_mips_di (), insn);
       emit_insn_before (gen_mips_ehb (), insn);
     }
-
-  if (ENABLE_LD_ST_PAIRS)
-    mips_load_store_bond_insns ();
 }
 
 void
@@ -16896,7 +17105,7 @@ mips_can_use_simple_return_insn (void)
 }
 
 bool
-mips_can_use_return_insn (void)
+nanomips_can_use_return_insn (void)
 {
   HOST_WIDE_INT size = cfun->machine->frame.total_size;
   /* For optimal code size, we only consider RESTORE.JRC[16] here.
@@ -24348,6 +24557,9 @@ nanomips_move_balc_opt ()
 
    Find opportunities for and generate RESTORE.JRC.  */
 
+/* WORK NEEDED: Generate restore.jrc without any register restores to combine
+   addiu sp, sp, xxx with JRC $ra */
+
 static void
 nanomips_restore_jrc_opt ()
 {
@@ -24374,8 +24586,8 @@ nanomips_restore_jrc_opt ()
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SET
 	      && GET_CODE ((src = SET_SRC (XVECEXP (pattern, 0, 0)))) == PLUS
 	      && INTVAL (XEXP (src, 1)) > 0
-	      && mips_save_restore_pattern_p (pattern, INTVAL (XEXP (src, 1)),
-					      NULL, NULL, false))
+	      && nanomips_save_restore_pattern_p (pattern, INTVAL (XEXP (src, 1)),
+						  NULL, NULL, false))
 	    restore_insn = insn;
 
 	  if (restore_insn != NULL && blockage_insn == NULL

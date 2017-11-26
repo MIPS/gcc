@@ -34,6 +34,8 @@
    the first such frame here.  Cleanup code will call back into
    _Unwind_Resume and we'll continue Phase 2 there.  */
 
+#include <stdio.h>
+
 static _Unwind_Reason_Code
 _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
 			      struct _Unwind_Context *context)
@@ -76,6 +78,8 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
   return code;
 }
 
+#define getmyreg(cont, num) (cont.reg[num] ? *(int*)cont.reg[num] : -1)
+
 /* Raise an exception, passing along the given exception object.  */
 
 _Unwind_Reason_Code LIBGCC2_UNWIND_ATTRIBUTE
@@ -83,10 +87,23 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 {
   struct _Unwind_Context this_context, cur_context;
   _Unwind_Reason_Code code;
+	  int ra, sp;
+	  __asm__ __volatile__ ("move %0, $ra\n"
+	                        "move %1, $sp\n"
+	                        : "=r" (ra), "=r" (sp));
+	  fprintf(stderr, "function addr: %x ra: %x sp: %x _Unwind_RaiseException\n", _Unwind_RaiseException, ra, sp);
+
 
   /* Set up this_context to describe the current stack frame.  */
   uw_init_context (&this_context);
   cur_context = this_context;
+      fprintf(stderr, "current_context: cfa: %x ra: %x sp: %x ra: %x\n", cur_context.cfa, cur_context.ra, getmyreg(cur_context,29), getmyreg(cur_context,31));
+
+  int i;
+  for (i = 0 ; i < 32 ; i++)
+	{
+	  fprintf(stderr, "reg %d, %x\n", i, getmyreg(cur_context, i));
+	}
 
   /* Phase 1: Search.  Unwind the stack, calling the personality routine
      with the _UA_SEARCH_PHASE flag set.  Do not modify the stack yet.  */
@@ -120,6 +137,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 
       /* Update cur_context to describe the same frame as fs.  */
       uw_update_context (&cur_context, &fs);
+      fprintf(stderr, "current_context: cfa: %x ra: %x sp: %x ra: %x\n", cur_context.cfa, cur_context.ra, getmyreg(cur_context,29), getmyreg(cur_context,31));
     }
 
   /* Indicate to _Unwind_Resume and associated subroutines that this

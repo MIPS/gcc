@@ -24,6 +24,7 @@
 
 #include <bits/c++config.h>
 #include "unwind-cxx.h"
+#include <stdio.h>
 
 using namespace __cxxabiv1;
 
@@ -61,6 +62,12 @@ __cxxabiv1::__cxa_throw (void *obj, std::type_info *tinfo,
 			 void (_GLIBCXX_CDTOR_CALLABI *dest) (void *))
 {
   PROBE2 (throw, obj, tinfo);
+    int ra, sp;
+      __asm__ __volatile__ ("move %0, $ra\n"
+	                          "move %1, $sp\n"
+				                          : "=r" (ra), "=r" (sp));
+        fprintf(stderr, "function addr: %x ra: %x sp: %x __cxa_throw\n", __cxa_throw, ra, sp);
+
 
   __cxa_eh_globals *globals = __cxa_get_globals ();
   globals->uncaughtExceptions += 1;
