@@ -310,7 +310,7 @@ extern void mips_expand_before_return (void);
 extern void mips_expand_return (void);
 extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_simple_return_insn (void);
-extern bool mips_can_use_return_insn (void);
+extern bool nanomips_can_use_return_insn (void);
 
 extern bool mips_const_vector_same_val_p (rtx, machine_mode);
 extern bool mips_const_vector_same_bytes_p (rtx, machine_mode);
@@ -361,10 +361,13 @@ extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 
-extern const char *mips_output_save_restore (rtx, HOST_WIDE_INT, bool);
+extern const char *mips_output_save_restore (rtx, HOST_WIDE_INT);
+extern const char *nanomips_output_save_restore (rtx, HOST_WIDE_INT, bool);
 extern bool mips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
-					 struct mips_save_restore_info *,
-					 bool *, bool);
+					 struct mips_save_restore_info *);
+extern bool nanomips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
+					     struct mips_save_restore_info *,
+					     bool *, bool);
 
 extern bool mask_low_and_shift_p (machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (machine_mode, rtx, rtx);

@@ -1716,10 +1716,12 @@ FP_ASM_SPEC "\
    the frame pointer to be the stack pointer after the initial
    adjustment.  */
 
+#ifndef NANOMIPS_SUPPORT
 #define DEBUGGER_AUTO_OFFSET(X)				\
   mips_debugger_offset (X, (HOST_WIDE_INT) 0)
 #define DEBUGGER_ARG_OFFSET(OFFSET, X)			\
   mips_debugger_offset (X, (HOST_WIDE_INT) OFFSET)
+#endif
 
 /* Target machine storage layout */
 
@@ -2543,7 +2545,7 @@ enum reg_class
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))
 #define MIPS_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
-#define LI32_INT(X) (!LUI_INT (X) && !SMALL_INT (X) && !SMALL_INT_UNSIGNED (X))
+#define LI32_INT(X) (!LUI_INT (X) && !IN_RANGE (INTVAL (X), -0xfff, 0xffff))
 
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
@@ -3588,6 +3590,7 @@ struct GTY(())  mips_frame_info {
 
   /* Likewise, but giving offsets from the bottom of the frame.  */
   HOST_WIDE_INT gp_sp_offset;
+  HOST_WIDE_INT ogp_sp_offset;
   HOST_WIDE_INT fp_sp_offset;
   HOST_WIDE_INT acc_sp_offset;
   HOST_WIDE_INT cop0_sp_offset;

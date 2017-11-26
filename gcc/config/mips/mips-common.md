@@ -7547,10 +7547,10 @@
 
 (define_expand "return"
   [(simple_return)]
-  "mips_can_use_simple_return_insn () || mips_can_use_return_insn ()"
+  "mips_can_use_simple_return_insn () || nanomips_can_use_return_insn ()"
 {
   mips_expand_before_return ();
-  if (mips_can_use_return_insn ())
+  if (nanomips_can_use_return_insn ())
     {
       mips_expand_return ();
       DONE;
@@ -8446,13 +8446,26 @@
        [(set (match_operand:P 1 "register_operand")
 	     (plus:P (match_dup 1)
 		     (match_operand:P 2 "const_int_operand")))])]
-  "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   NULL, false)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
-				     false/*jrc_p*/); }
+  "!TARGET_NANOMIPS
+   && GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*nanomips_save_restore"
+  [(match_parallel 0 ""
+       [(set (match_operand:P 1 "register_operand")
+	     (plus:P (match_dup 1)
+		     (match_operand:P 2 "const_int_operand")))])]
+  "TARGET_NANOMIPS
+   && GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				       NULL, false)"
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
+					 false/*jrc_p*/); }
+  [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
 
 (define_insn "*mips_savef"
@@ -8460,8 +8473,8 @@
        [(set (mem:DF (match_operand:P 1 "register_operand" "ks"))
 	     (match_operand:DF 2 "register_operand" "f"))])]
    "ISA_HAS_SAVEF_RESTOREF
-    && mips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
-  { return mips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
+    && nanomips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
+  { return nanomips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
 
@@ -8471,10 +8484,10 @@
 			     (match_operand:P 2 "const_int_operand" "I")))
 	     (match_operand:DF 3 "register_operand" "f"))])]
    "ISA_HAS_SAVEF_RESTOREF
-    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				    NULL, false)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
-				     false/*jrc_p*/); }
+    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+					NULL, false)"
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
+					 false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
 
@@ -8483,8 +8496,8 @@
        [(set (match_operand:DF 1 "register_operand" "=f")
 	     (mem:DF (match_operand:P 2 "register_operand" "ks")))])]
    "ISA_HAS_SAVEF_RESTOREF
-    && mips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
-  { return mips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
+    && nanomips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
+  { return nanomips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
 
@@ -8494,10 +8507,10 @@
 	     (mem:DF (plus:P (match_operand:P 2 "register_operand" "ks")
 			     (match_operand:P 3 "const_int_operand" "I"))))])]
    "ISA_HAS_SAVEF_RESTOREF
-    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[3]), NULL,
-				    NULL, false)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[3]),
-				     false/*jrc_p*/); }
+    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[3]), NULL,
+					NULL, false)"
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[3]),
+					 false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
 
@@ -8510,10 +8523,10 @@
   "ISA_HAS_RESTORE_JRC
    && GET_CODE (operands[1]) == REG
    && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   NULL, true)
+   && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				       NULL, true)
    && reload_completed"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
 				     true/*jrc_p*/); }
   [(set_attr "type"     "jump")
    (set_attr "mode"     "none")])
