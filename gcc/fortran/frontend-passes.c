@@ -714,7 +714,7 @@ insert_block ()
 static gfc_expr*
 create_var (gfc_expr * e, const char *vname)
 {
-  char name[GFC_MAX_SYMBOL_LEN +1];
+  const char *name;
   gfc_symtree *symtree;
   gfc_symbol *symbol;
   gfc_expr *result;
@@ -734,9 +734,9 @@ create_var (gfc_expr * e, const char *vname)
   ns = insert_block ();
 
   if (vname)
-    snprintf (name, GFC_MAX_SYMBOL_LEN, "__var_%d_%s", var_num++, vname);
+    name = gfc_get_string ("__var_%d_%s", var_num++, vname);
   else
-    snprintf (name, GFC_MAX_SYMBOL_LEN, "__var_%d", var_num++);
+    name = gfc_get_string ("__var_%d", var_num++);
 
   if (gfc_get_sym_tree (name, ns, &symtree, false) != 0)
     gcc_unreachable ();
@@ -1992,6 +1992,7 @@ get_len_trim_call (gfc_expr *str, int kind)
 {
   gfc_expr *fcn;
   gfc_actual_arglist *actual_arglist, *next;
+  const char *sname;
 
   fcn = gfc_get_expr ();
   fcn->expr_type = EXPR_FUNCTION;
@@ -2007,7 +2008,8 @@ get_len_trim_call (gfc_expr *str, int kind)
   fcn->ts.type = BT_INTEGER;
   fcn->ts.kind = gfc_charlen_int_kind;
 
-  gfc_get_sym_tree ("__internal_len_trim", current_ns, &fcn->symtree, false);
+  sname = gfc_get_string ("%s", "__internal_len_trim");
+  gfc_get_sym_tree (sname, current_ns, &fcn->symtree, false);
   fcn->symtree->n.sym->ts = fcn->ts;
   fcn->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   fcn->symtree->n.sym->attr.function = 1;

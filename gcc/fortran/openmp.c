@@ -2860,6 +2860,7 @@ gfc_match_omp_declare_reduction (void)
       gfc_namespace *combiner_ns, *initializer_ns = NULL;
       gfc_omp_udr *prev_udr, *omp_udr;
       const char *predef_name = NULL;
+      const char *sname;
 
       omp_udr = gfc_get_omp_udr ();
       omp_udr->name = name;
@@ -2870,8 +2871,10 @@ gfc_match_omp_declare_reduction (void)
       gfc_current_ns = combiner_ns = gfc_get_namespace (gfc_current_ns, 1);
       combiner_ns->proc_name = combiner_ns->parent->proc_name;
 
-      gfc_get_sym_tree ("omp_out", combiner_ns, &omp_out, false);
-      gfc_get_sym_tree ("omp_in", combiner_ns, &omp_in, false);
+      sname = gfc_get_string ("%s", "omp_out");
+      gfc_get_sym_tree (sname, combiner_ns, &omp_out, false);
+      sname = gfc_get_string ("%s", "omp_in");
+      gfc_get_sym_tree (sname, combiner_ns, &omp_in, false);
       combiner_ns->omp_udr_ns = 1;
       omp_out->n.sym->ts = tss[i];
       omp_in->n.sym->ts = tss[i];
@@ -2903,8 +2906,10 @@ gfc_match_omp_declare_reduction (void)
 	  gfc_current_ns = initializer_ns;
 	  initializer_ns->proc_name = initializer_ns->parent->proc_name;
 
-	  gfc_get_sym_tree ("omp_priv", initializer_ns, &omp_priv, false);
-	  gfc_get_sym_tree ("omp_orig", initializer_ns, &omp_orig, false);
+	  sname = gfc_get_string ("%s", "omp_priv");
+	  gfc_get_sym_tree (sname, initializer_ns, &omp_priv, false);
+	  sname = gfc_get_string ("%s", "omp_orig");
+	  gfc_get_sym_tree (sname, initializer_ns, &omp_orig, false);
 	  initializer_ns->omp_udr_ns = 1;
 	  omp_priv->n.sym->ts = tss[i];
 	  omp_orig->n.sym->ts = tss[i];

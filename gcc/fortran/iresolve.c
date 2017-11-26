@@ -3351,7 +3351,7 @@ create_formal_for_intents (gfc_actual_arglist* actual, const sym_intent* ints)
 void
 gfc_resolve_atomic_def (gfc_code *c)
 {
-  const char *name = "atomic_define";
+  const char *name = gfc_get_string ("%s", "atomic_define");
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
@@ -3359,14 +3359,14 @@ gfc_resolve_atomic_def (gfc_code *c)
 void
 gfc_resolve_atomic_ref (gfc_code *c)
 {
-  const char *name = "atomic_ref";
+  const char *name = gfc_get_string ("%s", "atomic_ref");
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 void
 gfc_resolve_event_query (gfc_code *c)
 {
-  const char *name = "event_query";
+  const char *name = gfc_get_string ("%s", "event_query");
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 

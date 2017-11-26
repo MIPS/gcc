@@ -959,12 +959,13 @@ finalize_component (gfc_expr *expr, gfc_symbol *derived, gfc_component *comp,
       dealloc->ext.alloc.list->expr = e;
       dealloc->expr1 = gfc_lval_expr_from_sym (stat);
 
+      const char *sname = gfc_get_string ("%s", "associated");
       gfc_code *cond = gfc_get_code (EXEC_IF);
       cond->block = gfc_get_code (EXEC_IF);
       cond->block->expr1 = gfc_get_expr ();
       cond->block->expr1->expr_type = EXPR_FUNCTION;
       cond->block->expr1->where = gfc_current_locus;
-      gfc_get_sym_tree ("associated", sub_ns, &cond->block->expr1->symtree, false);
+      gfc_get_sym_tree (sname, sub_ns, &cond->block->expr1->symtree, false);
       cond->block->expr1->symtree->n.sym->attr.flavor = FL_PROCEDURE;
       cond->block->expr1->symtree->n.sym->attr.intrinsic = 1;
       cond->block->expr1->symtree->n.sym->result = cond->block->expr1->symtree->n.sym;
@@ -1038,10 +1039,12 @@ finalization_scalarizer (gfc_symbol *array, gfc_symbol *ptr,
 {
   gfc_code *block;
   gfc_expr *expr, *expr2;
+  const char *sname;
 
   /* C_F_POINTER().  */
   block = gfc_get_code (EXEC_CALL);
-  gfc_get_sym_tree ("c_f_pointer", sub_ns, &block->symtree, true);
+  sname = gfc_get_string ("%s", "c_f_pointer");
+  gfc_get_sym_tree (sname, sub_ns, &block->symtree, true);
   block->resolved_sym = block->symtree->n.sym;
   block->resolved_sym->attr.flavor = FL_PROCEDURE;
   block->resolved_sym->attr.intrinsic = 1;
@@ -1063,7 +1066,8 @@ finalization_scalarizer (gfc_symbol *array, gfc_symbol *ptr,
   /* TRANSFER's first argument: C_LOC (array).  */
   expr = gfc_get_expr ();
   expr->expr_type = EXPR_FUNCTION;
-  gfc_get_sym_tree ("c_loc", sub_ns, &expr->symtree, false);
+  sname = gfc_get_string ("%s", "c_loc");
+  gfc_get_sym_tree (sname, sub_ns, &expr->symtree, false);
   expr->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   expr->symtree->n.sym->intmod_sym_id = ISOCBINDING_LOC;
   expr->symtree->n.sym->attr.intrinsic = 1;

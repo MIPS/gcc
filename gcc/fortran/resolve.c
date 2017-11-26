@@ -8822,10 +8822,11 @@ fixup_array_ref (gfc_expr **expr1, gfc_expr *expr2,
 static gfc_expr *
 build_loc_call (gfc_expr *sym_expr)
 {
+  const char *loc = gfc_get_string ("%s", "_loc");
   gfc_expr *loc_call;
   loc_call = gfc_get_expr ();
   loc_call->expr_type = EXPR_FUNCTION;
-  gfc_get_sym_tree ("_loc", gfc_current_ns, &loc_call->symtree, false);
+  gfc_get_sym_tree (loc, gfc_current_ns, &loc_call->symtree, false);
   loc_call->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   loc_call->symtree->n.sym->attr.intrinsic = 1;
   loc_call->symtree->n.sym->result = loc_call->symtree->n.sym;
@@ -10495,12 +10496,13 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
      path.  */
   if (caf_convert_to_send)
     {
+      const char *sname = gfc_get_string ("%s", GFC_PREFIX ("caf_send"));
       if (code->expr2->expr_type == EXPR_FUNCTION
 	  && code->expr2->value.function.isym
 	  && code->expr2->value.function.isym->id == GFC_ISYM_CAF_GET)
 	remove_caf_get_intrinsic (code->expr2);
       code->op = EXEC_CALL;
-      gfc_get_sym_tree (GFC_PREFIX ("caf_send"), ns, &code->symtree, true);
+      gfc_get_sym_tree (sname, ns, &code->symtree, true);
       code->resolved_sym = code->symtree->n.sym;
       code->resolved_sym->attr.flavor = FL_PROCEDURE;
       code->resolved_sym->attr.intrinsic = 1;

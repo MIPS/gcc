@@ -6441,6 +6441,7 @@ static bool
 add_hidden_procptr_result (gfc_symbol *sym)
 {
   bool case1,case2;
+  const char *ppr_name;
 
   if (gfc_notification_std (GFC_STD_F2003) == ERROR)
     return false;
@@ -6454,16 +6455,18 @@ add_hidden_procptr_result (gfc_symbol *sym)
 	  && gfc_state_stack->previous->state == COMP_FUNCTION
 	  && gfc_state_stack->previous->sym->name == sym->name;
 
+  ppr_name = gfc_get_string ("%s", "ppr@");
   if (case1 || case2)
     {
+
       gfc_symtree *stree;
       if (case1)
-	gfc_get_sym_tree ("ppr@", gfc_current_ns, &stree, false);
+	gfc_get_sym_tree (ppr_name, gfc_current_ns, &stree, false);
       else
 	{
 	  gfc_symtree *st2;
-	  gfc_get_sym_tree ("ppr@", gfc_current_ns->parent, &stree, false);
-	  st2 = gfc_new_symtree (&gfc_current_ns->sym_root, "ppr@");
+	  gfc_get_sym_tree (ppr_name, gfc_current_ns->parent, &stree, false);
+	  st2 = gfc_new_symtree (&gfc_current_ns->sym_root, ppr_name);
 	  st2->n.sym = stree->n.sym;
 	  stree->n.sym->refs++;
 	}
@@ -6490,7 +6493,7 @@ add_hidden_procptr_result (gfc_symbol *sym)
 	   && sym->result && sym->result != sym && sym->result->attr.external
 	   && sym == gfc_current_ns->proc_name
 	   && sym == sym->result->ns->proc_name
-	   && strcmp ("ppr@", sym->result->name) == 0)
+	   && sym->result->name == ppr_name)
     {
       sym->result->attr.proc_pointer = 1;
       sym->attr.pointer = 0;

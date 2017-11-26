@@ -6252,7 +6252,7 @@ loop:
       prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
-      main_program_symbol (gfc_current_ns, "MAIN__");
+      main_program_symbol (gfc_current_ns, gfc_get_string ("MAIN__"));
       parse_progunit (st);
       goto prog_units;
     }
