@@ -15570,51 +15570,59 @@ mips_cfi_endproc_p32 (void)
 	  int t = HARD_FRAME_POINTER_REGNUM - 16;
 	  gcc_assert (t < 8);
 	  vec_safe_push (fde, (uchar) (COMPEH_RESTORE_SP_FROM_TEMP + t));
+          gcc_assert (BITSET_P (cfun->machine->frame.mask, 30));
 	}
       fprintf(stderr, "bad stuff\n");
-      // Now, recompute total and push_base.
+      // Now, recompute total and push_base. (The CFA adjust is implicit to runtime now.)
       // Total is now the size of the hard frame pointer offset (MIPS_FRAME_BIAS) + the varargs region.
-      total = MIPS_FRAME_BIAS + cfun->machine->varargs_size;
-      // Likewise, push_base is the offset from the hard frame pointer to the end of the
-      // FPR region, ie. the start of the COP0 region.
-      push_base = total - cfun->machine->frame.cop0_save_offset;
+      total = cfun->machine->varargs_size;
+      // Push_base is now just below the varargs region.
+      push_base = 0;
+    }
+  else  // We don't need to do the stack adjust if we use frame pointer, runtime knows bias
+    {
+      // We now adjust the canonical frame address by push_base, to move it up to where things start being pushed.
+      mips_fdedata_cfaadjust (&fde, push_base, align);
+      // Thus, the total frame size decreases by push_base amount.
+      total -= push_base;
     }
 
-  if (HARD_FRAME_POINTER_REGNUM == 30 && frame_pointer_needed)
-    gcc_assert (BITSET_P (cfun->machine->frame.mask, 30));
-
-  // We now adjust the canonical frame address by push_base, to move it up to where things start being pushed.
-  mips_fdedata_cfaadjust (&fde, push_base, align);
-  // Thus, the total frame size decreases by push_base amount.
-  total -= push_base;
   // If we used the frame pointer or not, total is now the stack-aligned varargs region size.
   // This is exactly what we wanted.
 
-  // We need to save the registers in DESCENDING ORDER, ie. from high pushed addresses to low.
-  // This way, when the opcodes are evaluated, the runtime can maintain a decreasing offset from
-  // the beginning of push_base (or an increasingly negative offset from the frame bias).
+  // We now save registers in ASCENDING ORDER, ie. from high addresses to low on the stack.
+  // This is because all other information about the frame we could use to go in DESCENDING
+  // order is conditionnal.
 
-  // save FPRS
   n = 0;
-  for (i = 23; i > 15; i--)
+  // We know that we will only receive one contiguous set of registers
+  // from 16 up to 23 inclusive if we use the SAVE instruction.
+  // This is asserted to be true by nanomips_valid_save_restore_p in
+  // mips_expand_prologue_pabi.
+  gcc_assert(cfun->machine->safe_to_use_save_restore);  // FIXME: handle false case
+  unsigned int masked_regs = cfun->machine->frame.mask & 0x00ff0000;
+  int reg_count = popcount_hwi (masked_regs);
+  if (reg_count > 0)
     {
-      bool isset = BITSET_P (cfun->machine->frame.fmask, i);
-      if (isset)
-	n++;
-      if ((i == 16 || !isset) && n > 0)
-	{
-	  int first = i + (isset ? 0 : 1);
-	  if (first == 16)
-	    vec_safe_push (fde, (uchar) (COMPEH_SAVE_FPR1 + n - 1));
-	  else
-	    {
-	      vec_safe_push (fde, (uchar) COMPEH_SAVE_FPRS_LONG);
-	      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (first, n - 1));
-	    }
-	  n = 0;
-	}
+      // assert is only 1 contiguous region, ie. of form 000...00111...11
+      gcc_assert(((masked_regs >> 16) + 1) == (1 << reg_count));
+      //gcc_assert(clz_hwi (masked_regs >> 16) == (32 - reg_count));
+      if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+        {
+          if (BITSET_P (cfun->machine->frame.mask, 30))
+            vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + reg_count - 1));
+          else
+            vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + reg_count - 1));
+        }
+      else
+        {
+          add_fp_ra_push (&fde);
+          vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+          vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (16, reg_count - 1));
+        }
     }
-  gcc_assert (n == 0);
+  else
+    add_fp_ra_push (&fde);
 
   /* Check to save temps 2 and 3 as well; compactEH uses them.  */
   bool t3set = BITSET_P (cfun->machine->frame.mask, 7),
@@ -15626,41 +15634,32 @@ mips_cfi_endproc_p32 (void)
       vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (7 - t2set, t3set + t2set - 1));
     }
 
-  // save callee saved GPRs
-  for (i = 23; i > 15; i--)
+  bool first_region = true;
+  // save FPRS
+  for (i = 16; i <= 23; i++)
     {
-      bool isset = BITSET_P (cfun->machine->frame.mask, i);
+      bool isset = BITSET_P (cfun->machine->frame.fmask, i);
       if (isset)
 	n++;
-      if ((i == 16 || !isset) && n > 0)
+      if ((i == 23 || !isset) && n > 0)
 	{
-	  int first = i + (isset ? 0 : 1);
-	  if (first == 16 && !any_saved
-	      && BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
-	    {
-	      if (BITSET_P (cfun->machine->frame.mask, 30))
-		vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + n - 1));
-	      else
-		vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + n - 1));
-	    }
+	  int first = i - n + (isset ? 1 : 0);
+	  if (first_region)
+            {
+	      vec_safe_push (fde, (uchar) (COMPEH_SAVE_FPR1 + n - 1));
+              first_region = false;
+            }
 	  else
 	    {
-	      if (!any_saved)
-		add_fp_ra_push (&fde);
-	      vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+	      vec_safe_push (fde, (uchar) COMPEH_SAVE_FPRS_LONG);
 	      vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (first, n - 1));
 	    }
-	  any_saved = true;
 	  n = 0;
 	}
+      if (first_region && !isset)
+        first_region = false;
     }
   gcc_assert (n == 0);
-
-  /* save FP and RA if nothing else was saved (ie. they aren't saved yet) */
-  // FIXME: make sure that RA is saved before FP!!!
-  if (!any_saved)
-    add_fp_ra_push (&fde);
-
   /* Skip varargs save area and suchlike.  */
   mips_fdedata_cfaadjust (&fde, total, align);
 

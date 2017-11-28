@@ -45,7 +45,11 @@ record_push (_Unwind_FrameState *fs, int reg, int offset)
 {
   int idx = DWARF_REG_TO_UNWIND_COLUMN (reg);
 
+#if defined(_MIPS_SIM) && _MIPS_SIM == _ABIP32
+  offset += dwarf_reg_size_table[idx];
+#else
   offset -= dwarf_reg_size_table[idx];
+#endif
   fs->regs.reg[idx].how = REG_SAVED_OFFSET;
   fs->regs.reg[idx].loc.offset = offset;
   return offset;
@@ -66,6 +70,8 @@ record_cfa_adjustment (_Unwind_FrameState *fs, _uleb128_t val)
     if (fs->regs.reg[i].how == REG_SAVED_OFFSET)
       fs->regs.reg[i].loc.offset -= val;
 }
+
+#if defined(_MIPS_SIM) && _MIPS_SIM != _ABIP32
 
 /* Process the frame unwinding opcodes.  */
 
@@ -115,6 +121,7 @@ md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Restore stack pointer from frame pointer */
 	  fs->regs.cfa_reg = (op & 7) + 16;
 	  fs->regs.cfa_offset = 0;
+	  record_cfa_adjustment (fs, 4096);
 	  break;
 
 	case 0x58:
@@ -158,6 +165,7 @@ md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Restore SP from VR[30] */
 	  fs->regs.cfa_reg = 30;
 	  fs->regs.cfa_offset = 0;
+	  record_cfa_adjustment (fs, 4096);
 	  break;
 
 	case 0x5f:
@@ -196,6 +204,8 @@ md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
     }
 }
 
+#else
+
 static _Unwind_Reason_Code
 md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 		   _Unwind_FrameState *fs, const unsigned char **pp)
@@ -225,17 +235,17 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
         case 0x40 ... 0x47:
 	  /* Push VR[16] to VR[16+x] and VR[31] */
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 16 + i, push_offset);
 	  push_offset = record_push (fs, 31, push_offset);
+	  for (i = 0; i <= op & 7; i++)
+	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	case 0x48 ... 0x4f:
 	  /* Push VR[16] to VR[16+x], VR[30] and VR[31] */
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 16 + i, push_offset);
-	  push_offset = record_push (fs, 31, push_offset);
 	  push_offset = record_push (fs, 30, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
+	  for (i = 0; i <= op & 7; i++)
+	    push_offset = record_push (fs, 16 + i, push_offset);
 	  break;
 
 	case 0x50 ... 0x57:
@@ -255,7 +265,7 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Push VR[x] to VR[x+y] */
 	  op = *(p++);
 	  n = op >> 3;
-	  for (i = op & 7; i >= 0; i--)
+	  for (i = 0; i <= op & 7; i++)
 	    push_offset = record_push (fs, n + i, push_offset);
 	  break;
 
@@ -264,7 +274,7 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* Push VRF[x] to VRF[x+y] */
 	  op = *(p++);
 	  n = (op >> 3) + VRF_0;
-	  for (i = op & 7; i >= 0; i--)
+	  for (i = 0; i <= op & 7; i++)
 	    push_offset = record_push (fs, n + i, push_offset);
 	  break;
 
@@ -295,7 +305,7 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
 	case 0x60 ... 0x6b:
 	  /* Push VRF[20] to VRF[20 + x] */
-	  for (i = op & 0xf; i >= 0; i--)
+	  for (i = 0; i <= op & 0xf; i++)
 	    push_offset = record_push (fs, VRF_0 + 20 + i, push_offset);
 	  break;
 
@@ -314,22 +324,22 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
 	case 0x6c ... 0x6f:
 	  /* MIPS16 push VR[16], VR[17], VR[18+x]-VR[23], VR[31] */
-	  for (i = 23; i >= 18 + (op & 3); i--)
-	    push_offset = record_push (fs, i, push_offset);
-	  push_offset = record_push (fs, 17, push_offset);
-	  push_offset = record_push (fs, 16, push_offset);
 	  push_offset = record_push (fs, 31, push_offset);
+	  push_offset = record_push (fs, 16, push_offset);
+	  push_offset = record_push (fs, 17, push_offset);
+	  for (i = 18 + (op & 3); i <= 23; i++)
+	    push_offset = record_push (fs, i, push_offset);
 	  break;
 
 	case 0x70 ... 0x7f:
 	  /* Push VR[16] to VR[16+x], VR[28], VR[31]
 	     and optionally VR[30].  */
-	  push_offset = record_push (fs, 28, push_offset);
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 16 + i, push_offset);
-	  push_offset = record_push (fs, 31, push_offset);
 	  if (op & 0x08)
 	    push_offset = record_push (fs, 30, push_offset);
+	  push_offset = record_push (fs, 31, push_offset);
+	  for (i = 0; i <= op & 7; i++)
+	    push_offset = record_push (fs, 16 + i, push_offset);
+	  push_offset = record_push (fs, 28, push_offset);
 	  break;
 
 	default:
@@ -337,6 +347,8 @@ md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
         }
     }
 }
+
+#endif
 
 static _Unwind_Reason_Code
 md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
