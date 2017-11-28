@@ -14196,12 +14196,18 @@ mips_compute_frame_info_oabi_nabi (void)
      |                 | $s0-$s7, $gp |     + MIPS_FRAME_BIAS
      +--------------------------------+ <-- stack_pointer_rtx + ogp_sp_offset
      |  Other GPR save area           |     + UNITS_PER_WORD
+     +--------------------------------+
+     |  Padding to align down to      |
+     |  8-byte. (0 or 4 bytes)        |
      +--------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
      |  FPR save area                 |     + UNITS_PER_HWFPVALUE
      +--------------------------------+ <-- stack_pointer_rtx + cop0_sp_offset
      |  COP0 reg save area            |	    + UNITS_PER_WORD
      +--------------------------------+ <-- stack_pointer_rtx + acc_sp_offset
      |  accumulator save area         |     + UNITS_PER_WORD
+     +--------------------------------+
+     |  Padding to align down to      |
+     |  16-byte. (0,4,8 or 12 bytes)  |
      +--------------------------------+
      |  local variables               | \
      +--------------------------------+  | var_size
@@ -14276,20 +14282,13 @@ mips_compute_frame_info_pabi (void)
       frame->num_cop0_regs++;
     }
 
-  /* Move above the accumulator save area.  */
-  if (frame->num_acc > 0)
-    {
-      /* Each accumulator needs 2 words.  */
-      offset += frame->num_acc * 2 * UNITS_PER_WORD;
-      frame->acc_sp_offset = offset - UNITS_PER_WORD;
-    }
+  /* Move above the accumulator save area.  Each accumulator needs 2 words.  */
+  offset += frame->num_acc * 2 * UNITS_PER_WORD;
+  frame->acc_sp_offset = offset - UNITS_PER_WORD;
 
   /* Move above the COP0 register save area.  */
-  if (frame->num_cop0_regs > 0)
-    {
-      offset += frame->num_cop0_regs * UNITS_PER_WORD;
-      frame->cop0_sp_offset = offset - UNITS_PER_WORD;
-    }
+  offset += frame->num_cop0_regs * UNITS_PER_WORD;
+  frame->cop0_sp_offset = offset - UNITS_PER_WORD;
 
   /* Find out which FPRs we need to save.  This loop must iterate over
      the same space as its companion in mips_for_each_saved_gpr_and_fpr.  */
@@ -14310,22 +14309,16 @@ mips_compute_frame_info_pabi (void)
     }
 
   /* Move above the FPR save area.  */
-  if (frame->num_fp > 0)
-    {
-      offset += frame->num_fp * UNITS_PER_FPREG;
-      frame->fp_sp_offset = offset - UNITS_PER_HWFPVALUE;
-      fprintf(stderr, "fp_sp_offset %d\n", frame->fp_sp_offset);
-    }
+  offset += frame->num_fp * UNITS_PER_FPREG;
+  frame->fp_sp_offset = offset - UNITS_PER_FPREG;
 
   /* Find out which GPRs we need to save.  */
   for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
-    {
-      if (mips_save_reg_p (regno))
-	{
-	  frame->num_gp++;
-	  frame->mask |= 1 << (regno - GP_REG_FIRST);
-	}
-    }
+    if (mips_save_reg_p (regno))
+      {
+	frame->num_gp++;
+	frame->mask |= 1 << (regno - GP_REG_FIRST);
+      }
 
   /* If this function calls eh_return, we must also save and restore the
      EH data registers.  */
@@ -14342,7 +14335,9 @@ mips_compute_frame_info_pabi (void)
   if (ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore)
     {
-      /* Optimization opportunity: if we save $fp then force to save $ra.  */
+      /* To use the SAVE instruction when we save $fp then force to save
+	 $ra as well.
+	 WORK NEEDED: Evaluate if this should always be done.  */
       if (BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM)
 	  && !BITSET_P (frame->mask, RETURN_ADDR_REGNUM))
 	{
@@ -14354,30 +14349,34 @@ mips_compute_frame_info_pabi (void)
     }
 
   /* Move above the GPR save area.  */
-  if (frame->num_gp > 0)
-    {
-      int num_sr;
-      /* The GPR save area must sit exactly next to the varargs area as
-	 the registers are stored implicitly via the SAVE instruction so
-	 any padding must come below the GPR save area.  Remember the
-	 gp_sp_offset is from the stack pointer after it has been adjusted
-	 within the function not the incoming or any intermediate
-	 adjustment to the stack pointer.  */
-      offset += frame->num_gp * UNITS_PER_WORD;
-      offset = MIPS_STACK_ALIGN (offset);
-      frame->gp_sp_offset = offset - UNITS_PER_WORD;
-      /* The GPR save area is split into two pieces, one that covers the
-	 registers that can be handled by SAVE and RESTORE instructions
-	 (even when those instructions are not used) and the other registers
-	 are stored separately.  */
-      num_sr = popcount_hwi (frame->mask & 0xd0ff0000);
-      frame->ogp_sp_offset = frame->gp_sp_offset - (num_sr * UNITS_PER_WORD);
-    }
-  else
-    /* Align the total save area.  The padding will end up at the top now
-       but that is not currently a problem but may be one when the hard
-       float ISA is finalised.  */
-    offset = MIPS_STACK_ALIGN (offset);
+  offset += frame->num_gp * UNITS_PER_WORD;
+  frame->gp_sp_offset = offset - UNITS_PER_WORD;
+
+  /* The GPR save area is split into two pieces, one that covers the
+     registers that can be handled by SAVE and RESTORE instructions
+     (even when those instructions are not used) and the other registers
+     are stored separately.  */
+  int num_sr = popcount_hwi (frame->mask & 0xd0ff0000);
+  frame->ogp_sp_offset = frame->gp_sp_offset - (num_sr * UNITS_PER_WORD);
+
+  /* Align the total save area to be stack boundary aligned and move
+     everything to the top of that area leaving the padding at the bottom.
+     Also align the FP area to UNITS_PER_FPREG leaving padding below the
+     GPRs.  */
+  HOST_WIDE_INT adjust_fp = (frame->num_fp > 0
+			     && UNITS_PER_WORD != UNITS_PER_FPREG
+			     ? (frame->num_gp & 1) * UNITS_PER_WORD
+			     : 0);
+  HOST_WIDE_INT adjust_all = MAX (MIPS_STACK_ALIGN (offset) - offset,
+				  adjust_fp);
+  offset += adjust_all;
+
+  /* Adjust all the offsets accordingly.  */
+  frame->acc_sp_offset += adjust_all - adjust_fp; 
+  frame->cop0_sp_offset += adjust_all - adjust_fp; 
+  frame->fp_sp_offset += adjust_all - adjust_fp; 
+  frame->ogp_sp_offset += adjust_all; 
+  frame->gp_sp_offset += adjust_all; 
 
   /* Move above the callee-allocated varargs save area.  This is already
      padded to MIPS_STACK_ALIGN in setup_incoming_args.  */
@@ -14396,7 +14395,6 @@ mips_compute_frame_info_pabi (void)
       && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM))
     {
       frame->hard_frame_pointer_offset = frame->total_size;
-      fprintf(stderr, "total size: %d varargs %d frame bias %d\n", frame->total_size, cfun->machine->varargs_size, MIPS_FRAME_BIAS);
       /* We need to do a separate stack adjustment before
 	 using SAVE/RESTORE for variadic functions and/or when we need to
 	 save argument registers.  */
@@ -14893,7 +14891,6 @@ nanomips_save_restore_gprs (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
 	cfun->machine->frame.ra_fp_offset = cfun->machine->frame.gp_sp_offset;
 
       /* Create the actual SAVE or RESTORE instruction.  */
-      fprintf(stderr, "step in save/restore: %d\n", step);
       save_restore = nanomips_build_save_restore (restore, &mask, step, false);
 
       RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
@@ -16555,7 +16552,7 @@ mips_deallocate_stack (rtx base, rtx offset, HOST_WIDE_INT new_frame_size)
       mips_epilogue_set_cfa (base, new_frame_size);
       emit_move_insn (stack_pointer_rtx, base);
     }
-  else if (TARGET_NANOMIPS && CONST_INT_P (offset)
+  else if (ISA_HAS_ADDIU48 && CONST_INT_P (offset)
 	   && !IN_RANGE (INTVAL (offset), -0xfff, 0xffff))
     {
       /* WORK NEEDED: This should not be necessary addsi3 should allow
@@ -16903,7 +16900,6 @@ mips_expand_epilogue_pabi (bool sibcall_p)
      are restored.  */
   if (frame_pointer_needed)
     {
-      fprintf(stderr, "frame pointer needed\n");
       base = hard_frame_pointer_rtx;
       step1 = MIPS_FRAME_BIAS;
     }
