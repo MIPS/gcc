@@ -1,3 +1,12 @@
+2017-11-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2017-06-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR lto/69866
+	* gcc.dg/lto/pr69866_0.c: New test.
+	* gcc.dg/lto/pr69866_1.c: Likewise.
+
 2017-09-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
