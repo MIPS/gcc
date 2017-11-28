@@ -24152,14 +24152,18 @@ nanomips_move_balc_opt ()
 
    Find opportunities for and generate RESTORE.JRC.  */
 
-/* WORK NEEDED: Generate restore.jrc without any register restores to combine
-   addiu sp, sp, xxx with JRC $ra */
+/* WORK POSSIBLY NEEDED: Generation of restore.jrc without any register
+   restores to combine addiu sp, sp, xxx with JRC $ra is added, however,
+   adding new sequences for replacement will make the code less readable
+   and we'll need a better mechanism.  Max 2 sequences look OK for now.  */
 
 static void
 nanomips_restore_jrc_opt ()
 {
   basic_block bb;
-  rtx_insn *insn, *prev, *restore_insn, *blockage_insn;
+  rtx_insn *insn, *prev;
+  rtx_insn *restore_insn, *blockage_insn;
+  rtx_insn *addiusp_insn;
 
   if (dump_file)
     fprintf (dump_file, "restore_jrc optimization\n");
@@ -24168,6 +24172,7 @@ nanomips_restore_jrc_opt ()
     {
       restore_insn = NULL;
       blockage_insn = NULL;
+      addiusp_insn = NULL;
       FOR_BB_INSNS_SAFE (bb, insn, prev)
 	{
 	  rtx src = NULL_RTX;
@@ -24177,6 +24182,10 @@ nanomips_restore_jrc_opt ()
 
 	  rtx pattern = PATTERN (insn);
 
+	  /* Find restore.jrc opportunity:
+	       restore offset,reg_list
+	       jrc ra
+	   */
 	  if (GET_CODE (pattern) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SET
 	      && GET_CODE ((src = SET_SRC (XVECEXP (pattern, 0, 0)))) == PLUS
@@ -24206,6 +24215,7 @@ nanomips_restore_jrc_opt ()
 
 	  if (restore_insn != NULL
 	      && blockage_insn != NULL
+	      && addiusp_insn == NULL
 	      && JUMP_P (insn)
 	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
@@ -24234,6 +24244,50 @@ nanomips_restore_jrc_opt ()
 	      insn = NULL;
 	      restore_insn = NULL;
 	      blockage_insn = NULL;
+	    }
+
+	  /* Find restore.jrc opportunity:
+	       addiusp offset
+	       jrc ra
+	   */
+	  if (GET_CODE (pattern) == SET
+	      && REG_P (XEXP (pattern, 0))
+	      && REGNO (XEXP (pattern, 0)) == STACK_POINTER_REGNUM
+	      && GET_CODE (XEXP (pattern, 1)) == PLUS
+	      && REG_P (XEXP (XEXP (pattern, 1), 0))
+	      && REGNO (XEXP (XEXP (pattern, 1), 0)) == STACK_POINTER_REGNUM
+	      && GET_CODE (XEXP (XEXP (pattern, 1), 1)) == CONST_INT
+	      && IN_RANGE (INTVAL (XEXP (XEXP (pattern, 1), 1)), 0,
+			   MIPS_MAX_FIRST_STACK_STEP))
+	    addiusp_insn = insn;
+
+	  if (restore_insn == NULL
+	      && blockage_insn == NULL
+	      && addiusp_insn != NULL
+	      && JUMP_P (insn)
+	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
+	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
+	    {
+	      rtx rjrc_insn = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+
+	      XVECEXP (rjrc_insn, 0, 0) = ret_rtx;
+	      XVECEXP (rjrc_insn, 0, 1) = PATTERN (addiusp_insn);
+
+	      rtx_insn *new_insn =
+		emit_jump_insn_after_setloc (rjrc_insn, insn,
+					     INSN_LOCATION (insn));
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "replacing\n");
+		  print_rtl_single (dump_file, addiusp_insn);
+		  print_rtl_single (dump_file, insn);
+		  fprintf (dump_file, "with\n");
+		  print_rtl_single (dump_file, new_insn);
+		}
+	      delete_insn (addiusp_insn);
+	      delete_insn (insn);
+	      insn = NULL;
+	      addiusp_insn = NULL;
 	    }
 	}
     }
