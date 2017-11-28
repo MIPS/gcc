@@ -158,7 +158,8 @@ typedef struct pointer_info
     struct
     {
       gfc_symbol *sym;
-      char *true_name, *module, *binding_label;
+      const char *binding_label;
+      char *true_name, *module;
       fixup_t *stfixup;
       gfc_symtree *symtree;
       enum gfc_rsym_state state;
@@ -242,7 +243,6 @@ free_pi_tree (pointer_info *p)
     {
       XDELETEVEC (p->u.rsym.true_name);
       XDELETEVEC (p->u.rsym.module);
-      XDELETEVEC (p->u.rsym.binding_label);
     }
 
   free (p);
@@ -4646,7 +4646,7 @@ load_commons (void)
   while (peek_atom () != ATOM_RPAREN)
     {
       int flags;
-      char* label;
+      const char* bind_label;
       mio_lparen ();
       mio_pool_string (&name);
 
@@ -4663,10 +4663,9 @@ load_commons (void)
       /* Get whether this was a bind(c) common or not.  */
       mio_integer (&p->is_bind_c);
       /* Get the binding label.  */
-      label = read_string ();
-      if (strlen (label))
-	p->binding_label = IDENTIFIER_POINTER (get_identifier (label));
-      XDELETEVEC (label);
+      mio_pool_string (&bind_label);
+      if (bind_label)
+	p->binding_label = bind_label;
 
       mio_rparen ();
     }
@@ -4899,8 +4898,7 @@ load_needed (pointer_info *p)
       sym->name = gfc_dt_lower_string (p->u.rsym.true_name);
       sym->module = gfc_get_string ("%s", p->u.rsym.module);
       if (p->u.rsym.binding_label)
-	sym->binding_label = IDENTIFIER_POINTER (get_identifier
-						 (p->u.rsym.binding_label));
+	sym->binding_label = p->u.rsym.binding_label;
 
       associate_integer_pointer (p, sym);
     }
@@ -5052,7 +5050,7 @@ read_module (void)
   pointer_info *info, *q;
   gfc_use_rename *u = NULL;
   gfc_symtree *st;
-  gfc_symbol *sym;
+  gfc_symbol *sym = NULL;
 
   get_module_locus (&operator_interfaces);	/* Skip these for now.  */
   skip_list ();
@@ -5075,7 +5073,7 @@ read_module (void)
 
   while (peek_atom () != ATOM_RPAREN)
     {
-      char* bind_label;
+      const char* bind_label;
       require_atom (ATOM_INTEGER);
       info = get_integer (atom_int);
 
@@ -5084,11 +5082,9 @@ read_module (void)
 
       info->u.rsym.true_name = read_string ();
       info->u.rsym.module = read_string ();
-      bind_label = read_string ();
-      if (strlen (bind_label))
+      mio_pool_string (&bind_label);
+      if (bind_label)
 	info->u.rsym.binding_label = bind_label;
-      else
-	XDELETEVEC (bind_label);
 
       require_atom (ATOM_INTEGER);
       info->u.rsym.ns = atom_int;
@@ -5265,10 +5261,7 @@ read_module (void)
 		  sym->module = gfc_get_string ("%s", info->u.rsym.module);
 
 		  if (info->u.rsym.binding_label)
-		    {
-		      tree id = get_identifier (info->u.rsym.binding_label);
-		      sym->binding_label = IDENTIFIER_POINTER (id);
-		    }
+		    sym->binding_label = info->u.rsym.binding_label;
 		}
 
 	      st->n.sym = sym;
