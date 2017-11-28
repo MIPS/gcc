@@ -584,7 +584,6 @@
 {
   int regno;
   int count;
-  rtx to;
   rtx op1;
   int i;
 

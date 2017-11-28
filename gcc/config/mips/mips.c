@@ -254,12 +254,14 @@ enum mips_builtin_type {
      value and the arguments are mapped to operands 0 and above.  */
   MIPS_BUILTIN_DIRECT_NO_TARGET,
 
+#ifdef MIPS_SUPPORT_PS_3D
   /* The function corresponds to a comparison instruction followed by
      a mips_cond_move_tf_ps pattern.  The first two arguments are the
      values to compare and the second two arguments are the vector
      operands for the movt.ps or movf.ps instruction (in assembly order).  */
   MIPS_BUILTIN_MOVF,
   MIPS_BUILTIN_MOVT,
+#endif
 
   /* The function corresponds to a V2SF comparison instruction.  Operand 0
      of this instruction is the result of the comparison, which has mode
@@ -283,8 +285,10 @@ enum mips_builtin_type {
      combined with a compare instruction.  */
   MIPS_BUILTIN_MSA_TEST_BRANCH,
 
+#ifdef MIPS_SUPPORT_DSP
   /* For generating bposge32 branch instructions in MIPS32 DSP ASE.  */
   MIPS_BUILTIN_BPOSGE32
+#endif
 };
 
 /* Invoke MACRO (COND) for each C.cond.fmt condition.  */
@@ -2544,8 +2548,9 @@ mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
 }
 
 static tree
-nanomips_handle_model_attribute (tree *node, tree name, tree args,
-			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+nanomips_handle_model_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
+				 tree args, int flags ATTRIBUTE_UNUSED,
+				 bool *no_add_attrs)
 {
   if (args == NULL)
     {
@@ -3087,7 +3092,7 @@ mips_get_nano_pic_model (const_rtx x)
   rtx offset;
   rtx symbol;
 
-  split_const ((rtx) x, &symbol, &offset);
+  split_const (CONST_CAST (rtx, x), &symbol, &offset);
 
   if (UNSPEC_ADDRESS_P (symbol))
     symbol = UNSPEC_ADDRESS (symbol);
@@ -7319,6 +7324,7 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 		    case LEU: *code = LTU; break;
 		    case GT: *code = GE; break;
 		    case GTU: *code = GEU; break;
+		    default: gcc_unreachable();
 		    }
 		}
 	      else
@@ -13349,7 +13355,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   static char buffer[300];
 
   struct mips_save_restore_info info;
-  unsigned int i;
   char *s;
   rtx set_src = SET_SRC (XVECEXP (pattern, 0,
 				  XVECLEN (pattern, 0) - 1));
@@ -16426,7 +16431,7 @@ mips_expand_prologue_pabi (void)
 				    GEN_INT (-reg_parm_area_size)))) = 1;
 
       mips_save_restore_gprs_and_adjust_sp (size, step, mips_save_reg,
-					    false, NULL, false);
+					    NULL, NULL, false);
       /* We ensure that the above does adjust the stack pointer, thus, take
 	 into account the remaining size.  */
       size -= step;
@@ -16635,7 +16640,7 @@ mips_expand_return (void)
   mips_split_plus (SET_SRC (XVECEXP (restore, 0, 1)), &base, &sp_offset);
   gcc_assert (REGNO (base) == STACK_POINTER_REGNUM);
   gcc_assert (mips_save_restore_pattern_p (restore, sp_offset, NULL,
-					   false/*fp_p*/, true/*jrc_p*/));
+					   NULL/*fp_p*/, true/*jrc_p*/));
   emit_jump_insn (restore);
 }
 
@@ -16891,7 +16896,6 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   rtx restore;
   bool use_restore_p = false;
   bool use_restore_jrc_p = false;
-  bool use_restoref_p = false;
 
   if (!sibcall_p && mips_can_use_simple_return_insn ())
     {
@@ -16906,10 +16910,6 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       && cfun->machine->safe_to_use_save_restore
       && nanomips_valid_save_restore_p (frame->mask, false, NULL))
     use_restore_p = true;
-
-  if (ISA_HAS_SAVEF_RESTOREF
-      && mips_valid_savef_restoref_p (frame->fmask))
-    use_restoref_p = true;
 
   reg_area_size = MIPS_STACK_ALIGN (frame->num_gp * UNITS_PER_WORD
 				    + frame->num_fp * UNITS_PER_HWFPVALUE
@@ -21338,20 +21338,19 @@ mips_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
 /* Implement TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION.  */
 
 static tree
-mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
+mips_builtin_vectorized_function (unsigned int fn ATTRIBUTE_UNUSED,
+				  tree type_out, tree type_in)
 {
-  machine_mode in_mode, out_mode;
-  int in_n, out_n;
-
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE
       || !ISA_HAS_MSA)
     return NULL_TREE;
 
-  out_mode = TYPE_MODE (TREE_TYPE (type_out));
-  out_n = TYPE_VECTOR_SUBPARTS (type_out);
-  in_mode = TYPE_MODE (TREE_TYPE (type_in));
-  in_n = TYPE_VECTOR_SUBPARTS (type_in);
+#ifdef MIPS_SUPPORT_MSA
+  machine_mode out_mode = TYPE_MODE (TREE_TYPE (type_out));
+  int out_n = TYPE_VECTOR_SUBPARTS (type_out);
+  machine_mode in_mode = TYPE_MODE (TREE_TYPE (type_in));
+  int in_n = TYPE_VECTOR_SUBPARTS (type_in);
 
   /* INSN is the name of the associated instruction pattern, without
      the leading CODE_FOR_.  */
@@ -21360,7 +21359,6 @@ mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 
   switch (fn)
     {
-#ifdef MIPS_SUPPORT_MSA
     case BUILT_IN_SQRT:
       if (out_mode == DFmode && out_n == 2
 	  && in_mode == DFmode && in_n == 2)
@@ -21371,10 +21369,10 @@ mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 	  && in_mode == SFmode && in_n == 4)
 	return MIPS_GET_BUILTIN (msa_fsqrt_w);
       break;
-#endif
     default:
       break;
     }
+#endif
 
   return NULL_TREE;
 }
@@ -21405,9 +21403,9 @@ static rtx
 mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
 			  struct expand_operand *ops, bool has_target_p)
 {
-  machine_mode imode;
+  machine_mode imode ATTRIBUTE_UNUSED;
   int rangelo = 0, rangehi = 0, error_opno = 0;
-  rtx sireg;
+  rtx sireg ATTRIBUTE_UNUSED;
 
 #ifdef MIPS_SUPPORT_MSA
   switch (icode)
@@ -21854,7 +21852,7 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
 			     enum insn_code icode, enum mips_fp_condition cond,
 			     rtx target, tree exp)
 {
-  rtx offset, condition, cmp_result;
+  rtx offset ATTRIBUTE_UNUSED, condition, cmp_result;
 
   if (target == 0 || GET_MODE (target) != SImode)
     target = gen_reg_rtx (SImode);
@@ -24095,7 +24093,7 @@ gen_movep (rtx dest1, rtx src1, rtx dest2, rtx src2)
    Returns TRUE if DEST is a valid movep destination operand.  */
 
 static int
-movep_dest_operand (rtx dest, enum machine_mode mode)
+movep_dest_operand (rtx dest, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return (REG_P (dest) && IN_RANGE (REGNO (dest), 4, 8));
 }
@@ -26881,7 +26879,6 @@ bool
 nanomips_word_multiple_pattern_p (bool store_p, rtx pattern)
 {
   int n;
-  unsigned int i;
   HOST_WIDE_INT first_offset = 0;
   rtx first_base = 0;
   unsigned int first_reg = 0;
@@ -27249,7 +27246,7 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
      loads if second load clobbers base register.  However, hardware does not
      support such bonding.  */
   if (load_p
-      && (REG_P (reg1) && REGNO (reg1) == REGNO (base1)
+      && ((REG_P (reg1) && REGNO (reg1) == REGNO (base1))
 	  || (REG_P (reg2) && REGNO (reg2) == REGNO (base1))))
     return false;
 
@@ -27368,15 +27365,12 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
 	      && REGNO (base1) == STACK_POINTER_REGNUM)
 	    {
 	      rtx dwarf, dwarf1 = NULL_RTX, dwarf2 = NULL_RTX;
-	      rtx set1, set2, note1, note2;
+	      rtx note1, note2;
 	      int len = 0;
 	      int dwarf_index = 0;
 
 	      gcc_assert (base2 != NULL_RTX && GET_CODE (base2) == REG
 			  && REGNO (base2) == STACK_POINTER_REGNUM);
-
-	      set1 = copy_rtx (single_set (cur));
-	      set2 = copy_rtx (single_set (next));
 
 	      if ((note1 = find_reg_note (cur, REG_FRAME_RELATED_EXPR, 0)))
 		{
@@ -28567,7 +28561,7 @@ mips_expand_vector_init (rtx target, rtx vals)
   machine_mode vmode = GET_MODE (target);
   machine_mode imode = GET_MODE_INNER (vmode);
   unsigned i, nelt = GET_MODE_NUNITS (vmode);
-  unsigned nvar = 0, one_var = -1u;
+  unsigned nvar = 0;
   bool all_same = true;
   rtx x;
 
@@ -28575,7 +28569,7 @@ mips_expand_vector_init (rtx target, rtx vals)
     {
       x = XVECEXP (vals, 0, i);
       if (!mips_constant_elt_p (x))
-	nvar++, one_var = i;
+	nvar++;
       if (i > 0 && !rtx_equal_p (x, XVECEXP (vals, 0, 0)))
 	all_same = false;
     }
@@ -28730,7 +28724,7 @@ mips_expand_vec_reduc (rtx target, rtx in, rtx (*gen)(rtx, rtx, rtx))
 {
   machine_mode vmode = GET_MODE (in);
   unsigned char perm2[2];
-  rtx last, next, fold, x;
+  rtx last, fold;
   bool ok;
 
   last = in;
@@ -30233,7 +30227,7 @@ mips_adjust_costs (void *p, int func)
 
   if (crating < 0)
     {
-      int pos;
+      int pos = 0;
       std::vector<int> copy_threads;
 
       sorted_allocno_data.create (0);
@@ -30320,7 +30314,7 @@ void nanomips_load_store_multiple_split (rtx dest, rtx src,
   mips_split_plus (XEXP (dest, 0), &dest_base, &dest_offset);
   mips_split_plus (XEXP (src, 0), &src_base, &src_offset);
 
-  for (int i = 0; i < count; i++)
+  for (unsigned int i = 0; i < count; i++)
     {
       rtx dest_plus_constant = plus_constant (SImode, dest_base,
 					     dest_offset + i * UNITS_PER_WORD);
