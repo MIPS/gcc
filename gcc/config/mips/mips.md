@@ -7023,8 +7023,7 @@
 	(eq:GPR2 (match_operand:GPR 1 "register_operand" "%d")
 		 (match_operand:GPR 2 "const_uns_arith_operand" "K")))]
   "ISA_HAS_SEQI"
-  "@
-   seqi\t%0,%1,%2"
+  "seqi\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
