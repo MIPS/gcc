@@ -5011,13 +5011,13 @@ gfc_get_common (const char *name, int from_module)
 {
   gfc_symtree *st;
   static int serial = 0;
-  char mangled_name[GFC_MAX_SYMBOL_LEN + 1];
+  const char *mangled_name;
 
   if (from_module)
     {
       /* A use associated common block is only needed to correctly layout
 	 the variables it contains.  */
-      snprintf (mangled_name, GFC_MAX_SYMBOL_LEN, "_%d_%s", serial++, name);
+      mangled_name = gfc_get_string ("_%d_%s", serial++, name);
       st = gfc_new_symtree (&gfc_current_ns->common_root, mangled_name);
     }
   else
