@@ -3787,6 +3787,7 @@ gfc_resolve_flush (gfc_code *c)
 void
 gfc_resolve_ctime_sub (gfc_code *c)
 {
+  const char *name;
   gfc_typespec ts;
   gfc_clear_ts (&ts);
 
@@ -3800,28 +3801,32 @@ gfc_resolve_ctime_sub (gfc_code *c)
       gfc_convert_type (c->ext.actual->expr, &ts, 2);
     }
 
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("ctime_sub"));
+  name = gfc_get_string (PREFIX ("ctime_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 
 void
 gfc_resolve_fdate_sub (gfc_code *c)
 {
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("fdate_sub"));
+  const char *name = gfc_get_string (PREFIX ("fdate_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 
 void
 gfc_resolve_gerror (gfc_code *c)
 {
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("gerror"));
+  const char *name = gfc_get_string (PREFIX ("gerror"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 
 void
 gfc_resolve_getlog (gfc_code *c)
 {
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("getlog"));
+  const char *name = gfc_get_string (PREFIX ("getlog"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 
@@ -3844,7 +3849,8 @@ gfc_resolve_hostnm_sub (gfc_code *c)
 void
 gfc_resolve_perror (gfc_code *c)
 {
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("perror_sub"));
+  const char *name = gfc_get_string (PREFIX ("perror_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 /* Resolve the STAT and FSTAT intrinsic subroutines.  */
@@ -3976,6 +3982,7 @@ gfc_resolve_fput_sub (gfc_code *c)
 void
 gfc_resolve_fseek_sub (gfc_code *c)
 {
+  const char *name;
   gfc_expr *unit;
   gfc_expr *offset;
   gfc_expr *whence;
@@ -4012,8 +4019,8 @@ gfc_resolve_fseek_sub (gfc_code *c)
       ts.u.cl = NULL;
       gfc_convert_type (whence, &ts, 2);
     }
-
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("fseek_sub"));
+  name = gfc_get_string (PREFIX ("fseek_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 void
@@ -4045,6 +4052,7 @@ gfc_resolve_ftell_sub (gfc_code *c)
 void
 gfc_resolve_ttynam_sub (gfc_code *c)
 {
+  const char *name = gfc_get_string (PREFIX ("ttynam_sub"));
   gfc_typespec ts;
   gfc_clear_ts (&ts);
 
@@ -4057,7 +4065,7 @@ gfc_resolve_ttynam_sub (gfc_code *c)
       gfc_convert_type (c->ext.actual->expr, &ts, 2);
     }
 
-  c->resolved_sym = gfc_get_intrinsic_sub_symbol (PREFIX ("ttynam_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
 
