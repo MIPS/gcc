@@ -15596,30 +15596,67 @@ mips_cfi_endproc_p32 (void)
   // from 16 up to 23 inclusive if we use the SAVE instruction.
   // This is asserted to be true by nanomips_valid_save_restore_p in
   // mips_expand_prologue_pabi.
-  gcc_assert(cfun->machine->safe_to_use_save_restore);  // FIXME: handle false case
-  unsigned int masked_regs = cfun->machine->frame.mask & 0x00ff0000;
-  int reg_count = popcount_hwi (masked_regs);
-  if (reg_count > 0)
+  //gcc_assert(cfun->machine->safe_to_use_save_restore);  // FIXME: handle false case
+  if (cfun->machine->safe_to_use_save_restore)
     {
-      // assert is only 1 contiguous region, ie. of form 000...00111...11
-      gcc_assert(((masked_regs >> 16) + 1) == (1 << reg_count));
-      //gcc_assert(clz_hwi (masked_regs >> 16) == (32 - reg_count));
-      if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+      unsigned int masked_regs = cfun->machine->frame.mask & 0x00ff0000;
+      int reg_count = popcount_hwi (masked_regs);
+      if (reg_count > 0)
         {
-          if (BITSET_P (cfun->machine->frame.mask, 30))
-            vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + reg_count - 1));
+          // assert is only 1 contiguous region, ie. of form 000...00111...11
+          gcc_assert(((masked_regs >> 16) + 1) == (1 << reg_count));
+          if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+            {
+              if (BITSET_P (cfun->machine->frame.mask, 30))
+                vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + reg_count - 1));
+              else
+                vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + reg_count - 1));
+            }
           else
-            vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + reg_count - 1));
+            {
+              add_fp_ra_push (&fde);
+              vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
+              vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (16, reg_count - 1));
+            }
         }
       else
-        {
-          add_fp_ra_push (&fde);
-          vec_safe_push (fde, (uchar) COMPEH_SAVE_GPRS_LONG);
-          vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (16, reg_count - 1));
-        }
+        add_fp_ra_push (&fde);
     }
-  else
-    add_fp_ra_push (&fde);
+  else  // Need to do iterative method instead
+    {
+      // Look through callee-saved GPRs to find which one can have opcode to save FP/RA.
+      bool use_save_temps = (BITSET_P (cfun->machine->frame.mask, 16)
+                             && BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM)),
+           any_saved = false;
+
+      for (i = 16; i <= 23; i++)
+        {
+          bool isset = BITSET_P (cfun->machine->frame.mask, i);
+          if (isset)
+            n++;
+          if ((i == 23 || !isset) && n > 0)
+            {
+              int first = i - n + (isset ? 1 : 0);
+              if (use_save_temps && (first == 16))
+                {
+                  if (BITSET_P (cfun->machine->frame.mask, 30))
+                    vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_FP_RA + n - 1));
+                  else
+                    vec_safe_push (fde, (uchar) (COMPEH_SAVE_TEMPS_RA + n - 1));
+                }
+              else
+                {
+                  add_fp_ra_push (&fde);
+                  vec_safe_push (fde, (uchar) COMPEH_SAVE_FPRS_LONG);
+                  vec_safe_push (fde, (uchar) COMPEH_SAVE_LONG_SUFFIX (first, n - 1));
+                }
+              n = 0;
+              any_saved = true;
+            }
+        }
+      if (!any_saved)
+        add_fp_ra_push (&fde);
+    }
 
   /* Check to save temps 2 and 3 as well; compactEH uses them.  */
   bool t3set = BITSET_P (cfun->machine->frame.mask, 7),
