@@ -4061,6 +4061,10 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	      upe->refs++;
 	      upe->ts.type = BT_VOID;
 	      upe->attr.unlimited_polymorphic = 1;
+	      /* Make sure gfc_find_gsymbol sees a (non-NULL) name to
+	       * search for by plugging in some module name.  */
+	      if (gfc_current_ns->proc_name != NULL)
+		upe->module = gfc_current_ns->proc_name->name;
 	      /* This is essential to force the construction of
 		 unlimited polymorphic component class containers.  */
 	      upe->attr.zero_comp = 1;
@@ -6681,6 +6685,8 @@ match_procedure_decl (void)
 	  sym->ts.interface->ts = current_ts;
 	  sym->ts.interface->attr.flavor = FL_PROCEDURE;
 	  sym->ts.interface->attr.function = 1;
+	  /* Suppress warnings about explicit interface */
+	  sym->ts.interface->attr.artificial = 1;
 	  sym->attr.function = 1;
 	  sym->attr.if_source = IFSRC_UNKNOWN;
 	}
@@ -6820,6 +6826,8 @@ match_ppc_decl (void)
 	  c->ts.interface->ts = ts;
 	  c->ts.interface->attr.flavor = FL_PROCEDURE;
 	  c->ts.interface->attr.function = 1;
+	  /* Suppress warnings about explicit interface */
+	  c->ts.interface->attr.artificial = 1;
 	  c->attr.function = 1;
 	  c->attr.if_source = IFSRC_UNKNOWN;
 	}

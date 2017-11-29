@@ -173,7 +173,7 @@ check_proc_interface (gfc_symbol *ifc, locus *where)
 		 "PROCEDURE statement at %L", ifc->name, where);
       return false;
     }
-  if (!ifc->attr.if_source && !ifc->attr.intrinsic && ifc->name[0] != '\0')
+  if (!ifc->attr.if_source && !ifc->attr.intrinsic && !ifc->attr.artificial)
     {
       gfc_error ("Interface %qs at %L must be explicit", ifc->name, where);
       return false;

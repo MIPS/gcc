@@ -2432,7 +2432,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 		  src->attr.flavor = FL_VARIABLE;
 		  src->attr.dummy = 1;
 		  src->attr.artificial = 1;
-     		  src->attr.intent = INTENT_IN;
+		  src->attr.intent = INTENT_IN;
 		  gfc_set_sym_referenced (src);
 		  copy->formal = gfc_get_formal_arglist ();
 		  copy->formal->sym = src;
@@ -2761,7 +2761,7 @@ find_intrinsic_vtab (gfc_typespec *ts)
 	      copy->attr.elemental = 1;
 	      if (ns->proc_name->attr.flavor == FL_MODULE)
 		copy->module = ns->proc_name->name;
-		  gfc_set_sym_referenced (copy);
+	      gfc_set_sym_referenced (copy);
 	      /* Set up formal arguments.  */
 	      gfc_get_symbol (gfc_get_string ("%s", "src"), sub_ns, &src);
 	      src->ts.type = ts->type;

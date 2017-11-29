@@ -159,7 +159,7 @@ typedef struct pointer_info
     {
       gfc_symbol *sym;
       const char *binding_label;
-      char *true_name, *module;
+      const char *true_name, *module;
       fixup_t *stfixup;
       gfc_symtree *symtree;
       enum gfc_rsym_state state;
@@ -238,12 +238,6 @@ free_pi_tree (pointer_info *p)
 
   free_pi_tree (p->left);
   free_pi_tree (p->right);
-
-  if (iomode == IO_INPUT)
-    {
-      XDELETEVEC (p->u.rsym.true_name);
-      XDELETEVEC (p->u.rsym.module);
-    }
 
   free (p);
 }
@@ -1271,8 +1265,9 @@ parse_string (void)
       len++;
     }
 
-  atom_string = XRESIZEVEC (char, atom_string, len + 1);
-  atom_string[len] = '\0'; 	/* C-style string for debug purposes.  */
+  if (len >= cursz)
+    atom_string = XRESIZEVEC (char, atom_string, len + 1);
+  atom_string[len] = '\0';	/* C-style string for debug purposes.  */
 }
 
 
@@ -1591,19 +1586,6 @@ find_enum (const mstring *m)
   bad_module ("find_enum(): Enum not found");
 
   /* Not reached.  */
-}
-
-
-/* Read a string. The caller is responsible for freeing.  */
-
-static char*
-read_string (void)
-{
-  char* p;
-  require_atom (ATOM_STRING);
-  p = atom_string;
-  atom_string = NULL;
-  return p;
 }
 
 
@@ -3013,7 +2995,7 @@ mio_symtree_ref (gfc_symtree **stp)
 	    {
 	      p->u.rsym.sym = gfc_new_symbol (p->u.rsym.true_name,
 					      gfc_current_ns);
-	      p->u.rsym.sym->module = gfc_get_string ("%s", p->u.rsym.module);
+	      p->u.rsym.sym->module = p->u.rsym.module;
 	    }
 
 	  p->u.rsym.symtree->n.sym = p->u.rsym.sym;
@@ -4242,13 +4224,13 @@ mio_omp_udr_expr (gfc_omp_udr *udr, gfc_symbol **sym1, gfc_symbol **sym2,
       q->u.pointer = (void *) ns;
       sym = gfc_new_symbol (is_initializer ? "omp_priv" : "omp_out", ns);
       sym->ts = udr->ts;
-      sym->module = gfc_get_string ("%s", p1->u.rsym.module);
+      sym->module = p1->u.rsym.module;
       associate_integer_pointer (p1, sym);
       sym->attr.omp_udr_artificial_var = 1;
       gcc_assert (p2->u.rsym.sym == NULL);
       sym = gfc_new_symbol (is_initializer ? "omp_orig" : "omp_in", ns);
       sym->ts = udr->ts;
-      sym->module = gfc_get_string ("%s", p2->u.rsym.module);
+      sym->module = p2->u.rsym.module;
       associate_integer_pointer (p2, sym);
       sym->attr.omp_udr_artificial_var = 1;
       if (mio_name (0, omp_declare_reduction_stmt) == 0)
@@ -4371,8 +4353,8 @@ mio_symbol (gfc_symbol *sym)
 /************************* Top level subroutines *************************/
 
 /* A recursive function to look for a specific symbol by name and by
-   module.  Whilst several symtrees might point to one symbol, its
-   is sufficient for the purposes here than one exist.  Note that
+   module.  Whilst several symtrees might point to one symbol, it
+   is sufficient for the purposes here that one exist.  Note that
    generic interfaces are distinguished as are symbols that have been
    renamed in another module.  */
 static gfc_symtree *
@@ -4890,15 +4872,24 @@ load_needed (pointer_info *p)
 
       /* Use the module sym as 'proc_name' so that gfc_get_symbol_decl
 	 doesn't go pear-shaped if the symbol is used.  */
-      if (!ns->proc_name)
-	gfc_find_symbol (p->u.rsym.module, gfc_current_ns,
-				 1, &ns->proc_name);
+      if (ns->proc_name == NULL && p->u.rsym.module != NULL)
+	    gfc_find_symbol (p->u.rsym.module,
+			 gfc_current_ns, 1, &ns->proc_name);
+      if (p->u.rsym.true_name != NULL)
+	{
+	  sym = gfc_new_symbol (p->u.rsym.true_name, ns);
+	  sym->name = gfc_dt_lower_string (p->u.rsym.true_name);
+	}
+      else
+	{
+	  static unsigned int fake = 0;
+	  const char *fake_node;
 
-      sym = gfc_new_symbol (p->u.rsym.true_name, ns);
-      sym->name = gfc_dt_lower_string (p->u.rsym.true_name);
-      sym->module = gfc_get_string ("%s", p->u.rsym.module);
-      if (p->u.rsym.binding_label)
-	sym->binding_label = p->u.rsym.binding_label;
+	  fake_node = gfc_get_string ("__fake_fixup_node_%d", fake++);
+	  sym = gfc_new_symbol (fake_node, ns);
+	}
+      sym->module = p->u.rsym.module;
+      sym->binding_label = p->u.rsym.binding_label;
 
       associate_integer_pointer (p, sym);
     }
@@ -5073,18 +5064,15 @@ read_module (void)
 
   while (peek_atom () != ATOM_RPAREN)
     {
-      const char* bind_label;
       require_atom (ATOM_INTEGER);
       info = get_integer (atom_int);
 
       info->type = P_SYMBOL;
       info->u.rsym.state = UNUSED;
 
-      info->u.rsym.true_name = read_string ();
-      info->u.rsym.module = read_string ();
-      mio_pool_string (&bind_label);
-      if (bind_label)
-	info->u.rsym.binding_label = bind_label;
+      mio_pool_string (&info->u.rsym.true_name);
+      mio_pool_string (&info->u.rsym.module);
+      mio_pool_string (&info->u.rsym.binding_label);
 
       require_atom (ATOM_INTEGER);
       info->u.rsym.ns = atom_int;
@@ -5096,10 +5084,13 @@ read_module (void)
 	 being loaded again.  This should not happen if the symbol being
 	 read is an index for an assumed shape dummy array (ns != 1).  */
 
-      sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
+      if (info->u.rsym.true_name == NULL || info->u.rsym.module == NULL)
+	sym = NULL;
+      else
+	sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
 
       if (sym == NULL
-	  || (sym->attr.flavor == FL_VARIABLE && info->u.rsym.ns !=1))
+	  || (sym->attr.flavor == FL_VARIABLE && info->u.rsym.ns != 1))
 	{
 	  skip_list ();
 	  continue;
@@ -5254,14 +5245,11 @@ read_module (void)
 	      /* Create a symbol node if it doesn't already exist.  */
 	      if (sym == NULL)
 		{
-		  info->u.rsym.sym = gfc_new_symbol (info->u.rsym.true_name,
-						     gfc_current_ns);
-		  info->u.rsym.sym->name = gfc_dt_lower_string (info->u.rsym.true_name);
-		  sym = info->u.rsym.sym;
-		  sym->module = gfc_get_string ("%s", info->u.rsym.module);
-
-		  if (info->u.rsym.binding_label)
-		    sym->binding_label = info->u.rsym.binding_label;
+		  sym = gfc_new_symbol (info->u.rsym.true_name, gfc_current_ns);
+		  sym->name = gfc_dt_lower_string (info->u.rsym.true_name);
+		  sym->module = info->u.rsym.module;
+		  sym->binding_label = info->u.rsym.binding_label;
+		  info->u.rsym.sym = sym;
 		}
 
 	      st->n.sym = sym;
@@ -5795,7 +5783,7 @@ find_symbols_to_write(sorted_pointer_info **tree, pointer_info *p)
       sp->p = p;
 
       gfc_insert_bbt (tree, sp, compare_sorted_pointer_info);
-   }
+    }
 
   find_symbols_to_write (tree, p->left);
   find_symbols_to_write (tree, p->right);
