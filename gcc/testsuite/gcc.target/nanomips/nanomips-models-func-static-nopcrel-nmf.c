@@ -81,40 +81,40 @@
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 12 } } */
 
-__attribute__ ((model("auto"), noclone ,noinline))
+__attribute__ ((cmodel("auto"), noclone ,noinline))
 static int a_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("auto"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("auto"), noclone ,noinline, long_call))
 static int a_long_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("auto"), noclone ,noinline))
+__attribute__ ((cmodel("auto"), noclone ,noinline))
 static int a_static(void) { asm (""); return 1; }
 
-__attribute__ ((model("auto"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("auto"), noclone ,noinline, long_call))
 static int a_longcall(void) { asm (""); return 1; }
 
-__attribute__ ((model("medium"), noclone ,noinline))
+__attribute__ ((cmodel("medium"), noclone ,noinline))
 static int m_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("medium"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("medium"), noclone ,noinline, long_call))
 static int m_long_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("medium"), noclone ,noinline))
+__attribute__ ((cmodel("medium"), noclone ,noinline))
 static int m_static(void) { asm (""); return 1; }
 
-__attribute__ ((model("medium"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("medium"), noclone ,noinline, long_call))
 static int m_longcall(void) { asm (""); return 1; }
 
-__attribute__ ((model("large"), noclone ,noinline))
+__attribute__ ((cmodel("large"), noclone ,noinline))
 static int l_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("large"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("large"), noclone ,noinline, long_call))
 static int l_long_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("large"), noclone ,noinline))
+__attribute__ ((cmodel("large"), noclone ,noinline))
 static int l_static(void) { asm (""); return 1; }
 
-__attribute__ ((model("large"), noclone ,noinline, long_call))
+__attribute__ ((cmodel("large"), noclone ,noinline, long_call))
 static int l_longcall(void) { asm (""); return 1; }
 
 int

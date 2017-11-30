@@ -6,7 +6,7 @@
 
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%got_disp\\(a_var_extern\\)\\(\\\$gp\\)" } } */
 
-extern int a_var_extern __attribute__ ((model("auto")));
+extern int a_var_extern __attribute__ ((cmodel("auto")));
 
 int
 foo ()

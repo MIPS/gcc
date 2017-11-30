@@ -684,7 +684,7 @@ static const struct attribute_spec nanomips_attribute_table[] = {
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
   { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
-  { "model",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
+  { "cmodel",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
     false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
@@ -695,7 +695,7 @@ static const struct attribute_spec nanomips_attribute_table[] = {
 static bool
 mips_attribute_takes_identifier_p (const_tree attr_id)
 {
-  if (is_attribute_p ("model", attr_id))
+  if (is_attribute_p ("cmodel", attr_id))
     return true;
   return false;
 }
@@ -11786,7 +11786,7 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
 
       if (TARGET_NANOMIPS)
 	{
-	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+	  tree attr = lookup_attribute ("cmodel", DECL_ATTRIBUTES (decl));
 
 	  if (attr != NULL)
 	    {
@@ -11821,7 +11821,7 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
 
       if (TARGET_NANOMIPS)
 	{
-	  tree attr = lookup_attribute ("model", DECL_ATTRIBUTES (decl));
+	  tree attr = lookup_attribute ("cmodel", DECL_ATTRIBUTES (decl));
 
 	  if (attr != NULL)
 	    {

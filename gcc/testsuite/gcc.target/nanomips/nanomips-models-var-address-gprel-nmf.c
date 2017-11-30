@@ -20,23 +20,23 @@
 /* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_int" } } */
 
-static char a_sta_char __attribute__ ((model("auto"))) = 13;
-static short a_sta_short __attribute__ ((model("auto"))) = 14;
-static int a_sta_2aligned __attribute__ ((model("auto"), aligned (2))) = 15;
-static int a_sta_4Kaligned __attribute__ ((model("auto"), aligned (4096))) = 16;
-static int a_sta_int __attribute__ ((model("auto"))) = 17;
+static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
+static short a_sta_short __attribute__ ((cmodel("auto"))) = 14;
+static int a_sta_2aligned __attribute__ ((cmodel("auto"), aligned (2))) = 15;
+static int a_sta_4Kaligned __attribute__ ((cmodel("auto"), aligned (4096))) = 16;
+static int a_sta_int __attribute__ ((cmodel("auto"))) = 17;
 
-static char m_sta_char __attribute__ ((model("medium"))) = 13;
-static short m_sta_short __attribute__ ((model("medium"))) = 14;
-static int m_sta_2aligned __attribute__ ((model("medium"), aligned (2))) = 15;
-static int m_sta_4Kaligned __attribute__ ((model("medium"), aligned (4096))) = 16;
-static int m_sta_int __attribute__ ((model("medium"))) = 17;
+static char m_sta_char __attribute__ ((cmodel("medium"))) = 13;
+static short m_sta_short __attribute__ ((cmodel("medium"))) = 14;
+static int m_sta_2aligned __attribute__ ((cmodel("medium"), aligned (2))) = 15;
+static int m_sta_4Kaligned __attribute__ ((cmodel("medium"), aligned (4096))) = 16;
+static int m_sta_int __attribute__ ((cmodel("medium"))) = 17;
 
-static char l_sta_char __attribute__ ((model("large"))) = 13;
-static short l_sta_short __attribute__ ((model("large"))) = 14;
-static int l_sta_2aligned __attribute__ ((model("large"), aligned (2))) = 15;
-static int l_sta_4Kaligned __attribute__ ((model("large"), aligned (4096))) = 16;
-static int l_sta_int __attribute__ ((model("large"))) = 17;
+static char l_sta_char __attribute__ ((cmodel("large"))) = 13;
+static short l_sta_short __attribute__ ((cmodel("large"))) = 14;
+static int l_sta_2aligned __attribute__ ((cmodel("large"), aligned (2))) = 15;
+static int l_sta_4Kaligned __attribute__ ((cmodel("large"), aligned (4096))) = 16;
+static int l_sta_int __attribute__ ((cmodel("large"))) = 17;
 
 int
 foo ()

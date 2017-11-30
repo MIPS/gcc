@@ -24,13 +24,13 @@
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 2 } } */
 /* { dg-final { scan-assembler "aluipc\t\\\$gp,%pcrel_hi\\(_gp\\)" } } */
 
-__attribute__ ((model("auto"), noclone, noinline))
+__attribute__ ((cmodel("auto"), noclone, noinline))
 extern int a_extern(void) { asm (""); return 1; }
 
-__attribute__ ((model("auto"), noclone, noinline))
+__attribute__ ((cmodel("auto"), noclone, noinline))
 static int a_takes_fptr(int bar()) { asm (""); return 1; }
 
-__attribute__ ((model("auto"), noclone, noinline, long_call))
+__attribute__ ((cmodel("auto"), noclone, noinline, long_call))
 static int a_long_takes_fptr(int bar()) { asm (""); return 1; }
 
 int
