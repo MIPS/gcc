@@ -53,11 +53,10 @@ struct object
       unsigned long sorted : 1;
       unsigned long from_array : 1;
       unsigned long mixed_encoding : 1;
-      unsigned long header : 1;
       unsigned long encoding : 8;
       /* ??? Wish there was an easy way to detect a 64-bit host here;
 	 we've got 32 bits left to play with...  */
-      unsigned long count : 20;
+      unsigned long count : 21;
     } b;
     size_t i;
   } s;
@@ -88,12 +87,9 @@ struct dwarf_eh_bases
   void *tbase;
   void *dbase;
   void *func;
-  unsigned char eh_encoding;
 };
 
 
-extern void __register_frame_info_header_bases (const void *, struct object *,
-						void *, void *);
 extern void __register_frame_info_bases (const void *, struct object *,
 					 void *, void *);
 extern void __register_frame_info (const void *, struct object *);
@@ -168,24 +164,6 @@ next_fde (const fde *f)
 }
 
 extern const fde * _Unwind_Find_FDE (void *, struct dwarf_eh_bases *);
-
-struct compact_eh_bases {
-    void *tbase;
-    void *dbase;
-    void *func;
-    const void *entry;
-    unsigned char eh_encoding;
-};
-
-enum compact_entry_type {
-    CET_not_found,
-    CET_FDE,
-    CET_inline,
-    CET_outline
-};
-
-extern enum compact_entry_type _Unwind_Find_Index (void *,
-						   struct compact_eh_bases *);
 
 static inline int
 last_fde (struct object *obj __attribute__ ((__unused__)), const fde *f)

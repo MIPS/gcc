@@ -62,15 +62,6 @@ enum eh_region_type
   ERT_MUST_NOT_THROW
 };
 
-/* Region header types in the compact EH scheme.  */
-enum eh_compact_header_type
-{
-  ECHT_ACTION_CHAIN,
-  ECHT_CLEANUP,
-  ECHT_CONTINUE_UNWINDING,
-  ECHT_DUMMY_ACTION_CHAIN,
-  ECHT_NOTHROW
-};
 
 /* A landing pad for a given exception region.  Any transfer of control
    from the EH runtime to the function happens at a landing pad.  */
@@ -233,14 +224,12 @@ extern void for_each_eh_label (void (*) (rtx));
 
 extern void init_eh_for_function (void);
 
-extern int compact_pr_id (rtx);
-
 extern void remove_eh_landing_pad (eh_landing_pad);
 extern void remove_eh_handler (eh_region);
 extern void remove_unreachable_eh_regions (sbitmap);
 
 extern bool current_function_has_exception_handlers (void);
-extern void output_function_exception_table (const char *, bool);
+extern void output_function_exception_table (const char *);
 
 extern rtx expand_builtin_eh_pointer (tree);
 extern rtx expand_builtin_eh_filter (tree);
@@ -294,8 +283,6 @@ extern eh_region get_eh_region_from_rtx (const_rtx);
 extern eh_landing_pad get_eh_landing_pad_from_rtx (const_rtx);
 
 extern void finish_eh_generation (void);
-
-extern void push_uleb128 (vec<uchar, va_gc> **, unsigned int);
 
 struct GTY(()) throw_stmt_node {
   gimple *stmt;

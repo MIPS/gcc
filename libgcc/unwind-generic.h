@@ -174,8 +174,6 @@ extern _Unwind_Ptr _Unwind_GetIP (struct _Unwind_Context *);
 extern _Unwind_Ptr _Unwind_GetIPInfo (struct _Unwind_Context *, int *);
 extern void _Unwind_SetIP (struct _Unwind_Context *, _Unwind_Ptr);
 
-extern unsigned char _Unwind_GetEhEncoding (struct _Unwind_Context *);
-
 /* @@@ Retrieve the CFA of the given context.  */
 extern _Unwind_Word _Unwind_GetCFA (struct _Unwind_Context *);
 

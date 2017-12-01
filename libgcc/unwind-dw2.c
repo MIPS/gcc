@@ -396,12 +396,6 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *context)
 {
   return (_Unwind_Ptr) context->bases.tbase;
 }
-
-unsigned char
-_Unwind_GetEhEncoding (struct _Unwind_Context *context)
-{
-  return context->bases.eh_encoding;
-}
 #endif
 
 #include "md-unwind-support.h"
@@ -1225,78 +1219,6 @@ execute_cfa_program (const unsigned char *insn_ptr,
     }
 }
 
-#ifdef MD_HAVE_COMPACT_EH
-
-#include "config/mips/mips-unwind.h"
-
-static _Unwind_Reason_Code
-__gnu_compact_pr1 (int version ATTRIBUTE_UNUSED,
-		  _Unwind_Action actions ATTRIBUTE_UNUSED,
-		  _Unwind_Exception_Class exception_class ATTRIBUTE_UNUSED,
-		  struct _Unwind_Exception *ue_header ATTRIBUTE_UNUSED,
-		  struct _Unwind_Context *context ATTRIBUTE_UNUSED)
-{
-  return _URC_CONTINUE_UNWIND;
-}
-
-/* The C++ EH routines need to live in the C++ runtime.  These should
-   be pulled in via the unwinding tables when needed.  */
-extern _Unwind_Reason_Code __gnu_compact_pr2 (int, _Unwind_Action,
-  _Unwind_Exception_Class, struct _Unwind_Exception *,
-  struct _Unwind_Context *) TARGET_ATTRIBUTE_WEAK;
-
-/* Invoke the Compact EH unwinder.  */
-
-static _Unwind_Reason_Code
-uw_frame_state_compact (struct _Unwind_Context *context,
-			_Unwind_FrameState *fs,
-			enum compact_entry_type entry_type,
-		       	struct compact_eh_bases *bases)
-{
-  const unsigned char *p;
-  unsigned int pr_index;
-  _Unwind_Ptr personality;
-  unsigned char buf[4];
-  _Unwind_Reason_Code rc;
-
-  p = bases->entry;
-  pr_index = *(p++);
-  switch (pr_index) {
-  case 0:
-      p = read_encoded_value (context, bases->eh_encoding, p, &personality);
-      fs->personality = (_Unwind_Personality_Fn) personality;
-      break;
-  case 1:
-      fs->personality = __gnu_compact_pr1;
-      break;
-  case 2:
-      fs->personality = __gnu_compact_pr2;
-      break;
-  default:
-      fs->personality = NULL;
-  }
-
-  if (!fs->personality)
-    return _URC_FATAL_PHASE1_ERROR;
-
-  if (entry_type == CET_inline)
-    {
-      memcpy(buf, p, 3);
-      buf[3] = md_unwind_compact_opcode_finish;
-      p = buf;
-    }
-
-  rc = md_unwind_compact (context, fs, &p);
-  if (rc != _URC_NO_REASON)
-      return rc;
-
-  if (entry_type == CET_outline)
-    context->lsda = (void *)(_Unwind_Internal_Ptr) p;
-
-  return _URC_NO_REASON;
-}
-#endif
-
 /* Given the _Unwind_Context CONTEXT for a stack frame, look up the FDE for
    its caller and decode it into FS.  This function also sets the
    args_size and lsda members of CONTEXT, as they are really information
@@ -1316,27 +1238,8 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   if (context->ra == 0)
     return _URC_END_OF_STACK;
 
-#ifdef MD_HAVE_COMPACT_EH
-    {
-      struct compact_eh_bases bases;
-      enum compact_entry_type type;
-      type = _Unwind_Find_Index (context->ra + _Unwind_IsSignalFrame (context)
-				 - 1, &bases);
-      context->bases.tbase = bases.tbase;
-      context->bases.dbase = bases.dbase;
-      context->bases.func = bases.func;
-      context->bases.eh_encoding = bases.eh_encoding;
-      if (type == CET_inline || type == CET_outline)
-	return uw_frame_state_compact (context, fs, type, &bases);
-      if (type == CET_FDE)
-	fde = bases.entry;
-      else
-	fde = NULL;
-    }
-#else
   fde = _Unwind_Find_FDE (context->ra + _Unwind_IsSignalFrame (context) - 1,
 			  &context->bases);
-#endif
   if (fde == NULL)
     {
 #ifdef MD_FALLBACK_FRAME_STATE_FOR
@@ -1656,6 +1559,9 @@ uw_init_context_1 (struct _Unwind_Context *context,
   if (!ASSUME_EXTENDED_UNWIND_CONTEXT)
     context->flags = EXTENDED_CONTEXT_BIT;
 
+  code = uw_frame_state_for (context, &fs);
+  gcc_assert (code == _URC_NO_REASON);
+
 #if __GTHREADS
   {
     static __gthread_once_t once_regsizes = __GTHREAD_ONCE_INIT;
@@ -1667,9 +1573,6 @@ uw_init_context_1 (struct _Unwind_Context *context,
   if (dwarf_reg_size_table[0] == 0)
     init_dwarf_reg_size_table ();
 #endif
-
-  code = uw_frame_state_for (context, &fs);
-  gcc_assert (code == _URC_NO_REASON);
 
   /* Force the frame state to use the known cfa value.  */
   _Unwind_SetSpColumn (context, outer_cfa, &sp_slot);
@@ -1807,7 +1710,6 @@ alias (_Unwind_Resume);
 alias (_Unwind_Resume_or_Rethrow);
 alias (_Unwind_SetGR);
 alias (_Unwind_SetIP);
-alias (_Unwind_GetEhEncoding);
 #endif
 
 #endif /* !USING_SJLJ_EXCEPTIONS */

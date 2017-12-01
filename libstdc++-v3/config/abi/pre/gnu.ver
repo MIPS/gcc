@@ -2152,12 +2152,6 @@ CXXABI_1.3.10 {
 
 } CXXABI_1.3.9;
 
-CXXABI_1.3.10 {
-
-    __gnu_compact_pr2;
-
-} CXXABI_1.3.9;
-
 # Symbols in the support library (libsupc++) supporting transactional memory.
 CXXABI_TM_1 {
 
