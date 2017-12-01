@@ -7323,10 +7323,10 @@ fi
 if test "${enable_coverage+set}" = set; then :
   enableval=$enable_coverage; case "${enableval}" in
   yes|noopt)
-    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0 -fkeep-inline-functions -fkeep-static-functions"
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0 -fkeep-static-functions"
     ;;
   opt)
-    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2 -fkeep-inline-functions -fkeep-static-functions"
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2 -fkeep-static-functions"
     ;;
   no)
     # a.k.a. --disable-coverage
@@ -28292,7 +28292,7 @@ elif test x$gcc_cv_ld != x; then
   else
     case "$target" in
       *-*-solaris2.1[1-9]*)
-	# Solaris 11.x and Solaris 12 added PIE support.
+	# Solaris 11.3 added PIE support.
 	if $gcc_cv_ld -z help 2>&1 | grep -- type.*pie > /dev/null; then
 	  gcc_cv_ld_pie=yes
 	fi
@@ -29665,8 +29665,21 @@ fi
 
 
    pluginlibs=
+   plugin_check=yes
 
    case "${host}" in
+     *-*-mingw*)
+       # Since plugin support under MinGW is not as straightforward as on
+       # other platforms (e.g., we have to link import library, etc), we
+       # only enable it if explicitly requested.
+       if test x"$default_plugin" = x"yes"; then
+         enable_plugin=no
+       elif test x"$enable_plugin" = x"yes"; then
+         # Use make's target variable to derive import library name.
+         pluginlibs='-Wl,--export-all-symbols -Wl,--out-implib=$@.a'
+	 plugin_check=no
+       fi
+     ;;
      *-*-darwin*)
        if test x$build = x$host; then
 	 export_sym_check="nm${exeext} -g"
@@ -29687,7 +29700,7 @@ fi
      ;;
    esac
 
-   if test x"$enable_plugin" = x"yes"; then
+   if test x"$enable_plugin" = x"yes" -a x"$plugin_check" = x"yes"; then
 
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for exported symbols" >&5
 $as_echo_n "checking for exported symbols... " >&6; }

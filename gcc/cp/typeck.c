@@ -2356,7 +2356,7 @@ build_class_member_access_expr (cp_expr object, tree member,
   {
     tree temp = unary_complex_lvalue (ADDR_EXPR, object);
     if (temp)
-      object = cp_build_indirect_ref (temp, RO_NULL, complain);
+      object = cp_build_fold_indirect_ref (temp);
   }
 
   /* In [expr.ref], there is an explicit list of the valid choices for
@@ -3035,19 +3035,18 @@ build_x_indirect_ref (location_t loc, tree expr, ref_operator errorstring,
     return rval;
 }
 
-/* Helper function called from c-common.  */
-tree
-build_indirect_ref (location_t /*loc*/,
-		    tree ptr, ref_operator errorstring)
-{
-  return cp_build_indirect_ref (ptr, errorstring, tf_warning_or_error);
-}
+/* The implementation of the above, and of indirection implied by other
+   constructs.  If DO_FOLD is true, fold away INDIRECT_REF of ADDR_EXPR.  */
 
-tree
-cp_build_indirect_ref (tree ptr, ref_operator errorstring, 
-                       tsubst_flags_t complain)
+static tree
+cp_build_indirect_ref_1 (tree ptr, ref_operator errorstring,
+			 tsubst_flags_t complain, bool do_fold)
 {
   tree pointer, type;
+
+  /* RO_NULL should only be used with the folding entry points below, not
+     cp_build_indirect_ref.  */
+  gcc_checking_assert (errorstring != RO_NULL || do_fold);
 
   if (ptr == current_class_ptr
       || (TREE_CODE (ptr) == NOP_EXPR
@@ -3092,7 +3091,7 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
             error ("%qT is not a pointer-to-object type", type);
 	  return error_mark_node;
 	}
-      else if (TREE_CODE (pointer) == ADDR_EXPR
+      else if (do_fold && TREE_CODE (pointer) == ADDR_EXPR
 	       && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
 	/* The POINTER was something like `&x'.  We simplify `*&x' to
 	   `x'.  */
@@ -3141,6 +3140,34 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
   return error_mark_node;
 }
 
+/* Entry point used by c-common, which expects folding.  */
+
+tree
+build_indirect_ref (location_t /*loc*/,
+		    tree ptr, ref_operator errorstring)
+{
+  return cp_build_indirect_ref_1 (ptr, errorstring, tf_warning_or_error, true);
+}
+
+/* Entry point used by internal indirection needs that don't correspond to any
+   syntactic construct.  */
+
+tree
+cp_build_fold_indirect_ref (tree pointer)
+{
+  return cp_build_indirect_ref_1 (pointer, RO_NULL, tf_warning_or_error, true);
+}
+
+/* Entry point used by indirection needs that correspond to some syntactic
+   construct.  */
+
+tree
+cp_build_indirect_ref (tree ptr, ref_operator errorstring,
+		       tsubst_flags_t complain)
+{
+  return cp_build_indirect_ref_1 (ptr, errorstring, complain, false);
+}
+
 /* This handles expressions of the form "a[i]", which denotes
    an array reference.
 
@@ -3169,22 +3196,6 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       return error_mark_node;
     }
 
-  /* If an array's index is an array notation, then its rank cannot be
-     greater than one.  */ 
-  if (flag_cilkplus && contains_array_notation_expr (idx))
-    {
-      size_t rank = 0;
-
-      /* If find_rank returns false, then it should have reported an error,
-	 thus it is unnecessary for repetition.  */
-      if (!find_rank (loc, idx, idx, true, &rank))
-	return error_mark_node;
-      if (rank > 1)
-	{
-	  error_at (loc, "rank of the array%'s index is greater than 1");
-	  return error_mark_node;
-	}
-    }
   if (TREE_TYPE (array) == error_mark_node
       || TREE_TYPE (idx) == error_mark_node)
     return error_mark_node;
@@ -3477,13 +3488,13 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
       /* Next extract the vtable pointer from the object.  */
       vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
 		     instance_ptr);
-      vtbl = cp_build_indirect_ref (vtbl, RO_NULL, complain);
+      vtbl = cp_build_fold_indirect_ref (vtbl);
       if (vtbl == error_mark_node)
 	return error_mark_node;
 
       /* Finally, extract the function pointer from the vtable.  */
       e2 = fold_build_pointer_plus_loc (input_location, vtbl, idx);
-      e2 = cp_build_indirect_ref (e2, RO_NULL, complain);
+      e2 = cp_build_fold_indirect_ref (e2);
       if (e2 == error_mark_node)
 	return error_mark_node;
       TREE_CONSTANT (e2) = 1;
@@ -5369,7 +5380,7 @@ static tree
 pointer_diff (location_t loc, tree op0, tree op1, tree ptrtype,
 	      tsubst_flags_t complain)
 {
-  tree result;
+  tree result, inttype;
   tree restype = ptrdiff_type_node;
   tree target_type = TREE_TYPE (ptrtype);
 
@@ -5401,14 +5412,31 @@ pointer_diff (location_t loc, tree op0, tree op1, tree ptrtype,
 	return error_mark_node;
     }
 
-  /* First do the subtraction as integers;
-     then drop through to build the divide operator.  */
+  /* Determine integer type result of the subtraction.  This will usually
+     be the same as the result type (ptrdiff_t), but may need to be a wider
+     type if pointers for the address space are wider than ptrdiff_t.  */
+  if (TYPE_PRECISION (restype) < TYPE_PRECISION (TREE_TYPE (op0)))
+    inttype = c_common_type_for_size (TYPE_PRECISION (TREE_TYPE (op0)), 0);
+  else
+    inttype = restype;
 
-  op0 = cp_build_binary_op (loc,
-			    MINUS_EXPR,
-			    cp_convert (restype, op0, complain),
-			    cp_convert (restype, op1, complain),
-			    complain);
+  /* First do the subtraction, then build the divide operator
+     and only convert at the very end.
+     Do not do default conversions in case restype is a short type.  */
+
+  /* POINTER_DIFF_EXPR requires a signed integer type of the same size as
+     pointers.  If some platform cannot provide that, or has a larger
+     ptrdiff_type to support differences larger than half the address
+     space, cast the pointers to some larger integer type and do the
+     computations in that type.  */
+  if (TYPE_PRECISION (inttype) > TYPE_PRECISION (TREE_TYPE (op0)))
+    op0 = cp_build_binary_op (loc,
+			      MINUS_EXPR,
+			      cp_convert (inttype, op0, complain),
+			      cp_convert (inttype, op1, complain),
+			      complain);
+  else
+    op0 = build2_loc (loc, POINTER_DIFF_EXPR, inttype, op0, op1);
 
   /* This generates an error if op1 is a pointer to an incomplete type.  */
   if (!COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
@@ -5434,9 +5462,9 @@ pointer_diff (location_t loc, tree op0, tree op1, tree ptrtype,
 
   /* Do the division.  */
 
-  result = build2_loc (loc, EXACT_DIV_EXPR, restype, op0,
-		       cp_convert (restype, op1, complain));
-  return result;
+  result = build2_loc (loc, EXACT_DIV_EXPR, inttype, op0,
+		       cp_convert (inttype, op1, complain));
+  return cp_convert (restype, result, complain);
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -6596,17 +6624,6 @@ cp_build_compound_expr (tree lhs, tree rhs, tsubst_flags_t complain)
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
 
-  if (flag_cilkplus
-      && (TREE_CODE (lhs) == CILK_SPAWN_STMT
-	  || TREE_CODE (rhs) == CILK_SPAWN_STMT))
-    {
-      location_t loc = (EXPR_HAS_LOCATION (lhs) ? EXPR_LOCATION (lhs)
-			: EXPR_LOCATION (rhs));
-      error_at (loc,
-		"spawned function call cannot be part of a comma expression");
-      return error_mark_node;
-    }
-
   if (TREE_CODE (rhs) == TARGET_EXPR)
     {
       /* If the rhs is a TARGET_EXPR, then build the compound
@@ -6820,6 +6837,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
     {
       tree base;
 
+      if (processing_template_decl)
+	return expr;
+
       /* There is a standard conversion from "D*" to "B*" even if "B"
 	 is ambiguous or inaccessible.  If this is really a
 	 static_cast, then we check both for inaccessibility and
@@ -6864,6 +6884,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && reference_related_p (TREE_TYPE (type), intype)
       && (c_cast_p || at_least_as_qualified_p (TREE_TYPE (type), intype)))
     {
+      if (processing_template_decl)
+	return expr;
       if (clk == clk_ordinary)
 	{
 	  /* Handle the (non-bit-field) lvalue case here by casting to
@@ -6911,6 +6933,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 						      c_cast_p, complain);
   if (result)
     {
+      if (processing_template_decl)
+	return expr;
+
       result = convert_from_reference (result);
 
       /* [expr.static.cast]
@@ -6952,7 +6977,11 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
        || SCALAR_FLOAT_TYPE_P (type))
       && (INTEGRAL_OR_ENUMERATION_TYPE_P (intype)
 	  || SCALAR_FLOAT_TYPE_P (intype)))
-    return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL, complain);
+    {
+      if (processing_template_decl)
+	return expr;
+      return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL, complain);
+    }
 
   if (TYPE_PTR_P (type) && TYPE_PTR_P (intype)
       && CLASS_TYPE_P (TREE_TYPE (type))
@@ -6964,6 +6993,9 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 		      complain))
     {
       tree base;
+
+      if (processing_template_decl)
+	return expr;
 
       if (!c_cast_p
 	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
@@ -7019,6 +7051,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 						   STATIC_CAST_EXPR,
 						   complain))
 	    return error_mark_node;
+	  if (processing_template_decl)
+	    return expr;
 	  return convert_ptrmem (type, expr, /*allow_inverse_p=*/1,
 				 c_cast_p, complain);
 	}
@@ -7038,6 +7072,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR,
 					       complain))
 	return error_mark_node;
+      if (processing_template_decl)
+	return expr;
       return build_nop (type, expr);
     }
 
@@ -8920,13 +8956,6 @@ check_return_expr (tree retval, bool *no_warning)
 
   *no_warning = false;
 
-  if (flag_cilkplus && retval && contains_cilk_spawn_stmt (retval))
-    {
-      error_at (EXPR_LOCATION (retval), "use of %<_Cilk_spawn%> in a return "
-		"statement is not allowed");
-      return NULL_TREE;
-    }
-
   /* A `volatile' function is one that isn't supposed to return, ever.
      (This is a G++ extension, used to get better code for functions
      that call the `volatile' function.)  */
@@ -9112,7 +9141,7 @@ check_return_expr (tree retval, bool *no_warning)
     dependent:
       /* We should not have changed the return value.  */
       gcc_assert (retval == saved_retval);
-      return do_dependent_capture (retval, /*force*/true);
+      return retval;
     }
 
   /* The fabled Named Return Value optimization, as per [class.copy]/15:

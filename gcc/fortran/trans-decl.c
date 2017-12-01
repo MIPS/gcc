@@ -4161,6 +4161,24 @@ gfc_null_and_pass_deferred_len (gfc_symbol *sym, stmtblock_t *init,
   return tmp;
 }
 
+
+/* Get the result expression for a procedure.  */
+
+static tree
+get_proc_result (gfc_symbol* sym)
+{
+  if (sym->attr.subroutine || sym == sym->result)
+    {
+      if (current_fake_result_decl != NULL)
+	return TREE_VALUE (current_fake_result_decl);
+
+      return NULL_TREE;
+    }
+
+  return sym->result->backend_decl;
+}
+
+
 /* Generate function entry and exit code, and add it to the function body.
    This includes:
     Allocation and initialization of array variables.
@@ -4198,7 +4216,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		  break;
 	    }
 	  /* TODO: move to the appropriate place in resolve.c.  */
-	  if (warn_return_type && el == NULL)
+	  if (warn_return_type > 0 && el == NULL)
 	    gfc_warning (OPT_Wreturn_type,
 			 "Return value of function %qs at %L not set",
 			 proc_sym->name, &proc_sym->declared_at);
@@ -4271,6 +4289,21 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
       else
 	gcc_assert (flag_f2c && proc_sym->ts.type == BT_COMPLEX);
     }
+  else if (proc_sym == proc_sym->result && IS_CLASS_ARRAY (proc_sym))
+    {
+      /* Nullify explicit return class arrays on entry.  */
+      tree type;
+      tmp = get_proc_result (proc_sym);
+	if (tmp && GFC_CLASS_TYPE_P (TREE_TYPE (tmp)))
+	  {
+	    gfc_start_block (&init);
+	    tmp = gfc_class_data_get (tmp);
+	    type = TREE_TYPE (gfc_conv_descriptor_data_get (tmp));
+	    gfc_conv_descriptor_data_set (&init, tmp, build_int_cst (type, 0));
+	    gfc_add_init_cleanup (block, gfc_finish_block (&init), NULL_TREE);
+	  }
+    }
+
 
   /* Initialize the INTENT(OUT) derived type dummy arguments.  This
      should be done here so that the offsets and lbounds of arrays
@@ -5619,7 +5652,7 @@ generate_local_decl (gfc_symbol * sym)
   else if (sym->attr.flavor == FL_PROCEDURE)
     {
       /* TODO: move to the appropriate place in resolve.c.  */
-      if (warn_return_type
+      if (warn_return_type > 0
 	  && sym->attr.function
 	  && sym->result
 	  && sym != sym->result
@@ -5725,8 +5758,7 @@ gfc_trans_entry_master_switch (gfc_entry_list * el)
   tmp = gfc_finish_block (&block);
   /* The first argument selects the entry point.  */
   val = DECL_ARGUMENTS (current_function_decl);
-  tmp = fold_build3_loc (input_location, SWITCH_EXPR, NULL_TREE,
-			 val, tmp, NULL_TREE);
+  tmp = fold_build2_loc (input_location, SWITCH_EXPR, NULL_TREE, val, tmp);
   return tmp;
 }
 
@@ -6064,23 +6096,6 @@ create_main_function (tree fndecl)
       saved_function_decls = saved_parent_function_decls;
     }
   current_function_decl = old_context;
-}
-
-
-/* Get the result expression for a procedure.  */
-
-static tree
-get_proc_result (gfc_symbol* sym)
-{
-  if (sym->attr.subroutine || sym == sym->result)
-    {
-      if (current_fake_result_decl != NULL)
-	return TREE_VALUE (current_fake_result_decl);
-
-      return NULL_TREE;
-    }
-
-  return sym->result->backend_decl;
 }
 
 
@@ -6494,11 +6509,11 @@ gfc_generate_function_code (gfc_namespace * ns)
       if (result == NULL_TREE || artificial_result_decl)
 	{
 	  /* TODO: move to the appropriate place in resolve.c.  */
-	  if (warn_return_type && sym == sym->result)
+	  if (warn_return_type > 0 && sym == sym->result)
 	    gfc_warning (OPT_Wreturn_type,
 			 "Return value of function %qs at %L not set",
 			 sym->name, &sym->declared_at);
-	  if (warn_return_type)
+	  if (warn_return_type > 0)
 	    TREE_NO_WARNING(sym->backend_decl) = 1;
 	}
       if (result != NULL_TREE)

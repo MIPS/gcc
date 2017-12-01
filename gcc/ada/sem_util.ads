@@ -1425,6 +1425,12 @@ package Sem_Util is
    --  partial view of the same entity. Note that Id may not have a partial
    --  view in which case the function returns Empty.
 
+   function Incomplete_View_From_Limited_With
+     (Typ : Entity_Id) return Entity_Id;
+   --  Typ is a type entity. This normally returns Typ. However, if there is
+   --  an incomplete view of this entity that comes from a limited-with'ed
+   --  package, then this returns that incomplete view.
+
    function Indexed_Component_Bit_Offset (N : Node_Id) return Uint;
    --  Given an N_Indexed_Component node, return the first bit position of the
    --  component if it is known at compile time. A value of No_Uint means that
@@ -1530,9 +1536,10 @@ package Sem_Util is
      (Ref_Id     : Entity_Id;
       Context_Id : Entity_Id) return Boolean;
    --  Subsidiary to the analysis of pragmas [Refined_]Depends and [Refined_]
-   --  Global. Determine whether entity Ref_Id (which must represent either
-   --  a protected type or a task type) denotes the current instance of a
-   --  concurrent type. Context_Id denotes the associated context where the
+   --  Global; also used when analyzing default expressions of protected and
+   --  record components. Determine whether entity Ref_Id (which must represent
+   --  either a protected type or a task type) denotes the current instance of
+   --  a concurrent type. Context_Id denotes the associated context where the
    --  pragma appears.
 
    function Is_Child_Or_Sibling
@@ -1724,6 +1731,11 @@ package Sem_Util is
    --  without the need for a temporary, the typical example of an object not
    --  in this category being a function call.
 
+   function Is_Non_Preelaborable_Construct (N : Node_Id) return Boolean;
+   --  Determine whether arbitrary construct N violates preelaborability as
+   --  defined in ARM 10.2.1 5-9/3. This routine takes into account both the
+   --  syntactic and semantic properties of the construct.
+
    function Is_Nontrivial_DIC_Procedure (Id : Entity_Id) return Boolean;
    --  Determine whether entity Id denotes the procedure that verifies the
    --  assertion expression of pragma Default_Initial_Condition and if it does,
@@ -1801,7 +1813,9 @@ package Sem_Util is
 
    function Is_Preelaborable_Construct (N : Node_Id) return Boolean;
    --  Determine whether arbitrary node N violates the restrictions of
-   --  preelaborable constructs as defined in ARM 10.2.1(5-9).
+   --  preelaborable constructs as defined in ARM 10.2.1(5-9). Routine
+   --  Is_Non_Preelaborable_Construct takes into account the syntactic
+   --  and semantic properties of N for a more accurate diagnostic.
 
    function Is_Protected_Self_Reference (N : Node_Id) return Boolean;
    --  Return True if node N denotes a protected type name which represents
@@ -2073,16 +2087,19 @@ package Sem_Util is
    --  cleaned up during resolution.
 
    procedure Mark_Elaboration_Attributes
-     (N_Id   : Node_Or_Entity_Id;
-      Checks : Boolean := False;
-      Level  : Boolean := False;
-      Modes  : Boolean := False);
+     (N_Id     : Node_Or_Entity_Id;
+      Checks   : Boolean := False;
+      Level    : Boolean := False;
+      Modes    : Boolean := False;
+      Warnings : Boolean := False);
    --  Preserve relevant elaboration-related properties of the context in
-   --  arbitrary entity or node N_Id. When flag Checks is set, the routine
-   --  saves the status of Elaboration_Check. When flag Level is set, the
-   --  routine captures the declaration level of N_Id if applicable. When
-   --  flag Modes is set, the routine saves the Ghost and SPARK modes in
-   --  effect if applicable.
+   --  arbitrary entity or node N_Id. The flags control the properties as
+   --  follows:
+   --
+   --    Checks   - Save the status of Elaboration_Check
+   --    Level    - Save the declaration level of N_Id (if appicable)
+   --    Modes    - Save the Ghost and SPARK modes in effect (if applicable)
+   --    Warnings - Save the status of Elab_Warnings
 
    function Matching_Static_Array_Bounds
      (L_Typ : Node_Id;

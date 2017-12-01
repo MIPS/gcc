@@ -436,10 +436,10 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
 	      && TYPE_MAX_VALUE (dom) != NULL_TREE
 	      && TREE_CODE (TYPE_MAX_VALUE (dom)) == INTEGER_CST)
 	    {
+	      unsigned HOST_WIDE_INT m;
 	      if (tree_fits_uhwi_p (TYPE_MAX_VALUE (dom))
-		  && tree_to_uhwi (TYPE_MAX_VALUE (dom)) + 1 != 0)
-		pp_printf (&pretty_name, HOST_WIDE_INT_PRINT_DEC,
-			    tree_to_uhwi (TYPE_MAX_VALUE (dom)) + 1);
+		  && (m = tree_to_uhwi (TYPE_MAX_VALUE (dom))) + 1 != 0)
+		pp_unsigned_wide_integer (&pretty_name, m + 1);
 	      else
 		pp_wide_int (&pretty_name,
 			     wi::add (wi::to_widest (TYPE_MAX_VALUE (dom)), 1),
@@ -675,12 +675,10 @@ ubsan_create_edge (gimple *stmt)
 {
   gcall *call_stmt = dyn_cast <gcall *> (stmt);
   basic_block bb = gimple_bb (stmt);
-  int freq = compute_call_stmt_bb_frequency (current_function_decl, bb);
   cgraph_node *node = cgraph_node::get (current_function_decl);
   tree decl = gimple_call_fndecl (call_stmt);
   if (decl)
-    node->create_edge (cgraph_node::get_create (decl), call_stmt, bb->count,
-		       freq);
+    node->create_edge (cgraph_node::get_create (decl), call_stmt, bb->count);
 }
 
 /* Expand the UBSAN_BOUNDS special builtin function.  */

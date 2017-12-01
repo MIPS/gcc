@@ -1,3 +1,189 @@
+2017-11-28  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/53796
+	* gfortran.texi: Remove mentions of GFORTRAN_DEFAULT_RECL.
+
+2017-11-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/83021
+	* resolve.c (resolve_component): Only escape for use assciated
+	vtypes if the current namespace has no proc_name and is most
+	particularly block data.
+
+2017-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-decl.c (gfc_trans_entry_master_switch): Build SWITCH_EXPR
+	using fold_build2_loc instead of fold_build3_loc.
+	* trans-io.c (io_result): Likewise.
+	* trans-stmt.c (gfc_trans_integer_select, gfc_trans_character_select):
+	Likewise.
+
+2017-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81304
+	* trans-openmp.c (gfc_trans_omp_array_reduction_or_udr): Set
+	attr.implicit_type in intrinsic_sym to avoid undesirable warning.
+
+2017-11-23  Dirk Broemmel  <d.broemmel@fz-juelich.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81841
+	* parse.c (parse_spec): Allow ST_OMP_THREADPRIVATE inside of
+	BLOCK DATA.
+
+2017-11-23  Mike Stump  <mikestump@comcast.net>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* trans-stmt.c (gfc_trans_forall_loop): Pass 3rd operand to
+	ANNOTATE_EXPR.
+
+2017-11-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/82814
+	* trans-types.c (gfc_sym_type): If a character function result
+	is missing the charlen backend_decl, use the one from the name-
+	space procedure symbol, if present.
+
+2017-11-22  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62170
+	* error.c (gfc_notify_std): Convert "quoted" param from bool to
+	bool *.
+
+2017-11-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/36313
+	* check.c (int_or_real_or_char_check_f2003): New function.
+	* iresolve.c (gfc_resolve_maxloc): Add number "2" for
+	character arguments and rank-zero return value.
+	(gfc_resolve_minloc): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc): Handle case of
+	character arguments and rank-zero return value by removing
+	unneeded arguments and calling the library function.
+
+2017-11-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79072
+	* trans-stmt.c (trans_associate_var): Weaken the over strong
+	condition for using the fake result decl.
+
+2017-11-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79072
+	* trans-expr.c (trans_class_vptr_len_assignment): Set from_len
+	if the temporary is unlimited polymorphic.
+	* trans-stmt.c (trans_associate_var): Use the fake result decl
+	to obtain the 'len' field from an explicit function result when
+	in that function scope.
+
+2017-11-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78990
+	* expr.c (gfc_is_class_array_function): Renamed from
+	'gfc_is_alloc_class_array_function' and modified to return true
+	for pointers as well as allocatable results.
+	* gfortran.h : Change of name for prototype of above function.
+	* trans-array.c (gfc_add_loop_ss_code): Force finalization of
+	class array results.
+	(build_class_array_ref): Change assertion into a condition.
+	(build_class_array_ref): Set the se class_vptr for class array
+	function results.
+	(gfc_walk_function_expr): Reference gfc_is_class_array_function
+	as above.
+	* trans-decl.c (get_proc_result): Move it up before
+	gfc_trans_deferred_vars.
+	(gfc_trans_deferred_vars): Nullify explicit return class arrays
+	on entry.
+	* trans-expr.c (gfc_conv_class_to_class): Allow conversion of
+	class array functions that have an se class_vptr and use it
+	for the result vptr.
+	(gfc_conv_subref_array_arg): Rename reference to the above
+	function.
+	(gfc_conv_procedure_call): Ditto. Add the se pre block to the
+	loop pre block before the function is evaluated. Do not
+	finalize class pointer results.
+	(arrayfunc_assign_needs_temporary, gfc_trans_assignment_1) More
+	renamed references.
+	* trans-intrinsic.c (gfc_conv_intrinsic_size): Ditto.
+
+2017-11-18  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/83036
+	* ioparm.def (IOPARM): Make nextrec a pintio.
+
+2017-11-18  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/44292
+	* ioparm.def (IOPARM): Make recl_in intio, and recl_out pintio.
+
+2017-11-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/83012
+	* expr.c (gfc_is_simply_contiguous): If a function call through a
+	class variable is done through a reference, check the function's
+	interface.
+
+2017-11-17  Richard Biener  <rguenther@suse.de>
+
+	PR fortran/83017
+	* trans-stmt.c (gfc_trans_forall_loop): Annotate DO CONCURRENT
+	loops with annot_expr_parallel_kind instead of just
+	annot_expr_ivdep_kind.
+
+2017-11-15  Martin Liska  <mliska@suse.cz>
+
+	* options.c (gfc_post_options):
+	Do not set default value of warn_return_type.
+	* trans-decl.c (gfc_trans_deferred_vars):
+	Compare warn_return_type for greater than zero.
+	(generate_local_decl): Likewise
+	(gfc_generate_function_code): Likewise.
+
+2017-11-13  Fritz Reese <fritzoreese@gmail.com>
+
+	PR fortran/78240
+	* decl.c (match_clist_expr): Replace gcc_assert with proper
+	handling of bad result from spec_size().
+	* resolve.c (check_data_variable): Avoid NULL dereference when passing
+	locus to gfc_error.
+
+2017-11-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/82932
+	* resolve.c (update_compcall_arglist): Improve error recovery,
+	remove a gcc_assert.
+
+2017-11-10  Fritz Reese <fritzoreese@gmail.com>
+
+	PR fortran/82886
+	* gfortran.h (gfc_build_init_expr): New prototype.
+	* invoke.texi (finit-derived): Update documentation.
+	* expr.c (gfc_build_init_expr): New, from gfc_build_default_init_expr.
+	(gfc_build_default_init_expr): Redirect to gfc_build_init_expr(,,false)
+	(component_initializer): Force building initializers using
+	gfc_build_init_expr(,,true).
+
+2017-11-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/81117
+	* gcc/fortran/decl.c (build_sym): Use strcpy instead of strncpy.
+
+2017-11-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/82934
+	* trans-stmt.c (gfc_trans_allocate): Remove the gcc_assert on
+	null string length for assumed length typespec and set
+	expr3_esize to NULL_TREE;
+
+2017-11-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78619
+	* check.c (same_type_check): Introduce a new argument 'assoc'
+	with default value false. If this is true, use the symbol type
+	spec of BT_PROCEDURE expressions.
+	(gfc_check_associated): Set 'assoc' true in the call to
+	'same_type_check'.
+
 2017-11-09  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/78814

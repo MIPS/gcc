@@ -3219,7 +3219,7 @@ get_function_template_decl (const_tree primary_func_tmpl_inst)
 {
   if (! primary_func_tmpl_inst
       || TREE_CODE (primary_func_tmpl_inst) != FUNCTION_DECL
-      || ! primary_template_instantiation_p (primary_func_tmpl_inst))
+      || ! primary_template_specialization_p (primary_func_tmpl_inst))
     return NULL;
 
   return DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (primary_func_tmpl_inst));
@@ -3287,21 +3287,23 @@ make_ith_pack_parameter_name (tree name, int i)
 }
 
 /* Return true if T is a primary function, class or alias template
-   instantiation.  */
+   specialization, not including the template pattern.  */
 
 bool
-primary_template_instantiation_p (const_tree t)
+primary_template_specialization_p (const_tree t)
 {
   if (!t)
     return false;
 
-  if (TREE_CODE (t) == FUNCTION_DECL)
-    return DECL_LANG_SPECIFIC (t)
-	   && DECL_TEMPLATE_INSTANTIATION (t)
-	   && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t));
+  if (TREE_CODE (t) == FUNCTION_DECL || VAR_P (t))
+    return (DECL_LANG_SPECIFIC (t)
+	    && DECL_USE_TEMPLATE (t)
+	    && DECL_TEMPLATE_INFO (t)
+	    && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t)));
   else if (CLASS_TYPE_P (t) && !TYPE_DECL_ALIAS_P (TYPE_NAME (t)))
-    return CLASSTYPE_TEMPLATE_INSTANTIATION (t)
-	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t));
+    return (CLASSTYPE_TEMPLATE_INFO (t)
+	    && CLASSTYPE_USE_TEMPLATE (t)
+	    && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)));
   else if (alias_template_specialization_p (t))
     return true;
   return false;
@@ -3336,7 +3338,7 @@ get_primary_template_innermost_parameters (const_tree t)
   tree parms = NULL, template_info = NULL;
 
   if ((template_info = get_template_info (t))
-      && primary_template_instantiation_p (t))
+      && primary_template_specialization_p (t))
     parms = INNERMOST_TEMPLATE_PARMS
 	(DECL_TEMPLATE_PARMS (TI_TEMPLATE (template_info)));
 
@@ -7519,6 +7521,31 @@ convert_wildcard_argument (tree parm, tree arg)
   return arg;
 }
 
+/* We can't fully resolve ARG given as a non-type template argument to TYPE,
+   because one of them is dependent.  But we need to represent the
+   conversion for the benefit of cp_tree_equal.  */
+
+static tree
+maybe_convert_nontype_argument (tree type, tree arg)
+{
+  /* Auto parms get no conversion.  */
+  if (type_uses_auto (type))
+    return arg;
+  /* We don't need or want to add this conversion now if we're going to use the
+     argument for deduction.  */
+  if (value_dependent_expression_p (arg))
+    return arg;
+
+  type = cv_unqualified (type);
+  tree argtype = TREE_TYPE (arg);
+  if (same_type_p (type, argtype))
+    return arg;
+
+  arg = build1 (IMPLICIT_CONV_EXPR, type, arg);
+  IMPLICIT_CONV_EXPR_NONTYPE_ARG (arg) = true;
+  return arg;
+}
+
 /* Convert the indicated template ARG as necessary to match the
    indicated template PARM.  Returns the converted ARG, or
    error_mark_node if the conversion was unsuccessful.  Error and
@@ -7774,7 +7801,11 @@ convert_template_argument (tree parm,
 	   argument specification is valid.  */
 	val = convert_nontype_argument (t, orig_arg, complain);
       else
-	val = canonicalize_expr_argument (orig_arg, complain);
+	{
+	  val = canonicalize_expr_argument (orig_arg, complain);
+	  val = maybe_convert_nontype_argument (t, val);
+	}
+
 
       if (val == NULL_TREE)
 	val = error_mark_node;
@@ -9500,16 +9531,6 @@ in_template_function (void)
   return ret;
 }
 
-/* Returns true iff we are currently within a template other than a
-   default-capturing generic lambda, so we don't need to worry about semantic
-   processing.  */
-
-bool
-processing_nonlambda_template (void)
-{
-  return processing_template_decl && !need_generic_capture ();
-}
-
 /* Returns true if T depends on any template parameter with level LEVEL.  */
 
 bool
@@ -10114,7 +10135,7 @@ tsubst_attribute (tree t, tree *decl_p, tree args,
   tree val = TREE_VALUE (t);
   if (val == NULL_TREE)
     /* Nothing to do.  */;
-  else if ((flag_openmp || flag_openmp_simd || flag_cilkplus)
+  else if ((flag_openmp || flag_openmp_simd)
 	   && is_attribute_p ("omp declare simd",
 			      get_attribute_name (t)))
     {
@@ -12024,7 +12045,7 @@ tsubst_aggr_type (tree t,
     }
 }
 
-static GTY(()) hash_map<tree, tree> *defarg_inst;
+static GTY((cache)) tree_cache_map *defarg_inst;
 
 /* Substitute into the default argument ARG (a default argument for
    FN), which has the indicated TYPE.  */
@@ -12111,7 +12132,7 @@ tsubst_default_argument (tree fn, int parmnum, tree type, tree arg,
   if (arg != error_mark_node && !cp_unevaluated_operand)
     {
       if (!defarg_inst)
-	defarg_inst = hash_map<tree,tree>::create_ggc (37);
+	defarg_inst = tree_cache_map::create_ggc (37);
       defarg_inst->put (parm, arg);
     }
 
@@ -16109,7 +16130,11 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       finish_for_cond (tmp, stmt, false);
       tmp = RECUR (FOR_EXPR (t));
       finish_for_expr (tmp, stmt);
-      RECUR (FOR_BODY (t));
+      {
+	bool prev = note_iteration_stmt_body_start ();
+	RECUR (FOR_BODY (t));
+	note_iteration_stmt_body_end (prev);
+      }
       finish_for_stmt (stmt);
       break;
 
@@ -16133,7 +16158,9 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	else
 	  stmt = cp_convert_range_for (stmt, decl, expr, NULL_TREE, 0,
 				       RANGE_FOR_IVDEP (t));
+	bool prev = note_iteration_stmt_body_start ();
         RECUR (RANGE_FOR_BODY (t));
+	note_iteration_stmt_body_end (prev);
         finish_for_stmt (stmt);
       }
       break;
@@ -16142,13 +16169,21 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       stmt = begin_while_stmt ();
       tmp = RECUR (WHILE_COND (t));
       finish_while_stmt_cond (tmp, stmt, false);
-      RECUR (WHILE_BODY (t));
+      {
+	bool prev = note_iteration_stmt_body_start ();
+	RECUR (WHILE_BODY (t));
+	note_iteration_stmt_body_end (prev);
+      }
       finish_while_stmt (stmt);
       break;
 
     case DO_STMT:
       stmt = begin_do_stmt ();
-      RECUR (DO_BODY (t));
+      {
+	bool prev = note_iteration_stmt_body_start ();
+	RECUR (DO_BODY (t));
+	note_iteration_stmt_body_end (prev);
+      }
       finish_do_body (stmt);
       tmp = RECUR (DO_COND (t));
       finish_do_stmt (tmp, stmt, false);
@@ -16403,8 +16438,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case OMP_FOR:
     case OMP_SIMD:
-    case CILK_SIMD:
-    case CILK_FOR:
     case OMP_DISTRIBUTE:
     case OMP_TASKLOOP:
     case OACC_LOOP:
@@ -16416,9 +16449,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	enum c_omp_region_type ort = C_ORT_OMP;
 	int i;
 
-	if (TREE_CODE (t) == CILK_SIMD || TREE_CODE (t) == CILK_FOR)
-	  ort = C_ORT_CILK;
-	else if (TREE_CODE (t) == OACC_LOOP)
+	if (TREE_CODE (t) == OACC_LOOP)
 	  ort = C_ORT_ACC;
 
 	r = push_omp_privatization_clauses (OMP_FOR_INIT (t) == NULL_TREE);
@@ -16697,13 +16728,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       error ("use %<...%> to expand argument pack");
       RETURN (error_mark_node);
 
-    case CILK_SPAWN_STMT:
-      cfun->calls_cilk_spawn = 1;
-      RETURN (build_cilk_spawn (EXPR_LOCATION (t), RECUR (CILK_SPAWN_FN (t))));
-
-    case CILK_SYNC_STMT:
-      RETURN (build_cilk_sync ());
-
     case COMPOUND_EXPR:
       tmp = RECUR (TREE_OPERAND (t, 0));
       if (tmp == NULL_TREE)
@@ -16715,8 +16739,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case ANNOTATE_EXPR:
       tmp = RECUR (TREE_OPERAND (t, 0));
-      RETURN (build2_loc (EXPR_LOCATION (t), ANNOTATE_EXPR,
-			  TREE_TYPE (tmp), tmp, RECUR (TREE_OPERAND (t, 1))));
+      RETURN (build3_loc (EXPR_LOCATION (t), ANNOTATE_EXPR,
+			  TREE_TYPE (tmp), tmp,
+			  RECUR (TREE_OPERAND (t, 1)),
+			  RECUR (TREE_OPERAND (t, 2))));
 
     default:
       gcc_assert (!STATEMENT_CODE_P (TREE_CODE (t)));
@@ -17113,6 +17139,17 @@ tsubst_copy_and_build (tree t,
       {
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	tree expr = RECUR (TREE_OPERAND (t, 0));
+	if (dependent_type_p (type) || type_dependent_expression_p (expr))
+	  {
+	    retval = copy_node (t);
+	    TREE_TYPE (retval) = type;
+	    TREE_OPERAND (retval, 0) = expr;
+	    RETURN (retval);
+	  }
+	if (IMPLICIT_CONV_EXPR_NONTYPE_ARG (t))
+	  /* We'll pass this to convert_nontype_argument again, we don't need
+	     to actually perform any conversion here.  */
+	  RETURN (expr);
 	int flags = LOOKUP_IMPLICIT;
 	if (IMPLICIT_CONV_EXPR_DIRECT_INIT (t))
 	  flags = LOOKUP_NORMAL;
@@ -17149,6 +17186,7 @@ tsubst_copy_and_build (tree t,
 	op = RECUR (TREE_OPERAND (t, 0));
 
 	warning_sentinel s(warn_useless_cast);
+	warning_sentinel s2(warn_ignored_qualifiers);
 	switch (TREE_CODE (t))
 	  {
 	  case CAST_EXPR:
@@ -17284,17 +17322,6 @@ tsubst_copy_and_build (tree t,
 				 RECUR (TREE_OPERAND (t, 1)),
 				 complain|decltype_flag));
 
-    case ARRAY_NOTATION_REF:
-      {
-	tree start_index, length, stride;
-	op1 = tsubst_non_call_postfix_expression (ARRAY_NOTATION_ARRAY (t),
-						  args, complain, in_decl);
-	start_index = RECUR (ARRAY_NOTATION_START (t));
-	length = RECUR (ARRAY_NOTATION_LENGTH (t));
-	stride = RECUR (ARRAY_NOTATION_STRIDE (t));
-	RETURN (build_array_notation_ref (EXPR_LOCATION (t), op1, start_index,
-					  length, stride, TREE_TYPE (op1)));
-      }
     case SIZEOF_EXPR:
       if (PACK_EXPANSION_P (TREE_OPERAND (t, 0))
 	  || ARGUMENT_PACK_P (TREE_OPERAND (t, 0)))
@@ -20902,6 +20929,11 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 
       if (targ)
 	{
+	  if ((strict & UNIFY_ALLOW_INTEGER)
+	      && TREE_TYPE (targ) && TREE_TYPE (arg)
+	      && CP_INTEGRAL_TYPE_P (TREE_TYPE (targ)))
+	    /* We're deducing from an array bound, the type doesn't matter.  */
+	    arg = fold_convert (TREE_TYPE (targ), arg);
 	  int x = !cp_tree_equal (targ, arg);
 	  if (x)
 	    unify_inconsistency (explain_p, parm, targ, arg);
@@ -23720,13 +23752,15 @@ dependent_type_p_r (tree type)
 	if (dependent_type_p (TREE_VALUE (arg_type)))
 	  return true;
       if (cxx_dialect >= cxx17)
-	{
-	  /* A value-dependent noexcept-specifier makes the type dependent.  */
-	  tree spec = TYPE_RAISES_EXCEPTIONS (type);
-	  if (spec && TREE_PURPOSE (spec)
-	      && value_dependent_expression_p (TREE_PURPOSE (spec)))
-	    return true;
-	}
+	/* A value-dependent noexcept-specifier makes the type dependent.  */
+	if (tree spec = TYPE_RAISES_EXCEPTIONS (type))
+	  if (tree noex = TREE_PURPOSE (spec))
+	    /* Treat DEFERRED_NOEXCEPT as non-dependent, since it doesn't
+	       affect overload resolution and treating it as dependent breaks
+	       things.  */
+	    if (TREE_CODE (noex) != DEFERRED_NOEXCEPT
+		&& value_dependent_expression_p (noex))
+	      return true;
       return false;
     }
   /* -- an array type constructed from any dependent type or whose
@@ -23891,8 +23925,8 @@ value_dependent_expression_p (tree expression)
   if (!processing_template_decl || expression == NULL_TREE)
     return false;
 
-  /* A name declared with a dependent type.  */
-  if (DECL_P (expression) && type_dependent_expression_p (expression))
+  /* A type-dependent expression is also value-dependent.  */
+  if (type_dependent_expression_p (expression))
     return true;
 
   switch (TREE_CODE (expression))
@@ -23934,13 +23968,12 @@ value_dependent_expression_p (tree expression)
 	  && (TREE_CODE (DECL_INITIAL (expression)) == TREE_LIST
 	      /* cp_finish_decl doesn't fold reference initializers.  */
 	      || TREE_CODE (TREE_TYPE (expression)) == REFERENCE_TYPE
-	      || type_dependent_expression_p (DECL_INITIAL (expression))
 	      || value_dependent_expression_p (DECL_INITIAL (expression))))
 	return true;
       if (DECL_HAS_VALUE_EXPR_P (expression))
 	{
 	  tree value_expr = DECL_VALUE_EXPR (expression);
-	  if (type_dependent_expression_p (value_expr))
+	  if (value_dependent_expression_p (value_expr))
 	    return true;
 	}
       return false;
@@ -23950,6 +23983,7 @@ value_dependent_expression_p (tree expression)
     case CONST_CAST_EXPR:
     case REINTERPRET_CAST_EXPR:
     case CAST_EXPR:
+    case IMPLICIT_CONV_EXPR:
       /* These expressions are value-dependent if the type to which
 	 the cast occurs is dependent or the expression being casted
 	 is value-dependent.  */
@@ -24094,10 +24128,7 @@ value_dependent_expression_p (tree expression)
       }
 
     case TEMPLATE_ID_EXPR:
-      /* If a TEMPLATE_ID_EXPR involves a dependent name, it will be
-	 type-dependent.  */
-      return type_dependent_expression_p (expression)
-	|| variable_concept_p (TREE_OPERAND (expression, 0));
+      return variable_concept_p (TREE_OPERAND (expression, 0));
 
     case CONSTRUCTOR:
       {

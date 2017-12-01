@@ -744,6 +744,10 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_stringop_overflow) Ini
 Under the control of Object Size type, warn about buffer overflow in string
 manipulation functions like memcpy and strcpy.
 
+Wstringop-truncation
+C ObjC C++ ObjC++ Var(warn_stringop_truncation) Warning Init (1) LangEnabledBy(C ObjC C++ ObjC++, Wall)
+Warn about truncation in string manipulation functions like strncat and strncpy.
+
 Wsuggest-attribute=format
 C ObjC C++ ObjC++ Var(warn_suggest_attribute_format) Warning
 Warn about functions which might be candidates for format attributes.
@@ -1326,9 +1330,9 @@ Driver
 static-libmpxwrappers
 Driver
 
-fcilkplus
+fcilkplus Undocumented
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
-Enable Cilk Plus.
+Deprecated in GCC 8.  This switch has no effect.
 
 fconcepts
 C++ ObjC++ Var(flag_concepts)
@@ -1946,7 +1950,11 @@ Deprecated in favor of -std=c11.
 
 std=c17
 C ObjC
-Conform to the ISO 2017 C standard.
+Conform to the ISO 2017 C standard (expected to be published in 2018).
+
+std=c18
+C ObjC Alias(std=c17)
+Conform to the ISO 2017 C standard (expected to be published in 2018).
 
 std=c89
 C ObjC Alias(std=c90)
@@ -2012,7 +2020,11 @@ Deprecated in favor of -std=gnu11.
 
 std=gnu17
 C ObjC
-Conform to the ISO 2017 C standard with GNU extensions.
+Conform to the ISO 2017 C standard (expected to be published in 2018) with GNU extensions.
+
+std=gnu18
+C ObjC Alias(std=gnu17)
+Conform to the ISO 2017 C standard (expected to be published in 2018) with GNU extensions.
 
 std=gnu89
 C ObjC Alias(std=gnu90)
@@ -2052,7 +2064,11 @@ Conform to the ISO 2011 C standard.
 
 std=iso9899:2017
 C ObjC Alias(std=c17)
-Conform to the ISO 2017 C standard.
+Conform to the ISO 2017 C standard (expected to be published in 2018).
+
+std=iso9899:2018
+C ObjC Alias(std=c17)
+Conform to the ISO 2017 C standard (expected to be published in 2018).
 
 traditional
 Driver

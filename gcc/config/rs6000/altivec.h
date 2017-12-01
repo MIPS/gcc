@@ -357,6 +357,7 @@
 #define vec_xl __builtin_vec_vsx_ld
 #define vec_xl_be __builtin_vec_xl_be
 #define vec_xst __builtin_vec_vsx_st
+#define vec_xst_be __builtin_vec_xst_be
 
 /* Note, xxsldi and xxpermdi were added as __builtin_vsx_<xxx> functions
    instead of __builtin_vec_<xxx>  */
@@ -420,6 +421,10 @@
 
 #ifdef __POWER9_VECTOR__
 /* Vector additions added in ISA 3.0.  */
+#define vec_first_match_index __builtin_vec_first_match_index
+#define vec_first_match_or_eos_index __builtin_vec_first_match_or_eos_index
+#define vec_first_mismatch_index __builtin_vec_first_mismatch_index
+#define vec_first_mismatch_or_eos_index __builtin_vec_first_mismatch_or_eos_index
 #define vec_pack_to_short_fp32 __builtin_vec_convert_4f32_8i16
 #define vec_parity_lsbb __builtin_vec_vparity_lsbb
 #define vec_vctz __builtin_vec_vctz

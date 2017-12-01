@@ -1482,17 +1482,6 @@ c_pretty_printer::postfix_expression (tree e)
       pp_c_right_bracket (this);
       break;
 
-    case ARRAY_NOTATION_REF:
-      postfix_expression (ARRAY_NOTATION_ARRAY (e));
-      pp_c_left_bracket (this);
-      expression (ARRAY_NOTATION_START (e));
-      pp_colon (this);
-      expression (ARRAY_NOTATION_LENGTH (e));
-      pp_colon (this);
-      expression (ARRAY_NOTATION_STRIDE (e));
-      pp_c_right_bracket (this);
-      break;
-      
     case CALL_EXPR:
       {
 	call_expr_arg_iterator iter;
@@ -1876,6 +1865,7 @@ pp_c_additive_expression (c_pretty_printer *pp, tree e)
     {
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
+    case POINTER_DIFF_EXPR:
     case MINUS_EXPR:
       pp_c_additive_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
@@ -2191,7 +2181,6 @@ c_pretty_printer::expression (tree e)
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
     case ARRAY_REF:
-    case ARRAY_NOTATION_REF:
     case CALL_EXPR:
     case COMPONENT_REF:
     case BIT_FIELD_REF:
@@ -2292,6 +2281,7 @@ c_pretty_printer::expression (tree e)
 
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
+    case POINTER_DIFF_EXPR:
     case MINUS_EXPR:
       pp_c_additive_expression (this, e);
       break;

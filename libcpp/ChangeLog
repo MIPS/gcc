@@ -1,3 +1,47 @@
+2017-11-28  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/82050
+	* include/line-map.h (LINE_MAP_MAX_COLUMN_NUMBER): Move here.
+	* line-map.c (LINE_MAP_MAX_COLUMN_NUMBER): ...from here.
+	(rich_location::maybe_add_fixit): Reject fix-it hints in which
+	the start column exceeds the next column.
+
+2017-11-20  Eric Gallager  <egall@gwmail.gwu.edu>
+
+	PR preprocessor/81794
+	* macro.c (check_trad_stringification): Have warning be controlled
+	by -Wtraditional.
+
+2017-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/72786
+	* include/cpplib.h (cpp_macro_definition_location): New decl.
+	* macro.c (cpp_macro_definition): New function.
+
+2017-11-13  Tom Tromey  <tom@tromey.com>
+
+	* pch.c (cpp_read_state): Set n__VA_OPT__.
+	* macro.c (vaopt_state): New class.
+	(_cpp_arguments_ok): Check va_opt flag.
+	(replace_args, create_iso_definition): Use vaopt_state.
+	* lex.c (lex_identifier_intern): Possibly issue errors for
+	__VA_OPT__.
+	(lex_identifier): Likewise.
+	(maybe_va_opt_error): New function.
+	* internal.h (struct lexer_state) <va_args_ok>: Update comment.
+	(struct spec_nodes) <n__VA_OPT__>: New field.
+	* init.c (struct lang_flags) <va_opt>: New field.
+	(lang_defaults): Add entries for C++2A.  Update all entries for
+	va_opt.
+	(cpp_set_lang): Initialize va_opt.
+	* include/cpplib.h (struct cpp_options) <va_opt>: New field.
+	* identifiers.c (_cpp_init_hashtable): Initialize n__VA_OPT__.
+
+2017-11-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (linenum_type): Move this typedef and the
+	comment describing column numbering to near the top of the file.
+
 2017-11-06  Mukesh Kapoor  <mukesh.kapoor@oracle.com>
 
 	PR c++/80955

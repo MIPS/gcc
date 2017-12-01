@@ -150,6 +150,7 @@ static bool aarch64_builtin_support_vector_misalignment (machine_mode mode,
 							 bool is_packed);
 static machine_mode
 aarch64_simd_container_mode (scalar_mode mode, unsigned width);
+static void aarch64_print_ldpstp_address (FILE *f, machine_mode mode, rtx x);
 
 /* Major revision number of the ARM Architecture implemented by the target.  */
 unsigned aarch64_architecture_version;
@@ -508,7 +509,7 @@ static const cpu_prefetch_tune qdf24xx_prefetch_tune =
   32,			/* l1_cache_size  */
   64,			/* l1_cache_line_size  */
   1024,			/* l2_cache_size  */
-  3			/* default_opt_level  */
+  -1			/* default_opt_level  */
 };
 
 static const cpu_prefetch_tune thunderxt88_prefetch_tune =
@@ -817,7 +818,7 @@ static const struct tune_params qdf24xx_tunings =
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
   0,	/* max_case_values.  */
-  tune_params::AUTOPREFETCHER_STRONG,	/* autoprefetcher_model.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE),		/* tune_flags.  */
   &qdf24xx_prefetch_tune
 };
@@ -5225,7 +5226,11 @@ static const int aarch64_nzcv_codes[] =
      'L':		Output constant address specified by X
 			with a relocation offset if appropriate.
      'G':		Prints address of X, specifying a PC relative
-			relocation mode if appropriate.  */
+			relocation mode if appropriate.
+     'y':		Output address of LDP or STP - this is used for
+			some LDP/STPs which don't use a PARALLEL in their
+			pattern (so the mode needs to be adjusted).
+     'z':		Output address of a typical LDP or STP.  */
 
 static void
 aarch64_print_operand (FILE *f, rtx x, int code)
@@ -5427,8 +5432,6 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 
 	case MEM:
 	  output_address (GET_MODE (x), XEXP (x, 0));
-	  /* Check all memory references are Pmode - even with ILP32.  */
-	  gcc_assert (GET_MODE (XEXP (x, 0)) == Pmode);
 	  break;
 
 	case CONST:
@@ -5592,18 +5595,48 @@ aarch64_print_operand (FILE *f, rtx x, int code)
       }
       break;
 
+    case 'y':
+    case 'z':
+      {
+	machine_mode mode = GET_MODE (x);
+
+	if (GET_CODE (x) != MEM)
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+	if (code == 'y')
+	  {
+	    /* LDP/STP which uses a single double-width memory operand.
+	       Adjust the mode to appear like a typical LDP/STP.
+	       Currently this is supported for 16-byte accesses only.  */
+	    gcc_assert (GET_MODE_SIZE (mode) == 16);
+	    mode = DFmode;
+	  }
+
+	aarch64_print_ldpstp_address (f, mode, XEXP (x, 0));
+      }
+      break;
+
     default:
       output_operand_lossage ("invalid operand prefix '%%%c'", code);
       return;
     }
 }
 
+/* Print address 'x' of a memory access with mode 'mode'.
+   'op' is the context required by aarch64_classify_address.  It can either be
+   MEM for a normal memory access or PARALLEL for LDP/STP.  */
 static void
-aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
+aarch64_print_address_internal (FILE *f, machine_mode mode, rtx x, RTX_CODE op)
 {
   struct aarch64_address_info addr;
 
-  if (aarch64_classify_address (&addr, x, mode, MEM, true))
+  /* Check all addresses are Pmode - including ILP32.  */
+  gcc_assert (GET_MODE (x) == Pmode);
+
+  if (aarch64_classify_address (&addr, x, mode, op, true))
     switch (addr.type)
       {
       case ADDRESS_REG_IMM:
@@ -5684,6 +5717,20 @@ aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
       }
 
   output_addr_const (f, x);
+}
+
+/* Print address 'x' of a LDP/STP with mode 'mode'.  */
+static void
+aarch64_print_ldpstp_address (FILE *f, machine_mode mode, rtx x)
+{
+  aarch64_print_address_internal (f, mode, x, PARALLEL);
+}
+
+/* Print address 'x' of a memory access with mode 'mode'.  */
+static void
+aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
+{
+  aarch64_print_address_internal (f, mode, x, MEM);
 }
 
 bool
@@ -8440,6 +8487,9 @@ aarch64_emit_approx_div (rtx quo, rtx num, rtx den)
       || !flag_unsafe_math_optimizations
       || optimize_function_for_size_p (cfun)
       || !use_approx_division_p)
+    return false;
+
+  if (!TARGET_SIMD && VECTOR_MODE_P (mode))
     return false;
 
   /* Estimate the approximate reciprocal.  */
@@ -13948,22 +13998,6 @@ aarch64_asan_shadow_offset (void)
   return (HOST_WIDE_INT_1 << 36);
 }
 
-static bool
-aarch64_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
-					unsigned int align,
-					enum by_pieces_operation op,
-					bool speed_p)
-{
-  /* STORE_BY_PIECES can be used when copying a constant string, but
-     in that case each 64-bit chunk takes 5 insns instead of 2 (LDR/STR).
-     For now we always fail this and let the move_by_pieces code copy
-     the string from read-only memory.  */
-  if (op == STORE_BY_PIECES)
-    return false;
-
-  return default_use_by_pieces_infrastructure_p (size, align, op, speed_p);
-}
-
 static rtx
 aarch64_gen_ccmp_first (rtx_insn **prep_seq, rtx_insn **gen_seq,
 			int code, tree treeop0, tree treeop1)
@@ -15457,10 +15491,6 @@ aarch64_libgcc_floating_mode_supported_p
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS aarch64_legitimize_address
-
-#undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
-#define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \
-  aarch64_use_by_pieces_infrastructure_p
 
 #undef TARGET_SCHED_CAN_SPECULATE_INSN
 #define TARGET_SCHED_CAN_SPECULATE_INSN aarch64_sched_can_speculate_insn

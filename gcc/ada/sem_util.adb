@@ -9085,6 +9085,12 @@ package body Sem_Util is
          end if;
 
          Lit := First_Literal (Btyp);
+
+         --  Position in the enumeration type starts at 0.
+         if UI_To_Int (Pos) < 0 then
+            raise Constraint_Error;
+         end if;
+
          for J in 1 .. UI_To_Int (Pos) loop
             Next_Literal (Lit);
 
@@ -12213,6 +12219,40 @@ package body Sem_Util is
       return Empty;
    end Incomplete_Or_Partial_View;
 
+   ---------------------------------------
+   -- Incomplete_View_From_Limited_With --
+   ---------------------------------------
+
+   function Incomplete_View_From_Limited_With
+     (Typ : Entity_Id) return Entity_Id is
+   begin
+      --  It might make sense to make this an attribute in Einfo, and set it
+      --  in Sem_Ch10 in Build_Shadow_Entity. However, we're running short on
+      --  slots for new attributes, and it seems a bit simpler to just search
+      --  the Limited_View (if it exists) for an incomplete type whose
+      --  Non_Limited_View is Typ.
+
+      if Ekind (Scope (Typ)) = E_Package
+        and then Present (Limited_View (Scope (Typ)))
+      then
+         declare
+            Ent : Entity_Id := First_Entity (Limited_View (Scope (Typ)));
+         begin
+            while Present (Ent) loop
+               if Ekind (Ent) in Incomplete_Kind
+                 and then Non_Limited_View (Ent) = Typ
+               then
+                  return Ent;
+               end if;
+
+               Ent := Next_Entity (Ent);
+            end loop;
+         end;
+      end if;
+
+      return Typ;
+   end Incomplete_View_From_Limited_With;
+
    ----------------------------------
    -- Indexed_Component_Bit_Offset --
    ----------------------------------
@@ -12856,8 +12896,9 @@ package body Sem_Util is
                                               E_Package,
                                               E_Procedure,
                                               E_Protected_Type,
-                                              E_Task_Type));
-
+                                              E_Task_Type)
+                          or else
+                        Is_Record_Type (Context_Id));
          return Scope_Within_Or_Same (Context_Id, Ref_Id);
       end if;
    end Is_CCT_Instance;
@@ -14599,6 +14640,442 @@ package body Sem_Util is
             return False;
       end case;
    end Is_Name_Reference;
+
+   ------------------------------------
+   -- Is_Non_Preelaborable_Construct --
+   ------------------------------------
+
+   function Is_Non_Preelaborable_Construct (N : Node_Id) return Boolean is
+
+      --  NOTE: the routines within Is_Non_Preelaborable_Construct are
+      --  intentionally unnested to avoid deep indentation of code.
+
+      Non_Preelaborable : exception;
+      --  This exception is raised when the construct violates preelaborability
+      --  to terminate the recursion.
+
+      procedure Visit (Nod : Node_Id);
+      --  Semantically inspect construct Nod to determine whether it violates
+      --  preelaborability. This routine raises Non_Preelaborable.
+
+      procedure Visit_List (List : List_Id);
+      pragma Inline (Visit_List);
+      --  Invoke Visit on each element of list List. This routine raises
+      --  Non_Preelaborable.
+
+      procedure Visit_Pragma (Prag : Node_Id);
+      pragma Inline (Visit_Pragma);
+      --  Semantically inspect pragma Prag to determine whether it violates
+      --  preelaborability. This routine raises Non_Preelaborable.
+
+      procedure Visit_Subexpression (Expr : Node_Id);
+      pragma Inline (Visit_Subexpression);
+      --  Semantically inspect expression Expr to determine whether it violates
+      --  preelaborability. This routine raises Non_Preelaborable.
+
+      -----------
+      -- Visit --
+      -----------
+
+      procedure Visit (Nod : Node_Id) is
+      begin
+         case Nkind (Nod) is
+
+            --  Declarations
+
+            when N_Component_Declaration =>
+
+               --  Defining_Identifier is left out because it is not relevant
+               --  for preelaborability.
+
+               Visit (Component_Definition (Nod));
+               Visit (Expression (Nod));
+
+            when N_Derived_Type_Definition =>
+
+               --  Interface_List is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit (Record_Extension_Part (Nod));
+               Visit (Subtype_Indication (Nod));
+
+            when N_Entry_Declaration =>
+
+               --  A protected type with at leat one entry is not preelaborable
+               --  while task types are never preelaborable. This renders entry
+               --  declarations non-preelaborable.
+
+               raise Non_Preelaborable;
+
+            when N_Full_Type_Declaration =>
+
+               --  Defining_Identifier and Discriminant_Specifications are left
+               --  out because they are not relevant for preelaborability.
+
+               Visit (Type_Definition (Nod));
+
+            when N_Function_Instantiation
+               | N_Package_Instantiation
+               | N_Procedure_Instantiation
+            =>
+               --  Defining_Unit_Name and Name are left out because they are
+               --  not relevant for preelaborability.
+
+               Visit_List (Generic_Associations (Nod));
+
+            when N_Object_Declaration =>
+
+               --  Defining_Identifier is left out because it is not relevant
+               --  for preelaborability.
+
+               Visit (Object_Definition (Nod));
+
+               if Has_Init_Expression (Nod) then
+                  Visit (Expression (Nod));
+
+               elsif not Has_Preelaborable_Initialization
+                           (Etype (Defining_Entity (Nod)))
+               then
+                  raise Non_Preelaborable;
+               end if;
+
+            when N_Private_Extension_Declaration
+               | N_Subtype_Declaration
+            =>
+               --  Defining_Identifier, Discriminant_Specifications, and
+               --  Interface_List are left out because they are not relevant
+               --  for preelaborability.
+
+               Visit (Subtype_Indication (Nod));
+
+            when N_Protected_Type_Declaration
+               | N_Single_Protected_Declaration
+            =>
+               --  Defining_Identifier, Discriminant_Specifications, and
+               --  Interface_List are left out because they are not relevant
+               --  for preelaborability.
+
+               Visit (Protected_Definition (Nod));
+
+            --  A [single] task type is never preelaborable
+
+            when N_Single_Task_Declaration
+               | N_Task_Type_Declaration
+            =>
+               raise Non_Preelaborable;
+
+            --  Pragmas
+
+            when N_Pragma =>
+               Visit_Pragma (Nod);
+
+            --  Statements
+
+            when N_Statement_Other_Than_Procedure_Call =>
+               if Nkind (Nod) /= N_Null_Statement then
+                  raise Non_Preelaborable;
+               end if;
+
+            --  Subexpressions
+
+            when N_Subexpr =>
+               Visit_Subexpression (Nod);
+
+            --  Special
+
+            when N_Access_To_Object_Definition =>
+               Visit (Subtype_Indication (Nod));
+
+            when N_Case_Expression_Alternative =>
+               Visit (Expression (Nod));
+               Visit_List (Discrete_Choices (Nod));
+
+            when N_Component_Definition =>
+               Visit (Access_Definition (Nod));
+               Visit (Subtype_Indication (Nod));
+
+            when N_Component_List =>
+               Visit_List (Component_Items (Nod));
+               Visit (Variant_Part (Nod));
+
+            when N_Constrained_Array_Definition =>
+               Visit_List (Discrete_Subtype_Definitions (Nod));
+               Visit (Component_Definition (Nod));
+
+            when N_Delta_Constraint
+               | N_Digits_Constraint
+            =>
+               --  Delta_Expression and Digits_Expression are left out because
+               --  they are not relevant for preelaborability.
+
+               Visit (Range_Constraint (Nod));
+
+            when N_Discriminant_Specification =>
+
+               --  Defining_Identifier and Expression are left out because they
+               --  are not relevant for preelaborability.
+
+               Visit (Discriminant_Type (Nod));
+
+            when N_Generic_Association =>
+
+               --  Selector_Name is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit (Explicit_Generic_Actual_Parameter (Nod));
+
+            when N_Index_Or_Discriminant_Constraint =>
+               Visit_List (Constraints (Nod));
+
+            when N_Iterator_Specification =>
+
+               --  Defining_Identifier is left out because it is not relevant
+               --  for preelaborability.
+
+               Visit (Name (Nod));
+               Visit (Subtype_Indication (Nod));
+
+            when N_Loop_Parameter_Specification =>
+
+               --  Defining_Identifier is left out because it is not relevant
+               --  for preelaborability.
+
+               Visit (Discrete_Subtype_Definition (Nod));
+
+            when N_Protected_Definition =>
+
+               --  End_Label is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit_List (Private_Declarations (Nod));
+               Visit_List (Visible_Declarations (Nod));
+
+            when N_Range_Constraint =>
+               Visit (Range_Expression (Nod));
+
+            when N_Record_Definition
+               | N_Variant
+            =>
+               --  End_Label, Discrete_Choices, and Interface_List are left out
+               --  because they are not relevant for preelaborability.
+
+               Visit (Component_List (Nod));
+
+            when N_Subtype_Indication =>
+
+               --  Subtype_Mark is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit (Constraint (Nod));
+
+            when N_Unconstrained_Array_Definition =>
+
+               --  Subtype_Marks is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit (Component_Definition (Nod));
+
+            when N_Variant_Part =>
+
+               --  Name is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit_List (Variants (Nod));
+
+            --  Default
+
+            when others =>
+               null;
+         end case;
+      end Visit;
+
+      ----------------
+      -- Visit_List --
+      ----------------
+
+      procedure Visit_List (List : List_Id) is
+         Nod : Node_Id;
+
+      begin
+         if Present (List) then
+            Nod := First (List);
+            while Present (Nod) loop
+               Visit (Nod);
+               Next (Nod);
+            end loop;
+         end if;
+      end Visit_List;
+
+      ------------------
+      -- Visit_Pragma --
+      ------------------
+
+      procedure Visit_Pragma (Prag : Node_Id) is
+      begin
+         case Get_Pragma_Id (Prag) is
+            when Pragma_Assert
+               | Pragma_Assert_And_Cut
+               | Pragma_Assume
+               | Pragma_Async_Readers
+               | Pragma_Async_Writers
+               | Pragma_Attribute_Definition
+               | Pragma_Check
+               | Pragma_Constant_After_Elaboration
+               | Pragma_CPU
+               | Pragma_Deadline_Floor
+               | Pragma_Dispatching_Domain
+               | Pragma_Effective_Reads
+               | Pragma_Effective_Writes
+               | Pragma_Extensions_Visible
+               | Pragma_Ghost
+               | Pragma_Secondary_Stack_Size
+               | Pragma_Task_Name
+               | Pragma_Volatile_Function
+            =>
+               Visit_List (Pragma_Argument_Associations (Prag));
+
+            --  Default
+
+            when others =>
+               null;
+         end case;
+      end Visit_Pragma;
+
+      -------------------------
+      -- Visit_Subexpression --
+      -------------------------
+
+      procedure Visit_Subexpression (Expr : Node_Id) is
+         procedure Visit_Aggregate (Aggr : Node_Id);
+         pragma Inline (Visit_Aggregate);
+         --  Semantically inspect aggregate Aggr to determine whether it
+         --  violates preelaborability.
+
+         ---------------------
+         -- Visit_Aggregate --
+         ---------------------
+
+         procedure Visit_Aggregate (Aggr : Node_Id) is
+         begin
+            if not Is_Preelaborable_Aggregate (Aggr) then
+               raise Non_Preelaborable;
+            end if;
+         end Visit_Aggregate;
+
+      --  Start of processing for Visit_Subexpression
+
+      begin
+         case Nkind (Expr) is
+            when N_Allocator
+               | N_Qualified_Expression
+               | N_Type_Conversion
+               | N_Unchecked_Expression
+               | N_Unchecked_Type_Conversion
+            =>
+               --  Subpool_Handle_Name and Subtype_Mark are left out because
+               --  they are not relevant for preelaborability.
+
+               Visit (Expression (Expr));
+
+            when N_Aggregate
+               | N_Extension_Aggregate
+            =>
+               Visit_Aggregate (Expr);
+
+            when N_Attribute_Reference
+               | N_Explicit_Dereference
+               | N_Reference
+            =>
+               --  Attribute_Name and Expressions are left out because they are
+               --  not relevant for preelaborability.
+
+               Visit (Prefix (Expr));
+
+            when N_Case_Expression =>
+
+               --  End_Span is left out because it is not relevant for
+               --  preelaborability.
+
+               Visit_List (Alternatives (Expr));
+               Visit (Expression (Expr));
+
+            when N_Delta_Aggregate =>
+               Visit_Aggregate (Expr);
+               Visit (Expression (Expr));
+
+            when N_Expression_With_Actions =>
+               Visit_List (Actions (Expr));
+               Visit (Expression (Expr));
+
+            when N_If_Expression =>
+               Visit_List (Expressions (Expr));
+
+            when N_Quantified_Expression =>
+               Visit (Condition (Expr));
+               Visit (Iterator_Specification (Expr));
+               Visit (Loop_Parameter_Specification (Expr));
+
+            when N_Range =>
+               Visit (High_Bound (Expr));
+               Visit (Low_Bound (Expr));
+
+            when N_Slice =>
+               Visit (Discrete_Range (Expr));
+               Visit (Prefix (Expr));
+
+            --  Default
+
+            when others =>
+
+               --  The evaluation of an object name is not preelaborable,
+               --  unless the name is a static expression (checked further
+               --  below), or statically denotes a discriminant.
+
+               if Is_Entity_Name (Expr) then
+                  Object_Name : declare
+                     Id : constant Entity_Id := Entity (Expr);
+
+                  begin
+                     if Is_Object (Id) then
+                        if Ekind (Id) = E_Discriminant then
+                           null;
+
+                        elsif Ekind_In (Id, E_Constant, E_In_Parameter)
+                          and then Present (Discriminal_Link (Id))
+                        then
+                           null;
+
+                        else
+                           raise Non_Preelaborable;
+                        end if;
+                     end if;
+                  end Object_Name;
+
+               --  A non-static expression is not preelaborable
+
+               elsif not Is_OK_Static_Expression (Expr) then
+                  raise Non_Preelaborable;
+               end if;
+         end case;
+      end Visit_Subexpression;
+
+   --  Start of processing for Is_Non_Preelaborable_Construct
+
+   begin
+      Visit (N);
+
+      --  At this point it is known that the construct is preelaborable
+
+      return False;
+
+   exception
+
+      --  The elaboration of the construct performs an action which violates
+      --  preelaborability.
+
+      when Non_Preelaborable =>
+         return True;
+   end Is_Non_Preelaborable_Construct;
 
    ---------------------------------
    -- Is_Nontrivial_DIC_Procedure --
@@ -17350,10 +17827,11 @@ package body Sem_Util is
    ---------------------------------
 
    procedure Mark_Elaboration_Attributes
-     (N_Id   : Node_Or_Entity_Id;
-      Checks : Boolean := False;
-      Level  : Boolean := False;
-      Modes  : Boolean := False)
+     (N_Id     : Node_Or_Entity_Id;
+      Checks   : Boolean := False;
+      Level    : Boolean := False;
+      Modes    : Boolean := False;
+      Warnings : Boolean := False)
    is
       function Elaboration_Checks_OK
         (Target_Id  : Entity_Id;
@@ -17535,6 +18013,13 @@ package body Sem_Util is
             if SPARK_Mode = On then
                Set_Is_SPARK_Mode_On_Node (N);
             end if;
+         end if;
+
+         --  Mark the status of elaboration warnings in effect. Do not reset
+         --  the status in case the node is reanalyzed with warnings off.
+
+         if Warnings and then not Is_Elaboration_Warnings_OK_Node (N) then
+            Set_Is_Elaboration_Warnings_OK_Node (N, Elab_Warnings);
          end if;
       end Mark_Elaboration_Attributes_Node;
 

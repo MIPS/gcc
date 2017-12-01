@@ -1175,8 +1175,8 @@ proc check_effective_target_pie { } {
 	return 1;
     }
     if { [istarget *-*-solaris2.1\[1-9\]*] } {
-	# Full PIE support was added in Solaris 11.x and Solaris 12, but gcc
-	# errors out if missing, so check for that.
+	# Full PIE support was added in Solaris 11.3, but gcc errors out
+	# if missing, so check for that.
 	return [check_no_compiler_messages pie executable {
 	    int main (void) { return 0; }
 	} "-pie -fpie"]
@@ -1391,20 +1391,6 @@ proc check_iconv_available { test_what } {
     }] $libiconv]
 }
 
-# Return true if Cilk Library is supported on the target.
-proc check_effective_target_cilkplus_runtime { } {
-  return [ check_no_compiler_messages_nocache cilkplus_runtime executable {
-	#ifdef __cplusplus
-	extern "C" 
-	#endif
-	   int __cilkrts_set_param (const char *, const char *);
-	    int main (void) { 
-		int x = __cilkrts_set_param ("nworkers", "0");
-		return x; 
-	    }
-	} "-fcilkplus -lcilkrts" ]
-}
-
 # Return true if the atomic library is supported on the target.
 proc check_effective_target_libatomic_available { } {
     return [check_no_compiler_messages libatomic_available executable {
@@ -1559,29 +1545,6 @@ proc check_effective_target_rdynamic { } {
   return [check_no_compiler_messages rdynamic executable {
      int main() { return 0; }
   } "-rdynamic"]
-}
-
-# Return 1 if cilk-plus is supported by the target, 0 otherwise.
- 
-proc check_effective_target_cilkplus { } {
-    # Skip cilk-plus tests on int16 and size16 targets for now.
-    # The cilk-plus tests are not generic enough to cover these
-    # cases and would throw hundreds of FAILs.
-    if { [check_effective_target_int16]
-	 || ![check_effective_target_size32plus] } {
-	return 0;
-    }
-
-    # Skip AVR, its RAM is too small and too many tests would fail.
-    if { [istarget avr-*-*] } {
-	return 0;
-    }
-
-    if { ! [check_effective_target_pthread] } {
-	return 0;
-    }
-
-    return 1
 }
 
 proc check_linker_plugin_available { } {
@@ -3413,6 +3376,19 @@ proc check_effective_target_arm_vect_no_misalign { } {
     }]
 }
 
+
+# Return 1 if this is an ARM target supporting -mfloat-abi=soft.  Some
+# multilibs may be incompatible with this option.
+
+proc check_effective_target_arm_soft_ok { } {
+    if { [check_effective_target_arm32] } {
+	return [check_no_compiler_messages arm_soft_ok executable {
+	    int main() { return 0;}
+	} "-mfloat-abi=soft"]
+    } else {
+	return 0
+    }
+}
 
 # Return 1 if this is an ARM target supporting -mfpu=vfp
 # -mfloat-abi=softfp.  Some multilibs may be incompatible with these
@@ -6209,6 +6185,31 @@ proc check_effective_target_unaligned_stack { } {
     return $et_unaligned_stack_saved
 }
 
+# Return 1 if the target plus current options does not have
+# slow unaligned access when using word size accesses.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_word_mode_no_slow_unalign { } {
+    global et_word_mode_no_slow_unalign_saved
+    global et_index
+
+    if [info exists et_word_mode_no_slow_unalign_saved($et_index)] {
+        verbose "check_effective_target_word_mode_no_slow_unalign: \
+                 using cached result" 2
+    } else {
+        set et_word_mode_no_slow_unalign_saved($et_index) 0
+        if { [is-effective-target non_strict_align]
+	     && !([istarget arm*-*-*])
+           } {
+            set et_word_mode_no_slow_unalign_saved($et_index) 1
+        }
+    }
+    verbose "check_effective_target_word_mode_no_slow_unalign:\
+             returning $et_word_mode_no_slow_unalign_saved($et_index)" 2
+    return $et_word_mode_no_slow_unalign_saved($et_index)
+}
+
 # Return 1 if the target plus current options does not support a vector
 # alignment mechanism, 0 otherwise.
 #
@@ -7203,58 +7204,6 @@ proc check_effective_target_bswap { } {
 
     verbose "check_effective_target_bswap: returning $et_bswap_saved" 2
     return $et_bswap_saved
-}
-
-# Return 1 if the target supports 16-bit byte swap instructions.
-
-proc check_effective_target_bswap16 { } {
-    global et_bswap16_saved
-
-    if [info exists et_bswap16_saved] {
-	verbose "check_effective_target_bswap16: using cached result" 2
-    } else {
-	set et_bswap16_saved 0
-	if { [is-effective-target bswap]
-	     && ![istarget alpha*-*-*]
-	     && !([istarget i?86-*-*] || [istarget x86_64-*-*]) } {
-	   set et_bswap16_saved 1
-	}
-    }
-
-    verbose "check_effective_target_bswap16: returning $et_bswap16_saved" 2
-    return $et_bswap16_saved
-}
-
-# Return 1 if the target supports 32-bit byte swap instructions.
-
-proc check_effective_target_bswap32 { } {
-    global et_bswap32_saved
-
-    if [info exists et_bswap32_saved] {
-	verbose "check_effective_target_bswap32: using cached result" 2
-    } else {
-	set et_bswap32_saved 0
-	if { [is-effective-target bswap] } {
-	   set et_bswap32_saved 1
-	}
-    }
-
-    verbose "check_effective_target_bswap32: returning $et_bswap32_saved" 2
-    return $et_bswap32_saved
-}
-
-# Return 1 if the target supports 64-bit byte swap instructions.
-#
-# Note: 32bit s390 targets require -mzarch in dg-options.
-
-proc check_effective_target_bswap64 { } {
-    global et_bswap64_saved
-
-    # expand_unop can expand 64-bit byte swap on 32-bit targets
-    if { [is-effective-target bswap] && [is-effective-target int32plus] } {
-	return 1
-    }
-    return 0
 }
 
 # Return 1 if the target supports atomic operations on "int" and "long".

@@ -63,7 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "attribs.h"
 #include "asan.h"
-#include "cilk.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 #include "internal-fn.h"
@@ -202,10 +201,6 @@ is_builtin_name (const char *name)
   if (strncmp (name, "__sync_", 7) == 0)
     return true;
   if (strncmp (name, "__atomic_", 9) == 0)
-    return true;
-  if (flag_cilkplus 
-      && (!strcmp (name, "__cilkrts_detach")   
-	  || !strcmp (name, "__cilkrts_pop_frame")))
     return true;
   return false;
 }
@@ -2885,6 +2880,11 @@ expand_builtin_strlen (tree exp, rtx target,
       if (!maybe_expand_insn (icode, 4, ops))
 	return NULL_RTX;
 
+      /* Check to see if the argument was declared attribute nonstring
+	 and if so, issue a warning since at this point it's not known
+	 to be nul-terminated.  */
+      maybe_warn_nonstring_arg (TREE_OPERAND (CALL_EXPR_FN (exp), 0), exp);
+
       /* Now that we are assured of success, expand the source.  */
       start_sequence ();
       pat = expand_expr (src, src_reg, Pmode, EXPAND_NORMAL);
@@ -3260,17 +3260,59 @@ check_sizes (int opt, tree exp, tree size, tree maxlen, tree src, tree objsize)
 }
 
 /* Helper to compute the size of the object referenced by the DEST
-   expression which must of of pointer type, using Object Size type
+   expression which must have pointer type, using Object Size type
    OSTYPE (only the least significant 2 bits are used).  Return
    the size of the object if successful or NULL when the size cannot
    be determined.  */
 
-static inline tree
+tree
 compute_objsize (tree dest, int ostype)
 {
   unsigned HOST_WIDE_INT size;
-  if (compute_builtin_object_size (dest, ostype & 3, &size))
+
+  /* Only the two least significant bits are meaningful.  */
+  ostype &= 3;
+
+  if (compute_builtin_object_size (dest, ostype, &size))
     return build_int_cst (sizetype, size);
+
+  /* Unless computing the largest size (for memcpy and other raw memory
+     functions), try to determine the size of the object from its type.  */
+  if (!ostype)
+    return NULL_TREE;
+
+  if (TREE_CODE (dest) == SSA_NAME)
+    {
+      gimple *stmt = SSA_NAME_DEF_STMT (dest);
+      if (!is_gimple_assign (stmt))
+	return NULL_TREE;
+
+      tree_code code = gimple_assign_rhs_code (stmt);
+      if (code != ADDR_EXPR && code != POINTER_PLUS_EXPR)
+	return NULL_TREE;
+
+      dest = gimple_assign_rhs1 (stmt);
+    }
+
+  if (TREE_CODE (dest) != ADDR_EXPR)
+    return NULL_TREE;
+
+  tree type = TREE_TYPE (dest);
+  if (TREE_CODE (type) == POINTER_TYPE)
+    type = TREE_TYPE (type);
+
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && !array_at_struct_end_p (dest))
+    {
+      /* Return the constant size unless it's zero (that's a zero-length
+	 array likely at the end of a struct).  */
+      tree size = TYPE_SIZE_UNIT (type);
+      if (size && TREE_CODE (size) == INTEGER_CST
+	  && !integer_zerop (size))
+	return size;
+    }
 
   return NULL_TREE;
 }
@@ -3923,6 +3965,22 @@ expand_builtin_strncat (tree exp, rtx)
   return NULL_RTX;
 }
 
+/* Helper to check the sizes of sequences and the destination of calls
+   to __builtin_strncpy (DST, SRC, CNT) and __builtin___strncpy_chk.
+   Returns true on success (no overflow warning), false otherwise.  */
+
+static bool
+check_strncpy_sizes (tree exp, tree dst, tree src, tree cnt)
+{
+  tree dstsize = compute_objsize (dst, warn_stringop_overflow - 1);
+
+  if (!check_sizes (OPT_Wstringop_overflow_,
+		    exp, cnt, /*maxlen=*/NULL_TREE, src, dstsize))
+    return false;
+
+  return true;
+}
+
 /* Expand expression EXP, which is a call to the strncpy builtin.  Return
    NULL_RTX if we failed the caller should emit a normal call.  */
 
@@ -3941,16 +3999,7 @@ expand_builtin_strncpy (tree exp, rtx target)
       /* The length of the source sequence.  */
       tree slen = c_strlen (src, 1);
 
-      if (warn_stringop_overflow)
-	{
-	  tree destsize = compute_objsize (dest,
-					   warn_stringop_overflow - 1);
-
-	  /* The number of bytes to write is LEN but check_sizes will also
-	     check SLEN if LEN's value isn't known.  */
-	  check_sizes (OPT_Wstringop_overflow_,
-		       exp, len, /*maxlen=*/NULL_TREE, src, destsize);
-	}
+      check_strncpy_sizes (exp, dest, src, len);
 
       /* We must be passed a constant len and src parameter.  */
       if (!tree_fits_uhwi_p (len) || !slen || !tree_fits_uhwi_p (slen))
@@ -7570,14 +7619,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
     case BUILT_IN_SET_THREAD_POINTER:
       expand_builtin_set_thread_pointer (exp);
-      return const0_rtx;
-
-    case BUILT_IN_CILK_DETACH:
-      expand_builtin_cilk_detach (exp);
-      return const0_rtx;
-      
-    case BUILT_IN_CILK_POP_FRAME:
-      expand_builtin_cilk_pop_frame (exp);
       return const0_rtx;
 
     case BUILT_IN_CHKP_INIT_PTR_BOUNDS:

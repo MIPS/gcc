@@ -1,3 +1,371 @@
+2017-11-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65927
+	* include/bits/locale_facets_nonio.h (__timepunct::_M_am_pm_format):
+	Remove statement with no effect.
+
+2017-11-30  Glen Joseph Fernandes  <glenjofe@gmail.com>
+
+	* include/bits/ptr_traits.h (__to_address, to_address): Move static
+	assertion.
+	* testsuite/20_util/to_address/1_neg.cc: New test.
+
+2017-11-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83226
+	* include/bits/node_handle.h (_Node_handle::__pointer): Avoid forming
+	pointer-to-reference types.
+	* testsuite/23_containers/map/modifiers/insert/83226.cc: New test.
+
+2017-11-29  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Update.
+
+2017-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* testsuite/20_util/duration/literals/range.cc: Update expected
+	line of a static_assert failure.
+
+2017-11-28  Glen Joseph Fernandes  <glenjofe@gmail.com>
+
+	* include/bits/ptr_traits.h (to_address): Implement to_address.
+	* testsuite/20_util/to_address/1.cc: New test.
+
+2017-11-27  Stephan Bergmann  <sbergman@redhat.com>
+
+	* include/std/string_view (basic_string_view::find_first_of): Add
+	missing noexcept.
+
+	* include/bits/unordered_map.h (unordered_map): Fix deduction guide.
+	* include/debug/unordered_map (unordered_map): Likewise.
+
+2017-11-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/new (launder): Add nodiscard attribute.
+	* testsuite/18_support/launder/nodiscard.cc: New test.
+
+	* include/bits/fs_path.h (path::empty): Add nodiscard attribute.
+	* include/bits/range_access.h (empty): Likewise.
+	* include/std/string_view (basic_string_view::empty): Likewise.
+	* testsuite/21_strings/basic_string_view/capacity/empty_neg.cc: New
+	test.
+	* testsuite/24_iterators/range_access_cpp17_neg.cc: New test.
+	* testsuite/27_io/filesystem/path/query/empty_neg.cc: New test.
+
+	PR libstdc++/83134
+	* include/std/type_traits (__not_): Explicitly convert to bool.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/logical_traits/83134.cc: New test.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust
+	dg-error.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+2017-11-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR go/83102
+	* include/bits/stl_tree.h (_Rb_tree): Relax invocable checks for
+	comparison object pre-C++17.
+
+2017-11-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/48101
+	* include/bits/allocator.h (allocator<const _Tp>)
+	(allocator<volatile _Tp>, allocator<const volatile _Tp>): Add partial
+	specializations.
+	* include/bits/forward_list.h (forward_list): Add static assertions.
+	* include/bits/hashtable.h (__cache_default): Use
+	__is_nothrow_invocable instead of __is_noexcept_hash.
+	(_Hashtable): Add static assertions.
+	* include/bits/hashtable_policy.h (__is_noexcept_hash): Remove.
+	* include/bits/stl_deque.h (deque): Add static assertions.
+	* include/bits/stl_function.h (_Identity<const _Tp>): Add partial
+	specialization.
+	* include/bits/stl_list.h (list): Add static assertions.
+	* include/bits/stl_map.h (map): Likewise.
+	* include/bits/stl_multimap.h (multimap): Likewise.
+	* include/bits/stl_multiset.h (multiset): Likewise.
+	* include/bits/stl_set.h (set): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree): Likewise.
+	* include/bits/stl_vector.h (vector): Likewise.
+	* include/bits/unordered_map.h (unordered_map, unordered_multimap):
+	Use typename instead of class in template-parameter-list and remove
+	spaces.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Likewise.
+	* testsuite/23_containers/deque/48101-2_neg.cc: New test.
+	* testsuite/23_containers/deque/48101_neg.cc: New test.
+	* testsuite/23_containers/forward_list/48101-2_neg.cc: New test.
+	* testsuite/23_containers/forward_list/48101_neg.cc: New test.
+	* testsuite/23_containers/list/48101-2_neg.cc: New test.
+	* testsuite/23_containers/list/48101_neg.cc: New test.
+	* testsuite/23_containers/map/48101-2_neg.cc: New test.
+	* testsuite/23_containers/map/48101_neg.cc: New test.
+	* testsuite/23_containers/map/operations/31440.cc: Fix comparison
+	object to have const-qualified call operator.
+	* testsuite/23_containers/multimap/48101-2_neg.cc: New test.
+	* testsuite/23_containers/multimap/48101_neg.cc: New test.
+	* testsuite/23_containers/multiset/48101-2_neg.cc: New test.
+	* testsuite/23_containers/multiset/48101_neg.cc: New test.
+	* testsuite/23_containers/set/48101-2_neg.cc: New test.
+	* testsuite/23_containers/set/48101_neg.cc: New test.
+	* testsuite/23_containers/unordered_map/48101-2_neg.cc: New test.
+	* testsuite/23_containers/unordered_map/48101_neg.cc: New test.
+	* testsuite/23_containers/unordered_multimap/48101-2_neg.cc: New test.
+	* testsuite/23_containers/unordered_multimap/48101_neg.cc: New test.
+	* testsuite/23_containers/unordered_multiset/48101-2_neg.cc: New test.
+	* testsuite/23_containers/unordered_multiset/48101_neg.cc: New test.
+	* testsuite/23_containers/unordered_set/48101-2_neg.cc: New test.
+	* testsuite/23_containers/unordered_set/48101_neg.cc: New test.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error line number.
+	* testsuite/23_containers/vector/48101-2_neg.cc: New test.
+	* testsuite/23_containers/vector/48101_neg.cc: New test.
+
+2017-11-21  Przemyslaw Wirkus  <przemyslaw.wirkus@arm.com>
+
+	* doc/xml/manual/using.xml (manual.intro.using.macros): Move
+	variablelist element at the end of its list.
+
+2017-11-21  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_LIBSTDCXX_TIME): Add rtems*.
+	(GLIBCXX_ENABLE_FILESYSTEM_TS): Likewise.
+	* configure: Regenerate.
+
+2017-11-20  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/streambuf_iterator.h (istreambuf_iterator<>): Declare
+	std::advance for istreambuf_iterator of char types to be friend.
+	(std::advance(istreambuf_iterator&, _Distance)): New overload.
+	* include/std/streambuf (basic_streambuf<>): Declare std::advance for
+	istreambuf_iterator of char types to be friend.
+	* testsuite/22_locale/money_get/get/char/9.cc: Have
+	istreambuf_iterator created on the fly when calling money_get<>::get.
+	* testsuite/22_locale/money_get/get/wchar_t/9.cc: Likewise.
+	* testsuite/24_iterators/istreambuf_iterator/debug/1_neg.cc: New.
+	* testsuite/24_iterators/istreambuf_iterator/debug/2_neg.cc: New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/char/1.cc: New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/char/1_neg.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/char/2.cc: New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/char/2_neg.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/char/3_neg.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/wchar_t/1.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/wchar_t/1_neg.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/wchar_t/2.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/wchar_t/2_neg.cc:
+	New.
+	* testsuite/25_algorithms/advance/istreambuf_iterators/wchar_t/3_neg.cc:
+	New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/char/2.cc: Leverage
+	on std::advance overload.
+	* testsuite/25_algorithms/find/istreambuf_iterators/wchar_t/2.cc:
+	Likewise.
+
+2017-11-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/special_functions/18_riemann_zeta/check_value.cc: Fix
+	duplicate dg-options directive.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_value_neg.cc: Likewise.
+
+2017-11-20  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2353
+	* include/bits/stl_iterator_base_funcs.h (next):
+	Use InputIterator instead of ForwardIterator.
+	* testsuite/24_iterators/operations/lwg2353.cc: New.
+	* testsuite/24_iterators/operations/next_neg.cc: Remove.
+
+2017-11-18  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/pr66689 - comp_ellint_3 and ellint_3 return garbage values
+	* include/tr1/ell_integral.tcc: Correct the nu sign convention
+	in ellint_3 and comp_ellint_3.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/check_value.cc: Regen with correct values.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	14_ellint_3/check_value.cc: Ditto.
+	* testsuite/special_functions/06_comp_ellint_3/check_value.cc: Ditto.
+	* testsuite/special_functions/13_ellint_3/check_value.cc: Ditto.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	01_assoc_laguerre/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	02_assoc_legendre/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	03_beta/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	04_comp_ellint_1/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	07_conf_hyperg/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	09_cyl_bessel_j/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	11_cyl_neumann/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	12_ellint_1/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	13_ellint_2/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	15_expint/check_value_neg.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	16_hermite/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	17_hyperg/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	18_laguerre/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	19_legendre/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	20_riemann_zeta/check_value_neg.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	21_sph_bessel/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	22_sph_legendre/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	23_sph_neumann/check_value.cc: Regen.
+	* testsuite/ext/special_functions/conf_hyperg/check_value.cc: Regen.
+	* testsuite/ext/special_functions/hyperg/check_value.cc: Regen.
+	* testsuite/special_functions/01_assoc_laguerre/check_value.cc: Regen.
+	* testsuite/special_functions/02_assoc_legendre/check_value.cc: Regen.
+	* testsuite/special_functions/03_beta/check_value.cc: Regen.
+	* testsuite/special_functions/04_comp_ellint_1/check_value.cc: Regen.
+	* testsuite/special_functions/05_comp_ellint_2/check_value.cc: Regen.
+	* testsuite/special_functions/07_cyl_bessel_i/check_value.cc: Regen.
+	* testsuite/special_functions/08_cyl_bessel_j/check_value.cc: Regen.
+	* testsuite/special_functions/09_cyl_bessel_k/check_value.cc: Regen.
+ 	* testsuite/special_functions/10_cyl_neumann/check_value.cc: Regen.
+	* testsuite/special_functions/11_ellint_1/check_value.cc: Regen.
+	* testsuite/special_functions/12_ellint_2/check_value.cc: Regen.
+	* testsuite/special_functions/14_expint/check_value.cc: Regen.
+	* testsuite/special_functions/15_hermite/check_value.cc: Regen.
+	* testsuite/special_functions/16_laguerre/check_value.cc: Regen.
+	* testsuite/special_functions/17_legendre/check_value.cc: Regen.
+	* testsuite/special_functions/18_riemann_zeta/check_value.cc: Regen.
+	* testsuite/special_functions/19_sph_bessel/check_value.cc: Regen.
+	* testsuite/special_functions/20_sph_legendre/check_value.cc: Regen.
+	* testsuite/special_functions/21_sph_neumann/check_value.cc: Regen.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/pr66689.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	14_ellint_3/pr66689.cc: New.
+	* testsuite/special_functions/06_comp_ellint_3/pr66689.cc: New.
+	* testsuite/special_functions/13_ellint_3/pr66689.cc: New.
+
+2017-11-18  Edward Smith-Rowland  <3dw4rd@verizon.net>
+	Expose Airy functions as an extenaion.
+	* include/bits/specfun.h: Expose airy_ai and airy_bi.
+	* include/tr1/modified_bessel_func.tcc: Treat NaN and inf arg, return.
+	* testsuite/ext/special_functions/airy_ai/check_nan.cc: New.
+	* testsuite/ext/special_functions/airy_ai/check_value.cc: New.
+	* testsuite/ext/special_functions/airy_ai/compile.cc: New.
+	* testsuite/ext/special_functions/airy_bi/check_nan.cc: New.
+	* testsuite/ext/special_functions/airy_bi/check_value.cc: New.
+	* testsuite/ext/special_functions/airy_bi/compile.cc: New.
+
+2017-11-17  Igor Tsimbalist  <igor.v.tsimbalist@intel.com>
+
+	* acinclude.m4: Add cet.m4.
+	* configure.ac: Set CET_FLAGS. Update EXTRA_CFLAGS,
+	EXTRA_CXX_FLAGS.
+	* libsupc++/Makefile.am: Use Add EXTRA_CFLAGS.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+	* doc/Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* python/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* src/c++11/Makefile.in: Likewise.
+	* src/c++98/Makefile.in: Likewise.
+	* src/filesystem/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2017-11-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83025
+	* include/std/fstream (basic_filebuf::_If_path): Move to
+	namespace-scope and rename to _If_fs_path.
+	(basic_filebuf::open): Use new name.
+	(basic_ifstream(_Path, ios::openmode))
+	(basic_ifstream::open(_Path, ios::openmode))
+	(basic_ofstream(_Path, ios::openmode))
+	(basic_ofstream::open(_Path, ios::openmode))
+	(basic_fstream(_Path, ios::openmode))
+	(basic_fstream::open(_Path, ios::openmode)): Use _If_fs_path.
+	* testsuite/27_io/basic_filebuf/open/char/path.cc: Test with filename
+	as non-const char*.
+	* testsuite/27_io/basic_fstream/cons/char/path.cc: Likewise.
+	* testsuite/27_io/basic_fstream/open/char/path.cc: Likewise.
+	* testsuite/27_io/basic_ifstream/cons/char/path.cc: Likewise.
+	* testsuite/27_io/basic_ifstream/open/char/path.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/cons/char/path.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/open/char/path.cc: Likewise.
+
+
+2017-11-17  Marc Glisse  <marc.glisse@inria.fr>
+
+	* include/bits/vector.tcc (vector::_M_realloc_insert): Cache old
+	values before the allocation.
+
+2017-11-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/future (shared_future): Add noexcept to copy constructor
+	and copy-assignment operator (LWG 2799).
+
+2017-11-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix gcd breakage.
+	* include/std/numeric (gcd): Use remove_cv_t, not remove_cv.
+
+2017-11-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/27_io/filesystem/iterators/directory_iterator.cc: Leave
+	error_code unset.
+	* testsuite/27_io/filesystem/iterators/recursive_directory_iterator.cc:
+	Check for past-the-end before dereferencing.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Likewise.
+
+	* include/bits/range_access.h (size, empty, data): Add conditional
+	noexcept to generic overloads.
+
+2017-11-14  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2733 and LWG 2759
+	* include/experimental/numeric (gcd): Reject cv-qualified bool.
+	(lcm): Likewise.
+	* include/std/numeric (gcd): Likewise.
+	(lcm): Likewise.
+	* testsuite/26_numerics/gcd/gcd_neg.cc: Add tests and adjust.
+	* testsuite/26_numerics/lcm/lcm_neg.cc: Likewise.
+
+2017-11-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_conv.h (wbuffer_convert::_M_conv_get): Fix typo.
+	* testsuite/22_locale/conversions/buffer/3.cc: New test.
+
+2017-11-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/util/testsuite_tr1.h (ThrowMoveConsClass): Use noexcept.
+
+	PR libstdc++/82917
+	* include/std/fstream (basic_ifstream::open, basic_ofstream::open)
+	(basic_fstream::open): Fix missing return.
+
 2017-11-07  Jonathan Wakely  <jwakely@redhat.com>
 
 	* src/filesystem/ops-common.h (make_file_type) [S_ISSOCK]: Only use

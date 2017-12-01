@@ -662,16 +662,13 @@ insn_current_reference_address (rtx_insn *branch)
     }
 }
 
-/* Compute branch alignments based on frequency information in the
-   CFG.  */
+/* Compute branch alignments based on CFG profile.  */
 
 unsigned int
 compute_alignments (void)
 {
   int log, max_skip, max_log;
   basic_block bb;
-  int freq_max = 0;
-  int freq_threshold = 0;
 
   if (label_align)
     {
@@ -694,17 +691,19 @@ compute_alignments (void)
       flow_loops_dump (dump_file, NULL, 1);
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  FOR_EACH_BB_FN (bb, cfun)
-    if (bb->count.to_frequency (cfun) > freq_max)
-      freq_max = bb->count.to_frequency (cfun);
-  freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
+  profile_count count_threshold = cfun->cfg->count_max.apply_scale
+		 (1, PARAM_VALUE (PARAM_ALIGN_THRESHOLD));
 
   if (dump_file)
-    fprintf (dump_file, "freq_max: %i\n",freq_max);
+    {
+      fprintf (dump_file, "count_max: ");
+      cfun->cfg->count_max.dump (dump_file);
+      fprintf (dump_file, "\n");
+    }
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx_insn *label = BB_HEAD (bb);
-      int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
+      bool has_fallthru = 0;
       edge e;
       edge_iterator ei;
 
@@ -713,35 +712,41 @@ compute_alignments (void)
 	{
 	  if (dump_file)
 	    fprintf (dump_file,
-		     "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		     bb->index, bb->count.to_frequency (cfun),
+		     "BB %4i loop %2i loop_depth %2i skipped.\n",
+		     bb->index,
 		     bb->loop_father->num,
 		     bb_loop_depth (bb));
 	  continue;
 	}
       max_log = LABEL_ALIGN (label);
       max_skip = targetm.asm_out.label_align_max_skip (label);
+      profile_count fallthru_count = profile_count::zero ();
+      profile_count branch_count = profile_count::zero ();
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
-	    has_fallthru = 1, fallthru_frequency += EDGE_FREQUENCY (e);
+	    has_fallthru = 1, fallthru_count += e->count ();
 	  else
-	    branch_frequency += EDGE_FREQUENCY (e);
+	    branch_count += e->count ();
 	}
       if (dump_file)
 	{
-	  fprintf (dump_file, "BB %4i freq %4i loop %2i loop_depth"
-		   " %2i fall %4i branch %4i",
-		   bb->index, bb->count.to_frequency (cfun), bb->loop_father->num,
-		   bb_loop_depth (bb),
-		   fallthru_frequency, branch_frequency);
+	  fprintf (dump_file, "BB %4i loop %2i loop_depth"
+		   " %2i fall ",
+		   bb->index, bb->loop_father->num,
+		   bb_loop_depth (bb));
+	  fallthru_count.dump (dump_file);
+	  fprintf (dump_file, " branch ");
+	  branch_count.dump (dump_file);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
 	    fprintf (dump_file, " inner_loop");
 	  if (bb->loop_father->header == bb)
 	    fprintf (dump_file, " loop_header");
 	  fprintf (dump_file, "\n");
 	}
+      if (!fallthru_count.initialized_p () || !branch_count.initialized_p ())
+	continue;
 
       /* There are two purposes to align block with no fallthru incoming edge:
 	 1) to avoid fetch stalls when branch destination is near cache boundary
@@ -754,11 +759,11 @@ compute_alignments (void)
 	 when function is called.  */
 
       if (!has_fallthru
-	  && (branch_frequency > freq_threshold
-	      || (bb->count.to_frequency (cfun) 
-			> bb->prev_bb->count.to_frequency (cfun) * 10
-		  && (bb->prev_bb->count.to_frequency (cfun)
-		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->count.to_frequency (cfun) / 2))))
+	  && (branch_count > count_threshold
+	      || (bb->count > bb->prev_bb->count.apply_scale (10, 1)
+		  && (bb->prev_bb->count 
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)
+			   ->count.apply_scale (1, 2)))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
@@ -775,9 +780,10 @@ compute_alignments (void)
 	  && !(single_succ_p (bb)
 	       && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  && optimize_bb_for_speed_p (bb)
-	  && branch_frequency + fallthru_frequency > freq_threshold
-	  && (branch_frequency
-	      > fallthru_frequency * PARAM_VALUE (PARAM_ALIGN_LOOP_ITERATIONS)))
+	  && branch_count + fallthru_count > count_threshold
+	  && (branch_count
+	      > fallthru_count.apply_scale
+		    (PARAM_VALUE (PARAM_ALIGN_LOOP_ITERATIONS), 1)))
 	{
 	  log = LOOP_ALIGN (label);
 	  if (dump_file)
@@ -2325,8 +2331,17 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	  in_cold_section_p = !in_cold_section_p;
 
+	  if (in_cold_section_p)
+	    cold_function_name
+	      = clone_function_name (current_function_decl, "cold");
+
 	  if (dwarf2out_do_frame ())
-	    dwarf2out_switch_text_section ();
+	    {
+	      dwarf2out_switch_text_section ();
+	      if (!dwarf2_debug_info_emitted_p (current_function_decl)
+		  && !DECL_IGNORED_P (current_function_decl))
+		debug_hooks->switch_text_section ();
+	    }
 	  else if (!DECL_IGNORED_P (current_function_decl))
 	    debug_hooks->switch_text_section ();
 
@@ -2338,8 +2353,6 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	     suffixing "cold" to the original function's name.  */
 	  if (in_cold_section_p)
 	    {
-	      cold_function_name
-		= clone_function_name (current_function_decl, "cold");
 #ifdef ASM_DECLARE_COLD_FUNCTION_NAME
 	      ASM_DECLARE_COLD_FUNCTION_NAME (asm_out_file,
 					      IDENTIFIER_POINTER
@@ -4832,7 +4845,7 @@ rest_of_clean_state (void)
 	{
 	  flag_dump_noaddr = flag_dump_unnumbered = 1;
 	  if (flag_compare_debug_opt || flag_compare_debug)
-	    dump_flags |= TDF_NOUID;
+	    dump_flags |= TDF_NOUID | TDF_COMPARE_DEBUG;
 	  dump_function_header (final_output, current_function_decl,
 				dump_flags);
 	  final_insns_dump_p = true;

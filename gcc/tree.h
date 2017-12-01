@@ -696,6 +696,14 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    emitted.  */
 #define TREE_NO_WARNING(NODE) ((NODE)->base.nowarning_flag)
 
+/* Nonzero if we should warn about the change in empty class parameter
+   passing ABI in this TU.  */
+#define TRANSLATION_UNIT_WARN_EMPTY_P(NODE) \
+  (TRANSLATION_UNIT_DECL_CHECK (NODE)->decl_common.decl_flag_0)
+
+/* Nonzero if this type is "empty" according to the particular psABI.  */
+#define TYPE_EMPTY_P(NODE) (TYPE_CHECK (NODE)->type_common.empty_flag)
+
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) (TYPE_CHECK (NODE)->base.nowarning_flag)
 
@@ -866,15 +874,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    expansion as the return slot for a call that returns in memory.  */
 #define CALL_EXPR_RETURN_SLOT_OPT(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.private_flag)
-
-/* Cilk keywords accessors.  */
-#define CILK_SPAWN_FN(NODE) TREE_OPERAND (CILK_SPAWN_STMT_CHECK (NODE), 0)
-
-/* If this is true, we should insert a __cilk_detach call just before
-   this function call.  */
-#define EXPR_CILK_SPAWN(NODE) \
-  (TREE_CHECK2 (NODE, CALL_EXPR, \
-                AGGR_INIT_EXPR)->base.u.bits.unsigned_flag)
 
 /* In a RESULT_DECL, PARM_DECL and VAR_DECL, means that it is
    passed by invisible reference (and the TREE_TYPE is a pointer to the true
@@ -1170,12 +1169,13 @@ extern void protected_set_expr_location (tree, location_t);
 #define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
   DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_EXPR (NODE))
 
-/* SWITCH_EXPR accessors. These give access to the condition, body and
-   original condition type (before any compiler conversions)
-   of the switch statement, respectively.  */
+/* SWITCH_EXPR accessors. These give access to the condition and body.  */
 #define SWITCH_COND(NODE)       TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 0)
 #define SWITCH_BODY(NODE)       TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 1)
-#define SWITCH_LABELS(NODE)     TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 2)
+/* True if there are case labels for all possible values of SWITCH_COND, either
+   because there is a default: case label or because the case label ranges cover
+   all values.  */
+#define SWITCH_ALL_CASES_P(NODE) (SWITCH_EXPR_CHECK (NODE)->base.private_flag)
 
 /* CASE_LABEL_EXPR accessors. These give access to the high and low values
    of a case label, respectively.  */
@@ -2534,11 +2534,11 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_RTL_SET_P(NODE) \
   (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
 
-/* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
-   NODE1, it will not be set for NODE2; this is a lazy copy.  */
-#define COPY_DECL_RTL(NODE1, NODE2) \
-  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl \
-   = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
+/* Copy the RTL from SRC_DECL to DST_DECL.  If the RTL was not set for
+   SRC_DECL, it will not be set for DST_DECL; this is a lazy copy.  */
+#define COPY_DECL_RTL(SRC_DECL, DST_DECL) \
+  (DECL_WRTL_CHECK (DST_DECL)->decl_with_rtl.rtl \
+   = DECL_WRTL_CHECK (SRC_DECL)->decl_with_rtl.rtl)
 
 /* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
 #define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
@@ -2624,6 +2624,10 @@ extern void decl_value_expr_insert (tree, tree);
    (int) but instead directly that of the type of 's' (struct S).  */
 #define DECL_NONADDRESSABLE_P(NODE) \
   (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_2)
+
+/* Used in a FIELD_DECL to indicate that this field is padding.  */
+#define DECL_PADDING_P(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_3)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
@@ -2729,19 +2733,21 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
-  (DECL_ASSEMBLER_NAME_RAW (NODE) = (NAME))
+  overwrite_decl_assembler_name (NODE, NAME)
 
-/* Copy the DECL_ASSEMBLER_NAME from DECL1 to DECL2.  Note that if DECL1's
-   DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
-   the DECL_ASSEMBLER_NAME of either DECL to be set.  In other words, the
-   semantics of using this macro, are different than saying:
+/* Copy the DECL_ASSEMBLER_NAME from SRC_DECL to DST_DECL.  Note that
+   if SRC_DECL's DECL_ASSEMBLER_NAME has not yet been set, using this
+   macro will not cause the DECL_ASSEMBLER_NAME to be set, but will
+   clear DECL_ASSEMBLER_NAME of DST_DECL, if it was already set.  In
+   other words, the semantics of using this macro, are different than
+   saying:
 
-     SET_DECL_ASSEMBLER_NAME(DECL2, DECL_ASSEMBLER_NAME (DECL1))
+     SET_DECL_ASSEMBLER_NAME(DST_DECL, DECL_ASSEMBLER_NAME (SRC_DECL))
 
-   which will try to set the DECL_ASSEMBLER_NAME for DECL1.  */
+   which will try to set the DECL_ASSEMBLER_NAME for SRC_DECL.  */
 
-#define COPY_DECL_ASSEMBLER_NAME(DECL1, DECL2)				\
-  SET_DECL_ASSEMBLER_NAME (DECL2, DECL_ASSEMBLER_NAME_RAW (DECL1))
+#define COPY_DECL_ASSEMBLER_NAME(SRC_DECL, DST_DECL)			\
+  SET_DECL_ASSEMBLER_NAME (DST_DECL, DECL_ASSEMBLER_NAME_RAW (SRC_DECL))
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
@@ -3878,6 +3884,7 @@ id_equal (const char *str, const_tree id)
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
 extern tree decl_assembler_name (tree);
+extern void overwrite_decl_assembler_name (tree decl, tree name);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
 extern const char *decl_section_name (const_tree);
@@ -4518,6 +4525,10 @@ storage_order_barrier_p (const_tree t)
 
 extern tree get_containing_scope (const_tree);
 
+/* Returns the ultimate TRANSLATION_UNIT_DECL context of DECL or NULL.  */
+
+extern const_tree get_ultimate_context (const_tree);
+
 /* Return the FUNCTION_DECL which provides this _DECL with its context,
    or zero if none.  */
 extern tree decl_function_context (const_tree);
@@ -4863,6 +4874,13 @@ struct tree_decl_map_cache_hasher : ggc_cache_ptr_hash<tree_decl_map>
 #define tree_vec_map_eq tree_map_base_eq
 #define tree_vec_map_hash tree_decl_map_hash
 #define tree_vec_map_marked_p tree_map_base_marked_p
+
+/* A hash_map of two trees for use with GTY((cache)).  Garbage collection for
+   such a map will not mark keys, and will mark values if the key is already
+   marked.  */
+struct tree_cache_traits
+  : simple_cache_map_traits<default_hash_traits<tree>, tree> { };
+typedef hash_map<tree,tree,tree_cache_traits> tree_cache_map;
 
 /* Initialize the abstract argument list iterator object ITER with the
    arguments from CALL_EXPR node EXP.  */
@@ -5434,6 +5452,10 @@ extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
 
 extern bool nonnull_arg_p (const_tree);
 extern bool is_redundant_typedef (const_tree);
+extern bool default_is_empty_record (const_tree);
+extern HOST_WIDE_INT arg_int_size_in_bytes (const_tree);
+extern tree arg_size_in_bytes (const_tree);
+extern bool expr_type_first_operand_type_p (tree_code);
 
 extern location_t
 set_source_range (tree expr, location_t start, location_t finish);

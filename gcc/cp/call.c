@@ -376,18 +376,10 @@ build_call_a (tree function, int n, tree *argarray)
 
   TREE_HAS_CONSTRUCTOR (function) = (decl && DECL_CONSTRUCTOR_P (decl));
 
-  if (current_function_decl && decl
-      && flag_new_inheriting_ctors
-      && DECL_INHERITED_CTOR (current_function_decl)
-      && (DECL_INHERITED_CTOR (current_function_decl)
-	  == DECL_CLONED_FUNCTION (decl)))
-    /* Pass arguments directly to the inherited constructor.  */
-    CALL_FROM_THUNK_P (function) = true;
-
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
-  else if (! decl || ! DECL_BUILT_IN (decl))
+  if (! decl || ! DECL_BUILT_IN (decl))
     for (i = 0; i < n; i++)
       {
 	tree arg = CALL_EXPR_ARG (function, i);
@@ -3365,7 +3357,7 @@ build_this (tree obj)
 {
   /* In a template, we are only concerned about the type of the
      expression, so we can take a shortcut.  */
-  if (processing_nonlambda_template ())
+  if (processing_template_decl)
     return build_address (obj);
 
   return cp_build_addr_expr (obj, tf_warning_or_error);
@@ -3903,7 +3895,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
 		= bad_arg_conversion_rejection (NULL_TREE, -2,
 						rettype, totype);
 	    }
-	  else if (primary_template_instantiation_p (cand->fn)
+	  else if (primary_template_specialization_p (cand->fn)
 		   && ics->rank > cr_exact)
 	    {
 	      /* 13.3.3.1.2: If the user-defined conversion is specified by
@@ -4380,6 +4372,8 @@ build_operator_new_call (tree fnname, vec<tree, va_gc> **args,
 	= vec_copy_and_insert (*args, align_arg, 1);
       cand = perform_overload_resolution (fns, align_args, &candidates,
 					  &any_viable_p, tf_none);
+      if (cand)
+	*args = align_args;
       /* If no aligned allocation function matches, try again without the
 	 alignment.  */
     }
@@ -6119,7 +6113,7 @@ aligned_deallocation_fn_p (tree t)
   /* A template instance is never a usual deallocation function,
      regardless of its signature.  */
   if (TREE_CODE (t) == TEMPLATE_DECL
-      || primary_template_instantiation_p (t))
+      || primary_template_specialization_p (t))
     return false;
 
   tree a = FUNCTION_ARG_CHAIN (t);
@@ -6144,7 +6138,7 @@ usual_deallocation_fn_p (tree t)
   /* A template instance is never a usual deallocation function,
      regardless of its signature.  */
   if (TREE_CODE (t) == TEMPLATE_DECL
-      || primary_template_instantiation_p (t))
+      || primary_template_specialization_p (t))
     return false;
 
   /* If a class T has a member deallocation function named operator delete
@@ -7430,9 +7424,6 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
 int
 magic_varargs_p (tree fn)
 {
-  if (flag_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
-    return 2;
-
   if (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (fn))
       {
@@ -8063,7 +8054,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (targ)
 	arg = targ;
       else
-	arg = cp_build_indirect_ref (arg, RO_NULL, complain);
+	arg = cp_build_fold_indirect_ref (arg);
 
       /* In C++17 we shouldn't be copying a TARGET_EXPR except into a base
 	 subobject.  */
@@ -8100,9 +8091,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       else if ((trivial || TREE_CODE (arg) == TARGET_EXPR)
 	       && !unsafe_copy_elision_p (fa, arg))
 	{
-	  tree to = cp_stabilize_reference (cp_build_indirect_ref (fa,
-								   RO_NULL,
-								   complain));
+	  tree to = cp_stabilize_reference (cp_build_fold_indirect_ref (fa));
 
 	  val = build2 (INIT_EXPR, DECL_CONTEXT (fn), to, arg);
 	  return val;
@@ -8114,7 +8103,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	   && !DECL_DELETED_FN (fn))
     {
       tree to = cp_stabilize_reference
-	(cp_build_indirect_ref (argarray[0], RO_NULL, complain));
+	(cp_build_fold_indirect_ref (argarray[0]));
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
       tree arg = argarray[1];
@@ -8127,7 +8116,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	}
       else if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
 	{
-	  arg = cp_build_indirect_ref (arg, RO_NULL, complain);
+	  arg = cp_build_fold_indirect_ref (arg);
 	  val = build2 (MODIFY_EXPR, TREE_TYPE (to), to, arg);
 	  /* Handle NSDMI that refer to the object being initialized.  */
 	  replace_placeholders (arg, to);
@@ -8166,7 +8155,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	    return force_target_expr (DECL_CONTEXT (fn), void_node,
 				      no_cleanup_complain);
 	  else
-	    return cp_build_indirect_ref (argarray[0], RO_NULL, complain);
+	    return cp_build_fold_indirect_ref (argarray[0]);
 	}
     }
 
@@ -8658,38 +8647,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
       /* Warn if the built-in writes to an object of a non-trivial type.  */
       if (nargs)
 	maybe_warn_class_memaccess (loc, fndecl, argarray);
-    }
-
-    /* If it is a built-in array notation function, then the return type of
-     the function is the element type of the array passed in as array 
-     notation (i.e. the first parameter of the function).  */
-  if (flag_cilkplus && TREE_CODE (fn) == CALL_EXPR) 
-    {
-      enum built_in_function bif = 
-	is_cilkplus_reduce_builtin (CALL_EXPR_FN (fn));
-      if (bif == BUILT_IN_CILKPLUS_SEC_REDUCE_ADD
-	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MUL
-	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX
-	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN
-	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE
-	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING)
-	{ 
-	  if (call_expr_nargs (fn) == 0)
-	    {
-	      error_at (EXPR_LOCATION (fn), "Invalid builtin arguments");
-	      return error_mark_node;
-	    }
-	  /* for bif == BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_ZERO or
-	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_ZERO or
-	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_NONZERO or 
-	     BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_NONZERO or
-	     BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND or
-             BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
-	     The pre-defined return-type is the correct one.  */
-	  tree array_ntn = CALL_EXPR_ARG (fn, 0); 
-	  TREE_TYPE (fn) = TREE_TYPE (array_ntn); 
-	  return fn;
-	}
     }
 
   if (VOID_TYPE_P (TREE_TYPE (fn)))
@@ -10647,6 +10604,16 @@ perform_direct_initialization_if_possible (tree type,
 			      LOOKUP_NORMAL, complain);
   if (!conv || conv->bad_p)
     expr = NULL_TREE;
+  else if (processing_template_decl && conv->kind != ck_identity)
+    {
+      /* In a template, we are only concerned about determining the
+	 type of non-dependent expressions, so we do not have to
+	 perform the actual conversion.  But for initializers, we
+	 need to be able to perform it at instantiation
+	 (or instantiate_non_dependent_expr) time.  */
+      expr = build1 (IMPLICIT_CONV_EXPR, type, expr);
+      IMPLICIT_CONV_EXPR_DIRECT_INIT (expr) = true;
+    }
   else
     expr = convert_like_real (conv, expr, NULL_TREE, 0,
 			      /*issue_conversion_warnings=*/false,

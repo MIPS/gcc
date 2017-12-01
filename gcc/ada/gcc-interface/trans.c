@@ -2625,8 +2625,7 @@ Case_Statement_to_gnu (Node_Id gnat_node)
   /* Now emit a definition of the label the cases branch to, if any.  */
   if (may_fallthru)
     add_stmt (build1 (LABEL_EXPR, void_type_node, gnu_label));
-  gnu_result
-    = build3 (SWITCH_EXPR, gnu_type, gnu_expr, end_stmt_group (), NULL_TREE);
+  gnu_result = build2 (SWITCH_EXPR, gnu_type, gnu_expr, end_stmt_group ());
 
   return gnu_result;
 }
@@ -8506,17 +8505,30 @@ gnat_gimplify_stmt (tree *stmt_p)
 	  {
 	    /* Deal with the optimization hints.  */
 	    if (LOOP_STMT_IVDEP (stmt))
-	      gnu_cond = build2 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
+	      gnu_cond = build3 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
 				 build_int_cst (integer_type_node,
-						annot_expr_ivdep_kind));
+						annot_expr_ivdep_kind),
+				 integer_zero_node);
+	    if (LOOP_STMT_NO_UNROLL (stmt))
+	      gnu_cond = build3 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
+				 build_int_cst (integer_type_node,
+						annot_expr_unroll_kind),
+				 integer_one_node);
+	    if (LOOP_STMT_UNROLL (stmt))
+	      gnu_cond = build3 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
+				 build_int_cst (integer_type_node,
+						annot_expr_unroll_kind),
+				 build_int_cst (NULL_TREE, USHRT_MAX));
 	    if (LOOP_STMT_NO_VECTOR (stmt))
-	      gnu_cond = build2 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
+	      gnu_cond = build3 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
 				 build_int_cst (integer_type_node,
-						annot_expr_no_vector_kind));
+						annot_expr_no_vector_kind),
+				 integer_zero_node);
 	    if (LOOP_STMT_VECTOR (stmt))
-	      gnu_cond = build2 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
+	      gnu_cond = build3 (ANNOTATE_EXPR, TREE_TYPE (gnu_cond), gnu_cond,
 				 build_int_cst (integer_type_node,
-						annot_expr_vector_kind));
+						annot_expr_vector_kind),
+				 integer_zero_node);
 
 	    gnu_cond
 	      = build3 (COND_EXPR, void_type_node, gnu_cond, NULL_TREE,

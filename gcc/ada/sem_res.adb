@@ -5156,32 +5156,14 @@ package body Sem_Res is
                --  of coextensions properly so let's at least warn the user
                --  about it.
 
-               if Is_Controlled_Active (Desig_T) then
-                  if Is_Controlled_Active
-                       (Defining_Identifier
-                         (Parent (Associated_Node_For_Itype (Typ))))
-                  then
-                     Error_Msg_N
-                       ("??coextension will not be finalized when its "
-                        & "associated owner is finalized", N);
-                  else
-                     Error_Msg_N
-                       ("??coextension will not be finalized when its "
-                        & "associated owner is deallocated", N);
-                  end if;
+               if Is_Controlled (Desig_T) then
+                  Error_Msg_N
+                    ("??coextension will not be finalized when its "
+                     & "associated owner is deallocated or finalized", N);
                else
-                  if Is_Controlled_Active
-                       (Defining_Identifier
-                          (Parent (Associated_Node_For_Itype (Typ))))
-                  then
-                     Error_Msg_N
-                       ("??coextension will not be deallocated when "
-                        & "its associated owner is finalized", N);
-                  else
-                     Error_Msg_N
-                       ("??coextension will not be deallocated when "
-                        & "its associated owner is deallocated", N);
-                  end if;
+                  Error_Msg_N
+                    ("??coextension will not be deallocated when its "
+                     & "associated owner is deallocated", N);
                end if;
             end if;
 
@@ -5200,8 +5182,10 @@ package body Sem_Res is
               and then Is_Controlled_Active (Desig_T)
             then
                Error_Msg_N
-                 ("??anonymous access-to-controlled object will be finalized "
-                  & "when its enclosing unit goes out of scope", N);
+                 ("??object designated by anonymous access object might not "
+                  & "be finalized until its enclosing library unit goes out "
+                  & "of scope", N);
+               Error_Msg_N ("\use named access type instead", N);
             end if;
          end if;
       end if;
@@ -5846,9 +5830,10 @@ package body Sem_Res is
       --  resolution, and expansion are over.
 
       Mark_Elaboration_Attributes
-        (N_Id   => N,
-         Checks => True,
-         Modes  => True);
+        (N_Id     => N,
+         Checks   => True,
+         Modes    => True,
+         Warnings => True);
 
       --  The context imposes a unique interpretation with type Typ on a
       --  procedure or function call. Find the entity of the subprogram that
@@ -7848,6 +7833,9 @@ package body Sem_Res is
 
             Set_Is_Elaboration_Checks_OK_Node
               (Entry_Call, Is_Elaboration_Checks_OK_Node (N));
+
+            Set_Is_Elaboration_Warnings_OK_Node
+              (Entry_Call, Is_Elaboration_Warnings_OK_Node (N));
 
             Set_Is_SPARK_Mode_On_Node
               (Entry_Call, Is_SPARK_Mode_On_Node (N));

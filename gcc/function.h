@@ -391,8 +391,11 @@ struct GTY(()) function {
      nonzero value in loop->simduid.  */
   unsigned int has_simduid_loops : 1;
 
-  /* Set when the tail call has been identified.  */
+  /* Nonzero when the tail call has been identified.  */
   unsigned int tail_call_marked : 1;
+
+  /* Nonzero if the current function contains a #pragma GCC unroll.  */
+  unsigned int has_unroll : 1;
 
   /* Set when the function was compiled with generation of debug
      (begin stmt, inline entry, ...) markers enabled.  */

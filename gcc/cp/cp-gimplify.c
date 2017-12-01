@@ -31,8 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "gimplify.h"
 #include "c-family/c-ubsan.h"
-#include "cilk.h"
-#include "cp-cilkplus.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "asan.h"
@@ -332,7 +330,10 @@ genericize_switch_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   cp_walk_tree (&type, cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
-  *stmt_p = build3_loc (stmt_locus, SWITCH_EXPR, type, cond, body, NULL_TREE);
+  *stmt_p = build2_loc (stmt_locus, SWITCH_EXPR, type, cond, body);
+  SWITCH_ALL_CASES_P (*stmt_p) = SWITCH_STMT_ALL_CASES_P (stmt);
+  gcc_checking_assert (!SWITCH_STMT_NO_BREAK_P (stmt)
+		       || !TREE_USED (break_block));
   finish_bc_block (stmt_p, bc_break, break_block);
 }
 
@@ -628,14 +629,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	 LHS of an assignment might also be involved in the RHS, as in bug
 	 25979.  */
     case INIT_EXPR:
-      if (fn_contains_cilk_spawn_p (cfun))
-	{
-	  if (cilk_cp_detect_spawn_and_unwrap (expr_p))
-	    return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
-	  if (seen_error () && contains_cilk_spawn_stmt (*expr_p))
-	    return GS_ERROR;
-	}
-
       cp_gimplify_init_expr (expr_p);
       if (TREE_CODE (*expr_p) != INIT_EXPR)
 	return GS_OK;
@@ -643,10 +636,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
     case MODIFY_EXPR:
     modify_expr_case:
       {
-	if (fn_contains_cilk_spawn_p (cfun)
-	    && cilk_cp_detect_spawn_and_unwrap (expr_p)
-	    && !seen_error ())
-	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
 	/* If the back end isn't clever enough to know that the lhs and rhs
 	   types are the same, add an explicit conversion.  */
 	tree op0 = TREE_OPERAND (*expr_p, 0);
@@ -759,19 +748,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       }
       break;
 
-    case CILK_SPAWN_STMT:
-      gcc_assert(fn_contains_cilk_spawn_p (cfun)
-		 && cilk_cp_detect_spawn_and_unwrap (expr_p));
-
-      if (!seen_error ())
-        return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
-      return GS_ERROR;
-
     case CALL_EXPR:
-      if (fn_contains_cilk_spawn_p (cfun)
-	  && cilk_cp_detect_spawn_and_unwrap (expr_p)
-	  && !seen_error ())
-        return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
       ret = GS_OK;
       if (!CALL_EXPR_FN (*expr_p))
 	/* Internal function call.  */;
@@ -1001,8 +978,7 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 
   code = TREE_CODE (stmt);
   if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
-      || code == OMP_TASKLOOP || code == CILK_FOR || code == CILK_SIMD
-      || code == OACC_LOOP)
+      || code == OMP_TASKLOOP || code == OACC_LOOP)
     {
       tree x;
       int i, n;
@@ -1077,6 +1053,14 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	  || TREE_CODE (stmt) == RESULT_DECL)
       && omp_var_to_track (stmt))
     omp_cxx_notice_variable (wtd->omp_ctx, stmt);
+
+  /* Don't dereference parms in a thunk, pass the references through. */
+  if ((TREE_CODE (stmt) == CALL_EXPR && CALL_FROM_THUNK_P (stmt))
+      || (TREE_CODE (stmt) == AGGR_INIT_EXPR && AGGR_INIT_FROM_THUNK_P (stmt)))
+    {
+      *walk_subtrees = 0;
+      return NULL;
+    }
 
   /* Dereference invisible reference parms.  */
   if (wtd->handle_invisiref_parm_p && is_invisiref_parm (stmt))
@@ -1674,12 +1658,6 @@ cp_genericize (tree fndecl)
   bc_label[bc_break] = NULL_TREE;
   bc_label[bc_continue] = NULL_TREE;
 
-  /* Expand all the array notations here.  */
-  if (flag_cilkplus 
-      && contains_array_notation_expr (DECL_SAVED_TREE (fndecl)))
-    DECL_SAVED_TREE (fndecl)
-      = expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
-
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
   cp_genericize_tree (&DECL_SAVED_TREE (fndecl), true);
@@ -2048,11 +2026,9 @@ cp_fully_fold (tree x)
    C_MAYBE_CONST_EXPR.  */
 
 tree
-c_fully_fold (tree x, bool /*in_init*/, bool */*maybe_const*/)
+c_fully_fold (tree x, bool /*in_init*/, bool */*maybe_const*/, bool lval)
 {
-  /* c_fully_fold is only used on rvalues, and we need to fold CONST_DECL to
-     INTEGER_CST.  */
-  return cp_fold_rvalue (x);
+  return cp_fold_maybe_rvalue (x, !lval);
 }
 
 static GTY((deletable)) hash_map<tree, tree> *fold_cache;
@@ -2221,6 +2197,7 @@ cp_fold (tree x)
       /* FALLTHRU */
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
+    case POINTER_DIFF_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
@@ -2292,13 +2269,6 @@ cp_fold (tree x)
 
     case VEC_COND_EXPR:
     case COND_EXPR:
-
-      /* Don't bother folding a void condition, since it can't produce a
-	 constant value.  Also, some statement-level uses of COND_EXPR leave
-	 one of the branches NULL, so folding would crash.  */
-      if (VOID_TYPE_P (TREE_TYPE (x)))
-	return x;
-
       loc = EXPR_LOCATION (x);
       op0 = cp_fold_rvalue (TREE_OPERAND (x, 0));
       op1 = cp_fold (TREE_OPERAND (x, 1));
@@ -2311,6 +2281,29 @@ cp_fold (tree x)
 	    op1 = cp_truthvalue_conversion (op1);
 	  if (!VOID_TYPE_P (TREE_TYPE (op2)))
 	    op2 = cp_truthvalue_conversion (op2);
+	}
+      else if (VOID_TYPE_P (TREE_TYPE (x)))
+	{
+	  if (TREE_CODE (op0) == INTEGER_CST)
+	    {
+	      /* If the condition is constant, fold can fold away
+		 the COND_EXPR.  If some statement-level uses of COND_EXPR
+		 have one of the branches NULL, avoid folding crash.  */
+	      if (!op1)
+		op1 = build_empty_stmt (loc);
+	      if (!op2)
+		op2 = build_empty_stmt (loc);
+	    }
+	  else
+	    {
+	      /* Otherwise, don't bother folding a void condition, since
+		 it can't produce a constant value.  */
+	      if (op0 != TREE_OPERAND (x, 0)
+		  || op1 != TREE_OPERAND (x, 1)
+		  || op2 != TREE_OPERAND (x, 2))
+		x = build3_loc (loc, code, TREE_TYPE (x), op0, op1, op2);
+	      break;
+	    }
 	}
 
       if (op0 != TREE_OPERAND (x, 0)

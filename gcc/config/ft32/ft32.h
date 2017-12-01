@@ -205,7 +205,7 @@ enum reg_class
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-    fprintf (FILE, "\t.long\t.L%d\n", VALUE);				\
+    fprintf (FILE, "\t.long\t.L%d\n", VALUE)				\
 
 /* Passing Arguments in Registers */
 
@@ -471,7 +471,7 @@ do { \
 
 #define REGISTER_TARGET_PRAGMAS() do { \
   c_register_addr_space ("__flash__", TARGET_NOPM ? 0 : ADDR_SPACE_PM); \
-} while (0);
+} while (0)
 
 extern int ft32_is_mem_pm(rtx o);
 

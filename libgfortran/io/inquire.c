@@ -218,7 +218,9 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit *u)
     }
 
   if ((cf & IOPARM_INQUIRE_HAS_RECL_OUT) != 0)
-    *iqp->recl_out = (u != NULL) ? u->recl : 0;
+    /* F2018 (N2137) 12.10.2.26: If there is no connection, recl is
+       assigned the value -1.  */
+    *iqp->recl_out = (u != NULL) ? u->recl : -1;
 
   if ((cf & IOPARM_INQUIRE_HAS_STRM_POS_OUT) != 0)
     *iqp->strm_pos_out = (u != NULL) ? u->strm_pos : 0;
@@ -612,13 +614,12 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit *u)
       else
 	switch (u->flags.convert)
 	  {
-	    /*  big_endian is 0 for little-endian, 1 for big-endian.  */
 	  case GFC_CONVERT_NATIVE:
-	    p = big_endian ? "BIG_ENDIAN" : "LITTLE_ENDIAN";
+	    p = __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ ? "BIG_ENDIAN" : "LITTLE_ENDIAN";
 	    break;
 
 	  case GFC_CONVERT_SWAP:
-	    p = big_endian ? "LITTLE_ENDIAN" : "BIG_ENDIAN";
+	    p = __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__ ? "LITTLE_ENDIAN" : "BIG_ENDIAN";
 	    break;
 
 	  default:

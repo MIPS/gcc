@@ -639,6 +639,8 @@ create_lcssa_for_virtual_phi (struct loop *loop)
 	    gimple *stmt;
 	    use_operand_p use_p;
 
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_vop)
+	      = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (vop);
 	    add_phi_arg (new_phi, vop, exit_e, UNKNOWN_LOCATION);
 	    gimple_phi_set_result (new_phi, new_vop);
 	    FOR_EACH_IMM_USE_STMT (stmt, imm_iter, vop)
@@ -1844,14 +1846,16 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  /* Simply propagate profile info from guard_bb to guard_to which is
 	     a merge point of control flow.  */
 	  guard_to->count = guard_bb->count;
+
 	  /* Scale probability of epilog loop back.
 	     FIXME: We should avoid scaling down and back up.  Profile may
 	     get lost if we scale down to 0.  */
-	  int scale_up = REG_BR_PROB_BASE * REG_BR_PROB_BASE
-			 / prob_vector.to_reg_br_prob_base ();
 	  basic_block *bbs = get_loop_body (epilog);
-	  scale_bbs_frequencies_int (bbs, epilog->num_nodes, scale_up,
-				     REG_BR_PROB_BASE);
+	  for (unsigned int i = 0; i < epilog->num_nodes; i++)
+	    bbs[i]->count = bbs[i]->count.apply_scale
+				 (bbs[i]->count,
+				  bbs[i]->count.apply_probability
+				    (prob_vector));
 	  free (bbs);
 	}
 

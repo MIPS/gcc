@@ -822,7 +822,7 @@ extern int arc_initial_elimination_offset(int from, int to);
     fprintf (FILE, "\tbl\t__mcount@plt\n");			\
   else								\
     fprintf (FILE, "\tbl\t__mcount\n");				\
-  } while (0);
+  } while (0)
 
 #define NO_PROFILE_COUNTERS  1
 
@@ -1365,8 +1365,11 @@ do { \
 
 /* Frame info.  */
 
-#define EH_RETURN_DATA_REGNO(N)	\
-  ((N) < 4 ? (N) : INVALID_REGNUM)
+#define EH_RETURN_DATA_REGNO(N)  ((N) < 2 ? (N) : INVALID_REGNUM)
+
+#define EH_RETURN_STACKADJ_RTX   gen_rtx_REG (Pmode, 2)
+
+#define EH_RETURN_HANDLER_RTX    arc_eh_return_address_location ()
 
 /* Turn off splitting of long stabs.  */
 #define DBX_CONTIN_LENGTH 0

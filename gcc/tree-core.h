@@ -445,10 +445,6 @@ enum omp_clause_code {
      loop or not.  */
   OMP_CLAUSE__SIMT_,
 
-  /* Internally used only clause, holding _Cilk_for # of iterations
-     on OMP_PARALLEL.  */
-  OMP_CLAUSE__CILK_FOR_COUNT_,
-
   /* OpenACC clause: independent.  */
   OMP_CLAUSE_INDEPENDENT,
 
@@ -489,7 +485,6 @@ enum omp_clause_schedule_kind {
   OMP_CLAUSE_SCHEDULE_GUIDED,
   OMP_CLAUSE_SCHEDULE_AUTO,
   OMP_CLAUSE_SCHEDULE_RUNTIME,
-  OMP_CLAUSE_SCHEDULE_CILKFOR,
   OMP_CLAUSE_SCHEDULE_MASK = (1 << 3) - 1,
   OMP_CLAUSE_SCHEDULE_MONOTONIC = (1 << 3),
   OMP_CLAUSE_SCHEDULE_NONMONOTONIC = (1 << 4),
@@ -851,8 +846,10 @@ enum tree_node_kind {
 
 enum annot_expr_kind {
   annot_expr_ivdep_kind,
+  annot_expr_unroll_kind,
   annot_expr_no_vector_kind,
   annot_expr_vector_kind,
+  annot_expr_parallel_kind,
   annot_expr_kind_last
 };
 
@@ -1208,10 +1205,6 @@ struct GTY(()) tree_base {
        SSA_NAME_OCCURS_IN_ABNORMAL_PHI in
            SSA_NAME
 
-       EXPR_CILK_SPAWN in
-           CALL_EXPR
-           AGGR_INIT_EXPR
-
    used_flag:
 
        TREE_USED in
@@ -1531,7 +1524,8 @@ struct GTY(()) tree_type_common {
   unsigned align : 6;
   unsigned warn_if_not_align : 6;
   unsigned typeless_storage : 1;
-  unsigned spare : 18;
+  unsigned empty_flag : 1;
+  unsigned spare : 17;
 
   alias_set_type alias_set;
   tree pointer_to;
@@ -1609,7 +1603,8 @@ struct GTY(()) tree_decl_common {
   unsigned lang_flag_7 : 1;
   unsigned lang_flag_8 : 1;
 
-  /* In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
+  /* In VAR_DECL and PARM_DECL, this is DECL_REGISTER
+     IN TRANSLATION_UNIT_DECL, this is TRANSLATION_UNIT_WARN_EMPTY_P.  */
   unsigned decl_flag_0 : 1;
   /* In FIELD_DECL, this is DECL_BIT_FIELD
      In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
@@ -1619,7 +1614,7 @@ struct GTY(()) tree_decl_common {
      In VAR_DECL, PARM_DECL and RESULT_DECL, this is
      DECL_HAS_VALUE_EXPR_P.  */
   unsigned decl_flag_2 : 1;
-  /* 1 bit unused.  */
+  /* In FIELD_DECL, this is DECL_PADDING_P.  */
   unsigned decl_flag_3 : 1;
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */

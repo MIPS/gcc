@@ -14084,7 +14084,8 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  return CONST0_RTX (tmode);
 	}
     }
-  else if (icode == CODE_FOR_xststdcqp
+  else if (icode == CODE_FOR_xststdcqp_kf
+	   || icode == CODE_FOR_xststdcqp_tf
 	   || icode == CODE_FOR_xststdcdp
 	   || icode == CODE_FOR_xststdcsp
 	   || icode == CODE_FOR_xvtstdcdp
@@ -14304,66 +14305,33 @@ swap_selector_for_mode (machine_mode mode)
 rtx
 swap_endian_selector_for_mode (machine_mode mode)
 {
-  unsigned int le_swap1[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-  unsigned int le_swap2[16] = {7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8};
-  unsigned int le_swap4[16] = {3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12};
-  unsigned int le_swap8[16] = {1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14};
-  unsigned int le_swap16[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  unsigned int swap1[16] = {15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
+  unsigned int swap2[16] = {7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8};
+  unsigned int swap4[16] = {3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12};
+  unsigned int swap8[16] = {1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14};
 
-  unsigned int be_swap1[16] = {15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
-  unsigned int be_swap2[16] = {7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8};
-  unsigned int be_swap4[16] = {3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12};
-  unsigned int be_swap8[16] = {1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14};
-  unsigned int be_swap16[16] = {15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
   unsigned int *swaparray, i;
   rtx perm[16];
 
-  if (VECTOR_ELT_ORDER_BIG)
-    switch (mode)
-      {
-      case E_V1TImode:
-	swaparray = le_swap1;
-	break;
-      case E_V2DFmode:
-      case E_V2DImode:
-	swaparray = le_swap2;
-	break;
-      case E_V4SFmode:
-      case E_V4SImode:
-	swaparray = le_swap4;
-	break;
-      case E_V8HImode:
-	swaparray = le_swap8;
-	break;
-      case E_V16QImode:
-	swaparray = le_swap16;
-	break;
-      default:
-	gcc_unreachable ();
-      }
-  else
-    switch (mode)
-      {
-      case E_V1TImode:
-	swaparray = be_swap1;
-	break;
-      case E_V2DFmode:
-      case E_V2DImode:
-	swaparray = be_swap2;
-	break;
-      case E_V4SFmode:
-      case E_V4SImode:
-	swaparray = be_swap4;
-	break;
-      case E_V8HImode:
-	swaparray = be_swap8;
-	break;
-      case E_V16QImode:
-	swaparray = be_swap16;
-	break;
-      default:
-	gcc_unreachable ();
-      }
+  switch (mode)
+    {
+    case E_V1TImode:
+      swaparray = swap1;
+      break;
+    case E_V2DFmode:
+    case E_V2DImode:
+      swaparray = swap2;
+      break;
+    case E_V4SFmode:
+    case E_V4SImode:
+      swaparray = swap4;
+      break;
+    case E_V8HImode:
+      swaparray = swap8;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   for (i = 0; i < 16; ++i)
     perm[i] = GEN_INT (swaparray[i]);
@@ -14506,58 +14474,6 @@ altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
       emit_insn (pat);
     }
 
-  return target;
-}
-
-static rtx
-altivec_expand_xl_be_builtin (enum insn_code icode, tree exp, rtx target, bool blk)
-{
-  rtx pat, addr;
-  tree arg0 = CALL_EXPR_ARG (exp, 0);
-  tree arg1 = CALL_EXPR_ARG (exp, 1);
-  machine_mode tmode = insn_data[icode].operand[0].mode;
-  machine_mode mode0 = Pmode;
-  machine_mode mode1 = Pmode;
-  rtx op0 = expand_normal (arg0);
-  rtx op1 = expand_normal (arg1);
-
-  if (icode == CODE_FOR_nothing)
-    /* Builtin not supported on this processor.  */
-    return 0;
-
-  /* If we got invalid arguments bail out before generating bad rtl.  */
-  if (arg0 == error_mark_node || arg1 == error_mark_node)
-    return const0_rtx;
-
-  if (target == 0
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-	  target = gen_reg_rtx (tmode);
-
-  op1 = copy_to_mode_reg (mode1, op1);
-
-  if (op0 == const0_rtx)
-    addr = gen_rtx_MEM (blk ? BLKmode : tmode, op1);
-  else
-    {
-      op0 = copy_to_mode_reg (mode0, op0);
-      addr = gen_rtx_MEM (blk ? BLKmode : tmode,
-                          gen_rtx_PLUS (Pmode, op1, op0));
-    }
-
-  pat = GEN_FCN (icode) (target, addr);
-  if (!pat)
-    return 0;
-
-  emit_insn (pat);
-  /*  Reverse element order of elements if in LE mode */
-  if (!VECTOR_ELT_ORDER_BIG)
-    {
-      rtx sel = swap_selector_for_mode (tmode);
-      rtx vperm = gen_rtx_UNSPEC (tmode, gen_rtvec (3, target, target, sel),
-				  UNSPEC_VPERM);
-      emit_insn (gen_rtx_SET (target, vperm));
-    }
   return target;
 }
 
@@ -15957,50 +15873,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       /* Fall through.  */
     }
 
-  /* XL_BE  We initialized them to always load in big endian order.  */
-  switch (fcode)
-    {
-    case VSX_BUILTIN_XL_BE_V2DI:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v2di;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-      }
-      break;
-    case VSX_BUILTIN_XL_BE_V4SI:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v4si;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-      }
-      break;
-    case VSX_BUILTIN_XL_BE_V8HI:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v8hi;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-      }
-      break;
-    case VSX_BUILTIN_XL_BE_V16QI:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v16qi;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-       }
-      break;
-    case VSX_BUILTIN_XL_BE_V2DF:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v2df;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-      }
-      break;
-    case VSX_BUILTIN_XL_BE_V4SF:
-      {
-        enum insn_code code = CODE_FOR_vsx_load_v4sf;
-        return altivec_expand_xl_be_builtin (code, exp, target, false);
-      }
-      break;
-    default:
-      break;
-      /* Fall through.  */
-    }
-
   *expandedp = false;
   return NULL_RTX;
 }
@@ -16208,6 +16080,36 @@ rs6000_builtin_valid_without_lhs (enum rs6000_builtins fn_code)
     }
 }
 
+/* Helper function to handle the gimple folding of a vector compare
+   operation.  This sets up true/false vectors, and uses the
+   VEC_COND_EXPR operation.
+   CODE indicates which comparison is to be made. (EQ, GT, ...).
+   TYPE indicates the type of the result.  */
+static tree
+fold_build_vec_cmp (tree_code code, tree type,
+		    tree arg0, tree arg1)
+{
+  tree cmp_type = build_same_sized_truth_vector_type (type);
+  tree zero_vec = build_zero_cst (type);
+  tree minus_one_vec = build_minus_one_cst (type);
+  tree cmp = fold_build2 (code, cmp_type, arg0, arg1);
+  return fold_build3 (VEC_COND_EXPR, type, cmp, minus_one_vec, zero_vec);
+}
+
+/* Helper function to handle the in-between steps for the
+   vector compare built-ins.  */
+static void
+fold_compare_helper (gimple_stmt_iterator *gsi, tree_code code, gimple *stmt)
+{
+  tree arg0 = gimple_call_arg (stmt, 0);
+  tree arg1 = gimple_call_arg (stmt, 1);
+  tree lhs = gimple_call_lhs (stmt);
+  tree cmp = fold_build_vec_cmp (code, TREE_TYPE (lhs), arg0, arg1);
+  gimple *g = gimple_build_assign (lhs, cmp);
+  gimple_set_location (g, gimple_location (stmt));
+  gsi_replace (gsi, g, true);
+}
+
 /* Fold a machine-dependent built-in in GIMPLE.  (For folding into
    a constant, use rs6000_fold_builtin.)  */
 
@@ -16219,7 +16121,8 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
   gcc_checking_assert (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD);
   enum rs6000_builtins fn_code
     = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
-  tree arg0, arg1, lhs;
+  tree arg0, arg1, lhs, temp;
+  gimple *g;
 
   size_t uns_fncode = (size_t) fn_code;
   enum insn_code icode = rs6000_builtin_info[uns_fncode].icode;
@@ -16236,8 +16139,14 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     return false;
 
   /* Prevent gimple folding for code that does not have a LHS, unless it is
-   allowed per the rs6000_builtin_valid_without_lhs helper function.  */
+     allowed per the rs6000_builtin_valid_without_lhs helper function.  */
   if (!gimple_call_lhs (stmt) && !rs6000_builtin_valid_without_lhs (fn_code))
+    return false;
+
+  /* Don't fold invalid builtins, let rs6000_expand_builtin diagnose it.  */
+  HOST_WIDE_INT mask = rs6000_builtin_info[uns_fncode].mask;
+  bool func_valid_p = (rs6000_builtin_mask & mask) == mask;
+  if (!func_valid_p)
     return false;
 
   switch (fn_code)
@@ -16251,15 +16160,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_VADDUDM:
     case ALTIVEC_BUILTIN_VADDFP:
     case VSX_BUILTIN_XVADDDP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, PLUS_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, PLUS_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_sub.  We deliberately don't expand
        P8V_BUILTIN_VSUBUQM. */
     case ALTIVEC_BUILTIN_VSUBUBM:
@@ -16268,26 +16175,22 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_VSUBUDM:
     case ALTIVEC_BUILTIN_VSUBFP:
     case VSX_BUILTIN_XVSUBDP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, MINUS_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, MINUS_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     case VSX_BUILTIN_XVMULSP:
     case VSX_BUILTIN_XVMULDP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, MULT_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, MULT_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Even element flavors of vec_mul (signed). */
     case ALTIVEC_BUILTIN_VMULESB:
     case ALTIVEC_BUILTIN_VMULESH:
@@ -16296,15 +16199,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_VMULEUB:
     case ALTIVEC_BUILTIN_VMULEUH:
     case ALTIVEC_BUILTIN_VMULEUW:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, VEC_WIDEN_MULT_EVEN_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, VEC_WIDEN_MULT_EVEN_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Odd element flavors of vec_mul (signed).  */
     case ALTIVEC_BUILTIN_VMULOSB:
     case ALTIVEC_BUILTIN_VMULOSH:
@@ -16313,65 +16214,55 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_VMULOUB:
     case ALTIVEC_BUILTIN_VMULOUH:
     case ALTIVEC_BUILTIN_VMULOUW:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, VEC_WIDEN_MULT_ODD_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, VEC_WIDEN_MULT_ODD_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_div (Integer).  */
     case VSX_BUILTIN_DIV_V2DI:
     case VSX_BUILTIN_UDIV_V2DI:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, TRUNC_DIV_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, TRUNC_DIV_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_div (Float).  */
     case VSX_BUILTIN_XVDIVSP:
     case VSX_BUILTIN_XVDIVDP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, RDIV_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, RDIV_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_and.  */
     case ALTIVEC_BUILTIN_VAND:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, BIT_AND_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, BIT_AND_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_andc.  */
     case ALTIVEC_BUILTIN_VANDC:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	tree temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
-	gimple *g = gimple_build_assign(temp, BIT_NOT_EXPR, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_insert_before(gsi, g, GSI_SAME_STMT);
-	g = gimple_build_assign (lhs, BIT_AND_EXPR, arg0, temp);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
+      g = gimple_build_assign (temp, BIT_NOT_EXPR, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      g = gimple_build_assign (lhs, BIT_AND_EXPR, arg0, temp);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_nand.  */
     case P8V_BUILTIN_VEC_NAND:
     case P8V_BUILTIN_NAND_V16QI:
@@ -16380,30 +16271,26 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_NAND_V4SF:
     case P8V_BUILTIN_NAND_V2DF:
     case P8V_BUILTIN_NAND_V2DI:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	tree temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
-	gimple *g = gimple_build_assign(temp, BIT_AND_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_insert_before(gsi, g, GSI_SAME_STMT);
-	g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
+      g = gimple_build_assign (temp, BIT_AND_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_or.  */
     case ALTIVEC_BUILTIN_VOR:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, BIT_IOR_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, BIT_IOR_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* flavors of vec_orc.  */
     case P8V_BUILTIN_ORC_V16QI:
     case P8V_BUILTIN_ORC_V8HI:
@@ -16411,45 +16298,39 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_ORC_V4SF:
     case P8V_BUILTIN_ORC_V2DF:
     case P8V_BUILTIN_ORC_V2DI:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	tree temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
-	gimple *g = gimple_build_assign(temp, BIT_NOT_EXPR, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_insert_before(gsi, g, GSI_SAME_STMT);
-	g = gimple_build_assign (lhs, BIT_IOR_EXPR, arg0, temp);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
+      g = gimple_build_assign (temp, BIT_NOT_EXPR, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      g = gimple_build_assign (lhs, BIT_IOR_EXPR, arg0, temp);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_xor.  */
     case ALTIVEC_BUILTIN_VXOR:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, BIT_XOR_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, BIT_XOR_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_nor.  */
     case ALTIVEC_BUILTIN_VNOR:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	tree temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
-	gimple *g = gimple_build_assign (temp, BIT_IOR_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_insert_before(gsi, g, GSI_SAME_STMT);
-	g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
+      g = gimple_build_assign (temp, BIT_IOR_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* flavors of vec_abs.  */
     case ALTIVEC_BUILTIN_ABS_V16QI:
     case ALTIVEC_BUILTIN_ABS_V8HI:
@@ -16457,17 +16338,15 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_ABS_V4SF:
     case P8V_BUILTIN_ABS_V2DI:
     case VSX_BUILTIN_XVABSDP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (arg0)))
-	    && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (arg0))))
-	      return false;
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, ABS_EXPR, arg0);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (arg0)))
+	  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (arg0))))
+	return false;
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, ABS_EXPR, arg0);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* flavors of vec_min.  */
     case VSX_BUILTIN_XVMINDP:
     case P8V_BUILTIN_VMINSD:
@@ -16479,15 +16358,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_VMINUH:
     case ALTIVEC_BUILTIN_VMINUW:
     case ALTIVEC_BUILTIN_VMINFP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, MIN_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, MIN_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* flavors of vec_max.  */
     case VSX_BUILTIN_XVMAXDP:
     case P8V_BUILTIN_VMAXSD:
@@ -16499,15 +16376,13 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_VMAXUH:
     case ALTIVEC_BUILTIN_VMAXUW:
     case ALTIVEC_BUILTIN_VMAXFP:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, MAX_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, MAX_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_eqv.  */
     case P8V_BUILTIN_EQV_V16QI:
     case P8V_BUILTIN_EQV_V8HI:
@@ -16515,66 +16390,58 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case P8V_BUILTIN_EQV_V4SF:
     case P8V_BUILTIN_EQV_V2DF:
     case P8V_BUILTIN_EQV_V2DI:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	tree temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
-	gimple *g = gimple_build_assign (temp, BIT_XOR_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_insert_before (gsi, g, GSI_SAME_STMT);
-	g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      temp = create_tmp_reg_or_ssa_name (TREE_TYPE (arg1));
+      g = gimple_build_assign (temp, BIT_XOR_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+      g = gimple_build_assign (lhs, BIT_NOT_EXPR, temp);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vec_rotate_left.  */
     case ALTIVEC_BUILTIN_VRLB:
     case ALTIVEC_BUILTIN_VRLH:
     case ALTIVEC_BUILTIN_VRLW:
     case P8V_BUILTIN_VRLD:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, LROTATE_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, LROTATE_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
   /* Flavors of vector shift right algebraic.
      vec_sra{b,h,w} -> vsra{b,h,w}.  */
     case ALTIVEC_BUILTIN_VSRAB:
     case ALTIVEC_BUILTIN_VSRAH:
     case ALTIVEC_BUILTIN_VSRAW:
     case P8V_BUILTIN_VSRAD:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, RSHIFT_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, RSHIFT_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
    /* Flavors of vector shift left.
       builtin_altivec_vsl{b,h,w} -> vsl{b,h,w}.  */
     case ALTIVEC_BUILTIN_VSLB:
     case ALTIVEC_BUILTIN_VSLH:
     case ALTIVEC_BUILTIN_VSLW:
     case P8V_BUILTIN_VSLD:
-      {
-	arg0 = gimple_call_arg (stmt, 0);
-	if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (arg0)))
-	    && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (arg0))))
-	      return false;
-	arg1 = gimple_call_arg (stmt, 1);
-	lhs = gimple_call_lhs (stmt);
-	gimple *g = gimple_build_assign (lhs, LSHIFT_EXPR, arg0, arg1);
-	gimple_set_location (g, gimple_location (stmt));
-	gsi_replace (gsi, g, true);
-	return true;
-      }
+      arg0 = gimple_call_arg (stmt, 0);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (arg0)))
+	  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (TREE_TYPE (arg0))))
+	return false;
+      arg1 = gimple_call_arg (stmt, 1);
+      lhs = gimple_call_lhs (stmt);
+      g = gimple_build_assign (lhs, LSHIFT_EXPR, arg0, arg1);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_replace (gsi, g, true);
+      return true;
     /* Flavors of vector shift right.  */
     case ALTIVEC_BUILTIN_VSRB:
     case ALTIVEC_BUILTIN_VSRH:
@@ -16587,11 +16454,11 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	gimple_seq stmts = NULL;
 	/* Convert arg0 to unsigned.  */
 	tree arg0_unsigned
-	   = gimple_build (&stmts, VIEW_CONVERT_EXPR,
-			   unsigned_type_for (TREE_TYPE (arg0)), arg0);
+	  = gimple_build (&stmts, VIEW_CONVERT_EXPR,
+			  unsigned_type_for (TREE_TYPE (arg0)), arg0);
 	tree res
-	   = gimple_build (&stmts, RSHIFT_EXPR,
-			   TREE_TYPE (arg0_unsigned), arg0_unsigned, arg1);
+	  = gimple_build (&stmts, RSHIFT_EXPR,
+			  TREE_TYPE (arg0_unsigned), arg0_unsigned, arg1);
 	/* Convert result back to the lhs type.  */
 	res = gimple_build (&stmts, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), res);
 	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
@@ -16606,38 +16473,38 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_LVX_V2DI:
     case ALTIVEC_BUILTIN_LVX_V2DF:
       {
-	 arg0 = gimple_call_arg (stmt, 0);  // offset
-	 arg1 = gimple_call_arg (stmt, 1);  // address
-	 /* Do not fold for -maltivec=be on LE targets.  */
-	 if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
-	    return false;
-	 lhs = gimple_call_lhs (stmt);
-	 location_t loc = gimple_location (stmt);
-	 /* Since arg1 may be cast to a different type, just use ptr_type_node
-	    here instead of trying to enforce TBAA on pointer types.  */
-	 tree arg1_type = ptr_type_node;
-	 tree lhs_type = TREE_TYPE (lhs);
-	 /* POINTER_PLUS_EXPR wants the offset to be of type 'sizetype'.  Create
-	    the tree using the value from arg0.  The resulting type will match
-	    the type of arg1.  */
-	 gimple_seq stmts = NULL;
-	 tree temp_offset = gimple_convert (&stmts, loc, sizetype, arg0);
-	 tree temp_addr = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
+	arg0 = gimple_call_arg (stmt, 0);  // offset
+	arg1 = gimple_call_arg (stmt, 1);  // address
+	/* Do not fold for -maltivec=be on LE targets.  */
+	if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
+	  return false;
+	lhs = gimple_call_lhs (stmt);
+	location_t loc = gimple_location (stmt);
+	/* Since arg1 may be cast to a different type, just use ptr_type_node
+	   here instead of trying to enforce TBAA on pointer types.  */
+	tree arg1_type = ptr_type_node;
+	tree lhs_type = TREE_TYPE (lhs);
+	/* POINTER_PLUS_EXPR wants the offset to be of type 'sizetype'.  Create
+	   the tree using the value from arg0.  The resulting type will match
+	   the type of arg1.  */
+	gimple_seq stmts = NULL;
+	tree temp_offset = gimple_convert (&stmts, loc, sizetype, arg0);
+	tree temp_addr = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
 				       arg1_type, arg1, temp_offset);
-	 /* Mask off any lower bits from the address.  */
-	 tree aligned_addr = gimple_build (&stmts, loc, BIT_AND_EXPR,
+	/* Mask off any lower bits from the address.  */
+	tree aligned_addr = gimple_build (&stmts, loc, BIT_AND_EXPR,
 					  arg1_type, temp_addr,
 					  build_int_cst (arg1_type, -16));
-	 gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
-	 /* Use the build2 helper to set up the mem_ref.  The MEM_REF could also
-	    take an offset, but since we've already incorporated the offset
-	    above, here we just pass in a zero.  */
-	 gimple *g;
-	 g = gimple_build_assign (lhs, build2 (MEM_REF, lhs_type, aligned_addr,
-						build_int_cst (arg1_type, 0)));
-	 gimple_set_location (g, loc);
-	 gsi_replace (gsi, g, true);
-	 return true;
+	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	/* Use the build2 helper to set up the mem_ref.  The MEM_REF could also
+	   take an offset, but since we've already incorporated the offset
+	   above, here we just pass in a zero.  */
+	gimple *g
+	  = gimple_build_assign (lhs, build2 (MEM_REF, lhs_type, aligned_addr,
+					      build_int_cst (arg1_type, 0)));
+	gimple_set_location (g, loc);
+	gsi_replace (gsi, g, true);
+	return true;
       }
     /* Vector stores.  */
     case ALTIVEC_BUILTIN_STVX_V16QI:
@@ -16647,45 +16514,44 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case ALTIVEC_BUILTIN_STVX_V2DI:
     case ALTIVEC_BUILTIN_STVX_V2DF:
       {
-	 /* Do not fold for -maltivec=be on LE targets.  */
-	 if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
-	    return false;
-	 arg0 = gimple_call_arg (stmt, 0); /* Value to be stored.  */
-	 arg1 = gimple_call_arg (stmt, 1); /* Offset.  */
-	 tree arg2 = gimple_call_arg (stmt, 2); /* Store-to address.  */
-	 location_t loc = gimple_location (stmt);
-	 tree arg0_type = TREE_TYPE (arg0);
-	 /* Use ptr_type_node (no TBAA) for the arg2_type.
-	  FIXME: (Richard)  "A proper fix would be to transition this type as
-	  seen from the frontend to GIMPLE, for example in a similar way we
-	  do for MEM_REFs by piggy-backing that on an extra argument, a
-	  constant zero pointer of the alias pointer type to use (which would
-	  also serve as a type indicator of the store itself).  I'd use a
-	  target specific internal function for this (not sure if we can have
-	  those target specific, but I guess if it's folded away then that's
-	  fine) and get away with the overload set."
-	  */
-	 tree arg2_type = ptr_type_node;
-	 /* POINTER_PLUS_EXPR wants the offset to be of type 'sizetype'.  Create
-	    the tree using the value from arg0.  The resulting type will match
-	    the type of arg2.  */
-	 gimple_seq stmts = NULL;
-	 tree temp_offset = gimple_convert (&stmts, loc, sizetype, arg1);
-	 tree temp_addr = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
+	/* Do not fold for -maltivec=be on LE targets.  */
+	if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
+	  return false;
+	arg0 = gimple_call_arg (stmt, 0); /* Value to be stored.  */
+	arg1 = gimple_call_arg (stmt, 1); /* Offset.  */
+	tree arg2 = gimple_call_arg (stmt, 2); /* Store-to address.  */
+	location_t loc = gimple_location (stmt);
+	tree arg0_type = TREE_TYPE (arg0);
+	/* Use ptr_type_node (no TBAA) for the arg2_type.
+	   FIXME: (Richard)  "A proper fix would be to transition this type as
+	   seen from the frontend to GIMPLE, for example in a similar way we
+	   do for MEM_REFs by piggy-backing that on an extra argument, a
+	   constant zero pointer of the alias pointer type to use (which would
+	   also serve as a type indicator of the store itself).  I'd use a
+	   target specific internal function for this (not sure if we can have
+	   those target specific, but I guess if it's folded away then that's
+	   fine) and get away with the overload set."  */
+	tree arg2_type = ptr_type_node;
+	/* POINTER_PLUS_EXPR wants the offset to be of type 'sizetype'.  Create
+	   the tree using the value from arg0.  The resulting type will match
+	   the type of arg2.  */
+	gimple_seq stmts = NULL;
+	tree temp_offset = gimple_convert (&stmts, loc, sizetype, arg1);
+	tree temp_addr = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
 				       arg2_type, arg2, temp_offset);
-	 /* Mask off any lower bits from the address.  */
-	 tree aligned_addr = gimple_build (&stmts, loc, BIT_AND_EXPR,
+	/* Mask off any lower bits from the address.  */
+	tree aligned_addr = gimple_build (&stmts, loc, BIT_AND_EXPR,
 					  arg2_type, temp_addr,
 					  build_int_cst (arg2_type, -16));
-	 gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
+	gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
 	/* The desired gimple result should be similar to:
-	 MEM[(__vector floatD.1407 *)_1] = vf1D.2697;  */
-	 gimple *g;
-	 g = gimple_build_assign (build2 (MEM_REF, arg0_type, aligned_addr,
-					   build_int_cst (arg2_type, 0)), arg0);
-	 gimple_set_location (g, loc);
-	 gsi_replace (gsi, g, true);
-	 return true;
+	   MEM[(__vector floatD.1407 *)_1] = vf1D.2697;  */
+	gimple *g
+	  = gimple_build_assign (build2 (MEM_REF, arg0_type, aligned_addr,
+					 build_int_cst (arg2_type, 0)), arg0);
+	gimple_set_location (g, loc);
+	gsi_replace (gsi, g, true);
+	return true;
       }
 
     /* Vector Fused multiply-add (fma).  */
@@ -16693,20 +16559,67 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
     case VSX_BUILTIN_XVMADDDP:
     case ALTIVEC_BUILTIN_VMLADDUHM:
       {
-       arg0 = gimple_call_arg (stmt, 0);
-       arg1 = gimple_call_arg (stmt, 1);
-       tree arg2 = gimple_call_arg (stmt, 2);
-       lhs = gimple_call_lhs (stmt);
-       gimple *g = gimple_build_assign (lhs, FMA_EXPR , arg0, arg1, arg2);
-       gimple_set_location (g, gimple_location (stmt));
-       gsi_replace (gsi, g, true);
-       return true;
+	arg0 = gimple_call_arg (stmt, 0);
+	arg1 = gimple_call_arg (stmt, 1);
+	tree arg2 = gimple_call_arg (stmt, 2);
+	lhs = gimple_call_lhs (stmt);
+	gimple *g = gimple_build_assign (lhs, FMA_EXPR, arg0, arg1, arg2);
+	gimple_set_location (g, gimple_location (stmt));
+	gsi_replace (gsi, g, true);
+	return true;
       }
 
+    /* Vector compares; EQ, NE, GE, GT, LE.  */
+    case ALTIVEC_BUILTIN_VCMPEQUB:
+    case ALTIVEC_BUILTIN_VCMPEQUH:
+    case ALTIVEC_BUILTIN_VCMPEQUW:
+    case P8V_BUILTIN_VCMPEQUD:
+      fold_compare_helper (gsi, EQ_EXPR, stmt);
+      return true;
+
+    case P9V_BUILTIN_CMPNEB:
+    case P9V_BUILTIN_CMPNEH:
+    case P9V_BUILTIN_CMPNEW:
+      fold_compare_helper (gsi, NE_EXPR, stmt);
+      return true;
+
+    case VSX_BUILTIN_CMPGE_16QI:
+    case VSX_BUILTIN_CMPGE_U16QI:
+    case VSX_BUILTIN_CMPGE_8HI:
+    case VSX_BUILTIN_CMPGE_U8HI:
+    case VSX_BUILTIN_CMPGE_4SI:
+    case VSX_BUILTIN_CMPGE_U4SI:
+    case VSX_BUILTIN_CMPGE_2DI:
+    case VSX_BUILTIN_CMPGE_U2DI:
+      fold_compare_helper (gsi, GE_EXPR, stmt);
+      return true;
+
+    case ALTIVEC_BUILTIN_VCMPGTSB:
+    case ALTIVEC_BUILTIN_VCMPGTUB:
+    case ALTIVEC_BUILTIN_VCMPGTSH:
+    case ALTIVEC_BUILTIN_VCMPGTUH:
+    case ALTIVEC_BUILTIN_VCMPGTSW:
+    case ALTIVEC_BUILTIN_VCMPGTUW:
+    case P8V_BUILTIN_VCMPGTUD:
+    case P8V_BUILTIN_VCMPGTSD:
+      fold_compare_helper (gsi, GT_EXPR, stmt);
+      return true;
+
+    case VSX_BUILTIN_CMPLE_16QI:
+    case VSX_BUILTIN_CMPLE_U16QI:
+    case VSX_BUILTIN_CMPLE_8HI:
+    case VSX_BUILTIN_CMPLE_U8HI:
+    case VSX_BUILTIN_CMPLE_4SI:
+    case VSX_BUILTIN_CMPLE_U4SI:
+    case VSX_BUILTIN_CMPLE_2DI:
+    case VSX_BUILTIN_CMPLE_U2DI:
+      fold_compare_helper (gsi, LE_EXPR, stmt);
+      return true;
+
     default:
-	if (TARGET_DEBUG_BUILTIN)
-	   fprintf (stderr, "gimple builtin intrinsic not matched:%d %s %s\n",
-		    fn_code, fn_name1, fn_name2);
+      if (TARGET_DEBUG_BUILTIN)
+	fprintf (stderr, "gimple builtin intrinsic not matched:%d %s %s\n",
+		 fn_code, fn_name1, fn_name2);
       break;
     }
 
@@ -16734,10 +16647,41 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   bool success;
   HOST_WIDE_INT mask = rs6000_builtin_info[uns_fcode].mask;
   bool func_valid_p = ((rs6000_builtin_mask & mask) == mask);
+  enum insn_code icode = rs6000_builtin_info[uns_fcode].icode;
+
+  /* We have two different modes (KFmode, TFmode) that are the IEEE 128-bit
+     floating point type, depending on whether long double is the IBM extended
+     double (KFmode) or long double is IEEE 128-bit (TFmode).  It is simpler if
+     we only define one variant of the built-in function, and switch the code
+     when defining it, rather than defining two built-ins and using the
+     overload table in rs6000-c.c to switch between the two.  If we don't have
+     the proper assembler, don't do this switch because CODE_FOR_*kf* and
+     CODE_FOR_*tf* will be CODE_FOR_nothing.  */
+#ifdef HAVE_AS_POWER9
+  if (FLOAT128_IEEE_P (TFmode))
+    switch (icode)
+      {
+      default:
+	break;
+
+      case CODE_FOR_sqrtkf2_odd:	icode = CODE_FOR_sqrttf2_odd;	break;
+      case CODE_FOR_trunckfdf2_odd:	icode = CODE_FOR_trunctfdf2_odd; break;
+      case CODE_FOR_addkf3_odd:		icode = CODE_FOR_addtf3_odd;	break;
+      case CODE_FOR_subkf3_odd:		icode = CODE_FOR_subtf3_odd;	break;
+      case CODE_FOR_mulkf3_odd:		icode = CODE_FOR_multf3_odd;	break;
+      case CODE_FOR_divkf3_odd:		icode = CODE_FOR_divtf3_odd;	break;
+      case CODE_FOR_fmakf4_odd:		icode = CODE_FOR_fmatf4_odd;	break;
+      case CODE_FOR_xsxexpqp_kf:	icode = CODE_FOR_xsxexpqp_tf;	break;
+      case CODE_FOR_xsxsigqp_kf:	icode = CODE_FOR_xsxsigqp_tf;	break;
+      case CODE_FOR_xststdcnegqp_kf:	icode = CODE_FOR_xststdcnegqp_tf; break;
+      case CODE_FOR_xsiexpqp_kf:	icode = CODE_FOR_xsiexpqp_tf;	break;
+      case CODE_FOR_xsiexpqpf_kf:	icode = CODE_FOR_xsiexpqpf_tf;	break;
+      case CODE_FOR_xststdcqp_kf:	icode = CODE_FOR_xststdcqp_tf;	break;
+      }
+#endif
 
   if (TARGET_DEBUG_BUILTIN)
     {
-      enum insn_code icode = rs6000_builtin_info[uns_fcode].icode;
       const char *name1 = rs6000_builtin_info[uns_fcode].name;
       const char *name2 = (icode != CODE_FOR_nothing)
 			   ? get_insn_name ((int) icode)
@@ -16813,48 +16757,13 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case RS6000_BUILTIN_CPU_SUPPORTS:
       return cpu_expand_builtin (fcode, exp, target);
 
-    case FLOAT128_BUILTIN_SQRTF128_ODD:
-      return rs6000_expand_unop_builtin (TARGET_IEEEQUAD
-					 ? CODE_FOR_sqrttf2_odd
-					 : CODE_FOR_sqrtkf2_odd, exp, target);
-
-    case FLOAT128_BUILTIN_TRUNCF128_ODD:
-      return rs6000_expand_unop_builtin (TARGET_IEEEQUAD
-					 ? CODE_FOR_trunctfdf2_odd
-					 : CODE_FOR_trunckfdf2_odd, exp, target);
-
-    case FLOAT128_BUILTIN_ADDF128_ODD:
-      return rs6000_expand_binop_builtin (TARGET_IEEEQUAD
-					  ? CODE_FOR_addtf3_odd
-					  : CODE_FOR_addkf3_odd, exp, target);
-
-    case FLOAT128_BUILTIN_SUBF128_ODD:
-      return rs6000_expand_binop_builtin (TARGET_IEEEQUAD
-					  ? CODE_FOR_subtf3_odd
-					  : CODE_FOR_subkf3_odd, exp, target);
-
-    case FLOAT128_BUILTIN_MULF128_ODD:
-      return rs6000_expand_binop_builtin (TARGET_IEEEQUAD
-					  ? CODE_FOR_multf3_odd
-					  : CODE_FOR_mulkf3_odd, exp, target);
-
-    case FLOAT128_BUILTIN_DIVF128_ODD:
-      return rs6000_expand_binop_builtin (TARGET_IEEEQUAD
-					  ? CODE_FOR_divtf3_odd
-					  : CODE_FOR_divkf3_odd, exp, target);
-
-    case FLOAT128_BUILTIN_FMAF128_ODD:
-      return rs6000_expand_ternop_builtin (TARGET_IEEEQUAD
-					   ? CODE_FOR_fmatf4_odd
-					   : CODE_FOR_fmakf4_odd, exp, target);
-
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
       {
-	int icode = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr_direct
+	int icode2 = (BYTES_BIG_ENDIAN ? (int) CODE_FOR_altivec_lvsr_direct
 		     : (int) CODE_FOR_altivec_lvsl_direct);
-	machine_mode tmode = insn_data[icode].operand[0].mode;
-	machine_mode mode = insn_data[icode].operand[1].mode;
+	machine_mode tmode = insn_data[icode2].operand[0].mode;
+	machine_mode mode = insn_data[icode2].operand[1].mode;
 	tree arg;
 	rtx op, addr, pat;
 
@@ -16876,10 +16785,10 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
 	if (target == 0
 	    || GET_MODE (target) != tmode
-	    || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	    || ! (*insn_data[icode2].operand[0].predicate) (target, tmode))
 	  target = gen_reg_rtx (tmode);
 
-	pat = GEN_FCN (icode) (target, op);
+	pat = GEN_FCN (icode2) (target, op);
 	if (!pat)
 	  return 0;
 	emit_insn (pat);
@@ -16937,25 +16846,25 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_unop_builtin (d->icode, exp, target);
+      return rs6000_expand_unop_builtin (icode, exp, target);
 
   /* Handle simple binary operations.  */
   d = bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_binop_builtin (d->icode, exp, target);
+      return rs6000_expand_binop_builtin (icode, exp, target);
 
   /* Handle simple ternary operations.  */
   d = bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_ternop_builtin (d->icode, exp, target);
+      return rs6000_expand_ternop_builtin (icode, exp, target);
 
   /* Handle simple no-argument operations. */
   d = bdesc_0arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_0arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_zeroop_builtin (d->icode, target);
+      return rs6000_expand_zeroop_builtin (icode, target);
 
   gcc_unreachable ();
 }
@@ -17225,32 +17134,6 @@ rs6000_init_builtins (void)
 				    NULL_TREE);
   def_builtin ("__builtin_cpu_is", ftype, RS6000_BUILTIN_CPU_IS);
   def_builtin ("__builtin_cpu_supports", ftype, RS6000_BUILTIN_CPU_SUPPORTS);
-
-  ftype = build_function_type_list (ieee128_float_type_node,
-				    ieee128_float_type_node, NULL_TREE);
-  def_builtin ("__builtin_sqrtf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_SQRTF128_ODD);
-  def_builtin ("__builtin_truncf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_TRUNCF128_ODD);
-
-  ftype = build_function_type_list (ieee128_float_type_node,
-				    ieee128_float_type_node,
-				    ieee128_float_type_node, NULL_TREE);
-  def_builtin ("__builtin_addf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_ADDF128_ODD);
-  def_builtin ("__builtin_subf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_SUBF128_ODD);
-  def_builtin ("__builtin_mulf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_MULF128_ODD);
-  def_builtin ("__builtin_divf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_DIVF128_ODD);
-
-  ftype = build_function_type_list (ieee128_float_type_node,
-				    ieee128_float_type_node,
-				    ieee128_float_type_node,
-				    ieee128_float_type_node, NULL_TREE);
-  def_builtin ("__builtin_fmaf128_round_to_odd", ftype,
-	       FLOAT128_BUILTIN_FMAF128_ODD);
 
   /* AIX libm provides clog as __clog.  */
   if (TARGET_XCOFF &&
@@ -17618,6 +17501,10 @@ altivec_init_builtins (void)
 	       VSX_BUILTIN_LD_ELEMREV_V4SF);
   def_builtin ("__builtin_vsx_ld_elemrev_v4si", v4si_ftype_long_pcvoid,
 	       VSX_BUILTIN_LD_ELEMREV_V4SI);
+  def_builtin ("__builtin_vsx_ld_elemrev_v8hi", v8hi_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V8HI);
+  def_builtin ("__builtin_vsx_ld_elemrev_v16qi", v16qi_ftype_long_pcvoid,
+	       VSX_BUILTIN_LD_ELEMREV_V16QI);
   def_builtin ("__builtin_vsx_st_elemrev_v2df", void_ftype_v2df_long_pvoid,
 	       VSX_BUILTIN_ST_ELEMREV_V2DF);
   def_builtin ("__builtin_vsx_st_elemrev_v2di", void_ftype_v2di_long_pvoid,
@@ -17626,42 +17513,10 @@ altivec_init_builtins (void)
 	       VSX_BUILTIN_ST_ELEMREV_V4SF);
   def_builtin ("__builtin_vsx_st_elemrev_v4si", void_ftype_v4si_long_pvoid,
 	       VSX_BUILTIN_ST_ELEMREV_V4SI);
-
-  def_builtin ("__builtin_vsx_le_be_v8hi", v8hi_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V8HI);
-  def_builtin ("__builtin_vsx_le_be_v4si", v4si_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V4SI);
-  def_builtin ("__builtin_vsx_le_be_v2di", v2di_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V2DI);
-  def_builtin ("__builtin_vsx_le_be_v4sf", v4sf_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V4SF);
-  def_builtin ("__builtin_vsx_le_be_v2df", v2df_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V2DF);
-  def_builtin ("__builtin_vsx_le_be_v16qi", v16qi_ftype_long_pcvoid,
-		   VSX_BUILTIN_XL_BE_V16QI);
-
-  if (TARGET_P9_VECTOR)
-    {
-      def_builtin ("__builtin_vsx_ld_elemrev_v8hi", v8hi_ftype_long_pcvoid,
-		   VSX_BUILTIN_LD_ELEMREV_V8HI);
-      def_builtin ("__builtin_vsx_ld_elemrev_v16qi", v16qi_ftype_long_pcvoid,
-		   VSX_BUILTIN_LD_ELEMREV_V16QI);
-      def_builtin ("__builtin_vsx_st_elemrev_v8hi",
-		   void_ftype_v8hi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V8HI);
-      def_builtin ("__builtin_vsx_st_elemrev_v16qi",
-		   void_ftype_v16qi_long_pvoid, VSX_BUILTIN_ST_ELEMREV_V16QI);
-    }
-  else
-    {
-      rs6000_builtin_decls[(int) VSX_BUILTIN_LD_ELEMREV_V8HI]
-	= rs6000_builtin_decls[(int) VSX_BUILTIN_LXVW4X_V8HI];
-      rs6000_builtin_decls[(int) VSX_BUILTIN_LD_ELEMREV_V16QI]
-	= rs6000_builtin_decls[(int) VSX_BUILTIN_LXVW4X_V16QI];
-      rs6000_builtin_decls[(int) VSX_BUILTIN_ST_ELEMREV_V8HI]
-	= rs6000_builtin_decls[(int) VSX_BUILTIN_STXVW4X_V8HI];
-      rs6000_builtin_decls[(int) VSX_BUILTIN_ST_ELEMREV_V16QI]
-	= rs6000_builtin_decls[(int) VSX_BUILTIN_STXVW4X_V16QI];
-    }
+  def_builtin ("__builtin_vsx_st_elemrev_v8hi", void_ftype_v8hi_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V8HI);
+  def_builtin ("__builtin_vsx_st_elemrev_v16qi", void_ftype_v16qi_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V16QI);
 
   def_builtin ("__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
 	       VSX_BUILTIN_VEC_LD);
@@ -17673,6 +17528,8 @@ altivec_init_builtins (void)
 	       VSX_BUILTIN_VEC_XL_BE);
   def_builtin ("__builtin_vec_xst", void_ftype_opaque_long_pvoid,
 	       VSX_BUILTIN_VEC_XST);
+  def_builtin ("__builtin_vec_xst_be", void_ftype_opaque_long_pvoid,
+	       VSX_BUILTIN_VEC_XST_BE);
 
   def_builtin ("__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
   def_builtin ("__builtin_vec_splats", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_SPLATS);
@@ -18156,7 +18013,7 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
      are type correct.  */
   switch (builtin)
     {
-      /* unsigned 1 argument functions.  */
+    /* unsigned 1 argument functions.  */
     case CRYPTO_BUILTIN_VSBOX:
     case P8V_BUILTIN_VGBBD:
     case MISC_BUILTIN_CDTBCD:
@@ -18165,7 +18022,7 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       h.uns_p[1] = 1;
       break;
 
-      /* unsigned 2 argument functions.  */
+    /* unsigned 2 argument functions.  */
     case ALTIVEC_BUILTIN_VMULEUB:
     case ALTIVEC_BUILTIN_VMULEUH:
     case ALTIVEC_BUILTIN_VMULEUW:
@@ -18200,7 +18057,7 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       h.uns_p[2] = 1;
       break;
 
-      /* unsigned 3 argument functions.  */
+    /* unsigned 3 argument functions.  */
     case ALTIVEC_BUILTIN_VPERM_16QI_UNS:
     case ALTIVEC_BUILTIN_VPERM_8HI_UNS:
     case ALTIVEC_BUILTIN_VPERM_4SI_UNS:
@@ -18231,7 +18088,7 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       h.uns_p[3] = 1;
       break;
 
-      /* signed permute functions with unsigned char mask.  */
+    /* signed permute functions with unsigned char mask.  */
     case ALTIVEC_BUILTIN_VPERM_16QI:
     case ALTIVEC_BUILTIN_VPERM_8HI:
     case ALTIVEC_BUILTIN_VPERM_4SI:
@@ -18247,14 +18104,14 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       h.uns_p[3] = 1;
       break;
 
-      /* unsigned args, signed return.  */
+    /* unsigned args, signed return.  */
     case VSX_BUILTIN_XVCVUXDSP:
     case VSX_BUILTIN_XVCVUXDDP_UNS:
     case ALTIVEC_BUILTIN_UNSFLOAT_V4SI_V4SF:
       h.uns_p[1] = 1;
       break;
 
-      /* signed args, unsigned return.  */
+    /* signed args, unsigned return.  */
     case VSX_BUILTIN_XVCVDPUXDS_UNS:
     case ALTIVEC_BUILTIN_FIXUNS_V4SF_V4SI:
     case MISC_BUILTIN_UNPACK_TD:
@@ -18262,14 +18119,31 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       h.uns_p[0] = 1;
       break;
 
-      /* unsigned arguments for 128-bit pack instructions.  */
+    /* unsigned arguments, bool return (compares).  */
+    case ALTIVEC_BUILTIN_VCMPEQUB:
+    case ALTIVEC_BUILTIN_VCMPEQUH:
+    case ALTIVEC_BUILTIN_VCMPEQUW:
+    case P8V_BUILTIN_VCMPEQUD:
+    case VSX_BUILTIN_CMPGE_U16QI:
+    case VSX_BUILTIN_CMPGE_U8HI:
+    case VSX_BUILTIN_CMPGE_U4SI:
+    case VSX_BUILTIN_CMPGE_U2DI:
+    case ALTIVEC_BUILTIN_VCMPGTUB:
+    case ALTIVEC_BUILTIN_VCMPGTUH:
+    case ALTIVEC_BUILTIN_VCMPGTUW:
+    case P8V_BUILTIN_VCMPGTUD:
+      h.uns_p[1] = 1;
+      h.uns_p[2] = 1;
+      break;
+
+    /* unsigned arguments for 128-bit pack instructions.  */
     case MISC_BUILTIN_PACK_TD:
     case MISC_BUILTIN_PACK_V1TI:
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
       break;
 
-	/* unsigned second arguments (vector shift right).  */
+    /* unsigned second arguments (vector shift right).  */
     case ALTIVEC_BUILTIN_VSRB:
     case ALTIVEC_BUILTIN_VSRH:
     case ALTIVEC_BUILTIN_VSRW:
@@ -35015,14 +34889,16 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
+      /* FALLTHRU */
+
+    case GT:
+    case LT:
+    case UNORDERED:
       if (outer_code == SET)
 	{
 	  if (XEXP (x, 1) == const0_rtx)
 	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
+	      *total = COSTS_N_INSNS (2);
 	      return true;
 	    }
 	  else
@@ -35030,19 +34906,6 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      *total = COSTS_N_INSNS (3);
 	      return false;
 	    }
-	}
-      /* FALLTHRU */
-
-    case GT:
-    case LT:
-    case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
-	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
-	  else
-	    *total = COSTS_N_INSNS (2);
-	  return true;
 	}
       /* CC COMPARE.  */
       if (outer_code == COMPARE)

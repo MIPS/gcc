@@ -1827,6 +1827,12 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  gcc_assert (!e->symtree->n.sym->ts.deferred);
 	  tmp = e->symtree->n.sym->ts.u.cl->backend_decl;
 	}
+      else if (e->symtree->n.sym->attr.function
+	       && e->symtree->n.sym == e->symtree->n.sym->result)
+	{
+	  tmp = gfc_get_fake_result_decl (e->symtree->n.sym, 0);
+	  tmp = gfc_class_len_get (tmp);
+	}
       else
 	tmp = gfc_class_len_get (gfc_get_symbol_decl (e->symtree->n.sym));
       gfc_get_symbol_decl (sym);
@@ -2660,8 +2666,7 @@ gfc_trans_integer_select (gfc_code * code)
     }
 
   tmp = gfc_finish_block (&body);
-  tmp = fold_build3_loc (input_location, SWITCH_EXPR, NULL_TREE,
-			 se.expr, tmp, NULL_TREE);
+  tmp = fold_build2_loc (input_location, SWITCH_EXPR, NULL_TREE, se.expr, tmp);
   gfc_add_expr_to_block (&block, tmp);
 
   tmp = build1_v (LABEL_EXPR, end_label);
@@ -2946,8 +2951,8 @@ gfc_trans_character_select (gfc_code *code)
 	  gfc_add_block_to_block (&block, &expr1se.post);
 
 	  tmp = gfc_finish_block (&body);
-	  tmp = fold_build3_loc (input_location, SWITCH_EXPR, NULL_TREE,
-				 case_num, tmp, NULL_TREE);
+	  tmp = fold_build2_loc (input_location, SWITCH_EXPR, NULL_TREE,
+				 case_num, tmp);
 	  gfc_add_expr_to_block (&block, tmp);
 
 	  tmp = build1_v (LABEL_EXPR, end_label);
@@ -3093,8 +3098,8 @@ gfc_trans_character_select (gfc_code *code)
   gfc_add_block_to_block (&block, &expr1se.post);
 
   tmp = gfc_finish_block (&body);
-  tmp = fold_build3_loc (input_location, SWITCH_EXPR, NULL_TREE,
-			 case_num, tmp, NULL_TREE);
+  tmp = fold_build2_loc (input_location, SWITCH_EXPR, NULL_TREE,
+			 case_num, tmp);
   gfc_add_expr_to_block (&block, tmp);
 
   tmp = build1_v (LABEL_EXPR, end_label);
@@ -3453,9 +3458,10 @@ gfc_trans_forall_loop (forall_info *forall_tmp, tree body,
       cond = fold_build2_loc (input_location, LE_EXPR, logical_type_node,
 			      count, build_int_cst (TREE_TYPE (count), 0));
       if (forall_tmp->do_concurrent)
-	cond = build2 (ANNOTATE_EXPR, TREE_TYPE (cond), cond,
+	cond = build3 (ANNOTATE_EXPR, TREE_TYPE (cond), cond,
 		       build_int_cst (integer_type_node,
-				      annot_expr_ivdep_kind));
+				      annot_expr_parallel_kind),
+		       integer_zero_node);
 
       tmp = build1_v (GOTO_EXPR, exit_label);
       tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
@@ -5913,10 +5919,9 @@ gfc_trans_allocate (gfc_code * code)
       if (code->ext.alloc.ts.type != BT_CHARACTER)
 	expr3_esize = TYPE_SIZE_UNIT (
 	      gfc_typenode_for_spec (&code->ext.alloc.ts));
-      else
+      else if (code->ext.alloc.ts.u.cl->length != NULL)
 	{
 	  gfc_expr *sz;
-	  gcc_assert (code->ext.alloc.ts.u.cl->length != NULL);
 	  sz = gfc_copy_expr (code->ext.alloc.ts.u.cl->length);
 	  gfc_init_se (&se_sz, NULL);
 	  gfc_conv_expr (&se_sz, sz);
@@ -5930,6 +5935,8 @@ gfc_trans_allocate (gfc_code * code)
 					 tmp, se_sz.expr);
 	  expr3_esize = gfc_evaluate_now (expr3_esize, &block);
 	}
+      else
+	expr3_esize = NULL_TREE;
     }
 
   /* The routine gfc_trans_assignment () already implements all

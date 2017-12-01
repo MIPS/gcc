@@ -909,6 +909,51 @@
 		     | RS6000_BTC_BINARY),				\
 		    CODE_FOR_nothing)			/* ICODE */
 
+/* Built-in functions for IEEE 128-bit hardware floating point.  IEEE 128-bit
+   hardware requires p9-vector and 64-bit operation.  These functions use just
+   __builtin_ as the prefix.  */
+#define BU_FLOAT128_HW_1(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_1 (FLOAT128_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    RS6000_BTM_FLOAT128_HW,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_UNARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+#define BU_FLOAT128_HW_2(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_2 (FLOAT128_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    RS6000_BTM_FLOAT128_HW,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_BINARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+#define BU_FLOAT128_HW_3(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_3 (FLOAT128_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    RS6000_BTM_FLOAT128_HW,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_TERNARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+/* Built-in functions for IEEE 128-bit hardware floating point.  These
+   functions use __builtin_vsx_ as the prefix.  */
+#define BU_FLOAT128_HW_VSX_1(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_1 (P9V_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_vsx_" NAME,		/* NAME */	\
+		    RS6000_BTM_FLOAT128_HW,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_UNARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+#define BU_FLOAT128_HW_VSX_2(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_2 (P9V_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_vsx_" NAME,		/* NAME */	\
+		    RS6000_BTM_FLOAT128_HW,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_BINARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
 #endif
 
 
@@ -1079,6 +1124,7 @@ BU_ALTIVEC_2 (VSUM4SBS,	      "vsum4sbs",	CONST,	altivec_vsum4sbs)
 BU_ALTIVEC_2 (VSUM4SHS,	      "vsum4shs",	CONST,	altivec_vsum4shs)
 BU_ALTIVEC_2 (VSUM2SWS,	      "vsum2sws",	CONST,	altivec_vsum2sws)
 BU_ALTIVEC_2 (VSUMSWS,	      "vsumsws",	CONST,	altivec_vsumsws)
+BU_ALTIVEC_2 (VSUMSWS_BE,     "vsumsws_be",	CONST,	altivec_vsumsws_direct)
 BU_ALTIVEC_2 (VXOR,	      "vxor",		CONST,	xorv4si3)
 BU_ALTIVEC_2 (COPYSIGN_V4SF,  "copysignfp",	CONST,	vector_copysignv4sf3)
 
@@ -1728,14 +1774,6 @@ BU_VSX_X (LXVW4X_V4SF,	      "lxvw4x_v4sf",	MEM)
 BU_VSX_X (LXVW4X_V4SI,        "lxvw4x_v4si",	MEM)
 BU_VSX_X (LXVW4X_V8HI,        "lxvw4x_v8hi",	MEM)
 BU_VSX_X (LXVW4X_V16QI,	      "lxvw4x_v16qi",	MEM)
-
-BU_VSX_X (XL_BE_V16QI, "xl_be_v16qi", MEM)
-BU_VSX_X (XL_BE_V8HI, "xl_be_v8hi", MEM)
-BU_VSX_X (XL_BE_V4SI, "xl_be_v4si", MEM)
-BU_VSX_X (XL_BE_V2DI, "xl_be_v2di", MEM)
-BU_VSX_X (XL_BE_V4SF, "xl_be_v4sf", MEM)
-BU_VSX_X (XL_BE_V2DF, "xl_be_v2df", MEM)
-
 BU_VSX_X (STXSDX,	      "stxsdx",		MEM)
 BU_VSX_X (STXVD2X_V1TI,	      "stxvd2x_v1ti",	MEM)
 BU_VSX_X (STXVD2X_V2DF,	      "stxvd2x_v2df",	MEM)
@@ -1838,6 +1876,7 @@ BU_VSX_OVERLOAD_X (ST,	     "st")
 BU_VSX_OVERLOAD_X (XL,	     "xl")
 BU_VSX_OVERLOAD_X (XL_BE,    "xl_be")
 BU_VSX_OVERLOAD_X (XST,	     "xst")
+BU_VSX_OVERLOAD_X (XST_BE,   "xst_be")
 
 /* 1 argument builtins pre ISA 2.04.  */
 BU_FP_MISC_1 (FCTID,		"fctid",	CONST,  lrintdfdi2)
@@ -2006,6 +2045,31 @@ BU_P9V_AV_2 (VSLV,		"vslv",			CONST, vslv)
 BU_P9V_AV_2 (VSRV,		"vsrv",			CONST, vsrv)
 BU_P9V_AV_2 (CONVERT_4F32_8I16, "convert_4f32_8i16", CONST, convert_4f32_8i16)
 
+BU_P9V_AV_2 (VFIRSTMATCHINDEX_V16QI, "first_match_index_v16qi",
+	     CONST, first_match_index_v16qi)
+BU_P9V_AV_2 (VFIRSTMATCHINDEX_V8HI, "first_match_index_v8hi",
+	     CONST, first_match_index_v8hi)
+BU_P9V_AV_2 (VFIRSTMATCHINDEX_V4SI, "first_match_index_v4si",
+	     CONST, first_match_index_v4si)
+BU_P9V_AV_2 (VFIRSTMATCHOREOSINDEX_V16QI, "first_match_or_eos_index_v16qi",
+	     CONST, first_match_or_eos_index_v16qi)
+BU_P9V_AV_2 (VFIRSTMATCHOREOSINDEX_V8HI, "first_match_or_eos_index_v8hi",
+	     CONST, first_match_or_eos_index_v8hi)
+BU_P9V_AV_2 (VFIRSTMATCHOREOSINDEX_V4SI, "first_match_or_eos_index_v4si",
+	     CONST, first_match_or_eos_index_v4si)
+BU_P9V_AV_2 (VFIRSTMISMATCHINDEX_V16QI, "first_mismatch_index_v16qi",
+	     CONST, first_mismatch_index_v16qi)
+BU_P9V_AV_2 (VFIRSTMISMATCHINDEX_V8HI, "first_mismatch_index_v8hi",
+	     CONST, first_mismatch_index_v8hi)
+BU_P9V_AV_2 (VFIRSTMISMATCHINDEX_V4SI, "first_mismatch_index_v4si",
+	     CONST, first_mismatch_index_v4si)
+BU_P9V_AV_2 (VFIRSTMISMATCHOREOSINDEX_V16QI, "first_mismatch_or_eos_index_v16qi",
+	     CONST, first_mismatch_or_eos_index_v16qi)
+BU_P9V_AV_2 (VFIRSTMISMATCHOREOSINDEX_V8HI, "first_mismatch_or_eos_index_v8hi",
+	     CONST, first_mismatch_or_eos_index_v8hi)
+BU_P9V_AV_2 (VFIRSTMISMATCHOREOSINDEX_V4SI, "first_mismatch_or_eos_index_v4si",
+	     CONST, first_mismatch_or_eos_index_v4si)
+
 /* ISA 3.0 vector overloaded 2-argument functions. */
 BU_P9V_OVERLOAD_2 (VSLV,	"vslv")
 BU_P9V_OVERLOAD_2 (VSRV,	"vsrv")
@@ -2038,10 +2102,10 @@ BU_P9V_OVERLOAD_3 (RLMI,	"rlmi")
 BU_P9V_64BIT_VSX_1 (VSEEDP,	"scalar_extract_exp",	CONST,	xsxexpdp)
 BU_P9V_64BIT_VSX_1 (VSESDP,	"scalar_extract_sig",	CONST,	xsxsigdp)
 
-BU_P9V_64BIT_VSX_1 (VSEEQP,	"scalar_extract_expq",	CONST,	xsxexpqp)
-BU_P9V_64BIT_VSX_1 (VSESQP,	"scalar_extract_sigq",	CONST,	xsxsigqp)
+BU_FLOAT128_HW_VSX_1 (VSEEQP,	"scalar_extract_expq",	CONST,	xsxexpqp_kf)
+BU_FLOAT128_HW_VSX_1 (VSESQP,	"scalar_extract_sigq",	CONST,	xsxsigqp_kf)
 
-BU_P9V_VSX_1 (VSTDCNQP,	"scalar_test_neg_qp",	CONST,	xststdcnegqp)
+BU_FLOAT128_HW_VSX_1 (VSTDCNQP, "scalar_test_neg_qp",	CONST,	xststdcnegqp_kf)
 BU_P9V_VSX_1 (VSTDCNDP,	"scalar_test_neg_dp",	CONST,	xststdcnegdp)
 BU_P9V_VSX_1 (VSTDCNSP,	"scalar_test_neg_sp",	CONST,	xststdcnegsp)
 
@@ -2057,15 +2121,15 @@ BU_P9V_VSX_1 (XXBRH_V8HI,	"xxbrh_v8hi",	CONST,	p9_xxbrh_v8hi)
 BU_P9V_64BIT_VSX_2 (VSIEDP,	"scalar_insert_exp",	CONST,	xsiexpdp)
 BU_P9V_64BIT_VSX_2 (VSIEDPF,	"scalar_insert_exp_dp",	CONST,	xsiexpdpf)
 
-BU_P9V_64BIT_VSX_2 (VSIEQP,	"scalar_insert_exp_q",	CONST,	xsiexpqp)
-BU_P9V_64BIT_VSX_2 (VSIEQPF,	"scalar_insert_exp_qp",	CONST,	xsiexpqpf)
+BU_FLOAT128_HW_VSX_2 (VSIEQP,	"scalar_insert_exp_q",	CONST,	xsiexpqp_kf)
+BU_FLOAT128_HW_VSX_2 (VSIEQPF,	"scalar_insert_exp_qp",	CONST,	xsiexpqpf_kf)
 
 BU_P9V_VSX_2 (VSCEDPGT,	"scalar_cmp_exp_dp_gt",	CONST,	xscmpexpdp_gt)
 BU_P9V_VSX_2 (VSCEDPLT,	"scalar_cmp_exp_dp_lt",	CONST,	xscmpexpdp_lt)
 BU_P9V_VSX_2 (VSCEDPEQ,	"scalar_cmp_exp_dp_eq",	CONST,	xscmpexpdp_eq)
 BU_P9V_VSX_2 (VSCEDPUO,	"scalar_cmp_exp_dp_unordered",	CONST,	xscmpexpdp_unordered)
 
-BU_P9V_VSX_2 (VSTDCQP,	"scalar_test_data_class_qp",	CONST,	xststdcqp)
+BU_FLOAT128_HW_VSX_2 (VSTDCQP, "scalar_test_data_class_qp",	CONST,	xststdcqp_kf)
 BU_P9V_VSX_2 (VSTDCDP,	"scalar_test_data_class_dp",	CONST,	xststdcdp)
 BU_P9V_VSX_2 (VSTDCSP,	"scalar_test_data_class_sp",	CONST,	xststdcsp)
 
@@ -2082,6 +2146,11 @@ BU_P9V_OVERLOAD_1 (VEXTRACT_FP_FROM_SHORTH, "vextract_fp_from_shorth")
 BU_P9V_OVERLOAD_1 (VEXTRACT_FP_FROM_SHORTL, "vextract_fp_from_shortl")
 
 /* ISA 3.0 vector scalar overloaded 2 argument functions.  */
+BU_P9V_OVERLOAD_2 (VFIRSTMATCHINDEX,	"first_match_index")
+BU_P9V_OVERLOAD_2 (VFIRSTMISMATCHINDEX,	"first_mismatch_index")
+BU_P9V_OVERLOAD_2 (VFIRSTMATCHOREOSINDEX,	"first_match_or_eos_index")
+BU_P9V_OVERLOAD_2 (VFIRSTMISMATCHOREOSINDEX,	"first_mismatch_or_eos_index")
+
 BU_P9V_OVERLOAD_2 (VSIEDP,	"scalar_insert_exp")
 
 BU_P9V_OVERLOAD_2 (VSTDC,	"scalar_test_data_class")
@@ -2142,6 +2211,16 @@ BU_P9V_VSX_2 (VEXTRACT4B,   "vextract4b",	CONST,	vextract4b)
 BU_P9V_VSX_3 (VINSERT4B,    "vinsert4b",	CONST,	vinsert4b)
 BU_P9V_VSX_3 (VINSERT4B_DI, "vinsert4b_di",	CONST,	vinsert4b_di)
 
+/* Hardware IEEE 128-bit floating point round to odd instrucitons added in ISA
+   3.0 (power9).  */
+BU_FLOAT128_HW_1 (SQRTF128_ODD,  "sqrtf128_round_to_odd",  FP, sqrtkf2_odd)
+BU_FLOAT128_HW_1 (TRUNCF128_ODD, "truncf128_round_to_odd", FP, trunckfdf2_odd)
+BU_FLOAT128_HW_2 (ADDF128_ODD,   "addf128_round_to_odd",   FP, addkf3_odd)
+BU_FLOAT128_HW_2 (SUBF128_ODD,   "subf128_round_to_odd",   FP, subkf3_odd)
+BU_FLOAT128_HW_2 (MULF128_ODD,   "mulf128_round_to_odd",   FP, mulkf3_odd)
+BU_FLOAT128_HW_2 (DIVF128_ODD,   "divf128_round_to_odd",   FP, divkf3_odd)
+BU_FLOAT128_HW_3 (FMAF128_ODD,   "fmaf128_round_to_odd",   FP, fmakf4_odd)
+
 /* 3 argument vector functions returning void, treated as SPECIAL,
    added in ISA 3.0 (power9).  */
 BU_P9V_64BIT_AV_X (STXVL,	"stxvl",	MISC)
@@ -2149,7 +2228,9 @@ BU_P9V_64BIT_AV_X (XST_LEN_R,	"xst_len_r",	MISC)
 
 /* 1 argument vector functions added in ISA 3.0 (power9). */
 BU_P9V_AV_1 (VCLZLSBB, "vclzlsbb",		CONST,	vclzlsbb)
-BU_P9V_AV_1 (VCTZLSBB, "vctzlsbb",		CONST,	vctzlsbb)
+BU_P9V_AV_1 (VCTZLSBB_V16QI, "vctzlsbb_v16qi",	CONST,	vctzlsbb_v16qi)
+BU_P9V_AV_1 (VCTZLSBB_V8HI, "vctzlsbb_v8hi",	CONST,	vctzlsbb_v8hi)
+BU_P9V_AV_1 (VCTZLSBB_V4SI, "vctzlsbb_v4si",	CONST,	vctzlsbb_v4si)
 
 /* Built-in support for Power9 "VSU option" string operations includes
    new awareness of the "vector compare not equal" (vcmpneb, vcmpneb.,
@@ -2463,34 +2544,6 @@ BU_SPECIAL_X (RS6000_BUILTIN_CPU_IS, "__builtin_cpu_is",
 
 BU_SPECIAL_X (RS6000_BUILTIN_CPU_SUPPORTS, "__builtin_cpu_supports",
 	      RS6000_BTM_ALWAYS, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_SQRTF128_ODD,
-	      "__builtin_sqrtf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_TRUNCF128_ODD,
-	      "__builtin_truncf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_ADDF128_ODD,
-	      "__builtin_addf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_SUBF128_ODD,
-	      "__builtin_subf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_MULF128_ODD,
-	      "__builtin_mulf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_DIVF128_ODD,
-	      "__builtin_divf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
-
-BU_SPECIAL_X (FLOAT128_BUILTIN_FMAF128_ODD,
-	      "__builtin_fmaf128_round_to_odd",
-	      RS6000_BTM_FLOAT128_HW, RS6000_BTC_MISC)
 
 /* Darwin CfString builtin.  */
 BU_SPECIAL_X (RS6000_BUILTIN_CFSTRING, "__builtin_cfstring", RS6000_BTM_ALWAYS,

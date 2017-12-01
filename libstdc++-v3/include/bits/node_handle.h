@@ -62,7 +62,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       explicit operator bool() const noexcept { return _M_ptr != nullptr; }
 
-      bool empty() const noexcept { return _M_ptr == nullptr; }
+      [[nodiscard]] bool empty() const noexcept { return _M_ptr == nullptr; }
 
     protected:
       constexpr _Node_handle_common() noexcept : _M_ptr(), _M_alloc() {}
@@ -199,7 +199,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       template<typename _Tp>
-	using __pointer = __ptr_rebind<typename _AllocTraits::pointer, _Tp>;
+	using __pointer
+	  = __ptr_rebind<typename _AllocTraits::pointer,
+			 remove_reference_t<_Tp>>;
 
       __pointer<_Key>				_M_pkey = nullptr;
       __pointer<typename _Value::second_type>	_M_pmapped = nullptr;

@@ -117,6 +117,37 @@ int_or_real_check (gfc_expr *e, int n)
   return true;
 }
 
+/* Check that an expression is integer or real; allow character for
+   F2003 or later.  */
+
+static bool
+int_or_real_or_char_check_f2003 (gfc_expr *e, int n)
+{
+  if (e->ts.type != BT_INTEGER && e->ts.type != BT_REAL)
+    {
+      if (e->ts.type == BT_CHARACTER)
+	return gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Character for "
+			       "%qs argument of %qs intrinsic at %L",
+			       gfc_current_intrinsic_arg[n]->name,
+			       gfc_current_intrinsic, &e->where);
+      else
+	{
+	  if (gfc_option.allow_std & GFC_STD_F2003)
+	    gfc_error ("%qs argument of %qs intrinsic at %L must be INTEGER "
+		       "or REAL or CHARACTER",
+		       gfc_current_intrinsic_arg[n]->name,
+		       gfc_current_intrinsic, &e->where);
+	  else
+	    gfc_error ("%qs argument of %qs intrinsic at %L must be INTEGER "
+		       "or REAL", gfc_current_intrinsic_arg[n]->name,
+		       gfc_current_intrinsic, &e->where);
+	}
+      return false;
+    }
+
+  return true;
+}
+
 
 /* Check that an expression is real or complex.  */
 
@@ -427,15 +458,22 @@ less_than_bitsize2 (const char *arg1, gfc_expr *expr1, const char *arg2,
 /* Make sure two expressions have the same type.  */
 
 static bool
-same_type_check (gfc_expr *e, int n, gfc_expr *f, int m)
+same_type_check (gfc_expr *e, int n, gfc_expr *f, int m, bool assoc = false)
 {
   gfc_typespec *ets = &e->ts;
   gfc_typespec *fts = &f->ts;
 
-  if (e->ts.type == BT_PROCEDURE && e->symtree->n.sym)
-    ets = &e->symtree->n.sym->ts;
-  if (f->ts.type == BT_PROCEDURE && f->symtree->n.sym)
-    fts = &f->symtree->n.sym->ts;
+  if (assoc)
+    {
+      /* Procedure pointer component expressions have the type of the interface
+	 procedure. If they are being tested for association with a procedure
+	 pointer (ie. not a component), the type of the procedure must be
+	 determined.  */
+      if (e->ts.type == BT_PROCEDURE && e->symtree->n.sym)
+	ets = &e->symtree->n.sym->ts;
+      if (f->ts.type == BT_PROCEDURE && f->symtree->n.sym)
+	fts = &f->symtree->n.sym->ts;
+    }
 
   if (gfc_compare_types (ets, fts))
     return true;
@@ -1002,7 +1040,7 @@ gfc_check_associated (gfc_expr *pointer, gfc_expr *target)
     }
 
   t = true;
-  if (!same_type_check (pointer, 0, target, 1))
+  if (!same_type_check (pointer, 0, target, 1, true))
     t = false;
   if (!rank_check (target, 0, pointer->rank))
     t = false;
@@ -3182,7 +3220,7 @@ gfc_check_minloc_maxloc (gfc_actual_arglist *ap)
   gfc_expr *a, *m, *d, *k;
 
   a = ap->expr;
-  if (!int_or_real_check (a, 0) || !array_check (a, 0))
+  if (!int_or_real_or_char_check_f2003 (a, 0) || !array_check (a, 0))
     return false;
 
   d = ap->next->expr;

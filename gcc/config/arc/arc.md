@@ -471,6 +471,8 @@
 	     (symbol_ref "(arc_hazard (prev_active_insn (insn), insn)
 			   + arc_hazard (insn, next_active_insn (insn)))"))
 	 (const_string "false")
+	 (match_test "find_reg_note (insn, REG_SAVE_NOTE, GEN_INT (2))")
+	 (const_string "false")
 	 (eq_attr "iscompact" "maybe") (const_string "true")
 	 ]
 
@@ -497,6 +499,8 @@
 (define_attr "cond_delay_insn" "no,yes"
   (cond [(eq_attr "cond" "!canuse") (const_string "no")
 	 (eq_attr "type" "call,branch,uncond_branch,jump,brcc")
+	 (const_string "no")
+	 (match_test "find_reg_note (insn, REG_SAVE_NOTE, GEN_INT (2))")
 	 (const_string "no")
 	 (eq_attr "length" "2,4") (const_string "yes")]
 	(const_string "no")))
@@ -4297,6 +4301,13 @@
 ; use it for lack of inter-procedural branch shortening.
 ; Link-time relaxation would help...
 
+(define_insn "trap"
+  [(trap_if (const_int 1) (const_int 0))]
+  "!TARGET_ARC600_FAMILY"
+  "trap_s\\t5"
+  [(set_attr "type" "misc")
+   (set_attr "length" "2")])
+
 (define_insn "nop"
   [(const_int 0)]
   ""
@@ -4934,39 +4945,6 @@
 	       (eq_attr "delay_slot_filled" "yes")
 	       (const_int 4)]
 	      (const_int 2)))])
-
-(define_insn_and_split "eh_return"
-  [(eh_return)
-   (use (match_operand:SI 0 "move_src_operand" "rC32,mCalCpc"))
-   (clobber (match_scratch:SI 1  "=X,r"))
-   (clobber (match_scratch:SI 2 "=&r,r"))]
-  ""
-  "#"
-  "reload_completed"
-  [(set (match_dup 2) (match_dup 0))]
-{
-  int offs = arc_return_slot_offset ();
-
-  if (offs < 0)
-    operands[2] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
-  else
-    {
-      if (!register_operand (operands[0], Pmode)
-	  && !satisfies_constraint_C32 (operands[0]))
-	{
-	  emit_move_insn (operands[1], operands[0]);
-	  operands[0] = operands[1];
-	}
-      rtx addr = plus_constant (Pmode, stack_pointer_rtx, offs);
-      if (!strict_memory_address_p (Pmode, addr))
-	{
-	  emit_move_insn (operands[2], addr);
-	  addr = operands[2];
-	}
-      operands[2] = gen_frame_mem (Pmode, addr);
-    }
-}
-  [(set_attr "length" "12")])
 
 ;; ??? #ifdefs in function.c require the presence of this pattern, with a
 ;; non-constant predicate.

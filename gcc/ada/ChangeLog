@@ -1,3 +1,335 @@
+2017-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc-interface/trans.c (Case_Statement_to_gnu): Build SWITCH_EXPR
+	using build2 instead of build3.
+
+2017-11-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/83091
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Do not build a variant
+	type for the implementation type of a packed array.
+
+2017-11-23  Mike Stump  <mikestump@comcast.net>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gnat_gimplify_stmt) <LOOP_STMT>: Pass 3rd
+	operand to ANNOTATE_EXPR and also pass unrolling hints.
+
+2017-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/83016
+	* gnatlink.adb (Process_Args): Accept multiple switches for --LINK.
+	(Usage): Adjust.
+	* gcc-interface/Makefile.in (GCC_LINK): Remove $(ADA_INCLUDES).
+	(common-tools): Pass $(CC) as --GCC= and $(GCC_LINK) as --LINK= in
+	the invocations of $(GNATLINK).
+	(../../gnatdll$(exeext)): Likewise.
+	(../../vxaddr2line$(exeext)): Likewise.
+	(gnatmake-re): Likewise.
+	(gnatlink-re): Likewise.
+
+2017-11-16  Doug Rupp  <rupp@adacore.com>
+
+	* gcc-interface/Makefile.in: Merge Aarch64 and ARM "ifeq" blocks.
+
+2017-11-16  Steve Baird  <baird@adacore.com>
+
+	* debug.adb: Update another comment to indicate gnat2scil's use of the
+	-gnatd.7 switch.
+
+2017-11-16  Bob Duff  <duff@adacore.com>
+
+	* exp_ch6.adb (Expand_Call_Helper): Avoid creating a transient scope in
+	the case of nested build-in-place calls.
+
+2017-11-16  Joel Brobecker  <brobecker@adacore.com>
+
+	* doc/gnat_ugn/gnat_utility_programs.rst: Document the switches
+	available in gnatsymbolize.
+
+2017-11-16  Steve Baird  <baird@adacore.com>
+
+	* debug.adb: Update comment to indicate gnat2scil's use of the -gnatd.7
+	switch.
+
+2017-11-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* doc/gnat_ugn/elaboration_order_handling_in_gnat.rst, sem_ch6.adb,
+	sem_elab.adb: Minor editorial corrections.
+	* gnat_ugn.texi: Regenerate.
+
+2017-11-16  Joel Brobecker  <brobecker@adacore.com>
+
+	* doc/gnat_ugn/gnat_utility_programs.rst (GNAT UGN): Add
+	gnatsymbolize documentation.
+	* gnat_ugn.texi: Regenerate.
+
+2017-11-16  Steve Baird  <baird@adacore.com>
+
+	* sem_ch3.adb (Build_Derived_Record_Type): Replace all uses of
+	"Scope (Parent_Type)" with "Scope (Parent_Base)".
+
+2017-11-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* opt.ads: Elaboration warnings are now on by default. Add a comment
+	explaining why this is needed.
+	* sem_ch9.adb (Analyze_Requeue): Preserve the status of elaboration
+	warnings.
+	* sem_ch12.adb (Analyze_Package_Instantiation): Preserve the status of
+	elaboration warnings.
+	(Analyze_Subprogram_Instantiation): Preserve the status of elaboration
+	warnings.
+	* sem_elab.adb: Update the structure of Call_Attributes and
+	Instantiation_Attributes.
+	(Build_Call_Marker): Propagate the status of elaboration warnings from
+	the call to the marker.
+	(Extract_Call_Attributes): Extract the status of elaboration warnings.
+	(Extract_Instantiation_Attributes): Extract the status of elaboration
+	warnings.
+	(Process_Conditional_ABE_Activation_Impl): Elaboration diagnostics are
+	now dependent on the status of elaboration warnings.
+	(Process_Conditional_ABE_Call_Ada): Elaboration diagnostics are now
+	dependent on the status of elaboration warnings.
+	(Process_Conditional_ABE_Instantiation_Ada): Elaboration diagnostics
+	are now dependent on the status of elaboration warnings.
+	(Process_Guaranteed_ABE_Activation_Impl): Remove pragma Unreferenced
+	for formal Call_Attrs. Elaboration diagnostics are now dependent on the
+	status of elaboration warnings.
+	(Process_Guaranteed_ABE_Call): Elaboration diagnostics are now
+	dependent on the status of elaboration warnings.
+	(Process_Guaranteed_ABE_Instantiation): Elaboration diagnostics are now
+	dependent on the status of elaboration warnings.
+	* sem_prag.adb (Analyze_Pragma): Remove the unjustified warning
+	concerning pragma Elaborate.
+	* sem_res.adb (Resolve_Call): Preserve the status of elaboration
+	warnings.
+	(Resolve_Entry_Call): Propagate flag Is_Elaboration_Warnings_OK_Node
+	from the procedure call to the entry call.
+	* sem_util.adb (Mark_Elaboration_Attributes): Add formal parameter
+	Warnings.
+	(Mark_Elaboration_Attributes_Node): Preserve the status of elaboration
+	warnings
+	* sem_util.ads (Mark_Elaboration_Attributes): Add formal parameter
+	Warnings. Update the comment on usage.
+	* sinfo.adb (Is_Dispatching_Call): Update to use Flag6.
+	(Is_Elaboration_Warnings_OK_Node): New routine.
+	(Set_Is_Dispatching_Call): Update to use Flag6.
+	(Set_Is_Elaboration_Warnings_OK_Node): New routine.
+	* sinfo.ads: Attribute Is_Dispatching_Call now uses Flag6. Add new
+	attribute Is_Elaboration_Warnings_OK_Node along with occurrences
+	in nodes.
+	(Is_Elaboration_Warnings_OK_Node): New routine along with pragma
+	Inline.
+	(Set_Is_Elaboration_Warnings_OK_Node): New routine along with pragma
+	Inline.
+	* doc/gnat_ugn/elaboration_order_handling_in_gnat.rst: Update various
+	sections to indicate how to suppress elaboration warnings.  Document
+	switches -gnatwl and -gnatwL.
+	* gnat_ugn.texi: Regenerate.
+
+2017-11-16  Sylvain Dailler  <dailler@adacore.com>
+
+	* sem_util.adb (Get_Enum_Lit_From_Pos): Add a condition for Pos
+	lower than 0.
+
+2017-11-16  Bob Duff  <duff@adacore.com>
+
+	* sem_ch13.adb (Check_Expr_Constants): Avoid error message in case of
+	System'To_Address.
+
+2017-11-16  Yannick Moy  <moy@adacore.com>
+
+	* sem_elab.adb (Include): Fix mode of parameter Curr to out.
+
+2017-11-16  Piotr Trojanek  <trojanek@adacore.com>
+
+	* sem_util.ads, sem_util.adb (Is_CCT_Instance): Allow calls where
+	Context_Id denotes a record type.
+
+2017-11-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch8.adb (Check_SPARK_Primitive_Operation): Enable the check in
+	instantiations.
+
+2017-11-16  Doug Rupp  <rupp@adacore.com>
+
+	Initial gnat port to aarch64-wrs-vxworks7
+	* libgnarl/s-vxwork__aarch64.ads,
+	libgnat/system-vxworks7-aarch64-rtp-smp.ads,
+	libgnat/system-vxworks7-aarch64.ads: New files
+	* sigtramp-vxworks-target.inc (aarch64): New section.
+	* tracebak.c (USE_ARM_UNWINDING): Disable for ARMARCH8A.
+
+2017-11-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_elab.adb (Include): Including a node which is also a compilation
+	unit terminates the search because there are no more lists to examine.
+
+2017-11-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch8.adb (Analyze_Subprogram_Renaming): Ensure that a renaming
+	declaration does not define a primitive operation of a tagged type for
+	SPARK.
+	(Check_SPARK_Primitive_Operation): New routine.
+
+2017-11-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* libgnat/a-elchha.adb (Last_Chance_Handler): Display Argv (0) in
+	message when using -E binder switch.
+
+2017-11-16  Piotr Trojanek  <trojanek@adacore.com>
+
+	* errout.ads: Fix minor typo in comment.
+
+2017-11-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Process_Subtype): If the subtype indication does not
+	syntactically denote a type, return Any_Type to prevent subsequent
+	compiler crashes or infinite loops.
+
+2017-11-16  Steve Baird  <baird@adacore.com>
+
+	* lib-writ.adb: Fix bug which causes Program_Error to be raised in some
+	cases when writing out a .ali file when a Rename_Pragma pragma is in
+	effect.
+	* lib-writ.adb (Write_Unit_Information): Replace call to
+	Pragma_Name_Unmapped with call to Pragma_Name.
+
+2017-11-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_elab.adb: Minor typo fixes.
+
+2017-11-16  Justin Squirek  <squirek@adacore.com>
+
+	* sem_res.adb (Resolve_Allocator): Correct warning messages and make
+	them more explicit.
+
+2017-11-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* atree.ads (Nkind_In): Add 10 and 11 parameter versions.
+	* checks.adb (Install_Primitive_Elaboration_Check): Mark the setting of
+	the elaboration flag as elaboration code.
+	* einfo.adb (Contract): Update the comments.
+	(Ignore_SPARK_Mode_Pragmas): Update the comments.
+	(SPARK_Aux_Pragma): Update the comments.
+	(SPARK_Aux_Pragma_Inherited): Update the comments.
+	(SPARK_Pragma): Update the comments. The attribute now applies
+	to all types and abstract states.
+	(SPARK_Pragma_Inherited): Update the comments. The attribute now
+	applies to all types and abstract states.
+	(Set_Contract): Update the comments.
+	(Set_Ignore_SPARK_Mode_Pragmas): Update the comments.
+	(Set_SPARK_Aux_Pragma): Update the comments.
+	(Set_SPARK_Aux_Pragma_Inherited): Update the comments.
+	(Set_SPARK_Pragma): Update the comments. The attribute now applies to
+	all types and abstract states.
+	(Set_SPARK_Pragma_Inherited): Update the comments. The attribute now
+	applies to all types and abstract states.
+	(Write_Field40_Name): Add output for SPARK_Pragma when it appears on a
+	type and abstract states.
+	* einfo.ads: Update the documentation of attributes SPARK_Pragma and
+	SPARK_Pragma_Inherited.  Both of them now apply to all types and
+	abstract states.
+	* exp_util.adb (Set_Elaboration_Flag): Mark the setting of the
+	elaboration flag as elaboration code.
+	* sem_ch3.adb: Add with and use clauses for Sem_Elab.
+	(Analyze_Full_Type_Declaration): Set the SPARK_Mode of the type. Record
+	a derived type for later processing by the ABE mechanism.
+	(Analyze_Incomplete_Type_Decl): Set the SPARK_Mode of the type.
+	(Analyze_Private_Extension_Declaration): Set the SPARK_Mode of the
+	type.
+	* sem_ch7.adb (Analyze_Private_Type_Declaration): Set the SPARK_Mode of
+	the type.
+	* sem_elab.adb: Define the term "early call region".  Update the
+	terminology for "scenario" and "target".  Update the architecture of
+	the ABE mechanism.  Update the steps which must be taken when adding a
+	new scenario.  Update the section on debugging ABE issues.  Add new
+	hash tables Early_Call_Regions and Recorded_SPARK_Scenarios.  Add new
+	table SPARK_Scenarios.  Hash table Elaboration_Context is now
+	Elaboration_Statuses.  The majority of Process_xxx routines have been
+	updated to better reflect their role.
+	(Add_Unit): Reimplemented.
+	(Check_Elaboration_Constituent): New routine.
+	(Check_Elaboration_Scenarios): Verify previously recorded scenarios for
+	conditional ABE issues. Verify previously recorded SPARK scenarios.
+	(Check_SPARK_Derived_Type): New routine.
+	(Check_SPARK_Instantiation): New routine.
+	(Check_SPARK_Scenario): New routine.
+	(Check_SPARK_Refined_State_Pragma): New routine.
+	(Early_Call_Region): New routine.
+	(Elaboration_Status): New routine.
+	(Ensure_Prior_Elaboration): Add new formal parameter Prag_Nam. The
+	implicit Elabotate[_All] pragma is now specified via Prag_Nam.
+	(Find_Early_Call_Region): New routine.
+	(Info_Scenario): Add output for refinement constituents.
+	(Is_Recorded_SPARK_Scenario): New routine.
+	(Is_Suitable_SPARK_Derived_Type): New routine.
+	(Is_Suitable_SPARK_Instantiation): New routine.
+	(Is_Suitable_SPARK_Refined_State_Pragma): New routine.
+	(Is_Visited_Body): New routine.
+	(Kill_Elaboration_Scenario): Reimplemented.
+	(Output_Active_Scenarios): Add output for pragma Refined_State.
+	(Output_SPARK_Refined_State_Pragma): New routine.
+	(Process_Conditional_ABE_Call): Remove the use of -gnatd.v. The effect
+	is now achieved by different means.
+	(Process_Conditional_ABE_Call_SPARK): Verify that a call which precedes
+	the subprogram body appears within the early call region of the body.
+	Either ensure the prior elaboration of external subprograms or verify
+	that the context meets the suitable elaboration requirement.
+	(Process_Conditional_ABE_Instantiation_SPARK): New routine.
+	(Record_Elaboration_Scenario): Reimplement the portion which enforces
+	the level restrictions of the static model. Add support for SPARK
+	scenarios.
+	(Record_SPARK_Elaboration_Scenario): New routine.
+	(Reset_Visited_Bodies): New routine.
+	(Set_Early_Call_Region): New routine.
+	(Set_Elaboration_Status): New routine.
+	(Set_Is_Recorded_SPARK_Scenario): New routine.
+	(Update_Elaboration_Scenario): Reimplemented.
+	* sem_elab.ads: Add new subtype Library_Or_Instantiation_Level.
+	* sem_prag.adb (Analyze_Refined_State_In_Decl_Part): Save the pragma
+	for examination by the ABE Processing phase.
+	(Create_Abstract_State): Save the SPARK_Mode from the context.
+	* sem_util.adb (Is_Non_Preelaborable_Construct): New routine.
+	* sem_util.ads (Is_Non_Preelaborable_Construct): New routine.
+	* sinfo.adb (Is_Elaboration_Code): New routine.
+	(Set_Is_Elaboration_Code): New routine.
+	(Nkind_In): Add 10 and 11 parameter versions.
+	* sinfo.ads: Add new attribute Is_Elaboration_Code along with
+	occurrences in nodes.
+	(Is_Elaboration_Code): New routine along with pragma Inline.
+	(Set_Is_Elaboration_Code): New routine along with pragma Inline.
+	(Nkind_In): Add 10 and 11 parameter versions.
+
+2017-11-16  Justin Squirek  <squirek@adacore.com>
+
+	* sem.adb (Analyze): Remove requirement that the original node of N be
+	an operator in the case that analysis on the node yields the relevant
+	operator - so prefer it instead.
+
+2017-11-16  Bob Duff  <duff@adacore.com>
+
+	* sem_ch6.adb (Create_Extra_Formals): The type of the BIP_Object_Access
+	formal must not have a designated type that is the full view coming
+	from a limited-with'ed package.
+	* sem_util.adb,sem_util.ads (Incomplete_View_From_Limited_With): New
+	function called from sem_ch6.
+	* sem_ch5.adb (Analyze_Assignment): Treat user-defined concatenation
+	specially for b-i-p cases.
+
+2017-11-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/81117
+	* adadecode.c (__gnat_decode): Use memcpy instead of strncpy.
+	* argv.c (__gnat_fill_arg, __gnat_fill_env): Likewise.
+
+2017-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (convert) <RECORD_TYPE>: Add comment and do
+	not fall through to the next case.
+	<ARRAY_TYPE>: Deal specially with a dereference from another array
+	type with the same element type.
+
 2017-11-09  Gary Dismukes  <dismukes@adacore.com>
 
 	* exp_util.adb, freeze.adb: Minor reformatting.

@@ -142,6 +142,7 @@ const struct processor_costs *ix86_cost = NULL;
 #define m_KNL (1U<<PROCESSOR_KNL)
 #define m_KNM (1U<<PROCESSOR_KNM)
 #define m_SKYLAKE_AVX512 (1U<<PROCESSOR_SKYLAKE_AVX512)
+#define m_CANNONLAKE (1U<<PROCESSOR_CANNONLAKE)
 #define m_INTEL (1U<<PROCESSOR_INTEL)
 
 #define m_GEODE (1U<<PROCESSOR_GEODE)
@@ -853,7 +854,8 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {"silvermont", &slm_cost, 16, 15, 16, 7, 16},
   {"knl", &slm_cost, 16, 15, 16, 7, 16},
   {"knm", &slm_cost, 16, 15, 16, 7, 16},
-  {"skylake-avx512", &core_cost, 16, 10, 16, 10, 16},
+  {"skylake-avx512", &skylake_cost, 16, 10, 16, 10, 16},
+  {"cannonlake", &core_cost, 16, 10, 16, 10, 16},
   {"intel", &intel_cost, 16, 15, 16, 7, 16},
   {"geode", &geode_cost, 0, 0, 0, 0, 0},
   {"k6", &k6_cost, 32, 7, 32, 7, 32},
@@ -875,7 +877,7 @@ rest_of_handle_insert_vzeroupper (void)
   int i;
 
   /* vzeroupper instructions are inserted immediately after reload to
-     account for possible spills from 256bit registers.  The pass
+     account for possible spills from 256bit or 512bit registers.  The pass
      reuses mode switching infrastructure by re-running mode insertion
      pass, so disable entities that have already been processed.  */
   for (i = 0; i < MAX_386_ENTITIES; i++)
@@ -2497,7 +2499,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_AVX && !TARGET_AVX512F
+      return TARGET_AVX
 	     && TARGET_VZEROUPPER && flag_expensive_optimizations
 	     && !optimize_size;
     }
@@ -2744,6 +2746,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
   static struct ix86_target_opts isa2_opts[] =
   {
     { "-mmpx",		OPTION_MASK_ISA_MPX },
+    { "-mavx512vbmi2",	OPTION_MASK_ISA_AVX512VBMI2 },
     { "-mrdpid",	OPTION_MASK_ISA_RDPID },
     { "-msgx",		OPTION_MASK_ISA_SGX },
     { "-mavx5124vnniw", OPTION_MASK_ISA_AVX5124VNNIW },
@@ -2846,15 +2849,13 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
     { "-mstv",				MASK_STV },
     { "-mavx256-split-unaligned-load",	MASK_AVX256_SPLIT_UNALIGNED_LOAD },
     { "-mavx256-split-unaligned-store",	MASK_AVX256_SPLIT_UNALIGNED_STORE },
-    { "-mprefer-avx128",		MASK_PREFER_AVX128 },
     { "-mcall-ms2sysv-xlogues",		MASK_CALL_MS2SYSV_XLOGUES }
   };
 
   /* Additional flag options.  */
   static struct ix86_target_opts flag2_opts[] =
   {
-    { "-mgeneral-regs-only",		OPTION_MASK_GENERAL_REGS_ONLY },
-    { "-mprefer-avx256",		OPTION_MASK_PREFER_AVX256 },
+    { "-mgeneral-regs-only",		OPTION_MASK_GENERAL_REGS_ONLY }
   };
 
   const char *opts[ARRAY_SIZE (isa_opts) + ARRAY_SIZE (isa2_opts)
@@ -3279,7 +3280,7 @@ parse_mtune_ctrl_str (bool dump)
             }
         }
       if (i == X86_TUNE_LAST)
-        error ("Unknown parameter to option -mtune-ctrl: %s",
+        error ("unknown parameter to option -mtune-ctrl: %s",
                clear ? curr_feature_string - 1 : curr_feature_string);
       curr_feature_string = next_feature_string;
     }
@@ -3445,6 +3446,8 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_SKYLAKE_AVX512 \
   (PTA_SKYLAKE | PTA_AVX512F | PTA_AVX512CD | PTA_AVX512VL \
    | PTA_AVX512BW | PTA_AVX512DQ | PTA_PKU)
+#define PTA_CANNONLAKE \
+  (PTA_SKYLAKE_AVX512 | PTA_AVX512VBMI | PTA_AVX512IFMA | PTA_SHA | PTA_CLWB)
 #define PTA_KNL \
   (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
@@ -3517,7 +3520,9 @@ ix86_option_override_internal (bool main_args_p,
       {"core-avx2", PROCESSOR_HASWELL, CPU_HASWELL, PTA_HASWELL},
       {"broadwell", PROCESSOR_HASWELL, CPU_HASWELL, PTA_BROADWELL},
       {"skylake", PROCESSOR_HASWELL, CPU_HASWELL, PTA_SKYLAKE},
-      {"skylake-avx512", PROCESSOR_HASWELL, CPU_HASWELL, PTA_SKYLAKE_AVX512},
+      {"skylake-avx512", PROCESSOR_SKYLAKE_AVX512, CPU_HASWELL,
+        PTA_SKYLAKE_AVX512},
+      {"cannonlake", PROCESSOR_HASWELL, CPU_HASWELL, PTA_CANNONLAKE},
       {"bonnell", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
@@ -4666,7 +4671,8 @@ ix86_option_override_internal (bool main_args_p,
   if (TARGET_SEH && TARGET_CALL_MS2SYSV_XLOGUES)
     sorry ("-mcall-ms2sysv-xlogues isn%'t currently supported with SEH");
 
-  if (!(opts_set->x_target_flags & MASK_VZEROUPPER))
+  if (!(opts_set->x_target_flags & MASK_VZEROUPPER)
+      && TARGET_EMIT_VZEROUPPER)
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
@@ -4684,11 +4690,18 @@ ix86_option_override_internal (bool main_args_p,
   if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_STORE_OPTIMAL]
       && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_STORE))
     opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
+
   /* Enable 128-bit AVX instruction generation
      for the auto-vectorizer.  */
   if (TARGET_AVX128_OPTIMAL
-      && !(opts_set->x_target_flags & MASK_PREFER_AVX128))
-    opts->x_target_flags |= MASK_PREFER_AVX128;
+      && (opts_set->x_prefer_vector_width_type == PVW_NONE))
+    opts->x_prefer_vector_width_type = PVW_AVX128;
+
+  /* Use 256-bit AVX instruction generation
+     in the auto-vectorizer.  */
+  if (ix86_tune_features[X86_TUNE_AVX256_OPTIMAL]
+      && (opts_set->x_prefer_vector_width_type == PVW_NONE))
+    opts->x_prefer_vector_width_type = PVW_AVX256;
 
   if (opts->x_ix86_recip_name)
     {
@@ -5242,6 +5255,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx5124fmaps", OPT_mavx5124fmaps),
     IX86_ATTR_ISA ("avx5124vnniw", OPT_mavx5124vnniw),
     IX86_ATTR_ISA ("avx512vpopcntdq", OPT_mavx512vpopcntdq),
+    IX86_ATTR_ISA ("avx512vbmi2", OPT_mavx512vbmi2),
 
     IX86_ATTR_ISA ("avx512vbmi", OPT_mavx512vbmi),
     IX86_ATTR_ISA ("avx512ifma", OPT_mavx512ifma),
@@ -7187,6 +7201,26 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
   cum->bnds_in_bt = 0;
   cum->force_bnd_pass = 0;
   cum->decl = fndecl;
+
+  cum->warn_empty = !warn_abi || cum->stdarg;
+  if (!cum->warn_empty && fntype)
+    {
+      function_args_iterator iter;
+      tree argtype;
+      bool seen_empty_type = false;
+      FOREACH_FUNCTION_ARGS (fntype, argtype, iter)
+	{
+	  if (VOID_TYPE_P (argtype))
+	    break;
+	  if (TYPE_EMPTY_P (argtype))
+	    seen_empty_type = true;
+	  else if (seen_empty_type)
+	    {
+	      cum->warn_empty = true;
+	      break;
+	    }
+	}
+    }
 
   if (!TARGET_64BIT)
     {
@@ -9875,7 +9909,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, false);
   if (indirect_p)
     type = build_pointer_type (type);
-  size = int_size_in_bytes (type);
+  size = arg_int_size_in_bytes (type);
   rsize = CEIL (size, UNITS_PER_WORD);
 
   nat_mode = type_natural_mode (type, NULL, false);
@@ -13952,7 +13986,9 @@ ix86_expand_epilogue (int style)
 		 offset relative to SA, and after this insn we have no
 		 other reasonable register to use for the CFA.  We don't
 		 bother resetting the CFA to the SP for the duration of
-		 the return insn.  */
+		 the return insn, unless the control flow instrumentation
+		 is done.  In this case the SP is used later and we have
+		 to reset CFA to SP.  */
 	      add_reg_note (insn, REG_CFA_DEF_CFA,
 			    plus_constant (Pmode, sa, UNITS_PER_WORD));
 	      ix86_add_queued_cfa_restore_notes (insn);
@@ -13964,7 +14000,8 @@ ix86_expand_epilogue (int style)
 	      m->fs.fp_valid = false;
 
 	      pro_epilogue_adjust_stack (stack_pointer_rtx, sa,
-					 const0_rtx, style, false);
+					 const0_rtx, style,
+					 flag_cf_protection);
 	    }
 	  else
 	    {
@@ -14148,7 +14185,32 @@ ix86_expand_epilogue (int style)
 	emit_jump_insn (gen_simple_return_pop_internal (popc));
     }
   else if (!m->call_ms2sysv || !restore_stub_is_tail)
-    emit_jump_insn (gen_simple_return_internal ());
+    {
+      /* In case of return from EH a simple return cannot be used
+	 as a return address will be compared with a shadow stack
+	 return address.  Use indirect jump instead.  */
+      if (style == 2 && flag_cf_protection)
+	{
+	  /* Register used in indirect jump must be in word_mode.  But
+	     Pmode may not be the same as word_mode for x32.  */
+	  rtx ecx = gen_rtx_REG (word_mode, CX_REG);
+	  rtx_insn *insn;
+
+	  insn = emit_insn (gen_pop (ecx));
+	  m->fs.cfa_offset -= UNITS_PER_WORD;
+	  m->fs.sp_offset -= UNITS_PER_WORD;
+
+	  rtx x = plus_constant (Pmode, stack_pointer_rtx, UNITS_PER_WORD);
+	  x = gen_rtx_SET (stack_pointer_rtx, x);
+	  add_reg_note (insn, REG_CFA_ADJUST_CFA, x);
+	  add_reg_note (insn, REG_CFA_REGISTER, gen_rtx_SET (ecx, pc_rtx));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+
+	  emit_jump_insn (gen_simple_return_indirect_internal (ecx));
+	}
+      else
+	emit_jump_insn (gen_simple_return_internal ());
+    }
 
   /* Restore the state back to the state from the prologue,
      so that it's correct for the next epilogue.  */
@@ -18640,16 +18702,17 @@ ix86_dirflag_mode_needed (rtx_insn *insn)
   return X86_DIRFLAG_ANY;
 }
 
-/* Check if a 256bit AVX register is referenced inside of EXP.   */
+/* Check if a 256bit or 512 bit AVX register is referenced inside of EXP.   */
 
 static bool
-ix86_check_avx256_register (const_rtx exp)
+ix86_check_avx_upper_register (const_rtx exp)
 {
   if (SUBREG_P (exp))
     exp = SUBREG_REG (exp);
 
   return (REG_P (exp)
-	  && VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp)));
+	&& (VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp))
+	|| VALID_AVX512F_REG_OR_XI_MODE (GET_MODE (exp))));
 }
 
 /* Return needed mode for entity in optimize_mode_switching pass.  */
@@ -18662,7 +18725,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       rtx link;
 
       /* Needed mode is set to AVX_U128_CLEAN if there are
-	 no 256bit modes used in function arguments.  */
+	 no 256bit or 512bit modes used in function arguments. */
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
 	   link;
 	   link = XEXP (link, 1))
@@ -18671,7 +18734,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
 	    {
 	      rtx arg = XEXP (XEXP (link, 0), 0);
 
-	      if (ix86_check_avx256_register (arg))
+	      if (ix86_check_avx_upper_register (arg))
 		return AVX_U128_DIRTY;
 	    }
 	}
@@ -18679,13 +18742,13 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       return AVX_U128_CLEAN;
     }
 
-  /* Require DIRTY mode if a 256bit AVX register is referenced.  Hardware
-     changes state only when a 256bit register is written to, but we need
-     to prevent the compiler from moving optimal insertion point above
-     eventual read from 256bit register.  */
+  /* Require DIRTY mode if a 256bit or 512bit AVX register is referenced.
+     Hardware changes state only when a 256bit register is written to,
+     but we need to prevent the compiler from moving optimal insertion
+     point above eventual read from 256bit or 512 bit register.  */
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
-    if (ix86_check_avx256_register (*iter))
+    if (ix86_check_avx_upper_register (*iter))
       return AVX_U128_DIRTY;
 
   return AVX_U128_ANY;
@@ -18767,12 +18830,12 @@ ix86_mode_needed (int entity, rtx_insn *insn)
   return 0;
 }
 
-/* Check if a 256bit AVX register is referenced in stores.   */
+/* Check if a 256bit or 512bit AVX register is referenced in stores.   */
  
 static void
-ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
+ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
  {
-   if (ix86_check_avx256_register (dest))
+   if (ix86_check_avx_upper_register (dest))
     {
       bool *used = (bool *) data;
       *used = true;
@@ -18791,18 +18854,18 @@ ix86_avx_u128_mode_after (int mode, rtx_insn *insn)
     return AVX_U128_CLEAN;
 
   /* We know that state is clean after CALL insn if there are no
-     256bit registers used in the function return register.  */
+     256bit or 512bit registers used in the function return register. */
   if (CALL_P (insn))
     {
-      bool avx_reg256_found = false;
-      note_stores (pat, ix86_check_avx256_stores, &avx_reg256_found);
+      bool avx_upper_reg_found = false;
+      note_stores (pat, ix86_check_avx_upper_stores, &avx_upper_reg_found);
 
-      return avx_reg256_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
+      return avx_upper_reg_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
     }
 
   /* Otherwise, return current mode.  Remember that if insn
-     references AVX 256bit registers, the mode was already changed
-     to DIRTY from MODE_NEEDED.  */
+     references AVX 256bit or 512bit registers, the mode was already
+     changed to DIRTY from MODE_NEEDED.  */
   return mode;
 }
 
@@ -18845,13 +18908,13 @@ ix86_avx_u128_mode_entry (void)
   tree arg;
 
   /* Entry mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in function arguments.  */
+     256bit or 512bit modes used in function arguments.  */
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
     {
       rtx incoming = DECL_INCOMING_RTL (arg);
 
-      if (incoming && ix86_check_avx256_register (incoming))
+      if (incoming && ix86_check_avx_upper_register (incoming))
 	return AVX_U128_DIRTY;
     }
 
@@ -18885,9 +18948,9 @@ ix86_avx_u128_mode_exit (void)
 {
   rtx reg = crtl->return_rtx;
 
-  /* Exit mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in the function return register.  */
-  if (reg && ix86_check_avx256_register (reg))
+  /* Exit mode is set to AVX_U128_DIRTY if there are 256bit
+     or 512 bit modes used in the function return register. */
+  if (reg && ix86_check_avx_upper_register (reg))
     return AVX_U128_DIRTY;
 
   return AVX_U128_CLEAN;
@@ -28810,6 +28873,46 @@ ix86_constant_alignment (const_tree exp, HOST_WIDE_INT align)
   return align;
 }
 
+/* Implement TARGET_EMPTY_RECORD_P.  */
+
+static bool
+ix86_is_empty_record (const_tree type)
+{
+  if (!TARGET_64BIT)
+    return false;
+  return default_is_empty_record (type);
+}
+
+/* Implement TARGET_WARN_PARAMETER_PASSING_ABI.  */
+
+static void
+ix86_warn_parameter_passing_abi (cumulative_args_t cum_v, tree type)
+{
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
+  if (!cum->warn_empty)
+    return;
+
+  if (!TYPE_EMPTY_P (type))
+    return;
+
+  const_tree ctx = get_ultimate_context (cum->decl);
+  if (ctx != NULL_TREE
+      && !TRANSLATION_UNIT_WARN_EMPTY_P (ctx))
+    return;
+
+  /* If the actual size of the type is zero, then there is no change
+     in how objects of this size are passed.  */
+  if (int_size_in_bytes (type) == 0)
+    return;
+
+  warning (OPT_Wabi, "empty class %qT parameter passing ABI "
+	   "changes in -fabi-version=12 (GCC 8)", type);
+
+  /* Only warn once.  */
+  cum->warn_empty = false;
+}
+
 /* Compute the alignment for a variable for Intel MCU psABI.  TYPE is
    the data type, and ALIGN is the alignment that the object would
    ordinarily have.  */
@@ -30065,8 +30168,10 @@ BDESC_VERIFYS (IX86_BUILTIN__BDESC_ROUND_ARGS_FIRST,
 	       IX86_BUILTIN__BDESC_ARGS_LAST, 1);
 BDESC_VERIFYS (IX86_BUILTIN__BDESC_ARGS2_FIRST,
 	       IX86_BUILTIN__BDESC_ROUND_ARGS_LAST, 1);
-BDESC_VERIFYS (IX86_BUILTIN__BDESC_MPX_FIRST,
+BDESC_VERIFYS (IX86_BUILTIN__BDESC_SPECIAL_ARGS2_FIRST,
 	       IX86_BUILTIN__BDESC_ARGS2_LAST, 1);
+BDESC_VERIFYS (IX86_BUILTIN__BDESC_MPX_FIRST,
+	       IX86_BUILTIN__BDESC_SPECIAL_ARGS2_LAST, 1);
 BDESC_VERIFYS (IX86_BUILTIN__BDESC_MPX_CONST_FIRST,
 	       IX86_BUILTIN__BDESC_MPX_LAST, 1);
 BDESC_VERIFYS (IX86_BUILTIN__BDESC_MULTI_ARG_FIRST,
@@ -30126,12 +30231,31 @@ ix86_init_mmx_sse_builtins (void)
        i < ARRAY_SIZE (bdesc_args2);
        i++, d++)
     {
+      BDESC_VERIFY (d->code, IX86_BUILTIN__BDESC_ARGS2_FIRST, i);
       if (d->name == 0)
 	continue;
 
       ftype = (enum ix86_builtin_func_type) d->flag;
       def_builtin_const2 (d->mask, d->name, ftype, d->code);
     }
+  BDESC_VERIFYS (IX86_BUILTIN__BDESC_ARGS2_LAST,
+		 IX86_BUILTIN__BDESC_ARGS2_FIRST,
+		 ARRAY_SIZE (bdesc_args2) - 1);
+  
+  for (i = 0, d = bdesc_special_args2;
+       i < ARRAY_SIZE (bdesc_special_args2);
+       i++, d++)
+    {
+      BDESC_VERIFY (d->code, IX86_BUILTIN__BDESC_SPECIAL_ARGS2_FIRST, i);
+       if (d->name == 0)
+	 continue;
+
+	ftype = (enum ix86_builtin_func_type) d->flag;
+	def_builtin2 (d->mask, d->name, ftype, d->code);
+    }
+  BDESC_VERIFYS (IX86_BUILTIN__BDESC_SPECIAL_ARGS2_LAST,
+		 IX86_BUILTIN__BDESC_SPECIAL_ARGS2_FIRST,
+		 ARRAY_SIZE (bdesc_special_args2) - 1);
 
   /* Add all builtins with rounding.  */
   for (i = 0, d = bdesc_round_args;
@@ -31111,7 +31235,10 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      priority = P_PROC_AVX;
 	      break;
 	    case PROCESSOR_HASWELL:
-	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
+	    case PROCESSOR_SKYLAKE_AVX512:
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AVX512VBMI)
+		arg_str = "cannonlake";
+	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
 	        arg_str = "skylake-avx512";
 	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_XSAVES)
 	        arg_str = "skylake";
@@ -31833,7 +31960,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_INTEL_COREI7_HASWELL,
     M_INTEL_COREI7_BROADWELL,
     M_INTEL_COREI7_SKYLAKE,
-    M_INTEL_COREI7_SKYLAKE_AVX512
+    M_INTEL_COREI7_SKYLAKE_AVX512,
+    M_INTEL_COREI7_CANNONLAKE
   };
 
   static struct _arch_names_table
@@ -31857,6 +31985,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"broadwell", M_INTEL_COREI7_BROADWELL},
       {"skylake", M_INTEL_COREI7_SKYLAKE},
       {"skylake-avx512", M_INTEL_COREI7_SKYLAKE_AVX512},
+      {"cannonlake", M_INTEL_COREI7_CANNONLAKE},
       {"bonnell", M_INTEL_BONNELL},
       {"silvermont", M_INTEL_SILVERMONT},
       {"knl", M_INTEL_KNL},
@@ -33451,6 +33580,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V1DI_FTYPE_V2SI_V2SI:
     case V32QI_FTYPE_V16HI_V16HI:
     case V16HI_FTYPE_V8SI_V8SI:
+    case V64QI_FTYPE_V64QI_V64QI:
     case V32QI_FTYPE_V32QI_V32QI:
     case V16HI_FTYPE_V32QI_V32QI:
     case V16HI_FTYPE_V16HI_V16HI:
@@ -33698,6 +33828,13 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V8HI_FTYPE_V8DI_V8HI_UQI:
     case V8SI_FTYPE_V8DI_V8SI_UQI:
     case V4SI_FTYPE_V4SI_V4SI_V4SI:
+    case V16SI_FTYPE_V16SI_V16SI_V16SI:
+    case V8DI_FTYPE_V8DI_V8DI_V8DI:
+    case V32HI_FTYPE_V32HI_V32HI_V32HI:
+    case V2DI_FTYPE_V2DI_V2DI_V2DI:
+    case V16HI_FTYPE_V16HI_V16HI_V16HI:
+    case V8SI_FTYPE_V8SI_V8SI_V8SI:
+    case V8HI_FTYPE_V8HI_V8HI_V8HI:
       nargs = 3;
       break;
     case V32QI_FTYPE_V32QI_V32QI_INT:
@@ -33726,6 +33863,9 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case UHI_FTYPE_V16SI_V16SI_INT:
     case UHI_FTYPE_V16SF_V16SF_INT:
     case V64QI_FTYPE_V64QI_V64QI_INT:
+    case V32HI_FTYPE_V32HI_V32HI_INT:
+    case V16SI_FTYPE_V16SI_V16SI_INT:
+    case V8DI_FTYPE_V8DI_V8DI_INT:
       nargs = 3;
       nargs_constant = 1;
       break;
@@ -33856,6 +33996,15 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case USI_FTYPE_V32HI_V32HI_INT_USI:
     case UHI_FTYPE_V16HI_V16HI_INT_UHI:
     case UQI_FTYPE_V8HI_V8HI_INT_UQI:
+    case V32HI_FTYPE_V32HI_V32HI_V32HI_INT:
+    case V16HI_FTYPE_V16HI_V16HI_V16HI_INT:
+    case V8HI_FTYPE_V8HI_V8HI_V8HI_INT:
+    case V8SI_FTYPE_V8SI_V8SI_V8SI_INT:
+    case V4DI_FTYPE_V4DI_V4DI_V4DI_INT:
+    case V8DI_FTYPE_V8DI_V8DI_V8DI_INT:
+    case V16SI_FTYPE_V16SI_V16SI_V16SI_INT:
+    case V2DI_FTYPE_V2DI_V2DI_V2DI_INT:
+    case V4SI_FTYPE_V4SI_V4SI_V4SI_INT:
       nargs = 4;
       mask_pos = 1;
       nargs_constant = 1;
@@ -33956,6 +34105,15 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V64QI_FTYPE_V64QI_V64QI_INT_V64QI_UDI:
     case V32QI_FTYPE_V32QI_V32QI_INT_V32QI_USI:
     case V16QI_FTYPE_V16QI_V16QI_INT_V16QI_UHI:
+    case V32HI_FTYPE_V32HI_V32HI_INT_V32HI_INT:
+    case V16SI_FTYPE_V16SI_V16SI_INT_V16SI_INT:
+    case V8DI_FTYPE_V8DI_V8DI_INT_V8DI_INT:
+    case V16HI_FTYPE_V16HI_V16HI_INT_V16HI_INT:
+    case V8SI_FTYPE_V8SI_V8SI_INT_V8SI_INT:
+    case V4DI_FTYPE_V4DI_V4DI_INT_V4DI_INT:
+    case V8HI_FTYPE_V8HI_V8HI_INT_V8HI_INT:
+    case V4SI_FTYPE_V4SI_V4SI_INT_V4SI_INT:
+    case V2DI_FTYPE_V2DI_V2DI_INT_V2DI_INT:
       nargs = 5;
       mask_pos = 1;
       nargs_constant = 2;
@@ -34705,6 +34863,12 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case VOID_FTYPE_PV16SI_V16SI_UHI:
     case VOID_FTYPE_PV8SI_V8SI_UQI:
     case VOID_FTYPE_PV4SI_V4SI_UQI:
+    case VOID_FTYPE_PV64QI_V64QI_UDI:
+    case VOID_FTYPE_PV32HI_V32HI_USI:
+    case VOID_FTYPE_PV32QI_V32QI_USI:
+    case VOID_FTYPE_PV16QI_V16QI_UHI:
+    case VOID_FTYPE_PV16HI_V16HI_UHI:
+    case VOID_FTYPE_PV8HI_V8HI_UQI:
       switch (icode)
 	{
 	/* These builtins and instructions require the memory
@@ -34788,6 +34952,12 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case V2DI_FTYPE_PCV2DI_V2DI_UQI:
     case V4DI_FTYPE_PCV4DI_V4DI_UQI:
     case V8DI_FTYPE_PCV8DI_V8DI_UQI:
+    case V64QI_FTYPE_PCV64QI_V64QI_UDI:
+    case V32HI_FTYPE_PCV32HI_V32HI_USI:
+    case V32QI_FTYPE_PCV32QI_V32QI_USI:
+    case V16QI_FTYPE_PCV16QI_V16QI_UHI:
+    case V16HI_FTYPE_PCV16HI_V16HI_UHI:
+    case V8HI_FTYPE_PCV8HI_V8HI_UQI:
       switch (icode)
 	{
 	/* These builtins and instructions require the memory
@@ -35186,6 +35356,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	    & ix86_isa_flags))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_AVX512VL)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_AVX512VL))
+      || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_GFNI)
+	  && !(ix86_isa_flags & OPTION_MASK_ISA_GFNI))
       || ((ix86_builtins_isa[fcode].isa & OPTION_MASK_ISA_MMX)
 	  && !(ix86_isa_flags & OPTION_MASK_ISA_MMX))
       || (ix86_builtins_isa[fcode].isa2
@@ -37302,6 +37474,14 @@ s4fma_expand:
 	  }
     }
 
+  if (fcode >= IX86_BUILTIN__BDESC_SPECIAL_ARGS2_FIRST
+      && fcode <= IX86_BUILTIN__BDESC_SPECIAL_ARGS2_LAST)
+    {
+      i = fcode - IX86_BUILTIN__BDESC_SPECIAL_ARGS2_FIRST;
+      return ix86_expand_special_args_builtin (bdesc_special_args2 + i, exp,
+					       target);
+    }
+
   if (fcode >= IX86_BUILTIN__BDESC_COMI_FIRST
       && fcode <= IX86_BUILTIN__BDESC_COMI_LAST)
     {
@@ -39244,6 +39424,168 @@ ix86_vec_cost (machine_mode mode, int cost, bool parallel)
   return cost;
 }
 
+/* Return cost of multiplication in MODE.  */
+
+static int
+ix86_multiplication_cost (const struct processor_costs *cost,
+			  enum machine_mode mode)
+{
+  machine_mode inner_mode = mode;
+  if (VECTOR_MODE_P (mode))
+    inner_mode = GET_MODE_INNER (mode);
+
+  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+    return inner_mode == DFmode ? cost->mulsd : cost->mulss;
+  else if (X87_FLOAT_MODE_P (mode))
+    return cost->fmul;
+  else if (FLOAT_MODE_P (mode))
+    return  ix86_vec_cost (mode,
+			   inner_mode == DFmode
+			   ? cost->mulsd : cost->mulss, true);
+  else if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+    {
+      /* V*QImode is emulated with 7-13 insns.  */
+      if (mode == V16QImode || mode == V32QImode)
+	{
+	  int extra = 11;
+	  if (TARGET_XOP && mode == V16QImode)
+	    extra = 5;
+	  else if (TARGET_SSSE3)
+	    extra = 6;
+	  return ix86_vec_cost (mode,
+				cost->mulss * 2 + cost->sse_op * extra,
+				true);
+	}
+      /* V*DImode is emulated with 5-8 insns.  */
+      else if (mode == V2DImode || mode == V4DImode)
+	{
+	  if (TARGET_XOP && mode == V2DImode)
+	    return ix86_vec_cost (mode,
+				  cost->mulss * 2 + cost->sse_op * 3,
+				  true);
+	  else
+	    return ix86_vec_cost (mode,
+				  cost->mulss * 3 + cost->sse_op * 5,
+				  true);
+	}
+      /* Without sse4.1, we don't have PMULLD; it's emulated with 7
+	 insns, including two PMULUDQ.  */
+      else if (mode == V4SImode && !(TARGET_SSE4_1 || TARGET_AVX))
+	return ix86_vec_cost (mode, cost->mulss * 2 + cost->sse_op * 5,
+				true);
+      else
+	return ix86_vec_cost (mode, cost->mulss, true);
+    }
+  else
+    return (cost->mult_init[MODE_INDEX (mode)] + cost->mult_bit * 7);
+}
+
+/* Return cost of multiplication in MODE.  */
+
+static int
+ix86_division_cost (const struct processor_costs *cost,
+			  enum machine_mode mode)
+{
+  machine_mode inner_mode = mode;
+  if (VECTOR_MODE_P (mode))
+    inner_mode = GET_MODE_INNER (mode);
+
+  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+    return inner_mode == DFmode ? cost->divsd : cost->divss;
+  else if (X87_FLOAT_MODE_P (mode))
+    return cost->fdiv;
+  else if (FLOAT_MODE_P (mode))
+    return ix86_vec_cost (mode,
+			    inner_mode == DFmode ? cost->divsd : cost->divss,
+			    true);
+  else
+    return cost->divide[MODE_INDEX (mode)];
+}
+
+/* Return cost of shift in MODE.
+   If CONSTANT_OP1 is true, the op1 value is known and set in OP1_VAL.
+   AND_IN_OP1 specify in op1 is result of and and SHIFT_AND_TRUNCATE
+   if op1 is a result of subreg.
+
+   SKIP_OP0/1 is set to true if cost of OP0/1 should be ignored.  */
+
+static int
+ix86_shift_rotate_cost (const struct processor_costs *cost,
+			enum machine_mode mode, bool constant_op1,
+			HOST_WIDE_INT op1_val,
+			bool speed,
+			bool and_in_op1,
+			bool shift_and_truncate,
+			bool *skip_op0, bool *skip_op1)
+{
+  if (skip_op0)
+    *skip_op0 = *skip_op1 = false;
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+    {
+      /* V*QImode is emulated with 1-11 insns.  */
+      if (mode == V16QImode || mode == V32QImode)
+	{
+	  int count = 11;
+	  if (TARGET_XOP && mode == V16QImode)
+	    {
+	      /* For XOP we use vpshab, which requires a broadcast of the
+		 value to the variable shift insn.  For constants this
+		 means a V16Q const in mem; even when we can perform the
+		 shift with one insn set the cost to prefer paddb.  */
+	      if (constant_op1)
+		{
+		  if (skip_op1)
+		    *skip_op1 = true;
+		  return ix86_vec_cost (mode,
+			    cost->sse_op
+			    + (speed
+			       ? 2
+			       : COSTS_N_BYTES
+				 (GET_MODE_UNIT_SIZE (mode))), true);
+		}
+	      count = 3;
+	    }
+	  else if (TARGET_SSSE3)
+	    count = 7;
+	  return ix86_vec_cost (mode, cost->sse_op * count, true);
+	}
+      else
+	return ix86_vec_cost (mode, cost->sse_op, true);
+    }
+  if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+    {
+      if (constant_op1)
+	{
+	  if (op1_val > 32)
+	    return cost->shift_const + COSTS_N_INSNS (2);
+	  else
+	    return cost->shift_const * 2;
+	}
+      else
+	{
+	  if (and_in_op1)
+	    return cost->shift_var * 2;
+	  else
+	    return cost->shift_var * 6 + COSTS_N_INSNS (2);
+	}
+    }
+  else
+    {
+      if (constant_op1)
+	return cost->shift_const;
+      else if (shift_and_truncate)
+	{
+	  if (skip_op0)
+	    *skip_op0 = *skip_op1 = true;
+	  /* Return the cost after shift-and truncation.  */
+	  return cost->shift_var;
+	}
+      else
+	return cost->shift_var;
+    }
+  return cost->shift_const;
+}
+
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -39257,9 +39599,6 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
   enum rtx_code outer_code = (enum rtx_code) outer_code_i;
   const struct processor_costs *cost = speed ? ix86_cost : &ix86_size_cost;
   int src_cost;
-  machine_mode inner_mode = mode;
-  if (VECTOR_MODE_P (mode))
-    inner_mode = GET_MODE_INNER (mode);
 
   switch (code)
     {
@@ -39387,68 +39726,22 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
     case ASHIFTRT:
     case LSHIFTRT:
     case ROTATERT:
-      if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+      bool skip_op0, skip_op1;
+      *total = ix86_shift_rotate_cost (cost, mode, CONSTANT_P (XEXP (x, 1)),
+				       CONST_INT_P (XEXP (x, 1))
+					 ? INTVAL (XEXP (x, 1)) : -1,
+				       speed,
+				       GET_CODE (XEXP (x, 1)) == AND,
+				       SUBREG_P (XEXP (x, 1))
+				       && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND,
+				       &skip_op0, &skip_op1);
+      if (skip_op0 || skip_op1)
 	{
-	  /* ??? Should be SSE vector operation cost.  */
-	  /* At least for published AMD latencies, this really is the same
-	     as the latency for a simple fpu operation like fabs.  */
-	  /* V*QImode is emulated with 1-11 insns.  */
-	  if (mode == V16QImode || mode == V32QImode)
-	    {
-	      int count = 11;
-	      if (TARGET_XOP && mode == V16QImode)
-		{
-		  /* For XOP we use vpshab, which requires a broadcast of the
-		     value to the variable shift insn.  For constants this
-		     means a V16Q const in mem; even when we can perform the
-		     shift with one insn set the cost to prefer paddb.  */
-		  if (CONSTANT_P (XEXP (x, 1)))
-		    {
-		      *total = ix86_vec_cost (mode,
-				cost->sse_op
-				+ rtx_cost (XEXP (x, 0), mode, code, 0, speed)
-				+ (speed ? 2 : COSTS_N_BYTES (16)), true);
-		      return true;
-		    }
-		  count = 3;
-		}
-	      else if (TARGET_SSSE3)
-		count = 7;
-	      *total = ix86_vec_cost (mode, cost->sse_op * count, true);
-	    }
-	  else
-	    *total = ix86_vec_cost (mode, cost->sse_op, true);
-	}
-      else if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-	{
-	  if (CONST_INT_P (XEXP (x, 1)))
-	    {
-	      if (INTVAL (XEXP (x, 1)) > 32)
-		*total = cost->shift_const + COSTS_N_INSNS (2);
-	      else
-		*total = cost->shift_const * 2;
-	    }
-	  else
-	    {
-	      if (GET_CODE (XEXP (x, 1)) == AND)
-		*total = cost->shift_var * 2;
-	      else
-		*total = cost->shift_var * 6 + COSTS_N_INSNS (2);
-	    }
-	}
-      else
-	{
-	  if (CONST_INT_P (XEXP (x, 1)))
-	    *total = cost->shift_const;
-	  else if (SUBREG_P (XEXP (x, 1))
-		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
-	    {
-	      /* Return the cost after shift-and truncation.  */
-	      *total = cost->shift_var;
-	      return true;
-	    }
-	  else
-	    *total = cost->shift_var;
+	  if (!skip_op0)
+	    *total += rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+	  if (!skip_op1)
+	    *total += rtx_cost (XEXP (x, 1), mode, code, 0, speed);
+	  return true;
 	}
       return false;
 
@@ -39478,59 +39771,7 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
       }
 
     case MULT:
-      if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
-	{
-	  *total = inner_mode == DFmode ? cost->mulsd : cost->mulss;
-	  return false;
-	}
-      else if (X87_FLOAT_MODE_P (mode))
-	{
-	  *total = cost->fmul;
-	  return false;
-	}
-      else if (FLOAT_MODE_P (mode))
-	{
-	  *total = ix86_vec_cost (mode,
-				  inner_mode == DFmode
-				  ? cost->mulsd : cost->mulss, true);
-	  return false;
-	}
-      else if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
-	{
-	  /* V*QImode is emulated with 7-13 insns.  */
-	  if (mode == V16QImode || mode == V32QImode)
-	    {
-	      int extra = 11;
-	      if (TARGET_XOP && mode == V16QImode)
-		extra = 5;
-	      else if (TARGET_SSSE3)
-		extra = 6;
-	      *total = ix86_vec_cost (mode,
-				      cost->mulss * 2 + cost->sse_op * extra,
-				      true);
-	    }
-	  /* V*DImode is emulated with 5-8 insns.  */
-	  else if (mode == V2DImode || mode == V4DImode)
-	    {
-	      if (TARGET_XOP && mode == V2DImode)
-		*total = ix86_vec_cost (mode,
-					cost->mulss * 2 + cost->sse_op * 3,
-					true);
-	      else
-		*total = ix86_vec_cost (mode,
-					cost->mulss * 3 + cost->sse_op * 5,
-					true);
-	    }
-	  /* Without sse4.1, we don't have PMULLD; it's emulated with 7
-	     insns, including two PMULUDQ.  */
-	  else if (mode == V4SImode && !(TARGET_SSE4_1 || TARGET_AVX))
-	    *total = ix86_vec_cost (mode, cost->mulss * 2 + cost->sse_op * 5,
-				    true);
-	  else
-	    *total = ix86_vec_cost (mode, cost->mulss, true);
-	  return false;
-	}
-      else
+      if (!FLOAT_MODE_P (mode) && !VECTOR_MODE_P (mode))
 	{
 	  rtx op0 = XEXP (x, 0);
 	  rtx op1 = XEXP (x, 1);
@@ -39575,21 +39816,14 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
 
           return true;
 	}
+      *total = ix86_multiplication_cost (cost, mode);
+      return false;
 
     case DIV:
     case UDIV:
     case MOD:
     case UMOD:
-      if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
-	*total = inner_mode == DFmode ? cost->divsd : cost->divss;
-      else if (X87_FLOAT_MODE_P (mode))
-	*total = cost->fdiv;
-      else if (FLOAT_MODE_P (mode))
-	*total = ix86_vec_cost (mode,
-			        inner_mode == DFmode ? cost->divsd : cost->divss,
-				true);
-      else
-	*total = cost->divide[MODE_INDEX (mode)];
+      *total = ix86_division_cost (cost, mode);
       return false;
 
     case PLUS:
@@ -40472,7 +40706,8 @@ static void
 x86_print_call_or_nop (FILE *file, const char *target)
 {
   if (flag_nop_mcount)
-    fprintf (file, "1:\tnopl 0x00(%%eax,%%eax,1)\n"); /* 5 byte nop.  */
+    /* 5 byte nop: nopl 0(%[re]ax,%[re]ax,1) */
+    fprintf (file, "1:" ASM_BYTE "0x0f, 0x1f, 0x44, 0x00, 0x00\n");
   else
     fprintf (file, "1:\tcall\t%s\n", target);
 }
@@ -44532,13 +44767,18 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case vector_load:
 	index = sse_store_index (mode);
-	gcc_assert (index >= 0);
+	/* See PR82713 - we may end up being called on non-vector type.  */
+	if (index < 0)
+	  index = 2;
         return ix86_vec_cost (mode,
 			      COSTS_N_INSNS (ix86_cost->sse_load[index]) / 2,
 			      true);
 
       case vector_store:
 	index = sse_store_index (mode);
+	/* See PR82713 - we may end up being called on non-vector type.  */
+	if (index < 0)
+	  index = 2;
         return ix86_vec_cost (mode,
 			      COSTS_N_INSNS (ix86_cost->sse_store[index]) / 2,
 			      true);
@@ -44551,6 +44791,9 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 	 Do that incrementally.  */
       case unaligned_load:
 	index = sse_store_index (mode);
+	/* See PR82713 - we may end up being called on non-vector type.  */
+	if (index < 0)
+	  index = 2;
         return ix86_vec_cost (mode,
 			      COSTS_N_INSNS
 				 (ix86_cost->sse_unaligned_load[index]) / 2,
@@ -44558,6 +44801,9 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case unaligned_store:
 	index = sse_store_index (mode);
+	/* See PR82713 - we may end up being called on non-vector type.  */
+	if (index < 0)
+	  index = 2;
         return ix86_vec_cost (mode,
 			      COSTS_N_INSNS
 				 (ix86_cost->sse_unaligned_store[index]) / 2,
@@ -48785,7 +49031,117 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned retval = 0;
 
   tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-  int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
+  int stmt_cost = - 1;
+
+  if ((kind == vector_stmt || kind == scalar_stmt)
+      && stmt_info
+      && stmt_info->stmt && gimple_code (stmt_info->stmt) == GIMPLE_ASSIGN)
+    {
+      tree_code subcode = gimple_assign_rhs_code (stmt_info->stmt);
+      bool fp = false;
+      machine_mode mode = TImode;
+
+      if (vectype != NULL)
+	{
+	  fp = FLOAT_TYPE_P (vectype);
+	  mode = TYPE_MODE (vectype);
+	}
+      /*machine_mode inner_mode = mode;
+      if (VECTOR_MODE_P (mode))
+	inner_mode = GET_MODE_INNER (mode);*/
+
+      switch (subcode)
+	{
+	case PLUS_EXPR:
+	case POINTER_PLUS_EXPR:
+	case MINUS_EXPR:
+	  if (kind == scalar_stmt)
+	    {
+	      if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+		stmt_cost = ix86_cost->addss;
+	      else if (X87_FLOAT_MODE_P (mode))
+		stmt_cost = ix86_cost->fadd;
+	      else
+	        stmt_cost = ix86_cost->add;
+	    }
+	  else
+	    stmt_cost = ix86_vec_cost (mode,
+				       fp ? ix86_cost->addss
+				       : ix86_cost->sse_op,
+				       true);
+	  break;
+
+	case MULT_EXPR:
+	case WIDEN_MULT_EXPR:
+	case MULT_HIGHPART_EXPR:
+	  stmt_cost = ix86_multiplication_cost (ix86_cost, mode);
+	  break;
+	case FMA_EXPR:
+          stmt_cost = ix86_vec_cost (mode,
+				     mode == SFmode ? ix86_cost->fmass
+				     : ix86_cost->fmasd,
+				     true);
+	  break;
+	case NEGATE_EXPR:
+	  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+	    stmt_cost = ix86_cost->sse_op;
+	  else if (X87_FLOAT_MODE_P (mode))
+	    stmt_cost = ix86_cost->fchs;
+	  else if (VECTOR_MODE_P (mode))
+	    stmt_cost = ix86_vec_cost (mode, ix86_cost->sse_op, true);
+	  else
+	    stmt_cost = ix86_cost->add;
+	  break;
+	case TRUNC_DIV_EXPR:
+	case CEIL_DIV_EXPR:
+	case FLOOR_DIV_EXPR:
+	case ROUND_DIV_EXPR:
+	case TRUNC_MOD_EXPR:
+	case CEIL_MOD_EXPR:
+	case FLOOR_MOD_EXPR:
+	case RDIV_EXPR:
+	case ROUND_MOD_EXPR:
+	case EXACT_DIV_EXPR:
+	  stmt_cost = ix86_division_cost (ix86_cost, mode);
+	  break;
+
+	case RSHIFT_EXPR:
+	case LSHIFT_EXPR:
+	case LROTATE_EXPR:
+	case RROTATE_EXPR:
+	  {
+	    tree op2 = gimple_assign_rhs2 (stmt_info->stmt);
+	    stmt_cost = ix86_shift_rotate_cost
+			   (ix86_cost, mode,
+		            TREE_CODE (op2) == INTEGER_CST,
+			    cst_and_fits_in_hwi (op2) ? int_cst_value (op2) : -1,
+		            true, false, false, NULL, NULL);
+	  }
+	  break;
+	case NOP_EXPR:
+	  stmt_cost = 0;
+	  break;
+
+	case BIT_IOR_EXPR:
+	case ABS_EXPR:
+	case MIN_EXPR:
+	case MAX_EXPR:
+	case BIT_XOR_EXPR:
+	case BIT_AND_EXPR:
+	case BIT_NOT_EXPR:
+	  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+	    stmt_cost = ix86_cost->sse_op;
+	  else if (VECTOR_MODE_P (mode))
+	    stmt_cost = ix86_vec_cost (mode, ix86_cost->sse_op, true);
+	  else
+	    stmt_cost = ix86_cost->add;
+	  break;
+	default:
+	  break;
+	}
+    }
+  if (stmt_cost == -1)
+    stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
   /* Penalize DFmode vector operations for Bonnell.  */
   if (TARGET_BONNELL && kind == vector_stmt
@@ -48849,7 +49205,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
       || ((val & IX86_HLE_ACQUIRE) && (val & IX86_HLE_RELEASE)))
     {
       warning (OPT_Winvalid_memory_model,
-	       "Unknown architecture specific memory model");
+	       "unknown architecture specific memory model");
       return MEMMODEL_SEQ_CST;
     }
   strong = (is_mm_acq_rel (model) || is_mm_seq_cst (model));
@@ -50356,6 +50712,12 @@ ix86_run_selftests (void)
 #define TARGET_STATIC_RTX_ALIGNMENT ix86_static_rtx_alignment
 #undef TARGET_CONSTANT_ALIGNMENT
 #define TARGET_CONSTANT_ALIGNMENT ix86_constant_alignment
+
+#undef TARGET_EMPTY_RECORD_P
+#define TARGET_EMPTY_RECORD_P ix86_is_empty_record
+
+#undef TARGET_WARN_PARAMETER_PASSING_ABI
+#define TARGET_WARN_PARAMETER_PASSING_ABI ix86_warn_parameter_passing_abi
 
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS

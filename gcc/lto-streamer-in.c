@@ -825,6 +825,7 @@ input_cfg (struct lto_input_block *ib, struct data_in *data_in,
 
       /* Read OMP SIMD related info.  */
       loop->safelen = streamer_read_hwi (ib);
+      loop->unroll = streamer_read_hwi (ib);
       loop->dont_vectorize = streamer_read_hwi (ib);
       loop->force_vectorize = streamer_read_hwi (ib);
       loop->simduid = stream_read_tree (ib, data_in);
@@ -1202,7 +1203,7 @@ input_function (tree fn_decl, struct data_in *data_in,
     gimple_set_body (fn_decl, bb_seq (ei_edge (ei)->dest));
   }
 
-  counts_to_freqs ();
+  update_max_bb_count ();
   fixup_call_stmt_edges (node, stmts);
   execute_all_ipa_stmt_fixups (node, stmts);
 
