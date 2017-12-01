@@ -86,7 +86,7 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  record_cfa_adjustment (fs, (op + 1) * MIPS_EH_STACK_ALIGN);
 	  break;
 
-        case 0x40 ... 0x47:
+	case 0x40 ... 0x47:
 	  /* Push VR[16] to VR[16+x] and VR[31] */
 	  push_offset = record_push (fs, 31, push_offset);
 	  for (i = 0; i <= (op & 7); i++)
@@ -99,6 +99,13 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  push_offset = record_push (fs, 31, push_offset);
 	  for (i = 0; i <= (op & 7); i++)
 	    push_offset = record_push (fs, 16 + i, push_offset);
+	  break;
+
+	case 0x50 ... 0x57:
+	  /* Push VRF[16] to VRF[16 + x] */
+	  // FIXME
+	  for (i = 0; i <= (op & 0xf); i++)
+	    push_offset = record_push (fs, VRF_0 + 16 + i, push_offset);
 	  break;
 
 	case 0x58:
@@ -148,24 +155,8 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  /* NOP */
 	  break;
 
-	case 0x60 ... 0x6b:
-	  /* Push VRF[20] to VRF[20 + x] */
-	  for (i = 0; i <= (op & 0xf); i++)
-	    push_offset = record_push (fs, VRF_0 + 20 + i, push_offset);
-	  break;
-
-	case 0x6c ... 0x6f:
-	  /* MIPS16 push VR[16], VR[17], VR[18+x]-VR[23], VR[31] */
-	  push_offset = record_push (fs, 31, push_offset);
-	  push_offset = record_push (fs, 16, push_offset);
-	  push_offset = record_push (fs, 17, push_offset);
-	  for (i = 18 + (op & 3); i <= 23; i++)
-	    push_offset = record_push (fs, i, push_offset);
-	  break;
-
-	case 0x70 ... 0x7f:
-	  /* Push VR[16] to VR[16+x], VR[28], VR[31]
-	     and optionally VR[30].  */
+	case 0x60 ... 0x6f:
+	  /* Push VR[30] (optionally), VR[31], VR[16]-VR[16+x] and VR[28].  */
 	  if (op & 0x08)
 	    push_offset = record_push (fs, 30, push_offset);
 	  push_offset = record_push (fs, 31, push_offset);
@@ -176,7 +167,7 @@ md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 
 	default:
 	  return _URC_FATAL_PHASE1_ERROR;
-        }
+	}
     }
 }
 
