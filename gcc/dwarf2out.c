@@ -91,7 +91,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "gdb/gdb-index.h"
 #include "rtl-iter.h"
-#include "except.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx_insn *last_var_location_insn;
@@ -284,10 +283,6 @@ static GTY(()) rtx current_unit_personality;
 
 #ifndef FUNC_BEGIN_LABEL
 #define FUNC_BEGIN_LABEL	"LFB"
-#endif
-
-#ifndef FUNC_BEGIN_SWITCH_LABEL
-#define FUNC_BEGIN_SWITCH_LABEL	"LFCB"
 #endif
 
 #ifndef FUNC_END_LABEL
@@ -913,8 +908,7 @@ output_call_frame_info (int for_eh)
       dw2_asm_output_data_uleb128 (augmentation_size, "Augmentation size");
       if (personality)
 	{
-	  dw2_asm_output_data (1, per_encoding & ~GCC_DW_EH_PE_special,
-			       "Personality (%s)",
+	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
 					   personality,
@@ -922,13 +916,11 @@ output_call_frame_info (int for_eh)
 	}
 
       if (any_lsda_needed)
-	dw2_asm_output_data (1, lsda_encoding & ~GCC_DW_EH_PE_special,
-			     "LSDA Encoding (%s)",
+	dw2_asm_output_data (1, lsda_encoding, "LSDA Encoding (%s)",
 			     eh_data_format_name (lsda_encoding));
 
       if (fde_encoding != DW_EH_PE_absptr)
-	dw2_asm_output_data (1, fde_encoding & ~GCC_DW_EH_PE_special,
-			     "FDE Encoding (%s)",
+	dw2_asm_output_data (1, fde_encoding, "FDE Encoding (%s)",
 			     eh_data_format_name (fde_encoding));
     }
 
@@ -969,15 +961,11 @@ dwarf2out_do_cfi_startproc (bool second)
 {
   int enc;
   rtx ref;
-  rtx personality;
+  rtx personality = get_personality_function (current_function_decl);
 
   fprintf (asm_out_file, "\t.cfi_startproc\n");
 
-  personality = get_personality_function (current_function_decl);
-  enc = compact_pr_id (personality);
-  if (enc != 0)
-    fprintf (asm_out_file, "\t.cfi_personality_id 0x%x\n", enc);
-  else if (personality)
+  if (personality)
     {
       enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
       ref = personality;
@@ -989,8 +977,7 @@ dwarf2out_do_cfi_startproc (bool second)
       if (enc & DW_EH_PE_indirect)
 	ref = dw2_force_const_mem (ref, true);
 
-      fprintf (asm_out_file, "\t.cfi_personality %#x,",
-	       enc & ~GCC_DW_EH_PE_special);
+      fprintf (asm_out_file, "\t.cfi_personality %#x,", enc);
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
@@ -1008,8 +995,7 @@ dwarf2out_do_cfi_startproc (bool second)
       if (enc & DW_EH_PE_indirect)
 	ref = dw2_force_const_mem (ref, true);
 
-      fprintf (asm_out_file, "\t.cfi_lsda %#x,",
-	       enc & ~GCC_DW_EH_PE_special);
+      fprintf (asm_out_file, "\t.cfi_lsda %#x,", enc);
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
@@ -1172,7 +1158,7 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
   cached_next_real_insn = NULL;
 
   if (dwarf2out_do_cfi_asm ())
-    targetm.asm_out.output_cfi_endproc ();
+    fprintf (asm_out_file, "\t.cfi_endproc\n");
 
   /* Output a label to mark the endpoint of the code generated for this
      function.  */
@@ -1240,9 +1226,7 @@ dwarf2out_switch_text_section (void)
     dwarf2out_note_section_used ();
 
   if (dwarf2out_do_cfi_asm ())
-    targetm.asm_out.output_cfi_endproc ();
-
-  output_function_exception_table (NULL, true);
+    fprintf (asm_out_file, "\t.cfi_endproc\n");
 
   /* Now do the real section switch.  */
   sect = current_function_section ();
@@ -1251,9 +1235,6 @@ dwarf2out_switch_text_section (void)
   fde->second_in_std_section
     = (sect == text_section
        || (cold_text_section && sect == cold_text_section));
-
-  ASM_OUTPUT_DEBUG_LABEL (asm_out_file, FUNC_BEGIN_SWITCH_LABEL,
-			  current_function_funcdef_no);
 
   if (dwarf2out_do_cfi_asm ())
     dwarf2out_do_cfi_startproc (true);

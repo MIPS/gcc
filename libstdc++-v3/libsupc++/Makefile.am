@@ -66,7 +66,6 @@ sources = \
 	eh_aux_runtime.cc \
 	eh_call.cc \
 	eh_catch.cc \
-	eh_compact_pr.cc \
 	eh_exception.cc \
 	eh_globals.cc \
 	eh_personality.cc \

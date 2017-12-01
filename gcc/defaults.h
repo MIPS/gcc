@@ -392,10 +392,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define MASK_RETURN_ADDR NULL_RTX
 #endif
 
-#ifndef TARGET_COMPACT_EH
-#define TARGET_COMPACT_EH 0
-#endif
-
 /* If we have named section and we support weak symbols, then use the
    .jcr section for recording java classes which need to be registered
    at program start-up time.  */

@@ -8274,10 +8274,6 @@ systems.  This macro is used in @code{assemble_name}.
 Given a symbol @var{name}, perform same mangling as @code{varasm.c}'s @code{assemble_name}, but in memory rather than to a file stream, returning result as an @code{IDENTIFIER_NODE}.  Required for correct LTO symtabs.  The default implementation calls the @code{TARGET_STRIP_NAME_ENCODING} hook and then prepends the @code{USER_LABEL_PREFIX}, if any.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_OUTPUT_CFI_ENDPROC (void)
-Emit the @code{.cfi_endproc} directive at the end of a function, and optionally additional exception handling information for it.
-@end deftypefn
-
 @defmac ASM_OUTPUT_SYMBOL_REF (@var{stream}, @var{sym})
 A C statement (sans semicolon) to output a reference to
 @code{SYMBOL_REF} @var{sym}.  If not defined, @code{assemble_name}

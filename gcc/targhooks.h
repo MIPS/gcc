@@ -209,7 +209,6 @@ extern bool default_class_likely_spilled_p (reg_class_t);
 extern unsigned char default_class_max_nregs (reg_class_t, machine_mode);
 
 extern enum unwind_info_type default_debug_unwind_info (void);
-extern void default_asm_output_cfi_endproc (void);
 
 extern void default_canonicalize_comparison (int *, rtx *, rtx *, bool);
 

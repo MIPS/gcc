@@ -23,8 +23,7 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef _Unwind_Find_registered_Index
-#define _Unwind_Find_registered_Index _Unwind_Find_Index
+#ifndef _Unwind_Find_FDE
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
@@ -36,9 +35,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
-#ifdef MD_HAVE_COMPACT_EH
-#include "unwind-compact.h"
-#endif
 #endif
 
 /* The unseen_objects list contains objects that have been registered
@@ -75,20 +71,22 @@ static __gthread_mutex_t object_mutex;
 #endif
 #endif
 
-/* Initialize OB and add to list of objects.  */
+/* Called from crtbegin.o to register the unwind info for an object.  */
 
-static void
-__register_frame_info_1 (const void *begin, struct object *ob,
-			  void *tbase, void *dbase, int header)
+void
+__register_frame_info_bases (const void *begin, struct object *ob,
+			     void *tbase, void *dbase)
 {
+  /* If .eh_frame is empty, don't register at all.  */
+  if ((const uword *) begin == 0 || *(const uword *) begin == 0)
+    return;
+
   ob->pc_begin = (void *)-1;
   ob->tbase = tbase;
   ob->dbase = dbase;
   ob->u.single = begin;
   ob->s.i = 0;
   ob->s.b.encoding = DW_EH_PE_omit;
-  ob->s.b.header = header;
-  ob->s.b.mixed_encoding = header;
 #ifdef DWARF2_OBJECT_END_PTR_EXTENSION
   ob->fde_end = NULL;
 #endif
@@ -100,34 +98,6 @@ __register_frame_info_1 (const void *begin, struct object *ob,
   unseen_objects = ob;
 
   __gthread_mutex_unlock (&object_mutex);
-}
-
-/* Called from crtbegin.o to register the unwind info for an object.  */
-
-void
-__register_frame_info_header_bases (const void *begin, struct object *ob,
-				    void *tbase, void *dbase)
-{
-  /* Only register compact EH frame headers.  */
-  if (begin == NULL || *(const char *) begin != 2)
-    return;
-
-#ifdef MD_HAVE_COMPACT_EH
-  __register_frame_info_1 (begin, ob, tbase, dbase, 1);
-#endif
-}
-
-/* Called from crtbegin.o to register the unwind info for an object.  */
-
-void
-__register_frame_info_bases (const void *begin, struct object *ob,
-			     void *tbase, void *dbase)
-{
-  /* If .eh_frame is empty, don't register at all.  */
-  if ((const uword *) begin == 0 || *(const uword *) begin == 0)
-    return;
-
-  __register_frame_info_1 (begin, ob, tbase, dbase, 0);
 }
 
 void
@@ -981,25 +951,9 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
   return NULL;
 }
 
-static enum compact_entry_type
-search_object (struct object* ob, void *pc, struct compact_eh_bases *bases)
+static const fde *
+search_object (struct object* ob, void *pc)
 {
-  const fde *f = NULL;
-
-#ifdef MD_HAVE_COMPACT_EH
-  if (ob->s.b.header)
-    {
-      const unsigned char *hdr = (const unsigned char *) ob->u.single;
-      if (ob->pc_begin == (void *) -1)
-	{
-	  const sword *first = (const sword *) (hdr + 8);
-	  ob->pc_begin = (void *)((*first & ~1) + (_Unwind_Ptr) first);
-	}
-
-      return _Unwind_Search_Compact_Eh_Hdr (pc, hdr, bases);
-    }
-#endif
-
   /* If the data hasn't been sorted, try to do this now.  We may have
      more memory available than last time we tried.  */
   if (! ob->s.b.sorted)
@@ -1010,17 +964,17 @@ search_object (struct object* ob, void *pc, struct compact_eh_bases *bases)
 	 that we've not processed this object before.  A quick range
 	 check is in order.  */
       if (pc < ob->pc_begin)
-	return CET_not_found;
+	return NULL;
     }
 
   if (ob->s.b.sorted)
     {
       if (ob->s.b.mixed_encoding)
-	f = binary_search_mixed_encoding_fdes (ob, pc);
+	return binary_search_mixed_encoding_fdes (ob, pc);
       else if (ob->s.b.encoding == DW_EH_PE_absptr)
-	f = binary_search_unencoded_fdes (ob, pc);
+	return binary_search_unencoded_fdes (ob, pc);
       else
-	f = binary_search_single_encoding_fdes (ob, pc);
+	return binary_search_single_encoding_fdes (ob, pc);
     }
   else
     {
@@ -1030,24 +984,22 @@ search_object (struct object* ob, void *pc, struct compact_eh_bases *bases)
 	  fde **p;
 	  for (p = ob->u.array; *p ; p++)
 	    {
-	      f = linear_search_fdes (ob, *p, pc);
+	      const fde *f = linear_search_fdes (ob, *p, pc);
 	      if (f)
-		break;
+		return f;
 	    }
+	  return NULL;
 	}
       else
-	f = linear_search_fdes (ob, ob->u.single, pc);
+	return linear_search_fdes (ob, ob->u.single, pc);
     }
-
-  bases->entry = f;
-  return f ? CET_FDE : CET_not_found;
 }
 
-enum compact_entry_type
-_Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases)
+const fde *
+_Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 {
   struct object *ob;
-  enum compact_entry_type t = CET_not_found;
+  const fde *f = NULL;
 
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
@@ -1058,8 +1010,8 @@ _Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases)
   for (ob = seen_objects; ob; ob = ob->next)
     if (pc >= ob->pc_begin)
       {
-	t = search_object (ob, pc, bases);
-	if (t != CET_not_found)
+	f = search_object (ob, pc);
+	if (f)
 	  goto fini;
 	break;
       }
@@ -1070,7 +1022,7 @@ _Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases)
       struct object **p;
 
       unseen_objects = ob->next;
-      t = search_object (ob, pc, bases);
+      f = search_object (ob, pc);
 
       /* Insert the object into the classified list.  */
       for (p = &seen_objects; *p ; p = &(*p)->next)
@@ -1079,26 +1031,21 @@ _Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases)
       ob->next = *p;
       *p = ob;
 
-      if (t != CET_not_found)
+      if (f)
 	goto fini;
     }
 
  fini:
   __gthread_mutex_unlock (&object_mutex);
 
-  if (t == CET_not_found)
-    return CET_not_found;
-
-  bases->tbase = ob->tbase;
-  bases->dbase = ob->dbase;
-
-  if (t == CET_FDE)
+  if (f)
     {
-      const fde *f;
       int encoding;
       _Unwind_Ptr func;
 
-      f = bases->entry;
+      bases->tbase = ob->tbase;
+      bases->dbase = ob->dbase;
+
       encoding = ob->s.b.encoding;
       if (ob->s.b.mixed_encoding)
 	encoding = get_fde_encoding (f);
@@ -1107,21 +1054,5 @@ _Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases)
       bases->func = (void *) func;
     }
 
-  return t;
-}
-
-const fde *
-_Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
-{
-  enum compact_entry_type type;
-  struct compact_eh_bases data;
-
-  type = _Unwind_Find_Index (pc, &data);
-  if (type != CET_FDE)
-    return NULL;
-
-  bases->tbase = data.tbase;
-  bases->dbase = data.dbase;
-  bases->func = data.func;
-  return (const fde *) data.entry;
+  return f;
 }

@@ -330,7 +330,7 @@ TPBIT_FUNCS = _pack_tf _unpack_tf _addsub_tf _mul_tf _div_tf \
 
 # Additional sources to handle exceptions; overridden by targets as needed.
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde.c \
-  $(srcdir)/unwind-compact.c $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c
+  $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c
 LIB2ADDEHSTATIC = $(LIB2ADDEH)
 LIB2ADDEHSHARED = $(LIB2ADDEH)
 
