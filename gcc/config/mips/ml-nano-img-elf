@@ -1,2 +1,5 @@
 nanomips-r6-hard-newlib/lib
+nanomips-r6-soft-newlib/lib
 nanomips-r6s-soft-newlib/lib
+nanomipseb-r6-hard-newlib/lib
+nanomipseb-r6-soft-newlib/lib
