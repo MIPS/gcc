@@ -19,6 +19,9 @@
 	(armv8-r): Set ARM Cortex-R52 as default CPU.
 	* config/arm/arm-tables.opt: Regenerate.
 	* config/arm/arm-tune.md: Regenerate.
+	* config/arm/arm-cpu-cdata.h: Regenerate.
+	* config/arm/arm-cpu-data.h: Regenerate.
+	* config/arm/arm-cpu.h: Regenerate.
 	* config/arm/driver-arm.c (arm_cpu_table): Add entry for ARM
 	Cortex-R52.
 	* doc/invoke.texi: Mention -mtune=cortex-r52 and availability of fp.dp
@@ -32,6 +35,7 @@
 	* config/arm/arm-isa.h (isa_bit_FP_ARMv8): Delete enumerator.
 	(ISA_FP_ARMv8): Define as ISA_FPv5 and ISA_FP_D32.
 	* config/arm/arm-cpus.in (fp-armv8): Define it as FP_ARMv8 only.
+	* config/arm/arm-cpu-data.h: Regenerate.
 	* config/arm/arm.h (TARGET_FPU_ARMV8): Delete.
 	(TARGET_VFP_FP16INST): Define using TARGET_VFP5 rather than
 	TARGET_FPU_ARMV8.
@@ -61,6 +65,8 @@
 	(armv8-r+crc): Likewise.
 	* config/arm/arm-isa.h (ISA_ARMv8r): Define macro.
 	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-cpu-cdata.h: Regenerate.
+	* config/arm/arm-cpu-data.h: Regenerate.
 	* config/arm/arm.h (enum base_architecture): Add BASE_ARCH_8R
 	enumerator.
 	* doc/invoke.texi: Mention -march=armv8-r and its crc extension.
@@ -106,7 +112,6 @@
 	2017-05-04  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
 		    Andre Simoes Dias Vieira  <andre.simoesdiasvieira@arm.com>
 
-	gcc
 	* config/arm/arm.md (movsi): Add TARGET_32BIT in addition to the
 	TARGET_HAVE_MOVT conditional.
 	(movt splitter): Likewise.
@@ -122,10 +127,6 @@
 	* doc/invoke.texi (-mpure-code): Change "ARMv7-M targets" for
 	"M-profile targets with the MOVT instruction".
 
-	gcc/testsuite/
-	* gcc.target/arm/pure-code/pure-code.exp: Add conditional for
-	check_effective_target_arm_thumb1_movt_ok.
-	
 2017-05-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline

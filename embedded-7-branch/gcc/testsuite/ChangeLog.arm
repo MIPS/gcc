@@ -39,3 +39,12 @@
 	* gcc.target/arm/acle/stc2.c: Likewise.
 	* gcc.target/arm/acle/stc2l.c: Likewise.
 	* gcc.target/arm/acle/stcl.c: Likewise.
+
+2017-05-31  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
+
+	Backport from mainline
+	2017-05-04  Prakhar Bahuguna  <prakhar.bahuguna@arm.com>
+		    Andre Simoes Dias Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pure-code/pure-code.exp: Add conditional for
+	check_effective_target_arm_thumb1_movt_ok.
