@@ -116,6 +116,15 @@ enum ivar_visibility
   IVAR_VISIBILITY_PACKAGE
 };
 
+/* Reorder blocks edge sorting level in terms of edge frequency.  */
+enum rb_edge_sort_mode
+{
+  RB_EDGE_SORT_DEFAULT = 0,
+  RB_EDGE_SORT_ALL = -1,
+  RB_EDGE_SORT_2 = 850,
+  RB_EDGE_SORT_1 = 9000
+};
+
 /* The stack reuse level.  */
 enum stack_reuse_level
 {
