@@ -2377,6 +2377,10 @@ fadjust-costs
 Common Var(adjust_costs_flag) Optimization
 Let target modify registers costs before and during allocation.
 
+fedge-sort-size
+Common Var(edge_sort_size) Optimization
+Sort basic block edges when optimizing for size.
+
 fisolate-erroneous-paths-dereference
 Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
 Detect paths that trigger erroneous or undefined behavior due to

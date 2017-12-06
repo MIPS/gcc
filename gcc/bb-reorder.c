@@ -2342,7 +2342,7 @@ reorder_basic_blocks_simple (void)
   /* Sort the edges, the most desirable first.  When optimizing for size
      all edges are equally desirable.  */
 
-  if (optimize_function_for_speed_p (cfun))
+  if (optimize_function_for_speed_p (cfun) || edge_sort_size)
     std::stable_sort (edges, edges + n, edge_order);
 
   /* Now decide which of those edges to make fallthrough edges.  We set
