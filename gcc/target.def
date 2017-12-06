@@ -918,12 +918,6 @@ DEFHOOK
  tree, (const char *name),
  default_mangle_assembler_name)
 
-DEFHOOK
-(output_cfi_endproc,
- "Emit the @code{.cfi_endproc} directive at the end of a function, and\
- optionally additional exception handling information for it.",
- void, (void), default_asm_output_cfi_endproc)
-
 HOOK_VECTOR_END (asm_out)
 
 /* Functions relating to instruction scheduling.  All of these

@@ -28,7 +28,7 @@ dg-init
 
 # Gather a list of all tests, with the exception of those in directories
 # that are handled specially.
-set tests [lsort [find $srcdir/$subdir g++.mike/*.C]]
+set tests [lsort [find $srcdir/$subdir *.C]]
 
 # Main loop.
 g++-dg-runtest $tests "" $DEFAULT_CXXFLAGS

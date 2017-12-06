@@ -5240,13 +5240,6 @@ if test x"$ld64_flag" = x"yes"; then
   [Define to 1 if ld64 supports '-export_dynamic'.])
 fi
 
-gcc_GAS_CHECK_FEATURE([CFI .eh_frame_entry],
- gcc_cv_as_eh_frame_entry,
- ,,
-[	.cfi_sections .eh_frame_entry ],,
-[AC_DEFINE(HAVE_GAS_EH_FRAME_ENTRY, 1,
-[Define if your assembler supports generation of .eh_frame_entry from CFI directives.])])
-
 # --------
 # UNSORTED
 # --------

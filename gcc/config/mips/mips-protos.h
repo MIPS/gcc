@@ -286,7 +286,6 @@ extern void mips_pop_asm_switch (struct mips_asm_switch *);
 extern void mips_output_external (FILE *, tree, const char *);
 extern void mips_output_ascii (FILE *, const char *, size_t);
 extern const char *mips_output_tls_reloc_directive (rtx *);
-extern void mips_fixup_cfi_sections (void);
 extern void mips_output_aligned_decl_common (FILE *, tree, const char *,
 					     unsigned HOST_WIDE_INT,
 					     unsigned int);

@@ -45,9 +45,6 @@
 #include "unwind-dw2-fde.h"
 #include "unwind-compat.h"
 #include "gthr.h"
-#ifdef MD_HAVE_COMPACT_EH
-#include "unwind-compact.h"
-#endif
 
 #if !defined(inhibit_libc) && defined(HAVE_LD_EH_FRAME_HDR) \
     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
@@ -93,11 +90,11 @@
 # define __RELOC_POINTER(ptr, base) ((ptr) + (base))
 #endif
 
-static enum compact_entry_type
-_Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases);
+static const fde * _Unwind_Find_registered_FDE (void *pc, struct dwarf_eh_bases *bases);
 
-#define _Unwind_Find_registered_Index _Unwind_Find_registered_Index
+#define _Unwind_Find_FDE _Unwind_Find_registered_FDE
 #include "unwind-dw2-fde.c"
+#undef _Unwind_Find_FDE
 
 #ifndef PT_GNU_EH_FRAME
 #define PT_GNU_EH_FRAME (PT_LOOS + 0x474e550)
@@ -106,8 +103,10 @@ _Unwind_Find_registered_Index (void *pc, struct compact_eh_bases *bases);
 struct unw_eh_callback_data
 {
   _Unwind_Ptr pc;
-  struct compact_eh_bases *bases;
-  enum compact_entry_type type;
+  void *tbase;
+  void *dbase;
+  void *func;
+  const fde *ret;
   int check_cache;
 };
 
@@ -150,9 +149,9 @@ base_from_cb_data (unsigned char encoding, struct unw_eh_callback_data *data)
       return 0;
 
     case DW_EH_PE_textrel:
-      return (_Unwind_Ptr) data->bases->tbase;
+      return (_Unwind_Ptr) data->tbase;
     case DW_EH_PE_datarel:
-      return (_Unwind_Ptr) data->bases->dbase;
+      return (_Unwind_Ptr) data->dbase;
     default:
       gcc_unreachable ();
     }
@@ -174,7 +173,6 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   _Unwind_Ptr eh_frame;
   struct object ob;
   _Unwind_Ptr pc_low = 0, pc_high = 0;
-  const fde *f;
 
   struct ext_dl_phdr_info
     {
@@ -323,11 +321,12 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   /* Read .eh_frame_hdr header.  */
   hdr = (const struct unw_eh_frame_hdr *)
     __RELOC_POINTER (p_eh_frame_hdr->p_vaddr, load_base);
+  if (hdr->version != 1)
+    return 1;
 
 #ifdef CRT_GET_RFIB_DATA
-# if defined(__i386__) || defined(__mips__)
-  data->bases->dbase = NULL;
-
+# ifdef __i386__
+  data->dbase = NULL;
   if (p_dynamic)
     {
       /* For dynamically linked executables and shared libraries,
@@ -337,11 +336,8 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
       for (; dyn->d_tag != DT_NULL ; dyn++)
 	if (dyn->d_tag == DT_PLTGOT)
 	  {
-	    data->bases->dbase = (void *) dyn->d_un.d_ptr;
-#if defined(__mips__)
-	    /* MIPS targets need to relocated the value and the offset.  */
-	    data->bases->dbase += load_base + 0x7ff0;
-#elif defined __linux__
+	    data->dbase = (void *) dyn->d_un.d_ptr;
+#if defined __linux__
 	    /* On IA-32 Linux, _DYNAMIC is writable and GLIBC has
 	       relocated it.  */
 #elif defined __sun__ && defined __svr4__
@@ -357,20 +353,6 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 #  error What is DW_EH_PE_datarel base on this platform?
 # endif
 #endif
-
-#ifdef MD_HAVE_COMPACT_EH
-  if (hdr->version == 2)
-    {
-      data->type =
-	_Unwind_Search_Compact_Eh_Hdr ((void *)data->pc,
-				       (const unsigned char *) hdr,
-				       data->bases);
-      return 1;
-    }
-#endif
-
-  if (hdr->version != 1)
-    return 1;
 
   p = read_encoded_value_with_base (hdr->eh_frame_ptr_enc,
 				    base_from_cb_data (hdr->eh_frame_ptr_enc,
@@ -402,6 +384,7 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 	  const struct fde_table *table = (const struct fde_table *) p;
 	  size_t lo, hi, mid;
 	  _Unwind_Ptr data_base = (_Unwind_Ptr) hdr;
+	  fde *f;
 	  unsigned int f_enc, f_enc_size;
 	  _Unwind_Ptr range;
 
@@ -433,11 +416,8 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 	  read_encoded_value_with_base (f_enc & 0x0f, 0,
 					&f->pc_begin[f_enc_size], &range);
 	  if (data->pc < table[mid].initial_loc + data_base + range)
-	    {
-	      data->bases->entry = f;
-	      data->type = CET_FDE;
-	    }
-	  data->bases->func = (void *) (table[mid].initial_loc + data_base);
+	    data->ret = f;
+	  data->func = (void *) (table[mid].initial_loc + data_base);
 	  return 1;
 	}
     }
@@ -446,52 +426,58 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
      As soon as GLIBC will provide API so to notify that a library has been
      removed, we could cache this (and thus use search_object).  */
   ob.pc_begin = NULL;
-  ob.tbase = data->bases->tbase;
-  ob.dbase = data->bases->dbase;
+  ob.tbase = data->tbase;
+  ob.dbase = data->dbase;
   ob.u.single = (fde *) eh_frame;
   ob.s.i = 0;
   ob.s.b.mixed_encoding = 1;  /* Need to assume worst case.  */
-  f = linear_search_fdes (&ob, (fde *) eh_frame, (void *) data->pc);
-  data->bases->entry = f;
-  if (f != NULL)
+  data->ret = linear_search_fdes (&ob, (fde *) eh_frame, (void *) data->pc);
+  if (data->ret != NULL)
     {
       _Unwind_Ptr func;
-      unsigned int encoding = get_fde_encoding (f);
+      unsigned int encoding = get_fde_encoding (data->ret);
 
       read_encoded_value_with_base (encoding,
 				    base_from_cb_data (encoding, data),
-				    f->pc_begin, &func);
-      data->bases->func = (void *) func;
-      data->type = CET_FDE;
+				    data->ret->pc_begin, &func);
+      data->func = (void *) func;
     }
   return 1;
 }
 
-enum compact_entry_type
-_Unwind_Find_Index (void *pc, struct compact_eh_bases *bases)
+const fde *
+_Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 {
   struct unw_eh_callback_data data;
+  const fde *ret;
 
-  data.type = _Unwind_Find_registered_Index (pc, bases);
-  if (data.type != CET_not_found)
-    return data.type;
+  ret = _Unwind_Find_registered_FDE (pc, bases);
+  if (ret != NULL)
+    return ret;
 
   data.pc = (_Unwind_Ptr) pc;
-  data.bases = bases;
-  data.type = CET_not_found;
+  data.tbase = NULL;
+  data.dbase = NULL;
+  data.func = NULL;
+  data.ret = NULL;
   data.check_cache = 1;
 
   if (dl_iterate_phdr (_Unwind_IteratePhdrCallback, &data) < 0)
-    return CET_not_found;
+    return NULL;
 
-  return data.type;
+  if (data.ret)
+    {
+      bases->tbase = data.tbase;
+      bases->dbase = data.dbase;
+      bases->func = data.func;
+    }
+  return data.ret;
 }
 
-#else /* !USE_PT_GNU_EH_FRAME */
-
-#define _Unwind_Find_registered_Index _Unwind_Find_Index
+#else
+/* Prevent multiple include of header files.  */
+#define _Unwind_Find_FDE _Unwind_Find_FDE
 #include "unwind-dw2-fde.c"
-
 #endif
 
 #if defined (USE_GAS_SYMVER) && defined (SHARED) && defined (USE_LIBUNWIND_EXCEPTIONS)

@@ -1999,10 +1999,4 @@ default_max_noce_ifcvt_seq_cost (edge e)
     return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (3);
 }
 
-void
-default_asm_output_cfi_endproc (void)
-{
-  fprintf (asm_out_file, "\t.cfi_endproc\n");
-}
-
 #include "gt-targhooks.h"

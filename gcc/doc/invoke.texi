@@ -18928,13 +18928,6 @@ it is unused.
 
 This optimization is off by default at all optimization levels.
 
-@item -mno-compact-eh
-@itemx -mcompact-eh
-@opindex mno-compact-eh
-@opindex mcompact-eh
-Disable generation of compact EH frame tables.
-@option{-mcompact-eh} is the default where supported.
-
 @item -mlxc1-sxc1
 @itemx -mno-lxc1-sxc1
 @opindex mlxc1-sxc1
