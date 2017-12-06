@@ -1990,6 +1990,25 @@ freorder-blocks-and-partition
 Common Report Var(flag_reorder_blocks_and_partition) Optimization
 Reorder basic blocks and partition into hot and cold sections.
 
+freorder-blocks-edge-sort=
+Common Joined RejectNegative Enum(rb_edge_sort_mode) Var(flag_rb_edge_sort) Init(RB_EDGE_SORT_DEFAULT) Optimization
+-freorder-blocks-edge-sort=[one|two|all|default] Specify a loop nesting limit when sorting edges during basic block reordering.
+
+Enum
+Name(rb_edge_sort_mode) Type(enum rb_edge_sort_mode) UnknownError(unknown basic block reordering algorithm sort mode %qs)
+
+EnumValue
+Enum(rb_edge_sort_mode) String(one) Value(RB_EDGE_SORT_1)
+
+EnumValue
+Enum(rb_edge_sort_mode) String(two) Value(RB_EDGE_SORT_2)
+
+EnumValue
+Enum(rb_edge_sort_mode) String(all) Value(RB_EDGE_SORT_ALL)
+
+EnumValue
+Enum(rb_edge_sort_mode) String(default) Value(RB_EDGE_SORT_DEFAULT)
+
 freorder-functions
 Common Report Var(flag_reorder_functions) Optimization
 Reorder functions to improve code placement.
