@@ -2290,7 +2290,12 @@ reorder_basic_blocks_software_trace_cache (void)
 static bool
 edge_order (edge e1, edge e2)
 {
-  return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
+  int sort_threshold = flag_rb_edge_sort;
+
+  if (EDGE_FREQUENCY (e1) > sort_threshold
+      || EDGE_FREQUENCY (e2) > sort_threshold)
+    return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
+  return false;
 }
 
 /* Reorder basic blocks using the "simple" algorithm.  This tries to
@@ -2341,8 +2346,8 @@ reorder_basic_blocks_simple (void)
 
   /* Sort the edges, the most desirable first.  When optimizing for size
      all edges are equally desirable.  */
-
-  if (optimize_function_for_speed_p (cfun))
+  if (optimize_function_for_speed_p (cfun)
+      || flag_rb_edge_sort != RB_EDGE_SORT_DEFAULT)
     std::stable_sort (edges, edges + n, edge_order);
 
   /* Now decide which of those edges to make fallthrough edges.  We set
