@@ -380,7 +380,8 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-reorder-functions @gol
 -freciprocal-math -free -frename-registers -freorder-blocks @gol
 -freorder-blocks-algorithm=@var{algorithm} @gol
--freorder-blocks-and-partition -freorder-functions @gol
+-freorder-blocks-and-partition -freorder-blocks-edge-sort=@var{level} @gol
+-freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
 -fsched-spec-load -fsched-spec-load-dangerous @gol
@@ -7720,6 +7721,21 @@ section attribute and on any architecture that does not support named
 sections.
 
 Enabled for x86 at levels @option{-O2}, @option{-O3}.
+
+@item -freorder-blocks-edge-sort=@var{level}
+@opindex freorder-blocks-edge-sort
+When reordering blocks using the @samp{simple} algorithm then edges are
+sorted for speed optimized functions and not sorted for size optimized
+functions.  However, sorting the edges for size optimized functions
+can significantly improve performance with some code size cost.
+Inner loops show the greatest benefit with @var{level} set to @samp{1}).
+Further improvement is possible by sorting one level of nested loops
+(@var{level} set to @samp{2}) with additional cost in size.  Finally,
+all edges can be sorted (@var{level} set to @samp{all}.  This option
+overrides the normal sorting choice for both size and speed optimized
+functions.
+
+Set to @samp{1} for nanoMIPS at level @option{-Os}.
 
 @item -freorder-functions
 @opindex freorder-functions
