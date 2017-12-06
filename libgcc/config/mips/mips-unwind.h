@@ -25,17 +25,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifdef MD_HAVE_COMPACT_EH
 
 #define DWARF_SP_REGNO 29
+#define VRF_0 32
 
 #if defined(_MIPS_SIM) && _MIPS_SIM == _ABIO32
 #define MIPS_EH_STACK_ALIGN 8
 #else
 #define MIPS_EH_STACK_ALIGN 16
-#endif
-
-#if defined(_MIPS_SIM) && _MIPS_SIM == _ABIP32
-#define VRF_0 -16  /* assume 16-23 are only ones accessed.  */
-#else
-#define VRF_0 32
 #endif
 
 /* Record the push of a register in FrameState FS.  */
@@ -70,7 +65,7 @@ record_cfa_adjustment (_Unwind_FrameState *fs, _uleb128_t val)
 /* Process the frame unwinding opcodes.  */
 
 static _Unwind_Reason_Code
-md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
+md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 		   _Unwind_FrameState *fs, const unsigned char **pp)
 {
   unsigned char op;
@@ -194,169 +189,6 @@ md_unwind_compact_oabi_nabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
 	  return _URC_FATAL_PHASE1_ERROR;
         }
     }
-}
-
-/* For nanoMIPS compactEH virtual registers:
-   VRF[16-23]     = 0-15
-   a2             = 16
-   a3             = 17
-   VR[30]         = 18
-   VR[31]         = 19
-   VR[16]-VR[23]  = 20-27
-   VR[28]         = 28
-   VR[29]         = 29  */
-
-static _Unwind_Reason_Code
-md_unwind_compact_pabi (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
-		   _Unwind_FrameState *fs, const unsigned char **pp)
-{
-  unsigned char op;
-  _uleb128_t val;
-  int push_offset;
-  int i;
-  int n;
-  const unsigned char *p = *pp;
-
-  push_offset = 0;
-  fs->regs.cfa_how = CFA_REG_OFFSET;
-  fs->regs.cfa_reg = STACK_POINTER_REGNUM;
-  fs->regs.cfa_offset = 0;
-  fs->retaddr_column = 31;
-
-  while (1)
-    {
-      op = *(p++);
-      switch (op)
-	{
-	case 0 ... 0x39:
-	  /* Increment stack pointer.  */
-	  record_cfa_adjustment (fs, (op + 1) * MIPS_EH_STACK_ALIGN);
-	  break;
-
-        case 0x40 ... 0x47:
-	  /* Push VR[16] to VR[16+x] and VR[31] */
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  break;
-
-	case 0x48 ... 0x4f:
-	  /* Push VR[16] to VR[16+x], VR[30] and VR[31] */
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  push_offset = record_push (fs, 18, push_offset);
-	  break;
-
-	case 0x50 ... 0x57:
-	  /* Restore stack pointer from frame pointer */
-	  fs->regs.cfa_reg = (op & 7) + 20;
-	  fs->regs.cfa_offset = 0;
-	  break;
-
-	case 0x58:
-	  /* Large SP increment.  */
-	  p = read_uleb128 (p, &val);
-	  record_cfa_adjustment (fs, (val + 129) * MIPS_EH_STACK_ALIGN);
-	  break;
-
-        // TODO: not possible, restrict
-	case 0x59:
-	  /* Push VR[x] to VR[x+y] */
-	  op = *(p++);
-	  n = op >> 3;
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, n + i, push_offset);
-	  break;
-
-        // TODO: not possible, restrict
-	case 0x5a:
-	  /* Push VRF[x] to VRF[x+y] */
-	  op = *(p++);
-	  n = (op >> 3) + VRF_0;
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, n + i, push_offset);
-	  break;
-
-	case 0x5b:
-	  /* Restore the CFA to stack pointer.  */
-	  fs->regs.cfa_reg = STACK_POINTER_REGNUM;
-	  fs->regs.cfa_offset = 0;
-	  break;
-
-	case 0x5c:
-	  /* Finish.  */
-	  *pp = p;
-	  return _URC_NO_REASON;
-
-	case 0x5d:
-	  /* No unwind.  */
-	  return _URC_END_OF_STACK;
-
-	case 0x5e:
-	  /* Restore SP from VR[30] */
-	  fs->regs.cfa_reg = 18;
-	  fs->regs.cfa_offset = 0;
-	  break;
-
-	case 0x5f:
-	  /* NOP */
-	  break;
-
-//	case 0x60 ... 0x6b:
-//	  /* Push VRF[20] to VRF[20 + x] */
-//	  for (i = op & 0xf; i >= 0; i--)
-//	    push_offset = record_push (fs, VRF_0 + 20 + i, push_offset);
-//	  break;
-
-        case 0x60 ... 0x67:
-	  /* Push VRF[16] to VRF[16 + x] */
-	  for (i = op & 0xf; i >= 0; i--)
-            {
-	      push_offset = record_push (fs, VRF_0 + 16 + (2*i)+1, push_offset);
-	      push_offset = record_push (fs, VRF_0 + 16 + (2*i), push_offset);
-            }
-	  break;
-
-        case 0x68 ... 0x6b:
-          /* TODO */
-          break;
-
-	case 0x6c ... 0x6f:
-	  /* MIPS16 push VR[16], VR[17], VR[18+x]-VR[23], VR[31] */
-	  for (i = 28; i >= 22 + (op & 3); i--)
-	    push_offset = record_push (fs, i, push_offset);
-	  push_offset = record_push (fs, 21, push_offset);
-	  push_offset = record_push (fs, 20, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  break;
-
-	case 0x70 ... 0x7f:
-	  /* Push VR[16] to VR[16+x], VR[28], VR[31]
-	     and optionally VR[30].  */
-	  push_offset = record_push (fs, 28, push_offset);
-	  for (i = op & 7; i >= 0; i--)
-	    push_offset = record_push (fs, 20 + i, push_offset);
-	  push_offset = record_push (fs, 19, push_offset);
-	  if (op & 0x08)
-	    push_offset = record_push (fs, 18, push_offset);
-	  break;
-
-	default:
-	  return _URC_FATAL_PHASE1_ERROR;
-        }
-    }
-}
-
-static _Unwind_Reason_Code
-md_unwind_compact (struct _Unwind_Context *context ATTRIBUTE_UNUSED,
-		   _Unwind_FrameState *fs, const unsigned char **pp)
-{
-#if defined(_MIPS_SIM) && _MIPS_SIM == _ABIP32
-  md_unwind_compact_pabi(context, fs, pp);
-#else
-  md_unwind_compact_oabi_nabi(context, fs, pp);
-#endif
 }
 
 #endif /* MD_HAVE_COMPACT_EH */
