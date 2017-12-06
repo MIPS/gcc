@@ -29909,9 +29909,12 @@ mips_collect_recolor_data (bool &s_regs_used)
 	    /* Push instruction into instruction list of corresponding
 	       allocnos.  */
 	    for (i = 0; i < i_data.reg_num; i++)
-	      if (ALLOCNO_HARD_REGNO (ira_allocnos[i_data.allocnos[i]])
-		  &&  mips_save_reg_p (REGNO (i_data.regs[i])))
-		s_regs_used = true;
+	      {
+		int hreg = ALLOCNO_HARD_REGNO
+			     (ira_allocnos[i_data.allocnos[i]]);
+		if (hreg >= 16 && hreg <= 23)
+		  s_regs_used = true;
+	      }
 	  }
       }
 
@@ -29994,9 +29997,16 @@ mips_adjust_register_costs (ira_allocno_t a, int val, bool s_regs_used,
 	      cost_val = -cost_val;
 	  }
 
-	if (!s_regs_used && (ira_class_hard_regs[aclass][j] >= 16
-			     && ira_class_hard_regs[aclass][j] <= 23))
-	  cost_val += s_correction_val;
+	if ((!s_regs_used) && ((ira_class_hard_regs[aclass][j] >= 16)
+			     && (ira_class_hard_regs[aclass][j] <= 23)))
+	  {
+	    if (optimize_size)
+	      cost_val += s_correction_val;
+	    else if ((cost_val < 0 && !revert) || (cost_val > 0 && revert))
+	      cost_val = 0;
+	  }
+	if ((!optimize_size) && (!s_regs_used))
+	  cost_val = 0;
 	cost_val = cost_val * conflict_vals[j];
 	ALLOCNO_HARD_REG_COSTS (a)[j] += cost_val;
 
@@ -30199,6 +30209,7 @@ mips_adjust_costs (void *p, int func)
       s_regs_used
 	= static_recolor_allocnos_data[allocno_num].s_regs_used;
       val = -static_recolor_allocnos_data[allocno_num].mod_val;
+
       int *c_vals = static_recolor_allocnos_data[allocno_num].conflict_vals;
 
       if (static_recolor_allocnos_data[allocno_num].crating
@@ -30268,6 +30279,9 @@ mips_adjust_costs (void *p, int func)
 
   if (rating)
     val *= abs (rating);
+
+  if (!optimize_size && !s_regs_used)
+    val = 0;
 
   mips_adjust_register_costs (allocno, val, s_regs_used, false, conflict_vals);
   static_recolor_allocnos_data[allocno_num].mod_val = val;
