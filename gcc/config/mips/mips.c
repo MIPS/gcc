@@ -4245,6 +4245,7 @@ lwsp_swsp_address_p (rtx x, machine_mode mode)
 
 /* Return true if X is a legitimate address that conforms to the requirements
    for a LWL/LWR/SWL/SWR insn.  */
+
 bool
 unaligned_load_store_address_p (rtx x, machine_mode mode)
 {
@@ -4273,8 +4274,7 @@ unaligned_load_store_address_p (rtx x, machine_mode mode)
   return false;
 }
 
-/* Return true if X is a legitimate address with a 12-bit offset with
-   the 2 least-significant bits cleared.
+/* Return true if X is a legitimate address with a 12-bit offset.
    MODE is the mode of the value being accessed.  */
 
 bool
@@ -4285,12 +4285,11 @@ umips_12bit_offset_address_p (rtx x, machine_mode mode)
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
-	  && (INTVAL (addr.offset) & 0x3) == 0
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
-/* Return true if X is a legitimate address with a 9-bit offset with
-   the 2 least-significant bits cleared.
+/* Return true if X is a legitimate address with a 9-bit offset.
+   The offset for nanoMIPS requires the 2 least-significant bits cleared.
    MODE is the mode of the value being accessed.  */
 
 bool
@@ -4301,7 +4300,8 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
-	  && (INTVAL (addr.offset) & 0x3) == 0
+	  && (!TARGET_NANOMIPS
+	      || (TARGET_NANOMIPS && (INTVAL (addr.offset) & 0x3) == 0))
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
