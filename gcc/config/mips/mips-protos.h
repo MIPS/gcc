@@ -407,6 +407,7 @@ extern bool umips_12bit_offset_address_p (rtx, machine_mode);
 extern bool umips_12bit_offset_address_memop2_p (rtx, machine_mode);
 extern bool mips_9bit_offset_address_p (rtx, machine_mode);
 extern bool mips_9bit_offset_address_memop2_p (rtx, machine_mode);
+extern bool unaligned_load_store_address_p (rtx, machine_mode);
 extern bool lwsp_swsp_address_p (rtx, machine_mode);
 extern bool m16_based_address_p (rtx, machine_mode,
 			         int (*)(rtx_def*, machine_mode)); 

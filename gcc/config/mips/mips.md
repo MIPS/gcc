@@ -4547,7 +4547,7 @@
 (define_insn "mov_<load>l"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(unspec:GPR [(match_operand:BLK 1 "memory_operand" "m")
-		     (match_operand:QI 2 "memory_operand" "ZC")]
+		     (match_operand:QI 2 "memory_operand" "ZF")]
 		    UNSPEC_LOAD_LEFT))]
   "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
    && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
@@ -4559,7 +4559,7 @@
 (define_insn "mov_<load>r"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(unspec:GPR [(match_operand:BLK 1 "memory_operand" "m")
-		     (match_operand:QI 2 "memory_operand" "ZC")
+		     (match_operand:QI 2 "memory_operand" "ZF")
 		     (match_operand:GPR 3 "register_operand" "0")]
 		    UNSPEC_LOAD_RIGHT))]
   "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
@@ -4581,7 +4581,7 @@
 (define_insn "mov_<store>l"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "memory_operand" "ZC")]
+		     (match_operand:QI 2 "memory_operand" "ZF")]
 		    UNSPEC_STORE_LEFT))]
   "!TARGET_MIPS16
    && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
@@ -4592,7 +4592,7 @@
 (define_insn "mov_<store>r"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
-		     (match_operand:QI 2 "memory_operand" "ZC")
+		     (match_operand:QI 2 "memory_operand" "ZF")
 		     (match_dup 0)]
 		    UNSPEC_STORE_RIGHT))]
   "!TARGET_MIPS16
@@ -4604,7 +4604,7 @@
 (define_insn "mov_<store>l_mips16e2"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:GPR 1 "register_operand" "d")
-		     (match_operand:QI 2 "memory_operand" "ZC")]
+		     (match_operand:QI 2 "memory_operand" "ZF")]
 		    UNSPEC_STORE_LEFT))]
   "TARGET_MIPS16 && ISA_HAS_MIPS16E2
    && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
@@ -4616,7 +4616,7 @@
 (define_insn "mov_<store>r_mips16e2"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
 	(unspec:BLK [(match_operand:GPR 1 "register_operand" "d")
-		     (match_operand:QI 2 "memory_operand" "ZC")
+		     (match_operand:QI 2 "memory_operand" "ZF")
 		     (match_dup 0)]
 		    UNSPEC_STORE_RIGHT))]
   "TARGET_MIPS16 && ISA_HAS_MIPS16E2

@@ -415,8 +415,7 @@
        (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
 	 (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
 	   (if_then_else
-	     (ior (match_test "TARGET_MICROMIPS")
-		  (match_test "TARGET_NANOMIPS"))
+	     (match_test "TARGET_MICROMIPS")
 	     (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
 	     (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
 
@@ -428,6 +427,10 @@
 		(if_then_else (match_test "TARGET_MICROMIPS")
 		  (match_test "umips_12bit_offset_address_p (op, mode)")
 		  (match_test "mips_address_insns (op, mode, false)"))))
+
+(define_address_constraint "ZF"
+  "An address suitable for unaligned LWL/LWR and SWL/SWR insns."
+  (match_test "unaligned_load_store_address_p (op, mode)"))
 
 (define_memory_constraint "ZO"
   "@internal

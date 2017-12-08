@@ -4243,7 +4243,38 @@ lwsp_swsp_address_p (rtx x, machine_mode mode)
 	  && uw5_operand (addr.offset, mode));
 }
 
-/* Return true if X is a legitimate address with a 12-bit offset.
+/* Return true if X is a legitimate address that conforms to the requirements
+   for a LWL/LWR/SWL/SWR insn.  */
+bool
+unaligned_load_store_address_p (rtx x, machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  if (mips_isa_rev >= 6)
+    return false;
+
+  if (!mips_classify_address (&addr, x, mode, false)
+      || addr.type != ADDRESS_REG
+      || !CONST_INT_P (addr.offset))
+    return false;
+
+  if (ISA_HAS_MIPS16E2
+      && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)))
+    return true;
+
+  if (TARGET_MICROMIPS
+      && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)))
+    return true;
+
+  /* For mips_isa_rev < 6, 16-bit signed offset is accepted.  */
+  if (SMALL_INT (addr.offset))
+    return true;
+
+  return false;
+}
+
+/* Return true if X is a legitimate address with a 12-bit offset with
+   the 2 least-significant bits cleared.
    MODE is the mode of the value being accessed.  */
 
 bool
@@ -4254,10 +4285,12 @@ umips_12bit_offset_address_p (rtx x, machine_mode mode)
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
+	  && (INTVAL (addr.offset) & 0x3) == 0
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
-/* Return true if X is a legitimate address with a 9-bit offset.
+/* Return true if X is a legitimate address with a 9-bit offset with
+   the 2 least-significant bits cleared.
    MODE is the mode of the value being accessed.  */
 
 bool
@@ -4268,6 +4301,7 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
+	  && (INTVAL (addr.offset) & 0x3) == 0
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
