@@ -913,8 +913,7 @@ output_call_frame_info (int for_eh)
       dw2_asm_output_data_uleb128 (augmentation_size, "Augmentation size");
       if (personality)
 	{
-	  dw2_asm_output_data (1, per_encoding & ~GCC_DW_EH_PE_special,
-			       "Personality (%s)",
+	  dw2_asm_output_data (1, per_encoding, "Personality (%s)",
 			       eh_data_format_name (per_encoding));
 	  dw2_asm_output_encoded_addr_rtx (per_encoding,
 					   personality,
@@ -922,13 +921,11 @@ output_call_frame_info (int for_eh)
 	}
 
       if (any_lsda_needed)
-	dw2_asm_output_data (1, lsda_encoding & ~GCC_DW_EH_PE_special,
-			     "LSDA Encoding (%s)",
+	dw2_asm_output_data (1, lsda_encoding, "LSDA Encoding (%s)",
 			     eh_data_format_name (lsda_encoding));
 
       if (fde_encoding != DW_EH_PE_absptr)
-	dw2_asm_output_data (1, fde_encoding & ~GCC_DW_EH_PE_special,
-			     "FDE Encoding (%s)",
+	dw2_asm_output_data (1, fde_encoding, "FDE Encoding (%s)",
 			     eh_data_format_name (fde_encoding));
     }
 
@@ -989,8 +986,7 @@ dwarf2out_do_cfi_startproc (bool second)
       if (enc & DW_EH_PE_indirect)
 	ref = dw2_force_const_mem (ref, true);
 
-      fprintf (asm_out_file, "\t.cfi_personality %#x,",
-	       enc & ~GCC_DW_EH_PE_special);
+      fprintf (asm_out_file, "\t.cfi_personality %#x,", enc);
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
@@ -1008,8 +1004,7 @@ dwarf2out_do_cfi_startproc (bool second)
       if (enc & DW_EH_PE_indirect)
 	ref = dw2_force_const_mem (ref, true);
 
-      fprintf (asm_out_file, "\t.cfi_lsda %#x,",
-	       enc & ~GCC_DW_EH_PE_special);
+      fprintf (asm_out_file, "\t.cfi_lsda %#x,", enc);
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }

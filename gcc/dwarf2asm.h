@@ -103,8 +103,4 @@ extern void dw2_asm_output_delta_sleb128 (const char *, const char *,
      ATTRIBUTE_NULL_PRINTF_3;
 #endif
 
-/* Provide a bit that can be used to mark an EH encoding as requiring
-   special handling.  */
-#define GCC_DW_EH_PE_special 0x100
-
 #endif /* GCC_DWARF2ASM_H */

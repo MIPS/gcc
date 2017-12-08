@@ -432,7 +432,7 @@ eh_data_format_name (int format)
 #if HAVE_DESIGNATED_INITIALIZERS
   __extension__ static const char * const format_names[256] = {
 #else
-  switch (format & ~GCC_DW_EH_PE_special) {
+  switch (format) {
 #endif
 
   S(DW_EH_PE_absptr, "absolute")
@@ -569,7 +569,6 @@ eh_data_format_name (int format)
 #if HAVE_DESIGNATED_INITIALIZERS
   };
 
-  format &= ~GCC_DW_EH_PE_special;
   gcc_assert (format >= 0 && format < 0x100 && format_names[format]);
 
   return format_names[format];
