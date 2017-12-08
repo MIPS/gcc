@@ -510,6 +510,91 @@ mode_supports_pre_modify_p (machine_mode mode)
 	  != 0);
 }
 
+/* Given that there exists at least one variable that is set (produced)
+   by OUT_INSN and read (consumed) by IN_INSN, return true iff
+   IN_INSN represents one or more memory store operations and none of
+   the variables set by OUT_INSN is used by IN_INSN as the address of a
+   store operation.  If either IN_INSN or OUT_INSN does not represent
+   a "single" RTL SET expression (as loosely defined by the
+   implementation of the single_set function) or a PARALLEL with only
+   SETs, CLOBBERs, and USEs inside, this function returns false.
+
+   This rs6000-specific version of store_data_bypass_p checks for
+   certain conditions that result in assertion failures (and internal
+   compiler errors) in the generic store_data_bypass_p function and
+   returns false rather than calling store_data_bypass_p if one of the
+   problematic conditions is detected.  */
+
+int
+rs6000_store_data_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
+{
+  rtx out_set, in_set;
+  rtx out_pat, in_pat;
+  rtx out_exp, in_exp;
+  int i, j;
+
+  in_set = single_set (in_insn);
+  if (in_set)
+    {
+      if (MEM_P (SET_DEST (in_set)))
+	{
+	  out_set = single_set (out_insn);
+	  if (!out_set)
+	    {
+	      out_pat = PATTERN (out_insn);
+	      if (GET_CODE (out_pat) == PARALLEL)
+		{
+		  for (i = 0; i < XVECLEN (out_pat, 0); i++)
+		    {
+		      out_exp = XVECEXP (out_pat, 0, i);
+		      if ((GET_CODE (out_exp) == CLOBBER)
+			  || (GET_CODE (out_exp) == USE))
+			continue;
+		      else if (GET_CODE (out_exp) != SET)
+			return false;
+		    }
+		}
+	    }
+	}
+    }
+  else
+    {
+      in_pat = PATTERN (in_insn);
+      if (GET_CODE (in_pat) != PARALLEL)
+	return false;
+
+      for (i = 0; i < XVECLEN (in_pat, 0); i++)
+	{
+	  in_exp = XVECEXP (in_pat, 0, i);
+	  if ((GET_CODE (in_exp) == CLOBBER) || (GET_CODE (in_exp) == USE))
+	    continue;
+	  else if (GET_CODE (in_exp) != SET)
+	    return false;
+
+	  if (MEM_P (SET_DEST (in_exp)))
+	    {
+	      out_set = single_set (out_insn);
+	      if (!out_set)
+		{
+		  out_pat = PATTERN (out_insn);
+		  if (GET_CODE (out_pat) != PARALLEL)
+		    return false;
+		  for (j = 0; j < XVECLEN (out_pat, 0); j++)
+		    {
+		      out_exp = XVECEXP (out_pat, 0, j);
+		      if ((GET_CODE (out_exp) == CLOBBER)
+			  || (GET_CODE (out_exp) == USE))
+			continue;
+		      else if (GET_CODE (out_exp) != SET)
+			return false;
+		    }
+		}
+	    }
+	}
+    }
+  return store_data_bypass_p (out_insn, in_insn);
+}
+
 /* Return true if we have D-form addressing in altivec registers.  */
 static inline bool
 mode_supports_vmx_dform (machine_mode mode)
@@ -5766,8 +5851,20 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 	if (SCALAR_FLOAT_TYPE_P (elem_type)
 	    && TYPE_PRECISION (elem_type) == 32)
 	  return 5;
+	/* On POWER9, integer vector types are built up in GPRs and then
+           use a direct move (2 cycles).  For POWER8 this is even worse,
+           as we need two direct moves and a merge, and the direct moves
+	   are five cycles.  */
+	else if (INTEGRAL_TYPE_P (elem_type))
+	  {
+	    if (TARGET_P9_VECTOR)
+	      return TYPE_VECTOR_SUBPARTS (vectype) - 1 + 2;
+	    else
+	      return TYPE_VECTOR_SUBPARTS (vectype) - 1 + 5;
+	  }
 	else
-	  return max (2, TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	  /* V2DFmode doesn't need a direct move.  */
+	  return 2;
 
       default:
         gcc_unreachable ();
@@ -27718,24 +27815,23 @@ debug_stack_info (rs6000_stack_t *info)
 rtx
 rs6000_return_addr (int count, rtx frame)
 {
-  /* Currently we don't optimize very well between prolog and body
-     code and for PIC code the code can be actually quite bad, so
-     don't try to be too clever here.  */
+  /* We can't use get_hard_reg_initial_val for LR when count == 0 if LR
+     is trashed by the prologue, as it is for PIC on ABI_V4 and Darwin.  */
   if (count != 0
       || ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN) && flag_pic))
     {
       cfun->machine->ra_needs_full_frame = 1;
 
-      return
-	gen_rtx_MEM
-	  (Pmode,
-	   memory_address
-	   (Pmode,
-	    plus_constant (Pmode,
-			   copy_to_reg
-			   (gen_rtx_MEM (Pmode,
-					 memory_address (Pmode, frame))),
-			   RETURN_ADDRESS_OFFSET)));
+      if (count == 0)
+	/* FRAME is set to frame_pointer_rtx by the generic code, but that
+	   is good for loading 0(r1) only when !FRAME_GROWS_DOWNWARD.  */
+	frame = stack_pointer_rtx;
+      rtx prev_frame_addr = memory_address (Pmode, frame);
+      rtx prev_frame = copy_to_reg (gen_rtx_MEM (Pmode, prev_frame_addr));
+      rtx lr_save_off = plus_constant (Pmode,
+				       prev_frame, RETURN_ADDRESS_OFFSET);
+      rtx lr_save_addr = memory_address (Pmode, lr_save_off);
+      return gen_rtx_MEM (Pmode, lr_save_addr);
     }
 
   cfun->machine->ra_need_lr = 1;
@@ -33080,14 +33176,14 @@ rs6000_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
                   case TYPE_LOAD:
                   case TYPE_CNTLZ:
                     {
-                      if (! store_data_bypass_p (dep_insn, insn))
+                      if (! rs6000_store_data_bypass_p (dep_insn, insn))
                         return get_attr_sign_extend (dep_insn)
                                == SIGN_EXTEND_YES ? 6 : 4;
                       break;
                     }
                   case TYPE_SHIFT:
                     {
-                      if (! store_data_bypass_p (dep_insn, insn))
+                      if (! rs6000_store_data_bypass_p (dep_insn, insn))
                         return get_attr_var_shift (dep_insn) == VAR_SHIFT_YES ?
                                6 : 3;
                       break;
@@ -33098,7 +33194,7 @@ rs6000_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
                   case TYPE_EXTS:
                   case TYPE_INSERT:
                     {
-                      if (! store_data_bypass_p (dep_insn, insn))
+                      if (! rs6000_store_data_bypass_p (dep_insn, insn))
                         return 3;
                       break;
                     }
@@ -33107,19 +33203,19 @@ rs6000_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
                   case TYPE_FPSTORE:
                     {
                       if (get_attr_update (dep_insn) == UPDATE_YES
-                          && ! store_data_bypass_p (dep_insn, insn))
+                          && ! rs6000_store_data_bypass_p (dep_insn, insn))
                         return 3;
                       break;
                     }
                   case TYPE_MUL:
                     {
-                      if (! store_data_bypass_p (dep_insn, insn))
+                      if (! rs6000_store_data_bypass_p (dep_insn, insn))
                         return 17;
                       break;
                     }
                   case TYPE_DIV:
                     {
-                      if (! store_data_bypass_p (dep_insn, insn))
+                      if (! rs6000_store_data_bypass_p (dep_insn, insn))
                         return get_attr_size (dep_insn) == SIZE_32 ? 45 : 57;
                       break;
                     }
@@ -37296,14 +37392,16 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
+      /* FALLTHRU */
+
+    case GT:
+    case LT:
+    case UNORDERED:
       if (outer_code == SET)
 	{
 	  if (XEXP (x, 1) == const0_rtx)
 	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
+	      *total = COSTS_N_INSNS (2);
 	      return true;
 	    }
 	  else
@@ -37311,19 +37409,6 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      *total = COSTS_N_INSNS (3);
 	      return false;
 	    }
-	}
-      /* FALLTHRU */
-
-    case GT:
-    case LT:
-    case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
-	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
-	  else
-	    *total = COSTS_N_INSNS (2);
-	  return true;
 	}
       /* CC COMPARE.  */
       if (outer_code == COMPARE)

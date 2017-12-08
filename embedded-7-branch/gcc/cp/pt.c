@@ -6849,7 +6849,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
     }
   else if (NULLPTR_TYPE_P (type))
     {
-      if (expr != nullptr_node)
+      if (!NULLPTR_TYPE_P (TREE_TYPE (expr)))
 	{
 	  if (complain & tf_error)
 	    error ("%qE is not a valid template argument for type %qT "
@@ -12896,7 +12896,17 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		&& VAR_HAD_UNKNOWN_BOUND (t)
 		&& type != error_mark_node)
 	      type = strip_array_domain (type);
-	    type = tsubst (type, args, complain, in_decl);
+	    tree sub_args = args;
+	    if (tree auto_node = type_uses_auto (type))
+	      {
+		/* Mask off any template args past the variable's context so we
+		   don't replace the auto with an unrelated argument.  */
+		int nouter = TEMPLATE_TYPE_LEVEL (auto_node) - 1;
+		int extra = TMPL_ARGS_DEPTH (args) - nouter;
+		if (extra > 0)
+		  sub_args = strip_innermost_template_args (args, extra);
+	      }
+	    type = tsubst (type, sub_args, complain, in_decl);
 	  }
 	if (VAR_P (r))
 	  {
@@ -14687,6 +14697,10 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 			DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 			  = TREE_CONSTANT (r) = true;
 		      DECL_INITIAL (r) = init;
+		      if (tree auto_node = type_uses_auto (TREE_TYPE (r)))
+			TREE_TYPE (r)
+			  = do_auto_deduction (TREE_TYPE (r), init, auto_node,
+					       complain, adc_variable_type);
 		    }
 		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
 			      || decl_constant_var_p (r)
@@ -16773,8 +16787,7 @@ tsubst_copy_and_build (tree t,
 	    /* A type conversion to reference type will be enclosed in
 	       such an indirect ref, but the substitution of the cast
 	       will have also added such an indirect ref.  */
-	    if (TREE_CODE (TREE_TYPE (r)) == REFERENCE_TYPE)
-	      r = convert_from_reference (r);
+	    r = convert_from_reference (r);
 	  }
 	else
 	  r = build_x_indirect_ref (input_location, r, RO_UNARY_STAR,

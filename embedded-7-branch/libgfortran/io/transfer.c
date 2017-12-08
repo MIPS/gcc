@@ -2671,7 +2671,7 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   dtp->u.p.ionml = ionml;
   dtp->u.p.mode = read_flag ? READING : WRITING;
-
+  dtp->u.p.namelist_mode = 0;
   dtp->u.p.cc.len = 0;
 
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
@@ -2766,6 +2766,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       else
 	dtp->u.p.current_unit->has_size = false;
     }
+  else if (dtp->u.p.current_unit->internal_unit_kind > 0)
+    dtp->u.p.unit_is_internal = 1;
 
   /* Check the action.  */
 
@@ -3887,6 +3889,7 @@ finalize_transfer (st_parameter_dt *dtp)
   if ((dtp->u.p.ionml != NULL)
       && (cf & IOPARM_DT_HAS_NAMELIST_NAME) != 0)
     {
+       dtp->u.p.namelist_mode = 1;
        if ((cf & IOPARM_DT_NAMELIST_READ_MODE) != 0)
 	 namelist_read (dtp);
        else
@@ -4080,24 +4083,25 @@ st_read_done (st_parameter_dt *dtp)
   free_ionml (dtp);
 
   /* If this is a parent READ statement we do not need to retain the
-     internal unit structure for child use.  Free it and stash the unit
-     number for reuse.  */
+     internal unit structure for child use.  */
   if (dtp->u.p.current_unit != NULL
       && dtp->u.p.current_unit->child_dtio == 0)
     {
-      if (is_internal_unit (dtp) &&
-	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
-        {
-	  free (dtp->u.p.current_unit->filename);
-	  dtp->u.p.current_unit->filename = NULL;
-	  free (dtp->u.p.current_unit->s);
-	  dtp->u.p.current_unit->s = NULL;
-	  if (dtp->u.p.current_unit->ls)
-	    free (dtp->u.p.current_unit->ls);
-	  dtp->u.p.current_unit->ls = NULL;
-	  stash_internal_unit (dtp);
+      if (dtp->u.p.unit_is_internal)
+	{
+	  if ((dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+	    {
+	      free (dtp->u.p.current_unit->filename);
+	      dtp->u.p.current_unit->filename = NULL;
+	      free (dtp->u.p.current_unit->s);
+	      dtp->u.p.current_unit->s = NULL;
+	      if (dtp->u.p.current_unit->ls)
+		free (dtp->u.p.current_unit->ls);
+	      dtp->u.p.current_unit->ls = NULL;
+	    }
+	  newunit_free (dtp->common.unit);
 	}
-      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+      if (dtp->u.p.unit_is_internal || dtp->u.p.format_not_saved)
 	{
 	  free_format_data (dtp->u.p.fmt);
 	  free_format (dtp);
@@ -4153,21 +4157,22 @@ st_write_done (st_parameter_dt *dtp)
       free_ionml (dtp);
 
       /* If this is a parent WRITE statement we do not need to retain the
-	 internal unit structure for child use.  Free it and stash the
-	 unit number for reuse.  */
-      if (is_internal_unit (dtp) &&
-	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+	 internal unit structure for child use.  */
+      if (dtp->u.p.unit_is_internal)
 	{
-	  free (dtp->u.p.current_unit->filename);
-	  dtp->u.p.current_unit->filename = NULL;
-	  free (dtp->u.p.current_unit->s);
-	  dtp->u.p.current_unit->s = NULL;
-	  if (dtp->u.p.current_unit->ls)
-	    free (dtp->u.p.current_unit->ls);
-	  dtp->u.p.current_unit->ls = NULL;
-	  stash_internal_unit (dtp);
+	  if ((dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+	    {
+	      free (dtp->u.p.current_unit->filename);
+	      dtp->u.p.current_unit->filename = NULL;
+	      free (dtp->u.p.current_unit->s);
+	      dtp->u.p.current_unit->s = NULL;
+	      if (dtp->u.p.current_unit->ls)
+		free (dtp->u.p.current_unit->ls);
+	      dtp->u.p.current_unit->ls = NULL;
+	    }
+	  newunit_free (dtp->common.unit);
 	}
-      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+      if (dtp->u.p.unit_is_internal || dtp->u.p.format_not_saved)
 	{
 	  free_format_data (dtp->u.p.fmt);
 	  free_format (dtp);

@@ -1,3 +1,70 @@
+2017-12-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/83168
+	* io/write.c (select_string): Bump size by one to avoid
+	overrun.
+
+2017-12-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	Backport from trunk
+	PR libgfortran/83191
+	* io/transfer.c (list_formatted_read_scalar): Do not set
+	namelist_mode bit here. (namelist_read): Likewise.
+	(data_transfer_init): Clear the mode bit here.
+	(finalize_transfer): Do set the mode bit just before any calls
+	to namelist_read or namelist_write. It can now be referred to
+	in complex_write.
+	* io/write.c (write_complex): Suppress the leading blanks when
+	namelist_mode bit is not set to 1.
+	
+2017-12-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/83225
+	* io/io.h (is_internal_unit): Use the unit_is_internal bit.
+	* io/transfer.c (data_transfer_init): Set the bit to true for
+	internal units. Use that bit for checks for internal unit
+	initializations.
+	* io/unit.c (insert_unit): As a precaution, set the
+	internal_unit_kind to zero when a unit structure is first created.
+
+2017-11-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/78549
+	* io/io.h (newunit_free): Add declaration. Clean some whitespace.
+	* io/transfer.c (st_read_done, st_write_done): Call newunit_free.
+	* io/unit.c (newunit_free): Change type from static void to void.
+
+2017-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Rimvydas (RJ)
+
+	Backport from trunk
+	PR libgfortran/81938
+	io/format.c (free_format_data): Don't try to free vlist
+	descriptors past the end of the fnode array.
+
+2017-10-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/82233
+	* intrinsics/execute_command_line.c (execute_command_line):
+	No call to runtime_error if cmdstat is present.
+
+2017-09-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/78387
+	* io/list_read.c (nml_read_obj): Remove use of stash.
+	* io/transfer.c (st_read_done, st_write_done): Likewise.
+	* io/unit.c (stash_internal_unit): Delete function.
+	(get_unit): Remove use of stash.
+	(init_units): Likewise.
+	(close_units): Likewise.
+	* io/write.c (nml_write_obj): Likewise:
+
 2017-08-14  Release Manager
 
 	* GCC 7.2.0 released.

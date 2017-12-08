@@ -2686,7 +2686,7 @@ rest_of_handle_insert_vzeroupper (void)
   int i;
 
   /* vzeroupper instructions are inserted immediately after reload to
-     account for possible spills from 256bit registers.  The pass
+     account for possible spills from 256bit or 512bit registers.  The pass
      reuses mode switching infrastructure by re-running mode insertion
      pass, so disable entities that have already been processed.  */
   for (i = 0; i < MAX_386_ENTITIES; i++)
@@ -4185,7 +4185,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_AVX && !TARGET_AVX512F
+      return TARGET_AVX
 	     && TARGET_VZEROUPPER && flag_expensive_optimizations
 	     && !optimize_size;
     }
@@ -6203,7 +6203,8 @@ ix86_option_override_internal (bool main_args_p,
 #endif
    }
 
-  if (!(opts_set->x_target_flags & MASK_VZEROUPPER))
+  if (!(opts_set->x_target_flags & MASK_VZEROUPPER)
+      && TARGET_EMIT_VZEROUPPER)
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
@@ -19147,16 +19148,17 @@ ix86_dirflag_mode_needed (rtx_insn *insn)
   return X86_DIRFLAG_ANY;
 }
 
-/* Check if a 256bit AVX register is referenced inside of EXP.   */
+/* Check if a 256bit or 512 bit AVX register is referenced inside of EXP.   */
 
 static bool
-ix86_check_avx256_register (const_rtx exp)
+ix86_check_avx_upper_register (const_rtx exp)
 {
   if (SUBREG_P (exp))
     exp = SUBREG_REG (exp);
 
   return (REG_P (exp)
-	  && VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp)));
+	&& (VALID_AVX256_REG_OR_OI_MODE (GET_MODE (exp))
+	|| VALID_AVX512F_REG_OR_XI_MODE (GET_MODE (exp))));
 }
 
 /* Return needed mode for entity in optimize_mode_switching pass.  */
@@ -19169,7 +19171,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       rtx link;
 
       /* Needed mode is set to AVX_U128_CLEAN if there are
-	 no 256bit modes used in function arguments.  */
+	 no 256bit or 512bit modes used in function arguments. */
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
 	   link;
 	   link = XEXP (link, 1))
@@ -19178,7 +19180,7 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
 	    {
 	      rtx arg = XEXP (XEXP (link, 0), 0);
 
-	      if (ix86_check_avx256_register (arg))
+	      if (ix86_check_avx_upper_register (arg))
 		return AVX_U128_DIRTY;
 	    }
 	}
@@ -19186,13 +19188,13 @@ ix86_avx_u128_mode_needed (rtx_insn *insn)
       return AVX_U128_CLEAN;
     }
 
-  /* Require DIRTY mode if a 256bit AVX register is referenced.  Hardware
-     changes state only when a 256bit register is written to, but we need
-     to prevent the compiler from moving optimal insertion point above
-     eventual read from 256bit register.  */
+  /* Require DIRTY mode if a 256bit or 512bit AVX register is referenced.
+     Hardware changes state only when a 256bit register is written to,
+     but we need to prevent the compiler from moving optimal insertion
+     point above eventual read from 256bit or 512 bit register.  */
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
-    if (ix86_check_avx256_register (*iter))
+    if (ix86_check_avx_upper_register (*iter))
       return AVX_U128_DIRTY;
 
   return AVX_U128_ANY;
@@ -19274,12 +19276,12 @@ ix86_mode_needed (int entity, rtx_insn *insn)
   return 0;
 }
 
-/* Check if a 256bit AVX register is referenced in stores.   */
+/* Check if a 256bit or 512bit AVX register is referenced in stores.   */
  
 static void
-ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
+ix86_check_avx_upper_stores (rtx dest, const_rtx, void *data)
  {
-   if (ix86_check_avx256_register (dest))
+   if (ix86_check_avx_upper_register (dest))
     {
       bool *used = (bool *) data;
       *used = true;
@@ -19298,18 +19300,18 @@ ix86_avx_u128_mode_after (int mode, rtx_insn *insn)
     return AVX_U128_CLEAN;
 
   /* We know that state is clean after CALL insn if there are no
-     256bit registers used in the function return register.  */
+     256bit or 512bit registers used in the function return register. */
   if (CALL_P (insn))
     {
-      bool avx_reg256_found = false;
-      note_stores (pat, ix86_check_avx256_stores, &avx_reg256_found);
+      bool avx_upper_reg_found = false;
+      note_stores (pat, ix86_check_avx_upper_stores, &avx_upper_reg_found);
 
-      return avx_reg256_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
+      return avx_upper_reg_found ? AVX_U128_DIRTY : AVX_U128_CLEAN;
     }
 
   /* Otherwise, return current mode.  Remember that if insn
-     references AVX 256bit registers, the mode was already changed
-     to DIRTY from MODE_NEEDED.  */
+     references AVX 256bit or 512bit registers, the mode was already
+     changed to DIRTY from MODE_NEEDED.  */
   return mode;
 }
 
@@ -19352,13 +19354,13 @@ ix86_avx_u128_mode_entry (void)
   tree arg;
 
   /* Entry mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in function arguments.  */
+     256bit or 512bit modes used in function arguments.  */
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = TREE_CHAIN (arg))
     {
       rtx incoming = DECL_INCOMING_RTL (arg);
 
-      if (incoming && ix86_check_avx256_register (incoming))
+      if (incoming && ix86_check_avx_upper_register (incoming))
 	return AVX_U128_DIRTY;
     }
 
@@ -19392,9 +19394,9 @@ ix86_avx_u128_mode_exit (void)
 {
   rtx reg = crtl->return_rtx;
 
-  /* Exit mode is set to AVX_U128_DIRTY if there are
-     256bit modes used in the function return register.  */
-  if (reg && ix86_check_avx256_register (reg))
+  /* Exit mode is set to AVX_U128_DIRTY if there are 256bit
+     or 512 bit modes used in the function return register. */
+  if (reg && ix86_check_avx_upper_register (reg))
     return AVX_U128_DIRTY;
 
   return AVX_U128_CLEAN;
@@ -19828,20 +19830,6 @@ ix86_expand_clear (rtx dest)
     }
 
   emit_insn (tmp);
-}
-
-/* X is an unchanging MEM.  If it is a constant pool reference, return
-   the constant pool rtx, else NULL.  */
-
-rtx
-maybe_get_pool_constant (rtx x)
-{
-  x = ix86_delegitimize_address (XEXP (x, 0));
-
-  if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
-    return get_pool_constant (x);
-
-  return NULL_RTX;
 }
 
 void
@@ -20714,13 +20702,13 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
 
   if (signed_p)
     {
-      div = gen_rtx_DIV (SImode, operands[2], operands[3]);
-      mod = gen_rtx_MOD (SImode, operands[2], operands[3]);
+      div = gen_rtx_DIV (mode, operands[2], operands[3]);
+      mod = gen_rtx_MOD (mode, operands[2], operands[3]);
     }
   else
     {
-      div = gen_rtx_UDIV (SImode, operands[2], operands[3]);
-      mod = gen_rtx_UMOD (SImode, operands[2], operands[3]);
+      div = gen_rtx_UDIV (mode, operands[2], operands[3]);
+      mod = gen_rtx_UMOD (mode, operands[2], operands[3]);
     }
 
   /* Extract remainder from AH.  */
@@ -25371,11 +25359,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, machine_mode mode)
   /* Optimize constant pool reference to immediates.  This is used by fp
      moves, that force all constants to memory to allow combining.  */
   if (MEM_P (operand) && MEM_READONLY_P (operand))
-    {
-      rtx tmp = maybe_get_pool_constant (operand);
-      if (tmp)
-	operand = tmp;
-    }
+    operand = avoid_constant_pool_reference (operand);
 
   if (MEM_P (operand) && !offsettable_memref_p (operand))
     {
@@ -32836,6 +32820,9 @@ sorted_attr_string (tree arglist)
     {
       const char *str = TREE_STRING_POINTER (TREE_VALUE (arg));
       size_t len = strlen (str);
+      /* Skip empty string.  */
+      if (len == 0)
+	continue;
       str_len_sum += len + 1;
       if (arg != arglist)
 	argnum++;
@@ -32850,9 +32837,19 @@ sorted_attr_string (tree arglist)
     {
       const char *str = TREE_STRING_POINTER (TREE_VALUE (arg));
       size_t len = strlen (str);
+      /* Skip empty string.  */
+      if (len == 0)
+	continue;
       memcpy (attr_str + str_len_sum, str, len);
       attr_str[str_len_sum + len] = TREE_CHAIN (arg) ? ',' : '\0';
       str_len_sum += len + 1;
+    }
+
+  /* Strip ',' character at the end.  */
+  if (str_len_sum > 0 && attr_str[str_len_sum - 1] == ',')
+    {
+      attr_str[str_len_sum - 1] = '\0';
+      str_len_sum--;
     }
 
   /* Replace "=,-" with "_".  */
@@ -33474,6 +33471,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_INTEL_KNL,
     M_AMD_BTVER1,
     M_AMD_BTVER2,    
+    M_AMDFAM17H,
     M_CPU_SUBTYPE_START,
     M_INTEL_COREI7_NEHALEM,
     M_INTEL_COREI7_WESTMERE,
@@ -33528,6 +33526,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"bdver3", M_AMDFAM15H_BDVER3},
       {"bdver4", M_AMDFAM15H_BDVER4},
       {"btver2", M_AMD_BTVER2},
+      {"amdfam17h", M_AMDFAM17H},
       {"znver1", M_AMDFAM17H_ZNVER1},
     };
 
@@ -41872,7 +41871,8 @@ static void
 x86_print_call_or_nop (FILE *file, const char *target)
 {
   if (flag_nop_mcount)
-    fprintf (file, "1:\tnopl 0x00(%%eax,%%eax,1)\n"); /* 5 byte nop.  */
+    /* 5 byte nop: nopl 0(%[re]ax,%[re]ax,1) */
+    fprintf (file, "1:" ASM_BYTE "0x0f, 0x1f, 0x44, 0x00, 0x00\n");
   else
     fprintf (file, "1:\tcall\t%s\n", target);
 }
