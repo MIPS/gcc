@@ -2679,6 +2679,39 @@ rest_of_insert_endbranch (void)
   return 0;
 }
 
+/* Check if FNDECL is a ucontext function.  */
+
+void
+ix86_check_ucontext_function_reference (location_t loc,
+					const_tree fndecl)
+{
+  if (!ix86_check_ucontext_functions
+      || !TARGET_SHSTK
+      || !DECL_FILE_SCOPE_P (fndecl)
+      || !TREE_PUBLIC (fndecl))
+    return;
+
+  /* For instrumentation clones, we want to derive flags from the
+     original name.  */
+  cgraph_node *node = cgraph_node::get (fndecl);
+  if (node && node->instrumentation_clone)
+    fndecl = node->orig_decl;
+
+  tree name_decl = DECL_NAME (fndecl);
+  if (name_decl
+      && (IDENTIFIER_LENGTH (name_decl) == 10
+	  || IDENTIFIER_LENGTH (name_decl) == 11))
+    {
+      const char *name = IDENTIFIER_POINTER (name_decl);
+
+      if (! strcmp (name, "getcontext")
+	  || ! strcmp (name, "setcontext")
+	  || ! strcmp (name, "makecontext")
+	  || ! strcmp (name, "swapcontext"))
+	error_at (loc, "%qE cannot be used with -mshstk", fndecl);
+    }
+}
+
 namespace {
 
 const pass_data pass_data_insert_endbranch =
@@ -27857,10 +27890,15 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   if (GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
     {
       fndecl = SYMBOL_REF_DECL (XEXP (fnaddr, 0));
-      if (fndecl
-	  && (lookup_attribute ("interrupt",
-				TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))))
-	error ("interrupt service routine can't be called directly");
+      if (fndecl)
+	{
+	  if (lookup_attribute ("interrupt",
+				TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))
+	    error ("interrupt service routine can't be called directly");
+
+	  ix86_check_ucontext_function_reference (input_location,
+						  fndecl);
+	}
     }
   else
     fndecl = NULL_TREE;

@@ -1005,6 +1005,10 @@ Target Report Mask(ISA_SHSTK) Var(ix86_isa_flags2) Save
 Specifically enables an shadow stack support feature from Control-flow
 Enforcment Technology (CET).
 
+mcheck-ucontext-functions
+Target Report Var(ix86_check_ucontext_functions) Init(1)
+Check references to ucontext functions.
+
 mcet-switch
 Target Report Undocumented Var(flag_cet_switch) Init(0)
 Turn on CET instrumentation for switch statements, which use jump table and
