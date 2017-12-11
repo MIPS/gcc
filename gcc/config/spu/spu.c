@@ -2029,8 +2029,9 @@ pad_bb(void)
   for (; insn; insn = next_insn)
     {
       next_insn = next_active_insn (insn);
-      if (INSN_CODE (insn) == CODE_FOR_iprefetch
-	  || INSN_CODE (insn) == CODE_FOR_hbr)
+      if (INSN_P (insn)
+          && (INSN_CODE (insn) == CODE_FOR_iprefetch
+	      || INSN_CODE (insn) == CODE_FOR_hbr))
 	{
 	  if (hbr_insn)
 	    {
@@ -2048,7 +2049,7 @@ pad_bb(void)
 	    }
 	  hbr_insn = insn;
 	}
-      if (INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
+      if (INSN_P (insn) && INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
 	{
 	  if (GET_MODE (insn) == TImode)
 	    PUT_MODE (next_insn, TImode);
@@ -7215,12 +7216,12 @@ spu_constant_alignment (const_tree, HOST_WIDE_INT align)
 static const struct attribute_spec spu_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+       affects_type_identity, exclusions } */
   { "naked",          0, 0, true,  false, false, spu_handle_fndecl_attribute,
-    false },
+    false, NULL },
   { "spu_vector",     0, 0, false, true,  false, spu_handle_vector_attribute,
-    false },
-  { NULL,             0, 0, false, false, false, NULL, false }
+    false, NULL },
+  { NULL,             0, 0, false, false, false, NULL, false, NULL }
 };
 
 /*  TARGET overrides.  */

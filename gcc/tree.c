@@ -66,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "rtl.h"
 #include "regs.h"
+#include "tree-vector-builder.h"
 
 /* Tree code classes.  */
 
@@ -837,7 +838,7 @@ tree_code_size (enum tree_code code)
 	case REAL_CST:		return sizeof (tree_real_cst);
 	case FIXED_CST:		return sizeof (tree_fixed_cst);
 	case COMPLEX_CST:	return sizeof (tree_complex);
-	case VECTOR_CST:	return sizeof (tree_vector);
+	case VECTOR_CST:	gcc_unreachable ();
 	case STRING_CST:	gcc_unreachable ();
 	default:
 	  gcc_checking_assert (code >= NUM_TREE_CODES);
@@ -897,7 +898,7 @@ tree_size (const_tree node)
 
     case VECTOR_CST:
       return (sizeof (struct tree_vector)
-	      + (VECTOR_CST_NELTS (node) - 1) * sizeof (tree));
+	      + (vector_cst_encoded_nelts (node) - 1) * sizeof (tree));
 
     case STRING_CST:
       return TREE_STRING_LENGTH (node) + offsetof (struct tree_string, str) + 1;
@@ -1709,13 +1710,19 @@ cst_and_fits_in_hwi (const_tree x)
 	  && (tree_fits_shwi_p (x) || tree_fits_uhwi_p (x)));
 }
 
-/* Build a newly constructed VECTOR_CST node of length LEN.  */
+/* Build a newly constructed VECTOR_CST with the given values of
+   (VECTOR_CST_)LOG2_NPATTERNS and (VECTOR_CST_)NELTS_PER_PATTERN.  */
 
 tree
-make_vector (unsigned len MEM_STAT_DECL)
+make_vector (unsigned log2_npatterns,
+	     unsigned int nelts_per_pattern MEM_STAT_DECL)
 {
+  gcc_assert (IN_RANGE (nelts_per_pattern, 1, 3));
   tree t;
-  unsigned length = (len - 1) * sizeof (tree) + sizeof (struct tree_vector);
+  unsigned npatterns = 1 << log2_npatterns;
+  unsigned encoded_nelts = npatterns * nelts_per_pattern;
+  unsigned length = (sizeof (struct tree_vector)
+		     + (encoded_nelts - 1) * sizeof (tree));
 
   record_node_allocation_statistics (VECTOR_CST, length);
 
@@ -1723,40 +1730,10 @@ make_vector (unsigned len MEM_STAT_DECL)
 
   TREE_SET_CODE (t, VECTOR_CST);
   TREE_CONSTANT (t) = 1;
-  VECTOR_CST_NELTS (t) = len;
+  VECTOR_CST_LOG2_NPATTERNS (t) = log2_npatterns;
+  VECTOR_CST_NELTS_PER_PATTERN (t) = nelts_per_pattern;
 
   return t;
-}
-
-/* Return a new VECTOR_CST node whose type is TYPE and whose values
-   are given by VALS.  */
-
-tree
-build_vector (tree type, vec<tree> vals MEM_STAT_DECL)
-{
-  unsigned int nelts = vals.length ();
-  gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (type));
-  int over = 0;
-  unsigned cnt = 0;
-  tree v = make_vector (nelts);
-  TREE_TYPE (v) = type;
-
-  /* Iterate through elements and check for overflow.  */
-  for (cnt = 0; cnt < nelts; ++cnt)
-    {
-      tree value = vals[cnt];
-
-      VECTOR_CST_ELT (v, cnt) = value;
-
-      /* Don't crash if we get an address constant.  */
-      if (!CONSTANT_CLASS_P (value))
-	continue;
-
-      over |= TREE_OVERFLOW (value);
-    }
-
-  TREE_OVERFLOW (v) = over;
-  return v;
 }
 
 /* Return a new VECTOR_CST node whose type is TYPE and whose values
@@ -1769,7 +1746,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
   unsigned HOST_WIDE_INT idx;
   tree value;
 
-  auto_vec<tree, 32> vec (nelts);
+  tree_vector_builder vec (type, nelts, 1);
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
     {
       if (TREE_CODE (value) == VECTOR_CST)
@@ -1781,7 +1758,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
   while (vec.length () < nelts)
     vec.quick_push (build_zero_cst (TREE_TYPE (type)));
 
-  return build_vector (type, vec);
+  return vec.build ();
 }
 
 /* Build a vector of type VECTYPE where all the elements are SCs.  */
@@ -1804,10 +1781,9 @@ build_vector_from_val (tree vectype, tree sc)
 
   if (CONSTANT_CLASS_P (sc))
     {
-      auto_vec<tree, 32> v (nunits);
-      for (i = 0; i < nunits; ++i)
-	v.quick_push (sc);
-      return build_vector (vectype, v);
+      tree_vector_builder v (vectype, 1, 1);
+      v.quick_push (sc);
+      return v.build ();
     }
   else
     {
@@ -2363,13 +2339,9 @@ integer_zerop (const_tree expr)
       return (integer_zerop (TREE_REALPART (expr))
 	      && integer_zerop (TREE_IMAGPART (expr)));
     case VECTOR_CST:
-      {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	  if (!integer_zerop (VECTOR_CST_ELT (expr, i)))
-	    return false;
-	return true;
-      }
+      return (VECTOR_CST_NPATTERNS (expr) == 1
+	      && VECTOR_CST_DUPLICATE_P (expr)
+	      && integer_zerop (VECTOR_CST_ENCODED_ELT (expr, 0)));
     default:
       return false;
     }
@@ -2389,13 +2361,9 @@ integer_onep (const_tree expr)
       return (integer_onep (TREE_REALPART (expr))
 	      && integer_zerop (TREE_IMAGPART (expr)));
     case VECTOR_CST:
-      {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	  if (!integer_onep (VECTOR_CST_ELT (expr, i)))
-	    return false;
-	return true;
-      }
+      return (VECTOR_CST_NPATTERNS (expr) == 1
+	      && VECTOR_CST_DUPLICATE_P (expr)
+	      && integer_onep (VECTOR_CST_ENCODED_ELT (expr, 0)));
     default:
       return false;
     }
@@ -2426,13 +2394,9 @@ integer_all_onesp (const_tree expr)
     return 1;
 
   else if (TREE_CODE (expr) == VECTOR_CST)
-    {
-      unsigned i;
-      for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	if (!integer_all_onesp (VECTOR_CST_ELT (expr, i)))
-	  return 0;
-      return 1;
-    }
+    return (VECTOR_CST_NPATTERNS (expr) == 1
+	    && VECTOR_CST_DUPLICATE_P (expr)
+	    && integer_all_onesp (VECTOR_CST_ENCODED_ELT (expr, 0)));
 
   else if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
@@ -2655,9 +2619,11 @@ real_zerop (const_tree expr)
 	     && real_zerop (TREE_IMAGPART (expr));
     case VECTOR_CST:
       {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	  if (!real_zerop (VECTOR_CST_ELT (expr, i)))
+	/* Don't simply check for a duplicate because the predicate
+	   accepts both +0.0 and -0.0.  */
+	unsigned count = vector_cst_encoded_nelts (expr);
+	for (unsigned int i = 0; i < count; ++i)
+	  if (!real_zerop (VECTOR_CST_ENCODED_ELT (expr, i)))
 	    return false;
 	return true;
       }
@@ -2682,13 +2648,9 @@ real_onep (const_tree expr)
       return real_onep (TREE_REALPART (expr))
 	     && real_zerop (TREE_IMAGPART (expr));
     case VECTOR_CST:
-      {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	  if (!real_onep (VECTOR_CST_ELT (expr, i)))
-	    return false;
-	return true;
-      }
+      return (VECTOR_CST_NPATTERNS (expr) == 1
+	      && VECTOR_CST_DUPLICATE_P (expr)
+	      && real_onep (VECTOR_CST_ENCODED_ELT (expr, 0)));
     default:
       return false;
     }
@@ -2709,13 +2671,9 @@ real_minus_onep (const_tree expr)
       return real_minus_onep (TREE_REALPART (expr))
 	     && real_zerop (TREE_IMAGPART (expr));
     case VECTOR_CST:
-      {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (expr); ++i)
-	  if (!real_minus_onep (VECTOR_CST_ELT (expr, i)))
-	    return false;
-	return true;
-      }
+      return (VECTOR_CST_NPATTERNS (expr) == 1
+	      && VECTOR_CST_DUPLICATE_P (expr)
+	      && real_minus_onep (VECTOR_CST_ENCODED_ELT (expr, 0)));
     default:
       return false;
     }
@@ -7130,9 +7088,11 @@ add_expr (const_tree t, inchash::hash &hstate, unsigned int flags)
       return;
     case VECTOR_CST:
       {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (t); ++i)
-	  inchash::add_expr (VECTOR_CST_ELT (t, i), hstate, flags);
+	hstate.add_int (VECTOR_CST_NPATTERNS (t));
+	hstate.add_int (VECTOR_CST_NELTS_PER_PATTERN (t));
+	unsigned int count = vector_cst_encoded_nelts (t);
+	for (unsigned int i = 0; i < count; ++i)
+	  inchash::add_expr (VECTOR_CST_ENCODED_ELT (t, i), hstate, flags);
 	return;
       }
     case SSA_NAME:
@@ -10374,6 +10334,59 @@ build_opaque_vector_type (tree innertype, int nunits)
   return cand;
 }
 
+/* Return the value of element I of VECTOR_CST T as a wide_int.  */
+
+wide_int
+vector_cst_int_elt (const_tree t, unsigned int i)
+{
+  /* First handle elements that are directly encoded.  */
+  unsigned int encoded_nelts = vector_cst_encoded_nelts (t);
+  if (i < encoded_nelts)
+    return wi::to_wide (VECTOR_CST_ENCODED_ELT (t, i));
+
+  /* Identify the pattern that contains element I and work out the index of
+     the last encoded element for that pattern.  */
+  unsigned int npatterns = VECTOR_CST_NPATTERNS (t);
+  unsigned int pattern = i % npatterns;
+  unsigned int count = i / npatterns;
+  unsigned int final_i = encoded_nelts - npatterns + pattern;
+
+  /* If there are no steps, the final encoded value is the right one.  */
+  if (!VECTOR_CST_STEPPED_P (t))
+    return wi::to_wide (VECTOR_CST_ENCODED_ELT (t, final_i));
+
+  /* Otherwise work out the value from the last two encoded elements.  */
+  tree v1 = VECTOR_CST_ENCODED_ELT (t, final_i - npatterns);
+  tree v2 = VECTOR_CST_ENCODED_ELT (t, final_i);
+  wide_int diff = wi::to_wide (v2) - wi::to_wide (v1);
+  return wi::to_wide (v2) + (count - 2) * diff;
+}
+
+/* Return the value of element I of VECTOR_CST T.  */
+
+tree
+vector_cst_elt (const_tree t, unsigned int i)
+{
+  /* First handle elements that are directly encoded.  */
+  unsigned int encoded_nelts = vector_cst_encoded_nelts (t);
+  if (i < encoded_nelts)
+    return VECTOR_CST_ENCODED_ELT (t, i);
+
+  /* If there are no steps, the final encoded value is the right one.  */
+  if (!VECTOR_CST_STEPPED_P (t))
+    {
+      /* Identify the pattern that contains element I and work out the index of
+	 the last encoded element for that pattern.  */
+      unsigned int npatterns = VECTOR_CST_NPATTERNS (t);
+      unsigned int pattern = i % npatterns;
+      unsigned int final_i = encoded_nelts - npatterns + pattern;
+      return VECTOR_CST_ENCODED_ELT (t, final_i);
+    }
+
+  /* Otherwise work out the value from the last two encoded elements.  */
+  return wide_int_to_tree (TREE_TYPE (TREE_TYPE (t)),
+			   vector_cst_int_elt (t, i));
+}
 
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */
@@ -10406,13 +10419,9 @@ initializer_zerop (const_tree init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
 
     case VECTOR_CST:
-      {
-	unsigned i;
-	for (i = 0; i < VECTOR_CST_NELTS (init); ++i)
-	  if (!initializer_zerop (VECTOR_CST_ELT (init, i)))
-	    return false;
-	return true;
-      }
+      return (VECTOR_CST_NPATTERNS (init) == 1
+	      && VECTOR_CST_DUPLICATE_P (init)
+	      && initializer_zerop (VECTOR_CST_ENCODED_ELT (init, 0)));
 
     case CONSTRUCTOR:
       {
@@ -10461,12 +10470,9 @@ uniform_vector_p (const_tree vec)
 
   if (TREE_CODE (vec) == VECTOR_CST)
     {
-      first = VECTOR_CST_ELT (vec, 0);
-      for (i = 1; i < VECTOR_CST_NELTS (vec); ++i)
-	if (!operand_equal_p (first, VECTOR_CST_ELT (vec, i), 0))
-	  return NULL_TREE;
-
-      return first;
+      if (VECTOR_CST_NPATTERNS (vec) == 1 && VECTOR_CST_DUPLICATE_P (vec))
+	return VECTOR_CST_ENCODED_ELT (vec, 0);
+      return NULL_TREE;
     }
 
   else if (TREE_CODE (vec) == CONSTRUCTOR)
@@ -12455,6 +12461,23 @@ drop_tree_overflow (tree t)
   if (TREE_CODE (t) == INTEGER_CST)
     return wide_int_to_tree (TREE_TYPE (t), wi::to_wide (t));
 
+  /* For VECTOR_CST, remove the overflow bits from the encoded elements
+     and canonicalize the result.  */
+  if (TREE_CODE (t) == VECTOR_CST)
+    {
+      tree_vector_builder builder;
+      builder.new_unary_operation (TREE_TYPE (t), t, true);
+      unsigned int count = builder.encoded_nelts ();
+      for (unsigned int i = 0; i < count; ++i)
+	{
+	  tree elt = VECTOR_CST_ELT (t, i);
+	  if (TREE_OVERFLOW (elt))
+	    elt = drop_tree_overflow (elt);
+	  builder.quick_push (elt);
+	}
+      return builder.build ();
+    }
+
   /* Otherwise, as all tcc_constants are possibly shared, copy the node
      and drop the flag.  */
   t = copy_node (t);
@@ -12469,15 +12492,7 @@ drop_tree_overflow (tree t)
       if (TREE_OVERFLOW (TREE_IMAGPART (t)))
 	TREE_IMAGPART (t) = drop_tree_overflow (TREE_IMAGPART (t));
     }
-  if (TREE_CODE (t) == VECTOR_CST)
-    {
-      for (unsigned i = 0; i < VECTOR_CST_NELTS (t); ++i)
-	{
-	  tree& elt = VECTOR_CST_ELT (t, i);
-	  if (TREE_OVERFLOW (elt))
-	    elt = drop_tree_overflow (elt);
-	}
-    }
+
   return t;
 }
 
@@ -14020,6 +14035,151 @@ test_labels ()
   ASSERT_FALSE (FORCED_LABEL (label_decl));
 }
 
+/* Return a new VECTOR_CST node whose type is TYPE and whose values
+   are given by VALS.  */
+
+static tree
+build_vector (tree type, vec<tree> vals MEM_STAT_DECL)
+{
+  gcc_assert (vals.length () == TYPE_VECTOR_SUBPARTS (type));
+  tree_vector_builder builder (type, vals.length (), 1);
+  builder.splice (vals);
+  return builder.build ();
+}
+
+/* Check that VECTOR_CST ACTUAL contains the elements in EXPECTED.  */
+
+static void
+check_vector_cst (vec<tree> expected, tree actual)
+{
+  ASSERT_EQ (expected.length (), TYPE_VECTOR_SUBPARTS (TREE_TYPE (actual)));
+  for (unsigned int i = 0; i < expected.length (); ++i)
+    ASSERT_EQ (wi::to_wide (expected[i]),
+	       wi::to_wide (vector_cst_elt (actual, i)));
+}
+
+/* Check that VECTOR_CST ACTUAL contains NPATTERNS duplicated elements,
+   and that its elements match EXPECTED.  */
+
+static void
+check_vector_cst_duplicate (vec<tree> expected, tree actual,
+			    unsigned int npatterns)
+{
+  ASSERT_EQ (npatterns, VECTOR_CST_NPATTERNS (actual));
+  ASSERT_EQ (1, VECTOR_CST_NELTS_PER_PATTERN (actual));
+  ASSERT_EQ (npatterns, vector_cst_encoded_nelts (actual));
+  ASSERT_TRUE (VECTOR_CST_DUPLICATE_P (actual));
+  ASSERT_FALSE (VECTOR_CST_STEPPED_P (actual));
+  check_vector_cst (expected, actual);
+}
+
+/* Check that VECTOR_CST ACTUAL contains NPATTERNS foreground elements
+   and NPATTERNS background elements, and that its elements match
+   EXPECTED.  */
+
+static void
+check_vector_cst_fill (vec<tree> expected, tree actual,
+		       unsigned int npatterns)
+{
+  ASSERT_EQ (npatterns, VECTOR_CST_NPATTERNS (actual));
+  ASSERT_EQ (2, VECTOR_CST_NELTS_PER_PATTERN (actual));
+  ASSERT_EQ (2 * npatterns, vector_cst_encoded_nelts (actual));
+  ASSERT_FALSE (VECTOR_CST_DUPLICATE_P (actual));
+  ASSERT_FALSE (VECTOR_CST_STEPPED_P (actual));
+  check_vector_cst (expected, actual);
+}
+
+/* Check that VECTOR_CST ACTUAL contains NPATTERNS stepped patterns,
+   and that its elements match EXPECTED.  */
+
+static void
+check_vector_cst_stepped (vec<tree> expected, tree actual,
+			  unsigned int npatterns)
+{
+  ASSERT_EQ (npatterns, VECTOR_CST_NPATTERNS (actual));
+  ASSERT_EQ (3, VECTOR_CST_NELTS_PER_PATTERN (actual));
+  ASSERT_EQ (3 * npatterns, vector_cst_encoded_nelts (actual));
+  ASSERT_FALSE (VECTOR_CST_DUPLICATE_P (actual));
+  ASSERT_TRUE (VECTOR_CST_STEPPED_P (actual));
+  check_vector_cst (expected, actual);
+}
+
+/* Test the creation of VECTOR_CSTs.  */
+
+static void
+test_vector_cst_patterns ()
+{
+  auto_vec<tree, 8> elements (8);
+  elements.quick_grow (8);
+  tree element_type = build_nonstandard_integer_type (16, true);
+  tree vector_type = build_vector_type (element_type, 8);
+
+  /* Test a simple linear series with a base of 0 and a step of 1:
+     { 0, 1, 2, 3, 4, 5, 6, 7 }.  */
+  for (unsigned int i = 0; i < 8; ++i)
+    elements[i] = build_int_cst (element_type, i);
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 1);
+
+  /* Try the same with the first element replaced by 100:
+     { 100, 1, 2, 3, 4, 5, 6, 7 }.  */
+  elements[0] = build_int_cst (element_type, 100);
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 1);
+
+  /* Try a series that wraps around.
+     { 100, 65531, 65532, 65533, 65534, 65535, 0, 1 }.  */
+  for (unsigned int i = 1; i < 8; ++i)
+    elements[i] = build_int_cst (element_type, (65530 + i) & 0xffff);
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 1);
+
+  /* Try a downward series:
+     { 100, 79, 78, 77, 76, 75, 75, 73 }.  */
+  for (unsigned int i = 1; i < 8; ++i)
+    elements[i] = build_int_cst (element_type, 80 - i);
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 1);
+
+  /* Try two interleaved series with different bases and steps:
+     { 100, 53, 66, 206, 62, 212, 58, 218 }.  */
+  elements[1] = build_int_cst (element_type, 53);
+  for (unsigned int i = 2; i < 8; i += 2)
+    {
+      elements[i] = build_int_cst (element_type, 70 - i * 2);
+      elements[i + 1] = build_int_cst (element_type, 200 + i * 3);
+    }
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 2);
+
+  /* Try a duplicated value:
+     { 100, 100, 100, 100, 100, 100, 100, 100 }.  */
+  for (unsigned int i = 1; i < 8; ++i)
+    elements[i] = elements[0];
+  check_vector_cst_duplicate (elements,
+			      build_vector (vector_type, elements), 1);
+
+  /* Try an interleaved duplicated value:
+     { 100, 55, 100, 55, 100, 55, 100, 55 }.  */
+  elements[1] = build_int_cst (element_type, 55);
+  for (unsigned int i = 2; i < 8; ++i)
+    elements[i] = elements[i - 2];
+  check_vector_cst_duplicate (elements,
+			      build_vector (vector_type, elements), 2);
+
+  /* Try a duplicated value with 2 exceptions
+     { 41, 97, 100, 55, 100, 55, 100, 55 }.  */
+  elements[0] = build_int_cst (element_type, 41);
+  elements[1] = build_int_cst (element_type, 97);
+  check_vector_cst_fill (elements, build_vector (vector_type, elements), 2);
+
+  /* Try with and without a step
+     { 41, 97, 100, 21, 100, 35, 100, 49 }.  */
+  for (unsigned int i = 3; i < 8; i += 2)
+    elements[i] = build_int_cst (element_type, i * 7);
+  check_vector_cst_stepped (elements, build_vector (vector_type, elements), 2);
+
+  /* Try a fully-general constant:
+     { 41, 97, 100, 21, 100, 9990, 100, 49 }.  */
+  elements[5] = build_int_cst (element_type, 9990);
+  check_vector_cst_fill (elements, build_vector (vector_type, elements), 4);
+}
+
 /* Run all of the selftests within this file.  */
 
 void
@@ -14028,6 +14188,7 @@ tree_c_tests ()
   test_integer_constants ();
   test_identifiers ();
   test_labels ();
+  test_vector_cst_patterns ();
 }
 
 } // namespace selftest

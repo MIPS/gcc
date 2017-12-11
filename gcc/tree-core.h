@@ -972,8 +972,17 @@ struct GTY(()) tree_base {
     /* VEC length.  This field is only used with TREE_VEC.  */
     int length;
 
-    /* Number of elements.  This field is only used with VECTOR_CST.  */
-    unsigned int nelts;
+    /* This field is only used with VECTOR_CST.  */
+    struct {
+      /* The value of VECTOR_CST_LOG2_NPATTERNS.  */
+      unsigned int log2_npatterns : 8;
+
+      /* The value of VECTOR_CST_NELTS_PER_PATTERN.  */
+      unsigned int nelts_per_pattern : 8;
+
+      /* For future expansion.  */
+      unsigned int unused : 16;
+    } vector_cst;
 
     /* SSA version number.  This field is only used with SSA_NAME.  */
     unsigned int version;
@@ -1325,7 +1334,7 @@ struct GTY(()) tree_complex {
 
 struct GTY(()) tree_vector {
   struct tree_typed typed;
-  tree GTY ((length ("VECTOR_CST_NELTS ((tree) &%h)"))) elts[1];
+  tree GTY ((length ("vector_cst_encoded_nelts ((tree) &%h)"))) elts[1];
 };
 
 struct GTY(()) tree_identifier {
@@ -1938,6 +1947,20 @@ struct attribute_spec {
 		   int flags, bool *no_add_attrs);
   /* Specifies if attribute affects type's identity.  */
   bool affects_type_identity;
+
+  /* Specifies the name of an attribute that's mutually exclusive with
+     this one, and whether the relationship applies to the function,
+     variable, or type form of the attribute.  */
+  struct exclusions {
+    const char *name;
+    bool function;
+    bool variable;
+    bool type;
+  };
+
+  /* An array of attribute exclusions describing names of other attributes
+     that this attribute is mutually exclusive with.  */
+  const exclusions *exclude;
 };
 
 /* These functions allow a front-end to perform a manual layout of a

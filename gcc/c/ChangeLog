@@ -1,3 +1,67 @@
+2017-12-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (build_compound_literal): Add parameter alignas_align
+	and set alignment of decl if nonzero.
+	* c-parser.c (c_keyword_starts_typename): Allow RID_ALIGNAS.
+	(c_parser_declspecs): Allow RID_ALIGNAS to follow a type, like a
+	qualifier.
+	(c_parser_struct_declaration): Update syntax comment.
+	(c_parser_type_name): Add alignas_ok argument and pass it to
+	c_parser_declspecs.
+	(c_parser_cast_expression): Pass true to c_parser_type_name and
+	give error if a cast used an _Alignas specifier.
+	(c_parser_sizeof_expression): Pass true to c_parser_type_name and
+	give error if sizeof (type-name) used an _Alignas specifier.
+	(c_parser_alignof_expression): Pass true to c_parser_type_name and
+	give error if _Alignof (type-name) used an _Alignas specifier.
+	(c_parser_postfix_expression_after_paren_type): Check specified
+	alignment for a compound literal and pass it to
+	build_compound_literal.
+	* c-parser.h (c_parser_type_name): Update prototype.
+	* c-tree.h (build_compound_literal): Update prototype.
+
+2017-12-07  Martin Sebor  <msebor@redhat.com>
+
+	PR c/81544
+	* c-decl.c (c_decl_attributes): Look up existing declaration and
+	pass it to decl_attributes.
+
+2017-12-06  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/83236
+	* c-decl.c (lookup_name_fuzzy): Don't suggest names that are
+	reserved for use by the implementation.
+
+2017-12-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-decl.c: Include "c-family/c-spellcheck.h".
+
+2017-12-05  Martin Liska  <mliska@suse.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (pointer_diff): Add new argument and instrument
+	pointer subtraction.
+	(build_binary_op): Similar for pointer comparison.
+
+2017-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/79153
+	* c-parser.c: Include tree-iterator.h.
+	(c_parser_switch_statement): Emit LABEL_EXPR for the break label
+	into SWITCH_BODY instead of after it and set SWITCH_BREAK_LABEL_P
+	on it.
+
+	PR c/83222
+	* c-tree.h (decl_constant_value_1): Declare.
+	* c-typeck.c (decl_constant_value_1): New function.
+	(decl_constant_value): Use it.
+	* c-fold.c (c_fully_fold_internal): If in_init, use
+	decl_constant_value_1 instead of decl_constant_value.
+
+2017-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_postfix_expression): Use ; instead of ;;.
+
 2017-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/81275

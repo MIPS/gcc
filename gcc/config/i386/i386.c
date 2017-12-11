@@ -2747,6 +2747,7 @@ ix86_target_string (HOST_WIDE_INT isa, HOST_WIDE_INT isa2,
   {
     { "-mmpx",		OPTION_MASK_ISA_MPX },
     { "-mavx512vbmi2",	OPTION_MASK_ISA_AVX512VBMI2 },
+    { "-mavx512vnni", OPTION_MASK_ISA_AVX512VNNI },
     { "-mrdpid",	OPTION_MASK_ISA_RDPID },
     { "-msgx",		OPTION_MASK_ISA_SGX },
     { "-mavx5124vnniw", OPTION_MASK_ISA_AVX5124VNNIW },
@@ -5256,6 +5257,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx5124vnniw", OPT_mavx5124vnniw),
     IX86_ATTR_ISA ("avx512vpopcntdq", OPT_mavx512vpopcntdq),
     IX86_ATTR_ISA ("avx512vbmi2", OPT_mavx512vbmi2),
+    IX86_ATTR_ISA ("avx512vnni", OPT_mavx512vnni),
 
     IX86_ATTR_ISA ("avx512vbmi", OPT_mavx512vbmi),
     IX86_ATTR_ISA ("avx512ifma", OPT_mavx512ifma),
@@ -10380,12 +10382,13 @@ standard_sse_constant_p (rtx x, machine_mode pred_mode)
 }
 
 /* Return the opcode of the special instruction to be used to load
-   the constant X.  */
+   the constant operands[1] into operands[0].  */
 
 const char *
-standard_sse_constant_opcode (rtx_insn *insn, rtx x)
+standard_sse_constant_opcode (rtx_insn *insn, rtx *operands)
 {
   machine_mode mode;
+  rtx x = operands[1];
 
   gcc_assert (TARGET_SSE);
 
@@ -10395,34 +10398,51 @@ standard_sse_constant_opcode (rtx_insn *insn, rtx x)
     {
       switch (get_attr_mode (insn))
 	{
-	case MODE_XI:
-	  return "vpxord\t%g0, %g0, %g0";
-	case MODE_OI:
-	  return (TARGET_AVX512VL
-		  ? "vpxord\t%x0, %x0, %x0"
-		  : "vpxor\t%x0, %x0, %x0");
 	case MODE_TI:
-	  return (TARGET_AVX512VL
-		  ? "vpxord\t%t0, %t0, %t0"
-		  : "%vpxor\t%0, %d0");
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return "%vpxor\t%0, %d0";
+	  /* FALLTHRU */
+	case MODE_XI:
+	case MODE_OI:
+	  if (EXT_REX_SSE_REG_P (operands[0]))
+	    return (TARGET_AVX512VL
+		    ? "vpxord\t%x0, %x0, %x0"
+		    : "vpxord\t%g0, %g0, %g0");
+	  return "vpxor\t%x0, %x0, %x0";
 
-	case MODE_V8DF:
-	  return (TARGET_AVX512DQ
-		  ? "vxorpd\t%g0, %g0, %g0"
-		  : "vpxorq\t%g0, %g0, %g0");
-	case MODE_V4DF:
-	  return "vxorpd\t%x0, %x0, %x0";
 	case MODE_V2DF:
-	  return "%vxorpd\t%0, %d0";
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return "%vxorpd\t%0, %d0";
+	  /* FALLTHRU */
+	case MODE_V8DF:
+	case MODE_V4DF:
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return "vxorpd\t%x0, %x0, %x0";
+	  else if (TARGET_AVX512DQ)
+	    return (TARGET_AVX512VL
+		    ? "vxorpd\t%x0, %x0, %x0"
+		    : "vxorpd\t%g0, %g0, %g0");
+	  else
+	    return (TARGET_AVX512VL
+		    ? "vpxorq\t%x0, %x0, %x0"
+		    : "vpxorq\t%g0, %g0, %g0");
 
-	case MODE_V16SF:
-	  return (TARGET_AVX512DQ
-		  ? "vxorps\t%g0, %g0, %g0"
-		  : "vpxord\t%g0, %g0, %g0");
-	case MODE_V8SF:
-	  return "vxorps\t%x0, %x0, %x0";
 	case MODE_V4SF:
-	  return "%vxorps\t%0, %d0";
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return "%vxorps\t%0, %d0";
+	  /* FALLTHRU */
+	case MODE_V16SF:
+	case MODE_V8SF:
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return "vxorps\t%x0, %x0, %x0";
+	  else if (TARGET_AVX512DQ)
+	    return (TARGET_AVX512VL
+		    ? "vxorps\t%x0, %x0, %x0"
+		    : "vxorps\t%g0, %g0, %g0");
+	  else
+	    return (TARGET_AVX512VL
+		    ? "vpxord\t%x0, %x0, %x0"
+		    : "vpxord\t%g0, %g0, %g0");
 
 	default:
 	  gcc_unreachable ();
@@ -10449,9 +10469,14 @@ standard_sse_constant_opcode (rtx_insn *insn, rtx x)
 	case MODE_V2DF:
 	case MODE_V4SF:
 	  gcc_assert (TARGET_SSE2);
-	  return (TARGET_AVX
-		  ? "vpcmpeqd\t%0, %0, %0"
-		  : "pcmpeqd\t%0, %0");
+	  if (!EXT_REX_SSE_REG_P (operands[0]))
+	    return (TARGET_AVX
+		    ? "vpcmpeqd\t%0, %0, %0"
+		    : "pcmpeqd\t%0, %0");
+	  else if (TARGET_AVX512VL)
+	    return "vpternlogd\t{$0xFF, %0, %0, %0|%0, %0, %0, 0xFF}";
+	  else
+	    return "vpternlogd\t{$0xFF, %g0, %g0, %g0|%g0, %g0, %g0, 0xFF}";
 
 	default:
 	  gcc_unreachable ();
@@ -28821,6 +28846,7 @@ ix86_sched_init_global (FILE *, int, int)
     case PROCESSOR_NEHALEM:
     case PROCESSOR_SANDYBRIDGE:
     case PROCESSOR_HASWELL:
+    case PROCESSOR_GENERIC:
       /* Do not perform multipass scheduling for pre-reload schedule
          to save compile time.  */
       if (reload_completed)
@@ -34985,6 +35011,7 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	default:
 	  break;
 	}
+      /* FALLTHRU */
     case V64QI_FTYPE_PCCHAR_V64QI_UDI:
     case V32QI_FTYPE_PCCHAR_V32QI_USI:
     case V16QI_FTYPE_PCCHAR_V16QI_UHI:
@@ -44228,8 +44255,7 @@ ix86_expand_lfloorceil (rtx op0, rtx op1, bool do_floor)
   emit_move_insn (op0, ireg);
 }
 
-/* Expand rint (IEEE round to nearest) rounding OPERAND1 and storing the
-   result in OPERAND0.  */
+/* Expand rint rounding OPERAND1 and storing the result in OPERAND0.  */
 void
 ix86_expand_rint (rtx operand0, rtx operand1)
 {
@@ -44237,11 +44263,17 @@ ix86_expand_rint (rtx operand0, rtx operand1)
 	xa = fabs (operand1);
         if (!isless (xa, 2**52))
 	  return operand1;
-        xa = xa + 2**52 - 2**52;
+        two52 = 2**52;
+        if (flag_rounding_math)
+	  {
+	    two52 = copysign (two52, operand1);
+	    xa = operand1;
+	  }
+        xa = xa + two52 - two52;
         return copysign (xa, operand1);
    */
   machine_mode mode = GET_MODE (operand0);
-  rtx res, xa, TWO52, mask;
+  rtx res, xa, TWO52, two52, mask;
   rtx_code_label *label;
 
   res = gen_reg_rtx (mode);
@@ -44254,8 +44286,16 @@ ix86_expand_rint (rtx operand0, rtx operand1)
   TWO52 = ix86_gen_TWO52 (mode);
   label = ix86_expand_sse_compare_and_jump (UNLE, TWO52, xa, false);
 
-  xa = expand_simple_binop (mode, PLUS, xa, TWO52, NULL_RTX, 0, OPTAB_DIRECT);
-  xa = expand_simple_binop (mode, MINUS, xa, TWO52, xa, 0, OPTAB_DIRECT);
+  two52 = TWO52;
+  if (flag_rounding_math)
+    {
+      two52 = gen_reg_rtx (mode);
+      ix86_sse_copysign_to_positive (two52, TWO52, res, mask);
+      xa = res;
+    }
+
+  xa = expand_simple_binop (mode, PLUS, xa, two52, NULL_RTX, 0, OPTAB_DIRECT);
+  xa = expand_simple_binop (mode, MINUS, xa, two52, xa, 0, OPTAB_DIRECT);
 
   ix86_sse_copysign_to_positive (res, xa, res, mask);
 
@@ -44666,69 +44706,71 @@ ix86_expand_round_sse4 (rtx op0, rtx op1)
 static const struct attribute_spec ix86_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+       affects_type_identity, exclusions } */
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
   { "stdcall",   0, 0, false, true,  true,  ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* Fastcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
   { "fastcall",  0, 0, false, true,  true,  ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* Thiscall attribute says callee is responsible for popping arguments
      if they are not variable.  */
   { "thiscall",  0, 0, false, true,  true,  ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* Cdecl attribute says the callee is a normal C declaration */
   { "cdecl",     0, 0, false, true,  true,  ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* Regparm attribute specifies how many integer arguments are to be
      passed in registers.  */
   { "regparm",   1, 1, false, true,  true,  ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* Sseregparm attribute says we are using x86_64 calling conventions
      for FP arguments.  */
   { "sseregparm", 0, 0, false, true, true, ix86_handle_cconv_attribute,
-    true },
+    true, NULL },
   /* The transactional memory builtins are implicitly regparm or fastcall
      depending on the ABI.  Override the generic do-nothing attribute that
      these builtins were declared with.  */
   { "*tm regparm", 0, 0, false, true, true, ix86_handle_tm_regparm_attribute,
-    true },
+    true, NULL },
   /* force_align_arg_pointer says this function realigns the stack at entry.  */
   { (const char *)&ix86_force_align_arg_pointer_string, 0, 0,
-    false, true,  true, ix86_handle_force_align_arg_pointer_attribute, false },
+    false, true,  true, ix86_handle_force_align_arg_pointer_attribute, false,
+    NULL },
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
-  { "dllimport", 0, 0, false, false, false, handle_dll_attribute, false },
-  { "dllexport", 0, 0, false, false, false, handle_dll_attribute, false },
+  { "dllimport", 0, 0, false, false, false, handle_dll_attribute, false, NULL },
+  { "dllexport", 0, 0, false, false, false, handle_dll_attribute, false, NULL },
   { "shared",    0, 0, true,  false, false, ix86_handle_shared_attribute,
-    false },
+    false, NULL },
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute,
-    false },
+    false, NULL },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute,
-    false },
+    false, NULL },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
   /* ms_abi and sysv_abi calling convention function attributes.  */
-  { "ms_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
-  { "sysv_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
-  { "ms_abi va_list", 0, 0, false, false, false, NULL, false },
-  { "sysv_abi va_list", 0, 0, false, false, false, NULL, false },
+  { "ms_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true, NULL },
+  { "sysv_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true,
+    NULL },
+  { "ms_abi va_list", 0, 0, false, false, false, NULL, false, NULL },
+  { "sysv_abi va_list", 0, 0, false, false, false, NULL, false, NULL },
   { "ms_hook_prologue", 0, 0, true, false, false, ix86_handle_fndecl_attribute,
-    false },
+    false, NULL },
   { "callee_pop_aggregate_return", 1, 1, false, true, true,
-    ix86_handle_callee_pop_aggregate_return, true },
+    ix86_handle_callee_pop_aggregate_return, true, NULL },
   { "interrupt", 0, 0, false, true, true,
-    ix86_handle_interrupt_attribute, false },
+    ix86_handle_interrupt_attribute, false, NULL },
   { "no_caller_saved_registers", 0, 0, false, true, true,
-    ix86_handle_no_caller_saved_registers_attribute, false },
+    ix86_handle_no_caller_saved_registers_attribute, false, NULL },
   { "naked", 0, 0, true, false, false,
-    ix86_handle_fndecl_attribute, false },
+    ix86_handle_fndecl_attribute, false, NULL },
 
   /* End element.  */
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL, 0, 0, false, false, false, NULL, false, NULL }
 };
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
@@ -49287,12 +49329,7 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
 	return 0;
       }
 
-  if (clonei->cilk_elemental)
-    {
-      /* Parse here processor clause.  If not present, default to 'b'.  */
-      clonei->vecsize_mangle = 'b';
-    }
-  else if (!TREE_PUBLIC (node->decl))
+  if (!TREE_PUBLIC (node->decl))
     {
       /* If the function isn't exported, we can pick up just one ISA
 	 for the clones.  */

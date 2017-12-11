@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
+#include "tree-vector-builder.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -691,9 +692,9 @@ static HOST_WIDE_INT sparc_constant_alignment (const_tree, HOST_WIDE_INT);
 static const struct attribute_spec sparc_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       do_diagnostic } */
+       do_diagnostic, exclusions } */
   SUBTARGET_ATTRIBUTE_TABLE,
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL,        0, 0, false, false, false, NULL, false, NULL }
 };
 #endif
 
@@ -1050,43 +1051,42 @@ sparc_do_work_around_errata (void)
       /* Look into the instruction in a delay slot.  */
       if (NONJUMP_INSN_P (insn)
 	  && (seq = dyn_cast <rtx_sequence *> (PATTERN (insn))))
-	  {
-	    jump = seq->insn (0);
-	    insn = seq->insn (1);
-	  }
+	{
+	  jump = seq->insn (0);
+	  insn = seq->insn (1);
+	}
       else if (JUMP_P (insn))
 	jump = insn;
       else
 	jump = NULL;
 
-      /* Place a NOP at the branch target of an integer branch if it is
-	 a floating-point operation or a floating-point branch.  */
+      /* Place a NOP at the branch target of an integer branch if it is a
+	 floating-point operation or a floating-point branch.  */
       if (sparc_fix_gr712rc
-	  && jump != NULL_RTX
+	  && jump
 	  && get_attr_branch_type (jump) == BRANCH_TYPE_ICC)
 	{
 	  rtx_insn *target = next_active_insn (JUMP_LABEL_AS_INSN (jump));
 	  if (target
 	      && (fpop_insn_p (target)
-		  || ((JUMP_P (target)
-		       && get_attr_branch_type (target) == BRANCH_TYPE_FCC))))
+		  || (JUMP_P (target)
+		      && get_attr_branch_type (target) == BRANCH_TYPE_FCC)))
 	    emit_insn_before (gen_nop (), target);
 	}
 
-      /* Insert a NOP between load instruction and atomic
-	 instruction.  Insert a NOP at branch target if load
-	 in delay slot and atomic instruction at branch target.  */
+      /* Insert a NOP between load instruction and atomic instruction.  Insert
+	 a NOP at branch target if there is a load in delay slot and an atomic
+	 instruction at branch target.  */
       if (sparc_fix_ut700
 	  && NONJUMP_INSN_P (insn)
 	  && (set = single_set (insn)) != NULL_RTX
-	  && MEM_P (SET_SRC (set))
+	  && mem_ref (SET_SRC (set))
 	  && REG_P (SET_DEST (set)))
 	{
 	  if (jump)
 	    {
 	      rtx_insn *target = next_active_insn (JUMP_LABEL_AS_INSN (jump));
-	      if (target
-		  && atomic_insn_for_leon3_p (target))
+	      if (target && atomic_insn_for_leon3_p (target))
 		emit_insn_before (gen_nop (), target);
 	    }
 
@@ -1098,7 +1098,9 @@ sparc_do_work_around_errata (void)
 	    insert_nop = true;
 	}
 
-      /* Look for sequences that could trigger the GRLIB-TN-0013 errata.  */
+      /* Look for a sequence that starts with a fdiv or fsqrt instruction and
+	 ends with another fdiv or fsqrt instruction with no dependencies on
+	 the former, along with an appropriate pattern in between.  */
       if (sparc_fix_lost_divsqrt
 	  && NONJUMP_INSN_P (insn)
 	  && div_sqrt_insn_p (insn))
@@ -1229,8 +1231,8 @@ sparc_do_work_around_errata (void)
 		 then the sequence cannot be problematic.  */
 	      if (i == 0)
 		{
-		  if (((set = single_set (after)) != NULL_RTX)
-		      && (MEM_P (SET_DEST (set)) || MEM_P (SET_SRC (set))))
+		  if ((set = single_set (after)) != NULL_RTX
+		      && (MEM_P (SET_DEST (set)) || mem_ref (SET_SRC (set))))
 		    break;
 
 		  after = next_active_insn (after);
@@ -1240,21 +1242,21 @@ sparc_do_work_around_errata (void)
 
 	      /* Add NOP if third instruction is a store.  */
 	      if (i == 1
-		  && ((set = single_set (after)) != NULL_RTX)
+		  && (set = single_set (after)) != NULL_RTX
 		  && MEM_P (SET_DEST (set)))
 		insert_nop = true;
 	    }
 	}
-      else
+
       /* Look for a single-word load into an odd-numbered FP register.  */
-      if (sparc_fix_at697f
-	  && NONJUMP_INSN_P (insn)
-	  && (set = single_set (insn)) != NULL_RTX
-	  && GET_MODE_SIZE (GET_MODE (SET_SRC (set))) == 4
-	  && MEM_P (SET_SRC (set))
-	  && REG_P (SET_DEST (set))
-	  && REGNO (SET_DEST (set)) > 31
-	  && REGNO (SET_DEST (set)) % 2 != 0)
+      else if (sparc_fix_at697f
+	       && NONJUMP_INSN_P (insn)
+	       && (set = single_set (insn)) != NULL_RTX
+	       && GET_MODE_SIZE (GET_MODE (SET_SRC (set))) == 4
+	       && mem_ref (SET_SRC (set))
+	       && REG_P (SET_DEST (set))
+	       && REGNO (SET_DEST (set)) > 31
+	       && REGNO (SET_DEST (set)) % 2 != 0)
 	{
 	  /* The wrong dependency is on the enclosing double register.  */
 	  const unsigned int x = REGNO (SET_DEST (set)) - 1;
@@ -11751,14 +11753,14 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	  tree inner_type = TREE_TYPE (rtype);
 	  unsigned i;
 
-	  auto_vec<tree, 32> n_elts (VECTOR_CST_NELTS (arg0));
+	  tree_vector_builder n_elts (rtype, VECTOR_CST_NELTS (arg0), 1);
 	  for (i = 0; i < VECTOR_CST_NELTS (arg0); ++i)
 	    {
 	      unsigned HOST_WIDE_INT val
 		= TREE_INT_CST_LOW (VECTOR_CST_ELT (arg0, i));
 	      n_elts.quick_push (build_int_cst (inner_type, val << 4));
 	    }
-	  return build_vector (rtype, n_elts);
+	  return n_elts.build ();
 	}
       break;
 
@@ -11773,9 +11775,9 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
       if (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST)
 	{
 	  tree inner_type = TREE_TYPE (rtype);
-	  auto_vec<tree, 32> n_elts (VECTOR_CST_NELTS (arg0));
+	  tree_vector_builder n_elts (rtype, VECTOR_CST_NELTS (arg0), 1);
 	  sparc_handle_vis_mul8x16 (&n_elts, code, inner_type, arg0, arg1);
-	  return build_vector (rtype, n_elts);
+	  return n_elts.build ();
 	}
       break;
 
@@ -11787,7 +11789,7 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 
       if (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST)
 	{
-	  auto_vec<tree, 32> n_elts (2 * VECTOR_CST_NELTS (arg0));
+	  tree_vector_builder n_elts (rtype, 2 * VECTOR_CST_NELTS (arg0), 1);
 	  unsigned i;
 	  for (i = 0; i < VECTOR_CST_NELTS (arg0); ++i)
 	    {
@@ -11795,7 +11797,7 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	      n_elts.quick_push (VECTOR_CST_ELT (arg1, i));
 	    }
 
-	  return build_vector (rtype, n_elts);
+	  return n_elts.build ();
 	}
       break;
 

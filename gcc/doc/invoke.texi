@@ -5258,6 +5258,14 @@ void copy (const char *s)
 @}
 @end smallexample
 
+In situations where a character array is intended to store a sequence
+of bytes with no terminating @code{NUL} such an array may be annotated
+with attribute @code{nonstring} to avoid this warning.  Such arrays,
+however, are not suitable arguments to functions that expect
+@code{NUL}-terminated strings.  To help detect accidental misuses of
+such arrays GCC issues warnings unless it can prove that the use is
+safe.  @xref{Common Variable Attributes}.
+
 @item -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{|}cold@r{|}malloc@r{]}
 @opindex Wsuggest-attribute=
 @opindex Wno-suggest-attribute=
@@ -7432,6 +7440,7 @@ by @option{-O2} and also turns on the following optimization flags:
 -ftree-loop-vectorize @gol
 -ftree-loop-distribution @gol
 -ftree-loop-distribute-patterns @gol
+-floop-interchange @gol
 -fsplit-paths @gol
 -ftree-slp-vectorize @gol
 -fvect-cost-model @gol
@@ -8531,15 +8540,11 @@ Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
 
 @item -ftree-loop-linear
-@itemx -floop-interchange
 @itemx -floop-strip-mine
 @itemx -floop-block
-@itemx -floop-unroll-and-jam
 @opindex ftree-loop-linear
-@opindex floop-interchange
 @opindex floop-strip-mine
 @opindex floop-block
-@opindex floop-unroll-and-jam
 Perform loop nest optimizations.  Same as
 @option{-floop-nest-optimize}.  To use this code transformation, GCC has
 to be configured with @option{--with-isl} to enable the Graphite loop
@@ -8630,6 +8635,25 @@ DO I = 1, N
 ENDDO
 @end smallexample
 and the initialization loop is transformed into a call to memset zero.
+
+@item -floop-interchange
+@opindex floop-interchange
+Perform loop interchange outside of graphite.  This flag can improve cache
+performance on loop nest and allow further loop optimizations, like
+vectorization, to take place.  For example, the loop
+@smallexample
+for (int i = 0; i < N; i++)
+  for (int j = 0; j < N; j++)
+    for (int k = 0; k < N; k++)
+      c[i][j] = c[i][j] + a[i][k]*b[k][j];
+@end smallexample
+is transformed to
+@smallexample
+for (int i = 0; i < N; i++)
+  for (int k = 0; k < N; k++)
+    for (int j = 0; j < N; j++)
+      c[i][j] = c[i][j] + a[i][k]*b[k][j];
+@end smallexample
 
 @item -ftree-loop-im
 @opindex ftree-loop-im
@@ -9794,6 +9818,12 @@ for one side of the iteration space and false for the other.
 Move branches with loop invariant conditions out of the loop, with duplicates
 of the loop on both branches (modified according to result of the condition).
 
+@item -floop-unroll-and-jam
+@opindex floop-unroll-and-jam
+Apply unroll and jam transoformations on feasible loops.  In a loop
+nest this unrolls the outer loop by some factor and fuses the resulting
+multiple inner loops.
+
 @item -ffunction-sections
 @itemx -fdata-sections
 @opindex ffunction-sections
@@ -10496,6 +10526,12 @@ The size of L1 cache, in kilobytes.
 @item l2-cache-size
 The size of L2 cache, in kilobytes.
 
+@item loop-interchange-max-num-stmts
+The maximum number of stmts in a loop to be interchanged.
+
+@item loop-interchange-stride-ratio
+The minimum ratio between stride of two loops for interchange to be profitable.
+
 @item min-insn-to-prefetch-ratio
 The minimum ratio between the number of instructions and the
 number of prefetches to enable prefetching in a loop.
@@ -10868,6 +10904,14 @@ we may be able to devirtualize speculatively.
 @item max-vrp-switch-assertions
 The maximum number of assertions to add along the default edge of a switch
 statement during VRP.  The default is 10.
+
+@item unroll-jam-min-percent
+The minimum percentage of memory references that must be optimized
+away for the unroll-and-jam transformation to be considered profitable.
+
+@item unroll-jam-max-unroll
+The maximum number of times the outer loop should be unrolled by
+the unroll-and-jam transformation.
 @end table
 @end table
 
@@ -11071,6 +11115,28 @@ and/or @option{-fcheck-pointer-bounds}.
 Enable AddressSanitizer for Linux kernel.
 See @uref{https://github.com/google/kasan/wiki} for more details.
 The option cannot be combined with @option{-fcheck-pointer-bounds}.
+
+@item -fsanitize=pointer-compare
+@opindex fsanitize=pointer-compare
+Instrument comparison operation (<, <=, >, >=) with pointer operands.
+The option must be combined with either @option{-fsanitize=kernel-address} or
+@option{-fsanitize=address}
+The option cannot be combined with @option{-fsanitize=thread}
+and/or @option{-fcheck-pointer-bounds}.
+Note: By default the check is disabled at run time.  To enable it,
+add @code{detect_invalid_pointer_pairs=1} to the environment variable
+@env{ASAN_OPTIONS}.
+
+@item -fsanitize=pointer-subtract
+@opindex fsanitize=pointer-subtract
+Instrument subtraction with pointer operands.
+The option must be combined with either @option{-fsanitize=kernel-address} or
+@option{-fsanitize=address}
+The option cannot be combined with @option{-fsanitize=thread}
+and/or @option{-fcheck-pointer-bounds}.
+Note: By default the check is disabled at run time.  To enable it,
+add @code{detect_invalid_pointer_pairs=1} to the environment variable
+@env{ASAN_OPTIONS}.
 
 @item -fsanitize=thread
 @opindex fsanitize=thread
@@ -13355,7 +13421,7 @@ Produce a core dump whenever an error occurs.
 @item -dp
 @opindex dp
 Annotate the assembler output with a comment indicating which
-pattern and alternative is used.  The length of each instruction is
+pattern and alternative is used.  The length and cost of each instruction are
 also printed.
 
 @item -dP

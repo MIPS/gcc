@@ -330,11 +330,13 @@ genericize_switch_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   cp_walk_tree (&type, cp_genericize_r, data, NULL);
   *walk_subtrees = 0;
 
+  if (TREE_USED (break_block))
+    SWITCH_BREAK_LABEL_P (break_block) = 1;
+  finish_bc_block (&body, bc_break, break_block);
   *stmt_p = build2_loc (stmt_locus, SWITCH_EXPR, type, cond, body);
   SWITCH_ALL_CASES_P (*stmt_p) = SWITCH_STMT_ALL_CASES_P (stmt);
   gcc_checking_assert (!SWITCH_STMT_NO_BREAK_P (stmt)
 		       || !TREE_USED (break_block));
-  finish_bc_block (stmt_p, bc_break, break_block);
 }
 
 /* Genericize a CONTINUE_STMT node *STMT_P.  */
@@ -1550,6 +1552,18 @@ cp_maybe_instrument_return (tree fndecl)
       || DECL_CONSTRUCTOR_P (fndecl)
       || DECL_DESTRUCTOR_P (fndecl)
       || !targetm.warn_func_return (fndecl))
+    return;
+
+  if (!sanitize_flags_p (SANITIZE_RETURN, fndecl)
+      /* Don't add __builtin_unreachable () if not optimizing, it will not
+	 improve any optimizations in that case, just break UB code.
+	 Don't add it if -fsanitize=unreachable -fno-sanitize=return either,
+	 UBSan covers this with ubsan_instrument_return above where sufficient
+	 information is provided, while the __builtin_unreachable () below
+	 if return sanitization is disabled will just result in hard to
+	 understand runtime error without location.  */
+      && (!optimize
+	  || sanitize_flags_p (SANITIZE_UNREACHABLE, fndecl)))
     return;
 
   tree t = DECL_SAVED_TREE (fndecl);

@@ -570,8 +570,7 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
      which post-dominates dom, until it stabilizes.  Also, ENTRY->SRC and
      EXIT->DEST should be in the same loop nest.  */
   if (!dominated_by_p (CDI_DOMINATORS, pdom, dom)
-      || loop_depth (entry->src->loop_father)
-	 != loop_depth (exit->dest->loop_father))
+      || entry->src->loop_father != exit->dest->loop_father)
     return invalid_sese;
 
   /* For now we just bail out when there is a loop exit in the region
@@ -1005,7 +1004,7 @@ scop_detection::graphite_can_represent_expr (sese_l scop, loop_p loop,
 bool
 scop_detection::stmt_has_simple_data_refs_p (sese_l scop, gimple *stmt)
 {
-  edge nest = scop.entry;;
+  edge nest = scop.entry;
   loop_p loop = loop_containing_stmt (stmt);
   if (!loop_in_sese_p (loop, scop))
     loop = NULL;

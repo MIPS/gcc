@@ -6116,7 +6116,7 @@ extern void note_break_stmt			(void);
 extern bool note_iteration_stmt_body_start	(void);
 extern void note_iteration_stmt_body_end	(bool);
 extern tree make_lambda_name			(void);
-extern int decls_match				(tree, tree);
+extern int decls_match				(tree, tree, bool = true);
 extern bool maybe_version_functions		(tree, tree);
 extern tree duplicate_decls			(tree, tree, bool);
 extern tree declare_local_label			(tree);
@@ -6542,7 +6542,7 @@ extern bool type_dependent_object_expression_p	(tree);
 extern bool any_type_dependent_arguments_p      (const vec<tree, va_gc> *);
 extern bool any_type_dependent_elements_p       (const_tree);
 extern bool type_dependent_expression_p_push	(tree);
-extern bool value_dependent_expression_p	(tree);
+extern bool value_dependent_expression_p	(tree, bool = false);
 extern bool instantiation_dependent_expression_p (tree);
 extern bool instantiation_dependent_uneval_expression_p (tree);
 extern bool any_value_dependent_elements_p      (const_tree);
@@ -7401,9 +7401,6 @@ extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
 extern tree fold_sizeof_expr			(tree);
 extern void clear_cv_and_fold_caches		(void);
-
-/* In c-family/cilk.c */
-extern bool cilk_valid_spawn                    (tree);
 
 /* In cp-ubsan.c */
 extern void cp_ubsan_maybe_instrument_member_call (tree);

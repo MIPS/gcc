@@ -911,9 +911,18 @@ grokfield (const cp_declarator *declarator,
 	{
 	  if (init == ridpointers[(int)RID_DELETE])
 	    {
-	      DECL_DELETED_FN (value) = 1;
-	      DECL_DECLARED_INLINE_P (value) = 1;
-	      DECL_INITIAL (value) = error_mark_node;
+	      if (friendp && decl_defined_p (value))
+		{
+		  error ("redefinition of %q#D", value);
+		  inform (DECL_SOURCE_LOCATION (value),
+			  "%q#D previously defined here", value);
+		}
+	      else
+		{
+		  DECL_DELETED_FN (value) = 1;
+		  DECL_DECLARED_INLINE_P (value) = 1;
+		  DECL_INITIAL (value) = error_mark_node;
+		}
 	    }
 	  else if (init == ridpointers[(int)RID_DEFAULT])
 	    {
@@ -1473,7 +1482,31 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 		       attributes, flags);
     }
   else
-    decl_attributes (decl, attributes, flags);
+    {
+      tree last_decl = (DECL_P (*decl) && DECL_NAME (*decl)
+			? lookup_name (DECL_NAME (*decl)) : NULL_TREE);
+
+      if (last_decl && TREE_CODE (last_decl) == OVERLOAD)
+	for (ovl_iterator iter (last_decl, true); ; ++iter)
+	  {
+	    if (!iter)
+	      {
+		last_decl = NULL_TREE;
+		break;
+	      }
+
+	    if (TREE_CODE (*iter) == OVERLOAD)
+	      continue;
+
+	    if (decls_match (*decl, *iter, /*record_decls=*/false))
+	      {
+		last_decl = *iter;
+		break;
+	      }
+	  }
+
+      decl_attributes (decl, attributes, flags, last_decl);
+    }
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));

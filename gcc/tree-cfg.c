@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "selftest.h"
 #include "opts.h"
+#include "asan.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -469,7 +470,12 @@ computed_goto_p (gimple *t)
 bool
 gimple_seq_unreachable_p (gimple_seq stmts)
 {
-  if (stmts == NULL)
+  if (stmts == NULL
+      /* Return false if -fsanitize=unreachable, we don't want to
+	 optimize away those calls, but rather turn them into
+	 __ubsan_handle_builtin_unreachable () or __builtin_trap ()
+	 later.  */
+      || sanitize_flags_p (SANITIZE_UNREACHABLE))
     return false;
 
   gimple_stmt_iterator gsi = gsi_last (stmts);
@@ -1766,7 +1772,14 @@ group_case_labels_stmt (gswitch *stmt)
 
       /* Discard cases that have an unreachable destination block.  */
       if (EDGE_COUNT (base_bb->succs) == 0
-	  && gimple_seq_unreachable_p (bb_seq (base_bb)))
+	  && gimple_seq_unreachable_p (bb_seq (base_bb))
+	  /* Don't optimize this if __builtin_unreachable () is the
+	     implicitly added one by the C++ FE too early, before
+	     -Wreturn-type can be diagnosed.  We'll optimize it later
+	     during switchconv pass or any other cfg cleanup.  */
+	  && (gimple_in_ssa_p (cfun)
+	      || (LOCATION_LOCUS (gimple_location (last_stmt (base_bb)))
+		  != BUILTINS_LOCATION)))
 	{
 	  edge base_edge = find_edge (gimple_bb (stmt), base_bb);
 	  if (base_edge != NULL)
@@ -4025,7 +4038,9 @@ verify_gimple_assign_binary (gassign *stmt)
       {
 	if (!POINTER_TYPE_P (rhs1_type)
 	    || !POINTER_TYPE_P (rhs2_type)
-	    || !types_compatible_p (rhs1_type, rhs2_type)
+	    /* Because we special-case pointers to void we allow difference
+	       of arbitrary pointers with the same mode.  */
+	    || TYPE_MODE (rhs1_type) != TYPE_MODE (rhs2_type)
 	    || TREE_CODE (lhs_type) != INTEGER_TYPE
 	    || TYPE_UNSIGNED (lhs_type)
 	    || TYPE_PRECISION (lhs_type) != TYPE_PRECISION (rhs1_type))
@@ -7493,6 +7508,8 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
   set_loops_for_fn (dest_cfun, loops);
 
+  vec<loop_p, va_gc> *larray = get_loops (saved_cfun)->copy ();
+
   /* Move the outlined loop tree part.  */
   num_nodes = bbs.length ();
   FOR_EACH_VEC_ELT (bbs, i, bb)
@@ -7538,6 +7555,20 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   /* Setup a mapping to be used by move_block_to_fn.  */
   loop->aux = current_loops->tree_root;
   loop0->aux = current_loops->tree_root;
+
+  /* Fix up orig_loop_num.  If the block referenced in it has been moved
+     to dest_cfun, update orig_loop_num field, otherwise clear it.  */
+  struct loop *dloop;
+  FOR_EACH_LOOP_FN (dest_cfun, dloop, 0)
+    if (dloop->orig_loop_num)
+      {
+	if ((*larray)[dloop->orig_loop_num] != NULL
+	    && get_loop (saved_cfun, dloop->orig_loop_num) == NULL)
+	  dloop->orig_loop_num = (*larray)[dloop->orig_loop_num]->num;
+	else
+	  dloop->orig_loop_num = 0;
+      }
+  ggc_free (larray);
 
   pop_cfun ();
 
@@ -9176,10 +9207,13 @@ pass_warn_function_return::execute (function *fun)
 	  if (EDGE_COUNT (bb->succs) == 0)
 	    {
 	      gimple *last = last_stmt (bb);
+	      const enum built_in_function ubsan_missing_ret
+		= BUILT_IN_UBSAN_HANDLE_MISSING_RETURN;
 	      if (last
-		  && (LOCATION_LOCUS (gimple_location (last))
-		      == BUILTINS_LOCATION)
-		  && gimple_call_builtin_p (last, BUILT_IN_UNREACHABLE))
+		  && ((LOCATION_LOCUS (gimple_location (last))
+		       == BUILTINS_LOCATION
+		       && gimple_call_builtin_p (last, BUILT_IN_UNREACHABLE))
+		      || gimple_call_builtin_p (last, ubsan_missing_ret)))
 		{
 		  gimple_stmt_iterator gsi = gsi_for_stmt (last);
 		  gsi_prev_nondebug (&gsi);

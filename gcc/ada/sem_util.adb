@@ -5296,209 +5296,6 @@ package body Sem_Util is
       end if;
    end Conditional_Delay;
 
-   ----------------------------
-   -- Contains_Refined_State --
-   ----------------------------
-
-   function Contains_Refined_State (Prag : Node_Id) return Boolean is
-      function Has_State_In_Dependency (List : Node_Id) return Boolean;
-      --  Determine whether a dependency list mentions a state with a visible
-      --  refinement.
-
-      function Has_State_In_Global (List : Node_Id) return Boolean;
-      --  Determine whether a global list mentions a state with a visible
-      --  refinement.
-
-      function Is_Refined_State (Item : Node_Id) return Boolean;
-      --  Determine whether Item is a reference to an abstract state with a
-      --  visible refinement.
-
-      -----------------------------
-      -- Has_State_In_Dependency --
-      -----------------------------
-
-      function Has_State_In_Dependency (List : Node_Id) return Boolean is
-         Clause : Node_Id;
-         Output : Node_Id;
-
-      begin
-         --  A null dependency list does not mention any states
-
-         if Nkind (List) = N_Null then
-            return False;
-
-         --  Dependency clauses appear as component associations of an
-         --  aggregate.
-
-         elsif Nkind (List) = N_Aggregate
-           and then Present (Component_Associations (List))
-         then
-            Clause := First (Component_Associations (List));
-            while Present (Clause) loop
-
-               --  Inspect the outputs of a dependency clause
-
-               Output := First (Choices (Clause));
-               while Present (Output) loop
-                  if Is_Refined_State (Output) then
-                     return True;
-                  end if;
-
-                  Next (Output);
-               end loop;
-
-               --  Inspect the outputs of a dependency clause
-
-               if Is_Refined_State (Expression (Clause)) then
-                  return True;
-               end if;
-
-               Next (Clause);
-            end loop;
-
-            --  If we get here, then none of the dependency clauses mention a
-            --  state with visible refinement.
-
-            return False;
-
-         --  An illegal pragma managed to sneak in
-
-         else
-            raise Program_Error;
-         end if;
-      end Has_State_In_Dependency;
-
-      -------------------------
-      -- Has_State_In_Global --
-      -------------------------
-
-      function Has_State_In_Global (List : Node_Id) return Boolean is
-         Item : Node_Id;
-
-      begin
-         --  A null global list does not mention any states
-
-         if Nkind (List) = N_Null then
-            return False;
-
-         --  Simple global list or moded global list declaration
-
-         elsif Nkind (List) = N_Aggregate then
-
-            --  The declaration of a simple global list appear as a collection
-            --  of expressions.
-
-            if Present (Expressions (List)) then
-               Item := First (Expressions (List));
-               while Present (Item) loop
-                  if Is_Refined_State (Item) then
-                     return True;
-                  end if;
-
-                  Next (Item);
-               end loop;
-
-            --  The declaration of a moded global list appears as a collection
-            --  of component associations where individual choices denote
-            --  modes.
-
-            else
-               Item := First (Component_Associations (List));
-               while Present (Item) loop
-                  if Has_State_In_Global (Expression (Item)) then
-                     return True;
-                  end if;
-
-                  Next (Item);
-               end loop;
-            end if;
-
-            --  If we get here, then the simple/moded global list did not
-            --  mention any states with a visible refinement.
-
-            return False;
-
-         --  Single global item declaration
-
-         elsif Is_Entity_Name (List) then
-            return Is_Refined_State (List);
-
-         --  An illegal pragma managed to sneak in
-
-         else
-            raise Program_Error;
-         end if;
-      end Has_State_In_Global;
-
-      ----------------------
-      -- Is_Refined_State --
-      ----------------------
-
-      function Is_Refined_State (Item : Node_Id) return Boolean is
-         Elmt    : Node_Id;
-         Item_Id : Entity_Id;
-
-      begin
-         if Nkind (Item) = N_Null then
-            return False;
-
-         --  States cannot be subject to attribute 'Result. This case arises
-         --  in dependency relations.
-
-         elsif Nkind (Item) = N_Attribute_Reference
-           and then Attribute_Name (Item) = Name_Result
-         then
-            return False;
-
-         --  Multiple items appear as an aggregate. This case arises in
-         --  dependency relations.
-
-         elsif Nkind (Item) = N_Aggregate
-           and then Present (Expressions (Item))
-         then
-            Elmt := First (Expressions (Item));
-            while Present (Elmt) loop
-               if Is_Refined_State (Elmt) then
-                  return True;
-               end if;
-
-               Next (Elmt);
-            end loop;
-
-            --  If we get here, then none of the inputs or outputs reference a
-            --  state with visible refinement.
-
-            return False;
-
-         --  Single item
-
-         else
-            Item_Id := Entity_Of (Item);
-
-            return
-              Present (Item_Id)
-                and then Ekind (Item_Id) = E_Abstract_State
-                and then Has_Visible_Refinement (Item_Id);
-         end if;
-      end Is_Refined_State;
-
-      --  Local variables
-
-      Arg : constant Node_Id :=
-              Get_Pragma_Arg (First (Pragma_Argument_Associations (Prag)));
-      Nam : constant Name_Id := Pragma_Name (Prag);
-
-   --  Start of processing for Contains_Refined_State
-
-   begin
-      if Nam = Name_Depends then
-         return Has_State_In_Dependency (Arg);
-
-      else pragma Assert (Nam = Name_Global);
-         return Has_State_In_Global (Arg);
-      end if;
-   end Contains_Refined_State;
-
    -------------------------
    -- Copy_Component_List --
    -------------------------
@@ -9086,7 +8883,8 @@ package body Sem_Util is
 
          Lit := First_Literal (Btyp);
 
-         --  Position in the enumeration type starts at 0.
+         --  Position in the enumeration type starts at 0
+
          if UI_To_Int (Pos) < 0 then
             raise Constraint_Error;
          end if;
@@ -12224,7 +12022,8 @@ package body Sem_Util is
    ---------------------------------------
 
    function Incomplete_View_From_Limited_With
-     (Typ : Entity_Id) return Entity_Id is
+     (Typ : Entity_Id) return Entity_Id
+   is
    begin
       --  It might make sense to make this an attribute in Einfo, and set it
       --  in Sem_Ch10 in Build_Shadow_Entity. However, we're running short on
@@ -18026,6 +17825,14 @@ package body Sem_Util is
    --  Start of processing for Mark_Elaboration_Attributes
 
    begin
+      --  Do not capture any elaboration-related attributes when switch -gnatH
+      --  (legacy elaboration checking mode enabled) is in effect because the
+      --  attributes are useless to the legacy model.
+
+      if Legacy_Elaboration_Checks then
+         return;
+      end if;
+
       if Nkind (N_Id) in N_Entity then
          Mark_Elaboration_Attributes_Id (N_Id);
       else
@@ -23080,17 +22887,7 @@ package body Sem_Util is
         and then Is_Access_Subprogram_Type (Base_Type (E))
         and then Has_Foreign_Convention (E)
       then
-
-         --  A pragma Convention in an instance may apply to the subtype
-         --  created for a formal, in which case we have already verified
-         --  that conventions of actual and formal match and there is nothing
-         --  to flag on the subtype.
-
-         if In_Instance then
-            null;
-         else
-            Set_Can_Use_Internal_Rep (E, False);
-         end if;
+         Set_Can_Use_Internal_Rep (E, False);
       end if;
 
       --  If E is an object, including a component, and the type of E is an

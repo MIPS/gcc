@@ -3365,6 +3365,9 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
 		      id, parser->scope);
 	  if (DECL_P (decl))
 	    inform (DECL_SOURCE_LOCATION (decl), "%qD declared here", decl);
+	  else if (decl == error_mark_node)
+	    suggest_alternative_in_explicit_scope (location, id,
+						   parser->scope);
 	}
       else if (CLASS_TYPE_P (parser->scope)
 	       && constructor_name_p (id, parser->scope))
@@ -3915,7 +3918,6 @@ cp_parser_new (void)
 
   /* Special parsing data structures.  */
   parser->omp_declare_simd = NULL;
-  parser->cilk_simd_fn_info = NULL;
   parser->oacc_routine = NULL;
 
   /* Not declaring an implicit function template.  */
@@ -4398,11 +4400,75 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
 
   release_tree_vector (args);
 
-  error ("unable to find numeric literal operator %qD", name);
-  if (!cpp_get_options (parse_in)->ext_numeric_literals)
-    inform (token->location, "use -std=gnu++11 or -fext-numeric-literals "
+  /* In C++14 the standard library defines complex number suffixes that
+     conflict with GNU extensions.  Prefer them if <complex> is #included.  */
+  bool ext = cpp_get_options (parse_in)->ext_numeric_literals;
+  bool i14 = (cxx_dialect > cxx11
+	      && (id_equal (suffix_id, "i")
+		  || id_equal (suffix_id, "if")
+		  || id_equal (suffix_id, "il")));
+  diagnostic_t kind = DK_ERROR;
+  int opt = 0;
+
+  if (i14 && ext)
+    {
+      tree cxlit = lookup_qualified_name (std_node,
+					  get_identifier ("complex_literals"),
+					  0, false, false);
+      if (cxlit == error_mark_node)
+	{
+	  /* No <complex>, so pedwarn and use GNU semantics.  */
+	  kind = DK_PEDWARN;
+	  opt = OPT_Wpedantic;
+	}
+    }
+
+  bool complained
+    = emit_diagnostic (kind, input_location, opt,
+		       "unable to find numeric literal operator %qD", name);
+
+  if (!complained)
+    /* Don't inform either.  */;
+  else if (i14)
+    {
+      inform (token->location, "add %<using namespace std::complex_literals%> "
+	      "(from <complex>) to enable the C++14 user-defined literal "
+	      "suffixes");
+      if (ext)
+	inform (token->location, "or use %<j%> instead of %<i%> for the "
+		"GNU built-in suffix");
+    }
+  else if (!ext)
+    inform (token->location, "use -fext-numeric-literals "
 	    "to enable more built-in suffixes");
-  return error_mark_node;
+
+  if (kind == DK_ERROR)
+    value = error_mark_node;
+  else
+    {
+      /* Use the built-in semantics.  */
+      tree type;
+      if (id_equal (suffix_id, "i"))
+	{
+	  if (TREE_CODE (value) == INTEGER_CST)
+	    type = integer_type_node;
+	  else
+	    type = double_type_node;
+	}
+      else if (id_equal (suffix_id, "if"))
+	type = float_type_node;
+      else /* if (id_equal (suffix_id, "il")) */
+	type = long_double_type_node;
+
+      value = build_complex (build_complex_type (type),
+			     fold_convert (type, integer_zero_node),
+			     fold_convert (type, value));
+    }
+
+  if (cp_parser_uncommitted_to_tentative_parse_p (parser))
+    /* Avoid repeated diagnostics.  */
+    token->u.value = value;
+  return value;
 }
 
 /* Parse a user-defined string constant.  Returns a call to a user-defined
@@ -18359,7 +18425,13 @@ cp_parser_namespace_name (cp_parser* parser)
       || TREE_CODE (namespace_decl) != NAMESPACE_DECL)
     {
       if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
-	error_at (token->location, "%qD is not a namespace-name", identifier);
+	{
+	  error_at (token->location, "%qD is not a namespace-name", identifier);
+	  if (namespace_decl == error_mark_node
+	      && parser->scope && TREE_CODE (parser->scope) == NAMESPACE_DECL)
+	    suggest_alternative_in_explicit_scope (token->location, identifier,
+						   parser->scope);
+	}
       cp_parser_error (parser, "expected namespace-name");
       namespace_decl = error_mark_node;
     }
@@ -20689,8 +20761,7 @@ parsing_nsdmi (void)
    Returns the type indicated by the type-id.
 
    In addition to this, parse any queued up #pragma omp declare simd
-   clauses, Cilk Plus SIMD-enabled functions' vector attributes, and
-   #pragma acc routine clauses.
+   clauses, and #pragma acc routine clauses.
 
    QUALS is either a bitmask of cv_qualifiers or -1 for a non-member
    function.  */
@@ -29017,6 +29088,7 @@ cp_parser_objc_expression (cp_parser* parser)
 	default:
 	  break;
 	}
+      /* FALLTHRU */
     default:
       error_at (kwd->location,
 		"misplaced %<@%D%> Objective-C++ construct",
@@ -34549,8 +34621,7 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
   return build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, rhs);
 }
 
-/* Parse the initialization statement of either an OpenMP for loop or
-   a Cilk Plus for loop.
+/* Parse the initialization statement of an OpenMP for loop.
 
    Return true if the resulting construct should have an
    OMP_CLAUSE_PRIVATE added to it.  */

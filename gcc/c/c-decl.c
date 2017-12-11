@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "c-family/name-hint.h"
 #include "c-family/known-headers.h"
+#include "c-family/c-spellcheck.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -4026,6 +4027,10 @@ lookup_name_fuzzy (tree name, enum lookup_name_fuzzy_kind kind, location_t loc)
 						  IDENTIFIER_POINTER (name),
 						  header_hint));
 
+  /* Only suggest names reserved for the implementation if NAME begins
+     with an underscore.  */
+  bool consider_implementation_names = (IDENTIFIER_POINTER (name)[0] == '_');
+
   best_match<tree, tree> bm (name);
 
   /* Look within currently valid scopes.  */
@@ -4041,6 +4046,14 @@ lookup_name_fuzzy (tree name, enum lookup_name_fuzzy_kind kind, location_t loc)
 	if (TREE_CODE (binding->decl) == FUNCTION_DECL)
 	  if (C_DECL_IMPLICIT (binding->decl))
 	    continue;
+	/* Don't suggest names that are reserved for use by the
+	   implementation, unless NAME began with an underscore.  */
+	if (!consider_implementation_names)
+	  {
+	    const char *suggestion_str = IDENTIFIER_POINTER (binding->id);
+	    if (name_reserved_for_implementation_p (suggestion_str))
+	      continue;
+	  }
 	switch (kind)
 	  {
 	  case FUZZY_LOOKUP_TYPENAME:
@@ -4619,7 +4632,16 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 	attributes = tree_cons (get_identifier ("omp declare target"),
 				NULL_TREE, attributes);
     }
-  return decl_attributes (node, attributes, flags);
+
+  /* Look up the current declaration with all the attributes merged
+     so far so that attributes on the current declaration that's
+     about to be pushed that conflict with the former can be detected,
+     diagnosed, and rejected as appropriate.  */
+  tree last_decl = lookup_name (DECL_NAME (*node));
+  if (!last_decl)
+    last_decl = lookup_name_in_scope (DECL_NAME (*node), external_scope);
+
+  return decl_attributes (node, attributes, flags, last_decl);
 }
 
 
@@ -5250,10 +5272,13 @@ mark_forward_parm_decls (void)
    literal, which may be an incomplete array type completed by the
    initializer; INIT is a CONSTRUCTOR at LOC that initializes the compound
    literal.  NON_CONST is true if the initializers contain something
-   that cannot occur in a constant expression.  */
+   that cannot occur in a constant expression.  If ALIGNAS_ALIGN is nonzero,
+   it is the (valid) alignment for this compound literal, as specified
+   with _Alignas.  */
 
 tree
-build_compound_literal (location_t loc, tree type, tree init, bool non_const)
+build_compound_literal (location_t loc, tree type, tree init, bool non_const,
+			unsigned int alignas_align)
 {
   /* We do not use start_decl here because we have a type, not a declarator;
      and do not use finish_decl because the decl should be stored inside
@@ -5277,6 +5302,11 @@ build_compound_literal (location_t loc, tree type, tree init, bool non_const)
   DECL_IGNORED_P (decl) = 1;
   TREE_TYPE (decl) = type;
   c_apply_type_quals_to_decl (TYPE_QUALS (strip_array_types (type)), decl);
+  if (alignas_align)
+    {
+      SET_DECL_ALIGN (decl, alignas_align * BITS_PER_UNIT);
+      DECL_USER_ALIGN (decl) = 1;
+    }
   store_init_value (loc, decl, init, NULL_TREE);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))

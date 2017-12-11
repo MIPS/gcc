@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-if-conv.h"
 #include "internal-fn.h"
+#include "tree-vector-builder.h"
 
 /* Loop Vectorization Pass.
 
@@ -2626,6 +2627,114 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
 }
 
 
+/* Return true if the reduction PHI in LOOP with latch arg LOOP_ARG and
+   reduction operation CODE has a handled computation expression.  */
+
+bool
+check_reduction_path (location_t loc, loop_p loop, gphi *phi, tree loop_arg,
+		      enum tree_code code)
+{
+  auto_vec<std::pair<ssa_op_iter, use_operand_p> > path;
+  auto_bitmap visited;
+  tree lookfor = PHI_RESULT (phi);
+  ssa_op_iter curri;
+  use_operand_p curr = op_iter_init_phiuse (&curri, phi, SSA_OP_USE);
+  while (USE_FROM_PTR (curr) != loop_arg)
+    curr = op_iter_next_use (&curri);
+  curri.i = curri.numops;
+  do
+    {
+      path.safe_push (std::make_pair (curri, curr));
+      tree use = USE_FROM_PTR (curr);
+      if (use == lookfor)
+	break;
+      gimple *def = SSA_NAME_DEF_STMT (use);
+      if (gimple_nop_p (def)
+	  || ! flow_bb_inside_loop_p (loop, gimple_bb (def)))
+	{
+pop:
+	  do
+	    {
+	      std::pair<ssa_op_iter, use_operand_p> x = path.pop ();
+	      curri = x.first;
+	      curr = x.second;
+	      do
+		curr = op_iter_next_use (&curri);
+	      /* Skip already visited or non-SSA operands (from iterating
+	         over PHI args).  */
+	      while (curr != NULL_USE_OPERAND_P
+		     && (TREE_CODE (USE_FROM_PTR (curr)) != SSA_NAME
+			 || ! bitmap_set_bit (visited,
+					      SSA_NAME_VERSION
+					        (USE_FROM_PTR (curr)))));
+	    }
+	  while (curr == NULL_USE_OPERAND_P && ! path.is_empty ());
+	  if (curr == NULL_USE_OPERAND_P)
+	    break;
+	}
+      else
+	{
+	  if (gimple_code (def) == GIMPLE_PHI)
+	    curr = op_iter_init_phiuse (&curri, as_a <gphi *>(def), SSA_OP_USE);
+	  else
+	    curr = op_iter_init_use (&curri, def, SSA_OP_USE);
+	  while (curr != NULL_USE_OPERAND_P
+		 && (TREE_CODE (USE_FROM_PTR (curr)) != SSA_NAME
+		     || ! bitmap_set_bit (visited,
+					  SSA_NAME_VERSION
+					    (USE_FROM_PTR (curr)))))
+	    curr = op_iter_next_use (&curri);
+	  if (curr == NULL_USE_OPERAND_P)
+	    goto pop;
+	}
+    }
+  while (1);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      dump_printf_loc (MSG_NOTE, loc, "reduction path: ");
+      unsigned i;
+      std::pair<ssa_op_iter, use_operand_p> *x;
+      FOR_EACH_VEC_ELT (path, i, x)
+	{
+	  dump_generic_expr (MSG_NOTE, TDF_SLIM, USE_FROM_PTR (x->second));
+	  dump_printf (MSG_NOTE, " ");
+	}
+      dump_printf (MSG_NOTE, "\n");
+    }
+
+  /* Check whether the reduction path detected is valid.  */
+  bool fail = path.length () == 0;
+  bool neg = false;
+  for (unsigned i = 1; i < path.length (); ++i)
+    {
+      gimple *use_stmt = USE_STMT (path[i].second);
+      tree op = USE_FROM_PTR (path[i].second);
+      if (! has_single_use (op)
+	  || ! is_gimple_assign (use_stmt))
+	{
+	  fail = true;
+	  break;
+	}
+      if (gimple_assign_rhs_code (use_stmt) != code)
+	{
+	  if (code == PLUS_EXPR
+	      && gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
+	    {
+	      /* Track whether we negate the reduction value each iteration.  */
+	      if (gimple_assign_rhs2 (use_stmt) == op)
+		neg = ! neg;
+	    }
+	  else
+	    {
+	      fail = true;
+	      break;
+	    }
+	}
+    }
+  return ! fail && ! neg;
+}
+
+
 /* Function vect_is_simple_reduction
 
    (1) Detect a cross-iteration def-use cycle that represents a simple
@@ -3128,106 +3237,8 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple *phi,
     }
 
   /* Look for the expression computing loop_arg from loop PHI result.  */
-  auto_vec<std::pair<ssa_op_iter, use_operand_p> > path;
-  auto_bitmap visited;
-  tree lookfor = PHI_RESULT (phi);
-  ssa_op_iter curri;
-  use_operand_p curr = op_iter_init_phiuse (&curri, as_a <gphi *>(phi),
-					    SSA_OP_USE);
-  while (USE_FROM_PTR (curr) != loop_arg)
-    curr = op_iter_next_use (&curri);
-  curri.i = curri.numops;
-  do
-    {
-      path.safe_push (std::make_pair (curri, curr));
-      tree use = USE_FROM_PTR (curr);
-      if (use == lookfor)
-	break;
-      gimple *def = SSA_NAME_DEF_STMT (use);
-      if (gimple_nop_p (def)
-	  || ! flow_bb_inside_loop_p (loop, gimple_bb (def)))
-	{
-pop:
-	  do
-	    {
-	      std::pair<ssa_op_iter, use_operand_p> x = path.pop ();
-	      curri = x.first;
-	      curr = x.second;
-	      do
-		curr = op_iter_next_use (&curri);
-	      /* Skip already visited or non-SSA operands (from iterating
-	         over PHI args).  */
-	      while (curr != NULL_USE_OPERAND_P
-		     && (TREE_CODE (USE_FROM_PTR (curr)) != SSA_NAME
-			 || ! bitmap_set_bit (visited,
-					      SSA_NAME_VERSION
-					        (USE_FROM_PTR (curr)))));
-	    }
-	  while (curr == NULL_USE_OPERAND_P && ! path.is_empty ());
-	  if (curr == NULL_USE_OPERAND_P)
-	    break;
-	}
-      else
-	{
-	  if (gimple_code (def) == GIMPLE_PHI)
-	    curr = op_iter_init_phiuse (&curri, as_a <gphi *>(def), SSA_OP_USE);
-	  else
-	    curr = op_iter_init_use (&curri, def, SSA_OP_USE);
-	  while (curr != NULL_USE_OPERAND_P
-		 && (TREE_CODE (USE_FROM_PTR (curr)) != SSA_NAME
-		     || ! bitmap_set_bit (visited,
-					  SSA_NAME_VERSION
-					    (USE_FROM_PTR (curr)))))
-	    curr = op_iter_next_use (&curri);
-	  if (curr == NULL_USE_OPERAND_P)
-	    goto pop;
-	}
-    }
-  while (1);
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      dump_printf_loc (MSG_NOTE, vect_location,
-		       "reduction path: ");
-      unsigned i;
-      std::pair<ssa_op_iter, use_operand_p> *x;
-      FOR_EACH_VEC_ELT (path, i, x)
-	{
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, USE_FROM_PTR (x->second));
-	  dump_printf (MSG_NOTE, " ");
-	}
-      dump_printf (MSG_NOTE, "\n");
-    }
-
-  /* Check whether the reduction path detected is valid.  */
-  bool fail = path.length () == 0;
-  bool neg = false;
-  for (unsigned i = 1; i < path.length (); ++i)
-    {
-      gimple *use_stmt = USE_STMT (path[i].second);
-      tree op = USE_FROM_PTR (path[i].second);
-      if (! has_single_use (op)
-	  || ! is_gimple_assign (use_stmt))
-	{
-	  fail = true;
-	  break;
-	}
-      if (gimple_assign_rhs_code (use_stmt) != code)
-	{
-	  if (code == PLUS_EXPR
-	      && gimple_assign_rhs_code (use_stmt) == MINUS_EXPR)
-	    {
-	      /* Track whether we negate the reduction value each iteration.  */
-	      if (gimple_assign_rhs2 (use_stmt) == op)
-		neg = ! neg;
-	    }
-	  else
-	    {
-	      fail = true;
-	      break;
-	    }
-	}
-    }
-  if (! fail && ! neg)
+  if (check_reduction_path (vect_location, loop, as_a <gphi *> (phi), loop_arg,
+			    code))
     return def_stmt;
 
   if (dump_enabled_p ())
@@ -3967,11 +3978,9 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree scalar_type = TREE_TYPE (init_val);
   tree vectype = get_vectype_for_scalar_type (scalar_type);
-  int nunits;
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree def_for_init;
   tree init_def;
-  int i;
   bool nested_in_vect_loop = false;
   REAL_VALUE_TYPE real_init_val = dconst0;
   int int_init_val = 0;
@@ -3979,7 +3988,6 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   gimple_seq stmts = NULL;
 
   gcc_assert (vectype);
-  nunits = TYPE_VECTOR_SUBPARTS (vectype);
 
   gcc_assert (POINTER_TYPE_P (scalar_type) || INTEGRAL_TYPE_P (scalar_type)
 	      || SCALAR_FLOAT_TYPE_P (scalar_type));
@@ -4052,11 +4060,10 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
 	else
 	  {
 	    /* Option2: the first element is INIT_VAL.  */
-	    auto_vec<tree, 32> elts (nunits);
+	    tree_vector_builder elts (vectype, 1, 2);
 	    elts.quick_push (init_val);
-	    for (i = 1; i < nunits; ++i)
-	      elts.quick_push (def_for_init);
-	    init_def = gimple_build_vector (&stmts, vectype, elts);
+	    elts.quick_push (def_for_init);
+	    init_def = gimple_build_vector (&stmts, &elts);
 	  }
       }
       break;
@@ -4181,7 +4188,7 @@ get_initial_defs_for_reduction (slp_tree slp_node,
   number_of_copies = nunits * number_of_vectors / group_size;
 
   number_of_places_left_in_vector = nunits;
-  auto_vec<tree, 32> elts (nunits);
+  tree_vector_builder elts (vector_type, nunits, 1);
   elts.quick_grow (nunits);
   for (j = 0; j < number_of_copies; j++)
     {
@@ -4204,12 +4211,14 @@ get_initial_defs_for_reduction (slp_tree slp_node,
           if (number_of_places_left_in_vector == 0)
             {
 	      gimple_seq ctor_seq = NULL;
-	      tree init = gimple_build_vector (&ctor_seq, vector_type, elts);
+	      tree init = gimple_build_vector (&ctor_seq, &elts);
 	      if (ctor_seq != NULL)
 		gsi_insert_seq_on_edge_immediate (pe, ctor_seq);
 	      voprnds.quick_push (init);
 
               number_of_places_left_in_vector = nunits;
+	      elts.new_vector (vector_type, nunits, 1);
+	      elts.quick_grow (nunits);
             }
         }
     }
@@ -4497,10 +4506,10 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 	 vector size (STEP).  */
 
       /* Create a {1,2,3,...} vector.  */
-      auto_vec<tree, 32> vtemp (nunits_out);
-      for (k = 0; k < nunits_out; ++k)
+      tree_vector_builder vtemp (cr_index_vector_type, 1, 3);
+      for (k = 0; k < 3; ++k)
 	vtemp.quick_push (build_int_cst (cr_index_scalar_type, k + 1));
-      tree series_vect = build_vector (cr_index_vector_type, vtemp);
+      tree series_vect = vtemp.build ();
 
       /* Create a vector of the step value.  */
       tree step = build_int_cst (cr_index_scalar_type, nunits_out);
@@ -6697,7 +6706,7 @@ vectorizable_induction (gimple *phi,
       unsigned ivn;
       for (ivn = 0; ivn < nivs; ++ivn)
 	{
-	  auto_vec<tree, 32> elts (nunits);
+	  tree_vector_builder elts (vectype, nunits, 1);
 	  stmts = NULL;
 	  for (unsigned eltn = 0; eltn < nunits; ++eltn)
 	    {
@@ -6707,7 +6716,7 @@ vectorizable_induction (gimple *phi,
 				    elt, step_expr);
 	      elts.quick_push (elt);
 	    }
-	  vec_init = gimple_build_vector (&stmts, vectype, elts);
+	  vec_init = gimple_build_vector (&stmts, &elts);
 	  if (stmts)
 	    {
 	      new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
@@ -6814,7 +6823,7 @@ vectorizable_induction (gimple *phi,
       stmts = NULL;
       new_name = gimple_convert (&stmts, TREE_TYPE (vectype), init_expr);
 
-      auto_vec<tree, 32> elts (nunits);
+      tree_vector_builder elts (vectype, nunits, 1);
       elts.quick_push (new_name);
       for (i = 1; i < nunits; i++)
 	{
@@ -6825,7 +6834,7 @@ vectorizable_induction (gimple *phi,
 	}
       /* Create a vector from [new_name_0, new_name_1, ...,
 	 new_name_nunits-1]  */
-      vec_init = gimple_build_vector (&stmts, vectype, elts);
+      vec_init = gimple_build_vector (&stmts, &elts);
       if (stmts)
 	{
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);

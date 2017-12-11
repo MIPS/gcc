@@ -39,7 +39,7 @@ along with GCC; see the file COPYING3.  If not see
    insn as having a logical link to the preceding insn.  The same is true
    for an insn explicitly using CC0.
 
-   We check (with use_crosses_set_p) to avoid combining in such a way
+   We check (with modified_between_p) to avoid combining in such a way
    as to move a computation to a place where its value would be different.
 
    Combination is done by mathematically substituting the previous
@@ -482,7 +482,6 @@ static void record_dead_and_set_regs_1 (rtx, const_rtx, void *);
 static void record_dead_and_set_regs (rtx_insn *);
 static int get_last_value_validate (rtx *, rtx_insn *, int, int);
 static rtx get_last_value (const_rtx);
-static int use_crosses_set_p (const_rtx, int);
 static void reg_dead_at_p_1 (rtx, const_rtx, void *);
 static int reg_dead_at_p (rtx, rtx_insn *);
 static void move_deaths (rtx, rtx, int, rtx_insn *, rtx *);
@@ -2011,7 +2010,7 @@ can_combine_p (rtx_insn *insn, rtx_insn *i3, rtx_insn *pred ATTRIBUTE_UNUSED,
       || (! all_adjacent
 	  && (((!MEM_P (src)
 		|| ! find_reg_note (insn, REG_EQUIV, src))
-	       && use_crosses_set_p (src, DF_INSN_LUID (insn)))
+	       && modified_between_p (src, insn, i3))
 	      || (GET_CODE (src) == ASM_OPERANDS && MEM_VOLATILE_P (src))
 	      || GET_CODE (src) == UNSPEC_VOLATILE))
       /* Don't combine across a CALL_INSN, because that would possibly
@@ -3699,7 +3698,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	}
       else if (m_split_insn && NEXT_INSN (NEXT_INSN (m_split_insn)) == NULL_RTX
 	       && (next_nonnote_nondebug_insn (i2) == i3
-		   || ! use_crosses_set_p (PATTERN (m_split_insn), DF_INSN_LUID (i2))))
+		   || !modified_between_p (PATTERN (m_split_insn), i2, i3)))
 	{
 	  rtx i2set, i3set;
 	  rtx newi3pat = PATTERN (NEXT_INSN (m_split_insn));
@@ -3763,7 +3762,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	      || can_change_dest_mode (i2dest, added_sets_2,
 				       GET_MODE (*split)))
 	  && (next_nonnote_nondebug_insn (i2) == i3
-	      || ! use_crosses_set_p (*split, DF_INSN_LUID (i2)))
+	      || !modified_between_p (*split, i2, i3))
 	  /* We can't overwrite I2DEST if its value is still used by
 	     NEWPAT.  */
 	  && ! reg_referenced_p (i2dest, newpat))
@@ -3954,8 +3953,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	   && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
 	   && rtx_equal_p (SET_SRC (XVECEXP (newpat, 0, 1)),
 			   XEXP (SET_SRC (XVECEXP (newpat, 0, 0)), 0))
-	   && ! use_crosses_set_p (SET_SRC (XVECEXP (newpat, 0, 1)),
-				   DF_INSN_LUID (i2))
+	   && !modified_between_p (SET_SRC (XVECEXP (newpat, 0, 1)), i2, i3)
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 1))) != ZERO_EXTRACT
 	   && GET_CODE (SET_DEST (XVECEXP (newpat, 0, 1))) != STRICT_LOW_PART
 	   && ! (temp_expr = SET_DEST (XVECEXP (newpat, 0, 1)),
@@ -4029,7 +4027,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	 be first.  The PARALLEL might also have been pre-existing in i3,
 	 so we need to make sure that we won't wrongly hoist a SET to i2
 	 that would conflict with a death note present in there.  */
-      if (!use_crosses_set_p (SET_SRC (set1), DF_INSN_LUID (i2))
+      if (!modified_between_p (SET_SRC (set1), i2, i3)
 	  && !(REG_P (SET_DEST (set1))
 	       && find_reg_note (i2, REG_DEAD, SET_DEST (set1)))
 	  && !(GET_CODE (SET_DEST (set1)) == SUBREG
@@ -4044,7 +4042,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	  newi2pat = set1;
 	  newpat = set0;
 	}
-      else if (!use_crosses_set_p (SET_SRC (set0), DF_INSN_LUID (i2))
+      else if (!modified_between_p (SET_SRC (set0), i2, i3)
 	       && !(REG_P (SET_DEST (set0))
 		    && find_reg_note (i2, REG_DEAD, SET_DEST (set0)))
 	       && !(GET_CODE (SET_DEST (set0)) == SUBREG
@@ -13661,59 +13659,6 @@ get_last_value (const_rtx x)
   return 0;
 }
 
-/* Return nonzero if expression X refers to a REG or to memory
-   that is set in an instruction more recent than FROM_LUID.  */
-
-static int
-use_crosses_set_p (const_rtx x, int from_luid)
-{
-  const char *fmt;
-  int i;
-  enum rtx_code code = GET_CODE (x);
-
-  if (code == REG)
-    {
-      unsigned int regno = REGNO (x);
-      unsigned endreg = END_REGNO (x);
-
-#ifdef PUSH_ROUNDING
-      /* Don't allow uses of the stack pointer to be moved,
-	 because we don't know whether the move crosses a push insn.  */
-      if (regno == STACK_POINTER_REGNUM && PUSH_ARGS)
-	return 1;
-#endif
-      for (; regno < endreg; regno++)
-	{
-	  reg_stat_type *rsp = &reg_stat[regno];
-	  if (rsp->last_set
-	      && rsp->last_set_label == label_tick
-	      && DF_INSN_LUID (rsp->last_set) > from_luid)
-	    return 1;
-	}
-      return 0;
-    }
-
-  if (code == MEM && mem_last_set > from_luid)
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'E')
-	{
-	  int j;
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (use_crosses_set_p (XVECEXP (x, i, j), from_luid))
-	      return 1;
-	}
-      else if (fmt[i] == 'e'
-	       && use_crosses_set_p (XEXP (x, i), from_luid))
-	return 1;
-    }
-  return 0;
-}
-
 /* Define three variables used for communication between the following
    routines.  */
 
@@ -13930,6 +13875,26 @@ move_deaths (rtx x, rtx maybe_kill_insn, int from_luid, rtx_insn *to_insn,
     {
       unsigned int regno = REGNO (x);
       rtx_insn *where_dead = reg_stat[regno].last_death;
+
+      /* If we do not know where the register died, it may still die between
+	 FROM_LUID and TO_INSN.  If so, find it.  This is PR83304.  */
+      if (!where_dead)
+	{
+	  rtx_insn *insn = prev_real_insn (to_insn);
+	  while (insn
+		 && BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (to_insn)
+		 && DF_INSN_LUID (insn) >= from_luid)
+	    {
+	      if (dead_or_set_regno_p (insn, regno))
+		{
+		  if (find_regno_note (insn, REG_DEAD, regno))
+		    where_dead = insn;
+		  break;
+		}
+
+	      insn = prev_real_insn (insn);
+	    }
+	}
 
       /* Don't move the register if it gets killed in between from and to.  */
       if (maybe_kill_insn && reg_set_p (x, maybe_kill_insn)
@@ -14254,6 +14219,46 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 	      PUT_REG_NOTE_KIND (note, REG_DEAD);
 	      place = i3;
 	    }
+
+	  /* A SET or CLOBBER of the REG_UNUSED reg has been removed,
+	     but we can't tell which at this point.  We must reset any
+	     expectations we had about the value that was previously
+	     stored in the reg.  ??? Ideally, we'd adjust REG_N_SETS
+	     and, if appropriate, restore its previous value, but we
+	     don't have enough information for that at this point.  */
+	  else
+	    {
+	      record_value_for_reg (XEXP (note, 0), NULL, NULL_RTX);
+
+	      /* Otherwise, if this register is now referenced in i2
+		 then the register used to be modified in one of the
+		 original insns.  If it was i3 (say, in an unused
+		 parallel), it's now completely gone, so the note can
+		 be discarded.  But if it was modified in i2, i1 or i0
+		 and we still reference it in i2, then we're
+		 referencing the previous value, and since the
+		 register was modified and REG_UNUSED, we know that
+		 the previous value is now dead.  So, if we only
+		 reference the register in i2, we change the note to
+		 REG_DEAD, to reflect the previous value.  However, if
+		 we're also setting or clobbering the register as
+		 scratch, we know (because the register was not
+		 referenced in i3) that it's unused, just as it was
+		 unused before, and we place the note in i2.  */
+	      if (from_insn != i3 && i2 && INSN_P (i2)
+		  && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
+		{
+		  if (!reg_set_p (XEXP (note, 0), PATTERN (i2)))
+		    PUT_REG_NOTE_KIND (note, REG_DEAD);
+		  if (! (REG_P (XEXP (note, 0))
+			 ? find_regno_note (i2, REG_NOTE_KIND (note),
+					    REGNO (XEXP (note, 0)))
+			 : find_reg_note (i2, REG_NOTE_KIND (note),
+					  XEXP (note, 0))))
+		    place = i2;
+		}
+	    }
+
 	  break;
 
 	case REG_EQUAL:

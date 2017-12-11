@@ -3042,6 +3042,22 @@ riscv_in_small_data_p (const_tree x)
   return riscv_size_ok_for_small_data_p (int_size_in_bytes (TREE_TYPE (x)));
 }
 
+/* Switch to the appropriate section for output of DECL.  */
+
+static section *
+riscv_select_section (tree decl, int reloc,
+		      unsigned HOST_WIDE_INT align)
+{
+  switch (categorize_decl_for_section (decl, reloc))
+    {
+    case SECCAT_SRODATA:
+      return get_named_section (decl, ".srodata", reloc);
+
+    default:
+      return default_elf_select_section (decl, reloc, align);
+    }
+}
+
 /* Return a section for X, handling small data. */
 
 static section *
@@ -3336,7 +3352,7 @@ riscv_for_each_saved_reg (HOST_WIDE_INT sp_offset, riscv_save_restore_fn fn)
 
   /* Save the link register and s-registers. */
   offset = cfun->machine->frame.gp_sp_offset - sp_offset;
-  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST-1; regno++)
+  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
     if (BITSET_P (cfun->machine->frame.mask, regno - GP_REG_FIRST))
       {
 	riscv_save_restore_reg (word_mode, regno, offset, fn);
@@ -3424,7 +3440,7 @@ riscv_adjust_libcall_cfi_prologue ()
   int saved_size = cfun->machine->frame.save_libcall_adjustment;
   int offset;
 
-  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST-1; regno++)
+  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
     if (BITSET_P (cfun->machine->frame.mask, regno - GP_REG_FIRST))
       {
 	/* The save order is ra, s0, s1, s2 to s11.  */
@@ -3552,7 +3568,7 @@ riscv_adjust_libcall_cfi_epilogue ()
   dwarf = alloc_reg_note (REG_CFA_ADJUST_CFA, adjust_sp_rtx,
 			  dwarf);
 
-  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST-1; regno++)
+  for (int regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
     if (BITSET_P (cfun->machine->frame.mask, regno - GP_REG_FIRST))
       {
 	reg = gen_rtx_REG (SImode, regno);
@@ -4319,6 +4335,12 @@ riscv_constant_alignment (const_tree exp, HOST_WIDE_INT align)
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P riscv_in_small_data_p
+
+#undef TARGET_HAVE_SRODATA_SECTION
+#define TARGET_HAVE_SRODATA_SECTION true
+
+#undef TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION riscv_select_section
 
 #undef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION  riscv_elf_select_rtx_section

@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "intl.h"
 #include "calls.h"
+#include "tree-vector-builder.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -2145,7 +2146,7 @@ gimple_fold_builtin_string_compare (gimple_stmt_iterator *gsi)
 	    r = strncmp (p1, p2, length);
 	    if (r == 0)
 	      known_result = true;
-	    break;;
+	    break;
 	  }
 	default:
 	  gcc_unreachable ();
@@ -6022,7 +6023,7 @@ gimple_fold_stmt_to_constant_1 (gimple *stmt, tree (*valueize) (tree),
 		  tree val;
 
 		  nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs));
-		  auto_vec<tree, 32> vec (nelts);
+		  tree_vector_builder vec (TREE_TYPE (rhs), nelts, 1);
 		  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (rhs), i, val)
 		    {
 		      val = (*valueize) (val);
@@ -6034,7 +6035,7 @@ gimple_fold_stmt_to_constant_1 (gimple *stmt, tree (*valueize) (tree),
 			return NULL_TREE;
 		    }
 
-		  return build_vector (TREE_TYPE (rhs), vec);
+		  return vec.build ();
 		}
 	      if (subcode == OBJ_TYPE_REF)
 		{
@@ -7177,23 +7178,30 @@ gimple_build_vector_from_val (gimple_seq *seq, location_t loc, tree type,
   return res;
 }
 
-/* Build a vector of type TYPE in which the elements have the values
-   given by ELTS.  Return a gimple value for the result, appending any
-   new instructions to SEQ.  */
+/* Build a vector from BUILDER, handling the case in which some elements
+   are non-constant.  Return a gimple value for the result, appending any
+   new instructions to SEQ.
+
+   BUILDER must not have a stepped encoding on entry.  This is because
+   the function is not geared up to handle the arithmetic that would
+   be needed in the variable case, and any code building a vector that
+   is known to be constant should use BUILDER->build () directly.  */
 
 tree
-gimple_build_vector (gimple_seq *seq, location_t loc, tree type,
-		     vec<tree> elts)
+gimple_build_vector (gimple_seq *seq, location_t loc,
+		     tree_vector_builder *builder)
 {
-  unsigned int nelts = elts.length ();
-  gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (type));
-  for (unsigned int i = 0; i < nelts; ++i)
-    if (!TREE_CONSTANT (elts[i]))
+  gcc_assert (builder->nelts_per_pattern () <= 2);
+  unsigned int encoded_nelts = builder->encoded_nelts ();
+  for (unsigned int i = 0; i < encoded_nelts; ++i)
+    if (!TREE_CONSTANT ((*builder)[i]))
       {
+	tree type = builder->type ();
+	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type);
 	vec<constructor_elt, va_gc> *v;
 	vec_alloc (v, nelts);
 	for (i = 0; i < nelts; ++i)
-	  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, elts[i]);
+	  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, builder->elt (i));
 
 	tree res;
 	if (gimple_in_ssa_p (cfun))
@@ -7205,7 +7213,7 @@ gimple_build_vector (gimple_seq *seq, location_t loc, tree type,
 	gimple_seq_add_stmt_without_update (seq, stmt);
 	return res;
       }
-  return build_vector (type, elts);
+  return builder->build ();
 }
 
 /* Return true if the result of assignment STMT is known to be non-negative.
