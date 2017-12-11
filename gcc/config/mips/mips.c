@@ -686,6 +686,9 @@ static const struct attribute_spec nanomips_attribute_table[] = {
   { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
   { "cmodel",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
     false },
+  /* Accept and ignore nomips16/nomicromips attributes.  */
+  { "nomips16",    0, 0, true,  false, false, NULL, false },
+  { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
