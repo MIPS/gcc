@@ -1616,6 +1616,7 @@ gfc_trans_omp_array_reduction_or_udr (tree c, gfc_omp_namelist *n, locus where)
     }
   if (iname != NULL)
     {
+      iname = gfc_get_string ("%s", iname);
       memset (&intrinsic_sym, 0, sizeof (intrinsic_sym));
       intrinsic_sym.ns = sym->ns;
       intrinsic_sym.name = iname;
