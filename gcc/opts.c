@@ -1177,6 +1177,10 @@ print_filtered_help (unsigned int include_flags,
 	    continue;
 	}
 
+      /* Skip disabled options.  */
+      if (option->cl_disabled)
+	continue;
+
       /* Skip unwanted switches.  */
       if ((option->flags & exclude_flags) != 0)
 	continue;

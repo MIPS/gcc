@@ -7788,6 +7788,9 @@ driver::build_option_suggestions (void)
       switch (i)
 	{
 	default:
+	  /* We don't want to suggest disabled options.  */
+	  if (option->cl_disabled)
+	    continue;
 	  if (option->var_type == CLVC_ENUM)
 	    {
 	      const struct cl_enum *e = &cl_enums[option->var_enum];
