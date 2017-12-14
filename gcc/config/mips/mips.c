@@ -7766,11 +7766,10 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       gcc_unreachable ();
     }
 
-  /* See whether the argument has doubleword alignment.  */
   alignment = mips_function_arg_boundary (mode, type);
 
   /* Set REG_OFFSET to the register count we're interested in.
-     The EABI allocates the floating-point registers separately,
+     EABI and PABI allocate the floating-point registers separately,
      but the other ABIs allocate them like integer registers.  */
   info->reg_offset = (((TARGET_HARD_FLOAT_ABI
 			&& TARGET_PABI) || mips_abi == ABI_EABI)
@@ -7778,7 +7777,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		      ? cum->num_fprs
 		      : cum->num_gprs);
 
-  /* Advance to an even register if the argument is doubleword-aligned.  */
+  /* Advance to an even register if the argument's alignment needs it.  */
   if (alignment > BITS_PER_WORD
       && (TARGET_SOFT_FLOAT_ABI || (TARGET_HARD_FLOAT_ABI && !info->fpr_p)))
     info->reg_offset = ROUND_UP (info->reg_offset,
@@ -7790,6 +7789,8 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
     info->stack_offset = ROUND_UP (info->stack_offset,
 				   alignment / BITS_PER_WORD);
 
+  /* This prevents having an argument partially in registers and partially on
+     the stack for PABI.  */
   if (TARGET_PABI
       && (info->reg_offset + num_words) > MAX_ARGS_IN_REGISTERS)
     info->reg_offset = MAX_ARGS_IN_REGISTERS;
@@ -8005,30 +8006,23 @@ mips_arg_partial_bytes (cumulative_args_t cum,
 }
 
 unsigned int
-mips_function_arg_alignment (machine_mode mode, const_tree type)
+mips_get_arg_alignment (machine_mode mode, const_tree type)
 {
-  unsigned int alignment = 0;
-  if (type)
-    {
-      if (TARGET_PABI)
-	{
-	  if (!integer_zerop (TYPE_SIZE (type)))
-	    {
-	      if (TYPE_MODE (type) == mode)
-		alignment = TYPE_ALIGN (type);
-	      else
-		alignment = GET_MODE_ALIGNMENT (mode);
-	    }
-	  else
-	    alignment = 0;
-	}
-      else
-	alignment = TYPE_ALIGN (type);
-    }
-  else
-    alignment = GET_MODE_ALIGNMENT (mode);
+  if (!type)
+    return GET_MODE_ALIGNMENT (mode);
 
-  return alignment;
+  if (TARGET_PABI)
+    {
+      if (integer_zerop (TYPE_SIZE (type)))
+	return 0;
+
+      if (TYPE_MODE (type) == mode)
+	return TYPE_ALIGN (type);
+
+      return GET_MODE_ALIGNMENT (mode);
+    }
+
+  return TYPE_ALIGN (type);
 }
 
 /* Implement TARGET_FUNCTION_ARG_BOUNDARY.  Every parameter gets at
@@ -8040,7 +8034,7 @@ mips_function_arg_boundary (machine_mode mode, const_tree type)
 {
   unsigned int alignment;
 
-  alignment = mips_function_arg_alignment (mode, type);
+  alignment = mips_get_arg_alignment (mode, type);
   if (alignment < PARM_BOUNDARY)
     alignment = PARM_BOUNDARY;
   if (alignment > STACK_BOUNDARY)
@@ -8120,10 +8114,10 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
-  if (mips_abi == ABI_EABI || TARGET_PABI)
-    {
-      int size;
+  int size;
 
+  if (mips_abi == ABI_EABI)
+    {
       /* ??? How should SCmode be handled?  */
       if (mode == DImode || mode == DFmode
 	  || mode == DQmode || mode == UDQmode
@@ -8131,13 +8125,15 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 	return 0;
 
       size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+      return size == -1 || size > UNITS_PER_WORD;
+    }
+  else if (TARGET_PABI)
+    {
+      size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
       return size == -1 || size > 2 * UNITS_PER_WORD;
     }
   else
     {
-      /* Let's pass vector types by reference for now.  */
-      if (TARGET_NANOMIPS && type && VECTOR_TYPE_P (type))
-	return true;
       /* If we have a variable-sized parameter, we have no choice.  */
       return targetm.calls.must_pass_in_stack (mode, type);
     }
@@ -8766,13 +8762,13 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   mode = TYPE_MODE (type);
 
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
-  alignment = mips_function_arg_alignment (mode, type) / BITS_PER_UNIT;
+  alignment = mips_get_arg_alignment (mode, type) / BITS_PER_UNIT;
   if (indirect_p)
     type = build_pointer_type (type);
 
-  alignment = indirect_p
-	      ? PARM_BOUNDARY / BITS_PER_UNIT
-	      : mips_function_arg_alignment (mode, type) / BITS_PER_UNIT;
+  alignment = (indirect_p
+	       ? PARM_BOUNDARY / BITS_PER_UNIT
+	       : mips_get_arg_alignment (mode, type) / BITS_PER_UNIT);
 
   if (!FLOAT_VARARGS_P && !TARGET_PABI)
     addr = mips_std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
