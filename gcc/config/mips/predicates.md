@@ -259,10 +259,7 @@
 
 (define_predicate "lwm_swm_operand"
   (and (match_code "mem")
-       (ior (match_test "TARGET_NANOMIPS
-			 && mips_9bit_offset_address_p (XEXP (op, 0), mode)")
-	    (match_test "!TARGET_NANOMIPS
-			 && memory_operand (op, mode)"))))
+       (match_test "lwm_swm_address_p (XEXP (op, 0), mode)")))
 
 (define_predicate "lwsp_swsp_operand"
   (and (match_code "mem")

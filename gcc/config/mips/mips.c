@@ -4247,6 +4247,23 @@ lwsp_swsp_address_p (rtx x, machine_mode mode)
 }
 
 /* Return true if X is a legitimate address that conforms to the requirements
+   for LWM or SWM insn.  */
+
+bool
+lwm_swm_address_p (rtx x, machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  if (TARGET_NANOMIPS)
+    return (mips_classify_address (&addr, x, mode, false)
+	    && addr.type == ADDRESS_REG
+	    && CONST_INT_P (addr.offset)
+	    && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
+  else
+    return memory_operand (x, mode);
+}
+
+/* Return true if X is a legitimate address that conforms to the requirements
    for a LWL/LWR/SWL/SWR insn.  */
 
 bool
