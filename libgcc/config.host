@@ -969,7 +969,7 @@ nanomips*-*-linux*)
 	tmake_file="${tmake_file} t-crtfm"
 	md_unwind_header=mips/nanomips-linux-unwind.h
 	;;
-nanomips*-img-elf*)
+nanomips*-*-elf*)
 	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff"
 	extra_parts="$extra_parts crti.o crtn.o"
 	md_unwind_header=mips/nanomips-unwind.h

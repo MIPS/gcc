@@ -1,4 +1,4 @@
-/* Target macros for nanomips*-img-linux* targets.
+/* Target macros for nanomips*-*-linux* targets.
    Copyright (C) 2012-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.

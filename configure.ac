@@ -1252,7 +1252,7 @@ case "${target}" in
   microblaze*)
     noconfigdirs="$noconfigdirs gprof"
     ;;
-  mips*-sde-elf* | mips*-mti-elf* | mips*-img-elf* | nanomips*-img-elf)
+  mips*-sde-elf* | mips*-mti-elf* | mips*-img-elf* | nanomips*-*-elf)
     if test x$with_newlib = xyes; then
       noconfigdirs="$noconfigdirs gprof"
     fi
@@ -2559,7 +2559,7 @@ case "${target}" in
   mips*-sde-elf* | mips*-mti-elf* | mips*-img-elf*)
     target_makefile_frag="config/mt-sde"
     ;;
-  nanomips*-img-elf*)
+  nanomips*-*-elf*)
     target_makefile_frag="config/mt-nanomips"
     ;;
   mipsisa*-*-elfoabi*)
@@ -3147,8 +3147,8 @@ if test x${with_multi_buildlist} = x ; then
     mips*-mti-linux*) multi_buildlist=${srcdir}/gcc/config/mips/ml-mti-linux ;;
     mips*-img-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-img-elf ;;
     mips*-mti-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-mti-elf ;;
-    nanomips*-img-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-nano-img-elf ;;
-    nanomips*-img-linux*) multi_buildlist=${srcdir}/gcc/config/mips/ml-nano-img-linux ;;
+    nanomips*-*-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-nano-elf ;;
+    nanomips*-*-linux*) multi_buildlist=${srcdir}/gcc/config/mips/ml-nano-linux ;;
   esac
   # Verify the file exists before using it in case the gcc component is not
   # present in the tree.

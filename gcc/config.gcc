@@ -2050,7 +2050,7 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	tm_file="elfos.h ${tm_file} mips/elf.h netbsd.h netbsd-elf.h mips/netbsd.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
-nanomips*-img-linux*)
+nanomips*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/nanomips.h mips/gnu-user.h mips/linux.h mips/linux-common.h mips/nano-linux.h"
 	extra_options="${extra_options} linux-android.opt mips/nanomips.opt"
 	md_file=mips/nanomips.md
@@ -2296,7 +2296,7 @@ msp430*-*-*)
 	tmake_file="${tmake_file} msp430/t-msp430"
 	extra_gcc_objs="driver-msp430.o"
 	;;
-nanomips*-img-elf*)
+nanomips*-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/nanomips.h"
 	tmake_file="mips/t-nanomips-multi"
 	md_file=mips/nanomips.md
