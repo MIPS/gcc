@@ -116,7 +116,8 @@ set GFORTRAN_UNDER_TEST "${GFORTRAN_UNDER_TEST-${prefix}${prefix+/bin/}${target+
 set OBJC_UNDER_TEST "${OBJC_UNDER_TEST-${prefix}${prefix+/bin/}${target+$target-}gcc}"
 EOF
 if test x${target} != x; then
-  echo "set target_triplet $target" >> site.exp
+  triplet=`echo $target | sed -e "s/^\([^-]*\)\(-elf\)$/\1-unknown\2/g"`
+  echo "set target_triplet $triplet" >> site.exp
   echo "set target_alias $target" >> site.exp
 fi
 
