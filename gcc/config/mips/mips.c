@@ -12629,6 +12629,10 @@ mips_file_start (void)
 #ifdef NANOMIPS_SUPPORT
   if (TARGET_LINKRELAX)
     fprintf (asm_out_file, "\t.linkrelax\n");
+  if (TARGET_PID)
+    fprintf (asm_out_file, "\t.module\tpid\n");
+  else if (TARGET_PCREL)
+    fprintf (asm_out_file, "\t.module\tpcrel\n");
 #else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
