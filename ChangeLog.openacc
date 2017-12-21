@@ -1,0 +1,6 @@
+2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Makefile.def: Make libgomp depend on libffi.
+	configure.ac: Likewise.
+	Makefile.in: Regenerate.
+	configure: Regenerate.

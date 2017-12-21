@@ -1,5 +1,33 @@
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* builtin-types.def (BF_FN_VOID_INT_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR):
+	Define.
+	* config/nvptx/nvptx.c (nvptx_expand_cmp_swap): Handle PARM_DECLs.
+	* omp-builtins.def (BUILD_IN_GOACC_PARALLEL): Call
+	GOACC_parallel_keyed_v2.
+	* omp-expand.c (expand_omp_target): Update call to
+	BUILT_IN_GOACC_PARALLEL.
+	* omp-low.c (struct omp_context): Add parm_map member.
+	(lookup_parm): New function.
+	(build_receiver_ref): Lookup parm_map decls.
+	(install_parm_decl): New function.
+	(install_var_field): Install parm_map decl for OpenACC parallel region
+	data clauses.
+	(delete_omp_context): Clean parm_map.
+	(scan_sharing_clauses): Install subarray variable mapping into parm_map.
+	(create_omp_child_function): Defer creation of child function for
+	OpenACC parallel regions.
+	(scan_omp_target): Likewise.
+	(append_decl_arg): New function.
+	(lower_omp_target): Create an child offloaded function using one
+	parameter per data mapping for OpenACC parallel regions.
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call):
+	Ignore OpenACC parallel regions.
+	(find_func_clobbers): Likewise.
+	(ipa_pta_execute): Likewise.
+
+2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* config/nvptx/nvptx.c (output_init_frag): Don't use generic address
 	spaces for function labels.
 

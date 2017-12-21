@@ -119,6 +119,13 @@ extern void GOMP_OFFLOAD_openacc_exec (void (*) (void *), size_t, void **,
 extern void GOMP_OFFLOAD_openacc_async_exec (void (*) (void *), size_t, void **,
 					     void **, unsigned *, void *,
 					     struct goacc_asyncqueue *);
+extern void GOMP_OFFLOAD_openacc_exec_params (void (*) (void *), size_t,
+					      void **, void **, unsigned *,
+					      void *);
+extern void GOMP_OFFLOAD_openacc_async_exec_params (void (*) (void *), size_t,
+						    void **, void **,
+						    unsigned *, void *,
+						    struct goacc_asyncqueue *);
 extern struct goacc_asyncqueue *GOMP_OFFLOAD_openacc_async_construct (void);
 extern bool GOMP_OFFLOAD_openacc_async_destruct (struct goacc_asyncqueue *);
 extern int GOMP_OFFLOAD_openacc_async_test (struct goacc_asyncqueue *);

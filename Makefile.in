@@ -55803,6 +55803,7 @@ configure-target-libgo: maybe-all-target-libstdc++-v3
 all-target-libgo: maybe-all-target-libbacktrace
 all-target-libgo: maybe-all-target-libffi
 all-target-libgo: maybe-all-target-libatomic
+configure-target-libgomp: maybe-configure-target-libffi
 configure-target-libstdc++-v3: maybe-configure-target-libgomp
 
 configure-stage1-target-libstdc++-v3: maybe-configure-stage1-target-libgomp
@@ -55849,6 +55850,7 @@ install-target-libgo: maybe-install-target-libatomic
 install-target-libgfortran: maybe-install-target-libquadmath
 install-target-libgfortran: maybe-install-target-libgcc
 install-target-libsanitizer: maybe-install-target-libstdc++-v3
+install-target-libgomp: maybe-install-target-libffi
 install-target-libsanitizer: maybe-install-target-libgcc
 install-target-libvtv: maybe-install-target-libstdc++-v3
 install-target-libvtv: maybe-install-target-libgcc

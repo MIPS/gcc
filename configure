@@ -3472,10 +3472,18 @@ case "${target}" in
   ft32-*-*)
     noconfigdirs="$noconfigdirs target-libffi"
     ;;
+  nvptx-*-*)
+    noconfigdirs="$noconfigdirs target-libffi"
+    ;;
   *-*-lynxos*)
     noconfigdirs="$noconfigdirs target-libffi"
     ;;
 esac
+
+libgomp_deps="target-libffi"
+if echo " ${noconfigdirs} " | grep " target-libffi " > /dev/null 2>&1 ; then
+   libgomp_deps=""
+fi
 
 # Disable the go frontend on systems where it is known to not work. Please keep
 # this in sync with contrib/config-list.mk.
@@ -6459,6 +6467,15 @@ esac
 # Remove the entries in $skipdirs and $noconfigdirs from $configdirs,
 # $build_configdirs and $target_configdirs.
 # If we have the source for $noconfigdirs entries, add them to $notsupp.
+
+# libgomp depends on libffi.  Remove it from nonsupp if necessary.
+if ! (echo " $noconfigdirs " | grep " target-libgomp " >/dev/null 2>&1); then
+  if echo " $noconfigdirs " | grep " target-libffi " >/dev/null 2>&1; then
+    if test "x${libgomp_deps}" != x; then
+      noconfigdirs=`echo " $noconfigdirs " | sed -e "s/ target-libffi / /"`
+    fi
+  fi
+fi
 
 notsupp=""
 for dir in . $skipdirs $noconfigdirs ; do

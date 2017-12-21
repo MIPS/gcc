@@ -1,3 +1,8 @@
+2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* types.def: (BF_FN_VOID_INT_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR):
+	Define.
+
 2017-10-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (match_acc): Add new argument derived_types. Propagate
