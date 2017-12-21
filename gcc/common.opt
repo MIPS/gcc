@@ -2392,6 +2392,10 @@ foptimize-strlen
 Common Report Var(flag_optimize_strlen) Optimization
 Enable string length optimizations on trees.
 
+fadjust-costs
+Common Var(adjust_reg_costs_flag) Optimization
+Let target modify registers costs before and during allocation.
+
 fisolate-erroneous-paths-dereference
 Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
 Detect paths that trigger erroneous or undefined behavior due to
