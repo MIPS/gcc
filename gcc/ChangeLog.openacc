@@ -1,3 +1,8 @@
+2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (output_init_frag): Don't use generic address
+	spaces for function labels.
+
 2017-10-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Create implicit 0-length
