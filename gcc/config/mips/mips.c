@@ -22921,7 +22921,7 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
      loads if second load clobbers base register.  However, hardware does not
      support such bonding.  */
   if (load_p
-      && (REG_P (reg1) && REGNO (reg1) == REGNO (base1)
+      && ((REG_P (reg1) && REGNO (reg1) == REGNO (base1))
 	  || (REG_P (reg2) && REGNO (reg2) == REGNO (base1))))
     return false;
 
@@ -23040,15 +23040,12 @@ mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
 	      && REGNO (base1) == STACK_POINTER_REGNUM)
 	    {
 	      rtx dwarf, dwarf1 = NULL_RTX, dwarf2 = NULL_RTX;
-	      rtx set1, set2, note1, note2;
+	      rtx note1, note2;
 	      int len = 0;
 	      int dwarf_index = 0;
 
 	      gcc_assert (base2 != NULL_RTX && GET_CODE (base2) == REG
 			  && REGNO (base2) == STACK_POINTER_REGNUM);
-
-	      set1 = copy_rtx (single_set (cur));
-	      set2 = copy_rtx (single_set (next));
 
 	      if ((note1 = find_reg_note (cur, REG_FRAME_RELATED_EXPR, 0)))
 		{
