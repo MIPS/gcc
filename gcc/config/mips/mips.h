@@ -2907,17 +2907,33 @@ typedef struct mips_args {
    PC-relative offsets grow too large, 32-bit offsets are used instead.  */
 #define TARGET_MIPS16_SHORT_JUMP_TABLES TARGET_MIPS16_TEXT_LOADS
 
+#define TARGET_NANOMIPS_JUMPTABLE_OPT \
+  (TARGET_NANOMIPS && TARGET_JUMPTABLE_OPT)
+
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16_SHORT_JUMP_TABLES
 
-#define CASE_VECTOR_MODE (TARGET_MIPS16_SHORT_JUMP_TABLES ? SImode : ptr_mode)
+#define CASE_VECTOR_MODE ((TARGET_MIPS16_SHORT_JUMP_TABLES	\
+			  || TARGET_NANOMIPS_JUMPTABLE_OPT)	\
+			    ? SImode : ptr_mode)
 
 /* Only use short offsets if their range will not overflow.  */
-#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY) \
-  (!TARGET_MIPS16_SHORT_JUMP_TABLES ? ptr_mode \
-   : ((MIN) >= -32768 && (MAX) < 32768) ? HImode \
-   : SImode)
+#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY)			    \
+  (TARGET_MIPS16_SHORT_JUMP_TABLES					    \
+   ? (((MIN) >= -32768 && (MAX) < 32768) ? HImode : SImode)		    \
+   : TARGET_NANOMIPS_JUMPTABLE_OPT					    \
+    ? (((MIN) >= -256 && (MAX) < 256)					    \
+      ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 0, QImode)	    \
+      : ((MIN) >= 0 && (MAX) < 512)					    \
+	? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 1, QImode)	    \
+	: ((MIN) >= -32768 && (MAX) < 32768)				    \
+	  ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 0, HImode)	    \
+	  : ((MIN) >= 0 && (MAX) < 65536)				    \
+	    ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 1, HImode)	    \
+	    : SImode)							    \
+    : ptr_mode)
 
-#define CASE_VECTOR_PC_RELATIVE TARGET_MIPS16_SHORT_JUMP_TABLES
+#define CASE_VECTOR_PC_RELATIVE (TARGET_MIPS16_SHORT_JUMP_TABLES  \
+				 || TARGET_NANOMIPS_JUMPTABLE_OPT)
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #ifndef DEFAULT_SIGNED_CHAR
@@ -3240,6 +3256,20 @@ do {									\
 	fprintf (STREAM, "\t.word\t%sL%d-%sL%d\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
     }									\
+  else if (TARGET_NANOMIPS_JUMPTABLE_OPT)				\
+    {									\
+      const char *s							\
+       = ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned ? "" : "s";		\
+      if (GET_MODE (BODY) == HImode)					\
+	fprintf (STREAM, "\t.%shword\t(%sL%d-%sL%d)>>1\n",		\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
+      else if (GET_MODE (BODY) == QImode)				\
+	fprintf (STREAM, "\t.%sbyte\t(%sL%d-%sL%d)>>1\n",		\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
+      else								\
+	fprintf (STREAM, "\t.word\t(%sL%d-%sL%d)>>1\n",			\
+		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+    }									\
   else if (TARGET_GPWORD)						\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     ptr_mode == DImode ? ".gpdword" : ".gpword",		\
@@ -3264,15 +3294,19 @@ do {									\
    simplicity embed the jump table's label number in the local symbol
    produced so that multiple jump tables within a single function end
    up marked with unique symbols.  Retain the alignment setting from
-   `elfos.h' as we are replacing the definition from there.  */
+   `elfos.h' as we are replacing the definition from there.
+   Don't want alignment from `elfos.h' if TARGET_NANOMIPS_JUMPTABLE_OPT.  */
 
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)	\
   do									\
     {									\
-      ASM_OUTPUT_ALIGN ((STREAM), 2);					\
-      if (JUMP_TABLES_IN_TEXT_SECTION)					\
-	mips_set_text_contents_type (STREAM, "__jump_", NUM, FALSE);	\
+      if (!TARGET_NANOMIPS_JUMPTABLE_OPT)				\
+	{								\
+	  ASM_OUTPUT_ALIGN ((STREAM), 2);				\
+	  if (JUMP_TABLES_IN_TEXT_SECTION)				\
+	    mips_set_text_contents_type (STREAM, "__jump_", NUM, FALSE);\
+	}								\
     }									\
   while (0);
 
