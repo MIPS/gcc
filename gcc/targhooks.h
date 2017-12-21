@@ -183,6 +183,7 @@ extern bool default_addr_space_zero_address_valid (addr_space_t);
 extern int default_addr_space_debug (addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
+extern unsigned int default_case_jumptable_density (bool);
 extern bool default_have_conditional_execution (void);
 
 extern bool default_libc_has_function (enum function_class);

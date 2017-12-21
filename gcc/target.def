@@ -5269,6 +5269,16 @@ five otherwise.  This is best for most machines.",
  unsigned int, (void),
  default_case_values_threshold)
 
+/* Return the density of total number of different values which do not jump
+   to default label, to be allowed in a jump-table.  */
+DEFHOOK
+(case_jumptable_density,
+ "This function returns the density, a value between 0 and 100 which is\n\
+the minimum percentage of non-default labels allowed in a jump table.\n\
+The default is 40 when optimizing for size and 10 for optimizing for speed.",
+ unsigned int, (bool speed_p),
+ default_case_jumptable_density)
+
 /* Retutn true if a function must have and use a frame pointer.  */
 DEFHOOK
 (frame_pointer_required,
