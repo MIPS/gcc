@@ -7262,7 +7262,7 @@
   [(set (pc)
 	(match_operand 0 "register_operand"))
    (use (label_ref (match_operand 1 "")))]
-  "!TARGET_MIPS16_SHORT_JUMP_TABLES"
+  "!TARGET_MIPS16_SHORT_JUMP_TABLES && !TARGET_NANOMIPS_JUMPTABLE_OPT"
 {
   if (TARGET_GPWORD)
     operands[0] = expand_binop (Pmode, add_optab, operands[0],
@@ -7306,16 +7306,24 @@
    (match_operand:SI 2 "const_int_operand" "")	; total range
    (match_operand 3 "" "")			; table label
    (match_operand 4 "" "")]			; out of range label
-  "TARGET_MIPS16_SHORT_JUMP_TABLES"
+  "TARGET_MIPS16_SHORT_JUMP_TABLES || TARGET_NANOMIPS_JUMPTABLE_OPT"
 {
   if (operands[1] != const0_rtx)
     {
       rtx reg = gen_reg_rtx (SImode);
       rtx offset = gen_int_mode (-INTVAL (operands[1]), SImode);
-      
-      if (!arith_operand (offset, SImode))
-        offset = force_reg (SImode, offset);
-      
+
+      if (TARGET_NANOMIPS_JUMPTABLE_OPT)
+	{
+	  if (!const_arith_operand_nu12_u16 (offset, SImode)
+	      && !register_operand (offset, SImode))
+	    offset = force_reg (SImode, offset);
+	}
+      else
+	{
+	  if (!arith_operand (offset, SImode))
+	    offset = force_reg (SImode, offset);
+	}
       emit_insn (gen_addsi3 (reg, operands[0], offset));
       operands[0] = reg;
     }
@@ -7323,14 +7331,71 @@
   if (!arith_operand (operands[0], SImode))
     operands[0] = force_reg (SImode, operands[0]);
 
-  operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
 
-  emit_jump_insn (PMODE_INSN (gen_casesi_internal_mips16,
-			      (operands[0], operands[2],
-			       operands[3], operands[4])));
+  if (TARGET_NANOMIPS_JUMPTABLE_OPT)
+    {
+      emit_cmp_and_jump_insns (operands[0], operands[2], GTU,
+			       NULL_RTX, SImode, 1, operands[4]);
+      emit_jump_insn (PMODE_INSN (gen_casesi_internal_nanomips,
+				  (operands[0], operands[3])));
+    }
+  else
+    {
+      operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
+      emit_jump_insn (PMODE_INSN (gen_casesi_internal_mips16,
+				  (operands[0], operands[2],
+				   operands[3], operands[4])));
+    }
 
   DONE;
 })
+
+;; nanoMIPS code
+
+(define_insn "casesi_internal_nanomips_<mode>"
+  [(set (pc)
+     (unspec:P [(match_operand:SI 0 "register_operand" "d")
+		(label_ref (match_operand 1 "" ""))]
+      UNSPEC_CASESI_DISPATCH))
+   (clobber (match_scratch:P 2 "=&d"))]
+  "TARGET_NANOMIPS_JUMPTABLE_OPT"
+{
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[1])));
+
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
+
+  if (TARGET_LI48 && TARGET_NANOMIPS == NANOMIPS_NMF)
+    output_asm_insn ("li\t%2, %1\t#li48", operands);
+  else
+    {
+      output_asm_insn ("lui\t%2, %%hi(%1)", operands);
+      output_asm_insn ("ori\t%2, %2, %%lo(%1)", operands);
+    }
+
+  switch (GET_MODE (diff_vec))
+    {
+      case QImode:
+	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	  ? output_asm_insn ("lbux\t%2, %0(%2)", operands)
+	  : output_asm_insn ("lbx\t%2, %0(%2)", operands);
+	break;
+      case HImode:
+	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	  ? output_asm_insn ("lhuxs\t%2, %0(%2)", operands)
+	  : output_asm_insn ("lhxs\t%2, %0(%2)", operands);
+	break;
+      case SImode:
+	output_asm_insn ("lwxs\t%2, %0(%2)", operands);
+	break;
+      default:
+	gcc_unreachable ();
+    }
+
+  return "brsc\t%2";
+}
+  [(set_attr "insn_count" "4")])
+
+;; mips16 code
 
 (define_insn "casesi_internal_mips16_<mode>"
   [(set (pc)
