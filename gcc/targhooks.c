@@ -1384,6 +1384,12 @@ default_case_values_threshold (void)
   return (targetm.have_casesi () ? 4 : 5);
 }
 
+unsigned int
+default_case_jumptable_density (bool speed_p)
+{
+  return (speed_p ? 10 : 40);
+}
+
 bool
 default_have_conditional_execution (void)
 {
