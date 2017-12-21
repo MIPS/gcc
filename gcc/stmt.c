@@ -93,6 +93,16 @@ struct case_node
   int                   prob; /* Probability of taking this case.  */
   /* Probability of reaching subtree rooted at this node */
   int                   subtree_prob;
+
+  /* Additional fields required only if flag_jump_table_clusters is set.  */
+  struct case_node_cluster
+  {
+    int cluster;    /* No of the cluster to which this case_node belongs.  */
+    int jt_first_p; /* 1 if LOW the first index in CLUSTER, 0 otherwise.  */
+    unsigned int num_nodes; /* Total number of nodes in CLUSTER.  */
+    tree diff_hi_lo; /* NUM_CASES + default cases (if has gaps) for CLUSTER.  */
+    rtx *labelvec;  /* NULL if not a jumptable, vec of labels otherwise.  */
+  }node_cluster;
 };
 
 typedef struct case_node *case_node_ptr;
@@ -105,7 +115,10 @@ static void balance_case_nodes (case_node_ptr *, case_node_ptr);
 static int node_has_low_bound (case_node_ptr, tree);
 static int node_has_high_bound (case_node_ptr, tree);
 static int node_is_bounded (case_node_ptr, tree);
-static void emit_case_nodes (rtx, case_node_ptr, rtx_code_label *, int, tree);
+static void emit_case_nodes (rtx, case_node_ptr, rtx_code_label *, int, tree,
+			     tree);
+static void find_jumptable_clusters (case_node_ptr, tree, tree, rtx_code_label *,
+				     int, object_allocator<case_node> &);
 
 /* Return the rtx-label that corresponds to a LABEL_DECL,
    creating it if necessary.  */
@@ -736,6 +749,16 @@ add_case_node (struct case_node *head, tree low, tree high,
   r->prob = prob;
   r->subtree_prob = prob;
   r->right = head;
+
+  /* Significant only if flag_jump_table_clusters is set.  */
+  r->node_cluster.cluster = 0;
+  r->node_cluster.jt_first_p = 1;
+  r->node_cluster.diff_hi_lo = fold_build2 (MINUS_EXPR, TREE_TYPE (high), high,
+					    low);
+  /* Range is considered as single node as it leads to a single codelabel.  */
+  r->node_cluster.num_nodes = 1;
+  r->node_cluster.labelvec = NULL;
+
   return r;
 }
 
@@ -800,6 +823,11 @@ expand_switch_as_decision_tree_p (tree range,
   if (flag_pic)
     return true;
 #endif
+
+  /* We want to make our own decision later to see if multiple jump tables
+     would be suitable.  */
+  if (flag_jump_table_clusters)
+    return false;
 
   /* If the switch is relatively small such that the cost of one
      indirect jump on the target are higher than the cost of a
@@ -892,7 +920,9 @@ emit_case_decision_tree (tree index_expr, tree index_type,
       dump_case_nodes (dump_file, case_list, indent_step, 0);
     }
 
-  emit_case_nodes (index, case_list, default_label, default_prob, index_type);
+  emit_case_nodes (index, case_list, default_label, default_prob, index_type,
+		   index_expr);
+
   if (default_label)
     emit_jump (default_label);
 }
@@ -943,6 +973,43 @@ conditional_probability (int target_prob, int base_prob)
 
    The process is unaware of the CFG.  The caller has to fix up
    the CFG itself.  This is done in cfgexpand.c.  */     
+
+static void
+emit_case_dispatch_table_1 (tree index_expr, tree index_type,
+			    struct case_node *node, rtx default_label)
+{
+  tree range = node->node_cluster.diff_hi_lo;
+  int ncases = tree_to_shwi (range) + 1;
+  rtx fallback_label = label_rtx (node->code_label);
+  rtx table_label = gen_label_rtx ();
+
+  if (! try_casesi (index_type, index_expr, node->low, range,
+		    table_label, default_label, fallback_label,
+		    node->subtree_prob))
+    {
+      bool ok = try_tablejump (index_type, index_expr, node->low, range,
+			       table_label, default_label, node->prob);
+      gcc_assert (ok);
+    }
+  /* Output the table.  */
+  emit_label (table_label);
+
+  if (CASE_VECTOR_PC_RELATIVE || flag_pic)
+    emit_jump_table_data (gen_rtx_ADDR_DIFF_VEC (CASE_VECTOR_MODE,
+						 gen_rtx_LABEL_REF (Pmode,
+								    table_label),
+						 gen_rtvec_v (ncases,
+						  node->node_cluster.labelvec),
+						 const0_rtx, const0_rtx));
+  else
+    emit_jump_table_data (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
+					    gen_rtvec_v (ncases,
+						node->node_cluster.labelvec)));
+
+  /* Record no drop-through after the table.  */
+  emit_barrier ();
+  free (node->node_cluster.labelvec);
+}
 
 static void
 emit_case_dispatch_table (tree index_expr, tree index_type,
@@ -1230,6 +1297,28 @@ expand_case (gswitch *stmt)
     emit_case_decision_tree (index_expr, index_type,
                              case_list, default_label,
                              default_prob);
+  else if (flag_jump_table_clusters)
+    {
+      /* Index jumptables from zero for suitable values of minval to avoid
+	 a subtraction.  For the rationale see:
+	 "http://gcc.gnu.org/ml/gcc-patches/2001-10/msg01234.html".  */
+      /* The optimization cannot be done later in find_jumptable_clusters ().
+	 Therefore, do it here by making a Range case_node with low = 0 and
+	 high = minval - 1, with target label = default label.  */
+      if (optimize_insn_for_speed_p ()
+	  && compare_tree_int (case_list->low, 0) > 0
+	  && compare_tree_int (case_list->low, 3) < 0)
+	{
+	  tree high = fold_build2 (MINUS_EXPR, index_type, case_list->low,
+				   build_int_cst (index_type, 1));
+	  tree low = build_int_cst (index_type, 0);
+	  tree label = CASE_LABEL (gimple_switch_default_label (stmt));
+	  case_list = add_case_node (case_list, low, high, label, default_prob,
+				     case_node_pool);
+	}
+      find_jumptable_clusters (case_list, index_expr, index_type, default_label,
+			       default_prob, case_node_pool);
+    }
   else
     emit_case_dispatch_table (index_expr, index_type,
 			      case_list, default_label,
@@ -1560,7 +1649,7 @@ node_is_bounded (case_node_ptr node, tree index_type)
 
 static void
 emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
-		 int default_prob, tree index_type)
+		 int default_prob, tree index_type, tree index_expr)
 {
   /* If INDEX has an unsigned type, we must make unsigned branches.  */
   int unsignedp = TYPE_UNSIGNED (index_type);
@@ -1614,7 +1703,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 				       label_rtx (node->right->code_label),
                                        probability);
 	      emit_case_nodes (index, node->left, default_label, default_prob,
-                               index_type);
+                               index_type, index_expr);
 	    }
 
 	  else if (node_is_bounded (node->left, index_type))
@@ -1631,7 +1720,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 				       label_rtx (node->left->code_label),
                                        probability);
 	      emit_case_nodes (index, node->right, default_label, default_prob,
-			       index_type);
+			       index_type, index_expr);
 	    }
 
 	  /* If both children are single-valued cases with no
@@ -1700,7 +1789,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 
 	      /* Value must be on the left.
 		 Handle the left-hand subtree.  */
-	      emit_case_nodes (index, node->left, default_label, default_prob, index_type);
+	      emit_case_nodes (index, node->left, default_label, default_prob,
+			       index_type, index_expr);
 	      /* If left-hand subtree does nothing,
 		 go to default.  */
 	      if (default_label)
@@ -1708,7 +1798,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 
 	      /* Code branches here for the right-hand subtree.  */
 	      expand_label (test_label);
-	      emit_case_nodes (index, node->right, default_label, default_prob, index_type);
+	      emit_case_nodes (index, node->right, default_label, default_prob,
+			       index_type, index_expr);
 	    }
 	}
 
@@ -1740,7 +1831,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
                   default_prob /= 2;
 		}
 
-	      emit_case_nodes (index, node->right, default_label, default_prob, index_type);
+	      emit_case_nodes (index, node->right, default_label, default_prob,
+			       index_type, index_expr);
 	    }
 	  else
             {
@@ -1783,7 +1875,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 		}
 
 	      emit_case_nodes (index, node->left, default_label,
-                               default_prob, index_type);
+                               default_prob, index_type, index_expr);
 	    }
 	  else
             {
@@ -1860,6 +1952,16 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
           probability = conditional_probability (
               prob,
               subtree_prob + default_prob);
+
+	  if (flag_jump_table_clusters && node->node_cluster.labelvec)
+	    {
+	      /* If value is not in this node but in its left-hand tree, return
+		 right here as we still have that tree to process.  */
+	      rtx label = gen_label_rtx ();
+	      emit_case_dispatch_table_1 (index_expr, index_type, node, label);
+	      emit_label (label);
+	    }
+	  else
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
@@ -1870,7 +1972,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
                                    probability);
 
 	  /* Handle the left-hand subtree.  */
-	  emit_case_nodes (index, node->left, default_label, default_prob, index_type);
+	  emit_case_nodes (index, node->left, default_label, default_prob,
+			   index_type, index_expr);
 
 	  /* If right node had to be handled later, do that now.  */
 
@@ -1882,7 +1985,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 		emit_jump (default_label);
 
 	      expand_label (test_label);
-	      emit_case_nodes (index, node->right, default_label, default_prob, index_type);
+	      emit_case_nodes (index, node->right, default_label, default_prob,
+			       index_type, index_expr);
 	    }
 	}
 
@@ -1911,6 +2015,16 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
           probability = conditional_probability (
               prob,
               subtree_prob + default_prob);
+
+	  if (flag_jump_table_clusters && node->node_cluster.labelvec)
+	    {
+	      /* If value is not in this node but in its right-hand tree, return
+		 right here as we still have that tree to process.  */
+	      rtx label = gen_label_rtx ();
+	      emit_case_dispatch_table_1 (index_expr, index_type, node, label);
+	      emit_label (label);
+	    }
+	  else
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
@@ -1920,7 +2034,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 				   label_rtx (node->code_label),
                                    probability);
 
-	  emit_case_nodes (index, node->right, default_label, default_prob, index_type);
+	  emit_case_nodes (index, node->right, default_label, default_prob,
+			   index_type, index_expr);
 	}
 
       else if (node->right == 0 && node->left != 0)
@@ -1948,6 +2063,16 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
           probability = conditional_probability (
               prob,
               subtree_prob + default_prob);
+
+	  if (flag_jump_table_clusters && node->node_cluster.labelvec)
+	    {
+	      /* If value is not in this node but in its left-hand tree, return
+		 right here as we still have that tree to process.  */
+	      rtx label = gen_label_rtx ();
+	      emit_case_dispatch_table_1 (index_expr, index_type, node, label);
+	      emit_label (label);
+	    }
+	  else
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
@@ -1957,11 +2082,25 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 				   label_rtx (node->code_label),
                                    probability);
 
-	  emit_case_nodes (index, node->left, default_label, default_prob, index_type);
+	  emit_case_nodes (index, node->left, default_label, default_prob,
+			   index_type, index_expr);
 	}
 
       else
 	{
+	  if (flag_jump_table_clusters && node->node_cluster.labelvec)
+	    {
+	      /* No need to take care of low/high boundedness since if expanded
+		 as casesi, it includes bounds checking and if expanded as
+		 tablejump, we already emit unsigned comparison to take case of
+		 upper and lower bounds in a single compare.  */
+	      emit_case_dispatch_table_1 (index_expr, index_type, node,
+					  default_label);
+	      /* Return from here so that we don't emit the unconditional jump
+		 to node->code_label.  */
+	      return;
+	    }
+
 	  /* Node has no children so we check low and high bounds to remove
 	     redundant tests.  Only one of the bounds can exist,
 	     since otherwise this node is bounded--a case tested already.  */
@@ -2025,4 +2164,140 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx_code_label *default_label,
 	  emit_jump (jump_target_rtx (node->code_label));
 	}
     }
+}
+
+static void
+find_jumptable_clusters (case_node_ptr case_list, tree index_expr,
+			 tree index_type, rtx_code_label *default_label,
+			 int default_prob,
+			 object_allocator<case_node> &case_node_pool)
+{
+  case_node_ptr curr, first;
+  case_node_ptr last, head;
+  unsigned int threshold = case_values_threshold ();
+  unsigned int min_density
+		= targetm.case_jumptable_density (optimize_insn_for_speed_p ());
+  int i, j, prev_cluster = 0;
+
+  /* Find cluster number for each case value, Cases with density >= min_density
+     are assigned same cluster number as the base case and such cases
+     belong to the same jump table.  Jumptables which are not profitable are
+     treated as decision trees.  */
+  for (curr = case_list, i = 0; curr != NULL; curr = curr->right, i++)
+    {
+      /* Assume a new cluster (a new jumptable) starts at CURR.  */
+      curr->node_cluster.cluster = prev_cluster + 1;
+
+      for (first = case_list, j = 0; first != curr; first = first->right, j++)
+	{
+	  tree diff = fold_build2 (MINUS_EXPR, index_type, curr->high, first->low);
+
+	  if (first->node_cluster.jt_first_p
+	      && (i - j + 1) * 100 >= (tree_to_shwi (diff) + 1) * min_density
+	      && first->node_cluster.cluster + 1 == curr->node_cluster.cluster)
+	    {
+	      /* CURR is part of previously created cluster.  */
+	      curr->node_cluster.cluster = first->node_cluster.cluster;
+	      curr->node_cluster.jt_first_p = 0;
+	      first->node_cluster.diff_hi_lo = diff;
+	      first->node_cluster.num_nodes++;
+	    }
+	}
+      prev_cluster = curr->node_cluster.cluster;
+    }
+
+  /* For profitable jumptables, fill up LABELVEC.  */
+  for (curr = case_list; curr; curr = curr->right)
+    {
+      if (curr->node_cluster.jt_first_p
+	  && curr->node_cluster.num_nodes >= threshold)
+	{
+	  /* Get vector of labels to jump to, in order of case index.  */
+	  tree minval = curr->low;
+	  int ncases = tree_to_shwi (curr->node_cluster.diff_hi_lo) + 1;
+	  curr->node_cluster.labelvec = (rtx *) xcalloc (ncases, sizeof (rtx));
+	  HOST_WIDE_INT i = 0;
+	  int base = 0;
+
+	  for (last = curr; last; last = last->right)
+	    {
+	      /* Compute the low and high bounds relative to the minimum
+	         value since that should fit in a HOST_WIDE_INT while the
+	         actual values may not.  */
+	      HOST_WIDE_INT i_low
+		= tree_to_uhwi (fold_build2 (MINUS_EXPR, index_type,
+					     last->low, minval));
+	      HOST_WIDE_INT i_high
+		= tree_to_uhwi (fold_build2 (MINUS_EXPR, index_type,
+					     last->high, minval));
+
+	      /* Fill in the gaps from prev->high to last->low with default.  */
+	      for (; i < i_low; i++)
+		curr->node_cluster.labelvec[i]
+		  = gen_rtx_LABEL_REF (Pmode, default_label);
+
+	      for (i = i_low; i <= i_high; i++)
+		curr->node_cluster.labelvec[i]
+		  = gen_rtx_LABEL_REF (Pmode, label_rtx (last->code_label));
+
+
+	      /* Accumulate subtree probabilities.  */
+	      base += last->prob;
+
+	      if (!last->right)
+		break;
+	      if (last->right->node_cluster.jt_first_p)
+		break;
+	    }
+
+	  /* Update CURR to represent entire jump table as single case_node.  */
+	  curr->high = last->high;
+	  head = curr->right;
+	  curr->right = last->right;
+	  last->right = NULL;
+
+	  /* Adjust probabilities here.  We can't change probability of any edge
+	     here because we might have more than one jump tables that are split
+	     across different basic blocks.   */
+	  /* TODO: Change for some sensible value.  */
+	  curr->subtree_prob = GCOV_COMPUTE_SCALE (default_prob, base);
+	  curr->prob = last->subtree_prob;
+
+	  /* Delete from HEAD to LAST.  */
+	  case_node_ptr block, next_block;
+	  for (block =head; block != NULL; block = next_block)
+	    {
+	      next_block = block->right;
+	      case_node_pool.remove (block);
+	    }
+	}
+    }
+
+  /* Done with finding all the clusters, now emit cases.  */
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file,
+	"\n;; Division of GIMPLE switch into decision trees and jumptables\n");
+      for (curr = case_list; curr; curr = curr->right)
+	{
+	  fprintf (dump_file, ";;\tindex %ld:%ld\tcluster %d",
+		   tree_fits_shwi_p (curr->low) ? tree_to_shwi(curr->low)
+						: tree_to_uhwi(curr->low),
+		   tree_fits_shwi_p (curr->high) ? tree_to_shwi (curr->high)
+						 : tree_to_uhwi (curr->high),
+		   curr->node_cluster.cluster);
+	  if (curr->node_cluster.labelvec)
+	    fprintf (dump_file, "\tis a jumptable with %d entries",
+		     curr->node_cluster.num_nodes);
+	  fprintf (dump_file, "\n");
+	}
+      fprintf (dump_file, "\n");
+    }
+
+  /* Emit entire structure as decision tree where jumptables act as a special
+     type of range in which there's a vector of codelabels to jump to instead of
+     a single codelabel.   */
+  emit_case_decision_tree (index_expr, index_type, case_list, default_label,
+			   default_prob);
 }
