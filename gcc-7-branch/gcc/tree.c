@@ -4810,8 +4810,9 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
    Record such modified types already made so we don't make duplicates.  */
 
 tree
-build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
+build_type_attribute_qual_variant (tree otype, tree attribute, int quals)
 {
+  tree ttype = otype;
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
       inchash::hash hstate;
@@ -4838,6 +4839,11 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	}
 
       ttype = build_qualified_type (ttype, TYPE_UNQUALIFIED);
+      if (lang_hooks.types.copy_lang_qualifiers
+	  && otype != TYPE_MAIN_VARIANT (otype))
+	ttype = (lang_hooks.types.copy_lang_qualifiers
+		 (ttype, TYPE_MAIN_VARIANT (otype)));
+
       ntype = build_distinct_type_copy (ttype);
 
       TYPE_ATTRIBUTES (ntype) = attribute;
@@ -4884,6 +4890,9 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (ttype);
 
       ttype = build_qualified_type (ntype, quals);
+      if (lang_hooks.types.copy_lang_qualifiers
+	  && otype != TYPE_MAIN_VARIANT (otype))
+	ttype = lang_hooks.types.copy_lang_qualifiers (ttype, otype);
     }
   else if (TYPE_QUALS (ttype) != quals)
     ttype = build_qualified_type (ttype, quals);
@@ -14504,6 +14513,50 @@ get_nonnull_args (const_tree fntype)
     }
 
   return argmap;
+}
+
+/* Return true if an expression with CODE has to have the same result type as
+   its first operand.  */
+
+bool
+expr_type_first_operand_type_p (tree_code code)
+{
+  switch (code)
+    {
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case BIT_NOT_EXPR:
+    case PAREN_EXPR:
+    case CONJ_EXPR:
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case RDIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 #if CHECKING_P

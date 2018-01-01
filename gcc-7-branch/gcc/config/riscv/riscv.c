@@ -255,6 +255,7 @@ struct riscv_tune_info
   unsigned short issue_rate;
   unsigned short branch_cost;
   unsigned short memory_cost;
+  bool slow_unaligned_access;
 };
 
 /* Information about one CPU we know about.  */
@@ -267,6 +268,9 @@ struct riscv_cpu_info {
 };
 
 /* Global variables for machine-dependent things.  */
+
+/* Whether unaligned accesses execute very slowly.  */
+bool riscv_slow_unaligned_access;
 
 /* Which tuning parameters to use.  */
 static const struct riscv_tune_info *tune_info;
@@ -301,7 +305,8 @@ static const struct riscv_tune_info rocket_tune_info = {
   {COSTS_N_INSNS (6), COSTS_N_INSNS (6)},	/* int_div */
   1,						/* issue_rate */
   3,						/* branch_cost */
-  5						/* memory_cost */
+  5,						/* memory_cost */
+  true,						/* slow_unaligned_access */
 };
 
 /* Costs to use when optimizing for size.  */
@@ -313,12 +318,14 @@ static const struct riscv_tune_info optimize_size_tune_info = {
   {COSTS_N_INSNS (1), COSTS_N_INSNS (1)},	/* int_div */
   1,						/* issue_rate */
   1,						/* branch_cost */
-  2						/* memory_cost */
+  2,						/* memory_cost */
+  false,					/* slow_unaligned_access */
 };
 
 /* A table describing all the processors GCC knows about.  */
 static const struct riscv_cpu_info riscv_cpu_info_table[] = {
   { "rocket", &rocket_tune_info },
+  { "size", &optimize_size_tune_info },
 };
 
 /* Return the riscv_cpu_info entry for the given name string.  */
@@ -726,7 +733,8 @@ riscv_valid_lo_sum_p (enum riscv_symbol_type sym_type, enum machine_mode mode)
   /* We may need to split multiword moves, so make sure that each word
      can be accessed without inducing a carry.  */
   if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
-      && GET_MODE_BITSIZE (mode) > GET_MODE_ALIGNMENT (mode))
+      && (!TARGET_STRICT_ALIGN
+	  || GET_MODE_BITSIZE (mode) > GET_MODE_ALIGNMENT (mode)))
     return false;
 
   return true;
@@ -1375,6 +1383,22 @@ riscv_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
       riscv_legitimize_const_move (mode, dest, src);
       set_unique_reg_note (get_last_insn (), REG_EQUAL, copy_rtx (src));
       return true;
+    }
+
+  /* RISC-V GCC may generate non-legitimate address due to we provide some
+     pattern for optimize access PIC local symbol and it's make GCC generate
+     unrecognizable instruction during optmizing.  */
+
+  if (MEM_P (dest) && !riscv_legitimate_address_p (mode, XEXP (dest, 0),
+						   reload_completed))
+    {
+      XEXP (dest, 0) = riscv_force_address (XEXP (dest, 0), mode);
+    }
+
+  if (MEM_P (src) && !riscv_legitimate_address_p (mode, XEXP (src, 0),
+						  reload_completed))
+    {
+      XEXP (src, 0) = riscv_force_address (XEXP (src, 0), mode);
     }
 
   return false;
@@ -3772,6 +3796,16 @@ riscv_option_override (void)
   cpu = riscv_parse_cpu (riscv_tune_string ? riscv_tune_string :
 			 RISCV_TUNE_STRING_DEFAULT);
   tune_info = optimize_size ? &optimize_size_tune_info : cpu->tune_info;
+
+  /* Use -mtune's setting for slow_unaligned_access, even when optimizing
+     for size.  For architectures that trap and emulate unaligned accesses,
+     the performance cost is too great, even for -Os.  Similarly, if
+     -m[no-]strict-align is left unspecified, heed -mtune's advice.  */
+  riscv_slow_unaligned_access = (cpu->tune_info->slow_unaligned_access
+				 || TARGET_STRICT_ALIGN);
+  if ((target_flags_explicit & MASK_STRICT_ALIGN) == 0
+      && cpu->tune_info->slow_unaligned_access)
+    target_flags |= MASK_STRICT_ALIGN;
 
   /* If the user hasn't specified a branch cost, use the processor's
      default.  */
