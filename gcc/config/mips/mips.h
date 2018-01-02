@@ -1018,8 +1018,7 @@ struct mips_cpu_info {
 				 && !TARGET_SYM32)
 
 /* True if Compact EH supports the ABI.  */
-#define ABI_HAS_COMPACT_EH_SUPPORT (mips_abi == ABI_32 || TARGET_NEWABI \
-                                    || mips_abi == ABI_P32)
+#define ABI_HAS_COMPACT_EH_SUPPORT (0)
 
 
 /* Compact EH opcode headers.  If an opcode has a variable set of bits,
@@ -3808,10 +3807,15 @@ struct GTY(())  machine_function {
 
 #define MIPS_COMPACT_EH_ENCODING (DW_EH_PE_pcrel | DW_EH_PE_sdata4)
 
+#ifdef NANOMIPS_SUPPORT
+# define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+  (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4)
+#else
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
   (TARGET_COMPACT_EH \
    ? MIPS_COMPACT_EH_ENCODING \
    : (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_absptr))
+#endif
 
 #define md_unwind_compact_opcode_finish 0x5c
 
