@@ -10,6 +10,12 @@
 
 	* gcc.target/i386/stack-check-12.c: New test.
 
+	2017-10-03  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/stack-check-5.c: Skip with -fstack-protector.
+	* gcc.dg/stack-check-6.c: Likewise.
+	* gcc.dg/stack-check-6a.c: Likewise.
+
 	2017-09-25  Jeff Law  <law@redhat.com>
 
 	* lib/target-supports.exp
