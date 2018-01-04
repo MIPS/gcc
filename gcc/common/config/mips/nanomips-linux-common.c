@@ -1,4 +1,4 @@
-/* Common hooks for MIPS.
+/* Common hooks for nanoMIPS Linux.
    Copyright (C) 1989-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -63,6 +63,7 @@ static const struct default_options mips_option_optimization_table[] =
 #ifdef NANOMIPS_SUPPORT
     { OPT_LEVELS_SIZE, OPT_freorder_blocks_edge_sort_, NULL, RB_EDGE_SORT_1 },
     { OPT_LEVELS_SIZE, OPT_mcheck_zero_division, NULL, 0 },
+    { OPT_LEVELS_ALL, OPT_fpic, NULL, 1 },
 #endif
     { OPT_LEVELS_NONE, 0, NULL, 0 }
   };
