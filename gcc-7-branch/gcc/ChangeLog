@@ -27,6 +27,12 @@
 	* config/i386/i386.c (ix86_expand_prologue): Tighten assert
 	for int_registers_saved.
 
+	2017-10-31  Segher Boessenkool  <segher@kernel.crsahing.org>
+
+	PR target/82674
+	* config/rs6000/rs6000.md (allocate_stack): Force update interval
+	into a register if it does not fit into an immediate offset field.
+
 	2017-09-25  Jeff Law  <law@redhat.com>
 
 	* config/rs6000/rs6000-protos.h (output_probe_stack_range): Update
