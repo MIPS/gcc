@@ -1,6 +1,14 @@
 2018-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
+	2017-01-03  Jeff Law  <law@redhat.com>
+
+	PR middle-end/83654
+	* explow.c (anti_adjust_stack_and_probe_stack_clash): Test a
+	non-constant residual for zero at runtime and avoid probing in
+	that case.  Reorganize code for trailing problem to mirror handling
+	of the residual.
+
 	2017-11-14  Jeff Law  <law@redhat.com>
 
 	* explow.c (anti_adjust_stack_and_probe_stack_clash): Avoid probing
