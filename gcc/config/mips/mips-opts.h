@@ -60,4 +60,11 @@ enum mips_lib_setting {
   MIPS_LIB_SMALL,
   MIPS_LIB_TINY
 };
+
+enum nanomips_pic_model {
+  NANO_PIC_NONE,
+  NANO_PIC_AUTO,
+  NANO_PIC_MEDIUM,
+  NANO_PIC_LARGE
+};
 #endif

@@ -4642,7 +4642,7 @@ eval `${CC-cc} -E conftest.c | grep host_address=`
 rm -f conftest.c
 
 case ${host} in
-mips*-*-*)
+mips*-*-* | nanomips*-*-*)
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the target is hard-float" >&5
 $as_echo_n "checking whether the target is hard-float... " >&6; }
 if test "${libgcc_cv_mips_hard_float+set}" = set; then :

@@ -1,0 +1,43 @@
+; Options for the nanoMIPS port of the compiler
+;
+; Copyright (C) 2017 Free Software Foundation, Inc.
+;
+; This file is part of GCC.
+;
+; GCC is free software; you can redistribute it and/or modify it under
+; the terms of the GNU General Public License as published by the Free
+; Software Foundation; either version 3, or (at your option) any later
+; version.
+;
+; GCC is distributed in the hope that it will be useful, but WITHOUT
+; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+; License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
+
+m32
+Target RejectNegative Var(nanomips_abi, ABI_P32) Init(ABI_P32)
+Generate 32-bit code.
+
+m64
+Target RejectNegative Var(nanomips_abi, ABI_P64)
+Generate 64-bit code.
+
+mbalc-stubs
+Target Report
+Enable/disable out-of-range call optimization through trampoline stubs.
+
+mpcrel
+Target Report Var(TARGET_PCREL) Init(1)
+Use PC-relative addressing to acccess symbols.
+
+mpid
+Target Report Var(TARGET_PID) Init(0)
+Always use GP-relative addressing to acccess symbols.
+
+mrelax
+Target Report Var(TARGET_LINKRELAX) Init(1)
+Tell the assembler that the linker is able to perform relaxations.

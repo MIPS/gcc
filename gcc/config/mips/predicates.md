@@ -29,13 +29,27 @@
   (and (match_code "const_int")
        (match_test "SMALL_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_arith_operand_nu12_u16"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0xffff)")))
+
 (define_predicate "arith_operand"
   (ior (match_operand 0 "const_arith_operand")
        (match_operand 0 "register_operand")))
 
+(define_predicate "arith_operand_add"
+  (ior (and (match_test "TARGET_NANOMIPS")
+	    (match_operand 0 "const_arith_operand_nu12_u16"))
+       (and (match_test "!TARGET_NANOMIPS")
+	    (match_operand 0 "const_arith_operand"))
+       (match_operand 0 "register_operand")))
+
 (define_predicate "const_immlsa_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (INTVAL (op), 1, 4)")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "IN_RANGE (INTVAL (op), 1, 4)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "IN_RANGE (INTVAL (op), 0, 3)")))))
 
 (define_predicate "const_msa_branch_operand"
   (and (match_code "const_int")
@@ -57,13 +71,25 @@
   (and (match_code "const_int")
        (match_test "UIMM6_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_uimm7_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 127)")))
+
 (define_predicate "const_uimm8_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
 
+(define_predicate "const_uimm12_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 4095)")))
+
 (define_predicate "const_imm5_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), -16, 15)")))
+
+(define_predicate "const_imm9_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -256, 255)")))
 
 (define_predicate "const_imm10_operand"
   (and (match_code "const_int")
@@ -71,6 +97,13 @@
 
 (define_predicate "reg_imm10_operand"
   (ior (match_operand 0 "const_imm10_operand")
+       (match_operand 0 "register_operand")))
+
+(define_predicate "set_on_cond_operand"
+  (ior (and (match_test "ISA_HAS_SEQI")
+	    (match_operand 0 "const_uimm12_operand"))
+       (and (not (match_test "ISA_HAS_SEQI"))
+	    (match_operand 0 "const_imm10_operand"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "aq10b_operand"
@@ -91,7 +124,10 @@
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")
-       (match_test "SMALL_OPERAND (INTVAL (op) + 1)")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "SMALL_OPERAND (INTVAL (op) + 1)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "SMALL_OPERAND_UNSIGNED (INTVAL (op) + 1)")))))
 
 (define_predicate "sleu_operand"
   (and (match_operand 0 "sle_operand")
@@ -124,6 +160,11 @@
   (ior (and (match_operand 0 "const_0_operand")
 	    (not (match_test "TARGET_MIPS16")))
        (match_operand 0 "nonimmediate_operand")))
+
+(define_predicate "reg_0_or_uimm7_operand"
+  (ior (and (match_test "TARGET_NANOMIPS")
+	    (match_operand 0 "const_uimm7_operand"))
+       (match_operand 0 "reg_or_0_operand")))
 
 (define_predicate "const_1_operand"
   (and (match_code "const_int,const_double,const_vector")
@@ -187,7 +228,10 @@
 (define_predicate "low_bitmask_operand"
   (and (match_test "ISA_HAS_EXT_INS")
        (match_code "const_int")
-       (match_test "low_bitmask_len (mode, INTVAL (op)) > 16")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 16"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 12")))))
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
@@ -213,6 +257,10 @@
 		    ? M16_REG_P (REGNO (op))
 		    : GP_REG_P (REGNO (op))")))
 
+(define_predicate "lwm_swm_operand"
+  (and (match_code "mem")
+       (match_test "lwm_swm_address_p (XEXP (op, 0), mode)")))
+
 (define_predicate "lwsp_swsp_operand"
   (and (match_code "mem")
        (match_test "lwsp_swsp_address_p (XEXP (op, 0), mode)")))
@@ -221,17 +269,21 @@
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, uw4_operand)")))
 
+(define_predicate "lw4x4_sw4x4_operand"
+  (and (match_code "mem")
+       (match_test "n16_4x4_based_address_p (XEXP (op, 0), mode, uw2_operand)")))
+
 (define_predicate "lhu16_sh16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, uh4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? uh2_operand : uh4_operand)")))
 
 (define_predicate "lbu16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, db4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? ub2_operand : db4_operand)")))
 
 (define_predicate "sb16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, ub4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? ub2_operand : ub4_operand)")))
 
 (define_predicate "db4_operand"
   (and (match_code "const_int")
@@ -265,17 +317,41 @@
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 3)")))
 
+(define_predicate "s32_operand"
+  (and (match_code "const_int")
+       (match_test "!IN_RANGE (INTVAL (op), -0xfff, 0xffff)")))
+
+(define_predicate "ub2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 0)")))
+
 (define_predicate "ub4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 0)")))
+
+(define_predicate "ub7_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 7, 0)")))
 
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 0)")))
 
+(define_predicate "ubp_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 16, 0)")))
+
+(define_predicate "uh2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 1)")))
+
 (define_predicate "uh4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 1)")))
+
+(define_predicate "uw2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 2)")))
 
 (define_predicate "uw4_operand"
   (and (match_code "const_int")
@@ -293,41 +369,76 @@
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 2)")))
 
+(define_predicate "unbc_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0)")))
+
 (define_predicate "addiur2_operand"
   (and (match_code "const_int")
-	(ior (match_test "INTVAL (op) == -1")
-	     (match_test "INTVAL (op) == 1")
-	     (match_test "INTVAL (op) == 4")
-	     (match_test "INTVAL (op) == 8")
-	     (match_test "INTVAL (op) == 12")
-	     (match_test "INTVAL (op) == 16")
-	     (match_test "INTVAL (op) == 20")
-	     (match_test "INTVAL (op) == 24"))))
+	(ior (and (not (match_test "TARGET_NANOMIPS"))
+		  (ior (match_test "INTVAL (op) == -1")
+		       (match_test "INTVAL (op) == 1")
+		       (match_test "INTVAL (op) == 4")
+		       (match_test "INTVAL (op) == 8")
+		       (match_test "INTVAL (op) == 12")
+		       (match_test "INTVAL (op) == 16")
+		       (match_test "INTVAL (op) == 20")
+		       (match_test "INTVAL (op) == 24")))
+	     (and (match_test "TARGET_NANOMIPS")
+		  (match_test "mips_unsigned_immediate_p (INTVAL (op), 3, 2)")))))
+
 
 (define_predicate "addiusp_operand"
   (and (match_code "const_int")
-       (ior (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
-	    (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
+		 (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "(IN_RANGE (INTVAL (op), 0x8, 0x78))")))))
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
-	(ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
-	     (match_test "IN_RANGE (INTVAL (op), 7, 8)")
-	     (match_test "IN_RANGE (INTVAL (op), 15, 16)")
-	     (match_test "IN_RANGE (INTVAL (op), 31, 32)")
-	     (match_test "IN_RANGE (INTVAL (op), 63, 64)")
-	     (match_test "INTVAL (op) == 255")
-	     (match_test "INTVAL (op) == 32768")
-	     (match_test "INTVAL (op) == 65535"))))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
+		      (match_test "IN_RANGE (INTVAL (op), 7, 8)")
+		      (match_test "IN_RANGE (INTVAL (op), 15, 16)")
+		      (match_test "IN_RANGE (INTVAL (op), 31, 32)")
+		      (match_test "IN_RANGE (INTVAL (op), 63, 64)")
+		      (match_test "INTVAL (op) == 255")
+		      (match_test "INTVAL (op) == 32768")
+		      (match_test "INTVAL (op) == 65535")))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (ior (match_test "IN_RANGE (INTVAL (op), 0, 11)")
+		      (match_test "IN_RANGE (INTVAL (op), 14, 15)")
+		      (match_test "INTVAL (op) == 0xff")
+		      (match_test "INTVAL (op) == 0xffff"))))))
 
-(define_predicate "movep_src_register"
+(define_predicate "movep_register"
   (and (match_code "reg")
-       (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
-	    (match_test ("IN_RANGE (REGNO (op), 16, 20)")))))
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
+		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
+	    (and (match_test "TARGET_NANOMIPS")
+		 ;; We may come across register zero instead of a constant
+		 (ior (match_test ("REGNO (op) == 0"))
+		      (match_test ("IN_RANGE (REGNO (op), 4, 10)"))
+		      (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))))
 
-(define_predicate "movep_src_operand"
+(define_predicate "movep_rev_register"
+  (and (match_code "reg")
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
+       (ior (match_test ("IN_RANGE (REGNO (op), 4, 11)"))
+	    (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))
+
+(define_predicate "movep_or_0_operand"
   (ior (match_operand 0 "const_0_operand")
-       (match_operand 0 "movep_src_register")))
+       (match_operand 0 "movep_register")))
+
+(define_predicate "movep_rev_operand"
+  (match_operand 0 "movep_rev_register"))
 
 (define_predicate "lo_operand"
   (and (match_code "reg")
@@ -401,7 +512,8 @@
 
   /* Otherwise check whether the constant can be loaded in a single
      instruction.  */
-  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op);
+  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op)
+	 && !(TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48);
 })
 
 (define_predicate "move_operand"
@@ -454,7 +566,8 @@
       if (CONST_GP_P (op))
 	return true;
       return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
-	      && !mips_split_p[symbol_type]);
+	      && (!mips_split_p[symbol_type]
+		  || mips_string_constant_p (op)));
 
     case HIGH:
       op = XEXP (op, 0);
@@ -516,6 +629,114 @@
 	  && type == SYMBOL_GOT_DISP);
 })
 
+(define_predicate "pcrel32_lea_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_PCREL32_NANO);
+})
+
+(define_predicate "pcrel32_mem_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_MEM, &type)
+	  && type == SYMBOL_PCREL32_NANO);
+})
+
+(define_predicate "got_pcrel32_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &type)
+	  && type == SYMBOL_GOT_PCREL32_NANO);
+})
+
+(define_predicate "got_pcrel_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &type)
+	  && type == SYMBOL_GOT_PCREL_SPLIT_NANO);
+})
+
+(define_predicate "gprel_subword_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GP_RELATIVE);
+})
+
+(define_predicate "gprel_word_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GPREL_WORD_NANO);
+})
+
+(define_predicate "lapc48_func_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_LAPC48_FUNC_NANO);
+})
+
+(define_predicate "gprel32_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GPREL32_NANO);
+})
+
+;; Rejecting UNSPEC prevents re-matching the %gprel_hi after we've wrapped it
+;; in a (CONST (UNSPEC.
+;; FIXME: Find an alternative to mips_unspec_address_p.
+(define_predicate "gprel_hi_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && !mips_unspec_address_p (op)
+	  && type == SYMBOL_GPREL_SPLIT_NANO);
+})
+
+(define_predicate "gprel_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GPREL_SPLIT_NANO);
+})
+
+(define_predicate "pcrel_split_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_PCREL_SPLIT_NANO);
+})
+
+(define_predicate "lapc48_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_LAPC48_NANO);
+})
+
+(define_predicate "lapc_nano_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_LAPC_NANO);
+})
+
 (define_predicate "got_page_ofst_operand"
   (match_code "const,symbol_ref,label_ref")
 {
@@ -559,13 +780,27 @@
   (match_code "zero_extend,sign_extend"))
 
 (define_predicate "trap_comparison_operator"
-  (match_code "eq,ne,lt,ltu,ge,geu"))
+  (match_code "eq,ne,lt,ltu,ge,geu")
+{
+  if (TARGET_NANOMIPS && GET_CODE (op) != EQ && GET_CODE (op) != NE)
+    return false;
+  return true;
+})
 
 (define_predicate "order_operator"
   (match_code "lt,ltu,le,leu,ge,geu,gt,gtu")
 {
   if (XEXP (op, 1) == const0_rtx)
     return true;
+
+  if (TARGET_NANOMIPS
+      && const_uimm7_operand (XEXP (op, 1), mode)
+      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+    return true;
+
+  if (CONST_INT_P (XEXP (op, 1)))
+    return false;
 
   if (TARGET_CB_MAYBE
       && (GET_CODE (op) == LT || GET_CODE (op) == LTU
@@ -656,3 +891,15 @@
 (define_predicate "reg_or_vector_same_uimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
+(define_special_predicate "load_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (false, op);
+})
+
+(define_special_predicate "store_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (true, op);
+})

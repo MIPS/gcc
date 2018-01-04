@@ -432,6 +432,10 @@ mips*-*-*)
 	extra_objs="frame-header-opt.o"
 	extra_options="${extra_options} g.opt fused-madd.opt mips/mips-tables.opt"
 	;;
+nanomips*-*-*)
+	cpu_type=mips
+	extra_options="${extra_options} g.opt mips/nanomips-tables.opt"
+	;;
 nds32*)
 	cpu_type=nds32
 	extra_headers="nds32_intrinsic.h"
@@ -2277,6 +2281,17 @@ msp430*-*-*)
 	cxx_target_objs="msp430-c.o"
 	tmake_file="${tmake_file} msp430/t-msp430"
 	extra_gcc_objs="driver-msp430.o"
+	;;
+nanomips*-*-elf*)
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/nanomips.h"
+	tmake_file="mips/t-nanomips-multi"
+	md_file=mips/nanomips.md
+	tm_defines="${tm_defines} NANOMIPS_SUPPORT=1 MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
+	extra_options="${extra_options} mips/nanomips.opt"
+	with_arch_32="32r6"
+	with_arch_64="64r6"
+	with_nanomips="yes"
+	TM_MULTILIB_EXCEPTIONS_CONFIG="*mglibc* *muclibc* *mandroid*"
 	;;
 nds32le-*-*)
 	target_cpu_default="0"
@@ -4139,6 +4154,40 @@ case "${target}" in
 		esac
 		;;
 
+	nanomips*-*-*)
+		supported_defaults="abi arch arch_32 arch_64 nanomips float tune tune_32 tune_64"
+
+		case ${with_nanomips} in
+		"" | yes)
+			# OK
+			;;
+		*)
+			echo "Unknown option used in --with-nanomips=$with_nanomips" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_float} in
+		"" | soft | hard)
+			# OK
+			;;
+		*)
+			echo "Unknown floating point type used in --with-float=$with_float" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_abi} in
+		"" | p32 | p64)
+			# OK
+			;;
+		*)
+			echo "Unknown ABI used in --with-abi=$with_abi" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
 	nds32*-*-*)
 		supported_defaults="arch nds32_lib"
 
@@ -4508,6 +4557,32 @@ case ${target} in
 		tmake_file="mips/t-mips $tmake_file"
 		;;
 
+	nanomips*-*-*)
+		case ${target} in
+		    nanomips*eb-*-*)
+			tm_defines="TARGET_ENDIAN_DEFAULT=1 $tm_defines"
+			;;
+		    *)
+			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
+			;;
+		esac
+		if test x$with_arch != x; then
+			default_mips_arch=$with_arch
+		fi
+		if test x$with_abi != x; then
+			default_mips_abi=$with_abi
+		fi
+		case ${default_mips_arch} in
+		    32r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=38" ;;
+		    64r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=70" ;;
+		esac
+		case ${default_mips_abi} in
+		    p32)  tm_defines="$tm_defines MIPS_ABI_DEFAULT=ABI_P32" ;;
+		    p64)  tm_defines="$tm_defines MIPS_ABI_DEFAULT=ABI_P64" ;;
+		esac
+		tmake_file="mips/t-nanomips $tmake_file"
+		;;
+
 	powerpc*-*-* | rs6000-*-*)
 		# FIXME: The PowerPC port uses the value set at compile time,
 		# although it's only cosmetic.
@@ -4570,7 +4645,7 @@ case ${target} in
 esac
 
 t=
-all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls lxc1-sxc1 madd4"
+all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 nanomips schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls lxc1-sxc1 madd4"
 for option in $all_defaults
 do
 	eval "val=\$with_"`echo $option | sed s/-/_/g`
