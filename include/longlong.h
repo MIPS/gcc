@@ -842,7 +842,7 @@ extern UDItype __umulsidi3 (USItype, USItype);
 # define UDIV_TIME 38
 #endif
 
-#if defined (__mips__) && W_TYPE_SIZE == 32
+#if (defined (__mips__) || defined (__nanomips__)) && W_TYPE_SIZE == 32
 #define umul_ppmm(w1, w0, u, v)						\
   do {									\
     UDItype __x = (UDItype) (USItype) (u) * (USItype) (v);		\
@@ -852,11 +852,21 @@ extern UDItype __umulsidi3 (USItype, USItype);
 #define UMUL_TIME 10
 #define UDIV_TIME 100
 
-#if (__mips == 32 || __mips == 64) && ! defined (__mips16)
+#if (__mips == 32 || __mips == 64) && ! defined (__mips16) \
+    && ! defined (__nanomips_subset)
 #define count_leading_zeros(COUNT,X)	((COUNT) = __builtin_clz (X))
 #define COUNT_LEADING_ZEROS_0 32
 #endif
-#endif /* __mips__ */
+
+#if defined (__nanomips__) && ! defined (__nanomips_subset)
+# define count_trailing_zeros(COUNT,X)  ((COUNT) = __builtin_ctz (X))
+#endif
+
+#if defined (__nanomips__) && ! defined (__nanomips_subset)
+#define count_trailing_zeros(COUNT,X)	((COUNT) = __builtin_ctz (X))
+#endif
+
+#endif /* __mips__ or __nanomips__*/
 
 /* FIXME: We should test _IBMR2 here when we add assembly support for the
    system vendor compilers.

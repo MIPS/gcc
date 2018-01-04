@@ -2818,6 +2818,77 @@ Memory reference, stack only.
 
 @end table
 
+@item nanoMIPS---@file{config/mips/constraints.md}
+@table @code
+@item c
+A register suitable for use in an indirect jump.
+
+@item d
+Equivalent to @code{r}; retained for backwards compatibility.
+
+@item f
+A floating-point register (if available).
+
+@item m
+When used as a constraint in an ASM statement this is automatically
+re-interpreted as the ZR constraint.  This transformation only happens for
+simple single alternative contraints with or without modifiers @code{=},
+@code{+} and @code{&}.
+
+@item v
+Register @code{$3}.
+
+@item y
+Equivalent to @code{r}; retained for backwards compatibility.
+
+@item I
+A constant in the range @minus{}0xFFF to 0xFFFF inclusive that is suitable
+for @code{addiu[32]} or @code{addiu[neg]} instructions.
+
+@item J
+Integer zero.
+
+@item K
+An unsigned 12-bit constant (for logic instructions).
+
+@item L
+A signed 32-bit constant in which the lower 12 bits are zero.
+Such constants can be loaded using @code{lui}.
+
+@item M
+A constant that cannot be loaded using @code{lui}, @code{addiu}
+or @code{ori} and instead requires @code{li48}.
+
+@item N
+A constant in the range @minus{}65535 to @minus{}1 (inclusive).
+
+@item O
+A signed 15-bit constant.
+
+@item P
+A constant in the range 1 to 65535 (inclusive).
+
+@item G
+Floating-point zero.
+
+@item R
+An address that can be used in a non-macro load or store.  This constraint
+is deprecated as the nanoMIPS addressing modes vary between different
+forms of load and store instructions.  Use @code{ZR} to guarantee that
+an address is suitable for all possible instructions.
+
+@item ZR
+A memory operand whose address is formed from a base register alone; i.e.
+no offset or index.
+
+@item ZC
+A memory operand whose address is formed from a base register and a signed
+9-bit offset.
+
+@item ZD
+An address formed from a base register and a signed 9-bit offset.
+@end table
+
 @item NDS32---@file{config/nds32/constraints.md}
 @table @code
 @item w

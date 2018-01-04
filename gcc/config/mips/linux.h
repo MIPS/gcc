@@ -37,14 +37,21 @@ along with GCC; see the file COPYING3.  If not see
 #define UCLIBC_DYNAMIC_LINKERN32 \
   "%{mnan=2008:/lib32/ld-uClibc-mipsn8.so.0;:/lib32/ld-uClibc.so.0}"
 
-#undef MUSL_DYNAMIC_LINKER32
-#define MUSL_DYNAMIC_LINKER32 \
+#ifdef NANOMIPS_SUPPORT
+# undef MUSL_DYNAMIC_LINKER32
+# define MUSL_DYNAMIC_LINKER32 "/lib/ld-musl-nanomips%{EB:eb}%{msoft-float:-sf}.so.1"
+# undef MUSL_DYNAMIC_LINKER64
+# define MUSL_DYNAMIC_LINKER64 "/lib/ld-musl-nanomips64%{EB:eb}%{msoft-float:-sf}.so.1"
+#else
+# undef MUSL_DYNAMIC_LINKER32
+# define MUSL_DYNAMIC_LINKER32 \
   "/lib/ld-musl-mips%{mips32r6|mips64r6:r6}%{EL:el}%{msoft-float:-sf}.so.1"
-#undef MUSL_DYNAMIC_LINKER64
-#define MUSL_DYNAMIC_LINKER64 \
+# undef MUSL_DYNAMIC_LINKER64
+# define MUSL_DYNAMIC_LINKER64 \
   "/lib/ld-musl-mips64%{mips64r6:r6}%{EL:el}%{msoft-float:-sf}.so.1"
-#define MUSL_DYNAMIC_LINKERN32 \
+# define MUSL_DYNAMIC_LINKERN32 \
   "/lib/ld-musl-mipsn32%{mips64r6:r6}%{EL:el}%{msoft-float:-sf}.so.1"
+#endif
 
 #define BIONIC_DYNAMIC_LINKERN32 "/system/bin/linker32"
 #define GNU_USER_DYNAMIC_LINKERN32 \
