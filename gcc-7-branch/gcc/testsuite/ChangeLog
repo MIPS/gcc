@@ -1,6 +1,11 @@
 2018-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
+	2017-11-06  Jeff Law  <law@redhat.com>
+
+	PR target/82788
+	* gcc.dg/pr82788.c: New test.
+
 	2017-11-03  Jeff Law  <law@redhat.com>
 
 	* gcc.target/i386/stack-check-12.c: New test.
