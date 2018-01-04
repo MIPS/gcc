@@ -1,0 +1,46 @@
+; -*- buffer-read-only: t -*-
+; Generated automatically by genopt-nanomips.sh from nanomips-cpus.def.
+
+; Copyright (C) 2017 Free Software Foundation, Inc.
+;
+; This file is part of GCC.
+;
+; GCC is free software; you can redistribute it and/or modify it under
+; the terms of the GNU General Public License as published by the Free
+; Software Foundation; either version 3, or (at your option) any later
+; version.
+;
+; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+; WARRANTY; without even the implied warranty of MERCHANTABILITY or
+; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+; for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
+
+Enum
+Name(mips_arch_opt_value) Type(int)
+Known MIPS CPUs (for use with the -march= and -mtune= options):
+
+Enum
+Name(mips_mips_opt_value) Type(int)
+
+EnumValue
+Enum(mips_arch_opt_value) String(native) Value(MIPS_ARCH_OPTION_NATIVE) DriverOnly
+
+EnumValue
+Enum(mips_arch_opt_value) String(32r6) Value(0)
+
+EnumValue
+Enum(mips_arch_opt_value) String(32r6s) Value(1)
+
+EnumValue
+Enum(mips_arch_opt_value) String(64r6) Value(2)
+
+EnumValue
+Enum(mips_arch_opt_value) String(i7200) Value(3)
+
+EnumValue
+Enum(mips_arch_opt_value) String(nms1) Value(4)
+
