@@ -96,6 +96,8 @@ static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
 static rtx legitimize_pe_coff_symbol (rtx, bool);
 static void ix86_print_operand_address_as (FILE *, rtx, addr_space_t, bool);
+static void ix86_emit_restore_reg_using_pop (rtx);
+
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -13288,10 +13290,13 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
      no probes are needed.  */
   if (!size)
     {
+      struct ix86_frame frame;
+      ix86_compute_frame_layout (&frame);
+
       /* However, the allocation of space via pushes for register
 	 saves could be viewed as allocating space, but without the
 	 need to probe.  */
-      if (m->frame.nregs || m->frame.nsseregs || frame_pointer_needed)
+      if (frame.nregs || frame.nsseregs || frame_pointer_needed)
         dump_stack_clash_frame_info (NO_PROBE_SMALL_FRAME, true);
       else
 	dump_stack_clash_frame_info (NO_PROBE_NO_FRAME, false);
@@ -13313,8 +13318,14 @@ ix86_adjust_stack_and_probe_stack_clash (const HOST_WIDE_INT size)
      we just probe when we cross PROBE_INTERVAL.  */
   if (TREE_THIS_VOLATILE (cfun->decl))
     {
-      emit_stack_probe (plus_constant (Pmode, stack_pointer_rtx,
-				       -GET_MODE_SIZE (word_mode)));
+      /* We can safely use any register here since we're just going to push
+	 its value and immediately pop it back.  But we do try and avoid
+	 argument passing registers so as not to introduce dependencies in
+	 the pipeline.  For 32 bit we use %esi and for 64 bit we use %rax.  */
+      rtx dummy_reg = gen_rtx_REG (word_mode, TARGET_64BIT ? AX_REG : SI_REG);
+      rtx_insn *insn = emit_insn (gen_push (dummy_reg));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      ix86_emit_restore_reg_using_pop (dummy_reg);
       emit_insn (gen_blockage ());
     }
 

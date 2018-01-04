@@ -1,6 +1,10 @@
 2018-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
+	2017-11-03  Jeff Law  <law@redhat.com>
+
+	* gcc.target/i386/stack-check-12.c: New test.
+
 	2017-09-25  Jeff Law  <law@redhat.com>
 
 	* lib/target-supports.exp
