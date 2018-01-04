@@ -1,0 +1,80 @@
+# Copyright (C) 2018 Free Software Foundation, Inc.
+#
+# This file is part of GCC.
+#
+# GCC is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# GCC is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# There is no default build in this multilib setup. This unfortunately
+# does not prevent config-ml.in from building a default but this can
+# be removed via post install scripts.
+#
+# All possible MIPS multilibs are shown in this file. They are limited
+# via a file that lists required multilibs for each vendor/OS
+# combination which can be overridden at build time as well.
+#
+# The benefit to describing all multilibs is that the compiler driver
+# can use any multilib if it is present and therefore additional
+# library variants can be added to an installation after initial
+# build. This could be achieved by building all libraries and removing
+# the ones we don't want to ship but this would massively increase
+# build times in situations where only a few are required immediately.
+
+MULTILIB_OPTIONS = mclib=small/mclib=tiny/muclibc march=32r6/march=32r6s/march=64r6 m32/m64 EB/EL msoft-float
+MULTILIB_DIRNAMES = small tiny uclibc 32r6 32r6s 64r6 m32 m64 eb el sof
+MULTILIB_MATCHES = EL=mel EB=meb
+MULTILIB_MATCHES += march?32r6=march?i7200 march?32r6s=march?nms1
+
+# Allow the exceptions list to be controlled by configure time options
+MULTILIB_EXCEPTIONS = $(TM_MULTILIB_EXCEPTIONS_CONFIG)
+
+# Determine if this is a bare metal target with a newlib default library
+is_newlib = $(if $(filter elf, $(lastword $(subst -, ,$(target)))),-newlib)
+
+MULTILIB_EXCLUSIONS = !mclib=small/!mclib=tiny/!muclibc/!march=32r6/!march=32r6s/!march=64r6/!m32/!m64/!EB/!EL/!msoft-float
+
+# nanoMIPS32R6 - We will not include any 64 bit nanoMIPS combinations
+MULTILIB_REQUIRED   += march=32r6/m32/EB
+MULTILIB_OSDIRNAMES += march.32r6/m32/EB=!nanomipseb-r6-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/march=32r6/m32/EB
+MULTILIB_OSDIRNAMES += mclib.small/march.32r6/m32/EB=!nanomipseb-r6-hard-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/march=32r6/m32/EB
+MULTILIB_OSDIRNAMES += mclib.tiny/march.32r6/m32/EB=!nanomipseb-r6-hard-tiny/lib
+
+MULTILIB_REQUIRED   += march=32r6/m32/EB/msoft-float
+MULTILIB_OSDIRNAMES += march.32r6/m32/EB/msoft-float=!nanomipseb-r6-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/march=32r6/m32/EB/msoft-float
+MULTILIB_OSDIRNAMES += mclib.small/march.32r6/m32/EB/msoft-float=!nanomipseb-r6-soft-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/march=32r6/m32/EB/msoft-float
+MULTILIB_OSDIRNAMES += mclib.tiny/march.32r6/m32/EB/msoft-float=!nanomipseb-r6-soft-tiny/lib
+
+MULTILIB_REQUIRED   += march=32r6/m32/EL
+MULTILIB_OSDIRNAMES += march.32r6/m32/EL=!nanomips-r6-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/march=32r6/m32/EL
+MULTILIB_OSDIRNAMES += mclib.small/march.32r6/m32/EL=!nanomips-r6-hard-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/march=32r6/m32/EL
+MULTILIB_OSDIRNAMES += mclib.tiny/march.32r6/m32/EL=!nanomips-r6-hard-tiny/lib
+
+MULTILIB_REQUIRED   += march=32r6/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += march.32r6/m32/EL/msoft-float=!nanomips-r6-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += march=32r6s/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += march.32r6s/m32/EL/msoft-float=!nanomips-r6s-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/march=32r6/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.small/march.32r6/m32/EL/msoft-float=!nanomips-r6-soft-small/lib
+MULTILIB_REQUIRED   += mclib=small/march=32r6s/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.small/march.32r6s/m32/EL/msoft-float=!nanomips-r6s-soft-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/march=32r6/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.tiny/march.32r6/m32/EL/msoft-float=!nanomips-r6-soft-tiny/lib
+MULTILIB_REQUIRED   += mclib=tiny/march=32r6s/m32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.tiny/march.32r6s/m32/EL/msoft-float=!nanomips-r6s-soft-tiny/lib
