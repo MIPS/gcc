@@ -549,6 +549,9 @@ Allow inlining even if the compression flags differ between caller and callee.
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
+madd-savef-restoref
+Target Undocumented Var(TARGET_SAVEF_RESTOREF) Init(0)
+
 mli48
 Target Undocumented UInteger Var(TARGET_LI48) Init(1)
 

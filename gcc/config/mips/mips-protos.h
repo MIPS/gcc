@@ -425,7 +425,7 @@ extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 					 struct mips_save_restore_info *);
 extern bool nanomips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 					     struct mips_save_restore_info *,
-					     bool);
+					     bool *, bool);
 
 extern bool mask_low_and_shift_p (machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (machine_mode, rtx, rtx);

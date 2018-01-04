@@ -5483,6 +5483,48 @@
   [(set_attr "type"	"store")
    (set_attr "mode"	"DI")])
 
+(define_insn "*ldc1x"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(mem:DF
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDC1X"
+  "ldc1x\t%0,%1(%2)"
+  [(set_attr "type"	"fpload")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*sdc1x"
+  [(set (mem:DF
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:DF 2 "register_operand" "f"))]
+  "ISA_HAS_SDC1X"
+  "sdc1x\t%2,%0(%1)"
+  [(set_attr "type"	"fpstore")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*ldc1xs"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(mem:DF
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDC1XS"
+  "ldc1xs\t%0,%1(%2)"
+  [(set_attr "type"	"fpload")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*sdc1xs"
+  [(set (mem:DF
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:DF 2 "register_operand" "f"))]
+  "ISA_HAS_SDC1XS"
+  "sdc1xs\t%2,%0(%1)"
+  [(set_attr "type"	"fpstore")
+   (set_attr "mode"	"DF")])
+
 (define_insn "*lwxs_<GPR:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(mem:GPR
@@ -5518,6 +5560,48 @@
   "swxs\t%2,%0(%1)"
   [(set_attr "type"	"store")
    (set_attr "mode"	"SI")])
+
+(define_insn "*lwc1x"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(mem:SF
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LWC1X"
+  "lwc1x\t%0,%1(%2)"
+  [(set_attr "type"	"fpload")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*swc1x"
+  [(set (mem:SF
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SF 2 "register_operand" "f"))]
+  "ISA_HAS_SWC1X"
+  "swc1x\t%2,%0(%1)"
+  [(set_attr "type"	"fpstore")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*lwc1xs"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(mem:SF
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LWC1XS"
+  "lwc1xs\t%0,%1(%2)"
+  [(set_attr "type"	"fpload")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*swc1xs"
+  [(set (mem:SF
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SF 2 "register_operand" "f"))]
+  "ISA_HAS_SWC1XS"
+  "swc1xs\t%2,%0(%1)"
+  [(set_attr "type"	"fpstore")
+   (set_attr "mode"	"SF")])
 
 (define_insn "*lh<u>xs_ext<GPR:mode>_<P:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -5763,8 +5847,8 @@
 })
 
 (define_insn "*movdf_hardfloat"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,m,m,*f,*d,*d,*d,*m")
-	(match_operand:DF 1 "move_operand" "f,G,m,f,G,*d,*f,*d*G,*m,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,m,ZE,*f,*d,*d,*d,*ZE")
+	(match_operand:DF 1 "move_operand" "f,G,m,f,G,*d,*f,*d*G,*ZE,*d"))]
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
@@ -8492,8 +8576,54 @@
   "TARGET_NANOMIPS
    && GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				       false)"
+				       NULL, false)"
   { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
+					 false/*jrc_p*/); }
+  [(set_attr "type" "arith")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_savef"
+  [(match_parallel 0 ""
+       [(set (mem:DF (match_operand:P 1 "register_operand" "ks"))
+	     (match_operand:DF 2 "register_operand" "f"))])]
+   "ISA_HAS_SAVEF_RESTOREF
+    && nanomips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
+  { return nanomips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
+  [(set_attr "type" "arith")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_savef2"
+  [(match_parallel 0 ""
+       [(set (mem:DF (plus:P (match_operand:P 1 "register_operand" "ks")
+			     (match_operand:P 2 "const_int_operand" "I")))
+	     (match_operand:DF 3 "register_operand" "f"))])]
+   "ISA_HAS_SAVEF_RESTOREF
+    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+					NULL, false)"
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
+					 false/*jrc_p*/); }
+  [(set_attr "type" "arith")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_restoref"
+  [(match_parallel 0 ""
+       [(set (match_operand:DF 1 "register_operand" "=f")
+	     (mem:DF (match_operand:P 2 "register_operand" "ks")))])]
+   "ISA_HAS_SAVEF_RESTOREF
+    && nanomips_save_restore_pattern_p (operands[0], 0, NULL, NULL, false)"
+  { return nanomips_output_save_restore (operands[0], 0, false/*jrc_p*/); }
+  [(set_attr "type" "arith")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_restoref2"
+  [(match_parallel 0 ""
+       [(set (match_operand:DF 1 "register_operand" "=f")
+	     (mem:DF (plus:P (match_operand:P 2 "register_operand" "ks")
+			     (match_operand:P 3 "const_int_operand" "I"))))])]
+   "ISA_HAS_SAVEF_RESTOREF
+    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[3]), NULL,
+					NULL, false)"
+  { return nanomips_output_save_restore (operands[0], INTVAL (operands[3]),
 					 false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "can_delay" "no")])
@@ -8508,7 +8638,7 @@
    && GET_CODE (operands[1]) == REG
    && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && nanomips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				       true)
+				       NULL, true)
    && reload_completed"
   { return nanomips_output_save_restore (operands[0], INTVAL (operands[2]),
 				     true/*jrc_p*/); }
