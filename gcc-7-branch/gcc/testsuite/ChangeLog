@@ -75,6 +75,16 @@
 	(check_effective_target_frame_pointer_for_non_leaf): Likewise.
 	(check_effective_target_caller_implicit_probes): Likewise.
 
+2018-01-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/83556
+	* g++.dg/cpp0x/pr83556.C: New test.
+
+2018-01-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/83650
+	* gfortran.dg/simplify_cshift_1.f90: Correct condition.
+
 2018-01-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/83608
