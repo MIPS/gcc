@@ -8130,7 +8130,8 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
   else if (TARGET_PABI)
     {
       size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
-      return size == -1 || size > 2 * UNITS_PER_WORD;
+      return size == -1 || size > 2 * UNITS_PER_WORD
+	     || (type && VECTOR_TYPE_P (type));
     }
   else
     {
