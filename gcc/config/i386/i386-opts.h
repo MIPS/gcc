@@ -107,4 +107,10 @@ enum indirect_branch {
   indirect_branch_thunk_extern
 };
 
+enum indirect_branch_loop {
+  indirect_branch_loop_lfence,
+  indirect_branch_loop_pause,
+  indirect_branch_loop_nop
+};
+
 #endif

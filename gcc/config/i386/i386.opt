@@ -947,3 +947,20 @@ Enum(indirect_branch) String(thunk-inline) Value(indirect_branch_thunk_inline)
 
 EnumValue
 Enum(indirect_branch) String(thunk-extern) Value(indirect_branch_thunk_extern)
+
+mindirect-branch-loop=
+Target Report RejectNegative Joined Enum(indirect_branch_loop) Var(ix86_indirect_branch_loop) Init(indirect_branch_loop_lfence)
+Control loop filler in call and return thunk for indirect call and jump.
+
+Enum
+Name(indirect_branch_loop) Type(enum indirect_branch_loop)
+Known looop choices (for use with the -mindirect-branch-loop= option):
+
+EnumValue
+Enum(indirect_branch_loop) String(lfence) Value(indirect_branch_loop_lfence)
+
+EnumValue
+Enum(indirect_branch_loop) String(pause) Value(indirect_branch_loop_pause)
+
+EnumValue
+Enum(indirect_branch_loop) String(nop) Value(indirect_branch_loop_nop)
