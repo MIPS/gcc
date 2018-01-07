@@ -1228,7 +1228,7 @@ See RS/6000 and PowerPC Options.
 -mstack-protector-guard-symbol=@var{symbol} -mmitigate-rop @gol
 -mgeneral-regs-only -mcall-ms2sysv-xlogues @gol
 -mindirect-branch=@var{choice} -mindirect-branch-loop=@var{choice}
--mfunction-return==@var{choice}}
+-mfunction-return==@var{choice} -mindirect-branch-register}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole  -mcygwin  -mno-cygwin  -mdll @gol
@@ -26794,6 +26794,10 @@ Control loop filler in call and return thunk for indirect call and jump.
 @samp{lfence} uses @code{lfence} as loop filler.  @samp{pause} uses
 @code{pause} as loop filler.  @samp{nop} uses @code{nop} as loop filler.
 The default is @samp{lfence}.
+
+@item -mindirect-branch-register
+@opindex -mindirect-branch-register
+Force indirect call and jump via register.
 
 @end table
 
