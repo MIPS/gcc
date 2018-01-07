@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mindirect-branch=thunk-extern -mindirect-branch-loop=pause -fno-pic" } */
+/* { dg-options "-O2 -mno-indirect-branch-register -mindirect-branch=thunk-extern -mindirect-branch-loop=pause -fno-pic" } */
 
 typedef void (*dispatch_t)(long offset);
 
