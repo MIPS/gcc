@@ -99,4 +99,12 @@ enum stack_protector_guard {
   SSP_GLOBAL    /* global canary */
 };
 
+enum indirect_branch {
+  indirect_branch_unset = 0,
+  indirect_branch_keep,
+  indirect_branch_thunk,
+  indirect_branch_thunk_inline,
+  indirect_branch_thunk_extern
+};
+
 #endif
