@@ -1227,7 +1227,7 @@ See RS/6000 and PowerPC Options.
 -mstack-protector-guard-offset=@var{offset} @gol
 -mstack-protector-guard-symbol=@var{symbol} -mmitigate-rop @gol
 -mgeneral-regs-only -mcall-ms2sysv-xlogues @gol
--mindirect-branch=@var{choice}}
+-mindirect-branch=@var{choice} -mindirect-branch-loop=@var{choice}}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole  -mcygwin  -mno-cygwin  -mdll @gol
@@ -26775,6 +26775,13 @@ and return thunk.  @samp{thunk-extern} converts indirect call and jump
 to external call and return thunk provided in a separate object file.
 You can control this behavior for a specific function by using the
 function attribute @code{indirect_branch}.  @xref{Function Attributes}.
+
+@item -mindirect-branch-loop=@var{choice}
+@opindex -mindirect-branch-boop
+Control loop filler in call and return thunk for indirect call and jump.
+@samp{lfence} uses @code{lfence} as loop filler.  @samp{pause} uses
+@code{pause} as loop filler.  @samp{nop} uses @code{nop} as loop filler.
+The default is @samp{lfence}.
 
 @end table
 

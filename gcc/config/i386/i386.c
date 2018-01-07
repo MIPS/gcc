@@ -10753,8 +10753,23 @@ output_indirect_thunk (bool need_bnd_p, int regno)
 
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, indirectlabel1);
 
-  /* lfence .  */
-  fprintf (asm_out_file, "\tlfence\n");
+  switch (ix86_indirect_branch_loop)
+    {
+    case indirect_branch_loop_lfence:
+      /* lfence.  */
+      fprintf (asm_out_file, "\tlfence\n");
+      break;
+    case indirect_branch_loop_pause:
+      /* pause.  */
+      fprintf (asm_out_file, "\tpause\n");
+      break;
+    case indirect_branch_loop_nop:
+      /* nop.  */
+      fprintf (asm_out_file, "\tnop\n");
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   /* Jump.  */
   fputs ("\tjmp\t", asm_out_file);
