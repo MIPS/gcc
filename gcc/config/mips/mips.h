@@ -222,7 +222,7 @@ struct mips_cpu_info {
 
 /* True if the output must have a writable .eh_frame.
    See ASM_PREFERRED_EH_DATA_FORMAT for details.  */
-#ifdef HAVE_LD_PERSONALITY_RELAXATION
+#if defined (NANOMIPS_SUPPORT) || defined (HAVE_LD_PERSONALITY_RELAXATION)
 #define TARGET_WRITABLE_EH_FRAME 0
 #else
 #define TARGET_WRITABLE_EH_FRAME (flag_pic && TARGET_SHARED)
@@ -1675,6 +1675,11 @@ FP_ASM_SPEC "\
 
 /* The mapping from gcc register number to DWARF 2 CFA column number.  */
 #define DWARF_FRAME_REGNUM(REGNO) mips_dwarf_regno[REGNO]
+
+/* The number of frame registers to store in the runtime register table.  */
+#if (defined _ABIP32 && _MIPS_SIM == _ABIP32)
+  #define DWARF_FRAME_REGISTERS 64
+#endif
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN RETURN_ADDR_REGNUM
@@ -3708,8 +3713,13 @@ struct GTY(())  machine_function {
    and for personality data.  We must fall back on using writable
    .eh_frame sections for shared libraries if the linker does not
    support this feature.  */
-#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
-  (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_absptr)
+#ifdef NANOMIPS_SUPPORT
+# define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+   (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4)
+#else
+# define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+   (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_absptr)
+#endif
 
 /* For switching between MIPS16 and non-MIPS16 modes.  */
 #define SWITCHABLE_TARGET 1
