@@ -2115,6 +2115,8 @@ FP_ASM_SPEC "\
    should be used instead.  */
 #define FPSW_REGNUM	ST_REG_FIRST
 
+#define REG_OR_0_P(REG) (REG == const0_rtx || REG_P (REG))
+#define REGNO_OR_0(REGNUM) ((REGNUM) == const0_rtx ? 0 : REGNO (REGNUM))
 #define GP_REG_P(REGNO)	\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
