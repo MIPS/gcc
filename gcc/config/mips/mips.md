@@ -4890,7 +4890,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(match_operand:SI 1 "lapc_nano_operand" ""))]
   "TARGET_NANOMIPS"
-  "lapc\t%0,%1"
+  "lapc.h\t%0,%1"
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
@@ -4898,7 +4898,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(match_operand:SI 1 "lapc48_nano_operand" ""))]
   "TARGET_NANOMIPS"
-  "lapc[48]\t%0,%1"
+  "lapc.b\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
@@ -4924,7 +4924,7 @@
   [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "lapc48_func_nano_operand"))]
   "TARGET_NANOMIPS"
-  "lapc[48]\t%0,%1"
+  "lapc.b\t%0,%1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])
 
@@ -4935,7 +4935,7 @@
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel_subword_nano_operand" "")))]
   "TARGET_NANOMIPS"
-  "addiu[gp.b]\t%0,$gp,%R1"
+  "addiu.b\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
@@ -4945,7 +4945,7 @@
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel_word_nano_operand" "")))]
   "TARGET_NANOMIPS"
-  "addiu[gp.w]\t%0,$gp,%R1"
+  "addiu.w\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
@@ -4955,7 +4955,7 @@
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand:SI 1 "gprel32_nano_operand" "")))]
   "TARGET_NANOMIPS"
-  "addiu[gp48]\t%0,$gp,%R1"
+  "addiu.b32\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips48")
    (set_attr "mode" "SI")])

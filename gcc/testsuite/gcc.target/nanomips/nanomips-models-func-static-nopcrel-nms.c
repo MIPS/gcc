@@ -8,14 +8,14 @@
 /* ori reg, reg, %lo(a_longcall) # 1 */
 /* jalrc reg # 1 */
 
-/* lapc reg, a_static # 1 */
+/* lapc.h reg, a_static # 1 */
 /* balc a_takes_fptr # 1 */
 
 /* lui reg, %hi(a_longcall) # 2 */
 /* ori reg, reg, %lo(a_longcall) # 2 */
 /* balc a_takes_fptr # 2 */
 
-/* lapc reg, a_static # 2 */
+/* lapc.h reg, a_static # 2 */
 /* lui reg, %hi(a_long_takes_fptr) # 1 */
 /* ori reg, reg, %lo(a_long_takes_fptr) # 1 */
 /* jalrc reg # 2 */
@@ -29,7 +29,7 @@
 /* { dg-final { scan-assembler "balc\ta_static" } } */
 /* { dg-final { scan-assembler-times "lui\t\\\$\[ast0-9\]+,%hi\\(a_longcall\\)" 3 } } */
 /* { dg-final { scan-assembler-times "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_longcall\\)" 3 } } */
-/* { dg-final { scan-assembler-times "lapc\t\\\$\[ast0-9\]+,a_static" 2 } } */
+/* { dg-final { scan-assembler-times "lapc.h\t\\\$\[ast0-9\]+,a_static" 2 } } */
 /* { dg-final { scan-assembler-times "balc\ta_takes_fptr" 2 } } */
 /* { dg-final { scan-assembler-times "lui\t\\\$\[ast0-9\]+,%hi\\(a_long_takes_fptr\\)" 2 } } */
 /* { dg-final { scan-assembler-times "ori\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%lo\\(a_long_takes_fptr\\)" 2 } } */

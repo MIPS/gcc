@@ -9,12 +9,12 @@
 /* balc f_takes_fptr */
 
 /* lwpc reg, %got_pcrel32(f_extern) # 3 */
-/* lapc[48] reg, f_long_takes_fptr */
+/* lapc.b reg, f_long_takes_fptr */
 /* jalrc reg # 2 */
 
 /* { dg-final { scan-assembler-times "lwpc\t\\\$\[ast0-9\]+,%got_pcrel32\\(f_extern\\)" 3 } } */
 /* { dg-final { scan-assembler "balc\tf_takes_fptr" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,f_long_takes_fptr" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,f_long_takes_fptr" } } */
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 2 } } */
 

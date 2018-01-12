@@ -3,22 +3,22 @@
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_char\\)" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_short\\)" } } */
-/* { dg-final { scan-assembler "lapc\t\\\$\[ast0-9\]+,a_sta_int" } } */
+/* { dg-final { scan-assembler "lapc.h\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(a_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lapc.h\t\\\$\[ast0-9\]+,a_sta_int" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_char\\)" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp\\.b\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_short\\)" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_int" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,m_sta_int" } } */
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_int" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,l_sta_int" } } */
 
 static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
 static short a_sta_short __attribute__ ((cmodel("auto"))) = 14;
