@@ -3,22 +3,22 @@
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* { dg-final { scan-assembler "\taluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(a_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "\tlapc\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,a_sta_char" } } */
-/* { dg-final { scan-assembler "\tlapc\t\\\$\[ast0-9\]+,a_sta_short" } } */
-/* { dg-final { scan-assembler "\tlapc\t\\\$\[ast0-9\]+,a_sta_int" } } */
+/* { dg-final { scan-assembler "\tlapc.h\t\\\$\[ast0-9\]+,a_sta_2aligned" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,a_sta_char" } } */
+/* { dg-final { scan-assembler "\tlapc.h\t\\\$\[ast0-9\]+,a_sta_short" } } */
+/* { dg-final { scan-assembler "\tlapc.h\t\\\$\[ast0-9\]+,a_sta_int" } } */
 
 /* { dg-final { scan-assembler "\taluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(m_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_char" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_short" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,m_sta_int" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,m_sta_2aligned" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,m_sta_char" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,m_sta_short" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,m_sta_int" } } */
 
 /* { dg-final { scan-assembler "\taluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_char" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_short" } } */
-/* { dg-final { scan-assembler "\tlapc\\\[48\\]\t\\\$\[ast0-9\]+,l_sta_int" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,l_sta_char" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,l_sta_short" } } */
+/* { dg-final { scan-assembler "\tlapc.b\t\\\$\[ast0-9\]+,l_sta_int" } } */
 
 static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
 static short a_sta_short __attribute__ ((cmodel("auto"))) = 14;
