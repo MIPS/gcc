@@ -6,16 +6,16 @@
 /* jalrc reg # 1 */
 
 /* lw reg, %got_disp(f_extern)($gp) # 2 */
-/* lapc[48] reg, f_takes_fptr */
+/* lapc.b reg, f_takes_fptr */
 /* jalrc reg # 2 */
 
 /* lw reg, %got_disp(f_extern)($gp) # 3 */
-/* lapc[48] reg, f_long_takes_fptr */
+/* lapc.b reg, f_long_takes_fptr */
 /* jalrc reg # 3 */
 
 /* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,%got_disp\\(f_extern\\)\\(\\\$gp\\)" 3 } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,f_takes_fptr" } } */
-/* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,f_long_takes_fptr" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,f_takes_fptr" } } */
+/* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,f_long_takes_fptr" } } */
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 3 } } */
 /* { dg-final { scan-assembler "lapc\t\\\$gp,_gp" } } */
