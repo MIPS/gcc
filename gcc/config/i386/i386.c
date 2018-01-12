@@ -5832,6 +5832,12 @@ ix86_set_indirect_branch_type (tree fndecl)
 	}
       else
 	cfun->machine->indirect_branch_type = ix86_indirect_branch;
+
+      /* -mindirect-branch= and -mshstk are not compatible.  */
+      if (TARGET_SHSTK
+	  && cfun->machine->indirect_branch_type != indirect_branch_keep)
+	error ("%<-mindirect-branch=%> and %<-mshstk%> are "
+	       "not compatible");
     }
 
   if (cfun->machine->function_return_type == indirect_branch_unset)
@@ -5857,6 +5863,12 @@ ix86_set_indirect_branch_type (tree fndecl)
 	}
       else
 	cfun->machine->function_return_type = ix86_function_return;
+
+      /* -mfunction-return= and -mshstk are not compatible.  */
+      if (TARGET_SHSTK
+	  && cfun->machine->function_return_type != indirect_branch_keep)
+	    error ("%<-mfunction-return=%> and %<-mshstk%> are "
+		   "not compatible");
     }
 }
 

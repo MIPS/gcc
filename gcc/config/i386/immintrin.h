@@ -102,7 +102,11 @@
 
 #include <xtestintrin.h>
 
+/* -mindirect-branch= and -mfunction-return= are not compatible with
+   -mshstk.  */
+#if !defined __indirect_branch__ && !defined __function_return__
 #include <cetintrin.h>
+#endif
 
 #include <gfniintrin.h>
 

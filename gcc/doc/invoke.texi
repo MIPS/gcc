@@ -26851,6 +26851,10 @@ to external call and return thunk provided in a separate object file.
 You can control this behavior for a specific function by using the
 function attribute @code{indirect_branch}.  @xref{Function Attributes}.
 
+Note that @option{-mindirect-branch=} is incompatible with
+@option{-mshstk} since call and return thunk changes call stack
+without updating shadow stack.
+
 @item -mfunction-return=@var{choice}
 @opindex -mfunction-return
 Convert function return with @var{choice}.  The default is @samp{keep},
@@ -26861,6 +26865,10 @@ function return to external call and return thunk provided in a separate
 object file.  You can control this behavior for a specific function by
 using the function attribute @code{function_return}.
 @xref{Function Attributes}.
+
+Note that @option{-mfunction-return=} is incompatible with
+@option{-mshstk} since call and return thunk changes call stack
+without updating shadow stack.
 
 @item -mindirect-branch-register
 @opindex -mindirect-branch-register

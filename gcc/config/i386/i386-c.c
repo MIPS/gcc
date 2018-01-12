@@ -495,6 +495,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__iamcu");
       def_or_undef (parse_in, "__iamcu__");
     }
+  if (ix86_indirect_branch != indirect_branch_keep)
+    def_or_undef (parse_in, "__indirect_branch__");
+  if (ix86_function_return != indirect_branch_keep)
+    def_or_undef (parse_in, "__function_return__");
 }
 
 
