@@ -8636,13 +8636,12 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   tree addr;
   bool indirect_p;
   HOST_WIDE_INT alignment;
-  int regsize;
+  int reg_width;
   machine_mode mode;
 
   mode = TYPE_MODE (type);
 
-  indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, 0);
-  alignment = mips_get_arg_alignment (mode, type) / BITS_PER_UNIT;
+  indirect_p = pass_by_reference (NULL, mode, type, 0);
   if (indirect_p)
     type = build_pointer_type (type);
 
@@ -8671,6 +8670,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	 TOP be the top of the GPR or FPR save area;
 	 OFF be the offset from TOP of the next register;
 	 ADDR_RTX be the address of the argument;
+	 ALIGN be the alignment of the argument;
+	 REG_WIDTH be the size of the register;
 	 SIZE be the number of bytes in the argument type;
 	 RSIZE be the number of bytes used to store the argument
 	   when it's in the register save area; and
@@ -8681,30 +8682,28 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
 	 1.  if (off > 0)
 	 2.    {
-	 3.      if (align > UNITS_PER_WORD)
+	 3.      if (align > reg_width)
 	 4.        off &= -align;
 	 5.      cur_off = off;
 	 6.      off -= rsize;
 	 7.      if (off >= 0)
 	 8.        {
 	 9.          addr_rtx = *(type *)(top - cur_off
-	 10.                     + (BYTES_BIG_ENDIAN ? RISZE - SIZE : 0));
+	 10.                     + (BYTES_BIG_ENDIAN ? rsize - size : 0));
 	 11.         goto done;
 	 12.       }
 	 13.     else
 	 14.       goto overflow;
 	 15.   }
 	 16. overflow:
-	 17.    if (align > UNITS_PER_WORD)
-	 18       {
-	 19.         ovlf = (ovfl + 2 * UNITS_PER_WORD - 1)
-	 20.                & -(2 * UNITS_PER_WORD);
-	 21.         addr_rtx = (void *) (ovfl
-	 22.                 + (BYTES_BIG_ENDIAN ? RISZE - SIZE : 0));
-	 23.         ovfl += osize;
-	 24.      }
-	 25. done:
-	 26.   return *(type *) addr_rtx;
+	 17.	if (align > UNITS_PER_WORD)
+	 18.	  ovlf = (ovfl + 2 * UNITS_PER_WORD - 1)
+	 19.		 & -(2 * UNITS_PER_WORD);
+	 20.	addr_rtx = (void *) (ovfl
+	 21.		   + (BYTES_BIG_ENDIAN ? osize - size : 0));
+	 22.	ovfl += osize;
+	 23. done:
+	 24.   return *(type *) addr_rtx;
       */
 
       ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
@@ -8723,7 +8722,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	     takes up UNITS_PER_HWFPVALUE bytes, regardless of the
 	     argument's precision.  */
 	  rsize = UNITS_PER_HWFPVALUE;
-	  regsize = UNITS_PER_HWFPVALUE;
+	  reg_width = UNITS_PER_HWFPVALUE;
 
 	  /* Overflow arguments are padded to UNITS_PER_WORD bytes
 	     (= PARM_BOUNDARY bits).  This can be different from RSIZE
@@ -8750,7 +8749,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  off = build3 (COMPONENT_REF, TREE_TYPE (f_goff),
 			unshare_expr (valist), f_goff, NULL_TREE);
 	  rsize = ROUND_UP (size, UNITS_PER_WORD);
-	  regsize = UNITS_PER_WORD;
+	  reg_width = UNITS_PER_WORD;
 	  osize = rsize;
 	}
 
@@ -8770,9 +8769,9 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
       gimple_seq_add_stmt (pre_p, gimple_build_label (lab_reg));
 
-      if (alignment > regsize)
+      if (alignment > reg_width)
 	{
-	  /* [3] Emit code for: off &= -alignment.  */
+	  /* [4] Emit code for: off &= -align.  */
 	  t = build2 (BIT_AND_EXPR, TREE_TYPE (off), off,
 		      build_int_cst (TREE_TYPE (off), -alignment));
 	  align = build2 (MODIFY_EXPR, TREE_TYPE (off), unshare_expr (off), t);
@@ -8792,14 +8791,15 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       t = build2 (POSTDECREMENT_EXPR, TREE_TYPE (off), off, t);
 	gimplify_and_add (t, pre_p);
 
-      /* [7] Emit code for: if off >= 0.  */
+      /* [7] Emit code for: if (off >= 0).  */
       t = build2 (GE_EXPR, boolean_type_node, unshare_expr (off),
 		  build_int_cst (TREE_TYPE (off), 0));
       t2 = build1 (GOTO_EXPR, void_type_node, lab_ovfl);
       t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, t2);
       gimplify_and_add (t, pre_p);
 
-      /* [9] addr_rtx = top - off + (BYTES_BIG_ENDIAN ? RSIZE - SIZE : 0).  */
+      /* [9, 10] addr_rtx = top - cur_off
+	 + (BYTES_BIG_ENDIAN ? rsize - size : 0).  */
       t = fold_convert (sizetype, u);
       t = fold_build1 (NEGATE_EXPR, sizetype, t);
       t = fold_build_pointer_plus (top, t);
@@ -8810,12 +8810,13 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       /* [11] Emit code for: goto done.  */
       gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_done));
 
-      /* Emit [16].  */
+      /* [16] Emit 'overflow' label.  */
       gimple_seq_add_stmt (pre_p, gimple_build_label (lab_ovfl));
 
       if (alignment > UNITS_PER_WORD)
 	{
-	  /* [19] Emit: ovfl = ((intptr_t) ovfl + osize - 1) & -osize.  */
+	  /* [18, 19] Emit: ovlf = (ovfl + 2 * UNITS_PER_WORD - 1)
+	     & -(2 * UNITS_PER_WORD).  */
 	  t = fold_build_pointer_plus_hwi (ovfl,
 					   2 * UNITS_PER_WORD - 1);
 	  u = build_int_cst (TREE_TYPE (t), -(2 * UNITS_PER_WORD));
@@ -8829,8 +8830,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       if (align)
 	gimplify_and_add (align, pre_p);
 
-      /* [21, 22] Emit code for:
-	 addr_rtx = ovfl + (BYTES_BIG_ENDIAN ? OSIZE - SIZE : 0)
+      /* [20, 21, 22] Emit code for:
+	 addr_rtx = ovfl + (BYTES_BIG_ENDIAN ? osize - size : 0);
 	 ovfl += osize.  */
       u = fold_convert (TREE_TYPE (ovfl), build_int_cst (NULL_TREE, osize));
       t = build2 (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl, u);
