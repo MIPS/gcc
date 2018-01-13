@@ -259,8 +259,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -fmax-errors=@var{n}  -Wpedantic @gol
 -pedantic-errors @gol
--w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
--Walloc-zero  -Walloc-size-larger-than=@var{n}
+-w  -Wextra  -Wall  -Waddress -Waddress-of-packed-member @gol
+-Waggregate-return -Walloc-zero -Walloc-size-larger-than=@var{n} @gol
 -Walloca  -Walloca-larger-than=@var{n} @gol
 -Wno-aggressive-loop-optimizations  -Warray-bounds  -Warray-bounds=@var{n} @gol
 -Wno-attributes  -Wbool-compare  -Wbool-operation @gol
@@ -6378,6 +6378,13 @@ call; and comparisons against string literals result in unspecified
 behavior and are not portable in C, so they usually indicate that the
 programmer intended to use @code{strcmp}.  This warning is enabled by
 @option{-Wall}.
+
+@item -Waddress-of-packed-member
+@opindex Waddress-of-packed-member
+@opindex Wno-address-of-packed-member
+Warn when the address of packed member of struct or union is taken,
+which usually results in an unaligned pointer value.  This is
+enabled by default.
 
 @item -Wlogical-op
 @opindex Wlogical-op

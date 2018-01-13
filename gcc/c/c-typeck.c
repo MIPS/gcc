@@ -6495,7 +6495,45 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
     }
 
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
-    return rhs;
+    {
+      tree context = warn_for_address_of_packed_member (type, orig_rhs);
+      if (context)
+	switch (errtype)
+	  {
+	  case ic_argpass:
+	    warning_at (expr_loc, OPT_Waddress_of_packed_member,
+			"passing argument %d %qT of %qE from address "
+			"of packed member of %qT may result in an "
+			"unaligned pointer value",
+			parmnum, type, rname, context);
+	    break;
+	  case ic_assign:
+	    warning_at (location, OPT_Waddress_of_packed_member,
+			"assignment to %qT from address of packed "
+			"member of %qT may result in an unaligned "
+			"pointer value",
+			type, context);
+	    break;
+	  case ic_init:
+	    warning_at (location, OPT_Waddress_of_packed_member,
+			"initialization of %qT from address of packed "
+			"member of %qT may result in an unaligned "
+			"pointer value",
+			type, context);
+	    break;
+	  case ic_return:
+	    warning_at (location, OPT_Waddress_of_packed_member,
+			"returning address of packed member of %qT "
+			"from a function with return type %qT may "
+			"result in an unaligned pointer value",
+			context, type);
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+
+      return rhs;
+    }
 
   if (coder == VOID_TYPE)
     {

@@ -7416,6 +7416,14 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
 	}
       maybe_warn_parm_abi (type, EXPR_LOC_OR_LOC (val, input_location));
     }
+
+  tree context = warn_for_address_of_packed_member (type, val);
+  if (context)
+    warning (OPT_Waddress_of_packed_member,
+	     "passing argument of type %qT from address of member of "
+	     "packed %qT may result in an unaligned pointer value",
+	     type, context);
+
   return val;
 }
 

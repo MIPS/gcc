@@ -2576,3 +2576,59 @@ warn_for_multistatement_macros (location_t body_loc, location_t next_loc,
     inform (guard_loc, "some parts of macro expansion are not guarded by "
 	    "this %qs clause", guard_tinfo_to_string (keyword));
 }
+
+/* Return struct or union type if the right hand type, RHS, is the
+   address of packed member of struct or union when assigning to TYPE.
+   Otherwise, return NULL_TREE.  */
+
+tree
+warn_for_address_of_packed_member (tree type, tree rhs)
+{
+  if (!warn_address_of_packed_member || !POINTER_TYPE_P (type))
+    return NULL_TREE;
+
+  if (TREE_CODE (rhs) == NOP_EXPR)
+    rhs = TREE_OPERAND (rhs, 0);
+
+  tree base;
+  tree field = NULL_TREE;
+  tree rhs_type;
+
+  switch (TREE_CODE (rhs))
+    {
+    case ADDR_EXPR:
+      base = TREE_OPERAND (rhs, 0);
+      while (TREE_CODE (base) == ARRAY_REF)
+	base = TREE_OPERAND (base, 0);
+      if (TREE_CODE (base) != COMPONENT_REF)
+	return NULL_TREE;
+      field = TREE_OPERAND (base, 1);
+      break;
+    case COMPONENT_REF:
+      rhs_type = TREE_TYPE (rhs);
+      if (TREE_CODE (rhs_type) != ARRAY_TYPE
+	  || (TYPE_MAIN_VARIANT (TREE_TYPE (type))
+	      != TYPE_MAIN_VARIANT (TREE_TYPE (rhs_type))))
+	return NULL_TREE;
+      field = TREE_OPERAND (rhs, 1);
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (field) == FIELD_DECL && DECL_PACKED (field))
+    {
+      /* Check the expected alignment against the field alignment.  */
+      unsigned int type_align = TYPE_ALIGN (TREE_TYPE (type));
+      tree context = DECL_CONTEXT (field);
+      unsigned int record_align = TYPE_ALIGN (context);
+      if ((record_align % type_align) != 0)
+	return context;
+      tree field_off = byte_position (field);
+      if (!multiple_of_p (TREE_TYPE (field_off), field_off,
+			  size_int (type_align / BITS_PER_UNIT)))
+	return context;
+    }
+
+  return NULL_TREE;
+}

@@ -8887,6 +8887,47 @@ convert_for_assignment (tree type, tree rhs,
       TREE_NO_WARNING (rhs) = 1;
     }
 
+  tree context = warn_for_address_of_packed_member (type, rhs);
+  if (context)
+    switch (errtype)
+      {
+      case ICR_ARGPASS:
+      case ICR_DEFAULT_ARGUMENT:
+	warning (OPT_Waddress_of_packed_member,
+		 "passing argument %d %qT of %qD from address of "
+		 "packed member of %qT may result in an unaligned "
+		 "pointer value",
+		 parmnum, type, fndecl, context);
+	break;
+      case ICR_CONVERTING:
+	warning (OPT_Waddress_of_packed_member,
+		 "converting to %qT from address of packed member of "
+		 "%qT may result in an unaligned pointer value",
+		 type, context);
+	break;
+      case ICR_ASSIGN:
+	warning (OPT_Waddress_of_packed_member,
+		 "assignment to %qT from address of packed member of "
+		 "%qT may result in an unaligned pointer value",
+		 type, context);
+	break;
+      case ICR_INIT:
+	warning (OPT_Waddress_of_packed_member,
+		 "initialization of %qT from address of packed member "
+		 "of %qT may result in an unaligned pointer value",
+		 type, context);
+	break;
+      case ICR_RETURN:
+	warning (OPT_Waddress_of_packed_member,
+		 "returning address of packed member of %qT from a "
+		 "function with return type %qT may result in an "
+		 "unaligned pointer value",
+		 context, type);
+	break;
+      default:
+	gcc_unreachable ();
+      }
+
   return perform_implicit_conversion_flags (strip_top_quals (type), rhs,
 					    complain, flags);
 }
