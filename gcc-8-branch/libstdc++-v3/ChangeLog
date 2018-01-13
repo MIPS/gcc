@@ -1,0 +1,145 @@
+2018-01-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libstdc++/64054
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	Remove dg-xfail-run-if.
+
+2018-01-10  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/forward_list.h
+	(_Fwd_list_node_base(_Fwd_list_node_base&&)): New.
+	(_Fwd_list_node_base& operator=(_Fwd_list_node_base&&)): New.
+	(_Fwd_list_node_base(const _Fwd_list_node_base&)): Explicit delete.
+	(_Fwd_list_node_base& operator=(const _Fwd_list_node_base&)): Likewise.
+	(_Fwd_list_impl()): Add noexcept qualification.
+	(_Fwd_list_impl(const _Node_alloc_type&)): Delete.
+	(_Fwd_list_impl(_Fwd_list_impl&&)): New, default.
+	(_Fwd_list_impl(_Fwd_list_impl&&, _Node_alloc_type&&)): New.
+	(_Fwd_list_base()): Default.
+	(_Fwd_list_base(_Fwd_list_base&&, _Node_alloc_type&&, true_type)): New.
+	(_Fwd_list_base(_Fwd_list_base&&)): Default.
+	(forward_list<>()): Default.
+	(forward_list<>(forward_list&&)): Default.
+	(forward_list(forward_list&&, _Node_alloc_type&&, false_type)): New.
+	(forward_list(forward_list&&, _Node_alloc_type&&, true_type)): New.
+	(forward_list(forward_list&&, const _Alloc&)): Adapt to use latters.
+	* include/bits/forward_list.tcc
+	(_Fwd_list_base(_Fwd_list_base&&, _Node_alloc_type&&)): Adapt to use
+	_M_impl._M_head move assignment.
+	(forward_list<>::merge(forward_list<>&&, _Comp)): Likewise.
+	* testsuite/23_containers/forward_list/allocator/default_init.cc: New.
+
+2018-01-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/80276
+	* python/libstdcxx/v6/printers.py (SharedPointerPrinter)
+	(UniquePointerPrinter): Print correct template argument, not type of
+	the pointer.
+	(TemplateTypePrinter._recognizer.recognize): Handle failure to lookup
+	a type.
+	* testsuite/libstdc++-prettyprinters/cxx11.cc: Test unique_ptr of
+	array type.
+	* testsuite/libstdc++-prettyprinters/cxx17.cc: Test shared_ptr and
+	weak_ptr of array types.
+
+2018-01-09  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/83709
+	* include/bits/hashtable_policy.h
+	(__distance_fwd(_Iterator, _Iterator, input_iterator_tag)): Return 1 if
+	__first != __last.
+	(_Insert_base::_M_insert_range(_Ite, _Ite, _NodeGetter, true_type)): New.
+	(_Insert_base::_M_insert_range(_Ite, _Ite, _NodeGetter, false_type)):
+	Add false_type parameter.
+	(_Insert_base::insert): Adapt.
+	* include/bits/hashtable.h (_Hashtable::operator=(initializzr_list<>)):
+	Adapt.
+	(_Hashtable::_M_insert(_Arg&&, const _NodeGen&, true_type, size_t)):
+	 Add __n_elt parameter, defaulted to 1.
+	(_Hashtable::_M_insert_unique_node): Likewise. Use it to call rehash
+	policy _M_need_rehash.
+	(_Hashtable::_M_merge_unique): Pass target number of elements to add to
+	produce only 1 rehash if necessary.
+	* testsuite/23_containers/unordered_map/insert/83709.cc: New.
+	* testsuite/23_containers/unordered_set/insert/83709.cc: New.
+
+2018-01-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59253 (partial)
+	* python/libstdcxx/v6/printers.py (SmartPtrIterator): Common iterator
+	type for pointer stored by shared_ptr, weak_ptr and unique_ptr.
+	(SharedPointerPrinter, UniquePointerPrinter): Treat stored values as
+	children.
+	* testsuite/libstdc++-prettyprinters/cxx11.cc: Update expected output
+	of unique_ptr printer.
+	* testsuite/libstdc++-prettyprinters/shared_ptr.cc: Update expected
+	output of shared_ptr printer.
+
+2018-01-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&)): Remove
+	unnecessary symlink_status call.
+	(remove_all(const path&, error_code&)): Use filesystem::remove.
+	* src/filesystem/std-ops.cc: Likewise.
+
+	PR libstdc++/83279
+	* src/filesystem/std-ops.cc  (do_copy_file): Use non-null offset with
+	sendfile.
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&)): Do not
+	report an error for ENOENT.
+	(remove_all(const path&)): Fix type of result variable.
+	(remove_all(const path&, error_code&)): Use non-throwing increment
+	for directory iterator. Call POSIX remove directly to avoid redundant
+	calls to symlink_status. Do not report errors for ENOENT.
+	* src/filesystem/std-ops.cc: Likewise.
+	* testsuite/27_io/filesystem/operations/remove_all.cc: Test throwing
+	overload.
+	* testsuite/experimental/filesystem/operations/remove_all.cc:
+	Likewise.
+
+2018-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&))): Remove
+	redundant call to ec.clear().
+	(remove_all(const path&, error_code&))): Do not return an error for
+	non-existent paths.
+	* src/filesystem/std-ops.cc: Likewise.
+	* testsuite/27_io/filesystem/operations/remove.cc: New test.
+	* testsuite/27_io/filesystem/operations/remove_all.cc: Fix expected
+	results for non-existent paths.
+	* testsuite/experimental/filesystem/operations/remove.cc: New test.
+	* testsuite/experimental/filesystem/operations/remove_all.cc: Fix
+	expected results for non-existent paths.
+
+	* include/bits/fs_ops.h (exists(const path&, error_code&))): Only
+	check status_known once.
+	* include/experimental/bits/fs_ops.h: Likewise.
+
+	PR libstdc++/83607
+	* include/std/functional (__is_byte_like): New trait.
+	(__is_std_equal_to): Remove.
+	(__boyer_moore_base_t): Use __is_byte_like instead of
+	__is_std_equal_to.
+	* include/experimental/functional (__is_std_equal_to): Remove.
+	(__boyer_moore_base_t): Use __is_byte_like instead of
+	__is_std_equal_to.
+	* testsuite/20_util/function_objects/83607.cc: New test.
+
+2018-01-03  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Protect optional's deduction guide with the feature macro
+	* include/std/optional: Use the feature macro.
+
+2018-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+Copyright (C) 2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
