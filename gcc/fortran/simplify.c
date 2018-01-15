@@ -1,5 +1,5 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016, 2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -1838,11 +1838,17 @@ gfc_simplify_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
       sz = mpz_get_si (size);
       mpz_clear (size);
 
+      /* Special case: Zero-sized array.  */
+      if (sz == 0)
+	return a;
+
       /* Adjust shft to deal with right or left shifts. */
-      shft = shft < 0 ? 1 - shft : shft;
+      shft = shft % sz;
+      if (shft < 0)
+	shft += sz;
 
       /* Special case: Shift to the original order!  */
-      if (sz == 0 || shft % sz == 0)
+      if (shft % sz == 0)
 	return a;
 
       result = gfc_copy_expr (a);
@@ -6355,8 +6361,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
     return NULL;
 
   /* Calculate the size of the source.  */
-  if (source->expr_type == EXPR_ARRAY
-      && !gfc_array_size (source, &tmp))
+  if (source->expr_type == EXPR_ARRAY && !gfc_array_size (source, &tmp))
     gfc_internal_error ("Failure getting length of a constant array.");
 
   /* Create an empty new expression with the appropriate characteristics.  */
@@ -6364,7 +6369,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 				  &source->where);
   result->ts = mold->ts;
 
-  mold_element = mold->expr_type == EXPR_ARRAY
+  mold_element = (mold->expr_type == EXPR_ARRAY && mold->value.constructor)
 		 ? gfc_constructor_first (mold->value.constructor)->expr
 		 : mold;
 

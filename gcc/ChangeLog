@@ -1,3 +1,155 @@
+2018-01-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-01-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/83677
+	* config/rs6000/altivec.md (*altivec_vpermr_<mode>_internal):
+	Reverse order of second and third operands in first alternative.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Reverse order
+	of first and second elements in UNSPEC_VPERMR vector.
+	(altivec_expand_vec_perm_le): Likewise.
+
+2018-01-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2017-12-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/82975
+	* config/arm/arm.h (TEST_REGNO): Check reg_renumber is set before
+	accessing it.  Adjust comment.
+
+2017-12-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from mainline
+	2017-12-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_legitimate_address_p): For scaled indexing,
+	require base operand is a REG_POINTER prior to reload on targets
+	with non-equivalent space registers.
+
+2017-12-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/66488
+	* ggc-page.c (HOST_BITS_PER_PTR): Do not define here...
+	* hwint.h (HOST_BITS_PER_PTR): ...but here instead.
+
+2017-12-14  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2017-12-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/ppc-auxv.h (PPC_FEATURE2_HTM_NO_SUSPEND): New define.
+	* config/rs6000/rs6000.c (cpu_supports_info): Use it.
+
+2017-12-14  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2017-10-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/80210
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Rewrite
+	function to not use the have_cpu variable.  Do not set cpu_index,
+	rs6000_cpu_index or rs6000_tune_index if we end up using TARGET_DEFAULT
+	or the default cpu.
+	(rs6000_valid_attribute_p): Remove duplicate initializations of
+	old_optimize and func_optimize.
+	(rs6000_pragma_target_parse): Call rs6000_activate_target_options ().
+	(rs6000_activate_target_options): Make global.
+	* config/rs6000/rs6000-protos.h (rs6000_activate_target_options): Add
+	prototype.
+
+2017-12-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c++/83301
+
+	Backport trunk r243377:
+	2016-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78692
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): Set lhs
+	var to lhs of new_stmt right before noreturn handling rather than to
+	lhs of e->call_stmt early.
+
+2017-12-04  Sebastian Peryt  <sebastian.peryt@intel.com>
+	H.J. Lu  <hongjiu.lu@intel.com>
+
+	Bakcported from trunk
+	PR target/82941
+	PR target/82942
+	PR target/82990
+	* config/i386/i386.c (pass_insert_vzeroupper): Remove
+	TARGET_AVX512F check from gate condition.
+	(ix86_check_avx256_register): Changed to ...
+	(ix86_check_avx_upper_register): ... this. Add extra check for
+	VALID_AVX512F_REG_OR_XI_MODE.
+	(ix86_avx_u128_mode_needed): Changed
+	ix86_check_avx256_register to ix86_check_avx_upper_register.
+	(ix86_check_avx256_stores): Changed to ...
+	(ix86_check_avx_upper_stores): ... this. Changed
+	ix86_check_avx256_register to ix86_check_avx_upper_register.
+	(ix86_avx_u128_mode_after): Changed
+	avx_reg256_found to avx_upper_reg_found. Changed
+	ix86_check_avx256_stores to ix86_check_avx_upper_stores.
+	(ix86_avx_u128_mode_entry): Changed
+	ix86_check_avx256_register to ix86_check_avx_upper_register.
+	(ix86_avx_u128_mode_exit): Ditto.
+	(ix86_option_override_internal): Set MASK_VZEROUPPER if
+	neither -mzeroupper nor -mno-zeroupper is used and
+	TARGET_EMIT_VZEROUPPER is set.
+	* config/i386/i386.h: (host_detect_local_cpu): New define.
+	(TARGET_EMIT_VZEROUPPER): New.
+	* config/i386/x86-tune.def: Add X86_TUNE_EMIT_VZEROUPPER
+	
+2017-12-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2017-11-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR 81288/target
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Do not handle
+	TARGET_ISEL && !TARGET_MFCRF differently.  Simplify code.
+
+2017-11-29  Daniel Cederman  <cederman@gaisler.com>
+
+	Backport from mainline
+	* config/sparc/sparc.c (sparc_do_work_around_errata): Treat the
+        movsi_pic_gotdata_op instruction as a load for the UT699 errata
+        workaround.
+
+2017-11-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2017-11-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/82621
+	* combine.c (try_combine): Do not split PARALLELs of two SETs if the
+	dest of one of those SETs is unused.
+
+2017-11-21  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2017-11-21  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/ppc-asm.h (f50, vs50): Fix values.
+
+2017-11-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2017-11-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (*-*-solaris2*): Enable default_use_cxa_atexit since
+	Solaris 11.  Update comment.
+	* configure.ac (gcc_cv_ld_pid): Adapt comment for Solaris 12
+	renaming.
+	* config/sol2.h (STARTFILE_SPEC): Likewise.
+	* configure: Regenerate.
+
+2017-11-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (x86_print_call_or_nop): Emit 5 byte nop
+	explicitly as a stream of bytes.
+
 2017-11-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	Backport from mainline

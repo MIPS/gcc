@@ -1,3 +1,19 @@
+2018-01-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/83649
+	* io/unix.c (MAX_CHUNK): New define.
+	(raw_read): For reads larger than MAX_CHUNK, loop.
+	(raw_write): Write no more than MAX_CHUNK bytes per iteration.
+
+2017-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR libgfortran/81937
+	* io/list_read.c (next_char_internal): Don't attempt to read
+	from the internal unit stream if no bytes are left. Decrement
+	bytes_left in the right place.
+
 2017-10-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk

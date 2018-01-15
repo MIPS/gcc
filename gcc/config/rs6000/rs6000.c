@@ -362,6 +362,7 @@ static const struct
   { "ebb",		PPC_FEATURE2_HAS_EBB,		1 },
   { "htm",		PPC_FEATURE2_HAS_HTM,		1 },
   { "htm-nosc",		PPC_FEATURE2_HTM_NOSC,		1 },
+  { "htm-no-suspend",	PPC_FEATURE2_HTM_NO_SUSPEND,	1 },
   { "isel",		PPC_FEATURE2_HAS_ISEL,		1 },
   { "tar",		PPC_FEATURE2_HAS_TAR,		1 },
   { "vcrypto",		PPC_FEATURE2_HAS_VEC_CRYPTO,	1 },
@@ -3805,13 +3806,8 @@ static bool
 rs6000_option_override_internal (bool global_init_p)
 {
   bool ret = true;
-  bool have_cpu = false;
-
-  /* The default cpu requested at configure time, if any.  */
-  const char *implicit_cpu = OPTION_TARGET_CPU_DEFAULT;
-
   HOST_WIDE_INT set_masks;
-  int cpu_index;
+  int cpu_index = -1;
   int tune_index;
   struct cl_target_option *main_target_opt
     = ((global_init_p || target_option_default_node == NULL)
@@ -3888,42 +3884,20 @@ rs6000_option_override_internal (bool global_init_p)
      with -mtune on the command line.  Process a '--with-cpu' configuration
      request as an implicit --cpu.  */
   if (rs6000_cpu_index >= 0)
-    {
-      cpu_index = rs6000_cpu_index;
-      have_cpu = true;
-    }
+    cpu_index = rs6000_cpu_index;
   else if (main_target_opt != NULL && main_target_opt->x_rs6000_cpu_index >= 0)
-    {
-      rs6000_cpu_index = cpu_index = main_target_opt->x_rs6000_cpu_index;
-      have_cpu = true;
-    }
-  else if (implicit_cpu)
-    {
-      rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (implicit_cpu);
-      have_cpu = true;
-    }
-  else
-    {
-      /* PowerPC 64-bit LE requires at least ISA 2.07.  */
-      const char *default_cpu = ((!TARGET_POWERPC64)
-				 ? "powerpc"
-				 : ((BYTES_BIG_ENDIAN)
-				    ? "powerpc64"
-				    : "powerpc64le"));
-
-      rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
-      have_cpu = false;
-    }
-
-  gcc_assert (cpu_index >= 0);
+    cpu_index = main_target_opt->x_rs6000_cpu_index;
+  else if (OPTION_TARGET_CPU_DEFAULT)
+    cpu_index = rs6000_cpu_name_lookup (OPTION_TARGET_CPU_DEFAULT);
 
   /* If we have a cpu, either through an explicit -mcpu=<xxx> or if the
      compiler was configured with --with-cpu=<xxx>, replace all of the ISA bits
      with those from the cpu, except for options that were explicitly set.  If
      we don't have a cpu, do not override the target bits set in
      TARGET_DEFAULT.  */
-  if (have_cpu)
+  if (cpu_index >= 0)
     {
+      rs6000_cpu_index = cpu_index;
       rs6000_isa_flags &= ~set_masks;
       rs6000_isa_flags |= (processor_target_table[cpu_index].target_enable
 			   & set_masks);
@@ -3937,14 +3911,26 @@ rs6000_option_override_internal (bool global_init_p)
 
 	 If there is a TARGET_DEFAULT, use that.  Otherwise fall back to using
 	 -mcpu=powerpc, -mcpu=powerpc64, or -mcpu=powerpc64le defaults.  */
-      HOST_WIDE_INT flags = ((TARGET_DEFAULT) ? TARGET_DEFAULT
-			     : processor_target_table[cpu_index].target_enable);
+      HOST_WIDE_INT flags;
+      if (TARGET_DEFAULT)
+	flags = TARGET_DEFAULT;
+      else
+	{
+	  /* PowerPC 64-bit LE requires at least ISA 2.07.  */
+	  const char *default_cpu = (!TARGET_POWERPC64
+				     ? "powerpc"
+				     : (BYTES_BIG_ENDIAN
+					? "powerpc64"
+					: "powerpc64le"));
+	  int default_cpu_index = rs6000_cpu_name_lookup (default_cpu);
+	  flags = processor_target_table[default_cpu_index].target_enable;
+	}
       rs6000_isa_flags |= (flags & ~rs6000_isa_flags_explicit);
     }
 
   if (rs6000_tune_index >= 0)
     tune_index = rs6000_tune_index;
-  else if (have_cpu)
+  else if (cpu_index >= 0)
     rs6000_tune_index = tune_index = cpu_index;
   else
     {
@@ -3956,7 +3942,7 @@ rs6000_option_override_internal (bool global_init_p)
       for (i = 0; i < ARRAY_SIZE (processor_target_table); i++)
 	if (processor_target_table[i].processor == tune_proc)
 	  {
-	    rs6000_tune_index = tune_index = i;
+	    tune_index = i;
 	    break;
 	  }
     }
@@ -4744,7 +4730,7 @@ rs6000_option_override_internal (bool global_init_p)
 
     default:
 
-      if (have_cpu && !(rs6000_isa_flags_explicit & OPTION_MASK_ISEL))
+      if (cpu_index >= 0 && !(rs6000_isa_flags_explicit & OPTION_MASK_ISEL))
 	rs6000_isa_flags &= ~OPTION_MASK_ISEL;
 
       break;
@@ -7079,7 +7065,7 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
     {
       if (TARGET_P9_VECTOR)
 	x = gen_rtx_UNSPEC (mode,
-			    gen_rtvec (3, target, reg,
+			    gen_rtvec (3, reg, target,
 				       force_reg (V16QImode, x)),
 			    UNSPEC_VPERMR);
       else
@@ -34384,14 +34370,16 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
+      /* FALLTHRU */
+
+    case GT:
+    case LT:
+    case UNORDERED:
       if (outer_code == SET)
 	{
 	  if (XEXP (x, 1) == const0_rtx)
 	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
+	      *total = COSTS_N_INSNS (2);
 	      return true;
 	    }
 	  else
@@ -34399,19 +34387,6 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      *total = COSTS_N_INSNS (3);
 	      return false;
 	    }
-	}
-      /* FALLTHRU */
-
-    case GT:
-    case LT:
-    case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
-	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
-	  else
-	    *total = COSTS_N_INSNS (2);
-	  return true;
 	}
       /* CC COMPARE.  */
       if (outer_code == COMPARE)
@@ -35071,7 +35046,7 @@ altivec_expand_vec_perm_le (rtx operands[4])
 
   if (TARGET_P9_VECTOR)
     {
-      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op0, op1, sel),
+      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, sel),
 			       UNSPEC_VPERMR);
     }
   else
@@ -36394,9 +36369,9 @@ rs6000_valid_attribute_p (tree fndecl,
 {
   struct cl_target_option cur_target;
   bool ret;
-  tree old_optimize = build_optimization_node (&global_options);
+  tree old_optimize;
   tree new_target, new_optimize;
-  tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
+  tree func_optimize;
 
   gcc_assert ((fndecl != NULL_TREE) && (args != NULL_TREE));
 
@@ -36523,6 +36498,7 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
     }
 
   target_option_current_node = cur_tree;
+  rs6000_activate_target_options (target_option_current_node);
 
   /* If we have the preprocessor linked in (i.e. C or C++ languages), possibly
      change the macros that are defined.  */
@@ -36563,7 +36539,7 @@ static GTY(()) tree rs6000_previous_fndecl;
 /* Restore target's globals from NEW_TREE and invalidate the
    rs6000_previous_fndecl cache.  */
 
-static void
+void
 rs6000_activate_target_options (tree new_tree)
 {
   cl_target_option_restore (&global_options, TREE_TARGET_OPTION (new_tree));
