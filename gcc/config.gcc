@@ -2058,6 +2058,7 @@ nanomips*-*-linux*)
 	tm_defines="${tm_defines} NANOMIPS_SUPPORT=1 MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
 	with_arch_32="32r6"
 	with_arch_64="64r6"
+	with_float="soft"
 	with_nanomips="yes"
 	gnu_ld=no
 	gas=yes
@@ -2304,6 +2305,7 @@ nanomips*-*-elf*)
 	extra_options="${extra_options} mips/nanomips.opt"
 	with_arch_32="32r6"
 	with_arch_64="64r6"
+	with_float="soft"
 	with_nanomips="yes"
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mglibc* *muclibc* *mandroid*"
 	;;
