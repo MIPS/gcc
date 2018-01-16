@@ -14084,6 +14084,8 @@ Enable FP16 extension.  This also enables floating-point instructions.
 Enable the RcPc extension.  This does not change code generation from GCC,
 but is passed on to the assembler, enabling inline asm statements to use
 instructions from the RcPc extension.
+@item dotprod
+Enable the Dot Product extension.  This also enables Advanced SIMD instructions.
 
 @end table
 
@@ -15095,6 +15097,15 @@ architecture.  This also enables the features provided by
 @option{-march=armv8.2-a+fp16} enables compiler support for the
 ARMv8.2-A architecture with the optional FP16 instructions extension.
 This also enables the features provided by @option{-march=armv8.1-a}
+and implies @option{-mfp16-format=ieee}.
+
+@option{-march=armv8.2-a+dotprod} enables compiler support for the
+ARMv8.2-A architecture with the optional Dot Product instructions extension.
+This also enables the features provided by @option{-march=armv8.1-a}.
+
+@option{-march=armv8.2-a+fp16+dotprod} enables compiler support for the
+ARMv8.2-A architecture with the optional FP16 and Dot Product instructions
+extension.  This also enables the features provided by @option{-march=armv8.1-a}
 and implies @option{-mfp16-format=ieee}.
 
 @option{-march=native} causes the compiler to auto-detect the architecture

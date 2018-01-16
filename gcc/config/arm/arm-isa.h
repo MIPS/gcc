@@ -66,6 +66,7 @@ enum isa_feature
     isa_bit_fp_d32,	/* 32 Double precision registers.  */
     isa_bit_crypto,	/* Crypto extension to ARMv8.  */
     isa_bit_fp16,	/* FP16 data processing (half-precision float).  */
+    isa_bit_dotprod,	/* Dot Product instructions.  */
 
     /* ISA Quirks (errata?).  Don't forget to add this to the list of
        all quirks below.  */
@@ -128,7 +129,8 @@ enum isa_feature
 #define ISA_ARMv8m_main ISA_ARMv7m, isa_bit_ARMv8, isa_bit_cmse
 
 /* List of all FPU bits to strip out if -mfpu is used to override the
-   default.  isa_bit_fp16 is deliberately missing from this list.  */
+   default.  isa_bit_fp16 and isa_bit_dotprod are deliberately missing from
+   this list.  */
 #define ISA_ALL_FPU	isa_bit_VFPv2, isa_bit_VFPv3, isa_bit_VFPv4, \
     isa_bit_FPv5, isa_bit_FP_ARMv8, isa_bit_neon, isa_bit_fp16conv, \
     isa_bit_fp_dbl, isa_bit_fp_d32, isa_bit_crypto
@@ -144,6 +146,7 @@ enum isa_feature
 #define ISA_FP_D32	ISA_FP_DBL, isa_bit_fp_d32
 #define ISA_NEON	ISA_FP_D32, isa_bit_neon
 #define ISA_CRYPTO	ISA_NEON, isa_bit_crypto
+#define ISA_DOTPROD	ISA_NEON, isa_bit_dotprod
 
 /* List of all quirk bits to strip out when comparing CPU features with
    architectures.  */

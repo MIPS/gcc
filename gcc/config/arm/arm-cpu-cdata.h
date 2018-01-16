@@ -1006,6 +1006,20 @@ static const struct arm_arch_core_flag arm_arch_core_flags[] =
     },
   },
   {
+    "armv8.2-a+dotprod",
+    {
+      ISA_ARMv8_2a,isa_bit_dotprod,
+      isa_nobit
+    },
+  },
+  {
+    "armv8.2-a+fp16+dotprod",
+    {
+      ISA_ARMv8_2a,isa_bit_fp16,isa_bit_dotprod,
+      isa_nobit
+    },
+  },
+  {
     "armv8-m.base",
     {
       ISA_ARMv8m_base,

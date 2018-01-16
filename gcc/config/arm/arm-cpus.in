@@ -267,6 +267,20 @@ begin arch armv8.2-a+fp16
  isa ARMv8_2a bit_fp16
 end arch armv8.2-a+fp16
 
+begin arch armv8.2-a+dotprod
+ tune for cortex-a53
+ tune flags CO_PROC
+ base 8A
+ isa ARMv8_2a bit_dotprod
+end arch armv8.2-a+dotprod
+
+begin arch armv8.2-a+fp16+dotprod
+ tune for cortex-a53
+ tune flags CO_PROC
+ base 8A
+ isa ARMv8_2a bit_fp16 bit_dotprod
+end arch armv8.2-a+fp16+dotprod
+
 begin arch armv8-m.base
  tune for cortex-m23
  base 8M_BASE

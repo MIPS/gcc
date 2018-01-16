@@ -1536,6 +1536,26 @@ static const struct processors all_architectures[] =
     NULL
   },
   {
+    "armv8.2-a+dotprod", TARGET_CPU_cortexa53,
+    (TF_CO_PROC),
+    "8A", BASE_ARCH_8A,
+    {
+      ISA_ARMv8_2a,isa_bit_dotprod,
+      isa_nobit
+    },
+    NULL
+  },
+  {
+    "armv8.2-a+fp16+dotprod", TARGET_CPU_cortexa53,
+    (TF_CO_PROC),
+    "8A", BASE_ARCH_8A,
+    {
+      ISA_ARMv8_2a,isa_bit_fp16,isa_bit_dotprod,
+      isa_nobit
+    },
+    NULL
+  },
+  {
     "armv8-m.base", TARGET_CPU_cortexm23,
     0,
     "8M_BASE", BASE_ARCH_8M_BASE,
