@@ -1,3 +1,104 @@
+2018-01-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* testsuite/17_intro/names.cc: Undefine 'y' on SPARC/Linux.
+
+2018-01-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (register_type_printers): Remove
+	printer for experimental::any. Fix printers for experimental::optional
+	and experimental::basic_string_view.
+
+	Backport from mainline
+	2018-01-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&)): Remove
+	unnecessary symlink_status call.
+	(remove_all(const path&, error_code&)): Use filesystem::remove.
+
+2018-01-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2017-10-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Ensure that error_code arguments are
+	cleared when required.
+	* testsuite/experimental/filesystem/operations/create_directory.cc:
+	Remove redundant check.
+	* testsuite/experimental/filesystem/operations/temp_directory_path.cc:
+	Ensure that error_code argument is cleared when required.
+
+	Backport from mainline
+	2017-12-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83600
+	* include/bits/regex.h (match_results::end()): Return valid iterator
+	when not ready.
+	* testsuite/28_regex/match_results/ctors/char/default.cc: Check that
+	unready objects are empty and have equal begin and end iterators.
+	* testsuite/28_regex/match_results/ctors/wchar_t/default.cc: Likewise.
+
+	Backport from mainline
+	2017-12-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83598
+	* include/bits/regex.h (basic_regex): Don't modify flags passed to
+	constructors.
+	* testsuite/28_regex/basic_regex/ctors/83598.cc: New test.
+
+	Backport from mainline
+	2017-12-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83279
+	* src/filesystem/std-ops.cc (do_copy_file): Handle sendfile not
+	copying entire file.
+
+	Backport from mainline
+	2018-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/fs_ops.h (exists(const path&, error_code&))):
+	Only check status_known once.
+
+	Backport from mainline
+	2018-01-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&)): Do not
+	report an error for ENOENT.
+	(remove_all(const path&)): Fix type of result variable.
+	(remove_all(const path&, error_code&)): Use non-throwing increment
+	for directory iterator. Call POSIX remove directly to avoid redundant
+	calls to symlink_status. Do not report errors for ENOENT.
+	* testsuite/experimental/filesystem/operations/remove_all.cc: Test
+	throwing overload.
+
+	Backport from mainline
+	2018-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83626
+	* src/filesystem/ops.cc (remove(const path&, error_code&))): Remove
+	redundant call to ec.clear().
+	(remove_all(const path&, error_code&))): Do not return an error for
+	non-existent paths.
+	* testsuite/experimental/filesystem/operations/remove.cc: New test.
+	* testsuite/experimental/filesystem/operations/remove_all.cc: Fix
+	expected results for non-existent paths.
+
+	Backport from mainline
+	2017-10-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79283
+	* src/filesystem/ops.cc (read_symlink): Handle st_size being zero.
+
+2018-01-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-01-03  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Protect optional's deduction guide with the feature macro
+	* include/std/optional: Use the feature macro.
+
 2017-12-28  François Dumont  <fdumont@gcc.gnu.org>
 
 	Backport from mainline

@@ -1,3 +1,35 @@
+2012-01-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/78814
+	* interface.c (symbol_rank): Check for NULL pointer.
+
+2018-01-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/82367
+	* resolve.c (resolve_allocate_expr): Check for NULL pointer.
+
+2018-01-10 Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/83093
+	* resolve.c (resolve_charlen): Check the type of cl->length
+	after resolution.
+
+2018-01-10  Steven G. Kargl  <kargl@kgcc.gnu.org>
+
+	Backport r254555 from trunk
+	PR Fortran/82841
+	* simplify.c(gfc_simplify_transfer): Do not dereference a NULL pointer.
+	Unwrap a short line.
+
+2018-01-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR Fortran/83679
+	* simplify.c (gfc_simplify_cshift): Restore early return for zero-sized
+	array.  Update Copyright year while here.
+
 2018-01-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/83650
