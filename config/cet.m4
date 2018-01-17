@@ -36,3 +36,24 @@ if test x$enable_cet = xyes; then
   $1="-fcf-protection -mcet"
 fi
 ])
+
+AC_DEFUN([GCC_CET_LDFLAGS],[dnl
+GCC_ENABLE(cet-property, no, ,[enable Intel CET property in target libraries],
+	   permit yes|no|default)
+case "$host" in
+  i[[34567]]86-*-linux* | x86_64-*-linux*)
+    if test x$enable_cet_property = xyes; then
+      # Check if CET is enabled.
+      if test x$enable_cet != xyes; then
+	AC_MSG_ERROR([CET must be enabled for --enable-cet-property])
+      fi
+    fi
+    ;;
+  *)
+    enable_cet_property=no
+    ;;
+esac
+if test x$enable_cet_property = xyes; then
+  $1="-Wl,-z,ibt,-z,shstk"
+fi
+])

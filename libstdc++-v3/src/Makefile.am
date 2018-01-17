@@ -217,7 +217,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
-	$(VTV_CXXLINKFLAGS) \
+	$(VTV_CXXLINKFLAGS) $(CET_LDFLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 # Symbol versioning for shared libraries.

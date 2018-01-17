@@ -573,6 +573,7 @@ vis_hide
 real_host_noncanonical
 accel_dir_suffix
 force_explicit_eh_registry
+CET_LDFLAGS
 CET_FLAGS
 fixed_point
 enable_decimal_float
@@ -677,6 +678,7 @@ enable_largefile
 enable_decimal_float
 with_system_libunwind
 enable_cet
+enable_cet_property
 enable_explicit_exception_frame_registration
 with_glibc_version
 enable_tls
@@ -1318,6 +1320,8 @@ Optional Features:
 			to use
   --enable-cet            enable Intel CET in target libraries
                           [default=default]
+  --enable-cet-property   enable Intel CET property in target libraries
+                          [default=no]
   --enable-explicit-exception-frame-registration
                           register exception tables explicitly at module
                           start, for use e.g. for compatibility with
@@ -4841,6 +4845,37 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 esac
 if test x$enable_cet = xyes; then
   CET_FLAGS="-fcf-protection -mcet"
+fi
+
+
+ # Check whether --enable-cet-property was given.
+if test "${enable_cet_property+set}" = set; then :
+  enableval=$enable_cet_property;
+      case "$enableval" in
+       yes|no|default) ;;
+       *) as_fn_error "Unknown argument to enable/disable cet-property" "$LINENO" 5 ;;
+                          esac
+
+else
+  enable_cet_property=no
+fi
+
+
+case "$host" in
+  i[34567]86-*-linux* | x86_64-*-linux*)
+    if test x$enable_cet_property = xyes; then
+      # Check if CET is enabled.
+      if test x$enable_cet != xyes; then
+	as_fn_error "CET must be enabled for --enable-cet-property" "$LINENO" 5
+      fi
+    fi
+    ;;
+  *)
+    enable_cet_property=no
+    ;;
+esac
+if test x$enable_cet_property = xyes; then
+  CET_LDFLAGS="-Wl,-z,ibt,-z,shstk"
 fi
 
 

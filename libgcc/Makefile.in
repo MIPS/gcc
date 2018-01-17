@@ -256,6 +256,7 @@ HOST_LIBGCC2_CFLAGS =
 PICFLAG = @PICFLAG@
 
 CET_FLAGS = @CET_FLAGS@
+CET_LDFLAGS = @CET_LDFLAGS@
 
 # Defined in libgcc2.c, included only in the static library.
 LIB2FUNCS_ST = _eprintf __gcc_bcmp

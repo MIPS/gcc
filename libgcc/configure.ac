@@ -239,6 +239,8 @@ GCC_CHECK_SJLJ_EXCEPTIONS
 
 GCC_CET_FLAGS(CET_FLAGS)
 AC_SUBST(CET_FLAGS)
+GCC_CET_LDFLAGS(CET_LDFLAGS)
+AC_SUBST(CET_LDFLAGS)
 
 AC_ARG_ENABLE([explicit-exception-frame-registration],
   [AC_HELP_STRING([--enable-explicit-exception-frame-registration],
