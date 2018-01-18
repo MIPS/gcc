@@ -8405,7 +8405,9 @@ mips_build_builtin_va_list (void)
 	 arguments are used, and when they get to zero, the argument
 	 must be obtained from the overflow region.  */
       tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff, f_res, record;
+#ifndef NANOMIPS_SUPPORT
       tree array, index;
+#endif
 
       record = lang_hooks.types.make_type (RECORD_TYPE);
 
@@ -8426,13 +8428,26 @@ mips_build_builtin_va_list (void)
 			   FIELD_DECL, get_identifier ("__fpr_offset"),
 			   TARGET_PABI ? signed_char_type_node
 				       : unsigned_char_type_node);
+#ifdef NANOMIPS_SUPPORT
+      /* WORK NEEDED.
+	 We need a better understanding of the relationship between array
+	 type that used to be created for EABI and LTO assertion fails.
+	 For now, we workaround the issue by using a fundamental type that
+	 will escape the problematic checks.  */
+      f_res = build_decl (BUILTINS_LOCATION,
+			  FIELD_DECL, get_identifier ("__reserved"),
+			  short_unsigned_type_node);
+      /* 64-bit will need an additional field.  */
+      gcc_assert (!TARGET_64BIT);
+#else
       /* Explicitly pad to the size of a pointer, so that -Wpadded won't
 	 warn on every user file.  */
       index = build_int_cst (NULL_TREE, GET_MODE_SIZE (ptr_mode) - 2 - 1);
-      array = build_array_type (unsigned_char_type_node,
-			        build_index_type (index));
+      array = build_array_type (char_type_node,
+				build_index_type (index));
       f_res = build_decl (BUILTINS_LOCATION,
 			  FIELD_DECL, get_identifier ("__reserved"), array);
+#endif
 
       DECL_FIELD_CONTEXT (f_ovfl) = record;
       DECL_FIELD_CONTEXT (f_gtop) = record;
