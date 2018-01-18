@@ -7364,31 +7364,46 @@
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
-  if (TARGET_LI48 && TARGET_NANOMIPS == NANOMIPS_NMF)
-    output_asm_insn ("li\t%2, %1\t#li48", operands);
-  else
+  switch (mips_classify_symbol (gen_rtx_LABEL_REF (VOIDmode, operands[1]),
+				SYMBOL_CONTEXT_LEA))
     {
-      output_asm_insn ("lui\t%2, %%hi(%1)", operands);
-      output_asm_insn ("ori\t%2, %2, %%lo(%1)", operands);
+    case SYMBOL_LAPC_NANO:
+      output_asm_insn ("lapc.h\t%2,%1", operands); break;
+    case SYMBOL_LAPC48_NANO:
+      output_asm_insn ("lapc.b\t%2,%1", operands); break;
+    case SYMBOL_PCREL_SPLIT_NANO:
+      output_asm_insn ("aluipc\t%2,%%pcrel_hi(%1)", operands);
+      output_asm_insn ("ori\t%2,%2,%%lo(%1)", operands);
+      break;
+    case SYMBOL_ABSOLUTE:
+    default:
+      if (TARGET_LI48 && TARGET_NANOMIPS == NANOMIPS_NMF)
+	output_asm_insn ("li\t%2,%1", operands);
+      else
+	{
+	  output_asm_insn ("lui\t%2,%%hi(%1)", operands);
+	  output_asm_insn ("ori\t%2,%2,%%lo(%1)", operands);
+	}
+      break;
     }
 
   switch (GET_MODE (diff_vec))
     {
-      case QImode:
-	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
-	  ? output_asm_insn ("lbux\t%2, %0(%2)", operands)
-	  : output_asm_insn ("lbx\t%2, %0(%2)", operands);
-	break;
-      case HImode:
-	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
-	  ? output_asm_insn ("lhuxs\t%2, %0(%2)", operands)
-	  : output_asm_insn ("lhxs\t%2, %0(%2)", operands);
-	break;
-      case SImode:
-	output_asm_insn ("lwxs\t%2, %0(%2)", operands);
-	break;
-      default:
-	gcc_unreachable ();
+    case QImode:
+      ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	? output_asm_insn ("lbux\t%2,%0(%2)", operands)
+	: output_asm_insn ("lbx\t%2,%0(%2)", operands);
+      break;
+    case HImode:
+      ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	? output_asm_insn ("lhuxs\t%2,%0(%2)", operands)
+	: output_asm_insn ("lhxs\t%2,%0(%2)", operands);
+      break;
+    case SImode:
+      output_asm_insn ("lwxs\t%2,%0(%2)", operands);
+      break;
+    default:
+      gcc_unreachable ();
     }
 
   return "brsc\t%2";
