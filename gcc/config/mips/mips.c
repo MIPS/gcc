@@ -3380,7 +3380,7 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
   return SYMBOL_ABSOLUTE;
 }
 
-static enum mips_symbol_type
+enum mips_symbol_type
 mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 {
   return mips_classify_symbol_1 (x, context, 0);
