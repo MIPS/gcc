@@ -1894,14 +1894,14 @@ output_init_frag (rtx sym)
   
   if (sym)
     {
-      bool function = SYMBOL_REF_DECL (sym)
-	&& (TREE_CODE (SYMBOL_REF_DECL (sym)) == FUNCTION_DECL);
+      bool function = (SYMBOL_REF_DECL (sym)
+		       && (TREE_CODE (SYMBOL_REF_DECL (sym)) == FUNCTION_DECL));
       if (!function)
 	fprintf (asm_out_file, "generic(");
       output_address (VOIDmode, sym);
       if (!function)
-	fprintf (asm_out_file, val ? ") + " : ")");
-      else if (val)
+	fprintf (asm_out_file, ")");
+      if (val)
 	fprintf (asm_out_file, " + ");
     }
 

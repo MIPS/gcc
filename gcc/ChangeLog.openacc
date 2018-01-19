@@ -1,6 +1,14 @@
 2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline:
+	2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR target/83790
+	* config/nvptx/nvptx.c (output_init_frag):
+
+2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
 	2018-01-19  Tom de Vries  <tom@codesourcery.com>
 		    Cesar Philippidis  <cesar@codesourcery.com>
 
