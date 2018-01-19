@@ -1,3 +1,12 @@
+2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
+	2018-01-19  Tom de Vries  <tom@codesourcery.com>
+		    Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR target/83920
+	* config/nvptx/nvptx.c (nvptx_single): Fix jit workaround.
+
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* builtin-types.def (BF_FN_VOID_INT_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR):
