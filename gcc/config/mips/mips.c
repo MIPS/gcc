@@ -1852,6 +1852,8 @@ static bool mips_load_store_insn_p (rtx_insn *, rtx *,
 static void mips_load_store_bond_insns ();
 static void mips_frame_barrier (void);
 static void mips_restore_reg (rtx, rtx);
+static rtx_insn *mips_epilogue_emit_cfa_restores (void);
+static void mips_epilogue_set_cfa (rtx, HOST_WIDE_INT);
 
 /* Used to track the mode of an address for indexed scaled load/stores.  */
 static machine_mode mips_memref_mode;
@@ -14861,10 +14863,13 @@ nanomips_save_restore_gprs (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
 
       if (!restore)
 	RTX_FRAME_RELATED_P (insn) = 1;
+      else
+	{
+	  mips_epilogue_emit_cfa_restores ();
+	  mips_epilogue_set_cfa (stack_pointer_rtx,
+				 mips_epilogue.cfa_restore_sp_offset);
+	}
 
-      /* WORK NEEDED;
-       * Need to mips_add_cfa_restore for each register restored (if restoring)
-       * and also mips_epilogue_set_cfa to update the stack pointer */
       mips_frame_barrier ();
 
       return true;
@@ -16511,6 +16516,10 @@ mips_expand_epilogue_pabi (bool sibcall_p)
 	}
     }
 
+  /* There is now STEP2 bytes left to deallocate up to the CFA.  The
+     varargs area is outside of the frame.  */
+  mips_epilogue.cfa_restore_sp_offset = step2;
+
   if (step1 != 0 || base == hard_frame_pointer_rtx)
     {
       /* Get an rtx for STEP1 that we can add to BASE.  */
@@ -16524,23 +16533,26 @@ mips_expand_epilogue_pabi (bool sibcall_p)
 	  mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
 	  adjust = MIPS_EPILOGUE_TEMP (Pmode);
 	}
-      mips_deallocate_stack (base, adjust, step2);
+      /* To set the CFA correctly, we need to take into account
+	 the callee-allocated save area for register varargs.  */
+      mips_deallocate_stack (base, adjust,
+			     mips_epilogue.cfa_restore_sp_offset);
     }
 
   /* nanoMIPS requires explicit relocs avoiding the need to worry about
      macro instructions.  */
   gcc_assert (TARGET_EXPLICIT_RELOCS);
 
-  /* There is now STEP2 bytes left to deallocate up to the frame pointer.  */
-  mips_epilogue.cfa_restore_sp_offset = step2;
-
   mips_for_each_saved_acc (sp_offset, mips_restore_reg);
   nanomips_for_each_saved_other_gpr (sp_offset, mips_restore_reg);
+
+  /* Update the CFA offset.  */
+  mips_epilogue.cfa_restore_sp_offset -= step2;
 
   /* Restore the registers.  */
   if (nanomips_save_restore_gprs (sp_offset, step2, mips_restore_reg))
     /* The stack adjustment was done as part of the save/restore of GPRs.  */
-    mips_epilogue_emit_cfa_restores ();
+    ;
   else if (cfun->machine->interrupt_handler_p)
     {
       HOST_WIDE_INT offset;
@@ -16566,9 +16578,11 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       mips_emit_move (gen_rtx_REG (word_mode, K1_REG_NUM), mem);
       offset -= UNITS_PER_WORD;
 
+      gcc_assert (mips_epilogue.cfa_restore_sp_offset == 0);
       /* If we don't use shadow register set, we need to update SP.  */
       if (cfun->machine->use_shadow_register_set == SHADOW_SET_NO)
-	mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
+	mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2),
+			       mips_epilogue.cfa_restore_sp_offset);
       else
 	/* The choice of position is somewhat arbitrary in this case.  */
 	mips_epilogue_emit_cfa_restores ();
@@ -16579,11 +16593,13 @@ mips_expand_epilogue_pabi (bool sibcall_p)
     }
   else
     /* Deallocate the final bit of the frame.  */
-    mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
+    mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2),
+			   mips_epilogue.cfa_restore_sp_offset);
 
   if (cfun->machine->varargs_size > 0)
     mips_deallocate_stack (stack_pointer_rtx,
-			   GEN_INT (cfun->machine->varargs_size), 0);
+			   GEN_INT (cfun->machine->varargs_size),
+			   mips_epilogue.cfa_restore_sp_offset);
 
   /* Add in the __builtin_eh_return stack adjustment.  */
   if (crtl->calls_eh_return)
@@ -24205,6 +24221,9 @@ nanomips_restore_jrc_opt ()
 	      rtx_insn *new_insn =
 		emit_jump_insn_after_setloc (rjrc_insn, insn,
 					     INSN_LOCATION (insn));
+
+	      REG_NOTES (new_insn) = REG_NOTES (restore_insn);
+
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "replacing\n");
@@ -24251,6 +24270,9 @@ nanomips_restore_jrc_opt ()
 	      rtx_insn *new_insn =
 		emit_jump_insn_after_setloc (rjrc_insn, insn,
 					     INSN_LOCATION (insn));
+
+	      REG_NOTES (new_insn) = REG_NOTES (addiusp_insn);
+
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "replacing\n");
