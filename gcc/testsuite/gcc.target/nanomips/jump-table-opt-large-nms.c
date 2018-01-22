@@ -1,4 +1,4 @@
-/* { dg-options "-march=32r6s -mcmodel=large" } */
+/* { dg-options "-march=32r6s -mcmodel=large -mpcrel -mno-gpopt -mno-pid -ffat-lto-objects" } */
 /* { dg-additional-options "-mjump-table-opt" } */
 /* { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
 #include "jump-table.c"
