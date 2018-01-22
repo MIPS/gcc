@@ -993,6 +993,9 @@ proc check_effective_target_freorder {} {
 # out of scope for this test.
 
 proc check_effective_target_fpic { } {
+    if { [istarget nanomips*-*-elf] } {
+	return 0
+    }
     # Note that M68K has a multilib that supports -fpic but not
     # -fPIC, so we need to check both.  We test with a program that
     # requires GOT references.
