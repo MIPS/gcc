@@ -77,6 +77,7 @@
 #include "target-def.h"
 
 #define WORKAROUND_PTXJIT_BUG 1
+#define WORKAROUND_PTXJIT_BUG_2 1
 #define WORKAROUND_PTXJIT_BUG_3 1
 
 /* Define dimension sizes for known hardware.  */
@@ -4636,6 +4637,94 @@ populate_offload_attrs (offload_attrs *oa)
     oa->max_workers = oa->num_workers;
 }
 
+#if WORKAROUND_PTXJIT_BUG_2
+/* Variant of pc_set that only requires JUMP_P (INSN) if STRICT.  This variant
+   is needed in the nvptx target because the branches generated for
+   parititioning are NONJUMP_INSN_P, not JUMP_P.  */
+
+static rtx
+nvptx_pc_set (const rtx_insn *insn, bool strict = true)
+{
+  rtx pat;
+  if ((strict && !JUMP_P (insn))
+      || (!strict && !INSN_P (insn)))
+    return NULL_RTX;
+  pat = PATTERN (insn);
+
+  /* The set is allowed to appear either as the insn pattern or
+     the first set in a PARALLEL.  */
+  if (GET_CODE (pat) == PARALLEL)
+    pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET && GET_CODE (SET_DEST (pat)) == PC)
+    return pat;
+
+  return NULL_RTX;
+}
+
+/* Variant of condjump_label that only requires JUMP_P (INSN) if STRICT.  */
+
+static rtx
+nvptx_condjump_label (const rtx_insn *insn, bool strict = true)
+{
+  rtx x = nvptx_pc_set (insn, strict);
+
+  if (!x)
+    return NULL_RTX;
+  x = SET_SRC (x);
+  if (GET_CODE (x) == LABEL_REF)
+    return x;
+  if (GET_CODE (x) != IF_THEN_ELSE)
+    return NULL_RTX;
+  if (XEXP (x, 2) == pc_rtx && GET_CODE (XEXP (x, 1)) == LABEL_REF)
+    return XEXP (x, 1);
+  if (XEXP (x, 1) == pc_rtx && GET_CODE (XEXP (x, 2)) == LABEL_REF)
+    return XEXP (x, 2);
+  return NULL_RTX;
+}
+
+/* Insert a dummy ptx insn when encountering a branch to a label with no ptx
+   insn inbetween the branch and the label.  This works around a JIT bug
+   observed at driver version 384.111, at -O0 for sm_50.  */
+
+static void
+prevent_branch_around_nothing (void)
+{
+  rtx_insn *seen_label = NULL;
+    for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
+      {
+	if (INSN_P (insn) && condjump_p (insn))
+	  {
+	    seen_label = label_ref_label (nvptx_condjump_label (insn, false));
+	    continue;
+	  }
+
+	if (seen_label == NULL)
+	  continue;
+
+	if (NOTE_P (insn) || DEBUG_INSN_P (insn))
+	  continue;
+
+	if (INSN_P (insn))
+	  switch (recog_memoized (insn))
+	    {
+	    case CODE_FOR_nvptx_fork:
+	    case CODE_FOR_nvptx_forked:
+	    case CODE_FOR_nvptx_joining:
+	    case CODE_FOR_nvptx_join:
+	      continue;
+	    default:
+	      seen_label = NULL;
+	      continue;
+	    }
+
+	if (LABEL_P (insn) && insn == seen_label)
+	  emit_insn_before (gen_fake_nop (), insn);
+
+	seen_label = NULL;
+      }
+  }
+#endif
+
 #ifdef WORKAROUND_PTXJIT_BUG_3
 /* Insert two membar.cta insns inbetween two subsequent bar.sync insns.  This
    works around a hang observed at driver version 390.48 for sm_50.  */
@@ -4753,6 +4842,10 @@ nvptx_reorg (void)
 
   if (TARGET_UNIFORM_SIMT)
     nvptx_reorg_uniform_simt ();
+
+#if WORKAROUND_PTXJIT_BUG_2
+  prevent_branch_around_nothing ();
+#endif
 
 #ifdef WORKAROUND_PTXJIT_BUG_3
   workaround_barsyncs ();
