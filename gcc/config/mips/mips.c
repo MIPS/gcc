@@ -24594,6 +24594,8 @@ mips_set_compression_mode (unsigned int compression_mode)
 	  target_flags &= ~MASK_BRANCHLIKELY;
 
 	  /* Don't move loop invariants.  */
+	  /* For nanoMIPS, flag_move_loop_invariants is also set to 0 in
+	     mips_override_options_after_change.  */
 	  flag_move_loop_invariants = 0;
 	}
 
@@ -25837,6 +25839,17 @@ mips_option_override (void)
     };
 
   register_pass (&shrink_mips_offsets_info);
+}
+
+/* Implement TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE.  */
+
+static void
+mips_override_options_after_change (void)
+{
+  /* flag_move_loop_invariants is also set to 0 in
+     mips_set_compression_mode.  */
+  if (TARGET_NANOMIPS)
+    flag_move_loop_invariants = 0;
 }
 
 /* Swap the register information for registers I and I + 1, which
@@ -28619,6 +28632,8 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE mips_option_override
+#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE mips_override_options_after_change
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS mips_legitimize_address
