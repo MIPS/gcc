@@ -2658,6 +2658,9 @@ bootstrap_fixincludes=no
 
 # If we are building libgomp, bootstrap it.
 if echo " ${target_configdirs} " | grep " libgomp " > /dev/null 2>&1 ; then
+   if echo " ${target_configdirs} " | grep " libffi " > /dev/null 2>&1 ; then
+     bootstrap_target_libs=${bootstrap_target_libs}target-libffi,
+   fi
   bootstrap_target_libs=${bootstrap_target_libs}target-libgomp,
 fi
 

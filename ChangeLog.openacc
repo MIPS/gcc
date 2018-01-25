@@ -1,3 +1,12 @@
+2018-01-25  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* Makefile.def: Bootstrap module libffi. Add libffi dependency
+	to all-target-libgomp.
+	* Makefile.in: Regenerate.
+	* configure.ac: Add libffi to bootstrap_target_libs when libgomp
+	is bootstrapped.
+	* configure: Regenerate.
+
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Makefile.def: Make libgomp depend on libffi.
