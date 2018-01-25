@@ -1,3 +1,147 @@
+2018-01-25  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Increment to 7.3.1.
+
+2018-01-25  Release Manager
+
+	* GCC 7.3.0 released.
+
+2018-01-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/81443
+	* rtlanal.c (num_sign_bit_copies1) <SUBREG>: Do not propagate results
+	from inner REGs to paradoxical SUBREGs.
+
+2018-01-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-01-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+		    David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/83946
+	* config/rs6000/rs6000.md (*call_indirect_nonlocal_sysv<mode>):
+	Change "crset eq" to "crset 2".
+	(*call_value_indirect_nonlocal_sysv<mode>): Likewise.
+	(*call_indirect_aix<mode>_nospec): Likewise.
+	(*call_value_indirect_aix<mode>_nospec): Likewise.
+	(*call_indirect_elfv2<mode>_nospec): Likewise.
+	(*call_value_indirect_elfv2<mode>_nospec): Likewise.
+	(*sibcall_nonlocal_sysv<mode>): Change "crset eq" to "crset 2";
+	change assembly output from . to $.
+	(*sibcall_value_nonlocal_sysv<mode>): Likewise.
+	(indirect_jump<mode>_nospec): Change assembly output from . to $.
+	(*tablejump<mode>_internal1_nospec): Likewise.
+
+2018-01-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2018-01-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/80870
+	* config/sh/sh_optimize_sett_clrt.cc:
+	Use INCLUDE_ALGORITHM and INCLUDE_VECTOR instead of direct includes.
+
+2018-01-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-01-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_opt_vars): Add entry for
+	-mspeculate-indirect-jumps.
+	* config/rs6000/rs6000.md (*call_indirect_elfv2<mode>): Disable
+	for -mno-speculate-indirect-jumps.
+	(*call_indirect_elfv2<mode>_nospec): New define_insn.
+	(*call_value_indirect_elfv2<mode>): Disable for
+	-mno-speculate-indirect-jumps.
+	(*call_value_indirect_elfv2<mode>_nospec): New define_insn.
+	(indirect_jump): Emit different RTL for
+	-mno-speculate-indirect-jumps.
+	(*indirect_jump<mode>): Disable for
+	-mno-speculate-indirect-jumps.
+	(*indirect_jump<mode>_nospec): New define_insn.
+	(tablejump): Emit different RTL for
+	-mno-speculate-indirect-jumps.
+	(tablejumpsi): Disable for -mno-speculate-indirect-jumps.
+	(tablejumpsi_nospec): New define_expand.
+	(tablejumpdi): Disable for -mno-speculate-indirect-jumps.
+	(tablejumpdi_nospec): New define_expand.
+	(*tablejump<mode>_internal1): Disable for
+	-mno-speculate-indirect-jumps.
+	(*tablejump<mode>_internal1_nospec): New define_insn.
+	* config/rs6000/rs6000.opt (mspeculate-indirect-jumps): New
+	option.
+
+	Backport from mainline
+	2018-01-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (*call_indirect_nonlocal_sysv<mode>):
+	Generate different code for -mno-speculate-indirect-jumps.
+	(*call_value_indirect_nonlocal_sysv<mode>): Likewise.
+	(*call_indirect_aix<mode>): Disable for
+	-mno-speculate-indirect-jumps.
+	(*call_indirect_aix<mode>_nospec): New define_insn.
+	(*call_value_indirect_aix<mode>): Disable for
+	-mno-speculate-indirect-jumps.
+	(*call_value_indirect_aix<mode>_nospec): New define_insn.
+	(*sibcall_nonlocal_sysv<mode>): Generate different code for
+	-mno-speculate-indirect-jumps.
+	(*sibcall_value_nonlocal_sysv<mode>): Likewise.
+
+2018-01-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-12-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/81877
+	* tree-ssa-loop-im.c (ref_indep_loop_p): Remove safelen parameters.
+	(outermost_indep_loop): Adjust.
+	(ref_indep_loop_p_1): Likewise.  Remove safelen handling again.
+	(can_sm_ref_p): Adjust.
+
+	2017-12-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/81782
+	* tree-ssa-uninit.c (warn_uninitialized_vars): Properly
+	handle accesses outside of zero-sized vars.
+
+2018-01-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mailine
+	2018-01-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/83687
+	* config/arm/iterators.md (VF): New mode iterator.
+	* config/arm/neon.md (neon_vabd<mode>_2): Use the above.
+	Remove integer-related logic from pattern.
+	(neon_vabd<mode>_3): Likewise.
+
+2018-01-17  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-01-04  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/82352
+	* ipa-icf.c (sem_function::merge): Do not cross comdat boundary.
+
+2018-01-17  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-01-03  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/83549
+	* cif-code.def (VARIADIC_THUNK): New enum value.
+	* ipa-inline-analysis.c (compute_inline_parameters):
+	Do not inline variadic thunks.
+
+2018-01-17  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-12-27  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/83552
+	* tree-ssa-strlen.c (fold_strstr_to_strncmp): Assign result
+	of get_string_lenth to a SSA_NAME if not a GIMPLE value.
+
 2018-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	Backport from mainline
