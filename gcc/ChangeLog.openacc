@@ -1,3 +1,9 @@
+2018-01-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_privatize_reduction): New function.
+	(omp_add_variable): Use it to determine if a reduction variable
+	needs to be privatized.
+
 2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline:

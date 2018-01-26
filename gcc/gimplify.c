@@ -6604,6 +6604,32 @@ omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *ctx, tree type)
   lang_hooks.types.omp_firstprivatize_type_sizes (ctx, type);
 }
 
+/* Determine if CTX might contain any gang partitioned loops.  During
+   oacc_dev_low, independent loops are assign gangs at the outermost
+   level, and vectors in the innermost.  */
+
+static bool
+oacc_privatize_reduction (struct gimplify_omp_ctx *ctx)
+{
+  if (ctx == NULL)
+    return false;
+
+  if (ctx->region_type != ORT_ACC)
+    return false;
+
+  for (tree c = ctx->clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    switch (OMP_CLAUSE_CODE (c))
+      {
+      case OMP_CLAUSE_SEQ:
+	return oacc_privatize_reduction (ctx->outer_context);
+      case OMP_CLAUSE_GANG:
+	return true;
+      default:;
+      }
+
+  return true;
+}
+
 /* Add an entry for DECL in the OMP context CTX with FLAGS.  */
 
 static void
@@ -6733,7 +6759,14 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	}
 
       /* Set new copy map as 'private' if sure we're not gang-partitioning.  */
-      bool map_private = !gang && (worker || vector);
+      bool map_private;
+
+      if (gang)
+	map_private = false;
+      else if (worker || vector)
+	map_private = true;
+      else
+	map_private = oacc_privatize_reduction (ctx->outer_context);
 
       while (outer_ctx)
 	{
