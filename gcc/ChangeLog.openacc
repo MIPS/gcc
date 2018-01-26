@@ -1,3 +1,9 @@
+2018-01-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_privatize_reduction): New function.
+	(omp_add_variable): Use it to determine if a reduction variable
+	needs to be privatized.
+
 2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (install_parm_decl): Don't extract identifiers from
