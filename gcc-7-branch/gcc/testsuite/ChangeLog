@@ -46,6 +46,11 @@
 	PR target/83399
 	* gcc.target/powerpc/pr83399.c: New test.
 
+2018-01-19  Jeff Law  <law@redhat.com>
+
+	PR target/83994
+	* gcc.target/i386/pr83994.c: New test.
+
 2018-01-25  Release Manager
 
 	* GCC 7.3.0 released.
