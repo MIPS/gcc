@@ -1,3 +1,51 @@
+2018-01-29  Alan Modra  <amodra@gmail.com>
+
+	PR target/84033
+	* gcc.target/powerpc/swaps-p8-46.c: New.
+
+2018-01-26  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from trunk
+	2018-01-26  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/safe-indirect-jump-1.c: Build on all targets.
+	Make expected output depend on whether we expect sibcalls or not.
+	* gcc.target/powerpc/safe-indirect-jump-8.c: Delete (merged into
+	safe-indirect-jump-1.c).
+
+	Backport from trunk
+	2018-01-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/83946
+	* gcc.target/powerpc/safe-indirect-jump-8.c: Skip for AIX.
+
+2018-01-26  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/82878
+	* g++.dg/cpp0x/pr82878.C: New.
+	* g++.dg/cpp1z/inh-ctor38.C: Check moves too.
+
+2018-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/83985
+	* gcc.dg/pr83985.c: New test.
+
+2018-01-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk
+	2018-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/83862
+	* gcc.target/powerpc/pr83862.c: New test.
+
+2018-01-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Back port from mainline
+	2018-01-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83399
+	* gcc.target/powerpc/pr83399.c: New test.
+
 2018-01-25  Release Manager
 
 	* GCC 7.3.0 released.

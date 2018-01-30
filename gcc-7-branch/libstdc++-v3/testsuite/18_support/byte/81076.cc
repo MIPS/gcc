@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++17" }
-// { dg-do compile }
-
-// Copyright (C) 2014-2017 Free Software Foundation, Inc.
+// Copyright (C) 2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,13 +15,12 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <any>
+// { dg-options "-std=gnu++17" }
+// { dg-do compile { target c++1z } }
 
-void test01()
-{
-  using std::any;
-  using std::any_cast;
+#include <cstddef>
 
-  const any y(1);
-  any_cast<int&>(y); // { dg-error "invalid static_cast" "" { target { *-*-* } } 460 }
-}
+template<class> void to_integer(...);
+
+using T = decltype(to_integer<void* const>(std::byte{}));
+using T = void;

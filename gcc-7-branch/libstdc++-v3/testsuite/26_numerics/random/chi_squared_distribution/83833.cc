@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++17" }
-// { dg-do compile }
-
-// Copyright (C) 2014-2017 Free Software Foundation, Inc.
+// Copyright (C) 2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,13 +15,26 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <any>
+// { dg-do run { target c++11 } }
+// { dg-additional-options "-ffloat-store" { target { m68*-*-* || ia32 } } }
 
-void test01()
+#include <random>
+#include <testsuite_hooks.h>
+
+void
+test01()
 {
-  using std::any;
-  using std::any_cast;
+  std::default_random_engine r1, r2;
+  using chi = std::chi_squared_distribution<double>;
+  chi::param_type p(5);
+  chi d1(p);
+  chi d2;
+  d2.param(p);
+  VERIFY( d1(r1) == d2(r2) ); // PR libstdc++/83833
+}
 
-  const any y(1);
-  any_cast<int&>(y); // { dg-error "invalid static_cast" "" { target { *-*-* } } 460 }
+int
+main()
+{
+  test01();
 }

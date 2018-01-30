@@ -1,3 +1,119 @@
+2018-01-29  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline
+	2018-01-24  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/68467
+	* config/m68k/m68k.c (m68k_promote_function_mode): New function.
+	(TARGET_PROMOTE_FUNCTION_MODE): New macro.
+
+2018-01-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2018-01-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/81763
+	* config/i386/i386.md (*andndi3_doubleword): Add earlyclobber
+	to (=&r,r,rm) alternative. Add (=r,0,rm) and (=r,r,0) alternatives.
+
+2018-01-29  Alan Modra  <amodra@gmail.com>
+
+	Backport from mainline
+	2018-01-26  Alan Modra  <amodra@gmail.com>
+	PR target/84033
+	* config/rs6000/rs6000.c (rtx_is_swappable_p): Exclude
+	UNSPEC_VBPERMQ.
+
+2018-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Replace -mfunction-return==@var{choice} with
+	-mfunction-return=@var{choice}.
+
+2018-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-01-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/83905
+	* config/i386/i386.c (ix86_expand_prologue): Use cost reference
+	of struct ix86_frame.
+	(ix86_expand_epilogue): Likewise.  Add a local variable for
+	the reg_save_offset field in struct ix86_frame.
+
+2018-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/83985
+	* dce.c (deletable_insn_p): Return false for separate shrink wrapping
+	REG_CFA_RESTORE insns.
+	(delete_unmarked_insns): Don't ignore separate shrink wrapping
+	REG_CFA_RESTORE insns here.
+
+2018-01-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2018-01-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (indirect_thunk_name): Declare regno
+	as unsigned int.  Compare regno with INVALID_REGNUM.
+	(output_indirect_thunk): Ditto.
+	(output_indirect_thunk_function): Ditto.
+	(ix86_code_end): Declare regno as unsigned int.  Use INVALID_REGNUM
+	in the call to output_indirect_thunk_function.
+
+2018-01-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk
+	2018-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/83862
+	* config/rs6000/rs6000-protos.h (rs6000_split_signbit): Delete,
+	no longer used.
+	* config/rs6000/rs6000.c (rs6000_split_signbit): Likewise.
+	* config/rs6000/rs6000.md (signbit<mode>2): Change code for IEEE
+	128-bit to produce an UNSPEC move to get the double word with the
+	signbit and then a shift directly to do signbit.
+	(signbit<mode>2_dm): Replace old IEEE 128-bit signbit
+	implementation with a new version that just does either a direct
+	move or a regular move.  Move memory interface to separate insns.
+	Move insns so they are next to the expander.
+	(signbit<mode>2_dm_mem_be): New combiner insns to combine load
+	with signbit move.  Split big and little endian case.
+	(signbit<mode>2_dm_mem_le): Likewise.
+	(signbit<mode>2_dm_<su>ext): Delete, no longer used.
+	(signbit<mode>2_dm2): Likewise.
+
+2018-01-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Back port from mainline
+	2018-01-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83399
+	* config/rs6000/rs6000.c (print_operand) <'y'>: Use
+	VECTOR_MEM_ALTIVEC_OR_VSX_P.
+	* config/rs6000/vsx.md (*vsx_le_perm_load_<mode> for VSX_D): Use
+	indexed_or_indirect_operand predicate.
+	(*vsx_le_perm_load_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_load_v8hi): Likewise.
+	(*vsx_le_perm_load_v16qi): Likewise.
+	(*vsx_le_perm_store_<mode> for VSX_D): Likewise.
+	(*vsx_le_perm_store_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_store_v8hi): Likewise.
+	(*vsx_le_perm_store_v16qi): Likewise.
+	(eight unnamed splitters): Likewise.
+
+2018-01-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-01-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-p8swap.c (swap_feeds_both_load_and_store):
+	New function.
+	(rs6000_analyze_swaps): Mark a web unoptimizable if it contains a
+	swap associated with both a load and a store.
+
 2018-01-25  Richard Biener  <rguenther@suse.de>
 
 	* BASE-VER: Increment to 7.3.1.

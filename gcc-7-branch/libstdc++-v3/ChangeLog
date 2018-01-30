@@ -1,3 +1,39 @@
+2018-01-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83833
+	* testsuite/26_numerics/random/chi_squared_distribution/83833.cc:
+	Add -ffloat-store to options for m68k and ia32.
+
+	PR libstdc++/83658
+	* include/std/any (any::__do_emplace): Only set _M_manager after
+	constructing the contained object.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust dg-error line.
+	* testsuite/20_util/any/modifiers/83658.cc: New test.
+
+	Backport from mainline
+	2018-01-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83833
+	* include/bits/random.h (chi_squared_distribution::param): Update
+	gamma distribution parameter.
+	* testsuite/26_numerics/random/chi_squared_distribution/83833.cc: New
+	test.
+
+2018-01-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/81076
+	* include/c_global/cstddef (__byte_operand): Define primary template.
+	* testsuite/18_support/byte/81076.cc: New test.
+
+	Backport from mainline
+	2018-01-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83830
+	* include/std/type_traits (has_unique_object_representations_v): Add
+	variable template.
+	* testsuite/20_util/has_unique_object_representations/value.cc: Check
+	variable template.
+
 2018-01-25  Release Manager
 
 	* GCC 7.3.0 released.
