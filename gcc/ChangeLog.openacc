@@ -1,5 +1,10 @@
 2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-low.c (install_parm_decl): Don't extract identifiers from
+	artifical decls.
+
+2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gimplify.c (omp_add_variable): Allow certain OpenACC reduction
 	variables to remain firstprivate.
 

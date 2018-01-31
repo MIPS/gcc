@@ -669,7 +669,7 @@ install_parm_decl (tree var, tree type, omp_context *ctx)
   tree decl_name = NULL_TREE, t;
   location_t loc = UNKNOWN_LOCATION;
 
-  if (DECL_P (var))
+  if (DECL_P (var) && !DECL_ARTIFICIAL (var))
     {
       decl_name = get_identifier (get_name (var));
       loc = DECL_SOURCE_LOCATION (var);

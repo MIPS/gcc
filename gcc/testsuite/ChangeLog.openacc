@@ -1,5 +1,9 @@
 2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* c-c++-common/goacc/large_array.c: New test.
+
+2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* c-c++-common/goacc/reduction-8.c: New test.
 
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
