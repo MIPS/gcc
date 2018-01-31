@@ -6740,9 +6740,16 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
   else
     splay_tree_insert (ctx->variables, (splay_tree_key)decl, flags);
 
-  /* For reductions clauses in OpenACC loop directives, by default create a
-     copy clause on the enclosing parallel construct for carrying back the
-     results.  */
+  /* For OpenACC loop directives, when a reduction is immediately
+     enclosed within an acc parallel or kernels construct, it must
+     have an implied copy data mapping. E.g.
+
+       #pragma acc parallel
+	 {
+	   #pragma acc loop reduction (+:sum)
+
+     a copy clause for sum should be added on the enclosing parallel
+     construct for carrying back the results.  */
   if (ctx->region_type == ORT_ACC && (flags & GOVD_REDUCTION))
     {
       struct gimplify_omp_ctx *outer_ctx = ctx->outer_context;
@@ -6758,8 +6765,11 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	    vector = true;
 	}
 
-      /* Set new copy map as 'private' if sure we're not gang-partitioning.  */
-      bool map_private;
+      /* Reduction data maps need to be marked as private for worker
+	 and vector loops, in order to ensure that value of the
+	 reduction carried back to the host.  Set new copy map as
+	 'private' if sure we're not gang-partitioning.  */
+      bool map_private, update_data_map = false;
 
       if (gang)
 	map_private = false;
@@ -6767,6 +6777,10 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	map_private = true;
       else
 	map_private = oacc_privatize_reduction (ctx->outer_context);
+
+      if (ctx->outer_context
+	  && ctx->outer_context->region_type == ORT_ACC_PARALLEL)
+	update_data_map = true;
 
       while (outer_ctx)
 	{
@@ -6784,7 +6798,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 		  gcc_assert (!(n->value & GOVD_FIRSTPRIVATE)
 			      && (n->value & GOVD_MAP));
 		}
-	      else if (outer_ctx->region_type == ORT_ACC_PARALLEL)
+	      else if (update_data_map
+		       && outer_ctx->region_type == ORT_ACC_PARALLEL)
 		{
 		  /* Remove firstprivate and make it a copy map.  */
 		  n->value &= ~GOVD_FIRSTPRIVATE;
@@ -6796,7 +6811,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 		    n->value |= GOVD_MAP_PRIVATE;
 		}
 	    }
-	  else if (outer_ctx->region_type == ORT_ACC_PARALLEL)
+	  else if (update_data_map
+		   && outer_ctx->region_type == ORT_ACC_PARALLEL)
 	    {
 	      unsigned f = GOVD_MAP | GOVD_SEEN;
 
