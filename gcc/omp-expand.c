@@ -7108,6 +7108,7 @@ expand_omp_target (struct omp_region *region)
     {
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       oacc_parallel = true;
+      gcc_fallthrough ();
     case GF_OMP_TARGET_KIND_REGION:
     case GF_OMP_TARGET_KIND_UPDATE:
     case GF_OMP_TARGET_KIND_ENTER_DATA:
