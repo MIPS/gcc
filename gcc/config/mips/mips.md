@@ -7335,7 +7335,8 @@
   if (TARGET_NANOMIPS_JUMPTABLE_OPT)
     {
       emit_cmp_and_jump_insns (operands[0], operands[2], GTU,
-			       NULL_RTX, SImode, 1, operands[4]);
+			       NULL_RTX, SImode, 1, operands[4],
+			       PROB_VERY_UNLIKELY);
       emit_jump_insn (PMODE_INSN (gen_casesi_internal_nanomips,
 				  (operands[0], operands[3])));
     }
