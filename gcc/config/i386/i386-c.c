@@ -1,5 +1,5 @@
 /* Subroutines used for macro/preprocessor support on the ia-32.
-   Copyright (C) 2008-2017 Free Software Foundation, Inc.
+   Copyright (C) 2008-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,6 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -188,6 +190,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__cannonlake");
       def_or_undef (parse_in, "__cannonlake__");
       break;
+    case PROCESSOR_ICELAKE:
+      def_or_undef (parse_in, "__icelake");
+      def_or_undef (parse_in, "__icelake__");
+      break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
       break;
@@ -309,6 +315,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_CANNONLAKE:
       def_or_undef (parse_in, "__tune_cannonlake__");
       break;
+    case PROCESSOR_ICELAKE:
+      def_or_undef (parse_in, "__tune_icelake__");
+      break;
     case PROCESSOR_LAKEMONT:
       def_or_undef (parse_in, "__tune_lakemont__");
       break;
@@ -392,15 +401,17 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__AVX512IFMA__");
   if (isa_flag2 & OPTION_MASK_ISA_AVX5124VNNIW)
     def_or_undef (parse_in, "__AVX5124VNNIW__");
-  if (isa_flag2 & OPTION_MASK_ISA_AVX512VBMI2)
+  if (isa_flag & OPTION_MASK_ISA_AVX512VBMI2)
     def_or_undef (parse_in, "__AVX512VBMI2__");
-  if (isa_flag2 & OPTION_MASK_ISA_AVX512VNNI)
+  if (isa_flag & OPTION_MASK_ISA_AVX512VNNI)
     def_or_undef (parse_in, "__AVX512VNNI__");
   if (isa_flag2 & OPTION_MASK_ISA_SGX)
     def_or_undef (parse_in, "__SGX__");
   if (isa_flag2 & OPTION_MASK_ISA_AVX5124FMAPS)
     def_or_undef (parse_in, "__AVX5124FMAPS__");
-  if (isa_flag2 & OPTION_MASK_ISA_AVX512VPOPCNTDQ)
+  if (isa_flag & OPTION_MASK_ISA_AVX512BITALG)
+    def_or_undef (parse_in, "__AVX512BITALG__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VPOPCNTDQ)
     def_or_undef (parse_in, "__AVX512VPOPCNTDQ__");
   if (isa_flag & OPTION_MASK_ISA_FMA)
     def_or_undef (parse_in, "__FMA__");
@@ -452,7 +463,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE2_MATH__");
   if (isa_flag & OPTION_MASK_ISA_CLFLUSHOPT)
     def_or_undef (parse_in, "__CLFLUSHOPT__");
-  if (isa_flag & OPTION_MASK_ISA_CLZERO)
+  if (isa_flag2 & OPTION_MASK_ISA_CLZERO)
     def_or_undef (parse_in, "__CLZERO__");
   if (isa_flag & OPTION_MASK_ISA_XSAVEC)
     def_or_undef (parse_in, "__XSAVEC__");
@@ -462,7 +473,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__MPX__");
   if (isa_flag & OPTION_MASK_ISA_CLWB)
     def_or_undef (parse_in, "__CLWB__");
-  if (isa_flag & OPTION_MASK_ISA_MWAITX)
+  if (isa_flag2 & OPTION_MASK_ISA_MWAITX)
     def_or_undef (parse_in, "__MWAITX__");
   if (isa_flag & OPTION_MASK_ISA_PKU)
     def_or_undef (parse_in, "__PKU__");
@@ -476,12 +487,16 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       if (flag_cf_protection != CF_NONE)
 	def_or_undef (parse_in, "__CET__");
     }
-  if (isa_flag2 & OPTION_MASK_ISA_SHSTK)
+  if (isa_flag & OPTION_MASK_ISA_SHSTK)
     {
       def_or_undef (parse_in, "__SHSTK__");
       if (flag_cf_protection != CF_NONE)
 	def_or_undef (parse_in, "__CET__");
     }
+  if (isa_flag2 & OPTION_MASK_ISA_VAES)
+    def_or_undef (parse_in, "__VAES__");
+  if (isa_flag & OPTION_MASK_ISA_VPCLMULQDQ)
+    def_or_undef (parse_in, "__VPCLMULQDQ__");
   if (TARGET_IAMCU)
     {
       def_or_undef (parse_in, "__iamcu");

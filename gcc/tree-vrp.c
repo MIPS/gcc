@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
 This file is part of GCC.
@@ -171,6 +171,53 @@ vrp_val_is_min (const_tree val)
 	      && operand_equal_p (val, type_min, 0)));
 }
 
+/* VR_TYPE describes a range with mininum value *MIN and maximum
+   value *MAX.  Restrict the range to the set of values that have
+   no bits set outside NONZERO_BITS.  Update *MIN and *MAX and
+   return the new range type.
+
+   SGN gives the sign of the values described by the range.  */
+
+enum value_range_type
+intersect_range_with_nonzero_bits (enum value_range_type vr_type,
+				   wide_int *min, wide_int *max,
+				   const wide_int &nonzero_bits,
+				   signop sgn)
+{
+  if (vr_type == VR_RANGE)
+    {
+      *max = wi::round_down_for_mask (*max, nonzero_bits);
+
+      /* Check that the range contains at least one valid value.  */
+      if (wi::gt_p (*min, *max, sgn))
+	return VR_UNDEFINED;
+
+      *min = wi::round_up_for_mask (*min, nonzero_bits);
+      gcc_checking_assert (wi::le_p (*min, *max, sgn));
+    }
+  if (vr_type == VR_ANTI_RANGE)
+    {
+      *max = wi::round_up_for_mask (*max, nonzero_bits);
+
+      /* If the calculation wrapped, we now have a VR_RANGE whose
+	 lower bound is *MAX and whose upper bound is *MIN.  */
+      if (wi::gt_p (*min, *max, sgn))
+	{
+	  std::swap (*min, *max);
+	  *max = wi::round_down_for_mask (*max, nonzero_bits);
+	  gcc_checking_assert (wi::le_p (*min, *max, sgn));
+	  return VR_RANGE;
+	}
+
+      *min = wi::round_down_for_mask (*min, nonzero_bits);
+      gcc_checking_assert (wi::le_p (*min, *max, sgn));
+
+      /* Check whether we now have an empty set of values.  */
+      if (*min - 1 == *max)
+	return VR_UNDEFINED;
+    }
+  return vr_type;
+}
 
 /* Set value range VR to VR_UNDEFINED.  */
 
@@ -731,7 +778,24 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
       if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
 	return -2;
 
-      return tree_int_cst_compare (val1, val2);
+      if (TREE_CODE (val1) == INTEGER_CST
+	  && TREE_CODE (val2) == INTEGER_CST)
+	return tree_int_cst_compare (val1, val2);
+
+      if (poly_int_tree_p (val1) && poly_int_tree_p (val2))
+	{
+	  if (known_eq (wi::to_poly_widest (val1),
+			wi::to_poly_widest (val2)))
+	    return 0;
+	  if (known_lt (wi::to_poly_widest (val1),
+			wi::to_poly_widest (val2)))
+	    return -1;
+	  if (known_gt (wi::to_poly_widest (val1),
+			wi::to_poly_widest (val2)))
+	    return 1;
+	}
+
+      return -2;
     }
   else
     {
@@ -2025,7 +2089,7 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	      return;
 	    }
 	}
-      else if (!symbolic_range_p (&vr0) && !symbolic_range_p (&vr1))
+      else if (range_int_cst_p (&vr0) && range_int_cst_p (&vr1))
 	{
 	  extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
 	  return;
@@ -2769,6 +2833,8 @@ add_assert_info (vec<assert_info> &asserts,
   assert_info info;
   info.comp_code = comp_code;
   info.name = name;
+  if (TREE_OVERFLOW_P (val))
+    val = drop_tree_overflow (val);
   info.val = val;
   info.expr = expr;
   asserts.safe_push (info);
@@ -4805,9 +4871,9 @@ vrp_prop::check_array_ref (location_t location, tree ref,
 	{
 	  tree maxbound = TYPE_MAX_VALUE (ptrdiff_type_node);
 	  tree arg = TREE_OPERAND (ref, 0);
-	  HOST_WIDE_INT off;
+	  poly_int64 off;
 
-	  if (get_addr_base_and_unit_offset (arg, &off) && off > 0)
+	  if (get_addr_base_and_unit_offset (arg, &off) && known_gt (off, 0))
 	    maxbound = wide_int_to_tree (sizetype,
 					 wi::sub (wi::to_wide (maxbound),
 						  off));
@@ -4935,7 +5001,9 @@ vrp_prop::search_for_addr_array (tree t, location_t location)
 	  || TREE_CODE (el_sz) != INTEGER_CST)
 	return;
 
-      idx = mem_ref_offset (t);
+      if (!mem_ref_offset (t).is_constant (&idx))
+	return;
+
       idx = wi::sdiv_trunc (idx, wi::to_offset (el_sz));
       if (idx < 0)
 	{
@@ -5000,44 +5068,67 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
   return NULL_TREE;
 }
 
+/* A dom_walker subclass for use by vrp_prop::check_all_array_refs,
+   to walk over all statements of all reachable BBs and call
+   check_array_bounds on them.  */
+
+class check_array_bounds_dom_walker : public dom_walker
+{
+ public:
+  check_array_bounds_dom_walker (vrp_prop *prop)
+    : dom_walker (CDI_DOMINATORS,
+		  /* Discover non-executable edges, preserving EDGE_EXECUTABLE
+		     flags, so that we can merge in information on
+		     non-executable edges from vrp_folder .  */
+		  REACHABLE_BLOCKS_PRESERVING_FLAGS),
+      m_prop (prop) {}
+  ~check_array_bounds_dom_walker () {}
+
+  edge before_dom_children (basic_block) FINAL OVERRIDE;
+
+ private:
+  vrp_prop *m_prop;
+};
+
+/* Implementation of dom_walker::before_dom_children.
+
+   Walk over all statements of BB and call check_array_bounds on them,
+   and determine if there's a unique successor edge.  */
+
+edge
+check_array_bounds_dom_walker::before_dom_children (basic_block bb)
+{
+  gimple_stmt_iterator si;
+  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+    {
+      gimple *stmt = gsi_stmt (si);
+      struct walk_stmt_info wi;
+      if (!gimple_has_location (stmt)
+	  || is_gimple_debug (stmt))
+	continue;
+
+      memset (&wi, 0, sizeof (wi));
+
+      wi.info = m_prop;
+
+      walk_gimple_op (stmt, check_array_bounds, &wi);
+    }
+
+  /* Determine if there's a unique successor edge, and if so, return
+     that back to dom_walker, ensuring that we don't visit blocks that
+     became unreachable during the VRP propagation
+     (PR tree-optimization/83312).  */
+  return find_taken_edge (bb, NULL_TREE);
+}
+
 /* Walk over all statements of all reachable BBs and call check_array_bounds
    on them.  */
 
 void
 vrp_prop::check_all_array_refs ()
 {
-  basic_block bb;
-  gimple_stmt_iterator si;
-
-  FOR_EACH_BB_FN (bb, cfun)
-    {
-      edge_iterator ei;
-      edge e;
-      bool executable = false;
-
-      /* Skip blocks that were found to be unreachable.  */
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	executable |= !!(e->flags & EDGE_EXECUTABLE);
-      if (!executable)
-	continue;
-
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
-	{
-	  gimple *stmt = gsi_stmt (si);
-	  struct walk_stmt_info wi;
-	  if (!gimple_has_location (stmt)
-	      || is_gimple_debug (stmt))
-	    continue;
-
-	  memset (&wi, 0, sizeof (wi));
-
-	  wi.info = this;
-
-	  walk_gimple_op (gsi_stmt (si),
-			  check_array_bounds,
-			  &wi);
-	}
-    }
+  check_array_bounds_dom_walker w (this);
+  w.walk (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 }
 
 /* Return true if all imm uses of VAR are either in STMT, or
@@ -5230,7 +5321,6 @@ remove_range_assertions (void)
 	  }
       }
 }
-
 
 /* Return true if STMT is interesting for VRP.  */
 
@@ -6607,7 +6697,7 @@ public:
   vrp_dom_walker (cdi_direction direction,
 		  class const_and_copies *const_and_copies,
 		  class avail_exprs_stack *avail_exprs_stack)
-    : dom_walker (direction, true),
+    : dom_walker (direction, REACHABLE_BLOCKS),
       m_const_and_copies (const_and_copies),
       m_avail_exprs_stack (avail_exprs_stack),
       m_dummy_cond (NULL) {}
@@ -6677,7 +6767,7 @@ vrp_dom_walker::after_dom_children (basic_block bb)
 
   x_vr_values = vr_values;
   thread_outgoing_edges (bb, m_dummy_cond, m_const_and_copies,
-			 m_avail_exprs_stack,
+			 m_avail_exprs_stack, NULL,
 			 simplify_stmt_for_jump_threading);
   x_vr_values = NULL;
 
@@ -6796,6 +6886,18 @@ vrp_prop::vrp_finalize (bool warn_array_bounds_p)
 			wi::to_wide (vr->min),
 			wi::to_wide (vr->max));
     }
+
+  /* If we're checking array refs, we want to merge information on
+     the executability of each edge between vrp_folder and the
+     check_array_bounds_dom_walker: each can clear the
+     EDGE_EXECUTABLE flag on edges, in different ways.
+
+     Hence, if we're going to call check_all_array_refs, set
+     the flag on every edge now, rather than in
+     check_array_bounds_dom_walker's ctor; vrp_folder may clear
+     it from some edges.  */
+  if (warn_array_bounds && warn_array_bounds_p)
+    set_all_edges_as_executable (cfun);
 
   class vrp_folder vrp_folder;
   vrp_folder.vr_values = &vr_values;

@@ -4,7 +4,7 @@
 
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1585,6 +1585,23 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_INITIAL (decl) = make_node (BLOCK);
   BLOCK_SUPERCONTEXT (DECL_INITIAL (decl)) = decl;
   DECL_ATTRIBUTES (decl) = DECL_ATTRIBUTES (current_function_decl);
+  /* Remove omp declare simd attribute from the new attributes.  */
+  if (tree a = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (decl)))
+    {
+      while (tree a2 = lookup_attribute ("omp declare simd", TREE_CHAIN (a)))
+	a = a2;
+      a = TREE_CHAIN (a);
+      for (tree *p = &DECL_ATTRIBUTES (decl); *p != a;)
+	if (is_attribute_p ("omp declare simd", get_attribute_name (*p)))
+	  *p = TREE_CHAIN (*p);
+	else
+	  {
+	    tree chain = TREE_CHAIN (*p);
+	    *p = copy_node (*p);
+	    p = &TREE_CHAIN (*p);
+	    *p = chain;
+	  }
+    }
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl)
     = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (current_function_decl);
   DECL_FUNCTION_SPECIFIC_TARGET (decl)
@@ -3381,9 +3398,11 @@ omp_clause_aligned_alignment (tree clause)
   /* Otherwise return implementation defined alignment.  */
   unsigned int al = 1;
   opt_scalar_mode mode_iter;
-  int vs = targetm.vectorize.autovectorize_vector_sizes ();
-  if (vs)
-    vs = 1 << floor_log2 (vs);
+  auto_vector_sizes sizes;
+  targetm.vectorize.autovectorize_vector_sizes (&sizes);
+  poly_uint64 vs = 0;
+  for (unsigned int i = 0; i < sizes.length (); ++i)
+    vs = ordered_max (vs, sizes[i]);
   static enum mode_class classes[]
     = { MODE_INT, MODE_VECTOR_INT, MODE_FLOAT, MODE_VECTOR_FLOAT };
   for (int i = 0; i < 4; i += 2)
@@ -3394,16 +3413,17 @@ omp_clause_aligned_alignment (tree clause)
 	machine_mode vmode = targetm.vectorize.preferred_simd_mode (mode);
 	if (GET_MODE_CLASS (vmode) != classes[i + 1])
 	  continue;
-	while (vs
-	       && GET_MODE_SIZE (vmode) < vs
+	while (maybe_ne (vs, 0U)
+	       && known_lt (GET_MODE_SIZE (vmode), vs)
 	       && GET_MODE_2XWIDER_MODE (vmode).exists ())
 	  vmode = GET_MODE_2XWIDER_MODE (vmode).require ();
 
 	tree type = lang_hooks.types.type_for_mode (mode, 1);
 	if (type == NULL_TREE || TYPE_MODE (type) != mode)
 	  continue;
-	type = build_vector_type (type, GET_MODE_SIZE (vmode)
-					/ GET_MODE_SIZE (mode));
+	poly_uint64 nelts = exact_div (GET_MODE_SIZE (vmode),
+				       GET_MODE_SIZE (mode));
+	type = build_vector_type (type, nelts);
 	if (TYPE_MODE (type) != vmode)
 	  continue;
 	if (TYPE_ALIGN_UNIT (type) > al)
@@ -3417,11 +3437,12 @@ omp_clause_aligned_alignment (tree clause)
    and lower_rec_input_clauses.  */
 
 struct omplow_simd_context {
+  omplow_simd_context () { memset (this, 0, sizeof (*this)); }
   tree idx;
   tree lane;
   vec<tree, va_heap> simt_eargs;
   gimple_seq simt_dlist;
-  int max_vf;
+  poly_uint64_pod max_vf;
   bool is_simt;
 };
 
@@ -3432,28 +3453,30 @@ static bool
 lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
 			      omplow_simd_context *sctx, tree &ivar, tree &lvar)
 {
-  if (sctx->max_vf == 0)
+  if (known_eq (sctx->max_vf, 0U))
     {
       sctx->max_vf = sctx->is_simt ? omp_max_simt_vf () : omp_max_vf ();
-      if (sctx->max_vf > 1)
+      if (maybe_gt (sctx->max_vf, 1U))
 	{
 	  tree c = omp_find_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c
-	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
-		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
-	    sctx->max_vf = 1;
-	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
-					  sctx->max_vf) == -1)
-	    sctx->max_vf = tree_to_shwi (OMP_CLAUSE_SAFELEN_EXPR (c));
+	  if (c)
+	    {
+	      poly_uint64 safe_len;
+	      if (!poly_int_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+		  || maybe_lt (safe_len, 1U))
+		sctx->max_vf = 1;
+	      else
+		sctx->max_vf = lower_bound (sctx->max_vf, safe_len);
+	    }
 	}
-      if (sctx->max_vf > 1)
+      if (maybe_gt (sctx->max_vf, 1U))
 	{
 	  sctx->idx = create_tmp_var (unsigned_type_node);
 	  sctx->lane = create_tmp_var (unsigned_type_node);
 	}
     }
-  if (sctx->max_vf == 1)
+  if (known_eq (sctx->max_vf, 1U))
     return false;
 
   if (sctx->is_simt)
@@ -3567,7 +3590,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	}
 
   /* Add a placeholder for simduid.  */
-  if (sctx.is_simt && sctx.max_vf != 1)
+  if (sctx.is_simt && maybe_ne (sctx.max_vf, 1U))
     sctx.simt_eargs.safe_push (NULL_TREE);
 
   /* Do all the fixed sized types in the first pass, and the variable sized
@@ -4457,7 +4480,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	}
     }
 
-  if (sctx.max_vf == 1)
+  if (known_eq (sctx.max_vf, 1U))
     sctx.is_simt = false;
 
   if (sctx.lane || sctx.is_simt)
@@ -4594,14 +4617,14 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   /* If max_vf is non-zero, then we can use only a vectorization factor
      up to the max_vf we chose.  So stick it into the safelen clause.  */
-  if (sctx.max_vf)
+  if (maybe_ne (sctx.max_vf, 0U))
     {
       tree c = omp_find_clause (gimple_omp_for_clauses (ctx->stmt),
 				OMP_CLAUSE_SAFELEN);
+      poly_uint64 safe_len;
       if (c == NULL_TREE
-	  || (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) == INTEGER_CST
-	      && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
-				   sctx.max_vf) == 1))
+	  || (poly_int_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+	      && maybe_gt (safe_len, sctx.max_vf)))
 	{
 	  c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_SAFELEN);
 	  OMP_CLAUSE_SAFELEN_EXPR (c) = build_int_cst (integer_type_node,
@@ -8329,7 +8352,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		|| OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_REFERENCE)
 	      {
 		location_t clause_loc = OMP_CLAUSE_LOCATION (c);
-		HOST_WIDE_INT offset = 0;
+		poly_int64 offset = 0;
 		gcc_assert (prev);
 		var = OMP_CLAUSE_DECL (c);
 		if (DECL_P (var)

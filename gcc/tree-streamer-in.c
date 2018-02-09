@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2017 Free Software Foundation, Inc.
+   Copyright (C) 2011-2018 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -658,6 +658,19 @@ lto_input_ts_vector_tree_pointers (struct lto_input_block *ib,
 }
 
 
+/* Read all pointer fields in the TS_POLY_INT_CST structure of EXPR from
+   input block IB.  DATA_IN contains tables and descriptors for the
+   file being read.  */
+
+static void
+lto_input_ts_poly_tree_pointers (struct lto_input_block *ib,
+				 struct data_in *data_in, tree expr)
+{
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    POLY_INT_CST_COEFF (expr, i) = stream_read_tree (ib, data_in);
+}
+
+
 /* Read all pointer fields in the TS_COMPLEX structure of EXPR from input
    block IB.  DATA_IN contains tables and descriptors for the
    file being read.  */
@@ -701,7 +714,8 @@ lto_input_ts_decl_common_tree_pointers (struct lto_input_block *ib,
       && DECL_HAS_VALUE_EXPR_P (expr))
     SET_DECL_VALUE_EXPR (expr, stream_read_tree (ib, data_in));
 
-  if (VAR_P (expr))
+  if (VAR_P (expr)
+      && DECL_HAS_DEBUG_EXPR_P (expr))
     {
       tree dexpr = stream_read_tree (ib, data_in);
       if (dexpr)
@@ -1040,6 +1054,9 @@ streamer_read_tree_body (struct lto_input_block *ib, struct data_in *data_in,
 
   if (CODE_CONTAINS_STRUCT (code, TS_VECTOR))
     lto_input_ts_vector_tree_pointers (ib, data_in, expr);
+
+  if (CODE_CONTAINS_STRUCT (code, TS_POLY_INT_CST))
+    lto_input_ts_poly_tree_pointers (ib, data_in, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_COMPLEX))
     lto_input_ts_complex_tree_pointers (ib, data_in, expr);

@@ -1,5 +1,5 @@
 /* Iterator routines for GIMPLE statements.
-   Copyright (C) 2007-2017 Free Software Foundation, Inc.
+   Copyright (C) 2007-2018 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez  <aldy@quesejoda.com>
 
 This file is part of GCC.
@@ -743,13 +743,9 @@ gimple_find_edge_insert_loc (edge e, gimple_stmt_iterator *gsi,
       if (gsi_end_p (*gsi))
 	return true;
 
-      /* Make sure we insert after any leading labels.  We have to
-	 skip debug stmts before or among them, though.  We didn't
-	 have to skip debug stmts after the last label, but it
-	 shouldn't hurt if we do.  */
+      /* Make sure we insert after any leading labels.  */
       tmp = gsi_stmt (*gsi);
-      while (gimple_code (tmp) == GIMPLE_LABEL
-	     || is_gimple_debug (tmp))
+      while (gimple_code (tmp) == GIMPLE_LABEL)
 	{
 	  gsi_next (gsi);
 	  if (gsi_end_p (*gsi))

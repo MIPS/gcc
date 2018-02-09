@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2017 Free Software Foundation, Inc.
+   Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,6 +91,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512VPOPCNTDQ_P(x) TARGET_ISA_AVX512VPOPCNTDQ_P(x)
 #define TARGET_AVX512VNNI	TARGET_ISA_AVX512VNNI
 #define TARGET_AVX512VNNI_P(x) TARGET_ISA_AVX512VNNI_P(x)
+#define TARGET_AVX512BITALG	TARGET_ISA_AVX512BITALG
+#define TARGET_AVX512BITALG_P(x) TARGET_ISA_AVX512BITALG_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -109,6 +111,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_RDPID_P(x)	TARGET_ISA_RDPID_P(x)
 #define TARGET_GFNI	TARGET_ISA_GFNI
 #define TARGET_GFNI_P(x)	TARGET_ISA_GFNI_P(x)
+#define TARGET_VAES	TARGET_ISA_VAES
+#define TARGET_VAES_P(x)	TARGET_ISA_VAES_P(x)
+#define TARGET_VPCLMULQDQ	TARGET_ISA_VPCLMULQDQ
+#define TARGET_VPCLMULQDQ_P(x)	TARGET_ISA_VPCLMULQDQ_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
 #define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
@@ -377,6 +383,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_KNM (ix86_tune == PROCESSOR_KNM)
 #define TARGET_SKYLAKE_AVX512 (ix86_tune == PROCESSOR_SKYLAKE_AVX512)
 #define TARGET_CANNONLAKE (ix86_tune == PROCESSOR_CANNONLAKE)
+#define TARGET_ICELAKE (ix86_tune == PROCESSOR_ICELAKE)
 #define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
@@ -492,6 +499,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_SLOW_PSHUFB]
 #define TARGET_AVOID_4BYTE_PREFIXES \
 	ix86_tune_features[X86_TUNE_AVOID_4BYTE_PREFIXES]
+#define TARGET_USE_GATHER \
+	ix86_tune_features[X86_TUNE_USE_GATHER]
 #define TARGET_FUSE_CMP_AND_BRANCH_32 \
 	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
 #define TARGET_FUSE_CMP_AND_BRANCH_64 \
@@ -1541,15 +1550,7 @@ enum reg_class
    goes at a more negative offset in the frame.  */
 #define FRAME_GROWS_DOWNWARD 1
 
-/* If we generate an insn to push BYTES bytes, this says how many the stack
-   pointer really advances by.  On 386, we have pushw instruction that
-   decrements by exactly 2 no matter what the position was, there is no pushb.
-
-   But as CIE data alignment factor on this arch is -4 for 32bit targets
-   and -8 for 64bit targets, we need to make sure all stack pointer adjustments
-   are in multiple of 4 for 32bit targets and 8 for 64bit targets.  */
-
-#define PUSH_ROUNDING(BYTES) ROUND_UP ((BYTES), UNITS_PER_WORD)
+#define PUSH_ROUNDING(BYTES) ix86_push_rounding (BYTES)
 
 /* If defined, the maximum amount of space required for outgoing arguments
    will be computed and placed into the variable `crtl->outgoing_args_size'.
@@ -2110,6 +2111,10 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
   (cfun->machine->func_type == TYPE_EXCEPTION \
    ? 2 * UNITS_PER_WORD : UNITS_PER_WORD)
 
+/* The value of INCOMING_FRAME_SP_OFFSET the assembler assumes in
+   .cfi_startproc.  */
+#define DEFAULT_INCOMING_FRAME_SP_OFFSET UNITS_PER_WORD
+
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N)	((N) <= DX_REG ? (N) : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, CX_REG)
@@ -2259,6 +2264,7 @@ enum processor_type
   PROCESSOR_KNM,
   PROCESSOR_SKYLAKE_AVX512,
   PROCESSOR_CANNONLAKE,
+  PROCESSOR_ICELAKE,
   PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,
@@ -2570,6 +2576,16 @@ struct GTY(()) machine_function {
   /* Function type.  */
   ENUM_BITFIELD(function_type) func_type : 2;
 
+  /* How to generate indirec branch.  */
+  ENUM_BITFIELD(indirect_branch) indirect_branch_type : 3;
+
+  /* If true, the current function has local indirect jumps, like
+     "indirect_jump" or "tablejump".  */
+  BOOL_BITFIELD has_local_indirect_jump : 1;
+
+  /* How to generate function return.  */
+  ENUM_BITFIELD(indirect_branch) function_return_type : 3;
+
   /* If true, the current function is a function specified with
      the "interrupt" or "no_caller_saved_registers" attribute.  */
   BOOL_BITFIELD no_caller_saved_registers : 1;
@@ -2597,6 +2613,9 @@ struct GTY(()) machine_function {
 
   /* Nonzero if the function places outgoing arguments on stack.  */
   BOOL_BITFIELD outgoing_args_on_stack : 1;
+
+  /* The largest alignment, in bytes, of stack slot actually used.  */
+  unsigned int max_used_stack_alignment;
 
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */

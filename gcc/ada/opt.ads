@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1445,7 +1445,7 @@ package Opt is
    --  GNAT.Exception_Traces is with'ed. Used to inhibit transformation of
    --  local raise statements into gotos in the presence of either package.
 
-   Sprint_Line_Limit : Nat := 72; -- ????????????????
+   Sprint_Line_Limit : Nat := 72;
    --  GNAT
    --  Limit values for chopping long lines in Cprint/Sprint output, can be
    --  reset by use of NNN parameter with -gnatG or -gnatD switches.

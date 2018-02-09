@@ -1,7 +1,7 @@
 # Makefile for GNU Compiler Collection
 # Run 'configure' to generate Makefile from Makefile.in
 
-# Copyright (C) 1987-2017 Free Software Foundation, Inc.
+# Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -1277,6 +1277,7 @@ OBJS = \
 	dwarf2asm.o \
 	dwarf2cfi.o \
 	dwarf2out.o \
+	early-remat.o \
 	emit-rtl.o \
 	et-forest.o \
 	except.o \
@@ -1284,6 +1285,7 @@ OBJS = \
 	expmed.o \
 	expr.o \
 	fibonacci_heap.o \
+	file-prefix-map.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \
@@ -1316,6 +1318,7 @@ OBJS = \
 	gimple-ssa-strength-reduction.o \
 	gimple-ssa-sprintf.o \
 	gimple-ssa-warn-alloca.o \
+	gimple-ssa-warn-restrict.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
 	gimple-walk.o \
@@ -1452,6 +1455,7 @@ OBJS = \
 	rtlhash.o \
 	rtlanal.o \
 	rtlhooks.o \
+	rtx-vector-builder.o \
 	run-rtl-passes.o \
 	sched-deps.o \
 	sched-ebb.o \
@@ -1584,6 +1588,7 @@ OBJS = \
 	var-tracking.o \
 	varasm.o \
 	varpool.o \
+	vec-perm-indices.o \
 	vmsdbgout.o \
 	vr-values.o \
 	vtable-verify.o \
@@ -2807,7 +2812,8 @@ genprog = $(genprogerr) check checksum condmd match
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
 
 build/genrecog$(build_exeext) : build/hash-table.o build/inchash.o
-build/gencfn-macros$(build_exeext) : build/hash-table.o build/ggc-none.o
+build/gencfn-macros$(build_exeext) : build/hash-table.o build/vec.o \
+  build/ggc-none.o
 
 # For stage1 and when cross-compiling use the build libcpp which is
 # built with NLS disabled.  For stage2+ use the host library and
@@ -3162,7 +3168,7 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 gnu.texi gpl_v3.texi fdl.texi contrib.texi languages.texi	\
 	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
 	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi   \
-	 match-and-simplify.texi
+	 match-and-simplify.texi poly-int.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi		\
 	 gcc-common.texi gcc-vers.texi
@@ -3501,8 +3507,8 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   tree-ssa-loop-niter.h tree-ssa-ter.h tree-ssa-threadedge.h \
   tree-ssa-threadupdate.h inchash.h wide-int.h signop.h hash-map.h \
   hash-set.h dominance.h cfg.h cfgrtl.h cfganal.h cfgbuild.h cfgcleanup.h \
-  lcm.h cfgloopmanip.h builtins.def chkp-builtins.def pass-instances.def \
-  params.list
+  lcm.h cfgloopmanip.h file-prefix-map.h builtins.def chkp-builtins.def \
+  pass-instances.def params.list
 
 # generate the 'build fragment' b-header-vars
 s-header-vars: Makefile

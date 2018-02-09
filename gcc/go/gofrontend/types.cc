@@ -107,6 +107,34 @@ Type::forwarded() const
   return t;
 }
 
+// Skip alias definitions.
+
+Type*
+Type::unalias()
+{
+  Type* t = this->forwarded();
+  Named_type* nt = t->named_type();
+  while (nt != NULL && nt->is_alias())
+    {
+      t = nt->real_type()->forwarded();
+      nt = t->named_type();
+    }
+  return t;
+}
+
+const Type*
+Type::unalias() const
+{
+  const Type* t = this->forwarded();
+  const Named_type* nt = t->named_type();
+  while (nt != NULL && nt->is_alias())
+    {
+      t = nt->real_type()->forwarded();
+      nt = t->named_type();
+    }
+  return t;
+}
+
 // If this is a named type, return it.  Otherwise, return NULL.
 
 Named_type*
@@ -333,15 +361,9 @@ Type::are_identical_cmp_tags(const Type* t1, const Type* t2, Cmp_tags cmp_tags,
       return errors_are_identical ? true : t1 == t2;
     }
 
-  // Skip defined forward declarations.
-  t1 = t1->forwarded();
-  t2 = t2->forwarded();
-
-  // Ignore aliases for purposes of type identity.
-  while (t1->named_type() != NULL && t1->named_type()->is_alias())
-    t1 = t1->named_type()->real_type()->forwarded();
-  while (t2->named_type() != NULL && t2->named_type()->is_alias())
-    t2 = t2->named_type()->real_type()->forwarded();
+  // Skip defined forward declarations.  Ignore aliases.
+  t1 = t1->unalias();
+  t2 = t2->unalias();
 
   if (t1 == t2)
     return true;
@@ -846,6 +868,68 @@ Type::are_convertible(const Type* lhs, const Type* rhs, std::string* reason)
   return false;
 }
 
+// Copy expressions if it may change the size.
+//
+// The only type that has an expression is an array type.  The only
+// types whose size can be changed by the size of an array type are an
+// array type itself, or a struct type with an array field.
+Type*
+Type::copy_expressions()
+{
+  // This is run during parsing, so types may not be valid yet.
+  // We only have to worry about array type literals.
+  switch (this->classification_)
+    {
+    default:
+      return this;
+
+    case TYPE_ARRAY:
+      {
+	Array_type* at = this->array_type();
+	if (at->length() == NULL)
+	  return this;
+	Expression* len = at->length()->copy();
+	if (at->length() == len)
+	  return this;
+	return Type::make_array_type(at->element_type(), len);
+      }
+
+    case TYPE_STRUCT:
+      {
+	Struct_type* st = this->struct_type();
+	const Struct_field_list* sfl = st->fields();
+	if (sfl == NULL)
+	  return this;
+	bool changed = false;
+	Struct_field_list *nsfl = new Struct_field_list();
+	for (Struct_field_list::const_iterator pf = sfl->begin();
+	     pf != sfl->end();
+	     ++pf)
+	  {
+	    Type* ft = pf->type()->copy_expressions();
+	    Struct_field nf(Typed_identifier((pf->is_anonymous()
+					      ? ""
+					      : pf->field_name()),
+					     ft,
+					     pf->location()));
+	    if (pf->has_tag())
+	      nf.set_tag(pf->tag());
+	    nsfl->push_back(nf);
+	    if (ft != pf->type())
+	      changed = true;
+	  }
+	if (!changed)
+	  {
+	    delete(nsfl);
+	    return this;
+	  }
+	return Type::make_struct_type(nsfl, st->location());
+      }
+    }
+
+  go_unreachable();
+}
+
 // Return a hash code for the type to be used for method lookup.
 
 unsigned int
@@ -1197,9 +1281,7 @@ Type::finish_backend(Gogo* gogo, Btype *placeholder)
 Bexpression*
 Type::type_descriptor_pointer(Gogo* gogo, Location location)
 {
-  Type* t = this->forwarded();
-  while (t->named_type() != NULL && t->named_type()->is_alias())
-    t = t->named_type()->real_type()->forwarded();
+  Type* t = this->unalias();
   if (t->type_descriptor_var_ == NULL)
     {
       t->make_type_descriptor_var(gogo);
@@ -1648,10 +1730,10 @@ Type::type_functions(Gogo* gogo, Named_type* name, Function_type* hash_fntype,
 		     Function_type* equal_fntype, Named_object** hash_fn,
 		     Named_object** equal_fn)
 {
-  // If this loop leaves NAME as NULL, then the type does not have a
-  // name after all.
-  while (name != NULL && name->is_alias())
-    name = name->real_type()->named_type();
+  // If the unaliased type is not a named type, then the type does not
+  // have a name after all.
+  if (name != NULL)
+    name = name->unalias()->named_type();
 
   if (!this->is_comparable())
     {
@@ -2370,9 +2452,7 @@ static const int64_t max_ptrmask_bytes = 2048;
 Bexpression*
 Type::gc_symbol_pointer(Gogo* gogo)
 {
-  Type* t = this->forwarded();
-  while (t->named_type() != NULL && t->named_type()->is_alias())
-    t = t->named_type()->real_type()->forwarded();
+  Type* t = this->unalias();
 
   if (!t->has_pointer())
     return gogo->backend()->nil_pointer_expression();
@@ -2654,14 +2734,14 @@ Ptrmask::set_from(Gogo* gogo, Type* type, int64_t ptrsize, int64_t offset)
 // Return a symbol name for this ptrmask.  This is used to coalesce
 // identical ptrmasks, which are common.  The symbol name must use
 // only characters that are valid in symbols.  It's nice if it's
-// short.  We convert it to a base64 string.
+// short.  We convert it to a string that uses only 32 characters,
+// avoiding digits and u and U.
 
 std::string
 Ptrmask::symname() const
 {
-  const char chars[65] =
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_.";
-  go_assert(chars[64] == '\0');
+  const char chars[33] = "abcdefghijklmnopqrstvwxyzABCDEFG";
+  go_assert(chars[32] == '\0');
   std::string ret;
   unsigned int b = 0;
   int remaining = 0;
@@ -2671,18 +2751,18 @@ Ptrmask::symname() const
     {
       b |= *p << remaining;
       remaining += 8;
-      while (remaining >= 6)
+      while (remaining >= 5)
 	{
-	  ret += chars[b & 0x3f];
-	  b >>= 6;
-	  remaining -= 6;
+	  ret += chars[b & 0x1f];
+	  b >>= 5;
+	  remaining -= 5;
 	}
     }
   while (remaining > 0)
     {
-      ret += chars[b & 0x3f];
-      b >>= 6;
-      remaining -= 6;
+      ret += chars[b & 0x1f];
+      b >>= 5;
+      remaining -= 5;
     }
   return ret;
 }
@@ -4424,6 +4504,9 @@ Function_type::is_identical(const Function_type* t, bool ignore_receiver,
 			    Cmp_tags cmp_tags, bool errors_are_identical,
 			    std::string* reason) const
 {
+  if (this->is_backend_function_type() != t->is_backend_function_type())
+    return false;
+
   if (!ignore_receiver)
     {
       const Typed_identifier* r1 = this->receiver();
@@ -4447,7 +4530,11 @@ Function_type::is_identical(const Function_type* t, bool ignore_receiver,
     }
 
   const Typed_identifier_list* parms1 = this->parameters();
+  if (parms1 != NULL && parms1->empty())
+    parms1 = NULL;
   const Typed_identifier_list* parms2 = t->parameters();
+  if (parms2 != NULL && parms2->empty())
+    parms2 = NULL;
   if ((parms1 != NULL) != (parms2 != NULL))
     {
       if (reason != NULL)
@@ -4492,7 +4579,11 @@ Function_type::is_identical(const Function_type* t, bool ignore_receiver,
     }
 
   const Typed_identifier_list* results1 = this->results();
+  if (results1 != NULL && results1->empty())
+    results1 = NULL;
   const Typed_identifier_list* results2 = t->results();
+  if (results2 != NULL && results2->empty())
+    results2 = NULL;
   if ((results1 != NULL) != (results2 != NULL))
     {
       if (reason != NULL)
@@ -6388,11 +6479,11 @@ Struct_type::do_reflection(Gogo* gogo, std::string* ret) const
       if (p != this->fields_->begin())
 	ret->push_back(';');
       ret->push_back(' ');
-      if (p->is_anonymous())
-	ret->push_back('?');
-      else
-	ret->append(Gogo::unpack_hidden_name(p->field_name()));
-      ret->push_back(' ');
+      if (!p->is_anonymous())
+	{
+	  ret->append(Gogo::unpack_hidden_name(p->field_name()));
+	  ret->push_back(' ');
+	}
       if (p->is_anonymous()
 	  && p->type()->named_type() != NULL
 	  && p->type()->named_type()->is_alias())
@@ -7830,7 +7921,7 @@ Map_type::do_get_backend(Gogo* gogo)
       bfields[7].btype = uintptr_type->get_backend(gogo);
       bfields[7].location = bloc;
 
-      bfields[8].name = "overflow";
+      bfields[8].name = "extra";
       bfields[8].btype = bpvt;
       bfields[8].location = bloc;
 
@@ -8144,21 +8235,23 @@ Map_type::hmap_type(Type* bucket_type)
 
   Type* int_type = Type::lookup_integer_type("int");
   Type* uint8_type = Type::lookup_integer_type("uint8");
+  Type* uint16_type = Type::lookup_integer_type("uint16");
   Type* uint32_type = Type::lookup_integer_type("uint32");
   Type* uintptr_type = Type::lookup_integer_type("uintptr");
   Type* void_ptr_type = Type::make_pointer_type(Type::make_void_type());
 
   Type* ptr_bucket_type = Type::make_pointer_type(bucket_type);
 
-  Struct_type* ret = make_builtin_struct_type(8,
+  Struct_type* ret = make_builtin_struct_type(9,
 					      "count", int_type,
 					      "flags", uint8_type,
 					      "B", uint8_type,
+					      "noverflow", uint16_type,
 					      "hash0", uint32_type,
 					      "buckets", ptr_bucket_type,
 					      "oldbuckets", ptr_bucket_type,
 					      "nevacuate", uintptr_type,
-					      "overflow", void_ptr_type);
+					      "extra", void_ptr_type);
   ret->set_is_struct_incomparable();
   this->hmap_type_ = ret;
   return ret;
@@ -8191,18 +8284,22 @@ Map_type::hiter_type(Gogo* gogo)
   Type* hmap_type = this->hmap_type(bucket_type);
   Type* hmap_ptr_type = Type::make_pointer_type(hmap_type);
   Type* void_ptr_type = Type::make_pointer_type(Type::make_void_type());
+  Type* bool_type = Type::lookup_bool_type();
 
-  Struct_type* ret = make_builtin_struct_type(12,
+  Struct_type* ret = make_builtin_struct_type(15,
 					      "key", key_ptr_type,
 					      "val", val_ptr_type,
 					      "t", uint8_ptr_type,
 					      "h", hmap_ptr_type,
 					      "buckets", bucket_ptr_type,
 					      "bptr", bucket_ptr_type,
-					      "overflow0", void_ptr_type,
-					      "overflow1", void_ptr_type,
+					      "overflow", void_ptr_type,
+					      "oldoverflow", void_ptr_type,
 					      "startBucket", uintptr_type,
-					      "stuff", uintptr_type,
+					      "offset", uint8_type,
+					      "wrapped", bool_type,
+					      "B", uint8_type,
+					      "i", uint8_type,
 					      "bucket", uintptr_type,
 					      "checkBucket", uintptr_type);
   ret->set_is_struct_incomparable();
@@ -8999,6 +9096,8 @@ Interface_type::get_backend_empty_interface_type(Gogo* gogo)
   return empty_interface_type;
 }
 
+Interface_type::Bmethods_map Interface_type::bmethods_map;
+
 // Return a pointer to the backend representation of the method table.
 
 Btype*
@@ -9006,6 +9105,21 @@ Interface_type::get_backend_methods(Gogo* gogo)
 {
   if (this->bmethods_ != NULL && !this->bmethods_is_placeholder_)
     return this->bmethods_;
+
+  std::pair<Interface_type*, Bmethods_map_entry> val;
+  val.first = this;
+  val.second.btype = NULL;
+  val.second.is_placeholder = false;
+  std::pair<Bmethods_map::iterator, bool> ins =
+    Interface_type::bmethods_map.insert(val);
+  if (!ins.second
+      && ins.first->second.btype != NULL
+      && !ins.first->second.is_placeholder)
+    {
+      this->bmethods_ = ins.first->second.btype;
+      this->bmethods_is_placeholder_ = false;
+      return this->bmethods_;
+    }
 
   Location loc = this->location();
 
@@ -9063,10 +9177,14 @@ Interface_type::get_backend_methods(Gogo* gogo)
   Btype* st = gogo->backend()->struct_type(mfields);
   Btype* ret = gogo->backend()->pointer_type(st);
 
-  if (this->bmethods_ != NULL && this->bmethods_is_placeholder_)
-    gogo->backend()->set_placeholder_pointer_type(this->bmethods_, ret);
+  if (ins.first->second.btype != NULL
+      && ins.first->second.is_placeholder)
+    gogo->backend()->set_placeholder_pointer_type(ins.first->second.btype,
+                                                  ret);
   this->bmethods_ = ret;
+  ins.first->second.btype = ret;
   this->bmethods_is_placeholder_ = false;
+  ins.first->second.is_placeholder = false;
   return ret;
 }
 
@@ -9077,10 +9195,25 @@ Interface_type::get_backend_methods_placeholder(Gogo* gogo)
 {
   if (this->bmethods_ == NULL)
     {
+      std::pair<Interface_type*, Bmethods_map_entry> val;
+      val.first = this;
+      val.second.btype = NULL;
+      val.second.is_placeholder = false;
+      std::pair<Bmethods_map::iterator, bool> ins =
+        Interface_type::bmethods_map.insert(val);
+      if (!ins.second && ins.first->second.btype != NULL)
+        {
+          this->bmethods_ = ins.first->second.btype;
+          this->bmethods_is_placeholder_ = ins.first->second.is_placeholder;
+          return this->bmethods_;
+        }
+
       Location loc = this->location();
-      this->bmethods_ = gogo->backend()->placeholder_pointer_type("", loc,
-								  false);
+      Btype* bt = gogo->backend()->placeholder_pointer_type("", loc, false);
+      this->bmethods_ = bt;
+      ins.first->second.btype = bt;
       this->bmethods_is_placeholder_ = true;
+      ins.first->second.is_placeholder = true;
     }
   return this->bmethods_;
 }
@@ -11138,7 +11271,7 @@ Type::build_stub_methods(Gogo* gogo, const Type* type, const Methods* methods,
 	package = NULL;
       else
 	package = type->named_type()->named_object()->package();
-      std::string stub_name = gogo->stub_method_name(name);
+      std::string stub_name = gogo->stub_method_name(package, name);
       Named_object* stub;
       if (package != NULL)
 	stub = Named_object::make_function_declaration(stub_name, package,
@@ -11480,9 +11613,9 @@ Type::find_field_or_method(const Type* type,
 			   std::string* ambig2)
 {
   // Named types can have locally defined methods.
-  const Named_type* nt = type->named_type();
+  const Named_type* nt = type->unalias()->named_type();
   if (nt == NULL && type->points_to() != NULL)
-    nt = type->points_to()->named_type();
+    nt = type->points_to()->unalias()->named_type();
   if (nt != NULL)
     {
       Named_object* no = nt->find_local_method(name);

@@ -1,3 +1,112 @@
+2018-02-02  Julia Koval  <julia.koval@intel.com>
+
+	* config/i386/cpuinfo.h (processor_subtypes): Add INTEL_COREI7_ICELAKE.
+
+2018-01-26  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/lib1funcs.S (__udivmodsi4): Use safe version for RF16
+	option.
+	(__divsi3): Use RF16 safe registers.
+	(__modsi3): Likewise.
+
+2018-01-23  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/ieee754-df.S (__addsf3, __subsf3, __mulsf3)
+	(__divsf3): Make NaN return value quiet.
+	* config/xtensa/ieee754-sf.S (__adddf3, __subdf3, __muldf3)
+	(__divdf3): Make NaN return value quiet.
+
+2018-01-22  Sebastian Perta  <sebastian.perta@renesas.com>
+
+	* config/rl78/anddi3.S: New assembly file.
+	* config/rl78/t-rl78: Added anddi3.S to LIB2ADD.
+
+2018-01-22  Sebastian Perta  <sebastian.perta@renesas.com>
+
+	* config/rl78/umindi3.S: New assembly file.
+	* config/rl78/t-rl78: Added umindi3.S to LIB2ADD.
+
+2018-01-22  Sebastian Perta  <sebastian.perta@renesas.com>
+
+	* config/rl78/smindi3.S: New assembly file.
+	* config/rl78/t-rl78: Added smindi3.S to LIB2ADD.
+
+2018-01-22  Sebastian Perta  <sebastian.perta@renesas.com>
+ 
+	* config/rl78/smaxdi3.S: New assembly file.
+	* config/rl78/t-rl78: Added smaxdi3.S to LIB2ADD.
+
+2018-01-22  Sebastian Perta  <sebastian.perta@renesas.com>
+ 
+	* config/rl78/umaxdi3.S: New assembly file.
+	* config/rl78/t-rl78: Added umaxdi3.S to LIB2ADD.
+	
+2018-01-21  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR lto/83452
+	* config/pa/stublib.c (L_gnu_lto_v1): New stub definition.
+	* config/pa/t-stublib (gnu_lto_v1-stub.o): Add make fragment.
+	
+2018-01-13  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* config/aarch64/value-unwind.h (aarch64_vg): New function.
+	(DWARF_LAZY_REGISTER_VALUE): Define.
+	* unwind-dw2.c (_Unwind_GetGR): Use DWARF_LAZY_REGISTER_VALUE
+	to provide a fallback register value.
+
+2018-01-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/quad-float128.h (IBM128_TYPE): Explicitly use
+	__ibm128, instead of trying to use long double.
+	(CVT_FLOAT128_TO_IBM128): Use TFtype instead of __float128 to
+	accomidate -mabi=ieeelongdouble multilibs.
+	(CVT_IBM128_TO_FLOAT128): Likewise.
+	* config/rs6000/ibm-ldouble.c (IBM128_TYPE): New macro to define
+	the appropriate IBM extended double type.
+	(__gcc_qadd): Change all occurances of long double to IBM128_TYPE.
+	(__gcc_qsub): Likewise.
+	(__gcc_qmul): Likewise.
+	(__gcc_qdiv): Likewise.
+	(pack_ldouble): Likewise.
+	(__gcc_qneg): Likewise.
+	(__gcc_qeq): Likewise.
+	(__gcc_qne): Likewise.
+	(__gcc_qge): Likewise.
+	(__gcc_qle): Likewise.
+	(__gcc_stoq): Likewise.
+	(__gcc_dtoq): Likewise.
+	(__gcc_itoq): Likewise.
+	(__gcc_utoq): Likewise.
+	(__gcc_qunord): Likewise.
+	* config/rs6000/_mulkc3.c (toplevel): Include soft-fp.h and
+	quad-float128.h for the definitions.
+	(COPYSIGN): Use the f128 version instead of the q version.
+	(INFINITY): Likewise.
+	(__mulkc3): Use TFmode/TCmode for float128 scalar/complex types.
+	* config/rs6000/_divkc3.c (toplevel): Include soft-fp.h and
+	quad-float128.h for the definitions.
+	(COPYSIGN): Use the f128 version instead of the q version.
+	(INFINITY): Likewise.
+	(FABS): Likewise.
+	(__divkc3): Use TFmode/TCmode for float128 scalar/complex types.
+	* config/rs6000/extendkftf2-sw.c (__extendkftf2_sw): Likewise.
+	* config/rs6000/trunctfkf2-sw.c (__trunctfkf2_sw): Likewise.
+
+2018-01-05  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config.host (epiphany-*-elf*): Add (epiphany-*-rtems*)
+	configuration.
+
+2018-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2017-12-12  Kito Cheng  <kito.cheng@gmail.com>
+
+	* config/riscv/t-elf: Use multi3.c instead of multi3.S.
+	* config/riscv/multi3.c: New file.
+	* config/riscv/multi3.S: Remove.
+
 2017-12-08  Jim Wilson  <jimw@sifive.com>
 
 	* config/riscv/div.S: Use FUNC_* macros.
@@ -8863,7 +8972,7 @@
 	shared-object.mk, siditi-object.mk, static-object.mk: New files.
 	* configure: Generated.
 
-Copyright (C) 2007-2017 Free Software Foundation, Inc.
+Copyright (C) 2007-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

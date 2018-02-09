@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -197,7 +197,7 @@ static int dialect_number;
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
 rtx current_insn_predicate;
 
-/* True if printing into -fdump-final-insns= dump.  */   
+/* True if printing into -fdump-final-insns= dump.  */
 bool final_insns_dump_p;
 
 /* True if profile_function should be called, but hasn't been called yet.  */
@@ -761,7 +761,7 @@ compute_alignments (void)
       if (!has_fallthru
 	  && (branch_count > count_threshold
 	      || (bb->count > bb->prev_bb->count.apply_scale (10, 1)
-		  && (bb->prev_bb->count 
+		  && (bb->prev_bb->count
 		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)
 			   ->count.apply_scale (1, 2)))))
 	{
@@ -805,7 +805,7 @@ compute_alignments (void)
 
 /* Grow the LABEL_ALIGN array after new labels are created.  */
 
-static void 
+static void
 grow_label_align (void)
 {
   int old = max_labelno;
@@ -1508,72 +1508,6 @@ asm_str_count (const char *templ)
   return count;
 }
 
-/* ??? This is probably the wrong place for these.  */
-/* Structure recording the mapping from source file and directory
-   names at compile time to those to be embedded in debug
-   information.  */
-struct debug_prefix_map
-{
-  const char *old_prefix;
-  const char *new_prefix;
-  size_t old_len;
-  size_t new_len;
-  struct debug_prefix_map *next;
-};
-
-/* Linked list of such structures.  */
-static debug_prefix_map *debug_prefix_maps;
-
-
-/* Record a debug file prefix mapping.  ARG is the argument to
-   -fdebug-prefix-map and must be of the form OLD=NEW.  */
-
-void
-add_debug_prefix_map (const char *arg)
-{
-  debug_prefix_map *map;
-  const char *p;
-
-  p = strchr (arg, '=');
-  if (!p)
-    {
-      error ("invalid argument %qs to -fdebug-prefix-map", arg);
-      return;
-    }
-  map = XNEW (debug_prefix_map);
-  map->old_prefix = xstrndup (arg, p - arg);
-  map->old_len = p - arg;
-  p++;
-  map->new_prefix = xstrdup (p);
-  map->new_len = strlen (p);
-  map->next = debug_prefix_maps;
-  debug_prefix_maps = map;
-}
-
-/* Perform user-specified mapping of debug filename prefixes.  Return
-   the new name corresponding to FILENAME.  */
-
-const char *
-remap_debug_filename (const char *filename)
-{
-  debug_prefix_map *map;
-  char *s;
-  const char *name;
-  size_t name_len;
-
-  for (map = debug_prefix_maps; map; map = map->next)
-    if (filename_ncmp (filename, map->old_prefix, map->old_len) == 0)
-      break;
-  if (!map)
-    return filename;
-  name = filename + map->old_len;
-  name_len = strlen (name) + 1;
-  s = (char *) alloca (name_len + map->new_len);
-  memcpy (s, map->new_prefix, map->new_len);
-  memcpy (s + map->new_len, name, name_len);
-  return ggc_strdup (s);
-}
-
 /* Return true if DWARF2 debug info can be emitted for DECL.  */
 
 static bool
@@ -1814,10 +1748,11 @@ maybe_output_next_view (int *seen)
 static inline bool
 in_initial_view_p (rtx_insn *insn)
 {
-  return !DECL_IGNORED_P (current_function_decl)
-    && debug_variable_location_views
-    && insn && GET_CODE (insn) == NOTE
-    && NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION;
+  return (!DECL_IGNORED_P (current_function_decl)
+	  && debug_variable_location_views
+	  && insn && GET_CODE (insn) == NOTE
+	  && (NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION
+	      || NOTE_KIND (insn) == NOTE_INSN_DELETED));
 }
 
 /* Output assembler code for the start of a function,
@@ -1924,14 +1859,15 @@ final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
       TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
     }
 
+  HOST_WIDE_INT min_frame_size = constant_lower_bound (get_frame_size ());
   if (warn_frame_larger_than
-    && get_frame_size () > frame_larger_than_size)
-  {
+      && min_frame_size > frame_larger_than_size)
+    {
       /* Issue a warning */
       warning (OPT_Wframe_larger_than_,
-               "the frame size of %wd bytes is larger than %wd bytes",
-               get_frame_size (), frame_larger_than_size);
-  }
+	       "the frame size of %wd bytes is larger than %wd bytes",
+	       min_frame_size, frame_larger_than_size);
+    }
 
   /* First output the function prologue: code to set up the stack frame.  */
   targetm.asm_out.function_prologue (file);
@@ -3400,7 +3336,7 @@ alter_subreg (rtx *xp, bool final_p)
      We are required to.  */
   if (MEM_P (y))
     {
-      int offset = SUBREG_BYTE (x);
+      poly_int64 offset = SUBREG_BYTE (x);
 
       /* For paradoxical subregs on big-endian machines, SUBREG_BYTE
 	 contains 0 instead of the proper offset.  See simplify_subreg.  */
@@ -3423,7 +3359,7 @@ alter_subreg (rtx *xp, bool final_p)
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno;
-	  HOST_WIDE_INT offset;
+	  poly_int64 offset;
 
 	  regno = subreg_regno (x);
 	  if (subreg_lowpart_p (x))
@@ -4662,11 +4598,9 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	break;
 
       case 'E':
-	if (NULL != XVEC (in_rtx, i))
-	  {
-	    for (j = 0; j < XVECLEN (in_rtx, i); j++)
-	      leaf_renumber_regs_insn (XVECEXP (in_rtx, i, j));
-	  }
+	if (XVEC (in_rtx, i) != NULL)
+	  for (j = 0; j < XVECLEN (in_rtx, i); j++)
+	    leaf_renumber_regs_insn (XVECEXP (in_rtx, i, j));
 	break;
 
       case 'S':
@@ -4674,6 +4608,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
       case '0':
       case 'i':
       case 'w':
+      case 'p':
       case 'n':
       case 'u':
 	break;
@@ -4690,9 +4625,10 @@ rest_of_handle_final (void)
 {
   const char *fnname = get_fnname_from_decl (current_function_decl);
 
-  /* Turn debug markers into notes.  */
-  if (!MAY_HAVE_DEBUG_BIND_INSNS && MAY_HAVE_DEBUG_MARKER_INSNS)
-    variable_tracking_main ();
+  /* Turn debug markers into notes if the var-tracking pass has not
+     been invoked.  */
+  if (!flag_var_tracking && MAY_HAVE_DEBUG_MARKER_INSNS)
+    delete_vta_debug_insns (false);
 
   assemble_start_function (current_function_decl, fnname);
   rtx_insn *first = get_insns ();

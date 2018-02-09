@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2011-2017 Free Software Foundation, Inc.
+   Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,6 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -52,8 +54,8 @@ static struct vendor_cpu arm_cpu_table[] = {
     {"0xd07", "armv8-a+crc", "cortex-a57"},
     {"0xd08", "armv8-a+crc", "cortex-a72"},
     {"0xd09", "armv8-a+crc", "cortex-a73"},
-    {"0xd05", "armv8.2-a+fp16", "cortex-a55"},
-    {"0xd0a", "armv8.2-a+fp16", "cortex-a75"},
+    {"0xd05", "armv8.2-a+fp16+dotprod", "cortex-a55"},
+    {"0xd0a", "armv8.2-a+fp16+dotprod", "cortex-a75"},
     {"0xc14", "armv7-r", "cortex-r4"},
     {"0xc15", "armv7-r", "cortex-r5"},
     {"0xc17", "armv7-r", "cortex-r7"},

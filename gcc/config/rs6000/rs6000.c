@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991-2017 Free Software Foundation, Inc.
+   Copyright (C) 1991-2018 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -17,6 +17,8 @@
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -66,6 +68,7 @@
 #include "tree-vectorizer.h"
 #include "target-globals.h"
 #include "builtins.h"
+#include "tree-vector-builder.h"
 #include "context.h"
 #include "tree-pass.h"
 #include "except.h"
@@ -388,6 +391,7 @@ static const struct
   { "ebb",		PPC_FEATURE2_HAS_EBB,		1 },
   { "htm",		PPC_FEATURE2_HAS_HTM,		1 },
   { "htm-nosc",		PPC_FEATURE2_HTM_NOSC,		1 },
+  { "htm-no-suspend",	PPC_FEATURE2_HTM_NO_SUSPEND,	1 },
   { "isel",		PPC_FEATURE2_HAS_ISEL,		1 },
   { "tar",		PPC_FEATURE2_HAS_TAR,		1 },
   { "vcrypto",		PPC_FEATURE2_HAS_VEC_CRYPTO,	1 },
@@ -1517,22 +1521,22 @@ static const char alt_reg_names[][8] =
 
 static const struct attribute_spec rs6000_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity, exclusions } */
-  { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute,
-    false, NULL },
-  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
-    false, NULL },
-  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
-    false, NULL },
-  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
-    false, NULL },
-  { "gcc_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
-    false, NULL },
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
+       affects_type_identity, handler, exclude } */
+  { "altivec",   1, 1, false, true,  false, false,
+    rs6000_handle_altivec_attribute, NULL },
+  { "longcall",  0, 0, false, true,  true,  false,
+    rs6000_handle_longcall_attribute, NULL },
+  { "shortcall", 0, 0, false, true,  true,  false,
+    rs6000_handle_longcall_attribute, NULL },
+  { "ms_struct", 0, 0, false, false, false, false,
+    rs6000_handle_struct_attribute, NULL },
+  { "gcc_struct", 0, 0, false, false, false, false,
+    rs6000_handle_struct_attribute, NULL },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
-  { NULL,        0, 0, false, false, false, NULL, false, NULL }
+  { NULL,        0, 0, false, false, false, false, NULL, NULL }
 };
 
 #ifndef TARGET_PROFILE_KERNEL
@@ -1907,8 +1911,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P rs6000_legitimate_constant_p
 
-#undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
-#define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+#undef TARGET_VECTORIZE_VEC_PERM_CONST
+#define TARGET_VECTORIZE_VEC_PERM_CONST rs6000_vectorize_vec_perm_const
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
@@ -2978,7 +2982,15 @@ rs6000_setup_reg_addr_masks (void)
 
 	      /* Figure out if we can do PRE_INC, PRE_DEC, or PRE_MODIFY
 		 addressing.  If we allow scalars into Altivec registers,
-		 don't allow PRE_INC, PRE_DEC, or PRE_MODIFY.  */
+		 don't allow PRE_INC, PRE_DEC, or PRE_MODIFY.
+
+		 For VSX systems, we don't allow update addressing for
+		 DFmode/SFmode if those registers can go in both the
+		 traditional floating point registers and Altivec registers.
+		 The load/store instructions for the Altivec registers do not
+		 have update forms.  If we allowed update addressing, it seems
+		 to break IV-OPT code using floating point if the index type is
+		 int instead of long (PR target/81550 and target/84042).  */
 
 	      if (TARGET_UPDATE
 		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
@@ -2986,6 +2998,8 @@ rs6000_setup_reg_addr_masks (void)
 		  && !VECTOR_MODE_P (m2)
 		  && !FLOAT128_VECTOR_P (m2)
 		  && !complex_p
+		  && (m != E_DFmode || !TARGET_VSX)
+		  && (m != E_SFmode || !TARGET_P8_VECTOR)
 		  && !small_int_vsx_p)
 		{
 		  addr_mask |= RELOAD_REG_PRE_INCDEC;
@@ -4201,34 +4215,21 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   /* If we are optimizing big endian systems for space, use the load/store
-     multiple and string instructions.  */
+     multiple instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
-    rs6000_isa_flags |= ~rs6000_isa_flags_explicit & (OPTION_MASK_MULTIPLE
-						      | OPTION_MASK_STRING);
+    rs6000_isa_flags |= ~rs6000_isa_flags_explicit & OPTION_MASK_MULTIPLE;
 
-  /* Don't allow -mmultiple or -mstring on little endian systems
-     unless the cpu is a 750, because the hardware doesn't support the
-     instructions used in little endian mode, and causes an alignment
-     trap.  The 750 does not cause an alignment trap (except when the
-     target is unaligned).  */
+  /* Don't allow -mmultiple on little endian systems unless the cpu is a 750,
+     because the hardware doesn't support the instructions used in little
+     endian mode, and causes an alignment trap.  The 750 does not cause an
+     alignment trap (except when the target is unaligned).  */
 
-  if (!BYTES_BIG_ENDIAN && rs6000_cpu != PROCESSOR_PPC750)
+  if (!BYTES_BIG_ENDIAN && rs6000_cpu != PROCESSOR_PPC750 && TARGET_MULTIPLE)
     {
-      if (TARGET_MULTIPLE)
-	{
-	  rs6000_isa_flags &= ~OPTION_MASK_MULTIPLE;
-	  if ((rs6000_isa_flags_explicit & OPTION_MASK_MULTIPLE) != 0)
-	    warning (0, "%qs is not supported on little endian systems",
-		     "-mmultiple");
-	}
-
-      if (TARGET_STRING)
-	{
-	  rs6000_isa_flags &= ~OPTION_MASK_STRING;
-	  if ((rs6000_isa_flags_explicit & OPTION_MASK_STRING) != 0)
-	    warning (0, "%qs is not supported on little endian systems",
-		     "-mstring");
-	}
+      rs6000_isa_flags &= ~OPTION_MASK_MULTIPLE;
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_MULTIPLE) != 0)
+	warning (0, "%qs is not supported on little endian systems",
+		 "-mmultiple");
     }
 
   /* If little-endian, default to -mstrict-align on older processors.
@@ -4597,11 +4598,15 @@ rs6000_option_override_internal (bool global_init_p)
      systems will also set long double to be IEEE 128-bit.  AIX and Darwin
      explicitly redefine TARGET_IEEEQUAD and TARGET_IEEEQUAD_DEFAULT to 0, so
      those systems will not pick up this default.  Warn if the user changes the
-     default unless -Wno-psabi.  */
+     default unless either the user used the -Wno-psabi option, or the compiler
+     was built to enable multilibs to switch between the two long double
+     types.  */
   if (!global_options_set.x_rs6000_ieeequad)
     rs6000_ieeequad = TARGET_IEEEQUAD_DEFAULT;
 
-  else if (rs6000_ieeequad != TARGET_IEEEQUAD_DEFAULT && TARGET_LONG_DOUBLE_128)
+  else if (!TARGET_IEEEQUAD_MULTILIB
+	   && rs6000_ieeequad != TARGET_IEEEQUAD_DEFAULT
+	   && TARGET_LONG_DOUBLE_128)
     {
       static bool warned_change_long_double;
       if (!warned_change_long_double)
@@ -4809,9 +4814,7 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_print_isa_options (stderr, 0, "after subtarget", rs6000_isa_flags);
 
   /* For the E500 family of cores, reset the single/double FP flags to let us
-     check that they remain constant across attributes or pragmas.  Also,
-     clear a possible request for string instructions, not supported and which
-     we might have silently queried above for -Os.  */
+     check that they remain constant across attributes or pragmas.  */
 
   switch (rs6000_cpu)
     {
@@ -4823,7 +4826,6 @@ rs6000_option_override_internal (bool global_init_p)
     case PROCESSOR_PPCE6500:
       rs6000_single_float = 0;
       rs6000_double_float = 0;
-      rs6000_isa_flags &= ~OPTION_MASK_STRING;
       break;
 
     default:
@@ -5292,6 +5294,11 @@ rs6000_option_override_internal (bool global_init_p)
      extra blr's required to preserve the link stack on some cpus (eg, 476).  */
   if (TARGET_LINK_STACK == -1)
     SET_TARGET_LINK_STACK (rs6000_tune == PROCESSOR_PPC476 && flag_pic);
+
+  /* Deprecate use of -mno-speculate-indirect-jumps.  */
+  if (!rs6000_speculate_indirect_jumps)
+    warning (0, "%qs is deprecated and not recommended in any circumstances",
+	     "-mno-speculate-indirect-jumps");
 
   return ret;
 }
@@ -7297,7 +7304,7 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
     {
       if (TARGET_P9_VECTOR)
 	x = gen_rtx_UNSPEC (mode,
-			    gen_rtvec (3, target, reg,
+			    gen_rtvec (3, reg, target,
 				       force_reg (V16QImode, x)),
 			    UNSPEC_VPERMR);
       else
@@ -9069,10 +9076,14 @@ rs6000_legitimate_combined_insn (rtx_insn *insn)
      for the difficult case.  It's better to not create problems
      in the first place.  */
   if (icode != CODE_FOR_nothing
-      && (icode == CODE_FOR_ctrsi_internal1
-	  || icode == CODE_FOR_ctrdi_internal1
-	  || icode == CODE_FOR_ctrsi_internal2
-	  || icode == CODE_FOR_ctrdi_internal2))
+      && (icode == CODE_FOR_bdz_si
+	  || icode == CODE_FOR_bdz_di
+	  || icode == CODE_FOR_bdnz_si
+	  || icode == CODE_FOR_bdnz_di
+	  || icode == CODE_FOR_bdztf_si
+	  || icode == CODE_FOR_bdztf_di
+	  || icode == CODE_FOR_bdnztf_si
+	  || icode == CODE_FOR_bdnztf_di))
     return false;
 
   return true;
@@ -10498,6 +10509,23 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
       gcc_unreachable ();
     }
 
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  /* If we use a long double type, set the flags in .gnu_attribute that say
+     what the long double type is.  This is to allow the linker's warning
+     message for the wrong long double to be useful, even if the function does
+     not do a call (for example, doing a 128-bit add on power9 if the long
+     double type is IEEE 128-bit.  Do not set this if __ibm128 or __floa128 are
+     used if they aren't the default long dobule type.  */
+  if (rs6000_gnu_attr && (HAVE_LD_PPC_GNU_ATTR_LONG_DOUBLE || TARGET_64BIT))
+    {
+      if (TARGET_LONG_DOUBLE_128 && (mode == TFmode || mode == TCmode))
+	rs6000_passes_float = rs6000_passes_long_double = true;
+
+      else if (!TARGET_LONG_DOUBLE_128 && (mode == DFmode || mode == DCmode))
+	rs6000_passes_float = rs6000_passes_long_double = true;
+    }
+#endif
+
   /* See if we need to special case SImode/SFmode SUBREG moves.  */
   if ((mode == SImode || mode == SFmode) && SUBREG_P (source)
       && rs6000_emit_move_si_sf_subreg (dest, source, mode))
@@ -11094,7 +11122,8 @@ rs6000_discover_homogeneous_aggregate (machine_mode mode, const_tree type,
      homogeneous aggregates; these types are handled via the
      targetm.calls.split_complex_arg mechanism.  Complex types
      can be elements of homogeneous aggregates, however.  */
-  if (DEFAULT_ABI == ABI_ELFv2 && type && AGGREGATE_TYPE_P (type))
+  if (TARGET_HARD_FLOAT && DEFAULT_ABI == ABI_ELFv2 && type
+      && AGGREGATE_TYPE_P (type))
     {
       machine_mode field_mode = VOIDmode;
       int field_count = rs6000_aggregate_candidate (type, &field_mode);
@@ -11421,7 +11450,7 @@ rs6000_must_pass_in_stack (machine_mode mode, const_tree type)
 static inline bool
 is_complex_IBM_long_double (machine_mode mode)
 {
-  return mode == ICmode || (!TARGET_IEEEQUAD && mode == TCmode);
+  return mode == ICmode || (mode == TCmode && FLOAT128_IBM_P (TCmode));
 }
 
 /* Whether ABI_V4 passes MODE args to a function in floating point
@@ -15568,6 +15597,12 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
        unaligned-supporting store, so use a generic expander.  For
        little-endian, the exact element-reversing instruction must
        be used.  */
+   case VSX_BUILTIN_ST_ELEMREV_V1TI:
+     {
+        enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v1ti
+			       : CODE_FOR_vsx_st_elemrev_v1ti);
+        return altivec_expand_stv_builtin (code, exp);
+      }
     case VSX_BUILTIN_ST_ELEMREV_V2DF:
       {
 	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_store_v2df
@@ -15842,6 +15877,12 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 			       : CODE_FOR_vsx_ld_elemrev_v2df);
 	return altivec_expand_lv_builtin (code, exp, target, false);
       }
+    case VSX_BUILTIN_LD_ELEMREV_V1TI:
+      {
+	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v1ti
+			       : CODE_FOR_vsx_ld_elemrev_v1ti);
+	return altivec_expand_lv_builtin (code, exp, target, false);
+      }
     case VSX_BUILTIN_LD_ELEMREV_V2DI:
       {
 	enum insn_code code = (BYTES_BIG_ENDIAN ? CODE_FOR_vsx_load_v2di
@@ -16111,6 +16152,40 @@ fold_compare_helper (gimple_stmt_iterator *gsi, tree_code code, gimple *stmt)
   tree lhs = gimple_call_lhs (stmt);
   tree cmp = fold_build_vec_cmp (code, TREE_TYPE (lhs), arg0, arg1);
   gimple *g = gimple_build_assign (lhs, cmp);
+  gimple_set_location (g, gimple_location (stmt));
+  gsi_replace (gsi, g, true);
+}
+
+/* Helper function to handle the vector merge[hl] built-ins.  The
+   implementation difference between h and l versions for this code are in
+   the values used when building of the permute vector for high word versus
+   low word merge.  The variance is keyed off the use_high parameter.  */
+static void
+fold_mergehl_helper (gimple_stmt_iterator *gsi, gimple *stmt, int use_high)
+{
+  tree arg0 = gimple_call_arg (stmt, 0);
+  tree arg1 = gimple_call_arg (stmt, 1);
+  tree lhs = gimple_call_lhs (stmt);
+  tree lhs_type = TREE_TYPE (lhs);
+  tree lhs_type_type = TREE_TYPE (lhs_type);
+  int n_elts = TYPE_VECTOR_SUBPARTS (lhs_type);
+  int midpoint = n_elts / 2;
+  int offset = 0;
+
+  if (use_high == 1)
+    offset = midpoint;
+
+  tree_vector_builder elts (lhs_type, VECTOR_CST_NELTS (arg0), 1);
+
+  for (int i = 0; i < midpoint; i++)
+    {
+      elts.safe_push (build_int_cst (lhs_type_type, offset + i));
+      elts.safe_push (build_int_cst (lhs_type_type, offset + n_elts + i));
+    }
+
+  tree permute = elts.build ();
+
+  gimple *g = gimple_build_assign (lhs, VEC_PERM_EXPR, arg0, arg1, permute);
   gimple_set_location (g, gimple_location (stmt));
   gsi_replace (gsi, g, true);
 }
@@ -16643,6 +16718,28 @@ rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	 return true;
       }
 
+    /* vec_mergel (integrals).  */
+    case ALTIVEC_BUILTIN_VMRGLH:
+    case ALTIVEC_BUILTIN_VMRGLW:
+    case VSX_BUILTIN_XXMRGLW_4SI:
+    case ALTIVEC_BUILTIN_VMRGLB:
+    case VSX_BUILTIN_VEC_MERGEL_V2DI:
+	/* Do not fold for -maltivec=be on LE targets.  */
+	if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
+	  return false;
+	fold_mergehl_helper (gsi, stmt, 1);
+	return true;
+    /* vec_mergeh (integrals).  */
+    case ALTIVEC_BUILTIN_VMRGHH:
+    case ALTIVEC_BUILTIN_VMRGHW:
+    case VSX_BUILTIN_XXMRGHW_4SI:
+    case ALTIVEC_BUILTIN_VMRGHB:
+    case VSX_BUILTIN_VEC_MERGEH_V2DI:
+	/* Do not fold for -maltivec=be on LE targets.  */
+	if (VECTOR_ELT_ORDER_BIG && !BYTES_BIG_ENDIAN)
+	  return false;
+	fold_mergehl_helper (gsi, stmt, 0);
+	return true;
     default:
       if (TARGET_DEBUG_BUILTIN)
 	fprintf (stderr, "gimple builtin intrinsic not matched:%d %s %s\n",
@@ -16783,6 +16880,12 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case RS6000_BUILTIN_CPU_IS:
     case RS6000_BUILTIN_CPU_SUPPORTS:
       return cpu_expand_builtin (fcode, exp, target);
+
+    case MISC_BUILTIN_SPEC_BARRIER:
+      {
+	emit_insn (gen_rs6000_speculation_barrier ());
+	return NULL_RTX;
+      }
 
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
@@ -17156,6 +17259,8 @@ rs6000_init_builtins (void)
 
   ftype = build_function_type_list (void_type_node, NULL_TREE);
   def_builtin ("__builtin_cpu_init", ftype, RS6000_BUILTIN_CPU_INIT);
+  def_builtin ("__builtin_rs6000_speculation_barrier", ftype,
+	       MISC_BUILTIN_SPEC_BARRIER);
 
   ftype = build_function_type_list (bool_int_type_node, const_ptr_type_node,
 				    NULL_TREE);
@@ -17379,6 +17484,10 @@ altivec_init_builtins (void)
     = build_function_type_list (void_type_node,
 				V2DF_type_node, long_integer_type_node,
 				pvoid_type_node, NULL_TREE);
+  tree void_ftype_v1ti_long_pvoid
+    = build_function_type_list (void_type_node,
+				V1TI_type_node, long_integer_type_node,
+				pvoid_type_node, NULL_TREE);
   tree void_ftype_v2di_long_pvoid
     = build_function_type_list (void_type_node,
 				V2DI_type_node, long_integer_type_node,
@@ -17534,6 +17643,8 @@ altivec_init_builtins (void)
 	       VSX_BUILTIN_LD_ELEMREV_V16QI);
   def_builtin ("__builtin_vsx_st_elemrev_v2df", void_ftype_v2df_long_pvoid,
 	       VSX_BUILTIN_ST_ELEMREV_V2DF);
+  def_builtin ("__builtin_vsx_st_elemrev_v1ti", void_ftype_v1ti_long_pvoid,
+	       VSX_BUILTIN_ST_ELEMREV_V1TI);
   def_builtin ("__builtin_vsx_st_elemrev_v2di", void_ftype_v2di_long_pvoid,
 	       VSX_BUILTIN_ST_ELEMREV_V2DI);
   def_builtin ("__builtin_vsx_st_elemrev_v4sf", void_ftype_v4sf_long_pvoid,
@@ -17857,6 +17968,8 @@ altivec_init_builtins (void)
 	= build_function_type_list (void_type_node,
 				    V1TI_type_node, long_integer_type_node,
 				    pvoid_type_node, NULL_TREE);
+      def_builtin ("__builtin_vsx_ld_elemrev_v1ti", v1ti_ftype_long_pcvoid,
+		   VSX_BUILTIN_LD_ELEMREV_V1TI);
       def_builtin ("__builtin_vsx_lxvd2x_v1ti", v1ti_ftype_long_pcvoid,
 		   VSX_BUILTIN_LXVD2X_V1TI);
       def_builtin ("__builtin_vsx_stxvd2x_v1ti", void_ftype_v1ti_long_pvoid,
@@ -21355,7 +21468,7 @@ print_operand (FILE *file, rtx x, int code)
 	}
       return;
 
-    case 'N':
+    case 'N': /* Unused */
       /* Write the number of elements in the vector times 4.  */
       if (GET_CODE (x) != PARALLEL)
 	output_operand_lossage ("invalid %%N value");
@@ -21363,7 +21476,7 @@ print_operand (FILE *file, rtx x, int code)
 	fprintf (file, "%d", XVECLEN (x, 0) * 4);
       return;
 
-    case 'O':
+    case 'O': /* Unused */
       /* Similar, but subtract 1 first.  */
       if (GET_CODE (x) != PARALLEL)
 	output_operand_lossage ("invalid %%O value");
@@ -21663,7 +21776,7 @@ print_operand (FILE *file, rtx x, int code)
 
 	tmp = XEXP (x, 0);
 
-	if (VECTOR_MEM_ALTIVEC_P (GET_MODE (x))
+	if (VECTOR_MEM_ALTIVEC_OR_VSX_P (GET_MODE (x))
 	    && GET_CODE (tmp) == AND
 	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
 	    && INTVAL (XEXP (tmp, 1)) == -16)
@@ -23324,49 +23437,6 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   gcc_assert (target);
   if (target != dest)
     emit_move_insn (dest, target);
-}
-
-/* Split a signbit operation on 64-bit machines with direct move.  Also allow
-   for the value to come from memory or if it is already loaded into a GPR.  */
-
-void
-rs6000_split_signbit (rtx dest, rtx src)
-{
-  machine_mode d_mode = GET_MODE (dest);
-  machine_mode s_mode = GET_MODE (src);
-  rtx dest_di = (d_mode == DImode) ? dest : gen_lowpart (DImode, dest);
-  rtx shift_reg = dest_di;
-
-  gcc_assert (FLOAT128_IEEE_P (s_mode) && TARGET_POWERPC64);
-
-  if (MEM_P (src))
-    {
-      rtx mem = (WORDS_BIG_ENDIAN
-		 ? adjust_address (src, DImode, 0)
-		 : adjust_address (src, DImode, 8));
-      emit_insn (gen_rtx_SET (dest_di, mem));
-    }
-
-  else
-    {
-      unsigned int r = reg_or_subregno (src);
-
-      if (INT_REGNO_P (r))
-	shift_reg = gen_rtx_REG (DImode, r + (BYTES_BIG_ENDIAN == 0));
-
-      else
-	{
-	  /* Generate the special mfvsrd instruction to get it in a GPR.  */
-	  gcc_assert (VSX_REGNO_P (r));
-	  if (s_mode == KFmode)
-	    emit_insn (gen_signbitkf2_dm2 (dest_di, src));
-	  else
-	    emit_insn (gen_signbittf2_dm2 (dest_di, src));
-	}
-    }
-
-  emit_insn (gen_lshrdi3 (dest_di, shift_reg, GEN_INT (63)));
-  return;
 }
 
 /* A subroutine of the atomic operation splitters.  Jump to LABEL if
@@ -29537,8 +29607,9 @@ rs6000_internal_arg_pointer (void)
 	  emit_insn_after (pat, get_insns ());
 	  pop_topmost_sequence ();
 	}
-      return plus_constant (Pmode, cfun->machine->split_stack_arg_pointer,
-			    FIRST_PARM_OFFSET (current_function_decl));
+      rtx ret = plus_constant (Pmode, cfun->machine->split_stack_arg_pointer,
+			       FIRST_PARM_OFFSET (current_function_decl));
+      return copy_to_reg (ret);
     }
   return virtual_incoming_args_rtx;
 }
@@ -30654,7 +30725,6 @@ rs6000_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
                 case TYPE_CMP:
                 case TYPE_FPCOMPARE:
                 case TYPE_CR_LOGICAL:
-                case TYPE_DELAYED_CR:
 		  return cost + 2;
                 case TYPE_EXTS:
                 case TYPE_MUL:
@@ -30950,7 +31020,8 @@ is_cracked_insn (rtx_insn *insn)
 	      && get_attr_indexed (insn) == INDEXED_NO)
 	  || ((type == TYPE_FPLOAD || type == TYPE_FPSTORE)
 	      && get_attr_update (insn) == UPDATE_YES)
-	  || type == TYPE_DELAYED_CR
+	  || (type == TYPE_CR_LOGICAL
+	      && get_attr_cr_logical_3op (insn) == CR_LOGICAL_3OP_YES)
 	  || (type == TYPE_EXTS
 	      && get_attr_dot (insn) == DOT_YES)
 	  || (type == TYPE_SHIFT
@@ -31941,7 +32012,6 @@ insn_must_be_first_in_group (rtx_insn *insn)
         case TYPE_MFCR:
         case TYPE_MFCRF:
         case TYPE_MTCR:
-        case TYPE_DELAYED_CR:
         case TYPE_CR_LOGICAL:
         case TYPE_MTJMPR:
         case TYPE_MFJMPR:
@@ -32044,7 +32114,6 @@ insn_must_be_first_in_group (rtx_insn *insn)
       switch (type)
         {
         case TYPE_CR_LOGICAL:
-        case TYPE_DELAYED_CR:
         case TYPE_MFCR:
         case TYPE_MFCRF:
         case TYPE_MTCR:
@@ -35567,6 +35636,9 @@ rs6000_emit_parity (rtx dst, rtx src)
 }
 
 /* Expand an Altivec constant permutation for little endian mode.
+   OP0 and OP1 are the input vectors and TARGET is the output vector.
+   SEL specifies the constant permutation vector.
+
    There are two issues: First, the two input operands must be
    swapped so that together they form a double-wide array in LE
    order.  Second, the vperm instruction has surprising behavior
@@ -35608,22 +35680,18 @@ rs6000_emit_parity (rtx dst, rtx src)
 
    vr9  = 00000006 00000004 00000002 00000000.  */
 
-void
-altivec_expand_vec_perm_const_le (rtx operands[4])
+static void
+altivec_expand_vec_perm_const_le (rtx target, rtx op0, rtx op1,
+				  const vec_perm_indices &sel)
 {
   unsigned int i;
   rtx perm[16];
   rtx constv, unspec;
-  rtx target = operands[0];
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
-  rtx sel = operands[3];
 
   /* Unpack and adjust the constant selector.  */
   for (i = 0; i < 16; ++i)
     {
-      rtx e = XVECEXP (sel, 0, i);
-      unsigned int elt = 31 - (INTVAL (e) & 31);
+      unsigned int elt = 31 - (sel[i] & 31);
       perm[i] = GEN_INT (elt);
     }
 
@@ -35676,7 +35744,7 @@ altivec_expand_vec_perm_le (rtx operands[4])
 
   if (TARGET_P9_VECTOR)
     {
-      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op0, op1, sel),
+      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, sel),
 			       UNSPEC_VPERMR);
     }
   else
@@ -35705,10 +35773,14 @@ altivec_expand_vec_perm_le (rtx operands[4])
 }
 
 /* Expand an Altivec constant permutation.  Return true if we match
-   an efficient implementation; false to fall back to VPERM.  */
+   an efficient implementation; false to fall back to VPERM.
 
-bool
-altivec_expand_vec_perm_const (rtx operands[4])
+   OP0 and OP1 are the input vectors and TARGET is the output vector.
+   SEL specifies the constant permutation vector.  */
+
+static bool
+altivec_expand_vec_perm_const (rtx target, rtx op0, rtx op1,
+			       const vec_perm_indices &sel)
 {
   struct altivec_perm_insn {
     HOST_WIDE_INT mask;
@@ -35756,19 +35828,13 @@ altivec_expand_vec_perm_const (rtx operands[4])
 
   unsigned int i, j, elt, which;
   unsigned char perm[16];
-  rtx target, op0, op1, sel, x;
+  rtx x;
   bool one_vec;
-
-  target = operands[0];
-  op0 = operands[1];
-  op1 = operands[2];
-  sel = operands[3];
 
   /* Unpack the constant selector.  */
   for (i = which = 0; i < 16; ++i)
     {
-      rtx e = XVECEXP (sel, 0, i);
-      elt = INTVAL (e) & 31;
+      elt = sel[i] & 31;
       which |= (elt < 16 ? 1 : 2);
       perm[i] = elt;
     }
@@ -35924,7 +35990,7 @@ altivec_expand_vec_perm_const (rtx operands[4])
 
   if (!BYTES_BIG_ENDIAN)
     {
-      altivec_expand_vec_perm_const_le (operands);
+      altivec_expand_vec_perm_const_le (target, op0, op1, sel);
       return true;
     }
 
@@ -35984,59 +36050,53 @@ rs6000_expand_vec_perm_const_1 (rtx target, rtx op0, rtx op1,
   return true;
 }
 
-bool
-rs6000_expand_vec_perm_const (rtx operands[4])
-{
-  rtx target, op0, op1, sel;
-  unsigned char perm0, perm1;
-
-  target = operands[0];
-  op0 = operands[1];
-  op1 = operands[2];
-  sel = operands[3];
-
-  /* Unpack the constant selector.  */
-  perm0 = INTVAL (XVECEXP (sel, 0, 0)) & 3;
-  perm1 = INTVAL (XVECEXP (sel, 0, 1)) & 3;
-
-  return rs6000_expand_vec_perm_const_1 (target, op0, op1, perm0, perm1);
-}
-
-/* Test whether a constant permutation is supported.  */
+/* Implement TARGET_VECTORIZE_VEC_PERM_CONST.  */
 
 static bool
-rs6000_vectorize_vec_perm_const_ok (machine_mode vmode, vec_perm_indices sel)
+rs6000_vectorize_vec_perm_const (machine_mode vmode, rtx target, rtx op0,
+				 rtx op1, const vec_perm_indices &sel)
 {
+  bool testing_p = !target;
+
   /* AltiVec (and thus VSX) can handle arbitrary permutations.  */
-  if (TARGET_ALTIVEC)
+  if (TARGET_ALTIVEC && testing_p)
     return true;
 
-  /* Check for ps_merge* or evmerge* insns.  */
-  if (TARGET_PAIRED_FLOAT && vmode == V2SFmode)
+  /* Check for ps_merge* or xxpermdi insns.  */
+  if ((vmode == V2SFmode && TARGET_PAIRED_FLOAT)
+      || ((vmode == V2DFmode || vmode == V2DImode)
+	  && VECTOR_MEM_VSX_P (vmode)))
     {
-      rtx op0 = gen_raw_REG (vmode, LAST_VIRTUAL_REGISTER + 1);
-      rtx op1 = gen_raw_REG (vmode, LAST_VIRTUAL_REGISTER + 2);
-      return rs6000_expand_vec_perm_const_1 (NULL, op0, op1, sel[0], sel[1]);
+      if (testing_p)
+	{
+	  op0 = gen_raw_REG (vmode, LAST_VIRTUAL_REGISTER + 1);
+	  op1 = gen_raw_REG (vmode, LAST_VIRTUAL_REGISTER + 2);
+	}
+      if (rs6000_expand_vec_perm_const_1 (target, op0, op1, sel[0], sel[1]))
+	return true;
+    }
+
+  if (TARGET_ALTIVEC)
+    {
+      /* Force the target-independent code to lower to V16QImode.  */
+      if (vmode != V16QImode)
+	return false;
+      if (altivec_expand_vec_perm_const (target, op0, op1, sel))
+	return true;
     }
 
   return false;
 }
 
-/* A subroutine for rs6000_expand_extract_even & rs6000_expand_interleave.  */
+/* A subroutine for rs6000_expand_extract_even & rs6000_expand_interleave.
+   OP0 and OP1 are the input vectors and TARGET is the output vector.
+   PERM specifies the constant permutation vector.  */
 
 static void
 rs6000_do_expand_vec_perm (rtx target, rtx op0, rtx op1,
-			   machine_mode vmode, unsigned nelt, rtx perm[])
+			   machine_mode vmode, const vec_perm_builder &perm)
 {
-  machine_mode imode;
-  rtx x;
-
-  imode = vmode;
-  if (GET_MODE_CLASS (vmode) != MODE_VECTOR_INT)
-    imode = mode_for_int_vector (vmode).require ();
-
-  x = gen_rtx_CONST_VECTOR (imode, gen_rtvec_v (nelt, perm));
-  x = expand_vec_perm (vmode, op0, op1, x, target);
+  rtx x = expand_vec_perm_const (vmode, op0, op1, perm, BLKmode, target);
   if (x != target)
     emit_move_insn (target, x);
 }
@@ -36048,12 +36108,12 @@ rs6000_expand_extract_even (rtx target, rtx op0, rtx op1)
 {
   machine_mode vmode = GET_MODE (target);
   unsigned i, nelt = GET_MODE_NUNITS (vmode);
-  rtx perm[16];
+  vec_perm_builder perm (nelt, nelt, 1);
 
   for (i = 0; i < nelt; i++)
-    perm[i] = GEN_INT (i * 2);
+    perm.quick_push (i * 2);
 
-  rs6000_do_expand_vec_perm (target, op0, op1, vmode, nelt, perm);
+  rs6000_do_expand_vec_perm (target, op0, op1, vmode, perm);
 }
 
 /* Expand a vector interleave operation.  */
@@ -36063,16 +36123,16 @@ rs6000_expand_interleave (rtx target, rtx op0, rtx op1, bool highp)
 {
   machine_mode vmode = GET_MODE (target);
   unsigned i, high, nelt = GET_MODE_NUNITS (vmode);
-  rtx perm[16];
+  vec_perm_builder perm (nelt, nelt, 1);
 
   high = (highp ? 0 : nelt / 2);
   for (i = 0; i < nelt / 2; i++)
     {
-      perm[i * 2] = GEN_INT (i + high);
-      perm[i * 2 + 1] = GEN_INT (i + nelt + high);
+      perm.quick_push (i + high);
+      perm.quick_push (i + nelt + high);
     }
 
-  rs6000_do_expand_vec_perm (target, op0, op1, vmode, nelt, perm);
+  rs6000_do_expand_vec_perm (target, op0, op1, vmode, perm);
 }
 
 /* Scale a V2DF vector SRC by two to the SCALE and place in TGT.  */
@@ -36626,7 +36686,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "quad-memory-atomic",	OPTION_MASK_QUAD_MEMORY_ATOMIC,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
   { "save-toc-indirect",	OPTION_MASK_SAVE_TOC_INDIRECT,	false, true  },
-  { "string",			OPTION_MASK_STRING,		false, true  },
+  { "string",			0,				false, true  },
   { "toc-fusion",		OPTION_MASK_TOC_FUSION,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
@@ -36653,7 +36713,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "strict-align",		OPTION_MASK_STRICT_ALIGN,	false, false },
 #endif
   { "soft-float",		OPTION_MASK_SOFT_FLOAT,		false, false },
-  { "string",			OPTION_MASK_STRING,		false, false },
+  { "string",			0,				false, false },
 };
 
 /* Builtin mask mapping for printing the flags.  */
@@ -36727,6 +36787,9 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "sched-epilog",
     offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
     offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
+  { "speculate-indirect-jumps",
+    offsetof (struct gcc_options, x_rs6000_speculate_indirect_jumps),
+    offsetof (struct cl_target_option, x_rs6000_speculate_indirect_jumps), },
 };
 
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
@@ -39438,6 +39501,43 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 				       fenv_update_mtfsf);
 
   *update = build2 (COMPOUND_EXPR, void_type_node, update_mffs, update_mtfsf);
+}
+
+void
+rs6000_generate_float2_double_code (rtx dst, rtx src1, rtx src2)
+{
+  rtx rtx_tmp0, rtx_tmp1, rtx_tmp2, rtx_tmp3;
+
+  rtx_tmp0 = gen_reg_rtx (V2DFmode);
+  rtx_tmp1 = gen_reg_rtx (V2DFmode);
+
+  /* The destination of the vmrgew instruction layout is:
+     rtx_tmp2[0] rtx_tmp3[0] rtx_tmp2[1] rtx_tmp3[0].
+     Setup rtx_tmp0 and rtx_tmp1 to ensure the order of the elements after the
+     vmrgew instruction will be correct.  */
+  if (VECTOR_ELT_ORDER_BIG)
+    {
+       emit_insn (gen_vsx_xxpermdi_v2df_be (rtx_tmp0, src1, src2,
+					    GEN_INT (0)));
+       emit_insn (gen_vsx_xxpermdi_v2df_be (rtx_tmp1, src1, src2,
+					    GEN_INT (3)));
+    }
+  else
+    {
+       emit_insn (gen_vsx_xxpermdi_v2df (rtx_tmp0, src1, src2, GEN_INT (3)));
+       emit_insn (gen_vsx_xxpermdi_v2df (rtx_tmp1, src1, src2, GEN_INT (0)));
+    }
+
+  rtx_tmp2 = gen_reg_rtx (V4SFmode);
+  rtx_tmp3 = gen_reg_rtx (V4SFmode);
+
+  emit_insn (gen_vsx_xvcdpsp (rtx_tmp2, rtx_tmp0));
+  emit_insn (gen_vsx_xvcdpsp (rtx_tmp3, rtx_tmp1));
+
+  if (VECTOR_ELT_ORDER_BIG)
+    emit_insn (gen_p8_vmrgew_v4sf (dst, rtx_tmp2, rtx_tmp3));
+  else
+    emit_insn (gen_p8_vmrgew_v4sf (dst, rtx_tmp3, rtx_tmp2));
 }
 
 void

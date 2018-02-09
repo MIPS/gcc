@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2018 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -13,6 +13,8 @@
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -7183,7 +7185,7 @@ spu_can_change_mode_class (machine_mode from, machine_mode to, reg_class_t)
 /* Implement TARGET_TRULY_NOOP_TRUNCATION.  */
 
 static bool
-spu_truly_noop_truncation (unsigned int outprec, unsigned int inprec)
+spu_truly_noop_truncation (poly_uint64 outprec, poly_uint64 inprec)
 {
   return inprec <= 32 && outprec <= inprec;
 }
@@ -7215,13 +7217,13 @@ spu_constant_alignment (const_tree, HOST_WIDE_INT align)
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity, exclusions } */
-  { "naked",          0, 0, true,  false, false, spu_handle_fndecl_attribute,
-    false, NULL },
-  { "spu_vector",     0, 0, false, true,  false, spu_handle_vector_attribute,
-    false, NULL },
-  { NULL,             0, 0, false, false, false, NULL, false, NULL }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
+       affects_type_identity, handler, exclude } */
+  { "naked",          0, 0, true,  false, false, false,
+    spu_handle_fndecl_attribute, NULL },
+  { "spu_vector",     0, 0, false, true,  false, false,
+    spu_handle_vector_attribute, NULL },
+  { NULL,             0, 0, false, false, false, false, NULL, NULL }
 };
 
 /*  TARGET overrides.  */

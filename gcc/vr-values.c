@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -445,11 +445,12 @@ vr_values::extract_range_for_var_from_comparison_expr (tree var,
   tree  min, max, type;
   value_range *limit_vr;
   type = TREE_TYPE (var);
-  gcc_assert (limit != var);
 
   /* For pointer arithmetic, we only keep track of pointer equality
-     and inequality.  */
-  if (POINTER_TYPE_P (type) && cond_code != NE_EXPR && cond_code != EQ_EXPR)
+     and inequality.  If we arrive here with unfolded conditions like
+     _1 > _1 do not derive anything.  */
+  if ((POINTER_TYPE_P (type) && cond_code != NE_EXPR && cond_code != EQ_EXPR)
+      || limit == var)
     {
       set_value_range_to_varying (vr_p);
       return;

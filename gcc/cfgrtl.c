@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1534,6 +1534,9 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
 					       ENTRY_BLOCK_PTR_FOR_FN (cfun));
 	  bb->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
 
+	  /* Make sure new block ends up in correct hot/cold section.  */
+	  BB_COPY_PARTITION (bb, e->dest);
+
 	  /* Change the existing edge's source to be the new block, and add
 	     a new edge from the entry block to the new block.  */
 	  e->src = bb;
@@ -2194,7 +2197,7 @@ print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, dump_flags_t flags)
 	    }
 	}
 
-      for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
+      for (tmp_rtx = rtx_first; tmp_rtx != NULL; tmp_rtx = NEXT_INSN (tmp_rtx))
 	{
 	  if (flags & TDF_BLOCKS)
 	    {
@@ -2612,7 +2615,8 @@ rtl_verify_edges (void)
 
   /* If there are partitions, do a sanity check on them: A basic block in
      a cold partition cannot dominate a basic block in a hot partition.  */
-  if (crtl->has_bb_partition && !err)
+  if (crtl->has_bb_partition && !err
+      && current_ir_type () == IR_RTL_CFGLAYOUT)
     {
       vec<basic_block> bbs_to_fix = find_partition_fixes (true);
       err = !bbs_to_fix.is_empty ();
@@ -2954,7 +2958,6 @@ rtl_verify_bb_layout (void)
 	    {
 	    case BARRIER:
 	    case NOTE:
-	    case DEBUG_INSN:
 	      break;
 
 	    case CODE_LABEL:
@@ -3389,9 +3392,6 @@ skip_insns_after_block (basic_block bb)
 	{
 	case BARRIER:
 	  last_insn = insn;
-	  continue;
-
-	case DEBUG_INSN:
 	  continue;
 
 	case NOTE:
@@ -4323,7 +4323,6 @@ break_superblocks (void)
 void
 cfg_layout_finalize (void)
 {
-  checking_verify_flow_info ();
   free_dominance_info (CDI_DOMINATORS);
   force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();

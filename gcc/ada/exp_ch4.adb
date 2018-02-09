@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -5340,7 +5340,7 @@ package body Exp_Ch4 is
            and then Is_Finalizable_Transient (Act, N)
          then
             Process_Transient_In_Expression (Act, N, Acts);
-            return Abandon;
+            return Skip;
 
          --  Avoid processing temporary function results multiple times when
          --  dealing with nested expression_with_actions.
@@ -6015,10 +6015,20 @@ package body Exp_Ch4 is
               --  have a test in the generic that makes sense with some types
               --  and not with other types.
 
-              and then not In_Instance
+              --  Similarly, do not rewrite membership as a validity check if
+              --  within the predicate function for the type.
+
             then
-               Substitute_Valid_Check;
-               goto Leave;
+               if In_Instance
+                 or else (Ekind (Current_Scope) = E_Function
+                           and then Is_Predicate_Function (Current_Scope))
+               then
+                  null;
+
+               else
+                  Substitute_Valid_Check;
+                  goto Leave;
+               end if;
             end if;
 
             --  If we have an explicit range, do a bit of optimization based on
@@ -10066,6 +10076,77 @@ package body Exp_Ch4 is
           Actions    => Actions));
       Analyze_And_Resolve (N, Standard_Boolean);
    end Expand_N_Quantified_Expression;
+
+   -----------------------------------
+   -- Expand_N_Reduction_Expression --
+   -----------------------------------
+
+   procedure Expand_N_Reduction_Expression (N : Node_Id) is
+      Actions   : constant List_Id    := New_List;
+      Expr      : constant Node_Id    := Expression (N);
+      Iter_Spec : constant Node_Id    := Iterator_Specification (N);
+      Loc       : constant Source_Ptr := Sloc (N);
+      Loop_Spec : constant Node_Id    := Loop_Parameter_Specification (N);
+      Typ       : constant Entity_Id  := Etype (N);
+
+      Actual        : Node_Id;
+      New_Call      : Node_Id;
+      Reduction_Par : Node_Id;
+      Result        : Entity_Id;
+      Scheme        : Node_Id;
+
+   begin
+      Result   := Make_Temporary (Loc, 'R', N);
+      New_Call := New_Copy_Tree (Expr);
+
+      if Nkind (New_Call) = N_Function_Call then
+         Actual := First (Parameter_Associations (New_Call));
+
+         if Nkind (Actual) /= N_Reduction_Expression_Parameter then
+            Actual := Next_Actual (Actual);
+         end if;
+
+      elsif Nkind (New_Call) in N_Binary_Op then
+         Actual := Left_Opnd (New_Call);
+
+         if Nkind (Actual) /= N_Reduction_Expression_Parameter then
+            Actual := Right_Opnd (New_Call);
+         end if;
+      end if;
+
+      Reduction_Par := Expression (Actual);
+
+      Append_To (Actions,
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Result,
+          Object_Definition   => New_Occurrence_Of (Typ, Loc),
+          Expression          => New_Copy_Tree (Reduction_Par)));
+
+      if Present (Iter_Spec) then
+         Scheme :=
+           Make_Iteration_Scheme (Loc,
+             Iterator_Specification => Iter_Spec);
+      else
+         Scheme :=
+           Make_Iteration_Scheme (Loc,
+             Loop_Parameter_Specification => Loop_Spec);
+      end if;
+
+      Replace (Actual, New_Occurrence_Of (Result, Loc));
+
+      Append_To (Actions,
+        Make_Loop_Statement (Loc,
+          Iteration_Scheme => Scheme,
+          Statements       => New_List (Make_Assignment_Statement (Loc,
+            New_Occurrence_Of (Result, Loc), New_Call)),
+          End_Label        => Empty));
+
+      Rewrite (N,
+        Make_Expression_With_Actions (Loc,
+          Expression => New_Occurrence_Of (Result, Loc),
+          Actions    => Actions));
+      Analyze_And_Resolve (N, Typ);
+   end Expand_N_Reduction_Expression;
 
    ---------------------------------
    -- Expand_N_Selected_Component --

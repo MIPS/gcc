@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003-2017 Free Software Foundation, Inc.
+; Copyright (C) 2003-2018 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -954,7 +954,7 @@ Common Report Var(align_functions,0) Optimization UInteger
 Align the start of functions.
 
 falign-functions=
-Common RejectNegative Joined UInteger Var(align_functions)
+Common RejectNegative Joined UInteger Var(align_functions) Optimization
 
 flimit-function-alignment
 Common Report Var(flag_limit_function_alignment) Optimization Init(0)
@@ -964,21 +964,21 @@ Common Report Var(align_jumps,0) Optimization UInteger
 Align labels which are only reached by jumping.
 
 falign-jumps=
-Common RejectNegative Joined UInteger Var(align_jumps)
+Common RejectNegative Joined UInteger Var(align_jumps) Optimization
 
 falign-labels
 Common Report Var(align_labels,0) Optimization UInteger
 Align all labels.
 
 falign-labels=
-Common RejectNegative Joined UInteger Var(align_labels)
+Common RejectNegative Joined UInteger Var(align_labels) Optimization
 
 falign-loops
 Common Report Var(align_loops,0) Optimization UInteger
 Align the start of loops.
 
 falign-loops=
-Common RejectNegative Joined UInteger Var(align_loops)
+Common RejectNegative Joined UInteger Var(align_loops) Optimization
 
 fargument-alias
 Common Ignore
@@ -1175,7 +1175,11 @@ Common RejectNegative Joined Var(common_deferred_options) Defer
 
 fdebug-prefix-map=
 Common Joined RejectNegative Var(common_deferred_options) Defer
-Map one directory name to another in debug information.
+-fdebug-prefix-map=<old>=<new> Map one directory name to another in debug information.
+
+ffile-prefix-map=
+Common Joined RejectNegative Var(common_deferred_options) Defer
+-ffile-prefix-map=<old>=<new> Map one directory name to another in compilation result.
 
 fdebug-types-section
 Common Report Var(flag_debug_types_section) Init(0)
@@ -2411,8 +2415,8 @@ Common Report Var(flag_strict_aliasing) Optimization
 Assume strict aliasing rules apply.
 
 fstrict-overflow
-Common NegativeAlias Alias(fwrapv)
-Treat signed overflow as undefined.  Negated as -fwrapv.
+Common Report
+Treat signed overflow as undefined.  Negated as -fwrapv -fwrapv-pointer.
 
 fsync-libcalls
 Common Report Var(flag_sync_libcalls) Init(1)
@@ -2860,6 +2864,10 @@ fwhole-program
 Common Report Var(flag_whole_program) Init(0)
 Perform whole program optimizations.
 
+fwrapv-pointer
+Common Report Var(flag_wrapv_pointer) Optimization
+Assume pointer overflow wraps around.
+
 fwrapv
 Common Report Var(flag_wrapv) Optimization
 Assume signed arithmetic overflow wraps around.
@@ -2949,8 +2957,11 @@ Common Driver Report Var(flag_gtoggle)
 Toggle debug information generation.
 
 gvariable-location-views
-Common Driver Var(debug_variable_location_views) Init(2)
+Common Driver Var(debug_variable_location_views, 1) Init(2)
 Augment variable location lists with progressive views.
+
+gvariable-location-views=incompat5
+Common Driver RejectNegative Var(debug_variable_location_views, -1) Init(2)
 
 gvms
 Common Driver JoinedOrMissing Negative(gxcoff)

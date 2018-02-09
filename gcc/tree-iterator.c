@@ -1,5 +1,5 @@
 /* Iterator routines for manipulating GENERIC and GIMPLE tree statements.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -41,7 +41,10 @@ alloc_stmt_list (void)
       TREE_SET_CODE (list, STATEMENT_LIST);
     }
   else
-    list = make_node (STATEMENT_LIST);
+    {
+      list = make_node (STATEMENT_LIST);
+      TREE_SIDE_EFFECTS (list) = 0;
+    }
   TREE_TYPE (list) = void_type_node;
   return list;
 }

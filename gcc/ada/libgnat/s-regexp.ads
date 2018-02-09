@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 1998-2017, AdaCore                     --
+--                     Copyright (C) 1998-2018, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,7 +41,7 @@
 
 with Ada.Finalization;
 
-package System.Regexp is -- ????????????????
+package System.Regexp is
 
    --  The regular expression must first be compiled, using the Compile
    --  function, which creates a finite state matching table, allowing

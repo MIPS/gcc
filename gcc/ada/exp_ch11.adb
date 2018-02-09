@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2126,6 +2126,8 @@ package body Exp_Ch11 is
             Add_Str_To_Name_Buffer ("PE_All_Guards_Closed");
          when PE_Bad_Predicated_Generic_Type =>
             Add_Str_To_Name_Buffer ("PE_Bad_Predicated_Generic_Type");
+         when PE_Build_In_Place_Mismatch =>
+            Add_Str_To_Name_Buffer ("PE_Build_In_Place_Mismatch");
          when PE_Current_Task_In_Entry_Body =>
             Add_Str_To_Name_Buffer ("PE_Current_Task_In_Entry_Body");
          when PE_Duplicated_Entry_Address =>

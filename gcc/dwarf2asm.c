@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -766,6 +766,10 @@ dw2_asm_output_data_sleb128 (HOST_WIDE_INT value,
 
   va_end (ap);
 }
+
+/* Output symbol LAB1 as an unsigned LEB128 quantity.  LAB1 should be
+   an assembler-computed constant, e.g. a view number, because we
+   can't have relocations in LEB128 quantities.  */
 
 void
 dw2_asm_output_symname_uleb128 (const char *lab1 ATTRIBUTE_UNUSED,

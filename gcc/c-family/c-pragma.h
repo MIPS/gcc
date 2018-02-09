@@ -1,5 +1,5 @@
 /* Pragma related interfaces.
-   Copyright (C) 1995-2017 Free Software Foundation, Inc.
+   Copyright (C) 1995-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,6 +69,7 @@ enum pragma_kind {
 
   PRAGMA_GCC_PCH_PREPROCESS,
   PRAGMA_IVDEP,
+  PRAGMA_UNROLL,
 
   PRAGMA_FIRST_EXTERNAL
 };

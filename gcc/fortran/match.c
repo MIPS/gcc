@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2017 Free Software Foundation, Inc.
+   Copyright (C) 2000-2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1596,11 +1596,13 @@ gfc_match_if (gfc_statement *if_type)
   match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
   match ("backspace", gfc_match_backspace, ST_BACKSPACE)
   match ("call", gfc_match_call, ST_CALL)
+  match ("change team", gfc_match_change_team, ST_CHANGE_TEAM)
   match ("close", gfc_match_close, ST_CLOSE)
   match ("continue", gfc_match_continue, ST_CONTINUE)
   match ("cycle", gfc_match_cycle, ST_CYCLE)
   match ("deallocate", gfc_match_deallocate, ST_DEALLOCATE)
   match ("end file", gfc_match_endfile, ST_END_FILE)
+  match ("end team", gfc_match_end_team, ST_END_TEAM)
   match ("error stop", gfc_match_error_stop, ST_ERROR_STOP)
   match ("event post", gfc_match_event_post, ST_EVENT_POST)
   match ("event wait", gfc_match_event_wait, ST_EVENT_WAIT)
@@ -1608,6 +1610,7 @@ gfc_match_if (gfc_statement *if_type)
   match ("fail image", gfc_match_fail_image, ST_FAIL_IMAGE)
   match ("flush", gfc_match_flush, ST_FLUSH)
   match ("forall", match_simple_forall, ST_FORALL)
+  match ("form team", gfc_match_form_team, ST_FORM_TEAM)
   match ("go to", gfc_match_goto, ST_GOTO)
   match ("if", match_arithmetic_if, ST_ARITHMETIC_IF)
   match ("inquire", gfc_match_inquire, ST_INQUIRE)
@@ -1624,6 +1627,7 @@ gfc_match_if (gfc_statement *if_type)
   match ("sync all", gfc_match_sync_all, ST_SYNC_CALL);
   match ("sync images", gfc_match_sync_images, ST_SYNC_IMAGES);
   match ("sync memory", gfc_match_sync_memory, ST_SYNC_MEMORY);
+  match ("sync team", gfc_match_sync_team, ST_SYNC_TEAM)
   match ("unlock", gfc_match_unlock, ST_UNLOCK)
   match ("where", match_simple_where, ST_WHERE)
   match ("write", gfc_match_write, ST_WRITE)
@@ -2050,11 +2054,17 @@ gfc_match_type_spec (gfc_typespec *ts)
 {
   match m;
   locus old_locus;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char c, name[GFC_MAX_SYMBOL_LEN + 1];
 
   gfc_clear_ts (ts);
   gfc_gobble_whitespace ();
   old_locus = gfc_current_locus;
+
+  /* If c isn't [a-z], then return immediately.  */
+  c = gfc_peek_ascii_char ();
+  if (!ISALPHA(c))
+    return MATCH_NO;
+
   type_param_spec_list = NULL;
 
   if (match_derived_type_spec (ts) == MATCH_YES)
@@ -2095,6 +2105,8 @@ gfc_match_type_spec (gfc_typespec *ts)
       ts->type = BT_CHARACTER;
 
       m = gfc_match_char_spec (ts);
+      if (ts->u.cl && ts->u.cl->length)
+	gfc_resolve_expr (ts->u.cl->length);
 
       if (m == MATCH_NO)
 	m = MATCH_YES;
@@ -2102,27 +2114,31 @@ gfc_match_type_spec (gfc_typespec *ts)
       return m;
     }
 
-  if (gfc_match ("logical") == MATCH_YES)
-    {
-      ts->type = BT_LOGICAL;
-      ts->kind = gfc_default_logical_kind;
-      goto kind_selector;
-    }
-
   /* REAL is a real pain because it can be a type, intrinsic subprogram,
      or list item in a type-list of an OpenMP reduction clause.  Need to
      differentiate REAL([KIND]=scalar-int-initialization-expr) from
-     REAL(A,[KIND]) and REAL(KIND,A).  */
+     REAL(A,[KIND]) and REAL(KIND,A).  Logically, when this code was
+     written the use of LOGICAL as a type-spec or intrinsic subprogram 
+     was overlooked.  */
 
   m = gfc_match (" %n", name);
-  if (m == MATCH_YES && strcmp (name, "real") == 0)
+  if (m == MATCH_YES
+      && (strcmp (name, "real") == 0 || strcmp (name, "logical") == 0))
     {
       char c;
       gfc_expr *e;
       locus where;
 
-      ts->type = BT_REAL;
-      ts->kind = gfc_default_real_kind;
+      if (*name == 'r')
+	{
+	  ts->type = BT_REAL;
+	  ts->kind = gfc_default_real_kind;
+	}
+      else
+	{
+	  ts->type = BT_LOGICAL;
+	  ts->kind = gfc_default_logical_kind;
+	}
 
       gfc_gobble_whitespace ();
 
@@ -2154,7 +2170,7 @@ gfc_match_type_spec (gfc_typespec *ts)
 	  c = gfc_next_char ();
 	  if (c == '=')
 	    {
-	      if (strcmp(name, "a") == 0)
+	      if (strcmp(name, "a") == 0 || strcmp(name, "l") == 0)
 		return MATCH_NO;
 	      else if (strcmp(name, "kind") == 0)
 		goto found;
@@ -2194,7 +2210,7 @@ found:
 
 	  gfc_next_char (); /* Burn the ')'. */
 	  ts->kind = (int) mpz_get_si (e->value.integer);
-	  if (gfc_validate_kind (BT_REAL, ts->kind , true) == -1)
+	  if (gfc_validate_kind (ts->type, ts->kind , true) == -1)
 	    {
 	      gfc_error ("Invalid type-spec at %C");
 	      return MATCH_ERROR;
@@ -2540,8 +2556,8 @@ gfc_match_do (void)
 
   old_loc = gfc_current_locus;
 
+  memset (&iter, '\0', sizeof (gfc_iterator));
   label = NULL;
-  iter.var = iter.start = iter.end = iter.step = NULL;
 
   m = gfc_match_label ();
   if (m == MATCH_ERROR)
@@ -2985,7 +3001,7 @@ gfc_match_stopcode (gfc_statement st)
     {
       if (st == ST_ERROR_STOP)
 	{
-	  if (!gfc_notify_std (GFC_STD_F2015, "%s statement at %C in PURE "
+	  if (!gfc_notify_std (GFC_STD_F2018, "%s statement at %C in PURE "
 			       "procedure", gfc_ascii_statement (st)))
 	    goto cleanup;
 	}
@@ -3344,6 +3360,131 @@ syntax:
   return MATCH_ERROR;
 }
 
+/* Match a FORM TEAM statement.  */
+
+match
+gfc_match_form_team (void)
+{
+  match m;
+  gfc_expr *teamid,*team;
+
+  if (!gfc_notify_std (GFC_STD_F2008_TS, "FORM TEAM statement at %C"))
+    return MATCH_ERROR;
+
+  if (gfc_match_char ('(') == MATCH_NO)
+    goto syntax;
+
+  new_st.op = EXEC_FORM_TEAM;
+
+  if (gfc_match ("%e", &teamid) != MATCH_YES)
+    goto syntax;
+  m = gfc_match_char (',');
+  if (m == MATCH_ERROR)
+    goto syntax;
+  if (gfc_match ("%e", &team) != MATCH_YES)
+    goto syntax;
+
+  m = gfc_match_char (')');
+  if (m == MATCH_NO)
+    goto syntax;
+
+  new_st.expr1 = teamid;
+  new_st.expr2 = team;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_FORM_TEAM);
+
+  return MATCH_ERROR;
+}
+
+/* Match a CHANGE TEAM statement.  */
+
+match
+gfc_match_change_team (void)
+{
+  match m;
+  gfc_expr *team;
+
+  if (!gfc_notify_std (GFC_STD_F2008_TS, "CHANGE TEAM statement at %C"))
+    return MATCH_ERROR;
+
+  if (gfc_match_char ('(') == MATCH_NO)
+    goto syntax;
+
+  new_st.op = EXEC_CHANGE_TEAM;
+
+  if (gfc_match ("%e", &team) != MATCH_YES)
+    goto syntax;
+
+  m = gfc_match_char (')');
+  if (m == MATCH_NO)
+    goto syntax;
+
+  new_st.expr1 = team;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_CHANGE_TEAM);
+
+  return MATCH_ERROR;
+}
+
+/* Match a END TEAM statement.  */
+
+match
+gfc_match_end_team (void)
+{
+  if (!gfc_notify_std (GFC_STD_F2008_TS, "END TEAM statement at %C"))
+    return MATCH_ERROR;
+
+  if (gfc_match_char ('(') == MATCH_YES)
+    goto syntax;
+
+  new_st.op = EXEC_END_TEAM;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_END_TEAM);
+
+  return MATCH_ERROR;
+}
+
+/* Match a SYNC TEAM statement.  */
+
+match
+gfc_match_sync_team (void)
+{
+  match m;
+  gfc_expr *team;
+
+  if (!gfc_notify_std (GFC_STD_F2008_TS, "SYNC TEAM statement at %C"))
+    return MATCH_ERROR;
+
+  if (gfc_match_char ('(') == MATCH_NO)
+    goto syntax;
+
+  new_st.op = EXEC_SYNC_TEAM;
+
+  if (gfc_match ("%e", &team) != MATCH_YES)
+    goto syntax;
+
+  m = gfc_match_char (')');
+  if (m == MATCH_NO)
+    goto syntax;
+
+  new_st.expr1 = team;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_SYNC_TEAM);
+
+  return MATCH_ERROR;
+}
 
 /* Match LOCK/UNLOCK statement. Syntax:
      LOCK ( lock-variable [ , lock-stat-list ] )
@@ -4067,7 +4208,7 @@ gfc_match_allocate (void)
 	 for which the corresponding type parameter is assumed.  */
       if (saw_assumed
 	  && (tail->expr->ts.deferred
-	      || tail->expr->ts.u.cl->length
+	      || (tail->expr->ts.u.cl && tail->expr->ts.u.cl->length)
 	      || tail->expr->symtree->n.sym->attr.dummy == 0))
 	{
 	  gfc_error ("Incompatible allocate-object at %C for CHARACTER "
@@ -4491,8 +4632,8 @@ gfc_match_deallocate (void)
 	   && (tail->expr->ref->type == REF_COMPONENT
 	       || tail->expr->ref->type == REF_ARRAY));
       if (sym && sym->ts.type == BT_CLASS)
-	b2 = !(CLASS_DATA (sym)->attr.allocatable
-	       || CLASS_DATA (sym)->attr.class_pointer);
+	b2 = !(CLASS_DATA (sym) && (CLASS_DATA (sym)->attr.allocatable
+	       || CLASS_DATA (sym)->attr.class_pointer));
       else
 	b2 = sym && !(sym->attr.allocatable || sym->attr.pointer
 		      || sym->attr.proc_pointer);
@@ -5874,7 +6015,7 @@ select_intrinsic_set_tmp (gfc_typespec *ts)
 {
   char name[GFC_MAX_SYMBOL_LEN];
   gfc_symtree *tmp;
-  int charlen = 0;
+  HOST_WIDE_INT charlen = 0;
 
   if (ts->type == BT_CLASS || ts->type == BT_DERIVED)
     return NULL;
@@ -5885,14 +6026,14 @@ select_intrinsic_set_tmp (gfc_typespec *ts)
 
   if (ts->type == BT_CHARACTER && ts->u.cl && ts->u.cl->length
       && ts->u.cl->length->expr_type == EXPR_CONSTANT)
-    charlen = mpz_get_si (ts->u.cl->length->value.integer);
+    charlen = gfc_mpz_get_hwi (ts->u.cl->length->value.integer);
 
   if (ts->type != BT_CHARACTER)
     sprintf (name, "__tmp_%s_%d", gfc_basic_typename (ts->type),
 	     ts->kind);
   else
-    sprintf (name, "__tmp_%s_%d_%d", gfc_basic_typename (ts->type),
-	     charlen, ts->kind);
+    snprintf (name, sizeof (name), "__tmp_%s_" HOST_WIDE_INT_PRINT_DEC "_%d",
+	      gfc_basic_typename (ts->type), charlen, ts->kind);
 
   gfc_get_sym_tree (name, gfc_current_ns, &tmp, false);
   gfc_add_type (tmp->n.sym, ts, NULL);

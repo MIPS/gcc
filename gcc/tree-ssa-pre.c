@@ -1,5 +1,5 @@
 /* Full and partial redundancy elimination and code hoisting on SSA GIMPLE.
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
 
@@ -2413,7 +2413,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	if (TREE_CODE (baseop) == ADDR_EXPR
 	    && handled_component_p (TREE_OPERAND (baseop, 0)))
 	  {
-	    HOST_WIDE_INT off;
+	    poly_int64 off;
 	    tree base;
 	    base = get_addr_base_and_unit_offset (TREE_OPERAND (baseop, 0),
 						  &off);
@@ -2697,6 +2697,8 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
        that value numbering saw through.  */
     case NAME:
       folded = PRE_EXPR_NAME (expr);
+      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (folded))
+	return NULL_TREE;
       if (useless_type_conversion_p (exprtype, TREE_TYPE (folded)))
 	return folded;
       break;

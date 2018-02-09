@@ -189,7 +189,7 @@ func cgoCheckArg(t *_type, p unsafe.Pointer, indir, top bool, msg string) {
 			return
 		}
 		for _, f := range st.fields {
-			cgoCheckArg(f.typ, add(p, f.offset), true, top, msg)
+			cgoCheckArg(f.typ, add(p, f.offset()), true, top, msg)
 		}
 	case kindPtr, kindUnsafePointer:
 		if indir {
@@ -234,10 +234,8 @@ func cgoCheckUnknownPointer(p unsafe.Pointer, msg string) (base, i uintptr) {
 				// No more possible pointers.
 				break
 			}
-			if hbits.isPointer() {
-				if cgoIsGoPointer(*(*unsafe.Pointer)(unsafe.Pointer(base + i))) {
-					panic(errorString(msg))
-				}
+			if hbits.isPointer() && cgoIsGoPointer(*(*unsafe.Pointer)(unsafe.Pointer(base + i))) {
+				panic(errorString(msg))
 			}
 			hbits = hbits.next()
 		}

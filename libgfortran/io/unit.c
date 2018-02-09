@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -432,10 +432,9 @@ is_trim_ok (st_parameter_dt *dtp)
   if (dtp->common.flags & IOPARM_DT_HAS_FORMAT)
     {
       char *p = dtp->format;
-      off_t i;
       if (dtp->common.flags & IOPARM_DT_HAS_BLANK)
 	return false;
-      for (i = 0; i < dtp->format_len; i++)
+      for (gfc_charlen_type i = 0; i < dtp->format_len; i++)
 	{
 	  if (p[i] == '/') return false;
 	  if (p[i] == 'b' || p[i] == 'B')
@@ -566,7 +565,11 @@ get_unit (st_parameter_dt *dtp, int do_create)
      is not allowed, such units must be created with
      OPEN(NEWUNIT=...).  */
   if (dtp->common.unit < 0)
-    return get_gfc_unit (dtp->common.unit, 0);
+    {
+      if (dtp->common.unit > NEWUNIT_START) /* Reserved units.  */
+	return NULL;
+      return get_gfc_unit (dtp->common.unit, 0);
+    }
 
   return get_gfc_unit (dtp->common.unit, do_create);
 }
@@ -701,6 +704,11 @@ init_units (void)
 
       __gthread_mutex_unlock (&u->lock);
     }
+  /* The default internal units.  */
+  u = insert_unit (GFC_INTERNAL_UNIT);
+  __gthread_mutex_unlock (&u->lock);
+  u = insert_unit (GFC_INTERNAL_UNIT4);
+  __gthread_mutex_unlock (&u->lock);
 }
 
 

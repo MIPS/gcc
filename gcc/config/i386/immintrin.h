@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2018 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -82,6 +82,10 @@
 
 #include <avx512vnnivlintrin.h>
 
+#include <avx512vpopcntdqvlintrin.h>
+
+#include <avx512bitalgintrin.h>
+
 #include <shaintrin.h>
 
 #include <lzcntintrin.h>
@@ -101,6 +105,10 @@
 #include <cetintrin.h>
 
 #include <gfniintrin.h>
+
+#include <vaesintrin.h>
+
+#include <vpclmulqdqintrin.h>
 
 #ifndef __RDRND__
 #pragma GCC push_options

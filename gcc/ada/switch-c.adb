@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -950,11 +950,11 @@ package body Switch.C is
 
                --  Common relaxations for both ABE mechanisms
                --
-               --  -gnatd.G (ignore calls through generic formal parameters for
-               --            elaboration)
-               --  -gnatd.U (ignore indirect calls for static elaboration)
-               --  -gnatd.y (disable implicit pragma Elaborate_All on task
-               --            bodies)
+               --    -gnatd.G (ignore calls through generic formal parameters
+               --              for elaboration)
+               --    -gnatd.U (ignore indirect calls for static elaboration)
+               --    -gnatd.y (disable implicit pragma Elaborate_All on task
+               --              bodies)
 
                Debug_Flag_Dot_GG := True;
                Debug_Flag_Dot_UU := True;
@@ -967,17 +967,20 @@ package body Switch.C is
 
                --  Relaxations to the default ABE mechanism
                --
-               --  -gnatd_a (stop elaboration checks on accept or select
-               --            statement)
-               --  -gnatd_e (ignore entry calls and requeue statements for
-               --            elaboration)
-               --  -gnatd_p (ignore assertion pragmas for elaboration)
-               --  -gnatdL  (ignore activations and calls to instances for
-               --            elaboration)
+               --    -gnatd_a (stop elaboration checks on accept or select
+               --              statement)
+               --    -gnatd_e (ignore entry calls and requeue statements for
+               --              elaboration)
+               --    -gnatd_i (ignore activations and calls to instances for
+               --              elaboration)
+               --    -gnatd_p (ignore assertion pragmas for elaboration)
+               --    -gnatdL  (ignore external calls from instances for
+               --              elaboration)
 
                else
                   Debug_Flag_Underscore_A := True;
                   Debug_Flag_Underscore_E := True;
+                  Debug_Flag_Underscore_I := True;
                   Debug_Flag_Underscore_P := True;
                   Debug_Flag_LL           := True;
                end if;

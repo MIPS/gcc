@@ -2,7 +2,7 @@
    directives to separate functions, converts others into explicit calls to the
    runtime library (libgomp) and so forth
 
-Copyright (C) 2005-2017 Free Software Foundation, Inc.
+Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -205,8 +205,8 @@ omp_adjust_chunk_size (tree chunk_size, bool simd_schedule)
   if (!simd_schedule)
     return chunk_size;
 
-  int vf = omp_max_vf ();
-  if (vf == 1)
+  poly_uint64 vf = omp_max_vf ();
+  if (known_eq (vf, 1U))
     return chunk_size;
 
   tree type = TREE_TYPE (chunk_size);
@@ -1433,6 +1433,8 @@ expand_oacc_collapse_init (const struct omp_for_data *fd,
 	plus_type = sizetype;
       if (POINTER_TYPE_P (diff_type) || TYPE_UNSIGNED (diff_type))
 	diff_type = signed_type_for (diff_type);
+      if (TYPE_PRECISION (diff_type) < TYPE_PRECISION (integer_type_node))
+	diff_type = integer_type_node;
 
       if (tiling)
 	{
@@ -3156,6 +3158,9 @@ expand_omp_for_generic (struct omp_region *region,
 	      gphi *nphi;
 	      gphi *exit_phi = psi.phi ();
 
+	      if (virtual_operand_p (gimple_phi_result (exit_phi)))
+		continue;
+
 	      edge l2_to_l3 = find_edge (l2_bb, l3_bb);
 	      tree exit_res = PHI_ARG_DEF_FROM_EDGE (exit_phi, l2_to_l3);
 
@@ -3178,7 +3183,7 @@ expand_omp_for_generic (struct omp_region *region,
 	      add_phi_arg (nphi, exit_res, l2_to_l0, UNKNOWN_LOCATION);
 
 	      add_phi_arg (inner_phi, new_res, l0_to_l1, UNKNOWN_LOCATION);
-	    };
+	    }
 	}
 
       set_immediate_dominator (CDI_DOMINATORS, l2_bb,
@@ -4368,11 +4373,12 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
 
   if (safelen)
     {
+      poly_uint64 val;
       safelen = OMP_CLAUSE_SAFELEN_EXPR (safelen);
-      if (TREE_CODE (safelen) != INTEGER_CST)
+      if (!poly_int_tree_p (safelen, &val))
 	safelen_int = 0;
-      else if (tree_fits_uhwi_p (safelen) && tree_to_uhwi (safelen) < INT_MAX)
-	safelen_int = tree_to_uhwi (safelen);
+      else
+	safelen_int = MIN (constant_lower_bound (val), INT_MAX);
       if (safelen_int == 1)
 	safelen_int = 0;
     }
@@ -6282,7 +6288,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 			    int index)
 {
   tree loadedi, storedi, initial, new_storedi, old_vali;
-  tree type, itype, cmpxchg, iaddr;
+  tree type, itype, cmpxchg, iaddr, atype;
   gimple_stmt_iterator si;
   basic_block loop_header = single_succ (load_bb);
   gimple *phi, *stmt;
@@ -6296,7 +6302,8 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   cmpxchg = builtin_decl_explicit (fncode);
   if (cmpxchg == NULL_TREE)
     return false;
-  type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
+  type = TYPE_MAIN_VARIANT (TREE_TYPE (loaded_val));
+  atype = type;
   itype = TREE_TYPE (TREE_TYPE (cmpxchg));
 
   if (!can_compare_and_swap_p (TYPE_MODE (itype), true)
@@ -6316,6 +6323,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 
       iaddr = create_tmp_reg (build_pointer_type_for_mode (itype, ptr_mode,
 							   true));
+      atype = itype;
       iaddr_val
 	= force_gimple_operand_gsi (&si,
 				    fold_convert (TREE_TYPE (iaddr), addr),
@@ -6336,13 +6344,17 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   tree loaddecl = builtin_decl_explicit (fncode);
   if (loaddecl)
     initial
-      = fold_convert (TREE_TYPE (TREE_TYPE (iaddr)),
+      = fold_convert (atype,
 		      build_call_expr (loaddecl, 2, iaddr,
 				       build_int_cst (NULL_TREE,
 						      MEMMODEL_RELAXED)));
   else
-    initial = build2 (MEM_REF, TREE_TYPE (TREE_TYPE (iaddr)), iaddr,
-		      build_int_cst (TREE_TYPE (iaddr), 0));
+    {
+      tree off
+	= build_int_cst (build_pointer_type_for_mode (atype, ptr_mode,
+						      true), 0);
+      initial = build2 (MEM_REF, atype, iaddr, off);
+    }
 
   initial
     = force_gimple_operand_gsi (&si, initial, true, NULL_TREE, true,
@@ -6494,15 +6506,20 @@ expand_omp_atomic_mutex (basic_block load_bb, basic_block store_bb,
   t = build_call_expr (t, 0);
   force_gimple_operand_gsi (&si, t, true, NULL_TREE, true, GSI_SAME_STMT);
 
-  stmt = gimple_build_assign (loaded_val, build_simple_mem_ref (addr));
+  tree mem = build_simple_mem_ref (addr);
+  TREE_TYPE (mem) = TREE_TYPE (loaded_val);
+  TREE_OPERAND (mem, 1)
+    = fold_convert (build_pointer_type_for_mode (TREE_TYPE (mem), ptr_mode,
+						 true),
+		    TREE_OPERAND (mem, 1));
+  stmt = gimple_build_assign (loaded_val, mem);
   gsi_insert_before (&si, stmt, GSI_SAME_STMT);
   gsi_remove (&si, true);
 
   si = gsi_last_nondebug_bb (store_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_STORE);
 
-  stmt = gimple_build_assign (build_simple_mem_ref (unshare_expr (addr)),
-			      stored_val);
+  stmt = gimple_build_assign (unshare_expr (mem), stored_val);
   gsi_insert_before (&si, stmt, GSI_SAME_STMT);
 
   t = builtin_decl_explicit (BUILT_IN_GOMP_ATOMIC_END);
@@ -6531,7 +6548,7 @@ expand_omp_atomic (struct omp_region *region)
   tree loaded_val = gimple_omp_atomic_load_lhs (load);
   tree addr = gimple_omp_atomic_load_rhs (load);
   tree stored_val = gimple_omp_atomic_store_val (store);
-  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
+  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (loaded_val));
   HOST_WIDE_INT index;
 
   /* Make sure the type is one of the supported sizes.  */
@@ -7058,7 +7075,11 @@ expand_omp_target (struct omp_region *region)
 
       /* Add the new function to the offload table.  */
       if (ENABLE_OFFLOADING)
-	vec_safe_push (offload_funcs, child_fn);
+	{
+	  if (in_lto_p)
+	    DECL_PRESERVE_P (child_fn) = 1;
+	  vec_safe_push (offload_funcs, child_fn);
+	}
 
       bool need_asm = DECL_ASSEMBLER_NAME_SET_P (current_function_decl)
 		      && !DECL_ASSEMBLER_NAME_SET_P (child_fn);

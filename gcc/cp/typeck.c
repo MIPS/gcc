@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -214,7 +214,7 @@ commonparms (tree p1, tree p2)
 	}
       else
 	{
-	  if (1 != simple_cst_equal (TREE_PURPOSE (p1), TREE_PURPOSE (p2)))
+	  if (simple_cst_equal (TREE_PURPOSE (p1), TREE_PURPOSE (p2)) != 1)
 	    any_change = 1;
 	  TREE_PURPOSE (n) = TREE_PURPOSE (p2);
 	}
@@ -1173,6 +1173,59 @@ comp_template_parms_position (tree t1, tree t2)
   return true;
 }
 
+/* Heuristic check if two parameter types can be considered ABI-equivalent.  */
+
+static bool
+cxx_safe_arg_type_equiv_p (tree t1, tree t2)
+{
+  t1 = TYPE_MAIN_VARIANT (t1);
+  t2 = TYPE_MAIN_VARIANT (t2);
+
+  if (TREE_CODE (t1) == POINTER_TYPE
+      && TREE_CODE (t2) == POINTER_TYPE)
+    return true;
+
+  /* The signedness of the parameter matters only when an integral
+     type smaller than int is promoted to int, otherwise only the
+     precision of the parameter matters.
+     This check should make sure that the callee does not see
+     undefined values in argument registers.  */
+  if (INTEGRAL_TYPE_P (t1)
+      && INTEGRAL_TYPE_P (t2)
+      && TYPE_PRECISION (t1) == TYPE_PRECISION (t2)
+      && (TYPE_UNSIGNED (t1) == TYPE_UNSIGNED (t2)
+	  || !targetm.calls.promote_prototypes (NULL_TREE)
+	  || TYPE_PRECISION (t1) >= TYPE_PRECISION (integer_type_node)))
+    return true;
+
+  return same_type_p (t1, t2);
+}
+
+/* Check if a type cast between two function types can be considered safe.  */
+
+static bool
+cxx_safe_function_type_cast_p (tree t1, tree t2)
+{
+  if (TREE_TYPE (t1) == void_type_node &&
+      TYPE_ARG_TYPES (t1) == void_list_node)
+    return true;
+
+  if (TREE_TYPE (t2) == void_type_node &&
+      TYPE_ARG_TYPES (t2) == void_list_node)
+    return true;
+
+  if (!cxx_safe_arg_type_equiv_p (TREE_TYPE (t1), TREE_TYPE (t2)))
+    return false;
+
+  for (t1 = TYPE_ARG_TYPES (t1), t2 = TYPE_ARG_TYPES (t2);
+       t1 && t2;
+       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
+    if (!cxx_safe_arg_type_equiv_p (TREE_VALUE (t1), TREE_VALUE (t2)))
+      return false;
+
+  return true;
+}
+
 /* Subroutine in comptypes.  */
 
 static bool
@@ -1359,7 +1412,7 @@ structural_comptypes (tree t1, tree t2, int strict)
       break;
 
     case VECTOR_TYPE:
-      if (TYPE_VECTOR_SUBPARTS (t1) != TYPE_VECTOR_SUBPARTS (t2)
+      if (maybe_ne (TYPE_VECTOR_SUBPARTS (t1), TYPE_VECTOR_SUBPARTS (t2))
 	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
       break;
@@ -1956,7 +2009,10 @@ decay_conversion (tree exp,
     return error_mark_node;
 
   if (NULLPTR_TYPE_P (type) && !TREE_SIDE_EFFECTS (exp))
-    return nullptr_node;
+    {
+      mark_rvalue_use (exp, loc, reject_builtin);
+      return nullptr_node;
+    }
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Leave such NOP_EXPRs, since RHS is being used in non-lvalue context.  */
@@ -2148,6 +2204,8 @@ string_conv_p (const_tree totype, const_tree exp, int warn)
       && !same_type_p (t, char32_type_node)
       && !same_type_p (t, wchar_type_node))
     return 0;
+
+  STRIP_ANY_LOCATION_WRAPPER (exp);
 
   if (TREE_CODE (exp) == STRING_CST)
     {
@@ -4264,7 +4322,7 @@ cp_build_binary_op (location_t location,
     }
 
   /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if ((orig_op0 == null_node || orig_op1 == null_node)
+  if ((null_node_p (orig_op0) || null_node_p (orig_op1))
       /* It's reasonable to use pointer values as operands of &&
 	 and ||, so NULL is no exception.  */
       && code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR 
@@ -4532,9 +4590,10 @@ cp_build_binary_op (location_t location,
           converted = 1;
         }
       else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	       && known_eq (TYPE_VECTOR_SUBPARTS (type0),
+			    TYPE_VECTOR_SUBPARTS (type1)))
 	{
 	  result_type = type0;
 	  converted = 1;
@@ -4577,9 +4636,10 @@ cp_build_binary_op (location_t location,
           converted = 1;
         }
       else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	       && known_eq (TYPE_VECTOR_SUBPARTS (type0),
+			    TYPE_VECTOR_SUBPARTS (type1)))
 	{
 	  result_type = type0;
 	  converted = 1;
@@ -4944,7 +5004,8 @@ cp_build_binary_op (location_t location,
 	      return error_mark_node;
 	    }
 
-	  if (TYPE_VECTOR_SUBPARTS (type0) != TYPE_VECTOR_SUBPARTS (type1))
+	  if (maybe_ne (TYPE_VECTOR_SUBPARTS (type0),
+			TYPE_VECTOR_SUBPARTS (type1)))
 	    {
 	      if (complain & tf_error)
 		{
@@ -5677,8 +5738,9 @@ build_address (tree t)
 {
   if (error_operand_p (t) || !cxx_mark_addressable (t))
     return error_mark_node;
-  gcc_checking_assert (TREE_CODE (t) != CONSTRUCTOR);
-  t = build_fold_addr_expr (t);
+  gcc_checking_assert (TREE_CODE (t) != CONSTRUCTOR
+		       || processing_template_decl);
+  t = build_fold_addr_expr_loc (EXPR_LOCATION (t), t);
   if (TREE_CODE (t) != ADDR_EXPR)
     t = rvalue (t);
   return t;
@@ -6890,8 +6952,11 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	}
 
       /* Convert from "B*" to "D*".  This function will check that "B"
-	 is not a virtual base of "D".  */
-      expr = build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false,
+	 is not a virtual base of "D".  Even if we don't have a guarantee
+	 that expr is NULL, if the static_cast is to a reference type,
+	 it is UB if it would be NULL, so omit the non-NULL check.  */
+      expr = build_base_path (MINUS_EXPR, expr, base,
+			      /*nonnull=*/flag_delete_null_pointer_checks,
 			      complain);
 
       /* Convert the pointer to a reference -- but then remember that
@@ -6902,7 +6967,18 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
          is a variable with the same type, the conversion would get folded
          away, leaving just the variable and causing lvalue_kind to give
          the wrong answer.  */
-      return convert_from_reference (rvalue (cp_fold_convert (type, expr)));
+      expr = cp_fold_convert (type, expr);
+
+      /* When -fsanitize=null, make sure to diagnose reference binding to
+	 NULL even when the reference is converted to pointer later on.  */
+      if (sanitize_flags_p (SANITIZE_NULL)
+	  && TREE_CODE (expr) == COND_EXPR
+	  && TREE_OPERAND (expr, 2)
+	  && TREE_CODE (TREE_OPERAND (expr, 2)) == INTEGER_CST
+	  && TREE_TYPE (TREE_OPERAND (expr, 2)) == type)
+	ubsan_maybe_instrument_reference (&TREE_OPERAND (expr, 2));
+
+      return convert_from_reference (rvalue (expr));
     }
 
   /* "A glvalue of type cv1 T1 can be cast to type rvalue reference to
@@ -7132,6 +7208,8 @@ build_static_cast (tree type, tree oexpr, tsubst_flags_t complain)
       TREE_SIDE_EFFECTS (expr) = 1;
       return convert_from_reference (expr);
     }
+  else if (processing_template_decl)
+    expr = build_non_dependent_expr (expr);
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs if VALUE is being used in non-lvalue context.  */
@@ -7326,9 +7404,27 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	   && same_type_p (type, intype))
     /* DR 799 */
     return rvalue (expr);
-  else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
-	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
-    return build_nop (type, expr);
+  else if (TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
+    {
+      if ((complain & tf_warning)
+	  && !cxx_safe_function_type_cast_p (TREE_TYPE (type),
+					     TREE_TYPE (intype)))
+	warning (OPT_Wcast_function_type,
+		 "cast between incompatible function types"
+		 " from %qH to %qI", intype, type);
+      return build_nop (type, expr);
+    }
+  else if (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype))
+    {
+      if ((complain & tf_warning)
+	  && !cxx_safe_function_type_cast_p
+		(TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE_RAW (type)),
+		 TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE_RAW (intype))))
+	warning (OPT_Wcast_function_type,
+		 "cast between incompatible pointer to member types"
+		 " from %qH to %qI", intype, type);
+      return build_nop (type, expr);
+    }
   else if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
@@ -8037,8 +8133,7 @@ cp_build_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
     {
       if (complain & tf_error)
 	cxx_readonly_error (lhs, lv_assign);
-      else
-	return error_mark_node;
+      return error_mark_node;
     }
 
   /* If storing into a structure or union member, it may have been given a
@@ -8598,6 +8693,7 @@ convert_for_assignment (tree type, tree rhs,
       if (check_narrowing (ENUM_UNDERLYING_TYPE (type), elt, complain))
 	{
 	  warning_sentinel w (warn_useless_cast);
+	  warning_sentinel w2 (warn_ignored_qualifiers);
 	  rhs = cp_build_c_cast (type, elt, complain);
 	}
       else
@@ -9241,6 +9337,9 @@ check_return_expr (tree retval, bool *no_warning)
       /* If we had an id-expression obfuscated by force_paren_expr, we need
 	 to undo it so we can try to treat it as an rvalue below.  */
       retval = maybe_undo_parenthesized_ref (retval);
+
+      if (processing_template_decl)
+	retval = build_non_dependent_expr (retval);
 
       /* Under C++11 [12.8/32 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to

@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -574,7 +574,7 @@ public:
 		      class const_and_copies *const_and_copies,
 		      class avail_exprs_stack *avail_exprs_stack,
 		      gcond *dummy_cond)
-    : dom_walker (direction, true),
+    : dom_walker (direction, REACHABLE_BLOCKS),
       m_const_and_copies (const_and_copies),
       m_avail_exprs_stack (avail_exprs_stack),
       m_dummy_cond (dummy_cond) { }
@@ -1109,7 +1109,6 @@ record_equivalences_from_phis (basic_block bb)
       tree rhs = NULL;
       size_t i;
 
-      bool ignored_phi_arg = false;
       for (i = 0; i < gimple_phi_num_args (phi); i++)
 	{
 	  tree t = gimple_phi_arg_def (phi, i);
@@ -1120,16 +1119,18 @@ record_equivalences_from_phis (basic_block bb)
 	  if (lhs == t)
 	    continue;
 
-	  /* We want to track if we ignored any PHI arguments because
-	     their associated edges were not executable.  This impacts
-	     whether or not we can use any equivalence we might discover.  */
+	  /* If the associated edge is not marked as executable, then it
+	     can be ignored.  */
 	  if ((gimple_phi_arg_edge (phi, i)->flags & EDGE_EXECUTABLE) == 0)
-	    {
-	      ignored_phi_arg = true;
-	      continue;
-	    }
+	    continue;
 
 	  t = dom_valueize (t);
+
+	  /* If T is an SSA_NAME and its associated edge is a backedge,
+	     then quit as we can not utilize this equivalence.  */
+	  if (TREE_CODE (t) == SSA_NAME
+	      && (gimple_phi_arg_edge (phi, i)->flags & EDGE_DFS_BACK))
+	    break;
 
 	  /* If we have not processed an alternative yet, then set
 	     RHS to this alternative.  */
@@ -1152,15 +1153,9 @@ record_equivalences_from_phis (basic_block bb)
 	 a useful equivalence.  We do not need to record unwind data for
 	 this, since this is a true assignment and not an equivalence
 	 inferred from a comparison.  All uses of this ssa name are dominated
-	 by this assignment, so unwinding just costs time and space.
-
-	 Note that if we ignored a PHI argument and the resulting equivalence
-	 is SSA_NAME = SSA_NAME.  Then we can not use the equivalence as the
-	 uses of the LHS SSA_NAME are not necessarily dominated by the
-	 assignment of the RHS SSA_NAME.  */
+	 by this assignment, so unwinding just costs time and space.  */
       if (i == gimple_phi_num_args (phi)
-	  && may_propagate_copy (lhs, rhs)
-	  && (!ignored_phi_arg || TREE_CODE (rhs) != SSA_NAME))
+	  && may_propagate_copy (lhs, rhs))
 	set_ssa_name_value (lhs, rhs);
     }
 }
@@ -1281,8 +1276,11 @@ record_equality (tree x, tree y, class const_and_copies *const_and_copies)
 /* Returns true when STMT is a simple iv increment.  It detects the
    following situation:
 
-   i_1 = phi (..., i_2)
-   i_2 = i_1 +/- ...  */
+   i_1 = phi (..., i_k)
+   [...]
+   i_j = i_{j-1}  for each j : 2 <= j <= k-1
+   [...]
+   i_k = i_{k-1} +/- ...  */
 
 bool
 simple_iv_increment_p (gimple *stmt)
@@ -1310,8 +1308,15 @@ simple_iv_increment_p (gimple *stmt)
     return false;
 
   phi = SSA_NAME_DEF_STMT (preinc);
-  if (gimple_code (phi) != GIMPLE_PHI)
-    return false;
+  while (gimple_code (phi) != GIMPLE_PHI)
+    {
+      /* Follow trivial copies, but not the DEF used in a back edge,
+	 so that we don't prevent coalescing.  */
+      if (!gimple_assign_ssa_name_copy_p (phi))
+	return false;
+      preinc = gimple_assign_rhs1 (phi);
+      phi = SSA_NAME_DEF_STMT (preinc);
+    }
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     if (gimple_phi_arg_def (phi, i) == lhs)
@@ -1433,7 +1438,7 @@ dom_opt_dom_walker::before_dom_children (basic_block bb)
   edge taken_edge = NULL;
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      evrp_range_analyzer.record_ranges_from_stmt (gsi_stmt (gsi));
+      evrp_range_analyzer.record_ranges_from_stmt (gsi_stmt (gsi), false);
       taken_edge = this->optimize_stmt (bb, gsi);
     }
 
@@ -1456,6 +1461,7 @@ dom_opt_dom_walker::after_dom_children (basic_block bb)
   x_vr_values = evrp_range_analyzer.get_vr_values ();
   thread_outgoing_edges (bb, m_dummy_cond, m_const_and_copies,
 			 m_avail_exprs_stack,
+			 &evrp_range_analyzer,
 			 simplify_stmt_for_jump_threading);
   x_vr_values = NULL;
 
@@ -2016,6 +2022,7 @@ dom_opt_dom_walker::optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 		 undefined behavior that get diagnosed if they're left in the
 		 IL because we've attached range information to new
 		 SSA_NAMES.  */
+	      update_stmt_if_modified (stmt);
 	      edge taken_edge = NULL;
 	      evrp_range_analyzer.vrp_visit_cond_stmt (as_a <gcond *> (stmt),
 						       &taken_edge);

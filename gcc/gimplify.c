@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -702,7 +702,7 @@ gimple_add_tmp_var_fn (struct function *fn, tree tmp)
   /* Later processing assumes that the object size is constant, which might
      not be true at this point.  Force the use of a constant upper bound in
      this case.  */
-  if (!tree_fits_uhwi_p (DECL_SIZE_UNIT (tmp)))
+  if (!tree_fits_poly_uint64_p (DECL_SIZE_UNIT (tmp)))
     force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = fn->decl;
@@ -721,7 +721,7 @@ gimple_add_tmp_var (tree tmp)
   /* Later processing assumes that the object size is constant, which might
      not be true at this point.  Force the use of a constant upper bound in
      this case.  */
-  if (!tree_fits_uhwi_p (DECL_SIZE_UNIT (tmp)))
+  if (!tree_fits_poly_uint64_p (DECL_SIZE_UNIT (tmp)))
     force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = current_function_decl;
@@ -1500,8 +1500,7 @@ gimplify_return_expr (tree stmt, gimple_seq *pre_p)
     return GS_ERROR;
 
   if (!ret_expr
-      || TREE_CODE (ret_expr) == RESULT_DECL
-      || ret_expr == error_mark_node)
+      || TREE_CODE (ret_expr) == RESULT_DECL)
     {
       maybe_add_early_return_predict_stmt (pre_p);
       greturn *ret = gimple_build_return (ret_expr);
@@ -3124,7 +3123,7 @@ maybe_with_size_expr (tree *expr_p)
 
   /* If the size isn't known or is a constant, we have nothing to do.  */
   size = TYPE_SIZE_UNIT (type);
-  if (!size || TREE_CODE (size) == INTEGER_CST)
+  if (!size || poly_int_tree_p (size))
     return;
 
   /* Otherwise, make a WITH_SIZE_EXPR.  */
@@ -7973,7 +7972,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    }
 
 		  tree offset;
-		  HOST_WIDE_INT bitsize, bitpos;
+		  poly_int64 bitsize, bitpos;
 		  machine_mode mode;
 		  int unsignedp, reversep, volatilep = 0;
 		  tree base = OMP_CLAUSE_DECL (c);
@@ -7994,7 +7993,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    base = TREE_OPERAND (base, 0);
 		  gcc_assert (base == decl
 			      && (offset == NULL_TREE
-				  || TREE_CODE (offset) == INTEGER_CST));
+				  || poly_int_tree_p (offset)));
 
 		  splay_tree_node n
 		    = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
@@ -8073,13 +8072,13 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      tree *sc = NULL, *scp = NULL;
 		      if (GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)) || ptr)
 			n->value |= GOVD_SEEN;
-		      offset_int o1, o2;
+		      poly_offset_int o1, o2;
 		      if (offset)
-			o1 = wi::to_offset (offset);
+			o1 = wi::to_poly_offset (offset);
 		      else
 			o1 = 0;
-		      if (bitpos)
-			o1 = o1 + bitpos / BITS_PER_UNIT;
+		      if (maybe_ne (bitpos, 0))
+			o1 += bits_to_bytes_round_down (bitpos);
 		      sc = &OMP_CLAUSE_CHAIN (*osc);
 		      if (*sc != c
 			  && (OMP_CLAUSE_MAP_KIND (*sc)
@@ -8098,7 +8097,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			else
 			  {
 			    tree offset2;
-			    HOST_WIDE_INT bitsize2, bitpos2;
+			    poly_int64 bitsize2, bitpos2;
 			    base = OMP_CLAUSE_DECL (*sc);
 			    if (TREE_CODE (base) == ARRAY_REF)
 			      {
@@ -8134,7 +8133,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			    if (scp)
 			      continue;
 			    gcc_assert (offset == NULL_TREE
-					|| TREE_CODE (offset) == INTEGER_CST);
+					|| poly_int_tree_p (offset));
 			    tree d1 = OMP_CLAUSE_DECL (*sc);
 			    tree d2 = OMP_CLAUSE_DECL (c);
 			    while (TREE_CODE (d1) == ARRAY_REF)
@@ -8164,13 +8163,13 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 				break;
 			      }
 			    if (offset2)
-			      o2 = wi::to_offset (offset2);
+			      o2 = wi::to_poly_offset (offset2);
 			    else
 			      o2 = 0;
-			    if (bitpos2)
-			      o2 = o2 + bitpos2 / BITS_PER_UNIT;
-			    if (wi::ltu_p (o1, o2)
-				|| (wi::eq_p (o1, o2) && bitpos < bitpos2))
+			    o2 += bits_to_bytes_round_down (bitpos2);
+			    if (maybe_lt (o1, o2)
+				|| (known_eq (o1, 2)
+				    && maybe_lt (bitpos, bitpos2)))
 			      {
 				if (ptr)
 				  scp = sc;
@@ -11334,9 +11333,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       save_expr = *expr_p;
 
       /* Die, die, die, my darling.  */
-      if (save_expr == error_mark_node
-	  || (TREE_TYPE (save_expr)
-	      && TREE_TYPE (save_expr) == error_mark_node))
+      if (error_operand_p (save_expr))
 	{
 	  ret = GS_ERROR;
 	  break;
@@ -12565,7 +12562,10 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq *stmt_p)
      a VAR_DECL.  If it's a VAR_DECL from another function, the gimplifier
      will want to replace it with a new variable, but that will cause problems
      if this type is from outside the function.  It's OK to have that here.  */
-  if (is_gimple_sizepos (expr))
+  if (expr == NULL_TREE
+      || is_gimple_constant (expr)
+      || TREE_CODE (expr) == VAR_DECL
+      || CONTAINS_PLACEHOLDER_P (expr))
     return;
 
   *expr_p = unshare_expr (expr);
@@ -12573,6 +12573,12 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq *stmt_p)
   /* SSA names in decl/type fields are a bad idea - they'll get reclaimed
      if the def vanishes.  */
   gimplify_expr (expr_p, stmt_p, NULL, is_gimple_val, fb_rvalue, false);
+
+  /* If expr wasn't already is_gimple_sizepos or is_gimple_constant from the
+     FE, ensure that it is a VAR_DECL, otherwise we might handle some decls
+     as gimplify_vla_decl even when they would have all sizes INTEGER_CSTs.  */
+  if (is_gimple_constant (*expr_p))
+    *expr_p = get_initialized_tmp_var (*expr_p, stmt_p, NULL, false);
 }
 
 /* Gimplify the body of statements of FNDECL and return a GIMPLE_BIND node
@@ -12583,7 +12589,7 @@ gbind *
 gimplify_body (tree fndecl, bool do_parms)
 {
   location_t saved_location = input_location;
-  gimple_seq parm_stmts, seq;
+  gimple_seq parm_stmts, parm_cleanup = NULL, seq;
   gimple *outer_stmt;
   gbind *outer_bind;
   struct cgraph_node *cgn;
@@ -12622,7 +12628,7 @@ gimplify_body (tree fndecl, bool do_parms)
 
   /* Resolve callee-copies.  This has to be done before processing
      the body so that DECL_VALUE_EXPR gets processed correctly.  */
-  parm_stmts = do_parms ? gimplify_parameters () : NULL;
+  parm_stmts = do_parms ? gimplify_parameters (&parm_cleanup) : NULL;
 
   /* Gimplify the function's body.  */
   seq = NULL;
@@ -12651,6 +12657,13 @@ gimplify_body (tree fndecl, bool do_parms)
       tree parm;
 
       gimplify_seq_add_seq (&parm_stmts, gimple_bind_body (outer_bind));
+      if (parm_cleanup)
+	{
+	  gtry *g = gimple_build_try (parm_stmts, parm_cleanup,
+				      GIMPLE_TRY_FINALLY);
+	  parm_stmts = NULL;
+	  gimple_seq_add_stmt (&parm_stmts, g);
+	}
       gimple_bind_set_body (outer_bind, parm_stmts);
 
       for (parm = DECL_ARGUMENTS (current_function_decl);

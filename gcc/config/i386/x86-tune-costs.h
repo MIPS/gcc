@@ -1,5 +1,5 @@
 /* Costs of operations of individual x86 CPUs.
-   Copyright (C) 1988-2017 Free Software Foundation, Inc.
+   Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1538,12 +1538,14 @@ struct processor_costs skylake_cost = {
   {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
    COSTS_N_INSNS (4),			/*				 HI */
    COSTS_N_INSNS (3),			/*				 SI */
-   COSTS_N_INSNS (4),			/*				 DI */
-   COSTS_N_INSNS (4)},			/*			      other */
+   COSTS_N_INSNS (3),			/*				 DI */
+   COSTS_N_INSNS (3)},			/*			      other */
   0,					/* cost of multiply per each bit set */
-  {COSTS_N_INSNS (8),			/* cost of a divide/mod for QI */
-   COSTS_N_INSNS (8),			/*			    HI */
-   COSTS_N_INSNS (11),			/*			    SI */
+  /* Expanding div/mod currently doesn't consider parallelism. So the cost
+     model is not realistic. We compensate by increasing the latencies a bit.  */
+  {COSTS_N_INSNS (11),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (11),			/*			    HI */
+   COSTS_N_INSNS (14),			/*			    SI */
    COSTS_N_INSNS (76),			/*			    DI */
    COSTS_N_INSNS (76)},			/*			    other */
   COSTS_N_INSNS (1),			/* cost of movsx */
@@ -1555,7 +1557,7 @@ struct processor_costs skylake_cost = {
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
 					   Relative to reg-reg move (2).  */
-  {6, 6, 6},				/* cost of storing integer registers */
+  {6, 6, 3},				/* cost of storing integer registers */
   2,					/* cost of reg,reg fld/fst */
   {6, 6, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
@@ -1570,7 +1572,7 @@ struct processor_costs skylake_cost = {
   {6, 6, 6, 10, 20},			/* cost of loading SSE registers
 					   in 32,64,128,256 and 512-bit */
   {6, 6, 6, 10, 20},			/* cost of unaligned loads.  */
-  {8, 8, 8, 8, 16},			/* cost of storing SSE registers
+  {8, 8, 8, 12, 24},			/* cost of storing SSE registers
 					   in 32,64,128,256 and 512-bit */
   {8, 8, 8, 8, 16},			/* cost of unaligned stores.  */
   2, 2,					/* SSE->integer and integer->SSE moves */
@@ -2257,8 +2259,8 @@ struct processor_costs generic_cost = {
 
   /* All move costs are relative to integer->integer move times 2 and thus
      they are latency*2. */
-  4,				     /* cost for loading QImode using movzbl */
-  {4, 4, 4},				/* cost of loading integer registers
+  6,				     /* cost for loading QImode using movzbl */
+  {6, 6, 6},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
 					   Relative to reg-reg move (2).  */
   {6, 6, 6},				/* cost of storing integer registers */
@@ -2291,10 +2293,10 @@ struct processor_costs generic_cost = {
   3,					/* Branch cost */
   COSTS_N_INSNS (3),			/* cost of FADD and FSUB insns.  */
   COSTS_N_INSNS (5),			/* cost of FMUL instruction.  */
-  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (17),			/* cost of FDIV instruction.  */
   COSTS_N_INSNS (1),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (1),			/* cost of FCHS instruction.  */
-  COSTS_N_INSNS (20),			/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (14),			/* cost of FSQRT instruction.  */
 
   COSTS_N_INSNS (1),			/* cost of cheap SSE instruction.  */
   COSTS_N_INSNS (3),			/* cost of ADDSS/SD SUBSS/SD insns.  */
@@ -2302,15 +2304,15 @@ struct processor_costs generic_cost = {
   COSTS_N_INSNS (5),			/* cost of MULSD instruction.  */
   COSTS_N_INSNS (5),			/* cost of FMA SS instruction.  */
   COSTS_N_INSNS (5),			/* cost of FMA SD instruction.  */
-  COSTS_N_INSNS (18),			/* cost of DIVSS instruction.  */
-  COSTS_N_INSNS (32),			/* cost of DIVSD instruction.  */
-  COSTS_N_INSNS (30),			/* cost of SQRTSS instruction.  */
-  COSTS_N_INSNS (58),			/* cost of SQRTSD instruction.  */
+  COSTS_N_INSNS (13),			/* cost of DIVSS instruction.  */
+  COSTS_N_INSNS (17),			/* cost of DIVSD instruction.  */
+  COSTS_N_INSNS (14),			/* cost of SQRTSS instruction.  */
+  COSTS_N_INSNS (18),			/* cost of SQRTSD instruction.  */
   1, 4, 3, 3,				/* reassoc int, fp, vec_int, vec_fp.  */
   generic_memcpy,
   generic_memset,
-  COSTS_N_INSNS (3),			/* cond_taken_branch_cost.  */
-  COSTS_N_INSNS (1),			/* cond_not_taken_branch_cost.  */
+  COSTS_N_INSNS (4),			/* cond_taken_branch_cost.  */
+  COSTS_N_INSNS (2),			/* cond_not_taken_branch_cost.  */
 };
 
 /* core_cost should produce code tuned for Core familly of CPUs.  */
@@ -2339,14 +2341,15 @@ struct processor_costs core_cost = {
   {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
    COSTS_N_INSNS (4),			/*				 HI */
    COSTS_N_INSNS (3),			/*				 SI */
-   COSTS_N_INSNS (4),			/*				 DI */
-   COSTS_N_INSNS (4)},			/*			      other */
+   /* Here we tune for Sandybridge or newer.  */
+   COSTS_N_INSNS (3),			/*				 DI */
+   COSTS_N_INSNS (3)},			/*			      other */
   0,					/* cost of multiply per each bit set */
-  {COSTS_N_INSNS (8),			/* cost of a divide/mod for QI */
-   COSTS_N_INSNS (8),			/*			    HI */
-   /* 8-11 */
-   COSTS_N_INSNS (11),			/*			    SI */
-   /* 24-81 */
+  /* Expanding div/mod currently doesn't consider parallelism. So the cost
+     model is not realistic. We compensate by increasing the latencies a bit.  */
+  {COSTS_N_INSNS (11),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (11),			/*			    HI */
+   COSTS_N_INSNS (14),			/*			    SI */
    COSTS_N_INSNS (81),			/*			    DI */
    COSTS_N_INSNS (81)},			/*			    other */
   COSTS_N_INSNS (1),			/* cost of movsx */

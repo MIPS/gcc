@@ -1,5 +1,5 @@
 /* Target machine subroutines for Altera Nios II.
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
    Contributed by Jonah Graham (jgraham@altera.com), 
    Will Reece (wreece@altera.com), and Jeff DaSilva (jdasilva@altera.com).
    Contributed by Mentor Graphics, Inc.
@@ -19,6 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -1328,7 +1330,7 @@ nios2_handle_custom_fpu_insn_option (int fpu_insn_index)
 {
   int param = N2FPU_N (fpu_insn_index);
 
-  if (0 <= param && param <= 255)
+  if (param >= 0 && param <= 255)
     nios2_register_custom_code (param, CCS_FPU, fpu_insn_index);
 
   /* Valid values are 0-255, but also allow -1 so that the
@@ -5129,7 +5131,7 @@ static bool
 can_use_cdx_ldstw (int regno, int basereg, int offset)
 {
   if (CDX_REG_P (regno) && CDX_REG_P (basereg)
-      && (offset & 0x3) == 0 && 0 <= offset && offset < 0x40)
+      && (offset & 0x3) == 0 && offset >= 0 && offset < 0x40)
     return true;
   else if (basereg == SP_REGNO
 	   && offset >= 0 && offset < 0x80 && (offset & 0x3) == 0)

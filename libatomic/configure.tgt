@@ -1,5 +1,5 @@
 # -*- shell-script -*-
-#  Copyright (C) 2012-2017 Free Software Foundation, Inc.
+#  Copyright (C) 2012-2018 Free Software Foundation, Inc.
 #  Contributed by Richard Henderson <rth@redhat.com>.
 #
 #  This file is part of the GNU Atomic Library (libatomic).
@@ -44,7 +44,9 @@ case "${target_cpu}" in
 	ARCH=aarch64
 	case "${target}" in
 	    aarch64*-*-linux*)
-		try_ifunc=yes
+		if test -n "$enable_aarch64_lse"; then
+		    try_ifunc=yes
+		fi
 		;;
 	esac
 	;;

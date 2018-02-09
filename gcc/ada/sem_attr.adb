@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -11111,7 +11111,7 @@ package body Sem_Attr is
               and then not (Nkind (P) = N_Selected_Component
                              and then
                                Is_Overloadable (Entity (Selector_Name (P))))
-              and then not Is_Aliased_View (P)
+              and then not Is_Aliased_View (Original_Node (P))
               and then not In_Instance
               and then not In_Inlined_Body
               and then Comes_From_Source (N)

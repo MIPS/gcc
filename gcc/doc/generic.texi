@@ -1,4 +1,4 @@
-@c Copyright (C) 2004-2017 Free Software Foundation, Inc.
+@c Copyright (C) 2004-2018 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1037,6 +1037,7 @@ As this example indicates, the operands are zero-indexed.
 @tindex COMPLEX_CST
 @tindex VECTOR_CST
 @tindex STRING_CST
+@tindex POLY_INT_CST
 @findex TREE_STRING_LENGTH
 @findex TREE_STRING_POINTER
 
@@ -1174,6 +1175,16 @@ of the @code{STRING_CST}.
 
 FIXME: The formats of string constants are not well-defined when the
 target system bytes are not the same width as host system bytes.
+
+@item POLY_INT_CST
+These nodes represent invariants that depend on some target-specific
+runtime parameters.  They consist of @code{NUM_POLY_INT_COEFFS}
+coefficients, with the first coefficient being the constant term and
+the others being multipliers that are applied to the runtime parameters.
+
+@code{POLY_INT_CST_ELT (@var{x}, @var{i})} references coefficient number
+@var{i} of @code{POLY_INT_CST} node @var{x}.  Each coefficient is an
+@code{INTEGER_CST}.
 
 @end table
 
@@ -1768,6 +1779,8 @@ a value from @code{enum annot_expr_kind}, the third is an @code{INTEGER_CST}.
 
 @node Vectors
 @subsection Vectors
+@tindex VEC_DUPLICATE_EXPR
+@tindex VEC_SERIES_EXPR
 @tindex VEC_LSHIFT_EXPR
 @tindex VEC_RSHIFT_EXPR
 @tindex VEC_WIDEN_MULT_HI_EXPR
@@ -1779,9 +1792,22 @@ a value from @code{enum annot_expr_kind}, the third is an @code{INTEGER_CST}.
 @tindex VEC_PACK_TRUNC_EXPR
 @tindex VEC_PACK_SAT_EXPR
 @tindex VEC_PACK_FIX_TRUNC_EXPR
+@tindex VEC_COND_EXPR
 @tindex SAD_EXPR
 
 @table @code
+@item VEC_DUPLICATE_EXPR
+This node has a single operand and represents a vector in which every
+element is equal to that operand.
+
+@item VEC_SERIES_EXPR
+This node represents a vector formed from a scalar base and step,
+given as the first and second operands respectively.  Element @var{i}
+of the result is equal to @samp{@var{base} + @var{i}*@var{step}}.
+
+This node is restricted to integral types, in order to avoid
+specifying the rounding behavior for floating-point types.
+
 @item VEC_LSHIFT_EXPR
 @itemx VEC_RSHIFT_EXPR
 These nodes represent whole vector left and right shifts, respectively.

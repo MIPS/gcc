@@ -1,3 +1,69 @@
+2018-02-08  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/libgomp.hsa.c/pr82416.c: Make the function with target
+	clonable.
+
+2018-02-08  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/libgomp.hsa.c/staticvar.c: New test.
+
+2018-02-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* testsuite/libgomp.oacc-c-c++-common/pr84217.c (abort)
+	[__cplusplus]: Declare extern "C".
+
+2018-02-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/84217
+	* testsuite/libgomp.oacc-c-c++-common/pr84217.c: New test.
+
+2018-01-29  Christoph Spiel  <cspiel@freenet.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/84096
+	* omp.h.in (omp_init_nest_lock_with_hint): Use omp_nest_lock_t
+	instead of omp_lock_t.
+
+2018-01-25  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/84028
+	* testsuite/libgomp.oacc-fortran/pr84028.f90: New test.
+
+2018-01-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/83589
+	* testsuite/libgomp.oacc-c-c++-common/pr83589.c: New test.
+
+2018-01-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/81352
+	* testsuite/libgomp.oacc-fortran/pr81352.f90: New test.
+
+2018-01-19  Tom de Vries  <tom@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR target/83920
+	* testsuite/libgomp.oacc-c-c++-common/pr83920.c: New test.
+	* testsuite/libgomp.oacc-fortran/pr83920.f90: New test.
+
+2018-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+	* libgomp.texi: Bump @copying's copyright year.
+
+2017-12-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/83046
+	* testsuite/libgomp.oacc-c-c++-common/pr83046.c: New test.
+	* testsuite/libgomp.c-c++-common/pr83046.c: New test.
+
+2017-12-27  Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/83046
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c (test_static)
+	(test_nonstatic): Fix return type to workaround PR83046.
+
 2017-12-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR testsuite/83281
@@ -8937,7 +9003,7 @@
 
 	Initial implementation and checkin.
 
-Copyright (C) 2005-2017 Free Software Foundation, Inc.
+Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

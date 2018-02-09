@@ -1,5 +1,5 @@
 /* Output dbx-format symbol table information from GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,6 +91,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "expr.h"
+#include "file-prefix-map.h" /* remap_debug_filename()  */
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -2531,7 +2532,7 @@ dbxout_expand_expr (tree expr)
     case BIT_FIELD_REF:
       {
 	machine_mode mode;
-	HOST_WIDE_INT bitsize, bitpos;
+	poly_int64 bitsize, bitpos;
 	tree offset, tem;
 	int unsignedp, reversep, volatilep = 0;
 	rtx x;
@@ -2548,8 +2549,8 @@ dbxout_expand_expr (tree expr)
 	      return NULL;
 	    x = adjust_address_nv (x, mode, tree_to_shwi (offset));
 	  }
-	if (bitpos != 0)
-	  x = adjust_address_nv (x, mode, bitpos / BITS_PER_UNIT);
+	if (maybe_ne (bitpos, 0))
+	  x = adjust_address_nv (x, mode, bits_to_bytes_round_down (bitpos));
 
 	return x;
       }
@@ -3043,7 +3044,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	  int offs;
 	  letter = 'G';
 	  code = N_GSYM;
-	  if (NULL != dbxout_common_check (decl, &offs))
+	  if (dbxout_common_check (decl, &offs) != NULL)
 	    {
 	      letter = 'V';
 	      addr = 0;
@@ -3097,7 +3098,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    {
 	      int offs;
 	      code = N_LCSYM;
-	      if (NULL != dbxout_common_check (decl, &offs))
+	      if (dbxout_common_check (decl, &offs) != NULL)
 	        {
 		  addr = 0;
 		  number = offs;
@@ -3196,7 +3197,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       int offs;
       code = N_LCSYM;
       letter = 'V';
-      if (NULL == dbxout_common_check (decl, &offs))
+      if (dbxout_common_check (decl, &offs) == NULL)
         addr = XEXP (XEXP (home, 0), 0);
       else
         {

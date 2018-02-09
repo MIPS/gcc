@@ -1,5 +1,5 @@
 /* Control flow optimization code for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -864,8 +864,6 @@ merge_memattrs (rtx x, rtx y)
 	MEM_ATTRS (x) = 0;
       else
 	{
-	  HOST_WIDE_INT mem_size;
-
 	  if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
 	    {
 	      set_mem_alias_set (x, 0);
@@ -881,20 +879,23 @@ merge_memattrs (rtx x, rtx y)
 	    }
 	  else if (MEM_OFFSET_KNOWN_P (x) != MEM_OFFSET_KNOWN_P (y)
 		   || (MEM_OFFSET_KNOWN_P (x)
-		       && MEM_OFFSET (x) != MEM_OFFSET (y)))
+		       && maybe_ne (MEM_OFFSET (x), MEM_OFFSET (y))))
 	    {
 	      clear_mem_offset (x);
 	      clear_mem_offset (y);
 	    }
 
-	  if (MEM_SIZE_KNOWN_P (x) && MEM_SIZE_KNOWN_P (y))
-	    {
-	      mem_size = MAX (MEM_SIZE (x), MEM_SIZE (y));
-	      set_mem_size (x, mem_size);
-	      set_mem_size (y, mem_size);
-	    }
+	  if (!MEM_SIZE_KNOWN_P (x))
+	    clear_mem_size (y);
+	  else if (!MEM_SIZE_KNOWN_P (y))
+	    clear_mem_size (x);
+	  else if (known_le (MEM_SIZE (x), MEM_SIZE (y)))
+	    set_mem_size (x, MEM_SIZE (y));
+	  else if (known_le (MEM_SIZE (y), MEM_SIZE (x)))
+	    set_mem_size (y, MEM_SIZE (x));
 	  else
 	    {
+	      /* The sizes aren't ordered, so we can't merge them.  */
 	      clear_mem_size (x);
 	      clear_mem_size (y);
 	    }
@@ -1172,7 +1173,7 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx_insn *i1, rtx_insn *i2)
       /* ??? Worse, this adjustment had better be constant lest we
          have differing incoming stack levels.  */
       if (!frame_pointer_needed
-          && find_args_size_adjust (i1) == HOST_WIDE_INT_MIN)
+	  && known_eq (find_args_size_adjust (i1), HOST_WIDE_INT_MIN))
 	return dir_none;
     }
   else if (p1 || p2)
@@ -2129,11 +2130,9 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
       if (FORWARDER_BLOCK_P (s2->dest))
 	s2->dest->count -= s->count ();
 
-      /* FIXME: Is this correct? Should be rewritten to count API.  */
-      if (redirect_edges_to->count.nonzero_p () && src1->count.nonzero_p ())
-	s->probability = s->probability.combine_with_freq
-			   (redirect_edges_to->count.to_frequency (cfun),
-			    s2->probability, src1->count.to_frequency (cfun));
+      s->probability = s->probability.combine_with_count
+			  (redirect_edges_to->count,
+			   s2->probability, src1->count);
     }
 
   /* Adjust count for the block.  An earlier jump
@@ -3011,8 +3010,11 @@ try_optimize_cfg (int mode)
                  to detect and fix during edge forwarding, and in some cases
                  is only visible after newly unreachable blocks are deleted,
                  which will be done in fixup_partitions.  */
-	      fixup_partitions ();
-	      checking_verify_flow_info ();
+	      if ((mode & CLEANUP_NO_PARTITIONING) == 0)
+		{
+		  fixup_partitions ();
+	          checking_verify_flow_info ();
+		}
             }
 
 	  changed_overall |= changed;

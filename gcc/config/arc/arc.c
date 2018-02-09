@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994-2017 Free Software Foundation, Inc.
+   Copyright (C) 1994-2018 Free Software Foundation, Inc.
 
    Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
    behalf of Synopsys Inc.
@@ -27,6 +27,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -70,6 +72,17 @@ along with GCC; see the file COPYING3.  If not see
 /* Which cpu we're compiling for (ARC600, ARC601, ARC700).  */
 static char arc_cpu_name[10] = "";
 static const char *arc_cpu_string = arc_cpu_name;
+
+typedef struct GTY (()) _arc_jli_section
+{
+  const char *name;
+  struct _arc_jli_section *next;
+} arc_jli_section;
+
+static arc_jli_section *arc_jli_sections = NULL;
+
+/* Track which regs are set fixed/call saved/call used from commnad line.  */
+HARD_REG_SET overrideregs;
 
 /* Maximum size of a loop.  */
 #define ARC_MAX_LOOP_LENGTH 4095
@@ -212,30 +225,48 @@ static int get_arc_condition_code (rtx);
 
 static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
 static tree arc_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static tree arc_handle_jli_attribute (tree *, tree, tree, int, bool *);
+static tree arc_handle_secure_attribute (tree *, tree, tree, int, bool *);
+static tree arc_handle_uncached_attribute (tree *, tree, tree, int, bool *);
+static tree arc_handle_aux_attribute (tree *, tree, tree, int, bool *);
 
 /* Initialized arc_attribute_table to NULL since arc doesnot have any
    machine specific supported attributes.  */
 const struct attribute_spec arc_attribute_table[] =
 {
- /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-      affects_type_identity, exclusions } */
-  { "interrupt", 1, 1, true, false, false, arc_handle_interrupt_attribute,
-      true, NULL },
+ /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
+      affects_type_identity, handler, exclude } */
+  { "interrupt", 1, 1, true, false, false, true,
+    arc_handle_interrupt_attribute, NULL },
   /* Function calls made to this symbol must be done indirectly, because
      it may lie outside of the 21/25 bit addressing range of a normal function
      call.  */
-  { "long_call",    0, 0, false, true,  true,  NULL, false, NULL },
+  { "long_call",    0, 0, false, true,  true,  false, NULL, NULL },
   /* Whereas these functions are always known to reside within the 25 bit
      addressing range of unconditionalized bl.  */
-  { "medium_call",   0, 0, false, true,  true,  NULL, false, NULL },
+  { "medium_call",   0, 0, false, true,  true, false, NULL, NULL },
   /* And these functions are always known to reside within the 21 bit
      addressing range of blcc.  */
-  { "short_call",   0, 0, false, true,  true,  NULL, false, NULL },
+  { "short_call",   0, 0, false, true,  true,  false, NULL, NULL },
   /* Function which are not having the prologue and epilogue generated
      by the compiler.  */
-  { "naked", 0, 0, true, false, false, arc_handle_fndecl_attribute, false,
+  { "naked", 0, 0, true, false, false,  false, arc_handle_fndecl_attribute,
     NULL },
-  { NULL, 0, 0, false, false, false, NULL, false, NULL }
+  /* Functions calls made using jli instruction.  The pointer in JLI
+     table is found latter.  */
+  { "jli_always",    0, 0, false, true,  true, false,  NULL, NULL },
+  /* Functions calls made using jli instruction.  The pointer in JLI
+     table is given as input parameter.  */
+  { "jli_fixed",    1, 1, false, true,  true, false, arc_handle_jli_attribute,
+    NULL },
+  /* Call a function using secure-mode.  */
+  { "secure_call",  1, 1, false, true, true, false, arc_handle_secure_attribute,
+    NULL },
+   /* Bypass caches using .di flag.  */
+  { "uncached", 0, 0, false, true, false, false, arc_handle_uncached_attribute,
+    NULL },
+  { "aux", 0, 1, true, false, false, false, arc_handle_aux_attribute, NULL },
+  { NULL, 0, 0, false, false, false, false, NULL, NULL }
 };
 static int arc_comp_type_attributes (const_tree, const_tree);
 static void arc_file_start (void);
@@ -306,6 +337,7 @@ legitimate_scaled_address_p (machine_mode mode, rtx op, bool strict)
     case 4:
       if (INTVAL (XEXP (XEXP (op, 0), 1)) != 4)
 	return false;
+      /*  Fall through. */
     default:
       return false;
     }
@@ -404,10 +436,14 @@ arc_preferred_simd_mode (scalar_mode mode)
 /* Implements target hook
    TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES.  */
 
-static unsigned int
-arc_autovectorize_vector_sizes (void)
+static void
+arc_autovectorize_vector_sizes (vector_sizes *sizes)
 {
-  return TARGET_PLUS_QMACW ? (8 | 4) : 0;
+  if (TARGET_PLUS_QMACW)
+    {
+      sizes->quick_push (8);
+      sizes->quick_push (4);
+    }
 }
 
 /* TARGET_PRESERVE_RELOAD_P is still awaiting patch re-evaluation / review.  */
@@ -537,8 +573,6 @@ static void arc_finalize_pic (void);
 #define TARGET_CONDITIONAL_REGISTER_USAGE arc_conditional_register_usage
 
 #define TARGET_TRAMPOLINE_INIT arc_initialize_trampoline
-
-#define TARGET_TRAMPOLINE_ADJUST_ADDRESS arc_trampoline_adjust_address
 
 #define TARGET_CAN_ELIMINATE arc_can_eliminate
 
@@ -819,21 +853,21 @@ arc_init (void)
   if (arc_multcost < 0)
     switch (arc_tune)
       {
-      case TUNE_ARC700_4_2_STD:
+      case ARC_TUNE_ARC700_4_2_STD:
 	/* latency 7;
 	   max throughput (1 multiply + 4 other insns) / 5 cycles.  */
 	arc_multcost = COSTS_N_INSNS (4);
 	if (TARGET_NOMPY_SET)
 	  arc_multcost = COSTS_N_INSNS (30);
 	break;
-      case TUNE_ARC700_4_2_XMAC:
+      case ARC_TUNE_ARC700_4_2_XMAC:
 	/* latency 5;
 	   max throughput (1 multiply + 2 other insns) / 3 cycles.  */
 	arc_multcost = COSTS_N_INSNS (3);
 	if (TARGET_NOMPY_SET)
 	  arc_multcost = COSTS_N_INSNS (30);
 	break;
-      case TUNE_ARC600:
+      case ARC_TUNE_ARC600:
 	if (TARGET_MUL64_SET)
 	  {
 	    arc_multcost = COSTS_N_INSNS (4);
@@ -1097,6 +1131,30 @@ arc_override_options (void)
 	  }
       }
 
+  CLEAR_HARD_REG_SET (overrideregs);
+  if (common_deferred_options)
+    {
+      vec<cl_deferred_option> v =
+	*((vec<cl_deferred_option> *) common_deferred_options);
+      int reg, nregs, j;
+
+      FOR_EACH_VEC_ELT (v, i, opt)
+	{
+	  switch (opt->opt_index)
+	    {
+	    case OPT_ffixed_:
+	    case OPT_fcall_used_:
+	    case OPT_fcall_saved_:
+	      if ((reg = decode_reg_name_and_count (opt->arg, &nregs)) >= 0)
+		for (j = reg;  j < reg + nregs; j++)
+		  SET_HARD_REG_BIT (overrideregs, j);
+	      break;
+	    default:
+	      break;
+	    }
+	}
+    }
+
   /* Set cpu flags accordingly to architecture/selected cpu.  The cpu
      specific flags are set in arc-common.c.  The architecture forces
      the default hardware configurations in, regardless what command
@@ -1149,8 +1207,8 @@ arc_override_options (void)
 #undef ARC_OPT
 
   /* Set Tune option.  */
-  if (arc_tune == TUNE_NONE)
-    arc_tune = (enum attr_tune) arc_selected_cpu->tune;
+  if (arc_tune == ARC_TUNE_NONE)
+    arc_tune = (enum arc_tune_attr) arc_selected_cpu->tune;
 
   if (arc_size_opt_level == 3)
     optimize_size = 1;
@@ -1626,14 +1684,20 @@ arc_conditional_register_usage (void)
       /* For ARCv2 the core register set is changed.  */
       strcpy (rname29, "ilink");
       strcpy (rname30, "r30");
-      call_used_regs[30] = 1;
-      fixed_regs[30] = 0;
 
-      arc_regno_reg_class[30] = WRITABLE_CORE_REGS;
-      SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], 30);
-      SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], 30);
-      SET_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], 30);
-      SET_HARD_REG_BIT (reg_class_contents[MPY_WRITABLE_CORE_REGS], 30);
+      if (!TEST_HARD_REG_BIT (overrideregs, 30))
+	{
+	  /* No user interference.  Set the r30 to be used by the
+	     compiler.  */
+	  call_used_regs[30] = 1;
+	  fixed_regs[30] = 0;
+
+	  arc_regno_reg_class[30] = WRITABLE_CORE_REGS;
+	  SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], 30);
+	  SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], 30);
+	  SET_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], 30);
+	  SET_HARD_REG_BIT (reg_class_contents[MPY_WRITABLE_CORE_REGS], 30);
+	}
    }
 
   if (TARGET_MUL64_SET)
@@ -1720,6 +1784,19 @@ arc_conditional_register_usage (void)
       for (i = ARC_FIRST_SIMD_DMA_CONFIG_REG;
 	   i <= ARC_LAST_SIMD_DMA_CONFIG_REG; i++)
 	reg_alloc_order [i] = i;
+    }
+
+  /* Reduced configuration: don't use r4-r9, r16-r25.  */
+  if (TARGET_RF16)
+    {
+      for (i = 4; i <= 9; i++)
+	{
+	  fixed_regs[i] = call_used_regs[i] = 1;
+	}
+      for (i = 16; i <= 25; i++)
+	{
+	  fixed_regs[i] = call_used_regs[i] = 1;
+	}
     }
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1875,11 +1952,14 @@ arc_conditional_register_usage (void)
     SET_HARD_REG_BIT (reg_class_contents[MPY_WRITABLE_CORE_REGS], ACCL_REGNO);
     SET_HARD_REG_BIT (reg_class_contents[MPY_WRITABLE_CORE_REGS], ACCH_REGNO);
 
-     /* Allow the compiler to freely use them.  */
-    fixed_regs[ACCL_REGNO] = 0;
-    fixed_regs[ACCH_REGNO] = 0;
+    /* Allow the compiler to freely use them.  */
+    if (!TEST_HARD_REG_BIT (overrideregs, ACCL_REGNO))
+      fixed_regs[ACCL_REGNO] = 0;
+    if (!TEST_HARD_REG_BIT (overrideregs, ACCH_REGNO))
+      fixed_regs[ACCH_REGNO] = 0;
 
-    arc_hard_regno_modes[ACC_REG_FIRST] = D_MODES;
+    if (!fixed_regs[ACCH_REGNO] && !fixed_regs[ACCL_REGNO])
+      arc_hard_regno_modes[ACC_REG_FIRST] = D_MODES;
   }
 }
 
@@ -2708,8 +2788,6 @@ arc_compute_frame_size (void)
   unsigned int total_size, var_size, args_size, pretend_size, extra_size;
   unsigned int reg_size, reg_offset;
   unsigned int gmask;
-  enum arc_function_type fn_type;
-  int interrupt_p;
   struct arc_frame_info *frame_info;
   int size;
 
@@ -3631,69 +3709,102 @@ output_shift (rtx *operands)
 
 /* Nested function support.  */
 
-/* Directly store VALUE into memory object BLOCK at OFFSET.  */
+/* Output assembler code for a block containing the constant parts of
+   a trampoline, leaving space for variable parts.  A trampoline looks
+   like this:
+
+   ld_s r12,[pcl,8]
+   ld   r11,[pcl,12]
+   j_s [r12]
+   .word function's address
+   .word static chain value
+
+*/
 
 static void
-emit_store_direct (rtx block, int offset, int value)
+arc_asm_trampoline_template (FILE *f)
 {
-  emit_insn (gen_store_direct (adjust_address (block, SImode, offset),
-			       force_reg (SImode,
-					  gen_int_mode (value, SImode))));
+  asm_fprintf (f, "\tld_s\t%s,[pcl,8]\n", ARC_TEMP_SCRATCH_REG);
+  asm_fprintf (f, "\tld\t%s,[pcl,12]\n", reg_names[STATIC_CHAIN_REGNUM]);
+  asm_fprintf (f, "\tj_s\t[%s]\n", ARC_TEMP_SCRATCH_REG);
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);
 }
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  */
-/* With potentially multiple shared objects loaded, and multiple stacks
-   present for multiple thereds where trampolines might reside, a simple
-   range check will likely not suffice for the profiler to tell if a callee
-   is a trampoline.  We a speedier check by making the trampoline start at
-   an address that is not 4-byte aligned.
-   A trampoline looks like this:
-
-   nop_s	     0x78e0
-entry:
-   ld_s r12,[pcl,12] 0xd403
-   ld   r11,[pcl,12] 0x170c 700b
-   j_s [r12]         0x7c00
-   nop_s	     0x78e0
+   FNADDR is an RTX for the address of the function's pure code.  CXT
+   is an RTX for the static chain value for the function.
 
    The fastest trampoline to execute for trampolines within +-8KB of CTX
    would be:
+
    add2 r11,pcl,s12
    j [limm]           0x20200f80 limm
-   and that would also be faster to write to the stack by computing the offset
-   from CTX to TRAMP at compile time.  However, it would really be better to
-   get rid of the high cost of cache invalidation when generating trampolines,
-   which requires that the code part of trampolines stays constant, and
-   additionally either
-   - making sure that no executable code but trampolines is on the stack,
-     no icache entries linger for the area of the stack from when before the
-     stack was allocated, and allocating trampolines in trampoline-only
-     cache lines
-  or
-   - allocate trampolines fram a special pool of pre-allocated trampolines.  */
+
+   and that would also be faster to write to the stack by computing
+   the offset from CTX to TRAMP at compile time.  However, it would
+   really be better to get rid of the high cost of cache invalidation
+   when generating trampolines, which requires that the code part of
+   trampolines stays constant, and additionally either making sure
+   that no executable code but trampolines is on the stack, no icache
+   entries linger for the area of the stack from when before the stack
+   was allocated, and allocating trampolines in trampoline-only cache
+   lines or allocate trampolines fram a special pool of pre-allocated
+   trampolines.  */
 
 static void
 arc_initialize_trampoline (rtx tramp, tree fndecl, rtx cxt)
 {
   rtx fnaddr = XEXP (DECL_RTL (fndecl), 0);
 
-  emit_store_direct (tramp, 0, TARGET_BIG_ENDIAN ? 0x78e0d403 : 0xd40378e0);
-  emit_store_direct (tramp, 4, TARGET_BIG_ENDIAN ? 0x170c700b : 0x700b170c);
-  emit_store_direct (tramp, 8, TARGET_BIG_ENDIAN ? 0x7c0078e0 : 0x78e07c00);
-  emit_move_insn (adjust_address (tramp, SImode, 12), fnaddr);
-  emit_move_insn (adjust_address (tramp, SImode, 16), cxt);
-  emit_insn (gen_flush_icache (adjust_address (tramp, SImode, 0)));
+  emit_block_move (tramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+  emit_move_insn (adjust_address (tramp, SImode, 8), fnaddr);
+  emit_move_insn (adjust_address (tramp, SImode, 12), cxt);
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
+		     LCT_NORMAL, VOIDmode, XEXP (tramp, 0), Pmode,
+		     plus_constant (Pmode, XEXP (tramp, 0), TRAMPOLINE_SIZE),
+		     Pmode);
 }
 
-/* Allow the profiler to easily distinguish trampolines from normal
-  functions.  */
+/* Add the given function declaration to emit code in JLI section.  */
 
-static rtx
-arc_trampoline_adjust_address (rtx addr)
+static void
+arc_add_jli_section (rtx pat)
 {
-  return plus_constant (Pmode, addr, 2);
+  const char *name;
+  tree attrs;
+  arc_jli_section *sec = arc_jli_sections, *new_section;
+  tree decl = SYMBOL_REF_DECL (pat);
+
+  if (!pat)
+    return;
+
+  if (decl)
+    {
+      /* For fixed locations do not generate the jli table entry.  It
+	 should be provided by the user as an asm file.  */
+      attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+      if (lookup_attribute ("jli_fixed", attrs))
+	return;
+    }
+
+  name = XSTR (pat, 0);
+
+  /* Don't insert the same symbol twice.  */
+  while (sec != NULL)
+    {
+      if(strcmp (name, sec->name) == 0)
+	return;
+      sec = sec->next;
+    }
+
+  /* New name, insert it.  */
+  new_section = (arc_jli_section *) xmalloc (sizeof (arc_jli_section));
+  gcc_assert (new_section != NULL);
+  new_section->name = name;
+  new_section->next = arc_jli_sections;
+  arc_jli_sections = new_section;
 }
 
 /* This is set briefly to 1 when we output a ".as" address modifer, and then
@@ -3722,7 +3833,8 @@ static int output_scaled = 0;
     'd'
     'D'
     'R': Second word
-    'S'
+    'S': JLI instruction
+    'j': used by mov instruction to properly emit jli related labels.
     'B': Branch comparison operand - suppress sda reference
     'H': Most significant word
     'L': Least significant word
@@ -3758,7 +3870,7 @@ arc_print_operand (FILE *file, rtx x, int code)
 
     case 'c':
       if (GET_CODE (x) == CONST_INT)
-        fprintf (file, "%d", INTVAL (x) );
+        fprintf (file, "%ld", INTVAL (x) );
       else
         output_operand_lossage ("invalid operands to %%c code");
 
@@ -3937,9 +4049,48 @@ arc_print_operand (FILE *file, rtx x, int code)
       else
 	output_operand_lossage ("invalid operand to %%R code");
       return;
+    case 'j':
     case 'S' :
-	/* FIXME: remove %S option.  */
-	break;
+      if (GET_CODE (x) == SYMBOL_REF
+	  && arc_is_jli_call_p (x))
+	{
+	  if (SYMBOL_REF_DECL (x))
+	    {
+	      tree attrs = (TREE_TYPE (SYMBOL_REF_DECL (x)) != error_mark_node
+			    ? TYPE_ATTRIBUTES (TREE_TYPE (SYMBOL_REF_DECL (x)))
+			    : NULL_TREE);
+	      if (lookup_attribute ("jli_fixed", attrs))
+		{
+		  /* No special treatment for jli_fixed functions.  */
+		  if (code == 'j')
+		    break;
+		  fprintf (file, "%ld\t; @",
+			   TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attrs))));
+		  assemble_name (file, XSTR (x, 0));
+		  return;
+		}
+	    }
+	  fprintf (file, "@__jli.");
+	  assemble_name (file, XSTR (x, 0));
+	  if (code == 'j')
+	    arc_add_jli_section (x);
+	  return;
+	}
+      if (GET_CODE (x) == SYMBOL_REF
+	  && arc_is_secure_call_p (x))
+	{
+	  /* No special treatment for secure functions.  */
+	  if (code == 'j' )
+	    break;
+	  tree attrs = (TREE_TYPE (SYMBOL_REF_DECL (x)) != error_mark_node
+			? TYPE_ATTRIBUTES (TREE_TYPE (SYMBOL_REF_DECL (x)))
+			: NULL_TREE);
+	  fprintf (file, "%ld\t; @",
+		   TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attrs))));
+	  assemble_name (file, XSTR (x, 0));
+	  return;
+	}
+      break;
     case 'B' /* Branch or other LIMM ref - must not use sda references.  */ :
       if (CONSTANT_P (x))
 	{
@@ -4047,7 +4198,8 @@ arc_print_operand (FILE *file, rtx x, int code)
 	 refs are defined to use the cache bypass mechanism.  */
       if (GET_CODE (x) == MEM)
 	{
-	  if (MEM_VOLATILE_P (x) && !TARGET_VOLATILE_CACHE_SET )
+	  if ((MEM_VOLATILE_P (x) && !TARGET_VOLATILE_CACHE_SET)
+	      || arc_is_uncached_mem_p (x))
 	    fputs (".di", file);
 	}
       else
@@ -5050,6 +5202,53 @@ static void arc_file_start (void)
 {
   default_file_start ();
   fprintf (asm_out_file, "\t.cpu %s\n", arc_cpu_string);
+
+  /* Set some want to have build attributes.  */
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_PCS_config, %d\n",
+	       ATTRIBUTE_PCS);
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_ABI_rf16, %d\n",
+	       TARGET_RF16 ? 1 : 0);
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_ABI_pic, %d\n",
+	       flag_pic ? 2 : 0);
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_ABI_tls, %d\n",
+	       (arc_tp_regno != -1) ? 1 : 0);
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_ABI_sda, %d\n",
+	       TARGET_NO_SDATA_SET ? 0 : 2);
+  asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_ABI_exceptions, %d\n",
+	       TARGET_OPTFPE ? 1 : 0);
+  if (TARGET_V2)
+    asm_fprintf (asm_out_file, "\t.arc_attribute Tag_ARC_CPU_variation, %d\n",
+		 arc_tune == ARC_TUNE_CORE_3 ? 3 : 2);
+}
+
+/* Implement `TARGET_ASM_FILE_END'.  */
+/* Outputs to the stdio stream FILE jli related text.  */
+
+void arc_file_end (void)
+{
+  arc_jli_section *sec = arc_jli_sections;
+
+  while (sec != NULL)
+    {
+      fprintf (asm_out_file, "\n");
+      fprintf (asm_out_file, "# JLI entry for function ");
+      assemble_name (asm_out_file, sec->name);
+      fprintf (asm_out_file, "\n\t.section .jlitab, \"axG\", @progbits, "
+	       ".jlitab.");
+      assemble_name (asm_out_file, sec->name);
+      fprintf (asm_out_file,", comdat\n");
+
+      fprintf (asm_out_file, "\t.align\t4\n");
+      fprintf (asm_out_file, "__jli.");
+      assemble_name (asm_out_file, sec->name);
+      fprintf (asm_out_file, ":\n\t.weak __jli.");
+      assemble_name (asm_out_file, sec->name);
+      fprintf (asm_out_file, "\n\tb\t@");
+      assemble_name (asm_out_file, sec->name);
+      fprintf (asm_out_file, "\n");
+      sec = sec->next;
+    }
+  file_end_indicate_exec_stack ();
 }
 
 /* Cost functions.  */
@@ -5997,12 +6196,6 @@ arc_return_addr_rtx (int count, ATTRIBUTE_UNUSED rtx frame)
 bool
 arc_legitimate_constant_p (machine_mode mode, rtx x)
 {
-  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x))
-    return false;
-
-  if (!flag_pic && mode != Pmode)
-    return true;
-
   switch (GET_CODE (x))
     {
     case CONST:
@@ -6840,12 +7033,26 @@ check_if_valid_sleep_operand (rtx *operands, int opno)
 /* Return true if it is ok to make a tail-call to DECL.  */
 
 static bool
-arc_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
+arc_function_ok_for_sibcall (tree decl,
 			     tree exp ATTRIBUTE_UNUSED)
 {
+  tree attrs = NULL_TREE;
+
   /* Never tailcall from an ISR routine - it needs a special exit sequence.  */
   if (ARC_INTERRUPT_P (arc_compute_function_type (cfun)))
     return false;
+
+  if (decl)
+    {
+      attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+
+      if (lookup_attribute ("jli_always", attrs))
+	return false;
+      if (lookup_attribute ("jli_fixed", attrs))
+	return false;
+      if (lookup_attribute ("secure_call", attrs))
+	return false;
+    }
 
   /* Everything else is ok.  */
   return true;
@@ -7190,11 +7397,11 @@ hwloop_fail (hwloop_info loop)
   rtx test;
   rtx insn = loop->loop_end;
 
-  if (TARGET_V2
+  if (TARGET_DBNZ
       && (loop->length && (loop->length <= ARC_MAX_LOOP_LENGTH))
       && REG_P (loop->iter_reg))
     {
-      /* TARGET_V2 has dbnz instructions.  */
+      /* TARGET_V2 core3 has dbnz instructions.  */
       test = gen_dbnz (loop->iter_reg, loop->start_label);
       insn = emit_jump_insn_before (test, loop->loop_end);
     }
@@ -7499,7 +7706,7 @@ hwloop_optimize (hwloop_info loop)
                  && NOTE_KIND (entry_after) != NOTE_INSN_CALL_ARG_LOCATION))
         entry_after = NEXT_INSN (entry_after);
 #endif
-      entry_after = next_nonnote_insn_bb (entry_after);
+      entry_after = next_nonnote_nondebug_insn_bb (entry_after);
 
       gcc_assert (entry_after);
       emit_insn_before (seq, entry_after);
@@ -7551,6 +7758,33 @@ arc_reorg_loops (void)
   reorg_loops (true, &arc_doloop_hooks);
 }
 
+/* Scan all calls and add symbols to be emitted in the jli section if
+   needed.  */
+
+static void
+jli_call_scan (void)
+{
+  rtx_insn *insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (!CALL_P (insn))
+	continue;
+
+      rtx pat = PATTERN (insn);
+      if (GET_CODE (pat) == COND_EXEC)
+	pat = COND_EXEC_CODE (pat);
+      pat =  XVECEXP (pat, 0, 0);
+      if (GET_CODE (pat) == SET)
+	pat = SET_SRC (pat);
+
+      pat = XEXP (XEXP (pat, 0), 0);
+      if (GET_CODE (pat) == SYMBOL_REF
+	  && arc_is_jli_call_p (pat))
+	arc_add_jli_section (pat);
+    }
+}
+
 static int arc_reorg_in_progress = 0;
 
 /* ARC's machince specific reorg function.  */
@@ -7575,6 +7809,7 @@ arc_reorg (void)
   arc_reorg_loops ();
 
   workaround_arc_anomaly ();
+  jli_call_scan ();
 
 /* FIXME: should anticipate ccfsm action, generate special patterns for
    to-be-deleted branches that have no delay slot and have at least the
@@ -7873,6 +8108,7 @@ static bool
 arc_in_small_data_p (const_tree decl)
 {
   HOST_WIDE_INT size;
+  tree attr;
 
   /* Only variables are going into small data area.  */
   if (TREE_CODE (decl) != VAR_DECL)
@@ -7894,6 +8130,16 @@ arc_in_small_data_p (const_tree decl)
      gp-relative variant.  */
   if (!TARGET_VOLATILE_CACHE_SET
       && TREE_THIS_VOLATILE (decl))
+    return false;
+
+  /* Likewise for uncached data.  */
+  attr = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+  if (lookup_attribute ("uncached", attr))
+    return false;
+
+  /* and for aux regs.  */
+  attr = DECL_ATTRIBUTES (decl);
+  if (lookup_attribute ("aux", attr))
     return false;
 
   if (DECL_SECTION_NAME (decl) != 0)
@@ -8063,6 +8309,35 @@ compact_sda_memory_operand (rtx op, machine_mode mode, bool short_p)
   return false;
 }
 
+/* Return TRUE if PAT is accessing an aux-reg.  */
+
+static bool
+arc_is_aux_reg_p (rtx pat)
+{
+  tree attrs = NULL_TREE;
+  tree addr;
+
+  if (!MEM_P (pat))
+    return false;
+
+  /* Get the memory attributes.  */
+  addr = MEM_EXPR (pat);
+  if (!addr)
+    return false;
+
+  /* Get the attributes.  */
+  if (TREE_CODE (addr) == VAR_DECL)
+    attrs = DECL_ATTRIBUTES (addr);
+  else if (TREE_CODE (addr) == MEM_REF)
+    attrs = TYPE_ATTRIBUTES (TREE_TYPE (TREE_OPERAND (addr, 0)));
+  else
+    return false;
+
+  if (lookup_attribute ("aux", attrs))
+    return true;
+  return false;
+}
+
 /* Implement ASM_OUTPUT_ALIGNED_DECL_LOCAL.  */
 
 void
@@ -8071,7 +8346,14 @@ arc_asm_output_aligned_decl_local (FILE * stream, tree decl, const char * name,
 				   unsigned HOST_WIDE_INT align,
 				   unsigned HOST_WIDE_INT globalize_p)
 {
-  int in_small_data =   arc_in_small_data_p (decl);
+  int in_small_data = arc_in_small_data_p (decl);
+  rtx mem = decl == NULL_TREE ? NULL_RTX : DECL_RTL (decl);
+
+  /* Don't output aux-reg symbols.  */
+  if (mem != NULL_RTX && MEM_P (mem)
+      && SYMBOL_REF_P (XEXP (mem, 0))
+      && arc_is_aux_reg_p (mem))
+    return;
 
   if (in_small_data)
     switch_to_section (get_named_section (NULL, ".sbss", 0));
@@ -8253,11 +8535,11 @@ arc_output_addsi (rtx *operands, bool cond_p, bool output_p)
   /* Try to emit a 16 bit opcode with long immediate.  */
   ret = 6;
   if (short_p && match)
-    ADDSI_OUTPUT1 ("add%? %0,%1,%S2");
+    ADDSI_OUTPUT1 ("add%? %0,%1,%2");
 
   /* We have to use a 32 bit opcode, and with a long immediate.  */
   ret = 8;
-  ADDSI_OUTPUT1 (intval < 0 ? "sub%? %0,%1,%n2" : "add%? %0,%1,%S2");
+  ADDSI_OUTPUT1 (intval < 0 ? "sub%? %0,%1,%n2" : "add%? %0,%1,%2");
 }
 
 /* Emit code for an commutative_cond_exec instruction with OPERANDS.
@@ -8411,12 +8693,80 @@ arc_expand_movmem (rtx *operands)
   return true;
 }
 
+static bool
+arc_get_aux_arg (rtx pat, int *auxr)
+{
+  tree attr, addr = MEM_EXPR (pat);
+  if (TREE_CODE (addr) != VAR_DECL)
+    return false;
+
+  attr = DECL_ATTRIBUTES (addr);
+  if (lookup_attribute ("aux", attr))
+    {
+      tree arg = TREE_VALUE (attr);
+      if (arg)
+	{
+	  *auxr = TREE_INT_CST_LOW (TREE_VALUE (arg));
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 /* Prepare operands for move in MODE.  Return true iff the move has
    been emitted.  */
 
 bool
 prepare_move_operands (rtx *operands, machine_mode mode)
 {
+  /* First handle aux attribute.  */
+  if (mode == SImode
+      && (MEM_P (operands[0]) || MEM_P (operands[1])))
+    {
+      rtx tmp;
+      int auxr = 0;
+      if (MEM_P (operands[0]) && arc_is_aux_reg_p (operands[0]))
+	{
+	  /* Save operation.  */
+	  if (arc_get_aux_arg (operands[0], &auxr))
+	    {
+	      tmp = gen_reg_rtx (SImode);
+	      emit_move_insn (tmp, GEN_INT (auxr));
+	    }
+	  else
+	    {
+	      tmp = XEXP (operands[0], 0);
+	    }
+
+	  operands[1] = force_reg (SImode, operands[1]);
+	  emit_insn (gen_rtx_UNSPEC_VOLATILE
+		     (VOIDmode, gen_rtvec (2, operands[1], tmp),
+		      VUNSPEC_ARC_SR));
+	  return true;
+	}
+      if (MEM_P (operands[1]) && arc_is_aux_reg_p (operands[1]))
+	{
+	  if (arc_get_aux_arg (operands[1], &auxr))
+	    {
+	      tmp = gen_reg_rtx (SImode);
+	      emit_move_insn (tmp, GEN_INT (auxr));
+	    }
+	  else
+	    {
+	      tmp = XEXP (operands[1], 0);
+	      gcc_assert (GET_CODE (tmp) == SYMBOL_REF);
+	    }
+	  /* Load operation.  */
+	  gcc_assert (REG_P (operands[0]));
+	  emit_insn (gen_rtx_SET (operands[0],
+				  gen_rtx_UNSPEC_VOLATILE
+				  (SImode, gen_rtvec (1, tmp),
+				   VUNSPEC_ARC_LR)));
+	  return true;
+	}
+    }
+
   /* We used to do this only for MODE_INT Modes, but addresses to floating
      point variables may well be in the small data section.  */
   if (!TARGET_NO_SDATA_SET && small_data_pattern (operands[0], Pmode))
@@ -9341,68 +9691,55 @@ arc_legitimize_address (rtx orig_x, rtx oldx, machine_mode mode)
 }
 
 static rtx
-arc_delegitimize_address_0 (rtx x)
+arc_delegitimize_address_0 (rtx op)
 {
-  rtx u, gp, p;
-
-  if (GET_CODE (x) == CONST && GET_CODE (u = XEXP (x, 0)) == UNSPEC)
+  switch (GET_CODE (op))
     {
-      if (XINT (u, 1) == ARC_UNSPEC_GOT
-	  || XINT (u, 1) == ARC_UNSPEC_GOTOFFPC)
-	return XVECEXP (u, 0, 0);
+    case CONST:
+      return arc_delegitimize_address_0 (XEXP (op, 0));
+
+    case UNSPEC:
+      switch (XINT (op, 1))
+	{
+	case ARC_UNSPEC_GOT:
+	case ARC_UNSPEC_GOTOFFPC:
+	  return XVECEXP (op, 0, 0);
+	default:
+	  break;
+	}
+      break;
+
+    case PLUS:
+      {
+	rtx t1 = arc_delegitimize_address_0 (XEXP (op, 0));
+	rtx t2 = XEXP (op, 1);
+
+	if (t1 && t2)
+	  return gen_rtx_PLUS (GET_MODE (op), t1, t2);
+	break;
+      }
+
+    default:
+      break;
     }
-  else if (GET_CODE (x) == CONST && GET_CODE (p = XEXP (x, 0)) == PLUS
-	   && GET_CODE (u = XEXP (p, 0)) == UNSPEC
-	   && (XINT (u, 1) == ARC_UNSPEC_GOT
-	       || XINT (u, 1) == ARC_UNSPEC_GOTOFFPC))
-    return gen_rtx_CONST
-	    (GET_MODE (x),
-	     gen_rtx_PLUS (GET_MODE (p), XVECEXP (u, 0, 0), XEXP (p, 1)));
-  else if (GET_CODE (x) == PLUS
-	   && ((REG_P (gp = XEXP (x, 0))
-		&& REGNO (gp) == PIC_OFFSET_TABLE_REGNUM)
-	       || (GET_CODE (gp) == CONST
-		   && GET_CODE (u = XEXP (gp, 0)) == UNSPEC
-		   && XINT (u, 1) == ARC_UNSPEC_GOT
-		   && GET_CODE (XVECEXP (u, 0, 0)) == SYMBOL_REF
-		   && !strcmp (XSTR (XVECEXP (u, 0, 0), 0), "_DYNAMIC")))
-	   && GET_CODE (XEXP (x, 1)) == CONST
-	   && GET_CODE (u = XEXP (XEXP (x, 1), 0)) == UNSPEC
-	   && XINT (u, 1) == ARC_UNSPEC_GOTOFF)
-    return XVECEXP (u, 0, 0);
-  else if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 0)) == PLUS
-	   && ((REG_P (gp = XEXP (XEXP (x, 0), 1))
-		&& REGNO (gp) == PIC_OFFSET_TABLE_REGNUM)
-	       || (GET_CODE (gp) == CONST
-		   && GET_CODE (u = XEXP (gp, 0)) == UNSPEC
-		   && XINT (u, 1) == ARC_UNSPEC_GOT
-		   && GET_CODE (XVECEXP (u, 0, 0)) == SYMBOL_REF
-		   && !strcmp (XSTR (XVECEXP (u, 0, 0), 0), "_DYNAMIC")))
-	   && GET_CODE (XEXP (x, 1)) == CONST
-	   && GET_CODE (u = XEXP (XEXP (x, 1), 0)) == UNSPEC
-	   && XINT (u, 1) == ARC_UNSPEC_GOTOFF)
-    return gen_rtx_PLUS (GET_MODE (x), XEXP (XEXP (x, 0), 0),
-			 XVECEXP (u, 0, 0));
-  else if (GET_CODE (x) == PLUS
-	   && (u = arc_delegitimize_address_0 (XEXP (x, 1))))
-    return gen_rtx_PLUS (GET_MODE (x), XEXP (x, 0), u);
   return NULL_RTX;
 }
 
 static rtx
-arc_delegitimize_address (rtx x)
+arc_delegitimize_address (rtx orig_x)
 {
-  rtx orig_x = x = delegitimize_mem_from_attrs (x);
-  if (GET_CODE (x) == MEM)
+  rtx x = orig_x;
+
+  if (MEM_P (x))
     x = XEXP (x, 0);
+
   x = arc_delegitimize_address_0 (x);
-  if (x)
-    {
-      if (MEM_P (orig_x))
-	x = replace_equiv_address_nv (orig_x, x);
-      return x;
-    }
-  return orig_x;
+  if (!x)
+    return orig_x;
+
+  if (MEM_P (orig_x))
+    x = replace_equiv_address_nv (orig_x, x);
+  return x;
 }
 
 /* Return a REG rtx for acc1.  N.B. the gcc-internal representation may
@@ -10055,6 +10392,7 @@ arc_can_follow_jump (const rtx_insn *follower, const rtx_insn *followee)
       case TYPE_BRANCH:
 	if (get_attr_length (u.r) != 2)
 	  break;
+      /*  Fall through. */
       case TYPE_BRCC:
       case TYPE_BRCC_NO_DELAY_SLOT:
 	return false;
@@ -10795,6 +11133,221 @@ arc_builtin_setjmp_frame_value (void)
   return gen_raw_REG (Pmode, FRAME_POINTER_REGNUM);
 }
 
+/* Return nonzero if a jli call should be generated for a call from
+   the current function to DECL.  */
+
+bool
+arc_is_jli_call_p (rtx pat)
+{
+  tree attrs;
+  tree decl = SYMBOL_REF_DECL (pat);
+
+  /* If it is not a well defined public function then return false.  */
+  if (!decl || !SYMBOL_REF_FUNCTION_P (pat) || !TREE_PUBLIC (decl))
+    return false;
+
+  attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+  if (lookup_attribute ("jli_always", attrs))
+    return true;
+
+  if (lookup_attribute ("jli_fixed", attrs))
+    return true;
+
+  return TARGET_JLI_ALWAYS;
+}
+
+/* Handle and "jli" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+arc_handle_jli_attribute (tree *node ATTRIBUTE_UNUSED,
+			  tree name, tree args, int,
+			  bool *no_add_attrs)
+{
+  if (!TARGET_V2)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute only valid for ARCv2 architecture",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  if (args == NULL_TREE)
+    {
+      warning (OPT_Wattributes,
+	       "argument of %qE attribute is missing",
+	       name);
+      *no_add_attrs = true;
+    }
+  else
+    {
+      if (TREE_CODE (TREE_VALUE (args)) == NON_LVALUE_EXPR)
+	TREE_VALUE (args) = TREE_OPERAND (TREE_VALUE (args), 0);
+      tree arg = TREE_VALUE (args);
+      if (TREE_CODE (arg) != INTEGER_CST)
+	{
+	  warning (0, "%qE attribute allows only an integer constant argument",
+		   name);
+	  *no_add_attrs = true;
+	}
+      /* FIXME! add range check.  TREE_INT_CST_LOW (arg) */
+    }
+   return NULL_TREE;
+}
+
+/* Handle and "scure" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+arc_handle_secure_attribute (tree *node ATTRIBUTE_UNUSED,
+			  tree name, tree args, int,
+			  bool *no_add_attrs)
+{
+  if (!TARGET_EM)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute only valid for ARC EM architecture",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  if (args == NULL_TREE)
+    {
+      warning (OPT_Wattributes,
+	       "argument of %qE attribute is missing",
+	       name);
+      *no_add_attrs = true;
+    }
+  else
+    {
+      if (TREE_CODE (TREE_VALUE (args)) == NON_LVALUE_EXPR)
+	TREE_VALUE (args) = TREE_OPERAND (TREE_VALUE (args), 0);
+      tree arg = TREE_VALUE (args);
+      if (TREE_CODE (arg) != INTEGER_CST)
+	{
+	  warning (0, "%qE attribute allows only an integer constant argument",
+		   name);
+	  *no_add_attrs = true;
+	}
+    }
+   return NULL_TREE;
+}
+
+/* Return nonzero if the symbol is a secure function.  */
+
+bool
+arc_is_secure_call_p (rtx pat)
+{
+  tree attrs;
+  tree decl = SYMBOL_REF_DECL (pat);
+
+  if (!decl)
+    return false;
+
+  attrs = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+  if (lookup_attribute ("secure_call", attrs))
+    return true;
+
+  return false;
+}
+
+/* Handle "uncached" qualifier.  */
+
+static tree
+arc_handle_uncached_attribute (tree *node,
+			       tree name, tree args,
+			       int flags ATTRIBUTE_UNUSED,
+			       bool *no_add_attrs)
+{
+  if (DECL_P (*node) && TREE_CODE (*node) != TYPE_DECL)
+    {
+      error ("%qE attribute only applies to types",
+	     name);
+      *no_add_attrs = true;
+    }
+  else if (args)
+    {
+      warning (OPT_Wattributes, "argument of %qE attribute ignored", name);
+    }
+  return NULL_TREE;
+}
+
+/* Return TRUE if PAT is a memory addressing an uncached data.  */
+
+bool
+arc_is_uncached_mem_p (rtx pat)
+{
+  tree attrs;
+  tree ttype;
+  struct mem_attrs *refattrs;
+
+  if (!MEM_P (pat))
+    return false;
+
+  /* Get the memory attributes.  */
+  refattrs = MEM_ATTRS (pat);
+  if (!refattrs
+      || !refattrs->expr)
+    return false;
+
+  /* Get the type declaration.  */
+  ttype = TREE_TYPE (refattrs->expr);
+  if (!ttype)
+    return false;
+
+  /* Get the type attributes.  */
+  attrs = TYPE_ATTRIBUTES (ttype);
+  if (lookup_attribute ("uncached", attrs))
+    return true;
+  return false;
+}
+
+/* Handle aux attribute.  The auxiliary registers are addressed using
+   special instructions lr and sr.  The attribute 'aux' indicates if a
+   variable refers to the aux-regs and what is the register number
+   desired.  */
+
+static tree
+arc_handle_aux_attribute (tree *node,
+			  tree name, tree args, int,
+			  bool *no_add_attrs)
+{
+  /* Isn't it better to use address spaces for the aux-regs?  */
+  if (DECL_P (*node))
+    {
+      if (TREE_CODE (*node) != VAR_DECL)
+	{
+	  error ("%qE attribute only applies to variables",  name);
+	  *no_add_attrs = true;
+	}
+      else if (args)
+	{
+	  if (TREE_CODE (TREE_VALUE (args)) == NON_LVALUE_EXPR)
+	    TREE_VALUE (args) = TREE_OPERAND (TREE_VALUE (args), 0);
+	  tree arg = TREE_VALUE (args);
+	  if (TREE_CODE (arg) != INTEGER_CST)
+	    {
+	      warning (0, "%qE attribute allows only an integer "
+		       "constant argument", name);
+	      *no_add_attrs = true;
+	    }
+	  /* FIXME! add range check.  TREE_INT_CST_LOW (arg) */
+	}
+
+      if (TREE_CODE (*node) == VAR_DECL)
+	{
+	  tree fntype = TREE_TYPE (*node);
+	  if (fntype && TREE_CODE (fntype) == POINTER_TYPE)
+	    {
+	      tree attrs = tree_cons (get_identifier ("aux"), NULL_TREE,
+				      TYPE_ATTRIBUTES (fntype));
+	      TYPE_ATTRIBUTES (fntype) = attrs;
+	    }
+	}
+    }
+  return NULL_TREE;
+}
+
 /* Implement TARGET_USE_ANCHORS_FOR_SYMBOL_P.  We don't want to use
    anchors for small data: the GP register acts as an anchor in that
    case.  We also don't want to use them for PC-relative accesses,
@@ -10833,6 +11386,9 @@ arc_cannot_substitute_mem_equiv_p (rtx)
 
 #undef TARGET_CANNOT_SUBSTITUTE_MEM_EQUIV_P
 #define TARGET_CANNOT_SUBSTITUTE_MEM_EQUIV_P arc_cannot_substitute_mem_equiv_p
+
+#undef TARGET_ASM_TRAMPOLINE_TEMPLATE
+#define TARGET_ASM_TRAMPOLINE_TEMPLATE arc_asm_trampoline_template
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

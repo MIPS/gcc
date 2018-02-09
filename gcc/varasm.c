@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "asan.h"
 #include "rtl-iter.h"
+#include "file-prefix-map.h" /* remap_debug_filename()  */
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data declarations.  */
@@ -843,12 +844,10 @@ mergeable_constant_section (machine_mode mode ATTRIBUTE_UNUSED,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			    unsigned int flags ATTRIBUTE_UNUSED)
 {
-  unsigned int modesize = GET_MODE_BITSIZE (mode);
-
   if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && mode != VOIDmode
       && mode != BLKmode
-      && modesize <= align
+      && known_le (GET_MODE_BITSIZE (mode), align)
       && align >= 8
       && align <= 256
       && (align & (align - 1)) == 0)
@@ -2872,36 +2871,39 @@ assemble_real (REAL_VALUE_TYPE d, scalar_float_mode mode, unsigned int align,
 
 struct addr_const {
   rtx base;
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
 };
 
 static void
 decode_addr_const (tree exp, struct addr_const *value)
 {
   tree target = TREE_OPERAND (exp, 0);
-  HOST_WIDE_INT offset = 0;
+  poly_int64 offset = 0;
   rtx x;
 
   while (1)
     {
+      poly_int64 bytepos;
       if (TREE_CODE (target) == COMPONENT_REF
-	  && tree_fits_shwi_p (byte_position (TREE_OPERAND (target, 1))))
+	  && poly_int_tree_p (byte_position (TREE_OPERAND (target, 1)),
+			      &bytepos))
 	{
-	  offset += int_byte_position (TREE_OPERAND (target, 1));
+	  offset += bytepos;
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
 	  /* Truncate big offset.  */
-	  offset += (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (target)))
-		     * TREE_INT_CST_LOW (TREE_OPERAND (target, 1)));
+	  offset
+	    += (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (target)))
+		* wi::to_poly_widest (TREE_OPERAND (target, 1)).force_shwi ());
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF
 	       && TREE_CODE (TREE_OPERAND (target, 0)) == ADDR_EXPR)
 	{
-	  offset += mem_ref_offset (target).to_short_addr ();
+	  offset += mem_ref_offset (target).force_shwi ();
 	  target = TREE_OPERAND (TREE_OPERAND (target, 0), 0);
 	}
       else if (TREE_CODE (target) == INDIRECT_REF
@@ -3040,14 +3042,14 @@ const_hash_1 (const tree exp)
 	  case SYMBOL_REF:
 	    /* Don't hash the address of the SYMBOL_REF;
 	       only use the offset and the symbol name.  */
-	    hi = value.offset;
+	    hi = value.offset.coeffs[0];
 	    p = XSTR (value.base, 0);
 	    for (i = 0; p[i] != 0; i++)
 	      hi = ((hi * 613) + (unsigned) (p[i]));
 	    break;
 
 	  case LABEL_REF:
-	    hi = (value.offset
+	    hi = (value.offset.coeffs[0]
 		  + CODE_LABEL_NUMBER (label_ref_label (value.base)) * 13);
 	    break;
 
@@ -3233,7 +3235,7 @@ compare_constant (const tree t1, const tree t2)
 	decode_addr_const (t1, &value1);
 	decode_addr_const (t2, &value2);
 
-	if (value1.offset != value2.offset)
+	if (maybe_ne (value1.offset, value2.offset))
 	  return 0;
 
 	code = GET_CODE (value1.base);
@@ -3917,6 +3919,32 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
       assemble_integer (x, GET_MODE_SIZE (mode), align, 1);
       break;
 
+    case MODE_VECTOR_BOOL:
+      {
+	gcc_assert (GET_CODE (x) == CONST_VECTOR);
+
+	/* Pick the smallest integer mode that contains at least one
+	   whole element.  Often this is byte_mode and contains more
+	   than one element.  */
+	unsigned int nelts = GET_MODE_NUNITS (mode);
+	unsigned int elt_bits = GET_MODE_BITSIZE (mode) / nelts;
+	unsigned int int_bits = MAX (elt_bits, BITS_PER_UNIT);
+	scalar_int_mode int_mode = int_mode_for_size (int_bits, 0).require ();
+
+	/* Build the constant up one integer at a time.  */
+	unsigned int elts_per_int = int_bits / elt_bits;
+	for (unsigned int i = 0; i < nelts; i += elts_per_int)
+	  {
+	    unsigned HOST_WIDE_INT value = 0;
+	    unsigned int limit = MIN (nelts - i, elts_per_int);
+	    for (unsigned int j = 0; j < limit; ++j)
+	      if (INTVAL (CONST_VECTOR_ELT (x, i + j)) != 0)
+		value |= 1 << (j * elt_bits);
+	    output_constant_pool_2 (int_mode, gen_int_mode (value, int_mode),
+				    i != 0 ? MIN (align, int_bits) : align);
+	  }
+	break;
+      }
     case MODE_VECTOR_FLOAT:
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FRACT:
@@ -3929,7 +3957,7 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	unsigned int subalign = MIN (align, GET_MODE_BITSIZE (submode));
 
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
-	units = CONST_VECTOR_NUNITS (x);
+	units = GET_MODE_NUNITS (mode);
 
 	for (i = 0; i < units; i++)
 	  {
@@ -4917,7 +4945,9 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align,
 			     reverse);
 	    thissize = elt_size;
-	    for (unsigned int i = 1; i < VECTOR_CST_NELTS (exp); i++)
+	    /* Static constants must have a fixed size.  */
+	    unsigned int nunits = VECTOR_CST_NELTS (exp).to_constant ();
+	    for (unsigned int i = 1; i < nunits; i++)
 	      {
 		output_constant (VECTOR_CST_ELT (exp, i), elt_size, nalign,
 				 reverse);

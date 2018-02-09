@@ -1,5 +1,5 @@
 # Process this file with autoreconf to produce a configure script.
-#  Copyright (C) 2012-2017 Free Software Foundation, Inc.
+#  Copyright (C) 2012-2018 Free Software Foundation, Inc.
 #
 #  This file is part of the GNU Atomic Library (libatomic).
 #
@@ -156,6 +156,12 @@ AC_SUBST(libtool_VERSION)
 AC_MSG_CHECKING([for thread model used by GCC])
 target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
 AC_MSG_RESULT([$target_thread_file])
+
+case "$target" in
+ *aarch64*)
+    ACX_PROG_CC_WARNING_OPTS([-march=armv8-a+lse],[enable_aarch64_lse])
+    ;;
+esac
 
 # Get target configury.
 . ${srcdir}/configure.tgt

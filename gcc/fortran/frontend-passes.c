@@ -1,5 +1,5 @@
 /* Pass manager for Fortran front end.
-   Copyright (C) 2010-2017 Free Software Foundation, Inc.
+   Copyright (C) 2010-2018 Free Software Foundation, Inc.
    Contributed by Thomas König.
 
 This file is part of GCC.
@@ -719,6 +719,11 @@ create_var (gfc_expr * e, const char *vname)
 
   if (e->expr_type == EXPR_CONSTANT || is_fe_temp (e))
     return gfc_copy_expr (e);
+
+  /* Creation of an array of unknown size requires realloc on assignment.
+     If that is not possible, just return NULL.  */
+  if (flag_realloc_lhs == 0 && e->rank > 0 && e->shape == NULL)
+    return NULL;
 
   ns = insert_block ();
 
@@ -2219,11 +2224,11 @@ optimize_trim (gfc_expr *e)
 
   /* Set the start of the reference.  */
 
-  ref->u.ss.start = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
+  ref->u.ss.start = gfc_get_int_expr (gfc_charlen_int_kind, NULL, 1);
 
   /* Build the function call to len_trim(x, gfc_default_integer_kind).  */
 
-  fcn = get_len_trim_call (gfc_copy_expr (e), gfc_default_integer_kind);
+  fcn = get_len_trim_call (gfc_copy_expr (e), gfc_charlen_int_kind);
 
   /* Set the end of the reference to the call to len_trim.  */
 
@@ -2758,7 +2763,7 @@ matmul_to_var_expr (gfc_expr **ep, int *walk_subtrees ATTRIBUTE_UNUSED,
     return 0;
 
   if (forall_level > 0 || iterator_level > 0 || in_omp_workshare
-      || in_where)
+      || in_where || in_assoc_list)
     return 0;
 
   /* Check if this is already in the form c = matmul(a,b).  */
@@ -3723,7 +3728,7 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   if (co->op != EXEC_ASSIGN)
     return 0;
 
-  if (in_where)
+  if (in_where || in_assoc_list)
     return 0;
 
   /* The BLOCKS generated for the temporary variables and FORALL don't

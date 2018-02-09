@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2017 Free Software Foundation, Inc.
+   Copyright (C) 1992-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "substring-locations.h"
 #include "spellcheck.h"
+#include "selftest.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -867,19 +868,6 @@ c_get_substring_location (const substring_loc &substr_loc,
 }
 
 
-/* Fold X for consideration by one of the warning functions when checking
-   whether an expression has a constant value.  */
-
-tree
-fold_for_warn (tree x)
-{
-  if (c_dialect_cxx ())
-    return c_fully_fold (x, /*for_init*/false, /*maybe_constp*/NULL);
-  else
-    /* The C front-end has already folded X appropriately.  */
-    return x;
-}
-
 /* Return true iff T is a boolean promoted to int.  */
 
 bool
@@ -940,15 +928,16 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
 
   convertible_lax =
     (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
-     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE ||
-	 TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2))
+     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE
+	 || known_eq (TYPE_VECTOR_SUBPARTS (t1),
+		      TYPE_VECTOR_SUBPARTS (t2)))
      && (INTEGRAL_TYPE_P (TREE_TYPE (t1))
 	 == INTEGRAL_TYPE_P (TREE_TYPE (t2))));
 
   if (!convertible_lax || flag_lax_vector_conversions)
     return convertible_lax;
 
-  if (TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2)
+  if (known_eq (TYPE_VECTOR_SUBPARTS (t1), TYPE_VECTOR_SUBPARTS (t2))
       && lang_hooks.types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2)))
     return true;
 
@@ -1016,10 +1005,10 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask,
       return error_mark_node;
     }
 
-  if (TYPE_VECTOR_SUBPARTS (TREE_TYPE (v0))
-      != TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask))
-      && TYPE_VECTOR_SUBPARTS (TREE_TYPE (v1))
-	 != TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask)))
+  if (maybe_ne (TYPE_VECTOR_SUBPARTS (TREE_TYPE (v0)),
+		TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask)))
+      && maybe_ne (TYPE_VECTOR_SUBPARTS (TREE_TYPE (v1)),
+		   TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask))))
     {
       if (complain)
 	error_at (loc, "__builtin_shuffle number of elements of the "
@@ -2278,7 +2267,16 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
       if (inner_type != NULL_TREE)
 	return build_complex_type (inner_type);
     }
-  else if (VECTOR_MODE_P (mode))
+  else if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL
+	   && valid_vector_subparts_p (GET_MODE_NUNITS (mode)))
+    {
+      unsigned int elem_bits = vector_element_size (GET_MODE_BITSIZE (mode),
+						    GET_MODE_NUNITS (mode));
+      tree bool_type = build_nonstandard_boolean_type (elem_bits);
+      return build_vector_type_for_mode (bool_type, mode);
+    }
+  else if (VECTOR_MODE_P (mode)
+	   && valid_vector_subparts_p (GET_MODE_NUNITS (mode)))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = c_common_type_for_mode (inner_mode, unsignedp);
@@ -5319,14 +5317,20 @@ check_function_restrict (const_tree fndecl, const_tree fntype,
 			 int nargs, tree *argarray)
 {
   int i;
-  tree parms;
+  tree parms = TYPE_ARG_TYPES (fntype);
 
   if (fndecl
-      && TREE_CODE (fndecl) == FUNCTION_DECL
-      && DECL_ARGUMENTS (fndecl))
-    parms = DECL_ARGUMENTS (fndecl);
-  else
-    parms = TYPE_ARG_TYPES (fntype);
+      && TREE_CODE (fndecl) == FUNCTION_DECL)
+    {
+      /* Skip checking built-ins here.  They are checked in more
+	 detail elsewhere.  */
+      if (DECL_BUILT_IN (fndecl)
+	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+	return;
+
+      if (DECL_ARGUMENTS (fndecl))
+	parms = DECL_ARGUMENTS (fndecl);
+    }
 
   for (i = 0; i < nargs; i++)
     TREE_VISITED (argarray[i]) = 0;
@@ -6721,8 +6725,15 @@ get_atomic_generic_size (location_t loc, tree function,
   for (x = n_param - n_model ; x < n_param; x++)
     {
       tree p = (*params)[x];
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (p)))
+	{
+	  error_at (loc, "non-integer memory model argument %d of %qE", x + 1,
+		    function);
+	  return 0;
+	}
+      p = fold_for_warn (p);
       if (TREE_CODE (p) == INTEGER_CST)
-        {
+	{
 	  /* memmodel_base masks the low 16 bits, thus ignore any bits above
 	     it by using TREE_INT_CST_LOW instead of tree_to_*hwi.  Those high
 	     bits will be checked later during expansion in target specific
@@ -6732,14 +6743,7 @@ get_atomic_generic_size (location_t loc, tree function,
 			"invalid memory model argument %d of %qE", x + 1,
 			function);
 	}
-      else
-	if (!INTEGRAL_TYPE_P (TREE_TYPE (p)))
-	  {
-	    error_at (loc, "non-integer memory model argument %d of %qE", x + 1,
-		   function);
-	    return 0;
-	  }
-      }
+    }
 
   return size_0;
 }
@@ -7654,7 +7658,7 @@ convert_vector_to_array_for_subscript (location_t loc,
 
       if (TREE_CODE (index) == INTEGER_CST)
         if (!tree_fits_uhwi_p (index)
-            || tree_to_uhwi (index) >= TYPE_VECTOR_SUBPARTS (type))
+	    || maybe_ge (tree_to_uhwi (index), TYPE_VECTOR_SUBPARTS (type)))
           warning_at (loc, OPT_Warray_bounds, "index value is out of bound");
 
       /* We are building an ARRAY_REF so mark the vector as addressable
@@ -7829,6 +7833,8 @@ reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
 {
   if (TREE_CODE (expr) == ADDR_EXPR)
     expr = TREE_OPERAND (expr, 0);
+
+  STRIP_ANY_LOCATION_WRAPPER (expr);
 
   if (TREE_TYPE (expr)
       && TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
@@ -8171,12 +8177,30 @@ maybe_suggest_missing_token_insertion (rich_location *richloc,
 
 namespace selftest {
 
+/* Verify that fold_for_warn on error_mark_node is safe.  */
+
+static void
+test_fold_for_warn ()
+{
+  ASSERT_EQ (error_mark_node, fold_for_warn (error_mark_node));
+}
+
+/* Run all of the selftests within this file.  */
+
+static void
+c_common_c_tests ()
+{
+  test_fold_for_warn ();
+}
+
 /* Run all of the tests within c-family.  */
 
 void
 c_family_tests (void)
 {
+  c_common_c_tests ();
   c_format_c_tests ();
+  c_pretty_print_c_tests ();
   c_spellcheck_cc_tests ();
 }
 

@@ -1,5 +1,5 @@
 /* Subroutines for the gcc driver.
-   Copyright (C) 2006-2017 Free Software Foundation, Inc.
+   Copyright (C) 2006-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,6 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
+
+#define IN_TARGET_CODE 1
 
 #include "config.h"
 #include "system.h"
@@ -416,8 +418,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_mwaitx = 0, has_clzero = 0, has_pku = 0, has_rdpid = 0;
   unsigned int has_avx5124fmaps = 0, has_avx5124vnniw = 0;
   unsigned int has_gfni = 0, has_avx512vbmi2 = 0;
+  unsigned int has_avx512bitalg = 0;
   unsigned int has_ibt = 0, has_shstk = 0;
-  unsigned int has_avx512vnni = 0;
+  unsigned int has_avx512vnni = 0, has_vaes = 0;
+  unsigned int has_vpclmulqdq = 0;
 
   bool arch;
 
@@ -510,6 +514,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_avx512vnni = ecx & bit_AVX512VNNI;
       has_rdpid = ecx & bit_RDPID;
       has_gfni = ecx & bit_GFNI;
+      has_vaes = ecx & bit_VAES;
+      has_vpclmulqdq = ecx & bit_VPCLMULQDQ;
+      has_avx512bitalg = ecx & bit_AVX512BITALG;
 
       has_avx5124vnniw = edx & bit_AVX5124VNNIW;
       has_avx5124fmaps = edx & bit_AVX5124FMAPS;
@@ -815,8 +822,11 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	  if (arch)
 	    {
 	      /* This is unknown family 0x6 CPU.  */
+	      /* Assume Ice Lake.  */
+	      if (has_gfni)
+		cpu = "icelake";
 	      /* Assume Cannon Lake.  */
-	      if (has_avx512vbmi)
+	      else if (has_avx512vbmi)
 		cpu = "cannonlake";
 	      /* Assume Knights Mill.  */
 	      else if (has_avx5124vnniw)
@@ -1076,6 +1086,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *gfni = has_gfni ? " -mgfni" : " -mno-gfni";
       const char *ibt = has_ibt ? " -mibt" : " -mno-ibt";
       const char *shstk = has_shstk ? " -mshstk" : " -mno-shstk";
+      const char *vaes = has_vaes ? " -mvaes" : " -mno-vaes";
+      const char *vpclmulqdq = has_vpclmulqdq ? " -mvpclmulqdq" : " -mno-vpclmulqdq";
+      const char *avx512bitalg = has_avx512bitalg ? " -mavx512bitalg" : " -mno-avx512bitalg";
       options = concat (options, mmx, mmx3dnow, sse, sse2, sse3, ssse3,
 			sse4a, cx16, sahf, movbe, aes, sha, pclmul,
 			popcnt, abm, lwp, fma, fma4, xop, bmi, sgx, bmi2,
@@ -1086,7 +1099,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 			xsavec, xsaves, avx512dq, avx512bw, avx512vl,
 			avx512ifma, avx512vbmi, avx5124fmaps, avx5124vnniw,
 			clwb, mwaitx, clzero, pku, rdpid, gfni, ibt, shstk,
-			avx512vbmi2, avx512vnni, NULL);
+			avx512vbmi2, avx512vnni, vaes, vpclmulqdq,
+			avx512bitalg, NULL);
     }
 
 done:

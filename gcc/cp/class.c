@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -214,16 +214,6 @@ static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
 static tree end_of_base (tree);
 static tree get_vcall_index (tree, tree);
 static bool type_maybe_constexpr_default_constructor (tree);
-
-/* Variables shared between class.c and call.c.  */
-
-int n_vtables = 0;
-int n_vtable_entries = 0;
-int n_vtable_searches = 0;
-int n_vtable_elems = 0;
-int n_convert_harshness = 0;
-int n_compute_conversion_costs = 0;
-int n_inner_fields_searched = 0;
 
 /* Return a COND_EXPR that executes TRUE_STMT if this execution of the
    'structor is in charge of 'structing virtual bases, or FALSE_STMT
@@ -892,12 +882,6 @@ build_primary_vtable (tree binfo, tree type)
       virtuals = NULL_TREE;
     }
 
-  if (GATHER_STATISTICS)
-    {
-      n_vtables += 1;
-      n_vtable_elems += list_length (virtuals);
-    }
-
   /* Initialize the association list for this type, based
      on our first approximation.  */
   BINFO_VTABLE (TYPE_BINFO (type)) = decl;
@@ -1099,7 +1083,7 @@ add_method (tree type, tree method, bool via_using)
 	  /* If these are versions of the same function, process and
 	     move on.  */
 	  if (TREE_CODE (fn) == FUNCTION_DECL
-	      && maybe_version_functions (method, fn))
+	      && maybe_version_functions (method, fn, true))
 	    continue;
 
 	  if (DECL_INHERITED_CTOR (method))
@@ -3276,12 +3260,14 @@ check_bitfield_decl (tree field)
 		   && tree_int_cst_lt (TYPE_SIZE (type), w)))
 	warning_at (DECL_SOURCE_LOCATION (field), 0,
 		    "width of %qD exceeds its type", field);
-      else if (TREE_CODE (type) == ENUMERAL_TYPE
-	       && (0 > (compare_tree_int
-			(w, TYPE_PRECISION (ENUM_UNDERLYING_TYPE (type))))))
-	warning_at (DECL_SOURCE_LOCATION (field), 0,
-		    "%qD is too small to hold all values of %q#T",
-		    field, type);
+      else if (TREE_CODE (type) == ENUMERAL_TYPE)
+	{
+	  int prec = TYPE_PRECISION (ENUM_UNDERLYING_TYPE (type));
+	  if (compare_tree_int (w, prec) < 0)
+	    warning_at (DECL_SOURCE_LOCATION (field), 0,
+			"%qD is too small to hold all values of %q#T",
+			field, type);
+	}
     }
 
   if (w != error_mark_node)
@@ -6564,14 +6550,17 @@ find_flexarrays (tree t, flexmems_t *fmem, bool base_p,
 	  /* Flexible array members have no upper bound.  */
 	  if (fmem->array)
 	    {
-	      /* Replace the zero-length array if it's been stored and
-		 reset the after pointer.  */
 	      if (TYPE_DOMAIN (TREE_TYPE (fmem->array)))
 		{
+		  /* Replace the zero-length array if it's been stored and
+		     reset the after pointer.  */
 		  fmem->after[bool (pun)] = NULL_TREE;
 		  fmem->array = fld;
 		  fmem->enclosing = pstr;
 		}
+	      else if (!fmem->after[bool (pun)])
+		/* Make a record of another flexible array member.  */
+		fmem->after[bool (pun)] = fld;
 	    }
 	  else
 	    {
@@ -7073,7 +7062,7 @@ finish_struct (tree t, tree attributes)
       /* People keep complaining that the compiler crashes on an invalid
 	 definition of initializer_list, so I guess we should explicitly
 	 reject it.  What the compiler internals care about is that it's a
-	 template and has a pointer field followed by an integer field.  */
+	 template and has a pointer field followed by size_type field.  */
       bool ok = false;
       if (processing_template_decl)
 	{
@@ -7086,9 +7075,8 @@ finish_struct (tree t, tree attributes)
 	    }
 	}
       if (!ok)
-	fatal_error (input_location,
-		     "definition of std::initializer_list does not match "
-		     "#include <initializer_list>");
+	fatal_error (input_location, "definition of %qD does not match "
+		     "%<#include <initializer_list>%>", TYPE_NAME (t));
     }
 
   input_location = saved_loc;
@@ -8113,23 +8101,6 @@ get_vfield_name (tree type)
   return get_identifier (buf);
 }
 
-void
-print_class_statistics (void)
-{
-  if (! GATHER_STATISTICS)
-    return;
-
-  fprintf (stderr, "convert_harshness = %d\n", n_convert_harshness);
-  fprintf (stderr, "compute_conversion_costs = %d\n", n_compute_conversion_costs);
-  if (n_vtables)
-    {
-      fprintf (stderr, "vtables = %d; vtable searches = %d\n",
-	       n_vtables, n_vtable_searches);
-      fprintf (stderr, "vtable entries = %d; vtable elems = %d\n",
-	       n_vtable_entries, n_vtable_elems);
-    }
-}
-
 /* Build a dummy reference to ourselves so Derived::Base (and A::A) works,
    according to [class]:
 					  The class-name is also inserted
@@ -8197,7 +8168,7 @@ is_really_empty_class (tree type)
 	if (TREE_CODE (field) == FIELD_DECL
 	    && !DECL_ARTIFICIAL (field)
 	    /* An unnamed bit-field is not a data member.  */
-	    && (DECL_NAME (field) || !DECL_C_BIT_FIELD (field))
+	    && !DECL_UNNAMED_BIT_FIELD (field)
 	    && !is_really_empty_class (TREE_TYPE (field)))
 	  return false;
       return true;

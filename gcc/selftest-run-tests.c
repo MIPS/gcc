@@ -1,5 +1,5 @@
 /* Implementation of selftests.
-   Copyright (C) 2015-2017 Free Software Foundation, Inc.
+   Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,7 +48,7 @@ selftest::run_tests ()
      option-handling.  */
   path_to_selftest_files = flag_self_test;
 
-  long start_time = get_run_time ();
+  test_runner r ("-fself-test");
 
   /* Run all the tests, in hand-coded order of (approximate) dependencies:
      run the tests for lowest-level code first.  */
@@ -73,6 +73,7 @@ selftest::run_tests ()
 
   /* Mid-level data structures.  */
   input_c_tests ();
+  vec_perm_indices_c_tests ();
   tree_c_tests ();
   gimple_c_tests ();
   rtl_tests_c_tests ();
@@ -109,14 +110,7 @@ selftest::run_tests ()
      failed to be finalized can be detected by valgrind.  */
   forcibly_ggc_collect ();
 
-  /* Finished running tests.  */
-  long finish_time = get_run_time ();
-  long elapsed_time = finish_time - start_time;
-
-  fprintf (stderr,
-	   "-fself-test: %i pass(es) in %ld.%06ld seconds\n",
-	   num_passes,
-	   elapsed_time / 1000000, elapsed_time % 1000000);
+  /* Finished running tests; the test_runner dtor will print a summary.  */
 }
 
 #endif /* #if CHECKING_P */

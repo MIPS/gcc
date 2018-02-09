@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -477,7 +477,7 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef, void *data)
       && !stmt_can_throw_internal (def_stmt))
     {
       tree base, lhs = gimple_get_lhs (def_stmt);
-      HOST_WIDE_INT size, offset, max_size;
+      poly_int64 size, offset, max_size;
       bool reverse;
       ao_ref_base (ref);
       base
@@ -488,13 +488,9 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef, void *data)
 	{
 	  /* For a must-alias check we need to be able to constrain
 	     the accesses properly.  */
-	  if (size != -1 && size == max_size
-	      && ref->max_size != -1)
-	    {
-	      if (offset <= ref->offset
-		  && offset + size >= ref->offset + ref->max_size)
-		return true;
-	    }
+	  if (known_eq (size, max_size)
+	      && known_subrange_p (ref->offset, ref->max_size, offset, size))
+	    return true;
 	  /* Or they need to be exactly the same.  */
 	  else if (ref->ref
 		   /* Make sure there is no induction variable involved

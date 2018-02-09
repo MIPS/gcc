@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -461,6 +461,7 @@ extern gimple_opt_pass *make_pass_build_cgraph_edges (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_local_pure_const (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_nothrow (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tracer (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_warn_restrict (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_unused_result (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_diagnose_tm_blocks (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_tm (gcc::context *ctxt);
@@ -575,6 +576,7 @@ extern rtl_opt_pass *make_pass_mode_switching (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_sms (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_sched (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_live_range_shrinkage (gcc::context *ctxt);
+extern rtl_opt_pass *make_pass_early_remat (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_ira (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_reload (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_clean_state (gcc::context *ctxt);

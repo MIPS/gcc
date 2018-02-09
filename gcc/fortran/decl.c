@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -95,6 +95,9 @@ gfc_symbol *gfc_new_block;
 
 bool gfc_matching_function;
 
+/* Set upon parsing a !GCC$ unroll n directive for use in the next loop.  */
+int directive_unroll = -1;
+
 /* If a kind expression of a component of a parameterized derived type is
    parameterized, temporarily store the expression here.  */
 static gfc_expr *saved_kind_expr = NULL;
@@ -103,7 +106,6 @@ static gfc_expr *saved_kind_expr = NULL;
    in the typespec of a PDT variable or component.  */
 static gfc_actual_arglist *decl_type_param_list;
 static gfc_actual_arglist *type_param_spec_list;
-
 
 /********************* DATA statement subroutines *********************/
 
@@ -993,7 +995,7 @@ match_char_length (gfc_expr **expr, bool *deferred, bool obsolescent_check)
       if (obsolescent_check
 	  && !gfc_notify_std (GFC_STD_F95_OBS, "Old-style character length at %C"))
 	return MATCH_ERROR;
-      *expr = gfc_get_int_expr (gfc_default_integer_kind, NULL, length);
+      *expr = gfc_get_int_expr (gfc_charlen_int_kind, NULL, length);
       return m;
     }
 
@@ -1536,10 +1538,11 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
    means no checking.  */
 
 void
-gfc_set_constant_character_len (int len, gfc_expr *expr, int check_len)
+gfc_set_constant_character_len (gfc_charlen_t len, gfc_expr *expr,
+				gfc_charlen_t check_len)
 {
   gfc_char_t *s;
-  int slen;
+  gfc_charlen_t slen;
 
   if (expr->ts.type != BT_CHARACTER)
     return;
@@ -1562,15 +1565,17 @@ gfc_set_constant_character_len (int len, gfc_expr *expr, int check_len)
       if (warn_character_truncation && slen > len)
 	gfc_warning_now (OPT_Wcharacter_truncation,
 			 "CHARACTER expression at %L is being truncated "
-			 "(%d/%d)", &expr->where, slen, len);
+			 "(%ld/%ld)", &expr->where,
+			 (long) slen, (long) len);
 
       /* Apply the standard by 'hand' otherwise it gets cleared for
 	 initializers.  */
       if (check_len != -1 && slen != check_len
           && !(gfc_option.allow_std & GFC_STD_GNU))
 	gfc_error_now ("The CHARACTER elements of the array constructor "
-		       "at %L must have the same length (%d/%d)",
-			&expr->where, slen, check_len);
+		       "at %L must have the same length (%ld/%ld)",
+		       &expr->where, (long) slen,
+		       (long) check_len);
 
       s[len] = '\0';
       free (expr->value.character.string);
@@ -1700,7 +1705,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 
 	  if (sym->ts.u.cl->length == NULL)
 	    {
-	      int clen;
+	      gfc_charlen_t clen;
 	      /* If there are multiple CHARACTER variables declared on the
 		 same line, we don't want them to share the same length.  */
 	      sym->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
@@ -1711,12 +1716,12 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		    {
 		      clen = init->value.character.length;
 		      sym->ts.u.cl->length
-				= gfc_get_int_expr (gfc_default_integer_kind,
+				= gfc_get_int_expr (gfc_charlen_int_kind,
 						    NULL, clen);
 		    }
 		  else if (init->expr_type == EXPR_ARRAY)
 		    {
-		      if (init->ts.u.cl)
+		      if (init->ts.u.cl && init->ts.u.cl->length)
 			{
 			  const gfc_expr *length = init->ts.u.cl->length;
 			  if (length->expr_type != EXPR_CONSTANT)
@@ -1738,7 +1743,7 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 		      else
 			  gcc_unreachable ();
 		      sym->ts.u.cl->length
-				= gfc_get_int_expr (gfc_default_integer_kind,
+				= gfc_get_int_expr (gfc_charlen_int_kind,
 						    NULL, clen);
 		    }
 		  else if (init->ts.u.cl && init->ts.u.cl->length)
@@ -1749,27 +1754,35 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 	  /* Update initializer character length according symbol.  */
 	  else if (sym->ts.u.cl->length->expr_type == EXPR_CONSTANT)
 	    {
-	      int len;
-
 	      if (!gfc_specification_expr (sym->ts.u.cl->length))
 		return false;
 
-	      len = mpz_get_si (sym->ts.u.cl->length->value.integer);
-
-	      if (init->expr_type == EXPR_CONSTANT)
-		gfc_set_constant_character_len (len, init, -1);
-	      else if (init->expr_type == EXPR_ARRAY)
+	      int k = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind,
+					 false);
+	      /* resolve_charlen will complain later on if the length
+		 is too large.  Just skeep the initialization in that case.  */
+	      if (mpz_cmp (sym->ts.u.cl->length->value.integer,
+			   gfc_integer_kinds[k].huge) <= 0)
 		{
-		  gfc_constructor *c;
+		  HOST_WIDE_INT len
+		    = gfc_mpz_get_hwi (sym->ts.u.cl->length->value.integer);
 
-		  /* Build a new charlen to prevent simplification from
-		     deleting the length before it is resolved.  */
-		  init->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-		  init->ts.u.cl->length = gfc_copy_expr (sym->ts.u.cl->length);
+		  if (init->expr_type == EXPR_CONSTANT)
+		    gfc_set_constant_character_len (len, init, -1);
+		  else if (init->expr_type == EXPR_ARRAY)
+		    {
+		      gfc_constructor *c;
 
-		  for (c = gfc_constructor_first (init->value.constructor);
-		       c; c = gfc_constructor_next (c))
-		    gfc_set_constant_character_len (len, c->expr, -1);
+		      /* Build a new charlen to prevent simplification from
+			 deleting the length before it is resolved.  */
+		      init->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
+		      init->ts.u.cl->length
+			= gfc_copy_expr (sym->ts.u.cl->length);
+
+		      for (c = gfc_constructor_first (init->value.constructor);
+			   c; c = gfc_constructor_next (c))
+			gfc_set_constant_character_len (len, c->expr, -1);
+		    }
 		}
 	    }
 	}
@@ -3071,7 +3084,7 @@ done:
   cl = gfc_new_charlen (gfc_current_ns, NULL);
 
   if (seen_length == 0)
-    cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
+    cl->length = gfc_get_int_expr (gfc_charlen_int_kind, NULL, 1);
   else
     cl->length = len;
 
@@ -3560,6 +3573,12 @@ gfc_get_pdt_instance (gfc_actual_arglist *param_list, gfc_symbol **sym,
 	      c2->as->upper[i] = e;
 	    }
 	  c2->attr.pdt_array = pdt_array ? 1 : c2->attr.pdt_string;
+	  if (c1->initializer)
+	    {
+	      c2->initializer = gfc_copy_expr (c1->initializer);
+	      gfc_insert_kind_parameter_exprs (c2->initializer);
+	      gfc_simplify_expr (c2->initializer, 1);
+	    }
 	}
 
       /* Recurse into this function for PDT components.  */
@@ -4114,7 +4133,7 @@ gfc_match_implicit_none (void)
   if (c == '(')
     {
       (void) gfc_next_ascii_char ();
-      if (!gfc_notify_std (GFC_STD_F2015, "IMPORT NONE with spec list at %C"))
+      if (!gfc_notify_std (GFC_STD_F2018, "IMPORT NONE with spec list at %C"))
 	return MATCH_ERROR;
 
       gfc_gobble_whitespace ();
@@ -4313,7 +4332,7 @@ gfc_match_implicit (void)
 		{
 		  ts.kind = gfc_default_character_kind;
 		  ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
-		  ts.u.cl->length = gfc_get_int_expr (gfc_default_integer_kind,
+		  ts.u.cl->length = gfc_get_int_expr (gfc_charlen_int_kind,
 						      NULL, 1);
 		}
 
@@ -9848,7 +9867,10 @@ gfc_match_derived_decl (void)
 	gfc_error_recovery ();
       m = gfc_match_eos ();
       if (m != MATCH_YES)
-	return m;
+	{
+	  gfc_error_recovery ();
+	  gfc_error_now ("Garbage after PARAMETERIZED TYPE declaration at %C");
+	}
       sym->attr.pdt_template = 1;
     }
 
@@ -10956,5 +10978,39 @@ gfc_match_gcc_attributes (void)
 
 syntax:
   gfc_error ("Syntax error in !GCC$ ATTRIBUTES statement at %C");
+  return MATCH_ERROR;
+}
+
+
+/* Match a !GCC$ UNROLL statement of the form:
+      !GCC$ UNROLL n
+
+   The parameter n is the number of times we are supposed to unroll.
+
+   When we come here, we have already matched the !GCC$ UNROLL string.  */
+match
+gfc_match_gcc_unroll (void)
+{
+  int value;
+
+  if (gfc_match_small_int (&value) == MATCH_YES)
+    {
+      if (value < 0 || value > USHRT_MAX)
+	{
+	  gfc_error ("%<GCC unroll%> directive requires a"
+	      " non-negative integral constant"
+	      " less than or equal to %u at %C",
+	      USHRT_MAX
+	  );
+	  return MATCH_ERROR;
+	}
+      if (gfc_match_eos () == MATCH_YES)
+	{
+	  directive_unroll = value == 0 ? 1 : value;
+	  return MATCH_YES;
+	}
+    }
+
+  gfc_error ("Syntax error in !GCC$ UNROLL directive at %C");
   return MATCH_ERROR;
 }

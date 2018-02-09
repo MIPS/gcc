@@ -1,5 +1,5 @@
 /* Diagnostic routines shared by all languages that are variants of C.
-   Copyright (C) 1992-2017 Free Software Foundation, Inc.
+   Copyright (C) 1992-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -179,6 +179,9 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
   int in0_p, in1_p, in_p;
   tree low0, low1, low, high0, high1, high, lhs, rhs, tem;
   bool strict_overflow_p = false;
+
+  if (!warn_logical_op)
+    return;
 
   if (code != TRUTH_ANDIF_EXPR
       && code != TRUTH_AND_EXPR
@@ -1865,6 +1868,9 @@ void
 warn_for_memset (location_t loc, tree arg0, tree arg2,
 		 int literal_zero_mask)
 {
+  arg0 = fold_for_warn (arg0);
+  arg2 = fold_for_warn (arg2);
+
   if (warn_memset_transposed_args
       && integer_zerop (arg2)
       && (literal_zero_mask & (1 << 2)) != 0

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2014-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2014-2018, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -302,6 +302,16 @@ package body Exp_Unst is
          return;
       end if;
 
+      --  If the main unit is a package body then we need to examine the spec
+      --  to determine whether the main unit is generic (the scope stack is not
+      --  present when this is called on the main unit).
+
+      if Ekind (Cunit_Entity (Main_Unit)) = E_Package_Body
+        and then Is_Generic_Unit (Spec_Entity (Cunit_Entity (Main_Unit)))
+      then
+         return;
+      end if;
+
       --  At least for now, do not unnest anything but main source unit
 
       if not In_Extended_Main_Source_Unit (Subp_Body) then
@@ -553,8 +563,8 @@ package body Exp_Unst is
                Ent := Entity (Name (N));
 
                --  We are only interested in calls to subprograms nested
-               --  within Subp. Calls to Subp itself or to subprograms that
-               --  are outside the nested structure do not affect us.
+               --  within Subp. Calls to Subp itself or to subprograms
+               --  that are outside the nested structure do not affect us.
 
                if Scope_Within (Ent, Subp) then
 
@@ -586,18 +596,20 @@ package body Exp_Unst is
                         | Attribute_Unchecked_Access
                         | Attribute_Unrestricted_Access
                      =>
-                        Ent := Entity (Prefix (N));
+                        if Nkind (Prefix (N)) in N_Has_Entity then
+                           Ent := Entity (Prefix (N));
 
-                        --  We are only interested in calls to subprograms
-                        --  nested within Subp.
+                           --  We are only interested in calls to subprograms
+                           --  nested within Subp.
 
-                        if Scope_Within (Ent, Subp) then
-                           if Is_Imported (Ent) then
-                              null;
+                           if Scope_Within (Ent, Subp) then
+                              if Is_Imported (Ent) then
+                                 null;
 
-                           elsif Is_Subprogram (Ent) then
-                              Append_Unique_Call
-                                ((N, Current_Subprogram, Ent));
+                              elsif Is_Subprogram (Ent) then
+                                 Append_Unique_Call
+                                   ((N, Current_Subprogram, Ent));
+                              end if;
                            end if;
                         end if;
 
@@ -1651,7 +1663,6 @@ package body Exp_Unst is
             if Present (STT.ARECnF)
               and then Nkind (CTJ.N) /= N_Attribute_Reference
             then
-
                --  CTJ.N is a call to a subprogram which may require a pointer
                --  to an activation record. The subprogram containing the call
                --  is CTJ.From and the subprogram being called is CTJ.To, so we
