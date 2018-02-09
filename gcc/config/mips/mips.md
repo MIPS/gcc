@@ -5146,6 +5146,18 @@
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "HI")])
 
+(define_peephole2
+  [(set (match_operand:HI 0 "register_operand")
+	(match_operand:HI 1 "register_operand"))
+   (set (match_operand:SI 2 "register_operand")
+	(match_operand:SI 3 "register_operand"))]
+  "TARGET_MIPS16
+   && REGNO (operands[1]) == REGNO (operands[2])
+   && REGNO (operands[0]) == REGNO (operands[3])
+   && peep2_reg_dead_p (2, operands[3])"
+  [(const_int 0)]
+  "")
+
 ;; On the mips16, we can split lh $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
 ;; load are 2 2 byte instructions.
@@ -5221,6 +5233,18 @@
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "QI")])
+
+(define_peephole2
+  [(set (match_operand:QI 0 "register_operand")
+	(match_operand:QI 1 "register_operand"))
+   (set (match_operand:SI 2 "register_operand")
+	(match_operand:SI 3 "register_operand"))]
+  "TARGET_MIPS16
+   && REGNO (operands[1]) == REGNO (operands[2])
+   && REGNO (operands[0]) == REGNO (operands[3])
+   && peep2_reg_dead_p (2, operands[3])"
+  [(const_int 0)]
+  "")
 
 ;; On the mips16, we can split lb $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
