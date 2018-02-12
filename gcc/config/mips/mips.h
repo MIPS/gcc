@@ -1097,7 +1097,13 @@ struct mips_cpu_info {
 				 && mips_isa_rev <= 5)
 
 /* Integer multiply-accumulate instructions should be generated.  */
-#define GENERATE_MADD_MSUB	(TARGET_IMADD && !TARGET_MIPS16)
+#define GENERATE_MADD_MSUB	(ISA_HAS_MADD_MSUB			\
+				 && TARGET_IMADD && !TARGET_MIPS16)
+
+/* Integer multiply-accumulate instructions with named accumulators
+   should be generated.  We allow to control these instructions with
+   -m[no-]imadd option.  */
+#define GENERATE_MADD_MSUB_DSP  (ISA_HAS_DSP && TARGET_IMADD)
 
 /* ISA has 4 operand fused madd instructions of the form
    'd = [+-] (a * b [+-] c)'.  */

@@ -21973,13 +21973,13 @@ mips_option_override (void)
      flags.  */
   if ((target_flags_explicit & MASK_IMADD) == 0)
     {
-      if (ISA_HAS_MADD_MSUB &&
-          (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+      if ((ISA_HAS_DSP || ISA_HAS_MADD_MSUB)
+	  && (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
 	target_flags |= MASK_IMADD;
       else
 	target_flags &= ~MASK_IMADD;
     }
-  else if (TARGET_IMADD && !ISA_HAS_MADD_MSUB)
+  else if (TARGET_IMADD && !ISA_HAS_MADD_MSUB && !ISA_HAS_DSP)
     warning (0, "the %qs architecture does not support madd or msub"
 	     " instructions", mips_arch_info->name);
 
