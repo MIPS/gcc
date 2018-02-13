@@ -18419,6 +18419,10 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
       std::swap (ops[1], ops[2]);
       break;
 
+    case CODE_FOR_msa_maddv_b:
+    case CODE_FOR_msa_maddv_h:
+    case CODE_FOR_msa_maddv_w:
+    case CODE_FOR_msa_maddv_d:
     case CODE_FOR_msa_fmadd_w:
     case CODE_FOR_msa_fmadd_d:
     case CODE_FOR_msa_fmsub_w:
