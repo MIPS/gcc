@@ -62,6 +62,7 @@ static const struct default_options mips_option_optimization_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
 #ifdef NANOMIPS_SUPPORT
     { OPT_LEVELS_SIZE, OPT_freorder_blocks_edge_sort_, NULL, RB_EDGE_SORT_1 },
+    { OPT_LEVELS_SIZE, OPT_mcheck_zero_division, NULL, 0 },
 #endif
     { OPT_LEVELS_NONE, 0, NULL, 0 }
   };
