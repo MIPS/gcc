@@ -19548,7 +19548,8 @@ This option is only meaningful in conjunction with @option{-membedded-data}.
 @opindex mno-check-zero-division
 Trap (do not trap) on integer division by zero.
 
-The default is @option{-mcheck-zero-division}.
+The default is @option{-mno-check-zero-division} at @option{-Os} level and
+@option{-mcheck-zero-division} for any other optimization level.
 
 @item -mdivide-traps
 @opindex mdivide-traps
