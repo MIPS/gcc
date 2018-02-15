@@ -25190,12 +25190,6 @@ mips_option_override (void)
       else
 	mips_abi = nanomips_abi;
 
-      /* Disable trapping when dividing by zero if the user does not
-	 request this.  */
-      if (optimize_size
-	  && (target_flags_explicit & MASK_CHECK_ZERO_DIV) == 0)
-	target_flags &= ~MASK_CHECK_ZERO_DIV;
-
       if (!TARGET_LINKRELAX
 	  && (nano_pic_model_var == NANO_PIC_AUTO
 	      || nano_pic_model_var == NANO_PIC_NONE))
