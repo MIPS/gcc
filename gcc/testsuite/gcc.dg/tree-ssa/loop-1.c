@@ -19,6 +19,11 @@
    to the load from the GOT this also contains the name of the function so for
    each call the function name would appear twice.  */
 /* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized -mno-relax-pic-calls" { target mips*-*-* } } */
+
+/* On nanoMIPS, we prevent indirect calls by disabling PIC mode and avoiding
+   the large model. We also need to prevent the usage of -mlong-calls.  */
+/* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized -mcmodel=auto -fno-pic -mno-long-calls" { target nanomips*-*-* } } */
+
 __attribute__ ((pure))
 int foo (int x);
 int xxx(void)

@@ -1,6 +1,11 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target nonpic } */
-/* { dg-options "-mno-long-calls addressing=absolute" } */
+/* { dg-options "-mcmodel=auto -mno-long-calls addressing=absolute" } */
+
+/* This test fails only for the large model. Ideally, we would run this test
+   for both the automatic and medium model, but we'll have to stick to forcing
+   the automatic model for now. The former can be achieved by modifying
+   nanomips.exp.  */
 
 extern int long_call_func () __attribute__((long_call));
 extern int far_func () __attribute__((far));
