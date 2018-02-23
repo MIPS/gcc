@@ -31,6 +31,11 @@
 #define A1 $a1
 #endif
 
+#if defined(__ELF__) && defined(__linux__)
+	.section .note.GNU-stack,"",@progbits
+	.previous
+#endif
+
 #ifdef L_ashrdi3
 STARTFN(__ashrdi3)
 	subu	$a3,$zero,$a2
