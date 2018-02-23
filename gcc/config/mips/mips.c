@@ -28865,6 +28865,11 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 #undef TARGET_ASM_OUTPUT_SOURCE_FILENAME
 #define TARGET_ASM_OUTPUT_SOURCE_FILENAME mips_output_filename
 
+#ifdef NANOMIPS_SUPPORT
+# undef  TARGET_ASM_FILE_END
+# define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+#endif
+
 #undef TARGET_SHIFT_TRUNCATION_MASK
 #define TARGET_SHIFT_TRUNCATION_MASK mips_shift_truncation_mask
 
