@@ -30,6 +30,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define RA $31
 #endif
 
+#if defined(__ELF__) && defined(__linux__) && defined(__nanomips__)
+	.section .note.GNU-stack,"",@progbits
+	.previous
+#endif
+
 	.section .init,"ax",@progbits
 init:	
 #ifdef __mips64
