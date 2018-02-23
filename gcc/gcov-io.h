@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2017 Free Software Foundation, Inc.
+   Copyright (C) 1996-2018 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -387,6 +387,7 @@ GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 /* Available only in compiler */
 GCOV_LINKAGE unsigned gcov_histo_index (gcov_type value);
 GCOV_LINKAGE void gcov_write_string (const char *);
+GCOV_LINKAGE void gcov_write_filename (const char *);
 GCOV_LINKAGE gcov_position_t gcov_write_tag (gcov_unsigned_t);
 GCOV_LINKAGE void gcov_write_length (gcov_position_t /*position*/);
 #endif

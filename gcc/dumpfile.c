@@ -1,5 +1,5 @@
 /* Dump infrastructure for optimizations and intermediate representation.
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "context.h"
+#include "profile-count.h"
 #include "tree-cfg.h"
+#include "langhooks.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -47,41 +49,28 @@ FILE *alt_dump_file = NULL;
 const char *dump_file_name;
 dump_flags_t dump_flags;
 
-CONSTEXPR dump_file_info::dump_file_info (): suffix (NULL), swtch (NULL),
-  glob (NULL), pfilename (NULL), alt_filename (NULL), pstream (NULL),
-  alt_stream (NULL), dkind (DK_none), pflags (), alt_flags (0),
-  optgroup_flags (0), pstate (0), alt_state (0), num (0), owns_strings (false),
-  graph_dump_initialized (false)
-{
-}
-
-dump_file_info::dump_file_info (const char *_suffix, const char *_swtch,
-				dump_kind _dkind, int _num):
-  suffix (_suffix), swtch (_swtch), glob (NULL),
-  pfilename (NULL), alt_filename (NULL), pstream (NULL), alt_stream (NULL),
-  dkind (_dkind), pflags (), alt_flags (0), optgroup_flags (0),
-  pstate (0), alt_state (0), num (_num), owns_strings (false),
-  graph_dump_initialized (false)
-{
-}
+#define DUMP_FILE_INFO(suffix, swtch, dkind, num) \
+  {suffix, swtch, NULL, NULL, NULL, NULL, NULL, dkind, 0, 0, 0, 0, 0, num, \
+   false, false}
 
 /* Table of tree dump switches. This must be consistent with the
    TREE_DUMP_INDEX enumeration in dumpfile.h.  */
 static struct dump_file_info dump_files[TDI_end] =
 {
-  dump_file_info (),
-  dump_file_info (".cgraph", "ipa-cgraph", DK_ipa, 0),
-  dump_file_info (".type-inheritance", "ipa-type-inheritance", DK_ipa, 0),
-  dump_file_info (".ipa-clones", "ipa-clones", DK_ipa, 0),
-  dump_file_info (".original", "tree-original", DK_tree, 3),
-  dump_file_info (".gimple", "tree-gimple", DK_tree, 4),
-  dump_file_info (".nested", "tree-nested", DK_tree, 5),
-#define FIRST_AUTO_NUMBERED_DUMP 3
+  DUMP_FILE_INFO (NULL, NULL, DK_none, 0),
+  DUMP_FILE_INFO (".cgraph", "ipa-cgraph", DK_ipa, 0),
+  DUMP_FILE_INFO (".type-inheritance", "ipa-type-inheritance", DK_ipa, 0),
+  DUMP_FILE_INFO (".ipa-clones", "ipa-clones", DK_ipa, 0),
+  DUMP_FILE_INFO (".original", "tree-original", DK_tree, 0),
+  DUMP_FILE_INFO (".gimple", "tree-gimple", DK_tree, 0),
+  DUMP_FILE_INFO (".nested", "tree-nested", DK_tree, 0),
+#define FIRST_AUTO_NUMBERED_DUMP 1
+#define FIRST_ME_AUTO_NUMBERED_DUMP 3
 
-  dump_file_info (NULL, "lang-all", DK_lang, 0),
-  dump_file_info (NULL, "tree-all", DK_tree, 0),
-  dump_file_info (NULL, "rtl-all", DK_rtl, 0),
-  dump_file_info (NULL, "ipa-all", DK_ipa, 0),
+  DUMP_FILE_INFO (NULL, "lang-all", DK_lang, 0),
+  DUMP_FILE_INFO (NULL, "tree-all", DK_tree, 0),
+  DUMP_FILE_INFO (NULL, "rtl-all", DK_rtl, 0),
+  DUMP_FILE_INFO (NULL, "ipa-all", DK_ipa, 0),
 };
 
 /* Define a name->number mapping for a dump flag value.  */
@@ -111,7 +100,6 @@ static const struct dump_option_value_info dump_options[] =
   {"uid", TDF_UID},
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
-  {"verbose", TDF_VERBOSE},
   {"eh", TDF_EH},
   {"alias", TDF_ALIAS},
   {"nouid", TDF_NOUID},
@@ -123,10 +111,9 @@ static const struct dump_option_value_info dump_options[] =
   {"missed", MSG_MISSED_OPTIMIZATION},
   {"note", MSG_NOTE},
   {"optall", MSG_ALL},
-  {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO
-	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC | TDF_VERBOSE
-	    | TDF_RHS_ONLY | TDF_NOUID | TDF_ENUMERATE_LOCALS | TDF_SCEV
-	    | TDF_GIMPLE)},
+  {"all", dump_flags_t (~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_GRAPH
+			| TDF_STMTADDR | TDF_RHS_ONLY | TDF_NOUID
+			| TDF_ENUMERATE_LOCALS | TDF_SCEV | TDF_GIMPLE))},
   {NULL, 0}
 };
 
@@ -195,15 +182,22 @@ dump_register (const char *suffix, const char *swtch, const char *glob,
   if (count >= m_extra_dump_files_alloced)
     {
       if (m_extra_dump_files_alloced == 0)
-	m_extra_dump_files_alloced = 32;
+	m_extra_dump_files_alloced = 512;
       else
 	m_extra_dump_files_alloced *= 2;
       m_extra_dump_files = XRESIZEVEC (struct dump_file_info,
 				       m_extra_dump_files,
 				       m_extra_dump_files_alloced);
+
+      /* Construct a new object in the space allocated above.  */
+      new (m_extra_dump_files + count) dump_file_info ();
+    }
+  else
+    {
+      /* Zero out the already constructed object.  */
+      m_extra_dump_files[count] = dump_file_info ();
     }
 
-  memset (&m_extra_dump_files[count], 0, sizeof (struct dump_file_info));
   m_extra_dump_files[count].suffix = suffix;
   m_extra_dump_files[count].swtch = swtch;
   m_extra_dump_files[count].glob = glob;
@@ -213,6 +207,25 @@ dump_register (const char *suffix, const char *swtch, const char *glob,
   m_extra_dump_files[count].owns_strings = take_ownership;
 
   return count + TDI_end;
+}
+
+
+/* Allow languages and middle-end to register their dumps before the
+   optimization passes.  */
+
+void
+gcc::dump_manager::
+register_dumps ()
+{
+  lang_hooks.register_dumps (this);
+  /* If this assert fails, some FE registered more than
+     FIRST_ME_AUTO_NUMBERED_DUMP - FIRST_AUTO_NUMBERED_DUMP
+     dump files.  Bump FIRST_ME_AUTO_NUMBERED_DUMP accordingly.  */
+  gcc_assert (m_next_dump <= FIRST_ME_AUTO_NUMBERED_DUMP);
+  m_next_dump = FIRST_ME_AUTO_NUMBERED_DUMP;
+  dump_files[TDI_original].num = m_next_dump++;
+  dump_files[TDI_gimple].num = m_next_dump++;
+  dump_files[TDI_nested].num = m_next_dump++;
 }
 
 
@@ -238,7 +251,7 @@ gcc::dump_manager::
 get_dump_file_info_by_switch (const char *swtch) const
 {
   for (unsigned i = 0; i < m_extra_dump_files_in_use; i++)
-    if (0 == strcmp (m_extra_dump_files[i].swtch, swtch))
+    if (strcmp (m_extra_dump_files[i].swtch, swtch) == 0)
       return &m_extra_dump_files[i];
 
   /* Not found.  */
@@ -459,6 +472,27 @@ dump_printf_loc (dump_flags_t dump_kind, source_location loc,
       va_end (ap);
     }
 }
+
+/* Output VALUE in decimal to appropriate dump streams.  */
+
+template<unsigned int N, typename C>
+void
+dump_dec (int dump_kind, const poly_int<N, C> &value)
+{
+  STATIC_ASSERT (poly_coeff_traits<C>::signedness >= 0);
+  signop sgn = poly_coeff_traits<C>::signedness ? SIGNED : UNSIGNED;
+  if (dump_file && (dump_kind & pflags))
+    print_dec (value, dump_file, sgn);
+
+  if (alt_dump_file && (dump_kind & alt_flags))
+    print_dec (value, alt_dump_file, sgn);
+}
+
+template void dump_dec (int, const poly_uint16 &);
+template void dump_dec (int, const poly_int64 &);
+template void dump_dec (int, const poly_uint64 &);
+template void dump_dec (int, const poly_offset_int &);
+template void dump_dec (int, const poly_widest_int &);
 
 /* Start a dump for PHASE. Store user-supplied dump flags in
    *FLAG_PTR.  Return the number of streams opened.  Set globals

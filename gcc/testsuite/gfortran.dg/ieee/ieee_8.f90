@@ -1,4 +1,4 @@
-! { dg-do run { xfail aarch64*-*-gnu arm*-*-gnueabi arm*-*-gnueabihf } }
+! { dg-do run { xfail aarch64*-*-gnu* arm*-*-gnueabi arm*-*-gnueabihf } }
 ! XFAIL because of PR libfortran/78449.
 
 module foo
@@ -111,5 +111,3 @@ subroutine gee(n, rounding, flag)
   if (len(s8) /= x8) call abort
 
 end subroutine
-
-! { dg-final { cleanup-modules "foo bar" } }

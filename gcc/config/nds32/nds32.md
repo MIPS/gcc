@@ -1,5 +1,5 @@
 ;; Machine description of Andes NDS32 cpu for GNU compiler
-;; Copyright (C) 2012-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
 ;; Contributed by Andes Technology Corporation.
 ;;
 ;; This file is part of GCC.
@@ -269,12 +269,12 @@
     {
     case 0:
       /* addi Rt4,Rt4,-x  ==>  subi45 Rt4,x
-         where 0 <= x <= 31 */
+	 where 0 <= x <= 31 */
       operands[2] = gen_int_mode (-INTVAL (operands[2]), SImode);
       return "subi45\t%0, %2";
     case 1:
       /* addi Rt3,Ra3,-x  ==>  subi333 Rt3,Ra3,x
-         where 0 <= x <= 7 */
+	 where 0 <= x <= 7 */
       operands[2] = gen_int_mode (-INTVAL (operands[2]), SImode);
       return "subi333\t%0, %1, %2";
     case 2:
@@ -320,7 +320,7 @@
 ;; and needs to ensure it is exact_log2 value.
 (define_insn "*add_slli"
   [(set (match_operand:SI 0 "register_operand"                    "=r")
-        (plus:SI (mult:SI (match_operand:SI 1 "register_operand"  " r")
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand"  " r")
 			  (match_operand:SI 2 "immediate_operand" " i"))
 		 (match_operand:SI 3 "register_operand"           " r")))]
   "TARGET_ISA_V3
@@ -415,9 +415,9 @@
 
 (define_insn "*maddr32_0"
   [(set (match_operand:SI 0 "register_operand"                   "=r")
-        (plus:SI (match_operand:SI 3 "register_operand"          " 0")
-                 (mult:SI (match_operand:SI 1 "register_operand" " r")
-                          (match_operand:SI 2 "register_operand" " r"))))]
+	(plus:SI (match_operand:SI 3 "register_operand"          " 0")
+		 (mult:SI (match_operand:SI 1 "register_operand" " r")
+			  (match_operand:SI 2 "register_operand" " r"))))]
   ""
   "maddr32\t%0, %1, %2"
   [(set_attr "type"   "alu")
@@ -425,9 +425,9 @@
 
 (define_insn "*maddr32_1"
   [(set (match_operand:SI 0 "register_operand"                   "=r")
-        (plus:SI (mult:SI (match_operand:SI 1 "register_operand" " r")
-                          (match_operand:SI 2 "register_operand" " r"))
-                 (match_operand:SI 3 "register_operand"          " 0")))]
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" " r")
+			  (match_operand:SI 2 "register_operand" " r"))
+		 (match_operand:SI 3 "register_operand"          " 0")))]
   ""
   "maddr32\t%0, %1, %2"
   [(set_attr "type"   "alu")
@@ -435,9 +435,9 @@
 
 (define_insn "*msubr32"
   [(set (match_operand:SI 0 "register_operand"                    "=r")
-        (minus:SI (match_operand:SI 3 "register_operand"          " 0")
-                  (mult:SI (match_operand:SI 1 "register_operand" " r")
-                           (match_operand:SI 2 "register_operand" " r"))))]
+	(minus:SI (match_operand:SI 3 "register_operand"          " 0")
+		  (mult:SI (match_operand:SI 1 "register_operand" " r")
+			   (match_operand:SI 2 "register_operand" " r"))))]
   ""
   "msubr32\t%0, %1, %2"
   [(set_attr "type"   "alu")
@@ -448,10 +448,10 @@
 
 (define_insn "divmodsi4"
   [(set (match_operand:SI 0 "register_operand"         "=r")
-        (div:SI (match_operand:SI 1 "register_operand" " r")
-                (match_operand:SI 2 "register_operand" " r")))
+	(div:SI (match_operand:SI 1 "register_operand" " r")
+		(match_operand:SI 2 "register_operand" " r")))
    (set (match_operand:SI 3 "register_operand"         "=r")
-        (mod:SI (match_dup 1) (match_dup 2)))]
+	(mod:SI (match_dup 1) (match_dup 2)))]
   ""
   "divsr\t%0, %3, %1, %2"
   [(set_attr "type"   "alu")
@@ -459,10 +459,10 @@
 
 (define_insn "udivmodsi4"
   [(set (match_operand:SI 0 "register_operand"          "=r")
-        (udiv:SI (match_operand:SI 1 "register_operand" " r")
-                (match_operand:SI 2 "register_operand"  " r")))
+	(udiv:SI (match_operand:SI 1 "register_operand" " r")
+		 (match_operand:SI 2 "register_operand"  " r")))
    (set (match_operand:SI 3 "register_operand"          "=r")
-        (umod:SI (match_dup 1) (match_dup 2)))]
+	(umod:SI (match_dup 1) (match_dup 2)))]
   ""
   "divr\t%0, %3, %1, %2"
   [(set_attr "type"   "alu")
@@ -2275,8 +2275,8 @@ create_template:
       add_tmp = gen_int_mode (-INTVAL (operands[1]), SImode);
 
       /* If the integer value is not in the range of imm15s,
-         we need to force register first because our addsi3 pattern
-         only accept nds32_rimm15s_operand predicate.  */
+	 we need to force register first because our addsi3 pattern
+	 only accept nds32_rimm15s_operand predicate.  */
       add_tmp = force_reg (SImode, add_tmp);
 
       emit_insn (gen_addsi3 (reg, operands[0], add_tmp));
@@ -2336,7 +2336,7 @@ create_template:
 (define_insn "clzsi2"
   [(set (match_operand:SI 0 "register_operand"         "=r")
 	(clz:SI (match_operand:SI 1 "register_operand" " r")))]
-  "TARGET_PERF_EXT"
+  "TARGET_EXT_PERF"
   "clz\t%0, %1"
   [(set_attr "type" "alu")
    (set_attr "length" "4")])
@@ -2345,7 +2345,7 @@ create_template:
   [(set (match_operand:SI 0 "register_operand"          "=r")
 	(smax:SI (match_operand:SI 1 "register_operand" " r")
 		 (match_operand:SI 2 "register_operand" " r")))]
-  "TARGET_PERF_EXT"
+  "TARGET_EXT_PERF"
   "max\t%0, %1, %2"
   [(set_attr "type" "alu")
    (set_attr "length" "4")])
@@ -2354,7 +2354,7 @@ create_template:
   [(set (match_operand:SI 0 "register_operand"          "=r")
 	(smin:SI (match_operand:SI 1 "register_operand" " r")
 		 (match_operand:SI 2 "register_operand" " r")))]
-  "TARGET_PERF_EXT"
+  "TARGET_EXT_PERF"
   "min\t%0, %1, %2"
   [(set_attr "type" "alu")
    (set_attr "length" "4")])
@@ -2364,7 +2364,7 @@ create_template:
 	(zero_extract:SI (match_operand:SI 1 "register_operand"  "    r")
 			 (const_int 1)
 			 (match_operand:SI 2 "immediate_operand" " Iu05")))]
-  "TARGET_PERF_EXT"
+  "TARGET_EXT_PERF"
   "btst\t%0, %1, %2"
   [(set_attr "type" "alu")
    (set_attr "length" "4")])

@@ -1,5 +1,5 @@
 /* Get CPU type and Features for x86 processors.
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
    Contributed by Sriraman Tallam (tmsriram@google.com)
 
 This file is part of GCC.
@@ -137,6 +137,10 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      /* Knights Landing.  */
 	      __cpu_model.__cpu_type = INTEL_KNL;
 	      break;
+	    case 0x85:
+	      /* Knights Mill. */
+	      __cpu_model.__cpu_type = INTEL_KNM;
+	      break;
 	    case 0x1a:
 	    case 0x1e:
 	    case 0x1f:
@@ -183,6 +187,9 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	    case 0x4e:
 	    case 0x5e:
 	      /* Skylake.  */
+	    case 0x8e:
+	    case 0x9e:
+	      /* Kaby Lake.  */
 	      __cpu_model.__cpu_type = INTEL_COREI7;
 	      __cpu_model.__cpu_subtype = INTEL_COREI7_SKYLAKE;
 	      break;
@@ -190,6 +197,11 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      /* Skylake with AVX-512 support.  */
 	      __cpu_model.__cpu_type = INTEL_COREI7;
 	      __cpu_model.__cpu_subtype = INTEL_COREI7_SKYLAKE_AVX512;
+	      break;
+	    case 0x66:
+	      /* Cannon Lake.  */
+	      __cpu_model.__cpu_type = INTEL_COREI7;
+	      __cpu_model.__cpu_subtype = INTEL_COREI7_CANNONLAKE;
 	      break;
 	    case 0x17:
 	    case 0x1d:

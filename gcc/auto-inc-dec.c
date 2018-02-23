@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006-2017 Free Software Foundation, Inc.
+   Copyright (C) 2006-2018 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -152,14 +152,14 @@ enum gen_form
 static rtx mem_tmp;
 
 static enum inc_state
-set_inc_state (HOST_WIDE_INT val, int size)
+set_inc_state (HOST_WIDE_INT val, poly_int64 size)
 {
   if (val == 0)
     return INC_ZERO;
   if (val < 0)
-    return (val == -size) ? INC_NEG_SIZE : INC_NEG_ANY;
+    return known_eq (val, -size) ? INC_NEG_SIZE : INC_NEG_ANY;
   else
-    return (val == size) ? INC_POS_SIZE : INC_POS_ANY;
+    return known_eq (val, size) ? INC_POS_SIZE : INC_POS_ANY;
 }
 
 /* The DECISION_TABLE that describes what form, if any, the increment
@@ -601,7 +601,7 @@ try_merge (void)
     inc_insn.reg_res : mem_insn.reg0;
 
   /* The width of the mem being accessed.  */
-  int size = GET_MODE_SIZE (GET_MODE (mem));
+  poly_int64 size = GET_MODE_SIZE (GET_MODE (mem));
   rtx_insn *last_insn = NULL;
   machine_mode reg_mode = GET_MODE (inc_reg);
 
@@ -769,6 +769,12 @@ parse_add_or_inc (rtx_insn *insn, bool before_mem)
   inc_insn.pat = pat;
   inc_insn.reg_res = SET_DEST (pat);
   inc_insn.reg0 = XEXP (SET_SRC (pat), 0);
+
+  /* Block any auto increment of the frame pointer since it expands into
+     an addition and cannot be removed by copy propagation.  */
+  if (inc_insn.reg0 == frame_pointer_rtx)
+    return false;
+
   if (rtx_equal_p (inc_insn.reg_res, inc_insn.reg0))
     inc_insn.form = before_mem ? FORM_PRE_INC : FORM_POST_INC;
   else

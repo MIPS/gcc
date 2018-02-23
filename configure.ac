@@ -150,7 +150,6 @@ target_libraries="target-libgcc \
 		target-libgloss \
 		target-newlib \
 		target-libgomp \
-		target-libcilkrts \
 		target-liboffloadmic \
 		target-libhsail-rt \
 		target-libatomic \
@@ -537,22 +536,6 @@ if test -d ${srcdir}/libatomic; then
     fi
 fi
 
-# Disable libcilkrts on unsupported systems.
-if test -d ${srcdir}/libcilkrts; then
-    if test x$enable_libcilkrts = x; then
-	AC_MSG_CHECKING([for libcilkrts support])
-	if (srcdir=${srcdir}/libcilkrts; \
-		. ${srcdir}/configure.tgt; \
-		test -n "$UNSUPPORTED")
-	then
-	    AC_MSG_RESULT([no])
-	    noconfigdirs="$noconfigdirs target-libcilkrts"
-	else
-	    AC_MSG_RESULT([yes])
-	fi
-    fi
-fi
-
 # Disable liboffloadmic on unsupported systems.
 if test -d ${srcdir}/liboffloadmic; then
     if test x$enable_liboffloadmic != xno; then
@@ -791,11 +774,8 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libffi"
     ;;
   powerpc-*-aix*)
-    # copied from rs6000-*-* entry
-    noconfigdirs="$noconfigdirs target-libffi"
     ;;
   rs6000-*-aix*)
-    noconfigdirs="$noconfigdirs target-libffi"
     ;;
   ft32-*-*)
     noconfigdirs="$noconfigdirs target-libffi"
@@ -808,7 +788,7 @@ esac
 # Disable the go frontend on systems where it is known to not work. Please keep
 # this in sync with contrib/config-list.mk.
 case "${target}" in
-*-*-darwin* | *-*-cygwin* | *-*-mingw* | *-*-aix*)
+*-*-darwin* | *-*-cygwin* | *-*-mingw*)
     unsupported_languages="$unsupported_languages go"
     ;;
 esac
@@ -822,9 +802,6 @@ if test x$enable_libgo = x; then
 	noconfigdirs="$noconfigdirs target-libgo"
 	;;
     *-*-cygwin* | *-*-mingw*)
-	noconfigdirs="$noconfigdirs target-libgo"
-	;;
-    *-*-aix*)
 	noconfigdirs="$noconfigdirs target-libgo"
 	;;
     esac
@@ -984,10 +961,6 @@ case "${target}" in
     ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss"
-    # this is not caught below because this stanza matches earlier
-    case $target in
-      or1k*-*-*) noconfigdirs="$noconfigdirs gdb" ;;
-    esac
     ;;
     # The tpf target doesn't support gdb yet.
   *-*-tpf*)
@@ -1193,9 +1166,6 @@ case "${target}" in
   nvptx*-*-*)
     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
     ;;
-  or1k*-*-*)
-    noconfigdirs="$noconfigdirs gdb"
-    ;;
   sh-*-*)
     case "${target}" in
       sh*-*-elf)
@@ -1220,6 +1190,9 @@ case "${target}" in
     ;;
   vax-*-*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
+    ;;
+  wasm32-*-*)
+    noconfigdirs="$noconfigdirs ld"
     ;;
 esac
 
@@ -1839,7 +1812,12 @@ if test -d ${srcdir}/gcc; then
         language=
         lang_requires=
         lang_requires_boot_languages=
-        . ${lang_frag}
+        # set srcdir during sourcing lang_frag to the gcc dir.
+        # Sadly overriding srcdir on the . line doesn't work in plain sh as it
+        # polutes this shell
+        saved_srcdir=${srcdir}
+        srcdir=${srcdir}/gcc . ${lang_frag}
+        srcdir=${saved_srcdir}
         for other in ${lang_requires} ${lang_requires_boot_languages}; do
           case ,${enable_languages}, in
 	    *,$other,*) ;;
@@ -1914,7 +1892,10 @@ if test -d ${srcdir}/gcc; then
         subdir_requires=
         boot_language=no
         build_by_default=yes
-        . ${lang_frag}
+        # set srcdir during sourcing.  See above about save & restore
+        saved_srcdir=${srcdir}
+        srcdir=${srcdir}/gcc . ${lang_frag}
+        srcdir=${saved_srcdir}
         if test x${language} = x; then
           echo "${lang_frag} doesn't set \$language." 1>&2
           exit 1
@@ -2154,19 +2135,19 @@ case ,${enable_languages},:${enable_objc_gc} in *,objc,*:yes|*,objc,*:auto)
   fi
 esac
 
-# Disable libcilkrts, libitm, libsanitizer, libvtv, liboffloadmic if we're not building C++
+# Disable libitm, libsanitizer, libvtv, liboffloadmic if we're not building C++
 case ,${enable_languages}, in
   *,c++,*)
-    # Disable libcilkrts, libitm, libsanitizer if we're not building libstdc++
+    # Disable libitm, libsanitizer if we're not building libstdc++
     case "${noconfigdirs}" in
       *target-libstdc++-v3*)
-        noconfigdirs="$noconfigdirs target-libcilkrts target-libitm target-libsanitizer"
+        noconfigdirs="$noconfigdirs target-libitm target-libsanitizer"
         ;;
       *) ;;
     esac
     ;;
   *)
-    noconfigdirs="$noconfigdirs target-libcilkrts target-liboffloadmic target-libitm target-libsanitizer target-libvtv"
+    noconfigdirs="$noconfigdirs target-liboffloadmic target-libitm target-libsanitizer target-libvtv"
     ;;
 esac
 
@@ -2520,6 +2501,9 @@ case "${target}" in
     ;;
   nios2-*-elf*)
     target_makefile_frag="config/mt-nios2-elf"
+    ;;
+  *-*-linux-android*)
+    target_makefile_frag="config/mt-android"
     ;;
   *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
     target_makefile_frag="config/mt-gnu"
@@ -3508,12 +3492,14 @@ AC_SUBST(stage1_checking)
 # Enable -Werror in bootstrap stage2 and later.
 AC_ARG_ENABLE(werror,
 [AS_HELP_STRING([--enable-werror],
-		[enable -Werror in bootstrap stage2 and later])], [], [])
+		[enable -Werror in bootstrap stage2 and later])],
+[
 case ${enable_werror} in
   yes) stage2_werror_flag="--enable-werror-always" ;;
   *) stage2_werror_flag="" ;;
 esac
-
+],
+[
 if test -d ${srcdir}/gcc && test x"`cat $srcdir/gcc/DEV-PHASE`" = xexperimental; then
   case $BUILD_CONFIG in
   bootstrap-debug)
@@ -3522,6 +3508,7 @@ if test -d ${srcdir}/gcc && test x"`cat $srcdir/gcc/DEV-PHASE`" = xexperimental;
       stage2_werror_flag="--enable-werror-always" ;;
   esac
 fi
+])
 
 AC_SUBST(stage2_werror_flag)
 

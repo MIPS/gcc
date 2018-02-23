@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright (C) 2009-2017 Free Software Foundation, Inc.
+   Copyright (C) 2009-2018 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -32,6 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "alias.h"
 #include "lto-symtab.h"
+#include "stringpool.h"
+#include "attribs.h"
 
 /* Replace the cgraph node NODE with PREVAILING_NODE in the cgraph, merging
    all edges and removing the old node.  */
@@ -282,11 +284,25 @@ warn_type_compatibility_p (tree prevailing_type, tree type,
       alias_set_type set1 = get_alias_set (type);
       alias_set_type set2 = get_alias_set (prevailing_type);
 
-      if (set1 && set2 && set1 != set2 
-          && (!POINTER_TYPE_P (type) || !POINTER_TYPE_P (prevailing_type)
+      if (set1 && set2 && set1 != set2)
+	{
+          tree t1 = type, t2 = prevailing_type;
+
+	  /* Alias sets of arrays with aliased components are the same as alias
+	     sets of the inner types.  */
+	  while (TREE_CODE (t1) == ARRAY_TYPE
+		 && !TYPE_NONALIASED_COMPONENT (t1)
+		 && TREE_CODE (t2) == ARRAY_TYPE
+		 && !TYPE_NONALIASED_COMPONENT (t2))
+	    {
+	      t1 = TREE_TYPE (t1);
+	      t2 = TREE_TYPE (t2);
+	    }
+          if ((!POINTER_TYPE_P (t1) || !POINTER_TYPE_P (t2))
 	      || (set1 != TYPE_ALIAS_SET (ptr_type_node)
-		  && set2 != TYPE_ALIAS_SET (ptr_type_node))))
-        lev |= 5;
+		  && set2 != TYPE_ALIAS_SET (ptr_type_node)))
+             lev |= 5;
+	}
     }
 
   return lev;
@@ -350,18 +366,31 @@ lto_symtab_merge (symtab_node *prevailing, symtab_node *entry)
     return false;
 
   if (DECL_SIZE (decl) && DECL_SIZE (prevailing_decl)
-      && !tree_int_cst_equal (DECL_SIZE (decl), DECL_SIZE (prevailing_decl))
+      && !tree_int_cst_equal (DECL_SIZE (decl), DECL_SIZE (prevailing_decl)))
+      {
+	if (!DECL_COMMON (decl) && !DECL_EXTERNAL (decl))
+	  return false;
+
+	tree type = TREE_TYPE (decl);
+
+	/* For record type, check for array at the end of the structure.  */
+	if (TREE_CODE (type) == RECORD_TYPE)
+	  {
+	    tree field = TYPE_FIELDS (type);
+	    while (DECL_CHAIN (field) != NULL_TREE)
+	      field = DECL_CHAIN (field);
+
+	    return TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE;
+	  }
       /* As a special case do not warn about merging
 	 int a[];
 	 and
 	 int a[]={1,2,3};
 	 here the first declaration is COMMON
 	 and sizeof(a) == sizeof (int).  */
-      && ((!DECL_COMMON (decl) && !DECL_EXTERNAL (decl))
-	  || TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE
-	  || TYPE_SIZE (TREE_TYPE (decl))
-	     != TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl)))))
-    return false;
+	else if (TREE_CODE (type) == ARRAY_TYPE)
+	  return (TYPE_SIZE (decl) == TYPE_SIZE (TREE_TYPE (type)));
+      }
 
   return true;
 }
@@ -951,6 +980,42 @@ lto_symtab_merge_symbols (void)
 	      gcc_assert (node->weakref);
 	      if (tgt)
 		node->resolve_alias (tgt, true);
+	    }
+	  /* If the symbol was preempted outside IR, see if we want to get rid
+	     of the definition.  */
+	  if (node->analyzed
+	      && !DECL_EXTERNAL (node->decl)
+	      && (node->resolution == LDPR_PREEMPTED_REG
+		  || node->resolution == LDPR_RESOLVED_IR
+		  || node->resolution == LDPR_RESOLVED_EXEC
+		  || node->resolution == LDPR_RESOLVED_DYN))
+	    {
+	      DECL_EXTERNAL (node->decl) = 1;
+	      /* If alias to local symbol was preempted by external definition,
+		 we know it is not pointing to the local symbol.  Remove it.  */
+	      if (node->alias
+		  && !node->weakref
+		  && !node->transparent_alias
+		  && node->get_alias_target ()->binds_to_current_def_p ())
+		{
+		  node->alias = false;
+		  node->remove_all_references ();
+		  node->definition = false;
+		  node->analyzed = false;
+		  node->cpp_implicit_alias = false;
+		}
+	      else if (!node->alias
+		       && node->definition
+		       && node->get_availability () <= AVAIL_INTERPOSABLE)
+		{
+		  if ((cnode = dyn_cast <cgraph_node *> (node)) != NULL)
+		    cnode->reset ();
+		  else
+		    {
+		      node->analyzed = node->definition = false;
+		      node->remove_all_references ();
+		    }
+		}
 	    }
 
 	  if (!(cnode = dyn_cast <cgraph_node *> (node))

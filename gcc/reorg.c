@@ -1,5 +1,5 @@
 /* Perform instruction reorganizations for delay slot filling.
-   Copyright (C) 1992-2017 Free Software Foundation, Inc.
+   Copyright (C) 1992-2018 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -840,7 +840,8 @@ mostly_true_jump (rtx jump_insn)
   rtx note = find_reg_note (jump_insn, REG_BR_PROB, 0);
   if (note)
     {
-      int prob = XINT (note, 0);
+      int prob = profile_probability::from_reg_br_prob_note (XINT (note, 0))
+			.to_reg_br_prob_base ();
 
       if (prob >= REG_BR_PROB_BASE * 9 / 10)
 	return 2;
@@ -1694,9 +1695,8 @@ own_thread_p (rtx thread, rtx label, int allow_fallthrough)
 }
 
 /* Called when INSN is being moved from a location near the target of a jump.
-   We leave a marker of the form (use (INSN)) immediately in front
-   of WHERE for mark_target_live_regs.  These markers will be deleted when
-   reorg finishes.
+   We leave a marker of the form (use (INSN)) immediately in front of WHERE
+   for mark_target_live_regs.  These markers will be deleted at the end.
 
    We used to try to update the live status of registers if WHERE is at
    the start of a basic block, but that can't work since we may remove a
@@ -1705,16 +1705,10 @@ own_thread_p (rtx thread, rtx label, int allow_fallthrough)
 static void
 update_block (rtx_insn *insn, rtx_insn *where)
 {
-  /* Ignore if this was in a delay slot and it came from the target of
-     a branch.  */
-  if (INSN_FROM_TARGET_P (insn))
-    return;
-
   emit_insn_before (gen_rtx_USE (VOIDmode, insn), where);
 
   /* INSN might be making a value live in a block where it didn't use to
      be.  So recompute liveness information for this block.  */
-
   incr_ticks_for_insn (insn);
 }
 
@@ -3211,7 +3205,7 @@ relax_delay_slots (rtx_insn *first)
 	  && (other = prev_active_insn (insn)) != 0
 	  && any_condjump_p (other)
 	  && no_labels_between_p (other, insn)
-	  && 0 > mostly_true_jump (other))
+	  && mostly_true_jump (other) < 0)
 	{
 	  rtx other_target = JUMP_LABEL (other);
 	  target_label = JUMP_LABEL (insn);
@@ -3367,10 +3361,11 @@ relax_delay_slots (rtx_insn *first)
 	}
 
       /* See if we have a simple (conditional) jump that is useless.  */
-      if (! INSN_ANNULLED_BRANCH_P (delay_jump_insn)
-	  && ! condjump_in_parallel_p (delay_jump_insn)
+      if (!CROSSING_JUMP_P (delay_jump_insn)
+	  && !INSN_ANNULLED_BRANCH_P (delay_jump_insn)
+	  && !condjump_in_parallel_p (delay_jump_insn)
 	  && prev_active_insn (as_a<rtx_insn *> (target_label)) == insn
-	  && ! BARRIER_P (prev_nonnote_insn (as_a<rtx_insn *> (target_label)))
+	  && !BARRIER_P (prev_nonnote_insn (as_a<rtx_insn *> (target_label)))
 	  /* If the last insn in the delay slot sets CC0 for some insn,
 	     various code assumes that it is in a delay slot.  We could
 	     put it back where it belonged and delete the register notes,
@@ -3617,9 +3612,14 @@ make_return_insns (rtx_insn *first)
 
 	  delete_related_insns (insn);
 	  for (i = 1; i < XVECLEN (pat, 0); i++)
-	    prev = emit_insn_after (PATTERN (XVECEXP (pat, 0, i)), prev);
+	    {
+	      rtx_insn *in_seq_insn = as_a<rtx_insn *> (XVECEXP (pat, 0, i));
+	      prev = emit_insn_after_setloc (PATTERN (in_seq_insn), prev,
+					     INSN_LOCATION (in_seq_insn));
+	    }
 
-	  insn = emit_jump_insn_after (PATTERN (jump_insn), prev);
+	  insn = emit_jump_insn_after_setloc (PATTERN (jump_insn), prev,
+					      INSN_LOCATION (jump_insn));
 	  emit_barrier_after (insn);
 
 	  if (slots)

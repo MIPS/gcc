@@ -1,5 +1,5 @@
 /* Prototypes for exported functions of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -24,14 +24,6 @@
 /* Defining Data Structures for Per-function Information.  */
 
 extern void nds32_init_expanders (void);
-
-
-/* Register Usage.  */
-
-/* -- How Values Fit in Registers.  */
-
-extern int nds32_hard_regno_nregs (int, machine_mode);
-extern int nds32_hard_regno_mode_ok (int, machine_mode);
 
 
 /* Register Classes.  */
