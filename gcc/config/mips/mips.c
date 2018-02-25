@@ -29192,7 +29192,6 @@ static bool mips_short_reg_p (int reg_no)
 static bool
 mips_check_regs (rtx *opnds, int regs_num)
 {
-  rtx reg;
   for (int i = 0; i < regs_num; i++)
     {
       rtx reg = opnds[i];
