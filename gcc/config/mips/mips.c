@@ -28615,6 +28615,35 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 		     gen_rtx_fmt_ee (EQ, SImode, tmp1, const0_rtx),
 		     code == ASHIFTRT ? tmp2 : const0_rtx, out_low));
 }
+
+/* Worker function for TARGET_MD_ASM_ADJUST.
+
+   Replace a single instance of 'm' with 'ZR' to ensure most simple
+   ASM statements using memory get an addressing mode that is suitable
+   for all possible load/store instructions.  */
+
+static rtx_insn *
+mips_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
+		    vec<const char *> &constraints,
+		    vec<rtx> &/*clobbers*/, HARD_REG_SET &/*clobbered_regs*/)
+{
+  unsigned n = constraints.length ();
+  for (unsigned i = 0; i < n; ++i)
+    {
+      const char *con = constraints[i];
+      if (strcmp (con, "=m") == 0)
+	constraints[i] = "=ZR";
+      else if (strcmp (con, "=&m") == 0)
+	constraints[i] = "=&ZR";
+      else if (strcmp (con, "+m") == 0)
+	constraints[i] = "+ZR";
+      else if (strcmp (con, "+&m") == 0)
+	constraints[i] = "+&ZR";
+      else if (strcmp (con, "m") == 0)
+	constraints[i] = "ZR";
+    }
+  return NULL;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -28868,6 +28897,9 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 #ifdef NANOMIPS_SUPPORT
 # undef  TARGET_ASM_FILE_END
 # define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+# undef TARGET_MD_ASM_ADJUST
+# define TARGET_MD_ASM_ADJUST mips_md_asm_adjust
 #endif
 
 #undef TARGET_SHIFT_TRUNCATION_MASK
