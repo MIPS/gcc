@@ -18453,7 +18453,9 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
       mips_multi_copy_insn (tmp3_insn);
       mips_multi_set_operand (mips_multi_last_index (), 0, newval);
     }
-  else if (!(required_oldval && cmp) && !mips_branch_likely)
+  else if (!(required_oldval && cmp)
+	   && !mips_branch_likely
+	   && !TARGET_CB_MAYBE)
     mips_multi_add_insn ("nop", NULL);
 
   /* CMP = 1 -- either standalone or in a delay slot.  */
