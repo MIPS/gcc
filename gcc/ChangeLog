@@ -1,3 +1,11 @@
+2018-02-26  Roland McGrath  <mcgrathr@google.com>
+
+	PR other/77609
+	* varasm.c (default_section_type_flags): Set SECTION_NOTYPE for
+	any section for which we don't know a specific type it should have,
+	regardless of name.  Previously this was done only for the exact
+	names ".init_array", ".fini_array", and ".preinit_array".
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.
