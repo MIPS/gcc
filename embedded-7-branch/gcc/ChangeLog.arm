@@ -1,3 +1,8 @@
+2018-02-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-rmprofile: Map Armv8-R and Armv8-R with CRC extension to
+	Armv7 multilibs.
+
 2017-11-23  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Cherry-pick from GCC 7

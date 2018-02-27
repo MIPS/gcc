@@ -135,6 +135,8 @@ MULTILIB_MATCHES       += march?armv7=mcpu?xgene1
 MULTILIB_MATCHES       += march?armv6s-m=march?armv6-m
 MULTILIB_MATCHES       += march?armv8-m.main=march?armv8-m.main+dsp
 MULTILIB_MATCHES       += march?armv7=march?armv7-r
+MULTILIB_MATCHES       += march?armv7=march?armv8-r
+MULTILIB_MATCHES       += march?armv7=march?armv8-r+crc
 ifeq (,$(HAS_APROFILE))
 MULTILIB_MATCHES       += march?armv7=march?armv7-a
 MULTILIB_MATCHES       += march?armv7=march?armv7ve
@@ -162,8 +164,8 @@ MULTILIB_MATCHES       += mfpu?fpv5-d16=mfpu?crypto-neon-fp-armv8
 endif
 
 
-# We map all requests for ARMv7-R or ARMv7-A in ARM mode to Thumb mode and
-# any FPU to VFPv3-d16 if possible.
+# We map all requests for ARMv7-R, ARMv7-A and ARMv8-R in ARM mode to Thumb
+# mode and any FPU to VFPv3-d16 if possible.
 MULTILIB_REUSE         += mthumb/march.armv7=march.armv7
 MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.softfp=march.armv7/mfpu.vfpv3-d16/mfloat-abi.softfp
 MULTILIB_REUSE         += mthumb/march.armv7/mfpu.vfpv3-d16/mfloat-abi.hard=march.armv7/mfpu.vfpv3-d16/mfloat-abi.hard
