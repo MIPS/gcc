@@ -26157,6 +26157,8 @@ arm_file_start (void)
       else if (strncmp (arm_active_target.core_name, "generic", 7) == 0)
 	asm_fprintf (asm_out_file, "\t.arch %s\n",
 		     arm_active_target.core_name + 8);
+      else if (strcmp (arm_active_target.core_name, "cortex-m33+nodsp") == 0)
+	asm_fprintf (asm_out_file, "\t.arch armv8-m.main\n");
       else
 	{
 	  const char* truncated_name

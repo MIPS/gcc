@@ -789,6 +789,13 @@ static const struct arm_arch_core_flag arm_arch_core_flags[] =
     },
   },
   {
+    "cortex-m33+nodsp",
+    {
+      ISA_ARMv8m_main,
+      isa_nobit
+    },
+  },
+  {
     "cortex-r52",
     {
       ISA_ARMv8r,isa_bit_crc32,

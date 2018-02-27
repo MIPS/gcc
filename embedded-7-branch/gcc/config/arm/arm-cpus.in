@@ -1090,6 +1090,13 @@ begin cpu cortex-m33
  costs v7m
 end cpu cortex-m33
 
+begin cpu cortex-m33+nodsp
+ cname cortexm33nodsp
+ tune flags LDSCHED
+ architecture armv8-m.main
+ costs v7m
+end cpu cortex-m33+nodsp
+
 # V8 R-profile implementations.
 begin cpu cortex-r52
  cname cortexr52

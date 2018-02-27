@@ -15124,7 +15124,7 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{cortex-a72}, @samp{cortex-a73}, @samp{cortex-r4},
 @samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-r8},
 @samp{cortex-r52},
-@samp{cortex-m33},
+@samp{cortex-m33},@samp{cortex-m33+nodsp}
 @samp{cortex-m23},
 @samp{cortex-m7},
 @samp{cortex-m4},

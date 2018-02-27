@@ -1,5 +1,18 @@
 2018-02-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/arm-cpus.in (cortex-m33+nodsp): New CPU.
+	* config/arm/arm-cpu-cdata.h: Regenerate.
+	* config/arm/arm-cpu-data.h: Likewise.
+	* config/arm/arm-cpu.h: Likewise.
+	* config/arm/arm-tables.opt: Likewise.
+	* config/arm/arm-tune.md: Likewise.
+	* config/arm/arm.c (arm_file_start): Special case
+	* -mcpu=cortex-m33+nodsp to emit .arch armv8-m.main instead.
+	* doc/invoke.texi: Document cortex-m33+nodsp as a valid value for -mcpu
+	and -mtune.
+
+2018-02-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/t-rmprofile: Map Armv8-R and Armv8-R with CRC extension to
 	Armv7 multilibs.
 

@@ -349,6 +349,9 @@ EnumValue
 Enum(processor_type) String(cortex-m33) Value( TARGET_CPU_cortexm33)
 
 EnumValue
+Enum(processor_type) String(cortex-m33+nodsp) Value( TARGET_CPU_cortexm33nodsp)
+
+EnumValue
 Enum(processor_type) String(cortex-r52) Value( TARGET_CPU_cortexr52)
 
 Enum

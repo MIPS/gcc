@@ -1221,6 +1221,17 @@ static const struct processors all_cores[] =
     &arm_v7m_tune
   },
   {
+    "cortex-m33+nodsp",
+    TARGET_CPU_cortexm33nodsp,
+    (TF_LDSCHED),
+    "8M_MAIN", BASE_ARCH_8M_MAIN,
+    {
+      ISA_ARMv8m_main,
+      isa_nobit
+    },
+    &arm_v7m_tune
+  },
+  {
     "cortex-r52",
     TARGET_CPU_cortexr52,
     (TF_LDSCHED),
