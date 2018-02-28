@@ -213,6 +213,9 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+#ifdef NANOMIPS_SUPPORT
+extern int nanomips_label_align (rtx);
+#endif
 extern void nanomips_expand_movmemsi_multireg (rtx, rtx, unsigned int);
 extern void nanomips_load_store_multiple_split (rtx, rtx, unsigned int);
 extern void mips_adjust_reg_alloc_order (void);
