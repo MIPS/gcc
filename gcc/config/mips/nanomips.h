@@ -211,6 +211,11 @@ FP_ASM_SPEC "\
 #define FRAME_ADDR_RTX(frame) \
    plus_constant (Pmode, frame, MIPS_FRAME_BIAS)
 
+#define LABEL_ALIGN(LABEL) nanomips_label_align(LABEL)
+#define ADDR_VEC_ALIGN(VEC_INSN) \
+   (GET_MODE (PATTERN (VEC_INSN)) == QImode ? \
+     1 : exact_log2 (GET_MODE_SIZE (GET_MODE (PATTERN (VEC_INSN)))))
+
 /* Describe how we implement __builtin_eh_return.  */
 
 /* At the moment, nothing appears to use more than 2 EH data registers.
