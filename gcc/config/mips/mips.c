@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "insn-attr.h"
+#include "flags.h"
 #include "output.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -29106,6 +29107,23 @@ mips_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
 	constraints[i] = "ZR";
     }
   return NULL;
+}
+
+/* Implement LABEL_ALIGN.  */
+
+int
+nanomips_label_align (rtx label)
+{
+   rtx_insn *next;
+   /* It is expected that the anchor for the jump table appears just after
+      BRSC instruction to indicate the end of the BRSC instruction. However,
+      if the user changes e.g. the default alignment for all labels
+      then the anchor may move leading to incorrect label difference.
+      Let's ignore the alignment for the label anchors.  */
+   if ((next = next_active_insn (label)) != NULL_RTX
+       && GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC)
+     return 0;
+   return align_labels_log;
 }
 
 /* Initialize the GCC target structure.  */
