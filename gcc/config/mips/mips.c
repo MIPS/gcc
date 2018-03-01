@@ -155,11 +155,17 @@ static int *consumer_luid = NULL;
 /* Return the opcode for a ptr_mode load of the form:
 
        l[wd]    DEST, OFFSET(BASE).  */
-#define MIPS_LOAD_PTR(DEST, OFFSET, BASE)	\
-  (((ptr_mode == DImode ? 0x37 : 0x23) << 26)	\
-   | ((BASE) << 21)				\
-   | ((DEST) << 16)				\
-   | (OFFSET))
+#define MIPS_LOAD_PTR(DEST, OFFSET, BASE)				\
+  (TARGET_NANOMIPS ? ((0x84 << 8)					\
+		      | ((DEST) << 5)					\
+		      | (BASE)						\
+		      | (0x1 << 31)					\
+		      | (OFFSET << 16))					\
+		   :							\
+		     (((ptr_mode == DImode ? 0x37 : 0x23) << 26)	\
+		      | ((BASE) << 21)					\
+		      | ((DEST) << 16)					\
+		      | (OFFSET)))
 
 /* Return the opcode to move register SRC into register DEST.  */
 #define MIPS_MOVE(DEST, SRC)		\
@@ -175,9 +181,11 @@ static int *consumer_luid = NULL;
 
 /* Return the opcode to jump to register DEST.  When the JR opcode is not
    available use JALR $0, DEST.  */
-#define MIPS_JR(DEST) \
-  (TARGET_CB_ALWAYS ? ((0x1b << 27) | ((DEST) << 16)) \
-		    : (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9)))
+#define MIPS_JR(DEST)							 \
+  (TARGET_NANOMIPS ? ((0xd8 << 8) | ((DEST) << 5))			 \
+		   : (TARGET_CB_ALWAYS ? ((0x1b << 27) | ((DEST) << 16)) \
+				       : (((DEST) << 21)		 \
+					  | (ISA_HAS_JR ? 0x8 : 0x9))))
 
 /* Return the opcode for:
 
@@ -187,6 +195,10 @@ static int *consumer_luid = NULL;
 
 /* Return the usual opcode for a nop.  */
 #define MIPS_NOP 0
+
+/* Return the the upper 16-bit of nanomips LI48.  */
+#define NANOMIPS_LI48(DEST) \
+  ((0x18 << 10) | (DEST << 5))
 
 /* Classifies an address.
 
@@ -26896,8 +26908,11 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 {
   rtx addr, end_addr, high, low, opcode, mem;
   rtx trampoline[8];
+  machine_mode tramp_modes[8] = {SImode, SImode, SImode, SImode, SImode,
+				 SImode, SImode, SImode};
   unsigned int i, j;
   HOST_WIDE_INT end_addr_offset, static_chain_offset, target_function_offset;
+  int offset = 0;
 
   /* Work out the offsets of the pointers from the start of the
      trampoline code.  */
@@ -26909,7 +26924,8 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
   addr = force_reg (Pmode, XEXP (m_tramp, 0));
   end_addr = mips_force_binary (Pmode, PLUS, addr, GEN_INT (end_addr_offset));
 
-#define OP(X) gen_int_mode (X, SImode)
+#define OP(X) gen_int_mode ((X), SImode)
+#define OP_HI(X) gen_int_mode ((X), HImode)
 
   /* Build up the code in TRAMPOLINE.  */
   i = 0;
@@ -26948,13 +26964,40 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       trampoline[i++] = OP (MIPS_BAL (1));
       trampoline[i++] = OP (MIPS_NOP);
       trampoline[i++] = OP (MIPS_LOAD_PTR (PIC_FUNCTION_ADDR_REGNUM,
-					   target_function_offset - 12,
+					   (target_function_offset - 12),
 					   RETURN_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
-					   static_chain_offset - 12,
+					   (static_chain_offset - 12),
 					   RETURN_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_MOVE (RETURN_ADDR_REGNUM, AT_REGNUM));
+    }
+  else if (TARGET_NANOMIPS)
+    {
+      /* If the target is nanomips, emit:
+
+	     li48    $1, end_addr
+	     lw      $25, 0($1)
+	     lw      $static_chain, 4($1)
+	     jrc     $25.  */
+
+      /* Emit LI48 instruction - upper 16-bits.  */
+      tramp_modes[i] = HImode;
+      trampoline[i++] = OP_HI (NANOMIPS_LI48 (AT_REGNUM));
+      /* Emit remaining 32 bits of LI48.  */
+      trampoline[i++] = end_addr;
+      /* Emit lw $25, 0($1) instruction.  */
+      trampoline[i++] = OP (MIPS_LOAD_PTR (PIC_FUNCTION_ADDR_REGNUM,
+			    (target_function_offset - end_addr_offset),
+			    AT_REGNUM));
+      /* Emit lw $static_chain, 4($1) instruction.  */
+      trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
+			    (static_chain_offset - end_addr_offset),
+			    AT_REGNUM));
+
+      /* Emit jrc $25 instruction.  */
+      tramp_modes[i] = HImode;
+      trampoline[i++] = OP_HI (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
     }
   else
     {
@@ -26988,8 +27031,9 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
       /* Emit the load of the target function.  */
       opcode = OP (MIPS_LOAD_PTR (PIC_FUNCTION_ADDR_REGNUM,
-				  target_function_offset - end_addr_offset,
+				  (target_function_offset - end_addr_offset),
 				  AT_REGNUM));
+
       trampoline[i++] = expand_simple_binop (SImode, IOR, opcode, low,
 					     NULL, false, OPTAB_WIDEN);
 
@@ -26999,7 +27043,7 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
       /* Emit the load of the static chain register.  */
       opcode = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
-				  static_chain_offset - end_addr_offset,
+				  (static_chain_offset - end_addr_offset),
 				  AT_REGNUM));
       trampoline[i++] = expand_simple_binop (SImode, IOR, opcode, low,
 					     NULL, false, OPTAB_WIDEN);
@@ -27013,12 +27057,13 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
     }
 
 #undef OP
+#undef OP_HI
 
   /* If we are using compact branches we don't have delay slots so
      place the instruction that was in the delay slot before the JRC
      instruction.  */
 
-  if (TARGET_CB_ALWAYS)
+  if (TARGET_CB_ALWAYS && !TARGET_NANOMIPS)
     {
       rtx temp;
       temp = trampoline[i-2];
@@ -27029,7 +27074,8 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
   /* Copy the trampoline code.  Leave any padding uninitialized.  */
   for (j = 0; j < i; j++)
     {
-      mem = adjust_address (m_tramp, SImode, j * GET_MODE_SIZE (SImode));
+      mem = adjust_address (m_tramp, tramp_modes[j], offset);
+      offset += GET_MODE_SIZE (tramp_modes[j]);
       mips_emit_move (mem, trampoline[j]);
     }
 
