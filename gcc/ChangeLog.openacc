@@ -1,3 +1,46 @@
+2018-03-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (PTX_VECTOR_LENGTH, PTX_WORKER_LENGTH,
+	PTX_DEFAULT_RUNTIME_DIM): Move to the top of the file.
+	(PTX_WARP_SIZE): Define.
+	(PTX_CTA_SIZE): Define.
+	(worker_bcast_size): Rename to oacc_bcast_size.
+	(worker_bcast_align): Rename to oacc_bcast_align.
+	(worker_bcast_sym): Rename to oacc_bcast_sym.
+	(nvptx_option_override): Update usage of oacc_bcast_*.
+	(nvptx_gen_wcast): Rename to nvptx_gen_warp_bcast.
+	(struct wcast_data_t): Rename to broadcast_data_t.
+	(nvptx_gen_wcast): Rename to nvptx_gen_shared_bcast.  Update to use
+	oacc_bcast_* variables.
+	(struct offload_attrs): New.
+	(propagator_fn): Add bool argument.
+	(nvptx_propagate): New bool argument.  Pass bool argument to fn.
+	(vprop_gen): Rename to warp_prop_gen.  Update call to
+	nvptx_gen_warp_bcast.
+	(nvptx_vpropagate): Rename to nvptx_warp_propagate. Update call to
+	nvptx_propagate.
+	(wprop_gen): Rename to shared_prop_gen.  Update usage of oacc_bcast_*
+	variables and call to nvptx_gen_shared_bcast.
+	(nvptx_wpropagate): Rename to nvptx_shared_propagate.  Update usage
+	of oacc_bcast_* variables and call to nvptx_propagate.
+	(nvptx_wsync): Rename to nvptx_cta_sync.
+	(nvptx_single): Update usage of oacc_bcast_* vars and calls to
+	nvptx_gen_warp_bcast, nvptx_gen_shared_bcast and nvptx_cta_sync.
+	(nvptx_process_pars): Likewise.
+	(nvptx_neuter_pars): Whitespace.
+	(populate_offload_attrs): New function.
+	(nvptx_reorg): Use it to extract partitioning mask.
+	(write_worker_buffer): Rename to write_shared_buffer.
+	(nvptx_file_end): Update calls to write_shared_buffer.
+	(nvptx_expand_worker_addr): Rename to nvptx_expand_shared_addr.
+	(nvptx_expand_builtin): Update call to nvptx_expand_shared_addr.
+	(nvptx_simt_vf): Return PTX_WARP_SIZE instead of PTX_VECTOR_LENGTH.
+	(nvptx_get_worker_red_addr): Rename to nvptx_get_shared_red_addr.
+	(nvptx_goacc_reduction_setup): Update call to
+	nvptx_get_shared_red_addr.
+	(nvptx_goacc_reduction_fini): Likewise.
+	(nvptx_goacc_reduction_teardown): Likewise.
+
 2018-02-15  Tom de Vries  <tom@codesourcery.com>
 
 	* oacc-init.c (acc_init_state_lock, acc_init_state, acc_init_thread):
