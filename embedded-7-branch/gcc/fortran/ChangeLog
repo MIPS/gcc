@@ -1,3 +1,199 @@
+2018-02-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	ChangeLog for r257972
+	PR fortran/83633
+	* decl.c (variable_decl): Check that an explicit-shape-array with
+	nonconstant bounds is allowed.
+
+2018-02-25  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78238
+	Backport from trunk
+	* gfortran.h (gfc_integer_4_kind): Define.
+	* resolve.c (resolve_select_type): Make sure that the
+	kind of c->high is gfc_integer_4_kind.
+
+2018-02-24  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/30792
+	* decl.c (gfc_match_data): Check for invalid substring in
+	data-implied-do
+
+2018-02-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/84511
+	* trans-io.c (transfer_expr): Deal with C_LOC in transfer statement.
+
+2018-02-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/84346
+	* interface.c (compare_actual_formal): Issue error if keyword is
+	used in a statement function.
+
+2018-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/84506
+	* trans-io.c (set_parameter_value_inquire): Adjust range check of
+	negative unit values for kind=8 units to the kind=4 negative limit.
+
+2018-02-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/81116
+	PR fortran/84495
+	* gfortran.dg/realloc_on_assignment_29.f90:  New test.
+
+2018-02-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/82007
+	* resolve.c (resolve_transfer): Delete code looking for 'DT'
+	format specifiers in format strings. Set formatted to true if a
+	format string or format label is present.
+	* trans-io.c (get_dtio_proc): Likewise. (transfer_expr): Fix
+	whitespace.
+
+2018-02-17  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/84270
+	* frontend-passes (scalarized_expr):  If the expression
+	is an assumed size array, leave in the last reference
+	and pass AR_SECTION instead of AR_FULL to gfc_resolve
+	in order to avoid an error.
+
+2018-02-13  Alastair McKinstry  <alastair.mckinstry@sceal.ie>
+	    Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* module.c (dump_module): Use lbasename to ensure that module
+	files are reproducible.
+
+2018-02-12  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68560
+	* trans-intrinsic.c (gfc_conv_intrinsic_shape): New function.
+	(gfc_conv_intrinsic_function): Call it.
+
+2018-02-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35299
+	ChangeLog for r257566
+	* resolve.c (resolve_formal_arglist): Update error message.
+
+2018-02-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/54223
+	PR fortran/84276
+	* interface.c (compare_actual_formal): Add in_statement_function
+	bool parameter.  Skip check of INTENT attribute for statement
+	functions.  Arguments to a statement function cannot be optional,
+	issue error for missing argument.
+	(gfc_procedure_use, gfc_ppc_use, gfc_arglist_matches_symbol): Use
+	in_statement_function.
+
+2018-02-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/82994
+	* match.c (gfc_match_deallocate): Check for NULL pointer.
+
+2018-02-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/82049
+	* match.c (gfc_match_type_spec): If the charlen is non-NULL, then
+	try to resolve it.  While here return early if possible.
+
+2018-01-25  Release Manager
+
+	* GCC 7.3.0 released.
+
+2018-01-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83900
+    * simplify.c (gfc_simplify_matmul): Set return type correctly.
+
+2018-01019  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83900
+	* simplify.c (gfc_simplify_matmul): Delete bogus assertion.
+
+2018-01-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport of r250734 from mainline
+	PR fortran/80768
+	* check.c (gfc_check_num_images): Fix typo.
+
+2018-01-18  Harald Anlauf  <anlauf@gmx.de>
+
+	Backport from mainline
+	PR fortran/83864
+	* expr.c (gfc_apply_init): Do not dereference NULL pointer.
+
+2018-01-17  Harald Anlauf  <anlauf@gmx.de>
+
+	Backport from mainline
+	PR fortran/83874
+	* decl.c (add_init_expr_to_sym): Do not dereference NULL pointer.
+
+2018-01-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/78814
+	* interface.c (symbol_rank): Check for NULL pointer.
+
+2018-01-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/82367
+	* resolve.c (resolve_allocate_expr): Check for NULL pointer.
+
+2018-01-10 Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/83093
+	* resolve.c (resolve_charlen): Check the type of cl->length
+	after resolution.
+
+2018-01-10  Steven G. Kargl  <kargl@kgcc.gnu.org>
+
+	Backport r254555 from trunk
+	PR Fortran/82841
+	* simplify.c(gfc_simplify_transfer): Do not dereference a NULL pointer.
+	Unwrap a short line.
+
+2018-01-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR Fortran/83679
+	* simplify.c (gfc_simplify_cshift): Restore early return for zero-sized
+	array.  Update Copyright year while here.
+
+2018-01-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/83650
+	* simplify.c (gfc_simplify_cshift): Correct contition for
+	negative shifts.
+
+2017-12-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR Fortran/83548
+	* match.c (gfc_match_type_spec): Check for LOGICAL conflict in
+	type-spec versus LOGICAL intrinsic subprogram.
+
+2017-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81304
+	* trans-openmp.c (gfc_trans_omp_array_reduction_or_udr): Set
+	attr.implicit_type in intrinsic_sym to avoid undesirable warning.
+
+	2017-11-23  Dirk Broemmel  <d.broemmel@fz-juelich.de>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81841
+	* parse.c (parse_spec): Allow ST_OMP_THREADPRIVATE inside of
+	BLOCK DATA.
+
 2017-11-28  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/83021
@@ -6,7 +202,6 @@
 	particularly block data.
 
 2017-11-23  Paul Thomas  <pault@gcc.gnu.org>
-
 
 	Backported from trunk
 	PR fortran/79072

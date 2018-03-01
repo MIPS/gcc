@@ -1,3 +1,27 @@
+2018-01-25  Release Manager
+
+	* GCC 7.3.0 released.
+
+2017-12-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_field): Do not set the alignment
+	of the enclosing record type if it is not already set.
+
+2017-12-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Subprogram_Body_to_gnu): Initialize locus.
+
+2017-12-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (process_freeze_entity): Be prepared for a
+	package without body.
+
+2017-12-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Robustify test for types
+	descendant of System.Address.
+	(gnat_to_gnu_subprog_type): Likewise.
+
 2017-12-04  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* gcc-interface/Makefile.in (RTEMS): Use s-osprim.adb.

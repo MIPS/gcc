@@ -3984,6 +3984,23 @@ finalize_transfer (st_parameter_dt *dtp)
   next_record (dtp, 1);
 
  done:
+
+  if (dtp->u.p.unit_is_internal)
+    {
+      /* The unit structure may be reused later so clear the
+	 internal unit kind.  */
+      dtp->u.p.current_unit->internal_unit_kind = 0;
+
+      fbuf_destroy (dtp->u.p.current_unit);
+      if (dtp->u.p.current_unit
+	  && (dtp->u.p.current_unit->child_dtio  == 0)
+	  && dtp->u.p.current_unit->s)
+	{
+	  sclose (dtp->u.p.current_unit->s);
+	  dtp->u.p.current_unit->s = NULL;
+	}
+    }
+
 #ifdef HAVE_USELOCALE
   if (dtp->u.p.old_locale != (locale_t) 0)
     {
@@ -4093,8 +4110,6 @@ st_read_done (st_parameter_dt *dtp)
 	    {
 	      free (dtp->u.p.current_unit->filename);
 	      dtp->u.p.current_unit->filename = NULL;
-	      free (dtp->u.p.current_unit->s);
-	      dtp->u.p.current_unit->s = NULL;
 	      if (dtp->u.p.current_unit->ls)
 		free (dtp->u.p.current_unit->ls);
 	      dtp->u.p.current_unit->ls = NULL;
@@ -4164,8 +4179,6 @@ st_write_done (st_parameter_dt *dtp)
 	    {
 	      free (dtp->u.p.current_unit->filename);
 	      dtp->u.p.current_unit->filename = NULL;
-	      free (dtp->u.p.current_unit->s);
-	      dtp->u.p.current_unit->s = NULL;
 	      if (dtp->u.p.current_unit->ls)
 		free (dtp->u.p.current_unit->ls);
 	      dtp->u.p.current_unit->ls = NULL;

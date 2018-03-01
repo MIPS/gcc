@@ -1,3 +1,211 @@
+2018-03-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71569 - decltype of template.
+	* parser.c (cp_parser_decltype_expr): Handle missing template args.
+
+2018-03-01  Jason Merrill  <jason@redhat.com>
+	    Alexandre Oliva <aoliva@redhat.com>
+
+	PR c++/71569 - ICE with redundant args on member variable template.
+	* decl.c (start_decl): Handle partial specialization of member
+	variable template.
+	* pt.c (determine_specialization): Allow partial specialization
+	of member variable template without specializing enclosing class.
+	(process_partial_specialization): Improve error message.
+
+2018-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71784 - ICE with ref-qualifier and explicit specialization.
+	* pt.c (determine_specialization): Check ref-qualifier.
+
+2018-02-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/84496 - ICE with generic lambda in lambda.
+	* pt.c (type_dependent_expression_p): Fix dependency checking of
+	functions without DECL_TEMPLATE_INFO.
+
+2018-02-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/84441 - ICE with base initialized from ?:
+	* call.c (unsafe_copy_elision_p): Handle COND_EXPR.
+
+	PR c++/84520 - ICE with generic lambda in NSDMI.
+	* lambda.c (lambda_expr_this_capture): Don't look for fake NSDMI
+	'this' in a generic lambda instantiation.
+
+2018-02-26  Jason Merrill  <jason@redhat.com>
+	    Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/81589 - error with is_trivially_constructible.
+	* method.c (constructible_expr): Set cp_unevaluated.
+
+2018-02-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/84015 - ICE with class deduction and auto template parm.
+	* pt.c (rewrite_template_parm): Use tf_partial in first tsubst.
+
+2018-02-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2017-08-29  Jason Merrill  <jason@redhat.com>
+
+	Fix lambdas in template default argument of inherited ctor.
+	* method.c (synthesized_method_base_walk): Replace an inherited
+	template with its specialization.
+	(synthesized_method_walk): Make inheriting_ctor a pointer.
+	(maybe_explain_implicit_delete, explain_implicit_non_constexpr)
+	(deduce_inheriting_ctor, implicitly_declare_fn): Adjust.
+
+2018-02-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/84151 - unnecessary volatile load with static member.
+	* call.c (build_new_method_call_1): Avoid loading from a volatile
+	lvalue used as the object argument for a static member function.
+
+	PR c++/81853 - using-directive and constexpr.
+	* constexpr.c (cxx_eval_constant_expression): Handle USING_STMT.
+
+	PR c++/84420 - ICE with structured binding in lambda.
+	* lambda.c (is_capture_proxy): Check DECL_DECOMPOSITION_P.
+
+	PR c++/83835 - C++17 error with constructor ctors.
+	* call.c (build_special_member_call): Set TARGET_EXPR_DIRECT_INIT_P.
+
+	PR c++/82664 - ICE with reference to function template parm.
+	* pt.c (convert_nontype_argument_function): Avoid obfuscationg
+	NOP_EXPRs.
+
+	PR c++/82764 - C++17 ICE with empty base
+	* class.c (build_base_field_1): Set DECL_SIZE to zero for empty base.
+
+	PR c++/83227 - C++17 ICE with init-list derived-to-base conversion.
+	* call.c (convert_like_real): Don't use the copy-list-initialization
+	shortcut for ck_base.
+
+	PR c++/84045 - ICE with typedef and noexcept.
+	* except.c (build_noexcept_spec): Use strip_typedefs_expr.
+
+2018-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/82461 - constexpr list-initialized member
+	* constexpr.c (potential_constant_expression_1): Check
+	TARGET_EXPR_DIRECT_INIT_P.
+
+2018-01-26  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/82878
+	PR c++/78495
+	* call.c (build_call_a): Don't set CALL_FROM_THUNK_P for inherited
+	ctor.
+	* cp-gimplify.c	(cp_genericize_r): Restore THUNK dereference
+	inhibibition check removed in previous c++/78495 change.
+
+2018-01-25  Release Manager
+
+	* GCC 7.3.0 released.
+
+2018-01-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/81843 - ICE with variadic member template.
+	PR c++/72801
+	* pt.c (unify_pack_expansion): Don't try to deduce enclosing
+	template args.
+
+	PR c++/82331 - ICE with variadic partial specialization of auto
+	* pt.c (unify) [TEMPLATE_PARM_INDEX]: Set processing_template_decl
+	around call to tsubst.
+
+	PR c++/82760 - memory corruption with aligned new.
+	* call.c (build_operator_new_call): Update *args if we add the
+	align_arg.
+
+2018-01-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/83556
+	* tree.c (replace_placeholders_r): Pass NULL as last argument to
+	cp_walk_tree instead of d->pset.  If non-TREE_CONSTANT and
+	non-PLACEHOLDER_EXPR tree has been seen already, set *walk_subtrees
+	to false and return.
+	(replace_placeholders): Pass NULL instead of &pset as last argument
+	to cp_walk_tree.
+
+2017-12-19  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2017-12-18  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/83116
+	* constexpr.c (cxx_eval_call_expression): Only look into
+	constexpr_call_table if ctx->strict.
+
+2017-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/83205
+	* decl.c (cp_finish_decomp): Handle the case when tsize is not
+	error_mark_node, but doesn't fit into uhwi.  Split up count != eltscnt
+	and !tree_fits_uhwi_p (tsize) error_at calls into error_n and inform_n
+	to handle plural forms properly.
+
+	PR c++/81197
+	* cp-tree.h (cp_maybe_mangle_decomp): Declare.
+	* decl.c (cp_maybe_mangle_decomp): New function.
+	(cp_finish_decomp): Don't SET_DECL_ASSEMBLER_NAME here.
+	* parser.c (cp_convert_range_for,
+	cp_parser_decomposition_declaration): Call cp_maybe_mangle_decomp.
+	* pt.c (tsubst_expr): Likewise.
+	* mangle.c (find_decomp_unqualified_name): New function.
+	(write_unqualified_name): Handle DECL_DECOMPOSITION_P
+	where DECL_ASSEMBLER_NAME is already set.
+
+2017-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/83217
+	* decl.c (cp_finish_decomp): If decl's type is REFERENCE_TYPE,
+	call complete_type (TREE_TYPE (type)).
+
+	Backported from mainline
+	2017-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79650
+	* pt.c (convert_nontype_argument): Diagnose
+	reduced_constant_expression_p expressions that aren't INTEGER_CST.
+
+	2017-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80259
+	* decl2.c (grokfield): Diagnose = delete redefinition of a friend.
+
+	2017-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/81888
+	* parser.c (cp_parser_decomposition_declaration): Reject just
+	BRACE_ENCLOSED_INITIALIZER_P initializers with nelts != 1 rather
+	than all such CONSTRUCTORs, and only if is_direct_init is true.
+
+	PR c++/81675
+	* cp-gimplify.c (cp_fold) <case COND_EXPR>: Don't return immediately
+	for VOID_TYPE_P COND_EXPRs, instead fold the operands and if op0 is
+	INTEGER_CST, ensure that both op1 and op2 are non-NULL and fall
+	through into normal folding, otherwise just rebuild x if any op
+	changed.
+
+	2017-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_declare): Change return type to bool from
+	void, return true for declare simd.
+	(cp_parser_pragma): Return cp_parser_omp_declare returned value
+	rather than always false.
+
+	2017-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/82781
+	* constexpr.c (cxx_eval_vector_conditional_expression): New function.
+	(cxx_eval_constant_expression) <case VEC_COND_EXPR>: Use it instead
+	of cxx_eval_conditional_expression.
+
 2017-10-30  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/82085

@@ -2072,7 +2072,8 @@ determine_specialization (tree template_id,
   /* We shouldn't be specializing a member template of an
      unspecialized class template; we already gave an error in
      check_specialization_scope, now avoid crashing.  */
-  if (template_count && DECL_CLASS_SCOPE_P (decl)
+  if (!VAR_P (decl)
+      && template_count && DECL_CLASS_SCOPE_P (decl)
       && template_class_depth (DECL_CONTEXT (decl)) > 0)
     {
       gcc_assert (errorcount);
@@ -2175,10 +2176,17 @@ determine_specialization (tree template_id,
 	     that the const qualification is the same.  Since
 	     get_bindings does not try to merge the "this" parameter,
 	     we must do the comparison explicitly.  */
-	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-	      && !same_type_p (TREE_VALUE (fn_arg_types),
-			       TREE_VALUE (decl_arg_types)))
-	    continue;
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	    {
+	      if (!same_type_p (TREE_VALUE (fn_arg_types),
+				TREE_VALUE (decl_arg_types)))
+		continue;
+
+	      /* And the ref-qualification.  */
+	      if (type_memfn_rqual (TREE_TYPE (decl))
+		  != type_memfn_rqual (TREE_TYPE (fn)))
+		continue;
+	    }
 
 	  /* Skip the "this" parameter and, for constructors of
 	     classes with virtual bases, the VTT parameter.  A
@@ -2283,6 +2291,11 @@ determine_specialization (tree template_id,
 	  if (!compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
 			 decl_arg_types))
             continue;
+
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
+	      && (type_memfn_rqual (TREE_TYPE (decl))
+		  != type_memfn_rqual (TREE_TYPE (fn))))
+	    continue;
 
           // If the deduced arguments do not satisfy the constraints,
           // this is not a candidate.
@@ -4601,10 +4614,13 @@ process_partial_specialization (tree decl)
     {
       if (!flag_concepts)
         error ("partial specialization %q+D does not specialize "
-	       "any template arguments", decl);
+	       "any template arguments; to define the primary template, "
+	       "remove the template argument list", decl);
       else
         error ("partial specialization %q+D does not specialize any "
-	       "template arguments and is not more constrained than", decl);
+	       "template arguments and is not more constrained than "
+	       "the primary template; to define the primary template, "
+	       "remove the template argument list", decl);
       inform (DECL_SOURCE_LOCATION (maintmpl), "primary template here");
     }
 
@@ -6032,7 +6048,12 @@ convert_nontype_argument_function (tree type, tree expr,
 
  accept:
   if (TREE_CODE (type) == REFERENCE_TYPE)
-    fn = build_address (fn);
+    {
+      if (REFERENCE_REF_P (fn))
+	fn = TREE_OPERAND (fn, 0);
+      else
+	fn = build_address (fn);
+    }
   if (!same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (fn)))
     fn = build_nop (type, fn);
 
@@ -6523,7 +6544,20 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		return NULL_TREE;
 	      /* else cxx_constant_value complained but gave us
 		 a real constant, so go ahead.  */
-	      gcc_assert (TREE_CODE (expr) == INTEGER_CST);
+	      if (TREE_CODE (expr) != INTEGER_CST)
+		{
+		  /* Some assemble time constant expressions like
+		     (intptr_t)&&lab1 - (intptr_t)&&lab2 or
+		     4 + (intptr_t)&&var satisfy reduced_constant_expression_p
+		     as we can emit them into .rodata initializers of
+		     variables, yet they can't fold into an INTEGER_CST at
+		     compile time.  Refuse them here.  */
+		  gcc_checking_assert (reduced_constant_expression_p (expr));
+		  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
+		  error_at (loc, "template argument %qE for type %qT not "
+				 "a constant integer", expr, type);
+		  return NULL_TREE;
+		}
 	    }
 	  else
 	    return NULL_TREE;
@@ -15923,19 +15957,23 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		    if (VAR_P (decl))
 		      const_init = (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P
 				    (pattern_decl));
-		    cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
 		    if (VAR_P (decl)
 			&& DECL_DECOMPOSITION_P (decl)
 			&& TREE_TYPE (pattern_decl) != error_mark_node)
 		      {
 			unsigned int cnt;
 			tree first;
-			decl = tsubst_decomp_names (decl, pattern_decl, args,
-						    complain, in_decl, &first,
-						    &cnt);
-			if (decl != error_mark_node)
-			  cp_finish_decomp (decl, first, cnt);
+			tree ndecl
+			  = tsubst_decomp_names (decl, pattern_decl, args,
+						 complain, in_decl, &first, &cnt);
+			if (ndecl != error_mark_node)
+			  cp_maybe_mangle_decomp (ndecl, first, cnt);
+			cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
+			if (ndecl != error_mark_node)
+			  cp_finish_decomp (ndecl, first, cnt);
 		      }
+		    else
+		      cp_finish_decl (decl, init, const_init, NULL_TREE, 0);
 		  }
 	      }
 	  }
@@ -20051,6 +20089,7 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 
   /* Add in any args remembered from an earlier partial instantiation.  */
   targs = add_to_template_args (PACK_EXPANSION_EXTRA_ARGS (parm), targs);
+  int levels = TMPL_ARGS_DEPTH (targs);
 
   packed_args = expand_template_argument_pack (packed_args);
 
@@ -20066,6 +20105,8 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 
       /* Determine the index and level of this parameter pack.  */
       template_parm_level_and_index (parm_pack, &level, &idx);
+      if (level < levels)
+	continue;
 
       /* Keep track of the parameter packs and their corresponding
          argument packs.  */
@@ -20669,7 +20710,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	 template-parameter exactly, except that a template-argument
 	 deduced from an array bound may be of any integral type.
 	 The non-type parameter might use already deduced type parameters.  */
+      ++processing_template_decl;
       tparm = tsubst (TREE_TYPE (parm), targs, 0, NULL_TREE);
+      --processing_template_decl;
       if (tree a = type_uses_auto (tparm))
 	{
 	  tparm = do_auto_deduction (tparm, arg, a, complain, adc_unify);
@@ -24043,20 +24086,20 @@ type_dependent_expression_p (tree expression)
 	  && (any_dependent_template_arguments_p
 	      (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
 	return true;
+    }
 
-      /* Otherwise, if the decl isn't from a dependent scope, it can't be
-	 type-dependent.  Checking this is important for functions with auto
-	 return type, which looks like a dependent type.  */
-      if (TREE_CODE (expression) == FUNCTION_DECL
-	  && undeduced_auto_decl (expression)
-	  && (!DECL_CLASS_SCOPE_P (expression)
-	      || !dependent_type_p (DECL_CONTEXT (expression)))
-	  && (!DECL_FRIEND_CONTEXT (expression)
-	      || !dependent_type_p (DECL_FRIEND_CONTEXT (expression)))
-	  && !DECL_LOCAL_FUNCTION_P (expression))
-	{
-	  return false;
-	}
+  /* Otherwise, if the decl isn't from a dependent scope, it can't be
+     type-dependent.  Checking this is important for functions with auto
+     return type, which looks like a dependent type.  */
+  if (TREE_CODE (expression) == FUNCTION_DECL
+      && undeduced_auto_decl (expression)
+      && (!DECL_CLASS_SCOPE_P (expression)
+	  || !dependent_type_p (DECL_CONTEXT (expression)))
+      && (!DECL_FRIEND_CONTEXT (expression)
+	  || !dependent_type_p (DECL_FRIEND_CONTEXT (expression)))
+      && !DECL_LOCAL_FUNCTION_P (expression))
+    {
+      return false;
     }
 
   /* Always dependent, on the number of arguments if nothing else.  */
@@ -25123,7 +25166,7 @@ rewrite_template_parm (tree olddecl, unsigned index, unsigned level,
 	  // Substitute ttargs into ttparms to fix references to
 	  // other template parameters.
 	  ttparms = tsubst_template_parms_level (ttparms, ttargs,
-						 complain);
+						 complain|tf_partial);
 	  // Now substitute again with args based on tparms, to reduce
 	  // the level of the ttparms.
 	  ttargs = current_template_args ();
