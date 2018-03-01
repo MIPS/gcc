@@ -480,13 +480,11 @@ proc check_effective_target_trampolines { } {
     if [target_info exists no_trampolines] {
       return 0
     }
-    # FIXME: remove this once the support is added to nanoMIPS
     if { [istarget avr-*-*]
 	 || [istarget msp430-*-*]
 	 || [istarget nvptx-*-*]
 	 || [istarget hppa2.0w-hp-hpux11.23]
-	 || [istarget hppa64-hp-hpux11.23]
-         || [istarget nanomips*-*-*] } {
+	 || [istarget hppa64-hp-hpux11.23] } {
 	return 0;
     }
     return 1
