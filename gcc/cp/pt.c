@@ -24515,7 +24515,6 @@ type_dependent_expression_p (tree expression)
      type-dependent.  Checking this is important for functions with auto return
      type, which looks like a dependent type.  */
   if (TREE_CODE (expression) == FUNCTION_DECL
-      && DECL_LANG_SPECIFIC (expression)
       && !(DECL_CLASS_SCOPE_P (expression)
 	   && dependent_type_p (DECL_CONTEXT (expression)))
       && !(DECL_FRIEND_P (expression)
