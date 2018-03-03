@@ -162,6 +162,11 @@
 	PR tree-optimization/83605
 	* gcc.dg/pr83605.c: New test.
 
+2018-01-30  Jeff Law  <law@redhat.com>
+
+	PR target/84064
+	* gcc.target/i386/pr84064: New test.
+
 2018-03-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
