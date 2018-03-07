@@ -1,3 +1,336 @@
+2018-03-07  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-02-08  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-opts.h (enum indirect_branch): Define.
+	* config/s390/s390-protos.h (s390_return_addr_from_memory)
+	(s390_indirect_branch_via_thunk)
+	(s390_indirect_branch_via_inline_thunk): Add function prototypes.
+	(enum s390_indirect_branch_type): Define.
+	* config/s390/s390.c (struct s390_frame_layout, struct
+	machine_function): Remove.
+	(indirect_branch_prez10thunk_mask, indirect_branch_z10thunk_mask)
+	(indirect_branch_table_label_no, indirect_branch_table_name):
+	Define variables.
+	(INDIRECT_BRANCH_NUM_OPTIONS): Define macro.
+	(enum s390_indirect_branch_option): Define.
+	(s390_return_addr_from_memory): New function.
+	(s390_handle_string_attribute): New function.
+	(s390_attribute_table): Add new attribute handler.
+	(s390_execute_label): Handle UNSPEC_EXECUTE_JUMP patterns.
+	(s390_indirect_branch_via_thunk): New function.
+	(s390_indirect_branch_via_inline_thunk): New function.
+	(s390_function_ok_for_sibcall): When jumping via thunk disallow
+	sibling call optimization for non z10 compiles.
+	(s390_emit_call): Force indirect branch target to be a single
+	register.  Add r1 clobber for non-z10 compiles.
+	(s390_emit_epilogue): Emit return jump via return_use expander.
+	(s390_reorg): Handle JUMP_INSNs as execute targets.
+	(s390_option_override_internal): Perform validity checks for the
+	new command line options.
+	(s390_indirect_branch_attrvalue): New function.
+	(s390_indirect_branch_settings): New function.
+	(s390_set_current_function): Invoke s390_indirect_branch_settings.
+	(s390_output_indirect_thunk_function):  New function.
+	(s390_code_end): Implement target hook.
+	(s390_case_values_threshold): Implement target hook.
+	(TARGET_ASM_CODE_END, TARGET_CASE_VALUES_THRESHOLD): Define target
+	macros.
+	* config/s390/s390.h (struct s390_frame_layout)
+	(struct machine_function): Move here from s390.c.
+	(TARGET_INDIRECT_BRANCH_NOBP_RET)
+	(TARGET_INDIRECT_BRANCH_NOBP_JUMP)
+	(TARGET_INDIRECT_BRANCH_NOBP_JUMP_THUNK)
+	(TARGET_INDIRECT_BRANCH_NOBP_JUMP_INLINE_THUNK)
+	(TARGET_INDIRECT_BRANCH_NOBP_CALL)
+	(TARGET_DEFAULT_INDIRECT_BRANCH_TABLE)
+	(TARGET_INDIRECT_BRANCH_THUNK_NAME_EXRL)
+	(TARGET_INDIRECT_BRANCH_THUNK_NAME_EX)
+	(TARGET_INDIRECT_BRANCH_TABLE): Define macros.
+	* config/s390/s390.md (UNSPEC_EXECUTE_JUMP)
+	(INDIRECT_BRANCH_THUNK_REGNUM): Define constants.
+	(mnemonic attribute): Add values which aren't recognized
+	automatically.
+	("*cjump_long", "*icjump_long", "*basr", "*basr_r"): Disable
+	pattern for branch conversion.  Fix mnemonic attribute.
+	("*c<code>", "*sibcall_br", "*sibcall_value_br", "*return"): Emit
+	indirect branch via thunk if requested.
+	("indirect_jump", "<code>"): Expand patterns for branch conversion.
+	("*indirect_jump"): Disable for branch conversion using out of
+	line thunks.
+	("indirect_jump_via_thunk<mode>_z10")
+	("indirect_jump_via_thunk<mode>")
+
+2018-03-07  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-02-09  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/PR84295
+	* config/s390/s390.c (s390_set_current_function): Invoke
+	s390_indirect_branch_settings also if fndecl didn't change.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-20  Martin Liska  <mliska@suse.cz>
+
+	PR c/84310
+	PR target/79747
+	* final.c (shorten_branches): Build align_tab array with one
+	more element.
+	* opts.c (finish_options): Add alignment option limit check.
+	(MAX_CODE_ALIGN): Likewise.
+	(MAX_CODE_ALIGN_VALUE): Likewise.
+	* doc/invoke.texi: Document maximum allowed option value for
+	all -falign-* options.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-19  Martin Liska  <mliska@suse.cz>
+
+	PR other/80589
+	* doc/invoke.texi: Fix typo.
+	* params.def (PARAM_MAX_LOOP_HEADER_INSNS): Likewise.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-05  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/84137
+	* doc/gcov.texi: Fix typo in documentation.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-05  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/83879
+	* doc/gcov.texi: Document necessity of --dynamic-list-data when
+	using dlopen functionality.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2017-12-19  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/82675
+	* loop-unroll.c (unroll_loop_constant_iterations): Allocate one
+	more element in sbitmap.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-05  Martin Liska  <mliska@suse.cz>
+
+	* ipa-utils.c (ipa_merge_profiles): Do not merge alias or
+	a function without profile.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c/84229
+	* ipa-cp.c (determine_versionability): Do not version functions caling
+	va_arg_pack.
+
+2018-03-07  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-02-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/81360
+	* cgraph.h (symtab_node::output_to_lto_symbol_table_p): Declare
+	* symtab.c: Include builtins.h
+	(symtab_node::output_to_lto_symbol_table_p): Move here
+	from lto-streamer-out.c:output_symbol_p.
+	* lto-streamer-out.c (write_symbol): Turn early exit to assert.
+	(output_symbol_p): Move all logic to symtab.c
+	(produce_symtab): Update.
+
+2017-03-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk r256891:
+	2018-01-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR target/83790
+	* config/nvptx/nvptx.c (output_init_frag): Don't use generic address
+	spaces for function labels.
+
+2018-02-21  Sudakshina Das  <sudi.das@arm.com>
+
+	Backport from trunk
+	2018-01-10  Sudakshina Das  <sudi.das@arm.com>
+
+	PR target/82096
+	* expmed.c (emit_store_flag_force): Swap if const op0
+	and change VOIDmode to mode of op0.
+
+2018-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk
+	2018-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/84154
+	* config/rs6000/rs6000.md (su code attribute): Use "u" for
+	unsigned_fix, not "s".
+
+2018-02-15  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2018-01-30  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/83758
+	* config/rs6000/rs6000.c (rs6000_internal_arg_pointer): Only return
+	a reg rtx.
+
+2018-02-10  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (hppa_profile_hook): Mark SYMBOL_REF for _mcount as
+	function label.
+
+	Backport from mainline
+	2018-02-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR target/84089
+	* config/pa/predicates.md (base14_operand): Handle VOIDmode.
+
+2018-02-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2018-01-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/84017
+	* configure.ac (gcc_cv_as_shf_merge): Disable on Solaris 10/x86.
+	* configure: Regenerate.
+
+2018-02-01  Renlin Li  <renlin.li@arm.com>
+
+	Backport from mainline
+	2018-02-01  Renlin Li  <renlin.li@arm.com>
+
+	PR target/83370
+	* config/aarch64/aarch64.c (aarch64_class_max_nregs): Handle
+	TAILCALL_ADDR_REGS.
+	(aarch64_register_move_cost): Likewise.
+	* config/aarch64/aarch64.h (reg_class): Rename CALLER_SAVE_REGS to
+	TAILCALL_ADDR_REGS.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Rename CALLER_SAVE_REGS to
+	TAILCALL_ADDR_REGS. Remove IP registers.
+	* config/aarch64/aarch64.md (Ucs): Update register constraint.
+
+2018-02-01  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from mainline
+	2017-11-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/82726
+	PR tree-optimization/70754
+	* tree-predcom.c (order_drefs_by_pos): New function.
+	(combine_chains): Move code setting has_max_use_after to...
+	(try_combine_chains): ...here.  New parameter.  Sort combined chains
+	according to position information.
+	(tree_predictive_commoning_loop): Update call to above function.
+	(update_pos_for_combined_chains, pcom_stmt_dominates_stmt_p): New.
+
+2018-01-31  Richard Biener <rguenther@suse.de>
+	    Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	Backport from mainline
+	2018-01-29  Richard Biener <rguenther@suse.de>
+		    Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR bootstrap/80867
+	* tree-vect-stmts.c (vectorizable_call): Don't call
+	targetm.vectorize_builtin_md_vectorized_function if callee is
+	NULL.
+
+2018-01-29  Alan Modra  <amodra@gmail.com>
+
+	Backport from mainline
+	2018-01-26  Alan Modra  <amodra@gmail.com>
+	PR target/84033
+	* config/rs6000/rs6000.c (rtx_is_swappable_p): Exclude
+	UNSPEC_VBPERMQ.
+
+2018-01-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-01-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-p8swap.c (swap_feeds_both_load_and_store):
+	New function.
+	(rs6000_analyze_swaps): Mark a web unoptimizable if it contains a
+	swap associated with both a load and a store.
+
+2018-01-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Back port from mainline
+	2018-01-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83399
+	* config/rs6000/rs6000.c (print_operand) <'y'>: Use
+	VECTOR_MEM_ALTIVEC_OR_VSX_P.
+	* config/rs6000/vsx.md (*vsx_le_perm_load_<mode> for VSX_D): Use
+	indexed_or_indirect_operand predicate.
+	(*vsx_le_perm_load_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_load_v8hi): Likewise.
+	(*vsx_le_perm_load_v16qi): Likewise.
+	(*vsx_le_perm_store_<mode> for VSX_D): Likewise.
+	(*vsx_le_perm_store_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_store_v8hi): Likewise.
+	(*vsx_le_perm_store_v16qi): Likewise.
+	(eight unnamed splitters): Likewise.
+
+2018-01-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk
+	2018-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/83862
+	* config/rs6000/rs6000-protos.h (rs6000_split_signbit): Delete,
+	no longer used.
+	* config/rs6000/rs6000.c (rs6000_split_signbit): Likewise.
+	* config/rs6000/rs6000.md (signbit<mode>2): Change code for IEEE
+	128-bit to produce an UNSPEC move to get the double word with the
+	signbit and then a shift directly to do signbit.
+	(signbit<mode>2_dm): Replace old IEEE 128-bit signbit
+	implementation with a new version that just does either a direct
+	move or a regular move.  Move memory interface to separate insns.
+	Move insns so they are next to the expander.
+	(signbit<mode>2_dm_mem_be): New combiner insns to combine load
+	with signbit move.  Split big and little endian case.
+	(signbit<mode>2_dm_mem_le): Likewise.
+	(signbit<mode>2_dm_<su>ext): Delete, no longer used.
+	(signbit<mode>2_dm2): Likewise.
+
+2018-01-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/81485
+	* config/sh/sh-protos.h (sh_find_set_of_reg): Remove assert.
+
+2018-01-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2018-01-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/80870
+	* config/sh/sh_optimize_sett_clrt.cc:
+	Use INCLUDE_ALGORITHM and INCLUDE_VECTOR instead of direct includes.
+
+2018-01-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2017-12-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/83424
+	* rtlanal.c (dead_or_set_regno_p): Handle CLOBBER just like SET.
+
 2018-01-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
@@ -100,7 +433,7 @@
 	* config/i386/i386.h: (host_detect_local_cpu): New define.
 	(TARGET_EMIT_VZEROUPPER): New.
 	* config/i386/x86-tune.def: Add X86_TUNE_EMIT_VZEROUPPER
-	
+
 2017-12-01  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	Backport from mainline
