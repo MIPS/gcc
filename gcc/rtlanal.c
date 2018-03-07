@@ -2050,7 +2050,7 @@ dead_or_set_regno_p (const rtx_insn *insn, unsigned int test_regno)
   if (GET_CODE (pattern) == COND_EXEC)
     return 0;
 
-  if (GET_CODE (pattern) == SET)
+  if (GET_CODE (pattern) == SET || GET_CODE (pattern) == CLOBBER)
     return covers_regno_p (SET_DEST (pattern), test_regno);
   else if (GET_CODE (pattern) == PARALLEL)
     {
@@ -4976,7 +4976,7 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
       if (WORD_REGISTER_OPERATIONS
 	  && load_extend_op (inner_mode) == SIGN_EXTEND
 	  && paradoxical_subreg_p (x)
-	  && (MEM_P (SUBREG_REG (x)) || REG_P (SUBREG_REG (x))))
+	  && MEM_P (SUBREG_REG (x)))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
       break;

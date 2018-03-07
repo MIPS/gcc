@@ -2852,12 +2852,23 @@ sched_macro_fuse_insns (rtx_insn *insn)
 	  return;
 	}
     }
-
-  if (single_set (insn) && single_set (prev))
+  else
     {
-      if (targetm.sched.macro_fusion_pair_p (prev, insn))
-	SCHED_GROUP_P (insn) = 1;
+      rtx insn_set = single_set (insn);
+
+      if (!insn_set)
+	return;
+
+      prev = prev_nonnote_nondebug_insn (insn);
+      if (!prev
+          || !single_set (prev))
+        return;
+
     }
+
+  if (targetm.sched.macro_fusion_pair_p (prev, insn))
+    SCHED_GROUP_P (insn) = 1;
+
 }
 
 /* Get the implicit reg pending clobbers for INSN and save them in TEMP.  */
@@ -2916,6 +2927,8 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
 	= alloc_INSN_LIST (insn, deps->sched_before_next_jump);
 
       /* Make sure epilogue insn is scheduled after preceding jumps.  */
+      add_dependence_list (insn, deps->last_pending_memory_flush, 1,
+			   REG_DEP_ANTI, true);
       add_dependence_list (insn, deps->pending_jump_insns, 1, REG_DEP_ANTI,
 			   true);
     }
