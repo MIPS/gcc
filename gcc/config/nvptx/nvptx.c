@@ -4056,6 +4056,15 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	return;
     }
 
+  /* NVPTX_BARSYNC barriers are placed immediately before NVPTX_JOIN
+     in order to ensure that all of the threads in a CTA reach the
+     barrier.  Don't nueter BLOCK if head is NVPTX_BARSYNC and tail is
+     NVPTX_JOIN.  */
+  if (from == to
+      && recog_memoized (head) == CODE_FOR_nvptx_barsync
+      && recog_memoized (tail) == CODE_FOR_nvptx_join)
+    return;
+
   /* Insert the vector test inside the worker test.  */
   unsigned mode;
   rtx_insn *before = tail;
@@ -4103,7 +4112,17 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  br = gen_br_true (pred, label);
 	else
 	  br = gen_br_true_uni (pred, label);
-	emit_insn_before (br, head);
+
+	if (recog_memoized (head) == CODE_FOR_nvptx_forked
+	    && recog_memoized (NEXT_INSN (head)) == CODE_FOR_nvptx_barsync)
+	  {
+	    head = NEXT_INSN (head);
+	    emit_insn_after (br, head);
+	  }
+	else if (recog_memoized (head) == CODE_FOR_nvptx_barsync)
+	  emit_insn_after (br, head);
+	else
+	  emit_insn_before (br, head);
 
 	LABEL_NUSES (label)++;
 	if (tail_branch)
@@ -4325,7 +4344,7 @@ nvptx_process_pars (parallel *par)
 	{
 	  /* Insert begin and end synchronizations.  */
 	  emit_insn_after (nvptx_cta_sync (false), par->forked_insn);
-	  emit_insn_before (nvptx_cta_sync (true), par->joining_insn);
+	  emit_insn_before (nvptx_cta_sync (true), par->join_insn);
 	}
     }
   else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))

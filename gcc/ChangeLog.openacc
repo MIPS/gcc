@@ -1,3 +1,10 @@
+2018-03-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_single): Adjust placement of nvptx_fork
+	and nvptx_join nutering labels.
+	(nvptx_process_pars): Place the CTA barrier at the beginning of the
+	join block.
+
 2018-03-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (PTX_VECTOR_LENGTH, PTX_WORKER_LENGTH,
