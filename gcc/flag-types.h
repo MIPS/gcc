@@ -122,7 +122,7 @@ enum rb_edge_sort_mode
   RB_EDGE_SORT_DEFAULT = 0,
   RB_EDGE_SORT_ALL = -1,
   RB_EDGE_SORT_2 = 850,
-  RB_EDGE_SORT_1 = 9000
+  RB_EDGE_SORT_1 = 8999
 };
 
 /* The stack reuse level.  */
