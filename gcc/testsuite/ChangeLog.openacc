@@ -1,3 +1,16 @@
+2018-03-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	2018-01-25  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/84028
+        * libgomp.oacc-fortran/pr84028.f90: New test.
+
+	2018-01-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/81352
+	* libgomp.oacc-fortran/pr81352.f90: New test.
+
 2018-01-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/large_array.c: New test.
