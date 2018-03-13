@@ -1971,21 +1971,20 @@ FP_ASM_SPEC "\
 }
 
 
-/* Set up this array for o32 by default.
+/* Note that we mark $31 as a call-clobbered register.  By doing this
+   we want to avoid $ra to be used to store a variable as it may cause
+   debugging issues i.e. if the variable in the parent's frame is not
+   placed in the saved registers or on the stack then the variable
+   cannot be inspected by a debugger when looking up through the call
+   frames from the context of a callee.
 
-   Note that we don't mark $31 as a call-clobbered register.  The idea is
-   that it's really the call instructions themselves which clobber $31.
-   We don't care what the called function does with it afterwards.
-
-   This approach makes it easier to implement sibcalls.  Unlike normal
-   calls, sibcalls don't clobber $31, so the register reaches the
-   called function in tact.  EPILOGUE_USES says that $31 is useful
-   to the called function.  */
+   The approach doesn't appear have any effect on the sibcalls as
+   this comment stated in the past.  */
 
 #define CALL_USED_REGISTERS						\
 {									\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,			\
+  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
