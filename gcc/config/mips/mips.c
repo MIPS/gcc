@@ -28838,6 +28838,13 @@ mips_adjust_reg_alloc_order ()
   if (TARGET_NANOMIPS)
     memcpy (reg_alloc_order, nanomips_alloc_order,
 	    sizeof (nanomips_alloc_order));
+  /* We want to avoid allocating $ra before any callee-saved GPRs when
+     not optimizing as it may limit debugging experience.  */
+  if (TARGET_NANOMIPS && optimize == 0)
+    {
+      memmove (&reg_alloc_order[13], &reg_alloc_order[14], sizeof (int) * 10);
+      reg_alloc_order[23] = 31;
+    }
 }
 
 /* Post ira recolor data and functions.  */
