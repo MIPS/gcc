@@ -139,7 +139,9 @@ along with GCC; see the file COPYING3.  If not see
 #define BASE_DRIVER_SELF_SPECS \
   "%{march=32r6|march=32r6s|march=64r6|march=i7200|march=nms1: \
      %{!-fuse-ld=*: -fuse-ld=gold} \
-     %{mdsp: -mdspr3}}"
+     %{mdsp: -mdspr3}}" \
+  "%{!mno-dsp: \
+     %{!mdsp: %{march=i7200: -mdsp -mdspr3}}}"
 
 /* A spec that infers a -mhard-float or -msoft-float setting from an
    -march argument.  Note that soft-float and hard-float code are not
