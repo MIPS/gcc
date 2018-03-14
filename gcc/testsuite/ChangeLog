@@ -1,3 +1,37 @@
+2018-03-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83939
+	* gfortran.dg/pr83939.f90
+
+2018-03-12  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR tree-optimization/84485
+	* gcc.dg/vect/pr84485.c: New test.
+
+2018-03-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/84734
+	* gfortran.dg/pr84734.f90: New test.
+
+2018-03-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/prot3.adb: New test.
+	* gnat.dg/prot3_pkg.ad[sb]: New helper.
+
+2018-03-09  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	Backport from mainline
+	2017-09-13  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.target/aarch64/pr63304_1.c: Remove-mno-fix-cortex-a53-843419.
+
+2018-03-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/64124
+	PR fortran/70409
+	* gfortran.dg/pr64124.f90: New tests.
+	* gfortran.dg/pr70409.f90: New tests.
+
 2018-03-06  Carl Love  <cel@us.ibm.com>
 
 	Backport from mainline

@@ -1,3 +1,20 @@
+2018-03-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83939
+	* resolve.c (resolve_fl_procedure): Enforce F2018:C15100.
+
+2018-03-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/84734
+	* arith.c (check_result, eval_intrinsic):  If result overflows, pass
+	the expression up the chain instead of a NULL pointer.
+
+2018-03-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/64124
+	PR fortran/70409
+	* decl.c (gfc_match_char_spec): Try to reduce a charlen to a constant.
+
 2018-03-06  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/56667

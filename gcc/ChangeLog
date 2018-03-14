@@ -1,3 +1,43 @@
+2018-03-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (-mclflushopt): Fix spelling of option.
+
+2018-03-12  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR tree-optimization/84485
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Return
+	true for zero dependence distances if the step might be zero,
+	and if there is no metadata that guarantees correctness.
+	(vect_analyze_data_ref_access): Check safelen as well as
+	force_vectorize.
+
+2018-03-11  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from mainline
+	2018-02-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/83984
+	* config/pa/pa.md: Load address of PIC label using the linkage table
+	if the label is nonlocal.
+
+	Backport from mainline
+	2018-03-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.h (ASM_GENERATE_INTERNAL_LABEL): Revise to use
+	sprint_ul.
+	(ASM_OUTPUT_ADDR_VEC_ELT): Revise for above change.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Likewise.
+	* config/pa/pa64-hpux.h (ASM_GENERATE_INTERNAL_LABEL): Revise as above.
+
+2018-03-09  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	Backport from mainline
+	2017-09-13  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/aarch64/aarch64.c (aarch64_override_options_after_change_1):
+	Disable pc relative literal load irrespective of TARGET_FIX_ERR_A53_84341
+	for default.
+
 2018-03-06  Denis Chertykov  <chertykov@gmail.com>
 
 	Backport from mainline
