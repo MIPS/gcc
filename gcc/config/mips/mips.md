@@ -4843,8 +4843,18 @@
 	(unspec:P [(match_operand:P 1 "register_operand" "d")
 		   (match_operand:P 2 "immediate_operand" "")]
 		  UNSPEC_LOAD_GOT))]
-  ""
+  "!TARGET_NANOMIPS"
   "<load>\t%0,%R2(%1)"
+  [(set_attr "got" "load")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "load_got<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(unspec:P [(reg:P GLOBAL_POINTER_REGNUM)
+		   (match_operand:P 1 "immediate_operand" "")]
+		  UNSPEC_LOAD_GOT))]
+  "TARGET_NANOMIPS"
+  "<load>\t%0,%R1(%+)"
   [(set_attr "got" "load")
    (set_attr "mode" "<MODE>")])
 
