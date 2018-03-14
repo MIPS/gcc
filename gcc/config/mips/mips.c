@@ -5023,10 +5023,20 @@ mips_legitimize_tls_address (rtx loc)
       tp = mips_get_tp ();
       tmp1 = gen_reg_rtx (Pmode);
       tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL);
-      if (Pmode == DImode)
-	emit_insn (gen_load_gotdi (tmp1, pic_offset_table_rtx, tmp2));
+      if (TARGET_NANOMIPS)
+	{
+	  if (Pmode == DImode)
+	    emit_insn (gen_load_gotdi_nanomips (tmp1, tmp2));
+	  else
+	    emit_insn (gen_load_gotsi_nanomips (tmp1, tmp2));
+	}
       else
-	emit_insn (gen_load_gotsi (tmp1, pic_offset_table_rtx, tmp2));
+	{
+	  if (Pmode == DImode)
+	    emit_insn (gen_load_gotdi (tmp1, pic_offset_table_rtx, tmp2));
+	  else
+	    emit_insn (gen_load_gotsi (tmp1, pic_offset_table_rtx, tmp2));
+	}
       dest = gen_reg_rtx (Pmode);
       emit_insn (gen_add3_insn (dest, tmp1, tp));
       break;
