@@ -14,11 +14,11 @@
 /* { dg-final { scan-assembler "addiu\\.b\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_short\\)" } } */
 /* { dg-final { scan-assembler "addiu\\.w\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(m_sta_int\\)" } } */
 
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_4Kaligned\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_2aligned\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_int\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_int\\)" } } */
 
 static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
 static short a_sta_short __attribute__ ((cmodel("auto"))) = 14;

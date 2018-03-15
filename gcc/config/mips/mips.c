@@ -11001,7 +11001,7 @@ mips_init_relocs (void)
     mips_lo_relocs[SYMBOL_GPREL_WORD_NANO] = "%gprel(";
 
   if (TARGET_PABI)
-    mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel32(";
+    mips_lo_relocs[SYMBOL_GPREL32_NANO] = "%gprel(";
 
   if (TARGET_PABI)
     {
