@@ -1,5 +1,10 @@
 2018-03-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/t-rmprofile: Add mapping from -mcpu=cortex-r52 to
+	-march=armv7.
+
+2018-03-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/t-rmprofile: Add mapping from -mcpu=cortex-m33+nodsp to
 	-march=armv8-m.main.
 

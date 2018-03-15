@@ -108,6 +108,7 @@ MULTILIB_MATCHES       += march?armv7=mcpu?cortex-r4f
 MULTILIB_MATCHES       += march?armv7=mcpu?cortex-r5
 MULTILIB_MATCHES       += march?armv7=mcpu?cortex-r7
 MULTILIB_MATCHES       += march?armv7=mcpu?cortex-r8
+MULTILIB_MATCHES       += march?armv7=mcpu?cortex-r52
 MULTILIB_MATCHES       += march?armv7=mcpu?marvell-pj4
 MULTILIB_MATCHES       += march?armv7=mcpu?generic-armv7-a
 MULTILIB_MATCHES       += march?armv7=mcpu?cortex-a8
