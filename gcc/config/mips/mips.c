@@ -6972,7 +6972,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
 	  && mips_lo_relocs[symbol_type] != 0
 	  && symbol_type == SYMBOL_GOTOFF_LOADGP)
-	return "aluipc\t%0,%R1";
+	return "lapc\t%0,%1";
 
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
 	  && mips_lo_relocs[symbol_type] != 0
