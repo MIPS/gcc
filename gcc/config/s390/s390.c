@@ -9259,7 +9259,6 @@ s390_chunkify_start (void)
 	    section_switch_p = true;
 	    break;
 	  case NOTE_INSN_VAR_LOCATION:
-	  case NOTE_INSN_CALL_ARG_LOCATION:
 	    continue;
 	  default:
 	    break;
@@ -9330,8 +9329,7 @@ s390_chunkify_start (void)
 		    }
 		  while (next
 			 && NOTE_P (next)
-			 && (NOTE_KIND (next) == NOTE_INSN_VAR_LOCATION
-			     || NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION));
+			 && NOTE_KIND (next) == NOTE_INSN_VAR_LOCATION);
 		}
 	      else
 		{
@@ -16135,7 +16133,10 @@ s390_set_current_function (tree fndecl)
      several times in the course of compiling a function, and we don't want to
      slow things down too much or call target_reinit when it isn't safe.  */
   if (fndecl == s390_previous_fndecl)
-    return;
+    {
+      s390_indirect_branch_settings (fndecl);
+      return;
+    }
 
   tree old_tree;
   if (s390_previous_fndecl == NULL_TREE)

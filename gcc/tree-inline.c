@@ -1192,6 +1192,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      *tp = gimple_fold_indirect_ref (ptr);
 	      if (! *tp)
 	        {
+		  type = remap_type (type, id);
 		  if (TREE_CODE (ptr) == ADDR_EXPR)
 		    {
 		      *tp
@@ -4605,7 +4606,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 			GSI_NEW_STMT);
     }
   initialize_inlined_parameters (id, stmt, fn, bb);
-  if (debug_nonbind_markers_p && id->block
+  if (debug_nonbind_markers_p && debug_inline_points && id->block
       && inlined_function_outer_scope_p (id->block))
     {
       gimple_stmt_iterator si = gsi_last_bb (bb);

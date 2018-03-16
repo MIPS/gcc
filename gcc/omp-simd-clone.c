@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "omp-simd-clone.h"
 
 /* Return the number of elements in vector type VECTYPE, which is associated
    with a SIMD clone.  At present these always have a constant length.  */
@@ -455,6 +456,8 @@ simd_clone_create (struct cgraph_node *old_node)
   if (new_node == NULL)
     return new_node;
 
+  DECL_BUILT_IN_CLASS (new_node->decl) = NOT_BUILT_IN;
+  DECL_FUNCTION_CODE (new_node->decl) = (enum built_in_function) 0;
   TREE_PUBLIC (new_node->decl) = TREE_PUBLIC (old_node->decl);
   DECL_COMDAT (new_node->decl) = DECL_COMDAT (old_node->decl);
   DECL_WEAK (new_node->decl) = DECL_WEAK (old_node->decl);
@@ -1568,7 +1571,7 @@ simd_clone_adjust (struct cgraph_node *node)
 /* If the function in NODE is tagged as an elemental SIMD function,
    create the appropriate SIMD clones.  */
 
-static void
+void
 expand_simd_clones (struct cgraph_node *node)
 {
   tree attr = lookup_attribute ("omp declare simd",

@@ -993,13 +993,10 @@ add_method (tree type, tree method, bool via_using)
   if (method == error_mark_node)
     return false;
 
-  /* Maintain TYPE_HAS_USER_CONSTRUCTOR, etc.  */
-  grok_special_member_properties (method);
-
-  tree *slot = get_member_slot (type, DECL_NAME (method));
-  tree current_fns = *slot;
-
   gcc_assert (!DECL_EXTERN_C_P (method));
+
+  tree *slot = find_member_slot (type, DECL_NAME (method));
+  tree current_fns = slot ? *slot : NULL_TREE;
 
   /* Check to see if we've already got this method.  */
   for (ovl_iterator iter (current_fns); iter; ++iter)
@@ -1146,8 +1143,15 @@ add_method (tree type, tree method, bool via_using)
 
   current_fns = ovl_insert (method, current_fns, via_using);
 
-  if (!DECL_CONV_FN_P (method) && !COMPLETE_TYPE_P (type))
-    push_class_level_binding (DECL_NAME (method), current_fns);
+  if (!COMPLETE_TYPE_P (type) && !DECL_CONV_FN_P (method)
+      && !push_class_level_binding (DECL_NAME (method), current_fns))
+    return false;
+
+  if (!slot)
+    slot = add_member_slot (type, DECL_NAME (method));
+
+  /* Maintain TYPE_HAS_USER_CONSTRUCTOR, etc.  */
+  grok_special_member_properties (method);
 
   *slot = current_fns;
 
@@ -4216,8 +4220,14 @@ build_base_field_1 (tree t, tree basetype, tree *&next_field)
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
   DECL_FIELD_CONTEXT (decl) = t;
-  DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
-  DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
+  if (is_empty_class (basetype))
+    /* CLASSTYPE_SIZE is one byte, but the field needs to have size zero.  */
+    DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = size_zero_node;
+  else
+    {
+      DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
+      DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
+    }
   SET_DECL_ALIGN (decl, CLASSTYPE_ALIGN (basetype));
   DECL_USER_ALIGN (decl) = CLASSTYPE_USER_ALIGN (basetype);
   SET_DECL_MODE (decl, TYPE_MODE (basetype));
@@ -7122,7 +7132,8 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 
     case CALL_EXPR:
       /* This is a call to a constructor, hence it's never zero.  */
-      if (TREE_HAS_CONSTRUCTOR (instance))
+      if (CALL_EXPR_FN (instance)
+	  && TREE_HAS_CONSTRUCTOR (instance))
 	{
 	  if (nonnull)
 	    *nonnull = 1;

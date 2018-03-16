@@ -1378,6 +1378,7 @@ static rtx rs6000_debug_legitimize_reload_address (rtx, machine_mode, int,
 						   int, int, int *);
 static bool rs6000_mode_dependent_address (const_rtx);
 static bool rs6000_debug_mode_dependent_address (const_rtx);
+static bool rs6000_offsettable_memref_p (rtx, machine_mode, bool);
 static enum reg_class rs6000_secondary_reload_class (enum reg_class,
 						     machine_mode, rtx);
 static enum reg_class rs6000_debug_secondary_reload_class (enum reg_class,
@@ -4028,6 +4029,13 @@ rs6000_option_override_internal (bool global_init_p)
   if (global_init_p)
     rs6000_isa_flags_explicit = global_options_set.x_rs6000_isa_flags;
 
+  /* We plan to deprecate the -maltivec=be option.  For now, just
+     issue a warning message.  */
+  if (global_init_p
+      && rs6000_altivec_element_order == 2)
+    warning (0, "%qs command-line option is deprecated",
+	     "-maltivec=be");
+
   /* On 64-bit Darwin, power alignment is ABI-incompatible with some C
      library functions, so warn about it. The flag may be useful for
      performance studies from time to time though, so don't disable it
@@ -4813,25 +4821,6 @@ rs6000_option_override_internal (bool global_init_p)
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after subtarget", rs6000_isa_flags);
 
-  /* For the E500 family of cores, reset the single/double FP flags to let us
-     check that they remain constant across attributes or pragmas.  */
-
-  switch (rs6000_cpu)
-    {
-    case PROCESSOR_PPC8540:
-    case PROCESSOR_PPC8548:
-    case PROCESSOR_PPCE500MC:
-    case PROCESSOR_PPCE500MC64:
-    case PROCESSOR_PPCE5500:
-    case PROCESSOR_PPCE6500:
-      rs6000_single_float = 0;
-      rs6000_double_float = 0;
-      break;
-
-    default:
-      break;
-    }
-
   if (main_target_opt)
     {
       if (main_target_opt->x_rs6000_single_float != rs6000_single_float)
@@ -5345,8 +5334,7 @@ rs6000_loop_align (rtx label)
 	  || rs6000_tune == PROCESSOR_POWER5
 	  || rs6000_tune == PROCESSOR_POWER6
 	  || rs6000_tune == PROCESSOR_POWER7
-	  || rs6000_tune == PROCESSOR_POWER8
-	  || rs6000_tune == PROCESSOR_POWER9))
+	  || rs6000_tune == PROCESSOR_POWER8))
     return 5;
   else
     return align_loops_log;
@@ -8220,6 +8208,10 @@ mem_operand_gpr (rtx op, machine_mode mode)
   int extra;
   rtx addr = XEXP (op, 0);
 
+  /* Don't allow non-offsettable addresses.  See PRs 83969 and 84279.  */
+  if (!rs6000_offsettable_memref_p (op, mode, false))
+    return false;
+
   op = address_offset (addr);
   if (op == NULL_RTX)
     return true;
@@ -9963,7 +9955,7 @@ rs6000_find_base_term (rtx op)
    in 32-bit mode, that the recog predicate rejects.  */
 
 static bool
-rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
+rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode, bool strict)
 {
   bool worst_case;
 
@@ -9971,7 +9963,7 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
     return false;
 
   /* First mimic offsettable_memref_p.  */
-  if (offsettable_address_p (true, GET_MODE (op), XEXP (op, 0)))
+  if (offsettable_address_p (strict, GET_MODE (op), XEXP (op, 0)))
     return true;
 
   /* offsettable_address_p invokes rs6000_mode_dependent_address, but
@@ -9985,7 +9977,7 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
   worst_case = ((TARGET_POWERPC64 && GET_MODE_CLASS (reg_mode) == MODE_INT)
 		|| GET_MODE_SIZE (reg_mode) == 4);
   return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0),
-					     true, worst_case);
+					     strict, worst_case);
 }
 
 /* Determine the reassociation width to be used in reassociate_bb.
@@ -13544,6 +13536,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
       tree copy = build_call_expr (builtin_decl_implicit (BUILT_IN_MEMCPY),
 				   3, dest_addr, addr, size_int (rsize * 4));
+      TREE_ADDRESSABLE (tmp) = 1;
 
       gimplify_and_add (copy, pre_p);
       addr = dest_addr;
@@ -15728,8 +15721,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case VSX_BUILTIN_VEC_EXT_V1TI:
       return altivec_expand_vec_ext_builtin (exp, target);
 
-    case P9V_BUILTIN_VEXTRACT4B:
-    case P9V_BUILTIN_VEC_VEXTRACT4B:
+    case P9V_BUILTIN_VEC_EXTRACT4B:
       arg1 = CALL_EXPR_ARG (exp, 1);
       STRIP_NOPS (arg1);
 
@@ -15744,9 +15736,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 	}
       break;
 
-    case P9V_BUILTIN_VINSERT4B:
-    case P9V_BUILTIN_VINSERT4B_DI:
-    case P9V_BUILTIN_VEC_VINSERT4B:
+    case P9V_BUILTIN_VEC_INSERT4B:
       arg2 = CALL_EXPR_ARG (exp, 2);
       STRIP_NOPS (arg2);
 
@@ -17259,7 +17249,7 @@ rs6000_init_builtins (void)
 
   ftype = build_function_type_list (void_type_node, NULL_TREE);
   def_builtin ("__builtin_cpu_init", ftype, RS6000_BUILTIN_CPU_INIT);
-  def_builtin ("__builtin_rs6000_speculation_barrier", ftype,
+  def_builtin ("__builtin_ppc_speculation_barrier", ftype,
 	       MISC_BUILTIN_SPEC_BARRIER);
 
   ftype = build_function_type_list (bool_int_type_node, const_ptr_type_node,
@@ -24073,7 +24063,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      src = replace_equiv_address (src, breg);
 	    }
-	  else if (! rs6000_offsettable_memref_p (src, reg_mode))
+	  else if (! rs6000_offsettable_memref_p (src, reg_mode, true))
 	    {
 	      if (GET_CODE (XEXP (src, 0)) == PRE_MODIFY)
 		{
@@ -24140,7 +24130,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      dst = replace_equiv_address (dst, breg);
 	    }
-	  else if (!rs6000_offsettable_memref_p (dst, reg_mode)
+	  else if (!rs6000_offsettable_memref_p (dst, reg_mode, true)
 		   && GET_CODE (XEXP (dst, 0)) != LO_SUM)
 	    {
 	      if (GET_CODE (XEXP (dst, 0)) == PRE_MODIFY)
@@ -24179,7 +24169,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		}
 	    }
 	  else if (GET_CODE (XEXP (dst, 0)) != LO_SUM)
-	    gcc_assert (rs6000_offsettable_memref_p (dst, reg_mode));
+	    gcc_assert (rs6000_offsettable_memref_p (dst, reg_mode, true));
 	}
 
       for (i = 0; i < nregs; i++)
@@ -33269,6 +33259,11 @@ rs6000_elf_in_small_data_p (const_tree decl)
     }
   else
     {
+      /* If we are told not to put readonly data in sdata, then don't.  */
+      if (TREE_READONLY (decl) && rs6000_sdata != SDATA_EABI
+	  && !rs6000_readonly_in_sdata)
+	return false;
+
       HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
 
       if (size > 0

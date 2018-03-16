@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -Werror-implicit-function-declaration -march=k8 -msse4a -m3dnow -mavx -mavx2 -mfma4 -mxop -maes -mpclmul -mpopcnt -mabm -mlzcnt -mbmi -mbmi2 -mtbm -mlwp -mfsgsbase -mrdrnd -mf16c -mfma -mrtm -mrdseed -mprfchw -madx -mfxsr -mxsaveopt -mavx512f -mavx512er -mavx512cd -mavx512pf -msha -mprefetchwt1 -mxsavec -mxsaves -mclflushopt -mavx512vl -mavx512dq -mavx512bw -mavx512vbmi -mavx512ifma -mavx5124fmaps -mavx5124vnniw -mavx512vpopcntdq -mclwb -mmwaitx -mclzero -mpku -msgx -mrdpid -mgfni -mavx512bitalg" } */
+/* { dg-options "-O2 -Werror-implicit-function-declaration -march=k8 -msse4a -m3dnow -mavx -mavx2 -mfma4 -mxop -maes -mpclmul -mpopcnt -mabm -mlzcnt -mbmi -mbmi2 -mtbm -mlwp -mfsgsbase -mrdrnd -mf16c -mfma -mrtm -mrdseed -mprfchw -madx -mfxsr -mxsaveopt -mavx512f -mavx512er -mavx512cd -mavx512pf -msha -mprefetchwt1 -mxsavec -mxsaves -mclflushopt -mavx512vl -mavx512dq -mavx512bw -mavx512vbmi -mavx512ifma -mavx5124fmaps -mavx5124vnniw -mavx512vpopcntdq -mclwb -mmwaitx -mclzero -mpku -msgx -mrdpid -mgfni -mavx512bitalg -mpconfig -mwbnoinvd" } */
 /* { dg-add-options bind_pic_locally } */
 
 #include <mm_malloc.h>
@@ -304,8 +304,8 @@
 #define __builtin_ia32_rndscaless_round(A, B, C, D) __builtin_ia32_rndscaless_round(A, B, 1, 4)
 #define __builtin_ia32_scalefpd512_mask(A, B, C, D, E) __builtin_ia32_scalefpd512_mask(A, B, C, D, 8)
 #define __builtin_ia32_scalefps512_mask(A, B, C, D, E) __builtin_ia32_scalefps512_mask(A, B, C, D, 8)
-#define __builtin_ia32_scalefsd_round(A, B, C) __builtin_ia32_scalefsd_round(A, B, 8)
-#define __builtin_ia32_scalefss_round(A, B, C) __builtin_ia32_scalefss_round(A, B, 8)
+#define __builtin_ia32_scalefsd_mask_round(A, B, C, D, E) __builtin_ia32_scalefsd_mask_round(A, B, C, D, 8)
+#define __builtin_ia32_scalefss_mask_round(A, B, C, D, E) __builtin_ia32_scalefss_mask_round(A, B, C, D, 8)
 #define __builtin_ia32_scatterdiv8df(A, B, C, D, F) __builtin_ia32_scatterdiv8df(A, B, C, D, 8)
 #define __builtin_ia32_scatterdiv8di(A, B, C, D, F) __builtin_ia32_scatterdiv8di(A, B, C, D, 8)
 #define __builtin_ia32_scatterdiv16sf(A, B, C, D, F) __builtin_ia32_scatterdiv16sf(A, B, C, D, 8)
@@ -322,8 +322,8 @@
 #define __builtin_ia32_shufps512_mask(A, B, F, D, E) __builtin_ia32_shufps512_mask(A, B, 1, D, E)
 #define __builtin_ia32_sqrtpd512_mask(A, B, C, D) __builtin_ia32_sqrtpd512_mask(A, B, C, 8)
 #define __builtin_ia32_sqrtps512_mask(A, B, C, D) __builtin_ia32_sqrtps512_mask(A, B, C, 8)
-#define __builtin_ia32_sqrtss_round(A, B, C) __builtin_ia32_sqrtss_round(A, B, 8)
-#define __builtin_ia32_sqrtsd_round(A, B, C) __builtin_ia32_sqrtsd_round(A, B, 8)
+#define __builtin_ia32_sqrtss_mask_round(A, B, C, D, E) __builtin_ia32_sqrtss_mask_round(A, B, C, E, 8)
+#define __builtin_ia32_sqrtsd_mask_round(A, B, C, D, E) __builtin_ia32_sqrtsd_mask_round(A, B, C, E, 8)
 #define __builtin_ia32_subpd512_mask(A, B, C, D, E) __builtin_ia32_subpd512_mask(A, B, C, D, 8)
 #define __builtin_ia32_subps512_mask(A, B, C, D, E) __builtin_ia32_subps512_mask(A, B, C, D, 8)
 #define __builtin_ia32_subsd_round(A, B, C) __builtin_ia32_subsd_round(A, B, 8)

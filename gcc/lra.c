@@ -958,7 +958,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
   data = XNEW (struct lra_insn_recog_data);
   lra_insn_recog_data[uid] = data;
   data->insn = insn;
-  data->used_insn_alternative = -1;
+  data->used_insn_alternative = LRA_UNKNOWN_ALT;
   data->icode = icode;
   data->regs = NULL;
   if (DEBUG_INSN_P (insn))
@@ -1039,7 +1039,8 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	{
 	  operand_alternative *op_alt = XCNEWVEC (operand_alternative,
 						  nalt * nop);
-	  preprocess_constraints (nop, nalt, constraints, op_alt);
+	  preprocess_constraints (nop, nalt, constraints, op_alt,
+				  data->operand_loc);
 	  setup_operand_alternative (data, op_alt);
 	}
     }
@@ -1207,7 +1208,7 @@ lra_update_insn_recog_data (rtx_insn *insn)
       return data;
     }
   insn_static_data = data->insn_static_data;
-  data->used_insn_alternative = -1;
+  data->used_insn_alternative = LRA_UNKNOWN_ALT;
   if (DEBUG_INSN_P (insn))
     return data;
   if (data->icode < 0)
@@ -1289,6 +1290,8 @@ static int reg_info_size;
 /* Common info about each register.  */
 struct lra_reg *lra_reg_info;
 
+HARD_REG_SET hard_regs_spilled_into;
+
 /* Last register value.	 */
 static int last_reg_value;
 
@@ -1338,6 +1341,7 @@ init_reg_info (void)
   for (i = 0; i < reg_info_size; i++)
     initialize_lra_reg_info_element (i);
   copy_vec.truncate (0);
+  CLEAR_HARD_REG_SET (hard_regs_spilled_into);
 }
 
 
@@ -1893,9 +1897,11 @@ lra_process_new_insns (rtx_insn *insn, rtx_insn *before, rtx_insn *after,
 
 /* Replace all references to register OLD_REGNO in *LOC with pseudo
    register NEW_REG.  Try to simplify subreg of constant if SUBREG_P.
-   Return true if any change was made.  */
+   DEBUG_P is if LOC is within a DEBUG_INSN.  Return true if any
+   change was made.  */
 bool
-lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p)
+lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p,
+		       bool debug_p)
 {
   rtx x = *loc;
   bool result = false;
@@ -1931,11 +1937,14 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p)
       if (mode != inner_mode
 	  && ! (CONST_INT_P (new_reg) && SCALAR_INT_MODE_P (mode)))
 	{
-	  if (!partial_subreg_p (mode, inner_mode)
-	      || ! SCALAR_INT_MODE_P (inner_mode))
-	    new_reg = gen_rtx_SUBREG (mode, new_reg, 0);
+	  poly_uint64 offset = 0;
+	  if (partial_subreg_p (mode, inner_mode)
+	      && SCALAR_INT_MODE_P (inner_mode))
+	    offset = subreg_lowpart_offset (mode, inner_mode);
+	  if (debug_p)
+	    new_reg = gen_rtx_raw_SUBREG (mode, new_reg, offset);
 	  else
-	    new_reg = gen_lowpart_SUBREG (mode, new_reg);
+	    new_reg = gen_rtx_SUBREG (mode, new_reg, offset);
 	}
       *loc = new_reg;
       return true;
@@ -1948,14 +1957,14 @@ lra_substitute_pseudo (rtx *loc, int old_regno, rtx new_reg, bool subreg_p)
       if (fmt[i] == 'e')
 	{
 	  if (lra_substitute_pseudo (&XEXP (x, i), old_regno,
-				     new_reg, subreg_p))
+				     new_reg, subreg_p, debug_p))
 	    result = true;
 	}
       else if (fmt[i] == 'E')
 	{
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (lra_substitute_pseudo (&XVECEXP (x, i, j), old_regno,
-				       new_reg, subreg_p))
+				       new_reg, subreg_p, debug_p))
 	      result = true;
 	}
     }
@@ -1970,7 +1979,8 @@ lra_substitute_pseudo_within_insn (rtx_insn *insn, int old_regno,
 				   rtx new_reg, bool subreg_p)
 {
   rtx loc = insn;
-  return lra_substitute_pseudo (&loc, old_regno, new_reg, subreg_p);
+  return lra_substitute_pseudo (&loc, old_regno, new_reg, subreg_p,
+				DEBUG_INSN_P (insn));
 }
 
 
@@ -2451,38 +2461,53 @@ lra (FILE *f)
 	    }
 	  if (live_p)
 	    lra_clear_live_ranges ();
-	  /* We need live ranges for lra_assign -- so build them.  But
-	     don't remove dead insns or change global live info as we
-	     can undo inheritance transformations after inheritance
-	     pseudo assigning.  */
-	  lra_create_live_ranges (true, false);
-	  live_p = true;
-	  /* If we don't spill non-reload and non-inheritance pseudos,
-	     there is no sense to run memory-memory move coalescing.
-	     If inheritance pseudos were spilled, the memory-memory
-	     moves involving them will be removed by pass undoing
-	     inheritance.  */
-	  if (lra_simple_p)
-	    lra_assign ();
-	  else
+	  bool fails_p;
+	  do
 	    {
-	      bool spill_p = !lra_assign ();
-
-	      if (lra_undo_inheritance ())
-		live_p = false;
-	      if (spill_p)
+	      /* We need live ranges for lra_assign -- so build them.
+		 But don't remove dead insns or change global live
+		 info as we can undo inheritance transformations after
+		 inheritance pseudo assigning.  */
+	      lra_create_live_ranges (true, false);
+	      live_p = true;
+	      /* If we don't spill non-reload and non-inheritance
+		 pseudos, there is no sense to run memory-memory move
+		 coalescing.  If inheritance pseudos were spilled, the
+		 memory-memory moves involving them will be removed by
+		 pass undoing inheritance.  */
+	      if (lra_simple_p)
+		lra_assign (fails_p);
+	      else
 		{
-		  if (! live_p)
-		    {
-		      lra_create_live_ranges (true, true);
-		      live_p = true;
-		    }
-		  if (lra_coalesce ())
+		  bool spill_p = !lra_assign (fails_p);
+		  
+		  if (lra_undo_inheritance ())
 		    live_p = false;
+		  if (spill_p && ! fails_p)
+		    {
+		      if (! live_p)
+			{
+			  lra_create_live_ranges (true, true);
+			  live_p = true;
+			}
+		      if (lra_coalesce ())
+			live_p = false;
+		    }
+		  if (! live_p)
+		    lra_clear_live_ranges ();
 		}
-	      if (! live_p)
-		lra_clear_live_ranges ();
+	      if (fails_p)
+		{
+		  /* It is a very rare case.  It is the last hope to
+		     split a hard regno live range for a reload
+		     pseudo.  */
+		  if (live_p)
+		    lra_clear_live_ranges ();
+		  live_p = false;
+		  lra_split_hard_reg_for ();
+		}
 	    }
+	  while (fails_p);
 	}
       /* Don't clear optional reloads bitmap until all constraints are
 	 satisfied as we need to differ them from regular reloads.  */

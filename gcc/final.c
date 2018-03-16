@@ -911,7 +911,7 @@ shorten_branches (rtx_insn *first)
   char *varying_length;
   rtx body;
   int uid;
-  rtx align_tab[MAX_CODE_ALIGN];
+  rtx align_tab[MAX_CODE_ALIGN + 1];
 
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
@@ -1016,7 +1016,7 @@ shorten_branches (rtx_insn *first)
      alignment of n.  */
   uid_align = XCNEWVEC (rtx, max_uid);
 
-  for (i = MAX_CODE_ALIGN; --i >= 0;)
+  for (i = MAX_CODE_ALIGN + 1; --i >= 0;)
     align_tab[i] = NULL_RTX;
   seq = get_last_insn ();
   for (; seq; seq = PREV_INSN (seq))
@@ -2236,9 +2236,9 @@ asm_show_source (const char *filename, int linenum)
    debug information.  We force the emission of a line note after
    both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
 
-rtx_insn *
-final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
-		 int nopeepholes ATTRIBUTE_UNUSED, int *seen)
+static rtx_insn *
+final_scan_insn_1 (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
+		   int nopeepholes ATTRIBUTE_UNUSED, int *seen)
 {
 #if HAVE_cc0
   rtx set;
@@ -2264,6 +2264,11 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	  maybe_output_next_view (seen);
+
+	  output_function_exception_table (0);
+
+	  if (targetm.asm_out.unwind_emit)
+	    targetm.asm_out.unwind_emit (asm_out_file, insn);
 
 	  in_cold_section_p = !in_cold_section_p;
 
@@ -2467,7 +2472,6 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_VAR_LOCATION:
-	case NOTE_INSN_CALL_ARG_LOCATION:
 	  if (!DECL_IGNORED_P (current_function_decl))
 	    {
 	      debug_hooks->var_location (insn);
@@ -3189,6 +3193,36 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
     }
   return NEXT_INSN (insn);
 }
+
+/* This is a wrapper around final_scan_insn_1 that allows ports to
+   call it recursively without a known value for SEEN.  The value is
+   saved at the outermost call, and recovered for recursive calls.
+   Recursive calls MUST pass NULL, or the same pointer if they can
+   otherwise get to it.  */
+
+rtx_insn *
+final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p,
+		 int nopeepholes, int *seen)
+{
+  static int *enclosing_seen;
+  static int recursion_counter;
+
+  gcc_assert (seen || recursion_counter);
+  gcc_assert (!recursion_counter || !seen || seen == enclosing_seen);
+
+  if (!recursion_counter++)
+    enclosing_seen = seen;
+  else if (!seen)
+    seen = enclosing_seen;
+
+  rtx_insn *ret = final_scan_insn_1 (insn, file, optimize_p, nopeepholes, seen);
+
+  if (!--recursion_counter)
+    enclosing_seen = NULL;
+
+  return ret;
+}
+
 
 /* Return whether a source line note needs to be emitted before INSN.
    Sets IS_STMT to TRUE if the line should be marked as a possible
@@ -4643,7 +4677,7 @@ rest_of_handle_final (void)
   /* The IA-64 ".handlerdata" directive must be issued before the ".endp"
      directive that closes the procedure descriptor.  Similarly, for x64 SEH.
      Otherwise it's not strictly necessary, but it doesn't hurt either.  */
-  output_function_exception_table (fnname);
+  output_function_exception_table (crtl->has_bb_partition ? 1 : 0);
 
   assemble_end_function (current_function_decl, fnname);
 
@@ -4816,15 +4850,29 @@ rest_of_clean_state (void)
       SET_NEXT_INSN (insn) = NULL;
       SET_PREV_INSN (insn) = NULL;
 
+      rtx_insn *call_insn = insn;
+      if (NONJUMP_INSN_P (call_insn)
+	  && GET_CODE (PATTERN (call_insn)) == SEQUENCE)
+	{
+	  rtx_sequence *seq = as_a <rtx_sequence *> (PATTERN (call_insn));
+	  call_insn = seq->insn (0);
+	}
+      if (CALL_P (call_insn))
+	{
+	  rtx note
+	    = find_reg_note (call_insn, REG_CALL_ARG_LOCATION, NULL_RTX);
+	  if (note)
+	    remove_note (call_insn, note);
+	}
+
       if (final_output
-	  && (!NOTE_P (insn) ||
-	      (NOTE_KIND (insn) != NOTE_INSN_VAR_LOCATION
-	       && NOTE_KIND (insn) != NOTE_INSN_BEGIN_STMT
-	       && NOTE_KIND (insn) != NOTE_INSN_INLINE_ENTRY
-	       && NOTE_KIND (insn) != NOTE_INSN_CALL_ARG_LOCATION
-	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_BEG
-	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_END
-	       && NOTE_KIND (insn) != NOTE_INSN_DELETED_DEBUG_LABEL)))
+	  && (!NOTE_P (insn)
+	      || (NOTE_KIND (insn) != NOTE_INSN_VAR_LOCATION
+		  && NOTE_KIND (insn) != NOTE_INSN_BEGIN_STMT
+		  && NOTE_KIND (insn) != NOTE_INSN_INLINE_ENTRY
+		  && NOTE_KIND (insn) != NOTE_INSN_BLOCK_BEG
+		  && NOTE_KIND (insn) != NOTE_INSN_BLOCK_END
+		  && NOTE_KIND (insn) != NOTE_INSN_DELETED_DEBUG_LABEL)))
 	print_rtl_single (final_output, insn);
     }
 

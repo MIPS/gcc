@@ -2161,6 +2161,8 @@ cp_perform_integral_promotions (tree expr, tsubst_flags_t complain)
   tree promoted_type;
 
   expr = mark_rvalue_use (expr);
+  if (error_operand_p (expr))
+    return error_mark_node;
 
   /* [conv.prom]
 
@@ -3136,7 +3138,7 @@ cp_build_indirect_ref_1 (tree ptr, ref_operator errorstring,
 	     the backend.  This only needs to be done at
 	     warn_strict_aliasing > 2.  */
 	  if (warn_strict_aliasing > 2)
-	    if (strict_aliasing_warning (TREE_TYPE (TREE_OPERAND (ptr, 0)),
+	    if (strict_aliasing_warning (EXPR_LOCATION (ptr),
 					 type, TREE_OPERAND (ptr, 0)))
 	      TREE_NO_WARNING (ptr) = 1;
 	}
@@ -6565,10 +6567,6 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
     {
       tree min = build_min_non_dep (COND_EXPR, expr,
 				    orig_ifexp, orig_op1, orig_op2);
-      /* Remember that the result is an lvalue or xvalue.  */
-      if (glvalue_p (expr) && !glvalue_p (min))
-	TREE_TYPE (min) = cp_build_reference_type (TREE_TYPE (min),
-						   !lvalue_p (expr));
       expr = convert_from_reference (min);
     }
   return expr;
@@ -7334,7 +7332,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       expr = cp_build_addr_expr (expr, complain);
 
       if (warn_strict_aliasing > 2)
-	strict_aliasing_warning (TREE_TYPE (expr), type, expr);
+	strict_aliasing_warning (EXPR_LOCATION (expr), type, expr);
 
       if (expr != error_mark_node)
 	expr = build_reinterpret_cast_1
@@ -7428,8 +7426,6 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
   else if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
-      tree sexpr = expr;
-
       if (!c_cast_p
 	  && check_for_casting_away_constness (intype, type,
 					       REINTERPRET_CAST_EXPR,
@@ -7447,11 +7443,9 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	warning (OPT_Wcast_align, "cast from %qH to %qI "
 		 "increases required alignment of target type", intype, type);
 
-      /* We need to strip nops here, because the front end likes to
-	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
-      STRIP_NOPS (sexpr);
       if (warn_strict_aliasing <= 2)
-	strict_aliasing_warning (intype, type, sexpr);
+	/* strict_aliasing_warning STRIP_NOPs its expr.  */
+	strict_aliasing_warning (EXPR_LOCATION (expr), type, expr);
 
       return build_nop (type, expr);
     }
@@ -9236,7 +9230,8 @@ check_return_expr (tree retval, bool *no_warning)
 
   /* Effective C++ rule 15.  See also start_function.  */
   if (warn_ecpp
-      && DECL_NAME (current_function_decl) == assign_op_identifier)
+      && DECL_NAME (current_function_decl) == assign_op_identifier
+      && !type_dependent_expression_p (retval))
     {
       bool warn = true;
 

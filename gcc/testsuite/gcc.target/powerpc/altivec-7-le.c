@@ -22,7 +22,7 @@
 /* { dg-final { scan-assembler-times "vpkpx" 2 } } */
 /* { dg-final { scan-assembler-times "vmulesb" 1 } } */
 /* { dg-final { scan-assembler-times "vmulosb" 1 } } */
-/* { dg-final { scan-assembler-times "lxvd2x" 36 } } */
+/* { dg-final { scan-assembler-times {\mlxvd2x\M|\mlxv\M} 36 } } */
 /* { dg-final { scan-assembler-times "lvewx" 2 } } */
 /* { dg-final { scan-assembler-times "lvxl" 1 } } */
 /* { dg-final { scan-assembler-times "vupklsh" 1 } } */
@@ -32,5 +32,6 @@
 /* { dg-final { scan-assembler-times "xxlxor" 5 } } */
 /* { dg-final { scan-assembler-times "vupkhpx" 1 } } */
 
-/* Source code for the test in altivec-7.h */
+/* Source code for the test in altivec-7.h and vsx-7.h. */
 #include "altivec-7.h"
+#include "vsx-7.h"
