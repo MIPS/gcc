@@ -17365,6 +17365,70 @@ mips_output_sync (void)
   return "";
 }
 
+/* Map the memory MODEL to a MIPS sync code.  */
+
+static int
+mips_memmodel_sync_code (enum memmodel model, bool pre)
+{
+  int code = 0;
+  gcc_assert (model != MEMMODEL_RELAXED);
+  if (ISA_HAS_LIGHT_SYNC)
+    switch (model)
+      {
+	case MEMMODEL_RELEASE:
+	case MEMMODEL_SYNC_RELEASE:
+	  code = 18; break;
+	case MEMMODEL_ACQUIRE:
+	case MEMMODEL_CONSUME:
+	case MEMMODEL_SYNC_ACQUIRE:
+	  code = 17; break;
+	case MEMMODEL_ACQ_REL:
+	case MEMMODEL_SYNC_SEQ_CST:
+	  /* Note that SYNC_SEQ_CST is only ever requested around an atomic
+	     operation, so wrapping the operation in acquire-release fences
+	     provide sufficient safe-guards to make behaviour _accross_ it
+	     mimic a full barrier.  OTOH the explicit __sync_synchronize
+	     operation is treated as a fence with SEQ_CST semantics.  */
+	  if (pre)
+	    /* Release fence prior to atomic operation.  */
+	    code = 18;
+	  else
+	    /* Acquire fence post atomic operation.  */
+	    code = 17;
+	  break;
+	case MEMMODEL_SEQ_CST:
+	  /* This is obviously more restrictive than necessary. Given that the
+	     Release Consistency of these operations for MIPS/nanoMIPS is
+	     sequentially consistent (RcSc), there is a good case for handling
+	     SEQ_CST exactly like ACQ_REL. There is difference between the
+	     behaviour of the 2, but it is not observable by the programmer,
+	     except may be as more stalls.  */
+	  code = 16; break;
+	default:
+	  gcc_unreachable ();
+      }
+
+  return code;
+}
+
+/* Add a sync for the specified MODEL to a multi-instruction sequence.  */
+
+static void
+mips_multi_add_sync_model (enum memmodel model, bool pre)
+{
+  int code;
+
+  if (model == MEMMODEL_RELAXED)
+    return;
+
+  code = mips_memmodel_sync_code (model, pre);
+  if (code != 0)
+    mips_multi_add_insn ("sync\t%0", gen_rtx_CONST_INT (VOIDmode, code), NULL);
+  else
+    mips_multi_add_insn ("sync", NULL);
+  return;
+}
+
 /* Return the asm template associated with sync_insn1 value TYPE.
    IS_64BIT_P is true if we want a 64-bit rather than 32-bit operation.  */
 
@@ -17505,7 +17569,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 	  mips_multi_add_insn ("syncw", NULL);
 	}
       else
-	mips_multi_add_insn ("sync", NULL);
+	mips_multi_add_sync_model (model, true);
     }
 
   /* Output the branch-back label.  */
@@ -17623,7 +17687,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 
   /* Output the acquire side of the memory barrier.  */
   if (TARGET_SYNC_AFTER_SC && need_atomic_barrier_p (model, false))
-    mips_multi_add_insn ("sync", NULL);
+    mips_multi_add_sync_model (model, false);
 
   /* Output the exit label, if needed.  */
   if (required_oldval)
