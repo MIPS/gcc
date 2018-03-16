@@ -1457,6 +1457,9 @@ struct mips_cpu_info {
    ? TARGET_LLSC && !TARGET_MIPS16	\
    : ISA_HAS_SYNC)
 
+/* ISA includes sync.  */
+#define ISA_HAS_LIGHT_SYNC (TARGET_NANOMIPS)
+
 /* ISA includes ll and sc.  Note that this implies ISA_HAS_SYNC
    because the expanders use both ISA_HAS_SYNC and ISA_HAS_LL_SC
    instructions.  */
