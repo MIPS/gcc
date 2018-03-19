@@ -213,6 +213,16 @@ FP_ASM_SPEC "\
 #define FRAME_ADDR_RTX(frame) \
    plus_constant (Pmode, frame, MIPS_FRAME_BIAS)
 
+/* Trampolines are a block of code followed by two pointers.  */
+
+#undef TRAMPOLINE_SIZE
+#define TRAMPOLINE_SIZE ((8 * 2) + GET_MODE_SIZE (ptr_mode) * 2)
+
+/* 32-bit alignment is sufficient for the nanoMIPS trampoline.  */
+
+#undef TRAMPOLINE_ALIGNMENT
+#define TRAMPOLINE_ALIGNMENT 32
+
 /* Describe how we implement __builtin_eh_return.  */
 
 /* At the moment, nothing appears to use more than 2 EH data registers.
