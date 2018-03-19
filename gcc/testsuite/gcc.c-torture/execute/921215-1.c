@@ -1,4 +1,3 @@
-/* { dg-skip-if "nanoMIPS: needs fixing" { nanomips-*-* } { "*" } { "" } } */
 main()
 {
 #ifndef NO_TRAMPOLINES
