@@ -18,7 +18,7 @@
 /* { dg-final { scan-assembler "lapc\\\[48\\]\t\\\$\[ast0-9\]+,f_long_takes_fptr" } } */
 
 /* { dg-final { scan-assembler-times "jalrc\t\\\$\[ast0-9\]+" 3 } } */
-/* { dg-final { scan-assembler "aluipc\t\\\$gp,%pcrel_hi\\(_gp\\)" } } */
+/* { dg-final { scan-assembler "lapc\t\\\$gp,_gp" } } */
 
 __attribute__ ((noclone, noinline))
 extern int f_extern(void) { asm (""); return 1; }
