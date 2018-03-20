@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
-#include "ssa-range-gen.h"
+#include "ssa-range.h"
 #include "domwalk.h"
 
 #include "graph.h"
@@ -111,7 +111,7 @@ class bb_paths
   /* Return the ultimate SSA name for which NAME depends on.  */
   tree terminal_name (void)
   {
-    return ranger.def_chain.terminal_name (name);
+    return ranger.single_import (name);
   }
   const vec<basic_block> &operator[] (unsigned i) const { return all_paths[i]; }
   vec<basic_block> &operator[] (unsigned i) { return all_paths[i]; }
