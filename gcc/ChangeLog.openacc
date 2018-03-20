@@ -1,3 +1,15 @@
+2018-03-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_single): Revert changes from
+	7445a4d40.
+
+	Backport from trunk:
+	2018-03-20  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/84952
+	* config/nvptx/nvptx.c (nvptx_single): Don't neuter bar.sync.
+	(nvptx_process_pars): Emit bar.sync asap and alap.
+
 2018-03-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
