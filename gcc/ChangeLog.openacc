@@ -1,6 +1,20 @@
 2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 
+	* omp-offload.c (oacc_get_default_dim): New function.
+	* omp-offload.h (oacc_get_default_dim): Declare.
+	* config/nvptx/nvptx.c (NVPTX_GOACC_VL_WARP): Define.
+	(nvptx_goacc_needs_vl_warp): New function.
+	(nvptx_goacc_validate_dims): Take larger vector lengths into
+	account.
+	(nvptx_adjust_parallelism): New function.
+	(TARGET_GOACC_ADJUST_PARALLELISM): Define.
+	(populate_offload_attrs): Handle the situation where the default
+	runtime geometry has not been initialized yet for reductions.
+
+2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
 	* config/nvptx/nvptx-protos.h (nvptx_output_red_partition): Declare.
 	* config/nvptx/nvptx.c (vector_red_size, vector_red_align,
 	vector_red_partition, vector_red_sym): New global variables.

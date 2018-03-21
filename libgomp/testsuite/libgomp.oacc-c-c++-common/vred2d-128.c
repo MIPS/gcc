@@ -42,8 +42,6 @@ gentest (test3, "acc parallel loop gang worker vector_length (128)",
 gentest (test4, "acc parallel loop",
 	 "acc loop reduction(+:t1) reduction(-:t2)")
 
-/* { dg-prune-output "using vector_length \\(32\\), ignoring 128" } */
-
 
 int
 main ()

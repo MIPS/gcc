@@ -71,6 +71,7 @@
 #include "fold-const.h"
 #include "intl.h"
 #include "tree-hash-traits.h"
+#include "omp-offload.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -4634,15 +4635,20 @@ populate_offload_attrs (offload_attrs *oa)
   if (oa->vector_length == 0)
     {
       /* FIXME: Need a more graceful way to handle large vector
-	 lengths in OpenACC routines.  */
+	 lengths in OpenACC routines and also -fopenacc-dims.  */
       if (!lookup_attribute ("omp target entrypoint",
 			     DECL_ATTRIBUTES (current_function_decl)))
 	oa->vector_length = PTX_WARP_SIZE;
-      else
+      else if (PTX_VECTOR_LENGTH != PTX_WARP_SIZE)
 	oa->vector_length = PTX_VECTOR_LENGTH;
     }
   if (oa->num_workers == 0)
-    oa->max_workers = PTX_CTA_SIZE / oa->vector_length;
+    {
+      if (oa->vector_length == 0)
+	oa->max_workers = PTX_WORKER_LENGTH;
+      else
+	oa->max_workers = PTX_CTA_SIZE / oa->vector_length;
+    }
   else
     oa->max_workers = oa->num_workers;
 }
@@ -5193,6 +5199,19 @@ nvptx_simt_vf ()
   return PTX_WARP_SIZE;
 }
 
+#define NVPTX_GOACC_VL_WARP "nvptx vl warp"
+
+/* Return true of the offloaded function needs a vector_length of
+   PTX_WARP_SIZE.  */
+
+static bool
+nvptx_goacc_needs_vl_warp ()
+{
+  tree attr = lookup_attribute (NVPTX_GOACC_VL_WARP,
+				DECL_ATTRIBUTES (current_function_decl));
+  return attr != NULL_TREE;
+}
+
 /* Validate compute dimensions of an OpenACC offload or routine, fill
    in non-unity defaults.  FN_LEVEL indicates the level at which a
    routine might spawn a loop.  It is negative for non-routines.  If
@@ -5201,6 +5220,14 @@ nvptx_simt_vf ()
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 {
+  int default_vector_length = PTX_VECTOR_LENGTH;
+
+  /* For capability reasons, fallback to vl = 32 for runtime values.  */
+  if (dims[GOMP_DIM_VECTOR] == 0)
+    default_vector_length = PTX_WARP_SIZE;
+  else if (decl)
+    default_vector_length = oacc_get_default_dim (GOMP_DIM_VECTOR);
+
   /* Detect if a function is unsuitable for offloading.  */
   if (!flag_offload_force && decl)
     {
@@ -5225,18 +5252,20 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 
   bool changed = false;
 
-  /* The vector size must be 32, unless this is a SEQ routine.  */
+  /* The vector size must be a positive multiple of the warp size,
+     unless this is a SEQ routine.  */
   if (fn_level <= GOMP_DIM_VECTOR && fn_level >= -1
       && dims[GOMP_DIM_VECTOR] >= 0
-      && dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
+      && (dims[GOMP_DIM_VECTOR] % 32 != 0
+	  || dims[GOMP_DIM_VECTOR] == 0))
     {
       if (fn_level < 0 && dims[GOMP_DIM_VECTOR] >= 0)
 	warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
 		    dims[GOMP_DIM_VECTOR]
 		    ? G_("using vector_length (%d), ignoring %d")
 		    : G_("using vector_length (%d), ignoring runtime setting"),
-		    PTX_VECTOR_LENGTH, dims[GOMP_DIM_VECTOR]);
-      dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+		    default_vector_length, dims[GOMP_DIM_VECTOR]);
+      dims[GOMP_DIM_VECTOR] = default_vector_length;
       changed = true;
     }
 
@@ -5250,15 +5279,76 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
       changed = true;
     }
 
+  /* Ensure that num_worker * vector_length < cta size.  */
+  if (dims[GOMP_DIM_WORKER] * dims[GOMP_DIM_VECTOR] > PTX_CTA_SIZE)
+    {
+      warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
+		  G_("using vector_length (%d), ignoring %d"),
+		  default_vector_length, dims[GOMP_DIM_VECTOR]);
+      dims[GOMP_DIM_VECTOR] = PTX_WARP_SIZE;
+      changed = true;
+    }
+
+  /* vector_length must not exceed PTX_CTA_SIZE.  */
+  if (dims[GOMP_DIM_VECTOR] >= PTX_CTA_SIZE)
+    {
+      int new_vector = PTX_CTA_SIZE;
+      if (decl)
+	new_vector = default_vector_length;
+      warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
+		  G_("using vector_length (%d), ignoring %d"),
+		  new_vector, dims[GOMP_DIM_VECTOR]);
+      dims[GOMP_DIM_VECTOR] = new_vector;
+      changed = true;
+    }
+
+  /* Set vector_length to default_vector_length if there are a sufficient
+     number of free threads in the CTA.  */
+  if (dims[GOMP_DIM_WORKER] > 0 && dims[GOMP_DIM_VECTOR] <= 0)
+    {
+      if (dims[GOMP_DIM_WORKER] * default_vector_length <= PTX_CTA_SIZE)
+	dims[GOMP_DIM_VECTOR] = default_vector_length;
+      else if (dims[GOMP_DIM_WORKER] * PTX_WARP_SIZE <= PTX_CTA_SIZE)
+	dims[GOMP_DIM_VECTOR] = PTX_WARP_SIZE;
+      else
+	error_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION,
+		  "vector_length must be at least 32");
+      changed = true;
+    }
+
+  /* Specify a default vector_length.  */
+  if (dims[GOMP_DIM_VECTOR] < 0)
+    {
+      dims[GOMP_DIM_VECTOR] = default_vector_length;
+      changed = true;
+    }
+
+  if (nvptx_goacc_needs_vl_warp () && dims[GOMP_DIM_VECTOR] != PTX_WARP_SIZE)
+    {
+      dims[GOMP_DIM_VECTOR] = PTX_WARP_SIZE;
+      changed = true;
+    }
+
   if (!decl)
     {
-      dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+      bool new_vector = false;
+      if (dims[GOMP_DIM_VECTOR] <= 1)
+	{
+	  dims[GOMP_DIM_VECTOR] = default_vector_length;
+	  new_vector = true;
+	}
       if (dims[GOMP_DIM_WORKER] < 0)
 	dims[GOMP_DIM_WORKER] = PTX_DEFAULT_RUNTIME_DIM;
       if (dims[GOMP_DIM_GANG] < 0)
 	dims[GOMP_DIM_GANG] = PTX_DEFAULT_RUNTIME_DIM;
+      if (new_vector
+	  && dims[GOMP_DIM_WORKER] * dims[GOMP_DIM_VECTOR] > PTX_CTA_SIZE)
+	dims[GOMP_DIM_VECTOR] = PTX_WARP_SIZE;
       changed = true;
     }
+
+  gcc_assert (dims[GOMP_DIM_VECTOR] != 0);
+  gcc_assert (dims[GOMP_DIM_WORKER] * dims[GOMP_DIM_VECTOR] <= PTX_CTA_SIZE);
 
   return changed;
 }
@@ -5277,6 +5367,45 @@ nvptx_dim_limit (int axis)
       break;
     }
   return 0;
+}
+
+/* Adjust the parallelism available to a loop given vector_length
+   associated with the offloaded function.  */
+
+static unsigned
+nvptx_adjust_parallelism (unsigned inner_mask, unsigned outer_mask)
+{
+  if (nvptx_goacc_needs_vl_warp ())
+    return inner_mask;
+
+  bool wv = (inner_mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+    && (inner_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  offload_attrs oa;
+
+  populate_offload_attrs (&oa);
+
+  if (oa.vector_length == PTX_WARP_SIZE)
+    return inner_mask;
+
+  /* FIXME: This is overly conservative; worker and vector loop will
+     eventually be combined.  */
+  if (wv)
+    return inner_mask & ~GOMP_DIM_MASK (GOMP_DIM_WORKER);
+
+  /* It's difficult to guarantee that warps in large vector_lengths
+     will remain convergent when a vector loop is nested inside a
+     worker loop.  Therefore, fallback to setting vector_length to
+     PTX_WARP_SIZE.  Hopefully this condition may be relaxed for
+     sm_70+ targets.  */
+  if ((inner_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))
+      && (outer_mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
+    {
+      tree attr = tree_cons (get_identifier (NVPTX_GOACC_VL_WARP), NULL_TREE,
+			      DECL_ATTRIBUTES (current_function_decl));
+      DECL_ATTRIBUTES (current_function_decl) = attr;
+    }
+
+  return inner_mask;
 }
 
 /* Determine whether fork & joins are needed.  */
@@ -6168,6 +6297,9 @@ nvptx_set_current_function (tree fndecl)
 
 #undef TARGET_GOACC_DIM_LIMIT
 #define TARGET_GOACC_DIM_LIMIT nvptx_dim_limit
+
+#undef TARGET_GOACC_ADJUST_PARALLELISM
+#define TARGET_GOACC_ADJUST_PARALLELISM nvptx_adjust_parallelism
 
 #undef TARGET_GOACC_FORK_JOIN
 #define TARGET_GOACC_FORK_JOIN nvptx_goacc_fork_join
