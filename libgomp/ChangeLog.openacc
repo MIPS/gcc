@@ -1,3 +1,10 @@
+2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Adjust calculations of
+	workers and vectors.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-7.c: New test.
+
 2018-04-05  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-4.c: New test.
