@@ -1,3 +1,21 @@
+2018-04-03  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (oacc_bcast_partition): Declare.
+	(nvptx_option_override): Init oacc_bcast_partition.
+	(nvptx_init_oacc_workers): New function.
+	(nvptx_declare_function_name): Call nvptx_init_oacc_workers.
+	(nvptx_needs_shared_bcast): New function.
+	(nvptx_find_par): Generalize to enable vectors to use shared-memory
+	to propagate state.
+	(nvptx_shared_propagate): Initialize vector bcast partition and
+	synchronization state.
+	(nvptx_single):  Generalize to enable vectors to use shared-memory
+	to propagate state.
+	(nvptx_process_pars): Likewise.
+	* config/nvptx/nvptx.h (struct machine_function): Add
+	bcast_partition and sync_bar members.
+
 2018-04-03  Tom de Vries  <tom@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_gen_shared_bcast, shared_prop_gen)
