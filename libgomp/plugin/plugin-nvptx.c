@@ -734,8 +734,6 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   int threads_per_block = threads_per_sm > block_size
     ? block_size : threads_per_sm;
 
-  threads_per_block /= warp_size;
-
   if (threads_per_sm > cpu_size)
     threads_per_sm = cpu_size;
 
@@ -802,6 +800,10 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   if (seen_zero)
     {
+      int vectors = dims[GOMP_DIM_VECTOR] > 0
+	? dims[GOMP_DIM_VECTOR] : warp_size;
+      int workers = threads_per_block / vectors;
+
       for (i = 0; i != GOMP_DIM_MAX; i++)
 	if (!dims[i])
 	  {
@@ -819,10 +821,10 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 		  : 2 * dev_size;
 		break;
 	      case GOMP_DIM_WORKER:
-		dims[i] = threads_per_block;
+		dims[i] = workers;
 		break;
 	      case GOMP_DIM_VECTOR:
-		dims[i] = warp_size;
+		dims[i] = vectors;
 		break;
 	      default:
 		abort ();
