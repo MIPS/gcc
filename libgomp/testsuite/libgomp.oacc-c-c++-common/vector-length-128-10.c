@@ -37,4 +37,3 @@ main (void)
 
   return 0;
 }
-/* { dg-prune-output "using vector_length \\(32\\), ignoring 128" } */

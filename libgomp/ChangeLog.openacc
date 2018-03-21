@@ -1,3 +1,13 @@
+2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-1.c: Expect
+	vector length to be 128.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-10.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-2.c: Same.
+	* testsuite/libgomp.oacc-c-c++-common/vred2d-128.c: Same.
+	* testsuite/libgomp.oacc-fortran/gemm.f90: Same.
+
 2018-04-05  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-10.c: New test.
