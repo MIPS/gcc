@@ -3871,6 +3871,41 @@ mips_valid_offset_p (rtx x, machine_mode mode)
   return true;
 }
 
+static bool
+mips_valid_lo_sum_offset_p (rtx reg, rtx offset, machine_mode mode)
+{
+  rtx symbol;
+  unsigned int align;
+  unsigned int ref_size;
+
+   /* The function will return true unless the lo_sum is of the form:
+      (lo_sum (reg) (const (plus (symbol_ref <symbol>) (const_int <offset>)))
+
+      And the alignment of the symbol is less than the offset. */
+
+   if (REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM
+       || GET_CODE (offset) != CONST
+       || GET_CODE (XEXP (offset, 0)) != PLUS)
+     return true;
+
+  split_const (offset, &symbol, &offset);
+
+  if (SYMBOL_REF_DECL (symbol))
+    align = DECL_ALIGN (SYMBOL_REF_DECL (symbol));
+  else if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol)
+	   && SYMBOL_REF_BLOCK (symbol) != NULL)
+    align = SYMBOL_REF_BLOCK (symbol)->alignment;
+  else
+    return true;
+
+  ref_size = GET_MODE_SIZE (mode);
+  if (ref_size == 0)
+    ref_size = GET_MODE_SIZE (SImode);
+
+  return ((INTVAL (offset) & (ref_size - 1)) == 0
+	  && ((align / BITS_PER_UNIT) & (ref_size - 1)) == 0);
+}
+
 /* Return true if a LO_SUM can address a value of mode MODE when the
    LO_SUM symbol has type SYMBOL_TYPE.  */
 
@@ -3972,7 +4007,8 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       info->symbol_type
 	= mips_classify_symbolic_expression (info->offset, SYMBOL_CONTEXT_MEM);
       return (mips_valid_base_register_p (info->reg, mode, strict_p)
-	      && mips_valid_lo_sum_p (info->symbol_type, mode));
+	      && mips_valid_lo_sum_p (info->symbol_type, mode)
+	      && mips_valid_lo_sum_offset_p (info->reg, info->offset, mode));
 
     case CONST_INT:
       /* Small-integer addresses don't occur very often, but they
@@ -5120,6 +5156,18 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     {
       if (!mips_valid_base_register_p (base, mode, false))
 	base = copy_to_mode_reg (Pmode, base);
+      addr = mips_add_offset (NULL, base, offset);
+      return mips_force_address (addr, mode);
+    }
+
+  if (GET_CODE (x) == LO_SUM
+      && !mips_valid_lo_sum_offset_p (XEXP (x, 0), XEXP (x, 1), mode))
+    {
+      rtx symbol;
+
+      mips_split_plus (XEXP (XEXP (x, 1), 0), &symbol, &offset);
+
+      base = gen_rtx_LO_SUM (Pmode, XEXP (base, 0), symbol);
       addr = mips_add_offset (NULL, base, offset);
       return mips_force_address (addr, mode);
     }
