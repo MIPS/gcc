@@ -2831,6 +2831,23 @@ struct offload_attrs
   int max_workers;
 };
 
+/* Define entries for cfun->machine->axis_dim.  */
+
+#define MACH_VECTOR_LENGTH 0
+#define MACH_MAX_WORKERS 1
+
+static int ATTRIBUTE_UNUSED
+nvptx_mach_max_workers ()
+{
+  return cfun->machine->axis_dim[MACH_MAX_WORKERS];
+}
+
+static int ATTRIBUTE_UNUSED
+nvptx_mach_vector_length ()
+{
+  return cfun->machine->axis_dim[MACH_VECTOR_LENGTH];
+}
+
 /* Loop structure of the function.  The entire function is described as
    a NULL loop.  */
 
@@ -4533,6 +4550,9 @@ nvptx_reorg (void)
       offload_attrs oa;
 
       populate_offload_attrs (&oa);
+
+      cfun->machine->axis_dim[MACH_VECTOR_LENGTH] = oa.vector_length;
+      cfun->machine->axis_dim[MACH_MAX_WORKERS] = oa.max_workers;
 
       /* If there is worker neutering, there must be vector
 	 neutering.  Otherwise the hardware will fail.  */

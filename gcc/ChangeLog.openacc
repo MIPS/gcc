@@ -1,5 +1,12 @@
 2018-03-23  Tom de Vries  <tom@codesourcery.com>
 
+	* config/nvptx/nvptx.c (MACH_VECTOR_LENGTH, MACH_MAX_WORKERS): Define.
+	(nvptx_mach_max_workers, nvptx_mach_vector_length): New function.
+	(nvptx_reorg): Set function-specific axis_dim's.
+	* config/nvptx/nvptx.h (struct machine_function): Add axis_dims.
+
+2018-03-23  Tom de Vries  <tom@codesourcery.com>
+
 	* config/nvptx/nvptx.md (nvptx_barsync): Add and handle operand.
 	* config/nvptx/nvptx.c (nvptx_cta_sync): Change arguments to take in a
 	lock and thread count.  Update call to gen_nvptx_barsync.
