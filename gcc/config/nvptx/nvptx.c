@@ -4214,7 +4214,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  /* This barrier is needed to avoid worker zero clobbering
 	     the broadcast buffer before all the other workers have
 	     had a chance to read this instance of it.  */
-	  emit_insn_before (nvptx_cta_sync (true), tail);
+	  emit_insn_before (nvptx_cta_sync (false), tail);
 	}
 
       extract_insn (tail);
@@ -4336,7 +4336,7 @@ nvptx_process_pars (parallel *par)
 	{
 	  /* Insert begin and end synchronizations.  */
 	  emit_insn_before (nvptx_cta_sync (false), par->forked_insn);
-	  emit_insn_before (nvptx_cta_sync (true), par->join_insn);
+	  emit_insn_before (nvptx_cta_sync (false), par->join_insn);
 	}
     }
   else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))

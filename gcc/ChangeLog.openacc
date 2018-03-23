@@ -1,3 +1,9 @@
+2018-03-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_single): Always pass false to
+	nvptx_cta_sync.
+	(nvptx_process_pars): Likewise.
+
 2018-03-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_single): Revert changes from
