@@ -4100,7 +4100,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	    pred = gen_reg_rtx (BImode);
 	    cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER] = pred;
 	  }
-	
+
 	rtx br;
 	if (mode == GOMP_DIM_VECTOR)
 	  br = gen_br_true (pred, label);
