@@ -2831,6 +2831,9 @@ struct offload_attrs
   int max_workers;
 };
 
+/* Loop structure of the function.  The entire function is described as
+   a NULL loop.  */
+
 struct parallel
 {
   /* Parent parallel.  */
