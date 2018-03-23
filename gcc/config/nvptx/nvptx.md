@@ -1421,10 +1421,16 @@
   [(set_attr "atomic" "true")])
 
 (define_insn "nvptx_barsync"
-  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
+  [(unspec_volatile [(match_operand:SI 0 "nvptx_nonmemory_operand" "Ri")
+		     (match_operand:SI 1 "const_int_operand")]
 		    UNSPECV_BARSYNC)]
   ""
-  "\\tbar.sync\\t%0;"
+  {
+    if (INTVAL (operands[1]) == 0)
+      return "\\tbar.sync\\t%0;";
+    else
+      return "\\tbar.sync\\t%0, %1;";
+  }
   [(set_attr "predicable" "false")])
 
 (define_insn "nvptx_nounroll"

@@ -3939,13 +3939,14 @@ nvptx_shared_propagate (bool pre_p, bool is_call, basic_block block,
   return empty;
 }
 
-/* Emit a CTA-level synchronization barrier.  We use different
-   markers for before and after synchronizations.  */
+/* Emit a CTA-level synchronization barrier (bar.sync).  LOCK is the
+   barrier number, which is an integer or a register.  THREADS is the
+   number of threads controlled by the barrier.  */
 
 static rtx
-nvptx_cta_sync (bool after)
+nvptx_cta_sync (rtx lock, int threads)
 {
-  return gen_nvptx_barsync (GEN_INT (after));
+  return gen_nvptx_barsync (lock, GEN_INT (threads));
 }
 
 #if WORKAROUND_PTXJIT_BUG
@@ -4195,6 +4196,8 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  /* Includes worker mode, do spill & fill.  By construction
 	     we should never have worker mode only. */
 	  broadcast_data_t data;
+	  rtx barrier = GEN_INT (0);
+	  int threads = 0;
 
 	  data.base = oacc_bcast_sym;
 	  data.ptr = 0;
@@ -4207,14 +4210,14 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 						    false),
 			    before);
 	  /* Barrier so other workers can see the write.  */
-	  emit_insn_before (nvptx_cta_sync (false), tail);
+	  emit_insn_before (nvptx_cta_sync (barrier, threads), tail);
 	  data.offset = 0;
 	  emit_insn_before (nvptx_gen_shared_bcast (pvar, PM_write, 0, &data,
 						    false), tail);
 	  /* This barrier is needed to avoid worker zero clobbering
 	     the broadcast buffer before all the other workers have
 	     had a chance to read this instance of it.  */
-	  emit_insn_before (nvptx_cta_sync (false), tail);
+	  emit_insn_before (nvptx_cta_sync (barrier, threads), tail);
 	}
 
       extract_insn (tail);
@@ -4331,12 +4334,15 @@ nvptx_process_pars (parallel *par)
       bool empty = nvptx_shared_propagate (true, is_call,
 					   par->forked_block, par->fork_insn,
 					   false);
+      rtx barrier = GEN_INT (0);
+      int threads = 0;
 
       if (!empty || !is_call)
 	{
 	  /* Insert begin and end synchronizations.  */
-	  emit_insn_before (nvptx_cta_sync (false), par->forked_insn);
-	  emit_insn_before (nvptx_cta_sync (false), par->join_insn);
+	  emit_insn_before (nvptx_cta_sync (barrier, threads),
+			    par->forked_insn);
+	  emit_insn_before (nvptx_cta_sync (barrier, threads), par->join_insn);
 	}
     }
   else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))

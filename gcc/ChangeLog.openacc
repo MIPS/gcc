@@ -1,3 +1,10 @@
+2018-03-23  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.md (nvptx_barsync): Add and handle operand.
+	* config/nvptx/nvptx.c (nvptx_cta_sync): Change arguments to take in a
+	lock and thread count.  Update call to gen_nvptx_barsync.
+	(nvptx_single, nvptx_process_pars): Update calls to nvptx_cta_sync.
+
 2018-03-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_single): Always pass false to
