@@ -1,3 +1,16 @@
+2018-03-26  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* doc/tm.texi.in: Add placeholder for TARGET_GOACC_ADJUST_PARALLELISM.
+	* doc/tm.texi: Regenerate.
+	* omp-offload.c (oacc_loop_fixed_partitions): Use the adjust_parallelism
+	hook to modify this_mask.
+	(oacc_loop_auto_partitions): Use the adjust_parallelism hook to modify
+	this_mask and loop->mask.
+	(default_goacc_adjust_parallelism): New function.
+	* target.def (adjust_parallelism): New hook.
+	* targhooks.h (default_goacc_adjust_parallelism): Declare.
+
 2018-03-23  Tom de Vries  <tom@codesourcery.com>
 
 	* config/nvptx/nvptx.c (MACH_VECTOR_LENGTH, MACH_MAX_WORKERS): Define.
