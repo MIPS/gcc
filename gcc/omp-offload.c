@@ -1285,6 +1285,13 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 	}
     }
 
+  /* FIXME: Ideally, we should be coalescing parallelism here if the
+     hardware supports it.  E.g. Instead of partitioning a loop
+     across worker and vector axes, sometimes the hardware can
+     execute those loops together without resorting to placing
+     extra thread barriers.  */
+  this_mask = targetm.goacc.adjust_parallelism (this_mask, outer_mask);
+
   mask_all |= this_mask;
 
   if (loop->flags & OLF_TILE)
@@ -1376,6 +1383,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
 	  this_mask ^= loop->e_mask;
 	}
 
+      this_mask = targetm.goacc.adjust_parallelism (this_mask, outer_mask);
       loop->mask |= this_mask;
     }
 
@@ -1424,6 +1432,8 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
 	}
 
       loop->mask |= this_mask;
+      loop->mask = targetm.goacc.adjust_parallelism (loop->mask, outer_mask);
+
       if (!loop->mask && noisy)
 	warning_at (loop->loc, 0,
 		    tiling
@@ -1798,6 +1808,15 @@ default_goacc_dim_limit (int ARG_UNUSED (axis))
 #else
   return 1;
 #endif
+}
+
+/* Default adjustment of loop parallelism is not required.  */
+
+unsigned
+default_goacc_adjust_parallelism (unsigned this_mask,
+				  unsigned ARG_UNUSED (outer_mask))
+{
+  return this_mask;
 }
 
 namespace {
