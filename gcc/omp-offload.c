@@ -1404,8 +1404,8 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
 			" to parallelize element loop");
 	}
 
-      loop->mask = targetm.goacc.adjust_parallelism (loop->mask, outer_mask);
       loop->mask |= this_mask;
+      loop->mask = targetm.goacc.adjust_parallelism (loop->mask, outer_mask);
 
       if (!loop->mask && noisy)
 	warning_at (loop->loc, 0,

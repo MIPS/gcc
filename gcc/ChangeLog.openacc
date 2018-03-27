@@ -1,3 +1,7 @@
+2018-03-27  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-offload.c (oacc_loop_auto_partitions): Fix adjust_parallism usage.
+
 2018-03-26  Cesar Philippidis  <cesar@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 
