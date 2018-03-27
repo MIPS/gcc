@@ -1,3 +1,9 @@
+2018-03-27  Cesar Philippidis  <cesar@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/vred2d-128.c: New test.
+	* testsuite/libgomp.oacc-fortran/gemm.f90: New test.
+
 2018-03-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
