@@ -1,3 +1,9 @@
+2018-03-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/85106
+	* doc/sourcebuild.texi (Commands for use in dg-final, Scan optimization
+	dump files): Add wpa-ipa.
+
 2018-03-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

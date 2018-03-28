@@ -1,3 +1,8 @@
+2018-03-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/85106
+	* testsuite/lib/libitm.exp: Include scanwpaipa.exp.
+
 2017-12-19  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR other/79543

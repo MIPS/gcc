@@ -1,4 +1,4 @@
-#   Copyright (C) 2000-2017 Free Software Foundation, Inc.
+#   Copyright (C) 2018 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
 
-# Various utilities for scanning tree dump output, used by gcc-dg.exp and
+# Various utilities for scanning ipa dump output, used by gcc-dg.exp and
 # g++-dg.exp.
 
 load_lib scandump.exp
@@ -23,74 +23,75 @@ load_lib scandump.exp
 # Call pass if pattern is present, otherwise fail.
 #
 # Argument 0 is the regexp to match
-# Argument 1 is the name of the dumped tree pass
+# Argument 1 is the name of the dumped ipa pass
 # Argument 2 handles expected failures and the like
-proc scan-tree-dump { args } {
+proc scan-wpa-ipa-dump { args } {
 
     if { [llength $args] < 2 } {
-	error "scan-tree-dump: too few arguments"
+	error "scan-wpa-ipa-dump: too few arguments"
 	return
     }
     if { [llength $args] > 3 } {
-	error "scan-tree-dump: too many arguments"
+	error "scan-wpa-ipa-dump: too many arguments"
 	return
     }
     if { [llength $args] >= 3 } {
-	scan-dump "tree" [lindex $args 0] \
-		  "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" "" [lindex $args 2]
+	scan-dump "wpa-ipa" [lindex $args 0] \
+		  "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa" \
+		  [lindex $args 2]
     } else {
-	scan-dump "tree" [lindex $args 0] \
-		  "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" ""
+	scan-dump "wpa-ipa" [lindex $args 0] \
+		  "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa"
     }
 }
 
 # Call pass if pattern is present given number of times, otherwise fail.
 # Argument 0 is the regexp to match
 # Argument 1 is number of times the regexp must be found
-# Argument 2 is the name of the dumped tree pass
+# Argument 2 is the name of the dumped ipa pass
 # Argument 3 handles expected failures and the like
-proc scan-tree-dump-times { args } {
+proc scan-wpa-ipa-dump-times { args } {
 
     if { [llength $args] < 3 } {
-	error "scan-tree-dump: too few arguments"
+	error "scan-wpa-ipa-dump: too few arguments"
 	return
     }
     if { [llength $args] > 4 } {
-	error "scan-tree-dump: too many arguments"
+	error "scan-wpa-ipa-dump: too many arguments"
 	return
     }
     if { [llength $args] >= 4 } {
-	scan-dump-times "tree" [lindex $args 0] [lindex $args 1] \
-			"\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 2]" "" \
+	scan-dump-times "wpa-ipa" [lindex $args 0] [lindex $args 1] \
+			"\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 2]" ".exe.wpa" \
 			[lindex $args 3]
     } else {
-	scan-dump-times "tree" [lindex $args 0] [lindex $args 1] \
-			"\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 2]" ""
+	scan-dump-times "wpa-ipa" [lindex $args 0] [lindex $args 1] \
+			"\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 2]" ".exe.wpa"
     }
 }
 
 # Call pass if pattern is not present, otherwise fail.
 #
 # Argument 0 is the regexp to match
-# Argument 1 is the name of the dumped tree pass
+# Argument 1 is the name of the dumped ipa pass
 # Argument 2 handles expected failures and the like
-proc scan-tree-dump-not { args } {
+proc scan-wpa-ipa-dump-not { args } {
 
     if { [llength $args] < 2 } {
-	error "scan-tree-dump-not: too few arguments"
+	error "scan-wpa-ipa-dump-not: too few arguments"
 	return
     }
     if { [llength $args] > 3 } {
-	error "scan-tree-dump-not: too many arguments"
+	error "scan-wpa-ipa-dump-not: too many arguments"
 	return
     }
     if { [llength $args] >= 3 } {
-	scan-dump-not "tree" [lindex $args 0] \
-		      "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" "" \
+	scan-dump-not "wpa-ipa" [lindex $args 0] \
+		      "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa" \
 		      [lindex $args 2]
     } else {
-	scan-dump-not "tree" [lindex $args 0] \
-		      "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" ""
+	scan-dump-not "wpa-ipa" [lindex $args 0] \
+		      "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa"
     }
 }
 
@@ -98,49 +99,49 @@ proc scan-tree-dump-not { args } {
 # Call pass if pattern is present, otherwise fail.
 #
 # Argument 0 is the regexp to match
-# Argument 1 is the name of the dumped tree pass
+# Argument 1 is the name of the dumped ipa pass
 # Argument 2 handles expected failures and the like
-proc scan-tree-dump-dem { args } {
+proc scan-wpa-ipa-dump-dem { args } {
 
     if { [llength $args] < 2 } {
-	error "scan-tree-dump-dem: too few arguments"
+	error "scan-wpa-ipa-dump-dem: too few arguments"
 	return
     }
     if { [llength $args] > 3 } {
-	error "scan-tree-dump-dem: too many arguments"
+	error "scan-wpa-ipa-dump-dem: too many arguments"
 	return
     }
     if { [llength $args] >= 3 } {
-	scan-dump-dem "tree" [lindex $args 0] \
-		      "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" "" \
+	scan-dump-dem "wpa-ipa" [lindex $args 0] \
+		      "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa" \
 		      [lindex $args 2]
     } else {
-	scan-dump-dem "tree" [lindex $args 0] \
-		      "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" ""
+	scan-dump-dem "wpa-ipa" [lindex $args 0] \
+		      "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa"
     }
 }
 
 # Call pass if demangled pattern is not present, otherwise fail.
 #
 # Argument 0 is the regexp to match
-# Argument 1 is the name of the dumped tree pass
+# Argument 1 is the name of the dumped ipa pass
 # Argument 2 handles expected failures and the like
-proc scan-tree-dump-dem-not { args } {
+proc scan-wpa-ipa-dump-dem-not { args } {
 
     if { [llength $args] < 2 } {
-	error "scan-tree-dump-dem-not: too few arguments"
+	error "scan-wpa-ipa-dump-dem-not: too few arguments"
 	return
     }
     if { [llength $args] > 3 } {
-	error "scan-tree-dump-dem-not: too many arguments"
+	error "scan-wpa-ipa-dump-dem-not: too many arguments"
 	return
     }
     if { [llength $args] >= 3 } {
-	scan-dump-dem-not "tree" [lindex $args 0] \
-			  "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" \
-			  "" [lindex $args 2]
+	scan-dump-dem-not "wpa-ipa" [lindex $args 0] \
+			  "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa" \
+			  [lindex $args 2]
     } else {
-	scan-dump-dem-not "tree" [lindex $args 0] \
-			  "\[0-9\]\[0-9\]\[0-9\]t.[lindex $args 1]" ""
+	scan-dump-dem-not "wpa-ipa" [lindex $args 0] \
+			  "\[0-9\]\[0-9\]\[0-9\]i.[lindex $args 1]" ".exe.wpa"
     }
 }
