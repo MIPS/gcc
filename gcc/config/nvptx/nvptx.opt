@@ -62,3 +62,6 @@ Enum(ptx_isa) String(sm_35) Value(PTX_ISA_SM35)
 misa=
 Target RejectNegative ToLower Joined Enum(ptx_isa) Var(ptx_isa_option) Init(PTX_ISA_SM30)
 Specify the version of the ptx ISA to use.
+
+mlong-vector-in-workers
+Target Var(nvptx_long_vectors_in_workers) Undocumented Init(0)
