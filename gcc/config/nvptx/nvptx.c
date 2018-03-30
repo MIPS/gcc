@@ -5397,7 +5397,8 @@ nvptx_adjust_parallelism (unsigned inner_mask, unsigned outer_mask)
      worker loop.  Therefore, fallback to setting vector_length to
      PTX_WARP_SIZE.  Hopefully this condition may be relaxed for
      sm_70+ targets.  */
-  if ((inner_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))
+  if (nvptx_long_vectors_in_workers == 0
+      && (inner_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))
       && (outer_mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
     {
       tree attr = tree_cons (get_identifier (NVPTX_GOACC_VL_WARP), NULL_TREE,

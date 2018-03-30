@@ -1,3 +1,9 @@
+2018-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_adjust_parallelism): Handle
+	nvptx_long_vectors_in_workers.
+	* config/nvptx/nvptx.opt (mlong-vector-in-workers): Add option.
+
 2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 

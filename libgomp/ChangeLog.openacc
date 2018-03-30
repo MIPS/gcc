@@ -1,3 +1,11 @@
+2018-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-4.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-5.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-6.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-8.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/vector-length-128-9.c: New test.
+
 2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 
