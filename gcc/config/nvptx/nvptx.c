@@ -5962,6 +5962,7 @@ nvptx_set_current_function (tree fndecl)
 
   gangprivate_shared_hmap.empty ();
   nvptx_previous_fndecl = fndecl;
+  oacc_bcast_partition = 0;
 }
 
 #undef TARGET_OPTION_OVERRIDE
