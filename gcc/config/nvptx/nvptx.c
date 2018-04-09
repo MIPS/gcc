@@ -4196,38 +4196,12 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
   /* Insert the vector test inside the worker test.  */
   unsigned mode;
   rtx_insn *before = tail;
-  rtx wvpred = NULL_RTX;
-  bool skip_vector = false;
-
-  /* Create a single predicate for loops containing both worker and
-     vectors.  */
-  if (cond_branch
-      && (GOMP_DIM_MASK (GOMP_DIM_WORKER) & mask)
-      && (GOMP_DIM_MASK (GOMP_DIM_VECTOR) & mask))
-    {
-      rtx regx = gen_reg_rtx (SImode);
-      rtx regy = gen_reg_rtx (SImode);
-      rtx tmp = gen_reg_rtx (SImode);
-      wvpred = gen_reg_rtx (BImode);
-
-      emit_insn_before (gen_oacc_dim_pos (regx, const1_rtx), head);
-      emit_insn_before (gen_oacc_dim_pos (regy, const2_rtx), head);
-      emit_insn_before (gen_rtx_SET (tmp, gen_rtx_IOR (SImode, regx, regy)),
-			head);
-      emit_insn_before (gen_rtx_SET (wvpred, gen_rtx_NE (BImode, tmp,
-							 const0_rtx)),
-			head);
-
-      skip_mask &= ~(GOMP_DIM_MASK (GOMP_DIM_VECTOR));
-      skip_vector = true;
-    }
-
+  rtx_insn *neuter_start = NULL;
   for (mode = GOMP_DIM_WORKER; mode <= GOMP_DIM_VECTOR; mode++)
     if (GOMP_DIM_MASK (mode) & skip_mask)
       {
 	rtx_code_label *label = gen_label_rtx ();
-	rtx pred = skip_vector ? wvpred
-	  : cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER];
+	rtx pred = cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER];
 
 	if (!pred)
 	  {
@@ -4240,7 +4214,10 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  br = gen_br_true (pred, label);
 	else
 	  br = gen_br_true_uni (pred, label);
-	emit_insn_before (br, head);
+	if (neuter_start)
+	  neuter_start = emit_insn_after (br, neuter_start);
+	else
+	  neuter_start = emit_insn_before (br, head);
 
 	LABEL_NUSES (label)++;
 	if (tail_branch)
