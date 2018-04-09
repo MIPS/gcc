@@ -1,3 +1,13 @@
+2018-04-11  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-04-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/84041
+	* config/nvptx/nvptx.md (define_c_enum "unspecv"): Add UNSPECV_MEMBAR.
+	(define_expand "*memory_barrier"): New define_expand.
+	(define_insn "memory_barrier"): New insn.
+
 2018-04-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (populate_offload_attrs): Ensure that
