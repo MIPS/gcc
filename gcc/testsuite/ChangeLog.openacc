@@ -1,3 +1,7 @@
+2018-04-10  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gcc.target/nvptx/oacc-autopar.c: New test.
+
 2018-03-28  Tom de Vries  <tom@codesourcery.com>
 
 	PR testsuite/85106

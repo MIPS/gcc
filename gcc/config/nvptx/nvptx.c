@@ -4639,7 +4639,7 @@ populate_offload_attrs (offload_attrs *oa)
       if (!lookup_attribute ("omp target entrypoint",
 			     DECL_ATTRIBUTES (current_function_decl)))
 	oa->vector_length = PTX_WARP_SIZE;
-      else if (PTX_VECTOR_LENGTH != PTX_WARP_SIZE)
+      else
 	oa->vector_length = PTX_VECTOR_LENGTH;
     }
   if (oa->num_workers == 0)
