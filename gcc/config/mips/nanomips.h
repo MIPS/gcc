@@ -124,6 +124,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef MIPS_ISA_LEVEL_SPEC
 
+/* Temporarily enable TLS by default for nanoMIPS.  */
+
+#undef HAVE_AS_TLS
+#define HAVE_AS_TLS 1
+
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
 
