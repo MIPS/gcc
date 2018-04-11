@@ -46,39 +46,27 @@ static _Unwind_Reason_Code
 mips_fallback_frame_state (struct _Unwind_Context *context,
 			   _Unwind_FrameState *fs)
 {
-  u_int32_t *pc = (u_int32_t *) context->ra;
+  u_int16_t *pc16 = (u_int16_t *) context->ra;
   struct sigcontext *sc;
-  _Unwind_Ptr new_cfa, reg_offset;
+  _Unwind_Ptr new_cfa;
   int i;
-
-  /* WORK NEEDED: Total failure. File needs porting! */
-  return _URC_END_OF_STACK;
 
   /* A MIPS16 or microMIPS frame.  Signal frames always use the standard
      ISA encoding.  */
-  if ((_Unwind_Ptr) pc & 3)
+  if ((_Unwind_Ptr) pc16 & 3)
     return _URC_END_OF_STACK;
 
-  /* 24021061 li v0, 0x1061 (rt_sigreturn)*/
-  /* 0000000c syscall    */
-  /*    or */
-  /* 24021017 li v0, 0x1017 (sigreturn) */
-  /* 0000000c syscall  */
-  if (pc[1] != 0x0000000c)
+  /* 0x40008b li $t4, 0x8b (rt_sigreturn) - 48-bit.  */
+  /* 0x1008 syscall - 16-bit.  */
+  const int syscall_opc = 0x1008;
+  const int li48_opc = 0x6040;
+
+  if (pc16[3] != syscall_opc)
     return _URC_END_OF_STACK;
-#if _MIPS_SIM == _ABIO32
-  if (pc[0] == (0x24020000 | __NR_sigreturn))
-    {
-      struct sigframe {
-	u_int32_t ass[4];  /* Argument save space for o32.  */
-	u_int32_t trampoline[2];
-	struct sigcontext sigctx;
-      } *rt_ = context->cfa;
-      sc = &rt_->sigctx;
-    }
-  else
-#endif
-  if (pc[0] == (0x24020000 | __NR_rt_sigreturn))
+
+  int li48_val = pc16[1] | (pc16[2] << 16);
+
+  if (pc16[0] == li48_opc && li48_val == __NR_rt_sigreturn)
     {
       struct rt_sigframe {
 	u_int32_t ass[4];  /* Argument save space for o32.  */
@@ -96,19 +84,10 @@ mips_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.cfa_reg = __LIBGCC_STACK_POINTER_REGNUM__;
   fs->regs.cfa_offset = new_cfa - (_Unwind_Ptr) context->cfa;
 
-  /* On o32 Linux, the register save slots in the sigcontext are
-     eight bytes.  We need the lower half of each register slot,
-     so slide our view of the structure back four bytes.  */
-#if _MIPS_SIM == _ABIO32 && defined __MIPSEB__
-  reg_offset = 4;
-#else
-  reg_offset = 0;
-#endif
-
   for (i = 0; i < 32; i++) {
     fs->regs.reg[i].how = REG_SAVED_OFFSET;
     fs->regs.reg[i].loc.offset
-      = (_Unwind_Ptr)&(sc->sc_regs[i]) + reg_offset - new_cfa;
+      = (_Unwind_Ptr)&(sc->sc_regs[i]) - new_cfa;
   }
   /* "PC & -2" points to the faulting instruction, but the unwind code
      searches for "(ADDR & -2) - 1".  (See MASK_RETURN_ADDR for the source
