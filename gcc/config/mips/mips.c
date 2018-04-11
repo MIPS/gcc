@@ -6963,6 +6963,30 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
   return buffer;
 }
 
+bool is_nanomips_output_48_bits (rtx dest, rtx src)
+{
+  enum rtx_code dest_code = GET_CODE (dest);
+  enum rtx_code src_code = GET_CODE (src);
+  machine_mode mode = GET_MODE (dest);
+  enum mips_symbol_type symbol_type;
+
+  if (dest_code == REG && GP_REG_P (REGNO (dest)))
+    {
+      if (src_code == CONST_INT && TARGET_NANOMIPS == NANOMIPS_NMF
+	  && TARGET_LI48 && LI32_INT (src) && !ubp_operand (src, mode))
+	return true;
+      if (src_code == LABEL_REF
+	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+				       &symbol_type)
+	  && symbol_type == SYMBOL_LAPC48_NANO)
+	return true;
+      if (symbolic_operand (src, VOIDmode)
+	  && mips_string_constant_p (src))
+	return true;
+    }
+  return false;
+}
+
 const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
