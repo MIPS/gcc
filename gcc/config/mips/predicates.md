@@ -777,6 +777,14 @@
 	  && type == SYMBOL_GOTTPREL_LARGE);
 })
 
+(define_predicate "tprel_large_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_TPREL_LARGE);
+})
+
 (define_predicate "tls_reloc_operand"
   (match_code "const,symbol_ref,label_ref")
 {

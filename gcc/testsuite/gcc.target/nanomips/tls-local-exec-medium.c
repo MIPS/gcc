@@ -5,7 +5,7 @@
 
 __thread int tls_var;
 
-/* { dg-final { scan-assembler "f_addr:.*\taddiu\\\[32\\]\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_addr\n" } } */
+/* { dg-final { scan-assembler "f_addr:.*\taddiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_addr\n" } } */
 int *
 f_addr ()
 {
@@ -14,7 +14,7 @@ f_addr ()
   return x;
 }
 
-/* { dg-final { scan-assembler "f_load:.*\taddiu\\\[32\\]\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_load\n" } } */
+/* { dg-final { scan-assembler "f_load:.*\taddiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_load\n" } } */
 /* { dg-final { scan-assembler "f_load:.*\tlw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\).*f_load\n" } } */
 int
 f_load ()
@@ -24,7 +24,7 @@ f_load ()
   return x;
 }
 
-/* { dg-final { scan-assembler "f_store:.*\taddiu\\\[32\\]\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_store\n" } } */
+/* { dg-final { scan-assembler "f_store:.*\taddiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_store\n" } } */
 /* { dg-final { scan-assembler "f_store:.*\tsw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\).*f_store\n" } } */
 int
 f_store ()

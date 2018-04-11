@@ -5,7 +5,7 @@
 
 __thread int tls_var;
 
-/* { dg-final { scan-assembler "f_addr:.*\taddiu\\\[32\\]\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_addr\n" } } */
+/* { dg-final { scan-assembler "f_addr:.*\taddiu\t\\\$\[ast0-9\]+,\\\$\[ast0-9\]+,%tprel\\(tls_var\\).*f_addr\n" } } */
 int *
 f_addr ()
 {

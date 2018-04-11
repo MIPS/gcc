@@ -4897,12 +4897,20 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*tprel_large<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(match_operand:P 1 "tprel_large_operand"))]
+  "TARGET_NANOMIPS"
+  "li48\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
 (define_insn "*tprel<mode>_nanomips"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
 		  (match_operand:P 2 "tls_reloc_operand" "")))]
   "TARGET_NANOMIPS"
-  "addiu[32]\t%0,%1,%R2"
+  "addiu\t%0,%1,%R2"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "<MODE>")])
 
