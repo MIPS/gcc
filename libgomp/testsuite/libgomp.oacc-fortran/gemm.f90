@@ -2,6 +2,7 @@
 
 ! { dg-do run }
 ! { dg-additional-options "-fopenacc-dim=-:-:128" }
+! { dg-additional-options "-foffload=-mlong-vector-in-workers" }
 
 ! Implicitly set vector_length to 128 using -fopenacc-dim.
 subroutine openacc_sgemm (m, n, k, alpha, a, b, beta, c)
