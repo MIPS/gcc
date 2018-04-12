@@ -4306,13 +4306,14 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  broadcast_data_t data;
 	  unsigned size = GET_MODE_SIZE (SImode);
 	  bool vector = (GOMP_DIM_MASK (GOMP_DIM_VECTOR) == mask) != 0;
+	  bool worker = (GOMP_DIM_MASK (GOMP_DIM_WORKER) == mask) != 0;
 	  rtx barrier = GEN_INT (0);
 	  int threads = 0;
 
 	  data.base = oacc_bcast_sym;
 	  data.ptr = 0;
 
-	  bool use_partitioning_p = (vector
+	  bool use_partitioning_p = (vector && !worker
 				     && nvptx_mach_max_workers () > 1
 				     && cfun->machine->bcast_partition);
 	  if (use_partitioning_p)

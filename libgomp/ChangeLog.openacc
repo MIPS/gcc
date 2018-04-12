@@ -1,3 +1,9 @@
+2018-04-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/85246
+	* testsuite/libgomp.oacc-fortran/gemm.f90: Use
+	-foffload=-mlong-vector-in-workers.
+
 2018-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
 
