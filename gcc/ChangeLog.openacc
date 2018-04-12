@@ -1,3 +1,8 @@
+2018-04-12  Tom de Vries  <tom@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_single): Simplify init of vector variable.
+	Add and use variable use_partitioning_p.
+
 2018-04-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (populate_offload_attrs): Ensure that
