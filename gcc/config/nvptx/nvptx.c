@@ -4305,22 +4305,24 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	     we should never have worker mode only. */
 	  broadcast_data_t data;
 	  unsigned size = GET_MODE_SIZE (SImode);
-	  bool vector = true;
+	  bool vector = (GOMP_DIM_MASK (GOMP_DIM_VECTOR) == mask) != 0;
 	  rtx barrier = GEN_INT (0);
 	  int threads = 0;
-
-	  if (GOMP_DIM_MASK (GOMP_DIM_WORKER) == mask)
-	    vector = false;
 
 	  data.base = oacc_bcast_sym;
 	  data.ptr = 0;
 
-	  if (vector
-	      && nvptx_mach_max_workers () > 1
-	      && cfun->machine->bcast_partition)
-	    data.base = cfun->machine->bcast_partition;
-
+	  bool use_partitioning_p = (vector
+				     && nvptx_mach_max_workers () > 1
+				     && cfun->machine->bcast_partition);
+	  if (use_partitioning_p)
+	    {
+	      data.base = cfun->machine->bcast_partition;
+	      barrier = cfun->machine->sync_bar;
+	      threads = nvptx_mach_vector_length ();
+	    }
 	  gcc_assert (data.base != NULL);
+	  gcc_assert (barrier);
 
 	  unsigned int psize = ROUND_UP (size, oacc_bcast_align);
 	  unsigned int pnum = (nvptx_mach_vector_length () > PTX_WARP_SIZE
@@ -4334,14 +4336,6 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  emit_insn_before (nvptx_gen_shared_bcast (pvar, PM_read, 0, &data,
 						    vector),
 			    before);
-
-	  if (vector
-	      && nvptx_mach_max_workers () > 1
-	      && cfun->machine->sync_bar)
-	    {
-	      barrier = cfun->machine->sync_bar;
-	      threads = nvptx_mach_vector_length ();
-	    }
 
 	  /* Barrier so other workers can see the write.  */
 	  emit_insn_before (nvptx_cta_sync (barrier, threads), tail);
