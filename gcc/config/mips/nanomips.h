@@ -128,6 +128,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef HAVE_AS_TLS
 #define HAVE_AS_TLS 1
+#undef HAVE_AS_DTPRELWORD
+#define HAVE_AS_DTPRELWORD 1
 
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
