@@ -1682,9 +1682,6 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
     start_update_cost ();
   mem_cost += ALLOCNO_UPDATED_MEMORY_COST (a);
 
-  if (adjust_costs_flag)
-    targetm.adjust_costs ((void*)a, 0);
-
   ira_allocate_and_copy_costs (&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
 			       aclass, ALLOCNO_HARD_REG_COSTS (a));
   a_costs = ALLOCNO_UPDATED_HARD_REG_COSTS (a);
@@ -2829,9 +2826,6 @@ improve_allocation (void)
       ALLOCNO_COLOR_DATA (a)->temp = 0;
       if (empty_profitable_hard_regs (a))
 	continue;
-
-      if (adjust_costs_flag)
-	targetm.adjust_costs ((void*)a, 2);
 
       check++;
       aclass = ALLOCNO_CLASS (a);
