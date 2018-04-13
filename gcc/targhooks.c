@@ -1973,12 +1973,6 @@ default_optab_supported_p (int, machine_mode, machine_mode, optimization_type)
   return true;
 }
 
-void
-default_adjust_costs (void*, int)
-{
-  return;
-}
-
 /* Default implementation of TARGET_MAX_NOCE_IFCVT_SEQ_COST.  */
 
 unsigned int
