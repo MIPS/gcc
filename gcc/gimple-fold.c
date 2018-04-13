@@ -652,7 +652,8 @@ size_must_be_zero_p (tree size)
 
   irange not_zero (type, wone, ssize_max);
   irange size_range (size);
-  return size_range.intersect (not_zero).empty_p ();
+  return (size_range.contains_p (0)
+	  && size_range.intersect (not_zero).empty_p ());
 }
 
 /* Fold function call to builtin mem{{,p}cpy,move}.  Return
