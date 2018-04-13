@@ -2309,7 +2309,7 @@ enum reg_class
   M16_REGS,			/* mips16 directly accessible registers */
   N16_TAIL_REGS,		/* nanoMIPS sibling call registers */
   N16_REGS,			/* nanoMIPS directly accessible registers */
-  N16_4X4_REGS,			/* nanoMIPS registers $0-$7,$16-$23 */
+  N16_4X4_REGS,			/* nanoMIPS registers $4-$11,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
