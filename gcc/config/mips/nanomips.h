@@ -185,6 +185,7 @@ along with GCC; see the file COPYING3.  If not see
 %{.S:-mlegacyregs} \
 %{m32} %{m64} \
 %{march=*} \
+%{mdsp} %{mno-dsp} \
 %{mdspr3} %{mno-dspr3} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
