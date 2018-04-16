@@ -1,3 +1,9 @@
+2018-04-16  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-default-compile.c: Use
+	dg-set-target-env-var instead of setenv.
+	* testsuite/libgomp.oacc-c-c++-common/loop-default-runtime.c: Same.
+
 2018-04-12  Tom de Vries  <tom@codesourcery.com>
 
 	PR target/85246
