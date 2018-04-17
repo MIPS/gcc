@@ -969,7 +969,7 @@ nanomips*-*-elf*)
 	;;
 nanomips*-*-linux*)				# Linux nanoMIPS, either endian.
 	extra_parts="$extra_parts crtfastmath.o"
-	tmake_file="${tmake_file} t-crtfm"
+	tmake_file="${tmake_file} t-crtfm t-crtstuff-pic"
 	md_unwind_header=mips/nanomips-linux-unwind.h
 	;;
 nds32*-elf*)
