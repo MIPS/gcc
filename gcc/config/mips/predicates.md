@@ -745,7 +745,7 @@
 	  && type == SYMBOL_GOT_PAGE_OFST);
 })
 
-(define_predicate "tlsdesc_got_operand"
+(define_predicate "tls_dynamic_arg_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
@@ -755,7 +755,7 @@
 	      || type == SYMBOL_TLSLDM));
 })
 
-(define_predicate "tlsdesc_got_large_operand"
+(define_predicate "tls_dynamic_arg_large_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
@@ -781,7 +781,7 @@
 	  && type == SYMBOL_GOTTPREL_LARGE);
 })
 
-(define_predicate "tprel_large_operand"
+(define_predicate "dt_tprel_large_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
@@ -789,7 +789,7 @@
 	  && (type == SYMBOL_DTPREL_LARGE || type == SYMBOL_TPREL_LARGE));
 })
 
-(define_predicate "tprel_operand"
+(define_predicate "dt_tprel_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;

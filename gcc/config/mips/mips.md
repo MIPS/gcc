@@ -4860,20 +4860,20 @@
 
 ;; nanoMIPS TLS patterns:
 
-(define_insn "*tlsdesc_gotsi_nanomips"
+(define_insn "*tls_dynamic_argsi_nanomips"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
-		   (match_operand:SI 1 "tlsdesc_got_operand" "")))]
+		   (match_operand:SI 1 "tls_dynamic_arg_operand" "")))]
   "TARGET_NANOMIPS"
   "addiu.w\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
-(define_insn "*tlsdesc_got_largesi_nanomips"
+(define_insn "*tls_dynamic_arg_largesi_nanomips"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
-		   (match_operand:SI 1 "tlsdesc_got_large_operand" "")))]
+		   (match_operand:SI 1 "tls_dynamic_arg_large_operand" "")))]
   "TARGET_NANOMIPS"
   "addiu.b32\t%0,$gp,%R1"
   [(set_attr "alu_type" "add")
@@ -4897,18 +4897,18 @@
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "*tprel_large<mode>_nanomips"
+(define_insn "*dt_tprel_large<mode>_nanomips"
   [(set (match_operand:P 0 "register_operand" "=d")
-	(match_operand:P 1 "tprel_large_operand"))]
+	(match_operand:P 1 "dt_tprel_large_operand"))]
   "TARGET_NANOMIPS"
   "li48\t%0,%R1"
   [(set_attr "compression" "nanomips48")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "*tprel<mode>_nanomips"
+(define_insn "*dt_tprel<mode>_nanomips"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")
-		  (match_operand:P 2 "tprel_operand" "")))]
+		  (match_operand:P 2 "dt_tprel_operand" "")))]
   "TARGET_NANOMIPS"
   "addiu\t%0,%1,%R2"
   [(set_attr "alu_type" "add")
