@@ -11945,7 +11945,8 @@ mips_select_rtx_section (machine_mode mode, rtx x,
 static section *
 mips_function_rodata_section (tree decl)
 {
-  if (!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD)
+  if (!(TARGET_NANOMIPS && flag_pic)
+      && (!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD))
     return default_function_rodata_section (decl);
 
   if (decl && DECL_SECTION_NAME (decl))
@@ -11956,6 +11957,15 @@ mips_function_rodata_section (tree decl)
 	  char *rname = ASTRDUP (name);
 	  rname[14] = 'd';
 	  return get_section (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
+	}
+      else if (TARGET_NANOMIPS
+	       && flag_function_sections
+	       && flag_data_sections
+	       && strncmp (name, ".text.", 6) == 0)
+	{
+	  char *rname = (char *) alloca (strlen (name) + 7);
+	  sprintf (rname, ".data.rel.ro%s", name + 5);
+	  return get_section (rname, SECTION_WRITE, decl);
 	}
       else if (flag_function_sections
 	       && flag_data_sections
