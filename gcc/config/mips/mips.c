@@ -3230,6 +3230,8 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMS
 		       && TARGET_PCREL)
 		return SYMBOL_PCREL_SPLIT_NANO;
+	      else
+		return SYMBOL_ABSOLUTE;
 	    }
 	}
       else if (SYMBOL_REF_DECL (x))
@@ -3308,9 +3310,40 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		return SYMBOL_LAPC48_NANO;
 	      else if (TARGET_PCREL)
 		return SYMBOL_PCREL_SPLIT_NANO;
+	      else
+		return SYMBOL_ABSOLUTE;
+	    }
+	}
+      else if (!SYMBOL_REF_DECL (x))
+	{
+	  if (flag_pic && !mips_symbol_binds_local_p (x))
+	    {
+	      if (symbol_pic_model == NANO_PIC_AUTO
+		  && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_PAGE_OFST;
+	      else if (symbol_pic_model == NANO_PIC_MEDIUM
+		       && !SYMBOL_REF_WEAK (x))
+		return SYMBOL_GOT_DISP;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
+		return SYMBOL_GOT_PCREL32_NANO;
+	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
+		return SYMBOL_GOT_PCREL_SPLIT_NANO;
+	    }
+	  else
+	    {
+	      if (TARGET_PCREL
+		  && TARGET_NANOMIPS == NANOMIPS_NMF
+		  && context == SYMBOL_CONTEXT_LEA)
+		return SYMBOL_LAPC48_NANO;
+	      else if (TARGET_PCREL)
+		return SYMBOL_PCREL_SPLIT_NANO;
+	      else
+		return SYMBOL_ABSOLUTE;
 	    }
 	}
     }
+
+  gcc_assert (!TARGET_NANOMIPS);
 
   /* Do not use small-data accesses for weak symbols; they may end up
      being zero.  */
