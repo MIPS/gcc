@@ -750,7 +750,9 @@
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
-	  && type == SYMBOL_TLSDESC_GOT);
+	  && (type == SYMBOL_TLSDESC_GOT
+	      || type == SYMBOL_TLSGD
+	      || type == SYMBOL_TLSLDM));
 })
 
 (define_predicate "tlsdesc_got_large_operand"
@@ -758,7 +760,9 @@
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
-	  && type == SYMBOL_TLSDESC_GOT_LARGE);
+	  && (type == SYMBOL_TLSDESC_GOT_LARGE
+	      || type == SYMBOL_TLSGD_LARGE
+	      || type == SYMBOL_TLSLDM_LARGE));
 })
 
 (define_predicate "tlsdesc_call_operand"
@@ -782,7 +786,17 @@
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
-	  && type == SYMBOL_TPREL_LARGE);
+	  && (type == SYMBOL_DTPREL_LARGE || type == SYMBOL_TPREL_LARGE));
+})
+
+(define_predicate "tprel_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && (type == SYMBOL_DTPREL || type == SYMBOL_TPREL
+	      || type == SYMBOL_DTPREL_MEDIUM
+	      || type == SYMBOL_TPREL_MEDIUM));
 })
 
 (define_predicate "tls_reloc_operand"
@@ -790,8 +804,7 @@
 {
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
-	  && (type == SYMBOL_DTPREL || type == SYMBOL_TPREL
-	      || type == SYMBOL_TPREL_MEDIUM));
+	  && (type == SYMBOL_DTPREL || type == SYMBOL_TPREL));
 })
 
 (define_predicate "symbol_ref_operand"

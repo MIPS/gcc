@@ -260,6 +260,7 @@ set mips_option_groups {
     frame-header "-mframe-header-opt|-mno-frame-header-opt"
     stack-protector "-fstack-protector"
     stdlib "REQUIRES_STDLIB"
+    tls_dialect "-mtls-dialect=(trad|desc)"
     tls_model "-ftls-model=(local-exec|initial-exec|local-dynamic|global-dynamic)"
 }
 

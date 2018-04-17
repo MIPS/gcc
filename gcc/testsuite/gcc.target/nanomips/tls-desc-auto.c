@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fpic -mcmodel=auto -ftls-model=global-dynamic" } */
+/* { dg-options "-m32 -march=32r6 -fpic -mcmodel=auto -mtls-dialect=desc -ftls-model=global-dynamic" } */
 
 /* { dg-final { scan-assembler-times "lapc\t\\\$gp,_gp" 3 } } */
 /* { dg-final { scan-assembler-not "rdhwr\t\\\$\[ast0-9\]+,\\\$29" } } */
