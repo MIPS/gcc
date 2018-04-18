@@ -41,3 +41,17 @@ Always use GP-relative addressing to acccess symbols.
 mrelax
 Target Report Var(TARGET_LINKRELAX) Init(1)
 Tell the assembler that the linker is able to perform relaxations.
+
+Enum
+Name(tls_type) Type(enum nanomips_tls_type)
+The possible TLS dialects:
+
+EnumValue
+Enum(tls_type) String(trad) Value(TLS_TRADITIONAL)
+
+EnumValue
+Enum(tls_type) String(desc) Value(TLS_DESCRIPTORS)
+
+mtls-dialect=
+Target RejectNegative Joined Enum(tls_type) Var(nanomips_tls_dialect) Init(TLS_TRADITIONAL) Save
+Specify TLS dialect.

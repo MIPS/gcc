@@ -3555,7 +3555,11 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       return SMALL_INT9TO12 (offset);
 
     case SYMBOL_TPREL:
+    case SYMBOL_TPREL_MEDIUM:
+    case SYMBOL_TPREL_LARGE:
     case SYMBOL_DTPREL:
+    case SYMBOL_DTPREL_MEDIUM:
+    case SYMBOL_DTPREL_LARGE:
       /* There is no carry between the HI and LO REL relocations, so the
 	 offset is only valid if we know it won't lead to such a carry.  */
       return mips_offset_within_alignment_p (x, INTVAL (offset));
@@ -3569,8 +3573,14 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_GOT_PCREL32_NANO:
     case SYMBOL_GOT_PCREL_SPLIT_NANO:
     case SYMBOL_TLSGD:
+    case SYMBOL_TLSGD_LARGE:
     case SYMBOL_TLSLDM:
+    case SYMBOL_TLSLDM_LARGE:
+    case SYMBOL_TLSDESC_GOT:
+    case SYMBOL_TLSDESC_GOT_LARGE:
+    case SYMBOL_TLSDESC_CALL:
     case SYMBOL_GOTTPREL:
+    case SYMBOL_GOTTPREL_LARGE:
     case SYMBOL_TLS:
     case SYMBOL_HALF:
       return false;
@@ -3695,6 +3705,10 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ...and the final address will be $at + %got_lo(symbol).  */
       return TARGET_NANOMIPS ? 1 : 3;
 
+    case SYMBOL_TPREL_MEDIUM:
+    case SYMBOL_DTPREL_MEDIUM:
+      if (mode != MAX_MACHINE_MODE)
+	return 0;
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
@@ -3703,10 +3717,18 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
     case SYMBOL_64_MID:
     case SYMBOL_64_LOW:
     case SYMBOL_TLSGD:
+    case SYMBOL_TLSGD_LARGE:
     case SYMBOL_TLSLDM:
+    case SYMBOL_TLSLDM_LARGE:
+    case SYMBOL_TLSDESC_GOT:
+    case SYMBOL_TLSDESC_GOT_LARGE:
+    case SYMBOL_TLSDESC_CALL:
     case SYMBOL_DTPREL:
+    case SYMBOL_DTPREL_LARGE:
     case SYMBOL_GOTTPREL:
+    case SYMBOL_GOTTPREL_LARGE:
     case SYMBOL_TPREL:
+    case SYMBOL_TPREL_LARGE:
     case SYMBOL_HALF:
     case SYMBOL_PCREL_SPLIT_NANO:
       /* A 16-bit constant formed by a single relocation, or a 32-bit
@@ -5028,6 +5050,42 @@ mips_call_tls_get_addr (rtx sym, enum mips_symbol_type type, rtx v0)
   return insn;
 }
 
+/* Return a nanoMIPS TLS descriptors sequence for TLS symbol SYM.
+   CALL_RETURN is an RTX for the return value location.  */
+
+static rtx
+mips_call_tlsdesc (rtx sym, rtx call_return)
+{
+  rtx insn, arg_loc, call_loc, call_arg;
+
+  call_arg = gen_rtx_REG (Pmode, GP_ARG_FIRST);
+
+  if (mips_get_nano_pic_model (sym) == NANO_PIC_LARGE)
+    arg_loc = mips_unspec_address (sym, SYMBOL_TLSDESC_GOT_LARGE);
+  else
+    arg_loc = mips_unspec_address (sym, SYMBOL_TLSDESC_GOT);
+
+  call_loc = mips_unspec_address (sym, SYMBOL_TLSDESC_CALL);
+
+  start_sequence ();
+
+  emit_insn (gen_rtx_SET (call_arg, gen_rtx_LO_SUM (Pmode,
+						    pic_offset_table_rtx,
+						    arg_loc)));
+
+  insn = emit_call_insn (gen_tlsdesc_callsi_nanomips (call_return,
+						      call_loc,
+						      const0_rtx));
+  RTL_CONST_CALL_P (insn) = 1;
+  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), call_arg);
+
+  insn = get_insns ();
+
+  end_sequence ();
+
+  return insn;
+}
+
 /* Return a pseudo register that contains the current thread pointer.  */
 
 rtx
@@ -5060,60 +5118,124 @@ mips_get_tp (void)
 static rtx
 mips_legitimize_tls_address (rtx loc)
 {
-  rtx dest, insn, v0, tp, tmp1, tmp2, eqv, offset;
+  rtx dest, insn, v0, dtp, tp, tmp1, tmp2, eqv, offset;
   enum tls_model model;
+  enum nanomips_pic_model cmodel;
+
+  if (TARGET_NANOMIPS)
+    cmodel = mips_get_nano_pic_model (loc);
 
   model = SYMBOL_REF_TLS_MODEL (loc);
   /* Only TARGET_ABICALLS code can have more than one module; other
      code must be static and should not use a GOT.  All TLS models
      reduce to local exec in this situation.  */
-  if (!TARGET_ABICALLS)
+  if (!TARGET_ABICALLS
+      && !TARGET_NANOMIPS)
     model = TLS_MODEL_LOCAL_EXEC;
 
   switch (model)
     {
     case TLS_MODEL_GLOBAL_DYNAMIC:
       v0 = gen_rtx_REG (Pmode, GP_RETURN);
-      insn = mips_call_tls_get_addr (loc, SYMBOL_TLSGD, v0);
+      if (TARGET_NANOMIPS
+	  && nanomips_tls_dialect == TLS_DESCRIPTORS)
+	insn = mips_call_tlsdesc (loc, v0);
+      else if (TARGET_NANOMIPS
+	       && cmodel == NANO_PIC_LARGE)
+	insn = mips_call_tls_get_addr (loc, SYMBOL_TLSGD_LARGE, v0);
+      else
+	insn = mips_call_tls_get_addr (loc, SYMBOL_TLSGD, v0);
       dest = gen_reg_rtx (Pmode);
       emit_libcall_block (insn, dest, v0, loc);
       break;
 
     case TLS_MODEL_LOCAL_DYNAMIC:
       v0 = gen_rtx_REG (Pmode, GP_RETURN);
-      insn = mips_call_tls_get_addr (loc, SYMBOL_TLSLDM, v0);
-      tmp1 = gen_reg_rtx (Pmode);
-
-      /* Attach a unique REG_EQUIV, to allow the RTL optimizers to
-	 share the LDM result with other LD model accesses.  */
-      eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
-			    UNSPEC_TLS_LDM);
-      emit_libcall_block (insn, tmp1, v0, eqv);
-
-      offset = mips_unspec_address (loc, SYMBOL_DTPREL);
-      if (mips_split_p[SYMBOL_DTPREL])
+      if (TARGET_NANOMIPS
+	  && nanomips_tls_dialect == TLS_DESCRIPTORS)
 	{
-	  tmp2 = mips_unspec_offset_high (NULL, tmp1, loc, SYMBOL_DTPREL);
-	  dest = gen_rtx_LO_SUM (Pmode, tmp2, offset);
+	  insn = mips_call_tlsdesc (loc, v0);
+	  dest = gen_reg_rtx (Pmode);
+	  emit_libcall_block (insn, dest, v0, loc);
 	}
       else
-	dest = expand_binop (Pmode, add_optab, tmp1, offset,
-			     0, 0, OPTAB_DIRECT);
+	{
+	  if (TARGET_NANOMIPS
+	      && cmodel == NANO_PIC_LARGE)
+	    insn = mips_call_tls_get_addr (loc, SYMBOL_TLSLDM_LARGE, v0);
+	  else
+	    insn = mips_call_tls_get_addr (loc, SYMBOL_TLSLDM, v0);
+
+	  dtp = gen_reg_rtx (Pmode);
+
+	  /* Attach a unique REG_EQUIV, to allow the RTL optimizers to
+	     share the LDM result with other LD model accesses.  */
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+				UNSPEC_TLS_LDM);
+	  emit_libcall_block (insn, dtp, v0, eqv);
+
+	  if (TARGET_NANOMIPS)
+	    {
+	      if (cmodel == NANO_PIC_LARGE)
+		{
+		  tmp1 = gen_reg_rtx (Pmode);
+		  tmp2 = mips_unspec_address (loc, SYMBOL_DTPREL_LARGE);
+		  mips_emit_move (tmp1, tmp2);
+		  dest = gen_reg_rtx (Pmode);
+		  emit_insn (gen_add3_insn (dest, tmp1, dtp));
+		}
+	      else if (cmodel == NANO_PIC_MEDIUM)
+		{
+		  offset = mips_unspec_address (loc, SYMBOL_DTPREL_MEDIUM);
+		  dest = gen_rtx_LO_SUM (Pmode, dtp, offset);
+		}
+	      else
+		{
+		  offset = mips_unspec_address (loc, SYMBOL_DTPREL);
+		  dest = gen_rtx_LO_SUM (Pmode, dtp, offset);
+		}
+	    }
+	  else
+	    {
+
+	      offset = mips_unspec_address (loc, SYMBOL_DTPREL);
+	      if (mips_split_p[SYMBOL_DTPREL])
+		{
+		  tmp2 = mips_unspec_offset_high (NULL, dtp, loc, SYMBOL_DTPREL);
+		  dest = gen_rtx_LO_SUM (Pmode, tmp2, offset);
+		}
+	      else
+		dest = expand_binop (Pmode, add_optab, dtp, offset,
+				     0, 0, OPTAB_DIRECT);
+	    }
+	}
       break;
 
     case TLS_MODEL_INITIAL_EXEC:
       tp = mips_get_tp ();
       tmp1 = gen_reg_rtx (Pmode);
-      tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL);
       if (TARGET_NANOMIPS)
 	{
-	  if (Pmode == DImode)
-	    emit_insn (gen_load_gotdi_nanomips (tmp1, tmp2));
+	  if (cmodel == NANO_PIC_LARGE)
+	    {
+	      tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL_LARGE);
+	      if (Pmode == DImode)
+		emit_insn (gen_gottprel_largedi_nanomips (tmp1, tmp2));
+	      else
+		emit_insn (gen_gottprel_largesi_nanomips (tmp1, tmp2));
+	    }
 	  else
-	    emit_insn (gen_load_gotsi_nanomips (tmp1, tmp2));
+	    {
+	      tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL);
+	      if (Pmode == DImode)
+		emit_insn (gen_load_gotdi_nanomips (tmp1, tmp2));
+	      else
+		emit_insn (gen_load_gotsi_nanomips (tmp1, tmp2));
+	    }
 	}
       else
 	{
+	  tmp2 = mips_unspec_address (loc, SYMBOL_GOTTPREL);
 	  if (Pmode == DImode)
 	    emit_insn (gen_load_gotdi (tmp1, pic_offset_table_rtx, tmp2));
 	  else
@@ -5124,16 +5246,40 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     case TLS_MODEL_LOCAL_EXEC:
-      tmp1 = mips_get_tp ();
-      offset = mips_unspec_address (loc, SYMBOL_TPREL);
-      if (mips_split_p[SYMBOL_TPREL])
+      tp = mips_get_tp ();
+      if (TARGET_NANOMIPS)
 	{
-	  tmp2 = mips_unspec_offset_high (NULL, tmp1, loc, SYMBOL_TPREL);
-	  dest = gen_rtx_LO_SUM (Pmode, tmp2, offset);
+	  if (cmodel == NANO_PIC_LARGE)
+	    {
+	      tmp1 = gen_reg_rtx (Pmode);
+	      tmp2 = mips_unspec_address (loc, SYMBOL_TPREL_LARGE);
+	      mips_emit_move (tmp1, tmp2);
+	      dest = gen_reg_rtx (Pmode);
+	      emit_insn (gen_add3_insn (dest, tmp1, tp));
+	    }
+	  else if (cmodel == NANO_PIC_MEDIUM)
+	    {
+	      offset = mips_unspec_address (loc, SYMBOL_TPREL_MEDIUM);
+	      dest = gen_rtx_LO_SUM (Pmode, tp, offset);
+	    }
+	  else
+	    {
+	      offset = mips_unspec_address (loc, SYMBOL_TPREL);
+	      dest = gen_rtx_LO_SUM (Pmode, tp, offset);
+	    }
 	}
       else
-	dest = expand_binop (Pmode, add_optab, tmp1, offset,
-			     0, 0, OPTAB_DIRECT);
+	{
+	  offset = mips_unspec_address (loc, SYMBOL_TPREL);
+	  if (mips_split_p[SYMBOL_TPREL])
+	    {
+	      tmp2 = mips_unspec_offset_high (NULL, tp, loc, SYMBOL_TPREL);
+	      dest = gen_rtx_LO_SUM (Pmode, tmp2, offset);
+	    }
+	  else
+	    dest = expand_binop (Pmode, add_optab, tp, offset,
+				 0, 0, OPTAB_DIRECT);
+	}
       break;
 
     default:
@@ -11212,13 +11358,39 @@ mips_init_relocs (void)
   if (TARGET_PABI)
     mips_lo_relocs[SYMBOL_GOTOFF_LOADGP] = "%pcrel_hi(";
 
-  mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
-  mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsldm(";
+  if (TARGET_PABI)
+    {
+      mips_lo_relocs[SYMBOL_TLSDESC_GOT] = "%tlsdesc_got(";
+      mips_lo_relocs[SYMBOL_TLSDESC_GOT_LARGE] = "%tlsdesc_got(";
+      mips_lo_relocs[SYMBOL_TLSDESC_CALL] = "%tlsdesc_call(";
+
+      mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
+      mips_lo_relocs[SYMBOL_TLSGD_LARGE] = "%tlsgd(";
+      mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsld(";
+      mips_lo_relocs[SYMBOL_TLSLDM_LARGE] = "%tlsld(";
+    }
+  else
+    {
+      mips_lo_relocs[SYMBOL_TLSGD] = "%tlsgd(";
+      mips_lo_relocs[SYMBOL_TLSLDM] = "%tlsldm(";
+    }
 
   if (TARGET_MIPS16_PCREL_LOADS)
     {
       mips_use_pcrel_pool_p[SYMBOL_DTPREL] = true;
       mips_use_pcrel_pool_p[SYMBOL_TPREL] = true;
+    }
+  else if (TARGET_PABI)
+    {
+      mips_lo_relocs[SYMBOL_DTPREL] = "%dtprel(";
+      mips_lo_relocs[SYMBOL_DTPREL_MEDIUM] = "%dtprel(";
+      mips_lo_relocs[SYMBOL_DTPREL_LARGE] = "%dtprel(";
+
+      mips_lo_relocs[SYMBOL_GOTTPREL_LARGE] = "%gottprel_pc32(";
+
+      mips_lo_relocs[SYMBOL_TPREL] = "%tprel(";
+      mips_lo_relocs[SYMBOL_TPREL_MEDIUM] = "%tprel(";
+      mips_lo_relocs[SYMBOL_TPREL_LARGE] = "%tprel(";
     }
   else
     {
@@ -12272,7 +12444,8 @@ mips_output_dwarf_dtprel (FILE *file, int size, rtx x)
       gcc_unreachable ();
     }
   output_addr_const (file, x);
-  fputs ("+0x8000", file);
+  if (!TARGET_NANOMIPS)
+    fputs ("+0x8000", file);
 }
 
 /* Implement TARGET_DWARF_REGISTER_SPAN.  */

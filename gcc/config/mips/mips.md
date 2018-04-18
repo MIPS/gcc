@@ -4866,6 +4866,62 @@
   [(set_attr "got" "load")
    (set_attr "mode" "<MODE>")])
 
+;; nanoMIPS TLS patterns:
+
+(define_insn "*tls_dynamic_argsi_nanomips"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "tls_dynamic_arg_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu.w\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips32")
+   (set_attr "mode" "SI")])
+
+(define_insn "*tls_dynamic_arg_largesi_nanomips"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
+		   (match_operand:SI 1 "tls_dynamic_arg_large_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu.b32\t%0,$gp,%R1"
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "nanomips48")
+   (set_attr "mode" "SI")])
+
+(define_insn "tlsdesc_callsi_nanomips"
+  [(set (match_operand 0 "register_operand" "")
+        (call (mem:SI (match_operand 1 "tlsdesc_call_operand" ""))
+              (match_operand 2 "" "")))
+   (clobber (reg:SI RETURN_ADDR_REGNUM))]
+  "TARGET_NANOMIPS"
+  "balc\t%R1"
+  [(set_attr "jal" "direct")])
+
+(define_insn "gottprel_large<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(match_operand:P 1 "gottprel_large_operand"))]
+  "TARGET_NANOMIPS"
+  "lwpc\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*dt_tprel_large<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(match_operand:P 1 "dt_tprel_large_operand"))]
+  "TARGET_NANOMIPS"
+  "li48\t%0,%R1"
+  [(set_attr "compression" "nanomips48")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*dt_tprel<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "dt_tprel_operand" "")))]
+  "TARGET_NANOMIPS"
+  "addiu\t%0,%1,%R2"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "<MODE>")])
+
 ;; nanoMIPS PC-relative PIC expansions:
 
 (define_insn "*load_pcrel32_pic_nanosi"
@@ -8609,7 +8665,7 @@
 (define_insn "tls_get_tp_<mode>"
   [(set (match_operand:P 0 "register_operand" "=v")
 	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))]
-  "HAVE_AS_TLS && !TARGET_MIPS16"
+  "HAVE_AS_TLS && !TARGET_MIPS16 && !TARGET_NANOMIPS"
   {
     if (mips_isa_rev >= 2)
       return "rdhwr\t$3,$29";
@@ -8663,6 +8719,14 @@
   { return mips_output_jump (operands, 0, -1, true, false); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "tls_get_tp<mode>_nanomips"
+  [(set (match_operand:P 0 "register_operand" "=d")
+	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))]
+  "HAVE_AS_TLS && TARGET_NANOMIPS"
+  "rdhwr\t%0,$29"
+  [(set_attr "type" "unknown")
    (set_attr "mode" "<MODE>")])
 
 ;; Named pattern for expanding thread pointer reference.
