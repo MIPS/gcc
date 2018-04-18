@@ -128,10 +128,20 @@ enum mips_symbol_type {
   SYMBOL_GOT_CALL,
   SYMBOL_TLS,
   SYMBOL_TLSGD,
+  SYMBOL_TLSGD_LARGE,
   SYMBOL_TLSLDM,
+  SYMBOL_TLSLDM_LARGE,
   SYMBOL_DTPREL,
+  SYMBOL_DTPREL_MEDIUM,
+  SYMBOL_DTPREL_LARGE,
   SYMBOL_GOTTPREL,
+  SYMBOL_GOTTPREL_LARGE,
   SYMBOL_TPREL,
+  SYMBOL_TPREL_MEDIUM,
+  SYMBOL_TPREL_LARGE,
+  SYMBOL_TLSDESC_GOT,
+  SYMBOL_TLSDESC_GOT_LARGE,
+  SYMBOL_TLSDESC_CALL,
   SYMBOL_64_HIGH,
   SYMBOL_64_MID,
   SYMBOL_64_LOW,
@@ -426,4 +436,5 @@ extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
 extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
 				 int *, int *);
+
 #endif /* ! GCC_MIPS_PROTOS_H */

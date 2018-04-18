@@ -67,4 +67,11 @@ enum nanomips_pic_model {
   NANO_PIC_MEDIUM,
   NANO_PIC_LARGE
 };
+
+/* TLS types.  */
+enum nanomips_tls_type {
+  TLS_TRADITIONAL,
+  TLS_DESCRIPTORS
+};
+
 #endif
