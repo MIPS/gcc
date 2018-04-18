@@ -8265,7 +8265,11 @@ coerce_template_parms (tree parms,
     }
 
   if (lost)
-    return error_mark_node;
+    {
+      if ((complain & tf_error) && !seen_error())
+	error ("wrong number of template arguments");
+      return error_mark_node;
+    }
 
   if (CHECKING_P && !NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_inner_args))
     SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_inner_args,
@@ -11475,7 +11479,9 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	    {
 	      /* This parameter pack was used in an unevaluated context.  Just
 		 make a dummy decl, since it's only used for its type.  */
+	      ++cp_unevaluated_operand;
 	      arg_pack = tsubst_decl (parm_pack, args, complain);
+	      --cp_unevaluated_operand;
 	      if (arg_pack && DECL_PACK_P (arg_pack))
 		/* Partial instantiation of the parm_pack, we can't build
 		   up an argument pack yet.  */
@@ -11545,7 +11551,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	  /* We can't substitute for this parameter pack.  We use a flag as
 	     well as the missing_level counter because function parameter
 	     packs don't have a level.  */
-	  gcc_assert (processing_template_decl);
+	  gcc_assert (processing_template_decl || is_auto (parm_pack));
 	  unsubstituted_packs = true;
 	}
     }
@@ -13776,8 +13782,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 			= tsubst_constraint (constr, args, complain, in_decl);
 		    else if (tree pl = CLASS_PLACEHOLDER_TEMPLATE (t))
 		      {
-			if (DECL_TEMPLATE_TEMPLATE_PARM_P (pl))
-			  pl = tsubst (pl, args, complain, in_decl);
+			pl = tsubst_copy (pl, args, complain, in_decl);
 			CLASS_PLACEHOLDER_TEMPLATE (r) = pl;
 		      }
 		  }
@@ -17513,7 +17518,10 @@ tsubst_copy_and_build (tree t,
 		CALL_EXPR_REVERSE_ARGS (function) = rev;
 		if (thk)
 		  {
-		    CALL_FROM_THUNK_P (function) = true;
+		    if (TREE_CODE (function) == CALL_EXPR)
+		      CALL_FROM_THUNK_P (function) = true;
+		    else
+		      AGGR_INIT_FROM_THUNK_P (function) = true;
 		    /* The thunk location is not interesting.  */
 		    SET_EXPR_LOCATION (function, UNKNOWN_LOCATION);
 		  }
@@ -24095,7 +24103,8 @@ type_dependent_expression_p (tree expression)
       && undeduced_auto_decl (expression)
       && (!DECL_CLASS_SCOPE_P (expression)
 	  || !dependent_type_p (DECL_CONTEXT (expression)))
-      && (!DECL_FRIEND_CONTEXT (expression)
+      && (!DECL_LANG_SPECIFIC (expression)
+	  || !DECL_FRIEND_CONTEXT (expression)
 	  || !dependent_type_p (DECL_FRIEND_CONTEXT (expression)))
       && !DECL_LOCAL_FUNCTION_P (expression))
     {
@@ -25126,8 +25135,21 @@ rewrite_template_parm (tree olddecl, unsigned index, unsigned level,
 	  = TEMPLATE_TYPE_PARM_FOR_CLASS (oldtype);
     }
   else
-    newtype = tsubst (TREE_TYPE (olddecl), tsubst_args,
-		      complain, NULL_TREE);
+    {
+      newtype = TREE_TYPE (olddecl);
+      if (type_uses_auto (newtype))
+	{
+	  // Substitute once to fix references to other template parameters.
+	  newtype = tsubst (newtype, tsubst_args,
+			    complain|tf_partial, NULL_TREE);
+	  // Now substitute again to reduce the level of the auto.
+	  newtype = tsubst (newtype, current_template_args (),
+			    complain, NULL_TREE);
+	}
+      else
+	newtype = tsubst (newtype, tsubst_args,
+			  complain, NULL_TREE);
+    }
 
   tree newdecl
     = build_decl (DECL_SOURCE_LOCATION (olddecl), TREE_CODE (olddecl),
@@ -25407,6 +25429,9 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
     // FIXME cache artificial deduction guides
     for (tree fns = CLASSTYPE_CONSTRUCTORS (type); fns; fns = OVL_NEXT (fns))
       {
+	if (TREE_CODE (fns) == OVERLOAD && OVL_USED (fns))
+	  continue;
+
 	tree fn = OVL_CURRENT (fns);
 	tree guide = build_deduction_guide (fn, outer_args, complain);
 	cands = ovl_cons (guide, cands);

@@ -7211,7 +7211,9 @@ find_decomp_class_base (location_t loc, tree type, tree ret)
 {
   bool member_seen = false;
   for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
+    if (TREE_CODE (field) != FIELD_DECL
+	|| DECL_ARTIFICIAL (field)
+	|| (DECL_C_BIT_FIELD (field) && !DECL_NAME (field)))
       continue;
     else if (ret)
       return type;
@@ -7250,7 +7252,7 @@ find_decomp_class_base (location_t loc, tree type, tree ret)
       tree t = find_decomp_class_base (loc, TREE_TYPE (base_binfo), ret);
       if (t == error_mark_node)
 	return error_mark_node;
-      if (t != NULL_TREE)
+      if (t != NULL_TREE && t != ret)
 	{
 	  if (ret == type)
 	    {
@@ -7261,9 +7263,6 @@ find_decomp_class_base (location_t loc, tree type, tree ret)
 	    }
 	  else if (orig_ret != NULL_TREE)
 	    return t;
-	  else if (ret == t)
-	    /* OK, found the same base along another path.  We'll complain
-	       in convert_to_base if it's ambiguous.  */;
 	  else if (ret != NULL_TREE)
 	    {
 	      error_at (loc, "cannot decompose class type %qT: its base "
@@ -7464,6 +7463,12 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
       type = complete_type (TREE_TYPE (type));
       if (type == error_mark_node)
 	goto error_out;
+      if (!COMPLETE_TYPE_P (type))
+	{
+	  error_at (loc, "structured binding refers to incomplete type %qT",
+		    type);
+	  goto error_out;
+	}
     }
 
   tree eltype = NULL_TREE;
@@ -7638,7 +7643,9 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	  goto error_out;
 	}
       for (tree field = TYPE_FIELDS (btype); field; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
+	if (TREE_CODE (field) != FIELD_DECL
+	    || DECL_ARTIFICIAL (field)
+	    || (DECL_C_BIT_FIELD (field) && !DECL_NAME (field)))
 	  continue;
 	else
 	  eltscnt++;
@@ -7653,7 +7660,9 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	}
       unsigned int i = 0;
       for (tree field = TYPE_FIELDS (btype); field; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
+	if (TREE_CODE (field) != FIELD_DECL
+	    || DECL_ARTIFICIAL (field)
+	    || (DECL_C_BIT_FIELD (field) && !DECL_NAME (field)))
 	  continue;
 	else
 	  {
@@ -9515,7 +9524,8 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       constant_expression_error (size);
 
       /* An array must have a positive number of elements.  */
-      if (tree_int_cst_lt (size, integer_zero_node))
+      tree signed_size = fold_convert (ssizetype, size);
+      if (tree_int_cst_lt (signed_size, integer_zero_node))
 	{
 	  if (!(complain & tf_error))
 	    return error_mark_node;
@@ -12554,7 +12564,9 @@ check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
      A default argument expression is implicitly converted to the
      parameter type.  */
   ++cp_unevaluated_operand;
-  perform_implicit_conversion_flags (decl_type, arg, complain,
+  /* Avoid digest_init clobbering the initializer.  */
+  tree carg = BRACE_ENCLOSED_INITIALIZER_P (arg) ? unshare_expr (arg): arg;
+  perform_implicit_conversion_flags (decl_type, carg, complain,
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 

@@ -4059,6 +4059,8 @@ node_has_volatile_full_access (Node_Id gnat_node)
     case N_Identifier:
     case N_Expanded_Name:
       gnat_entity = Entity (gnat_node);
+      if (!Is_Object (gnat_entity))
+	break;
       return Is_Volatile_Full_Access (gnat_entity)
 	     || Is_Volatile_Full_Access (Etype (gnat_entity));
 
@@ -9272,7 +9274,7 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
 	  ? tree_int_cst_lt (gnu_out_ub, gnu_in_ub)
 	  : (FLOAT_TYPE_P (gnu_base_type)
 	     ? real_less (&TREE_REAL_CST (gnu_out_ub),
-			  &TREE_REAL_CST (gnu_in_lb))
+			  &TREE_REAL_CST (gnu_in_ub))
 	     : 1))
 	gnu_cond
 	  = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, gnu_cond,

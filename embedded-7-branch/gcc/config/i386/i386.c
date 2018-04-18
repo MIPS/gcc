@@ -12031,18 +12031,28 @@ ix86_setup_frame_addresses (void)
    labels in call and return thunks.  */
 static int indirectlabelno;
 
-/* True if call and return thunk functions are needed.  */
+/* True if call thunk function is needed.  */
 static bool indirect_thunk_needed = false;
-/* True if call and return thunk functions with the BND prefix are
-   needed.  */
+/* True if call thunk function with the BND prefix is needed.  */
 static bool indirect_thunk_bnd_needed = false;
 
 /* Bit masks of integer registers, which contain branch target, used
-   by call and return thunks functions.  */
+   by call thunk functions.  */
 static int indirect_thunks_used;
 /* Bit masks of integer registers, which contain branch target, used
-   by call and return thunks functions with the BND prefix.  */
+   by call thunk functions with the BND prefix.  */
 static int indirect_thunks_bnd_used;
+
+/* True if return thunk function is needed.  */
+static bool indirect_return_needed = false;
+/* True if return thunk function with the BND prefix is needed.  */
+static bool indirect_return_bnd_needed = false;
+
+/* True if return thunk function via CX is needed.  */
+static bool indirect_return_via_cx;
+/* True if return thunk function via CX with the BND prefix is
+   needed.  */
+static bool indirect_return_via_cx_bnd;
 
 #ifndef INDIRECT_LABEL
 # define INDIRECT_LABEL "LIND"
@@ -12054,12 +12064,13 @@ static void
 indirect_thunk_name (char name[32], unsigned int regno,
 		     bool need_bnd_p, bool ret_p)
 {
-  if (regno != INVALID_REGNUM && ret_p)
+  if (regno != INVALID_REGNUM && regno != CX_REG && ret_p)
     gcc_unreachable ();
 
   if (USE_HIDDEN_LINKONCE)
     {
       const char *bnd = need_bnd_p ? "_bnd" : "";
+      const char *ret = ret_p ? "return" : "indirect";
       if (regno != INVALID_REGNUM)
 	{
 	  const char *reg_prefix;
@@ -12067,14 +12078,11 @@ indirect_thunk_name (char name[32], unsigned int regno,
 	    reg_prefix = TARGET_64BIT ? "r" : "e";
 	  else
 	    reg_prefix = "";
-	  sprintf (name, "__x86_indirect_thunk%s_%s%s",
-		   bnd, reg_prefix, reg_names[regno]);
+	  sprintf (name, "__x86_%s_thunk%s_%s%s",
+		   ret, bnd, reg_prefix, reg_names[regno]);
 	}
       else
-	{
-	  const char *ret = ret_p ? "return" : "indirect";
-	  sprintf (name, "__x86_%s_thunk%s", ret, bnd);
-	}
+	sprintf (name, "__x86_%s_thunk%s", ret, bnd);
     }
   else
     {
@@ -12186,16 +12194,18 @@ output_indirect_thunk (bool need_bnd_p, unsigned int regno)
 /* Output a funtion with a call and return thunk for indirect branch.
    If BND_P is true, the BND prefix is needed.  If REGNO != INVALID_REGNUM,
    the function address is in REGNO.  Otherwise, the function address is
-   on the top of stack.  */
+   on the top of stack.  Thunk is used for function return if RET_P is
+   true.  */
 
 static void
-output_indirect_thunk_function (bool need_bnd_p, unsigned int regno)
+output_indirect_thunk_function (bool need_bnd_p, unsigned int regno,
+				bool ret_p)
 {
   char name[32];
   tree decl;
 
   /* Create __x86_indirect_thunk/__x86_indirect_thunk_bnd.  */
-  indirect_thunk_name (name, regno, need_bnd_p, false);
+  indirect_thunk_name (name, regno, need_bnd_p, ret_p);
   decl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
 		     get_identifier (name),
 		     build_function_type_list (void_type_node, NULL_TREE));
@@ -12237,36 +12247,6 @@ output_indirect_thunk_function (bool need_bnd_p, unsigned int regno)
 	switch_to_section (text_section);
 	ASM_OUTPUT_LABEL (asm_out_file, name);
       }
-
-  if (regno == INVALID_REGNUM)
-    {
-      /* Create alias for __x86.return_thunk/__x86.return_thunk_bnd.  */
-      char alias[32];
-
-      indirect_thunk_name (alias, regno, need_bnd_p, true);
-#if TARGET_MACHO
-      if (TARGET_MACHO)
-	{
-	  fputs ("\t.weak_definition\t", asm_out_file);
-	  assemble_name (asm_out_file, alias);
-	  fputs ("\n\t.private_extern\t", asm_out_file);
-	  assemble_name (asm_out_file, alias);
-	  putc ('\n', asm_out_file);
-	  ASM_OUTPUT_LABEL (asm_out_file, alias);
-	}
-#else
-      ASM_OUTPUT_DEF (asm_out_file, alias, name);
-      if (USE_HIDDEN_LINKONCE)
-	{
-	  fputs ("\t.globl\t", asm_out_file);
-	  assemble_name (asm_out_file, alias);
-	  putc ('\n', asm_out_file);
-	  fputs ("\t.hidden\t", asm_out_file);
-	  assemble_name (asm_out_file, alias);
-	  putc ('\n', asm_out_file);
-	}
-#endif
-    }
 
   DECL_INITIAL (decl) = make_node (BLOCK);
   current_function_decl = decl;
@@ -12314,19 +12294,29 @@ ix86_code_end (void)
   rtx xops[2];
   unsigned int regno;
 
+  if (indirect_return_needed)
+    output_indirect_thunk_function (false, INVALID_REGNUM, true);
+  if (indirect_return_bnd_needed)
+    output_indirect_thunk_function (true, INVALID_REGNUM, true);
+
+  if (indirect_return_via_cx)
+    output_indirect_thunk_function (false, CX_REG, true);
+  if (indirect_return_via_cx_bnd)
+    output_indirect_thunk_function (true, CX_REG, true);
+
   if (indirect_thunk_needed)
-    output_indirect_thunk_function (false, INVALID_REGNUM);
+    output_indirect_thunk_function (false, INVALID_REGNUM, false);
   if (indirect_thunk_bnd_needed)
-    output_indirect_thunk_function (true, INVALID_REGNUM);
+    output_indirect_thunk_function (true, INVALID_REGNUM, false);
 
   for (regno = FIRST_REX_INT_REG; regno <= LAST_REX_INT_REG; regno++)
     {
       unsigned int i = regno - FIRST_REX_INT_REG + LAST_INT_REG + 1;
       if ((indirect_thunks_used & (1 << i)))
-	output_indirect_thunk_function (false, regno);
+	output_indirect_thunk_function (false, regno, false);
 
       if ((indirect_thunks_bnd_used & (1 << i)))
-	output_indirect_thunk_function (true, regno);
+	output_indirect_thunk_function (true, regno, false);
     }
 
   for (regno = AX_REG; regno <= SP_REG; regno++)
@@ -12335,10 +12325,10 @@ ix86_code_end (void)
       tree decl;
 
       if ((indirect_thunks_used & (1 << regno)))
-	output_indirect_thunk_function (false, regno);
+	output_indirect_thunk_function (false, regno, false);
 
       if ((indirect_thunks_bnd_used & (1 << regno)))
-	output_indirect_thunk_function (true, regno);
+	output_indirect_thunk_function (true, regno, false);
 
       if (!(pic_labels_used & (1 << regno)))
 	continue;
@@ -18842,7 +18832,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	 since we can in fact encode that into an immediate.  */
       if (GET_CODE (x) == CONST_VECTOR)
 	{
-	  gcc_assert (x == CONST0_RTX (GET_MODE (x)));
+	  if (x != CONST0_RTX (GET_MODE (x)))
+	    output_operand_lossage ("invalid vector immediate");
 	  x = const0_rtx;
 	}
 
@@ -19807,72 +19798,36 @@ emit_i387_cw_initialization (int mode)
   emit_insn (gen_x86_fnstcw_1 (stored_mode));
   emit_move_insn (reg, copy_rtx (stored_mode));
 
-  if (TARGET_64BIT || TARGET_PARTIAL_REG_STALL
-      || optimize_insn_for_size_p ())
+  switch (mode)
     {
-      switch (mode)
-	{
-	case I387_CW_TRUNC:
-	  /* round toward zero (truncate) */
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
-	  slot = SLOT_CW_TRUNC;
-	  break;
+    case I387_CW_TRUNC:
+      /* round toward zero (truncate) */
+      emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
+      slot = SLOT_CW_TRUNC;
+      break;
 
-	case I387_CW_FLOOR:
-	  /* round down toward -oo */
-	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
-	  slot = SLOT_CW_FLOOR;
-	  break;
+    case I387_CW_FLOOR:
+      /* round down toward -oo */
+      emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+      emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+      slot = SLOT_CW_FLOOR;
+      break;
 
-	case I387_CW_CEIL:
-	  /* round up toward +oo */
-	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
-	  slot = SLOT_CW_CEIL;
-	  break;
+    case I387_CW_CEIL:
+      /* round up toward +oo */
+      emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+      emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+      slot = SLOT_CW_CEIL;
+      break;
 
-	case I387_CW_MASK_PM:
-	  /* mask precision exception for nearbyint() */
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
-	  slot = SLOT_CW_MASK_PM;
-	  break;
+    case I387_CW_MASK_PM:
+      /* mask precision exception for nearbyint() */
+      emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+      slot = SLOT_CW_MASK_PM;
+      break;
 
-	default:
-	  gcc_unreachable ();
-	}
-    }
-  else
-    {
-      switch (mode)
-	{
-	case I387_CW_TRUNC:
-	  /* round toward zero (truncate) */
-	  emit_insn (gen_insvsi_1 (reg, GEN_INT (0xc)));
-	  slot = SLOT_CW_TRUNC;
-	  break;
-
-	case I387_CW_FLOOR:
-	  /* round down toward -oo */
-	  emit_insn (gen_insvsi_1 (reg, GEN_INT (0x4)));
-	  slot = SLOT_CW_FLOOR;
-	  break;
-
-	case I387_CW_CEIL:
-	  /* round up toward +oo */
-	  emit_insn (gen_insvsi_1 (reg, GEN_INT (0x8)));
-	  slot = SLOT_CW_CEIL;
-	  break;
-
-	case I387_CW_MASK_PM:
-	  /* mask precision exception for nearbyint() */
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
-	  slot = SLOT_CW_MASK_PM;
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
+    default:
+      gcc_unreachable ();
     }
 
   gcc_assert (slot < MAX_386_STACK_LOCALS);
@@ -29109,18 +29064,17 @@ ix86_output_indirect_branch (rtx call_op, const char *xasm,
   else
     ix86_output_indirect_branch_via_push (call_op, xasm, sibcall_p);
 }
-/* Output indirect jump.  CALL_OP is the jump target.  Jump is a
-   function return if RET_P is true.  */
+
+/* Output indirect jump.  CALL_OP is the jump target.  */
 
 const char *
-ix86_output_indirect_jmp (rtx call_op, bool ret_p)
+ix86_output_indirect_jmp (rtx call_op)
 {
   if (cfun->machine->indirect_branch_type != indirect_branch_keep)
     {
-      /* We can't have red-zone if this isn't a function return since
-	 "call" in the indirect thunk pushes the return address onto
-	 stack, destroying red-zone.  */
-      if (!ret_p && ix86_red_zone_size != 0)
+      /* We can't have red-zone since "call" in the indirect thunk
+         pushes the return address onto stack, destroying red-zone.  */
+      if (ix86_red_zone_size != 0)
 	gcc_unreachable ();
 
       ix86_output_indirect_branch (call_op, "%0", true);
@@ -29150,12 +29104,12 @@ ix86_output_function_return (bool long_p)
 			       true);
 	  if (need_bnd_p)
 	    {
-	      indirect_thunk_bnd_needed |= need_thunk;
+	      indirect_return_bnd_needed |= need_thunk;
 	      fprintf (asm_out_file, "\tbnd jmp\t%s\n", thunk_name);
 	    }
 	  else
 	    {
-	      indirect_thunk_needed |= need_thunk;
+	      indirect_return_needed |= need_thunk;
 	      fprintf (asm_out_file, "\tjmp\t%s\n", thunk_name);
 	    }
 	}
@@ -29169,6 +29123,86 @@ ix86_output_function_return (bool long_p)
     return "%!ret";
 
   return "rep%; ret";
+}
+
+/* Output indirect function return.  RET_OP is the function return
+   target.  */
+
+const char *
+ix86_output_indirect_function_return (rtx ret_op)
+{
+  if (cfun->machine->function_return_type != indirect_branch_keep)
+    {
+      char thunk_name[32];
+      bool need_bnd_p = ix86_bnd_prefixed_insn_p (current_output_insn);
+      unsigned int regno = REGNO (ret_op);
+      gcc_assert (regno == CX_REG);
+
+      if (cfun->machine->function_return_type
+	  != indirect_branch_thunk_inline)
+	{
+	  bool need_thunk = (cfun->machine->function_return_type
+			     == indirect_branch_thunk);
+	  indirect_thunk_name (thunk_name, regno, need_bnd_p, true);
+	  if (need_bnd_p)
+	    {
+	      if (need_thunk)
+		{
+		  indirect_return_via_cx_bnd = true;
+		  indirect_thunks_bnd_used |= 1 << CX_REG;
+		}
+	      fprintf (asm_out_file, "\tbnd jmp\t%s\n", thunk_name);
+	    }
+	  else
+	    {
+	      if (need_thunk)
+		{
+		  indirect_return_via_cx = true;
+		  indirect_thunks_used |= 1 << CX_REG;
+		}
+	      fprintf (asm_out_file, "\tjmp\t%s\n", thunk_name);
+	    }
+	}
+      else
+	output_indirect_thunk (need_bnd_p, regno);
+
+      return "";
+    }
+  else
+    return "%!jmp\t%A0";
+}
+
+/* Split simple return with popping POPC bytes from stack to indirect
+   branch with stack adjustment .  */
+
+void
+ix86_split_simple_return_pop_internal (rtx popc)
+{
+  struct machine_function *m = cfun->machine;
+  rtx ecx = gen_rtx_REG (SImode, CX_REG);
+  rtx_insn *insn;
+
+  /* There is no "pascal" calling convention in any 64bit ABI.  */
+  gcc_assert (!TARGET_64BIT);
+
+  insn = emit_insn (gen_pop (ecx));
+  m->fs.cfa_offset -= UNITS_PER_WORD;
+  m->fs.sp_offset -= UNITS_PER_WORD;
+
+  rtx x = plus_constant (Pmode, stack_pointer_rtx, UNITS_PER_WORD);
+  x = gen_rtx_SET (stack_pointer_rtx, x);
+  add_reg_note (insn, REG_CFA_ADJUST_CFA, x);
+  add_reg_note (insn, REG_CFA_REGISTER, gen_rtx_SET (ecx, pc_rtx));
+  RTX_FRAME_RELATED_P (insn) = 1;
+
+  x = gen_rtx_PLUS (Pmode, stack_pointer_rtx, popc);
+  x = gen_rtx_SET (stack_pointer_rtx, x);
+  insn = emit_insn (x);
+  add_reg_note (insn, REG_CFA_ADJUST_CFA, x);
+  RTX_FRAME_RELATED_P (insn) = 1;
+
+  /* Now return address is in ECX.  */
+  emit_jump_insn (gen_simple_return_indirect_internal (ecx));
 }
 
 /* Output the assembly for a call instruction.  */

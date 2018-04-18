@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "arith.h"
 #include "intrinsic.h"
+#include "match.h"
 #include "target-memory.h"
 #include "constructor.h"
 #include "version.h"	/* For version_string.  */
@@ -6579,10 +6580,12 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   unsigned char *buffer;
   size_t result_length;
 
+  if (!gfc_is_constant_expr (source) || !gfc_is_constant_expr (size))
+    return NULL;
 
-  if (!gfc_is_constant_expr (source)
-	|| (gfc_init_expr_flag && !gfc_is_constant_expr (mold))
-	|| !gfc_is_constant_expr (size))
+  if (!gfc_resolve_expr (mold))
+    return NULL;
+  if (gfc_init_expr_flag && !gfc_is_constant_expr (mold))
     return NULL;
 
   if (!gfc_calculate_transfer_sizes (source, mold, size, &source_size, 
@@ -7172,26 +7175,32 @@ gfc_convert_constant (gfc_expr *e, bt type, int kind)
 	{
 	  gfc_expr *tmp;
 	  if (c->iterator == NULL)
-	    tmp = f (c->expr, kind);
+	    {
+	      tmp = f (c->expr, kind);
+	      if (tmp == NULL)
+		{
+		  gfc_free_expr (result);
+		  return NULL;
+		}
+
+	      gfc_constructor_append_expr (&result->value.constructor,
+					   tmp, &c->where);
+	    }
 	  else
 	    {
+	      gfc_constructor *n;
 	      g = gfc_convert_constant (c->expr, type, kind);
-	      if (g == &gfc_bad_expr)
+	      if (g == NULL || g == &gfc_bad_expr)
 	        {
 		  gfc_free_expr (result);
 		  return g;
 		}
-	      tmp = g;
+	      n = gfc_constructor_get ();
+	      n->expr = g;
+	      n->iterator = gfc_copy_iterator (c->iterator);
+	      n->where = c->where;
+	      gfc_constructor_append (&result->value.constructor, n);
 	    }
-
-	  if (tmp == NULL)
-	    {
-	      gfc_free_expr (result);
-	      return NULL;
-	    }
-
-	  gfc_constructor_append_expr (&result->value.constructor,
-				       tmp, &c->where);
 	}
 
       break;

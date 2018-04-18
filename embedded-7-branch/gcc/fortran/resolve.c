@@ -8498,7 +8498,7 @@ build_loc_call (gfc_expr *sym_expr)
   gfc_expr *loc_call;
   loc_call = gfc_get_expr ();
   loc_call->expr_type = EXPR_FUNCTION;
-  gfc_get_sym_tree ("loc", gfc_current_ns, &loc_call->symtree, false);
+  gfc_get_sym_tree ("_loc", gfc_current_ns, &loc_call->symtree, false);
   loc_call->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   loc_call->symtree->n.sym->attr.intrinsic = 1;
   loc_call->symtree->n.sym->result = loc_call->symtree->n.sym;
@@ -8550,6 +8550,9 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
       if (code->expr1->symtree->n.sym->attr.untyped)
 	code->expr1->symtree->n.sym->ts = code->expr2->ts;
       selector_type = CLASS_DATA (code->expr2)->ts.u.derived;
+
+      if (code->expr2->rank && CLASS_DATA (code->expr1)->as)
+	CLASS_DATA (code->expr1)->as->rank = code->expr2->rank;
 
       /* F2008: C803 The selector expression must not be coindexed.  */
       if (gfc_is_coindexed (code->expr2))
@@ -12225,6 +12228,19 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
     }
 
+  /* F2018, C15100: "The result of an elemental function shall be scalar,
+     and shall not have the POINTER or ALLOCATABLE attribute."  The scalar
+     pointer is tested and caught elsewhere.  */
+  if (sym->attr.elemental && sym->result
+      && (sym->result->attr.allocatable || sym->result->attr.pointer))
+    {
+      gfc_error ("Function result variable %qs at %L of elemental "
+		 "function %qs shall not have an ALLOCATABLE or POINTER "
+		 "attribute", sym->result->name,
+		 &sym->result->declared_at, sym->name);
+      return false;
+    }
+
   if (sym->attr.is_bind_c && sym->attr.is_c_interop != 1)
     {
       gfc_formal_arglist *curr_arg;
@@ -13798,6 +13814,31 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
   if (!success)
     return false;
+
+  /* Now add the caf token field, where needed.  */
+  if (flag_coarray != GFC_FCOARRAY_NONE
+      && !sym->attr.is_class && !sym->attr.vtype)
+    {
+      for (c = sym->components; c; c = c->next)
+	if (!c->attr.dimension && !c->attr.codimension
+	    && (c->attr.allocatable || c->attr.pointer))
+	  {
+	    char name[GFC_MAX_SYMBOL_LEN+9];
+	    gfc_component *token;
+	    sprintf (name, "_caf_%s", c->name);
+	    token = gfc_find_component (sym, name, true, true, NULL);
+	    if (token == NULL)
+	      {
+		if (!gfc_add_component (sym, name, &token))
+		  return false;
+		token->ts.type = BT_VOID;
+		token->ts.kind = gfc_default_integer_kind;
+		token->attr.access = ACCESS_PRIVATE;
+		token->attr.artificial = 1;
+		token->attr.caf_token = 1;
+	      }
+	  }
+    }
 
   check_defined_assignments (sym);
 

@@ -1025,7 +1025,7 @@ See RS/6000 and PowerPC Options.
 -mfloat-gprs=yes  -mfloat-gprs=no  -mfloat-gprs=single  -mfloat-gprs=double @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb  -msdata @gol
--msdata=@var{opt}  -mvxworks  -G @var{num} @gol
+-msdata=@var{opt}  -mreadonly-in-sdata  -mvxworks  -G @var{num} @gol
 -mrecip  -mrecip=@var{opt}  -mno-recip  -mrecip-precision @gol
 -mno-recip-precision @gol
 -mveclibabi=@var{type}  -mfriz  -mno-friz @gol
@@ -8132,7 +8132,7 @@ This flag is enabled by default at @option{-O2} and higher and depends on
 
 @item -fisolate-erroneous-paths-attribute
 @opindex fisolate-erroneous-paths-attribute
-Detect paths that trigger erroneous or undefined behavior due a null value
+Detect paths that trigger erroneous or undefined behavior due to a null value
 being used in a way forbidden by a @code{returns_nonnull} or @code{nonnull}
 attribute.  Isolate those paths from the main control flow and turn the
 statement with erroneous or undefined behavior into a trap.  This is not
@@ -8690,6 +8690,7 @@ Some assemblers only support this flag when @var{n} is a power of two;
 in that case, it is rounded up.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -8715,6 +8716,7 @@ are greater than this value, then their values are used instead.
 
 If @var{n} is not specified or is zero, use a machine-dependent default
 which is very likely to be @samp{1}, meaning no alignment.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -8728,6 +8730,7 @@ operations.
 
 @option{-fno-align-loops} and @option{-falign-loops=1} are
 equivalent and mean that loops are not aligned.
+The maximum allowed @var{n} option value is 65536.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
 
@@ -8745,6 +8748,7 @@ need be executed.
 equivalent and mean that loops are not aligned.
 
 If @var{n} is not specified or is zero, use a machine-dependent default.
+The maximum allowed @var{n} option value is 65536.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -22073,6 +22077,13 @@ On embedded PowerPC systems, put all initialized global and static data
 in the @code{.data} section, and all uninitialized data in the
 @code{.bss} section.
 
+@item -mreadonly-in-sdata
+@itemx -mreadonly-in-sdata
+@opindex mreadonly-in-sdata
+@opindex mno-readonly-in-sdata
+Put read-only objects in the @code{.sdata} section as well.  This is the
+default.
+
 @item -mblock-move-inline-limit=@var{num}
 @opindex mblock-move-inline-limit
 Inline all block moves (such as calls to @code{memcpy} or structure
@@ -25094,8 +25105,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mpclmul
 @opindex mpclmul
 @need 200
-@itemx -mclfushopt
-@opindex mclfushopt
+@itemx -mclflushopt
+@opindex mclflushopt
 @need 200
 @itemx -mfsgsbase
 @opindex mfsgsbase
