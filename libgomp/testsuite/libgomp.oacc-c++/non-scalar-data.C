@@ -69,15 +69,15 @@ reference_data (data &d, int &x)
     parallel_present (d, x);
   }
 
-  assert (d.v = x);
+  assert (d.v == x);
 
   x = 300;
   kernels_implicit (d, x);
-  assert (d.v = x);
+  assert (d.v == x);
 
   x = 400;
   parallel_implicit (d, x);
-  assert (d.v = x);
+  assert (d.v == x);
 }
 
 int
@@ -99,15 +99,15 @@ main ()
     parallel_present (d, x);
   }
 
-  assert (d.v = x);
+  assert (d.v == x);
 
   x = 300;
   kernels_implicit (d, x);
-  assert (d.v = x);
+  assert (d.v == x);
 
   x = 400;
   parallel_implicit (d, x);
-  assert (d.v = x);
+  assert (d.v == x);
 
   reference_data (d, x);
 
