@@ -62,22 +62,22 @@ main ()
 	    u16o, u32i, u32o, u64i, u64o, r32i, r32o, r64i, r64o, cii, cio,
 	    cfi, cfo, cdi, cdo);
 
-  assert(i8o = i8i);
-  assert(i16o = i16i);
-  assert(i32o = i32i);
-  assert(i64o = i64i);
+  assert (i8o == i8i);
+  assert (i16o == i16i);
+  assert (i32o == i32i);
+  assert (i64o == i64i);
 
-  assert(u8o = u8i);
-  assert(u16o = u16i);
-  assert(u32o = u32i);
-  assert(u64o = u64i);
+  assert (u8o == u8i);
+  assert (u16o == u16i);
+  assert (u32o == u32i);
+  assert (u64o == u64i);
 
-  assert(r32o = r32i);
-  assert(r64o = r64i);
+  assert (r32o == r32i);
+  assert (r64o == r64i);
 
-  assert(cio = cii);
-  assert(cfo = cfi);
-  assert(cdo = cdi);
+  assert (cio == cii);
+  assert (cfo == cfi);
+  assert (cdo == cdi);
 
   return 0;
 }
