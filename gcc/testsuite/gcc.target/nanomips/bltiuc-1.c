@@ -16,5 +16,4 @@ foo (long long j)
     abort ();
 }
 
-/* { dg-final { scan-assembler "\tbltiuc\t\\\$a\[0-9\]+,11,\\\$L" } } */
-
+/* { dg-final { scan-assembler "\tbltiuc\t\\\$a\[0-9\]+,11,\[\\\$.\]L" } } */
