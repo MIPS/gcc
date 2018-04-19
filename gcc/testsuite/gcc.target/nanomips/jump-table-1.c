@@ -1,4 +1,4 @@
-/* { dg-options "-march=32r6 -mcmodel=auto -mgpopt -fno-pic -ffat-lto-objects" } */
+/* { dg-options "-march=32r6 -mcmodel=auto -mgpopt -fno-pic -mpid -ffat-lto-objects" } */
 /* { dg-skip-if ".half requires -O" { *-*-* } { "-O0" "-Os" } { "" } } */
 int x0;
 
@@ -35,5 +35,5 @@ foo (int i)
 }
 
 /* { dg-final { scan-assembler "\tlw\t" } } */
-/* { dg-final { scan-assembler-times "\t\\.word\t\\\$L" 12 } } */
+/* { dg-final { scan-assembler-times "\t\\.word\t\[\\\$.\]L" 12 } } */
 /* { dg-final { scan-assembler-times "lw\t\\\$a0,%gprel\\(x\[0-9\]\{1,2\}\\)\\(\\\$gp\\)" 12 } } */

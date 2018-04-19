@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-additional-options "-falign-labels=8 -mjump-table-opt" } */
 /* { dg-skip-if "" { *-*-* } { "-O3" } { "" } } */
-/* { dg-final { scan-assembler-times "\tbrsc\t\\\$\[ast\]\[0-9\]\+\\n\\\$L" 2 } } */
+/* { dg-final { scan-assembler-times "\tbrsc\t\\\$\[ast\]\[0-9\]\+\\n\[\\\$.\]L" 2 } } */
 
 int __attribute__((noinline))
 jumptab (int a)
