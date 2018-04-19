@@ -28,4 +28,4 @@ bar (int i, int j, int k)
   return 0;
 }
 
-/* { dg-final { scan-assembler "\tbgeiuc\t\\\$a\[0-9\]+,\[4|8\],\\\$L" } } */
+/* { dg-final { scan-assembler "\tbgeiuc\t\\\$a\[0-9\]+,\[4|8\],\[\\\$.\]L" } } */
