@@ -5194,6 +5194,40 @@ nvptx_goacc_needs_vl_warp ()
   return attr != NULL_TREE;
 }
 
+/* Return true if FNDECL contains calls to vector-partitionable routines.  */
+
+static bool
+has_vector_partitionable_routine_calls_p (tree fndecl)
+{
+  if (!fndecl)
+    return false;
+
+  basic_block bb;
+  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (fndecl))
+    for (gimple_stmt_iterator i = gsi_start_bb (bb); !gsi_end_p (i);
+	 gsi_next_nondebug (&i))
+      {
+	gimple *stmt = gsi_stmt (i);
+	if (gimple_code (stmt) != GIMPLE_CALL)
+	  continue;
+
+	tree callee = gimple_call_fndecl (stmt);
+	if (!callee)
+	  continue;
+
+	tree attrs  = oacc_get_fn_attrib (callee);
+	if (attrs == NULL_TREE)
+	  return false;
+
+	int partition_level = oacc_fn_attrib_level (attrs);
+	bool seq_routine_p = partition_level == GOMP_DIM_MAX;
+	if (!seq_routine_p)
+	  return true;
+      }
+
+  return false;
+}
+
 /* Validate compute dimensions of an OpenACC offload or routine, fill
    in non-unity defaults.  FN_LEVEL indicates the level at which a
    routine might spawn a loop.  It is negative for non-routines.  If
@@ -5202,13 +5236,45 @@ nvptx_goacc_needs_vl_warp ()
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 {
-  int default_vector_length = PTX_VECTOR_LENGTH;
+  bool oacc_default_dims_p ATTRIBUTE_UNUSED = false;
+  bool oacc_min_dims_p ATTRIBUTE_UNUSED = false;
+  bool offload_region_p = false;
+  bool routine_p = false;
+  bool routine_seq_p = false;
 
+  if (decl == NULL_TREE)
+    {
+      if (fn_level == -1)
+	oacc_default_dims_p = true;
+      else if (fn_level == -2)
+	oacc_min_dims_p = true;
+      else
+	gcc_unreachable ();
+    }
+  else if (fn_level == -1)
+    offload_region_p = true;
+  else if (0 <= fn_level && fn_level <= GOMP_DIM_MAX)
+    {
+      routine_p = true;
+      if (fn_level == GOMP_DIM_MAX)
+	routine_seq_p = true;
+    }
+  else
+    gcc_unreachable ();
+
+  int default_vector_length = PTX_VECTOR_LENGTH;
   /* For capability reasons, fallback to vl = 32 for runtime values.  */
   if (dims[GOMP_DIM_VECTOR] == 0)
     default_vector_length = PTX_WARP_SIZE;
   else if (decl)
-    default_vector_length = oacc_get_default_dim (GOMP_DIM_VECTOR);
+    {
+      default_vector_length = oacc_get_default_dim (GOMP_DIM_VECTOR);
+      if ((offload_region_p
+	   || (routine_p && !routine_seq_p))
+	  && default_vector_length > PTX_WARP_SIZE
+	  && has_vector_partitionable_routine_calls_p (decl))
+	default_vector_length = PTX_WARP_SIZE;
+    }
 
   /* Detect if a function is unsuitable for offloading.  */
   if (!flag_offload_force && decl)
@@ -5234,12 +5300,24 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 
   bool changed = false;
 
+  if ((offload_region_p
+       || (routine_p && !routine_seq_p))
+      && dims[GOMP_DIM_VECTOR] > PTX_WARP_SIZE
+      && has_vector_partitionable_routine_calls_p (decl))
+    {
+	warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		    G_("using vector_length (%d) due to call to"
+		       " vector-partitionable routine, ignoring %d"),
+		    PTX_WARP_SIZE, dims[GOMP_DIM_VECTOR]);
+      dims[GOMP_DIM_VECTOR] = PTX_WARP_SIZE;
+      changed = true;
+    }
   /* The vector size must be a positive multiple of the warp size,
      unless this is a SEQ routine.  */
-  if (fn_level <= GOMP_DIM_VECTOR && fn_level >= -1
-      && dims[GOMP_DIM_VECTOR] >= 0
-      && (dims[GOMP_DIM_VECTOR] % 32 != 0
-	  || dims[GOMP_DIM_VECTOR] == 0))
+  else if (fn_level <= GOMP_DIM_VECTOR && fn_level >= -1
+	   && dims[GOMP_DIM_VECTOR] >= 0
+	   && (dims[GOMP_DIM_VECTOR] % 32 != 0
+	       || dims[GOMP_DIM_VECTOR] == 0))
     {
       if (fn_level < 0 && dims[GOMP_DIM_VECTOR] >= 0)
 	warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
