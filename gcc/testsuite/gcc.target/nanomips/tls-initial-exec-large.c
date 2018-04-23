@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fPIC -ftls-model=initial-exec" } */
+/* { dg-options "-m32 -march=32r6 -mcmodel=large -fPIC -ftls-model=initial-exec" } */
 /* { dg-skip-if "indexed load/store is not generated for -O0" { *-*-* } { "-O0" } { "" } } */
 
 /* { dg-final { scan-assembler-not "lapc\t\\\$gp,_gp" } } */

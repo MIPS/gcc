@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fpic -ftls-model=initial-exec" } */
+/* { dg-options "-m32 -march=32r6 -mcmodel=medium -fpic -ftls-model=initial-exec" } */
 /* { dg-skip-if "indexed load/store is not generated for -O0" { *-*-* } { "-O0" } { "" } } */
 
 /* Note that this test checks for the same thing as in the auto case. We need
