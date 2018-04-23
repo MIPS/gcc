@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fpic -ftls-model=local-exec" } */
+/* { dg-options "-m32 -march=32r6 -mcmodel=medium -fpic -ftls-model=local-exec" } */
 
 /* { dg-final { scan-assembler-times "rdhwr\t\\\$\[ast0-9\]+,\\\$29" 3 } } */
 

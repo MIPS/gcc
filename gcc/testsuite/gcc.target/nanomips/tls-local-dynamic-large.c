@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -fPIC -mtls-dialect=trad -ftls-model=local-dynamic" } */
+/* { dg-options "-m32 -march=32r6 -mcmodel=large -fPIC -mtls-dialect=trad -ftls-model=local-dynamic" } */
 /* { dg-skip-if "indexed load/store is not generated for -O0" { *-*-* } { "-O0" } { "" } } */
 
 /* { dg-final { scan-assembler-times "lapc\t\\\$gp,_gp" 3 } } */
