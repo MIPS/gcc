@@ -6656,6 +6656,9 @@ proc add_options_for_double_vectors { flags } {
 # Return 1 if the target provides a full C99 runtime.
 
 proc check_effective_target_c99_runtime { } {
+    if { [istarget nanomips*-linux-musl] } {
+	return 0
+    }
     return [check_cached_effective_target c99_runtime {
 	global srcdir
 
