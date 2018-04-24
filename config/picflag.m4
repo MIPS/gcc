@@ -48,8 +48,7 @@ case "${$2}" in
 	# PIC is the default.
 	;;
     nanomips*-*-linux*)
-	# FIXME: PIC not supported in the current version
-	PICFLAG=
+	# PIC is the default.
 	;;
     rs6000-ibm-aix* | powerpc-ibm-aix*)
 	# All AIX code is PIC.
