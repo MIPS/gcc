@@ -1,4 +1,5 @@
 /* { dg-options "-fnon-call-exceptions" } */
+/* { dg-additional-options "-mcheck-zero-division" { target { nanomips*-*-* } } } */
 /* With -fnon-call-exceptions 0 / 0 should not be eliminated.  */
 
 #ifdef SIGNAL_SUPPRESS
