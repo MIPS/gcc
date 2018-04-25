@@ -24,8 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config/vxworks-dummy.h"
 
-/* FIXME: We may well move these to the configure to avoid
-   defining/undefining macros.  */
 #define MIPS_SUPPORT_DSP 1
 #define MIPS_SUPPORT_PS_3D 1
 #define MIPS_SUPPORT_MSA 1
@@ -2704,7 +2702,6 @@ enum reg_class
    is required for O32 where only even numbered registers are used for
    O32-FPXX and O32-FP64.  */
 
-/* FIXME */
 #define FUNCTION_ARG_REGNO_P(N)					\
   ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
     || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST) 		\
@@ -3735,7 +3732,6 @@ struct GTY(())  machine_function {
 
 /* If we are *not* using multilibs and the default ABI is not ABI_32 we
    need to change these from /lib and /usr/lib.  */
-/* FIXME */
 #if MIPS_ABI_DEFAULT == ABI_N32
 #define STANDARD_STARTFILE_PREFIX_1 "/lib32/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib32/"
