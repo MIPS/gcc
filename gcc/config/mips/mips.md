@@ -3388,10 +3388,6 @@
 	(cond [(and (eq_attr "alternative" "3,4")
 		    (not (match_test "TARGET_NANOMIPS")))
 		  (const_string "no")
-	       ;; FIXME. We may need to revise this later.
-	       ;; This fails when generating low part with HImode being
-	       ;; rejected in mips_symbol_insns for -mno-gpopt for
-	       ;; reg=[symbol:SI]&0xffff
 	       (and (eq_attr "alternative" "0,1")
 		    (match_test "TARGET_NANOMIPS"))
 		  (const_string "no")]
@@ -4921,7 +4917,6 @@
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
-;; @tmt what mode should this be ?
 (define_insn "*load_got_pcrel32_pic_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(match_operand:P 1 "got_pcrel32_nano_operand"))]
@@ -4984,8 +4979,6 @@
 }
   [(set_attr "insn_count" "2")])
 
-;; @tmt Keep using ADDIU instead of ORI here until we can make the ADDU in
-;; the pattern above be the last instruction in the sequence.
 (define_insn "*gprel_low_nanosi"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "d")

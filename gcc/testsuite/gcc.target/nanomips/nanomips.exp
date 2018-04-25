@@ -826,10 +826,6 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mfp64" "-mhard-float"
     mips_option_dependency options "-mfp64" "-mdouble-float"
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
-    # @tmt -fpic will not imply -mshared for nanoMIPS
-    # FIXME: Add dependencies for new command line options.
-    # mips_option_dependency options "-fpic" "-mshared"
-    # mips_option_dependency options "-mshared" "-mno-plt"
     mips_option_dependency options "-mno-plt" "addressing=unknown"
     mips_option_dependency options "-mpid" "-mgpopt"
 
