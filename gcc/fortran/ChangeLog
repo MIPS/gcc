@@ -1,3 +1,49 @@
+2018-04-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85520
+	* decl.c (gfc_match_char_spec): Check for negative length and set to 0.
+
+2018-03-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/85084
+	Backport from trunk.
+	* frontend-passes.c (gfc_run_passes): Do not run front-end
+	optimizations if a previous error occurred.
+
+2018-03-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85001
+	* interface.c (symbol_rank): Remove bogus null pointer check that
+	crept in when translating a ternary operator into an if-else
+	constructor.
+
+2018-03-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/84931
+	Backport from trunk
+	* simplify.c (gfc_convert_constant): Correctly handle iterators
+	for type conversion.
+
+2018-03-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77414
+	* decl.c (get_proc_name):  Check for a subroutine re-defined in
+	the contain portion of a subroutine.  Change language of existing
+	error message to better describe the issue. While here fix whitespace
+	issues.
+
+2018-03-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/65453
+	* decl.c (get_proc_name): Catch clash between a procedure statement
+	and a contained subprogram
+
+2018-03-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78741
+	* decl.c (get_proc_name):  Check for clash of entry name with
+	subroutine name.
+
 2018-03-12  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/83939

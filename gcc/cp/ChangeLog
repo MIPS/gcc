@@ -1,3 +1,143 @@
+2018-04-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0969
+	* decl.c (find_decomp_class_base): Check accessibility instead
+	of declared access, adjust diagnostic.
+
+2018-04-23  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/85470 - wrong error with static data member.
+	* decl.c (check_initializer): Check DECL_INITIALIZED_IN_CLASS_P.
+	* typeck2.c (store_init_value): Likewise.
+
+2018-04-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0961
+	* decl.c (get_tuple_decomp_init): Check the templatedness
+	of a member get.
+
+2018-04-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/85464 - missing location for -Wignored-qualifiers diagnostic
+	* decl.c (grokdeclarator): If declspecs->locations[ds_type_spec]
+	is UNKNOWN_LOCATION fall back to input_location.
+
+2018-04-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85279 - dump_expr doesn't understand decltype.
+	* error.c (dump_expr): Handle DECLTYPE_TYPE.
+
+2018-04-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/82152 - ICE with class deduction and inherited ctor.
+	* pt.c (do_class_deduction): Ignore inherited ctors.
+
+	PR c++/84665 - ICE with array of empty class.
+	* decl2.c (cp_check_const_attributes): Use fold_non_dependent_expr.
+
+	PR c++/85006 - -fconcepts ICE with A<auto...> return type
+	* pt.c (tsubst_pack_expansion): Allow unsubstituted auto pack.
+
+2018-04-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85118 - wrong error with generic lambda and std::bind.
+	* call.c (add_template_conv_candidate): Disable if there are any
+	call operators.
+
+	PR c++/85148 - ICE with 'this' in array NSDMI.
+	* tree.c (replace_placeholders_r): Use handled_component_p.
+
+2018-04-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85113 - ICE with constexpr and __builtin_constant_p.
+	* constexpr.c (cxx_eval_builtin_function_call): Only defer
+	__builtin_constant_p if ctx->quiet.
+
+	* typeck.c (merge_types): Limit matching attribute shortcut to
+	the default case.
+
+	PR c++/64095 - auto... parameter pack.
+	* parser.c (cp_parser_parameter_declaration): Handle turning autos
+	into packs here.
+	(cp_parser_parameter_declaration_list): Not here.
+
+	PR c++/85060 - wrong-code with call to base member in template.
+	* search.c (any_dependent_bases_p): Check uses_template_parms
+	rather than processing_template_decl.
+
+2018-03-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-03-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0962
+	* parser.c (cp_parser_perform_range_for_lookup): Change
+	the condition for deciding whether to use members.
+
+2018-03-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78489 - Substitution in wrong order
+	PR c++/84489
+	* pt.c (type_unification_real): Revert last two changes.
+
+	PR c++/71834 - template-id with too few arguments.
+	* pt.c (coerce_template_parms): Make sure we gave an error.
+
+	PR c++/84937 - ICE with class deduction and auto.
+	* pt.c (rewrite_template_parm): Fix auto handling.
+
+	PR c++/80227 - SFINAE and negative array size.
+	* decl.c (compute_array_index_type): Convert to signed for negative
+	check.
+
+	PR c++/84839 - ICE with decltype of parameter pack.
+	* pt.c (tsubst_pack_expansion): Set cp_unevaluated_operand while
+	instantiating dummy parms.
+
+	PR c++/84798 - ICE with auto in abstract function declarator.
+	* parser.c (cp_parser_parameter_declaration_clause): Check
+	parser->default_arg_ok_p.
+
+	PR c++/84355 - ICE with deduction for member class template.
+	* pt.c (tsubst) [TEMPLATE_TYPE_PARM]: Always substitute into
+	CLASS_PLACEHOLDER_TEMPLATE.
+
+2018-03-23  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/82336 - link error with list-init default argument.
+	* decl.c (check_default_argument): Unshare an initializer list.
+
+2018-03-22  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2018-03-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/84854
+	* semantics.c (finish_if_stmt_cond): Check if the type of the condition
+	is boolean.
+
+	2018-03-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/84927
+	* constexpr.c (cxx_eval_bare_aggregate): Update constructor's flags
+	as we evaluate the elements.
+	(cxx_eval_constant_expression): Verify constructor's flags
+	unconditionally.
+
+	2018-03-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71638, ICE with NSDMI and reference.
+	* constexpr.c (cxx_eval_bare_aggregate): Update constructor's flags
+	even when we replace an element.
+
 2018-03-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/84785 - ICE with alias template and default targs.

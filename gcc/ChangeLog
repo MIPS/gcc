@@ -1,3 +1,356 @@
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-04-17  Martin Liska  <mliska@suse.cz>
+
+	PR lto/85405
+	* ipa-devirt.c (odr_types_equivalent_p): Remove trailing
+	in message, remote space in between '_G' and '('.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-04-17  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/85405
+	* ipa-devirt.c (odr_types_equivalent_p): Handle bit fields.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-28  Jakub Jelinek  <jakub@redhat.com>
+		    Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/85081
+	* gimplify.c (asan_poison_variable): Don't do the check for
+	gimplify_omp_ctxp here.
+	(gimplify_decl_expr): Do it here.
+	(gimplify_target_expr): Likewise.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-21  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/84963
+	* ipa-icf.c (sem_item_optimizer::fixup_points_to_sets): Remove
+	not intended return statement.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-13  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/84658.
+	* (sem_item_optimizer::sem_item_optimizer): Initialize new
+	vector.
+	(sem_item_optimizer::~sem_item_optimizer): Release it.
+	(sem_item_optimizer::merge_classes): Register variable aliases.
+	(sem_item_optimizer::fixup_pt_set): New function.
+	(sem_item_optimizer::fixup_points_to_sets): Likewise.
+	* ipa-icf.h: Declare new variables and functions.
+
+2018-04-23  Aaron Sawdey  <acsawdey@linux.ibm.com>
+
+	Backport from mainline
+	2018-04-16  Aaron Sawdey  <acsawdey@linux.ibm.com>
+
+	PR target/83660
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Mark
+	vec_extract expression as having side effects to make sure it gets
+	a cleanup point.
+
+2018-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/85496
+	* expr.c (store_field): In the bitfield case, if the value comes from
+	a function call and is returned in registers by means of a PARALLEL,
+	do not change the mode of the temporary unless BLKmode and VOIDmode.
+
+2018-04-20  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-03-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83969
+	* config/rs6000/rs6000.c (rs6000_offsettable_memref_p): New prototype.
+	Add strict argument and use it.
+	(rs6000_split_multireg_move): Update for new strict argument.
+	(mem_operand_gpr): Disallow all non-offsettable addresses.
+	* config/rs6000/rs6000.md (*movdi_internal64): Use YZ constraint.
+
+2018-04-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2018-04-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/85261
+	* config/arm/arm-builtins.c (arm_expand_builtin): Force input operand
+	into register.
+
+2018-04-12  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2018-04-12  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_output_indirect_thunk_function): Check
+	also for flag_dwarf2_cfi_asm.
+
+2018-04-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (stack_probe_internal): Rename
+	from "probe_stack".  Update all callers.
+
+2018-04-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2018-04-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/85203
+	* config/arm/arm-builtins.c (arm_expand_builtin): Change
+	expansion to perform a bitwise AND of the argument followed by a
+	boolean negation of the result.
+
+2018-04-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2018-03-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/84748
+	* config/aarch64/aarch64.md (*compare_cstore<mode>_insn): Mark pattern
+	as clobbering CC_REGNUM.
+
+2018-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/85196
+	* config/sparc/sparc.c (sparc_expand_move): Deal with symbolic operands
+	based on LABEL_REF.  Remove useless assertion.
+	(pic_address_needs_scratch): Fix formatting.
+	(sparc_legitimize_pic_address): Minor tweaks.
+	(sparc_delegitimize_address): Adjust assertion accordingly.
+	* config/sparc/sparc.md (movsi_pic_label_ref): Change label_ref_operand
+	into symbolic_operand.
+	(movsi_high_pic_label_ref): Likewise.
+	(movsi_lo_sum_pic_label_ref): Likewise.
+	(movdi_pic_label_ref): Likewise.
+	(movdi_high_pic_label_ref): Likewise.
+	(movdi_lo_sum_pic_label_ref): Likewise.
+
+2018-04-06  Amaan Cheval  <amaan.cheval@gmail.com>
+
+	* config.gcc (x86_64-*-rtems*): Add rtems.h to tm_file for
+	custom LIB_SPEC setup.
+
+2018-04-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/85193
+	* config/i386/i386.md (define_attr "memory"): Handle rotate1 type.
+
+2018-04-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-04-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR rtl-optimization/84878
+	* ddg.c (add_cross_iteration_register_deps): Use DF_REF_BB to determine
+	the basic block.  Assert the use reference is not artificial and that
+	it has an associated insn.
+
+2018-04-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (emit_i387_cw_initialization): Always use logic
+	instructions when changing rounding bits to preserve precision bits
+	in the x87 control word.
+
+2018-04-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline
+	2018-03-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR target/85056
+	* config/nvptx/nvptx.c (nvptx_assemble_decl_begin): Add '[]' to
+	extern array declarations.
+
+2018-04-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-03-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/84912
+	* config/rs6000/rs6000.h: Update copyright date.
+	(RS6000_BTM_POWERPC64): New define.
+	(RS6000_BTM_COMMON): Add RS6000_BTM_POWERPC64.
+	* config/rs6000/rs6000.c: Update copyright date.
+	(rs6000_builtin_mask_calculate): Add support for RS6000_BTM_POWERPC64.
+	(rs6000_invalid_builtin): Add handling for RS6000_BTM_POWERPC64
+	(rs6000_builtin_mask_names): Add RS6000_BTM_POWERPC64.
+	* config/rs6000/rs6000-builtin.def: Update copyright date.
+	(BU_P7_POWERPC64_MISC_2): New macro definition.
+	(DIVDE): Use it.
+	(DIVDEU): Likewise.
+
+	Backport from mainline
+	2018-03-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/84912
+	* config/rs6000/rs6000-builtin.def (DIVWEO): Delete macro expansion.
+	(DIVWEUO): Likewise.
+	(DIVDEO): Likewise.
+	(DIVDEUO): Likewise.
+	* config/rs6000/rs6000.c (builtin_function_type): Remove support for
+	DIVWEUO and DIVDEUO.
+	* config/rs6000/rs6000.md: Update copyright date.
+	(UNSPEC_DIVEO, UNSPEC_DIVEUO): Delete unspecs.
+	(UNSPEC_DIV_EXTEND): Remove deleted unspecs.
+	(div_extend): Likewise.
+	* doc/extend.texi: Update copyright date.
+	(__builtin_divweo): Remove documentation for deleted builtin function.
+	(__builtin_divweuo): Likewise.
+	(__builtin_divdeo): Likewise.
+	(__builtin_divdeuo): Likewise.
+
+2018-04-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-03-30  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/80546
+	* config/rs6000/vsx.md (??r): New mode attribute.
+	(*vsx_mov<mode>_64bit): Use it.
+	(*vsx_mov<mode>_32bit): Likewise.
+
+2018-03-29  Sebastian Peryt  <sebastian.peryt@intel.com>
+
+	PR c++/84783
+	* config/i386/avx512vlintrin.h (_mm256_permutexvar_epi64)
+	(_mm256_permutexvar_epi32, _mm256_permutex_epi64): New intrinsics.
+
+2018-03-29  Sudakshina Das  <sudi.das@arm.com>
+
+	Backport from mainline
+	2018-03-22  Sudakshina Das  <sudi.das@arm.com>
+
+	PR target/84826
+	* config/arm/arm.h (machine_function): Add static_chain_stack_bytes.
+	* config/arm/arm.c (arm_compute_static_chain_stack_bytes): Avoid
+	re-computing once computed.
+	(arm_expand_prologue): Compute machine->static_chain_stack_bytes.
+	(arm_init_machine_status): Initialize
+	machine->static_chain_stack_bytes.
+
+2018-03-28  Sudakshina Das  <sudi.das@arm.com>
+
+	2018-03-19  Sudakshina Das  <sudi.das@arm.com>
+	PR target/81647
+
+	* config/aarch64/aarch64-simd.md (vec_cmp<mode><v_cmp_result>): Modify
+	instructions for UNLT, UNLE, UNGT, UNGE, UNEQ, UNORDERED and ORDERED.
+
+2018-03-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2018-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/85026
+	* config/arm/arm.md (unaligned_loadhis): Remove first alternative.
+	Clean up attributes.
+
+2018-03-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2018-03-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/82411
+	* config/rs6000/rs6000.c (rs6000_elf_in_small_data_p): Don't put
+	readonly data in sdata, if that is disabled.
+	* config/rs6000/sysv4.opt (mreadonly-in-sdata): New option.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mreadonly-in-sdata option.
+
+2018-03-27  Sudakshina Das  <sudi.das@arm.com>
+
+	Backport from mainline:
+	2018-03-20  Sudakshina Das  <sudi.das@arm.com>
+
+	PR target/82989
+	* config/arm/neon.md (ashldi3_neon): Update ?s for constraints
+	to favor GPR over NEON registers.
+	(<shift>di3_neon): Likewise.
+
+2018-03-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2018-03-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/82518
+	* config/arm/arm.c (arm_array_mode_supported_p): Return false for
+	BYTES_BIG_ENDIAN.
+
+2018-03-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-03-20  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83789
+	* config/rs6000/altivec.md (altivec_lvx_<mode>_2op): Delete define_insn.
+	(altivec_lvx_<mode>_1op): Likewise.
+	(altivec_stvx_<mode>_2op): Likewise.
+	(altivec_stvx_<mode>_1op): Likewise.
+	(altivec_lvx_<VM2:mode>): New define_expand.
+	(altivec_stvx_<VM2:mode>): Likewise.
+	(altivec_lvx_<VM2:mode>_2op_<P:mptrsize>): New define_insn.
+	(altivec_lvx_<VM2:mode>_1op_<P:mptrsize>): Likewise.
+	(altivec_stvx_<VM2:mode>_2op_<P:mptrsize>): Likewise.
+	(altivec_stvx_<VM2:mode>_1op_<P:mptrsize>): Likewise.
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): Likewise.
+	(altivec_expand_stv_builtin): Likewise.
+	(altivec_expand_builtin): Likewise.
+	* config/rs6000/vector.md: Likewise.
+
+2018-03-23  Carl Love  <cel@us.ibm.com>
+
+	Backport from mainline:
+	2018-03-14  Carl Love  <cel@us.ibm.com>
+
+	* config/rs6000/r6000.c (rtx_is_swappable_p): Add case UNSPEC_VPERMXOR.
+
+2018-03-22  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-03-22  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/84956
+	* tree-ssa-tail-merge.c (find_clusters_1): Skip bbs with
+	bb_has_abnormal_pred.
+
+2018-03-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-03-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/84574
+	* config/i386/i386.c (indirect_thunk_needed): Update comments.
+	(indirect_thunk_bnd_needed): Likewise.
+	(indirect_thunks_used): Likewise.
+	(indirect_thunks_bnd_used): Likewise.
+	(indirect_return_needed): New.
+	(indirect_return_bnd_needed): Likewise.
+	(output_indirect_thunk_function): Add a bool argument for
+	function return.
+	(output_indirect_thunk_function): Don't generate alias for
+	function return thunk.
+	(ix86_code_end): Call output_indirect_thunk_function to generate
+	function return thunks.
+	(ix86_output_function_return): Set indirect_return_bnd_needed
+	and indirect_return_needed instead of indirect_thunk_bnd_needed
+	and indirect_thunk_needed.
+
+2018-03-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/83451
+	* config/pa/pa.c (pa_emit_move_sequence):  Always emit secondary reload
+	insn for floating-point loads and stores.
+
 2018-03-12  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/invoke.texi (-mclflushopt): Fix spelling of option.
