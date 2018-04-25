@@ -1,3 +1,24 @@
+2018-03-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-03-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0962
+	* parser.c (cp_parser_perform_range_for_lookup): Change
+	the condition for deciding whether to use members.
+
+2018-03-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78489 - Substitution in wrong order
+	PR c++/84489
+	* pt.c (type_unification_real): Revert last two changes.
+
+2018-03-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/84785 - ICE with alias template and default targs.
+	* pt.c (type_unification_real): Set processing_template_decl if
+	saw_undeduced == 1.
+
 2018-03-03  Jason Merrill  <jason@redhat.com>
 
 	PR c++/84686 - missing volatile loads.

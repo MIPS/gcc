@@ -1171,6 +1171,12 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	gfc_error_now ("Procedure %qs at %C is already defined at %L",
 		       name, &sym->declared_at);
 
+      if (sym->attr.external && sym->attr.procedure
+	  && gfc_current_state () == COMP_CONTAINS)
+	gfc_error_now ("Contained procedure %qs at %C clashes with "
+			"procedure defined at %L",
+		       name, &sym->declared_at);
+
       /* Trap a procedure with a name the same as interface in the
 	 encompassing scope.  */
       if (sym->attr.generic != 0
@@ -3007,7 +3013,28 @@ done:
   if (seen_length == 0)
     cl->length = gfc_get_int_expr (gfc_default_integer_kind, NULL, 1);
   else
-    cl->length = len;
+    {
+      /* If gfortran ends up here, then the len may be reducible to a
+	 constant.  Try to do that here.  If it does not reduce, simply
+	 assign len to the charlen.  */
+      if (len && len->expr_type != EXPR_CONSTANT)
+	{
+	  gfc_expr *e;
+	  e = gfc_copy_expr (len);
+	  gfc_reduce_init_expr (e);
+	  if (e->expr_type == EXPR_CONSTANT)
+	    {
+	      gfc_replace_expr (len, e);
+	      if (mpz_cmp_si (len->value.integer, 0) < 0)
+		mpz_set_ui (len->value.integer, 0);
+	    }
+	  else
+	    gfc_free_expr (e);
+	  cl->length = len;
+	}
+      else
+	cl->length = len;
+    }
 
   ts->u.cl = cl;
   ts->kind = kind == 0 ? gfc_default_character_kind : kind;

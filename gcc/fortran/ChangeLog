@@ -1,3 +1,53 @@
+2018-04-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85520
+	* decl.c (gfc_match_char_spec): Check for negative length and set to 0.
+
+2018-03-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/85084
+	Backport from trunk.
+	* frontend-passes.c (gfc_run_passes): Do not run front-end
+	optimizations if a previous error occurred.
+
+2018-03-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	ChangeLog entry for r258698
+	PR fortran/85001
+	* interface.c (symbol_rank): Remove bogus null pointer check that
+	crept in when translating a ternary operator into an if-else
+	constructor.
+
+2018-03-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/84931
+	Backport from trunk
+	* simplify.c (gfc_convert_constant): Correctly handle iterators
+	for type conversion.
+
+2018-03-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/65453
+	* decl.c (get_proc_name): Catch clash between a procedure statement
+	and a contained subprogram
+
+2018-03-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/83939
+	* resolve.c (resolve_fl_procedure): Enforce F2018:C15100.
+
+2018-03-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/84734
+	* arith.c (check_result, eval_intrinsic):  If result overflows, pass
+	the expression up the chain instead of a NULL pointer.
+
+2018-03-08 Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/64124
+	PR fortran/70409
+	* decl.c (gfc_match_char_spec): Try to reduce a charlen to a constant.
+
 2018-03-06  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/56667
