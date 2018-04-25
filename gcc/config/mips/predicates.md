@@ -694,8 +694,7 @@
 })
 
 ;; Rejecting UNSPEC prevents re-matching the %gprel_hi after we've wrapped it
-;; in a (CONST (UNSPEC.
-;; FIXME: Find an alternative to mips_unspec_address_p.
+;; in a (CONST (UNSPEC)).
 (define_predicate "gprel_hi_split_nano_operand"
   (match_code "const,symbol_ref,label_ref")
 {
