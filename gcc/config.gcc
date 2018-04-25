@@ -2062,6 +2062,7 @@ nanomips*-*-linux*)
 	with_nanomips="yes"
 	gnu_ld=no
 	gas=yes
+	common_out_file="$cpu_type/nanomips-linux-common.c"
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mclib=*"
 	;;
 mips*-img-linux*)
