@@ -3110,7 +3110,8 @@ mips_get_nano_pic_model (const_rtx x)
       if (SYMBOL_REF_AUTO_PIC_P (symbol))
 	return NANO_PIC_AUTO;
 
-      if (nano_pic_model_var == NANO_PIC_AUTO
+      if ((nano_pic_model_var == NANO_PIC_AUTO
+	   || nano_pic_model_var == NANO_PIC_NONE)
 	  && !(SYMBOL_REF_MEDIUM_PIC_P (symbol)
 	       || SYMBOL_REF_LARGE_PIC_P (symbol)))
 	return NANO_PIC_AUTO;
