@@ -2,4 +2,4 @@
 host=review.linaro.org
 port=29418
 project=toolchain/gcc
-defaultbranch=linaro/gcc-5-branch
+defaultbranch=linaro-local/gcc-5-integration-branch
