@@ -4579,6 +4579,14 @@ easier to pack regions.
 These function attributes are supported by the nanoMIPS back end:
 
 @table @code
+@item cmodel ("@var{model}")
+@cindex @code{cmodel} function attribute, nanoMIPS
+Use this attribute to indicate what code should be generated for a particular
+code and data model for this function.  The behavior and permissible arguments
+are the same as for the command line option @option{-mcmodel=}.
+@end table
+
+@table @code
 @item interrupt
 @cindex @code{interrupt} function attribute, nanoMIPS
 Use this attribute to indicate that the specified function is an interrupt
@@ -14495,10 +14503,8 @@ builtin is exact.
 
 @node nanoMIPS Built-in Functions
 @subsection nanoMIPS Built-in Functions
-*FIXME*
-nanoMIPS supports DSP Rev 3 onwards. For description of the built-ins,
 
-The following built-in functions map directly to a particular MIPS DSP
+The following built-in functions map directly to a particular nanoMIPS
 instruction.  Please refer to the architecture specification
 for details on what each instruction does.
 
@@ -14517,13 +14523,11 @@ ui32 __builtin_mips_byterevh (ui32)
 ui32 __builtin_mips_byterevw (ui32)
 @end smallexample
 
-@pxref{nanoMIPS Built-in Functions}.
-
 @node nanoMIPS DSP Built-in Functions
 @subsection nanoMIPS DSP Built-in Functions
-*FIXME*
 nanoMIPS supports DSP Rev 3 onwards. For description of the built-ins,
-@pxref{nanoMIPS DSP Built-in Functions}.
+Please refer to MIPS DSP and MIPS DSP Rev 2 sections in
+@pxref{MIPS DSP Built-in Functions}.
 
 @node NDS32 Built-in Functions
 @subsection NDS32 Built-in Functions
