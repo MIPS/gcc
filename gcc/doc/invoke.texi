@@ -915,7 +915,12 @@ Objective-C and Objective-C++ Dialects}.
 @emph{nanoMIPS Options}
 @gccoptlist{-EL -EB -march=@var{arch} -mtune=@var{arch} @gol
 -m32 -m64 @gol
--mshared -mno-shared @gol
+-mcmodel=auto -mcmodel=medium -mcmodel=large @gol
+-mbalc-stubs -mno-balcstubs @gol
+-mpcrel -mno-pcrel @gol
+-mpid -mno-pid @gol
+-mrelax -mno-relax @gol
+-mtls-dialect=trad -mtls-dialect=desc @gol
 -mgp32 -mgp64 -mhard-float -msoft-float @gol
 -msingle-float -mdouble-float @gol
 -mdspr3 -mno-dspr3 @gol
@@ -936,6 +941,9 @@ Objective-C and Objective-C++ Dialects}.
 -mmemcpy -mno-memcpy -mlong-calls -mno-long-calls @gol
 -mimadd -mno-imadd @gol
 -mflush-func=@var{func} -mno-flush-func @gol
+-mopt-movebalc -mno-opt-movebalc @gol
+-mjump-table-opt -mno-jump-table-opt @gol
+-mshrink-offsets -mno-shrink-offsets @gol
 -mbranch-cost=@var{num}}
 
 @emph{NDS32 Options}
@@ -19339,17 +19347,75 @@ particular member of that family.
 @itemx -m64
 @opindex m32
 @opindex m64
-Generate code for the given ABI, either 32-bit or 64-bit variant@.
+Generate code for the given ABI, either 32-bit or 64-bit variant.
 
-@item -mshared
-@itemx -mno-shared
-*FIXME*
-Generate (do not generate) code that is fully position-independent,
-and that can therefore be linked into shared libraries.
+@item -mcmodel=auto
+@opindex mcmodel=auto
+Generate the most compressed code possible by relying on the linker to expand
+or relax code appropriately, depending on a given symbol's visibility at
+link-time.
 
-@option{-mno-shared} *FIXME*.
+@item -mcmodel=medium
+@opindex mcmodel=medium
+Generate code which is appropriate for average-sized applications without
+relying on linker relaxations or expansions.  The GP area can not exceed 2MiB
+and direct calls have a maximum range of 32 MiB.
 
-@option{-mshared} *FIXME*.
+@item -mcmodel=large
+@opindex mcmodel=large
+Generates code which is appropriate for large applications without relying on
+linker relaxations or expansions.  There are no inherent size limits when
+using this model.
+
+@item -mbalc-stubs
+@itemx -mno-balc-stubs
+@opindex mbalc-stubs
+@opindex mno-balc-stubs
+Enable (disable) the assembler's out-of-range call optimization through
+trampoline stubs.
+
+The default option is @option{-mbalc-stubs} for @option{-Os} optimization
+level and @option{-mno-balc-stubs} for any other optimization level.
+
+@item -mpcrel
+@itemx -mno-pcrel
+@opindex mpcrel
+@opindex mno-pcrel
+@option{-mpcrel} forces PC-relative addressing for non-pre-emptible symbols.
+This also effectively disables absolute addressing.
+@option{-mno-pcrel} avoids PC-relative addressing for non-pre-emptible
+symbols where alternative sequences are not larger or slower.
+
+The default option is @option{-mpcrel}.
+
+@item -mpid
+@itemx -mno-pid
+@opindex mpid
+@opindex mno-pid
+Enforce (do not enforce) position-independent data by requiring GP-relative
+addressing for all non-pre-emptible data symbols.
+
+The default is @option{mno-pid}.
+
+@item -mrelax
+@itemx -mno-relax
+@opindex mrelax
+@opindex mno-relax
+Enable (disable) linker relaxations and expansions for the compilation unit.
+The compiler emits (does not emit) a @code{.linkrelax} directive to
+the assembly file that causes an ELF header flag to be set in the object.
+
+The default option is to emit the @code{.linkrelax} directive.
+
+@item -mtls-dialect=trad
+@opindex mtls-dialect=trad
+Use traditional TLS as the thread-local storage mechanism for dynamic accesses
+of TLS variables.  This is the default.
+
+@item -mtls-dialect=desc
+@opindex mtls-dialect=desc
+Use TLS descriptors as the thread-local storage mechanism for dynamic accesses
+of TLS variables.
 
 @item -mgp32
 @opindex mgp32
@@ -19576,7 +19642,6 @@ most constant-sized copies.
 @itemx -mno-long-calls
 @opindex mlong-calls
 @opindex mno-long-calls
-*FIXME*
 Disable (do not disable) use of the @code{jalrc} instruction.  Calling
 functions using @code{jalrc} is more efficient but requires the caller
 and callee to be in the same 256 megabyte segment.
@@ -19601,6 +19666,30 @@ memory range for which the cache is being flushed, the size of the
 memory range, and the number 3 (to flush both caches).  The default
 depends on the target GCC was configured for, but commonly is either
 @code{_flush_func} or @code{__cpu_flush}.
+
+@item -mopt-movebalc
+@itemx -mno-opt-movebalc
+@opindex mopt-movebalc
+@opindex mno-opt-movebalc
+Enable (disable) combining @code{move} and @code{balc} instructions, if
+possible, into @code{move.balc}.  The default is @option{-mopt-movebalc}.
+
+@item -mjump-table-opt
+@itemx -mno-jump-table-opt
+@opindex mjump-table-opt
+@opindex mno-jump-table-opt
+The switch enables jump-tables that contain relative addresses.
+The default is @option{-mno-jump-table-opt}.
+
+@item -mshrink-offsets
+@itemx -mno-shrink-offsets
+@opindex mshrink-offsets
+@opindex mno-shrink-offsets
+Enable (disable) an optimisation to reduce offsets used directly in
+memory references for nanoMIPS code to make more use of 16-bit instructions
+for loads and stores.  This is at the expense of one additional setup
+instruction to adjust the base pointer for several memory references.
+This optimisation is enabled by default with @option{-Os}.
 
 @item mbranch-cost=@var{num}
 @opindex mbranch-cost
