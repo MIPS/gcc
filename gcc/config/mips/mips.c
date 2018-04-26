@@ -3910,7 +3910,7 @@ mips_valid_lo_sum_offset_p (rtx reg, rtx offset, machine_mode mode)
 
       And the alignment of the symbol is less than the offset. */
 
-   if (REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM
+   if ((REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
        || GET_CODE (offset) != CONST
        || GET_CODE (XEXP (offset, 0)) != PLUS)
      return true;
