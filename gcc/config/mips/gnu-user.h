@@ -117,7 +117,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef LIB_SPEC
 #define LIB_SPEC GNU_USER_TARGET_LIB_SPEC
 
-#ifdef HAVE_AS_NO_SHARED
+#if defined(HAVE_AS_NO_SHARED) && !defined(NANOMIPS_SUPPORT)
 /* Default to -mno-shared for non-PIC.  */
 # define NO_SHARED_SPECS \
   " %{mshared|mno-shared:;:%{" NO_FPIE_AND_FPIC_SPEC ":-mno-shared}}"

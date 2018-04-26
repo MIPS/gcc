@@ -378,7 +378,7 @@ Target Report Mask(RELAX_PIC_CALLS) Condition(MIPS_SUPPORT_LEGACY)
 Try to allow the linker to turn PIC calls into direct calls.
 
 mshared
-Target Report Var(TARGET_SHARED) Init(1)
+Target Report Var(TARGET_SHARED) Init(1) Condition(MIPS_SUPPORT_LEGACY)
 When generating -mabicalls code, make the code suitable for use in shared libraries.
 
 msingle-float
