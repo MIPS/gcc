@@ -1,5 +1,12 @@
 2018-04-30  Tom de Vries  <tom@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims-compile.c: New test,
+	factored out of ...
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims.c (main): ... here.
+	Limit num_workers to avoid insufficient-resources-to-launch fatal error.
+
+2018-04-30  Tom de Vries  <tom@codesourcery.com>
+
 	* plugin/plugin-nvptx.c (nvptx_exec): Fix
 	insufficient-resources-to-launch fatal error condition and message.
 

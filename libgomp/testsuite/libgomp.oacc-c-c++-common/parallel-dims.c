@@ -273,42 +273,11 @@ int main ()
 
   /* GR, WP, VS.  */
   {
-    /* We try with an outrageously large value. */
-#define WORKERS 2 << 20
-    int workers_actual = WORKERS;
-    int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
-    gangs_min = workers_min = vectors_min = INT_MAX;
-    gangs_max = workers_max = vectors_max = INT_MIN;
-#pragma acc parallel copy (workers_actual) /* { dg-warning "using num_workers \\(32\\), ignoring 2097152" "" { target openacc_nvidia_accel_selected } } */ \
-  num_workers (WORKERS)
-    {
-      if (acc_on_device (acc_device_host))
-	{
-	  /* We're actually executing with num_workers (1).  */
-	  workers_actual = 1;
-	}
-      else if (acc_on_device (acc_device_nvidia))
-	{
-	  /* The GCC nvptx back end enforces num_workers (32).  */
-	  workers_actual = 32;
-	}
-      else
-	__builtin_abort ();
-#pragma acc loop worker reduction (min: gangs_min, workers_min, vectors_min) reduction (max: gangs_max, workers_max, vectors_max)
-      for (int i = 100 * workers_actual; i > -100 * workers_actual; --i)
-	{
-	  gangs_min = gangs_max = acc_gang ();
-	  workers_min = workers_max = acc_worker ();
-	  vectors_min = vectors_max = acc_vector ();
-	}
-    }
-    if (workers_actual < 1)
-      __builtin_abort ();
-    if (gangs_min != 0 || gangs_max != 0
-	|| workers_min != 0 || workers_max != workers_actual - 1
-	|| vectors_min != 0 || vectors_max != 0)
-      __builtin_abort ();
-#undef WORKERS
+    /* Factored out to parallel-dims-compile.c.  The maximum num_workers for
+       Titan V for this kernel is 28, so using 32 at runtime will make the
+       execution fail.  OTOH, we want to test the "using num_workers (32),
+       ignoring <n>" warning, which means defaulting to 32 workers.  So, we skip
+       execution for this region.  */
   }
 
   /* GR, WP, VS.  */
@@ -320,7 +289,8 @@ int main ()
        "num_workers (workers)", which will run into "libgomp: cuLaunchKernel
        error: invalid argument".  So, limit ourselves here.  */
     if (acc_get_device_type () == acc_device_nvidia)
-      workers = 32;
+      // Limit to 28 for Titan V.
+      workers = 28;
     int workers_actual = workers;
     int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
     gangs_min = workers_min = vectors_min = INT_MAX;
