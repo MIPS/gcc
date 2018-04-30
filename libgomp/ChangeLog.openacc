@@ -1,6 +1,16 @@
 2018-04-30  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
+	2018-04-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/85527
+	* testsuite/libgomp.oacc-fortran/atomic_capture-1.f90 (main): Store
+	atomic capture results obtained in parallel loop to an array, instead of
+	to a scalar.
+
+2018-04-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
 	2018-04-29  Julian Brown  <julian@codesourcery.com>
 	    	    Tom de Vries  <tom@codesourcery.com>
 

@@ -1,10 +1,12 @@
 ! { dg-do run }
 
 program main
-  integer igot, iexp, itmp
-  real fgot, fexp, ftmp
-  logical lgot, lexp, ltmp
   integer, parameter :: N = 32
+  integer igot, iexp, itmp
+  integer, dimension (0:N) :: iarr
+  real fgot, fexp, ftmp
+  real, dimension (0:N) :: farr
+  logical lgot, lexp, ltmp
 
   igot = 0
   iexp = N * 2
@@ -27,13 +29,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = fgot + 1.0
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp - 1.0) call abort
+  do i = 1, N
+     if (.not. &
+          (1234.0 <= farr(i) .and. farr(i) < fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 1.0
@@ -42,13 +48,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = fgot * 2.0
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp / 2.0) call abort
+  do i = 1, N
+     if (.not. &
+          (1.0 <= farr(i) .and. farr(i) < fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 32.0
@@ -57,13 +67,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = fgot - 1.0
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp + 1.0) call abort
+  do i = 1, N
+     if (.not. &
+          (fexp < farr(i) .and. farr(i) <= 32.0 &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 2**32.0
@@ -72,13 +86,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = fgot / 2.0
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fgot * 2.0) call abort
+  do i = 1, N
+     if (.not. &
+          (fexp < farr(i) .and. farr(i) <= 2**32.0 &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   lgot = .TRUE.
@@ -139,13 +157,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = 1.0 + fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp - 1.0) call abort 
+  do i = 1, N
+     if (.not. &
+          (1234.0 <= farr(i) .and. farr(i) < fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 1.0
@@ -154,13 +176,17 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = 2.0 * fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp / 2.0) call abort
+  do i = 1, N
+     if (.not. &
+          (1.0 <= farr(i) .and. farr(i) < fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 32.0
@@ -169,13 +195,15 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = 2.0 - fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= 2.0 - fexp) call abort
+  do i = 1, N
+     if (.not. (farr(i) == fexp .or. farr(i) == -30.0)) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 2.0**16
@@ -184,13 +212,15 @@ program main
   !$acc parallel loop copy (fgot, ftmp)
     do i = 1, N
   !$acc atomic capture
-      ftmp = fgot
+      farr(i) = fgot
       fgot = 2.0 / fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= 2.0 / fexp) call abort
+  do i = 1, N
+     if (.not. (farr(i) == fexp .or. farr(i) == 1.0 / 2.0**15)) call abort
+  end do
   if (fgot /= fexp) call abort
 
   lgot = .TRUE.
@@ -251,12 +281,15 @@ program main
   !$acc parallel loop copy (igot, itmp)
     do i = 1, N
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = max (igot, i)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (1 <= iarr(i) .and. iarr(i) < iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = N
@@ -265,12 +298,15 @@ program main
   !$acc parallel loop copy (igot, itmp)
     do i = 1, N
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = min (igot, i)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i) == 1 .or. iarr(i) == N)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -280,12 +316,15 @@ program main
     do i = 0, N - 1
       iexpr = ibclr (-2, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = iand (igot, iexpr)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) < 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 0
@@ -295,12 +334,15 @@ program main
     do i = 0, N - 1
       iexpr = lshift (1, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = ior (igot, iexpr)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) >= 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -310,12 +352,15 @@ program main
     do i = 0, N - 1
       iexpr = lshift (1, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = ieor (igot, iexpr)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) < 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 1
@@ -324,12 +369,15 @@ program main
   !$acc parallel loop copy (igot, itmp)
     do i = 1, N
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = max (i, igot)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (1 <= iarr(i) .and. iarr(i) < iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = N
@@ -338,12 +386,15 @@ program main
   !$acc parallel loop copy (igot, itmp)
     do i = 1, N
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = min (i, igot)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i) == 1 .or. iarr(i) == N)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -353,12 +404,15 @@ program main
     do i = 0, N - 1
       iexpr = ibclr (-2, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = iand (iexpr, igot)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) < 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 0
@@ -368,12 +422,15 @@ program main
     do i = 0, N - 1
       iexpr = lshift (1, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = ior (iexpr, igot)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) >= 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -383,12 +440,15 @@ program main
     do i = 0, N - 1
       iexpr = lshift (1, i)
   !$acc atomic capture
-      itmp = igot
+      iarr(i) = igot
       igot = ieor (iexpr, igot)
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. (iarr(i - 1) < 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   fgot = 1234.0
@@ -398,12 +458,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = fgot + 1.0
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. &
+          (1234.0 < farr(i) .and. farr(i) <= fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 1.0
@@ -413,12 +477,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = fgot * 2.0
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. &
+          (1.0 < farr(i) .and. farr(i) <= fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 32.0
@@ -428,12 +496,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = fgot - 1.0
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. &
+          (fexp <= farr(i) .and. farr(i) < 32.0 &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 2**32.0
@@ -443,12 +515,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = fgot / 2.0
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. &
+          (fexp <= farr(i) .and. farr(i) < 2**32.0 &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   lgot = .TRUE.
@@ -510,11 +586,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = 1.0 + fgot
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
+  do i = 1, N
+     if (.not. &
+          (1234.0 < farr(i) .and. farr(i) <= fexp &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 1.0
@@ -524,12 +605,16 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = 2.0 * fgot
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. &
+          (1.0 < farr(i) .and. farr(i) <= 2**32.0 &
+          .and. aint (farr(i)) == farr(i))) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 32.0
@@ -539,12 +624,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = 2.0 - fgot
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. (farr(i) == fexp .or. farr(i) == 2.0 - fexp)) call abort
+  end do
   if (fgot /= fexp) call abort
 
   fgot = 2.0**16
@@ -554,12 +641,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       fgot = 2.0 / fgot
-      ftmp = fgot
+      farr(i) = fgot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
+  do i = 1, N
+     if (.not. (farr(i) == fexp .or. farr(i) == 2.0 / fexp)) call abort
+  end do
   if (fgot /= fexp) call abort
 
   lgot = .TRUE.
@@ -621,12 +710,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       igot = max (igot, i)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (1 <= iarr(i) .and. iarr(i) <= N)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = N
@@ -636,12 +727,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       igot = min (igot, i)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i) == iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -652,12 +745,14 @@ program main
       iexpr = ibclr (-2, i)
   !$acc atomic capture
       igot = iand (igot, iexpr)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) <= 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 0
@@ -668,12 +763,14 @@ program main
       iexpr = lshift (1, i)
   !$acc atomic capture
       igot = ior (igot, iexpr)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) >= -1)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -684,12 +781,14 @@ program main
       iexpr = lshift (1, i)
   !$acc atomic capture
       igot = ieor (igot, iexpr)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) <= 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 1
@@ -699,12 +798,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       igot = max (i, igot)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (1 <= iarr(i) .and. iarr(i) <= iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = N
@@ -714,12 +815,14 @@ program main
     do i = 1, N
   !$acc atomic capture
       igot = min (i, igot)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i) == iexp )) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -730,12 +833,14 @@ program main
       iexpr = ibclr (-2, i)
   !$acc atomic capture
       igot = iand (iexpr, igot)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) <= 0)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = 0
@@ -746,12 +851,14 @@ program main
       iexpr = lshift (1, i)
   !$acc atomic capture
       igot = ior (iexpr, igot)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) >= iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
   igot = -1
@@ -762,12 +869,14 @@ program main
       iexpr = lshift (1, i)
   !$acc atomic capture
       igot = ieor (iexpr, igot)
-      itmp = igot
+      iarr(i) = igot
   !$acc end atomic
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
+  do i = 1, N
+     if (.not. (iarr(i - 1) <= iexp)) call abort
+  end do
   if (igot /= iexp) call abort
 
 end program
