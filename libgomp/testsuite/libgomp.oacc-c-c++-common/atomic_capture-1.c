@@ -783,6 +783,30 @@ main(int argc, char **argv)
   fgot = 1.0;
   fexp = 0.0;
 
+#pragma acc data copy (fgot, fdata[0:N])
+  {
+#pragma acc parallel loop
+    for (i = 0; i < N; i++)
+      {
+        float expr = 32.0;
+
+#pragma acc atomic capture
+        fdata[i] = fgot = expr - fgot;
+      }
+  }
+
+  int ones = 0, thirtyones = 0;
+
+  for (i = 0; i < N; i++)
+    if (fdata[i] == 31.0)
+      thirtyones++;
+    else if (fdata[i] == 1.0)
+      ones++;
+
+  if (ones != N / 2 || thirtyones != N / 2)
+    abort ();
+
+
   /* BINOP = / */
   fexp = 1.0;
   fgot = 8192.0*8192.0*64.0;

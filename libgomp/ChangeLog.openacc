@@ -1,3 +1,13 @@
+2018-04-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-04-29  Julian Brown  <julian@codesourcery.com>
+	    	    Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/85527
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-1.c: Allow
+	arbitrary order for iterations of atomic subtract check.
+
 2018-04-23  Tom de Vries  <tom@codesourcery.com>
 
 	PR target/85486
