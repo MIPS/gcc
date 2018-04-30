@@ -1,3 +1,8 @@
+2018-04-30  Tom de Vries  <tom@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Fix
+	insufficient-resources-to-launch fatal error condition and message.
+
 2018-04-23  Tom de Vries  <tom@codesourcery.com>
 
 	PR target/85486
