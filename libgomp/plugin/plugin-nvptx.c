@@ -834,16 +834,15 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   /* Check if the accelerator has sufficient hardware resources to
      launch the offloaded kernel.  */
-  if (dims[GOMP_DIM_WORKER] > 1)
-    {
-      if (reg_granularity > 0 && dims[GOMP_DIM_WORKER] > threads_per_block)
-	GOMP_PLUGIN_fatal ("The Nvidia accelerator has insufficient resources "
-			   "to launch '%s'; recompile the program with "
-			   "'num_workers = %d' on that offloaded region or "
-			   "'-fopenacc-dim=-:%d'.\n",
-			   targ_fn->launch->fn, threads_per_block,
-			   threads_per_block);
-    }
+  if (dims[GOMP_DIM_WORKER] * dims[GOMP_DIM_VECTOR]
+      > targ_fn->max_threads_per_block)
+    GOMP_PLUGIN_fatal ("The Nvidia accelerator has insufficient resources to"
+		       " launch '%s' with num_workers = %d and vector_length ="
+		       " %d; recompile the program with 'num_workers = x and"
+		       " vector_length = y' on that offloaded region or "
+		       "'-fopenacc-dim=-:x:y' where x * y <= %d.\n",
+		       targ_fn->launch->fn, dims[GOMP_DIM_WORKER],
+		       dims[GOMP_DIM_VECTOR], targ_fn->max_threads_per_block);
 
   GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch"
 		     " gangs=%u, workers=%u, vectors=%u\n",
