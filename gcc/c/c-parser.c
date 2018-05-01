@@ -14210,7 +14210,8 @@ mark_vars_oacc_gangprivate (tree *tp,
       tree block = BIND_EXPR_BLOCK (*tp);
       for (tree var = BLOCK_VARS (block); var; var = DECL_CHAIN (var))
 	{
-	  gcc_assert (TREE_CODE (var) == VAR_DECL);
+	  if (TREE_CODE (var) != VAR_DECL)
+	    continue;
 	  DECL_ATTRIBUTES (var)
 	    = tree_cons (get_identifier ("oacc gangprivate"),
 			 NULL, DECL_ATTRIBUTES (var));

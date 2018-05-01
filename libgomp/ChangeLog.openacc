@@ -1,3 +1,8 @@
+2018-05-01  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/85465
+	* testsuite/libgomp.oacc-c/pr85465.c: New test.
+
 2018-04-30  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/parallel-dims-compile.c: New test,

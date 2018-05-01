@@ -1,3 +1,9 @@
+2018-05-01  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/85465
+	* c-parser.c (mark_vars_oacc_gangprivate): Skip BLOCK_VARS that are not
+	VAR_DECL.
+
 2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_FINALIZE.
