@@ -1,0 +1,10 @@
+2018-05-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/85106
+	* testsuite/lib/libvtv.exp: Include scanwpaipa.exp.
+
+Copyright (C) 2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
