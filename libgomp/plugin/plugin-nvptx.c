@@ -189,6 +189,12 @@ cuda_error (CUresult r)
   return desc;
 }
 
+/* From gcc/system.h.  */
+#undef MIN
+#undef MAX
+#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+
 static unsigned int instantiated_devices = 0;
 static pthread_mutex_t ptx_dev_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -802,7 +808,8 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
     {
       int vectors = dims[GOMP_DIM_VECTOR] > 0
 	? dims[GOMP_DIM_VECTOR] : warp_size;
-      int workers = threads_per_block / vectors;
+      int workers
+	= MIN (threads_per_block, targ_fn->max_threads_per_block) / vectors;
 
       for (i = 0; i != GOMP_DIM_MAX; i++)
 	if (!dims[i])
