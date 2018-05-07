@@ -213,11 +213,62 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+/* Classifies an address.
+
+   ADDRESS_REG
+       A natural register + offset address.  The register satisfies
+       mips_valid_base_register_p and the offset is a const_arith_operand.
+
+   ADDRESS_REG_REG
+       A natural register + (optionally scaled) index register.  The register
+       satisfies mips_valid_base_register_p and mips_valid_index_register_p.
+
+   ADDRESS_LO_SUM
+       A LO_SUM rtx.  The first operand is a valid base register and
+       the second operand is a symbolic address.
+
+   ADDRESS_CONST_INT
+       A signed 16-bit constant address.
+
+   ADDRESS_SYMBOLIC:
+       A constant symbolic address.  */
+enum mips_address_type {
+  ADDRESS_REG,
+  ADDRESS_REG_REG,
+  ADDRESS_LO_SUM,
+  ADDRESS_CONST_INT,
+  ADDRESS_SYMBOLIC
+};
+
+/* Information about an address described by mips_address_type.
+
+   ADDRESS_CONST_INT
+       No fields are used.
+
+   ADDRESS_REG
+       REG is the base register and OFFSET is the constant offset.
+
+   ADDRESS_LO_SUM
+       REG and OFFSET are the operands to the LO_SUM and SYMBOL_TYPE
+       is the type of symbol it references.
+
+   ADDRESS_SYMBOLIC
+       SYMBOL_TYPE is the type of symbol that the address references.  */
+struct mips_address_info {
+  enum mips_address_type type;
+  rtx reg;
+  rtx offset;
+  enum mips_symbol_type symbol_type;
+};
+
 #ifdef NANOMIPS_SUPPORT
 extern int nanomips_label_align (rtx);
+void mips_adjust_reg_costs (void *, int);
 #endif
 extern void nanomips_expand_movmemsi_multireg (rtx, rtx, unsigned int);
 extern void nanomips_load_store_multiple_split (rtx, rtx, unsigned int);
+bool mips_classify_address (struct mips_address_info *, rtx,
+			    machine_mode, bool);
 extern void mips_adjust_reg_alloc_order (void);
 extern bool mips_string_constant_p (rtx);
 extern bool mips_unspec_address_p (rtx);
@@ -258,6 +309,7 @@ extern void mips_split_msa_copy_d (rtx, rtx, rtx, rtx (*)(rtx, rtx, rtx));
 extern void mips_split_msa_insert_d (rtx, rtx, rtx, rtx);
 extern void mips_split_msa_fill_d (rtx, rtx);
 extern const char *mips_output_load_store (rtx, rtx, machine_mode, bool, bool);
+extern bool is_nanomips_output_48_bits (rtx, rtx);
 extern const char *mips_output_move (rtx, rtx, rtx);
 extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
