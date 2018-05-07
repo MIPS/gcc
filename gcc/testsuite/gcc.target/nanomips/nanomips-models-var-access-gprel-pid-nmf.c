@@ -14,15 +14,15 @@
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,%gprel\\(m_sta_short\\)\\(\\\$gp\\)" } } */
 /* { dg-final { scan-assembler "lw\t\\\$\[ast0-9\]+,%gprel\\(m_sta_int\\)\\(\\\$gp\\)" } } */
 
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_4Kaligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_4Kaligned\\)" } } */
 /* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 1.  */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_2aligned\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_2aligned\\)" } } */
 /* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 2.  */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_int\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_int\\)" } } */
 /* "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" no. 3.  */
 
 /* { dg-final { scan-assembler-times "lw\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" 3 } } */
