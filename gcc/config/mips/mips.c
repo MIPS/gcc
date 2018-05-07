@@ -3202,16 +3202,13 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
       enum nanomips_pic_model symbol_pic_model = mips_get_nano_pic_model (x);
 
       if (SYMBOL_REF_DECL (x) && !VAR_P (SYMBOL_REF_DECL (x))
-	  && (context == SYMBOL_CONTEXT_CALL || SYMBOL_REF_LONG_CALL_P (x)))
+	  && (context == SYMBOL_CONTEXT_CALL))
 	{
 	  if (flag_pic && !mips_symbol_binds_local_p (x))
 	    {
-	      if (symbol_pic_model == NANO_PIC_AUTO
+	      if (symbol_pic_model != NANO_PIC_LARGE
 		  && !SYMBOL_REF_WEAK (x))
 		return SYMBOL_GOT_CALL;
-	      else if (symbol_pic_model == NANO_PIC_MEDIUM
-		       && !SYMBOL_REF_WEAK (x))
-		return SYMBOL_GOT_DISP;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMF)
 		return SYMBOL_GOT_PCREL32_NANO;
 	      else if (TARGET_NANOMIPS == NANOMIPS_NMS)
@@ -3295,6 +3292,8 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		       && context == SYMBOL_CONTEXT_MEM)
 		return SYMBOL_PCREL_4K_NANO;
 	      else if ((TARGET_PCREL || (!TARGET_PCREL && TARGET_NANOMIPS == NANOMIPS_NMS))
+		       && (VAR_P (SYMBOL_REF_DECL (x))
+			   || !SYMBOL_REF_LONG_CALL_P (x))
 		       && !SYMBOL_REF_WEAK (x)
 		       && symbol_pic_model == NANO_PIC_AUTO
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) >= 2
@@ -22391,7 +22390,7 @@ mips_find_pic_call_symbol (rtx_insn *insn, rtx reg, bool recurse_p)
 {
   df_ref use;
   struct df_link *defs;
-  rtx symbol;
+  rtx symbol, note;
 
   use = df_find_use (insn, regno_reg_rtx[REGNO (reg)]);
   if (!use)
@@ -22399,6 +22398,9 @@ mips_find_pic_call_symbol (rtx_insn *insn, rtx reg, bool recurse_p)
   defs = DF_REF_CHAIN (use);
   if (!defs)
     return NULL_RTX;
+  note = find_reg_note (insn, REG_CALL_DECL, NULL_RTX);
+  if (note && XEXP (note, 0) && GET_CODE (XEXP (note, 0)) == SYMBOL_REF)
+    return XEXP (note, 0);
   symbol = mips_pic_call_symbol_from_set (defs->ref, reg, recurse_p);
   if (!symbol)
     return NULL_RTX;
@@ -22481,10 +22483,8 @@ mips_annotate_pic_calls (void)
 
       symbol = mips_find_pic_call_symbol (insn, reg, true);
       if (symbol
-	  && mips_get_nano_pic_model (symbol) == NANO_PIC_AUTO
 	  && mips_classify_symbol (symbol, SYMBOL_CONTEXT_CALL) ==
-	  SYMBOL_GOT_CALL
-	  && !mips_symbol_binds_local_p (symbol))
+	    SYMBOL_GOT_CALL)
 	{
 	  mips_annotate_pic_call_expr (call, symbol);
 	  if (second_call)
