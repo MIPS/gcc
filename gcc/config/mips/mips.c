@@ -64,6 +64,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "tm-constrs.h"
 #include "print-rtl.h"
+#include "ira.h"
+#include "ira-int.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -199,33 +201,6 @@ static int *consumer_luid = NULL;
 /* Return an LAPC instruction (positive offset only!).  */
 #define NANOMIPS_LAPC(DEST, OFFSET) \
   ((0x1 << 26) | ((DEST) << 21) | ((OFFSET) - 4))
-
-/* Classifies an address.
-
-   ADDRESS_REG
-       A natural register + offset address.  The register satisfies
-       mips_valid_base_register_p and the offset is a const_arith_operand.
-
-   ADDRESS_REG_REG
-       A natural register + (optionally scaled) index register.  The register
-       satisfies mips_valid_base_register_p and mips_valid_index_register_p.
-
-   ADDRESS_LO_SUM
-       A LO_SUM rtx.  The first operand is a valid base register and
-       the second operand is a symbolic address.
-
-   ADDRESS_CONST_INT
-       A signed 16-bit constant address.
-
-   ADDRESS_SYMBOLIC:
-       A constant symbolic address.  */
-enum mips_address_type {
-  ADDRESS_REG,
-  ADDRESS_REG_REG,
-  ADDRESS_LO_SUM,
-  ADDRESS_CONST_INT,
-  ADDRESS_SYMBOLIC
-};
 
 /* Classifies an unconditional branch of interest for the P6600.  */
 
@@ -387,27 +362,6 @@ struct mips_arg_info {
   /* The offset from the start of the stack overflow area of the argument's
      first stack word.  Only meaningful when STACK_WORDS is nonzero.  */
   unsigned int stack_offset;
-};
-
-/* Information about an address described by mips_address_type.
-
-   ADDRESS_CONST_INT
-       No fields are used.
-
-   ADDRESS_REG
-       REG is the base register and OFFSET is the constant offset.
-
-   ADDRESS_LO_SUM
-       REG and OFFSET are the operands to the LO_SUM and SYMBOL_TYPE
-       is the type of symbol it references.
-
-   ADDRESS_SYMBOLIC
-       SYMBOL_TYPE is the type of symbol that the address references.  */
-struct mips_address_info {
-  enum mips_address_type type;
-  rtx reg;
-  rtx offset;
-  enum mips_symbol_type symbol_type;
 };
 
 /* One stage in a constant building sequence.  These sequences have
@@ -3310,7 +3264,7 @@ mips_valid_lo_sum_p (enum mips_symbol_type symbol_type, machine_mode mode)
    fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
    effect.  */
 
-static bool
+bool
 mips_classify_address (struct mips_address_info *info, rtx x,
 		       machine_mode mode, bool strict_p)
 {
@@ -6279,6 +6233,30 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
     s += sprintf (s, " # unaligned");
 
   return buffer;
+}
+
+bool is_nanomips_output_48_bits (rtx dest, rtx src)
+{
+  enum rtx_code dest_code = GET_CODE (dest);
+  enum rtx_code src_code = GET_CODE (src);
+  machine_mode mode = GET_MODE (dest);
+  enum mips_symbol_type symbol_type;
+
+  if (dest_code == REG && GP_REG_P (REGNO (dest)))
+    {
+      if (src_code == CONST_INT && TARGET_NANOMIPS == NANOMIPS_NMF
+	  && TARGET_LI48 && LI32_INT (src) && !ubp_operand (src, mode))
+	return true;
+      if (src_code == LABEL_REF
+	  && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+				       &symbol_type)
+	  && symbol_type == SYMBOL_LAPC48_NANO)
+	return true;
+      if (symbolic_operand (src, VOIDmode)
+	  && mips_string_constant_p (src))
+	return true;
+    }
+  return false;
 }
 
 const char *
@@ -28671,6 +28649,9 @@ nanomips_label_align (rtx label)
 
 #undef TARGET_SCHED_FUSION_PRIORITY
 #define TARGET_SCHED_FUSION_PRIORITY mips_sched_fusion_priority
+
+#undef TARGET_ADJUST_REG_COSTS
+#define TARGET_ADJUST_REG_COSTS mips_adjust_reg_costs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
