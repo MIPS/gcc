@@ -21,3 +21,6 @@ $(srcdir)/config/mips/nanomips-tables.opt: \
     $(srcdir)/config/mips/nanomips-cpus.def
 	$(SHELL) $(srcdir)/config/mips/genopt-nanomips.sh \
 	    $(srcdir)/config/mips > $(srcdir)/config/mips/nanomips-tables.opt
+mips-cost.o: $(srcdir)/config/mips/mips-cost.c
+	$(COMPILE) $<
+	$(POSTCOMPILE)
