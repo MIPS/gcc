@@ -29168,9 +29168,17 @@ static bool mips_short_reg_p (int reg_no)
 static bool
 mips_check_regs (rtx *opnds, int regs_num)
 {
+  rtx reg;
   for (int i = 0; i < regs_num; i++)
-    if (HARD_REGISTER_P (opnds[i]) && !mips_short_reg_p (REGNO (opnds[i])))
-      return false;
+    {
+      rtx reg = opnds[i];
+      if (GET_CODE (reg) == SUBREG)
+	reg = SUBREG_REG (reg);
+      if (!REG_P (reg))
+	continue;
+      if (HARD_REGISTER_P (reg) && !mips_short_reg_p (REGNO (reg)))
+	return false;
+    }
   return true;
 }
 
