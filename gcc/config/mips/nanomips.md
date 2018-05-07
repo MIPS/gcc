@@ -45,6 +45,8 @@
 
 (include "mips-dspr2.md")
 
+;; nanoMIPS exclusive Instruction
+
 (define_insn "mips_addsi3_48"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(plus:SI (match_operand:SI 1 "register_operand" "0")
