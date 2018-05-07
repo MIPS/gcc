@@ -16,9 +16,9 @@
 
 /* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_4Kaligned" } } */
 /* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
 /* { dg-final { scan-assembler "lbu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
-/* { dg-final { scan-assembler "addiu\\\[gp48\\]\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lhu\t\\\$\[ast0-9\]+,0\\(\\\$\[ast0-9\]+\\)" } } */
 /* { dg-final { scan-assembler "lwpc\t\\\$\[ast0-9\]+,l_sta_int" } } */
 
