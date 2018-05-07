@@ -45,6 +45,10 @@
 
 (include "mips-dspr2.md")
 
+;; Synchronization Instructions.
+
+(include "sync.md")
+
 ;; nanoMIPS exclusive Instruction
 
 (define_insn "mips_addsi3_48"
