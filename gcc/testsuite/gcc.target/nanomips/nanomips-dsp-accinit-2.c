@@ -18,7 +18,6 @@ long long f (int n, int *v, int m)
   return result;
 }
 
-/* FIXME.  The scheduler change causes selection of mult ac,zero,zero */
 /* { dg-final { scan-assembler "mult\t\[^\n\]*\\\$zero" } } */
 /* { dg-final { scan-assembler-not "\tmthi\t" } } */
 /* { dg-final { scan-assembler-not "\tmtlo\t" } } */
