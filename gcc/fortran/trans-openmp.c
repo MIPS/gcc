@@ -1069,6 +1069,8 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 #endif
 
   tree c2 = NULL_TREE, c3 = NULL_TREE, c4 = NULL_TREE;
+  if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR)
+    return;
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     {
       if (!gfc_omp_privatize_by_reference (decl)
@@ -2159,6 +2161,12 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 			   || n->expr->ref->u.ar.type == AR_FULL))
 		{
 		  if (POINTER_TYPE_P (TREE_TYPE (decl))
+		      && n->u.map_op == OMP_MAP_FORCE_DEVICEPTR)
+		    {
+		      OMP_CLAUSE_DECL (node) = decl;
+		      goto finalize_map_clause;
+		    }
+		  else if (POINTER_TYPE_P (TREE_TYPE (decl))
 		      && (gfc_omp_privatize_by_reference (decl)
 			  || GFC_DECL_GET_SCALAR_POINTER (decl)
 			  || GFC_DECL_GET_SCALAR_ALLOCATABLE (decl)
@@ -2168,9 +2176,7 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		    {
 		      tree orig_decl = decl;
 		      enum gomp_map_kind gmk = GOMP_MAP_FIRSTPRIVATE_POINTER;
-		      if (n->u.map_op == OMP_MAP_FORCE_DEVICEPTR)
-			gmk = GOMP_MAP_POINTER;
-		      else if (GFC_DECL_GET_SCALAR_ALLOCATABLE (decl)
+		      if (GFC_DECL_GET_SCALAR_ALLOCATABLE (decl)
 			       && (n->sym->attr.oacc_declare_create)
 			       && clauses->update_allocatable)
 			gmk = GOMP_MAP_ALWAYS_POINTER;

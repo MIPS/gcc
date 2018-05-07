@@ -1,3 +1,9 @@
+2018-05-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause): Don't create pointer data
+	mappings for deviceptr clauses.
+	(gfc_trans_omp_clauses_1): Likewise.
+
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* types.def: (BF_FN_VOID_INT_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR):
