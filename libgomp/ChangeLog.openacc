@@ -1,3 +1,28 @@
+2018-05-07  Thomas Schwinge <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* libgomp.h (gomp_coalesce_buf): Declare.
+	(gomp_copy_host2dev): Add gomp_coalesce_buf argument.
+	* oacc-mem.c (memcpy_tofrom_device): Update call to gomp_copy_host2dev.
+	(update_dev_host): Likewise.
+	* target.c (gomp_map_vars_async): Coalesce host2dev args.
+
+	Backport from trunk:
+	2017-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (struct gomp_coalesce_buf): New type.
+	(MAX_COALESCE_BUF_SIZE, MAX_COALESCE_BUF_GAP): Define.
+	(gomp_coalesce_buf_add, gomp_to_device_kind_p): New functions.
+	(gomp_copy_host2dev): Add CBUF argument, if copying into
+	the cached ranges, memcpy into buffer instead of copying
+	into device.
+	(gomp_map_vars_existing, gomp_map_pointer, gomp_map_fields_existing):
+	Add CBUF argument, pass it through to other calls.
+	(gomp_map_vars): Aggregate copies from host to device if small enough
+	and with small enough gaps in between into memcpy into a buffer and
+	fewer host to device copies from the buffer.
+	(gomp_update): Adjust gomp_copy_host2dev caller.
+
 2018-05-04  Tom de Vries  <tom@codesourcery.com>
 
 	PR libgomp/85649

@@ -1000,9 +1000,11 @@ extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *, int);
 extern void gomp_acc_remove_pointer (void *, size_t, bool, int, int, int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
 				       unsigned short *);
+struct gomp_coalesce_buf;
 extern void gomp_copy_host2dev (struct gomp_device_descr *,
 				struct goacc_asyncqueue *,
-				void *, const void *, size_t);
+				void *, const void *, size_t,
+				struct gomp_coalesce_buf *);
 extern void gomp_copy_dev2host (struct gomp_device_descr *,
 				struct goacc_asyncqueue *,
 				void *, const void *, size_t);
