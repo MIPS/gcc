@@ -1,5 +1,3 @@
-/* { dg-do run { xfail nanomips-*-* } } */
-
 extern void abort (void);
 extern void exit (int);
 
