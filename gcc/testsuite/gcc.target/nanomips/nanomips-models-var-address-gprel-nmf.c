@@ -16,8 +16,8 @@
 
 /* { dg-final { scan-assembler "aluipc\t\\\$\[ast0-9\]+,%pcrel_hi\\(l_sta_4Kaligned\\)" } } */
 /* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,l_sta_2aligned" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_char\\)" } } */
-/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel32\\(l_sta_short\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_char\\)" } } */
+/* { dg-final { scan-assembler "addiu\\.b32\t\\\$\[ast0-9\]+,\\\$gp,%gprel\\(l_sta_short\\)" } } */
 /* { dg-final { scan-assembler "lapc.b\t\\\$\[ast0-9\]+,l_sta_int" } } */
 
 static char a_sta_char __attribute__ ((cmodel("auto"))) = 13;
