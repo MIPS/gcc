@@ -433,7 +433,7 @@
   (const_string "none"))
 
 (define_attr "compression" "none,all,micromips32,micromips,
-			    nanomips48,nanomips32,nanomips"
+			    nanomips48,nanomips32,nanomips,nanomips48_32"
   (cond [(and (eq_attr "compress_as" "micro_or_nano")
 	      (match_test "TARGET_MICROMIPS"))
 	 (const_string "micromips")
@@ -570,6 +570,14 @@
 	  (and (eq_attr "compression" "nanomips48")
 	       (match_test "TARGET_NANOMIPS"))
 	  (const_int 6)
+	  (and (eq_attr "compression" "nanomips48_32")
+	       (and (match_test "TARGET_NANOMIPS")
+		    (match_test "is_nanomips_output_48_bits (operands[0], operands[1]) == true")))
+	  (const_int 6)
+	  (and (eq_attr "compression" "nanomips48_32")
+	       (and (match_test "TARGET_NANOMIPS")
+		    (match_test "is_nanomips_output_48_bits (operands[0], operands[1]) == false")))
+	  (const_int 4)
 
 	  ;; Direct microMIPS branch instructions have a range of
 	  ;; [-0x10000,0xfffe], otherwise the range is [-0x20000,0x1fffc].
@@ -5339,7 +5347,7 @@
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
-   (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48,nanomips48,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
+   (set_attr "compression" "nanomips,nanomips,nanomips,nanomips32,nanomips32,nanomips48_32,nanomips48_32,nanomips32,*,nanomips,nanomips,*,nanomips,nanomips,*,*,*,*,*,*,*,*,*,*,*,*,*,nanomips,nanomips")
    (set_attr "has_16bit_ver" "yes,yes,ri_li,ri_li,no,no,no,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
    (set_attr "subset_16bit" "move,move,std,std,no,no,no,std,std,std,no,sub_load,no,std,sub_store,no,no,no,no,no,no,no,no,no,no,no,no,4x4,4x4")
    (set_attr "mode" "SI")

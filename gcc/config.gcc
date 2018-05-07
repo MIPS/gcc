@@ -447,6 +447,7 @@ mips*-*-*)
 nanomips*-*-*)
 	cpu_type=mips
 	extra_headers="msa.h"
+	extra_objs="mips-cost.o"
 	extra_options="${extra_options} g.opt mips/nanomips-tables.opt"
 	;;
 nds32*)

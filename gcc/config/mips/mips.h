@@ -2097,6 +2097,8 @@ FP_ASM_SPEC "\
    should be used instead.  */
 #define FPSW_REGNUM	ST_REG_FIRST
 
+#define REG_OR_0_P(REG) (REG == const0_rtx || REG_P (REG))
+#define REGNO_OR_0(REGNUM) ((REGNUM) == const0_rtx ? 0 : REGNO (REGNUM))
 #define GP_REG_P(REGNO)	\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
@@ -2258,7 +2260,7 @@ enum reg_class
   M16_REGS,			/* mips16 directly accessible registers */
   N16_TAIL_REGS,		/* nanoMIPS sibling call registers */
   N16_REGS,			/* nanoMIPS directly accessible registers */
-  N16_4X4_REGS,			/* nanoMIPS registers $0-$7,$16-$23 */
+  N16_4X4_REGS,			/* nanoMIPS registers $4-$11,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
