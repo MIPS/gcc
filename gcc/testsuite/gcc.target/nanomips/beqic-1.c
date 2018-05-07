@@ -10,4 +10,4 @@ int foo(int status)
   return s;
 }
 
-/* { dg-final { scan-assembler "\tbeqic\t\\\$a\[a0-9\]+,\[1|3|4\],\\\$L" } } */
+/* { dg-final { scan-assembler "\tbeqic\t\\\$a\[a0-9\]+,\[1|3|4\],\[\\\$.\]L" } } */
