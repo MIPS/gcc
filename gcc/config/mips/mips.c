@@ -2842,9 +2842,6 @@ mips_got_symbol_type_p (enum mips_symbol_type type)
     {
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOT_DISP:
-    // @tmt is this a good idea ?
-    /* case SYMBOL_GOT_PCREL32_NANO: */
-    /* case SYMBOL_GOT_PCREL_SPLIT_NANO: */
       return true;
 
     default:
@@ -3452,9 +3449,8 @@ mips_string_constant_p (rtx x)
   return false;
 }
 
-/* See the comment for gprel_hi_split_operand in predicates.md.
-   That's the only place where this is used.
-   FIXME: Find another way to check for UNSPEC in predicates.md.  */
+/* Return true if X contains an UNSPEC wrapper around a SYMBOL_REF or
+   LABEL_REF.  */
 bool
 mips_unspec_address_p (rtx x)
 {
@@ -3544,8 +3540,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 GOT entries for a 16-bit offset, but larger offsets may lead
 	 to GOT overflow.  */
 
-      // @tmt FIXME: This prevents an ICE when using an offset for auto model
-      // GOT data accesses.
       if (TARGET_NANOMIPS)
 	return false;
 
@@ -3562,7 +3556,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
     case SYMBOL_GOTOFF_DISP:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
-      // @tmt is this correct?:
     case SYMBOL_GOT_PCREL32_NANO:
     case SYMBOL_GOT_PCREL_SPLIT_NANO:
     case SYMBOL_TLSGD:
@@ -6988,9 +6981,6 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
 	    return "move\t%0,%+";
 
-	  // @tmt we need to do this for SYMBOL_LAPC_NANO and SYMBOL_LAPC48_NANO
-	  // for data accesses, when they get split into
-	  // aluipc %pcrel_hi + {l,s}X %lo.
 	  if (TARGET_NANOMIPS
 	      && mips_symbolic_constant_p (XEXP (src, 0), SYMBOL_CONTEXT_LEA,
 					   &symbol_type)
@@ -11133,9 +11123,6 @@ mips_init_relocs (void)
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
 
-	  // @tmt FIXME: the exact string used below is irrelevant
-	  // because this reloc is used for both auto and medium models,
-	  // so we need to change it dynamically
 	  if (TARGET_PABI)
 	    mips_lo_relocs[SYMBOL_GOTOFF_CALL] = "%got_call(";
 	  else
@@ -12087,7 +12074,6 @@ mips_in_small_data_p (const_tree decl)
    case.  We also don't want to use them for PC-relative accesses,
    where the PC acts as an anchor.  */
 
-// @tmt look into this
 static bool
 mips_use_anchors_for_symbol_p (const_rtx symbol)
 {
@@ -13604,8 +13590,6 @@ mips_global_pointer (void)
 
   /* $gp is always available unless we're using a GOT.  */
 
-  // @tmt should we keep this, even though we don't set up $gp for -mgpopt?
-  /* if (!TARGET_USE_GOT && !TARGET_GPOPT) */
   if (!TARGET_USE_GOT)
     return GLOBAL_POINTER_REGNUM;
 
@@ -17741,7 +17725,6 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
 	{
 	  /* This will always be 16-bit, except for insn32 mode.  */
 	  s += sprintf (s, "%%*.reloc\t1f,R_NANOMIPS_JALR16,%%%d\n1:\t", size_opno);
-	  // @tmt should we keep short_delay ?
 	  short_delay = "";
 	}
       else if (!(TARGET_NANOMIPS)
@@ -23109,7 +23092,6 @@ mips_orphaned_high_part_p (mips_offset_table *htab, rtx_insn *insn)
     {
       /* Check for %his.  */
       x = SET_SRC (set);
-      /* @tmt Should we do this for 4K-aligned symbols too?  */
       if (GET_CODE (x) == HIGH
 	  && (absolute_symbolic_operand (XEXP (x, 0), VOIDmode)
 	      || (!TARGET_PCREL
@@ -28761,8 +28743,6 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 
   gcc_assert (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
 
-  /* FIXME. Do we really need this? The middle end should be able to
-     optimize it well.  */
   if (CONSTANT_P (shift))
     {
       rtx tmp4 = gen_reg_rtx (SImode);
