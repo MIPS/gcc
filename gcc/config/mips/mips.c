@@ -5954,10 +5954,9 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 
-	  if ((CONST_INT_P (x)
-	       || mips_string_constant_p (x))
-	      && TARGET_NANOMIPS
-	      && LI32_INT (x))
+	  if (TARGET_NANOMIPS
+	      && ((CONST_INT_P (x) && LI32_INT (x))
+		  || mips_string_constant_p (x)))
 	    *total = outer_code == PLUS ? 0 : COSTS_N_INSNS (1) + 2;
 	  else if (cost == 1
 		   && !speed
@@ -6156,8 +6155,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	}
 
       if (code == PLUS
-	  && (CONST_INT_P (XEXP (x, 1))
-	      || mips_string_constant_p (XEXP (x, 1)))
+	  && CONST_INT_P (XEXP (x, 1))
 	  && LI32_INT (XEXP (x, 1))
 	  && TARGET_NANOMIPS
 	  /* Let's ignore here small immediates as we may use 16-bit ADD.  */
@@ -6912,12 +6910,17 @@ bool
 mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
+  rtx base, offset;
+
+  split_const (x, &base, &offset);
+  if (UNSPEC_ADDRESS_P (base))
+    base = UNSPEC_ADDRESS (base);
   return (mips_symbolic_constant_p (x, context, &symbol_type)
 	  && (symbol_type == SYMBOL_GP_RELATIVE
 	      || symbol_type == SYMBOL_GPREL_WORD_NANO
 	      || symbol_type == SYMBOL_GPREL32_NANO
 	      || symbol_type == SYMBOL_GPREL_SPLIT_NANO)
-	  && CONSTANT_POOL_ADDRESS_P (x));
+	  && CONSTANT_POOL_ADDRESS_P (base));
 }
 
 const char *
@@ -6925,7 +6928,7 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 			bool zero_extend_p, bool load_p)
 {
   const char *sz[] = { "b", "h", "w", "d" };
-  bool fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
+  bool fp_p = false;
   rtx addr = load_p ? XEXP (src, 0) : XEXP (dest, 0);
   bool indexed_scaled_p = mips_index_scaled_address_p (addr, mode);
   bool indexed_p = mips_index_address_p (addr, mode);
@@ -6936,6 +6939,9 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 
   pos = exact_log2 (GET_MODE_SIZE (mode));
   gcc_assert (IN_RANGE (pos, 0, 3));
+
+  if (load_p ? REG_P (dest) : REG_P (src))
+    fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
 
   s = buffer;
 
@@ -9023,7 +9029,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
       /* [1] Emit code to branch if off > 0.  */
       t = build2 (GT_EXPR, boolean_type_node, unshare_expr (off),
-		  integer_zero_node);
+		  build_int_cst (TREE_TYPE (off), 0));
       t2 = build1 (GOTO_EXPR, void_type_node, lab_reg);
       u = build1 (GOTO_EXPR, void_type_node, lab_ovfl);
       t = build3 (COND_EXPR, void_type_node, t, t2, u);
@@ -24002,10 +24008,14 @@ movep_dest_operand (rtx dest, enum machine_mode mode ATTRIBUTE_UNUSED)
 bool
 mips_movep_no_overlap_p (rtx dest1, rtx dest2, rtx src1, rtx src2)
 {
-  if (REGNO (dest1) == REGNO (src2))
+  if (!REG_OR_0_P (src1) || !REG_OR_0_P (src2)
+      || !REG_OR_0_P (dest1) || !REG_OR_0_P (dest2))
     return false;
 
-  if (REGNO (dest2) == REGNO (src1))
+  if (REGNO_OR_0 (dest1) == REGNO_OR_0 (src2))
+    return false;
+
+  if (REGNO_OR_0 (dest2) == REGNO_OR_0 (src1))
     return false;
 
   return true;
@@ -24521,6 +24531,7 @@ nanomips_restore_jrc_opt ()
 	  if (GET_CODE (pattern) == PARALLEL
 	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SET
 	      && GET_CODE ((src = SET_SRC (XVECEXP (pattern, 0, 0)))) == PLUS
+	      && CONST_INT_P (XEXP (src, 1))
 	      && INTVAL (XEXP (src, 1)) > 0
 	      && nanomips_save_restore_pattern_p (pattern, INTVAL (XEXP (src, 1)),
 						  NULL, false))
@@ -27100,6 +27111,9 @@ umips_load_store_pair_p (bool load_p, rtx *operands)
       mem1 = operands[0];
       mem2 = operands[2];
     }
+
+  if (!REG_P (reg1) || !REG_P (reg2))
+    return false;
 
   /* Return 1 if operands are valid without swapping instructions,
      return 2 otherwise.  */
