@@ -621,31 +621,31 @@ static const struct attribute_spec mips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, NULL },
   { "keep_interrupts_masked",	0, 0, false, true,  true, false, NULL, NULL },
   { "use_debug_exception_return", 0, 0, false, true, true, false, NULL, NULL },
-  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
+  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, NULL, NULL },
   { NULL,	   0, 0, false, false, false, false, NULL, NULL }
 };
 
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec nanomips_attribute_table[] = {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       om_diagnostic } */
-  { "long_call",   0, 0, false, true,  true,  NULL, false },
-  { "far",     	   0, 0, false, true,  true,  NULL, false },
-  { "near",        0, 0, false, true,  true,  NULL, false },
+       om_diagnostic, exclude } */
+  { "long_call",   0, 0, false, true,  true,  NULL, NULL, NULL },
+  { "far",     	   0, 0, false, true,  true,  NULL, NULL, NULL },
+  { "near",        0, 0, false, true,  true,  NULL, NULL, NULL },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
-    false },
+    NULL, NULL },
   { "use_shadow_register_set",	0, 1, false, true,  true,
-    mips_handle_use_shadow_register_set_attr, false },
-  { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
-  { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
-  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
+    mips_handle_use_shadow_register_set_attr, NULL, NULL },
+  { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, NULL },
+  { "use_debug_exception_return", 0, 0, false, true,  true, NULL, NULL },
+  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, NULL },
   { "cmodel",	   1, 1,  true, false, false, nanomips_handle_model_attribute,
-    false },
+    NULL, NULL },
   /* Accept and ignore nomips16/nomicromips attributes.  */
-  { "nomips16",    0, 0, true,  false, false, NULL, false },
-  { "nomicromips", 0, 0, true,  false, false, NULL, false },
-  { NULL,	   0, 0, false, false, false, NULL, false }
+  { "nomips16",    0, 0, true,  false, false, NULL, NULL, NULL },
+  { "nomicromips", 0, 0, true,  false, false, NULL, NULL, NULL },
+  { NULL,	   0, 0, false, false, false, NULL, NULL, NULL }
 };
 
 #undef TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P
