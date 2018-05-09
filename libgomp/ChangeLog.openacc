@@ -1,3 +1,7 @@
+2018-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* libgomp.oacc-fortran/deviceptr-1.f90: Remove xfail for -O2 and -O3.
+
 2018-05-07  Thomas Schwinge <thomas@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 
