@@ -1,3 +1,12 @@
+2018-05-09  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-05-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/85626
+	* config/nvptx/nvptx.md (define_insn "trap", define_insn "trap_if_true")
+	(define_insn "trap_if_false"): Add exit after trap.
+
 2018-05-07  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_DEVICETPR.
