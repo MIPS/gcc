@@ -999,7 +999,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
 	/* And now the usual component-reference style ops.  */
 	case BIT_FIELD_REF:
-	  offset += wi::to_offset (op->op1);
+	  offset += wi::to_poly_offset (op->op1);
 	  break;
 
 	case COMPONENT_REF:
