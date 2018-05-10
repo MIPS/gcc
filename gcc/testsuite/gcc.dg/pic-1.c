@@ -2,6 +2,7 @@
 /* { dg-require-effective-target fpic } */
 /* { dg-options "-fpic" } */
 /* { dg-options "-fpic -mabicalls -mno-gpopt" { target mips*-*-* } } */
+/* { dg-require-effective-target fpic } */
 
 #if __PIC__ != 1
 # error __PIC__ is not 1!

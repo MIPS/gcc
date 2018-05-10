@@ -1,4 +1,5 @@
 /* { dg-options "-fnon-call-exceptions" } */
+/* { dg-additional-options "-mcheck-zero-division" { target { nanomips*-*-* } } } */
 /* With -fnon-call-exceptions 0 / 0 should not be eliminated.  */
 /* { dg-additional-options "-DSIGNAL_SUPPRESS" { target { ! signal } } } */
 
@@ -37,7 +38,7 @@
 #elif defined (__VISIUM__)
   /* On Visium division by zero does not trap.  */
 # define DO_TEST 0
-#elif defined (__mips__) && !defined(__linux__)
+#elif (defined (__mips__) || (__nanomips__))&& !defined(__linux__)
   /* MIPS divisions do trap by default, but libgloss targets do not
      intercept the trap and raise a SIGFPE.  The same is probably
      true of other bare-metal environments, so restrict the test to
