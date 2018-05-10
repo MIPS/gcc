@@ -1,5 +1,3 @@
-/* { dg-do run } */
-
 #ifndef NO_TRAMPOLINES
 
 typedef __SIZE_TYPE__ size_t;
