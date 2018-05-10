@@ -575,6 +575,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget m68k-*-uclinux*]
 	     || [istarget mep-*-elf]
 	     || [istarget mips*-*-elf*]
+	     || [istarget nanomips*-*-elf*]
 	     || [istarget mmix-*-*]
 	     || [istarget mn10300-*-elf*]
 	     || [istarget moxie-*-elf*]
@@ -1085,7 +1086,7 @@ proc check_effective_target_mpaired_single { } {
 # Return true if the target has access to FPU instructions.
 
 proc check_effective_target_hard_float { } {
-    if { [istarget mips*-*-*] } {
+    if { [istarget mips*-*-*] || [istarget nanomips*-*-*] } {
 	return [check_no_compiler_messages hard_float assembly {
 		#if (defined __mips_soft_float || defined __mips16)
 		#error __mips_soft_float || __mips16
@@ -1437,6 +1438,14 @@ proc check_effective_target_static_libgfortran { } {
 	print *, 'test'
 	end
     } "-static"]
+}
+
+# Return 1 if we can use the -rdynamic option, 0 otherwise.
+
+proc check_effective_target_rdynamic { } {
+  return [check_no_compiler_messages rdynamic executable {
+     int main() { return 0; }
+  } "-rdynamic"]
 }
 
 # Return 1 if cilk-plus is supported by the target, 0 otherwise.
@@ -6642,6 +6651,9 @@ proc add_options_for_double_vectors { flags } {
 # Return 1 if the target provides a full C99 runtime.
 
 proc check_effective_target_c99_runtime { } {
+    if { [istarget nanomips*-linux-musl] } {
+	return 0
+    }
     return [check_cached_effective_target c99_runtime {
 	global srcdir
 
@@ -7332,6 +7344,7 @@ proc check_effective_target_tiny {} {
 
 proc check_effective_target_logical_op_short_circuit {} {
     if { [istarget mips*-*-*]
+         || [istarget nanomips*-*-*]
 	 || [istarget arc*-*-*]
 	 || [istarget avr*-*-*]
 	 || [istarget crisv32-*-*] || [istarget cris-*-*]

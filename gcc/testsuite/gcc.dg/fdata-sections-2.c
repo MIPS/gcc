@@ -12,7 +12,7 @@ const char *f2(void) { return "a"; }
 const char *f3(void) { return "falderalde"; }
 const char *f4(void) { return "eralde"; }
 
-/* { dg-final { scan-assembler {\.rodata\.f1\.str} } } */
-/* { dg-final { scan-assembler {\.rodata\.f2\.str} } } */
+/* { dg-final { scan-assembler {\.rodata\.f1\.str} { target { { ! nanomips*-*-* } && { ! fpic } } } } } */
+/* { dg-final { scan-assembler {\.rodata\.f2\.str} { target { { ! nanomips*-*-* } && { ! fpic } } } } } */
 /* { dg-final { scan-assembler-not {\.rodata\.f3\.str} } } */
-/* { dg-final { scan-assembler {\.rodata\.f4\.str} } } */
+/* { dg-final { scan-assembler {\.rodata\.f4\.str} { target { { ! nanomips*-*-* } && { ! fpic } } } } } */
