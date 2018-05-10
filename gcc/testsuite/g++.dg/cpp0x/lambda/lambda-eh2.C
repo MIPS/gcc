@@ -1,6 +1,7 @@
 // PR c++/47263
 // PR c++/49260
-// { dg-options "-fno-asynchronous-unwind-tables -fno-dwarf2-cfi-asm" }
+// { dg-options "-fno-asynchronous-unwind-tables -fno-dwarf2-cfi-asm" { target { ! nanomips*-*-* } } }
+// { dg-options "-fno-asynchronous-unwind-tables" { target { nanomips*-*-* } } }
 // { dg-do run { target c++11 } }
 
 #include <exception>
