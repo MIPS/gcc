@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O -ffast-math -std=c99 -fno-ident" } */
+/* { dg-require-effective-target c99_runtime } */
 
 #include "builtins-config.h"
 
