@@ -287,7 +287,7 @@ eval `${CC-cc} -E conftest.c | grep host_address=`
 rm -f conftest.c
 
 case ${host} in
-mips*-*-*)
+mips*-*-* | nanomips*-*-*)
   AC_CACHE_CHECK([whether the target is hard-float],
 		 [libgcc_cv_mips_hard_float],
 		 [AC_COMPILE_IFELSE(
