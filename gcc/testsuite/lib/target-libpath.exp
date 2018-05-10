@@ -199,7 +199,7 @@ proc restore_gcc_exec_prefix_env_var { } {
   if { $orig_gcc_exec_prefix_saved } {
     setenv GCC_EXEC_PREFIX "$orig_gcc_exec_prefix"
   } elseif [info exists env(GCC_EXEC_PREFIX)] {
-    unsetenv GCC_EXEC_PREFIX
+    unset env(GCC_EXEC_PREFIX)
   }
 }
 
@@ -234,32 +234,32 @@ proc restore_ld_library_path_env_vars { } {
   if { $orig_ld_library_path_saved } {
     setenv LD_LIBRARY_PATH "$orig_ld_library_path"
   } elseif [info exists env(LD_LIBRARY_PATH)] {
-    unsetenv LD_LIBRARY_PATH
+    unset env(LD_LIBRARY_PATH)
   }
   if { $orig_ld_run_path_saved } {
     setenv LD_RUN_PATH "$orig_ld_run_path"
   } elseif [info exists env(LD_RUN_PATH)] {
-    unsetenv LD_RUN_PATH
+    unset env(LD_RUN_PATH)
   }
   if { $orig_shlib_path_saved } {
     setenv SHLIB_PATH "$orig_shlib_path"
   } elseif [info exists env(SHLIB_PATH)] {
-    unsetenv SHLIB_PATH
+    unset env(SHLIB_PATH)
   }
   if { $orig_ld_library_path_32_saved } {
     setenv LD_LIBRARY_PATH_32 "$orig_ld_library_path_32"
   } elseif [info exists env(LD_LIBRARY_PATH_32)] {
-    unsetenv LD_LIBRARY_PATH_32
+    unset env(LD_LIBRARY_PATH_32)
   }
   if { $orig_ld_library_path_64_saved } {
     setenv LD_LIBRARY_PATH_64 "$orig_ld_library_path_64"
   } elseif [info exists env(LD_LIBRARY_PATH_64)] {
-    unsetenv LD_LIBRARY_PATH_64
+    unset env(LD_LIBRARY_PATH_64)
   }
   if { $orig_dyld_library_path_saved } {
     setenv DYLD_LIBRARY_PATH "$orig_dyld_library_path"
   } elseif [info exists env(DYLD_LIBRARY_PATH)] {
-    unsetenv DYLD_LIBRARY_PATH
+    unset env(DYLD_LIBRARY_PATH)
   }
   if { $orig_path_saved } {
     setenv PATH "$orig_path"
