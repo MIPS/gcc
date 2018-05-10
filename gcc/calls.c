@@ -5790,11 +5790,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      || (GET_CODE (XEXP (x, 0)) == PLUS
 		  && XEXP (XEXP (x, 0), 0) ==
 		     crtl->args.internal_arg_pointer
-		  && CONST_INT_P (XEXP (XEXP (x, 0), 1))))
+		  && poly_int_rtx_p (XEXP (XEXP (x, 0), 1), &i)))
 	    {
-	      if (XEXP (x, 0) != crtl->args.internal_arg_pointer)
-		i = rtx_to_poly_int64 (XEXP (XEXP (x, 0), 1));
-
 	      /* arg.locate doesn't contain the pretend_args_size offset,
 		 it's part of argblock.  Ensure we don't count it in I.  */
 	      if (STACK_GROWS_DOWNWARD)
@@ -5820,7 +5817,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      else if (maybe_in_range_p (arg->locate.offset.constant,
 					 i, size_val))
 		sibcall_failure = 1;
-	      /* Use arg->locate.size.constant instead of size_rtx
+	      /* Use arg->locate.size.constant instead of const_size
 		 because we only care about the part of the argument
 		 on the stack.  */
 	      else if (maybe_in_range_p (i, arg->locate.offset.constant,

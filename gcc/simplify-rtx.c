@@ -2272,13 +2272,13 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       if ((GET_CODE (op0) == CONST
 	   || GET_CODE (op0) == SYMBOL_REF
 	   || GET_CODE (op0) == LABEL_REF)
-	  && CONST_INT_P (op1))
-	return plus_constant (mode, op0, INTVAL (op1));
+	  && poly_int_rtx_p (op1, &offset))
+	return plus_constant (mode, op0, offset);
       else if ((GET_CODE (op1) == CONST
 		|| GET_CODE (op1) == SYMBOL_REF
 		|| GET_CODE (op1) == LABEL_REF)
-	       && CONST_INT_P (op0))
-	return plus_constant (mode, op1, INTVAL (op0));
+	       && poly_int_rtx_p (op0, &offset))
+	return plus_constant (mode, op1, offset);
 
       /* See if this is something like X * C - X or vice versa or
 	 if the multiplication is written as a shift.  If so, we can

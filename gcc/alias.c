@@ -3407,6 +3407,7 @@ init_alias_analysis (void)
 			  && DF_REG_DEF_COUNT (regno) != 1)
 			note = NULL_RTX;
 
+		      poly_int64 offset;
 		      if (note != NULL_RTX
 			  && GET_CODE (XEXP (note, 0)) != EXPR_LIST
 			  && ! rtx_varies_p (XEXP (note, 0), 1)
@@ -3421,10 +3422,9 @@ init_alias_analysis (void)
 			       && GET_CODE (src) == PLUS
 			       && REG_P (XEXP (src, 0))
 			       && (t = get_reg_known_value (REGNO (XEXP (src, 0))))
-			       && CONST_INT_P (XEXP (src, 1)))
+			       && poly_int_rtx_p (XEXP (src, 1), &offset))
 			{
-			  t = plus_constant (GET_MODE (src), t,
-					     INTVAL (XEXP (src, 1)));
+			  t = plus_constant (GET_MODE (src), t, offset);
 			  set_reg_known_value (regno, t);
 			  set_reg_known_equiv_p (regno, false);
 			}

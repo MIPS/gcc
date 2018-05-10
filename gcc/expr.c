@@ -2148,7 +2148,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
   for (i = start; i < XVECLEN (dst, 0); i++)
     {
       machine_mode mode = GET_MODE (XEXP (XVECEXP (dst, 0, i), 0));
-      poly_int64 bytepos = INTVAL (XEXP (XVECEXP (dst, 0, i), 1));
+      poly_int64 bytepos = rtx_to_poly_int64 (XEXP (XVECEXP (dst, 0, i), 1));
       poly_int64 bytelen = GET_MODE_SIZE (mode);
       poly_int64 shift = 0;
 
@@ -2520,7 +2520,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED,
   /* Process the pieces.  */
   for (i = start; i < finish; i++)
     {
-      poly_int64 bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
+      poly_int64 bytepos = rtx_to_poly_int64 (XEXP (XVECEXP (src, 0, i), 1));
       machine_mode mode = GET_MODE (tmps[i]);
       poly_int64 bytelen = GET_MODE_SIZE (mode);
       poly_uint64 adj_bytelen;
@@ -2976,9 +2976,10 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
 
   /* If OBJECT is not BLKmode and SIZE is the same size as its mode,
      just move a zero.  Otherwise, do this a piece at a time.  */
+  poly_int64 size_val;
   if (mode != BLKmode
-      && CONST_INT_P (size)
-      && known_eq (INTVAL (size), GET_MODE_SIZE (mode)))
+      && poly_int_rtx_p (size, &size_val)
+      && known_eq (size_val, GET_MODE_SIZE (mode)))
     {
       rtx zero = CONST0_RTX (mode);
       if (zero != NULL)
@@ -3914,9 +3915,10 @@ push_block (rtx size, poly_int64 extra, int below)
     }
   else
     {
-      if (CONST_INT_P (size))
+      poly_int64 csize;
+      if (poly_int_rtx_p (size, &csize))
 	temp = plus_constant (Pmode, virtual_outgoing_args_rtx,
-			      -INTVAL (size) - (below ? 0 : extra));
+			      -csize - (below ? 0 : extra));
       else if (maybe_ne (extra, 0) && !below)
 	temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
 			     negate_rtx (Pmode, plus_constant (Pmode, size,
@@ -4421,15 +4423,16 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	  /* Get the address of the stack space.
 	     In this case, we do not deal with EXTRA separately.
 	     A single stack adjust will do.  */
+	  poly_int64 offset;
 	  if (! args_addr)
 	    {
 	      temp = push_block (size, extra, where_pad == PAD_DOWNWARD);
 	      extra = 0;
 	    }
-	  else if (CONST_INT_P (args_so_far))
+	  else if (poly_int_rtx_p (args_so_far, &offset))
 	    temp = memory_address (BLKmode,
 				   plus_constant (Pmode, args_addr,
-						  skip + INTVAL (args_so_far)));
+						  offset + skip));
 	  else
 	    temp = memory_address (BLKmode,
 				   plus_constant (Pmode,
