@@ -1,6 +1,6 @@
 /* Offload image generation tool for PTX.
 
-   Copyright (C) 2014-2017 Free Software Foundation, Inc.
+   Copyright (C) 2014-2018 Free Software Foundation, Inc.
 
    Contributed by Nathan Sidwell <nathan@codesourcery.com> and
    Bernd Schmidt <bernds@codesourcery.com>.
@@ -454,7 +454,8 @@ main (int argc, char **argv)
 
   if (!found)
     fatal_error (input_location,
-		 "offload compiler %s not found", GCC_INSTALL_NAME);
+		 "offload compiler %s not found (consider using '-B')",
+		 GCC_INSTALL_NAME);
 
   /* We may be called with all the arguments stored in some file and
      passed with @file.  Expand them into argv before processing.  */

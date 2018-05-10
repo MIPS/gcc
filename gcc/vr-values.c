@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -445,11 +445,12 @@ vr_values::extract_range_for_var_from_comparison_expr (tree var,
   tree  min, max, type;
   value_range *limit_vr;
   type = TREE_TYPE (var);
-  gcc_assert (limit != var);
 
   /* For pointer arithmetic, we only keep track of pointer equality
-     and inequality.  */
-  if (POINTER_TYPE_P (type) && cond_code != NE_EXPR && cond_code != EQ_EXPR)
+     and inequality.  If we arrive here with unfolded conditions like
+     _1 > _1 do not derive anything.  */
+  if ((POINTER_TYPE_P (type) && cond_code != NE_EXPR && cond_code != EQ_EXPR)
+      || limit == var)
     {
       set_value_range_to_varying (vr_p);
       return;
@@ -771,7 +772,59 @@ vr_values::extract_range_from_binary_expr (value_range *vr,
   else
     set_value_range_to_varying (&vr1);
 
+  /* If one argument is varying, we can sometimes still deduce a
+     range for the output: any + [3, +INF] is in [MIN+3, +INF].  */
+  if (INTEGRAL_TYPE_P (TREE_TYPE (op0))
+      && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (op0)))
+    {
+      if (vr0.type == VR_VARYING && vr1.type != VR_VARYING)
+	{
+	  vr0.type = VR_RANGE;
+	  vr0.min = vrp_val_min (expr_type);
+	  vr0.max = vrp_val_max (expr_type);
+	}
+      else if (vr1.type == VR_VARYING && vr0.type != VR_VARYING)
+	{
+	  vr1.type = VR_RANGE;
+	  vr1.min = vrp_val_min (expr_type);
+	  vr1.max = vrp_val_max (expr_type);
+	}
+    }
+
   extract_range_from_binary_expr_1 (vr, code, expr_type, &vr0, &vr1);
+
+  /* Set value_range for n in following sequence:
+     def = __builtin_memchr (arg, 0, sz)
+     n = def - arg
+     Here the range for n can be set to [0, PTRDIFF_MAX - 1]. */
+
+  if (vr->type == VR_VARYING
+      && code == POINTER_DIFF_EXPR
+      && TREE_CODE (op0) == SSA_NAME
+      && TREE_CODE (op1) == SSA_NAME)
+    {
+      tree op0_ptype = TREE_TYPE (TREE_TYPE (op0));
+      tree op1_ptype = TREE_TYPE (TREE_TYPE (op1));
+      gcall *call_stmt = NULL;
+
+      if (TYPE_MODE (op0_ptype) == TYPE_MODE (char_type_node)
+	  && TYPE_PRECISION (op0_ptype) == TYPE_PRECISION (char_type_node)
+	  && TYPE_MODE (op1_ptype) == TYPE_MODE (char_type_node)
+	  && TYPE_PRECISION (op1_ptype) == TYPE_PRECISION (char_type_node)
+	  && (call_stmt = dyn_cast<gcall *>(SSA_NAME_DEF_STMT (op0)))
+	  && gimple_call_builtin_p (call_stmt, BUILT_IN_MEMCHR)
+	  && operand_equal_p (op0, gimple_call_lhs (call_stmt), 0)
+	  && operand_equal_p (op1, gimple_call_arg (call_stmt, 0), 0)
+	  && integer_zerop (gimple_call_arg (call_stmt, 1)))
+	    {
+	      tree max = vrp_val_max (ptrdiff_type_node);
+	      wide_int wmax = wi::to_wide (max, TYPE_PRECISION (TREE_TYPE (max)));
+	      tree range_min = build_zero_cst (expr_type);
+	      tree range_max = wide_int_to_tree (expr_type, wmax - 1);
+	      set_value_range (vr, VR_RANGE, range_min, range_max, NULL);
+	      return;
+	    }
+     }
 
   /* Try harder for PLUS and MINUS if the range of one operand is symbolic
      and based on the other operand, for example if it was deduced from a
@@ -831,7 +884,7 @@ vr_values::extract_range_from_binary_expr (value_range *vr,
      can derive a non-null range.  This happens often for
      pointer subtraction.  */
   if (vr->type == VR_VARYING
-      && code == MINUS_EXPR
+      && (code == MINUS_EXPR || code == POINTER_DIFF_EXPR)
       && TREE_CODE (op0) == SSA_NAME
       && ((vr0.type == VR_ANTI_RANGE
 	   && vr0.min == op1
@@ -839,7 +892,7 @@ vr_values::extract_range_from_binary_expr (value_range *vr,
 	  || (vr1.type == VR_ANTI_RANGE
 	      && vr1.min == op0
 	      && vr1.min == vr1.max)))
-      set_value_range_to_nonnull (vr, TREE_TYPE (op0));
+      set_value_range_to_nonnull (vr, expr_type);
 }
 
 /* Extract range information from a unary expression CODE OP0 based on
@@ -1955,19 +2008,18 @@ vrp_valueize_1 (tree name)
     }
   return name;
 }
-/* Visit assignment STMT.  If it produces an interesting range, record
-   the range in VR and set LHS to OUTPUT_P.  */
 
-void
-vr_values::vrp_visit_assignment_or_call (gimple *stmt, tree *output_p,
-					 value_range *vr)
+/* Given STMT, an assignment or call, return its LHS if the type
+   of the LHS is suitable for VRP analysis, else return NULL_TREE.  */
+
+tree
+get_output_for_vrp (gimple *stmt)
 {
-  tree lhs;
-  enum gimple_code code = gimple_code (stmt);
-  lhs = gimple_get_lhs (stmt);
-  *output_p = NULL_TREE;
+  if (!is_gimple_assign (stmt) && !is_gimple_call (stmt))
+    return NULL_TREE;
 
   /* We only keep track of ranges in integral and pointer types.  */
+  tree lhs = gimple_get_lhs (stmt);
   if (TREE_CODE (lhs) == SSA_NAME
       && ((INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	   /* It is valid to have NULL MIN/MAX values on a type.  See
@@ -1975,8 +2027,25 @@ vr_values::vrp_visit_assignment_or_call (gimple *stmt, tree *output_p,
 	   && TYPE_MIN_VALUE (TREE_TYPE (lhs))
 	   && TYPE_MAX_VALUE (TREE_TYPE (lhs)))
 	  || POINTER_TYPE_P (TREE_TYPE (lhs))))
+    return lhs;
+
+  return NULL_TREE;
+}
+
+/* Visit assignment STMT.  If it produces an interesting range, record
+   the range in VR and set LHS to OUTPUT_P.  */
+
+void
+vr_values::vrp_visit_assignment_or_call (gimple *stmt, tree *output_p,
+					 value_range *vr)
+{
+  tree lhs = get_output_for_vrp (stmt);
+  *output_p = lhs;
+
+  /* We only keep track of ranges in integral and pointer types.  */
+  if (lhs)
     {
-      *output_p = lhs;
+      enum gimple_code code = gimple_code (stmt);
 
       /* Try folding the statement to a constant first.  */
       x_vr_values = this;
@@ -2900,7 +2969,8 @@ scev_check:
      scev_check can be reached from two paths, one is a fall through from above
      "varying" label, the other is direct goto from code block which tries to
      avoid infinite simulation.  */
-  if ((l = loop_containing_stmt (phi))
+  if (scev_initialized_p ()
+      && (l = loop_containing_stmt (phi))
       && l->header == gimple_bb (phi))
     adjust_range_with_scev (vr_result, l, phi, lhs);
 
@@ -4056,7 +4126,7 @@ vr_values::simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	 LHS = VAR == VAL1 ? (VAL1 BINOP CST) : (VAL2 BINOP CST) */
 
       if (TREE_CODE_CLASS (rhs_code) == tcc_binary
-	  && INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
 	  && ((TREE_CODE (rhs1) == INTEGER_CST
 	       && TREE_CODE (rhs2) == SSA_NAME)
 	      || (TREE_CODE (rhs2) == INTEGER_CST

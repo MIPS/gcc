@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -79,6 +79,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "gimple.h"
+#include "options.h"
 
 /* So we can assign to cfun in this file.  */
 #undef cfun
@@ -312,16 +314,16 @@ try_fit_stack_local (poly_int64 start, poly_int64 length,
   /* See if it fits.  If this space is at the edge of the frame,
      consider extending the frame to make it fit.  Our caller relies on
      this when allocating a new slot.  */
-  if (may_lt (this_frame_offset, start))
+  if (maybe_lt (this_frame_offset, start))
     {
-      if (must_eq (frame_offset, start))
+      if (known_eq (frame_offset, start))
 	frame_offset = this_frame_offset;
       else
 	return false;
     }
-  else if (may_gt (this_frame_offset + size, start + length))
+  else if (maybe_gt (this_frame_offset + size, start + length))
     {
-      if (must_eq (frame_offset, start + length))
+      if (known_eq (frame_offset, start + length))
 	frame_offset = this_frame_offset + size;
       else
 	return false;
@@ -415,7 +417,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 		     requested size is 0 or the estimated stack
 		     alignment >= mode alignment.  */
 		  gcc_assert ((kind & ASLK_REDUCE_ALIGN)
-			      || must_eq (size, 0)
+			      || known_eq (size, 0)
 			      || (crtl->stack_alignment_estimated
 				  >= GET_MODE_ALIGNMENT (mode)));
 		  alignment_in_bits = crtl->stack_alignment_estimated;
@@ -430,7 +432,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
   if (crtl->max_used_stack_slot_alignment < alignment_in_bits)
     crtl->max_used_stack_slot_alignment = alignment_in_bits;
 
-  if (mode != BLKmode || may_ne (size, 0))
+  if (mode != BLKmode || maybe_ne (size, 0))
     {
       if (kind & ASLK_RECORD_PAD)
 	{
@@ -443,9 +445,9 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 					alignment, &slot_offset))
 		continue;
 	      *psp = space->next;
-	      if (must_gt (slot_offset, space->start))
+	      if (known_gt (slot_offset, space->start))
 		add_frame_space (space->start, slot_offset);
-	      if (must_lt (slot_offset + size, space->start + space->length))
+	      if (known_lt (slot_offset + size, space->start + space->length))
 		add_frame_space (slot_offset + size,
 				 space->start + space->length);
 	      goto found_space;
@@ -467,9 +469,9 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 
       if (kind & ASLK_RECORD_PAD)
 	{
-	  if (must_gt (slot_offset, frame_offset))
+	  if (known_gt (slot_offset, frame_offset))
 	    add_frame_space (frame_offset, slot_offset);
-	  if (must_lt (slot_offset + size, old_frame_offset))
+	  if (known_lt (slot_offset + size, old_frame_offset))
 	    add_frame_space (slot_offset + size, old_frame_offset);
 	}
     }
@@ -480,9 +482,9 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 
       if (kind & ASLK_RECORD_PAD)
 	{
-	  if (must_gt (slot_offset, old_frame_offset))
+	  if (known_gt (slot_offset, old_frame_offset))
 	    add_frame_space (old_frame_offset, slot_offset);
-	  if (must_lt (slot_offset + size, frame_offset))
+	  if (known_lt (slot_offset + size, frame_offset))
 	    add_frame_space (slot_offset + size, frame_offset);
 	}
     }
@@ -498,7 +500,7 @@ assign_stack_local_1 (machine_mode mode, poly_int64 size,
 	 size must always be ordered wrt to the mode size, in the
 	 same way as for a subreg.  */
       gcc_checking_assert (ordered_p (GET_MODE_SIZE (mode), size));
-      if (BYTES_BIG_ENDIAN && may_lt (GET_MODE_SIZE (mode), size))
+      if (BYTES_BIG_ENDIAN && maybe_lt (GET_MODE_SIZE (mode), size))
 	bigend_correction = size - GET_MODE_SIZE (mode);
     }
 
@@ -798,15 +800,15 @@ assign_stack_temp_for_type (machine_mode mode, poly_int64 size, tree type)
       for (p = avail_temp_slots; p; p = p->next)
 	{
 	  if (p->align >= align
-	      && must_ge (p->size, size)
+	      && known_ge (p->size, size)
 	      && GET_MODE (p->slot) == mode
 	      && objects_must_conflict_p (p->type, type)
 	      && (best_p == 0
-		  || (must_eq (best_p->size, p->size)
+		  || (known_eq (best_p->size, p->size)
 		      ? best_p->align > p->align
-		      : must_ge (best_p->size, p->size))))
+		      : known_ge (best_p->size, p->size))))
 	    {
-	      if (p->align == align && must_eq (p->size, size))
+	      if (p->align == align && known_eq (p->size, size))
 		{
 		  selected = p;
 		  cut_slot_from_list (selected, &avail_temp_slots);
@@ -832,7 +834,7 @@ assign_stack_temp_for_type (machine_mode mode, poly_int64 size, tree type)
 	  int alignment = best_p->align / BITS_PER_UNIT;
 	  poly_int64 rounded_size = aligned_upper_bound (size, alignment);
 
-	  if (must_ge (best_p->size - rounded_size, alignment))
+	  if (known_ge (best_p->size - rounded_size, alignment))
 	    {
 	      p = ggc_alloc<temp_slot> ();
 	      p->in_use = 0;
@@ -987,7 +989,7 @@ assign_temp (tree type_or_decl, int memory_required,
 
       /* Zero sized arrays are GNU C extension.  Set size to 1 to avoid
 	 problems with allocating the stack space.  */
-      if (must_eq (size, 0))
+      if (known_eq (size, 0))
 	size = 1;
 
       /* The size of the temporary may be too large to fit into an integer.  */
@@ -1056,14 +1058,14 @@ combine_temp_slots (void)
 	  if (GET_MODE (q->slot) != BLKmode)
 	    continue;
 
-	  if (must_eq (p->base_offset + p->full_size, q->base_offset))
+	  if (known_eq (p->base_offset + p->full_size, q->base_offset))
 	    {
 	      /* Q comes after P; combine Q into P.  */
 	      p->size += q->size;
 	      p->full_size += q->full_size;
 	      delete_q = 1;
 	    }
-	  else if (must_eq (q->base_offset + q->full_size, p->base_offset))
+	  else if (known_eq (q->base_offset + q->full_size, p->base_offset))
 	    {
 	      /* P comes after Q; combine P into Q.  */
 	      q->size += p->size;
@@ -1574,7 +1576,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	 move insn in the initial rtl stream.  */
       new_rtx = instantiate_new_reg (SET_SRC (set), &offset);
       if (new_rtx
-	  && may_ne (offset, 0)
+	  && maybe_ne (offset, 0)
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	{
@@ -1611,7 +1613,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  offset += delta;
 
 	  /* If the sum is zero, then replace with a plain move.  */
-	  if (must_eq (offset, 0)
+	  if (known_eq (offset, 0)
 	      && REG_P (SET_DEST (set))
 	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
@@ -1689,7 +1691,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (x, &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (must_eq (offset, 0))
+	  if (known_eq (offset, 0))
 	    x = new_rtx;
 	  else
 	    {
@@ -1714,7 +1716,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (SUBREG_REG (x), &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (may_ne (offset, 0))
+	  if (maybe_ne (offset, 0))
 	    {
 	      start_sequence ();
 	      new_rtx = expand_simple_binop
@@ -1959,10 +1961,11 @@ instantiate_virtual_regs (void)
 	   Fortunately, they shouldn't contain virtual registers either.  */
         if (GET_CODE (PATTERN (insn)) == USE
 	    || GET_CODE (PATTERN (insn)) == CLOBBER
-	    || GET_CODE (PATTERN (insn)) == ASM_INPUT)
+	    || GET_CODE (PATTERN (insn)) == ASM_INPUT
+	    || DEBUG_MARKER_INSN_P (insn))
 	  continue;
-	else if (DEBUG_INSN_P (insn))
-	  instantiate_virtual_regs_in_rtx (&INSN_VAR_LOCATION (insn));
+	else if (DEBUG_BIND_INSN_P (insn))
+	  instantiate_virtual_regs_in_rtx (INSN_VAR_LOCATION_PTR (insn));
 	else
 	  instantiate_virtual_regs_in_insn (insn);
 
@@ -2091,6 +2094,9 @@ aggregate_value_p (const_tree exp, const_tree fntype)
      and thus can't be returned in registers.  */
   if (TREE_ADDRESSABLE (type))
     return 1;
+
+  if (TYPE_EMPTY_P (type))
+    return 0;
 
   if (flag_pcc_struct_return && AGGREGATE_TYPE_P (type))
     return 1;
@@ -2536,6 +2542,9 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       return;
     }
 
+  targetm.calls.warn_parameter_passing_abi (all->args_so_far,
+					    data->passed_type);
+
   entry_parm = targetm.calls.function_incoming_arg (all->args_so_far,
 						    data->promoted_mode,
 						    data->passed_type,
@@ -2708,7 +2717,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
 	    {
 	      poly_int64 offset = subreg_lowpart_offset (DECL_MODE (parm),
 							 data->promoted_mode);
-	      if (may_ne (offset, 0))
+	      if (maybe_ne (offset, 0))
 		set_mem_offset (stack_parm, MEM_OFFSET (stack_parm) - offset);
 	    }
 	}
@@ -2876,7 +2885,7 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
   /* Only assign_parm_setup_block knows how to deal with register arguments
      that are padded at the least significant end.  */
   if (REG_P (data->entry_parm)
-      && must_lt (GET_MODE_SIZE (data->promoted_mode), UNITS_PER_WORD)
+      && known_lt (GET_MODE_SIZE (data->promoted_mode), UNITS_PER_WORD)
       && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
 	  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
     return true;
@@ -2939,7 +2948,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
       SET_DECL_ALIGN (parm, MAX (DECL_ALIGN (parm), BITS_PER_WORD));
       stack_parm = assign_stack_local (BLKmode, size_stored,
 				       DECL_ALIGN (parm));
-      if (must_eq (GET_MODE_SIZE (GET_MODE (entry_parm)), size))
+      if (known_eq (GET_MODE_SIZE (GET_MODE (entry_parm)), size))
 	PUT_MODE (stack_parm, GET_MODE (entry_parm));
       set_mem_attributes (stack_parm, parm, 1);
     }
@@ -3441,7 +3450,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 	  /* ??? This may need a big-endian conversion on sparc64.  */
 	  data->stack_parm
 	    = adjust_address (data->stack_parm, data->nominal_mode, 0);
-	  if (may_ne (offset, 0) && MEM_OFFSET_KNOWN_P (data->stack_parm))
+	  if (maybe_ne (offset, 0) && MEM_OFFSET_KNOWN_P (data->stack_parm))
 	    set_mem_offset (data->stack_parm,
 			    MEM_OFFSET (data->stack_parm) + offset);
 	}
@@ -3987,7 +3996,7 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
    statements to add to the beginning of the function.  */
 
 gimple_seq
-gimplify_parameters (void)
+gimplify_parameters (gimple_seq *cleanup)
 {
   struct assign_parm_data_all all;
   tree parm;
@@ -4052,6 +4061,16 @@ gimplify_parameters (void)
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   || TREE_CODE (type) == VECTOR_TYPE)
 		    DECL_GIMPLE_REG_P (local) = 1;
+
+		  if (!is_gimple_reg (local)
+		      && flag_stack_reuse != SR_NONE)
+		    {
+		      tree clobber = build_constructor (type, NULL);
+		      gimple *clobber_stmt;
+		      TREE_THIS_VOLATILE (clobber) = 1;
+		      clobber_stmt = gimple_build_assign (local, clobber);
+		      gimple_seq_add_stmt (cleanup, clobber_stmt);
+		    }
 		}
 	      else
 		{
@@ -4157,8 +4176,9 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 
   part_size_in_regs = (reg_parm_stack_space == 0 ? partial : 0);
 
-  sizetree
-    = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
+  sizetree = (type
+	      ? arg_size_in_bytes (type)
+	      : size_int (GET_MODE_SIZE (passed_mode)));
   where_pad = targetm.calls.function_arg_padding (passed_mode, type);
   boundary = targetm.calls.function_arg_boundary (passed_mode, type);
   round_boundary = targetm.calls.function_arg_round_boundary (passed_mode,
@@ -4953,6 +4973,12 @@ allocate_struct_function (tree fndecl, bool abstract_p)
       if (!profile_flag && !flag_instrument_function_entry_exit)
 	DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl) = 1;
     }
+
+  /* Don't enable begin stmt markers if var-tracking at assignments is
+     disabled.  The markers make little sense without the variable
+     binding annotations among them.  */
+  cfun->debug_nonbind_markers = lang_hooks.emits_begin_stmt
+    && MAY_HAVE_DEBUG_MARKER_STMTS;
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL
@@ -6636,8 +6662,9 @@ match_asm_constraints_1 (rtx_insn *insn, rtx *p_sets, int noutputs)
       /* Only do the transformation for pseudos.  */
       if (! REG_P (output)
 	  || rtx_equal_p (output, input)
-	  || (GET_MODE (input) != VOIDmode
-	      && GET_MODE (input) != GET_MODE (output)))
+	  || !(REG_P (input) || SUBREG_P (input)
+	       || MEM_P (input) || CONSTANT_P (input))
+	  || !general_operand (input, GET_MODE (output)))
 	continue;
 
       /* We can't do anything if the output is also used as input,

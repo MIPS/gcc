@@ -1,6 +1,7 @@
-
 /* { dg-do compile } */
-/* { dg-options "-O3 -ffast-math -march=armv8-a" } */
+/* { dg-options "-O3 -ffast-math" } */
+
+#pragma GCC target "+nosve"
 
 #include "vect-faddv.x"
 

@@ -1,5 +1,5 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -298,43 +298,6 @@ has_c_linkage (const_tree decl)
   return DECL_EXTERN_C_P (decl);
 }
 
-static GTY ((cache))
-     hash_table<tree_decl_map_cache_hasher> *shadowed_var_for_decl;
-
-/* Lookup a shadowed var for FROM, and return it if we find one.  */
-
-tree
-decl_shadowed_for_var_lookup (tree from)
-{
-  struct tree_decl_map *h, in;
-  in.base.from = from;
-
-  h = shadowed_var_for_decl->find_with_hash (&in, DECL_UID (from));
-  if (h)
-    return h->to;
-  return NULL_TREE;
-}
-
-/* Insert a mapping FROM->TO in the shadowed var hashtable.  */
-
-void
-decl_shadowed_for_var_insert (tree from, tree to)
-{
-  struct tree_decl_map *h;
-
-  h = ggc_alloc<tree_decl_map> ();
-  h->base.from = from;
-  h->to = to;
-  *shadowed_var_for_decl->find_slot_with_hash (h, DECL_UID (from), INSERT) = h;
-}
-
-void
-init_shadowed_var_for_decl (void)
-{
-  shadowed_var_for_decl
-    = hash_table<tree_decl_map_cache_hasher>::create_ggc (512);
-}
-
 /* Return true if stmt can fall through.  Used by block_may_fallthru
    default case.  */
 
@@ -348,6 +311,16 @@ cxx_block_may_fallthru (const_tree stmt)
 
     case THROW_EXPR:
       return false;
+
+    case IF_STMT:
+      if (block_may_fallthru (THEN_CLAUSE (stmt)))
+	return true;
+      return block_may_fallthru (ELSE_CLAUSE (stmt));
+
+    case SWITCH_STMT:
+      return (!SWITCH_STMT_ALL_CASES_P (stmt)
+	      || !SWITCH_STMT_NO_BREAK_P (stmt)
+	      || block_may_fallthru (SWITCH_STMT_BODY (stmt)));
 
     default:
       return true;
@@ -468,7 +441,6 @@ cp_common_init_ts (void)
   MARK_TS_TYPED (USING_STMT);
   MARK_TS_TYPED (LAMBDA_EXPR);
   MARK_TS_TYPED (CTOR_INITIALIZER);
-  MARK_TS_TYPED (ARRAY_NOTATION_REF);
   MARK_TS_TYPED (REQUIRES_EXPR);
   MARK_TS_TYPED (UNARY_LEFT_FOLD_EXPR);
   MARK_TS_TYPED (UNARY_RIGHT_FOLD_EXPR);

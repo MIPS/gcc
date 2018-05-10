@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997-2017 Free Software Foundation, Inc.
+   Copyright (C) 1997-2018 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -329,10 +329,10 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
 
   /* If MEM_OFFSET/MEM_SIZE get us outside of ref->offset/ref->max_size
      drop ref->ref.  */
-  if (may_lt (MEM_OFFSET (mem), 0)
+  if (maybe_lt (MEM_OFFSET (mem), 0)
       || (ref->max_size_known_p ()
-	  && may_gt ((MEM_OFFSET (mem) + MEM_SIZE (mem)) * BITS_PER_UNIT,
-		     ref->max_size)))
+	  && maybe_gt ((MEM_OFFSET (mem) + MEM_SIZE (mem)) * BITS_PER_UNIT,
+		       ref->max_size)))
     ref->ref = NULL_TREE;
 
   /* Refine size and offset we got from analyzing MEM_EXPR by using
@@ -349,12 +349,12 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
   /* If MEM_OFFSET and MEM_SIZE might get us outside of the base object of
      the MEM_EXPR punt.  This happens for STRICT_ALIGNMENT targets a lot.  */
   if (MEM_EXPR (mem) != get_spill_slot_decl (false)
-      && (may_lt (ref->offset, 0)
+      && (maybe_lt (ref->offset, 0)
 	  || (DECL_P (ref->base)
 	      && (DECL_SIZE (ref->base) == NULL_TREE
 		  || !poly_int_tree_p (DECL_SIZE (ref->base))
-		  || may_lt (wi::to_poly_offset (DECL_SIZE (ref->base)),
-			     ref->offset + ref->size)))))
+		  || maybe_lt (wi::to_poly_offset (DECL_SIZE (ref->base)),
+			       ref->offset + ref->size)))))
     return false;
 
   return true;
@@ -1833,7 +1833,7 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
 	  break;
 
 	case 'p':
-	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
 	    return 0;
 	  break;
 
@@ -1876,7 +1876,8 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
 }
 
 static rtx
-find_base_term (rtx x)
+find_base_term (rtx x, vec<std::pair<cselib_val *,
+				     struct elt_loc_list *> > &visited_vals)
 {
   cselib_val *val;
   struct elt_loc_list *l, *f;
@@ -1910,7 +1911,7 @@ find_base_term (rtx x)
     case POST_DEC:
     case PRE_MODIFY:
     case POST_MODIFY:
-      return find_base_term (XEXP (x, 0));
+      return find_base_term (XEXP (x, 0), visited_vals);
 
     case ZERO_EXTEND:
     case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
@@ -1921,7 +1922,7 @@ find_base_term (rtx x)
 	return 0;
 
       {
-	rtx temp = find_base_term (XEXP (x, 0));
+	rtx temp = find_base_term (XEXP (x, 0), visited_vals);
 
 	if (temp != 0 && CONSTANT_P (temp))
 	  temp = convert_memory_address (Pmode, temp);
@@ -1940,7 +1941,9 @@ find_base_term (rtx x)
 	return static_reg_base_value[STACK_POINTER_REGNUM];
 
       f = val->locs;
-      /* Temporarily reset val->locs to avoid infinite recursion.  */
+      /* Reset val->locs to avoid infinite recursion.  */
+      if (f)
+	visited_vals.safe_push (std::make_pair (val, f));
       val->locs = NULL;
 
       for (l = f; l; l = l->next)
@@ -1949,16 +1952,15 @@ find_base_term (rtx x)
 	    && !CSELIB_VAL_PTR (l->loc)->locs->next
 	    && CSELIB_VAL_PTR (l->loc)->locs->loc == x)
 	  continue;
-	else if ((ret = find_base_term (l->loc)) != 0)
+	else if ((ret = find_base_term (l->loc, visited_vals)) != 0)
 	  break;
 
-      val->locs = f;
       return ret;
 
     case LO_SUM:
       /* The standard form is (lo_sum reg sym) so look only at the
          second operand.  */
-      return find_base_term (XEXP (x, 1));
+      return find_base_term (XEXP (x, 1), visited_vals);
 
     case CONST:
       x = XEXP (x, 0);
@@ -1984,7 +1986,7 @@ find_base_term (rtx x)
 	   other operand is the base register.  */
 
 	if (tmp1 == pic_offset_table_rtx && CONSTANT_P (tmp2))
-	  return find_base_term (tmp2);
+	  return find_base_term (tmp2, visited_vals);
 
 	/* If either operand is known to be a pointer, then prefer it
 	   to determine the base term.  */
@@ -2001,12 +2003,12 @@ find_base_term (rtx x)
 	   term is from a pointer or is a named object or a special address
 	   (like an argument or stack reference), then use it for the
 	   base term.  */
-	rtx base = find_base_term (tmp1);
+	rtx base = find_base_term (tmp1, visited_vals);
 	if (base != NULL_RTX
 	    && ((REG_P (tmp1) && REG_POINTER (tmp1))
 		 || known_base_value_p (base)))
 	  return base;
-	base = find_base_term (tmp2);
+	base = find_base_term (tmp2, visited_vals);
 	if (base != NULL_RTX
 	    && ((REG_P (tmp2) && REG_POINTER (tmp2))
 		 || known_base_value_p (base)))
@@ -2020,7 +2022,7 @@ find_base_term (rtx x)
 
     case AND:
       if (CONST_INT_P (XEXP (x, 1)) && INTVAL (XEXP (x, 1)) != 0)
-	return find_base_term (XEXP (x, 0));
+	return find_base_term (XEXP (x, 0), visited_vals);
       return 0;
 
     case SYMBOL_REF:
@@ -2030,6 +2032,19 @@ find_base_term (rtx x)
     default:
       return 0;
     }
+}
+
+/* Wrapper around the worker above which removes locs from visited VALUEs
+   to avoid visiting them multiple times.  We unwind that changes here.  */
+
+static rtx
+find_base_term (rtx x)
+{
+  auto_vec<std::pair<cselib_val *, struct elt_loc_list *>, 32> visited_vals;
+  rtx res = find_base_term (x, visited_vals);
+  for (unsigned i = 0; i < visited_vals.length (); ++i)
+    visited_vals[i].first->locs = visited_vals[i].second;
+  return res;
 }
 
 /* Return true if accesses to address X may alias accesses based
@@ -2333,13 +2348,13 @@ addr_side_effect_eval (rtx addr, poly_int64 size, int n_refs)
 static inline bool
 offset_overlap_p (poly_int64 c, poly_int64 xsize, poly_int64 ysize)
 {
-  if (must_eq (xsize, 0) || must_eq (ysize, 0))
+  if (known_eq (xsize, 0) || known_eq (ysize, 0))
     return true;
 
-  if (may_ge (c, 0))
-    return may_gt (may_lt (xsize, 0) ? -xsize : xsize, c);
+  if (maybe_ge (c, 0))
+    return maybe_gt (maybe_lt (xsize, 0) ? -xsize : xsize, c);
   else
-    return may_gt (may_lt (ysize, 0) ? -ysize : ysize, -c);
+    return maybe_gt (maybe_lt (ysize, 0) ? -ysize : ysize, -c);
 }
 
 /* Return one if X and Y (memory addresses) reference the
@@ -2415,13 +2430,13 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
   else if (GET_CODE (x) == LO_SUM)
     x = XEXP (x, 1);
   else
-    x = addr_side_effect_eval (x, may_lt (xsize, 0) ? -xsize : xsize, 0);
+    x = addr_side_effect_eval (x, maybe_lt (xsize, 0) ? -xsize : xsize, 0);
   if (GET_CODE (y) == HIGH)
     y = XEXP (y, 0);
   else if (GET_CODE (y) == LO_SUM)
     y = XEXP (y, 1);
   else
-    y = addr_side_effect_eval (y, may_lt (ysize, 0) ? -ysize : ysize, 0);
+    y = addr_side_effect_eval (y, maybe_lt (ysize, 0) ? -ysize : ysize, 0);
 
   if (GET_CODE (x) == SYMBOL_REF && GET_CODE (y) == SYMBOL_REF)
     {
@@ -2434,7 +2449,7 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
 	 through alignment adjustments (i.e., that have negative
 	 sizes), because we can't know how far they are from each
 	 other.  */
-      if (may_lt (xsize, 0) || may_lt (ysize, 0))
+      if (maybe_lt (xsize, 0) || maybe_lt (ysize, 0))
 	return -1;
       /* If decls are different or we know by offsets that there is no overlap,
 	 we win.  */
@@ -2561,9 +2576,9 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
       unsigned HOST_WIDE_INT uc = sc;
       if (sc < 0 && pow2_or_zerop (-uc))
 	{
-	  if (may_gt (xsize, 0))
+	  if (maybe_gt (xsize, 0))
 	    xsize = -xsize;
-	  if (may_ne (xsize, 0))
+	  if (maybe_ne (xsize, 0))
 	    xsize += sc + 1;
 	  c -= sc + 1;
 	  return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
@@ -2576,9 +2591,9 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
       unsigned HOST_WIDE_INT uc = sc;
       if (sc < 0 && pow2_or_zerop (-uc))
 	{
-	  if (may_gt (ysize, 0))
+	  if (maybe_gt (ysize, 0))
 	    ysize = -ysize;
-	  if (may_ne (ysize, 0))
+	  if (maybe_ne (ysize, 0))
 	    ysize += sc + 1;
 	  c += sc + 1;
 	  return memrefs_conflict_p (xsize, x,
@@ -2613,8 +2628,8 @@ memrefs_conflict_p (poly_int64 xsize, rtx x, poly_int64 ysize, rtx y,
 	 sizes), because we can't know how far they are from each
 	 other.  */
       if (CONSTANT_P (y))
-	return (may_lt (xsize, 0)
-		|| may_lt (ysize, 0)
+	return (maybe_lt (xsize, 0)
+		|| maybe_lt (ysize, 0)
 		|| offset_overlap_p (c, xsize, ysize));
 
       return -1;
@@ -2865,7 +2880,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   if (MEM_SIZE_KNOWN_P (y) && moffsety_known_p)
     sizey = MEM_SIZE (y);
 
-  return !ranges_may_overlap_p (offsetx, sizex, offsety, sizey);
+  return !ranges_maybe_overlap_p (offsetx, sizex, offsety, sizey);
 }
 
 /* Helper for true_dependence and canon_true_dependence.
@@ -2999,7 +3014,8 @@ write_dependence_p (const_rtx mem,
   int ret;
 
   gcc_checking_assert (x_canonicalized
-		       ? (x_addr != NULL_RTX && x_mode != VOIDmode)
+		       ? (x_addr != NULL_RTX
+			  && (x_mode != VOIDmode || GET_MODE (x) == VOIDmode))
 		       : (x_addr == NULL_RTX && x_mode == VOIDmode));
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
@@ -3191,12 +3207,21 @@ init_alias_target (void)
 	&& targetm.hard_regno_mode_ok (i, Pmode))
       static_reg_base_value[i] = arg_base_value;
 
+  /* RTL code is required to be consistent about whether it uses the
+     stack pointer, the frame pointer or the argument pointer to
+     access a given area of the frame.  We can therefore use the
+     base address to distinguish between the different areas.  */
   static_reg_base_value[STACK_POINTER_REGNUM]
     = unique_base_value (UNIQUE_BASE_VALUE_SP);
   static_reg_base_value[ARG_POINTER_REGNUM]
     = unique_base_value (UNIQUE_BASE_VALUE_ARGP);
   static_reg_base_value[FRAME_POINTER_REGNUM]
     = unique_base_value (UNIQUE_BASE_VALUE_FP);
+
+  /* The above rules extend post-reload, with eliminations applying
+     consistently to each of the three pointers.  Cope with cases in
+     which the frame pointer is eliminated to the hard frame pointer
+     rather than the stack pointer.  */
   if (!HARD_FRAME_POINTER_IS_FRAME_POINTER)
     static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
       = unique_base_value (UNIQUE_BASE_VALUE_HFP);
@@ -3329,7 +3354,14 @@ init_alias_analysis (void)
 
       /* Initialize the alias information for this pass.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (static_reg_base_value[i])
+	if (static_reg_base_value[i]
+	    /* Don't treat the hard frame pointer as special if we
+	       eliminated the frame pointer to the stack pointer instead.  */
+	    && !(i == HARD_FRAME_POINTER_REGNUM
+		 && reload_completed
+		 && !frame_pointer_needed
+		 && targetm.can_eliminate (FRAME_POINTER_REGNUM,
+					   STACK_POINTER_REGNUM)))
 	  {
 	    new_reg_base_value[i] = static_reg_base_value[i];
 	    bitmap_set_bit (reg_seen, i);

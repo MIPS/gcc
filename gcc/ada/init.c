@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2018, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1279,7 +1279,7 @@ __gnat_handle_vms_condition (int *sigargs, void *mechargs)
 
   /* If it was a DEC Ada specific condtiion, make it GNAT otherwise
      keep the old facility.  */
-  if (sigargs [1] & FAC_MASK == DECADA_M_FACILITY)
+  if ((sigargs [1] & FAC_MASK) == DECADA_M_FACILITY)
     SYS$PUTMSG (sigargs, copy_msg, &gnat_facility,
 	        (unsigned long long ) message);
   else
@@ -1937,7 +1937,7 @@ __gnat_map_signal (int sig,
   Raise_From_Signal_Handler (exception, msg);
 }
 
-#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR >= 7)
+#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR >= 7) || defined (__aarch64__)
 
 /* ARM-vx7 case with arm unwinding exceptions */
 #define HAVE_GNAT_ADJUST_CONTEXT_FOR_RAISE
@@ -2005,7 +2005,7 @@ __gnat_error_handler (int sig, siginfo_t *si, void *sc)
   sigdelset (&mask, sig);
   sigprocmask (SIG_SETMASK, &mask, NULL);
 
-#if defined (__ARMEL__) || defined (__PPC__) || defined (__i386__) || defined (__x86_64__)
+#if defined (__ARMEL__) || defined (__PPC__) || defined (__i386__) || defined (__x86_64__) || defined (__aarch64__)
   /* On certain targets, kernel mode, we process signals through a Call Frame
      Info trampoline, voiding the need for myriads of fallback_frame_state
      variants in the ZCX runtime.  We have no simple way to distinguish ZCX

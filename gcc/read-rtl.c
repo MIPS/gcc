@@ -1,5 +1,5 @@
 /* RTL reader for GCC.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1232,7 +1232,7 @@ static int
 parse_reg_note_name (const char *string)
 {
   for (int i = 0; i < REG_NOTE_MAX; i++)
-    if (0 == strcmp (string, GET_REG_NOTE_NAME (i)))
+    if (strcmp (string, GET_REG_NOTE_NAME (i)) == 0)
       return i;
   fatal_with_file_and_line ("unrecognized REG_NOTE name: `%s'", string);
 }

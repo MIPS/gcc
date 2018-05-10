@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,6 +108,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     const_tree,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (scalar_mode mode);
+extern machine_mode default_split_reduction (machine_mode);
 extern void default_autovectorize_vector_sizes (vector_sizes *);
 extern opt_machine_mode default_get_mask_mode (poly_uint64, poly_uint64);
 extern bool default_empty_mask_is_expensive (unsigned);
@@ -136,6 +137,8 @@ extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
   (cumulative_args_t, machine_mode, const_tree, bool);
 extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
   (cumulative_args_t, machine_mode, tree, bool);
+extern void hook_void_CUMULATIVE_ARGS_tree
+  (cumulative_args_t, tree);
 extern const char *hook_invalid_arg_for_unprototyped_fn
   (const_tree, const_tree, const_tree);
 extern void default_function_arg_advance
@@ -172,6 +175,7 @@ extern machine_mode default_secondary_memory_needed_mode (machine_mode);
 extern void default_target_option_override (void);
 extern void hook_void_bitmap (bitmap);
 extern int default_reloc_rw_mask (void);
+extern bool default_generate_pic_addr_diff_vec (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
 extern tree default_emutls_var_fields (tree, tree *);
 extern tree default_emutls_var_init (tree, tree, tree);

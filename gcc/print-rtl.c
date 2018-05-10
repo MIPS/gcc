@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -264,7 +264,6 @@ rtx_writer::print_rtx_operand_code_0 (const_rtx in_rtx ATTRIBUTE_UNUSED,
 	  }
 
 	case NOTE_INSN_VAR_LOCATION:
-	case NOTE_INSN_CALL_ARG_LOCATION:
 	  fputc (' ', m_outfile);
 	  print_rtx (NOTE_VAR_LOCATION (in_rtx));
 	  break;
@@ -273,6 +272,17 @@ rtx_writer::print_rtx_operand_code_0 (const_rtx in_rtx ATTRIBUTE_UNUSED,
 	  fputc ('\n', m_outfile);
 	  output_cfi_directive (m_outfile, NOTE_CFI (in_rtx));
 	  fputc ('\t', m_outfile);
+	  break;
+
+	case NOTE_INSN_BEGIN_STMT:
+	case NOTE_INSN_INLINE_ENTRY:
+#ifndef GENERATOR_FILE
+	  {
+	    expanded_location xloc
+	      = expand_location (NOTE_MARKER_LOCATION (in_rtx));
+	    fprintf (m_outfile, " %s:%i", xloc.file, xloc.line);
+	  }
+#endif
 	  break;
 
 	default:
@@ -353,7 +363,7 @@ rtx_writer::print_rtx_operand_codes_E_and_V (const_rtx in_rtx, int idx)
       m_sawclose = 0;
     }
   fputs (" [", m_outfile);
-  if (NULL != XVEC (in_rtx, idx))
+  if (XVEC (in_rtx, idx) != NULL)
     {
       m_indent += 2;
       if (XVECLEN (in_rtx, idx))
@@ -516,7 +526,7 @@ rtx_writer::print_rtx_operand_code_r (const_rtx in_rtx)
       if (REG_EXPR (in_rtx))
 	print_mem_expr (m_outfile, REG_EXPR (in_rtx));
 
-      if (may_ne (REG_OFFSET (in_rtx), 0))
+      if (maybe_ne (REG_OFFSET (in_rtx), 0))
 	{
 	  fprintf (m_outfile, "+");
 	  print_poly_int (m_outfile, REG_OFFSET (in_rtx));
@@ -1007,6 +1017,23 @@ debug (const rtx_def *ptr)
   else
     fprintf (stderr, "<nil>\n");
 }
+
+/* Like debug_rtx but with no newline, as debug_helper will add one.
+
+   Note: No debug_slim(rtx_insn *) variant implemented, as this
+   function can serve for both rtx and rtx_insn.  */
+
+static void
+debug_slim (const_rtx x)
+{
+  rtx_writer w (stderr, 0, false, false, NULL);
+  w.print_rtx (x);
+}
+
+DEFINE_DEBUG_VEC (rtx_def *)
+DEFINE_DEBUG_VEC (rtx_insn *)
+DEFINE_DEBUG_HASH_SET (rtx_def *)
+DEFINE_DEBUG_HASH_SET (rtx_insn *)
 
 /* Count of rtx's to print with debug_rtx_list.
    This global exists because gdb user defined commands have no arguments.  */
@@ -1844,6 +1871,24 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
 
     case DEBUG_INSN:
       {
+	if (DEBUG_MARKER_INSN_P (x))
+	  {
+	    switch (INSN_DEBUG_MARKER_KIND (x))
+	      {
+	      case NOTE_INSN_BEGIN_STMT:
+		pp_string (pp, "debug begin stmt marker");
+		break;
+
+	      case NOTE_INSN_INLINE_ENTRY:
+		pp_string (pp, "debug inline entry marker");
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
+	    break;
+	  }
+
 	const char *name = "?";
 	char idbuf[32];
 
@@ -1924,7 +1969,6 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
 	    break;
 
 	  case NOTE_INSN_VAR_LOCATION:
-	  case NOTE_INSN_CALL_ARG_LOCATION:
 	    pp_left_brace (pp);
 	    print_pattern (pp, NOTE_VAR_LOCATION (x), verbose);
 	    pp_right_brace (pp);

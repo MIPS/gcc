@@ -1,5 +1,5 @@
 /* Tree-based target query functions relating to optabs
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -143,29 +143,6 @@ optab_for_tree_code (enum tree_code code, const_tree type,
 	      : (TYPE_SATURATING (type)
 		 ? ssmsub_widen_optab : smsub_widen_optab));
 
-    case REDUC_MAX_EXPR:
-      return TYPE_UNSIGNED (type)
-	     ? reduc_umax_scal_optab : reduc_smax_scal_optab;
-
-    case REDUC_MIN_EXPR:
-      return TYPE_UNSIGNED (type)
-	     ? reduc_umin_scal_optab : reduc_smin_scal_optab;
-
-    case REDUC_PLUS_EXPR:
-      return reduc_plus_scal_optab;
-
-    case REDUC_AND_EXPR:
-      return reduc_and_scal_optab;
-
-    case REDUC_IOR_EXPR:
-      return reduc_ior_scal_optab;
-
-    case REDUC_XOR_EXPR:
-      return reduc_xor_scal_optab;
-
-    case FOLD_LEFT_PLUS_EXPR:
-      return fold_left_plus_optab;
-
     case VEC_WIDEN_MULT_HI_EXPR:
       return TYPE_UNSIGNED (type) ?
 	vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
@@ -238,6 +215,7 @@ optab_for_tree_code (enum tree_code code, const_tree type,
 	return TYPE_UNSIGNED (type) ? usadd_optab : ssadd_optab;
       return trapv ? addv_optab : add_optab;
 
+    case POINTER_DIFF_EXPR:
     case MINUS_EXPR:
       if (TYPE_SATURATING (type))
 	return TYPE_UNSIGNED (type) ? ussub_optab : sssub_optab;
@@ -346,8 +324,8 @@ expand_vec_cond_expr_p (tree value_type, tree cmp_op_type, enum tree_code code)
 			       TYPE_MODE (cmp_op_type)) != CODE_FOR_nothing)
     return true;
 
-  if (may_ne (GET_MODE_SIZE (value_mode), GET_MODE_SIZE (cmp_op_mode))
-      || may_ne (GET_MODE_NUNITS (value_mode), GET_MODE_NUNITS (cmp_op_mode)))
+  if (maybe_ne (GET_MODE_SIZE (value_mode), GET_MODE_SIZE (cmp_op_mode))
+      || maybe_ne (GET_MODE_NUNITS (value_mode), GET_MODE_NUNITS (cmp_op_mode)))
     return false;
 
   if (get_vcond_icode (TYPE_MODE (value_type), TYPE_MODE (cmp_op_type),

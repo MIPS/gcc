@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -824,7 +824,7 @@ aliasing_component_refs_p (tree ref1,
       offset2 -= offadj;
       get_ref_base_and_extent (base1, &offadj, &sztmp, &msztmp, &reverse);
       offset1 -= offadj;
-      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_maybe_overlap_p (offset1, max_size1, offset2, max_size2);
     }
   /* If we didn't find a common base, try the other way around.  */
   refp = &ref1;
@@ -843,7 +843,7 @@ aliasing_component_refs_p (tree ref1,
       offset1 -= offadj;
       get_ref_base_and_extent (base2, &offadj, &sztmp, &msztmp, &reverse);
       offset2 -= offadj;
-      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_maybe_overlap_p (offset1, max_size1, offset2, max_size2);
     }
 
   /* If we have two type access paths B1.path1 and B2.path2 they may
@@ -1101,7 +1101,7 @@ decl_refs_may_alias_p (tree ref1, tree base1,
 
   /* If both references are based on the same variable, they cannot alias if
      the accesses do not overlap.  */
-  if (!ranges_may_overlap_p (offset1, max_size1, offset2, max_size2))
+  if (!ranges_maybe_overlap_p (offset1, max_size1, offset2, max_size2))
     return false;
 
   /* For components with variable position, the above test isn't sufficient,
@@ -1148,7 +1148,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
      ???  IVOPTs creates bases that do not honor this restriction,
      so do not apply this optimization for TARGET_MEM_REFs.  */
   if (TREE_CODE (base1) != TARGET_MEM_REF
-      && !ranges_may_overlap_p (offset1 + moff, -1, offset2, max_size2))
+      && !ranges_maybe_overlap_p (offset1 + moff, -1, offset2, max_size2))
     return false;
   /* They also cannot alias if the pointer may not point to the decl.  */
   if (!ptr_deref_may_alias_decl_p (ptr1, base2))
@@ -1190,8 +1190,8 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 	 type U and sizeof T is smaller than sizeof U.  */
       && TREE_CODE (TREE_TYPE (ptrtype1)) != UNION_TYPE
       && TREE_CODE (TREE_TYPE (ptrtype1)) != QUAL_UNION_TYPE
-      && must_lt (wi::to_poly_widest (DECL_SIZE (base2)),
-		  wi::to_poly_widest (TYPE_SIZE (TREE_TYPE (ptrtype1)))))
+      && known_lt (wi::to_poly_widest (DECL_SIZE (base2)),
+		   wi::to_poly_widest (TYPE_SIZE (TREE_TYPE (ptrtype1)))))
     return false;
 
   if (!ref2)
@@ -1223,7 +1223,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
   if ((TREE_CODE (base1) != TARGET_MEM_REF
        || (!TMR_INDEX (base1) && !TMR_INDEX2 (base1)))
       && same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (dbase2)) == 1)
-    return ranges_may_overlap_p (doffset1, max_size1, doffset2, max_size2);
+    return ranges_maybe_overlap_p (doffset1, max_size1, doffset2, max_size2);
 
   if (ref1 && ref2
       && nonoverlapping_component_refs_p (ref1, ref2))
@@ -1297,8 +1297,8 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
     {
       poly_offset_int moff1 = mem_ref_offset (base1) << LOG2_BITS_PER_UNIT;
       poly_offset_int moff2 = mem_ref_offset (base2) << LOG2_BITS_PER_UNIT;
-      return ranges_may_overlap_p (offset1 + moff1, max_size1,
-				   offset2 + moff2, max_size2);
+      return ranges_maybe_overlap_p (offset1 + moff1, max_size1,
+				     offset2 + moff2, max_size2);
     }
   if (!ptr_derefs_may_alias_p (ptr1, ptr2))
     return false;
@@ -1329,7 +1329,7 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
       /* But avoid treating arrays as "objects", instead assume they
          can overlap by an exact multiple of their element size.  */
       && TREE_CODE (TREE_TYPE (ptrtype1)) != ARRAY_TYPE)
-    return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
+    return ranges_maybe_overlap_p (offset1, max_size1, offset2, max_size2);
 
   /* Do type-based disambiguation.  */
   if (base1_alias_set != base2_alias_set
@@ -2296,8 +2296,8 @@ same_addr_size_stores_p (tree base1, poly_int64 offset1, poly_int64 size1,
 			 poly_int64 max_size2)
 {
   /* Offsets need to be 0.  */
-  if (may_ne (offset1, 0)
-      || may_ne (offset2, 0))
+  if (maybe_ne (offset1, 0)
+      || maybe_ne (offset2, 0))
     return false;
 
   bool base1_obj_p = SSA_VAR_P (base1);
@@ -2323,12 +2323,12 @@ same_addr_size_stores_p (tree base1, poly_int64 offset1, poly_int64 size1,
     return false;
 
   /* Max_size needs to match size.  */
-  if (may_ne (max_size1, size1)
-      || may_ne (max_size2, size2))
+  if (maybe_ne (max_size1, size1)
+      || maybe_ne (max_size2, size2))
     return false;
 
   /* Sizes need to match.  */
-  if (may_ne (size1, size2))
+  if (maybe_ne (size1, size2))
     return false;
 
 
@@ -2358,7 +2358,7 @@ same_addr_size_stores_p (tree base1, poly_int64 offset1, poly_int64 size1,
      that ptr points to the start of obj.  */
   return (DECL_SIZE (obj)
 	  && poly_int_tree_p (DECL_SIZE (obj))
-	  && must_eq (wi::to_poly_offset (DECL_SIZE (obj)), size1));
+	  && known_eq (wi::to_poly_offset (DECL_SIZE (obj)), size1));
 }
 
 /* If STMT kills the memory reference REF return true, otherwise
@@ -2480,7 +2480,7 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	}
       /* For a must-alias check we need to be able to constrain
 	 the access properly.  */
-      if (must_eq (size, max_size)
+      if (known_eq (size, max_size)
 	  && known_subrange_p (ref_offset, ref->max_size, offset, size))
 	return true;
     }

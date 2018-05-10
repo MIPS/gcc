@@ -1,5 +1,5 @@
 /* Generate the machine mode enumeration and associated tables.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -119,6 +119,7 @@ complex_class (enum mode_class c)
   switch (c)
     {
     case MODE_INT: return MODE_COMPLEX_INT;
+    case MODE_PARTIAL_INT: return MODE_COMPLEX_INT;
     case MODE_FLOAT: return MODE_COMPLEX_FLOAT;
     default:
       error ("no complex class for class %s", mode_class_names[c]);

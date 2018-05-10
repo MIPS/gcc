@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2018, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -264,6 +264,9 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 
   /* No return type warnings for Ada.  */
   warn_return_type = 0;
+
+  /* No string overflow warnings for Ada.  */
+  warn_stringop_overflow = 0;
 
   /* No caret by default for Ada.  */
   if (!global_options_set.x_flag_diagnostics_show_caret)
@@ -953,7 +956,7 @@ gnat_get_array_descr_info (const_tree const_type,
      structure.  */
   for (i = (convention_fortran_p ? info->ndimensions - 1 : 0),
        dimen = first_dimen;
-       0 <= i && i < info->ndimensions;
+       IN_RANGE (i, 0, info->ndimensions - 1);
        i += (convention_fortran_p ? -1 : 1),
        dimen = TREE_TYPE (dimen))
     {
@@ -1144,16 +1147,16 @@ default_pass_by_ref (tree gnu_type)
      is an In Out parameter, but it's probably best to err on the side of
      passing more things by reference.  */
 
+  if (AGGREGATE_TYPE_P (gnu_type)
+      && (!valid_constant_size_p (TYPE_SIZE_UNIT (gnu_type))
+	  || compare_tree_int (TYPE_SIZE_UNIT (gnu_type),
+			       TYPE_ALIGN (gnu_type)) > 0))
+    return true;
+
   if (pass_by_reference (NULL, TYPE_MODE (gnu_type), gnu_type, true))
     return true;
 
   if (targetm.calls.return_in_memory (gnu_type, NULL_TREE))
-    return true;
-
-  if (AGGREGATE_TYPE_P (gnu_type)
-      && (!valid_constant_size_p (TYPE_SIZE_UNIT (gnu_type))
-	  || 0 < compare_tree_int (TYPE_SIZE_UNIT (gnu_type),
-				   TYPE_ALIGN (gnu_type))))
     return true;
 
   return false;

@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -3255,8 +3255,8 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	 ignore this constraint. When we handle pointer subtraction,
 	 we may have to do something cute here.  */
 
-      if (may_lt (poly_uint64 (bitpos), get_varinfo (result.var)->fullsize)
-	  && may_ne (bitmaxsize, 0))
+      if (maybe_lt (poly_uint64 (bitpos), get_varinfo (result.var)->fullsize)
+	  && maybe_ne (bitmaxsize, 0))
 	{
 	  /* It's also not true that the constraint will actually start at the
 	     right offset, it may start in some padding.  We only care about
@@ -3268,8 +3268,8 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	  cexpr.offset = 0;
 	  for (curr = get_varinfo (cexpr.var); curr; curr = vi_next (curr))
 	    {
-	      if (ranges_may_overlap_p (poly_int64 (curr->offset), curr->size,
-					bitpos, bitmaxsize))
+	      if (ranges_maybe_overlap_p (poly_int64 (curr->offset),
+					  curr->size, bitpos, bitmaxsize))
 		{
 		  cexpr.var = curr->id;
 		  results->safe_push (cexpr);
@@ -3302,7 +3302,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
 	      results->safe_push (cexpr);
 	    }
 	}
-      else if (must_eq (bitmaxsize, 0))
+      else if (known_eq (bitmaxsize, 0))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Access to zero-sized part of variable, "
@@ -3320,7 +3320,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
       HOST_WIDE_INT const_bitpos;
       if (!bitpos.is_constant (&const_bitpos)
 	  || const_bitpos == -1
-	  || may_ne (bitsize, bitmaxsize)
+	  || maybe_ne (bitsize, bitmaxsize)
 	  || AGGREGATE_TYPE_P (TREE_TYPE (orig_t))
 	  || result.offset == UNKNOWN_OFFSET)
 	result.offset = UNKNOWN_OFFSET;

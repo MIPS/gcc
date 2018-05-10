@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006-2017 Free Software Foundation, Inc.
+   Copyright (C) 2006-2018 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -345,7 +345,12 @@ vuse_ssa_val (tree x)
 
   do
     {
-      x = SSA_VAL (x);
+      tree tem = SSA_VAL (x);
+      /* stmt walking can walk over a backedge and reach code we didn't
+	 value-number yet.  */
+      if (tem == VN_TOP)
+	return x;
+      x = tem;
     }
   while (SSA_NAME_IN_FREE_LIST (x));
 
@@ -564,16 +569,16 @@ vn_reference_compute_hash (const vn_reference_t vr1)
 	deref = true;
       else if (vro->opcode != ADDR_EXPR)
 	deref = false;
-      if (may_ne (vro->off, -1))
+      if (maybe_ne (vro->off, -1))
 	{
-	  if (must_eq (off, -1))
+	  if (known_eq (off, -1))
 	    off = 0;
 	  off += vro->off;
 	}
       else
 	{
-	  if (may_ne (off, -1)
-	      && may_ne (off, 0))
+	  if (maybe_ne (off, -1)
+	      && maybe_ne (off, 0))
 	    hstate.add_poly_int (off);
 	  off = -1;
 	  if (deref
@@ -651,7 +656,7 @@ vn_reference_eq (const_vn_reference_t const vr1, const_vn_reference_t const vr2)
 	  /* Do not look through a storage order barrier.  */
 	  else if (vro1->opcode == VIEW_CONVERT_EXPR && vro1->reverse)
 	    return false;
-	  if (must_eq (vro1->off, -1))
+	  if (known_eq (vro1->off, -1))
 	    break;
 	  off1 += vro1->off;
 	}
@@ -662,11 +667,11 @@ vn_reference_eq (const_vn_reference_t const vr1, const_vn_reference_t const vr2)
 	  /* Do not look through a storage order barrier.  */
 	  else if (vro2->opcode == VIEW_CONVERT_EXPR && vro2->reverse)
 	    return false;
-	  if (must_eq (vro2->off, -1))
+	  if (known_eq (vro2->off, -1))
 	    break;
 	  off2 += vro2->off;
 	}
-      if (may_ne (off1, off2))
+      if (maybe_ne (off1, off2))
 	return false;
       if (deref1 && vro1->opcode == ADDR_EXPR)
 	{
@@ -799,7 +804,7 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 		       (checking cfun->after_inlining does the
 		       trick here).  */
 		    if (TREE_CODE (orig) != ADDR_EXPR
-			|| may_ne (off, 0)
+			|| maybe_ne (off, 0)
 			|| cfun->after_inlining)
 		      off.to_shwi (&temp.off);
 		  }
@@ -857,8 +862,6 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	case INTEGER_CST:
 	case COMPLEX_CST:
 	case VECTOR_CST:
-	case VEC_DUPLICATE_CST:
-	case VEC_SERIES_CST:
 	case REAL_CST:
 	case FIXED_CST:
 	case CONSTRUCTOR:
@@ -962,7 +965,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	    {
 	      vn_reference_op_t pop = &ops[i-1];
 	      base = TREE_OPERAND (op->op0, 0);
-	      if (must_eq (pop->off, -1))
+	      if (known_eq (pop->off, -1))
 		{
 		  max_size = -1;
 		  offset = 0;
@@ -1052,8 +1055,6 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	case INTEGER_CST:
 	case COMPLEX_CST:
 	case VECTOR_CST:
-	case VEC_DUPLICATE_CST:
-	case VEC_SERIES_CST:
 	case REAL_CST:
 	case CONSTRUCTOR:
 	case CONST_DECL:
@@ -1077,7 +1078,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
   /* We discount volatiles from value-numbering elsewhere.  */
   ref->volatile_p = false;
 
-  if (!size.to_shwi (&ref->size) || may_lt (ref->size, 0))
+  if (!size.to_shwi (&ref->size) || maybe_lt (ref->size, 0))
     {
       ref->offset = 0;
       ref->size = -1;
@@ -1092,7 +1093,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
       return true;
     }
 
-  if (!max_size.to_shwi (&ref->max_size) || may_lt (ref->max_size, 0))
+  if (!max_size.to_shwi (&ref->max_size) || maybe_lt (ref->max_size, 0))
     ref->max_size = -1;
 
   return true;
@@ -1220,7 +1221,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	 dereference isn't offsetted.  */
       if (!addr_base
 	  && *i_p == ops->length () - 1
-	  && must_eq (off, 0)
+	  && known_eq (off, 0)
 	  /* This makes us disable this transform for PRE where the
 	     reference ops might be also used for code insertion which
 	     is invalid.  */
@@ -1248,7 +1249,9 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	  return true;
 	}
       if (!addr_base
-	  || TREE_CODE (addr_base) != MEM_REF)
+	  || TREE_CODE (addr_base) != MEM_REF
+	  || (TREE_CODE (TREE_OPERAND (addr_base, 0)) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND (addr_base, 0))))
 	return false;
 
       off += addr_offset;
@@ -1261,6 +1264,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
       ptr = gimple_assign_rhs1 (def_stmt);
       ptroff = gimple_assign_rhs2 (def_stmt);
       if (TREE_CODE (ptr) != SSA_NAME
+	  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ptr)
 	  || TREE_CODE (ptroff) != INTEGER_CST)
 	return false;
 
@@ -1358,7 +1362,7 @@ fully_constant_vn_reference_p (vn_reference_t ref)
 	      ++i;
 	      break;
 	    }
-	  if (must_eq (operands[i].off, -1))
+	  if (known_eq (operands[i].off, -1))
 	    return NULL_TREE;
 	  off += operands[i].off;
 	  if (operands[i].opcode == MEM_REF)
@@ -1375,10 +1379,14 @@ fully_constant_vn_reference_p (vn_reference_t ref)
       else if (base->opcode == MEM_REF
 	       && base[1].opcode == ADDR_EXPR
 	       && (TREE_CODE (TREE_OPERAND (base[1].op0, 0)) == VAR_DECL
-		   || TREE_CODE (TREE_OPERAND (base[1].op0, 0)) == CONST_DECL))
+		   || TREE_CODE (TREE_OPERAND (base[1].op0, 0)) == CONST_DECL
+		   || TREE_CODE (TREE_OPERAND (base[1].op0, 0)) == STRING_CST))
 	{
 	  decl = TREE_OPERAND (base[1].op0, 0);
-	  ctor = ctor_for_folding (decl);
+	  if (TREE_CODE (decl) == STRING_CST)
+	    ctor = decl;
+	  else
+	    ctor = ctor_for_folding (decl);
 	}
       if (ctor == NULL_TREE)
 	return build_zero_cst (ref->type);
@@ -1492,7 +1500,7 @@ valueize_refs_1 (vec<vn_reference_op_s> orig, bool *valueized_anything)
       /* If it transforms a non-constant ARRAY_REF into a constant
 	 one, adjust the constant offset.  */
       else if (vro->opcode == ARRAY_REF
-	       && must_eq (vro->off, -1)
+	       && known_eq (vro->off, -1)
 	       && poly_int_tree_p (vro->op0)
 	       && poly_int_tree_p (vro->op1)
 	       && TREE_CODE (vro->op2) == INTEGER_CST)
@@ -1626,7 +1634,7 @@ vn_reference_lookup_or_insert_for_pieces (tree vuse,
   vn_reference_s vr1;
   vn_reference_t result;
   unsigned value_id;
-  vr1.vuse = vuse;
+  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
   vr1.operands = operands;
   vr1.type = type;
   vr1.set = set;
@@ -1861,6 +1869,39 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  ao_ref_init (&lhs_ref, lhs);
 	  lhs_ref_ok = true;
 	}
+
+      /* If we reach a clobbering statement try to skip it and see if
+         we find a VN result with exactly the same value as the
+	 possible clobber.  In this case we can ignore the clobber
+	 and return the found value.
+	 Note that we don't need to worry about partial overlapping
+	 accesses as we then can use TBAA to disambiguate against the
+	 clobbering statement when looking up a load (thus the
+	 VN_WALKREWRITE guard).  */
+      if (vn_walk_kind == VN_WALKREWRITE
+	  && is_gimple_reg_type (TREE_TYPE (lhs))
+	  && types_compatible_p (TREE_TYPE (lhs), vr->type))
+	{
+	  tree *saved_last_vuse_ptr = last_vuse_ptr;
+	  /* Do not update last_vuse_ptr in vn_reference_lookup_2.  */
+	  last_vuse_ptr = NULL;
+	  tree saved_vuse = vr->vuse;
+	  hashval_t saved_hashcode = vr->hashcode;
+	  void *res = vn_reference_lookup_2 (ref,
+					     gimple_vuse (def_stmt), 0, vr);
+	  /* Need to restore vr->vuse and vr->hashcode.  */
+	  vr->vuse = saved_vuse;
+	  vr->hashcode = saved_hashcode;
+	  last_vuse_ptr = saved_last_vuse_ptr;
+	  if (res && res != (void *)-1)
+	    {
+	      vn_reference_t vnresult = (vn_reference_t) res;
+	      if (vnresult->result
+		  && operand_equal_p (vnresult->result,
+				      gimple_assign_rhs1 (def_stmt), 0))
+		return res;
+	    }
+	}
     }
   else if (gimple_call_builtin_p (def_stmt, BUILT_IN_NORMAL)
 	   && gimple_call_num_args (def_stmt) <= 4)
@@ -1962,7 +2003,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 
   /* 3) Assignment from a constant.  We can use folds native encode/interpret
      routines to extract the assigned bits.  */
-  else if (must_eq (ref->size, maxsize)
+  else if (known_eq (ref->size, maxsize)
 	   && is_gimple_reg_type (vr->type)
 	   && !contains_storage_order_barrier_p (vr->operands)
 	   && gimple_assign_single_p (def_stmt)
@@ -1997,8 +2038,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  if (TREE_CODE (rhs) == SSA_NAME)
 	    rhs = SSA_VAL (rhs);
 	  len = native_encode_expr (gimple_assign_rhs1 (def_stmt),
-				    buffer, sizeof (buffer));
-	  if (len > 0)
+				    buffer, sizeof (buffer),
+				    (offseti - offset2) / BITS_PER_UNIT);
+	  if (len > 0 && len * BITS_PER_UNIT >= maxsizei)
 	    {
 	      tree type = vr->type;
 	      /* Make sure to interpret in a type that has a range
@@ -2007,10 +2049,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 		  && maxsizei != TYPE_PRECISION (vr->type))
 		type = build_nonstandard_integer_type (maxsizei,
 						       TYPE_UNSIGNED (type));
-	      tree val = native_interpret_expr (type,
-						buffer
-						+ ((offseti - offset2)
-						   / BITS_PER_UNIT),
+	      tree val = native_interpret_expr (type, buffer,
 						maxsizei / BITS_PER_UNIT);
 	      /* If we chop off bits because the types precision doesn't
 		 match the memory access size this is ok when optimizing
@@ -2034,7 +2073,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 
   /* 4) Assignment from an SSA name which definition we may be able
      to access pieces from.  */
-  else if (must_eq (ref->size, maxsize)
+  else if (known_eq (ref->size, maxsize)
 	   && is_gimple_reg_type (vr->type)
 	   && !contains_storage_order_barrier_p (vr->operands)
 	   && gimple_assign_single_p (def_stmt)
@@ -2048,7 +2087,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 				       &reverse);
       if (!reverse
 	  && known_size_p (maxsize2)
-	  && must_eq (maxsize2, size2)
+	  && known_eq (maxsize2, size2)
 	  && operand_equal_p (base, base2, 0)
 	  && known_subrange_p (offset, maxsize, offset2, size2)
 	  /* ???  We can't handle bitfield precision extracts without
@@ -2056,7 +2095,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	     then doing a conversion or possibly adjusting the offset
 	     according to endianness.  */
 	  && (! INTEGRAL_TYPE_P (vr->type)
-	      || must_eq (ref->size, TYPE_PRECISION (vr->type)))
+	      || known_eq (ref->size, TYPE_PRECISION (vr->type)))
 	  && multiple_p (ref->size, BITS_PER_UNIT))
 	{
 	  code_helper rcode = BIT_FIELD_REF;
@@ -2125,12 +2164,12 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       poly_int64 extra_off = 0;
       if (j == 0 && i >= 0
 	  && lhs_ops[0].opcode == MEM_REF
-	  && may_ne (lhs_ops[0].off, -1))
+	  && maybe_ne (lhs_ops[0].off, -1))
 	{
-	  if (must_eq (lhs_ops[0].off, vr->operands[i].off))
+	  if (known_eq (lhs_ops[0].off, vr->operands[i].off))
 	    i--, j--;
 	  else if (vr->operands[i].opcode == MEM_REF
-		   && may_ne (vr->operands[i].off, -1))
+		   && maybe_ne (vr->operands[i].off, -1))
 	    {
 	      extra_off = vr->operands[i].off - lhs_ops[0].off;
 	      i--, j--;
@@ -2156,11 +2195,11 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       copy_reference_ops_from_ref (gimple_assign_rhs1 (def_stmt), &rhs);
 
       /* Apply an extra offset to the inner MEM_REF of the RHS.  */
-      if (may_ne (extra_off, 0))
+      if (maybe_ne (extra_off, 0))
 	{
 	  if (rhs.length () < 2
 	      || rhs[0].opcode != MEM_REF
-	      || must_eq (rhs[0].off, -1))
+	      || known_eq (rhs[0].off, -1))
 	    return (void *)-1;
 	  rhs[0].off += extra_off;
 	  rhs[0].op0 = int_const_binop (PLUS_EXPR, rhs[0].op0,
@@ -2191,7 +2230,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       if (!ao_ref_init_from_vn_reference (&r, vr->set, vr->type, vr->operands))
 	return (void *)-1;
       /* This can happen with bitfields.  */
-      if (may_ne (ref->size, r.size))
+      if (maybe_ne (ref->size, r.size))
 	return (void *)-1;
       *ref = r;
 
@@ -2224,7 +2263,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       poly_int64 at, byte_maxsize;
 
       /* Only handle non-variable, addressable refs.  */
-      if (may_ne (ref->size, maxsize)
+      if (maybe_ne (ref->size, maxsize)
 	  || !multiple_p (offset, BITS_PER_UNIT, &at)
 	  || !multiple_p (maxsize, BITS_PER_UNIT, &byte_maxsize))
 	return (void *)-1;
@@ -2283,7 +2322,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	      rhs = TREE_OPERAND (tem, 0);
 	      rhs_offset += mem_offset;
 	    }
-	  else if (DECL_P (tem))
+	  else if (DECL_P (tem)
+		   || TREE_CODE (tem) == STRING_CST)
 	    rhs = build_fold_addr_expr (tem);
 	  else
 	    return (void *)-1;
@@ -2307,7 +2347,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 
       /* If the access is completely outside of the memcpy destination
 	 area there is no aliasing.  */
-      if (!ranges_may_overlap_p (lhs_offset, copy_size, at, byte_maxsize))
+      if (!ranges_maybe_overlap_p (lhs_offset, copy_size, at, byte_maxsize))
 	return NULL;
       /* And the access has to be contained within the memcpy destination.  */
       if (!known_subrange_p (at, byte_maxsize, lhs_offset, copy_size))
@@ -2348,7 +2388,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       if (!ao_ref_init_from_vn_reference (&r, vr->set, vr->type, vr->operands))
 	return (void *)-1;
       /* This can happen with bitfields.  */
-      if (may_ne (ref->size, r.size))
+      if (maybe_ne (ref->size, r.size))
 	return (void *)-1;
       *ref = r;
 
@@ -3363,7 +3403,7 @@ set_ssa_val_to (tree from, tree to)
 	   && TREE_CODE (to) == ADDR_EXPR
 	   && (get_addr_base_and_unit_offset (TREE_OPERAND (currval, 0), &coff)
 	       == get_addr_base_and_unit_offset (TREE_OPERAND (to, 0), &toff))
-	   && must_eq (coff, toff)))
+	   && known_eq (coff, toff)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, " (changed)\n");
@@ -4730,7 +4770,7 @@ class sccvn_dom_walker : public dom_walker
 {
 public:
   sccvn_dom_walker ()
-    : dom_walker (CDI_DOMINATORS, true), cond_stack (0) {}
+    : dom_walker (CDI_DOMINATORS, REACHABLE_BLOCKS), cond_stack (0) {}
 
   virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);

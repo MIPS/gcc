@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -177,6 +177,18 @@
   (and (match_code "const_int")
        (match_test "(unsigned HOST_WIDE_INT) INTVAL (op) <= 4")))
 
+;; The imm2 field is a 2-bit field that only accepts immediates in the
+;; range 0..3.
+(define_predicate "aarch64_imm2"
+  (and (match_code "const_int")
+       (match_test "UINTVAL (op) <= 3")))
+
+;; The imm3 field is a 3-bit field that only accepts immediates in the
+;; range 0..7.
+(define_predicate "aarch64_lane_imm3"
+  (and (match_code "const_int")
+       (match_test "UINTVAL (op) <= 7")))
+
 ;; An immediate that fits into 24 bits.
 (define_predicate "aarch64_imm24"
   (and (match_code "const_int")
@@ -283,7 +295,8 @@
 (define_predicate "aarch64_movti_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "memory_operand")
-       (match_operand 0 "const_scalar_int_operand")))
+       (and (match_operand 0 "const_scalar_int_operand")
+	    (match_test "aarch64_mov128_immediate (op)"))))
 
 (define_predicate "aarch64_reg_or_imm"
   (ior (match_operand 0 "register_operand")
@@ -382,7 +395,7 @@
   (and (match_code "reg,subreg,const_int,const_double,const,const_vector")
        (ior (match_operand 0 "register_operand")
 	    (match_test "op == const0_rtx")
-	    (match_operand 0 "aarch64_simd_imm_zero"))))
+	    (match_operand 0 "aarch64_simd_or_scalar_imm_zero"))))
 
 (define_predicate "aarch64_simd_struct_operand"
   (and (match_code "mem")
@@ -489,12 +502,6 @@
 (define_predicate "aarch64_sve_struct_nonimmediate_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_struct_memory_operand")))
-
-;; Like memory_operand, but restricted to addresses that are valid for
-;; SVE LDFF1 instructions.
-(define_predicate "aarch64_sve_ldff1_operand"
-  (and (match_code "mem")
-       (match_test "aarch64_sve_ldff1_operand_p (op)")))
 
 ;; Doesn't include immediates, since those are handled by the move
 ;; patterns instead.
@@ -610,3 +617,7 @@
 (define_predicate "aarch64_gather_scale_operand_d"
   (and (match_code "const_int")
        (match_test "INTVAL (op) == 1 || INTVAL (op) == 8")))
+
+;; A special predicate that doesn't match a particular mode.
+(define_special_predicate "aarch64_any_register_operand"
+  (match_code "reg"))

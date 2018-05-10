@@ -1,5 +1,5 @@
 /* Profile counter container type.
-   Copyright (C) 2017 Free Software Foundation, Inc.
+   Copyright (C) 2017-2018 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -22,36 +22,41 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_PROFILE_COUNT_H
 
 struct function;
+class profile_count;
 
 /* Quality of the profile count.  Because gengtype does not support enums
    inside of classes, this is in global namespace.  */
 enum profile_quality {
+  /* Uninitialized value.  */
+  profile_uninitialized,
   /* Profile is based on static branch prediction heuristics and may
      or may not match reality.  It is local to function and can not be compared
      inter-procedurally.  Never used by probabilities (they are always local).
    */
-  profile_guessed_local = 0,
+  profile_guessed_local,
   /* Profile was read by feedback and was 0, we used local heuristics to guess
      better.  This is the case of functions not run in profile fedback.
      Never used by probabilities.  */
-  profile_guessed_global0 = 1,
+  profile_guessed_global0,
 
+  /* Same as profile_guessed_global0 but global count is adjusted 0.  */
+  profile_guessed_global0adjusted,
 
   /* Profile is based on static branch prediction heuristics.  It may or may
      not reflect the reality but it can be compared interprocedurally
      (for example, we inlined function w/o profile feedback into function
       with feedback and propagated from that).
      Never used by probablities.  */
-  profile_guessed = 2,
+  profile_guessed,
   /* Profile was determined by autofdo.  */
-  profile_afdo = 3,
+  profile_afdo,
   /* Profile was originally based on feedback but it was adjusted
      by code duplicating optimization.  It may not precisely reflect the
      particular code path.  */
-  profile_adjusted = 4,
+  profile_adjusted,
   /* Profile was read from profile feedback or determined by accurate static
      method.  */
-  profile_precise = 5
+  profile_precise
 };
 
 /* The base value for branch probability notes and edge probabilities.  */
@@ -162,7 +167,7 @@ public:
     {
       /* Be consistent with PROB_VERY_UNLIKELY in predict.h.  */
       profile_probability r
-	 = profile_probability::always ().apply_scale (1, 2000);
+	 = profile_probability::guessed_always ().apply_scale (1, 2000);
       r.m_val--;
       return r;
     }
@@ -170,13 +175,13 @@ public:
     {
       /* Be consistent with PROB_VERY_LIKELY in predict.h.  */
       profile_probability r
-	 = profile_probability::always ().apply_scale (1, 5);
+	 = profile_probability::guessed_always ().apply_scale (1, 5);
       r.m_val--;
       return r;
     }
   static profile_probability even ()
     {
-      return profile_probability::always ().apply_scale (1, 2);
+      return profile_probability::guessed_always ().apply_scale (1, 2);
     }
   static profile_probability very_likely ()
     {
@@ -346,7 +351,7 @@ public:
 	return profile_probability::uninitialized ();
       profile_probability ret;
       ret.m_val = RDIV ((uint64_t)m_val * other.m_val, max_probability);
-      ret.m_quality = MIN (m_quality, other.m_quality);
+      ret.m_quality = MIN (MIN (m_quality, other.m_quality), profile_adjusted);
       return ret;
     }
   profile_probability &operator*= (const profile_probability &other)
@@ -359,7 +364,7 @@ public:
       else
 	{
 	  m_val = RDIV ((uint64_t)m_val * other.m_val, max_probability);
-	  m_quality = MIN (m_quality, other.m_quality);
+	  m_quality = MIN (MIN (m_quality, other.m_quality), profile_adjusted);
 	}
       return *this;
     }
@@ -370,8 +375,14 @@ public:
       if (!initialized_p () || !other.initialized_p ())
 	return profile_probability::uninitialized ();
       profile_probability ret;
+      /* If we get probability above 1, mark it as unreliable and return 1. */
       if (m_val >= other.m_val)
-	ret.m_val = max_probability;
+	{
+	  ret.m_val = max_probability;
+          ret.m_quality = MIN (MIN (m_quality, other.m_quality),
+			       profile_guessed);
+	  return ret;
+	}
       else if (!m_val)
 	ret.m_val = 0;
       else
@@ -381,7 +392,7 @@ public:
 				 other.m_val),
 			   max_probability);
 	}
-      ret.m_quality = MIN (m_quality, other.m_quality);
+      ret.m_quality = MIN (MIN (m_quality, other.m_quality), profile_adjusted);
       return ret;
     }
   profile_probability &operator/= (const profile_probability &other)
@@ -392,8 +403,15 @@ public:
 	return *this = profile_probability::uninitialized ();
       else
 	{
+          /* If we get probability above 1, mark it as unreliable
+	     and return 1. */
 	  if (m_val > other.m_val)
-	    m_val = max_probability;
+	    {
+	      m_val = max_probability;
+              m_quality = MIN (MIN (m_quality, other.m_quality),
+			       profile_guessed);
+	      return *this;
+	    }
 	  else if (!m_val)
 	    ;
 	  else
@@ -403,9 +421,33 @@ public:
 				 other.m_val),
 			   max_probability);
 	    }
-	  m_quality = MIN (m_quality, other.m_quality);
+	  m_quality = MIN (MIN (m_quality, other.m_quality), profile_adjusted);
 	}
       return *this;
+    }
+
+  /* Split *THIS (ORIG) probability into 2 probabilities, such that
+     the returned one (FIRST) is *THIS * CPROB and *THIS is
+     adjusted (SECOND) so that FIRST + FIRST.invert () * SECOND
+     == ORIG.  This is useful e.g. when splitting a conditional
+     branch like:
+     if (cond)
+       goto lab; // ORIG probability
+     into
+     if (cond1)
+       goto lab; // FIRST = ORIG * CPROB probability
+     if (cond2)
+       goto lab; // SECOND probability
+     such that the overall probability of jumping to lab remains
+     the same.  CPROB gives the relative probability between the
+     branches.  */
+  profile_probability split (const profile_probability &cprob)
+    {
+      profile_probability ret = *this * cprob;
+      /* The following is equivalent to:
+         *this = cprob.invert () * *this / ret.invert ();  */
+      *this = (*this - ret) / ret.invert ();
+      return ret;
     }
 
   gcov_type apply (gcov_type val) const
@@ -434,27 +476,6 @@ public:
     {
       profile_probability ret = *this;
       ret.m_quality = profile_afdo;
-      return ret;
-    }
-
-  profile_probability combine_with_freq (int freq1, profile_probability other,
-					 int freq2) const
-    {
-      profile_probability ret;
-
-      if (*this == profile_probability::uninitialized ()
-	  || other == profile_probability::uninitialized ())
-	return profile_probability::uninitialized ();
-
-      gcc_checking_assert (freq1 >= 0 && freq2 >= 0);
-      if (!freq1 && !freq2)
-	{
-	  ret.m_val = (m_val + other.m_val) / 2;
-	}
-      else
-	ret.m_val = RDIV (m_val * (uint64_t) freq1
-			  + other.m_val * (uint64_t) freq2, freq1 + freq2);
-      ret.m_quality = MIN (m_quality, other.m_quality);
       return ret;
     }
 
@@ -503,6 +524,7 @@ public:
   /* Return false if profile_probability is bogus.  */
   bool verify () const
     {
+      gcc_checking_assert (m_quality != profile_uninitialized);
       if (m_val == uninitialized_probability)
 	return m_quality == profile_guessed;
       else if (m_quality < profile_guessed)
@@ -540,6 +562,12 @@ public:
   bool differs_from_p (profile_probability other) const;
   /* Return if difference is greater than 50%.  */
   bool differs_lot_from_p (profile_probability other) const;
+  /* COUNT1 times event happens with *THIS probability, COUNT2 times OTHER
+     happens with COUNT2 probablity. Return probablity that either *THIS or
+     OTHER happens.  */
+  profile_probability combine_with_count (profile_count count1,
+					  profile_probability other,
+					  profile_count count2) const;
 
   /* LTO streaming support.  */
   static profile_probability stream_in (struct lto_input_block *);
@@ -605,11 +633,13 @@ class sreal;
 
 class GTY(()) profile_count
 {
+public:
   /* Use 62bit to hold basic block counters.  Should be at least
      64bit.  Although a counter cannot be negative, we use a signed
      type to hold various extra stages.  */
 
   static const int n_bits = 61;
+private:
   static const uint64_t max_count = ((uint64_t) 1 << n_bits) - 2;
   static const uint64_t uninitialized_count = ((uint64_t) 1 << n_bits) - 1;
 
@@ -635,6 +665,13 @@ public:
     {
       return from_gcov_type (0);
     }
+  static profile_count adjusted_zero ()
+    {
+      profile_count c;
+      c.m_val = 0;
+      c.m_quality = profile_adjusted;
+      return c;
+    }
   static profile_count guessed_zero ()
     {
       profile_count c;
@@ -654,18 +691,6 @@ public:
       c.m_val = uninitialized_count;
       c.m_quality = profile_guessed_local;
       return c;
-    }
-
-  /* The profiling runtime uses gcov_type, which is usually 64bit integer.
-     Conversions back and forth are used to read the coverage and get it
-     into internal representation.  */
-  static profile_count from_gcov_type (gcov_type v)
-    {
-      profile_count ret;
-      gcc_checking_assert (v >= 0 && (uint64_t) v <= max_count);
-      ret.m_val = v;
-      ret.m_quality = profile_precise;
-      return ret;
     }
 
   /* Conversion to gcov_type is lossy.  */
@@ -689,6 +714,11 @@ public:
   bool ipa_p () const
     {
       return !initialized_p () || m_quality >= profile_guessed_global0;
+    }
+  /* Return true if quality of profile is precise.  */
+  bool precise_p () const
+    {
+      return m_quality == profile_precise;
     }
 
   /* When merging basic blocks, the two different profile counts are unified.
@@ -785,6 +815,7 @@ public:
   /* Return false if profile_count is bogus.  */
   bool verify () const
     {
+      gcc_checking_assert (m_quality != profile_uninitialized);
       return m_val != uninitialized_count || m_quality == profile_guessed_local;
     }
 
@@ -874,7 +905,10 @@ public:
 	return *this;
       profile_count ret = *this;
       if (ret.m_val == 0)
-	ret.m_val = 1;
+	{
+	  ret.m_val = 1;
+          ret.m_quality = MIN (m_quality, profile_adjusted);
+	}
       return ret;
     }
 
@@ -976,13 +1010,24 @@ public:
       return ret;
     }
 
-  /* We know that profile is globally0 but keep local profile if present.  */
+  /* We know that profile is globally 0 but keep local profile if present.  */
   profile_count global0 () const
     {
       profile_count ret = *this;
       if (!initialized_p ())
 	return *this;
       ret.m_quality = profile_guessed_global0;
+      return ret;
+    }
+
+  /* We know that profile is globally adjusted 0 but keep local profile
+     if present.  */
+  profile_count global0adjusted () const
+    {
+      profile_count ret = *this;
+      if (!initialized_p ())
+	return *this;
+      ret.m_quality = profile_guessed_global0adjusted;
       return ret;
     }
 
@@ -998,10 +1043,12 @@ public:
      acorss functions.  */
   profile_count ipa () const
     {
-      if (m_quality > profile_guessed_global0)
+      if (m_quality > profile_guessed_global0adjusted)
 	return *this;
       if (m_quality == profile_guessed_global0)
 	return profile_count::zero ();
+      if (m_quality == profile_guessed_global0adjusted)
+	return profile_count::adjusted_zero ();
       return profile_count::uninitialized ();
     }
 
@@ -1017,20 +1064,28 @@ public:
      OVERALL.  */
   profile_probability probability_in (const profile_count overall) const
     {
-      if (*this == profile_count::zero ())
+      if (*this == profile_count::zero ()
+	  && !(overall == profile_count::zero ()))
 	return profile_probability::never ();
       if (!initialized_p () || !overall.initialized_p ()
 	  || !overall.m_val)
 	return profile_probability::uninitialized ();
+      if (*this == overall && m_quality == profile_precise)
+	return profile_probability::always ();
       profile_probability ret;
       gcc_checking_assert (compatible_p (overall));
 
       if (overall.m_val < m_val)
-	ret.m_val = profile_probability::max_probability;
+	{
+	  ret.m_val = profile_probability::max_probability;
+	  ret.m_quality = profile_guessed;
+	  return ret;
+	}
       else
 	ret.m_val = RDIV (m_val * profile_probability::max_probability,
 			  overall.m_val);
-      ret.m_quality = MAX (MIN (m_quality, overall.m_quality), profile_guessed);
+      ret.m_quality = MIN (MAX (MIN (m_quality, overall.m_quality),
+				profile_guessed), profile_adjusted);
       return ret;
     }
 
@@ -1051,6 +1106,18 @@ public:
      Take care of the side case when NUM and DEN are zeros of incompatible
      kinds.  */
   static void adjust_for_ipa_scaling (profile_count *num, profile_count *den);
+
+  /* THIS is a count of bb which is known to be executed IPA times.
+     Combine this information into bb counter.  This means returning IPA
+     if it is nonzero, not changing anything if IPA is uninitialized
+     and if IPA is zero, turning THIS into corresponding local profile with
+     global0.  */
+  profile_count combine_with_ipa_count (profile_count ipa);
+
+  /* The profiling runtime uses gcov_type, which is usually 64bit integer.
+     Conversions back and forth are used to read the coverage and get it
+     into internal representation.  */
+  static profile_count from_gcov_type (gcov_type v);
 
   /* LTO streaming support.  */
   static profile_count stream_in (struct lto_input_block *);

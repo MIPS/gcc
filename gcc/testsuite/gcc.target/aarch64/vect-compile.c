@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -march=armv8-a" } */
+/* { dg-options "-O3" } */
+
+#pragma GCC target "+nosve"
 
 #include "vect.x"
 

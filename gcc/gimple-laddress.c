@@ -1,5 +1,5 @@
 /* Lower and optimize address expressions.
-   Copyright (C) 2015-2017 Free Software Foundation, Inc.
+   Copyright (C) 2015-2018 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -111,7 +111,7 @@ pass_laddress::execute (function *fun)
 	  poly_int64 bytepos = exact_div (bitpos, BITS_PER_UNIT);
 	  if (offset != NULL_TREE)
 	    {
-	      if (may_ne (bytepos, 0))
+	      if (maybe_ne (bytepos, 0))
 		offset = size_binop (PLUS_EXPR, offset, size_int (bytepos));
 	      offset = force_gimple_operand_gsi (&gsi, offset, true, NULL,
 						 true, GSI_SAME_STMT);

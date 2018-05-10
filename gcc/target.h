@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -193,13 +193,7 @@ enum vect_cost_model_location {
   vect_epilogue = 2
 };
 
-/* The type to use for vector permutes with a constant permute vector.
-   Each entry is an index into the concatenated input vectors.  */
-typedef vec<unsigned short> vec_perm_indices;
-
-/* Same, but can be used to construct local permute vectors that are
-   automatically freed.  */
-typedef auto_vec<unsigned short, 32> auto_vec_perm_indices;
+class vec_perm_indices;
 
 /* The type to use for lists of vector sizes.  */
 typedef vec<poly_uint64> vector_sizes;

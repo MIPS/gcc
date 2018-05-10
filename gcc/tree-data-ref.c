@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
+#include "tree-eh.h"
 
 static struct datadep_stats
 {
@@ -704,11 +705,51 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	   and the outer precision is at least as large as the inner.  */
 	tree itype = TREE_TYPE (op0);
 	if ((POINTER_TYPE_P (itype)
-	     || (INTEGRAL_TYPE_P (itype) && TYPE_OVERFLOW_UNDEFINED (itype)))
+	     || (INTEGRAL_TYPE_P (itype) && !TYPE_OVERFLOW_TRAPS (itype)))
 	    && TYPE_PRECISION (type) >= TYPE_PRECISION (itype)
 	    && (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type)))
 	  {
-	    split_constant_offset (op0, &var0, off);
+	    if (INTEGRAL_TYPE_P (itype) && TYPE_OVERFLOW_WRAPS (itype))
+	      {
+		/* Split the unconverted operand and try to prove that
+		   wrapping isn't a problem.  */
+		tree tmp_var, tmp_off;
+		split_constant_offset (op0, &tmp_var, &tmp_off);
+
+		/* See whether we have an SSA_NAME whose range is known
+		   to be [A, B].  */
+		if (TREE_CODE (tmp_var) != SSA_NAME)
+		  return false;
+		wide_int var_min, var_max;
+		value_range_type vr_type = get_range_info (tmp_var, &var_min,
+							   &var_max);
+		wide_int var_nonzero = get_nonzero_bits (tmp_var);
+		signop sgn = TYPE_SIGN (itype);
+		if (intersect_range_with_nonzero_bits (vr_type, &var_min,
+						       &var_max, var_nonzero,
+						       sgn) != VR_RANGE)
+		  return false;
+
+		/* See whether the range of OP0 (i.e. TMP_VAR + TMP_OFF)
+		   is known to be [A + TMP_OFF, B + TMP_OFF], with all
+		   operations done in ITYPE.  The addition must overflow
+		   at both ends of the range or at neither.  */
+		bool overflow[2];
+		unsigned int prec = TYPE_PRECISION (itype);
+		wide_int woff = wi::to_wide (tmp_off, prec);
+		wide_int op0_min = wi::add (var_min, woff, sgn, &overflow[0]);
+		wi::add (var_max, woff, sgn, &overflow[1]);
+		if (overflow[0] != overflow[1])
+		  return false;
+
+		/* Calculate (ssizetype) OP0 - (ssizetype) TMP_VAR.  */
+		widest_int diff = (widest_int::from (op0_min, sgn)
+				   - widest_int::from (var_min, sgn));
+		var0 = tmp_var;
+		*off = wide_int_to_tree (ssizetype, diff);
+	      }
+	    else
+	      split_constant_offset (op0, &var0, off);
 	    *var = fold_convert (type, var0);
 	    return true;
 	  }
@@ -726,23 +767,21 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 void
 split_constant_offset (tree exp, tree *var, tree *off)
 {
-  tree type = TREE_TYPE (exp), otype, op0, op1, e, o;
+  tree type = TREE_TYPE (exp), op0, op1, e, o;
   enum tree_code code;
 
   *var = exp;
   *off = ssize_int (0);
-  STRIP_NOPS (exp);
 
   if (tree_is_chrec (exp)
       || get_gimple_rhs_class (TREE_CODE (exp)) == GIMPLE_TERNARY_RHS)
     return;
 
-  otype = TREE_TYPE (exp);
   code = TREE_CODE (exp);
   extract_ops_from_tree (exp, &code, &op0, &op1);
-  if (split_constant_offset_1 (otype, op0, code, op1, &e, &o))
+  if (split_constant_offset_1 (type, op0, code, op1, &e, &o))
     {
-      *var = fold_convert (type, e);
+      *var = e;
       *off = o;
     }
 }
@@ -1329,7 +1368,7 @@ operator == (const dr_with_seg_len& d1,
 	  && data_ref_compare_tree (DR_OFFSET (d1.dr), DR_OFFSET (d2.dr)) == 0
 	  && data_ref_compare_tree (DR_INIT (d1.dr), DR_INIT (d2.dr)) == 0
 	  && data_ref_compare_tree (d1.seg_len, d2.seg_len) == 0
-	  && must_eq (d1.access_size, d2.access_size)
+	  && known_eq (d1.access_size, d2.access_size)
 	  && d1.align == d2.align);
 }
 
@@ -1471,7 +1510,7 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 	    continue;
 
 	  /* Make sure dr_a1 starts left of dr_a2.  */
-	  if (may_gt (init_a1, init_a2))
+	  if (maybe_gt (init_a1, init_a2))
 	    {
 	      std::swap (*dr_a1, *dr_a2);
 	      std::swap (init_a1, init_a2);
@@ -1529,7 +1568,7 @@ prune_runtime_alias_test_list (vec<dr_with_seg_len_pair_t> *alias_pairs,
 
 	  /* The new check will start at DR_A1.  Make sure that its access
 	     size encompasses the initial DR_A2.  */
-	  if (may_lt (dr_a1->access_size, diff + dr_a2->access_size))
+	  if (maybe_lt (dr_a1->access_size, diff + dr_a2->access_size))
 	    {
 	      dr_a1->access_size = upper_bound (dr_a1->access_size,
 						diff + dr_a2->access_size);
@@ -1792,7 +1831,8 @@ get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
   tree addr_base = fold_build_pointer_plus (DR_BASE_ADDRESS (d.dr),
 					    DR_OFFSET (d.dr));
   addr_base = fold_build_pointer_plus (addr_base, DR_INIT (d.dr));
-  tree seg_len = fold_convert (sizetype, d.seg_len);
+  tree seg_len
+    = fold_convert (sizetype, rewrite_to_non_trapping_overflow (d.seg_len));
 
   tree min_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
 				seg_len, size_zero_node);
@@ -2160,13 +2200,10 @@ object_address_invariant_in_loop_p (const struct loop *loop, const_tree obj)
     {
       if (TREE_CODE (obj) == ARRAY_REF)
 	{
-	  /* Index of the ARRAY_REF was zeroed in analyze_indices, thus we only
-	     need to check the stride and the lower bound of the reference.  */
-	  if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (obj, 2),
-						      loop->num)
-	      || chrec_contains_symbols_defined_in_loop (TREE_OPERAND (obj, 3),
-							 loop->num))
-	    return false;
+	  for (int i = 1; i < 4; ++i)
+	    if (chrec_contains_symbols_defined_in_loop (TREE_OPERAND (obj, i),
+							loop->num))
+	      return false;
 	}
       else if (TREE_CODE (obj) == COMPONENT_REF)
 	{
@@ -2739,7 +2776,7 @@ conflict_fn (unsigned n, ...)
   conflict_function *ret = XCNEW (conflict_function);
   va_list ap;
 
-  gcc_assert (0 < n && n <= MAX_DIM);
+  gcc_assert (n > 0 && n <= MAX_DIM);
   va_start (ap, n);
 
   ret->n = n;
@@ -2978,7 +3015,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
     {
       if (value0 == false)
 	{
-	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value1))
+	  if (TREE_CODE (chrec_b) != POLYNOMIAL_CHREC
+	      || !chrec_is_positive (CHREC_RIGHT (chrec_b), &value1))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "siv test failed: chrec not positive.\n");
@@ -3059,7 +3097,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 	}
       else
 	{
-	  if (!chrec_is_positive (CHREC_RIGHT (chrec_b), &value2))
+	  if (TREE_CODE (chrec_b) != POLYNOMIAL_CHREC
+	      || !chrec_is_positive (CHREC_RIGHT (chrec_b), &value2))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "siv test failed: chrec not positive.\n");
@@ -3862,9 +3901,7 @@ analyze_siv_subscript (tree chrec_a,
 				      overlaps_b, overlaps_a, last_conflicts);
 
   else if (evolution_function_is_affine_in_loop (chrec_a, loop_nest_num)
-	   && evolution_function_right_is_integer_cst (chrec_a)
-	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num)
-	   && evolution_function_right_is_integer_cst (chrec_b))
+	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num))
     {
       if (!chrec_contains_symbols (chrec_a)
 	  && !chrec_contains_symbols (chrec_b))
@@ -3980,9 +4017,8 @@ analyze_miv_subscript (tree chrec_a,
     }
 
   else if (evolution_function_is_constant_p (difference)
-	   /* For the moment, the following is verified:
-	      evolution_function_is_affine_multivariate_p (chrec_a,
-	      loop_nest->num) */
+	   && evolution_function_is_affine_multivariate_p (chrec_a,
+							   loop_nest->num)
 	   && !gcd_of_steps_may_divide_p (chrec_a, difference))
     {
       /* testsuite/.../ssa-chrec-33.c
@@ -3998,10 +4034,8 @@ analyze_miv_subscript (tree chrec_a,
 
   else if (evolution_function_is_affine_multivariate_p (chrec_a, loop_nest->num)
 	   && !chrec_contains_symbols (chrec_a)
-	   && evolution_function_right_is_integer_cst (chrec_a)
 	   && evolution_function_is_affine_multivariate_p (chrec_b, loop_nest->num)
-	   && !chrec_contains_symbols (chrec_b)
-	   && evolution_function_right_is_integer_cst (chrec_b))
+	   && !chrec_contains_symbols (chrec_b))
     {
       /* testsuite/.../ssa-chrec-35.c
 	 {0, +, 1}_2  vs.  {0, +, 1}_3
@@ -5166,6 +5200,81 @@ dr_alignment (innermost_loop_behavior *drb)
     alignment = MIN (alignment, drb->step_alignment);
 
   return alignment;
+}
+
+/* If BASE is a pointer-typed SSA name, try to find the object that it
+   is based on.  Return this object X on success and store the alignment
+   in bytes of BASE - &X in *ALIGNMENT_OUT.  */
+
+static tree
+get_base_for_alignment_1 (tree base, unsigned int *alignment_out)
+{
+  if (TREE_CODE (base) != SSA_NAME || !POINTER_TYPE_P (TREE_TYPE (base)))
+    return NULL_TREE;
+
+  gimple *def = SSA_NAME_DEF_STMT (base);
+  base = analyze_scalar_evolution (loop_containing_stmt (def), base);
+
+  /* Peel chrecs and record the minimum alignment preserved by
+     all steps.  */
+  unsigned int alignment = MAX_OFILE_ALIGNMENT / BITS_PER_UNIT;
+  while (TREE_CODE (base) == POLYNOMIAL_CHREC)
+    {
+      unsigned int step_alignment = highest_pow2_factor (CHREC_RIGHT (base));
+      alignment = MIN (alignment, step_alignment);
+      base = CHREC_LEFT (base);
+    }
+
+  /* Punt if the expression is too complicated to handle.  */
+  if (tree_contains_chrecs (base, NULL) || !POINTER_TYPE_P (TREE_TYPE (base)))
+    return NULL_TREE;
+
+  /* The only useful cases are those for which a dereference folds to something
+     other than an INDIRECT_REF.  */
+  tree ref_type = TREE_TYPE (TREE_TYPE (base));
+  tree ref = fold_indirect_ref_1 (UNKNOWN_LOCATION, ref_type, base);
+  if (!ref)
+    return NULL_TREE;
+
+  /* Analyze the base to which the steps we peeled were applied.  */
+  poly_int64 bitsize, bitpos, bytepos;
+  machine_mode mode;
+  int unsignedp, reversep, volatilep;
+  tree offset;
+  base = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
+			      &unsignedp, &reversep, &volatilep);
+  if (!base || !multiple_p (bitpos, BITS_PER_UNIT, &bytepos))
+    return NULL_TREE;
+
+  /* Restrict the alignment to that guaranteed by the offsets.  */
+  unsigned int bytepos_alignment = known_alignment (bytepos);
+  if (bytepos_alignment != 0)
+    alignment = MIN (alignment, bytepos_alignment);
+  if (offset)
+    {
+      unsigned int offset_alignment = highest_pow2_factor (offset);
+      alignment = MIN (alignment, offset_alignment);
+    }
+
+  *alignment_out = alignment;
+  return base;
+}
+
+/* Return the object whose alignment would need to be changed in order
+   to increase the alignment of ADDR.  Store the maximum achievable
+   alignment in *MAX_ALIGNMENT.  */
+
+tree
+get_base_for_alignment (tree addr, unsigned int *max_alignment)
+{
+  tree base = get_base_for_alignment_1 (addr, max_alignment);
+  if (base)
+    return base;
+
+  if (TREE_CODE (addr) == ADDR_EXPR)
+    addr = TREE_OPERAND (addr, 0);
+  *max_alignment = MAX_OFILE_ALIGNMENT / BITS_PER_UNIT;
+  return addr;
 }
 
 /* Recursive helper function.  */

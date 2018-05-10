@@ -1,5 +1,5 @@
 /* Forward propagation of expressions for single use variables.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfgcleanup.h"
 #include "cfganal.h"
 #include "optabs-tree.h"
+#include "tree-vector-builder.h"
+#include "vec-perm-indices.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -1174,7 +1176,7 @@ constant_pointer_difference (tree p1, tree p2)
 	      if (base)
 		{
 		  q = base;
-		  if (may_ne (offset, 0))
+		  if (maybe_ne (offset, 0))
 		    off = size_binop (PLUS_EXPR, off, size_int (offset));
 		}
 	      if (TREE_CODE (q) == MEM_REF
@@ -1815,18 +1817,18 @@ simplify_bitfield_ref (gimple_stmt_iterator *gsi)
     return false;
 
   size = TREE_INT_CST_LOW (TYPE_SIZE (elem_type));
-  if (may_ne (bit_field_size (op), size))
+  if (maybe_ne (bit_field_size (op), size))
     return false;
 
   if (code == VEC_PERM_EXPR
       && constant_multiple_p (bit_field_offset (op), size, &idx))
     {
       tree p, m, tem;
-      unsigned nelts;
+      unsigned HOST_WIDE_INT nelts;
       m = gimple_assign_rhs3 (def_stmt);
-      if (TREE_CODE (m) != VECTOR_CST)
+      if (TREE_CODE (m) != VECTOR_CST
+	  || !VECTOR_CST_NELTS (m).is_constant (&nelts))
 	return false;
-      nelts = VECTOR_CST_NELTS (m);
       idx = TREE_INT_CST_LOW (VECTOR_CST_ELT (m, idx));
       idx %= 2 * nelts;
       if (idx < nelts)
@@ -1856,16 +1858,18 @@ static int
 is_combined_permutation_identity (tree mask1, tree mask2)
 {
   tree mask;
-  unsigned int nelts, i, j;
+  unsigned HOST_WIDE_INT nelts, i, j;
   bool maybe_identity1 = true;
   bool maybe_identity2 = true;
 
   gcc_checking_assert (TREE_CODE (mask1) == VECTOR_CST
 		       && TREE_CODE (mask2) == VECTOR_CST);
   mask = fold_ternary (VEC_PERM_EXPR, TREE_TYPE (mask1), mask1, mask1, mask2);
-  gcc_assert (TREE_CODE (mask) == VECTOR_CST);
+  if (mask == NULL_TREE || TREE_CODE (mask) != VECTOR_CST)
+    return 0;
 
-  nelts = VECTOR_CST_NELTS (mask);
+  if (!VECTOR_CST_NELTS (mask).is_constant (&nelts))
+    return 0;
   for (i = 0; i < nelts; i++)
     {
       tree val = VECTOR_CST_ELT (mask, i);
@@ -2018,7 +2022,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   elem_type = TREE_TYPE (type);
   elem_size = TREE_INT_CST_LOW (TYPE_SIZE (elem_type));
 
-  auto_vec_perm_indices sel (nelts);
+  vec_perm_builder sel (nelts, nelts, 1);
   orig = NULL;
   conv_code = ERROR_MARK;
   maybe_ident = true;
@@ -2041,8 +2045,8 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
 	  op1 = gimple_assign_rhs1 (def_stmt);
 	  if (conv_code == ERROR_MARK)
 	    {
-	      if (may_ne (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (elt->value))),
-			  GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))))
+	      if (maybe_ne (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (elt->value))),
+			    GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op1)))))
 		return false;
 	      conv_code = code;
 	    }
@@ -2075,7 +2079,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
 	  orig = ref;
 	}
       unsigned int elt;
-      if (may_ne (bit_field_size (op1), elem_size)
+      if (maybe_ne (bit_field_size (op1), elem_size)
 	  || !constant_multiple_p (bit_field_offset (op1), elem_size, &elt))
 	return false;
       if (elt != i)
@@ -2086,8 +2090,8 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
     return false;
 
   if (! VECTOR_TYPE_P (TREE_TYPE (orig))
-      || may_ne (TYPE_VECTOR_SUBPARTS (type),
-		 TYPE_VECTOR_SUBPARTS (TREE_TYPE (orig))))
+      || maybe_ne (TYPE_VECTOR_SUBPARTS (type),
+		   TYPE_VECTOR_SUBPARTS (TREE_TYPE (orig))))
     return false;
 
   tree tem;
@@ -2109,19 +2113,17 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
     {
       tree mask_type;
 
-      if (!can_vec_perm_p (TYPE_MODE (type), false, &sel))
+      vec_perm_indices indices (sel, 1, nelts);
+      if (!can_vec_perm_const_p (TYPE_MODE (type), indices))
 	return false;
       mask_type
 	= build_vector_type (build_nonstandard_integer_type (elem_size, 1),
 			     nelts);
       if (GET_MODE_CLASS (TYPE_MODE (mask_type)) != MODE_VECTOR_INT
-	  || may_ne (GET_MODE_SIZE (TYPE_MODE (mask_type)),
-		     GET_MODE_SIZE (TYPE_MODE (type))))
+	  || maybe_ne (GET_MODE_SIZE (TYPE_MODE (mask_type)),
+		       GET_MODE_SIZE (TYPE_MODE (type))))
 	return false;
-      auto_vec<tree, 32> mask_elts (nelts);
-      for (i = 0; i < nelts; i++)
-	mask_elts.quick_push (build_int_cst (TREE_TYPE (mask_type), sel[i]));
-      op2 = build_vector (mask_type, mask_elts);
+      op2 = vec_perm_indices_to_tree (mask_type, indices);
       if (conv_code == ERROR_MARK)
 	gimple_assign_set_rhs_with_ops (gsi, VEC_PERM_EXPR, orig, orig, op2);
       else

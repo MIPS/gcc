@@ -1,5 +1,5 @@
 /* Dwarf2 Call Frame Information helper routines.
-   Copyright (C) 1992-2017 Free Software Foundation, Inc.
+   Copyright (C) 1992-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,6 +51,10 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef INCOMING_RETURN_ADDR_RTX
 #define INCOMING_RETURN_ADDR_RTX  (gcc_unreachable (), NULL_RTX)
+#endif
+
+#ifndef DEFAULT_INCOMING_FRAME_SP_OFFSET
+#define DEFAULT_INCOMING_FRAME_SP_OFFSET INCOMING_FRAME_SP_OFFSET
 #endif
 
 /* A collected description of an entire row of the abstract CFI table.  */
@@ -286,7 +290,7 @@ void init_one_dwarf_reg_size (int regno, machine_mode regmode,
     }
 
   /* ??? When is this true?  Should it be a test based on DCOL instead?  */
-  if (may_lt (slotoffset, 0))
+  if (maybe_lt (slotoffset, 0))
     return;
 
   emit_move_insn (adjust_address (table, slotmode, slotoffset),
@@ -671,10 +675,10 @@ bool
 cfa_equal_p (const dw_cfa_location *loc1, const dw_cfa_location *loc2)
 {
   return (loc1->reg == loc2->reg
-	  && must_eq (loc1->offset, loc2->offset)
+	  && known_eq (loc1->offset, loc2->offset)
 	  && loc1->indirect == loc2->indirect
 	  && (loc1->indirect == 0
-	      || must_eq (loc1->base_offset, loc2->base_offset)));
+	      || known_eq (loc1->base_offset, loc2->base_offset)));
 }
 
 /* Determine if two CFI operands are identical.  */
@@ -794,7 +798,7 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
       cfi->dw_cfi_oprnd1.dw_cfi_offset = const_offset;
     }
   else if (new_cfa->offset.is_constant ()
-	   && must_eq (new_cfa->offset, old_cfa->offset)
+	   && known_eq (new_cfa->offset, old_cfa->offset)
 	   && old_cfa->reg != INVALID_REGNUM
 	   && !new_cfa->indirect
 	   && !old_cfa->indirect)
@@ -940,7 +944,7 @@ notice_args_size (rtx_insn *insn)
 
   args_size = get_args_size (note);
   delta = args_size - cur_trace->end_true_args_size;
-  if (must_eq (delta, 0))
+  if (known_eq (delta, 0))
     return;
 
   cur_trace->end_true_args_size = args_size;
@@ -973,7 +977,7 @@ notice_eh_throw (rtx_insn *insn)
       cur_trace->beg_delay_args_size = args_size;
       cur_trace->end_delay_args_size = args_size;
     }
-  else if (may_ne (cur_trace->end_delay_args_size, args_size))
+  else if (maybe_ne (cur_trace->end_delay_args_size, args_size))
     {
       cur_trace->end_delay_args_size = args_size;
 
@@ -1949,7 +1953,7 @@ dwarf2out_frame_debug_expr (rtx expr)
 	{
 	  /* We're storing the current CFA reg into the stack.  */
 
-	  if (must_eq (cur_cfa->offset, 0))
+	  if (known_eq (cur_cfa->offset, 0))
 	    {
               /* Rule 19 */
               /* If stack is aligned, putting CFA reg into stack means
@@ -2346,7 +2350,7 @@ maybe_record_trace_start (rtx_insn *start, rtx_insn *origin)
 #endif
 
       /* The args_size is allowed to conflict if it isn't actually used.  */
-      if (may_ne (ti->beg_true_args_size, args_size))
+      if (maybe_ne (ti->beg_true_args_size, args_size))
 	ti->args_size_undefined = true;
     }
 }
@@ -2361,7 +2365,7 @@ maybe_record_trace_start_abnormal (rtx_insn *start, rtx_insn *origin)
   dw_cfa_location save_cfa;
 
   save_args_size = cur_trace->end_true_args_size;
-  if (must_eq (save_args_size, 0))
+  if (known_eq (save_args_size, 0))
     {
       maybe_record_trace_start (start, origin);
       return;
@@ -2484,7 +2488,7 @@ scan_insn_after (rtx_insn *insn)
    instructions therein.  */
 
 static void
-scan_trace (dw_trace_info *trace)
+scan_trace (dw_trace_info *trace, bool entry)
 {
   rtx_insn *prev, *insn = trace->head;
   dw_cfa_location this_cfa;
@@ -2502,6 +2506,17 @@ scan_trace (dw_trace_info *trace)
 
   this_cfa = cur_row->cfa;
   cur_cfa = &this_cfa;
+
+  /* If the current function starts with a non-standard incoming frame
+     sp offset, emit a note before the first instruction.  */
+  if (entry
+      && DEFAULT_INCOMING_FRAME_SP_OFFSET != INCOMING_FRAME_SP_OFFSET)
+    {
+      add_cfi_insn = insn;
+      gcc_assert (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_DELETED);
+      this_cfa.offset = INCOMING_FRAME_SP_OFFSET;
+      def_cfa_1 (&this_cfa);
+    }
 
   for (prev = insn, insn = NEXT_INSN (insn);
        insn;
@@ -2671,12 +2686,12 @@ create_cfi_notes (void)
 
   /* Always begin at the entry trace.  */
   ti = &trace_info[0];
-  scan_trace (ti);
+  scan_trace (ti, true);
 
   while (!trace_work_list.is_empty ())
     {
       ti = trace_work_list.pop ();
-      scan_trace (ti);
+      scan_trace (ti, false);
     }
 
   queued_reg_saves.release ();
@@ -2704,7 +2719,7 @@ before_next_cfi_note (rtx_insn *start)
 static void
 connect_traces (void)
 {
-  unsigned i, n = trace_info.length ();
+  unsigned i, n;
   dw_trace_info *prev_ti, *ti;
 
   /* ??? Ideally, we should have both queued and processed every trace.
@@ -2715,20 +2730,15 @@ connect_traces (void)
      these are not "real" instructions, and should not be considered.
      This could be generically useful for tablejump data as well.  */
   /* Remove all unprocessed traces from the list.  */
-  for (i = n - 1; i > 0; --i)
-    {
-      ti = &trace_info[i];
-      if (ti->beg_row == NULL)
-	{
-	  trace_info.ordered_remove (i);
-	  n -= 1;
-	}
-      else
-	gcc_assert (ti->end_row != NULL);
-    }
+  unsigned ix, ix2;
+  VEC_ORDERED_REMOVE_IF_FROM_TO (trace_info, ix, ix2, ti, 1,
+				 trace_info.length (), ti->beg_row == NULL);
+  FOR_EACH_VEC_ELT (trace_info, ix, ti)
+    gcc_assert (ti->end_row != NULL);
 
   /* Work from the end back to the beginning.  This lets us easily insert
      remember/restore_state notes in the correct order wrt other notes.  */
+  n = trace_info.length ();
   prev_ti = &trace_info[n - 1];
   for (i = n - 1; i > 0; --i)
     {
@@ -2814,7 +2824,7 @@ connect_traces (void)
 	    continue;
 	  gcc_assert (!ti->args_size_undefined);
 
-	  if (may_ne (ti->beg_delay_args_size, prev_args_size))
+	  if (maybe_ne (ti->beg_delay_args_size, prev_args_size))
 	    {
 	      /* ??? Search back to previous CFI note.  */
 	      add_cfi_insn = PREV_INSN (ti->eh_head);
@@ -2980,7 +2990,12 @@ create_cie_data (void)
   /* On entry, the Canonical Frame Address is at SP.  */
   memset (&loc, 0, sizeof (loc));
   loc.reg = dw_stack_pointer_regnum;
-  loc.offset = INCOMING_FRAME_SP_OFFSET;
+  /* create_cie_data is called just once per TU, and when using .cfi_startproc
+     is even done by the assembler rather than the compiler.  If the target
+     has different incoming frame sp offsets depending on what kind of
+     function it is, use a single constant offset for the target and
+     if needed, adjust before the first instruction in insn stream.  */
+  loc.offset = DEFAULT_INCOMING_FRAME_SP_OFFSET;
   def_cfa_1 (&loc);
 
   if (targetm.debug_unwind_info () == UI_DWARF2

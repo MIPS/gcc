@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2017 Free Software Foundation, Inc.
+   Copyright (C) 2009-2018 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -432,7 +432,6 @@ rtx aarch64_simd_gen_const_vector_dup (machine_mode, HOST_WIDE_INT);
 bool aarch64_simd_mem_operand_p (rtx);
 bool aarch64_sve_ld1r_operand_p (rtx);
 bool aarch64_sve_ldr_operand_p (rtx);
-bool aarch64_sve_ldff1_operand_p (rtx op);
 bool aarch64_sve_struct_memory_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, int, bool);
 rtx aarch64_tls_get_addr (void);
@@ -448,6 +447,8 @@ void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx, rtx (*) (rtx, rtx) = 0);
 void aarch64_emit_sve_pred_move (rtx, rtx, rtx);
 void aarch64_expand_sve_mem_move (rtx, rtx, machine_mode);
+bool aarch64_maybe_expand_sve_subreg_move (rtx, rtx);
+void aarch64_split_sve_subreg_move (rtx, rtx, rtx);
 void aarch64_expand_prologue (void);
 void aarch64_expand_vector_init (rtx, rtx);
 void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
@@ -476,6 +477,8 @@ void aarch64_split_128bit_move (rtx, rtx);
 
 bool aarch64_split_128bit_move_p (rtx, rtx);
 
+bool aarch64_mov128_immediate (rtx);
+
 void aarch64_split_simd_combine (rtx, rtx, rtx);
 
 void aarch64_split_simd_move (rtx, rtx);
@@ -500,7 +503,6 @@ void aarch64_gen_atomic_ldop (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 
 bool aarch64_gen_adjusted_ldpstp (rtx *, bool, scalar_mode, RTX_CODE);
-bool aarch64_simd_identity_value (enum rtx_code, machine_mode, rtx);
 
 void aarch64_expand_sve_vec_cmp_int (rtx, rtx_code, rtx, rtx);
 bool aarch64_expand_sve_vec_cmp_float (rtx, rtx_code, rtx, rtx, bool);
@@ -526,8 +528,6 @@ extern void aarch64_expand_vec_perm (rtx, rtx, rtx, rtx, unsigned int);
 extern void aarch64_expand_sve_vec_perm (rtx, rtx, rtx, rtx);
 extern bool aarch64_madd_needs_nop (rtx_insn *);
 extern void aarch64_final_prescan_insn (rtx_insn *);
-extern bool
-aarch64_expand_vec_perm_const (rtx, rtx, rtx, rtx, unsigned int);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
 int aarch64_ccmp_mode_to_code (machine_mode mode);
 

@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1125,7 +1125,7 @@ struct rtx_test
     /* Check REGNO (X) == LABEL.  */
     REGNO_FIELD,
 
-    /* Check must_eq (SUBREG_BYTE (X), LABEL).  */
+    /* Check known_eq (SUBREG_BYTE (X), LABEL).  */
     SUBREG_FIELD,
 
     /* Check XINT (X, u.opno) == LABEL.  */
@@ -4688,7 +4688,7 @@ print_test (output_state *os, const rtx_test &test, bool is_param,
       break;
 
     case rtx_test::SUBREG_FIELD:
-      printf ("%s (", invert_p ? "may_ne" : "must_eq");
+      printf ("%s (", invert_p ? "maybe_ne" : "known_eq");
       print_nonbool_test (os, test);
       printf (", ");
       print_label_value (test, is_param, value);

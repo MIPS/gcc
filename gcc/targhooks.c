@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -756,6 +756,12 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 }
 
 void
+hook_void_CUMULATIVE_ARGS_tree (cumulative_args_t ca ATTRIBUTE_UNUSED,
+				tree ATTRIBUTE_UNUSED)
+{
+}
+
+void
 default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			      machine_mode mode ATTRIBUTE_UNUSED,
 			      const_tree type ATTRIBUTE_UNUSED,
@@ -1175,7 +1181,7 @@ machine_mode
 default_secondary_memory_needed_mode (machine_mode mode)
 {
   if (!targetm.lra_p ()
-      && must_lt (GET_MODE_BITSIZE (mode), BITS_PER_WORD)
+      && known_lt (GET_MODE_BITSIZE (mode), BITS_PER_WORD)
       && INTEGRAL_MODE_P (mode))
     return mode_for_size (BITS_PER_WORD, GET_MODE_CLASS (mode), 0).require ();
   return mode;
@@ -1188,6 +1194,15 @@ int
 default_reloc_rw_mask (void)
 {
   return flag_pic ? 3 : 0;
+}
+
+/* By default, address diff vectors are generated
+for jump tables when flag_pic is true.  */
+
+bool
+default_generate_pic_addr_diff_vec (void)
+{
+  return flag_pic;
 }
 
 /* By default, do no modification. */
@@ -1277,6 +1292,14 @@ default_preferred_simd_mode (scalar_mode)
   return word_mode;
 }
 
+/* By default do not split reductions further.  */
+
+machine_mode
+default_split_reduction (machine_mode mode)
+{
+  return mode;
+}
+
 /* By default only the size derived from the preferred vector mode
    is tried.  */
 
@@ -1295,7 +1318,7 @@ default_get_mask_mode (poly_uint64 nunits, poly_uint64 vector_size)
     = smallest_int_mode_for_size (elem_size * BITS_PER_UNIT);
   machine_mode vector_mode;
 
-  gcc_assert (must_eq (elem_size * nunits, vector_size));
+  gcc_assert (known_eq (elem_size * nunits, vector_size));
 
   if (mode_for_vector (elem_mode, nunits).exists (&vector_mode)
       && VECTOR_MODE_P (vector_mode)
@@ -2141,6 +2164,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
      requires greater alignment, we must perform dynamic alignment.  */
   if (boundary > align
+      && !TYPE_EMPTY_P (type)
       && !integer_zerop (TYPE_SIZE (type)))
     {
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
@@ -2167,7 +2191,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     }
 
   /* Compute the rounded size of the type.  */
-  type_size = size_in_bytes (type);
+  type_size = arg_size_in_bytes (type);
   rounded_size = round_up (type_size, align);
 
   /* Reduce rounded_size so it's sharable with the postqueue.  */

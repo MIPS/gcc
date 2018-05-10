@@ -1,5 +1,5 @@
 /* Memory address lowering and addressing mode selection.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -693,7 +693,7 @@ addr_to_parts (tree type, aff_tree *addr, tree iv_cand, tree base_hint,
   parts->index = NULL_TREE;
   parts->step = NULL_TREE;
 
-  if (may_ne (addr->offset, 0))
+  if (maybe_ne (addr->offset, 0))
     parts->offset = wide_int_to_tree (sizetype, addr->offset);
   else
     parts->offset = NULL_TREE;
@@ -746,18 +746,33 @@ gimplify_mem_ref_parts (gimple_stmt_iterator *gsi, struct mem_address *parts)
 					     true, GSI_SAME_STMT);
 }
 
-/* Return true if the STEP in PARTS gives a valid BASE + INDEX * STEP
-   address for type TYPE and if the offset is making it appear invalid.  */
+/* Return true if the OFFSET in PARTS is the only thing that is making
+   it an invalid address for type TYPE.  */
 
 static bool
-keep_index_p (tree type, mem_address parts)
+mem_ref_valid_without_offset_p (tree type, mem_address parts)
 {
   if (!parts.base)
-    return false;
-
-  gcc_assert (!parts.symbol);
+    parts.base = parts.offset;
   parts.offset = NULL_TREE;
   return valid_mem_ref_p (TYPE_MODE (type), TYPE_ADDR_SPACE (type), &parts);
+}
+
+/* Fold PARTS->offset into PARTS->base, so that there is no longer
+   a separate offset.  Emit any new instructions before GSI.  */
+
+static void
+add_offset_to_base (gimple_stmt_iterator *gsi, mem_address *parts)
+{
+  tree tmp = parts->offset;
+  if (parts->base)
+    {
+      tmp = fold_build_pointer_plus (parts->base, tmp);
+      tmp = force_gimple_operand_gsi_1 (gsi, tmp, is_gimple_mem_ref_addr,
+					NULL_TREE, true, GSI_SAME_STMT);
+    }
+  parts->base = tmp;
+  parts->offset = NULL_TREE;
 }
 
 /* Creates and returns a TARGET_MEM_REF for address ADDR.  If necessary
@@ -823,10 +838,17 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
      into:
        index' = index << step;
        [... + index' + ,,,].  */
-  bool scaled_p = (parts.step && !integer_onep (parts.step));
-  if (scaled_p && !keep_index_p (type, parts))
+  if (parts.step && !integer_onep (parts.step))
     {
       gcc_assert (parts.index);
+      if (parts.offset && mem_ref_valid_without_offset_p (type, parts))
+	{
+	  add_offset_to_base (gsi, &parts);
+	  mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
+	  gcc_assert (mem_ref);
+	  return mem_ref;
+	}
+
       parts.index = force_gimple_operand_gsi (gsi,
 				fold_build2 (MULT_EXPR, sizetype,
 					     parts.index, parts.step),
@@ -836,7 +858,6 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
       mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;
-      scaled_p = false;
     }
 
   /* Add offset to invariant part by transforming address expression:
@@ -848,9 +869,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
        index' = index + offset;
        [base + index']
      depending on which one is invariant.  */
-  if (parts.offset
-      && !integer_zerop (parts.offset)
-      && (!var_in_base || !scaled_p))
+  if (parts.offset && !integer_zerop (parts.offset))
     {
       tree old_base = unshare_expr (parts.base);
       tree old_index = unshare_expr (parts.index);
@@ -900,7 +919,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
   /* Transform [base + index + ...] into:
        base' = base + index;
        [base' + ...].  */
-  if (parts.index && !scaled_p)
+  if (parts.index)
     {
       tmp = parts.index;
       parts.index = NULL_TREE;
@@ -924,18 +943,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
        [base'].  */
   if (parts.offset && !integer_zerop (parts.offset))
     {
-      tmp = parts.offset;
-      parts.offset = NULL_TREE;
-      /* Add offset to base.  */
-      if (parts.base)
-	{
-	  tmp = fold_build_pointer_plus (parts.base, tmp);
-	  tmp = force_gimple_operand_gsi_1 (gsi, tmp,
-					    is_gimple_mem_ref_addr,
-					    NULL_TREE, true, GSI_SAME_STMT);
-	}
-      parts.base = tmp;
-
+      add_offset_to_base (gsi, &parts);
       mem_ref = create_mem_ref_raw (type, alias_ptr_type, &parts, true);
       if (mem_ref)
 	return mem_ref;

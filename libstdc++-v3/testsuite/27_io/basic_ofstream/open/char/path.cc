@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Free Software Foundation, Inc.
+// Copyright (C) 2017-2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,7 +24,8 @@
 #include <filesystem>
 #include <testsuite_hooks.h>
 
-const std::filesystem::path filename = "ofstream_members-1.tst";
+char cstr[] = "filebuf_members-1.tst";
+const std::filesystem::path filename = cstr;
 
 void
 test01()
@@ -42,10 +43,17 @@ test02()
   VERIFY( f.is_open() );
 }
 
+void
+test03() // compile-only
+{
+  std::ofstream f;
+  f.open(cstr);			// PR libstdc++/83025
+  f.open(cstr, std::ios::out);	// PR libstdc++/83025
+}
+
 int
 main()
 {
   test01();
   test02();
-  return 0;
 }

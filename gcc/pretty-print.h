@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -179,7 +179,7 @@ struct pp_wrapping_mode_t
    A client-supplied formatter returns true if everything goes well,
    otherwise it returns false.  */
 typedef bool (*printer_fn) (pretty_printer *, text_info *, const char *,
-			    int, bool, bool, bool, bool, const char **);
+			    int, bool, bool, bool, bool *, const char **);
 
 /* Client supplied function used to decode formats.  */
 #define pp_format_decoder(PP) (PP)->format_decoder
@@ -383,6 +383,9 @@ extern void pp_string (pretty_printer *, const char *);
 extern void pp_write_text_to_stream (pretty_printer *);
 extern void pp_write_text_as_dot_label_to_stream (pretty_printer *, bool);
 extern void pp_maybe_space (pretty_printer *);
+
+extern void pp_begin_quote (pretty_printer *, bool);
+extern void pp_end_quote (pretty_printer *, bool);
 
 /* Switch into verbatim mode and return the old mode.  */
 static inline pp_wrapping_mode_t

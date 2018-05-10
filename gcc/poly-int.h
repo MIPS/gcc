@@ -1,5 +1,5 @@
 /* Polynomial integer classes.
-   Copyright (C) 2014-2017 Free Software Foundation, Inc.
+   Copyright (C) 2014-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1183,7 +1183,7 @@ lshift (const poly_int_pod<N, Ca> &a, const Cb &b)
 
 template<typename Ca, typename Cb>
 inline bool
-may_eq_2 (const Ca &a0, const Ca &a1, const Cb &b0, const Cb &b1)
+maybe_eq_2 (const Ca &a0, const Ca &a1, const Cb &b0, const Cb &b1)
 {
   if (a1 != b1)
      /*      a0 + a1 * x == b0 + b1 * x
@@ -1204,7 +1204,7 @@ may_eq_2 (const Ca &a0, const Ca &a1, const Cb &b0, const Cb &b1)
 
 template<typename Ca, typename Cb>
 inline bool
-may_eq_2 (const Ca &a0, const Ca &a1, const Cb &b)
+maybe_eq_2 (const Ca &a0, const Ca &a1, const Cb &b)
 {
   if (a1 != 0)
      /*      a0 + a1 * x == b
@@ -1223,37 +1223,37 @@ may_eq_2 (const Ca &a0, const Ca &a1, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
-may_eq (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+maybe_eq (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
   STATIC_ASSERT (N <= 2);
   if (N == 2)
-    return may_eq_2 (a.coeffs[0], a.coeffs[1], b.coeffs[0], b.coeffs[1]);
+    return maybe_eq_2 (a.coeffs[0], a.coeffs[1], b.coeffs[0], b.coeffs[1]);
   return a.coeffs[0] == b.coeffs[0];
 }
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Cb, bool>::type
-may_eq (const poly_int_pod<N, Ca> &a, const Cb &b)
+maybe_eq (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   STATIC_ASSERT (N <= 2);
   if (N == 2)
-    return may_eq_2 (a.coeffs[0], a.coeffs[1], b);
+    return maybe_eq_2 (a.coeffs[0], a.coeffs[1], b);
   return a.coeffs[0] == b;
 }
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Ca, bool>::type
-may_eq (const Ca &a, const poly_int_pod<N, Cb> &b)
+maybe_eq (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   STATIC_ASSERT (N <= 2);
   if (N == 2)
-    return may_eq_2 (b.coeffs[0], b.coeffs[1], a);
+    return maybe_eq_2 (b.coeffs[0], b.coeffs[1], a);
   return a == b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
 inline typename if_nonpoly2<Ca, Cb, bool>::type
-may_eq (const Ca &a, const Cb &b)
+maybe_eq (const Ca &a, const Cb &b)
 {
   return a == b;
 }
@@ -1262,7 +1262,7 @@ may_eq (const Ca &a, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
-may_ne (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+maybe_ne (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1273,7 +1273,7 @@ may_ne (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Cb, bool>::type
-may_ne (const poly_int_pod<N, Ca> &a, const Cb &b)
+maybe_ne (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1284,34 +1284,34 @@ may_ne (const poly_int_pod<N, Ca> &a, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Ca, bool>::type
-may_ne (const Ca &a, const poly_int_pod<N, Cb> &b)
+maybe_ne (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
-      if (0 != b.coeffs[i])
+      if (b.coeffs[i] != 0)
 	return true;
   return a != b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
 inline typename if_nonpoly2<Ca, Cb, bool>::type
-may_ne (const Ca &a, const Cb &b)
+maybe_ne (const Ca &a, const Cb &b)
 {
   return a != b;
 }
 
-/* Return true if A must be equal to B.  */
-#define must_eq(A, B) (!may_ne (A, B))
+/* Return true if A is known to be equal to B.  */
+#define known_eq(A, B) (!maybe_ne (A, B))
 
-/* Return true if A must be unequal to B.  */
-#define must_ne(A, B) (!may_eq (A, B))
+/* Return true if A is known to be unequal to B.  */
+#define known_ne(A, B) (!maybe_eq (A, B))
 
 /* Return true if A might be less than or equal to B for some
    indeterminate values.  */
 
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
-may_le (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+maybe_le (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1322,7 +1322,7 @@ may_le (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Cb, bool>::type
-may_le (const poly_int_pod<N, Ca> &a, const Cb &b)
+maybe_le (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1333,18 +1333,18 @@ may_le (const poly_int_pod<N, Ca> &a, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Ca, bool>::type
-may_le (const Ca &a, const poly_int_pod<N, Cb> &b)
+maybe_le (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
-      if (0 < b.coeffs[i])
+      if (b.coeffs[i] > 0)
 	return true;
   return a <= b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
 inline typename if_nonpoly2<Ca, Cb, bool>::type
-may_le (const Ca &a, const Cb &b)
+maybe_le (const Ca &a, const Cb &b)
 {
   return a <= b;
 }
@@ -1353,7 +1353,7 @@ may_le (const Ca &a, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline bool
-may_lt (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
+maybe_lt (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1364,7 +1364,7 @@ may_lt (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Cb, bool>::type
-may_lt (const poly_int_pod<N, Ca> &a, const Cb &b)
+maybe_lt (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
@@ -1375,41 +1375,41 @@ may_lt (const poly_int_pod<N, Ca> &a, const Cb &b)
 
 template<unsigned int N, typename Ca, typename Cb>
 inline typename if_nonpoly<Ca, bool>::type
-may_lt (const Ca &a, const poly_int_pod<N, Cb> &b)
+maybe_lt (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
   if (N >= 2)
     for (unsigned int i = 1; i < N; i++)
-      if (0 < b.coeffs[i])
+      if (b.coeffs[i] > 0)
 	return true;
   return a < b.coeffs[0];
 }
 
 template<typename Ca, typename Cb>
 inline typename if_nonpoly2<Ca, Cb, bool>::type
-may_lt (const Ca &a, const Cb &b)
+maybe_lt (const Ca &a, const Cb &b)
 {
   return a < b;
 }
 
 /* Return true if A may be greater than or equal to B.  */
-#define may_ge(A, B) may_le (B, A)
+#define maybe_ge(A, B) maybe_le (B, A)
 
 /* Return true if A may be greater than B.  */
-#define may_gt(A, B) may_lt (B, A)
+#define maybe_gt(A, B) maybe_lt (B, A)
 
-/* Return true if A must be less than or equal to B.  */
-#define must_le(A, B) (!may_gt (A, B))
+/* Return true if A is known to be less than or equal to B.  */
+#define known_le(A, B) (!maybe_gt (A, B))
 
-/* Return true if A must be less than B.  */
-#define must_lt(A, B) (!may_ge (A, B))
+/* Return true if A is known to be less than B.  */
+#define known_lt(A, B) (!maybe_ge (A, B))
 
-/* Return true if A must be greater than B.  */
-#define must_gt(A, B) (!may_le (A, B))
+/* Return true if A is known to be greater than B.  */
+#define known_gt(A, B) (!maybe_le (A, B))
 
-/* Return true if A must be greater than or equal to B.  */
-#define must_ge(A, B) (!may_lt (A, B))
+/* Return true if A is known to be greater than or equal to B.  */
+#define known_ge(A, B) (!maybe_lt (A, B))
 
-/* Return true if A and B are ordered by the partial ordering must_le.  */
+/* Return true if A and B are ordered by the partial ordering known_le.  */
 
 template<typename T1, typename T2>
 inline bool
@@ -1417,8 +1417,8 @@ ordered_p (const T1 &a, const T2 &b)
 {
   return ((poly_int_traits<T1>::num_coeffs == 1
 	   && poly_int_traits<T2>::num_coeffs == 1)
-	  || must_le (a, b)
-	  || must_le (b, a));
+	  || known_le (a, b)
+	  || known_le (b, a));
 }
 
 /* Assert that A and B are known to be ordered and return the minimum
@@ -1431,12 +1431,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 ordered_min (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return a;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return b;
     }
 }
@@ -1445,12 +1445,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline CONST_POLY_RESULT (N, Ca, Cb)
 ordered_min (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return a;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return b;
     }
 }
@@ -1459,12 +1459,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_CONST_RESULT (N, Ca, Cb)
 ordered_min (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return a;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return b;
     }
 }
@@ -1479,12 +1479,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_POLY_RESULT (N, Ca, Cb)
 ordered_max (const poly_int_pod<N, Ca> &a, const poly_int_pod<N, Cb> &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return b;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return a;
     }
 }
@@ -1493,12 +1493,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline CONST_POLY_RESULT (N, Ca, Cb)
 ordered_max (const Ca &a, const poly_int_pod<N, Cb> &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return b;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return a;
     }
 }
@@ -1507,12 +1507,12 @@ template<unsigned int N, typename Ca, typename Cb>
 inline POLY_CONST_RESULT (N, Ca, Cb)
 ordered_max (const poly_int_pod<N, Ca> &a, const Cb &b)
 {
-  if (must_le (a, b))
+  if (known_le (a, b))
     return b;
   else
     {
       if (N > 1)
-	gcc_checking_assert (must_le (b, a));
+	gcc_checking_assert (known_le (b, a));
       return a;
     }
 }
@@ -1524,7 +1524,7 @@ template<unsigned int N, typename Ca>
 inline Ca
 constant_lower_bound (const poly_int_pod<N, Ca> &a)
 {
-  gcc_checking_assert (must_ge (a, POLY_INT_TYPE (Ca) (0)));
+  gcc_checking_assert (known_ge (a, POLY_INT_TYPE (Ca) (0)));
   return a.coeffs[0];
 }
 
@@ -1770,7 +1770,7 @@ known_equal_after_align_up (const poly_int_pod<N, Ca> &a,
   poly_int<N, Cb> aligned_b;
   return (can_align_up (a, align, &aligned_a)
 	  && can_align_up (b, align, &aligned_b)
-	  && must_eq (aligned_a, aligned_b));
+	  && known_eq (aligned_a, aligned_b));
 }
 
 /* Return true if we can align A and B down to the largest multiples of
@@ -1787,7 +1787,7 @@ known_equal_after_align_down (const poly_int_pod<N, Ca> &a,
   poly_int<N, Cb> aligned_b;
   return (can_align_down (a, align, &aligned_a)
 	  && can_align_down (b, align, &aligned_b)
-	  && must_eq (aligned_a, aligned_b));
+	  && known_eq (aligned_a, aligned_b));
 }
 
 /* Assert that we can align VALUE to ALIGN at compile time and return
@@ -2027,7 +2027,7 @@ template<typename Ca, typename Cb>
 inline typename if_nonpoly2<Ca, Cb, bool>::type
 multiple_p (Ca a, Cb b)
 {
-  return a % b != 0;
+  return a % b == 0;
 }
 
 /* Return true if A is a (polynomial) multiple of B.  */
@@ -2362,7 +2362,7 @@ can_div_away_from_zero_p (const poly_int_pod<N, Ca> &a,
 {
   if (!can_div_trunc_p (a, b, quotient))
     return false;
-  if (may_ne (*quotient * b, a))
+  if (maybe_ne (*quotient * b, a))
     *quotient += (*quotient < 0 ? -1 : 1);
   return true;
 }
@@ -2399,30 +2399,34 @@ print_dec (const poly_int_pod<N, C> &value, FILE *file)
 	     poly_coeff_traits<C>::signedness ? SIGNED : UNSIGNED);
 }
 
-/* Helper for correctly comparing Pos - Start with Size in cases where
-   must_ge (Pos, Start), Pos and Start are potentially signed, and Size is
-   potentially unsigned.  Applying the cast function to the result of
-   Pos - Start gives the value that should be compared with the size.
+/* Helper for calculating the distance between two points P1 and P2,
+   in cases where known_le (P1, P2).  T1 and T2 are the types of the
+   two positions, in either order.  The coefficients of P2 - P1 have
+   type unsigned HOST_WIDE_INT if the coefficients of both T1 and T2
+   have C++ primitive type, otherwise P2 - P1 has its usual
+   wide-int-based type.
 
-   Try to avoid doing any unnecessary arithmetic or copying.  */
-template<typename Pos, typename Start, typename Size,
-	 typename Diff = POLY_BINARY_COEFF (Start, Pos),
-	 typename Res = POLY_BINARY_COEFF (Size, Diff)>
+   The actual subtraction should look something like this:
+
+     typedef poly_span_traits<T1, T2> span_traits;
+     span_traits::cast (P2) - span_traits::cast (P1)
+
+   Applying the cast before the subtraction avoids undefined overflow
+   for signed T1 and T2.
+
+   The implementation of the cast tries to avoid unnecessary arithmetic
+   or copying.  */
+template<typename T1, typename T2,
+	 typename Res = POLY_BINARY_COEFF (POLY_BINARY_COEFF (T1, T2),
+					   unsigned HOST_WIDE_INT)>
 struct poly_span_traits
 {
-  /* Assume no cast is needed.  We'll get a warning about signed vs.
-     unsigned comparisons if the assumption is wrong.  */
   template<typename T>
   static const T &cast (const T &x) { return x; }
 };
 
-/* The only case a change in type is needed is this one, in which the
-   subtraction would give a HOST_WIDE_INT-based result if done on poly_ints
-   and adding a zero size would give an unsigned HOST_WIDE_INT-based
-   result.  Since we know must_ge (Pos, Start), it is safe to treat
-   Pos - Start as an unsigned HOST_WIDE_INT.  */
-template<typename T1, typename T2, typename T3>
-struct poly_span_traits<T1, T2, T3, HOST_WIDE_INT, unsigned HOST_WIDE_INT>
+template<typename T1, typename T2>
+struct poly_span_traits<T1, T2, unsigned HOST_WIDE_INT>
 {
   template<typename T>
   static typename if_nonpoly<T, unsigned HOST_WIDE_INT>::type
@@ -2440,7 +2444,7 @@ template<typename T>
 inline bool
 known_size_p (const T &a)
 {
-  return may_ne (a, POLY_INT_TYPE (T) (-1));
+  return maybe_ne (a, POLY_INT_TYPE (T) (-1));
 }
 
 /* Return true if range [POS, POS + SIZE) might include VAL.
@@ -2451,18 +2455,20 @@ template<typename T1, typename T2, typename T3>
 inline bool
 maybe_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
 {
-  typedef poly_span_traits<T1, T2, T3> span;
-  if (must_lt (val, pos))
+  typedef poly_span_traits<T1, T2> start_span;
+  typedef poly_span_traits<T3, T3> size_span;
+  if (known_lt (val, pos))
     return false;
   if (!known_size_p (size))
     return true;
   if ((poly_int_traits<T1>::num_coeffs > 1
        || poly_int_traits<T2>::num_coeffs > 1)
-      && may_lt (val, pos))
+      && maybe_lt (val, pos))
     /* In this case we don't know whether VAL >= POS is true at compile
        time, so we can't prove that VAL >= POS + SIZE.  */
     return true;
-  return may_lt (span::cast (val - pos), size);
+  return maybe_lt (start_span::cast (val) - start_span::cast (pos),
+		   size_span::cast (size));
 }
 
 /* Return true if range [POS, POS + SIZE) is known to include VAL.
@@ -2473,10 +2479,12 @@ template<typename T1, typename T2, typename T3>
 inline bool
 known_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
 {
-  typedef poly_span_traits<T1, T2, T3> span;
+  typedef poly_span_traits<T1, T2> start_span;
+  typedef poly_span_traits<T3, T3> size_span;
   return (known_size_p (size)
-	  && must_ge (val, pos)
-	  && must_lt (span::cast (val - pos), size));
+	  && known_ge (val, pos)
+	  && known_lt (start_span::cast (val) - start_span::cast (pos),
+		       size_span::cast (size)));
 }
 
 /* Return true if the two ranges [POS1, POS1 + SIZE1) and [POS2, POS2 + SIZE2)
@@ -2485,13 +2493,13 @@ known_in_range_p (const T1 &val, const T2 &pos, const T3 &size)
 
 template<typename T1, typename T2, typename T3, typename T4>
 inline bool
-ranges_may_overlap_p (const T1 &pos1, const T2 &size1,
-		      const T3 &pos2, const T4 &size2)
+ranges_maybe_overlap_p (const T1 &pos1, const T2 &size1,
+			const T3 &pos2, const T4 &size2)
 {
   if (maybe_in_range_p (pos2, pos1, size1))
-    return may_ne (size2, POLY_INT_TYPE (T4) (0));
+    return maybe_ne (size2, POLY_INT_TYPE (T4) (0));
   if (maybe_in_range_p (pos1, pos2, size2))
-    return may_ne (size1, POLY_INT_TYPE (T2) (0));
+    return maybe_ne (size1, POLY_INT_TYPE (T2) (0));
   return false;
 }
 
@@ -2501,27 +2509,32 @@ ranges_may_overlap_p (const T1 &pos1, const T2 &size1,
 
 template<typename T1, typename T2, typename T3, typename T4>
 inline bool
-ranges_must_overlap_p (const T1 &pos1, const T2 &size1,
-		       const T3 &pos2, const T4 &size2)
+ranges_known_overlap_p (const T1 &pos1, const T2 &size1,
+			const T3 &pos2, const T4 &size2)
 {
-  typedef poly_span_traits<T1, T3, T2> span1;
-  typedef poly_span_traits<T1, T3, T4> span2;
-  /* must_gt (POS1 + SIZE1, POS2)                         [infinite precision]
-     --> must_gt (SIZE1, POS2 - POS1)                     [infinite precision]
-     --> must_gt (SIZE1, POS2 - lower_bound (POS1, POS2)) [infinite precision]
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ always nonnegative
-     --> must_gt (SIZE1, span1::cast (POS2 - lower_bound (POS1, POS2))).
+  typedef poly_span_traits<T1, T3> start_span;
+  typedef poly_span_traits<T2, T2> size1_span;
+  typedef poly_span_traits<T4, T4> size2_span;
+  /* known_gt (POS1 + SIZE1, POS2)                         [infinite precision]
+     --> known_gt (SIZE1, POS2 - POS1)                     [infinite precision]
+     --> known_gt (SIZE1, POS2 - lower_bound (POS1, POS2)) [infinite precision]
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ always nonnegative
+     --> known_gt (SIZE1, span1::cast (POS2 - lower_bound (POS1, POS2))).
 
      Using the saturating subtraction enforces that SIZE1 must be
-     nonzero, since must_gt (0, x) is false for all nonnegative x.
+     nonzero, since known_gt (0, x) is false for all nonnegative x.
      If POS2.coeff[I] < POS1.coeff[I] for some I > 0, increasing
      indeterminate number I makes the unsaturated condition easier to
      satisfy, so using a saturated coefficient of zero tests the case in
      which the indeterminate is zero (the minimum value).  */
   return (known_size_p (size1)
 	  && known_size_p (size2)
-	  && must_lt (span1::cast (pos2 - lower_bound (pos1, pos2)), size1)
-	  && must_lt (span2::cast (pos1 - lower_bound (pos1, pos2)), size2));
+	  && known_lt (start_span::cast (pos2)
+		       - start_span::cast (lower_bound (pos1, pos2)),
+		       size1_span::cast (size1))
+	  && known_lt (start_span::cast (pos1)
+		       - start_span::cast (lower_bound (pos1, pos2)),
+		       size2_span::cast (size2)));
 }
 
 /* Return true if range [POS1, POS1 + SIZE1) is known to be a subrange of
@@ -2534,15 +2547,16 @@ known_subrange_p (const T1 &pos1, const T2 &size1,
 		  const T3 &pos2, const T4 &size2)
 {
   typedef typename poly_int_traits<T2>::coeff_type C2;
-  typedef POLY_BINARY_COEFF (T2, T4) size_diff_type;
-  typedef poly_span_traits<T1, T3, size_diff_type> span;
-  return (must_gt (size1, POLY_INT_TYPE (T2) (0))
+  typedef poly_span_traits<T1, T3> start_span;
+  typedef poly_span_traits<T2, T4> size_span;
+  return (known_gt (size1, POLY_INT_TYPE (T2) (0))
 	  && (poly_coeff_traits<C2>::signedness > 0
 	      || known_size_p (size1))
 	  && known_size_p (size2)
-	  && must_ge (pos1, pos2)
-	  && must_le (size1, size2)
-	  && must_le (span::cast (pos1 - pos2), size2 - size1));
+	  && known_ge (pos1, pos2)
+	  && known_le (size1, size2)
+	  && known_le (start_span::cast (pos1) - start_span::cast (pos2),
+		       size_span::cast (size2) - size_span::cast (size1)));
 }
 
 /* Return true if the endpoint of the range [POS, POS + SIZE) can be

@@ -1,6 +1,6 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "explow.h"
 #include "expr.h"
 #include "langhooks.h"
+#include "tree-vector-builder.h"
 
 struct target_expmed default_target_expmed;
 #if SWITCHABLE_TARGET
@@ -516,7 +517,7 @@ lowpart_bit_field_p (poly_uint64 bitnum, poly_uint64 bitsize,
   poly_uint64 regsize = REGMODE_NATURAL_SIZE (struct_mode);
   if (BYTES_BIG_ENDIAN)
     return (multiple_p (bitnum, BITS_PER_UNIT)
-	    && (must_eq (bitnum + bitsize, GET_MODE_BITSIZE (struct_mode))
+	    && (known_eq (bitnum + bitsize, GET_MODE_BITSIZE (struct_mode))
 		|| multiple_p (bitnum + bitsize,
 			       regsize * BITS_PER_UNIT)));
   else
@@ -561,10 +562,10 @@ strict_volatile_bitfield_p (rtx op0, unsigned HOST_WIDE_INT bitsize,
     return false;
 
   /* Check for cases where the C++ memory model applies.  */
-  if (may_ne (bitregion_end, 0U)
-      && (may_lt (bitnum - bitnum % modesize, bitregion_start)
-	  || may_gt (bitnum - bitnum % modesize + modesize - 1,
-		     bitregion_end)))
+  if (maybe_ne (bitregion_end, 0U)
+      && (maybe_lt (bitnum - bitnum % modesize, bitregion_start)
+	  || maybe_gt (bitnum - bitnum % modesize + modesize - 1,
+		       bitregion_end)))
     return false;
 
   return true;
@@ -580,7 +581,7 @@ simple_mem_bitfield_p (rtx op0, poly_uint64 bitsize, poly_uint64 bitnum,
 {
   return (MEM_P (op0)
 	  && multiple_p (bitnum, BITS_PER_UNIT, bytenum)
-	  && must_eq (bitsize, GET_MODE_BITSIZE (mode))
+	  && known_eq (bitsize, GET_MODE_BITSIZE (mode))
 	  && (!targetm.slow_unaligned_access (mode, MEM_ALIGN (op0))
 	      || (multiple_p (bitnum, GET_MODE_ALIGNMENT (mode))
 		  && MEM_ALIGN (op0) >= GET_MODE_ALIGNMENT (mode))));
@@ -743,7 +744,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* No action is needed if the target is a register and if the field
      lies completely outside that register.  This can occur if the source
      code contains an out-of-bounds access to a small array.  */
-  if (REG_P (op0) && must_ge (bitnum, GET_MODE_BITSIZE (GET_MODE (op0))))
+  if (REG_P (op0) && known_ge (bitnum, GET_MODE_BITSIZE (GET_MODE (op0))))
     return true;
 
   /* Use vec_set patterns for inserting parts of vectors whenever
@@ -755,7 +756,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       && !MEM_P (op0)
       && optab_handler (vec_set_optab, outermode) != CODE_FOR_nothing
       && fieldmode == innermode
-      && must_eq (bitsize, GET_MODE_BITSIZE (innermode))
+      && known_eq (bitsize, GET_MODE_BITSIZE (innermode))
       && multiple_p (bitnum, GET_MODE_BITSIZE (innermode), &pos))
     {
       struct expand_operand ops[3];
@@ -771,7 +772,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* If the target is a register, overwriting the entire object, or storing
      a full-word or multi-word field can be done with just a SUBREG.  */
   if (!MEM_P (op0)
-      && must_eq (bitsize, GET_MODE_BITSIZE (fieldmode)))
+      && known_eq (bitsize, GET_MODE_BITSIZE (fieldmode)))
     {
       /* Use the subreg machinery either to narrow OP0 to the required
 	 words or to cope with mode punning between equal-sized modes.
@@ -779,8 +780,8 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       rtx sub;
       HOST_WIDE_INT regnum;
       poly_uint64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (op0));
-      if (must_eq (bitnum, 0U)
-	  && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
+      if (known_eq (bitnum, 0U)
+	  && known_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
 	{
 	  sub = simplify_gen_subreg (GET_MODE (op0), value, fieldmode, 0);
 	  if (sub)
@@ -866,7 +867,7 @@ store_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
   if (!MEM_P (op0)
       && !reverse
       && lowpart_bit_field_p (bitnum, bitsize, op0_mode.require ())
-      && must_eq (bitsize, GET_MODE_BITSIZE (fieldmode))
+      && known_eq (bitsize, GET_MODE_BITSIZE (fieldmode))
       && optab_handler (movstrict_optab, fieldmode) != CODE_FOR_nothing)
     {
       struct expand_operand ops[2];
@@ -1129,7 +1130,7 @@ store_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* Under the C++0x memory model, we must not touch bits outside the
      bit region.  Adjust the address to start at the beginning of the
      bit region.  */
-  if (MEM_P (str_rtx) && may_ne (bitregion_start, 0U))
+  if (MEM_P (str_rtx) && maybe_ne (bitregion_start, 0U))
     {
       scalar_int_mode best_mode;
       machine_mode addr_mode = VOIDmode;
@@ -1370,9 +1371,9 @@ store_split_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	 UNIT close to the end of the region as needed.  If op0 is a REG
 	 or SUBREG of REG, don't do this, as there can't be data races
 	 on a register and we can expand shorter code in some cases.  */
-      if (may_ne (bitregion_end, 0U)
+      if (maybe_ne (bitregion_end, 0U)
 	  && unit > BITS_PER_UNIT
-	  && may_gt (bitpos + bitsdone - thispos + unit, bitregion_end + 1)
+	  && maybe_gt (bitpos + bitsdone - thispos + unit, bitregion_end + 1)
 	  && !REG_P (op0)
 	  && (GET_CODE (op0) != SUBREG || !REG_P (SUBREG_REG (op0))))
 	{
@@ -1579,7 +1580,7 @@ extract_bit_field_as_subreg (machine_mode mode, rtx op0,
 {
   poly_uint64 bytenum;
   if (multiple_p (bitnum, BITS_PER_UNIT, &bytenum)
-      && must_eq (bitsize, GET_MODE_BITSIZE (mode))
+      && known_eq (bitsize, GET_MODE_BITSIZE (mode))
       && lowpart_bit_field_p (bitnum, bitsize, GET_MODE (op0))
       && TRULY_NOOP_TRUNCATION_MODES_P (mode, GET_MODE (op0)))
     return simplify_gen_subreg (mode, op0, GET_MODE (op0), bytenum);
@@ -1612,13 +1613,13 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* If we have an out-of-bounds access to a register, just return an
      uninitialized register of the required mode.  This can occur if the
      source code contains an out-of-bounds access to a small array.  */
-  if (REG_P (op0) && must_ge (bitnum, GET_MODE_BITSIZE (GET_MODE (op0))))
+  if (REG_P (op0) && known_ge (bitnum, GET_MODE_BITSIZE (GET_MODE (op0))))
     return gen_reg_rtx (tmode);
 
   if (REG_P (op0)
       && mode == GET_MODE (op0)
-      && must_eq (bitnum, 0U)
-      && must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
+      && known_eq (bitnum, 0U)
+      && known_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0))))
     {
       if (reverse)
 	op0 = flip_storage_order (mode, op0);
@@ -1630,8 +1631,8 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   if (VECTOR_MODE_P (GET_MODE (op0))
       && !MEM_P (op0)
       && VECTOR_MODE_P (tmode)
-      && must_eq (bitsize, GET_MODE_SIZE (tmode))
-      && may_gt (GET_MODE_SIZE (GET_MODE (op0)), GET_MODE_SIZE (tmode)))
+      && known_eq (bitsize, GET_MODE_BITSIZE (tmode))
+      && maybe_gt (GET_MODE_SIZE (GET_MODE (op0)), GET_MODE_SIZE (tmode)))
     {
       machine_mode new_mode = GET_MODE (op0);
       if (GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode))
@@ -1642,8 +1643,8 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 			   GET_MODE_UNIT_BITSIZE (tmode), &nunits)
 	      || !mode_for_vector (inner_mode, nunits).exists (&new_mode)
 	      || !VECTOR_MODE_P (new_mode)
-	      || may_ne (GET_MODE_SIZE (new_mode),
-			 GET_MODE_SIZE (GET_MODE (op0)))
+	      || maybe_ne (GET_MODE_SIZE (new_mode),
+			   GET_MODE_SIZE (GET_MODE (op0)))
 	      || GET_MODE_INNER (new_mode) != GET_MODE_INNER (tmode)
 	      || !targetm.vector_mode_supported_p (new_mode))
 	    new_mode = VOIDmode;
@@ -1699,8 +1700,8 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	new_mode = MIN_MODE_VECTOR_INT;
 
       FOR_EACH_MODE_FROM (new_mode, new_mode)
-	if (must_eq (GET_MODE_SIZE (new_mode), GET_MODE_SIZE (GET_MODE (op0)))
-	    && must_eq (GET_MODE_UNIT_SIZE (new_mode), GET_MODE_SIZE (tmode))
+	if (known_eq (GET_MODE_SIZE (new_mode), GET_MODE_SIZE (GET_MODE (op0)))
+	    && known_eq (GET_MODE_UNIT_SIZE (new_mode), GET_MODE_SIZE (tmode))
 	    && targetm.vector_mode_supported_p (new_mode))
 	  break;
       if (new_mode != VOIDmode)
@@ -1718,7 +1719,7 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	= convert_optab_handler (vec_extract_optab, outermode, innermode);
       poly_uint64 pos;
       if (icode != CODE_FOR_nothing
-	  && must_eq (bitsize, GET_MODE_BITSIZE (innermode))
+	  && known_eq (bitsize, GET_MODE_BITSIZE (innermode))
 	  && multiple_p (bitnum, GET_MODE_BITSIZE (innermode), &pos))
 	{
 	  struct expand_operand ops[3];
@@ -1737,16 +1738,10 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	      return target;
 	    }
 	}
-      /* Using subregs is useful if we're extracting the least-significant
-	 vector element, or if we're extracting one register vector from
-	 a multi-register vector.  extract_bit_field_as_subreg checks
-	 for valid bitsize and bitnum, so we don't need to do that here.
-
-	 The mode check makes sure that we're extracting either
-	 a single element or a subvector with the same element type.
-	 If the modes aren't such a natural fit, fall through and
-	 bitcast to integers first.  */
-      if (GET_MODE_INNER (mode) == innermode)
+      /* Using subregs is useful if we're extracting one register vector
+	 from a multi-register vector.  extract_bit_field_as_subreg checks
+	 for valid bitsize and bitnum, so we don't need to do that here.  */
+      if (VECTOR_MODE_P (mode))
 	{
 	  rtx sub = extract_bit_field_as_subreg (mode, op0, bitsize, bitnum);
 	  if (sub)
@@ -2061,9 +2056,9 @@ extract_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   machine_mode mode1;
 
   /* Handle -fstrict-volatile-bitfields in the cases where it applies.  */
-  if (may_ne (GET_MODE_BITSIZE (GET_MODE (str_rtx)), 0))
+  if (maybe_ne (GET_MODE_BITSIZE (GET_MODE (str_rtx)), 0))
     mode1 = GET_MODE (str_rtx);
-  else if (target && may_ne (GET_MODE_BITSIZE (GET_MODE (target)), 0))
+  else if (target && maybe_ne (GET_MODE_BITSIZE (GET_MODE (target)), 0))
     mode1 = GET_MODE (target);
   else
     mode1 = tmode;
@@ -2379,7 +2374,7 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
   if (GET_MODE_CLASS (mode) == MODE_CC || GET_MODE_CLASS (src_mode) == MODE_CC)
     return NULL_RTX;
 
-  if (must_eq (GET_MODE_BITSIZE (mode), GET_MODE_BITSIZE (src_mode))
+  if (known_eq (GET_MODE_BITSIZE (mode), GET_MODE_BITSIZE (src_mode))
       && targetm.modes_tieable_p (mode, src_mode))
     {
       rtx x = gen_lowpart_common (mode, src);
@@ -2508,9 +2503,8 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
       && CONST_INT_P (op1)
       && INTVAL (op1) == BITS_PER_UNIT
       && GET_MODE_SIZE (scalar_mode) == 2
-      && optab_handler (bswap_optab, HImode) != CODE_FOR_nothing)
-    return expand_unop (HImode, bswap_optab, shifted, NULL_RTX,
-				  unsignedp);
+      && optab_handler (bswap_optab, mode) != CODE_FOR_nothing)
+    return expand_unop (mode, bswap_optab, shifted, NULL_RTX, unsignedp);
 
   if (op1 == const0_rtx)
     return shifted;
@@ -5292,19 +5286,20 @@ make_tree (tree type, rtx x)
 
     case CONST_VECTOR:
       {
-	int units = CONST_VECTOR_NUNITS (x);
+	unsigned int npatterns = CONST_VECTOR_NPATTERNS (x);
+	unsigned int nelts_per_pattern = CONST_VECTOR_NELTS_PER_PATTERN (x);
 	tree itype = TREE_TYPE (type);
-	int i;
 
 	/* Build a tree with vector elements.  */
-	auto_vec<tree, 32> elts (units);
-	for (i = 0; i < units; ++i)
+	tree_vector_builder elts (type, npatterns, nelts_per_pattern);
+	unsigned int count = elts.encoded_nelts ();
+	for (unsigned int i = 0; i < count; ++i)
 	  {
 	    rtx elt = CONST_VECTOR_ELT (x, i);
 	    elts.quick_push (make_tree (itype, elt));
 	  }
 
-	return build_vector (type, elts);
+	return elts.build ();
       }
 
     case PLUS:
@@ -5360,22 +5355,7 @@ make_tree (tree type, rtx x)
       return fold_convert (type, make_tree (t, XEXP (x, 0)));
 
     case CONST:
-      {
-	rtx op = XEXP (x, 0);
-	if (GET_CODE (op) == VEC_DUPLICATE)
-	  {
-	    tree elt_tree = make_tree (TREE_TYPE (type), XEXP (op, 0));
-	    return build_vector_from_val (type, elt_tree);
-	  }
-	if (GET_CODE (op) == VEC_SERIES)
-	  {
-	    tree itype = TREE_TYPE (type);
-	    tree base_tree = make_tree (itype, XEXP (op, 0));
-	    tree step_tree = make_tree (itype, XEXP (op, 1));
-	    return build_vec_series (type, base_tree, step_tree);
-	  }
-	return make_tree (type, op);
-      }
+      return make_tree (type, XEXP (x, 0));
 
     case SYMBOL_REF:
       t = SYMBOL_REF_DECL (x);
@@ -6101,6 +6081,17 @@ emit_store_flag_force (rtx target, enum rtx_code code, rtx op0, rtx op1,
   tem = emit_store_flag (target, code, op0, op1, mode, unsignedp, normalizep);
   if (tem != 0)
     return tem;
+
+  /* If one operand is constant, make it the second one.  Only do this
+     if the other operand is not constant as well.  */
+  if (swap_commutative_operands_p (op0, op1))
+    {
+      std::swap (op0, op1);
+      code = swap_condition (code);
+    }
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (op0);
 
   if (!target)
     target = gen_reg_rtx (word_mode);

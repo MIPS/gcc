@@ -1,5 +1,5 @@
 /* Operations with affine combinations of trees.
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,7 +102,7 @@ aff_combination_zero_p (aff_tree *aff)
   if (!aff)
     return true;
 
-  if (aff->n == 0 && must_eq (aff->offset, 0))
+  if (aff->n == 0 && known_eq (aff->offset, 0))
     return true;
 
   return false;
@@ -121,7 +121,7 @@ inline bool
 aff_combination_singleton_var_p (aff_tree *aff)
 {
   return (aff->n == 1
-	  && must_eq (aff->offset, 0)
+	  && known_eq (aff->offset, 0)
 	  && (aff->elts[0].coef == 1 || aff->elts[0].coef == -1));
 }
 #endif /* GCC_TREE_AFFINE_H */

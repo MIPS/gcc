@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000-2017 Free Software Foundation, Inc.
+   Copyright (C) 2000-2018 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -117,6 +117,7 @@
 #include "fibonacci_heap.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "common/common-target.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -1408,17 +1409,95 @@ get_uncond_jump_length (void)
   return length;
 }
 
-/* The landing pad OLD_LP, in block OLD_BB, has edges from both partitions.
-   Duplicate the landing pad and split the edges so that no EH edge
-   crosses partitions.  */
+/* Create a forwarder block to OLD_BB starting with NEW_LABEL and in the
+   other partition wrt OLD_BB.  */
+
+static basic_block
+create_forwarder_block (rtx_code_label *new_label, basic_block old_bb)
+{
+  /* Put the new label and a jump in the new basic block.  */
+  rtx_insn *label = emit_label (new_label);
+  rtx_code_label *old_label = block_label (old_bb);
+  rtx_insn *jump = emit_jump_insn (targetm.gen_jump (old_label));
+  JUMP_LABEL (jump) = old_label;
+
+  /* Create the new basic block and put it in last position.  */
+  basic_block last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
+  basic_block new_bb = create_basic_block (label, jump, last_bb);
+  new_bb->aux = last_bb->aux;
+  new_bb->count = old_bb->count;
+  last_bb->aux = new_bb;
+
+  emit_barrier_after_bb (new_bb);
+
+  make_single_succ_edge (new_bb, old_bb, 0);
+
+  /* Make sure the new basic block is in the other partition.  */
+  unsigned new_partition = BB_PARTITION (old_bb);
+  new_partition ^= BB_HOT_PARTITION | BB_COLD_PARTITION;
+  BB_SET_PARTITION (new_bb, new_partition);
+
+  return new_bb;
+}
+
+/* The common landing pad in block OLD_BB has edges from both partitions.
+   Add a new landing pad that will just jump to the old one and split the
+   edges so that no EH edge crosses partitions.  */
 
 static void
-fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
+sjlj_fix_up_crossing_landing_pad (basic_block old_bb)
+{
+  const unsigned lp_len = cfun->eh->lp_array->length ();
+  edge_iterator ei;
+  edge e;
+
+  /* Generate the new common landing-pad label.  */
+  rtx_code_label *new_label = gen_label_rtx ();
+  LABEL_PRESERVE_P (new_label) = 1;
+
+  /* Create the forwarder block.  */
+  basic_block new_bb = create_forwarder_block (new_label, old_bb);
+
+  /* Create the map from old to new lp index and initialize it.  */
+  unsigned *index_map = (unsigned *) alloca (lp_len * sizeof (unsigned));
+  memset (index_map, 0, lp_len * sizeof (unsigned));
+
+  /* Fix up the edges.  */
+  for (ei = ei_start (old_bb->preds); (e = ei_safe_edge (ei)) != NULL; )
+    if (e->src != new_bb && BB_PARTITION (e->src) == BB_PARTITION (new_bb))
+      {
+	rtx_insn *insn = BB_END (e->src);
+	rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+
+	gcc_assert (note != NULL);
+	const unsigned old_index = INTVAL (XEXP (note, 0));
+
+	/* Generate the new landing-pad structure.  */
+	if (index_map[old_index] == 0)
+	  {
+	    eh_landing_pad old_lp = (*cfun->eh->lp_array)[old_index];
+	    eh_landing_pad new_lp = gen_eh_landing_pad (old_lp->region);
+	    new_lp->post_landing_pad = old_lp->post_landing_pad;
+	    new_lp->landing_pad = new_label;
+	    index_map[old_index] = new_lp->index;
+	  }
+	XEXP (note, 0) = GEN_INT (index_map[old_index]);
+
+	/* Adjust the edge to the new destination.  */
+	redirect_edge_succ (e, new_bb);
+      }
+    else
+      ei_next (&ei);
+}
+
+/* The landing pad OLD_LP, in block OLD_BB, has edges from both partitions.
+   Add a new landing pad that will just jump to the old one and split the
+   edges so that no EH edge crosses partitions.  */
+
+static void
+dw2_fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
 {
   eh_landing_pad new_lp;
-  basic_block new_bb, last_bb, post_bb;
-  rtx_insn *jump;
-  unsigned new_partition;
   edge_iterator ei;
   edge e;
 
@@ -1428,36 +1507,12 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   new_lp->landing_pad = gen_label_rtx ();
   LABEL_PRESERVE_P (new_lp->landing_pad) = 1;
 
-  /* Put appropriate instructions in new bb.  */
-  rtx_code_label *new_label = emit_label (new_lp->landing_pad);
-
-  expand_dw2_landing_pad_for_region (old_lp->region);
-
-  post_bb = BLOCK_FOR_INSN (old_lp->landing_pad);
-  post_bb = single_succ (post_bb);
-  rtx_code_label *post_label = block_label (post_bb);
-  jump = emit_jump_insn (targetm.gen_jump (post_label));
-  JUMP_LABEL (jump) = post_label;
-
-  /* Create new basic block to be dest for lp.  */
-  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
-  new_bb = create_basic_block (new_label, jump, last_bb);
-  new_bb->aux = last_bb->aux;
-  new_bb->count = post_bb->count;
-  last_bb->aux = new_bb;
-
-  emit_barrier_after_bb (new_bb);
-
-  make_single_succ_edge (new_bb, post_bb, 0);
-
-  /* Make sure new bb is in the other partition.  */
-  new_partition = BB_PARTITION (old_bb);
-  new_partition ^= BB_HOT_PARTITION | BB_COLD_PARTITION;
-  BB_SET_PARTITION (new_bb, new_partition);
+  /* Create the forwarder block.  */
+  basic_block new_bb = create_forwarder_block (new_lp->landing_pad, old_bb);
 
   /* Fix up the edges.  */
   for (ei = ei_start (old_bb->preds); (e = ei_safe_edge (ei)) != NULL; )
-    if (BB_PARTITION (e->src) == new_partition)
+    if (e->src != new_bb && BB_PARTITION (e->src) == BB_PARTITION (new_bb))
       {
 	rtx_insn *insn = BB_END (e->src);
 	rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
@@ -1576,6 +1631,7 @@ sanitize_hot_paths (bool walk_up, unsigned int cold_bb_count,
           hot_bbs_to_check.safe_push (reach_bb);
         }
     }
+  hot_bbs_to_check.release ();
 
   return cold_bb_count;
 }
@@ -1655,9 +1711,11 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
 
   /* The format of .gcc_except_table does not allow landing pads to
      be in a different partition as the throw.  Fix this by either
-     moving or duplicating the landing pads.  */
+     moving the landing pads or inserting forwarder landing pads.  */
   if (cfun->eh->lp_array)
     {
+      const bool sjlj
+	= (targetm_common.except_unwind_info (&global_options) == UI_SJLJ);
       unsigned i;
       eh_landing_pad lp;
 
@@ -1689,13 +1747,18 @@ find_rarely_executed_basic_blocks_and_crossing_edges (void)
 	      which ^= BB_HOT_PARTITION | BB_COLD_PARTITION;
 	      BB_SET_PARTITION (bb, which);
 	    }
+	  else if (sjlj)
+	    sjlj_fix_up_crossing_landing_pad (bb);
 	  else
-	    fix_up_crossing_landing_pad (lp, bb);
+	    dw2_fix_up_crossing_landing_pad (lp, bb);
+
+	  /* There is a single, common landing pad in SJLJ mode.  */
+	  if (sjlj)
+	    break;
 	}
     }
 
   /* Mark every edge that crosses between sections.  */
-
   FOR_EACH_BB_FN (bb, cfun)
     FOR_EACH_EDGE (e, ei, bb->succs)
       {
@@ -2239,10 +2302,7 @@ update_crossing_jump_flags (void)
     FOR_EACH_EDGE (e, ei, bb->succs)
       if (e->flags & EDGE_CROSSING)
 	{
-	  if (JUMP_P (BB_END (bb))
-	      /* Some flags were added during fix_up_fall_thru_edges, via
-		 force_nonfallthru_and_redirect.  */
-	      && !CROSSING_JUMP_P (BB_END (bb)))
+	  if (JUMP_P (BB_END (bb)))
 	    CROSSING_JUMP_P (BB_END (bb)) = 1;
 	  break;
 	}
@@ -2408,7 +2468,10 @@ reorder_basic_blocks_simple (void)
 
   basic_block last_tail = (basic_block) ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux;
 
-  int current_partition = BB_PARTITION (last_tail);
+  int current_partition
+    = BB_PARTITION (last_tail == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+		    ? EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0)->dest
+		    : last_tail);
   bool need_another_pass = true;
 
   for (int pass = 0; pass < 2 && need_another_pass; pass++)
@@ -2449,7 +2512,6 @@ reorder_basic_blocks_simple (void)
     {
       force_nonfallthru (e);
       e->src->aux = ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux;
-      BB_COPY_PARTITION (e->src, e->dest);
     }
 }
 
@@ -2524,6 +2586,11 @@ insert_section_boundary_note (void)
           current_partition = BB_PARTITION (bb);
 	}
     }
+
+  /* Make sure crtl->has_bb_partition matches reality even if bbpart finds
+     some hot and some cold basic blocks, but later one of those kinds is
+     optimized away.  */
+  crtl->has_bb_partition = switched_sections;
 }
 
 namespace {
@@ -2571,7 +2638,7 @@ pass_reorder_blocks::execute (function *fun)
   cfg_layout_initialize (CLEANUP_EXPENSIVE);
 
   reorder_basic_blocks ();
-  cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_NO_PARTITIONING);
 
   FOR_EACH_BB_FN (bb, fun)
     if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (fun))
@@ -2869,7 +2936,10 @@ pass_partition_blocks::gate (function *fun)
 	     we are going to omit the reordering.  */
 	  && optimize_function_for_speed_p (fun)
 	  && !DECL_COMDAT_GROUP (current_function_decl)
-	  && !lookup_attribute ("section", DECL_ATTRIBUTES (fun->decl)));
+	  && !lookup_attribute ("section", DECL_ATTRIBUTES (fun->decl))
+	  /* Workaround a bug in GDB where read_partial_die doesn't cope
+	     with DIEs with DW_AT_ranges, see PR81115.  */
+	  && !(in_lto_p && MAIN_NAME_P (DECL_NAME (fun->decl))));
 }
 
 unsigned

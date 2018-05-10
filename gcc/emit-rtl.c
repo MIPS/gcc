@@ -1,5 +1,5 @@
 /* Emit RTL for the GCC expander.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "opts.h"
 #include "predict.h"
+#include "rtx-vector-builder.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -184,15 +185,6 @@ struct const_fixed_hasher : ggc_cache_ptr_hash<rtx_def>
 };
 
 static GTY ((cache)) hash_table<const_fixed_hasher> *const_fixed_htab;
-
-/* A hash table storing unique CONSTs.  */
-struct const_hasher : ggc_cache_ptr_hash<rtx_def>
-{
-  static hashval_t hash (rtx x);
-  static bool equal (rtx x, rtx y);
-};
-
-static GTY ((cache)) hash_table<const_hasher> *const_htab;
 
 #define cur_insn_uid (crtl->emit.x_cur_insn_uid)
 #define cur_debug_insn_uid (crtl->emit.x_cur_debug_insn_uid)
@@ -353,28 +345,6 @@ const_fixed_hasher::equal (rtx x, rtx y)
   return fixed_identical (CONST_FIXED_VALUE (a), CONST_FIXED_VALUE (b));
 }
 
-/* Returns a hash code for X (which is either an existing unique CONST
-   or an operand to gen_rtx_CONST).  */
-
-hashval_t
-const_hasher::hash (rtx x)
-{
-  if (GET_CODE (x) == CONST)
-    x = XEXP (x, 0);
-
-  int do_not_record_p = 0;
-  return hash_rtx (x, GET_MODE (x), &do_not_record_p, NULL, false);
-}
-
-/* Returns true if the operand of unique CONST X is equal to Y.  */
-
-bool
-const_hasher::equal (rtx x, rtx y)
-{
-  gcc_checking_assert (GET_CODE (x) == CONST);
-  return rtx_equal_p (XEXP (x, 0), y);
-}
-
 /* Return true if the given memory attributes are equal.  */
 
 bool
@@ -386,9 +356,9 @@ mem_attrs_eq_p (const struct mem_attrs *p, const struct mem_attrs *q)
     return false;
   return (p->alias == q->alias
 	  && p->offset_known_p == q->offset_known_p
-	  && (!p->offset_known_p || must_eq (p->offset, q->offset))
+	  && (!p->offset_known_p || known_eq (p->offset, q->offset))
 	  && p->size_known_p == q->size_known_p
-	  && (!p->size_known_p || must_eq (p->size, q->size))
+	  && (!p->size_known_p || known_eq (p->size, q->size))
 	  && p->align == q->align
 	  && p->addrspace == q->addrspace
 	  && (p->expr == q->expr
@@ -438,7 +408,7 @@ reg_attr_hasher::equal (reg_attrs *x, reg_attrs *y)
   const reg_attrs *const p = x;
   const reg_attrs *const q = y;
 
-  return (p->decl == q->decl && must_eq (p->offset, q->offset));
+  return (p->decl == q->decl && known_eq (p->offset, q->offset));
 }
 /* Allocate a new reg_attrs structure and insert it into the hash table if
    one identical to it is not already in the table.  We are doing this for
@@ -450,7 +420,7 @@ get_reg_attrs (tree decl, poly_int64 offset)
   reg_attrs attrs;
 
   /* If everything is the default, we can just return zero.  */
-  if (decl == 0 && must_eq (offset, 0))
+  if (decl == 0 && known_eq (offset, 0))
     return 0;
 
   attrs.decl = decl;
@@ -937,7 +907,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     return false;
 
   /* The subreg offset cannot be outside the inner object.  */
-  if (may_ge (offset, isize))
+  if (maybe_ge (offset, isize))
     return false;
 
   poly_uint64 regsize = REGMODE_NATURAL_SIZE (imode);
@@ -950,7 +920,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     ;
   /* ??? Similarly, e.g. with (subreg:DF (reg:TI)).  Though store_bit_field
      is the culprit here, and not the backends.  */
-  else if (must_ge (osize, regsize) && must_ge (isize, osize))
+  else if (known_ge (osize, regsize) && known_ge (isize, osize))
     ;
   /* Allow component subregs of complex and vector.  Though given the below
      extraction rules, it's not always clear what that means.  */
@@ -969,7 +939,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
      (subreg:SI (reg:DF) 0) isn't.  */
   else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
     {
-      if (! (must_eq (isize, osize)
+      if (! (known_eq (isize, osize)
 	     /* LRA can use subreg to store a floating point value in
 		an integer mode.  Although the floating point and the
 		integer modes need the same number of hard registers,
@@ -981,8 +951,8 @@ validate_subreg (machine_mode omode, machine_mode imode,
     }
 
   /* Paradoxical subregs must have offset zero.  */
-  if (may_gt (osize, isize))
-    return must_eq (offset, 0U);
+  if (maybe_gt (osize, isize))
+    return known_eq (offset, 0U);
 
   /* This is a normal subreg.  Verify that the offset is representable.  */
 
@@ -1017,7 +987,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
 
      Given that we've already checked the mode and offset alignment,
      we only have to check subblock subregs here.  */
-  if (may_lt (osize, regsize)
+  if (maybe_lt (osize, regsize)
       && ! (lra_in_progress && (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))))
     {
       /* It is invalid for the target to pick a register size for a mode
@@ -1027,8 +997,8 @@ validate_subreg (machine_mode omode, machine_mode imode,
       poly_uint64 offset_within_reg;
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
 	  || (BYTES_BIG_ENDIAN
-	      ? may_ne (offset_within_reg, block_size - osize)
-	      : may_ne (offset_within_reg, 0U)))
+	      ? maybe_ne (offset_within_reg, block_size - osize)
+	      : maybe_ne (offset_within_reg, 0U)))
 	return false;
     }
   return true;
@@ -1156,7 +1126,7 @@ subreg_memory_offset (machine_mode outer_mode, machine_mode inner_mode,
 {
   if (paradoxical_subreg_p (outer_mode, inner_mode))
     {
-      gcc_assert (must_eq (offset, 0U));
+      gcc_assert (known_eq (offset, 0U));
       return -subreg_lowpart_offset (inner_mode, outer_mode);
     }
   return offset;
@@ -1568,8 +1538,8 @@ gen_lowpart_common (machine_mode mode, rtx x)
      so we have to make one up.  Yuk.  */
   innermode = GET_MODE (x);
   if (CONST_INT_P (x)
-      && must_le (msize * BITS_PER_UNIT,
-		  (unsigned HOST_WIDE_INT) HOST_BITS_PER_WIDE_INT))
+      && known_le (msize * BITS_PER_UNIT,
+		   (unsigned HOST_WIDE_INT) HOST_BITS_PER_WIDE_INT))
     innermode = int_mode_for_size (HOST_BITS_PER_WIDE_INT, 0).require ();
   else if (innermode == VOIDmode)
     innermode = int_mode_for_size (HOST_BITS_PER_DOUBLE_INT, 0).require ();
@@ -1587,7 +1557,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
   if (SCALAR_FLOAT_MODE_P (mode))
     {
       /* Don't allow paradoxical FLOAT_MODE subregs.  */
-      if (may_gt (msize, xsize))
+      if (maybe_gt (msize, xsize))
 	return 0;
     }
   else
@@ -1623,7 +1593,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
 	return gen_rtx_fmt_e (GET_CODE (x), int_mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
-	   || GET_CODE (x) == CONCAT || const_vec_p (x)
+	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x)
 	   || CONST_POLY_INT_P (x))
     return lowpart_subreg (mode, x, innermode);
@@ -1640,8 +1610,8 @@ gen_highpart (machine_mode mode, rtx x)
 
   /* This case loses if X is a subreg.  To catch bugs early,
      complain if an invalid MODE is used even in other cases.  */
-  gcc_assert (must_le (msize, (unsigned int) UNITS_PER_WORD)
-	      || must_eq (msize, GET_MODE_UNIT_SIZE (GET_MODE (x))));
+  gcc_assert (known_le (msize, (unsigned int) UNITS_PER_WORD)
+	      || known_eq (msize, GET_MODE_UNIT_SIZE (GET_MODE (x))));
 
   result = simplify_gen_subreg (mode, x, GET_MODE (x),
 				subreg_highpart_offset (mode, GET_MODE (x)));
@@ -1680,7 +1650,7 @@ poly_uint64
 subreg_size_lowpart_offset (poly_uint64 outer_bytes, poly_uint64 inner_bytes)
 {
   gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
-  if (may_gt (outer_bytes, inner_bytes))
+  if (maybe_gt (outer_bytes, inner_bytes))
     /* Paradoxical subregs always have a SUBREG_BYTE of 0.  */
     return 0;
 
@@ -1698,7 +1668,7 @@ subreg_size_lowpart_offset (poly_uint64 outer_bytes, poly_uint64 inner_bytes)
 poly_uint64
 subreg_size_highpart_offset (poly_uint64 outer_bytes, poly_uint64 inner_bytes)
 {
-  gcc_assert (must_ge (inner_bytes, outer_bytes));
+  gcc_assert (known_ge (inner_bytes, outer_bytes));
 
   if (BYTES_BIG_ENDIAN && WORDS_BIG_ENDIAN)
     return 0;
@@ -1722,9 +1692,9 @@ subreg_lowpart_p (const_rtx x)
   else if (GET_MODE (SUBREG_REG (x)) == VOIDmode)
     return 0;
 
-  return must_eq (subreg_lowpart_offset (GET_MODE (x),
-					 GET_MODE (SUBREG_REG (x))),
-		  SUBREG_BYTE (x));
+  return known_eq (subreg_lowpart_offset (GET_MODE (x),
+					  GET_MODE (SUBREG_REG (x))),
+		   SUBREG_BYTE (x));
 }
 
 /* Return subword OFFSET of operand OP.
@@ -1763,12 +1733,12 @@ operand_subword (rtx op, poly_uint64 offset, int validate_address,
 
   /* If OP is narrower than a word, fail.  */
   if (mode != BLKmode
-      && may_lt (GET_MODE_SIZE (mode), UNITS_PER_WORD))
+      && maybe_lt (GET_MODE_SIZE (mode), UNITS_PER_WORD))
     return 0;
 
   /* If we want a word outside OP, return zero.  */
   if (mode != BLKmode
-      && may_gt ((offset + 1) * UNITS_PER_WORD, GET_MODE_SIZE (mode)))
+      && maybe_gt ((offset + 1) * UNITS_PER_WORD, GET_MODE_SIZE (mode)))
     return const0_rtx;
 
   /* Form a new MEM at the requested address.  */
@@ -2178,7 +2148,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
   /* If we modified OFFSET based on T, then subtract the outstanding
      bit position offset.  Similarly, increase the size of the accessed
      object to contain the negative offset.  */
-  if (may_ne (apply_bitpos, 0))
+  if (maybe_ne (apply_bitpos, 0))
     {
       gcc_assert (attrs.offset_known_p);
       poly_int64 bytepos = bits_to_bytes_round_down (apply_bitpos);
@@ -2402,9 +2372,9 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If there are no changes, just return the original memory reference.  */
   if (mode == GET_MODE (memref)
-      && must_eq (offset, 0)
-      && (must_eq (size, 0)
-	  || (attrs.size_known_p && must_eq (attrs.size, size)))
+      && known_eq (offset, 0)
+      && (known_eq (size, 0)
+	  || (attrs.size_known_p && known_eq (attrs.size, size)))
       && (!validate || memory_address_addr_space_p (mode, addr,
 						    attrs.addrspace)))
     return memref;
@@ -2438,7 +2408,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
       else if (POINTERS_EXTEND_UNSIGNED > 0
 	       && GET_CODE (addr) == ZERO_EXTEND
 	       && GET_MODE (XEXP (addr, 0)) == pointer_mode
-	       && must_eq (trunc_int_for_mode (offset, pointer_mode), offset))
+	       && known_eq (trunc_int_for_mode (offset, pointer_mode), offset))
 	addr = gen_rtx_ZERO_EXTEND (address_mode,
 				    plus_constant (pointer_mode,
 						   XEXP (addr, 0), offset));
@@ -2451,7 +2421,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 
   /* If the address is a REG, change_address_1 rightfully returns memref,
      but this would destroy memref's MEM_ATTRS.  */
-  if (new_rtx == memref && may_ne (offset, 0))
+  if (new_rtx == memref && maybe_ne (offset, 0))
     new_rtx = copy_rtx (new_rtx);
 
   /* Conservatively drop the object if we don't know where we start from.  */
@@ -2468,7 +2438,7 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
       attrs.offset += offset;
 
       /* Drop the object if the new left end is not within its bounds.  */
-      if (adjust_object && may_lt (attrs.offset, 0))
+      if (adjust_object && maybe_lt (attrs.offset, 0))
 	{
 	  attrs.expr = NULL_TREE;
 	  attrs.alias = 0;
@@ -2478,16 +2448,16 @@ adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
   /* Compute the new alignment by taking the MIN of the alignment and the
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
-  if (may_ne (offset, 0))
+  if (maybe_ne (offset, 0))
     {
       max_align = known_alignment (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
-  if (may_ne (size, 0))
+  if (maybe_ne (size, 0))
     {
       /* Drop the object if the new right end is not within its bounds.  */
-      if (adjust_object && may_gt (offset + size, attrs.size))
+      if (adjust_object && maybe_gt (offset + size, attrs.size))
 	{
 	  attrs.expr = NULL_TREE;
 	  attrs.alias = 0;
@@ -2632,8 +2602,8 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 	  /* Is the field at least as large as the access?  If so, ok,
 	     otherwise strip back to the containing structure.  */
 	  if (poly_int_tree_p (DECL_SIZE_UNIT (field))
-	      && must_ge (wi::to_poly_offset (DECL_SIZE_UNIT (field)), size)
-	      && must_ge (attrs.offset, 0))
+	      && known_ge (wi::to_poly_offset (DECL_SIZE_UNIT (field)), size)
+	      && known_ge (attrs.offset, 0))
 	    break;
 
 	  poly_uint64 suboffset;
@@ -2652,9 +2622,9 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
       else if (DECL_P (attrs.expr)
 	       && DECL_SIZE_UNIT (attrs.expr)
 	       && poly_int_tree_p (DECL_SIZE_UNIT (attrs.expr))
-	       && must_ge (wi::to_poly_offset (DECL_SIZE_UNIT (attrs.expr)),
+	       && known_ge (wi::to_poly_offset (DECL_SIZE_UNIT (attrs.expr)),
 			   size)
-	       && must_ge (attrs.offset, 0))
+	       && known_ge (attrs.offset, 0))
 	break;
       else
 	{
@@ -3501,20 +3471,17 @@ next_nonnote_insn (rtx_insn *insn)
   return insn;
 }
 
-/* Return the next insn after INSN that is not a NOTE, but stop the
-   search before we enter another basic block.  This routine does not
-   look inside SEQUENCEs.  */
+/* Return the next insn after INSN that is not a DEBUG_INSN.  This
+   routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn_bb (rtx_insn *insn)
+next_nondebug_insn (rtx_insn *insn)
 {
   while (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
+      if (insn == 0 || !DEBUG_INSN_P (insn))
 	break;
-      if (NOTE_INSN_BASIC_BLOCK_P (insn))
-	return NULL;
     }
 
   return insn;
@@ -3530,42 +3497,6 @@ prev_nonnote_insn (rtx_insn *insn)
     {
       insn = PREV_INSN (insn);
       if (insn == 0 || !NOTE_P (insn))
-	break;
-    }
-
-  return insn;
-}
-
-/* Return the previous insn before INSN that is not a NOTE, but stop
-   the search before we enter another basic block.  This routine does
-   not look inside SEQUENCEs.  */
-
-rtx_insn *
-prev_nonnote_insn_bb (rtx_insn *insn)
-{
-
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
-      if (NOTE_INSN_BASIC_BLOCK_P (insn))
-	return NULL;
-    }
-
-  return insn;
-}
-
-/* Return the next insn after INSN that is not a DEBUG_INSN.  This
-   routine does not look inside SEQUENCEs.  */
-
-rtx_insn *
-next_nondebug_insn (rtx_insn *insn)
-{
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || !DEBUG_INSN_P (insn))
 	break;
     }
 
@@ -3604,6 +3535,29 @@ next_nonnote_nondebug_insn (rtx_insn *insn)
   return insn;
 }
 
+/* Return the next insn after INSN that is not a NOTE nor DEBUG_INSN,
+   but stop the search before we enter another basic block.  This
+   routine does not look inside SEQUENCEs.  */
+
+rtx_insn *
+next_nonnote_nondebug_insn_bb (rtx_insn *insn)
+{
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0)
+	break;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      if (!NOTE_P (insn))
+	break;
+      if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	return NULL;
+    }
+
+  return insn;
+}
+
 /* Return the previous insn before INSN that is not a NOTE nor DEBUG_INSN.
    This routine does not look inside SEQUENCEs.  */
 
@@ -3620,7 +3574,30 @@ prev_nonnote_nondebug_insn (rtx_insn *insn)
   return insn;
 }
 
-/* Return the next INSN, CALL_INSN or JUMP_INSN after INSN;
+/* Return the previous insn before INSN that is not a NOTE nor
+   DEBUG_INSN, but stop the search before we enter another basic
+   block.  This routine does not look inside SEQUENCEs.  */
+
+rtx_insn *
+prev_nonnote_nondebug_insn_bb (rtx_insn *insn)
+{
+  while (insn)
+    {
+      insn = PREV_INSN (insn);
+      if (insn == 0)
+	break;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      if (!NOTE_P (insn))
+	break;
+      if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	return NULL;
+    }
+
+  return insn;
+}
+
+/* Return the next INSN, CALL_INSN, JUMP_INSN or DEBUG_INSN after INSN;
    or 0, if there is none.  This routine does not look inside
    SEQUENCEs.  */
 
@@ -3639,7 +3616,7 @@ next_real_insn (rtx uncast_insn)
   return insn;
 }
 
-/* Return the last INSN, CALL_INSN or JUMP_INSN before INSN;
+/* Return the last INSN, CALL_INSN, JUMP_INSN or DEBUG_INSN before INSN;
    or 0, if there is none.  This routine does not look inside
    SEQUENCEs.  */
 
@@ -3650,6 +3627,42 @@ prev_real_insn (rtx_insn *insn)
     {
       insn = PREV_INSN (insn);
       if (insn == 0 || INSN_P (insn))
+	break;
+    }
+
+  return insn;
+}
+
+/* Return the next INSN, CALL_INSN or JUMP_INSN after INSN;
+   or 0, if there is none.  This routine does not look inside
+   SEQUENCEs.  */
+
+rtx_insn *
+next_real_nondebug_insn (rtx uncast_insn)
+{
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0 || NONDEBUG_INSN_P (insn))
+	break;
+    }
+
+  return insn;
+}
+
+/* Return the last INSN, CALL_INSN or JUMP_INSN before INSN;
+   or 0, if there is none.  This routine does not look inside
+   SEQUENCEs.  */
+
+rtx_insn *
+prev_real_nondebug_insn (rtx_insn *insn)
+{
+  while (insn)
+    {
+      insn = PREV_INSN (insn);
+      if (insn == 0 || NONDEBUG_INSN_P (insn))
 	break;
     }
 
@@ -3889,15 +3902,12 @@ try_split (rtx pat, rtx_insn *trial, int last)
       for (insn = insn_last; insn ; insn = PREV_INSN (insn))
 	if (CALL_P (insn))
 	  {
-	    rtx_insn *next;
-	    rtx *p;
-
 	    gcc_assert (call_insn == NULL_RTX);
 	    call_insn = insn;
 
 	    /* Add the old CALL_INSN_FUNCTION_USAGE to whatever the
 	       target may have explicitly specified.  */
-	    p = &CALL_INSN_FUNCTION_USAGE (insn);
+	    rtx *p = &CALL_INSN_FUNCTION_USAGE (insn);
 	    while (*p)
 	      p = &XEXP (*p, 1);
 	    *p = CALL_INSN_FUNCTION_USAGE (trial);
@@ -3905,21 +3915,6 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	    /* If the old call was a sibling call, the new one must
 	       be too.  */
 	    SIBLING_CALL_P (insn) = SIBLING_CALL_P (trial);
-
-	    /* If the new call is the last instruction in the sequence,
-	       it will effectively replace the old call in-situ.  Otherwise
-	       we must move any following NOTE_INSN_CALL_ARG_LOCATION note
-	       so that it comes immediately after the new call.  */
-	    if (NEXT_INSN (insn))
-	      for (next = NEXT_INSN (trial);
-		   next && NOTE_P (next);
-		   next = NEXT_INSN (next))
-		if (NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
-		  {
-		    remove_insn (next);
-		    add_insn_after (next, insn, NULL);
-		    break;
-		  }
 	  }
     }
 
@@ -3936,6 +3931,7 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	case REG_SETJMP:
 	case REG_TM:
 	case REG_CALL_NOCF_CHECK:
+	case REG_CALL_ARG_LOCATION:
 	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      if (CALL_P (insn))
@@ -4171,7 +4167,7 @@ add_insn (rtx_insn *insn)
 {
   rtx_insn *prev = get_last_insn ();
   link_insn_into_chain (insn, prev, NULL);
-  if (NULL == get_insns ())
+  if (get_insns () == NULL)
     set_first_insn (insn);
   set_last_insn (insn);
 }
@@ -4800,7 +4796,6 @@ note_outside_basic_block_p (enum insn_note subtype, bool on_bb_boundary_p)
 	 inside basic blocks.  If the caller is emitting on the basic block
 	 boundary, do not set BLOCK_FOR_INSN on the new note.  */
       case NOTE_INSN_VAR_LOCATION:
-      case NOTE_INSN_CALL_ARG_LOCATION:
       case NOTE_INSN_EH_REGION_BEG:
       case NOTE_INSN_EH_REGION_END:
 	return on_bb_boundary_p;
@@ -5889,8 +5884,6 @@ init_emit (void)
   REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = STACK_BOUNDARY;
   REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = STACK_BOUNDARY;
 
-  /* ??? These are problematic (for example, 3 out of 4 are wrong on
-     32-bit SPARC and cannot be all fixed because of the ABI).  */
   REGNO_POINTER_ALIGN (VIRTUAL_INCOMING_ARGS_REGNUM) = STACK_BOUNDARY;
   REGNO_POINTER_ALIGN (VIRTUAL_STACK_VARS_REGNUM) = STACK_BOUNDARY;
   REGNO_POINTER_ALIGN (VIRTUAL_STACK_DYNAMIC_REGNUM) = STACK_BOUNDARY;
@@ -5904,66 +5897,71 @@ init_emit (void)
 #endif
 }
 
-rtx
-gen_rtx_CONST (machine_mode mode, rtx val)
-{
-  if (unique_const_p (val))
-    {
-      /* Look up the CONST in the hash table.  */
-      rtx *slot = const_htab->find_slot (val, INSERT);
-      if (*slot == 0)
-	*slot = gen_rtx_raw_CONST (mode, val);
-      return *slot;
-    }
+/* Return the value of element I of CONST_VECTOR X as a wide_int.  */
 
-  return gen_rtx_raw_CONST (mode, val);
+wide_int
+const_vector_int_elt (const_rtx x, unsigned int i)
+{
+  /* First handle elements that are directly encoded.  */
+  machine_mode elt_mode = GET_MODE_INNER (GET_MODE (x));
+  if (i < (unsigned int) XVECLEN (x, 0))
+    return rtx_mode_t (CONST_VECTOR_ENCODED_ELT (x, i), elt_mode);
+
+  /* Identify the pattern that contains element I and work out the index of
+     the last encoded element for that pattern.  */
+  unsigned int encoded_nelts = const_vector_encoded_nelts (x);
+  unsigned int npatterns = CONST_VECTOR_NPATTERNS (x);
+  unsigned int count = i / npatterns;
+  unsigned int pattern = i % npatterns;
+  unsigned int final_i = encoded_nelts - npatterns + pattern;
+
+  /* If there are no steps, the final encoded value is the right one.  */
+  if (!CONST_VECTOR_STEPPED_P (x))
+    return rtx_mode_t (CONST_VECTOR_ENCODED_ELT (x, final_i), elt_mode);
+
+  /* Otherwise work out the value from the last two encoded elements.  */
+  rtx v1 = CONST_VECTOR_ENCODED_ELT (x, final_i - npatterns);
+  rtx v2 = CONST_VECTOR_ENCODED_ELT (x, final_i);
+  wide_int diff = wi::sub (rtx_mode_t (v2, elt_mode),
+			   rtx_mode_t (v1, elt_mode));
+  return wi::add (rtx_mode_t (v2, elt_mode), (count - 2) * diff);
 }
 
-/* Return true if X is a valid element for a duplicated vector constant
-   of the given mode.  */
+/* Return the value of element I of CONST_VECTOR X.  */
+
+rtx
+const_vector_elt (const_rtx x, unsigned int i)
+{
+  /* First handle elements that are directly encoded.  */
+  if (i < (unsigned int) XVECLEN (x, 0))
+    return CONST_VECTOR_ENCODED_ELT (x, i);
+
+  /* If there are no steps, the final encoded value is the right one.  */
+  if (!CONST_VECTOR_STEPPED_P (x))
+    {
+      /* Identify the pattern that contains element I and work out the index of
+	 the last encoded element for that pattern.  */
+      unsigned int encoded_nelts = const_vector_encoded_nelts (x);
+      unsigned int npatterns = CONST_VECTOR_NPATTERNS (x);
+      unsigned int pattern = i % npatterns;
+      unsigned int final_i = encoded_nelts - npatterns + pattern;
+      return CONST_VECTOR_ENCODED_ELT (x, final_i);
+    }
+
+  /* Otherwise work out the value from the last two encoded elements.  */
+  return immed_wide_int_const (const_vector_int_elt (x, i),
+			       GET_MODE_INNER (GET_MODE (x)));
+}
+
+/* Return true if X is a valid element for a CONST_VECTOR of the given
+  mode.  */
 
 bool
-valid_for_const_vec_duplicate_p (machine_mode, rtx x)
+valid_for_const_vector_p (machine_mode, rtx x)
 {
   return (CONST_SCALAR_INT_P (x)
 	  || CONST_DOUBLE_AS_FLOAT_P (x)
 	  || CONST_FIXED_P (x));
-}
-
-/* Temporary rtx used by gen_const_vec_duplicate_1.  */
-static GTY((deletable)) rtx spare_vec_duplicate;
-
-/* Like gen_const_vec_duplicate, but ignore const_tiny_rtx.  */
-
-static rtx
-gen_const_vec_duplicate_1 (machine_mode mode, rtx el)
-{
-  int nunits;
-  if (GET_MODE_NUNITS (mode).is_constant (&nunits))
-    {
-      rtvec v = rtvec_alloc (nunits);
-
-      for (int i = 0; i < nunits; ++i)
-	RTVEC_ELT (v, i) = el;
-
-      return gen_rtx_raw_CONST_VECTOR (mode, v);
-    }
-  else
-    {
-      if (spare_vec_duplicate)
-	{
-	  PUT_MODE (spare_vec_duplicate, mode);
-	  XEXP (spare_vec_duplicate, 0) = el;
-	}
-      else
-	spare_vec_duplicate = gen_rtx_VEC_DUPLICATE (mode, el);
-
-      rtx res = gen_rtx_CONST (mode, spare_vec_duplicate);
-      if (XEXP (res, 0) == spare_vec_duplicate)
-	spare_vec_duplicate = NULL_RTX;
-
-      return res;
-    }
 }
 
 /* Generate a vector constant of mode MODE in which every element has
@@ -5972,25 +5970,9 @@ gen_const_vec_duplicate_1 (machine_mode mode, rtx el)
 rtx
 gen_const_vec_duplicate (machine_mode mode, rtx elt)
 {
-  if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
-    {
-      if (elt == const1_rtx || elt == constm1_rtx)
-	return CONST1_RTX (mode);
-      else if (elt == const0_rtx)
-	return CONST0_RTX (mode);
-      else
-	gcc_unreachable ();
-    }
-
-  scalar_mode inner_mode = GET_MODE_INNER (mode);
-  if (elt == CONST0_RTX (inner_mode))
-    return CONST0_RTX (mode);
-  else if (elt == CONST1_RTX (inner_mode))
-    return CONST1_RTX (mode);
-  else if (elt == CONSTM1_RTX (inner_mode))
-    return CONSTM1_RTX (mode);
-
-  return gen_const_vec_duplicate_1 (mode, elt);
+  rtx_vector_builder builder (mode, 1, 1);
+  builder.quick_push (elt);
+  return builder.build ();
 }
 
 /* Return a vector rtx of mode MODE in which every element has value X.
@@ -5999,33 +5981,49 @@ gen_const_vec_duplicate (machine_mode mode, rtx elt)
 rtx
 gen_vec_duplicate (machine_mode mode, rtx x)
 {
-  if (valid_for_const_vec_duplicate_p (mode, x))
+  if (valid_for_const_vector_p (mode, x))
     return gen_const_vec_duplicate (mode, x);
   return gen_rtx_VEC_DUPLICATE (mode, x);
 }
 
-/* A subroutine of const_vec_series_p that handles the case in which
-   X is known to be an integer CONST_VECTOR.  */
+/* A subroutine of const_vec_series_p that handles the case in which:
+
+     (GET_CODE (X) == CONST_VECTOR
+      && CONST_VECTOR_NPATTERNS (X) == 1
+      && !CONST_VECTOR_DUPLICATE_P (X))
+
+   is known to hold.  */
 
 bool
 const_vec_series_p_1 (const_rtx x, rtx *base_out, rtx *step_out)
 {
-  unsigned int nelts = CONST_VECTOR_NUNITS (x);
-  if (nelts < 2)
+  /* Stepped sequences are only defined for integers, to avoid specifying
+     rounding behavior.  */
+  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_INT)
     return false;
 
+  /* A non-duplicated vector with two elements can always be seen as a
+     series with a nonzero step.  Longer vectors must have a stepped
+     encoding.  */
+  if (maybe_ne (CONST_VECTOR_NUNITS (x), 2)
+      && !CONST_VECTOR_STEPPED_P (x))
+    return false;
+
+  /* Calculate the step between the first and second elements.  */
   scalar_mode inner = GET_MODE_INNER (GET_MODE (x));
   rtx base = CONST_VECTOR_ELT (x, 0);
   rtx step = simplify_binary_operation (MINUS, inner,
-					CONST_VECTOR_ELT (x, 1), base);
+					CONST_VECTOR_ENCODED_ELT (x, 1), base);
   if (rtx_equal_p (step, CONST0_RTX (inner)))
     return false;
 
-  for (unsigned int i = 2; i < nelts; ++i)
+  /* If we have a stepped encoding, check that the step between the
+     second and third elements is the same as STEP.  */
+  if (CONST_VECTOR_STEPPED_P (x))
     {
       rtx diff = simplify_binary_operation (MINUS, inner,
-					    CONST_VECTOR_ELT (x, i),
-					    CONST_VECTOR_ELT (x, i - 1));
+					    CONST_VECTOR_ENCODED_ELT (x, 2),
+					    CONST_VECTOR_ENCODED_ELT (x, 1));
       if (!rtx_equal_p (step, diff))
 	return false;
     }
@@ -6035,45 +6033,21 @@ const_vec_series_p_1 (const_rtx x, rtx *base_out, rtx *step_out)
   return true;
 }
 
-/* Temporary rtx used by gen_const_vec_series.  */
-static GTY((deletable)) rtx spare_vec_series;
-
 /* Generate a vector constant of mode MODE in which element I has
    the value BASE + I * STEP.  */
 
 rtx
 gen_const_vec_series (machine_mode mode, rtx base, rtx step)
 {
-  gcc_assert (CONSTANT_P (base) && CONSTANT_P (step));
+  gcc_assert (valid_for_const_vector_p (mode, base)
+	      && valid_for_const_vector_p (mode, step));
 
-  int nunits;
-  if (GET_MODE_NUNITS (mode).is_constant (&nunits))
-    {
-      rtvec v = rtvec_alloc (nunits);
-      scalar_mode inner_mode = GET_MODE_INNER (mode);
-      RTVEC_ELT (v, 0) = base;
-      for (int i = 1; i < nunits; ++i)
-	RTVEC_ELT (v, i) = simplify_gen_binary (PLUS, inner_mode,
-						RTVEC_ELT (v, i - 1), step);
-      return gen_rtx_raw_CONST_VECTOR (mode, v);
-    }
-  else
-    {
-      if (spare_vec_series)
-	{
-	  PUT_MODE (spare_vec_series, mode);
-	  XEXP (spare_vec_series, 0) = base;
-	  XEXP (spare_vec_series, 1) = step;
-	}
-      else
-	spare_vec_series = gen_rtx_VEC_SERIES (mode, base, step);
-
-      rtx res = gen_rtx_CONST (mode, spare_vec_series);
-      if (XEXP (res, 0) == spare_vec_series)
-	spare_vec_series = NULL_RTX;
-
-      return res;
-    }
+  rtx_vector_builder builder (mode, 1, 3);
+  builder.quick_push (base);
+  for (int i = 1; i < 3; ++i)
+    builder.quick_push (simplify_gen_binary (PLUS, GET_MODE_INNER (mode),
+					     builder[i - 1], step));
+  return builder.build ();
 }
 
 /* Generate a vector of mode MODE in which element I has the value
@@ -6085,7 +6059,8 @@ gen_vec_series (machine_mode mode, rtx base, rtx step)
 {
   if (step == const0_rtx)
     return gen_vec_duplicate (mode, base);
-  if (CONSTANT_P (base) && CONSTANT_P (step))
+  if (valid_for_const_vector_p (mode, base)
+      && valid_for_const_vector_p (mode, step))
     return gen_const_vec_series (mode, base, step);
   return gen_rtx_VEC_SERIES (mode, base, step);
 }
@@ -6103,7 +6078,7 @@ gen_const_vector (machine_mode mode, int constant)
   rtx el = const_tiny_rtx[constant][(int) inner];
   gcc_assert (el);
 
-  return gen_const_vec_duplicate_1 (mode, el);
+  return gen_const_vec_duplicate (mode, el);
 }
 
 /* Generate a vector like gen_rtx_raw_CONST_VEC, but use the zero vector when
@@ -6111,14 +6086,18 @@ gen_const_vector (machine_mode mode, int constant)
 rtx
 gen_rtx_CONST_VECTOR (machine_mode mode, rtvec v)
 {
-  gcc_assert (must_eq (GET_MODE_NUNITS (mode), GET_NUM_ELEM (v)));
+  gcc_assert (known_eq (GET_MODE_NUNITS (mode), GET_NUM_ELEM (v)));
 
   /* If the values are all the same, check to see if we can use one of the
      standard constant vectors.  */
   if (rtvec_all_equal_p (v))
     return gen_const_vec_duplicate (mode, RTVEC_ELT (v, 0));
 
-  return gen_rtx_raw_CONST_VECTOR (mode, v);
+  unsigned int nunits = GET_NUM_ELEM (v);
+  rtx_vector_builder builder (mode, nunits, 1);
+  for (unsigned int i = 0; i < nunits; ++i)
+    builder.quick_push (RTVEC_ELT (v, i));
+  return builder.build (v);
 }
 
 /* Initialise global register information required by all functions.  */
@@ -6173,7 +6152,7 @@ init_emit_regs (void)
       attrs = ggc_cleared_alloc<mem_attrs> ();
       attrs->align = BITS_PER_UNIT;
       attrs->addrspace = ADDR_SPACE_GENERIC;
-      if (mode != BLKmode)
+      if (mode != BLKmode && mode != VOIDmode)
 	{
 	  attrs->size_known_p = true;
 	  attrs->size = GET_MODE_SIZE (mode);
@@ -6207,7 +6186,8 @@ init_derived_machine_modes (void)
 
   byte_mode = opt_byte_mode.require ();
   word_mode = opt_word_mode.require ();
-  ptr_mode = int_mode_for_size (POINTER_SIZE, 0).require ();
+  ptr_mode = as_a <scalar_int_mode>
+    (mode_for_size (POINTER_SIZE, GET_MODE_CLASS (Pmode), 0).require ());
 }
 
 /* Create some permanent unique rtl objects shared between all functions.  */
@@ -6235,8 +6215,6 @@ init_emit_once (void)
   const_fixed_htab = hash_table<const_fixed_hasher>::create_ggc (37);
 
   reg_attrs_htab = hash_table<reg_attr_hasher>::create_ggc (37);
-
-  const_htab = hash_table<const_hasher>::create_ggc (37);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
@@ -6636,17 +6614,15 @@ need_atomic_barrier_p (enum memmodel model, bool pre)
    by VALUE bits.  */
 
 rtx
-gen_int_shift_amount (machine_mode mode, poly_int64 value)
+gen_int_shift_amount (machine_mode, poly_int64 value)
 {
-  /* ??? Using the inner mode should be wide enough for all useful
-     cases (e.g. QImode usually has 8 shiftable bits, while a QImode
-     shift amount has a range of [-128, 127]).  But in principle
-     a target could require target-dependent behaviour for a
-     shift whose shift amount is wider than the shifted value.
-     Perhaps this should be automatically derived from the .md
-     files instead, or perhaps have a target hook.  */
-  scalar_int_mode shift_mode
-    = int_mode_for_mode (GET_MODE_INNER (mode)).require ();
+  /* Use a 64-bit mode, to avoid any truncation.
+
+     ??? Perhaps this should be automatically derived from the .md files
+     instead, or perhaps have a target hook.  */
+  scalar_int_mode shift_mode = (BITS_PER_UNIT == 8
+				? DImode
+				: int_mode_for_size (64, 0).require ());
   return gen_int_mode (value, shift_mode);
 }
 

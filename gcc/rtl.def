@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -768,6 +768,9 @@ DEF_RTL_EXPR(ENTRY_VALUE, "entry_value", "0", RTX_OBJ)
 /* Used in VAR_LOCATION for a reference to a parameter that has
    been optimized away completely.  */
 DEF_RTL_EXPR(DEBUG_PARAMETER_REF, "debug_parameter_ref", "t", RTX_OBJ)
+
+/* Used in marker DEBUG_INSNs to avoid being recognized as an insn.  */
+DEF_RTL_EXPR(DEBUG_MARKER, "debug_marker", "", RTX_EXTRA)
 
 /* All expressions from this point forward appear only in machine
    descriptions.  */

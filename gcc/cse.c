@@ -1,5 +1,5 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2010,9 +2010,9 @@ remove_invalid_subreg_refs (unsigned int regno, poly_uint64 offset,
 	    && (GET_CODE (exp) != SUBREG
 		|| !REG_P (SUBREG_REG (exp))
 		|| REGNO (SUBREG_REG (exp)) != regno
-		|| ranges_may_overlap_p (SUBREG_BYTE (exp),
-					 GET_MODE_SIZE (GET_MODE (exp)),
-					 offset, GET_MODE_SIZE (mode)))
+		|| ranges_maybe_overlap_p (SUBREG_BYTE (exp),
+					   GET_MODE_SIZE (GET_MODE (exp)),
+					   offset, GET_MODE_SIZE (mode)))
 	    && refers_to_regno_p (regno, p->exp))
 	  remove_from_table (p, i);
       }
@@ -2353,11 +2353,11 @@ hash_rtx_cb (const_rtx x, machine_mode mode,
 	int units;
 	rtx elt;
 
-	units = CONST_VECTOR_NUNITS (x);
+	units = const_vector_encoded_nelts (x);
 
 	for (i = 0; i < units; ++i)
 	  {
-	    elt = CONST_VECTOR_ELT (x, i);
+	    elt = CONST_VECTOR_ENCODED_ELT (x, i);
 	    hash += hash_rtx_cb (elt, GET_MODE (elt),
                                  do_not_record_p, hash_arg_in_memory_p,
                                  have_reg_qty, cb);
@@ -2781,7 +2781,7 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 	  break;
 
 	case 'p':
-	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
 	    return 0;
 	  break;
 
@@ -3808,12 +3808,12 @@ equiv_constant (rtx x)
 
       /* If we didn't and if doing so makes sense, see if we previously
 	 assigned a constant value to the enclosing word mode SUBREG.  */
-      if (must_lt (GET_MODE_SIZE (mode), UNITS_PER_WORD)
-	  && must_lt (UNITS_PER_WORD, GET_MODE_SIZE (imode)))
+      if (known_lt (GET_MODE_SIZE (mode), UNITS_PER_WORD)
+	  && known_lt (UNITS_PER_WORD, GET_MODE_SIZE (imode)))
 	{
 	  poly_int64 byte = (SUBREG_BYTE (x)
 			     - subreg_lowpart_offset (mode, word_mode));
-	  if (must_ge (byte, 0) && multiple_p (byte, UNITS_PER_WORD))
+	  if (known_ge (byte, 0) && multiple_p (byte, UNITS_PER_WORD))
 	    {
 	      rtx y = gen_rtx_SUBREG (word_mode, SUBREG_REG (x), byte);
 	      new_rtx = lookup_as_function (y, CONST_INT);
@@ -4257,6 +4257,15 @@ try_back_substitute_reg (rtx set, rtx_insn *insn)
 		  && (reg_mentioned_p (dest, XEXP (note, 0))
 		      || rtx_equal_p (src, XEXP (note, 0))))
 		remove_note (insn, note);
+
+	      /* If INSN has a REG_ARGS_SIZE note, move it to PREV.  */
+	      note = find_reg_note (insn, REG_ARGS_SIZE, NULL_RTX);
+	      if (note != 0)
+		{
+		  remove_note (insn, note);
+		  gcc_assert (!find_reg_note (prev, REG_ARGS_SIZE, NULL_RTX));
+		  set_unique_reg_note (prev, REG_ARGS_SIZE, XEXP (note, 0));
+		}
 	    }
 	}
     }
@@ -5232,7 +5241,7 @@ cse_insn (rtx_insn *insn)
 	      && CONST_INT_P (XEXP (SET_DEST (sets[i].rtl), 1))
 	      && CONST_INT_P (XEXP (SET_DEST (sets[i].rtl), 2))
 	      && REG_P (XEXP (SET_DEST (sets[i].rtl), 0))
-	      && (must_ge
+	      && (known_ge
 		  (GET_MODE_PRECISION (GET_MODE (SET_DEST (sets[i].rtl))),
 		   INTVAL (XEXP (SET_DEST (sets[i].rtl), 1))))
 	      && ((unsigned) INTVAL (XEXP (SET_DEST (sets[i].rtl), 1))
@@ -6987,10 +6996,17 @@ insn_live_p (rtx_insn *insn, int *counts)
     {
       rtx_insn *next;
 
+      if (DEBUG_MARKER_INSN_P (insn))
+	return true;
+
       for (next = NEXT_INSN (insn); next; next = NEXT_INSN (next))
 	if (NOTE_P (next))
 	  continue;
 	else if (!DEBUG_INSN_P (next))
+	  return true;
+	/* If we find an inspection point, such as a debug begin stmt,
+	   we want to keep the earlier debug insn.  */
+	else if (DEBUG_MARKER_INSN_P (next))
 	  return true;
 	else if (INSN_VAR_LOCATION_DECL (insn) == INSN_VAR_LOCATION_DECL (next))
 	  return false;
@@ -7074,11 +7090,11 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_BIND_INSNS)
     {
       counts = XCNEWVEC (int, nreg * 3);
       for (insn = insns; insn; insn = NEXT_INSN (insn))
-	if (DEBUG_INSN_P (insn))
+	if (DEBUG_BIND_INSN_P (insn))
 	  count_reg_usage (INSN_VAR_LOCATION_LOC (insn), counts + nreg,
 			   NULL_RTX, 1);
 	else if (INSN_P (insn))
@@ -7136,12 +7152,15 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
       if (! live_insn && dbg_cnt (delete_trivial_dead))
 	{
 	  if (DEBUG_INSN_P (insn))
-	    count_reg_usage (INSN_VAR_LOCATION_LOC (insn), counts + nreg,
-			     NULL_RTX, -1);
+	    {
+	      if (DEBUG_BIND_INSN_P (insn))
+		count_reg_usage (INSN_VAR_LOCATION_LOC (insn), counts + nreg,
+				 NULL_RTX, -1);
+	    }
 	  else
 	    {
 	      rtx set;
-	      if (MAY_HAVE_DEBUG_INSNS
+	      if (MAY_HAVE_DEBUG_BIND_INSNS
 		  && (set = single_set (insn)) != NULL_RTX
 		  && is_dead_reg (SET_DEST (set), counts)
 		  /* Used at least once in some DEBUG_INSN.  */
@@ -7181,10 +7200,10 @@ delete_trivially_dead_insns (rtx_insn *insns, int nreg)
 	}
     }
 
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_BIND_INSNS)
     {
       for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
-	if (DEBUG_INSN_P (insn))
+	if (DEBUG_BIND_INSN_P (insn))
 	  {
 	    /* If this debug insn references a dead register that wasn't replaced
 	       with an DEBUG_EXPR, reset the DEBUG_INSN.  */

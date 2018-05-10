@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
+#include "cfgloop.h"
+#include "tree-scalar-evolution.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -241,6 +243,9 @@ verify_ssaname_freelists (struct function *fun)
 void
 flush_ssaname_freelist (void)
 {
+  /* If there were any SSA names released reset the SCEV cache.  */
+  if (! vec_safe_is_empty (FREE_SSANAMES_QUEUE (cfun)))
+    scev_reset_htab ();
   vec_safe_splice (FREE_SSANAMES (cfun), FREE_SSANAMES_QUEUE (cfun));
   vec_safe_truncate (FREE_SSANAMES_QUEUE (cfun), 0);
 }
@@ -562,7 +567,7 @@ release_ssa_name_fn (struct function *fn, tree var)
       int saved_ssa_name_version = SSA_NAME_VERSION (var);
       use_operand_p imm = &(SSA_NAME_IMM_USE_NODE (var));
 
-      if (MAY_HAVE_DEBUG_STMTS)
+      if (MAY_HAVE_DEBUG_BIND_STMTS)
 	insert_debug_temp_for_var_def (NULL, var);
 
       if (flag_checking)

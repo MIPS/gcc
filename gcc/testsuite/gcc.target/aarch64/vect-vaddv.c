@@ -1,6 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-O3 --save-temps -ffast-math" } */
 
+#pragma GCC target "+nosve"
+
 #include <arm_neon.h>
 
 extern void abort (void);
@@ -8,7 +10,7 @@ extern float fabsf (float);
 extern double fabs (double);
 
 #define NUM_TESTS 16
-#define DELTA 0.0001
+#define DELTA 0.000001
 
 int8_t input_int8[] = {1, 56, 2, -9, -90, 23, 54, 76,
 		       -4, 34, 110, -110, 6, 4, 75, -34};

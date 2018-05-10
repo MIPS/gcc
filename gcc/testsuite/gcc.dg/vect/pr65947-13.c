@@ -6,8 +6,7 @@ extern void abort (void) __attribute__ ((noreturn));
 
 #define N 32
 
-/* Simple condition reduction with a reversed loop.
-   Will fail to vectorize to a simple case.  */
+/* Simple condition reduction with a reversed loop.  */
 
 int
 condition_reduction (int *a, int min_v)
@@ -42,5 +41,4 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 2 "vect" } } */
-/* { dg-final { scan-tree-dump-times "optimizing condition reduction with FOLD_EXTRACT_LAST" 4 "vect" { target vect_fold_extract_last } } } */
-/* { dg-final { scan-tree-dump-not "optimizing condition reduction" "vect" { target { ! vect_fold_extract_last } } } } */
+/* { dg-final { scan-tree-dump-times "condition expression based on integer induction." 4 "vect" } } */

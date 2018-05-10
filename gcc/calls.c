@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989-2017 Free Software Foundation, Inc.
+   Copyright (C) 1989-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "builtins.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -444,7 +445,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if no arguments are actually popped.  If the target does not have
      "call" or "call_value" insns, then we must use the popping versions
      even if the call has no arguments to pop.  */
-  else if (may_ne (n_popped, 0)
+  else if (maybe_ne (n_popped, 0)
 	   || !(valreg
 		? targetm.have_call_value ()
 		: targetm.have_call ()))
@@ -523,7 +524,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
 
-  if (may_ne (n_popped, 0))
+  if (maybe_ne (n_popped, 0))
     {
       if (!already_popped)
 	CALL_INSN_FUNCTION_USAGE (call_insn)
@@ -555,7 +556,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 If returning from the subroutine does pop the args, indicate that the
 	 stack pointer will be changed.  */
 
-      if (may_ne (rounded_stack_size, 0))
+      if (maybe_ne (rounded_stack_size, 0))
 	{
 	  if (ecf_flags & ECF_NORETURN)
 	    /* Just pretend we did the pop.  */
@@ -578,7 +579,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 
      ??? It will be worthwhile to enable combine_stack_adjustments even for
      such machines.  */
-  else if (may_ne (n_popped, 0))
+  else if (maybe_ne (n_popped, 0))
     anti_adjust_stack (gen_int_mode (n_popped, Pmode));
 }
 
@@ -729,7 +730,7 @@ gimple_alloca_call_p (const gimple *stmt)
     switch (DECL_FUNCTION_CODE (fndecl))
       {
       CASE_BUILT_IN_ALLOCA:
-        return true;
+	return gimple_call_num_args (stmt) > 0;
       default:
 	break;
       }
@@ -1231,7 +1232,7 @@ alloc_max_size (void)
 {
   if (!alloc_object_size_limit)
     {
-      alloc_object_size_limit = TYPE_MAX_VALUE (ssizetype);
+      alloc_object_size_limit = max_object_size ();
 
       if (warn_alloc_size_limit)
 	{
@@ -1282,7 +1283,8 @@ alloc_max_size (void)
 		{
 		  widest_int w = wi::mul (limit, unit);
 		  if (w < wi::to_widest (alloc_object_size_limit))
-		    alloc_object_size_limit = wide_int_to_tree (ssizetype, w);
+		    alloc_object_size_limit
+		      = wide_int_to_tree (ptrdiff_type_node, w);
 		}
 	    }
 	}
@@ -1291,13 +1293,17 @@ alloc_max_size (void)
 }
 
 /* Return true when EXP's range can be determined and set RANGE[] to it
-   after adjusting it if necessary to make EXP a valid size argument to
-   an allocation function declared with attribute alloc_size (whose
-   argument may be signed), or to a string manipulation function like
-   memset.  */
+   after adjusting it if necessary to make EXP a represents a valid size
+   of object, or a valid size argument to an allocation function declared
+   with attribute alloc_size (whose argument may be signed), or to a string
+   manipulation function like memset.  When ALLOW_ZERO is true, allow
+   returning a range of [0, 0] for a size in an anti-range [1, N] where
+   N > PTRDIFF_MAX.  A zero range is a (nearly) invalid argument to
+   allocation functions like malloc but it is a valid argument to
+   functions like memset.  */
 
 bool
-get_size_range (tree exp, tree range[2])
+get_size_range (tree exp, tree range[2], bool allow_zero /* = false */)
 {
   if (tree_fits_uhwi_p (exp))
     {
@@ -1306,20 +1312,33 @@ get_size_range (tree exp, tree range[2])
       return true;
     }
 
+  tree exptype = TREE_TYPE (exp);
+  bool integral = INTEGRAL_TYPE_P (exptype);
+
   wide_int min, max;
-  enum value_range_type range_type
-    = ((TREE_CODE (exp) == SSA_NAME && INTEGRAL_TYPE_P (TREE_TYPE (exp)))
-       ? get_range_info (exp, &min, &max) : VR_VARYING);
+  enum value_range_type range_type;
+
+  if (TREE_CODE (exp) == SSA_NAME && integral)
+    range_type = get_range_info (exp, &min, &max);
+  else
+    range_type = VR_VARYING;
 
   if (range_type == VR_VARYING)
     {
-      /* No range information available.  */
+      if (integral)
+	{
+	  /* Use the full range of the type of the expression when
+	     no value range information is available.  */
+	  range[0] = TYPE_MIN_VALUE (exptype);
+	  range[1] = TYPE_MAX_VALUE (exptype);
+	  return true;
+	}
+
       range[0] = NULL_TREE;
       range[1] = NULL_TREE;
       return false;
     }
 
-  tree exptype = TREE_TYPE (exp);
   unsigned expprec = TYPE_PRECISION (exptype);
 
   bool signed_p = !TYPE_UNSIGNED (exptype);
@@ -1357,11 +1376,16 @@ get_size_range (tree exp, tree range[2])
 	{
 	  /* EXP is unsigned and not in the range [1, MAX].  That means
 	     it's either zero or greater than MAX.  Even though 0 would
-	     normally be detected by -Walloc-zero set the range to
-	     [MAX, TYPE_MAX] so that when MAX is greater than the limit
-	     the whole range is diagnosed.  */
-	  min = max + 1;
-	  max = wi::to_wide (TYPE_MAX_VALUE (exptype));
+	     normally be detected by -Walloc-zero, unless ALLOW_ZERO
+	     is true, set the range to [MAX, TYPE_MAX] so that when MAX
+	     is greater than the limit the whole range is diagnosed.  */
+	  if (allow_zero)
+	    min = max = wi::zero (expprec);
+	  else
+	    {
+	      min = max + 1;
+	      max = wi::to_wide (TYPE_MAX_VALUE (exptype));
+	    }
 	}
       else
 	{
@@ -1528,6 +1552,173 @@ maybe_warn_alloc_args_overflow (tree fn, tree exp, tree args[2], int idx[2])
       else
 	inform (fnloc,
 		"in a call to allocation function %qD declared here", fn);
+    }
+}
+
+/* If EXPR refers to a character array or pointer declared attribute
+   nonstring return a decl for that array or pointer and set *REF to
+   the referenced enclosing object or pointer.  Otherwise returns
+   null.  */
+
+tree
+get_attr_nonstring_decl (tree expr, tree *ref)
+{
+  tree decl = expr;
+  if (TREE_CODE (decl) == SSA_NAME)
+    {
+      gimple *def = SSA_NAME_DEF_STMT (decl);
+
+      if (is_gimple_assign (def))
+	{
+	  tree_code code = gimple_assign_rhs_code (def);
+	  if (code == ADDR_EXPR
+	      || code == COMPONENT_REF
+	      || code == VAR_DECL)
+	    decl = gimple_assign_rhs1 (def);
+	}
+      else if (tree var = SSA_NAME_VAR (decl))
+	decl = var;
+    }
+
+  if (TREE_CODE (decl) == ADDR_EXPR)
+    decl = TREE_OPERAND (decl, 0);
+
+  if (ref)
+    *ref = decl;
+
+  if (TREE_CODE (decl) == COMPONENT_REF)
+    decl = TREE_OPERAND (decl, 1);
+
+  if (DECL_P (decl)
+      && lookup_attribute ("nonstring", DECL_ATTRIBUTES (decl)))
+    return decl;
+
+  return NULL_TREE;
+}
+
+/* Warn about passing a non-string array/pointer to a function that
+   expects a nul-terminated string argument.  */
+
+void
+maybe_warn_nonstring_arg (tree fndecl, tree exp)
+{
+  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+    return;
+
+  bool with_bounds = CALL_WITH_BOUNDS_P (exp);
+
+  unsigned nargs = call_expr_nargs (exp);
+
+  /* The bound argument to a bounded string function like strncpy.  */
+  tree bound = NULL_TREE;
+
+  /* It's safe to call "bounded" string functions with a non-string
+     argument since the functions provide an explicit bound for this
+     purpose.  */
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case BUILT_IN_STPNCPY:
+    case BUILT_IN_STPNCPY_CHK:
+    case BUILT_IN_STRNCMP:
+    case BUILT_IN_STRNCASECMP:
+    case BUILT_IN_STRNCPY:
+    case BUILT_IN_STRNCPY_CHK:
+      {
+	unsigned argno = with_bounds ? 4 : 2;
+	if (argno < nargs)
+	  bound = CALL_EXPR_ARG (exp, argno);
+	break;
+      }
+
+    case BUILT_IN_STRNDUP:
+      {
+	unsigned argno = with_bounds ? 2 : 1;
+	if (argno < nargs)
+	  bound = CALL_EXPR_ARG (exp, argno);
+	break;
+      }
+
+    default:
+      break;
+    }
+
+  /* Determine the range of the bound argument (if specified).  */
+  tree bndrng[2] = { NULL_TREE, NULL_TREE };
+  if (bound)
+    get_size_range (bound, bndrng);
+
+  /* Iterate over the built-in function's formal arguments and check
+     each const char* against the actual argument.  If the actual
+     argument is declared attribute non-string issue a warning unless
+     the argument's maximum length is bounded.  */
+  function_args_iterator it;
+  function_args_iter_init (&it, TREE_TYPE (fndecl));
+
+  for (unsigned argno = 0; ; ++argno, function_args_iter_next (&it))
+    {
+      /* Avoid iterating past the declared argument in a call
+	 to function declared without a prototype.  */
+      if (argno >= nargs)
+	break;
+
+      tree argtype = function_args_iter_cond (&it);
+      if (!argtype)
+	break;
+
+      if (TREE_CODE (argtype) != POINTER_TYPE)
+	continue;
+
+      argtype = TREE_TYPE (argtype);
+
+      if (TREE_CODE (argtype) != INTEGER_TYPE
+	  || !TYPE_READONLY (argtype))
+	continue;
+
+      argtype = TYPE_MAIN_VARIANT (argtype);
+      if (argtype != char_type_node)
+	continue;
+
+      tree callarg = CALL_EXPR_ARG (exp, argno);
+      if (TREE_CODE (callarg) == ADDR_EXPR)
+	callarg = TREE_OPERAND (callarg, 0);
+
+      /* See if the destination is declared with attribute "nonstring".  */
+      tree decl = get_attr_nonstring_decl (callarg);
+      if (!decl)
+	continue;
+
+      tree type = TREE_TYPE (decl);
+
+      offset_int wibnd = 0;
+      if (bndrng[0])
+	wibnd = wi::to_offset (bndrng[0]);
+
+      offset_int asize = wibnd;
+
+      if (TREE_CODE (type) == ARRAY_TYPE)
+	if (tree arrbnd = TYPE_DOMAIN (type))
+	  {
+	    if ((arrbnd = TYPE_MAX_VALUE (arrbnd)))
+	      asize = wi::to_offset (arrbnd) + 1;
+	  }
+
+      location_t loc = EXPR_LOCATION (exp);
+
+      bool warned = false;
+
+      if (wi::ltu_p (asize, wibnd))
+	warned = warning_at (loc, OPT_Wstringop_overflow_,
+			     "%qD argument %i declared attribute %<nonstring%> "
+			     "is smaller than the specified bound %E",
+			     fndecl, argno + 1, bndrng[0]);
+      else if (!bound)
+	warned = warning_at (loc, OPT_Wstringop_overflow_,
+			     "%qD argument %i declared attribute %<nonstring%>",
+			     fndecl, argno + 1);
+
+      if (warned)
+	inform (DECL_SOURCE_LOCATION (decl),
+		"argument %qD declared here", decl);
     }
 }
 
@@ -1808,7 +1999,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  *may_tailcall = false;
 		  maybe_complain_about_tail_call (exp,
 						  "a callee-copied argument is"
-						  " stored in the current "
+						  " stored in the current"
 						  " function's frame");
 		}
 
@@ -1887,6 +2078,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].unsignedp = unsignedp;
       args[i].mode = mode;
+
+      targetm.calls.warn_parameter_passing_abi (args_so_far, type);
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
@@ -1981,6 +2174,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	 alloc_size.  */
       maybe_warn_alloc_args_overflow (fndecl, exp, alloc_args, alloc_idx);
     }
+
+  /* Detect passing non-string arguments to functions expecting
+     nul-terminated strings.  */
+  maybe_warn_nonstring_arg (fndecl, exp);
 }
 
 /* Update ARGS_SIZE to contain the total size for the argument block.
@@ -2179,8 +2376,8 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
 	      += int_size_in_bytes (TREE_TYPE (args[i].tree_value));
 	}
 
-      if (may_ne (args_size->constant, 0)
-	  && may_ge (copy_to_evaluate_size * 2, args_size->constant))
+      if (maybe_ne (args_size->constant, 0)
+	  && maybe_ge (copy_to_evaluate_size * 2, args_size->constant))
 	must_preallocate = 1;
     }
   return must_preallocate;
@@ -2222,6 +2419,9 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  if (! args[i].pass_on_stack
 	      && args[i].reg != 0
 	      && args[i].partial == 0)
+	    continue;
+
+	  if (TYPE_EMPTY_P (TREE_TYPE (args[i].tree_value)))
 	    continue;
 
 	  /* Pointer Bounds are never passed on the stack.  */
@@ -2321,6 +2521,17 @@ rtx_for_function_call (tree fndecl, tree addr)
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
     }
   return funexp;
+}
+
+/* Return the static chain for this function, if any.  */
+
+rtx
+rtx_for_static_chain (const_tree fndecl_or_type, bool incoming_p)
+{
+  if (DECL_P (fndecl_or_type) && !DECL_STATIC_CHAIN (fndecl_or_type))
+    return NULL;
+
+  return targetm.calls.static_chain (fndecl_or_type, incoming_p);
 }
 
 /* Internal state for internal_arg_pointer_based_exp and its helpers.  */
@@ -2458,7 +2669,7 @@ mem_might_overlap_already_clobbered_arg_p (rtx addr, poly_uint64 size)
   else if (!poly_int_rtx_p (val, &i))
     return true;
 
-  if (must_eq (size, 0U))
+  if (known_eq (size, 0U))
     return false;
 
   if (STACK_GROWS_DOWNWARD)
@@ -2471,10 +2682,10 @@ mem_might_overlap_already_clobbered_arg_p (rtx addr, poly_uint64 size)
 
   /* We can ignore any references to the function's pretend args,
      which at this point would manifest as negative values of I.  */
-  if (must_le (i, 0) && must_le (size, poly_uint64 (-i)))
+  if (known_le (i, 0) && known_le (size, poly_uint64 (-i)))
     return false;
 
-  start = may_lt (i, 0) ? 0 : constant_lower_bound (i);
+  start = maybe_lt (i, 0) ? 0 : constant_lower_bound (i);
   if (!(i + size).is_constant (&end))
     end = HOST_WIDE_INT_M1U;
 
@@ -2562,7 +2773,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD))
 		{
 		  gcc_checking_assert (ordered_p (size, UNITS_PER_WORD));
-		  if (may_lt (size, UNITS_PER_WORD))
+		  if (maybe_lt (size, UNITS_PER_WORD))
 		    {
 		      rtx x;
 		      poly_int64 shift
@@ -2595,7 +2806,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    {
 	      /* SIZE and CONST_SIZE are 0 for partial arguments and
 		 the size of a BLKmode type otherwise.  */
-	      gcc_checking_assert (must_eq (size, const_size));
+	      gcc_checking_assert (known_eq (size, const_size));
 	      rtx mem = validize_mem (copy_rtx (args[i].value));
 
 	      /* Check for overlap with already clobbered argument area,
@@ -2832,7 +3043,7 @@ shift_return_value (machine_mode mode, bool left_p, rtx value)
   machine_mode value_mode = GET_MODE (value);
   poly_int64 shift = GET_MODE_BITSIZE (value_mode) - GET_MODE_BITSIZE (mode);
 
-  if (must_eq (shift, 0))
+  if (known_eq (shift, 0))
     return false;
 
   /* Use ashr rather than lshr for right shifts.  This is for the benefit
@@ -2958,8 +3169,8 @@ can_implement_as_sibling_call_p (tree exp,
      function, we cannot change it into a sibling call.
      crtl->args.pretend_args_size is not part of the
      stack allocated by our caller.  */
-  if (may_gt (args_size.constant,
-	      crtl->args.size - crtl->args.pretend_args_size))
+  if (maybe_gt (args_size.constant,
+		crtl->args.size - crtl->args.pretend_args_size))
     {
       maybe_complain_about_tail_call (exp,
 				      "callee required more stack slots"
@@ -2969,12 +3180,12 @@ can_implement_as_sibling_call_p (tree exp,
 
   /* If the callee pops its own arguments, then it must pop exactly
      the same number of arguments as the current function.  */
-  if (may_ne (targetm.calls.return_pops_args (fndecl, funtype,
-					      args_size.constant),
-	      targetm.calls.return_pops_args (current_function_decl,
-					      TREE_TYPE
-					      (current_function_decl),
-					      crtl->args.size)))
+  if (maybe_ne (targetm.calls.return_pops_args (fndecl, funtype,
+						args_size.constant),
+		targetm.calls.return_pops_args (current_function_decl,
+						TREE_TYPE
+						(current_function_decl),
+						crtl->args.size)))
     {
       maybe_complain_about_tail_call (exp,
 				      "inconsistent number of"
@@ -3211,9 +3422,14 @@ expand_call (tree exp, rtx target, int ignore)
 	if (CALL_EXPR_RETURN_SLOT_OPT (exp)
 	    && target
 	    && MEM_P (target)
-	    && !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
-		 && targetm.slow_unaligned_access (TYPE_MODE (rettype),
-						   MEM_ALIGN (target))))
+	    /* If rettype is addressable, we may not create a temporary.
+	       If target is properly aligned at runtime and the compiler
+	       just doesn't know about it, it will work fine, otherwise it
+	       will be UB.  */
+	    && (TREE_ADDRESSABLE (rettype)
+		|| !(MEM_ALIGN (target) < TYPE_ALIGN (rettype)
+		     && targetm.slow_unaligned_access (TYPE_MODE (rettype),
+						       MEM_ALIGN (target)))))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {
@@ -3379,7 +3595,7 @@ expand_call (tree exp, rtx target, int ignore)
 			      structure_value_addr))
       && (args_size.var
 	  || (!ACCUMULATE_OUTGOING_ARGS
-	      && may_ne (args_size.constant, 0))))
+	      && maybe_ne (args_size.constant, 0))))
     structure_value_addr = copy_to_reg (structure_value_addr);
 
   /* Tail calls can make things harder to debug, and we've traditionally
@@ -3495,10 +3711,10 @@ expand_call (tree exp, rtx target, int ignore)
 	 call sequence.
 	 Also do the adjustments before a throwing call, otherwise
 	 exception handling can fail; PR 19225. */
-      if (may_ge (pending_stack_adjust, 32)
-	  || (may_ne (pending_stack_adjust, 0)
+      if (maybe_ge (pending_stack_adjust, 32)
+	  || (maybe_ne (pending_stack_adjust, 0)
 	      && (flags & ECF_MAY_BE_ALLOCA))
-	  || (may_ne (pending_stack_adjust, 0)
+	  || (maybe_ne (pending_stack_adjust, 0)
 	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
@@ -3662,7 +3878,7 @@ expand_call (tree exp, rtx target, int ignore)
 		      /* Checked by
 			 combine_pending_stack_adjustment_and_call.  */
 		      gcc_checking_assert (ordered_p (needed, 0));
-		      if (may_lt (needed, 0))
+		      if (maybe_lt (needed, 0))
 			{
 			  /* We're releasing stack space.  */
 			  /* ??? We can avoid any adjustment at all if we're
@@ -3679,7 +3895,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 		  /* Special case this because overhead of `push_block' in
 		     this case is non-trivial.  */
-		  if (must_eq (needed, 0))
+		  if (known_eq (needed, 0))
 		    argblock = virtual_outgoing_args_rtx;
 		  else
 		    {
@@ -3769,12 +3985,12 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* Perform stack alignment before the first push (the last arg).  */
       if (argblock == 0
-	  && may_gt (adjusted_args_size.constant, reg_parm_stack_space)
-	  && may_ne (adjusted_args_size.constant, unadjusted_args_size))
+	  && maybe_gt (adjusted_args_size.constant, reg_parm_stack_space)
+	  && maybe_ne (adjusted_args_size.constant, unadjusted_args_size))
 	{
 	  /* When the stack adjustment is pending, we get better code
 	     by combining the adjustments.  */
-	  if (may_ne (pending_stack_adjust, 0)
+	  if (maybe_ne (pending_stack_adjust, 0)
 	      && ! inhibit_defer_pop
 	      && (combine_pending_stack_adjustment_and_call
 		  (&pending_stack_adjust,
@@ -4324,8 +4540,9 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* Verify that we've deallocated all the stack we used.  */
 	  gcc_assert ((flags & ECF_NORETURN)
-		      || must_eq (old_stack_allocated,
-				  stack_pointer_delta - pending_stack_adjust));
+		      || known_eq (old_stack_allocated,
+				   stack_pointer_delta
+				   - pending_stack_adjust));
 	}
 
       /* If something prevents making this a sibling call,
@@ -4728,7 +4945,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	   end it should be padded.  */
 	argvec[count].locate.where_pad =
 	  BLOCK_REG_PADDING (mode, NULL_TREE,
-			     must_le (GET_MODE_SIZE (mode), UNITS_PER_WORD));
+			     known_le (GET_MODE_SIZE (mode), UNITS_PER_WORD));
 #endif
 
       targetm.calls.function_arg_advance (args_so_far, mode, (tree) 0, true);
@@ -4995,7 +5212,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  /* Handle case where we have a value that needs shifting
 	     up to the msb.  eg. a QImode value and we're padding
 	     upward on a BYTES_BIG_ENDIAN machine.  */
-	  if (must_lt (size, UNITS_PER_WORD)
+	  if (known_lt (size, UNITS_PER_WORD)
 	      && (argvec[argnum].locate.where_pad
 		  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
 	    {
@@ -5466,7 +5683,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 Note that in C the default argument promotions
 	 will prevent such mismatches.  */
 
-      poly_int64 size = GET_MODE_SIZE (arg->mode);
+      poly_int64 size = (TYPE_EMPTY_P (TREE_TYPE (pval))
+			 ? 0 : GET_MODE_SIZE (arg->mode));
+
       /* Compute how much space the push instruction will push.
 	 On many machines, pushing a byte will advance the stack
 	 pointer by a halfword.  */
@@ -5497,10 +5716,12 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
       /* This isn't already where we want it on the stack, so put it there.
 	 This can either be done with push or copy insns.  */
-      if (!emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
-		      parm_align, partial, reg, used - size, argblock,
-		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad), true))
+      if (maybe_ne (used, 0)
+	  && !emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval),
+			      NULL_RTX, parm_align, partial, reg, used - size,
+			      argblock, ARGS_SIZE_RTX (arg->locate.offset),
+			      reg_parm_stack_space,
+			      ARGS_SIZE_RTX (arg->locate.alignment_pad), true))
 	sibcall_failure = 1;
 
       /* Unless this is a partially-in-register argument, the argument is now
@@ -5533,9 +5754,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	  /* PUSH_ROUNDING has no effect on us, because emit_push_insn
 	     for BLKmode is careful to avoid it.  */
 	  excess = (arg->locate.size.constant
-		    - int_size_in_bytes (TREE_TYPE (pval))
+		    - arg_int_size_in_bytes (TREE_TYPE (pval))
 		    + partial);
-	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
+	  size_rtx = expand_expr (arg_size_in_bytes (TREE_TYPE (pval)),
 				  NULL_RTX, TYPE_MODE (sizetype),
 				  EXPAND_NORMAL);
 	}
@@ -5583,14 +5804,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 			  && arg->locate.size.var == 0);
 	      poly_int64 size_val = rtx_to_poly_int64 (size_rtx);
 
-	      if (must_eq (arg->locate.offset.constant, i))
+	      if (known_eq (arg->locate.offset.constant, i))
 		{
 		  /* Even though they appear to be at the same location,
 		     if part of the outgoing argument is in registers,
 		     they aren't really at the same location.  Check for
 		     this by making sure that the incoming size is the
 		     same as the outgoing size.  */
-		  if (may_ne (arg->locate.size.constant, size_val))
+		  if (maybe_ne (arg->locate.size.constant, size_val))
 		    sibcall_failure = 1;
 		}
 	      else if (maybe_in_range_p (arg->locate.offset.constant,
@@ -5605,10 +5826,12 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    }
 	}
 
-      emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
-		      parm_align, partial, reg, excess, argblock,
-		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad), false);
+      if (!CONST_INT_P (size_rtx) || INTVAL (size_rtx) != 0)
+	emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
+			parm_align, partial, reg, excess, argblock,
+			ARGS_SIZE_RTX (arg->locate.offset),
+			reg_parm_stack_space,
+			ARGS_SIZE_RTX (arg->locate.alignment_pad), false);
 
       /* Unless this is a partially-in-register argument, the argument is now
 	 in the stack.
@@ -5684,6 +5907,9 @@ must_pass_in_stack_var_size_or_pad (machine_mode mode, const_tree type)
      to be constructed into the stack)...  */
   if (TREE_ADDRESSABLE (type))
     return true;
+
+  if (TYPE_EMPTY_P (type))
+    return false;
 
   /* If the padding and mode of the type is such that a copy into
      a register would put it into the wrong part of the register.  */

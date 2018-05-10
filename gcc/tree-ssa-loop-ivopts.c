@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1602,7 +1602,7 @@ record_group_use (struct ivopts_data *data, tree *use_p,
   poly_uint64 addr_offset = 0;
 
   /* Record non address type use in a new group.  */
-  if (address_p (type) && iv->base_object)
+  if (address_p (type))
     {
       unsigned int i;
 
@@ -1613,7 +1613,7 @@ record_group_use (struct ivopts_data *data, tree *use_p,
 
 	  group = data->vgroups[i];
 	  use = group->vuses[0];
-	  if (!address_p (use->type) || !use->iv->base_object)
+	  if (!address_p (use->type))
 	    continue;
 
 	  /* Check if it has the same stripped base and step.  */
@@ -2143,7 +2143,6 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
   enum tree_code code;
   unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
   widest_int res, p0, p1;
-  gassign *assign;
 
   STRIP_NOPS (top);
   STRIP_NOPS (bot);
@@ -2189,24 +2188,6 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
 	return false;
       *mul = wi::sext (wi::divmod_trunc (p0, p1, SIGNED, &res), precision);
       return res == 0;
-
-    case SSA_NAME:
-      /* Handle one important special case: TOP is an SSA_NAME defined
-	 to be BOT * CST.  This triggers in vector loops with variable
-	 vectorization factors.  */
-      assign = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (top));
-      if (assign && gimple_assign_rhs_code (assign) == MULT_EXPR)
-	{
-	  tree new_top = gimple_assign_rhs1 (assign);
-	  mby = gimple_assign_rhs2 (assign);
-	  if (TREE_CODE (mby) == INTEGER_CST
-	      && constant_multiple_of (new_top, bot, &res))
-	    {
-	      *mul = wi::sext (res * wi::to_widest (mby), precision);
-	      return true;
-	    }
-	}
-      return false;
 
     default:
       if (POLY_INT_CST_P (top)
@@ -2472,6 +2453,10 @@ static bool
 find_address_like_use (struct ivopts_data *data, gimple *stmt, tree *op_p,
 		       struct iv *iv)
 {
+  /* Fail if base object of this memory reference is unknown.  */
+  if (iv->base_object == NULL_TREE)
+    return false;
+
   tree mem_type = NULL_TREE;
   if (gcall *call = dyn_cast <gcall *> (stmt))
     if (gimple_call_internal_p (call))
@@ -2677,7 +2662,7 @@ split_small_address_groups_p (struct ivopts_data *data)
       distinct = 1;
       for (pre = group->vuses[0], j = 1; j < group->vuses.length (); j++)
 	{
-	  if (may_ne (group->vuses[j]->addr_offset, pre->addr_offset))
+	  if (maybe_ne (group->vuses[j]->addr_offset, pre->addr_offset))
 	    {
 	      pre = group->vuses[j];
 	      distinct++;
@@ -2723,7 +2708,7 @@ split_address_groups (struct ivopts_data *data)
 	  /* Split group if aksed to, or the offset against the first
 	     use can't fit in offset part of addressing mode.  IV uses
 	     having the same offset are still kept in one group.  */
-	  if (may_ne (offset, 0)
+	  if (maybe_ne (offset, 0)
 	      && (split_p || !addr_offset_valid_p (use, offset)))
 	    {
 	      if (!new_group)
@@ -2919,7 +2904,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       break;
 
     default:
-      if (ptrdiff_tree_p (expr, offset) && may_ne (*offset, 0))
+      if (ptrdiff_tree_p (expr, offset) && maybe_ne (*offset, 0))
 	return build_int_cst (orig_type, 0);
       return orig_expr;
     }
@@ -3236,10 +3221,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
   mem_mode = TYPE_MODE (use->mem_type);
   if (((USE_LOAD_PRE_INCREMENT (mem_mode)
 	|| USE_STORE_PRE_INCREMENT (mem_mode))
-       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
+       && known_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_PRE_DECREMENT (mem_mode)
 	   || USE_STORE_PRE_DECREMENT (mem_mode))
-	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
+	  && known_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       enum tree_code code = MINUS_EXPR;
       tree new_base;
@@ -3258,10 +3243,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
     }
   if (((USE_LOAD_POST_INCREMENT (mem_mode)
 	|| USE_STORE_POST_INCREMENT (mem_mode))
-       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
+       && known_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_POST_DECREMENT (mem_mode)
 	   || USE_STORE_POST_DECREMENT (mem_mode))
-	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
+	  && known_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       add_candidate_1 (data, base, step, important, IP_AFTER_USE, use,
 		       use->stmt);
@@ -3498,7 +3483,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
   /* Record common candidate with constant offset stripped in base.
      Like the use itself, we also add candidate directly for it.  */
   base = strip_offset (iv->base, &offset);
-  if (may_ne (offset, 0U) || base != iv->base)
+  if (maybe_ne (offset, 0U) || base != iv->base)
     {
       record_common_cand (data, base, iv->step, use);
       add_candidate (data, base, iv->step, false, use);
@@ -3517,7 +3502,7 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
       record_common_cand (data, base, step, use);
       /* Also record common candidate with offset stripped.  */
       base = strip_offset (base, &offset);
-      if (may_ne (offset, 0U))
+      if (maybe_ne (offset, 0U))
 	record_common_cand (data, base, step, use);
     }
 
@@ -4384,13 +4369,13 @@ get_address_cost_ainc (poly_int64 ainc_step, poly_int64 ainc_offset,
     }
 
   poly_int64 msize = GET_MODE_SIZE (mem_mode);
-  if (must_eq (ainc_offset, 0) && must_eq (msize, ainc_step))
+  if (known_eq (ainc_offset, 0) && known_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_POST_INC], 0);
-  if (must_eq (ainc_offset, 0) && must_eq (msize, -ainc_step))
+  if (known_eq (ainc_offset, 0) && known_eq (msize, -ainc_step))
     return comp_cost (data->costs[AINC_POST_DEC], 0);
-  if (must_eq (ainc_offset, msize) && must_eq (msize, ainc_step))
+  if (known_eq (ainc_offset, msize) && known_eq (msize, ainc_step))
     return comp_cost (data->costs[AINC_PRE_INC], 0);
-  if (must_eq (ainc_offset, -msize) && must_eq (msize, -ainc_step))
+  if (known_eq (ainc_offset, -msize) && known_eq (msize, -ainc_step))
     return comp_cost (data->costs[AINC_PRE_DEC], 0);
 
   return infinite_cost;
@@ -4440,7 +4425,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	}
       if (ok_with_ratio_p || ok_without_ratio_p)
 	{
-	  if (may_ne (aff_inv->offset, 0))
+	  if (maybe_ne (aff_inv->offset, 0))
 	    {
 	      parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
 	      /* Addressing mode "base + index [<< scale] + offset".  */
@@ -5038,7 +5023,7 @@ iv_elimination_compare_lt (struct ivopts_data *data,
   aff_combination_scale (&tmpa, -1);
   aff_combination_add (&tmpb, &tmpa);
   aff_combination_add (&tmpb, &nit);
-  if (tmpb.n != 0 || may_ne (tmpb.offset, 1))
+  if (tmpb.n != 0 || maybe_ne (tmpb.offset, 1))
     return false;
 
   /* Finally, check that CAND->IV->BASE - CAND->IV->STEP * A does not
@@ -7283,7 +7268,7 @@ remove_unused_ivs (struct ivopts_data *data)
 
 	  tree def = info->iv->ssa_name;
 
-	  if (MAY_HAVE_DEBUG_STMTS && SSA_NAME_DEF_STMT (def))
+	  if (MAY_HAVE_DEBUG_BIND_STMTS && SSA_NAME_DEF_STMT (def))
 	    {
 	      imm_use_iterator imm_iter;
 	      use_operand_p use_p;

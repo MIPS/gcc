@@ -1,5 +1,5 @@
 /* A type-safe hash map.
-   Copyright (C) 2014-2017 Free Software Foundation, Inc.
+   Copyright (C) 2014-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -274,7 +274,8 @@ template<typename K, typename V, typename H>
 static inline void
 gt_cleare_cache (hash_map<K, V, H> *h)
 {
-  gt_cleare_cache (&h->m_table);
+  if (h)
+    gt_cleare_cache (&h->m_table);
 }
 
 template<typename K, typename V, typename H>

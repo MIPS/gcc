@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -824,8 +824,8 @@ complex_word_subreg_p (machine_mode outer_mode, rtx reg)
 {
   machine_mode inner_mode = GET_MODE (reg);
   poly_uint64 reg_words = REG_NREGS (reg) * UNITS_PER_WORD;
-  return (must_le (GET_MODE_SIZE (outer_mode), UNITS_PER_WORD)
-	  && may_gt (GET_MODE_SIZE (inner_mode), UNITS_PER_WORD)
+  return (known_le (GET_MODE_SIZE (outer_mode), UNITS_PER_WORD)
+	  && maybe_gt (GET_MODE_SIZE (inner_mode), UNITS_PER_WORD)
 	  && !known_equal_after_align_up (GET_MODE_SIZE (inner_mode),
 					  reg_words, UNITS_PER_WORD));
 }
@@ -1063,7 +1063,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (in)))
 	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
-		  || (must_le (GET_MODE_SIZE (inmode), UNITS_PER_WORD)
+		  || (known_le (GET_MODE_SIZE (inmode), UNITS_PER_WORD)
 		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
 						 &inner_mode)
 		      && GET_MODE_SIZE (inner_mode) <= UNITS_PER_WORD
@@ -1102,8 +1102,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  && MEM_P (in))
 	/* This is supposed to happen only for paradoxical subregs made by
 	   combine.c.  (SUBREG (MEM)) isn't supposed to occur other ways.  */
-	gcc_assert (must_le (GET_MODE_SIZE (GET_MODE (in)),
-			     GET_MODE_SIZE (inmode)));
+	gcc_assert (known_le (GET_MODE_SIZE (GET_MODE (in)),
+			      GET_MODE_SIZE (inmode)));
 
       inmode = GET_MODE (in);
     }
@@ -1170,9 +1170,9 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	      && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
 	      /* The case of a word mode subreg
 		 is handled differently in the following statement.  */
-	      && ! (must_le (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
-		    && may_gt (GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))),
-			       UNITS_PER_WORD))
+	      && ! (known_le (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
+		    && maybe_gt (GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))),
+				 UNITS_PER_WORD))
 	      && !targetm.hard_regno_mode_ok (subreg_regno (out), outmode))
 	  || (secondary_reload_class (0, rclass, outmode, out) != NO_REGS
 	      && (secondary_reload_class (0, rclass, GET_MODE (SUBREG_REG (out)),
@@ -1190,8 +1190,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       outloc = &SUBREG_REG (out);
       out = *outloc;
       gcc_assert (WORD_REGISTER_OPERATIONS || !MEM_P (out)
-		  || must_le (GET_MODE_SIZE (GET_MODE (out)),
-			      GET_MODE_SIZE (outmode)));
+		  || known_le (GET_MODE_SIZE (GET_MODE (out)),
+			       GET_MODE_SIZE (outmode)));
       outmode = GET_MODE (out);
     }
 
@@ -1545,8 +1545,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	 value for the incoming operand (same as outgoing one).  */
       if (rld[i].reg_rtx == out
 	  && (REG_P (in) || CONSTANT_P (in))
-	  && 0 != find_equiv_reg (in, this_insn, NO_REGS, REGNO (out),
-				  static_reload_reg_p, i, inmode))
+	  && find_equiv_reg (in, this_insn, NO_REGS, REGNO (out),
+			     static_reload_reg_p, i, inmode) != 0)
 	rld[i].in = out;
     }
 
@@ -1603,8 +1603,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 			 GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))),
 			 UNITS_PER_WORD))))
 	    /* Make sure the operand fits in the reg that dies.  */
-	    && must_le (GET_MODE_SIZE (rel_mode),
-			GET_MODE_SIZE (GET_MODE (XEXP (note, 0))))
+	    && known_le (GET_MODE_SIZE (rel_mode),
+			 GET_MODE_SIZE (GET_MODE (XEXP (note, 0))))
 	    && targetm.hard_regno_mode_ok (regno, inmode)
 	    && targetm.hard_regno_mode_ok (regno, outmode))
 	  {
@@ -1785,7 +1785,7 @@ combine_reloads (void)
 	&& (ira_reg_class_max_nregs [(int)rld[i].rclass][(int) rld[i].inmode]
 	    == ira_reg_class_max_nregs [(int) rld[output_reload].rclass]
 				       [(int) rld[output_reload].outmode])
-	&& must_eq (rld[i].inc, 0)
+	&& known_eq (rld[i].inc, 0)
 	&& rld[i].reg_rtx == 0
 	/* Don't combine two reloads with different secondary
 	   memory locations.  */
@@ -1942,9 +1942,9 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 
   /* If operands exceed a word, we can't use either of them
      unless they have the same size.  */
-  if (may_ne (GET_MODE_SIZE (outmode), GET_MODE_SIZE (inmode))
-      && (may_gt (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
-	  || may_gt (GET_MODE_SIZE (inmode), UNITS_PER_WORD)))
+  if (maybe_ne (GET_MODE_SIZE (outmode), GET_MODE_SIZE (inmode))
+      && (maybe_gt (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
+	  || maybe_gt (GET_MODE_SIZE (inmode), UNITS_PER_WORD)))
     return 0;
 
   /* Note that {in,out}_offset are needed only when 'in' or 'out'
@@ -2321,7 +2321,7 @@ operands_match_p (rtx x, rtx y)
 	  break;
 
 	case 'p':
-	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
 	    return 0;
 	  break;
 
@@ -2557,7 +2557,7 @@ immune_p (rtx x, rtx y, struct decomposition ydata)
       return 0;
     }
 
-  return must_ge (xdata.start, ydata.end) || must_ge (ydata.start, xdata.end);
+  return known_ge (xdata.start, ydata.end) || known_ge (ydata.start, xdata.end);
 }
 
 /* Similar, but calls decompose.  */
@@ -2890,8 +2890,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	  if (replace
 	      && MEM_P (op)
 	      && REG_P (reg)
-	      && must_ge (GET_MODE_SIZE (GET_MODE (reg)),
-			  GET_MODE_SIZE (GET_MODE (op)))
+	      && known_ge (GET_MODE_SIZE (GET_MODE (reg)),
+			   GET_MODE_SIZE (GET_MODE (op)))
 	      && reg_equiv_constant (REGNO (reg)) == 0)
 	    set_unique_reg_note (emit_insn_before (gen_rtx_USE (VOIDmode, reg),
 						   insn),
@@ -3126,14 +3126,14 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			   || (REG_P (operand)
 			       && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
 			  && (WORD_REGISTER_OPERATIONS
-			      || (((may_lt
+			      || (((maybe_lt
 				    (GET_MODE_BITSIZE (GET_MODE (operand)),
 				     BIGGEST_ALIGNMENT))
 				   && (paradoxical_subreg_p
 				       (operand_mode[i], GET_MODE (operand)))))
 			      || BYTES_BIG_ENDIAN
-			      || (must_le (GET_MODE_SIZE (operand_mode[i]),
-					   UNITS_PER_WORD)
+			      || (known_le (GET_MODE_SIZE (operand_mode[i]),
+					    UNITS_PER_WORD)
 				  && (is_a <scalar_int_mode>
 				      (GET_MODE (operand), &inner_mode))
 				  && (GET_MODE_SIZE (inner_mode)
@@ -3630,7 +3630,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	      if (! win && ! did_match
 		  && this_alternative[i] != NO_REGS
-		  && must_le (GET_MODE_SIZE (operand_mode[i]), UNITS_PER_WORD)
+		  && known_le (GET_MODE_SIZE (operand_mode[i]), UNITS_PER_WORD)
 		  && reg_class_size [(int) preferred_class[i]] > 0
 		  && ! small_register_class_p (preferred_class[i]))
 		{
@@ -6170,7 +6170,7 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
 				   XEXP (tem, 0), &XEXP (tem, 0),
 				   opnum, type, ind_levels, insn);
   /* ??? Do we need to handle nonzero offsets somehow?  */
-  if (must_eq (offset, 0) && !rtx_equal_p (tem, orig))
+  if (known_eq (offset, 0) && !rtx_equal_p (tem, orig))
     push_reg_equiv_alt_mem (regno, tem);
 
   /* For some processors an address may be valid in the original mode but
@@ -6778,9 +6778,8 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
 			      && CONST_DOUBLE_AS_FLOAT_P (XEXP (tem, 0))
 			      && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (tem, 0)))
 			      && CONST_INT_P (goal)
-			      && 0 != (goaltry
-				       = operand_subword (XEXP (tem, 0), 0, 0,
-							  VOIDmode))
+			      && (goaltry = operand_subword (XEXP (tem, 0), 0,
+							     0, VOIDmode)) != 0
 			      && rtx_equal_p (goal, goaltry)
 			      && (valtry
 				  = operand_subword (SET_DEST (pat), 0, 0,
@@ -6792,8 +6791,8 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
 		      && CONST_DOUBLE_AS_FLOAT_P (XEXP (tem, 0))
 		      && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (tem, 0)))
 		      && CONST_INT_P (goal)
-		      && 0 != (goaltry = operand_subword (XEXP (tem, 0), 1, 0,
-							  VOIDmode))
+		      && (goaltry = operand_subword (XEXP (tem, 0), 1, 0,
+						     VOIDmode)) != 0
 		      && rtx_equal_p (goal, goaltry)
 		      && (valtry
 			  = operand_subword (SET_DEST (pat), 1, 0, VOIDmode))
@@ -7120,7 +7119,7 @@ find_inc_amount (rtx x, rtx inced)
       if (fmt[i] == 'e')
 	{
 	  poly_int64 tem = find_inc_amount (XEXP (x, i), inced);
-	  if (may_ne (tem, 0))
+	  if (maybe_ne (tem, 0))
 	    return tem;
 	}
       if (fmt[i] == 'E')
@@ -7129,7 +7128,7 @@ find_inc_amount (rtx x, rtx inced)
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    {
 	      poly_int64 tem = find_inc_amount (XVECEXP (x, i, j), inced);
-	      if (may_ne (tem, 0))
+	      if (maybe_ne (tem, 0))
 		return tem;
 	    }
 	}
@@ -7290,7 +7289,7 @@ debug_reload_to_stream (FILE *f)
       if (rld[r].nongroup)
 	fprintf (f, ", nongroup");
 
-      if (may_ne (rld[r].inc, 0))
+      if (maybe_ne (rld[r].inc, 0))
 	{
 	  fprintf (f, ", inc by ");
 	  print_dec (rld[r].inc, f, SIGNED);

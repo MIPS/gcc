@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "asan.h"
 #include "rtl-iter.h"
+#include "file-prefix-map.h" /* remap_debug_filename()  */
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data declarations.  */
@@ -224,7 +225,7 @@ hash_section (section *sect)
 {
   if (sect->common.flags & SECTION_NAMED)
     return htab_hash_string (sect->named.name);
-  return sect->common.flags;
+  return sect->common.flags & ~SECTION_DECLARED;
 }
 
 /* Helper routines for maintaining object_block_htab.  */
@@ -295,6 +296,17 @@ get_section (const char *name, unsigned int flags, tree decl)
   else
     {
       sect = *slot;
+      /* It is fine if one of the sections has SECTION_NOTYPE as long as
+         the other has none of the contrary flags (see the logic at the end
+         of default_section_type_flags, below).  */
+      if (((sect->common.flags ^ flags) & SECTION_NOTYPE)
+          && !((sect->common.flags | flags)
+               & (SECTION_CODE | SECTION_BSS | SECTION_TLS | SECTION_ENTSIZE
+                  | (HAVE_COMDAT_GROUP ? SECTION_LINKONCE : 0))))
+        {
+          sect->common.flags |= SECTION_NOTYPE;
+          flags |= SECTION_NOTYPE;
+        }
       if ((sect->common.flags & ~SECTION_DECLARED) != flags
 	  && ((sect->common.flags | flags) & SECTION_OVERRIDE) == 0)
 	{
@@ -846,7 +858,7 @@ mergeable_constant_section (machine_mode mode ATTRIBUTE_UNUSED,
   if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && mode != VOIDmode
       && mode != BLKmode
-      && must_le (GET_MODE_BITSIZE (mode), align)
+      && known_le (GET_MODE_BITSIZE (mode), align)
       && align >= 8
       && align <= 256
       && (align & (align - 1)) == 0)
@@ -982,11 +994,11 @@ decode_reg_name (const char *name)
 /* Return true if DECL's initializer is suitable for a BSS section.  */
 
 bool
-bss_initializer_p (const_tree decl)
+bss_initializer_p (const_tree decl, bool named)
 {
-  /* Do not put constants into the .bss section, they belong in a readonly
-     section.  */
-  return (!TREE_READONLY (decl)
+  /* Do not put non-common constants into the .bss section, they belong in
+     a readonly section, except when NAMED is true.  */
+  return ((!TREE_READONLY (decl) || DECL_COMMON (decl) || named)
 	  && (DECL_INITIAL (decl) == NULL
 	      /* In LTO we have no errors in program; error_mark_node is used
 	         to mark offlined constructors.  */
@@ -1164,7 +1176,8 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
     {
       section *sect = get_named_section (decl, NULL, reloc);
 
-      if ((sect->common.flags & SECTION_BSS) && !bss_initializer_p (decl))
+      if ((sect->common.flags & SECTION_BSS)
+	  && !bss_initializer_p (decl, true))
 	{
 	  error_at (DECL_SOURCE_LOCATION (decl),
 		    "only zero initializers are allowed in section %qs",
@@ -1251,10 +1264,9 @@ use_blocks_for_decl_p (tree decl)
   if (!VAR_P (decl) && TREE_CODE (decl) != CONST_DECL)
     return false;
 
-  /* Detect decls created by dw2_force_const_mem.  Such decls are
-     special because DECL_INITIAL doesn't specify the decl's true value.
-     dw2_output_indirect_constants will instead call assemble_variable
-     with dont_output_data set to 1 and then print the contents itself.  */
+  /* DECL_INITIAL (decl) set to decl is a hack used for some decls that
+     are never used from code directly and we never want object block handling
+     for those.  */
   if (DECL_INITIAL (decl) == decl)
     return false;
 
@@ -3008,13 +3020,11 @@ const_hash_1 (const tree exp)
 
     case VECTOR_CST:
       {
-	unsigned i;
-
-	hi = 7 + VECTOR_CST_NELTS (exp);
-
-	for (i = 0; i < VECTOR_CST_NELTS (exp); ++i)
-	  hi = hi * 563 + const_hash_1 (VECTOR_CST_ELT (exp, i));
-
+	hi = 7 + VECTOR_CST_NPATTERNS (exp);
+	hi = hi * 563 + VECTOR_CST_NELTS_PER_PATTERN (exp);
+	unsigned int count = vector_cst_encoded_nelts (exp);
+	for (unsigned int i = 0; i < count; ++i)
+	  hi = hi * 563 + const_hash_1 (VECTOR_CST_ENCODED_ELT (exp, i));
 	return hi;
       }
 
@@ -3066,15 +3076,8 @@ const_hash_1 (const tree exp)
       return (const_hash_1 (TREE_OPERAND (exp, 0)) * 9
 	      + const_hash_1 (TREE_OPERAND (exp, 1)));
 
-    case VEC_SERIES_CST:
-      return (const_hash_1 (VEC_SERIES_CST_BASE (exp)) * 11
-	      + const_hash_1 (VEC_SERIES_CST_STEP (exp)));
-
     CASE_CONVERT:
       return const_hash_1 (TREE_OPERAND (exp, 0)) * 7 + 2;
-
-    case VEC_DUPLICATE_CST:
-      return const_hash_1 (VEC_DUPLICATE_CST_ELT (exp)) * 7 + 3;
 
     default:
       /* A language specific constant. Just hash the code.  */
@@ -3126,10 +3129,16 @@ compare_constant (const tree t1, const tree t2)
       return tree_int_cst_equal (t1, t2);
 
     case REAL_CST:
-      /* Real constants are the same only if the same width of type.  */
+      /* Real constants are the same only if the same width of type.  In
+	 addition to the same width, we need to check whether the modes are the
+	 same.  There might be two floating point modes that are the same size
+	 but have different representations, such as the PowerPC that has 2
+	 different 128-bit floating point types (IBM extended double and IEEE
+	 128-bit floating point).  */
       if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
 	return 0;
-
+      if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
+	return 0;
       return real_identical (&TREE_REAL_CST (t1), &TREE_REAL_CST (t2));
 
     case FIXED_CST:
@@ -3153,28 +3162,22 @@ compare_constant (const tree t1, const tree t2)
 
     case VECTOR_CST:
       {
-	unsigned i;
-
-        if (VECTOR_CST_NELTS (t1) != VECTOR_CST_NELTS (t2))
+	if (VECTOR_CST_NPATTERNS (t1)
+	    != VECTOR_CST_NPATTERNS (t2))
 	  return 0;
 
-	for (i = 0; i < VECTOR_CST_NELTS (t1); ++i)
-	  if (!compare_constant (VECTOR_CST_ELT (t1, i),
-				 VECTOR_CST_ELT (t2, i)))
+	if (VECTOR_CST_NELTS_PER_PATTERN (t1)
+	    != VECTOR_CST_NELTS_PER_PATTERN (t2))
+	  return 0;
+
+	unsigned int count = vector_cst_encoded_nelts (t1);
+	for (unsigned int i = 0; i < count; ++i)
+	  if (!compare_constant (VECTOR_CST_ENCODED_ELT (t1, i),
+				 VECTOR_CST_ENCODED_ELT (t2, i)))
 	    return 0;
 
 	return 1;
       }
-
-    case VEC_DUPLICATE_CST:
-      return compare_constant (VEC_DUPLICATE_CST_ELT (t1),
-			       VEC_DUPLICATE_CST_ELT (t2));
-
-    case VEC_SERIES_CST:
-      return (compare_constant (VEC_SERIES_CST_BASE (t1),
-				VEC_SERIES_CST_BASE (t2))
-	      && compare_constant (VEC_SERIES_CST_STEP (t1),
-				   VEC_SERIES_CST_STEP (t2)));
 
     case CONSTRUCTOR:
       {
@@ -3243,7 +3246,7 @@ compare_constant (const tree t1, const tree t2)
 	decode_addr_const (t1, &value1);
 	decode_addr_const (t2, &value2);
 
-	if (may_ne (value1.offset, value2.offset))
+	if (maybe_ne (value1.offset, value2.offset))
 	  return 0;
 
 	code = GET_CODE (value1.base);
@@ -3934,7 +3937,7 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	/* Pick the smallest integer mode that contains at least one
 	   whole element.  Often this is byte_mode and contains more
 	   than one element.  */
-	unsigned int nelts = CONST_VECTOR_NUNITS (x);
+	unsigned int nelts = GET_MODE_NUNITS (mode);
 	unsigned int elt_bits = GET_MODE_BITSIZE (mode) / nelts;
 	unsigned int int_bits = MAX (elt_bits, BITS_PER_UNIT);
 	scalar_int_mode int_mode = int_mode_for_size (int_bits, 0).require ();
@@ -3965,7 +3968,7 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	unsigned int subalign = MIN (align, GET_MODE_BITSIZE (submode));
 
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
-	units = CONST_VECTOR_NUNITS (x);
+	units = GET_MODE_NUNITS (mode);
 
 	for (i = 0; i < units; i++)
 	  {
@@ -4659,6 +4662,7 @@ initializer_constant_valid_p_1 (tree value, tree endtype, tree *cache)
 	}
       return ret;
 
+    case POINTER_DIFF_EXPR:
     case MINUS_EXPR:
       if (TREE_CODE (endtype) == REAL_TYPE)
 	return NULL_TREE;
@@ -4952,7 +4956,9 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align,
 			     reverse);
 	    thissize = elt_size;
-	    for (unsigned int i = 1; i < VECTOR_CST_NELTS (exp); i++)
+	    /* Static constants must have a fixed size.  */
+	    unsigned int nunits = VECTOR_CST_NELTS (exp).to_constant ();
+	    for (unsigned int i = 1; i < nunits; i++)
 	      {
 		output_constant (VECTOR_CST_ELT (exp, i), elt_size, nalign,
 				 reverse);
@@ -6365,15 +6371,23 @@ default_section_type_flags (tree decl, const char *name, int reloc)
       || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_TLS | SECTION_BSS;
 
-  /* These three sections have special ELF types.  They are neither
-     SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
-     want to print a section type (@progbits or @nobits).  If someone
-     is silly enough to emit code or TLS variables to one of these
-     sections, then don't handle them specially.  */
-  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS))
-      && (strcmp (name, ".init_array") == 0
-	  || strcmp (name, ".fini_array") == 0
-	  || strcmp (name, ".preinit_array") == 0))
+  /* Various sections have special ELF types that the assembler will
+     assign by default based on the name.  They are neither SHT_PROGBITS
+     nor SHT_NOBITS, so when changing sections we don't want to print a
+     section type (@progbits or @nobits).  Rather than duplicating the
+     assembler's knowledge of what those special name patterns are, just
+     let the assembler choose the type if we don't know a specific
+     reason to set it to something other than the default.  SHT_PROGBITS
+     is the default for sections whose name is not specially known to
+     the assembler, so it does no harm to leave the choice to the
+     assembler when @progbits is the best thing we know to use.  If
+     someone is silly enough to emit code or TLS variables to one of
+     these sections, then don't handle them specially.
+
+     default_elf_asm_named_section (below) handles the BSS, TLS, ENTSIZE, and
+     LINKONCE cases when NOTYPE is not set, so leave those to its logic.  */
+  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS | SECTION_ENTSIZE))
+      && !(HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE)))
     flags |= SECTION_NOTYPE;
 
   return flags;
@@ -6459,6 +6473,10 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 
   fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
+  /* default_section_type_flags (above) knows which flags need special
+     handling here, and sets NOTYPE when none of these apply so that the
+     assembler's logic for default types can apply to user-chosen
+     section names.  */
   if (!(flags & SECTION_NOTYPE))
     {
       const char *type;
@@ -6567,6 +6585,7 @@ categorize_decl_for_section (const_tree decl, int reloc)
     }
   else if (VAR_P (decl))
     {
+      tree d = CONST_CAST_TREE (decl);
       if (bss_initializer_p (decl))
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
@@ -6587,7 +6606,17 @@ categorize_decl_for_section (const_tree decl, int reloc)
 	ret = reloc == 1 ? SECCAT_DATA_REL_RO_LOCAL : SECCAT_DATA_REL_RO;
       else if (reloc || flag_merge_constants < 2
 	       || ((flag_sanitize & SANITIZE_ADDRESS)
-		   && asan_protect_global (CONST_CAST_TREE (decl))))
+		   /* PR 81697: for architectures that use section anchors we
+		      need to ignore DECL_RTL_SET_P (decl) for string constants
+		      inside this asan_protect_global call because otherwise
+		      we'll wrongly put them into SECCAT_RODATA_MERGE_CONST
+		      section, set DECL_RTL (decl) later on and add DECL to
+		      protected globals via successive asan_protect_global
+		      calls.  In this scenario we'll end up with wrong
+		      alignment of these strings at runtime and possible ASan
+		      false positives.  */
+		   && asan_protect_global (d, use_object_blocks_p ()
+					      && use_blocks_for_decl_p (d))))
 	/* C and C++ don't allow different variables to share the same
 	   location.  -fmerge-all-constants allows even that (at the
 	   expense of not conforming).  */

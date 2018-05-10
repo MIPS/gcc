@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -79,7 +79,7 @@ enum vect_reduction_type {
   /* Use a folding reduction within the loop to implement:
 
        for (int i = 0; i < VF; ++i)
-         res = res OP val[i];
+	 res = res OP val[i];
 
      (with no reassocation).  */
   FOLD_LEFT_REDUCTION
@@ -312,9 +312,9 @@ struct vect_addr_base_hasher : free_ptr_hash <vect_addr_base_info>
      double *d;
      for (int i = 0; i < n; ++i)
        {
-         f[i * 2 + 0] += 1.0f;
-         f[i * 2 + 1] += 2.0f;
-         d[i] += 3.0;
+	 f[i * 2 + 0] += 1.0f;
+	 f[i * 2 + 1] += 2.0f;
+	 d[i] += 3.0;
        }
 
    and suppose that vectors have 256 bits.  The vectorized f accesses
@@ -322,7 +322,7 @@ struct vect_addr_base_hasher : free_ptr_hash <vect_addr_base_info>
 
      f rgroup: nS = 2, nV = 1, nL = 8
      d rgroup: nS = 1, nV = 1, nL = 4
-               VF = 4
+	       VF = 4
 
      [ In this simple example the rgroups do correspond to the normal
        SLP grouping scheme. ]
@@ -356,18 +356,6 @@ struct rgroup_masks {
 };
 
 typedef auto_vec<rgroup_masks> vec_loop_masks;
-
-/* Represents a scalar iteration count <= VF as both an integer count and a
-   vector mask.  */
-struct vec_niters_and_mask {
-  vec_niters_and_mask () : niters (NULL_TREE), mask (NULL_TREE) {}
-
-  /* The number of scalar iterations as a sizetype integer.  */
-  tree niters;
-
-  /* The mask of scalar iterations, with one element per iteration.  */
-  tree mask;
-};
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
@@ -409,13 +397,8 @@ typedef struct _loop_vec_info : public vec_info {
      if there is no particular limit.  */
   unsigned HOST_WIDE_INT max_vectorization_factor;
 
-  /* The actual runtime vectorization factor, which is the minimum of
-     VECTORIZATION_FACTOR and MAX_VECTORIZATION_FACTOR.  */
-  vec_niters_and_mask cap;
-
   /* The masks that a fully-masked loop should use to avoid operating
-     on inactive scalars.  In a speculative loop, these masks control
-     the operations that can be executed speculatively.  */
+     on inactive scalars.  */
   vec_loop_masks masks;
 
   /* If we are using a loop mask to align memory addresses, this variable
@@ -480,6 +463,9 @@ typedef struct _loop_vec_info : public vec_info {
   /* Cost vector for a single scalar iteration.  */
   auto_vec<stmt_info_for_cost> scalar_cost_vec;
 
+  /* Map of IV base/step expressions to inserted name in the preheader.  */
+  hash_map<tree_operand_hash, tree> *ivexpr_map;
+
   /* The unrolling factor needed to SLP the loop. In case of that pure SLP is
      applied to the loop, i.e., no unrolling is needed, this is 1.  */
   poly_uint64 slp_unrolling_factor;
@@ -490,17 +476,11 @@ typedef struct _loop_vec_info : public vec_info {
   /* Is the loop vectorizable? */
   bool vectorizable;
 
-  /* Is this a speculative loop?  */
-  bool speculative_execution;
-
   /* Records whether we still have the option of using a fully-masked loop.  */
   bool can_fully_mask_p;
 
   /* True if have decided to use a fully-masked loop.  */
   bool fully_masked_p;
-
-  /* Is the loop executing using first faulting loads?  */
-  bool firstfaulting_execution;
 
   /* When we have grouped data accesses with gaps, we may introduce invalid
      memory accesses.  We peel the last iteration of the loop to prevent
@@ -549,31 +529,6 @@ typedef struct _loop_vec_info : public vec_info {
 
   /* A hash table used for caching vector base addresses.  */
   hash_table<vect_addr_base_hasher> vect_addr_base_htab;
-
-  /* A map from X to a precomputed gimple_val containing
-     CAPPED_VECTORIZATION_FACTOR * X.  */
-  hash_map<tree, tree> vf_mult_map;
-
-  /* In a speculative loop, this is the result of the exit comparison.
-     It is a vector mask with one element for each scalar iteration.  */
-  tree exit_test_mask;
-
-  /* A value equal to EXIT_TEST_MASK for use outside the loop.  */
-  tree exit_mask;
-
-  /* In a vector loop that uses first-faulting loads, this is the
-     number of scalar iterations (bounded by VF) that didn't trigger
-     a fault, in both integer and mask form.  */
-  vec_niters_and_mask nonfaulting;
-
-  /* In a speculative loop, these masks are used to control operations
-     that cannot be speculatively executed.  */
-  vec_loop_masks nonspeculative_masks;
-
-  /* Statements in a speculative loop that depend on nonspeculative masks.
-     These statements can only be executed after the exit condition has
-     been evaluated.  */
-  gimple_seq nonspeculative_seq;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -593,7 +548,6 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_FULLY_MASKED_P(L)       (L)->fully_masked_p
 #define LOOP_VINFO_VECT_FACTOR(L)          (L)->vectorization_factor
 #define LOOP_VINFO_MAX_VECT_FACTOR(L)      (L)->max_vectorization_factor
-#define LOOP_VINFO_CAP(L)                  (L)->cap
 #define LOOP_VINFO_MASKS(L)                (L)->masks
 #define LOOP_VINFO_MASK_SKIP_NITERS(L)     (L)->mask_skip_niters
 #define LOOP_VINFO_MASK_COMPARE_TYPE(L)    (L)->mask_compare_type
@@ -626,17 +580,6 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ORIG_LOOP_INFO(L)       (L)->orig_loop_info
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
-#define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
-#define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
-#define LOOP_VINFO_EXIT_TEST_MASK(L)        (L)->exit_test_mask
-#define LOOP_VINFO_EXIT_MASK(L)             (L)->exit_mask
-#define LOOP_VINFO_FIRSTFAULTING_EXECUTION(L) (L)->firstfaulting_execution
-#define LOOP_VINFO_NONFAULTING(L)             (L)->nonfaulting
-#define LOOP_VINFO_NONSPECULATIVE(L)          (L)->nonspeculative
-#define LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS(L) \
-  (!(L)->nonspeculative_masks.is_empty ())
-#define LOOP_VINFO_NONSPECULATIVE_MASKS(L)    (L)->nonspeculative_masks
-#define LOOP_VINFO_NONSPECULATIVE_SEQ(L)      (L)->nonspeculative_seq
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1411,19 +1354,6 @@ unlimited_cost_model (loop_p loop)
   return (flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED);
 }
 
-/* Return true if the loop needs to use a vectorization factor that
-   is capped at run time.  */
-
-static inline bool
-use_capped_vf (loop_vec_info loop_vinfo)
-{
-  return (loop_vinfo
-	  && (LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo)
-	      != MAX_VECTORIZATION_FACTOR)
-	  && may_lt (LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo),
-		     LOOP_VINFO_VECT_FACTOR (loop_vinfo)));
-}
-
 /* Return true if the loop described by LOOP_VINFO is fully-masked and
    if the first iteration should use a partial mask in order to achieve
    alignment.  */
@@ -1432,8 +1362,7 @@ static inline bool
 vect_use_loop_mask_for_alignment_p (loop_vec_info loop_vinfo)
 {
   return (LOOP_VINFO_FULLY_MASKED_P (loop_vinfo)
-	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
-	  && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
+	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo));
 }
 
 /* Return the number of vectors of type VECTYPE that are needed to get
@@ -1541,6 +1470,7 @@ extern bool vect_can_advance_ivs_p (loop_vec_info);
 /* In tree-vect-stmts.c.  */
 extern poly_uint64 current_vector_size;
 extern tree get_vectype_for_scalar_type (tree);
+extern tree get_vectype_for_scalar_type_and_size (tree, poly_uint64);
 extern tree get_mask_type_for_scalar_type (tree);
 extern tree get_same_sized_vectype (tree, tree);
 extern bool vect_get_loop_mask_type (loop_vec_info);
@@ -1597,11 +1527,13 @@ extern void vect_get_load_cost (struct data_reference *, int, bool,
 extern void vect_get_store_cost (struct data_reference *, int,
 				 unsigned int *, stmt_vector_for_cost *);
 extern bool vect_supportable_shift (enum tree_code, tree);
-extern tree vect_gen_perm_mask_any (tree, vec_perm_indices);
-extern tree vect_gen_perm_mask_checked (tree, vec_perm_indices);
+extern tree vect_gen_perm_mask_any (tree, const vec_perm_indices &);
+extern tree vect_gen_perm_mask_checked (tree, const vec_perm_indices &);
 extern void optimize_mask_stores (struct loop*);
 extern gcall *vect_gen_while (tree, tree, tree);
 extern tree vect_gen_while_not (gimple_seq *, tree, tree, tree);
+extern bool vect_get_vector_types_for_stmt (stmt_vec_info, tree *, tree *);
+extern tree vect_get_mask_type_for_stmt (stmt_vec_info);
 
 /* In tree-vect-data-refs.c.  */
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
@@ -1629,6 +1561,7 @@ extern tree vect_create_data_ref_ptr (gimple *, tree, struct loop *, tree,
 				      tree = NULL_TREE, tree = NULL_TREE);
 extern tree bump_vector_ptr (tree, gimple *, gimple_stmt_iterator *, gimple *,
 			     tree);
+extern void vect_copy_ref_info (tree, tree);
 extern tree vect_create_destination_var (tree, tree);
 extern bool vect_grouped_store_supported (tree, unsigned HOST_WIDE_INT);
 extern bool vect_store_lanes_supported (tree, unsigned HOST_WIDE_INT, bool);
@@ -1653,6 +1586,9 @@ extern tree get_copy_for_caching (tree);
 /* FORNOW: Used in tree-parloops.c.  */
 extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *,
 					    bool *, bool);
+/* Used in gimple-loop-interchange.c.  */
+extern bool check_reduction_path (location_t, loop_p, gphi *, tree,
+				  enum tree_code);
 /* Drive for loop analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
 extern tree vect_build_loop_niters (loop_vec_info, bool * = NULL);
@@ -1664,10 +1600,6 @@ extern void vect_record_loop_mask (loop_vec_info, vec_loop_masks *,
 				   unsigned int, tree);
 extern tree vect_get_loop_mask (gimple_stmt_iterator *, vec_loop_masks *,
 				unsigned int, tree, unsigned int);
-extern tree vect_get_load_mask (loop_vec_info, gimple_stmt_iterator *,
-				unsigned int, tree, unsigned int);
-extern tree vect_mask_type_for_speculation (loop_vec_info);
-extern tree vect_get_niters_from_mask (gimple_seq *, vec_niters_and_mask *);
 
 /* Drive for loop transformation stage.  */
 extern struct loop *vect_transform_loop (loop_vec_info);
@@ -1684,6 +1616,7 @@ extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *,
 					stmt_vector_for_cost *);
+extern tree cse_and_gimplify_to_preheader (loop_vec_info, tree);
 
 /* In tree-vect-slp.c.  */
 extern void vect_free_slp_instance (slp_instance);
@@ -1701,9 +1634,10 @@ extern gimple *vect_find_last_scalar_stmt_in_slp (slp_tree);
 extern bool is_simple_and_all_uses_invariant (gimple *, loop_vec_info);
 extern bool can_duplicate_and_interleave_p (unsigned int, machine_mode,
 					    unsigned int * = NULL,
-					    tree * = NULL);
+					    tree * = NULL, tree * = NULL);
 extern void duplicate_and_interleave (gimple_seq *, tree, vec<tree>,
 				      unsigned int, vec<tree> &);
+extern int vect_get_place_in_interleaving_chain (gimple *, gimple *);
 
 /* In tree-vect-patterns.c.  */
 /* Pattern recognition functions.

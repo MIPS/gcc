@@ -1,5 +1,5 @@
 /* RTL dead store elimination.
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
    Contributed by Richard Sandiford <rsandifor@codesourcery.com>
    and Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -1377,7 +1377,7 @@ record_store (rtx body, bb_info_t bb_info)
       /* Handle (set (mem:BLK (addr) [... S36 ...]) (const_int 0))
 	 as memset (addr, 0, 36);  */
       else if (!MEM_SIZE_KNOWN_P (mem)
-	       || may_le (MEM_SIZE (mem), 0)
+	       || maybe_le (MEM_SIZE (mem), 0)
 	       /* This is a limit on the bitmap size, which is only relevant
 		  for constant-sized MEMs.  */
 	       || (MEM_SIZE (mem).is_constant (&const_size)
@@ -1410,6 +1410,15 @@ record_store (rtx body, bb_info_t bb_info)
     width = MEM_SIZE (mem);
   else
     width = GET_MODE_SIZE (GET_MODE (mem));
+
+  if (!endpoint_representable_p (offset, width))
+    {
+      clear_rhs_from_active_local_stores ();
+      return 0;
+    }
+
+  if (known_eq (width, 0))
+    return 0;
 
   if (group_id >= 0)
     {
@@ -1492,7 +1501,7 @@ record_store (rtx body, bb_info_t bb_info)
       group_info *group = rtx_group_vec[group_id];
       mem_addr = group->canon_base_addr;
     }
-  if (may_ne (offset, 0))
+  if (maybe_ne (offset, 0))
     mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
 
   while (ptr)
@@ -1526,7 +1535,12 @@ record_store (rtx body, bb_info_t bb_info)
 	      && known_subrange_p (offset, width,
 				   s_info->offset, s_info->width)
 	      && all_positions_needed_p (s_info, offset - s_info->offset,
-					 width))
+					 width)
+	      /* We can only remove the later store if the earlier aliases
+		 at least all accesses the later one.  */
+	      && (MEM_ALIAS_SET (mem) == MEM_ALIAS_SET (s_info->mem)
+		  || alias_set_subset_of (MEM_ALIAS_SET (mem),
+					  MEM_ALIAS_SET (s_info->mem))))
 	    {
 	      if (GET_MODE (mem) == BLKmode)
 		{
@@ -1728,7 +1742,7 @@ find_shift_sequence (poly_int64 access_size,
 
       /* Try a wider mode if truncating the store mode to NEW_MODE
 	 requires a real instruction.  */
-      if (may_lt (GET_MODE_SIZE (new_mode), GET_MODE_SIZE (store_mode))
+      if (maybe_lt (GET_MODE_SIZE (new_mode), GET_MODE_SIZE (store_mode))
 	  && !TRULY_NOOP_TRUNCATION_MODES_P (new_mode, store_mode))
 	continue;
 
@@ -1827,7 +1841,7 @@ get_stored_val (store_info *store_info, machine_mode read_mode,
   else
     gap = read_offset - store_info->offset;
 
-  if (may_ne (gap, 0))
+  if (maybe_ne (gap, 0))
     {
       poly_int64 shift = gap * BITS_PER_UNIT;
       poly_int64 access_size = GET_MODE_SIZE (read_mode) + gap;
@@ -2085,6 +2099,14 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
   else
     width = GET_MODE_SIZE (GET_MODE (mem));
 
+  if (!endpoint_representable_p (offset, known_eq (width, -1) ? 1 : width))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, " adding wild read, due to overflow.\n");
+      add_wild_read (bb_info);
+      return;
+    }
+
   read_info = read_info_type_pool.allocate ();
   read_info->group_id = group_id;
   read_info->mem = mem;
@@ -2099,7 +2121,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
       group_info *group = rtx_group_vec[group_id];
       mem_addr = group->canon_base_addr;
     }
-  if (may_ne (offset, 0))
+  if (maybe_ne (offset, 0))
     mem_addr = plus_constant (get_address_mode (mem), mem_addr, offset);
 
   if (group_id >= 0)
@@ -2168,8 +2190,9 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 
 		  /* The bases are the same, just see if the offsets
 		     could overlap.  */
-		  if (ranges_may_overlap_p (offset, width, store_info->offset,
-					    store_info->width))
+		  if (ranges_maybe_overlap_p (offset, width,
+					      store_info->offset,
+					      store_info->width))
 		    remove = true;
 		}
 	    }

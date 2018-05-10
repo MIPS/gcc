@@ -1,5 +1,5 @@
 /* Header file for Induction variable optimizations.
-   Copyright (C) 2013-2017 Free Software Foundation, Inc.
+   Copyright (C) 2013-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,4 +32,6 @@ extern tree strip_offset (tree, poly_uint64_pod *);
 bool may_be_nonaddressable_p (tree expr);
 void tree_ssa_iv_optimize (void);
 
+void create_canonical_iv (struct loop *, edge, tree,
+			  tree * = NULL, tree * = NULL);
 #endif /* GCC_TREE_SSA_LOOP_IVOPTS_H */

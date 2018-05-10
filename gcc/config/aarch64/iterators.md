@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -414,6 +414,23 @@
     UNSPEC_FMINNM       ; Used in aarch64-simd.md.
     UNSPEC_SDOT		; Used in aarch64-simd.md.
     UNSPEC_UDOT		; Used in aarch64-simd.md.
+    UNSPEC_SM3SS1	; Used in aarch64-simd.md.
+    UNSPEC_SM3TT1A	; Used in aarch64-simd.md.
+    UNSPEC_SM3TT1B	; Used in aarch64-simd.md.
+    UNSPEC_SM3TT2A	; Used in aarch64-simd.md.
+    UNSPEC_SM3TT2B	; Used in aarch64-simd.md.
+    UNSPEC_SM3PARTW1	; Used in aarch64-simd.md.
+    UNSPEC_SM3PARTW2	; Used in aarch64-simd.md.
+    UNSPEC_SM4E		; Used in aarch64-simd.md.
+    UNSPEC_SM4EKEY	; Used in aarch64-simd.md.
+    UNSPEC_SHA512H      ; Used in aarch64-simd.md.
+    UNSPEC_SHA512H2     ; Used in aarch64-simd.md.
+    UNSPEC_SHA512SU0    ; Used in aarch64-simd.md.
+    UNSPEC_SHA512SU1    ; Used in aarch64-simd.md.
+    UNSPEC_FMLAL	; Used in aarch64-simd.md.
+    UNSPEC_FMLSL	; Used in aarch64-simd.md.
+    UNSPEC_FMLAL2	; Used in aarch64-simd.md.
+    UNSPEC_FMLSL2	; Used in aarch64-simd.md.
     UNSPEC_SEL		; Used in aarch64-sve.md.
     UNSPEC_ANDV		; Used in aarch64-sve.md.
     UNSPEC_IORV		; Used in aarch64-sve.md.
@@ -421,6 +438,8 @@
     UNSPEC_ANDF		; Used in aarch64-sve.md.
     UNSPEC_IORF		; Used in aarch64-sve.md.
     UNSPEC_XORF		; Used in aarch64-sve.md.
+    UNSPEC_SMUL_HIGHPART ; Used in aarch64-sve.md.
+    UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
@@ -441,11 +460,6 @@
     UNSPEC_COND_NE	; Used in aarch64-sve.md.
     UNSPEC_COND_GE	; Used in aarch64-sve.md.
     UNSPEC_COND_GT	; Used in aarch64-sve.md.
-    UNSPEC_COND_LO	; Used in aarch64-sve.md.
-    UNSPEC_COND_LS	; Used in aarch64-sve.md.
-    UNSPEC_COND_HS	; Used in aarch64-sve.md.
-    UNSPEC_COND_HI	; Used in aarch64-sve.md.
-    UNSPEC_COND_UO	; Used in aarch64-sve.md.
     UNSPEC_LASTB	; Used in aarch64-sve.md.
 ])
 
@@ -574,6 +588,9 @@
 
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
+
+;; Map modes to Usg and Usj constraints for SISD right shifts
+(define_mode_attr cmode_simd [(SI "g") (DI "j")])
 
 (define_mode_attr Vtype [(V8QI "8b") (V16QI "16b")
 			 (V4HI "4h") (V8HI  "8h")
@@ -995,6 +1012,15 @@
 ;; No need of iterator for -fPIC as it use got_lo12 for both modes.
 (define_mode_attr got_modifier [(SI "gotpage_lo14") (DI "gotpage_lo15")])
 
+;; Width of 2nd and 3rd arguments to fp16 vector multiply add/sub
+(define_mode_attr VFMLA_W [(V2SF "V4HF") (V4SF "V8HF")])
+
+(define_mode_attr VFMLA_SEL_W [(V2SF "V2HF") (V4SF "V4HF")])
+
+(define_mode_attr f16quad [(V2SF "") (V4SF "q")])
+
+(define_code_attr f16mac [(plus "a") (minus "s")])
+
 ;; The number of subvectors in an SVE_STRUCT.
 (define_mode_attr vector_count [(VNx32QI "2") (VNx16HI "2")
 				(VNx8SI  "2") (VNx4DI  "2")
@@ -1157,16 +1183,17 @@
 ;; Unsigned comparison operators.
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
-;; Predicated commutative SVE ops
-(define_code_iterator sve_predicated_comm_int_op [plus smin smax umin umax
-						  and ior xor])
-(define_code_iterator sve_predicated_comm_fp_op [plus])
-
 ;; SVE integer unary operations.
 (define_code_iterator SVE_INT_UNARY [neg not popcount])
 
 ;; SVE floating-point unary operations.
 (define_code_iterator SVE_FP_UNARY [neg abs sqrt])
+
+;; SVE integer comparisons.
+(define_code_iterator SVE_INT_CMP [lt le eq ne ge gt ltu leu geu gtu])
+
+;; SVE floating-point comparisons.
+(define_code_iterator SVE_FP_CMP [lt le eq ne ge gt])
 
 ;; -------------------------------------------------------------------
 ;; Code Attributes
@@ -1230,6 +1257,18 @@
 (define_code_attr CMP [(lt "LT") (le "LE") (eq "EQ") (ge "GE") (gt "GT")
 			(ltu "LTU") (leu "LEU") (ne "NE") (geu "GEU")
 			(gtu "GTU")])
+
+;; The AArch64 condition associated with an rtl comparison code.
+(define_code_attr cmp_op [(lt "lt")
+			  (le "le")
+			  (eq "eq")
+			  (ne "ne")
+			  (ge "ge")
+			  (gt "gt")
+			  (ltu "lo")
+			  (leu "ls")
+			  (geu "hs")
+			  (gtu "hi")])
 
 (define_code_attr fix_trunc_optab [(fix "fix_trunc")
 				   (unsigned_fix "fixuns_trunc")])
@@ -1337,6 +1376,18 @@
 			     (abs "fabs")
 			     (sqrt "fsqrt")])
 
+;; The SVE immediate constraint to use for an rtl code.
+(define_code_attr sve_imm_con [(eq "vsc")
+			       (ne "vsc")
+			       (lt "vsc")
+			       (ge "vsc")
+			       (le "vsc")
+			       (gt "vsc")
+			       (ltu "vsd")
+			       (leu "vsd")
+			       (geu "vsd")
+			       (gtu "vsd")])
+
 ;; -------------------------------------------------------------------
 ;; Int Iterators.
 ;; -------------------------------------------------------------------
@@ -1433,10 +1484,25 @@
 
 (define_int_iterator CRYPTO_SHA256 [UNSPEC_SHA256H UNSPEC_SHA256H2])
 
+(define_int_iterator CRYPTO_SHA512 [UNSPEC_SHA512H UNSPEC_SHA512H2])
+
+(define_int_iterator CRYPTO_SM3TT [UNSPEC_SM3TT1A UNSPEC_SM3TT1B
+				   UNSPEC_SM3TT2A UNSPEC_SM3TT2B])
+
+(define_int_iterator CRYPTO_SM3PART [UNSPEC_SM3PARTW1 UNSPEC_SM3PARTW2])
+
+;; Iterators for fp16 operations
+
+(define_int_iterator VFMLA16_LOW [UNSPEC_FMLAL UNSPEC_FMLSL])
+
+(define_int_iterator VFMLA16_HIGH [UNSPEC_FMLAL2 UNSPEC_FMLSL2])
+
 (define_int_iterator UNPACK [UNSPEC_UNPACKSHI UNSPEC_UNPACKUHI
 			     UNSPEC_UNPACKSLO UNSPEC_UNPACKULO])
 
 (define_int_iterator UNPACK_UNSIGNED [UNSPEC_UNPACKULO UNSPEC_UNPACKUHI])
+
+(define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
 (define_int_iterator SVE_COND_INT2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB
 				       UNSPEC_COND_MUL
@@ -1452,12 +1518,6 @@
 				      UNSPEC_COND_MUL UNSPEC_COND_SDIV])
 
 (define_int_iterator SVE_COND_FP3_OP [UNSPEC_COND_FMLA UNSPEC_COND_FMLS])
-
-(define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
-				       UNSPEC_COND_EQ UNSPEC_COND_NE
-				       UNSPEC_COND_GE UNSPEC_COND_GT
-				       UNSPEC_COND_LO UNSPEC_COND_LS
-				       UNSPEC_COND_HS UNSPEC_COND_HI])
 
 (define_int_iterator SVE_COND_FP_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				      UNSPEC_COND_EQ UNSPEC_COND_NE
@@ -1478,7 +1538,7 @@
 ;; -------------------------------------------------------------------
 
 ;; The optab associated with an operation.  Note that for ANDF, IORF
-;; and XORF, the optab should not actually be defined; we just use this
+;; and XORF, the optab pattern is not actually defined; we just use this
 ;; name for consistency with the integer patterns.
 (define_int_attr optab [(UNSPEC_ANDF "and")
 			(UNSPEC_IORF "ior")
@@ -1540,7 +1600,9 @@
 (define_int_attr su [(UNSPEC_UNPACKSHI "s")
 		     (UNSPEC_UNPACKUHI "u")
 		     (UNSPEC_UNPACKSLO "s")
-		     (UNSPEC_UNPACKULO "u")])
+		     (UNSPEC_UNPACKULO "u")
+		     (UNSPEC_SMUL_HIGHPART "s")
+		     (UNSPEC_UMUL_HIGHPART "u")])
 
 (define_int_attr sur [(UNSPEC_SHADD "s") (UNSPEC_UHADD "u")
 		      (UNSPEC_SRHADD "sr") (UNSPEC_URHADD "ur")
@@ -1642,11 +1704,6 @@
 				    (UNSPEC_PACI1716 "8")
 				    (UNSPEC_AUTI1716 "12")])
 
-(define_int_attr perm_optab [(UNSPEC_ZIP1 "vec_interleave_lo")
-			     (UNSPEC_ZIP2 "vec_interleave_hi")
-			     (UNSPEC_UZP1 "vec_extract_even")
-			     (UNSPEC_UZP2 "vec_extract_odd")])
-
 (define_int_attr perm_insn [(UNSPEC_ZIP1 "zip") (UNSPEC_ZIP2 "zip")
 			    (UNSPEC_TRN1 "trn") (UNSPEC_TRN2 "trn")
 			    (UNSPEC_UZP1 "uzp") (UNSPEC_UZP2 "uzp")])
@@ -1660,6 +1717,15 @@
 			    (UNSPEC_UZP1 "1") (UNSPEC_UZP2 "2")
 			    (UNSPEC_UNPACKSHI "hi") (UNSPEC_UNPACKUHI "hi")
 			    (UNSPEC_UNPACKSLO "lo") (UNSPEC_UNPACKULO "lo")])
+
+;; Return true if the associated optab refers to the high-numbered lanes,
+;; false if it refers to the low-numbered lanes.  The convention is for
+;; "hi" to refer to the low-numbered lanes (the first ones in memory)
+;; for big-endian.
+(define_int_attr hi_lanes_optab [(UNSPEC_UNPACKSHI "!BYTES_BIG_ENDIAN")
+				 (UNSPEC_UNPACKUHI "!BYTES_BIG_ENDIAN")
+				 (UNSPEC_UNPACKSLO "BYTES_BIG_ENDIAN")
+				 (UNSPEC_UNPACKULO "BYTES_BIG_ENDIAN")])
 
 (define_int_attr frecp_suffix  [(UNSPEC_FRECPE "e") (UNSPEC_FRECPX "x")])
 
@@ -1683,29 +1749,23 @@
 
 (define_int_attr rdma_as [(UNSPEC_SQRDMLAH "a") (UNSPEC_SQRDMLSH "s")])
 
+(define_int_attr sha512_op [(UNSPEC_SHA512H "") (UNSPEC_SHA512H2 "2")])
+
+(define_int_attr sm3tt_op [(UNSPEC_SM3TT1A "1a") (UNSPEC_SM3TT1B "1b")
+			   (UNSPEC_SM3TT2A "2a") (UNSPEC_SM3TT2B "2b")])
+
+(define_int_attr sm3part_op [(UNSPEC_SM3PARTW1 "1") (UNSPEC_SM3PARTW2 "2")])
+
+(define_int_attr f16mac1 [(UNSPEC_FMLAL "a") (UNSPEC_FMLSL "s")
+			  (UNSPEC_FMLAL2 "a") (UNSPEC_FMLSL2 "s")])
+
 ;; The condition associated with an UNSPEC_COND_<xx>.
 (define_int_attr cmp_op [(UNSPEC_COND_LT "lt")
 			 (UNSPEC_COND_LE "le")
 			 (UNSPEC_COND_EQ "eq")
 			 (UNSPEC_COND_NE "ne")
 			 (UNSPEC_COND_GE "ge")
-			 (UNSPEC_COND_GT "gt")
-			 (UNSPEC_COND_LO "lo")
-			 (UNSPEC_COND_LS "ls")
-			 (UNSPEC_COND_HS "hs")
-			 (UNSPEC_COND_HI "hi")])
-
-;; The constraint to use for an UNSPEC_COND_<xx>.
-(define_int_attr imm_con [(UNSPEC_COND_EQ "vsc")
-			  (UNSPEC_COND_NE "vsc")
-			  (UNSPEC_COND_LT "vsc")
-			  (UNSPEC_COND_GE "vsc")
-			  (UNSPEC_COND_LE "vsc")
-			  (UNSPEC_COND_GT "vsc")
-			  (UNSPEC_COND_LO "vsd")
-			  (UNSPEC_COND_LS "vsd")
-			  (UNSPEC_COND_HS "vsd")
-			  (UNSPEC_COND_HI "vsd")])
+			 (UNSPEC_COND_GT "gt")])
 
 (define_int_attr sve_int_op [(UNSPEC_COND_ADD "add")
 			     (UNSPEC_COND_SUB "sub")

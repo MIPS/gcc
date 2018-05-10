@@ -1,5 +1,5 @@
 /* Internal functions.
-   Copyright (C) 2011-2017 Free Software Foundation, Inc.
+   Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -223,7 +223,7 @@ direct_internal_fn_supported_p (internal_fn fn, tree type0, tree type1,
 
 extern bool set_edom_supported_p (void);
 
-extern internal_fn get_conditional_internal_fn (tree_code, tree);
+extern internal_fn get_conditional_internal_fn (tree_code);
 
 extern bool internal_load_fn_p (internal_fn);
 extern bool internal_store_fn_p (internal_fn);
@@ -237,6 +237,6 @@ extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
 extern void expand_PHI (internal_fn, gcall *);
 
-extern bool vectorized_internal_fn_supported_p (internal_fn, machine_mode);
+extern bool vectorized_internal_fn_supported_p (internal_fn, tree);
 
 #endif

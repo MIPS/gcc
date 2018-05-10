@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -956,7 +956,7 @@ output_stack_usage (void)
   stack_usage_kind = STATIC;
 
   /* Add the maximum amount of space pushed onto the stack.  */
-  if (may_ne (current_function_pushed_stack_size, 0))
+  if (maybe_ne (current_function_pushed_stack_size, 0))
     {
       HOST_WIDE_INT extra;
       if (current_function_pushed_stack_size.is_constant (&extra))
@@ -1535,8 +1535,9 @@ process_options (void)
     flag_var_tracking_uninit = flag_var_tracking;
 
   if (flag_var_tracking_assignments == AUTODETECT_VALUE)
-    flag_var_tracking_assignments = flag_var_tracking
-      && !(flag_selective_scheduling || flag_selective_scheduling2);
+    flag_var_tracking_assignments
+      = (flag_var_tracking
+	 && !(flag_selective_scheduling || flag_selective_scheduling2));
 
   if (flag_var_tracking_assignments_toggle)
     flag_var_tracking_assignments = !flag_var_tracking_assignments;
@@ -1548,6 +1549,65 @@ process_options (void)
       && (flag_selective_scheduling || flag_selective_scheduling2))
     warning_at (UNKNOWN_LOCATION, 0,
 		"var-tracking-assignments changes selective scheduling");
+
+  if (debug_nonbind_markers_p == AUTODETECT_VALUE)
+    debug_nonbind_markers_p
+      = (optimize
+	 && debug_info_level >= DINFO_LEVEL_NORMAL
+	 && (write_symbols == DWARF2_DEBUG
+	     || write_symbols == VMS_AND_DWARF2_DEBUG)
+	 && !(flag_selective_scheduling || flag_selective_scheduling2));
+
+  if (dwarf2out_as_loc_support == AUTODETECT_VALUE)
+    dwarf2out_as_loc_support
+      = dwarf2out_default_as_loc_support ();
+  if (dwarf2out_as_locview_support == AUTODETECT_VALUE)
+    dwarf2out_as_locview_support
+      = dwarf2out_default_as_locview_support ();
+
+  if (debug_variable_location_views == AUTODETECT_VALUE)
+    {
+      debug_variable_location_views
+	= (flag_var_tracking
+	   && debug_info_level >= DINFO_LEVEL_NORMAL
+	   && (write_symbols == DWARF2_DEBUG
+	       || write_symbols == VMS_AND_DWARF2_DEBUG)
+	   && !dwarf_strict
+	   && dwarf2out_as_loc_support
+	   && dwarf2out_as_locview_support);
+    }
+  else if (debug_variable_location_views == -1 && dwarf_version != 5)
+    {
+      warning_at (UNKNOWN_LOCATION, 0,
+		  "without -gdwarf-5, -gvariable-location-views=incompat5 "
+		  "is equivalent to -gvariable-location-views");
+      debug_variable_location_views = 1;
+    }
+
+  if (debug_internal_reset_location_views == 2)
+    {
+      debug_internal_reset_location_views
+	= (debug_variable_location_views
+	   && targetm.reset_location_view);
+    }
+  else if (debug_internal_reset_location_views
+	   && !debug_variable_location_views)
+    {
+      warning_at (UNKNOWN_LOCATION, 0,
+		  "-ginternal-reset-location-views is forced disabled "
+		  "without -gvariable-location-views");
+      debug_internal_reset_location_views = 0;
+    }
+
+  if (debug_inline_points == AUTODETECT_VALUE)
+    debug_inline_points = debug_variable_location_views;
+  else if (debug_inline_points && !debug_nonbind_markers_p)
+    {
+      warning_at (UNKNOWN_LOCATION, 0,
+		  "-ginline-points is forced disabled without "
+		  "-gstatement-frontiers");
+      debug_inline_points = 0;
+    }
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
     {

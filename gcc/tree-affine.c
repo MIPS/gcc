@@ -1,5 +1,5 @@
 /* Operations with affine combinations of trees.
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -515,7 +515,7 @@ aff_combination_to_tree (aff_tree *comb)
 
   /* Ensure that we get x - 1, not x + (-1) or x + 0xff..f if x is
      unsigned.  */
-  if (must_lt (comb->offset, 0))
+  if (known_lt (comb->offset, 0))
     {
       off = -comb->offset;
       sgn = -1;
@@ -815,22 +815,22 @@ wide_int_constant_multiple_p (const poly_widest_int &val,
 {
   poly_widest_int rem, cst;
 
-  if (must_eq (val, 0))
+  if (known_eq (val, 0))
     {
-      if (*mult_set && may_ne (*mult, 0))
+      if (*mult_set && maybe_ne (*mult, 0))
 	return false;
       *mult_set = true;
       *mult = 0;
       return true;
     }
 
-  if (may_eq (div, 0))
+  if (maybe_eq (div, 0))
     return false;
 
   if (!multiple_p (val, div, &cst))
     return false;
 
-  if (*mult_set && may_ne (*mult, cst))
+  if (*mult_set && maybe_ne (*mult, cst))
     return false;
 
   *mult_set = true;
@@ -848,7 +848,7 @@ aff_combination_constant_multiple_p (aff_tree *val, aff_tree *div,
   bool mult_set = false;
   unsigned i;
 
-  if (val->n == 0 && must_eq (val->offset, 0))
+  if (val->n == 0 && known_eq (val->offset, 0))
     {
       *mult = 0;
       return true;
@@ -971,16 +971,16 @@ aff_comb_cannot_overlap_p (aff_tree *diff, const poly_widest_int &size1,
   if (!ordered_p (diff->offset, 0))
     return false;
 
-  if (may_lt (diff->offset, 0))
+  if (maybe_lt (diff->offset, 0))
     {
       /* The second object is before the first one, we succeed if the last
 	 element of the second object is before the start of the first one.  */
-      return must_le (diff->offset + size2, 0);
+      return known_le (diff->offset + size2, 0);
     }
   else
     {
       /* We succeed if the second object starts after the first one ends.  */
-      return must_le (size1, diff->offset);
+      return known_le (size1, diff->offset);
     }
 }
 

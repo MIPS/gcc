@@ -1,5 +1,5 @@
 /* Predictive commoning.
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -192,6 +192,10 @@ along with GCC; see the file COPYING3.  If not see
    The interesting part is this can be viewed either as general store motion
    or general dead store elimination in either intra/inter-iterations way.
 
+   With trivial effort, we also support load inside Store-Store chains if the
+   load is dominated by a store statement in the same iteration of loop.  You
+   can see this as a restricted Store-Mixed-Load-Store chain.
+
    TODO: For now, we don't support store-store chains in multi-exit loops.  We
    force to not unroll in case of store-store chain even if other chains might
    ask for unroll.
@@ -234,7 +238,7 @@ along with GCC; see the file COPYING3.  If not see
 /* The maximum number of iterations between the considered memory
    references.  */
 
-#define MAX_DISTANCE (target_avail_regs < 16 ? 3 : 7)
+#define MAX_DISTANCE (target_avail_regs < 16 ? 4 : 8)
 
 /* Data references (or phi nodes that carry data reference values across
    loop iterations).  */
@@ -378,71 +382,6 @@ static bitmap looparound_phis;
 /* Cache used by tree_to_aff_combination_expand.  */
 
 static hash_map<tree, name_expansion *> *name_expansions;
-
-/* True if we're running the early predcom pass and should only handle
-   cases that aid vectorization.  Specifically this means that:
-
-   - only CT_INVARIANT and CT_STORE_LOAD chains are used
-   - the maximum distance for a CT_STORE_LOAD chain is 1 iteration,
-     and at that distance the store must come after the load
-   - there's no unrolling or detection of looparound phis.
-
-   The idea is handle inductions that go via memory, such as:
-
-     for (int i = 1; i < n; ++i)
-       x[i] = x[i - 1] + 1;
-
-   As it stands this loop could never be vectorized, because a loop body
-   that contains a read of x[j] followed by a write to x[j + 1] would
-   have its vectorization factor limited to 1.  Transforming it to:
-
-     int tmp = x[0];
-     for (int i = 0; i < n; ++i)
-       {
-         tmp += 1;
-         x[i] = tmp:
-       }
-
-   exposes the fact that the stored value is a simple vectorizable
-   induction with start value x[0] and step 1.
-
-   [ Commoning is not always useful even in this situation.  For example,
-     carrying over the value of x[i] won't help us to vectorize:
-
-       for (int i = 1; i < n; ++i)
-	 {
-	   y[i] = x[i - 1];
-	   x[i] += i;
-	 }
-
-     There's no real need to restrict things further though, because we're
-     unable to vectorize these load/store combinations in their current
-     form whatever happens. ]
-
-   We require the store to come after the load when the distance is 1
-   to avoid cases like:
-
-     for (int i = 1; i < n; ++i)
-       {
-	 x[i] = ...;
-	 ... = x[i - 1];
-       }
-
-   These accesses effectively have a distance somewhere between 1 and 2,
-   since after commoning the value stored in the previous iteration would
-   still be live at the next store.  This means that the combination
-   isn't useful for exposing simple inductions.
-
-   Also, unlike the motivating case above, this combination does not
-   prevent vectorization.  If a write to x[j + 1] comes before a read
-   of x[j], the vectorized write completes for all vector elements
-   before the read starts for any vector elements.  */
-
-static bool only_simple_p;
-
-/* The maximum loop carry distance for this execution of the pass.  */
-
-static int max_distance;
 
 /* Dumps data reference REF to FILE.  */
 
@@ -741,7 +680,7 @@ aff_combination_dr_offset (struct data_reference *dr, aff_tree *offset)
 
   tree_to_aff_combination_expand (DR_OFFSET (dr), type, offset,
 				  &name_expansions);
-  aff_combination_const (&delta, type, wi::to_widest (DR_INIT (dr)));
+  aff_combination_const (&delta, type, wi::to_poly_widest (DR_INIT (dr)));
   aff_combination_add (offset, &delta);
 }
 
@@ -967,8 +906,6 @@ split_data_refs_to_components (struct loop *loop,
 				gimple_bb (dataref->stmt));
       dataref->pos = comp->refs.length ();
       comp->refs.quick_push (dataref);
-      if (DR_IS_READ (dr))
-	comp->eliminate_store_p = false;
     }
 
   for (i = 0; i < n; i++)
@@ -1108,19 +1045,36 @@ get_chain_root (chain_p chain)
   return chain->refs[0];
 }
 
-/* Given CHAIN, returns the last ref at DISTANCE, or NULL if it doesn't
+/* Given CHAIN, returns the last write ref at DISTANCE, or NULL if it doesn't
    exist.  */
 
 static inline dref
-get_chain_last_ref_at (chain_p chain, unsigned distance)
+get_chain_last_write_at (chain_p chain, unsigned distance)
 {
-  unsigned i;
+  for (unsigned i = chain->refs.length (); i > 0; i--)
+    if (DR_IS_WRITE (chain->refs[i - 1]->ref)
+	&& distance == chain->refs[i - 1]->distance)
+      return chain->refs[i - 1];
 
-  for (i = chain->refs.length (); i > 0; i--)
-    if (distance == chain->refs[i - 1]->distance)
-      break;
+  return NULL;
+}
 
-  return (i > 0) ? chain->refs[i - 1] : NULL;
+/* Given CHAIN, returns the last write ref with the same distance before load
+   at index LOAD_IDX, or NULL if it doesn't exist.  */
+
+static inline dref
+get_chain_last_write_before_load (chain_p chain, unsigned load_idx)
+{
+  gcc_assert (load_idx < chain->refs.length ());
+
+  unsigned distance = chain->refs[load_idx]->distance;
+
+  for (unsigned i = load_idx; i > 0; i--)
+    if (DR_IS_WRITE (chain->refs[i - 1]->ref)
+	&& distance == chain->refs[i - 1]->distance)
+      return chain->refs[i - 1];
+
+  return NULL;
 }
 
 /* Adds REF to the chain CHAIN.  */
@@ -1132,17 +1086,6 @@ add_ref_to_chain (chain_p chain, dref ref)
 
   gcc_assert (wi::les_p (root->offset, ref->offset));
   widest_int dist = ref->offset - root->offset;
-  /* When running before vectorization, only allow the maximum distance
-     if the consumer comes before the producer.  See the comment above
-     ONLY_SIMPLE_P for details.  */
-  if (wi::ltu_p (max_distance, dist)
-      || (only_simple_p
-	  && wi::eq_p (max_distance, dist)
-	  && root->pos < ref->pos))
-    {
-      free (ref);
-      return;
-    }
   gcc_assert (wi::fits_uhwi_p (dist));
 
   chain->refs.safe_push (ref);
@@ -1154,6 +1097,10 @@ add_ref_to_chain (chain_p chain, dref ref)
       chain->length = ref->distance;
       chain->has_max_use_after = false;
     }
+
+  /* Promote this chain to CT_STORE_STORE if it has multiple stores.  */
+  if (DR_IS_WRITE (ref->ref))
+    chain->type = CT_STORE_STORE;
 
   /* Don't set the flag for store-store chain since there is no use.  */
   if (chain->type != CT_STORE_STORE
@@ -1272,7 +1219,7 @@ valid_initializer_p (struct data_reference *ref,
   if (!aff_combination_constant_multiple_p (&diff, &step, &off))
     return false;
 
-  if (may_ne (off, distance))
+  if (maybe_ne (off, distance))
     return false;
 
   return true;
@@ -1378,9 +1325,7 @@ add_looparound_copies (struct loop *loop, chain_p chain)
   dref ref, root = get_chain_root (chain);
   gphi *phi;
 
-  /* There's no point doing this when running before vectorization,
-     since we won't unroll the loop or combine chains.  */
-  if (only_simple_p || chain->type == CT_STORE_STORE)
+  if (chain->type == CT_STORE_STORE)
     return;
 
   FOR_EACH_VEC_ELT (chain->refs, i, ref)
@@ -1429,11 +1374,31 @@ determine_roots_comp (struct loop *loop,
     }
 
   comp->refs.qsort (order_drefs);
+
+  /* For Store-Store chain, we only support load if it is dominated by a
+     store statement in the same iteration of loop.  */
+  if (comp->eliminate_store_p)
+    for (a = NULL, i = 0; i < comp->refs.length (); i++)
+      {
+	if (DR_IS_WRITE (comp->refs[i]->ref))
+	  a = comp->refs[i];
+	else if (a == NULL || a->offset != comp->refs[i]->offset)
+	  {
+	    /* If there is load that is not dominated by a store in the
+	       same iteration of loop, clear the flag so no Store-Store
+	       chain is generated for this component.  */
+	    comp->eliminate_store_p = false;
+	    break;
+	  }
+      }
+
+  /* Determine roots and create chains for components.  */
   FOR_EACH_VEC_ELT (comp->refs, i, a)
     {
       if (!chain
+	  || (chain->type == CT_LOAD && DR_IS_WRITE (a->ref))
 	  || (!comp->eliminate_store_p && DR_IS_WRITE (a->ref))
-	  || wi::ltu_p (max_distance, a->offset - last_ofs))
+	  || wi::leu_p (MAX_DISTANCE, a->offset - last_ofs))
 	{
 	  if (nontrivial_chain_p (chain))
 	    {
@@ -1443,20 +1408,11 @@ determine_roots_comp (struct loop *loop,
 	  else
 	    release_chain (chain);
 
-	  /* Only create CT_STORE_LOAD and CT_INVARIANT chains when
-	     running before vectorization.  */
-	  if (only_simple_p && !DR_IS_WRITE (a->ref))
-	    {
-	      free (a);
-	      chain = NULL;
-	      continue;
-	    }
-
-	  if (DR_IS_READ (a->ref))
-	    type = CT_LOAD;
-	  else
-	    type = comp->eliminate_store_p ? CT_STORE_STORE : CT_STORE_LOAD;
-
+	  /* Determine type of the chain.  If the root reference is a load,
+	     this can only be a CT_LOAD chain; other chains are intialized
+	     to CT_STORE_LOAD and might be promoted to CT_STORE_STORE when
+	     new reference is added.  */
+	  type = DR_IS_READ (a->ref) ? CT_LOAD : CT_STORE_LOAD;
 	  chain = make_rooted_chain (a, type);
 	  last_ofs = a->offset;
 	  continue;
@@ -1767,7 +1723,7 @@ is_inv_store_elimination_chain (struct loop *loop, chain_p chain)
      values.  */
   for (unsigned i = 0; i < chain->length; i++)
     {
-      dref a = get_chain_last_ref_at (chain, i);
+      dref a = get_chain_last_write_at (chain, i);
       if (a == NULL)
 	continue;
 
@@ -1811,7 +1767,7 @@ initialize_root_vars_store_elim_1 (chain_p chain)
   /* Initialize root value for eliminated stores at each distance.  */
   for (i = 0; i < n; i++)
     {
-      dref a = get_chain_last_ref_at (chain, i);
+      dref a = get_chain_last_write_at (chain, i);
       if (a == NULL)
 	continue;
 
@@ -1874,10 +1830,13 @@ initialize_root_vars_store_elim_2 (struct loop *loop,
 	{
 	  /* Root value is rhs operand of the store to be eliminated if
 	     it isn't loaded from memory before loop.  */
-	  dref a = get_chain_last_ref_at (chain, i);
+	  dref a = get_chain_last_write_at (chain, i);
 	  val = gimple_assign_rhs1 (a->stmt);
 	  if (TREE_CLOBBER_P (val))
-	    val = get_or_create_ssa_default_def (cfun, SSA_NAME_VAR (var));
+	    {
+	      val = get_or_create_ssa_default_def (cfun, SSA_NAME_VAR (var));
+	      gimple_assign_set_rhs1 (a->stmt, val);
+	    }
 
 	  vtemps[n - i - 1] = val;
 	}
@@ -2145,7 +2104,7 @@ static void
 execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 			      bitmap tmp_vars)
 {
-  unsigned i, n;
+  unsigned i;
   dref a;
   tree var;
   bool in_lhs;
@@ -2182,10 +2141,29 @@ execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 	  finalize_eliminated_stores (loop, chain);
 	}
 
-      /* Eliminate the stores killed by following store.  */
-      n = chain->refs.length ();
-      for (i = 0; i < n - 1; i++)
-	remove_stmt (chain->refs[i]->stmt);
+      bool last_store_p = true;
+      for (i = chain->refs.length (); i > 0; i--)
+	{
+	  a = chain->refs[i - 1];
+	  /* Preserve the last store of the chain.  Eliminate other stores
+	     which are killed by the last one.  */
+	  if (DR_IS_WRITE (a->ref))
+	    {
+	      if (last_store_p)
+		last_store_p = false;
+	      else
+		remove_stmt (a->stmt);
+
+	      continue;
+	    }
+
+	  /* Any load in Store-Store chain must be dominated by a previous
+	     store, we replace the load reference with rhs of the store.  */
+	  dref b = get_chain_last_write_before_load (chain, i - 1);
+	  gcc_assert (b != NULL);
+	  var = gimple_assign_rhs1 (b->stmt);
+	  replace_ref_with (a->stmt, var, false, false);
+	}
     }
   else
     {
@@ -2215,10 +2193,6 @@ determine_unroll_factor (vec<chain_p> chains)
   chain_p chain;
   unsigned factor = 1, af, nfactor, i;
   unsigned max = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
-
-  /* Do not unroll when running before vectorization.  */
-  if (only_simple_p)
-    return 1;
 
   FOR_EACH_VEC_ELT (chains, i, chain)
     {
@@ -3260,11 +3234,8 @@ tree_predictive_commoning_loop (struct loop *loop)
   prepare_initializers (loop, chains);
   loop_closed_ssa = prepare_finalizers (loop, chains);
 
-  /* During the main pass, try to combine the chains that are always
-     worked with together.  For the early pass it should be better
-     to leave this to the vectorizer.  */
-  if (!only_simple_p)
-    try_combine_chains (loop, &chains);
+  /* Try to combine the chains that are always worked with together.  */
+  try_combine_chains (loop, &chains);
 
   insert_init_seqs (loop, chains);
 
@@ -3326,17 +3297,13 @@ end: ;
   return (unroll ? 1 : 0) | (loop_closed_ssa ? 2 : 0);
 }
 
-/* Runs predictive commoning.  EARLY_P is true if we are running before
-   vectorization.  */
+/* Runs predictive commoning.  */
 
 unsigned
-tree_predictive_commoning (bool early_p)
+tree_predictive_commoning (void)
 {
   struct loop *loop;
   unsigned ret = 0, changed = 0;
-
-  only_simple_p = early_p;
-  max_distance = early_p ? 1 : MAX_DISTANCE;
 
   initialize_original_copy_tables ();
   FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
@@ -3359,50 +3326,18 @@ tree_predictive_commoning (bool early_p)
   return ret;
 }
 
-/* Predictive commoning pass.  EARLY_P is true if we are running before
-   vectorization.  */
+/* Predictive commoning Pass.  */
 
 static unsigned
-run_tree_predictive_commoning (struct function *fun, bool early_p)
+run_tree_predictive_commoning (struct function *fun)
 {
   if (number_of_loops (fun) <= 1)
     return 0;
 
-  return tree_predictive_commoning (early_p);
+  return tree_predictive_commoning ();
 }
 
 namespace {
-
-const pass_data pass_data_early_predcom =
-{
-  GIMPLE_PASS, /* type */
-  "epcom", /* name */
-  OPTGROUP_LOOP, /* optinfo_flags */
-  TV_PREDCOM, /* tv_id */
-  PROP_cfg, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_update_ssa_only_virtuals, /* todo_flags_finish */
-};
-
-class pass_early_predcom : public gimple_opt_pass
-{
-public:
-  pass_early_predcom (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_early_predcom, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *)
-  {
-    return flag_predictive_commoning && flag_tree_loop_vectorize;
-  }
-  virtual unsigned int execute (function *fun)
-  {
-    return run_tree_predictive_commoning (fun, true);
-  }
-}; // class pass_early_predcom
 
 const pass_data pass_data_predcom =
 {
@@ -3428,7 +3363,7 @@ public:
   virtual bool gate (function *) { return flag_predictive_commoning != 0; }
   virtual unsigned int execute (function *fun)
     {
-      return run_tree_predictive_commoning (fun, false);
+      return run_tree_predictive_commoning (fun);
     }
 
 }; // class pass_predcom
@@ -3436,13 +3371,9 @@ public:
 } // anon namespace
 
 gimple_opt_pass *
-make_pass_early_predcom (gcc::context *ctxt)
-{
-  return new pass_early_predcom (ctxt);
-}
-
-gimple_opt_pass *
 make_pass_predcom (gcc::context *ctxt)
 {
   return new pass_predcom (ctxt);
 }
+
+

@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2018 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -2031,8 +2031,9 @@ pad_bb(void)
   for (; insn; insn = next_insn)
     {
       next_insn = next_active_insn (insn);
-      if (INSN_CODE (insn) == CODE_FOR_iprefetch
-	  || INSN_CODE (insn) == CODE_FOR_hbr)
+      if (INSN_P (insn)
+          && (INSN_CODE (insn) == CODE_FOR_iprefetch
+	      || INSN_CODE (insn) == CODE_FOR_hbr))
 	{
 	  if (hbr_insn)
 	    {
@@ -2050,7 +2051,7 @@ pad_bb(void)
 	    }
 	  hbr_insn = insn;
 	}
-      if (INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
+      if (INSN_P (insn) && INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
 	{
 	  if (GET_MODE (insn) == TImode)
 	    PUT_MODE (next_insn, TImode);
@@ -7216,13 +7217,13 @@ spu_constant_alignment (const_tree, HOST_WIDE_INT align)
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
-  { "naked",          0, 0, true,  false, false, spu_handle_fndecl_attribute,
-    false },
-  { "spu_vector",     0, 0, false, true,  false, spu_handle_vector_attribute,
-    false },
-  { NULL,             0, 0, false, false, false, NULL, false }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
+       affects_type_identity, handler, exclude } */
+  { "naked",          0, 0, true,  false, false, false,
+    spu_handle_fndecl_attribute, NULL },
+  { "spu_vector",     0, 0, false, true,  false, false,
+    spu_handle_vector_attribute, NULL },
+  { NULL,             0, 0, false, false, false, false, NULL, NULL }
 };
 
 /*  TARGET overrides.  */

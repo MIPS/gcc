@@ -1,5 +1,5 @@
 /* Profile counter container type.
-   Copyright (C) 2017 Free Software Foundation, Inc.
+   Copyright (C) 2017-2018 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -47,6 +47,8 @@ profile_count::dump (FILE *f) const
 	fprintf (f, " (estimated locally)");
       else if (m_quality == profile_guessed_global0)
 	fprintf (f, " (estimated locally, globally 0)");
+      else if (m_quality == profile_guessed_global0adjusted)
+	fprintf (f, " (estimated locally, globally 0 adjusted)");
       else if (m_quality == profile_adjusted)
 	fprintf (f, " (adjusted)");
       else if (m_quality == profile_afdo)
@@ -245,7 +247,7 @@ profile_count::to_frequency (struct function *fun) const
 int
 profile_count::to_cgraph_frequency (profile_count entry_bb_count) const
 {
-  if (!initialized_p ())
+  if (!initialized_p () || !entry_bb_count.initialized_p ())
     return CGRAPH_FREQ_BASE;
   if (*this == profile_count::zero ())
     return 0;
@@ -262,17 +264,16 @@ profile_count::to_cgraph_frequency (profile_count entry_bb_count) const
 sreal
 profile_count::to_sreal_scale (profile_count in, bool *known) const
 {
-  if (!initialized_p ())
+  if (!initialized_p () || !in.initialized_p ())
     {
       if (known)
 	*known = false;
-      return CGRAPH_FREQ_BASE;
+      return 1;
     }
   if (known)
     *known = true;
   if (*this == profile_count::zero ())
     return 0;
-  gcc_checking_assert (in.initialized_p ());
 
   if (!in.m_val)
     {
@@ -297,7 +298,7 @@ profile_count::adjust_for_ipa_scaling (profile_count *num,
   /* Scaling is no-op if NUM and DEN are the same.  */
   if (*num == *den)
     return;
-  /* Scaling to zero is always zeor.  */
+  /* Scaling to zero is always zero.  */
   if (*num == profile_count::zero ())
     return;
   /* If den is non-zero we are safe.  */
@@ -307,4 +308,66 @@ profile_count::adjust_for_ipa_scaling (profile_count *num,
      both num == 0 and den == 0.  */
   *den = den->force_nonzero ();
   *num = num->force_nonzero ();
+}
+
+/* THIS is a count of bb which is known to be executed IPA times.
+   Combine this information into bb counter.  This means returning IPA
+   if it is nonzero, not changing anything if IPA is uninitialized
+   and if IPA is zero, turning THIS into corresponding local profile with
+   global0.  */
+profile_count
+profile_count::combine_with_ipa_count (profile_count ipa)
+{
+  ipa = ipa.ipa ();
+  if (ipa.nonzero_p ())
+    return ipa;
+  if (!ipa.initialized_p () || *this == profile_count::zero ())
+    return *this;
+  if (ipa == profile_count::zero ())
+    return this->global0 ();
+  return this->global0adjusted ();
+}
+
+/* The profiling runtime uses gcov_type, which is usually 64bit integer.
+   Conversions back and forth are used to read the coverage and get it
+   into internal representation.  */
+profile_count
+profile_count::from_gcov_type (gcov_type v)
+  {
+    profile_count ret;
+    gcc_checking_assert (v >= 0);
+    if (dump_file && v >= (gcov_type)max_count)
+      fprintf (dump_file,
+	       "Capping gcov count %" PRId64 " to max_count %" PRId64 "\n",
+	       (int64_t) v, (int64_t) max_count);
+    ret.m_val = MIN (v, (gcov_type)max_count);
+    ret.m_quality = profile_precise;
+    return ret;
+  }
+
+
+/* COUNT1 times event happens with *THIS probability, COUNT2 times OTHER
+   happens with COUNT2 probablity. Return probablity that either *THIS or
+   OTHER happens.  */
+
+profile_probability
+profile_probability::combine_with_count (profile_count count1,
+					 profile_probability other,
+					 profile_count count2) const
+{
+  /* If probabilities are same, we are done.
+     If counts are nonzero we can distribute accordingly. In remaining
+     cases just avreage the values and hope for the best.  */
+  if (*this == other || count1 == count2
+      || (count2 == profile_count::zero ()
+	  && !(count1 == profile_count::zero ())))
+    return *this;
+  if (count1 == profile_count::zero () && !(count2 == profile_count::zero ()))
+    return other;
+  else if (count1.nonzero_p () || count2.nonzero_p ())
+    return *this * count1.probability_in (count1 + count2)
+	   + other * count2.probability_in (count1 + count2);
+  else
+    return *this * profile_probability::even ()
+	   + other * profile_probability::even ();
 }

@@ -1,5 +1,5 @@
 /* Operations with very long integers.  -*- C++ -*-
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1171,9 +1171,6 @@ public:
   template <typename T>
   fixed_wide_int_storage (const T &);
 
-  template <typename T>
-  fixed_wide_int_storage &operator = (const T &);
-
   /* The standard generic_wide_int storage methods.  */
   unsigned int get_precision () const;
   const HOST_WIDE_INT *get_val () const;
@@ -1212,18 +1209,6 @@ inline fixed_wide_int_storage <N>::fixed_wide_int_storage (const T &x)
      fixed-width integer from something like a wide_int.  */
   WI_BINARY_RESULT (T, FIXED_WIDE_INT (N)) *assertion ATTRIBUTE_UNUSED;
   wi::copy (*this, WIDE_INT_REF_FOR (T) (x, N));
-}
-
-template <int N>
-template <typename T>
-inline fixed_wide_int_storage <N> &
-fixed_wide_int_storage <N>::operator = (const T &x)
-{
-  /* Check for type compatibility.  We don't want to initialize a
-     fixed-width integer from something like a wide_int.  */
-  WI_BINARY_RESULT (T, FIXED_WIDE_INT (N)) *assertion ATTRIBUTE_UNUSED;
-  wi::copy (*this, WIDE_INT_REF_FOR (T) (x, N));
-  return *this;
 }
 
 template <int N>
@@ -3323,6 +3308,8 @@ namespace wi
   wide_int set_bit_in_zero (unsigned int, unsigned int);
   wide_int insert (const wide_int &x, const wide_int &y, unsigned int,
 		   unsigned int);
+  wide_int round_down_for_mask (const wide_int &, const wide_int &);
+  wide_int round_up_for_mask (const wide_int &, const wide_int &);
 
   template <typename T>
   T mask (unsigned int, bool);

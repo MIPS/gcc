@@ -215,134 +215,134 @@ affects how they are used.
 @subsection Comparison functions for @code{poly_int}
 
 @code{poly_int} provides the following routines for checking whether
-a particular relationship ``may'' (might) hold:
+a particular condition ``may be'' (might be) true:
 
 @example
-may_lt may_le may_eq may_ge may_gt
-              may_ne
+maybe_lt maybe_le maybe_eq maybe_ge maybe_gt
+                  maybe_ne
 @end example
 
 The functions have their natural meaning:
 
 @table @samp
-@item may_lt(@var{a}, @var{b})
+@item maybe_lt(@var{a}, @var{b})
 Return true if @var{a} might be less than @var{b}.
 
-@item may_le(@var{a}, @var{b})
+@item maybe_le(@var{a}, @var{b})
 Return true if @var{a} might be less than or equal to @var{b}.
 
-@item may_eq(@var{a}, @var{b})
+@item maybe_eq(@var{a}, @var{b})
 Return true if @var{a} might be equal to @var{b}.
 
-@item may_ne(@var{a}, @var{b})
+@item maybe_ne(@var{a}, @var{b})
 Return true if @var{a} might not be equal to @var{b}.
 
-@item may_ge(@var{a}, @var{b})
+@item maybe_ge(@var{a}, @var{b})
 Return true if @var{a} might be greater than or equal to @var{b}.
 
-@item may_gt(@var{a}, @var{b})
+@item maybe_gt(@var{a}, @var{b})
 Return true if @var{a} might be greater than @var{b}.
 @end table
 
-For readability, @code{poly_int} also provides ``must'' inverses of these
+For readability, @code{poly_int} also provides ``known'' inverses of these
 functions:
 
 @example
-must_lt (@var{a}, @var{b}) == !may_ge (@var{a}, @var{b})
-must_le (@var{a}, @var{b}) == !may_gt (@var{a}, @var{b})
-must_eq (@var{a}, @var{b}) == !may_ne (@var{a}, @var{b})
-must_ge (@var{a}, @var{b}) == !may_lt (@var{a}, @var{b})
-must_gt (@var{a}, @var{b}) == !may_le (@var{a}, @var{b})
-must_ne (@var{a}, @var{b}) == !may_eq (@var{a}, @var{b})
+known_lt (@var{a}, @var{b}) == !maybe_ge (@var{a}, @var{b})
+known_le (@var{a}, @var{b}) == !maybe_gt (@var{a}, @var{b})
+known_eq (@var{a}, @var{b}) == !maybe_ne (@var{a}, @var{b})
+known_ge (@var{a}, @var{b}) == !maybe_lt (@var{a}, @var{b})
+known_gt (@var{a}, @var{b}) == !maybe_le (@var{a}, @var{b})
+known_ne (@var{a}, @var{b}) == !maybe_eq (@var{a}, @var{b})
 @end example
 
 @node Properties of the @code{poly_int} comparisons
 @subsection Properties of the @code{poly_int} comparisons
 
-All ``may'' relations except @code{may_ne} are transitive, so for example:
+All ``maybe'' relations except @code{maybe_ne} are transitive, so for example:
 
 @smallexample
-may_lt (@var{a}, @var{b}) && may_lt (@var{b}, @var{c}) implies may_lt (@var{a}, @var{c})
+maybe_lt (@var{a}, @var{b}) && maybe_lt (@var{b}, @var{c}) implies maybe_lt (@var{a}, @var{c})
 @end smallexample
 
-for all @var{a}, @var{b} and @var{c}.  @code{may_lt}, @code{may_gt}
-and @code{may_ne} are irreflexive, so for example:
+for all @var{a}, @var{b} and @var{c}.  @code{maybe_lt}, @code{maybe_gt}
+and @code{maybe_ne} are irreflexive, so for example:
 
 @smallexample
-!may_lt (@var{a}, @var{a})
+!maybe_lt (@var{a}, @var{a})
 @end smallexample
 
-is true for all @var{a}.  @code{may_le}, @code{may_eq} and @code{may_ge}
+is true for all @var{a}.  @code{maybe_le}, @code{maybe_eq} and @code{maybe_ge}
 are reflexive, so for example:
 
 @smallexample
-may_le (@var{a}, @var{a})
+maybe_le (@var{a}, @var{a})
 @end smallexample
 
-is true for all @var{a}.  @code{may_eq} and @code{may_ne} are symmetric, so:
+is true for all @var{a}.  @code{maybe_eq} and @code{maybe_ne} are symmetric, so:
 
 @smallexample
-may_eq (@var{a}, @var{b}) == may_eq (@var{b}, @var{a})
-may_ne (@var{a}, @var{b}) == may_ne (@var{b}, @var{a})
+maybe_eq (@var{a}, @var{b}) == maybe_eq (@var{b}, @var{a})
+maybe_ne (@var{a}, @var{b}) == maybe_ne (@var{b}, @var{a})
 @end smallexample
 
 for all @var{a} and @var{b}.  In addition:
 
 @smallexample
-may_le (@var{a}, @var{b}) == may_lt (@var{a}, @var{b}) || may_eq (@var{a}, @var{b})
-may_ge (@var{a}, @var{b}) == may_gt (@var{a}, @var{b}) || may_eq (@var{a}, @var{b})
-may_lt (@var{a}, @var{b}) == may_gt (@var{b}, @var{a})
-may_le (@var{a}, @var{b}) == may_ge (@var{b}, @var{a})
+maybe_le (@var{a}, @var{b}) == maybe_lt (@var{a}, @var{b}) || maybe_eq (@var{a}, @var{b})
+maybe_ge (@var{a}, @var{b}) == maybe_gt (@var{a}, @var{b}) || maybe_eq (@var{a}, @var{b})
+maybe_lt (@var{a}, @var{b}) == maybe_gt (@var{b}, @var{a})
+maybe_le (@var{a}, @var{b}) == maybe_ge (@var{b}, @var{a})
 @end smallexample
 
 However:
 
 @smallexample
-may_le (@var{a}, @var{b}) && may_le (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq (@var{a}, @var{b})]
-may_ge (@var{a}, @var{b}) && may_ge (@var{b}, @var{a}) does not imply !may_ne (@var{a}, @var{b}) [== must_eq (@var{a}, @var{b})]
+maybe_le (@var{a}, @var{b}) && maybe_le (@var{b}, @var{a}) does not imply !maybe_ne (@var{a}, @var{b}) [== known_eq (@var{a}, @var{b})]
+maybe_ge (@var{a}, @var{b}) && maybe_ge (@var{b}, @var{a}) does not imply !maybe_ne (@var{a}, @var{b}) [== known_eq (@var{a}, @var{b})]
 @end smallexample
 
 One example is again @samp{@var{a} == 3 + 4@var{x}}
-and @samp{@var{b} == 1 + 5@var{x}}, where @samp{may_le (@var{a}, @var{b})},
-@samp{may_ge (@var{a}, @var{b})} and @samp{may_ne (@var{a}, @var{b})}
-all hold.  @code{may_le} and @code{may_ge} are therefore not antisymetric
+and @samp{@var{b} == 1 + 5@var{x}}, where @samp{maybe_le (@var{a}, @var{b})},
+@samp{maybe_ge (@var{a}, @var{b})} and @samp{maybe_ne (@var{a}, @var{b})}
+all hold.  @code{maybe_le} and @code{maybe_ge} are therefore not antisymetric
 and do not form a partial order.
 
 From the above, it follows that:
 
 @itemize @bullet
 @item
-All ``must'' relations except @code{must_ne} are transitive.
+All ``known'' relations except @code{known_ne} are transitive.
 
 @item
-@code{must_lt}, @code{must_ne} and @code{must_gt} are irreflexive.
+@code{known_lt}, @code{known_ne} and @code{known_gt} are irreflexive.
 
 @item
-@code{must_le}, @code{must_eq} and @code{must_ge} are reflexive.
+@code{known_le}, @code{known_eq} and @code{known_ge} are reflexive.
 @end itemize
 
 Also:
 
 @smallexample
-must_lt (@var{a}, @var{b}) == must_gt (@var{b}, @var{a})
-must_le (@var{a}, @var{b}) == must_ge (@var{b}, @var{a})
-must_lt (@var{a}, @var{b}) implies !must_lt (@var{b}, @var{a})  [asymmetry]
-must_gt (@var{a}, @var{b}) implies !must_gt (@var{b}, @var{a})
-must_le (@var{a}, @var{b}) && must_le (@var{b}, @var{a}) == must_eq (@var{a}, @var{b}) [== !may_ne (@var{a}, @var{b})]
-must_ge (@var{a}, @var{b}) && must_ge (@var{b}, @var{a}) == must_eq (@var{a}, @var{b}) [== !may_ne (@var{a}, @var{b})]
+known_lt (@var{a}, @var{b}) == known_gt (@var{b}, @var{a})
+known_le (@var{a}, @var{b}) == known_ge (@var{b}, @var{a})
+known_lt (@var{a}, @var{b}) implies !known_lt (@var{b}, @var{a})  [asymmetry]
+known_gt (@var{a}, @var{b}) implies !known_gt (@var{b}, @var{a})
+known_le (@var{a}, @var{b}) && known_le (@var{b}, @var{a}) == known_eq (@var{a}, @var{b}) [== !maybe_ne (@var{a}, @var{b})]
+known_ge (@var{a}, @var{b}) && known_ge (@var{b}, @var{a}) == known_eq (@var{a}, @var{b}) [== !maybe_ne (@var{a}, @var{b})]
 @end smallexample
 
-@code{must_le} and @code{must_ge} are therefore antisymmetric and are
+@code{known_le} and @code{known_ge} are therefore antisymmetric and are
 partial orders.  However:
 
 @smallexample
-must_le (@var{a}, @var{b}) does not imply must_lt (@var{a}, @var{b}) || must_eq (@var{a}, @var{b})
-must_ge (@var{a}, @var{b}) does not imply must_gt (@var{a}, @var{b}) || must_eq (@var{a}, @var{b})
+known_le (@var{a}, @var{b}) does not imply known_lt (@var{a}, @var{b}) || known_eq (@var{a}, @var{b})
+known_ge (@var{a}, @var{b}) does not imply known_gt (@var{a}, @var{b}) || known_eq (@var{a}, @var{b})
 @end smallexample
 
-For example, @samp{must_le (4, 4 + 4@var{x})} holds because the runtime
+For example, @samp{known_le (4, 4 + 4@var{x})} holds because the runtime
 indeterminate @var{x} is a nonnegative integer, but neither
-@code{must_lt (4, 4 + 4@var{x})} nor @code{must_eq (4, 4 + 4@var{x})} hold.
+@code{known_lt (4, 4 + 4@var{x})} nor @code{known_eq (4, 4 + 4@var{x})} hold.
 
 @node Comparing potentially-unordered @code{poly_int}s
 @subsection Comparing potentially-unordered @code{poly_int}s
@@ -356,13 +356,13 @@ One way of checking whether [@var{begin1}, @var{end1}) might overlap
 [@var{begin2}, @var{end2}) using the @code{poly_int} comparisons is:
 
 @smallexample
-may_gt (@var{end1}, @var{begin2}) && may_gt (@var{end2}, @var{begin1})
+maybe_gt (@var{end1}, @var{begin2}) && maybe_gt (@var{end2}, @var{begin1})
 @end smallexample
 
 and another (equivalent) way is:
 
 @smallexample
-!(must_le (@var{end1}, @var{begin2}) || must_le (@var{end2}, @var{begin1}))
+!(known_le (@var{end1}, @var{begin2}) || known_le (@var{end2}, @var{begin1}))
 @end smallexample
 
 However, in this particular example, it is better to use the range helper
@@ -373,21 +373,21 @@ functions instead.  @xref{Range checks on @code{poly_int}s}.
 
 In cases where there is a definite link between two @code{poly_int}s,
 such as the outer and inner sizes of subregs, we usually require the sizes
-to be ordered by the @code{must_le} partial order.  @code{poly_int} provides
+to be ordered by the @code{known_le} partial order.  @code{poly_int} provides
 the following utility functions for ordered values:
 
 @table @samp
 @item ordered_p (@var{a}, @var{b})
-Return true if @var{a} and @var{b} are ordered by the @code{must_le}
+Return true if @var{a} and @var{b} are ordered by the @code{known_le}
 partial order.
 
 @item ordered_min (@var{a}, @var{b})
-Assert that @var{a} and @var{b} are ordered by @code{must_le} and return the
+Assert that @var{a} and @var{b} are ordered by @code{known_le} and return the
 minimum of the two.  When using this function, please add a comment explaining
 why the values are known to be ordered.
 
 @item ordered_max (@var{a}, @var{b})
-Assert that @var{a} and @var{b} are ordered by @code{must_le} and return the
+Assert that @var{a} and @var{b} are ordered by @code{known_le} and return the
 maximum of the two.  When using this function, please add a comment explaining
 why the values are known to be ordered.
 @end table
@@ -397,13 +397,13 @@ inner mode of size @var{inner}:
 
 @itemize @bullet
 @item
-the subreg is complete if must_eq (@var{inner}, @var{outer})
+the subreg is complete if known_eq (@var{inner}, @var{outer})
 
 @item
-otherwise, the subreg is paradoxical if must_le (@var{inner}, @var{outer})
+otherwise, the subreg is paradoxical if known_le (@var{inner}, @var{outer})
 
 @item
-otherwise, the subreg is partial if must_le (@var{outer}, @var{inner})
+otherwise, the subreg is partial if known_le (@var{outer}, @var{inner})
 
 @item
 otherwise, the subreg is ill-formed
@@ -415,13 +415,13 @@ is already known to be true then:
 
 @itemize @bullet
 @item
-the subreg is complete if must_eq (@var{inner}, @var{outer})
+the subreg is complete if known_eq (@var{inner}, @var{outer})
 
 @item
-the subreg is paradoxical if may_lt (@var{inner}, @var{outer})
+the subreg is paradoxical if maybe_lt (@var{inner}, @var{outer})
 
 @item
-the subreg is partial if may_lt (@var{outer}, @var{inner})
+the subreg is partial if maybe_lt (@var{outer}, @var{inner})
 @end itemize
 
 with the three conditions being mutually exclusive.
@@ -441,11 +441,11 @@ of -1 to represent an unknown size, rather than having to carry around
 a separate boolean to say whether the size is known.
 
 The best way of checking whether something is a marker value is
-@code{must_eq}.  Conversely the best way of checking whether something
-is @emph{not} a marker value is @code{may_ne}.
+@code{known_eq}.  Conversely the best way of checking whether something
+is @emph{not} a marker value is @code{maybe_ne}.
 
-Thus in the size example just mentioned, @samp{must_eq (size, -1)} would
-check for an unknown size and @samp{may_ne (size, -1)} would check for a
+Thus in the size example just mentioned, @samp{known_eq (size, -1)} would
+check for an unknown size and @samp{maybe_ne (size, -1)} would check for a
 known size.
 
 @node Range checks on @code{poly_int}s
@@ -466,12 +466,12 @@ A range of size 0 does not contain anything or overlap anything.
 Return true if @var{size} represents a known range size, false if it
 is -1 or all ones (for signed and unsigned types respectively).
 
-@item ranges_may_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
+@item ranges_maybe_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
 Return true if the range described by @var{pos1} and @var{size1} @emph{might}
 overlap the range described by @var{pos2} and @var{size2} (in other words,
 return true if we cannot prove that the ranges are disjoint).
 
-@item ranges_must_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
+@item ranges_known_overlap_p (@var{pos1}, @var{size1}, @var{pos2}, @var{size2})
 Return true if the range described by @var{pos1} and @var{size1} is known to
 overlap the range described by @var{pos2} and @var{size2}.
 

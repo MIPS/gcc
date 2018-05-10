@@ -1,5 +1,5 @@
 /* Rematerialize pseudos values.
-   Copyright (C) 2014-2017 Free Software Foundation, Inc.
+   Copyright (C) 2014-2018 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1242,7 +1242,7 @@ do_remat (void)
 	  if (remat_insn != NULL)
 	    {
 	      poly_int64 sp_offset_change = cand_sp_offset - id->sp_offset;
-	      if (may_ne (sp_offset_change, 0))
+	      if (maybe_ne (sp_offset_change, 0))
 		change_sp_offset (remat_insn, sp_offset_change);
 	      update_scratch_ops (remat_insn);
 	      lra_process_new_insns (insn, remat_insn, NULL,

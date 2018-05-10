@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -438,7 +438,7 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 		   referenced the last field of a struct or a union member
 		   then we have to adjust maxsize by the padding at the end
 		   of our field.  */
-		if (seen_variable_array_ref && known_size_p (maxsize))
+		if (seen_variable_array_ref)
 		  {
 		    tree stype = TREE_TYPE (TREE_OPERAND (exp, 0));
 		    tree next = DECL_CHAIN (field);
@@ -454,7 +454,7 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 			    || ssize == NULL
 			    || !poly_int_tree_p (ssize))
 			  maxsize = -1;
-			else
+			else if (known_size_p (maxsize))
 			  {
 			    poly_offset_int tem
 			      = (wi::to_poly_offset (ssize)
@@ -464,6 +464,11 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 			    maxsize += tem;
 			  }
 		      }
+		    /* An component ref with an adjacent field up in the
+		       structure hierarchy constrains the size of any variable
+		       array ref lower in the access hierarchy.  */
+		    else
+		      seen_variable_array_ref = false;
 		  }
 	      }
 	    else
@@ -565,8 +570,9 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 	      && known_size_p (maxsize)
 	      && (TYPE_SIZE (TREE_TYPE (exp)) == NULL_TREE
 		  || !poly_int_tree_p (TYPE_SIZE (TREE_TYPE (exp)))
-		  || may_eq (bit_offset + maxsize,
-			     wi::to_poly_offset (TYPE_SIZE (TREE_TYPE (exp))))))
+		  || (maybe_eq
+		      (bit_offset + maxsize,
+		       wi::to_poly_offset (TYPE_SIZE (TREE_TYPE (exp)))))))
 	    maxsize = -1;
 
 	  /* Hand back the decl for MEM[&decl, off].  */
@@ -597,7 +603,7 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
     }
 
  done:
-  if (!bitsize.to_shwi (psize) || may_lt (*psize, 0))
+  if (!bitsize.to_shwi (psize) || maybe_lt (*psize, 0))
     {
       *poffset = 0;
       *psize = -1;
@@ -621,7 +627,9 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 
   if (DECL_P (exp))
     {
-      if (flag_unconstrained_commons && VAR_P (exp) && DECL_COMMON (exp))
+      if (VAR_P (exp)
+	  && ((flag_unconstrained_commons && DECL_COMMON (exp))
+	      || (DECL_EXTERNAL (exp) && seen_variable_array_ref)))
 	{
 	  tree sz_tree = TYPE_SIZE (TREE_TYPE (exp));
 	  /* If size is unknown, or we have read to the end, assume there
@@ -630,8 +638,8 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
 	      || (seen_variable_array_ref
 		  && (sz_tree == NULL_TREE
 		      || !poly_int_tree_p (sz_tree)
-		      || may_eq (bit_offset + maxsize,
-				 wi::to_poly_offset (sz_tree)))))
+		      || maybe_eq (bit_offset + maxsize,
+				   wi::to_poly_offset (sz_tree)))))
 	    maxsize = -1;
 	}
       /* If maxsize is unknown adjust it according to the size of the
@@ -653,7 +661,7 @@ get_ref_base_and_extent (tree exp, poly_int64_pod *poffset,
     }
 
   if (!maxsize.to_shwi (pmax_size)
-      || may_lt (*pmax_size, 0)
+      || maybe_lt (*pmax_size, 0)
       || !endpoint_representable_p (*poffset, *pmax_size))
     *pmax_size = -1;
 
@@ -688,7 +696,7 @@ get_ref_base_and_extent_hwi (tree exp, HOST_WIDE_INT *poffset,
       || !size.is_constant (&const_size)
       || const_offset < 0
       || !known_size_p (max_size)
-      || may_ne (max_size, const_size))
+      || maybe_ne (max_size, const_size))
     return NULL_TREE;
 
   *poffset = const_offset;

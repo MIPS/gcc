@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-mstrict-align -O3 -march=armv8-a" } */
+/* { dg-options "-mstrict-align -O3" } */
+
+#pragma GCC target "+nosve"
 
 unsigned char foo(const unsigned char *buffer, unsigned int length)
 {

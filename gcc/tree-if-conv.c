@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -263,6 +263,19 @@ set_bb_predicate_gimplified_stmts (basic_block bb, gimple_seq stmts)
 static inline void
 add_bb_predicate_gimplified_stmts (basic_block bb, gimple_seq stmts)
 {
+  /* We might have updated some stmts in STMTS via force_gimple_operand
+     calling fold_stmt and that producing multiple stmts.  Delink immediate
+     uses so update_ssa after loop versioning doesn't get confused for
+     the not yet inserted predicates.
+     ???  This should go away once we reliably avoid updating stmts
+     not in any BB.  */
+  for (gimple_stmt_iterator gsi = gsi_start (stmts);
+       !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      delink_stmt_imm_use (stmt);
+      gimple_set_modified (stmt, true);
+    }
   gimple_seq_add_seq_without_update
     (&(((struct bb_predicate *) bb->aux)->predicate_gimplified_stmts), stmts);
 }
@@ -277,8 +290,7 @@ init_bb_predicate (basic_block bb)
   set_bb_predicate (bb, boolean_true_node);
 }
 
-/* Release the SSA_NAMEs associated with the predicate of basic block BB,
-   but don't actually free it.  */
+/* Release the SSA_NAMEs associated with the predicate of basic block BB.  */
 
 static inline void
 release_bb_predicate (basic_block bb)
@@ -286,11 +298,14 @@ release_bb_predicate (basic_block bb)
   gimple_seq stmts = bb_predicate_gimplified_stmts (bb);
   if (stmts)
     {
+      /* Ensure that these stmts haven't yet been added to a bb.  */
       if (flag_checking)
 	for (gimple_stmt_iterator i = gsi_start (stmts);
 	     !gsi_end_p (i); gsi_next (&i))
-	  gcc_assert (! gimple_use_ops (gsi_stmt (i)));
+	  gcc_assert (! gimple_bb (gsi_stmt (i)));
 
+      /* Discard them.  */
+      gimple_seq_discard (stmts);
       set_bb_predicate_gimplified_stmts (bb, NULL);
     }
 }
@@ -855,6 +870,11 @@ base_object_writable (tree ref)
 static bool
 ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
 {
+  /* If DR didn't see a reference here we can't use it to tell
+     whether the ref traps or not.  */
+  if (gimple_uid (stmt) == 0)
+    return false;
+
   data_reference_p *master_dr, *base_master_dr;
   data_reference_p a = drs[gimple_uid (stmt) - 1];
 
@@ -960,8 +980,9 @@ ifcvt_can_predicate (gimple *stmt)
   tree rhs_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
   if (!types_compatible_p (lhs_type, rhs_type))
     return false;
-  internal_fn cond_fn = get_conditional_internal_fn (code, lhs_type);
-  return vectorized_internal_fn_supported_p (cond_fn, TYPE_MODE (lhs_type));
+  internal_fn cond_fn = get_conditional_internal_fn (code);
+  return (cond_fn != IFN_LAST
+	  && vectorized_internal_fn_supported_p (cond_fn, lhs_type));
 }
 
 /* Return true when STMT is if-convertible.
@@ -2209,7 +2230,7 @@ predicate_rhs_code (gassign *stmt, tree mask, tree cond)
     }
 
   /* Create and insert the call.  */
-  internal_fn cond_fn = get_conditional_internal_fn (code, lhs_type);
+  internal_fn cond_fn = get_conditional_internal_fn (code);
   gcall *new_stmt = gimple_build_call_internal_vec (cond_fn, args);
   gimple_call_set_lhs (new_stmt, lhs);
   gimple_call_set_nothrow (new_stmt, true);
@@ -3083,6 +3104,12 @@ pass_if_conversion::execute (function *fun)
 	|| ((flag_tree_loop_vectorize || loop->force_vectorize)
 	    && !loop->dont_vectorize))
       todo |= tree_if_conversion (loop);
+
+  if (todo)
+    {
+      free_numbers_of_iterations_estimates (fun);
+      scev_reset ();
+    }
 
   if (flag_checking)
     {

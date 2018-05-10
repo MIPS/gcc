@@ -1,5 +1,5 @@
 /* dwarf2out.h - Various declarations for functions found in dwarf2out.c
-   Copyright (C) 1998-2017 Free Software Foundation, Inc.
+   Copyright (C) 1998-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -160,7 +160,9 @@ enum dw_val_class
   dw_val_class_discr_list,
   dw_val_class_const_implicit,
   dw_val_class_unsigned_const_implicit,
-  dw_val_class_file_implicit
+  dw_val_class_file_implicit,
+  dw_val_class_view_list,
+  dw_val_class_symview
 };
 
 /* Describe a floating point constant value, or a vector constant value.  */
@@ -203,6 +205,7 @@ struct GTY(()) dw_val_node {
       rtx GTY ((tag ("dw_val_class_addr"))) val_addr;
       unsigned HOST_WIDE_INT GTY ((tag ("dw_val_class_offset"))) val_offset;
       dw_loc_list_ref GTY ((tag ("dw_val_class_loc_list"))) val_loc_list;
+      dw_die_ref GTY ((tag ("dw_val_class_view_list"))) val_view_list;
       dw_loc_descr_ref GTY ((tag ("dw_val_class_loc"))) val_loc;
       HOST_WIDE_INT GTY ((default)) val_int;
       unsigned HOST_WIDE_INT
@@ -231,6 +234,7 @@ struct GTY(()) dw_val_node {
 	} GTY ((tag ("dw_val_class_vms_delta"))) val_vms_delta;
       dw_discr_value GTY ((tag ("dw_val_class_discr_value"))) val_discr_value;
       dw_discr_list_ref GTY ((tag ("dw_val_class_discr_list"))) val_discr_list;
+      char * GTY ((tag ("dw_val_class_symview"))) val_symbolic_view;
     }
   GTY ((desc ("%1.val_class"))) v;
 };

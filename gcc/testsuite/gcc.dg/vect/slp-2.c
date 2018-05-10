@@ -140,5 +140,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 4 loops" 1 "vect"  } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 4 "vect" { xfail { vect_variable_length && vect_load_lanes } } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 4 "vect" { xfail vect_variable_length } } } */
   

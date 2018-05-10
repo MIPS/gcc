@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -462,27 +462,6 @@ vect_loop_vectorized_call (struct loop *loop)
 	}
     }
   return NULL;
-}
-
-/* Fold loop internal call G like IFN_LOOP_VECTORIZED/IFN_LOOP_DIST_ALIAS
-   to VALUE and update any immediate uses of it's LHS.  */
-
-static void
-fold_loop_internal_call (gimple *g, tree value)
-{
-  tree lhs = gimple_call_lhs (g);
-  use_operand_p use_p;
-  imm_use_iterator iter;
-  gimple *use_stmt;
-  gimple_stmt_iterator gsi = gsi_for_stmt (g);
-
-  update_call_from_tree (&gsi, value);
-  FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
-    {
-      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-	SET_USE (use_p, value);
-      update_stmt (use_stmt);
-    }
 }
 
 /* If LOOP has been versioned during loop distribution, return the gurading
@@ -1043,7 +1022,7 @@ get_vec_alignment_for_array_type (tree type)
   if (!vectype
       || !poly_int_tree_p (TYPE_SIZE (type), &array_size)
       || !poly_int_tree_p (TYPE_SIZE (vectype), &vector_size)
-      || must_lt (array_size, vector_size))
+      || maybe_lt (array_size, vector_size))
     return 0;
 
   return TYPE_ALIGN (vectype);

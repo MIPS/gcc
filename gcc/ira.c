@@ -1,5 +1,5 @@
 /* Integrated Register Allocator (IRA) entry point.
-   Copyright (C) 2006-2017 Free Software Foundation, Inc.
+   Copyright (C) 2006-2018 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1578,7 +1578,10 @@ ira_init_register_move_cost (machine_mode mode)
   ira_assert (ira_register_move_cost[mode] == NULL
 	      && ira_may_move_in_cost[mode] == NULL
 	      && ira_may_move_out_cost[mode] == NULL);
-  ira_assert (have_regs_of_mode[mode]);
+  /* Note that we might be asked about the move costs of modes that
+     cannot be stored in any hard register, for example if an inline
+     asm tries to create a register operand with an impossible mode.
+     We therefore can't assert have_regs_of_mode[mode] here.  */
   for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
     for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
       {
@@ -2286,9 +2289,6 @@ ira_setup_eliminable_regset (void)
 	   && cfun->can_throw_non_call_exceptions)
        || crtl->accesses_prior_frames
        || (SUPPORTS_STACK_ALIGNMENT && crtl->stack_realign_needed)
-       /* We need a frame pointer for all Cilk Plus functions that use
-	  Cilk keywords.  */
-       || (flag_cilkplus && cfun->is_cilk_function)
        || targetm.frame_pointer_required ());
 
     /* The chance that FRAME_POINTER_NEEDED is changed from inspecting
@@ -3842,9 +3842,9 @@ combine_and_move_insns (void)
 	}
 
       /* Last pass - adjust debug insns referencing cleared regs.  */
-      if (MAY_HAVE_DEBUG_INSNS)
+      if (MAY_HAVE_DEBUG_BIND_INSNS)
 	for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	  if (DEBUG_INSN_P (insn))
+	  if (DEBUG_BIND_INSN_P (insn))
 	    {
 	      rtx old_loc = INSN_VAR_LOCATION_LOC (insn);
 	      INSN_VAR_LOCATION_LOC (insn)

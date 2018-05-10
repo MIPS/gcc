@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -955,7 +955,7 @@ reload (rtx_insn *first, int global)
       if (caller_save_needed)
 	setup_save_areas ();
 
-      if (may_ne (starting_frame_size, 0) && crtl->stack_alignment_needed)
+      if (maybe_ne (starting_frame_size, 0) && crtl->stack_alignment_needed)
 	{
 	  /* If we have a stack frame, we must align it now.  The
 	     stack size may be a part of the offset computation for
@@ -969,7 +969,7 @@ reload (rtx_insn *first, int global)
 	}
       /* If we allocated another stack slot, redo elimination bookkeeping.  */
       if (something_was_spilled
-	  || may_ne (starting_frame_size, get_frame_size ()))
+	  || maybe_ne (starting_frame_size, get_frame_size ()))
 	{
 	  if (update_eliminables_and_spill ())
 	    finish_spills (0);
@@ -996,7 +996,7 @@ reload (rtx_insn *first, int global)
       /* If we allocated any new memory locations, make another pass
 	 since it might have changed elimination offsets.  */
       if (something_was_spilled
-	  || may_ne (starting_frame_size, get_frame_size ()))
+	  || maybe_ne (starting_frame_size, get_frame_size ()))
 	something_changed = 1;
 
       /* Even if the frame size remained the same, we might still have
@@ -1049,7 +1049,7 @@ reload (rtx_insn *first, int global)
 
       reload_as_needed (global);
 
-      gcc_assert (must_eq (old_frame_size, get_frame_size ()));
+      gcc_assert (known_eq (old_frame_size, get_frame_size ()));
 
       gcc_assert (verify_initial_elim_offsets ());
     }
@@ -1114,7 +1114,7 @@ reload (rtx_insn *first, int global)
       /* We don't want complex addressing modes in debug insns
 	 if simpler ones will do, so delegitimize equivalences
 	 in debug insns.  */
-      if (MAY_HAVE_DEBUG_INSNS && reg_renumber[i] < 0)
+      if (MAY_HAVE_DEBUG_BIND_INSNS && reg_renumber[i] < 0)
 	{
 	  rtx reg = regno_reg_rtx[i];
 	  rtx equiv = 0;
@@ -1142,7 +1142,7 @@ reload (rtx_insn *first, int global)
 	      while (next && DF_REF_INSN (next) == insn)
 		next = DF_REF_NEXT_REG (next);
 
-	      if (DEBUG_INSN_P (insn))
+	      if (DEBUG_BIND_INSN_P (insn))
 		{
 		  if (!equiv)
 		    {
@@ -2185,7 +2185,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
-				  || may_gt (total_size, inherent_size)
+				  || maybe_gt (total_size, inherent_size)
 				  ? -1 : 0);
 
 	  stack_slot = x;
@@ -2196,7 +2196,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  if (BYTES_BIG_ENDIAN)
 	    {
 	      adjust = inherent_size - total_size;
-	      if (may_ne (adjust, 0))
+	      if (maybe_ne (adjust, 0))
 		{
 		  poly_uint64 total_bits = total_size * BITS_PER_UNIT;
 		  machine_mode mem_mode
@@ -2212,10 +2212,10 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 
       /* Reuse a stack slot if possible.  */
       else if (spill_stack_slot[from_reg] != 0
-	       && must_ge (spill_stack_slot_width[from_reg], total_size)
-	       && must_ge (GET_MODE_SIZE
-			   (GET_MODE (spill_stack_slot[from_reg])),
-			   inherent_size)
+	       && known_ge (spill_stack_slot_width[from_reg], total_size)
+	       && known_ge (GET_MODE_SIZE
+			    (GET_MODE (spill_stack_slot[from_reg])),
+			    inherent_size)
 	       && MEM_ALIGN (spill_stack_slot[from_reg]) >= min_align)
 	x = spill_stack_slot[from_reg];
 
@@ -2244,7 +2244,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  /* Make a slot with that size.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
-				  || may_gt (total_size, inherent_size)
+				  || maybe_gt (total_size, inherent_size)
 				  ? -1 : 0);
 	  stack_slot = x;
 
@@ -2254,7 +2254,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	  if (BYTES_BIG_ENDIAN)
 	    {
 	      adjust = GET_MODE_SIZE (mode) - total_size;
-	      if (may_ne (adjust, 0))
+	      if (maybe_ne (adjust, 0))
 		{
 		  poly_uint64 total_bits = total_size * BITS_PER_UNIT;
 		  machine_mode mem_mode
@@ -2368,9 +2368,9 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
 	   where the offsets disagree.  */
 
 	for (i = 0; i < NUM_ELIMINABLE_REGS; i++)
-	  if (may_ne (offsets_at[CODE_LABEL_NUMBER (x) - first_label_num][i],
-		      (initial_p ? reg_eliminate[i].initial_offset
-		       : reg_eliminate[i].offset)))
+	  if (maybe_ne (offsets_at[CODE_LABEL_NUMBER (x) - first_label_num][i],
+			(initial_p ? reg_eliminate[i].initial_offset
+			 : reg_eliminate[i].offset)))
 	    reg_eliminate[i].can_eliminate = 0;
 
       return;
@@ -2453,7 +2453,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
       /* If we reach here, all eliminations must be at their initial
 	 offset because we are doing a jump to a variable address.  */
       for (p = reg_eliminate; p < &reg_eliminate[NUM_ELIMINABLE_REGS]; p++)
-	if (may_ne (p->offset, p->initial_offset))
+	if (maybe_ne (p->offset, p->initial_offset))
 	  p->can_eliminate = 0;
       break;
 
@@ -2612,7 +2612,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 		   PLUS here, unless inside a MEM.  */
 		if (mem_mode != 0
 		    && CONST_INT_P (XEXP (x, 1))
-		    && must_eq (INTVAL (XEXP (x, 1)), -ep->previous_offset))
+		    && known_eq (INTVAL (XEXP (x, 1)), -ep->previous_offset))
 		  return ep->to_rtx;
 		else
 		  return gen_rtx_PLUS (Pmode, ep->to_rtx,
@@ -2845,7 +2845,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 			&& known_equal_after_align_down (x_size - 1,
 							 new_size - 1,
 							 UNITS_PER_WORD)))
-		  || must_eq (x_size, new_size))
+		  || known_eq (x_size, new_size))
 	      )
 	    return adjust_address_nv (new_rtx, GET_MODE (x), SUBREG_BYTE (x));
 	  else if (insn && GET_CODE (insn) == DEBUG_INSN)
@@ -3221,7 +3221,7 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
 		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
-      if (DEBUG_INSN_P (insn))
+      if (DEBUG_BIND_INSN_P (insn))
 	INSN_VAR_LOCATION_LOC (insn)
 	  = eliminate_regs (INSN_VAR_LOCATION_LOC (insn), VOIDmode, insn);
       return 0;
@@ -3383,7 +3383,7 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 	       increase the cost of the insn by replacing a simple REG
 	       with (plus (reg sp) CST).  So try only when we already
 	       had a PLUS before.  */
-	    if (must_eq (offset, 0) || plus_src)
+	    if (known_eq (offset, 0) || plus_src)
 	      {
 		rtx new_src = plus_constant (GET_MODE (to_rtx),
 					     to_rtx, offset);
@@ -3581,12 +3581,12 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
 
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
-      if (may_ne (ep->previous_offset, ep->offset) && ep->ref_outside_mem)
+      if (maybe_ne (ep->previous_offset, ep->offset) && ep->ref_outside_mem)
 	ep->can_eliminate = 0;
 
       ep->ref_outside_mem = 0;
 
-      if (may_ne (ep->previous_offset, ep->offset))
+      if (maybe_ne (ep->previous_offset, ep->offset))
 	val = 1;
     }
 
@@ -3752,7 +3752,7 @@ elimination_costs_in_insn (rtx_insn *insn)
 
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
-      if (may_ne (ep->previous_offset, ep->offset) && ep->ref_outside_mem)
+      if (maybe_ne (ep->previous_offset, ep->offset) && ep->ref_outside_mem)
 	ep->can_eliminate = 0;
 
       ep->ref_outside_mem = 0;
@@ -3777,7 +3777,7 @@ update_eliminable_offsets (void)
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       ep->previous_offset = ep->offset;
-      if (ep->can_eliminate && may_ne (ep->offset, ep->initial_offset))
+      if (ep->can_eliminate && maybe_ne (ep->offset, ep->initial_offset))
 	num_not_at_initial_offset++;
     }
 }
@@ -3841,7 +3841,7 @@ verify_initial_elim_offsets (void)
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
-      if (may_ne (t, ep->initial_offset))
+      if (maybe_ne (t, ep->initial_offset))
 	return false;
     }
 
@@ -3912,7 +3912,7 @@ set_offsets_for_label (rtx_insn *insn)
     {
       ep->offset = ep->previous_offset
 		 = offsets_at[label_nr - first_label_num][i];
-      if (ep->can_eliminate && may_ne (ep->offset, ep->initial_offset))
+      if (ep->can_eliminate && maybe_ne (ep->offset, ep->initial_offset))
 	num_not_at_initial_offset++;
     }
 }
@@ -6576,7 +6576,7 @@ choose_reload_regs (struct insn_chain *chain)
 
 	      if (regno >= 0
 		  && reg_last_reload_reg[regno] != 0
-		  && (must_ge
+		  && (known_ge
 		      (GET_MODE_SIZE (GET_MODE (reg_last_reload_reg[regno])),
 		       GET_MODE_SIZE (mode) + byte))
 		  /* Verify that the register it's in can be used in
@@ -7366,12 +7366,12 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 
 	      /* Adjust any debug insns between temp and insn.  */
 	      while ((temp = NEXT_INSN (temp)) != insn)
-		if (DEBUG_INSN_P (temp))
+		if (DEBUG_BIND_INSN_P (temp))
 		  INSN_VAR_LOCATION_LOC (temp)
 		    = simplify_replace_rtx (INSN_VAR_LOCATION_LOC (temp),
 					    old, reloadreg);
 		else
-		  gcc_assert (NOTE_P (temp));
+		  gcc_assert (DEBUG_INSN_P (temp) || NOTE_P (temp));
 	    }
 	  else
 	    {
@@ -8027,8 +8027,8 @@ do_output_reload (struct insn_chain *chain, struct reload *rl, int j)
   /* Likewise for a SUBREG of an operand that dies.  */
   else if (GET_CODE (old) == SUBREG
 	   && REG_P (SUBREG_REG (old))
-	   && 0 != (note = find_reg_note (insn, REG_UNUSED,
-					  SUBREG_REG (old))))
+	   && (note = find_reg_note (insn, REG_UNUSED,
+				     SUBREG_REG (old))) != 0)
     {
       XEXP (note, 0) = gen_lowpart_common (GET_MODE (old), reg_rtx);
       return;

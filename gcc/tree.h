@@ -1,5 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989-2017 Free Software Foundation, Inc.
+   Copyright (C) 1989-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -483,6 +483,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define STRIP_USELESS_TYPE_CONVERSION(EXP) \
   (EXP) = tree_ssa_strip_useless_type_conversions (EXP)
 
+/* Remove any VIEW_CONVERT_EXPR or NON_LVALUE_EXPR that's purely
+   in use to provide a location_t.  */
+
+#define STRIP_ANY_LOCATION_WRAPPER(EXP) \
+  (EXP) = tree_strip_any_location_wrapper (CONST_CAST_TREE (EXP))
+
 /* Nonzero if TYPE represents a vector type.  */
 
 #define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
@@ -696,6 +702,14 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    emitted.  */
 #define TREE_NO_WARNING(NODE) ((NODE)->base.nowarning_flag)
 
+/* Nonzero if we should warn about the change in empty class parameter
+   passing ABI in this TU.  */
+#define TRANSLATION_UNIT_WARN_EMPTY_P(NODE) \
+  (TRANSLATION_UNIT_DECL_CHECK (NODE)->decl_common.decl_flag_0)
+
+/* Nonzero if this type is "empty" according to the particular psABI.  */
+#define TYPE_EMPTY_P(NODE) (TYPE_CHECK (NODE)->type_common.empty_flag)
+
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) (TYPE_CHECK (NODE)->base.nowarning_flag)
 
@@ -709,8 +723,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->base.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST, VEC_DUPLICATE_CST
-   or VEC_SERES_CST, this means there was an overflow in folding.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
+   there was an overflow in folding.  */
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
 
@@ -757,6 +771,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    This is used to implement -Wimplicit-fallthrough.  */
 #define FALLTHROUGH_LABEL_P(NODE) \
   (LABEL_DECL_CHECK (NODE)->base.private_flag)
+
+/* Set on the artificial label created for break; stmt from a switch.
+   This is used to implement -Wimplicit-fallthrough.  */
+#define SWITCH_BREAK_LABEL_P(NODE) \
+  (LABEL_DECL_CHECK (NODE)->base.protected_flag)
 
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
@@ -810,13 +829,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
 #define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
 
-/* True if overflow wraps around for the given integral type.  That
+/* True if overflow wraps around for the given integral or pointer type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \
-  (ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag || flag_wrapv)
+  (POINTER_TYPE_P (TYPE)					\
+   ? flag_wrapv_pointer						\
+   : (ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag	\
+      || flag_wrapv))
 
-/* True if overflow is undefined for the given integral type.  We may
-   optimize on the assumption that values in the type never overflow.
+/* True if overflow is undefined for the given integral or pointer type.
+   We may optimize on the assumption that values in the type never overflow.
 
    IMPORTANT NOTE: Any optimization based on TYPE_OVERFLOW_UNDEFINED
    must issue a warning based on warn_strict_overflow.  In some cases
@@ -824,8 +846,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    other cases it will be appropriate to simply set a flag and let the
    caller decide whether a warning is appropriate or not.  */
 #define TYPE_OVERFLOW_UNDEFINED(TYPE)				\
-  (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag	\
-   && !flag_wrapv && !flag_trapv)
+  (POINTER_TYPE_P (TYPE)					\
+   ? !flag_wrapv_pointer					\
+   : (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag	\
+      && !flag_wrapv && !flag_trapv))
 
 /* True if overflow for the given integral type should issue a
    trap.  */
@@ -866,15 +890,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    expansion as the return slot for a call that returns in memory.  */
 #define CALL_EXPR_RETURN_SLOT_OPT(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.private_flag)
-
-/* Cilk keywords accessors.  */
-#define CILK_SPAWN_FN(NODE) TREE_OPERAND (CILK_SPAWN_STMT_CHECK (NODE), 0)
-
-/* If this is true, we should insert a __cilk_detach call just before
-   this function call.  */
-#define EXPR_CILK_SPAWN(NODE) \
-  (TREE_CHECK2 (NODE, CALL_EXPR, \
-                AGGR_INIT_EXPR)->base.u.bits.unsigned_flag)
 
 /* In a RESULT_DECL, PARM_DECL and VAR_DECL, means that it is
    passed by invisible reference (and the TREE_TYPE is a pointer to the true
@@ -1013,20 +1028,24 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_REALPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.real)
 #define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.imag)
 
-/* In a VECTOR_CST node.  */
-#define VECTOR_CST_NELTS(NODE) (VECTOR_CST_CHECK (NODE)->base.u.nelts)
-#define VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elts)
-#define VECTOR_CST_ELT(NODE,IDX) (VECTOR_CST_CHECK (NODE)->vector.elts[IDX])
+/* In a VECTOR_CST node.  See generic.texi for details.  */
+#define VECTOR_CST_NELTS(NODE) (TYPE_VECTOR_SUBPARTS (TREE_TYPE (NODE)))
+#define VECTOR_CST_ELT(NODE,IDX) vector_cst_elt (NODE, IDX)
 
-/* In a VEC_DUPLICATE_CST node.  */
-#define VEC_DUPLICATE_CST_ELT(NODE) \
-  (VEC_DUPLICATE_CST_CHECK (NODE)->vector.elts[0])
-
-/* In a VEC_SERIES_CST node.  */
-#define VEC_SERIES_CST_BASE(NODE) \
-  (VEC_SERIES_CST_CHECK (NODE)->vector.elts[0])
-#define VEC_SERIES_CST_STEP(NODE) \
-  (VEC_SERIES_CST_CHECK (NODE)->vector.elts[1])
+#define VECTOR_CST_LOG2_NPATTERNS(NODE) \
+  (VECTOR_CST_CHECK (NODE)->base.u.vector_cst.log2_npatterns)
+#define VECTOR_CST_NPATTERNS(NODE) \
+  (1U << VECTOR_CST_LOG2_NPATTERNS (NODE))
+#define VECTOR_CST_NELTS_PER_PATTERN(NODE) \
+  (VECTOR_CST_CHECK (NODE)->base.u.vector_cst.nelts_per_pattern)
+#define VECTOR_CST_DUPLICATE_P(NODE) \
+  (VECTOR_CST_NELTS_PER_PATTERN (NODE) == 1)
+#define VECTOR_CST_STEPPED_P(NODE) \
+  (VECTOR_CST_NELTS_PER_PATTERN (NODE) == 3)
+#define VECTOR_CST_ENCODED_ELTS(NODE) \
+  (VECTOR_CST_CHECK (NODE)->vector.elts)
+#define VECTOR_CST_ENCODED_ELT(NODE, ELT) \
+  (VECTOR_CST_CHECK (NODE)->vector.elts[ELT])
 
 /* Define fields and accessors for some special-purpose tree nodes.  */
 
@@ -1124,8 +1143,14 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define VL_EXP_OPERAND_LENGTH(NODE) \
   ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
 
+/* Nonzero if gimple_debug_nonbind_marker_p() may possibly hold.  */
+#define MAY_HAVE_DEBUG_MARKER_STMTS debug_nonbind_markers_p
+/* Nonzero if gimple_debug_bind_p() (and thus
+   gimple_debug_source_bind_p()) may possibly hold.  */
+#define MAY_HAVE_DEBUG_BIND_STMTS flag_var_tracking_assignments
 /* Nonzero if is_gimple_debug() may possibly hold.  */
-#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
+#define MAY_HAVE_DEBUG_STMTS					\
+  (MAY_HAVE_DEBUG_MARKER_STMTS || MAY_HAVE_DEBUG_BIND_STMTS)
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
@@ -1166,10 +1191,15 @@ get_expr_source_range (tree expr)
 
 extern void protected_set_expr_location (tree, location_t);
 
+extern tree maybe_wrap_with_location (tree, location_t);
+
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
 #define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 1)
 #define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 2)
+/* Don't elide the initialization of TARGET_EXPR_SLOT for this TARGET_EXPR
+   on rhs of MODIFY_EXPR.  */
+#define TARGET_EXPR_NO_ELIDE(NODE) (TARGET_EXPR_CHECK (NODE)->base.private_flag)
 
 /* DECL_EXPR accessor. This gives access to the DECL associated with
    the given declaration statement.  */
@@ -1183,12 +1213,13 @@ extern void protected_set_expr_location (tree, location_t);
 #define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
   DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_EXPR (NODE))
 
-/* SWITCH_EXPR accessors. These give access to the condition, body and
-   original condition type (before any compiler conversions)
-   of the switch statement, respectively.  */
+/* SWITCH_EXPR accessors. These give access to the condition and body.  */
 #define SWITCH_COND(NODE)       TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 0)
 #define SWITCH_BODY(NODE)       TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 1)
-#define SWITCH_LABELS(NODE)     TREE_OPERAND (SWITCH_EXPR_CHECK (NODE), 2)
+/* True if there are case labels for all possible values of SWITCH_COND, either
+   because there is a default: case label or because the case label ranges cover
+   all values.  */
+#define SWITCH_ALL_CASES_P(NODE) (SWITCH_EXPR_CHECK (NODE)->base.private_flag)
 
 /* CASE_LABEL_EXPR accessors. These give access to the high and low values
    of a case label, respectively.  */
@@ -1217,7 +1248,7 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* GOTO_EXPR accessor. This gives access to the label associated with
    a goto statement.  */
-#define GOTO_DESTINATION(NODE)  TREE_OPERAND ((NODE), 0)
+#define GOTO_DESTINATION(NODE)  TREE_OPERAND (GOTO_EXPR_CHECK (NODE), 0)
 
 /* ASM_EXPR accessors. ASM_STRING returns a STRING_CST for the
    instruction (e.g., "mov x, y"). ASM_OUTPUTS, ASM_INPUTS, and
@@ -2538,11 +2569,11 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_RTL_SET_P(NODE) \
   (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
 
-/* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
-   NODE1, it will not be set for NODE2; this is a lazy copy.  */
-#define COPY_DECL_RTL(NODE1, NODE2) \
-  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl \
-   = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
+/* Copy the RTL from SRC_DECL to DST_DECL.  If the RTL was not set for
+   SRC_DECL, it will not be set for DST_DECL; this is a lazy copy.  */
+#define COPY_DECL_RTL(SRC_DECL, DST_DECL) \
+  (DECL_WRTL_CHECK (DST_DECL)->decl_with_rtl.rtl \
+   = DECL_WRTL_CHECK (SRC_DECL)->decl_with_rtl.rtl)
 
 /* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
 #define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
@@ -2628,6 +2659,10 @@ extern void decl_value_expr_insert (tree, tree);
    (int) but instead directly that of the type of 's' (struct S).  */
 #define DECL_NONADDRESSABLE_P(NODE) \
   (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_2)
+
+/* Used in a FIELD_DECL to indicate that this field is padding.  */
+#define DECL_PADDING_P(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_3)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
@@ -2733,19 +2768,21 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
-  (DECL_ASSEMBLER_NAME_RAW (NODE) = (NAME))
+  overwrite_decl_assembler_name (NODE, NAME)
 
-/* Copy the DECL_ASSEMBLER_NAME from DECL1 to DECL2.  Note that if DECL1's
-   DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
-   the DECL_ASSEMBLER_NAME of either DECL to be set.  In other words, the
-   semantics of using this macro, are different than saying:
+/* Copy the DECL_ASSEMBLER_NAME from SRC_DECL to DST_DECL.  Note that
+   if SRC_DECL's DECL_ASSEMBLER_NAME has not yet been set, using this
+   macro will not cause the DECL_ASSEMBLER_NAME to be set, but will
+   clear DECL_ASSEMBLER_NAME of DST_DECL, if it was already set.  In
+   other words, the semantics of using this macro, are different than
+   saying:
 
-     SET_DECL_ASSEMBLER_NAME(DECL2, DECL_ASSEMBLER_NAME (DECL1))
+     SET_DECL_ASSEMBLER_NAME(DST_DECL, DECL_ASSEMBLER_NAME (SRC_DECL))
 
-   which will try to set the DECL_ASSEMBLER_NAME for DECL1.  */
+   which will try to set the DECL_ASSEMBLER_NAME for SRC_DECL.  */
 
-#define COPY_DECL_ASSEMBLER_NAME(DECL1, DECL2)				\
-  SET_DECL_ASSEMBLER_NAME (DECL2, DECL_ASSEMBLER_NAME_RAW (DECL1))
+#define COPY_DECL_ASSEMBLER_NAME(SRC_DECL, DST_DECL)			\
+  SET_DECL_ASSEMBLER_NAME (DST_DECL, DECL_ASSEMBLER_NAME_RAW (SRC_DECL))
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
@@ -3657,9 +3694,9 @@ TYPE_VECTOR_SUBPARTS (const_tree node)
   if (NUM_POLY_INT_COEFFS == 2)
     {
       poly_uint64 res = 0;
-      res.coeffs[0] = 1 << (precision / 2);
-      if (precision & 1)
-	res.coeffs[1] = 1 << (precision / 2);
+      res.coeffs[0] = 1 << (precision & 0xff);
+      if (precision & 0x100)
+	res.coeffs[1] = 1 << (precision & 0xff);
       return res;
     }
   else
@@ -3681,7 +3718,7 @@ SET_TYPE_VECTOR_SUBPARTS (tree node, poly_uint64 subparts)
       unsigned HOST_WIDE_INT coeff1 = subparts.coeffs[1];
       gcc_assert (coeff1 == 0 || coeff1 == coeff0);
       VECTOR_TYPE_CHECK (node)->type_common.precision
-	= index * 2 + (coeff1 != 0);
+	= index + (coeff1 != 0 ? 0x100 : 0);
     }
   else
     VECTOR_TYPE_CHECK (node)->type_common.precision = index;
@@ -3703,6 +3740,45 @@ valid_vector_subparts_p (poly_uint64 subparts)
 	return false;
     }
   return true;
+}
+
+/* In NON_LVALUE_EXPR and VIEW_CONVERT_EXPR, set when this node is merely a
+   wrapper added to express a location_t on behalf of the node's child
+   (e.g. by maybe_wrap_with_location).  */
+
+#define EXPR_LOCATION_WRAPPER_P(NODE) \
+  (TREE_CHECK2(NODE, NON_LVALUE_EXPR, VIEW_CONVERT_EXPR)->base.public_flag)
+
+/* Test if EXP is merely a wrapper node, added to express a location_t
+   on behalf of the node's child (e.g. by maybe_wrap_with_location).  */
+
+inline bool
+location_wrapper_p (const_tree exp)
+{
+  /* A wrapper node has code NON_LVALUE_EXPR or VIEW_CONVERT_EXPR, and
+     the flag EXPR_LOCATION_WRAPPER_P is set.
+     It normally has the same type as its operand, but it can have a
+     different one if the type of the operand has changed (e.g. when
+     merging duplicate decls).
+
+     NON_LVALUE_EXPR is used for wrapping constants, apart from STRING_CST.
+     VIEW_CONVERT_EXPR is used for wrapping non-constants and STRING_CST.  */
+  if ((TREE_CODE (exp) == NON_LVALUE_EXPR
+       || TREE_CODE (exp) == VIEW_CONVERT_EXPR)
+      && EXPR_LOCATION_WRAPPER_P (exp))
+    return true;
+  return false;
+}
+
+/* Implementation of STRIP_ANY_LOCATION_WRAPPER.  */
+
+inline tree
+tree_strip_any_location_wrapper (tree exp)
+{
+  if (location_wrapper_p (exp))
+    return TREE_OPERAND (exp, 0);
+  else
+    return exp;
 }
 
 #define error_mark_node			global_trees[TI_ERROR_MARK]
@@ -3939,7 +4015,16 @@ valid_vector_subparts_p (poly_uint64 subparts)
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
+/* Return the number of elements encoded directly in a VECTOR_CST.  */
+
+inline unsigned int
+vector_cst_encoded_nelts (const_tree t)
+{
+  return VECTOR_CST_NPATTERNS (t) * VECTOR_CST_NELTS_PER_PATTERN (t);
+}
+
 extern tree decl_assembler_name (tree);
+extern void overwrite_decl_assembler_name (tree decl, tree name);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
 extern const char *decl_section_name (const_tree);
@@ -4077,8 +4162,7 @@ extern tree force_fit_type (tree, const poly_wide_int_ref &, int, bool);
 extern tree build_int_cst (tree, poly_int64);
 extern tree build_int_cstu (tree type, poly_uint64);
 extern tree build_int_cst_type (tree, poly_int64);
-extern tree make_vector (unsigned CXX_MEM_STAT_INFO);
-extern tree build_vector (tree, vec<tree> CXX_MEM_STAT_INFO);
+extern tree make_vector (unsigned, unsigned CXX_MEM_STAT_INFO);
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
 extern tree build_vec_series (tree, tree, tree);
@@ -4089,6 +4173,7 @@ extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
 extern tree build_constructor_va (tree, int, ...);
+extern tree build_clobber (tree);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_complex_inf (tree, bool);
@@ -4371,6 +4456,9 @@ extern tree first_field (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
+extern wide_int vector_cst_int_elt (const_tree, unsigned int);
+extern tree vector_cst_elt (const_tree, unsigned int);
+
 /* Given a vector VEC, return its first element if all elements are
    the same.  Otherwise return NULL_TREE.  */
 
@@ -4626,6 +4714,10 @@ storage_order_barrier_p (const_tree t)
    NUL_TREE if there is no containing scope.  */
 
 extern tree get_containing_scope (const_tree);
+
+/* Returns the ultimate TRANSLATION_UNIT_DECL context of DECL or NULL.  */
+
+extern const_tree get_ultimate_context (const_tree);
 
 /* Return the FUNCTION_DECL which provides this _DECL with its context,
    or zero if none.  */
@@ -5593,8 +5685,8 @@ bool
 wi::fits_to_boolean_p (const T &x, const_tree type)
 {
   typedef typename poly_int_traits<T>::int_type int_type;
-  return (must_eq (x, int_type (0))
-	  || must_eq (x, int_type (TYPE_UNSIGNED (type) ? 1 : -1)));
+  return (known_eq (x, int_type (0))
+	  || known_eq (x, int_type (TYPE_UNSIGNED (type) ? 1 : -1)));
 }
 
 template <typename T>
@@ -5607,9 +5699,9 @@ wi::fits_to_tree_p (const T &x, const_tree type)
     return fits_to_boolean_p (x, type);
 
   if (TYPE_UNSIGNED (type))
-    return must_eq (x, zext (x, TYPE_PRECISION (type)));
+    return known_eq (x, zext (x, TYPE_PRECISION (type)));
   else
-    return must_eq (x, sext (x, TYPE_PRECISION (type)));
+    return known_eq (x, sext (x, TYPE_PRECISION (type)));
 }
 
 /* Produce the smallest number that is represented in TYPE.  The precision
@@ -5722,6 +5814,10 @@ extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
 
 extern bool nonnull_arg_p (const_tree);
 extern bool is_redundant_typedef (const_tree);
+extern bool default_is_empty_record (const_tree);
+extern HOST_WIDE_INT arg_int_size_in_bytes (const_tree);
+extern tree arg_size_in_bytes (const_tree);
+extern bool expr_type_first_operand_type_p (tree_code);
 
 extern location_t
 set_source_range (tree expr, location_t start, location_t finish);
@@ -5765,7 +5861,7 @@ extern const builtin_structptr_type builtin_structptr_types[6];
 inline bool
 type_has_mode_precision_p (const_tree t)
 {
-  return must_eq (TYPE_PRECISION (t), GET_MODE_PRECISION (TYPE_MODE (t)));
+  return known_eq (TYPE_PRECISION (t), GET_MODE_PRECISION (TYPE_MODE (t)));
 }
 
 #endif  /* GCC_TREE_H  */

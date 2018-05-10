@@ -1,5 +1,5 @@
 /* Subroutines used for macro/preprocessor support on the ia-32.
-   Copyright (C) 2008-2017 Free Software Foundation, Inc.
+   Copyright (C) 2008-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -174,6 +174,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__silvermont");
       def_or_undef (parse_in, "__silvermont__");
       break;
+    case PROCESSOR_GOLDMONT:
+      def_or_undef (parse_in, "__goldmont");
+      def_or_undef (parse_in, "__goldmont__");
+      break;
     case PROCESSOR_KNL:
       def_or_undef (parse_in, "__knl");
       def_or_undef (parse_in, "__knl__");
@@ -182,9 +186,25 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__knm");
       def_or_undef (parse_in, "__knm__");
       break;
+    case PROCESSOR_SKYLAKE:
+      def_or_undef (parse_in, "__skylake");
+      def_or_undef (parse_in, "__skylake__");
+      break;
     case PROCESSOR_SKYLAKE_AVX512:
       def_or_undef (parse_in, "__skylake_avx512");
       def_or_undef (parse_in, "__skylake_avx512__");
+      break;
+    case PROCESSOR_CANNONLAKE:
+      def_or_undef (parse_in, "__cannonlake");
+      def_or_undef (parse_in, "__cannonlake__");
+      break;
+    case PROCESSOR_ICELAKE_CLIENT:
+      def_or_undef (parse_in, "__icelake_client");
+      def_or_undef (parse_in, "__icelake_client__");
+      break;
+    case PROCESSOR_ICELAKE_SERVER:
+      def_or_undef (parse_in, "__icelake_server");
+      def_or_undef (parse_in, "__icelake_server__");
       break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
@@ -295,14 +315,29 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__tune_slm__");
       def_or_undef (parse_in, "__tune_silvermont__");
       break;
+    case PROCESSOR_GOLDMONT:
+      def_or_undef (parse_in, "__tune_goldmont__");
+      break;
     case PROCESSOR_KNL:
       def_or_undef (parse_in, "__tune_knl__");
       break;
     case PROCESSOR_KNM:
       def_or_undef (parse_in, "__tune_knm__");
       break;
+    case PROCESSOR_SKYLAKE:
+      def_or_undef (parse_in, "__tune_skylake__");
+      break;
     case PROCESSOR_SKYLAKE_AVX512:
       def_or_undef (parse_in, "__tune_skylake_avx512__");
+      break;
+    case PROCESSOR_CANNONLAKE:
+      def_or_undef (parse_in, "__tune_cannonlake__");
+      break;
+    case PROCESSOR_ICELAKE_CLIENT:
+      def_or_undef (parse_in, "__tune_icelake_client__");
+      break;
+    case PROCESSOR_ICELAKE_SERVER:
+      def_or_undef (parse_in, "__tune_icelake_server__");
       break;
     case PROCESSOR_LAKEMONT:
       def_or_undef (parse_in, "__tune_lakemont__");
@@ -339,6 +374,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       ;
     }
 
+  if (isa_flag2 & OPTION_MASK_ISA_WBNOINVD)
+    def_or_undef (parse_in, "__WBNOINVD__");
   if (isa_flag & OPTION_MASK_ISA_MMX)
     def_or_undef (parse_in, "__MMX__");
   if (isa_flag & OPTION_MASK_ISA_3DNOW)
@@ -387,13 +424,19 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__AVX512IFMA__");
   if (isa_flag2 & OPTION_MASK_ISA_AVX5124VNNIW)
     def_or_undef (parse_in, "__AVX5124VNNIW__");
-  if (isa_flag2 & OPTION_MASK_ISA_AVX512VBMI2)
+  if (isa_flag & OPTION_MASK_ISA_AVX512VBMI2)
     def_or_undef (parse_in, "__AVX512VBMI2__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VNNI)
+    def_or_undef (parse_in, "__AVX512VNNI__");
+  if (isa_flag2 & OPTION_MASK_ISA_PCONFIG)
+    def_or_undef (parse_in, "__PCONFIG__");
   if (isa_flag2 & OPTION_MASK_ISA_SGX)
     def_or_undef (parse_in, "__SGX__");
   if (isa_flag2 & OPTION_MASK_ISA_AVX5124FMAPS)
     def_or_undef (parse_in, "__AVX5124FMAPS__");
-  if (isa_flag2 & OPTION_MASK_ISA_AVX512VPOPCNTDQ)
+  if (isa_flag & OPTION_MASK_ISA_AVX512BITALG)
+    def_or_undef (parse_in, "__AVX512BITALG__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VPOPCNTDQ)
     def_or_undef (parse_in, "__AVX512VPOPCNTDQ__");
   if (isa_flag & OPTION_MASK_ISA_FMA)
     def_or_undef (parse_in, "__FMA__");
@@ -445,7 +488,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE2_MATH__");
   if (isa_flag & OPTION_MASK_ISA_CLFLUSHOPT)
     def_or_undef (parse_in, "__CLFLUSHOPT__");
-  if (isa_flag & OPTION_MASK_ISA_CLZERO)
+  if (isa_flag2 & OPTION_MASK_ISA_CLZERO)
     def_or_undef (parse_in, "__CLZERO__");
   if (isa_flag & OPTION_MASK_ISA_XSAVEC)
     def_or_undef (parse_in, "__XSAVEC__");
@@ -455,7 +498,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__MPX__");
   if (isa_flag & OPTION_MASK_ISA_CLWB)
     def_or_undef (parse_in, "__CLWB__");
-  if (isa_flag & OPTION_MASK_ISA_MWAITX)
+  if (isa_flag2 & OPTION_MASK_ISA_MWAITX)
     def_or_undef (parse_in, "__MWAITX__");
   if (isa_flag & OPTION_MASK_ISA_PKU)
     def_or_undef (parse_in, "__PKU__");
@@ -463,18 +506,16 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__RDPID__");
   if (isa_flag & OPTION_MASK_ISA_GFNI)
     def_or_undef (parse_in, "__GFNI__");
-  if (isa_flag2 & OPTION_MASK_ISA_IBT)
-    {
-      def_or_undef (parse_in, "__IBT__");
-      if (flag_cf_protection != CF_NONE)
-	def_or_undef (parse_in, "__CET__");
-    }
-  if (isa_flag2 & OPTION_MASK_ISA_SHSTK)
-    {
-      def_or_undef (parse_in, "__SHSTK__");
-      if (flag_cf_protection != CF_NONE)
-	def_or_undef (parse_in, "__CET__");
-    }
+  if ((isa_flag & OPTION_MASK_ISA_SHSTK))
+    def_or_undef (parse_in, "__SHSTK__");
+  if (isa_flag2 & OPTION_MASK_ISA_VAES)
+    def_or_undef (parse_in, "__VAES__");
+  if (isa_flag & OPTION_MASK_ISA_VPCLMULQDQ)
+    def_or_undef (parse_in, "__VPCLMULQDQ__");
+  if (isa_flag & OPTION_MASK_ISA_MOVDIRI)
+    def_or_undef (parse_in, "__MOVDIRI__");
+  if (isa_flag2 & OPTION_MASK_ISA_MOVDIR64B)
+    def_or_undef (parse_in, "__MOVDIR64B__");
   if (TARGET_IAMCU)
     {
       def_or_undef (parse_in, "__iamcu");
@@ -634,6 +675,10 @@ ix86_target_macros (void)
 
   cpp_define (parse_in, "__SEG_FS");
   cpp_define (parse_in, "__SEG_GS");
+
+  if (flag_cf_protection != CF_NONE)
+    cpp_define_formatted (parse_in, "__CET__=%d",
+			  flag_cf_protection & ~CF_SET);
 }
 
 

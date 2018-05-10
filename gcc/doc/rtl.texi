@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2018 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -565,6 +565,16 @@ that are used in certain types of expression.  Most often they
 are accessed with the following macros, which expand into lvalues.
 
 @table @code
+@findex CROSSING_JUMP_P
+@cindex @code{jump_insn} and @samp{/j}
+@item CROSSING_JUMP_P (@var{x})
+Nonzero in a @code{jump_insn} if it crosses between hot and cold sections,
+which could potentially be very far apart in the executable.  The presence
+of this flag indicates to other optimizations that this branching instruction
+should not be ``collapsed'' into a simpler branching construct.  It is used
+when the optimization to partition basic blocks into hot and cold sections
+is turned on.
+
 @findex CONSTANT_POOL_ADDRESS_P
 @cindex @code{symbol_ref} and @samp{/u}
 @cindex @code{unchanging}, in @code{symbol_ref}
@@ -576,37 +586,6 @@ some targets the addresses are close to the beginning of the function.
 In either case GCC assumes these addresses can be addressed directly,
 perhaps with the help of base registers.
 Stored in the @code{unchanging} field and printed as @samp{/u}.
-
-@findex RTL_CONST_CALL_P
-@cindex @code{call_insn} and @samp{/u}
-@cindex @code{unchanging}, in @code{call_insn}
-@item RTL_CONST_CALL_P (@var{x})
-In a @code{call_insn} indicates that the insn represents a call to a
-const function.  Stored in the @code{unchanging} field and printed as
-@samp{/u}.
-
-@findex RTL_PURE_CALL_P
-@cindex @code{call_insn} and @samp{/i}
-@cindex @code{return_val}, in @code{call_insn}
-@item RTL_PURE_CALL_P (@var{x})
-In a @code{call_insn} indicates that the insn represents a call to a
-pure function.  Stored in the @code{return_val} field and printed as
-@samp{/i}.
-
-@findex RTL_CONST_OR_PURE_CALL_P
-@cindex @code{call_insn} and @samp{/u} or @samp{/i}
-@item RTL_CONST_OR_PURE_CALL_P (@var{x})
-In a @code{call_insn}, true if @code{RTL_CONST_CALL_P} or
-@code{RTL_PURE_CALL_P} is true.
-
-@findex RTL_LOOPING_CONST_OR_PURE_CALL_P
-@cindex @code{call_insn} and @samp{/c}
-@cindex @code{call}, in @code{call_insn}
-@item RTL_LOOPING_CONST_OR_PURE_CALL_P (@var{x})
-In a @code{call_insn} indicates that the insn represents a possibly
-infinite looping call to a const or pure function.  Stored in the
-@code{call} field and printed as @samp{/c}.  Only true if one of
-@code{RTL_CONST_CALL_P} or @code{RTL_PURE_CALL_P} is true.
 
 @findex INSN_ANNULLED_BRANCH_P
 @cindex @code{jump_insn} and @samp{/u}
@@ -702,6 +681,29 @@ Stored in the @code{call} field and printed as @samp{/c}.
 Nonzero in a @code{mem} if the memory reference holds a pointer.
 Stored in the @code{frame_related} field and printed as @samp{/f}.
 
+@findex MEM_READONLY_P
+@cindex @code{mem} and @samp{/u}
+@cindex @code{unchanging}, in @code{mem}
+@item MEM_READONLY_P (@var{x})
+Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
+
+Read-only in this context means never modified during the lifetime of the
+program, not necessarily in ROM or in write-disabled pages.  A common
+example of the later is a shared library's global offset table.  This
+table is initialized by the runtime loader, so the memory is technically
+writable, but after control is transferred from the runtime loader to the
+application, this memory will never be subsequently modified.
+
+Stored in the @code{unchanging} field and printed as @samp{/u}.
+
+@findex PREFETCH_SCHEDULE_BARRIER_P
+@cindex @code{prefetch} and @samp{/v}
+@cindex @code{volatile}, in @code{prefetch}
+@item PREFETCH_SCHEDULE_BARRIER_P (@var{x})
+In a @code{prefetch}, indicates that the prefetch is a scheduling barrier.
+No other INSNs will be moved over it.
+Stored in the @code{volatil} field and printed as @samp{/v}.
+
 @findex REG_FUNCTION_VALUE_P
 @cindex @code{reg} and @samp{/i}
 @cindex @code{return_val}, in @code{reg}
@@ -730,6 +732,37 @@ the compiler.  Stored in the @code{volatil} field and printed as
 The same hard register may be used also for collecting the values of
 functions called by this one, but @code{REG_FUNCTION_VALUE_P} is zero
 in this kind of use.
+
+@findex RTL_CONST_CALL_P
+@cindex @code{call_insn} and @samp{/u}
+@cindex @code{unchanging}, in @code{call_insn}
+@item RTL_CONST_CALL_P (@var{x})
+In a @code{call_insn} indicates that the insn represents a call to a
+const function.  Stored in the @code{unchanging} field and printed as
+@samp{/u}.
+
+@findex RTL_PURE_CALL_P
+@cindex @code{call_insn} and @samp{/i}
+@cindex @code{return_val}, in @code{call_insn}
+@item RTL_PURE_CALL_P (@var{x})
+In a @code{call_insn} indicates that the insn represents a call to a
+pure function.  Stored in the @code{return_val} field and printed as
+@samp{/i}.
+
+@findex RTL_CONST_OR_PURE_CALL_P
+@cindex @code{call_insn} and @samp{/u} or @samp{/i}
+@item RTL_CONST_OR_PURE_CALL_P (@var{x})
+In a @code{call_insn}, true if @code{RTL_CONST_CALL_P} or
+@code{RTL_PURE_CALL_P} is true.
+
+@findex RTL_LOOPING_CONST_OR_PURE_CALL_P
+@cindex @code{call_insn} and @samp{/c}
+@cindex @code{call}, in @code{call_insn}
+@item RTL_LOOPING_CONST_OR_PURE_CALL_P (@var{x})
+In a @code{call_insn} indicates that the insn represents a possibly
+infinite looping call to a const or pure function.  Stored in the
+@code{call} field and printed as @samp{/c}.  Only true if one of
+@code{RTL_CONST_CALL_P} or @code{RTL_PURE_CALL_P} is true.
 
 @findex RTX_FRAME_RELATED_P
 @cindex @code{insn} and @samp{/f}
@@ -764,21 +797,6 @@ computation performed by this instruction, i.e., one that
 
 This flag is required for exception handling support on targets with RTL
 prologues.
-
-@findex MEM_READONLY_P
-@cindex @code{mem} and @samp{/u}
-@cindex @code{unchanging}, in @code{mem}
-@item MEM_READONLY_P (@var{x})
-Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
-
-Read-only in this context means never modified during the lifetime of the
-program, not necessarily in ROM or in write-disabled pages.  A common
-example of the later is a shared library's global offset table.  This
-table is initialized by the runtime loader, so the memory is technically
-writable, but after control is transferred from the runtime loader to the
-application, this memory will never be subsequently modified.
-
-Stored in the @code{unchanging} field and printed as @samp{/u}.
 
 @findex SCHED_GROUP_P
 @cindex @code{insn} and @samp{/s}
@@ -879,14 +897,6 @@ Stored in the @code{volatil} field and printed as @samp{/v}.
 Most uses of @code{SYMBOL_REF_FLAG} are historic and may be subsumed
 by @code{SYMBOL_REF_FLAGS}.  Certainly use of @code{SYMBOL_REF_FLAGS}
 is mandatory if the target requires more than one bit of storage.
-
-@findex PREFETCH_SCHEDULE_BARRIER_P
-@cindex @code{prefetch} and @samp{/v}
-@cindex @code{volatile}, in @code{prefetch}
-@item PREFETCH_SCHEDULE_BARRIER_P (@var{x})
-In a @code{prefetch}, indicates that the prefetch is a scheduling barrier.
-No other INSNs will be moved over it.
-Stored in the @code{volatil} field and printed as @samp{/v}.
 @end table
 
 These are the fields to which the above macros refer:
@@ -973,6 +983,8 @@ mem unchanged when we access a component.
 In a @code{set}, 1 means it is for a return.
 
 In a @code{call_insn}, 1 means it is a sibling call.
+
+In a @code{jump_insn}, 1 means it is a crossing jump.
 
 In an RTL dump, this flag is represented as @samp{/j}.
 
@@ -1291,10 +1303,11 @@ point values.  The floating point values are in @code{QFmode},
 @findex CDImode
 @findex CTImode
 @findex COImode
-@item CQImode, CHImode, CSImode, CDImode, CTImode, COImode
+@findex CPSImode
+@item CQImode, CHImode, CSImode, CDImode, CTImode, COImode, CPSImode
 These modes stand for a complex number represented as a pair of integer
 values.  The integer values are in @code{QImode}, @code{HImode},
-@code{SImode}, @code{DImode}, @code{TImode}, and @code{OImode},
+@code{SImode}, @code{DImode}, @code{TImode}, @code{OImode}, and @code{PSImode},
 respectively.
 
 @findex BND32mode
@@ -1426,6 +1439,10 @@ or has class @code{MODE_FRACT}, @code{MODE_UFRACT}, @code{MODE_ACCUM},
 @findex complex_mode
 @item complex_mode
 A mode that has class @code{MODE_COMPLEX_INT} or @code{MODE_COMPLEX_FLOAT}.
+
+@findex fixed_size_mode
+@item fixed_size_mode
+A mode whose size is known at compile time.
 @end table
 
 Named modes use the most constrained of the available wrapper classes,
@@ -1441,8 +1458,9 @@ and @code{E_BLKmode} respectively.
 The wrapper classes implicitly convert to @code{machine_mode} and to any
 wrapper class that represents a more general condition; for example
 @code{scalar_int_mode} and @code{scalar_float_mode} both convert
-to @code{scalar_mode}.  The classes act like @code{machine_mode}s
-that accept only certain named modes.
+to @code{scalar_mode} and all three convert to @code{fixed_size_mode}.
+The classes act like @code{machine_mode}s that accept only certain
+named modes.
 
 @findex opt_mode
 @file{machmode.h} also defines a template class @code{opt_mode<@var{T}>}
@@ -1458,7 +1476,7 @@ Return true if @var{x} holds a mode rather than nothing.
 Return true if @var{x} holds a mode rather than nothing, storing the
 mode in @var{y} if so.  @var{y} must be assignment-compatible with @var{T}.
 
-@item *@var{x}
+@item @var{x}.require ()
 Assert that @var{x} holds a mode rather than nothing and return that mode.
 
 @item @var{x} = @var{y}
@@ -1739,18 +1757,92 @@ low-level routines) and @code{const_poly_int_value} gives the full
 
 @findex const_vector
 @item (const_vector:@var{m} [@var{x0} @var{x1} @dots{}])
-Represents a vector constant.  The square brackets stand for the vector
-containing the constant elements.  @var{x0}, @var{x1} and so on are
-the @code{const_int}, @code{const_wide_int}, @code{const_double} or
-@code{const_fixed} elements.
+Represents a vector constant.  The values in square brackets are
+elements of the vector, which are always @code{const_int},
+@code{const_wide_int}, @code{const_double} or @code{const_fixed}
+expressions.
 
-The number of units in a @code{const_vector} is obtained with the macro
-@code{CONST_VECTOR_NUNITS} as in @code{CONST_VECTOR_NUNITS (@var{v})}.
+Each vector constant @var{v} is treated as a specific instance of an
+arbitrary-length sequence that itself contains
+@samp{CONST_VECTOR_NPATTERNS (@var{v})} interleaved patterns.  Each
+pattern has the form:
 
-Individual elements in a vector constant are accessed with the macro
-@code{CONST_VECTOR_ELT} as in @code{CONST_VECTOR_ELT (@var{v}, @var{n})}
-where @var{v} is the vector constant and @var{n} is the element
-desired.
+@smallexample
+@{ @var{base0}, @var{base1}, @var{base1} + @var{step}, @var{base1} + @var{step} * 2, @dots{} @}
+@end smallexample
+
+The first three elements in each pattern are enough to determine the
+values of the other elements.  However, if all @var{step}s are zero,
+only the first two elements are needed.  If in addition each @var{base1}
+is equal to the corresponding @var{base0}, only the first element in
+each pattern is needed.  The number of determining elements per pattern
+is given by @samp{CONST_VECTOR_NELTS_PER_PATTERN (@var{v})}.
+
+For example, the constant:
+
+@smallexample
+@{ 0, 1, 2, 6, 3, 8, 4, 10, 5, 12, 6, 14, 7, 16, 8, 18 @}
+@end smallexample
+
+is interpreted as an interleaving of the sequences:
+
+@smallexample
+@{ 0, 2, 3, 4, 5, 6, 7, 8 @}
+@{ 1, 6, 8, 10, 12, 14, 16, 18 @}
+@end smallexample
+
+where the sequences are represented by the following patterns:
+
+@smallexample
+@var{base0} == 0, @var{base1} == 2, @var{step} == 1
+@var{base0} == 1, @var{base1} == 6, @var{step} == 2
+@end smallexample
+
+In this case:
+
+@smallexample
+CONST_VECTOR_NPATTERNS (@var{v}) == 2
+CONST_VECTOR_NELTS_PER_PATTERN (@var{v}) == 3
+@end smallexample
+
+Thus the first 6 elements (@samp{@{ 0, 1, 2, 6, 3, 8 @}}) are enough
+to determine the whole sequence; we refer to them as the ``encoded''
+elements.  They are the only elements present in the square brackets
+for variable-length @code{const_vector}s (i.e. for
+@code{const_vector}s whose mode @var{m} has a variable number of
+elements).  However, as a convenience to code that needs to handle
+both @code{const_vector}s and @code{parallel}s, all elements are
+present in the square brackets for fixed-length @code{const_vector}s;
+the encoding scheme simply reduces the amount of work involved in
+processing constants that follow a regular pattern.
+
+Sometimes this scheme can create two possible encodings of the same
+vector.  For example @{ 0, 1 @} could be seen as two patterns with
+one element each or one pattern with two elements (@var{base0} and
+@var{base1}).  The canonical encoding is always the one with the
+fewest patterns or (if both encodings have the same number of
+petterns) the one with the fewest encoded elements.
+
+@samp{const_vector_encoding_nelts (@var{v})} gives the total number of
+encoded elements in @var{v}, which is 6 in the example above.
+@code{CONST_VECTOR_ENCODED_ELT (@var{v}, @var{i})} accesses the value
+of encoded element @var{i}.
+
+@samp{CONST_VECTOR_DUPLICATE_P (@var{v})} is true if @var{v} simply contains
+repeated instances of @samp{CONST_VECTOR_NPATTERNS (@var{v})} values.  This is
+a shorthand for testing @samp{CONST_VECTOR_NELTS_PER_PATTERN (@var{v}) == 1}.
+
+@samp{CONST_VECTOR_STEPPED_P (@var{v})} is true if at least one
+pattern in @var{v} has a nonzero step.  This is a shorthand for
+testing @samp{CONST_VECTOR_NELTS_PER_PATTERN (@var{v}) == 3}.
+
+@code{CONST_VECTOR_NUNITS (@var{v})} gives the total number of elements
+in @var{v}; it is a shorthand for getting the number of units in
+@samp{GET_MODE (@var{v})}.
+
+The utility function @code{const_vector_elt} gives the value of an
+arbitrary element as an @code{rtx}.  @code{const_vector_int_elt} gives
+the same value as a @code{wide_int}.
 
 @findex const_string
 @item (const_string @var{str})
@@ -1784,18 +1876,12 @@ Usually that is the only mode for which a label is directly valid.
 
 @findex const
 @item (const:@var{m} @var{exp})
-Wraps an rtx computation @var{exp} whose inputs and result do not
-change during the execution of a thread.  There are two valid uses.
-The first is to represent a global or thread-local address calculation.
-In this case @var{exp} should contain @code{const_int},
-@code{symbol_ref}, @code{label_ref} or @code{unspec} expressions,
-combined with @code{plus} and @code{minus}.  Any such @code{unspec}s
-are target-specific and typically represent some form of relocation
-operator.  @var{m} should be a valid address mode.
-
-The second use of @code{const} is to wrap a vector operation.
-In this case @var{exp} must be a @code{vec_duplicate} or
-@code{vec_series} expression.
+Represents a constant that is the result of an assembly-time
+arithmetic computation.  The operand, @var{exp}, contains only
+@code{const_int}, @code{symbol_ref}, @code{label_ref} or @code{unspec}
+expressions, combined with @code{plus} and @code{minus}.  Any such
+@code{unspec}s are target-specific and typically represent some form
+of relocation operator.  @var{m} should be a valid address mode.
 
 @findex high
 @item (high:@var{m} @var{exp})
@@ -3568,6 +3654,28 @@ Stands for the value bound to the @code{DEBUG_EXPR_DECL} @var{decl},
 that points back to it, within value expressions in
 @code{VAR_LOCATION} nodes.
 
+@findex debug_implicit_ptr
+@item (debug_implicit_ptr:@var{mode} @var{decl})
+Stands for the location of a @var{decl} that is no longer addressable.
+
+@findex entry_value
+@item (entry_value:@var{mode} @var{decl})
+Stands for the value a @var{decl} had at the entry point of the
+containing function.
+
+@findex debug_parameter_ref
+@item (debug_parameter_ref:@var{mode} @var{decl})
+Refers to a parameter that was completely optimized out.
+
+@findex debug_marker
+@item (debug_marker:@var{mode})
+Marks a program location.  With @code{VOIDmode}, it stands for the
+beginning of a statement, a recommended inspection point logically after
+all prior side effects, and before any subsequent side effects.  With
+@code{BLKmode}, it indicates an inline entry point: the lexical block
+encoded in the @code{INSN_LOCATION} is the enclosing block that encloses
+the inlined function.
+
 @end table
 
 @node Insns
@@ -3844,6 +3952,19 @@ can be computed by evaluating the RTL expression from that static
 point in the program up to the next such note for the same user
 variable.
 
+@findex NOTE_INSN_BEGIN_STMT
+@item NOTE_INSN_BEGIN_STMT
+This note is used to generate @code{is_stmt} markers in line number
+debuggign information.  It indicates the beginning of a user
+statement.
+
+@findex NOTE_INSN_INLINE_ENTRY
+@item NOTE_INSN_INLINE_ENTRY
+This note is used to generate @code{entry_pc} for inlined subroutines in
+debugging information.  It indicates an inspection point at which all
+arguments for the inlined function have been bound, and before its first
+statement.
+
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3861,15 +3982,29 @@ binds a user variable tree to an RTL representation of the
 it stands for the value bound to the corresponding
 @code{DEBUG_EXPR_DECL}.
 
-Throughout optimization passes, binding information is kept in
-pseudo-instruction form, so that, unlike notes, it gets the same
-treatment and adjustments that regular instructions would.  It is the
-variable tracking pass that turns these pseudo-instructions into var
-location notes, analyzing control flow, value equivalences and changes
-to registers and memory referenced in value expressions, propagating
-the values of debug temporaries and determining expressions that can
-be used to compute the value of each user variable at as many points
-(ranges, actually) in the program as possible.
+@code{GIMPLE_DEBUG_BEGIN_STMT} and @code{GIMPLE_DEBUG_INLINE_ENTRY} are
+expanded to RTL as a @code{DEBUG_INSN} with a @code{DEBUG_MARKER}
+@code{PATTERN}; the difference is the RTL mode: the former's
+@code{DEBUG_MARKER} is @code{VOIDmode}, whereas the latter is
+@code{BLKmode}; information about the inlined function can be taken from
+the lexical block encoded in the @code{INSN_LOCATION}.  These
+@code{DEBUG_INSN}s, that do not carry @code{VAR_LOCATION} information,
+just @code{DEBUG_MARKER}s, can be detected by testing
+@code{DEBUG_MARKER_INSN_P}, whereas those that do can be recognized as
+@code{DEBUG_BIND_INSN_P}.
+
+Throughout optimization passes, @code{DEBUG_INSN}s are not reordered
+with respect to each other, particularly during scheduling.  Binding
+information is kept in pseudo-instruction form, so that, unlike notes,
+it gets the same treatment and adjustments that regular instructions
+would.  It is the variable tracking pass that turns these
+pseudo-instructions into @code{NOTE_INSN_VAR_LOCATION},
+@code{NOTE_INSN_BEGIN_STMT} and @code{NOTE_INSN_INLINE_ENTRY} notes,
+analyzing control flow, value equivalences and changes to registers and
+memory referenced in value expressions, propagating the values of debug
+temporaries and determining expressions that can be used to compute the
+value of each user variable at as many points (ranges, actually) in the
+program as possible.
 
 Unlike @code{NOTE_INSN_VAR_LOCATION}, the value expression in an
 @code{INSN_VAR_LOCATION} denotes a value at that specific point in the
@@ -4041,16 +4176,6 @@ direct or indirect jump target.  Its purpose is similar to that of
 multiple targets; the last label in the insn (in the highest numbered
 insn-field) goes into the @code{JUMP_LABEL} field and does not have a
 @code{REG_LABEL_TARGET} note.  @xref{Insns, JUMP_LABEL}.
-
-@findex REG_CROSSING_JUMP
-@item REG_CROSSING_JUMP
-This insn is a branching instruction (either an unconditional jump or
-an indirect jump) which crosses between hot and cold sections, which
-could potentially be very far apart in the executable.  The presence
-of this note indicates to other optimizations that this branching
-instruction should not be ``collapsed'' into a simpler branching
-construct.  It is used when the optimization to partition basic blocks
-into hot and cold sections is turned on.
 
 @findex REG_SETJMP
 @item REG_SETJMP
@@ -4322,6 +4447,11 @@ referring to it.
 @item
 All @code{const_int} expressions with equal values are shared.
 
+@cindex @code{const_poly_int}, RTL sharing
+@item
+All @code{const_poly_int} expressions with equal modes and values
+are shared.
+
 @cindex @code{pc}, RTL sharing
 @item
 There is only one @code{pc} expression.
@@ -4329,20 +4459,6 @@ There is only one @code{pc} expression.
 @cindex @code{cc0}, RTL sharing
 @item
 There is only one @code{cc0} expression.
-
-@cindex @code{const}, RTL sharing
-@item
-There is only one instance of the following structures for a given
-@var{m}, @var{x} and @var{y}:
-@example
-(const:@var{m} (vec_duplicate:@var{m} @var{x}))
-(const:@var{m} (vec_series:@var{m} @var{x} @var{y}))
-@end example
-This means, for example, that for a given @var{n} there is only ever a
-single instance of an expression like:
-@example
-(const:V@var{n}DI (vec_duplicate:V@var{n}DI (const_int 0)))
-@end example
 
 @cindex @code{const_double}, RTL sharing
 @item

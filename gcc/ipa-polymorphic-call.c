@@ -1,5 +1,5 @@
 /* Analysis of polymorphic call context.
-   Copyright (C) 2013-2017 Free Software Foundation, Inc.
+   Copyright (C) 2013-2018 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -772,7 +772,7 @@ ipa_polymorphic_call_context::set_by_invariant (tree cst,
 
   cst = TREE_OPERAND (cst, 0);
   base = get_ref_base_and_extent (cst, &offset2, &size, &max_size, &reverse);
-  if (!DECL_P (base) || !known_size_p (max_size) || may_ne (max_size, size))
+  if (!DECL_P (base) || !known_size_p (max_size) || maybe_ne (max_size, size))
     return false;
 
   /* Only type inconsistent programs can have otr_type that is
@@ -1149,7 +1149,7 @@ noncall_stmt_may_be_vtbl_ptr_store (gimple *stmt)
 	  if (TREE_CODE (lhs) == COMPONENT_REF
 	      && !DECL_VIRTUAL_P (TREE_OPERAND (lhs, 1)))
 	    return false;
-	  /* In the future we might want to use get_base_ref_and_offset to find
+	  /* In the future we might want to use get_ref_base_and_extent to find
 	     if there is a field corresponding to the offset and if so, proceed
 	     almost like if it was a component ref.  */
 	}
@@ -1263,9 +1263,9 @@ extr_type_from_vtbl_ptr_store (gimple *stmt, struct type_change_info *tci,
 	    }
 	  return tci->offset > POINTER_SIZE ? error_mark_node : NULL_TREE;
 	}
-      if (may_ne (offset, tci->offset)
-	  || may_ne (size, POINTER_SIZE)
-	  || may_ne (max_size, POINTER_SIZE))
+      if (maybe_ne (offset, tci->offset)
+	  || maybe_ne (size, POINTER_SIZE)
+	  || maybe_ne (max_size, POINTER_SIZE))
 	{
 	  if (dump_file)
 	    {
@@ -1275,10 +1275,10 @@ extr_type_from_vtbl_ptr_store (gimple *stmt, struct type_change_info *tci,
 	      print_dec (size, dump_file);
 	      fprintf (dump_file, "\n");
 	    }
-	  return (must_le (offset + POINTER_SIZE, tci->offset)
+	  return (known_le (offset + POINTER_SIZE, tci->offset)
 		  || (known_size_p (max_size)
-		      && must_gt (tci->offset + POINTER_SIZE,
-				  offset + max_size))
+		      && known_gt (tci->offset + POINTER_SIZE,
+				   offset + max_size))
 		  ? error_mark_node : NULL);
 	}
     }

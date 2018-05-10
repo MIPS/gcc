@@ -1,6 +1,6 @@
 /* Infrastructure for tracking user variable locations and values
    throughout compilation.
-   Copyright (C) 2010-2017 Free Software Foundation, Inc.
+   Copyright (C) 2010-2018 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>.
 
 This file is part of GCC.
@@ -173,10 +173,13 @@ propagate_for_debug_subst (rtx from, const_rtx old_rtx, void *data)
 	if (REG_P (*iter) && ++cnt > 1)
 	  {
 	    rtx dval = make_debug_expr_from_rtl (old_rtx);
+	    rtx to = pair->to;
+	    if (volatile_insn_p (to))
+	      to = gen_rtx_UNKNOWN_VAR_LOC ();
 	    /* Emit a debug bind insn.  */
 	    rtx bind
 	      = gen_rtx_VAR_LOCATION (GET_MODE (old_rtx),
-				      DEBUG_EXPR_TREE_DECL (dval), pair->to,
+				      DEBUG_EXPR_TREE_DECL (dval), to,
 				      VAR_INIT_STATUS_INITIALIZED);
 	    rtx_insn *bind_insn = emit_debug_insn_before (bind, pair->insn);
 	    df_insn_rescan (bind_insn);
@@ -213,12 +216,14 @@ propagate_for_debug (rtx_insn *insn, rtx_insn *last, rtx dest, rtx src,
     {
       insn = next;
       next = NEXT_INSN (insn);
-      if (DEBUG_INSN_P (insn))
+      if (DEBUG_BIND_INSN_P (insn))
 	{
 	  loc = simplify_replace_fn_rtx (INSN_VAR_LOCATION_LOC (insn),
 					 dest, propagate_for_debug_subst, &p);
 	  if (loc == INSN_VAR_LOCATION_LOC (insn))
 	    continue;
+	  if (volatile_insn_p (loc))
+	    loc = gen_rtx_UNKNOWN_VAR_LOC ();
 	  INSN_VAR_LOCATION_LOC (insn) = loc;
 	  df_insn_rescan (insn);
 	}
@@ -612,8 +617,8 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	     N V4SFs to win over plain V4SF even though N might be 1.  */
 	  rtx candidate = *DF_REF_REAL_LOC (cur->use);
 	  if (!reg
-	      || may_lt (GET_MODE_BITSIZE (GET_MODE (reg)),
-			 GET_MODE_BITSIZE (GET_MODE (candidate))))
+	      || maybe_lt (GET_MODE_BITSIZE (GET_MODE (reg)),
+			   GET_MODE_BITSIZE (GET_MODE (candidate))))
 	    reg = candidate;
 	}
       else
@@ -665,6 +670,12 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 		}
 	      return 0;
 	    }
+	  /* Asm in DEBUG_INSN is never useful, we can't emit debug info for
+	     that.  And for volatile_insn_p, it is actually harmful
+	     - DEBUG_INSNs shouldn't have any side-effects.  */
+	  else if (GET_CODE (src) == ASM_OPERANDS
+		   || volatile_insn_p (src))
+	    set = NULL_RTX;
 	}
 
       /* ??? Should we try to extract it from a PARALLEL?  */

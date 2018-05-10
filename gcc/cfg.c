@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -386,9 +386,13 @@ void
 clear_bb_flags (void)
 {
   basic_block bb;
+  int flags_to_preserve = BB_FLAGS_TO_PRESERVE;
+  if (current_loops
+      && loops_state_satisfies_p (cfun, LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
+    flags_to_preserve |= BB_IRREDUCIBLE_LOOP;
 
   FOR_ALL_BB_FN (bb, cfun)
-    bb->flags &= BB_FLAGS_TO_PRESERVE;
+    bb->flags &= flags_to_preserve;
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -553,6 +557,16 @@ debug (edge_def *ptr)
   else
     fprintf (stderr, "<nil>\n");
 }
+
+static void
+debug_slim (edge e)
+{
+  fprintf (stderr, "<edge 0x%p (%d -> %d)>", (void *) e,
+	   e->src->index, e->dest->index);
+}
+
+DEFINE_DEBUG_VEC (edge)
+DEFINE_DEBUG_HASH_SET (edge)
 
 /* Simple routines to easily allocate AUX fields of basic blocks.  */
 
@@ -914,48 +928,6 @@ update_bb_profile_for_threading (basic_block bb,
     }
 
   gcc_assert (bb == taken_edge->src);
-}
-
-/* Multiply all frequencies of basic blocks in array BBS of length NBBS
-   by NUM/DEN, in int arithmetic.  May lose some accuracy.  */
-void
-scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
-{
-  int i;
-  if (num < 0)
-    num = 0;
-
-  /* Scale NUM and DEN to avoid overflows.  Frequencies are in order of
-     10^4, if we make DEN <= 10^3, we can afford to upscale by 100
-     and still safely fit in int during calculations.  */
-  if (den > 1000)
-    {
-      if (num > 1000000)
-	return;
-
-      num = RDIV (1000 * num, den);
-      den = 1000;
-    }
-  if (num > 100 * den)
-    return;
-
-  for (i = 0; i < nbbs; i++)
-    {
-      bbs[i]->count = bbs[i]->count.apply_scale (num, den);
-    }
-}
-
-/* Multiply all frequencies of basic blocks in array BBS of length NBBS
-   by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
-   function but considerably slower.  */
-void
-scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
-				 gcov_type den)
-{
-  int i;
-
-  for (i = 0; i < nbbs; i++)
-    bbs[i]->count = bbs[i]->count.apply_scale (num, den);
 }
 
 /* Multiply all frequencies of basic blocks in array BBS of length NBBS

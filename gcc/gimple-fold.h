@@ -1,6 +1,6 @@
 /* Gimple folding definitions.
 
-   Copyright (C) 2011-2017 Free Software Foundation, Inc.
+   Copyright (C) 2011-2018 Free Software Foundation, Inc.
    Contributed by Richard Guenther <rguenther@suse.de>
 
 This file is part of GCC.
@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 extern tree create_tmp_reg_or_ssa_name (tree, gimple *stmt = NULL);
 extern tree canonicalize_constructor_val (tree, tree);
 extern tree get_symbol_constant_value (tree);
-extern bool get_range_strlen (tree, tree[2]);
+extern bool get_range_strlen (tree, tree[2], bool = false);
 extern tree get_maxval_strlen (tree, int);
 extern void gimplify_and_update_call_from_tree (gimple_stmt_iterator *, tree);
 extern bool fold_stmt (gimple_stmt_iterator *);
@@ -134,11 +134,13 @@ gimple_build_vector_from_val (gimple_seq *seq, tree type, tree op)
   return gimple_build_vector_from_val (seq, UNKNOWN_LOCATION, type, op);
 }
 
-extern tree gimple_build_vector (gimple_seq *, location_t, tree, vec<tree>);
+class tree_vector_builder;
+extern tree gimple_build_vector (gimple_seq *, location_t,
+				 tree_vector_builder *);
 inline tree
-gimple_build_vector (gimple_seq *seq, tree type, vec<tree> elts)
+gimple_build_vector (gimple_seq *seq, tree_vector_builder *builder)
 {
-  return gimple_build_vector (seq, UNKNOWN_LOCATION, type, elts);
+  return gimple_build_vector (seq, UNKNOWN_LOCATION, builder);
 }
 
 extern bool gimple_stmt_nonnegative_warnv_p (gimple *, bool *, int = 0);

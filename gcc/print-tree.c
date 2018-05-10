@@ -1,5 +1,5 @@
 /* Prints out tree in human readable form - GCC
-   Copyright (C) 1990-2017 Free Software Foundation, Inc.
+   Copyright (C) 1990-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -377,6 +377,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 	fputs (" function-specific-opt", file);
       if (code == FUNCTION_DECL && DECL_DECLARED_INLINE_P (node))
 	fputs (" autoinline", file);
+      if (code == FUNCTION_DECL && DECL_UNINLINABLE (node))
+	fputs (" uninlinable", file);
       if (code == FUNCTION_DECL && DECL_BUILT_IN (node))
 	fputs (" built-in", file);
       if (code == FUNCTION_DECL && DECL_STATIC_CHAIN (node))
@@ -764,35 +766,20 @@ print_node (FILE *file, const char *prefix, tree node, int indent,
 
 	case VECTOR_CST:
 	  {
-	    /* Big enough for 2 UINT_MAX plus the string below.  */
+	    /* Big enough for UINT_MAX plus the string below.  */
 	    char buf[32];
-	    unsigned i;
 
-	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
+	    fprintf (file, " npatterns:%u nelts-per-pattern:%u",
+		     VECTOR_CST_NPATTERNS (node),
+		     VECTOR_CST_NELTS_PER_PATTERN (node));
+	    unsigned int count = vector_cst_encoded_nelts (node);
+	    for (unsigned int i = 0; i < count; ++i)
 	      {
-		unsigned j;
-		/* Coalesce the output of identical consecutive elements.  */
-		for (j = i + 1; j < VECTOR_CST_NELTS (node); j++)
-		  if (VECTOR_CST_ELT (node, j) != VECTOR_CST_ELT (node, i))
-		    break;
-		j--;
-		if (i == j)
-		  sprintf (buf, "elt:%u: ", i);
-		else
-		  sprintf (buf, "elt:%u...%u: ", i, j);
-		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
-		i = j;
+		sprintf (buf, "elt:%u: ", i);
+		print_node (file, buf, VECTOR_CST_ENCODED_ELT (node, i),
+			    indent + 4);
 	      }
 	  }
-	  break;
-
-	case VEC_DUPLICATE_CST:
-	  print_node (file, "elt", VEC_DUPLICATE_CST_ELT (node), indent + 4);
-	  break;
-
-	case VEC_SERIES_CST:
-	  print_node (file, "base", VEC_SERIES_CST_BASE (node), indent + 4);
-	  print_node (file, "step", VEC_SERIES_CST_STEP (node), indent + 4);
 	  break;
 
 	case COMPLEX_CST:
@@ -1119,32 +1106,6 @@ debug_raw (vec<tree, va_gc> &ref)
 }
 
 DEBUG_FUNCTION void
-debug (vec<tree, va_gc> &ref)
-{
-  tree elt;
-  unsigned ix;
-
-  /* Print the slot this node is in, and its code, and address.  */
-  fprintf (stderr, "<VEC");
-  dump_addr (stderr, " ", ref.address ());
-
-  FOR_EACH_VEC_ELT (ref, ix, elt)
-    {
-      fprintf (stderr, "elt:%d ", ix);
-      debug (elt);
-    }
-}
-
-DEBUG_FUNCTION void
-debug (vec<tree, va_gc> *ptr)
-{
-  if (ptr)
-    debug (*ptr);
-  else
-    fprintf (stderr, "<nil>\n");
-}
-
-DEBUG_FUNCTION void
 debug_raw (vec<tree, va_gc> *ptr)
 {
   if (ptr)
@@ -1153,8 +1114,11 @@ debug_raw (vec<tree, va_gc> *ptr)
     fprintf (stderr, "<nil>\n");
 }
 
-DEBUG_FUNCTION void
-debug_vec_tree (vec<tree, va_gc> *vec)
+static void
+debug_slim (tree t)
 {
-  debug_raw (vec);
+  print_node_brief (stderr, "", t, 0);
 }
+
+DEFINE_DEBUG_VEC (tree)
+DEFINE_DEBUG_HASH_SET (tree)

@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -233,6 +233,12 @@ int
 hook_int_rtx_1 (rtx)
 {
   return 1;
+}
+
+int
+hook_int_rtx_insn_0 (rtx_insn *)
+{
+  return 0;
 }
 
 int

@@ -1554,7 +1554,8 @@ early_remat::stable_use_p (unsigned int regno)
   return false;
 }
 
-/* Emit a copy from DEST to SRC before candidate CAND_INDEX's instruction.  */
+/* Emit a copy from register DEST to register SRC before candidate
+   CAND_INDEX's instruction.  */
 
 void
 early_remat::emit_copy_before (unsigned int cand_index, rtx dest, rtx src)

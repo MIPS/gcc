@@ -1,5 +1,5 @@
 /* Straight-line strength reduction.
-   Copyright (C) 2012-2017 Free Software Foundation, Inc.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
    Contributed by Bill Schmidt, IBM <wschmidt@linux.ibm.com>
 
 This file is part of GCC.
@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-ssa-address.h"
 #include "tree-affine.h"
+#include "tree-eh.h"
 #include "builtins.h"
 
 /* Information about a strength reduction candidate.  Each statement
@@ -1747,6 +1748,9 @@ find_candidates_dom_walker::before_dom_children (basic_block bb)
     {
       gimple *gs = gsi_stmt (gsi);
 
+      if (stmt_could_throw_p (gs))
+	continue;
+
       if (gimple_vuse (gs) && gimple_assign_single_p (gs))
 	slsr_process_ref (gs);
 
@@ -3086,7 +3090,17 @@ analyze_increments (slsr_cand_t first_dep, machine_mode mode, bool speed)
       else if (first_dep->kind == CAND_MULT)
 	{
 	  int cost = mult_by_coeff_cost (incr, mode, speed);
-	  int repl_savings = mul_cost (speed, mode) - add_cost (speed, mode);
+	  int repl_savings;
+
+	  if (tree_fits_shwi_p (first_dep->stride))
+	    {
+	      HOST_WIDE_INT hwi_stride = tree_to_shwi (first_dep->stride);
+	      repl_savings = mult_by_coeff_cost (hwi_stride, mode, speed);
+	    }
+	  else
+	    repl_savings = mul_cost (speed, mode);
+	  repl_savings -= add_cost (speed, mode);
+
 	  if (speed)
 	    cost = lowest_cost_path (cost, repl_savings, first_dep,
 				     incr_vec[i].incr, COUNT_PHIS);
@@ -3421,7 +3435,7 @@ insert_initializers (slsr_cand_t c)
 		  gsi_insert_after (&gsi, cast_stmt, GSI_NEW_STMT);
 		  gimple_set_location (cast_stmt, loc);
 		}
-	      gsi_insert_after (&gsi, init_stmt, GSI_SAME_STMT);
+	      gsi_insert_after (&gsi, init_stmt, GSI_NEW_STMT);
 	    }
 
 	  gimple_set_location (init_stmt, gimple_location (basis_stmt));

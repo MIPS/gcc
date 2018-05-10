@@ -1,5 +1,5 @@
 /* Header file for gimple iterators.
-   Copyright (C) 2013-2017 Free Software Foundation, Inc.
+   Copyright (C) 2013-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -152,22 +152,6 @@ gsi_last_1 (gimple_seq *seq)
 
 #define gsi_last(x) gsi_last_1 (&(x))
 
-/* Return a new iterator initially pointing at the end of SEQ.  */
-
-static inline gimple_stmt_iterator
-gsi_end_1 (gimple_seq *seq)
-{
-  gimple_stmt_iterator i;
-
-  i.ptr = NULL;
-  i.seq = seq;
-  i.bb = i.ptr ? gimple_bb (i.ptr) : NULL;
-
-  return i;
-}
-
-#define gsi_end(x) gsi_end_1 (&(x))
-
 /* Return a new iterator pointing to the last statement in basic block BB.  */
 
 static inline gimple_stmt_iterator
@@ -228,29 +212,21 @@ gsi_stmt (gimple_stmt_iterator i)
   return i.ptr;
 }
 
-/* Return a new iterator pointing to the first non-debug statement
-   in basic block BB.  */
-
-static inline gimple_stmt_iterator
-gsi_start_bb_nondebug (basic_block bb)
-{
-  gimple_stmt_iterator gsi = gsi_start_bb (bb);
-  while (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
-    gsi_next (&gsi);
-
-  return gsi;
-}
-
-/* Return a block statement iterator that points to the first non-label
-   statement in block BB.  */
+/* Return a block statement iterator that points to the first
+   non-label statement in block BB.  */
 
 static inline gimple_stmt_iterator
 gsi_after_labels (basic_block bb)
 {
   gimple_stmt_iterator gsi = gsi_start_bb (bb);
 
-  while (!gsi_end_p (gsi) && gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
-    gsi_next (&gsi);
+  for (; !gsi_end_p (gsi); )
+    {
+      if (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
+	gsi_next (&gsi);
+      else
+	break;
+    }
 
   return gsi;
 }
@@ -277,6 +253,19 @@ gsi_prev_nondebug (gimple_stmt_iterator *i)
       gsi_prev (i);
     }
   while (!gsi_end_p (*i) && is_gimple_debug (gsi_stmt (*i)));
+}
+
+/* Return a new iterator pointing to the first non-debug statement in
+   SEQ.  */
+
+static inline gimple_stmt_iterator
+gsi_start_nondebug (gimple_seq seq)
+{
+  gimple_stmt_iterator gsi = gsi_start (seq);
+  if (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
+    gsi_next_nondebug (&gsi);
+
+  return gsi;
 }
 
 /* Return a new iterator pointing to the first non-debug statement in

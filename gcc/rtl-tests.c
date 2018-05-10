@@ -1,5 +1,5 @@
 /* Unit tests for RTL-handling.
-   Copyright (C) 2015-2017 Free Software Foundation, Inc.
+   Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -255,13 +255,13 @@ const_poly_int_tests<N>::run ()
   ASSERT_NE (x1, x255);
 
   /* Test const_poly_int_value.  */
-  ASSERT_MUST_EQ (const_poly_int_value (x1), poly_int64 (1, 1));
-  ASSERT_MUST_EQ (const_poly_int_value (x255), poly_int64 (1, -1));
+  ASSERT_KNOWN_EQ (const_poly_int_value (x1), poly_int64 (1, 1));
+  ASSERT_KNOWN_EQ (const_poly_int_value (x255), poly_int64 (1, -1));
 
   /* Test rtx_to_poly_int64.  */
-  ASSERT_MUST_EQ (rtx_to_poly_int64 (x1), poly_int64 (1, 1));
-  ASSERT_MUST_EQ (rtx_to_poly_int64 (x255), poly_int64 (1, -1));
-  ASSERT_MAY_NE (rtx_to_poly_int64 (x255), poly_int64 (1, 255));
+  ASSERT_KNOWN_EQ (rtx_to_poly_int64 (x1), poly_int64 (1, 1));
+  ASSERT_KNOWN_EQ (rtx_to_poly_int64 (x255), poly_int64 (1, -1));
+  ASSERT_MAYBE_NE (rtx_to_poly_int64 (x255), poly_int64 (1, 255));
 
   /* Test plus_constant of a symbol.  */
   rtx symbol = gen_rtx_SYMBOL_REF (Pmode, "foo");

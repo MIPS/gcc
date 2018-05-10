@@ -1,4 +1,4 @@
-@c Copyright (C) 2002-2017 Free Software Foundation, Inc.
+@c Copyright (C) 2002-2018 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -822,6 +822,34 @@ manual needs to be installed as info for this to work, or to be a
 chapter of this manual.
 @end itemize
 
+The @file{@var{machine}.h} header is included very early in GCC's
+standard sequence of header files, while @file{@var{machine}-protos.h}
+is included late in the sequence.  Thus @file{@var{machine}-protos.h}
+can include declarations referencing types that are not defined when
+@file{@var{machine}.h} is included, specifically including those from
+@file{rtl.h} and @file{tree.h}.  Since both RTL and tree types may not
+be available in every context where @file{@var{machine}-protos.h} is
+included, in this file you should guard declarations using these types
+inside appropriate @code{#ifdef RTX_CODE} or @code{#ifdef TREE_CODE}
+conditional code segments.
+
+If the backend uses shared data structures that require @code{GTY} markers 
+for garbage collection (@pxref{Type Information}), you must declare those
+in @file{@var{machine}.h} rather than @file{@var{machine}-protos.h}.  
+Any definitions required for building libgcc must also go in
+@file{@var{machine}.h}.
+
+GCC uses the macro @code{IN_TARGET_CODE} to distinguish between
+machine-specific @file{.c} and @file{.cc} files and
+machine-independent @file{.c} and @file{.cc} files.  Machine-specific
+files should use the directive:
+
+@example
+#define IN_TARGET_CODE 1
+@end example
+
+before including @code{config.h}.
+
 If the back end is added to the official GCC source repository, the
 following are also necessary:
 
@@ -1392,7 +1420,13 @@ The target's preferred vector alignment is the same as the element
 alignment.
 
 @item vect_float
-Target supports hardware vectors of @code{float}.
+Target supports hardware vectors of @code{float} when
+@option{-funsafe-math-optimizations} is in effect.
+
+@item vect_float_strict
+Target supports hardware vectors of @code{float} when
+@option{-funsafe-math-optimizations} is not in effect.
+This implies @code{vect_float}.
 
 @item vect_int
 Target supports hardware vectors of @code{int}.
@@ -1583,9 +1617,6 @@ Target supports AND, IOR and XOR reduction on vectors.
 
 @item vect_fold_extract_last
 Target supports the @code{fold_extract_last} optab.
-
-@item vect_fold_left_plus
-Target supports the @code{fold_left_plus} optab.
 @end table
 
 @subsubsection Thread Local Storage attributes
@@ -1641,6 +1672,10 @@ options.
 ARM target adheres to the VFP and Advanced SIMD Register Arguments
 variant of the ABI for the ARM Architecture (as selected with
 @code{-mfloat-abi=hard}).
+
+@item arm_softfloat
+ARM target uses the soft-float ABI with no floating-point instructions
+used whatsoever (as selected with @code{-mfloat-abi=soft}).
 
 @item arm_hard_vfp_ok
 ARM target supports @code{-mfpu=vfp -mfloat-abi=hard}.
@@ -1730,11 +1765,11 @@ Some multilibs may be incompatible with these options.
 
 @item arm_v8_1a_neon_ok
 @anchor{arm_v8_1a_neon_ok}
-ARM target supports options to generate ARMv8.1 Adv.SIMD instructions.
+ARM target supports options to generate ARMv8.1-A Adv.SIMD instructions.
 Some multilibs may be incompatible with these options.
 
 @item arm_v8_1a_neon_hw
-ARM target supports executing ARMv8.1 Adv.SIMD instructions.  Some
+ARM target supports executing ARMv8.1-A Adv.SIMD instructions.  Some
 multilibs may be incompatible with the options needed.  Implies
 arm_v8_1a_neon_ok.
 
@@ -1743,36 +1778,42 @@ ARM target supports acquire-release instructions.
 
 @item arm_v8_2a_fp16_scalar_ok
 @anchor{arm_v8_2a_fp16_scalar_ok}
-ARM target supports options to generate instructions for ARMv8.2 and
+ARM target supports options to generate instructions for ARMv8.2-A and
 scalar instructions from the FP16 extension.  Some multilibs may be
 incompatible with these options.
 
 @item arm_v8_2a_fp16_scalar_hw
-ARM target supports executing instructions for ARMv8.2 and scalar
+ARM target supports executing instructions for ARMv8.2-A and scalar
 instructions from the FP16 extension.  Some multilibs may be
 incompatible with these options.  Implies arm_v8_2a_fp16_neon_ok.
 
 @item arm_v8_2a_fp16_neon_ok
 @anchor{arm_v8_2a_fp16_neon_ok}
-ARM target supports options to generate instructions from ARMv8.2 with
+ARM target supports options to generate instructions from ARMv8.2-A with
 the FP16 extension.  Some multilibs may be incompatible with these
 options.  Implies arm_v8_2a_fp16_scalar_ok.
 
 @item arm_v8_2a_fp16_neon_hw
-ARM target supports executing instructions from ARMv8.2 with the FP16
+ARM target supports executing instructions from ARMv8.2-A with the FP16
 extension.  Some multilibs may be incompatible with these options.
 Implies arm_v8_2a_fp16_neon_ok and arm_v8_2a_fp16_scalar_hw.
 
 @item arm_v8_2a_dotprod_neon_ok
 @anchor{arm_v8_2a_dotprod_neon_ok}
-ARM target supports options to generate instructions from ARMv8.2 with
+ARM target supports options to generate instructions from ARMv8.2-A with
 the Dot Product extension. Some multilibs may be incompatible with these
 options.
 
 @item arm_v8_2a_dotprod_neon_hw
-ARM target supports executing instructions from ARMv8.2 with the Dot
+ARM target supports executing instructions from ARMv8.2-A with the Dot
 Product extension. Some multilibs may be incompatible with these options.
 Implies arm_v8_2a_dotprod_neon_ok.
+
+@item arm_fp16fml_neon_ok
+@anchor{arm_fp16fml_neon_ok}
+ARM target supports extensions to generate the @code{VFMAL} and @code{VFMLS}
+half-precision floating-point instructions available from ARMv8.2-A and
+onwards.  Some multilibs may be incompatible with these options.
 
 @item arm_prefer_ldrd_strd
 ARM target prefers @code{LDRD} and @code{STRD} instructions over
@@ -2132,8 +2173,8 @@ Target supports wide characters.
 @item automatic_stack_alignment
 Target supports automatic stack alignment.
 
-@item cilkplus_runtime
-Target supports the Cilk Plus runtime library.
+@item branch_cost
+Target supports @option{-branch-cost=N}.
 
 @item cxa_atexit
 Target uses @code{__cxa_atexit}.
@@ -2364,26 +2405,31 @@ arm vfp3 floating point support; see
 the @ref{arm_vfp3_ok,,arm_vfp3_ok effective target keyword}.
 
 @item arm_v8_1a_neon
-Add options for ARMv8.1 with Adv.SIMD support, if this is supported
+Add options for ARMv8.1-A with Adv.SIMD support, if this is supported
 by the target; see the @ref{arm_v8_1a_neon_ok,,arm_v8_1a_neon_ok}
 effective target keyword.
 
 @item arm_v8_2a_fp16_scalar
-Add options for ARMv8.2 with scalar FP16 support, if this is
+Add options for ARMv8.2-A with scalar FP16 support, if this is
 supported by the target; see the
 @ref{arm_v8_2a_fp16_scalar_ok,,arm_v8_2a_fp16_scalar_ok} effective
 target keyword.
 
 @item arm_v8_2a_fp16_neon
-Add options for ARMv8.2 with Adv.SIMD FP16 support, if this is
+Add options for ARMv8.2-A with Adv.SIMD FP16 support, if this is
 supported by the target; see the
 @ref{arm_v8_2a_fp16_neon_ok,,arm_v8_2a_fp16_neon_ok} effective target
 keyword.
 
 @item arm_v8_2a_dotprod_neon
-Add options for ARMv8.2 with Adv.SIMD Dot Product support, if this is
+Add options for ARMv8.2-A with Adv.SIMD Dot Product support, if this is
 supported by the target; see the
 @ref{arm_v8_2a_dotprod_neon_ok} effective target keyword.
+
+@item arm_fp16fml_neon
+Add options to enable generation of the @code{VFMAL} and @code{VFMSL}
+instructions, if this is supported by the target; see the
+@ref{arm_fp16fml_neon_ok} effective target keyword.
 
 @item bind_pic_locally
 Add the target-specific flags needed to enable functions to bind
@@ -2542,8 +2588,8 @@ assembly output.
 
 @subsubsection Scan optimization dump files
 
-These commands are available for @var{kind} of @code{tree}, @code{rtl},
-and @code{ipa}.
+These commands are available for @var{kind} of @code{tree}, @code{ltrans-tree},
+@code{offload-tree}, @code{rtl}, @code{ipa}, and @code{wpa-ipa}.
 
 @table @code
 @item scan-@var{kind}-dump @var{regex} @var{suffix} [@{ target/xfail @var{selector} @}]

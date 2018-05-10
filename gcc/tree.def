@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -304,19 +304,8 @@ DEFTREECODE (FIXED_CST, "fixed_cst", tcc_constant, 0)
    whose contents are other constant nodes.  */
 DEFTREECODE (COMPLEX_CST, "complex_cst", tcc_constant, 0)
 
-/* Contents are in VECTOR_CST_ELTS field.  */
+/* See generic.texi for details.  */
 DEFTREECODE (VECTOR_CST, "vector_cst", tcc_constant, 0)
-
-/* Represents a vector constant in which every element is equal to
-   VEC_DUPLICATE_CST_ELT.  This is only ever used for variable-length
-   vectors; fixed-length vectors must use VECTOR_CST instead.  */
-DEFTREECODE (VEC_DUPLICATE_CST, "vec_duplicate_cst", tcc_constant, 0)
-
-/* Represents a vector constant in which element i is equal to
-   VEC_SERIES_CST_BASE + i * VEC_SERIES_CST_STEP.  This is only ever
-   used for variable-length vectors; fixed-length vectors must use
-   VECTOR_CST instead.  */
-DEFTREECODE (VEC_SERIES_CST, "vec_series_cst", tcc_constant, 0)
 
 /* Contents are TREE_STRING_LENGTH and the actual contents of the string.  */
 DEFTREECODE (STRING_CST, "string_cst", tcc_constant, 0)
@@ -395,6 +384,9 @@ DEFTREECODE (RESULT_DECL, "result_decl", tcc_declaration, 0)
 /* A "declaration" of a debug temporary.  It should only appear in
    DEBUG stmts.  */
 DEFTREECODE (DEBUG_EXPR_DECL, "debug_expr_decl", tcc_declaration, 0)
+
+/* A stmt that marks the beginning of a source statement.  */
+DEFTREECODE (DEBUG_BEGIN_STMT, "debug_begin_stmt", tcc_statement, 0)
 
 /* A namespace declaration.  Namespaces appear in DECL_CONTEXT of other
    _DECLs, providing a hierarchy of names.  */
@@ -703,6 +695,14 @@ DEFTREECODE (MULT_EXPR, "mult_expr", tcc_binary, 2)
    second operand is an integer of type sizetype.  */
 DEFTREECODE (POINTER_PLUS_EXPR, "pointer_plus_expr", tcc_binary, 2)
 
+/* Pointer subtraction.  The two arguments are pointers, and the result
+   is a signed integer of the same precision.  Pointers are interpreted
+   as unsigned, the difference is computed as if in infinite signed
+   precision.  Behavior is undefined if the difference does not fit in
+   the result type.  The result does not depend on the pointer type,
+   it is not divided by the size of the pointed-to type.  */
+DEFTREECODE (POINTER_DIFF_EXPR, "pointer_diff_expr", tcc_binary, 2)
+
 /* Highpart multiplication.  For an integral type with precision B,
    returns bits [2B-1, B] of the full 2*B product.  */
 DEFTREECODE (MULT_HIGHPART_EXPR, "mult_highpart_expr", tcc_binary, 2)
@@ -962,10 +962,8 @@ DEFTREECODE (LOOP_EXPR, "loop_expr", tcc_statement, 1)
    Operand 0 is the expression used to perform the branch,
    Operand 1 is the body of the switch, which probably contains
      CASE_LABEL_EXPRs.  It may also be NULL, in which case operand 2
-     must not be NULL.
-   Operand 2 is either NULL_TREE or a TREE_VEC of the CASE_LABEL_EXPRs
-     of all the cases.  */
-DEFTREECODE (SWITCH_EXPR, "switch_expr", tcc_statement, 3)
+     must not be NULL.  */
+DEFTREECODE (SWITCH_EXPR, "switch_expr", tcc_statement, 2)
 
 /* Used to represent a case label.
 
@@ -1152,14 +1150,6 @@ DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 7)
    Operands like for OMP_FOR.  */
 DEFTREECODE (OMP_SIMD, "omp_simd", tcc_statement, 7)
 
-/* Cilk Plus - #pragma simd [clause1 ... clauseN]
-   Operands like for OMP_FOR.  */
-DEFTREECODE (CILK_SIMD, "cilk_simd", tcc_statement, 7)
-
-/* Cilk Plus - _Cilk_for (..)
-   Operands like for OMP_FOR.  */
-DEFTREECODE (CILK_FOR, "cilk_for", tcc_statement, 7)
-
 /* OpenMP - #pragma omp distribute [clause1 ... clauseN]
    Operands like for OMP_FOR.  */
 DEFTREECODE (OMP_DISTRIBUTE, "omp_distribute", tcc_statement, 7)
@@ -1286,23 +1276,6 @@ DEFTREECODE (OMP_CLAUSE, "omp_clause", tcc_exceptional, 0)
 /* TRANSACTION_EXPR tree code.
    Operand 0: BODY: contains body of the transaction.  */
 DEFTREECODE (TRANSACTION_EXPR, "transaction_expr", tcc_expression, 1)
-
-/* Reduction operations.
-   Operations that take a vector of elements and "reduce" it to a scalar
-   result (e.g. summing the elements of the vector, finding the minimum over
-   the vector elements, etc).
-   Operand 0 is a vector.
-   The expression returns a scalar, with type the same as the elements of the
-   vector, holding the result of the reduction of all elements of the operand.
-   */
-DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_AND_EXPR, "reduc_and_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_IOR_EXPR, "reduc_ior_expr", tcc_unary, 1)
-DEFTREECODE (REDUC_XOR_EXPR, "reduc_xor_expr", tcc_unary, 1)
-
-DEFTREECODE (FOLD_LEFT_PLUS_EXPR, "fold_left_plus_expr", tcc_binary, 2)
 
 /* Widening dot-product.
    The first two arguments are of type t1.
@@ -1436,15 +1409,9 @@ DEFTREECODE (TARGET_OPTION_NODE, "target_option_node", tcc_exceptional, 0)
 
 /* ANNOTATE_EXPR.
    Operand 0 is the expression to be annotated.
-   Operand 1 is the annotation kind.  */
-DEFTREECODE (ANNOTATE_EXPR, "annotate_expr", tcc_expression, 2)
-
-/* Cilk spawn statement
-   Operand 0 is the CALL_EXPR.  */
-DEFTREECODE (CILK_SPAWN_STMT, "cilk_spawn_stmt", tcc_statement, 1)
-
-/* Cilk Sync statement: Does not have any operands.  */
-DEFTREECODE (CILK_SYNC_STMT, "cilk_sync_stmt", tcc_statement, 0)
+   Operand 1 is the annotation kind.
+   Operand 2 is additional data.  */
+DEFTREECODE (ANNOTATE_EXPR, "annotate_expr", tcc_expression, 3)
 
 /*
 Local variables:

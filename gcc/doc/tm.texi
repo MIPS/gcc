@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2018 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -3168,6 +3168,15 @@ You only need to define this macro if you want to support call frame
 debugging information like that provided by DWARF 2.
 @end defmac
 
+@defmac DEFAULT_INCOMING_FRAME_SP_OFFSET
+Like @code{INCOMING_FRAME_SP_OFFSET}, but must be the same for all
+functions of the same ABI, and when using GAS @code{.cfi_*} directives
+must also agree with the default CFI GAS emits.  Define this macro
+only if @code{INCOMING_FRAME_SP_OFFSET} can have different values
+between different functions of the same ABI or when
+@code{INCOMING_FRAME_SP_OFFSET} does not agree with GAS default CFI.
+@end defmac
+
 @defmac ARG_POINTER_CFA_OFFSET (@var{fundecl})
 A C expression whose value is an integer giving the offset, in bytes,
 from the argument pointer to the canonical frame address (cfa).  The
@@ -3633,6 +3642,13 @@ context with version, args_size and by_value fields.  If it is undefined,
 it will be defined to 1 when @code{REG_VALUE_IN_UNWIND_CONTEXT} is
 defined and 0 otherwise.
 
+@end defmac
+
+@defmac DWARF_LAZY_REGISTER_VALUE (@var{regno}, @var{value})
+Define this macro if the target has pseudo DWARF registers whose
+values need to be computed lazily on demand by the unwinder (such as when
+referenced in a CFA expression).  The macro returns true if @var{regno}
+is such a register and stores its value in @samp{*@var{value}} if so.
 @end defmac
 
 @node Elimination
@@ -4598,6 +4614,16 @@ This target hook returns the mode to be used when accessing raw return registers
 
 @deftypefn {Target Hook} fixed_size_mode TARGET_GET_RAW_ARG_MODE (int @var{regno})
 This target hook returns the mode to be used when accessing raw argument registers in @code{__builtin_apply_args}.  Define this macro if the value in @var{reg_raw_mode} is not correct.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_EMPTY_RECORD_P (const_tree @var{type})
+This target hook returns true if the type is an empty record.  The default
+is to return @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_WARN_PARAMETER_PASSING_ABI (cumulative_args_t @var{ca}, tree @var{type})
+This target hook warns about the change in empty class parameter passing
+ABI.
 @end deftypefn
 
 @node Caller Saves
@@ -5829,8 +5855,24 @@ correct for most targets.
 Return true if vector alignment is reachable (by peeling N iterations) for the given scalar type @var{type}.  @var{is_packed} is false if the scalar access using @var{type} is known to be naturally aligned.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_VECTORIZE_VEC_PERM_CONST_OK (machine_mode, @var{vec_perm_indices})
-Return true if a vector created for @code{vec_perm_const} is valid.
+@deftypefn {Target Hook} bool TARGET_VECTORIZE_VEC_PERM_CONST (machine_mode @var{mode}, rtx @var{output}, rtx @var{in0}, rtx @var{in1}, const vec_perm_indices @var{&sel})
+This hook is used to test whether the target can permute up to two
+vectors of mode @var{mode} using the permutation vector @code{sel}, and
+also to emit such a permutation.  In the former case @var{in0}, @var{in1}
+and @var{out} are all null.  In the latter case @var{in0} and @var{in1} are
+the source vectors and @var{out} is the destination vector; all three are
+registers of mode @var{mode}.  @var{in1} is the same as @var{in0} if
+@var{sel} describes a permutation on one vector instead of two.
+
+Return true if the operation is possible, emitting instructions for it
+if rtxes are provided.
+
+@cindex @code{vec_perm@var{m}} instruction pattern
+If the hook returns false for a mode with multibyte elements, GCC will
+try the equivalent byte operation.  If that also fails, it will try forcing
+the selector into a register and using the @var{vec_perm@var{mode}}
+instruction pattern.  There is no need for the hook to handle these two
+implementation approaches itself.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_CONVERSION (unsigned @var{code}, tree @var{dest_type}, tree @var{src_type})
@@ -5873,6 +5915,13 @@ This hook should return the preferred mode for vectorizing scalar
 mode @var{mode}.  The default is
 equal to @code{word_mode}, because the vectorizer can do some
 transformations even in absence of specialized @acronym{SIMD} hardware.
+@end deftypefn
+
+@deftypefn {Target Hook} machine_mode TARGET_VECTORIZE_SPLIT_REDUCTION (machine_mode)
+This hook should return the preferred mode to split the final reduction
+step on @var{mode} to.  The reduction is then carried out reducing upper
+against lower halves of vectors recursively until the specified mode is
+reached.  The default is @var{mode} which means no splitting.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES (vector_sizes *@var{sizes})
@@ -7440,6 +7489,14 @@ The default version of this function returns 3 when @option{-fpic}
 is in effect, and 0 otherwise.  The hook is typically redefined
 when the target cannot support (some kinds of) dynamic relocations
 in read-only sections even in executables.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_ASM_GENERATE_PIC_ADDR_DIFF_VEC (void)
+Return true to generate ADDR_DIF_VEC table
+or false to generate ADDR_VEC table for jumps in case of -fPIC.
+
+The default version of this function returns true if flag_pic
+equals true and false otherwise
 @end deftypefn
 
 @deftypefn {Target Hook} {section *} TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
@@ -9638,8 +9695,8 @@ A C expression that returns the type of debugging output GCC should
 produce when the user specifies just @option{-g}.  Define
 this if you have arranged for GCC to support more than one format of
 debugging output.  Currently, the allowable values are @code{DBX_DEBUG},
-@code{DWARF_DEBUG}, @code{DWARF2_DEBUG},
-@code{XCOFF_DEBUG}, @code{VMS_DEBUG}, and @code{VMS_AND_DWARF2_DEBUG}.
+@code{DWARF2_DEBUG}, @code{XCOFF_DEBUG}, @code{VMS_DEBUG},
+and @code{VMS_AND_DWARF2_DEBUG}.
 
 When the user specifies @option{-ggdb}, GCC normally also uses the
 value of this macro to select the debugging output format, but with two
@@ -9916,6 +9973,29 @@ Define this macro to be a nonzero value if the assembler can generate Dwarf 2
 line debug info sections.  This will result in much more compact line number
 tables, and hence is desirable if it works.
 @end defmac
+
+@defmac DWARF2_ASM_VIEW_DEBUG_INFO
+Define this macro to be a nonzero value if the assembler supports view
+assignment and verification in @code{.loc}.  If it does not, but the
+user enables location views, the compiler may have to fallback to
+internal line number tables.
+@end defmac
+
+@deftypefn {Target Hook} int TARGET_RESET_LOCATION_VIEW (rtx_insn *@var{})
+This hook, if defined, enables -ginternal-reset-location-views, and
+uses its result to override cases in which the estimated min insn
+length might be nonzero even when a PC advance (i.e., a view reset)
+cannot be taken for granted.
+
+If the hook is defined, it must return a positive value to indicate
+the insn definitely advances the PC, and so the view number can be
+safely assumed to be reset; a negative value to mean the insn
+definitely does not advance the PC, and os the view number must not
+be reset; or zero to decide based on the estimated insn length.
+
+If insn length is to be regarded as reliable, set the hook to
+@code{hook_int_rtx_insn_0}.
+@end deftypefn
 
 @deftypevr {Target Hook} bool TARGET_WANT_DEBUG_PUB_SECTIONS
 True if the @code{.debug_pubtypes} and @code{.debug_pubnames} sections should be emitted.  These sections are not used on most platforms, and in particular GDB does not use them.
@@ -10717,8 +10797,12 @@ five otherwise.  This is best for most machines.
 
 @defmac WORD_REGISTER_OPERATIONS
 Define this macro to 1 if operations between registers with integral mode
-smaller than a word are always performed on the entire register.
-Most RISC machines have this property and most CISC machines do not.
+smaller than a word are always performed on the entire register.  To be
+more explicit, if you start with a pair of @code{word_mode} registers with
+known values and you do a subword, for example @code{QImode}, addition on
+the low part of the registers, then the compiler may consider that the
+result has a known value in @code{word_mode} too if the macro is defined
+to 1.  Most RISC machines have this property and most CISC machines do not.
 @end defmac
 
 @deftypefn {Target Hook} {unsigned int} TARGET_MIN_ARITHMETIC_PRECISION (void)

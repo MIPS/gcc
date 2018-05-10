@@ -4,7 +4,7 @@
    targets, if a frame header is required, it is allocated by the callee.
 
 
-   Copyright (C) 2015-2017 Free Software Foundation, Inc.
+   Copyright (C) 2015-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -101,8 +101,7 @@ void
 mips_register_frame_header_opt (void)
 {
   opt_pass *p = make_pass_ipa_frame_header_opt (g);
-  static struct register_pass_info f =
-    {p, "comdats", 1, PASS_POS_INSERT_AFTER };
+  struct register_pass_info f = { p, "comdats", 1, PASS_POS_INSERT_AFTER };
   register_pass (&f);
 }
 

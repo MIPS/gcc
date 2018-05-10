@@ -1,5 +1,5 @@
 /* Header file for gimple decl, type and expressions.
-   Copyright (C) 2013-2017 Free Software Foundation, Inc.
+   Copyright (C) 2013-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -136,8 +136,6 @@ is_gimple_constant (const_tree t)
     case FIXED_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
-    case VEC_DUPLICATE_CST:
-    case VEC_SERIES_CST:
     case STRING_CST:
       return true;
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Free Software Foundation, Inc.
+// Copyright (C) 2017-2018 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,10 +40,14 @@ test02()
   VERIFY( f.is_open() );
 }
 
+using std::is_constructible_v;
+// PR libstdc++/83025
+static_assert(is_constructible_v<std::fstream, char*>);
+static_assert(is_constructible_v<std::fstream, char*, std::ios::openmode>);
+
 int
 main()
 {
   test01();
   test02();
-  return 0;
 }

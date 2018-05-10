@@ -1,7 +1,7 @@
 /* General types and functions that are uselful for processing of OpenMP,
    OpenACC and similar directivers at various stages of compilation.
 
-   Copyright (C) 2005-2017 Free Software Foundation, Inc.
+   Copyright (C) 2005-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -85,6 +85,7 @@ extern void oacc_replace_fn_attrib (tree fn, tree dims);
 extern void oacc_set_fn_attrib (tree fn, tree clauses, vec<tree> *args);
 extern tree oacc_build_routine_dims (tree clauses);
 extern tree oacc_get_fn_attrib (tree fn);
+extern bool offloading_function_p (tree fn);
 extern int oacc_get_fn_dim_size (tree fn, int axis);
 extern int oacc_get_ifn_dim_arg (const gimple *stmt);
 

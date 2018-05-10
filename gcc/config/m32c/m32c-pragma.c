@@ -1,5 +1,5 @@
 /* M32C Pragma support
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -53,7 +53,7 @@ m32c_pragma_memregs (cpp_reader * reader ATTRIBUTE_UNUSED)
 	  if (type != CPP_EOF)
 	    warning (0, "junk at end of #pragma GCC memregs [0..16]");
 
-	  if (0 <= i && i <= 16)
+	  if (i >= 0 && i <= 16)
 	    {
 	      if (!ok_to_change_target_memregs)
 		{

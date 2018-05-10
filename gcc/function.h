@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2017 Free Software Foundation, Inc.
+   Copyright (C) 1989-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -263,9 +263,6 @@ struct GTY(()) function {
   /* Vector of function local variables, functions, types and constants.  */
   vec<tree, va_gc> *local_decls;
 
-  /* In a Cilk function, the VAR_DECL for the frame descriptor. */
-  tree cilk_frame_decl;
-
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -284,6 +281,12 @@ struct GTY(()) function {
 
   /* Last statement uid.  */
   int last_stmt_uid;
+
+  /* Debug marker counter.  Count begin stmt markers.  We don't have
+     to keep it exact, it's more of a rough estimate to enable us to
+     decide whether they are too many to copy during inlining, or when
+     expanding to RTL.  */
+  int debug_marker_count;
 
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
@@ -324,12 +327,6 @@ struct GTY(()) function {
      either as a subroutine or builtin.  */
   unsigned int calls_alloca : 1;
 
-  /* This will indicate whether a function is a cilk function */
-  unsigned int is_cilk_function : 1;
-
-  /* Nonzero if this is a Cilk function that spawns. */
-  unsigned int calls_cilk_spawn : 1;
-  
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
@@ -386,8 +383,15 @@ struct GTY(()) function {
      nonzero value in loop->simduid.  */
   unsigned int has_simduid_loops : 1;
 
-  /* Set when the tail call has been identified.  */
+  /* Nonzero when the tail call has been identified.  */
   unsigned int tail_call_marked : 1;
+
+  /* Nonzero if the current function contains a #pragma GCC unroll.  */
+  unsigned int has_unroll : 1;
+
+  /* Set when the function was compiled with generation of debug
+     (begin stmt, inline entry, ...) markers enabled.  */
+  unsigned int debug_nonbind_markers : 1;
 };
 
 /* Add the decl D to the local_decls list of FUN.  */
@@ -603,7 +607,7 @@ extern bool initial_value_entry (int i, rtx *, rtx *);
 extern void instantiate_decl_rtl (rtx x);
 extern int aggregate_value_p (const_tree, const_tree);
 extern bool use_register_for_decl (const_tree);
-extern gimple_seq gimplify_parameters (void);
+extern gimple_seq gimplify_parameters (gimple_seq *);
 extern void locate_and_pad_parm (machine_mode, tree, int, int, int,
 				 tree, struct args_size *,
 				 struct locate_and_pad_arg_data *);

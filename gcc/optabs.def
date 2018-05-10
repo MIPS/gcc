@@ -1,5 +1,5 @@
 /* Definitions for operation tables, or "optabs".
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -315,7 +315,6 @@ OPTAB_D (reduc_ior_scal_optab,  "reduc_ior_scal_$a")
 OPTAB_D (reduc_xor_scal_optab,  "reduc_xor_scal_$a")
 OPTAB_D (fold_left_plus_optab, "fold_left_plus_$a")
 
-OPTAB_D (break_after_optab, "break_after_$a")
 OPTAB_D (extract_last_optab, "extract_last_$a")
 OPTAB_D (fold_extract_last_optab, "fold_extract_last_$a")
 
@@ -330,16 +329,10 @@ OPTAB_D (vec_pack_ssat_optab, "vec_pack_ssat_$a")
 OPTAB_D (vec_pack_trunc_optab, "vec_pack_trunc_$a")
 OPTAB_D (vec_pack_ufix_trunc_optab, "vec_pack_ufix_trunc_$a")
 OPTAB_D (vec_pack_usat_optab, "vec_pack_usat_$a")
-OPTAB_D (vec_perm_const_optab, "vec_perm_const$a")
 OPTAB_D (vec_perm_optab, "vec_perm$a")
 OPTAB_D (vec_realign_load_optab, "vec_realign_load_$a")
 OPTAB_D (vec_set_optab, "vec_set$a")
 OPTAB_D (vec_shr_optab, "vec_shr_$a")
-OPTAB_D (vec_interleave_lo_optab, "vec_interleave_lo_$a")
-OPTAB_D (vec_interleave_hi_optab, "vec_interleave_hi_$a")
-OPTAB_D (vec_extract_even_optab, "vec_extract_even_$a")
-OPTAB_D (vec_extract_odd_optab, "vec_extract_odd_$a")
-OPTAB_D (vec_reverse_optab, "vec_reverse_$a")
 OPTAB_D (vec_unpacks_float_hi_optab, "vec_unpacks_float_hi_$a")
 OPTAB_D (vec_unpacks_float_lo_optab, "vec_unpacks_float_lo_$a")
 OPTAB_D (vec_unpacks_hi_optab, "vec_unpacks_hi_$a")
@@ -398,10 +391,6 @@ OPTAB_D (atomic_xor_optab, "atomic_xor$I$a")
 OPTAB_D (get_thread_pointer_optab, "get_thread_pointer$I$a")
 OPTAB_D (set_thread_pointer_optab, "set_thread_pointer$I$a")
 
-OPTAB_D (firstfault_load_optab, "firstfault_load$a")
-OPTAB_D (read_nf_optab, "read_nf$a")
-OPTAB_D (write_nf_optab, "write_nf$a")
-
 OPTAB_D (gather_load_optab, "gather_load$a")
 OPTAB_D (mask_gather_load_optab, "mask_gather_load$a")
 OPTAB_D (scatter_store_optab, "scatter_store$a")
@@ -409,6 +398,4 @@ OPTAB_D (mask_scatter_store_optab, "mask_scatter_store$a")
 
 OPTAB_DC (vec_duplicate_optab, "vec_duplicate$a", VEC_DUPLICATE)
 OPTAB_DC (vec_series_optab, "vec_series$a", VEC_SERIES)
-
-OPTAB_D (mask_popcount_optab, "mask_popcount$a")
 OPTAB_D (vec_shl_insert_optab, "vec_shl_insert_$a")

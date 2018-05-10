@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 2002-2018 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -93,6 +93,7 @@ extern int hook_int_const_tree_0 (const_tree);
 extern int hook_int_const_tree_const_tree_1 (const_tree, const_tree);
 extern int hook_int_rtx_0 (rtx);
 extern int hook_int_rtx_1 (rtx);
+extern int hook_int_rtx_insn_0 (rtx_insn *);
 extern int hook_int_rtx_insn_unreachable (rtx_insn *);
 extern int hook_int_rtx_bool_0 (rtx, bool);
 extern int hook_int_rtx_mode_as_bool_0 (rtx, machine_mode, addr_space_t,

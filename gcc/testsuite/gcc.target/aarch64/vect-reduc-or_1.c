@@ -1,6 +1,8 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -fno-vect-cost-model -march=armv8-a" } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -fno-vect-cost-model" } */
 /* Write a reduction loop to be reduced using whole vector right shift.  */
+
+#pragma GCC target "+nosve"
 
 extern void abort (void);
 

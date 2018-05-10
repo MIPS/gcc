@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2017 Free Software Foundation, Inc.
+   Copyright (C) 2003-2018 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -1327,6 +1327,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	  e->speculative = false;
 	  e->caller->set_call_stmt_including_clones (e->call_stmt, new_stmt,
 						     false);
+	  e->count = gimple_bb (e->call_stmt)->count;
 
 	  /* Fix edges for BUILT_IN_CHKP_BNDRET calls attached to the
 	     processed call stmt.  */
@@ -1346,6 +1347,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	    }
 
 	  e2->speculative = false;
+	  e2->count = gimple_bb (e2->call_stmt)->count;
 	  ref->speculative = false;
 	  ref->stmt = NULL;
 	  /* Indirect edges are not both in the call site hash.
@@ -1431,7 +1433,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	 stmts and associate D#X with parm in decl_debug_args_lookup
 	 vector to say for debug info that if parameter parm had been passed,
 	 it would have value parm_Y(D).  */
-      if (e->callee->clone.combined_args_to_skip && MAY_HAVE_DEBUG_STMTS)
+      if (e->callee->clone.combined_args_to_skip && MAY_HAVE_DEBUG_BIND_STMTS)
 	{
 	  vec<tree, va_gc> **debug_args
 	    = decl_debug_args_lookup (e->callee->decl);
@@ -2024,7 +2026,7 @@ cgraph_edge::dump_edge_flags (FILE *f)
       fprintf (f, "(");
       count.dump (f);
       fprintf (f, ",");
-      fprintf (f, "%.2f per call) ", frequency () / (double)CGRAPH_FREQ_BASE);
+      fprintf (f, "%.2f per call) ", sreal_frequency ().to_double ());
     }
   if (can_throw_external)
     fprintf (f, "(can throw external) ");
@@ -2160,7 +2162,7 @@ cgraph_node::dump (FILE *f)
       fprintf (f, "%s ", edge->caller->dump_name ());
       edge->dump_edge_flags (f);
       if (edge->count.initialized_p ())
-	sum += edge->count;
+	sum += edge->count.ipa ();
     }
 
   fprintf (f, "\n  Calls: ");
@@ -2184,7 +2186,7 @@ cgraph_node::dump (FILE *f)
       if (global.inlined_to
 	  || (symtab->state < EXPANSION
 	      && ultimate_alias_target () == this && only_called_directly_p ()))
-	ok = !count.differs_from_p (sum);
+	ok = !count.ipa ().differs_from_p (sum);
       else if (count.ipa () > profile_count::from_gcov_type (100)
 	       && count.ipa () < sum.apply_scale (99, 100))
 	ok = false, min = true;
@@ -2196,7 +2198,7 @@ cgraph_node::dump (FILE *f)
 	    fprintf (f, ", should be at most ");
 	  else
 	    fprintf (f, ", should be ");
-	  count.dump (f);
+	  count.ipa ().dump (f);
 	  fprintf (f, "\n");
 	}
     }
@@ -2811,15 +2813,11 @@ cgraph_edge::maybe_hot_p (void)
   if (symtab->state < IPA_SSA)
     return true;
   if (caller->frequency == NODE_FREQUENCY_EXECUTED_ONCE
-      && frequency () < CGRAPH_FREQ_BASE * 3 / 2)
+      && sreal_frequency () * 2 < 3)
     return false;
-  if (opt_for_fn (caller->decl, flag_guess_branch_prob))
-    {
-      if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0
-	  || frequency () <= (CGRAPH_FREQ_BASE
-			   / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
-        return false;
-    }
+  if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0
+      || sreal_frequency () * PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) <= 1)
+    return false;
   return true;
 }
 
@@ -3880,9 +3878,7 @@ cgraph_node::has_thunk_p (cgraph_node *node, void *)
   return false;
 }
 
-/* Expected frequency of executions within the function.
-   When set to CGRAPH_FREQ_BASE, the edge is expected to be called once
-   per function call.  The range is 0 to CGRAPH_FREQ_MAX.  */
+/* Expected frequency of executions within the function.  */
 
 sreal
 cgraph_edge::sreal_frequency ()

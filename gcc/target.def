@@ -1,5 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001-2017 Free Software Foundation, Inc.
+   Copyright (C) 2001-2018 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -506,6 +506,18 @@ when the target cannot support (some kinds of) dynamic relocations\n\
 in read-only sections even in executables.",
  int, (void),
  default_reloc_rw_mask)
+
+ /* Return a flag for either generating ADDR_DIF_VEC table
+ or ADDR_VEC table for jumps in case of -fPIC/-fPIE.  */
+DEFHOOK
+(generate_pic_addr_diff_vec,
+"Return true to generate ADDR_DIF_VEC table\n\
+or false to generate ADDR_VEC table for jumps in case of -fPIC.\n\
+\n\
+The default version of this function returns true if flag_pic\n\
+equals true and false otherwise",
+ bool, (void),
+ default_generate_pic_addr_diff_vec)
 
  /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
     is nonzero if runtime relocations must be applied; bit 1 will be
@@ -1637,7 +1649,7 @@ void, (rtx_insn *insn, int max_pri, int *fusion_pri, int *pri), NULL)
 
 HOOK_VECTOR_END (sched)
 
-/* Functions relating to OpenMP and Cilk Plus SIMD clones.  */
+/* Functions relating to OpenMP SIMD and __attribute__((simd)) clones.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_SIMD_CLONE_"
 HOOK_VECTOR (TARGET_SIMD_CLONE, simd_clone)
@@ -1841,12 +1853,27 @@ DEFHOOK
  bool, (const_tree type, bool is_packed),
  default_builtin_vector_alignment_reachable)
 
-/* Return true if a vector created for vec_perm_const is valid.
-   A NULL indicates that all constants are valid permutations.  */
 DEFHOOK
-(vec_perm_const_ok,
- "Return true if a vector created for @code{vec_perm_const} is valid.",
- bool, (machine_mode, vec_perm_indices),
+(vec_perm_const,
+ "This hook is used to test whether the target can permute up to two\n\
+vectors of mode @var{mode} using the permutation vector @code{sel}, and\n\
+also to emit such a permutation.  In the former case @var{in0}, @var{in1}\n\
+and @var{out} are all null.  In the latter case @var{in0} and @var{in1} are\n\
+the source vectors and @var{out} is the destination vector; all three are\n\
+registers of mode @var{mode}.  @var{in1} is the same as @var{in0} if\n\
+@var{sel} describes a permutation on one vector instead of two.\n\
+\n\
+Return true if the operation is possible, emitting instructions for it\n\
+if rtxes are provided.\n\
+\n\
+@cindex @code{vec_perm@var{m}} instruction pattern\n\
+If the hook returns false for a mode with multibyte elements, GCC will\n\
+try the equivalent byte operation.  If that also fails, it will try forcing\n\
+the selector into a register and using the @var{vec_perm@var{mode}}\n\
+instruction pattern.  There is no need for the hook to handle these two\n\
+implementation approaches itself.",
+ bool, (machine_mode mode, rtx output, rtx in0, rtx in1,
+	const vec_perm_indices &sel),
  NULL)
 
 /* Return true if the target supports misaligned store/load of a
@@ -1874,6 +1901,17 @@ transformations even in absence of specialized @acronym{SIMD} hardware.",
  machine_mode,
  (scalar_mode mode),
  default_preferred_simd_mode)
+
+/* Returns the preferred mode for splitting SIMD reductions to.  */
+DEFHOOK
+(split_reduction,
+ "This hook should return the preferred mode to split the final reduction\n\
+step on @var{mode} to.  The reduction is then carried out reducing upper\n\
+against lower halves of vectors recursively until the specified mode is\n\
+reached.  The default is @var{mode} which means no splitting.",
+  machine_mode,
+  (machine_mode),
+  default_split_reduction)
 
 /* Returns a mask of vector sizes to iterate over when auto-vectorizing
    after processing the preferred one derived from preferred_simd_mode.  */
@@ -5109,6 +5147,22 @@ DEFHOOK
  fixed_size_mode, (int regno),
  default_get_reg_raw_mode)
 
+/* Return true if a type is an empty record.  */
+DEFHOOK
+(empty_record_p,
+ "This target hook returns true if the type is an empty record.  The default\n\
+is to return @code{false}.",
+ bool, (const_tree type),
+ hook_bool_const_tree_false)
+
+/* Warn about the change in empty class parameter passing ABI.  */
+DEFHOOK
+(warn_parameter_passing_abi,
+ "This target hook warns about the change in empty class parameter passing\n\
+ABI.",
+ void, (cumulative_args_t ca, tree type),
+ hook_void_CUMULATIVE_ARGS_tree)
+
 HOOK_VECTOR_END (calls)
 
 DEFHOOK
@@ -6404,6 +6458,23 @@ A target may return @code{UI_TARGET} if it has ABI specified unwind tables.\n\
 This will suppress generation of the normal debug frame unwind information.",
  enum unwind_info_type, (void),
  default_debug_unwind_info)
+
+DEFHOOK
+(reset_location_view, "\
+This hook, if defined, enables -ginternal-reset-location-views, and\n\
+uses its result to override cases in which the estimated min insn\n\
+length might be nonzero even when a PC advance (i.e., a view reset)\n\
+cannot be taken for granted.\n\
+\n\
+If the hook is defined, it must return a positive value to indicate\n\
+the insn definitely advances the PC, and so the view number can be\n\
+safely assumed to be reset; a negative value to mean the insn\n\
+definitely does not advance the PC, and os the view number must not\n\
+be reset; or zero to decide based on the estimated insn length.\n\
+\n\
+If insn length is to be regarded as reliable, set the hook to\n\
+@code{hook_int_rtx_insn_0}.",
+ int, (rtx_insn *), NULL)
 
 /* The code parameter should be of type enum rtx_code but this is not
    defined at this time.  */

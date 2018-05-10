@@ -1,5 +1,5 @@
 /* Dead store elimination
-   Copyright (C) 2004-2017 Free Software Foundation, Inc.
+   Copyright (C) 2004-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,9 +129,9 @@ valid_ao_ref_for_dse (ao_ref *ref)
 {
   return (ao_ref_base (ref)
 	  && known_size_p (ref->max_size)
-	  && may_ne (ref->size, 0)
-	  && must_eq (ref->max_size, ref->size)
-	  && must_ge (ref->offset, 0)
+	  && maybe_ne (ref->size, 0)
+	  && known_eq (ref->max_size, ref->size)
+	  && known_ge (ref->offset, 0)
 	  && multiple_p (ref->offset, BITS_PER_UNIT)
 	  && multiple_p (ref->size, BITS_PER_UNIT));
 }
@@ -149,17 +149,17 @@ normalize_ref (ao_ref *copy, ao_ref *ref)
   /* If COPY starts before REF, then reset the beginning of
      COPY to match REF and decrease the size of COPY by the
      number of bytes removed from COPY.  */
-  if (may_lt (copy->offset, ref->offset))
+  if (maybe_lt (copy->offset, ref->offset))
     {
       poly_int64 diff = ref->offset - copy->offset;
-      if (may_le (copy->size, diff))
+      if (maybe_le (copy->size, diff))
 	return false;
       copy->size -= diff;
       copy->offset = ref->offset;
     }
 
   poly_int64 diff = copy->offset - ref->offset;
-  if (may_le (ref->size, diff))
+  if (maybe_le (ref->size, diff))
     return false;
 
   /* If COPY extends beyond REF, chop off its size appropriately.  */
@@ -167,7 +167,7 @@ normalize_ref (ao_ref *copy, ao_ref *ref)
   if (!ordered_p (limit, copy->size))
     return false;
 
-  if (may_gt (copy->size, limit))
+  if (maybe_gt (copy->size, limit))
     copy->size = limit;
   return true;
 }
@@ -191,7 +191,7 @@ clear_bytes_written_by (sbitmap live_bytes, gimple *stmt, ao_ref *ref)
   HOST_WIDE_INT start, size;
   if (valid_ao_ref_for_dse (&write)
       && operand_equal_p (write.base, ref->base, OEP_ADDRESS_OF)
-      && must_eq (write.size, write.max_size)
+      && known_eq (write.size, write.max_size)
       && normalize_ref (&write, ref)
       && (write.offset - ref->offset).is_constant (&start)
       && write.size.is_constant (&size))
@@ -280,7 +280,7 @@ maybe_trim_complex_store (ao_ref *ref, sbitmap live, gimple *stmt)
      least half the size of the object to ensure we're trimming
      the entire real or imaginary half.  By writing things this
      way we avoid more O(n) bitmap operations.  */
-  if (must_ge (trim_tail * 2 * BITS_PER_UNIT, ref->size))
+  if (known_ge (trim_tail * 2 * BITS_PER_UNIT, ref->size))
     {
       /* TREE_REALPART is live */
       tree x = TREE_REALPART (gimple_assign_rhs1 (stmt));
@@ -289,7 +289,7 @@ maybe_trim_complex_store (ao_ref *ref, sbitmap live, gimple *stmt)
       gimple_assign_set_lhs (stmt, y);
       gimple_assign_set_rhs1 (stmt, x);
     }
-  else if (must_ge (trim_head * 2 * BITS_PER_UNIT, ref->size))
+  else if (known_ge (trim_head * 2 * BITS_PER_UNIT, ref->size))
     {
       /* TREE_IMAGPART is live */
       tree x = TREE_IMAGPART (gimple_assign_rhs1 (stmt));
@@ -505,7 +505,7 @@ live_bytes_read (ao_ref use_ref, ao_ref *ref, sbitmap live)
       /* If USE_REF covers all of REF, then it will hit one or more
 	 live bytes.   This avoids useless iteration over the bitmap
 	 below.  */
-      if (start == 0 && must_eq (size, ref->size))
+      if (start == 0 && known_eq (size, ref->size))
 	return true;
 
       /* Now check if any of the remaining bits in use_ref are set in LIVE.  */
@@ -607,7 +607,7 @@ dse_classify_store (ao_ref *ref, gimple *stmt, gimple **use_stmt,
 		      ao_ref_init (&use_ref, gimple_assign_rhs1 (use_stmt));
 		      if (valid_ao_ref_for_dse (&use_ref)
 			  && use_ref.base == ref->base
-			  && must_eq (use_ref.size, use_ref.max_size)
+			  && known_eq (use_ref.size, use_ref.max_size)
 			  && !live_bytes_read (use_ref, ref, live_bytes))
 			{
 			  /* If this statement has a VDEF, then it is the

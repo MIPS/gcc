@@ -1,6 +1,6 @@
 /* Manipulation of formal and actual parameters of functions and function
    calls.
-   Copyright (C) 2017 Free Software Foundation, Inc.
+   Copyright (C) 2017-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -295,8 +295,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gcall *stmt,
 
 	  poly_int64 byte_offset = exact_div (adj->offset, BITS_PER_UNIT);
 	  base = gimple_call_arg (stmt, adj->base_index);
-	  loc = DECL_P (base) ? DECL_SOURCE_LOCATION (base)
-			      : EXPR_LOCATION (base);
+	  loc = gimple_location (stmt);
 
 	  if (TREE_CODE (base) != ADDR_EXPR
 	      && POINTER_TYPE_P (TREE_TYPE (base)))
@@ -385,6 +384,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gcall *stmt,
 		  else
 		    expr = create_tmp_reg (TREE_TYPE (expr));
 		  gimple_assign_set_lhs (tem, expr);
+		  gimple_set_location (tem, loc);
 		  gsi_insert_before (&gsi, tem, GSI_SAME_STMT);
 		}
 	    }
@@ -398,7 +398,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gcall *stmt,
 	    }
 	  vargs.quick_push (expr);
 	}
-      if (adj->op != IPA_PARM_OP_COPY && MAY_HAVE_DEBUG_STMTS)
+      if (adj->op != IPA_PARM_OP_COPY && MAY_HAVE_DEBUG_BIND_STMTS)
 	{
 	  unsigned int ix;
 	  tree ddecl = NULL_TREE, origin = DECL_ORIGIN (adj->base), arg;
@@ -651,7 +651,7 @@ ipa_get_adjustment_candidate (tree **expr, bool *convert,
       struct ipa_parm_adjustment *adj = &adjustments[i];
 
       if (adj->base == base
-	  && (must_eq (adj->offset, offset) || adj->op == IPA_PARM_OP_REMOVE))
+	  && (known_eq (adj->offset, offset) || adj->op == IPA_PARM_OP_REMOVE))
 	{
 	  cand = adj;
 	  break;

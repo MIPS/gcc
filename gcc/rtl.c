@@ -1,5 +1,5 @@
 /* RTL utility routines.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -257,9 +257,6 @@ shared_const_p (const_rtx orig)
 {
   gcc_assert (GET_CODE (orig) == CONST);
 
-  if (unique_const_p (XEXP (orig, 0)))
-    return true;
-
   /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
      a LABEL_REF, it isn't sharable.  */
   poly_int64 offset;
@@ -506,7 +503,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 	  break;
 
 	case 'p':
-	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
 	    return 0;
 	  break;
 
@@ -648,7 +645,7 @@ rtx_equal_p (const_rtx x, const_rtx y)
 	  break;
 
 	case 'p':
-	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	  if (maybe_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
 	    return 0;
 	  break;
 

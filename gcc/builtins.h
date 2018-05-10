@@ -1,5 +1,5 @@
 /* Expand builtin functions.
-   Copyright (C) 1988-2017 Free Software Foundation, Inc.
+   Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -103,4 +103,6 @@ extern bool target_char_cst_p (tree t, char *p);
 extern internal_fn associated_internal_fn (tree);
 extern internal_fn replacement_internal_fn (gcall *);
 
-#endif
+extern tree max_object_size ();
+
+#endif /* GCC_BUILTINS_H */

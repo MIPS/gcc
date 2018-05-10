@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -21,8 +21,8 @@
 (define_register_constraint "k" "STACK_REG"
   "@internal The stack register.")
 
-(define_register_constraint "Ucs" "CALLER_SAVE_REGS"
-  "@internal The caller save registers.")
+(define_register_constraint "Ucs" "TAILCALL_ADDR_REGS"
+  "@internal Registers suitable for an indirect tail call")
 
 (define_register_constraint "w" "FP_REGS"
   "Floating point and SIMD vector registers.")
@@ -45,6 +45,18 @@
   "@internal A constant that matches two uses of add instructions."
   (and (match_code "const_int")
        (match_test "aarch64_pluslong_strict_immedate (op, VOIDmode)")))
+
+(define_constraint "Uav"
+  "@internal
+   A constraint that matches a VG-based constant that can be added by
+   a single ADDVL or ADDPL."
+ (match_operand 0 "aarch64_sve_addvl_addpl_immediate"))
+
+(define_constraint "Uat"
+  "@internal
+   A constraint that matches a VG-based constant that can be added by
+   using multiple instructions, with one temporary register."
+ (match_operand 0 "aarch64_split_add_offset_immediate"))
 
 (define_constraint "J"
  "A constant that can be used with a SUB operation (once negated)."
@@ -74,6 +86,12 @@
  "A constant that can be used with a 64-bit MOV immediate operation."
  (and (match_code "const_int")
       (match_test "aarch64_move_imm (ival, DImode)")))
+
+(define_constraint "Uti"
+ "A constant that can be used with a 128-bit MOV immediate operation."
+ (and (ior (match_code "const_int")
+	   (match_code "const_wide_int"))
+      (match_test "aarch64_mov128_immediate (op)")))
 
 (define_constraint "UsO"
  "A constant that can be used with a 32-bit and operation."
@@ -135,15 +153,47 @@
        (match_test "!(aarch64_is_noplt_call_p (op)
 		      || aarch64_is_long_call_p (op))")))
 
+(define_constraint "Usg"
+  "@internal
+  A constraint that matches an immediate right shift constant in SImode
+  suitable for a SISD instruction."
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (ival, 1, 31)")))
+
+(define_constraint "Usj"
+  "@internal
+  A constraint that matches an immediate right shift constant in DImode
+  suitable for a SISD instruction."
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (ival, 1, 63)")))
+
 (define_constraint "UsM"
   "@internal
   A constraint that matches the immediate constant -1."
   (match_test "op == constm1_rtx"))
 
+(define_constraint "Usv"
+  "@internal
+   A constraint that matches a VG-based constant that can be loaded by
+   a single CNT[BHWD]."
+ (match_operand 0 "aarch64_sve_cnt_immediate"))
+
+(define_constraint "Usi"
+  "@internal
+ A constraint that matches an immediate operand valid for
+ the SVE INDEX instruction."
+ (match_operand 0 "aarch64_sve_index_immediate"))
+
 (define_constraint "Ui1"
   "@internal
   A constraint that matches the immediate constant +1."
   (match_test "op == const1_rtx"))
+
+(define_constraint "Ui2"
+  "@internal
+  A constraint that matches the integers 0...3."
+  (and (match_code "const_int")
+       (match_test "(unsigned HOST_WIDE_INT) ival <= 3")))
 
 (define_constraint "Ui3"
   "@internal
@@ -151,24 +201,17 @@
   (and (match_code "const_int")
        (match_test "(unsigned HOST_WIDE_INT) ival <= 4")))
 
+(define_constraint "Ui7"
+  "@internal
+  A constraint that matches the integers 0...7."
+  (and (match_code "const_int")
+       (match_test "(unsigned HOST_WIDE_INT) ival <= 7")))
+
 (define_constraint "Up3"
   "@internal
   A constraint that matches the integers 2^(0...4)."
   (and (match_code "const_int")
        (match_test "(unsigned) exact_log2 (ival) <= 4")))
-
-;; "ad" for "(A)DDVL/ADDPL (D)irect".
-(define_constraint "Uad"
-  "@internal
-   A constraint that matches a VG-based constant that can be added by
-   a single ADDVL or ADDPL."
- (match_operand 0 "aarch64_sve_addvl_addpl_immediate"))
-
-(define_constraint "Ua1"
-  "@internal
-   A constraint that matches a VG-based constant that can be added by
-   using multiple instructions, with one temporary register."
- (match_operand 0 "aarch64_split_add_offset_immediate"))
 
 (define_memory_constraint "Q"
  "A memory address which uses a single base register with no offset."
@@ -198,12 +241,6 @@
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (DFmode, XEXP (op, 0), 1,
 						  ADDR_QUERY_LDP_STP)")))
-
-(define_memory_constraint "Utf"
-  "@internal
-   An address valid for SVE LDFF1s."
-  (and (match_code "mem")
-       (match_test "aarch64_sve_ldff1_operand_p (op)")))
 
 (define_memory_constraint "Utr"
   "@internal
@@ -278,12 +315,6 @@
       (match_test "aarch64_simd_scalar_immediate_valid_for_move (op,
 						 HImode)")))
 
-(define_constraint "Di"
-  "@internal
- A constraint that matches an immediate operand valid for
- the SVE INDEX instruction."
- (match_operand 0 "aarch64_sve_index_immediate"))
-
 (define_constraint "Dq"
   "@internal
  A constraint that matches an immediate operand valid for\
@@ -313,7 +344,7 @@
 
 (define_constraint "Dm"
   "@internal
-   A constraint that matches a vector of immediate minus one."
+ A constraint that matches a vector of immediate minus one."
  (and (match_code "const,const_vector")
       (match_test "op == CONST1_RTX (GET_MODE (op))")))
 
@@ -335,12 +366,6 @@
   "@internal
  An address valid for a prefetch instruction."
  (match_test "aarch64_address_valid_for_prefetch_p (op, true)"))
-
-(define_constraint "Dv"
-  "@internal
-   A constraint that matches a VG-based constant that can be loaded by
-   a single CNT[BHWD]."
- (match_operand 0 "aarch64_sve_cnt_immediate"))
 
 (define_constraint "vsa"
   "@internal
@@ -384,19 +409,19 @@
    operations."
  (match_operand 0 "aarch64_sve_mul_immediate"))
 
-(define_constraint "vfa"
+(define_constraint "vsA"
   "@internal
    A constraint that matches an immediate operand valid for SVE FADD
    and FSUB operations."
  (match_operand 0 "aarch64_sve_float_arith_immediate"))
 
-(define_constraint "vfm"
+(define_constraint "vsM"
   "@internal
    A constraint that matches an imediate operand valid for SVE FMUL
    operations."
  (match_operand 0 "aarch64_sve_float_mul_immediate"))
 
-(define_constraint "vfn"
+(define_constraint "vsN"
   "@internal
-   A constraint that matches the negative of vfa"
+   A constraint that matches the negative of vsA"
  (match_operand 0 "aarch64_sve_float_arith_with_sub_immediate"))

@@ -18,13 +18,13 @@ char* strncpy (char*, const char*, size_t);
 }
 #endif
 
-extern size_t unsigned_value (void)
+static size_t unsigned_value (void)
 {
   extern volatile size_t unsigned_value_source;
   return unsigned_value_source;
 }
 
-size_t unsigned_range (size_t min, size_t max)
+static size_t unsigned_range (size_t min, size_t max)
 {
   size_t val = unsigned_value ();
   return val < min || max < val ? min : val;
@@ -188,40 +188,40 @@ void test_strncpy_ptr (char *d, const char* s, const char *t, int i)
   CPY (d, CHOOSE (s, t), 2);
 
   CPY (d, CHOOSE ("", "123"), 1);   /* { dg-warning ".strncpy\[^\n\r\]* output may be truncated copying 1 byte from a string of length 3" } */
-  CPY (d, CHOOSE ("1", "123"), 1);  /* { dg-warning ".strncpy\[^\n\r\]* output truncated copying 1 byte from a string of length 1" } */
+  CPY (d, CHOOSE ("1", "123"), 1);  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying 1 byte from a string of the same length" } */
   CPY (d, CHOOSE ("12", "123"), 1); /* { dg-warning ".strncpy\[^\n\r\]* output truncated copying 1 byte from a string of length 2" } */
   CPY (d, CHOOSE ("123", "12"), 1); /* { dg-warning ".strncpy\[^\n\r\]* output truncated copying 1 byte from a string of length 2" } */
 
   {
-    signed char n = strlen (s);   /* { dg-message "length computed here" } */
+    signed char n = strlen (s);     /* { dg-message "length computed here" } */
     CPY (d, s, n);                  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
   {
-    short n = strlen (s);         /* { dg-message "length computed here" } */
+    short n = strlen (s);           /* { dg-message "length computed here" } */
     CPY (d, s, n);                  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
   {
-    int n = strlen (s);           /* { dg-message "length computed here" } */
+    int n = strlen (s);             /* { dg-message "length computed here" } */
     CPY (d, s, n);                  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
   {
-    unsigned n = strlen (s);      /* { dg-message "length computed here" } */
+    unsigned n = strlen (s);        /* { dg-message "length computed here" } */
     CPY (d, s, n);                  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
   {
     size_t n;
-    n = strlen (s);               /* { dg-message "length computed here" } */
+    n = strlen (s);                 /* { dg-message "length computed here" } */
     CPY (d, s, n);                  /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
   {
     size_t n;
     char *dp2 = d + 1;
-    n = strlen (s);               /* { dg-message "length computed here" } */
+    n = strlen (s);                 /* { dg-message "length computed here" } */
     CPY (dp2, s, n);                /* { dg-warning ".strncpy\[^\n\r\]* output truncated before terminating nul copying as many bytes from a string as its length" } */
   }
 
@@ -312,9 +312,11 @@ void test_strncpy_array (Dest *pd, int i, const char* s)
   /* Exercise destination with attribute "nonstring".  */
   CPY (pd->c3ns, "", 3);
   CPY (pd->c3ns, "", 1);
-  /* Truncation is still diagnosed -- using strncpy in this case is
-     pointless and should be replaced with memcpy.  */
-  CPY (pd->c3ns, "12", 1);          /* { dg-warning "output truncated copying 1 byte from a string of length 2" } */
+  /* It could be argued that truncation in the literal case should be
+     diagnosed even for non-strings.  Using strncpy in this case is
+     pointless and should be replaced with memcpy.  But it would likely
+     be viewed as a false positive.  */
+  CPY (pd->c3ns, "12", 1);
   CPY (pd->c3ns, "12", 2);
   CPY (pd->c3ns, "12", 3);
   CPY (pd->c3ns, "123", 3);
@@ -329,7 +331,7 @@ void test_strncpy_array (Dest *pd, int i, const char* s)
     /* This might be better written using memcpy() but it's safe so
        it probably shouldn't be diagnosed.  It currently triggers
        a warning because of bug 81704.  */
-    strncpy (dst7, "0123456", sizeof dst7);   /* { dg-bogus "truncated" "bug 81704" { xfail *-*-* } } */
+    strncpy (dst7, "0123456", sizeof dst7);   /* { dg-bogus "\\\[-Wstringop-truncation]" "bug 81704" { xfail *-*-* } } */
     dst7[sizeof dst7 - 1] = '\0';
     sink (dst7);
   }
@@ -348,7 +350,7 @@ void test_strncpy_array (Dest *pd, int i, const char* s)
   }
 
   {
-    strncpy (pd->a5, "01234", sizeof pd->a5);   /* { dg-bogus "truncated" "bug 81704" { xfail *-*-* } } */
+    strncpy (pd->a5, "01234", sizeof pd->a5);   /* { dg-bogus "\\\[-Wstringop-truncation]" "bug 81704" { xfail *-*-* } } */
     pd->a5[sizeof pd->a5 - 1] = '\0';
     sink (pd);
   }

@@ -1,5 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007-2017 Free Software Foundation, Inc.
+   Copyright (C) 2007-2018 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -668,9 +668,9 @@ simplify_gen_subreg_concatn (machine_mode outermode, rtx op,
     {
       rtx op2;
 
-      if (must_eq (GET_MODE_SIZE (GET_MODE (op)),
-		   GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
-	  && must_eq (SUBREG_BYTE (op), 0))
+      if (known_eq (GET_MODE_SIZE (GET_MODE (op)),
+		    GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
+	  && known_eq (SUBREG_BYTE (op), 0))
 	return simplify_gen_subreg_concatn (outermode, SUBREG_REG (op),
 					    GET_MODE (SUBREG_REG (op)), byte);
 
@@ -869,8 +869,8 @@ resolve_simple_move (rtx set, rtx_insn *insn)
 
   if (GET_CODE (src) == SUBREG
       && resolve_reg_p (SUBREG_REG (src))
-      && (may_ne (SUBREG_BYTE (src), 0)
-	  || may_ne (orig_size, GET_MODE_SIZE (GET_MODE (SUBREG_REG (src))))))
+      && (maybe_ne (SUBREG_BYTE (src), 0)
+	  || maybe_ne (orig_size, GET_MODE_SIZE (GET_MODE (SUBREG_REG (src))))))
     {
       real_dest = dest;
       dest = gen_reg_rtx (orig_mode);
@@ -883,8 +883,9 @@ resolve_simple_move (rtx set, rtx_insn *insn)
 
   if (GET_CODE (dest) == SUBREG
       && resolve_reg_p (SUBREG_REG (dest))
-      && (may_ne (SUBREG_BYTE (dest), 0)
-	  || may_ne (orig_size, GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest))))))
+      && (maybe_ne (SUBREG_BYTE (dest), 0)
+	  || maybe_ne (orig_size,
+		       GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest))))))
     {
       rtx reg, smove;
       rtx_insn *minsn;

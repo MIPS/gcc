@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2017 Free Software Foundation, Inc.
+   Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -89,6 +89,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512VBMI2_P(x) TARGET_ISA_AVX512VBMI2_P(x)
 #define TARGET_AVX512VPOPCNTDQ	TARGET_ISA_AVX512VPOPCNTDQ
 #define TARGET_AVX512VPOPCNTDQ_P(x) TARGET_ISA_AVX512VPOPCNTDQ_P(x)
+#define TARGET_AVX512VNNI	TARGET_ISA_AVX512VNNI
+#define TARGET_AVX512VNNI_P(x) TARGET_ISA_AVX512VNNI_P(x)
+#define TARGET_AVX512BITALG	TARGET_ISA_AVX512BITALG
+#define TARGET_AVX512BITALG_P(x) TARGET_ISA_AVX512BITALG_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -101,12 +105,20 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_LWP_P(x)	TARGET_ISA_LWP_P(x)
 #define TARGET_ABM	TARGET_ISA_ABM
 #define TARGET_ABM_P(x)	TARGET_ISA_ABM_P(x)
+#define TARGET_PCONFIG	TARGET_ISA_PCONFIG
+#define TARGET_PCONFIG_P(x)	TARGET_ISA_PCONFIG_P(x)
+#define TARGET_WBNOINVD	TARGET_ISA_WBNOINVD
+#define TARGET_WBNOINVD_P(x)	TARGET_ISA_WBNOINVD_P(x)
 #define TARGET_SGX	TARGET_ISA_SGX
 #define TARGET_SGX_P(x)	TARGET_ISA_SGX_P(x)
 #define TARGET_RDPID	TARGET_ISA_RDPID
 #define TARGET_RDPID_P(x)	TARGET_ISA_RDPID_P(x)
 #define TARGET_GFNI	TARGET_ISA_GFNI
 #define TARGET_GFNI_P(x)	TARGET_ISA_GFNI_P(x)
+#define TARGET_VAES	TARGET_ISA_VAES
+#define TARGET_VAES_P(x)	TARGET_ISA_VAES_P(x)
+#define TARGET_VPCLMULQDQ	TARGET_ISA_VPCLMULQDQ
+#define TARGET_VPCLMULQDQ_P(x)	TARGET_ISA_VPCLMULQDQ_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
 #define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
@@ -171,10 +183,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_MWAITX_P(x)	TARGET_ISA_MWAITX_P(x)
 #define TARGET_PKU	TARGET_ISA_PKU
 #define TARGET_PKU_P(x)	TARGET_ISA_PKU_P(x)
-#define TARGET_IBT	TARGET_ISA_IBT
-#define TARGET_IBT_P(x)	TARGET_ISA_IBT_P(x)
 #define TARGET_SHSTK	TARGET_ISA_SHSTK
 #define TARGET_SHSTK_P(x)	TARGET_ISA_SHSTK_P(x)
+#define TARGET_MOVDIRI	TARGET_ISA_MOVDIRI
+#define TARGET_MOVDIRI_P(x) TARGET_ISA_MOVDIRI_P(x)
+#define TARGET_MOVDIR64B	TARGET_ISA_MOVDIR64B
+#define TARGET_MOVDIR64B_P(x) TARGET_ISA_MOVDIR64B_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -371,9 +385,14 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_BONNELL (ix86_tune == PROCESSOR_BONNELL)
 #define TARGET_SILVERMONT (ix86_tune == PROCESSOR_SILVERMONT)
+#define TARGET_GOLDMONT (ix86_tune == PROCESSOR_GOLDMONT)
 #define TARGET_KNL (ix86_tune == PROCESSOR_KNL)
 #define TARGET_KNM (ix86_tune == PROCESSOR_KNM)
+#define TARGET_SKYLAKE (ix86_tune == PROCESSOR_SKYLAKE)
 #define TARGET_SKYLAKE_AVX512 (ix86_tune == PROCESSOR_SKYLAKE_AVX512)
+#define TARGET_CANNONLAKE (ix86_tune == PROCESSOR_CANNONLAKE)
+#define TARGET_ICELAKE_CLIENT (ix86_tune == PROCESSOR_ICELAKE_CLIENT)
+#define TARGET_ICELAKE_SERVER (ix86_tune == PROCESSOR_ICELAKE_SERVER)
 #define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
@@ -489,6 +508,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_SLOW_PSHUFB]
 #define TARGET_AVOID_4BYTE_PREFIXES \
 	ix86_tune_features[X86_TUNE_AVOID_4BYTE_PREFIXES]
+#define TARGET_USE_GATHER \
+	ix86_tune_features[X86_TUNE_USE_GATHER]
 #define TARGET_FUSE_CMP_AND_BRANCH_32 \
 	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
 #define TARGET_FUSE_CMP_AND_BRANCH_64 \
@@ -1632,6 +1653,8 @@ typedef struct ix86_args {
   int warn_avx;			/* True when we want to warn about AVX ABI.  */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
   int warn_mmx;			/* True when we want to warn about MMX ABI.  */
+  int warn_empty;		/* True when we want to warn about empty classes
+				   passing ABI change.  */
   int sse_regno;		/* next available sse register number */
   int mmx_words;		/* # mmx words passed so far */
   int mmx_nregs;		/* # mmx registers available for passing */
@@ -1697,7 +1720,7 @@ typedef struct ix86_args {
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 24 : 10)
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 28 : 14)
 
 /* Definitions for register eliminations.
 
@@ -1924,6 +1947,17 @@ do {							\
    between pointers and any other objects of this machine mode.  */
 #define Pmode (ix86_pmode == PMODE_DI ? DImode : SImode)
 
+/* Supply a definition of STACK_SAVEAREA_MODE for emit_stack_save.
+   NONLOCAL needs space to save both shadow stack and stack pointers.
+
+   FIXME: We only need to save and restore stack pointer in ptr_mode.
+   But expand_builtin_setjmp_setup and expand_builtin_longjmp use Pmode
+   to save and restore stack pointer.  See
+   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84150
+ */
+#define STACK_SAVEAREA_MODE(LEVEL)			\
+  ((LEVEL) == SAVE_NONLOCAL ? (TARGET_64BIT ? TImode : DImode) : Pmode)
+
 /* Specify the machine mode that bounds have.  */
 #define BNDmode (ix86_pmode == PMODE_DI ? BND64mode : BND32mode)
 
@@ -2097,6 +2131,10 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
   (cfun->machine->func_type == TYPE_EXCEPTION \
    ? 2 * UNITS_PER_WORD : UNITS_PER_WORD)
 
+/* The value of INCOMING_FRAME_SP_OFFSET the assembler assumes in
+   .cfi_startproc.  */
+#define DEFAULT_INCOMING_FRAME_SP_OFFSET UNITS_PER_WORD
+
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N)	((N) <= DX_REG ? (N) : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, CX_REG)
@@ -2242,9 +2280,14 @@ enum processor_type
   PROCESSOR_HASWELL,
   PROCESSOR_BONNELL,
   PROCESSOR_SILVERMONT,
+  PROCESSOR_GOLDMONT,
   PROCESSOR_KNL,
   PROCESSOR_KNM,
+  PROCESSOR_SKYLAKE,
   PROCESSOR_SKYLAKE_AVX512,
+  PROCESSOR_CANNONLAKE,
+  PROCESSOR_ICELAKE_CLIENT,
+  PROCESSOR_ICELAKE_SERVER,
   PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,
@@ -2556,6 +2599,16 @@ struct GTY(()) machine_function {
   /* Function type.  */
   ENUM_BITFIELD(function_type) func_type : 2;
 
+  /* How to generate indirec branch.  */
+  ENUM_BITFIELD(indirect_branch) indirect_branch_type : 3;
+
+  /* If true, the current function has local indirect jumps, like
+     "indirect_jump" or "tablejump".  */
+  BOOL_BITFIELD has_local_indirect_jump : 1;
+
+  /* How to generate function return.  */
+  ENUM_BITFIELD(indirect_branch) function_return_type : 3;
+
   /* If true, the current function is a function specified with
      the "interrupt" or "no_caller_saved_registers" attribute.  */
   BOOL_BITFIELD no_caller_saved_registers : 1;
@@ -2583,6 +2636,9 @@ struct GTY(()) machine_function {
 
   /* Nonzero if the function places outgoing arguments on stack.  */
   BOOL_BITFIELD outgoing_args_on_stack : 1;
+
+  /* The largest alignment, in bytes, of stack slot actually used.  */
+  unsigned int max_used_stack_alignment;
 
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */
@@ -2669,6 +2725,16 @@ extern void debug_dispatch_window (int);
 #define TARGET_RECIP_SQRT	((recip_mask & RECIP_MASK_SQRT) != 0)
 #define TARGET_RECIP_VEC_DIV	((recip_mask & RECIP_MASK_VEC_DIV) != 0)
 #define TARGET_RECIP_VEC_SQRT	((recip_mask & RECIP_MASK_VEC_SQRT) != 0)
+
+/* Use 128-bit AVX instructions in the auto-vectorizer.  */
+#define TARGET_PREFER_AVX128	(prefer_vector_width_type == PVW_AVX128)
+/* Use 256-bit AVX instructions in the auto-vectorizer.  */
+#define TARGET_PREFER_AVX256	(TARGET_PREFER_AVX128 \
+				 || prefer_vector_width_type == PVW_AVX256)
+
+#define TARGET_INDIRECT_BRANCH_REGISTER \
+  (ix86_indirect_branch_register \
+   || cfun->machine->indirect_branch_type != indirect_branch_keep)
 
 #define IX86_HLE_ACQUIRE (1 << 16)
 #define IX86_HLE_RELEASE (1 << 17)

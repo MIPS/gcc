@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987-2017 Free Software Foundation, Inc.
+   Copyright (C) 1987-2018 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -238,6 +238,11 @@ cp_convert_to_pointer (tree type, tree expr, bool dofold,
 	 as a pointer.  */
       gcc_assert (GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (TREE_TYPE (expr)))
 		  == GET_MODE_SIZE (SCALAR_INT_TYPE_MODE (type)));
+
+      /* FIXME needed because convert_to_pointer_maybe_fold still folds
+	 conversion of constants.  */
+      if (!dofold)
+	return build1 (CONVERT_EXPR, type, expr);
 
       return convert_to_pointer_maybe_fold (type, expr, dofold);
     }
@@ -596,11 +601,19 @@ cp_fold_convert (tree type, tree expr)
   tree conv;
   if (TREE_TYPE (expr) == type)
     conv = expr;
-  else if (TREE_CODE (expr) == PTRMEM_CST)
+  else if (TREE_CODE (expr) == PTRMEM_CST
+	   && same_type_p (TYPE_PTRMEM_CLASS_TYPE (type),
+			   PTRMEM_CST_CLASS (expr)))
     {
       /* Avoid wrapping a PTRMEM_CST in NOP_EXPR.  */
       conv = copy_node (expr);
       TREE_TYPE (conv) = type;
+    }
+  else if (TYPE_PTRMEM_P (type))
+    {
+      conv = convert_ptrmem (type, expr, true, false,
+			     tf_warning_or_error);
+      conv = cp_fully_fold (conv);
     }
   else
     {
@@ -691,9 +704,21 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 
   /* FIXME remove when moving to c_fully_fold model.  */
   if (!CLASS_TYPE_P (type))
-    e = scalar_constant_value (e);
+    {
+      e = mark_rvalue_use (e);
+      e = scalar_constant_value (e);
+    }
   if (error_operand_p (e))
     return error_mark_node;
+
+  if (NULLPTR_TYPE_P (type) && null_ptr_cst_p (e))
+    {
+      if (complain & tf_warning)
+	maybe_warn_zero_as_null_pointer_constant (e, loc);
+
+      if (!TREE_SIDE_EFFECTS (e))
+	return nullptr_node;
+    }
 
   if (MAYBE_CLASS_TYPE_P (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
@@ -816,12 +841,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       /* Ignore any integer overflow caused by the conversion.  */
       return ignore_overflows (converted, e);
     }
-  if (NULLPTR_TYPE_P (type) && e && null_ptr_cst_p (e))
-    {
-      if (complain & tf_warning)
-	maybe_warn_zero_as_null_pointer_constant (e, loc);
-      return nullptr_node;
-    }
   if (POINTER_TYPE_P (type) || TYPE_PTRMEM_P (type))
     return cp_convert_to_pointer (type, e, dofold, complain);
   if (code == VECTOR_TYPE)
@@ -933,7 +952,7 @@ cp_get_callee (tree call)
    if we can.  */
 
 tree
-cp_get_fndecl_from_callee (tree fn)
+cp_get_fndecl_from_callee (tree fn, bool fold /* = true */)
 {
   if (fn == NULL_TREE)
     return fn;
@@ -943,7 +962,8 @@ cp_get_fndecl_from_callee (tree fn)
   if (type == unknown_type_node)
     return NULL_TREE;
   gcc_assert (POINTER_TYPE_P (type));
-  fn = maybe_constant_init (fn);
+  if (fold)
+    fn = maybe_constant_init (fn);
   STRIP_NOPS (fn);
   if (TREE_CODE (fn) == ADDR_EXPR)
     {
@@ -961,6 +981,14 @@ tree
 cp_get_callee_fndecl (tree call)
 {
   return cp_get_fndecl_from_callee (cp_get_callee (call));
+}
+
+/* As above, but not using the constexpr machinery.  */
+
+tree
+cp_get_callee_fndecl_nofold (tree call)
+{
+  return cp_get_fndecl_from_callee (cp_get_callee (call), false);
 }
 
 /* Subroutine of convert_to_void.  Warn if we're discarding something with
@@ -1054,6 +1082,8 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
   if (expr == error_mark_node
       || TREE_TYPE (expr) == error_mark_node)
     return error_mark_node;
+
+  expr = maybe_undo_parenthesized_ref (expr);
 
   expr = mark_discarded_use (expr);
   if (implicit == ICV_CAST)
@@ -1642,7 +1672,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
 
-  if (expr == null_node
+  if (null_node_p (expr)
       && (desires & WANT_INT)
       && !(desires & WANT_NULL))
     {
