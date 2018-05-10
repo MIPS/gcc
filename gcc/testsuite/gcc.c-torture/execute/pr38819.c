@@ -1,3 +1,9 @@
+/* { dg-options "-mno-check-zero-division" { target { nanomips*-*-* } } } */
+/* Disable checking for zero division as the modulo can be hoisted and
+   fixing this issue naively will degrade the common case.  See bugzilla
+   references.  This affects targets that implement MOD as a single
+   hardware instruction.  */
+
 extern void exit (int);
 extern void abort (void);
 
