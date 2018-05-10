@@ -8,6 +8,9 @@
 /* Using -mshort-calls avoids loading the function addresses in
    registers and thus getting the counts wrong.  */
 /* { dg-additional-options "-mshort-calls" { target epiphany-*-* } } */
+/* On nanoMIPS, we prevent indirect calls by disabling PIC mode and avoiding
+   the large model. We also need to prevent the usage of -mlong-calls.  */
+/* { dg-additional-options "-mcmodel=auto -fno-pic -mno-long-calls" { target nanomips*-*-* } } */
 
 extern int foo1 (int x) __asm ("baz1");
 int bar1 (int x) { return x; }
