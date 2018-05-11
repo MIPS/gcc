@@ -43,7 +43,7 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "u" "M16_REGS"
+(define_register_constraint "u" "TARGET_NANOMIPS ? N16_REGS : M16_REGS"
   "@internal")
 
 ;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
@@ -57,7 +57,8 @@
 (define_register_constraint "e" "LEA_REGS"
   "@internal")
 
-(define_register_constraint "j" "PIC_FN_ADDR_REG"
+(define_register_constraint "j" "TARGET_NANOMIPS ? N16_TAIL_REGS
+						 : PIC_FN_ADDR_REG"
   "@internal")
 
 ;; FIXME: Remove this comment and below once the MIPS backend can
@@ -92,7 +93,11 @@
 ;; but the DSP version allows any accumulator target.
 (define_register_constraint "ka" "ISA_HAS_DSP_MULT ? ACC_REGS : MD_REGS")
 
-(define_register_constraint "kb" "M16_STORE_REGS"
+(define_register_constraint "kb" "TARGET_NANOMIPS ? N16_STORE_REGS
+				  : M16_STORE_REGS"
+  "@internal")
+
+(define_register_constraint "kd" "TARGET_NANOMIPS ? N16_4X4_REGS : GR_REGS"
   "@internal")
 
 (define_constraint "kf"
@@ -226,10 +231,20 @@
    A signed constant of 8 bits, shifted left three places."
   (match_operand 0 "sd8_operand"))
 
+(define_constraint "Uub7"
+  "@internal
+   An unsigned constant of 7 bits."
+  (match_operand 0 "ub7_operand"))
+
 (define_constraint "Uub8"
   "@internal
    An unsigned constant of 8 bits."
   (match_operand 0 "ub8_operand"))
+
+(define_constraint "Uubp"
+  "@internal
+   An unsigned constant of 16 bits."
+  (match_operand 0 "ubp_operand"))
 
 (define_constraint "Uuw5"
   "@internal
@@ -245,6 +260,11 @@
   "@internal
    An unsigned constant of 8 bits, shifted left two places."
   (match_operand 0 "uw8_operand"))
+
+(define_constraint "Unbc"
+  "@internal
+   A negated unsigned constant of 12 bits."
+  (match_operand 0 "unbc_operand"))
 
 (define_memory_constraint "W"
   "@internal
@@ -367,6 +387,21 @@
    "@internal"
    (match_operand 0 "bit_clear_operand"))
 
+(define_memory_constraint "ZA"
+  "@internal
+   A memory operand for use with the LWM/SWM insns."
+  (and (match_code "mem")
+       (match_operand 0 "lwm_swm_operand")))
+
+(define_memory_constraint "ZE"
+  "@internal
+  A non-indexed memory address."
+  (and (match_code "mem")
+       (match_test "mips_legitimate_address_p (mode, XEXP (op, 0), 0)")
+       (not (and (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
+		 (ior (match_test "mips_index_address_p (XEXP (op, 0), mode)")
+		      (match_test "mips_index_scaled_address_p (XEXP (op, 0), mode)"))))))
+
 (define_memory_constraint "ZC"
   "When compiling R6 code, this constraint matches a memory operand whose
    address is formed from a base register and a 9-bit offset.
@@ -392,6 +427,19 @@
 		(if_then_else (match_test "TARGET_MICROMIPS")
 		  (match_test "umips_12bit_offset_address_p (op, mode)")
 		  (match_test "mips_address_insns (op, mode, false)"))))
+
+(define_address_constraint "ZF"
+  "An address suitable for unaligned LWL/LWR and SWL/SWR insns."
+  (match_test "unaligned_load_store_address_p (op, mode)"))
+
+(define_memory_constraint "ZO"
+  "@internal
+   A microMIPS memory operand 1 for use with the LWP/SWP insns."
+  (and (match_code "mem")
+       (ior (and (match_test "TARGET_MICROMIPS")
+		 (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")))))
 
 (define_memory_constraint "ZR"
  "@internal
@@ -428,3 +476,8 @@
   (and (match_code "mem")
        (match_operand 0 "lbu16_operand")))
 
+(define_memory_constraint "ZY"
+  "@internal
+   A nanoMIPS memory operand for use with the LW4X4/SW4X4 insn."
+  (and (match_code "mem")
+       (match_operand 0 "lw4x4_sw4x4_operand")))
