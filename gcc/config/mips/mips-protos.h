@@ -114,12 +114,34 @@ enum mips_symbol_type {
   SYMBOL_GOTOFF_DISP,
   SYMBOL_GOTOFF_CALL,
   SYMBOL_GOTOFF_LOADGP,
+  SYMBOL_PCREL32_NANO,
+  SYMBOL_PCREL_4K_NANO,
+  SYMBOL_LAPC_NANO,
+  SYMBOL_LAPC48_NANO,
+  SYMBOL_LAPC48_FUNC_NANO,
+  SYMBOL_GPREL_WORD_NANO,
+  SYMBOL_GPREL32_NANO,
+  SYMBOL_GPREL_SPLIT_NANO,
+  SYMBOL_PCREL_SPLIT_NANO,
+  SYMBOL_GOT_PCREL32_NANO,
+  SYMBOL_GOT_PCREL_SPLIT_NANO,
+  SYMBOL_GOT_CALL,
   SYMBOL_TLS,
   SYMBOL_TLSGD,
+  SYMBOL_TLSGD_LARGE,
   SYMBOL_TLSLDM,
+  SYMBOL_TLSLDM_LARGE,
   SYMBOL_DTPREL,
+  SYMBOL_DTPREL_MEDIUM,
+  SYMBOL_DTPREL_LARGE,
   SYMBOL_GOTTPREL,
+  SYMBOL_GOTTPREL_LARGE,
   SYMBOL_TPREL,
+  SYMBOL_TPREL_MEDIUM,
+  SYMBOL_TPREL_LARGE,
+  SYMBOL_TLSDESC_GOT,
+  SYMBOL_TLSDESC_GOT_LARGE,
+  SYMBOL_TLSDESC_CALL,
   SYMBOL_64_HIGH,
   SYMBOL_64_MID,
   SYMBOL_64_LOW,
@@ -149,11 +171,12 @@ enum mips_loadgp_style {
   LOADGP_NONE,
   LOADGP_OLDABI,
   LOADGP_NEWABI,
+  LOADGP_PABI,
   LOADGP_ABSOLUTE,
   LOADGP_RTP
 };
 
-struct mips16e_save_restore_info;
+struct mips_save_restore_info;
 
 /* Classifies a type of call.
 
@@ -190,6 +213,14 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+#ifdef NANOMIPS_SUPPORT
+extern int nanomips_label_align (rtx);
+#endif
+extern void nanomips_expand_movmemsi_multireg (rtx, rtx, unsigned int);
+extern void nanomips_load_store_multiple_split (rtx, rtx, unsigned int);
+extern void mips_adjust_reg_alloc_order (void);
+extern bool mips_string_constant_p (rtx);
+extern bool mips_unspec_address_p (rtx);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, machine_mode, bool);
@@ -202,6 +233,7 @@ extern int mips_load_store_insns (rtx, rtx_insn *);
 extern int mips_idiv_insns (machine_mode);
 extern rtx_insn *mips_emit_move (rtx, rtx);
 #ifdef RTX_CODE
+extern void nanomips_expand_64bit_shift (enum rtx_code, rtx, rtx, rtx);
 extern void mips_emit_binary (enum rtx_code, rtx, rtx, rtx);
 #endif
 extern rtx mips_pic_base_register (rtx);
@@ -210,6 +242,9 @@ extern bool mips_split_symbol (rtx, rtx, machine_mode, rtx *);
 extern rtx mips_unspec_address (rtx, enum mips_symbol_type);
 extern rtx mips_strip_unspec_address (rtx);
 extern void mips_move_integer (rtx, rtx, unsigned HOST_WIDE_INT);
+extern bool mips_legitimate_address_p (enum machine_mode, rtx, bool);
+extern bool mips_index_address_p (rtx, machine_mode);
+extern bool mips_index_scaled_address_p (rtx, machine_mode);
 extern bool mips_legitimize_move (machine_mode, rtx, rtx);
 
 extern rtx mips_subword (rtx, bool);
@@ -285,8 +320,10 @@ extern enum mips_loadgp_style mips_current_loadgp_style (void);
 extern void mips_emit_save_slot_move (rtx, rtx, rtx);
 extern void mips_expand_prologue (void);
 extern void mips_expand_before_return (void);
+extern void mips_expand_return (void);
 extern void mips_expand_epilogue (bool);
-extern bool mips_can_use_return_insn (void);
+extern bool mips_can_use_simple_return_insn (void);
+extern bool nanomips_can_use_return_insn (void);
 
 extern bool mips_const_vector_same_val_p (rtx, machine_mode);
 extern bool mips_const_vector_same_bytes_p (rtx, machine_mode);
@@ -319,7 +356,7 @@ extern const char *mips_output_order_conditional_branch (rtx_insn *, rtx *,
 							 bool);
 extern const char *mips_output_equal_conditional_branch (rtx_insn *, rtx *,
 							 bool);
-extern const char *mips_output_jump (rtx *, int, int, bool);
+extern const char *mips_output_jump (rtx *, int, int, bool, bool);
 extern const char *mips_output_sync (void);
 extern const char *mips_output_sync_loop (rtx_insn *, rtx *);
 extern unsigned int mips_sync_loop_insns (rtx_insn *, rtx *);
@@ -338,8 +375,12 @@ extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 
 extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
+extern const char *nanomips_output_save_restore (rtx, HOST_WIDE_INT, bool);
 extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
-					    struct mips16e_save_restore_info *);
+					 struct mips_save_restore_info *);
+extern bool nanomips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
+					     struct mips_save_restore_info *,
+					     bool);
 
 extern bool mask_low_and_shift_p (machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (machine_mode, rtx, rtx);
@@ -366,16 +407,24 @@ extern void mips_expand_vec_minmax (rtx, rtx, rtx,
 extern int mips_ldst_scaled_shift (machine_mode);
 extern bool mips_signed_immediate_p (unsigned HOST_WIDE_INT, int, int);
 extern bool mips_unsigned_immediate_p (unsigned HOST_WIDE_INT, int, int);
-extern const char *umips_output_save_restore (bool, rtx);
-extern bool umips_save_restore_pattern_p (bool, rtx);
-extern bool umips_load_store_pair_p (bool, rtx *);
+extern const char *mips_output_word_multiple (bool, rtx);
+extern bool mips_word_multiple_pattern_p (bool, rtx);
+extern int umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
-extern bool umips_movep_target_p (rtx, rtx);
+extern bool nanomips_move_balc_p (rtx *);
+extern bool mips_movep_target_p (rtx, rtx);
+extern bool mips_movep_no_overlap_p (rtx, rtx, rtx, rtx);
 extern bool umips_12bit_offset_address_p (rtx, machine_mode);
+extern bool umips_12bit_offset_address_memop2_p (rtx, machine_mode);
 extern bool mips_9bit_offset_address_p (rtx, machine_mode);
+extern bool mips_9bit_offset_address_memop2_p (rtx, machine_mode);
+extern bool unaligned_load_store_address_p (rtx, machine_mode);
 extern bool lwsp_swsp_address_p (rtx, machine_mode);
+extern bool lwm_swm_address_p (rtx, machine_mode);
 extern bool m16_based_address_p (rtx, machine_mode,
 			         int (*)(rtx_def*, machine_mode)); 
+extern bool n16_4x4_based_address_p (rtx, machine_mode,
+				     int (*)(rtx_def*, machine_mode));
 extern rtx mips_expand_thread_pointer (rtx);
 extern void mips16_expand_get_fcsr (rtx);
 extern void mips16_expand_set_fcsr (rtx);
@@ -397,4 +446,7 @@ extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
 extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
 extern void mips_bit_clear_info (unsigned HOST_WIDE_INT, int *, int *);
+enum mips_symbol_type mips_classify_symbol (const_rtx,
+					    enum mips_symbol_context);
+
 #endif /* ! GCC_MIPS_PROTOS_H */
