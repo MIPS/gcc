@@ -2261,6 +2261,7 @@ GCC plugins may provide their own attributes.
 * Microsoft Windows Function Attributes::
 * MIPS Function Attributes::
 * MSP430 Function Attributes::
+* nanoMIPS Function Attributes::
 * NDS32 Function Attributes::
 * Nios II Function Attributes::
 * Nvidia PTX Function Attributes::
@@ -4570,6 +4571,93 @@ one pass over the objects and does the best that it can.  Using the
 @option{-ffunction-sections} and @option{-fdata-sections} command-line
 options can help the packing, however, since they produce smaller,
 easier to pack regions.
+@end table
+
+@node nanoMIPS Function Attributes
+@subsection nanoMIPS Function Attributes
+
+These function attributes are supported by the nanoMIPS back end:
+
+@table @code
+@item cmodel ("@var{model}")
+@cindex @code{cmodel} function attribute, nanoMIPS
+Use this attribute to indicate what code should be generated for a particular
+code and data model for this function.  The behavior and permissible arguments
+are the same as for the command line option @option{-mcmodel=}.
+@end table
+
+@table @code
+@item interrupt
+@cindex @code{interrupt} function attribute, nanoMIPS
+Use this attribute to indicate that the specified function is an interrupt
+handler.  The compiler generates function entry and exit sequences suitable
+for use in an interrupt handler when this attribute is present.
+An optional argument is supported for the interrupt attribute which allows
+the interrupt mode to be described.  By default GCC assumes the external
+interrupt controller (EIC) mode is in use, this can be explicitly set using
+@code{eic}.  When interrupts are non-masked then the requested Interrupt
+Priority Level (IPL) is copied to the current IPL which has the effect of only
+enabling higher priority interrupts.  To use vectored interrupt mode use
+the argument @code{vector=[sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5]}, this will change
+the behavior of the non-masked interrupt support and GCC will arrange to mask
+all interrupts from sw0 up to and including the specified interrupt vector.
+
+You can use the following attributes to modify the behavior
+of an interrupt handler:
+@table @code
+@item use_shadow_register_set
+@cindex @code{use_shadow_register_set} function attribute, nanoMIPS
+Assume that the handler uses a shadow register set, instead of
+the main general-purpose registers.  An optional argument @code{intstack} is
+supported to indicate that the shadow register set contains a valid stack
+pointer.
+
+@item keep_interrupts_masked
+@cindex @code{keep_interrupts_masked} function attribute, nanoMIPS
+Keep interrupts masked for the whole function.  Without this attribute,
+GCC tries to reenable interrupts for as much of the function as it can.
+
+@item use_debug_exception_return
+@cindex @code{use_debug_exception_return} function attribute, nanoMIPS
+Return using the @code{deret} instruction.  Interrupt handlers that don't
+have this attribute return using @code{eret} instead.
+@end table
+
+You can use any combination of these attributes, as shown below:
+@smallexample
+void __attribute__ ((interrupt)) v0 ();
+void __attribute__ ((interrupt, use_shadow_register_set)) v1 ();
+void __attribute__ ((interrupt, keep_interrupts_masked)) v2 ();
+void __attribute__ ((interrupt, use_debug_exception_return)) v3 ();
+void __attribute__ ((interrupt, use_shadow_register_set,
+                     keep_interrupts_masked)) v4 ();
+void __attribute__ ((interrupt, use_shadow_register_set,
+                     use_debug_exception_return)) v5 ();
+void __attribute__ ((interrupt, keep_interrupts_masked,
+                     use_debug_exception_return)) v6 ();
+void __attribute__ ((interrupt, use_shadow_register_set,
+                     keep_interrupts_masked,
+                     use_debug_exception_return)) v7 ();
+void __attribute__ ((interrupt("eic"))) v8 ();
+void __attribute__ ((interrupt("vector=hw3"))) v9 ();
+@end smallexample
+
+@item long_call
+@itemx near
+@itemx far
+@cindex indirect calls, nanoMIPS
+@cindex @code{long_call} function attribute, nanoMIPS
+@cindex @code{near} function attribute, nanoMIPS
+@cindex @code{far} function attribute, nanoMIPS
+These attributes specify how a particular function is called on nanoMIPS@.
+The attributes override the @option{-mlong-calls} (@pxref{nanoMIPS Options})
+command-line switch.  The @code{long_call} and @code{far} attributes are
+synonyms, and cause the compiler to always call
+the function by first loading its address into a register, and then using
+the contents of that register.  The @code{near} attribute has the opposite
+effect; it specifies that non-PIC calls should be made using the more
+efficient @code{jal} instruction.
+
 @end table
 
 @node NDS32 Function Attributes
@@ -11465,6 +11553,8 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS SIMD Architecture (MSA) Support::
 * Other MIPS Built-in Functions::
 * MSP430 Built-in Functions::
+* nanoMIPS Built-in Functions::
+* nanoMIPS DSP Built-in Functions::
 * NDS32 Built-in Functions::
 * picoChip Built-in Functions::
 * PowerPC Built-in Functions::
@@ -14410,6 +14500,34 @@ integer - that is, you must pass a number, not a variable that may be
 optimized to a constant later.  The number of cycles delayed by this
 builtin is exact.
 @end table
+
+@node nanoMIPS Built-in Functions
+@subsection nanoMIPS Built-in Functions
+
+The following built-in functions map directly to a particular nanoMIPS
+instruction.  Please refer to the architecture specification
+for details on what each instruction does.
+
+@smallexample
+imm0_3: integer literal 0 to 3.
+typedef int i32;
+typedef unsigned int ui32;
+@end smallexample
+
+@smallexample
+i32 __builtin_mips_align (i32, i32, imm0_3)
+ui32 __builtin_mips_bitrevb (ui32)
+ui32 __builtin_mips_bitrevh (ui32)
+ui32 __builtin_mips_bitrevw (ui32)
+ui32 __builtin_mips_byterevh (ui32)
+ui32 __builtin_mips_byterevw (ui32)
+@end smallexample
+
+@node nanoMIPS DSP Built-in Functions
+@subsection nanoMIPS DSP Built-in Functions
+nanoMIPS supports DSP Rev 3 onwards. For description of the built-ins,
+Please refer to MIPS DSP and MIPS DSP Rev 2 sections in
+@pxref{MIPS DSP Built-in Functions}.
 
 @node NDS32 Built-in Functions
 @subsection NDS32 Built-in Functions
