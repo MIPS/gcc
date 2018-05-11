@@ -54,6 +54,23 @@ mabicalls
 Target Report Mask(ABICALLS) Condition(MIPS_SUPPORT_LEGACY)
 Generate code that can be used in SVR4-style dynamic objects.
 
+mcmodel=
+Target RejectNegative Joined Enum(cmodel) Var(nano_pic_model_var) Init(NANO_PIC_NONE)
+Choose a nanoMIPS PIC model.
+
+Enum
+Name(cmodel) Type(enum nanomips_pic_model)
+Available PIC models for nanoMIPS (for use with the -mcmodel= option):
+
+EnumValue
+Enum(cmodel) String(auto) Value(NANO_PIC_AUTO)
+
+EnumValue
+Enum(cmodel) String(medium) Value(NANO_PIC_MEDIUM)
+
+EnumValue
+Enum(cmodel) String(large) Value(NANO_PIC_LARGE)
+
 mmad
 Target Report Var(TARGET_MAD) Condition(MIPS_SUPPORT_LEGACY)
 Use PMC-style 'mad' instructions.
@@ -116,11 +133,11 @@ Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations.
 
 mdsp
-Target Report Var(TARGET_DSP) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSP)
 Use MIPS-DSP instructions.
 
 mdspr2
-Target Report Var(TARGET_DSPR2) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSPR2) Condition({defined (MIPS_SUPPORT_DSP) && !defined (NANOMIPS_SUPPORT)})
 Use MIPS-DSP REV 2 instructions.
 
 mdspr3
@@ -361,7 +378,7 @@ Target Report Mask(RELAX_PIC_CALLS) Condition(MIPS_SUPPORT_LEGACY)
 Try to allow the linker to turn PIC calls into direct calls.
 
 mshared
-Target Report Var(TARGET_SHARED) Init(1)
+Target Report Var(TARGET_SHARED) Init(1) Condition(MIPS_SUPPORT_LEGACY)
 When generating -mabicalls code, make the code suitable for use in shared libraries.
 
 msingle-float
@@ -538,3 +555,22 @@ Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
 mlra-equiv
 Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
+
+mli48
+Target Undocumented UInteger Var(TARGET_LI48) Init(1)
+
+mmemcpy-interleave=
+Target Undocumented RejectNegative Joined UInteger Var(mips_memcpy_interleave) Init(16)
+
+mmulti-memcpy
+Target Undocumented Var(mips_use_multi_memcpy) Init(0)
+
+mopt-movebalc
+Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(1)
+
+mjump-table-density=
+Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
+-mjump-table-density=DENSITY	Percentage of non default target labels.
+
+mjump-table-opt
+Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)
