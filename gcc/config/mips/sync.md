@@ -28,6 +28,9 @@
   UNSPEC_SYNC_EXCHANGE
   UNSPEC_SYNC_EXCHANGE_12
   UNSPEC_MEMORY_BARRIER
+  UNSPEC_SYNC_ACQUIRE
+  UNSPEC_SYNC_RELEASE
+  UNSPEC_SYNC_MB
   UNSPEC_ATOMIC_COMPARE_AND_SWAP
   UNSPEC_ATOMIC_EXCHANGE
   UNSPEC_ATOMIC_FETCH_OP
@@ -55,6 +58,82 @@
 	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER))]
   "GENERATE_SYNC"
   { return mips_output_sync (); })
+
+(define_expand "mem_thread_fence"
+  [(match_operand:SI 0 "const_int_operand" "")]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  switch (memmodel_from_int (INTVAL (operands[0])))
+    {
+      case MEMMODEL_RELAXED:
+	break;
+      case MEMMODEL_CONSUME:
+      case MEMMODEL_ACQUIRE:
+      case MEMMODEL_SYNC_ACQUIRE:
+	emit_insn (gen_sync_acquire ()); break;
+      case MEMMODEL_RELEASE:
+      case MEMMODEL_SYNC_RELEASE:
+	emit_insn (gen_sync_release ()); break;
+      case MEMMODEL_ACQ_REL:
+      case MEMMODEL_SYNC_SEQ_CST:
+      case MEMMODEL_SEQ_CST:
+	emit_insn (gen_sync_mb ()); break;
+      default:
+	gcc_unreachable ();
+    }
+  DONE;
+})
+
+(define_expand "sync_acquire"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_ACQUIRE))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*sync_acquire"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_ACQUIRE))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  return "sync\t17";
+})
+
+(define_expand "sync_release"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_RELEASE))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*sync_release"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_RELEASE))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  return "sync\t18";
+})
+
+(define_expand "sync_mb"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_MB))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*sync_mb"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_SYNC_MB))]
+  "GENERATE_SYNC && ISA_HAS_LIGHT_SYNC"
+{
+  return "sync\t16";
+})
 
 ;; Can be removed in favor of atomic_compare_and_swap below.
 (define_insn "sync_compare_and_swap<mode>"
