@@ -1,0 +1,43 @@
+/* MIPS CPU names.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+/* A table describing all the processors GCC knows about.  The first
+   mention of an ISA level is taken as the canonical name for that
+   ISA.
+
+   To ease comparison, please keep this table in the same order
+   as GAS's mips_cpu_info_table.  Please also make sure that
+   MIPS_ISA_LEVEL_SPEC and MIPS_ARCH_FLOAT_SPEC handle all -march
+   options correctly.
+
+   Before including this file, define a macro:
+
+   MIPS_CPU (NAME, CPU, ISA, FLAGS)
+
+   where the arguments are the fields of struct mips_cpu_info.  */
+
+/* Entries for generic ISAs.  */
+
+MIPS_CPU ("32r6", PROCESSOR_I7200, 38, 0)
+MIPS_CPU ("32r6s", PROCESSOR_NMS1, 38, 0)
+MIPS_CPU ("64r6", PROCESSOR_I7200, 70, 0)
+
+/* nanoMIPS32 Release 6 processors.  */
+MIPS_CPU ("i7200", PROCESSOR_I7200, 38, 0)
+MIPS_CPU ("nms1", PROCESSOR_NMS1, 38, 0)
