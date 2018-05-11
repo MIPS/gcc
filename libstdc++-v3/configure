@@ -5353,6 +5353,24 @@ fi
 rm -f conftest*
 
 
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <stdio.h>
+  #if !defined(__UCLIBC__) && !defined(__BIONIC__) && !defined(__GLIBC__)
+    _using_musl
+  #endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "_using_musl" >/dev/null 2>&1; then :
+  musl=yes
+else
+  musl=no
+fi
+rm -f conftest*
+
+
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
 
