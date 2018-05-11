@@ -391,10 +391,11 @@ for (i = 0; i < n_opts; i++) {
 		       "    %s,\n" \
 		       "    0, %s,\n" \
 		       "#else\n" \
-		       "    0,\n" \
+		       "    %s,\n" \
 		       "    1 /* Disabled.  */, %s,\n" \
 		       "#endif\n",
-		       condition, cl_flags, cl_bit_fields, cl_zero_bit_fields)
+		       condition, cl_flags, cl_bit_fields,
+		       cl_flags, cl_zero_bit_fields)
 	else
 		printf("    %s,\n" \
 		       "    0, %s,\n",
