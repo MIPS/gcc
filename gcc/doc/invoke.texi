@@ -912,6 +912,40 @@ Objective-C and Objective-C++ Dialects}.
 -msilicon-errata= -msilicon-errata-warn= @gol
 -mhwmult= -minrt}
 
+@emph{nanoMIPS Options}
+@gccoptlist{-EL -EB -march=@var{arch} -mtune=@var{arch} @gol
+-m32 -m64 @gol
+-mcmodel=auto -mcmodel=medium -mcmodel=large @gol
+-mbalc-stubs -mno-balcstubs @gol
+-mpcrel -mno-pcrel @gol
+-mpid -mno-pid @gol
+-mrelax -mno-relax @gol
+-mtls-dialect=trad -mtls-dialect=desc @gol
+-mgp32 -mgp64 -mhard-float -msoft-float @gol
+-msingle-float -mdouble-float @gol
+-mdspr3 -mno-dspr3 @gol
+-mmcu -mmno-mcu @gol
+-meva -mno-eva @gol
+-mvirt -mno-virt @gol
+-mxpa -mno-xpa @gol
+-mmsa -mno-msa @gol
+-msym32 -mno-sym32 @gol
+-G@var{num} -mlocal-sdata -mno-local-sdata @gol
+-mextern-sdata -mno-extern-sdata -mgpopt -mno-gopt @gol
+-membedded-data -mno-embedded-data @gol
+-msdata-num=@var{num} @gol
+-msdata-opt-list=@var{file} @gol
+-muninit-const-in-rodata -mno-uninit-const-in-rodata @gol
+-mcheck-zero-division -mno-check-zero-division @gol
+-mdivide-traps @gol
+-mmemcpy -mno-memcpy -mlong-calls -mno-long-calls @gol
+-mimadd -mno-imadd @gol
+-mflush-func=@var{func} -mno-flush-func @gol
+-mopt-movebalc -mno-opt-movebalc @gol
+-mjump-table-opt -mno-jump-table-opt @gol
+-mshrink-offsets -mno-shrink-offsets @gol
+-mbranch-cost=@var{num}}
+
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
 -mreduced-regs -mfull-regs @gol
@@ -12836,6 +12870,7 @@ platform.
 * MN10300 Options::
 * Moxie Options::
 * MSP430 Options::
+* nanoMIPS Options::
 * NDS32 Options::
 * Nios II Options::
 * Nvidia PTX Options::
@@ -19252,6 +19287,416 @@ the named silicon errata.
 @opindex msilicon-errata-warn
 This option passes on a request to the assembler to enable warning
 messages when a silicon errata might need to be applied.
+
+@end table
+
+@node nanoMIPS Options
+@subsection nanoMIPS Options
+@cindex nanoMIPS options
+
+@table @gcctabopt
+
+@item -EB
+@opindex EB
+Generate big-endian code.  This is the default for @samp{nanomips*eb-*-*}
+configurations.
+
+@item -EL
+@opindex EL
+Generate little-endian code.
+
+@item -march=@var{arch}
+@opindex march
+Generate code that runs on @var{arch}, which can be the name of a
+generic nanoMIPS, nanoMIPS Subset ISA, or the name of a particular processor.
+The ISA names are:
+@samp{32r6}, @samp{32r6s}, @samp{64r6}.
+The processor names are:
+@samp{i7200}, @samp{nms1}.
+
+The native Linux/GNU toolchain also supports the value @samp{native},
+which selects the best architecture option for the host processor.
+@option{-march=native} has no effect if GCC does not recognize
+the processor.
+
+GCC defines two macros based on the value of this option.  The first
+is @code{_MIPS_ARCH}, which gives the name of target architecture, as
+a string.  The second has the form @code{_MIPS_ARCH_@var{foo}},
+where @var{foo} is the capitalized value of @code{_MIPS_ARCH}@.
+For example, @option{-march=32r6} sets @code{_MIPS_ARCH}
+to @code{"32r6"} and defines the macro @code{_MIPS_ARCH_32R6}.
+
+@item -mtune=@var{arch}
+@opindex mtune
+Optimize for @var{arch}.  Among other things, this option controls
+the way instructions are scheduled, and the perceived cost of arithmetic
+operations.  The list of @var{arch} values is the same as for
+@option{-march}.
+
+When this option is not used, GCC optimizes for the processor
+specified by @option{-march}.  By using @option{-march} and
+@option{-mtune} together, it is possible to generate code that
+runs on a family of processors, but optimize the code for one
+particular member of that family.
+
+@option{-mtune} defines the macros @code{_MIPS_TUNE} and
+@code{_MIPS_TUNE_@var{foo}}, which work in the same way as the
+@option{-march} ones described above.
+
+@item -m32
+@itemx -m64
+@opindex m32
+@opindex m64
+Generate code for the given ABI, either 32-bit or 64-bit variant.
+
+@item -mcmodel=auto
+@opindex mcmodel=auto
+Generate the most compressed code possible by relying on the linker to expand
+or relax code appropriately, depending on a given symbol's visibility at
+link-time.
+
+@item -mcmodel=medium
+@opindex mcmodel=medium
+Generate code which is appropriate for average-sized applications without
+relying on linker relaxations or expansions.  The GP area can not exceed 2MiB
+and direct calls have a maximum range of 32 MiB.
+
+@item -mcmodel=large
+@opindex mcmodel=large
+Generates code which is appropriate for large applications without relying on
+linker relaxations or expansions.  There are no inherent size limits when
+using this model.
+
+@item -mbalc-stubs
+@itemx -mno-balc-stubs
+@opindex mbalc-stubs
+@opindex mno-balc-stubs
+Enable (disable) the assembler's out-of-range call optimization through
+trampoline stubs.
+
+The default option is @option{-mbalc-stubs} for @option{-Os} optimization
+level and @option{-mno-balc-stubs} for any other optimization level.
+
+@item -mpcrel
+@itemx -mno-pcrel
+@opindex mpcrel
+@opindex mno-pcrel
+@option{-mpcrel} forces PC-relative addressing for non-pre-emptible symbols.
+This also effectively disables absolute addressing.
+@option{-mno-pcrel} avoids PC-relative addressing for non-pre-emptible
+symbols where alternative sequences are not larger or slower.
+
+The default option is @option{-mpcrel}.
+
+@item -mpid
+@itemx -mno-pid
+@opindex mpid
+@opindex mno-pid
+Enforce (do not enforce) position-independent data by requiring GP-relative
+addressing for all non-pre-emptible data symbols.
+
+The default is @option{mno-pid}.
+
+@item -mrelax
+@itemx -mno-relax
+@opindex mrelax
+@opindex mno-relax
+Enable (disable) linker relaxations and expansions for the compilation unit.
+The compiler emits (does not emit) a @code{.linkrelax} directive to
+the assembly file that causes an ELF header flag to be set in the object.
+
+The default option is to emit the @code{.linkrelax} directive.
+
+@item -mtls-dialect=trad
+@opindex mtls-dialect=trad
+Use traditional TLS as the thread-local storage mechanism for dynamic accesses
+of TLS variables.  This is the default.
+
+@item -mtls-dialect=desc
+@opindex mtls-dialect=desc
+Use TLS descriptors as the thread-local storage mechanism for dynamic accesses
+of TLS variables.
+
+@item -mgp32
+@opindex mgp32
+Assume that general-purpose registers are 32 bits wide.
+
+@item -mgp64
+@opindex mgp64
+Assume that general-purpose registers are 64 bits wide.
+
+@item -mhard-float
+@opindex mhard-float
+Use floating-point coprocessor instructions.
+
+@item -msoft-float
+@opindex msoft-float
+Do not use floating-point coprocessor instructions.  Implement
+floating-point calculations using library calls instead.
+
+@item -msingle-float
+@opindex msingle-float
+Assume that the floating-point coprocessor only supports single-precision
+operations.
+
+@item -mdouble-float
+@opindex mdouble-float
+Assume that the floating-point coprocessor supports double-precision
+operations.  This is the default.
+
+@item -mdspr3
+@itemx -mno-dspr3
+@opindex mdspr3
+@opindex mno-dspr3
+Use (do not use) revision 3 of the MIPS DSP ASE@.
+@xref{MIPS DSP Built-in Functions}.  This option defines the
+preprocessor macros @code{__mips_dsp} and @code{__mips_dspr3}.
+It also defines @code{__mips_dsp_rev} to 3.
+
+@item -mmt
+@itemx -mno-mt
+@opindex mmt
+@opindex mno-mt
+Use (do not use) MT Multithreading instructions.
+
+@item -mmcu
+@itemx -mno-mcu
+@opindex mmcu
+@opindex mno-mcu
+Use (do not use) the MIPS MCU ASE instructions.
+
+@item -meva
+@itemx -mno-eva
+@opindex meva
+@opindex mno-eva
+Use (do not use) the MIPS Enhanced Virtual Addressing instructions.
+
+@item -mvirt
+@itemx -mno-virt
+@opindex mvirt
+@opindex mno-virt
+Use (do not use) the MIPS Virtualization Application Specific instructions.
+
+@item -mxpa
+@itemx -mno-xpa
+@opindex mxpa
+@opindex mno-xpa
+Use (do not use) the MIPS eXtended Physical Address (XPA) instructions.
+
+@item -msym32
+@itemx -mno-sym32
+@opindex msym32
+@opindex mno-sym32
+Assume (do not assume) that all symbols have 32-bit values, regardless
+of the selected ABI@.  This option is useful in combination with
+@option{-m64} because it allows GCC to generate shorter and faster references
+to symbolic addresses.
+
+@item -G @var{num}
+@opindex G
+Put definitions of externally-visible data in a small data section
+if that data is no bigger than @var{num} bytes.  GCC can then generate
+more efficient accesses to the data; see @option{-mgpopt} for details.
+
+The default @option{-G} option depends on the configuration.
+
+@item -mlocal-sdata
+@itemx -mno-local-sdata
+@opindex mlocal-sdata
+@opindex mno-local-sdata
+Extend (do not extend) the @option{-G} behavior to local data too,
+such as to static variables in C@.  @option{-mlocal-sdata} is the
+default for all configurations.
+
+If the linker complains that an application is using too much small data,
+you might want to try rebuilding the less performance-critical parts with
+@option{-mno-local-sdata}.  You might also want to build large
+libraries with @option{-mno-local-sdata}, so that the libraries leave
+more room for the main program.
+
+@item -mextern-sdata
+@itemx -mno-extern-sdata
+@opindex mextern-sdata
+@opindex mno-extern-sdata
+Assume (do not assume) that externally-defined data is in
+a small data section if the size of that data is within the @option{-G} limit.
+@option{-mextern-sdata} is the default for all configurations.
+
+If you compile a module @var{Mod} with @option{-mextern-sdata} @option{-G
+@var{num}} @option{-mgpopt}, and @var{Mod} references a variable @var{Var}
+that is no bigger than @var{num} bytes, you must make sure that @var{Var}
+is placed in a small data section.  If @var{Var} is defined by another
+module, you must either compile that module with a high-enough
+@option{-G} setting or attach a @code{section} attribute to @var{Var}'s
+definition.  If @var{Var} is common, you must link the application
+with a high-enough @option{-G} setting.
+
+The easiest way of satisfying these restrictions is to compile
+and link every module with the same @option{-G} option.  However,
+you may wish to build a library that supports several different
+small data limits.  You can do this by compiling the library with
+the highest supported @option{-G} setting and additionally using
+@option{-mno-extern-sdata} to stop the library from making assumptions
+about externally-defined data.
+
+@item -mgpopt
+@itemx -mno-gpopt
+@opindex mgpopt
+@opindex mno-gpopt
+Use (do not use) GP-relative accesses for symbols that are known to be
+in a small data section; see @option{-G}, @option{-mlocal-sdata} and
+@option{-mextern-sdata}.  @option{-mgpopt} is the default for all
+configurations.
+
+@option{-mno-gpopt} is useful for cases where the @code{$gp} register
+might not hold the value of @code{_gp}.  For example, if the code is
+part of a library that might be used in a boot monitor, programs that
+call boot monitor routines pass an unknown value in @code{$gp}.
+(In such situations, the boot monitor itself is usually compiled
+with @option{-G0}.)
+
+@option{-mno-gpopt} implies @option{-mno-local-sdata} and
+@option{-mno-extern-sdata}.
+
+@item -membedded-data
+@itemx -mno-embedded-data
+@opindex membedded-data
+@opindex mno-embedded-data
+Allocate variables to the read-only data section first if possible, then
+next in the small data section if possible, otherwise in data.  This gives
+slightly slower code than the default, but reduces the amount of RAM required
+when executing, and thus may be preferred for some embedded systems.
+
+@item -msdata-num=@var{num}
+@opindex msdata-num
+Use a numbered small data section instead of the default to enable multiple
+small data areas within one executable.  This feature is for advanced users
+only and requires very careful management of where data is accessed.  The
+aim is to allow code which executes solely within one software context to
+use a unique small data area.
+
+Compilation units should be grouped such that all units within a group can
+share a small data section.  The @code{num} value should be set to the same
+number for all related modules.  Any data that is shared between contexts
+will need to be explicitly placed in a named section using
+@code{__attribute__((section(".my_shared_data")))}.  Alternatively use the
+@option{-mno-extern-sdata} option to ensure that the compiler does not
+automatically place global data in the small data section and instead
+use the @option{-msdata-opt-list} option to explicitly place some global
+data in the small data section where it is only used by one context.
+
+It is the user's responsibility to ensure that the global pointer for any
+given software context is set to point at the appropriate small data area.
+It is also the user's responsibility to ensure that data placed in one
+software context's small data area is not accessed using the small data
+model from a different software context as the application may not link.
+Linker support for this feature is also required and should be enabled
+using @option{-Wl,--user-defined-sdata-sections}.
+
+@item -msdata-opt-list
+@opindex msdata-opt-list
+Read a list of data variables from a file that must be accessed using the
+small data model.  This is equivalent to adding
+@code{__attribute__((section(".sdata"))} to the declaration in the source.
+For this option to take effect on uninitialised globals then
+@option{-fno-common} must also be used.
+
+@item -muninit-const-in-rodata
+@itemx -mno-uninit-const-in-rodata
+@opindex muninit-const-in-rodata
+@opindex mno-uninit-const-in-rodata
+Put uninitialized @code{const} variables in the read-only data section.
+This option is only meaningful in conjunction with @option{-membedded-data}.
+
+@item -mcheck-zero-division
+@itemx -mno-check-zero-division
+@opindex mcheck-zero-division
+@opindex mno-check-zero-division
+Trap (do not trap) on integer division by zero.
+
+The default is @option{-mno-check-zero-division} at @option{-Os} level and
+@option{-mcheck-zero-division} for any other optimization level.
+
+@item -mdivide-traps
+@opindex mdivide-traps
+nanoMIPS systems check for division by zero by generating either a
+conditional trap or a break instruction.  Using traps results in
+smaller code, but it is not supported in the nanoMIPS Subset.  Also, some
+versions of the Linux kernel have a bug that prevents trap from
+generating the proper signal (@code{SIGFPE}).  Use @option{-mdivide-traps} to
+allow conditional traps on architectures that support them and
+@option{-mno-divide-traps} to force the use of breaks.
+
+Divide-by-zero checks can be completely disabled using
+@option{-mno-check-zero-division}.
+
+@item -mmemcpy
+@itemx -mno-memcpy
+@opindex mmemcpy
+@opindex mno-memcpy
+Force (do not force) the use of @code{memcpy} for non-trivial block
+moves.  The default is @option{-mno-memcpy}, which allows GCC to inline
+most constant-sized copies.
+
+@item -mlong-calls
+@itemx -mno-long-calls
+@opindex mlong-calls
+@opindex mno-long-calls
+Disable (do not disable) use of the @code{jalrc} instruction.  Calling
+functions using @code{jalrc} is more efficient but requires the caller
+and callee to be in the same 256 megabyte segment.
+
+The default is @option{-mno-long-calls}.
+
+@item -mimadd
+@itemx -mno-imadd
+@opindex mimadd
+@opindex mno-imadd
+Enable (disable) use of the @code{madd} and @code{msub} integer
+instructions.  The default is @option{-mimadd} on architectures
+that support @code{madd} and @code{msub} as part of the DSP.
+
+@item -mflush-func=@var{func}
+@itemx -mno-flush-func
+@opindex mflush-func
+Specifies the function to call to flush the I and D caches, or to not
+call any such function.  If called, the function must take the same
+arguments as the common @code{_flush_func}, that is, the address of the
+memory range for which the cache is being flushed, the size of the
+memory range, and the number 3 (to flush both caches).  The default
+depends on the target GCC was configured for, but commonly is either
+@code{_flush_func} or @code{__cpu_flush}.
+
+@item -mopt-movebalc
+@itemx -mno-opt-movebalc
+@opindex mopt-movebalc
+@opindex mno-opt-movebalc
+Enable (disable) combining @code{move} and @code{balc} instructions, if
+possible, into @code{move.balc}.  The default is @option{-mopt-movebalc}.
+
+@item -mjump-table-opt
+@itemx -mno-jump-table-opt
+@opindex mjump-table-opt
+@opindex mno-jump-table-opt
+The switch enables jump-tables that contain relative addresses.
+The default is @option{-mno-jump-table-opt}.
+
+@item -mshrink-offsets
+@itemx -mno-shrink-offsets
+@opindex mshrink-offsets
+@opindex mno-shrink-offsets
+Enable (disable) an optimisation to reduce offsets used directly in
+memory references for nanoMIPS code to make more use of 16-bit instructions
+for loads and stores.  This is at the expense of one additional setup
+instruction to adjust the base pointer for several memory references.
+This optimisation is enabled by default with @option{-Os}.
+
+@item mbranch-cost=@var{num}
+@opindex mbranch-cost
+Set the cost of branches to roughly @var{num} ``simple'' instructions.
+This cost is only a heuristic and is not guaranteed to produce
+consistent results across releases.  A zero cost redundantly selects
+the default, which is based on the @option{-mtune} setting.
 
 @end table
 
