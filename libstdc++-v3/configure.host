@@ -266,6 +266,8 @@ case "${host_os}" in
       os_include_dir="os/uclibc"
     elif [ "$bionic" = "yes" ]; then
       os_include_dir="os/bionic"
+    elif [ "$musl" = "yes" ]; then
+      os_include_dir="os/generic"
     else
       os_include_dir="os/gnu-linux"
     fi
