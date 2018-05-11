@@ -19,25 +19,94 @@
 
 (define_insn "*store_word_multiple"
   [(match_parallel 0 ""
-       [(set (match_operand:SI 1 "memory_operand")
-	     (match_operand:SI 2 "register_operand"))])]
-  "TARGET_MICROMIPS
-   && umips_save_restore_pattern_p (true, operands[0])"
-  { return umips_output_save_restore (true, operands[0]); }
+       [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	     (match_operand:SI 2 "register_operand" "r"))])]
+  "(ISA_HAS_LWM_SWM || ISA_HAS_NEW_LWM_SWM)
+   && mips_word_multiple_pattern_p (true, operands[0])"
+  { return mips_output_word_multiple (true, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
+(define_expand "store_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op0;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) > 8)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) < 2)
+      || GET_CODE (operands[0]) != MEM
+      || GET_CODE (operands[1]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[1]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  to = force_reg (SImode, XEXP (operands[0], 0));
+  op0 = replace_equiv_address (operands[0], to);
+
+  XVECEXP (operands[3], 0, 0)
+    = gen_rtx_SET (adjust_address_nv (op0, SImode, 0), operands[1]);
+
+  for (i = 1; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (adjust_address_nv (op0, SImode, i * 4),
+		     gen_rtx_REG (SImode, regno + i));
+})
+
 (define_insn "*load_word_multiple"
   [(match_parallel 0 ""
-       [(set (match_operand:SI 1 "register_operand")
-	     (match_operand:SI 2 "memory_operand"))])]
-  "TARGET_MICROMIPS
-   && umips_save_restore_pattern_p (false, operands[0])"
-  { return umips_output_save_restore (false, operands[0]); }
+       [(set (match_operand:SI 1 "register_operand" "=r")
+	     (match_operand:SI 2 "memory_operand" "ZA"))])]
+  "(ISA_HAS_LWM_SWM || ISA_HAS_NEW_LWM_SWM)
+   && mips_word_multiple_pattern_p (false, operands[0])"
+  { return mips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
+
+(define_expand "load_multiple"
+  [(match_par_dup 3 [(set (match_operand:SI 0 "" "")
+			  (match_operand:SI 1 "" ""))
+		     (use (match_operand:SI 2 "" ""))])]
+  "ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM"
+{
+  int regno;
+  int count;
+  rtx to;
+  rtx op1;
+  int i;
+
+  if (GET_CODE (operands[2]) != CONST_INT
+      || (ISA_HAS_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) > 8)
+      || (ISA_HAS_NEW_LWM_SWM && INTVAL (operands[2]) < 2)
+      || GET_CODE (operands[1]) != MEM
+      || GET_CODE (operands[0]) != REG)
+    FAIL;
+
+  count = INTVAL (operands[2]);
+  regno = REGNO (operands[0]);
+
+  operands[3] = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  op1 = replace_equiv_address (operands[1],
+			       force_reg (SImode, XEXP (operands[1], 0)));
+
+  for (i = 0; i < count; i++)
+    XVECEXP (operands[3], 0, i)
+      = gen_rtx_SET (gen_rtx_REG (SImode, regno + i),
+		     adjust_address_nv (op1, SImode, i * 4));
+})
 
 ;; For LWP.
 (define_peephole2
@@ -45,19 +114,29 @@
         (match_operand:SI 1 "non_volatile_mem_operand" ""))
    (set (match_operand:SI 2 "d_operand" "")
         (match_operand:SI 3 "non_volatile_mem_operand" ""))]
-  "TARGET_MICROMIPS
-   && umips_load_store_pair_p (true, operands)"
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
+   && umips_load_store_pair_p (true, operands) == 1"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
 
+(define_peephole2
+  [(set (match_operand:SI 0 "d_operand" "")
+	(match_operand:SI 1 "non_volatile_mem_operand" ""))
+   (set (match_operand:SI 2 "d_operand" "")
+	(match_operand:SI 3 "non_volatile_mem_operand" ""))]
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
+   && umips_load_store_pair_p (true, operands) == 2"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])])
+
 ;; The behavior of the LWP insn is undefined if placed in a delay slot.
 (define_insn "*lwp"
-  [(parallel [(set (match_operand:SI 0 "d_operand")
-		   (match_operand:SI 1 "non_volatile_mem_operand"))
-	      (set (match_operand:SI 2 "d_operand")
-		   (match_operand:SI 3 "non_volatile_mem_operand"))])]
+  [(parallel [(set (match_operand:SI 0 "register_operand" "=&d")
+		   (match_operand:SI 1 "non_volatile_mem_operand" "ZO"))
+	      (set (match_operand:SI 2 "register_operand" "=d")
+		   (match_operand:SI 3 "non_volatile_mem_operand" "m"))])]
 
-  "TARGET_MICROMIPS
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
    && umips_load_store_pair_p (true, operands)"
 {
   umips_output_load_store_pair (true, operands);
@@ -73,18 +152,28 @@
         (match_operand:SI 1 "d_operand" ""))
    (set (match_operand:SI 2 "non_volatile_mem_operand" "")
         (match_operand:SI 3 "d_operand" ""))]
-  "TARGET_MICROMIPS
-   && umips_load_store_pair_p (false, operands)"
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
+   && umips_load_store_pair_p (false, operands) == 1"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
 
+(define_peephole2
+  [(set (match_operand:SI 0 "non_volatile_mem_operand" "")
+	(match_operand:SI 1 "d_operand" ""))
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "")
+	(match_operand:SI 3 "d_operand" ""))]
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
+   && umips_load_store_pair_p (false, operands) == 2"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])])
+
 ;; The behavior of the SWP insn is undefined if placed in a delay slot.
 (define_insn "*swp"
-  [(set (match_operand:SI 0 "non_volatile_mem_operand")
-	(match_operand:SI 1 "d_operand"))
-   (set (match_operand:SI 2 "non_volatile_mem_operand")
-	(match_operand:SI 3 "d_operand"))]
-  "TARGET_MICROMIPS
+  [(set (match_operand:SI 0 "non_volatile_mem_operand" "=ZO")
+	(match_operand:SI 1 "register_operand" "d"))
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "=m")
+	(match_operand:SI 3 "register_operand" "d"))]
+  "(ISA_HAS_LWP_SWP || ISA_HAS_NEW_LWM_SWM)
    && umips_load_store_pair_p (false, operands)"
 {
   umips_output_load_store_pair (false, operands);
@@ -110,22 +199,24 @@
 ;; For MOVEP.
 (define_peephole2
   [(set (match_operand:MOVEP1 0 "register_operand" "")
-        (match_operand:MOVEP1 1 "movep_src_operand" ""))
+        (match_operand:MOVEP1 1 "movep_or_0_operand" ""))
    (set (match_operand:MOVEP2 2 "register_operand" "")
-        (match_operand:MOVEP2 3 "movep_src_operand" ""))]
+        (match_operand:MOVEP2 3 "movep_or_0_operand" ""))]
   "TARGET_MICROMIPS
-   && umips_movep_target_p (operands[0], operands[2])"
+   && ISA_HAS_MOVEP
+   && mips_movep_target_p (operands[0], operands[2])"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
 
 ;; The behavior of the MOVEP insn is undefined if placed in a delay slot.
 (define_insn "*movep<MOVEP1:mode><MOVEP2:mode>"
   [(set (match_operand:MOVEP1 0 "register_operand")
-	(match_operand:MOVEP1 1 "movep_src_operand"))
+	(match_operand:MOVEP1 1 "movep_or_0_operand"))
    (set (match_operand:MOVEP2 2 "register_operand")
-	(match_operand:MOVEP2 3 "movep_src_operand"))]
+	(match_operand:MOVEP2 3 "movep_or_0_operand"))]
   "TARGET_MICROMIPS
-   && umips_movep_target_p (operands[0], operands[2])"
+   && ISA_HAS_MOVEP
+   && mips_movep_target_p (operands[0], operands[2])"
 {
   if (REGNO (operands[0]) < REGNO (operands[2]))
     return "movep\t%0,%2,%z1,%z3";

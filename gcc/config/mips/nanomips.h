@@ -124,6 +124,13 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef MIPS_ISA_LEVEL_SPEC
 
+/* Temporarily enable TLS by default for nanoMIPS.  */
+
+#undef HAVE_AS_TLS
+#define HAVE_AS_TLS 1
+#undef HAVE_AS_DTPRELWORD
+#define HAVE_AS_DTPRELWORD 1
+
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
 
@@ -213,6 +220,11 @@ FP_ASM_SPEC "\
 
 #define FRAME_ADDR_RTX(frame) \
    plus_constant (Pmode, frame, MIPS_FRAME_BIAS)
+
+#define LABEL_ALIGN(LABEL) nanomips_label_align(LABEL)
+#define ADDR_VEC_ALIGN(VEC_INSN) \
+   (GET_MODE (PATTERN (VEC_INSN)) == QImode ? \
+     1 : exact_log2 (GET_MODE_SIZE (GET_MODE (PATTERN (VEC_INSN)))))
 
 /* Trampolines are a block of code followed by two pointers.  */
 
