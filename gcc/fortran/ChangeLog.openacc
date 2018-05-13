@@ -1,0 +1,13 @@
+2018-05-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/85742
+	* trans-types.c (gfc_get_dtype_rank_type): Reorder evaluation
+	of 'size'. If the element type is a pointer use the size of the
+	TREE_TYPE of the type, unless it is VOID_TYPE. In this latter
+	case, set the size to zero.
+
+Copyright (C) 2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
