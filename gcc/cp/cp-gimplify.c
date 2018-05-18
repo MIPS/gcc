@@ -1473,7 +1473,8 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     genericize_break_stmt (stmt_p);
   else if (TREE_CODE (stmt) == OMP_FOR
 	   || TREE_CODE (stmt) == OMP_SIMD
-	   || TREE_CODE (stmt) == OMP_DISTRIBUTE)
+	   || TREE_CODE (stmt) == OMP_DISTRIBUTE
+	   || TREE_CODE (stmt) == OACC_LOOP)
     genericize_omp_for_stmt (stmt_p, walk_subtrees, data);
   else if (TREE_CODE (stmt) == PTRMEM_CST)
     {
