@@ -3928,6 +3928,8 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  }
     }
 
+  /* FIXME: This error is too strict.  */
+#if 0
   /* Error for assignments of contiguous pointers to targets which is not
      contiguous.  Be lenient in the definition of what counts as
      contiguous.  */
@@ -3935,6 +3937,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
   if (lhs_attr.contiguous && !gfc_is_simply_contiguous (rvalue, false, true))
     gfc_error ("Assignment to contiguous pointer from non-contiguous "
 	       "target at %L", &rvalue->where);
+#endif
 
   /* Warn if it is the LHS pointer may lives longer than the RHS target.  */
   if (warn_target_lifetime

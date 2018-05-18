@@ -1,3 +1,8 @@
+2018-05-18  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* expr.c (gfc_check_pointer_assign): Disable "Assignment to
+	contiguous pointer from non-contiguous target" error.
+
 2017-12-21  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* types.def: (BF_FN_VOID_INT_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR):
