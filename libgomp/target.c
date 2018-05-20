@@ -108,6 +108,8 @@ gomp_get_num_devices (void)
 static struct gomp_device_descr *
 resolve_device (int device)
 {
+  gomp_debug (0, "%s (%d)\n", __FUNCTION__, device);
+
   int device_id;
   if (device == GOMP_DEVICE_ICV)
     {
@@ -137,6 +139,7 @@ resolve_device (int device)
       && !gomp_offload_target_available_p (devices[device_id].type))
     return NULL;
 
+  gomp_debug (0, "  %s (%d): %d\n", __FUNCTION__, device, device_id);
   return &devices[device_id];
 }
 
@@ -1883,6 +1886,9 @@ GOMP_offload_unregister (const void *host_table, int target_type,
 attribute_hidden void
 gomp_init_device (struct gomp_device_descr *devicep)
 {
+  gomp_debug (0, "%s (%s; %d; %d)\n", __FUNCTION__,
+	      devicep->name, (int) devicep->type, devicep->target_id);
+
   int i;
   if (!devicep->init_device_func (devicep->target_id))
     {
@@ -1946,6 +1952,8 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 attribute_hidden bool
 gomp_offload_target_available_p (int type)
 {
+  gomp_debug (0, "%s (%d)\n", __FUNCTION__, type);
+
   bool available = false;
 
   /* Has the offload target already been initialized?  */
@@ -1987,6 +1995,7 @@ gomp_offload_target_available_p (int type)
       gomp_mutex_unlock (&register_lock);
     }
 
+  gomp_debug (0, "  %s (%d): %d\n", __FUNCTION__, type, (int) available);
   return available;
 }
 
@@ -3157,25 +3166,170 @@ offload_target_to_plugin_name (const char *offload_target)
   gomp_fatal ("Unknown offload target: %s", offload_target);
 }
 
-/* List of offload targets, separated by colon.  Defaults to the list
+/* List of requested offload targets, separated by colon.  Defaults to the list
    determined when configuring libgomp.  */
 static const char *gomp_offload_targets = OFFLOAD_TARGETS;
-static bool gomp_offload_targets_init = false;
+static bool gomp_offload_targets_set = false;
+static bool gomp_offload_targets_malloced = false;
 
-/* Override the list of offload targets.  This must be called early, and only
-   once.  */
+/* This function frees gomp_offload_targets.  */
+
+static void
+free_gomp_offload_targets (void)
+{
+  free ((char *) gomp_offload_targets);
+}
+
+/* Override the list of requested offload targets.  This must be called
+   early, before gomp_target_init.  */
 
 void
 GOMP_set_offload_targets (const char *offload_targets)
 {
-  gomp_debug (0, "%s (\"%s\")\n", __FUNCTION__, offload_targets);
+  gomp_debug (0, "%s (\"%s\"): %s\n", __FUNCTION__,
+	      offload_targets, gomp_offload_targets);
 
-  /* Make sure this gets called early.  */
-  assert (gomp_is_initialized == PTHREAD_ONCE_INIT);
-  /* Make sure this only gets called once.  */
-  assert (!gomp_offload_targets_init);
-  gomp_offload_targets_init = true;
-  gomp_offload_targets = offload_targets;
+  /* TODO: multithreading, locking.  */
+  /* TODO: this should not (sometimes) keep a copy of the offload_target
+     pointer, so that the caller knows what to expect.  */
+  /* TODO: What actually is supposed to happen if some parts of a program are
+     compiled with, for example, "-foffload=disable" (that is, when called with
+     the empty string for offload_targets), and others for other actual
+     (possibly different) offload targets?  */
+  if (gomp_is_initialized == PTHREAD_ONCE_INIT)
+    {
+      /* If we have not yet initialized, we capture all the offload targets
+	 requested.  We do not worry that the set of requested offload targets
+	 vs. the set of available offload data will eventually match; any such
+	 inconsistencies would be user error.  (See also
+	 gomp_offload_target_available_p.)  */
+      if (!gomp_offload_targets_set)
+	gomp_offload_targets = offload_targets;
+      else if (gomp_offload_targets == offload_targets
+	       || strcmp (gomp_offload_targets, offload_targets) == 0)
+	/* Nothing to do if the same.  */;
+      else
+	{
+	  /* Merge offload_targets into gomp_offload_targets.  */
+	  /* TODO: this could be simpler if we had the data available in a
+	     different form.  */
+	  size_t gomp_offload_targets_len = strlen (gomp_offload_targets);
+	  /* Maximum length.  */
+	  size_t len = (gomp_offload_targets_len + /* ":" */ 1
+			+ strlen (offload_targets) + /* '\0' */ 1);
+	  char *gomp_offload_targets_new = gomp_malloc (len);
+	  memcpy (gomp_offload_targets_new,
+		  gomp_offload_targets, gomp_offload_targets_len);
+	  char *gomp_offload_targets_new_next
+	    = gomp_offload_targets_new + gomp_offload_targets_len;
+	  *gomp_offload_targets_new_next = '\0';
+	  const char *cur = offload_targets;
+	  while (*cur)
+	    {
+	      const char *cur_end = strchr (cur, ':');
+	      /* If no other offload target following...  */
+	      if (cur_end == NULL)
+		/* ..., point to the terminating NUL character.  */
+		cur_end = cur + strlen (cur);
+	      size_t cur_len = cur_end - cur;
+
+	      /* Do we already have this one listed?  */
+	      const char *haystack = gomp_offload_targets_new;
+	      while (haystack != NULL)
+		{
+		  if (strncmp (haystack, cur, cur_len) == 0)
+		    break;
+		  else
+		    {
+		      haystack = strchr (haystack, ':');
+		      if (haystack != NULL)
+			haystack += /* ':' */ 1;
+		    }
+		}
+	      if (haystack == NULL)
+		{
+		  /* Not yet listed; add it.  */
+		  if (gomp_offload_targets_new_next != gomp_offload_targets_new)
+		    *gomp_offload_targets_new_next++ = ':';
+		  assert (gomp_offload_targets_new_next + cur_len + /* '\0' */ 1
+			  <= gomp_offload_targets_new + len);
+		  memcpy (gomp_offload_targets_new_next, cur, cur_len);
+		  gomp_offload_targets_new_next += cur_len;
+		  *gomp_offload_targets_new_next = '\0';
+		}
+
+	      if (*cur_end == '\0')
+		break;
+	      cur = cur_end + /* : */ 1;
+	    }
+
+	  if (gomp_offload_targets_malloced)
+	    free ((char *) gomp_offload_targets);
+	  else
+	    {
+	      if (atexit (free_gomp_offload_targets) != 0)
+		gomp_fatal ("atexit failed");
+	    }
+
+	  gomp_offload_targets = gomp_offload_targets_new;
+	  gomp_offload_targets_malloced = true;
+	}
+    }
+  else
+    {
+      /* If we have already initialized (which can happen only if a shared
+	 library with another GOMP_set_offload_targets constructor call gets
+	 loaded dynamically), and the user is now requesting offload targets
+	 that were not requested previously, then we're out of luck: we can't
+	 load new plugins now.  Otherwise, we're all set.  */
+      if (gomp_offload_targets == offload_targets
+	  || strcmp (gomp_offload_targets, offload_targets) == 0)
+	/* All fine if the same.  */;
+      else
+	{
+	  /* Check offload_targets against gomp_offload_targets.  */
+	  /* TODO: this could be simpler if we had the data available in a
+	     different form.  */
+	  const char *cur = offload_targets;
+	  while (*cur)
+	    {
+	      const char *cur_end = strchr (cur, ':');
+	      /* If no other offload target following...  */
+	      if (cur_end == NULL)
+		/* ..., point to the terminating NUL character.  */
+		cur_end = cur + strlen (cur);
+	      size_t cur_len = cur_end - cur;
+
+	      /* Do we have this one listed?  */
+	      const char *haystack = gomp_offload_targets;
+	      while (haystack != NULL)
+		{
+		  if (strncmp (haystack, cur, cur_len) == 0)
+		    break;
+		  else
+		    {
+		      haystack = strchr (haystack, ':');
+		      if (haystack != NULL)
+			haystack += /* ':' */ 1;
+		    }
+		}
+	      if (haystack == NULL)
+		{
+		  /* Not listed.  */
+		  gomp_fatal ("Can't satisfy request for offload targets: %s; have loaded: %s",
+			      offload_targets, gomp_offload_targets);
+		}
+
+	      if (*cur_end == '\0')
+		break;
+	      cur = cur_end + /* : */ 1;
+	    }
+	}
+    }
+  gomp_offload_targets_set = true;
+
+  gomp_debug (0, "  %s (\"%s\"): %s\n", __FUNCTION__,
+	      offload_targets, gomp_offload_targets);
 }
 
 /* This function initializes the runtime needed for offloading.

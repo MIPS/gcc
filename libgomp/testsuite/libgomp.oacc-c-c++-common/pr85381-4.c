@@ -1,5 +1,6 @@
 /* { dg-additional-options "-save-temps -w" } */
-/* { dg-skip-if "" { *-*-* } { "*" } { "-DACC_DEVICE_TYPE_nvidia=1 -O2" } } */
+/* { dg-do run { target openacc_nvidia_accel_selected } }
+   { dg-skip-if "" { *-*-* } { "*" } { "-O2" } } */
 
 #define n 1024
 

@@ -1,3 +1,37 @@
+2018-05-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/81886
+	* openacc.h (enum acc_device_t): Add _acc_device_intel_mic,
+	_acc_device_hsa.
+	* oacc-init.c (get_openacc_name): Handle these.
+	(resolve_device): Debugging output.
+	* target.c (resolve_device, gomp_init_device)
+	(gomp_offload_target_available_p): Likewise.
+	(GOMP_set_offload_targets): Rewrite.
+	* testsuite/libgomp.oacc-c++/c++.exp: Provide offload target in
+	"-DACC_DEVICE_TYPE_host", and "-DACC_DEVICE_TYPE_nvidia".
+	* testsuite/libgomp.oacc-c/c.exp: Likewise.
+	* testsuite/libgomp.oacc-fortran/fortran.exp: Likewise.
+	* testsuite/libgomp.oacc-c/offload-targets-1.c: New file.
+	* testsuite/libgomp.oacc-c/offload-targets-2.c: Likewise.
+	* testsuite/libgomp.oacc-c/offload-targets-3.c: Likewise.
+	* testsuite/libgomp.oacc-c/offload-targets-4.c: Likewise.
+	* testsuite/libgomp.oacc-c/offload-targets-5.c: Likewise.
+	* testsuite/libgomp.oacc-c/offload-targets-6.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device-2.c: Adjust.
+	* testsuite/libgomp.oacc-c-c++-common/acc_on_device-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381-5.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85381.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85486-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85486-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/pr85486.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/acc_on_device-1-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/acc_on_device-1-2.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/acc_on_device-1-3.f: Likewise.
+
 2018-05-18  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline

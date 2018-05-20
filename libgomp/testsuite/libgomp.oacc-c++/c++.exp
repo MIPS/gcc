@@ -86,7 +86,7 @@ if { $lang_test_file_found } {
 	switch -glob $offload_target_openacc {
 	    disable {
 		set acc_mem_shared 1
-		set tagopt "-DACC_DEVICE_TYPE_host=1"
+		set tagopt "-DACC_DEVICE_TYPE_host=\"\""
 	    }
 	    nvptx* {
 		if { ![check_effective_target_openacc_nvidia_accel_present] } {
@@ -102,7 +102,7 @@ if { $lang_test_file_found } {
 		lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/libgomp.oacc-c-c++-common"
 
 		set acc_mem_shared 0
-		set tagopt "-DACC_DEVICE_TYPE_nvidia=1"
+		set tagopt "-DACC_DEVICE_TYPE_nvidia=\"$offload_target_openacc\""
 	    }
 	    default {
 		set acc_mem_shared 0

@@ -1,5 +1,4 @@
-/* { dg-do run } */
-/* { dg-skip-if "" { *-*-* } { "*" } { "-DACC_DEVICE_TYPE_nvidia=1" } } */
+/* { dg-do run { target openacc_nvidia_accel_selected } } */
 
 /* Minimized from ref-1.C.  */
 

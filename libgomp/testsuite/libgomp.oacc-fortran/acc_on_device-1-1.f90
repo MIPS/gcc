@@ -25,7 +25,7 @@ if (acc_on_device (acc_device_nvidia)) call abort
 !$acc end parallel
 
 
-#if !ACC_DEVICE_TYPE_host
+#ifndef ACC_DEVICE_TYPE_host
 
 ! Offloaded.
 
@@ -33,7 +33,7 @@ if (acc_on_device (acc_device_nvidia)) call abort
 if (acc_on_device (acc_device_none)) call abort
 if (acc_on_device (acc_device_host)) call abort
 if (.not. acc_on_device (acc_device_not_host)) call abort
-#if ACC_DEVICE_TYPE_nvidia
+#ifdef ACC_DEVICE_TYPE_nvidia
 if (.not. acc_on_device (acc_device_nvidia)) call abort
 #else
 if (acc_on_device (acc_device_nvidia)) call abort
