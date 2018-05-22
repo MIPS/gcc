@@ -1,3 +1,55 @@
+2018-05-21  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2018-05-17  Pat Haugen  <pthaugen@us.ibm.com>
+		    Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/85698
+	* config/rs6000/rs6000.c (rs6000_output_move_128bit): Check dest operand.
+
+2018-05-17  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2018-05-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/85655
+	* ipa-cp.c (intersect_with_plats): Check that the lattice contains
+	single const.
+
+2018-05-01  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-04-16  Cesar Philippidis  <cesar@codesourcery.com>
+		    Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/84955
+	* omp-expand.c (expand_oacc_for): Add dummy false branch for
+	tiled basic blocks without omp continue statements.
+
+2018-04-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-04-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85284
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions):
+	Only use the niter constraining form of simple_iv when the exit
+	is always executed.
+
+	2018-04-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85244
+	* tree-dfa.c (get_ref_base_and_extent): Reset seen_variable_array_ref
+	after seeing a component reference with an adjacent field.  Treat
+	refs to arrays at struct end of external decls similar to
+	refs to unconstrained commons.
+
+	2018-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85168
+	* tree-ssa-sccvn.c (vn_reference_maybe_forwprop_address): Avoid
+	propagating abnormals.
+
 2018-04-24  Martin Liska  <mliska@suse.cz>
 
 	Backport from mainline
