@@ -1,3 +1,75 @@
+2018-05-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/83149
+	Backport from trunk
+	* trans-decl.c (gfc_finish_var_decl): Test sym->ns->proc_name
+	before accessing its components.
+	* trans-types.c (gfc_sym_type): If a character result has null
+	backend_decl, try the procedure symbol.
+
+2018-16-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/83898
+	Backport from trunk
+	* trans-stmt.c (trans_associate_var): Do not set cst_array_ctor
+	for characters.
+
+2018-05-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68846
+	PR fortran/70864
+	Backport from trunk
+	* resolve.c (get_temp_from_expr): The temporary must not have
+	dummy or intent attributes.
+
+2018-05-12  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85542
+	Backport from trunk
+	* expr.c (check_inquiry): Avoid NULL pointer dereference.
+
+2018-05-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/70870
+	Backport from trunk
+	* data.c (gfc_assign_data_value): Check that a data object does
+	not also have default initialization.
+
+2018-05-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85521
+	Backport from trunk
+	* array.c (gfc_resolve_character_array_constructor): Substrings
+	with upper bound smaller than lower bound are zero length strings.
+
+2018-05-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85687
+	Backport from trunk
+	* check.c (gfc_check_rank): Check that the argument is a data object.
+
+2018-05-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/85507
+	Backport from trunk.
+	* dependency.c (gfc_dep_resolver): Revert looking at coarray dimension
+	introduced by r259385.
+	* trans-intrinsic.c (conv_caf_send): Always report a dependency for
+	same variables in coarray assignments.
+
+2018-04-28  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/81773
+	PR fortran/83606
+	Backport from trunk.
+	* dependency.c (gfc_dep_resolver): Coarray indexes are to be ignored
+	during dependency computation.  They define no data dependency.
+	* trans-array.c (conv_array_index_offset): The stride can not be set
+	here, prevent fail.
+	* trans-intrinsic.c (conv_caf_send): Add creation of temporary array
+	for caf_get's result and copying to the array with vectorial
+	indexing.
+
 2018-04-24  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/85520
