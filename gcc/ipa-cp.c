@@ -4127,7 +4127,9 @@ intersect_with_plats (struct ipcp_param_lattices *plats,
 	  if (aglat->offset - offset == item->offset)
 	    {
 	      gcc_checking_assert (item->value);
-	      if (values_equal_for_ipcp_p (item->value, aglat->values->value))
+	      if (aglat->is_single_const ()
+		  && values_equal_for_ipcp_p (item->value,
+					      aglat->values->value))
 		found = true;
 	      break;
 	    }
@@ -4372,7 +4374,9 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	{
 	  struct ipa_jump_func *jfunc
 	    = ipa_get_ith_jump_func (IPA_EDGE_REF (cs), i);
-	  if (self_recursive_pass_through_p (cs, jfunc, i))
+	  if (self_recursive_pass_through_p (cs, jfunc, i)
+	      && (!plats->aggs_by_ref
+		  || ipa_get_jf_pass_through_agg_preserved (jfunc)))
 	    continue;
 	  inter = intersect_aggregates_with_edge (cs, i, inter);
 

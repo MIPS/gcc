@@ -1,3 +1,218 @@
+2018-05-18  Toon Moene  <toon@moene.org>
+
+	* doc/invoke.texi: Move -floop-unroll-and-jam documentation
+	directly after that of -floop-interchange. Indicate that both
+	options are enabled by default when specifying -O3. 
+
+2018-05-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/85655
+	* ipa-cp.c (intersect_with_plats): Check that the lattice contains
+	single const.
+
+2018-05-11  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/85733
+	* config/arm/arm-cpus.in (fgroup ARMv6m): Add be8 feature.
+
+2018-05-11  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/85606
+	* config/arm/arm-cpus.in: Add comment that ARMv6-m and ARMv6S-m are now
+	equivalent.
+	(cortex-m0): Use armv6s-m isa.
+	(cortex-m0plus): Likewise.
+	(cortex-m1): Likewise.
+	(cortex-m0.small-multiply): Likewise.
+	(cortex-m0plus.small-multiply): Likewise.
+	(cortex-m1.small-multiply): Likewise.
+
+2018-05-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/85638
+	* bb-reorder.c: Include common/common-target.h.
+	(create_forwarder_block): New function extracted from...
+	(fix_up_crossing_landing_pad): ...here.  Rename into...
+	(dw2_fix_up_crossing_landing_pad): ...this.
+	(sjlj_fix_up_crossing_landing_pad): New function.
+	(find_rarely_executed_basic_blocks_and_crossing_edges): In SJLJ mode,
+	call sjlj_fix_up_crossing_landing_pad if there are incoming EH edges
+	from both partitions and exit the loop after one iteration.
+
+2018-05-08  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-05-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85588
+	* fold-const.c (negate_expr_p): Restrict negation of operand
+	zero of a division to when we know that can happen without
+	overflow.
+	(fold_negate_expr_1): Likewise.
+
+	2018-05-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85615
+	* tree-ssa-threadupdate.c (thread_block_1): Only allow exits
+	to loops not nested in BBs loop father to avoid creating multi-entry
+	loops.
+
+	2018-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85567
+	* gimplify.c (gimplify_save_expr): When in SSA form allow
+	SAVE_EXPRs to compute to SSA vars.
+
+	2018-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85597
+	* tree-vect-stmts.c (vectorizable_operation): For ternary SLP
+	do not use split vect_get_vec_defs call but call vect_get_slp_defs
+	directly.
+
+2018-05-08  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/85658
+	* config/arm/parsecpu.awk (check_cpu): Fix operator precedence.
+	(check_arch): Likewise.
+	(check_fpu): Return the result rather than printing it.
+	(end arch): Fix operator precedence.
+	(end cpu): Likewise.
+	(END): Print the result from check_fpu.
+
+2018-05-08  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-05-04  Richard Biener  <rguenther@suse.de>
+
+	* bb-reorder.c (sanitize_hot_paths): Release hot_bbs_to_check.
+	* gimple-ssa-store-merging.c
+	(imm_store_chain_info::output_merged_store): Remove redundant create,
+	release split_store vector contents on failure.
+	* tree-vect-slp.c (vect_schedule_slp_instance): Avoid leaking
+	scalar stmt vector on cache hit.
+
+	2018-05-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85627
+	* tree-complex.c (tree_lower_complex): Handle removed blocks.
+
+2018-05-07  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	Backport from mainline.
+	2018-04-25  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-predicates.c (nds32_can_use_bclr_p): Mask with
+	GET_MODE_MASK before any checking.
+	(nds32_can_use_bset_p): Likewise.
+	(nds32_can_use_btgl_p): Likewise.
+
+2018-05-07  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	Backport from mainline.
+	2018-04-25  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-doubleword.md: New define_split pattern for
+	illegal register number.
+
+2018-05-07  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	Backport from mainline.
+	2018-04-25  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_print_operand): Set op_value ealier.
+
+2018-05-07  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	Backport from mainline.
+	2018-04-25  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.h (ASM_APP_ON): Add missing newline character.
+
+2018-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85659
+	* cfgexpand.c (expand_asm_stmt): Don't create a temporary if
+	the type is addressable.  Don't force op into register if it has
+	BLKmode.
+
+2018-05-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from trunk.
+	2018-04-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/85512
+	* config/aarch64/constraints.md (Usg): Limit to 31.
+	(Usj): Limit to 63.
+
+2018-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 8.1.1.
+
+2018-05-02  Release Manager
+
+	* GCC 8.1.0 released.
+
+2018-05-02  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR tree-optimization/85586
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Only
+	exit early for statements in the same group if the accesses are
+	not strided.
+
+2018-05-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR web/85578
+	* doc/install.texi2html: Replace _002d with - and _002a with * in
+	generated html files using sed.
+
+2018-04-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/85549
+	* ipa-cp.c (find_aggregate_values_for_callers_subset): Make sure
+	the jump function allows for passing through aggregate values.
+
+2018-04-27  Jeff Law  <law@redhat.com>
+
+	* config.gcc: Mark tile* targets as deprecated/obsolete.
+
+2018-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/85529
+	* tree-ssa-reassoc.c (optimize_range_tests_var_bound): Add FIRST_BB
+	argument.  Don't call get_nonzero_bits if opcode is ERROR_MARK_NODE,
+	rhs2 def stmt's bb is dominated by first_bb and it isn't an obvious
+	zero extension or masking of the MSB bit.
+	(optimize_range_tests): Add FIRST_BB argument, pass it through
+	to optimize_range_tests_var_bound.
+	(maybe_optimize_range_tests, reassociate_bb): Adjust
+	optimize_range_tests callers.
+
+2018-04-26  Richard Biener  <rguenther@suse.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (symbol_table): Just declare debug method here.
+	* symtab.c (symbol_table::debug): Define.
+
+2018-04-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (-Wreturn-type): Document default status for C++.
+
+2018-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-04-25  Sebastian Peryt  <sebastian.peryt@intel.com>
+
+	PR target/85473
+	* config/i386/i386.c (ix86_expand_builtin): Change memory
+	operand to XI, extend p0 to Pmode.
+	* config/i386/i386.md: Change unspec volatile and operand
+	1 mode to XI, change operand 0 mode to P.
+
+2018-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* DEV-PHASE: Set to prerelease.
+
 2018-04-24  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	* config/rs6000/rs6000.c (init_float128_ieee): Fix spelling mistakes

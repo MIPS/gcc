@@ -1,3 +1,135 @@
+2018-05-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/85818
+	* src/filesystem/path.cc (path::preferred_separator): Add used
+	attribute.
+	* testsuite/experimental/filesystem/path/preferred_separator.cc: New.
+
+	PR libstdc++/85812
+	* libsupc++/cxxabi_init_exception.h (__cxa_free_exception): Declare.
+	* libsupc++/exception_ptr.h (make_exception_ptr) [__cpp_exceptions]:
+	Refactor to separate non-throwing and throwing implementations.
+	[__cpp_rtti && !_GLIBCXX_HAVE_CDTOR_CALLABI]: Deallocate the memory
+	if constructing the object throws.
+
+2018-05-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83891
+	* include/bits/fs_path.h (path::is_absolute()): Use same definition
+	for all operating systems.
+	* include/experimental/bits/fs_path.h (path::is_absolute()): Likewise.
+	* testsuite/27_io/filesystem/path/query/is_absolute.cc: New.
+	* testsuite/27_io/filesystem/path/query/is_relative.cc: Fix comment.
+	* testsuite/experimental/filesystem/path/query/is_absolute.cc: New.
+
+	* testsuite/27_io/filesystem/path/decompose/extension.cc: Remove
+	unused <vector> header.
+	* testsuite/27_io/filesystem/path/query/empty.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_extension.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_filename.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_parent_path.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_relative_path.cc:
+	Likewise.
+	* testsuite/27_io/filesystem/path/query/has_root_directory.cc:
+	Likewise.
+	* testsuite/27_io/filesystem/path/query/has_root_name.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_root_path.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/has_stem.cc: Likewise.
+	* testsuite/27_io/filesystem/path/query/is_relative.cc: Likewise.
+	* testsuite/experimental/filesystem/path/decompose/extension.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/empty.cc: Likewise.
+	* testsuite/experimental/filesystem/path/query/has_extension.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_filename.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_parent_path.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_relative_path.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_root_directory.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_root_name.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_root_path.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/path/query/has_stem.cc: Likewise.
+	* testsuite/experimental/filesystem/path/query/is_relative.cc:
+	Likewise.
+
+	PR libstdc++/84159
+	* include/bits/fs_path.h (path::operator/=, path::append): Construct
+	temporary path before calling _M_append.
+	(path::_M_append): Change parameter to path and implement C++17
+	semantics.
+	* testsuite/27_io/filesystem/path/append/path.cc: Add helper function
+	and more examples from the standard.
+	* testsuite/27_io/filesystem/path/append/source.cc: New.
+	* testsuite/27_io/filesystem/path/decompose/filename.cc: Add comment.
+	* testsuite/27_io/filesystem/path/nonmember/append.cc: New.
+
+2018-05-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67554
+	* include/bits/valarray_array.h (_Array_copy_ctor<_Tp, true>)
+	(_Array_copier<_Tp, true>): Do not pass null pointers to memcpy.
+
+	PR libstdc++/82966
+	* include/bits/node_handle.h (_Node_handle_common::_M_swap): Use value
+	instead of type.
+	* testsuite/23_containers/set/modifiers/node_swap.cc: New.
+
+2018-05-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/faq.xml: Link to C++17 status. Add note to outdated answer.
+	* doc/xml/manual/debug_mode.xml: Add array and forward_list to list
+	of C++11 containers with Debug Mode support.
+	* doc/xml/manual/using.xml: Document that the C++17 Filesystem
+	implementation also needs -lstdc++fs. Document Dual ABI for
+	ios_base::failure.
+	* doc/html/*: Regenerate.
+
+2018-05-07  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Backport from mainline
+	2018-05-07  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Moar PR libstdc++/80506
+	* include/bits/random.tcc (gamma_distribution::__generate_impl()):
+	Fix magic number used in loop condition.
+
+2018-05-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/85642 fix is_nothrow_default_constructible<optional<T>>
+	* include/std/optional (_Optional_payload): Add noexcept to default
+	constructor. Re-indent.
+	(_Optional_payload<_Tp, true, true, true>): Likewise. Add noexcept to
+	constructor for copying disengaged payloads.
+	(_Optional_payload<_Tp, true, false, true>): Likewise.
+	(_Optional_payload<_Tp, true, true, false>): Likewise.
+	(_Optional_payload<_Tp, true, false, false>): Likewise.
+	* testsuite/20_util/optional/cons/85642.cc: New.
+	* testsuite/20_util/optional/cons/value_neg.cc: Adjust dg-error lines.
+
+2018-05-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/84769
+	* include/std/variant (visit): Qualify std::get call.
+
+2018-05-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/85632 use uintmax_t for arithmetic
+	* src/filesystem/ops.cc (experimental::filesystem::space): Perform
+	arithmetic in result type.
+	* src/filesystem/std-ops.cc (filesystem::space): Likewise.
+	* testsuite/27_io/filesystem/operations/space.cc: Check total capacity
+	is greater than free space.
+	* testsuite/experimental/filesystem/operations/space.cc: New.
+
+2018-05-02  Release Manager
+
+	* GCC 8.1.0 released.
+
 2018-04-24  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* configure: Regenerated.
