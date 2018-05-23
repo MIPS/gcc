@@ -262,6 +262,7 @@ set mips_option_groups {
     stdlib "REQUIRES_STDLIB"
     tls_dialect "-mtls-dialect=(trad|desc)"
     tls_model "-ftls-model=(local-exec|initial-exec|local-dynamic|global-dynamic)"
+    lra_equiv "-mlra-equiv"
 }
 
 for { set option 0 } { $option < 32 } { incr option } {
