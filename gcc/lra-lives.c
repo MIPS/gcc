@@ -1258,6 +1258,16 @@ lra_create_live_ranges_1 (bool all_p, bool dead_insn_p)
       if (process_bb_lives (bb, curr_point, dead_insn_p))
 	bb_live_change_p = true;
     }
+
+  if (curr_point == 0)
+    {
+      /* If curr_point is 0 ensure that it is beacuse all
+         pseudo regs were removed by process_bb_lives.    */
+      lra_assert(bb_live_change_p && dead_insn_p);
+      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+        lra_assert(lra_reg_info[i].live_ranges == NULL);
+    }
+
   if (bb_live_change_p)
     {
       /* We need to clear pseudo live info as some pseudos can
@@ -1308,7 +1318,10 @@ lra_create_live_ranges_1 (bool all_p, bool dead_insn_p)
   sparseset_free (pseudos_live_through_calls);
   sparseset_free (pseudos_live_through_setjumps);
   sparseset_free (pseudos_live);
-  compress_live_ranges ();
+
+  if (lra_live_max_point != 0)
+    compress_live_ranges ();
+
   timevar_pop (TV_LRA_CREATE_LIVE_RANGES);
   return bb_live_change_p;
 }
