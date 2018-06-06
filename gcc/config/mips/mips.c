@@ -30738,8 +30738,8 @@ nanomips_label_align (rtx label)
 #undef TARGET_SCHED_FUSION_PRIORITY
 #define TARGET_SCHED_FUSION_PRIORITY mips_sched_fusion_priority
 
-#undef TARGET_ADJUST_COSTS
-#define TARGET_ADJUST_COSTS mips_adjust_costs
+#undef TARGET_ADJUST_REG_COSTS
+#define TARGET_ADJUST_REG_COSTS mips_adjust_costs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
