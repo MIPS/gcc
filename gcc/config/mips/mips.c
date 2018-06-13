@@ -29503,6 +29503,8 @@ mips_insn_16bit_ver_p (rtx_insn *insn)
 /* Long register which cannot be used in 16bit instructions.  */
 #define RECOLOR_TYPE_LONG  1
 
+#include <set>
+
 /* Recolor data associated with every allocno.  */
 struct recolor_allocno_data {
   /* Related allocno.  */
@@ -29526,6 +29528,10 @@ struct recolor_allocno_data {
   /* Cumulative values from same copy thread for which register costs are
      modified.  */
   int cmod_vals[32];
+  int mod_val;
+  bool s_regs_used;
+  int conflict_vals[32];
+  bool updated;
 };
 
 /* Pointer to array containing data for all allocnos.  */
@@ -29533,13 +29539,7 @@ typedef struct recolor_allocno_data *recolor_allocno_data_t;
 
 /* Used for restoring original cost values.  */
 struct static_recolor_allocno_data {
-  int mod_val;
-  int rating;
-  int crating;
-  bool s_regs_used;
-  int mod_vals[32];
-  int cmod_vals[32];
-  int conflict_vals[32];
+  std::set<rtx_insn *> insns;
 };
 
 typedef struct static_recolor_allocno_data static_recolor_allocno_data_t;
@@ -29562,9 +29562,8 @@ typedef struct recolor_insn_data
 static int recolor_coeffs[INSN_CATEGORIES_NUM] = {0, -3, -3, -3, -3, -3};
 
 /* Data used in cost adjust process.  */
-recolor_allocno_data_t recolor_allocnos_data;
-
 static_recolor_allocno_data_t static_recolor_allocnos_data[1000];
+struct recolor_allocno_data recolor_allocnos_data[1000];
 
 /* Registers subsets used by 16-bit instructions.  */
 
@@ -29610,20 +29609,10 @@ int increase_short_reg_costs[32] = {0,0,0,0,4,5,4,4,1,0,0,0,0,0,0,0,2,3,3,3,0,
 static void
 mips_adjust_costs_init (void)
 {
-  recolor_allocnos_data
-    = (recolor_allocno_data_t) ira_allocate (
-	 sizeof (struct recolor_allocno_data) * ira_allocnos_num);
   memset (recolor_allocnos_data, 0, sizeof (struct recolor_allocno_data)
 				      * ira_allocnos_num);
-}
-
-/* Cleanup function.  */
-
-static void
-mips_adjust_costs_finish ()
-{
-  if (recolor_allocnos_data)
-    ira_free (recolor_allocnos_data);
+  for (int i=0; i<1000; i++)
+    static_recolor_allocnos_data[i].insns.clear ();
 }
 
 /* Returns allocno numbers that are in same copy thread as given allocno.  */
@@ -29638,7 +29627,6 @@ get_cumulative_rating (ira_allocno_t a)
   int i, cp_a_num;
   int rating = 0;
   vec<int> copies;
-
   copies = get_copy_thread_allocnos (a);
 
   rating = recolor_allocnos_data[ALLOCNO_NUM (a)].rating;
@@ -29649,7 +29637,6 @@ get_cumulative_rating (ira_allocno_t a)
 	if (! (ALLOCNO_HARD_REGNO (ira_allocnos[cp_a_num]) > 0
 	       && !N16_4X4_REG_P (ALLOCNO_HARD_REGNO (ira_allocnos[cp_a_num]))))
 	  rating += recolor_allocnos_data[cp_a_num].rating;
-
       copies.release ();
     }
 
@@ -29782,11 +29769,12 @@ mips_get_insn_data (rtx_insn *insn, void *res)
 
 static void
 mips_set_mod_vals (int *allocnos, int allocno_num,
-		   attr_subset_16bit subset_16bit)
+		   attr_subset_16bit subset_16bit, bool revert = false)
 {
   int op_pos;
   int pos = 0;
   int op_rep = 0;
+  int val = revert ? -1 : 1;
   if (subset_16bit == SUBSET_16BIT_NO)
     return;
 
@@ -29804,7 +29792,7 @@ mips_set_mod_vals (int *allocnos, int allocno_num,
 	{
 	  int val_ix = adjust_cost_reg_subsets[subset_16bit][pos];
 	  recolor_allocnos_data[allocnos[i]].mod_vals[val_ix]
-	    += adjust_cost_reg_subsets[subset_16bit][pos+1];
+	    += val * adjust_cost_reg_subsets[subset_16bit][pos+1];
 	  pos += 2;
 	}
 
@@ -29892,11 +29880,15 @@ mips_collect_recolor_data (bool &s_regs_used)
 	    if (short_insn)
 	      {
 		for (j = 0; j < i_data.reg_num; j++)
-		  recolor_allocnos_data[i_data.allocnos[j]]
-		    .categories[i_data.reg_num]++;
+		  {
+		    recolor_allocnos_data[i_data.allocnos[j]]
+		      .categories[i_data.reg_num]++;
+		    static_recolor_allocnos_data[i_data.allocnos[j]]
+		      .insns.insert (insn);
+		  }
 
 		  mips_set_mod_vals (i_data.allocnos, i_data.reg_num,
-				       subset_16bit);
+				     subset_16bit);
 	      }
 
 	    for (i = 0; i < i_data.reg_num; i++)
@@ -29931,13 +29923,11 @@ mips_collect_recolor_data (bool &s_regs_used)
 
   for (i=0; i<ira_allocnos_num; i++)
     {
-      if (!ira_allocnos[i] || ALLOCNO_ASSIGNED_P (ira_allocnos[i]))
+      if (!ira_allocnos[i])
 	continue;
 
       recolor_allocnos_data[i].crating
 	= get_cumulative_rating (ira_allocnos[i]);
-      static_recolor_allocnos_data[i].crating
-	= recolor_allocnos_data[i].crating;
       mips_create_cumulative_vals (ira_allocnos[i]);
     }
 }
@@ -29963,8 +29953,7 @@ mips_adjust_register_costs (ira_allocno_t a, int val, bool s_regs_used,
 			    bool revert, int *conflict_vals)
 {
   int j;
-  int *cvals = revert ? static_recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals
-		       : recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals;
+  int *cvals = recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals;
   reg_class_t aclass = ALLOCNO_CLASS (a);
 
   if (aclass == NO_REGS)
@@ -30018,7 +30007,6 @@ mips_get_conflict_allocnos (ira_allocno_t a,
   int nobj = ALLOCNO_NUM_OBJECTS (a);
 
   sorted_allocno_data->safe_push (&recolor_data[ALLOCNO_NUM (a)]);
-
   for (i = 0; i < nobj; i++)
     {
       ira_object_t obj = ALLOCNO_OBJECT (a, i);
@@ -30126,6 +30114,69 @@ mips_check_available_regs (ira_allocno_t allocno,
     }
 }
 
+static void
+mips_update_recolor_data (ira_allocno_t &allocno, bool &s_regs_used)
+{
+  int allocno_num = ALLOCNO_NUM (allocno);
+  int hreg = ALLOCNO_HARD_REGNO (allocno);
+
+  if (hreg >= 16 && hreg <= 23)
+    {
+      s_regs_used = true;
+    }
+  std::set<rtx_insn*>::iterator  it;
+
+  for (it = static_recolor_allocnos_data[allocno_num].insns.begin ();
+       it != static_recolor_allocnos_data[allocno_num].insns.end (); it++)
+    {
+      insn_data_t i_data;
+      memset (&i_data, 0, sizeof (insn_data_t));
+      if (mips_get_insn_data (*it, &i_data) >= 0)
+	{
+	  /* Call corresponding function and increment category counter if
+	     needed.  */
+	  bool short_insn = true;
+	  attr_subset_16bit subset_16bit
+	    = check_attr_subset_16bit (get_attr_subset_16bit (*it), *it);
+
+	  /* Update corresponding data in recolor_allocnos_data.  */
+	  if (!mips_adjust_short_reg_p (i_data.allocnos, i_data.reg_num,
+				    subset_16bit))
+	    short_insn = false;
+
+	  if (!short_insn)
+	    {
+	      for (int j = 0; j < i_data.reg_num; j++)
+		{
+		  recolor_allocnos_data[i_data.allocnos[j]].updated=true;
+		  recolor_allocnos_data[i_data.allocnos[j]].rating
+		    -= recolor_coeffs[i_data.reg_num];
+		  static_recolor_allocnos_data[i_data.allocnos[j]]
+		    .insns.erase (*it);
+		  recolor_allocnos_data[i_data.allocnos[j]]
+		    .categories[i_data.reg_num]--;
+		}
+	      mips_set_mod_vals (i_data.allocnos, i_data.reg_num,
+				 subset_16bit, true);
+	    }
+	}
+    }
+
+  recolor_allocnos_data[allocno_num].rating = 0;
+  recolor_allocnos_data[allocno_num].crating = 0;
+
+    /* Recalculate crating and cvals.  */
+  for (int i=0; i<ira_allocnos_num; i++)
+    if (recolor_allocnos_data[i].updated
+	&& !ALLOCNO_ASSIGNED_P (ira_allocnos[i]))
+      {
+	recolor_allocnos_data[i].crating
+	  = get_cumulative_rating (ira_allocnos[i]);
+	mips_create_cumulative_vals (ira_allocnos[i]);
+	recolor_allocnos_data[i].updated = false;
+      }
+}
+
 #include <vector>
 #include <algorithm>
 
@@ -30141,10 +30192,9 @@ get_first_allocno_from_thread (ira_allocno_t a);
 void
 mips_adjust_costs (void *p, int func)
 {
-  int i;
   int rating, crating;
   int val = 4;
-  bool s_regs_used;
+  static bool s_regs_used;
   ira_allocno_t allocno = (ira_allocno_t)p;
   vec <recolor_allocno_data_t> sorted_allocno_data;
   static ira_loop_tree_node_t current_loop_tree_node = NULL;
@@ -30161,32 +30211,35 @@ mips_adjust_costs (void *p, int func)
       || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM)
     return;
 
+  if (func == 1)
+    {
+      mips_update_recolor_data (allocno, s_regs_used);
+      return;
+    }
+
   if (func == 2)
     {
-      s_regs_used
-	= static_recolor_allocnos_data[allocno_num].s_regs_used;
-      val = -static_recolor_allocnos_data[allocno_num].mod_val;
+      s_regs_used = recolor_allocnos_data[allocno_num].s_regs_used;
+      val = -recolor_allocnos_data[allocno_num].mod_val;
 
-      int *c_vals = static_recolor_allocnos_data[allocno_num].conflict_vals;
+      int *c_vals = recolor_allocnos_data[allocno_num].conflict_vals;
 
-      if (static_recolor_allocnos_data[allocno_num].crating
-	  <= static_recolor_allocnos_data[allocno_num].rating)
+      if (recolor_allocnos_data[allocno_num].crating
+	  <= recolor_allocnos_data[allocno_num].rating)
 	mips_adjust_register_costs (allocno, val, s_regs_used, true, c_vals);
+
+      current_loop_tree_node = NULL;
 
       return;
     }
 
-  mips_adjust_costs_finish ();
-
   if (current_loop_tree_node != allocno_loop_tree_node)
     {
-      memset (static_recolor_allocnos_data, 0,
-	sizeof (struct static_recolor_allocno_data) * ira_allocnos_num);
       current_loop_tree_node = allocno_loop_tree_node;
+      /* Collect necessary data.  */
+      mips_adjust_costs_init ();
+      mips_collect_recolor_data (s_regs_used);
     }
-  /* Collect necessary data.  */
-  mips_adjust_costs_init ();
-  mips_collect_recolor_data (s_regs_used);
 
   rating = recolor_allocnos_data[allocno_num].rating;
   crating = recolor_allocnos_data[allocno_num].crating;
@@ -30239,21 +30292,12 @@ mips_adjust_costs (void *p, int func)
     val = 0;
 
   mips_adjust_register_costs (allocno, val, s_regs_used, false, conflict_vals);
-  static_recolor_allocnos_data[allocno_num].mod_val = val;
-  static_recolor_allocnos_data[allocno_num].rating = rating;
-  static_recolor_allocnos_data[allocno_num].crating = crating;
-  static_recolor_allocnos_data[allocno_num].s_regs_used
-    = s_regs_used;
+  recolor_allocnos_data[allocno_num].mod_val = val;
+  recolor_allocnos_data[allocno_num].s_regs_used = s_regs_used;
 
-  for (i=0; i<32; i++)
-    {
-      static_recolor_allocnos_data[allocno_num].mod_vals[i]
-	= recolor_allocnos_data[allocno_num].mod_vals[i];
-      static_recolor_allocnos_data[allocno_num].cmod_vals[i]
-	= recolor_allocnos_data[allocno_num].cmod_vals[i];
-      static_recolor_allocnos_data[allocno_num].conflict_vals[i]
-	= conflict_vals[i];
-    }
+  for (int i=0; i<32; i++)
+    recolor_allocnos_data[allocno_num].conflict_vals[i]
+      = conflict_vals[i];
 }
 
 void nanomips_expand_movmemsi_multireg (rtx dest, rtx src, unsigned int count)

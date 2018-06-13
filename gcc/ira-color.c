@@ -1889,6 +1889,9 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
   ira_assert (ALLOCNO_CLASS (a) == aclass);
   /* We don't need updated costs anymore.  */
   ira_free_allocno_updated_costs (a);
+
+  if (adjust_reg_costs_flag)
+    targetm.adjust_reg_costs ((void*)a, 1);
   return best_hard_regno >= 0;
 }
 
