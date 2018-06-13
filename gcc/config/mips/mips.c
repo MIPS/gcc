@@ -29532,6 +29532,8 @@ struct recolor_allocno_data {
   bool s_regs_used;
   int conflict_vals[32];
   bool updated;
+  int used_rating;
+  int used_crating;
 };
 
 /* Pointer to array containing data for all allocnos.  */
@@ -29948,9 +29950,11 @@ mips_compare_allocno_data (const void *ad1, const void *ad2)
     return -1;
 }
 
+#define S_REG_THRESHOLD -9
+
 void
 mips_adjust_register_costs (ira_allocno_t a, int val, bool s_regs_used,
-			    bool revert, int *conflict_vals)
+			    bool revert, int *conflict_vals, int rating)
 {
   int j;
   int *cvals = recolor_allocnos_data[ALLOCNO_NUM (a)].cmod_vals;
@@ -29980,8 +29984,10 @@ mips_adjust_register_costs (ira_allocno_t a, int val, bool s_regs_used,
 	if ((!s_regs_used) && ((ira_class_hard_regs[aclass][j] >= 16)
 			     && (ira_class_hard_regs[aclass][j] <= 23)))
 	  {
-	    if (optimize_size)
+	    if (optimize_size && (rating < S_REG_THRESHOLD))
 	      cost_val += s_correction_val;
+	    else if (optimize_size && (rating >= S_REG_THRESHOLD))
+	      cost_val = 0;
 	    else if ((cost_val < 0 && !revert) || (cost_val > 0 && revert))
 	      cost_val = 0;
 	  }
@@ -30224,9 +30230,11 @@ mips_adjust_costs (void *p, int func)
 
       int *c_vals = recolor_allocnos_data[allocno_num].conflict_vals;
 
-      if (recolor_allocnos_data[allocno_num].crating
-	  <= recolor_allocnos_data[allocno_num].rating)
-	mips_adjust_register_costs (allocno, val, s_regs_used, true, c_vals);
+      if (recolor_allocnos_data[allocno_num].used_crating
+	  <= recolor_allocnos_data[allocno_num].used_rating)
+	mips_adjust_register_costs (allocno, val, s_regs_used, true, c_vals,
+				    recolor_allocnos_data[allocno_num]
+				      .used_crating);
 
       current_loop_tree_node = NULL;
 
@@ -30291,9 +30299,11 @@ mips_adjust_costs (void *p, int func)
   if (!optimize_size && !s_regs_used)
     val = 0;
 
-  mips_adjust_register_costs (allocno, val, s_regs_used, false, conflict_vals);
+  mips_adjust_register_costs (allocno, val, s_regs_used, false, conflict_vals, crating);
   recolor_allocnos_data[allocno_num].mod_val = val;
   recolor_allocnos_data[allocno_num].s_regs_used = s_regs_used;
+  recolor_allocnos_data[allocno_num].used_rating = rating;
+  recolor_allocnos_data[allocno_num].used_crating = crating;
 
   for (int i=0; i<32; i++)
     recolor_allocnos_data[allocno_num].conflict_vals[i]
