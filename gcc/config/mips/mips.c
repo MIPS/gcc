@@ -24790,15 +24790,16 @@ mips_set_up_by_prologue (hard_reg_set_container *regs)
 }
 
 void
-mips_bit_clear_info (unsigned HOST_WIDE_INT m, int *start_pos, int *size)
+mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
+		     int *start_pos, int *size)
 {
   unsigned int shift = 0;
   unsigned int change_count = 0;
   unsigned int prev_val = 1;
   unsigned int curr_val = 0;
-  unsigned int end_pos = 32;
+  unsigned int end_pos = GET_MODE_SIZE (mode) * BITS_PER_UNIT;
 
-  for (shift = 0 ; shift < 32 ; shift++)
+  for (shift = 0 ; shift < (GET_MODE_SIZE (mode) * BITS_PER_UNIT) ; shift++)
      {
        curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
        if (curr_val != prev_val)
@@ -24835,7 +24836,7 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
   if (!ISA_HAS_EXT_INS)
     return false;
 
-  for (shift = 0 ; shift < 32 ; shift++)
+  for (shift = 0 ; shift < (UNITS_PER_WORD * BITS_PER_UNIT) ; shift++)
      {
        curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
        if (curr_val != prev_val)
