@@ -446,7 +446,8 @@ extern void mips_register_frame_header_opt (void);
 extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
 extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
-extern void mips_bit_clear_info (unsigned HOST_WIDE_INT, int *, int *);
+extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
+				 int *, int *);
 enum mips_symbol_type mips_classify_symbol (const_rtx,
 					    enum mips_symbol_context);
 
