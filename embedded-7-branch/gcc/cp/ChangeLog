@@ -1,3 +1,52 @@
+2018-06-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85815 - reference to member of enclosing template.
+	* parser.c (cp_parser_postfix_dot_deref_expression): Check
+	currently_open_class.
+
+	PR c++/86060 - ICE on range for with -std=c++98.
+	* parser.c (cp_parser_init_statement): Don't clobber *decl after
+	pedwarn.
+
+2018-05-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85646 - lambda visibility.
+	* decl2.c (determine_visibility): Don't mess with template arguments
+	from the containing scope.
+	(vague_linkage_p): Check DECL_ABSTRACT_P before looking at a 'tor
+	thunk.
+
+2018-04-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0969
+	* decl.c (find_decomp_class_base): Check accessibility instead
+	of declared access, adjust diagnostic.
+
+2018-04-23  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/85470 - wrong error with static data member.
+	* decl.c (check_initializer): Check DECL_INITIALIZED_IN_CLASS_P.
+	* typeck2.c (store_init_value): Likewise.
+
+2018-04-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2018-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0961
+	* decl.c (get_tuple_decomp_init): Check the templatedness
+	of a member get.
+
+2018-04-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/85464 - missing location for -Wignored-qualifiers diagnostic
+	* decl.c (grokdeclarator): If declspecs->locations[ds_type_spec]
+	is UNKNOWN_LOCATION fall back to input_location.
+
 2018-04-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/85279 - dump_expr doesn't understand decltype.

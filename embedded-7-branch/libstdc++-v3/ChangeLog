@@ -1,3 +1,99 @@
+2018-06-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Update.
+
+2018-06-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/utility: Remove unused <exception> header.
+
+2018-06-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/86169
+	* include/bits/basic_string.h [!_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::data()): Unshare string.
+	* testsuite/21_strings/basic_string/operations/data/char/86169.cc:
+	New.
+
+2018-06-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/char_traits.h (__cpp_lib_constexpr_char_traits): Only
+	define for C++17 and above.
+
+2018-05-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/85812
+	* libsupc++/cxxabi_init_exception.h (__cxa_free_exception): Declare.
+	* libsupc++/exception_ptr.h (make_exception_ptr) [__cpp_exceptions]:
+	Refactor to separate non-throwing and throwing implementations.
+	[__cpp_rtti && !_GLIBCXX_HAVE_CDTOR_CALLABI]: Deallocate the memory
+	if constructing the object throws.
+
+2018-05-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67554
+	* include/bits/valarray_array.h (_Array_copy_ctor<_Tp, true>)
+	(_Array_copier<_Tp, true>): Do not pass null pointers to memcpy.
+
+	PR libstdc++/82966
+	* include/bits/node_handle.h (_Node_handle_common::_M_swap): Use value
+	instead of type.
+	* testsuite/23_containers/set/modifiers/node_swap.cc: New.
+
+2018-05-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/faq.xml: Link to C++17 status. Add note to outdated answer.
+	* doc/xml/manual/debug_mode.xml: Add array and forward_list to list
+	of C++11 containers with Debug Mode support.
+	* doc/xml/manual/using.xml: Document Dual ABI for ios_base::failure.
+	* doc/html/*: Regenerate.
+
+2018-05-07  Edward Smith-Rowland  <3dw4rd@verizon.net>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2018-05-07  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/80506
+	* include/bits/random.tcc (gamma_distribution::operator()): Fix magic
+	number used in loop condition.
+	(gamma_distribution::__generate_impl()): Ditto.
+
+2018-05-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/84769
+	* include/std/variant (visit): Qualify std::get call.
+
+	PR libstdc++/85632 use uintmax_t for arithmetic
+	* src/filesystem/ops.cc (experimental::filesystem::space): Perform
+	arithmetic in result type.
+	* testsuite/experimental/filesystem/operations/space.cc: New.
+
+2018-04-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/pr66689 - comp_ellint_3 and ellint_3 return garbage values
+	* include/tr1/ell_integral.tcc: Correct the nu sign convention
+	in ellint_3 and comp_ellint_3.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/check_value.cc: Regen with correct values.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	14_ellint_3/check_value.cc: Ditto.
+	* testsuite/special_functions/06_comp_ellint_3/check_value.cc: Ditto.
+	* testsuite/special_functions/13_ellint_3/check_value.cc: Ditto.
+	* testsuite/special_functions/06_comp_ellint_3/pr66689.cc: New.
+	* testsuite/special_functions/13_ellint_3/pr66689.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	06_comp_ellint_3/pr66689.cc: New.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	14_ellint_3/pr66689.cc: New.
+
+2018-04-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/68397 std::tr1::expint fails ... long double arguments.
+	* include/tr1/exp_integral.tcc: Increase iteration limits.
+	* testsuite/tr1/5_numerical_facilities/special_functions/15_expint/
+	pr68397.cc: New test.
+	* testsuite/special_functions/14_expint/pr68397.cc: New test.
+
 2018-04-18  Jonathan Wakely  <jwakely@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 

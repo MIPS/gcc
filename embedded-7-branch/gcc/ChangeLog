@@ -1,3 +1,281 @@
+2018-06-22  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline
+	2018-06-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/arm_cmse.h (cmse_nsfptr_create): Change typeof to
+	__typeof__.
+	(cmse_check_pointed_object): Likewise.
+
+2018-06-22  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline
+	2018-05-17  Jerome Lambourg  <lambourg@adacore.com>
+
+	* config/arm/arm_cmse.h (cmse_nsfptr_create, cmse_is_nsfptr): Remove
+	#include <stdint.h>.  Replace intptr_t with __INTPTR_TYPE__.
+
+2018-06-21  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2018-06-15  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (riscv*-*-elf* | riscv*-*-rtems*): Use custom
+	multilibs for *-*-rtems*.
+	* config/riscv/t-rtems: New file.
+
+2018-06-19  Max Filippov  <jcmvbkbc@gmail.com>
+
+	Backport from mainline
+	2018-06-19  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/xtensa.md (UNSPEC_FRAME_BLOCKAGE): New unspec
+	constant.
+	(allocate_stack, frame_blockage, *frame_blockage): New patterns.
+
+2018-06-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor): Really never clear for an
+	incomplete constructor if CONSTRUCTOR_NO_CLEARING is set.
+
+2018-06-18  Martin Sebor  <msebor@redhat.com>
+
+        PR middle-end/82063
+        * calls.c (alloc_max_size): Correct a logic error/typo.
+        Treat excessive arguments as infinite.  Warn for invalid arguments.
+        * doc/invoke.texi (-Walloc-size-larger-than): Update.
+
+2018-06-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2018-06-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems.h (STDINT_LONG32): Define.
+
+2018-06-11  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-06-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/85755
+	* config/rs6000/rs6000.c (mem_operand_gpr): Enable PRE_INC and PRE_DEC
+	addresses.
+
+2018-06-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-06-06  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/63177
+	* /config/rs6000/rs6000.h (ASM_CPU_SPEC): Add support for -mpower9.
+	Don't handle -mcpu=power8 if -mpower9-vector is also used.
+
+2018-06-07  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-05-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85588
+	* fold-const.c (negate_expr_p): Restrict negation of operand
+	zero of a division to when we know that can happen without
+	overflow.
+	(fold_negate_expr_1): Likewise.
+
+	2018-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85567
+	* gimplify.c (gimplify_save_expr): When in SSA form allow
+	SAVE_EXPRs to compute to SSA vars.
+
+	2018-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85597
+	* tree-vect-stmts.c (vectorizable_operation): For ternary SLP
+	do not use split vect_get_vec_defs call but call vect_get_slp_defs
+	directly.
+
+2018-06-05  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	Backport from mainline
+	2018-06-05  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* config/s390/s390-builtin-types.def: Add void function type.
+	* config/s390/s390-builtins.def: Use the function type for the
+	tbeginc builtin.
+
+2018-06-01  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/85712
+	Backport from mainline:
+	2018-05-23  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/85712
+	* gimple-ssa-strength-reduction.c (struct slsr_cand_d): Add
+	first_interp field.
+	(alloc_cand_and_find_basis): Initialize first_interp field.
+	(slsr_process_mul): Modify first_interp field.
+	(slsr_process_add): Likewise.
+	(slsr_process_cast): Modify first_interp field for each new
+	interpretation.
+	(slsr_process_copy): Likewise.
+	(dump_candidate): Dump first_interp field.
+	(replace_mult_candidate): Process all interpretations, not just
+	subsequent ones.
+	(replace_rhs_if_not_dup): Likewise.
+	(replace_one_candidate): Likewise.
+
+	Backport from mainline:
+	2018-05-25  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/85712
+	* gimple-ssa-strength-reduction.c (replace_one_candidate): Skip if
+	this candidate has already been replaced in-situ by a copy.
+
+2018-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (cvtusi2<ssescalarmodesuffix>64<round_name>):
+	Add {q} suffix to insn mnemonic.
+
+2018-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/85903
+	* config/i386/sse.md (movdi_to_sse): Do not generate pseudo
+	when memory input operand is handled.
+
+2018-05-21  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2018-05-17  Pat Haugen  <pthaugen@us.ibm.com>
+		    Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/85698
+	* config/rs6000/rs6000.c (rs6000_output_move_128bit): Check
+	dest operand.
+
+2018-05-17  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2018-05-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/85655
+	* ipa-cp.c (intersect_with_plats): Check that the lattice contains
+	single const.
+
+2018-05-01  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2018-04-16  Cesar Philippidis  <cesar@codesourcery.com>
+		    Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/84955
+	* omp-expand.c (expand_oacc_for): Add dummy false branch for
+	tiled basic blocks without omp continue statements.
+
+2018-04-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-04-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85284
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions):
+	Only use the niter constraining form of simple_iv when the exit
+	is always executed.
+
+	2018-04-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/85244
+	* tree-dfa.c (get_ref_base_and_extent): Reset seen_variable_array_ref
+	after seeing a component reference with an adjacent field.  Treat
+	refs to arrays at struct end of external decls similar to
+	refs to unconstrained commons.
+
+	2018-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/85168
+	* tree-ssa-sccvn.c (vn_reference_maybe_forwprop_address): Avoid
+	propagating abnormals.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-04-17  Martin Liska  <mliska@suse.cz>
+
+	PR lto/85405
+	* ipa-devirt.c (odr_types_equivalent_p): Remove trailing
+	in message, remote space in between '_G' and '('.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-04-17  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/85405
+	* ipa-devirt.c (odr_types_equivalent_p): Handle bit fields.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-28  Jakub Jelinek  <jakub@redhat.com>
+		    Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/85081
+	* gimplify.c (asan_poison_variable): Don't do the check for
+	gimplify_omp_ctxp here.
+	(gimplify_decl_expr): Do it here.
+	(gimplify_target_expr): Likewise.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-21  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/84963
+	* ipa-icf.c (sem_item_optimizer::fixup_points_to_sets): Remove
+	not intended return statement.
+
+2018-04-24  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2018-03-13  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/84658.
+	* (sem_item_optimizer::sem_item_optimizer): Initialize new
+	vector.
+	(sem_item_optimizer::~sem_item_optimizer): Release it.
+	(sem_item_optimizer::merge_classes): Register variable aliases.
+	(sem_item_optimizer::fixup_pt_set): New function.
+	(sem_item_optimizer::fixup_points_to_sets): Likewise.
+	* ipa-icf.h: Declare new variables and functions.
+
+2018-04-23  Aaron Sawdey  <acsawdey@linux.ibm.com>
+
+	Backport from mainline
+	2018-04-16  Aaron Sawdey  <acsawdey@linux.ibm.com>
+
+	PR target/83660
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Mark
+	vec_extract expression as having side effects to make sure it gets
+	a cleanup point.
+
+2018-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/85496
+	* expr.c (store_field): In the bitfield case, if the value comes from
+	a function call and is returned in registers by means of a PARALLEL,
+	do not change the mode of the temporary unless BLKmode and VOIDmode.
+
+2018-04-20  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2018-03-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/83969
+	* config/rs6000/rs6000.c (rs6000_offsettable_memref_p): New prototype.
+	Add strict argument and use it.
+	(rs6000_split_multireg_move): Update for new strict argument.
+	(mem_operand_gpr): Disallow all non-offsettable addresses.
+	* config/rs6000/rs6000.md (*movdi_internal64): Use YZ constraint.
+
 2018-04-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
