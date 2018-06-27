@@ -1112,11 +1112,8 @@
 					     operands[2]));
    }
  else if (memory_operand (operands[1], DImode))
-   {
-     rtx tmp = gen_reg_rtx (V2DImode);
-     emit_insn (gen_vec_concatv2di (tmp, operands[1], const0_rtx));
-     emit_move_insn (operands[0], gen_lowpart (V4SImode, tmp));
-   }
+   emit_insn (gen_vec_concatv2di (gen_lowpart (V2DImode, operands[0]),
+				  operands[1], const0_rtx));
  else
    gcc_unreachable ();
 })
@@ -4397,7 +4394,7 @@
 	  (match_operand:VF_128 1 "register_operand" "v")
 	  (const_int 1)))]
   "TARGET_AVX512F && TARGET_64BIT"
-  "vcvtusi2<ssescalarmodesuffix>\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
+  "vcvtusi2<ssescalarmodesuffix>{q}\t{%2, <round_op3>%1, %0|%0, %1<round_op3>, %2}"
   [(set_attr "type" "sseicvt")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<ssescalarmode>")])
@@ -10549,30 +10546,49 @@
        (const_string "0")))
    (set_attr "mode" "<sseinsnmode>")])
 
+(define_mode_attr vshift_count
+  [(V32HI "v") (V16HI "x") (V8HI "x")])
+
 (define_insn "<shift_insn><mode>3<mask_name>"
-  [(set (match_operand:VI2_AVX2_AVX512BW 0 "register_operand" "=x,v")
+  [(set (match_operand:VI2_AVX2_AVX512BW 0 "register_operand" "=x,v,v")
 	(any_lshift:VI2_AVX2_AVX512BW
-	  (match_operand:VI2_AVX2_AVX512BW 1 "register_operand" "0,v")
-	  (match_operand:DI 2 "nonmemory_operand" "xN,vN")))]
+	  (match_operand:VI2_AVX2_AVX512BW 1 "register_operand" "0,v,v")
+	  (match_operand:DI 2 "nonmemory_operand" "xN,<vshift_count>N,vN")))]
   "TARGET_SSE2 && <mask_mode512bit_condition> && <mask_avx512bw_condition>"
   "@
    p<vshift><ssemodesuffix>\t{%2, %0|%0, %2}
+   vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}
    vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
-  [(set_attr "isa" "noavx,avx")
+  [(set_attr "isa" "noavx,avx,avx512vl")
    (set_attr "type" "sseishft")
    (set (attr "length_immediate")
      (if_then_else (match_operand 2 "const_int_operand")
        (const_string "1")
        (const_string "0")))
-   (set_attr "prefix_data16" "1,*")
-   (set_attr "prefix" "orig,vex")
+   (set_attr "prefix_data16" "1,*,*")
+   (set_attr "prefix" "orig,vex,vex")
+   (set_attr "mode" "<sseinsnmode>")])
+
+(define_insn "*<shift_insn><mode>3<mask_name>_1"
+  [(set (match_operand:VI48_AVX2 0 "register_operand" "=v")
+	(any_lshift:VI48_AVX2
+	  (match_operand:VI48_AVX2 1 "register_operand" "v")
+	  (match_operand:DI 2 "nonmemory_operand" "vN")))]
+  "TARGET_AVX512BW && TARGET_AVX512VL"
+  "vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
+  [(set_attr "type" "sseishft")
+   (set (attr "length_immediate")
+     (if_then_else (match_operand 2 "const_int_operand")
+       (const_string "1")
+       (const_string "0")))
+   (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "<shift_insn><mode>3<mask_name>"
   [(set (match_operand:VI48_AVX2 0 "register_operand" "=x,x,v")
 	(any_lshift:VI48_AVX2
 	  (match_operand:VI48_AVX2 1 "register_operand" "0,x,v")
-	  (match_operand:DI 2 "nonmemory_operand" "xN,xN,vN")))]
+	  (match_operand:DI 2 "nonmemory_operand" "xN,xN,xN")))]
   "TARGET_SSE2 && <mask_mode512bit_condition>"
   "@
    p<vshift><ssemodesuffix>\t{%2, %0|%0, %2}
@@ -13619,7 +13635,7 @@
 	  (match_operand:DI 1 "nonimmediate_operand"
 	  "  0, 0,x ,r ,xm,?!*Yn,0,x,0,0,x")
 	  (match_operand:DI 2 "vector_move_operand"
-	  "*rm,rm,rm,C ,C ,C ,x,x,x,m,m")))]
+	  " rm,rm,rm,C ,C ,C ,x,x,x,m,m")))]
   "TARGET_SSE"
   "@
    pinsrq\t{$1, %2, %0|%0, %2, 1}

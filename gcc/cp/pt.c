@@ -4784,7 +4784,7 @@ static void
 fixed_parameter_pack_p_1 (tree parm, struct find_parameter_pack_data *ppd)
 {
   /* A type parm can't refer to another parm.  */
-  if (TREE_CODE (parm) == TYPE_DECL)
+  if (TREE_CODE (parm) == TYPE_DECL || parm == error_mark_node)
     return;
   else if (TREE_CODE (parm) == PARM_DECL)
     {
@@ -6411,7 +6411,20 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		return NULL_TREE;
 	      /* else cxx_constant_value complained but gave us
 		 a real constant, so go ahead.  */
-	      gcc_assert (TREE_CODE (expr) == INTEGER_CST);
+	      if (TREE_CODE (expr) != INTEGER_CST)
+		{
+		  /* Some assemble time constant expressions like
+		     (intptr_t)&&lab1 - (intptr_t)&&lab2 or
+		     4 + (intptr_t)&&var satisfy reduced_constant_expression_p
+		     as we can emit them into .rodata initializers of
+		     variables, yet they can't fold into an INTEGER_CST at
+		     compile time.  Refuse them here.  */
+		  gcc_checking_assert (reduced_constant_expression_p (expr));
+		  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
+		  error_at (loc, "template argument %qE for type %qT not "
+				 "a constant integer", expr, type);
+		  return NULL_TREE;
+		}
 	    }
 	  else
 	    return NULL_TREE;
@@ -16080,7 +16093,7 @@ tsubst_copy_and_build (tree t,
 	if (targs)
 	  targs = tsubst_template_args (targs, args, complain, in_decl);
 	if (targs == error_mark_node)
-	  return error_mark_node;
+	  RETURN (error_mark_node);
 
 	if (variable_template_p (templ))
 	  RETURN (lookup_and_finish_template_variable (templ, targs, complain));
@@ -16145,6 +16158,8 @@ tsubst_copy_and_build (tree t,
       {
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
+	if (op0 == error_mark_node)
+	  RETURN (error_mark_node);
 	RETURN (build1 (CONVERT_EXPR, type, op0));
       }
 
@@ -16292,7 +16307,7 @@ tsubst_copy_and_build (tree t,
       {
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
 	tree op1 = RECUR (TREE_OPERAND (t, 1));
-	return fold_build_pointer_plus (op0, op1);
+	RETURN (fold_build_pointer_plus (op0, op1));
       }
 
     case SCOPE_REF:
@@ -17098,7 +17113,7 @@ tsubst_copy_and_build (tree t,
 	     variadic capture proxy, we instantiate the elements
 	     when needed.  */
 	  gcc_assert (DECL_HAS_VALUE_EXPR_P (t));
-	  return RECUR (DECL_VALUE_EXPR (t));
+	  RETURN (RECUR (DECL_VALUE_EXPR (t)));
 	}
       /* Fall through */
 

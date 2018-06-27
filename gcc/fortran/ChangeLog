@@ -1,3 +1,59 @@
+2018-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2018-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/85313
+	* openmp.c (resolve_omp_do): Remove bogus if (j < i) break;.
+	(resolve_oacc_nested_loops): Likewise.  Formatting fix.
+
+	2017-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81304
+	* trans-openmp.c (gfc_trans_omp_array_reduction_or_udr): Set
+	attr.implicit_type in intrinsic_sym to avoid undesirable warning.
+
+	2017-11-23  Dirk Broemmel  <d.broemmel@fz-juelich.de>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/81841
+	* parse.c (parse_spec): Allow ST_OMP_THREADPRIVATE inside of
+	BLOCK DATA.
+
+2018-06-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85138
+	PR fortran/85996
+	PR fortran/86051
+	* decl.c (gfc_match_char_spec): Use private namespace in attempt to
+	reduce a charlen to a constant.
+
+2018-05-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85895
+	Backport from trunk
+	* resolve.c (resolve_sync): Resolve expression before checking for
+	an error.
+
+2018-05-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85780
+	Backport from trunk
+	* resolve.c (resolve_fl_procedure): Avoid NULL dereference.
+
+2018-05-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85779
+	Backport from trunk
+	* decl.c (gfc_match_derived_decl): Fix NULL pointer dereference.
+
+2018-05-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/85543
+	Backport from trunk
+	* resolve.c (update_current_proc_array_outer_dependency): Avoid NULL
+	pointer dereference.
+
 2018-05-16  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/83149

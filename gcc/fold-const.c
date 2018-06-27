@@ -481,12 +481,15 @@ negate_expr_p (tree t)
     case EXACT_DIV_EXPR:
       if (TYPE_UNSIGNED (type))
 	break;
-      if (negate_expr_p (TREE_OPERAND (t, 0)))
+      /* In general we can't negate A in A / B, because if A is INT_MIN and
+         B is not 1 we change the sign of the result.  */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
+	  && negate_expr_p (TREE_OPERAND (t, 0)))
 	return true;
       /* In general we can't negate B in A / B, because if A is INT_MIN and
 	 B is 1, we may turn this into INT_MIN / -1 which is undefined
 	 and actually traps on some architectures.  */
-      if (! INTEGRAL_TYPE_P (TREE_TYPE (t))
+      if (! ANY_INTEGRAL_TYPE_P (TREE_TYPE (t))
 	  || TYPE_OVERFLOW_WRAPS (TREE_TYPE (t))
 	  || (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
 	      && ! integer_onep (TREE_OPERAND (t, 1))))
@@ -663,14 +666,17 @@ fold_negate_expr_1 (location_t loc, tree t)
     case EXACT_DIV_EXPR:
       if (TYPE_UNSIGNED (type))
 	break;
-      if (negate_expr_p (TREE_OPERAND (t, 0)))
+      /* In general we can't negate A in A / B, because if A is INT_MIN and
+	 B is not 1 we change the sign of the result.  */
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
+	  && negate_expr_p (TREE_OPERAND (t, 0)))
 	return fold_build2_loc (loc, TREE_CODE (t), type,
 				negate_expr (TREE_OPERAND (t, 0)),
 				TREE_OPERAND (t, 1));
       /* In general we can't negate B in A / B, because if A is INT_MIN and
 	 B is 1, we may turn this into INT_MIN / -1 which is undefined
 	 and actually traps on some architectures.  */
-      if ((! INTEGRAL_TYPE_P (TREE_TYPE (t))
+      if ((! ANY_INTEGRAL_TYPE_P (TREE_TYPE (t))
 	   || TYPE_OVERFLOW_WRAPS (TREE_TYPE (t))
 	   || (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
 	       && ! integer_onep (TREE_OPERAND (t, 1))))
@@ -7361,7 +7367,7 @@ native_encode_vector (const_tree expr, unsigned char *ptr, int len, int off)
 	return 0;
       offset += res;
       if (offset >= len)
-	return offset;
+	return (off == -1 && i < count - 1) ? 0 : offset;
       if (off != -1)
 	off = 0;
     }
@@ -11532,22 +11538,48 @@ fold_binary_loc (location_t loc,
     } /* switch (code) */
 }
 
+/* Used by contains_label_[p1].  */
+
+struct contains_label_data
+{
+  hash_set<tree> *pset;
+  bool inside_switch_p;
+};
+
 /* Callback for walk_tree, looking for LABEL_EXPR.  Return *TP if it is
-   a LABEL_EXPR; otherwise return NULL_TREE.  Do not check the subtrees
-   of GOTO_EXPR.  */
+   a LABEL_EXPR or CASE_LABEL_EXPR not inside of another SWITCH_EXPR; otherwise
+   return NULL_TREE.  Do not check the subtrees of GOTO_EXPR.  */
 
 static tree
-contains_label_1 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+contains_label_1 (tree *tp, int *walk_subtrees, void *data)
 {
+  contains_label_data *d = (contains_label_data *) data;
   switch (TREE_CODE (*tp))
     {
     case LABEL_EXPR:
       return *tp;
 
+    case CASE_LABEL_EXPR:
+      if (!d->inside_switch_p)
+	return *tp;
+      return NULL_TREE;
+
+    case SWITCH_EXPR:
+      if (!d->inside_switch_p)
+	{
+	  if (walk_tree (&SWITCH_COND (*tp), contains_label_1, data, d->pset))
+	    return *tp;
+	  d->inside_switch_p = true;
+	  if (walk_tree (&SWITCH_BODY (*tp), contains_label_1, data, d->pset))
+	    return *tp;
+	  d->inside_switch_p = false;
+	  *walk_subtrees = 0;
+	}
+      return NULL_TREE;
+
     case GOTO_EXPR:
       *walk_subtrees = 0;
-
-      /* ... fall through ...  */
+      return NULL_TREE;
 
     default:
       return NULL_TREE;
@@ -11560,8 +11592,9 @@ contains_label_1 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 static bool
 contains_label_p (tree st)
 {
-  return
-   (walk_tree_without_duplicates (&st, contains_label_1 , NULL) != NULL_TREE);
+  hash_set<tree> pset;
+  contains_label_data data = { &pset, false };
+  return walk_tree (&st, contains_label_1, &data, &pset) != NULL_TREE;
 }
 
 /* Fold a ternary expression of code CODE and type TYPE with operands
