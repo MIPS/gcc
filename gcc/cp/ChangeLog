@@ -1,3 +1,153 @@
+2018-06-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/86291
+	* parser.c (cp_parser_omp_for_loop_init): Change for_block argument
+	type from vec<tree, va_gc> * to vec<tree, va_gc> *&.
+
+2018-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2018-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85952
+	* init.c (build_aggr_init): For structured binding initialized from
+	array call mark_rvalue_use on the initializer.
+
+	2018-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/85696
+	* cp-tree.h (cxx_omp_predetermined_sharing_1): New prototype.
+	* cp-gimplify.c (cxx_omp_predetermined_sharing): New wrapper around
+	cxx_omp_predetermined_sharing_1.  Rename old function to ...
+	(cxx_omp_predetermined_sharing_1): ... this.
+	* semantics.c (finish_omp_clauses): Use cxx_omp_predetermined_sharing_1
+	instead of cxx_omp_predetermined_sharing.
+
+	2018-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85662
+	* cp-gimplify.c (cp_fold): Use fold_offsetof rather than
+	fold_offsetof_1, pass TREE_TYPE (x) as TYPE to it and drop the
+	fold_convert.
+
+	2018-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84463
+	* typeck.c (cp_build_addr_expr_1): Move handling of offsetof-like
+	tricks from here to ...
+	* cp-gimplify.c (cp_fold) <case ADDR_EXPR>: ... here.  Only use it
+	if INDIRECT_REF's operand is INTEGER_CST cast to pointer type.
+
+	2018-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85210
+	* pt.c (tsubst_decomp_names): Return error_mark_node and assert
+	errorcount is set if tsubst doesn't return a VAR_DECL.
+
+	2018-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85208
+	* decl.c (start_decl): For DECL_DECOMPOSITION_P decls, don't call
+	maybe_apply_pragma_weak here...
+	(cp_maybe_mangle_decomp): ... but call it here instead.
+
+	2018-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/85172
+	* constexpr.c (cxx_eval_builtin_function_call): For calls to
+	builtin_valid_in_constant_expr_p functions, don't call
+	cxx_eval_constant_expression if argument is not
+	potential_constant_expression.
+
+	2018-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85147
+	* pt.c (fixed_parameter_pack_p_1): Punt if parm is error_mark_node.
+
+	PR c++/85140
+	* name-lookup.c (handle_namespace_attrs): Return early if attributes
+	is error_mark_node.
+
+	2018-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84791
+	* semantics.c (finish_omp_reduction_clause): If
+	OMP_CLAUSE_REDUCTION_PLACEHOLDER is error_mark_node, return true
+	even if processing_template_decl.
+
+	2018-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/85076
+	* tree.c (cp_build_reference_type): If to_type is error_mark_node,
+	return it right away.
+
+	PR c++/85068
+	* class.c (update_vtable_entry_for_fn): Don't ICE if base_binfo
+	is NULL.  Assert if thunk_binfo is NULL then errorcount is non-zero.
+
+	2018-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84961
+	* cp-tree.h (genericize_compound_lvalue): Declare.
+	* typeck.c (genericize_compound_lvalue): New function.
+	(unary_complex_lvalue, cp_build_modify_expr): Use it.
+	* semantics.c (finish_asm_stmt): Replace MODIFY_EXPR, PREINCREMENT_EXPR
+	and PREDECREMENT_EXPR in output and "m" constrained input operands with
+	COMPOUND_EXPR.  Call cxx_mark_addressable on the rightmost
+	COMPOUND_EXPR operand.
+
+	2018-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84874
+	* decl.c (reshape_init_class): Don't assert d->cur->index == field
+	if d->cur->index is a FIELD_DECL, instead set field to d->cur->index.
+
+	2018-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84222
+	* cp-tree.h (cp_warn_deprecated_use): Declare.
+	* tree.c (cp_warn_deprecated_use): New function.
+	* typeck2.c (build_functional_cast): Use it.
+	* decl.c (grokparms): Likewise.
+	(grokdeclarator): Likewise.  Temporarily push nested class scope
+	around grokparms call for out of class member definitions.
+
+	2018-03-09  Jason Merrill  <jason@redhat.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84076
+	* call.c (convert_arg_to_ellipsis): Instead of cp_build_addr_expr
+	build ADDR_EXPR with REFERENCE_TYPE.
+	(build_over_call): For purposes of check_function_arguments, if
+	argarray[j] is ADDR_EXPR with REFERENCE_TYPE created above, use
+	its operand rather than the argument itself.
+
+	2018-03-08  Jason Merrill  <jason@redhat.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80598
+	* call.c (build_over_call): In templates set TREE_USED (first_fn) when
+	not calling mark_used for the benefit of -Wunused-function warning.
+
+	2018-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/84662
+	* pt.c (tsubst_copy_and_build) <case TEMPLATE_ID_EXPR>: Use
+	RETURN instead of return.
+	<case POINTER_PLUS_EXPR>: Likewise.
+	<case CONVERT_EXPR>: If op0 is error_mark_node, just return
+	it instead of wrapping it into CONVERT_EXPR.
+
+2018-06-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/85815 - reference to member of enclosing template.
+	* parser.c (cp_parser_postfix_dot_deref_expression): Check
+	currently_open_class.
+
+	PR c++/86060 - ICE on range for with -std=c++98.
+	* parser.c (cp_parser_init_statement): Don't clobber *decl after
+	pedwarn.
+
 2018-05-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/85646 - lambda visibility.
