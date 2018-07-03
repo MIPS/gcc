@@ -12196,8 +12196,36 @@ mips_select_rtx_section (machine_mode mode, rtx x,
 static section *
 mips_function_rodata_section (tree decl)
 {
-  if (!(TARGET_NANOMIPS && flag_pic)
-      && (!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD))
+  if (TARGET_NANOMIPS)
+    {
+      if (!flag_pic || TARGET_NANOMIPS_JUMPTABLE_OPT)
+        return default_function_rodata_section(decl);
+
+      if (decl && DECL_SECTION_NAME (decl))
+        {
+          const char *name = DECL_SECTION_NAME (decl);
+          bool is_comdat = DECL_COMDAT_GROUP (decl);
+
+          if ((is_comdat || (flag_function_sections && flag_data_sections))
+              && strncmp (name, ".text.", 6) == 0)
+            {
+              size_t len = strlen (name) + 1;
+              char *rname = (char *) alloca (len + 7);
+              unsigned int  flags = SECTION_WRITE;
+
+              if (is_comdat)
+                flags |= SECTION_LINKONCE;
+
+              memcpy (rname, ".data.rel.ro", 12);
+              memcpy (rname + 12, name + 5, len - 5);
+
+              return get_section (rname, flags, decl);
+            }
+        }
+      return data_section;
+    }
+
+  if (!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD)
     return default_function_rodata_section (decl);
 
   if (decl && DECL_SECTION_NAME (decl))
@@ -12208,15 +12236,6 @@ mips_function_rodata_section (tree decl)
 	  char *rname = ASTRDUP (name);
 	  rname[14] = 'd';
 	  return get_section (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
-	}
-      else if (TARGET_NANOMIPS
-	       && flag_function_sections
-	       && flag_data_sections
-	       && strncmp (name, ".text.", 6) == 0)
-	{
-	  char *rname = (char *) alloca (strlen (name) + 7);
-	  sprintf (rname, ".data.rel.ro%s", name + 5);
-	  return get_section (rname, SECTION_WRITE, decl);
 	}
       else if (flag_function_sections
 	       && flag_data_sections
