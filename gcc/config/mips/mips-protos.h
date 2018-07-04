@@ -315,6 +315,7 @@ extern void mips_set_text_contents_type (FILE *, const char *,
 extern bool mips_small_data_pattern_p (rtx);
 extern rtx mips_rewrite_small_data (rtx);
 extern HOST_WIDE_INT mips_initial_elimination_offset (int, int);
+rtx mips_dynamic_chain_address (rtx);
 extern rtx mips_return_addr (int, rtx);
 extern bool mips_must_initialize_gp_p (void);
 extern enum mips_loadgp_style mips_current_loadgp_style (void);

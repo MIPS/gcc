@@ -2609,6 +2609,8 @@ enum reg_class
    ? 0							\
    : crtl->outgoing_args_size + MIPS_GP_SAVE_AREA_SIZE)
 
+#define DYNAMIC_CHAIN_ADDRESS mips_dynamic_chain_address
+
 #define RETURN_ADDR_RTX mips_return_addr
 
 #define MIPS_FRAME_BIAS 0

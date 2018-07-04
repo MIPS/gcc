@@ -14965,16 +14965,32 @@ mips_extra_live_on_entry (bitmap regs)
   bitmap_set_bit (regs, 0);
 }
 
-/* Implement RETURN_ADDR_RTX.  We do not support moving back to a
-   previous frame.  */
+/* Implement DYNAMIC_CHAIN_ADDRESS.  */
 
 rtx
-mips_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
+mips_dynamic_chain_address (rtx frame)
 {
-  if (count != 0)
+  /* No frame chaining prior to nanoMIPS.
+     Provide default implementation that yields undefined result.  */
+  if (!TARGET_NANOMIPS)
+    return frame;
+
+  return plus_constant (Pmode, frame, MIPS_FRAME_BIAS - 1 * UNITS_PER_WORD);
+}
+
+/* Implement RETURN_ADDR_RTX.  Unless we are on nanoMIPS we do not support moving
+   back to a previous frame.  */
+
+rtx
+mips_return_addr (int count, rtx frame)
+{
+  if (count != 0 && !TARGET_NANOMIPS)
     return const0_rtx;
 
-  return get_hard_reg_initial_val (Pmode, RETURN_ADDR_REGNUM);
+  if (count == 0)
+    return get_hard_reg_initial_val (Pmode, RETURN_ADDR_REGNUM);
+
+  return gen_frame_mem(Pmode, plus_constant (Pmode, frame, -2 * UNITS_PER_WORD));
 }
 
 /* Emit code to change the current function's return address to
