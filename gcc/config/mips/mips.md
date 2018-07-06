@@ -567,6 +567,12 @@
 	 (eq_attr "type" "idiv,idiv3")
 	 (symbol_ref "mips_idiv_insns (GET_MODE (PATTERN (insn)))")
 
+	 ;; simd div have 3 instruction if TARGET_CHECK_ZERO_DIV is true.
+	 (eq_attr "type" "simd_div")
+	 (if_then_else (match_test "TARGET_CHECK_ZERO_DIV")
+		       (const_int 3)
+		       (const_int 1))
+
 	 (not (eq_attr "sync_mem" "none"))
 	 (symbol_ref "mips_sync_loop_insns (insn, operands)")]
 	(const_int 1)))
