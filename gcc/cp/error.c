@@ -3124,6 +3124,25 @@ op_to_string (bool assop, enum tree_code p)
   return id ? IDENTIFIER_POINTER (id) : M_("<unknown>");
 }
 
+/* Return true if telling the user that another type is equivalent to TYPE
+   might be useful information.  */
+
+static bool
+user_facing_type_p (tree type)
+{
+  tree decl = TYPE_NAME (type);
+  /* Return false for built-in declarations of artificial types whose names
+     are in the reserved namespace.  In this case the other type is likely
+     to be a user-facing typedef, defined in a header file.  */
+  if (decl
+      && DECL_P (decl)
+      && DECL_IS_BUILTIN (decl)
+      && IDENTIFIER_POINTER (DECL_NAME (decl))[0] == '_'
+      && TYPE_ARTIFICIAL (type))
+    return false;
+  return true;
+}
+
 /* Return a GC-allocated representation of type TYP, with verbosity VERBOSE.
 
    If QUOTE is non-NULL and if *QUOTE is true, then quotes are added to the
@@ -3170,11 +3189,13 @@ type_to_string (tree typ, int verbose, bool postprocessed, bool *quote,
      stripped version.  But sometimes the stripped version looks
      exactly the same, so we don't want it after all.  To avoid printing
      it in that case, we play ugly obstack games.  */
+  tree aka;
   if (typ && TYPE_P (typ) && typ != TYPE_CANONICAL (typ)
-      && !uses_template_parms (typ))
+      && !uses_template_parms (typ)
+      && (aka = strip_typedefs (typ),
+	  user_facing_type_p (aka)))
     {
       int aka_start, aka_len; char *p;
-      tree aka = strip_typedefs (typ);
       if (quote && *quote)
 	pp_end_quote (cxx_pp, show_color);
       pp_string (cxx_pp, " {aka");

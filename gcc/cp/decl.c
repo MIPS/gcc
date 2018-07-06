@@ -71,7 +71,6 @@ static tree grokvardecl (tree, tree, tree, const cp_decl_specifier_seq *,
 			 int, int, int, bool, int, tree);
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (tree, tree, bool);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static tree local_variable_p_walkfn (tree *, int *, void *);
 static const char *tag_name (enum tag_types);
@@ -4423,8 +4422,12 @@ cp_make_fname_decl (location_t loc, tree id, int type_dep)
   return decl;
 }
 
+/* IS_GLOBAL_MD is true if the decl should simulate a declaration in
+   the source language.  */
+
 static tree
-builtin_function_1 (tree decl, tree context, bool is_global)
+builtin_function_1 (tree decl, tree context, bool is_global,
+		    bool is_global_md = false)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
@@ -4432,7 +4435,10 @@ builtin_function_1 (tree decl, tree context, bool is_global)
   retrofit_lang_decl (decl);
 
   DECL_ARTIFICIAL (decl) = 1;
-  SET_DECL_LANGUAGE (decl, lang_c);
+  if (is_global_md)
+    SET_DECL_LANGUAGE (decl, lang_cplusplus);
+  else
+    SET_DECL_LANGUAGE (decl, lang_c);
   /* Runtime library routines are, by definition, available in an
      external shared object.  */
   DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
@@ -4440,25 +4446,28 @@ builtin_function_1 (tree decl, tree context, bool is_global)
 
   DECL_CONTEXT (decl) = context;
 
-  /* A function in the user's namespace should have an explicit
-     declaration before it is used.  Mark the built-in function as
-     anticipated but not actually declared.  */
-  if (name[0] != '_' || name[1] != '_')
-    DECL_ANTICIPATED (decl) = 1;
-  else if (strncmp (name + 2, "builtin_", strlen ("builtin_")) != 0)
+  if (!is_global_md)
     {
-      size_t len = strlen (name);
-
-      /* Treat __*_chk fortification functions as anticipated as well,
-	 unless they are __builtin_*.  */
-      if (len > strlen ("___chk")
-	  && memcmp (name + len - strlen ("_chk"),
-		     "_chk", strlen ("_chk") + 1) == 0)
+      /* A function in the user's namespace should have an explicit
+	 declaration before it is used.  Mark the built-in function as
+	 anticipated but not actually declared.  */
+      if (name[0] != '_' || name[1] != '_')
 	DECL_ANTICIPATED (decl) = 1;
+      else if (strncmp (name + 2, "builtin_", strlen ("builtin_")) != 0)
+	{
+	  size_t len = strlen (name);
+
+	  /* Treat __*_chk fortification functions as anticipated as well,
+	     unless they are __builtin_*.  */
+	  if (len > strlen ("___chk")
+	      && memcmp (name + len - strlen ("_chk"),
+			 "_chk", strlen ("_chk") + 1) == 0)
+	    DECL_ANTICIPATED (decl) = 1;
+	}
     }
 
   if (is_global)
-    pushdecl_top_level (decl);
+    decl = pushdecl_top_level (decl);
   else
     pushdecl (decl);
 
@@ -4506,6 +4515,14 @@ cxx_builtin_function_ext_scope (tree decl)
     }
 
   return builtin_function_1 (decl, NULL_TREE, true);
+}
+
+/* Implement LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD.  */
+
+tree
+cxx_builtin_function_global_md (tree decl)
+{
+  return builtin_function_1 (decl, NULL_TREE, true, true);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library

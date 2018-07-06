@@ -235,6 +235,51 @@ aarch64_pragma_target_parse (tree args, tree pop_target)
   return true;
 }
 
+/* Implement "#pragma GCC aarch64".  */
+static void
+aarch64_pragma_aarch64 (cpp_reader *)
+{
+  tree x;
+  if (pragma_lex (&x) != CPP_STRING)
+    {
+      error ("%<#pragma GCC aarch64%> requires a string parameter");
+      return;
+    }
+
+  const char *name = TREE_STRING_POINTER (x);
+  if (strcmp (name, "arm_sve.h") == 0)
+    aarch64_sve::handle_arm_sve_h ();
+  else
+    error ("unknown %<#pragma GCC aarch64%> option %qs", name);
+}
+
+/* Implement TARGET_RESOLVE_OVERLOADED_BUILTIN.  */
+static tree
+aarch64_resolve_overloaded_builtin (unsigned int uncast_location,
+				    tree fndecl, void *uncast_arglist)
+{
+  location_t location = (location_t) uncast_location;
+  vec<tree, va_gc> *arglist = (vec<tree, va_gc> *) uncast_arglist;
+  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  tree new_fndecl;
+  switch (code & AARCH64_BUILTIN_CLASS)
+    {
+    case AARCH64_BUILTIN_GENERAL:
+      return NULL_TREE;
+
+    case AARCH64_BUILTIN_SVE:
+      new_fndecl = aarch64_sve::resolve_overloaded_builtin (location, subcode,
+							    arglist);
+      break;
+    }
+  if (!new_fndecl)
+    return NULL_TREE;
+  if (new_fndecl == error_mark_node)
+    return error_mark_node;
+  return build_function_call_vec (location, vNULL, new_fndecl, arglist, NULL);
+}
+
 /* Implement REGISTER_TARGET_PRAGMAS.  */
 
 void
@@ -242,4 +287,8 @@ aarch64_register_pragmas (void)
 {
   /* Update pragma hook to allow parsing #pragma GCC target.  */
   targetm.target_option.pragma_parse = aarch64_pragma_target_parse;
+
+  targetm.resolve_overloaded_builtin = aarch64_resolve_overloaded_builtin;
+
+  c_register_pragma ("GCC", "aarch64", aarch64_pragma_aarch64);
 }

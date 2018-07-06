@@ -4295,6 +4295,16 @@ c_builtin_function_ext_scope (tree decl)
 
   return decl;
 }
+
+/* Implement LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD.  */
+
+tree
+c_builtin_function_global_md (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
+  return pushdecl (decl);
+}
 
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited

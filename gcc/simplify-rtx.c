@@ -6020,8 +6020,9 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
 
   if (GET_CODE (op) == CONST_VECTOR)
     {
-      num_elem = CEIL (inner_bytes, GET_MODE_UNIT_SIZE (innermode));
-      elem_bitsize = GET_MODE_UNIT_BITSIZE (innermode);
+      elem_bitsize = vector_element_size (GET_MODE_BITSIZE (innermode),
+					  GET_MODE_NUNITS (innermode));
+      num_elem = inner_bytes * BITS_PER_UNIT / elem_bitsize;
     }
   else
     {
@@ -6030,9 +6031,10 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
     }
   /* If this asserts, it is too complicated; reducing value_bit may help.  */
   gcc_assert (BITS_PER_UNIT % value_bit == 0);
-  /* I don't know how to handle endianness of sub-units.  */
-  gcc_assert (elem_bitsize % BITS_PER_UNIT == 0);
 
+  unsigned int elem_mask = (elem_bitsize < value_bit
+			    ? (1 << elem_bitsize) - 1
+			    : value_mask);
   for (elem = 0; elem < num_elem; elem++)
     {
       unsigned char * vp;
@@ -6052,6 +6054,19 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
 			 + (word_byte / UNITS_PER_WORD) * UNITS_PER_WORD);
 	vp = value + (bytele * BITS_PER_UNIT) / value_bit;
       }
+
+      if (elem_mask != value_mask)
+	{
+	  /* This is the only case in which elements can be smaller than
+	     a byte.  */
+	  gcc_assert (GET_MODE_CLASS (innermode) == MODE_VECTOR_BOOL
+		      && GET_CODE (el) == CONST_INT);
+	  unsigned int lsb = (elem * elem_bitsize) % BITS_PER_UNIT;
+	  if (lsb == 0)
+	    *vp = 0;
+	  *vp |= (INTVAL (el) & elem_mask) << lsb;
+	  continue;
+	}
 
       switch (GET_CODE (el))
 	{
@@ -6187,17 +6202,23 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
     {
       result_v = rtvec_alloc (num_elem);
       elems = &RTVEC_ELT (result_v, 0);
+      elem_bitsize = (GET_MODE_BITSIZE (outermode)
+		      / GET_MODE_NUNITS (outermode));
     }
   else
-    elems = &result_s;
+    {
+      elems = &result_s;
+      elem_bitsize = GET_MODE_BITSIZE (outermode);
+    }
 
   outer_submode = GET_MODE_INNER (outermode);
   outer_class = GET_MODE_CLASS (outer_submode);
-  elem_bitsize = GET_MODE_BITSIZE (outer_submode);
 
-  gcc_assert (elem_bitsize % value_bit == 0);
   gcc_assert (elem_bitsize + value_start * value_bit <= max_bitsize);
 
+  elem_mask = (elem_bitsize < value_bit
+	       ? (1 << elem_bitsize) - 1
+	       : value_mask);
   for (elem = 0; elem < num_elem; elem++)
     {
       unsigned char *vp;
@@ -6214,6 +6235,16 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
 			 + (word_byte / UNITS_PER_WORD) * UNITS_PER_WORD);
 	vp = value + value_start + (bytele * BITS_PER_UNIT) / value_bit;
       }
+
+      if (elem_mask != value_mask)
+	{
+	  /* This is the only case in which elements can be smaller than
+	     a byte.  */
+	  gcc_assert (GET_MODE_CLASS (outermode) == MODE_VECTOR_BOOL);
+	  unsigned int lsb = (elem * elem_bitsize) % BITS_PER_UNIT;
+	  elems[elem] = gen_int_mode ((*vp >> lsb) & elem_mask, BImode);
+	  continue;
+	}
 
       switch (outer_class)
 	{

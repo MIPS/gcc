@@ -1,0 +1,78 @@
+#  Specific regression driver for AArch64 SVE.
+#  Copyright (C) 2009-2018 Free Software Foundation, Inc.
+#  Contributed by ARM Ltd.
+#
+#  This file is part of GCC.
+#
+#  GCC is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#
+#  GCC is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with GCC; see the file COPYING3.  If not see
+#  <http://www.gnu.org/licenses/>.  */
+
+# GCC testsuite that uses the `dg.exp' driver.
+
+# Exit immediately if this isn't an AArch64 target.
+if {![istarget aarch64*-*-*] } {
+    return
+}
+
+# Load support procs.
+load_lib gcc-dg.exp
+
+# Initialize `dg'.
+dg-init
+
+# Force SVE if we're not testing it already.
+if { [check_effective_target_aarch64_sve] } {
+    set sve_flags ""
+} else {
+    set sve_flags "-march=armv8.2-a+sve"
+}
+
+# Force fixed-length vectors for now, until the ACLE is properly
+# vector-length agnostic.  We arbitrarily pick the smallest length
+# that doesn't generate VLA code.
+if { ![string equal $sve_flags ""] || [aarch64_sve_bits] == 0 } {
+    set sve_length "-msve-vector-bits=256"
+} else {
+    set sve_length ""
+}
+
+global gcc_runtest_parallelize_limit_minor
+set old_limit_minor $gcc_runtest_parallelize_limit_minor
+set gcc_runtest_parallelize_limit_minor 1
+
+torture-init
+set-torture-options {
+    "-std=c90 -O0"
+    "-std=c90 -O2"
+    "-std=c99 -O2"
+    "-std=c11 -O2"
+    "-std=gnu90 -O2 -DCHECK_ASM"
+    "-std=gnu99 -O2"
+    "-std=gnu11 -O2"
+} {
+    "-DTEST_FULL"
+    "-DTEST_OVERLOADS"
+}
+
+# Main loop.
+set files [glob -nocomplain $srcdir/$subdir/asm/*.c]
+gcc-dg-runtest [lsort $files] \
+    "" "$sve_flags $sve_length -fno-ipa-icf"
+
+torture-finish
+
+set gcc_runtest_parallelize_limit_minor $old_limit_minor
+
+# All done.
+dg-finish

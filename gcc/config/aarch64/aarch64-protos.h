@@ -346,6 +346,23 @@ enum simd_immediate_check {
 
 extern struct tune_params aarch64_tune_params;
 
+/* It's convenient to divide the built-in function codes into groups,
+   rather than having everything in a single enum.  This type enumerates
+   those groups.  */
+enum aarch64_builtin_class
+{
+  AARCH64_BUILTIN_GENERAL,
+  AARCH64_BUILTIN_SVE
+};
+
+/* Built-in function codes are structured so that the low
+   AARCH64_BUILTIN_SHIFT bits contain the aarch64_builtin_class
+   and the upper bits contain a group-specific subcode.  */
+const unsigned int AARCH64_BUILTIN_SHIFT = 1;
+
+/* Mask that selects the aarch64_builtin_class part of a function code.  */
+const unsigned int AARCH64_BUILTIN_CLASS = (1 << AARCH64_BUILTIN_SHIFT) - 1;
+
 poly_int64 aarch64_initial_elimination_offset (unsigned, unsigned);
 int aarch64_get_condition_code (rtx);
 bool aarch64_address_valid_for_prefetch_p (rtx, bool);
@@ -369,7 +386,6 @@ bool aarch64_float_const_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
 bool aarch64_fusion_enabled_p (enum aarch64_fusion_pairs);
 bool aarch64_gen_movmemqi (rtx *);
-bool aarch64_gimple_fold_builtin (gimple_stmt_iterator *);
 bool aarch64_is_extend_from_extract (scalar_int_mode, rtx, rtx);
 bool aarch64_is_long_call_p (rtx);
 bool aarch64_is_noplt_call_p (rtx);
@@ -395,7 +411,6 @@ char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
 char *aarch64_output_simd_mov_immediate (rtx, unsigned,
 			enum simd_immediate_check w = AARCH64_CHECK_MOV);
 char *aarch64_output_sve_mov_immediate (rtx);
-char *aarch64_output_ptrue (machine_mode, char);
 bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
@@ -418,7 +433,6 @@ bool aarch64_split_dimode_const_store (rtx, rtx);
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 bool aarch64_use_return_insn_p (void);
-const char *aarch64_mangle_builtin_type (const_tree);
 const char *aarch64_output_casesi (rtx *);
 
 enum aarch64_symbol_type aarch64_classify_symbol (rtx, HOST_WIDE_INT);
@@ -441,7 +455,6 @@ bool aarch64_sve_ldr_operand_p (rtx);
 bool aarch64_sve_struct_memory_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, int, bool);
 rtx aarch64_tls_get_addr (void);
-tree aarch64_fold_builtin (tree, int, tree *, bool);
 unsigned aarch64_dbx_register_number (unsigned);
 unsigned aarch64_trampoline_size (void);
 void aarch64_asm_output_labelref (FILE *, const char *);
@@ -515,19 +528,29 @@ bool aarch64_expand_sve_vec_cmp_float (rtx, rtx_code, rtx, rtx, bool);
 void aarch64_expand_sve_vcond (machine_mode, machine_mode, rtx *);
 #endif /* RTX_CODE */
 
-void aarch64_init_builtins (void);
-
 bool aarch64_process_target_attr (tree);
 void aarch64_override_options_internal (struct gcc_options *);
 
-rtx aarch64_expand_builtin (tree exp,
-			    rtx target,
-			    rtx subtarget ATTRIBUTE_UNUSED,
-			    machine_mode mode ATTRIBUTE_UNUSED,
-			    int ignore ATTRIBUTE_UNUSED);
-tree aarch64_builtin_decl (unsigned, bool ATTRIBUTE_UNUSED);
-tree aarch64_builtin_rsqrt (unsigned int);
+const char *aarch64_general_mangle_builtin_type (const_tree);
+void aarch64_general_init_builtins (void);
+tree aarch64_general_fold_builtin (unsigned int, tree, unsigned int, tree *);
+gimple *aarch64_general_gimple_fold_builtin (unsigned int, gcall *);
+rtx aarch64_general_expand_builtin (unsigned int, tree, rtx);
+tree aarch64_general_builtin_decl (unsigned, bool);
+tree aarch64_general_builtin_rsqrt (unsigned int);
 tree aarch64_builtin_vectorized_function (unsigned int, tree, tree);
+
+namespace aarch64_sve {
+  void init_builtins ();
+  void handle_arm_sve_h ();
+  tree builtin_decl (unsigned, bool);
+  bool builtin_type_p (const_tree);
+  const char *mangle_builtin_type (const_tree);
+  tree resolve_overloaded_builtin (location_t, unsigned int,
+				   vec<tree, va_gc> *);
+  gimple *gimple_fold_builtin (unsigned int, gcall *);
+  rtx expand_builtin (unsigned int, tree, rtx);
+}
 
 extern void aarch64_split_combinev16qi (rtx operands[3]);
 extern void aarch64_expand_vec_perm (rtx, rtx, rtx, rtx, unsigned int);

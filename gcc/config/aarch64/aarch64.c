@@ -3270,6 +3270,36 @@ aarch64_return_in_msb (const_tree valtype)
   return true;
 }
 
+/* Return an rtx that indicates that a function argument or return value
+   of mode MODE lives in register REGNO.  */
+
+static rtx
+aarch64_wrap_reg_call_or_return (machine_mode mode, unsigned int regno)
+{
+  /* Only the ABI-defined __SVBool_t is passed or returned in SVE predicate
+     registers.  If some other type happens to have an SVE predicate mode,
+     it is returned in the same location as it would be without SVE.
+     However, we do not want to have to cope with SVE predicate modes
+     in GPRs or SIMD&FP registers.  (Note that this case can only occur
+     with -msve-vector-bits=N.)
+
+     The easiest way around this is to represent the parameter or return
+     value location using the equivalent integer mode instead of the
+     predicate mode, then wrap it in a PARALLEL.  This doesn't change
+     the ABI of the function; it just tells the target-independent code
+     that the parameter or return value should be copied via memory
+     to the associated pseudo register, rather than being coped via a
+     direct register move.  */
+  if (aarch64_sve_pred_mode_p (mode))
+    {
+      scalar_int_mode int_mode = int_mode_for_mode (mode).require ();
+      rtx reg = gen_rtx_REG (int_mode, regno);
+      rtx entry = gen_rtx_EXPR_LIST (VOIDmode, reg, const0_rtx);
+      return gen_rtx_PARALLEL (mode, gen_rtvec (1, entry));
+    }
+  return gen_rtx_REG (mode, regno);
+}
+
 /* Implement TARGET_FUNCTION_VALUE.
    Define how to find the value returned by a function.  */
 
@@ -3303,7 +3333,7 @@ aarch64_function_value (const_tree type, const_tree func,
       if (!aarch64_composite_type_p (type, mode))
 	{
 	  gcc_assert (count == 1 && mode == ag_mode);
-	  return gen_rtx_REG (mode, V0_REGNUM);
+	  return aarch64_wrap_reg_call_or_return (mode, V0_REGNUM);
 	}
       else
 	{
@@ -3322,7 +3352,7 @@ aarch64_function_value (const_tree type, const_tree func,
 	}
     }
   else
-    return gen_rtx_REG (mode, R0_REGNUM);
+    return aarch64_wrap_reg_call_or_return (mode, R0_REGNUM);
 }
 
 /* Implements TARGET_FUNCTION_VALUE_REGNO_P.
@@ -3474,7 +3504,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 	  if (!aarch64_composite_type_p (type, mode))
 	    {
 	      gcc_assert (nregs == 1);
-	      pcum->aapcs_reg = gen_rtx_REG (mode, V0_REGNUM + nvrn);
+	      pcum->aapcs_reg = aarch64_wrap_reg_call_or_return
+		(mode, V0_REGNUM + nvrn);
 	    }
 	  else
 	    {
@@ -3531,7 +3562,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
          A reg is still generated for it, but the caller should be smart
 	 enough not to use it.  */
       if (nregs == 0 || nregs == 1 || GET_MODE_CLASS (mode) == MODE_INT)
-	pcum->aapcs_reg = gen_rtx_REG (mode, R0_REGNUM + ncrn);
+	pcum->aapcs_reg = aarch64_wrap_reg_call_or_return
+	  (mode, R0_REGNUM + ncrn);
       else
 	{
 	  rtx par;
@@ -9746,7 +9778,9 @@ aarch64_builtin_reciprocal (tree fndecl)
 
   if (!use_rsqrt_p (mode))
     return NULL_TREE;
-  return aarch64_builtin_rsqrt (DECL_FUNCTION_CODE (fndecl));
+  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  return aarch64_general_builtin_rsqrt (subcode);
 }
 
 /* Emit instruction sequence to compute either the approximate square root
@@ -12792,7 +12826,12 @@ aarch64_mangle_type (const_tree type)
   /* Mangle AArch64-specific internal types.  TYPE_NAME is non-NULL_TREE for
      builtin types.  */
   if (TYPE_NAME (type) != NULL)
-    return aarch64_mangle_builtin_type (type);
+    {
+      const char *res;
+      if ((res = aarch64_general_mangle_builtin_type (type))
+	  || (res = aarch64_sve::mangle_builtin_type (type)))
+	return res;
+    }
 
   /* Use the default mangling.  */
   return NULL;
@@ -13037,6 +13076,42 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 	  && real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf));
 }
 
+/* Return true if VAL64 represents a valid predicate constant, describing
+   it in INFO if so.  If the predicate is smaller than 64 bits, the constant
+   is repeated to fill the whole integer.  */
+static bool
+aarch64_sve_valid_pred_immediate (unsigned HOST_WIDE_INT val64,
+				  simd_immediate_info *info)
+{
+  unsigned HOST_WIDE_INT mask = HOST_WIDE_INT_C (0x0101010101010101);
+  scalar_int_mode mode = DImode;
+  if ((val64 & ~mask) != 0)
+    {
+      mask |= mask << 4;
+      mode = SImode;
+      if ((val64 & ~mask) != 0)
+	{
+	  mask |= mask << 2;
+	  mode = HImode;
+	  if ((val64 & ~mask) != 0)
+	    {
+	      mask |= mask << 1;
+	      gcc_checking_assert (mask == HOST_WIDE_INT_M1U);
+	      mode = QImode;
+	    }
+	}
+    }
+  /* Check for PTRUE ALL or PFALSE.  */
+  if (val64 == mask || val64 == 0)
+    {
+      if (info)
+	*info = simd_immediate_info (mode, val64 != 0);
+      return true;
+    }
+  /* We don't yet handle other options, like vlN.  */
+  return false;
+}
+
 /* Return true if replicating VAL32 is a valid 2-byte or 4-byte immediate
    for the Advanced SIMD operation described by WHICH and INSN.  If INFO
    is nonnull, use it to describe valid immediates.  */
@@ -13223,11 +13298,6 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
   else
     return false;
 
-  /* Handle PFALSE and PTRUE.  */
-  if (vec_flags & VEC_SVE_PRED)
-    return (op == CONST0_RTX (mode)
-	    || op == CONSTM1_RTX (mode));
-
   scalar_float_mode elt_float_mode;
   if (n_elts == 1
       && is_a <scalar_float_mode> (elt_mode, &elt_float_mode))
@@ -13242,16 +13312,24 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
 	}
     }
 
-  unsigned int elt_size = GET_MODE_SIZE (elt_mode);
-  if (elt_size > 8)
+  unsigned int elt_bitsize = vector_element_size (GET_MODE_BITSIZE (mode),
+						  GET_MODE_NUNITS (mode));
+  if (elt_bitsize > 64)
     return false;
 
-  scalar_int_mode elt_int_mode = int_mode_for_mode (elt_mode).require ();
+  unsigned int n_bytes = n_elts * elt_bitsize / BITS_PER_UNIT;
+  if (n_bytes == 0)
+    {
+      n_bytes = 1;
+      n_elts = BITS_PER_UNIT / elt_bitsize;
+    }
+
+  opt_scalar_int_mode elt_int_mode = int_mode_for_mode (elt_mode);
 
   /* Expand the vector constant out into a byte vector, with the least
      significant byte of the register first.  */
   auto_vec<unsigned char, 16> bytes;
-  bytes.reserve (n_elts * elt_size);
+  bytes.reserve (n_bytes);
   for (unsigned int i = 0; i < n_elts; i++)
     {
       /* The vector is provided in gcc endian-neutral fashion.
@@ -13260,18 +13338,28 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
       bool swap_p = ((vec_flags & VEC_ADVSIMD) != 0 && BYTES_BIG_ENDIAN);
       rtx elt = CONST_VECTOR_ELT (op, swap_p ? (n_elts - 1 - i) : i);
 
-      if (elt_mode != elt_int_mode)
-	elt = gen_lowpart (elt_int_mode, elt);
+      if (elt_int_mode.exists () && elt_mode != elt_int_mode.require ())
+	elt = gen_lowpart (elt_int_mode.require (), elt);
 
       if (!CONST_INT_P (elt))
 	return false;
 
       unsigned HOST_WIDE_INT elt_val = INTVAL (elt);
-      for (unsigned int byte = 0; byte < elt_size; byte++)
+      if (vec_flags & VEC_SVE_PRED)
 	{
-	  bytes.quick_push (elt_val & 0xff);
-	  elt_val >>= BITS_PER_UNIT;
+	  unsigned int lsb = (i * elt_bitsize) & (BITS_PER_UNIT - 1);
+	  elt_val &= 1;
+	  if (lsb == 0)
+	    bytes.quick_push (elt_val);
+	  else
+	    bytes.last () |= elt_val << lsb;
 	}
+      else
+	for (unsigned int bit = 0; bit < elt_bitsize; bit += BITS_PER_UNIT)
+	  {
+	    bytes.quick_push (elt_val & 0xff);
+	    elt_val >>= BITS_PER_UNIT;
+	  }
     }
 
   /* The immediate must repeat every eight bytes.  */
@@ -13287,7 +13375,9 @@ aarch64_simd_valid_immediate (rtx op, simd_immediate_info *info,
     val64 |= ((unsigned HOST_WIDE_INT) bytes[i % nbytes]
 	      << (i * BITS_PER_UNIT));
 
-  if (vec_flags & VEC_SVE_DATA)
+  if (vec_flags & VEC_SVE_PRED)
+    return aarch64_sve_valid_pred_immediate (val64, info);
+  else if (vec_flags & VEC_SVE_DATA)
     return aarch64_sve_valid_immediate (val64, info);
   else
     return aarch64_advsimd_valid_immediate (val64, info, which);
@@ -14756,6 +14846,21 @@ aarch64_output_sve_mov_immediate (rtx const_vector)
 
   element_char = sizetochar (GET_MODE_BITSIZE (info.elt_mode));
 
+  machine_mode vec_mode = GET_MODE (const_vector);
+  if (aarch64_sve_pred_mode_p (vec_mode))
+    {
+      static char buf[sizeof ("ptrue\t%0.N, vlNNNNN")];
+      unsigned int total_bytes;
+      if (info.value == const0_rtx)
+	snprintf (buf, sizeof (buf), "pfalse\t%%0.b");
+      else if (BYTES_PER_SVE_VECTOR.is_constant (&total_bytes))
+	snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, vl%d", element_char,
+		  total_bytes / GET_MODE_SIZE (info.elt_mode));
+      else
+	snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, all", element_char);
+      return buf;
+    }
+
   if (info.step)
     {
       snprintf (templ, sizeof (templ), "index\t%%0.%c, #"
@@ -14785,21 +14890,6 @@ aarch64_output_sve_mov_immediate (rtx const_vector)
   snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
 	    element_char, INTVAL (info.value));
   return templ;
-}
-
-/* Return the asm format for a PTRUE instruction whose destination has
-   mode MODE.  SUFFIX is the element size suffix.  */
-
-char *
-aarch64_output_ptrue (machine_mode mode, char suffix)
-{
-  unsigned int nunits;
-  static char buf[sizeof ("ptrue\t%0.N, vlNNNNN")];
-  if (GET_MODE_NUNITS (mode).is_constant (&nunits))
-    snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, vl%d", suffix, nunits);
-  else
-    snprintf (buf, sizeof (buf), "ptrue\t%%0.%c, all", suffix);
-  return buf;
 }
 
 /* Split operands into moves from op[1] + op[2] into op[0].  */
@@ -17257,6 +17347,93 @@ aarch64_select_early_remat_modes (sbitmap modes)
       if (vec_flags & VEC_ANY_SVE)
 	bitmap_set_bit (modes, i);
     }
+}
+
+/* Implement TARGET_INIT_BUILTINS.  */
+static void
+aarch64_init_builtins ()
+{
+  aarch64_general_init_builtins ();
+  aarch64_sve::init_builtins ();
+}
+
+/* Implement TARGET_FOLD_BUILTIN.  */
+static tree
+aarch64_fold_builtin (tree fndecl, int nargs, tree *args, bool)
+{
+  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  tree type = TREE_TYPE (TREE_TYPE (fndecl));
+  switch (code & AARCH64_BUILTIN_CLASS)
+    {
+    case AARCH64_BUILTIN_GENERAL:
+      return aarch64_general_fold_builtin (subcode, type, nargs, args);
+
+    case AARCH64_BUILTIN_SVE:
+      return NULL_TREE;
+    }
+  gcc_unreachable ();
+}
+
+/* Implement TARGET_GIMPLE_FOLD_BUILTIN.  */
+static bool
+aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  gcall *stmt = as_a <gcall *> (gsi_stmt (*gsi));
+  tree fndecl = gimple_call_fndecl (stmt);
+  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  gimple *new_stmt;
+  switch (code & AARCH64_BUILTIN_CLASS)
+    {
+    case AARCH64_BUILTIN_GENERAL:
+      new_stmt = aarch64_general_gimple_fold_builtin (subcode, stmt);
+      break;
+
+    case AARCH64_BUILTIN_SVE:
+      new_stmt = aarch64_sve::gimple_fold_builtin (subcode, stmt);
+      break;
+    }
+
+  if (!new_stmt)
+    return false;
+
+  gsi_replace (gsi, new_stmt, true);
+  return true;
+}
+
+/* Implement TARGET_EXPAND_BUILTIN.  */
+static rtx
+aarch64_expand_builtin (tree exp, rtx target, rtx, machine_mode, int)
+{
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
+  unsigned int code = DECL_FUNCTION_CODE (fndecl);
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  switch (code & AARCH64_BUILTIN_CLASS)
+    {
+    case AARCH64_BUILTIN_GENERAL:
+      return aarch64_general_expand_builtin (subcode, exp, target);
+
+    case AARCH64_BUILTIN_SVE:
+      return aarch64_sve::expand_builtin (subcode, exp, target);
+    }
+  gcc_unreachable ();
+}
+
+/* Implement TARGET_BUILTIN_DECL.  */
+static tree
+aarch64_builtin_decl (unsigned int code, bool initialize_p)
+{
+  unsigned int subcode = code >> AARCH64_BUILTIN_SHIFT;
+  switch (code & AARCH64_BUILTIN_CLASS)
+    {
+    case AARCH64_BUILTIN_GENERAL:
+      return aarch64_general_builtin_decl (subcode, initialize_p);
+
+    case AARCH64_BUILTIN_SVE:
+      return aarch64_sve::builtin_decl (subcode, initialize_p);
+    }
+  gcc_unreachable ();
 }
 
 /* Target-specific selftests.  */

@@ -1567,8 +1567,7 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
-(define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_ADD UNSPEC_COND_SUB
-					 UNSPEC_COND_MUL UNSPEC_COND_DIV
+(define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_MUL UNSPEC_COND_DIV
 					 UNSPEC_COND_MAX UNSPEC_COND_MIN])
 
 (define_int_iterator SVE_COND_FP_TERNARY [UNSPEC_COND_FMLA
@@ -1603,8 +1602,6 @@
 			(UNSPEC_ANDV "and")
 			(UNSPEC_IORV "ior")
 			(UNSPEC_XORV "xor")
-			(UNSPEC_COND_ADD "add")
-			(UNSPEC_COND_SUB "sub")
 			(UNSPEC_COND_MUL "mul")
 			(UNSPEC_COND_DIV "div")
 			(UNSPEC_COND_MAX "smax")
@@ -1825,16 +1822,12 @@
 			 (UNSPEC_COND_GE "ge")
 			 (UNSPEC_COND_GT "gt")])
 
-(define_int_attr sve_fp_op [(UNSPEC_COND_ADD "fadd")
-			    (UNSPEC_COND_SUB "fsub")
-			    (UNSPEC_COND_MUL "fmul")
+(define_int_attr sve_fp_op [(UNSPEC_COND_MUL "fmul")
 			    (UNSPEC_COND_DIV "fdiv")
 			    (UNSPEC_COND_MAX "fmaxnm")
 			    (UNSPEC_COND_MIN "fminnm")])
 
-(define_int_attr sve_fp_op_rev [(UNSPEC_COND_ADD "fadd")
-			        (UNSPEC_COND_SUB "fsubr")
-			        (UNSPEC_COND_MUL "fmul")
+(define_int_attr sve_fp_op_rev [(UNSPEC_COND_MUL "fmul")
 			        (UNSPEC_COND_DIV "fdivr")
 			        (UNSPEC_COND_MAX "fmaxnm")
 			        (UNSPEC_COND_MIN "fminnm")])
@@ -1849,9 +1842,7 @@
 			      (UNSPEC_COND_FNMLA "fnmad")
 			      (UNSPEC_COND_FNMLS "fnmsb")])
 
-(define_int_attr commutative [(UNSPEC_COND_ADD "true")
-			      (UNSPEC_COND_SUB "false")
-			      (UNSPEC_COND_MUL "true")
+(define_int_attr commutative [(UNSPEC_COND_MUL "true")
 			      (UNSPEC_COND_DIV "false")
 			      (UNSPEC_COND_MIN "true")
 			      (UNSPEC_COND_MAX "true")])

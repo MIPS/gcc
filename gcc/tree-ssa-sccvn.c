@@ -1339,6 +1339,7 @@ fully_constant_vn_reference_p (vn_reference_t ref)
   /* Simplify reads from constants or constant initializers.  */
   else if (BITS_PER_UNIT == 8
 	   && is_gimple_reg_type (ref->type)
+	   && tree_fits_shwi_p (TYPE_SIZE (ref->type))
 	   && (!INTEGRAL_TYPE_P (ref->type)
 	       || TYPE_PRECISION (ref->type) % BITS_PER_UNIT == 0))
     {

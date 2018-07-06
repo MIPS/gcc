@@ -122,9 +122,9 @@ FOR_EACH_LOOP (DEF_LOOP)
 /* { dg-final { scan-assembler-times {\tfadd\tz[0-9]+\.s, p[0-7]/m,} 1 } } */
 /* { dg-final { scan-assembler-times {\tfadd\tz[0-9]+\.d, p[0-7]/m,} 1 } } */
 
-/* { dg-final { scan-assembler-times {\tfsub\tz[0-9]+\.h, p[0-7]/m,} 1 } } */
-/* { dg-final { scan-assembler-times {\tfsub\tz[0-9]+\.s, p[0-7]/m,} 1 } } */
-/* { dg-final { scan-assembler-times {\tfsub\tz[0-9]+\.d, p[0-7]/m,} 1 } } */
+/* { dg-final { scan-assembler-times {\tfsubr?\tz[0-9]+\.h, p[0-7]/m,} 1 } } */
+/* { dg-final { scan-assembler-times {\tfsubr?\tz[0-9]+\.s, p[0-7]/m,} 1 } } */
+/* { dg-final { scan-assembler-times {\tfsubr?\tz[0-9]+\.d, p[0-7]/m,} 1 } } */
 
 /* { dg-final { scan-assembler-times {\tfmul\tz[0-9]+\.h, p[0-7]/m,} 1 } } */
 /* { dg-final { scan-assembler-times {\tfmul\tz[0-9]+\.s, p[0-7]/m,} 1 } } */

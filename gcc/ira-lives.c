@@ -535,25 +535,45 @@ make_pseudo_conflict (rtx reg, enum reg_class cl, rtx dreg, rtx orig_dreg,
 		      bool advance_p)
 {
   rtx orig_reg = reg;
-  ira_allocno_t a;
 
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
 
-  if (! REG_P (reg) || REGNO (reg) < FIRST_PSEUDO_REGISTER)
+  if (! REG_P (reg))
     return advance_p;
 
-  a = ira_curr_regno_allocno_map[REGNO (reg)];
-  if (! reg_classes_intersect_p (cl, ALLOCNO_CLASS (a)))
-    return advance_p;
+  if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
+    {
+      if (!TEST_HARD_REG_BIT (reg_class_contents[cl], REGNO (reg)))
+	return advance_p;
+    }
+  else
+    {
+      ira_allocno_t a = ira_curr_regno_allocno_map[REGNO (reg)];
+      if (! reg_classes_intersect_p (cl, ALLOCNO_CLASS (a)))
+	return advance_p;
+    }
 
   if (advance_p)
     curr_point++;
 
-  mark_pseudo_reg_live (orig_reg, REGNO (reg));
-  mark_pseudo_reg_live (orig_dreg, REGNO (dreg));
-  mark_pseudo_reg_dead (orig_reg, REGNO (reg));
-  mark_pseudo_reg_dead (orig_dreg, REGNO (dreg));
+  if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
+    mark_hard_reg_live (reg);
+  else
+    mark_pseudo_reg_live (orig_reg, REGNO (reg));
+  if (REGNO (dreg) < FIRST_PSEUDO_REGISTER)
+    mark_hard_reg_live (dreg);
+  else
+    mark_pseudo_reg_live (orig_dreg, REGNO (dreg));
+
+  if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
+    mark_hard_reg_dead (reg);
+  else
+    mark_pseudo_reg_dead (orig_reg, REGNO (reg));
+  if (REGNO (dreg) < FIRST_PSEUDO_REGISTER)
+    mark_hard_reg_dead (dreg);
+  else
+    mark_pseudo_reg_dead (orig_dreg, REGNO (dreg));
 
   return false;
 }
@@ -601,8 +621,7 @@ static void
 check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
 {
   int use, use_match;
-  ira_allocno_t a;
-  enum reg_class use_cl, acl;
+  enum reg_class use_cl;
   bool advance_p;
   rtx dreg = recog_data.operand[def];
   rtx orig_dreg = dreg;
@@ -613,13 +632,21 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
   if (GET_CODE (dreg) == SUBREG)
     dreg = SUBREG_REG (dreg);
 
-  if (! REG_P (dreg) || REGNO (dreg) < FIRST_PSEUDO_REGISTER)
+  if (! REG_P (dreg))
     return;
 
-  a = ira_curr_regno_allocno_map[REGNO (dreg)];
-  acl = ALLOCNO_CLASS (a);
-  if (! reg_classes_intersect_p (acl, def_cl))
-    return;
+  if (REGNO (dreg) < FIRST_PSEUDO_REGISTER)
+    {
+      if (!TEST_HARD_REG_BIT (reg_class_contents[def_cl], REGNO (dreg)))
+	return;
+    }
+  else
+    {
+      ira_allocno_t a = ira_curr_regno_allocno_map[REGNO (dreg)];
+      reg_class acl = ALLOCNO_CLASS (a);
+      if (! reg_classes_intersect_p (acl, def_cl))
+	return;
+    }
 
   advance_p = true;
 

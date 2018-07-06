@@ -61,6 +61,25 @@ c_objc_common_init (void)
   return c_common_init ();
 }
 
+/* Return true if telling the user that another type is equivalent to TYPE
+   might be useful information.  */
+
+static bool
+user_facing_type_p (tree type)
+{
+  tree decl = TYPE_NAME (type);
+  /* Return false for built-in declarations of artificial types whose names
+     are in the reserved namespace.  In this case the other type is likely
+     to be a user-facing typedef, defined in a header file.  */
+  if (decl
+      && DECL_P (decl)
+      && DECL_IS_BUILTIN (decl)
+      && IDENTIFIER_POINTER (DECL_NAME (decl))[0] == '_'
+      && TYPE_ARTIFICIAL (type))
+    return false;
+  return true;
+}
+
 /* Called during diagnostic message formatting process to print a
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
@@ -150,7 +169,9 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 	   stripped version.  But sometimes the stripped version looks
 	   exactly the same, so we don't want it after all.  To avoid
 	   printing it in that case, we play ugly obstack games.  */
-	if (TYPE_CANONICAL (t) && t != TYPE_CANONICAL (t))
+	if (TYPE_CANONICAL (t)
+	    && t != TYPE_CANONICAL (t)
+	    && user_facing_type_p (TYPE_CANONICAL (t)))
 	  {
 	    c_pretty_printer cpp2;
 	    /* Print the stripped version into a temporary printer.  */

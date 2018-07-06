@@ -60,6 +60,8 @@ along with GCC; see the file COPYING3.  If not see
 #define LANG_HOOKS_BUILTIN_FUNCTION c_builtin_function
 #undef  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE c_builtin_function_ext_scope
+#undef  LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD
+#define LANG_HOOKS_BUILTIN_FUNCTION_GLOBAL_MD c_builtin_function_global_md
 #undef LANG_HOOKS_EMITS_BEGIN_STMT
 #define LANG_HOOKS_EMITS_BEGIN_STMT true
 
