@@ -2393,7 +2393,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
   { ALTIVEC_BUILTIN_VEC_PACKSU, P8V_BUILTIN_VPKSDUS,
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_V2DI, RS6000_BTI_V2DI, 0 },
-  { ALTIVEC_BUILTIN_VEC_PACKSU, P8V_BUILTIN_VPKSDUS,
+  { ALTIVEC_BUILTIN_VEC_PACKSU, P8V_BUILTIN_VPKUDUS,
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_VPKSWUS, ALTIVEC_BUILTIN_VPKSWUS,
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_V4SI, RS6000_BTI_V4SI, 0 },
@@ -5109,27 +5109,6 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_INSERT4B, P9V_BUILTIN_INSERT4B,
     RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B,
-    RS6000_BTI_V16QI, RS6000_BTI_V4SI,
-    RS6000_BTI_V16QI, RS6000_BTI_UINTSI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B,
-    RS6000_BTI_V16QI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_V16QI, RS6000_BTI_UINTSI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_UINTSI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B_DI,
-    RS6000_BTI_V16QI, RS6000_BTI_INTDI,
-    RS6000_BTI_V16QI, RS6000_BTI_UINTDI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B_DI,
-    RS6000_BTI_V16QI, RS6000_BTI_UINTDI,
-    RS6000_BTI_V16QI, RS6000_BTI_UINTDI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B_DI,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTDI,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_UINTDI },
-  { P9V_BUILTIN_VEC_VINSERT4B, P9V_BUILTIN_VINSERT4B_DI,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_UINTDI,
-    RS6000_BTI_unsigned_V16QI, RS6000_BTI_UINTDI },
 
   { P8V_BUILTIN_VEC_VADDECUQ, P8V_BUILTIN_VADDECUQ,
     RS6000_BTI_V1TI, RS6000_BTI_V1TI, RS6000_BTI_V1TI, RS6000_BTI_V1TI },
@@ -6095,6 +6074,15 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       stmt = convert (innerptrtype, stmt);
       stmt = build_binary_op (loc, PLUS_EXPR, stmt, arg2, 1);
       stmt = build_indirect_ref (loc, stmt, RO_NULL);
+
+      /* PR83660: We mark this as having side effects so that
+	 downstream in fold_build_cleanup_point_expr () it will get a
+	 CLEANUP_POINT_EXPR.  If it does not we can run into an ICE
+	 later in gimplify_cleanup_point_expr ().  Potentially this
+	 causes missed optimization because the actually is no side
+	 effect.  */
+      if (c_dialect_cxx ())
+	TREE_SIDE_EFFECTS (stmt) = 1;
 
       return stmt;
     }

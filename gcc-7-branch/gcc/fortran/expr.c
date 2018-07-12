@@ -2315,7 +2315,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 
 	/* Assumed character length will not reduce to a constant expression
 	   with LEN, as required by the standard.  */
-	if (i == 5 && not_restricted
+	if (i == 5 && not_restricted && ap->expr->symtree
 	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
 	    && (ap->expr->symtree->n.sym->ts.u.cl->length == NULL
 		|| ap->expr->symtree->n.sym->ts.deferred))
@@ -3288,6 +3288,8 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
   /* Only DATA Statements come here.  */
   if (!conform)
     {
+      locus *where;
+
       /* Numeric can be converted to any other numeric. And Hollerith can be
 	 converted to any other type.  */
       if ((gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
@@ -3297,8 +3299,9 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return true;
 
+      where = lvalue->where.lb ? &lvalue->where : &rvalue->where;
       gfc_error ("Incompatible types in DATA statement at %L; attempted "
-		 "conversion of %s to %s", &lvalue->where,
+		 "conversion of %s to %s", where,
 		 gfc_typename (&rvalue->ts), gfc_typename (&lvalue->ts));
 
       return false;
@@ -4335,7 +4338,7 @@ component_initializer (gfc_typespec *ts, gfc_component *c, bool generate)
       gfc_apply_init (&c->ts, &c->attr, init);
     }
 
-  return init;
+  return (c->initializer = init);
 }
 
 
@@ -4347,6 +4350,32 @@ gfc_default_initializer (gfc_typespec *ts)
   return gfc_generate_initializer (ts, false);
 }
 
+/* Generate an initializer expression for an iso_c_binding type
+   such as c_[fun]ptr. The appropriate initializer is c_null_[fun]ptr.  */
+
+static gfc_expr *
+generate_isocbinding_initializer (gfc_symbol *derived)
+{
+  /* The initializers have already been built into the c_null_[fun]ptr symbols
+     from gen_special_c_interop_ptr.  */
+  gfc_symtree *npsym = NULL;
+  if (0 == strcmp (derived->name, "c_ptr"))
+    gfc_find_sym_tree ("c_null_ptr", gfc_current_ns, true, &npsym);
+  else if (0 == strcmp (derived->name, "c_funptr"))
+    gfc_find_sym_tree ("c_null_funptr", gfc_current_ns, true, &npsym);
+  else
+    gfc_internal_error ("generate_isocbinding_initializer(): bad iso_c_binding"
+			" type, expected %<c_ptr%> or %<c_funptr%>");
+  if (npsym)
+    {
+      gfc_expr *init = gfc_copy_expr (npsym->n.sym->value);
+      init->symtree = npsym;
+      init->ts.is_iso_c = true;
+      return init;
+    }
+
+  return NULL;
+}
 
 /* Get or generate an expression for a default initializer of a derived type.
    If -finit-derived is specified, generate default initialization expressions
@@ -4357,7 +4386,11 @@ gfc_generate_initializer (gfc_typespec *ts, bool generate)
 {
   gfc_expr *init, *tmp;
   gfc_component *comp;
+
   generate = flag_init_derived && generate;
+
+  if (ts->u.derived->ts.is_iso_c && generate)
+    return generate_isocbinding_initializer (ts->u.derived);
 
   /* See if we have a default initializer in this, but not in nested
      types (otherwise we could use gfc_has_default_initializer()).
@@ -4762,14 +4795,15 @@ gfc_is_alloc_class_scalar_function (gfc_expr *expr)
 /* Determine if an expression is a function with an allocatable class array
    result.  */
 bool
-gfc_is_alloc_class_array_function (gfc_expr *expr)
+gfc_is_class_array_function (gfc_expr *expr)
 {
   if (expr->expr_type == EXPR_FUNCTION
       && expr->value.function.esym
       && expr->value.function.esym->result
       && expr->value.function.esym->result->ts.type == BT_CLASS
       && CLASS_DATA (expr->value.function.esym->result)->attr.dimension
-      && CLASS_DATA (expr->value.function.esym->result)->attr.allocatable)
+      && (CLASS_DATA (expr->value.function.esym->result)->attr.allocatable
+	  || CLASS_DATA (expr->value.function.esym->result)->attr.pointer))
     return true;
 
   return false;

@@ -1050,6 +1050,9 @@ cp_build_reference_type (tree to_type, bool rval)
 {
   tree lvalue_ref, t;
 
+  if (to_type == error_mark_node)
+    return error_mark_node;
+
   if (TREE_CODE (to_type) == REFERENCE_TYPE)
     {
       rval = rval && TYPE_REF_IS_RVALUE (to_type);
@@ -1667,9 +1670,9 @@ strip_typedefs_expr (tree t, bool *remove_attributes)
 	tree it;
 	for (it = t; it; it = TREE_CHAIN (it))
 	  {
-	    tree val = strip_typedefs_expr (TREE_VALUE (t), remove_attributes);
+	    tree val = strip_typedefs_expr (TREE_VALUE (it), remove_attributes);
 	    vec_safe_push (vec, val);
-	    if (val != TREE_VALUE (t))
+	    if (val != TREE_VALUE (it))
 	      changed = true;
 	    gcc_assert (TREE_PURPOSE (it) == NULL_TREE);
 	  }
@@ -2798,7 +2801,7 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	for (; !same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (*t),
 							   TREE_TYPE (x));
 	     x = TREE_OPERAND (x, 0))
-	  gcc_assert (TREE_CODE (x) == COMPONENT_REF);
+	  gcc_assert (handled_component_p (x));
 	*t = x;
 	*walk_subtrees = false;
 	d->seen = true;
@@ -4898,6 +4901,19 @@ cp_tree_code_length (enum tree_code code)
     default:
       return TREE_CODE_LENGTH (code);
     }
+}
+
+/* Wrapper around warn_deprecated_use that doesn't warn for
+   current_class_type.  */
+
+void
+cp_warn_deprecated_use (tree node)
+{
+  if (TYPE_P (node)
+      && current_class_type
+      && TYPE_MAIN_VARIANT (node) == current_class_type)
+    return;
+  warn_deprecated_use (node, NULL_TREE);
 }
 
 /* Implement -Wzero_as_null_pointer_constant.  Return true if the
