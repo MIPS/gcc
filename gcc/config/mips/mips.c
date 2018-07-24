@@ -12186,12 +12186,10 @@ mips_select_rtx_section (machine_mode mode, rtx x,
 
 /* Implement TARGET_ASM_FUNCTION_RODATA_SECTION.
 
-   The complication here is that, with the combination TARGET_ABICALLS
-   && !TARGET_ABSOLUTE_ABICALLS && !TARGET_GPWORD, jump tables will use
-   absolute addresses, and should therefore not be included in the
-   read-only part of a DSO.  Handle such cases by selecting a normal
-   data section instead of a read-only one.  The logic apes that in
-   default_function_rodata_section.  */
+   When generating PIC code for nanoMIPS target w/o -mjump-table-opt
+   jump tables will use absolute addresses, and should therefore not
+   be included in the read-only part of a DSO.  Handle such cases by
+   selecting a normal data section instead of a read-only one.  */
 
 static section *
 mips_function_rodata_section (tree decl)
@@ -12225,28 +12223,8 @@ mips_function_rodata_section (tree decl)
       return data_section;
     }
 
-  if (!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD)
-    return default_function_rodata_section (decl);
-
-  if (decl && DECL_SECTION_NAME (decl))
-    {
-      const char *name = DECL_SECTION_NAME (decl);
-      if (DECL_COMDAT_GROUP (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
-	{
-	  char *rname = ASTRDUP (name);
-	  rname[14] = 'd';
-	  return get_section (rname, SECTION_LINKONCE | SECTION_WRITE, decl);
-	}
-      else if (flag_function_sections
-	       && flag_data_sections
-	       && strncmp (name, ".text.", 6) == 0)
-	{
-	  char *rname = ASTRDUP (name);
-	  memcpy (rname + 1, "data", 4);
-	  return get_section (rname, SECTION_WRITE, decl);
-	}
-    }
-  return data_section;
+  gcc_assert(!TARGET_ABICALLS || TARGET_ABSOLUTE_ABICALLS || TARGET_GPWORD);
+  return default_function_rodata_section (decl);
 }
 
 /* Implement TARGET_IN_SMALL_DATA_P.  */
