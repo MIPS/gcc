@@ -1,5 +1,39 @@
 2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/loop-gwv-1.c: Adjust test.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-gwv-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-v-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-w-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-w-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-w-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/routine-g-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/routine-w-1.c: Likewise.
+
+	Backport from mainline:
+	2018-05-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/85411
+	* plugin/plugin-nvptx.c (nvptx_exec): Move parsing of
+	GOMP_OPENACC_DIM ...
+	* env.c (parse_gomp_openacc_dim): ... here.  New function.
+	(initialize_env): Call parse_gomp_openacc_dim.
+	(goacc_default_dims): Define.
+	* libgomp.h (goacc_default_dims): Declare.
+	* oacc-plugin.c (GOMP_PLUGIN_acc_default_dim): New function.
+	* oacc-plugin.h (GOMP_PLUGIN_acc_default_dim): Declare.
+	* libgomp.map: New version "GOMP_PLUGIN_1.2". Add
+	GOMP_PLUGIN_acc_default_dim.
+	* testsuite/libgomp.oacc-c-c++-common/loop-default-runtime.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/loop-default.h: New test.
+
+	2018-05-07  Tom de Vries  <tom@codesourcery.com>
+	PR testsuite/85677
+	* testsuite/lib/libgomp.exp (libgomp_init): Move inclusion of top-level
+	include directory in ALWAYS_CFLAGS out of $blddir != "" condition.
+
+2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
+
 	Backport from mainline:
 	2018-05-02  Tom de Vries  <tom@codesourcery.com>
 

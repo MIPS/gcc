@@ -60,3 +60,14 @@ GOMP_PLUGIN_acc_thread_default_async (void)
   struct goacc_thread *thr = goacc_thread ();
   return thr ? thr->default_async : acc_async_default;
 }
+
+int
+GOMP_PLUGIN_acc_default_dim (unsigned int i)
+{
+  if (i >= GOMP_DIM_MAX)
+    {
+      gomp_fatal ("invalid dimension argument: %d", i);
+      return -1;
+    }
+  return goacc_default_dims[i];
+}

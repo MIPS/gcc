@@ -1,3 +1,5 @@
+/* { dg-xfail-run-if "gangprivate failure" { openacc_nvidia_accel_selected } { "-O0" } { "" } } */
+
 #include <stdio.h>
 #include <openacc.h>
 #include <gomp-constants.h>

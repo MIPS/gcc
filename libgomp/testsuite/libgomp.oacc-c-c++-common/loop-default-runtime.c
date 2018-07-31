@@ -1,12 +1,13 @@
-/* { dg-additional-options "-fopenacc-dim=-:-" } */
-/* This code uses nvptx inline assembly guarded with acc_on_device, which is
-   not optimized away at -O0, and then confuses the target assembler.
-   { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
-/* { dg-set-target-env-var "GOMP_OPENACC_DIM" "8:16" } */
+/* { dg-set-target-env-var GOMP_OPENACC_DIM "8::" } */
 
 #include "loop-default.h"
+#include <stdlib.h>
 
-int main ()
+int
+main ()
 {
-  return test_1 (8, 16, 32);
+  if (check_gang (8) != 0)
+    abort ();
+
+  return 0;
 }

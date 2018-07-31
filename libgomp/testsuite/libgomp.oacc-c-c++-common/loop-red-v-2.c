@@ -1,3 +1,5 @@
+/* { dg-xfail-run-if "n/a" { openacc_nvidia_accel_selected } { "-O0" "-O1" } { "" } } */
+
 #include <stdio.h>
 #include <openacc.h>
 #include <gomp-constants.h>

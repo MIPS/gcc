@@ -485,6 +485,7 @@ GOMP_PLUGIN_1.1 {
 GOMP_PLUGIN_1.2 {
   global:
 	GOMP_PLUGIN_acc_thread_default_async;
+	GOMP_PLUGIN_acc_default_dim;
 } GOMP_PLUGIN_1.1;
 
 # TODO

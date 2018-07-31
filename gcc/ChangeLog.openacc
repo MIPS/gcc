@@ -1,6 +1,14 @@
 2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline:
+	2018-05-04  Tom de Vries  <tom@codesourcery.com>
+	PR libgomp/85639
+	* builtins.c (expand_builtin_goacc_parlevel_id_size): Handle null target
+	if ignore == 0.
+
+2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
 	2018-05-02  Tom de Vries  <tom@codesourcery.com>
 
 	PR libgomp/82428
