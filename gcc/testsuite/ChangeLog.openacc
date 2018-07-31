@@ -1,3 +1,12 @@
+2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
+	2018-05-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/82428
+	* c-c++-common/goacc/builtin-goacc-parlevel-id-size-2.c: New test.
+	* c-c++-common/goacc/builtin-goacc-parlevel-id-size.c: New test.
+
 2018-06-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline

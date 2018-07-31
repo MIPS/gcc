@@ -1,3 +1,17 @@
+2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
+	2018-05-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/82428
+	* builtins.def (DEF_GOACC_BUILTIN_ONLY): Define.
+	* omp-builtins.def (BUILT_IN_GOACC_PARLEVEL_ID)
+	(BUILT_IN_GOACC_PARLEVEL_SIZE): New builtin.
+	* builtins.c (expand_builtin_goacc_parlevel_id_size): New function.
+	(expand_builtin): Call expand_builtin_goacc_parlevel_id_size.
+	* doc/extend.texi (Other Builtins): Add __builtin_goacc_parlevel_id and
+	__builtin_goacc_parlevel_size.
+
 2015-11-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimple-fold.c (fold_internal_goacc_dim): Apply a workaround for

@@ -1,3 +1,11 @@
+2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from mainline:
+	2018-05-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR libgomp/82428
+	* f95-lang.c (DEF_GOACC_BUILTIN_ONLY): Define.
+
 2018-06-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline
