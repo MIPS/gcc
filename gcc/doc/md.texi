@@ -10909,10 +10909,12 @@ A port might need to generate this pattern for a variable
 ways of doing this.  The first is to build the rtx for the pattern
 directly from C++ code; this is a valid technique and avoids any risk
 of combinatorial explosion.  The second is to prefix the instruction
-name with the special character @samp{@@}.  This tells GCC to generate
-the four additional functions below, where @var{name} is the name of
-the instruction without the @samp{@@} and without the @samp{<@dots{}>}
-placeholders.
+name with the special character @samp{@@}, which tells GCC to generate
+the four additional functions below.  In each case, @var{name} is the
+name of the instruction without the leading @samp{@@} character,
+without the @samp{<@dots{}>} placeholders, and with any underscore
+before a @samp{<@dots{}>} placeholder removed if keeping it would
+lead to a double or trailing underscore.
 
 @table @samp
 @item insn_code maybe_code_for_@var{name} (@var{i1}, @var{i2}, @dots{})

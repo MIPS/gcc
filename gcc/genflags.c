@@ -197,37 +197,6 @@ gen_insn (md_rtx_info *info)
   obstack_grow (&obstack, &insn, sizeof (rtx));
 }
 
-/* Declare the maybe_gen_* function for ONAME, and provide
-   an inline definition of the assserting gen_* wrapper.  */
-
-static void
-emit_overloaded_gen_proto (overloaded_name *oname)
-{
-  unsigned int num_ops = num_operands (oname->first_instance->insn);
-
-  printf ("\nextern rtx maybe_gen_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%s%s", i == 0 ? "" : ", ", oname->arg_types[i]);
-  for (unsigned int i = 0; i < num_ops; ++i)
-    printf (", rtx");
-  printf (");\n");
-
-  printf ("inline rtx\ngen_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%s%s arg%d", i == 0 ? "" : ", ", oname->arg_types[i], i);
-  for (unsigned int i = 0; i < num_ops; ++i)
-    printf (", rtx x%d", i);
-  printf (")\n{\n  rtx res = maybe_gen_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%sarg%d", i == 0 ? "" : ", ", i);
-  for (unsigned int i = 0; i < num_ops; ++i)
-    printf (", x%d", i);
-  printf (");\n"
-	  "  gcc_assert (res);\n"
-	  "  return res;\n"
-	  "}\n");
-}
-
 int
 main (int argc, const char **argv)
 {
@@ -272,10 +241,6 @@ main (int argc, const char **argv)
 
   for (insn_ptr = insns; *insn_ptr; insn_ptr++)
     gen_proto (*insn_ptr);
-
-  for (overloaded_name *oname = rtx_reader_ptr->get_overloads ();
-       oname; oname = oname->next)
-    emit_overloaded_gen_proto (oname);
 
   puts ("\n#endif /* GCC_INSN_FLAGS_H */");
 

@@ -46,29 +46,6 @@ gen_insn (md_rtx_info *info)
     }
 }
 
-/* Declare the maybe_code_for_* function for ONAME, and provide
-   an inline definition of the assserting code_for_* wrapper.  */
-
-static void
-handle_overloaded_code_for (overloaded_name *oname)
-{
-  printf ("\nextern insn_code maybe_code_for_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%s%s", i == 0 ? "" : ", ", oname->arg_types[i]);
-  printf (");\n");
-
-  printf ("inline insn_code\ncode_for_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%s%s arg%d", i == 0 ? "" : ", ", oname->arg_types[i], i);
-  printf (")\n{\n  insn_code code = maybe_code_for_%s (", oname->name);
-  for (unsigned int i = 0; i < oname->arg_types.length (); ++i)
-    printf ("%sarg%d", i == 0 ? "" : ", ", i);
-  printf (");\n"
-	  "  gcc_assert (code != CODE_FOR_nothing);\n"
-	  "  return code;\n"
-	  "}\n");
-}
-
 int
 main (int argc, const char **argv)
 {
@@ -108,13 +85,8 @@ enum insn_code {\n\
 
   printf ("\n};\n\
 \n\
-const unsigned int NUM_INSN_CODES = %d;\n", get_num_insn_codes ());
-
-  for (overloaded_name *oname = rtx_reader_ptr->get_overloads ();
-       oname; oname = oname->next)
-    handle_overloaded_code_for (oname);
-
-  printf ("\n#endif /* GCC_INSN_CODES_H */\n");
+const unsigned int NUM_INSN_CODES = %d;\n\
+#endif /* GCC_INSN_CODES_H */\n", get_num_insn_codes ());
 
   if (ferror (stdout) || fflush (stdout) || fclose (stdout))
     return FATAL_EXIT_CODE;

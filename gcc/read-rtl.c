@@ -651,6 +651,7 @@ md_reader::handle_overloaded_name (rtx original, vec<mapping *> *iterators)
   char *base = copy, *start, *end;
   overloaded_name tmp_oname;
   tmp_oname.arg_types.create (current_iterators.length ());
+  bool pending_underscore_p = false;
   while ((start = strchr (base, '<')) && (end = strchr (start, '>')))
     {
       *end = 0;
@@ -659,10 +660,27 @@ md_reader::handle_overloaded_name (rtx original, vec<mapping *> *iterators)
 	fatal_with_file_and_line ("unknown iterator `%s'", start + 1);
       *end = '>';
 
-      /* Add the text between either the last '>' or the start of the string
-	 and this '<'.  */
+      /* Remove a trailing underscore, so that we don't end a name
+	 with "_" or turn "_<...>_" into "__".  */
+      if (start != base && start[-1] == '_')
+	{
+	  start -= 1;
+	  pending_underscore_p = true;
+	}
+
+      /* Add the text between either the last '>' or the start of
+	 the string and this '<'.  */
       obstack_grow (&m_string_obstack, base, start - base);
       base = end + 1;
+
+      /* If there's a character we need to keep after the '>', check
+	 whether we should prefix it with a previously-dropped '_'.  */
+      if (base[0] != 0 && base[0] != '<')
+	{
+	  if (pending_underscore_p && base[0] != '_')
+	    obstack_1grow (&m_string_obstack, '_');
+	  pending_underscore_p = false;
+	}
 
       /* Record an argument for ITERATOR.  */
       iterators->safe_push (iterator);
@@ -670,6 +688,10 @@ md_reader::handle_overloaded_name (rtx original, vec<mapping *> *iterators)
     }
   if (base == copy)
     fatal_with_file_and_line ("no iterator attributes in name `%s'", name);
+
+  size_t length = obstack_object_size (&m_string_obstack);
+  if (length == 0)
+    fatal_with_file_and_line ("`%s' only contains iterator attributes", name);
 
   /* Get the completed name.  */
   obstack_grow (&m_string_obstack, base, strlen (base) + 1);
