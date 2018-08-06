@@ -4,89 +4,89 @@
 #include "test_sve_acle.h"
 
 /*
-** subr_u64_m:
+** subr_u64_m_tied1:
 **	subr	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_m, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_m_tied1, svuint64_t,
 		z0 = svsubr_u64_m (p0, z0, z1),
 		z0 = svsubr_m (p0, z0, z1))
 
-/*
-** subr_u64_m_prfx:
-**	movprfx	z0, z1
-**	subr	z0\.d, p0/m, z0\.d, z2\.d
-**	ret
-*/
-TEST_UNIFORM_Z (subr_u64_m_prfx, svuint64_t,
-		z0 = svsubr_u64_m (p0, z1, z2),
-		z0 = svsubr_m (p0, z1, z2))
-
 /* Bad RA choice: no preferred output sequence.  */
-TEST_UNIFORM_Z (subr_u64_m_bad_ra, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_m_tied2, svuint64_t,
 		z1 = svsubr_u64_m (p0, z0, z1),
 		z1 = svsubr_m (p0, z0, z1))
 
 /*
-** subr_x0_u64_m:
+** subr_u64_m_untied:
+**	movprfx	z0, z1
+**	subr	z0\.d, p0/m, z0\.d, z2\.d
+**	ret
+*/
+TEST_UNIFORM_Z (subr_u64_m_untied, svuint64_t,
+		z0 = svsubr_u64_m (p0, z1, z2),
+		z0 = svsubr_m (p0, z1, z2))
+
+/*
+** subr_x0_u64_m_tied1:
 **	mov	(z[0-9]+\.d), x0
 **	subr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_x0_u64_m, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_x0_u64_m_tied1, svuint64_t, uint64_t,
 		 z0 = svsubr_n_u64_m (p0, z0, x0),
 		 z0 = svsubr_m (p0, z0, x0))
 
 /*
-** subr_x0_u64_m_prfx:
+** subr_x0_u64_m_untied:
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0, z1
 **	subr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_x0_u64_m_prfx, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_x0_u64_m_untied, svuint64_t, uint64_t,
 		 z0 = svsubr_n_u64_m (p0, z1, x0),
 		 z0 = svsubr_m (p0, z1, x0))
 
 /*
-** subr_d0_u64_m:
+** subr_d0_u64_m_tied1:
 **	mov	(z[0-9]+\.d), d0
 **	subr	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_d0_u64_m, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_d0_u64_m_tied1, svuint64_t, uint64_t,
 		 z1 = svsubr_n_u64_m (p0, z1, d0),
 		 z1 = svsubr_m (p0, z1, d0))
 
 /*
-** subr_d0_u64_m_prfx:
+** subr_d0_u64_m_untied:
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1, z2
 **	subr	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_d0_u64_m_prfx, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_d0_u64_m_untied, svuint64_t, uint64_t,
 		 z1 = svsubr_n_u64_m (p0, z2, d0),
 		 z1 = svsubr_m (p0, z2, d0))
 
 /*
-** subr_1_u64_m:
+** subr_1_u64_m_tied1:
 **	mov	(z[0-9]+\.d), #1
 **	subr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_Z (subr_1_u64_m, svuint64_t,
+TEST_UNIFORM_Z (subr_1_u64_m_tied1, svuint64_t,
 		z0 = svsubr_n_u64_m (p0, z0, 1),
 		z0 = svsubr_m (p0, z0, 1))
 
 /*
-** subr_1_u64_m_prfx:
+** subr_1_u64_m_untied:
 **	mov	(z[0-9]+\.d), #1
 **	movprfx	z0, z1
 **	subr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_Z (subr_1_u64_m_prfx, svuint64_t,
+TEST_UNIFORM_Z (subr_1_u64_m_untied, svuint64_t,
 		z0 = svsubr_n_u64_m (p0, z1, 1),
 		z0 = svsubr_m (p0, z1, 1))
 
@@ -101,22 +101,22 @@ TEST_UNIFORM_Z (subr_m2_u64_m, svuint64_t,
 		z0 = svsubr_m (p0, z0, -2))
 
 /*
-** subr_u64_z_tied:
+** subr_u64_z_tied1:
 **	movprfx	z0\.d, p0/z, z0\.d
 **	subr	z0\.d, p0/m, z0\.d, z1\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_z_tied, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_z_tied1, svuint64_t,
 		z0 = svsubr_u64_z (p0, z0, z1),
 		z0 = svsubr_z (p0, z0, z1))
 
 /*
-** subr_u64_z_rev:
+** subr_u64_z_tied2:
 **	movprfx	z1\.d, p0/z, z1\.d
 **	sub	z1\.d, p0/m, z1\.d, z0\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_z_rev, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_z_tied2, svuint64_t,
 		z1 = svsubr_u64_z (p0, z0, z1),
 		z1 = svsubr_z (p0, z0, z1))
 
@@ -131,13 +131,13 @@ TEST_UNIFORM_Z (subr_u64_z_untied, svuint64_t,
 		z0 = svsubr_z (p0, z1, z2))
 
 /*
-** subr_x0_u64_z_tied:
+** subr_x0_u64_z_tied1:
 **	mov	(z[0-9]+\.d), x0
 **	movprfx	z0\.d, p0/z, z0\.d
 **	subr	z0\.d, p0/m, z0\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_x0_u64_z_tied, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_x0_u64_z_tied1, svuint64_t, uint64_t,
 		 z0 = svsubr_n_u64_z (p0, z0, x0),
 		 z0 = svsubr_z (p0, z0, x0))
 
@@ -153,13 +153,13 @@ TEST_UNIFORM_ZS (subr_x0_u64_z_untied, svuint64_t, uint64_t,
 		 z0 = svsubr_z (p0, z1, x0))
 
 /*
-** subr_d0_u64_z_tied:
+** subr_d0_u64_z_tied1:
 **	mov	(z[0-9]+\.d), d0
 **	movprfx	z1\.d, p0/z, z1\.d
 **	subr	z1\.d, p0/m, z1\.d, \1
 **	ret
 */
-TEST_UNIFORM_ZS (subr_d0_u64_z_tied, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_d0_u64_z_tied1, svuint64_t, uint64_t,
 		 z1 = svsubr_n_u64_z (p0, z1, d0),
 		 z1 = svsubr_z (p0, z1, d0))
 
@@ -175,88 +175,88 @@ TEST_UNIFORM_ZS (subr_d0_u64_z_untied, svuint64_t, uint64_t,
 		 z1 = svsubr_z (p0, z2, d0))
 
 /*
-** subr_u64_x_z0:
+** subr_u64_x_tied1:
 **	sub	z0\.d, z1\.d, z0\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_x_z0, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_x_tied1, svuint64_t,
 		z0 = svsubr_u64_x (p0, z0, z1),
 		z0 = svsubr_x (p0, z0, z1))
 
 /*
-** subr_u64_x_z1:
+** subr_u64_x_tied2:
 **	sub	z1\.d, z1\.d, z0\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_x_z1, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_x_tied2, svuint64_t,
 		z1 = svsubr_u64_x (p0, z0, z1),
 		z1 = svsubr_x (p0, z0, z1))
 
 /*
-** subr_u64_x_z2:
+** subr_u64_x_untied:
 **	sub	z2\.d, z1\.d, z0\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_u64_x_z2, svuint64_t,
+TEST_UNIFORM_Z (subr_u64_x_untied, svuint64_t,
 		z2 = svsubr_u64_x (p0, z0, z1),
 		z2 = svsubr_x (p0, z0, z1))
 
 /*
-** subr_x0_u64_x_z0:
+** subr_x0_u64_x_tied1:
 **	mov	(z[0-9]+\.d), x0
 **	sub	z0\.d, \1, z0\.d
 **	ret
 */
-TEST_UNIFORM_ZS (subr_x0_u64_x_z0, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_x0_u64_x_tied1, svuint64_t, uint64_t,
 		 z0 = svsubr_n_u64_x (p0, z0, x0),
 		 z0 = svsubr_x (p0, z0, x0))
 
 /*
-** subr_x0_u64_x_z1:
+** subr_x0_u64_x_untied:
 **	mov	(z[0-9]+\.d), x0
 **	sub	z1\.d, \1, z0\.d
 **	ret
 */
-TEST_UNIFORM_ZS (subr_x0_u64_x_z1, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_x0_u64_x_untied, svuint64_t, uint64_t,
 		 z1 = svsubr_n_u64_x (p0, z0, x0),
 		 z1 = svsubr_x (p0, z0, x0))
 
 /*
-** subr_d0_u64_x_z1:
+** subr_d0_u64_x_tied1:
 **	mov	(z[0-9]+\.d), d0
 **	sub	z1\.d, \1, z1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (subr_d0_u64_x_z1, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_d0_u64_x_tied1, svuint64_t, uint64_t,
 		 z1 = svsubr_n_u64_x (p0, z1, d0),
 		 z1 = svsubr_x (p0, z1, d0))
 
 /*
-** subr_d0_u64_x_z2:
+** subr_d0_u64_x_untied:
 **	mov	(z[0-9]+\.d), d0
 **	sub	z2\.d, \1, z1\.d
 **	ret
 */
-TEST_UNIFORM_ZS (subr_d0_u64_x_z2, svuint64_t, uint64_t,
+TEST_UNIFORM_ZS (subr_d0_u64_x_untied, svuint64_t, uint64_t,
 		 z2 = svsubr_n_u64_x (p0, z1, d0),
 		 z2 = svsubr_x (p0, z1, d0))
 
 /*
-** subr_1_u64_x:
+** subr_1_u64_x_tied1:
 **	subr	z0\.d, z0\.d, #1
 **	ret
 */
-TEST_UNIFORM_Z (subr_1_u64_x, svuint64_t,
+TEST_UNIFORM_Z (subr_1_u64_x_tied1, svuint64_t,
 		z0 = svsubr_n_u64_x (p0, z0, 1),
 		z0 = svsubr_x (p0, z0, 1))
 
 /*
-** subr_1_u64_x_prfx:
+** subr_1_u64_x_untied:
 **	movprfx	z0, z1
 **	subr	z0\.d, z0\.d, #1
 **	ret
 */
-TEST_UNIFORM_Z (subr_1_u64_x_prfx, svuint64_t,
+TEST_UNIFORM_Z (subr_1_u64_x_untied, svuint64_t,
 		z0 = svsubr_n_u64_x (p0, z1, 1),
 		z0 = svsubr_x (p0, z1, 1))
 
@@ -345,12 +345,12 @@ TEST_UNIFORM_Z (subr_65536_u64_x, svuint64_t,
 		z0 = svsubr_x (p0, z0, 65536))
 
 /*
-** subr_m1_u64_x:
+** subr_m1_u64_x_tied1:
 **	mov	(z[0-9]+)\.b, #-1
 **	sub	z0\.d, \1\.d, z0\.d
 **	ret
 */
-TEST_UNIFORM_Z (subr_m1_u64_x, svuint64_t,
+TEST_UNIFORM_Z (subr_m1_u64_x_tied1, svuint64_t,
 		z0 = svsubr_n_u64_x (p0, z0, -1),
 		z0 = svsubr_x (p0, z0, -1))
 
