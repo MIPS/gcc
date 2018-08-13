@@ -1579,6 +1579,7 @@ mips_insert_attributes (tree decl, tree *attributes)
 
       if (TREE_CODE (decl) == VAR_DECL
 	  && is_global_var (decl)
+	  && DECL_NAME (decl)
 	  && mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
 			     mips_sdata_opt_list))
 	{
