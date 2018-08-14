@@ -1,0 +1,16 @@
+2018-08-14  Yvan Roux  <yvan.roux@linaro.org>
+
+	* LINARO-VERSION: New file.
+	* configure.ac: Add Linaro version string.
+	* configure: Regenerate.
+	* Makefile.in (LINAROVER, LINAROVER_C, LINAROVER_S): Define.
+	(CFLAGS-cppbuiltin.o): Add LINAROVER macro definition.
+	(cppbuiltin.o): Depend on $(LINAROVER).
+	* cppbuiltin.c (parse_linarover): New.
+	(define_GNUC__): Define __LINARO_RELEASE__ and  __LINARO_SPIN__ macros.
+
+Copyright (C) 2018 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
