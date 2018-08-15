@@ -1,3 +1,190 @@
+2018-08-14  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport spectre v1 mitigation patches.
+	2018-08-06  John David Anglin  <danglin@gcc.gnu.org>
+	PR target/86785
+	* config/pa/pa.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	2018-08-06  Ulrich Weigand  <uweigand@de.ibm.com>
+	PR target/86807
+	* config/spu/spu.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	2018-08-03  Sandra Loosemore  <sandra@codesourcery.com>
+	PR target/86799
+	* config/nios2/nios2.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define.
+
+	2018-08-03  Jeff Law  <law@redhat.com>
+	PR target/86795
+	* config/mn10300/mn10300.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	2018-08-02  Jeff Law  <law@redhat.com>
+	PR target/86790
+	* config/m68k/m68k.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86784
+	* config/h8300/h8300.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	2018-08-02  Nick Clifton  <nickc@redhat.com>
+	PR target/86813
+	* config/stormy16/stormy16.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86810
+	* config/v850/v850.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86810
+	* config/v850/v850.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86803
+	* config/rx/rx.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86797
+	* config/msp430/msp430.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86791
+	* config/mcore/mcore.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86789
+	* config/m32r/m32r.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86787
+	* config/iq2000/iq2000.c (TARGET_HAVE_SPECULATION_SAFE_VALUE):
+	Define to speculation_safe_value_not_needed.
+
+	PR target/86782
+	* config/frv/frv.c (TARGET_HAVE_SPECULATION_SAFE_VALUE): Define to
+	speculation_safe_value_not_needed.
+
+	PR target/86781
+	* config/fr30/fr30.c (TARGET_HAVE_SPECULATION_SAFE_VALUE): Define
+	to speculation_safe_value_not_needed.
+
+	2018-08-01  Tom de Vries  <tdevries@suse.de>
+	PR target/86800
+	* config/nvptx/nvptx.c (TARGET_HAVE_SPECULATION_SAFE_VALUE): Define to
+	speculation_safe_value_not_needed.
+
+	2018-08-01  Richard Earnshaw  <rearnsha@arm.com>
+	* config/rs6000/rs6000.md (speculation_barrier): Renamed from
+	rs6000_speculation_barrier.
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Adjust for
+	new barrier pattern name.
+
+	2018-08-01  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/i386/i386.md (unspecv): Add UNSPECV_SPECULATION_BARRIER.
+	(speculation_barrier): New insn.
+
+	2018-07-31  Ian Lance Taylor  <iant@golang.org>
+	* targhooks.c (default_have_speculation_safe_value): Add
+	ATTRIBUTE_UNUSED.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* config/pdp11/pdp11.c (TARGET_HAVE_SPECULATION_SAFE_VALUE): Redefine
+	to speculation_safe_value_not_needed.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* targhooks.h (speculation_safe_value_not_needed): New prototype.
+	* targhooks.c (speculation_safe_value_not_needed): New function.
+	* target.def (have_speculation_safe_value): Update documentation.
+	* doc/tm.texi: Regenerated.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/aarch64/iterators.md (ALLI_TI): New iterator.
+	* config/aarch64/aarch64.md (despeculate_copy<ALLI_TI:mode>): New
+	expand.
+	(despeculate_copy<ALLI:mode>_insn): New insn.
+	(despeculate_copyti_insn): New insn.
+	(despeculate_simple<ALLI:mode>): New insn
+	(despeculate_simpleti): New insn.
+	* config/aarch64/aarch64.c (aarch64_speculation_safe_value): New
+	function.
+	(TARGET_SPECULATION_SAFE_VALUE): Redefine to
+	aarch64_speculation_safe_value.
+	(aarch64_print_operand): Handle const0_rtx in modifier 'H'.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/aarch64/aarch64-speculation.cc: New file.
+	* config/aarch64/aarch64-passes.def (pass_track_speculation): Add
+	before pass_reorder_blocks.
+	* config/aarch64/aarch64-protos.h (make_pass_track_speculation): Add
+	prototype.
+	* config/aarch64/aarch64.c (aarch64_conditional_register_usage): Fix
+	X14 and X15 when tracking speculation.
+	* config/aarch64/aarch64.md (register name constants): Add
+	SPECULATION_TRACKER_REGNUM and SPECULATION_SCRATCH_REGNUM.
+	(unspec): Add UNSPEC_SPECULATION_TRACKER.
+	(speculation_barrier): New insn attribute.
+	(cmp<mode>): Allow SP in comparisons.
+	(speculation_tracker): New insn.
+	(speculation_barrier): Add speculation_barrier attribute.
+	* config/aarch64/t-aarch64: Add make rule for aarch64-speculation.o.
+	* config.gcc (aarch64*-*-*): Add aarch64-speculation.o to extra_objs.
+	* doc/invoke.texi (AArch64 Options): Document -mtrack-speculation.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* config/aarch64/aarch64.md (cb<optab><mode>1): Disable when
+	aarch64_track_speculation is true.
+	(tb<optab><mode>1): Likewise.
+	* config/aarch64/aarch64.c (aarch64_split_compare_regs): Do not
+	generate CB[N]Z when tracking speculation.
+	(aarch64_split_compare_and_swap): Likewise.
+	(aarch64_split_atomic_op): Likewise.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* config/aarch64/aarch64.opt (mtrack-speculation): New target option.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* config/aarch64.md (unspecv): Add UNSPECV_SPECULAION_BARRIER.
+	(speculation_barrier): New insn.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* config/arm/unspecs.md (unspecv): Add VUNSPEC_SPECULATION_BARRIER.
+	* config/arm/arm.md (speculation_barrier): New expand.
+	(speculation_barrier_insn): New pattern.
+
+	2018-07-31  Richard Earnshaw  <rearnsha@arm.com>
+	* builtin-types.def (BT_FN_PTR_PTR_VAR): New function type.
+	(BT_FN_I1_I1_VAR, BT_FN_I2_I2_VAR, BT_FN_I4_I4_VAR): Likewise.
+	(BT_FN_I8_I8_VAR, BT_FN_I16_I16_VAR): Likewise.
+	* builtin-attrs.def (ATTR_NOVOPS_NOTHROW_LEAF_LIST): New attribute
+	list.
+	* builtins.def (BUILT_IN_SPECULATION_SAFE_VALUE_N): New builtin.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_PTR): New internal builtin.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_1): Likewise.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_2): Likewise.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_4): Likewise.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_8): Likewise.
+	(BUILT_IN_SPECULATION_SAFE_VALUE_16): Likewise.
+	* builtins.c (expand_speculation_safe_value): New function.
+	(expand_builtin): Call it.
+	* doc/cpp.texi: Document predefine __HAVE_SPECULATION_SAFE_VALUE.
+	* doc/extend.texi: Document __builtin_speculation_safe_value.
+	* doc/md.texi: Document "speculation_barrier" pattern.
+	* doc/tm.texi.in: Pull in TARGET_SPECULATION_SAFE_VALUE and
+	TARGET_HAVE_SPECULATION_SAFE_VALUE.
+	* doc/tm.texi: Regenerated.
+	* target.def (have_speculation_safe_value, speculation_safe_value): New
+	hooks.
+	* targhooks.c (default_have_speculation_safe_value): New function.
+	(default_speculation_safe_value): New function.
+	* targhooks.h (default_have_speculation_safe_value): Add prototype.
+	(default_speculation_safe_value): Add prototype.
+
 2018-08-14  Yvan Roux  <yvan.roux@linaro.org>
 
 	* LINARO-VERSION: New file.

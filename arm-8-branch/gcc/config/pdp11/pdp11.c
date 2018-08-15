@@ -251,6 +251,9 @@ static bool pdp11_scalar_mode_supported_p (scalar_mode);
 
 #undef  TARGET_CAN_CHANGE_MODE_CLASS
 #define TARGET_CAN_CHANGE_MODE_CLASS pdp11_can_change_mode_class
+
+#undef TARGET_HAVE_SPECULATION_SAFE_VALUE
+#define TARGET_HAVE_SPECULATION_SAFE_VALUE speculation_safe_value_not_needed
 
 /* A helper function to determine if REGNO should be saved in the
    current function's stack frame.  */
