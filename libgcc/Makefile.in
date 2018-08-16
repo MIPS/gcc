@@ -302,8 +302,13 @@ inst_slibdir = $(slibdir)$(MULTIOSSUBDIR)
 
 gcc_compile_bare = $(CC) $(INTERNAL_CFLAGS)
 compile_deps = -MT $@ -MD -MP -MF $(basename $@).dep
+ifeq ($(enable_shared),yes)
+gcc_compile = $(gcc_compile_bare) -o $@ $(compile_deps) -fno-pic
+gcc_s_compile = $(gcc_compile_bare) -o $@ $(compile_deps) -DSHARED
+else
 gcc_compile = $(gcc_compile_bare) -o $@ $(compile_deps)
 gcc_s_compile = $(gcc_compile) -DSHARED
+endif
 
 objects = $(filter %$(objext),$^)
 
