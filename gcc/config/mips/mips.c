@@ -26179,6 +26179,8 @@ mips_option_override (void)
 	       "-mabi=eabi");
       else if (!TARGET_NANOMIPS && !TARGET_ABICALLS)
 	error ("position-independent code requires %qs", "-mabicalls");
+      else if (TARGET_NANOMIPS && !TARGET_PCREL)
+	error ("position-independent code is incompatible with %qs", "-mno-pcrel");
     }
 
   if (TARGET_NANOMIPS && TARGET_ABICALLS)

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-march=32r6 -mno-pcrel -mno-pid" } */
+/* { dg-options "-march=32r6 -mno-pcrel -mno-pid -fno-pic" } */
 /* { dg-final { scan-assembler-not "\\\.module\tpid" } } */
 /* { dg-final { scan-assembler-not "\\\.module\tpcrel" } } */
 

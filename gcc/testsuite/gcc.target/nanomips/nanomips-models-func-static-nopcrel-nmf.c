@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-m32 -march=32r6 -mno-pcrel" } */
+/* { dg-options "-m32 -march=32r6 -mno-pcrel -fno-pic" } */
 /* { dg-skip-if "" { *-*-* } { "-O1" "-O2" "-O3" "-Os" } { "" } } */
 
 /* balc a_static */
