@@ -55,6 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 
 
 #undef LINK_SPEC
-#define LINK_SPEC "--relax " \
+#define LINK_SPEC "%{!mno-relax:--relax}"				\
   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LINK_SPEC,			\
 		       GNU_USER_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
