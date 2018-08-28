@@ -165,6 +165,8 @@ struct type_suffix_info {
 
   /* True if the suffix is for an integer type.  */
   unsigned int integer_p : 1;
+  /* True if the suffix is for an unsigned type.  */
+  unsigned int unsigned_p : 1;
 };
 
 /* Static information about a set of functions.  */
@@ -348,11 +350,15 @@ public:
 
 private:
   rtx expand_add (unsigned int);
+  rtx expand_max ();
+  rtx expand_min ();
   rtx expand_ptrue ();
   rtx expand_sub (bool);
 
+  rtx expand_signed_pred_op (rtx_code, rtx_code, int);
   rtx expand_via_unpred_direct_optab (optab, unsigned int);
   rtx expand_via_pred_direct_optab (optab, unsigned int, unsigned int);
+  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int);
   rtx expand_via_pred_x_insn (insn_code, unsigned int);
 
   bool try_negating_argument (unsigned int, machine_mode);
@@ -401,9 +407,10 @@ static const char *const pred_suffixes[NUM_PREDS + 1] = {
 static const type_suffix_info type_suffixes[NUM_TYPE_SUFFIXES + 1] = {
 #define DEF_SVE_TYPE_SUFFIX(NAME, ACLE_TYPE, BITS) \
   { "_" #NAME, VECTOR_TYPE_ ## ACLE_TYPE, BITS, BITS / BITS_PER_UNIT, \
-    #NAME[0] == 's' || #NAME[0] == 'u' },
+    #NAME[0] == 's' || #NAME[0] == 'u', \
+    #NAME[0] == 'u'},
 #include "aarch64-sve-builtins.def"
-  { "", NUM_VECTOR_TYPES, 0, 0, false }
+  { "", NUM_VECTOR_TYPES, 0, 0, false, false }
 };
 
 /* _b8 _b16 _b32 _b64.  */
@@ -800,6 +807,8 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
   switch (instance.func)
     {
     case FUNC_svadd:
+    case FUNC_svmax:
+    case FUNC_svmin:
     case FUNC_svsub:
     case FUNC_svsubr:
       if (type_suffixes[instance.types[0]].integer_p)
@@ -1222,6 +1231,8 @@ gimple_folder::fold ()
   switch (m_fi.func)
     {
     case FUNC_svadd:
+    case FUNC_svmax:
+    case FUNC_svmin:
     case FUNC_svsub:
     case FUNC_svsubr:
     case NUM_FUNCS:
@@ -1282,6 +1293,12 @@ function_expander::expand ()
     case FUNC_svadd:
       return expand_add (1);
 
+    case FUNC_svmax:
+      return expand_max ();
+
+    case FUNC_svmin:
+      return expand_min ();
+
     case FUNC_svptrue:
       return expand_ptrue ();
 
@@ -1316,6 +1333,20 @@ function_expander::expand_add (unsigned int merge_argno)
 	}
     }
   return expand_via_pred_direct_optab (cond_add_optab, 2, merge_argno);
+}
+
+/* Expand a call to svmax.  */
+rtx
+function_expander::expand_max ()
+{
+  return expand_signed_pred_op (SMAX, UMAX, UNSPEC_COND_FMAX);
+}
+
+/* Expand a call to svmmin.  */
+rtx
+function_expander::expand_min ()
+{
+  return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
 }
 
 /* Expand a call to svptrue.  */
@@ -1388,8 +1419,19 @@ function_expander::expand_via_pred_direct_optab (optab op, unsigned int nops,
 						 unsigned int merge_argno)
 {
   machine_mode mode = get_mode (0);
-  machine_mode pred_mode = get_pred_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
+  return expand_via_pred_insn (icode, nops, merge_argno);
+}
+
+/* Implement the call using instruction ICODE.  The instruction takes
+   NOPS input operand (not counting the predicate and the fallback value).
+   Merging forms use argument MERGE_ARGNO as the fallback value.  */
+rtx
+function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
+						 unsigned int merge_argno)
+{
+  machine_mode mode = get_mode (0);
+  machine_mode pred_mode = get_pred_mode (0);
 
   add_output_operand (mode);
   if (nops == 1 && m_fi.pred == PRED_m)
@@ -1433,14 +1475,58 @@ function_expander::expand_via_pred_x_insn (insn_code icode, unsigned int nops)
   /* Add a flag that indicates whether unpredicated instructions
      are allowed.  */
   rtx pred = m_ops[1].value;
-  if (FLOAT_MODE_P (mode)
-      && flag_trapping_math
-      && pred != CONST1_RTX (pred_mode))
-    add_integer_operand (SVE_FORBID_NEW_FAULTS);
-  else
-    add_integer_operand (SVE_ALLOW_NEW_FAULTS);
+  if (FLOAT_MODE_P (mode))
+    {
+      if (flag_trapping_math
+	  && pred != CONST1_RTX (pred_mode))
+	add_integer_operand (SVE_FORBID_NEW_FAULTS);
+      else
+	add_integer_operand (SVE_ALLOW_NEW_FAULTS);
+    }
 
   return generate_insn (icode);
+}
+
+/* Implement the call using an @aarch64_cond instruction for _x
+   predication and a @cond instruction for _z and _m predication.
+   The integer instructions are parameterized by an rtx_code while
+   the floating-point instructions are parameterized by an unspec code.
+   CODE_FOR_SINT is the rtx_code for signed integer operations,
+   CODE_FOR_UINT is the rtx_code for unsigned integer operations
+   and UNSPEC_COND is the unspec code for floating-point operations.  */
+rtx
+function_expander::expand_signed_pred_op (rtx_code code_for_sint,
+					  rtx_code code_for_uint,
+					  int unspec_cond)
+{
+  insn_code icode;
+
+  if (m_fi.pred == PRED_x)
+    {
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	{
+	  if (type_suffixes[m_fi.types[0]].unsigned_p)
+	    icode = code_for_aarch64_pred (code_for_uint, get_mode (0));
+	  else
+	    icode = code_for_aarch64_pred (code_for_sint, get_mode (0));
+	}
+      else
+	icode = code_for_aarch64_pred (unspec_cond, get_mode (0));
+      return expand_via_pred_x_insn (icode, 2);
+    }
+  else
+    {
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	{
+	  if (type_suffixes[m_fi.types[0]].unsigned_p)
+	    icode = code_for_cond (code_for_uint, get_mode (0));
+	  else
+	    icode = code_for_cond (code_for_sint, get_mode (0));
+	}
+      else
+	icode = code_for_cond (unspec_cond, get_mode (0));
+      return expand_via_pred_insn (icode, 2, 1);
+    }
 }
 
 /* Return true if argument I is a constant argument that can be negated
