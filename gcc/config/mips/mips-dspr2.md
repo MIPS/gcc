@@ -197,27 +197,27 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpa_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPA_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpa.w.ph\t%q0,%z2,%z3"
+  "dpa.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dps_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPS_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dps.w.ph\t%q0,%z2,%z3"
+  "dps.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mulv2hi3"
@@ -285,15 +285,15 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_mulsa_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_MULSA_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "mulsa.w.ph\t%q0,%z2,%z3"
+  "mulsa.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_precr_qb_ph"
@@ -531,85 +531,85 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpax_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPAX_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpax.w.ph\t%q0,%z2,%z3"
+  "dpax.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpsx_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPSX_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpsx.w.ph\t%q0,%z2,%z3"
+  "dpsx.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpaqx_s_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPAQX_S_W_PH))
    (set (reg:CCDSP CCDSP_OU_REGNUM)
-	(unspec:CCDSP [(match_dup 1) (match_dup 2) (match_dup 3)]
+	(unspec:CCDSP [(match_dup 0) (match_dup 1) (match_dup 2)]
 		      UNSPEC_DPAQX_S_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpaqx_s.w.ph\t%q0,%z2,%z3"
+  "dpaqx_s.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpaqx_sa_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPAQX_SA_W_PH))
    (set (reg:CCDSP CCDSP_OU_REGNUM)
-	(unspec:CCDSP [(match_dup 1) (match_dup 2) (match_dup 3)]
+	(unspec:CCDSP [(match_dup 0) (match_dup 1) (match_dup 2)]
 		      UNSPEC_DPAQX_SA_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpaqx_sa.w.ph\t%q0,%z2,%z3"
+  "dpaqx_sa.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmacsat")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpsqx_s_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPSQX_S_W_PH))
    (set (reg:CCDSP CCDSP_OU_REGNUM)
-	(unspec:CCDSP [(match_dup 1) (match_dup 2) (match_dup 3)]
+	(unspec:CCDSP [(match_dup 0) (match_dup 1) (match_dup 2)]
 		      UNSPEC_DPSQX_S_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpsqx_s.w.ph\t%q0,%z2,%z3"
+  "dpsqx_s.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmac")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
 
 (define_insn "mips_dpsqx_sa_w_ph"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "0")
-		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")
-		    (match_operand:V2HI 3 "reg_or_0_operand" "dYG")]
+  [(set (match_operand:DI 0 "register_operand" "+a")
+	(unspec:DI [(match_dup 0)
+		    (match_operand:V2HI 1 "reg_or_0_operand" "dYG")
+		    (match_operand:V2HI 2 "reg_or_0_operand" "dYG")]
 		   UNSPEC_DPSQX_SA_W_PH))
    (set (reg:CCDSP CCDSP_OU_REGNUM)
-	(unspec:CCDSP [(match_dup 1) (match_dup 2) (match_dup 3)]
+	(unspec:CCDSP [(match_dup 0) (match_dup 1) (match_dup 2)]
 		      UNSPEC_DPSQX_SA_W_PH))]
   "ISA_HAS_DSPR2 && !TARGET_64BIT"
-  "dpsqx_sa.w.ph\t%q0,%z2,%z3"
+  "dpsqx_sa.w.ph\t%q0,%z1,%z2"
   [(set_attr "type"	"dspmacsat")
-   (set_attr "accum_in" "1")
+   (set_attr "accum_in" "0")
    (set_attr "mode"	"SI")])
