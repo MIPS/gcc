@@ -274,7 +274,11 @@ enum mips_builtin_type {
   MIPS_BUILTIN_MSA_TEST_BRANCH,
 
   /* For generating bposge32 branch instructions in MIPS32 DSP ASE.  */
-  MIPS_BUILTIN_BPOSGE32
+  MIPS_BUILTIN_BPOSGE32,
+
+  /* For generating dspmac* type instructions in MIPS32 DSP ASE.
+     Operand 0 of these instructions serves as both input and output.  */
+  MIPS_BUILTIN_DSPMAC
 };
 
 /* Invoke MACRO (COND) for each C.cond.fmt condition.  */
@@ -16950,6 +16954,12 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
   MIPS_BUILTIN (bposge, f, "bposge" #VALUE,				\
 		MIPS_BUILTIN_BPOSGE ## VALUE, MIPS_SI_FTYPE_VOID, AVAIL)
 
+/* Define __builtin_mips_<INSN>, which is a MIPS_BUILTIN_DSPMAC function
+   mapped to instruction CODE_FOR_mips_<INSN>,  FUNCTION_TYPE and AVAIL
+   are as for MIPS_BUILTIN.  */
+#define DSPMAC_BUILTIN(INSN, FUNCTION_TYPE, AVAIL)                      \
+  MIPS_BUILTIN (INSN, f, #INSN, MIPS_BUILTIN_DSPMAC, FUNCTION_TYPE, AVAIL)
+
 /* Define a Loongson MIPS_BUILTIN_DIRECT function __builtin_loongson_<FN_NAME>
    for instruction CODE_FOR_loongson_<INSN>.  FUNCTION_TYPE is a
    builtin_description field.  */
@@ -17383,19 +17393,20 @@ static const struct mips_builtin_description mips_builtins[] = {
   DIRECT_BUILTIN (subqh_r_w, MIPS_SI_FTYPE_SI_SI, dspr2),
 
   /* Built-in functions for the DSP ASE (32-bit only).  */
-  DIRECT_BUILTIN (dpau_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
-  DIRECT_BUILTIN (dpau_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
-  DIRECT_BUILTIN (dpsu_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
-  DIRECT_BUILTIN (dpsu_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
-  DIRECT_BUILTIN (dpaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (dpsq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (mulsaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (dpaq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, dsp_32),
-  DIRECT_BUILTIN (dpsq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, dsp_32),
-  DIRECT_BUILTIN (maq_s_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (maq_s_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (maq_sa_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
-  DIRECT_BUILTIN (maq_sa_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (dpau_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
+  DSPMAC_BUILTIN (dpau_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
+  DSPMAC_BUILTIN (dpsu_h_qbl, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
+  DSPMAC_BUILTIN (dpsu_h_qbr, MIPS_DI_FTYPE_DI_V4QI_V4QI, dsp_32),
+  DSPMAC_BUILTIN (dpaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (dpsq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (mulsaq_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (dpaq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, dsp_32),
+  DSPMAC_BUILTIN (dpsq_sa_l_w, MIPS_DI_FTYPE_DI_SI_SI, dsp_32),
+  DSPMAC_BUILTIN (maq_s_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (maq_s_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (maq_sa_w_phl, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+  DSPMAC_BUILTIN (maq_sa_w_phr, MIPS_DI_FTYPE_DI_V2HI_V2HI, dsp_32),
+
   DIRECT_BUILTIN (extr_w, MIPS_SI_FTYPE_DI_SI, dsp_32),
   DIRECT_BUILTIN (extr_r_w, MIPS_SI_FTYPE_DI_SI, dsp_32),
   DIRECT_BUILTIN (extr_rs_w, MIPS_SI_FTYPE_DI_SI, dsp_32),
@@ -17415,15 +17426,15 @@ static const struct mips_builtin_description mips_builtins[] = {
   DIRECT_BUILTIN (ldx, MIPS_DI_FTYPE_POINTER_SI, dsp_64),
 
   /* The following are for the MIPS DSP ASE REV 2 (32-bit only).  */
-  DIRECT_BUILTIN (dpa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dps_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (mulsa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpax_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpsx_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpaqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpaqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpsqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
-  DIRECT_BUILTIN (dpsqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dps_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (mulsa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpax_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpsx_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpaqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpaqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpsqx_s_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
+  DSPMAC_BUILTIN (dpsqx_sa_w_ph, MIPS_DI_FTYPE_DI_V2HI_V2HI, dspr2_32),
 
   /* Builtin functions for ST Microelectronics Loongson-2E/2F cores.  */
   LOONGSON_BUILTIN (packsswh, MIPS_V4HI_FTYPE_V2SI_V2SI),
@@ -18797,6 +18808,32 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
 				       const1_rtx, const0_rtx);
 }
 
+
+/* Expand a __builtin_mips_dp* -like built-in function. EXP is the CALL_EXPR
+   that calls the function and ICODE is the code of the associated .md pattern.
+   TARGET, if nonnull, suggests a good place to put the result.  */
+
+static rtx
+mips_expand_builtin_dspmac (enum insn_code icode, rtx target ATTRIBUTE_UNUSED,
+                            tree exp)
+{
+  struct expand_operand ops[MAX_RECOG_OPERANDS];
+  int argno;
+
+  /* Map the arguments to the other operands.  */
+  gcc_assert (call_expr_nargs (exp)
+              == insn_data[icode].n_generator_args);
+
+  for (argno = 0; argno < call_expr_nargs (exp); argno++)
+    mips_prepare_builtin_arg (&ops[argno], exp, argno);
+
+  /* Operand 0 is input/output, so we perform a copy to a new reg.
+     Expand will later copy this reg to the target if needed.  */
+  ops[0].value = copy_to_mode_reg(ops[0].mode, ops[0].value);
+
+  return mips_expand_builtin_insn (icode, argno, ops, true);
+}
+
 /* Implement TARGET_EXPAND_BUILTIN.  */
 
 static rtx
@@ -18846,6 +18883,9 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case MIPS_BUILTIN_BPOSGE32:
       return mips_expand_builtin_bposge (d->builtin_type, target);
+
+    case MIPS_BUILTIN_DSPMAC:
+      return mips_expand_builtin_dspmac (d->icode, target, exp);
     }
   gcc_unreachable ();
 }
