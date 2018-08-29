@@ -195,6 +195,7 @@
     UNSPEC_CLASTB
     UNSPEC_FADDA
     UNSPEC_REV_SUBREG
+    UNSPEC_ASRD
 ])
 
 (define_c_enum "unspecv" [

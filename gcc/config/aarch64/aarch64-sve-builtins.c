@@ -96,7 +96,13 @@ enum function_shape {
 
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
-  SHAPE_binary_opt_n
+  SHAPE_binary_opt_n,
+
+  /* sv<t0>_t svfoo[_n_t0])(sv<t0>_t, uint64_t)
+
+     The final argument must be an integer constant expression in the
+     range [1, <t0>_BITS].  */
+  SHAPE_shift_right_imm
 };
 
 /* Classifies an operation into "modes"; for example, to distinguish
@@ -258,6 +264,7 @@ private:
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_000 (const function_instance &, vec<tree> &);
   void sig_n_000 (const function_instance &, vec<tree> &);
+  void sig_n_00i (const function_instance &, vec<tree> &);
 
   void apply_predication (const function_instance &, vec<tree> &);
 
@@ -290,17 +297,22 @@ private:
 class function_resolver
 {
 public:
-  function_resolver (location_t, registered_function &, vec<tree, va_gc> &);
+  function_resolver (location_t, const registered_function &,
+		     vec<tree, va_gc> &);
   tree resolve ();
 
 private:
   tree resolve_uniform (unsigned int);
+  tree resolve_uniform_imm (unsigned int, unsigned int);
 
+  bool check_first_vector_argument (unsigned int, unsigned int &,
+				    unsigned int &, vector_type &);
   bool check_num_arguments (unsigned int);
   bool check_argument (unsigned int, vector_type);
   vector_type require_vector_type (unsigned int);
   bool require_matching_type (unsigned int, vector_type);
   bool scalar_argument_p (unsigned int);
+  bool require_integer_immediate (unsigned int);
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix,
 		     type_suffix = NUM_TYPE_SUFFIXES);
@@ -312,12 +324,45 @@ private:
   location_t m_location;
 
   /* The overloaded function.  */
-  registered_function &m_rfn;
+  const registered_function &m_rfn;
 
   /* The arguments to the overloaded function.  */
   vec<tree, va_gc> &m_arglist;
 
   /* The static table entry for the overloaded function.  */
+  const function_group &m_group;
+};
+
+/* A class for checking that the semantic constraints on a function call are
+   satisfied, such as arguments being integer constant expressions with
+   a particular range.  */
+class function_checker
+{
+public:
+  function_checker (location_t, const function_instance &, tree,
+		    unsigned int, tree *);
+  bool check ();
+
+private:
+  bool check_shift_right_imm ();
+
+  bool require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
+
+  /* The location of the call.  */
+  location_t m_location;
+
+  /* The non-overloaded function being called.  */
+  const function_instance &m_fi;
+
+  /* The function that the user called (which might be an overloaded form
+     of M_FI).  */
+  tree m_decl;
+
+  /* The arguments to the function.  */
+  unsigned int m_nargs;
+  tree *m_args;
+
+  /* The static table entry for the function.  */
   const function_group &m_group;
 };
 
@@ -350,6 +395,7 @@ public:
 
 private:
   rtx expand_add (unsigned int);
+  rtx expand_asrd ();
   rtx expand_max ();
   rtx expand_min ();
   rtx expand_ptrue ();
@@ -360,6 +406,9 @@ private:
   rtx expand_via_pred_direct_optab (optab, unsigned int, unsigned int);
   rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int);
   rtx expand_via_pred_x_insn (insn_code, unsigned int);
+  rtx expand_pred_shift_right_imm (insn_code);
+
+  void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
 
   bool try_negating_argument (unsigned int, machine_mode);
 
@@ -372,10 +421,14 @@ private:
   rtx generate_insn (insn_code);
 
   /* The function being called.  */
+  const registered_function &m_rfn;
   const function_instance &m_fi;
 
   /* The function call expression.  */
   tree m_exp;
+
+  /* The location of the call.  */
+  location_t m_location;
 
   /* Where the result should go, if convenient.  */
   rtx m_target;
@@ -507,6 +560,28 @@ find_vector_type (const_tree type)
   return NUM_VECTOR_TYPES;
 }
 
+/* Report that LOCATION has a call to DECL in which argument ARGNO
+   was not an integer constant expression.  */
+static void
+report_non_ice (location_t location, tree decl, unsigned int argno)
+{
+  error_at (location, "argument %d of %qE must be an integer constant"
+	    " expression", argno + 1, decl);
+}
+
+/* Report that LOCATION has a call to DECL in which argument ARGNO has
+   the value ACTUAL, whereas the function requires a value in the range
+   [MIN, MAX].  */
+static void
+report_out_of_range (location_t location, tree decl, unsigned int argno,
+		     HOST_WIDE_INT actual, HOST_WIDE_INT min,
+		     HOST_WIDE_INT max)
+{
+  error_at (location, "passing %wd to argument %d of %qE, which expects"
+	    " a value in the range [%wd, %wd]", actual, argno + 1, decl,
+	    min, max);
+}
+
 inline
 function_instance::function_instance (function func_in,
 				      function_mode mode_in,
@@ -613,6 +688,11 @@ arm_sve_h_builder::build (const function_group &group)
       /* No overloaded functions here.  */
       build_all (&arm_sve_h_builder::sig_inherent, group, MODE_none);
       break;
+
+    case SHAPE_shift_right_imm:
+      add_overloaded_functions (group, MODE_n);
+      build_all (&arm_sve_h_builder::sig_n_00i, group, MODE_n);
+      break;
     }
 }
 
@@ -666,6 +746,17 @@ arm_sve_h_builder::sig_n_000 (const function_instance &instance,
   for (unsigned int i = 0; i < 2; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_n_t0](sv<t0>_t, uint64_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_n_00i (const function_instance &instance,
+			      vec<tree> &types)
+{
+  for (unsigned int i = 0; i < 2; ++i)
+    types.quick_push (instance.vector_type (0));
+  types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
 /* If INSTANCE has a governing predicate, add it to the type signature
@@ -807,6 +898,7 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
   switch (instance.func)
     {
     case FUNC_svadd:
+    case FUNC_svasrd:
     case FUNC_svmax:
     case FUNC_svmin:
     case FUNC_svsub:
@@ -848,6 +940,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_inherent:
       return 1;
     case SHAPE_binary_opt_n:
+    case SHAPE_shift_right_imm:
       return 0;
     }
   gcc_unreachable ();
@@ -898,7 +991,7 @@ arm_sve_h_builder::finish_name ()
 }
 
 function_resolver::function_resolver (location_t location,
-				      registered_function &rfn,
+				      const registered_function &rfn,
 				      vec<tree, va_gc> &arglist)
   : m_location (location), m_rfn (rfn), m_arglist (arglist),
     m_group (function_groups[rfn.instance.func])
@@ -914,6 +1007,8 @@ function_resolver::resolve ()
     {
     case SHAPE_binary_opt_n:
       return resolve_uniform (2);
+    case SHAPE_shift_right_imm:
+      return resolve_uniform_imm (2, 1);
     case SHAPE_inherent:
       break;
     }
@@ -928,37 +1023,88 @@ tree
 function_resolver::resolve_uniform (unsigned int nops)
 {
   /* Check that we have the right number of arguments.  */
-  unsigned int full_nops = nops;
-  if (m_rfn.instance.pred != PRED_none)
-    full_nops += 1;
-  if (!check_num_arguments (full_nops))
-    return error_mark_node;
-
-  unsigned int i = 0;
-
-  /* Check the predicate argument.  */
-  if (m_rfn.instance.pred != PRED_none)
-    {
-      if (!check_argument (i, VECTOR_TYPE_svbool_t))
-	return error_mark_node;
-      i += 1;
-    }
-
-  /* The next argument is always a vector.  */
-  vector_type type = require_vector_type (i);
-  if (type == NUM_VECTOR_TYPES)
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (nops, i, nargs, type))
     return error_mark_node;
 
   /* Handle subsequent arguments.  */
-  for (; i < full_nops; ++i)
+  for (; i < nargs; ++i)
     {
       /* Allow the final argument to be scalar, if an _n form exists.  */
-      if (i == full_nops - 1 && scalar_argument_p (i))
+      if (i == nargs - 1 && scalar_argument_p (i))
 	return require_n_form (get_type_suffix (type));
       if (!require_matching_type (i, type))
 	return error_mark_node;
     }
   return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Like resolve_uniform, except that the final NIMM arguments have
+   type uint64_t and must be integer constant expressions.  */
+tree
+function_resolver::resolve_uniform_imm (unsigned int nops, unsigned int nimm)
+{
+  /* Check that we have the right number of arguments.  Also check the
+     first vector argument and governing predicate.  */
+  unsigned int i, nargs;
+  vector_type type;
+  if (!check_first_vector_argument (nops, i, nargs, type))
+    return error_mark_node;
+
+  /* Handle subsequent vector arguments.  */
+  for (; i < nargs - nimm; ++i)
+    if (!require_matching_type (i, type))
+      return error_mark_node;
+
+  /* Handle the final immediate arguments.  */
+  for (; i < nargs; ++i)
+    if (!require_integer_immediate (i))
+      return error_mark_node;
+
+  return require_form (m_rfn.instance.mode, get_type_suffix (type));
+}
+
+/* Check that the function is passed NOPS arguments plus the governing
+   predicate (if applicable) and that the first argument besides the
+   governing predicate is a vector.  Return true if so, otherwise
+   report a suitable error.
+
+   When returning true:
+   - set I to the number of the first unchecked argument (past the first
+     vector and past any governing predicate).
+   - set NARGS to the number of arguments including any governing
+     predicate.
+   - set TYPE to the type of the vector argument.  */
+bool
+function_resolver::check_first_vector_argument (unsigned int nops,
+						unsigned int &i,
+						unsigned int &nargs,
+						vector_type &type)
+{
+  i = 0;
+  nargs = nops;
+  type = NUM_VECTOR_TYPES;
+
+  if (m_rfn.instance.pred != PRED_none)
+    nargs += 1;
+  if (!check_num_arguments (nargs))
+    return false;
+
+  /* Check the predicate argument.  */
+  if (m_rfn.instance.pred != PRED_none)
+    {
+      if (!check_argument (i, VECTOR_TYPE_svbool_t))
+	return false;
+      i += 1;
+    }
+
+  /* The next argument is always a vector.  */
+  type = require_vector_type (i);
+  if (type == NUM_VECTOR_TYPES)
+    return false;
+
+  return true;
 }
 
 /* Require the function to have exactly EXPECTED arguments.  Return true
@@ -1035,6 +1181,20 @@ function_resolver::scalar_argument_p (unsigned int i)
   return INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type);
 }
 
+/* Check that argument I has a suitable form for an integer constant
+   expression.  function_checker checks whether the argument is
+   actually constant and has a suitable range.  */
+bool
+function_resolver::require_integer_immediate (unsigned int i)
+{
+  if (!scalar_argument_p (i))
+    {
+      report_non_ice (m_location, m_rfn.decl, i);
+      return false;
+    }
+  return true;
+}
+
 /* Return the type of argument I, or error_mark_node if it isn't
    well-formed.  */
 tree
@@ -1101,10 +1261,70 @@ function_resolver::lookup_form (function_mode mode, type_suffix type0,
 {
   type_suffix_pair types = { type0, type1 };
   function_instance instance (m_rfn.instance.func, mode, types,
-					  m_rfn.instance.pred);
+			      m_rfn.instance.pred);
   registered_function *rfn
     = function_table->find_with_hash (instance, instance.hash ());
   return rfn ? rfn->decl : NULL_TREE;
+}
+
+function_checker::function_checker (location_t location,
+				    const function_instance &fi, tree decl,
+				    unsigned int nargs, tree *args)
+  : m_location (location), m_fi (fi), m_decl (decl), m_nargs (nargs),
+    m_args (args), m_group (function_groups[m_fi.func])
+{
+}
+
+/* Perform semantic checks on the call.  Return true if the call is valid,
+   otherwise report a suitable error.  */
+bool
+function_checker::check ()
+{
+  switch (m_group.shape)
+    {
+    case SHAPE_shift_right_imm:
+      return check_shift_right_imm ();
+
+    case SHAPE_inherent:
+    case SHAPE_binary_opt_n:
+      return true;
+    }
+  gcc_unreachable ();
+}
+
+/* Check a SHAPE_shift_right_imm call.  */
+bool
+function_checker::check_shift_right_imm ()
+{
+  unsigned int bits = type_suffixes[m_fi.types[0]].elem_bits;
+  return require_immediate_range (2, 1, bits);
+}
+
+/* Check that argument ARGNO is an integer constant expression in the
+   range [MIN, MAX].  */
+bool
+function_checker::require_immediate_range (unsigned int argno,
+					   HOST_WIDE_INT min,
+					   HOST_WIDE_INT max)
+{
+  if (m_nargs <= argno)
+    return true;
+
+  tree arg = m_args[argno];
+  if (!tree_fits_shwi_p (arg))
+    {
+      report_non_ice (m_location, m_decl, argno);
+      return false;
+    }
+
+  HOST_WIDE_INT actual = tree_to_shwi (arg);
+  if (!IN_RANGE (actual, min, max))
+    {
+      report_out_of_range (m_location, m_decl, argno, actual, min, max);
+      return false;
+    }
+
+  return true;
 }
 
 /* Register the built-in SVE ABI types, such as __SVBool_t.  */
@@ -1190,13 +1410,10 @@ builtin_decl (unsigned int code, bool)
   return (*registered_functions)[code]->decl;
 }
 
-/* Check a call to the SVE function with subcode CODE.  The call occurs
-   at location LOCATION and has the arguments given by ARGLIST.
-
-   Perform any extra semantic checks, such as testing for integer constant
-   expressions.  If we're implementing manual overloading and the
-   function is overloaded, attempt to determine the corresponding
-   non-overloaded function.
+/* If we're implementing manual overloading, check whether the SVE
+   function with subcode CODE is overloaded, and if so attempt to
+   determine the corresponding non-overloaded function.  The call
+   occurs at location LOCATION and has the arguments given by ARGLIST.
 
    If the call is erroneous, report an appropriate error and return
    error_mark_node.  Otherwise, if the function is overloaded, return
@@ -1215,6 +1432,23 @@ resolve_overloaded_builtin (location_t location, unsigned int code,
   return NULL_TREE;
 }
 
+/* Perform any semantic checks needed for a call to the SVE function with
+   subcode CODE, such as testing for integer constant expressions.
+   The call occurs at location LOCATION and has NARGS arguments.
+   ARGS gives the value of each argument and ARG_LOCATION gives
+   their location.  FNDECL is the original function decl, before
+   overload resolution.
+
+   Return true if the call is valid, otherwise report a suitable error.  */
+bool
+check_builtin_call (location_t location, vec<location_t>, unsigned int code,
+		    tree fndecl, unsigned int nargs, tree *args)
+{
+  registered_function &rfn = *(*registered_functions)[code];
+  return function_checker (location, rfn.instance, fndecl,
+			   nargs, args).check ();
+}
+
 /* Construct a folder for CALL, which calls the SVE function with
    subcode CODE.  */
 gimple_folder::gimple_folder (unsigned int code, gcall *call)
@@ -1231,6 +1465,7 @@ gimple_folder::fold ()
   switch (m_fi.func)
     {
     case FUNC_svadd:
+    case FUNC_svasrd:
     case FUNC_svmax:
     case FUNC_svmin:
     case FUNC_svsub:
@@ -1274,8 +1509,9 @@ gimple_fold_builtin (unsigned int code, gcall *stmt)
    EXP is the call expression and TARGET is the preferred location for
    the result.  */
 function_expander::function_expander (unsigned int code, tree exp, rtx target)
-  : m_fi ((*registered_functions)[code]->instance),
-    m_exp (exp), m_target (target)
+  : m_rfn (*(*registered_functions)[code]),
+    m_fi (m_rfn.instance),
+    m_exp (exp), m_location (EXPR_LOCATION (exp)), m_target (target)
 {
 }
 
@@ -1292,6 +1528,9 @@ function_expander::expand ()
     {
     case FUNC_svadd:
       return expand_add (1);
+
+    case FUNC_svasrd:
+      return expand_asrd ();
 
     case FUNC_svmax:
       return expand_max ();
@@ -1333,6 +1572,13 @@ function_expander::expand_add (unsigned int merge_argno)
 	}
     }
   return expand_via_pred_direct_optab (cond_add_optab, 2, merge_argno);
+}
+
+/* Expand a call to svasrd.  */
+rtx
+function_expander::expand_asrd ()
+{
+  return expand_pred_shift_right_imm (code_for_cond_asrd (get_mode (0)));
 }
 
 /* Expand a call to svmax.  */
@@ -1428,7 +1674,7 @@ function_expander::expand_via_pred_direct_optab (optab op, unsigned int nops,
    Merging forms use argument MERGE_ARGNO as the fallback value.  */
 rtx
 function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
-						 unsigned int merge_argno)
+					 unsigned int merge_argno)
 {
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
@@ -1527,6 +1773,36 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	icode = code_for_cond (unspec_cond, get_mode (0));
       return expand_via_pred_insn (icode, 2, 1);
     }
+}
+
+/* Expand a call to a SHAPE_shift_right_imm function using predicated
+   instruction ICODE, which has the same operand order as conditional
+   optabs like cond_add_optab.  */
+rtx
+function_expander::expand_pred_shift_right_imm (insn_code icode)
+{
+  require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
+  return expand_via_pred_insn (icode, 2, 1);
+}
+
+/* Require that argument ARGNO is a constant integer in the range
+   [MIN, MAX].  Report an appropriate error if it isn't and set
+   the argument to a safe in-range value.  */
+void
+function_expander::require_immediate_range (unsigned int argno,
+					    HOST_WIDE_INT min,
+					    HOST_WIDE_INT max)
+{
+  if (!CONST_INT_P (m_args[argno]))
+    report_non_ice (m_location, m_rfn.decl, argno);
+  else
+    {
+      HOST_WIDE_INT actual = INTVAL (m_args[argno]);
+      if (IN_RANGE (actual, min, max))
+	return;
+      report_out_of_range (m_location, m_rfn.decl, argno, actual, min, max);
+    }
+  m_args[argno] = GEN_INT (min);
 }
 
 /* Return true if argument I is a constant argument that can be negated

@@ -61,6 +61,7 @@ DEF_SVE_TYPE_SUFFIX (u64, svuint64_t, 64)
 
 /* List of functions, in alphabetical order.  */
 DEF_SVE_FUNCTION (svadd, binary_opt_n, all_data, mxz)
+DEF_SVE_FUNCTION (svasrd, shift_right_imm, all_signed, mxz)
 DEF_SVE_FUNCTION (svmax, binary_opt_n, all_data, mxz)
 DEF_SVE_FUNCTION (svmin, binary_opt_n, all_data, mxz)
 DEF_SVE_FUNCTION (svptrue, inherent, all_pred, none)

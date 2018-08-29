@@ -5749,16 +5749,24 @@ builtin_function_validate_nargs (location_t loc, tree fndecl, int nargs,
 /* Verifies the NARGS arguments ARGS to the builtin function FNDECL.
    Returns false if there was an error, otherwise true.  LOC is the
    location of the function; ARG_LOC is a vector of locations of the
-   arguments.  */
+   arguments.  If FNDECL is the result of resolving an overloaded
+   target built-in, ORIG_FNDECL is the original function decl,
+   otherwise it is null.  */
 
 bool
 check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
-				  tree fndecl, int nargs, tree *args)
+				  tree fndecl, tree orig_fndecl,
+				  int nargs, tree *args)
 {
-  if (!DECL_BUILT_IN (fndecl)
-      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+  if (!DECL_BUILT_IN (fndecl))
     return true;
 
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return (!targetm.check_builtin_call
+	    || targetm.check_builtin_call (loc, arg_loc, fndecl,
+					   orig_fndecl, nargs, args));
+
+  gcc_assert (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL);
   switch (DECL_FUNCTION_CODE (fndecl))
     {
     case BUILT_IN_ALLOCA_WITH_ALIGN_AND_MAX:

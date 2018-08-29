@@ -1995,6 +1995,52 @@
   "#"
 )
 
+;; Predicated ASRD.
+(define_expand "@cond_asrd<mode>"
+  [(set (match_operand:SVE_I 0 "register_operand")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand")
+	   (unspec:SVE_I
+	     [(match_operand:SVE_I 2 "register_operand")
+	      (match_operand:SVE_I 3 "aarch64_simd_rshift_imm")]
+	     UNSPEC_ASRD)
+	   (match_operand:SVE_I 4 "aarch64_simd_reg_or_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+)
+
+;; Predicated ASRD with select matching the first input.
+(define_insn "*cond_asrd<mode>_2"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w, ?&w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (unspec:SVE_I
+	     [(match_operand:SVE_I 2 "register_operand" "0, w")
+	      (match_operand:SVE_I 3 "aarch64_simd_rshift_imm")]
+	     UNSPEC_ASRD)
+	   (match_dup 2)]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "@
+   asrd\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3
+   movprfx\t%0, %2\;asrd\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3"
+  [(set_attr "movprfx" "*,yes")])
+
+;; Predicated ASRD with select matching zero.
+(define_insn "*cond_asrd<mode>_z"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (unspec:SVE_I
+	     [(match_operand:SVE_I 2 "register_operand" "w")
+	      (match_operand:SVE_I 3 "aarch64_simd_rshift_imm")]
+	     UNSPEC_ASRD)
+	   (match_operand:SVE_I 4 "aarch64_simd_imm_zero")]
+	  UNSPEC_SEL))]
+  "TARGET_SVE"
+  "movprfx\t%0.<Vetype>, %1/z, %2.<Vetype>\;asrd\t%0.<Vetype>, %1/m, %0.<Vetype>, #%3"
+  [(set_attr "movprfx" "yes")])
+
 (define_insn "*cond_<optab><mode>_any"
   [(set (match_operand:SVE_SDI 0 "register_operand" "=&w")
 	(unspec:SVE_SDI
