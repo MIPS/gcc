@@ -48,8 +48,10 @@ if { ![string equal $sve_flags ""] || [aarch64_sve_bits] == 0 } {
 }
 
 global gcc_runtest_parallelize_limit_minor
-set old_limit_minor $gcc_runtest_parallelize_limit_minor
-set gcc_runtest_parallelize_limit_minor 1
+if { [info exists gcc_runtest_parallelize_limit_minor] } {
+    set old_limit_minor $gcc_runtest_parallelize_limit_minor
+    set gcc_runtest_parallelize_limit_minor 1
+}
 
 torture-init
 set-torture-options {
@@ -76,7 +78,9 @@ gcc-dg-runtest [lsort $files] \
 
 torture-finish
 
-set gcc_runtest_parallelize_limit_minor $old_limit_minor
+if { [info exists gcc_runtest_parallelize_limit_minor] } {
+    set gcc_runtest_parallelize_limit_minor $old_limit_minor
+}
 
 # All done.
 dg-finish
