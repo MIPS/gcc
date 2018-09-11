@@ -760,6 +760,10 @@ extern bool done_lexing;
 #define COMPLETE_OR_VOID_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (NODE) || VOID_TYPE_P (NODE))
 
+/* Nonzero if this type is complete or is an array with unspecified bound.  */
+#define COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(NODE) \
+  (COMPLETE_TYPE_P (TREE_CODE (NODE) == ARRAY_TYPE ? TREE_TYPE (NODE) : (NODE)))
+
 struct visibility_flags
 {
   unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
