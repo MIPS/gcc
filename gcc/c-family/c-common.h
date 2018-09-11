@@ -756,6 +756,10 @@ extern bool done_lexing;
 #define C_TYPE_OBJECT_OR_INCOMPLETE_P(type) \
   (!C_TYPE_FUNCTION_P (type))
 
+/* Nonzero if this type is complete or is cv void.  */
+#define COMPLETE_OR_VOID_TYPE_P(NODE) \
+  (COMPLETE_TYPE_P (NODE) || VOID_TYPE_P (NODE))
+
 struct visibility_flags
 {
   unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
