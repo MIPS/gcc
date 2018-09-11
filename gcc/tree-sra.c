@@ -2006,9 +2006,9 @@ maybe_add_sra_candidate (tree var)
       reject (var, "is volatile");
       return false;
     }
-  if (!COMPLETE_TYPE_P (type))
+  if (!TYPE_SIZE (type))
     {
-      reject (var, "has incomplete type");
+      reject (var, "has no size");
       return false;
     }
   if (!tree_fits_uhwi_p (TYPE_SIZE (type)))
@@ -4206,7 +4206,7 @@ find_param_candidates (void)
       else if (!AGGREGATE_TYPE_P (type))
 	continue;
 
-      if (!COMPLETE_TYPE_P (type)
+      if (!TYPE_SIZE (type)
 	  || !tree_fits_uhwi_p (TYPE_SIZE (type))
           || tree_to_uhwi (TYPE_SIZE (type)) == 0
 	  || (AGGREGATE_TYPE_P (type)

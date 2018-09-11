@@ -2530,8 +2530,8 @@ initialize_data_dependence_relation (struct data_reference *a,
 	}
 
       /* Try to approach equal type sizes.  */
-      if (!COMPLETE_TYPE_P (type_a)
-	  || !COMPLETE_TYPE_P (type_b)
+      if (!TYPE_SIZE_UNIT (type_a)
+	  || !TYPE_SIZE_UNIT (type_b)
 	  || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (type_a))
 	  || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (type_b)))
 	break;

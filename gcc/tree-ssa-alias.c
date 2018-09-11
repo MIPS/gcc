@@ -1183,7 +1183,8 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
   /* If the size of the access relevant for TBAA through the pointer
      is bigger than the size of the decl we can't possibly access the
      decl via that pointer.  */
-  if (DECL_SIZE (base2) && COMPLETE_TYPE_P (TREE_TYPE (ptrtype1))
+  if (DECL_SIZE (base2)
+      && TYPE_SIZE (TREE_TYPE (ptrtype1))
       && poly_int_tree_p (DECL_SIZE (base2))
       && poly_int_tree_p (TYPE_SIZE (TREE_TYPE (ptrtype1)))
       /* ???  This in turn may run afoul when a decl of type T which is
