@@ -1074,7 +1074,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
 		     = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (elt_type));
 
   if (!dependent && t == TYPE_MAIN_VARIANT (t)
-      && !COMPLETE_TYPE_P (t) && COMPLETE_TYPE_P (elt_type))
+      && !TYPE_LAID_OUT_P (t) && TYPE_LAID_OUT_P (elt_type))
     {
       /* The element type has been completed since the last time we saw
 	 this array type; update the layout and 'tor flags for any variants

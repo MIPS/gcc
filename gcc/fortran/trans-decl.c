@@ -1063,7 +1063,7 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       type = TREE_TYPE (type);
     }
 
-  if (! COMPLETE_TYPE_P (type) && GFC_TYPE_ARRAY_SIZE (type))
+  if (!TYPE_LAID_OUT_P (type) && GFC_TYPE_ARRAY_SIZE (type))
     {
       tree size, range;
 

@@ -8552,7 +8552,7 @@ build_function_type (tree value_type, tree arg_types)
     TYPE_CANONICAL (t) = build_function_type (TYPE_CANONICAL (value_type),
 					      canon_argtypes);
 
-  if (!COMPLETE_TYPE_P (t))
+  if (!TYPE_LAID_OUT_P (t))
     layout_type (t);
   return t;
 }
@@ -8711,7 +8711,7 @@ build_method_type_directly (tree basetype,
       = build_method_type_directly (TYPE_CANONICAL (basetype),
 				    TYPE_CANONICAL (rettype),
 				    canon_argtypes);
-  if (!COMPLETE_TYPE_P (t))
+  if (!TYPE_LAID_OUT_P (t))
     layout_type (t);
 
   return t;
@@ -8751,7 +8751,7 @@ build_offset_type (tree basetype, tree type)
   hashval_t hash = type_hash_canon_hash (t);
   t = type_hash_canon (hash, t);
 
-  if (!COMPLETE_TYPE_P (t))
+  if (!TYPE_LAID_OUT_P (t))
     layout_type (t);
 
   if (TYPE_CANONICAL (t) == t)

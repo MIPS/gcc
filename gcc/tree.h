@@ -598,6 +598,13 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define FUNCTION_POINTER_TYPE_P(TYPE) \
   (POINTER_TYPE_P (TYPE) && TREE_CODE (TREE_TYPE (TYPE)) == FUNCTION_TYPE)
 
+/* True if this type has been fully defined and laid out.  This means that
+   we know the size and alignment of the type (TYPE_SIZE, TYPE_SIZE_UNIT
+   and TYPE_ALIGN) and can assume that its current definition is final.
+   For object types that exist in standard C, this is equivalent to testing
+   whether the type is "complete".  */
+#define TYPE_LAID_OUT_P(TYPE) (TYPE_SIZE (TYPE) != NULL_TREE)
+
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 

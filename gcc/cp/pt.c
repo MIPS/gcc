@@ -10699,7 +10699,7 @@ can_complete_type_without_circularity (tree type)
 {
   if (type == NULL_TREE || type == error_mark_node)
     return 0;
-  else if (COMPLETE_TYPE_P (type))
+  else if (TYPE_LAID_OUT_P (type))
     return 1;
   else if (TREE_CODE (type) == ARRAY_TYPE)
     return can_complete_type_without_circularity (TREE_TYPE (type));

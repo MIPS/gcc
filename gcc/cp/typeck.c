@@ -117,13 +117,13 @@ complete_type (tree type)
        at some point.  */
     return error_mark_node;
 
-  if (type == error_mark_node || COMPLETE_TYPE_P (type))
+  if (type == error_mark_node || TYPE_LAID_OUT_P (type))
     ;
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree t = complete_type (TREE_TYPE (type));
       unsigned int needs_constructing, has_nontrivial_dtor;
-      if (COMPLETE_TYPE_P (t) && !dependent_type_p (type))
+      if (TYPE_LAID_OUT_P (t) && !dependent_type_p (type))
 	layout_type (type);
       needs_constructing
 	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (t));
