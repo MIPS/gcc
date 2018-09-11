@@ -743,10 +743,10 @@ extern bool done_lexing;
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
-  (TREE_CODE (type) != FUNCTION_TYPE && TYPE_SIZE (type))
+  (TREE_CODE (type) != FUNCTION_TYPE && COMPLETE_TYPE_P (type))
 
 #define C_TYPE_INCOMPLETE_P(type) \
-  (TREE_CODE (type) != FUNCTION_TYPE && TYPE_SIZE (type) == 0)
+  (TREE_CODE (type) != FUNCTION_TYPE && !COMPLETE_TYPE_P (type))
 
 #define C_TYPE_FUNCTION_P(type) \
   (TREE_CODE (type) == FUNCTION_TYPE)
