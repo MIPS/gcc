@@ -45,7 +45,8 @@ aarch64-sve-builtins.o: $(srcdir)/config/aarch64/aarch64-sve-builtins.c \
   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) langhooks.h \
   stringpool.h $(RTL_H) $(TM_P) $(OPTABS_H) expr.h $(DIAGNOSTIC_H) \
   $(RECOG_H) $(BASIC_BLOCK_H) $(FUNCTION_H) fold-const.h gimple.h \
-  tree-vector-builder.h rtx-vector-builder.h stor-layout.h
+  tree-vector-builder.h rtx-vector-builder.h stor-layout.h explow.h \
+  emit-rtl.h
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 		$(srcdir)/config/aarch64/aarch64-sve-builtins.c
 

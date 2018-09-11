@@ -1,9 +1,7 @@
 #ifndef TEST_SVE_ACLE_H
 #define TEST_SVE_ACLE_H 1
 
-#include <stdint.h>
-
-#pragma GCC aarch64 "arm_sve.h"
+#include <arm_sve.h>
 
 #ifdef CHECK_ASM
 #  define DEF_REGISTER(TYPE, NAME) \
@@ -157,6 +155,17 @@
     BIND_OUTPUT_D (d4);						\
     BIND_OUTPUT_P (p0);						\
     BIND_RESULT_Z16_Z19;					\
+  }
+
+#define TEST_LOAD(NAME, ZTYPE, STYPE, CODE1, CODE2)	\
+  START (NAME)						\
+  {							\
+    DEF_REGISTER (ZTYPE, z0);				\
+    BIND_INPUT_P (p0);					\
+    BIND_INPUT_X (const STYPE *, x0);			\
+    BIND_INPUT_X (intptr_t, x1);			\
+    INVOKE (CODE1, CODE2);				\
+    BIND_OUTPUT_Z (z0);					\
   }
 
 #define TEST_P(NAME, CODE1, CODE2)	\

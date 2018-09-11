@@ -28,6 +28,10 @@
 
 #include <stdint.h>
 
+typedef __fp16 float16_t;
+typedef float float32_t;
+typedef double float64_t;
+
 #pragma GCC aarch64 "arm_sve.h"
 
 #endif

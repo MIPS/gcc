@@ -44,8 +44,11 @@
 #include "rtx-vector-builder.h"
 #include "vec-perm-indices.h"
 #include "stor-layout.h"
+#include "explow.h"
 #include "emit-rtl.h"
 #include "regs.h"
+#include "alias.h"
+#include "gimple-fold.h"
 
 namespace aarch64_sve {
 
@@ -68,6 +71,13 @@ enum vector_type {
 enum predication {
   /* No governing predicate present.  */
   PRED_none,
+
+  /* No predication suffix is present, either because the result is neither
+     a vector nor a predicate (and so the distinction between "zeroing"
+     and "merging" doesn't apply), or because a suffix would be redundant
+     (such as for loads and comparisons, which are inherently zeroing
+     operations).  */
+  PRED_inherent,
 
   /* Merging predication: copy inactive lanes from the first data argument
      to the vector result.  */
@@ -143,6 +153,10 @@ enum function_shape {
   /* uint64_t svfoo().  */
   SHAPE_inherent_count,
 
+  /* sv<t0>_t svfoo[_t0](const <t0>_t *).
+     sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t).  */
+  SHAPE_load,
+
   /* sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t).  */
   SHAPE_set2,
   SHAPE_set3,
@@ -190,7 +204,8 @@ enum function_shape {
    other three.  */
 enum function_mode {
   MODE_none,
-  MODE_n
+  MODE_n,
+  MODE_vnum
 };
 
 /* Enumerates the possible type suffixes.  Each suffix is associated with
@@ -366,6 +381,7 @@ private:
   template <unsigned int N>
   void sig_inherent (const function_instance &, vec<tree> &);
   void sig_inherent_count (const function_instance &, vec<tree> &);
+  void sig_load (const function_instance &, vec<tree> &);
   template <unsigned int N>
   void sig_set_00i0 (const function_instance &, vec<tree> &);
   void sig_00 (const function_instance &, vec<tree> &);
@@ -379,6 +395,8 @@ private:
   void sig_qq_n_0000 (const function_instance &, vec<tree> &);
   void sig_00i (const function_instance &, vec<tree> &);
   void sig_n_00i (const function_instance &, vec<tree> &);
+
+  tree build_const_pointer (tree);
 
   void apply_predication (const function_instance &, vec<tree> &);
 
@@ -419,6 +437,7 @@ public:
   tree resolve ();
 
 private:
+  tree resolve_pointer ();
   tree resolve_uniform (unsigned int);
   tree resolve_create (unsigned int);
   tree resolve_dot ();
@@ -431,10 +450,12 @@ private:
 				    unsigned int &, vector_type &);
   bool check_num_arguments (unsigned int);
   bool check_argument (unsigned int, vector_type);
+  vector_type require_pointer_type (unsigned int);
   vector_type require_vector_type (unsigned int);
   vector_type require_tuple_type (unsigned int, unsigned int);
   bool require_matching_type (unsigned int, vector_type);
   bool scalar_argument_p (unsigned int);
+  bool require_scalar_argument (unsigned int, const char *);
   bool require_integer_immediate (unsigned int);
   tree require_n_form (type_suffix, type_suffix = NUM_TYPE_SUFFIXES);
   tree require_form (function_mode, type_suffix,
@@ -498,6 +519,7 @@ private:
   gimple *fold_cnt_bhwd ();
   gimple *fold_create ();
   gimple *fold_get ();
+  gimple *fold_ld1 ();
   gimple *fold_ptrue ();
   gimple *fold_rev ();
   gimple *fold_set ();
@@ -543,6 +565,7 @@ private:
   rtx expand_eor ();
   rtx expand_get ();
   rtx expand_index ();
+  rtx expand_ld1 ();
   rtx expand_lsl ();
   rtx expand_lsl_wide ();
   rtx expand_mad (unsigned int);
@@ -582,6 +605,7 @@ private:
   rtx expand_signed_pred_op (int, int, int);
   rtx expand_via_unpred_direct_optab (optab, machine_mode = VOIDmode);
   rtx expand_via_exact_insn (insn_code);
+  rtx expand_via_load_insn (insn_code);
   rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_sel_insn (insn_code);
@@ -606,6 +630,7 @@ private:
   void add_output_operand (insn_code);
   void add_input_operand (insn_code, rtx);
   void add_integer_operand (HOST_WIDE_INT);
+  void add_mem_operand (machine_mode, rtx);
   rtx generate_insn (insn_code);
 
   /* The function being called.  */
@@ -637,6 +662,7 @@ static const vector_type_info vector_types[] = {
 
 /* The function name suffix associated with each predication type.  */
 static const char *const pred_suffixes[NUM_PREDS + 1] = {
+  "",
   "",
   "_m",
   "_x",
@@ -742,6 +768,10 @@ DEF_SVE_TYPES_ARRAY (sdi);
    predicate.  */
 static const predication preds_none[] = { PRED_none, NUM_PREDS };
 
+/* Used by functions in aarch64-sve-builtins.def that have a governing
+   predicate but do not have an explicit suffix.  */
+static const predication preds_inherent[] = { PRED_inherent, NUM_PREDS };
+
 /* Used by functions in aarch64-sve-builtins.def that allow merging,
    zeroing and "don't care" predication.  */
 static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
@@ -803,6 +833,20 @@ find_vector_type (const_tree type)
      the number of types is only small.  */
   for (unsigned int i = 0; i < ARRAY_SIZE (abi_vector_types); ++i)
     if (TYPE_MAIN_VARIANT (type) == abi_vector_types[i])
+      return (vector_type) i;
+  return NUM_VECTOR_TYPES;
+}
+
+/* If TYPE is a valid SVE element type, return the corresponding vector type,
+   otherwise return NUM_VECTOR_TYPES.  */
+static vector_type
+find_vector_type_from_scalar_type (const_tree type)
+{
+  /* A linear search should be OK here, since the code isn't hot and
+     the number of types is only small.  */
+  for (unsigned int i = 0; i < ARRAY_SIZE (abi_vector_types); ++i)
+    if (scalar_types[i] != boolean_type_node
+	&& TYPE_MAIN_VARIANT (type) == scalar_types[i])
       return (vector_type) i;
   return NUM_VECTOR_TYPES;
 }
@@ -1150,6 +1194,13 @@ arm_sve_h_builder::build (const function_group &group)
       build_all (&arm_sve_h_builder::sig_inherent_count, group, MODE_none);
       break;
 
+    case SHAPE_load:
+      add_overloaded_functions (group, MODE_none);
+      add_overloaded_functions (group, MODE_vnum);
+      build_all (&arm_sve_h_builder::sig_load, group, MODE_none);
+      build_all (&arm_sve_h_builder::sig_load, group, MODE_vnum);
+      break;
+
     case SHAPE_set2:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_set_00i0<2>, group, MODE_none);
@@ -1338,6 +1389,22 @@ arm_sve_h_builder::sig_inherent_count (const function_instance &,
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
 }
 
+/* Describe one of the signatures:
+
+     sv<t0>_t svfoo[_t0](const <t0>_t *)
+     sv<t0>_t svfoo_vnum[_t0](const <t0>_t *, int64_t)
+
+   for INSTANCE in TYPES, with the mode choosing between them.  */
+void
+arm_sve_h_builder::sig_load (const function_instance &instance,
+			     vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (build_const_pointer (instance.scalar_type (0)));
+  if (instance.mode == MODE_vnum)
+    types.quick_push (scalar_types[VECTOR_TYPE_svint64_t]);
+}
+
 /* Describe the signature
    "sv<t0>xN_t svfoo[_t0](sv<t0>xN_t, uint64_t, sv<t0>_t)"
    for INSTANCE in TYPES.  */
@@ -1472,6 +1539,13 @@ arm_sve_h_builder::sig_n_00i (const function_instance &instance,
   for (unsigned int i = 0; i < 2; ++i)
     types.quick_push (instance.vector_type (0));
   types.quick_push (scalar_types[VECTOR_TYPE_svuint64_t]);
+}
+
+/* Return a representation of "const T *".  */
+tree
+arm_sve_h_builder::build_const_pointer (tree t)
+{
+  return build_pointer_type (build_qualified_type (t, TYPE_QUAL_CONST));
 }
 
 /* If INSTANCE has a governing predicate, add it to the type signature
@@ -1701,6 +1775,12 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
       attrs = add_attribute ("const", attrs);
       attrs = add_attribute ("nothrow", attrs);
       break;
+
+    case FUNC_svld1:
+      attrs = add_attribute ("pure", attrs);
+      if (!flag_non_call_exceptions)
+	attrs = add_attribute ("nothrow", attrs);
+      break;
     }
   return add_attribute ("leaf", attrs);
 }
@@ -1723,6 +1803,7 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
     case SHAPE_get3:
     case SHAPE_get4:
     case SHAPE_inherent_count:
+    case SHAPE_load:
     case SHAPE_set2:
     case SHAPE_set3:
     case SHAPE_set4:
@@ -1763,6 +1844,10 @@ arm_sve_h_builder::get_name (const function_instance &instance,
     case MODE_n:
       if (!overloaded_p)
 	append_name ("_n");
+      break;
+
+    case MODE_vnum:
+      append_name ("_vnum");
       break;
     }
   if (explicit_types & 1)
@@ -1830,6 +1915,8 @@ function_resolver::resolve ()
       return resolve_get (3);
     case SHAPE_get4:
       return resolve_get (4);
+    case SHAPE_load:
+      return resolve_pointer ();
     case SHAPE_set2:
       return resolve_set (2);
     case SHAPE_set3:
@@ -1848,6 +1935,24 @@ function_resolver::resolve ()
       return NULL_TREE;
     }
   gcc_unreachable ();
+}
+
+/* Resolve a call based purely on a pointer argument.  The other arguments
+   are a governing predicate and (for MODE_vnum) a vnum offset.  */
+tree
+function_resolver::resolve_pointer ()
+{
+  vector_type type;
+
+  gcc_assert (m_fi.pred != PRED_none
+	      && (m_fi.mode == MODE_none || m_fi.mode == MODE_vnum));
+  if (!check_num_arguments (m_fi.mode == MODE_vnum ? 3 : 2)
+      || !check_argument (0, VECTOR_TYPE_svbool_t)
+      || (type = require_pointer_type (1)) == NUM_VECTOR_TYPES
+      || (m_fi.mode == MODE_vnum && !require_scalar_argument (2, "int64_t")))
+    return error_mark_node;
+
+  return require_form (m_fi.mode, get_type_suffix (type));
 }
 
 /* Resolve a function in which all vector and scalar types in the signature
@@ -2059,6 +2164,30 @@ function_resolver::check_num_arguments (unsigned int expected)
   return m_arglist.length () == expected;
 }
 
+/* Require argument I to be a pointer to a scalar type that has a corresponding
+   vector type.  Return that vector type on success and NUM_VECTOR_TYPES
+   on failure.  */
+vector_type
+function_resolver::require_pointer_type (unsigned int i)
+{
+  tree actual = get_argument_type (i);
+  if (actual == error_mark_node)
+    return NUM_VECTOR_TYPES;
+  if (TREE_CODE (actual) != POINTER_TYPE)
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects a pointer type", actual, i + 1, m_rfn.decl);
+      return NUM_VECTOR_TYPES;
+    }
+  tree target = TREE_TYPE (actual);
+  vector_type type = find_vector_type_from_scalar_type (target);
+  if (type == NUM_VECTOR_TYPES)
+    error_at (m_location, "passing %qT to argument %d of %qE, but %qT"
+	      " is not a valid SVE element type", actual, i + 1,
+	      m_rfn.decl, target);
+  return type;
+}
+
 /* Require argument I to be a tuple of NUM_VECTORS vectors, with
    NUM_VECTORS == 1 selecting a single vector.  Return the type of
    the vector on success and NUM_VECTOR_TYPES on failure.  */
@@ -2153,7 +2282,27 @@ bool
 function_resolver::scalar_argument_p (unsigned int i)
 {
   tree type = get_argument_type (i);
-  return INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type);
+  return (INTEGRAL_TYPE_P (type)
+	  /* Allow pointer types, leaving the frontend to warn where
+	     necessary.  */
+	  || POINTER_TYPE_P (type)
+	  || SCALAR_FLOAT_TYPE_P (type));
+}
+
+/* Require argument I to be a scalar, using EXPECTED as the name of its
+   expected type.  Return true if the argument has the right form.  */
+bool
+function_resolver::require_scalar_argument (unsigned int i,
+					    const char *expected)
+{
+  if (!scalar_argument_p (i))
+    {
+      error_at (m_location, "passing %qT to argument %d of %qE, which"
+		" expects %qs", get_argument_type (i), i + 1, m_rfn.decl,
+		expected);
+      return false;
+    }
+  return true;
 }
 
 /* Check that argument I has a suitable form for an integer constant
@@ -2289,6 +2438,7 @@ function_checker::check ()
     case SHAPE_inherent3:
     case SHAPE_inherent4:
     case SHAPE_inherent_count:
+    case SHAPE_load:
     case SHAPE_shift_opt_n:
     case SHAPE_ternary_opt_n:
     case SHAPE_ternary_qq_opt_n:
@@ -2505,6 +2655,12 @@ gimple_folder::fold ()
   if (!TARGET_SVE)
     return NULL;
 
+  /* Punt if the function has a return type and no result location is
+     provided.  The attributes should allow target-independent code to
+     remove the calls.  */
+  if (!m_lhs && TREE_TYPE (gimple_call_fntype (m_call)) != void_type_node)
+    return NULL;
+
   switch (m_fi.func)
     {
     case FUNC_svabd:
@@ -2568,6 +2724,9 @@ gimple_folder::fold ()
     case FUNC_svget3:
     case FUNC_svget4:
       return fold_get ();
+
+    case FUNC_svld1:
+      return fold_ld1 ();
 
     case FUNC_svptrue:
       return fold_ptrue ();
@@ -2643,6 +2802,38 @@ gimple_folder::fold_get ()
   ref = build4 (ARRAY_REF, TREE_TYPE (m_lhs),
 		ref, index, NULL_TREE, NULL_TREE);
   return gimple_build_assign (m_lhs, ref);
+}
+
+/* Fold a call to svld1.  */
+gimple *
+gimple_folder::fold_ld1 ()
+{
+  tree vectype = TREE_TYPE (m_lhs);
+  tree elttype = TREE_TYPE (vectype);
+  tree predtype = build_same_sized_truth_vector_type (vectype);
+
+  tree pred = gimple_call_arg (m_call, 0);
+  tree base = gimple_call_arg (m_call, 1);
+
+  gimple_seq stmts = NULL;
+  pred = gimple_build (&stmts, VIEW_CONVERT_EXPR, predtype, pred);
+  if (m_fi.mode == MODE_vnum)
+    {
+      tree offset = gimple_call_arg (m_call, 2);
+      offset = gimple_convert (&stmts, sizetype, offset);
+      offset = gimple_build (&stmts, MULT_EXPR, sizetype, offset,
+			     TYPE_SIZE_UNIT (vectype));
+      base = gimple_build (&stmts, POINTER_PLUS_EXPR, TREE_TYPE (base),
+			   base, offset);
+    }
+  gsi_insert_seq_before (m_gsi, stmts, GSI_SAME_STMT);
+
+  tree cookie = build_int_cst (build_pointer_type (vectype),
+			       TYPE_ALIGN_UNIT (elttype));
+  gcall *new_call = gimple_build_call_internal (IFN_MASK_LOAD, 3,
+						base, cookie, pred);
+  gimple_call_set_lhs (new_call, m_lhs);
+  return new_call;
 }
 
 /* Fold a call to svptrue.  */
@@ -2846,6 +3037,9 @@ function_expander::expand ()
 
     case FUNC_svindex:
       return expand_index ();
+
+    case FUNC_svld1:
+      return expand_ld1 ();
 
     case FUNC_svlsl:
       return expand_lsl ();
@@ -3147,6 +3341,16 @@ rtx
 function_expander::expand_index ()
 {
   return expand_via_unpred_direct_optab (vec_series_optab);
+}
+
+/* Expand a call to svld1.  */
+rtx
+function_expander::expand_ld1 ()
+{
+  machine_mode mode = get_mode (0);
+  machine_mode pred_mode = get_pred_mode (0);
+  insn_code icode = convert_optab_handler (maskload_optab, mode, pred_mode);
+  return expand_via_load_insn (icode);
 }
 
 /* Expand a call to svlsl.  */
@@ -3537,6 +3741,26 @@ function_expander::expand_via_exact_insn (insn_code icode)
   add_output_operand (icode);
   for (unsigned int i = 0; i < nops; ++i)
     add_input_operand (icode, m_args[i]);
+  return generate_insn (icode);
+}
+
+/* Implement the call using instruction ICODE, which loads memory operand 1
+   into register operand 0 under the control of predicate operand 2.  */
+rtx
+function_expander::expand_via_load_insn (insn_code icode)
+{
+  machine_mode mem_mode = get_mode (0);
+  rtx base = m_args[1];
+  if (m_fi.mode == MODE_vnum)
+    {
+      rtx offset = gen_int_mode (GET_MODE_SIZE (mem_mode), Pmode);
+      offset = simplify_gen_binary (MULT, Pmode, m_args[2], offset);
+      base = simplify_gen_binary (PLUS, Pmode, base, offset);
+    }
+
+  add_output_operand (icode);
+  add_mem_operand (mem_mode, base);
+  add_input_operand (icode, m_args[0]);
   return generate_insn (icode);
 }
 
@@ -3946,6 +4170,18 @@ function_expander::add_integer_operand (HOST_WIDE_INT x)
 {
   m_ops.safe_grow (m_ops.length () + 1);
   create_integer_operand (&m_ops.last (), x);
+}
+
+/* Add a memory operand with mode MODE and address ADDR.  */
+void
+function_expander::add_mem_operand (machine_mode mode, rtx addr)
+{
+  gcc_assert (VECTOR_MODE_P (mode));
+  rtx mem = gen_rtx_MEM (mode, memory_address (mode, addr));
+  /* The memory is only guaranteed to be element-aligned.  */
+  set_mem_align (mem, GET_MODE_ALIGNMENT (GET_MODE_INNER (mode)));
+  m_ops.safe_grow (m_ops.length () + 1);
+  create_fixed_operand (&m_ops.last (), mem);
 }
 
 /* Generate instruction ICODE, given that its operands have already
