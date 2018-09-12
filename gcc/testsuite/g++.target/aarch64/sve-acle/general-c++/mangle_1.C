@@ -20,10 +20,10 @@ void f12(svfloat64_t) {}
 /* { dg-final { scan-assembler "_Z2f311__SVInt16_t:" } } */
 /* { dg-final { scan-assembler "_Z2f411__SVInt32_t:" } } */
 /* { dg-final { scan-assembler "_Z2f511__SVInt64_t:" } } */
-/* { dg-final { scan-assembler "_Z2f611__SVUInt8_t:" } } */
-/* { dg-final { scan-assembler "_Z2f712__SVUInt16_t:" } } */
-/* { dg-final { scan-assembler "_Z2f812__SVUInt32_t:" } } */
-/* { dg-final { scan-assembler "_Z2f912__SVUInt64_t:" } } */
+/* { dg-final { scan-assembler "_Z2f611__SVUint8_t:" } } */
+/* { dg-final { scan-assembler "_Z2f712__SVUint16_t:" } } */
+/* { dg-final { scan-assembler "_Z2f812__SVUint32_t:" } } */
+/* { dg-final { scan-assembler "_Z2f912__SVUint64_t:" } } */
 /* { dg-final { scan-assembler "_Z3f1013__SVFloat16_t:" } } */
 /* { dg-final { scan-assembler "_Z3f1113__SVFloat32_t:" } } */
 /* { dg-final { scan-assembler "_Z3f1213__SVFloat64_t:" } } */

@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 
-__SVUInt8_t
-svadd_x (__SVBool_t pg, __SVUInt8_t x, __SVUInt8_t y)
+__SVUint8_t
+svadd_x (__SVBool_t pg, __SVUint8_t x, __SVUint8_t y)
 {
   return x;
 }
