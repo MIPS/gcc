@@ -637,7 +637,7 @@ extern location_t c_last_sizeof_loc;
 extern struct c_switch *c_switch_stack;
 
 extern tree c_objc_common_truthvalue_conversion (location_t, tree);
-extern tree require_complete_type (location_t, tree);
+extern tree require_complete_type (location_t, tree, bool = false);
 extern bool same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
 extern int comptypes_check_different_types (tree, tree, bool *);
@@ -787,6 +787,16 @@ set_c_expr_source_range (c_expr *expr,
 
 /* In c-fold.c */
 extern vec<tree> incomplete_record_decls;
+
+/* Make sure VALUE has a fully-defined type (as for DEFINED_TYPE_P).
+   Emit an error against LOC if it doesn't.  Return VALUE on success
+   and error_mark_node on failure.  */
+
+inline tree
+require_defined_type (location_t loc, tree value)
+{
+  return require_complete_type (loc, value, true);
+}
 
 #if CHECKING_P
 namespace selftest {

@@ -1,6 +1,7 @@
 /* { dg-options "-std=gnu99 -Wshadow" } */
 
 typedef __sizeless_1 ta;
+typedef __sizeless_2 tb;
 
 /* Sizeless objects with global scope.  */
 
@@ -26,6 +27,7 @@ statements (int n)
   /* Local declarations.  */
 
   ta ta1;
+  tb tb1;
   static ta local_static_ta; /* { dg-error {sizeless variable 'local_static_ta' cannot have static storage duration} } */
 
   /* Layout queries.  */
@@ -42,6 +44,14 @@ statements (int n)
   /* Addressing and dereferencing.  */
 
   ta *ta_ptr = &ta1;
+
+  /* Conditional expressions.  */
+
+  0 ? ta1 : ta1;
+  0 ? ta1 : tb1; /* { dg-error {type mismatch in conditional expression} } */
+  0 ? ta1 : 0; /* { dg-error {type mismatch in conditional expression} } */
+  0 ? 0 : ta1; /* { dg-error {type mismatch in conditional expression} } */
+  0 ?: ta1; /* { dg-error {type mismatch in conditional expression} } */
 
   /* Generic associations.  */
 

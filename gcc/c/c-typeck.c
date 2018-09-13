@@ -190,10 +190,11 @@ static void free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *);
 
 /* Do `exp = require_complete_type (loc, exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)
-   LOC is the location of the use.  */
+   LOC is the location of the use.  ALLOW_SIZELESS_P is true if
+   fully-defined sizeless types are OK.  */
 
 tree
-require_complete_type (location_t loc, tree value)
+require_complete_type (location_t loc, tree value, bool allow_sizeless_p)
 {
   tree type = TREE_TYPE (value);
 
@@ -201,7 +202,7 @@ require_complete_type (location_t loc, tree value)
     return error_mark_node;
 
   /* First, detect a valid value with a complete type.  */
-  if (COMPLETE_TYPE_P (type))
+  if (allow_sizeless_p ? DEFINED_TYPE_P (type) : COMPLETE_TYPE_P (type))
     return value;
 
   c_incomplete_type_error (loc, value, type);
@@ -2177,7 +2178,8 @@ default_conversion (tree exp)
       return error_mark_node;
     }
 
-  exp = require_complete_type (EXPR_LOC_OR_LOC (exp, input_location), exp);
+  /* Converting values with a sizeless defined type is OK.  */
+  exp = require_defined_type (EXPR_LOC_OR_LOC (exp, input_location), exp);
   if (exp == error_mark_node)
     return error_mark_node;
 
