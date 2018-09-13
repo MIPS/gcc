@@ -69,6 +69,7 @@ statements (int n)
   /* Addressing and dereferencing.  */
 
   ta *ta_ptr = &ta1;
+  ta1 = *ta_ptr;
 
   /* Conditional expressions.  */
 
@@ -104,6 +105,7 @@ statements (int n)
   /* Statement expressions.  */
 
   ({ ta1; });
+  ({ ta another_ta = *ta_ptr; another_ta; });
 }
 
 /* Function parameters in definitions.  */

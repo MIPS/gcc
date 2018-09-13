@@ -2551,7 +2551,8 @@ build_indirect_ref (location_t loc, tree ptr, ref_operator errstring)
 
 	  ref = build1 (INDIRECT_REF, t, pointer);
 
-	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
+	  /* The pointer target can be a defined sizeless type.  */
+	  if (!defined_or_void_type_p (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
 	      if (!C_TYPE_ERROR_REPORTED (TREE_TYPE (ptr)))
 		{
