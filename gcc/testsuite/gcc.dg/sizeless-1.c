@@ -17,6 +17,7 @@ ta *global_ta_ptr;
 
 /* Sizeless arguments and return values.  */
 
+void ext_consume_varargs (int, ...);
 ta ext_produce_ta ();
 
 /* Main tests for statements and expressions.  */
@@ -77,6 +78,11 @@ statements (int n)
   /* Generic associations.  */
 
   _Generic (ta1, default: 100);
+
+  /* Function arguments.  */
+
+  ext_consume_varargs (ta1); /* { dg-error {incompatible type for argument 1 of 'ext_consume_varargs'} } */
+  ext_consume_varargs (1, ta1);
 
   /* Statement expressions.  */
 

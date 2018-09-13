@@ -3546,7 +3546,8 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
       val = c_fully_fold (val, false, NULL);
       STRIP_TYPE_NOPS (val);
 
-      val = require_complete_type (ploc, val);
+      /* The argument value can be a defined sizeless type.  */
+      val = require_defined_type (ploc, val);
 
       /* Some floating-point arguments must be promoted to double when
 	 no type is specified by a prototype.  This applies to
