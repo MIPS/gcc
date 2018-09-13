@@ -37,6 +37,19 @@ statements (int n)
   _Alignof (ta); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
   _Alignof (ta1); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
 
+  /* Initialization.  */
+
+  int initi_a = ta1; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
+  int initi_b = { ta1 }; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
+
+  /* Compound literals.  */
+
+  (int) { ta1 }; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
+
+  /* Assignment.  */
+
+  n = ta1; /* { dg-error {incompatible types when assigning to type 'int' from type 'ta'} } */
+
   /* Casting.  */
 
   (void) ta1;

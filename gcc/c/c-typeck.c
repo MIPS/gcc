@@ -6751,7 +6751,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	error_at (location, msg);
       return error_mark_node;
     }
-  rhs = require_complete_type (location, rhs);
+  /* Allow assignments in which the rhs is a defined sizeless type.  */
+  rhs = require_defined_type (location, rhs);
   if (rhs == error_mark_node)
     return error_mark_node;
 
