@@ -114,3 +114,17 @@ new_style_param (ta input_ta)
 {
   ta ta1 = input_ta;
 }
+
+/* Function return values in definitions.  */
+
+ta
+good_return_ta (ta param)
+{
+  return param;
+}
+
+ta
+bad_return_ta (tb param)
+{
+  return param; /* { dg-error {incompatible types when returning type 'tb'[^\n]* but 'ta'[^\n]* was expected} } */
+}

@@ -8950,7 +8950,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   announce_function (decl1);
 
-  if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl1))))
+  /* Functions can return defined sizeless types.  */
+  if (!defined_or_void_type_p (TREE_TYPE (TREE_TYPE (decl1))))
     {
       error_at (loc, "return type is an incomplete type");
       /* Make it return void instead.  */
