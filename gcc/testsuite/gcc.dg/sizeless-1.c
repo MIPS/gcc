@@ -88,3 +88,11 @@ statements (int n)
 
   ({ ta1; });
 }
+
+/* Function parameters in definitions.  */
+
+void
+new_style_param (ta input_ta)
+{
+  ta ta1 = input_ta;
+}

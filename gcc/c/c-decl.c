@@ -7409,7 +7409,8 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 	  if (type == error_mark_node)
 	    continue;
 
-	  if (!COMPLETE_TYPE_P (type))
+	  /* Parameters can have defined sizeless type.  */
+	  if (!DEFINED_TYPE_P (type))
 	    {
 	      if (funcdef_flag)
 		{
