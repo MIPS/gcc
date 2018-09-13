@@ -740,6 +740,17 @@ extern int c_inhibit_evaluation_warnings;
 
 extern bool done_lexing;
 
+/* True if TYPE is a type whose definition has been fully processed,
+   rather than being a type whose definition is in progress or a type
+   that has only been declared.  This means that we can create new
+   automatic objects of the type, pass objects of the type between
+   functions, and so on.
+
+   The condition applies to both sized and sizeless object types.
+   For sized types it is equivalent to asking whether the type is
+   complete.  Note that "void" is never defined nor complete.  */
+#define DEFINED_TYPE_P(TYPE) (TYPE_SIZE (TYPE) != NULL_TREE)
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \

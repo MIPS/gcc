@@ -3244,7 +3244,7 @@ pushdecl (tree x)
      slot (e.g. "f(void a, ...)") - that doesn't count as an
      incomplete type.  */
   if (TREE_TYPE (x) != error_mark_node
-      && !COMPLETE_TYPE_P (TREE_TYPE (x)))
+      && !DEFINED_TYPE_P (TREE_TYPE (x)))
     {
       tree element = TREE_TYPE (x);
 

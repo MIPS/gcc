@@ -4096,6 +4096,22 @@ c_get_ident (const char *id)
   return get_identifier (id);
 }
 
+/* Create a sizeless vector type called NAME, which has COUNT elements of
+   type ELEMENT_TYPE.  */
+
+static void
+c_define_sizeless_type (const char *name, tree element_type,
+			unsigned int count)
+{
+  tree vectype = build_vector_type (element_type, count);
+  vectype = build_distinct_type_copy (vectype);
+  SET_TYPE_STRUCTURAL_EQUALITY (vectype);
+  TYPE_ARTIFICIAL (vectype) = 1;
+  TYPE_SIZELESS_P (vectype) = 1;
+  lang_hooks.decls.pushdecl (build_decl (UNKNOWN_LOCATION, TYPE_DECL,
+					 get_identifier (name), vectype));
+}
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -4571,6 +4587,8 @@ c_common_nodes_and_builtins (void)
      not shared.  */
   null_node = make_int_cst (1, 1);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
+
+  c_define_sizeless_type ("__sizeless_1", unsigned_char_type_node, 2);
 
   /* Since builtin_types isn't gc'ed, don't export these nodes.  */
   memset (builtin_types, 0, sizeof (builtin_types));
