@@ -95,6 +95,11 @@ statements (int n)
   ta1 = ext_produce_ta ();
   tb1 = ext_produce_ta (); /* { dg-error {incompatible types when assigning to type 'tb'[^\n]* from type 'ta'} } */
 
+  /* Varargs processing.  */
+
+  __builtin_va_list valist;
+  __builtin_va_arg (valist, ta);
+
   /* Statement expressions.  */
 
   ({ ta1; });

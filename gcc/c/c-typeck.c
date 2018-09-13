@@ -14979,7 +14979,8 @@ c_build_va_arg (location_t loc1, tree expr, location_t loc2, tree type)
       error_at (loc1, "cannot use %<va_arg%> with reverse storage order");
       return error_mark_node;
     }
-  else if (!COMPLETE_TYPE_P (type))
+  /* va_arg can be passed defined sizeless types.  */
+  else if (!DEFINED_TYPE_P (type))
     {
       error_at (loc2, "second argument to %<va_arg%> is of incomplete "
 		"type %qT", type);
