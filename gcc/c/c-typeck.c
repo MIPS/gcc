@@ -6017,8 +6017,9 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   bool npc;
   bool is_atomic_op;
 
-  /* Types that aren't fully specified cannot be used in assignments.  */
-  lhs = require_complete_type (location, lhs);
+  /* Types that aren't fully specified cannot be used in assignments.
+     Defined sizeless types are OK.  */
+  lhs = require_defined_type (location, lhs);
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (TREE_CODE (lhs) == ERROR_MARK || TREE_CODE (rhs) == ERROR_MARK)

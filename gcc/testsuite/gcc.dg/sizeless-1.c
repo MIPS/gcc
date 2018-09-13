@@ -26,7 +26,7 @@ statements (int n)
 {
   /* Local declarations.  */
 
-  ta ta1;
+  ta ta1, ta2;
   tb tb1;
   static ta local_static_ta; /* { dg-error {sizeless variable 'local_static_ta' cannot have static storage duration} } */
 
@@ -49,6 +49,10 @@ statements (int n)
   /* Assignment.  */
 
   n = ta1; /* { dg-error {incompatible types when assigning to type 'int' from type 'ta'} } */
+
+  ta1 = 0; /* { dg-error {incompatible types when assigning to type 'ta' from type 'int'} } */
+  ta1 = ta2;
+  ta1 = tb1; /* { dg-error {incompatible types when assigning to type 'ta' from type 'tb'} } */
 
   /* Casting.  */
 
