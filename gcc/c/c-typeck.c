@@ -4358,7 +4358,8 @@ build_unary_op (location_t location, enum tree_code code, tree xarg,
     arg = remove_c_maybe_const_expr (arg);
 
   if (code != ADDR_EXPR)
-    arg = require_complete_type (location, arg);
+    /* Allow the argument to have defined sizeless type.  */
+    arg = require_defined_type (location, arg);
 
   typecode = TREE_CODE (TREE_TYPE (arg));
   if (typecode == ERROR_MARK)

@@ -130,6 +130,13 @@ statements (int n)
   ta_ptr > vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
   ta_ptr >= vta_ptr; /* { dg-warning {comparison of distinct pointer types lacks a cast} } */
 
+  /* Unary operators.  */
+
+  !ta1; /* { dg-error {wrong type argument to unary exclamation mark} } */
+  *ta1; /* { dg-error {invalid type argument of unary '\*'} } */
+  __real ta1; /* { dg-error {wrong type argument to __real} } */
+  __imag ta1; /* { dg-error {wrong type argument to __imag} } */
+
   /* Conditional expressions.  */
 
   0 ? ta1 : ta1;
