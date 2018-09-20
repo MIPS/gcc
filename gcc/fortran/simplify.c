@@ -2905,8 +2905,9 @@ gfc_simplify_failed_or_stopped_images (gfc_expr *team ATTRIBUTE_UNUSED,
 {
   if (flag_coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_current_locus = *gfc_current_intrinsic_where;
-      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
+      gfc_fatal_error ("Coarrays disabled at %L, use %<-fcoarray=%> to enable",
+	  gfc_current_intrinsic_where);
+
       return &gfc_bad_expr;
     }
 
@@ -2919,7 +2920,8 @@ gfc_simplify_failed_or_stopped_images (gfc_expr *team ATTRIBUTE_UNUSED,
       else
 	actual_kind = gfc_default_integer_kind;
 
-      result = gfc_get_array_expr (BT_INTEGER, actual_kind, &gfc_current_locus);
+      result = gfc_get_array_expr (BT_INTEGER, actual_kind,
+	  gfc_current_intrinsic_where);
       result->rank = 1;
       return result;
     }
@@ -2935,15 +2937,16 @@ gfc_simplify_get_team (gfc_expr *level ATTRIBUTE_UNUSED)
 {
   if (flag_coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_current_locus = *gfc_current_intrinsic_where;
-      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
+      gfc_fatal_error ("Coarrays disabled at %L, use %<-fcoarray=%> to enable",
+	  gfc_current_intrinsic_where);
       return &gfc_bad_expr;
     }
 
   if (flag_coarray == GFC_FCOARRAY_SINGLE)
     {
       gfc_expr *result;
-      result = gfc_get_array_expr (BT_INTEGER, gfc_default_integer_kind, &gfc_current_locus);
+      result = gfc_get_array_expr (BT_INTEGER, gfc_default_integer_kind,
+	  gfc_current_intrinsic_where);
       result->rank = 0;
       return result;
     }
@@ -5785,7 +5788,8 @@ gfc_simplify_num_images (gfc_expr *distance ATTRIBUTE_UNUSED, gfc_expr *failed)
 
   if (flag_coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
+      gfc_fatal_error ("Coarrays disabled at %L, use %<-fcoarray=%> to enable",
+	  gfc_current_intrinsic_where);
       return &gfc_bad_expr;
     }
 
@@ -5795,9 +5799,8 @@ gfc_simplify_num_images (gfc_expr *distance ATTRIBUTE_UNUSED, gfc_expr *failed)
   if (failed && failed->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  /* FIXME: gfc_current_locus is wrong.  */
   result = gfc_get_constant_expr (BT_INTEGER, gfc_default_integer_kind,
-				  &gfc_current_locus);
+				  gfc_current_intrinsic_where);
 
   if (failed && failed->value.logical != 0)
     mpz_set_si (result->value.integer, 0);
@@ -7678,8 +7681,8 @@ gfc_simplify_image_status (gfc_expr *image, gfc_expr *team ATTRIBUTE_UNUSED)
 {
   if (flag_coarray == GFC_FCOARRAY_NONE)
     {
-      gfc_current_locus = *gfc_current_intrinsic_where;
-      gfc_fatal_error ("Coarrays disabled at %C, use %<-fcoarray=%> to enable");
+      gfc_fatal_error ("Coarrays disabled at %L, use %<-fcoarray=%> to enable",
+	  gfc_current_intrinsic_where);
       return &gfc_bad_expr;
     }
 
@@ -7716,9 +7719,8 @@ gfc_simplify_this_image (gfc_expr *coarray, gfc_expr *dim,
   if (coarray == NULL || !gfc_is_coarray (coarray))
     {
       gfc_expr *result;
-      /* FIXME: gfc_current_locus is wrong.  */
       result = gfc_get_constant_expr (BT_INTEGER, gfc_default_integer_kind,
-				      &gfc_current_locus);
+				      gfc_current_intrinsic_where);
       mpz_set_si (result->value.integer, 1);
       return result;
     }
