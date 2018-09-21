@@ -582,6 +582,8 @@ struct target_globals *micromips_globals;
    and returned from mips_sched_reorder2.  */
 static int cached_can_issue_more;
 
+static bool mips_use_frame_pointer;
+
 /* The stubs for various MIPS16 support functions, if used.   */
 static mips_one_only_stub *mips16_rdhwr_stub;
 static mips_one_only_stub *mips16_get_fcsr_stub;
@@ -14771,6 +14773,11 @@ mips_compute_frame_info_pabi (void)
   frame->var_size = get_frame_size ();
   offset += frame->var_size;
 
+  if (mips_use_frame_pointer) {
+      frame->num_gp++;
+      frame->mask |= 1 << HARD_FRAME_POINTER_REGNUM;
+    }
+
   /* Add in space for the interrupt context information.  */
   if (cfun->machine->interrupt_handler_p)
     {
@@ -14907,7 +14914,7 @@ mips_compute_frame_info_pabi (void)
   frame->total_size = offset;
 
   /* Work out the offsets of the save areas from the top of the frame.  */
-  if (frame_pointer_needed
+  if ((frame_pointer_needed || mips_use_frame_pointer)
       && BITSET_P (frame->mask, RETURN_ADDR_REGNUM)
       && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM))
     {
@@ -16600,12 +16607,15 @@ mips_expand_prologue_pabi (void)
     }
 
   /* Set up the frame pointer, if we're using one.  */
-  if (frame_pointer_needed)
+  if (frame_pointer_needed || mips_use_frame_pointer)
     {
       rtx offset = GEN_INT (frame->hard_frame_pointer_offset - size);
       rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
 				stack_pointer_rtx, offset);
-      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      RTX_FRAME_RELATED_P (emit_insn (insn)) = frame_pointer_needed;
+
+     if (!frame_pointer_needed)
+        emit_insn (gen_nanomips_frame_blockage ());
     }
 
   /* Allocate the rest of the frame.  */
@@ -27150,6 +27160,12 @@ mips_option_override (void)
     };
 
   register_pass (&shrink_mips_offsets_info);
+
+  mips_use_frame_pointer = false;
+  if (global_options.x_flag_omit_frame_pointer == 0) {
+    global_options.x_flag_omit_frame_pointer = 1;
+    mips_use_frame_pointer = true;
+  }
 }
 
 /* Implement TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE.  */
@@ -27303,6 +27319,12 @@ mips_conditional_register_usage (void)
       mips_swap_registers (MD_REG_FIRST);
       for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno += 2)
 	mips_swap_registers (regno);
+    }
+
+    if (mips_use_frame_pointer) {
+      gcc_assert(mips_abi == ABI_P32);
+      const int fp_regno = HARD_FRAME_POINTER_REGNUM;
+      call_really_used_regs[fp_regno] = call_used_regs[fp_regno] = fixed_regs[fp_regno] = 1;
     }
 }
 

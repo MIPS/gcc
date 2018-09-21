@@ -7861,6 +7861,13 @@
   DONE;
 }
   [(set_attr "type" "ghost")])
+
+(define_insn "nanomips_frame_blockage"
+  [(unspec_volatile [(reg:SI 30)]
+    UNSPEC_BLOCKAGE)]
+  "TARGET_NANOMIPS"
+  ""
+  [(set_attr "type" "ghost")])
 
 ;;
 ;;  ....................
