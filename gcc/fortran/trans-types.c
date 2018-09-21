@@ -2492,7 +2492,7 @@ gfc_get_union_type (gfc_symbol *un)
     else
       {
         typenode = make_node (UNION_TYPE);
-        TYPE_NAME (typenode) = get_identifier (un->name);
+        TYPE_NAME (typenode) = maybe_get_identifier (un->name);
       }
 
     /* Add each contained MAP as a field. */
@@ -2505,7 +2505,8 @@ gfc_get_union_type (gfc_symbol *un)
         TYPE_CONTEXT (map_type) = typenode;
 
         /* The map field's declaration. */
-        map_field = gfc_add_field_to_struct(typenode, get_identifier(map->name),
+        map_field = gfc_add_field_to_struct(typenode,
+					    maybe_get_identifier(map->name),
                                             map_type, &chain);
         if (map->loc.lb)
           gfc_set_decl_location (map_field, &map->loc);
@@ -2668,7 +2669,7 @@ gfc_get_derived_type (gfc_symbol * derived, int codimen)
     {
       /* We see this derived type first time, so build the type node.  */
       typenode = make_node (RECORD_TYPE);
-      TYPE_NAME (typenode) = get_identifier (derived->name);
+      TYPE_NAME (typenode) = maybe_get_identifier (derived->name);
       TYPE_PACKED (typenode) = flag_pack_derived;
       derived->backend_decl = typenode;
     }
@@ -2817,7 +2818,7 @@ gfc_get_derived_type (gfc_symbol * derived, int codimen)
 	}
 
       field = gfc_add_field_to_struct (typenode,
-				       get_identifier (c->name),
+				       maybe_get_identifier (c->name),
 				       field_type, &chain);
       if (c->loc.lb)
 	gfc_set_decl_location (field, &c->loc);
@@ -2945,7 +2946,7 @@ gfc_get_mixed_entry_union (gfc_namespace *ns)
 
       if (el == el2)
 	gfc_add_field_to_struct_1 (type,
-				   get_identifier (el->sym->result->name),
+				   maybe_get_identifier (el->sym->result->name),
 				   gfc_sym_type (el->sym->result), &chain);
     }
 

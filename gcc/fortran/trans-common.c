@@ -250,10 +250,10 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
 
   /* If we're supposed to do a bind(c).  */
   if (com->is_bind_c && com->binding_label)
-    return get_identifier (com->binding_label);
+    return maybe_get_identifier (com->binding_label);
 
   if (name == gfc_get_string (BLANK_COMMON_NAME))
-    return get_identifier (name);
+    return maybe_get_identifier (name);
 
   if (flag_underscoring)
     {
@@ -266,7 +266,7 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
       return get_identifier (mangled_name);
     }
   else
-    return get_identifier (name);
+    return maybe_get_identifier (name);
 }
 
 
@@ -281,7 +281,7 @@ build_field (segment_info *h, tree union_type, record_layout_info rli)
   HOST_WIDE_INT offset = h->offset;
   unsigned HOST_WIDE_INT desired_align, known_align;
 
-  name = get_identifier (h->sym->name);
+  name = maybe_get_identifier (h->sym->name);
   field = build_decl (h->sym->declared_at.lb->location,
 		      FIELD_DECL, name, h->field);
   known_align = (offset & -offset) * BITS_PER_UNIT;
@@ -427,7 +427,8 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 	decl = build_decl (input_location, VAR_DECL, identifier, union_type);
       else
 	{
-	  decl = build_decl (input_location, VAR_DECL, get_identifier (com->name),
+	  decl = build_decl (input_location, VAR_DECL,
+			     maybe_get_identifier (com->name),
 			     union_type);
 	  gfc_set_decl_assembler_name (decl, identifier);
 	}

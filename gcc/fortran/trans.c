@@ -2179,7 +2179,7 @@ gfc_generate_module_code (gfc_namespace * ns)
   gcc_assert (ns->proc_name->backend_decl == NULL);
   ns->proc_name->backend_decl
     = build_decl (ns->proc_name->declared_at.lb->location,
-		  NAMESPACE_DECL, get_identifier (ns->proc_name->name),
+		  NAMESPACE_DECL, maybe_get_identifier (ns->proc_name->name),
 		  void_type_node);
   entry = gfc_find_module (ns->proc_name->name);
   if (entry->namespace_decl)

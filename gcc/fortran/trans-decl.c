@@ -350,7 +350,7 @@ gfc_sym_identifier (gfc_symbol * sym)
   if (sym->attr.is_main_program && strcmp (sym->name, "main") == 0)
     return (get_identifier ("MAIN__"));
   else
-    return (get_identifier (sym->name));
+    return (maybe_get_identifier (sym->name));
 }
 
 
@@ -364,7 +364,7 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
   /* Prevent the mangling of identifiers that have an assigned
      binding label (mainly those that are bind(c)).  */
   if (sym->attr.is_bind_c == 1 && sym->binding_label)
-    return get_identifier (sym->binding_label);
+    return maybe_get_identifier (sym->binding_label);
 
   if (!sym->fn_result_spec)
     {
@@ -1323,7 +1323,7 @@ gfc_create_string_length (gfc_symbol * sym)
 	name = gfc_get_string (".%s", sym->name);
 
       length = build_decl (input_location,
-			   VAR_DECL, get_identifier (name),
+			   VAR_DECL, maybe_get_identifier (name),
 			   gfc_charlen_type_node);
       DECL_ARTIFICIAL (length) = 1;
       TREE_USED (length) = 1;
@@ -1884,7 +1884,7 @@ get_proc_pointer_decl (gfc_symbol *sym)
     return decl;
 
   decl = build_decl (input_location,
-		     VAR_DECL, get_identifier (sym->name),
+		     VAR_DECL, maybe_get_identifier (sym->name),
 		     build_pointer_type (gfc_get_function_type (sym)));
 
   if (sym->module)
@@ -2972,7 +2972,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       GFC_DECL_RESULT (var) = 1;
 
       TREE_CHAIN (this_fake_result_decl)
-	  = tree_cons (get_identifier (sym->name), var,
+	  = tree_cons (maybe_get_identifier (sym->name), var,
 		       TREE_CHAIN (this_fake_result_decl));
       return var;
     }
@@ -4915,7 +4915,7 @@ generate_namelist_decl (gfc_symbol * sym)
   decl = make_node (NAMELIST_DECL);
   TREE_TYPE (decl) = void_type_node;
   NAMELIST_DECL_ASSOCIATED_DECL (decl) = build_constructor (NULL_TREE, nml_decls);
-  DECL_NAME (decl) = get_identifier (sym->name);
+  DECL_NAME (decl) = maybe_get_identifier (sym->name);
   return decl;
 }
 
@@ -5053,7 +5053,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	  entry->namespace_decl
 	    = build_decl (input_location,
 			  NAMESPACE_DECL,
-			  get_identifier (use_stmt->module_name),
+			  maybe_get_identifier (use_stmt->module_name),
 			  void_type_node);
 	  DECL_EXTERNAL (entry->namespace_decl) = 1;
 	}
@@ -5130,7 +5130,7 @@ gfc_trans_use_stmts (gfc_namespace * ns)
 	    }
 	  decl = (tree) *slot;
 	  if (rent->local_name)
-	    local_name = get_identifier (rent->local_name);
+	    local_name = maybe_get_identifier (rent->local_name);
 	  else
 	    local_name = NULL_TREE;
 	  gfc_set_backend_locus (&rent->where);
