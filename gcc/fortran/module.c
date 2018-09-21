@@ -4628,7 +4628,6 @@ load_commons (void)
   while (peek_atom () != ATOM_RPAREN)
     {
       int flags;
-      const char* bind_label;
       mio_lparen ();
       mio_pool_string (&name);
 
@@ -4645,9 +4644,7 @@ load_commons (void)
       /* Get whether this was a bind(c) common or not.  */
       mio_integer (&p->is_bind_c);
       /* Get the binding label.  */
-      mio_pool_string (&bind_label);
-      if (bind_label)
-	p->binding_label = bind_label;
+      mio_pool_string (&p->binding_label);
 
       mio_rparen ();
     }
@@ -5427,10 +5424,8 @@ free_written_common (struct written_common *w)
   if (!w)
     return;
 
-  if (w->left)
-    free_written_common (w->left);
-  if (w->right)
-    free_written_common (w->right);
+  free_written_common (w->left);
+  free_written_common (w->right);
 
   free (w);
 }
@@ -5485,7 +5480,7 @@ write_common_0 (gfc_symtree *st, bool this_module)
       mio_integer (&flags);
 
       /* Write out whether the common block is bind(c) or not.  */
-      mio_integer (&(p->is_bind_c));
+      mio_integer (&p->is_bind_c);
 
       mio_pool_string (&label);
       mio_rparen ();
@@ -5579,8 +5574,6 @@ write_equiv (void)
 static void
 write_symbol (int n, gfc_symbol *sym)
 {
-  const char *label;
-
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
     gfc_internal_error ("write_symbol(): bad module symbol %qs", sym->name);
 
@@ -5597,10 +5590,7 @@ write_symbol (int n, gfc_symbol *sym)
 
   mio_pool_string (&sym->module);
   if ((sym->attr.is_bind_c || sym->attr.is_iso_c) && sym->binding_label)
-    {
-      label = sym->binding_label;
-      mio_pool_string (&label);
-    }
+    mio_pool_string (&sym->binding_label);
   else
     write_atom (ATOM_STRING, "");
 

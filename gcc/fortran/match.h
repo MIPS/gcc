@@ -273,7 +273,6 @@ bool set_verify_bind_c_com_block (gfc_common_head *, int);
 bool get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
-match gfc_match_bind_c (gfc_symbol *, bool);
 match gfc_get_type_attr_spec (symbol_attribute *, char*);
 
 /* primary.c.  */

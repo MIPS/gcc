@@ -248,8 +248,8 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
   /* Get the name out of the common block pointer.  */
   name = com->name;
 
-  /* If we're suppose to do a bind(c).  */
-  if (com->is_bind_c == 1 && com->binding_label)
+  /* If we're supposed to do a bind(c).  */
+  if (com->is_bind_c && com->binding_label)
     return get_identifier (com->binding_label);
 
   if (name == gfc_get_string (BLANK_COMMON_NAME))

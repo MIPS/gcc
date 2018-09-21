@@ -56,6 +56,7 @@ static gfc_array_spec *current_as;
 static int colon_seen;
 static int attr_seen;
 
+static match gfc_match_bind_c (gfc_symbol *, bool);
 /* The current binding label (if any).  */
 static const char* curr_binding_label;
 /* Need to know how many identifiers are on the current data declaration
@@ -5453,7 +5454,7 @@ set_binding_label (const char **dest_label, const char *sym_name,
       /* No binding label given, and the NAME= specifier did not exist,
          which means there was no NAME="".  */
       if (sym_name != NULL && has_name_equals == 0)
-        *dest_label = IDENTIFIER_POINTER (get_identifier (sym_name));
+        *dest_label = sym_name;
     }
 
   return true;
@@ -7567,36 +7568,31 @@ gfc_match_subroutine (void)
 
 
 /* Check that the NAME identifier in a BIND attribute or statement
-   is conform to C identifier rules.  */
+   is conform to C identifier rules.  Set RESULT to the identifier on
+   success.  */
 
-match
-check_bind_name_identifier (char **name)
+static match
+check_bind_name_identifier (char *name, const char **result)
 {
-  char *n = *name, *p;
+  char *n = name, *p;
 
+  /* ??? shouldn't that use while (gfc_is_whitespace (*n)) ?  */
   /* Remove leading spaces.  */
   while (*n == ' ')
     n++;
 
-  /* On an empty string, free memory and set name to NULL.  */
+  /* Empty string, no match.  */
   if (*n == '\0')
-    {
-      free (*name);
-      *name = NULL;
-      return MATCH_YES;
-    }
+    return MATCH_NO;
 
+  /* ??? shouldn't that use while (gfc_is_whitespace (*p)) ?  */
   /* Remove trailing spaces.  */
   p = n + strlen(n) - 1;
   while (*p == ' ')
     *(p--) = '\0';
+  p = n;
 
-  /* Insert the identifier into the symbol table.  */
-  p = xstrdup (n);
-  free (*name);
-  *name = p;
-
-  /* Now check that identifier is valid under C rules.  */
+  /* Now check that the identifier is valid under C rules.  */
   if (ISDIGIT (*p))
     {
       gfc_error ("Invalid C identifier in NAME= specifier at %C");
@@ -7610,6 +7606,7 @@ check_bind_name_identifier (char **name)
 	return MATCH_ERROR;
       }
 
+  *result = gfc_get_string ("%s", n);
   return MATCH_YES;
 }
 
@@ -7625,11 +7622,13 @@ check_bind_name_identifier (char **name)
    current_ts. If allow_binding_name is false, no binding name may be
    given.  */
 
-match
+static match
 gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
 {
-  char *binding_label = NULL;
+  const char *binding_label = NULL;
+  char *label;
   gfc_expr *e = NULL;
+  match m;
 
   /* Initialize the flag that specifies whether we encountered a NAME=
      specifier or not.  */
@@ -7677,12 +7676,14 @@ gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
 	}
 
       // Get a C string from the Fortran string constant
-      binding_label = gfc_widechar_to_char (e->value.character.string,
-					    e->value.character.length);
+      label = gfc_widechar_to_char (e->value.character.string,
+				    e->value.character.length);
       gfc_free_expr(e);
 
       // Check that it is valid (old gfc_match_name_C)
-      if (check_bind_name_identifier (&binding_label) != MATCH_YES)
+      m = check_bind_name_identifier (label, &binding_label);
+      free (label);
+      if (m == MATCH_ERROR)
 	return MATCH_ERROR;
     }
 
@@ -7724,7 +7725,7 @@ gfc_match_bind_c (gfc_symbol *sym, bool allow_binding_name)
 	 If name="" or allow_binding_name is false, no C binding name is
 	 created.  */
       if (sym != NULL && sym->name != NULL && has_name_equals == 0)
-	sym->binding_label = IDENTIFIER_POINTER (get_identifier (sym->name));
+	sym->binding_label = sym->name;
     }
 
   if (has_name_equals && gfc_current_state () == COMP_INTERFACE
