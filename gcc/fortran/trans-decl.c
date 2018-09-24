@@ -278,8 +278,6 @@ gfc_build_label_decl (tree label_id)
       ASM_FORMAT_PRIVATE_NAME (label_name, "L", tmp_num++);
       label_id = get_identifier (label_name);
     }
-  else
-    label_name = NULL;
 
   /* Build the LABEL_DECL node. Labels have no type.  */
   label_decl = build_decl (input_location,
@@ -317,17 +315,17 @@ gfc_get_label_decl (gfc_st_label * lp)
     return lp->backend_decl;
   else
     {
-      char label_name[GFC_MAX_SYMBOL_LEN + 1];
+      tree label_id;
       tree label_decl;
 
       /* Validate the label declaration from the front end.  */
       gcc_assert (lp != NULL && lp->value <= MAX_LABEL_VALUE);
 
       /* Build a mangled name for the label.  */
-      sprintf (label_name, "__label_%.6d", lp->value);
+      label_id = gfc_get_identifier ("__label_%.6d", lp->value);
 
       /* Build the LABEL_DECL node.  */
-      label_decl = gfc_build_label_decl (get_identifier (label_name));
+      label_decl = gfc_build_label_decl (label_id);
 
       /* Tell the debugger where the label came from.  */
       if (lp->value <= MAX_LABEL_VALUE)	/* An internal label.  */
@@ -359,8 +357,6 @@ gfc_sym_identifier (gfc_symbol * sym)
 static tree
 gfc_sym_mangled_identifier (gfc_symbol * sym)
 {
-  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
-
   /* Prevent the mangling of identifiers that have an assigned
      binding label (mainly those that are bind(c)).  */
   if (sym->attr.is_bind_c == 1 && sym->binding_label)
@@ -371,10 +367,7 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
       if (sym->module == NULL)
 	return gfc_sym_identifier (sym);
       else
-	{
-	  snprintf (name, sizeof name, "__%s_MOD_%s", sym->module, sym->name);
-	  return get_identifier (name);
-	}
+	return gfc_get_identifier ("__%s_MOD_%s", sym->module, sym->name);
     }
   else
     {
@@ -383,19 +376,13 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
 	 sym->module will be a zero length string, we use ns->proc_name
 	 instead. */
       if (sym->ns->proc_name && sym->ns->proc_name->module)
-	{
-	  snprintf (name, sizeof name, "__%s_MOD__%s_PROC_%s",
-		    sym->ns->proc_name->module,
-		    sym->ns->proc_name->name,
-		    sym->name);
-	  return get_identifier (name);
-	}
+	return gfc_get_identifier ("__%s_MOD__%s_PROC_%s",
+				   sym->ns->proc_name->module,
+				   sym->ns->proc_name->name,
+				   sym->name);
       else
-	{
-	  snprintf (name, sizeof name, "__%s_PROC_%s",
-		    sym->ns->proc_name->name, sym->name);
-	  return get_identifier (name);
-	}
+	return gfc_get_identifier ("__%s_PROC_%s", sym->ns->proc_name->name,
+				   sym->name);
     }
 }
 
@@ -406,7 +393,6 @@ static tree
 gfc_sym_mangled_function_id (gfc_symbol * sym)
 {
   int has_underscore;
-  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
 
   /* It may be possible to simply use the binding label if it's
      provided, and remove the other checks.  Then we could use it
@@ -433,19 +419,15 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
 	{
 	  has_underscore = strchr (sym->name, '_') != 0;
 	  if (flag_second_underscore && has_underscore)
-	    snprintf (name, sizeof name, "%s__", sym->name);
+	    return gfc_get_identifier ("%s__", sym->name);
 	  else
-	    snprintf (name, sizeof name, "%s_", sym->name);
-	  return get_identifier (name);
+	    return gfc_get_identifier ("%s_", sym->name);
 	}
       else
 	return get_identifier (sym->name);
     }
   else
-    {
-      snprintf (name, sizeof name, "__%s_MOD_%s", sym->module, sym->name);
-      return get_identifier (name);
-    }
+    return gfc_get_identifier ("__%s_MOD_%s", sym->module, sym->name);
 }
 
 
@@ -1959,7 +1941,6 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   gfc_expr e;
   gfc_intrinsic_sym *isym;
   gfc_expr argexpr;
-  char s[GFC_MAX_SYMBOL_LEN + 23]; /* "_gfortran_f2c_specific" and '\0'.  */
   tree name;
   tree mangled_name;
   gfc_gsymbol *gsym;
@@ -2110,12 +2091,13 @@ module_sym:
 	{
 	  /* Specific which needs a different implementation if f2c
 	     calling conventions are used.  */
-	  sprintf (s, "_gfortran_f2c_specific%s", e.value.function.name);
+	  name = gfc_get_identifier ("_gfortran_f2c_specific%s",
+				     e.value.function.name);
 	}
       else
-	sprintf (s, "_gfortran_specific%s", e.value.function.name);
+	name = gfc_get_identifier ("_gfortran_specific%s",
+				   e.value.function.name);
 
-      name = get_identifier (s);
       mangled_name = name;
     }
   else
@@ -2444,7 +2426,7 @@ create_function_arglist (gfc_symbol * sym)
 
   for (f = gfc_sym_get_dummy_args (sym); f; f = f->next)
     {
-      char name[GFC_MAX_SYMBOL_LEN + 2];
+      tree name;
 
       /* Ignore alternate returns.  */
       if (f->sym == NULL)
@@ -2462,10 +2444,8 @@ create_function_arglist (gfc_symbol * sym)
 	  else
 	    gcc_assert (POINTER_TYPE_P (len_type));
 
-	  strcpy (&name[1], f->sym->name);
-	  name[0] = '_';
-	  length = build_decl (input_location,
-			       PARM_DECL, get_identifier (name), len_type);
+	  name = gfc_get_identifier ("_%s", f->sym->name);
+	  length = build_decl (input_location, PARM_DECL, name, len_type);
 
 	  hidden_arglist = chainon (hidden_arglist, length);
 	  DECL_CONTEXT (length) = fndecl;
@@ -2518,11 +2498,8 @@ create_function_arglist (gfc_symbol * sym)
 	       && !gfc_bt_struct (f->sym->ts.type))
 	{
           tree tmp;
-          strcpy (&name[1], f->sym->name);
-          name[0] = '_';
-          tmp = build_decl (input_location,
-			    PARM_DECL, get_identifier (name),
-			    boolean_type_node);
+	  name = gfc_get_identifier ("_%s", f->sym->name);
+          tmp = build_decl (input_location, PARM_DECL, name, boolean_type_node);
 
           hidden_arglist = chainon (hidden_arglist, tmp);
           DECL_CONTEXT (tmp) = fndecl;
@@ -2915,8 +2892,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
   tree length;
   tree this_fake_result_decl;
   tree this_function_decl;
-
-  char name[GFC_MAX_SYMBOL_LEN + 10];
+  tree result_name;
 
   if (parent_flag)
     {
@@ -3009,16 +2985,16 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
     }
   else
     {
-      sprintf (name, "__result_%.20s",
+      result_name = gfc_get_identifier ("__result_%s",
 	       IDENTIFIER_POINTER (DECL_NAME (this_function_decl)));
 
       if (!sym->attr.mixed_entry_master && sym->attr.function)
 	decl = build_decl (DECL_SOURCE_LOCATION (this_function_decl),
-			   VAR_DECL, get_identifier (name),
+			   VAR_DECL, result_name,
 			   gfc_sym_type (sym));
       else
 	decl = build_decl (DECL_SOURCE_LOCATION (this_function_decl),
-			   VAR_DECL, get_identifier (name),
+			   VAR_DECL, result_name,
 			   TREE_TYPE (TREE_TYPE (this_function_decl)));
       DECL_ARTIFICIAL (decl) = 1;
       DECL_EXTERNAL (decl) = 0;
@@ -3354,7 +3330,7 @@ gfc_build_intrinsic_function_decls (void)
 #define NRKINDS 4
     static int ikinds[NIKINDS] = {4, 8, 16};
     static int rkinds[NRKINDS] = {4, 8, 10, 16};
-    char name[PREFIX_LEN + 12]; /* _gfortran_pow_?n_?n */
+    tree name;
 
     for (ikind=0; ikind < NIKINDS; ikind++)
       {
@@ -3365,10 +3341,10 @@ gfc_build_intrinsic_function_decls (void)
 	    jtype = gfc_get_int_type (ikinds[jkind]);
 	    if (itype && jtype)
 	      {
-		sprintf (name, PREFIX("pow_i%d_i%d"), ikinds[ikind],
+		name = gfc_get_identifier (PREFIX("pow_i%d_i%d"), ikinds[ikind],
 			ikinds[jkind]);
 		gfor_fndecl_math_powi[jkind][ikind].integer =
-		  gfc_build_library_function_decl (get_identifier (name),
+		  gfc_build_library_function_decl (name,
 		    jtype, 2, jtype, itype);
 		TREE_READONLY (gfor_fndecl_math_powi[jkind][ikind].integer) = 1;
 		TREE_NOTHROW (gfor_fndecl_math_powi[jkind][ikind].integer) = 1;
@@ -3380,10 +3356,10 @@ gfc_build_intrinsic_function_decls (void)
 	    rtype = gfc_get_real_type (rkinds[rkind]);
 	    if (rtype && itype)
 	      {
-		sprintf (name, PREFIX("pow_r%d_i%d"), rkinds[rkind],
+		name = gfc_get_identifier (PREFIX("pow_r%d_i%d"), rkinds[rkind],
 			ikinds[ikind]);
 		gfor_fndecl_math_powi[rkind][ikind].real =
-		  gfc_build_library_function_decl (get_identifier (name),
+		  gfc_build_library_function_decl (name,
 		    rtype, 2, rtype, itype);
 		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].real) = 1;
 		TREE_NOTHROW (gfor_fndecl_math_powi[rkind][ikind].real) = 1;
@@ -3392,10 +3368,10 @@ gfc_build_intrinsic_function_decls (void)
 	    ctype = gfc_get_complex_type (rkinds[rkind]);
 	    if (ctype && itype)
 	      {
-		sprintf (name, PREFIX("pow_c%d_i%d"), rkinds[rkind],
+		name = gfc_get_identifier (PREFIX("pow_c%d_i%d"), rkinds[rkind],
 			ikinds[ikind]);
 		gfor_fndecl_math_powi[rkind][ikind].cmplx =
-		  gfc_build_library_function_decl (get_identifier (name),
+		  gfc_build_library_function_decl (name,
 		    ctype, 2,ctype, itype);
 		TREE_READONLY (gfor_fndecl_math_powi[rkind][ikind].cmplx) = 1;
 		TREE_NOTHROW (gfor_fndecl_math_powi[rkind][ikind].cmplx) = 1;

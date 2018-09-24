@@ -950,7 +950,7 @@ gfc_build_logical_type (gfc_logical_info *info)
 void
 gfc_init_types (void)
 {
-  char name_buf[26];
+  tree tname;
   int index;
   tree type;
   unsigned n;
@@ -958,7 +958,7 @@ gfc_init_types (void)
   /* Create and name the types.  */
 #define PUSH_TYPE(name, node) \
   pushdecl (build_decl (input_location, \
-			TYPE_DECL, get_identifier (name), node))
+			TYPE_DECL, name, node))
 
   for (index = 0; gfc_integer_kinds[index].kind != 0; ++index)
     {
@@ -967,36 +967,36 @@ gfc_init_types (void)
       if (TYPE_STRING_FLAG (type))
 	type = make_signed_type (gfc_integer_kinds[index].bit_size);
       gfc_integer_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "integer(kind=%d)",
+      tname = gfc_get_identifier ("integer(kind=%d)",
 		gfc_integer_kinds[index].kind);
-      PUSH_TYPE (name_buf, type);
+      PUSH_TYPE (tname, type);
     }
 
   for (index = 0; gfc_logical_kinds[index].kind != 0; ++index)
     {
       type = gfc_build_logical_type (&gfc_logical_kinds[index]);
       gfc_logical_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "logical(kind=%d)",
+      tname = gfc_get_identifier ("logical(kind=%d)",
 		gfc_logical_kinds[index].kind);
-      PUSH_TYPE (name_buf, type);
+      PUSH_TYPE (tname, type);
     }
 
   for (index = 0; gfc_real_kinds[index].kind != 0; index++)
     {
       type = gfc_build_real_type (&gfc_real_kinds[index]);
       gfc_real_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "real(kind=%d)",
+      tname = gfc_get_identifier ("real(kind=%d)",
 		gfc_real_kinds[index].kind);
-      PUSH_TYPE (name_buf, type);
+      PUSH_TYPE (tname, type);
 
       if (gfc_real_kinds[index].c_float128)
 	gfc_float128_type_node = type;
 
       type = gfc_build_complex_type (type);
       gfc_complex_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "complex(kind=%d)",
+      tname = gfc_get_identifier ("complex(kind=%d)",
 		gfc_real_kinds[index].kind);
-      PUSH_TYPE (name_buf, type);
+      PUSH_TYPE (tname, type);
 
       if (gfc_real_kinds[index].c_float128)
 	gfc_complex_float128_type_node = type;
@@ -1006,22 +1006,22 @@ gfc_init_types (void)
     {
       type = gfc_build_uint_type (gfc_character_kinds[index].bit_size);
       type = build_qualified_type (type, TYPE_UNQUALIFIED);
-      snprintf (name_buf, sizeof(name_buf), "character(kind=%d)",
+      tname = gfc_get_identifier ("character(kind=%d)",
 		gfc_character_kinds[index].kind);
-      PUSH_TYPE (name_buf, type);
+      PUSH_TYPE (tname, type);
       gfc_character_types[index] = type;
       gfc_pcharacter_types[index] = build_pointer_type (type);
     }
   gfc_character1_type_node = gfc_character_types[0];
 
-  PUSH_TYPE ("byte", unsigned_char_type_node);
-  PUSH_TYPE ("void", void_type_node);
+  PUSH_TYPE (get_identifier ("byte"), unsigned_char_type_node);
+  PUSH_TYPE (get_identifier ("void"), void_type_node);
 
   /* DBX debugging output gets upset if these aren't set.  */
   if (!TYPE_NAME (integer_type_node))
-    PUSH_TYPE ("c_integer", integer_type_node);
+    PUSH_TYPE (get_identifier ("c_integer"), integer_type_node);
   if (!TYPE_NAME (char_type_node))
-    PUSH_TYPE ("c_char", char_type_node);
+    PUSH_TYPE (get_identifier ("c_char"), char_type_node);
 
 #undef PUSH_TYPE
 
@@ -1823,7 +1823,6 @@ static tree
 gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted)
 {
   tree fat_type, decl, arraytype, *chain = NULL;
-  char name[16 + 2*GFC_RANK_DIGITS + 1 + 1];
   int idx;
 
   /* Assumed-rank array.  */
@@ -1845,8 +1844,9 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted)
   /* Build the type node.  */
   fat_type = make_node (RECORD_TYPE);
 
-  sprintf (name, "array_descriptor" GFC_RANK_PRINTF_FORMAT, dimen + codimen);
-  TYPE_NAME (fat_type) = get_identifier (name);
+  TYPE_NAME (fat_type)
+    = gfc_get_identifier ("array_descriptor" GFC_RANK_PRINTF_FORMAT,
+			  dimen + codimen);
   TYPE_NAMELESS (fat_type) = 1;
 
   /* Add the data member as the first element of the descriptor.  */
@@ -1916,7 +1916,6 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
 			   tree * ubound, int packed,
 			   enum gfc_array_kind akind, bool restricted)
 {
-  char name[8 + 2*GFC_RANK_DIGITS + 1 + GFC_MAX_SYMBOL_LEN];
   tree fat_type, base_type, arraytype, lower, upper, stride, tmp, rtype;
   const char *type_name;
   int n;
@@ -1944,9 +1943,10 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
     type_name = IDENTIFIER_POINTER (tmp);
   else
     type_name = "unknown";
-  sprintf (name, "array" GFC_RANK_PRINTF_FORMAT "_%.*s", dimen + codimen,
-	   GFC_MAX_SYMBOL_LEN, type_name);
-  TYPE_NAME (fat_type) = get_identifier (name);
+
+  TYPE_NAME (fat_type)
+    = gfc_get_identifier ("array" GFC_RANK_PRINTF_FORMAT "_%.*s",
+			  dimen + codimen, GFC_MAX_SYMBOL_LEN, type_name);
   TYPE_NAMELESS (fat_type) = 1;
 
   GFC_DESCRIPTOR_TYPE_P (fat_type) = 1;
@@ -2870,9 +2870,8 @@ copy_derived_types:
 	  && (c->attr.allocatable || c->attr.pointer)
 	  && !derived->attr.is_class)
 	{
-	  char caf_name[GFC_MAX_SYMBOL_LEN];
 	  gfc_component *token;
-	  snprintf (caf_name, GFC_MAX_SYMBOL_LEN, "_caf_%s", c->name);
+	  const char *caf_name = gfc_get_string ("_caf_%s", c->name);
 	  token = gfc_find_component (derived, caf_name, true, true, NULL);
 	  gcc_assert (token);
 	  c->caf_token = token->backend_decl;
@@ -2924,18 +2923,15 @@ gfc_get_mixed_entry_union (gfc_namespace *ns)
 {
   tree type;
   tree *chain = NULL;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_entry_list *el, *el2;
 
   gcc_assert (ns->proc_name->attr.mixed_entry_master);
   gcc_assert (memcmp (ns->proc_name->name, "master.", 7) == 0);
 
-  snprintf (name, GFC_MAX_SYMBOL_LEN, "munion.%s", ns->proc_name->name + 7);
-
   /* Build the type node.  */
   type = make_node (UNION_TYPE);
 
-  TYPE_NAME (type) = get_identifier (name);
+  TYPE_NAME (type) = gfc_get_identifier ("munion.%s", ns->proc_name->name + 7);
 
   for (el = ns->entries; el; el = el->next)
     {

@@ -242,7 +242,6 @@ static tree
 gfc_sym_mangled_common_id (gfc_common_head *com)
 {
   int has_underscore;
-  char mangled_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
   const char *name;
 
   /* Get the name out of the common block pointer.  */
@@ -259,11 +258,9 @@ gfc_sym_mangled_common_id (gfc_common_head *com)
     {
       has_underscore = strchr (name, '_') != 0;
       if (flag_second_underscore && has_underscore)
-        snprintf (mangled_name, sizeof mangled_name, "%s__", name);
+        return gfc_get_identifier ("%s__", name);
       else
-        snprintf (mangled_name, sizeof mangled_name, "%s_", name);
-
-      return get_identifier (mangled_name);
+        return gfc_get_identifier ("%s_", name);
     }
   else
     return maybe_get_identifier (name);
@@ -342,7 +339,6 @@ static tree
 build_equiv_decl (tree union_type, bool is_init, bool is_saved)
 {
   tree decl;
-  char name[18];
   static int serial = 0;
 
   if (is_init)
@@ -353,9 +349,8 @@ build_equiv_decl (tree union_type, bool is_init, bool is_saved)
       return decl;
     }
 
-  snprintf (name, sizeof (name), "equiv.%d", serial++);
-  decl = build_decl (input_location,
-		     VAR_DECL, get_identifier (name), union_type);
+  decl = build_decl (input_location, VAR_DECL,
+		     gfc_get_identifier ("equiv.%d", serial++), union_type);
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
 

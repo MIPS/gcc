@@ -167,17 +167,12 @@ gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
 {
   unsigned int type;
   gfc_st_parameter_field *p;
-  char name[64];
-  size_t len;
   tree t = make_node (RECORD_TYPE);
   tree *chain = NULL;
+  tree name;
 
-  len = strlen (st_parameter[ptype].name);
-  gcc_assert (len <= sizeof (name) - sizeof ("__st_parameter_"));
-  memcpy (name, "__st_parameter_", sizeof ("__st_parameter_"));
-  memcpy (name + sizeof ("__st_parameter_") - 1, st_parameter[ptype].name,
-	  len + 1);
-  TYPE_NAME (t) = get_identifier (name);
+  TYPE_NAME (t) = gfc_get_identifier ("__st_parameter_%s",
+				      st_parameter[ptype].name);
 
   for (type = 0, p = st_parameter_field; type < IOPARM_field_num; type++, p++)
     if (p->param_type == ptype)
@@ -198,11 +193,8 @@ gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
 					      pchar_type_node, &chain);
 	  /* FALLTHROUGH */
 	case IOPARM_type_char2:
-	  len = strlen (p->name);
-	  gcc_assert (len <= sizeof (name) - sizeof ("_len"));
-	  memcpy (name, p->name, len);
-	  memcpy (name + len, "_len", sizeof ("_len"));
-	  p->field_len = gfc_add_field_to_struct (t, get_identifier (name),
+	  name = gfc_get_identifier ("%s_len", p->name);
+	  p->field_len = gfc_add_field_to_struct (t, name,
 						  gfc_charlen_type_node,
 						  &chain);
 	  if (p->type == IOPARM_type_char2)

@@ -36,41 +36,93 @@ along with GCC; see the file COPYING3.  If not see
 #include "constructor.h"
 #include "arith.h"
 
-/* Given printf-like arguments, return a stable version of the result string.
 
-   We already have a working, optimized string hashing table in the form of
-   the identifier table.  Reusing this table is likely not to be wasted,
-   since if the function name makes it to the gimple output of the frontend,
-   we'll have to create the identifier anyway.  */
+#define GFC_MAX_MANGLED_SYMBOL_LEN  (GFC_MAX_SYMBOL_LEN*2+4)
 
-const char *
-gfc_get_string (const char *format, ...)
+/* Given printf-like arguments, return a stable version of the result
+   identifier.  If INSERT is true, add the constructed string to the
+   stringpool and return it.  If INSERT is false, return the
+   constructed string if it exists in the stringpool, NULL otherwise.
+
+   Helper function for the various string- and identifier public
+   functions below.  */
+
+static inline tree
+ATTRIBUTE_PRINTF(1, 0)
+gfc_get_identifier_1 (const char*, va_list, bool);
+static inline tree
+gfc_get_identifier_1 (const char *format, va_list ap, bool insert)
 {
-  char temp_name[128];
   const char *str;
-  va_list ap;
   tree ident;
 
   /* Handle common case without vsnprintf and temporary buffer.  */
   if (format[0] == '%' && format[1] == 's' && format[2] == '\0')
-    {
-      va_start (ap, format);
-      str = va_arg (ap, const char *);
-      va_end (ap);
-    }
+    str = va_arg (ap, const char *);
   else
     {
+      char temp_name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
       int ret;
-      va_start (ap, format);
       ret = vsnprintf (temp_name, sizeof (temp_name), format, ap);
-      va_end (ap);
       if (ret < 1 || ret >= (int) sizeof (temp_name)) /* Reject truncation.  */
 	gfc_internal_error ("identifier overflow: %d", ret);
       temp_name[sizeof (temp_name) - 1] = 0;
       str = temp_name;
     }
 
-  ident = get_identifier (str);
+  ident = insert ? get_identifier (str) : maybe_get_identifier (str);
+  return ident;
+}
+
+
+/* Given printf-like arguments, return a stable version of the result
+   identifier.  Add the constructed string to the stringpool if it does
+   not yet exist and return it.  */
+
+tree
+gfc_get_identifier (const char *format, ...)
+{
+  va_list ap;
+  tree ident;
+
+  va_start (ap, format);
+  ident = gfc_get_identifier_1 (format, ap, true);
+  va_end (ap);
+
+  return ident;
+}
+
+
+/* Given printf-like arguments, return a stable version of the result
+   identifier or NULL if it was not found in the stringpool.  */
+
+tree
+gfc_maybe_get_identifier (const char *format, ...)
+{
+  va_list ap;
+  tree ident;
+
+  va_start (ap, format);
+  ident = gfc_get_identifier_1 (format, ap, false);
+  va_end (ap);
+
+  return ident;
+}
+
+
+/* Given printf-like arguments, return a stable version of the result string.
+   The constructed string is added to the stringpool.  */
+
+const char *
+gfc_get_string (const char *format, ...)
+{
+  tree ident;
+  va_list ap;
+
+  va_start (ap, format);
+  ident = gfc_get_identifier_1 (format, ap, true);
+  va_end (ap);
+
   return IDENTIFIER_POINTER (ident);
 }
 

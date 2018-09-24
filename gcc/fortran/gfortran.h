@@ -2850,7 +2850,12 @@ char *gfc_get_option_string (void);
 void gfc_maybe_initialize_eh (void);
 
 /* iresolve.c */
-const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
+const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1
+  __attribute__ ((__warn_unused_result__));
+tree gfc_get_identifier (const char*, ...) ATTRIBUTE_PRINTF_1
+  __attribute__ ((__warn_unused_result__));
+tree gfc_maybe_get_identifier (const char*, ...) ATTRIBUTE_PRINTF_1
+  __attribute__ ((__warn_unused_result__));
 bool gfc_find_sym_in_expr (gfc_symbol *, gfc_expr *);
 
 /* error.c */

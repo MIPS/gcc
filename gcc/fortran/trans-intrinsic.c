@@ -730,7 +730,7 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   gfc_actual_arglist *actual;
   tree *pdecl;
   gfc_typespec *ts;
-  char name[GFC_MAX_SYMBOL_LEN + 3];
+  tree name;
 
   ts = &expr->ts;
   if (ts->type == BT_REAL)
@@ -785,23 +785,23 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
     {
       int n = gfc_validate_kind (BT_REAL, ts->kind, false);
       if (gfc_real_kinds[n].c_float)
-	snprintf (name, sizeof (name), "%s%s%s",
+	name = gfc_get_identifier ("%s%s%s",
 		  ts->type == BT_COMPLEX ? "c" : "", m->name, "f");
       else if (gfc_real_kinds[n].c_double)
-	snprintf (name, sizeof (name), "%s%s",
+	name = gfc_get_identifier ("%s%s",
 		  ts->type == BT_COMPLEX ? "c" : "", m->name);
       else if (gfc_real_kinds[n].c_long_double)
-	snprintf (name, sizeof (name), "%s%s%s",
+	name = gfc_get_identifier ("%s%s%s",
 		  ts->type == BT_COMPLEX ? "c" : "", m->name, "l");
       else if (gfc_real_kinds[n].c_float128)
-	snprintf (name, sizeof (name), "%s%s%s",
+	name = gfc_get_identifier ("%s%s%s",
 		  ts->type == BT_COMPLEX ? "c" : "", m->name, "q");
       else
 	gcc_unreachable ();
     }
   else
     {
-      snprintf (name, sizeof (name), PREFIX ("%s_%c%d"), m->name,
+      name = gfc_get_identifier (PREFIX ("%s_%c%d"), m->name,
 		ts->type == BT_COMPLEX ? 'c' : 'r',
 		ts->kind);
     }
@@ -813,8 +813,7 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
       vec_safe_push (argtypes, type);
     }
   type = build_function_type_vec (gfc_typenode_for_spec (ts), argtypes);
-  fndecl = build_decl (input_location,
-		       FUNCTION_DECL, get_identifier (name), type);
+  fndecl = build_decl (input_location, FUNCTION_DECL, name, type);
 
   /* Mark the decl as external.  */
   DECL_EXTERNAL (fndecl) = 1;

@@ -1693,13 +1693,10 @@ gfc_conv_expr_present (gfc_symbol * sym)
       && sym->ts.type != BT_CLASS && sym->ts.type != BT_DERIVED
       && !sym->attr.dimension)
     {
-      char name[GFC_MAX_SYMBOL_LEN + 2];
       tree tree_name;
 
       gcc_assert (TREE_CODE (decl) == PARM_DECL);
-      name[0] = '_';
-      strcpy (&name[1], sym->name);
-      tree_name = get_identifier (name);
+      tree_name = gfc_get_identifier ("_%s", sym->name);
 
       /* Walk function argument list to find hidden arg.  */
       cond = DECL_ARGUMENTS (DECL_CONTEXT (decl));
