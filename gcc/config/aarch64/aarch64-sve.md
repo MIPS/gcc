@@ -1800,7 +1800,7 @@
 	   (const_int SVE_ALLOW_NEW_FAULTS)
 	   (match_operand:SVE_F 1 "register_operand")
 	   (match_operand:SVE_F 2 "register_operand")]
-	   SVE_COND_MAXMIN))]
+	  SVE_COND_MAXMIN))]
   "TARGET_SVE"
   {
     operands[3] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
@@ -1811,11 +1811,11 @@
 (define_insn "@aarch64_pred_<maxmin_uns><mode>"
   [(set (match_operand:SVE_F 0 "register_operand" "=w, ?&w")
 	(unspec:SVE_F
-	  [(match_operand:<VPRED> 1 "register_operand" "Upl,  Upl")
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
 	   (match_operand:SI 4 "const_int_operand" "i, i")
 	   (match_operand:SVE_F 2 "register_operand" "%0, w")
 	   (match_operand:SVE_F 3 "register_operand" "w, w")]
-	   SVE_COND_MAXMIN))]
+	  SVE_COND_MAXMIN))]
   "TARGET_SVE"
   "@
    <maxmin_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>
