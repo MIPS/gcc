@@ -346,9 +346,9 @@ static tree
 gfc_sym_identifier (gfc_symbol * sym)
 {
   if (sym->attr.is_main_program && strcmp (sym->name, "main") == 0)
-    return (get_identifier ("MAIN__"));
+    return get_identifier ("MAIN__");
   else
-    return (maybe_get_identifier (sym->name));
+    return maybe_get_identifier (sym->name);
 }
 
 
@@ -400,7 +400,7 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
   if ((sym->attr.is_bind_c == 1 || sym->attr.is_iso_c == 1) &&
       sym->binding_label)
     /* use the binding label rather than the mangled name */
-    return get_identifier (sym->binding_label);
+    return maybe_get_identifier (sym->binding_label);
 
   if ((sym->module == NULL || sym->attr.proc == PROC_EXTERNAL
       || (sym->module != NULL && (sym->attr.external
@@ -413,7 +413,7 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
 
       /* Intrinsic procedures are never mangled.  */
       if (sym->attr.proc == PROC_INTRINSIC)
-	return get_identifier (sym->name);
+	return maybe_get_identifier (sym->name);
 
       if (flag_underscoring)
 	{
@@ -424,7 +424,7 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
 	    return gfc_get_identifier ("%s_", sym->name);
 	}
       else
-	return get_identifier (sym->name);
+	return maybe_get_identifier (sym->name);
     }
   else
     return gfc_get_identifier ("__%s_MOD_%s", sym->module, sym->name);
@@ -935,8 +935,8 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 			  || sym->ns->proc_name->attr.flavor == FL_MODULE))
 	{
 	  tree token_name
-		= get_identifier (gfc_get_string (GFC_PREFIX ("caf_token%s"),
-			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym))));
+		= gfc_get_identifier (GFC_PREFIX ("caf_token%s"),
+			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym)));
 	  token = build_decl (DECL_SOURCE_LOCATION (decl), VAR_DECL, token_name,
 			      token_type);
 	  if (sym->attr.use_assoc)
@@ -1276,7 +1276,7 @@ gfc_create_string_length (gfc_symbol * sym)
   if (sym->ts.u.cl->backend_decl == NULL_TREE)
     {
       tree length;
-      const char *name;
+      tree name;
 
       /* The string length variable shall be in static memory if it is either
 	 explicitly SAVED, a module variable or with -fno-automatic. Only
@@ -1294,18 +1294,17 @@ gfc_create_string_length (gfc_symbol * sym)
       if (static_length)
 	{
 	  if (sym->module)
-	    name = gfc_get_string (GFC_PREFIX ("%s_MOD_%s"), sym->module,
+	    name = gfc_get_identifier (GFC_PREFIX ("%s_MOD_%s"), sym->module,
 				   sym->name);
 	  else
-	    name = gfc_get_string (GFC_PREFIX ("%s"), sym->name);
+	    name = gfc_get_identifier (GFC_PREFIX ("%s"), sym->name);
 	}
       else if (sym->module)
-	name = gfc_get_string (".__%s_MOD_%s", sym->module, sym->name);
+	name = gfc_get_identifier (".__%s_MOD_%s", sym->module, sym->name);
       else
-	name = gfc_get_string (".%s", sym->name);
+	name = gfc_get_identifier (".%s", sym->name);
 
-      length = build_decl (input_location,
-			   VAR_DECL, maybe_get_identifier (name),
+      length = build_decl (input_location, VAR_DECL, name,
 			   gfc_charlen_type_node);
       DECL_ARTIFICIAL (length) = 1;
       TREE_USED (length) = 1;
