@@ -4068,7 +4068,8 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	  /* Formal parm type is specified by a function prototype.  */
 	  tree parmval;
 
-	  if (!COMPLETE_TYPE_P (complete_type (type)))
+	  /* Parameters can have defined sizeless types.  */
+	  if (!DEFINED_TYPE_P (complete_type (type)))
 	    {
               if (complain & tf_error)
                 {

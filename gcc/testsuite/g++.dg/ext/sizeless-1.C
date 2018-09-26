@@ -176,6 +176,7 @@ statements (int n)
   // Function arguments.
 
   ext_consume_ta (ta1);
+  ext_consume_ta (tb1); // { dg-error {cannot convert 'tb'[^\n]* to 'ta'} }
   ext_consume_const_int_ref (ta1); // { dg-error {invalid initialization of reference of type 'const int&' from expression of type 'ta'} }
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
   ext_consume_varargs (1, ta1);
