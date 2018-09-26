@@ -282,6 +282,19 @@ statements (int n)
   { typedef int f[!__is_constructible (ta, tb) ? 1 : -1]; }
 }
 
+// Function parameters in definitions.
+
+void
+unnamed_st1 (ta)
+{
+}
+
+void
+named_st1 (ta param1)
+{
+  ta ta1 = param1;
+}
+
 #if __cplusplus < 201103L
 void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
 #endif

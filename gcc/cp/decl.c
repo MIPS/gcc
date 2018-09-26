@@ -65,7 +65,6 @@ enum bad_spec_place {
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
-static void require_complete_types_for_parms (tree);
 static tree grok_reference_init (tree, tree, tree, int);
 static tree grokvardecl (tree, tree, tree, const cp_decl_specifier_seq *,
 			 int, int, int, bool, int, tree, location_t);
@@ -12928,18 +12927,18 @@ grokdeclarator (const cp_declarator *declarator,
 }
 
 /* Subroutine of start_function.  Ensure that each of the parameter
-   types (as listed in PARMS) is complete, as is required for a
-   function definition.  */
+   types (as listed in PARMS) is a defined sizeless type or a complete type,
+   as is required for a function definition.  */
 
 static void
-require_complete_types_for_parms (tree parms)
+require_defined_types_for_parms (tree parms)
 {
   for (; parms; parms = DECL_CHAIN (parms))
     {
       if (dependent_type_p (TREE_TYPE (parms)))
 	continue;
       if (!VOID_TYPE_P (TREE_TYPE (parms))
-	  && complete_type_or_else (TREE_TYPE (parms), parms))
+	  && defined_type_or_else (TREE_TYPE (parms), parms))
 	{
 	  relayout_decl (parms);
 	  DECL_ARG_TYPE (parms) = type_passed_as (TREE_TYPE (parms));
@@ -15100,8 +15099,9 @@ check_function_type (tree decl, tree current_function_parms)
   tree fntype = TREE_TYPE (decl);
   tree return_type = complete_type (TREE_TYPE (fntype));
 
-  /* In a function definition, arg types must be complete.  */
-  require_complete_types_for_parms (current_function_parms);
+  /* In a function definition, arguments must have a defined sizeless type
+     or a complete type.  */
+  require_defined_types_for_parms (current_function_parms);
 
   if (dependent_type_p (return_type)
       || type_uses_auto (return_type))
