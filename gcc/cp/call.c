@@ -7532,14 +7532,15 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 	arg = cp_perform_integral_promotions (arg, complain);
     }
 
-  arg = require_complete_type_sfinae (arg, complain);
+  /* It's OK to pass defined sizeless types through "...".  */
+  arg = require_defined_type_sfinae (arg, complain);
   arg_type = TREE_TYPE (arg);
 
   if (arg != error_mark_node
-      /* In a template (or ill-formed code), we can have an incomplete type
-	 even after require_complete_type_sfinae, in which case we don't know
+      /* In a template (or ill-formed code), we can have an undefined type
+	 even after require_defined_type_sfinae, in which case we don't know
 	 whether it has trivial copy or not.  */
-      && COMPLETE_TYPE_P (arg_type)
+      && DEFINED_TYPE_P (arg_type)
       && !cp_unevaluated_operand)
     {
       /* [expr.call] 5.2.2/7:
