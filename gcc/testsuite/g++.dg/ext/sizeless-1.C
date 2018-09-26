@@ -73,6 +73,12 @@ statements (int n)
   int init_int1 = ta1; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
   int init_int2 = { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
 
+  ta init_ta1 (ta1);
+  ta init_ta2 (tb1); // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in initialization} }
+  ta init_ta3 = ta1;
+  ta init_ta4 = tb1; // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in initialization} }
+  ta init_ta5 = {};
+
   // Compound literals.
 
   (int) { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
@@ -168,6 +174,12 @@ statements (int n)
   ext_consume_ta (ta1);
   ext_consume_const_int_ref (ta1); // { dg-error {invalid initialization of reference of type 'const int&' from expression of type 'ta'} }
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
+
+  // Auto
+
+#if __cplusplus >= 201103L
+  auto auto_ta1 = ta1;
+#endif
 
   // Other built-ins
 

@@ -1070,8 +1070,11 @@ digest_init_r (tree type, tree init, int nested, int flags,
   gcc_assert (init);
 
   /* We must strip the outermost array type when completing the type,
-     because the its bounds might be incomplete at the moment.  */
-  if (!complete_type_or_maybe_complain (code == ARRAY_TYPE
+     because its bounds might be incomplete at the moment.
+
+     Defined sizeless types are OK in this context (i.e. can be
+     initialized).  */
+  if (!defined_type_or_maybe_complain (code == ARRAY_TYPE
 					? TREE_TYPE (type) : type, NULL_TREE,
 					complain))
     return error_mark_node;
