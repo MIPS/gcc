@@ -181,10 +181,17 @@ statements (int n)
   ext_consume_varargs (ta1); // { dg-error {cannot convert 'ta'[^\n]* to 'int'} }
   ext_consume_varargs (1, ta1);
 
+  // Function returns.
+
+  ext_produce_ta ();
+  ta1 = ext_produce_ta ();
+  tb1 = ext_produce_ta (); // { dg-error {cannot convert 'ta'[^\n]* to 'tb'[^\n]* in assignment} }
+
   // Auto
 
 #if __cplusplus >= 201103L
   auto auto_ta1 = ta1;
+  auto auto_ta1_return = ext_produce_ta ();
 #endif
 
   // Other built-ins

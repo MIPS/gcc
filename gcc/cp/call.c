@@ -9170,10 +9170,13 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
      function call is either the operand of a decltype-specifier or the
      right operand of a comma operator that is the operand of a
      decltype-specifier, a temporary object is not introduced for the
-     prvalue. The type of the prvalue may be incomplete.  */
+     prvalue. The type of the prvalue may be incomplete.
+
+     We relax this so that the type of the prvalue can be a defined
+     sizeless type.  */
   if (!(complain & tf_decltype))
     {
-      fn = require_complete_type_sfinae (fn, complain);
+      fn = require_defined_type_sfinae (fn, complain);
       if (fn == error_mark_node)
 	return error_mark_node;
 
