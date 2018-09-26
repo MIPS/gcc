@@ -194,6 +194,11 @@ statements (int n)
   auto auto_ta1_return = ext_produce_ta ();
 #endif
 
+  // Varargs processing.
+
+  __builtin_va_list valist;
+  __builtin_va_arg (valist, ta);
+
   // Other built-ins
 
   __builtin_launder (ta1); // { dg-error {non-pointer argument to '__builtin_launder'} }

@@ -7587,7 +7587,8 @@ build_x_va_arg (location_t loc, tree expr, tree type)
       return r;
     }
 
-  type = complete_type_or_else (type, NULL_TREE);
+  /* It's OK to use va_arg with defined sizeless types.  */
+  type = defined_type_or_else (type, NULL_TREE);
 
   if (expr == error_mark_node || !type)
     return error_mark_node;
