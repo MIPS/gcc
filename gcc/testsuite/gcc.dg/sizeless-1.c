@@ -92,6 +92,13 @@ statements (int n)
 /* Function parameters in definitions.  */
 
 void
+old_style (input_ta)
+     ta input_ta;
+{
+  ta ta1 = input_ta;
+}
+
+void
 new_style_param (ta input_ta)
 {
   ta ta1 = input_ta;

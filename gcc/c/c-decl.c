@@ -9299,7 +9299,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	continue;
 
       if (TREE_TYPE (parm) != error_mark_node
-	  && !COMPLETE_TYPE_P (TREE_TYPE (parm)))
+	  /* Parameters can have defined sizeless type.  */
+	  && !DEFINED_TYPE_P (TREE_TYPE (parm)))
 	{
 	  error_at (DECL_SOURCE_LOCATION (parm),
 		    "parameter %qD has incomplete type", parm);
