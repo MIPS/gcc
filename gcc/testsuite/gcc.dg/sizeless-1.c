@@ -36,8 +36,10 @@ statements (int n)
 
   sizeof (ta); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
   sizeof (ta1); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
+  sizeof (ext_produce_ta ()); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
   _Alignof (ta); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
   _Alignof (ta1); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
+  _Alignof (ext_produce_ta ()); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
 
   /* Initialization.  */
 
@@ -86,6 +88,12 @@ statements (int n)
   ext_consume_ta (tb1); /* { dg-error {incompatible type for argument 1 of 'ext_consume_ta'} } */
   ext_consume_varargs (ta1); /* { dg-error {incompatible type for argument 1 of 'ext_consume_varargs'} } */
   ext_consume_varargs (1, ta1);
+
+  /* Function returns.  */
+
+  ext_produce_ta ();
+  ta1 = ext_produce_ta ();
+  tb1 = ext_produce_ta (); /* { dg-error {incompatible types when assigning to type 'tb'[^\n]* from type 'ta'} } */
 
   /* Statement expressions.  */
 

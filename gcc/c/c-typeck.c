@@ -3163,7 +3163,8 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
 		 "function with qualified void return type called");
       return result;
     }
-  return require_complete_type (loc, result);
+  /* Functions can return defined sizeless types.  */
+  return require_defined_type (loc, result);
 }
 
 /* Like build_function_call_vec, but call also resolve_overloaded_builtin.  */
