@@ -5768,7 +5768,8 @@ build_c_cast (location_t loc, tree type, tree expr)
 
   if (!VOID_TYPE_P (type))
     {
-      value = require_complete_type (loc, value);
+      /* Allow casts to defined sizeless types.  */
+      value = require_defined_type (loc, value);
       if (value == error_mark_node)
 	return error_mark_node;
     }

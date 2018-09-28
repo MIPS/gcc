@@ -81,6 +81,7 @@ statements (int n)
   /* Casting.  */
 
   (void) ta1;
+  (ta) ta1;
 
   /* Addressing and dereferencing.  */
 
