@@ -3213,7 +3213,8 @@ convert_argument (location_t ploc, tree function, tree fundecl,
 {
   /* Formal parm type is specified by a function prototype.  */
 
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  /* The parameter can be a defined sizeless type.  */
+  if (type == error_mark_node || !DEFINED_TYPE_P (type))
     {
       error_at (ploc, "type of formal parameter %d is incomplete",
 		parmnum + 1);

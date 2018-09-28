@@ -17,6 +17,7 @@ ta *global_ta_ptr;
 
 /* Sizeless arguments and return values.  */
 
+void ext_consume_ta (ta);
 void ext_consume_varargs (int, ...);
 ta ext_produce_ta ();
 
@@ -81,6 +82,8 @@ statements (int n)
 
   /* Function arguments.  */
 
+  ext_consume_ta (ta1);
+  ext_consume_ta (tb1); /* { dg-error {incompatible type for argument 1 of 'ext_consume_ta'} } */
   ext_consume_varargs (ta1); /* { dg-error {incompatible type for argument 1 of 'ext_consume_varargs'} } */
   ext_consume_varargs (1, ta1);
 
