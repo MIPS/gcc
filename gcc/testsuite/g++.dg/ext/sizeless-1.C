@@ -171,6 +171,8 @@ statements (int n)
   new (global_ta_ptr) ta; // { dg-error {invalid use of sizeless type 'ta'} }
   new (global_ta_ptr) ta (); // { dg-error {invalid use of sizeless type 'ta'} }
 
+  delete ta_ptr; // { dg-error {cannot delete objects of sizeless type} }
+
   // Unary vector arithmetic.
 
   __real ta1; // { dg-error {wrong type argument to __real} }

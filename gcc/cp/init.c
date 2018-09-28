@@ -4750,7 +4750,13 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
       if (!VOID_TYPE_P (type))
 	{
 	  complete_type (type);
-	  if (!COMPLETE_TYPE_P (type))
+	  if (deleting && TYPE_SIZELESS_P (type))
+	    {
+	      if (complain & tf_error)
+		error ("cannot delete objects of sizeless type %qT", type);
+	      return error_mark_node;
+	    }
+	  else if (!COMPLETE_TYPE_P (type))
 	    {
 	      if (complain & tf_warning)
 		{
