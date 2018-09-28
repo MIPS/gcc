@@ -39,6 +39,10 @@ statements (int n)
 
   /* Initialization.  */
 
+  ta init_ta1 = ta1;
+  ta init_ta2 = tb1; /* { dg-error {incompatible types when initializing type 'ta' using type 'tb'} } */
+  ta init_ta3 = {};
+
   int initi_a = ta1; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
   int initi_b = { ta1 }; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
 
@@ -50,9 +54,9 @@ statements (int n)
 
   n = ta1; /* { dg-error {incompatible types when assigning to type 'int' from type 'ta'} } */
 
-  ta1 = 0; /* { dg-error {incompatible types when assigning to type 'ta' from type 'int'} } */
+  ta1 = 0; /* { dg-error {incompatible types when assigning to type 'ta'[^\n]* from type 'int'} } */
   ta1 = ta2;
-  ta1 = tb1; /* { dg-error {incompatible types when assigning to type 'ta' from type 'tb'} } */
+  ta1 = tb1; /* { dg-error {incompatible types when assigning to type 'ta'[^\n]* from type 'tb'} } */
 
   /* Casting.  */
 

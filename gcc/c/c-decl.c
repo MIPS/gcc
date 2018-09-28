@@ -4900,12 +4900,14 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	   We already gave a warning, so we don't need another one.  */
 	if (TREE_TYPE (decl) == error_mark_node)
 	  initialized = false;
-	else if (COMPLETE_TYPE_P (TREE_TYPE (decl)))
+	else if (DEFINED_TYPE_P (TREE_TYPE (decl)))
 	  {
-	    /* A complete type is ok if size is fixed.  */
+	    /* A complete type is ok if its size is fixed.  A defined
+	       sizeless type is also OK.  */
 
-	    if (TREE_CODE (TYPE_SIZE (TREE_TYPE (decl))) != INTEGER_CST
-		|| C_DECL_VARIABLE_SIZE (decl))
+	    if (!TYPE_SIZELESS_P (TREE_TYPE (decl))
+		&& (TREE_CODE (TYPE_SIZE (TREE_TYPE (decl))) != INTEGER_CST
+		    || C_DECL_VARIABLE_SIZE (decl)))
 	      {
 		error ("variable-sized object may not be initialized");
 		initialized = false;
