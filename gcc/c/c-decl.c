@@ -5540,7 +5540,8 @@ build_compound_literal (location_t loc, tree type, tree init, bool non_const,
       TREE_TYPE (DECL_INITIAL (decl)) = type;
     }
 
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  /* Allow the type to be a defined sizeless type.  */
+  if (type == error_mark_node || !DEFINED_TYPE_P (type))
     {
       c_incomplete_type_error (loc, NULL_TREE, type);
       return error_mark_node;

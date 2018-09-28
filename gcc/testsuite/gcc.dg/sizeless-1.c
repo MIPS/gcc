@@ -60,6 +60,9 @@ statements (int n)
 
   /* Compound literals.  */
 
+  (ta) {};
+  (ta) { ta1 }; /* { dg-error {incompatible types when initializing type '[^']*' using type 'ta'} } */
+
   (int) { ta1 }; /* { dg-error {incompatible types when initializing type 'int' using type 'ta'} } */
 
   /* Arrays.  */
