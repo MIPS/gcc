@@ -9850,7 +9850,8 @@ apply_deduced_return_type (tree fco, tree return_type)
     return;
 
   if (!processing_template_decl && !VOID_TYPE_P (return_type)
-      && !complete_type_or_else (return_type, NULL_TREE))
+      /* The return type can be a defined sizeless type.  */
+      && !defined_type_or_else (return_type, NULL_TREE))
     return;
 
   /* We already have a DECL_RESULT from start_preparsed_function.

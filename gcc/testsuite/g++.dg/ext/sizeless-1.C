@@ -211,6 +211,7 @@ statements (int n)
   [&ta1] () { ta1 = ta2; }; // { dg-error {'ta2' is not captured} "" { target c++11 } }
   [&ta1, &ta2] () { ta1 = ta2; };
   [&] () { ta1 = ta2; };
+  [] () { return ext_produce_ta (); } ();
 #endif
 
   // Exceptions
@@ -316,4 +317,13 @@ bad_ret_st1 (tb param)
 
 #if __cplusplus < 201103L
 void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
+#endif
+
+// Using "auto" as a return type.
+
+#if __cplusplus >= 201402L
+auto auto_ret_ta (ta *ptr) { return *ptr; }
+const auto &auto_ret_const_ta_ref (ta *ptr) { return *ptr; }
+auto &auto_ret_ta_ref (ta *ptr) { return *ptr; }
+auto &&auto_ret_ta_rvalue_ref (ta *ptr) { return *ptr; }
 #endif
