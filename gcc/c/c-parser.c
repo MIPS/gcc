@@ -7846,7 +7846,8 @@ c_parser_generic_selection (c_parser *parser)
 	  if (TREE_CODE (assoc.type) == FUNCTION_TYPE)
 	    error_at (assoc.type_location,
 		      "%<_Generic%> association has function type");
-	  else if (!COMPLETE_TYPE_P (assoc.type))
+	  /* The type can be a defined sizeless type.  */
+	  else if (!DEFINED_TYPE_P (assoc.type))
 	    error_at (assoc.type_location,
 		      "%<_Generic%> association has incomplete type");
 
