@@ -33,6 +33,7 @@ statements (int n)
   sizeof (ta); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
   sizeof (ta1); /* { dg-error {invalid application of 'sizeof' to incomplete type} } */
   _Alignof (ta); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
+  _Alignof (ta1); /* { dg-error {invalid application of '(_Alignof|__alignof__)' to incomplete type} } */
 
   /* Casting.  */
 

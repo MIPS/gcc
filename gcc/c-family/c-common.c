@@ -3817,7 +3817,10 @@ c_alignof_expr (location_t loc, tree expr)
 {
   tree t;
 
-  if (VAR_OR_FUNCTION_DECL_P (expr))
+  if (TREE_TYPE (expr) != error_mark_node
+      && TYPE_SIZELESS_P (TREE_TYPE (expr)))
+    return c_alignof (loc, TREE_TYPE (expr));
+  else if (VAR_OR_FUNCTION_DECL_P (expr))
     t = size_int (DECL_ALIGN_UNIT (expr));
 
   else if (TREE_CODE (expr) == COMPONENT_REF
