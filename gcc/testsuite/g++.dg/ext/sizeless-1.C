@@ -79,6 +79,10 @@ statements (int n)
   ta init_ta4 = tb1; // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in initialization} }
   ta init_ta5 = {};
 
+  // Constructor calls.
+
+  (0, ta ());
+
   // Compound literals.
 
   (int) { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
@@ -197,6 +201,7 @@ statements (int n)
 
   // Exceptions
 
+  throw ta (); // { dg-error {invalid use of sizeless type 'ta'} }
   try {} catch (ta x) {} // { dg-error {invalid use of sizeless type 'ta'} }
   try {} catch (ta &x) {} // { dg-error {invalid use of sizeless type 'ta'} }
   try {} catch (ta *x) {} // { dg-error {invalid use of sizeless type 'ta'} }
@@ -252,6 +257,20 @@ statements (int n)
   { typedef int f[!__is_assignable (vta, ta) ? 1 : -1]; }
   { typedef int f[!__is_assignable (ta, int) ? 1 : -1]; }
   { typedef int f[!__is_assignable (ta, tb) ? 1 : -1]; }
+  { typedef int f[__is_trivially_constructible (ta) ? 1 : -1]; }
+  { typedef int f[__is_trivially_constructible (vta, vta) ? 1 : -1]; }
+  { typedef int f[__is_trivially_constructible (ta, ta) ? 1 : -1]; }
+  { typedef int f[__is_trivially_constructible (ta, vta) ? 1 : -1]; }
+  { typedef int f[__is_trivially_constructible (vta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_constructible (ta, int) ? 1 : -1]; }
+  { typedef int f[!__is_trivially_constructible (ta, tb) ? 1 : -1]; }
+  { typedef int f[__is_constructible (ta) ? 1 : -1]; }
+  { typedef int f[__is_constructible (vta, vta) ? 1 : -1]; }
+  { typedef int f[__is_constructible (ta, ta) ? 1 : -1]; }
+  { typedef int f[__is_constructible (ta, vta) ? 1 : -1]; }
+  { typedef int f[__is_constructible (vta, ta) ? 1 : -1]; }
+  { typedef int f[!__is_constructible (ta, int) ? 1 : -1]; }
+  { typedef int f[!__is_constructible (ta, tb) ? 1 : -1]; }
 }
 
 #if __cplusplus < 201103L
