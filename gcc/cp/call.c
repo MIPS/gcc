@@ -1812,9 +1812,10 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 
      We try below to treat this as a bad conversion to improve diagnostics,
      but if TO is an incomplete class, we need to reject this conversion
-     now to avoid unnecessary instantiation.  */
+     now to avoid unnecessary instantiation.  (This doesn't affect
+     defined sizeless types, even though they're also incomplete.)  */
   if (!CP_TYPE_CONST_NON_VOLATILE_P (to) && !TYPE_REF_IS_RVALUE (rto)
-      && !COMPLETE_TYPE_P (to))
+      && !DEFINED_TYPE_P (to))
     return NULL;
 
   /* We're generating a temporary now, but don't bind any more in the

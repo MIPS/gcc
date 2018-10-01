@@ -83,6 +83,16 @@ statements (int n)
 
   (0, ta ());
 
+  // Lvalue reference binding
+
+  ta &lvalue_ref_ta1 = ta1;
+  ta &lvalue_ref_ta2 = ext_produce_ta (); // { dg-error {cannot bind non-const lvalue reference of type 'ta&'[^\n]* to an rvalue of type 'ta'} }
+  ta &lvalue_ref_ta3 = tb1; // { dg-error {invalid initialization of reference of type 'ta&'[^\n]* from expression of type 'tb'} }
+
+  const ta &const_lvalue_ref_ta1 = ta1;
+  const ta &const_lvalue_ref_ta2 = ext_produce_ta ();
+  const ta &const_lvalue_ref_ta3 = tb1; // { dg-error {invalid initialization of reference of type 'const ta&'[^\n]* from expression of type 'tb'} }
+
   // Compound literals.
 
   (int) { ta1 }; // { dg-error {cannot convert 'ta'[^\n]* to 'int' in initialization} }
