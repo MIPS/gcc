@@ -3863,6 +3863,12 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   if (base == error_mark_node || maxindex == error_mark_node)
     return error_mark_node;
 
+  if (TYPE_SIZELESS_P (type))
+    {
+      if (complain & tf_error)
+	error ("cannot delete objects of sizeless type %qT", type);
+      return error_mark_node;
+    }
   if (!COMPLETE_TYPE_P (type))
     {
       if (complain & tf_warning)
