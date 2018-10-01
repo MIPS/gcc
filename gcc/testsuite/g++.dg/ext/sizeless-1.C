@@ -295,6 +295,20 @@ named_st1 (ta param1)
   ta ta1 = param1;
 }
 
+// Function return values in definitions.
+
+ta
+ret_st1 (ta param)
+{
+  return param;
+}
+
+ta
+bad_ret_st1 (tb param)
+{
+  return param; // { dg-error {cannot convert 'tb'[^\n]* to 'ta'[^\n]* in return} }
+}
+
 #if __cplusplus < 201103L
 void thrower3 () throw (ta) {} // { dg-error {invalid use of sizeless type 'ta'} "" { target c++98_only } }
 #endif

@@ -15106,7 +15106,7 @@ check_function_type (tree decl, tree current_function_parms)
   if (dependent_type_p (return_type)
       || type_uses_auto (return_type))
     return;
-  if (!COMPLETE_OR_VOID_TYPE_P (return_type))
+  if (!defined_or_void_type_p (return_type))
     {
       tree args = TYPE_ARG_TYPES (fntype);
 
