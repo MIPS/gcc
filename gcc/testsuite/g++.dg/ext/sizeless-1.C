@@ -111,6 +111,7 @@ statements (int n)
 
   (void) ta1;
   (void) volatile_ta1;
+  (void) *&volatile_ta1;
 
   // Addressing and dereferencing.
 

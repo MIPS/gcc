@@ -1193,10 +1193,10 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
 	tree type = TREE_TYPE (expr);
 	int is_reference = TYPE_REF_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
 	int is_volatile = TYPE_VOLATILE (type);
-	int is_complete = COMPLETE_TYPE_P (complete_type (type));
+	int is_defined = DEFINED_TYPE_P (complete_type (type));
 
 	/* Can't load the value if we don't know the type.  */
-	if (is_volatile && !is_complete)
+	if (is_volatile && !is_defined)
           {
             if (complain & tf_warning)
 	      switch (implicit)
@@ -1326,7 +1326,10 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
 		    gcc_unreachable ();
 		}
 	  }
-	if (is_reference || !is_volatile || !is_complete || TREE_ADDRESSABLE (type))
+	if (is_reference
+	    || !is_volatile
+	    || !is_defined
+	    || TREE_ADDRESSABLE (type))
           {
             /* Emit a warning (if enabled) when the "effect-less" INDIRECT_REF
                operation is stripped off. Note that we don't warn about
