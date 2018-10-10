@@ -113,18 +113,6 @@
   [(set_attr "jal" "direct")])
 
 ;; For MOVEP.
-(define_peephole2
-  [(set (match_operand:MOVEP1 0 "register_operand" "")
-	(match_operand:MOVEP1 1 "movep_or_0_operand" ""))
-   (set (match_operand:MOVEP2 2 "register_operand" "")
-	(match_operand:MOVEP2 3 "movep_or_0_operand" ""))]
-  "ISA_HAS_MOVEP
-   && mips_movep_no_overlap_p (operands[0], operands[2], operands[1],
-      operands[3])
-   && mips_movep_target_p (operands[0], operands[2])"
-  [(parallel [(set (match_dup 0) (match_dup 1))
-	      (set (match_dup 2) (match_dup 3))])])
-
 ;; The behavior of the MOVEP insn is undefined if placed in a delay slot.
 (define_insn "*movep<MOVEP1:mode><MOVEP2:mode>"
   [(set (match_operand:MOVEP1 0 "register_operand")
@@ -146,18 +134,6 @@
    (set_attr "can_delay" "no")])
 
 ;; MOVEP reversed, the pair is now a source rather than destination
-(define_peephole2
-  [(set (match_operand:MOVEP1 0 "movep_rev_operand" "")
-	(match_operand:MOVEP1 1 "register_operand" ""))
-   (set (match_operand:MOVEP2 2 "movep_rev_operand" "")
-	(match_operand:MOVEP2 3 "register_operand" ""))]
-  "ISA_HAS_MOVEP_REV
-   && mips_movep_no_overlap_p (operands[0], operands[2], operands[1],
-      operands[3])
-   && mips_movep_target_p (operands[1], operands[3])"
-  [(parallel [(set (match_dup 0) (match_dup 1))
-	      (set (match_dup 2) (match_dup 3))])])
-
 (define_insn "*movep<MOVEP1:mode><MOVEP2:mode>_rev"
   [(set (match_operand:MOVEP1 0 "movep_rev_operand")
 	(match_operand:MOVEP1 1 "register_operand"))

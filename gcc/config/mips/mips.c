@@ -24282,8 +24282,53 @@ mips_movep_no_overlap_p (rtx dest1, rtx dest2, rtx src1, rtx src2)
   if (REGNO_OR_0 (dest2) == REGNO_OR_0 (src1))
     return false;
 
+  if (REGNO_OR_0 (dest1) == REGNO_OR_0 (src1))
+    return false;
+
+  if (REGNO_OR_0 (dest2) == REGNO_OR_0 (src2))
+    return false;
+
   return true;
 }
+
+/* Get all register copies for given register at given program point.  */
+static void
+get_reg_copies (rtx rcopies[], rtx reg, vec<rtx> &ret)
+{
+  rtx tmp_reg = reg;
+
+  if (!REG_P (reg))
+    {
+      /* It is const zero.  */
+      ret.safe_push (reg);
+      return;
+    }
+
+  unsigned ix = REGNO (reg);
+
+  while (1)
+    {
+      if (ix >= GP_REG_NUM)
+	break;
+
+      ret.safe_push (tmp_reg);
+
+      for (int i = 0; i < GP_REG_NUM; i++)
+	if (rcopies[i] && (ix == REGNO (rcopies[i])))
+	  ret.safe_push (rcopies[GP_REG_NUM+i]);
+
+      if (rcopies[ix])
+	{
+	  ret.safe_push (rcopies[ix]);
+	  ret.safe_push (rcopies[GP_REG_NUM+ix]);
+	  tmp_reg = rcopies[ix];
+	  ix = REGNO (rcopies[ix]);
+	}
+      else
+	break;
+    }
+}
+
 
 /* Helper function to mips_movep_opt.
 
@@ -24301,30 +24346,154 @@ mips_movep_no_overlap_p (rtx dest1, rtx dest2, rtx src1, rtx src2)
    no safe sequence can be obtained for (5).  */
 
 static rtx_insn *
-get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
+get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
+			 vec<rtx*> rcopies_mtx, rtx &rsrc1, rtx &rsrc2,
+			 unsigned move1_pos, unsigned move2_pos,
+			 vec<rtx_insn*> &move_insns)
 {
   rtx dest1, dest2, src1, src2;
+  int ix, iy;
+  vec<rtx> rcopies1;
+  vec<rtx> rcopies2;
+  unsigned move_curr_pos;
 
   src1 = SET_SRC (PATTERN (move1));
   dest1 = SET_DEST (PATTERN (move1));
   src2 = SET_SRC (PATTERN (move2));
   dest2 = SET_DEST (PATTERN (move2));
+  rtx tmp_src1 = src1;
+  rtx tmp_src2 = src2;
+  rcopies1.create (0);
+  rcopies2.create (0);
+  move_curr_pos = move1_pos;
 
-  /* Works for movep_rev as well.  */
-  if (! mips_movep_no_overlap_p (dest1, dest2, src1, src2))
-    return NULL;
+  get_reg_copies (rcopies_mtx[move_curr_pos], tmp_src1, rcopies1);
+  get_reg_copies (rcopies_mtx[move_curr_pos], tmp_src2, rcopies2);
 
-  if (! reg_used_between_p (dest2, move1, move2)
+  /* Iterate through all register copies to find correct src1 and src2 operands
+     of movep instruction.  */
+  for (ix = 0; rcopies1.iterate (ix, &tmp_src1); ix++)
+    {
+      if (!movep_or_0_operand (tmp_src1, GET_MODE (tmp_src1)))
+	continue;
+
+      if (REG_P (tmp_src1) && REGNO (tmp_src1) == REGNO (dest1))
+	continue;
+
+      for (iy = 0; rcopies2.iterate (iy, &tmp_src2); iy++)
+	{
+	  if (!movep_or_0_operand (tmp_src2, GET_MODE (tmp_src2)))
+	    continue;
+
+	  if (REG_P (tmp_src2) && REGNO (tmp_src2) == REGNO (dest2))
+	    continue;
+
+	  if (mips_movep_no_overlap_p (dest1, dest2, tmp_src1, tmp_src2))
+		  break;
+	}
+
+      if (tmp_src1 && tmp_src2)
+	break;
+    }
+
+  if (tmp_src1 && tmp_src2 && !reg_used_between_p (dest2, move1, move2)
       && ! reg_set_between_p (src2, move1, move2)
       && ! reg_set_between_p (dest2, move1, move2))
     /* (1) and (2): Emit movep at MOVE1.  */
-    return move1;
+    {
+      rsrc1 = tmp_src1;
+      rsrc2 = tmp_src2;
+      rcopies1.release ();
+      rcopies2.release ();
+      return move1;
+    }
 
-  if (! reg_used_between_p (dest1, move1, move2)
-      && ! reg_set_between_p (src1, move1, move2)
-      && ! reg_set_between_p (dest1, move1, move2))
-    /* (3): Emit movep at MOVE2.  */
-    return move2;
+  tmp_src1 = NULL;
+  tmp_src2 = NULL;
+  move_curr_pos = move2_pos;
+
+  /* Move through program points, tsarting from mpveps2 to find correct one
+     for movep instruction.  */
+  while (move_curr_pos < rcopies_mtx.length ())
+    {
+      if (!rcopies_mtx[move_curr_pos])
+	break;
+
+      rcopies1.truncate (0);
+      rcopies2.truncate (0);
+      get_reg_copies (rcopies_mtx[move_curr_pos-1], src1, rcopies1);
+      get_reg_copies (rcopies_mtx[move_curr_pos-1], src2, rcopies2);
+
+      for (ix = 0; rcopies1.iterate (ix, &tmp_src1); ix++)
+	{
+	  if (!tmp_src1)
+	    break;
+
+	  if (REGNO (tmp_src1) == REGNO (dest1))
+	    continue;
+
+	  if (!movep_or_0_operand (tmp_src1, GET_MODE (tmp_src1)))
+	    continue;
+
+	  for (iy = 0; rcopies2.iterate (iy, &tmp_src2); iy++)
+	    {
+	      if (REGNO (tmp_src2) == REGNO (dest2))
+		continue;
+
+	      if (!movep_or_0_operand (tmp_src2, GET_MODE (tmp_src2)))
+		continue;
+
+	      if (mips_movep_no_overlap_p (dest1, dest2, tmp_src1, tmp_src2))
+		break;
+	    }
+
+	  if (tmp_src1 && tmp_src2)
+	    break;
+	}
+
+      /* Found suitable register candidates for src movep operands.  */
+      if (tmp_src1 && tmp_src2)
+	break;
+
+      /* Move to the next program point.  */
+      move_curr_pos++;
+
+      if (!move_insns[move_curr_pos])
+	/* This is call instruction - stop search.  */
+	break;
+    }
+
+  if (tmp_src1 && tmp_src2)
+    {
+      rtx_insn *move_insn = move2;
+
+      if (move_curr_pos < rcopies_mtx.length ())
+	move_insn = move_insns[move_curr_pos];
+
+      rtx_insn *check_insn
+	= (move_curr_pos == move2_pos) ? move2
+				       : NEXT_INSN (move_insn);
+
+      if (! reg_used_between_p (dest1, move1, check_insn)
+	  && ! reg_set_between_p (src1, move1, check_insn)
+	  && ! reg_set_between_p (dest1, move1, check_insn)
+	  && ! reg_used_between_p (dest2, move2, check_insn)
+	  && ! reg_set_between_p (src2, move2, check_insn)
+	  && ! reg_set_between_p (dest2, move2, check_insn))
+	  /* (3): Emit movep at MOVE2 or at next suitable program point.  */
+	{
+	  rsrc1 = tmp_src1;
+	  rsrc2 = tmp_src2;
+	  rcopies1.release ();
+	  rcopies2.release ();
+	  return move_insn;
+	}
+    }
+
+  rcopies1.release ();
+  rcopies2.release ();
+  rsrc1 = src1;
+  rsrc2 = src2;
 
   rtx_insn *insn, *move1_use = NULL, *move2_use = NULL;
   int curr_pp = 0, move1_pp = 0, move2_pp = 0;
@@ -24388,9 +24557,386 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
 
      return move2_use;
   */
-
   return NULL;
 }
+
+/* Update reg_copies array for given instruction.  */
+static void
+mips_update_reg_copies (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *rcps)
+{
+  unsigned regno;
+  rtx *reg_copies = (rtx*)rcps;
+
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+
+  if (!REG_P (reg))
+    return;
+
+  regno = REGNO (reg);
+
+  if (regno < 32)
+    {
+      reg_copies[regno] = 0;
+
+      for (int i=0; i < 32; i++)
+	if (reg_copies[i] && REGNO (reg_copies[i]) == regno)
+      reg_copies[i] = 0;
+    }
+
+  if (GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (ptr_mode))
+    regno++;
+
+  if (regno < 32)
+    {
+      reg_copies[regno] = 0;
+
+      for (int i=0; i < 32; i++)
+	if (reg_copies[i] && REGNO (reg_copies[i]) == regno)
+      reg_copies[i] = 0;
+    }
+}
+
+/* Helper function to mips_movep_opt.
+
+   Creates and inserts vectors that contain registers that are
+   copies of move instruction source registers.
+
+   move r1,r2
+   move r3,r1   <--- inserts r2 because content is the same as r1.  */
+
+static void
+mips_get_move_src_copies (basic_block bb, vec<rtx*> &src_copies,
+			  vec<rtx_insn*> &move_insns)
+{
+  rtx reg_copies[GP_REG_NUM * 2];
+  rtx_insn *insn;
+
+  for (int i = 0; i < GP_REG_NUM * 2; i++)
+    reg_copies[i] = 0;
+
+  src_copies.create (0);
+  move_insns.create (0);
+
+  FOR_BB_INSNS (bb, insn)
+    {
+      if (!INSN_P (insn))
+	continue;
+
+      if (CALL_P (insn))
+	{
+	  /* Reset copy data.  */
+	  for (int i = 0; i < GP_REG_NUM * 2; i++)
+	    reg_copies[i] = 0;
+
+	  /* Add zero pointers to identify call instruction in order to stope
+	     search.  */
+	  src_copies.safe_push (0);
+	  move_insns.safe_push (0);
+	  continue;
+	}
+
+      rtx pattern = PATTERN (insn);
+      if (GET_CODE (pattern) == SET)
+	{
+	  /* Move instruction.  There is a new copy.  Create vector with
+	     register copies for that move instruction.  */
+	  rtx *cp = new rtx[GP_REG_NUM*2];
+	  rtx src = SET_SRC (PATTERN (insn));
+	  rtx dst = SET_DEST (PATTERN (insn));
+	  if (!((((REG_P (src) || SUBREG_P (src)) && GP_REG_P ( REGNO (src)))
+		|| movep_or_0_operand (src, GET_MODE (src)))
+	      && ((REG_P (dst) || SUBREG_P (dst))
+		  && GP_REG_P (REGNO (dst)))))
+	    {
+	      /* Not movep or rev movep cadidate - update reg copies data.  */
+	      note_stores (PATTERN (insn), mips_update_reg_copies , reg_copies);
+	      continue;
+	    }
+
+	  unsigned ix = REGNO (dst);
+
+	  /* Add src=dst copy info.  */
+	  reg_copies[GP_REG_NUM + ix] = dst;
+
+	  if (!CONST_INT_P (src))
+	    {
+	      /* Add src=dst copy info.  */
+	      reg_copies[ix] = src;
+	      /* Save rtx of src register for latter usage.  */
+	      if (REGNO (src) < GP_REG_NUM)
+		reg_copies[GP_REG_NUM+REGNO (src)] = src;
+	    }
+
+	  /* Remove copies for registers which is defined by current movep
+	     candidate.  */
+	  for (int i=0; i < GP_REG_NUM; i++)
+	    if (reg_copies[i] && (REGNO (reg_copies[i]) == ix))
+	      reg_copies[i] = 0;
+
+	  memcpy (cp, reg_copies, sizeof (rtx) * GP_REG_NUM * 2);
+	  src_copies.safe_push (cp);
+	  move_insns.safe_push (insn);
+	}
+      else
+	/* Not move instruction - update reg copies data.  */
+	note_stores (PATTERN (insn), mips_update_reg_copies ,reg_copies);
+    }
+}
+
+/* Free register copy data.  */
+static void
+mips_free_move_src_copies (vec<rtx*> &src_copies)
+{
+  for (unsigned i = 0; i < src_copies.length (); i++)
+    delete[] src_copies[i];
+}
+
+/* Check for a possibility to create a movep or rev movep instruction.  */
+static void
+mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
+		      int rmoveinsns_pos[], vec<rtx*> &src_copies,
+		      vec<rtx_insn*> &move_insns)
+{
+  int i;
+
+  /* Check movep candidates.
+     Check is performed in reverse order to increase chances to later create
+     move.balc instructions.  */
+  for (i = 4; i > 0 ; i--)
+    if ((move[i]) && (move[i-1]))
+      {
+	rtx_insn *loc_insn = NULL;
+	rtx lsrc1, lsrc2;
+	int i1 = i, i2 = i-1;
+	if (move_pos[i] > move_pos[i-1])
+	  {
+	    i1 = i-1;
+	    i2 = i;
+	  }
+
+	loc_insn = get_movep_insn_location (move[i1], move[i2], src_copies,
+					    lsrc1, lsrc2, move_pos[i1],
+					    move_pos[i2], move_insns);
+
+	if (loc_insn)
+	  {
+	    rtx src1, dest1, src2, dest2;
+
+	    dest1 = SET_DEST (PATTERN (move[i1]));
+	    dest2 = SET_DEST (PATTERN (move[i2]));
+
+	    /* Use src1 and src2 provided by get_movep_insn_location in order
+	       to use register copies if necessary.  */
+	    src1 = lsrc1;
+	    src2 = lsrc2;
+
+	    /* Redundent though fool proof.  */
+	    if (mips_movep_target_p (dest1, dest2)
+		&& movep_or_0_operand (src1, GET_MODE (src1))
+		&& movep_or_0_operand (src2, GET_MODE (src2))
+		&& mips_movep_no_overlap_p (dest1, dest2, src1, src2))
+	      {
+		rtx movep_insn = gen_movep (dest1, src1, dest2,
+					    src2);
+		rtx_insn *last_insn;
+		rtx last = last_insn
+		  = emit_insn_after_setloc (movep_insn, loc_insn,
+					    INSN_LOCATION (loc_insn));
+		if (dump_file)
+		  {
+		    print_rtl_single (dump_file, move[i1]);
+		    print_rtl_single (dump_file, move[i2]);
+		    fprintf (dump_file, "MOVEP INSN\n");
+		    print_rtl_single (dump_file, last);
+		  }
+
+		/* Delete original instructions.  */
+		delete_insn (move[i1]);
+		delete_insn (move[i2]);
+
+		/* Update corresponding movep data.  */
+		move_insns[move_pos[i1]] = last_insn;
+		move_insns[move_pos[i2]] = last_insn;
+		move[i1] = NULL;
+		move[i2] = NULL;
+
+		/* Update dependant rev movep data.  */
+		rmoveinsns[REGNO (dest1)] = NULL;
+		rmoveinsns[REGNO (dest2)] = NULL;
+	      }
+	  }
+      }
+
+  /* Check movep candidates.
+     Check is performed in reverse order to increase chances to later create
+     move.balc instructions.  */
+  for (i = 4; i > 0 ; i--)
+    {
+      rtx tmpsrc1, tmpsrc2;
+      rtx_insn *rmove[5] = {0,0,0,0,0};
+      int rmove_pos[5];
+      for (int j = 0; j < 32; j++)
+	{
+	  if (!rmoveinsns[j])
+	    continue;
+
+	  tmpsrc1 = SET_SRC (PATTERN (rmoveinsns[j]));
+	  if (REGNO (tmpsrc1) == (unsigned)(i + GP_ARG_FIRST))
+	    {
+	      rmove[i] = rmoveinsns[j];
+	      rmove_pos[i] = rmoveinsns_pos[j];
+	    }
+	  else
+	    continue;
+
+	  for (int k = 0; k < 32; k++)
+	    {
+	      if (!rmoveinsns[k])
+		continue;
+	      tmpsrc2 = SET_SRC (PATTERN (rmoveinsns[k]));
+	      if (REGNO (tmpsrc2) == (unsigned)(i - 1 + GP_ARG_FIRST))
+		{
+		  rmove[i-1] = rmoveinsns[k];
+		  rmove_pos[i-1] = rmoveinsns_pos[k];
+		}
+	      else
+		continue;
+
+	      if (rmove[i] && rmove[i-1])
+		{
+		  rtx_insn *loc_insn = NULL;
+		  rtx lsrc1, lsrc2;
+		  int i1 = i, i2 = i-1;
+		  if (rmove_pos[i] > rmove_pos[i-1])
+		    {
+		      i1 = i-1;
+		      i2 = i;
+		    }
+
+		  loc_insn
+		    = get_movep_insn_location (rmove[i1], rmove[i2],
+					       src_copies, lsrc1, lsrc2,
+					       rmove_pos[i1], rmove_pos[i2],
+					       move_insns);
+
+		  if (loc_insn)
+		    {
+		      rtx src1, dest1, src2, dest2;
+
+		      dest1 = SET_DEST (PATTERN (rmove[i1]));
+		      src2 = SET_SRC (PATTERN (rmove[i2]));
+		      dest2 = SET_DEST (PATTERN (rmove[i2]));
+		      /* Use src1 and src2 provided by get_movep_insn_location
+			 in order to use register copies if necessary.  */
+		      src1 = lsrc1;
+		      src2 = lsrc2;
+
+		      /* Redundent though fool proof.  */
+		      if (mips_movep_target_p (src1, src2)
+			  && movep_rev_operand (dest1, GET_MODE (dest1))
+			  && movep_rev_operand (dest2, GET_MODE (dest2))
+			  && mips_movep_no_overlap_p (dest1, dest2, src1,
+						      src2))
+			{
+			  rtx movep_insn = gen_movep (dest1, src1, dest2,
+						      src2);
+
+			  rtx_insn *last_insn;
+			  rtx last = last_insn
+			    = emit_insn_after_setloc
+				(movep_insn, loc_insn,
+				 INSN_LOCATION (loc_insn));
+
+			  if (dump_file)
+			    {
+			      print_rtl_single (dump_file, rmove[i1]);
+			      print_rtl_single (dump_file, rmove[i2]);
+			      fprintf (dump_file, "REV MOVEP INSN\n");
+			      print_rtl_single (dump_file, last);
+			    }
+
+			  /* Delete original instructions.  */
+			  delete_insn (rmove[i1]);
+			  delete_insn (rmove[i2]);
+
+			  /* Update corresponding movep data.  */
+			  move_insns[rmove_pos[i1]] = last_insn;
+			  move_insns[rmove_pos[i2]] = last_insn;
+			  if (IN_RANGE (REGNO (dest1), 4, 8))
+			    move[REGNO (dest1) - GP_ARG_FIRST] = NULL;
+
+			  if (IN_RANGE (REGNO (dest2), 4, 8))
+			    move[REGNO (dest2) - GP_ARG_FIRST] = NULL;
+
+			  /* Update dependant rev movep data.  */
+			  rmoveinsns[REGNO (dest1)] = NULL;
+			  rmoveinsns[REGNO (dest2)] = NULL;
+			  rmove[i1] = NULL;
+			  rmove[i2] = NULL;
+			}
+		    }
+
+		}
+	    }
+	}
+    }
+}
+
+/* Data used as params for mips_update_and_check_movep.  */
+struct movep_check_params
+{
+  rtx_insn **move;
+  rtx_insn **rmove;
+  int *move_pos;
+  int *rmove_pos;
+  vec<rtx*> *src_copies;
+  vec<rtx_insn*> *move_insns;
+};
+
+
+/* Update movep and rev movep data.  Check for movep and ev movep
+   instructions.  */
+static void
+mips_update_and_check_movep (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
+			     void *p)
+{
+  unsigned regno;
+  struct movep_check_params *params = (struct movep_check_params*)p;
+  rtx_insn **moves = params->move;
+  rtx_insn **rmoves = params->rmove;
+
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+
+  if (!REG_P (reg))
+    return;
+
+  regno = REGNO (reg);
+
+  if (IN_RANGE (regno, 4, 8))
+    {
+      if (moves[regno - GP_ARG_FIRST] || rmoves[regno])
+	{
+	  mips_check_for_movep (moves, rmoves, params->move_pos,
+				params->rmove_pos, *(params->src_copies),
+				*(params->move_insns));
+	  moves[regno - GP_ARG_FIRST] = 0;
+	  rmoves[regno] = 0;
+	}
+    }
+  else if (GP_REG_P (regno))
+    {
+      if (rmoves[regno])
+	{
+	  mips_check_for_movep (moves, rmoves, params->move_pos,
+				params->rmove_pos, *(params->src_copies),
+				*(params->move_insns));
+	  rmoves[regno] = 0;
+	}
+    }
+}
+
 
 /* Function for TARGET_MACHINE_DEPENDENT_REORG.
 
@@ -24402,10 +24948,10 @@ mips_movep_opt ()
 {
   basic_block bb;
   rtx_insn *insn, *prev;
-  rtx_insn *move[5], *rmove[5];
-  rtx dest1, dest2, src1, src2;
+  rtx_insn *move[5], *rmove[32];
+  int move_pos[5], rmove_pos[32];
   int num_src_regs = 5;
-  int i, i1, i2;
+  int i;
 
   /* FORNOW: Keep seperate from move.balc optimization even when both could be
      done in the same pass.  */
@@ -24415,144 +24961,129 @@ mips_movep_opt ()
 
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
+      int mv_count = 0;
+      vec<rtx*> src_copies;
+      vec<rtx_insn*> move_insns;
+
+      /* Initialize arrays for movep instruction.  */
       for (i = 0; i < num_src_regs; i++)
-	move[i] = rmove[i] = NULL;
+	{
+	  move[i] = NULL;
+	  move_pos[i] = 0;
+	}
+
+      /* Initialize arrays for rev movep instruction.  */
+      for (i = 0; i < 32; i++)
+	{
+	  rmove[i] = NULL;
+	  rmove_pos[i] = 0;
+	}
+
+      /* Allocation is already performed, thus get register copies
+	 (registers with same content)to increase chances for satisfying
+	 requirements for operands of movep instruction.  */
+      mips_get_move_src_copies (bb, src_copies, move_insns);
+      mv_count = src_copies.length () - 1;
 
       FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
 	{
-	  if (!INSN_P (insn))
+	  if (!INSN_P (insn) || insn->deleted ())
 	    continue;
 
 	  if (CALL_P (insn))
 	    {
+	      /* Restart search for movep candidates.  */
+	      mips_check_for_movep (move, rmove, move_pos, rmove_pos,
+				    src_copies, move_insns);
 	      for (i = 0; i < num_src_regs; i++)
-		move[i] = rmove[i] = NULL;
+		{
+		  move[i] = NULL;
+		  move_pos[i] = 0;
+		}
+	      /* TODO: maybe this is not necessary for S registers in
+		 rev movep.  */
+	      for (i = 0; i < 32; i++)
+		{
+		  rmove[i] = NULL;
+		  rmove_pos[i] = 0;
+		}
+	      mv_count--;
 	      continue;
 	    }
 
 	  rtx pattern = PATTERN (insn);
+
 	  if (GET_CODE (pattern) != SET)
-	    continue;
+	    {
+	      /* For all non move instructions update corresponding data
+		 structures.  */
+	      struct movep_check_params params = {move, rmove, move_pos,
+						  rmove_pos, &src_copies,
+						  &move_insns};
+	      note_stores (PATTERN (insn), mips_update_and_check_movep,
+			   &params);
+	      continue;
+	    }
 
 	  rtx src = SET_SRC (pattern);
 	  rtx dest = SET_DEST (pattern);
-	  rtx_insn *loc_insn = NULL;
 
-	  if (movep_or_0_operand (src, GET_MODE (src))
+	  if ((REG_P (src) || SUBREG_P (src)
+	      || movep_or_0_operand (src, GET_MODE (src)))
 	      && movep_dest_operand (dest, GET_MODE (dest))
-	      && GET_MODE_SIZE (GET_MODE (src)) == GET_MODE_SIZE (ptr_mode)
-	      && GET_MODE_SIZE (GET_MODE (dest)) == GET_MODE_SIZE (ptr_mode))
+	      && (GET_MODE_SIZE (GET_MODE (src)) == GET_MODE_SIZE (ptr_mode)
+		  || CONST_INT_P (src))
+	      && GET_MODE_SIZE (GET_MODE (dest)) == GET_MODE_SIZE (ptr_mode)
+	      && (!REG_P (src) || GP_REG_P (REGNO (src)))
+	      && GP_REG_P (REGNO (dest)))
 	    {
 	      /* MOVEP.  */
 	      i = REGNO (dest) - GP_ARG_FIRST;
+
+	      if (move[i])
+		/* If there already is an instruction that defines same
+		register try to create movep before the register value
+		is overwritten.  */
+		mips_check_for_movep (move, rmove, move_pos, rmove_pos,
+				      src_copies, move_insns);
+
 	      move[i] = insn;
-
-	      /* TODO: The order of trying for i,i+1 first followed by i-1,i is
-		 not intentional and could be reversed.  However, deciding on
-		 the best pair if both are possible, so that more opportunities
-		 are created for other instrcutions (movep/move.balc) is not
-		 possible without lookahead/backtacking and multiple
-		 bidirectional passes over instructions.  */
-	      i1 = i;
-	      i2 = i + 1;
-
-	      if ((i + 1) < num_src_regs && move[i+1])
-		loc_insn = get_movep_insn_location (move[i], move[i+1]);
-
-	      if (!loc_insn && (i - 1) >= 0 && move[i-1])
-		{
-		  i1 = i - 1;
-		  i2 = i;
-		  loc_insn = get_movep_insn_location (move[i], move[i-1]);
-		}
-
-	      /* Don't generate movep if we can't find a suitable location.  */
-	      if (!loc_insn)
-		continue;
-
-	      src1 = SET_SRC (PATTERN (move[i1]));
-	      dest1 = SET_DEST (PATTERN (move[i1]));
-	      src2 = SET_SRC (PATTERN (move[i2]));
-	      dest2 = SET_DEST (PATTERN (move[i2]));
-
-	      /* Redundent though fool proof.  */
-	      if (mips_movep_target_p (dest1, dest2)
-		  && movep_or_0_operand (src1, GET_MODE (src1))
-		  && movep_or_0_operand (src2, GET_MODE (src2))
-		  && mips_movep_no_overlap_p (dest1, dest2, src1, src2))
-		{
-		  rtx movep_insn = gen_movep (dest1, src1, dest2,
-					      src2);
-
-		  rtx last = emit_insn_after_setloc (movep_insn, loc_insn,
-						     INSN_LOCATION (loc_insn));
-		  if (dump_file)
-		    {
-		      print_rtl_single (dump_file, move[i1]);
-		      print_rtl_single (dump_file, move[i2]);
-		      fprintf (dump_file, "MOVEP INSN\n");
-		      print_rtl_single (dump_file, last);
-		    }
-		  delete_insn (move[i1]);
-		  delete_insn (move[i2]);
-		  move[i1] = NULL;
-		  move[i2] = NULL;
-		}
+	      move_pos[i] = mv_count;
 	    }
-	  else if (movep_rev_operand (dest, GET_MODE (dest))
-		   && movep_dest_operand (src, GET_MODE (src)))
+	  if (movep_rev_operand (dest, GET_MODE (dest))
+	      && movep_dest_operand (src, GET_MODE (src))
+	      && (!REG_P (src) || GP_REG_P (REGNO (src)))
+	      && GP_REG_P (REGNO (dest)))
 	    {
 	      /* Reverse MOVEP.  */
-	      i = REGNO (src) - GP_ARG_FIRST;
-	      rmove[i] = insn;
+	      i = REGNO (dest);
 
-	      i1 = i;
-	      i2 = i + 1;
+	      if (rmove[i])
+		/* If there already is an instruction that defines same
+		register try to create movep before the register value
+		is overwritten.  */
+		mips_check_for_movep (move, rmove, move_pos, rmove_pos,
+				      src_copies, move_insns);
 
-	      if ((i + 1) < num_src_regs && rmove[i+1])
-		loc_insn = get_movep_insn_location (rmove[i], rmove[i+1]);
-
-	      if (!loc_insn && (i - 1) >= 0 && rmove[i-1])
+	      if (INSN_UID (insn) == INSN_UID (move_insns[mv_count]))
 		{
-		  i1 = i - 1;
-		  i2 = i;
-		  loc_insn = get_movep_insn_location (rmove[i], rmove[i-1]);
-		}
-
-	      /* Don't generate movep if we can't find a suitable location.  */
-	      if (!loc_insn)
-		continue;
-
-	      src1 = SET_SRC (PATTERN (rmove[i1]));
-	      dest1 = SET_DEST (PATTERN (rmove[i1]));
-	      src2 = SET_SRC (PATTERN (rmove[i2]));
-	      dest2 = SET_DEST (PATTERN (rmove[i2]));
-
-	      /* Redundent though fool proof.  */
-	      if (mips_movep_target_p (src1, src2)
-		  && movep_rev_operand (dest1, GET_MODE (dest1))
-		  && movep_rev_operand (dest2, GET_MODE (dest2))
-		  && mips_movep_no_overlap_p (dest1, dest2, src1, src2))
-		{
-		  rtx movep_insn = gen_movep (dest1, src1, dest2,
-					      src2);
-
-		  rtx last = emit_insn_after_setloc (movep_insn, loc_insn,
-						     INSN_LOCATION (loc_insn));
-		  if (dump_file)
-		    {
-		      print_rtl_single (dump_file, rmove[i1]);
-		      print_rtl_single (dump_file, rmove[i2]);
-		      fprintf (dump_file, "REV MOVEP INSN\n");
-		      print_rtl_single (dump_file, last);
-		    }
-		  delete_insn (rmove[i1]);
-		  delete_insn (rmove[i2]);
-		  rmove[i1] = NULL;
-		  rmove[i2] = NULL;
+		  /* Put the instruction in array only if it is not already
+		     replaced by movep (inside mips_check_for_movep).  */
+		  rmove[i] = insn;
+		  rmove_pos[i] = mv_count;
 		}
 	    }
+	  if ((((REG_P (src) || SUBREG_P (src)) && GP_REG_P ( REGNO (src)))
+		|| movep_or_0_operand (src, GET_MODE (src)))
+	      && ((REG_P (dest) || SUBREG_P (dest))
+		  && GP_REG_P (REGNO (dest))))
+	    mv_count--;
 	}
+
+      /* Check for movep instructions at the end of basic block.  */
+      mips_check_for_movep (move, rmove, move_pos, rmove_pos, src_copies,
+			    move_insns);
+      mips_free_move_src_copies (src_copies);
     }
 }
 
@@ -24622,7 +25153,6 @@ nanomips_move_balc_opt ()
   basic_block bb;
   rtx_insn *insn, *prev, *call_insn;
   unsigned int use_map, num_set;
-
   if (dump_file)
     fprintf (dump_file, "move_balc optimization\n");
 
@@ -24739,7 +25269,6 @@ nanomips_move_balc_opt ()
 		      fprintf (dump_file, "MOVE_BALC INSN\n");
 		      print_rtl_single (dump_file, last);
 		    }
-
 		  delete_insn (call_insn);
 		  delete_insn (insn);
 		}
