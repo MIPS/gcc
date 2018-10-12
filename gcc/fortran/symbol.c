@@ -2590,8 +2590,9 @@ free_components (gfc_component *p)
 	gfc_free_expr (p->kind_expr);
       if (p->param_list)
 	gfc_free_actual_arglist (p->param_list);
-      free (p->tb);
 
+      free (p->tb);
+      p->tb = NULL;
       free (p);
     }
 }
@@ -3070,15 +3071,13 @@ set_symbol_common_block (gfc_symbol *sym, gfc_common_head *common_block)
 /* Remove a gfc_symbol structure and everything it points to.  */
 
 void
-gfc_free_symbol (gfc_symbol *sym)
+gfc_free_symbol (gfc_symbol *&sym)
 {
 
   if (sym == NULL)
     return;
 
   gfc_free_array_spec (sym->as);
-
-  free_components (sym->components);
 
   gfc_free_expr (sym->value);
 
@@ -3094,19 +3093,22 @@ gfc_free_symbol (gfc_symbol *sym)
 
   gfc_free_namespace (sym->f2k_derived);
 
+  free_components (sym->components);
+
   set_symbol_common_block (sym, NULL);
 
   if (sym->param_list)
     gfc_free_actual_arglist (sym->param_list);
 
   free (sym);
+  sym = NULL;
 }
 
 
 /* Decrease the reference counter and free memory when we reach zero.  */
 
 void
-gfc_release_symbol (gfc_symbol *sym)
+gfc_release_symbol (gfc_symbol *&sym)
 {
   if (sym == NULL)
     return;
@@ -3826,10 +3828,8 @@ free_tb_tree (gfc_symtree *t)
 
   free_tb_tree (t->left);
   free_tb_tree (t->right);
-
-  /* TODO: Free type-bound procedure structs themselves; probably needs some
-     sort of ref-counting mechanism.  */
   free (t->n.tb);
+  t->n.tb = NULL;
   free (t);
 }
 
@@ -4019,7 +4019,7 @@ free_entry_list (gfc_entry_list *el)
    taken care of when a specific name is freed.  */
 
 void
-gfc_free_namespace (gfc_namespace *ns)
+gfc_free_namespace (gfc_namespace *&ns)
 {
   gfc_namespace *p, *q;
   int i;
@@ -4057,6 +4057,7 @@ gfc_free_namespace (gfc_namespace *ns)
   gfc_free_data (ns->data);
   p = ns->contained;
   free (ns);
+  ns = NULL;
 
   /* Recursively free any contained namespaces.  */
   while (p != NULL)

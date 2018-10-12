@@ -1533,7 +1533,6 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_code *last_code, *block;
   const char *name;
   bool finalizable_comp = false;
-  bool expr_null_wrapper = false;
   gfc_expr *ancestor_wrapper = NULL, *rank;
   gfc_iterator *iter;
 
@@ -1561,13 +1560,17 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
     }
 
   /* No wrapper of the ancestor and no own FINAL subroutines and allocatable
-     components: Return a NULL() expression; we defer this a bit to have have
+     components: Return a NULL() expression; we defer this a bit to have
      an interface declaration.  */
   if ((!ancestor_wrapper || ancestor_wrapper->expr_type == EXPR_NULL)
       && !derived->attr.alloc_comp
       && (!derived->f2k_derived || !derived->f2k_derived->finalizers)
       && !has_finalizer_component (derived))
-    expr_null_wrapper = true;
+    {
+      vtab_final->initializer = gfc_get_null_expr (NULL);
+      gcc_assert (vtab_final->ts.interface == NULL);
+      return;
+    }
   else
     /* Check whether there are new allocatable components.  */
     for (comp = derived->components; comp; comp = comp->next)
@@ -1581,7 +1584,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
   /* If there is no new finalizer and no new allocatable, return with
      an expr to the ancestor's one.  */
-  if (!expr_null_wrapper && !finalizable_comp
+  if (!finalizable_comp
       && (!derived->f2k_derived || !derived->f2k_derived->finalizers))
     {
       gcc_assert (ancestor_wrapper && ancestor_wrapper->ref == NULL
@@ -1605,8 +1608,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   /* Set up the namespace.  */
   sub_ns = gfc_get_namespace (ns, 0);
   sub_ns->sibling = ns->contained;
-  if (!expr_null_wrapper)
-    ns->contained = sub_ns;
+  ns->contained = sub_ns;
   sub_ns->resolved = 1;
 
   /* Set up the procedure symbol.  */
@@ -1622,7 +1624,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   final->ts.kind = 4;
   final->attr.artificial = 1;
   final->attr.always_explicit = 1;
-  final->attr.if_source = expr_null_wrapper ? IFSRC_IFBODY : IFSRC_DECL;
+  final->attr.if_source = IFSRC_DECL;
   if (ns->proc_name->attr.flavor == FL_MODULE)
     final->module = ns->proc_name->name;
   gfc_set_sym_referenced (final);
@@ -1671,15 +1673,6 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   final->formal->next->next = gfc_get_formal_arglist ();
   final->formal->next->next->sym = fini_coarray;
   gfc_commit_symbol (fini_coarray);
-
-  /* Return with a NULL() expression but with an interface which has
-     the formal arguments.  */
-  if (expr_null_wrapper)
-    {
-      vtab_final->initializer = gfc_get_null_expr (NULL);
-      vtab_final->ts.interface = final;
-      return;
-    }
 
   /* Local variables.  */
 
