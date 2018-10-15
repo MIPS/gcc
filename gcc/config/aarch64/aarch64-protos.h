@@ -410,7 +410,7 @@ char *aarch64_output_sve_inc_dec_immediate (const char *, rtx);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
 char *aarch64_output_simd_mov_immediate (rtx, unsigned,
 			enum simd_immediate_check w = AARCH64_CHECK_MOV);
-char *aarch64_output_sve_mov_immediate (rtx);
+char *aarch64_output_sve_mov_immediate (rtx, int = -1, bool = false);
 bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
@@ -424,6 +424,7 @@ bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *,
 rtx aarch64_check_zero_based_sve_index_immediate (rtx);
 bool aarch64_sve_index_immediate_p (rtx);
 bool aarch64_sve_arith_immediate_p (rtx, bool);
+bool aarch64_sve_sqadd_sqsub_immediate_p (rtx, bool);
 bool aarch64_sve_bitmask_immediate_p (rtx);
 bool aarch64_sve_dup_immediate_p (rtx);
 bool aarch64_sve_cmp_immediate_p (rtx, bool);

@@ -467,6 +467,9 @@
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
+    UNSPEC_COND_SABD	; Used in aarch64-sve.md.
+    UNSPEC_COND_UABD	; Used in aarch64-sve.md.
+    UNSPEC_COND_FABD	; Used in aarch64-sve.md.
     UNSPEC_COND_MUL	; Used in aarch64-sve.md.
     UNSPEC_COND_DIV	; Used in aarch64-sve.md.
     UNSPEC_COND_FMIN	; Used in aarch64-sve.md.
@@ -1198,6 +1201,9 @@
 ;; Code iterator for signed variants of vector saturating binary ops.
 (define_code_iterator SBINQOPS [ss_plus ss_minus])
 
+;; Code iterator for unsigned variants of vector saturating binary ops.
+(define_code_iterator USBINQOPS [us_plus us_minus])
+
 ;; Comparison operators for <F>CM.
 (define_code_iterator COMPARISONS [lt le eq ge gt])
 
@@ -1569,12 +1575,15 @@
 
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
-(define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_MUL UNSPEC_COND_DIV
-					 UNSPEC_COND_FMAX UNSPEC_COND_FMIN
-					 UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM])
+(define_int_iterator SVE_COND_FP_BINARY [UNSPEC_COND_DIV UNSPEC_COND_FMAX
+					 UNSPEC_COND_FMIN UNSPEC_COND_FMAXNM
+					 UNSPEC_COND_FMINNM])
 
 (define_int_iterator SVE_COND_MAXMIN [UNSPEC_COND_FMAXNM UNSPEC_COND_FMINNM
 				      UNSPEC_COND_FMAX UNSPEC_COND_FMIN])
+
+(define_int_iterator SVE_COND_IABD [UNSPEC_COND_SABD UNSPEC_COND_UABD])
+(define_int_iterator SVE_COND_FABD [UNSPEC_COND_FABD])
 
 (define_int_iterator SVE_COND_FP_TERNARY [UNSPEC_COND_FMLA
 					  UNSPEC_COND_FMLS
@@ -1619,6 +1628,14 @@
 			(UNSPEC_COND_FNMLA "fnms")
 			(UNSPEC_COND_FNMLS "fms")])
 
+(define_int_attr abd_uns [(UNSPEC_COND_SABD "sabd")
+			  (UNSPEC_COND_UABD "uabd")
+			  (UNSPEC_COND_FABD "sabd")])
+
+(define_int_attr abd_uns_op [(UNSPEC_COND_SABD "sabd")
+			     (UNSPEC_COND_UABD "uabd")
+			     (UNSPEC_COND_FABD "fabd")])
+
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
 			      (UNSPEC_SMAXV "smax")
@@ -1652,6 +1669,14 @@
 				 (UNSPEC_COND_FMIN "fmin")
 				 (UNSPEC_COND_FMAXNM "fmaxnm")
 				 (UNSPEC_COND_FMINNM "fminnm")])
+
+(define_code_attr binqops_op [(ss_plus "sqadd")
+			      (us_plus "uqadd")
+			      (ss_minus "sqsub")
+			      (us_minus "uqsub")])
+
+(define_code_attr binqops_op_rev [(ss_plus "sqsub")
+				  (ss_minus "sqadd")])
 
 (define_int_attr bit_reduc_op [(UNSPEC_ANDV "andv")
 			       (UNSPEC_IORV "orv")

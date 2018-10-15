@@ -379,6 +379,12 @@
    CMP instructions."
  (match_operand 0 "aarch64_sve_cmp_vsc_immediate"))
 
+(define_constraint "vss"
+  "@internal
+   A constraint that matches a signed immediate operand valid for SVE
+   DUP instructions."
+ (match_test "aarch64_sve_dup_immediate_p (op)"))
+
 (define_constraint "vsd"
   "@internal
    A constraint that matches an unsigned immediate operand valid for SVE
@@ -396,6 +402,18 @@
    A constraint that matches an immediate operand whose negative
    is valid for SVE SUB instructions."
  (match_operand 0 "aarch64_sve_sub_arith_immediate"))
+
+(define_constraint "vsQ"
+  "@internal
+   Like vsa, but additionally check that the immediate is nonnegative
+   when interpreted as a signed value."
+ (match_operand 0 "aarch64_sve_qadd_immediate"))
+
+(define_constraint "vsS"
+  "@internal
+   Like vsn, but additionally check that the immediate is negative
+   when interpreted as a signed value."
+ (match_operand 0 "aarch64_sve_qsub_immediate"))
 
 (define_constraint "vsl"
   "@internal

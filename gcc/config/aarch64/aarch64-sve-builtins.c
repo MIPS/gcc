@@ -41,6 +41,7 @@
 #include "tree-vector-builder.h"
 #include "rtx-vector-builder.h"
 #include "stor-layout.h"
+#include "emit-rtl.h"
 
 namespace aarch64_sve {
 
@@ -93,6 +94,12 @@ enum predication {
 enum function_shape {
   /* sv<t0>_t svfoo[_t0]().  */
   SHAPE_inherent,
+
+  /* sv<t0>_t svfoo[_n]_t0(<t0>_t).  */
+  SHAPE_unary_n,
+
+  /* sv<t0>_t svfoo_t0(<t0>_t, <t0>_t).  */
+  SHAPE_binary_scalar,
 
   /* sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)
      sv<t0>_t svfoo[_n_t0](sv<t0>_t, <t0>_t).  */
@@ -260,15 +267,18 @@ private:
   typedef void (arm_sve_h_builder::*function_signature)
     (const function_instance &, vec<tree> &);
 
-  void build_all (function_signature, const function_group &, function_mode);
+  void build_all (function_signature, const function_group &, function_mode,
+		  bool = false);
   void sig_inherent (const function_instance &, vec<tree> &);
+  void sig_n_00 (const function_instance &, vec<tree> &);
+  void scalar_sig_000 (const function_instance &, vec<tree> &);
   void sig_000 (const function_instance &, vec<tree> &);
   void sig_n_000 (const function_instance &, vec<tree> &);
   void sig_n_00i (const function_instance &, vec<tree> &);
 
   void apply_predication (const function_instance &, vec<tree> &);
 
-  void add_function_instance (const function_instance &, vec<tree> &);
+  void add_function_instance (const function_instance &, vec<tree> &, bool);
   void add_overloaded_functions (const function_group &, function_mode);
   void add_overloaded_function (const function_instance &);
 
@@ -394,17 +404,29 @@ public:
   rtx expand ();
 
 private:
+  rtx expand_abd ();
   rtx expand_add (unsigned int);
   rtx expand_asrd ();
+  rtx expand_dup ();
+  rtx expand_index ();
   rtx expand_max ();
   rtx expand_min ();
+  rtx expand_mul ();
   rtx expand_ptrue ();
+  rtx expand_qadd ();
+  rtx expand_qsub ();
   rtx expand_sub (bool);
 
   rtx expand_signed_pred_op (rtx_code, rtx_code, int);
-  rtx expand_via_unpred_direct_optab (optab, unsigned int);
+  rtx expand_signed_pred_op (int, int, int);
+  rtx expand_via_unpred_direct_optab (optab op, unsigned int nops,
+				      unsigned int = 0);
+  rtx expand_via_unpred_insn (insn_code icode, unsigned int nops,
+			      unsigned int = 0);
   rtx expand_via_pred_direct_optab (optab, unsigned int, unsigned int);
-  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int);
+  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int,
+			    unsigned int, bool);
+  rtx expand_via_signed_unpred_insn (rtx_code, rtx_code);
   rtx expand_via_pred_x_insn (insn_code, unsigned int);
   rtx expand_pred_shift_right_imm (insn_code);
 
@@ -521,6 +543,8 @@ static const predication preds_none[] = { PRED_none, NUM_PREDS };
 /* Used by functions in aarch64-sve-builtins.def that allow merging,
    zeroing and "don't care" predication.  */
 static const predication preds_mxz[] = { PRED_m, PRED_x, PRED_z, NUM_PREDS };
+static const predication preds_mxznone[] = { PRED_m, PRED_x, PRED_z,
+					     PRED_none, NUM_PREDS };
 
 /* A list of all SVE ACLE functions.  */
 static const function_group function_groups[] = {
@@ -678,6 +702,14 @@ arm_sve_h_builder::build (const function_group &group)
 {
   switch (group.shape)
     {
+    case SHAPE_unary_n:
+      build_all (&arm_sve_h_builder::sig_n_00, group, MODE_n, true);
+      break;
+
+    case SHAPE_binary_scalar:
+      build_all (&arm_sve_h_builder::scalar_sig_000, group, MODE_none);
+      break;
+
     case SHAPE_binary_opt_n:
       add_overloaded_functions (group, MODE_none);
       build_all (&arm_sve_h_builder::sig_000, group, MODE_none);
@@ -700,11 +732,14 @@ arm_sve_h_builder::build (const function_group &group)
    in GROUP.  Take the function base name from GROUP and the mode
    from MODE.  Use SIGNATURE to construct the function signature without
    a governing predicate, then use apply_predication to add in the
-   predicate.  */
+   predicate.  FORCE_DIRECT_OVERLOADS is true if there is a one-to-one
+   mapping between "short" and "full" names, and if standard overload
+   resolution therefore isn't necessary.  */
 void
 arm_sve_h_builder::build_all (function_signature signature,
 			      const function_group &group,
-			      function_mode mode)
+			      function_mode mode,
+			      bool force_direct_overloads)
 {
   auto_vec<tree, 10> types;
   for (unsigned int pi = 0; group.preds[pi] != NUM_PREDS; ++pi)
@@ -714,7 +749,7 @@ arm_sve_h_builder::build_all (function_signature signature,
 				    group.preds[pi]);
 	(this->*signature) (instance, types);
 	apply_predication (instance, types);
-	add_function_instance (instance, types);
+	add_function_instance (instance, types, force_direct_overloads);
 	types.truncate (0);
       }
 }
@@ -725,6 +760,27 @@ arm_sve_h_builder::sig_inherent (const function_instance &instance,
 				 vec<tree> &types)
 {
   types.quick_push (instance.vector_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_n_t0](<t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::sig_n_00 (const function_instance &instance,
+			      vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.scalar_type (0));
+}
+
+/* Describe the signature "sv<t0>_t svfoo[_t0](<t0>_t, <t0>_t)"
+   for INSTANCE in TYPES.  */
+void
+arm_sve_h_builder::scalar_sig_000 (const function_instance &instance,
+				   vec<tree> &types)
+{
+  types.quick_push (instance.vector_type (0));
+  types.quick_push (instance.scalar_type (0));
+  types.quick_push (instance.scalar_type (0));
 }
 
 /* Describe the signature "sv<t0>_t svfoo[_t0](sv<t0>_t, sv<t0>_t)"
@@ -778,10 +834,13 @@ arm_sve_h_builder::apply_predication (const function_instance &instance,
 
 /* Add a built-in function for INSTANCE, with the function signature
    given by TYPES.  TYPES[0] is the return type, TYPES[1] is the first
-   argument type, etc.  */
+   argument type, etc.  FORCE_DIRECT_OVERLOADS is true if there is a
+   one-to-one mapping between "short" and "full" names, and if standard
+   overload resolution therefore isn't necessary.  */
 void
 arm_sve_h_builder::add_function_instance (const function_instance &instance,
-					  vec<tree> &types)
+					  vec<tree> &types,
+					  bool force_direct_overloads)
 {
   /* Add the function under its full (unique) name.  */
   char *name = get_name (instance, false);
@@ -800,7 +859,7 @@ arm_sve_h_builder::add_function_instance (const function_instance &instance,
 
   /* Also add the function under its overloaded alias, if we want
      a separate decl for each instance of an overloaded function.  */
-  if (m_direct_overloads)
+  if (m_direct_overloads || force_direct_overloads)
     {
       char *overload_name = get_name (instance, true);
       if (strcmp (name, overload_name) != 0)
@@ -897,10 +956,16 @@ arm_sve_h_builder::get_attributes (const function_instance &instance)
   tree attrs = NULL_TREE;
   switch (instance.func)
     {
+    case FUNC_svabd:
     case FUNC_svadd:
     case FUNC_svasrd:
+    case FUNC_svdup:
+    case FUNC_svindex:
     case FUNC_svmax:
     case FUNC_svmin:
+    case FUNC_svmul:
+    case FUNC_svqadd:
+    case FUNC_svqsub:
     case FUNC_svsub:
     case FUNC_svsubr:
       if (type_suffixes[instance.types[0]].integer_p)
@@ -938,6 +1003,8 @@ arm_sve_h_builder::get_explicit_types (function_shape shape)
   switch (shape)
     {
     case SHAPE_inherent:
+    case SHAPE_unary_n:
+    case SHAPE_binary_scalar:
       return 1;
     case SHAPE_binary_opt_n:
     case SHAPE_shift_right_imm:
@@ -1009,6 +1076,9 @@ function_resolver::resolve ()
       return resolve_uniform (2);
     case SHAPE_shift_right_imm:
       return resolve_uniform_imm (2, 1);
+    case SHAPE_unary_n:
+      return NULL_TREE;
+    case SHAPE_binary_scalar:
     case SHAPE_inherent:
       break;
     }
@@ -1285,8 +1355,10 @@ function_checker::check ()
     case SHAPE_shift_right_imm:
       return check_shift_right_imm ();
 
+    case SHAPE_unary_n:
     case SHAPE_inherent:
     case SHAPE_binary_opt_n:
+    case SHAPE_binary_scalar:
       return true;
     }
   gcc_unreachable ();
@@ -1464,10 +1536,16 @@ gimple_folder::fold ()
 {
   switch (m_fi.func)
     {
+    case FUNC_svabd:
     case FUNC_svadd:
     case FUNC_svasrd:
+    case FUNC_svdup:
+    case FUNC_svindex:
     case FUNC_svmax:
     case FUNC_svmin:
+    case FUNC_svmul:
+    case FUNC_svqadd:
+    case FUNC_svqsub:
     case FUNC_svsub:
     case FUNC_svsubr:
     case NUM_FUNCS:
@@ -1526,11 +1604,20 @@ function_expander::expand ()
 
   switch (m_fi.func)
     {
+    case FUNC_svabd:
+      return expand_abd ();
+
     case FUNC_svadd:
       return expand_add (1);
 
     case FUNC_svasrd:
       return expand_asrd ();
+
+    case FUNC_svdup:
+      return expand_dup ();
+
+    case FUNC_svindex:
+      return expand_index ();
 
     case FUNC_svmax:
       return expand_max ();
@@ -1538,8 +1625,17 @@ function_expander::expand ()
     case FUNC_svmin:
       return expand_min ();
 
+    case FUNC_svmul:
+      return expand_mul ();
+
     case FUNC_svptrue:
       return expand_ptrue ();
+
+     case FUNC_svqadd:
+      return expand_qadd ();
+
+    case FUNC_svqsub:
+      return expand_qsub ();
 
     case FUNC_svsub:
       return expand_sub (false);
@@ -1551,6 +1647,14 @@ function_expander::expand ()
       break;
     }
   gcc_unreachable ();
+}
+
+/* Expand a call to svabd.  */
+rtx
+function_expander::expand_abd ()
+{
+  return expand_signed_pred_op (UNSPEC_COND_SABD, UNSPEC_COND_UABD,
+				UNSPEC_COND_FABD);
 }
 
 /* Expand a call to svadd, or svsub(r) with a negated operand.
@@ -1581,6 +1685,37 @@ function_expander::expand_asrd ()
   return expand_pred_shift_right_imm (code_for_cond_asrd (get_mode (0)));
 }
 
+/* Expand a call to svdup.  */
+rtx
+function_expander::expand_dup ()
+{
+  if (m_fi.pred == PRED_none
+      || m_fi.pred == PRED_x)
+    return expand_via_unpred_direct_optab (vec_duplicate_optab, 1, 1);
+  else
+    {
+      insn_code icode;
+      machine_mode mode = get_mode (0);
+      if (valid_for_const_vector_p (GET_MODE_INNER (mode), m_args.last ()))
+	{
+	  icode = code_for_vcond_mask (get_mode (0), get_mode (0));
+	  return expand_via_pred_insn (icode, 1, 0, 1, true);
+	}
+      else
+	{
+	  icode = code_for_aarch64_sel_dup (get_mode (0));
+	  return expand_via_pred_insn (icode, 1, 1, 1, true);
+	}
+    }
+}
+
+/* Expand a call to svindex.  */
+rtx
+function_expander::expand_index ()
+{
+  return expand_via_unpred_direct_optab (vec_series_optab, 2, 2);
+}
+
 /* Expand a call to svmax.  */
 rtx
 function_expander::expand_max ()
@@ -1588,11 +1723,38 @@ function_expander::expand_max ()
   return expand_signed_pred_op (SMAX, UMAX, UNSPEC_COND_FMAX);
 }
 
-/* Expand a call to svmmin.  */
+/* Expand a call to svmin.  */
 rtx
 function_expander::expand_min ()
 {
   return expand_signed_pred_op (SMIN, UMIN, UNSPEC_COND_FMIN);
+}
+
+/* Expand a call to svmul.  */
+rtx
+function_expander::expand_mul ()
+{
+  if (m_fi.pred == PRED_x)
+    {
+      insn_code icode = code_for_aarch64_pred_mul (get_mode (0));
+      return expand_via_pred_x_insn (icode, 2);
+    }
+  else
+    return expand_via_pred_direct_optab (cond_smul_optab, 2, 1);
+}
+
+/* Expand a call to sqadd.  */
+rtx
+function_expander::expand_qadd ()
+{
+  return expand_via_signed_unpred_insn (SS_PLUS, US_PLUS);
+}
+
+/* Expand a call to sqsub.  */
+rtx
+function_expander::expand_qsub ()
+{
+  return expand_via_signed_unpred_insn (SS_MINUS, US_MINUS);
 }
 
 /* Expand a call to svptrue.  */
@@ -1641,40 +1803,66 @@ function_expander::expand_sub (bool reversed_p)
 }
 
 /* Implement the call using optab OP, which is an unpredicated direct
-   (i.e. single-mode) optab.  The optab takes NOPS input operands.  */
+   (i.e. single-mode) optab.  The optab takes NOPS input operands.
+   The last NSCALAR inputs are scalar, and map to scalar operands
+   in the underlying instruction.  */
 rtx
-function_expander::expand_via_unpred_direct_optab (optab op, unsigned int nops)
+function_expander::expand_via_unpred_direct_optab (optab op, unsigned int nops,
+						   unsigned int nscalar)
+{
+  machine_mode mode = get_mode (0);
+  insn_code icode = direct_optab_handler (op, mode);
+  return expand_via_unpred_insn (icode, nops, nscalar);
+}
+
+/* Implement the call using instruction ICODE.  The instruction takes
+   NOPS input operands.  The last NSCALAR inputs are scalar, and map
+   to scalar operands in the underlying instruction.  */
+rtx
+function_expander::expand_via_unpred_insn (insn_code icode, unsigned int nops,
+					   unsigned int nscalar)
 {
   /* Drop the predicate argument in the case of _x predication.  */
   unsigned int bias = (m_fi.pred == PRED_x ? 1 : 0);
   machine_mode mode = get_mode (0);
-  insn_code icode = direct_optab_handler (op, mode);
+  unsigned int i = 0;
 
   add_output_operand (mode);
-  for (unsigned int i = 0; i < nops; ++i)
+
+  for (; i < nops - nscalar; ++i)
     add_input_operand (m_args[i + bias], mode);
+  for (; i < nops; ++i)
+    add_input_operand (m_args[i + bias], GET_MODE_INNER (mode));
+
   return generate_insn (icode);
 }
 
 /* Implement the call using optab OP, which is a predicated direct
    (i.e. single-mode) optab.  The operation performed by OP takes NOPS
    input operands (not counting the predicate and the fallback value).
-   Merging forms use argument MERGE_ARGNO as the fallback value.  */
+   The last NSCALAR inputs are scalar, and map to scalar operands
+   in the underlying instruction.  Merging forms use argument MERGE_ARGNO
+   as the fallback value.  */
 rtx
 function_expander::expand_via_pred_direct_optab (optab op, unsigned int nops,
 						 unsigned int merge_argno)
 {
   machine_mode mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
-  return expand_via_pred_insn (icode, nops, merge_argno);
+  return expand_via_pred_insn (icode, nops, 0, merge_argno, false);
 }
 
 /* Implement the call using instruction ICODE.  The instruction takes
    NOPS input operand (not counting the predicate and the fallback value).
-   Merging forms use argument MERGE_ARGNO as the fallback value.  */
+   The last NSCALAR inputs are scalar, and map to scalar operands
+   in the underlying instruction.  Merging forms use argument MERGE_ARGNO
+   as the fallback value.  If PRED_LAST_P is true, predicated register is
+   at the end.  */
 rtx
 function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
-					 unsigned int merge_argno)
+					 unsigned int nscalar,
+					 unsigned int merge_argno,
+					 bool pred_last_p)
 {
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
@@ -1684,21 +1872,40 @@ function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
     {
       /* For unary ops, the fallback value is provided by a separate
 	 argument that is passed before the governing predicate.  */
-      add_input_operand (m_args[1], pred_mode);
-      add_input_operand (m_args[2], mode);
+      /* If the predicate should go first.  */
+      if (!pred_last_p)
+	add_input_operand (m_args[1], pred_mode);
+      /* If the only input is vector or scalar.  */
+      if (nscalar)
+	add_input_operand (m_args[2], GET_MODE_INNER (mode));
+      else
+	add_input_operand (m_args[2], mode);
       add_input_operand (m_args[0], mode);
+      /* If the predicate should go last.  */
+      if (pred_last_p)
+	add_input_operand (m_args[1], pred_mode);
     }
   else
     {
-      add_input_operand (m_args[0], pred_mode);
-      for (unsigned int i = 0; i < nops; ++i)
+      unsigned int i = 0;
+      /* If the predicate should go first.  */
+      if (!pred_last_p)
+	add_input_operand (m_args[0], pred_mode);
+      /* First vector inputs.  */
+      for (; i < nops - nscalar; ++i)
 	add_input_operand (m_args[i + 1], mode);
+      /* Rest are scalar.  */
+      for (; i < nops; ++i)
+	add_input_operand (m_args[i + 1], GET_MODE_INNER (mode));
       if (m_fi.pred == PRED_z)
 	/* Use zero as the fallback value.  */
 	add_input_operand (CONST0_RTX (mode), mode);
       else
 	/* Use the first data input as the fallback value.  */
 	add_input_operand (copy_rtx (m_ops[merge_argno + 1].value), mode);
+      /* If the predicate should go last.  */
+      if (pred_last_p)
+	add_input_operand (m_args[0], pred_mode);
     }
   return generate_insn (icode);
 }
@@ -1771,8 +1978,65 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_cond, get_mode (0));
-      return expand_via_pred_insn (icode, 2, 1);
+      return expand_via_pred_insn (icode, 2, 0, 1, false);
     }
+}
+
+/* Implement the call using an @aarch64_cond instruction for _x
+   predication and a @cond instruction for _z and _m predication.
+   The instructions are parameterized by an unspec.
+   UNSPEC_FOR_SINT is the unspec code for signed integer operations,
+   UNSPEC_FOR_UINT is the unspec code for unsigned integer operations
+   and UNSPEC_FOR_FP is the unspec code for floating-point operations.  */
+rtx
+function_expander::expand_signed_pred_op (int unspec_for_sint,
+					  int unspec_for_uint,
+					  int unspec_for_fp)
+{
+  insn_code icode;
+
+  if (m_fi.pred == PRED_x)
+    {
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	{
+	  if (type_suffixes[m_fi.types[0]].unsigned_p)
+	    icode = code_for_aarch64_pred (unspec_for_uint, get_mode (0));
+	  else
+	    icode = code_for_aarch64_pred (unspec_for_sint, get_mode (0));
+	}
+      else
+	icode = code_for_aarch64_pred (unspec_for_fp, get_mode (0));
+      return expand_via_pred_x_insn (icode, 2);
+    }
+  else
+    {
+      if (type_suffixes[m_fi.types[0]].integer_p)
+	{
+	  if (type_suffixes[m_fi.types[0]].unsigned_p)
+	    icode = code_for_cond (unspec_for_uint, get_mode (0));
+	  else
+	    icode = code_for_cond (unspec_for_sint, get_mode (0));
+	}
+      else
+	icode = code_for_cond (unspec_for_fp, get_mode (0));
+      return expand_via_pred_insn (icode, 2, 0, 1, false);
+    }
+}
+
+/* Implement the call using an @aarch64 instruction and the
+   instructions are parameterized by an rtx_code.  CODE_FOR_SINT
+   is the rtx_code for signed integer operations, CODE_FOR_UINT
+   is the rtx_code for unsigned integer operations.  */
+rtx
+function_expander::expand_via_signed_unpred_insn (rtx_code code_for_sint,
+						  rtx_code code_for_uint)
+{
+  insn_code icode;
+  if (type_suffixes[m_fi.types[0]].unsigned_p)
+    icode = code_for_aarch64 (code_for_uint, code_for_uint, get_mode (0));
+  else
+    icode = code_for_aarch64 (code_for_sint, code_for_sint, get_mode (0));
+  return expand_via_unpred_insn (icode, 2);
 }
 
 /* Expand a call to a SHAPE_shift_right_imm function using predicated
@@ -1782,7 +2046,7 @@ rtx
 function_expander::expand_pred_shift_right_imm (insn_code icode)
 {
   require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
-  return expand_via_pred_insn (icode, 2, 1);
+  return expand_via_pred_insn (icode, 2, 0, 1, false);
 }
 
 /* Require that argument ARGNO is a constant integer in the range

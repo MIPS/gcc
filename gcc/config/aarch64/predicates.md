@@ -521,6 +521,14 @@
   (and (match_code "const,const_vector")
        (match_test "aarch64_sve_arith_immediate_p (op, true)")))
 
+(define_predicate "aarch64_sve_qadd_immediate"
+  (and (match_code "const,const_vector")
+       (match_test "aarch64_sve_sqadd_sqsub_immediate_p (op, false)")))
+
+(define_predicate "aarch64_sve_qsub_immediate"
+  (and (match_code "const,const_vector")
+       (match_test "aarch64_sve_sqadd_sqsub_immediate_p (op, true)")))
+
 (define_predicate "aarch64_sve_inc_dec_immediate"
   (and (match_code "const,const_vector")
        (match_test "aarch64_sve_inc_dec_immediate_p (op)")))
@@ -536,6 +544,10 @@
 (define_predicate "aarch64_sve_dup_immediate"
   (and (match_code "const,const_vector")
        (match_test "aarch64_sve_dup_immediate_p (op)")))
+
+(define_predicate "aarch64_sve_dup_reg_or_imm"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_sve_dup_immediate")))
 
 (define_predicate "aarch64_sve_cmp_vsc_immediate"
   (and (match_code "const,const_vector")
@@ -569,6 +581,11 @@
   (ior (match_operand 0 "aarch64_sve_arith_operand")
        (match_operand 0 "aarch64_sve_sub_arith_immediate")
        (match_operand 0 "aarch64_sve_inc_dec_immediate")))
+
+(define_predicate "aarch64_sve_svqadd_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "aarch64_sve_qadd_immediate")
+       (match_operand 0 "aarch64_sve_qsub_immediate")))
 
 (define_predicate "aarch64_sve_logical_operand"
   (ior (match_operand 0 "register_operand")

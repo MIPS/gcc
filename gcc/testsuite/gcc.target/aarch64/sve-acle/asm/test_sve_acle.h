@@ -111,4 +111,16 @@
     BIND_OUTPUT_PS;			\
   }
 
+#define TEST_S(NAME, ZTYPE, STYPE, CODE1)			\
+  START (NAME)							\
+  {								\
+    BIND_INPUT_ZS (ZTYPE);					\
+    BIND_INPUT_X (STYPE, x0);					\
+    BIND_INPUT_X (STYPE, x1);					\
+    CODE1;							\
+    BIND_OUTPUT_ZS;						\
+    BIND_OUTPUT_X (x0);						\
+    BIND_OUTPUT_X (x1);						\
+  }
+
 #endif

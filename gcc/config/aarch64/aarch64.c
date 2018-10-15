@@ -6565,6 +6565,8 @@ aarch64_print_vector_float_operand (FILE *f, rtx x, bool negate)
   /* We only handle the SVE single-bit immediates here.  */
   if (real_equal (&r, &dconst0))
     asm_fprintf (f, "0.0");
+  else if (real_equal (&r, &dconst2))
+    asm_fprintf (f, "2.0");
   else if (real_equal (&r, &dconst1))
     asm_fprintf (f, "1.0");
   else if (real_equal (&r, &dconsthalf))
@@ -12989,6 +12991,23 @@ aarch64_sve_arith_immediate_p (rtx x, bool negate_p)
   return IN_RANGE (val, 0, 0xff00);
 }
 
+/* Return true if X is a valid immediate for the SVE SQADD and SQSUB
+   instructions.  Negate X first if NEGATE_P is true.  */
+bool
+aarch64_sve_sqadd_sqsub_immediate_p (rtx x, bool negate_p)
+{
+  rtx elt;
+
+  if (!const_vec_duplicate_p (x, &elt)
+      || !CONST_INT_P (elt))
+    return false;
+
+  if (!aarch64_sve_arith_immediate_p (x, negate_p))
+    return false;
+
+  return negate_p == (INTVAL (elt) < 0);
+}
+
 /* Return true if X is a valid immediate operand for an SVE logical
    instruction such as AND.  */
 
@@ -13069,11 +13088,12 @@ aarch64_sve_float_mul_immediate_p (rtx x)
 {
   rtx elt;
 
-  /* GCC will never generate a multiply with an immediate of 2, so there is no
-     point testing for it (even though it is a valid constant).  */
+  /* GCC will never generate a multiply with an immediate of 2,
+     however it can come from an ACLE call.  */
   return (const_vec_duplicate_p (x, &elt)
 	  && GET_CODE (elt) == CONST_DOUBLE
-	  && real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf));
+	  && (real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconsthalf)
+	      || real_equal (CONST_DOUBLE_REAL_VALUE (elt), &dconst2)));
 }
 
 /* Return true if VAL64 represents a valid predicate constant, describing
@@ -14832,12 +14852,15 @@ aarch64_output_scalar_simd_mov_immediate (rtx immediate, scalar_int_mode mode)
 }
 
 /* Return the output string to use for moving immediate CONST_VECTOR
-   into an SVE register.  */
+   into an SVE register.  If the move is predicated, PRED_REG is the
+   number of the operand that contains the predicate register,
+   otherwise it is -1.  MERGE_P is true if a predicated move should
+   use merge predication rather than zero predication.  */
 
 char *
-aarch64_output_sve_mov_immediate (rtx const_vector)
+aarch64_output_sve_mov_immediate (rtx const_vector, int pred_reg, bool merge_p)
 {
-  static char templ[40];
+  static char templ[60];
   struct simd_immediate_info info;
   char element_char;
 
@@ -14881,14 +14904,40 @@ aarch64_output_sve_mov_immediate (rtx const_vector)
 				    CONST_DOUBLE_REAL_VALUE (info.value),
 				    buf_size, buf_size, 1, info.elt_mode);
 
-	  snprintf (templ, sizeof (templ), "fmov\t%%0.%c, #%s",
-		    element_char, float_buf);
+	  if (pred_reg == -1)
+	    snprintf (templ, sizeof (templ), "fmov\t%%0.%c, #%s",
+		      element_char, float_buf);
+	  else
+	    {
+	      if (merge_p)
+		snprintf (templ, sizeof (templ), "fmov\t%%0.%c, %%%d/m, #%s",
+			  element_char,
+			  pred_reg,
+			  float_buf);
+	      else
+		snprintf (templ, sizeof (templ),
+			  "movprfx\t%%0.%c, %%%d/z, %%0.%c\n"
+			  "\tfmov\t%%0.%c, %%%d/m, #%s",
+			  element_char,
+			  pred_reg,
+			  element_char,
+			  element_char,
+			  pred_reg,
+			  float_buf);
+	    }
 	  return templ;
 	}
     }
 
-  snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
-	    element_char, INTVAL (info.value));
+  if (pred_reg == -1)
+    snprintf (templ, sizeof (templ), "mov\t%%0.%c, #" HOST_WIDE_INT_PRINT_DEC,
+	      element_char, INTVAL (info.value));
+  else
+    snprintf (templ, sizeof (templ),
+	      "mov\t%%0.%c, %%%d%s, #" HOST_WIDE_INT_PRINT_DEC,
+	      element_char,
+	      pred_reg, merge_p ? "/m" : "/z",
+	      INTVAL (info.value));
   return templ;
 }
 
