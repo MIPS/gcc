@@ -24416,13 +24416,21 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
      for movep instruction.  */
   while (move_curr_pos < rcopies_mtx.length ())
     {
+      /* Check if it is call or move instruction already merged into movep.  */
       if (!rcopies_mtx[move_curr_pos])
 	break;
 
       rcopies1.truncate (0);
       rcopies2.truncate (0);
-      get_reg_copies (rcopies_mtx[move_curr_pos-1], src1, rcopies1);
-      get_reg_copies (rcopies_mtx[move_curr_pos-1], src2, rcopies2);
+
+      int cp_pos = (move_curr_pos == move2_pos ? move_curr_pos - 1
+					       : move_curr_pos);
+
+      if (!rcopies_mtx[cp_pos])
+	break;
+
+      get_reg_copies (rcopies_mtx[cp_pos], src1, rcopies1);
+      get_reg_copies (rcopies_mtx[cp_pos], src2, rcopies2);
 
       for (ix = 0; rcopies1.iterate (ix, &tmp_src1); ix++)
 	{
@@ -24581,7 +24589,7 @@ mips_update_reg_copies (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *rcps)
 
       for (int i=0; i < 32; i++)
 	if (reg_copies[i] && REGNO (reg_copies[i]) == regno)
-      reg_copies[i] = 0;
+	  reg_copies[i] = 0;
     }
 
   if (GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (ptr_mode))
@@ -24593,7 +24601,7 @@ mips_update_reg_copies (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *rcps)
 
       for (int i=0; i < 32; i++)
 	if (reg_copies[i] && REGNO (reg_copies[i]) == regno)
-      reg_copies[i] = 0;
+	  reg_copies[i] = 0;
     }
 }
 
@@ -24743,6 +24751,7 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		rtx last = last_insn
 		  = emit_insn_after_setloc (movep_insn, loc_insn,
 					    INSN_LOCATION (loc_insn));
+
 		if (dump_file)
 		  {
 		    print_rtl_single (dump_file, move[i1]);
@@ -24758,6 +24767,10 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		/* Update corresponding movep data.  */
 		move_insns[move_pos[i1]] = last_insn;
 		move_insns[move_pos[i2]] = last_insn;
+		delete[] src_copies[move_pos[i1]];
+		delete[] src_copies[move_pos[i2]];
+		src_copies[move_pos[i1]] = NULL;
+		src_copies[move_pos[i2]] = NULL;
 		move[i1] = NULL;
 		move[i2] = NULL;
 
