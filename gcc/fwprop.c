@@ -1048,18 +1048,17 @@ try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx_insn *def_insn,
 
 /* For the given single_set INSN, containing SRC known to be a
    ZERO_EXTEND or SIGN_EXTEND of a register, return true if INSN
-   is redundant due to the register being set by a LOAD_EXTEND_OP
-   load from memory.  */
+   is redundant due to the register being set by ZERO_EXTRACT or
+   SIGN_EXTRACT of appropriate size or by LOAD_EXTEND_OP load
+   from memory.  */
 
 static bool
-free_load_extend (rtx src, rtx_insn *insn)
+free_extend (rtx src, rtx_insn *insn)
 {
   rtx reg;
   df_ref def, use;
 
   reg = XEXP (src, 0);
-  if (load_extend_op (GET_MODE (reg)) != GET_CODE (src))
-    return false;
 
   FOR_EACH_INSN_USE (use, insn)
     if (!DF_REF_IS_ARTIFICIAL (use)
@@ -1080,10 +1079,35 @@ free_load_extend (rtx src, rtx_insn *insn)
     {
       rtx patt = PATTERN (DF_REF_INSN (def));
 
-      if (GET_CODE (patt) == SET
+      if (GET_CODE (patt) != SET)
+          return false;
+
+#ifdef LOAD_EXTEND_OP
+      if (LOAD_EXTEND_OP (GET_MODE (reg)) == GET_CODE (src)
 	  && GET_CODE (SET_SRC (patt)) == MEM
 	  && rtx_equal_p (SET_DEST (patt), reg))
 	return true;
+#endif
+
+      int extract_code = GET_CODE (src) == ZERO_EXTEND
+                         ? ZERO_EXTRACT : SIGN_EXTRACT;
+
+      if (GET_CODE (SET_SRC (patt)) == extract_code
+          && GET_MODE (SET_SRC (patt)) == GET_MODE (src)
+          && INTVAL (XEXP (SET_SRC (patt), 1))
+             <= GET_MODE_BITSIZE (GET_MODE (reg))) {
+
+        if (GET_CODE (SET_DEST (patt)) == SUBREG
+            && GET_MODE (SET_DEST (patt)) == GET_MODE (src)
+            && rtx_equal_p (XEXP (SET_DEST (patt), 0), reg))
+            return true;
+
+        if (REG_P (SET_DEST (patt))
+            && GET_MODE (SET_DEST (patt)) == GET_MODE (src)
+            && REGNO (SET_DEST (patt)) == REGNO (reg))
+            return true;
+      }
+
     }
   return false;
 }
@@ -1148,7 +1172,7 @@ forward_propagate_subreg (df_ref use, rtx_insn *def_insn, rtx def_set)
 	  && REG_P (XEXP (src, 0))
 	  && REGNO (XEXP (src, 0)) >= FIRST_PSEUDO_REGISTER
 	  && GET_MODE (XEXP (src, 0)) == use_mode
-	  && !free_load_extend (src, def_insn)
+	  && !free_extend (src, def_insn)
 	  && (targetm.mode_rep_extended (use_mode, GET_MODE (src))
 	      != (int) GET_CODE (src))
 	  && all_uses_available_at (def_insn, use_insn))
