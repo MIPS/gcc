@@ -1,3 +1,20 @@
+2018-10-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_omp_clause_name): Scan for attach and detach.
+	(cp_parser_oacc_data_clause): Handle PRAGMA_OACC_CLAUSE_{ATTACH,
+	DETACH}.
+	(cp_parser_oacc_all_clauses): Likewise.
+	(OACC_DATA_CLAUSE_MASK): Add support for attach and detach.
+	(OACC_ENTER_DATA_CLAUSE_MASK): Likewise.
+	(cp_parser_oacc_declare): Likewise.
+	(OACC_KERNELS_CLAUSE_MASK): Likewise.
+	(OACC_PARALLEL_CLAUSE_MASK): Likewise.
+	* semantics.c (handle_omp_array_sections_1): Reject subarrays for
+	attach and detach.
+	(cp_oacc_check_attachments): New function.
+	(finish_omp_clauses): Use it. Also, allow structure fields and
+	class members to appear in OpenACC data clauses.
+
 2017-07-25  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_clause_wait): Add representation of wait
