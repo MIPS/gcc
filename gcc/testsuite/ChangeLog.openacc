@@ -1,3 +1,9 @@
+2018-10-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/mdc-1.c: New test.
+	* c-c++-common/goacc/mdc-2.c: New test.
+	* g++.dg/goacc/mdc.C: New test.
+
 2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline:
