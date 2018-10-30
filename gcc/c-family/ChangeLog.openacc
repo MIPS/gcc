@@ -1,3 +1,8 @@
+2018-10-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Define
+	PRAGMA_OACC_CLAUSE_{ATTACH,DETACH}.
+
 2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_FINALIZE.

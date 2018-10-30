@@ -9468,7 +9468,8 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 		}
 	    }
 	  else if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_STRUCT
-		   && code == OMP_TARGET_EXIT_DATA)
+		   && (code == OMP_TARGET_EXIT_DATA
+		       || code == OACC_EXIT_DATA))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
@@ -11156,8 +11157,9 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 	   && omp_find_clause (OMP_STANDALONE_CLAUSES (expr),
 			       OMP_CLAUSE_FINALIZE))
     {
-      /* Use GOMP_MAP_DELETE/GOMP_MAP_FORCE_FROM to denote that "finalize"
-	 semantics apply to all mappings of this OpenACC directive.  */
+      /* Use GOMP_MAP_DELETE, GOMP_MAP_FORCE_DETACH, and
+	 GOMP_MAP_FORCE_FROM to denote that "finalize" semantics apply
+	 to all mappings of this OpenACC directive.  */
       bool finalize_marked = false;
       for (tree c = OMP_STANDALONE_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
 	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
@@ -11169,6 +11171,10 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 	      break;
 	    case GOMP_MAP_RELEASE:
 	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_DELETE);
+	      finalize_marked = true;
+	      break;
+	    case GOMP_MAP_DETACH:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_DETACH);
 	      finalize_marked = true;
 	      break;
 	    default:

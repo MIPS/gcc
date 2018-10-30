@@ -1,3 +1,13 @@
+2018-10-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses): Filter out
+	GOMP_MAP_STRUCT for acc exit data.
+	(gimplify_omp_target_update): Promote GOMP_MAP_DETACH
+	to GOMP_MAP_FORCE_DETACH when the finalize clause is present.
+	* omp-low.c (lower_omp_target): Add support for GOMP_MAP_{ATTACH,
+	DETACH, FORCE_DETACH}.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+
 2018-07-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from mainline:
