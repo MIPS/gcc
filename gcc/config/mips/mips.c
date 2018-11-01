@@ -24771,8 +24771,11 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		&& movep_or_0_operand (src2, GET_MODE (src2))
 		&& mips_movep_no_overlap_p (dest1, dest2, src1, src2))
 	      {
-		rtx movep_insn = gen_movep (dest1, src1, dest2,
-					    src2);
+		rtx movep_insn
+		  = gen_movep (dest1,
+			       gen_rtx_REG (GET_MODE (dest1), REGNO (src1)),
+			       dest2,
+			       gen_rtx_REG (GET_MODE (dest2), REGNO (src2)));
 		rtx_insn *last_insn;
 		rtx last = last_insn
 		  = emit_insn_after_setloc (movep_insn, loc_insn,
@@ -24885,8 +24888,13 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 			  && mips_movep_no_overlap_p (dest1, dest2, src1,
 						      src2))
 			{
-			  rtx movep_insn = gen_movep (dest1, src1, dest2,
-						      src2);
+			  rtx movep_insn
+			    = gen_movep (dest1,
+					 gen_rtx_REG (GET_MODE (dest1),
+						      REGNO (src1)),
+					 dest2,
+					 gen_rtx_REG (GET_MODE (dest2),
+						      REGNO (src2)));
 
 			  rtx_insn *last_insn;
 			  rtx last = last_insn
