@@ -24349,13 +24349,12 @@ static rtx_insn *
 get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
 			 vec<rtx*> rcopies_mtx, rtx &rsrc1, rtx &rsrc2,
 			 unsigned move1_pos, unsigned move2_pos,
-			 vec<rtx_insn*> &move_insns)
+			 unsigned &move_curr_pos, vec<rtx_insn*> &move_insns)
 {
   rtx dest1, dest2, src1, src2;
   int ix, iy;
   vec<rtx> rcopies1;
   vec<rtx> rcopies2;
-  unsigned move_curr_pos;
 
   src1 = SET_SRC (PATTERN (move1));
   dest1 = SET_DEST (PATTERN (move1));
@@ -24498,6 +24497,7 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2,
 	}
     }
 
+  move_curr_pos = -1;
   rcopies1.release ();
   rcopies2.release ();
   rsrc1 = src1;
@@ -24700,6 +24700,29 @@ mips_free_move_src_copies (vec<rtx*> &src_copies)
     delete[] src_copies[i];
 }
 
+static void
+update_copy_info (vec<rtx*> &src_copies, rtx_insn *move, unsigned move_pos,
+		  int movep_pos)
+{
+  int curr_pos = move_pos;
+  rtx pattern = PATTERN (move);
+  rtx src = SET_SRC (pattern);
+  rtx dest = SET_DEST (pattern);
+
+  if (GET_CODE (pattern) != SET || !(REG_P (src) || SUBREG_P (src))
+      || !(REG_P (dest) || SUBREG_P (dest)) || REGNO_OR_0 (src) >= GP_REG_NUM
+      || REGNO_OR_0 (dest) >= GP_REG_NUM)
+    return;
+
+  while (curr_pos < movep_pos)
+    {
+      rtx *reg_copies = src_copies[curr_pos];
+      if (reg_copies)
+	reg_copies[REGNO_OR_0 (dest)] = 0;
+      curr_pos++;
+    }
+}
+
 /* Check for a possibility to create a movep or rev movep instruction.  */
 static void
 mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
@@ -24717,6 +24740,8 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 	rtx_insn *loc_insn = NULL;
 	rtx lsrc1, lsrc2;
 	int i1 = i, i2 = i-1;
+	unsigned movep_pos;
+
 	if (move_pos[i] > move_pos[i-1])
 	  {
 	    i1 = i-1;
@@ -24725,7 +24750,8 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 
 	loc_insn = get_movep_insn_location (move[i1], move[i2], src_copies,
 					    lsrc1, lsrc2, move_pos[i1],
-					    move_pos[i2], move_insns);
+					    move_pos[i2], movep_pos,
+					    move_insns);
 
 	if (loc_insn)
 	  {
@@ -24760,6 +24786,12 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		    print_rtl_single (dump_file, last);
 		  }
 
+		/* Update copy info related to instructions that are
+		   merged.  */
+		update_copy_info (src_copies, move[i1], move_pos[i1],
+				  movep_pos);
+		update_copy_info (src_copies, move[i2], move_pos[i2],
+				  movep_pos);
 		/* Delete original instructions.  */
 		delete_insn (move[i1]);
 		delete_insn (move[i2]);
@@ -24821,6 +24853,7 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		  rtx_insn *loc_insn = NULL;
 		  rtx lsrc1, lsrc2;
 		  int i1 = i, i2 = i-1;
+		  unsigned rmovep_pos;
 		  if (rmove_pos[i] > rmove_pos[i-1])
 		    {
 		      i1 = i-1;
@@ -24831,7 +24864,7 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 		    = get_movep_insn_location (rmove[i1], rmove[i2],
 					       src_copies, lsrc1, lsrc2,
 					       rmove_pos[i1], rmove_pos[i2],
-					       move_insns);
+					       rmovep_pos, move_insns);
 
 		  if (loc_insn)
 		    {
@@ -24868,6 +24901,11 @@ mips_check_for_movep (rtx_insn **move, rtx_insn **rmoveinsns, int move_pos[],
 			      fprintf (dump_file, "REV MOVEP INSN\n");
 			      print_rtl_single (dump_file, last);
 			    }
+
+			  update_copy_info (src_copies, rmove[i1],
+					    rmove_pos[i1], rmovep_pos);
+			  update_copy_info (src_copies, rmove[i2],
+					    rmove_pos[i2], rmovep_pos);
 
 			  /* Delete original instructions.  */
 			  delete_insn (rmove[i1]);
