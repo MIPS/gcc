@@ -1,3 +1,227 @@
+2018-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/null_pointer_deref1.adb: Remove -gnatp and add pragma.
+	* gnat.dg/null_pointer_deref2.adb: Likewise.
+	* gnat.dg/null_pointer_deref3.adb: Likewise.
+	* gnat.dg/opt74.adb: New test.
+	* gnat.dg/opt74_pkg.ad[sb]: New helper.
+	* gnat.dg/warn12.adb: Delete.
+	* gnat.dg/warn12_pkg.ads: Likewise.
+
+2018-11-03  Tobias Burnus  <burnus@net-b.de>
+	Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/87597
+	* gfortran.dg/inline_matmul_24.f90: New.
+
+2018-10-26  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	Backport from mainline
+	2018-10-19  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/87473
+	* gcc.c-torture/compile/pr87473.c: New file.
+
+2018-10-23  Tom de Vries  <tdevries@suse.de>
+
+	backport from trunk:
+	2018-07-31  Tom de Vries  <tdevries@suse.de>
+
+	PR debug/86687
+	* g++.dg/guality/pr86687.C: New test.
+
+2018-10-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/sso14.adb: New test.
+	* gnat.dg/sso15.adb: Likewise.
+
+2018-10-19  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	Backport from mainline
+	2018-10-15  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* g++.dg/vec-init-1.C: New test.
+
+2018-10-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/pr87623.c: New test.
+
+2018-10-16  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	Backported from mainline
+	PR target/87511
+	* gcc.target/aarch64/pr87511.c: Add new test.
+
+2018-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2018-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/87550
+	* gcc.target/i386/pr87550.c: New test.
+
+	2018-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/87248
+	* c-c++-common/torture/pr87248.c: New test.
+
+	2018-08-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/87065
+	* gcc.target/i386/pr87065.c: New test.
+
+	2018-07-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/86627
+	* gcc.target/i386/pr86627.c: New test.
+
+	2018-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/86421
+	* gfortran.dg/vect/pr86421.f90: New test.
+
+	2018-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/3698
+	PR c++/86208
+	* g++.dg/opt/pr3698.C: New test.
+
+2018-10-12  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-08-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/87024
+	* gcc.dg/pr87024.c: New testcase.
+
+	2018-08-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/86505
+	* gcc.dg/torture/pr86505.c: New testcase.
+
+2018-10-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-09-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/87370
+	* gcc.target/i386/pr87370.c: New test.
+
+2018-10-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2018-07-02  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/arm-soft-strd-even.c: Skip if -mfloat-abi is
+	overriden.
+	2018-06-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/arm-soft-strd-even.c: New test.
+
+2018-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/87467
+	* gcc.target/i386/avx512f-abspd-1.c (SIZE): Divide by two.
+	(CALC): Use double instead of float.
+	(TEST): Adjust to test _mm512_abs_pd and _mm512_mask_abs_pd rather than
+	_mm512_abs_ps and _mm512_mask_abs_ps.
+
+2018-09-27  Michael Meissner  <meissner@linux.ibm.com>
+
+	Backport from mainline
+	2018-08-20  Michael Meissner  <meissner@linux.ibm.com>
+
+	PR target/87033
+	* gcc.target/powerpc/pr87033.c: New test.
+
+2018-09-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/nested-func-11.c: New test.
+
+2018-09-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backported from trunk
+	PR fortran/87284
+	* gfortran.dg/allocate_with_mold_2.f90: New test.
+
+2018-09-12  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	Backport from mainline
+	2018-09-12  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* gcc.target/s390/dfp_to_bfp_rounding.c: New test.
+
+2018-09-07  Janus Weil  <janus@gcc.gnu.org>
+
+	Backported from trunk
+	PR fortran/86116
+	* gfortran.dg/generic_34.f90: New test case.
+
+2018-09-03  Tom de Vries  <tdevries@suse.de>
+
+	backport from trunk:
+	2018-06-21  Tom de Vries  <tdevries@suse.de>
+
+	PR tree-optimization/85859
+	* gcc.dg/pr85859.c: New test.
+
+2018-08-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2018-08-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/87014
+	* g++.dg/torture/pr87014.C: New file.
+
+2018-08-21  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport from mainline
+	2018-08-21  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* g++.dg/torture/pr86763.C: Restrict to *-*-linux*.
+
+2018-08-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-08-02  Richard Biener  <rguenther@suse.de>
+
+	PR c++/86763
+	* g++.dg/torture/pr86763.C: New testcase.
+
+2018-07-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr55.adb: New test.
+
+2018-07-16  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/83184
+	Backport from trunk.
+	* gfortran.dg/assumed_rank_14.f90: New testcase.
+	* gfortran.dg/assumed_rank_15.f90: New testcase.
+	* gfortran.dg/dec_structure_8.f90: Update error messages.
+	* gfortran.dg/dec_structure_23.f90: Update error messages.
+
+2018-07-16  Fritz Reese  <fritzoreese@gmail.com>
+
+	Backport from trunk:
+
+	PR fortran/83183
+	PR fortran/86325
+	* gfortran.dg/init_flag_18.f90: New testcase.
+	* gfortran.dg/init_flag_19.f03: New testcase.
+
+2018-07-12  Richard Biener  <rguenther@suse.de>
+
+	PR target/84829
+	* gcc.target/i386/pr84829.c: New testcase.
+
+2018-07-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/82969
+	PR fortran/86242
+	* gfortran.dg/proc_ptr_50.f90: New test.
+
 2018-06-26  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	Backported from mainline

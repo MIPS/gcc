@@ -1,3 +1,48 @@
+2018-10-23  Tom de Vries  <tdevries@suse.de>
+
+	backport from trunk:
+	2018-07-31  Tom de Vries  <tdevries@suse.de>
+
+	PR debug/86687
+	* optimize.c (update_cloned_parm): Copy DECL_BY_REFERENCE.
+
+2018-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2018-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/3698
+	PR c++/86208
+	* cp-gimplify.c (cp_genericize_r): When using extern_decl_map, or
+	in TREE_USED flag from stmt to h->to.
+
+2018-08-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-08-02  Richard Biener  <rguenther@suse.de>
+
+	PR c++/86763
+	* class.c (layout_class_type): Copy TYPE_TYPELESS_STORAGE
+	to the CLASSTYPE_AS_BASE.
+
+2018-08-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86728 - C variadic generic lambda.
+	* parser.c (cp_parser_parameter_declaration): Don't turn 'auto' into
+	a pack if it's followed by a declarator-id.
+
+2018-07-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/86378 - functional cast in noexcept-specifier.
+	* tree.c (strip_typedefs_expr) [TREE_LIST]: Fix iteration.
+
+2018-06-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/80290 - memory-hog with std::pair.
+	* pt.c (type_unification_real): Skip non-dependent conversion
+	check for a nested list argument.
+	(braced_init_depth): New.
+
 2018-06-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/86291
