@@ -33,48 +33,45 @@ program derived_acc
   !$acc exit data copyout(var)
   !$acc exit data copyout(var%a)
 
-  !$acc data copy(var%a) ! { dg-error "Syntax error in OpenMP" }
-  !$acc end data ! { dg-error "Unexpected ..ACC END DATA" }
-  
   !$acc data copy(var)
   !$acc end data
 
-  !$acc data copyout(var%a) ! { dg-error "Syntax error in OpenMP" }
-  !$acc end data ! { dg-error "Unexpected ..ACC END" }
+  !$acc data copyout(var%a)
+  !$acc end data
 
   !$acc parallel loop pcopyout(var)
   do i = 1, 10
   end do  
   !$acc end parallel loop
 
-  !$acc parallel loop copyout(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc parallel loop copyout(var%a)
   do i = 1, 10
   end do
-  !$acc end parallel loop ! { dg-error "Unexpected ..ACC END" }
+  !$acc end parallel loop
 
   !$acc parallel pcopy(var)
   !$acc end parallel
 
-  !$acc parallel pcopy(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc parallel pcopy(var%a)
   do i = 1, 10
   end do
-  !$acc end parallel ! { dg-error "Unexpected ..ACC END" }
+  !$acc end parallel
   
   !$acc kernels pcopyin(var)
   !$acc end kernels
 
-  !$acc kernels pcopy(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc kernels pcopy(var%a)
   do i = 1, 10
   end do
-  !$acc end kernels ! { dg-error "Unexpected ..ACC END" }
+  !$acc end kernels
 
   !$acc kernels loop pcopyin(var)
   do i = 1, 10
   end do
   !$acc end kernels loop
 
-  !$acc kernels loop pcopy(var%a) ! { dg-error "Syntax error in OpenMP" }
+  !$acc kernels loop pcopy(var%a)
   do i = 1, 10
   end do
-  !$acc end kernels loop ! { dg-error "Unexpected ..ACC END" }
+  !$acc end kernels loop
 end program derived_acc

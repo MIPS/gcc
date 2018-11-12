@@ -6724,7 +6724,7 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		error ("%qE is not a variable in %<depend%> clause", t);
 	      remove = true;
 	    }
-	  else if (ort != C_ORT_ACC && t == current_class_ptr)
+	  else if (t == current_class_ptr)
 	    {
 	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
 		     " clauses");
@@ -6810,6 +6810,10 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      t = TREE_OPERAND (t, 0);
 	      OMP_CLAUSE_DECL (c) = t;
 	    }
+	  if (ort == C_ORT_ACC
+	      && TREE_CODE (t) == COMPONENT_REF
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == INDIRECT_REF)
+	    t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
 	  if (TREE_CODE (t) == COMPONENT_REF
 	      && ((ort & C_ORT_OMP_DECLARE_SIMD) == C_ORT_OMP
 		  || ort == C_ORT_ACC)

@@ -31563,15 +31563,19 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	    case OMP_CLAUSE_MAP:
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
-	      while (cp_lexer_next_token_is (parser->lexer, CPP_DOT))
+	      while (cp_lexer_next_token_is (parser->lexer, CPP_DOT)
+		     || cp_lexer_next_token_is (parser->lexer, CPP_DEREF))
 		{
+		  cpp_ttype ttype
+		    = cp_lexer_next_token_is (parser->lexer, CPP_DOT)
+		      ? CPP_DOT : CPP_DEREF;
 		  location_t loc
 		    = cp_lexer_peek_token (parser->lexer)->location;
 		  cp_id_kind idk = CP_ID_KIND_NONE;
 		  cp_lexer_consume_token (parser->lexer);
 		  decl = convert_from_reference (decl);
 		  decl
-		    = cp_parser_postfix_dot_deref_expression (parser, CPP_DOT,
+		    = cp_parser_postfix_dot_deref_expression (parser, ttype,
 							      decl, false,
 							      &idk, loc);
 		}
@@ -33858,14 +33862,14 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  clauses = cp_parser_oacc_clause_async (parser, clauses);
 	  c_name = "async";
 	  break;
+	case PRAGMA_OACC_CLAUSE_ATTACH:
+	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "attach";
+	  break;
 	case PRAGMA_OACC_CLAUSE_AUTO:
 	  clauses = cp_parser_oacc_simple_clause (parser, OMP_CLAUSE_AUTO,
 						 clauses, here);
 	  c_name = "auto";
-	  break;
-	case PRAGMA_OACC_CLAUSE_ATTACH:
-	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
-	  c_name = "attach";
 	  break;
 	case PRAGMA_OACC_CLAUSE_BIND:
 	  clauses = cp_parser_oacc_clause_bind (parser, clauses);

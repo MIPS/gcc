@@ -391,7 +391,7 @@ acc_shutdown_1 (acc_device_t d)
 	    {
 	      struct target_mem_desc *tgt = walk->dev->mem_map.root->key.tgt;
 
-	      gomp_unmap_vars (tgt, false);
+	      gomp_unmap_vars (tgt, false, false);
 	    }
 
 	  walk->dev = NULL;

@@ -518,7 +518,7 @@ acc_unmap_data (void *h)
 
   gomp_mutex_unlock (&acc_dev->lock);
 
-  gomp_unmap_vars (t, true);
+  gomp_unmap_vars (t, true, false);
 
   if (profiling_setup_p)
     {
@@ -612,6 +612,7 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
 				 &kinds, true, GOMP_MAP_VARS_OPENACC);
       /* Initialize dynamic refcount.  */
       tgt->list[0].key->dynamic_refcount = 1;
+      tgt->list[0].key->attach_count = NULL;
 
       gomp_mutex_lock (&acc_dev->lock);
 
@@ -750,6 +751,7 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
     {
       n->refcount = 0;
       n->dynamic_refcount = 0;
+      n->attach_count = NULL;
     }
   if (n->refcount < n->dynamic_refcount)
     {
@@ -997,6 +999,7 @@ gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs, size_t *sizes,
 
   /* Initialize dynamic refcount.  */
   tgt->list[0].key->dynamic_refcount = 1;
+  tgt->list[0].key->attach_count = NULL;
 
   gomp_mutex_lock (&acc_dev->lock);
   tgt->prev = acc_dev->openacc.data_environ;
@@ -1084,15 +1087,92 @@ gomp_acc_remove_pointer (void *h, size_t s, bool force_copyfrom, int async,
 
       /* If running synchronously, unmap immediately.  */
       if (async < acc_async_noval)
-	gomp_unmap_vars (t, true);
+	gomp_unmap_vars (t, true, finalize);
       else
 	{
 	  goacc_aq aq = get_goacc_asyncqueue (async);        
-	  goacc_async_copyout_unmap_vars (t, aq);
+	  goacc_async_copyout_unmap_vars (t, aq, finalize);
 	}
     }
 
   gomp_mutex_unlock (&acc_dev->lock);
 
   gomp_debug (0, "  %s: mappings restored\n", __FUNCTION__);
+}
+
+
+void
+acc_attach_async (void **hostaddr, int async)
+{
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+  goacc_aq aq = get_goacc_asyncqueue (async);
+
+  struct splay_tree_key_s cur_node;
+  splay_tree_key n;
+
+  if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+    return;
+
+  cur_node.host_start = (uintptr_t) hostaddr;
+  cur_node.host_end = cur_node.host_start + sizeof (void *);
+  n = splay_tree_lookup (&acc_dev->mem_map, &cur_node);
+
+  if (n == NULL)
+    gomp_fatal ("struct not mapped for acc_attach");
+
+  gomp_attach_pointer (acc_dev, aq, &acc_dev->mem_map, n, (uintptr_t) hostaddr,
+		       0, NULL);
+}
+
+void
+acc_attach (void **hostaddr)
+{
+  acc_attach_async (hostaddr, acc_async_sync);
+}
+
+static void
+goacc_detach_internal (void **hostaddr, int async, bool finalize)
+{
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
+  struct splay_tree_key_s cur_node;
+  splay_tree_key n;
+  struct goacc_asyncqueue *aq = get_goacc_asyncqueue (async);
+
+  if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+    return;
+
+  cur_node.host_start = (uintptr_t) hostaddr;
+  cur_node.host_end = cur_node.host_start + sizeof (void *);
+  n = splay_tree_lookup (&acc_dev->mem_map, &cur_node);
+
+  if (n == NULL)
+    gomp_fatal ("struct not mapped for acc_detach");
+
+  gomp_detach_pointer (acc_dev, aq, n, (uintptr_t) hostaddr, finalize, NULL);
+}
+
+void
+acc_detach (void **hostaddr)
+{
+  goacc_detach_internal (hostaddr, acc_async_sync, false);
+}
+
+void
+acc_detach_async (void **hostaddr, int async)
+{
+  goacc_detach_internal (hostaddr, async, false);
+}
+
+void
+acc_detach_finalize (void **hostaddr)
+{
+  goacc_detach_internal (hostaddr, acc_async_sync, true);
+}
+
+void
+acc_detach_finalize_async (void **hostaddr, int async)
+{
+  goacc_detach_internal (hostaddr, async, true);
 }

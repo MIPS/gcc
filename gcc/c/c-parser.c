@@ -11553,9 +11553,12 @@ c_parser_omp_variable_list (c_parser *parser,
 	    case OMP_CLAUSE_MAP:
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
-	      while (c_parser_next_token_is (parser, CPP_DOT))
+	      while (c_parser_next_token_is (parser, CPP_DOT)
+		     || c_parser_next_token_is (parser, CPP_DEREF))
 		{
 		  location_t op_loc = c_parser_peek_token (parser)->location;
+		  if (c_parser_next_token_is (parser, CPP_DEREF))
+		    t = build_simple_mem_ref (t);
 		  c_parser_consume_token (parser);
 		  if (!c_parser_next_token_is (parser, CPP_NAME))
 		    {
@@ -11679,7 +11682,7 @@ c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
 }
 
 /* OpenACC 2.5:
-   attach (variable-list )
+   attach ( variable-list )
    copy ( variable-list )
    copyin ( variable-list )
    copyout ( variable-list )
@@ -14090,14 +14093,14 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_clause_async (parser, clauses);
 	  c_name = "async";
 	  break;
+	case PRAGMA_OACC_CLAUSE_ATTACH:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "attach";
+	  break;
 	case PRAGMA_OACC_CLAUSE_AUTO:
 	  clauses = c_parser_oacc_simple_clause (parser, here, OMP_CLAUSE_AUTO,
 						 clauses);
 	  c_name = "auto";
-	  break;
-	case PRAGMA_OACC_CLAUSE_ATTACH:
-	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
-	  c_name = "attach";
 	  break;
 	case PRAGMA_OACC_CLAUSE_BIND:
 	  clauses = c_parser_oacc_clause_bind (parser, clauses);

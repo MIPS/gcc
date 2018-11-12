@@ -12446,6 +12446,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		}
 	      t = TREE_OPERAND (t, 0);
 	    }
+	  if (TREE_CODE (t) == MEM_REF)
+	    t = TREE_OPERAND (t, 0);
 	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
@@ -13750,6 +13752,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      if (remove)
 		break;
+	      if (TREE_CODE (t) == MEM_REF)
+		t = TREE_OPERAND (t, 0);
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
 		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))

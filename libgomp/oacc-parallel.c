@@ -50,12 +50,29 @@ find_pointer (int pos, size_t mapnum, unsigned short *kinds)
   if (pos + 1 >= mapnum)
     return 0;
 
-  unsigned char kind = kinds[pos+1] & 0xff;
+  unsigned char kind0 = kinds[pos] & 0xff;
 
-  if (kind == GOMP_MAP_TO_PSET)
-    return 3;
-  else if (kind == GOMP_MAP_POINTER)
-    return 2;
+  switch (kind0)
+    {
+    case GOMP_MAP_TO:
+    case GOMP_MAP_FORCE_TO:
+    case GOMP_MAP_FROM:
+    case GOMP_MAP_FORCE_FROM:
+    case GOMP_MAP_ALLOC:
+    case GOMP_MAP_RELEASE:
+      {
+	unsigned char kind1 = kinds[pos + 1] & 0xff;
+	if (kind1 == GOMP_MAP_POINTER
+	    || kind1 == GOMP_MAP_ALWAYS_POINTER
+	    || kind1 == GOMP_MAP_ATTACH
+	    || kind1 == GOMP_MAP_DETACH)
+	  return 2;
+	else if (kind1 == GOMP_MAP_TO_PSET)
+	  return 3;
+      }
+    default:
+      /* empty.  */;
+    }
 
   return 0;
 }
@@ -355,14 +372,7 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
-    {
-      if (tgt->list[i].key != NULL)
-	devaddrs[i] = (void *) (tgt->list[i].key->tgt->tgt_start
-				+ tgt->list[i].key->tgt_offset
-				+ tgt->list[i].offset);
-      else
-	devaddrs[i] = NULL;
-    }
+    devaddrs[i] = (void *) gomp_map_val (tgt, hostaddrs, i);
 
   if (aq == NULL)
     {
@@ -382,7 +392,7 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 				    &api_info);
 	}
       /* If running synchronously, unmap immediately.  */
-      gomp_unmap_vars (tgt, true);
+      gomp_unmap_vars (tgt, true, false);
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_end;
@@ -400,7 +410,7 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
       else
 	acc_dev->openacc.async.exec_func (tgt_fn, mapnum, hostaddrs,
 					  devaddrs, dims, tgt, aq);
-      goacc_async_copyout_unmap_vars (tgt, aq);
+      goacc_async_copyout_unmap_vars (tgt, aq, false);
     }
 
  out:
@@ -637,7 +647,7 @@ GOACC_data_end (void)
 
   gomp_debug (0, "  %s: restore mappings\n", __FUNCTION__);
   thr->mapped_data = tgt->prev;
-  gomp_unmap_vars (tgt, true);
+  gomp_unmap_vars (tgt, true, false);
   gomp_debug (0, "  %s: mappings restored\n", __FUNCTION__);
 
   if (profiling_dispatch_p)
@@ -668,6 +678,10 @@ GOACC_enter_exit_data (int device, size_t mapnum,
   if (mapnum > 0)
     {
       unsigned char kind = kinds[0] & 0xff;
+
+      if (kind == GOMP_MAP_STRUCT || kind == GOMP_MAP_FORCE_PRESENT)
+        kind = kinds[1] & 0xff;
+
       if (kind == GOMP_MAP_DELETE
 	  || kind == GOMP_MAP_FORCE_FROM)
 	finalize = true;
@@ -678,11 +692,14 @@ GOACC_enter_exit_data (int device, size_t mapnum,
     {
       unsigned char kind = kinds[i] & 0xff;
 
-      if (kind == GOMP_MAP_POINTER || kind == GOMP_MAP_TO_PSET)
+      if (kind == GOMP_MAP_POINTER
+	  || kind == GOMP_MAP_TO_PSET
+	  || kind == GOMP_MAP_STRUCT
+	  || kind == GOMP_MAP_FORCE_PRESENT)
 	continue;
 
       if (kind == GOMP_MAP_FORCE_ALLOC
-	  || kind == GOMP_MAP_FORCE_PRESENT
+	  || kind == GOMP_MAP_ATTACH
 	  || kind == GOMP_MAP_FORCE_TO
 	  || kind == GOMP_MAP_TO
 	  || kind == GOMP_MAP_ALLOC
@@ -694,6 +711,8 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 
       if (kind == GOMP_MAP_RELEASE
 	  || kind == GOMP_MAP_DELETE
+	  || kind == GOMP_MAP_DETACH
+	  || kind == GOMP_MAP_FORCE_DETACH
 	  || kind == GOMP_MAP_FROM
 	  || kind == GOMP_MAP_FORCE_FROM
 	  || kind == GOMP_MAP_DECLARE_DEALLOCATE)
@@ -809,6 +828,9 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		case GOMP_MAP_ALLOC:
 		  acc_present_or_create (hostaddrs[i], sizes[i]);
 		  break;
+		case GOMP_MAP_ATTACH:
+		case GOMP_MAP_FORCE_PRESENT:
+		  break;
 		case GOMP_MAP_FORCE_ALLOC:
 		  acc_create (hostaddrs[i], sizes[i]);
 		  break;
@@ -817,6 +839,27 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		  break;
 		case GOMP_MAP_FORCE_TO:
 		  acc_copyin (hostaddrs[i], sizes[i]);
+		  break;
+		case GOMP_MAP_STRUCT:
+		  {
+		    int elems = sizes[i];
+		    struct splay_tree_key_s k;
+		    splay_tree_key str;
+		    k.host_start = (uintptr_t) hostaddrs[i];
+		    k.host_end = k.host_start + 1;
+		    gomp_mutex_lock (&acc_dev->lock);
+		    str = splay_tree_lookup (&acc_dev->mem_map, &k);
+		    gomp_mutex_unlock (&acc_dev->lock);
+		    /* We increment the dynamic reference count for the struct
+		       itself by the number of struct elements that we
+		       mapped.  */
+		    if (str->refcount != REFCOUNT_INFINITY)
+		      {
+		        str->refcount += elems;
+			str->dynamic_refcount += elems;
+		      }
+		    i += elems;
+		  }
 		  break;
 		default:
 		  gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -839,16 +882,57 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	      i += pointer - 1;
 	    }
 	}
+
+      /* This loop only handles explicit "attach" clauses that are not an
+	 implicit part of a copy{,in,out}, etc. mapping.  */
+      for (i = 0; i < mapnum; i++)
+        {
+	  unsigned char kind = kinds[i] & 0xff;
+
+	  /* Scan for pointers and PSETs.  */
+	  int pointer = find_pointer (i, mapnum, kinds);
+
+	  if (!pointer)
+	    {
+	      if (kind == GOMP_MAP_ATTACH)
+		acc_attach (hostaddrs[i]);
+	      else if (kind == GOMP_MAP_STRUCT)
+	        i += sizes[i];
+	    }
+	  else
+	    i += pointer - 1;
+	}
     }
   else
-    for (i = 0; i < mapnum; ++i)
-      {
-	unsigned char kind = kinds[i] & 0xff;
+    {
+      /* This loop only handles explicit "detach" clauses that are not an
+	 implicit part of a copy{,in,out}, etc. mapping.  */
+      for (i = 0; i < mapnum; i++)
+        {
+	  unsigned char kind = kinds[i] & 0xff;
 
-	int pointer = find_pointer (i, mapnum, kinds);
+	  int pointer = find_pointer (i, mapnum, kinds);
 
-	if (!pointer)
-	  {
+	  if (!pointer)
+	    {
+	      if (kind == GOMP_MAP_DETACH)
+		acc_detach (hostaddrs[i]);
+	      else if (kind == GOMP_MAP_FORCE_DETACH)
+		acc_detach_finalize (hostaddrs[i]);
+	      else if (kind == GOMP_MAP_STRUCT)
+	        i += sizes[i];
+	    }
+	  else
+	    i += pointer - 1;
+	}
+
+      for (i = 0; i < mapnum; ++i)
+	{
+	  unsigned char kind = kinds[i] & 0xff;
+
+	  int pointer = find_pointer (i, mapnum, kinds);
+
+	  if (!pointer)
 	    switch (kind)
 	      {
 	      case GOMP_MAP_RELEASE:
@@ -861,6 +945,10 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		      acc_delete_async (hostaddrs[i], sizes[i], async);
 		  }
 		break;
+	      case GOMP_MAP_DETACH:
+	      case GOMP_MAP_FORCE_DETACH:
+	      case GOMP_MAP_FORCE_PRESENT:
+		break;
 	      case GOMP_MAP_DECLARE_DEALLOCATE:
 	      case GOMP_MAP_FROM:
 	      case GOMP_MAP_FORCE_FROM:
@@ -869,28 +957,48 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		else
 		  acc_copyout_async (hostaddrs[i], sizes[i], async);
 		break;
+	      case GOMP_MAP_STRUCT:
+		{
+		  int elems = sizes[i];
+		  struct splay_tree_key_s k;
+		  splay_tree_key str;
+		  k.host_start = (uintptr_t) hostaddrs[i];
+		  k.host_end = k.host_start + 1;
+		  gomp_mutex_lock (&acc_dev->lock);
+		  str = splay_tree_lookup (&acc_dev->mem_map, &k);
+		  gomp_mutex_unlock (&acc_dev->lock);
+		  /* Decrement dynamic reference count for the struct by the
+		     number of elements that we are unmapping.  */
+		  if (str->dynamic_refcount >= elems)
+		    {
+		      str->dynamic_refcount -= elems;
+		      str->refcount -= elems;
+		    }
+		  i += elems;
+		}
+		break;
 	      default:
 		gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
 			    kind);
 		break;
 	      }
-	  }
-	else
-	  {
-	    if (kind == GOMP_MAP_DECLARE_DEALLOCATE)
-	      gomp_acc_declare_allocate (false, pointer, &hostaddrs[i],
-					 &sizes[i], &kinds[i]);
-	    else
-	      {
-		bool copyfrom = (kind == GOMP_MAP_FORCE_FROM
-				 || kind == GOMP_MAP_FROM);
-		gomp_acc_remove_pointer (hostaddrs[i], sizes[i], copyfrom, async,
-					 finalize, pointer);
-		/* See the above comment.  */
-	      }
-	    i += pointer - 1;
-	  }
-      }
+	  else
+	    {
+	      if (kind == GOMP_MAP_DECLARE_DEALLOCATE)
+		gomp_acc_declare_allocate (false, pointer, &hostaddrs[i],
+					   &sizes[i], &kinds[i]);
+	      else
+		{
+		  bool copyfrom = (kind == GOMP_MAP_FORCE_FROM
+				   || kind == GOMP_MAP_FROM);
+		  gomp_acc_remove_pointer (hostaddrs[i], sizes[i], copyfrom,
+					   async, finalize, pointer);
+		  /* See the above comment.  */
+		}
+	      i += pointer - 1;
+	    }
+	}
+    }
 
  out:
   if (profiling_dispatch_p)

@@ -20,9 +20,9 @@
   !$acc end data
 
   do i = 1, n
-     if (d(i)%a /= i) call abort
-     if (d(i)%b /= i-1) call abort
-     if (d(i)%c /= i+1) call abort
+     if (d(i)%a /= i) stop 1
+     if (d(i)%b /= i-1) stop 2
+     if (d(i)%c /= i+1) stop 3
   end do
 end program
 

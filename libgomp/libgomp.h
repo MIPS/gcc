@@ -806,6 +806,8 @@ struct target_var_desc {
   bool copy_from;
   /* True if data always should be copied from device to host at the end.  */
   bool always_copy_from;
+  /* True if variable should be detached at end of region.  */
+  bool do_detach;
   /* Relative offset against key host_start.  */
   uintptr_t offset;
   /* Actual length.  */
@@ -860,6 +862,8 @@ struct splay_tree_key_s {
   uintptr_t refcount;
   /* Dynamic reference count.  */
   uintptr_t dynamic_refcount;
+  /* For a block with attached pointers, the attachment counters for each.  */
+  unsigned short *attach_count;
   /* Pointer to the original mapping of "omp declare target link" object.  */
   splay_tree_key link_key;
 };
@@ -1003,6 +1007,8 @@ enum gomp_map_vars_kind
   GOMP_MAP_VARS_ENTER_DATA
 };
 
+struct gomp_coalesce_buf;
+
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *, int);
 extern void gomp_acc_remove_pointer (void *, size_t, bool, int, int, int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
@@ -1013,8 +1019,17 @@ extern void gomp_copy_host2dev (struct gomp_device_descr *,
 				void *, const void *, size_t,
 				struct gomp_coalesce_buf *);
 extern void gomp_copy_dev2host (struct gomp_device_descr *,
-				struct goacc_asyncqueue *,
-				void *, const void *, size_t);
+				struct goacc_asyncqueue *, void *, const void *,
+				size_t);
+extern uintptr_t gomp_map_val (struct target_mem_desc *, void **, size_t);
+extern void gomp_attach_pointer (struct gomp_device_descr *,
+				 struct goacc_asyncqueue *, splay_tree,
+				 splay_tree_key, uintptr_t, size_t,
+				 struct gomp_coalesce_buf *);
+extern void gomp_detach_pointer (struct gomp_device_descr *,
+				 struct goacc_asyncqueue *, splay_tree_key,
+				 uintptr_t, bool, struct gomp_coalesce_buf *);
+
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,
 					      size_t *, void *, bool,
@@ -1025,9 +1040,9 @@ extern struct target_mem_desc *gomp_map_vars_async (struct gomp_device_descr *,
 						    size_t *, void *, bool,
 						    enum gomp_map_vars_kind);
 extern void gomp_unmap_tgt (struct target_mem_desc *);
-extern void gomp_unmap_vars (struct target_mem_desc *, bool);
+extern void gomp_unmap_vars (struct target_mem_desc *, bool, bool);
 extern void gomp_unmap_vars_async (struct target_mem_desc *, bool,
-				   struct goacc_asyncqueue *);
+				   struct goacc_asyncqueue *, bool);
 extern void gomp_init_device (struct gomp_device_descr *);
 extern bool gomp_fini_device (struct gomp_device_descr *);
 extern void gomp_unload_device (struct gomp_device_descr *);
