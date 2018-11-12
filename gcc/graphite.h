@@ -66,9 +66,6 @@ struct poly_dr
   /* An identifier for this PDR.  */
   int id;
 
-  /* The number of data refs identical to this one in the PBB.  */
-  int nb_refs;
-
   /* A pointer to the gimple stmt containing this reference.  */
   gimple *stmt;
 
@@ -195,7 +192,6 @@ struct poly_dr
 };
 
 #define PDR_ID(PDR) (PDR->id)
-#define PDR_NB_REFS(PDR) (PDR->nb_refs)
 #define PDR_PBB(PDR) (PDR->pbb)
 #define PDR_TYPE(PDR) (PDR->type)
 #define PDR_ACCESSES(PDR) (NULL)

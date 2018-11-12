@@ -507,7 +507,7 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
   return combined;
 }
 
-/* Build scop outer->inner if possible.  */
+/* Build scop LOOP->inner if possible.  */
 
 void
 scop_detection::build_scop_depth (loop_p loop)
@@ -1113,7 +1113,6 @@ assign_parameter_index_in_region (tree name, sese_info_p region)
     if (p == name)
       return;
 
-  i = region->params.length ();
   region->params.safe_push (name);
 }
 

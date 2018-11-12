@@ -99,7 +99,6 @@ new_poly_dr (poly_bb_p pbb, gimple *stmt, enum poly_dr_type type,
 
   pdr->stmt = stmt;
   PDR_ID (pdr) = id++;
-  PDR_NB_REFS (pdr) = 1;
   PDR_PBB (pdr) = pbb;
   pdr->accesses = acc;
   pdr->subscript_sizes = subscript_sizes;
@@ -140,7 +139,7 @@ new_poly_bb (scop_p scop, gimple_poly_bb_p black_box)
   PBB_SCOP (pbb) = scop;
   pbb_set_black_box (pbb, black_box);
   PBB_DRS (pbb).create (3);
-  GBB_PBB ((gimple_poly_bb_p) black_box) = pbb;
+  GBB_PBB (black_box) = pbb;
 
   return pbb;
 }
