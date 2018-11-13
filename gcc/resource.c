@@ -460,8 +460,14 @@ find_dead_or_set_registers (rtx_insn *target, struct resources *res,
 		 underlying insn.  Any registers set by the underlying insn
 		 are live since the insn is being done somewhere else.  */
 	      if (INSN_P (XEXP (PATTERN (insn), 0)))
-		mark_set_resources (XEXP (PATTERN (insn), 0), res, 0,
-				    MARK_SRC_DEST_CALL);
+		{
+		  struct resources use_set;
+		  CLEAR_RESOURCE(&use_set);
+		  mark_set_resources (XEXP (PATTERN (insn), 0), &use_set, 0,
+				      MARK_SRC_DEST_CALL);
+		  AND_COMPL_HARD_REG_SET (pending_dead_regs, use_set.regs);
+		  IOR_HARD_REG_SET (res->regs, use_set.regs);
+		}
 
 	      /* All other USE insns are to be ignored.  */
 	      continue;
