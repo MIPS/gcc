@@ -1484,6 +1484,7 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 	     set to false here.  */
 	  tgt->list[i].copy_from = false;
 	  tgt->list[i].always_copy_from = false;
+	  tgt->list[i].do_detach = false;
 
 	  size_t align = (size_t) 1 << (kind >> rshift);
 	  tgt_size = (tgt_size + align - 1) & ~(align - 1);
@@ -1521,6 +1522,8 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 
 		  k->tgt = tgt;
 		  k->refcount = 1;
+		  k->dynamic_refcount = 0;
+		  k->attach_count = NULL;
 		  k->link_key = NULL;
 		  tgt_size = (tgt_size + align - 1) & ~(align - 1);
 		  target_row_addr = tgt->tgt_start + tgt_size;
@@ -1532,6 +1535,7 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 		    = GOMP_MAP_COPY_FROM_P (kind & typemask);
 		  row_desc->always_copy_from
 		    = GOMP_MAP_ALWAYS_FROM_P (kind & typemask);
+		  row_desc->do_detach = false;
 		  row_desc->offset = 0;
 		  row_desc->length = da->data_row_size;
 
@@ -1839,6 +1843,7 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_table[i].start;
       k->refcount = REFCOUNT_INFINITY;
+      k->attach_count = NULL;
       k->link_key = NULL;
       tgt->list[i].key = k;
       tgt->refcount++;
@@ -1873,6 +1878,7 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_var->start;
       k->refcount = target_size & link_bit ? REFCOUNT_LINK : REFCOUNT_INFINITY;
+      k->attach_count = NULL;
       k->link_key = NULL;
       tgt->list[i].key = k;
       tgt->refcount++;
