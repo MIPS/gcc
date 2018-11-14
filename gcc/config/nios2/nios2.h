@@ -290,8 +290,8 @@ typedef struct nios2_args
 #define PAD_VARARGS_DOWN \
   (targetm.calls.function_arg_padding (TYPE_MODE (type), type) == PAD_DOWNWARD)
 
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (nios2_block_reg_padding ((MODE), (TYPE), (FIRST)))
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
+  (nios2_block_reg_padding ((MODE), (TYPE), (FIRST), (NAMED)))
 
 #define FUNCTION_ARG_REGNO_P(REGNO) \
   ((REGNO) >= FIRST_ARG_REGNO && (REGNO) <= LAST_ARG_REGNO)

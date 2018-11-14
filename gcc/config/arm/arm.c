@@ -15440,14 +15440,14 @@ arm_function_arg_padding (machine_mode mode, const_tree type)
 }
 
 
-/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST).
+/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST, NAMED).
    Return !BYTES_BIG_ENDIAN if the least significant byte of the
    register has useful data, and return the opposite if the most
    significant byte does.  */
 
 bool
-arm_pad_reg_upward (machine_mode mode,
-                    tree type, int first ATTRIBUTE_UNUSED)
+arm_pad_reg_upward (machine_mode mode, tree type,
+                    int first ATTRIBUTE_UNUSED, int named ATTRIBUTE_UNUSED)
 {
   if (TARGET_AAPCS_BASED && BYTES_BIG_ENDIAN)
     {

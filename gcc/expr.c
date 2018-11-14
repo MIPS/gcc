@@ -2160,7 +2160,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
 	     extract_bit_field loads to the lsb of the reg.  */
 	  if (
 #ifdef BLOCK_REG_PADDING
-	      BLOCK_REG_PADDING (GET_MODE (orig_src), type, i == start)
+	      BLOCK_REG_PADDING (GET_MODE (orig_src), type, i == start, -1)
 	      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)
 #else
 	      BYTES_BIG_ENDIAN
@@ -2581,7 +2581,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED,
 	     Move the fragment to the lsb if it's not already there.  */
 	  if (
 #ifdef BLOCK_REG_PADDING
-	      BLOCK_REG_PADDING (GET_MODE (orig_dst), type, i == start)
+	      BLOCK_REG_PADDING (GET_MODE (orig_dst), type, i == start, -1)
 	      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)
 #else
 	      BYTES_BIG_ENDIAN
