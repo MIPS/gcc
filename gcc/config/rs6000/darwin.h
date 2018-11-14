@@ -416,8 +416,8 @@
 
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
-   element.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+   element.  TODO(NAMED) */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
   (!(FIRST) ? PAD_UPWARD : targetm.calls.function_arg_padding (MODE, TYPE))
 
 #define DOUBLE_INT_ASM_OP "\t.quad\t"

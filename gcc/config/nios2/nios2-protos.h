@@ -65,7 +65,7 @@ extern bool gen_ldstwm_peep (bool, int, rtx, rtx *);
 
 extern void nios2_adjust_reg_alloc_order (void);
 
-extern pad_direction nios2_block_reg_padding (machine_mode, tree, int);
+extern pad_direction nios2_block_reg_padding (machine_mode, tree, int, int);
 
 #endif /* RTX_CODE */
 

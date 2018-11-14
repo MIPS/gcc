@@ -758,7 +758,7 @@ enum arm_pcs
 
 
 /* We can't use machine_mode inside a generator file because it
-   hasn't been created yet; we shouldn't be using any code that
+   hasn't been created yet;  we shouldn't be using any code that
    needs the real definition though, so this ought to be safe.  */
 #ifdef GENERATOR_FILE
 #define MACHMODE int
@@ -790,8 +790,8 @@ typedef struct
 } CUMULATIVE_ARGS;
 #endif
 
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (aarch64_pad_reg_upward (MODE, TYPE, FIRST) ? PAD_UPWARD : PAD_DOWNWARD)
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
+  (aarch64_pad_reg_upward (MODE, TYPE, FIRST, NAMED) ? PAD_UPWARD : PAD_DOWNWARD)
 
 #define PAD_VARARGS_DOWN	0
 

@@ -25,7 +25,7 @@
 
 #ifdef RTX_CODE
 extern void c6x_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx, int);
-extern bool c6x_block_reg_pad_upward (machine_mode, const_tree, bool);
+extern bool c6x_block_reg_pad_upward (machine_mode, const_tree, bool, int);
 
 extern bool c6x_legitimate_address_p_1 (machine_mode, rtx, bool, bool);
 extern bool c6x_mem_operand (rtx, enum reg_class, bool);

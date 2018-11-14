@@ -649,7 +649,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    We use a DImode register in the parallel for 5 to 7 byte structures
    so that there is only one element.  This allows the object to be
    correctly padded.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
   targetm.calls.function_arg_padding ((MODE), (TYPE))
 
 
