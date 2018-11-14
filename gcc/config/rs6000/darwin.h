@@ -342,8 +342,8 @@ extern int darwin_emit_branch_islands;
 
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
-   element.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+   element. TODO(NAMED) */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
   (!(FIRST) ? upward : FUNCTION_ARG_PADDING (MODE, TYPE))
 
 #define DOUBLE_INT_ASM_OP "\t.quad\t"

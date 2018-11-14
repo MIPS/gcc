@@ -7163,12 +7163,13 @@ mips_pad_arg_upward (machine_mode mode, const_tree type)
     return int_size_in_bytes (type) >= (PARM_BOUNDARY / BITS_PER_UNIT);
 }
 
-/* Likewise BLOCK_REG_PADDING (MODE, TYPE, ...).  Return !BYTES_BIG_ENDIAN
-   if the least significant byte of the register has useful data.  Return
-   the opposite if the most significant byte does.  */
+/* Likewise BLOCK_REG_PADDING (MODE, TYPE, FIRST, NAMED).
+   Return !BYTES_BIG_ENDIAN if the least significant byte of the register has
+   useful data.  Return the opposite if the most significant byte does.  */
 
 bool
-mips_pad_reg_upward (machine_mode mode, tree type)
+mips_pad_reg_upward (machine_mode mode, tree type, int first ATTRIBUTE_UNUSED,
+                     int named)
 {
   /* No shifting is required for floating-point arguments.  */
   if (type != 0 ? FLOAT_TYPE_P (type) : GET_MODE_CLASS (mode) == MODE_FLOAT)

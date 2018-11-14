@@ -1148,7 +1148,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	if (bytes < UNITS_PER_WORD
 #ifdef BLOCK_REG_PADDING
 	    && (BLOCK_REG_PADDING (args[i].mode,
-				   TREE_TYPE (args[i].tree_value), 1)
+				   TREE_TYPE (args[i].tree_value), 1, -1)
 		== downward)
 #else
 	    && BYTES_BIG_ENDIAN
@@ -1919,7 +1919,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	   end it should be padded.  */
 	args[i].locate.where_pad =
 	  BLOCK_REG_PADDING (mode, type,
-			     int_size_in_bytes (type) <= UNITS_PER_WORD);
+			     int_size_in_bytes (type) <= UNITS_PER_WORD,
+                             argpos < n_named_args);
 #endif
 
       /* Update ARGS_SIZE, the total stack space for args so far.  */
@@ -4638,7 +4639,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	   end it should be padded.  */
 	argvec[count].locate.where_pad =
 	  BLOCK_REG_PADDING (mode, NULL_TREE,
-			     GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
+			     GET_MODE_SIZE (mode) <= UNITS_PER_WORD, 1);
 #endif
 
       targetm.calls.function_arg_advance (args_so_far, mode, (tree) 0, true);

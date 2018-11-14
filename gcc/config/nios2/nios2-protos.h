@@ -63,7 +63,7 @@ extern void nios2_adjust_reg_alloc_order (void);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines both ARGS_SIZE_RTX and `enum direction' */
 extern enum direction nios2_function_arg_padding (machine_mode, const_tree);
-extern enum direction nios2_block_reg_padding (machine_mode, tree, int);
+extern enum direction nios2_block_reg_padding (machine_mode, tree, int, int);
 #endif /* ARGS_SIZE_RTX */
 
 #endif /* TREE_CODE */

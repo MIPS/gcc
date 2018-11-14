@@ -2873,7 +2873,7 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
      that are padded at the least significant end.  */
   if (REG_P (data->entry_parm)
       && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
-      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
+      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1, 1)
 	  == (BYTES_BIG_ENDIAN ? upward : downward)))
     return true;
 #endif
@@ -2991,7 +2991,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  if (mode != BLKmode
 #ifdef BLOCK_REG_PADDING
 	      && (size == UNITS_PER_WORD
-		  || (BLOCK_REG_PADDING (mode, data->passed_type, 1)
+		  || (BLOCK_REG_PADDING (mode, data->passed_type, 1, 1)
 		      != (BYTES_BIG_ENDIAN ? upward : downward)))
 #endif
 	      )
@@ -3031,7 +3031,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 		 additional changes to work correctly.  */
 	      gcc_checking_assert (BYTES_BIG_ENDIAN
 				   && (BLOCK_REG_PADDING (mode,
-							  data->passed_type, 1)
+							  data->passed_type, 1, 1)
 				       == upward));
 
 	      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
@@ -3052,7 +3052,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	     handle all cases (e.g. SIZE == 3).  */
 	  else if (size != UNITS_PER_WORD
 #ifdef BLOCK_REG_PADDING
-		   && (BLOCK_REG_PADDING (mode, data->passed_type, 1)
+		   && (BLOCK_REG_PADDING (mode, data->passed_type, 1, 1)
 		       == downward)
 #else
 		   && BYTES_BIG_ENDIAN
@@ -3076,7 +3076,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  gcc_checking_assert (size > UNITS_PER_WORD);
 #ifdef BLOCK_REG_PADDING
 	  gcc_checking_assert (BLOCK_REG_PADDING (GET_MODE (mem),
-						  data->passed_type, 0)
+						  data->passed_type, 0, 1)
 			       == upward);
 #endif
 	  emit_move_insn (mem, entry_parm);

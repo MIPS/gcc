@@ -1487,8 +1487,8 @@ typedef struct
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
   (arm_pad_arg_upward (MODE, TYPE) ? upward : downward)
 
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (arm_pad_reg_upward (MODE, TYPE, FIRST) ? upward : downward)
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
+  (arm_pad_reg_upward (MODE, TYPE, FIRST, NAMED) ? upward : downward)
 
 /* For AAPCS, padding should never be below the argument. For other ABIs,
  * mimic the default.  */

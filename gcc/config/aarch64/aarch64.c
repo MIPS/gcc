@@ -2545,7 +2545,7 @@ aarch64_pad_arg_upward (machine_mode mode, const_tree type)
   return true;
 }
 
-/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST).
+/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST, NAMED).
 
    It specifies padding for the last (may also be the only)
    element of a block move between registers and memory.  If
@@ -2569,7 +2569,7 @@ aarch64_pad_arg_upward (machine_mode mode, const_tree type)
 
 bool
 aarch64_pad_reg_upward (machine_mode mode, const_tree type,
-		     bool first ATTRIBUTE_UNUSED)
+		     bool first ATTRIBUTE_UNUSED, int named ATTRIBUTE_UNUSED)
 {
 
   /* Small composite types are always padded upward.  */
@@ -10239,7 +10239,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  if (BYTES_BIG_ENDIAN && GET_MODE_SIZE (ag_mode) < UNITS_PER_VREG)
 	    adjust = UNITS_PER_VREG - GET_MODE_SIZE (ag_mode);
 	}
-      else if (BLOCK_REG_PADDING (mode, type, 1) == downward
+      else if (BLOCK_REG_PADDING (mode, type, 1, 0) == downward
 	       && size < UNITS_PER_VREG)
 	{
 	  adjust = UNITS_PER_VREG - size;
@@ -10258,7 +10258,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       if (align > 8)
 	dw_align = true;
 
-      if (BLOCK_REG_PADDING (mode, type, 1) == downward
+      if (BLOCK_REG_PADDING (mode, type, 1, 0) == downward
 	  && size < UNITS_PER_WORD)
 	{
 	  adjust = UNITS_PER_WORD  - size;
