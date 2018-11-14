@@ -533,12 +533,12 @@ c6x_function_arg_advance (cumulative_args_t cum_v,
 }
 
 
-/* Return true if BLOCK_REG_PADDING (MODE, TYPE, FIRST) should return
+/* Return true if BLOCK_REG_PADDING (MODE, TYPE, FIRST, NAMED) should return
    upward rather than downward.  */
 
 bool
 c6x_block_reg_pad_upward (machine_mode mode ATTRIBUTE_UNUSED,
-			  const_tree type, bool first)
+			  const_tree type, bool first, int named ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT size;
 
