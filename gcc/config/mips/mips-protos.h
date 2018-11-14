@@ -248,7 +248,7 @@ extern void mips_expand_synci_loop (rtx, rtx);
 
 extern void mips_init_cumulative_args (CUMULATIVE_ARGS *, tree);
 extern bool mips_pad_arg_upward (machine_mode, const_tree);
-extern bool mips_pad_reg_upward (machine_mode, tree);
+extern bool mips_pad_reg_upward (machine_mode, tree, int, int);
 
 extern bool mips_expand_ext_as_unaligned_load (rtx, rtx, HOST_WIDE_INT,
 					       HOST_WIDE_INT, bool);

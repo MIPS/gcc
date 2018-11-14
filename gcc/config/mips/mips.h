@@ -2601,8 +2601,8 @@ typedef struct mips_args {
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
   (mips_pad_arg_upward (MODE, TYPE) ? upward : downward)
 
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (mips_pad_reg_upward (MODE, TYPE) ? upward : downward)
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
+  (mips_pad_reg_upward (MODE, TYPE, FIRST, NAMED) ? upward : downward)
 
 /* True if using EABI and varargs can be passed in floating-point
    registers.  Under these conditions, we need a more complex form

@@ -3006,7 +3006,7 @@ nios2_function_arg_padding (machine_mode mode, const_tree type)
 
 enum direction
 nios2_block_reg_padding (machine_mode mode, tree type,
-                         int first ATTRIBUTE_UNUSED)
+                         int first ATTRIBUTE_UNUSED, int named ATTRIBUTE_UNUSED)
 {
   return nios2_function_arg_padding (mode, type);
 }
