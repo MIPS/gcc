@@ -5821,12 +5821,12 @@ mips_split_128bit_move (rtx dest, rtx src)
       if (!TARGET_64BIT)
 	{
 	  if (GET_MODE (dest) != V4SImode)
-	    new_dest = simplify_gen_subreg (V4SImode, dest, GET_MODE (dest), 0);
+	    new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
 	}
       else
 	{
 	  if (GET_MODE (dest) != V2DImode)
-	    new_dest = simplify_gen_subreg (V2DImode, dest, GET_MODE (dest), 0);
+	    new_dest = gen_rtx_REG (V2DImode, REGNO (dest));
 	}
 
       for (byte = 0, index = 0; byte < GET_MODE_SIZE (TImode);
@@ -5849,12 +5849,12 @@ mips_split_128bit_move (rtx dest, rtx src)
       if (!TARGET_64BIT)
 	{
 	  if (GET_MODE (src) != V4SImode)
-	    new_src = simplify_gen_subreg (V4SImode, src, GET_MODE (src), 0);
+	    new_src = gen_rtx_REG (V4SImode, REGNO (src));
 	}
       else
 	{
 	  if (GET_MODE (src) != V2DImode)
-	    new_src = simplify_gen_subreg (V2DImode, src, GET_MODE (src), 0);
+	    new_src = gen_rtx_REG (V2DImode, REGNO (src));
 	}
 
       for (byte = 0, index = 0; byte < GET_MODE_SIZE (TImode);
@@ -5910,7 +5910,8 @@ mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
      from the higher index.  */
   rtx low = mips_subword (dest, false);
   rtx high = mips_subword (dest, true);
-  rtx new_src = simplify_gen_subreg (V4SImode, src, GET_MODE (src), 0);
+
+  rtx new_src = gen_rtx_REG (V4SImode, REGNO (src));
 
   emit_insn (gen_fn (low, new_src, GEN_INT (INTVAL (index) * 2)));
   emit_insn (gen_fn (high, new_src, GEN_INT (INTVAL (index) * 2 + 1)));
@@ -5931,8 +5932,8 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
      from the higher index.  */
   rtx low = mips_subword (src2, false);
   rtx high = mips_subword (src2, true);
-  rtx new_dest = simplify_gen_subreg (V4SImode, dest, GET_MODE (dest), 0);
-  rtx new_src1 = simplify_gen_subreg (V4SImode, src1, GET_MODE (src1), 0);
+  rtx new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
+  rtx new_src1 = gen_rtx_REG (V4SImode, REGNO (src1));
   i = exact_log2 (INTVAL (index));
   gcc_assert (i != -1);
 
@@ -5964,7 +5965,7 @@ mips_split_msa_fill_d (rtx dest, rtx src)
       low = mips_subword (src, false);
       high = mips_subword (src, true);
     }
-  rtx new_dest = simplify_gen_subreg (V4SImode, dest, GET_MODE (dest), 0);
+  rtx new_dest = gen_rtx_REG (V4SImode, REGNO (dest));
   emit_insn (gen_msa_fill_w (new_dest, low));
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 1)));
   emit_insn (gen_msa_insert_w (new_dest, high, new_dest, GEN_INT (1 << 3)));
@@ -14350,9 +14351,12 @@ mips_cannot_change_mode_class (machine_mode from,
       && INTEGRAL_MODE_P (from) && INTEGRAL_MODE_P (to))
     return false;
 
+   //TODO(MSA)
   /* Allow conversions between different MSA vector modes.  */
-  if (MSA_SUPPORTED_MODE_P (from) && MSA_SUPPORTED_MODE_P (to))
-    return false;
+  if (MSA_SUPPORTED_MODE_P (from) && MSA_SUPPORTED_MODE_P (to)) {
+    return TARGET_BIG_ENDIAN &&
+           (GET_MODE_UNIT_SIZE (from) != GET_MODE_UNIT_SIZE (to));
+   }
 
   /* Otherwise, there are several problems with changing the modes of
      values in floating-point registers:
@@ -24042,7 +24046,8 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
       dest = gen_reg_rtx (imode);
 
       emit_insn (unpack (dest, operands[1], tmp));
-      emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
+      emit_insn (gen_msa_change_mode (operands[0], dest));
+      //emit_move_insn (operands[0], gen_lowpart (GET_MODE (operands[0]), dest));
       return;
     }
 

@@ -90,6 +90,7 @@
   UNSPEC_MSA_SUBSUU_S
   UNSPEC_MSA_SUBSUS_U
   UNSPEC_MSA_VSHF
+  UNSPEC_MSA_CHANGE_MODE
 ])
 
 ;; All vector modes with 128 bits.
@@ -644,6 +645,7 @@
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "type" "simd_move,simd_load,simd_store,simd_copy,simd_insert")
    (set_attr "mode" "<MODE>")])
+
 
 (define_split
   [(set (match_operand:MSA 0 "nonimmediate_operand")
@@ -2747,3 +2749,38 @@
  [(set_attr "type" "simd_branch")
   (set_attr "mode" "TI")
   (set_attr "compact_form" "never")])
+
+
+(define_expand "msa_change_mode"
+  [(match_operand 0 "register_operand")
+   (match_operand 1 "register_operand")]
+  "ISA_HAS_MSA"
+{
+  gcc_assert(MSA_SUPPORTED_MODE_P (GET_MODE (operands[0])) &&
+             MSA_SUPPORTED_MODE_P (GET_MODE (operands[1])));
+
+  if (!TARGET_BIG_ENDIAN)
+      emit_move_insn (operands[0],
+                      gen_lowpart (GET_MODE (operands[0]), operands[1]));
+    else
+      emit_move_insn (operands[0],
+                      gen_rtx_UNSPEC (GET_MODE (operands[0]),
+                                      gen_rtvec (1, operands[1]),
+                                      UNSPEC_MSA_CHANGE_MODE));
+  DONE;
+})
+
+(define_insn_and_split "msa_change_mode_<mode>"
+  [(set (match_operand:MSA 0 "register_operand" "=f")
+    (unspec:MSA [(match_operand 1 "register_operand" "f")]
+          UNSPEC_MSA_CHANGE_MODE))]
+  "ISA_HAS_MSA && TARGET_BIG_ENDIAN
+   && MSA_SUPPORTED_MODE_P (GET_MODE (operands[1]))"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+{
+    operands[1] = gen_rtx_REG (<MODE>mode, REGNO (operands[1]));
+}
+  [(set_attr "move_type" "fmove")
+   (set_attr "mode" "<MODE>")])
