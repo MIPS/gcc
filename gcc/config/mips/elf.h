@@ -47,4 +47,26 @@ along with GCC; see the file COPYING3.  If not see
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
 
+#ifndef LINK_COMMAND_SPEC
+#define LINK_COMMAND_SPEC "\
+%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+    %(linker) " \
+    LINK_PLUGIN_SPEC \
+   "%{flto|flto=*:%<fcompare-debug*} \
+    %{flto} %{fno-lto} %{flto=*} %l " LINK_PIE_SPEC \
+   "%{fuse-ld=*:-fuse-ld=%*} " LINK_COMPRESS_DEBUG_SPEC \
+   "%X %{o*} %{e*} %{N} %{n} %{r}\
+    %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} \
+    %{static|no-pie:} %{L*} %(mfwrap) %(link_libgcc) " \
+    VTABLE_VERIFICATION_SPEC " " SANITIZER_EARLY_SPEC " %o " CHKP_SPEC " \
+    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1):\
+	%:include(libgomp.spec)%(link_gomp)}\
+    %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
+    %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
+    %(mflib) " STACK_SPLIT_SPEC "\
+    %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
+    %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
+    %{T*} %{!nostdlib:%{!nostartfiles:%E}}  \n%(post_link) }}}}}}"
+#endif
+
 #define NO_IMPLICIT_EXTERN_C 1
