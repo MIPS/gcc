@@ -7634,37 +7634,6 @@ find_decl_expr (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-static void
-demote_firstprivate_pointer (tree decl, gimplify_omp_ctx *ctx)
-{
-  if (!lang_GNU_Fortran ())
-    return;
-
-  while (ctx)
-    {
-      if (ctx->region_type == ORT_ACC_PARALLEL
-	  || ctx->region_type == ORT_ACC_KERNELS)
-	break;
-      ctx = ctx->outer_context;
-    }
-
-  if (ctx == NULL)
-    return;
-
-  tree clauses = ctx->clauses;
-
-  for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-	  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
-	  && OMP_CLAUSE_DECL (c) == decl)
-	{
-	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_POINTER);
-	  return;
-	}
-    }
-}
-
 /* Insert a GOMP_MAP_ALLOC or GOMP_MAP_RELEASE node following a
    GOMP_MAP_STRUCT mapping.  C is an always_pointer mapping.  STRUCT_NODE is
    the struct node to insert the new mapping after (when the struct node is
@@ -7843,7 +7812,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
   outer_ctx = ctx->outer_context;
   if (code == OMP_TARGET)
     {
-      if (!lang_GNU_Fortran () || (region_type & ORT_ACC))
+      if (!lang_GNU_Fortran ())
 	ctx->target_map_pointers_as_0len_arrays = true;
       ctx->target_map_scalars_firstprivate = true;
     }
@@ -7971,7 +7940,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  if (!(region_type & ORT_ACC))
 	    check_non_private = "reduction";
 	  decl = OMP_CLAUSE_DECL (c);
-	  demote_firstprivate_pointer (decl, ctx->outer_context);
 	  if (TREE_CODE (decl) == MEM_REF)
 	    {
 	      tree type = TREE_TYPE (decl);
@@ -9491,16 +9459,11 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 		      && kind != GOMP_MAP_FORCE_PRESENT
 		      && kind != GOMP_MAP_POINTER)
 		    {
-		      if (lang_hooks.decls.omp_privatize_by_reference (decl))
-			OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_POINTER);
-		      else
-			{
-			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
-				      "incompatible data clause with reduction "
-				      "on %qE; promoting to present_or_copy",
-				      DECL_NAME (t));
-			  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
-			}
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "incompatible data clause with reduction "
+				  "on %qE; promoting to present_or_copy",
+				  DECL_NAME (t));
+		      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
 		    }
 		}
 	    }

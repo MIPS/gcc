@@ -3,11 +3,9 @@
 ! present.
 
 ! { dg-do run }
-! TODO, for "-Os" see <https://gcc.gnu.org/PR80995>, and for the others, this
-! regressed with the "Partially enable GOMP_MAP_FIRSTPRIVATE_POINTER in
-! gfortran" changes.
+! TODO, <https://gcc.gnu.org/PR80995>.
 ! warning: OpenACC kernels construct will be executed sequentially; will by default avoid offloading to prevent data copy penalty
-! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" "-O2" "-O3" } { "" } }
+! { dg-xfail-if "TODO" { openacc_nvidia_accel_selected } { "-Os" } { "" } }
 
 program main
   implicit none
