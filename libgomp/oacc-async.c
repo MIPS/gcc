@@ -373,14 +373,14 @@ goacc_async_unmap_tgt (void *ptr)
 
 attribute_hidden void
 goacc_async_copyout_unmap_vars (struct target_mem_desc *tgt,
-				struct goacc_asyncqueue *aq, bool finalize)
+				struct goacc_asyncqueue *aq)
 {
   struct gomp_device_descr *devicep = tgt->device_descr;
 
   /* Increment reference to delay freeing of device memory until callback
      has triggered.  */
   tgt->refcount++;
-  gomp_unmap_vars_async (tgt, true, aq, finalize);
+  gomp_unmap_vars_async (tgt, true, aq);
   devicep->openacc.async.queue_callback_func (aq, goacc_async_unmap_tgt,
 					      (void *) tgt);
 }

@@ -92,10 +92,6 @@ program test
 
   if (acc_is_present (c) .eqv. .TRUE.) call abort
 
-  !$acc exit data delete (c(0:N))
-
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-
   do i = 1, N
     if (c(i) .ne. 3.0) call abort
   end do
@@ -109,11 +105,6 @@ program test
   if (acc_is_present (d) .eqv. .FALSE.) call abort
 
   !$acc exit data copyout (c(0:N), d(0:N))
-
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-  if (acc_is_present (d) .eqv. .TRUE.) call abort
-
-  !$acc exit data delete (c(0:N), d(0:N))
 
   if (acc_is_present (c) .eqv. .TRUE.) call abort
   if (acc_is_present (d) .eqv. .TRUE.) call abort
@@ -177,8 +168,8 @@ program test
 
   !$acc exit data delete (c(0:N), d(0:N))
 
-  !if (acc_is_present (c) .eqv. .TRUE.) call abort
-  !if (acc_is_present (d) .eqv. .TRUE.) call abort
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
 
   !$acc exit data delete (c(0:N), d(0:N))
 
@@ -190,12 +181,7 @@ program test
   if (acc_is_present (c) .eqv. .FALSE.) call abort
   if (acc_is_present (d) .eqv. .TRUE.) call abort
 
-  !$acc exit data delete (c(0:N), d(0:N))
-
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-  if (acc_is_present (d) .eqv. .TRUE.) call abort
-
-  !$acc exit data delete (c(0:N), d(0:N))
+  !$acc exit data delete (c(0:N))
 
   if (acc_is_present (c) .eqv. .TRUE.) call abort
   if (acc_is_present (d) .eqv. .TRUE.) call abort

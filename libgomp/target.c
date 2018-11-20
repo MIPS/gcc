@@ -629,7 +629,10 @@ gomp_detach_pointer (struct gomp_device_descr *devicep,
   idx = (detach_from - n->host_start) / sizeof (void *);
 
   if (!n->attach_count)
-    gomp_fatal ("no attachment counters for struct");
+    {
+      gomp_mutex_unlock (&devicep->lock);
+      gomp_fatal ("no attachment counters for struct");
+    }
 
   if (finalize)
     n->attach_count[idx] = 1;
@@ -1013,7 +1016,8 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 	  continue;
 	}
       cur_node.host_start = (uintptr_t) hostaddrs[i];
-      if (!GOMP_MAP_POINTER_P (kind & typemask))
+      if (!GOMP_MAP_POINTER_P (kind & typemask)
+          && (kind & typemask) != GOMP_MAP_ATTACH)
 	cur_node.host_end = cur_node.host_start + sizes[i];
       else
 	cur_node.host_end = cur_node.host_start + sizeof (void *);
@@ -1281,7 +1285,9 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 		      tgt->list[i].length = n->host_end - n->host_start;
 		      tgt->list[i].copy_from = false;
 		      tgt->list[i].always_copy_from = false;
-		      tgt->list[i].do_detach = true;
+		      tgt->list[i].do_detach
+		        = (pragma_kind != GOMP_MAP_VARS_OPENACC_ENTER_DATA);
+		      n->refcount++;
 		    }
 		  else
 		    {
@@ -1622,6 +1628,8 @@ gomp_unmap_tgt (struct target_mem_desc *tgt)
   if (tgt->tgt_end)
     gomp_free_device_memory (tgt->device_descr, tgt->to_free);
 
+  gomp_acc_data_env_remove_tgt (&tgt->device_descr->openacc.data_environ, tgt);
+
   free (tgt->array);
   free (tgt);
 }
@@ -1650,16 +1658,17 @@ gomp_remove_var (struct gomp_device_descr *devicep, splay_tree_key k)
    has been done already.  */
 
 attribute_hidden void
-gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom, bool finalize)
+gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
 {
-  gomp_unmap_vars_async (tgt, do_copyfrom, NULL, finalize);
+  gomp_unmap_vars_async (tgt, do_copyfrom, NULL);
 }
 
 attribute_hidden void
 gomp_unmap_vars_async (struct target_mem_desc *tgt, bool do_copyfrom,
-		       struct goacc_asyncqueue *aq, bool finalize)
+		       struct goacc_asyncqueue *aq)
 {
   struct gomp_device_descr *devicep = tgt->device_descr;
+
 
   if (tgt->list_count == 0)
     {
@@ -1685,15 +1694,15 @@ gomp_unmap_vars_async (struct target_mem_desc *tgt, bool do_copyfrom,
 
       if (k != NULL && tgt->list[i].do_detach)
 	gomp_detach_pointer (devicep, aq, k, tgt->list[i].key->host_start
-					     + tgt->list[i].offset, finalize,
-			     NULL);
+					     + tgt->list[i].offset,
+			     k->refcount == 1, NULL);
     }
 
   for (i = 0; i < tgt->list_count; i++)
     {
       splay_tree_key k = tgt->list[i].key;
 
-      if (k == NULL || tgt->list[i].do_detach)
+      if (k == NULL)
 	continue;
 
       bool do_unmap = false;
@@ -2314,7 +2323,7 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
 		     GOMP_MAP_VARS_TARGET);
   devicep->run_func (devicep->target_id, fn_addr, (void *) tgt_vars->tgt_start,
 		     NULL);
-  gomp_unmap_vars (tgt_vars, true, false);
+  gomp_unmap_vars (tgt_vars, true);
 }
 
 /* Like GOMP_target, but KINDS is 16-bit, UNUSED is no longer present,
@@ -2458,7 +2467,7 @@ GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
 		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs,
 		     args);
   if (tgt_vars)
-    gomp_unmap_vars (tgt_vars, true, false);
+    gomp_unmap_vars (tgt_vars, true);
 }
 
 /* Host fallback for GOMP_target_data{,_ext} routines.  */
@@ -2527,7 +2536,7 @@ GOMP_target_end_data (void)
     {
       struct target_mem_desc *tgt = icv->target_data;
       icv->target_data = tgt->prev;
-      gomp_unmap_vars (tgt, true, false);
+      gomp_unmap_vars (tgt, true);
     }
 }
 
@@ -2762,7 +2771,7 @@ gomp_target_task_fn (void *data)
       if (ttask->state == GOMP_TARGET_TASK_FINISHED)
 	{
 	  if (ttask->tgt)
-	    gomp_unmap_vars (ttask->tgt, true, false);
+	    gomp_unmap_vars (ttask->tgt, true);
 	  return false;
 	}
 

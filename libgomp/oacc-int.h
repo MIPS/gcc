@@ -112,7 +112,7 @@ void goacc_host_init (void);
 void goacc_init_asyncqueues (struct gomp_device_descr *);
 bool goacc_fini_asyncqueues (struct gomp_device_descr *);
 void goacc_async_copyout_unmap_vars (struct target_mem_desc *,
-				     struct goacc_asyncqueue *, bool);
+				     struct goacc_asyncqueue *);
 void goacc_async_free (struct gomp_device_descr *,
 		       struct goacc_asyncqueue *, void *);
 struct goacc_asyncqueue *get_goacc_asyncqueue (int);
