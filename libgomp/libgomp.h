@@ -814,9 +814,26 @@ struct target_var_desc {
   uintptr_t length;
 };
 
+/* Uncomment to enable reference-count consistency checking (for development
+   use only).  */
+/*#define RC_CHECKING 1*/
+
+#ifdef RC_CHECKING
+struct target_mem_desc;
+
+struct async_tgt_use {
+  struct target_mem_desc *tgt;
+  struct async_tgt_use *next;
+};
+#endif
+
 struct target_mem_desc {
   /* Reference count.  */
   uintptr_t refcount;
+#ifdef RC_CHECKING
+  uintptr_t refcount_chk;
+  bool mark;
+#endif
   /* All the splay nodes allocated together.  */
   splay_tree_node array;
   /* Start of the target region.  */
@@ -865,6 +882,10 @@ struct splay_tree_key_s {
      "present increment" operations (via "acc enter data") refering to the same
      host-memory block.  */
   uintptr_t virtual_refcount;
+#ifdef RC_CHECKING
+  /* The recalculated reference count, for verification.  */
+  uintptr_t refcount_chk;
+#endif
   /* For a block with attached pointers, the attachment counters for each.  */
   unsigned short *attach_count;
   /* Pointer to the original mapping of "omp declare target link" object.  */
@@ -899,7 +920,11 @@ typedef struct acc_dispatch_t
     int nasyncqueue;
     struct goacc_asyncqueue **asyncqueue;
     struct goacc_asyncqueue_list *active;
-    
+#ifdef RC_CHECKING
+    struct async_tgt_use *tgt_uses;
+    gomp_mutex_t au_lock;
+#endif
+
     __typeof (GOMP_OFFLOAD_openacc_async_construct) *construct_func;
     __typeof (GOMP_OFFLOAD_openacc_async_destruct) *destruct_func;
     __typeof (GOMP_OFFLOAD_openacc_async_test) *test_func;
@@ -1027,6 +1052,12 @@ extern void gomp_attach_pointer (struct gomp_device_descr *,
 extern void gomp_detach_pointer (struct gomp_device_descr *,
 				 struct goacc_asyncqueue *, splay_tree_key,
 				 uintptr_t, bool, struct gomp_coalesce_buf *);
+
+#ifdef RC_CHECKING
+extern void dump_tgt (const char *, struct target_mem_desc *);
+extern void gomp_rc_check (struct gomp_device_descr *,
+			   struct target_mem_desc *);
+#endif
 
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,

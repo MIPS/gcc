@@ -375,6 +375,15 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 				&api_info);
     }
 
+#ifdef RC_CHECKING
+  gomp_mutex_lock (&acc_dev->lock);
+  assert (tgt);
+  dump_tgt (__FUNCTION__, tgt);
+  tgt->prev = thr->mapped_data;
+  gomp_rc_check (acc_dev, tgt);
+  gomp_mutex_unlock (&acc_dev->lock);
+#endif
+
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
     devaddrs[i] = (void *) gomp_map_val (tgt, hostaddrs, i);
@@ -417,6 +426,12 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 					  devaddrs, dims, tgt, aq);
       goacc_async_copyout_unmap_vars (tgt, aq);
     }
+
+#ifdef RC_CHECKING
+  gomp_mutex_lock (&acc_dev->lock);
+  gomp_rc_check (acc_dev, thr->mapped_data);
+  gomp_mutex_unlock (&acc_dev->lock);
+#endif
 
  out:
   if (profiling_dispatch_p)
@@ -589,6 +604,12 @@ GOACC_data_start (int device, size_t mapnum,
       thr->prof_info = NULL;
       thr->api_info = NULL;
     }
+
+#ifdef RC_CHECKING
+  gomp_mutex_lock (&acc_dev->lock);
+  gomp_rc_check (acc_dev, thr->mapped_data);
+  gomp_mutex_unlock (&acc_dev->lock);
+#endif
 }
 
 void
@@ -664,6 +685,12 @@ GOACC_data_end (void)
       thr->prof_info = NULL;
       thr->api_info = NULL;
     }
+
+#ifdef RC_CHECKING
+  gomp_mutex_lock (&acc_dev->lock);
+  gomp_rc_check (acc_dev, thr->mapped_data);
+  gomp_mutex_unlock (&acc_dev->lock);
+#endif
 }
 
 void
@@ -1022,6 +1049,12 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    }
 	}
     }
+
+#ifdef RC_CHECKING
+  gomp_mutex_lock (&acc_dev->lock);
+  gomp_rc_check (acc_dev, thr->mapped_data);
+  gomp_mutex_unlock (&acc_dev->lock);
+#endif
 
  out:
   if (profiling_dispatch_p)

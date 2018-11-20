@@ -365,6 +365,29 @@ goacc_async_unmap_tgt (void *ptr)
 {
   struct target_mem_desc *tgt = (struct target_mem_desc *) ptr;
 
+#ifdef RC_CHECKING
+  {
+    struct gomp_device_descr *devicep = tgt->device_descr;
+    struct async_tgt_use *aup, *au;
+    gomp_mutex_lock (&devicep->openacc.async.au_lock);
+    /* Remove tgt from asynchronous-use list.  */
+    for (aup = NULL, au = devicep->openacc.async.tgt_uses; au;
+	 aup = au, au = au->next)
+      if (au->tgt == tgt)
+	{
+	  if (aup)
+	    aup->next = au->next;
+	  else
+	    devicep->openacc.async.tgt_uses = au->next;
+	  free (au);
+	  break;
+	}
+    if (!au)
+      gomp_fatal ("can't find tgt %p to remove in async list", tgt);
+    gomp_mutex_unlock (&devicep->openacc.async.au_lock);
+  }
+#endif
+
   if (tgt->refcount > 1)
     tgt->refcount--;
   else
@@ -380,6 +403,18 @@ goacc_async_copyout_unmap_vars (struct target_mem_desc *tgt,
   /* Increment reference to delay freeing of device memory until callback
      has triggered.  */
   tgt->refcount++;
+
+#ifdef RC_CHECKING
+  {
+    struct async_tgt_use *au = malloc (sizeof (struct async_tgt_use));
+    gomp_mutex_lock (&devicep->openacc.async.au_lock);
+    /* Record the asynchronous use of this target_mem_desc.  */
+    au->next = devicep->openacc.async.tgt_uses;
+    au->tgt = tgt;
+    devicep->openacc.async.tgt_uses = au;
+    gomp_mutex_unlock (&devicep->openacc.async.au_lock);
+  }
+#endif
   gomp_unmap_vars_async (tgt, true, aq);
   devicep->openacc.async.queue_callback_func (aq, goacc_async_unmap_tgt,
 					      (void *) tgt);
@@ -398,6 +433,17 @@ goacc_remove_var_async (struct gomp_device_descr *devicep, splay_tree_key n,
   struct target_mem_desc *tgt = n->tgt;
   assert (tgt);
   tgt->refcount++;
+#ifdef RC_CHECKING
+  {
+    gomp_mutex_lock (&devicep->openacc.async.au_lock);
+    struct async_tgt_use *au = malloc (sizeof (struct async_tgt_use));
+    /* Record the asynchronous use of this target_mem_desc.  */
+    au->next = devicep->openacc.async.tgt_uses;
+    au->tgt = tgt;
+    devicep->openacc.async.tgt_uses = au;
+    gomp_mutex_unlock (&devicep->openacc.async.au_lock);
+  }
+#endif
   gomp_remove_var (devicep, n);
   devicep->openacc.async.queue_callback_func (aq, goacc_async_unmap_tgt,
                                              (void *) tgt);
