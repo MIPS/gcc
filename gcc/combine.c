@@ -7975,7 +7975,8 @@ make_compound_operation_int (machine_mode mode, rtx *x_ptr,
 	    {
 	      /* If we narrowed the mode when dropping the subreg, then
 		 we must zero-extend to keep the semantics of the AND.  */
-	      if (GET_MODE_SIZE (inner_mode) >= GET_MODE_SIZE (mode))
+	      if (SCALAR_INT_MODE_P (inner_mode) &&
+                  GET_MODE_SIZE (inner_mode) >= GET_MODE_SIZE (mode))
 		;
 	      else if (SCALAR_INT_MODE_P (inner_mode))
 		new_rtx = simplify_gen_unary (ZERO_EXTEND, mode,
