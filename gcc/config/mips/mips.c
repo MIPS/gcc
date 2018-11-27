@@ -3288,8 +3288,8 @@ mips_classify_symbol_1 (const_rtx x, enum mips_symbol_context context,
 		       && TARGET_NANOMIPS == NANOMIPS_NMF
 		       && context == SYMBOL_CONTEXT_MEM
 		       && DECL_SIZE_UNIT (SYMBOL_REF_DECL (x))
-		       && tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
-		       == 4)
+		       && (tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (x)))
+		       == 4 || cse_not_expected ))
 		return SYMBOL_PCREL32_NANO;
 	      else if (VAR_P (SYMBOL_REF_DECL (x))
 		       && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (x)) == 4096
@@ -5315,8 +5315,10 @@ mips_force_address (rtx x, machine_mode mode)
    return a new address, otherwise return NULL.  MODE is the mode of
    the memory being accessed.  */
 
+
+
 static rtx
-mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+mips_legitimize_address2 (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 			 machine_mode mode)
 {
   rtx base, addr;
@@ -5332,7 +5334,7 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
   /* See if the address can split into a high part and a LO_SUM.  */
   if (mips_split_symbol (NULL, x, mode, &addr))
-    return mips_force_address (addr, mode);
+    return force_reg (Pmode, addr);
 
   /* Handle BASE + OFFSET using mips_add_offset.  */
   mips_split_plus (x, &base, &offset);
@@ -5358,6 +5360,22 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
   return x;
 }
+
+static rtx
+mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
+                         machine_mode mode) {
+  rtx ret = mips_legitimize_address2 (x, oldx, mode);
+  fprintf(stderr, "mips_legitimize_address \n");
+  fprintf(stderr, "x :\n");
+  debug_rtx(x);
+  fprintf(stderr, "oldx :\n");
+  debug_rtx(oldx);
+  fprintf(stderr, "ret :\n");
+  debug_rtx(ret);
+  fprintf(stderr, "\n");
+  return ret;
+}
+
 
 /* Load VALUE into DEST.  TEMP is as for mips_force_temporary.  */
 

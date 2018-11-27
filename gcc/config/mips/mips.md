@@ -4964,6 +4964,72 @@
   [(set_attr "compression" "nanomips32")
    (set_attr "mode" "SI")])
 
+
+; (define_split
+;   [(set (match_operand:SI 0 "register_operand")
+;   (match_operand:SI 1 "lapc_nano_operand" ))]
+;   "TARGET_NANOMIPS && can_create_pseudo_p ()"
+;   [(set (match_dup 2) (high:SI (match_dup 1)))
+;    (set (match_dup 0) (lo_sum:SI (match_dup 2) (match_dup 1)))]
+;   {
+;     operands[2] = gen_reg_rtx(SImode);
+;   })
+
+; (define_split
+;   [(set (match_operand:GPR 0 "register_operand")
+;   (match_operand:GPR 1 "splittable_const_int_operand"))
+;    (clobber (match_operand:GPR 2 "register_operand"))]
+;   ""
+;   [(const_int 0)]
+; {
+;   mips_move_integer (operands[2], operands[0], INTVAL (operands[1]));
+;   DONE;
+; })
+
+
+
+
+; (define_insn_and_split "*g_split"
+;   [(parallel [(set (mem:HI (match_operand:SI 1 "lapc_nano_operand"))
+;    (match_operand:HI 0 "register_operand"))
+;   (clobber (match_operand:SI 2 "register_operand"))])]
+;   "TARGET_NANOMIPS"
+;   "#"
+;   "&& true"
+;   [(set (match_dup 2) (high:SI (match_dup 1)))]
+;   {
+;     __builtin_trap();
+;     fprintf(stderr, "pero\n");
+;   })
+
+
+; (define_insn_and_split "*gprel_hi_split_nanosi"
+;   [(set (match_operand:SI 0 "register_operand" "=d")
+;   (high:SI (match_operand:SI 1 "gprel_hi_split_nano_operand" "")))]
+;   "TARGET_NANOMIPS"
+;   "#"
+;   "&& epilogue_completed"
+;   [(set (match_dup 0) (high:SI (match_dup 2)))
+;    (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+; {
+;   operands[2] = mips_unspec_address (operands[1], SYMBOL_GPREL_SPLIT_NANO);
+;   operands[3] = pic_offset_table_rtx;
+; }
+;   [(set_attr "insn_count" "2")])
+
+
+
+; (define_split
+;   [(set (match_operand:HI 0 "memory_operand")
+;   (match_operand:HI 1 "register_operand"))]
+;   "TARGET_NANOMIPS && cse_not_expected"
+;   [(set (match_dup 0) (match_dup 1))]
+;   {
+;     fprintf(stderr, "pero\n");
+;   })
+
+
+
 (define_insn "*lapc48_var_pic_nanosi"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(match_operand:SI 1 "lapc48_nano_operand" ""))]
