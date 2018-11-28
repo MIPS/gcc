@@ -860,8 +860,11 @@ struct splay_tree_key_s {
   uintptr_t tgt_offset;
   /* Reference count.  */
   uintptr_t refcount;
-  /* Dynamic reference count.  */
-  uintptr_t dynamic_refcount;
+  /* Reference counts beyond those that represent genuine references in the
+     linked splay tree key/target memory structures, e.g. for multiple OpenACC
+     "present increment" operations (via "acc enter data") refering to the same
+     host-memory block.  */
+  uintptr_t virtual_refcount;
   /* For a block with attached pointers, the attachment counters for each.  */
   unsigned short *attach_count;
   /* Pointer to the original mapping of "omp declare target link" object.  */
@@ -887,13 +890,6 @@ splay_compare (splay_tree_key x, splay_tree_key y)
 
 typedef struct acc_dispatch_t
 {
-  /* This is a linked list of data mapped using the
-     acc_map_data/acc_unmap_data or "acc enter data"/"acc exit data" pragmas.
-     Unlike mapped_data in the goacc_thread struct, unmapping can
-     happen out-of-order with respect to mapping.  */
-  /* This is guarded by the lock in the "outer" struct gomp_device_descr.  */
-  struct target_mem_desc *data_environ;
-
   /* Execute.  */
   __typeof (GOMP_OFFLOAD_openacc_exec) *exec_func;
   __typeof (GOMP_OFFLOAD_openacc_exec_params) *exec_params_func;
@@ -1010,9 +1006,9 @@ enum gomp_map_vars_kind
 
 struct gomp_coalesce_buf;
 
-extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *, int);
-extern void gomp_acc_remove_pointer (void **, size_t *, unsigned short *,
-				     int, void *, bool, int);
+extern void gomp_acc_remove_pointer (struct gomp_device_descr *, void **,
+				     size_t *, unsigned short *, int, bool,
+				     int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
 				       unsigned short *);
 struct gomp_coalesce_buf;
@@ -1041,8 +1037,6 @@ extern struct target_mem_desc *gomp_map_vars_async (struct gomp_device_descr *,
 						    size_t, void **, void **,
 						    size_t *, void *, bool,
 						    enum gomp_map_vars_kind);
-extern void gomp_acc_data_env_remove_tgt (struct target_mem_desc **,
-					  struct target_mem_desc *);
 extern void gomp_unmap_tgt (struct target_mem_desc *);
 extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 extern void gomp_unmap_vars_async (struct target_mem_desc *, bool,

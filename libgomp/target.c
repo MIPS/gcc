@@ -374,7 +374,7 @@ gomp_map_vars_existing (struct gomp_device_descr *devicep,
   tgt_var->key = oldn;
   tgt_var->copy_from = GOMP_MAP_COPY_FROM_P (kind);
   tgt_var->always_copy_from = GOMP_MAP_ALWAYS_FROM_P (kind);
-  tgt_var->do_detach = false;
+  tgt_var->do_detach = kind == GOMP_MAP_ATTACH;
   tgt_var->offset = newn->host_start - oldn->host_start;
   tgt_var->length = newn->host_end - newn->host_start;
 
@@ -841,8 +841,9 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 attribute_hidden struct target_mem_desc *
 gomp_map_vars_async (struct gomp_device_descr *devicep,
 		     struct goacc_asyncqueue *aq, size_t mapnum,
-		     void **hostaddrs, void **devaddrs, size_t *sizes, void *kinds,
-		     bool short_mapkind, enum gomp_map_vars_kind pragma_kind)
+		     void **hostaddrs, void **devaddrs, size_t *sizes,
+		     void *kinds, bool short_mapkind,
+		     enum gomp_map_vars_kind pragma_kind)
 {
   size_t i, tgt_align, tgt_size, not_found_cnt = 0;
   bool has_firstprivate = false;
@@ -873,7 +874,8 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
   tgt = gomp_malloc (sizeof (*tgt)
 		     + sizeof (tgt->list[0]) * (mapnum + da_data_row_num));
   tgt->list_count = mapnum + da_data_row_num;
-  tgt->refcount = pragma_kind == GOMP_MAP_VARS_ENTER_DATA ? 0 : 1;
+  tgt->refcount = (pragma_kind == GOMP_MAP_VARS_ENTER_DATA
+		   || pragma_kind == GOMP_MAP_VARS_OPENACC_ENTER_DATA) ? 0 : 1;
   tgt->device_descr = devicep;
   struct gomp_coalesce_buf cbuf, *cbufp = NULL;
 
@@ -1307,6 +1309,10 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 	      {
 		tgt->list[i].key = &array->key;
 		tgt->list[i].key->tgt = tgt;
+		tgt->list[i].key->refcount = REFCOUNT_INFINITY;
+		tgt->list[i].key->virtual_refcount = 0;
+		tgt->list[i].key->attach_count = NULL;
+		tgt->list[i].key->link_key = NULL;
 		array++;
 		continue;
 	      }
@@ -1356,7 +1362,7 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 		tgt->list[i].offset = 0;
 		tgt->list[i].length = k->host_end - k->host_start;
 		k->refcount = 1;
-		k->dynamic_refcount = 0;
+		k->virtual_refcount = 0;
 		k->attach_count = NULL;
 		tgt->refcount++;
 		array->left = NULL;
@@ -1528,7 +1534,7 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 
 		  k->tgt = tgt;
 		  k->refcount = 1;
-		  k->dynamic_refcount = 0;
+		  k->virtual_refcount = 0;
 		  k->attach_count = NULL;
 		  k->link_key = NULL;
 		  tgt_size = (tgt_size + align - 1) & ~(align - 1);
@@ -1611,8 +1617,20 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
   /* If the variable from "omp target enter data" map-list was already mapped,
      tgt is not needed.  Otherwise tgt will be freed by gomp_unmap_vars or
      gomp_exit_data.  */
-  if (pragma_kind == GOMP_MAP_VARS_ENTER_DATA && tgt->refcount == 0)
+  if ((pragma_kind == GOMP_MAP_VARS_ENTER_DATA
+       || pragma_kind == GOMP_MAP_VARS_OPENACC_ENTER_DATA)
+      && tgt->refcount == 0)
     {
+      /* If we're about to discard a target_mem_desc with no "structural"
+	 references (tgt->refcount == 0), any splay keys linked in the tgt's
+	 list must have their virtual refcount incremented to represent that
+	 "lost" reference in order to implement the semantics of the OpenACC
+	 "present increment" operation properly.  */
+      if (pragma_kind == GOMP_MAP_VARS_OPENACC_ENTER_DATA)
+	for (i = 0; i < tgt->list_count; i++)
+	  if (tgt->list[i].key)
+	    tgt->list[i].key->virtual_refcount++;
+
       free (tgt);
       tgt = NULL;
     }
@@ -1628,8 +1646,6 @@ gomp_unmap_tgt (struct target_mem_desc *tgt)
   if (tgt->tgt_end)
     gomp_free_device_memory (tgt->device_descr, tgt->to_free);
 
-  gomp_acc_data_env_remove_tgt (&tgt->device_descr->openacc.data_environ, tgt);
-
   free (tgt->array);
   free (tgt);
 }
@@ -1641,6 +1657,8 @@ gomp_remove_var (struct gomp_device_descr *devicep, splay_tree_key k)
   splay_tree_remove (&devicep->mem_map, k);
   if (k->link_key)
     splay_tree_insert (&devicep->mem_map, (splay_tree_node) k->link_key);
+  if (k->attach_count)
+    free (k->attach_count);
   if (k->tgt->refcount > 1)
     k->tgt->refcount--;
   else
@@ -1648,8 +1666,6 @@ gomp_remove_var (struct gomp_device_descr *devicep, splay_tree_key k)
       is_tgt_unmapped = true;
       gomp_unmap_tgt (k->tgt);
     }
-  if (k->attach_count)
-    free (k->attach_count);
   return is_tgt_unmapped;
 }
 
@@ -1706,7 +1722,14 @@ gomp_unmap_vars_async (struct target_mem_desc *tgt, bool do_copyfrom,
 	continue;
 
       bool do_unmap = false;
-      if (k->refcount > 1 && k->refcount != REFCOUNT_INFINITY)
+      if (k->tgt == tgt
+	  && k->virtual_refcount > 0
+	  && k->refcount != REFCOUNT_INFINITY)
+        {
+	  k->virtual_refcount--;
+	  k->refcount--;
+	}
+      else if (k->refcount > 1 && k->refcount != REFCOUNT_INFINITY)
 	k->refcount--;
       else if (k->refcount == 1)
 	{
@@ -1830,17 +1853,14 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
     }
 
   /* Insert host-target address mapping into splay tree.  */
-  struct target_mem_desc *tgt =
-	  gomp_malloc (sizeof (*tgt)
-		       + sizeof (tgt->list[0])
-		       * (num_funcs + num_vars) * sizeof (*tgt->array));
+  struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt));
   tgt->array = gomp_malloc ((num_funcs + num_vars) * sizeof (*tgt->array));
   tgt->refcount = REFCOUNT_INFINITY;
   tgt->tgt_start = 0;
   tgt->tgt_end = 0;
   tgt->to_free = NULL;
   tgt->prev = NULL;
-  tgt->list_count = num_funcs + num_vars;
+  tgt->list_count = 0;
   tgt->device_descr = devicep;
   splay_tree_node array = tgt->array;
 
@@ -1852,10 +1872,9 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_table[i].start;
       k->refcount = REFCOUNT_INFINITY;
+      k->virtual_refcount = 0;
       k->attach_count = NULL;
       k->link_key = NULL;
-      tgt->list[i].key = k;
-      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -1887,10 +1906,9 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_var->start;
       k->refcount = target_size & link_bit ? REFCOUNT_LINK : REFCOUNT_INFINITY;
+      k->virtual_refcount = 0;
       k->attach_count = NULL;
       k->link_key = NULL;
-      tgt->list[i].key = k;
-      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -3604,7 +3622,6 @@ gomp_target_init (void)
 		current_device.type = current_device.get_type_func ();
 		current_device.mem_map.root = NULL;
 		current_device.state = GOMP_DEVICE_UNINITIALIZED;
-		current_device.openacc.data_environ = NULL;
 
 		/* Augment DEVICES and NUM_DEVICES.  */
 		devices = gomp_realloc (devices,

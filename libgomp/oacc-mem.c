@@ -439,77 +439,6 @@ acc_map_data (void *h, void *d, size_t s)
     }
 }
 
-/* Remove the target_mem_desc holding the mapping for MAPNUM HOSTADDRS from
-   the OpenACC data environment pointed to by DATA_ENV.  The device lock
-   should be held before calling, and remains locked on exit.  */
-
-static void
-gomp_acc_data_env_remove (struct gomp_device_descr *acc_dev,
-			  struct target_mem_desc **data_env, void **hostaddrs,
-			  int mapnum)
-{
-  struct target_mem_desc *t, *tp;
-
-  for (tp = NULL, t = *data_env; t != NULL; tp = t, t = t->prev)
-    {
-      bool all_match = true;
-
-      /* We must locate the target descriptor by "value", matching each
-	 hostaddr that it describes.  */
-      if (t->list_count != mapnum)
-        continue;
-
-      for (int i = 0; i < t->list_count; i++)
-	if (t->list[i].key
-	    && (t->list[i].key->host_start + t->list[i].offset
-		!= (uintptr_t) hostaddrs[i]))
-	  {
-	    all_match = false;
-	    break;
-	  }
-
-      if (all_match)
-	{
-	  if (t->refcount > 1)
-	    t->refcount--;
-	  else
-	    {
-	      if (tp)
-		tp->prev = t->prev;
-	      else
-		*data_env = t->prev;
-	    }
-	  return;
-	}
-    }
-
-  gomp_mutex_unlock (&acc_dev->lock);
-  gomp_fatal ("cannot find data mapping to remove in data environment");
-}
-
-/* Similar, but removes target_mem_desc REMOVE from the DATA_ENV, in case its
-   reference count drops to zero resulting in it being unmapped (in
-   target.c:gomp_unmap_tgt).  Unlike the above function it is not an error if
-   REMOVE is not present in the environment.  The device lock should be held
-   before calling, and remains locked on exit.  */
-
-attribute_hidden void
-gomp_acc_data_env_remove_tgt (struct target_mem_desc **data_env,
-			      struct target_mem_desc *remove)
-{
-  struct target_mem_desc *t, *tp;
-
-  for (tp = NULL, t = *data_env; t != NULL; tp = t, t = t->prev)
-    if (t == remove)
-      {
-	if (tp)
-	  tp->prev = t->prev;
-	else
-	  *data_env = t->prev;
-	return;
-      }
-}
-
 void
 acc_unmap_data (void *h)
 {
@@ -626,25 +555,8 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
       if (n->refcount != REFCOUNT_INFINITY)
 	{
 	  n->refcount++;
-	  n->dynamic_refcount++;
+	  n->virtual_refcount++;
 	}
-
-      struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt)
-						 + sizeof (tgt->list[0]));
-      tgt->refcount = 1;
-      tgt->tgt_start = 0;
-      tgt->tgt_end = 0;
-      tgt->to_free = NULL;
-      tgt->prev = acc_dev->openacc.data_environ;
-      tgt->list_count = 1;
-      tgt->device_descr = acc_dev;
-      tgt->list[0].key = n;
-      tgt->list[0].copy_from = false;
-      tgt->list[0].always_copy_from = false;
-      tgt->list[0].do_detach = false;
-      tgt->list[0].offset = (uintptr_t) h - n->host_start;
-      tgt->list[0].length = 0;
-      acc_dev->openacc.data_environ = tgt;
 
       gomp_mutex_unlock (&acc_dev->lock);
     }
@@ -655,7 +567,6 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
     }
   else
     {
-      struct target_mem_desc *tgt;
       size_t mapnum = 1;
       unsigned short kinds;
       void *hostaddrs = h;
@@ -669,20 +580,15 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
 
       goacc_aq aq = get_goacc_asyncqueue (async);
 
-      tgt = gomp_map_vars_async (acc_dev, aq, mapnum, &hostaddrs, NULL, &s,
-				 &kinds, true,
-				 GOMP_MAP_VARS_OPENACC_ENTER_DATA);
-
-      for (int i = 0; i < tgt->list_count; i++)
-        if (tgt->list[i].key)
-	  tgt->list[i].key->dynamic_refcount++;
+      gomp_map_vars_async (acc_dev, aq, mapnum, &hostaddrs, NULL, &s, &kinds,
+			   true, GOMP_MAP_VARS_OPENACC_ENTER_DATA);
 
       gomp_mutex_lock (&acc_dev->lock);
-      tgt->prev = acc_dev->openacc.data_environ;
-      acc_dev->openacc.data_environ = tgt;
+      n = lookup_host (acc_dev, h, s);
+      assert (n != NULL);
+      d = (void *) (n->tgt->tgt_start + n->tgt_offset + (uintptr_t) h
+		    - n->host_start);
       gomp_mutex_unlock (&acc_dev->lock);
-
-      d = tgt->to_free;
     }
 
   if (profiling_setup_p)
@@ -765,7 +671,6 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
 {
   size_t host_size;
   splay_tree_key n;
-  void *d;
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
@@ -797,9 +702,6 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
       gomp_fatal ("[%p,%d] is not mapped", (void *)h, (int)s);
     }
 
-  d = (void *) (n->tgt->tgt_start + n->tgt_offset
-		+ (uintptr_t) h - n->host_start);
-
   host_size = n->host_end - n->host_start;
 
   if (n->host_start != (uintptr_t) h || host_size != s)
@@ -812,29 +714,37 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
   if (n->refcount == REFCOUNT_INFINITY)
     {
       n->refcount = 0;
-      n->dynamic_refcount = 0;
-      n->attach_count = NULL;
+      n->virtual_refcount = 0;
     }
 
   if (f & FLAG_FINALIZE)
     {
-      n->refcount -= n->dynamic_refcount;
-      n->dynamic_refcount = 0;
+      n->refcount -= n->virtual_refcount;
+      n->virtual_refcount = 0;
     }
-  else if (n->dynamic_refcount)
+
+  if (n->virtual_refcount > 0)
     {
-      n->dynamic_refcount--;
       n->refcount--;
+      n->virtual_refcount--;
     }
+  else if (n->refcount > 0)
+    n->refcount--;
 
   if (n->refcount == 0)
     {
+      goacc_aq aq = get_goacc_asyncqueue (async);
+
       if (f & FLAG_COPYOUT)
-	{
-	  goacc_aq aq = get_goacc_asyncqueue (async);
+        {
+	  void *d = (void *) (n->tgt->tgt_start + n->tgt_offset
+			      + (uintptr_t) h - n->host_start);
 	  gomp_copy_dev2host (acc_dev, aq, h, d, s);
 	}
-      gomp_remove_var (acc_dev, n);
+      if (aq)
+	goacc_remove_var_async (acc_dev, n, aq);
+      else
+	gomp_remove_var (acc_dev, n);
     }
 
   gomp_mutex_unlock (&acc_dev->lock);
@@ -1003,52 +913,14 @@ gomp_acc_declare_allocate (bool allocate, size_t mapnum, void **hostaddrs,
 }
 
 void
-gomp_acc_insert_pointer (size_t mapnum, void **hostaddrs, size_t *sizes,
-			 void *kinds, int async)
+gomp_acc_remove_pointer (struct gomp_device_descr *acc_dev, void **hostaddrs,
+			 size_t *sizes, unsigned short *kinds, int async,
+			 bool finalize, int mapnum)
 {
-  struct target_mem_desc *tgt;
-  struct goacc_thread *thr = goacc_thread ();
-  struct gomp_device_descr *acc_dev = thr->dev;
-
-  gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
-  goacc_aq aq = get_goacc_asyncqueue (async);
-  tgt = gomp_map_vars_async (acc_dev, aq, mapnum, hostaddrs,
-			     NULL, sizes, kinds, true,
-			     GOMP_MAP_VARS_OPENACC_ENTER_DATA);
-  gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
-
-  for (size_t i = 0; i < tgt->list_count; i++)
-    if (tgt->list[i].key)
-      tgt->list[i].key->dynamic_refcount++;
-
-  gomp_mutex_lock (&acc_dev->lock);
-  tgt->prev = acc_dev->openacc.data_environ;
-  acc_dev->openacc.data_environ = tgt;
-  gomp_mutex_unlock (&acc_dev->lock);
-}
-
-void
-gomp_acc_remove_pointer (void **hostaddrs, size_t *sizes, unsigned short *kinds,
-			 int async, void *detach_from, bool finalize,
-			 int mapnum)
-{
-  struct goacc_thread *thr = goacc_thread ();
-  struct gomp_device_descr *acc_dev = thr->dev;
   struct splay_tree_key_s cur_node;
   splay_tree_key n;
 
   gomp_mutex_lock (&acc_dev->lock);
-
-  if (detach_from)
-    {
-      splay_tree_key n2 = lookup_host (acc_dev, detach_from, 1);
-      goacc_aq aq = get_goacc_asyncqueue (async);
-      gomp_detach_pointer (acc_dev, aq, n2, (uintptr_t) detach_from, finalize,
-			   NULL);
-    }
-
-  gomp_acc_data_env_remove (acc_dev, &acc_dev->openacc.data_environ, hostaddrs,
-			    mapnum);
 
   for (int i = 0; i < mapnum; i++)
     {
@@ -1062,6 +934,7 @@ gomp_acc_remove_pointer (void **hostaddrs, size_t *sizes, unsigned short *kinds,
 	case GOMP_MAP_ALWAYS_FROM:
 	  copyfrom = true;
 	  /* Fallthrough.  */
+
 	case GOMP_MAP_TO_PSET:
 	case GOMP_MAP_POINTER:
 	case GOMP_MAP_DELETE:
@@ -1075,34 +948,47 @@ gomp_acc_remove_pointer (void **hostaddrs, size_t *sizes, unsigned short *kinds,
 				  || kind == GOMP_MAP_POINTER)
 				 ? sizeof (void *) : sizes[i]);
 	  n = splay_tree_lookup (&acc_dev->mem_map, &cur_node);
+
 	  if (n == NULL)
 	    continue;
+
+	  if (n->refcount == REFCOUNT_INFINITY)
+	    {
+	      n->refcount = 1;
+	      n->virtual_refcount = 0;
+	    }
+
 	  if (finalize)
 	    {
-	      n->refcount -= n->dynamic_refcount;
-	      n->dynamic_refcount = 0;
+	      n->refcount -= n->virtual_refcount;
+	      n->virtual_refcount = 0;
 	    }
-	  else if (n->refcount > 0 && n->refcount != REFCOUNT_INFINITY)
+
+	  if (n->virtual_refcount > 0)
 	    {
 	      n->refcount--;
-	      n->dynamic_refcount--;
+	      n->virtual_refcount--;
 	    }
+	  else if (n->refcount > 0)
+	    n->refcount--;
+
 	  if (copyfrom)
 	    gomp_copy_dev2host (acc_dev, NULL, (void *) cur_node.host_start,
 				(void *) (n->tgt->tgt_start + n->tgt_offset
 					  + cur_node.host_start
 					  - n->host_start),
 				cur_node.host_end - cur_node.host_start);
+
 	  if (n->refcount == 0)
 	    gomp_remove_var (acc_dev, n);
 	  break;
+
 	default:
 	  gomp_mutex_unlock (&acc_dev->lock);
 	  gomp_fatal ("gomp_acc_remove_pointer unhandled kind 0x%.2x",
 		      kind);
 	}
     }
-
 
   gomp_mutex_unlock (&acc_dev->lock);
 }

@@ -35,6 +35,7 @@ main ()
 #pragma acc exit data copyout(v.b[:n])
 #pragma acc exit data copyout(v.c[:n])
 #pragma acc exit data copyout(v.d[:n])
+#pragma acc exit data copyout(v.a)
 
       for (i = 0; i < n; i++)
 	assert (v.b[i] == v.a + i);

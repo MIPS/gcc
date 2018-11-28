@@ -385,6 +385,24 @@ goacc_async_copyout_unmap_vars (struct target_mem_desc *tgt,
 					      (void *) tgt);
 }
 
+/* Remove a variable asynchronously.  This actually removes the variable
+   mapping immediately, but retains the linked target_mem_desc until the
+   asynchronous operation has completed (as it may still refer to target
+   memory).  The device lock must be held before entry, and remains locked on
+   exit.  */
+
+attribute_hidden void
+goacc_remove_var_async (struct gomp_device_descr *devicep, splay_tree_key n,
+                       struct goacc_asyncqueue *aq)
+{
+  struct target_mem_desc *tgt = n->tgt;
+  assert (tgt);
+  tgt->refcount++;
+  gomp_remove_var (devicep, n);
+  devicep->openacc.async.queue_callback_func (aq, goacc_async_unmap_tgt,
+                                             (void *) tgt);
+}
+
 attribute_hidden void
 goacc_async_free (struct gomp_device_descr *devicep,
 		  struct goacc_asyncqueue *aq, void *ptr)

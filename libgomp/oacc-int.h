@@ -109,10 +109,15 @@ void goacc_restore_bind (void);
 void goacc_lazy_initialize (void);
 void goacc_host_init (void);
 
+struct splay_tree_key_s;
+
 void goacc_init_asyncqueues (struct gomp_device_descr *);
 bool goacc_fini_asyncqueues (struct gomp_device_descr *);
 void goacc_async_copyout_unmap_vars (struct target_mem_desc *,
 				     struct goacc_asyncqueue *);
+void goacc_remove_var_async (struct gomp_device_descr *devicep,
+			     struct splay_tree_key_s *n,
+			     struct goacc_asyncqueue *aq);
 void goacc_async_free (struct gomp_device_descr *,
 		       struct goacc_asyncqueue *, void *);
 struct goacc_asyncqueue *get_goacc_asyncqueue (int);

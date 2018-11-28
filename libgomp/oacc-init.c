@@ -389,9 +389,9 @@ acc_shutdown_1 (acc_device_t d)
 	{
 	  while (walk->dev->mem_map.root)
 	    {
-	      struct target_mem_desc *tgt = walk->dev->mem_map.root->key.tgt;
-
-	      gomp_unmap_vars (tgt, false);
+	      splay_tree_key k = &walk->dev->mem_map.root->key;
+	      k->link_key = NULL;
+	      gomp_remove_var (walk->dev, k);
 	    }
 
 	  walk->dev = NULL;
