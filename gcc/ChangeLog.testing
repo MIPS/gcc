@@ -1,2 +1,4 @@
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
+	* Increase early-inlining-insns to 40
+2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
