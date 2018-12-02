@@ -1,4 +1,19 @@
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
-	* Increase early-inlining-insns to 40
+	* Decrease early-inlining-insns to 14->10
+2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
+	* Increase early-inlining-insns to 14->40
+
+	xalancbmk +5% (
+	omnetpp -4.65 (kaby, -Oast)
+	astar -3.68 (kaby, -O2)
+	459.GemsFDTD, perlbench -2.41 (kaby, PGO)
+	Cactusadm +24.52 (kaby, PGO)
+	lbm -2.73 (Kakby -O2)
+	imagemagick -5.88 (Kaby PGO)
+	astar -7.27 (zenith, -O2)
+	xalancbmk -7.42 (zenith Ofast)
+	xalancbmk -5.00 (zenith Ofast, PGO)
+	Perlbench -4.84 (Ofast, native, PGO
+
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
