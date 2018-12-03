@@ -346,6 +346,46 @@ canonicalize_loop_form (void)
   checking_verify_loop_closed_ssa (true);
 }
 
+static void
+split_memrefs (void)
+{
+  basic_block bb;
+  FOR_ALL_BB_FN (bb, cfun)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+       {
+         gimple *stmt = gsi_stmt (gsi);
+         if (0 && gimple_store_p (stmt))
+           {
+             gimple_stmt_iterator prev = gsi;
+             gsi_prev (&prev);
+             if (!gsi_end_p (prev))
+               {
+                 split_block (gsi_bb (prev), gsi_stmt (prev));
+                 gsi = gsi_for_stmt (stmt);
+               }
+           }
+         if (1 && gimple_store_p (stmt))
+           {
+             if (!gsi_one_before_end_p (gsi))
+               {
+                 split_block (gimple_bb (stmt), stmt);
+                 break;
+               }
+           }
+         if (0 && gimple_assign_load_p (stmt))
+           {
+             if (!gsi_one_before_end_p (gsi))
+               {
+                 split_block (gimple_bb (stmt), stmt);
+                 break;
+               }
+           }
+       }
+    }
+}
+
 isl_ctx *the_isl_ctx;
 
 /* Perform a set of linear transforms on the loops of the current
@@ -364,6 +404,8 @@ graphite_transform_loops (void)
      once. No need to run again.  */
   if (parallelized_function_p (cfun->decl))
     return;
+
+  split_memrefs ();
 
   calculate_dominance_info (CDI_DOMINATORS);
 
