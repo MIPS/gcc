@@ -1,9 +1,18 @@
+2018-12-4  Jan Hubicka  <hubicka@ucw.cz>
+	* Decrease max-inline-insns-single to 400->100
+
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 	* Decrease early-inlining-insns to 14->10
+
+	omnetpp -5.04 (kaby, Ofast)
+	dealII -4.25 (zenith, Ofast)
+
+	gamess 13.45 (regression, O2)
+	povray 4.39 (regression, zenith O2)
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 	* Increase early-inlining-insns to 14->40
 
-	xalancbmk +5% (
+	xalancbmk -5% (kaby, -O2)
 	omnetpp -4.65 (kaby, -Oast)
 	astar -3.68 (kaby, -O2)
 	459.GemsFDTD, perlbench -2.41 (kaby, PGO)
@@ -14,6 +23,15 @@
 	xalancbmk -7.42 (zenith Ofast)
 	xalancbmk -5.00 (zenith Ofast, PGO)
 	Perlbench -4.84 (Ofast, native, PGO
+
+	polyhedron/doduc -5.51 (kaby, O2)
+	polyhedron/doduc -2.99 (zenith, O2)
+	polyhedron/air -2.33 (zenith, O2)
+
+	nbench/assignment -13.69 (kaby, -O2)
+	nbench/LU decompossition -3.18 (kaby, -O2)
+	nbench/neural net -11.18 (zenith, -O2)
+	nbench/AES decrypt -5.8 (zenith, -O2)
 
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
