@@ -137,9 +137,9 @@ new_poly_bb (scop_p scop, gimple_poly_bb_p black_box)
   pbb->domain = NULL;
   pbb->iterators = NULL;
   PBB_SCOP (pbb) = scop;
+  scop->pbbs.safe_push (pbb);
   pbb_set_black_box (pbb, black_box);
   PBB_DRS (pbb).create (3);
-  GBB_PBB (black_box) = pbb;
 
   return pbb;
 }

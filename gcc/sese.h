@@ -233,7 +233,6 @@ typedef std::pair <gimple *, tree> scalar_use;
 typedef struct gimple_poly_bb
 {
   basic_block bb;
-  struct poly_bb *pbb;
 
   /* Lists containing the restrictions of the conditional statements
      dominating this bb.  This bb can only be executed, if all conditions
@@ -263,7 +262,6 @@ typedef struct gimple_poly_bb
 } *gimple_poly_bb_p;
 
 #define GBB_BB(GBB) (GBB)->bb
-#define GBB_PBB(GBB) (GBB)->pbb
 #define GBB_DATA_REFS(GBB) (GBB)->data_refs
 #define GBB_CONDITIONS(GBB) (GBB)->conditions
 #define GBB_CONDITION_CASES(GBB) (GBB)->condition_cases

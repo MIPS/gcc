@@ -1407,9 +1407,8 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   if (drs.is_empty () && writes.is_empty () && reads.is_empty ())
     return NULL;
 
-  gimple_poly_bb_p gbb = new_gimple_poly_bb (bb, drs, reads, writes);
+  gbb = new_gimple_poly_bb (bb, drs, reads, writes);
   poly_bb_p pbb = new_poly_bb (scop, gbb);
-  scop->pbbs.safe_push (pbb);
 
   int i;
   data_reference_p dr;
