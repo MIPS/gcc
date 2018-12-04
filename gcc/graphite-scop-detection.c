@@ -1310,6 +1310,10 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
        gsi_next (&gsi))
+    gimple_set_uid (gsi_stmt (gsi), -1);
+
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       gimple *stmt = gsi_stmt (gsi);
       if (is_gimple_debug (stmt))
@@ -1403,7 +1407,27 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
   if (drs.is_empty () && writes.is_empty () && reads.is_empty ())
     return NULL;
 
-  return new_gimple_poly_bb (bb, drs, reads, writes);
+  gimple_poly_bb_p gbb = new_gimple_poly_bb (bb, drs, reads, writes);
+  poly_bb_p pbb = new_poly_bb (scop, gbb);
+  scop->pbbs.safe_push (pbb);
+
+  int i;
+  data_reference_p dr;
+  FOR_EACH_VEC_ELT (gbb->data_refs, i, dr)
+    {
+      DEBUG_PRINT (dp << "Adding memory ";
+		   if (dr->is_read)
+		     dp << "read: ";
+		   else
+		     dp << "write: ";
+		   print_generic_expr (dump_file, dr->ref);
+		   dp << "\nFrom stmt: ";
+		   print_gimple_stmt (dump_file, dr->stmt, 0));
+
+      scop->drs.safe_push (dr_info (dr, pbb));
+    }
+
+  return gbb;
 }
 
 /* Compute alias-sets for all data references in DRS.  */
@@ -1520,25 +1544,6 @@ gather_bbs::before_dom_children (basic_block bb)
 
   GBB_CONDITIONS (gbb) = conditions.copy ();
   GBB_CONDITION_CASES (gbb) = cases.copy ();
-
-  poly_bb_p pbb = new_poly_bb (scop, gbb);
-  scop->pbbs.safe_push (pbb);
-
-  int i;
-  data_reference_p dr;
-  FOR_EACH_VEC_ELT (gbb->data_refs, i, dr)
-    {
-      DEBUG_PRINT (dp << "Adding memory ";
-		   if (dr->is_read)
-		     dp << "read: ";
-		   else
-		     dp << "write: ";
-		   print_generic_expr (dump_file, dr->ref);
-		   dp << "\nFrom stmt: ";
-		   print_gimple_stmt (dump_file, dr->stmt, 0));
-
-      scop->drs.safe_push (dr_info (dr, pbb));
-    }
 
   return NULL;
 }
