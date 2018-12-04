@@ -5407,6 +5407,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
       return false;
+
     case TRUNCATE:
       /* Costings for highpart multiplies.  Matching patterns of the form:
 
@@ -5470,11 +5471,34 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = mips_set_reg_reg_cost (GET_MODE (SET_DEST (x)));
 	  return true;
 	}
+      if (GET_CODE (SET_DEST (x)) != PC)
+         *total = 0;
       return false;
+
+     case IF_THEN_ELSE:
+       if (outer_code == SET)
+          *total = 0;
+       return false;
 
     default:
       return false;
     }
+}
+
+static bool
+mips_rtx_costs_wrapper (rtx x, machine_mode mode, int outer,
+                        int opno, int *total, bool speed)
+{
+  bool result = mips_rtx_costs (x, mode, outer, opno, total, speed);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      print_rtl_single (dump_file, x);
+      fprintf (dump_file, "\n%s cost: %d (%s)\n", speed ? "Hot" : "Cold",
+               *total, result ? "final" : "partial");
+    }
+
+  return result;
 }
 
 /* Implement TARGET_ADDRESS_COST.  */
@@ -24996,7 +25020,7 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
-#define TARGET_RTX_COSTS mips_rtx_costs
+#define TARGET_RTX_COSTS mips_rtx_costs_wrapper
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST mips_address_cost
 
