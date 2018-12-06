@@ -1,5 +1,15 @@
+2018-12-6  Jan Hubicka  <hubicka@ucw.cz>
+	* Decrease max-inline-insns-single to 100->200
+
 2018-12-4  Jan Hubicka  <hubicka@ucw.cz>
 	* Decrease max-inline-insns-single to 400->100
+
+	regressions:
+	dealII 3%
+	gromacs 7%
+	cactusAMD 29%
+	tramp3d 6% kaby, 17% zenith
+	polyhedron/fatigue2 2%
 
 2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
 	* Decrease early-inlining-insns to 14->10
