@@ -1,6 +1,12 @@
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 
+	* Increase max-inline-insns-single 300->1000
+
+2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
+
 	* Increase max-inline-insns-single 200->300
+	regressions:
+	436.cactusADM 17% (lto,fdo)
 
 2018-12-6  Jan Hubicka  <hubicka@ucw.cz>
 
