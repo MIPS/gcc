@@ -348,12 +348,14 @@ extern GTY(()) int darwin_ms_struct;
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
+       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
        -lgcc ;								   \
       :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
+       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
        -lgcc }"
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.

@@ -57,12 +57,14 @@ along with GCC; see the file COPYING3.  If not see
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
+       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
        -lgcc ;								   \
       :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_ext.10.5)	   \
+       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
+       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
        -lgcc }"
 
 /* Size of the Obj-C jump buffer.  */

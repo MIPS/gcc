@@ -25,19 +25,22 @@ SHLIB_LINK = $(CC) $(LIBGCC2_CFLAGS) -dynamiclib -nodefaultlibs \
 SHLIB_MKMAP = $(srcdir)/mkmap-flat.awk
 SHLIB_MKMAP_OPTS = -v leading_underscore=1
 SHLIB_MAPFILES = libgcc-std.ver $(srcdir)/config/libgcc-libsystem.ver
-SHLIB_VERPFX = $(srcdir)/config/$(cpu_type)/libgcc-darwin
 
 # we're only going to build the stubs if the target slib is /usr/lib
 # there is no other case in which they're useful in a live system.
 ifeq (/usr/lib,$(shlib_slibdir))
 LGCC_STUBS = libgcc_s.10.4.dylib libgcc_s.10.5.dylib
+SHLIB_VERPFX = $(srcdir)/config/$(cpu_type)/libgcc-darwin
 else
 LGCC_STUBS =
+LEXT_STUBS =
+SHLIB_VERPFX = $(srcdir)/config/$(cpu_type)/libgcc-darwin-noeh
 endif
 
 LGCC_FILES = libgcc_s.$(SHLIB_SOVERSION)$(SHLIB_EXT)
 LGCC_FILES += $(LGCC_STUBS)
 LEXT_STUBS = libgcc_ext.10.4$(SHLIB_EXT) libgcc_ext.10.5$(SHLIB_EXT)
+LEXT_STUBS += libgcc_ext.10.6$(SHLIB_EXT)
 LGCC_FILES += $(LEXT_STUBS)
 INSTALL_FILES=$(LGCC_FILES)
 

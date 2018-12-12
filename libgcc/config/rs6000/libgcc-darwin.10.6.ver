@@ -1,0 +1,50 @@
+# Copyright (C) 2005-2019 Free Software Foundation, Inc.
+#
+# This file is part of GCC.
+#
+# GCC is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# GCC is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+#
+# Make the _ext shim point everything except the Unwinder to our local
+# version.  This is to make the behaviour between shared and static
+# libgcc consistent.  It also means we can use one shim for 10.6+
+
+__Unwind_Backtrace
+__Unwind_DeleteException
+__Unwind_FindEnclosingFunction
+__Unwind_Find_FDE
+__Unwind_ForcedUnwind
+__Unwind_GetCFA
+__Unwind_GetDataRelBase
+__Unwind_GetGR
+__Unwind_GetIP
+__Unwind_GetIPInfo
+__Unwind_GetLanguageSpecificData
+__Unwind_GetRegionStart
+__Unwind_GetTextRelBase
+__Unwind_RaiseException
+__Unwind_Resume
+__Unwind_Resume_or_Rethrow
+__Unwind_SetGR
+__Unwind_SetIP
+___deregister_frame
+___deregister_frame_info
+___deregister_frame_info_bases
+___gcc_personality_v0
+___register_frame
+___register_frame_info
+___register_frame_info_bases
+___register_frame_info_table
+___register_frame_info_table_bases
+___register_frame_table
