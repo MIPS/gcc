@@ -205,7 +205,7 @@ case ${host} in
 *-*-darwin*)
   asm_hidden_op=.private_extern
   tmake_file="$tmake_file t-darwin ${cpu_type}/t-darwin t-libgcc-pic"
-  extra_parts="crt3.o d10-uwfef.o crttms.o crttme.o"
+  extra_parts="crt3.o d10-uwfef.o crttms.o crttme.o libemutls_w.a emutls_s.o"
   if test "${slibdir}" = "/usr/lib"; then
     # If we're building to install libgcc_s into the system, then proceed to make a
     # libgcc_s and the 10.5/10.5 stubs.

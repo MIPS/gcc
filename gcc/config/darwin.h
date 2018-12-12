@@ -194,6 +194,8 @@ extern GTY(()) int darwin_ms_struct;
       %{%:sanitize(undefined): -lubsan } \
       %(link_ssp) \
       " DARWIN_EXPORT_DYNAMIC " %<rdynamic \
+      %{Zdynamiclib|Zbundle: -lemutls_w } \
+      %{!Zdynamiclib:%{!Zbundle: -lemutls_s.o }} \
       %(link_gcc_c_sequence) \
     }}\
     %{!nostdlib:%{!nostartfiles:%E}} %{T*} %{F*} }}}}}}}"

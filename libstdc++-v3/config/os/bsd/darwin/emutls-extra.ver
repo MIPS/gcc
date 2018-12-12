@@ -1,0 +1,5 @@
+CXXEMUTLS_DARWIN_1.0.0 {
+  global:
+  __emutls_get_address;
+  __emutls_register_common;
+};

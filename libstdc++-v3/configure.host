@@ -368,6 +368,10 @@ case "${host}" in
      ;;
   powerpc*-*-darwin*)
     port_specific_symbol_files="\$(srcdir)/../config/os/bsd/darwin/ppc-extra.ver"
+    port_specific_symbol_files="${port_specific_symbol_files} \$(srcdir)/../config/os/bsd/darwin/emutls-extra.ver"
+    ;;
+  *darwin*)
+    port_specific_symbol_files="\$(srcdir)/../config/os/bsd/darwin/emutls-extra.ver"
     ;;
   *-*-solaris2.1[0-9])
     # On Solaris 10 with Solaris ld, there's no COMDAT support.  GNU ld always

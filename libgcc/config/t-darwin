@@ -21,6 +21,21 @@ HOST_LIBGCC2_CFLAGS += -pipe
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/config/unwind-dw2-fde-darwin.c \
   $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c
 
+LIB2EMUTLS =
+
+# Make a weak version for linking into shared libs
+emutls_w.o: $(srcdir)/emutls.c libgcc_tm.h
+	$(gcc_compile) -DEMUTLS_ATTR='__attribute__((__weak__))' -c $<
+
+# Make it a convenience lib so that it can be linked optionally into DSOs.
+libemutls_w.a: emutls_w.o
+	$(AR_CREATE_FOR_TARGET) $@ $<
+	$(RANLIB_FOR_TARGET) $@
+
+# Make a no-dead-strip version for linking into exes.
+emutls_s.o: $(srcdir)/emutls.c libgcc_tm.h
+	$(gcc_compile) -DEMUTLS_ATTR='__attribute__((__used__))' -c $<
+
 # Patch to __Unwind_Find_Enclosing_Function for Darwin10.
 d10-uwfef.o: $(srcdir)/config/darwin10-unwind-find-enc-func.c
 	$(crt_compile) $(DARWIN_EXTRA_CRT_BUILD_CFLAGS) -mmacosx-version-min=10.6 -c $<
