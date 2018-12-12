@@ -30808,6 +30808,7 @@ mips_adjust_costs (void *p, int func)
   ira_allocno_t allocno = (ira_allocno_t)p;
   vec <recolor_allocno_data_t> sorted_allocno_data;
   static ira_loop_tree_node_t current_loop_tree_node = NULL;
+  static struct function *prev_func = NULL;
   ira_loop_tree_node_t allocno_loop_tree_node
     = ALLOCNO_LOOP_TREE_NODE (allocno);
   int allocno_num = ALLOCNO_NUM (allocno);
@@ -30845,9 +30846,10 @@ mips_adjust_costs (void *p, int func)
       return;
     }
 
-  if (current_loop_tree_node != allocno_loop_tree_node)
+  if (prev_func != cfun || current_loop_tree_node != allocno_loop_tree_node)
     {
       current_loop_tree_node = allocno_loop_tree_node;
+      prev_func = cfun;
       /* Collect necessary data.  */
       mips_adjust_costs_init ();
       mips_collect_recolor_data (s_regs_used);
