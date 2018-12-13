@@ -21956,12 +21956,14 @@ Disable Book-E SPE ABI extensions for the current ABI@.
 @item -mabi=ibmlongdouble
 @opindex mabi=ibmlongdouble
 Change the current ABI to use IBM extended-precision long double.
-This is a PowerPC 32-bit SYSV ABI option.
+This is a PowerPC 32-bit SYSV ABI option.  Requires @option{-mlong-double-128}
+to be enabled.
 
 @item -mabi=ieeelongdouble
 @opindex mabi=ieeelongdouble
 Change the current ABI to use IEEE extended-precision long double.
-This is a PowerPC 32-bit Linux ABI option.
+This is a PowerPC 32-bit Linux ABI option.  Requires @option{-mlong-double-128}
+to be enabled.
 
 @item -mabi=elfv1
 @opindex mabi=elfv1
@@ -22721,8 +22723,8 @@ Generate code that runs on @var{cpu-type}, which is the name of a
 system representing a certain processor type.  Possible values for
 @var{cpu-type} are @samp{z900}/@samp{arch5}, @samp{z990}/@samp{arch6},
 @samp{z9-109}, @samp{z9-ec}/@samp{arch7}, @samp{z10}/@samp{arch8},
-@samp{z196}/@samp{arch9}, @samp{zEC12}, @samp{z13}/@samp{arch11}, and
-@samp{native}.
+@samp{z196}/@samp{arch9}, @samp{zEC12}, @samp{z13}/@samp{arch11},
+@samp{z14}/@samp{arch12}, and @samp{native}.
 
 The default is @option{-march=z900}.  @samp{g5}/@samp{arch3} and
 @samp{g6} are deprecated and will be removed with future releases.

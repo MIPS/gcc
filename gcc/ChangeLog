@@ -1,3 +1,210 @@
+2018-12-12  Peter Bergner  <bergner@linux.ibm.com>
+
+	Backport from mainline
+	2018-12-07  Peter Bergner  <bergner@linux.ibm.com>
+
+	PR target/87496
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Disallow
+	-mabi=ieeelongdouble and -mabi=ibmlongdouble without -mlong-double-128.
+	Do not error for -mabi=ibmlongdouble and no ISA 2.06 support.
+	* doc/invoke.texi: Document -mabi=ibmlongdouble and -mabi=ieeelongdouble
+	require -mlong-double-128.
+
+2018-12-06  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Increment to 7.4.1.
+
+2018-12-06  Release Manager
+
+	* GCC 7.4.0 released.
+
+2018-11-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79351
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): For assignments from
+	empty CONSTRUCTORs ensure the store is at a constant position.
+
+2018-11-26  Iain Sandoe  <iain@sandoe.co.uk>
+
+	Backport from mainline
+	2018-08-22  Iain Sandoe  <iain@sandoe.co.uk>
+
+	PR bootstrap/81033
+	PR target/81733
+	PR target/52795
+	* gcc/dwarf2out.c (FUNC_SECOND_SECT_LABEL): New.
+	(dwarf2out_switch_text_section): Generate a local label for the second
+	function sub-section and apply it as the second FDE start label.
+	* gcc/final.c (final_scan_insn_1): Emit second FDE label after the second
+	sub-section start.
+
+2018-11-26  Iain Sandoe  <iain@sandoe.co.uk>
+
+	2018-08-15  Iain Sandoe  <iain@sandoe.co.uk>
+ 
+	* config/darwin.c
+	(darwin_function_switched_text_sections): Delete.
+	* gcc/config/darwin.h
+	(TARGET_ASM_FUNCTION_SWITCHED_TEXT_SECTIONS): Likewise.
+
+2018-11-26  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	Backport from mainline
+	2018-11-20  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* config/s390/s390.md ("clztidi2"): Swap the RTX's written to the
+	DImode parts of the target operand.
+
+2018-11-26  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	Backport from mainline
+	2018-11-26  Andreas Krebbel  <krebbel@linux.ibm.com>
+
+	* doc/invoke.texi: Document z14/arch12 -march option.
+
+2018-10-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/87645
+	Backport from mainline
+	2018-07-12  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (gimple_resimplify1): Apply recursion
+	limit.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	(gimple_resimplify4): Likewise.
+
+2018-11-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-10-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/87610
+	* tree-ssa-structalias.c (struct vls_data): Add escaped_p member.
+	(visit_loadstore): When a used restrict tag escaped verify that
+	the points-to solution of "other" pointers do not include
+	escaped.
+	(compute_dependence_clique): If a used restrict tag escaped
+	communicated that down to visit_loadstore.
+
+	2018-10-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/87665
+	PR tree-optimization/87745
+	* tree-vectorizer.h (get_earlier_stmt): Remove.
+	(get_later_stmt): Pick up UID from the original non-pattern stmt.
+
+	2018-10-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/87665
+	* tree-vect-data-refs.c (vect_preserves_scalar_order_p): Adjust
+	to reflect reality.
+
+2018-11-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/86139
+	* tree-vect-generic.c (build_word_mode_vector_type): Remove
+	duplicate and harmful type_hash_canon.
+
+	2018-06-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/86076
+	* tree-cfg.c (move_stmt_op): unshare invariant addresses
+	before adjusting their block.
+
+2018-11-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2018-11-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/88051
+	* config/i386/sse.md (UNSPEC_MOVDI_TO_SSE): New UNSPEC.
+	(movdi_to_sse): Rewrite using UNSPEC_MOVDI_TO_SSE unspec.
+
+2018-11-22  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2017-11-19  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/82961
+	* vmsdbgout.c (vmsdbgout_early_finish): New function.
+	(vmsdbg_debug_hooks): Set early_finish field to vmsdbgout_early_finish.
+
+2018-11-21  Mihail Ionescu  <mihail.ionescu@arm.com>
+
+	PR target/87867
+	Backport from mainiline
+	2018-09-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_reorg): Skip Thumb reorg pass for thunks.
+	(arm32_output_mi_thunk): Deal with long calls.
+
+2018-11-20  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2018-03-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/84777
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p): For
+	force-vectorize loops ignore whether we are optimizing for size.
+
+	2018-01-26  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/84003
+	* dse.c (record_store): Only record redundant stores when
+	the earlier store aliases at least all accesses the later one does.
+
+2018-11-20  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	Backport from mainline
+	2018-11-05  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	PR target/87853
+	* config/i386/emmintrin.h (__v16qs): New to cope with option
+	-funsigned-char.
+	(_mm_cmpeq_epi8): Replace __v16qi with __v16qs.
+	(_mm_cmplt_epi8): Likewise.
+	(_mm_cmpgt_epi8): Likewise.
+
+2018-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/85925
+	* rtl.h (word_register_operation_p): New predicate.
+	* combine.c (record_dead_and_set_regs_1): Only apply specific handling
+	for WORD_REGISTER_OPERATIONS targets to word_register_operation_p RTX.
+	* rtlanal.c (nonzero_bits1): Likewise.  Adjust couple of comments.
+	(num_sign_bit_copies1): Likewise.
+
+2018-11-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2018-11-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/87928
+	* config/i386/i386.h (STACK_BOUNDARY): Use TARGET_64BIT_MS_ABI
+	instead of (TARGET_64BIT && ix86_abi == MS_ABI).
+	* config/i386/darwin.h (STACK_BOUNDARY): Ditto.
+	* config/i386/cygming.h (STACK_BOUNDARY): Remove.
+
+2018-11-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR debug/88006
+	PR debug/87462
+	* dwarf2out.c (dwarf2out_finish): Apply resolve_addr to comdat
+	type list.
+
+2018-11-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2018-11-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/58372
+	* cfgexpand.c (pass_expand::execute): Move the call to
+	finish_eh_generation in front of the call to expand_stack_alignment.
+
 2018-11-07  Max Filippov  <jcmvbkbc@gmail.com>
 
 	Backport from mainline
@@ -683,10 +890,10 @@
 
 2018-06-18  Martin Sebor  <msebor@redhat.com>
 
-        PR middle-end/82063
-        * calls.c (alloc_max_size): Correct a logic error/typo.
-        Treat excessive arguments as infinite.  Warn for invalid arguments.
-        * doc/invoke.texi (-Walloc-size-larger-than): Update.
+	PR middle-end/82063
+	* calls.c (alloc_max_size): Correct a logic error/typo.
+	Treat excessive arguments as infinite.  Warn for invalid arguments.
+	* doc/invoke.texi (-Walloc-size-larger-than): Update.
 
 2018-06-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
