@@ -196,7 +196,11 @@ extern GTY(()) int darwin_ms_struct;
       " DARWIN_EXPORT_DYNAMIC " %<rdynamic \
       %{Zdynamiclib|Zbundle: -lemutls_w } \
       %{!Zdynamiclib:%{!Zbundle: -lemutls_s.o }} \
+      %:version-compare(>< 10.6 10.7 mmacosx-version-min= -ld10-uwfef.o) \
       %(link_gcc_c_sequence) \
+      %{fno-pic|fno-PIC|fno-pie|fno-PIE|no-pie|fapple-kext|mkernel|static|mdynamic-no-pic: \
+        %:version-compare(>= 10.7 mmacosx-version-min= -no_pie) } \
+      %:version-compare(>= 10.6 mmacosx-version-min= -no_compact_unwind) \
     }}\
     %{!nostdlib:%{!nostartfiles:%E}} %{T*} %{F*} }}}}}}}"
 
@@ -330,35 +334,21 @@ extern GTY(()) int darwin_ms_struct;
 
 #define LIB_SPEC "%{!static:-lSystem}"
 
-/* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
-   libraries to link against, and by not linking against libgcc_s on
-   earlier-than-10.3.9.
-
-   Note that by default, -lgcc_eh is not linked against!  This is
-   because in a future version of Darwin the EH frame information may
-   be in a new format, or the fallback routine might be changed; if
-   you want to explicitly link against the static version of those
-   routines, because you know you don't need to unwind through system
-   libraries, you need to explicitly say -static-libgcc.
-
-   If it is linked against, it has to be before -lgcc, because it may
-   need symbols from -lgcc.  */
+/* FIXME: EXPLAIN ALL THIS .  */
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC						   \
-   "%{static-libgcc|static: -lgcc_eh -lgcc;				   \
-      shared-libgcc|fexceptions|fgnu-runtime:				   \
+   "%{static-libgcc|static:						   \
+        %:version-compare(!> 10.6 mmacosx-version-min= -lgcc_eh);	   \
+      shared-libgcc:							   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
-       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
-       -lgcc ;								   \
-      :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
+       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6);	   \
+      fexceptions|fgnu-runtime:						   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_s.10.5)   \
-       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_ext.10.4)	   \
-       %:version-compare(>< 10.5 10.6 mmacosx-version-min= -lgcc_ext.10.5) \
-       %:version-compare(>= 10.6 mmacosx-version-min= -lgcc_ext.10.6)	   \
-       -lgcc }"
+     } -lgcc "
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.
 
