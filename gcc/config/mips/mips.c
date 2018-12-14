@@ -12788,6 +12788,11 @@ mips_file_start (void)
     fprintf (asm_out_file, "\t.module\tpid\n");
   else if (TARGET_PCREL)
     fprintf (asm_out_file, "\t.module\tpcrel\n");
+  /* Generate a pic mode setting if the value is either non-zero or explicitly
+     specified.  Avoid emitting redundant pic0 directives for embedded
+     targets, where it is the default.  */
+  if (flag_pic || flag_pic != global_options_set.x_flag_pic)
+    fprintf (asm_out_file, "\t.module\tpic%d\n", flag_pic);
 #else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
