@@ -1,6 +1,7 @@
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 
 	* Increase max-inline-insns-single 300->1000
+	bad run?
 
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 
