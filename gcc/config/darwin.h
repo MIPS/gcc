@@ -168,13 +168,29 @@ extern GTY(()) int darwin_ms_struct;
    linkers, and for positional arguments like libraries.  */
 
 #if LD64_HAS_EXPORT_DYNAMIC
-#define DARWIN_EXPORT_DYNAMIC " %{rdynamic:-export_dynamic}"
+# define DARWIN_EXPORT_DYNAMIC " %{rdynamic:-export_dynamic}"
 #else
-#define DARWIN_EXPORT_DYNAMIC " %{rdynamic: %nrdynamic is not supported}"
+# define DARWIN_EXPORT_DYNAMIC " %{rdynamic: %nrdynamic is not supported}"
 #endif
 
+#define DARWIN_PIE_SPEC \
+" %{fpie|pie|fPIE: \
+   %{mdynamic-no-pic: %n'-mdynamic-no-pic' overrides '-pie', '-fpie' or '-fPIE'; \
+     :%:version-compare(>= 10.5 mmacosx-version-min=  -pie)}} "
+
+/* Darwin requires PIC to support PIE exes.  */
+#define DARWIN_NOPIE_SPEC \
+" %{fno-pic|fno-PIC|fno-pie|fno-PIE|no-pie|fapple-kext|mkernel|static|mdynamic-no-pic: \
+   %:version-compare(>= 10.7 mmacosx-version-min= -no_pie) } "
+
+/* Fix PR41260 by passing -no_compact_unwind on darwin10 and later until the
+   system unwinder can handle the relevant output. */
+
+#define DARWIN_NOCOMPACT_UNWIND \
+" %:version-compare(>= 10.6 mmacosx-version-min= -no_compact_unwind) "
+
 #define LINK_COMMAND_SPEC_A \
-   "%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+"%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker)" \
     LINK_PLUGIN_SPEC \
     "%{flto*:%<fcompare-debug*} \
@@ -183,26 +199,28 @@ extern GTY(()) int darwin_ms_struct;
    "%X %{s} %{t} %{Z} %{u*} \
     %{e*} %{r} \
     %{o*}%{!o:-o a.out} \
-    %{!nostdlib:%{!nostartfiles:%S}} \
-    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} \
-    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1): \
-      %{static|static-libgcc|static-libstdc++|static-libgfortran: libgomp.a%s; : -lgomp } } \
-    %{fgnu-tm: \
-      %{static|static-libgcc|static-libstdc++|static-libgfortran: libitm.a%s; : -litm } } \
-    %{!nostdlib:%{!nodefaultlibs:\
+    %{!nostdlib:%{!r:%{!nostartfiles:%S}}} \
+    %{L*} %(link_libgcc) %o \
+    %{!nostdlib:%{!nodefaultlibs:%{!r: \
+      %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} \
+      %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1): \
+        %{static|static-libgcc|static-libstdc++|static-libgfortran: libgomp.a%s; : -lgomp } } \
+      %{fgnu-tm: \
+        %{static|static-libgcc|static-libstdc++|static-libgfortran: libitm.a%s; : -litm } } \
       %{%:sanitize(address): -lasan } \
       %{%:sanitize(undefined): -lubsan } \
       %(link_ssp) \
-      " DARWIN_EXPORT_DYNAMIC " %<rdynamic \
       %{Zdynamiclib|Zbundle: -lemutls_w } \
       %{!Zdynamiclib:%{!Zbundle: -lemutls_s.o }} \
       %:version-compare(>< 10.6 10.7 mmacosx-version-min= -ld10-uwfef.o) \
       %(link_gcc_c_sequence) \
-      %{fno-pic|fno-PIC|fno-pie|fno-PIE|no-pie|fapple-kext|mkernel|static|mdynamic-no-pic: \
-        %:version-compare(>= 10.7 mmacosx-version-min= -no_pie) } \
-      %:version-compare(>= 10.6 mmacosx-version-min= -no_compact_unwind) \
-    }}\
-    %{!nostdlib:%{!nostartfiles:%E}} %{T*} %{F*} }}}}}}}"
+    }}}\
+    %{!nostdlib:%{!r:%{!nostartfiles:%E}}} %{T*} %{F*} " \
+    DARWIN_EXPORT_DYNAMIC \
+    DARWIN_PIE_SPEC \
+    DARWIN_NOPIE_SPEC \
+    DARWIN_NOCOMPACT_UNWIND \
+"}}}}}}}"
 
 #define DSYMUTIL "\ndsymutil"
 
@@ -238,8 +256,6 @@ extern GTY(()) int darwin_ms_struct;
 /* Suppress the addition of extra prefix paths when a sysroot is in use.  */
 #define STANDARD_STARTFILE_PREFIX_1 ""
 #define STANDARD_STARTFILE_PREFIX_2 ""
-
-#define DARWIN_PIE_SPEC "%{fpie|pie|fPIE:}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes). Note that options taking arguments may appear
@@ -304,7 +320,6 @@ extern GTY(()) int darwin_ms_struct;
      %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
      %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
-   " DARWIN_PIE_SPEC " \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -328,7 +343,6 @@ extern GTY(()) int darwin_ms_struct;
    %{sectalign*} %{sectobjectsymbols*} %{segcreate*} %{whyload} \
    %{whatsloaded} %{dylinker_install_name*} \
    %{dylinker} %{Mach} "
-
 
 /* Machine dependent libraries.  */
 
@@ -418,7 +432,8 @@ extern GTY(()) int darwin_ms_struct;
 
 #define ASM_DEBUG_SPEC  "%{g*:%{%:debug-level-gt(0):%{!gdwarf*:--gstabs}}}"
 #define ASM_FINAL_SPEC \
-  "%{gsplit-dwarf:%ngsplit-dwarf is not supported on this platform } %<gsplit-dwarf"
+  "%{gsplit-dwarf:%ngsplit-dwarf is not supported on this platform } \
+   %<gsplit-dwarf "
 
 /* We still allow output of STABS if the assembler supports it.  */
 #ifdef HAVE_AS_STABS_DIRECTIVE
