@@ -1589,7 +1589,7 @@
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   sel\t%0.<Vetype>, %3/m, %1.<Vetype>, %2.<Vetype>
+   sel\t%0.<Vetype>, %3, %1.<Vetype>, %2.<Vetype>
    mov\t%0.<Vetype>, %3/m, #%1
    movprfx\t%0.<Vetype>, %3/z, %0.<Vetype>\;mov\t%0.<Vetype>, %3/m, %1.<Vetype>
    mov\t%0.<Vetype>, %3/z, #%1
@@ -1601,12 +1601,12 @@
   [(set (match_operand:SVE_F 0 "register_operand" "=w, w, ?&w, ?&w")
 	(unspec:SVE_F
 	  [(match_operand:<VPRED> 3 "register_operand" "Upa, Upl, Upl, Upl")
-	   (match_operand:SVE_F 1 "general_operand" "w, Dn, w, Dn")
+	   (match_operand:SVE_F 1 "aarch64_nonmemory_operand" "w, Dn, w, Dn")
 	   (match_operand:SVE_F 2 "aarch64_simd_reg_or_zero" "w, 0, Dz, Dz")]
 	  UNSPEC_SEL))]
   "TARGET_SVE"
   "@
-   sel\t%0.<Vetype>, %3/m, %1.<Vetype>, %2.<Vetype>
+   sel\t%0.<Vetype>, %3, %1.<Vetype>, %2.<Vetype>
    * return aarch64_output_sve_mov_immediate (operands[1], 3, true);
    movprfx\t%0.<Vetype>, %3/z, %0.<Vetype>\;mov\t%0.<Vetype>, %3/m, %<Vetype>1
    * return aarch64_output_sve_mov_immediate (operands[1], 3, false);"
@@ -2553,8 +2553,8 @@
 	(unspec:SVE_F
 	  [(match_dup 3)
 	   (const_int SVE_ALLOW_NEW_FAULTS)
-	   (match_operand:SVE_F 2 "register_operand")
-	   (match_operand:SVE_F 3 "aarch64_sve_float_mul_operand")]
+	   (match_operand:SVE_F 1 "register_operand")
+	   (match_operand:SVE_F 2 "aarch64_sve_float_mul_operand")]
 	  UNSPEC_COND_MUL))]
   "TARGET_SVE"
   {

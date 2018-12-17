@@ -341,7 +341,7 @@ TEST_UNIFORM_Z (dup_127_s32_m, svint32_t,
 /*
 ** dup_128_s32_m:
 **	mov	(z[0-9]+\.s), #128
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_128_s32_m, svint32_t,
@@ -361,7 +361,7 @@ TEST_UNIFORM_Z (dup_253_s32_m, svint32_t,
 /*
 ** dup_254_s32_m:
 **	mov	(z[0-9]+\.s), #254
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_254_s32_m, svint32_t,
@@ -371,7 +371,7 @@ TEST_UNIFORM_Z (dup_254_s32_m, svint32_t,
 /*
 ** dup_255_s32_m:
 **	mov	(z[0-9]+\.s), #255
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_255_s32_m, svint32_t,
@@ -423,7 +423,7 @@ TEST_UNIFORM_Z (dup_7ffd_s32_m, svint32_t,
 /*
 ** dup_7ffe_s32_m:
 **	mov	(z[0-9]+\.s), #32766
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_7ffe_s32_m, svint32_t,
@@ -433,7 +433,7 @@ TEST_UNIFORM_Z (dup_7ffe_s32_m, svint32_t,
 /*
 ** dup_7fff_s32_m:
 **	mov	(z[0-9]+\.s), #32767
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_7fff_s32_m, svint32_t,
@@ -461,7 +461,7 @@ TEST_UNIFORM_Z (dup_m128_s32_m, svint32_t,
 /*
 ** dup_m129_s32_m:
 **	mov	(z[0-9]+\.s), #-129
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_m129_s32_m, svint32_t,
@@ -481,7 +481,7 @@ TEST_UNIFORM_Z (dup_m254_s32_m, svint32_t,
 /*
 ** dup_m255_s32_m:
 **	mov	(z[0-9]+\.s), #-255
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_m255_s32_m, svint32_t,
@@ -500,7 +500,7 @@ TEST_UNIFORM_Z (dup_m256_s32_m, svint32_t,
 /*
 ** dup_m257_s32_m:
 **	mov	(z[0-9]+\.s), #-257
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_m257_s32_m, svint32_t,
@@ -538,7 +538,7 @@ TEST_UNIFORM_Z (dup_m7f00_s32_m, svint32_t,
 /*
 ** dup_m7f01_s32_m:
 **	mov	(z[0-9]+\.s), #-32513
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_m7f01_s32_m, svint32_t,
@@ -558,7 +558,7 @@ TEST_UNIFORM_Z (dup_m7ffe_s32_m, svint32_t,
 /*
 ** dup_m7fff_s32_m:
 **	mov	(z[0-9]+\.s), #-32767
-**	sel	z0\.s, p0/m, \1, z0\.s
+**	sel	z0\.s, p0, \1, z0\.s
 **	ret
 */
 TEST_UNIFORM_Z (dup_m7fff_s32_m, svint32_t,

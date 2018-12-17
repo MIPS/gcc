@@ -339,7 +339,7 @@ TEST_UNIFORM_Z (dup_127_u16_m, svuint16_t,
 /*
 ** dup_128_u16_m:
 **	mov	(z[0-9]+\.h), #128
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_128_u16_m, svuint16_t,
@@ -359,7 +359,7 @@ TEST_UNIFORM_Z (dup_253_u16_m, svuint16_t,
 /*
 ** dup_254_u16_m:
 **	mov	(z[0-9]+\.h), #254
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_254_u16_m, svuint16_t,
@@ -369,7 +369,7 @@ TEST_UNIFORM_Z (dup_254_u16_m, svuint16_t,
 /*
 ** dup_255_u16_m:
 **	mov	(z[0-9]+\.h), #255
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_255_u16_m, svuint16_t,
@@ -388,7 +388,7 @@ TEST_UNIFORM_Z (dup_256_u16_m, svuint16_t,
 /*
 ** dup_257_u16_m:
 **	mov	(z[0-9]+)\.b, #1
-**	sel	z0\.h, p0/m, \1\.h, z0\.h
+**	sel	z0\.h, p0, \1\.h, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_257_u16_m, svuint16_t,
@@ -426,7 +426,7 @@ TEST_UNIFORM_Z (dup_7ffd_u16_m, svuint16_t,
 /*
 ** dup_7ffe_u16_m:
 **	mov	(z[0-9]+\.h), #32766
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_7ffe_u16_m, svuint16_t,
@@ -436,7 +436,7 @@ TEST_UNIFORM_Z (dup_7ffe_u16_m, svuint16_t,
 /*
 ** dup_7fff_u16_m:
 **	mov	(z[0-9]+\.h), #32767
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_7fff_u16_m, svuint16_t,
@@ -464,7 +464,7 @@ TEST_UNIFORM_Z (dup_m128_u16_m, svuint16_t,
 /*
 ** dup_m129_u16_m:
 **	mov	(z[0-9]+\.h), #-129
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m129_u16_m, svuint16_t,
@@ -484,7 +484,7 @@ TEST_UNIFORM_Z (dup_m254_u16_m, svuint16_t,
 /*
 ** dup_m255_u16_m:
 **	mov	(z[0-9]+\.h), #-255
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m255_u16_m, svuint16_t,
@@ -503,7 +503,7 @@ TEST_UNIFORM_Z (dup_m256_u16_m, svuint16_t,
 /*
 ** dup_m257_u16_m:
 **	mov	(z[0-9]+\.h), #-257
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m257_u16_m, svuint16_t,
@@ -513,7 +513,7 @@ TEST_UNIFORM_Z (dup_m257_u16_m, svuint16_t,
 /*
 ** dup_m258_u16_m:
 **	mov	(z[0-9]+)\.b, #-2
-**	sel	z0\.h, p0/m, \1\.h, z0\.h
+**	sel	z0\.h, p0, \1\.h, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m258_u16_m, svuint16_t,
@@ -546,7 +546,7 @@ TEST_UNIFORM_Z (dup_m7f00_u16_m, svuint16_t,
 /*
 ** dup_m7f01_u16_m:
 **	mov	(z[0-9]+\.h), #-32513
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m7f01_u16_m, svuint16_t,
@@ -566,7 +566,7 @@ TEST_UNIFORM_Z (dup_m7ffe_u16_m, svuint16_t,
 /*
 ** dup_m7fff_u16_m:
 **	mov	(z[0-9]+\.h), #-32767
-**	sel	z0\.h, p0/m, \1, z0\.h
+**	sel	z0\.h, p0, \1, z0\.h
 **	ret
 */
 TEST_UNIFORM_Z (dup_m7fff_u16_m, svuint16_t,
