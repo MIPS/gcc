@@ -13950,7 +13950,8 @@ mips_global_pointer (void)
 
   /* If there are no current references to $gp, then the only uses
      we can introduce later are those involved in long branches.  */
-  if (TARGET_ABSOLUTE_JUMPS && !mips_cfun_has_flexible_gp_ref_p ())
+  if ((TARGET_ABSOLUTE_JUMPS || TARGET_NANOMIPS) &&
+        !mips_cfun_has_flexible_gp_ref_p ())
     return INVALID_REGNUM;
 
   /* If the global pointer is call-saved, try to use a call-clobbered
@@ -14138,7 +14139,7 @@ mips_cfun_call_saved_reg_p (unsigned int regno)
      we want the ABI property rather than the default call_insn
      property here.  */
   return (regno == GLOBAL_POINTER_REGNUM
-	  ? TARGET_CALL_SAVED_GP
+	  ? (TARGET_CALL_SAVED_GP && !TARGET_NANOMIPS)
 	  : !call_really_used_regs[regno]);
 }
 
@@ -14659,6 +14660,13 @@ mips_compute_frame_info_oabi_nabi (void)
    They decrease stack_pointer_rtx but leave frame_pointer_rtx and
    hard_frame_pointer_rtx unchanged.  */
 
+static bool
+mips_insn_is_no_return_call (rtx_insn *insn)
+{
+  return CALL_P (insn) && find_reg_note (insn, REG_NORETURN, NULL_RTX) != NULL_RTX;
+}
+
+
 static void
 mips_compute_frame_info_pabi (void)
 {
@@ -14745,6 +14753,8 @@ mips_compute_frame_info_pabi (void)
   offset += frame->num_fp * UNITS_PER_FPREG;
   frame->fp_sp_offset = offset - UNITS_PER_FPREG;
 
+
+
   /* Find out which GPRs we need to save.  */
   for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
     if (mips_save_reg_p (regno))
@@ -14752,6 +14762,12 @@ mips_compute_frame_info_pabi (void)
 	frame->num_gp++;
 	frame->mask |= 1 << (regno - GP_REG_FIRST);
       }
+
+   if (mips_cfun_has_flexible_gp_ref_p ())
+     {
+        frame->num_gp++;
+        frame->mask |= 1 << GLOBAL_POINTER_REGNUM;
+     }
 
   /* If this function calls eh_return, we must also save and restore the
      EH data registers.  */
@@ -14769,6 +14785,14 @@ mips_compute_frame_info_pabi (void)
     (mips_safe_to_use_save_restore_p (frame)
      && !cfun->machine->interrupt_handler_p
      && ISA_HAS_SAVE_RESTORE);
+
+    if (cfun->machine->safe_to_use_save_restore &&
+        BITSET_P (frame->mask, GLOBAL_POINTER_REGNUM))
+     {
+         bool tmp = false;
+         tmp = !mips_find_gp_ref (&tmp, mips_insn_is_no_return_call);
+         cfun->machine->safe_to_use_save_restore = tmp;
+     }
 
   if (cfun->machine->safe_to_use_save_restore)
     {
