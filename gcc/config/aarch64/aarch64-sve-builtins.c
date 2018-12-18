@@ -45,6 +45,9 @@
 
 namespace aarch64_sve {
 
+/* Used to represent the default merge argument index for _m functions.  */
+const unsigned int DEFAULT_MERGE_ARGNO = ~0U;
+
 /* Enumerates the SVE predicate and (data) vector types, together called
    "vector types" for brevity.  */
 enum vector_type {
@@ -421,8 +424,9 @@ private:
   rtx expand_signed_pred_op (int, int, int);
   rtx expand_via_unpred_direct_optab (optab, unsigned int = 0);
   rtx expand_via_unpred_insn (insn_code, unsigned int = 0);
-  rtx expand_via_pred_direct_optab (optab, unsigned int);
-  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int, bool);
+  rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
+  rtx expand_via_sel_insn (insn_code, unsigned int);
+  rtx expand_via_pred_insn (insn_code, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_signed_unpred_insn (rtx_code, rtx_code);
   rtx expand_via_pred_x_insn (insn_code);
   rtx expand_pred_shift_right_imm (insn_code);
@@ -433,6 +437,8 @@ private:
 
   machine_mode get_mode (unsigned int);
   machine_mode get_pred_mode (unsigned int);
+  rtx get_fallback_value (machine_mode, unsigned int,
+			  unsigned int, unsigned int &);
 
   void add_output_operand (machine_mode);
   void add_input_operand (rtx, machine_mode);
@@ -1696,12 +1702,12 @@ function_expander::expand_dup ()
       if (valid_for_const_vector_p (GET_MODE_INNER (mode), m_args.last ()))
 	{
 	  icode = code_for_vcond_mask (get_mode (0), get_mode (0));
-	  return expand_via_pred_insn (icode, 0, 1, true);
+	  return expand_via_sel_insn (icode, 0);
 	}
       else
 	{
 	  icode = code_for_aarch64_sel_dup (get_mode (0));
-	  return expand_via_pred_insn (icode, 1, 1, true);
+	  return expand_via_sel_insn (icode, 1);
 	}
     }
 }
@@ -1737,7 +1743,7 @@ function_expander::expand_mul ()
       return expand_via_pred_x_insn (icode);
     }
   else
-    return expand_via_pred_direct_optab (cond_smul_optab, 1);
+    return expand_via_pred_direct_optab (cond_smul_optab);
 }
 
 /* Expand a call to sqadd.  */
@@ -1843,65 +1849,65 @@ function_expander::expand_via_pred_direct_optab (optab op,
 {
   machine_mode mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
-  return expand_via_pred_insn (icode, 0, merge_argno, false);
+  return expand_via_pred_insn (icode, merge_argno);
 }
 
-/* Implement the call using instruction ICODE.  The instruction takes
+/* Implement the call using instruction ICODE, which is a select-like
+   operation with the following operands:
+
+   0: output
+   1: true value
+   2: false value
+   3: predicate
+
    The last NSCALAR inputs are scalar, and map to scalar operands
-   in the underlying instruction.  Merging forms use argument MERGE_ARGNO
-   as the fallback value.  If PRED_LAST_P is true, predicated register is
-   at the end.  */
+   in the underlying instruction.  */
+rtx
+function_expander::expand_via_sel_insn (insn_code icode,
+					unsigned int nscalar)
+{
+  machine_mode mode = get_mode (0);
+  machine_mode pred_mode = get_pred_mode (0);
+
+  unsigned int opno = 0;
+  rtx false_arg = get_fallback_value (mode, 1, 0, opno);
+  rtx pred_arg = m_args[opno++];
+  rtx true_arg = m_args[opno++];
+
+  add_output_operand (mode);
+  if (nscalar)
+    add_input_operand (true_arg, GET_MODE_INNER (mode));
+  else
+    add_input_operand (true_arg, mode);
+  add_input_operand (false_arg, mode);
+  add_input_operand (pred_arg, pred_mode);
+  return generate_insn (icode);
+}
+
+/* Implement the call using instruction ICODE, which does the equivalent of:
+
+     OUTPUT = COND ? FN (INPUTS) : FALLBACK;
+
+   The operands are in the order above: OUTPUT, COND, INPUTS and FALLBACK.
+   Merging forms use argument MERGE_ARGNO as the fallback value.  */
 rtx
 function_expander::expand_via_pred_insn (insn_code icode,
-					 unsigned int nscalar,
-					 unsigned int merge_argno,
-					 bool pred_last_p)
+					 unsigned int merge_argno)
 {
   /* Discount the output, predicate, and fallback value.  */
   unsigned int nops = insn_data[icode].n_operands - 3;
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
 
+  unsigned int opno = 0;
+  rtx fallback_arg = get_fallback_value (mode, nops, merge_argno, opno);
+  rtx pred_arg = m_args[opno++];
+
   add_output_operand (mode);
-  if (nops == 1 && m_fi.pred == PRED_m)
-    {
-      /* For unary ops, the fallback value is provided by a separate
-	 argument that is passed before the governing predicate.  */
-      /* If the predicate should go first.  */
-      if (!pred_last_p)
-	add_input_operand (m_args[1], pred_mode);
-      /* If the only input is vector or scalar.  */
-      if (nscalar)
-	add_input_operand (m_args[2], GET_MODE_INNER (mode));
-      else
-	add_input_operand (m_args[2], mode);
-      add_input_operand (m_args[0], mode);
-      /* If the predicate should go last.  */
-      if (pred_last_p)
-	add_input_operand (m_args[1], pred_mode);
-    }
-  else
-    {
-      unsigned int i = 0;
-      /* If the predicate should go first.  */
-      if (!pred_last_p)
-	add_input_operand (m_args[0], pred_mode);
-      /* First vector inputs.  */
-      for (; i < nops - nscalar; ++i)
-	add_input_operand (m_args[i + 1], mode);
-      /* Rest are scalar.  */
-      for (; i < nops; ++i)
-	add_input_operand (m_args[i + 1], GET_MODE_INNER (mode));
-      if (m_fi.pred == PRED_z)
-	/* Use zero as the fallback value.  */
-	add_input_operand (CONST0_RTX (mode), mode);
-      else
-	/* Use the first data input as the fallback value.  */
-	add_input_operand (copy_rtx (m_ops[merge_argno + 1].value), mode);
-      /* If the predicate should go last.  */
-      if (pred_last_p)
-	add_input_operand (m_args[0], pred_mode);
-    }
+  add_input_operand (pred_arg, pred_mode);
+  for (unsigned int i = 0; i < nops; ++i)
+    add_input_operand (m_args[opno + i], mode);
+  add_input_operand (fallback_arg, mode);
   return generate_insn (icode);
 }
 
@@ -1973,7 +1979,7 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_cond, get_mode (0));
-      return expand_via_pred_insn (icode, 0, 1, false);
+      return expand_via_pred_insn (icode);
     }
 }
 
@@ -2014,7 +2020,7 @@ function_expander::expand_signed_pred_op (int unspec_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_for_fp, get_mode (0));
-      return expand_via_pred_insn (icode, 0, 1, false);
+      return expand_via_pred_insn (icode);
     }
 }
 
@@ -2041,7 +2047,7 @@ rtx
 function_expander::expand_pred_shift_right_imm (insn_code icode)
 {
   require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
-  return expand_via_pred_insn (icode, 0, 1, false);
+  return expand_via_pred_insn (icode);
 }
 
 /* Require that argument ARGNO is a constant integer in the range
@@ -2095,6 +2101,35 @@ function_expander::get_pred_mode (unsigned int i)
 {
   unsigned int elem_bytes = type_suffixes[m_fi.types[i]].elem_bytes;
   return aarch64_sve_pred_mode (elem_bytes).require ();
+}
+
+/* For a function that does the equivalent of:
+
+     OUTPUT = COND ? FN (INPUTS) : FALLBACK;
+
+   return the value of FALLBACK.
+
+   MODE is the mode of the value.  NOPS is the number of operands
+   in INPUTS.  MERGE_ARGNO is member of m_args to use for _m functions,
+   or DEFAULT_MERGE_ARGNO if we should apply the usual rules.
+
+   OPNO is the caller's index into m_args.  If the returned value is
+   argument 0 (as for unary _m operations), increment OPNO past the
+   returned argument.  */
+rtx
+function_expander::get_fallback_value (machine_mode mode, unsigned int nops,
+				       unsigned int merge_argno,
+				       unsigned int &opno)
+{
+  if (m_fi.pred == PRED_z)
+    return CONST0_RTX (mode);
+
+  if (merge_argno == DEFAULT_MERGE_ARGNO)
+    merge_argno = nops == 1 && m_fi.pred == PRED_m ? 0 : 1;
+
+  if (merge_argno == 0)
+    return m_args[opno++];
+  return m_args[merge_argno];
 }
 
 /* Add an output operand of mode MODE to the instruction, binding it
