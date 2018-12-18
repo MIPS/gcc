@@ -419,15 +419,12 @@ private:
 
   rtx expand_signed_pred_op (rtx_code, rtx_code, int);
   rtx expand_signed_pred_op (int, int, int);
-  rtx expand_via_unpred_direct_optab (optab op, unsigned int nops,
-				      unsigned int = 0);
-  rtx expand_via_unpred_insn (insn_code icode, unsigned int nops,
-			      unsigned int = 0);
-  rtx expand_via_pred_direct_optab (optab, unsigned int, unsigned int);
-  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int,
-			    unsigned int, bool);
+  rtx expand_via_unpred_direct_optab (optab, unsigned int = 0);
+  rtx expand_via_unpred_insn (insn_code, unsigned int = 0);
+  rtx expand_via_pred_direct_optab (optab, unsigned int);
+  rtx expand_via_pred_insn (insn_code, unsigned int, unsigned int, bool);
   rtx expand_via_signed_unpred_insn (rtx_code, rtx_code);
-  rtx expand_via_pred_x_insn (insn_code, unsigned int);
+  rtx expand_via_pred_x_insn (insn_code);
   rtx expand_pred_shift_right_imm (insn_code);
 
   void require_immediate_range (unsigned int, HOST_WIDE_INT, HOST_WIDE_INT);
@@ -1666,16 +1663,16 @@ function_expander::expand_add (unsigned int merge_argno)
   if (m_fi.pred == PRED_x)
     {
       if (type_suffixes[m_fi.types[0]].integer_p)
-	return expand_via_unpred_direct_optab (add_optab, 2);
+	return expand_via_unpred_direct_optab (add_optab);
       else
 	{
 	  /* Try to take advantage of unpredicated FP addition, rather than
 	     simply treating _x as _m.  */
 	  insn_code icode = code_for_aarch64_pred_add (get_mode (0));
-	  return expand_via_pred_x_insn (icode, 2);
+	  return expand_via_pred_x_insn (icode);
 	}
     }
-  return expand_via_pred_direct_optab (cond_add_optab, 2, merge_argno);
+  return expand_via_pred_direct_optab (cond_add_optab, merge_argno);
 }
 
 /* Expand a call to svasrd.  */
@@ -1691,7 +1688,7 @@ function_expander::expand_dup ()
 {
   if (m_fi.pred == PRED_none
       || m_fi.pred == PRED_x)
-    return expand_via_unpred_direct_optab (vec_duplicate_optab, 1, 1);
+    return expand_via_unpred_direct_optab (vec_duplicate_optab, 1);
   else
     {
       insn_code icode;
@@ -1699,12 +1696,12 @@ function_expander::expand_dup ()
       if (valid_for_const_vector_p (GET_MODE_INNER (mode), m_args.last ()))
 	{
 	  icode = code_for_vcond_mask (get_mode (0), get_mode (0));
-	  return expand_via_pred_insn (icode, 1, 0, 1, true);
+	  return expand_via_pred_insn (icode, 0, 1, true);
 	}
       else
 	{
 	  icode = code_for_aarch64_sel_dup (get_mode (0));
-	  return expand_via_pred_insn (icode, 1, 1, 1, true);
+	  return expand_via_pred_insn (icode, 1, 1, true);
 	}
     }
 }
@@ -1713,7 +1710,7 @@ function_expander::expand_dup ()
 rtx
 function_expander::expand_index ()
 {
-  return expand_via_unpred_direct_optab (vec_series_optab, 2, 2);
+  return expand_via_unpred_direct_optab (vec_series_optab, 2);
 }
 
 /* Expand a call to svmax.  */
@@ -1737,10 +1734,10 @@ function_expander::expand_mul ()
   if (m_fi.pred == PRED_x)
     {
       insn_code icode = code_for_aarch64_pred_mul (get_mode (0));
-      return expand_via_pred_x_insn (icode, 2);
+      return expand_via_pred_x_insn (icode);
     }
   else
-    return expand_via_pred_direct_optab (cond_smul_optab, 2, 1);
+    return expand_via_pred_direct_optab (cond_smul_optab, 1);
 }
 
 /* Expand a call to sqadd.  */
@@ -1790,38 +1787,38 @@ function_expander::expand_sub (bool reversed_p)
   if (m_fi.pred == PRED_x)
     {
       if (type_suffixes[m_fi.types[0]].integer_p)
-	return expand_via_unpred_direct_optab (sub_optab, 2);
+	return expand_via_unpred_direct_optab (sub_optab);
       else
 	{
 	  /* Try to take advantage of unpredicated FP addition, rather than
 	     simply treating _x as _m.  */
 	  insn_code icode = code_for_aarch64_pred_sub (mode);
-	  return expand_via_pred_x_insn (icode, 2);
+	  return expand_via_pred_x_insn (icode);
 	}
     }
-  return expand_via_pred_direct_optab (cond_sub_optab, 2, merge_argno);
+  return expand_via_pred_direct_optab (cond_sub_optab, merge_argno);
 }
 
 /* Implement the call using optab OP, which is an unpredicated direct
-   (i.e. single-mode) optab.  The optab takes NOPS input operands.
-   The last NSCALAR inputs are scalar, and map to scalar operands
-   in the underlying instruction.  */
+   (i.e. single-mode) optab.  The last NSCALAR inputs are scalar, and
+   map to scalar operands in the underlying instruction.  */
 rtx
-function_expander::expand_via_unpred_direct_optab (optab op, unsigned int nops,
+function_expander::expand_via_unpred_direct_optab (optab op,
 						   unsigned int nscalar)
 {
   machine_mode mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
-  return expand_via_unpred_insn (icode, nops, nscalar);
+  return expand_via_unpred_insn (icode, nscalar);
 }
 
-/* Implement the call using instruction ICODE.  The instruction takes
-   NOPS input operands.  The last NSCALAR inputs are scalar, and map
-   to scalar operands in the underlying instruction.  */
+/* Implement the call using instruction ICODE.  The last NSCALAR inputs
+   are scalar, and map to scalar operands in the underlying instruction.  */
 rtx
-function_expander::expand_via_unpred_insn (insn_code icode, unsigned int nops,
+function_expander::expand_via_unpred_insn (insn_code icode,
 					   unsigned int nscalar)
 {
+  /* Discount the output operand.  */
+  unsigned int nops = insn_data[icode].n_operands - 1;
   /* Drop the predicate argument in the case of _x predication.  */
   unsigned int bias = (m_fi.pred == PRED_x ? 1 : 0);
   machine_mode mode = get_mode (0);
@@ -1838,32 +1835,30 @@ function_expander::expand_via_unpred_insn (insn_code icode, unsigned int nops,
 }
 
 /* Implement the call using optab OP, which is a predicated direct
-   (i.e. single-mode) optab.  The operation performed by OP takes NOPS
-   input operands (not counting the predicate and the fallback value).
-   The last NSCALAR inputs are scalar, and map to scalar operands
-   in the underlying instruction.  Merging forms use argument MERGE_ARGNO
+   (i.e. single-mode) optab.  Merging forms of OP use argument MERGE_ARGNO
    as the fallback value.  */
 rtx
-function_expander::expand_via_pred_direct_optab (optab op, unsigned int nops,
+function_expander::expand_via_pred_direct_optab (optab op,
 						 unsigned int merge_argno)
 {
   machine_mode mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
-  return expand_via_pred_insn (icode, nops, 0, merge_argno, false);
+  return expand_via_pred_insn (icode, 0, merge_argno, false);
 }
 
 /* Implement the call using instruction ICODE.  The instruction takes
-   NOPS input operand (not counting the predicate and the fallback value).
    The last NSCALAR inputs are scalar, and map to scalar operands
    in the underlying instruction.  Merging forms use argument MERGE_ARGNO
    as the fallback value.  If PRED_LAST_P is true, predicated register is
    at the end.  */
 rtx
-function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
+function_expander::expand_via_pred_insn (insn_code icode,
 					 unsigned int nscalar,
 					 unsigned int merge_argno,
 					 bool pred_last_p)
 {
+  /* Discount the output, predicate, and fallback value.  */
+  unsigned int nops = insn_data[icode].n_operands - 3;
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
 
@@ -1911,11 +1906,11 @@ function_expander::expand_via_pred_insn (insn_code icode, unsigned int nops,
 }
 
 /* Implement the call using instruction ICODE, which is a predicated
-   operation that returns arbitrary values for inactive lanes.  NOPS is
-   the number of inputs operands, not counting the governing predicate.  */
+   operation that returns arbitrary values for inactive lanes.  */
 rtx
-function_expander::expand_via_pred_x_insn (insn_code icode, unsigned int nops)
+function_expander::expand_via_pred_x_insn (insn_code icode)
 {
+  unsigned int nops = m_args.length () - 1;
   machine_mode mode = get_mode (0);
   machine_mode pred_mode = get_pred_mode (0);
 
@@ -1965,7 +1960,7 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	}
       else
 	icode = code_for_aarch64_pred (unspec_cond, get_mode (0));
-      return expand_via_pred_x_insn (icode, 2);
+      return expand_via_pred_x_insn (icode);
     }
   else
     {
@@ -1978,7 +1973,7 @@ function_expander::expand_signed_pred_op (rtx_code code_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_cond, get_mode (0));
-      return expand_via_pred_insn (icode, 2, 0, 1, false);
+      return expand_via_pred_insn (icode, 0, 1, false);
     }
 }
 
@@ -2006,7 +2001,7 @@ function_expander::expand_signed_pred_op (int unspec_for_sint,
 	}
       else
 	icode = code_for_aarch64_pred (unspec_for_fp, get_mode (0));
-      return expand_via_pred_x_insn (icode, 2);
+      return expand_via_pred_x_insn (icode);
     }
   else
     {
@@ -2019,7 +2014,7 @@ function_expander::expand_signed_pred_op (int unspec_for_sint,
 	}
       else
 	icode = code_for_cond (unspec_for_fp, get_mode (0));
-      return expand_via_pred_insn (icode, 2, 0, 1, false);
+      return expand_via_pred_insn (icode, 0, 1, false);
     }
 }
 
@@ -2036,7 +2031,7 @@ function_expander::expand_via_signed_unpred_insn (rtx_code code_for_sint,
     icode = code_for_aarch64 (code_for_uint, code_for_uint, get_mode (0));
   else
     icode = code_for_aarch64 (code_for_sint, code_for_sint, get_mode (0));
-  return expand_via_unpred_insn (icode, 2);
+  return expand_via_unpred_insn (icode);
 }
 
 /* Expand a call to a SHAPE_shift_right_imm function using predicated
@@ -2046,7 +2041,7 @@ rtx
 function_expander::expand_pred_shift_right_imm (insn_code icode)
 {
   require_immediate_range (2, 1, GET_MODE_UNIT_BITSIZE (get_mode (0)));
-  return expand_via_pred_insn (icode, 2, 0, 1, false);
+  return expand_via_pred_insn (icode, 0, 1, false);
 }
 
 /* Require that argument ARGNO is a constant integer in the range
