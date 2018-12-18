@@ -2833,9 +2833,6 @@ improve_allocation (void)
       if (empty_profitable_hard_regs (a))
 	continue;
 
-      if (adjust_reg_costs_flag)
-	targetm.adjust_reg_costs ((void*)a, 2);
-
       check++;
       aclass = ALLOCNO_CLASS (a);
       allocno_costs = ALLOCNO_HARD_REG_COSTS (a);

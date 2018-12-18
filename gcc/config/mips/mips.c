@@ -30173,8 +30173,10 @@ typedef struct recolor_insn_data
 static int recolor_coeffs[INSN_CATEGORIES_NUM] = {0, -3, -3, -3, -3, -3};
 
 /* Data used in cost adjust process.  */
-static_recolor_allocno_data_t static_recolor_allocnos_data[1000];
-struct recolor_allocno_data recolor_allocnos_data[1000];
+#define MAX_RECOLOR_ALLOCNO_NUM 15000
+static_recolor_allocno_data_t
+  static_recolor_allocnos_data[MAX_RECOLOR_ALLOCNO_NUM];
+struct recolor_allocno_data recolor_allocnos_data[MAX_RECOLOR_ALLOCNO_NUM];
 
 /* Registers subsets used by 16-bit instructions.  */
 
@@ -30222,7 +30224,7 @@ mips_adjust_costs_init (void)
 {
   memset (recolor_allocnos_data, 0, sizeof (struct recolor_allocno_data)
 				      * ira_allocnos_num);
-  for (int i=0; i<1000; i++)
+  for (int i=0; i<MAX_RECOLOR_ALLOCNO_NUM; i++)
     static_recolor_allocnos_data[i].insns.clear ();
 }
 
@@ -30464,8 +30466,6 @@ mips_collect_recolor_data (bool &s_regs_used)
   basic_block bb;
   rtx_insn *insn;
   int i, j;
-
-  s_regs_used = false;
 
   FOR_EACH_BB_FN (bb, cfun)
     for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
@@ -30799,7 +30799,6 @@ ira_allocno_t
 get_first_allocno_from_thread (ira_allocno_t a);
 
 /* Threshold for recoloring if not all related allocnos can be recolored.  */
-#define MAX_RECOLOR_ALLOCNO_NUM 1000
 #define SMALL_REGNO_THRESHOLD 16
 
 /* Entry function for post ira recoloring.  */
@@ -30829,25 +30828,8 @@ mips_adjust_costs (void *p, int func)
 
   if (func == 1)
     {
-      mips_update_recolor_data (allocno, s_regs_used);
-      return;
-    }
-
-  if (func == 2)
-    {
       s_regs_used = recolor_allocnos_data[allocno_num].s_regs_used;
-      val = -recolor_allocnos_data[allocno_num].mod_val;
-
-      int *c_vals = recolor_allocnos_data[allocno_num].conflict_vals;
-
-      if (recolor_allocnos_data[allocno_num].used_crating
-	  <= recolor_allocnos_data[allocno_num].used_rating)
-	mips_adjust_register_costs (allocno, val, s_regs_used, true, c_vals,
-				    recolor_allocnos_data[allocno_num]
-				      .used_crating);
-
-      current_loop_tree_node = NULL;
-
+      mips_update_recolor_data (allocno, s_regs_used);
       return;
     }
 
