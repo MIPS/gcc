@@ -4684,7 +4684,7 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 		  argpos = 1;
 		  break;
 		case BUILT_IN_GOACC_PARALLEL:
-		  /* __builtin_GOACC_parallel (device, fn, mapnum, hostaddrs,
+		  /* __builtin_GOACC_parallel (flags_m, fn, mapnum, hostaddrs,
 					       sizes, kinds, ...).  */
 		  fnpos = 2;
 		  argpos = 4;
@@ -5263,7 +5263,7 @@ find_func_clobbers (struct function *fn, gimple *origt)
 		  argpos = 1;
 		  break;
 		case BUILT_IN_GOACC_PARALLEL:
-		  /* __builtin_GOACC_parallel (device, fn, mapnum, hostaddrs,
+		  /* __builtin_GOACC_parallel (flags_m, fn, mapnum, hostaddrs,
 					       sizes, kinds, ...).  */
 		  fnpos = 2;
 		  argpos = 4;

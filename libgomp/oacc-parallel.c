@@ -41,6 +41,16 @@
 #include <stdarg.h>
 #include <assert.h>
 
+
+/* In the ABI, the GOACC_FLAGs are encoded as an inverted bitmask, so that we
+   continue to support the following two legacy values.  */
+_Static_assert (GOACC_FLAGS_UNMARSHAL (GOMP_DEVICE_ICV) == 0,
+		"legacy GOMP_DEVICE_ICV broken");
+_Static_assert (GOACC_FLAGS_UNMARSHAL (GOMP_DEVICE_HOST_FALLBACK)
+		== GOACC_FLAG_HOST_FALLBACK,
+		"legacy GOMP_DEVICE_HOST_FALLBACK broken");
+
+
 /* Returns the number of mappings associated with the pointer or pset. PSET
    have three mappings, whereas pointer have two.  */
 
@@ -159,17 +169,18 @@ goacc_call_host_fn (void (*fn) (void *), size_t mapnum, void **hostaddrs,
   fn (hostaddrs);
 }
 
-/* Launch a possibly offloaded function on DEVICE.  FN is the host fn
+/* Launch a possibly offloaded function with FLAGS.  FN is the host fn
    address.  MAPNUM, HOSTADDRS, SIZES & KINDS  describe the memory
    blocks to be copied to/from the device.  Varadic arguments are
    keyed optional parameters terminated with a zero.  */
 
 static void
-GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
+GOACC_parallel_keyed_internal (int flags_m, int params, void (*fn) (void *),
 			       size_t mapnum, void **hostaddrs, size_t *sizes,
 			       unsigned short *kinds, va_list *ap)
 {
-  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
+  int flags = GOACC_FLAGS_UNMARSHAL (flags_m);
+
   struct goacc_thread *thr;
   struct gomp_device_descr *acc_dev;
   struct target_mem_desc *tgt;
@@ -252,7 +263,7 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
-  if (host_fallback)
+  if (flags & GOACC_FLAG_HOST_FALLBACK)
     {
       //TODO
       prof_info.device_type = acc_device_host;
@@ -448,25 +459,25 @@ GOACC_parallel_keyed_internal (int device, int params, void (*fn) (void *),
 }
 
 void
-GOACC_parallel_keyed (int device, void (*fn) (void *),
+GOACC_parallel_keyed (int flags_m, void (*fn) (void *),
 		      size_t mapnum, void **hostaddrs, size_t *sizes,
 		      unsigned short *kinds, ...)
 {
   va_list ap;
   va_start (ap, kinds);
-  GOACC_parallel_keyed_internal (device, 0, fn, mapnum, hostaddrs, sizes,
+  GOACC_parallel_keyed_internal (flags_m, 0, fn, mapnum, hostaddrs, sizes,
 				 kinds, &ap);
   va_end (ap);
 }
 
 void
-GOACC_parallel_keyed_v2 (int device, int args, void (*fn) (void *),
+GOACC_parallel_keyed_v2 (int flags_m, int args, void (*fn) (void *),
 			 size_t mapnum, void **hostaddrs, size_t *sizes,
 			 unsigned short *kinds, ...)
 {
   va_list ap;
   va_start (ap, kinds);
-  GOACC_parallel_keyed_internal (device, args, fn, mapnum, hostaddrs, sizes,
+  GOACC_parallel_keyed_internal (flags_m, args, fn, mapnum, hostaddrs, sizes,
 				 kinds, &ap);
   va_end (ap);
 }
@@ -474,7 +485,7 @@ GOACC_parallel_keyed_v2 (int device, int args, void (*fn) (void *),
 /* Legacy entry point, only provide host execution.  */
 
 void
-GOACC_parallel (int device, void (*fn) (void *),
+GOACC_parallel (int flags_m, void (*fn) (void *),
 		size_t mapnum, void **hostaddrs, size_t *sizes,
 		unsigned short *kinds,
 		int num_gangs, int num_workers, int vector_length,
@@ -486,10 +497,11 @@ GOACC_parallel (int device, void (*fn) (void *),
 }
 
 void
-GOACC_data_start (int device, size_t mapnum,
+GOACC_data_start (int flags_m, size_t mapnum,
 		  void **hostaddrs, size_t *sizes, unsigned short *kinds)
 {
-  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
+  int flags = GOACC_FLAGS_UNMARSHAL (flags_m);
+
   struct target_mem_desc *tgt;
 
 #ifdef HAVE_INTTYPES_H
@@ -575,7 +587,7 @@ GOACC_data_start (int device, size_t mapnum,
 
   /* Host fallback or 'do nothing'.  */
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-      || host_fallback)
+      || (flags & GOACC_FLAG_HOST_FALLBACK))
     {
       //TODO
       prof_info.device_type = acc_device_host;
@@ -694,13 +706,14 @@ GOACC_data_end (void)
 }
 
 void
-GOACC_enter_exit_data (int device, size_t mapnum,
+GOACC_enter_exit_data (int flags_m, size_t mapnum,
 		       void **hostaddrs, size_t *sizes, unsigned short *kinds,
 		       int async, int num_waits, ...)
 {
+  int flags = GOACC_FLAGS_UNMARSHAL (flags_m);
+
   struct goacc_thread *thr;
   struct gomp_device_descr *acc_dev;
-  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   bool data_enter = false;
   size_t i;
 
@@ -815,7 +828,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 			      &api_info);
 
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-      || host_fallback)
+      || (flags & GOACC_FLAG_HOST_FALLBACK))
     {
       //TODO
       prof_info.device_type = acc_device_host;
@@ -1098,11 +1111,12 @@ goacc_wait (int async, int num_waits, va_list *ap)
 }
 
 void
-GOACC_update (int device, size_t mapnum,
+GOACC_update (int flags_m, size_t mapnum,
 	      void **hostaddrs, size_t *sizes, unsigned short *kinds,
 	      int async, int num_waits, ...)
 {
-  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
+  int flags = GOACC_FLAGS_UNMARSHAL (flags_m);
+
   size_t i;
 
   goacc_lazy_initialize ();
@@ -1163,7 +1177,7 @@ GOACC_update (int device, size_t mapnum,
     goacc_profiling_dispatch (&prof_info, &update_event_info, &api_info);
 
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-      || host_fallback)
+      || (flags & GOACC_FLAG_HOST_FALLBACK))
     {
       //TODO
       prof_info.device_type = acc_device_host;
@@ -1309,7 +1323,7 @@ GOACC_get_thread_num (void)
 }
 
 void
-GOACC_declare (int device, size_t mapnum,
+GOACC_declare (int flags_m, size_t mapnum,
 	       void **hostaddrs, size_t *sizes, unsigned short *kinds)
 {
   int i;
@@ -1329,7 +1343,7 @@ GOACC_declare (int device, size_t mapnum,
 	  case GOMP_MAP_POINTER:
 	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
-	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
+	    GOACC_enter_exit_data (flags_m, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0);
 	    break;
 
@@ -1338,18 +1352,18 @@ GOACC_declare (int device, size_t mapnum,
 
 	  case GOMP_MAP_ALLOC:
 	    if (!acc_is_present (hostaddrs[i], sizes[i]))
-	      GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
+	      GOACC_enter_exit_data (flags_m, 1, &hostaddrs[i], &sizes[i],
 				     &kinds[i], 0, 0);
 	    break;
 
 	  case GOMP_MAP_TO:
-	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
+	    GOACC_enter_exit_data (flags_m, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0);
 
 	    break;
 
 	  case GOMP_MAP_FROM:
-	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
+	    GOACC_enter_exit_data (flags_m, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0);
 	    break;
 
