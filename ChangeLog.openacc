@@ -1,3 +1,7 @@
+2018-12-19  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* Makefile.in: Regenerate.
+
 2018-01-25  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* Makefile.def: Bootstrap module libffi. Add libffi dependency

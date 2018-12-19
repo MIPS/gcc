@@ -49776,6 +49776,51 @@ configure-stageprofile-target-libffi:
 	  $(STAGEprofile_CONFIGURE_FLAGS)
 @endif target-libffi-bootstrap
 
+.PHONY: configure-stagetrain-target-libffi maybe-configure-stagetrain-target-libffi
+maybe-configure-stagetrain-target-libffi:
+@if target-libffi-bootstrap
+maybe-configure-stagetrain-target-libffi: configure-stagetrain-target-libffi
+configure-stagetrain-target-libffi:
+	@[ $(current_stage) = stagetrain ] || $(MAKE) stagetrain-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libffi
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEtrain_TFLAGS)"; \
+	echo "Checking multilib configuration for libffi..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libffi/multilib.tmp 2> /dev/null; \
+	if test -r $(TARGET_SUBDIR)/libffi/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libffi/multilib.tmp $(TARGET_SUBDIR)/libffi/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libffi/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libffi/Makefile; \
+	    mv $(TARGET_SUBDIR)/libffi/multilib.tmp $(TARGET_SUBDIR)/libffi/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libffi/multilib.tmp $(TARGET_SUBDIR)/libffi/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libffi/Makefile || exit 0; \
+	$(NORMAL_TARGET_EXPORTS) \
+	 \
+	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
+	LIBCFLAGS="$(LIBCFLAGS_FOR_TARGET)"; export LIBCFLAGS;  \
+	echo Configuring stage train in $(TARGET_SUBDIR)/libffi; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libffi; \
+	cd $(TARGET_SUBDIR)/libffi || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libffi/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	module_srcdir=libffi; \
+	$(SHELL) $$s/$$module_srcdir/configure \
+	  --srcdir=$${topdir}/$$module_srcdir \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGEtrain_CONFIGURE_FLAGS)
+@endif target-libffi-bootstrap
+
 .PHONY: configure-stagefeedback-target-libffi maybe-configure-stagefeedback-target-libffi
 maybe-configure-stagefeedback-target-libffi:
 @if target-libffi-bootstrap
@@ -50139,6 +50184,48 @@ clean-stageprofile-target-libffi:
 	else \
 	  [ -f $(TARGET_SUBDIR)/stageprofile-libffi/Makefile ] || exit 0; \
 	  $(MAKE) stageprofile-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libffi && \
+	$(MAKE) $(EXTRA_TARGET_FLAGS)   clean
+@endif target-libffi-bootstrap
+
+
+.PHONY: all-stagetrain-target-libffi maybe-all-stagetrain-target-libffi
+.PHONY: clean-stagetrain-target-libffi maybe-clean-stagetrain-target-libffi
+maybe-all-stagetrain-target-libffi:
+maybe-clean-stagetrain-target-libffi:
+@if target-libffi-bootstrap
+maybe-all-stagetrain-target-libffi: all-stagetrain-target-libffi
+all-stagetrain: all-stagetrain-target-libffi
+TARGET-stagetrain-target-libffi = $(TARGET-target-libffi)
+all-stagetrain-target-libffi: configure-stagetrain-target-libffi
+	@[ $(current_stage) = stagetrain ] || $(MAKE) stagetrain-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEtrain_TFLAGS)"; \
+	$(NORMAL_TARGET_EXPORTS) \
+	  \
+	cd $(TARGET_SUBDIR)/libffi && \
+	 \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS="$(LIBCFLAGS_FOR_TARGET)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_TARGET_FLAGS)   \
+		TFLAGS="$(STAGEtrain_TFLAGS)"  \
+		$(TARGET-stagetrain-target-libffi)
+
+maybe-clean-stagetrain-target-libffi: clean-stagetrain-target-libffi
+clean-stagetrain: clean-stagetrain-target-libffi
+clean-stagetrain-target-libffi:
+	@if [ $(current_stage) = stagetrain ]; then \
+	  [ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stagetrain-libffi/Makefile ] || exit 0; \
+	  $(MAKE) stagetrain-start; \
 	fi; \
 	cd $(TARGET_SUBDIR)/libffi && \
 	$(MAKE) $(EXTRA_TARGET_FLAGS)   clean
@@ -57491,6 +57578,7 @@ configure-stage2-target-libffi: maybe-all-stage2-gcc
 configure-stage3-target-libffi: maybe-all-stage3-gcc
 configure-stage4-target-libffi: maybe-all-stage4-gcc
 configure-stageprofile-target-libffi: maybe-all-stageprofile-gcc
+configure-stagetrain-target-libffi: maybe-all-stagetrain-gcc
 configure-stagefeedback-target-libffi: maybe-all-stagefeedback-gcc
 configure-stageautoprofile-target-libffi: maybe-all-stageautoprofile-gcc
 configure-stageautofeedback-target-libffi: maybe-all-stageautofeedback-gcc
@@ -58648,6 +58736,7 @@ all-stage2-target-libgomp: maybe-all-stage2-target-libffi
 all-stage3-target-libgomp: maybe-all-stage3-target-libffi
 all-stage4-target-libgomp: maybe-all-stage4-target-libffi
 all-stageprofile-target-libgomp: maybe-all-stageprofile-target-libffi
+all-stagetrain-target-libgomp: maybe-all-stagetrain-target-libffi
 all-stagefeedback-target-libgomp: maybe-all-stagefeedback-target-libffi
 all-stageautoprofile-target-libgomp: maybe-all-stageautoprofile-target-libffi
 all-stageautofeedback-target-libgomp: maybe-all-stageautofeedback-target-libffi
@@ -58658,6 +58747,7 @@ configure-stage2-target-libgomp: maybe-configure-stage2-target-libffi
 configure-stage3-target-libgomp: maybe-configure-stage3-target-libffi
 configure-stage4-target-libgomp: maybe-configure-stage4-target-libffi
 configure-stageprofile-target-libgomp: maybe-configure-stageprofile-target-libffi
+configure-stagetrain-target-libgomp: maybe-configure-stagetrain-target-libffi
 configure-stagefeedback-target-libgomp: maybe-configure-stagefeedback-target-libffi
 configure-stageautoprofile-target-libgomp: maybe-configure-stageautoprofile-target-libffi
 configure-stageautofeedback-target-libgomp: maybe-configure-stageautofeedback-target-libffi
@@ -58775,6 +58865,7 @@ configure-stage2-target-libffi: maybe-all-stage2-target-libgcc
 configure-stage3-target-libffi: maybe-all-stage3-target-libgcc
 configure-stage4-target-libffi: maybe-all-stage4-target-libgcc
 configure-stageprofile-target-libffi: maybe-all-stageprofile-target-libgcc
+configure-stagetrain-target-libffi: maybe-all-stagetrain-target-libgcc
 configure-stagefeedback-target-libffi: maybe-all-stagefeedback-target-libgcc
 configure-stageautoprofile-target-libffi: maybe-all-stageautoprofile-target-libgcc
 configure-stageautofeedback-target-libffi: maybe-all-stageautofeedback-target-libgcc
