@@ -818,6 +818,7 @@ enum omp_mask2
   OMP_CLAUSE_COPY,
   OMP_CLAUSE_COPYOUT,
   OMP_CLAUSE_CREATE,
+  OMP_CLAUSE_NO_CREATE,
   OMP_CLAUSE_PRESENT,
   OMP_CLAUSE_DEVICEPTR,
   OMP_CLAUSE_GANG,
@@ -1559,6 +1560,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	    }
 	  break;
 	case 'n':
+	  if ((mask & OMP_CLAUSE_NO_CREATE)
+	      && gfc_match ("no_create ( ") == MATCH_YES
+	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+					   OMP_MAP_NO_ALLOC, true,
+					   allow_derived))
+	    continue;
 	  if ((mask & OMP_CLAUSE_NOGROUP)
 	      && !c->nogroup
 	      && gfc_match ("nogroup") == MATCH_YES)
@@ -2070,7 +2077,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_IF							\
    | OMP_CLAUSE_REDUCTION						\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_NO_CREATE | OMP_CLAUSE_PRESENT	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE			\
    | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_ATTACH)
@@ -2081,7 +2088,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_DEVICE_TYPE						\
    | OMP_CLAUSE_IF							\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_NO_CREATE | OMP_CLAUSE_PRESENT	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_ATTACH)
 #define OACC_SERIAL_CLAUSES \
@@ -2090,14 +2097,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_IF							\
    | OMP_CLAUSE_REDUCTION						\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_NO_CREATE | OMP_CLAUSE_PRESENT	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE			\
    | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_ATTACH)
 #define OACC_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF)						\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_NO_CREATE | OMP_CLAUSE_PRESENT	\
    | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_ATTACH)
 #define OACC_HOST_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_USE_DEVICE))

@@ -2348,6 +2348,9 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		case OMP_MAP_ALLOC:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_ALLOC);
 		  break;
+		case OMP_MAP_NO_ALLOC:
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_NO_ALLOC);
+		  break;
 		case OMP_MAP_ATTACH:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_ATTACH);
 		  break;
