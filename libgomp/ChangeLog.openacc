@@ -1,5 +1,9 @@
 2018-12-20  Maciej W. Rozycki  <macro@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/serial-dims.c: New test.
+
+2018-12-20  Maciej W. Rozycki  <macro@codesourcery.com>
+
 	* libgomp.h (gomp_device_descr): Add `get_property_func' member.
 	* libgomp-plugin.h (gomp_device_property_value): New union.
 	(gomp_device_property_value): New prototype.

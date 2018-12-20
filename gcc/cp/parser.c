@@ -37255,6 +37255,10 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 
    # pragma acc parallel oacc-parallel-clause[optseq] new-line
      structured-block
+
+   OpenACC 2.6:
+
+   # pragma acc serial oacc-serial-clause[optseq] new-line
 */
 
 #define OACC_KERNELS_CLAUSE_MASK					\
@@ -37308,6 +37312,27 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_VECTOR_LENGTH)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
 
+#define OACC_SERIAL_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_ASYNC)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_ATTACH)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPY)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYIN)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYOUT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_CREATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEFAULT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICE_TYPE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRIVATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_FIRSTPRIVATE)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_REDUCTION)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
+
+#define OACC_SERIAL_CLAUSE_DEVICE_TYPE_MASK				\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_ASYNC)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
+
 tree
 mark_vars_oacc_gangprivate (tree *tp,
 			    int *walk_subtrees ATTRIBUTE_UNUSED,
@@ -37337,8 +37362,8 @@ mark_vars_oacc_gangprivate (tree *tp,
 }
 
 static tree
-cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
-				 char *p_name, bool *if_p)
+cp_parser_oacc_compute (cp_parser *parser, cp_token *pragma_tok,
+			char *p_name, bool *if_p)
 {
   omp_clause_mask mask, dmask;
   enum tree_code code;
@@ -37355,6 +37380,12 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
       mask = OACC_PARALLEL_CLAUSE_MASK;
       dmask = OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK;
       code = OACC_PARALLEL;
+      break;
+    case PRAGMA_OACC_SERIAL:
+      strcat (p_name, " serial");
+      mask = OACC_SERIAL_CLAUSE_MASK;
+      dmask = OACC_SERIAL_CLAUSE_DEVICE_TYPE_MASK;
+      code = OACC_SERIAL;
       break;
     default:
       gcc_unreachable ();
@@ -38550,9 +38581,9 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok, bool *if_p)
       break;
     case PRAGMA_OACC_KERNELS:
     case PRAGMA_OACC_PARALLEL:
+    case PRAGMA_OACC_SERIAL:
       strcpy (p_name, "#pragma acc");
-      stmt = cp_parser_oacc_kernels_parallel (parser, pragma_tok, p_name,
-					      if_p);
+      stmt = cp_parser_oacc_compute (parser, pragma_tok, p_name, if_p);
       break;
     case PRAGMA_OACC_LOOP:
       strcpy (p_name, "#pragma acc");
@@ -39187,8 +39218,9 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
     case PRAGMA_OACC_DATA:
     case PRAGMA_OACC_HOST_DATA:
     case PRAGMA_OACC_KERNELS:
-    case PRAGMA_OACC_PARALLEL:
     case PRAGMA_OACC_LOOP:
+    case PRAGMA_OACC_PARALLEL:
+    case PRAGMA_OACC_SERIAL:
     case PRAGMA_OMP_ATOMIC:
     case PRAGMA_OMP_CRITICAL:
     case PRAGMA_OMP_DISTRIBUTE:

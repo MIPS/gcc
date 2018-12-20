@@ -1538,6 +1538,8 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL: name = "PARALLEL"; is_oacc = true; break;
     case EXEC_OACC_KERNELS_LOOP: name = "KERNELS LOOP"; is_oacc = true; break;
     case EXEC_OACC_KERNELS: name = "KERNELS"; is_oacc = true; break;
+    case EXEC_OACC_SERIAL_LOOP: name = "SERIAL LOOP"; is_oacc = true; break;
+    case EXEC_OACC_SERIAL: name = "SERIAL"; is_oacc = true; break;
     case EXEC_OACC_DATA: name = "DATA"; is_oacc = true; break;
     case EXEC_OACC_HOST_DATA: name = "HOST_DATA"; is_oacc = true; break;
     case EXEC_OACC_LOOP: name = "LOOP"; is_oacc = true; break;
@@ -1613,6 +1615,8 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL_LOOP:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
     case EXEC_OACC_LOOP:
@@ -2798,6 +2802,8 @@ show_code_node (int level, gfc_code *c)
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS_LOOP:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL_LOOP:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
     case EXEC_OACC_LOOP:

@@ -183,6 +183,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 9,
     GF_OMP_TARGET_KIND_OACC_DECLARE = 10,
     GF_OMP_TARGET_KIND_OACC_HOST_DATA = 11,
+    GF_OMP_TARGET_KIND_OACC_SERIAL = 12,
     GF_OMP_TEAMS_GRID_PHONY	= 1 << 0,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
@@ -6299,6 +6300,7 @@ is_gimple_omp_oacc (const gimple *stmt)
 	{
 	case GF_OMP_TARGET_KIND_OACC_PARALLEL:
 	case GF_OMP_TARGET_KIND_OACC_KERNELS:
+	case GF_OMP_TARGET_KIND_OACC_SERIAL:
 	case GF_OMP_TARGET_KIND_OACC_DATA:
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
@@ -6328,6 +6330,7 @@ is_gimple_omp_offloaded (const gimple *stmt)
 	case GF_OMP_TARGET_KIND_REGION:
 	case GF_OMP_TARGET_KIND_OACC_PARALLEL:
 	case GF_OMP_TARGET_KIND_OACC_KERNELS:
+	case GF_OMP_TARGET_KIND_OACC_SERIAL:
 	  return true;
 	default:
 	  return false;

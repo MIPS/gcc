@@ -147,11 +147,12 @@ enum omp_region_type
   ORT_ACC_DATA	= ORT_ACC | ORT_TARGET_DATA, /* Data construct.  */
   ORT_ACC_PARALLEL = ORT_ACC | ORT_TARGET,  /* Parallel construct */
   ORT_ACC_KERNELS  = ORT_ACC | ORT_TARGET | 0x80,  /* Kernels construct.  */
+  ORT_ACC_SERIAL = ORT_ACC | ORT_TARGET | 0x100,  /* Serial construct.  */
   ORT_ACC_HOST_DATA = ORT_ACC | ORT_TARGET_DATA | 0x80,  /* Host data.  */
 
   /* Dummy OpenMP region, used to disable expansion of
      DECL_VALUE_EXPRs in taskloop pre body.  */
-  ORT_NONE	= 0x100
+  ORT_NONE	= 0x200
 };
 
 /* Gimplify hashtable helper.  */
@@ -5450,6 +5451,7 @@ is_gimple_stmt (tree t)
     case STATEMENT_LIST:
     case OACC_PARALLEL:
     case OACC_KERNELS:
+    case OACC_SERIAL:
     case OACC_DATA:
     case OACC_HOST_DATA:
     case OACC_DECLARE:
@@ -6947,7 +6949,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	map_private = oacc_privatize_reduction (ctx->outer_context);
 
       if (ctx->outer_context
-	  && ctx->outer_context->region_type == ORT_ACC_PARALLEL)
+	  && (ctx->outer_context->region_type == ORT_ACC_PARALLEL
+	      || ctx->outer_context->region_type == ORT_ACC_SERIAL))
 	update_data_map = true;
 
       while (outer_ctx)
@@ -6967,7 +6970,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 			      && (n->value & GOVD_MAP));
 		}
 	      else if (update_data_map
-		       && outer_ctx->region_type == ORT_ACC_PARALLEL)
+		       && (outer_ctx->region_type == ORT_ACC_PARALLEL
+			   || outer_ctx->region_type == ORT_ACC_SERIAL))
 		{
 		  /* Remove firstprivate and make it a copy map.  */
 		  n->value &= ~GOVD_FIRSTPRIVATE;
@@ -6980,7 +6984,8 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 		}
 	    }
 	  else if (update_data_map
-		   && outer_ctx->region_type == ORT_ACC_PARALLEL)
+		   && (outer_ctx->region_type == ORT_ACC_PARALLEL
+		       || outer_ctx->region_type == ORT_ACC_SERIAL))
 	    {
 	      unsigned f = GOVD_MAP | GOVD_SEEN;
 
@@ -7208,7 +7213,8 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       break;
 
     case ORT_ACC_PARALLEL:
-      rkind = "parallel";
+    case ORT_ACC_SERIAL:
+      rkind = ctx->region_type == ORT_ACC_PARALLEL ? "parallel" : "serial";
 
       if (TREE_CODE (type) == REFERENCE_TYPE
 	  && TREE_CODE (TREE_TYPE (type)) == POINTER_TYPE)
@@ -7828,6 +7834,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
       case OACC_HOST_DATA:
 	//case OACC_PARALLEL:
 	//case OACC_KERNELS:
+	//case OACC_SERIAL:
 	ctx->target_firstprivatize_array_bases = true;
       default:
 	break;
@@ -8985,7 +8992,8 @@ gomp_needs_data_present (tree decl)
     return NULL_TREE;
 
   if (gimplify_omp_ctxp->region_type != ORT_ACC_PARALLEL
-      && gimplify_omp_ctxp->region_type != ORT_ACC_KERNELS)
+      && gimplify_omp_ctxp->region_type != ORT_ACC_KERNELS
+      && gimplify_omp_ctxp->region_type != ORT_ACC_SERIAL)
     return NULL_TREE;
 
   for (ctx = gimplify_omp_ctxp->outer_context; !found_match && ctx;
@@ -9442,7 +9450,8 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	  /* Data clauses associated with acc parallel reductions must be
 	     compatible with present_or_copy.  Warn and adjust the clause
 	     if that is not the case.  */
-	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	  if (ctx->region_type == ORT_ACC_PARALLEL
+	      || ctx->region_type == ORT_ACC_SERIAL)
 	    {
 	      tree t = DECL_P (decl) ? decl : TREE_OPERAND (decl, 0);
 	      n = NULL;
@@ -9601,7 +9610,8 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	  decl = OMP_CLAUSE_DECL (c);
 	  /* OpenACC reductions need a present_or_copy data clause.
 	     Add one if necessary.  Emit error when the reduction is private.  */
-	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	  if (ctx->region_type == ORT_ACC_PARALLEL
+	      || ctx->region_type == ORT_ACC_SERIAL)
 	    {
 	      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	      if (n->value & (GOVD_PRIVATE | GOVD_FIRSTPRIVATE))
@@ -11041,6 +11051,9 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     case OACC_PARALLEL:
       ort = ORT_ACC_PARALLEL;
       break;
+    case OACC_SERIAL:
+      ort = ORT_ACC_SERIAL;
+      break;
     case OACC_DATA:
       ort = ORT_ACC_DATA;
       break;
@@ -11113,6 +11126,10 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       break;
     case OACC_PARALLEL:
       stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_PARALLEL,
+				      OMP_CLAUSES (expr));
+      break;
+    case OACC_SERIAL:
+      stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_SERIAL,
 				      OMP_CLAUSES (expr));
       break;
     case OMP_SECTIONS:
@@ -12316,6 +12333,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_DATA:
 	case OACC_KERNELS:
 	case OACC_PARALLEL:
+	case OACC_SERIAL:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
 	case OMP_TARGET:
@@ -12708,6 +12726,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != TRY_FINALLY_EXPR
 		  && code != OACC_PARALLEL
 		  && code != OACC_KERNELS
+		  && code != OACC_SERIAL
 		  && code != OACC_DATA
 		  && code != OACC_HOST_DATA
 		  && code != OACC_DECLARE

@@ -3305,7 +3305,7 @@ gfc_init_nodesc_arrays (stmtblock_t *inner, tree *clauses, gfc_code *code,
 }
 
 /* Trans OpenACC directives. */
-/* parallel, kernels, data and host_data. */
+/* parallel, serial, kernels, data and host_data. */
 static tree
 gfc_trans_oacc_construct (gfc_code *code)
 {
@@ -3323,6 +3323,10 @@ gfc_trans_oacc_construct (gfc_code *code)
 	break;
       case EXEC_OACC_KERNELS:
 	construct_code = OACC_KERNELS;
+	scan_nodesc_arrays = true;
+	break;
+      case EXEC_OACC_SERIAL:
+	construct_code = OACC_SERIAL;
 	scan_nodesc_arrays = true;
 	break;
       case EXEC_OACC_DATA:
@@ -4210,7 +4214,7 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
 				    construct_code);
 }
 
-/* Combined OpenACC parallel loop and kernels loop. */
+/* Combined OpenACC parallel loop, kernels loop and serial loop. */
 static tree
 gfc_trans_oacc_combined_directive (gfc_code *code)
 {
@@ -4230,6 +4234,10 @@ gfc_trans_oacc_combined_directive (gfc_code *code)
 	break;
       case EXEC_OACC_KERNELS_LOOP:
 	construct_code = OACC_KERNELS;
+	scan_nodesc_arrays = true;
+	break;
+      case EXEC_OACC_SERIAL_LOOP:
+	construct_code = OACC_SERIAL;
 	scan_nodesc_arrays = true;
 	break;
       default:
@@ -5480,9 +5488,11 @@ gfc_trans_oacc_directive (gfc_code *code)
     {
     case EXEC_OACC_PARALLEL_LOOP:
     case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_SERIAL_LOOP:
       return gfc_trans_oacc_combined_directive (code);
     case EXEC_OACC_PARALLEL:
     case EXEC_OACC_KERNELS:
+    case EXEC_OACC_SERIAL:
     case EXEC_OACC_DATA:
     case EXEC_OACC_HOST_DATA:
       return gfc_trans_oacc_construct (code);
