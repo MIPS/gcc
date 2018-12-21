@@ -2107,7 +2107,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_NO_CREATE | OMP_CLAUSE_PRESENT	\
    | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_ATTACH)
 #define OACC_HOST_DATA_CLAUSES \
-  (omp_mask (OMP_CLAUSE_USE_DEVICE))
+  (omp_mask (OMP_CLAUSE_USE_DEVICE)                                     \
+   | OMP_CLAUSE_IF                                                      \
+   | OMP_CLAUSE_IF_PRESENT)
 #define OACC_LOOP_CLAUSES \
   (omp_mask (OMP_CLAUSE_COLLAPSE)					\
    | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR		\

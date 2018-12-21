@@ -1137,6 +1137,9 @@ gomp_map_vars_async (struct gomp_device_descr *devicep,
 	  splay_tree_key n = gomp_map_lookup (mem_map, &cur_node);
 	  if (n == NULL)
 	    {
+              if (pragma_kind == GOMP_MAP_VARS_OPENACC_IF_PRESENT)
+                /* No error, continue using the host address.  */
+                continue;
 	      gomp_mutex_unlock (&devicep->lock);
 	      gomp_fatal ("use_device_ptr pointer wasn't mapped");
 	    }

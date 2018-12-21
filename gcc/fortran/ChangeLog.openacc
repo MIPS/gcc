@@ -1,3 +1,8 @@
+2018-12-21  Gergö Barany  <gergo@codesourcery.com>
+
+	* openmp.c (OACC_HOST_DATA_CLAUSES): Add OMP_CLAUSE_IF and
+	OMP_CLAUSE_IF_PRESENT.
+
 2018-12-20  Julian Brown  <julian@codesourcery.com>
 	    Maciej W. Rozycki  <macro@codesourcery.com>
 
