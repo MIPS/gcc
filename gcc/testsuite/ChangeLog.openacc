@@ -1,3 +1,18 @@
+2018-12-21  Gergö Barany  <gergo@codesourcery.com>
+
+	* c-c++-common/goacc/nested-reductions-fail.c: Renamed to...
+	* c-c++-common/goacc/nested-reductions-parallel-fail.c: ...this file,
+	with kernels tests...
+	* c-c++-common/goacc/nested-reductions-kernels-fail.c: ... moved to this
+	new file.
+	* c-c++-common/goacc/nested-reductions-serial-fail.c: New test.
+	* c-c++-common/goacc/nested-reductions.c: Renamed to...
+	* c-c++-common/goacc/nested-reductions-parallel.c: ... this file, with
+	kernels tests...
+	* c-c++-common/goacc/nested-reductions-kernels.c: ... moved to this new
+	file.
+	* c-c++-common/goacc/nested-reductions-serial.c: New test.
+
 2018-12-20  Gergö Barany  <gergo@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 

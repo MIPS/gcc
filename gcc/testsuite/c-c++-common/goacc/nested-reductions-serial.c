@@ -1,10 +1,17 @@
-/* Test cases of nested reduction loops that should compile cleanly.  */
+/* Test cases of nested reduction loops in serial regions that should
+   compile cleanly, corresponding to nested-reductions-parallel.c.  Since
+   serial constructs are not parallel, we must suppress some warnings about
+   insufficient parallelism.  */
 
-void acc_parallel (void)
+/* { dg-prune-output "insufficient partitioning available to parallelize loop" } */
+/* { dg-prune-output "region contains .* partitoned code but is not .* partitioned" } */
+
+
+void acc_serial (void)
 {
   int i, j, k, sum, diff;
 
-  #pragma acc parallel
+  #pragma acc serial
   {
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
@@ -65,13 +72,13 @@ void acc_parallel (void)
   }
 }
 
-/* The same tests as above, but using a combined parallel loop construct.  */
+/* The same tests as above, but using a combined serial loop construct.  */
 
-void acc_parallel_loop (void)
+void acc_serial_loop (void)
 {
   int i, j, k, l, sum, diff;
 
-  #pragma acc parallel loop
+  #pragma acc serial loop
   for (int h = 0; h < 10; ++h)
   {
     #pragma acc loop reduction(+:sum)
@@ -109,7 +116,7 @@ void acc_parallel_loop (void)
 
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
-      #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+      #pragma acc loop reduction(+:sum)
       for (j = 0; j < 10; j++)
         #pragma acc loop reduction(+:sum)
         for (k = 0; k < 10; k++)
@@ -118,13 +125,13 @@ void acc_parallel_loop (void)
     #pragma acc loop reduction(+:sum) reduction(-:diff)
     for (i = 0; i < 10; i++)
       {
-        #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(+:sum)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(+:sum)
           for (k = 0; k < 10; k++)
             sum = 1;
 
-        #pragma acc loop reduction(-:diff) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(-:diff)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(-:diff)
           for (k = 0; k < 10; k++)
@@ -134,13 +141,13 @@ void acc_parallel_loop (void)
 }
 
 /* The same tests as above, but now the outermost reduction clause is on
-   the parallel region, not the outermost loop.  */
+   the serial region, not the outermost loop.  */
 
-void acc_parallel_reduction (void)
+void acc_serial_reduction (void)
 {
   int i, j, k, sum, diff;
 
-  #pragma acc parallel reduction(+:sum)
+  #pragma acc serial reduction(+:sum)
   {
     for (i = 0; i < 10; i++)
       for (j = 0; j < 10; j++)
@@ -224,13 +231,14 @@ void acc_parallel_reduction (void)
   }
 }
 
-/* The same tests as above, but using a combined parallel loop construct, and
+/* The same tests as above, but using a combined serial loop construct, and
    the outermost reduction clause is on that one, not the outermost loop.  */
-void acc_parallel_loop_reduction (void)
+
+void acc_serial_loop_reduction (void)
 {
   int i, j, k, sum, diff;
 
-  #pragma acc parallel loop reduction(+:sum)
+  #pragma acc serial loop reduction(+:sum)
   for (int h = 0; h < 10; ++h)
   {
     for (i = 0; i < 10; i++)
@@ -259,7 +267,7 @@ void acc_parallel_loop_reduction (void)
 
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
-      #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+      #pragma acc loop reduction(+:sum)
       for (j = 0; j < 10; j++)
         #pragma acc loop reduction(+:sum)
         for (k = 0; k < 10; k++)
@@ -268,13 +276,13 @@ void acc_parallel_loop_reduction (void)
     #pragma acc loop reduction(+:sum) reduction(-:diff)
     for (i = 0; i < 10; i++)
       {
-        #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(+:sum)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(+:sum)
           for (k = 0; k < 10; k++)
             sum = 1;
 
-        #pragma acc loop reduction(-:diff) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(-:diff)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(-:diff)
           for (k = 0; k < 10; k++)
@@ -284,13 +292,13 @@ void acc_parallel_loop_reduction (void)
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
       {
-        #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(+:sum)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(+:sum)
           for (k = 0; k < 10; k++)
             sum = 1;
 
-        #pragma acc loop reduction(-:diff) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(-:diff)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(-:diff)
           for (k = 0; k < 10; k++)
@@ -300,13 +308,13 @@ void acc_parallel_loop_reduction (void)
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
       {
-        #pragma acc loop reduction(+:sum) // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop reduction(+:sum)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(+:sum)
           for (k = 0; k < 10; k++)
             sum = 1;
 
-        #pragma acc loop // { dg-warning "insufficient partitioning available to parallelize loop" }
+        #pragma acc loop
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(-:diff)
           for (k = 0; k < 10; k++)
@@ -316,6 +324,7 @@ void acc_parallel_loop_reduction (void)
 }
 
 /* The same tests as above, but inside a routine construct.  */
+
 #pragma acc routine gang
 void acc_routine (void) // { dg-bogus "region is gang partitioned but does not contain gang partitioned code" "TODO" { xfail *-*-* } }
 {
@@ -357,7 +366,7 @@ void acc_routine (void) // { dg-bogus "region is gang partitioned but does not c
 
     #pragma acc loop reduction(+:sum)
     for (i = 0; i < 10; i++)
-      #pragma acc loop reduction(+:sum) // { dg-bogus "insufficient partitioning available to parallelize loop" "TODO" { xfail *-*-* } }
+      #pragma acc loop reduction(+:sum)
       for (j = 0; j < 10; j++)
         #pragma acc loop reduction(+:sum)
         for (k = 0; k < 10; k++)
@@ -366,55 +375,17 @@ void acc_routine (void) // { dg-bogus "region is gang partitioned but does not c
     #pragma acc loop reduction(+:sum) reduction(-:diff)
     for (i = 0; i < 10; i++)
       {
-        #pragma acc loop reduction(+:sum) // { dg-bogus "insufficient partitioning available to parallelize loop" "TODO" { xfail *-*-* } }
+        #pragma acc loop reduction(+:sum)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(+:sum)
           for (k = 0; k < 10; k++)
             sum = 1;
 
-        #pragma acc loop reduction(-:diff) // { dg-bogus "insufficient partitioning available to parallelize loop" "TODO" { xfail *-*-* } }
+        #pragma acc loop reduction(-:diff)
         for (j = 0; j < 10; j++)
           #pragma acc loop reduction(-:diff)
           for (k = 0; k < 10; k++)
             diff = 1;
       }
-  }
-}
-
-void acc_kernels (void)
-{
-  int i, j, k, sum, diff;
-
-  /* FIXME:  These tests are not meaningful yet because reductions in
-     kernels regions are not supported yet.  */
-  #pragma acc kernels
-  {
-    #pragma acc loop reduction(+:sum)
-    for (i = 0; i < 10; i++)
-      for (j = 0; j < 10; j++)
-        for (k = 0; k < 10; k++)
-          sum = 1;
-
-    #pragma acc loop reduction(+:sum)
-    for (i = 0; i < 10; i++)
-      #pragma acc loop reduction(+:sum)
-      for (j = 0; j < 10; j++)
-        for (k = 0; k < 10; k++)
-          sum = 1;
-
-    #pragma acc loop reduction(+:sum)
-    for (i = 0; i < 10; i++)
-      for (j = 0; j < 10; j++)
-        #pragma acc loop reduction(+:sum)
-        for (k = 0; k < 10; k++)
-          sum = 1;
-
-    #pragma acc loop reduction(+:sum)
-    for (i = 0; i < 10; i++)
-      #pragma acc loop reduction(+:sum)
-      for (j = 0; j < 10; j++)
-        #pragma acc loop reduction(+:sum)
-        for (k = 0; k < 10; k++)
-          sum = 1;
   }
 }

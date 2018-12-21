@@ -1286,7 +1286,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  goto do_private;
 
 	case OMP_CLAUSE_REDUCTION:
-          if (is_oacc_parallel (ctx) || is_oacc_kernels (ctx))
+          if (is_gimple_omp_oacc (ctx->stmt))
             ctx->local_reduction_clauses
 	      = tree_cons (NULL, c, ctx->local_reduction_clauses);
 	  decl = OMP_CLAUSE_DECL (c);
