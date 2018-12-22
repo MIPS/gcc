@@ -1,7 +1,18 @@
+2018-12-22 Jan Hubicka  <hubicka@ucw.cz>
+
+	* Enable vectorizer at -O2.
+
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 
 	* Increase max-inline-insns-single 300->1000
-	bad run?
+
+	gcc xalancbmk 4.68, 3.53 (kaby -O2)
+	dealII 2.12 (kaby -O2)
+
+	regressions:
+	exchange2 (29.52, Ofast, kaby, lto)
+	deepsjeng (3.12, Ofast, kaby, lto)
+	gromacs (7.5, Oast, zenity, lto)
 
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 
