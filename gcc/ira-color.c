@@ -3168,6 +3168,16 @@ color_allocnos (void)
       finish_allocno_hard_regs_nodes_forest ();
     }
   improve_allocation ();
+  if (adjust_reg_costs_flag)
+    {
+      /* Make register costs changes at the end of allocation process if
+	 necessary.  */
+      EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
+	{
+	  a = ira_allocnos[i];
+	  targetm.adjust_reg_costs ((void*)a, 2);
+	}
+    }
 }
 
 

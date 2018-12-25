@@ -30143,15 +30143,11 @@ struct recolor_allocno_data {
   bool updated;
   int used_rating;
   int used_crating;
+  std::set<rtx_insn *> insns;
 };
 
 /* Pointer to array containing data for all allocnos.  */
 typedef struct recolor_allocno_data *recolor_allocno_data_t;
-
-/* Used for restoring original cost values.  */
-struct static_recolor_allocno_data {
-  std::set<rtx_insn *> insns;
-};
 
 typedef struct static_recolor_allocno_data static_recolor_allocno_data_t;
 
@@ -30173,10 +30169,7 @@ typedef struct recolor_insn_data
 static int recolor_coeffs[INSN_CATEGORIES_NUM] = {0, -3, -3, -3, -3, -3};
 
 /* Data used in cost adjust process.  */
-#define MAX_RECOLOR_ALLOCNO_NUM 15000
-static_recolor_allocno_data_t
-  static_recolor_allocnos_data[MAX_RECOLOR_ALLOCNO_NUM];
-struct recolor_allocno_data recolor_allocnos_data[MAX_RECOLOR_ALLOCNO_NUM];
+struct recolor_allocno_data *recolor_allocnos_data;
 
 /* Registers subsets used by 16-bit instructions.  */
 
@@ -30222,10 +30215,16 @@ int increase_short_reg_costs[32] = {0,0,0,0,4,5,4,4,1,0,0,0,0,0,0,0,2,3,3,3,0,
 static void
 mips_adjust_costs_init (void)
 {
-  memset (recolor_allocnos_data, 0, sizeof (struct recolor_allocno_data)
-				      * ira_allocnos_num);
-  for (int i=0; i<MAX_RECOLOR_ALLOCNO_NUM; i++)
-    static_recolor_allocnos_data[i].insns.clear ();
+  if (!recolor_allocnos_data)
+    delete[] recolor_allocnos_data;
+
+  recolor_allocnos_data = new struct recolor_allocno_data[ira_allocnos_num];
+  for (int i=0; i<ira_allocnos_num; i++)
+  {
+    recolor_allocnos_data[i].insns.clear ();
+    memset (&recolor_allocnos_data[i], 0, sizeof (struct recolor_allocno_data)
+					    - sizeof (std::set<rtx_insn *>));
+  }
 }
 
 /* Returns allocno numbers that are in same copy thread as given allocno.  */
@@ -30494,7 +30493,7 @@ mips_collect_recolor_data (bool &s_regs_used)
 		  {
 		    recolor_allocnos_data[i_data.allocnos[j]]
 		      .categories[i_data.reg_num]++;
-		    static_recolor_allocnos_data[i_data.allocnos[j]]
+		    recolor_allocnos_data[i_data.allocnos[j]]
 		      .insns.insert (insn);
 		  }
 
@@ -30741,8 +30740,8 @@ mips_update_recolor_data (ira_allocno_t &allocno, bool &s_regs_used)
     }
   std::set<rtx_insn*>::iterator  it;
 
-  for (it = static_recolor_allocnos_data[allocno_num].insns.begin ();
-       it != static_recolor_allocnos_data[allocno_num].insns.end (); it++)
+  for (it = recolor_allocnos_data[allocno_num].insns.begin ();
+       it != recolor_allocnos_data[allocno_num].insns.end (); it++)
     {
       insn_data_t i_data;
       memset (&i_data, 0, sizeof (insn_data_t));
@@ -30766,7 +30765,7 @@ mips_update_recolor_data (ira_allocno_t &allocno, bool &s_regs_used)
 		  recolor_allocnos_data[i_data.allocnos[j]].updated=true;
 		  recolor_allocnos_data[i_data.allocnos[j]].rating
 		    -= recolor_coeffs[i_data.reg_num];
-		  static_recolor_allocnos_data[i_data.allocnos[j]]
+		  recolor_allocnos_data[i_data.allocnos[j]]
 		    .insns.erase (*it);
 		  recolor_allocnos_data[i_data.allocnos[j]]
 		    .categories[i_data.reg_num]--;
@@ -30822,8 +30821,7 @@ mips_adjust_costs (void *p, int func)
   /* Do not optimize if there is no sufficient data or number of allocnos
      too large.  */
 
-  if (!TARGET_NANOMIPS || !ira_allocnos || !ira_conflicts_p
-      || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM)
+  if (!TARGET_NANOMIPS || !ira_allocnos || !ira_conflicts_p)
     return;
 
   if (func == 1)
@@ -30833,7 +30831,15 @@ mips_adjust_costs (void *p, int func)
       return;
     }
 
-  if (prev_func != cfun || current_loop_tree_node != allocno_loop_tree_node)
+  if (func == 2)
+    {
+      delete[] recolor_allocnos_data;
+      recolor_allocnos_data = NULL;
+      return;
+    }
+
+  if (prev_func != cfun || current_loop_tree_node != allocno_loop_tree_node
+      || !recolor_allocnos_data)
     {
       current_loop_tree_node = allocno_loop_tree_node;
       prev_func = cfun;
