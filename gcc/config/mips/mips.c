@@ -24290,6 +24290,57 @@ mips_expand_vi_general (machine_mode vmode, machine_mode imode,
   emit_move_insn (target, mem);
 }
 
+/* Return true if elements of vector initialization list should be loaded
+   via single "fused" vector load.  */
+
+bool
+mips_fuse_vect_init_p (machine_mode imode, unsigned nelt, rtx vals)
+{
+  unsigned i;
+  rtx base;
+  rtx base1;
+  rtx first;
+  rtx next;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset1;
+  unsigned min_align = GET_MODE_BITSIZE(imode);
+  unsigned step_size = GET_MODE_SIZE(imode);
+
+  if (!flag_fuse_vect_init)
+    return false;
+
+  first = XVECEXP (vals, 0, 0);
+
+  if (MEM_VOLATILE_P (first))
+    return false;
+
+  if (MEM_ALIGN (first) < min_align)
+    return false;
+
+  if (GET_MODE (first) != imode)
+    return false;
+
+  mips_split_plus (XEXP (first, 0), &base, &offset);
+
+  if (!REG_P(base))
+    return false;
+
+  for (i = 1; i < nelt; ++i)
+    {
+       next = XVECEXP (vals, 0, i);
+       if (MEM_VOLATILE_P (next) ||
+           MEM_ALIGN (next) < min_align ||
+           GET_MODE (next) != imode)
+        return false;
+       mips_split_plus (XEXP (next, 0), &base1, &offset1);
+       if (!rtx_equal_p(base, base1) || (offset1 - offset) != step_size)
+        return false;
+       offset = offset1;
+    }
+
+  return true;
+}
+
 /* Expand a vector initialization.  */
 
 void
@@ -24300,6 +24351,7 @@ mips_expand_vector_init (rtx target, rtx vals)
   unsigned i, nelt = GET_MODE_NUNITS (vmode);
   unsigned nvar = 0, one_var = -1u;
   bool all_same = true;
+  bool all_mem = true;
   rtx x;
 
   for (i = 0; i < nelt; ++i)
@@ -24307,6 +24359,8 @@ mips_expand_vector_init (rtx target, rtx vals)
       x = XVECEXP (vals, 0, i);
       if (!mips_constant_elt_p (x))
 	nvar++, one_var = i;
+      if (!MEM_P (x))
+        all_mem = false;
       if (i > 0 && !rtx_equal_p (x, XVECEXP (vals, 0, 0)))
 	all_same = false;
     }
@@ -24367,6 +24421,14 @@ mips_expand_vector_init (rtx target, rtx vals)
 	}
       else
 	{
+
+        if (all_mem && mips_fuse_vect_init_p (imode, nelt, vals))
+         {
+           rtx mem = widen_memory_access (XVECEXP (vals, 0, 0), vmode, 0);
+           emit_move_insn (target, mem);
+           return;
+         }
+
 	  rtvec vec = shallow_copy_rtvec (XVEC (vals, 0));
 
 	  for (i = 0; i < nelt; ++i)
