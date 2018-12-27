@@ -1,6 +1,79 @@
 2018-12-22 Jan Hubicka  <hubicka@ucw.cz>
 
+	* SLP only
+
+2018-12-22 Jan Hubicka  <hubicka@ucw.cz>
+
 	* Enable vectorizer at -O2.
+	Kabylake SPEC2k6 -O2
+	====================
+
+	improvements:
+	SPEC/SPEC2006/FP/436.cactusADM 	-48.65% 	
+	SPEC/SPEC2006/FP/481.wrf 	-34.09% 	
+	SPEC/SPEC2006/FP/437.leslie3d 	-19.29% 	
+	SPEC/SPEC2006/FP/434.zeusmp 	-20.32% 	
+	SPEC/SPEC2006/INT/403.gcc 	-6.90% 	
+	SPEC/SPEC2006/INT/456.hmmer 	-8.73% 	
+	SPEC/SPEC2006/FP/459.GemsFDTD 	-5.37% 	
+	SPEC/SPEC2006/INT/464.h264ref 	-3.03% 	
+	SPEC/SPEC2006/FP/433.milc 	-2.06% 	
+
+	regressions:
+	SPEC/SPEC2006/FP/416.gamess 	7.97% 	
+	SPEC/SPEC2006/INT/400.perlbench	3.16% 	
+
+	Kabylake SPEC2017 -O2
+	=====================
+
+	PEC/SPEC2017/FP/521.wrf_r 	-37.36% 	
+	SPEC/SPEC2017/INT/525.x264_r 	-30.30% 	
+	SPEC/SPEC2017/FP/527.cam4_r 	-10.35% 	
+	SPEC/SPEC2017/FP/554.roms_r 	-9.91% 	
+	SPEC/SPEC2017/FP/549.fotonik3d_	-8.03% 	
+	SPEC/SPEC2017/FP/510.parest_r 	-4.29%
+
+	regressions:
+	SPEC/SPEC2017/INT/548.exchange2_314.022 14.51% 	
+
+	Kabylake polyhedrom -O2
+	=======================
+	polyhedron/tfft2 	-22.74% 	
+	polyhedron/test_fpu2 	-18.92% 	
+	polyhedron/gas_dyn2 	-14.42% 	
+	polyhedron/linpk 	-8.73% 	
+	polyhedron/rnflow 	-2.61% 	
+	polyhedron/nf 	 	-2.22% 	
+
+	regressions:
+	polyhedron/air 	  	3.53% 	
+	polyhedron/induct2 	216.31% 	
+
+	Kabylake C++ benchmarks
+	=======================
+
+	improvements (score)
+	nbench/NEURAL NET 		33.90% 	
+	botan/AES-128/CBC/PKCS7 encrypt 21.31% 	
+	botan/CMAC(AES-128) mac 	21.38% 	
+	nbench/ASSIGNMENT 		6.20% 	
+	botan/AES-128/CBC/PKCS7 decrypt 18.31% 	
+	nbench/LU DECOMPOSITION 	13.06% 	
+	botan/AES-128/EAX encrypt 	11.07% 	
+	botan/AES-128/EAX decrypt 	10.90% 	
+	botan/AES-128/OCB encrypt 	8.47% 	
+	botan/AES-128/XTS encrypt 	3.49% 	
+	botan/AES-128/XTS decrypt 	3.62% 	
+	botan/AES-128/OCB decrypt 	6.80% 	
+	himeno 				2.27% 	
+	botan/CTR-BE(AES-128) decrypt 	3.05% 	
+	botan/CTR-BE(AES-128) encrypt 	3.33% 	
+
+	regressions (score)
+	botan/Whirlpool hash 		-11.39% 	
+	botan/Tiger(24,3) hash 		-3.22% 	
+	botan/Keccak-1600(512) hash 	-3.56% 	
+	nbench/HUFFMAN 	6498.300 	-2.35%
 
 2018-12-7  Jan Hubicka  <hubicka@ucw.cz>
 

@@ -521,7 +521,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_ftree_tail_merge, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_CHEAP },
-    { OPT_LEVELS_2_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
 
     /* -O2 and -Os optimizations.  */
@@ -556,6 +555,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
+    { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
 
     /* -Ofast adds optimizations to -O3.  */
     { OPT_LEVELS_FAST, OPT_ffast_math, NULL, 1 },
