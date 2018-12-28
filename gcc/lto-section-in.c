@@ -52,7 +52,8 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "icf",
   "offload_table",
   "mode_table",
-  "hsa"
+  "hsa",
+  "ipa-sra"
 };
 
 

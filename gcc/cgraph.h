@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile-count.h"
 #include "ipa-ref.h"
 #include "plugin-api.h"
+#include "ipa-param-manipulation.h"
 
 extern void debuginfo_early_init (void);
 extern void debuginfo_init (void);
@@ -734,23 +735,19 @@ struct GTY(()) cgraph_global_info {
    will be replaced by another tree while versioning.  */
 struct GTY(()) ipa_replace_map
 {
-  /* The tree that will be replaced.  */
-  tree old_tree;
   /* The new (replacing) tree.  */
   tree new_tree;
   /* Parameter number to replace, when old_tree is NULL.  */
   int parm_num;
-  /* True when a substitution should be done, false otherwise.  */
-  bool replace_p;
-  /* True when we replace a reference to old_tree.  */
-  bool ref_p;
 };
 
 struct GTY(()) cgraph_clone_info
 {
   vec<ipa_replace_map *, va_gc> *tree_map;
-  bitmap args_to_skip;
-  bitmap combined_args_to_skip;
+  ipa_param_adjustments *param_adjustments;
+  /* Lists of all splits with their offsets for each dummy variables
+     representing a replaced-by-splits parameter.  */
+  vec<ipa_param_performed_split, va_gc> *performed_splits;
 };
 
 enum cgraph_simd_clone_arg_type
@@ -970,15 +967,16 @@ public:
 			     vec<cgraph_edge *> redirect_callers,
 			     bool call_duplication_hook,
 			     cgraph_node *new_inlined_to,
-			     bitmap args_to_skip, const char *suffix = NULL);
+			     ipa_param_adjustments *param_adjustments,
+			     const char *suffix = NULL);
 
   /* Create callgraph node clone with new declaration.  The actual body will be
      copied later at compilation stage.  The name of the new clone will be
      constructed from the name of the original node, SUFFIX and NUM_SUFFIX.  */
   cgraph_node *create_virtual_clone (vec<cgraph_edge *> redirect_callers,
 				     vec<ipa_replace_map *, va_gc> *tree_map,
-				     bitmap args_to_skip, const char * suffix,
-				     unsigned num_suffix);
+				     ipa_param_adjustments *param_adjustments,
+				     const char * suffix, unsigned num_suffix);
 
   /* cgraph node being removed from symbol table; see if its entry can be
    replaced by other inline clone.  */
@@ -1022,9 +1020,9 @@ public:
      Return the new version's cgraph node.  */
   cgraph_node *create_version_clone_with_body
     (vec<cgraph_edge *> redirect_callers,
-     vec<ipa_replace_map *, va_gc> *tree_map, bitmap args_to_skip,
-     bool skip_return, bitmap bbs_to_copy, basic_block new_entry_block,
-     const char *clone_name);
+     vec<ipa_replace_map *, va_gc> *tree_map,
+     ipa_param_adjustments *param_adjustments,
+     bitmap bbs_to_copy, basic_block new_entry_block, const char *clone_name);
 
   /* Insert a new cgraph_function_version_info node into cgraph_fnver_htab
      corresponding to cgraph_node.  */
@@ -2401,14 +2399,12 @@ tree clone_function_name (tree decl, const char *suffix,
 tree clone_function_name (tree decl, const char *suffix);
 
 void tree_function_versioning (tree, tree, vec<ipa_replace_map *, va_gc> *,
-			       bool, bitmap, bool, bitmap, basic_block);
+			       ipa_param_adjustments *,
+			       bool, bitmap, basic_block);
 
 void dump_callgraph_transformation (const cgraph_node *original,
 				    const cgraph_node *clone,
 				    const char *suffix);
-tree cgraph_build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
-					   bool skip_return);
-
 /* In cgraphbuild.c  */
 int compute_call_stmt_bb_frequency (tree, basic_block bb);
 void record_references_in_initializer (tree, bool);

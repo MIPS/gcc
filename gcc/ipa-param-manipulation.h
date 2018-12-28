@@ -21,100 +21,276 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef IPA_PARAM_MANIPULATION_H
 #define IPA_PARAM_MANIPULATION_H
 
+/* Indices into ipa_param_prefixes to identify a human-readable prefix for newly
+   synthesized parameters.  Keep in sync with the array.  */
+#define IPA_PARAM_PREFIX_SYNTH  0
+#define IPA_PARAM_PREFIX_ISRA   1
+#define IPA_PARAM_PREFIX_SIMD   2
+#define IPA_PARAM_PREFIX_MASK   3
+
+/* We do not support manipulating functions with more than
+   1<<IPA_PARAM_MAX_INDEX_BITS parameters.  */
+#define IPA_PARAM_MAX_INDEX_BITS 16
+
 /* Operation to be performed for the parameter in ipa_parm_adjustment
    below.  */
+
 enum ipa_parm_op {
-  IPA_PARM_OP_NONE,
-
-  /* This describes a brand new parameter.
-
-     The field `type' should be set to the new type, `arg_prefix'
-     should be set to the string prefix for the new DECL_NAME, and
-     `new_decl' will ultimately hold the newly created argument.  */
-  IPA_PARM_OP_NEW,
+  /* Do not use or you will trigger an assert.  */
+  IPA_PARAM_OP_UNDEFINED,
 
   /* This new parameter is an unmodified parameter at index base_index. */
-  IPA_PARM_OP_COPY,
+  IPA_PARAM_OP_COPY,
 
-  /* This adjustment describes a parameter that is about to be removed
-     completely.  Most users will probably need to book keep those so that they
-     don't leave behinfd any non default def ssa names belonging to them.  */
-  IPA_PARM_OP_REMOVE
+  /* This describes a brand new parameter.  If it somehow relates to any
+     original parameters, the user needs to manage the transition itself.  */
+  IPA_PARAM_OP_NEW,
+
+    /* Split parameter as indicated by fields base_index, offset, type and
+     by_ref.  */
+  IPA_PARAM_OP_SPLIT
 };
 
-/* Structure to describe transformations of formal parameters and actual
-   arguments.  Each instance describes one new parameter and they are meant to
-   be stored in a vector.  Additionally, most users will probably want to store
-   adjustments about parameters that are being removed altogether so that SSA
-   names belonging to them can be replaced by SSA names of an artificial
-   variable.  */
-struct ipa_parm_adjustment
-{
-  /* The original PARM_DECL itself, helpful for processing of the body of the
-     function itself.  Intended for traversing function bodies.
-     ipa_modify_formal_parameters, ipa_modify_call_arguments and
-     ipa_combine_adjustments ignore this and use base_index.
-     ipa_modify_formal_parameters actually sets this.  */
-  tree base;
+/* Structure that describes one parameter of a function after transformation.
+   Omitted parameters will be removed.  */
 
+struct GTY(()) ipa_adjusted_param
+{
   /* Type of the new parameter.  However, if by_ref is true, the real type will
-     be a pointer to this type.  */
+     be a pointer to this type.  Required for all operations except
+     IPA_PARM_OP_COPY when the original type will be preserved.  */
   tree type;
 
-  /* Alias refrerence type to be used in MEM_REFs when adjusting caller
-     arguments.  */
+  /* Alias reference type to be used in MEM_REFs when adjusting caller
+     arguments.  Required for IPA_PARM_OP_SPLIT operation.  */
   tree alias_ptr_type;
 
-  /* The new declaration when creating/replacing a parameter.  Created
-     by ipa_modify_formal_parameters, useful for functions modifying
-     the body accordingly.  For brand new arguments, this is the newly
-     created argument.  */
-  tree new_decl;
-
-  /* New declaration of a substitute variable that we may use to replace all
-     non-default-def ssa names when a parm decl is going away.  */
-  tree new_ssa_base;
-
-  /* If non-NULL and the original parameter is to be removed (copy_param below
-     is NULL), this is going to be its nonlocalized vars value.  */
-  tree nonlocal_value;
-
-  /* This holds the prefix to be used for the new DECL_NAME.  */
-  const char *arg_prefix;
-
   /* Offset into the original parameter (for the cases when the new parameter
-     is a component of an original one).  */
-  poly_int64_pod offset;
+     is a component of an original one).  Required for IPA_PARM_OP_SPLIT
+     operation.  */
+  unsigned unit_offset;
 
-  /* Zero based index of the original parameter this one is based on.  */
-  int base_index;
+  /* Zero based index of the original parameter this one is based on.  Required
+     for IPA_PARAM_OP_COPY and IPA_PARAM_OP_SPLIT, users of IPA_PARAM_OP_NEW
+     only need to specify it if they use replacement lookup provided by
+     ipa_param_body_adjustments.  */
+  unsigned base_index : IPA_PARAM_MAX_INDEX_BITS;
 
-  /* Whether this parameter is a new parameter, a copy of an old one,
-     or one about to be removed.  */
-  enum ipa_parm_op op;
+  /* Zero based index of the parameter this one is based on in the previous
+     clone.  If there is no previous clone, it must be equal to base_index.  */
+  unsigned prev_clone_index : IPA_PARAM_MAX_INDEX_BITS;
+
+  /* Specify the operation, if any, to be performed on the parameter.  */
+  enum ipa_parm_op op : 2;
+
+  /* If set, this structure describes a parameter copied over from a previous
+     IPA clone, any sophisticated modifications are thus not to be re-done.  */
+  unsigned prev_clone_adjustment : 1;
+
+  /* Index into ipa_param_prefixes specifying a prefix to be used with
+     DECL_NAMEs of newly synthesized parameters.  */
+  unsigned param_prefix_index : 2;
 
   /* Storage order of the original parameter (for the cases when the new
      parameter is a component of an original one).  */
   unsigned reverse : 1;
 
-  /* The parameter is to be passed by reference.  */
+  /* Set when the parameter is to be passed by reference.  */
   unsigned by_ref : 1;
+
+  /* A bit free for the user.  */
+  unsigned user_flag : 1;
 };
 
-typedef vec<ipa_parm_adjustment> ipa_parm_adjustment_vec;
+void ipa_dump_adjusted_parameters (FILE *f,
+				   vec<ipa_adjusted_param, va_gc> *adj_params);
 
-vec<tree> ipa_get_vector_of_formal_parms (tree fndecl);
-vec<tree> ipa_get_vector_of_formal_parm_types (tree fntype);
-void ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec);
-void ipa_modify_call_arguments (struct cgraph_edge *, gcall *,
-				ipa_parm_adjustment_vec);
-ipa_parm_adjustment_vec ipa_combine_adjustments (ipa_parm_adjustment_vec,
-						 ipa_parm_adjustment_vec);
-void ipa_dump_param_adjustments (FILE *, ipa_parm_adjustment_vec, tree);
+/* Structure to remember the split performed on a node so that edge redirection
+   (i.e. splitting arguments of call statements) know how split formal
+   parameters of the caller are represented.  */
 
-bool ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
-ipa_parm_adjustment *ipa_get_adjustment_candidate (tree **, bool *,
-						   ipa_parm_adjustment_vec,
-						   bool);
+struct GTY(()) ipa_param_performed_split
+{
+  /* The dummy VAR_DECL that was created instead of the split parameter that
+     sits in the call in the meantime between clone materialization and call
+     redirection.  */
+  tree dummy_decl;
+  /* Offset into the original parameter.  */
+  unsigned unit_offset;
+};
+
+/* Class used to record planned modifications to parameters of a function and
+   also to perform necessary modifications at the caller side at the gimple
+   level.  */
+
+class GTY(()) ipa_param_adjustments
+{
+public:
+  /* Constructor from NEW_PARAMS showing how new parameters should look like
+      plus copying any pre-existing actual arguments starting from argument
+      with index ALWAYS_COPY_START (if non-negative, negative means do not copy
+      anything beyond what is described in NEW_PARAMS), and SKIP_RETURN, which
+      indicates that the function should return void after transformation.  */
+
+  /* TODO: OLD_DECL is only necessary to support generating debuginfo for the
+     old early IPA SRA.  Will be removed after transitioning to true
+     IPA-SRA.  */
+
+  ipa_param_adjustments (vec<ipa_adjusted_param, va_gc> *new_params,
+			 int always_copy_start, bool skip_return,
+			 tree old_decl = NULL)
+    : m_adj_params (new_params), m_always_copy_start (always_copy_start),
+    m_skip_return (skip_return), m_old_decl (old_decl)
+    {}
+
+  gcall *modify_call (gcall *stmt,
+		      vec<ipa_param_performed_split, va_gc> *performed_splits,
+		      tree callee_decl, bool update_references);
+  void modify_call (cgraph_edge *cs);
+  bool first_param_intact_p ();
+  tree build_new_function_type (tree old_type, bool type_is_original_p);
+  tree adjust_decl (tree orig_decl);
+  void get_surviving_params (vec<bool> *surviving_params);
+  void get_updated_indices (vec<int> *new_indices);
+
+  void dump (FILE *f);
+  void debug ();
+
+  /* How the known part of arguments should look like.  */
+  vec<ipa_adjusted_param, va_gc> *m_adj_params;
+
+  /* If non-negative, copy any arguments starting at this offset.  */
+  int m_always_copy_start;
+  /* If true, make the function not return any value.  */
+  bool m_skip_return;
+
+  /* TODO: The following field is only necessary to support generating
+     debuginfo for the old early IPA SRA.  Will be removed after transitioning
+     to IPA-SRA.  */
+  tree m_old_decl;
+private:
+  ipa_param_adjustments () {}
+
+  void init (vec<tree> *cur_params);
+  int get_max_base_index ();
+  bool method2func_p (tree orig_type);
+};
+
+/* Structure used to map expressions accessing split or replaced parameters to
+   new PARM_DECLs.  TODO: Even though there usually be only few, but should we
+   use a hash?  */
+
+struct ipa_param_body_replacement
+{
+  tree base, repl, dummy;
+  unsigned unit_offset;
+  bool by_ref;
+  bool reverse;
+};
+
+struct ipa_replace_map;
+
+/* Class used when actually performing adjustments to formal parameters of
+   a function to map accesses that need to be replaced to replacements.  */
+
+class ipa_param_body_adjustments
+{
+public:
+  ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
+			      tree fndecl, tree old_fndecl,
+			      bool copy_parm_decls, struct copy_body_data *id,
+			      tree *vars,
+			      vec<ipa_replace_map *, va_gc> *tree_map);
+  ipa_param_body_adjustments (ipa_param_adjustments *adjustments,
+			      tree fndecl);
+  ipa_param_body_adjustments (vec<ipa_adjusted_param, va_gc> *adj_params,
+			      tree fndecl);
+
+  bool perform_cfun_body_modifications ();
+
+  void modify_formal_parameters ();
+  void register_replacement (ipa_adjusted_param *apm, tree replacement,
+			     tree dummy = NULL_TREE);
+  tree lookup_replacement (tree base, unsigned unit_offset);
+  tree get_expr_replacement (tree expr, bool ignore_default_def);
+  tree get_replacement_ssa_base (tree old_decl);
+  bool modify_gimple_stmt (gimple **stmt, gimple_seq *extra_stmts);
+  tree get_new_param_chain ();
+
+  vec<ipa_adjusted_param, va_gc> *m_adj_params;
+  ipa_param_adjustments *m_adjustments;
+
+  /* Vector of old parameter declarations that must have their debug bind
+     statements re-mapped and debug decls created.  */
+
+  auto_vec<tree, 16> m_reset_debug_decls;
+
+  /* Set to true if there are any IPA_PARAM_OP_SPLIT adjustments among stored
+     adjustments.  */
+  bool m_split_modifications_p;
+private:
+  tree carry_over_param (tree t, bool copy_parm_decls);
+  void common_initialization (bool copy_parm_decls, tree old_fndecl,
+			      tree *vars,
+			      vec<ipa_replace_map *, va_gc> *tree_map);
+  unsigned get_base_index (ipa_adjusted_param *apm);
+  ipa_param_body_replacement *lookup_replacement_1 (tree base,
+						    unsigned unit_offset);
+  ipa_param_body_replacement *get_expr_replacement_1 (tree expr,
+						      bool ignore_default_def);
+  tree replace_removed_params_ssa_names (tree old_name, gimple *stmt);
+  bool modify_expr (tree *expr_p, bool convert);
+  bool modify_assignment (gimple *stmt, gimple_seq *extra_stmts);
+  bool modify_call_stmt (gcall **stmt_p);
+  bool modify_cfun_body ();
+  void reset_debug_stmts ();
+
+
+  /* Declaration of the function that is being transformed.  */
+
+  tree m_fndecl;
+
+  /* If non-NULL, the tree-inline master data structure guiding materialization
+     of the current clone.  */
+  struct copy_body_data *m_id;
+
+  /* Vector of old parameter declarations (before changing them).  */
+
+  auto_vec<tree, 16> m_oparms;
+
+  /* Vector of parameter declarations the function will have after
+     transformation.  */
+
+  auto_vec<tree, 16> m_new_decls;
+
+  /* If the function type has non-NULL TYPE_ARG_TYPES, this is the vector of
+     these types after transformation, otherwise an empty one.  */
+
+  auto_vec<tree, 16> m_new_types;
+
+  /* Vector of structures telling how to replace old parameters in in the
+     function body.  */
+
+  auto_vec<ipa_param_body_replacement, 16> m_replacements;
+
+  /* Vector for remapping SSA_BASES from old parameter declarations that are
+     being removed as a part of the transformation.  Before a new VAR_DECL is
+     created, it holds the old PARM_DECL, once the variable is built it is
+     stored here.  */
+
+  auto_vec<tree, 16> m_removed_decls;
+
+  /* Hash to quickly lookup the item in m_removed_decls given the old decl.  */
+
+  hash_map<tree, unsigned> m_removed_map;
+
+  /* True iff the transformed function is a class method that is about to loose
+     its this pointer and must be converted to a normal function.  */
+
+  bool m_method2func;
+};
+
+void ipa_fill_vector_with_formal_parms (vec<tree> *args, tree fndecl);
+void ipa_fill_vector_with_formal_parm_types (vec<tree> *types, tree fntype);
 
 #endif	/* IPA_PARAM_MANIPULATION_H */

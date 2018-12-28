@@ -301,9 +301,8 @@ create_target_clone (cgraph_node *node, bool definition, char *name)
   if (definition)
     {
       new_node = node->create_version_clone_with_body (vNULL, NULL,
-    						       NULL, false,
-						       NULL, NULL,
-						       name);
+    						       NULL, NULL,
+						       NULL, name);
       new_node->force_output = true;
     }
   else
