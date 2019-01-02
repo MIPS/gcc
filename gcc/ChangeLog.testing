@@ -1,5 +1,9 @@
 2019-01-02 Jan Hubicka  <hubicka@ucw.cz>
 
+	* Enable vectorizer at -O2.
+
+2019-01-02 Jan Hubicka  <hubicka@ucw.cz>
+
 	* revert to mainline 
 
 2018-12-22 Jan Hubicka  <hubicka@ucw.cz>
