@@ -1,5 +1,5 @@
 /* Function summary pass.
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2019 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -936,6 +936,57 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
   return true;
 }
 
+/* Return ture if STMT is builtin_expect on one of its variants.  */
+
+static bool
+builtin_expect_call_p (gimple *stmt)
+{
+  return ((gimple_call_builtin_p (stmt, BUILT_IN_EXPECT)
+	   || gimple_call_builtin_p (stmt, BUILT_IN_EXPECT_WITH_PROBABILITY)
+	   || gimple_call_internal_p (stmt, IFN_BUILTIN_EXPECT))
+	  && gimple_call_num_args (stmt));
+}
+
+/* Walk to the original assignment to OP skipping wrapping noop casts,
+   builtin expectes etc.  */
+
+static tree
+strip_copies (tree op, gimple **stmt = NULL)
+{
+  STRIP_NOPS (op);
+  /* TODO: We should have some common way to tell if function returns its
+     argument.  */
+  if (TREE_CODE (op) == CALL_EXPR)
+    {
+      tree fndecl = get_callee_fndecl (op);
+      if (!fndecl)
+	return op;
+      if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
+	      || DECL_FUNCTION_CODE (fndecl)
+			 == BUILT_IN_EXPECT_WITH_PROBABILITY))
+	return strip_copies (CALL_EXPR_ARG (op, 0), stmt);
+      return op;
+    }
+  if (TREE_CODE (op) == SSA_NAME
+      && builtin_expect_call_p (SSA_NAME_DEF_STMT (op)))
+    {
+      if (stmt)
+	*stmt = SSA_NAME_DEF_STMT (op);
+      return strip_copies (gimple_call_arg (SSA_NAME_DEF_STMT (op), 0), stmt);
+    }
+  if (TREE_CODE (op) == SSA_NAME
+      && !SSA_NAME_IS_DEFAULT_DEF (op)
+      && gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
+    {
+      if (stmt)
+	*stmt = SSA_NAME_DEF_STMT (op);
+      return strip_copies (gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op)),
+			  stmt);
+    }
+  return op;
+}
+
 /* If OP refers to value of function parameter, return the corresponding
    parameter.  If non-NULL, the size of the memory load (or the SSA_NAME of the
    PARM_DECL) will be stored to *SIZE_P in that case too.  */
@@ -979,16 +1030,10 @@ unmodified_parm_1 (gimple *stmt, tree op, HOST_WIDE_INT *size_p)
 static tree
 unmodified_parm (gimple *stmt, tree op, HOST_WIDE_INT *size_p)
 {
+  op = strip_copies (op, &stmt);
   tree res = unmodified_parm_1 (stmt, op, size_p);
   if (res)
     return res;
-
-  if (TREE_CODE (op) == SSA_NAME
-      && !SSA_NAME_IS_DEFAULT_DEF (op)
-      && gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
-    return unmodified_parm (SSA_NAME_DEF_STMT (op),
-			    gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op)),
-			    size_p);
   return NULL_TREE;
 }
 
@@ -1005,6 +1050,7 @@ unmodified_parm_or_parm_agg_item (struct ipa_func_body_info *fbi,
 				  HOST_WIDE_INT *size_p,
 				  struct agg_position_info *aggpos)
 {
+  op = strip_copies (op, &stmt);
   tree res = unmodified_parm_1 (stmt, op, size_p);
 
   gcc_checking_assert (aggpos);
@@ -1450,12 +1496,13 @@ will_be_nonconstant_expr_predicate (struct ipa_node_params *info,
 					       nonconstant_names);
       return p2.or_with (summary->conds, p1);
     }
-  else if (TREE_CODE (expr) == CALL_EXPR)
-    return true;
-  else
+  else 
     {
-      debug_tree (expr);
-      gcc_unreachable ();
+      tree expr2 = strip_copies (expr);
+      if (expr2 != expr)
+	return will_be_nonconstant_expr_predicate (info, summary, expr2,
+						   nonconstant_names);
+      return true;
     }
   return false;
 }
@@ -1969,9 +2016,9 @@ fp_expression_p (gimple *stmt)
 static void
 analyze_function_body (struct cgraph_node *node, bool early)
 {
-  sreal time = 0;
+  sreal time = PARAM_VALUE (PARAM_UNINLINED_FUNCTION_TIME);
   /* Estimate static overhead for function prologue/epilogue and alignment. */
-  int size = 2;
+  int size = PARAM_VALUE (PARAM_UNINLINED_FUNCTION_INSNS);
   /* Benefits are scaled by probability of elimination that is in range
      <0,2>.  */
   basic_block bb;
@@ -1990,7 +2037,9 @@ analyze_function_body (struct cgraph_node *node, bool early)
   gcc_assert (cfun == my_function);
 
   memset(&fbi, 0, sizeof(fbi));
+  vec_free (info->conds);
   info->conds = NULL;
+  vec_free (info->size_time_table);
   info->size_time_table = NULL;
 
   /* When optimizing and analyzing for IPA inliner, initialize loop optimizer
@@ -2032,7 +2081,10 @@ analyze_function_body (struct cgraph_node *node, bool early)
   info->account_size_time (0, 0, bb_predicate, bb_predicate);
 
   bb_predicate = predicate::not_inlined ();
-  info->account_size_time (2 * ipa_fn_summary::size_scale, 0, bb_predicate,
+  info->account_size_time (PARAM_VALUE (PARAM_UNINLINED_FUNCTION_INSNS)
+			   * ipa_fn_summary::size_scale,
+			   PARAM_VALUE (PARAM_UNINLINED_FUNCTION_TIME),
+			   bb_predicate,
 		           bb_predicate);
 
   if (fbi.info)
@@ -2178,6 +2230,17 @@ analyze_function_body (struct cgraph_node *node, bool early)
 	      es->call_stmt_time = this_time;
 	      es->loop_depth = bb_loop_depth (bb);
 	      edge_set_predicate (edge, &bb_predicate);
+	      if (edge->speculative)
+		{
+		  cgraph_edge *direct, *indirect;
+		  ipa_ref *ref;
+		  edge->speculative_call_info (direct, indirect, ref);
+		  gcc_assert (direct == edge);
+	          ipa_call_summary *es2
+			 = ipa_call_summaries->get_create (indirect);
+		  ipa_call_summaries->duplicate (edge, indirect,
+						 es, es2);
+		}
 	    }
 
 	  /* TODO: When conditional jump or swithc is known to be constant, but
@@ -2221,12 +2284,12 @@ analyze_function_body (struct cgraph_node *node, bool early)
 		    {
 		      predicate ip = bb_predicate & predicate::not_inlined ();
 		      info->account_size_time (this_size * prob,
-					       (this_time * prob) / 2, ip,
+					       (final_time * prob) / 2, ip,
 					       p);
 		    }
 		  if (prob != 2)
 		    info->account_size_time (this_size * (2 - prob),
-					     (this_time * (2 - prob) / 2),
+					     (final_time * (2 - prob) / 2),
 					     bb_predicate,
 					     p);
 		}
@@ -2405,7 +2468,11 @@ compute_fn_summary (struct cgraph_node *node, bool early)
       node->local.can_change_signature = false;
       es->call_stmt_size = eni_size_weights.call_cost;
       es->call_stmt_time = eni_time_weights.call_cost;
-      info->account_size_time (ipa_fn_summary::size_scale * 2, 2, t, t);
+      info->account_size_time (ipa_fn_summary::size_scale
+			       * PARAM_VALUE
+				 (PARAM_UNINLINED_FUNCTION_THUNK_INSNS),
+			       PARAM_VALUE
+				 (PARAM_UNINLINED_FUNCTION_THUNK_TIME), t, t);
       t = predicate::not_inlined ();
       info->account_size_time (2 * ipa_fn_summary::size_scale, 0, t, t);
       ipa_update_overall_fn_summary (node);
@@ -2489,7 +2556,8 @@ compute_fn_summary (struct cgraph_node *node, bool early)
      ipa_update_overall_fn_summary but because computation happens in
      different order the roundoff errors result in slight changes.  */
   ipa_update_overall_fn_summary (node);
-  gcc_assert (info->size == info->self_size);
+  /* In LTO mode we may have speculative edges set.  */
+  gcc_assert (in_lto_p || info->size == info->self_size);
 }
 
 
