@@ -1,5 +1,9 @@
 2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
 
+	* drop inline metric compensation.
+
+2019-01-06 Jan Hubicka  <hubicka@ucw.cz>
+
 	* inline metric fixes
 
 2019-01-02 Jan Hubicka  <hubicka@ucw.cz>
