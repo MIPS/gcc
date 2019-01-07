@@ -26515,7 +26515,7 @@ cp_parser_concept_definition (cp_parser *parser)
   if (id == error_mark_node)
     {
       cp_parser_skip_to_end_of_statement (parser);
-      return nullptr;
+      return NULL_TREE;
     }
   tree decl = start_concept_definition (id.get_location(), id);
 

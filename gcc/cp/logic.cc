@@ -122,8 +122,8 @@ struct constraint_hash : default_hash_traits<tree>
 
 struct clause
 {
-  using iterator = std::list<tree>::iterator;
-  using const_iterator = std::list<tree>::const_iterator;
+  typedef std::list<tree>::iterator iterator;
+  typedef std::list<tree>::const_iterator const_iterator;
 
   /* Initialize a clause with an initial term.  */
 
@@ -282,8 +282,8 @@ struct clause
 
 struct formula
 {
-  using iterator = std::list<clause>::iterator;
-  using const_iterator = std::list<clause>::const_iterator;
+  typedef std::list<clause>::iterator iterator;
+  typedef std::list<clause>::const_iterator const_iterator;
 
   /* Construct a formula with an initial formula in a
      single clause.  */

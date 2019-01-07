@@ -10190,7 +10190,7 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data,
 static tree
 for_each_template_parm (tree t, tree_fn_t fn, void* data)
 {
-  return for_each_template_parm (t, fn, data, nullptr, true, nullptr);
+  return for_each_template_parm (t, fn, data, NULL, true, NULL);
 }
 
 /* Appends the declaration of T to the list in DATA.  */
