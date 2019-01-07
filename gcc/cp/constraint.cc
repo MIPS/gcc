@@ -475,6 +475,7 @@ normalize_logical_operation (tree t, tree args, tree_code c, subst_info info)
   return build_nt (c, t0, t1);
 }
 
+#ifdef NOT_USED_YET
 /* For a template-id referring to a variable concept, returns
    a check constraint. Otherwise, returns a predicate constraint. */
 
@@ -545,6 +546,7 @@ normalize_function_concept_check (tree t, tree, subst_info info)
 
   return normalize_expression (def, subst, info);
 }
+#endif
 
 static tree
 normalize_concept_check (tree t, tree, subst_info info)
@@ -770,7 +772,7 @@ build_concept_check_arguments (tree arg, tree rest)
    concept.  */
 
 static tree
-build_function_check(tree tmpl, tree args, tsubst_flags_t complain)
+build_function_check(tree tmpl, tree args, tsubst_flags_t /*complain*/)
 {
   /* FIXME: Don't use lookup template function. Just build
      the check directly.  */
