@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "cxx-pretty-print.h"
 #include "tree-pretty-print.h"
+#include "print-tree.h"
 
 static void pp_cxx_unqualified_id (cxx_pretty_printer *, tree);
 static void pp_cxx_nested_name_specifier (cxx_pretty_printer *, tree);
@@ -38,6 +39,7 @@ static void pp_cxx_typeid_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_unary_left_fold_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_unary_right_fold_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_binary_fold_expression (cxx_pretty_printer *, tree);
+static void pp_cxx_concept_definition (cxx_pretty_printer *, tree);
 
 
 static inline void
@@ -231,9 +233,16 @@ pp_cxx_template_keyword_if_needed (cxx_pretty_printer *pp, tree scope, tree t)
 static void
 pp_cxx_nested_name_specifier (cxx_pretty_printer *pp, tree t)
 {
-  if (!SCOPE_FILE_SCOPE_P (t) && t != pp->enclosing_scope)
+  /* FIXME: When diagnosing references to concepts (especially as types?)
+     we end up adding too many '::' to the name. This is partially due
+     to the fact that pp->enclosing_namespace is null.  */
+  if (t == global_namespace)
     {
-      tree scope = get_containing_scope (t);
+      pp_cxx_colon_colon (pp);   
+    }
+  else if (!SCOPE_FILE_SCOPE_P (t) && t != pp->enclosing_scope)
+    {
+      tree scope = get_containing_scope (t);      
       pp_cxx_nested_name_specifier (pp, scope);
       pp_cxx_template_keyword_if_needed (pp, scope, t);
       pp_cxx_unqualified_id (pp, t);
@@ -1217,14 +1226,8 @@ cxx_pretty_printer::expression (tree t)
       pp_cxx_trait_expression (this, t);
       break;
 
-    case PRED_CONSTR:
+    case ATOMIC_CONSTR:
     case CHECK_CONSTR:
-    case EXPR_CONSTR:
-    case TYPE_CONSTR:
-    case ICONV_CONSTR:
-    case DEDUCT_CONSTR:
-    case EXCEPT_CONSTR:
-    case PARM_CONSTR:
     case CONJ_CONSTR:
     case DISJ_CONSTR:
       pp_cxx_constraint (this, t);
@@ -2296,12 +2299,12 @@ pp_cxx_canonical_template_parameter (cxx_pretty_printer *pp, tree parm)
 void
 pp_cxx_constrained_type_spec (cxx_pretty_printer *pp, tree c)
 {
-  tree t, a;
   if (c == error_mark_node)
     {
       pp_cxx_ws_string(pp, "<unsatisfied-constrained-placeholder>");
       return;
     }
+  tree t, a;
   placeholder_extract_concept_and_args (c, t, a);
   pp->id_expression (t);
   if (TREE_VEC_LENGTH (a) > 1)
@@ -2352,6 +2355,8 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
 
   if (TREE_CODE (t) == FUNCTION_DECL && DECL_SAVED_TREE (t))
     pp_cxx_function_definition (pp, t);
+  else if (TREE_CODE (t) == CONCEPT_DECL)
+    pp_cxx_concept_definition (pp, t);
   else
     pp_cxx_simple_declaration (pp, t);
 }
@@ -2366,6 +2371,17 @@ static void
 pp_cxx_explicit_instantiation (cxx_pretty_printer *pp, tree t)
 {
   pp_unsupported_tree (pp, t);
+}
+
+static void
+pp_cxx_concept_definition (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_unqualified_id (pp, DECL_NAME (t));
+  pp_cxx_whitespace (pp);
+  pp_cxx_ws_string (pp, "=");
+  pp_cxx_whitespace (pp);
+  pp->expression (DECL_INITIAL (t));
+  pp_cxx_semicolon (pp);
 }
 
 /*
@@ -2852,12 +2868,6 @@ pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
 }
 
 void
-pp_cxx_predicate_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp->expression (TREE_OPERAND (t, 0));
-}
-
-void
 pp_cxx_check_constraint (cxx_pretty_printer *pp, tree t)
 {
   tree decl = CHECK_CONSTR_CONCEPT (t);
@@ -2865,7 +2875,9 @@ pp_cxx_check_constraint (cxx_pretty_printer *pp, tree t)
   tree args = CHECK_CONSTR_ARGS (t);
   tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
 
-  if (VAR_P (decl))
+  if (TREE_CODE (decl) == CONCEPT_DECL)
+    pp->expression (id);
+  else if (VAR_P (decl))
     pp->expression (id);
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -2879,76 +2891,18 @@ pp_cxx_check_constraint (cxx_pretty_printer *pp, tree t)
 }
 
 void
-pp_cxx_expression_constraint (cxx_pretty_printer *pp, tree t)
+pp_cxx_atomic_constraint (cxx_pretty_printer *pp, tree t)
 {
-  pp_string (pp, "<valid-expression ");
-  pp_cxx_left_paren (pp);
+  pp_string(pp, "(");
   pp->expression (TREE_OPERAND (t, 0));
-  pp_cxx_right_paren (pp);
-  pp_string (pp, ">");
-}
-
-void
-pp_cxx_type_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp_string (pp, "<valid-type ");
-  pp->type_id (TREE_OPERAND (t, 0));
-  pp_string (pp, ">");
-}
-
-void
-pp_cxx_implicit_conversion_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp_string (pp, "<implicitly-conversion ");
-  pp_cxx_left_paren (pp);
-  pp->expression (ICONV_CONSTR_EXPR (t));
-  pp_cxx_right_paren (pp);
-  pp_cxx_ws_string (pp, "to");
-  pp->type_id (ICONV_CONSTR_TYPE (t));
-  pp_string (pp, ">");
-}
-
-void
-pp_cxx_argument_deduction_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp_string (pp, "<argument-deduction ");
-  pp_cxx_left_paren (pp);
-  pp->expression (DEDUCT_CONSTR_EXPR (t));
-  pp_cxx_right_paren (pp);
-  pp_cxx_ws_string (pp, "as");
-  pp->expression (DEDUCT_CONSTR_PATTERN (t));
-  pp_string (pp, ">");
-}
-
-void
-pp_cxx_exception_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp_cxx_ws_string (pp, "noexcept");
-  pp_cxx_whitespace (pp);
-  pp_cxx_left_paren (pp);
-  pp->expression (TREE_OPERAND (t, 0));
-  pp_cxx_right_paren (pp);
-}
-
-void
-pp_cxx_parameterized_constraint (cxx_pretty_printer *pp, tree t)
-{
-  pp_left_paren (pp);
-  pp_string (pp, "<requires ");
-  if (tree parms = PARM_CONSTR_PARMS (t))
-    {
-	pp_cxx_parameter_declaration_clause (pp, parms);
-      pp_cxx_whitespace (pp);
-    }
-  pp_cxx_constraint (pp, PARM_CONSTR_OPERAND (t));
-  pp_string (pp, ">");
+  pp_string(pp, ")");
 }
 
 void
 pp_cxx_conjunction (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
-  pp_string (pp, " and ");
+  pp_string (pp, " /\\ ");
   pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
 }
 
@@ -2956,7 +2910,7 @@ void
 pp_cxx_disjunction (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_constraint (pp, TREE_OPERAND (t, 0));
-  pp_string (pp, " or ");
+  pp_string (pp, " \\/ ");
   pp_cxx_constraint (pp, TREE_OPERAND (t, 1));
 }
 
@@ -2968,36 +2922,12 @@ pp_cxx_constraint (cxx_pretty_printer *pp, tree t)
 
   switch (TREE_CODE (t))
     {
-    case PRED_CONSTR:
-      pp_cxx_predicate_constraint (pp, t);
+    case ATOMIC_CONSTR:
+      pp_cxx_atomic_constraint (pp, t);
       break;
 
     case CHECK_CONSTR:
       pp_cxx_check_constraint (pp, t);
-      break;
-
-    case EXPR_CONSTR:
-      pp_cxx_expression_constraint (pp, t);
-      break;
-
-    case TYPE_CONSTR:
-      pp_cxx_type_constraint (pp, t);
-      break;
-
-    case ICONV_CONSTR:
-      pp_cxx_implicit_conversion_constraint (pp, t);
-      break;
-
-    case DEDUCT_CONSTR:
-      pp_cxx_argument_deduction_constraint (pp, t);
-      break;
-
-    case EXCEPT_CONSTR:
-      pp_cxx_exception_constraint (pp, t);
-      break;
-
-    case PARM_CONSTR:
-      pp_cxx_parameterized_constraint (pp, t);
       break;
 
     case CONJ_CONSTR:
@@ -3016,7 +2946,6 @@ pp_cxx_constraint (cxx_pretty_printer *pp, tree t)
       gcc_unreachable ();
     }
 }
-
 
 
 typedef c_pretty_print_fn pp_fun;

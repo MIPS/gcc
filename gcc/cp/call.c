@@ -2138,8 +2138,7 @@ add_function_candidate (struct z_candidate **candidates,
 
   /* Second, for a function to be viable, its constraints must be
      satisfied. */
-  if (flag_concepts && viable
-      && !constraints_satisfied_p (fn))
+  if (flag_concepts && viable && !constraints_satisfied_p (fn))
     {
       reason = constraint_failure (fn);
       viable = false;
@@ -4388,17 +4387,14 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args,
           /* If overload resolution selects a specialization of a
              function concept for non-dependent template arguments,
              the expression is true if the constraints are satisfied
-             and false otherwise.
-
-             NOTE: This is an extension of Concepts Lite TS that
-             allows constraints to be used in expressions. */
+             and false otherwise.  */
           if (flag_concepts && !processing_template_decl)
             {
               tree tmpl = DECL_TI_TEMPLATE (cand->fn);
               tree targs = DECL_TI_ARGS (cand->fn);
               tree decl = DECL_TEMPLATE_RESULT (tmpl);
               if (DECL_DECLARED_CONCEPT_P (decl))
-                return evaluate_function_concept (decl, targs);
+		return evaluate_function_concept (decl, targs);
             }
 
           flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
@@ -10593,8 +10589,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	return winner;
     }
 
-  // C++ Concepts
-  // or, if not that, F1 is more constrained than F2.
+  /* Concepts: ... or, if not that, F1 is more constrained than F2.  
+
+     FIXME: For function templates with no winner, this subsumption may
+     be computed a separate time.  This needs to be validated, and if
+     so, the redundant check removed.  */
   if (flag_concepts && DECL_P (cand1->fn) && DECL_P (cand2->fn))
     {
       winner = more_constrained (cand1->fn, cand2->fn);

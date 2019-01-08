@@ -1,3 +1,14 @@
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Enable concepts in C++20 mode.
+	* c-cppbuiltin.c (c_cpp_builtins): Use new feature test values for
+	concepts when -std=c++2a.
+	* c-opts.c (c_common_post_options): Warn when -fconcepts is used
+	with -std=c++2a.
+	(set_std_cxx2a): Enable concepts by default.
+
 2019-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/85052

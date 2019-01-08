@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "predict.h"
 #include "memmodel.h"
+#include "print-tree.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -2583,6 +2584,12 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
     result = build_op_call (fn, args, complain);
+  else if (concept_check_p (fn))
+    {
+      location_t loc = EXPR_LOC_OR_LOC (fn, input_location);
+      error_at (loc, "%qE is not a function", fn);
+      return error_mark_node;
+    }
 
   if (!result)
     /* A call where the function is unknown.  */
@@ -3843,6 +3850,14 @@ finish_id_expression_1 (tree id_expression,
 
 	  decl = convert_from_reference (decl);
 	}
+    }
+
+  /* If this is a concept check, potentially evaluate it.  */
+  if (TREE_CODE (decl) == TEMPLATE_ID_EXPR)
+    {
+      tree args = TREE_OPERAND (decl, 1);
+      if (concept_check_p (decl) && !uses_template_parms (args))
+	decl = evaluate_concept_check (decl);
     }
 
   return cp_expr (decl, location);
@@ -9234,7 +9249,6 @@ finish_static_assert (tree condition, tree message, location_t location,
   else 
     {
       location_t saved_loc = input_location;
-
       input_location = location;
       if (TREE_CODE (condition) == INTEGER_CST 
           && integer_zerop (condition))
@@ -9848,7 +9862,7 @@ capture_decltype (tree decl)
 static tree
 finish_unary_fold_expr (tree expr, int op, tree_code dir)
 {
-  // Build a pack expansion (assuming expr has pack type).
+  /* Build a pack expansion (assuming expr has pack type).  */
   if (!uses_parameter_packs (expr))
     {
       error_at (location_of (expr), "operand of fold expression has no "
@@ -9857,7 +9871,7 @@ finish_unary_fold_expr (tree expr, int op, tree_code dir)
     }
   tree pack = make_pack_expansion (expr);
 
-  // Build the fold expression.
+  /* Build the fold expression.  */
   tree code = build_int_cstu (integer_type_node, abs (op));
   tree fold = build_min_nt_loc (UNKNOWN_LOCATION, dir, code, pack);
   FOLD_EXPR_MODIFY_P (fold) = (op < 0);

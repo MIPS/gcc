@@ -1,3 +1,402 @@
+2018-12-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Clean up handling of different kinds of concepts.
+	* g++.dg/cpp2a/concepts-requires16.C: Update diagnostics.
+
+2018-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing accidentally propagated merge conflicts.
+	* g++.dg/cpp2a/concepts-friend1.C: Resolve merge conflicts.
+	* g++.dg/cpp2a/concepts-friend2.C: Likewise.
+	* g++.dg/cpp2a/concepts-iconv1.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor2.C: Likewise.
+	* g++.dg/cpp2a/concepts-inherit-ctor4.C: Likewise.
+	* g++.dg/cpp2a/concepts-memfun-err.C: Likewise.
+	* g++.dg/cpp2a/concepts-memfun.C: Likewise.
+	* g++.dg/cpp2a/concepts-partial-spec4.C: Likewise.
+	* g++.dg/cpp2a/concepts-partial-spec6.C: Likewise.
+	* g++.dg/cpp2a/concepts-placeholder1.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr65552.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr65854.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr68683.C: Likewise.
+	* g++.dg/cpp2a/concepts-pr71368.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires11.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires7.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires9.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm1.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm10.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm5.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm6.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm7.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm8.C: Likewise.
+	* g++.dg/cpp2a/concepts-template-parm9.C: Likewise.
+	* g++.dg/cpp2a/concepts-traits1.C: Likewise.
+	* g++.dg/cpp2a/concepts-traits2.C: Likewise.
+
+2018-10-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add missing test.
+	* g++.dg/cpp2a/concepts3.C: Add access checking tests.
+
+2018-10-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix issues with concept evaluation.
+	* g++.dg/cpp2a/concepts-requires5.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts1.C: Added.
+	* g++.dg/cpp2a/concepts2.C: Added.
+	* g++.dg/cpp2a/concepts3.C: Deleted.
+
+2018-10-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite introduction processing.
+	* g++.dg/cpp2a/concepts-ts6.C: Add variadic tests.
+
+2018-10-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	* g++.dg/cpp2a/concepts-requires16.C: Add variadic tests.
+
+2018-10-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	* g++.dg/cpp2a/concepts-requires16.C: New.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-locations1.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-member-concept.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-pr85265: Update build flags.
+	* g++.dg/cpp2a/concepts-ts3.C: New.
+	* g++.dg/cpp2a/concepts-ts4.C: New.
+	* g++.dg/cpp2a/concepts-ts5.C: New.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts.C: Update diagnostics.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-ts1.C: Update build flags.
+	* g++.dg/cpp2a/concepts-ts2.C: Update build flags.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-ts2.C: New.
+
+2018-09-22  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg: Migrating tests to cpp2a.
+
+2018-09-21  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg: Migrating tests to cpp2a.
+
+2018-09-20  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg: Migrating tests to cpp2a.
+
+2018-09-20  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg: Updating tests.
+
+2018-09-14  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg: Migrate PR tests to cpp2a.
+
+2018-09-14  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg/concepts/class-deduction2.C: Deleted.
+
+2018-09-14  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg/concepts/class.C: Deleted.
+	* g++.dg/concepts/class1.C: Deleted.
+	* g++.dg/concepts/class2.C: Deleted.
+	* g++.dg/concepts/class3.C: Deleted.
+	* g++.dg/concepts/class4.C: Deleted.
+
+2018-09-12  Jeffery Chapman  <jchapman@lock3software.com>
+
+	* g++.dg/concepts/alias1.C: Deleted.
+	* g++.dg/concepts/alias2.C: Deleted.
+	* g++.dg/concepts/alias3.C: Deleted.
+	* g++.dg/concepts/alias4.C: Deleted.
+
+2018-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/testsuite/g++.dg/cpp2a/concepts-ts1.C: New.
+
+2018-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix crash when ordering unconstrained templates.
+	* g++.dg/cpp2a/concepts-cmath.C: New.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Re-enable ordering check.
+	* g++.dg/cpp2a/concepts-fn.C: Separate into smaller files.
+	* g++.dg/cpp2a/concepts-fn1.C: New.
+	* g++.dg/cpp2a/concepts-fn2.C: New.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67147.
+	* g++.dg/cpp2a/concepts-pr67147.C: New.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Adding test.
+	* g++.dg/cpp2a/cconcepts-pr66844.C: New.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating test.
+	* g++.dg/cpp2a/cconcepts-pr66962.C: New.
+	* g++.dg/concepts/disjunction1.C: Deleted.
+
+2018-09-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-requires14.C: New.
+	* g++.dg/cpp2a/concepts-requires14.C: New.
+
+2018-09-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Updating error diagnostics.
+	* g++.dg/cpp2a/concepts-alias.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-class.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires1.C: Likewise.
+	* g++.dg/cpp2a/concepts-requires2.C: Likewise.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* g++.dg/cpp2a/concepts-requires11.C: New.
+	* g++.dg/cpp2a/concepts-requires12.C: New.
+	* g++.dg/cpp2a/concepts-requires13.C: New.
+	* g++.dg/cpp2a/concepts-requires3.C: New test.
+	* g++.dg/concepts/req17.C: Deleted.
+	* g++.dg/concepts/req18.C: Deleted.
+	* g++.dg/concepts/req19.C: Deleted.
+	* g++.dg/concepts/req20.C: Deleted.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* g++.dg/cpp2a/concepts-requires10.C: New test.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* g++.dg/cpp2a/concepts-requires10.C: New.
+	* g++.dg/concepts/req16.C: Deleted.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* g++.dg/cpp2a/concepts-requires9.C: New.
+	* g++.dg/concepts/req15.C: Deleted.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Restructure requires tests.
+	* g++.dg/cpp2a/concepts-requires4.C: New.
+	* g++.dg/cpp2a/concepts-requires5.C: New.
+	* g++.dg/cpp2a/concepts-requires6.C: New.
+	* g++.dg/cpp2a/concepts-requires7.C: New.
+	* g++.dg/cpp2a/concepts-requires8.C: New.
+	* g++.dg/cpp2a/concepts-requires1.C: Move tests into new files.
+	* g++.dg/cpp2a/concepts-requires2.C: Move tests into new files.
+	* g++.dg/cpp2a/concepts-requires3.C: Move tests into new files.
+	* g++.dg/concepts/req14.C: Deleted.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix ambiguity in constrained type specifiers.
+	* g++.dg/cpp2a/concepts-requires3.C: New tests.
+
+2018-09-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Removing legacy test file.
+	* g++.dg/concepts/req12.C: Deleted.
+
+2018-09-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Restore TS-style constrained type specifiers.
+	* g++.dg/cpp2a/concepts-requires3.C: New tests.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* g++.dg/concepts/req11.C: Deleted.
+	* g++.dg/cpp2a/concepts-requires3.C: Moved tests.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* g++.dg/concepts/req8.C: Deleted.
+	* g++.dg/concepts/req9.C: Deleted.
+	* g++.dg/concepts/req10.C: Deleted.
+	* g++.dg/cpp2a/concepts-requires3.C: Moved tests.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Moving tests around.
+	* g++.dg/concepts/req1.C: Deleted.
+	* g++.dg/concepts/req2.C: Deleted.
+	* g++.dg/concepts/req3.C: Deleted.
+	* g++.dg/concepts/req4.C: Deleted.
+	* g++.dg/concepts/req5.C: Deleted.
+	* g++.dg/concepts/req6.C: Deleted.
+	* g++.dg/concepts/req7.C: Deleted.
+	* g++.dg/cpp2a/concepts-requires3.C: Added tests.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Removing legacy test.
+	* g++.dg/concepts/req-neg1.C: Deleted.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rearrange requirements tests.
+	* g++.dg/cpp2a/concepts-requires.C: Deleted.
+	* g++.dg/cpp2a/concepts-requires1.C: New.
+	* g++.dg/cpp2a/concepts-requires2.C: New.
+	* g++.dg/cpp2a/concepts-requires3.C: New.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add tests for non-bool atoms.
+	* g++.dg/cpp2a/concepts-requires.C: New tests.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Remove old constraint-based diagnostics.
+	* g++.dg/cpp2a/concepts-requires.C: Update diagnostics.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Revisit diagnostics.
+	* g++.dg/cpp2a/concepts-class.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-fn.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-requires.C: New.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add deduction guide test.
+	* g++.dg/cpp2a/concepts-class.C: New test.
+
+2018-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix for pr84551.
+	* g++.dg/cpp2a/cpr84551.C: New.
+
+2018-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add tests for constrained aliases.
+	* g++.dg/cpp2a/concepts-class.C: Update diagnostics.
+	* g++.dg/cpp2a/concepts-alias.C: New.
+
+2018-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix partial specialization issues.
+	* g++.dg/cpp2a/concepts-class.C: New test.
+
+2018-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Work on constrained class templates.
+	* g++.dg/cpp2a/concepts-class.C: New.
+
+2018-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Renaming files.
+	* g++.dg/cpp2a/concepts.C: Renamed from concepts1.C
+	* g++.dg/cpp2a/concepts-fn.C: Renamed from concepts2.C
+
+2018-08-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add address-of-function tests.
+	* g++.dg/cpp2a/concepts2.C: New tests.
+
+2018-08-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add constrained parameters to template comparisons.
+	* g++.dg/cpp2a/concepts2.C: New overloading tests.
+	* g++.dg/cpp2a/concepts3.C: New overloading tests.
+
+2018-08-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add constrained parameters to template comparisons.
+	* g++.dg/cpp2a/concepts3.C: New tests.
+
+2018-08-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update the implementation of constrained parameters.
+	* g++.dg/cpp2a/concepts3.C: New.
+
+2018-08-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Handle corner cases in redeclaration rules.
+	* g++.dg/cpp2a/concepts1.C: Add redefinition/overloading tests.
+
+2018-08-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement new template equivalence rules.
+	* g++.dg/cpp2a/concepts1.C: Add equivalence tests.
+
+2018-07-30  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Import tests from concepts TS tests.
+	* g++.dg/cpp2a/concepts2.C: New tests.
+
+2018-07-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Instantiation fixes during constraint diagnostics.
+	* g++.dg/cpp2a/concepts1.C (driver_2): Renamed from main.
+	* g++.dg/cpp2a/concepts2.C: New.
+
+2018-07-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Enable hashing in clauses for efficient lookup.
+	* g++.dg/cpp2a/concepts1.C: Update diagnostics.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Don't normalize constraints in constexpr evaluation.
+	* g++.dg/cpp2a/concepts1.C: Renamed from concepts.C.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Always make 'concept bool' a warning.
+	* g++.dg/cpp2a/concepts.C: Update diagnostics.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update normalization rules for concept checks.
+	* g++.dg/cpp2a/concepts.C: Add tests for checking and overloading.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add test cases.
+	* g++.dg/cpp2a/concepts.C: Add tests for checking concept.
+
+2018-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement declaration rules for concepts.
+	* g++.dg/cpp2a/concepts.C: Add tests for concept definitions.
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial support for concept definitions.
+	* g++.dg/cpp2a/concepts.C: Add tests for concept definitions.
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement new grammar for requires-clauses.
+	* g++.dg/cpp2a/concepts.C: Add tests for new requires-clause.
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Enable concepts in C++20 mode.
+	* g++.dg/cpp2a/concepts.C: New.
+
 2019-01-07  Richard Sandiford  <richard.sandiford@arm.com>
 
 	PR tree-optimization/88598

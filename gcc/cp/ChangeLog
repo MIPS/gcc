@@ -1,3 +1,655 @@
+2019-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing broken commit and cleaning up dead code.
+	* constraint.cc (push_down_pack_expansion): Remove.
+	(normalize_pack_expansion): Remove.
+	(normalize_expression): Don't call normalize_pack_expansion.
+	* parser.c (cp_lexer_get_preprocessor_token): Update diagnostics.
+	* pt.c (finish_template_variable): Don't process concepts here.
+	(instantiation_dependent_r): Use concept_check_p.
+
+2019-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Cleaning up handling of different kinds of concepts.
+	* constraint.cc (function_concept_check_p): Removed.
+	(variable_concept_check_p): Likewise.
+	(unpack_concept_check): New.
+	(build_call_check): Moved and renamed to build_function_check.
+	(build_variable_check): Moved.
+	(normalize_concept_check): Use unpack_concept_check.
+	(normalize_atom): Unify cases for different kinds of concepts.
+	(build_concept_check_arguments): make static.
+	(build_standard_check): Renamed from build_real_concept_check.
+	(build_concept_check): Enumerate cases more precisely.
+	(satisfy_check): Preparing to unpack concept check info.
+	* cp-tree.h: (standard_concept_p): New.
+	(variable_concept_p): Rewrite.
+	(function_concept_p): Rewrite.
+	(concept_definition_p): Match any kind of concept definition as the
+	first operand of a template-id.
+	(concept_check_p): Unwrap call expressions first.
+	* parser.c: (cp_parser_template_id): Handle the different cases
+	we can get from cp_parser_maybe_constrained_type_specifier.
+	Build concept checks only when we need to.
+	(cp_parser_maybe_constrained_type_specifier): Reject non-concepts
+	more carefully. Return concept checks in the case of ambiguous
+	deduction.
+	(cp_parser_maybe_concept_name): Check for concepts more carefully.
+	* pt.c (coerce_template_parms): Use concept_definition_p.
+	(coerce_template_parms): Handle a deduction error where a potentially
+	empty pack can be supplied after the last parameter of a concept.
+	This probably affects alias templates too.
+	(lookup_template_variable): Redirect to build_concept_check.
+	(finish_template_variable): Add a FIXME for future work.
+
+2018-12-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing issues from git merge.
+	* semantics.c (finish_static_assert): Remove leftover debugging code.
+
+2018-10-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Cleanups from building in bootstrap.
+	* constraint.cc (expand_concept): Removed; no longer used.
+	(normalize_*): Make internal functions static.
+	(normalize_atom): Remove unused check for constraints.
+	(build_constraint_info): Remove the surrounding inline namespace
+	and make the function static.
+	* cp-tree.h: (expand_concept): Removed; no longer used. 
+	(concept_definition_p) Overload and use const_cast to suppress 
+	warnings about explicit casts that remove cv-quals.
+
+2018-10-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Defer access checks requirement checking.
+	* constraint.cc (tsubst_valid_expression_requirement): New. Defer
+	access checks in substitution.
+	(tsubst_simple_requirement): Use new subst function.
+	(tsubst_type_requirement): Defer access checks.
+	(tsubst_compound_requirement): Use new subst function.
+
+2018-10-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix issues with concept evaluation.
+	* constraint.cc (satisfying_constraint_p): New.
+	(satisfy_disjunction): Guard against recursive evaluation of
+	constraints when instantiating concept checks.
+	(satisfy_associated_constraints):  Disable memoization.
+	(evaluate_concept_check): New.
+	(evaluate_concept): Use evaluate_concept_check.
+	(evaluate_function_concept): Likewise.
+	(evaluate_variable_concept): Likewise.
+	(diagnose_check): Guard against recursive evaluation.
+	* cp-tree.h (satisfying_constraint_p): New.
+	(evaluate_concept_check): New.
+	(function_concept_p): New.
+	* pt.c (tsubst_copy_and_build): Guard against recursive instantiation.
+	* semantics.c (finish_id_expression): Don't evaluate dependent checks.
+
+2018-10-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Rewrite introduction processing.
+	* constraint.cc: Replace existing implementation of introduction
+	semantics
+	* parser.c (cp_parser_template_introduction): Diagnose errors on
+	invalid introductions.
+
+2018-10-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* constraint.cc (finish_shorthand_constraint): Make fold expressions,
+	not naked parameter packs.
+
+2018-10-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* constraint.cc (satisfy_conjunction): Handle errors.
+	(satisfy_check): Propagate errors.
+	(satisfaction_value): New. Compute the satisfaction value in the
+	presence of errors.
+	(valid_result_p): New.
+	(satisfy_atom): Handle concept checks early. Propagate errors.
+	(satisfy_expression): Handle null arguments.
+	(diagnose_check): Diagnose ill-formed checks.
+	* pt.c (tsubst_copy_and_build): Build concept checks, not template ids.
+	* semantics.c (finish_id_expression): Variable concepts are just
+	template-ids.
+
+2018-10-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Major code cleanup.
+	* constraint.cc: Remove unused constraint processing routines. Replace
+	PRED_CONSTR with ATOMIC_CONSTR. Replace inline namespaces with
+	static functions. Rename cxx_satisfy functions to plain satisfy.
+	* cp-objcp-common.c (cp_common_init_ts): Rename PRED_CONSTR to
+	ATOMIC_CONSTR.
+	* cp-tree.def: Likewise. Remove unused _CONSTR nodes.
+	* cp-tree.h: Likewise. Remove unused _CONSTR macros and removed
+	constraint functions.
+	* cxx-pretty-print.c: Remove constraint processing code.
+	* error.c: Likewise.
+	* logic.cc: Replace PRED_CONSTR with ATOMIC_CONSTR.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* constraint.cc (evaluate_variable_concept): Build expressions for
+	checks.
+	* pt.c (finish_template_variable): Rethink processing of variable
+	concepts.
+	(finish_id_expression): Evaluate variable concepts as part of
+	id-expression processing.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* parser.c (cp_parser_maybe_constrained_type_specifier): Re-enable
+	concepts TS warning.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* c.opt: Replace -Wconcepts-ts with -fconcepts-ts
+	* parser.c (cp_parser_decl_specifier_seq): Update flag use.
+	(cp_parser_requires_clause_opt): Likewise.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* constraint.cc (normalize_function_concept_check): Re-enable
+	normalization.
+	(cxx_satisfy_check): Use get_concept_definition.
+	(evaluate_function_concept): Build concept check differently.
+	(diagnose_check): Adjust the template for overloads.
+	* cp-tree.h: Move inline functions.
+
+2018-09-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* c.opt: Add -Wconcepts-ts
+	* parser.c (cp_parser_decl_specifier_seq): Update warning about
+	use of 'concept'.
+
+2018-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* parser.c (cp_parser_maybe_constrained_type_specifier): Allow
+	auto after a constrained type specifier.
+
+2018-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix crash when ordering unconstrained templates.
+	* constraint.cc (get_normalized_constraints_from_info): Unpack
+	subsumption arguments more carefully.
+
+2018-09-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix crash when ordering unconstrained templates.
+	* constraint.cc (get_normalized_constraints_from_info): Unpack
+	subsumption arguments more carefully.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Re-enable ordering check.
+	* call.c (joust): Re-enable seemingly redundant check.
+
+2018-09-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	PR c++/67147.
+	* pt.c (tsubst): Adjust wildcard argument during substitution.
+
+2018-09-20  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* constraint.cc (combine_constraint_expressions): Disable folding
+	when combining constraints.
+	(diagnose_check): Handle invalid concept definitions.
+
+2018-09-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix ambiguity in constrained type specifiers.
+	* parser.c (cp_parser_template_id): Suppress diagnostics when building
+	a concept check.
+	(cp_parser_maybe_constrained_type_specifier): Reject "complete"
+	concept checks as partial-concept-ids.
+
+2018-09-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Restore TS-style constrained type specifiers.
+	* constraint.cc (resolve_constraint_check): Handle concept definitions.
+	(build_real_concept_check): Build checks for C++2a concepts by
+	converting arguments.
+	(build_concept_check): New overload.
+	(build_concept_check): Use build_real_concept_check.
+	(finish_template_introduction): Pass tsubst flags.
+	(placeholder_extract_concept_and_args): Handle the template-id case.
+	(type_deducible_p): Redo deduction rules.
+	(cxx_satisfy_check): Don't tsubst in a template context.
+	Add diagnostics.
+	(diagnose_constraints): Pass instantiation context.
+	* cp-tree.h (build_concept_check): New declarations.
+	* cxx-pretty-print.c (pp_cxx_nested_name_specifier): Fix a weird
+	case where we're printing '::::' for concepts.
+	* error.c (dump_decl): Handle wildcard declarations in dump.
+	* parser.c (cp_parser_template_id): Build concept checks for certain
+	forms of template-id.
+	(cp_parser_maybe_constrained_type_specifier): Pass tsubst flags.
+	(make_constrained_auto): Handle concept definitions.
+	(start_concept_definition): Update declaration diagnostics. Associate
+	the current scope, not namespace.
+	(do_auto_deduction): Update auto deduction for new concept model.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* constraint.cc (finish_constraint_binary_op): Handle errors in input.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Migrating tests.
+	* semantics.c (finish_call_expr): Diagnose calls to concepts.
+
+2018-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix partial ordering error.
+	* pt.c (more_specialized_partial_spec): Don't immediately return when
+	detecting a winner.
+
+2018-09-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix subsumption error.
+	* logic.cc (clause/ctor): Explicitly copy the hash table when copying
+	clauses.
+
+2018-09-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Stop using C++14 features.
+	* constraint.cc (subst_info): New constructor.
+	(satisfy_constraint): Explicitly invoke constructor.
+	(get_normalized_constraints_from_info): Likewise.
+	* logic.cc (formula): Use push_back.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Move check into diagnostics.
+	* constraint.cc (cxx_satisfy_atom): Return false on non-boolean atoms.
+	(diagnose_atom): Diagnose non-boolean atoms.
+	(diagnose_constraint): New.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Remove more constraint-based diagnostics.
+	* constraint.cc (constraint_threshold): Renamed.
+	(diagnose_other_expression): Deleted.
+	(diagnose_predicate_constraint): Deleted.
+	(diagnose_pack_expansion): Deleted.
+	(diagnose_check_constraint): Deleted.
+	(diagnose_logical_constraint): Deleted.
+	(diagnose_expression_constraint): Deleted.
+	(diagnose_type_constraint): Deleted.
+	(diagnose_implicit_conversion_constraint): Deleted.
+	(diagnose_argument_deduction_constraint): Deleted.
+	(diagnose_exception_constraint): Deleted.
+	(diagnose_parameterized_constraint): Deleted.
+	(diagnose_argument_deduction_constraint): Deleted.
+	(diagnose_argument_deduction_constraint): Deleted.
+	(diagnose_argument_deduction_constraint): Deleted.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Remove old constraint-based diagnostics.
+	* constraint.cc: Unify diagnostics into a single set of functions.
+
+2018-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Revisit diagnostics.
+	* constraint.cc (cxx_satisfy_atom): Add check for bool type.
+	(cxx_diagnose_expression): Add source locations.
+
+2018-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix for pr84551.
+	* constraint.cc (build_constraints): Combine expressions, not 
+	constraints.
+	(tsubst_constraint_info): Substitute through template and declaration
+	constraints as expressions.
+	(weakly_subsumes): New.
+	* cp-tree.h (weakly_subsumes): New.
+	* logic.cc (contains): Code cleanup.
+	* pt.c (is_compatible_template_arg): Use weakly_subsumes.
+	(more_specialized_fn): Code cleanup.
+
+2018-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix partial specialization issues.
+	* constraint.cc (get_normalized_constraints_from_info): New.
+	(get_normalized_constraints_from_decl): New.
+	(strictly_subsumes): Simplify unpacking of data.
+	(more_constrained): Likewise.
+	* cp-tree.h (strictly_subsumes): Accept a new argument.
+	* pt.c (process_partial_specialization): Use updated subsumption
+	function.
+
+2018-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Work on constrained class templates.
+	* constexpr.c (cxx_eval_constant_expression): Don't evaluate if
+	processing a template.
+	* constraint.cc (parsing_constraint_expression_sentinel): Renamed
+	from expanding_constraint_sentinel.
+	(finish_constraint_binary_op): Require the sentinel to be set prior
+	to calling.
+	(more_constrained): Allow classes as arguments.
+	* cp-tree.h (parsing_constraint_expression_sentinel): New.
+	* parser.c (declares_constrained_type_template_parameter): Make static.
+	(cp_parser_simple_type_specifier): Handle an error condition of
+	a bad constrained type specifier.
+	(cp_parser_maybe_constrained_type_specifier): Refactor to handle
+	concept definitions.
+	(cp_parser_requires_clause_expression): Declare that we're parsing
+	a constraint.
+	(cp_parser_constraint_expression): Likewise.
+	(synthesize_implicit_template_parm): Don't do consistent binding.
+	Use a new flag for constrained parameters. Combine expressions,
+	not constraints.
+	(maybe_new_partial_specialization): Use new constraint comparison
+	for finding specializations.
+	(template_parameter_constraints_equivalent_p): New.
+	(template_parameters_equivalent_p): Use factored-out function.
+	(redeclare_class_template): Diagnose redeclarations with different
+	constraints.
+	* search.c (accessible_p): Use parsing_constraint_expression_p.
+
+2018-08-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix constraint unpacking bug.
+	* constraint.cc (strictly_subsumes): Allow non-templates as arguments.
+
+2018-08-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Add constrained parameters to template comparisons.
+	* pt.c (template_parameters_equivalent_p): Compare associated
+	constraints.
+
+2018-08-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Cleanup of logic code.
+	* cp-tree.h (decompose_conclusions): Remove.
+	* logic.cc: Remove #if 0'd code.
+
+2018-08-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update the implementation of constrained parameters.
+	* constraint.cc (resolve_concept_check): New.
+	(deduce_constrained_parameter): Check if the identifier or template-id
+	is a concept definition.
+	* parser.c: Rename functions, cleanup formatting.
+	(cp_parser_maybe_concept_name): Handle concept definitions.
+
+2018-08-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Handle corner cases in redeclaration rules.
+	* constraint.cc (get_template_head_requirements): New.
+	(get_trailing_function_requirements): New.
+	* cp-tree.h (get_template_head_requirements): New.
+	(get_trailing_function_requirements): New.
+	* decl.c (check_misplaced_requirement): Delete.
+	(function_requirements_equivalent_p): Compare only trailing requires
+	clauses.
+	(duplicate_function_template_decls): New. Refactor a nasty if
+	condition into a single predicate.
+	(decls_match): Simplify comparison of functions, function templates.
+	(template_parameters_equivalent_p): Handle template template
+	parameters.
+	(template_heads_equivalent_p): For pre-C++2a, just compare parameters.
+
+2018-08-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement new template equivalence rules.
+	* cp-tree.h (template_heads_equivalent_p): New.
+	* decl.c (check_misplaced_requirement): New. Placeholder for a 
+	diagnostic.
+	(function_requirements_equivalent_p): New. Compare trailing
+	requires clauses.
+	(decls_match): Compare trailing requires clauses. Compare template
+	heads for function templates. Remove old constraint comparison.
+	* pt.c (template_parameters_equivalent_p): New. Compare template
+	parameters.
+	(template_parameter_lists_equivalent_p): New. Compare template
+	parameter lists.
+	(template_heads_equivalent_p): New. Compare template heads.
+
+2018-07-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Instantiation fixes during constraint diagnostics.
+	* constraint.cc (diagnose_declaration_constraints): Turn on template
+	processing to suppress certain analyses.
+
+2018-07-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Enable hashing in clauses for efficient lookup.
+	* logic.cc (parameter_mapping_equivalent_p): Make static.
+	(constraint_identical_p): Make static.
+	(hash_atomic_constraint): New.
+	(constraint_hash): New.
+	(clause/ctor): Save atoms in the hash table.
+	(replace): Save atoms during replacement.
+	(insert): Save atoms during insertion.
+	(contains): Only search the hash table for containment.
+	(clause): Keep a hash of atomic constraints.
+	(distributes_p): Make static.
+	(count_terms): Compute the number of terms needed for a complete
+	normalization of an expression.
+	(add_clamped): Prevent overflow when computing normalized size.
+	(mul_clamped): Prevent overflow when computing normalized size.
+	(count_conjunction): Count the number of terms in conjunction.
+	(count_disjunction): Count the number of terms in conjunction.
+	(dnf_size): New.
+	(cnf_size): New.
+	(diagnose_constraint_size): New.
+	(subsumes_constraints_nonnull): Compare the sizes of normalized formula
+	to determine the cheapest decomposition.
+
+2018-07-27  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial rewrite of subsumption.
+	* call.c (joust): Disable redundant subsumption check.
+	* constraint.cc (subst_info): Moved.
+	* (variable_concept_check_p): New.
+	* (expand_concept): Get the concept definition directly. Don't 
+	normalize or learn implications.
+	(normalize_logical_operation): Pass substitution info through call.
+	(normalize_simple_requirement): Delete.
+	(normalize_type_requirement): Delete.
+	(normalize_compound_requirement): Delete.
+	(normalize_nested_requirement): Delete.
+	(normalize_requirement): Delete.
+	(normalize_requirements): Delete.
+	(normalize_requires_expression): Delete.
+	(normalize_variable_concept_check): Rename. Handle concept definitions.
+	(normalize_function_concept_check): Disable.
+	(check_for_logical_overloads): Delete.
+	(normalize_concept_check): Use only concept definitions.
+	(map_arguments): New. Associate template parameters with arguments.
+	(build_parameter_mapping): New. Extract used parameters.
+	(normalize_expression): Rewrite.
+	(normalize_conjunction): Delete.
+	(normalize_disjunction): Delete.
+	(normalize_predicate_constraint): Delete.
+	(normalize_parameterized_constraint): Delete.
+	(finish_template_introduction): Don't normalize constraints.
+	(more_constrained): Normalize before calling out to subsumption.
+	* cp-objcp-common.c (cp_common_init_ts): Make predicate constraints
+	typed.
+	* cp-tree.h (concept_check_p): New.
+	(find_template_parameters): New.
+	* logic.cc. Completely rewrite.
+	* pt.c (template_parm_level_and_index): Make non-static.
+	(for_each_template_parm_r): Handle requires expressions.
+	(for_each_template_parm): New overload.
+	(keep_template_parm): New.
+	(find_template_parameters): New.
+	(tsubst_function_decl): Always associated constraints with functions.
+	(more_specialized_fn): Change how winners and losers are chosen.
+	(make_constrained_auto): Don't normalize constraints.
+
+2018-07-19  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Don't normalize constraints in constexpr evaluation.
+	* constexpr.c (cxx_eval_constant_expression): Allow concept definitions
+	in constexpr.
+	* constraint.cc (evaluate_concept): Build a new template id before
+	checking.
+	(evaluate_constraint_expression): New.
+	* cp-tree.h (evaluate_constraint_expression): New.
+
+2018-07-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement deferred substitution through constrained members.
+	* constraint.cc (finish_constraint_and_expr): Make sure expressions
+	can have locations before setting them.
+	(cxx_satisfy_check): Build a new parameter mapping before substituting
+	through constraints.
+	(cxx_evaluate_atom): New. Evaluate atoms separate from checks.
+	(cxx_satisfy_atom): Diagnose constraints on failure.
+	(cxx_diagnose_expression): Special case for false.
+	* pt.c (tsubst_function_decl): Don't substitute through constraints.
+
+2018-07-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial experimental rewrite of satisfaction.
+	* constraint.cc (type_deducible_p): Re-apply type deduction logic.
+	(expression_convertible_t): Use direct initialization. Diagnose
+	errors on failure.
+	(tsubst_compound_requirement): Distinguish between conversion and
+	deduction constraints.
+
+2018-07-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial experimental rewrite of satisfaction.
+	* constraint.cc (expanding_concept_sentinel): Moved.
+	(finish_constraint_binary_op): Guard analysis.
+	(finish_constraint_primary_expr): Set the source location of the
+	primary expression.
+	(combine_constraint_expressions): New.
+	(build_constraints): Save expressions, not normalized constraints.
+	(get_shorthand_constraints): Temporarily disable this function.
+	(tsubst_simple_requirement): Return errors if they occur. Don't
+	process as a template.
+	(tsubst_type_requirement): Likewise.
+	(type_deducible_p): New.
+	(expression_convertible_t): New.
+	(tsubst_compound_requirement): Use new deduction, conversion predicates.
+	(tsubst_nested_requirement): Return errors if they occur. Don't
+	process as a template.
+	(tsubst_requires_expr): Likewise. Produce new requires-exprs during
+	template substitution.
+	(subst_info): New.
+	(cxx_satisfy_expression): New.
+	(cxx_satisfy_conjunction): New.
+	(cxx_satisfy_disjunction): New.
+	(cxx_satisfy_check): New.
+	(concept_check_p): New.
+	(cxx_satisfy_atom): New.
+	(cxx_satisfy_expression): New.
+	(satisfy_constraint): Use new satisfaction algorithm.
+	(cxx_diagnose_trait): New.
+	(cxx_diagnose_expression): New.
+	(cxx_diagnose_atom): New.
+	* cp-tree.h (finish_constraint_primary_expr): Accept a location_t.
+	(combine_constraint_expressions): New.
+	* decl.c (grokfndecl): Don't normalize constraints.
+	* parser.c (cp_parser_type_parameter): Combine expressions not 
+	constraints. 
+	(cp_parser_constraint_primary_expression): Track source locations.
+	(cp_parser_explicit_template_declaration): Combine expressions not
+	constraints.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Always make 'concept bool' a warning.
+	* parser.c (cp_parser_decl_specifier_seq): Warn on concept bool.
+
+2018-07-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Update normalization rules for concept checks.
+	* constraint.cc (resolve_concept_definition_check): New.
+	(normalize_template_id_expression): Handle concept definitions.
+	* cxx-pretty-print.c (pp_cxx_check_constraint): Update printing.
+	* logic.cc Adding some debugging code... removed later.
+	* pt.c (lookup_and_finish_template_variable): Build concept checks
+	with the correct arguments.
+
+2018-07-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Process concept checks as plain template-id expressions.
+	* parser.c (cp_parser_template_id): Build template-id expressions
+	for concept checks.
+	* pt.c (tsubst_copy_and_build): Likewise.
+
+2018-07-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initially implement concepts as expressions.
+	* constexpr.c (cxx_eval_constant_expression): Evaluate concepts.
+	* constraint.cc (get_concept_definition): Return the initializer of
+	concept definitions.
+	(build_concept_check): Build concept checks for concept definitions.
+	(evaluate_concept): New.
+	* cp-tree.h (evaluate_concept): New.
+	* parser.c (cp_parser_template_id): Parse concept checks as
+	template-ids.
+
+2018-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement declaration rules for concepts.
+	* cp-tree.h (concept_definition_p): Allow templates as concept
+	definitions.
+	* cxx-pretty-print.c (pp_cxx_concept_definition): New.
+	(pp_cxx_template_declaration): Print concept definitions.
+	* decl.c (redeclaration_error_message): New error for concepts.
+	* error.c (dump_decl): Dump concept definitions.
+	(dump_template_decl): Likewise.
+	* name-lookup.c (diagnose_name_conflict): Diagnose name issues with
+	concepts.
+	* pt.c (push_template_decl_real): Handle concept definitions.
+	(start_concept_definition): Let push_template_decl_real handle the
+	creation of the template.
+	(get_constraints): Return null if the table hasn't been initialized.
+
+2018-07-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial semantic plumbing for concept definitions.
+	* cp-objcp-common.c (cp_common_init_ts): Make concepts typed.
+	* cp-tree.h (LANG_DECL_HAS_MIN): Add CONCEPT_DECL.
+	(template_info_decl_check): Factor macro check into an inline function.
+	(DECL_TEMPLATE_INFO): Use new check facility.
+	(concept_definition_p): New.
+	(start_concept_definition): Likewise.
+	(finish_concept_definition): Likewise.
+	* parser.c (cp_parser_concept_definition): Call start/finish to define
+	concepts.
+	* pt.c (start_concept_definition): New.
+	(finish_concept_definition): New.
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Initial support for concept definitions.
+	* cp-tree.def (CONCEPT_DECL): New.
+	* parser.c (cp_parser_concept_definition): New.
+	(cp_parser_constraint_expression): Declare earlier.
+	(cp_parser_decl_specifier_seq): Warn when concept appears to be used
+	as a decl-specifier.
+	(cp_parser_template_declaration_after_parameters): Parse concept
+	definitions.
+
+2018-07-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Implement new grammar for requires-clauses.
+	* constraint.cc (finish_constraint_binary_op): New.
+	(finish_constraint_or_expr): Likewise.
+	(finish_constraint_and_expr): Likewise.
+	(finish_constraint_primary_expr): Likewise.
+	* cp-tree.h New declarations for semantic actions.
+	* parser.c (cp_parser_constraint_primary_expression): New.
+	(cp_parser_constraint_logical_and_expression): New.
+	(cp_parser_constraint_logical_or_expression): New.
+	(cp_parser_requires_clause_expression): New.
+	(cp_parser_requires_clause): Renamed to cp_parser_constraint_expression.
+	(cp_parser_requires_clause_opt): Parse the requires-clause differently
+	in -fconcepts and -std=c++2a modes.
+	(cp_parser_nested_requirement): Parse constraint-expressions.
+
 2019-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/85052

@@ -1016,6 +1016,17 @@ c_common_post_options (const char **pfilename)
   if (warn_return_type == -1 && c_dialect_cxx ())
     warn_return_type = 1;
 
+  /* C++2a includes a variation of concepts. Warn when -fconcepts is
+     specified for a language version greater than C++2a. Concepts TS
+     behavior can be identified when flag_concepts is set, but the
+     dialect is less than C++2a.  */
+  if (cxx_dialect >= cxx2a)
+    {
+      if (flag_concepts)
+        warning (0, "%<-fconcepts%> is ignored for C++2a and later");
+      flag_concepts = 1;
+    }
+
   if (num_in_fnames > 1)
     error ("too many filenames given.  Type %s --help for usage",
 	   progname);
@@ -1696,6 +1707,7 @@ set_std_cxx2a (int iso)
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   flag_isoc11 = 1;
+  /* C++2a includes concepts. */
   cxx_dialect = cxx2a;
   lang_hooks.name = "GNU C++17"; /* Pretend C++17 until standardization.  */
 }

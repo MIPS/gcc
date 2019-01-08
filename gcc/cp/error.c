@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gcc-rich-location.h"
 #include "cp-name-hint.h"
+#include "print-tree.h"
 
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 #define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')
@@ -1276,6 +1277,15 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       dump_template_decl (pp, t, flags);
       break;
 
+    case CONCEPT_DECL:
+      pp_cxx_ws_string (pp, "concept");
+      dump_decl_name (pp, DECL_NAME (t), flags);
+      break;
+
+    case WILDCARD_DECL:
+      pp_string (pp, "<wildcard>");
+      break;
+
     case TEMPLATE_ID_EXPR:
       {
 	tree name = TREE_OPERAND (t, 0);
@@ -1440,7 +1450,9 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
   else if (DECL_TEMPLATE_RESULT (t)
            && (VAR_P (DECL_TEMPLATE_RESULT (t))
 	       /* Alias template.  */
-	       || DECL_TYPE_TEMPLATE_P (t)))
+	       || DECL_TYPE_TEMPLATE_P (t)
+               /* Concept definition.  &*/
+               || TREE_CODE (DECL_TEMPLATE_RESULT (t)) == CONCEPT_DECL))
     dump_decl (pp, DECL_TEMPLATE_RESULT (t), flags | TFF_TEMPLATE_NAME);
   else
     {
@@ -2074,6 +2086,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
     case LABEL_DECL:
+    case WILDCARD_DECL:
     case OVERLOAD:
     case TYPE_DECL:
     case IDENTIFIER_NODE:
@@ -2840,14 +2853,8 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_nested_requirement (cxx_pp, t);
       break;
 
-    case PRED_CONSTR:
+    case ATOMIC_CONSTR:
     case CHECK_CONSTR:
-    case EXPR_CONSTR:
-    case TYPE_CONSTR:
-    case ICONV_CONSTR:
-    case DEDUCT_CONSTR:
-    case EXCEPT_CONSTR:
-    case PARM_CONSTR:
     case CONJ_CONSTR:
     case DISJ_CONSTR:
       pp_cxx_constraint (cxx_pp, t);
