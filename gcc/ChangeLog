@@ -1,3 +1,307 @@
+2018-11-29  Peter Bergner  <bergner@linux.ibm.com>
+
+	PR target/87496
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Disallow
+	-mabi=ieeelongdouble without both -mpopcntd and -mvsx.
+
+2018-11-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (inline_memory_move_cost):
+	Check "in" for 2 in MMX_CLASS_P case.
+	* config/i386/mmx.md (*mov<mode>_internal): Correct
+	TARGET_INTER_UNIT_MOVES_FROM_VEC and TARGET_INTER_UNIT_MOVES_TO_VEC
+	alternatives in preferred_for_speed attribute calculation.
+
+2018-11-29  Martin Sebor  <msebor@redhat.com>
+
+	PR c/88172
+	PR testsuite/88208
+	* doc/extend.texi (attribute constructor): Clarify.
+
+2018-11-29  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/88246
+	* builtins.c (expand_movstr): Fix thinko introduced
+	when switching to the new enum.
+
+2018-11-29  qing zhao  <qing.zhao@oracle.com>
+
+	* cif-code.def (EXTERN_LIVE_ONLY_STATIC): New CIF code.
+	* common.opt: Add -flive-patching flag.
+	* doc/invoke.texi: Document -flive-patching.
+	* flag-types.h (enum live_patching_level): New enum.
+	* ipa-inline.c (can_inline_edge_p): Disable external functions from
+	inlining when flag_live_patching is LIVE_PATCHING_INLINE_ONLY_STATIC.
+	* opts.c (control_options_for_live_patching): New function.
+	(finish_options): Make flag_live_patching incompatible with flag_lto.
+	Control IPA optimizations based on different levels of
+	flag_live_patching.
+
+2018-11-29  Giuliano Belinassi  <giuliano.belinassi@usp.br>
+
+	* match.pd (sinh (atanh (x))): New simplification rules.
+	(cosh (atanh (x))): Likewise.
+
+2018-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/54700
+	* config/i386/sse.md (ssebytemode): Add V16SI, V8SI and V4SI entries.
+	(ssefltmodesuffix, ssefltvecmode): New define_mode_attrs.
+	(*<sse4_1>_blendv<ssemodesuffix><avxsizesuffix>_lt,
+	*<sse4_1>_blendv<ssefltmodesuffix><avxsizesuffix>_ltint,
+	*<sse4_1_avx2>_pblendvb_lt): New define_insns.
+
+	PR target/88152
+	* tree.h (build_uniform_cst, uniform_integer_cst_p): Declare.
+	* tree.c (build_uniform_cst, uniform_integer_cst_p): New functions.
+	* match.pd (define_predicates): Add uniform_integer_cst_p.
+	(cmp @0 INTEGER_CST@1, cmp (convert?@2 @0) INTEGER_CST@1): Adjust
+	so that it works also for vector comparisons with uniform constants
+	with INTEGER_CST element.
+
+	PR target/88234
+	* config/rs6000/rs6000.c (rs6000_gimple_fold_builtin): For
+	vec_add and vec_sub builtins, perform PLUS_EXPR or MINUS_EXPR
+	in unsigned_type_for instead of vector integral type where overflow
+	doesn't wrap.
+
+2018-11-29  Michael Ploujnikov  <michael.ploujnikov@oracle.com>
+
+	There can be at most one .resolver clone per function
+	* config/rs6000/rs6000.c (make_resolver_func): Generate
+	resolver symbol with clone_function_name instead of
+	clone_function_name_numbered.
+
+2018-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88243
+	* tree-vect-patterns.c (vect_mark_pattern_stmts): Set the def
+	type of all pattern-sequence stmts to vect_internal_def.
+
+2018-11-29  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	PR target/88224
+	* config/arm/arm-cpus.in (armv7-r): Add FP16conv configurations.
+	(cortex-r7, cortex-r8): Update default and add new configuration.
+	* doc/invoke.texi (armv7-r): Add two new vfp options.
+	(nofp.dp): Add cortex-r7 and cortex-r8 to the list of targets that
+	support this option.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Disable long
+	double split for targets other than Darwin.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (movdi_internal64): Correct lengths.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Remove code
+	dealing with integers in const_double.  Assert on unexpected
+	modes.  Delete superfluous ABI_V4 test.
+	* config/rs6000/rs6000.c (rs6000_emit_move): Comment fixes.
+	Don't call easy_fp_constant for Pmode.
+	(rs6000_hash_constant): Remove code dealing with integers in
+	const_double.
+	(rs6000_legitimate_constant_p): Likewise.
+	(output_toc): Formatting, use CONST_DOUBLE_P.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/constraints.md (G, H): Comment on purpose of
+	constraint.  Correct mode comments and "G" mode test.
+	* config/rs6000/rs6000.md (movdi_internal32): Remove "GH" from
+	alternative handling "F".  Add length attr.  Formatting.
+	(mov<mode>_softfloat <FMOVE128>): Delete "GH" from
+	alternative, and move "F" to separate alternative.  Correct
+	insn lengths.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (easy_vector_constant): Don't call
+	easy_fp_constant.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config.in (HAVE_AS_PLTSEQ): Add.
+	* config/rs6000/predicates.md (indirect_call_operand): New.
+	* config/rs6000/rs6000-protos.h (rs6000_pltseq_template),
+	(rs6000_sibcall_sysv): Declare.
+	* config/rs6000/rs6000.c (init_cumulative_args): Set cookie
+	CALL_LONG for -fno-plt.
+	(print_operand <T, z, 0>): Handle UNSPEC_PLTSEQ.
+	(rs6000_indirect_call_template_1): Emit .reloc directives for
+	UNSPEC_PLTSEQ calls.
+	(rs6000_pltseq_template): New function.
+	(rs6000_longcall_ref): Add arg parameter.  Use PLT16 insns if
+	relocs supported by assembler.  Move SYMBOL_REF test to callers.
+	(rs6000_call_aix): Adjust rs6000_longcall_ref call.  Package
+	insns in UNSPEC_PLTSEQ, preserving original func_desc.
+	(rs6000_call_sysv): Likewise.
+	(rs6000_sibcall_sysv): New function.
+	* config/rs6000/rs6000.h (HAVE_AS_PLTSEQ): Provide default.
+	* config/rs6000/rs6000.md (UNSPEC_PLTSEQ, UNSPEC_PLT16_HA,
+	UNSPEC_PLT16_LO): New.
+	(pltseq_tocsave, pltseq_plt16_ha, pltseq_plt16_lo, pltseq_mtctr): New.
+	(call_indirect_nonlocal_sysv): Don't differentiate zero from non-zero
+	cookie in constraints.  Test explicitly for flags in length attr.
+	Handle unspec operand 1.
+	(call_value_indirect_nonlocal_sysv): Likewise.
+	(call_indirect_aix, call_value_indirect_aix): Handle unspec operand 1.
+	(call_indirect_elfv2, call_value_indirect_elfv2): Likewise.
+	(sibcall, sibcall_value): Use rs6000_sibcall_sysv.
+	(sibcall_indirect_nonlocal_sysv): New pattern.
+	(sibcall_value_indirect_nonlocal_sysv): Likewise.
+	(sibcall_nonlocal_sysv, sibcall_value_nonlocal_sysv): Remove indirect
+	call alternatives.
+	* configure.ac: Check for gas plt sequence marker support.
+	* configure: Regenerate.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (unspec_tls): New.
+	* config/rs6000/rs6000-protos.h (rs6000_call_template),
+	(rs6000_sibcall_template): Update prototype.
+	(rs6000_longcall_ref): Delete.
+	(rs6000_call_sysv): Declare.
+	* config/rs6000/rs6000.c (edit_tls_call_insn): New function.
+	(global_tlsarg): New variable.
+	(rs6000_legitimize_tls_address): Rewrite __tls_get_addr call
+	handling.
+	(print_operand): Extract UNSPEC_TLSGD address operand.
+	(rs6000_call_template, rs6000_sibcall_template): Remove arg
+	parameter, extract from second call operand instead.
+	(rs6000_longcall_ref): Make static, localize vars.
+	(rs6000_call_aix): Rename parameter to reflect new usage.  Take
+	tlsarg from global_tlsarg.  Don't create unused rtl or nop insns.
+	(rs6000_sibcall_aix): Rename parameter to reflect new usage.  Take
+	tlsarg from global_tlsarg.
+	(rs6000_call_sysv): New function.
+	* config/rs6000/rs6000.md: Adjust rs6000_call_template and
+	rs6000_sibcall_template throughout.
+	(tls_gd_aix, tls_gd_sysv, tls_gd_call_aix, tls_gd_call_sysv): Delete.
+	(tls_ld_aix, tls_ld_sysv, tls_ld_call_aix, tls_ld_call_sysv): Delete.
+	(tls_gdld_nomark): New insn.
+	(tls_gd): Swap operand order.  Simplify mode selection.
+	(tls_gd_high, tls_gd_low): Swap operand order.
+	(tls_ld): Remove const_int 0 vector element from UNSPEC_TLSLD.
+	Simplify mode selection.
+	(tls_ld_high, tls_ld_low): Similarly adjust UNSPEC_TLSLD.
+	(call, call_value): Don't assert for second call operand.
+	Use rs6000_call_sysv.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/darwin.md (call_indirect_nonlocal_darwin64),
+	(call_nonlocal_darwin64, call_value_indirect_nonlocal_darwin64),
+	(call_value_nonlocal_darwin64): Remove constraints from second call
+	arg, the rounded_stack_size_rtx arg.
+	* config/rs6000/rs6000.md (tls_gd_aix, tls_gd_sysv, tls_gd_call_aix),
+	(tls_gd_call_sysv, tls_ld_aix, tls_ld_sysv, tls_ld_call_aix),
+	(tls_ld_call_sysv, call_local32, call_local64, call_value_local32),
+	(call_value_local64, call_indirect_nonlocal_sysv),
+	(call_nonlocal_sysv, call_nonlocal_sysv_secure),
+	(call_value_indirect_nonlocal_sysv, call_value_nonlocal_sysv),
+	(call_value_nonlocal_sysv_secure, call_local_aix),
+	(call_value_local_aix, call_nonlocal_aix, call_value_nonlocal_aix),
+	(call_indirect_aix, call_value_indirect_aix, call_indirect_elfv2),
+	(call_value_indirect_elfv2, sibcall_local32, sibcall_local64),
+	(sibcall_value_local32, sibcall_value_local64, sibcall_aix),
+	(sibcall_value_aix): Likewise.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (TLSmode): Delete mode iterator.  Replace
+	with P throughout except for call mems which should use SI.
+	(tls_abi_suffix, tls_sysv_suffix, tls_insn_suffix): Delete mode
+	attributes.  Replace with bits, mode and ptrload respectively.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_indirect_call_template),
+	(rs6000_indirect_sibcall_template): Declare.
+	* config/rs6000/rs6000.c (rs6000_indirect_call_template_1),
+	(rs6000_indirect_call_template, rs6000_indirect_sibcall_template):
+	New functions.
+	* config/rs6000/rs6000.md (call_indirect_nonlocal_sysv),
+	(call_value_indirect_nonlocal_sysv, sibcall_nonlocal_sysv),
+	(call_indirect_aix, call_value_indirect_aix): Use
+	rs6000_indirect_call_template and rs6000_indirect_sibcall_template.
+	call_indirect_elfv2, call_value_indirect_elfv2): Likewise, and
+	handle both speculation and non-speculation cases.
+	(call_indirect_aix_nospec, call_value_indirect_aix_nospec): Delete.
+	(call_indirect_elfv2_nospec, call_value_indirect_elfv2_nospec): Delete.
+
+2018-11-29  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_call_template): Declare.
+	(rs6000_sibcall_template): Declare.
+	(macho_call_template): Rename from output_call.
+	* config/rs6000/rs6000.c (rs6000_call_template_1): New function.
+	(rs6000_call_template, rs6000_sibcall_template): Likewise.
+	(macho_call_template): Rename from output_call.
+	* config/rs6000/rs6000.md (tls_gd_aix, tls_gd_sysv),
+	(tls_gd_call_aix, tls_gd_call_sysv, tls_ld_aix, tls_ld_sysv),
+	(tls_ld_call_aix, tls_ld_call_sysv, call_nonlocal_sysv),
+	(call_nonlocal_sysv_secure, call_value_nonlocal_sysv),
+	(call_value_nonlocal_sysv_secure, call_nonlocal_aix),
+	(call_value_nonlocal_aix): Use rs6000_call_template and update
+	occurrences of output_call to macho_call_template.
+	(sibcall_nonlocal_sysv, sibcall_value_nonlocal_sysv, sibcall_aix),
+	(sibcall_value_aix): Use rs6000_sibcall_template.
+
+2018-11-28  Aaron Sawdey  <acsawdey@linux.ibm.com>
+
+	* config/rs6000/rs6000-string.c (expand_block_clear): Change how
+	we determine if unaligned vsx is ok.
+
+2018-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (determine_unlikely_bbs): Forward declare; also determine
+	edges that are always known to be taken because it is only likely
+	edge out of given BB.
+	(tree_estimate_probability): Call before profile guessing to get bit
+	of extra precision.
+
+2018-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-ifcombine.c (update_profile_after_ifcombine): Handle
+	profile_probability::always better.
+
+2018-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* profile-count.h (profile_count::split): Give better result when
+	splitting profile_probability::always.
+
+2018-11-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/88207
+	* ira-costs.c (scan_one_insn): Process subregs when updating costs
+	for pseudos and allocnos from insn.
+
+2018-11-28  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/aix72.h: Update to match aix71.h changes.
+
+2018-11-28  Jeff Law  <law@redhat.com>
+
+	* config/h8300/constraints.md: Add "C" constraint for call insns.
+	* config/h8300/h8300.md (call, call_value): Turn into a define_expand
+	and define_insn pair.  Move invalid call targets into a register in
+	the expander and fix constraints in the matching pattern.
+	* config/h8300/predicates.md (call_expander_operand): Renamed from
+	call_insn_operand.  Reject things we shouldn't be trying to handle.
+	(call_insn_operand): New predicate for use by the call/call_value
+	insns.
+	(small_call_insn_operand): Update appropriately.
+
+2018-11-28  Sam Tebbs  <sam.tebbs@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_process_target_attr): Replace
+	calls to strtok with strtok_r.
+
 2018-11-28  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/88223
@@ -482,7 +786,7 @@
 
 2018-11-23  Christoph Muellner  <christoph.muellner@theobroma-systems.com>
 
-        * config/aarch64/aarch64-cores.def: Define emag.
+	* config/aarch64/aarch64-cores.def: Define emag.
 	* config/aarch64/aarch64-tune.md: Regenerated with emag.
 	* config/aarch64/aarch64.c (emag_tunings): New struct.
 	* doc/invoke.texi: Document mtune value.

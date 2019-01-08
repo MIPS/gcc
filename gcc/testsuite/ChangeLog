@@ -1,3 +1,106 @@
+2018-11-29  Peter Bergner  <bergner@linux.ibm.com>
+
+	PR target/87496
+	* gcc.target/powerpc/pr87496.c: New test.
+
+2018-11-29  Martin Sebor  <msebor@redhat.com>
+
+	PR c/88172
+	PR testsuite/88208
+	* gcc.dg/attr-aligned-2.c: New test.
+	* gcc.dg/builtin-has-attribute.c: Adjust.
+	* c-c++-common/builtin-has-attribute-2.c: Same.
+	* c-c++-common/builtin-has-attribute-3.c: Same.
+	* c-c++-common/builtin-has-attribute-4.c: Same.
+	* c-c++-common/builtin-has-attribute-5.c: New test.
+	* gcc.target/aarch64/attr-aligned.c: Same.
+	* gcc.target/i386/attr-aligned.c: Same.
+	* gcc.target/powerpc/attr-aligned.c: Same.
+	* gcc.target/sparc/attr-aligned.c: Same.
+
+2018-11-29  qing zhao  <qing.zhao@oracle.com>
+
+	* gcc.dg/live-patching-1.c: New test.
+	* gcc.dg/live-patching-2.c: New test.
+	* gcc.dg/live-patching-3.c: New test.
+	* gcc.dg/tree-ssa/writeonly-3.c: New test.
+	* gcc.target/i386/ipa-stack-alignment-2.c: New test.
+
+2018-11-29  Giuliano Belinassi  <giuliano.belinassi@usp.br>
+
+	* gcc.dg/sinhatanh-1.c: New test.
+	* gcc.dg/sinhatanh-2.c: New test.
+	* gcc.dg/sinhatanh-3.c: New test.
+
+2018-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/54700
+	* g++.target/i386/sse4_1-pr54700-1.C: New test.
+	* g++.target/i386/sse4_1-pr54700-2.C: New test.
+	* g++.target/i386/avx-pr54700-1.C: New test.
+	* g++.target/i386/avx-pr54700-2.C: New test.
+	* g++.target/i386/avx2-pr54700-1.C: New test.
+	* g++.target/i386/avx2-pr54700-2.C: New test.
+	* g++.target/i386/sse4_1-check.h: New file.
+	* g++.target/i386/avx-check.h: New file.
+	* g++.target/i386/avx2-check.h: New file.
+	* g++.target/i386/m128-check.h: New file.
+	* g++.target/i386/m256-check.h: New file.
+	* g++.target/i386/avx-os-support.h: New file.
+
+	PR target/88152
+	* g++.dg/tree-ssa/pr88152-1.C: New test.
+	* g++.dg/tree-ssa/pr88152-2.C: New test.
+
+	PR target/88234
+	* gcc.dg/ubsan/pr88234.c: New test.
+
+2018-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/88243
+	* gcc.dg/torture/pr88243.c: New testcase.
+
+2018-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/87539
+	* g++.dg/cpp0x/pr87539.C: New test.
+
+2018-11-28  Martin Sebor  <msebor@redhat.com>
+
+	PR c/88065
+	PR c/87297
+	* c-c++-common/Wsizeof-pointer-memaccess4.c: New test.
+
+2018-11-28  Marek Polacek  <polacek@redhat.com>
+
+	Implement P1094R2, Nested inline namespaces.
+	* g++.dg/cpp2a/nested-inline-ns1.C: New test.
+	* g++.dg/cpp2a/nested-inline-ns2.C: New test.
+
+2018-11-28  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/87531
+	* g++.dg/lookup/pr87531.C: New.
+
+2018-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/predict-13.c: Update template.
+	* gcc.dg/predict-13b.c: New testcase.
+	* gcc.dg/predict-22.c: New testcase.
+	* gcc.dg/tree-ssa/ipa-split-4.c: Change abort to other function to
+	get sane profile.
+
+2018-11-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88222 - ICE with bit-field with invalid type.
+	* g++.dg/ext/flexary31.C: New test.
+
+2018-11-28  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/dwarf2/pr86900.C: XFAIL AIX.
+	* g++.dg/opt/pr83084.C: XFAIL AIX.
+	* gcc.dg/recip_sqrt_mult_[12345]: Do not add -fcompare-debug on AIX.
+
 2018-11-28  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/88223

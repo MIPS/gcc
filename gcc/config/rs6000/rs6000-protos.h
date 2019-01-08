@@ -105,6 +105,11 @@ extern int ccr_bit (rtx, int);
 extern void rs6000_output_function_entry (FILE *, const char *);
 extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
+extern const char *rs6000_call_template (rtx *, unsigned int);
+extern const char *rs6000_sibcall_template (rtx *, unsigned int);
+extern const char *rs6000_indirect_call_template (rtx *, unsigned int);
+extern const char *rs6000_indirect_sibcall_template (rtx *, unsigned int);
+extern const char *rs6000_pltseq_template (rtx *, int);
 extern enum rtx_code rs6000_reverse_condition (machine_mode,
 					       enum rtx_code);
 extern rtx rs6000_emit_eqne (machine_mode, rtx, rtx, rtx);
@@ -126,7 +131,6 @@ extern void rs6000_expand_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_emit_swdiv (rtx, rtx, rtx, bool);
 extern void rs6000_emit_swsqrt (rtx, rtx, bool);
 extern void output_toc (FILE *, rtx, int, machine_mode);
-extern rtx rs6000_longcall_ref (rtx);
 extern void rs6000_fatal_bad_address (rtx);
 extern rtx create_TOC_reference (rtx, rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
@@ -194,6 +198,8 @@ extern void rs6000_split_stack_space_check (rtx, rtx);
 extern void rs6000_emit_eh_reg_restore (rtx, rtx);
 extern void rs6000_call_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_sibcall_aix (rtx, rtx, rtx, rtx);
+extern void rs6000_call_sysv (rtx, rtx, rtx, rtx);
+extern void rs6000_sibcall_sysv (rtx, rtx, rtx, rtx);
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
@@ -222,7 +228,7 @@ extern void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT,
 extern void rs6000_d_target_versions (void);
 
 #if TARGET_MACHO
-char *output_call (rtx_insn *, rtx *, int, int);
+char *macho_call_template (rtx_insn *, rtx *, int, int);
 #endif
 
 #ifdef NO_DOLLAR_IN_LABEL

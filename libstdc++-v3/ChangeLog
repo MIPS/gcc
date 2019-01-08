@@ -1,4 +1,118 @@
+2018-11-29  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Only include bits/stl_algo.h for C++20.
+	* include/std/deque: Only include bits/stl_algo.h for C++20.
+	* include/std/string: Ditto.
+	* include/std/vector: Ditto.
+
+2018-11-29  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Fix erasure goofs.
+	* include/experimental/deque: Make inline.
+	* include/std/deque: Include bits/stl_algo.h.
+	(erase, erase_if): Make inline.
+	* include/std/string: Include bits/stl_algo.h.
+	* include/std/unordered_set: Add erase, erase_if!
+	* include/std/vector: Include bits/stl_algo.h.
+	* testsuite/21_strings/basic_string/erasure.cc:
+	Add { dg-options "-std=gnu++2a" }.
+	* testsuite/23_containers/deque/erasure.cc: Ditto.
+	* testsuite/23_containers/forward_list/erasure.cc: Ditto.
+	* testsuite/23_containers/list/erasure.cc: Ditto.
+	* testsuite/23_containers/map/erasure.cc: Ditto.
+	* testsuite/23_containers/set/erasure.cc: Ditto.
+	* testsuite/23_containers/unordered_map/erasure.cc: Ditto.
+	* testsuite/23_containers/unordered_set/erasure.cc: Ditto.
+	* testsuite/23_containers/vector/erasure.cc: Ditto.
+
+2018-11-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/88119
+	* include/ext/aligned_buffer.h (__aligned_membuf): Add comment.
+	(__aligned_buffer): Use __alignof__ instead of std::alignment_of.
+	* include/std/type_traits (alignment_of): Use alignof instead of
+	__alignof__.
+	* testsuite/20_util/alignment_of/value.cc: Fix test to check values
+	match alignof not __alignof__, as required by the standard.
+
+	PR libstdc++/86910
+	PR libstdc++/87846
+	* src/filesystem/ops.cc (experimental::create_directories): Report
+	an error when the path resolves to an existing non-directory (P1164).
+	* src/filesystem/std-ops.cc (create_directories): Likewise. Handle
+	empty filenames due to trailing slashes.
+	* testsuite/27_io/filesystem/operations/create_directories.cc: Test
+	when some component of the path exists and is not a directory. Test
+	trailing slashes.
+	* testsuite/experimental/filesystem/operations/create_directories.cc:
+	Likewise.
+
 2018-11-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/83306
+	* src/filesystem/path.cc (filesystem_error::_M_gen_what()): Create
+	string directly, instead of calling fs_err_concat.
+
+	PR libstdc++/83511
+	* include/std/string_view (basic_string_view::substr): Add default
+	argument to first parameter.
+	* include/experimental/string_view (basic_string_view::substr):
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/substr/char/
+	83511.cc: New test.
+	* testsuite/21_strings/basic_string_view/operations/substr/wchar_t/
+	83511.cc: New test.
+	* testsuite/experimental/string_view/operations/substr/char/83511.cc:
+	New test.
+	* testsuite/experimental/string_view/operations/substr/wchar_t/83511.cc:
+	New test.
+
+2018-11-28  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement uniform container erasure for C++20.
+	* include/Makefile.am: Move erase_if.h.
+	* include/Makefile.in: Move erase_if.h.
+	* include/experimental/bits/erase_if.h: Move ...
+	* include/bits/erase_if.h: ... here.
+	* include/experimental/map: Move erase_if.h.
+	* include/experimental/set: Move erase_if.h.
+	* include/experimental/unordered_map: Move erase_if.h.
+	* include/experimental/unordered_set: Move erase_if.h.
+	* include/std/deque (erase_if, erase): New functions.
+	* include/std/forward_list: Ditto.
+	* include/std/list: Ditto.
+	* include/std/map: Ditto.
+	* include/std/set: Ditto.
+	* include/std/string: Ditto.
+	* include/std/unordered_map: Ditto.
+	* include/std/unordered_set: Ditto.
+	* include/std/vector: Ditto.
+	* testsuite/21_strings/basic_string/erasure.cc: New test.
+	* testsuite/23_containers/deque/erasure.cc: New test.
+	* testsuite/23_containers/forward_list/erasure.cc: New test.
+	* testsuite/23_containers/list/erasure.cc: New test.
+	* testsuite/23_containers/map/erasure.cc: New test.
+	* testsuite/23_containers/set/erasure.cc: New test.
+	* testsuite/23_containers/unordered_map/erasure.cc: New test.
+	* testsuite/23_containers/unordered_set/erasure.cc: New test.
+	* testsuite/23_containers/vector/erasure.cc: New test.
+
+2018-11-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/intro.xml: Document LWG 3096 change.
+	* src/filesystem/std-path.cc (path::lexically_relative(const path&)):
+	Treat a final empty element equivalently to a final dot element.
+	* testsuite/27_io/filesystem/path/generation/relative.cc: Add checks
+	for the examples in the DR.
+
+	PR libstdc++/83306
+	* include/bits/fs_path.h (filesystem_error): Move data members into
+	pimpl class owned by shared_ptr. Remove inline definitions of member
+	functions.
+	* src/filesystem/std-path.cc (filesystem_error::_Impl): Define.
+	(filesystem_error): Define member functions.
+	* testsuite/27_io/filesystem/filesystem_error/cons.cc: New test.
+	* testsuite/27_io/filesystem/filesystem_error/copy.cc: New test.
 
 	* doc/xml/manual/status_cxx2017.xml: Update C++17 status.
 	* doc/html/*: Regenerate.

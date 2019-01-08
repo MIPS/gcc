@@ -1,3 +1,26 @@
+2018-11-28  Marek Polacek  <polacek@redhat.com>
+
+	Implement P1094R2, Nested inline namespaces.
+	* parser.c (cp_parser_namespace_definition): Parse the optional inline
+	keyword in a nested-namespace-definition.  Adjust push_namespace call.
+	Formatting fix.
+
+2018-11-28  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/87531
+	* class.c (finish_struct): In a template, add artificial using
+	decl for operator=.
+
+2018-11-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* except.c (do_allocate_exception): Annotate __cxa_allocate_exception
+	as COLD.
+
+2018-11-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/88222 - ICE with bit-field with invalid type.
+	* decl.c (grokdeclarator): Check if declarator is null.
+
 2018-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/87476
