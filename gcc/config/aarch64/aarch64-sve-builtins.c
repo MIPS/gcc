@@ -444,10 +444,10 @@ private:
 
   rtx expand_signed_pred_op (rtx_code, rtx_code, int);
   rtx expand_signed_pred_op (int, int, int);
-  rtx expand_via_unpred_direct_optab (optab, unsigned int = 0);
-  rtx expand_via_unpred_insn (insn_code, unsigned int = 0);
+  rtx expand_via_unpred_direct_optab (optab);
+  rtx expand_via_unpred_insn (insn_code);
   rtx expand_via_pred_direct_optab (optab, unsigned int = DEFAULT_MERGE_ARGNO);
-  rtx expand_via_sel_insn (insn_code, unsigned int);
+  rtx expand_via_sel_insn (insn_code);
   rtx expand_via_pred_insn (insn_code, unsigned int = DEFAULT_MERGE_ARGNO);
   rtx expand_via_signed_unpred_insn (rtx_code, rtx_code);
   rtx expand_via_pred_x_insn (insn_code);
@@ -462,8 +462,9 @@ private:
   rtx get_fallback_value (machine_mode, unsigned int,
 			  unsigned int, unsigned int &);
 
-  void add_output_operand (machine_mode);
-  void add_input_operand (rtx, machine_mode);
+  machine_mode get_next_operand_mode (insn_code);
+  void add_output_operand (insn_code);
+  void add_input_operand (insn_code, rtx);
   void add_integer_operand (HOST_WIDE_INT);
   rtx generate_insn (insn_code);
 
@@ -1712,21 +1713,16 @@ function_expander::expand_dup ()
 {
   if (m_fi.pred == PRED_none
       || m_fi.pred == PRED_x)
-    return expand_via_unpred_direct_optab (vec_duplicate_optab, 1);
+    return expand_via_unpred_direct_optab (vec_duplicate_optab);
   else
     {
       insn_code icode;
       machine_mode mode = get_mode (0);
       if (valid_for_const_vector_p (GET_MODE_INNER (mode), m_args.last ()))
-	{
-	  icode = code_for_vcond_mask (get_mode (0), get_mode (0));
-	  return expand_via_sel_insn (icode, 0);
-	}
+	icode = code_for_vcond_mask (get_mode (0), get_mode (0));
       else
-	{
-	  icode = code_for_aarch64_sel_dup (get_mode (0));
-	  return expand_via_sel_insn (icode, 1);
-	}
+	icode = code_for_aarch64_sel_dup (get_mode (0));
+      return expand_via_sel_insn (icode);
     }
 }
 
@@ -1734,7 +1730,7 @@ function_expander::expand_dup ()
 rtx
 function_expander::expand_index ()
 {
-  return expand_via_unpred_direct_optab (vec_series_optab, 2);
+  return expand_via_unpred_direct_optab (vec_series_optab);
 }
 
 /* Expand a call to svmax.  */
@@ -1824,36 +1820,28 @@ function_expander::expand_sub (bool reversed_p)
 }
 
 /* Implement the call using optab OP, which is an unpredicated direct
-   (i.e. single-mode) optab.  The last NSCALAR inputs are scalar, and
-   map to scalar operands in the underlying instruction.  */
+   (i.e. single-mode) optab.  */
 rtx
-function_expander::expand_via_unpred_direct_optab (optab op,
-						   unsigned int nscalar)
+function_expander::expand_via_unpred_direct_optab (optab op)
 {
   machine_mode mode = get_mode (0);
   insn_code icode = direct_optab_handler (op, mode);
-  return expand_via_unpred_insn (icode, nscalar);
+  return expand_via_unpred_insn (icode);
 }
 
-/* Implement the call using instruction ICODE.  The last NSCALAR inputs
-   are scalar, and map to scalar operands in the underlying instruction.  */
+/* Implement the call using instruction ICODE.  */
 rtx
-function_expander::expand_via_unpred_insn (insn_code icode,
-					   unsigned int nscalar)
+function_expander::expand_via_unpred_insn (insn_code icode)
 {
   /* Discount the output operand.  */
   unsigned int nops = insn_data[icode].n_operands - 1;
   /* Drop the predicate argument in the case of _x predication.  */
   unsigned int bias = (m_fi.pred == PRED_x ? 1 : 0);
-  machine_mode mode = get_mode (0);
   unsigned int i = 0;
 
-  add_output_operand (mode);
-
-  for (; i < nops - nscalar; ++i)
-    add_input_operand (m_args[i + bias], mode);
+  add_output_operand (icode);
   for (; i < nops; ++i)
-    add_input_operand (m_args[i + bias], GET_MODE_INNER (mode));
+    add_input_operand (icode, m_args[i + bias]);
 
   return generate_insn (icode);
 }
@@ -1876,29 +1864,21 @@ function_expander::expand_via_pred_direct_optab (optab op,
    0: output
    1: true value
    2: false value
-   3: predicate
-
-   The last NSCALAR inputs are scalar, and map to scalar operands
-   in the underlying instruction.  */
+   3: predicate.  */
 rtx
-function_expander::expand_via_sel_insn (insn_code icode,
-					unsigned int nscalar)
+function_expander::expand_via_sel_insn (insn_code icode)
 {
   machine_mode mode = get_mode (0);
-  machine_mode pred_mode = get_pred_mode (0);
 
   unsigned int opno = 0;
   rtx false_arg = get_fallback_value (mode, 1, 0, opno);
   rtx pred_arg = m_args[opno++];
   rtx true_arg = m_args[opno++];
 
-  add_output_operand (mode);
-  if (nscalar)
-    add_input_operand (true_arg, GET_MODE_INNER (mode));
-  else
-    add_input_operand (true_arg, mode);
-  add_input_operand (false_arg, mode);
-  add_input_operand (pred_arg, pred_mode);
+  add_output_operand (icode);
+  add_input_operand (icode, true_arg);
+  add_input_operand (icode, false_arg);
+  add_input_operand (icode, pred_arg);
   return generate_insn (icode);
 }
 
@@ -1915,17 +1895,16 @@ function_expander::expand_via_pred_insn (insn_code icode,
   /* Discount the output, predicate, and fallback value.  */
   unsigned int nops = insn_data[icode].n_operands - 3;
   machine_mode mode = get_mode (0);
-  machine_mode pred_mode = get_pred_mode (0);
 
   unsigned int opno = 0;
   rtx fallback_arg = get_fallback_value (mode, nops, merge_argno, opno);
   rtx pred_arg = m_args[opno++];
 
-  add_output_operand (mode);
-  add_input_operand (pred_arg, pred_mode);
+  add_output_operand (icode);
+  add_input_operand (icode, pred_arg);
   for (unsigned int i = 0; i < nops; ++i)
-    add_input_operand (m_args[opno + i], mode);
-  add_input_operand (fallback_arg, mode);
+    add_input_operand (icode, m_args[opno + i]);
+  add_input_operand (icode, fallback_arg);
   return generate_insn (icode);
 }
 
@@ -1939,10 +1918,10 @@ function_expander::expand_via_pred_x_insn (insn_code icode)
   machine_mode pred_mode = get_pred_mode (0);
 
   /* Add the normal operands.  */
-  add_output_operand (mode);
-  add_input_operand (m_args[0], pred_mode);
+  add_output_operand (icode);
+  add_input_operand (icode, m_args[0]);
   for (unsigned int i = 0; i < nops; ++i)
-    add_input_operand (m_args[i + 1], mode);
+    add_input_operand (icode, m_args[i + 1]);
 
   /* Add a flag that indicates whether unpredicated instructions
      are allowed.  */
@@ -2150,29 +2129,43 @@ function_expander::get_fallback_value (machine_mode mode, unsigned int nops,
   return m_args[merge_argno];
 }
 
-/* Add an output operand of mode MODE to the instruction, binding it
-   to the preferred target rtx if possible.  */
-void
-function_expander::add_output_operand (machine_mode mode)
+/* Return the mode of the next operand of the instruction we're building,
+   which has code ICODE.  */
+machine_mode
+function_expander::get_next_operand_mode (insn_code icode)
 {
+  machine_mode mode = insn_data[icode].operand[m_ops.length ()].mode;
+  /* SVE ACLE patterns must specify a mode for every operand.  */
+  gcc_assert (mode != VOIDmode);
+  return mode;
+}
+
+/* Add an output operand to the instruction we're building, which has
+   code ICODE.  Bind the output to the preferred target rtx if possible.  */
+void
+function_expander::add_output_operand (insn_code icode)
+{
+  machine_mode mode = get_next_operand_mode (icode);
   m_ops.safe_grow (m_ops.length () + 1);
   create_output_operand (&m_ops.last (), m_target, mode);
 }
 
-/* Add an input operand with mode MODE to the instruction.  Calculate
-   the value of the operand as follows:
+/* Add an input operand to the instruction we're building, which has
+   code ICODE.  Calculate the value of the operand as follows:
 
-   - If MODE is a vector and X is not, broadcast X to fill a vector of
-     mode MODE.
+   - If the operand is a vector and X is not, broadcast X to fill a
+     vector of the appropriate mode.
 
-   - Otherwise, if MODE is a predicate mode, coerce X to have that mode.
-     In this case X is known to be VNx16BImode.
+   - Otherwise, if the operand is a predicate, coerce X to have the
+     mode that the instruction expects.  In this case X is known to be
+     VNx16BImode (the mode of svbool_t).
 
-   - Otherwise use X directly.  The expand machinery checks that X is
-     consistent with MODE.  */
+   - Otherwise use X directly.  The expand machinery checks that X has
+     the right mode for the instruction.  */
 void
-function_expander::add_input_operand (rtx x, machine_mode mode)
+function_expander::add_input_operand (insn_code icode, rtx x)
 {
+  machine_mode mode = get_next_operand_mode (icode);
   if (!VECTOR_MODE_P (GET_MODE (x)) && VECTOR_MODE_P (mode))
     x = expand_vector_broadcast (mode, x);
   else if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
