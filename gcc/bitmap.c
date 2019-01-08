@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Memory allocation statistics purpose instance.  */
 mem_alloc_description<bitmap_usage> bitmap_mem_desc;
+
+/* Static zero-initialized bitmap obstack used for default initialization
+   of bitmap_head.  */
+bitmap_obstack bitmap_head::crashme;
 
 static bitmap_element *bitmap_tree_listify_from (bitmap, bitmap_element *);
 

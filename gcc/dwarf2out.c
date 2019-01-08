@@ -1,5 +1,5 @@
 /* Output Dwarf2 format symbol table information from GCC.
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2019 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -968,6 +968,8 @@ dwarf2out_do_cfi_startproc (bool second)
   rtx ref;
 
   fprintf (asm_out_file, "\t.cfi_startproc\n");
+
+  targetm.asm_out.post_cfi_startproc (asm_out_file, current_function_decl);
 
   /* .cfi_personality and .cfi_lsda are only relevant to DWARF2
      eh unwinders.  */
@@ -4616,12 +4618,13 @@ indirect_string_hasher::equal (indirect_string_node *x1, const char *x2)
 
 static struct indirect_string_node *
 find_AT_string_in_table (const char *str,
-			 hash_table<indirect_string_hasher> *table)
+			 hash_table<indirect_string_hasher> *table,
+			 enum insert_option insert = INSERT)
 {
   struct indirect_string_node *node;
 
   indirect_string_node **slot
-    = table->find_slot_with_hash (str, htab_hash_string (str), INSERT);
+    = table->find_slot_with_hash (str, htab_hash_string (str), insert);
   if (*slot == NULL)
     {
       node = ggc_cleared_alloc<indirect_string_node> ();
@@ -4638,12 +4641,12 @@ find_AT_string_in_table (const char *str,
 /* Add STR to the indirect string hash table.  */
 
 static struct indirect_string_node *
-find_AT_string (const char *str)
+find_AT_string (const char *str, enum insert_option insert = INSERT)
 {
   if (! debug_str_hash)
     debug_str_hash = hash_table<indirect_string_hasher>::create_ggc (10);
 
-  return find_AT_string_in_table (str, debug_str_hash);
+  return find_AT_string_in_table (str, debug_str_hash, insert);
 }
 
 /* Add a string attribute value to a DIE.  */
@@ -13149,6 +13152,8 @@ modified_type_die (tree type, int cv_quals, bool reverse,
 	       && TYPE_PRECISION (sizetype) == TYPE_PRECISION (size_type_node)
 	       && TYPE_UNSIGNED (sizetype) == TYPE_UNSIGNED (size_type_node))
 	qualified_type = size_type_node;
+      if (type == sizetype)
+	type = qualified_type;
     }
 
   /* If we do, then we can just use its DIE, if it exists.  */
@@ -14440,13 +14445,6 @@ const_ok_for_output_1 (rtx rtl)
   if (CONST_POLY_INT_P (rtl))
     return false;
 
-  if (targetm.const_not_ok_for_debug_p (rtl))
-    {
-      expansion_failed (NULL_TREE, rtl,
-			"Expression rejected for debug by the backend.\n");
-      return false;
-    }
-
   /* FIXME: Refer to PR60655. It is possible for simplification
      of rtl expressions in var tracking to produce such expressions.
      We should really identify / validate expressions
@@ -14459,6 +14457,41 @@ const_ok_for_output_1 (rtx rtl)
     case NOT:
     case NEG:
       return false;
+    case PLUS:
+      {
+	/* Make sure SYMBOL_REFs/UNSPECs are at most in one of the
+	   operands.  */
+	subrtx_var_iterator::array_type array;
+	bool first = false;
+	FOR_EACH_SUBRTX_VAR (iter, array, XEXP (rtl, 0), ALL)
+	  if (SYMBOL_REF_P (*iter)
+	      || LABEL_P (*iter)
+	      || GET_CODE (*iter) == UNSPEC)
+	    {
+	      first = true;
+	      break;
+	    }
+	if (!first)
+	  return true;
+	FOR_EACH_SUBRTX_VAR (iter, array, XEXP (rtl, 1), ALL)
+	  if (SYMBOL_REF_P (*iter)
+	      || LABEL_P (*iter)
+	      || GET_CODE (*iter) == UNSPEC)
+	    return false;
+	return true;
+      }
+    case MINUS:
+      {
+	/* Disallow negation of SYMBOL_REFs or UNSPECs when they
+	   appear in the second operand of MINUS.  */
+	subrtx_var_iterator::array_type array;
+	FOR_EACH_SUBRTX_VAR (iter, array, XEXP (rtl, 1), ALL)
+	  if (SYMBOL_REF_P (*iter)
+	      || LABEL_P (*iter)
+	      || GET_CODE (*iter) == UNSPEC)
+	    return false;
+	return true;
+      }
     default:
       return true;
     }
@@ -15602,6 +15635,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	 pool.  */
     case CONST:
     case SYMBOL_REF:
+    case UNSPEC:
       if (!is_a <scalar_int_mode> (mode, &int_mode)
 	  || (GET_MODE_SIZE (int_mode) > DWARF2_ADDR_SIZE
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -15609,6 +15643,39 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 #endif
 	      ))
 	break;
+
+      if (GET_CODE (rtl) == UNSPEC)
+	{
+	  /* If delegitimize_address couldn't do anything with the UNSPEC, we
+	     can't express it in the debug info.  This can happen e.g. with some
+	     TLS UNSPECs.  Allow UNSPECs formerly from CONST that the backend
+	     approves.  */
+	  bool not_ok = false;
+	  subrtx_var_iterator::array_type array;
+	  FOR_EACH_SUBRTX_VAR (iter, array, rtl, ALL)
+	    if (*iter != rtl && !CONSTANT_P (*iter))
+	      {
+		not_ok = true;
+		break;
+	      }
+
+	  if (not_ok)
+	    break;
+
+	  FOR_EACH_SUBRTX_VAR (iter, array, rtl, ALL)
+	    if (!const_ok_for_output_1 (*iter))
+	      {
+		not_ok = true;
+		break;
+	      }
+
+	  if (not_ok)
+	    break;
+
+	  rtl = gen_rtx_CONST (GET_MODE (rtl), rtl);
+	  goto symref;
+	}
+
       if (GET_CODE (rtl) == SYMBOL_REF
 	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
 	{
@@ -16277,7 +16344,6 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
     case VEC_CONCAT:
     case VEC_DUPLICATE:
     case VEC_SERIES:
-    case UNSPEC:
     case HIGH:
     case FMA:
     case STRICT_LOW_PART:
@@ -16286,9 +16352,6 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
     case CLRSB:
     case CLOBBER:
     case CLOBBER_HIGH:
-      /* If delegitimize_address couldn't do anything with the UNSPEC, we
-	 can't express it in the debug info.  This can happen e.g. with some
-	 TLS UNSPECs.  */
       break;
 
     case CONST_STRING:
@@ -18985,7 +19048,6 @@ field_byte_offset (const_tree decl, struct vlr_context *ctx,
   if (TREE_CODE (DECL_FIELD_BIT_OFFSET (decl)) != INTEGER_CST)
     return NULL;
 
-#ifdef PCC_BITFIELD_TYPE_MATTERS
   /* We used to handle only constant offsets in all cases.  Now, we handle
      properly dynamic byte offsets only when PCC bitfield type doesn't
      matter.  */
@@ -19100,7 +19162,6 @@ field_byte_offset (const_tree decl, struct vlr_context *ctx,
       tree_result = wide_int_to_tree (sizetype, object_offset_in_bytes);
     }
   else
-#endif /* PCC_BITFIELD_TYPE_MATTERS */
     tree_result = byte_position (decl);
 
   if (ctx->variant_part_offset != NULL_TREE)
@@ -24539,6 +24600,7 @@ gen_inheritance_die (tree binfo, tree access, tree type,
 
 /* Return whether DECL is a FIELD_DECL that represents the variant part of a
    structure.  */
+
 static bool
 is_variant_part (tree decl)
 {
@@ -24552,17 +24614,8 @@ is_variant_part (tree decl)
 static tree
 analyze_discr_in_predicate (tree operand, tree struct_type)
 {
-  bool continue_stripping = true;
-  while (continue_stripping)
-    switch (TREE_CODE (operand))
-      {
-      CASE_CONVERT:
-	operand = TREE_OPERAND (operand, 0);
-	break;
-      default:
-	continue_stripping = false;
-	break;
-      }
+  while (CONVERT_EXPR_P (operand))
+    operand = TREE_OPERAND (operand, 0);
 
   /* Match field access to members of struct_type only.  */
   if (TREE_CODE (operand) == COMPONENT_REF
@@ -24780,6 +24833,19 @@ analyze_variants_discr (tree variant_part_decl,
 		goto abort;
 
 	      new_node->dw_discr_range = true;
+	    }
+
+	  else if ((candidate_discr
+		      = analyze_discr_in_predicate (match_expr, struct_type))
+		   && TREE_TYPE (candidate_discr) == boolean_type_node)
+	    {
+	      /* We are matching:  <discr_field> for a boolean discriminant.
+		 This sub-expression matches boolean_true_node.  */
+	      new_node = ggc_cleared_alloc<dw_discr_list_node> ();
+	      if (!get_discr_value (boolean_true_node,
+				    &new_node->dw_discr_lower_bound))
+		goto abort;
+	      new_node->dw_discr_range = false;
 	    }
 
 	  else
@@ -28090,7 +28156,19 @@ output_macinfo_op (macinfo_entry *ref)
       break;
     case DW_MACRO_define_strp:
     case DW_MACRO_undef_strp:
-      node = find_AT_string (ref->info);
+      /* NB: dwarf2out_finish performs:
+	   1. save_macinfo_strings
+	   2. hash table traverse of index_string
+	   3. output_macinfo -> output_macinfo_op
+	   4. output_indirect_strings
+		-> hash table traverse of output_index_string
+
+	 When output_macinfo_op is called, all index strings have been
+	 added to hash table by save_macinfo_strings and we can't pass
+	 INSERT to find_slot_with_hash which may expand hash table, even
+	 if no insertion is needed, and change hash table traverse order
+	 between index_string and output_index_string.  */
+      node = find_AT_string (ref->info, NO_INSERT);
       gcc_assert (node
 		  && (node->form == DW_FORM_strp
 		      || node->form == dwarf_FORM (DW_FORM_strx)));

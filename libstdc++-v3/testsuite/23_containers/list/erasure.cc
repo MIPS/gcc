@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++2a" }
 // { dg-do run { target c++2a } }
 
-// Copyright (C) 2018 Free Software Foundation, Inc.
+// Copyright (C) 2018-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,11 +36,13 @@ void
 test02()
 {
   std::list<int> l{ 0, 11, 0, 0, 22, 33, 0, 0, 44, 0 };
-  std::erase(l, 0);
+  auto num = std::erase(l, 0);
   std::list<int> t{ 11, 22, 33, 44 };
   VERIFY( l == t );
-  std::erase(l, 55);
+  VERIFY( num == 6 );
+  num = std::erase(l, 55);
   VERIFY( l == t );
+  VERIFY( num == 0 );
 }
 
 int

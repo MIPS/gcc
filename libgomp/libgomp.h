@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2018 Free Software Foundation, Inc.
+/* Copyright (C) 2005-2019 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -751,6 +751,7 @@ extern void gomp_display_affinity_place (char *, size_t, size_t *, int);
 
 /* affinity-fmt.c */
 
+extern void gomp_print_string (const char *str, size_t len);
 extern void gomp_set_affinity_format (const char *, size_t);
 extern void gomp_display_string (char *, size_t, size_t *, const char *,
 				 size_t);

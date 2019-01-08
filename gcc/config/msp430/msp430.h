@@ -1,5 +1,5 @@
 /* GCC backend definitions for the TI MSP430 Processor
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+   Copyright (C) 2012-2019 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -158,6 +158,11 @@ extern const char * msp430_select_hwmult_lib (int, const char **);
 /* This is just for .eh_frame, to match bfd.  */
 #define PTR_SIZE			(TARGET_LARGE ? 4 : 2)
 #define	POINTERS_EXTEND_UNSIGNED	1
+
+/* TARGET_VTABLE_ENTRY_ALIGN defaults to POINTER_SIZE, which is 20 for
+   TARGET_LARGE.  Pointer alignment is always 16 for MSP430, so set explicitly
+   here.  */
+#define TARGET_VTABLE_ENTRY_ALIGN 16
 
 #define ADDR_SPACE_NEAR	1
 #define ADDR_SPACE_FAR	2

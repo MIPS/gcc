@@ -1,5 +1,5 @@
 /* Profile counter container type.
-   Copyright (C) 2017-2018 Free Software Foundation, Inc.
+   Copyright (C) 2017-2019 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -883,7 +883,7 @@ public:
       if (other == profile_count::zero ())
 	return true;
       if (*this == profile_count::zero ())
-	return !(other == profile_count::zero ());
+	return (other == profile_count::zero ());
       gcc_checking_assert (compatible_p (other));
       return m_val >= other.m_val;
     }

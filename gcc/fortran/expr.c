@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1730,56 +1730,61 @@ find_inquiry_ref (gfc_expr *p, gfc_expr **newp)
 
   gfc_resolve_expr (tmp);
 
-  switch (inquiry->u.i)
+  /* In principle there can be more than one inquiry reference.  */
+  for (; inquiry; inquiry = inquiry->next)
     {
-    case INQUIRY_LEN:
-      if (tmp->ts.type != BT_CHARACTER)
-	goto cleanup;
+      switch (inquiry->u.i)
+	{
+	case INQUIRY_LEN:
+	  if (tmp->ts.type != BT_CHARACTER)
+	    goto cleanup;
 
-      if (!gfc_notify_std (GFC_STD_F2003, "LEN part_ref at %C"))
-	goto cleanup;
+	  if (!gfc_notify_std (GFC_STD_F2003, "LEN part_ref at %C"))
+	    goto cleanup;
 
-      if (!tmp->ts.u.cl->length
-	  || tmp->ts.u.cl->length->expr_type != EXPR_CONSTANT)
-	goto cleanup;
+	  if (!tmp->ts.u.cl->length
+	      || tmp->ts.u.cl->length->expr_type != EXPR_CONSTANT)
+	    goto cleanup;
 
-      *newp = gfc_copy_expr (tmp->ts.u.cl->length);
-      break;
+	  *newp = gfc_copy_expr (tmp->ts.u.cl->length);
+	  break;
 
-    case INQUIRY_KIND:
-      if (tmp->ts.type == BT_DERIVED || tmp->ts.type == BT_CLASS)
-	goto cleanup;
+	case INQUIRY_KIND:
+	  if (tmp->ts.type == BT_DERIVED || tmp->ts.type == BT_CLASS)
+	    goto cleanup;
 
-      if (!gfc_notify_std (GFC_STD_F2003, "KIND part_ref at %C"))
-	goto cleanup;
+	  if (!gfc_notify_std (GFC_STD_F2003, "KIND part_ref at %C"))
+	    goto cleanup;
 
-      *newp = gfc_get_int_expr (gfc_default_integer_kind,
-				NULL, tmp->ts.kind);
-      break;
+	  *newp = gfc_get_int_expr (gfc_default_integer_kind,
+				    NULL, tmp->ts.kind);
+	  break;
 
-    case INQUIRY_RE:
-      if (tmp->ts.type != BT_COMPLEX || tmp->expr_type != EXPR_CONSTANT)
-	goto cleanup;
+	case INQUIRY_RE:
+	  if (tmp->ts.type != BT_COMPLEX || tmp->expr_type != EXPR_CONSTANT)
+	    goto cleanup;
 
-      if (!gfc_notify_std (GFC_STD_F2008, "RE part_ref at %C"))
-	goto cleanup;
+	  if (!gfc_notify_std (GFC_STD_F2008, "RE part_ref at %C"))
+	    goto cleanup;
 
-      *newp = gfc_get_constant_expr (BT_REAL, tmp->ts.kind, &tmp->where);
-      mpfr_set ((*newp)->value.real,
-		mpc_realref (p->value.complex), GFC_RND_MODE);
-      break;
+	  *newp = gfc_get_constant_expr (BT_REAL, tmp->ts.kind, &tmp->where);
+	  mpfr_set ((*newp)->value.real,
+		    mpc_realref (p->value.complex), GFC_RND_MODE);
+	  break;
 
-    case INQUIRY_IM:
-      if (tmp->ts.type != BT_COMPLEX || tmp->expr_type != EXPR_CONSTANT)
-	goto cleanup;
+	case INQUIRY_IM:
+	  if (tmp->ts.type != BT_COMPLEX || tmp->expr_type != EXPR_CONSTANT)
+	    goto cleanup;
 
-      if (!gfc_notify_std (GFC_STD_F2008, "IM part_ref at %C"))
-	goto cleanup;
+	  if (!gfc_notify_std (GFC_STD_F2008, "IM part_ref at %C"))
+	    goto cleanup;
 
-      *newp = gfc_get_constant_expr (BT_REAL, tmp->ts.kind, &tmp->where);
-      mpfr_set ((*newp)->value.real,
-		mpc_imagref (p->value.complex), GFC_RND_MODE);
-      break;
+	  *newp = gfc_get_constant_expr (BT_REAL, tmp->ts.kind, &tmp->where);
+	  mpfr_set ((*newp)->value.real,
+		    mpc_imagref (p->value.complex), GFC_RND_MODE);
+	  break;
+	}
+      tmp = gfc_copy_expr (*newp);
     }
 
   if (!(*newp))
@@ -1970,7 +1975,7 @@ simplify_ref_chain (gfc_ref *ref, int type, gfc_expr **p)
 	  gfc_replace_expr (*p, newp);
 	  gfc_free_ref_list ((*p)->ref);
 	  (*p)->ref = NULL;
-	  break;
+	  return true;
 
 	default:
 	  break;
@@ -2864,9 +2869,16 @@ gfc_check_init_expr (gfc_expr *e)
 		break;
 
 	      case AS_DEFERRED:
-		gfc_error ("Deferred array %qs at %L is not permitted "
-			   "in an initialization expression",
-			   e->symtree->n.sym->name, &e->where);
+		if (!e->symtree->n.sym->attr.allocatable
+		    && !e->symtree->n.sym->attr.pointer
+		    && e->symtree->n.sym->attr.dummy)
+		  gfc_error ("Assumed-shape array %qs at %L is not permitted "
+			     "in an initialization expression",
+			     e->symtree->n.sym->name, &e->where);
+		else
+		  gfc_error ("Deferred array %qs at %L is not permitted "
+			     "in an initialization expression",
+			     e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_EXPLICIT:
@@ -3056,6 +3068,7 @@ external_spec_function (gfc_expr *e)
 	  || !strcmp (f->name, "ieee_support_halting")
 	  || !strcmp (f->name, "ieee_support_datatype")
 	  || !strcmp (f->name, "ieee_support_denormal")
+	  || !strcmp (f->name, "ieee_support_subnormal")
 	  || !strcmp (f->name, "ieee_support_divide")
 	  || !strcmp (f->name, "ieee_support_inf")
 	  || !strcmp (f->name, "ieee_support_io")
@@ -4485,12 +4498,10 @@ gfc_apply_init (gfc_typespec *ts, symbol_attribute *attr, gfc_expr *init)
 {
   if (ts->type == BT_CHARACTER && !attr->pointer && init
       && ts->u.cl
-      && ts->u.cl->length && ts->u.cl->length->expr_type == EXPR_CONSTANT)
+      && ts->u.cl->length
+      && ts->u.cl->length->expr_type == EXPR_CONSTANT
+      && ts->u.cl->length->ts.type == BT_INTEGER)
     {
-      gcc_assert (ts->u.cl && ts->u.cl->length);
-      gcc_assert (ts->u.cl->length->expr_type == EXPR_CONSTANT);
-      gcc_assert (ts->u.cl->length->ts.type == BT_INTEGER);
-
       HOST_WIDE_INT len = gfc_mpz_get_hwi (ts->u.cl->length->value.integer);
 
       if (init->expr_type == EXPR_CONSTANT)
@@ -5684,6 +5695,75 @@ gfc_is_simply_contiguous (gfc_expr *expr, bool strict, bool permit_element)
   return true;
 }
 
+/* Return true if the expression is guaranteed to be non-contiguous,
+   false if we cannot prove anything.  It is probably best to call
+   this after gfc_is_simply_contiguous.  If neither of them returns
+   true, we cannot say (at compile-time).  */
+
+bool
+gfc_is_not_contiguous (gfc_expr *array)
+{
+  int i;
+  gfc_array_ref *ar = NULL;
+  gfc_ref *ref;
+  bool previous_incomplete;
+
+  for (ref = array->ref; ref; ref = ref->next)
+    {
+      /* Array-ref shall be last ref.  */
+
+      if (ar)
+	return true;
+
+      if (ref->type == REF_ARRAY)
+	ar = &ref->u.ar;
+    }
+
+  if (ar == NULL || ar->type != AR_SECTION)
+    return false;
+
+  previous_incomplete = false;
+
+  /* Check if we can prove that the array is not contiguous.  */
+
+  for (i = 0; i < ar->dimen; i++)
+    {
+      mpz_t arr_size, ref_size;
+
+      if (gfc_ref_dimen_size (ar, i, &ref_size, NULL))
+	{
+	  if (gfc_dep_difference (ar->as->lower[i], ar->as->upper[i], &arr_size))
+	    {
+	      /* a(2:4,2:) is known to be non-contiguous, but
+		 a(2:4,i:i) can be contiguous.  */
+	      if (previous_incomplete && mpz_cmp_si (ref_size, 1) != 0)
+		{
+		  mpz_clear (arr_size);
+		  mpz_clear (ref_size);
+		  return true;
+		}
+	      else if (mpz_cmp (arr_size, ref_size) != 0)
+		previous_incomplete = true;
+
+	      mpz_clear (arr_size);
+	    }
+
+	  /* Check for a(::2), i.e. where the stride is not unity.
+	     This is only done if there is more than one element in
+	     the reference along this dimension.  */
+
+	  if (mpz_cmp_ui (ref_size, 1) > 0 && ar->type == AR_SECTION
+	      && ar->dimen_type[i] == DIMEN_RANGE
+	      && ar->stride[i] && ar->stride[i]->expr_type == EXPR_CONSTANT
+	      && mpz_cmp_si (ar->stride[i]->value.integer, 1) != 0)
+	    return true;
+
+	  mpz_clear (ref_size);
+	}
+    }
+  /* We didn't find anything definitive.  */
+  return false;
+}
 
 /* Build call to an intrinsic procedure.  The number of arguments has to be
    passed (rather than ending the list with a NULL value) because we may

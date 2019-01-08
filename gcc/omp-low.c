@@ -4,7 +4,7 @@
 
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005-2018 Free Software Foundation, Inc.
+   Copyright (C) 2005-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2744,7 +2744,10 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 	      kind = "sections";
 	      break;
 	    case 8:
-	      if (gimple_code (ctx->stmt) != GIMPLE_OMP_TASK)
+	      if (!is_task_ctx (ctx)
+		  && (!is_taskloop_ctx (ctx)
+		      || ctx->outer == NULL
+		      || !is_task_ctx (ctx->outer)))
 		bad = "#pragma omp task";
 	      else
 		{
@@ -2767,6 +2770,17 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 				    "nested inside of %<taskgroup%> region",
 				    construct);
 			  return false;
+			case GIMPLE_OMP_TASK:
+			  if (gimple_omp_task_taskloop_p (octx->stmt)
+			      && octx->outer
+			      && is_taskloop_ctx (octx->outer))
+			    {
+			      tree clauses
+				= gimple_omp_for_clauses (octx->outer->stmt);
+			      if (!omp_find_clause (clauses, OMP_CLAUSE_NOGROUP))
+				break;
+			    }
+			  continue;
 			default:
 			  continue;
 			}
@@ -6997,6 +7011,12 @@ lower_omp_task_reductions (omp_context *ctx, enum tree_code code, tree clauses,
       *last = field;
       DECL_CHAIN (field) = ifield;
       last = &DECL_CHAIN (ifield);
+      DECL_CONTEXT (field) = record_type;
+      if (TYPE_ALIGN (record_type) < DECL_ALIGN (field))
+	SET_TYPE_ALIGN (record_type, DECL_ALIGN (field));
+      DECL_CONTEXT (ifield) = record_type;
+      if (TYPE_ALIGN (record_type) < DECL_ALIGN (ifield))
+	SET_TYPE_ALIGN (record_type, DECL_ALIGN (ifield));
     }
   for (int pass = 0; pass < 2; pass++)
     {
@@ -7022,12 +7042,16 @@ lower_omp_task_reductions (omp_context *ctx, enum tree_code code, tree clauses,
 	  else
 	    SET_DECL_ALIGN (field, TYPE_ALIGN (type));
 	  DECL_CONTEXT (field) = record_type;
+	  if (TYPE_ALIGN (record_type) < DECL_ALIGN (field))
+	    SET_TYPE_ALIGN (record_type, DECL_ALIGN (field));
 	  *last = field;
 	  last = &DECL_CHAIN (field);
 	  tree bfield
 	    = build_decl (OMP_CLAUSE_LOCATION (c), FIELD_DECL, NULL_TREE,
 			  boolean_type_node);
 	  DECL_CONTEXT (bfield) = record_type;
+	  if (TYPE_ALIGN (record_type) < DECL_ALIGN (bfield))
+	    SET_TYPE_ALIGN (record_type, DECL_ALIGN (bfield));
 	  *last = bfield;
 	  last = &DECL_CHAIN (bfield);
 	}

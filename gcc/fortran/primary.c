@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -3074,6 +3074,12 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 
 	      actual->expr->value.character.length = c;
 	      actual->expr->value.character.string = dest;
+
+	      if (warn_line_truncation && c < e)
+		gfc_warning_now (OPT_Wcharacter_truncation,
+				 "CHARACTER expression will be truncated "
+				 "in constructor (%ld/%ld) at %L", (long int) c,
+				 (long int) e, &actual->expr->where);
 	    }
 	}
 
@@ -3212,6 +3218,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   e = gfc_get_expr ();
   e->symtree = symtree;
   e->expr_type = EXPR_FUNCTION;
+  e->where = gfc_current_locus;
 
   gcc_assert (gfc_fl_struct (sym->attr.flavor)
 	      && symtree->n.sym->attr.flavor == FL_PROCEDURE);

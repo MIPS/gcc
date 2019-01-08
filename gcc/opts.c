@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2018 Free Software Foundation, Inc.
+   Copyright (C) 2002-2019 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -556,6 +556,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
+    { OPT_LEVELS_3_PLUS, OPT_fversion_loops_for_strides, NULL, 1 },
 
     /* -Ofast adds optimizations to -O3.  */
     { OPT_LEVELS_FAST, OPT_ffast_math, NULL, 1 },
@@ -1707,10 +1708,18 @@ enable_fdo_optimizations (struct gcc_options *opts,
     opts->x_flag_tree_loop_vectorize = value;
   if (!opts_set->x_flag_tree_slp_vectorize)
     opts->x_flag_tree_slp_vectorize = value;
+  if (!opts_set->x_flag_version_loops_for_strides)
+    opts->x_flag_version_loops_for_strides = value;
   if (!opts_set->x_flag_vect_cost_model)
     opts->x_flag_vect_cost_model = VECT_COST_MODEL_DYNAMIC;
   if (!opts_set->x_flag_tree_loop_distribute_patterns)
     opts->x_flag_tree_loop_distribute_patterns = value;
+  if (!opts_set->x_flag_loop_interchange)
+    opts->x_flag_loop_interchange = value;
+  if (!opts_set->x_flag_unroll_jam)
+    opts->x_flag_unroll_jam = value;
+  if (!opts_set->x_flag_tree_loop_distribution)
+    opts->x_flag_tree_loop_distribution = value;
 }
 
 /* -f{,no-}sanitize{,-recover}= suboptions.  */

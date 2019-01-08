@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994-2018 Free Software Foundation, Inc.
+   Copyright (C) 1994-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -491,6 +491,7 @@ enum reg_class
   "R0R1_CD_REGS",	  \
   "R0R3_CD_REGS",	  \
   "ARCOMPACT16_REGS",	  \
+  "SIBCALL_REGS",	  \
   "AC16_H_REGS",	  \
   "DOUBLE_REGS",	  \
   "GENERAL_REGS",	  \

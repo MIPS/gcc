@@ -1,5 +1,5 @@
 /* Pretty formatting of GIMPLE statements and expressions.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com> and
    Diego Novillo <dnovillo@google.com>
 
@@ -2048,6 +2048,8 @@ dump_gimple_asm (pretty_printer *buffer, gasm *gs, int spc, dump_flags_t flags)
       pp_string (buffer, "__asm__");
       if (gimple_asm_volatile_p (gs))
 	pp_string (buffer, " __volatile__");
+      if (gimple_asm_inline_p (gs))
+	pp_string (buffer, " __inline__");
       if (gimple_asm_nlabels (gs))
 	pp_string (buffer, " goto");
       pp_string (buffer, "(\"");

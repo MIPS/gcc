@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2018, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2019, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -166,6 +166,7 @@ gnat_handle_option (size_t scode, const char *arg, HOST_WIDE_INT value,
       /* These are handled by the front-end.  */
       break;
 
+    case OPT_fopenacc:
     case OPT_fshort_enums:
     case OPT_fsigned_char:
     case OPT_funsigned_char:

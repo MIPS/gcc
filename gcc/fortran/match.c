@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2225,6 +2225,9 @@ found:
 	      return MATCH_NO;
 	    }
 
+	  if (e->expr_type != EXPR_CONSTANT)
+	    goto ohno;
+
 	  gfc_next_char (); /* Burn the ')'. */
 	  ts->kind = (int) mpz_get_si (e->value.integer);
 	  if (gfc_validate_kind (ts->type, ts->kind , true) == -1)
@@ -2238,6 +2241,8 @@ found:
 	  return MATCH_YES;
 	}
     }
+
+ohno:
 
   /* If a type is not matched, simply return MATCH_NO.  */
   gfc_current_locus = old_locus;

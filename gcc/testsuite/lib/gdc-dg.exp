@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2018 Free Software Foundation, Inc.
+# Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,10 @@ proc gdc-dg-test { prog do_what extra_tool_flags } {
 	    }
 	}
     }
+
+    # Strip gdc.test prefix off test names to avoid pathname failures in
+    # some tests.
+    set prog [dg-trim-dirname gdc.test $prog]
 
     set result \
         [gcc-dg-test-1 gdc_target_compile $prog $do_what $extra_tool_flags]

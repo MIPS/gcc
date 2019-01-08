@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -472,6 +472,24 @@
   (ior (match_code "const_double")
        (and (match_code "reg,subreg,mem")
 	    (match_operand 0 "nonimmediate_soft_df_operand"))))
+
+;; Predicate for thumb2_movsf_vfp.  Compared to general_operand, this
+;; forbids constant loaded via literal pool iff literal pools are disabled.
+(define_predicate "hard_sf_operand"
+  (and (match_operand 0 "general_operand")
+       (ior (not (match_code "const_double"))
+	    (not (match_test "arm_disable_literal_pool"))
+	    (match_test "satisfies_constraint_Dv (op)"))))
+
+;; Predicate for thumb2_movdf_vfp.  Compared to soft_df_operand used in
+;; movdf_soft_insn, this forbids constant loaded via literal pool iff
+;; literal pools are disabled.
+(define_predicate "hard_df_operand"
+  (and (match_operand 0 "soft_df_operand")
+       (ior (not (match_code "const_double"))
+	    (not (match_test "arm_disable_literal_pool"))
+	    (match_test "satisfies_constraint_Dy (op)")
+	    (match_test "satisfies_constraint_G (op)"))))
 
 (define_special_predicate "load_multiple_operation"
   (match_code "parallel")

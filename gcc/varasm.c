@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1974,7 +1974,7 @@ assemble_zeros (unsigned HOST_WIDE_INT size)
 /* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
 
 void
-assemble_align (int align)
+assemble_align (unsigned int align)
 {
   if (align > BITS_PER_UNIT)
     {

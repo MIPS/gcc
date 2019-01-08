@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -601,7 +601,8 @@
 (define_mode_attr sizen [(QI "8") (HI "16") (SI "32") (DI "64")])
 
 ;; Give the ordinal of the MSB in the mode
-(define_mode_attr sizem1 [(QI "#7") (HI "#15") (SI "#31") (DI "#63")])
+(define_mode_attr sizem1 [(QI "#7") (HI "#15") (SI "#31") (DI "#63")
+			  (HF "#15") (SF "#31") (DF "#63")])
 
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
@@ -687,7 +688,7 @@
 			  (V8HF "16b") (V2SF  "8b")
 			  (V4SF "16b") (V2DF  "16b")
 			  (DI   "8b")  (DF    "8b")
-			  (SI   "8b")])
+			  (SI   "8b")  (SF    "8b")])
 
 ;; Define element mode for each vector mode.
 (define_mode_attr VEL [(V8QI  "QI") (V16QI "QI") (VNx16QI "QI")
@@ -1208,10 +1209,10 @@
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
 ;; SVE integer unary operations.
-(define_code_iterator SVE_INT_UNARY [neg not popcount])
+(define_code_iterator SVE_INT_UNARY [abs neg not popcount])
 
 ;; SVE floating-point unary operations.
-(define_code_iterator SVE_FP_UNARY [neg abs sqrt])
+(define_code_iterator SVE_FP_UNARY [abs neg sqrt])
 
 ;; SVE integer binary operations.
 (define_code_iterator SVE_INT_BINARY [plus minus mult smax umax smin umin
@@ -1219,6 +1220,9 @@
 
 ;; SVE integer binary division operations.
 (define_code_iterator SVE_INT_BINARY_SD [div udiv])
+
+;; SVE floating-point operations with an unpredicated all-register form.
+(define_code_iterator SVE_UNPRED_FP_BINARY [plus minus mult])
 
 ;; SVE integer comparisons.
 (define_code_iterator SVE_INT_CMP [lt le eq ne ge gt ltu leu geu gtu])
@@ -1397,6 +1401,7 @@
 			      (mult "mul")
 			      (div "sdiv")
 			      (udiv "udiv")
+			      (abs "abs")
 			      (neg "neg")
 			      (smin "smin")
 			      (smax "smax")
@@ -1423,6 +1428,8 @@
 
 ;; The floating-point SVE instruction that implements an rtx code.
 (define_code_attr sve_fp_op [(plus "fadd")
+			     (minus "fsub")
+			     (mult "fmul")
 			     (neg "fneg")
 			     (abs "fabs")
 			     (sqrt "fsqrt")])

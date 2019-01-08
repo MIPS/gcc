@@ -1,5 +1,5 @@
 /* Parser for C and Objective-C.
-   Copyright (C) 1987-2018 Free Software Foundation, Inc.
+   Copyright (C) 1987-2019 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -6329,60 +6329,103 @@ c_parser_for_statement (c_parser *parser, bool ivdep, unsigned short unroll,
 }
 
 /* Parse an asm statement, a GNU extension.  This is a full-blown asm
-   statement with inputs, outputs, clobbers, and volatile tag
-   allowed.
+   statement with inputs, outputs, clobbers, and volatile, inline, and goto
+   tags allowed.
+
+   asm-qualifier:
+     volatile
+     inline
+     goto
+
+   asm-qualifier-list:
+     asm-qualifier-list asm-qualifier
+     asm-qualifier
 
    asm-statement:
-     asm type-qualifier[opt] ( asm-argument ) ;
-     asm type-qualifier[opt] goto ( asm-goto-argument ) ;
+     asm asm-qualifier-list[opt] ( asm-argument ) ;
 
    asm-argument:
      asm-string-literal
      asm-string-literal : asm-operands[opt]
      asm-string-literal : asm-operands[opt] : asm-operands[opt]
-     asm-string-literal : asm-operands[opt] : asm-operands[opt] : asm-clobbers[opt]
-
-   asm-goto-argument:
+     asm-string-literal : asm-operands[opt] : asm-operands[opt] \
+       : asm-clobbers[opt]
      asm-string-literal : : asm-operands[opt] : asm-clobbers[opt] \
        : asm-goto-operands
 
-   Qualifiers other than volatile are accepted in the syntax but
-   warned for.  */
+   The form with asm-goto-operands is valid if and only if the
+   asm-qualifier-list contains goto, and is the only allowed form in that case.
+   Duplicate asm-qualifiers are not allowed.  */
 
 static tree
 c_parser_asm_statement (c_parser *parser)
 {
-  tree quals, str, outputs, inputs, clobbers, labels, ret;
-  bool simple, is_goto;
+  tree str, outputs, inputs, clobbers, labels, ret;
+  bool simple;
   location_t asm_loc = c_parser_peek_token (parser)->location;
   int section, nsections;
 
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ASM));
   c_parser_consume_token (parser);
-  if (c_parser_next_token_is_keyword (parser, RID_VOLATILE))
-    {
-      quals = c_parser_peek_token (parser)->value;
-      c_parser_consume_token (parser);
-    }
-  else if (c_parser_next_token_is_keyword (parser, RID_CONST)
-	   || c_parser_next_token_is_keyword (parser, RID_RESTRICT))
-    {
-      warning_at (c_parser_peek_token (parser)->location,
-		  0,
-		  "%E qualifier ignored on asm",
-		  c_parser_peek_token (parser)->value);
-      quals = NULL_TREE;
-      c_parser_consume_token (parser);
-    }
-  else
-    quals = NULL_TREE;
 
-  is_goto = false;
-  if (c_parser_next_token_is_keyword (parser, RID_GOTO))
+  /* Handle the asm-qualifier-list.  */
+  location_t volatile_loc = UNKNOWN_LOCATION;
+  location_t inline_loc = UNKNOWN_LOCATION;
+  location_t goto_loc = UNKNOWN_LOCATION;
+  for (;;)
     {
-      c_parser_consume_token (parser);
-      is_goto = true;
+      c_token *token = c_parser_peek_token (parser);
+      location_t loc = token->location;
+      switch (token->keyword)
+	{
+	case RID_VOLATILE:
+	  if (volatile_loc)
+	    {
+	      error_at (loc, "duplicate asm qualifier %qE", token->value);
+	      inform (volatile_loc, "first seen here");
+	    }
+	  else
+	    volatile_loc = loc;
+	  c_parser_consume_token (parser);
+	  continue;
+
+	case RID_INLINE:
+	  if (inline_loc)
+	    {
+	      error_at (loc, "duplicate asm qualifier %qE", token->value);
+	      inform (inline_loc, "first seen here");
+	    }
+	  else
+	    inline_loc = loc;
+	  c_parser_consume_token (parser);
+	  continue;
+
+	case RID_GOTO:
+	  if (goto_loc)
+	    {
+	      error_at (loc, "duplicate asm qualifier %qE", token->value);
+	      inform (goto_loc, "first seen here");
+	    }
+	  else
+	    goto_loc = loc;
+	  c_parser_consume_token (parser);
+	  continue;
+
+	case RID_CONST:
+	case RID_RESTRICT:
+	  error_at (loc, "%qE is not an asm qualifier", token->value);
+	  c_parser_consume_token (parser);
+	  continue;
+
+	default:
+	  break;
+	}
+      break;
     }
+
+  bool is_volatile = (volatile_loc != UNKNOWN_LOCATION);
+  bool is_inline = (inline_loc != UNKNOWN_LOCATION);
+  bool is_goto = (goto_loc != UNKNOWN_LOCATION);
 
   /* ??? Follow the C++ parser rather than using the
      lex_untranslated_string kludge.  */
@@ -6458,8 +6501,9 @@ c_parser_asm_statement (c_parser *parser)
   if (!c_parser_require (parser, CPP_SEMICOLON, "expected %<;%>"))
     c_parser_skip_to_end_of_block_or_statement (parser);
 
-  ret = build_asm_stmt (quals, build_asm_expr (asm_loc, str, outputs, inputs,
-					       clobbers, labels, simple));
+  ret = build_asm_stmt (is_volatile,
+			build_asm_expr (asm_loc, str, outputs, inputs,
+					clobbers, labels, simple, is_inline));
 
  error:
   parser->lex_untranslated_string = false;
@@ -7994,6 +8038,7 @@ enum tgmath_parm_kind
      __builtin_shuffle ( assignment-expression ,
 			 assignment-expression ,
 			 assignment-expression, )
+     __builtin_convertvector ( assignment-expression , type-name )
 
    offsetof-member-designator:
      identifier
@@ -9069,17 +9114,14 @@ c_parser_postfix_expression (c_parser *parser)
 	      *p = convert_lvalue_to_rvalue (loc, *p, true, true);
 
 	    if (vec_safe_length (cexpr_list) == 2)
-	      expr.value =
-		c_build_vec_perm_expr
-		  (loc, (*cexpr_list)[0].value,
-		   NULL_TREE, (*cexpr_list)[1].value);
+	      expr.value = c_build_vec_perm_expr (loc, (*cexpr_list)[0].value,
+						  NULL_TREE,
+						  (*cexpr_list)[1].value);
 
 	    else if (vec_safe_length (cexpr_list) == 3)
-	      expr.value =
-		c_build_vec_perm_expr
-		  (loc, (*cexpr_list)[0].value,
-		   (*cexpr_list)[1].value,
-		   (*cexpr_list)[2].value);
+	      expr.value = c_build_vec_perm_expr (loc, (*cexpr_list)[0].value,
+						  (*cexpr_list)[1].value,
+						  (*cexpr_list)[2].value);
 	    else
 	      {
 		error_at (loc, "wrong number of arguments to "
@@ -9089,6 +9131,41 @@ c_parser_postfix_expression (c_parser *parser)
 	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
 	  }
+	case RID_BUILTIN_CONVERTVECTOR:
+	  {
+	    location_t start_loc = loc;
+	    c_parser_consume_token (parser);
+	    matching_parens parens;
+	    if (!parens.require_open (parser))
+	      {
+		expr.set_error ();
+		break;
+	      }
+	    e1 = c_parser_expr_no_commas (parser, NULL);
+	    mark_exp_read (e1.value);
+	    if (!c_parser_require (parser, CPP_COMMA, "expected %<,%>"))
+	      {
+		c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
+		expr.set_error ();
+		break;
+	      }
+	    loc = c_parser_peek_token (parser)->location;
+	    t1 = c_parser_type_name (parser);
+	    location_t end_loc = c_parser_peek_token (parser)->get_finish ();
+	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+				       "expected %<)%>");
+	    if (t1 == NULL)
+	      expr.set_error ();
+	    else
+	      {
+		tree type_expr = NULL_TREE;
+		expr.value = c_build_vec_convert (start_loc, e1.value, loc,
+						  groktypename (t1, &type_expr,
+								NULL));
+		set_c_expr_source_range (&expr, start_loc, end_loc);
+	      }
+	  }
+	  break;
 	case RID_AT_SELECTOR:
 	  {
 	    gcc_assert (c_dialect_objc ());
@@ -11801,14 +11878,6 @@ c_parser_oacc_wait_list (c_parser *parser, location_t clause_loc, tree list)
     return list;
 
   args = c_parser_expr_list (parser, false, true, NULL, NULL, NULL, NULL);
-
-  if (args->length () == 0)
-    {
-      c_parser_error (parser, "expected integer expression before ')'");
-      release_tree_vector (args);
-      return list;
-    }
-
   args_tree = build_tree_list_vec (args);
 
   for (t = args_tree; t; t = TREE_CHAIN (t))

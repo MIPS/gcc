@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000-2018 Free Software Foundation, Inc.
+   Copyright (C) 2000-2019 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -36,7 +36,6 @@ extern int vspltis_shifted (rtx);
 extern HOST_WIDE_INT const_vector_elt_as_int (rtx, unsigned int);
 extern bool macho_lo_sum_memory_operand (rtx, machine_mode);
 extern int num_insns_constant (rtx, machine_mode);
-extern int num_insns_constant_wide (HOST_WIDE_INT);
 extern int small_data_operand (rtx, machine_mode);
 extern bool mem_operand_gpr (rtx, machine_mode);
 extern bool mem_operand_ds_form (rtx, machine_mode);
@@ -200,6 +199,8 @@ extern void rs6000_call_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_sibcall_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_call_sysv (rtx, rtx, rtx, rtx);
 extern void rs6000_sibcall_sysv (rtx, rtx, rtx, rtx);
+extern void rs6000_call_darwin (rtx, rtx, rtx, rtx);
+extern void rs6000_sibcall_darwin (rtx, rtx, rtx, rtx);
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
@@ -226,10 +227,6 @@ extern void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT,
 
 /* Declare functions in rs6000-d.c  */
 extern void rs6000_d_target_versions (void);
-
-#if TARGET_MACHO
-char *macho_call_template (rtx_insn *, rtx *, int, int);
-#endif
 
 #ifdef NO_DOLLAR_IN_LABEL
 const char * rs6000_xcoff_strip_dollar (const char *);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -3712,7 +3712,7 @@ package body Exp_Ch3 is
         and then not Is_Unchecked_Union (Rec_Type)
         and then not Has_New_Non_Standard_Rep (Rec_Type)
         and then not Parent_Subtype_Renaming_Discrims
-        and then Has_Non_Null_Base_Init_Proc (Etype (Rec_Type))
+        and then Present (Base_Init_Proc (Etype (Rec_Type)))
       then
          Copy_TSS (Base_Init_Proc (Etype (Rec_Type)), Rec_Type);
 
@@ -6587,10 +6587,10 @@ package body Exp_Ch3 is
 
          if Is_Delayed_Aggregate (Expr_Q) then
 
-            --  An aggregate that must be built in place is not resolved
-            --  and expanded until the enclosing construct is expanded.
-            --  This will happen when the aggregqte is limited and the
-            --  declared object has a following address clause.
+            --  An aggregate that must be built in place is not resolved and
+            --  expanded until the enclosing construct is expanded. This will
+            --  happen when the aggregate is limited and the declared object
+            --  has a following address clause.
 
             if Is_Limited_Type (Typ) and then not Analyzed (Expr) then
                Resolve (Expr, Typ);

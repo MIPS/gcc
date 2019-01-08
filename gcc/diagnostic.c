@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2019 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -1196,6 +1196,20 @@ emit_diagnostic (diagnostic_t kind, location_t location, int opt,
   va_start (ap, gmsgid);
   rich_location richloc (line_table, location);
   bool ret = diagnostic_impl (&richloc, opt, gmsgid, &ap, kind);
+  va_end (ap);
+  return ret;
+}
+
+/* As above, but for rich_location *.  */
+
+bool
+emit_diagnostic (diagnostic_t kind, rich_location *richloc, int opt,
+		 const char *gmsgid, ...)
+{
+  auto_diagnostic_group d;
+  va_list ap;
+  va_start (ap, gmsgid);
+  bool ret = diagnostic_impl (richloc, opt, gmsgid, &ap, kind);
   va_end (ap);
   return ret;
 }

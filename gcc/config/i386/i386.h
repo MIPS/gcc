@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2018 Free Software Foundation, Inc.
+   Copyright (C) 1988-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -407,6 +407,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_CANNONLAKE (ix86_tune == PROCESSOR_CANNONLAKE)
 #define TARGET_ICELAKE_CLIENT (ix86_tune == PROCESSOR_ICELAKE_CLIENT)
 #define TARGET_ICELAKE_SERVER (ix86_tune == PROCESSOR_ICELAKE_SERVER)
+#define TARGET_CASCADELAKE (ix86_tune == PROCESSOR_CASCADELAKE)
 #define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
@@ -2040,6 +2041,12 @@ do {							\
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
+#define QI_REGISTER_NAMES \
+{"al", "dl", "cl", "bl", "sil", "dil", "bpl", "spl"}
+
+#define QI_HIGH_REGISTER_NAMES \
+{"ah", "dh", "ch", "bh"}
+
 /* Table of additional register names to use in user input.  */
 
 #define ADDITIONAL_REGISTER_NAMES						\
@@ -2049,6 +2056,7 @@ do {							\
   { "rax", AX_REG }, { "rdx", DX_REG }, { "rcx", CX_REG }, { "rbx", BX_REG },	\
   { "rsi", SI_REG }, { "rdi", DI_REG }, { "rbp", BP_REG }, { "rsp", SP_REG },	\
   { "al", AX_REG }, { "dl", DX_REG }, { "cl", CX_REG }, { "bl", BX_REG },	\
+  { "sil", SI_REG }, { "dil", DI_REG }, { "bpl", BP_REG }, { "spl", SP_REG },	\
   { "ah", AX_REG }, { "dh", DX_REG }, { "ch", CX_REG }, { "bh", BX_REG },	\
   { "ymm0", XMM0_REG }, { "ymm1", XMM1_REG }, { "ymm2", XMM2_REG }, { "ymm3", XMM3_REG }, \
   { "ymm4", XMM4_REG }, { "ymm5", XMM5_REG }, { "ymm6", XMM6_REG }, { "ymm7", XMM7_REG }, \
@@ -2067,20 +2075,6 @@ do {							\
   { "zmm24", XMM24_REG }, { "zmm25", XMM25_REG }, { "zmm26", XMM26_REG }, { "zmm27", XMM27_REG }, \
   { "zmm28", XMM28_REG }, { "zmm29", XMM29_REG }, { "zmm30", XMM30_REG }, { "zmm31", XMM31_REG }  \
 }
-
-/* Note we are omitting these since currently I don't know how
-to get gcc to use these, since they want the same but different
-number as al, and ax.
-*/
-
-#define QI_REGISTER_NAMES \
-{"al", "dl", "cl", "bl", "sil", "dil", "bpl", "spl",}
-
-/* These parallel the array above, and can be used to access bits 8:15
-   of regs 0 through 3.  */
-
-#define QI_HIGH_REGISTER_NAMES \
-{"ah", "dh", "ch", "bh", }
 
 /* How to renumber registers for dbx and gdb.  */
 
@@ -2261,6 +2255,7 @@ enum processor_type
   PROCESSOR_CANNONLAKE,
   PROCESSOR_ICELAKE_CLIENT,
   PROCESSOR_ICELAKE_SERVER,
+  PROCESSOR_CASCADELAKE,
   PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,
@@ -2377,6 +2372,7 @@ const wide_int_bitmask PTA_SKYLAKE = PTA_BROADWELL | PTA_CLFLUSHOPT
 const wide_int_bitmask PTA_SKYLAKE_AVX512 = PTA_SKYLAKE | PTA_AVX512F
   | PTA_AVX512CD | PTA_AVX512VL | PTA_AVX512BW | PTA_AVX512DQ | PTA_PKU
   | PTA_CLWB;
+const wide_int_bitmask PTA_CASCADELAKE = PTA_SKYLAKE_AVX512 | PTA_AVX512VNNI;
 const wide_int_bitmask PTA_CANNONLAKE = PTA_SKYLAKE | PTA_AVX512F
   | PTA_AVX512CD | PTA_AVX512VL | PTA_AVX512BW | PTA_AVX512DQ | PTA_PKU
   | PTA_AVX512VBMI | PTA_AVX512IFMA | PTA_SHA;

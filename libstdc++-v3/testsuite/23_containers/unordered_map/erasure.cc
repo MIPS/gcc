@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++2a" }
 // { dg-do run { target c++2a } }
 
-// Copyright (C) 2018 Free Software Foundation, Inc.
+// Copyright (C) 2018-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,10 +33,11 @@ test01()
 					   { 12, "C" }, { 14, "D" },
 					   { 15, "E" }, { 17, "F" },
 					   { 18, "G" }, { 19, "H" } };
-  std::erase_if(um, is_odd_pair);
+  auto num = std::erase_if(um, is_odd_pair);
   std::unordered_map<int, std::string> t{ { 10, "A" }, { 12, "C" },
 					  { 14, "D" }, { 18, "G" } };
   VERIFY( um == t );
+  VERIFY( num == 4 );
 }
 
 void
@@ -46,10 +47,11 @@ test02()
 						 { 22, "U" }, { 22, "V" },
 						 { 23, "W" }, { 23, "X" },
 						 { 24, "Y" }, { 25, "Z" } };
-  std::erase_if(umm, is_odd_pair);
+  auto num = std::erase_if(umm, is_odd_pair);
   std::unordered_multimap<int, std::string> t{ { 20, "S" }, { 22, "U" },
 					       { 22, "V" }, { 24, "Y" } };
   VERIFY( umm == t );
+  VERIFY( num == 4 );
 }
 
 int

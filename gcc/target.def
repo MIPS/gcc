@@ -1,5 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2019 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -92,6 +92,18 @@ when the relevant string is @code{NULL}.",
     NULL.  */
  bool, (rtx x, unsigned int size, int aligned_p),
  default_assemble_integer)
+
+/* Assembly strings required after the .cfi_startproc label.  */
+DEFHOOK
+(post_cfi_startproc,
+  "This target hook is used to emit assembly strings required by the target\n\
+after the .cfi_startproc directive.  The first argument is the file stream to\n\
+write the strings to and the second argument is the function\'s declaration.  The\n\
+expected use is to add more .cfi_* directives.\n\
+\n\
+The default is to not output any assembly strings.",
+  void, (FILE *, tree),
+  hook_void_FILEptr_tree)
 
 /* Notify the backend that we have completed emitting the data for a
    decl.  */

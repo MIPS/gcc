@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -120,9 +120,9 @@ package body Repinfo is
    --  the current entity. Set True when a new entity is processed, and false
    --  when the blank line is output.
 
-   -------------------------------
-   --  Set of Relevant Entities --
-   -------------------------------
+   ------------------------------
+   -- Set of Relevant Entities --
+   ------------------------------
 
    Relevant_Entities_Size : constant := 4093;
    --  Number of headers in hash table

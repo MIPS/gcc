@@ -1,6 +1,6 @@
 // <bits/erase_if.h> -*- C++ -*-
 
-// Copyright (C) 2015-2018 Free Software Foundation, Inc.
+// Copyright (C) 2015-2019 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,17 +41,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   namespace __detail
   {
     template<typename _Container, typename _Predicate>
-      void
+      typename _Container::size_type
       __erase_nodes_if(_Container& __cont, _Predicate __pred)
       {
+	typename _Container::size_type __num = 0;
 	for (auto __iter = __cont.begin(), __last = __cont.end();
 	     __iter != __last;)
-	{
-	  if (__pred(*__iter))
-	    __iter = __cont.erase(__iter);
-	  else
-	    ++__iter;
-	}
+	  {
+	    if (__pred(*__iter))
+	      {
+		__iter = __cont.erase(__iter);
+		++__num;
+	      }
+	    else
+	      ++__iter;
+	  }
+	return __num;
       }
   } // namespace __detail
 

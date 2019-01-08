@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005-2018 Free Software Foundation, Inc.
+   Copyright (C) 2005-2019 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -297,14 +297,48 @@ vr_values::vrp_stmt_computes_nonzero (gimple *stmt)
       && gimple_assign_rhs_code (stmt) == ADDR_EXPR)
     {
       tree expr = gimple_assign_rhs1 (stmt);
-      tree base = get_base_address (TREE_OPERAND (expr, 0));
+      poly_int64 bitsize, bitpos;
+      tree offset;
+      machine_mode mode;
+      int unsignedp, reversep, volatilep;
+      tree base = get_inner_reference (TREE_OPERAND (expr, 0), &bitsize,
+				       &bitpos, &offset, &mode, &unsignedp,
+				       &reversep, &volatilep);
 
       if (base != NULL_TREE
 	  && TREE_CODE (base) == MEM_REF
 	  && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME)
 	{
-	  value_range *vr = get_value_range (TREE_OPERAND (base, 0));
-	  if (!range_includes_zero_p (vr))
+	  poly_offset_int off = 0;
+	  bool off_cst = false;
+	  if (offset == NULL_TREE || TREE_CODE (offset) == INTEGER_CST)
+	    {
+	      off = mem_ref_offset (base);
+	      if (offset)
+		off += poly_offset_int::from (wi::to_poly_wide (offset),
+					      SIGNED);
+	      off <<= LOG2_BITS_PER_UNIT;
+	      off += bitpos;
+	      off_cst = true;
+	    }
+	  /* If &X->a is equal to X and X is ~[0, 0], the result is too.
+	     For -fdelete-null-pointer-checks -fno-wrapv-pointer we don't
+	     allow going from non-NULL pointer to NULL.  */
+	  if ((off_cst && known_eq (off, 0))
+	      || (flag_delete_null_pointer_checks
+		  && !TYPE_OVERFLOW_WRAPS (TREE_TYPE (expr))))
+	    {
+	      value_range *vr = get_value_range (TREE_OPERAND (base, 0));
+	      if (!range_includes_zero_p (vr))
+		return true;
+	    }
+	  /* If MEM_REF has a "positive" offset, consider it non-NULL
+	     always, for -fdelete-null-pointer-checks also "negative"
+	     ones.  Punt for unknown offsets (e.g. variable ones).  */
+	  if (!TYPE_OVERFLOW_WRAPS (TREE_TYPE (expr))
+	      && off_cst
+	      && known_ne (off, 0)
+	      && (flag_delete_null_pointer_checks || known_gt (off, 0)))
 	    return true;
 	}
     }
@@ -2302,6 +2336,39 @@ vr_values::vrp_evaluate_conditional_warnv_with_ops (enum tree_code code,
 	  op1 = wide_int_to_tree (TREE_TYPE (op0), 0);
 	  code = (code == GT_EXPR || code == GE_EXPR) ? EQ_EXPR : NE_EXPR;
 	}
+      else
+	{
+	  value_range vro, vri;
+	  if (code == GT_EXPR || code == GE_EXPR)
+	    {
+	      vro.set (VR_ANTI_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
+	      vri.set (VR_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
+	    }
+	  else if (code == LT_EXPR || code == LE_EXPR)
+	    {
+	      vro.set (VR_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
+	      vri.set (VR_ANTI_RANGE, TYPE_MIN_VALUE (TREE_TYPE (op0)), x);
+	    }
+	  else
+	    gcc_unreachable ();
+	  value_range *vr0 = get_value_range (op0);
+	  /* If vro, the range for OP0 to pass the overflow test, has
+	     no intersection with *vr0, OP0's known range, then the
+	     overflow test can't pass, so return the node for false.
+	     If it is the inverted range, vri, that has no
+	     intersection, then the overflow test must pass, so return
+	     the node for true.  In other cases, we could proceed with
+	     a simplified condition comparing OP0 and X, with LE_EXPR
+	     for previously LE_ or LT_EXPR and GT_EXPR otherwise, but
+	     the comments next to the enclosing if suggest it's not
+	     generally profitable to do so.  */
+	  vro.intersect (vr0);
+	  if (vro.undefined_p ())
+	    return boolean_false_node;
+	  vri.intersect (vr0);
+	  if (vri.undefined_p ())
+	    return boolean_true_node;
+	}
     }
 
   if ((ret = vrp_evaluate_conditional_warnv_with_ops_using_ranges
@@ -2857,8 +2924,9 @@ vr_values::extract_range_from_phi_node (gphi *phi, value_range *vr_result)
       if (cmp_min < 0)
 	new_min = lhs_vr->min ();
       else if (cmp_min > 0
-	       && tree_int_cst_lt (vrp_val_min (vr_result->type ()),
-				   vr_result->min ()))
+	       && (TREE_CODE (vr_result->min ()) != INTEGER_CST
+		   || tree_int_cst_lt (vrp_val_min (vr_result->type ()),
+				       vr_result->min ())))
 	new_min = int_const_binop (PLUS_EXPR,
 				   vrp_val_min (vr_result->type ()),
 				   build_int_cst (vr_result->type (), 1));
@@ -2867,8 +2935,9 @@ vr_values::extract_range_from_phi_node (gphi *phi, value_range *vr_result)
       if (cmp_max > 0)
 	new_max = lhs_vr->max ();
       else if (cmp_max < 0
-	       && tree_int_cst_lt (vr_result->max (),
-				   vrp_val_max (vr_result->type ())))
+	       && (TREE_CODE (vr_result->max ()) != INTEGER_CST
+		   || tree_int_cst_lt (vr_result->max (),
+				       vrp_val_max (vr_result->type ()))))
 	new_max = int_const_binop (MINUS_EXPR,
 				   vrp_val_max (vr_result->type ()),
 				   build_int_cst (vr_result->type (), 1));

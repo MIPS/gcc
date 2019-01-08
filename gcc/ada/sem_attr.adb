@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -8284,7 +8284,7 @@ package body Sem_Attr is
 
          Analyze_And_Resolve (N, Standard_Boolean);
          Static := True;
-         Set_Is_Static_Expression (N, True);
+         Set_Is_Static_Expression (N);
       end Atomic_Always_Lock_Free;
 
       ---------
@@ -8737,7 +8737,7 @@ package body Sem_Attr is
 
          Analyze_And_Resolve (N, Standard_Boolean);
          Static := True;
-         Set_Is_Static_Expression (N, True);
+         Set_Is_Static_Expression (N);
       end Lock_Free;
 
       ----------
